@@ -126,7 +126,8 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 	i_assert(!data->anon_mmap);
 
 	if (data->mmap_base != NULL) {
-		if (msync(data->mmap_base, data->mmap_used_length, MS_SYNC) < 0)
+		if (data->mmap_used_length > 0 &&
+		    msync(data->mmap_base, data->mmap_used_length, MS_SYNC) < 0)
 			return index_data_set_syscall_error(data, "msync()");
 
 		if (munmap(data->mmap_base, data->mmap_full_length) < 0)
@@ -146,6 +147,12 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 		return index_data_set_corrupted(data, "File too small");
 
 	hdr = data->mmap_base;
+
+	if (hdr->used_file_size < sizeof(MailIndexDataHeader)) {
+		index_data_set_corrupted(data, "used_file_size too small ("
+					 "%"PRIuUOFF_T")", hdr->used_file_size);
+		return FALSE;
+	}
 
 	if (hdr->used_file_size > data->mmap_full_length) {
 		index_data_set_corrupted(data, "used_file_size larger than "
@@ -206,7 +213,7 @@ static const char *init_data_file(MailIndex *index, MailIndexDataHeader *hdr,
 {
 	const char *realpath;
 
-	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
+	if (write_full(fd, hdr, sizeof(MailIndexDataHeader)) < 0) {
 		index_file_set_syscall_error(index, temppath, "write_full()");
 		return NULL;
 	}
@@ -236,9 +243,9 @@ int mail_index_data_create(MailIndex *index)
 	const char *temppath, *realpath;
 	int fd;
 
-	memset(&hdr, 0, sizeof(hdr));
+	memset(&hdr, 0, sizeof(MailIndexDataHeader));
 	hdr.indexid = index->indexid;
-	hdr.used_file_size = sizeof(hdr);
+	hdr.used_file_size = sizeof(MailIndexDataHeader);
 
 	realpath = NULL;
 
@@ -272,7 +279,7 @@ int mail_index_data_create(MailIndex *index)
 		data->mmap_full_length = INDEX_DATA_INITIAL_SIZE;
 		data->mmap_base = mmap_anon(data->mmap_full_length);
 
-		memcpy(data->mmap_base, &hdr, sizeof(hdr));
+		memcpy(data->mmap_base, &hdr, sizeof(MailIndexDataHeader));
 		data->header = data->mmap_base;
 		data->mmap_used_length = data->header->used_file_size;
 
@@ -318,12 +325,12 @@ int mail_index_data_reset(MailIndexData *data)
 {
 	MailIndexDataHeader hdr;
 
-	memset(&hdr, 0, sizeof(hdr));
+	memset(&hdr, 0, sizeof(MailIndexDataHeader));
 	hdr.indexid = data->index->indexid;
-	hdr.used_file_size = sizeof(hdr);
+	hdr.used_file_size = sizeof(MailIndexDataHeader);
 
 	if (data->anon_mmap) {
-		memcpy(data->mmap_base, &hdr, sizeof(hdr));
+		memcpy(data->mmap_base, &hdr, sizeof(MailIndexDataHeader));
 		return TRUE;
 	}
 
@@ -336,7 +343,7 @@ int mail_index_data_reset(MailIndexData *data)
 	if (lseek(data->fd, 0, SEEK_SET) < 0)
 		return index_data_set_syscall_error(data, "lseek()");
 
-	if (write_full(data->fd, &hdr, sizeof(hdr)) < 0) {
+	if (write_full(data->fd, &hdr, sizeof(MailIndexDataHeader)) < 0) {
 		if (errno == ENOSPC)
 			data->index->nodiskspace = TRUE;
 		return index_data_set_syscall_error(data, "write_full()");
