@@ -100,7 +100,8 @@ struct module *module_dir_load(const char *dir, int require_init_funcs)
 
 	dirp = opendir(dir);
 	if (dirp == NULL) {
-		i_error("opendir(%s) failed: %m", dir);
+		if (errno != ENOENT)
+			i_error("opendir(%s) failed: %m", dir);
 		return NULL;
 	}
 
