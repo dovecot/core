@@ -14,7 +14,7 @@
 #include "index-expunge.h"
 #include "index-mail.h"
 
-#include <ctype.h>
+static int index_mail_parse_body(struct index_mail *mail);
 
 static struct message_part *get_cached_parts(struct index_mail *mail)
 {
@@ -242,7 +242,11 @@ static const struct message_part *get_parts(struct mail *_mail)
 			return data->parts;
 	}
 
-	if (!index_mail_parse_headers(mail, TRUE))
+	if (data->parser_ctx == NULL) {
+		if (!index_mail_parse_headers(mail))
+			return NULL;
+	}
+	if (!index_mail_parse_body(mail))
 		return NULL;
 
         cache_parts(mail);
@@ -314,17 +318,20 @@ static int get_msgpart_sizes(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
 
-	if ((mail->wanted_fields & MAIL_FETCH_MESSAGE_PARTS) != 0)
-		(void)get_parts(&mail->mail);
-
-	if (data->parts == NULL)
-		data->parts = get_cached_parts(mail);
+	if (data->parts == NULL) {
+		if ((mail->wanted_fields & MAIL_FETCH_MESSAGE_PARTS) != 0)
+			(void)get_parts(&mail->mail);
+		else
+			data->parts = get_cached_parts(mail);
+	}
 
 	if (data->parts != NULL) {
 		data->hdr_size = data->parts->header_size;
 		data->body_size = data->parts->body_size;
 		data->hdr_size_set = TRUE;
 		data->body_size_set = TRUE;
+		data->size = data->hdr_size.virtual_size +
+			data->body_size.virtual_size;
 	}
 
 	return data->parts != NULL;
@@ -377,7 +384,7 @@ static uoff_t get_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
-	uoff_t hdr_size, body_size, hdr_phys_size;
+	struct message_size hdr_size, body_size;
 
 	if (data->size != (uoff_t)-1)
 		return data->size;
@@ -388,58 +395,68 @@ static uoff_t get_size(struct mail *_mail)
 			return data->size;
 	}
 
-	if (!get_msgpart_sizes(mail)) {
-		/* this gives us header size for free */
-		if (data->parse_header)
-			index_mail_parse_headers(mail, FALSE);
-	}
-
-	hdr_size = data->hdr_size_set ?
-		data->hdr_size.virtual_size : (uoff_t)-1;
-	body_size = data->body_size_set ?
-		data->body_size.virtual_size : (uoff_t)-1;
-
-	if (body_size != (uoff_t)-1 && hdr_size != (uoff_t)-1) {
-		data->size = hdr_size + body_size;
+	if (get_msgpart_sizes(mail))
 		return data->size;
-	}
 
 	/* maybe it's binary */
 	get_binary_sizes(mail);
-	if (data->hdr_size_set && hdr_size == (uoff_t)-1)
-		hdr_size = data->hdr_size.virtual_size;
-	if (data->body_size_set && body_size == (uoff_t)-1)
-		body_size = data->body_size.virtual_size;
-
-	if (body_size != (uoff_t)-1 && hdr_size != (uoff_t)-1) {
-		data->size = hdr_size + body_size;
+	if (data->hdr_size_set && data->body_size_set) {
+		data->size = data->hdr_size.virtual_size +
+			data->body_size.virtual_size;
 		return data->size;
 	}
 
-	/* have to parse, slow.. */
-	hdr_phys_size = hdr_size != (uoff_t)-1 && data->hdr_size_set ?
-		data->hdr_size.physical_size : (uoff_t)-1;
-	if (!index_mail_open_stream(mail, hdr_phys_size != (uoff_t)-1 ?
-				    hdr_phys_size : 0))
+	/* do it the slow way */
+	if (_mail->get_stream(_mail, &hdr_size, &body_size) == NULL)
 		return (uoff_t)-1;
 
-	if (hdr_phys_size == (uoff_t)-1) {
-		message_get_header_size(data->stream, &data->hdr_size, NULL);
-		hdr_size = data->hdr_size.virtual_size;
-		data->hdr_size_set = TRUE;
-	}
-	if (body_size == (uoff_t)-1) {
-		message_get_body_size(data->stream, &data->body_size, NULL);
-		body_size = data->body_size.virtual_size;
-		data->body_size_set = TRUE;
-	}
-	data->size = hdr_size + body_size;
-
-	index_mail_cache_add_sizes(mail);
-	index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
-			     &data->size, sizeof(data->size));
-
 	return data->size;
+}
+
+static int index_mail_parse_body(struct index_mail *mail)
+{
+	struct index_mail_data *data = &mail->data;
+        enum mail_index_record_flag index_flags;
+
+	i_assert(data->parts == NULL);
+	i_assert(data->parser_ctx != NULL);
+
+	i_stream_seek(data->stream, data->hdr_size.physical_size);
+
+	message_parser_parse_body(data->parser_ctx, NULL, NULL, NULL);
+	data->parts = message_parser_deinit(data->parser_ctx);
+        data->parser_ctx = NULL;
+
+	data->body_size = data->parts->body_size;
+	data->body_size_set = TRUE;
+
+	if (mail->mail.has_nuls || mail->mail.has_no_nuls)
+		return TRUE;
+
+	/* we know the NULs now, update them */
+	if ((data->parts->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0) {
+		mail->mail.has_nuls = TRUE;
+		mail->mail.has_no_nuls = FALSE;
+	} else {
+		mail->mail.has_nuls = FALSE;
+		mail->mail.has_no_nuls = TRUE;
+	}
+
+	if (!index_mail_cache_transaction_begin(mail))
+		return TRUE;
+
+	index_flags = mail_cache_get_index_flags(mail->ibox->index->cache,
+						 mail->data.rec);
+	if (mail->mail.has_nuls)
+		index_flags |= MAIL_INDEX_FLAG_HAS_NULS;
+	else
+		index_flags |= MAIL_INDEX_FLAG_HAS_NO_NULS;
+
+	if (!mail_cache_update_index_flags(mail->ibox->index->cache,
+					   mail->data.rec, index_flags))
+		return FALSE;
+
+	return TRUE;
 }
 
 static struct istream *get_stream(struct mail *_mail,
@@ -459,9 +476,8 @@ static struct istream *get_stream(struct mail *_mail,
 
 	if (hdr_size != NULL) {
 		if (!data->hdr_size_set) {
-			message_get_header_size(data->stream, &data->hdr_size,
-						NULL);
-			data->hdr_size_set = TRUE;
+			if (!index_mail_parse_headers(mail))
+				return NULL;
 		}
 
 		*hdr_size = data->hdr_size;
@@ -469,20 +485,40 @@ static struct istream *get_stream(struct mail *_mail,
 
 	if (body_size != NULL) {
 		if (!data->body_size_set) {
-			i_stream_seek(data->stream,
-				      data->hdr_size.physical_size);
-
-			message_get_body_size(data->stream, &data->body_size,
-					      NULL);
-			data->body_size_set = TRUE;
+			if (!index_mail_parse_body(mail))
+				return NULL;
 		}
 
 		*body_size = data->body_size;
 	}
 
-	index_mail_cache_add_sizes(mail);
+	if (data->hdr_size_set && data->body_size_set) {
+		data->size = data->hdr_size.virtual_size +
+			data->body_size.virtual_size;
+		if (data->parts->children != NULL) {
+			/* cache the message parts only if this is a
+			   multipart message. it's pretty useless otherwise. */
+			cache_parts(mail);
+		} else {
+			index_mail_cache_add_sizes(mail);
+			index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
+					     &data->size, sizeof(data->size));
+		}
+	} else {
+		index_mail_cache_add_sizes(mail);
+	}
+
 	i_stream_seek(data->stream, 0);
 	return data->stream;
+}
+
+static void parse_bodystructure_header(struct message_part *part,
+				       struct message_header_line *hdr,
+				       void *context)
+{
+	pool_t pool = context;
+
+	imap_bodystructure_parse_header(pool, part, hdr);
 }
 
 static const char *get_special(struct mail *_mail, enum mail_fetch_field field)
@@ -529,7 +565,18 @@ static const char *get_special(struct mail *_mail, enum mail_fetch_field field)
 
 		if (!data->bodystructure_header_parsed) {
 			data->bodystructure_header_want = TRUE;
-			if (!index_mail_parse_headers(mail, FALSE))
+			if (!index_mail_parse_headers(mail))
+				return NULL;
+		}
+
+		if (data->parts != NULL) {
+			i_assert(data->parts->next == NULL);
+			message_parse_from_parts(data->parts->children,
+						 data->stream,
+						 parse_bodystructure_header,
+						 mail->pool);
+		} else {
+			if (!index_mail_parse_body(mail))
 				return NULL;
 		}
 

@@ -17,15 +17,17 @@ struct message_boundary {
 	size_t len;
 };
 
-struct parser_context {
-	pool_t pool;
-	struct message_part *part;
+struct message_parser_ctx {
+	pool_t parser_pool, part_pool;
+	struct istream *input;
+	struct message_part *parts, *part;
 
 	char *last_boundary;
 	char *last_content_type;
 	struct message_boundary *boundaries;
 
 	message_header_callback_t *callback;
+	message_body_callback_t *body_callback;
 	void *context;
 };
 
@@ -42,16 +44,19 @@ struct message_header_parser_ctx {
 	int has_nuls;
 };
 
-static struct message_part *
-message_parse_part(struct istream *input,
-		   struct parser_context *parser_ctx);
+static void
+message_parse_part_header(struct message_parser_ctx *parser_ctx);
 
 static struct message_part *
-message_parse_body(struct istream *input, struct message_boundary *boundaries,
-		   struct message_size *body_size, int *has_nuls);
+message_parse_part_body(struct message_parser_ctx *parser_ctx);
 
 static struct message_part *
-message_skip_boundary(struct istream *input,
+message_parse_body(struct message_parser_ctx *parser_ctx,
+		   struct message_boundary *boundaries,
+		   struct message_size *msg_size, int *has_nuls);
+
+static struct message_part *
+message_skip_boundary(struct message_parser_ctx *parser_ctx,
 		      struct message_boundary *boundaries,
 		      struct message_size *boundary_size, int *has_nuls);
 
@@ -92,14 +97,14 @@ message_part_append(pool_t pool, struct message_part *parent)
 static void parse_content_type(const unsigned char *value, size_t value_len,
 			       void *context)
 {
-	struct parser_context *parser_ctx = context;
+	struct message_parser_ctx *parser_ctx = context;
 	const char *str;
 
 	if (parser_ctx->last_content_type != NULL || value_len == 0)
 		return;
 
 	str = parser_ctx->last_content_type =
-		p_strndup(parser_ctx->pool, value, value_len);
+		p_strndup(parser_ctx->parser_pool, value, value_len);
 
 	if (strcasecmp(str, "message/rfc822") == 0)
 		parser_ctx->part->flags |= MESSAGE_PART_FLAG_MESSAGE_RFC822;
@@ -121,7 +126,7 @@ parse_content_type_param(const unsigned char *name, size_t name_len,
 			 const unsigned char *value, size_t value_len,
 			 int value_quoted, void *context)
 {
-	struct parser_context *parser_ctx = context;
+	struct message_parser_ctx *parser_ctx = context;
 
 	if ((parser_ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
 	    name_len != 8 || memcasecmp(name, "boundary", 8) != 0)
@@ -129,22 +134,21 @@ parse_content_type_param(const unsigned char *name, size_t name_len,
 
 	if (parser_ctx->last_boundary == NULL) {
 		parser_ctx->last_boundary =
-			p_strndup(parser_ctx->pool, value, value_len);
+			p_strndup(parser_ctx->parser_pool, value, value_len);
 		if (value_quoted)
 			str_unescape(parser_ctx->last_boundary);
 	}
 }
 
 static struct message_part *
-message_parse_multipart(struct istream *input,
-			struct parser_context *parser_ctx)
+message_parse_multipart(struct message_parser_ctx *parser_ctx)
 {
 	struct message_part *parent_part, *next_part, *part;
 	struct message_boundary *b;
 	int has_nuls;
 
 	/* multipart message. add new boundary */
-	b = t_new(struct message_boundary, 1);
+	b = p_new(parser_ctx->parser_pool, struct message_boundary, 1);
 	b->part = parser_ctx->part;
 	b->boundary = parser_ctx->last_boundary;
 	b->len = strlen(b->boundary);
@@ -158,7 +162,7 @@ message_parse_multipart(struct istream *input,
 
 	/* skip the data before the first boundary */
 	parent_part = parser_ctx->part;
-	next_part = message_skip_boundary(input, parser_ctx->boundaries,
+	next_part = message_skip_boundary(parser_ctx, parser_ctx->boundaries,
 					  &parent_part->body_size, &has_nuls);
 	if (has_nuls)
 		parent_part->flags |= MESSAGE_PART_FLAG_HAS_NULS;
@@ -166,12 +170,13 @@ message_parse_multipart(struct istream *input,
 	/* now, parse the parts */
 	while (next_part == parent_part) {
 		/* new child */
-		part = message_part_append(parser_ctx->pool, parent_part);
+		part = message_part_append(parser_ctx->part_pool, parent_part);
 		if ((parent_part->flags & MESSAGE_PART_FLAG_IS_MIME) != 0)
 			part->flags |= MESSAGE_PART_FLAG_IS_MIME;
 
-                parser_ctx->part = part;
-		next_part = message_parse_part(input, parser_ctx);
+		parser_ctx->part = part;
+                message_parse_part_header(parser_ctx);
+		next_part = message_parse_part_body(parser_ctx);
 
 		if ((part->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0) {
 			/* it also belongs to parent */
@@ -185,7 +190,8 @@ message_parse_multipart(struct istream *input,
 			break;
 
 		/* skip the boundary */
-		next_part = message_skip_boundary(input, parser_ctx->boundaries,
+		next_part = message_skip_boundary(parser_ctx,
+						  parser_ctx->boundaries,
 						  &parent_part->body_size,
 						  &has_nuls);
 		if (has_nuls)
@@ -201,27 +207,22 @@ message_parse_multipart(struct istream *input,
 #define MUTEX_FLAGS \
 	(MESSAGE_PART_FLAG_MESSAGE_RFC822 | MESSAGE_PART_FLAG_MULTIPART)
 
-static struct message_part *
-message_parse_part(struct istream *input, struct parser_context *parser_ctx)
+static void message_parse_part_header(struct message_parser_ctx *parser_ctx)
 {
+	struct message_part *part = parser_ctx->part;
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
-	struct message_part *next_part, *part;
-	uoff_t hdr_size;
-	int has_nuls;
 
-	hdr_ctx = message_parse_header_init(input,
-					    &parser_ctx->part->header_size);
+	hdr_ctx = message_parse_header_init(parser_ctx->input,
+					    &part->header_size);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
 		/* call the user-defined header parser */
-		if (parser_ctx->callback != NULL) {
-			parser_ctx->callback(parser_ctx->part, hdr,
-					     parser_ctx->context);
-		}
+		if (parser_ctx->callback != NULL)
+			parser_ctx->callback(part, hdr, parser_ctx->context);
 
 		if (!hdr->eoh && strcasecmp(hdr->name, "Mime-Version") == 0) {
 			/* it's MIME. Content-* headers are valid */
-			parser_ctx->part->flags |= MESSAGE_PART_FLAG_IS_MIME;
+			part->flags |= MESSAGE_PART_FLAG_IS_MIME;
 		}
 
 		if (!hdr->eoh && strcasecmp(hdr->name, "Content-Type") == 0) {
@@ -238,63 +239,66 @@ message_parse_part(struct istream *input, struct parser_context *parser_ctx)
 		}
 	}
 
-	if ((parser_ctx->part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0) {
+	if ((part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0) {
 		/* It's not MIME. Reset everything we found from
 		   Content-Type. */
-		parser_ctx->part->flags = 0;
+		part->flags = 0;
                 parser_ctx->last_boundary = NULL;
 		parser_ctx->last_content_type = NULL;
 	}
-	if (parser_ctx->callback != NULL) {
-		parser_ctx->callback(parser_ctx->part, NULL,
-				     parser_ctx->context);
-	}
+	if (parser_ctx->callback != NULL)
+		parser_ctx->callback(part, NULL, parser_ctx->context);
 	if (hdr_ctx->has_nuls)
-		parser_ctx->part->flags |= MESSAGE_PART_FLAG_HAS_NULS;
+		part->flags |= MESSAGE_PART_FLAG_HAS_NULS;
 	message_parse_header_deinit(hdr_ctx);
 
-	i_assert((parser_ctx->part->flags & MUTEX_FLAGS) != MUTEX_FLAGS);
+	i_assert((part->flags & MUTEX_FLAGS) != MUTEX_FLAGS);
+}
 
-	/* update message position/size */
-	hdr_size = parser_ctx->part->header_size.physical_size;
+static struct message_part *
+message_parse_part_body(struct message_parser_ctx *parser_ctx)
+{
+	struct message_part *part = parser_ctx->part;
+        struct message_part *next_part;
+	int has_nuls;
 
 	if (parser_ctx->last_boundary != NULL)
-		return message_parse_multipart(input, parser_ctx);
+		return message_parse_multipart(parser_ctx);
 
 	if (parser_ctx->last_content_type == NULL) {
-		if (parser_ctx->part->parent != NULL &&
-		    (parser_ctx->part->parent->flags &
+		if (part->parent != NULL &&
+		    (part->parent->flags &
 		     MESSAGE_PART_FLAG_MULTIPART_DIGEST)) {
 			/* when there's no content-type specified and we're
 			   below multipart/digest, the assume message/rfc822
 			   content-type */
-			parser_ctx->part->flags |=
-				MESSAGE_PART_FLAG_MESSAGE_RFC822;
+			part->flags |= MESSAGE_PART_FLAG_MESSAGE_RFC822;
 		} else {
 			/* otherwise we default to text/plain */
-			parser_ctx->part->flags |= MESSAGE_PART_FLAG_TEXT;
+			part->flags |= MESSAGE_PART_FLAG_TEXT;
 		}
 	}
 
 	parser_ctx->last_boundary = NULL;
         parser_ctx->last_content_type = NULL;
 
-	if (parser_ctx->part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
+	if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
 		/* message/rfc822 part - the message body begins with
 		   headers again, this works pretty much the same as
 		   a single multipart/mixed item */
-		part = message_part_append(parser_ctx->pool, parser_ctx->part);
+		part = message_part_append(parser_ctx->part_pool, part);
 
 		parser_ctx->part = part;
-		next_part = message_parse_part(input, parser_ctx);
+		message_parse_part_header(parser_ctx);
+		next_part = message_parse_part_body(parser_ctx);
 		parser_ctx->part = part->parent;
 
 		/* our body size is the size of header+body in message/rfc822 */
 		message_size_add_part(&part->parent->body_size, part);
 	} else {
 		/* normal message, read until the next boundary */
-		part = parser_ctx->part;
-		next_part = message_parse_body(input, parser_ctx->boundaries,
+		next_part = message_parse_body(parser_ctx,
+					       parser_ctx->boundaries,
 					       &part->body_size, &has_nuls);
 		if (has_nuls)
 			part->flags |= MESSAGE_PART_FLAG_HAS_NULS;
@@ -495,18 +499,19 @@ message_find_boundary(struct istream *input,
 }
 
 static struct message_part *
-message_parse_body(struct istream *input, struct message_boundary *boundaries,
+message_parse_body(struct message_parser_ctx *parser_ctx,
+		   struct message_boundary *boundaries,
 		   struct message_size *msg_size, int *has_nuls)
 {
 	struct message_boundary *boundary;
 	struct message_size body_size;
 
 	if (boundaries == NULL) {
-		message_get_body_size(input, &body_size, has_nuls);
+		message_get_body_size(parser_ctx->input, &body_size, has_nuls);
 		message_size_add(msg_size, &body_size);
 		boundary = NULL;
 	} else {
-		boundary = message_find_boundary(input, boundaries,
+		boundary = message_find_boundary(parser_ctx->input, boundaries,
 						 msg_size, FALSE, has_nuls);
 	}
 
@@ -516,7 +521,7 @@ message_parse_body(struct istream *input, struct message_boundary *boundaries,
 /* skip data until next boundary is found. if it's end boundary,
    skip the footer as well. */
 static struct message_part *
-message_skip_boundary(struct istream *input,
+message_skip_boundary(struct message_parser_ctx *parser_ctx,
 		      struct message_boundary *boundaries,
 		      struct message_size *boundary_size, int *has_nuls)
 {
@@ -525,61 +530,90 @@ message_skip_boundary(struct istream *input,
 	size_t size;
 	int end_boundary;
 
-	boundary = message_find_boundary(input, boundaries,
+	boundary = message_find_boundary(parser_ctx->input, boundaries,
 					 boundary_size, TRUE, has_nuls);
 	if (boundary == NULL)
 		return NULL;
 
 	/* now, see if it's end boundary */
 	end_boundary = FALSE;
-	if (i_stream_read_data(input, &msg, &size, 1) > 0)
+	if (i_stream_read_data(parser_ctx->input, &msg, &size, 1) > 0)
 		end_boundary = msg[0] == '-' && msg[1] == '-';
 
 	/* skip the rest of the line */
-	message_skip_line(input, boundary_size, !end_boundary, has_nuls);
+	message_skip_line(parser_ctx->input, boundary_size,
+			  !end_boundary, has_nuls);
 
 	if (end_boundary) {
 		/* skip the footer */
-		return message_parse_body(input, boundary->next,
+		return message_parse_body(parser_ctx, boundary->next,
 					  boundary_size, has_nuls);
 	}
 
 	return boundary == NULL ? NULL : boundary->part;
 }
 
-struct message_part *message_parse(pool_t pool, struct istream *input,
-				   message_header_callback_t *callback,
-				   void *context)
+struct message_parser_ctx *
+message_parser_init(pool_t part_pool, struct istream *input)
 {
-	struct message_part *part;
-	struct parser_context parser_ctx;
+	struct message_parser_ctx *ctx;
+	pool_t pool;
 
-	memset(&parser_ctx, 0, sizeof(parser_ctx));
-	parser_ctx.pool = pool;
-	parser_ctx.callback = callback;
-	parser_ctx.context = context;
-	parser_ctx.part = part = p_new(pool, struct message_part, 1);
+	pool = pool_alloconly_create("Message Parser", 1024);
+	ctx = p_new(pool, struct message_parser_ctx, 1);
+	ctx->parser_pool = pool;
+	ctx->part_pool = part_pool;
+	ctx->input = input;
+	ctx->parts = ctx->part = p_new(part_pool, struct message_part, 1);
+	return ctx;
+}
 
-	message_parse_part(input, &parser_ctx);
-	return part;
+struct message_part *message_parser_deinit(struct message_parser_ctx *ctx)
+{
+	struct message_part *parts = ctx->parts;
+
+	pool_unref(ctx->parser_pool);
+	return parts;
+}
+
+void message_parser_parse_header(struct message_parser_ctx *ctx,
+				 struct message_size *hdr_size,
+				 message_header_callback_t *callback,
+				 void *context)
+{
+	ctx->callback = callback;
+	ctx->context = context;
+
+	message_parse_part_header(ctx);
+        *hdr_size = ctx->part->header_size;
+}
+
+void message_parser_parse_body(struct message_parser_ctx *ctx,
+			       message_header_callback_t *hdr_callback,
+			       message_body_callback_t *body_callback,
+			       void *context)
+{
+	ctx->callback = hdr_callback;
+	ctx->body_callback = body_callback;
+	ctx->context = context;
+
+	message_parse_part_body(ctx);
 }
 
 static void part_parse_headers(struct message_part *part, struct istream *input,
-			       uoff_t start_offset,
 			       message_header_callback_t *callback,
 			       void *context)
 {
 	while (part != NULL) {
 		/* note that we want to parse the header of all
 		   the message parts, multiparts too. */
-		i_assert(part->physical_pos >= input->v_offset - start_offset);
-		i_stream_skip(input, part->physical_pos -
-			      (input->v_offset - start_offset));
+		i_assert(part->physical_pos >= input->v_offset);
+		i_stream_skip(input, part->physical_pos - input->v_offset);
 
 		message_parse_header(part, input, NULL, callback, context);
 		if (part->children != NULL) {
 			part_parse_headers(part->children, input,
-					   start_offset, callback, context);
+					   callback, context);
 		}
 
 		part = part->next;
@@ -590,7 +624,7 @@ void message_parse_from_parts(struct message_part *part, struct istream *input,
 			      message_header_callback_t *callback,
 			      void *context)
 {
-	part_parse_headers(part, input, input->v_offset, callback, context);
+	part_parse_headers(part, input, callback, context);
 }
 
 void message_parse_header(struct message_part *part, struct istream *input,
