@@ -1,6 +1,7 @@
 #ifndef __IOLOOP_H
 #define __IOLOOP_H
 
+#include <sys/time.h>
 #include <time.h>
 
 #define IO_READ			(1 << 0)

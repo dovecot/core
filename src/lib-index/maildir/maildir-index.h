@@ -1,6 +1,7 @@
 #ifndef __MAILDIR_INDEX_H
 #define __MAILDIR_INDEX_H
 
+#include <sys/time.h>
 #include <dirent.h>
 #include "mail-index.h"
 

@@ -3,8 +3,6 @@
 
 #include "ioloop.h"
 
-#include <sys/time.h>
-
 struct ioloop {
         struct ioloop *prev;
 
