@@ -73,7 +73,7 @@ static void passwd_file_init(const char *args)
 		passdb_pwf = userdb_pwf;
                 passdb_pwf->refcount++;
 	} else {
-		passdb_pwf = db_passwd_file_parse(args);
+		passdb_pwf = db_passwd_file_parse(args, FALSE);
 	}
 }
 

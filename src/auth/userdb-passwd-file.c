@@ -40,9 +40,13 @@ static void passwd_file_init(const char *args)
 {
 	if (passdb_pwf != NULL && strcmp(passdb_pwf->path, args) == 0) {
 		userdb_pwf = passdb_pwf;
-                userdb_pwf->refcount++;
+		userdb_pwf->refcount++;
+
+		/* resync */
+		userdb_pwf->userdb = FALSE;
+                userdb_pwf->stamp = 0;
 	} else {
-		userdb_pwf = db_passwd_file_parse(args);
+		userdb_pwf = db_passwd_file_parse(args, TRUE);
 	}
 }
 

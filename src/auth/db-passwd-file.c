@@ -153,7 +153,9 @@ static void passwd_file_open(struct passwd_file *pw)
 		args = t_strsplit(line, ":");
 		if (args[1] != NULL) {
 			/* at least two fields */
-			passwd_file_add(pw, args[0], args[1], args+2);
+			const char *no_args = NULL;
+			passwd_file_add(pw, args[0], args[1],
+					pw->userdb ? args+2 : &no_args);
 		}
 		t_pop();
 	}
@@ -191,13 +193,14 @@ static void passwd_file_sync(struct passwd_file *pw)
 	}
 }
 
-struct passwd_file *db_passwd_file_parse(const char *path)
+struct passwd_file *db_passwd_file_parse(const char *path, int userdb)
 {
 	struct passwd_file *pw;
 
 	pw = i_new(struct passwd_file, 1);
 	pw->refcount = 1;
 	pw->path = i_strdup(path);
+	pw->userdb = userdb;
 
 	passwd_file_open(pw);
 	return pw;

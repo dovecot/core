@@ -23,6 +23,7 @@ struct passwd_file {
 	char *path;
 	time_t stamp;
 	int fd;
+	int userdb;
 
 	struct hash_table *users;
 };
@@ -33,7 +34,7 @@ extern struct passwd_file *passdb_pwf;
 struct passwd_user *
 db_passwd_file_lookup(struct passwd_file *pw, const char *user);
 
-struct passwd_file *db_passwd_file_parse(const char *path);
+struct passwd_file *db_passwd_file_parse(const char *path, int userdb);
 void db_passwd_file_unref(struct passwd_file *pw);
 
 #endif
