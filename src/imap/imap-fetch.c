@@ -93,6 +93,7 @@ struct imap_fetch_context *imap_fetch_init(struct client *client)
 	ctx->seen_flag.flags = MAIL_SEEN;
 	ctx->all_headers_buf = buffer_create_dynamic(client->cmd_pool, 128);
 	ctx->handlers = buffer_create_dynamic(client->cmd_pool, 128);
+	ctx->line_finished = TRUE;
 	return ctx;
 }
 
@@ -152,7 +153,6 @@ void imap_fetch_begin(struct imap_fetch_context *ctx,
 	ctx->search_ctx =
 		mailbox_search_init(ctx->trans, NULL, search_arg, NULL,
 				    ctx->fetch_data, ctx->all_headers_ctx);
-	ctx->line_finished = TRUE;
 }
 
 int imap_fetch(struct imap_fetch_context *ctx)
