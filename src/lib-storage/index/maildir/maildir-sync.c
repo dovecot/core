@@ -396,6 +396,8 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 			str_truncate(dest, 0);
 			str_printfa(src, "%s/%s", ctx->new_dir, dp->d_name);
 			str_printfa(dest, "%s/%s", ctx->cur_dir, dp->d_name);
+			if (strchr(dp->d_name, ':') == NULL)
+				str_append(dest, ":2,");
 			if (rename(str_c(src), str_c(dest)) == 0) {
 				/* we moved it - it's \Recent for use */
                                 ctx->ibox->dirty_cur_time = ioloop_time;
