@@ -771,8 +771,9 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 		sync_to_index = TRUE;
 	}
 
-	if ((*map)->hdr.indexid != 0) {
-		/* sync this as a view from transaction log. */
+	if ((*map)->hdr.indexid != 0 && index->log != NULL) {
+		/* we're not creating the index, or opening transaction log.
+		   sync this as a view from transaction log. */
 		index->sync_update = TRUE;
 		ret = mail_index_sync_from_transactions(index, map,
 							sync_to_index);

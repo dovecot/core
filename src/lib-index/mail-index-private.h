@@ -21,7 +21,7 @@ struct mail_index_sync_map_ctx;
 #define MAIL_INDEX_ESTALE_RETRY_COUNT 10
 
 #define MAIL_INDEX_MAP_IS_IN_MEMORY(map) \
-	((map)->buffer != NULL)
+	((map) != NULL && (map)->buffer != NULL)
 
 #define MAIL_INDEX_MAP_IDX(map, idx) \
 	((struct mail_index_record *) \
