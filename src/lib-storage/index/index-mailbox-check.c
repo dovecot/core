@@ -30,7 +30,8 @@ static void check_timeout(void *context)
 
 	if (sync) {
 		ibox->box.sync(&ibox->box, ibox->autosync_flags);
-                ibox->autosync_pending = FALSE;
+		ibox->sync_last_notify = ioloop_time;
+		ibox->autosync_pending = FALSE;
 	}
 }
 
@@ -38,10 +39,11 @@ static void notify_callback(void *context)
 {
 	struct index_mailbox *ibox = context;
 
-	if ((unsigned int) (ioloop_time - ibox->sync_last_check) >=
+	ibox->sync_last_check = ioloop_time;
+	if ((unsigned int) (ioloop_time - ibox->sync_last_notify) >=
 	    ibox->min_newmail_notify_interval) {
-		ibox->sync_last_check = ioloop_time;
 		ibox->box.sync(&ibox->box, ibox->autosync_flags);
+		ibox->sync_last_notify = ioloop_time;
                 ibox->autosync_pending = FALSE;
 	} else {
 		ibox->autosync_pending = TRUE;

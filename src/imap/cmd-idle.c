@@ -10,7 +10,6 @@
 
 #define DEFAULT_IDLE_CHECK_INTERVAL 30
 
-#include "imap-fetch.h"
 static void idle_finish(struct client *client, int done_ok)
 {
 	if (client->idle_to != NULL) {

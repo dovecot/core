@@ -33,7 +33,7 @@ struct index_mailbox {
 	struct index_autosync_file *autosync_files;
         struct index_autosync_io *autosync_ios;
 	enum mailbox_sync_flags autosync_flags;
-	time_t sync_last_check;
+	time_t sync_last_check, sync_last_notify;
 	unsigned int min_newmail_notify_interval;
 
 	struct index_mail fetch_mail; /* fetch_uid() or fetch_seq() */
