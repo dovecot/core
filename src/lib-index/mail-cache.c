@@ -234,7 +234,7 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 	cache = i_new(struct mail_cache, 1);
 	cache->index = index;
 	cache->fd = -1;
-        cache->field_pool = pool_alloconly_create("Cache fields", 512);
+        cache->field_pool = pool_alloconly_create("Cache fields", 1024);
 	cache->field_name_hash =
 		hash_create(default_pool, cache->field_pool, 0,
 			    strcase_hash, (hash_cmp_callback_t *)strcasecmp);
