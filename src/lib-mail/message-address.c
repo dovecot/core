@@ -277,6 +277,8 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 	ctx.pool = pool;
 	ctx.str = t_str_new(128);
 
+	rfc822_skip_lwsp(&ctx.parser);
+
 	(void)parse_address_list(&ctx, max_addresses);
 	if (!pool->datastack_pool)
 		t_pop();
