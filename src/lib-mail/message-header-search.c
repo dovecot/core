@@ -194,10 +194,13 @@ int message_header_search(const unsigned char *header_block,
 		    !ctx->submatch) {
 			/* encoded string. read it. */
 			p += 2;
+			t_push();
 			if (match_encoded(&p, end, ctx)) {
+				t_pop();
 				found = TRUE;
 				break;
 			}
+			t_pop();
 
 			i_assert(p != end);
 			continue;
@@ -212,8 +215,10 @@ int message_header_search(const unsigned char *header_block,
 		else {
 			/* we have non-ascii in header. treat the rest of the
 			   header as encoded with the key's charset */
+			t_push();
 			found = match_data(p, (size_t) (end-p),
 					   ctx->key_charset, ctx);
+			t_pop();
 			break;
 		}
 
