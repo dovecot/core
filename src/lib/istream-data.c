@@ -28,9 +28,10 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	stream->istream.v_offset = v_offset;
 }
 
-static uoff_t _get_size(struct _istream *stream)
+static const struct stat *_stat(struct _istream *stream)
 {
-	return stream->pos;
+	stream->statbuf.st_size = stream->pos;
+	return &stream->statbuf;
 }
 
 struct istream *i_stream_create_from_data(pool_t pool, const void *data,
@@ -48,7 +49,7 @@ struct istream *i_stream_create_from_data(pool_t pool, const void *data,
 
 	stream->read = _read;
 	stream->seek = _seek;
-	stream->get_size = _get_size;
+	stream->stat = _stat;
 
 	stream->istream.seekable = TRUE;
 	return _i_stream_create(stream, pool, -1, 0);

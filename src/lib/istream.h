@@ -35,6 +35,9 @@ int i_stream_get_fd(struct istream *stream);
 /* Mark the stream closed. Any reads after this will return -1. The data
    already read can still be used. */
 void i_stream_close(struct istream *stream);
+/* Sync the stream with the underlying backend, ie. if a file has been
+   modified, flush any cached data. */
+void i_stream_sync(struct istream *stream);
 
 /* Change the maximum size for stream's input buffer to grow. Useful only
    for buffered streams (currently only file). */
@@ -49,8 +52,10 @@ void i_stream_skip(struct istream *stream, uoff_t count);
 /* Seek to specified position from beginning of file. Never fails, the next
    read tells if it was successful. This works only for files. */
 void i_stream_seek(struct istream *stream, uoff_t v_offset);
-/* Returns size of the stream, or (uoff_t)-1 if unknown */
-uoff_t i_stream_get_size(struct istream *stream);
+/* Returns struct stat, or NULL if error. As the underlying stream may not be
+   a file, only some of the fields might be set, others would be zero.
+   st_size is always set, and if it's not known, it's -1. */
+const struct stat *i_stream_stat(struct istream *stream);
 /* Returns TRUE if there are any bytes left to be read or in buffer. */
 int i_stream_have_bytes_left(struct istream *stream);
 

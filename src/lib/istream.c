@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "str.h"
 #include "istream-internal.h"
 
@@ -90,11 +91,19 @@ void i_stream_seek(struct istream *stream, uoff_t v_offset)
 	_stream->seek(_stream, v_offset);
 }
 
-uoff_t i_stream_get_size(struct istream *stream)
+void i_stream_sync(struct istream *stream)
 {
 	struct _istream *_stream = stream->real_stream;
 
-	return _stream->get_size(_stream);
+	if (!stream->closed && _stream->sync != NULL)
+		_stream->sync(_stream);
+}
+
+const struct stat *i_stream_stat(struct istream *stream)
+{
+	struct _istream *_stream = stream->real_stream;
+
+	return _stream->stat(_stream);
 }
 
 int i_stream_have_bytes_left(struct istream *stream)
@@ -233,6 +242,12 @@ struct istream *_i_stream_create(struct _istream *_stream, pool_t pool, int fd,
 	_stream->fd = fd;
 	_stream->abs_start_offset = abs_start_offset;
 	_stream->istream.real_stream = _stream;
+
+	memset(&_stream->statbuf, 0, sizeof(_stream->statbuf));
+	_stream->statbuf.st_size = -1;
+	_stream->statbuf.st_atime =
+		_stream->statbuf.st_mtime =
+		_stream->statbuf.st_ctime = ioloop_time;
 
 	_io_stream_init(pool, &_stream->iostream);
 	return &_stream->istream;

@@ -3,6 +3,7 @@
 /* @UNSAFE: whole file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "istream-internal.h"
 #include "network.h"
 
@@ -14,6 +15,8 @@
 
 struct file_istream {
 	struct _istream istream;
+
+        struct timeval fstat_cache_stamp;
 
 	size_t max_buffer_size;
 	uoff_t skip_left;
@@ -173,15 +176,45 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	stream->skip = stream->pos = 0;
 }
 
-static uoff_t _get_size(struct _istream *stream)
+static void _sync(struct _istream *stream)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
-	struct stat st;
 
-	if (fstream->file && fstat(stream->fd, &st) == 0 && S_ISREG(st.st_mode))
-		return (uoff_t)st.st_size;
-	else
-		return (uoff_t)-1;
+	fstream->fstat_cache_stamp.tv_sec = 0;
+
+	if (!stream->istream.seekable) {
+		/* can't do anything or data would be lost */
+		return;
+	}
+
+	stream->skip = stream->pos = 0;
+}
+
+static int fstat_cached(struct file_istream *fstream)
+{
+	if (fstream->fstat_cache_stamp.tv_sec == ioloop_timeval.tv_sec &&
+	    fstream->fstat_cache_stamp.tv_usec == ioloop_timeval.tv_usec)
+		return 0;
+
+	if (fstat(fstream->istream.fd, &fstream->istream.statbuf) < 0) {
+		i_error("file_istream.fstat() failed: %m");
+		return -1;
+	}
+
+	fstream->fstat_cache_stamp = ioloop_timeval;
+	return 0;
+}
+
+static const struct stat *_stat(struct _istream *stream)
+{
+	struct file_istream *fstream = (struct file_istream *) stream;
+
+	if (fstream->file) {
+		if (fstat_cached(fstream) < 0)
+			return NULL;
+	}
+
+	return &stream->statbuf;
 }
 
 struct istream *i_stream_create_file(int fd, pool_t pool,
@@ -200,7 +233,8 @@ struct istream *i_stream_create_file(int fd, pool_t pool,
 
 	fstream->istream.read = _read;
 	fstream->istream.seek = _seek;
-	fstream->istream.get_size = _get_size;
+	fstream->istream.sync = _sync;
+	fstream->istream.stat = _stat;
 
 	/* get size of fd if it's a file */
 	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {

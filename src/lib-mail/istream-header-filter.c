@@ -270,6 +270,16 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	}
 }
 
+static void _sync(struct _istream *stream __attr_unused__)
+{
+	i_panic("istream-header-filter sync() not implemented");
+}
+
+static const struct stat *_stat(struct _istream *stream __attr_unused__)
+{
+	i_panic("istream-header-filter stat() not implemented");
+}
+
 struct istream *
 i_stream_create_header_filter(struct istream *input,
                               enum header_filter_flags flags,
@@ -309,6 +319,8 @@ i_stream_create_header_filter(struct istream *input,
 
 	mstream->istream.read = _read;
 	mstream->istream.seek = _seek;
+	mstream->istream.sync = _sync;
+	mstream->istream.stat = _stat;
 
 	mstream->istream.istream.seekable = input->seekable;
 	return _i_stream_create(&mstream->istream, pool, -1, 0);

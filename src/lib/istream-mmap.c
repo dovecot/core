@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "mmap-util.h"
 #include "istream-internal.h"
 
@@ -10,7 +11,8 @@
 struct mmap_istream {
 	struct _istream istream;
 
-	int fd;
+        struct timeval fstat_cache_stamp;
+
 	void *mmap_base;
 	off_t mmap_offset;
 	size_t mmap_block_size;
@@ -25,10 +27,10 @@ static void _close(struct _iostream *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
-	if (mstream->autoclose_fd && mstream->fd != -1) {
-		if (close(mstream->fd) < 0)
+	if (mstream->autoclose_fd && mstream->istream.fd != -1) {
+		if (close(mstream->istream.fd) < 0)
 			i_error("mmap_istream.close() failed: %m");
-		mstream->fd = -1;
+		mstream->istream.fd = -1;
 	}
 }
 
@@ -115,7 +117,7 @@ static ssize_t _read(struct _istream *stream)
 	} else {
 		mstream->mmap_base =
 			mmap(NULL, stream->buffer_size, PROT_READ, MAP_PRIVATE,
-			     mstream->fd, mstream->mmap_offset);
+			     stream->fd, mstream->mmap_offset);
 		if (mstream->mmap_base == MAP_FAILED) {
 			stream->istream.stream_errno = errno;
 			mstream->mmap_base = NULL;
@@ -157,11 +159,39 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	stream->istream.v_offset = v_offset;
 }
 
-static uoff_t _get_size(struct _istream *stream)
+static void _sync(struct _istream *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
-	return mstream->v_size;
+	i_stream_munmap(mstream);
+	stream->skip = stream->pos = stream->istream.v_offset;
+
+	mstream->fstat_cache_stamp.tv_sec = 0;
+}
+
+static int fstat_cached(struct mmap_istream *mstream)
+{
+	if (mstream->fstat_cache_stamp.tv_sec == ioloop_timeval.tv_sec &&
+	    mstream->fstat_cache_stamp.tv_usec == ioloop_timeval.tv_usec)
+		return 0;
+
+	if (fstat(mstream->istream.fd, &mstream->istream.statbuf) < 0) {
+		i_error("mmap_istream.fstat() failed: %m");
+		return -1;
+	}
+
+	mstream->fstat_cache_stamp = ioloop_timeval;
+	return 0;
+}
+
+static const struct stat *_stat(struct _istream *stream)
+{
+	struct mmap_istream *mstream = (struct mmap_istream *) stream;
+
+	if (fstat_cached(mstream) < 0)
+		return NULL;
+
+	return &stream->statbuf;
 }
 
 struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
@@ -187,7 +217,6 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 	}
 
 	mstream = p_new(pool, struct mmap_istream, 1);
-	mstream->fd = fd;
         _set_max_buffer_size(&mstream->istream.iostream, block_size);
 	mstream->autoclose_fd = autoclose_fd;
 	mstream->v_size = v_size;
@@ -198,7 +227,8 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 
 	mstream->istream.read = _read;
 	mstream->istream.seek = _seek;
-	mstream->istream.get_size = _get_size;
+	mstream->istream.sync = _sync;
+	mstream->istream.stat = _stat;
 
 	istream = _i_stream_create(&mstream->istream, pool, fd, start_offset);
 	istream->mmaped = TRUE;

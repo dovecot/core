@@ -636,12 +636,19 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 {
 	struct file_ostream *foutstream = (struct file_ostream *)outstream;
+	const struct stat *st;
 	uoff_t in_size;
 	off_t ret;
 	int in_fd, overlapping;
 
+	st = i_stream_stat(instream);
+	if (st == NULL) {
+		outstream->ostream.stream_errno = instream->stream_errno;
+		return -1;
+	}
+
 	in_fd = i_stream_get_fd(instream);
-	in_size = i_stream_get_size(instream);
+	in_size = st->st_size;
 	i_assert(instream->v_offset <= in_size);
 
 	outstream->ostream.stream_errno = 0;

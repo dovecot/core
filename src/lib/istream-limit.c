@@ -89,12 +89,19 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	stream->skip = stream->pos = 0;
 }
 
-static uoff_t _get_size(struct _istream *stream)
+static const struct stat *_stat(struct _istream *stream)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
+	const struct stat *st;
 
-	return lstream->v_size != (uoff_t)-1 ? lstream->v_size :
-		i_stream_get_size(lstream->input);
+	st = i_stream_stat(lstream->input);
+	if (st == NULL)
+		return NULL;
+
+	stream->statbuf = *st;
+	if (lstream->v_size != (uoff_t)-1)
+		stream->statbuf.st_size = lstream->v_size;
+	return &stream->statbuf;
 }
 
 struct istream *i_stream_create_limit(pool_t pool, struct istream *input,
@@ -120,7 +127,7 @@ struct istream *i_stream_create_limit(pool_t pool, struct istream *input,
 
 	lstream->istream.read = _read;
 	lstream->istream.seek = _seek;
-	lstream->istream.get_size = _get_size;
+	lstream->istream.stat = _stat;
 
 	lstream->istream.istream.seekable = input->seekable;
 	return _i_stream_create(&lstream->istream, pool, i_stream_get_fd(input),
