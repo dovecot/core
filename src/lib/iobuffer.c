@@ -495,7 +495,9 @@ static void block_loop_sendfile(IOBufferBlockContext *ctx)
 			ctx->outbuf->closed = TRUE;
 		ret = 0;
 	}
+
 	io_buffer_skip(ctx->inbuf, (size_t)ret);
+	ctx->outbuf->offset += ret;
 
 	ctx->size -= ret;
 	if (ctx->outbuf->closed || ctx->size == 0)
@@ -522,7 +524,9 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 			return -1;
 		ret = 0;
 	}
+
 	io_buffer_skip(inbuf, (size_t)ret);
+	outbuf->offset += ret;
 
 	if ((uoff_t) ret == long_size) {
 		/* yes, all sent */
