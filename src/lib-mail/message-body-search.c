@@ -48,7 +48,7 @@ static void parse_content_type(const unsigned char *value, size_t value_len,
 {
 	struct part_search_context *ctx = context;
 
-	if (ctx->content_type != NULL) {
+	if (ctx->content_type == NULL) {
 		ctx->content_type = i_strndup(value, value_len);
 		ctx->content_type_text =
 			strncasecmp(ctx->content_type, "text/", 5) == 0 ||
