@@ -3,7 +3,8 @@
 #include "config.h"
 #undef HAVE_CONFIG_H
 
-#if defined(PASSDB_MYSQL) || defined(USERDB_MYSQL)
+//#if defined(PASSDB_MYSQL) || defined(USERDB_MYSQL)
+#if 1
 #include "common.h"
 #include "network.h"
 #include "str.h"
@@ -24,6 +25,11 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, db_user),
 	DEF(SET_STR, db_passwd),
 	DEF(SET_INT, db_client_flags),
+	DEF(SET_STR, ssl_key),
+	DEF(SET_STR, ssl_cert),
+	DEF(SET_STR, ssl_ca),
+	DEF(SET_STR, ssl_ca_path),
+	DEF(SET_STR, ssl_cipher),
 	DEF(SET_STR, password_query),
 	DEF(SET_STR, user_query),
 	DEF(SET_STR, default_pass_scheme)
@@ -37,6 +43,11 @@ struct mysql_settings default_mysql_settings = {
 	MEMBER(db_user) NULL,
 	MEMBER(db_passwd) NULL,
 	MEMBER(db_client_flags) 0,
+	MEMBER(ssl_key) NULL,
+	MEMBER(ssl_cert) NULL,
+	MEMBER(ssl_ca) NULL,
+	MEMBER(ssl_ca_path) NULL,
+	MEMBER(ssl_cipher) "HIGH",
 	MEMBER(password_query) "SELECT password FROM users WHERE userid = '%u'",
 	MEMBER(user_query) "SELECT home, uid, gid FROM users WHERE userid = '%u'",
 	MEMBER(default_pass_scheme) "PLAIN-MD5"
@@ -102,6 +113,8 @@ void db_mysql_query(struct mysql_connection *conn, const char *query,
 
 static int mysql_conn_open(struct mysql_connection *conn)
 {
+	int use_ssl = FALSE;
+
 	if (conn->connected)
 		return TRUE;
 
@@ -113,6 +126,20 @@ static int mysql_conn_open(struct mysql_connection *conn)
 		}
 	}
 
+#ifdef HAVE_MYSQL_SSL
+	if (conn->set.ssl_ca != NULL || conn->set.ssl_ca_path != NULL) {
+		mysql_ssl_set(conn->mysql, conn->set.ssl_key,
+			      conn->set.ssl_cert,
+			      conn->set.ssl_ca,
+			      conn->set.ssl_ca_path
+#ifdef HAVE_MYSQL_SSL_CIPHER
+			      ,conn->set.ssl_cipher
+#endif
+			     );
+		use_ssl = TRUE;
+	}
+#endif
+
 	if (mysql_real_connect(conn->mysql, conn->set.db_host,
 			       conn->set.db_user, conn->set.db_passwd,
 			       conn->set.db,
@@ -123,7 +150,8 @@ static int mysql_conn_open(struct mysql_connection *conn)
 			conn->set.db, mysql_error(conn->mysql));
 	} else {
 		conn->connected = TRUE;
-		i_info("MySQL: connected to %s", conn->set.db_host);
+		i_info("MySQL: connected to %s%s", conn->set.db_host,
+		       use_ssl ? "using SSL" : "");
 	}
 	
 	return conn->connected;

@@ -24,6 +24,11 @@ struct mysql_settings {
 	const char *db_user;
 	const char *db_passwd;
 	unsigned int db_client_flags;
+	const char *ssl_key;
+	const char *ssl_cert;
+	const char *ssl_ca;
+	const char *ssl_ca_path;
+	const char *ssl_cipher;
 	const char *password_query;
 	const char *user_query;
 	const char *default_pass_scheme;
