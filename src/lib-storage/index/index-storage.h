@@ -84,7 +84,7 @@ struct index_mailbox {
 	int mbox_lock_type;
 	dev_t mbox_dev;
 	ino_t mbox_ino;
-	unsigned int mbox_locks;
+	unsigned int mbox_excl_locks, mbox_shared_locks;
 	struct dotlock mbox_dotlock;
 	unsigned int mbox_lock_id, mbox_mail_lock_id;
 	int mbox_readonly;

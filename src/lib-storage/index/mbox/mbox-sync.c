@@ -1159,9 +1159,22 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit,
 		}
 	}
 
-	if (sync_ctx.lock_id != 0 && (ret < 0 || !lock)) {
-		/* FIXME: drop to read locking and keep it MBOX_SYNC_SECS+1
-		   to make sure we notice changes made by others */
+	if (sync_ctx.lock_id != 0 && ibox->mbox_lock_type != F_RDLCK) {
+		/* drop to read lock */
+		unsigned int lock_id = 0;
+
+		if (mbox_lock(ibox, F_RDLCK, &lock_id) <= 0)
+			ret = -1;
+		else {
+			if (mbox_unlock(ibox, sync_ctx.lock_id) < 0)
+				ret = -1;
+			sync_ctx.lock_id = lock_id;
+		}
+	}
+
+	if (sync_ctx.lock_id != 0 && !lock) {
+		/* FIXME: keep the lock MBOX_SYNC_SECS+1 to make sure we
+		   notice changes made by others */
 		if (mbox_unlock(ibox, sync_ctx.lock_id) < 0)
 			ret = -1;
 	}
