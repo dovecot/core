@@ -229,7 +229,8 @@ static int ldap_conn_open(struct ldap_connection *conn)
 static void hash_ldap_request_destroy(void *key __attr_unused__,
 				      void *value, void *context)
 {
-        struct ldap_request *request;
+	struct ldap_request *request = value;
+	struct ldap_connection *conn = context;
 
 	request->callback(conn, request, NULL);
 	i_free(request);
