@@ -225,7 +225,9 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 				ret = -1;
 				break;
 			}
-			sync_ctx.base_uid_validity = hdr->uid_validity;
+			sync_ctx.base_uid_validity =
+				hdr->uid_validity == 0 ? (uint32_t)ioloop_time :
+				hdr->uid_validity;
 		}
 
 		if ((mail_ctx.need_rewrite ||
@@ -392,6 +394,19 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 
 	if (mail_index_get_header(sync_view, &hdr) < 0)
 		ret = -1;
+
+	if (sync_ctx.base_uid_validity != hdr->uid_validity) {
+		mail_index_update_header(t,
+			offsetof(struct mail_index_header, uid_validity),
+			&sync_ctx.base_uid_validity,
+			sizeof(sync_ctx.base_uid_validity));
+	}
+	if (sync_ctx.next_uid != hdr->next_uid) {
+		mail_index_update_header(t,
+			offsetof(struct mail_index_header, next_uid),
+			&sync_ctx.next_uid, sizeof(sync_ctx.next_uid));
+	}
+
 	if ((uint32_t)st.st_mtime != hdr->sync_stamp) {
 		uint32_t sync_stamp = st.st_mtime;
 

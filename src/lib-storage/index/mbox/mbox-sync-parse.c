@@ -102,11 +102,6 @@ static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 		return FALSE;
 	}
 
-	if (pos == hdr->full_value_len)
-		return TRUE;
-
-	// FIXME: save keywords
-
 	if (ctx->sync_ctx->base_uid_validity == 0) {
 		ctx->sync_ctx->base_uid_validity = uid_validity;
 		ctx->sync_ctx->base_uid_last = uid_last;
@@ -115,6 +110,12 @@ static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 
 	ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
 	ctx->seen_imapbase = TRUE;
+
+	if (pos == hdr->full_value_len)
+		return TRUE;
+
+	// FIXME: save keywords
+
 	return TRUE;
 }
 
