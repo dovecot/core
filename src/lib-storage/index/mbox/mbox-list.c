@@ -72,8 +72,9 @@ static int list_opendir(struct mail_storage *storage,
 	if (*dirp != NULL)
 		return 1;
 
-	if (!root && (errno == ENOENT || errno == ENOTDIR)) {
-		/* probably just race condition with other client
+	if (errno == ENOENT || errno == ENOTDIR) {
+		/* root) user gave invalid hiearchy, ignore
+		   sub) probably just race condition with other client
 		   deleting the mailbox. */
 		return 0;
 	}
@@ -128,8 +129,10 @@ mbox_list_mailbox_init(struct mail_storage *storage, const char *mask,
 	virtual_path = mask_get_dir(mask);
 
 	path = mbox_get_path(storage, virtual_path);
-	if (list_opendir(storage, path, TRUE, &dirp) <= 0)
+	if (list_opendir(storage, path, TRUE, &dirp) < 0)
 		return NULL;
+
+	/* if user gave invalid directory, we just don't show any results. */
 
 	ctx = i_new(struct mailbox_list_context, 1);
 	ctx->storage = storage;
@@ -139,15 +142,17 @@ mbox_list_mailbox_init(struct mail_storage *storage, const char *mask,
 
 	if (virtual_path == NULL && imap_match(ctx->glob, "INBOX") > 0)
 		ctx->next = mbox_list_inbox;
-	else if (virtual_path != NULL)
+	else if (virtual_path != NULL && dirp != NULL)
 		ctx->next = mbox_list_path;
 	else
 		ctx->next = mbox_list_next;
 
-	ctx->dir = i_new(struct list_dir_context, 1);
-	ctx->dir->dirp = dirp;
-	ctx->dir->real_path = i_strdup(path);
-	ctx->dir->virtual_path = i_strdup(virtual_path);
+	if (dirp != NULL) {
+		ctx->dir = i_new(struct list_dir_context, 1);
+		ctx->dir->dirp = dirp;
+		ctx->dir->real_path = i_strdup(path);
+		ctx->dir->virtual_path = i_strdup(virtual_path);
+	}
 	return ctx;
 }
 
