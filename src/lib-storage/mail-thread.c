@@ -89,6 +89,9 @@ mail_thread_init(enum mail_thread_type type, struct ostream *output,
 	struct mail_thread_context *ctx;
 	pool_t pool;
 
+	if (type != MAIL_THREAD_REFERENCES)
+		i_fatal("Only REFERENCES threading supported");
+
 	pool = pool_alloconly_create("mail_thread_context",
 				     sizeof(struct node) * APPROX_MSG_COUNT);
 

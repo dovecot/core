@@ -35,11 +35,13 @@ int cmd_thread(struct client *client)
 	}
 
 	str = IMAP_ARG_STR(args);
-	if (strcasecmp(str, "ORDEREDSUBJECT") == 0)
-		threading = MAIL_THREAD_ORDEREDSUBJECT;
-	else if (strcasecmp(str, "REFERENCES") == 0)
+	if (strcasecmp(str, "REFERENCES") == 0)
 		threading = MAIL_THREAD_REFERENCES;
-	else {
+	else if (strcasecmp(str, "ORDEREDSUBJECT") == 0) {
+		client_send_command_error(client,
+			"ORDEREDSUBJECT threading is currently not supported.");
+		return TRUE;
+	} else {
 		client_send_command_error(client, "Unknown thread algorithm.");
 		return TRUE;
 	}
