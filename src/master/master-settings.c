@@ -806,6 +806,11 @@ int master_settings_read(const char *path)
 
 	prev = NULL;
 	for (server = ctx.root; server != NULL; server = server->next) {
+		if (server->imap->protocols == NULL ||
+		    server->pop3->protocols == NULL) {
+			i_error("No protocols given in configuration file");
+			return FALSE;
+		}
 		if (!settings_is_active(server->imap))
 			server->imap = NULL;
 		else {
