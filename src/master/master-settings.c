@@ -240,8 +240,11 @@ static void auth_settings_verify(struct auth_settings *auth)
 
 static void login_settings_verify(struct login_settings *login)
 {
-	if (access(login->executable, X_OK) < 0)
-		i_fatal("Can't use login executable %s: %m", login->executable);
+	if (strstr(set->protocols, login->name) != NULL) {
+		if (access(login->executable, X_OK) < 0)
+			i_fatal("Can't use login executable %s: %m",
+				login->executable);
+	}
 
 	if (login->processes_count < 1)
 		i_fatal("login_processes_count must be at least 1");
