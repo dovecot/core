@@ -80,6 +80,8 @@ static void client_auth_abort(struct imap_client *client, const char *msg)
 		io_remove(client->common.io);
 	client->common.io = client->common.fd == -1 ? NULL :
 		io_add(client->common.fd, IO_READ, client_input, client);
+
+	client_unref(client);
 }
 
 static void master_callback(struct client *_client, int success)
@@ -146,6 +148,7 @@ static void login_callback(struct auth_request *request,
 		   disconnect the client. */
                 client->authenticating = FALSE;
 		client_send_tagline(client, "OK Logged in.");
+		client_unref(client);
 	}
 }
 
@@ -181,6 +184,7 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	buffer_append_c(client->plain_login, '\0');
 	buffer_append(client->plain_login, pass, strlen(pass));
 
+	client_ref(client);
 	client->common.auth_request =
 		auth_client_request_new(auth_client, AUTH_MECH_PLAIN,
 					AUTH_PROTOCOL_IMAP, login_callback,
@@ -188,6 +192,7 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	if (client->common.auth_request == NULL) {
 		client_send_tagline(client, t_strconcat(
 			"NO Login failed: ", error, NULL));
+		client_unref(client);
 		return TRUE;
 	}
 
@@ -224,6 +229,7 @@ static void authenticate_callback(struct auth_request *request,
 		   disconnect the client. */
                 client->authenticating = FALSE;
 		client_send_tagline(client, "OK Logged in.");
+		client_unref(client);
 	}
 }
 
@@ -304,6 +310,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 		return TRUE;
 	}
 
+	client_ref(client);
 	client->common.auth_request =
 		auth_client_request_new(auth_client, mech->mech,
 					AUTH_PROTOCOL_IMAP,
@@ -319,6 +326,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 	} else {
 		client_send_tagline(client, t_strconcat(
 			"NO Authentication failed: ", error, NULL));
+		client_unref(client);
 	}
 
 	return TRUE;

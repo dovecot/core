@@ -147,17 +147,28 @@ void auth_server_request_handle_reply(struct auth_server_connection *conn,
 }
 
 static void request_hash_remove(void *key __attr_unused__, void *value,
-				void *context __attr_unused__)
+				void *context)
 {
 	struct auth_request *request = value;
+        struct auth_server_connection *conn = context;
 
-	request->callback(request, NULL, NULL, request->context);
-	request->conn = NULL;
+	if (request->conn == conn) {
+		if (request->next_conn == NULL) {
+			request->callback(request, NULL, NULL,
+					  request->context);
+			request->conn = NULL;
+		} else {
+			request->conn = request->next_conn;
+			request->next_conn = NULL;
+		}
+	} else {
+		request->next_conn = NULL;
+	}
 }
 
 void auth_server_requests_remove_all(struct auth_server_connection *conn)
 {
-	hash_foreach(conn->requests, request_hash_remove, NULL);
+	hash_foreach(conn->requests, request_hash_remove, conn);
 }
 
 struct auth_request *
@@ -223,6 +234,8 @@ void auth_client_request_abort(struct auth_request *request)
 	hash_remove(request->conn->requests, id);
 	if (request->next_conn != NULL)
 		hash_remove(request->next_conn->requests, id);
+
+	request->callback(request, NULL, NULL, request->context);
 
 	i_free(request->plaintext_data);
 	i_free(request);

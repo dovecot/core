@@ -727,7 +727,7 @@ int mail_cache_truncate(struct mail_cache *cache)
 		return TRUE;
 	}
 
-	ret = mail_cache_open_and_verify(cache, FALSE);
+	ret = mail_cache_open_and_verify(cache, TRUE);
 	if (ret != 0)
 		return ret > 0;
 

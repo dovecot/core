@@ -41,8 +41,6 @@
 static struct hash_table *clients;
 static struct timeout *to_idle;
 
-static int client_unref(struct imap_client *client);
-
 static void client_set_title(struct imap_client *client)
 {
 	const char *addr;
@@ -286,7 +284,7 @@ void client_input(void *context)
 		return;
 	}
 
-	client->refcount++;
+	client_ref(client);
 
 	o_stream_cork(client->output);
 	while (client_handle_input(client)) ;
@@ -409,7 +407,12 @@ void client_destroy(struct imap_client *client, const char *reason)
 	client_unref(client);
 }
 
-static int client_unref(struct imap_client *client)
+void client_ref(struct imap_client *client)
+{
+	client->refcount++;
+}
+
+int client_unref(struct imap_client *client)
 {
 	if (--client->refcount > 0)
 		return TRUE;

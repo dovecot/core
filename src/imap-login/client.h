@@ -40,6 +40,9 @@ void client_syslog(struct imap_client *client, const char *text);
 int client_read(struct imap_client *client);
 void client_input(void *context);
 
+void client_ref(struct imap_client *client);
+int client_unref(struct imap_client *client);
+
 void clients_init(void);
 void clients_deinit(void);
 
