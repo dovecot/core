@@ -186,21 +186,33 @@ static int mbox_file_open_latest(struct mbox_lock_context *ctx, int lock_type)
 static int dotlock_callback(unsigned int secs_left, int stale, void *context)
 {
         struct mbox_lock_context *ctx = context;
-	int idx;
+	enum mbox_lock_type *lock_types;
+	int i;
 
 	if (stale && !ctx->dotlock_last_stale) {
-		/* get next index we wish to try locking */
-		for (idx = MBOX_LOCK_COUNT; idx > 0; idx--) {
-			if (ctx->lock_status[idx-1])
+		/* get next index we wish to try locking. it's the one after
+		   dotlocking. */
+		lock_types = ctx->lock_type == F_WRLCK ||
+			(ctx->lock_type == F_UNLCK &&
+			 ctx->ibox->mbox_lock_type == F_WRLCK) ?
+			write_locks : read_locks;
+
+		for (i = 0; lock_types[i] != (enum mbox_lock_type)-1; i++) {
+			if (lock_types[i] == MBOX_LOCK_DOTLOCK)
 				break;
 		}
 
-		if (mbox_lock_list(ctx, ctx->lock_type, 0, idx) <= 0) {
-			/* we couldn't get fcntl/flock - it's really locked */
-			ctx->dotlock_last_stale = TRUE;
-			return FALSE;
+		if (lock_types[i] != (enum mbox_lock_type)-1 &&
+		    lock_types[i+1] != (enum mbox_lock_type)-1) {
+			i++;
+			if (mbox_lock_list(ctx, ctx->lock_type, 0, i) <= 0) {
+				/* we couldn't get fd lock -
+				   it's really locked */
+				ctx->dotlock_last_stale = TRUE;
+				return FALSE;
+			}
+			(void)mbox_lock_list(ctx, F_UNLCK, 0, i);
 		}
-		(void)mbox_lock_list(ctx, F_UNLCK, 0, idx);
 	}
 	ctx->dotlock_last_stale = stale;
 
