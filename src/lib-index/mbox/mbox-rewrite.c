@@ -24,13 +24,13 @@ struct mbox_rewrite_context {
 	uoff_t content_length;
 	unsigned int seq, uid;
 	unsigned int msg_flags;
-        const char **custom_flags;
+	const char **custom_flags;
 
 	unsigned int uid_validity;
 	unsigned int uid_last;
+	char *x_keywords;
 
 	unsigned int ximapbase_found:1;
-	unsigned int xkeywords_found:1;
 	unsigned int xuid_found:1;
 	unsigned int status_found:1;
 	unsigned int xstatus_found:1;
@@ -120,14 +120,19 @@ static int mbox_write_xuid(struct mbox_rewrite_context *ctx)
 }
 
 static int mbox_write_xkeywords(struct mbox_rewrite_context *ctx,
-				const char *x_keywords)
+				const char *x_keywords, uoff_t wanted_offset,
+				int force_filler)
 {
 	unsigned int field;
 	int i;
 
 	if ((ctx->msg_flags & MAIL_CUSTOM_FLAGS_MASK) == 0 &&
-	    x_keywords == NULL)
+	    x_keywords == NULL && !force_filler &&
+	    ctx->output->offset + sizeof("X-Keywords:")+1 >= wanted_offset) {
+		/* nothing to do, and not enough extra space to write the
+		   filler. Do it only if there's space for "X-Keywords: \n" */
 		return TRUE;
+	}
 
 	if (o_stream_send_str(ctx->output, "X-Keywords:") < 0)
 		return FALSE;
@@ -150,6 +155,23 @@ static int mbox_write_xkeywords(struct mbox_rewrite_context *ctx,
 			return FALSE;
 
 		if (o_stream_send_str(ctx->output, x_keywords) < 0)
+			return FALSE;
+	}
+
+	/* fill the rest with spaces. -1 for \n */
+	if (ctx->output->offset < wanted_offset-1 || force_filler) {
+		char buf[1024];
+		uoff_t fill_left;
+
+		fill_left = force_filler ? MBOX_HEADER_EXTRA_SPACE :
+			wanted_offset-1 - ctx->output->offset;
+		memset(buf, ' ', sizeof(buf));
+		while (fill_left > sizeof(buf)) {
+			if (o_stream_send(ctx->output, buf, sizeof(buf)) < 0)
+				return FALSE;
+			fill_left -= sizeof(buf);
+		}
+		if (o_stream_send(ctx->output, buf, fill_left) < 0)
 			return FALSE;
 	}
 
@@ -304,17 +326,17 @@ static int write_header(struct mbox_rewrite_context *ctx,
 		break;
 	case 10:
 		if (strcasecmp(hdr->name, "X-Keywords") == 0) {
-			if (ctx->xkeywords_found)
+			if (ctx->x_keywords != NULL)
 				return TRUE;
 			if (hdr->continues) {
 				hdr->use_full_value = TRUE;
 				return TRUE;
 			}
 
-			ctx->xkeywords_found = TRUE;
 			str = strip_custom_flags(hdr->full_value,
 						 hdr->full_value_len, ctx);
-			return mbox_write_xkeywords(ctx, str);
+			ctx->x_keywords = i_strdup(str);
+			return TRUE;
 		} else if (strcasecmp(hdr->name, "X-IMAPbase") == 0) {
 			if (ctx->seq != 1 || ctx->ximapbase_found)
 				return TRUE;
@@ -352,7 +374,7 @@ static int write_header(struct mbox_rewrite_context *ctx,
 static int mbox_write_header(struct mail_index *index,
 			     struct mail_index_record *rec, unsigned int seq,
 			     struct istream *input, struct ostream *output,
-			     uoff_t end_offset,
+			     uoff_t end_offset, uoff_t wanted_offset,
 			     uoff_t hdr_size, uoff_t body_size)
 {
 	/* We need to update fields that define message flags. Standard fields
@@ -370,6 +392,7 @@ static int mbox_write_header(struct mail_index *index,
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
 	struct message_size hdr_parsed_size;
+	int force_filler;
 
 	if (input->v_offset >= end_offset) {
 		/* fsck should have noticed it.. */
@@ -394,8 +417,11 @@ static int mbox_write_header(struct mail_index *index,
 	i_stream_set_read_limit(input, input->v_offset + hdr_size);
 
 	hdr_ctx = message_parse_header_init(input, &hdr_parsed_size);
-	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL)
+	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
+		t_push();
 		write_header(&ctx, hdr);
+		t_pop();
+	}
 	message_parse_header_deinit(hdr_ctx);
 
 	i_stream_set_read_limit(input, 0);
@@ -408,16 +434,21 @@ static int mbox_write_header(struct mail_index *index,
 		(void)mbox_write_ximapbase(&ctx);
 	}
 
+	force_filler = !ctx.xuid_found;
 	if (!ctx.status_found)
 		(void)mbox_write_status(&ctx, NULL);
 	if (!ctx.xstatus_found)
 		(void)mbox_write_xstatus(&ctx, NULL);
-	if (!ctx.xkeywords_found)
-		(void)mbox_write_xkeywords(&ctx, NULL);
 	if (!ctx.xuid_found)
 		(void)mbox_write_xuid(&ctx);
 	if (!ctx.content_length_found)
 		(void)mbox_write_content_length(&ctx);
+
+	/* write the x-keywords header last so it can fill the extra space
+	   with spaces. -1 is for ending \n. */
+	(void)mbox_write_xkeywords(&ctx, ctx.x_keywords,
+				   wanted_offset - 1, force_filler);
+	i_free(ctx.x_keywords);
 
 	t_pop();
 
@@ -533,7 +564,7 @@ int mbox_index_rewrite(struct mail_index *index)
 	struct mail_index_record *rec;
 	struct istream *input;
 	struct ostream *output;
-	uoff_t offset, hdr_size, body_size, dirty_offset;
+	uoff_t offset, hdr_size, body_size, dirty_offset, wanted_offset;
 	const char *path;
 	unsigned int seq;
 	int tmp_fd, failed, dirty_found, rewrite, no_locking;
@@ -659,14 +690,15 @@ int mbox_index_rewrite(struct mail_index *index)
 
 			/* write header, updating flag fields */
 			offset += hdr_size;
+			wanted_offset = offset - dirty_offset;
 			if (!mbox_write_header(index, rec, seq, input, output,
-					       offset, hdr_size, body_size)) {
+					       offset, wanted_offset,
+					       hdr_size, body_size)) {
 				failed = TRUE;
 				break;
 			}
 
-			if (dirty_found &&
-			    offset - dirty_offset == output->offset) {
+			if (dirty_found && wanted_offset == output->offset) {
 				/* no need to write more, flush */
 				if (!dirty_flush(index, dirty_offset,
 						 output, tmp_fd)) {

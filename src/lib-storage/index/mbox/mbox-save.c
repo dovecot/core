@@ -15,8 +15,6 @@
 #include <sys/stat.h>
 #include <netdb.h>
 
-#define HEADER_EXTRA_SPACE 100
-
 struct mail_save_context {
 	struct index_mailbox *ibox;
 	int transaction;
@@ -196,7 +194,7 @@ static int save_header_callback(const char *name, write_func_t *write_func,
 		   value needs, then write that amount of spaces. */
 		space = strlen(get_custom_flags(ctx->flags));
 		space += sizeof("X-Keywords: ");
-		space += HEADER_EXTRA_SPACE + MAX_INT_STRLEN + 1;
+		space += MBOX_HEADER_EXTRA_SPACE + MAX_INT_STRLEN + 1;
 
 		/* @UNSAFE */
 		buf = t_malloc(space);

@@ -4,6 +4,9 @@
 #include "md5.h"
 #include "mail-index.h"
 
+/* Extra space to leave in X-Keywords header when rewriting mbox */
+#define MBOX_HEADER_EXTRA_SPACE 100
+
 struct mbox_header_context {
 	struct mail_index *index;
 	enum mail_flags flags;
