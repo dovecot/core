@@ -214,12 +214,12 @@ static void auth_process_input(void *context)
 			ret = auth_process_input_spid(process, line + 5);
 		else
 			ret = TRUE;
+		t_pop();
 
 		if (!ret) {
 			auth_process_destroy(process);
 			break;
 		}
-		t_pop();
 	}
 }
 
