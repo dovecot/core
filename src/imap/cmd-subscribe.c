@@ -17,7 +17,7 @@ int _cmd_subscribe_full(struct client *client, int subscribe)
 
 	storage = client_find_storage(client, mailbox);
 	if (storage == NULL)
-		return FALSE;
+		return TRUE;
 
 	if (mail_storage_set_subscribed(storage, mailbox, subscribe) < 0)
 		client_send_storage_error(client, storage);
