@@ -11,6 +11,7 @@
 #include "imap-bodystructure.h"
 #include "mail-index.h"
 #include "mail-index-data.h"
+#include "mail-index-util.h"
 
 struct _MailIndexUpdate {
 	Pool pool;
@@ -130,6 +131,9 @@ static int update_by_append(MailIndexUpdate *update)
 
 	if (max_size > INT_MAX) {
 		/* rec->data_size most likely corrupted */
+		index_set_error(update->index, "Error in index file %s: "
+				"data_size points outside file",
+				update->index->filepath);
 		update->index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
 		return FALSE;
 	}
@@ -161,9 +165,13 @@ static int update_by_append(MailIndexUpdate *update)
 			continue;
 		}
 
-		if (src_size > max_size || max_size - src_size > pos) {
+		if (src_size > max_size || max_size - src_size < pos) {
 			/* corrupted data file - old value had a field
 			   larger than expected */
+			index_set_error(update->index,
+					"Error in index file %s: "
+					"full_field_size points outside "
+					"data_size", update->index->filepath);
 			update->index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
 			return FALSE;
 		}

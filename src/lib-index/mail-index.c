@@ -40,9 +40,9 @@ static int mmap_update(MailIndex *index)
 	}
 
 	if (index->mmap_length < sizeof(MailIndexHeader)) {
-                INDEX_MARK_CORRUPTED(index);
 		index_set_error(index, "truncated index file %s",
 				index->filepath);
+                INDEX_MARK_CORRUPTED(index);
 		return FALSE;
 	}
 
@@ -988,6 +988,9 @@ const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
 	datarec = mail_index_data_lookup(index->data, rec, field);
 	if (datarec == NULL) {
 		/* corrupted, the field should have been there */
+		index_set_error(index, "Error in index file %s: "
+				"Field not found from data file",
+				index->filepath);
 		INDEX_MARK_CORRUPTED(index);
 		return NULL;
 	}
@@ -1135,7 +1138,10 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 			return FALSE;
 	}
 
-	mail_hash_update(index->hash, rec->uid, 0);
+	/* expunge() may be called while index is being rebuilt and when
+	   there's no hash yet */
+	if (index->hash != NULL)
+		mail_hash_update(index->hash, rec->uid, 0);
 
 	/* setting UID to 0 is enough for deleting the mail from index */
 	rec->uid = 0;
@@ -1185,6 +1191,9 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	/* update message counts */
 	if (hdr->messages_count == 0) {
 		/* corrupted */
+		index_set_error(index, "Error in index file %s: "
+				"Header says there's no mail while expunging",
+				index->filepath);
 		INDEX_MARK_CORRUPTED(index);
 		return FALSE;
 	}
