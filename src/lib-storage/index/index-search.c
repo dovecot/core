@@ -585,6 +585,10 @@ static void search_get_sequences(IndexMailbox *ibox, MailSearchArg *args,
 	search_get_sequid(ibox, args, first_seq, last_seq,
 			  &first_uid, &last_uid);
 
+	/* seq_update() should make sure that these can't happen */
+	i_assert(*first_seq >= *last_seq);
+	i_assert(first_uid >= last_uid);
+
 	if (first_uid != 0 && (*first_seq != 1 ||
 			       *last_seq != ibox->synced_messages_count)) {
 		/* UIDs were used - see if they affect the sequences */
@@ -613,6 +617,8 @@ static void search_get_sequences(IndexMailbox *ibox, MailSearchArg *args,
 		*first_seq = 1;
 	if (*last_seq == 0)
 		*last_seq = ibox->synced_messages_count;
+
+	i_assert(*first_seq >= *last_seq);
 }
 
 static void search_messages(IndexMailbox *ibox, MailSearchArg *args,
@@ -623,16 +629,13 @@ static void search_messages(IndexMailbox *ibox, MailSearchArg *args,
 	unsigned int first_seq, last_seq, seq;
 	char num[MAX_INT_STRLEN+10];
 
+	if (ibox->synced_messages_count == 0)
+		return;
+
 	/* see if we can limit the records we look at */
 	search_get_sequences(ibox, args, &first_seq, &last_seq);
 
-	if (first_seq > last_seq) {
-		/* not possible */
-		return;
-	}
-
 	ctx.ibox = ibox;
-
 	rec = ibox->index->lookup(ibox->index, first_seq);
 	for (seq = first_seq; rec != NULL && seq <= last_seq; seq++) {
 		ctx.rec = rec;
@@ -657,21 +660,16 @@ int index_storage_search(Mailbox *box, MailSearchArg *args,
 			 IOBuffer *outbuf, int uid_result)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
-	int failed;
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
-		failed = TRUE;
-	else {
-		io_buffer_send(outbuf, "* SEARCH", 8);
+		return mail_storage_set_index_error(ibox);
 
-		search_messages(ibox, args, outbuf, uid_result);
-		failed = !ibox->index->set_lock(ibox->index,
-						MAIL_LOCK_UNLOCK);
-		io_buffer_send(outbuf, "\r\n", 2);
-	}
+	io_buffer_send(outbuf, "* SEARCH", 8);
+	search_messages(ibox, args, outbuf, uid_result);
+	io_buffer_send(outbuf, "\r\n", 2);
 
-	if (failed)
-		(void)mail_storage_set_index_error(ibox);
+	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
+		return mail_storage_set_index_error(ibox);
 
-	return !failed;
+	return TRUE;
 }
