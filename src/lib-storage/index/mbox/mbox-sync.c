@@ -1091,8 +1091,12 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 			/* file is fully synced */
 			sync_ctx->ibox->mbox_sync_dirty = FALSE;
 			min_msg_count = 0;
-		} else if ((flags & MBOX_SYNC_UNDIRTY) != 0) {
-			/* we want to do full syncing */
+		} else if ((flags & MBOX_SYNC_UNDIRTY) != 0 ||
+			   (uint64_t)st.st_size == sync_ctx->hdr->sync_size) {
+			/* we want to do full syncing. always do this if
+			   file size hasn't changed but timestamp has. it most
+			   likely means that someone had modified some header
+			   and we probably want to know about it */
 			min_msg_count = (uint32_t)-1;
 			sync_ctx->ibox->mbox_sync_dirty = TRUE;
 		} else {
