@@ -153,7 +153,7 @@ static int remove_subj_leader(buffer_t *buf, size_t *start_pos,
 
 	if (*data == ' ') {
 		/* independent from checks below - always removed */
-		data++;
+		data++; orig_data++;
 		*start_pos += 1;
 		ret = TRUE;
 	}
