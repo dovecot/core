@@ -176,7 +176,8 @@ int client_read_args(Client *client, unsigned int count, unsigned int flags,
 		return FALSE;
 	} else {
 		/* error, or missing arguments */
-		client_send_command_error(client, NULL);
+		client_send_command_error(client, ret < 0 ? NULL :
+					  "Missing arguments");
 		return FALSE;
 	}
 }
