@@ -94,9 +94,10 @@ static int mbox_index_append_next(struct mail_index *index,
 	index->update_field_raw(update, DATA_FIELD_MD5,
 				md5_digest, sizeof(md5_digest));
 
-	if (!index->update_end(update))
+	if (!index->update_end(update)) {
+		index->append_abort(index, rec);
 		failed = TRUE;
-	else {
+	} else {
 		/* save message flags */
 		rec->msg_flags = ctx.flags;
 		mail_index_mark_flag_changes(index, rec, 0, rec->msg_flags);

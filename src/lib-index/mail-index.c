@@ -817,31 +817,12 @@ static int mail_index_truncate_hole(struct mail_index *index)
 	return TRUE;
 }
 
-#define INDEX_NEED_COMPRESS(records, hdr) \
-	((records) > INDEX_MIN_RECORDS_COUNT && \
-	 (records) * (100-INDEX_COMPRESS_PERCENTAGE) / 100 > \
-	 	(hdr)->messages_count)
-
-int mail_index_expunge(struct mail_index *index, struct mail_index_record *rec,
-		       unsigned int seq, int external_change)
+static void update_first_hole(struct mail_index *index,
+			      struct mail_index_record *rec)
 {
-	struct mail_index_header *hdr;
-	unsigned int records, uid, idx;
+	struct mail_index_header *hdr = index->header;
+	unsigned int idx;
 
-	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
-	i_assert(seq != 0);
-	i_assert(rec->uid != 0);
-
-	if (!mail_index_verify_hole_range(index))
-		return FALSE;
-
-	hdr = index->header;
-
-	/* setting UID to 0 is enough for deleting the mail from index */
-	uid = rec->uid;
-	rec->uid = 0;
-
-	/* update first hole */
 	idx = INDEX_RECORD_INDEX(index, rec);
 	if (hdr->first_hole_records == 0) {
 		/* first deleted message in index */
@@ -863,6 +844,33 @@ int mail_index_expunge(struct mail_index *index, struct mail_index_record *rec,
 			hdr->first_hole_records = 1;
 		}
 	}
+}
+
+#define INDEX_NEED_COMPRESS(records, hdr) \
+	((records) > INDEX_MIN_RECORDS_COUNT && \
+	 (records) * (100-INDEX_COMPRESS_PERCENTAGE) / 100 > \
+	 	(hdr)->messages_count)
+
+int mail_index_expunge(struct mail_index *index, struct mail_index_record *rec,
+		       unsigned int seq, int external_change)
+{
+	struct mail_index_header *hdr;
+	unsigned int records, uid;
+
+	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
+	i_assert(seq != 0);
+	i_assert(rec->uid != 0);
+
+	if (!mail_index_verify_hole_range(index))
+		return FALSE;
+
+	hdr = index->header;
+
+	/* setting UID to 0 is enough for deleting the mail from index */
+	uid = rec->uid;
+	rec->uid = 0;
+
+	update_first_hole(index, rec);
 
 	/* update message counts */
 	if (hdr->messages_count == 0) {
@@ -1010,6 +1018,22 @@ int mail_index_append_end(struct mail_index *index,
 	}
 
 	return TRUE;
+}
+
+void mail_index_append_abort(struct mail_index *index,
+			     struct mail_index_record *rec)
+{
+	i_assert(rec->uid == 0);
+
+	if (INDEX_FILE_POSITION(index, rec) ==
+	    index->header->used_file_size - sizeof(*rec)) {
+		/* we can just rollback */
+		index->header->used_file_size -= sizeof(*rec);
+		index->mmap_used_length += sizeof(*rec);
+	} else {
+		/* mark it deleted */
+		update_first_hole(index, rec);
+	}
 }
 
 enum mail_index_error mail_index_get_last_error(struct mail_index *index)

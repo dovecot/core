@@ -66,8 +66,10 @@ static int maildir_index_append_fd(struct mail_index *index,
 	/* parse the header and update record's fields */
 	failed = fd == -1 ? FALSE : !maildir_record_update(index, update, fd);
 
-	if (!index->update_end(update) || failed)
+	if (!index->update_end(update) || failed) {
+		index->append_abort(index, rec);
 		return FALSE;
+	}
 
 	return index->append_end(index, rec);
 }

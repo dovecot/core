@@ -323,6 +323,8 @@ struct mail_index {
 	struct mail_index_record *(*append_begin)(struct mail_index *index);
 	int (*append_end)(struct mail_index *index,
 			  struct mail_index_record *rec);
+	void (*append_abort)(struct mail_index *index,
+			     struct mail_index_record *rec);
 
 	/* Updating fields happens by calling update_begin(), one or more
 	   update_field()s and finally update_end() which does the actual
@@ -473,6 +475,8 @@ int mail_index_update_flags(struct mail_index *index,
 struct mail_index_record *mail_index_append_begin(struct mail_index *index);
 int mail_index_append_end(struct mail_index *index,
 			  struct mail_index_record *rec);
+void mail_index_append_abort(struct mail_index *index,
+			     struct mail_index_record *rec);
 struct mail_index_update *
 mail_index_update_begin(struct mail_index *index,
 			struct mail_index_record *rec);
