@@ -560,8 +560,8 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 {
 	parser->flags = flags;
 
-	while (count == 0 || parser->root_list->size < count ||
-	       IS_UNFINISHED(parser)) {
+	while (!parser->eol && (count == 0 || parser->root_list->size < count ||
+				IS_UNFINISHED(parser))) {
 		if (!imap_parser_read_arg(parser))
 			break;
 
@@ -580,7 +580,7 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 	} else if ((!IS_UNFINISHED(parser) && count > 0 &&
 		    parser->root_list->size >= count) || parser->eol) {
 		/* all arguments read / end of line. */
-		i_stream_skip(parser->input, parser->cur_pos);
+ 		i_stream_skip(parser->input, parser->cur_pos);
 		parser->cur_pos = 0;
 
 		if (parser->list_arg != NULL) {
