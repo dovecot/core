@@ -17,6 +17,13 @@ int cmd_delete(struct client *client)
 		return TRUE;
 	}
 
+	if (client->mailbox != NULL &&
+	    strcmp(client->mailbox->name, mailbox) == 0) {
+		client_send_tagline(client,
+				    "NO Selected mailbox can't be deleted.");
+		return TRUE;
+	}
+
 	if (client->storage->delete_mailbox(client->storage, mailbox))
 		client_send_tagline(client, "OK Delete completed.");
 	else
