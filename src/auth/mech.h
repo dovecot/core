@@ -22,6 +22,7 @@ struct auth_request {
 
 	pool_t pool;
 	char *user;
+	const char *extra_fields;
 
 	struct mech_module *mech;
 	struct auth_client_connection *conn;
@@ -34,6 +35,8 @@ struct auth_request {
 	mech_callback_t *callback;
 
 	unsigned int accept_input:1;
+	unsigned int no_failure_delay:1;
+	unsigned int no_login:1;
 	/* ... mechanism specific data ... */
 };
 

@@ -116,6 +116,15 @@ void mech_auth_finish(struct auth_request *request,
 		      const void *data, size_t data_size, int success)
 {
 	if (!success) {
+		if (request->no_failure_delay) {
+			/* passdb specifically requested to to delay the
+			   reply. */
+			request->callback(request, AUTH_CLIENT_RESULT_FAILURE,
+					  NULL, 0);
+			auth_request_destroy(request);
+			return;
+		}
+
 		/* failure. don't announce it immediately to avoid
 		   a) timing attacks, b) flooding */
 		if (auth_failures_buf->used > 0) {
@@ -134,7 +143,7 @@ void mech_auth_finish(struct auth_request *request,
 				  data, data_size);
 	}
 
-	if (request->conn == NULL ||
+	if (request->no_login || request->conn == NULL ||
 	    AUTH_MASTER_IS_DUMMY(request->conn->master)) {
 		/* we don't have master process, the request is no longer
 		   needed */

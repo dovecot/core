@@ -29,12 +29,60 @@ struct passdb_sql_request {
 
 static struct sql_connection *passdb_sql_conn;
 
+static void result_save_extra_fields(struct sql_result *result,
+				     struct auth_request *auth_request)
+{
+	unsigned int i, fields_count;
+	const char *name, *value;
+	string_t *str;
+
+	fields_count = sql_result_get_fields_count(result);
+	if (fields_count == 1)
+		return;
+
+	str = NULL;
+	for (i = 0; i < fields_count; i++) {
+		name = sql_result_get_field_name(result, i);
+		value = sql_result_get_field_value(result, i);
+
+		if (strcmp(name, "password") == 0)
+			continue;
+
+		if (strcmp(name, "nodelay") == 0) {
+			/* don't delay replying to client of the failure */
+			auth_request->no_failure_delay = *value == 'Y';
+			continue;
+		}
+
+		if (str == NULL)
+			str = str_new(auth_request->pool, 64);
+
+		if (strcmp(name, "nologin") == 0) {
+			if (*value == 'Y') {
+				/* user can't actually login - don't keep this
+				   reply for master */
+				auth_request->no_login = TRUE;
+				if (str_len(str) > 0)
+					str_append_c(str, '\t');
+				str_append(str, name);
+			}
+		} else {
+			if (str_len(str) > 0)
+				str_append_c(str, '\t');
+			str_printfa(str, "%s=%s", name, value);
+		}
+	}
+
+	if (str != NULL)
+		auth_request->extra_fields = str_c(str);
+}
+
 static void sql_query_callback(struct sql_result *result, void *context)
 {
 	struct passdb_sql_request *sql_request = context;
 	struct auth_request *auth_request = sql_request->auth_request;
 	const char *user, *password, *scheme;
-	int ret;
+	int ret, idx;
 
 	user = auth_request->user;
 	password = NULL;
@@ -49,16 +97,15 @@ static void sql_query_callback(struct sql_result *result, void *context)
 			i_info("sql(%s): Unknown user",
 			       get_log_prefix(auth_request));
 		}
+	} else if ((idx = sql_result_find_field(result, "password")) < 0) {
+		i_error("sql(%s): Password query didn't return password",
+			get_log_prefix(auth_request));
 	} else {
-		password = sql_result_find_field_value(result, "password");
-		if (password != NULL)
-			password = t_strdup(password);
-		else {
-			i_error("sql(%s): Password query didn't return "
-				"password, or it was NULL",
-				get_log_prefix(auth_request));
-		}
+		password = t_strdup(sql_result_get_field_value(result, idx));
+                result_save_extra_fields(result, auth_request);
+	}
 
+	if (ret > 0) {
 		/* make sure there was only one row returned */
 		if (sql_result_next_row(result) > 0) {
 			i_error("sql(%s): Password query returned multiple "
