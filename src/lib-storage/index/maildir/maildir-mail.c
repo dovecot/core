@@ -140,7 +140,7 @@ static uoff_t maildir_mail_get_size(struct mail *_mail)
 			p++;
 		}
 
-		if (*p == ':' || *p == ',' || *p != '\0') {
+		if (*p == ':' || *p == ',' || *p == '\0') {
 			index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
 					     &virtual_size,
 					     sizeof(virtual_size));
