@@ -65,8 +65,8 @@ static int get_mailbox_status(struct client *client,
 		box = client->mailbox;
 	} else {
 		/* open the mailbox */
-		box = mailbox_open(storage, mailbox, mailbox_open_flags |
-				   MAILBOX_OPEN_FAST | MAILBOX_OPEN_READONLY);
+		box = mailbox_open(storage, mailbox, MAILBOX_OPEN_FAST |
+				   MAILBOX_OPEN_READONLY);
 		if (box == NULL)
 			return FALSE;
 	}

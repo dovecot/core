@@ -97,24 +97,31 @@ static void mail_index_sync_update_flags(struct mail_index_update_ctx *ctx,
 
 static int mail_index_grow(struct mail_index *index, unsigned int count)
 {
-	size_t size, mmap_used_size;
+	struct mail_index_map *map = index->map;
+	size_t size, file_used_size;
 	unsigned int records_count;
 
+	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
+		(void)buffer_append_space_unsafe(map->buffer,
+			count * sizeof(struct mail_index_record));
+		return 0;
+	}
+
 	// FIXME: grow exponentially
-	size = index->map->mmap_used_size +
+	size = map->file_used_size +
 		count * sizeof(struct mail_index_record);
 	if (file_set_size(index->fd, (off_t)size) < 0)
 		return mail_index_set_syscall_error(index, "file_set_size()");
 
-	records_count = index->map->records_count;
-	mmap_used_size = index->map->mmap_used_size;
+	records_count = map->records_count;
+	file_used_size = map->file_used_size;
 
 	if (mail_index_map(index, TRUE) <= 0)
 		return -1;
 
-	i_assert(index->map->mmap_size >= size);
-	index->map->records_count = records_count;
-	index->map->mmap_used_size = mmap_used_size;
+	i_assert(map->file_size >= size);
+	map->records_count = records_count;
+	map->file_used_size = file_used_size;
 	return 0;
 }
 
@@ -127,20 +134,10 @@ static int mail_index_sync_appends(struct mail_index_update_ctx *ctx,
 	size_t space;
 	uint32_t next_uid;
 
-	if (!ctx->index->use_mmap) {
-		// FIXME
-	}
-
-	space = (map->mmap_size - map->mmap_used_size) / sizeof(*appends);
+	space = (map->file_size - map->file_used_size) / sizeof(*appends);
 	if (space < count) {
 		if (mail_index_grow(ctx->index, count) < 0)
 			return -1;
-
-		if (mprotect(map->mmap_base, map->mmap_size,
-			     PROT_READ|PROT_WRITE) < 0) {
-			mail_index_set_syscall_error(ctx->index, "mprotect()");
-			return -1;
-		}
 	}
 
 	next_uid = ctx->hdr.next_uid;
@@ -165,7 +162,7 @@ static int mail_index_sync_appends(struct mail_index_update_ctx *ctx,
 	memcpy(map->records + map->records_count, appends,
 	       count * sizeof(*appends));
 	map->records_count += count;
-	map->mmap_used_size += count * sizeof(struct mail_index_record);
+	map->file_used_size += count * sizeof(struct mail_index_record);
 	return 0;
 }
 
@@ -179,15 +176,20 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	unsigned int append_count;
 	uint32_t count, file_seq, src_idx, dest_idx;
 	uoff_t file_offset;
-	int ret, locked = FALSE;
-
-	if (mprotect(map->mmap_base, map->mmap_size, PROT_READ|PROT_WRITE) < 0)
-		return mail_index_set_syscall_error(index, "mprotect()");
+	int ret;
 
 	/* rewind */
 	sync_ctx->update_idx = sync_ctx->expunge_idx = 0;
 	sync_ctx->sync_appends =
 		buffer_get_used_size(sync_ctx->appends_buf) != 0;
+
+	if (!mail_index_sync_have_more(sync_ctx)) {
+		/* nothing to sync */
+		return 0;
+	}
+
+	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map))
+		map->write_to_disk = TRUE;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.index = index;
@@ -204,24 +206,25 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 			appends = rec.appends;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-			if (src_idx != 0) {
+			if (src_idx == 0) {
+				/* expunges have to be atomic. so we'll have
+				   to copy the mapping, do the changes there
+				   and then finally replace the whole index
+				   file. to avoid extra disk I/O we copy the
+				   index into memory rather than to temporary
+				   file */
+				map = mail_index_map_to_memory(map);
+				mail_index_unmap(index, index->map);
+				index->map = map;
+				map->write_to_disk = TRUE;
+
+				dest_idx = rec.seq1-1;
+			} else {
 				count = (rec.seq1-1) - src_idx;
 				memmove(map->records + dest_idx,
 					map->records + src_idx,
 					count * sizeof(*map->records));
 				dest_idx += count;
-			} else {
-				dest_idx = rec.seq1-1;
-				if (mail_index_lock_exclusive_copy(index) <= 0)
-					return -1;
-				map = index->map;
-				if (mprotect(map->mmap_base, map->mmap_size,
-					     PROT_READ|PROT_WRITE) < 0) {
-					mail_index_set_syscall_error(index,
-						"mprotect()");
-					return -1;
-				}
-				locked = TRUE;
 			}
 
 			mail_index_sync_update_expunges(&ctx, rec.seq1,
@@ -242,7 +245,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 		dest_idx += count;
 
 		map->records_count = dest_idx;
-		map->mmap_used_size = index->hdr->header_size +
+		map->file_used_size = index->hdr->header_size +
 			map->records_count * sizeof(struct mail_index_record);
 	}
 
@@ -256,18 +259,11 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	ctx.hdr.log_file_seq = file_seq;
 	ctx.hdr.log_file_offset = file_offset;
 
-	if (index->use_mmap) {
+	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
 		memcpy(map->mmap_base, &ctx.hdr, sizeof(ctx.hdr));
-		if (msync(map->mmap_base, map->mmap_used_size, MS_SYNC) < 0)
+		if (msync(map->mmap_base, map->file_used_size, MS_SYNC) < 0)
 			return mail_index_set_syscall_error(index, "msync()");
-	} else {
-		// FIXME
 	}
 
-	if (mprotect(map->mmap_base, map->mmap_size, PROT_READ) < 0)
-		mail_index_set_syscall_error(index, "mprotect()");
-
-	if (locked)
-		mail_index_unlock(index, 0);
 	return ret;
 }

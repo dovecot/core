@@ -7,8 +7,7 @@ struct message_size;
 
 enum mailbox_open_flags {
 	MAILBOX_OPEN_READONLY		= 0x01,
-	MAILBOX_OPEN_FAST		= 0x02,
-	MAILBOX_OPEN_MMAP_INVALIDATE	= 0x04
+	MAILBOX_OPEN_FAST		= 0x02
 };
 
 enum mailbox_list_flags {

@@ -3,6 +3,7 @@
 
 struct imap_arg;
 struct mailbox;
+struct client;
 
 /* Builds search arguments based on IMAP arguments. */
 struct mail_search_arg *

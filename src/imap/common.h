@@ -17,7 +17,6 @@
 extern struct ioloop *ioloop;
 extern unsigned int max_custom_flag_length, mailbox_check_interval;
 extern unsigned int imap_max_line_length;
-extern enum mailbox_open_flags mailbox_open_flags;
 
 extern string_t *capability_string;
 

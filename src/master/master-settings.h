@@ -63,6 +63,8 @@ struct settings {
 	int mail_max_flag_length;
 	int mail_save_crlf;
 	int mail_read_mmaped;
+	int mmap_disable;
+	int mmap_no_write;
 	int maildir_copy_with_hardlinks;
 	int maildir_check_content_changes;
 	const char *mbox_locks;
@@ -71,7 +73,6 @@ struct settings {
 	unsigned int mbox_dotlock_change_timeout;
 	unsigned int umask;
 	int mail_drop_priv_before_exec;
-	int index_mmap_invalidate;
 
 	const char *mail_executable;
 	unsigned int mail_process_size;

@@ -286,13 +286,13 @@ static int mail_transaction_log_file_create(struct mail_transaction_log *log,
 			if (mail_index_write_header(index, &idx_hdr) < 0)
 				ret = -1;
 		}
+		hdr.file_seq = index->hdr->log_file_seq;
 		mail_index_unlock(index, lock_id);
 
 		if (ret <= 0) {
 			(void)file_dotlock_delete(path, fd);
 			return -1;
 		}
-		hdr.file_seq = index->hdr->log_file_seq;
 	} else {
 		/* creating new index file */
 		hdr.file_seq = index->hdr->log_file_seq+1;
@@ -555,9 +555,10 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 				  uoff_t start_offset, uoff_t end_offset)
 {
+	struct mail_index *index = file->log->index;
 	size_t size;
 	struct stat st;
-	int ret;
+	int ret, use_mmap;
 
 	i_assert(start_offset <= end_offset);
 
@@ -565,6 +566,11 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		/* corrupted */
 		return 0;
 	}
+
+	/* with mmap_no_write we could alternatively just write to log with
+	   msync() rather than pwrite(). that'd cause slightly more disk I/O,
+	   so rather use more memory. */
+	use_mmap = !index->mmap_disable && !index->mmap_no_write;
 
 	if (file->buffer != NULL && file->buffer_offset <= start_offset) {
 		/* see if we already have it */
@@ -574,8 +580,8 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	}
 
 	if (fstat(file->fd, &st) < 0) {
-		mail_index_file_set_syscall_error(file->log->index,
-						  file->filepath, "fstat()");
+		mail_index_file_set_syscall_error(index, file->filepath,
+						  "fstat()");
 		return -1;
 	}
 
@@ -587,14 +593,13 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	}
 
 	if (file->buffer != NULL &&
-	    (file->mmap_base != NULL || file->log->index->use_mmap)) {
+	    (file->mmap_base != NULL || use_mmap)) {
 		buffer_free(file->buffer);
 		file->buffer = NULL;
 	}
 	if (file->mmap_base != NULL) {
 		if (munmap(file->mmap_base, file->mmap_size) < 0) {
-			mail_index_file_set_syscall_error(file->log->index,
-							  file->filepath,
+			mail_index_file_set_syscall_error(index, file->filepath,
 							  "munmap()");
 		}
 		file->mmap_base = NULL;
@@ -619,7 +624,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		return -1;
 	}
 
-	if (!file->log->index->use_mmap) {
+	if (!use_mmap) {
 		ret = mail_transaction_log_file_read(file, start_offset);
 		if (ret <= 0) {
 			/* make sure we don't leave ourself in
@@ -640,8 +645,8 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 			       MAP_SHARED, file->fd, 0);
 	if (file->mmap_base == MAP_FAILED) {
 		file->mmap_base = NULL;
-		mail_index_file_set_syscall_error(file->log->index,
-						  file->filepath, "mmap()");
+		mail_index_file_set_syscall_error(index, file->filepath,
+						  "mmap()");
 		return -1;
 	}
 	file->buffer = buffer_create_const_data(default_pool, file->mmap_base,

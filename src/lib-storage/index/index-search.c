@@ -558,17 +558,16 @@ static int search_msgset_fix(struct index_mailbox *ibox,
 }
 
 static int search_parse_msgset_args(struct index_mailbox *ibox,
+				    const struct mail_index_header *hdr,
 				    struct mail_search_arg *args,
 				    uint32_t *seq1_r, uint32_t *seq2_r)
 {
-	const struct mail_index_header *hdr;
-
 	*seq1_r = *seq2_r = 0;
 
-	hdr = mail_index_get_header(ibox->view);
 	for (; args != NULL; args = args->next) {
 		if (args->type == SEARCH_SUB) {
-			if (search_parse_msgset_args(ibox, args->value.subargs,
+			if (search_parse_msgset_args(ibox, hdr,
+						     args->value.subargs,
 						     seq1_r, seq2_r) < 0)
 				return -1;
 		} else if (args->type == SEARCH_OR) {
@@ -581,7 +580,8 @@ static int search_parse_msgset_args(struct index_mailbox *ibox,
 			*seq2_r = hdr->messages_count;
 
                         /* We still have to fix potential seqsets though */
-			if (search_parse_msgset_args(ibox, args->value.subargs,
+			if (search_parse_msgset_args(ibox, hdr,
+						     args->value.subargs,
 						     seq1_r, seq2_r) < 0)
 				return -1;
 		} else if (args->type == SEARCH_SEQSET) {
@@ -601,15 +601,12 @@ static int search_parse_msgset_args(struct index_mailbox *ibox,
 static int search_limit_lowwater(struct index_mailbox *ibox,
 				 uint32_t uid_lowwater, uint32_t *first_seq)
 {
-        const struct mail_index_header *hdr;
 	uint32_t seq1, seq2;
 
 	if (uid_lowwater == 0)
 		return 0;
 
-	hdr = mail_index_get_header(ibox->view);
-	if (mail_index_lookup_uid_range(ibox->view, uid_lowwater,
-					hdr->next_uid-1,
+	if (mail_index_lookup_uid_range(ibox->view, uid_lowwater, (uint32_t)-1,
 					&seq1, &seq2) < 0) {
 		mail_storage_set_index_error(ibox);
 		return -1;
@@ -621,12 +618,10 @@ static int search_limit_lowwater(struct index_mailbox *ibox,
 }
 
 static int search_limit_by_flags(struct index_mailbox *ibox,
+                                 const struct mail_index_header *hdr,
 				 struct mail_search_arg *args,
 				 uint32_t *seq1, uint32_t *seq2)
 {
-	const struct mail_index_header *hdr;
-
-	hdr = mail_index_get_header(ibox->view);
 	for (; args != NULL; args = args->next) {
 		if (args->type == SEARCH_SEEN) {
 			/* SEEN with 0 seen? */
@@ -688,12 +683,16 @@ static int search_get_seqset(struct index_search_context *ctx,
 {
         const struct mail_index_header *hdr;
 
-	if (search_parse_msgset_args(ctx->ibox, args,
+	if (mail_index_get_header(ctx->ibox->view, &hdr) < 0) {
+		mail_storage_set_index_error(ctx->ibox);
+		return -1;
+	}
+
+	if (search_parse_msgset_args(ctx->ibox, hdr, args,
 				     &ctx->seq1, &ctx->seq2) < 0)
 		return -1;
 
 	if (ctx->seq1 == 0) {
-		hdr = mail_index_get_header(ctx->ibox->view);
 		ctx->seq1 = 1;
 		ctx->seq2 = hdr->messages_count;
 	}
@@ -701,7 +700,8 @@ static int search_get_seqset(struct index_search_context *ctx,
 	i_assert(ctx->seq1 <= ctx->seq2);
 
 	/* UNSEEN and DELETED in root search level may limit the range */
-	if (search_limit_by_flags(ctx->ibox, args, &ctx->seq1, &ctx->seq2) < 0)
+	if (search_limit_by_flags(ctx->ibox, hdr, args,
+				  &ctx->seq1, &ctx->seq2) < 0)
 		return -1;
 	return 0;
 }

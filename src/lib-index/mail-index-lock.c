@@ -28,6 +28,7 @@
 */
 
 #include "lib.h"
+#include "mmap-util.h"
 #include "file-lock.h"
 #include "write-full.h"
 #include "mail-index-private.h"
@@ -46,7 +47,7 @@ static int mail_index_reopen(struct mail_index *index, int fd)
 		mail_index_set_syscall_error(index, "close()");
 	index->fd = fd;
 
-	ret = fd < 0 ? mail_index_try_open(index) :
+	ret = fd < 0 ? mail_index_try_open(index, NULL) :
 		mail_index_map(index, FALSE);
 	if (ret <= 0) {
 		// FIXME: serious problem, we'll just crash later..
@@ -79,7 +80,6 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 			   unsigned int timeout_secs, int update_index,
 			   unsigned int *lock_id_r)
 {
-	// FIXME: mprotect() the index to make sure we don't access it unlocked!
 	int ret;
 
 	i_assert(lock_type == F_RDLCK || lock_type == F_WRLCK);
@@ -147,6 +147,17 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		index->excl_lock_count++;
 		*lock_id_r = index->lock_id + 1;
 	}
+
+	if (index->map != NULL &&
+	    !MAIL_INDEX_MAP_IS_IN_MEMORY(index->map)) {
+		int prot = PROT_READ | (lock_type == F_WRLCK ? PROT_WRITE : 0);
+		if (mprotect(index->map->mmap_base,
+			     index->map->file_size, prot) < 0) {
+			mail_index_set_syscall_error(index, "mprotect()");
+			return -1;
+		}
+	}
+
 	return 1;
 }
 
@@ -178,9 +189,10 @@ static int mail_index_copy(struct mail_index *index)
 	if (fd == -1)
 		return -1;
 
-	ret = 0;
-	if (write_full(fd, index->map->mmap_base,
-		       index->map->mmap_used_size) < 0) {
+	ret = write_full(fd, index->map->hdr, sizeof(*index->map->hdr));
+	if (ret < 0 || write_full(fd, index->map->records,
+				  index->map->records_count *
+				  sizeof(struct mail_index_record)) < 0) {
 		mail_index_file_set_syscall_error(index, path, "write_full()");
 		(void)close(fd);
 		(void)unlink(path);
@@ -206,6 +218,43 @@ static int mail_index_need_lock(struct mail_index *index,
 		return 0;
 	}
 
+	return 1;
+}
+
+static int mail_index_lock_exclusive_copy(struct mail_index *index)
+{
+	int fd;
+
+	i_assert(index->log_locked);
+
+	if (index->copy_lock_path != NULL) {
+		index->excl_lock_count++;
+		return 1;
+	}
+
+	/* copy the index to index.tmp and use it. when */
+	fd = mail_index_copy(index);
+	if (fd == -1)
+		return -1;
+
+	index->lock_type = F_WRLCK;
+        index->excl_lock_count++;
+
+	if (mail_index_reopen(index, fd) < 0) {
+		i_assert(index->excl_lock_count == 1);
+		i_free(index->copy_lock_path);
+		index->copy_lock_path = NULL;
+
+		/* go back to old index */
+		(void)mail_index_reopen(index, -1);
+
+		index->lock_type = F_UNLCK;
+		index->excl_lock_count = 0;
+		index->shared_lock_count = 0;
+		return -1;
+	}
+
+        i_assert(index->excl_lock_count == 1);
 	return 1;
 }
 
@@ -253,43 +302,18 @@ int mail_index_lock_exclusive(struct mail_index *index,
 	return mail_index_lock_exclusive_copy(index);
 }
 
-int mail_index_lock_exclusive_copy(struct mail_index *index)
-{
-	int fd;
-
-	if (index->copy_lock_path != NULL) {
-		index->excl_lock_count++;
-		return 1;
-	}
-
-	/* copy the index to index.tmp and use it. when */
-	fd = mail_index_copy(index);
-	if (fd == -1)
-		return -1;
-
-	if (mail_index_reopen(index, fd) < 0) {
-		(void)mail_index_reopen(index, -1);
-		i_free(index->copy_lock_path);
-		index->copy_lock_path = NULL;
-		return -1;
-	}
-
-	index->lock_type = F_WRLCK;
-        index->excl_lock_count++;
-	return 1;
-}
-
-static void mail_index_copy_lock_finish(struct mail_index *index)
+static int mail_index_copy_lock_finish(struct mail_index *index)
 {
 	if (fsync(index->fd) < 0) {
 		mail_index_file_set_syscall_error(index, index->copy_lock_path,
 						  "fsync()");
+		return -1;
 	}
 
 	if (rename(index->copy_lock_path, index->filepath) < 0) {
 		mail_index_set_error(index, "rename(%s, %s) failed: %m",
 				     index->copy_lock_path, index->filepath);
-		// FIXME: this isn't good
+		return -1;
 	}
 
 	i_free(index->copy_lock_path);
@@ -298,15 +322,33 @@ static void mail_index_copy_lock_finish(struct mail_index *index)
 	index->shared_lock_count = 0;
 	index->lock_id += 2;
 	index->lock_type = F_UNLCK;
+	return 0;
 }
 
 void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 {
-	if (index->copy_lock_path != NULL) {
+	if (index->copy_lock_path != NULL ||
+	    (index->map != NULL && index->map->write_to_disk)) {
 		i_assert(index->log_locked);
 		i_assert(index->excl_lock_count > 0);
-		if (--index->excl_lock_count == 0)
-			mail_index_copy_lock_finish(index);
+		i_assert(lock_id == index->lock_id+1);
+
+		if (--index->excl_lock_count == 0) {
+			if (index->map != NULL && index->map->write_to_disk) {
+				if (index->copy_lock_path != NULL) {
+					/* new mapping replaces the old */
+					(void)unlink(index->copy_lock_path);
+                                        i_free(index->copy_lock_path);
+                                        index->copy_lock_path = NULL;
+				}
+				if (mail_index_copy(index) < 0) {
+					mail_index_set_inconsistent(index);
+					return;
+				}
+			}
+			if (mail_index_copy_lock_finish(index) < 0)
+				mail_index_set_inconsistent(index);
+		}
 		return;
 	}
 
@@ -326,6 +368,12 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 	if (index->shared_lock_count == 0 && index->excl_lock_count == 0) {
 		index->lock_id += 2;
 		index->lock_type = F_UNLCK;
+		if (index->map != NULL) {
+			if (mprotect(index->map->mmap_base,
+				     index->map->file_size, PROT_NONE) < 0)
+				mail_index_set_syscall_error(index,
+							     "mprotect()");
+		}
 		if (file_wait_lock(index->fd, F_UNLCK) < 0)
 			mail_index_set_syscall_error(index, "file_wait_lock()");
 	}

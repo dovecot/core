@@ -69,7 +69,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	i_assert(view->transactions == 0);
 	i_assert(!view->syncing);
 
-	if (mail_index_view_lock(view, TRUE) < 0)
+	if (mail_index_view_lock_head(view, TRUE) < 0)
 		return -1;
 
 	hdr = view->index->hdr;

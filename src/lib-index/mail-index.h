@@ -19,9 +19,13 @@ enum mail_index_open_flags {
 	   delay opening cache/log files unless they're needed. */
 	MAIL_INDEX_OPEN_FLAG_FAST		= 0x02,
 	/* Don't try to mmap() index files */
-	MAIL_INDEX_OPEN_FLAG_NO_MMAP		= 0x04,
+	MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE	= 0x04,
+	/* Don't try to write() to mmap()ed index files. Required for the few
+	   OSes that don't have unified buffer cache
+	   (currently OpenBSD <= 3.5) */
+	MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE	= 0x08,
 	/* Use only dotlocking, no fcntl() */
-	MAIL_INDEX_OPEN_FLAG_USE_DOTLOCKS	= 0x08
+	MAIL_INDEX_OPEN_FLAG_USE_DOTLOCKS	= 0x10
 };
 
 enum mail_index_header_compat_flags {
@@ -203,6 +207,8 @@ int mail_index_sync_begin(struct mail_index *index,
 /* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */
 int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec);
+/* Returns 1 if there's more to sync, 0 if not. */
+int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
 /* End synchronization by unlocking the index and closing the view. */
 int mail_index_sync_end(struct mail_index_sync_ctx *ctx);
 
@@ -228,9 +234,8 @@ mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx);
 
 /* Returns the index header. */
-const struct mail_index_header *
-mail_index_get_header(struct mail_index_view *view);
-
+int mail_index_get_header(struct mail_index_view *view,
+			  const struct mail_index_header **hdr_r);
 /* Returns the given message. */
 int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
 		      const struct mail_index_record **rec_r);

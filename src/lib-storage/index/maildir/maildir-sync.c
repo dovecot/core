@@ -76,7 +76,6 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 			       struct mail_index_view *view,
 			       struct mail_index_sync_rec *syncrec)
 {
-        const struct mail_index_record *rec;
 	uint32_t seq, uid;
 
 	switch (syncrec->type) {
@@ -304,7 +303,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 	const char *filename;
 	enum mail_flags flags;
 	custom_flags_mask_t custom_flags;
-	int ret = 0;
+	int ret;
 
 	if (mail_index_sync_begin(ibox->index, &sync_ctx, &view,
 				  (uint32_t)-1, (uoff_t)-1) <= 0) {
@@ -312,7 +311,9 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		return -1;
 	}
 
-	hdr = mail_index_get_header(view);
+	ret = mail_index_get_header(view, &hdr);
+	i_assert(ret == 0); /* view is locked, can't happen */
+
 	trans = mail_index_transaction_begin(view, FALSE);
 
 	seq = 0;

@@ -37,7 +37,8 @@ int index_storage_get_status(struct mailbox *box,
 	}
 
 	/* we can get most of the status items without any trouble */
-	hdr = mail_index_get_header(ibox->view);
+	if (mail_index_get_header(ibox->view, &hdr) < 0)
+		return -1;
 	if ((items & STATUS_MESSAGE_COUNTS) != 0) {
 		status->messages = hdr->messages_count;
 		status->unseen = hdr->messages_count - hdr->seen_messages_count;

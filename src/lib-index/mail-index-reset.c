@@ -10,9 +10,6 @@ int mail_index_reset(struct mail_index *index)
 {
 	struct mail_index_header hdr;
 
-	/* this invalidates all views even if we fail later */
-	index->indexid = 0;
-
 	if (mail_index_mark_corrupted(index) < 0)
 		return -1;
 

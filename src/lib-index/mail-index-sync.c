@@ -365,6 +365,13 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	return 0;
 }
 
+int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
+{
+	return (ctx->update_idx != ctx->updates_count) ||
+		(ctx->expunge_idx != ctx->expunges_count) ||
+		ctx->sync_appends;
+}
+
 int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 {
 	uint32_t seq;

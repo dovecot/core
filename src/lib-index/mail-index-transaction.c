@@ -19,7 +19,6 @@ mail_index_transaction_begin(struct mail_index_view *view, int hide)
 	t = i_new(struct mail_index_transaction, 1);
 	t->view = view;
 	t->hide_transaction = hide;
-	t->next_uid = view->index->hdr->next_uid;
 	return t;
 }
 
@@ -127,8 +126,6 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 {
         struct mail_index_record *rec;
 
-	i_assert(uid >= t->next_uid);
-
 	if (t->appends == NULL) {
 		t->appends = buffer_create_dynamic(default_pool,
 						   4096, (size_t)-1);
@@ -146,8 +143,6 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 	rec = buffer_append_space_unsafe(t->appends, sizeof(*rec));
 	memset(rec, 0, sizeof(*rec));
 	rec->uid = uid;
-
-	t->next_uid = uid+1;
 }
 
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)

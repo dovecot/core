@@ -261,14 +261,16 @@ int create_mail_process(struct login_group *group, int socket,
 		env_put("MAIL_SAVE_CRLF=1");
 	if (set->mail_read_mmaped)
 		env_put("MAIL_READ_MMAPED=1");
+	if (set->mmap_disable)
+		env_put("MMAP_DISABLE=1");
+	if (set->mmap_no_write)
+		env_put("MMAP_NO_WRITE=1");
 	if (set->maildir_copy_with_hardlinks)
 		env_put("MAILDIR_COPY_WITH_HARDLINKS=1");
 	if (set->maildir_check_content_changes)
 		env_put("MAILDIR_CHECK_CONTENT_CHANGES=1");
 	if (set->mail_full_filesystem_access)
 		env_put("FULL_FILESYSTEM_ACCESS=1");
-	if (set->index_mmap_invalidate)
-		env_put("MMAP_INVALIDATE=1");
 	(void)umask(set->umask);
 
 	env_put(t_strconcat("MBOX_LOCKS=", set->mbox_locks, NULL));

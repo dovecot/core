@@ -88,6 +88,8 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_INT, mail_max_flag_length),
 	DEF(SET_BOOL, mail_save_crlf),
 	DEF(SET_BOOL, mail_read_mmaped),
+	DEF(SET_BOOL, mmap_disable),
+	DEF(SET_BOOL, mmap_no_write),
 	DEF(SET_BOOL, maildir_copy_with_hardlinks),
 	DEF(SET_BOOL, maildir_check_content_changes),
 	DEF(SET_STR, mbox_locks),
@@ -96,7 +98,6 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_INT, mbox_dotlock_change_timeout),
 	DEF(SET_INT, umask),
 	DEF(SET_BOOL, mail_drop_priv_before_exec),
-	DEF(SET_BOOL, index_mmap_invalidate),
 
 	DEF(SET_STR, mail_executable),
 	DEF(SET_INT, mail_process_size),
@@ -207,6 +208,12 @@ struct settings default_settings = {
 	MEMBER(mail_max_flag_length) 50,
 	MEMBER(mail_save_crlf) FALSE,
 	MEMBER(mail_read_mmaped) FALSE,
+	MEMBER(mmap_disable) FALSE,
+#ifdef MMAP_CONFLICTS_WRITE
+	MEMBER(mmap_no_write) TRUE,
+#else
+	MEMBER(mmap_no_write) FALSE,
+#endif
 	MEMBER(maildir_copy_with_hardlinks) FALSE,
 	MEMBER(maildir_check_content_changes) FALSE,
 	MEMBER(mbox_locks) "dotlock fcntl",
@@ -215,11 +222,6 @@ struct settings default_settings = {
 	MEMBER(mbox_dotlock_change_timeout) 30,
 	MEMBER(umask) 0077,
 	MEMBER(mail_drop_priv_before_exec) FALSE,
-#ifdef NEED_MS_INVALIDATE
-	MEMBER(index_mmap_invalidate) TRUE,
-#else
-	MEMBER(index_mmap_invalidate) FALSE,
-#endif
 
 	MEMBER(mail_executable) PKG_LIBEXECDIR"/imap",
 	MEMBER(mail_process_size) 256,

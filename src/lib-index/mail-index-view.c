@@ -17,8 +17,8 @@ struct mail_index_view *mail_index_view_open(struct mail_index *index)
 	view->map = index->map;
 	view->map->refcount++;
 
-	view->log_file_seq = view->index->hdr->log_file_seq;
-	view->log_file_offset = view->index->hdr->log_file_offset;
+	view->log_file_seq = view->map->log_file_seq;
+	view->log_file_offset = view->map->log_file_offset;
 	return view;
 }
 
@@ -33,21 +33,20 @@ void mail_index_view_close(struct mail_index_view *view)
 	i_free(view);
 }
 
-static int
-mail_index_view_lock_head(struct mail_index_view *view, int update_index)
+int mail_index_view_lock_head(struct mail_index_view *view, int update_index)
 {
 	if (!mail_index_is_locked(view->index, view->lock_id)) {
-		if (view->index->indexid != view->map->hdr->indexid) {
-			/* index was rebuilt */
-			view->inconsistent = TRUE;
-			return -1;
-		}
-
 		if (mail_index_lock_shared(view->index, update_index,
 					   &view->lock_id) < 0)
 			return -1;
 
 		if (mail_index_map(view->index, FALSE) <= 0) {
+			view->inconsistent = TRUE;
+			return -1;
+		}
+
+		if (view->index->indexid != view->map->hdr->indexid) {
+			/* index was rebuilt */
 			view->inconsistent = TRUE;
 			return -1;
 		}
@@ -104,10 +103,14 @@ void mail_index_view_transaction_unref(struct mail_index_view *view)
 	view->transactions--;
 }
 
-const struct mail_index_header *
-mail_index_get_header(struct mail_index_view *view)
+int mail_index_get_header(struct mail_index_view *view,
+			  const struct mail_index_header **hdr_r)
 {
-	return view->map->hdr;
+	if (mail_index_view_lock(view, FALSE) < 0)
+		return -1;
+
+	*hdr_r = view->map->hdr;
+	return 0;
 }
 
 int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
@@ -225,6 +228,9 @@ int mail_index_lookup_uid_range(struct mail_index_view *view,
 		*last_seq_r = *first_seq_r;
 		return 0;
 	}
+
+	if (last_uid >= view->map->hdr->next_uid)
+		last_uid = view->map->hdr->next_uid-1;
 
 	/* optimization - binary lookup only from right side: */
 	*last_seq_r = mail_index_bsearch_uid(view, last_uid, &left_idx, -1);

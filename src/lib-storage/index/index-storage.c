@@ -312,6 +312,10 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 	index_flags = MAIL_INDEX_OPEN_FLAG_CREATE;
 	if ((flags & MAILBOX_OPEN_FAST) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_FAST;
+	if (getenv("MMAP_DISABLE") != NULL)
+		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
+	if (getenv("MMAP_NO_WRITE") != NULL)
+		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE;
 
 	do {
 		ibox = i_new(struct index_mailbox, 1);

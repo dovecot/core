@@ -5,7 +5,7 @@ struct mail_index_transaction {
 	struct mail_index_view *view;
 
         buffer_t *appends;
-	uint32_t first_new_seq, last_new_seq, next_uid;
+	uint32_t first_new_seq, last_new_seq;
 
 	buffer_t *expunges;
 
