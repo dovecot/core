@@ -613,8 +613,8 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		/* uidvalidity changed and mailbox isn't being initialized,
 		   index must be rebuilt */
 		mail_storage_set_critical(ibox->box.storage,
-			"Maildir sync: UIDVALIDITY changed (%u -> %u)",
-			hdr->uid_validity, uid_validity);
+			"Maildir %s sync: UIDVALIDITY changed (%u -> %u)",
+			ibox->path, hdr->uid_validity, uid_validity);
 		mail_index_mark_corrupted(ibox->index);
 		(void)mail_index_sync_end(sync_ctx.sync_ctx);
 		return -1;
@@ -657,9 +657,11 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 				     MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
 					mail_storage_set_critical(
 						ibox->box.storage,
-						"Maildir sync: UID < next_uid "
+						"Maildir %s sync: "
+						"UID < next_uid "
 						"(%u < %u, file = %s)",
-						uid, hdr->next_uid, filename);
+						ibox->path, uid, hdr->next_uid,
+						filename);
 					mail_index_mark_corrupted(ibox->index);
 					ret = -1;
 					break;
@@ -698,10 +700,10 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			   in next sync. */
 			if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
 				mail_storage_set_critical(ibox->box.storage,
-					"Maildir sync: UID inserted in the "
+					"Maildir %s sync: UID inserted in the "
 					"middle of mailbox "
 					"(%u > %u, file = %s)",
-					rec->uid, uid, filename);
+					ibox->path, rec->uid, uid, filename);
 				mail_index_mark_corrupted(ibox->index);
 				ret = -1;
 				break;
