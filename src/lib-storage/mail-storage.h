@@ -28,7 +28,8 @@ typedef enum {
 typedef enum {
 	MAILBOX_NAME_EXISTS,
 	MAILBOX_NAME_VALID,
-	MAILBOX_NAME_INVALID
+	MAILBOX_NAME_INVALID,
+	MAILBOX_NAME_NOINFERIORS
 } MailboxNameStatus;
 
 typedef enum {
@@ -79,13 +80,17 @@ struct _MailStorage {
 	Mailbox *(*open_mailbox)(MailStorage *storage, const char *name,
 				 int readonly, int fast);
 
-	/* name is allowed to contain multiple new hierarchy levels */
+	/* name is allowed to contain multiple new hierarchy levels. */
 	int (*create_mailbox)(MailStorage *storage, const char *name);
+
+	/* Only the specified mailbox is deleted, ie. folders under the
+	   specified mailbox must not be deleted. */
 	int (*delete_mailbox)(MailStorage *storage, const char *name);
 
 	/* If the name has inferior hierarchical names, then the inferior
 	   hierarchical names MUST also be renamed (ie. foo -> bar renames
-	   also foo/bar -> bar/bar).
+	   also foo/bar -> bar/bar). newname may contain multiple new
+	   hierarchies.
 
 	   If oldname is case-insensitively "INBOX", the mails are moved
 	   into new folder but the INBOX folder must not be deleted. */
