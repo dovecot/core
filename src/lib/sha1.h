@@ -51,7 +51,7 @@ struct sha1_ctxt {
 		uint8_t	b8[64];
 		uint32_t b32[16];
 	} m;
-	u_int8_t	count;
+	uint8_t	count;
 };
 
 extern void sha1_init(struct sha1_ctxt *);
