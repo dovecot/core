@@ -420,6 +420,7 @@ mbox_open(struct index_storage *storage, const char *name,
 
 	ibox->path = i_strdup(path);
 	ibox->mbox_fd = -1;
+	ibox->mbox_lock_type = F_UNLCK;
 
 	ibox->get_recent_count = mbox_get_recent_count;
 	ibox->mail_interface = &mbox_mail;

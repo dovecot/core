@@ -22,6 +22,9 @@ static void status_flags_replace(struct mbox_sync_mail_context *ctx, size_t pos,
 	size_t size;
 	int i, need, have;
 
+	if (ctx->header_first_change > pos)
+		ctx->header_first_change = pos;
+
 	/* how many bytes do we need? */
 	for (i = 0, need = 0; flags_list[i].chr != 0; i++) {
 		if ((ctx->mail.flags & flags_list[i].flag) != 0)
@@ -40,7 +43,7 @@ static void status_flags_replace(struct mbox_sync_mail_context *ctx, size_t pos,
 				break;
 		}
 
-		if (flags_list[i].chr == 0)
+		if (flags_list[i].chr != 0)
 			have++;
 		else {
 			/* save this one */
@@ -52,8 +55,14 @@ static void status_flags_replace(struct mbox_sync_mail_context *ctx, size_t pos,
 	if (need < have)
 		str_delete(ctx->header, pos, have-need);
 	else if (need > have) {
-		buffer_copy(ctx->header, pos + (have-need),
+		buffer_copy(ctx->header, pos + (need-have),
 			    ctx->header, pos, (size_t)-1);
+	}
+
+	for (i = 0; i < MBOX_HDR_COUNT; i++) {
+		if (ctx->hdr_pos[i] > pos &&
+		    ctx->hdr_pos[i] != (size_t)-1)
+			ctx->hdr_pos[i] += need - have;
 	}
 
 	/* @UNSAFE */
@@ -76,16 +85,17 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 	int i, have_keywords;
 
 	old_hdr_size = ctx->body_offset - ctx->hdr_offset;
-	new_hdr_size = str_len(ctx->header) + ctx->have_eoh;
+	new_hdr_size = str_len(ctx->header);
 
-	if (ctx->seq == 1 && ctx->sync_ctx->base_uid_validity == 0) {
+	if (ctx->seq == 1 && ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1) {
 		ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
 		str_printfa(ctx->header, "X-IMAPbase: %u %u",
-			    ctx->sync_ctx->hdr->uid_validity,
-			    ctx->sync_ctx->next_uid);
+			    ctx->sync_ctx->base_uid_validity,
+			    ctx->sync_ctx->next_uid-1);
 		//FIXME:keywords_append(ctx, all_keywords);
 		str_append_c(ctx->header, '\n');
 	}
+	i_assert(ctx->sync_ctx->base_uid_validity != 0);
 
 	if (ctx->hdr_pos[MBOX_HDR_X_UID] == (size_t)-1) {
 		if (ctx->mail.uid == 0)
@@ -97,6 +107,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 
 	if (ctx->hdr_pos[MBOX_HDR_STATUS] == (size_t)-1 &&
 	    (ctx->mail.flags & STATUS_FLAGS_MASK) != 0) {
+		ctx->mail.flags |= MBOX_NONRECENT;
 		ctx->hdr_pos[MBOX_HDR_STATUS] = str_len(ctx->header);
 		str_append(ctx->header, "Status: ");
 		status_flags_append(ctx, mbox_status_flags);
@@ -135,8 +146,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		if (ctx->header_first_change == (size_t)-1)
 			ctx->header_first_change = new_hdr_size;
 		ctx->header_last_change = (size_t)-1;
-		ctx->mail.space -= str_len(ctx->header) -
-			(new_hdr_size - ctx->have_eoh);
+		ctx->mail.space -= str_len(ctx->header) - new_hdr_size;
 		if (ctx->mail.space > 0) {
 			/* we should rewrite this header, so offset
 			   must be broken if it's used anymore. */
@@ -146,7 +156,6 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 			   offset to point back to beginning of headers */
 			ctx->mail.offset = ctx->hdr_offset;
 		}
-		new_hdr_size = str_len(ctx->header) + ctx->have_eoh;
 	}
 
 	if (ctx->header_first_change == (size_t)-1) {
@@ -208,6 +217,11 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 		if (memcmp(old_keywords, ctx->mail.keywords,
 			   INDEX_KEYWORDS_BYTE_COUNT) != 0)
 			mbox_sync_update_xkeywords(ctx);
+	} else {
+		if ((ctx->mail.flags & MBOX_NONRECENT) == 0) {
+			ctx->mail.flags |= MBOX_NONRECENT;
+			mbox_sync_update_status(ctx);
+		}
 	}
 
         mbox_sync_add_missing_headers(ctx);
@@ -217,9 +231,10 @@ void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 				  const struct mbox_sync_mail *mail)
 {
 	if ((ctx->mail.flags & STATUS_FLAGS_MASK) !=
-	    (mail->flags & STATUS_FLAGS_MASK)) {
+	    (mail->flags & STATUS_FLAGS_MASK) ||
+	    (ctx->mail.flags & MBOX_NONRECENT) == 0) {
 		ctx->mail.flags = (ctx->mail.flags & ~STATUS_FLAGS_MASK) |
-			(mail->flags & STATUS_FLAGS_MASK);
+			(mail->flags & STATUS_FLAGS_MASK) | MBOX_NONRECENT;
 		mbox_sync_update_status(ctx);
 	}
 	if ((ctx->mail.flags & XSTATUS_FLAGS_MASK) !=

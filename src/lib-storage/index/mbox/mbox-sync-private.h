@@ -59,8 +59,6 @@ struct mbox_sync_context {
 	struct istream *input, *file_input;
 	int fd;
 
-	const struct mail_index_header *hdr;
-
 	buffer_t *header;
 	uint32_t base_uid_validity, base_uid_last;
 	uint32_t prev_msg_uid, next_uid;

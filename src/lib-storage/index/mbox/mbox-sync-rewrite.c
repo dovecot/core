@@ -58,7 +58,10 @@ static void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 	memset(p, ' ', size);
 
 	ctx->mail.offset = ctx->hdr_offset + pos;
-	ctx->mail.space += size;
+	if (ctx->mail.space < 0)
+		ctx->mail.space = size;
+	else
+		ctx->mail.space += size;
 
 	if (ctx->header_first_change > pos)
 		ctx->header_first_change = pos;
@@ -136,15 +139,17 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx)
 	size_t old_hdr_size, new_hdr_size;
 	const unsigned char *data;
 
+	i_assert(ctx->sync_ctx->ibox->mbox_lock_type == F_WRLCK);
+
 	old_hdr_size = ctx->body_offset - ctx->hdr_offset;
 	new_hdr_size = str_len(ctx->header);
 
 	/* do we have enough space? */
-	if (new_hdr_size < old_hdr_size)
+	if (new_hdr_size < old_hdr_size) {
 		mbox_sync_headers_add_space(ctx, old_hdr_size - new_hdr_size);
-	else if (new_hdr_size > old_hdr_size) {
+	} else if (new_hdr_size > old_hdr_size) {
 		size_t needed = new_hdr_size - old_hdr_size;
-		if (ctx->mail.space < needed)
+		if (ctx->mail.space < 0)
 			return 0;
 
 		mbox_sync_headers_remove_space(ctx, needed);
@@ -152,7 +157,10 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx)
 
 	i_assert(ctx->header_first_change != (size_t)-1);
 
-	if (ctx->header_last_change != (size_t)-1)
+	/* FIXME: last_change should rather just tell if we want to truncate
+	   to beginning of extra whitespace */
+	if (ctx->header_last_change != (size_t)-1 &&
+	    ctx->header_last_change != 0)
 		str_truncate(ctx->header, ctx->header_last_change);
 
 	data = str_data(ctx->header);
@@ -204,10 +212,9 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	/* we're moving next message - update it's from_offset */
 	mbox_sync_fix_from_offset(sync_ctx, idx+1, mails[idx+1].space);
 
-	if (mail_ctx.mail.space <= 0) {
-		mail_ctx.mail.space = 0;
+	if (mail_ctx.mail.space <= 0)
 		mbox_sync_headers_add_space(&mail_ctx, extra_per_mail);
-	} else if (mail_ctx.mail.space <= extra_per_mail) {
+	else if (mail_ctx.mail.space <= extra_per_mail) {
 		mbox_sync_headers_add_space(&mail_ctx, extra_per_mail -
 					    mail_ctx.mail.space);
 	} else {
@@ -245,6 +252,8 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 	uoff_t offset, end_offset;
 	uint32_t idx, extra_per_mail;
 	int ret = 0;
+
+	i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
 
 	mails = buffer_get_modifyable_data(mails_buf, &size);
 	size /= sizeof(*mails);

@@ -247,7 +247,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	ctx->hdr_offset = ctx->mail.offset;
 
         ctx->header_first_change = (size_t)-1;
-	ctx->header_last_change = (size_t)-1;
+	ctx->header_last_change = 0;
 
 	for (i = 0; i < MBOX_HDR_COUNT; i++)
 		ctx->hdr_pos[i] = (size_t)-1;
