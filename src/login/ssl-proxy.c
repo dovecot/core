@@ -54,8 +54,10 @@ static int proxy_recv_ssl(SSLProxy *proxy, void *data, unsigned int size)
 	if (rcvd > 0)
 		return rcvd;
 
-	if (rcvd == 0) {
-		/* disconnected */
+	if (rcvd == 0 || rcvd == GNUTLS_E_UNEXPECTED_PACKET_LENGTH) {
+		/* disconnected, either by nicely telling us that we'll
+		   close the connection, or by simply killing the
+		   connection which gives us the packet length error. */
 		ssl_proxy_destroy(proxy);
 		return -1;
 	}
