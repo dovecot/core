@@ -4,8 +4,9 @@
    fdpass.c - File descriptor passing between processes via UNIX sockets
 
    This isn't fully portable, but pretty much all UNIXes nowadays should
-   support this. If you're having runtime problems, check the end of fd_read()
-   and play with the if condition.
+   support this. If you're having runtime problems with fd_read(), check the
+   end of fd_read() and play with the if condition. If you're having problems
+   with fd_send(), try defining BUGGY_CMSG_HEADERS.
 
    If this file doesn't compile at all, you should check if this is supported
    in your system at all. It may require some extra #define to enable it.
@@ -18,7 +19,6 @@
 #  define _XOPEN_SOURCE 4 /* for IRIX */
 #endif
 
-
 #if !defined(_AIX) && !defined(_XOPEN_SOURCE_EXTENDED)
 #  define _XOPEN_SOURCE_EXTENDED /* for Tru64, breaks AIX */
 #endif
@@ -30,25 +30,57 @@
 #include <sys/un.h>
 #include <sys/uio.h>
 
-/* Solaris uses 32bit socklen_t as cmsg_len, so with Solaris we use
-   _CMSG_DATA_ALIGN() macro to do the alignment for us.
+/* RFC 2292 defines CMSG_*() macros, but some operating systems don't have them
+   so we'll define our own if they don't exist.
 
-   Perhaps the best solution would be to change sizeof(size_t) calculations
-   to sizeof(cmsg->cmsg_len)? At least if other OSes have similiar problems.. */
+   CMSG_LEN(data) is used to calculate size of sizeof(struct cmsghdr) +
+   sizeof(data) and padding between them.
+
+   CMSG_SPACE(data) also calculates the padding needed after the data, in case
+   multiple objects are sent.
+
+   cmsghdr contains cmsg_len field and two integers. cmsg_len is sometimes
+   defined as sockaddr_t and sometimes size_t, so it can be either 32bit or
+   64bit. This padding is added by compiler in sizeof(struct cmsghdr).
+
+   Padding required by CMSG_DATA() can vary. Usually it wants size_t or 32bit.
+   With Solaris it's in _CMSG_DATA_ALIGNMENT (32bit), we assume others want
+   size_t.
+
+   We don't really need CMSG_SPACE() to be exactly correct, because currently
+   we send only one object at a time. But anyway I'm trying to keep that
+   correct in case it's sometimes needed..
+*/
+
+#ifdef BUGGY_CMSG_HEADERS
+/* Some OSes have broken CMSG macros in 64bit systems. The macros use 64bit
+   alignmentation while kernel uses 32bit alignmentation. */
+#  undef CMSG_SPACE
+#  undef CMSG_LEN
+#  undef CMSG_DATA
+#  define CMSG_DATA(cmsg) ((char *)((cmsg) + 1))
+#  define _CMSG_DATA_ALIGNMENT sizeof(uint32_t)
+#  define _CMSG_HDR_ALIGNMENT sizeof(uint32_t)
+#endif
+
 #ifndef CMSG_SPACE
-#  if defined(_CMSG_DATA_ALIGN) && defined(_CMSG_HDR_ALIGN)  /* for Solaris */
-#    define CMSG_SPACE(len) \
-	(_CMSG_DATA_ALIGN(len) + _CMSG_DATA_ALIGN(sizeof(struct cmsghdr)))
-#    define CMSG_LEN(len) \
-	(_CMSG_DATA_ALIGN(sizeof(struct cmsghdr)) + (len))
-#  else
-#    define CMSG_ALIGN(len) \
-	(((len) + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1))
-#    define CMSG_SPACE(len) \
-	(CMSG_ALIGN(len) + CMSG_ALIGN(sizeof(struct cmsghdr)))
-#    define CMSG_LEN(len) \
-	(CMSG_ALIGN(sizeof(struct cmsghdr)) + (len))
+#  define MY_ALIGN(len, align) \
+	(((len) + align - 1) & ~(align - 1))
+
+/* Alignment between cmsghdr and data */
+#  ifndef _CMSG_DATA_ALIGNMENT
+#    define _CMSG_DATA_ALIGNMENT sizeof(size_t)
 #  endif
+/* Alignment between data and next cmsghdr */
+#  ifndef _CMSG_HDR_ALIGNMENT
+#    define _CMSG_HDR_ALIGNMENT sizeof(size_t)
+#  endif
+
+#  define CMSG_SPACE(len) \
+	(MY_ALIGN(sizeof(struct cmsghdr), _CMSG_DATA_ALIGNMENT) + \
+	 MY_ALIGN(len, _CMSG_HDR_ALIGNMENT))
+#  define CMSG_LEN(len) \
+	(MY_ALIGN(sizeof(struct cmsghdr), _CMSG_DATA_ALIGNMENT) + (len))
 #endif
 
 #ifdef SCM_RIGHTS
@@ -63,7 +95,7 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 	/* at least one byte is required to be sent with fd passing */
 	i_assert(size > 0 && size < SSIZE_T_MAX);
 
-	memset(&msg, 0, sizeof (struct msghdr));
+	memset(&msg, 0, sizeof(struct msghdr));
 
         iov.iov_base = (void *) data;
         iov.iov_len = size;
@@ -72,7 +104,7 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 	msg.msg_iovlen = 1;
 
 	if (send_fd != -1) {
-		/* set the control and controllen before CMSG_FIRSTHDR() */
+		/* set the control and controllen before CMSG_FIRSTHDR(). */
 		memset(buf, 0, sizeof(buf));
 		msg.msg_control = buf;
 		msg.msg_controllen = sizeof(buf);
@@ -83,8 +115,9 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 		cmsg->cmsg_len = CMSG_LEN(sizeof(int));
 		*((int *) CMSG_DATA(cmsg)) = send_fd;
 
-		/* set the real length we want to use. it's different than
-		   sizeof(buf) in 64bit systems. */
+		/* set the real length we want to use. Do it after all is
+		   set just in case CMSG macros required the extra padding
+		   in the end. */
 		msg.msg_controllen = cmsg->cmsg_len;
 	}
 
