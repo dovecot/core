@@ -42,12 +42,17 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 		}
 	}
 
-	/* split and save user/realm */
-	auth_request->user = p_strdup(auth_request->pool, authenid);
-	passdb->verify_plain(auth_request, pass, verify_callback);
+	if (authenid == NULL) {
+		/* invalid input */
+		mech_auth_finish(auth_request, NULL, 0, FALSE);
+	} else {
+		/* split and save user/realm */
+		auth_request->user = p_strdup(auth_request->pool, authenid);
+		passdb->verify_plain(auth_request, pass, verify_callback);
 
-	/* make sure it's cleared */
-	safe_memset(pass, 0, strlen(pass));
+		/* make sure it's cleared */
+		safe_memset(pass, 0, strlen(pass));
+	}
 	return TRUE;
 }
 
