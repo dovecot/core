@@ -51,8 +51,16 @@
 #else
 #  define ARRAY_DEFINE(name, array_type) name
 #  define ARRAY_CREATE(array, pool, array_type, init_count) \
-	array_create(array, pool, sizeof(array_type), init_count);
-#  define ARRAY_SET_TYPE(array, array_type)
+	array_create(array, pool, sizeof(array_type), init_count)
+/* The reason we do this for non-ARRAY_TYPE_CHECKS as well is because if we
+   left this empty, some compilers wouldn't like an extra ";" character at
+   the beginning of the function (eg. gcc 2.95).
+
+   However just declaring the variable gives "unused variable" warning.
+   I couldn't think of anything better, so we just use gcc-specific
+   unused-attribute to get rid of that with gcc. */
+#  define ARRAY_SET_TYPE(array, array_type) \
+	array_type **array ## __ ## type __attr_unused__ = NULL
 #  define ARRAY_INIT { 0, 0 }
 #endif
 
