@@ -113,7 +113,7 @@ static int copy_with_hardlinks(struct index_mailbox *src,
 	ret2 = index_messageset_deinit(ctx);
 	if (ret2 < 0)
 		ret = -1;
-	else {
+	else if (ret2 == 0) {
 		mail_storage_set_error(src->box.storage,
 			"Some of the requested messages no longer exist.");
 		ret = -1;
