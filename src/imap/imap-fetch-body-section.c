@@ -397,9 +397,8 @@ static int fetch_header(struct imap_fetch_context *ctx, struct mail *mail,
 }
 
 /* Find message_part for section (eg. 1.3.4) */
-static const struct message_part *
-part_find(struct mail *mail, const struct imap_fetch_body_data *body,
-	  const char **section)
+static int part_find(struct mail *mail, const struct imap_fetch_body_data *body,
+		     const struct message_part **part_r, const char **section)
 {
 	const struct message_part *part;
 	const char *path;
@@ -407,7 +406,7 @@ part_find(struct mail *mail, const struct imap_fetch_body_data *body,
 
 	part = mail->get_parts(mail);
 	if (part == NULL)
-		return NULL;
+		return FALSE;
 
 	path = body->section;
 	while (*path >= '0' && *path <= '9' && part != NULL) {
@@ -431,7 +430,7 @@ part_find(struct mail *mail, const struct imap_fetch_body_data *body,
 		} else {
 			/* only 1 allowed with non-multipart messages */
 			if (num != 1)
-				return NULL;
+				part = NULL;
 		}
 
 		if (part != NULL &&
@@ -441,8 +440,9 @@ part_find(struct mail *mail, const struct imap_fetch_body_data *body,
 		}
 	}
 
+	*part_r = part;
 	*section = path;
-	return part;
+	return TRUE;
 }
 
 /* fetch BODY[1.2] or BODY[1.2.TEXT] */
@@ -488,9 +488,14 @@ static int fetch_part(struct imap_fetch_context *ctx, struct mail *mail,
 	const struct message_part *part;
 	const char *section;
 
-	part = part_find(mail, body, &section);
-	if (part == NULL)
+	if (!part_find(mail, body, &part, &section))
 		return FALSE;
+
+	if (part == NULL) {
+		/* part doesn't exist */
+		return o_stream_send_str(ctx->output, ctx->prefix) > 0 &&
+			o_stream_send_str(ctx->output, " NIL") > 0;
+	}
 
 	stream = mail->get_stream(mail, NULL, NULL);
 	if (stream == NULL)
