@@ -439,7 +439,7 @@ static int rename_subfolders(struct mail_storage *storage,
 		i_assert(oldnamelen <= strlen(list->name));
 
 		t_push();
-		new_listname = t_strconcat(newname, ".",
+		new_listname = t_strconcat(newname,
 					   list->name + oldnamelen, NULL);
 		oldpath = maildir_get_path(storage, list->name);
 		newpath = maildir_get_path(storage, new_listname);
