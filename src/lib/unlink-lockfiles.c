@@ -58,7 +58,7 @@ void unlink_lockfiles(const char *dir, const char *pidprefix,
 			/* found a lock file from our host - see if the PID
 			   is valid (meaning it exists, and the it's with
 			   the same UID as us) */
-			if (kill(atoi(fname+pidlen), 0) == 0)
+			if (kill(atol(fname+pidlen), 0) == 0 || errno != ESRCH)
 				continue; /* valid */
 
 			if (str_path(path, sizeof(path), dir, fname) == 0)

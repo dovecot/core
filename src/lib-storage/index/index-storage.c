@@ -157,11 +157,21 @@ static void lock_notify(enum mail_lock_notify_type notify_type,
 		alarm(secs_left%15);
 	}
 
+	/* if notify type changes, print the message immediately */
 	now = time(NULL);
-	if (now < ibox->next_lock_notify || secs_left < 15)
-		return;
+	if (ibox->last_notify_type == (enum mail_lock_notify_type)-1 ||
+	    ibox->last_notify_type == notify_type) {
+		if (ibox->last_notify_type == (enum mail_lock_notify_type)-1 &&
+		    notify_type == MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE) {
+			/* first override notification, show it */
+		} else {
+			if (now < ibox->next_lock_notify || secs_left < 15)
+				return;
+		}
+	}
 
 	ibox->next_lock_notify = now + LOCK_NOTIFY_INTERVAL;
+        ibox->last_notify_type = notify_type;
 
 	switch (notify_type) {
 	case MAIL_LOCK_NOTIFY_MAILBOX_ABORT:
@@ -188,6 +198,8 @@ static void lock_notify(enum mail_lock_notify_type notify_type,
 void index_storage_init_lock_notify(struct index_mailbox *ibox)
 {
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
+	ibox->last_notify_type = (enum mail_lock_notify_type)-1;
+
 	ibox->index->set_lock_notify_callback(ibox->index, lock_notify, ibox);
 }
 

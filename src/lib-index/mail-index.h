@@ -1,6 +1,7 @@
 #ifndef __MAIL_INDEX_H
 #define __MAIL_INDEX_H
 
+#include "file-dotlock.h"
 #include "message-parser.h"
 #include "imap-util.h"
 
@@ -367,8 +368,7 @@ struct mail_index {
 	int mbox_fd;
 	struct istream *mbox_stream;
 	enum mail_lock_type mbox_lock_type;
-	dev_t mbox_dotlock_dev;
-	ino_t mbox_dotlock_ino;
+	struct dotlock mbox_dotlock;
 
 	/* these counters can be used to check that we've synced the mailbox
 	   after locking it */
@@ -420,7 +420,7 @@ struct mail_index {
    members.. */
 #define MAIL_INDEX_PRIVATE_FILL \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	0, 0, 0, 0, 0, { 0, 0, 0 }, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0

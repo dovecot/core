@@ -30,9 +30,20 @@
 #include <time.h>
 #include <signal.h>
 
-static int file_lock(int fd, int wait_lock, int lock_type, unsigned int timeout,
-		     void (*callback)(unsigned int secs_left, void *context),
-		     void *context)
+int file_try_lock(int fd, int lock_type)
+{
+	return file_wait_lock_full(fd, lock_type, 0, NULL, NULL);
+}
+
+int file_wait_lock(int fd, int lock_type)
+{
+	return file_wait_lock_full(fd, lock_type, DEFAULT_LOCK_TIMEOUT,
+				   NULL, NULL);
+}
+
+int file_wait_lock_full(int fd, int lock_type, unsigned int timeout,
+			void (*callback)(unsigned int secs_left, void *context),
+			void *context)
 {
 	struct flock fl;
 	time_t timeout_time, now;
@@ -49,8 +60,8 @@ static int file_lock(int fd, int wait_lock, int lock_type, unsigned int timeout,
 	fl.l_start = 0;
 	fl.l_len = 0;
 
-	while (fcntl(fd, wait_lock ? F_SETLKW : F_SETLK, &fl) < 0) {
-		if (!wait_lock && (errno == EACCES || errno == EAGAIN))
+	while (fcntl(fd, timeout != 0 ? F_SETLKW : F_SETLK, &fl) < 0) {
+		if (timeout == 0 && (errno == EACCES || errno == EAGAIN))
 			return 0;
 
 		if (errno != EINTR)
@@ -67,22 +78,4 @@ static int file_lock(int fd, int wait_lock, int lock_type, unsigned int timeout,
 	}
 
 	return 1;
-}
-
-int file_try_lock(int fd, int lock_type)
-{
-	return file_lock(fd, FALSE, lock_type, 0, NULL, NULL);
-}
-
-int file_wait_lock(int fd, int lock_type)
-{
-	return file_lock(fd, FALSE, lock_type, DEFAULT_LOCK_TIMEOUT,
-			 NULL, NULL);
-}
-
-int file_wait_lock_full(int fd, int lock_type, unsigned int timeout,
-			void (*callback)(unsigned int secs_left, void *context),
-			void *context)
-{
-	return file_lock(fd, TRUE, lock_type, timeout, callback, context);
 }

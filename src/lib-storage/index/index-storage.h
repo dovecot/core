@@ -23,6 +23,7 @@ struct index_mailbox {
 	unsigned int synced_messages_count;
 
 	time_t next_lock_notify; /* temporary */
+	enum mail_lock_notify_type last_notify_type;
 
 	unsigned int sent_diskspace_warning:1;
 };

@@ -141,152 +141,6 @@ static int mbox_lock_fcntl(struct mail_index *index,
 	return TRUE;
 }
 
-static int mbox_lock_dotlock(struct mail_index *index, const char *path,
-			     time_t max_wait_time, int checkonly)
-{
-	struct stat st;
-	time_t now, last_change, last_notify, last_mtime, stale_notify;
-	off_t last_size;
-	unsigned int secs_left;
-	int fd;
-
-	path = t_strconcat(path, ".lock", NULL);
-	stale_notify = dotlock_change_timeout/2;
-
-	/* don't bother with the temp files as we'd just leave them lying
-	   around. besides, postfix also relies on O_EXCL working so we
-	   might as well. */
-	last_change = time(NULL); last_notify = 0;
-	last_size = 0; last_mtime = 0;
-	do {
-		now = time(NULL);
-
-		if (lstat(path, &st) == 0) {
-			/* see if there's been any changes in mbox */
-			if (stat(index->mailbox_path, &st) < 0) {
-				mbox_set_syscall_error(index, "stat()");
-				break;
-			}
-
-			if (last_size != st.st_size ||
-			    last_mtime != st.st_mtime) {
-				last_change = now;
-				last_size = st.st_size;
-				last_mtime = st.st_mtime;
-			}
-
-			if (now > last_change + dotlock_change_timeout) {
-				/* no changes for a while, assume stale lock */
-				if (unlink(path) < 0 && errno != ENOENT) {
-					index_file_set_syscall_error(
-						index, path, "unlink()");
-					break;
-				}
-				continue;
-			}
-
-			if (last_notify != now &&
-			    index->lock_notify_cb != NULL) {
-				last_notify = now;
-				if (now > last_change + stale_notify) {
-					secs_left = now - last_change +
-						dotlock_change_timeout;
-					index->lock_notify_cb(
-					      MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE,
-					      secs_left,
-					      index->lock_notify_context);
-				} else {
-					index->lock_notify_cb(
-						MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
-						max_wait_time - now,
-						index->lock_notify_context);
-				}
-			}
-
-			usleep(LOCK_RANDOM_USLEEP_TIME);
-			continue;
-		}
-
-		if (checkonly) {
-			/* we only wanted to check that the .lock file
-			   doesn't exist. This is racy of course, but I don't
-			   think there's any better way to do it really.
-			   The fcntl/flock later does the real locking, so
-			   problem comes only when someone uses only dotlock
-			   locking, and we can't fix that without dotlocking
-			   ourself (which we didn't want to do here) */
-			return TRUE;
-		}
-
-		fd = open(path, O_WRONLY | O_EXCL | O_CREAT, 0);
-		if (fd != -1) {
-			/* got it */
-			if (fstat(fd, &st) < 0) {
-				index_file_set_syscall_error(index, path,
-							     "fstat()");
-				(void)close(fd);
-				return FALSE;
-			}
-
-			index->mbox_dotlock_dev = st.st_dev;
-			index->mbox_dotlock_ino = st.st_ino;
-
-			if (close(fd) < 0) {
-				index_file_set_syscall_error(index, path,
-							     "close()");
-				return FALSE;
-			}
-			return TRUE;
-		}
-
-		if (errno != EEXIST) {
-			index_file_set_syscall_error(index, path, "open()");
-			return FALSE;
-		}
-	} while (now < max_wait_time);
-
-	index_set_error(index, "Timeout while waiting for release of mbox "
-			"dotlock %s", path);
-	index->mailbox_lock_timeout = TRUE;
-	return FALSE;
-}
-
-static int mbox_unlock_dotlock(struct mail_index *index, const char *path)
-{
-	struct stat st;
-	dev_t old_dev;
-	ino_t old_ino;
-
-	path = t_strconcat(path, ".lock", NULL);
-
-        old_dev = index->mbox_dotlock_dev;
-        old_ino = index->mbox_dotlock_ino;
-
-        memset(&index->mbox_dotlock_dev, 0, sizeof(index->mbox_dotlock_dev));
-        index->mbox_dotlock_ino = 0;
-
-	if (lstat(path, &st) < 0) {
-		if (errno == ENOENT)
-			return TRUE; /* doesn't exist anymore, ignore */
-
-		index_file_set_syscall_error(index, path, "stat()");
-		return FALSE;
-	}
-
-	/* make sure it's still our dotlock */
-	if (old_ino != st.st_ino ||
-	    !CMP_DEV_T(old_dev, st.st_dev)) {
-		index_set_error(index,
-			"Warning: Our dotlock file %s was overridden", path);
-		return FALSE;
-	}
-
-	if (unlink(path) < 0 && errno != ENOENT)
-		return index_file_set_syscall_error(index, path, "unlink()");
-
-	return TRUE;
-}
-
 static int mbox_file_locks(struct mail_index *index, time_t max_wait_time)
 {
 	if (use_fcntl_lock && fcntl_before_flock) {
@@ -309,10 +163,20 @@ static int mbox_file_locks(struct mail_index *index, time_t max_wait_time)
 	return TRUE;
 }
 
+static void dotlock_callback(unsigned int secs_left, int stale, void *context)
+{
+	struct mail_index *index = context;
+
+	index->lock_notify_cb(stale ? MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE :
+			      MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
+			      secs_left, index->lock_notify_context);
+}
+
 int mbox_lock(struct mail_index *index, enum mail_lock_type lock_type)
 {
 	struct stat st;
 	time_t max_wait_time;
+	int ret;
 
 	/* index must be locked before mbox file, to avoid deadlocks */
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
@@ -332,12 +196,25 @@ int mbox_lock(struct mail_index *index, enum mail_lock_type lock_type)
 	max_wait_time = time(NULL) + lock_timeout;
 
 	/* make .lock file first to protect overwriting the file */
-	if (use_dotlock && index->mbox_dotlock_ino == 0) {
-		if (!mbox_lock_dotlock(index, index->mailbox_path,
-				       max_wait_time,
-				       lock_type == MAIL_LOCK_SHARED &&
-				       !use_read_dotlock))
+	if (use_dotlock && index->mbox_dotlock.ino == 0) {
+		ret = file_lock_dotlock(index->mailbox_path,
+					lock_type == MAIL_LOCK_SHARED &&
+					!use_read_dotlock, lock_timeout,
+					dotlock_change_timeout,
+					dotlock_callback, index,
+					&index->mbox_dotlock);
+
+		if (ret < 0) {
+			mbox_set_syscall_error(index, "file_lock_dotlock()");
 			return FALSE;
+		}
+		if (ret == 0) {
+			index_set_error(index, "Timeout while waiting for "
+					"release of dotlock for mbox %s",
+					index->mailbox_path);
+			index->mailbox_lock_timeout = TRUE;
+			return FALSE;
+		}
 	}
 
 	/* now we need to have the file itself locked. open it if needed. */
@@ -383,9 +260,13 @@ int mbox_unlock(struct mail_index *index)
 			failed = TRUE;
 	}
 
-	if (index->mbox_dotlock_ino != 0) {
-		if (!mbox_unlock_dotlock(index, index->mailbox_path))
+	if (index->mbox_dotlock.ino != 0) {
+		if (file_unlock_dotlock(index->mailbox_path,
+					&index->mbox_dotlock) <= 0) {
+                        mbox_set_syscall_error(index, "file_unlock_dotlock()");
 			failed = TRUE;
+		}
+                index->mbox_dotlock.ino = 0;
 	}
 
 	/* make sure we don't keep mmap() between locks - there could have

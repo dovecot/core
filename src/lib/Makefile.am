@@ -10,6 +10,7 @@ liblib_a_SOURCES = \
 	failures.c \
 	fd-close-on-exec.c \
 	fdpass.c \
+	file-dotlock.c \
 	file-lock.c \
 	file-set-size.c \
 	hash.c \
@@ -65,6 +66,7 @@ noinst_HEADERS = \
 	failures.h \
 	fd-close-on-exec.h \
 	fdpass.h \
+	file-dotlock.h \
 	file-lock.h \
 	file-set-size.h \
 	hash.h \
