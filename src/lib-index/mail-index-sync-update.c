@@ -786,6 +786,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 		buffer_append(map->hdr_copy_buf, map->hdr,
 			      map->hdr->header_size);
 		map->hdr = map->hdr_copy_buf->data;
+		index->hdr = map->hdr;
 	}
 
 	mail_index_unmap(index, view->map);
@@ -876,7 +877,9 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 			ret = -1;
 		}
 		map->hdr = map->mmap_base;
+		index->hdr = map->hdr;
 	}
+	i_assert(view->map == index->map);
 
         mail_index_view_unlock(view);
 	return ret;

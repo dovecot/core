@@ -922,55 +922,6 @@ static int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 }
 
 static void
-mail_transaction_log_append_fix(struct mail_index_transaction *t,
-				const struct mail_transaction_header *hdr,
-				const void *data)
-{
-	const struct mail_index_record *old, *old_end;
-	struct mail_index_record *appends, *end, *rec, *dest;
-	size_t size;
-	int deleted = FALSE;
-
-	if (t->appends == NULL)
-		return;
-
-	appends = buffer_get_modifyable_data(t->appends, &size);
-	end = PTR_OFFSET(appends, size);
-
-	if (appends == end)
-		return;
-
-	/* we'll just check that none of the appends are already in
-	   transaction log. this could happen if we crashed before we had
-	   a chance to update index file */
-	old_end = CONST_PTR_OFFSET(data, hdr->size);
-	for (old = data; old != old_end; old++) {
-		/* appends are sorted */
-		for (rec = appends; rec != end; rec++) {
-			if (rec->uid >= old->uid) {
-				if (rec->uid == old->uid) {
-					rec->uid = 0;
-					deleted = TRUE;
-				}
-				break;
-			}
-		}
-	}
-
-	if (deleted) {
-		/* compress deleted appends away */
-		for (rec = dest = appends; rec != end; rec++) {
-			if (rec->uid != 0)
-				dest++;
-			else if (rec != dest)
-				*rec = *dest;
-		}
-		buffer_set_used_size(t->appends,
-				     (char *)dest - (char *)appends);
-	}
-}
-
-static void
 transaction_save_ext_intro(struct mail_index_transaction *t,
 			   const struct mail_transaction_ext_intro *intro)
 {
@@ -1019,9 +970,6 @@ static int mail_transaction_log_scan_pending(struct mail_transaction_log *log,
 	while ((ret = mail_transaction_log_view_next(sync_view,
 						     &hdr, &data, NULL)) == 1) {
 		switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
-		case MAIL_TRANSACTION_APPEND:
-			mail_transaction_log_append_fix(t, hdr, data);
-			break;
 		case MAIL_TRANSACTION_CACHE_RESET: {
 			const struct mail_transaction_cache_reset *reset = data;
 

@@ -210,10 +210,13 @@ static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
 }
 
 static int
-mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx, int sync_recent)
+mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx, int sync_recent,
+			      int *update_index_now_r)
 {
 	size_t size;
 	int ret;
+
+	*update_index_now_r = FALSE;
 
 	if ((ctx->view->map->hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) &&
 	    ctx->sync_dirty) {
@@ -230,8 +233,21 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx, int sync_recent)
 	while ((ret = mail_transaction_log_view_next(ctx->view->log_view,
 						     &ctx->hdr,
 						     &ctx->data, NULL)) > 0) {
-		if ((ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0)
+		if ((ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0) {
+			/* last sync was written to transaction log,
+			   but it wasn't committed to index. do it now so
+			   the next sync won't do things wrong (especially
+			   duplicate appends). */
+			*update_index_now_r = TRUE;
+		} else if ((ctx->hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
+			   MAIL_TRANSACTION_APPEND) {
+			/* we appended new message, and now we're committing
+			   it into indexes. do it immediately so that we don't
+			   break if we have to sync the mailbox too */
+			*update_index_now_r = TRUE;
+		} else {
 			mail_index_sync_sort_transaction(ctx);
+		}
 	}
 
 	ctx->expunges = buffer_get_data(ctx->expunges_buf, &size);
@@ -268,6 +284,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	uint32_t seq;
 	uoff_t offset;
 	unsigned int lock_id;
+	int update_now;
 
 	if (mail_transaction_log_sync_lock(index->log, &seq, &offset) < 0)
 		return -1;
@@ -311,9 +328,23 @@ int mail_index_sync_begin(struct mail_index *index,
 	   caller's mailbox access patterns */
 	ctx->expunges_buf = buffer_create_dynamic(default_pool, 1024);
 	ctx->updates_buf = buffer_create_dynamic(default_pool, 1024);
-	if (mail_index_sync_read_and_sort(ctx, sync_recent) < 0) {
+	if (mail_index_sync_read_and_sort(ctx, sync_recent, &update_now) < 0) {
                 mail_index_sync_rollback(ctx);
 		return -1;
+	}
+
+	if (update_now) {
+		if (mail_transaction_log_view_set(ctx->view->log_view,
+				index->hdr->log_file_seq,
+				index->hdr->log_file_offset,
+				seq, offset, MAIL_TRANSACTION_TYPE_MASK) < 0) {
+			mail_index_sync_rollback(ctx);
+			return -1;
+		}
+		if (mail_index_sync_update_index(ctx) < 0) {
+			mail_index_sync_rollback(ctx);
+			return -1;
+		}
 	}
 
 	*ctx_r = ctx;
