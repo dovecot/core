@@ -729,15 +729,22 @@ if test $want_gnutls = yes; then
 fi
 
 if test "$want_openssl" = "yes" -a "$have_ssl" = "no"; then
-	AC_CHECK_LIB(ssl, SSL_read, [
-		AC_CHECK_HEADERS(openssl/ssl.h openssl/err.h, [
-			AC_DEFINE(HAVE_OPENSSL,, Build with OpenSSL support)
-			SSL_LIBS="-lssl -lcrypto"
-			AC_SUBST(SSL_LIBS)
-			have_ssl="yes (OpenSSL)"
-			have_openssl=yes
-		])
-	],, -lcrypto)
+  if pkg-config --exists openssl; then
+    PKG_CHECK_MODULES(SSL, openssl)
+    CFLAGS="$CFLAGS $SSL_CFLAGS"
+    have_ssl="yes (OpenSSL)"
+    have_openssl=yes
+  else
+    AC_CHECK_LIB(ssl, SSL_read, [
+      AC_CHECK_HEADERS(openssl/ssl.h openssl/err.h, [
+        AC_DEFINE(HAVE_OPENSSL,, Build with OpenSSL support)
+        SSL_LIBS="-lssl -lcrypto"
+        AC_SUBST(SSL_LIBS)
+	have_ssl="yes (OpenSSL)"
+	have_openssl=yes
+      ])
+    ],, -lcrypto)
+  fi
 fi
 
 if test "$have_ssl" != "no"; then
