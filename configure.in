@@ -720,9 +720,11 @@ fi
 
 if test $want_shadow = yes; then
 	AC_CHECK_FUNC(getspnam, [
-		need_crypt=yes
-		AC_DEFINE(PASSDB_SHADOW,, Build with shadow support)
-		passdb="$passdb shadow"
+		AC_CHECK_HEADER(shadow.h, [
+			need_crypt=yes
+			AC_DEFINE(PASSDB_SHADOW,, Build with shadow support)
+			passdb="$passdb shadow"
+		])
 	])
 fi
 
