@@ -357,7 +357,6 @@ static void update_header_func(MessagePart *part,
 		str = field_get_value(value, value_len);
 		if (!rfc822_parse_date(str, &ctx->update->rec->sent_date))
 			ctx->update->rec->sent_date = ioloop_time;
-		return;
 	}
 
 	/* see if we can do anything with this field */
