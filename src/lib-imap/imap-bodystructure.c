@@ -105,8 +105,8 @@ static void parse_content_language(const Rfc822Token *tokens,
 }
 
 static void parse_header(MessagePart *part,
-			 const char *name, unsigned int name_len,
-			 const char *value, unsigned int value_len,
+			 const char *name, size_t name_len,
+			 const char *value, size_t value_len,
 			 void *context)
 {
 	Pool pool = context;

@@ -223,7 +223,7 @@ static int file_set_size(int fd, off_t size)
 	size -= pos;
 	memset(block, 0, sizeof(block));
 
-	while (size > sizeof(block)) {
+	while ((uoff_t)size > sizeof(block)) {
 		/* write in 1kb blocks */
 		if (write_full(fd, block, sizeof(block)) < 0)
 			return FALSE;

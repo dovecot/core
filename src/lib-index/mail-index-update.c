@@ -22,8 +22,8 @@ struct _MailIndexUpdate {
 
 	unsigned int updated_fields;
 	void *fields[FIELD_TYPE_MAX_BITS];
-	unsigned int field_sizes[FIELD_TYPE_MAX_BITS];
-	unsigned int field_extra_sizes[FIELD_TYPE_MAX_BITS];
+	size_t field_sizes[FIELD_TYPE_MAX_BITS];
+	size_t field_extra_sizes[FIELD_TYPE_MAX_BITS];
 };
 
 MailIndexUpdate *mail_index_update_begin(MailIndex *index, MailIndexRecord *rec)
@@ -116,7 +116,7 @@ static int update_by_append(MailIndexUpdate *update)
 	uoff_t fpos;
 	void *mem;
 	const void *src;
-	unsigned int max_size, pos, src_size;
+	size_t max_size, pos, src_size;
 	int i;
 
 	/* allocate the old size + also the new size of all changed or added
@@ -260,8 +260,8 @@ int mail_index_update_end(MailIndexUpdate *update)
 }
 
 static void update_field_full(MailIndexUpdate *update, MailField field,
-			      const void *value, unsigned int size,
-			      unsigned int extra_space)
+			      const void *value, size_t size,
+			      size_t extra_space)
 {
 	int index;
 
@@ -278,17 +278,11 @@ static void update_field_full(MailIndexUpdate *update, MailField field,
 void mail_index_update_field(MailIndexUpdate *update, MailField field,
 			     const char *value, unsigned int extra_space)
 {
-	size_t len;
-
-	len = strlen(value);
-	i_assert(len < SSIZE_T_MAX);
-
-	update_field_full(update, field, value,
-			  (unsigned int)len + 1, extra_space);
+	update_field_full(update, field, value, strlen(value) + 1, extra_space);
 }
 
 void mail_index_update_field_raw(MailIndexUpdate *update, MailField field,
-				 const void *value, unsigned int size)
+				 const void *value, size_t size)
 {
 	update_field_full(update, field, value, size, 0);
 }
@@ -309,10 +303,10 @@ static MailField mail_header_get_field(const char *str, size_t len)
 	return 0;
 }
 
-static const char *field_get_value(const char *value, unsigned int len)
+static const char *field_get_value(const char *value, size_t len)
 {
 	char *ret, *p;
-	unsigned int i;
+	size_t i;
 
 	ret = t_malloc(len+1);
 
@@ -398,7 +392,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 	MessageSize hdr_size;
 	Pool pool;
 	const char *value;
-	unsigned int size;
+	size_t size;
 
 	ctx.update = update;
 	ctx.envelope_pool = NULL;

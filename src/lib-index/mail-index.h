@@ -228,7 +228,7 @@ struct _MailIndex {
 
 	/* Find field from specified record, or NULL if it's not in index. */
 	const void *(*lookup_field_raw)(MailIndex *index, MailIndexRecord *rec,
-					MailField field, unsigned int *size);
+					MailField field, size_t *size);
 
 	/* Returns sequence for given message, or 0 if failed. */
 	unsigned int (*get_sequence)(MailIndex *index, MailIndexRecord *rec);
@@ -281,9 +281,9 @@ struct _MailIndex {
 	int (*update_end)(MailIndexUpdate *update);
 
 	void (*update_field)(MailIndexUpdate *update, MailField field,
-			     const char *value, unsigned int extra_space);
+			     const char *value, size_t extra_space);
 	void (*update_field_raw)(MailIndexUpdate *update, MailField field,
-				 const void *value, unsigned int size);
+				 const void *value, size_t size);
 
 	/* Returns last error message */
 	const char *(*get_last_error)(MailIndex *index);
@@ -359,7 +359,7 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
 				    MailField field);
 const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
-					MailField field, unsigned int *size);
+					MailField field, size_t *size);
 unsigned int mail_index_get_sequence(MailIndex *index, MailIndexRecord *rec);
 int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		       unsigned int seq, int external_change);
@@ -371,9 +371,9 @@ MailIndexUpdate *mail_index_update_begin(MailIndex *index,
 					 MailIndexRecord *rec);
 int mail_index_update_end(MailIndexUpdate *update);
 void mail_index_update_field(MailIndexUpdate *update, MailField field,
-			     const char *value, unsigned int extra_space);
+			     const char *value, size_t extra_space);
 void mail_index_update_field_raw(MailIndexUpdate *update, MailField field,
-				 const void *value, unsigned int size);
+				 const void *value, size_t size);
 const char *mail_index_get_last_error(MailIndex *index);
 int mail_index_is_inconsistency_error(MailIndex *index);
 

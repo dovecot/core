@@ -7,7 +7,7 @@ typedef struct _AuthConnection AuthConnection;
    reply_data_size contains the error message. */
 typedef void (*AuthCallback)(AuthRequest *request, int auth_process,
 			     AuthResult result, const unsigned char *reply_data,
-			     unsigned int reply_data_size, void *context);
+			     size_t reply_data_size, void *context);
 
 struct _AuthRequest {
         AuthMethod method;
@@ -28,7 +28,7 @@ int auth_init_request(AuthMethod method, AuthCallback callback,
 		      void *context, const char **error);
 
 void auth_continue_request(AuthRequest *request, const unsigned char *data,
-			   unsigned int data_size);
+			   size_t data_size);
 
 void auth_connection_init(void);
 void auth_connection_deinit(void);

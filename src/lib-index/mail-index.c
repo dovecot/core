@@ -1116,7 +1116,7 @@ const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
 }
 
 const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
-					MailField field, unsigned int *size)
+					MailField field, size_t *size)
 {
 	MailIndexDataRecord *datarec;
 

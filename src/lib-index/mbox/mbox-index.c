@@ -256,7 +256,7 @@ int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
 			       uoff_t *offset)
 {
 	const uoff_t *location;
-	size_t size;
+	unsigned int size;
 
 	location = index->lookup_field_raw(index, rec,
 					   FIELD_TYPE_LOCATION, &size);

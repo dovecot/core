@@ -35,8 +35,8 @@
 #define POINTER_TO_INT(p)	((int) (p))
 #define POINTER_TO_UINT(p)	((unsigned int) ((char *) p - (char *) NULL))
 
-#define INT_TO_POINTER(i)	((void *) (i))
-#define UINT_TO_POINTER(u)	((void *) (u))
+#define INT_TO_POINTER(i)	((void *) (size_t) (i))
+#define UINT_TO_POINTER(u)	((void *) (size_t) (u))
 
 /* Define VA_COPY() to do the right thing for copying va_list variables. */
 #ifndef VA_COPY

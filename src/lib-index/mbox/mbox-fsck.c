@@ -15,7 +15,7 @@
 static void skip_line(IOBuffer *inbuf)
 {
 	unsigned char *msg;
-	unsigned int i, size;
+	size_t i, size;
 
 	while (io_buffer_read_data(inbuf, &msg, &size, 0) >= 0) {
 		for (i = 0; i < size; i++) {
@@ -47,7 +47,7 @@ static int verify_header_md5sum(MailIndex *index, MailIndexRecord *rec,
 static int verify_end_of_body(IOBuffer *inbuf, uoff_t end_offset)
 {
 	unsigned char *data;
-	unsigned int size;
+	size_t size;
 
 	/* don't bother parsing the whole body, just make
 	   sure it ends properly */
@@ -190,7 +190,8 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 	MailIndexRecord *rec;
 	uoff_t from_offset;
 	unsigned char *data;
-	unsigned int seq, size;
+	unsigned int seq;
+        size_t size;
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;

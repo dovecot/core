@@ -41,8 +41,9 @@ int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 			       IOBuffer *buf, uoff_t data_size)
 {
 	unsigned char *data;
-	size_t size, last_cr;
+	size_t size;
 	ssize_t ret;
+	int last_cr;
 
 	last_cr = FALSE;
 
