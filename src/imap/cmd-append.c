@@ -90,7 +90,6 @@ int cmd_append(Client *client)
 	case 0:
 		/* need more data */
 		return FALSE;
-	default:
 	}
 
 	if (!client_parse_mail_flags(client, flags_list, &flags, custom_flags))
