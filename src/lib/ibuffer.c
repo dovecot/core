@@ -81,7 +81,6 @@ void i_buffer_set_start_offset(IBuffer *buf, uoff_t offset)
 
 	/* reset buffer data */
 	_buf->skip = _buf->pos = _buf->cr_lookup_pos = 0;
-	_buf->last_cr = FALSE;
 }
 
 void i_buffer_set_read_limit(IBuffer *buf, uoff_t v_offset)

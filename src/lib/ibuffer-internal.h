@@ -24,7 +24,6 @@ struct __IBuffer {
 	size_t buffer_size;
 
 	size_t skip, pos, cr_lookup_pos;
-	int last_cr;
 };
 
 IBuffer *_i_buffer_create(_IBuffer *_buf, Pool pool, int fd,
