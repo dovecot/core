@@ -330,7 +330,7 @@ static struct mailbox_list *mbox_list_inbox(struct mailbox_list_context *ctx)
 {
 	struct stat st;
 
-	if (ctx->dir->virtual_path != NULL)
+	if (ctx->dir != NULL && ctx->dir->virtual_path != NULL)
 		ctx->next = mbox_list_path;
 	else
 		ctx->next = mbox_list_next;
