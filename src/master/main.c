@@ -78,11 +78,11 @@ static void settings_reload(void)
 {
 	i_warning("SIGHUP received - reloading configuration");
 
-	master_settings_read(configfile);
-
 	/* restart auth and login processes */
         login_processes_destroy_all();
         auth_processes_destroy_all();
+
+	master_settings_read(configfile);
 }
 
 static const char *get_exit_status_message(enum fatal_exit_status status)

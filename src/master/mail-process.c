@@ -216,6 +216,9 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	   any errors above will be logged */
 	closelog();
 
+	if (set->mail_drop_priv_before_exec)
+		restrict_access_by_env(TRUE);
+
 	/* hide the path, it's ugly */
 	argv[0] = strrchr(executable, '/');
 	if (argv[0] == NULL) argv[0] = executable; else argv[0]++;
