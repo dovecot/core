@@ -22,8 +22,7 @@ int client_verify_mailbox_name(struct client *client, const char *mailbox,
 
 	/* make sure it even looks valid */
 	sep = client->storage->hierarchy_sep;
-	if (*mailbox == '\0' || *mailbox == sep ||
-	    strspn(mailbox, "\r\n*%?") != 0) {
+	if (*mailbox == '\0' || strspn(mailbox, "\r\n*%?") != 0) {
 		client_send_tagline(client, "NO Invalid mailbox name.");
 		return FALSE;
 	}
