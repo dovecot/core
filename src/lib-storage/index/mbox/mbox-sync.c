@@ -635,7 +635,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 				mail_ctx->mail.space - move_diff;
 		} else {
 			move_diff = mail_ctx->mail.space;
-			extra_space = sync_ctx->space_diff - needed_space;
+			extra_space = sync_ctx->space_diff;
 			sync_ctx->expunged_space = 0;
 		}
 		last_seq = sync_ctx->seq - 1;
