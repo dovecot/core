@@ -452,7 +452,6 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 				break;
 			}
 			move_diff -= next_move_diff + mails[idx].space;
-			end_offset = next_end_offset;
 		} else {
 			/* this mail provides more space. just move it forward
 			   from the extra space offset and set end_offset to
@@ -475,17 +474,18 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 			if ((mails[idx].flags & MBOX_EXPUNGED) == 0) {
 				move_diff -= padding_per_mail;
 				mails[idx].space = padding_per_mail;
-			}
 
-			mails[idx].offset += move_diff;
-			if (mbox_fill_space(sync_ctx, mails[idx].offset,
-					    padding_per_mail) < 0) {
-				ret = -1;
-				break;
+				if (mbox_fill_space(sync_ctx, move_diff +
+						    mails[idx].offset,
+						    padding_per_mail) < 0) {
+					ret = -1;
+					break;
+				}
 			}
+			mails[idx].offset += move_diff;
 		}
 
-		i_assert(idx > 0 || move_diff == 0);
+		i_assert(move_diff >= 0 || idx == first_nonexpunged_idx);
 
 		end_offset = next_end_offset;
 		mails[idx].from_offset += move_diff;

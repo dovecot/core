@@ -589,6 +589,9 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 				sync_ctx->expunged_space;
 			mail.space = sync_ctx->expunged_space;
 
+                        sync_ctx->space_diff = sync_ctx->expunged_space;
+			sync_ctx->expunged_space = 0;
+
 			sync_ctx->need_space_seq--;
 			buffer_append(sync_ctx->mails, &mail, sizeof(mail));
 		}
@@ -606,8 +609,14 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 	buffer_append(sync_ctx->mails, &mail_ctx->mail, sizeof(mail_ctx->mail));
 
 	sync_ctx->space_diff += mail_ctx->mail.space;
-	if (sync_ctx->space_diff < 0)
+	if (sync_ctx->space_diff < 0) {
+		if (sync_ctx->expunged_space > 0) {
+			i_assert(sync_ctx->expunged_space ==
+				 mail_ctx->mail.space);
+                        sync_ctx->expunged_space = 0;
+		}
 		return 0;
+	}
 
 	/* we have enough space now */
 	if (mail_ctx->mail.uid == 0) {
