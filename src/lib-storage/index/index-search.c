@@ -21,7 +21,8 @@
 
 #define ARG_SET_RESULT(arg, res) \
 	STMT_START { \
-		(arg)->result = !(arg)->not ? (res) : -(res); \
+		(arg)->result = !(arg)->not ? (res) : \
+			(res) == -1 ? -1 : !(res); \
 	} STMT_END
 
 #define TXT_UNKNOWN_CHARSET "[BADCHARSET] Unknown charset"
