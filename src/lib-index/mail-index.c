@@ -27,7 +27,7 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 
 	index->extension_pool = pool_alloconly_create("extension", 256);
 	index->extensions = buffer_create_dynamic(index->extension_pool, 64);
-        index->sync_handlers = buffer_create_dynamic(default_pool, 32);
+        index->sync_handlers = buffer_create_dynamic(default_pool, 64);
         index->expunge_handlers = buffer_create_dynamic(default_pool, 32);
 
 	index->mode = 0600;
@@ -70,7 +70,7 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	ext_count /= sizeof(*extensions);
 
 	i_assert(index->sync_handlers->used /
-		 sizeof(mail_index_sync_handler_t *) == ext_count);
+		 sizeof(struct mail_index_sync_handler) == ext_count);
 
 	/* see if it's already there */
 	for (i = 0; i < ext_count; i++) {
@@ -86,7 +86,7 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 
 	buffer_append(index->extensions, &ext, sizeof(ext));
 	buffer_append_zero(index->sync_handlers,
-			   sizeof(mail_index_sync_handler_t *));
+			   sizeof(struct mail_index_sync_handler));
 	return ext_count;
 }
 
@@ -99,10 +99,15 @@ void mail_index_register_expunge_handler(struct mail_index *index,
 }
 
 void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
-				      mail_index_sync_handler_t *cb)
+				      mail_index_sync_handler_t *cb,
+				      enum mail_index_sync_handler_type type)
 {
-	buffer_write(index->sync_handlers, ext_id * sizeof(cb),
-		     &cb, sizeof(cb));
+	struct mail_index_sync_handler h;
+
+	memset(&h, 0, sizeof(h));
+	h.callback = cb;
+	h.type = type;
+	buffer_write(index->sync_handlers, ext_id * sizeof(h), &h, sizeof(h));
 }
 
 static void mail_index_map_init_extbufs(struct mail_index_map *map,

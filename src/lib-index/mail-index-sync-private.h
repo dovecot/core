@@ -40,6 +40,8 @@ struct mail_index_sync_map_ctx {
 	buffer_t *extra_context_buf;
 	void **extra_context;
 
+        enum mail_index_sync_handler_type type;
+
 	unsigned int sync_handlers_initialized:1;
 	unsigned int expunge_handlers_set:1;
 	unsigned int expunge_handlers_used:1;
@@ -49,7 +51,9 @@ struct mail_index_sync_map_ctx {
 extern struct mail_transaction_map_functions mail_index_map_sync_funcs;
 
 void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
-			      struct mail_index_view *view);
+			      struct mail_index_view *view,
+			      enum mail_index_sync_handler_type type);
+void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx);
 int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 				 int sync_only_external);
 

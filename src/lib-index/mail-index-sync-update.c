@@ -109,12 +109,11 @@ static void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx)
 		buffer_get_modifyable_data(ctx->extra_context_buf, NULL);
 
 	ctx->expunge_handlers_set = FALSE;
-	ctx->sync_handlers_initialized = TRUE;
 }
 
 static void mail_index_sync_deinit_handlers(struct mail_index_sync_map_ctx *ctx)
 {
-	mail_index_sync_handler_t *const *sync_handlers;
+        const struct mail_index_sync_handler *sync_handlers;
 	size_t i, size;
 
 	if (ctx->extra_context == NULL)
@@ -127,8 +126,8 @@ static void mail_index_sync_deinit_handlers(struct mail_index_sync_map_ctx *ctx)
 
 	for (i = 0; i < size; i++) {
 		if (ctx->extra_context[i] != NULL) {
-			sync_handlers[i](ctx, 0, NULL, NULL,
-					 &ctx->extra_context[i]);
+			sync_handlers[i].callback(ctx, 0, NULL, NULL,
+						  &ctx->extra_context[i]);
 		}
 	}
 
@@ -216,7 +215,7 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 	if (seq1 == 0)
 		return 1;
 
-	if (ctx->sync_handlers_initialized) {
+	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW) {
 		if (!ctx->expunge_handlers_set)
 			mail_index_sync_init_expunge_handlers(ctx);
 
@@ -743,7 +742,7 @@ sync_ext_rec_update(const struct mail_transaction_ext_rec_update *u,
         struct mail_index_sync_map_ctx *ctx = context;
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
-	mail_index_sync_handler_t *const *sync_handlers;
+        const struct mail_index_sync_handler *sync_handlers;
 	const struct mail_index_ext *ext;
 	void *old_data;
 	uint32_t seq;
@@ -769,9 +768,9 @@ sync_ext_rec_update(const struct mail_transaction_ext_rec_update *u,
 	sync_handlers += ctx->cur_ext_id;
 
 	/* call sync handlers only when we're syncing index (not view) */
-	if (*sync_handlers != NULL && ctx->sync_handlers_initialized) {
-		ret = (*sync_handlers)(ctx, seq, old_data, u + 1,
-				       &ctx->extra_context[ctx->cur_ext_id]);
+	if ((sync_handlers->type & ctx->type) != 0) {
+		ret = sync_handlers->callback(ctx, seq, old_data, u + 1,
+					&ctx->extra_context[ctx->cur_ext_id]);
 		if (ret <= 0)
 			return ret;
 	}
@@ -1009,11 +1008,22 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 }
 
 void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
-			      struct mail_index_view *view)
+			      struct mail_index_view *view,
+			      enum mail_index_sync_handler_type type)
 {
 	memset(sync_map_ctx, 0, sizeof(*sync_map_ctx));
 	sync_map_ctx->view = view;
-        sync_map_ctx->cur_ext_id = (uint32_t)-1;
+	sync_map_ctx->cur_ext_id = (uint32_t)-1;
+	sync_map_ctx->type = type;
+
+	mail_index_sync_init_handlers(sync_map_ctx);
+}
+
+void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx)
+{
+	if (sync_map_ctx->expunge_handlers_used)
+		mail_index_sync_deinit_expunge_handlers(sync_map_ctx);
+	mail_index_sync_deinit_handlers(sync_map_ctx);
 }
 
 int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
@@ -1031,8 +1041,8 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	uoff_t offset;
 	int ret, had_dirty, skipped, check_ext_offsets;
 
-        mail_index_sync_map_init(&sync_map_ctx, view);
-	mail_index_sync_init_handlers(&sync_map_ctx);
+	mail_index_sync_map_init(&sync_map_ctx, view,
+				 MAIL_INDEX_SYNC_HANDLER_INDEX);
 
 	/* we'll have to update view->lock_id to avoid mail_index_view_lock()
 	   trying to update the file later. */
@@ -1113,10 +1123,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 		}
 	}
 	map = view->map;
-
-	if (sync_map_ctx.expunge_handlers_used)
-		mail_index_sync_deinit_expunge_handlers(&sync_map_ctx);
-	mail_index_sync_deinit_handlers(&sync_map_ctx);
+        mail_index_sync_map_deinit(&sync_map_ctx);
 
 	if (ret < 0) {
 		mail_index_view_unlock(view);

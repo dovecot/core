@@ -127,12 +127,23 @@ struct mail_index {
 	unsigned int fsck:1;
 };
 
+enum mail_index_sync_handler_type {
+	MAIL_INDEX_SYNC_HANDLER_INDEX	= 0x01,
+	MAIL_INDEX_SYNC_HANDLER_VIEW	= 0x02
+};
+
+struct mail_index_sync_handler {
+	mail_index_sync_handler_t *callback;
+        enum mail_index_sync_handler_type type;
+};
+
 /* Add/replace sync handler for specified extra record. */
 void mail_index_register_expunge_handler(struct mail_index *index,
 					 uint32_t ext_id,
 					 mail_index_expunge_handler_t *cb);
 void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
-				      mail_index_sync_handler_t *cb);
+				      mail_index_sync_handler_t *cb,
+				      enum mail_index_sync_handler_type type);
 
 int mail_index_write_base_header(struct mail_index *index,
 				 const struct mail_index_header *hdr);

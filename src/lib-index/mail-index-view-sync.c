@@ -122,7 +122,8 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	ctx->view = view;
 	ctx->trans_sync_mask = want_mask;
 	ctx->expunges = expunges;
-	mail_index_sync_map_init(&ctx->sync_map_ctx, view);
+	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
+				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
 	if ((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) != 0) {
 		view->new_map = view->index->map;
