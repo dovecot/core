@@ -144,13 +144,16 @@ mail_transaction_log_file_dotlock(struct mail_transaction_log_file *file,
 	int ret;
 
 	if (lock_type == F_UNLCK) {
-		ret = file_unlock_dotlock(file->filepath, &file->dotlock);
+		file->lock_type = F_UNLCK;
+		if (--file->log->dotlock_count > 0)
+			return 0;
+
+		ret = file_unlock_dotlock(file->filepath, &file->log->dotlock);
 		if (ret < 0) {
 			mail_index_file_set_syscall_error(file->log->index,
 				file->filepath, "file_unlock_dotlock()");
 			return -1;
 		}
-		file->lock_type = F_UNLCK;
 
 		if (ret == 0) {
 			mail_index_set_error(file->log->index,
@@ -161,13 +164,18 @@ mail_transaction_log_file_dotlock(struct mail_transaction_log_file *file,
 		return 0;
 	}
 
-	ret = file_lock_dotlock(file->filepath, NULL, FALSE,
-				LOG_DOTLOCK_TIMEOUT,
-				LOG_DOTLOCK_STALE_TIMEOUT,
-				LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT,
-				NULL, NULL, &file->dotlock);
+	if (file->log->dotlock_count > 0)
+		ret = 1;
+	else {
+		ret = file_lock_dotlock(file->filepath, NULL, FALSE,
+					LOG_DOTLOCK_TIMEOUT,
+					LOG_DOTLOCK_STALE_TIMEOUT,
+					LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT,
+					NULL, NULL, &file->log->dotlock);
+	}
 	if (ret > 0) {
-		file->lock_type = F_WRLCK;
+		file->log->dotlock_count++;
+ 		file->lock_type = F_WRLCK;
 		return 0;
 	}
 	if (ret < 0) {
@@ -311,12 +319,16 @@ static int
 mail_transaction_log_file_create(struct mail_transaction_log *log,
 				 const char *path, dev_t dev, ino_t ino)
 {
+#define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
 	struct mail_index *index = log->index;
 	struct mail_transaction_log_header hdr;
 	struct stat st;
 	int fd, fd2, ret;
 
-	fd = file_dotlock_open(path, NULL, LOG_DOTLOCK_TIMEOUT,
+	/* With dotlocking we might already have path.lock created, so this
+	   filename has to be different. */
+	fd = file_dotlock_open(path, NULL, LOG_NEW_DOTLOCK_SUFFIX,
+			       LOG_DOTLOCK_TIMEOUT,
 			       LOG_DOTLOCK_STALE_TIMEOUT,
 			       LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT, NULL, NULL);
 	if (fd == -1) {
@@ -334,7 +346,8 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 		} else if (st.st_dev == dev && st.st_ino == ino) {
 			/* same file, still broken */
 		} else {
-			(void)file_dotlock_delete(path, fd2);
+			(void)file_dotlock_delete(path, LOG_NEW_DOTLOCK_SUFFIX,
+						  fd2);
 			return fd2;
 		}
 
@@ -364,19 +377,20 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 	}
 
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
-		mail_index_file_set_syscall_error(index, path, "write_full()");
-                (void)file_dotlock_delete(path, fd);
+		mail_index_file_set_syscall_error(index, path,
+						  "write_full()");
+                (void)file_dotlock_delete(path, LOG_NEW_DOTLOCK_SUFFIX, fd);
 		return -1;
 	}
 
 	fd2 = dup(fd);
 	if (fd2 < 0) {
 		mail_index_file_set_syscall_error(index, path, "dup()");
-                (void)file_dotlock_delete(path, fd);
+                (void)file_dotlock_delete(path, LOG_NEW_DOTLOCK_SUFFIX, fd);
 		return -1;
 	}
 
-	if (file_dotlock_replace(path, fd, FALSE) <= 0)
+	if (file_dotlock_replace(path, LOG_NEW_DOTLOCK_SUFFIX, fd, FALSE) <= 0)
 		return -1;
 
 	/* success */

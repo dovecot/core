@@ -14,6 +14,8 @@
 #include <time.h>
 #include <sys/stat.h>
 
+#define DEFAULT_LOCK_SUFFIX ".lock"
+
 /* 0.1 .. 0.2msec */
 #define LOCK_RANDOM_USLEEP_TIME (100000 + (unsigned int)rand() % 100000)
 
@@ -244,13 +246,14 @@ static int try_create_lock(struct lock_info *lock_info, const char *temp_prefix)
 	return 1;
 }
 
-static int dotlock_create(const char *path, const char *temp_prefix,
-			  int checkonly, int *fd,
-			  unsigned int timeout, unsigned int stale_timeout,
-			  unsigned int immediate_stale_timeout,
-			  int (*callback)(unsigned int secs_left, int stale,
-					  void *context),
-			  void *context)
+static int
+dotlock_create(const char *path, const char *temp_prefix,
+	       const char *lock_suffix, int checkonly, int *fd,
+	       unsigned int timeout, unsigned int stale_timeout,
+	       unsigned int immediate_stale_timeout,
+	       int (*callback)(unsigned int secs_left, int stale,
+			       void *context),
+	       void *context)
 {
 	const char *lock_path;
         struct lock_info lock_info;
@@ -261,7 +264,7 @@ static int dotlock_create(const char *path, const char *temp_prefix,
 
 	now = time(NULL);
 
-	lock_path = t_strconcat(path, ".lock", NULL);
+	lock_path = t_strconcat(path, lock_suffix, NULL);
 	stale_notify_threshold = stale_timeout / 2;
 	max_wait_time = now + timeout;
 
@@ -342,11 +345,11 @@ int file_lock_dotlock(const char *path, const char *temp_prefix, int checkonly,
 	struct stat st;
 	int fd, ret;
 
-	lock_path = t_strconcat(path, ".lock", NULL);
+	lock_path = t_strconcat(path, DEFAULT_LOCK_SUFFIX, NULL);
 
-	ret = dotlock_create(path, temp_prefix, checkonly, &fd,
-			     timeout, stale_timeout, immediate_stale_timeout,
-			     callback, context);
+	ret = dotlock_create(path, temp_prefix, DEFAULT_LOCK_SUFFIX,
+			     checkonly, &fd, timeout, stale_timeout,
+			     immediate_stale_timeout, callback, context);
 	if (ret <= 0 || checkonly)
 		return ret;
 
@@ -379,12 +382,13 @@ int file_lock_dotlock(const char *path, const char *temp_prefix, int checkonly,
 	return 1;
 }
 
-static int dotlock_delete(const char *path, const struct dotlock *dotlock)
+static int dotlock_delete(const char *path, const char *lock_suffix,
+			  const struct dotlock *dotlock)
 {
 	const char *lock_path;
         struct stat st;
 
-	lock_path = t_strconcat(path, ".lock", NULL);
+	lock_path = t_strconcat(path, lock_suffix, NULL);
 
 	if (lstat(lock_path, &st) < 0) {
 		if (errno == ENOENT) {
@@ -424,10 +428,11 @@ static int dotlock_delete(const char *path, const struct dotlock *dotlock)
 
 int file_unlock_dotlock(const char *path, const struct dotlock *dotlock)
 {
-	return dotlock_delete(path, dotlock);
+	return dotlock_delete(path, DEFAULT_LOCK_SUFFIX, dotlock);
 }
 
-int file_dotlock_open(const char *path, const char *temp_prefix,
+int file_dotlock_open(const char *path,
+		      const char *temp_prefix, const char *lock_suffix,
 		      unsigned int timeout, unsigned int stale_timeout,
 		      unsigned int immediate_stale_timeout,
 		      int (*callback)(unsigned int secs_left, int stale,
@@ -436,7 +441,10 @@ int file_dotlock_open(const char *path, const char *temp_prefix,
 {
 	int ret, fd;
 
-	ret = dotlock_create(path, temp_prefix, FALSE, &fd,
+	if (lock_suffix == NULL)
+		lock_suffix = DEFAULT_LOCK_SUFFIX;
+
+	ret = dotlock_create(path, temp_prefix, lock_suffix, FALSE, &fd,
 			     timeout, stale_timeout, immediate_stale_timeout,
 			     callback, context);
 	if (ret <= 0)
@@ -444,13 +452,17 @@ int file_dotlock_open(const char *path, const char *temp_prefix,
 	return fd;
 }
 
-int file_dotlock_replace(const char *path, int fd, int verify_owner)
+int file_dotlock_replace(const char *path, const char *lock_suffix,
+			 int fd, int verify_owner)
 {
 	struct stat st, st2;
 	const char *lock_path;
 	int old_errno;
 
-	lock_path = t_strconcat(path, ".lock", NULL);
+	if (lock_suffix == NULL)
+		lock_suffix = DEFAULT_LOCK_SUFFIX;
+
+	lock_path = t_strconcat(path, lock_suffix, NULL);
 	if (verify_owner) {
 		if (fstat(fd, &st) < 0) {
 			old_errno = errno;
@@ -487,16 +499,19 @@ int file_dotlock_replace(const char *path, int fd, int verify_owner)
 	return 1;
 }
 
-int file_dotlock_delete(const char *path, int fd)
+int file_dotlock_delete(const char *path, const char *lock_suffix, int fd)
 {
 	struct dotlock dotlock;
 	struct stat st;
 	int old_errno;
 
+	if (lock_suffix == NULL)
+		lock_suffix = DEFAULT_LOCK_SUFFIX;
+
 	if (fstat(fd, &st) < 0) {
 		old_errno = errno;
 		i_error("fstat(%s) failed: %m",
-			t_strconcat(path, ".lock", NULL));
+			t_strconcat(path, lock_suffix, NULL));
 		(void)close(fd);
 		errno = old_errno;
 		return -1;
@@ -504,7 +519,7 @@ int file_dotlock_delete(const char *path, int fd)
 
 	if (close(fd) < 0) {
 		i_error("close(%s) failed: %m",
-			t_strconcat(path, ".lock", NULL));
+			t_strconcat(path, lock_suffix, NULL));
 		return -1;
 	}
 
@@ -512,5 +527,5 @@ int file_dotlock_delete(const char *path, int fd)
 	dotlock.ino = st.st_ino;
 	dotlock.mtime = st.st_mtime;
 
-	return dotlock_delete(path, &dotlock);
+	return dotlock_delete(path, lock_suffix, &dotlock);
 }

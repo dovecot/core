@@ -13,7 +13,6 @@ struct mail_transaction_log_file {
 	char *filepath;
 	int fd;
 	int lock_type;
-	struct dotlock dotlock;
 
 	ino_t st_ino;
 	dev_t st_dev;
@@ -30,6 +29,9 @@ struct mail_transaction_log {
 	struct mail_index *index;
         struct mail_transaction_log_view *views;
 	struct mail_transaction_log_file *head, *tail;
+
+	unsigned int dotlock_count;
+	struct dotlock dotlock;
 };
 
 void

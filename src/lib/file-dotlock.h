@@ -40,7 +40,8 @@ int file_unlock_dotlock(const char *path, const struct dotlock *dotlock);
 /* Use dotlock as the new content for file. This provides read safety without
    locks, but not very good for large files. Returns fd for lock file.
    If locking timed out, returns -1 and errno = EAGAIN. */
-int file_dotlock_open(const char *path, const char *temp_prefix,
+int file_dotlock_open(const char *path,
+		      const char *temp_prefix, const char *lock_suffix,
 		      unsigned int timeout, unsigned int stale_timeout,
 		      unsigned int immediate_stale_timeout,
 		      int (*callback)(unsigned int secs_left, int stale,
@@ -48,8 +49,9 @@ int file_dotlock_open(const char *path, const char *temp_prefix,
 		      void *context);
 /* Replaces path with path.lock file. Closes given fd. If verify_owner is TRUE,
    it checks that lock file hasn't been overwritten before renaming. */
-int file_dotlock_replace(const char *path, int fd, int verify_owner);
+int file_dotlock_replace(const char *path, const char *lock_suffix,
+			 int fd, int verify_owner);
 /* Like file_unlock_dotlock(). Closes given fd. */
-int file_dotlock_delete(const char *path, int fd);
+int file_dotlock_delete(const char *path, const char *lock_suffix, int fd);
 
 #endif

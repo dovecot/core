@@ -79,7 +79,8 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 		name = "INBOX";
 
 	/* FIXME: set lock notification callback */
-	fd_out = file_dotlock_open(path, NULL, SUBSCRIPTION_FILE_LOCK_TIMEOUT,
+	fd_out = file_dotlock_open(path, NULL, NULL,
+				   SUBSCRIPTION_FILE_LOCK_TIMEOUT,
 				   SUBSCRIPTION_FILE_CHANGE_TIMEOUT,
 				   SUBSCRIPTION_FILE_IMMEDIATE_TIMEOUT,
 				   NULL, NULL);
@@ -97,7 +98,7 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 	fd_in = open(path, O_RDONLY);
 	if (fd_in == -1 && errno != ENOENT) {
 		subsfile_set_syscall_error(storage, "open()", path);
-		file_dotlock_delete(path, fd_out);
+		file_dotlock_delete(path, NULL, fd_out);
 		return -1;
 	}
 
@@ -137,13 +138,13 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 	o_stream_unref(output);
 
 	if (failed || (set && found) || (!set && !found)) {
-		if (file_dotlock_delete(path, fd_out) < 0) {
+		if (file_dotlock_delete(path, NULL, fd_out) < 0) {
 			subsfile_set_syscall_error(storage,
 				"file_dotlock_delete()", path);
 			failed = TRUE;
 		}
 	} else {
-		if (file_dotlock_replace(path, fd_out, TRUE) < 0) {
+		if (file_dotlock_replace(path, NULL, fd_out, TRUE) < 0) {
 			subsfile_set_syscall_error(storage,
 				"file_dotlock_replace()", path);
 			failed = TRUE;

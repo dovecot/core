@@ -77,8 +77,8 @@ int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
 	path = t_strconcat(uidlist->ibox->control_dir,
 			   "/" MAILDIR_UIDLIST_NAME, NULL);
         old_mask = umask(0777 & ~uidlist->ibox->mail_create_mode);
-	fd = file_dotlock_open(path, NULL, 0, 0, UIDLIST_LOCK_STALE_TIMEOUT,
-			       NULL, NULL);
+	fd = file_dotlock_open(path, NULL, NULL, 0, 0,
+			       UIDLIST_LOCK_STALE_TIMEOUT, NULL, NULL);
 	umask(old_mask);
 	if (fd == -1) {
 		if (errno == EAGAIN)
@@ -101,7 +101,7 @@ void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
 
 	path = t_strconcat(uidlist->ibox->control_dir,
 			   "/" MAILDIR_UIDLIST_NAME, NULL);
-	(void)file_dotlock_delete(path, uidlist->lock_fd);
+	(void)file_dotlock_delete(path, NULL, uidlist->lock_fd);
 	uidlist->lock_fd = -1;
 }
 
@@ -482,7 +482,7 @@ static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
 		db_path = t_strconcat(ibox->control_dir,
 				      "/" MAILDIR_UIDLIST_NAME, NULL);
 
-		if (file_dotlock_replace(db_path, uidlist->lock_fd,
+		if (file_dotlock_replace(db_path, NULL, uidlist->lock_fd,
 					 FALSE) <= 0) {
 			mail_storage_set_critical(ibox->box.storage,
 				"file_dotlock_replace(%s) failed: %m", db_path);
