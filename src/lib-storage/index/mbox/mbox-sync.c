@@ -377,10 +377,9 @@ mbox_sync_update_from_offset(struct mbox_sync_context *sync_ctx,
 
 		if (offset == mail->from_offset)
 			return 0;
-	} else {
-		offset = mail->from_offset;
 	}
 
+	offset = mail->from_offset;
 	mail_index_update_extra_rec(sync_ctx->t, sync_ctx->idx_seq,
 				    sync_ctx->ibox->mbox_extra_idx, &offset);
 	return 0;

@@ -17,6 +17,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 	struct index_mailbox *ibox = mail->ibox;
 	const void *data;
 	uint64_t offset;
+	int ret;
 
 	if (ibox->mbox_lock_type == F_UNLCK) {
 		if (mbox_sync(ibox, FALSE, FALSE, TRUE) < 0)
@@ -29,9 +30,11 @@ static int mbox_mail_seek(struct index_mail *mail)
 	if (mbox_file_open_stream(ibox) < 0)
 		return -1;
 
-	if (mail_index_lookup_extra(ibox->view, mail->mail.seq,
-				    ibox->mbox_extra_idx, &data) < 0) {
-		mail_storage_set_index_error(ibox);
+	ret = mail_index_lookup_extra(ibox->view, mail->mail.seq,
+				      ibox->mbox_extra_idx, &data);
+	if (ret <= 0) {
+		if (ret < 0)
+			mail_storage_set_index_error(ibox);
 		return -1;
 	}
 
