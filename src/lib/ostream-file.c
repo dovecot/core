@@ -570,7 +570,7 @@ static off_t io_stream_sendfile(struct _ostream *outstream,
 		outstream->ostream.offset += ret;
 	} while ((uoff_t)ret != send_size);
 
-	i_stream_seek(instream, instream->start_offset + v_offset);
+	i_stream_seek(instream, v_offset);
 	return ret < 0 ? -1 : (off_t)(instream->v_offset - start_offset);
 }
 
