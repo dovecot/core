@@ -98,6 +98,7 @@ struct index_mailbox {
 	unsigned int notify_pending:1;
 	unsigned int mail_read_mmaped:1;
 	unsigned int syncing_commit:1;
+	unsigned int unreliable_headers:1;
 };
 
 struct index_transaction_context {

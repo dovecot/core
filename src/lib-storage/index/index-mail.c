@@ -244,11 +244,14 @@ static int get_cached_msgpart_sizes(struct index_mail *mail)
 		data->parts = get_cached_parts(mail);
 
 	if (data->parts != NULL) {
-		data->hdr_size = data->parts->header_size;
+		if (!mail->ibox->unreliable_headers) {
+			/* headers don't change, physical_size is reliable */
+			data->hdr_size_set = TRUE;
+			data->hdr_size = data->parts->header_size;
+		}
 		data->body_size = data->parts->body_size;
-		data->hdr_size_set = TRUE;
 		data->body_size_set = TRUE;
-		data->size = data->hdr_size.virtual_size +
+		data->size = data->parts->header_size.virtual_size +
 			data->body_size.virtual_size;
 	}
 
