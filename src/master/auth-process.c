@@ -44,9 +44,9 @@ static unsigned int auth_tag;
 
 static void auth_process_destroy(struct auth_process *p);
 
-static int handle_request(struct auth_process *process,
-			  struct auth_master_reply *reply,
-			  const unsigned char *data)
+static int handle_reply(struct auth_process *process,
+			struct auth_master_reply *reply,
+			const unsigned char *data)
 {
 	size_t nul_pos;
 	void *context;
@@ -154,7 +154,7 @@ static void auth_process_input(void *context)
 
 	if (!p->in_auth_reply) {
 		data = i_stream_get_data(p->input, &size);
-		if (size < sizeof(struct auth_master_reply))
+		if (size < sizeof(p->auth_reply))
 			return;
 
 		p->in_auth_reply = TRUE;
@@ -168,7 +168,7 @@ static void auth_process_input(void *context)
 		return;
 
 	/* reply is now read */
-	if (!handle_request(p, &p->auth_reply, data))
+	if (!handle_reply(p, &p->auth_reply, data))
 		auth_process_destroy(p);
 	else {
 		p->in_auth_reply = FALSE;
