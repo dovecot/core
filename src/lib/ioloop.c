@@ -82,11 +82,12 @@ void io_remove(struct io *io)
 	io_loop_handle_remove(current_ioloop, io->fd, io->condition);
 
 	io->destroyed = TRUE;
-	io->fd = -1;
 
 	/* check if we removed the highest fd */
 	if (io->fd == current_ioloop->highest_fd)
 		update_highest_fd(current_ioloop);
+
+	io->fd = -1;
 }
 
 void io_destroy(struct ioloop *ioloop, struct io **io_p)
