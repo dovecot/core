@@ -98,8 +98,13 @@ static void list_send(Client *client, ListNode *node, const char *cmd,
 	for (; node != NULL; node = node->next) {
 		t_push();
 
-		name = path == NULL ? node->name :
-			t_strconcat(path, sep, node->name, NULL);
+		/* Send INBOX always uppercased */
+		if (path != NULL)
+			name = t_strconcat(path, sep, node->name, NULL);
+		else if (strcasecmp(node->name, "INBOX") == 0)
+			name = "INBOX";
+		else
+			name = node->name;
 
 		if (node->children != NULL)
 			list_send(client, node->children, cmd, name, sep, glob);
