@@ -1,8 +1,6 @@
 #ifndef __OBUFFER_H
 #define __OBUFFER_H
 
-#include "ioloop.h" /* TimeoutFunc */
-
 struct _OBuffer {
 	uoff_t offset;
 
@@ -27,11 +25,10 @@ void o_buffer_close(OBuffer *buf);
 void o_buffer_set_max_size(OBuffer *buf, size_t max_size);
 /* Buffer is made to be flushed out whenever it gets full (assumes max_size
    is already set), ie. writes will never be partial. Also makes any blocking
-   writes to fail after specified timeout, also calling timeout_func if it's
-   set. The blocking state in file descriptor isn't changed, but for timeout
-   to work it must be in non-blocking state. */
+   writes to fail after specified timeout, calling timeout_func if it's
+   set. This call changes non-blocking state of file descriptor. */
 void o_buffer_set_blocking(OBuffer *buf, int timeout_msecs,
-			   TimeoutFunc timeout_func, void *context);
+			   void (*timeout_func)(void *), void *context);
 
 /* Delays sending as far as possible, writing only full buffers. Also sets
    TCP_CORK on if supported. o_buffer_flush() removes the cork. */
@@ -50,7 +47,7 @@ int o_buffer_seek(OBuffer *buf, uoff_t offset);
 ssize_t o_buffer_send(OBuffer *buf, const void *data, size_t size);
 /* Send data from input buffer to output buffer using the fastest
    possible method. Returns number of bytes sent, or -1 if error.
-   Note that this function may block. */
+   Note that this function may block if either inbuf or outbuf is blocking. */
 off_t o_buffer_send_ibuffer(OBuffer *outbuf, IBuffer *inbuf);
 
 #endif

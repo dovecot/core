@@ -11,6 +11,7 @@ ioloop_sources = \
 	ioloop-select.c
 
 liblib_a_SOURCES = \
+	alarm-hup.c \
 	base64.c \
 	compat.c \
 	data-stack.c \
@@ -54,6 +55,7 @@ liblib_a_SOURCES = \
 	write-full.c
 
 noinst_HEADERS = \
+	alarm-hup.h \
 	base64.h \
 	compat.h \
 	data-stack.h \

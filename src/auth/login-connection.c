@@ -1,9 +1,10 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
-#include "network.h"
+#include "ioloop.h"
 #include "ibuffer.h"
 #include "obuffer.h"
+#include "network.h"
 #include "login-connection.h"
 
 #include <stdlib.h>

@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "ioloop.h"
 #include "network.h"
 #include "ibuffer.h"
 #include "obuffer.h"
@@ -29,8 +30,7 @@ static Timeout to_idle;
 
 static void client_input(Client *client);
 
-static void client_output_timeout(void *context,
-				  Timeout timeout __attr_unused__)
+static void client_output_timeout(void *context)
 {
 	Client *client = context;
 
@@ -38,8 +38,7 @@ static void client_output_timeout(void *context,
 	o_buffer_close(client->outbuf);
 }
 
-static void client_input_timeout(void *context,
-				 Timeout timeout __attr_unused__)
+static void client_input_timeout(void *context)
 {
 	Client *client = context;
 

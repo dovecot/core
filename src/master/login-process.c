@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "ioloop.h"
 #include "network.h"
 #include "obuffer.h"
 #include "fdpass.h"

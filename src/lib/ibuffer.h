@@ -1,8 +1,6 @@
 #ifndef __IBUFFER_H
 #define __IBUFFER_H
 
-#include "ioloop.h" /* TimeoutFunc */
-
 struct _IBuffer {
 	uoff_t start_offset;
 	uoff_t v_offset, v_size, v_limit; /* relative to start_offset */
@@ -42,11 +40,11 @@ void i_buffer_set_start_offset(IBuffer *buf, uoff_t offset);
    removes the limit. The offset is  */
 void i_buffer_set_read_limit(IBuffer *buf, uoff_t v_offset);
 /* Makes reads blocking until at least one byte is read. timeout_func is
-   called if nothing is read in specified time. The blocking state in file
-   descriptor isn't changed, but for timeout to work it must be in
-   non-blocking state. Setting timeout_msecs to 0 makes it non-blocking. */
+   called if nothing is read in specified time. Setting timeout_msecs to 0
+   makes it non-blocking. This call changes non-blocking state of file
+   descriptor. */
 void i_buffer_set_blocking(IBuffer *buf, int timeout_msecs,
-			   TimeoutFunc timeout_func, void *context);
+			   void (*timeout_func)(void *), void *context);
 
 /* Returns number of bytes read if read was ok, -1 if EOF or error, -2 if the
    buffer is full. */

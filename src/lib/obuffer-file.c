@@ -24,6 +24,7 @@
 */
 
 #include "lib.h"
+#include "alarm-hup.h"
 #include "network.h"
 #include "sendfile-util.h"
 #include "ibuffer.h"
@@ -38,8 +39,6 @@
 
 #define IS_BUFFER_EMPTY(fbuf) \
 	(!(fbuf)->full && (fbuf)->head == (fbuf)->tail)
-#define BUFFER_IS_BLOCKING(fbuf) \
-	((fbuf)->timeout_msecs != 0)
 
 #define MAX_SSIZE_T(size) \
 	((size) < SSIZE_T_MAX ? (size_t)(size) : SSIZE_T_MAX)
@@ -56,7 +55,7 @@ typedef struct {
 	size_t head, tail; /* first unsent/unused byte */
 
 	int timeout_msecs;
-	TimeoutFunc timeout_func;
+	void (*timeout_func)(void *);
 	void *timeout_context;
 
 	unsigned int full:1; /* if head == tail, is buffer empty or full? */
@@ -64,17 +63,6 @@ typedef struct {
 	unsigned int no_socket_cork:1;
 	unsigned int autoclose_fd:1;
 } FileOBuffer;
-
-typedef struct {
-	IOLoop ioloop;
-	FileOBuffer *fbuf;
-	uoff_t sent;
-	int timeout;
-
-	IBuffer *inbuf;
-	struct iovec iov[3];
-	unsigned int iov_len;
-} IOLoopWriteContext;
 
 static void buffer_closed(FileOBuffer *fbuf)
 {
@@ -117,13 +105,18 @@ static void _set_max_size(_IOBuffer *buf, size_t max_size)
 }
 
 static void _set_blocking(_IOBuffer *buf, int timeout_msecs,
-			  TimeoutFunc timeout_func, void *context)
+			  void (*timeout_func)(void *), void *context)
 {
 	FileOBuffer *fbuf = (FileOBuffer *) buf;
 
 	fbuf->timeout_msecs = timeout_msecs;
 	fbuf->timeout_func = timeout_func;
 	fbuf->timeout_context = context;
+
+	net_set_nonblock(fbuf->fd, timeout_msecs == 0);
+
+	if (timeout_msecs != 0)
+		alarm_hup_init();
 }
 
 static void _cork(_OBuffer *buf)
@@ -221,61 +214,6 @@ o_buffer_writev(FileOBuffer *fbuf, struct iovec *iov, unsigned int iov_size)
 	return ret;
 }
 
-static void ioloop_send(IOLoopWriteContext *ctx)
-{
-	if (o_buffer_writev(ctx->fbuf, ctx->iov, ctx->iov_len) < 0 ||
-	    ctx->iov[ctx->iov_len-1].iov_len == 0) {
-		/* error / all sent */
-		io_loop_stop(ctx->ioloop);
-	}
-}
-
-static void ioloop_timeout(void *context, Timeout timeout __attr_unused__)
-{
-	IOLoopWriteContext *ctx = context;
-
-	ctx->timeout = TRUE;
-	io_loop_stop(ctx->ioloop);
-}
-
-static int o_buffer_ioloop(FileOBuffer *fbuf, IOLoopWriteContext *ctx,
-			   void (*send_func)(IOLoopWriteContext *ctx))
-{
-	Timeout to;
-	IO io;
-
-	/* close old IO */
-	if (fbuf->io != NULL)
-		io_remove(fbuf->io);
-
-	t_push();
-
-	/* create a new I/O loop */
-	ctx->ioloop = io_loop_create(data_stack_pool);
-	ctx->fbuf = fbuf;
-
-	io = io_add(fbuf->fd, IO_WRITE, (IOFunc) send_func, ctx);
-	to = fbuf->timeout_msecs <= 0 ? NULL :
-		timeout_add(fbuf->timeout_msecs, ioloop_timeout, ctx);
-
-	io_loop_run(ctx->ioloop);
-
-	io_remove(io);
-
-	if (to != NULL) {
-		if (ctx->timeout && fbuf->timeout_func != NULL) {
-			/* call user-given timeout function */
-			fbuf->timeout_func(fbuf->timeout_context, to);
-		}
-		timeout_remove(to);
-	}
-
-	io_loop_destroy(ctx->ioloop);
-	t_pop();
-
-	return fbuf->obuf.obuffer.closed ? -1 : 1;
-}
-
 /* returns how much of vector was used */
 static int o_buffer_fill_iovec(FileOBuffer *fbuf, struct iovec iov[2])
 {
@@ -302,18 +240,36 @@ static int o_buffer_fill_iovec(FileOBuffer *fbuf, struct iovec iov[2])
 static int o_buffer_send_blocking(FileOBuffer *fbuf, const void *data,
 				  size_t size)
 {
-	IOLoopWriteContext ctx;
+	time_t timeout_time;
+	struct iovec iov[3];
+	int iov_len, first;
 
-	memset(&ctx, 0, sizeof(ctx));
-
-	ctx.iov_len = o_buffer_fill_iovec(fbuf, ctx.iov);
+	iov_len = o_buffer_fill_iovec(fbuf, iov);
 	if (size > 0) {
-		ctx.iov[ctx.iov_len].iov_base = (void *) data;
-		ctx.iov[ctx.iov_len].iov_len = size;
-		ctx.iov_len++;
+		iov[iov_len].iov_base = (void *) data;
+		iov[iov_len].iov_len = size;
+		iov_len++;
 	}
 
-        return o_buffer_ioloop(fbuf, &ctx, ioloop_send);
+	first = TRUE;
+
+	timeout_time = GET_TIMEOUT_TIME(fbuf);
+	while (iov[iov_len-1].iov_len != 0) {
+		if (first)
+			first = FALSE;
+		else if (time(NULL) > timeout_time) {
+			/* timeouted */
+			if (fbuf->timeout_func != NULL)
+				fbuf->timeout_func(fbuf->timeout_context);
+			fbuf->obuf.obuffer.buf_errno = EAGAIN;
+			return -1;
+		}
+
+		if (o_buffer_writev(fbuf, iov, iov_len) < 0)
+			return -1;
+	}
+
+        return 1;
 }
 
 static int buffer_flush(FileOBuffer *fbuf)
@@ -515,7 +471,9 @@ static ssize_t _send(_OBuffer *buf, const void *data, size_t size)
 
 	buf->obuffer.buf_errno = 0;
 
-	if (IS_BUFFER_EMPTY(fbuf) &&
+	/* never try sending buffer immediately if we're block,
+	   so we don't need to deal with timeout issues here */
+	if (IS_BUFFER_EMPTY(fbuf) && BUFFER_IS_BLOCKING(fbuf) &&
 	    (!fbuf->corked || !_have_space(buf, size))) {
 		iov.iov_base = (void *) data;
 		iov.iov_len = size;
@@ -538,77 +496,14 @@ static ssize_t _send(_OBuffer *buf, const void *data, size_t size)
 	}
 }
 
-static void ioloop_sendfile(IOLoopWriteContext *ctx)
-{
-	OBuffer *outbuf;
-	uoff_t offset, send_size;
-	ssize_t ret;
-	int in_fd;
-
-	outbuf = &ctx->fbuf->obuf.obuffer;
-	in_fd = i_buffer_get_fd(ctx->inbuf);
-	i_assert(in_fd != -1);
-
-	offset = ctx->inbuf->start_offset + ctx->inbuf->v_offset;
-	send_size = ctx->inbuf->v_limit - ctx->inbuf->v_offset;
-
-	ret = safe_sendfile(ctx->fbuf->fd, in_fd, &offset,
-			    MAX_SSIZE_T(send_size));
-	if (ret < 0) {
-		if (errno != EINTR && errno != EAGAIN) {
-			outbuf->buf_errno = errno;
-			buffer_closed(ctx->fbuf);
-		}
-		ret = 0;
-	}
-
-	i_buffer_skip(ctx->inbuf, (size_t)ret);
-	outbuf->offset += ret;
-
-	if (outbuf->closed || (size_t)ret == send_size)
-		io_loop_stop(ctx->ioloop);
-}
-
-static void ioloop_copy(IOLoopWriteContext *ctx)
-{
-	const unsigned char *data;
-	size_t size;
-	int pos;
-
-	i_assert(ctx->iov_len <= 2);
-
-	(void)i_buffer_read_data(ctx->inbuf, &data, &size, O_BUFFER_MIN_SIZE-1);
-
-	if (size == 0) {
-		/* all sent */
-		io_loop_stop(ctx->ioloop);
-		return;
-	}
-
-	pos = ctx->iov_len++;
-	ctx->iov[pos].iov_base = (void *) data;
-	ctx->iov[pos].iov_len = size;
-
-	if (o_buffer_writev(ctx->fbuf, ctx->iov, ctx->iov_len) < 0) {
-		/* error */
-		io_loop_stop(ctx->ioloop);
-		return;
-	}
-
-	i_buffer_skip(ctx->inbuf, size - ctx->iov[pos].iov_len);
-
-	do {
-		ctx->iov_len--;
-	} while (ctx->iov_len > 0 && ctx->iov[ctx->iov_len-1].iov_len == 0);
-}
-
-static off_t o_buffer_sendfile(_OBuffer *outbuf, IBuffer *inbuf)
+static off_t io_buffer_sendfile(_OBuffer *outbuf, IBuffer *inbuf)
 {
 	FileOBuffer *foutbuf = (FileOBuffer *) outbuf;
-        IOLoopWriteContext ctx;
+	time_t timeout_time;
+	uoff_t start_offset;
 	uoff_t offset, send_size;
-	ssize_t s_ret;
-	int in_fd;
+	ssize_t ret;
+	int in_fd, first;
 
 	in_fd = i_buffer_get_fd(inbuf);
 	if (in_fd == -1) {
@@ -616,57 +511,125 @@ static off_t o_buffer_sendfile(_OBuffer *outbuf, IBuffer *inbuf)
 		return -1;
 	}
 
+	/* set timeout time before flushing existing buffer which may block */
+	timeout_time = GET_TIMEOUT_TIME(foutbuf);
+        start_offset = inbuf->v_offset;
+
 	/* flush out any data in buffer */
 	if (buffer_flush(foutbuf) < 0)
 		return -1;
 
-	/* first try if we can do it with a single sendfile() call */
-	offset = inbuf->start_offset + inbuf->v_offset;
-	send_size = inbuf->v_limit - inbuf->v_offset;
-
-	s_ret = safe_sendfile(foutbuf->fd, in_fd, &offset,
-			      MAX_SSIZE_T(send_size));
-	if (s_ret < 0) {
-		if (errno != EINTR && errno != EAGAIN) {
-			outbuf->obuffer.buf_errno = errno;
-			if (errno != EINVAL) {
-				/* close only if error wasn't because
-				   sendfile() isn't supported */
-				buffer_closed(foutbuf);
-			}
+	first = TRUE;
+	for (;;) {
+		if (first)
+			first = FALSE;
+		else if (time(NULL) > timeout_time) {
+			/* timeouted */
+			if (foutbuf->timeout_func != NULL)
+				foutbuf->timeout_func(foutbuf->timeout_context);
+			outbuf->obuffer.buf_errno = EAGAIN;
 			return -1;
 		}
-		s_ret = 0;
-	}
 
-	i_buffer_skip(inbuf, (size_t)s_ret);
-	outbuf->obuffer.offset += s_ret;
+		offset = inbuf->start_offset + inbuf->v_offset;
+		send_size = inbuf->v_limit - inbuf->v_offset;
 
-	if ((uoff_t)s_ret == send_size) {
-		/* yes, all sent */
-		return (off_t)s_ret;
-	}
+		ret = safe_sendfile(foutbuf->fd, in_fd, &offset,
+				    MAX_SSIZE_T(send_size));
+		if (ret < 0) {
+			if (errno != EINTR && errno != EAGAIN) {
+				outbuf->obuffer.buf_errno = errno;
+				if (errno != EINVAL) {
+					/* close only if error wasn't because
+					   sendfile() isn't supported */
+					buffer_closed(foutbuf);
+				}
+				return -1;
+			}
 
-	memset(&ctx, 0, sizeof(ctx));
-
-	ctx.fbuf = foutbuf;
-	ctx.inbuf = inbuf;
-
-	if (o_buffer_ioloop(foutbuf, &ctx, ioloop_sendfile) < 0) {
-		if (outbuf->obuffer.buf_errno == EINVAL) {
-			/* this shouldn't happen, must be a bug. It would also
-			   mess up later if we let this pass. */
-			i_panic("o_buffer_sendfile() failed: %m");
+			if (!BUFFER_IS_BLOCKING(foutbuf)) {
+				/* don't block */
+				break;
+			}
+			ret = 0;
 		}
-		return -1;
-	} else {
-		return (off_t)ctx.sent;
+
+		i_buffer_skip(inbuf, (size_t)ret);
+		outbuf->obuffer.offset += ret;
+
+		if ((uoff_t)ret == send_size) {
+			/* yes, all sent */
+			break;
+		}
 	}
+
+	return (off_t) (inbuf->v_offset - start_offset);
+}
+
+static off_t io_buffer_copy(_OBuffer *outbuf, IBuffer *inbuf)
+{
+	FileOBuffer *foutbuf = (FileOBuffer *) outbuf;
+	time_t timeout_time;
+	uoff_t start_offset;
+	struct iovec iov[3];
+	int iov_len;
+	const unsigned char *data;
+	size_t size;
+	ssize_t ret;
+	int pos;
+
+	timeout_time = GET_TIMEOUT_TIME(foutbuf);
+	iov_len = o_buffer_fill_iovec(foutbuf, iov);
+
+        start_offset = inbuf->v_offset;
+	for (;;) {
+		(void)i_buffer_read_data(inbuf, &data, &size,
+					 O_BUFFER_MIN_SIZE-1);
+
+		if (size == 0) {
+			/* all sent */
+			break;
+		}
+
+		pos = iov_len++;
+		iov[pos].iov_base = (void *) data;
+		iov[pos].iov_len = size;
+
+		ret = o_buffer_writev(foutbuf, iov, iov_len);
+		if (ret < 0) {
+			/* error */
+			return -1;
+		}
+
+		if (ret == 0 && !BUFFER_IS_BLOCKING(foutbuf)) {
+			/* don't block */
+			break;
+		}
+
+		if (time(NULL) > timeout_time) {
+			/* timeouted */
+			if (foutbuf->timeout_func != NULL)
+				foutbuf->timeout_func(foutbuf->timeout_context);
+			return -1;
+		}
+
+		i_buffer_skip(inbuf, size - iov[pos].iov_len);
+		iov_len--;
+
+		/* if we already sent the iov[0] and iov[1], we
+		   can just remove them from future calls */
+		while (iov_len > 0 && iov[0].iov_len == 0) {
+			iov[0] = iov[1];
+			if (iov_len > 1) iov[1] = iov[2];
+			iov_len--;
+		}
+	}
+
+	return (off_t) (inbuf->v_offset - start_offset);
 }
 
 static off_t _send_ibuffer(_OBuffer *outbuf, IBuffer *inbuf)
 {
-        IOLoopWriteContext ctx;
 	off_t ret;
 
 	i_assert(inbuf->v_limit <= OFF_T_MAX);
@@ -675,27 +638,15 @@ static off_t _send_ibuffer(_OBuffer *outbuf, IBuffer *inbuf)
 	if (inbuf->v_offset == inbuf->v_limit)
 		return 0;
 
-	ret = o_buffer_sendfile(outbuf, inbuf);
+	ret = io_buffer_sendfile(outbuf, inbuf);
 	if (ret >= 0 || outbuf->obuffer.buf_errno != EINVAL)
 		return ret;
-
-	/* sendfile() not supported, reset error */
-	outbuf->obuffer.buf_errno = 0;
 
 	/* sendfile() not supported (with this fd), fallback to
 	   regular sending */
 
-	/* create blocking send loop */
-	memset(&ctx, 0, sizeof(ctx));
-
-	ctx.fbuf = (FileOBuffer *) outbuf;
-	ctx.iov_len = o_buffer_fill_iovec(ctx.fbuf, ctx.iov);
-	ctx.inbuf = inbuf;
-
-	if (o_buffer_ioloop(ctx.fbuf, &ctx, ioloop_copy) < 0)
-		return -1;
-	else
-		return (off_t)ctx.sent;
+	outbuf->obuffer.buf_errno = 0;
+	return io_buffer_copy(outbuf, inbuf);
 }
 
 OBuffer *o_buffer_create_file(int fd, Pool pool, size_t max_buffer_size,

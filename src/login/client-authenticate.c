@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "base64.h"
+#include "ioloop.h"
 #include "ibuffer.h"
 #include "obuffer.h"
 #include "temp-string.h"

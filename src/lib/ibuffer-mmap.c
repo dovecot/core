@@ -85,7 +85,7 @@ static void _set_max_size(_IOBuffer *buf, size_t max_size)
 
 static void _set_blocking(_IOBuffer *buf __attr_unused__,
 			  int timeout_msecs __attr_unused__,
-			  TimeoutFunc timeout_func __attr_unused__,
+			  void (*timeout_func)(void *) __attr_unused__,
 			  void *context __attr_unused__)
 {
 	/* we never block */

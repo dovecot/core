@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "hash.h"
+#include "ioloop.h"
 #include "network.h"
 #include "ibuffer.h"
 #include "obuffer.h"

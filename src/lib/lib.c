@@ -24,6 +24,7 @@
 */
 
 #include "lib.h"
+#include "alarm-hup.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -50,6 +51,8 @@ void lib_init(void)
 
 void lib_deinit(void)
 {
+	alarm_hup_deinit(); /* doesn't harm even if init is never called */
+
         imem_deinit();
 	data_stack_deinit();
         failures_deinit();

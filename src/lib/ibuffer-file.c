@@ -24,11 +24,16 @@
 */
 
 #include "lib.h"
+#include "alarm-hup.h"
 #include "ibuffer-internal.h"
 
 #include <unistd.h>
+#include <network.h>
 
-#define I_BUFFER_MIN_SIZE 1024
+#define I_BUFFER_MIN_SIZE 4096
+
+#define BUFFER_IS_BLOCKING(fbuf) \
+	((fbuf)->timeout_msecs != 0)
 
 typedef struct {
 	_IBuffer ibuf;
@@ -37,17 +42,11 @@ typedef struct {
 	uoff_t skip_left;
 
 	int timeout_msecs;
-	TimeoutFunc timeout_func;
+	void (*timeout_func)(void *);
 	void *timeout_context;
 
 	unsigned int autoclose_fd:1;
 } FileIBuffer;
-
-typedef struct {
-	IOLoop ioloop;
-	IBuffer *buf;
-	int timeout;
-} IOLoopReadContext;
 
 static void _close(_IOBuffer *buf)
 {
@@ -76,13 +75,18 @@ static void _set_max_size(_IOBuffer *buf, size_t max_size)
 }
 
 static void _set_blocking(_IOBuffer *buf, int timeout_msecs,
-			  TimeoutFunc timeout_func, void *context)
+			  void (*timeout_func)(void *), void *context)
 {
 	FileIBuffer *fbuf = (FileIBuffer *) buf;
 
 	fbuf->timeout_msecs = timeout_msecs;
 	fbuf->timeout_func = timeout_func;
 	fbuf->timeout_context = context;
+
+	net_set_nonblock(fbuf->ibuf.fd, timeout_msecs == 0);
+
+	if (timeout_msecs != 0)
+		alarm_hup_init();
 }
 
 static void i_buffer_grow(_IBuffer *buf, size_t bytes)
@@ -104,8 +108,7 @@ static void i_buffer_grow(_IBuffer *buf, size_t bytes)
 
 static void i_buffer_compress(_IBuffer *buf)
 {
-	memmove(buf->w_buffer, buf->w_buffer + buf->skip,
-		buf->pos - buf->skip);
+	memmove(buf->w_buffer, buf->w_buffer + buf->skip, buf->pos - buf->skip);
 	buf->pos -= buf->skip;
 
 	if (buf->skip > buf->cr_lookup_pos)
@@ -116,63 +119,10 @@ static void i_buffer_compress(_IBuffer *buf)
 	buf->skip = 0;
 }
 
-static void ioloop_read(void *context, int fd __attr_unused__,
-			IO io __attr_unused__)
-{
-	IOLoopReadContext *ctx = context;
-
-	if (i_buffer_read(ctx->buf) != 0) {
-		/* got data / error */
-		io_loop_stop(ctx->ioloop);
-	}
-}
-
-static void ioloop_timeout(void *context, Timeout timeout __attr_unused__)
-{
-	IOLoopReadContext *ctx = context;
-
-	ctx->timeout = TRUE;
-	io_loop_stop(ctx->ioloop);
-}
-
-static ssize_t i_buffer_read_blocking(_IBuffer *buf)
-{
-	FileIBuffer *fbuf = (FileIBuffer *) buf;
-        IOLoopReadContext ctx;
-	Timeout to;
-	IO io;
-
-	t_push();
-
-	/* create a new I/O loop */
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.ioloop = io_loop_create(data_stack_pool);
-	ctx.buf = &buf->ibuffer;
-
-	io = io_add(buf->fd, IO_READ, ioloop_read, &ctx);
-	to = fbuf->timeout_msecs <= 0 ? NULL :
-		timeout_add(fbuf->timeout_msecs, ioloop_timeout, &ctx);
-
-	io_loop_run(ctx.ioloop);
-
-	io_remove(io);
-	if (to != NULL) {
-		if (ctx.timeout && fbuf->timeout_func != NULL) {
-			/* call user-given timeout function */
-			fbuf->timeout_func(fbuf->timeout_context, to);
-		}
-		timeout_remove(to);
-	}
-
-	io_loop_destroy(ctx.ioloop);
-	t_pop();
-
-	return buf->pos > buf->skip ? (ssize_t) (buf->pos-buf->skip) : -1;
-}
-
 static ssize_t _read(_IBuffer *buf)
 {
 	FileIBuffer *fbuf = (FileIBuffer *) buf;
+	time_t timeout_time;
 	size_t size;
 	ssize_t ret;
 
@@ -207,27 +157,32 @@ static ssize_t _read(_IBuffer *buf)
 		}
 	}
 
-	ret = read(buf->fd, buf->w_buffer + buf->pos, size);
-	if (ret == 0) {
-		/* EOF */
-		buf->ibuffer.buf_errno = 0;
-		return -1;
-	}
+	timeout_time = GET_TIMEOUT_TIME(fbuf);
 
-	if (ret < 0) {
-		if (errno == EINTR || errno == EAGAIN)
-			ret = 0;
-		else {
-			buf->ibuffer.buf_errno = errno;
+	ret = -1;
+	do {
+		if (ret == 0 && time(NULL) > timeout_time) {
+			/* timeouted */
+			if (fbuf->timeout_func != NULL)
+				fbuf->timeout_func(fbuf->timeout_context);
+			buf->ibuffer.buf_errno = EAGAIN;
 			return -1;
 		}
-	}
-	buf->pos += ret;
 
-	do {
-		if (ret == 0 && fbuf->timeout_msecs > 0) {
-			/* blocking read */
-			ret = i_buffer_read_blocking(buf);
+		ret = read(buf->fd, buf->w_buffer + buf->pos, size);
+		if (ret == 0) {
+			/* EOF */
+			buf->ibuffer.buf_errno = 0;
+			return -1;
+		}
+
+		if (ret < 0) {
+			if (errno == EINTR || errno == EAGAIN)
+				ret = 0;
+			else {
+				buf->ibuffer.buf_errno = errno;
+				return -1;
+			}
 		}
 
 		if (ret > 0 && fbuf->skip_left > 0) {
@@ -241,8 +196,9 @@ static ssize_t _read(_IBuffer *buf)
 				fbuf->skip_left = 0;
 			}
 		}
-	} while (ret == 0 && fbuf->timeout_msecs != 0);
+	} while (ret == 0 && BUFFER_IS_BLOCKING(fbuf));
 
+	buf->pos += ret;
 	return ret;
 }
 

@@ -195,7 +195,7 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		t_push();
 		outbuf = o_buffer_create_file(index->mbox_fd,
 					      data_stack_pool, 4096,
-					      IO_PRIORITY_DEFAULT, FALSE);
+					      0, FALSE);
 
 		if (!write_from_line(box->storage, outbuf, mbox_path,
 				     internal_date) ||

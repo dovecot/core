@@ -55,7 +55,7 @@ void i_buffer_set_max_size(IBuffer *buf, size_t max_size)
 }
 
 void i_buffer_set_blocking(IBuffer *buf, int timeout_msecs,
-			   TimeoutFunc timeout_func, void *context)
+			   void (*timeout_func)(void *), void *context)
 {
 	_io_buffer_set_blocking(buf->real_buffer, timeout_msecs,
 				timeout_func, context);

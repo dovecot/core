@@ -49,7 +49,7 @@ void o_buffer_set_max_size(OBuffer *buf, size_t max_size)
 }
 
 void o_buffer_set_blocking(OBuffer *buf, int timeout_msecs,
-			   TimeoutFunc timeout_func, void *context)
+			   void (*timeout_func)(void *), void *context)
 {
 	_io_buffer_set_blocking(buf->real_buffer, timeout_msecs,
 				timeout_func, context);
