@@ -62,7 +62,8 @@ int net_set_cork(int fd, int cork);
 int net_listen(IPADDR *my_ip, unsigned int *port);
 /* Listen for connections on an UNIX socket */
 int net_listen_unix(const char *path);
-/* Accept a connection on a socket */
+/* Accept a connection on a socket. Returns -1 for temporary failure,
+   -2 for fatal failure */
 int net_accept(int fd, IPADDR *addr, unsigned int *port);
 
 /* Read data from socket, return number of bytes read, -1 = error */

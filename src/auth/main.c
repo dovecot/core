@@ -31,8 +31,12 @@ static void auth_accept(void *context __attr_unused__, int listen_fd,
 	int fd;
 
 	fd = net_accept(listen_fd, NULL, NULL);
-	if (fd != -1)
+	if (fd < 0) {
+		if (fd < -1)
+			i_fatal("accept() failed: %m");
+	} else {
 		(void)login_connection_create(fd);
+	}
 }
 
 static void main_init(void)

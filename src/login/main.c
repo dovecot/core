@@ -75,8 +75,11 @@ static void login_accept(void *context __attr_unused__, int listen_fd,
 	int fd;
 
 	fd = net_accept(listen_fd, &addr, NULL);
-	if (fd == -1)
+	if (fd < 0) {
+		if (fd < -1)
+			i_fatal("accept() failed: %m");
 		return;
+	}
 
 	if (process_per_connection)
 		main_close_listen();
@@ -92,8 +95,11 @@ static void login_accept_ssl(void *context __attr_unused__, int listen_fd,
 	int fd, fd_ssl;
 
 	fd = net_accept(listen_fd, &addr, NULL);
-	if (fd == -1)
+	if (fd < 0) {
+		if (fd < -1)
+			i_fatal("accept() failed: %m");
 		return;
+	}
 
 	fd_ssl = ssl_proxy_new(fd);
 	if (fd_ssl == -1)

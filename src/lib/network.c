@@ -335,8 +335,13 @@ int net_accept(int fd, IPADDR *addr, unsigned int *port)
 	addrlen = sizeof(so);
 	ret = accept(fd, &so.sa, &addrlen);
 
-	if (ret < 0)
-		return -1;
+	if (ret < 0) {
+		if (errno == EBADF || errno == ENOTSOCK ||
+		    errno == EOPNOTSUPP || errno == EFAULT || errno == EINVAL)
+			return -2;
+		else
+			return -1;
+	}
 
 	if (addr != NULL) sin_get_ip(&so, addr);
 	if (port != NULL) *port = sin_get_port(&so);
