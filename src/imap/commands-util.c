@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "common.h"
 #include "str.h"
@@ -6,6 +6,7 @@
 #include "imap-util.h"
 #include "mail-storage.h"
 #include "imap-parser.h"
+#include "namespace.h"
 
 /* Maximum length for mailbox name, including it's path. This isn't fully
    exact since the user can create folder hierarchy with small names, then
@@ -13,15 +14,33 @@
    to them, mbox/maildir currently allow paths only up to PATH_MAX. */
 #define MAILBOX_MAX_NAME_LEN 512
 
+struct mail_storage *
+client_find_storage(struct client *client, const char *mailbox)
+{
+	struct namespace *ns;
+
+	ns = namespace_find(client->namespaces, mailbox);
+	if (ns != NULL)
+		return ns->storage;
+
+	client_send_tagline(client, "NO Unknown namespace.");
+	return NULL;
+}
+
 int client_verify_mailbox_name(struct client *client, const char *mailbox,
 			       int should_exist, int should_not_exist)
 {
+	struct mail_storage *storage;
 	enum mailbox_name_status mailbox_status;
 	const char *p;
 	char sep;
 
+	storage = client_find_storage(client, mailbox);
+	if (storage == NULL)
+		return FALSE;
+
 	/* make sure it even looks valid */
-	sep = client->storage->hierarchy_sep;
+	sep = storage->hierarchy_sep;
 	if (*mailbox == '\0' || strspn(mailbox, "\r\n*%?") != 0) {
 		client_send_tagline(client, "NO Invalid mailbox name.");
 		return FALSE;
@@ -41,9 +60,9 @@ int client_verify_mailbox_name(struct client *client, const char *mailbox,
 	}
 
 	/* check what our storage thinks of it */
-	if (!client->storage->get_mailbox_name_status(client->storage, mailbox,
-						      &mailbox_status)) {
-		client_send_storage_error(client);
+	if (!storage->get_mailbox_name_status(storage, mailbox,
+					      &mailbox_status)) {
+		client_send_storage_error(client, storage);
 		return FALSE;
 	}
 
@@ -93,32 +112,40 @@ int client_verify_open_mailbox(struct client *client)
 
 void client_sync_full(struct client *client)
 {
-	if (client->mailbox != NULL) {
-		if (!client->mailbox->sync(client->mailbox, 0))
-                        client_send_untagged_storage_error(client);
+	if (client->mailbox == NULL)
+		return;
+
+	if (!client->mailbox->sync(client->mailbox, 0)) {
+		client_send_untagged_storage_error(client,
+						   client->mailbox->storage);
 	}
 }
 
 void client_sync_full_fast(struct client *client)
 {
-	if (client->mailbox != NULL) {
-		if (!client->mailbox->sync(client->mailbox,
-					   MAIL_SYNC_FLAG_FAST))
-                        client_send_untagged_storage_error(client);
+	if (client->mailbox == NULL)
+		return;
+
+	if (!client->mailbox->sync(client->mailbox, MAIL_SYNC_FLAG_FAST)) {
+		client_send_untagged_storage_error(client,
+						   client->mailbox->storage);
 	}
 }
 
 void client_sync_without_expunges(struct client *client)
 {
-	if (client->mailbox != NULL) {
-		if (!client->mailbox->sync(client->mailbox,
-                                           MAIL_SYNC_FLAG_NO_EXPUNGES |
-					   MAIL_SYNC_FLAG_FAST))
-			client_send_untagged_storage_error(client);
+	if (client->mailbox == NULL)
+		return;
+
+	if (!client->mailbox->sync(client->mailbox, MAIL_SYNC_FLAG_NO_EXPUNGES |
+				   MAIL_SYNC_FLAG_FAST)) {
+		client_send_untagged_storage_error(client,
+						   client->mailbox->storage);
 	}
 }
 
-void client_send_storage_error(struct client *client)
+void client_send_storage_error(struct client *client,
+			       struct mail_storage *storage)
 {
 	const char *error;
 	int syntax;
@@ -131,12 +158,13 @@ void client_send_storage_error(struct client *client)
 		return;
 	}
 
-	error = client->storage->get_last_error(client->storage, &syntax);
+	error = storage->get_last_error(storage, &syntax);
 	client_send_tagline(client, t_strconcat(syntax ? "BAD " : "NO ",
 						error, NULL));
 }
 
-void client_send_untagged_storage_error(struct client *client)
+void client_send_untagged_storage_error(struct client *client,
+					struct mail_storage *storage)
 {
 	const char *error;
 	int syntax;
@@ -149,7 +177,7 @@ void client_send_untagged_storage_error(struct client *client)
 		return;
 	}
 
-	error = client->storage->get_last_error(client->storage, &syntax);
+	error = storage->get_last_error(storage, &syntax);
 	client_send_line(client,
 			 t_strconcat(syntax ? "* BAD " : "* NO ", error, NULL));
 }

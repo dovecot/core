@@ -31,6 +31,7 @@ static int fetch_and_copy(struct mail_copy_context *copy_ctx,
 
 int cmd_copy(struct client *client)
 {
+	struct mail_storage *storage;
 	struct mailbox *destbox;
         struct mail_copy_context *copy_ctx;
 	const char *messageset, *mailbox;
@@ -47,11 +48,14 @@ int cmd_copy(struct client *client)
 	if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
 		return TRUE;
 
-	destbox = client->storage->open_mailbox(client->storage,
-						mailbox, mailbox_open_flags |
-						MAILBOX_OPEN_FAST);
+	storage = client_find_storage(client, mailbox);
+	if (storage == NULL)
+		return TRUE;
+
+	destbox = storage->open_mailbox(storage, mailbox,
+					mailbox_open_flags | MAILBOX_OPEN_FAST);
 	if (destbox == NULL) {
-		client_send_storage_error(client);
+		client_send_storage_error(client, storage);
 		return TRUE;
 	}
 
@@ -78,7 +82,7 @@ int cmd_copy(struct client *client)
 	(void)destbox->lock(destbox, MAILBOX_LOCK_UNLOCK);
 
 	if (failed)
-		client_send_storage_error(client);
+		client_send_storage_error(client, storage);
 	else if (!all_found) {
 		/* some messages were expunged, sync them */
 		client_sync_full(client);

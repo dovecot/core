@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "commands.h"
+#include "namespace.h"
 
 #include <stdlib.h>
 
@@ -40,7 +41,7 @@ static void client_input_timeout(void *context)
 		"Disconnected for inactivity while waiting for command data.");
 }
 
-struct client *client_create(int hin, int hout, struct mail_storage *storage)
+struct client *client_create(int hin, int hout, struct namespace *namespaces)
 {
 	struct client *client;
 
@@ -65,8 +66,14 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 
 	client->mailbox_flags.pool =
 		pool_alloconly_create("mailbox_custom_flags", 512);
-	client->storage = storage;
-	storage->set_callbacks(storage, &mail_storage_callbacks, client);
+	client->namespaces = namespaces;
+
+	while (namespaces != NULL) {
+		namespaces->storage->set_callbacks(namespaces->storage,
+						   &mail_storage_callbacks,
+						   client);
+		namespaces = namespaces->next;
+	}
 
 	i_assert(my_client == NULL);
 	my_client = client;
@@ -82,7 +89,7 @@ void client_destroy(struct client *client)
 
 	if (client->mailbox != NULL)
 		client->mailbox->close(client->mailbox);
-	mail_storage_destroy(client->storage);
+	namespace_deinit(client->namespaces);
 
 	imap_parser_destroy(client->parser);
 	io_remove(client->io);

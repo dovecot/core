@@ -43,6 +43,7 @@ const struct command imap4rev1_commands[] = {
 
 const struct command imap_ext_commands[] = {
 	{ "IDLE",		cmd_idle },
+	{ "NAMESPACE",		cmd_namespace },
 	{ "SORT",		cmd_sort },
 	{ "THREAD",		cmd_thread },
 	{ "UID SORT",		cmd_sort },

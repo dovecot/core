@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "common.h"
 #include "ioloop.h"
@@ -13,6 +13,7 @@
 #include "module-dir.h"
 #include "mail-storage.h"
 #include "commands.h"
+#include "namespace.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -28,6 +29,7 @@ enum mailbox_open_flags mailbox_open_flags;
 
 static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
+static pool_t namespace_pool;
 
 void (*hook_mail_storage_created)(struct mail_storage **storage) = NULL;
 void (*hook_client_created)(struct client **client) = NULL;
@@ -85,8 +87,7 @@ static void drop_privileges(void)
 static void main_init(void)
 {
 	struct client *client;
-	struct mail_storage *storage;
-	const char *user, *mail, *str;
+	const char *user, *str;
 	int hin, hout;
 
 	lib_init_signals(sig_quit);
@@ -113,33 +114,6 @@ static void main_init(void)
 	modules = getenv("MODULE_DIR") == NULL ? NULL :
 		module_dir_load(getenv("MODULE_DIR"));
 
-	mail = getenv("MAIL");
-	if (mail == NULL) {
-		/* support also maildir-specific environment */
-		mail = getenv("MAILDIR");
-		if (mail != NULL)
-			mail = t_strconcat("maildir:", mail, NULL);
-	}
-
-	storage = mail_storage_create_with_data(mail, user, NULL, '\0');
-	if (storage == NULL) {
-		/* failed */
-		if (mail != NULL && *mail != '\0')
-			i_fatal("Failed to create storage with data: %s", mail);
-		else {
-			const char *home;
-
-			home = getenv("HOME");
-			if (home == NULL) home = "not set";
-
-			i_fatal("MAIL environment missing and "
-				"autodetection failed (home %s)", home);
-		}
-	}
-
-	if (hook_mail_storage_created != NULL)
-		hook_mail_storage_created(&storage);
-
 	str = getenv("IMAP_MAX_LINE_LENGTH");
 	imap_max_line_length = str != NULL ?
 		(unsigned int)strtoul(str, NULL, 10) :
@@ -157,7 +131,8 @@ static void main_init(void)
 	mailbox_open_flags = getenv("MMAP_INVALIDATE") != NULL ?
 		MAILBOX_OPEN_MMAP_INVALIDATE : 0;
 
-	client = client_create(hin, hout, storage);
+	namespace_pool = pool_alloconly_create("namespaces", 1024);
+	client = client_create(hin, hout, namespace_init(namespace_pool, user));
 
         o_stream_cork(client->output);
 	if (IS_STANDALONE()) {
@@ -185,6 +160,7 @@ static void main_deinit(void)
 	clients_deinit();
         mail_storage_deinit();
 	random_deinit();
+	pool_unref(namespace_pool);
 
 	closelog();
 }

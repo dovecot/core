@@ -362,7 +362,7 @@ int cmd_fetch(struct client *client)
 		client_send_tagline(client, ret > 0 ? "OK Fetch completed." :
 			"NO Some of the requested messages no longer exist.");
 	} else {
-		client_send_storage_error(client);
+		client_send_storage_error(client, client->mailbox->storage);
 	}
 
 	return TRUE;

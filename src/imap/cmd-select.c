@@ -5,6 +5,7 @@
 
 int _cmd_select_full(struct client *client, int readonly)
 {
+	struct mail_storage *storage;
 	struct mailbox *box;
 	struct mailbox_status status;
 	enum mailbox_open_flags flags;
@@ -17,23 +18,29 @@ int _cmd_select_full(struct client *client, int readonly)
 	if (client->mailbox != NULL) {
 		box = client->mailbox;
 		client->mailbox = NULL;
-		if (!box->close(box))
-                        client_send_untagged_storage_error(client);
+		if (!box->close(box)) {
+			client_send_untagged_storage_error(client,
+							   box->storage);
+		}
 	}
+
+	storage = client_find_storage(client, mailbox);
+	if (storage == NULL)
+		return TRUE;
 
 	flags = mailbox_open_flags;
 	if (readonly)
 		flags |= MAILBOX_OPEN_READONLY;
-	box = client->storage->open_mailbox(client->storage, mailbox, flags);
+	box = storage->open_mailbox(storage, mailbox, flags);
 	if (box == NULL) {
-		client_send_storage_error(client);
+		client_send_storage_error(client, storage);
 		return TRUE;
 	}
 
 	if (!box->get_status(box, STATUS_MESSAGES | STATUS_RECENT |
 			     STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
 			     STATUS_UIDNEXT | STATUS_CUSTOM_FLAGS, &status)) {
-		client_send_storage_error(client);
+		client_send_storage_error(client, storage);
 		box->close(box);
 		return TRUE;
 	}

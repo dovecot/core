@@ -86,7 +86,8 @@ static void idle_timeout(void *context)
 
 	if (!client->mailbox->get_status(client->mailbox, STATUS_MESSAGES,
 					 &status)) {
-		client_send_untagged_storage_error(client);
+		client_send_untagged_storage_error(client,
+						   client->mailbox->storage);
 		idle_finish(client, TRUE);
 	} else {
                 client->idle_expunge = status.messages+1;

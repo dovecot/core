@@ -70,7 +70,7 @@ int cmd_thread(struct client *client)
 			client_sync_without_expunges(client);
 		client_send_tagline(client, "OK Search completed.");
 	} else {
-		client_send_storage_error(client);
+		client_send_storage_error(client, client->mailbox->storage);
 	}
 
 	pool_unref(pool);

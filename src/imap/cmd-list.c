@@ -34,21 +34,20 @@ static const char *mailbox_flags2str(enum mailbox_flags flags, int listext)
 	return *str == '\0' ? "" : str+1;
 }
 
-static int mailbox_list(struct client *client, const char *mask,
-			const char *sep, const char *reply,
+static int mailbox_list(struct client *client, struct mail_storage *storage,
+			const char *mask, const char *sep, const char *reply,
 			enum mailbox_list_flags list_flags, int listext)
 {
 	struct mailbox_list_context *ctx;
 	struct mailbox_list *list;
 	string_t *str;
 
-	ctx = client->storage->list_mailbox_init(client->storage, mask,
-						 list_flags);
+	ctx = storage->list_mailbox_init(storage, mask, list_flags);
 	if (ctx == NULL)
 		return FALSE;
 
 	str = t_str_new(256);
-	while ((list = client->storage->list_mailbox_next(ctx)) != NULL) {
+	while ((list = storage->list_mailbox_next(ctx)) != NULL) {
 		str_truncate(str, 0);
 		str_printfa(str, "* %s (%s) \"%s\" ", reply,
 			    mailbox_flags2str(list->flags, listext),
@@ -60,7 +59,7 @@ static int mailbox_list(struct client *client, const char *mask,
 		client_send_line(client, str_c(str));
 	}
 
-	return client->storage->list_mailbox_deinit(ctx);
+	return storage->list_mailbox_deinit(ctx);
 }
 
 static int parse_list_flags(struct client *client, struct imap_arg *args,
@@ -93,14 +92,19 @@ static int parse_list_flags(struct client *client, struct imap_arg *args,
 
 int _cmd_list_full(struct client *client, int lsub)
 {
+	struct mail_storage *storage;
 	struct imap_arg *args;
         enum mailbox_list_flags list_flags;
 	const char *ref, *mask;
 	char sep_chr, sep[3];
 	int failed, listext;
 
-	sep_chr = client->storage->hierarchy_sep;
-	if (IS_ESCAPED_CHAR(sep_chr)) {
+	storage = client_find_storage(client, "");
+	if (storage == NULL)
+		return TRUE;
+
+	sep_chr = storage->hierarchy_sep;
+	if (sep_chr == '"' || sep_chr == '\\') {
 		sep[0] = '\\';
 		sep[1] = sep_chr;
 		sep[2] = '\0';
@@ -158,13 +162,13 @@ int _cmd_list_full(struct client *client, int lsub)
 			}
 		}
 
-		failed = !mailbox_list(client, mask, sep,
+		failed = !mailbox_list(client, storage, mask, sep,
 				       lsub ? "LSUB" : "LIST",
 				       list_flags, listext);
 	}
 
 	if (failed)
-		client_send_storage_error(client);
+		client_send_storage_error(client, storage);
 	else {
 		client_send_tagline(client, lsub ?
 				    "OK Lsub completed." :

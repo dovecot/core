@@ -5,6 +5,7 @@
 
 int cmd_delete(struct client *client)
 {
+	struct mail_storage *storage;
 	struct mailbox *mailbox;
 	const char *name;
 
@@ -21,15 +22,20 @@ int cmd_delete(struct client *client)
 	mailbox = client->mailbox;
 	if (mailbox != NULL && strcmp(mailbox->name, name) == 0) {
 		/* deleting selected mailbox. close it first */
+		storage = mailbox->storage;
 		client->mailbox = NULL;
 
 		if (!mailbox->close(mailbox))
-			client_send_untagged_storage_error(client);
+			client_send_untagged_storage_error(client, storage);
+	} else {
+		storage = client_find_storage(client, name);
+		if (storage == NULL)
+			return TRUE;
 	}
 
-	if (client->storage->delete_mailbox(client->storage, name))
+	if (storage->delete_mailbox(storage, name))
 		client_send_tagline(client, "OK Delete completed.");
 	else
-		client_send_storage_error(client);
+		client_send_storage_error(client, storage);
 	return TRUE;
 }

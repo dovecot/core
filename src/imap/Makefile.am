@@ -43,6 +43,7 @@ cmds = \
 	cmd-login.c \
 	cmd-logout.c \
 	cmd-lsub.c \
+	cmd-namespace.c \
 	cmd-noop.c \
 	cmd-rename.c \
 	cmd-search.c \
@@ -69,6 +70,7 @@ imap_SOURCES = \
 	imap-thread.c \
 	mail-storage-callbacks.c \
 	main.c \
+	namespace.c \
 	rawlog.c
 
 
@@ -82,4 +84,5 @@ noinst_HEADERS = \
 	imap-search.h \
 	imap-sort.h \
 	imap-thread.h \
+	namespace.h \
 	rawlog.h

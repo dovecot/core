@@ -45,6 +45,7 @@ static int validate_args(struct imap_arg *args, struct imap_arg_list **flags,
 
 int cmd_append(struct client *client)
 {
+	struct mail_storage *storage;
 	struct mailbox *box;
 	struct mailbox_status status;
 	struct mail_save_context *ctx;
@@ -66,16 +67,19 @@ int cmd_append(struct client *client)
 	if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
 		return TRUE;
 
-	box = client->storage->open_mailbox(client->storage,
-					    mailbox, mailbox_open_flags |
-					    MAILBOX_OPEN_FAST);
+	storage = client_find_storage(client, mailbox);
+	if (storage == NULL)
+		return TRUE;
+
+	box = storage->open_mailbox(storage, mailbox,
+				    mailbox_open_flags | MAILBOX_OPEN_FAST);
 	if (box == NULL) {
-		client_send_storage_error(client);
+		client_send_storage_error(client, storage);
 		return TRUE;
 	}
 
 	if (!box->get_status(box, STATUS_CUSTOM_FLAGS, &status)) {
-		client_send_storage_error(client);
+		client_send_storage_error(client, storage);
 		box->close(box);
 		return TRUE;
 	}
@@ -86,7 +90,7 @@ int cmd_append(struct client *client)
 
 	ctx = box->save_init(box, TRUE);
 	if (ctx == NULL) {
-		client_send_storage_error(client);
+		client_send_storage_error(client, storage);
 		return TRUE;
 	}
 
@@ -188,7 +192,7 @@ int cmd_append(struct client *client)
 					client->input->v_offset + msg_size);
 		if (!box->save_next(ctx, &flags, internal_date,
 				    timezone_offset, client->input)) {
-			client_send_storage_error(client);
+			client_send_storage_error(client, storage);
 			break;
 		}
 		i_stream_set_read_limit(client->input, 0);
@@ -202,7 +206,7 @@ int cmd_append(struct client *client)
 
 	if (!box->save_deinit(ctx, failed)) {
 		failed = TRUE;
-		client_send_storage_error(client);
+		client_send_storage_error(client, storage);
 	}
 
 	box->close(box);

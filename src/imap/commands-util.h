@@ -3,6 +3,11 @@
 
 struct mail_full_flags;
 
+/* Finds mail storage for given mailbox from namespaces. If not found,
+   sends "Unknown namespace" error message to client. */
+struct mail_storage *
+client_find_storage(struct client *client, const char *mailbox);
+
 /* If should_exist is TRUE, this function returns TRUE if the mailbox
    exists. If it doesn't exist but would be a valid mailbox name, the
    error message is prefixed with [TRYCREATE].
@@ -27,10 +32,12 @@ void client_sync_full_fast(struct client *client);
 void client_sync_without_expunges(struct client *client);
 
 /* Send last mail storage error message to client. */
-void client_send_storage_error(struct client *client);
+void client_send_storage_error(struct client *client,
+			       struct mail_storage *storage);
 
 /* Send untagged error message to client. */
-void client_send_untagged_storage_error(struct client *client);
+void client_send_untagged_storage_error(struct client *client,
+					struct mail_storage *storage);
 
 /* Parse flags. Returns TRUE if successful, if not sends an error message to
    client. */

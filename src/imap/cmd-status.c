@@ -51,7 +51,8 @@ static int mailbox_name_equals(const char *box1, const char *box2)
 	return strcasecmp(box1, "INBOX") == 0 && strcasecmp(box2, "INBOX") == 0;
 }
 
-static int get_mailbox_status(struct client *client, const char *mailbox,
+static int get_mailbox_status(struct client *client,
+			      struct mail_storage *storage, const char *mailbox,
 			      enum mailbox_status_items items,
 			      struct mailbox_status *status)
 {
@@ -64,11 +65,10 @@ static int get_mailbox_status(struct client *client, const char *mailbox,
 		box = client->mailbox;
 	} else {
 		/* open the mailbox */
-		box = client->storage->open_mailbox(client->storage,
-						    mailbox,
-						    mailbox_open_flags |
-						    MAILBOX_OPEN_FAST |
-						    MAILBOX_OPEN_READONLY);
+		box = storage->open_mailbox(storage, mailbox,
+					    mailbox_open_flags |
+					    MAILBOX_OPEN_FAST |
+					    MAILBOX_OPEN_READONLY);
 		if (box == NULL)
 			return FALSE;
 	}
@@ -86,6 +86,7 @@ int cmd_status(struct client *client)
 	struct imap_arg *args;
 	struct mailbox_status status;
 	enum mailbox_status_items items;
+	struct mail_storage *storage;
 	const char *mailbox;
 	string_t *str;
 
@@ -106,9 +107,13 @@ int cmd_status(struct client *client)
 		return TRUE;
 	}
 
+	storage = client_find_storage(client, mailbox);
+	if (storage == NULL)
+		return FALSE;
+
 	/* get status */
-	if (!get_mailbox_status(client, mailbox, items, &status)) {
-		client_send_storage_error(client);
+	if (!get_mailbox_status(client, storage, mailbox, items, &status)) {
+		client_send_storage_error(client, storage);
 		return TRUE;
 	}
 

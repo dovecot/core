@@ -14,12 +14,14 @@ int cmd_close(struct client *client)
 	client->mailbox = NULL;
 
 	if (!mailbox->is_readonly(mailbox)) {
-		if (!imap_expunge(mailbox, FALSE))
-			client_send_untagged_storage_error(client);
+		if (!imap_expunge(mailbox, FALSE)) {
+			client_send_untagged_storage_error(client,
+							   mailbox->storage);
+		}
 	}
 
 	if (!mailbox->close(mailbox))
-                client_send_untagged_storage_error(client);
+                client_send_untagged_storage_error(client, mailbox->storage);
 
 	client_send_tagline(client, "OK Close completed.");
 	return TRUE;

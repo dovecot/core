@@ -21,7 +21,7 @@ struct client {
 	struct istream *input;
 	struct ostream *output;
 
-	struct mail_storage *storage;
+        struct namespace *namespaces;
 	struct mailbox *mailbox;
         struct mailbox_custom_flags mailbox_flags;
 	unsigned int select_counter; /* increased when mailbox is changed */
@@ -46,7 +46,7 @@ struct client {
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int hin, int hout, struct mail_storage *storage);
+struct client *client_create(int hin, int hout, struct namespace *namespaces);
 void client_destroy(struct client *client);
 
 /* Disconnect client connection */

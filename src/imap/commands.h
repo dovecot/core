@@ -62,10 +62,11 @@ int cmd_copy(struct client *client);
 int cmd_uid(struct client *client);
 
 /* IMAP extensions: */
+int cmd_idle(struct client *client);
+int cmd_namespace(struct client *client);
 int cmd_sort(struct client *client);
 int cmd_thread(struct client *client);
 int cmd_unselect(struct client *client);
-int cmd_idle(struct client *client);
 
 /* private: */
 int _cmd_list_full(struct client *client, int lsub);

@@ -12,7 +12,7 @@ int cmd_expunge(struct client *client)
 	if (imap_expunge(client->mailbox, TRUE))
 		client_send_tagline(client, "OK Expunge completed.");
 	else
-		client_send_storage_error(client);
+		client_send_storage_error(client, client->mailbox->storage);
 
 	return TRUE;
 }

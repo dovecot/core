@@ -132,7 +132,7 @@ int cmd_store(struct client *client)
 		client_send_tagline(client, all_found ? "OK Store completed." :
 				    "NO Some of the messages no longer exist.");
 	} else {
-		client_send_storage_error(client);
+		client_send_storage_error(client, client->mailbox->storage);
 	}
 
 	return TRUE;

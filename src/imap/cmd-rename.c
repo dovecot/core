@@ -5,6 +5,7 @@
 
 int cmd_rename(struct client *client)
 {
+	struct mail_storage *old_storage, *new_storage;
 	const char *oldname, *newname;
 
 	/* <old name> <new name> */
@@ -14,11 +15,24 @@ int cmd_rename(struct client *client)
 	if (!client_verify_mailbox_name(client, newname, FALSE, TRUE))
 		return TRUE;
 
-	if (client->storage->rename_mailbox(client->storage,
-					    oldname, newname))
+	old_storage = client_find_storage(client, oldname);
+	if (old_storage == NULL)
+		return TRUE;
+
+	new_storage = client_find_storage(client, newname);
+	if (new_storage == NULL)
+		return TRUE;
+
+	if (old_storage != new_storage) {
+		client_send_tagline(client,
+			"NO Can't rename mailbox to another namespace.");
+		return TRUE;
+	}
+
+	if (old_storage->rename_mailbox(old_storage, oldname, newname))
 		client_send_tagline(client, "OK Rename completed.");
 	else
-		client_send_storage_error(client);
+		client_send_storage_error(client, old_storage);
 
 	return TRUE;
 }
