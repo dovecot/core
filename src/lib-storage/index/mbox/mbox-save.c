@@ -182,10 +182,10 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 	if (!index_mailbox_fix_custom_flags(ibox, &real_flags, custom_flags))
 		return FALSE;
 
-	index = ibox->index;
-	if (!mbox_lock(index, MAIL_LOCK_EXCLUSIVE))
+	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
+	index = ibox->index;
 	mbox_path = index->mbox_path;
 	if (!mbox_seek_to_end(box->storage, index->mbox_fd, mbox_path, &pos))
 		failed = TRUE;
@@ -212,6 +212,8 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		t_pop();
 	}
 
-	(void)mbox_unlock(index);
+	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
+		return mail_storage_set_index_error(ibox);
+
 	return !failed;
 }
