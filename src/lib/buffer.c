@@ -237,7 +237,7 @@ size_t buffer_insert(buffer_t *buf, size_t pos,
 	/* move_size == number of bytes we have to move forward to make space */
 	move_size = I_MIN(buf->used, buf->limit) - buf->start_pos;
 	if (pos >= move_size)
-		return 0;
+		return buffer_write(buf, pos, data, data_size);
 	move_size -= pos;
 
 	/* size == number of bytes we want to modify after pos */
