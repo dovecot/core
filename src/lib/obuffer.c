@@ -82,7 +82,7 @@ int o_buffer_have_space(OBuffer *buf, size_t size)
 	return _buf->have_space(_buf, size);
 }
 
-ssize_t o_buffer_seek(OBuffer *buf, uoff_t offset)
+int o_buffer_seek(OBuffer *buf, uoff_t offset)
 {
 	_OBuffer *_buf = buf->real_buffer;
 
