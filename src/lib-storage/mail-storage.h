@@ -229,6 +229,12 @@ struct mailbox {
 
 	struct mail_storage *storage;
 
+	/* Returns TRUE if mailbox is read-only. */
+	int (*is_readonly)(struct mailbox *box);
+
+	/* Returns TRUE if mailbox supports adding custom flags. */
+	int (*allow_new_custom_flags)(struct mailbox *box);
+
 	/* Close the box. Returns FALSE if some cleanup errors occured, but
 	   the mailbox was closed anyway. */
 	int (*close)(struct mailbox *box);
@@ -342,12 +348,6 @@ struct mailbox {
 	   connection this would mean a forced disconnection since we can't
 	   do forced CLOSE. */
 	int (*is_inconsistency_error)(struct mailbox *box);
-
-/* public: */
-	unsigned int readonly:1;
-	unsigned int allow_custom_flags:1;
-/* private: */
-	unsigned int inconsistent:1;
 };
 
 struct mail {
@@ -508,6 +508,5 @@ void mail_storage_set_internal_error(struct mail_storage *storage);
 
 const char *mail_storage_get_last_error(struct mail_storage *storage,
 					int *syntax);
-int mail_storage_is_inconsistency_error(struct mailbox *box);
 
 #endif

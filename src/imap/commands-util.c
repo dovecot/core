@@ -288,14 +288,14 @@ void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 	client_send_line(client,
 		t_strconcat("* FLAGS ("SYSTEM_FLAGS, str, ")", NULL));
 
-	if (box->readonly) {
+	if (box->is_readonly(box)) {
 		client_send_line(client, "* OK [PERMANENTFLAGS ()] "
 				 "Read-only mailbox.");
 	} else {
 		client_send_line(client,
 			t_strconcat("* OK [PERMANENTFLAGS ("SYSTEM_FLAGS, str,
-				    box->allow_custom_flags ? " \\*" : "",
-				    ")] Flags permitted.", NULL));
+				    box->allow_new_custom_flags(box) ?
+				    " \\*" : "", ")] Flags permitted.", NULL));
 	}
 }
 

@@ -133,7 +133,7 @@ struct mail_copy_context *maildir_storage_copy_init(struct mailbox *box)
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 	struct maildir_copy_context *ctx;
 
-	if (box->readonly) {
+	if (box->is_readonly(box)) {
 		mail_storage_set_error(box->storage,
 				       "Destination mailbox is read-only");
 		return NULL;

@@ -320,7 +320,7 @@ mbox_storage_save_init(struct mailbox *box, int transaction)
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 	struct mail_save_context *ctx;
 
-	if (box->readonly) {
+	if (box->is_readonly(box)) {
 		mail_storage_set_error(box->storage, "Mailbox is read-only");
 		return NULL;
 	}

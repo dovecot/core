@@ -256,8 +256,3 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 		*syntax = storage->syntax_error;
 	return storage->error;
 }
-
-int mail_storage_is_inconsistency_error(struct mailbox *box)
-{
-	return box->inconsistent;
-}

@@ -56,7 +56,7 @@ int maildir_storage_expunge(struct mail *mail,
 	struct index_mail *imail = (struct index_mail *) mail;
 	int ret;
 
-	if (mail->box->readonly) {
+	if (mail->box->is_readonly(mail->box)) {
 		/* send warning */
 		return index_storage_expunge(mail, ctx->ctx, seq_r, notify);
 	}

@@ -73,7 +73,7 @@ int _cmd_select_full(struct client *client, int readonly)
 				 "Disk space is full, delete some messages.");
 	}
 
-	client_send_tagline(client, box->readonly ?
+	client_send_tagline(client, box->is_readonly(box) ?
 			    "OK [READ-ONLY] Select completed." :
 			    "OK [READ-WRITE] Select completed.");
 

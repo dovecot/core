@@ -14,7 +14,7 @@ int index_storage_update_flags(struct mail *mail,
 	struct mail_storage *storage = mail->box->storage;
 	enum mail_flags modify_flags, new_flags;
 
-	if (mail->box->readonly) {
+	if (mail->box->is_readonly(mail->box)) {
 		if (ibox->sent_readonly_flags_warning)
 			return TRUE;
                 ibox->sent_readonly_flags_warning = TRUE;

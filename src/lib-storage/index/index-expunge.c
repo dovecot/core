@@ -53,7 +53,7 @@ index_storage_expunge_init(struct mailbox *box,
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 	struct mail_expunge_context *ctx;
 
-	if (box->readonly) {
+	if (box->is_readonly(box)) {
 		box->storage->callbacks->
 			notify_no(box, "Mailbox is read-only, ignoring expunge",
 				  box->storage->callback_context);

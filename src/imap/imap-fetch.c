@@ -275,7 +275,7 @@ int imap_fetch(struct client *client,
 	ctx.select_counter = client->select_counter;
 	ctx.seen_flag.flags = MAIL_SEEN;
 
-	if (!box->readonly) {
+	if (!box->is_readonly(box)) {
 		/* If we have any BODY[..] sections, \Seen flag is added for
 		   all messages */
 		struct imap_fetch_body_data *body;

@@ -764,6 +764,8 @@ struct mailbox maildir_mailbox = {
 	NULL, /* name */
 	NULL, /* storage */
 
+	index_storage_is_readonly,
+        index_storage_allow_new_custom_flags,
 	maildir_storage_close,
 	maildir_storage_lock,
 	index_storage_get_status,
@@ -786,9 +788,5 @@ struct mailbox maildir_mailbox = {
 	maildir_storage_expunge_init,
 	maildir_storage_expunge_deinit,
 	maildir_storage_expunge_fetch_next,
-	mail_storage_is_inconsistency_error,
-
-	FALSE,
-	FALSE,
-	FALSE
+	index_storage_is_inconsistency_error
 };

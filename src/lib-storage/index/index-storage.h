@@ -34,6 +34,8 @@ struct index_mailbox {
 	time_t next_lock_notify; /* temporary */
 	enum mail_lock_notify_type last_notify_type;
 
+	unsigned int readonly:1;
+	unsigned int inconsistent:1;
 	unsigned int sent_diskspace_warning:1;
 	unsigned int sent_readonly_flags_warning:1;
 };
@@ -56,6 +58,10 @@ index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
 			   struct mail_index *index, const char *name,
 			   enum mailbox_open_flags flags);
 int index_storage_mailbox_free(struct mailbox *box);
+
+int index_storage_is_readonly(struct mailbox *box);
+int index_storage_allow_new_custom_flags(struct mailbox *box);
+int index_storage_is_inconsistency_error(struct mailbox *box);
 
 int index_storage_sync_and_lock(struct index_mailbox *ibox,
 				int sync_size, int minimal_sync,

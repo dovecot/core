@@ -172,7 +172,7 @@ maildir_storage_save_init(struct mailbox *box, int transaction)
 	struct mail_save_context *ctx;
 	pool_t pool;
 
-	if (box->readonly) {
+	if (box->is_readonly(box)) {
 		mail_storage_set_error(box->storage, "Mailbox is read-only");
 		return NULL;
 	}

@@ -271,7 +271,7 @@ static void lock_notify(enum mail_lock_notify_type notify_type,
 void index_storage_init_lock_notify(struct index_mailbox *ibox)
 {
 	if (ibox->index->mailbox_readonly)
-		ibox->box.readonly = TRUE;
+		ibox->readonly = TRUE;
 
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	ibox->last_notify_type = (enum mail_lock_notify_type)-1;
@@ -328,7 +328,7 @@ index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
 
 		ibox->box.storage = storage;
 		ibox->box.name = i_strdup(name);
-		ibox->box.readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
+		ibox->readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
 
 		ibox->index = index;
 
@@ -356,8 +356,6 @@ index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
 		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
 			break;
 
-		ibox->box.allow_custom_flags =
-			ibox->index->allow_new_custom_flags;
 		ibox->synced_messages_count =
 			mail_index_get_header(index)->messages_count;
 
@@ -391,6 +389,27 @@ int index_storage_mailbox_free(struct mailbox *box)
 	return TRUE;
 }
 
+int index_storage_is_readonly(struct mailbox *box)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+
+	return ibox->readonly;
+}
+
+int index_storage_allow_new_custom_flags(struct mailbox *box)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+
+	return ibox->index->allow_new_custom_flags;
+}
+
+int index_storage_is_inconsistency_error(struct mailbox *box)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+
+	return ibox->inconsistent;
+}
+
 void index_storage_set_callbacks(struct mail_storage *storage,
 				 struct mail_storage_callbacks *callbacks,
 				 void *context)
@@ -408,7 +427,7 @@ int mail_storage_set_index_error(struct index_mailbox *ibox)
 		mail_storage_set_internal_error(ibox->box.storage);
 		break;
 	case MAIL_INDEX_ERROR_INCONSISTENT:
-		ibox->box.inconsistent = TRUE;
+		ibox->inconsistent = TRUE;
 		break;
 	case MAIL_INDEX_ERROR_DISKSPACE:
 		mail_storage_set_error(ibox->box.storage, "Out of disk space");
