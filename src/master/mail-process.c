@@ -18,6 +18,10 @@
 #include <syslog.h>
 #include <sys/stat.h>
 
+#ifdef HAVE_SYS_RESOURCE_H
+#  include <sys/resource.h>
+#endif
+
 static unsigned int mail_process_count = 0;
 
 static int validate_uid_gid(struct settings *set, uid_t uid, gid_t gid,
@@ -306,7 +310,7 @@ int create_mail_process(struct login_group *group, int socket,
 	pid_t pid;
 	uid_t uid;
 	gid_t gid;
-	int i, err, ret, log_fd;
+	int i, err, ret, log_fd, nice;
 
 	// FIXME: per-group
 	if (mail_process_count == set->max_mail_processes) {
@@ -315,7 +319,7 @@ int create_mail_process(struct login_group *group, int socket,
 	}
 
 	mail = home_dir = chroot_dir = system_user = "";
-	uid = gid = 0;
+	uid = gid = 0; nice = 0;
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "home=", 5) == 0)
 			home_dir = *args + 5;
@@ -323,6 +327,8 @@ int create_mail_process(struct login_group *group, int socket,
 			mail = *args + 5;
 		else if (strncmp(*args, "chroot=", 7) == 0)
 			chroot_dir = *args + 7;
+		else if (strncmp(*args, "nice=", 5) == 0)
+			nice = atoi(*args + 5);
 		else if (strncmp(*args, "system_user=", 12) == 0)
 			system_user = *args + 12;
 		else if (strncmp(*args, "uid=", 4) == 0) {
@@ -382,6 +388,13 @@ int create_mail_process(struct login_group *group, int socket,
 		(void)close(log_fd);
 		return TRUE;
 	}
+
+#ifdef HAVE_SETPRIORITY
+	if (nice != 0) {
+		if (setpriority(PRIO_PROCESS, 0, nice) < 0)
+			i_error("setpriority(%d) failed: %m", nice);
+	}
+#endif
 
 	str_append(str, "master-");
 	var_expand(str, set->mail_log_prefix, var_expand_table);
