@@ -76,8 +76,8 @@ static void ntlmssp_append_target_info(buffer_t *buf, size_t buffer_offset, ...)
 	va_start(args, buffer_offset);
 
 	do {
-		type = va_arg(args, int);
 		const char *data;
+		type = va_arg(args, int);
 
 		memset(&info, 0, sizeof(info));
 		write_le16(&info.type, type);
@@ -91,7 +91,7 @@ static void ntlmssp_append_target_info(buffer_t *buf, size_t buffer_offset, ...)
 			case NTPLMSSP_V2_TARGET_DOMAIN:
 			case NTPLMSSP_V2_TARGET_FQDN:
 			case NTPLMSSP_V2_TARGET_DNS:
-				data = va_arg(args, char *);
+				data = va_arg(args, const char *);
 				write_le16(&info.length,
 					   strlen(data) * sizeof(ucs2le_t));
 				buffer_append(buf, &info, sizeof(info));
