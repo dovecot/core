@@ -702,8 +702,8 @@ int maildir_sync_index(struct index_mailbox *ibox, int partial)
 			}
 			if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
 				mail_storage_set_critical(ibox->box.storage,
-					"Maildir %s sync: UID inserted in the "
-					"middle of mailbox "
+					"Maildir %s sync: "
+					"UID inserted in the middle of mailbox "
 					"(%u > %u, file = %s)",
 					ibox->path, rec->uid, uid, filename);
 				mail_index_mark_corrupted(ibox->index);
