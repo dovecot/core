@@ -21,9 +21,10 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 	if (size == 0 || source == dest)
 		return 0;
 
-	istream_raw_mbox_flush(sync_ctx->input);
+	i_stream_sync(sync_ctx->input);
 
-	output = o_stream_create_file(sync_ctx->fd, default_pool, 4096, FALSE);
+	output = o_stream_create_file(sync_ctx->write_fd, default_pool,
+				      4096, FALSE);
 	i_stream_seek(sync_ctx->file_input, source);
 	o_stream_seek(output, dest);
 
@@ -57,7 +58,7 @@ static int mbox_fill_space(struct mbox_sync_context *sync_ctx,
 
 	memset(space, ' ', sizeof(space));
 	while (size > sizeof(space)) {
-		if (pwrite_full(sync_ctx->fd, space,
+		if (pwrite_full(sync_ctx->write_fd, space,
 				sizeof(space), offset) < 0) {
 			mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
 			return -1;
@@ -65,7 +66,7 @@ static int mbox_fill_space(struct mbox_sync_context *sync_ctx,
 		size -= sizeof(space);
 	}
 
-	if (pwrite_full(sync_ctx->fd, space, size, offset) < 0) {
+	if (pwrite_full(sync_ctx->write_fd, space, size, offset) < 0) {
 		mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
 		return -1;
 	}
@@ -265,7 +266,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 	    ctx->header_last_change != 0)
 		str_truncate(ctx->header, ctx->header_last_change);
 
-	if (pwrite_full(ctx->sync_ctx->fd,
+	if (pwrite_full(ctx->sync_ctx->write_fd,
 			str_data(ctx->header) + ctx->header_first_change,
 			str_len(ctx->header) - ctx->header_first_change,
 			ctx->hdr_offset + ctx->header_first_change +
@@ -280,7 +281,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
                 ctx->sync_ctx->update_base_uid_last = 0;
 	}
 
-	istream_raw_mbox_flush(ctx->sync_ctx->input);
+	i_stream_sync(ctx->sync_ctx->input);
 	return 1;
 }
 
@@ -368,7 +369,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	   space which we wanted to remove */
 	i_assert(dest_offset >= str_len(mail_ctx.header));
 	dest_offset -= str_len(mail_ctx.header);
-	if (pwrite_full(sync_ctx->fd, str_data(mail_ctx.header),
+	if (pwrite_full(sync_ctx->write_fd, str_data(mail_ctx.header),
 			str_len(mail_ctx.header), dest_offset) < 0) {
 		mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
 		return -1;
@@ -498,6 +499,6 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 	i_assert(mails[idx].from_offset == start_offset);
 	i_assert(move_diff + (off_t)expunged_space >= 0);
 
-	istream_raw_mbox_flush(sync_ctx->input);
+	i_stream_sync(sync_ctx->input);
 	return ret;
 }

@@ -454,13 +454,13 @@ mbox_write_from_line(struct mbox_sync_mail_context *ctx)
 {
 	string_t *str = ctx->sync_ctx->from_line;
 
-	if (pwrite_full(ctx->sync_ctx->fd, str_data(str), str_len(str),
+	if (pwrite_full(ctx->sync_ctx->write_fd, str_data(str), str_len(str),
 			ctx->mail.from_offset) < 0) {
 		mbox_set_syscall_error(ctx->sync_ctx->ibox, "pwrite_full()");
 		return -1;
 	}
 
-	istream_raw_mbox_flush(ctx->sync_ctx->input);
+	i_stream_sync(ctx->sync_ctx->input);
 	return 0;
 }
 
@@ -724,7 +724,7 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 {
 	struct mail_index_view *sync_view = sync_ctx->sync_view;
 	uint32_t seq1, seq2;
-	uoff_t file_size;
+	const struct stat *st;
 
 	if (mail_index_lookup_uid_range(sync_view, uid, (uint32_t)-1,
 					&seq1, &seq2) < 0) {
@@ -734,9 +734,15 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 
 	if (seq1 == 0) {
 		/* doesn't exist anymore, seek to end of file */
-		file_size = i_stream_get_size(sync_ctx->ibox->mbox_file_stream);
+		st = i_stream_stat(sync_ctx->ibox->mbox_file_stream);
+		if (st == NULL) {
+			mbox_set_syscall_error(sync_ctx->ibox,
+					       "i_stream_stat()");
+			return -1;
+		}
+
 		if (istream_raw_mbox_seek(sync_ctx->ibox->mbox_stream,
-					  file_size) < 0) {
+					  st->st_size) < 0) {
 			mail_storage_set_critical(sync_ctx->ibox->box.storage,
 				"Error seeking to end of mbox file %s",
 				sync_ctx->ibox->path);
@@ -951,6 +957,8 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 	string_t *str;
 	unsigned int uid_validity;
 
+	i_assert(sync_ctx->write_fd != -1);
+
 	uid_validity = sync_ctx->base_uid_validity != 0 ?
 		sync_ctx->base_uid_validity : sync_ctx->hdr->uid_validity;
 	i_assert(uid_validity != 0);
@@ -970,7 +978,8 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 		    my_hostname, dec2str(ioloop_time), my_hostname,
 		    uid_validity, sync_ctx->next_uid-1);
 
-	if (pwrite_full(sync_ctx->fd, str_data(str), str_len(str), 0) < 0) {
+	if (pwrite_full(sync_ctx->write_fd,
+			str_data(str), str_len(str), 0) < 0) {
 		if (!ENOSPACE(errno)) {
 			mbox_set_syscall_error(sync_ctx->ibox,
 					       "pwrite_full()");
@@ -978,7 +987,7 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 		}
 
 		/* out of disk space, truncate to empty */
-		(void)ftruncate(sync_ctx->fd, 0);
+		(void)ftruncate(sync_ctx->write_fd, 0);
 	}
 	return 0;
 }
@@ -986,6 +995,7 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					struct mbox_sync_mail_context *mail_ctx)
 {
+	const struct stat *st;
 	uoff_t file_size, offset, padding, trailer_size;
 
 	if (!istream_raw_mbox_is_eof(sync_ctx->input)) {
@@ -994,12 +1004,20 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		return 0;
 	}
 
-	file_size = i_stream_get_size(sync_ctx->file_input);
+	st = i_stream_stat(sync_ctx->file_input);
+	if (st == NULL) {
+		mbox_set_syscall_error(sync_ctx->ibox, "i_stream_stat()");
+		return -1;
+	}
+
+	file_size = st->st_size;
 	i_assert(file_size >= sync_ctx->file_input->v_offset);
 	trailer_size = file_size - sync_ctx->file_input->v_offset;
 	i_assert(trailer_size <= 1);
 
 	if (sync_ctx->need_space_seq != 0) {
+		i_assert(sync_ctx->write_fd != -1);
+
 		i_assert(sync_ctx->space_diff < 0);
 		padding = MBOX_HEADER_PADDING *
 			(sync_ctx->seq - sync_ctx->need_space_seq + 1);
@@ -1014,13 +1032,13 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 
 		i_assert(sync_ctx->space_diff < 0);
 
-		if (file_set_size(sync_ctx->fd,
+		if (file_set_size(sync_ctx->write_fd,
 				  file_size + -sync_ctx->space_diff) < 0) {
 			mbox_set_syscall_error(sync_ctx->ibox,
 					       "file_set_size()");
 			return -1;
 		}
-		istream_raw_mbox_flush(sync_ctx->input);
+		i_stream_sync(sync_ctx->input);
 
 		if (mbox_sync_rewrite(sync_ctx, file_size,
 				      -sync_ctx->space_diff, padding,
@@ -1035,8 +1053,17 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	}
 
 	if (sync_ctx->expunged_space > 0) {
+		i_assert(sync_ctx->write_fd != -1);
+
 		/* copy trailer, then truncate the file */
-		file_size = i_stream_get_size(sync_ctx->file_input);
+		st = i_stream_stat(sync_ctx->file_input);
+		if (st == NULL) {
+			mbox_set_syscall_error(sync_ctx->ibox,
+					       "i_stream_stat()");
+			return -1;
+		}
+
+		file_size = st->st_size;
 		if (file_size == (uoff_t)sync_ctx->expunged_space) {
 			/* everything deleted, the trailer_size still contains
 			   the \n trailer though */
@@ -1051,7 +1078,8 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 			      offset + sync_ctx->expunged_space,
 			      trailer_size) < 0)
 			return -1;
-		if (ftruncate(sync_ctx->fd, offset + trailer_size) < 0) {
+		if (ftruncate(sync_ctx->write_fd,
+			      offset + trailer_size) < 0) {
 			mbox_set_syscall_error(sync_ctx->ibox, "ftruncate()");
 			return -1;
 		}
@@ -1062,17 +1090,18 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		}
 
                 sync_ctx->expunged_space = 0;
-		istream_raw_mbox_flush(sync_ctx->input);
+		i_stream_sync(sync_ctx->input);
 	}
 	return 0;
 }
 
 static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 {
-	struct stat st;
+	const struct stat *st;
 
-	if (fstat(sync_ctx->fd, &st) < 0) {
-		mbox_set_syscall_error(sync_ctx->ibox, "fstat()");
+	st = i_stream_stat(sync_ctx->file_input);
+	if (st == NULL) {
+		mbox_set_syscall_error(sync_ctx->ibox, "i_stream_stat()");
 		return -1;
 	}
 
@@ -1101,25 +1130,26 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 			&sync_ctx->next_uid, sizeof(sync_ctx->next_uid));
 	}
 
-	if ((uint32_t)st.st_mtime != sync_ctx->hdr->sync_stamp &&
+	if ((uint32_t)st->st_mtime != sync_ctx->hdr->sync_stamp &&
 	    !sync_ctx->ibox->mbox_sync_dirty) {
-		uint32_t sync_stamp = st.st_mtime;
+		uint32_t sync_stamp = st->st_mtime;
 
 		mail_index_update_header(sync_ctx->t,
 			offsetof(struct mail_index_header, sync_stamp),
 			&sync_stamp, sizeof(sync_stamp));
 	}
-	if ((uint64_t)st.st_size != sync_ctx->hdr->sync_size &&
+
+	if ((uint64_t)st->st_size != sync_ctx->hdr->sync_size &&
 	    !sync_ctx->ibox->mbox_sync_dirty) {
-		uint64_t sync_size = st.st_size;
+		uint64_t sync_size = st->st_size;
 
 		mail_index_update_header(sync_ctx->t,
 			offsetof(struct mail_index_header, sync_size),
 			&sync_size, sizeof(sync_size));
 	}
 
-	sync_ctx->ibox->mbox_dirty_stamp = st.st_mtime;
-	sync_ctx->ibox->mbox_dirty_size = st.st_size;
+	sync_ctx->ibox->mbox_dirty_stamp = st->st_mtime;
+	sync_ctx->ibox->mbox_dirty_size = st->st_size;
 
 	return 0;
 }
@@ -1150,7 +1180,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 			enum mbox_sync_flags flags)
 {
 	struct mbox_sync_mail_context mail_ctx;
-	struct stat st;
+	const struct stat *st;
 	uint32_t min_msg_count;
 	int ret, partial;
 
@@ -1159,18 +1189,20 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	if ((flags & MBOX_SYNC_HEADER) != 0)
 		min_msg_count = 1;
 	else {
-		if (fstat(sync_ctx->fd, &st) < 0) {
-			mbox_set_syscall_error(sync_ctx->ibox, "stat()");
+		st = i_stream_stat(sync_ctx->file_input);
+		if (st == NULL) {
+			mbox_set_syscall_error(sync_ctx->ibox,
+					       "i_stream_stat()");
 			return -1;
 		}
 
-		if ((uint32_t)st.st_mtime == sync_ctx->hdr->sync_stamp &&
-		    (uint64_t)st.st_size == sync_ctx->hdr->sync_size) {
+		if ((uint32_t)st->st_mtime == sync_ctx->hdr->sync_stamp &&
+		    (uint64_t)st->st_size == sync_ctx->hdr->sync_size) {
 			/* file is fully synced */
 			sync_ctx->ibox->mbox_sync_dirty = FALSE;
 			min_msg_count = 0;
 		} else if ((flags & MBOX_SYNC_UNDIRTY) != 0 ||
-			   (uint64_t)st.st_size == sync_ctx->hdr->sync_size) {
+			   (uint64_t)st->st_size == sync_ctx->hdr->sync_size) {
 			/* we want to do full syncing. always do this if
 			   file size hasn't changed but timestamp has. it most
 			   likely means that someone had modified some header
@@ -1390,7 +1422,8 @@ __again:
 
 	sync_ctx.file_input = sync_ctx.ibox->mbox_file_stream;
 	sync_ctx.input = sync_ctx.ibox->mbox_stream;
-	sync_ctx.fd = sync_ctx.ibox->mbox_fd;
+	sync_ctx.write_fd = sync_ctx.ibox->mbox_readonly ? -1 :
+		sync_ctx.ibox->mbox_fd;
 	sync_ctx.flags = flags;
 	sync_ctx.delay_writes = sync_ctx.ibox->mbox_readonly ||
 		sync_ctx.ibox->readonly ||

@@ -271,6 +271,23 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	rstream->eof = FALSE;
 }
 
+static void _sync(struct _istream *stream)
+{
+	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
+
+	i_stream_sync(rstream->input);
+
+	rstream->istream.skip = 0;
+	rstream->istream.pos = 0;
+}
+
+static const struct stat *_stat(struct _istream *stream)
+{
+	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
+
+	return i_stream_stat(rstream->input);
+}
+
 struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input)
 {
 	struct raw_mbox_istream *rstream;
@@ -291,6 +308,8 @@ struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input)
 
 	rstream->istream.read = _read;
 	rstream->istream.seek = _seek;
+	rstream->istream.sync = _sync;
+	rstream->istream.stat = _stat;
 
 	return _i_stream_create(&rstream->istream, pool, -1,
 				input->real_stream->abs_start_offset);
@@ -494,19 +513,6 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 	if (check)
 		(void)_read(&rstream->istream);
 	return rstream->corrupted ? -1 : 0;
-}
-
-void istream_raw_mbox_flush(struct istream *stream)
-{
-	struct raw_mbox_istream *rstream =
-		(struct raw_mbox_istream *)stream->real_stream;
-
-	/* kludgy */
-	rstream->input->real_stream->skip = 0;
-	rstream->input->real_stream->pos = 0;
-
-	rstream->istream.skip = 0;
-	rstream->istream.pos = 0;
 }
 
 int istream_raw_mbox_is_eof(struct istream *stream)

@@ -88,7 +88,7 @@ struct mbox_sync_context {
 	struct index_mailbox *ibox;
         enum mbox_sync_flags flags;
 	struct istream *input, *file_input;
-	int fd;
+	int write_fd;
 
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
