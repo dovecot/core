@@ -422,9 +422,13 @@ static int mail_index_lock_full(struct mail_index *index,
 
 	if (index->anon_mmap) {
 		/* anonymous mmaps are private and don't need any locking */
+#ifdef DEBUG
+		mprotect(index->mmap_base, index->mmap_used_length,
+			 PROT_READ|PROT_WRITE);
+#endif
 		mail_index_update_header_changes(index);
-		index->lock_type = lock_type;
 
+		index->lock_type = lock_type;
 		debug_mprotect(index->mmap_base, index->mmap_full_length,
 			       index);
 		return TRUE;
