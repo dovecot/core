@@ -99,6 +99,7 @@ struct index_mailbox {
 	unsigned int private_flags_mask;
 
 	unsigned int readonly:1;
+	unsigned int keep_recent:1;
 	unsigned int sent_diskspace_warning:1;
 	unsigned int sent_readonly_flags_warning:1;
 	unsigned int autosync_pending:1;

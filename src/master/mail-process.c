@@ -284,6 +284,8 @@ int create_mail_process(struct login_group *group, int socket,
 		env_put("MAILDIR_CHECK_CONTENT_CHANGES=1");
 	if (set->mail_full_filesystem_access)
 		env_put("FULL_FILESYSTEM_ACCESS=1");
+	if (set->pop3_mails_keep_recent)
+		env_put("POP3_MAILS_KEEP_RECENT=1");
 	(void)umask(set->umask);
 
 	env_put(t_strconcat("MBOX_LOCKS=", set->mbox_locks, NULL));

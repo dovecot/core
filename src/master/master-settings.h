@@ -86,6 +86,9 @@ struct settings {
 	unsigned int imap_max_line_length;
 	const char *imap_capability;
 
+	/* pop3 */
+        int pop3_mails_keep_recent;
+
 	/* .. */
 	uid_t login_uid;
 

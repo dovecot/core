@@ -118,6 +118,7 @@ static int init_mailbox(struct client *client)
 struct client *client_create(int hin, int hout, struct mail_storage *storage)
 {
 	struct client *client;
+        enum mailbox_open_flags flags;
 
 	client = i_new(struct client, 1);
 	client->input = i_stream_create_file(hin, default_pool,
@@ -134,7 +135,10 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 
 	mail_storage_set_callbacks(storage, &mail_storage_callbacks, client);
 
-	client->mailbox = mailbox_open(storage, "INBOX", 0);
+	flags = 0;
+	if (getenv("POP3_MAILS_KEEP_RECENT") != NULL)
+		flags |= MAILBOX_OPEN_KEEP_RECENT;
+	client->mailbox = mailbox_open(storage, "INBOX", flags);
 	if (client->mailbox == NULL) {
 		client_send_line(client, "-ERR No INBOX for user.");
 		client_destroy(client);

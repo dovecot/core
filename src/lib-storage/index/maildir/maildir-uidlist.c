@@ -145,9 +145,9 @@ void maildir_uidlist_deinit(struct maildir_uidlist *uidlist)
 static void
 maildir_uidlist_mark_recent(struct maildir_uidlist *uidlist, uint32_t uid)
 {
-	if (uidlist->first_recent_uid == 0)
+	if (uidlist->first_recent_uid == 0 ||
+	    uid < uidlist->first_recent_uid)
 		uidlist->first_recent_uid = uid;
-	i_assert(uid >= uidlist->first_recent_uid);
 }
 
 static int maildir_uidlist_next(struct maildir_uidlist *uidlist,

@@ -111,6 +111,9 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_INT, imap_max_line_length),
 	DEF(SET_STR, imap_capability),
 
+	/* pop3 */
+	DEF(SET_BOOL, pop3_mails_keep_recent),
+
 	{ 0, NULL, 0 }
 };
 
@@ -239,6 +242,9 @@ struct settings default_settings = {
 	/* imap */
 	MEMBER(imap_max_line_length) 65536,
 	MEMBER(imap_capability) NULL,
+
+	/* pop3 */
+	MEMBER(pop3_mails_keep_recent) FALSE,
 
 	/* .. */
 	MEMBER(login_uid) 0,

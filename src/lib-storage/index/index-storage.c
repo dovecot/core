@@ -330,6 +330,7 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 		ibox->box.storage = &storage->storage;
 		ibox->box.name = i_strdup(name);
 		ibox->readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
+		ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
 
 		ibox->index = index;
 
