@@ -206,8 +206,9 @@ static struct mail_storage *mbox_create(const char *data, const char *user)
 			root_dir = t_strndup(root_dir, len-1);
 
 		/* make sure the directory exists */
-		if (mkdir(root_dir, CREATE_MODE) < 0 && errno != EEXIST) {
-			i_error("mkdir(%s) failed: %m", root_dir);
+		if (mkdir_parents(root_dir, CREATE_MODE) < 0 &&
+		    errno != EEXIST) {
+			i_error("mkdir_parents(%s) failed: %m", root_dir);
 			return NULL;
 		}
 	}
