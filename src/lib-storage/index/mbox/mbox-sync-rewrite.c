@@ -174,7 +174,11 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 		}
 	}
 
-	i_assert(ctx->header_first_change != (size_t)-1 || move_diff != 0);
+	if (ctx->header_first_change == (size_t)-1 && move_diff == 0) {
+		/* no changes actually. we get here if index sync record told
+		   us to do something that was already there */
+		return 1;
+	}
 
 	if (move_diff != 0) {
 		/* we're moving the header, forget about partial write

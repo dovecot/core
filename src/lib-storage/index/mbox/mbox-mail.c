@@ -91,6 +91,7 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct istream *raw_stream;
+	uoff_t offset;
 
 	if (data->stream == NULL) {
 		if (mbox_mail_seek(mail) < 0)
@@ -98,11 +99,9 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 
 		// FIXME: need to hide the headers
 		raw_stream = mail->ibox->mbox_stream;
-		(void)i_stream_read(raw_stream); /* fix v_offset */
-		data->stream = i_stream_create_limit(default_pool,
-						     raw_stream,
-						     raw_stream->v_offset,
-						     (uoff_t)-1);
+		offset = istream_raw_mbox_get_header_offset(raw_stream);
+		data->stream = i_stream_create_limit(default_pool, raw_stream,
+						     offset, (uoff_t)-1);
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size);

@@ -140,26 +140,40 @@ static ssize_t _read(struct _istream *stream)
 	i = 0;
 
 	if (pos >= 31) {
-		if (memcmp(buf, "\nFrom ", 6) == 0 &&
-		    mbox_from_parse(buf+6, pos-6,
-				    &received_time, &sender) == 0) {
-			rstream->next_received_time = received_time;
-			rstream->mail_size = stream->istream.v_offset -
-				rstream->hdr_offset;
+		if (memcmp(buf, "\nFrom ", 6) == 0) {
+			if (mbox_from_parse(buf+6, pos-6,
+					    &received_time, &sender) == 0) {
+				rstream->next_received_time = received_time;
+				rstream->mail_size = stream->istream.v_offset -
+					rstream->hdr_offset;
 
-			i_free(rstream->next_sender);
-			rstream->next_sender = sender;
-			i_assert(stream->pos == 0);
-			return -1;
+				i_free(rstream->next_sender);
+				rstream->next_sender = sender;
+				i_assert(stream->pos == 0);
+				return -1;
+			}
+
+			/* we don't want to get stuck at invalid From-line */
+			i += 6;
 		}
-
-		/* we don't want to get stuck at invalid From-line */
-		i += 6;
 	} else if (ret == -1) {
 		/* last few bytes, can't contain From-line */
 		if (buf[pos-1] == '\n') {
 			/* last LF doesn't belong to last message */
 			pos--;
+		}
+
+		if (rstream->body_offset == (uoff_t)-1) {
+			/* find body_offset */
+			for (; i < pos; i++) {
+				if (buf[i] == '\n' && i > 0 &&
+				    buf[i-1] == '\n') {
+					rstream->body_offset =
+						stream->istream.v_offset +
+						i + 1;
+					break;
+				}
+			}
 		}
 
 		ret = pos <= stream->pos ? -1 :

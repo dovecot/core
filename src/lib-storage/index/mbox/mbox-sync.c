@@ -248,8 +248,11 @@ static void mbox_sync_apply_index_syncs(buffer_t *syncs_buf, uint8_t *flags,
 	sync = buffer_get_data(syncs_buf, &size);
 	size /= sizeof(*sync);
 
-	for (i = 0; i < size; i++)
+	for (i = 0; i < size; i++) {
+		if (sync[i].type != MAIL_INDEX_SYNC_TYPE_FLAGS)
+			continue;
 		mail_index_sync_flags_apply(&sync[i], flags, keywords);
+	}
 }
 
 static int
@@ -600,7 +603,18 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
         /* set to -1, since they're always increased later */
 	sync_ctx->seq = sync_ctx->idx_seq = seq-1;
 	istream_raw_mbox_seek(sync_ctx->input, offset);
+        (void)istream_raw_mbox_get_body_offset(sync_ctx->input);
 	return 0;
+}
+
+static void mbox_sync_fake_headers(struct mbox_sync_context *sync_ctx)
+{
+	/* we didn't go through everything. fake the headers and all */
+	i_assert(sync_ctx->next_uid <= sync_ctx->hdr->next_uid);
+
+	sync_ctx->next_uid = sync_ctx->hdr->next_uid;
+	sync_ctx->base_uid_last = sync_ctx->hdr->next_uid-1;
+	sync_ctx->base_uid_validity = sync_ctx->hdr->uid_validity;
 }
 
 static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
@@ -625,6 +639,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 
 		if (sync_ctx->sync_rec.uid1 == 0) {
 			/* nothing to do */
+                        mbox_sync_fake_headers(sync_ctx);
 			return 0;
 		}
 
@@ -709,11 +724,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		while (sync_ctx->idx_seq < messages_count)
 			mail_index_expunge(sync_ctx->t, ++sync_ctx->idx_seq);
 	} else {
-		/* we didn't go through everything. fake the headers and all */
-		i_assert(sync_ctx->next_uid <= sync_ctx->hdr->next_uid);
-		sync_ctx->next_uid = sync_ctx->hdr->next_uid;
-		sync_ctx->base_uid_last = sync_ctx->hdr->next_uid-1;
-		sync_ctx->base_uid_validity = sync_ctx->hdr->uid_validity;
+		mbox_sync_fake_headers(sync_ctx);
 	}
 
 	return 0;
@@ -790,6 +801,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 			return -1;
 		}
 
+                sync_ctx->expunged_space = 0;
 		istream_raw_mbox_flush(sync_ctx->input);
 	}
 	return 0;
@@ -888,6 +900,16 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx)
 	if (mbox_sync_handle_eof_updates(sync_ctx, &mail_ctx) < 0)
 		return -1;
 
+	/* only syncs left should be just appends (and their updates)
+	   which weren't synced yet for some reason (crash). we'll just
+	   ignore them, as we've overwritten them above. */
+	while (mail_index_sync_next(sync_ctx->index_sync_ctx,
+				    &sync_ctx->sync_rec) > 0)
+		;
+
+	buffer_set_used_size(sync_ctx->syncs, 0);
+	memset(&sync_ctx->sync_rec, 0, sizeof(sync_ctx->sync_rec));
+
 	if (sync_ctx->base_uid_last != sync_ctx->next_uid-1) {
 		/* rewrite X-IMAPbase header */
 		if (mbox_sync_check_excl_lock(sync_ctx) == -1)
@@ -901,13 +923,6 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx)
 		if (mbox_sync_handle_eof_updates(sync_ctx, &mail_ctx) < 0)
 			return -1;
 	}
-
-	/* only syncs left should be just appends (and their updates)
-	   which weren't synced yet for some reason (crash). we'll just
-	   ignore them, as we've overwritten them above. */
-	while (mail_index_sync_next(sync_ctx->index_sync_ctx,
-				    &sync_ctx->sync_rec) > 0)
-		;
 
 	if (mbox_sync_update_index_header(sync_ctx) < 0)
 		return -1;
