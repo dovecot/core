@@ -26,7 +26,7 @@ struct fetch_header_field_context {
 
 	uoff_t skip, max_size;
 	const char *const *fields;
-	int (*match_func) (const char *const *, const unsigned char *, size_t);
+	int (*match_func) (const char *const *, const char *, size_t);
 };
 
 struct partial_cache {
@@ -132,10 +132,9 @@ static const char **get_fields_array(const char *fields)
 }
 
 static int header_match(const char *const *fields,
-			const unsigned char *name, size_t size)
+			const char *name, size_t size)
 {
-	const unsigned char *name_start, *name_end;
-	const char *field;
+	const char *name_start, *name_end, *field;
 
 	if (size == 0)
 		return FALSE;
@@ -167,26 +166,28 @@ static int header_match(const char *const *fields,
 }
 
 static int header_match_not(const char *const *fields,
-			    const unsigned char *name, size_t size)
+			    const char *name, size_t size)
 {
 	return !header_match(fields, name, size);
 }
 
 static int header_match_mime(const char *const *fields __attr_unused__,
-			     const unsigned char *name, size_t size)
+			     const char *name, size_t size)
 {
-	if (size > 8 && memcasecmp(name, "Content-", 8) == 0)
+	if (strncasecmp(name, "Content-", 8) == 0)
 		return TRUE;
 
-	if (size == 12 && memcasecmp(name, "Mime-Version", 12) == 0)
+	if (size == 12 && strcasecmp(name, "Mime-Version") == 0)
 		return TRUE;
 
 	return FALSE;
 }
 
 static int fetch_header_append(struct fetch_header_field_context *ctx,
-			       const unsigned char *str, size_t size)
+			       const void *data, size_t size)
 {
+	const unsigned char *str = data;
+
 	if (ctx->skip > 0) {
 		if (ctx->skip >= size) {
 			ctx->skip -= size;
@@ -248,15 +249,13 @@ static int fetch_header_fields(struct istream *input, const char *section,
 		if (!hdr->continued && !hdr->eoh) {
 			if (!fetch_header_append(ctx, hdr->name, hdr->name_len))
 				break;
-			if (!fetch_header_append(ctx,
-					(const unsigned char *) ": ", 2))
+			if (!fetch_header_append(ctx, ": ", 2))
 				break;
 		}
 		if (!fetch_header_append(ctx, hdr->value, hdr->value_len))
 			break;
 		if (!hdr->no_newline) {
-			if (!fetch_header_append(ctx,
-					(const unsigned char *) "\r\n", 2))
+			if (!fetch_header_append(ctx, "\r\n", 2))
 				break;
 		}
 	}
