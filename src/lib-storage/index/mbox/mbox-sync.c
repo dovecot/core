@@ -71,7 +71,13 @@ static int mbox_sync_lock(struct mbox_sync_context *sync_ctx, int lock_type)
 
 	i_assert(lock_type != F_WRLCK || !ibox->mbox_readonly);
 
-	if (sync_ctx->lock_id != 0) {
+	if (sync_ctx->lock_id == 0 || sync_ctx->input == NULL) {
+		memset(&old_st, 0, sizeof(old_st));
+		if (sync_ctx->lock_id != 0) {
+			(void)mbox_unlock(ibox, sync_ctx->lock_id);
+			sync_ctx->lock_id = 0;
+		}
+	} else {
 		if (fstat(sync_ctx->fd, &old_st) < 0) {
 			mbox_set_syscall_error(ibox, "stat()");
 			return -1;
@@ -82,8 +88,6 @@ static int mbox_sync_lock(struct mbox_sync_context *sync_ctx, int lock_type)
 
 		(void)mbox_unlock(ibox, sync_ctx->lock_id);
 		sync_ctx->lock_id = 0;
-	} else {
-		memset(&old_st, 0, sizeof(old_st));
 	}
 
 	if (mbox_lock(ibox, lock_type, &sync_ctx->lock_id) <= 0)
@@ -1055,6 +1059,7 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
 	sync_ctx.ibox = ibox;
 	sync_ctx.from_line = str_new(default_pool, 256);
 	sync_ctx.header = str_new(default_pool, 4096);
+	sync_ctx.lock_id = lock_id;
 
 	sync_ctx.index_sync_ctx = index_sync_ctx;
 	sync_ctx.sync_view = sync_view;
@@ -1072,10 +1077,10 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
 		(void)mbox_unlock(ibox, lock_id);
 		lock_id = 0;
 	}
-	if (mbox_sync_lock(&sync_ctx, lock_type) < 0)
-		return -1;
 
-	if (mbox_sync_do(&sync_ctx) < 0)
+	if (mbox_sync_lock(&sync_ctx, lock_type) < 0)
+		ret = -1;
+	else if (mbox_sync_do(&sync_ctx) < 0)
 		ret = -1;
 
 	if (ret < 0)
