@@ -270,7 +270,6 @@ int imap_fetch(struct client *client,
 	ctx.bodies = bodies;
 	ctx.output = client->output;
 	ctx.select_counter = client->select_counter;
-	ctx.str = str_new(default_pool, 8192);
 
 	ctx.fetch_ctx = client->mailbox->
 		fetch_init(client->mailbox, fetch_data, &update_seen,
@@ -278,12 +277,14 @@ int imap_fetch(struct client *client,
 	if (ctx.fetch_ctx == NULL)
 		return -1;
 
+	ctx.str = str_new(default_pool, 8192);
 	while ((mail = client->mailbox->fetch_next(ctx.fetch_ctx)) != NULL) {
 		if (!fetch_mail(&ctx, mail)) {
 			ctx.failed = TRUE;
 			break;
 		}
 	}
+	str_free(ctx.str);
 
 	if (!client->mailbox->fetch_deinit(ctx.fetch_ctx, &all_found))
 		return -1;
