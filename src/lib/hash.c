@@ -51,7 +51,7 @@ struct hash_table {
 	hash_cmp_callback_t key_compare_cb;
 };
 
-static int hash_resize(struct hash_table *table);
+static int hash_resize(struct hash_table *table, int grow);
 
 static int foreach_stop;
 
@@ -72,18 +72,19 @@ hash_create(pool_t table_pool, pool_t node_pool, size_t initial_size,
 {
 	struct hash_table *table;
 
+	initial_size = 0;
+
 	table = p_new(table_pool, struct hash_table, 1);
         table->table_pool = table_pool;
 	table->node_pool = node_pool;
-	table->initial_size = initial_size;
+	table->initial_size =
+		I_MAX(primes_closest(initial_size), HASH_TABLE_MIN_SIZE);
 
 	table->hash_cb = hash_cb != NULL ? hash_cb : direct_hash;
 	table->key_compare_cb = key_compare_cb == NULL ?
 		direct_cmp : key_compare_cb;
 
-	table->size = I_MAX(primes_closest(initial_size),
-			    HASH_TABLE_MIN_SIZE);
-
+	table->size = table->initial_size;
 	table->nodes = p_new(table_pool, struct hash_node, table->size);
 	return table;
 }
@@ -247,7 +248,7 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 	}
 
 	if (node == NULL) {
-		if (table->frozen == 0 && hash_resize(table)) {
+		if (table->frozen == 0 && hash_resize(table, TRUE)) {
 			/* resized table, try again */
 			return hash_insert_node(table, key, value, FALSE);
 		}
@@ -332,7 +333,7 @@ void hash_remove(struct hash_table *table, const void *key)
 
 	if (table->frozen != 0)
 		table->removed_count++;
-	else if (!hash_resize(table))
+	else if (!hash_resize(table, FALSE))
 		hash_compress(table, &table->nodes[hash % table->size]);
 }
 
@@ -387,28 +388,34 @@ void hash_thaw(struct hash_table *table)
 		return;
 
 	if (table->removed_count > 0) {
-		if (!hash_resize(table))
+		if (!hash_resize(table, FALSE))
 			hash_compress_removed(table);
 	}
 }
 
-static int hash_resize(struct hash_table *table)
+static int hash_resize(struct hash_table *table, int grow)
 {
 	struct hash_node *old_nodes, *node, *next;
-	size_t old_size, i;
+	size_t next_size, old_size, i;
 	float nodes_per_list;
 
         nodes_per_list = (float) table->nodes_count / (float) table->size;
-        if ((nodes_per_list > 0.3 || table->size <= table->initial_size) &&
-            (nodes_per_list < 2.0))
+	if (nodes_per_list > 0.3 && nodes_per_list < 2.0)
+		return FALSE;
+
+	next_size = I_MAX(primes_closest(table->nodes_count+1),
+			  table->initial_size);
+	if (next_size == table->size)
+		return FALSE;
+
+	if (grow && table->size >= next_size)
 		return FALSE;
 
 	/* recreate primary table */
 	old_size = table->size;
 	old_nodes = table->nodes;
 
-	table->size = I_MAX(primes_closest(table->nodes_count+1),
-			    HASH_TABLE_MIN_SIZE);
+	table->size = I_MAX(next_size, HASH_TABLE_MIN_SIZE);
 	table->nodes = p_new(table->table_pool, struct hash_node, table->size);
 
 	table->nodes_count = 0;
