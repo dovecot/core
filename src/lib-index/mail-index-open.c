@@ -241,8 +241,11 @@ void mail_index_init_header(struct mail_index *index,
 	   when it succeeds */
 	hdr->flags = MAIL_INDEX_FLAG_REBUILD;
 
-	/* set the fields we always want to cache */
-	hdr->cache_fields |= index->default_cache_fields;
+	if (!index->anon_mmap) {
+		/* set the fields we always want to cache,
+		   but not if we're building into memory */
+		hdr->cache_fields |= index->default_cache_fields;
+	}
 
 	hdr->used_file_size = sizeof(struct mail_index_header);
 	hdr->uid_validity = ioloop_time;
