@@ -238,15 +238,16 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx);
 /* Returns the index header. */
 int mail_index_get_header(struct mail_index_view *view,
 			  const struct mail_index_header **hdr_r);
-/* Returns the given message. */
+/* Returns the given message. Returns -1 if error, 1 if ok, 0 if mail was
+   expunged but data was returned from some older index.  */
 int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
 		      const struct mail_index_record **rec_r);
 /* Returns the UID for given message. May be slightly faster than
-   mail_index_lookup()->uid */
+   mail_index_lookup()->uid. */
 int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
 			  uint32_t *uid_r);
 /* Returns the wanted extra data for given message. If it doesn't exist,
-   *data_r is set to NULL. */
+   *data_r is set to NULL. Return values are same as for mail_index_lookup(). */
 int mail_index_lookup_extra(struct mail_index_view *view, uint32_t seq,
 			    uint32_t data_id, const void **data_r);
 /* Convert UID range to sequence range. If no UIDs are found, sequences are

@@ -178,7 +178,7 @@ static int mail_index_lookup_int(struct mail_index_view *view, uint32_t seq,
 	if (view->map == view->index->map) {
 		*map_r = view->map;
 		*rec_r = rec;
-		return 0;
+		return 1;
 	}
 
 	if (mail_index_view_lock_head(view, FALSE) < 0)
@@ -193,7 +193,7 @@ static int mail_index_lookup_int(struct mail_index_view *view, uint32_t seq,
 
 	if (seq == 0) {
 		*rec_r = NULL;
-		return 0;
+		return 1;
 	}
 
 	do {
@@ -204,8 +204,13 @@ static int mail_index_lookup_int(struct mail_index_view *view, uint32_t seq,
 			break;
 	} while (seq > 0);
 
-	*rec_r = n_rec->uid == uid ? n_rec : rec;
-	return 0;
+	if (n_rec->uid == uid) {
+		*rec_r = n_rec;
+		return 1;
+	} else {
+		*rec_r = rec;
+		return 0;
+	}
 }
 
 int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
@@ -213,7 +218,7 @@ int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
 {
 	struct mail_index_map *map;
 
-        return mail_index_lookup_int(view, seq, &map, rec_r);
+	return mail_index_lookup_int(view, seq, &map, rec_r);
 }
 
 int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
@@ -235,20 +240,21 @@ int mail_index_lookup_extra(struct mail_index_view *view, uint32_t seq,
 	const struct mail_index_record *rec;
 	struct mail_index_map *map;
 	uint32_t offset;
+	int ret;
 
-	if (mail_index_lookup_int(view, seq, &map, &rec) < 0)
+	if ((ret = mail_index_lookup_int(view, seq, &map, &rec)) < 0)
 		return -1;
 
 	if (rec == NULL) {
 		*data_r = NULL;
-		return 0;
+		return ret;
 	}
 
 	/* FIXME: do data_id mapping conversion */
 
 	offset = view->index->extra_records[data_id].offset;
 	*data_r = CONST_PTR_OFFSET(rec, offset);
-	return 0;
+	return ret;
 }
 
 static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
