@@ -192,11 +192,14 @@ static struct mail_storage *mbox_create(const char *data, const char *user)
 	storage->index_dir = i_strdup(home_expand(index_dir));
 	storage->user = i_strdup(user);
 	storage->callbacks = i_new(struct mail_storage_callbacks, 1);
+	index_storage_init(storage);
 	return storage;
 }
 
 static void mbox_free(struct mail_storage *storage)
 {
+	index_storage_deinit(storage);
+
 	i_free(storage->dir);
 	i_free(storage->inbox_file);
 	i_free(storage->index_dir);
