@@ -236,9 +236,13 @@ static void driver_mysql_query(struct sql_db *_db, const char *query,
 static int driver_mysql_result_next_row(struct sql_result *_result)
 {
 	struct mysql_result *result = (struct mysql_result *)_result;
+	struct mysql_db *db = (struct mysql_db *)_result->db;
 
 	result->row = mysql_fetch_row(result->result);
-	return result->row != NULL;
+	if (result->row != NULL)
+		return 1;
+
+        return mysql_errno(db->mysql) ? -1 : 0;
 }
 
 static void driver_mysql_result_fetch_fields(struct mysql_result *result)
