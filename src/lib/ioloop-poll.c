@@ -183,11 +183,9 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		i_assert(io->fd >= 0);
 
 		pollfd = &data->fds[data->fd_index[io->fd]];
-		if (pollfd->revents != 0)
-			ret--;
-
 		if (pollfd->revents == 0)
 			continue;
+		ret--;
 
 		if (pollfd->revents & POLLNVAL) {
 			i_error("invalid I/O fd %d, callback %p",
