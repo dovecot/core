@@ -160,6 +160,8 @@ int create_mail_process(int socket, struct ip_addr *ip,
 			    set->mail_never_cache_fields, NULL));
 	env_put(t_strdup_printf("MAILBOX_CHECK_INTERVAL=%u",
 				set->mailbox_check_interval));
+	env_put(t_strconcat("CLIENT_WORKAROUNDS=",
+			    set->client_workarounds, NULL));
 
 	if (set->mail_save_crlf)
 		env_put("MAIL_SAVE_CRLF=1");

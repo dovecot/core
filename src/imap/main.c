@@ -72,6 +72,7 @@ static void main_init(void)
 	hin = 0; hout = 1;
 	rawlog_open(&hin, &hout);
 
+        mail_storage_init();
 	mail_storage_register_all();
 	clients_init();
 

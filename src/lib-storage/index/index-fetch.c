@@ -26,7 +26,8 @@ index_storage_fetch_init(struct mailbox *box,
 			 const char *messageset, int uidset)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
-        struct mail_fetch_context *ctx;
+	struct mail_fetch_context *ctx;
+	int check_mail;
 
 	ctx = i_new(struct mail_fetch_context, 1);
 
@@ -39,7 +40,9 @@ index_storage_fetch_init(struct mailbox *box,
 			return NULL;
 	}
 
-	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_SHARED))
+	check_mail = (client_workarounds &
+		      WORKAROUND_OE6_FETCH_NO_NEWMAIL) == 0;
+	if (!index_storage_sync_and_lock(ibox, check_mail, MAIL_LOCK_SHARED))
 		return NULL;
 
 	if (update_seen != NULL && *update_seen &&

@@ -351,8 +351,9 @@ int cmd_fetch(struct client *client)
 	ret = imap_fetch(client, fetch_data, imap_data,
 			 bodies, messageset, client->cmd_uid);
 	if (ret >= 0) {
-		/* NOTE: syncing isn't allowed here */
-                client_sync_without_expunges(client);
+		if ((client_workarounds & WORKAROUND_OE6_FETCH_NO_NEWMAIL) == 0)
+			client_sync_without_expunges(client);
+
 		client_send_tagline(client, ret > 0 ? "OK Fetch completed." :
 			"NO Some of the requested messages no longer exist.");
 	} else {

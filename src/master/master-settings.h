@@ -37,6 +37,7 @@ struct settings {
 	const char *default_mail_env;
 	const char *mail_cache_fields;
 	const char *mail_never_cache_fields;
+	const char *client_workarounds;
 	unsigned int mailbox_check_interval;
 	int mail_save_crlf;
 	int mail_read_mmaped;
@@ -53,7 +54,7 @@ struct settings {
 	const char *imap_executable;
 	unsigned int imap_process_size;
 
-	/* imap */
+	/* pop3 */
 	const char *pop3_executable;
 	unsigned int pop3_process_size;
 

@@ -79,6 +79,10 @@ enum mail_fetch_field {
 	MAIL_FETCH_IMAP_ENVELOPE	= 0x4000
 };
 
+enum client_workarounds {
+	WORKAROUND_OE6_FETCH_NO_NEWMAIL
+};
+
 struct mail_full_flags {
 	enum mail_flags flags;
 
@@ -388,6 +392,11 @@ struct mail_storage_callbacks {
 				 void *context);
 
 };
+
+extern enum client_workarounds client_workarounds;
+
+/* Initialize mail storage. */
+void mail_storage_init(void);
 
 /* register all mail storages */
 void mail_storage_register_all(void);
