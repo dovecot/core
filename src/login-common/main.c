@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "lib-signals.h"
 #include "restrict-access.h"
+#include "restrict-process-size.h"
 #include "process-title.h"
 #include "fd-close-on-exec.h"
 #include "auth-connection.h"
@@ -129,6 +130,9 @@ static void open_logfile(const char *name)
 
 static void drop_privileges(const char *name)
 {
+	/* make sure we can't fork() */
+	restrict_process_size((unsigned int)-1, 0);
+
 	/* Log file or syslog opening probably requires roots */
 	open_logfile(name);
 

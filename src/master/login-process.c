@@ -479,7 +479,7 @@ static pid_t create_login_process(struct login_group *group)
 			i_fatal("chdir(%s) failed: %m", set->login_dir);
 	}
 
-	restrict_process_size(group->set->process_size, 0);
+	restrict_process_size(group->set->process_size, (unsigned int)-1);
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */
