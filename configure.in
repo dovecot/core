@@ -1293,6 +1293,7 @@ src/lib-charset/Makefile
 src/lib-imap/Makefile
 src/lib-index/Makefile
 src/lib-mail/Makefile
+src/lib-ntlm/Makefile
 src/lib-settings/Makefile
 src/lib-storage/Makefile
 src/lib-storage/index/Makefile

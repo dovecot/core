@@ -5,12 +5,14 @@ pkglibexec_PROGRAMS = dovecot-auth checkpassword-reply
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-ntlm \
 	-DAUTH_MODULE_DIR=\""$(moduledir)/auth"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	$(AUTH_CFLAGS)
 
 dovecot_auth_LDADD = \
 	../lib-settings/libsettings.a \
+	../lib-ntlm/libntlm.a \
 	../lib/liblib.a \
 	$(AUTH_LIBS) \
 	$(RAND_LIBS) \
@@ -32,6 +34,7 @@ dovecot_auth_SOURCES = \
 	mech-login.c \
 	mech-cram-md5.c \
 	mech-digest-md5.c \
+	mech-ntlm.c \
 	mech-apop.c \
 	mycrypt.c \
 	passdb.c \
@@ -48,6 +51,7 @@ dovecot_auth_SOURCES = \
 	password-scheme.c \
 	password-scheme-md5crypt.c \
 	password-scheme-cram-md5.c \
+	password-scheme-ntlm.c \
 	userdb.c \
 	userdb-ldap.c \
 	userdb-passwd.c \

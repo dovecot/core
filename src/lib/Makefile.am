@@ -32,6 +32,7 @@ liblib_a_SOURCES = \
 	ioloop-select.c \
 	lib.c \
 	lib-signals.c \
+	md4.c \
 	md5.c \
 	mempool-alloconly.c \
 	mempool-datastack.c \
@@ -92,6 +93,7 @@ noinst_HEADERS = \
 	lib.h \
 	lib-signals.h \
 	macros.h \
+	md4.h \
 	md5.h \
 	mempool.h \
 	mkdir-parents.h \

@@ -6,7 +6,8 @@ Alex Howansky <alex@wankwood.com> (src/auth/*-pgsql.c)
 
 Matthew Reimer <mreimer@vpop.net> (src/auth/*-mysql.c)
 
-Andrey Panin <pazke@donpac.ru> (src/auth/mech-apop.c, src/auth/mech-login.c)
+Andrey Panin <pazke@donpac.ru> (src/auth/mech-apop.c, src/auth/mech-login.c,
+  src/lib-ntlm/*, src/auth/mech-ntlm.c)
 
 Joshua Goodall <joshua@roughtrade.net> (src/auth/password-scheme-cram-md5.c,
   src/util/dovecotpw.c)

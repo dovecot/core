@@ -28,6 +28,8 @@ passdb_credentials_to_str(enum passdb_credentials credentials)
 		return "HMAC-MD5";
 	case PASSDB_CREDENTIALS_DIGEST_MD5:
 		return "DIGEST-MD5";
+	case PASSDB_CREDENTIALS_NTLM:
+		return "NTLM";
 	}
 
 	return "??";
