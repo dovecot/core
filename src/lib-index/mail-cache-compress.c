@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "ostream.h"
+#include "file-dotlock.h"
 #include "file-cache.h"
 #include "file-set-size.h"
 #include "mail-cache-private.h"
@@ -236,6 +237,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 static int mail_cache_compress_locked(struct mail_cache *cache,
 				      struct mail_index_view *view)
 {
+	struct dotlock *dotlock;
         mode_t old_mask;
 	int fd;
 
@@ -248,10 +250,8 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 #endif
 
 	old_mask = umask(cache->index->mode ^ 0666);
-	fd = file_dotlock_open(cache->filepath, NULL, NULL,
-			       MAIL_CACHE_LOCK_TIMEOUT,
-			       MAIL_CACHE_LOCK_CHANGE_TIMEOUT,
-			       MAIL_CACHE_LOCK_IMMEDIATE_TIMEOUT, NULL, NULL);
+	fd = file_dotlock_open(&cache->dotlock_settings, cache->filepath,
+			       0, &dotlock);
 	umask(old_mask);
 
 	if (fd == -1) {
@@ -262,18 +262,19 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	if (cache->index->gid != (gid_t)-1 &&
 	    fchown(fd, (uid_t)-1, cache->index->gid) < 0) {
 		mail_cache_set_syscall_error(cache, "fchown()");
+		file_dotlock_delete(&dotlock);
 		return -1;
 	}
 
 	// FIXME: check that cache file wasn't just recreated
 
 	if (mail_cache_copy(cache, view, fd) < 0) {
-		(void)file_dotlock_delete(cache->filepath, NULL, fd);
+		(void)file_dotlock_delete(&dotlock);
 		return -1;
 	}
 
-	if (file_dotlock_replace(cache->filepath, NULL,
-				 -1, FALSE) < 0) {
+	if (file_dotlock_replace(&dotlock,
+				 DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) < 0) {
 		mail_cache_set_syscall_error(cache,
 					     "file_dotlock_replace()");
 		(void)close(fd);

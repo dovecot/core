@@ -255,10 +255,15 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 	cache = i_new(struct mail_cache, 1);
 	cache->index = index;
 	cache->fd = -1;
-        cache->field_pool = pool_alloconly_create("Cache fields", 1024);
+	cache->field_pool = pool_alloconly_create("Cache fields", 1024);
 	cache->field_name_hash =
 		hash_create(default_pool, cache->field_pool, 0,
 			    strcase_hash, (hash_cmp_callback_t *)strcasecmp);
+
+	cache->dotlock_settings.timeout = MAIL_CACHE_LOCK_TIMEOUT;
+	cache->dotlock_settings.stale_timeout = MAIL_CACHE_LOCK_CHANGE_TIMEOUT;
+	cache->dotlock_settings.immediate_stale_timeout =
+		MAIL_CACHE_LOCK_IMMEDIATE_TIMEOUT;
 
 	if (mail_cache_open_and_verify(cache) < 0) {
 		/* failed for some reason - doesn't really matter,
@@ -310,13 +315,10 @@ static int mail_cache_lock_file(struct mail_cache *cache, int lock_type)
 	}
 
 	if (lock_type != F_UNLCK) {
-		return file_lock_dotlock(cache->filepath, NULL, FALSE,
-					 MAIL_INDEX_LOCK_SECS, 0,
-					 MAIL_INDEX_LOCK_SECS,
-					 NULL, NULL, &cache->dotlock);
-	} else {
-		return file_unlock_dotlock(cache->filepath, &cache->dotlock);
-	}
+		return file_dotlock_create(&cache->dotlock_settings,
+					   cache->filepath, 0, &cache->dotlock);
+	} else
+		return file_dotlock_delete(&cache->dotlock);
 }
 
 int mail_cache_lock(struct mail_cache *cache)

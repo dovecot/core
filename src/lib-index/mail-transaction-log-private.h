@@ -35,7 +35,8 @@ struct mail_transaction_log {
 	struct mail_transaction_log_file *head, *tail;
 
 	unsigned int dotlock_count;
-	struct dotlock dotlock;
+        struct dotlock_settings dotlock_settings, new_dotlock_settings;
+	struct dotlock *dotlock;
 };
 
 void

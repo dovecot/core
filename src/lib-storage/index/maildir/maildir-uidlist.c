@@ -38,6 +38,8 @@ struct maildir_uidlist {
 	pool_t record_pool;
 	buffer_t *record_buf;
 	struct hash_table *files;
+	struct dotlock_settings dotlock_settings;
+	struct dotlock *dotlock;
 
 	unsigned int version;
 	unsigned int uid_validity, next_uid, prev_read_uid, last_seen_uid;
@@ -67,7 +69,7 @@ struct maildir_uidlist_iter_ctx {
 };
 
 static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
-					unsigned int timeout)
+					int nonblock)
 {
 	const char *path;
 	mode_t old_mask;
@@ -79,9 +81,9 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 	path = t_strconcat(uidlist->ibox->control_dir,
 			   "/" MAILDIR_UIDLIST_NAME, NULL);
         old_mask = umask(0777 & ~uidlist->ibox->mail_create_mode);
-	fd = file_dotlock_open(path, uidlist->ibox->storage->temp_prefix,
-			       NULL, timeout, 0, UIDLIST_LOCK_STALE_TIMEOUT,
-			       NULL, NULL);
+	fd = file_dotlock_open(&uidlist->dotlock_settings, path,
+			       nonblock ? DOTLOCK_CREATE_FLAG_NONBLOCK : 0,
+			       &uidlist->dotlock);
 	umask(old_mask);
 	if (fd == -1) {
 		if (errno == EAGAIN)
@@ -101,13 +103,12 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 
 int maildir_uidlist_lock(struct maildir_uidlist *uidlist)
 {
-	return maildir_uidlist_lock_timeout(uidlist,
-					    UIDLIST_LOCK_STALE_TIMEOUT);
+	return maildir_uidlist_lock_timeout(uidlist, FALSE);
 }
 
 int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
 {
-	return maildir_uidlist_lock_timeout(uidlist, 0);
+	return maildir_uidlist_lock_timeout(uidlist, TRUE);
 }
 
 void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
@@ -119,7 +120,7 @@ void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
 
 	path = t_strconcat(uidlist->ibox->control_dir,
 			   "/" MAILDIR_UIDLIST_NAME, NULL);
-	(void)file_dotlock_delete(path, NULL, uidlist->lock_fd);
+	(void)file_dotlock_delete(&uidlist->dotlock);
 	uidlist->lock_fd = -1;
 }
 
@@ -135,8 +136,14 @@ struct maildir_uidlist *maildir_uidlist_init(struct index_mailbox *ibox)
 	uidlist->record_buf = buffer_create_dynamic(default_pool, 512);
 	uidlist->files = hash_create(default_pool, default_pool, 4096,
 				     maildir_hash, maildir_cmp);
-
 	uidlist->next_uid = 1;
+
+	uidlist->dotlock_settings.timeout = UIDLIST_LOCK_STALE_TIMEOUT;
+	uidlist->dotlock_settings.stale_timeout = UIDLIST_LOCK_STALE_TIMEOUT;
+	uidlist->dotlock_settings.immediate_stale_timeout =
+		UIDLIST_LOCK_STALE_TIMEOUT;
+	uidlist->dotlock_settings.temp_prefix =
+		uidlist->ibox->storage->temp_prefix;
 
 	return uidlist;
 }
@@ -524,8 +531,7 @@ static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
 		db_path = t_strconcat(ibox->control_dir,
 				      "/" MAILDIR_UIDLIST_NAME, NULL);
 
-		if (file_dotlock_replace(db_path, NULL, uidlist->lock_fd,
-					 FALSE) <= 0) {
+		if (file_dotlock_replace(&uidlist->dotlock, 0) <= 0) {
 			mail_storage_set_critical(ibox->box.storage,
 				"file_dotlock_replace(%s) failed: %m", db_path);
 			(void)unlink(temp_path);

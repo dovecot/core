@@ -19,10 +19,20 @@
 /* 0.1 .. 0.2msec */
 #define LOCK_RANDOM_USLEEP_TIME (100000 + (unsigned int)rand() % 100000)
 
+struct dotlock {
+	struct dotlock_settings settings;
+
+	dev_t dev;
+	ino_t ino;
+	time_t mtime;
+
+	char *path;
+	int fd;
+};
+
 struct lock_info {
+	const struct dotlock_settings *set;
 	const char *path, *lock_path, *temp_path;
-	unsigned int stale_timeout;
-	unsigned int immediate_stale_timeout;
 	int fd;
 
 	dev_t dev;
@@ -37,6 +47,20 @@ struct lock_info {
 	int have_pid;
 	time_t last_pid_check;
 };
+
+static struct dotlock *
+file_dotlock_alloc(const struct dotlock_settings *settings)
+{
+	struct dotlock *dotlock;
+
+	dotlock = i_new(struct dotlock, 1);
+	dotlock->settings = *settings;
+	if (dotlock->settings.lock_suffix == NULL)
+		dotlock->settings.lock_suffix = DEFAULT_LOCK_SUFFIX;
+	dotlock->fd = -1;
+
+	return dotlock;
+}
 
 static pid_t read_local_pid(const char *lock_path)
 {
@@ -76,6 +100,9 @@ static pid_t read_local_pid(const char *lock_path)
 
 static int check_lock(time_t now, struct lock_info *lock_info)
 {
+	time_t immediate_stale_timeout =
+		lock_info->set->immediate_stale_timeout;
+	time_t stale_timeout = lock_info->set->stale_timeout;
 	struct stat st;
 	pid_t pid;
 
@@ -87,9 +114,9 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 		return 1;
 	}
 
-	if (lock_info->immediate_stale_timeout != 0 &&
-	    now > st.st_mtime + (time_t)lock_info->immediate_stale_timeout &&
-	    now > st.st_ctime + (time_t)lock_info->immediate_stale_timeout) {
+	if (lock_info->set->immediate_stale_timeout != 0 &&
+	    now > st.st_mtime + immediate_stale_timeout &&
+	    now > st.st_ctime + immediate_stale_timeout) {
 		/* old lock file */
 		if (unlink(lock_info->lock_path) < 0 && errno != ENOENT) {
 			i_error("unlink(%s) failed: %m", lock_info->lock_path);
@@ -147,7 +174,7 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 		return 1;
 	}
 
-	if (lock_info->stale_timeout == 0) {
+	if (stale_timeout == 0) {
 		/* no change checking */
 		return 0;
 	}
@@ -171,7 +198,7 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 		}
 	}
 
-	if (now > lock_info->last_change + (time_t)lock_info->stale_timeout) {
+	if (now > lock_info->last_change + stale_timeout) {
 		/* no changes for a while, assume stale lock */
 		if (unlink(lock_info->lock_path) < 0 && errno != ENOENT) {
 			i_error("unlink(%s) failed: %m", lock_info->lock_path);
@@ -236,9 +263,9 @@ create_temp_file(const char *prefix, const char **path_r, int write_pid)
 	return fd;
 }
 
-static int try_create_lock(struct lock_info *lock_info, const char *temp_prefix,
-			   int write_pid)
+static int try_create_lock(struct lock_info *lock_info, int write_pid)
 {
+	const char *temp_prefix = lock_info->set->temp_prefix;
 	const char *str, *p;
 
 	if (lock_info->temp_path == NULL) {
@@ -280,15 +307,10 @@ static int try_create_lock(struct lock_info *lock_info, const char *temp_prefix,
 	return 1;
 }
 
-static int
-dotlock_create(const char *path, const char *temp_prefix,
-	       const char *lock_suffix, int checkonly, int *fd,
-	       unsigned int timeout, unsigned int stale_timeout,
-	       unsigned int immediate_stale_timeout, int write_pid,
-	       int (*callback)(unsigned int secs_left, int stale,
-			       void *context),
-	       void *context)
+static int dotlock_create(const char *path, struct dotlock *dotlock,
+			  enum dotlock_create_flags flags, int write_pid)
 {
+	const struct dotlock_settings *set = &dotlock->settings;
 	const char *lock_path;
         struct lock_info lock_info;
 	unsigned int stale_notify_threshold;
@@ -298,15 +320,15 @@ dotlock_create(const char *path, const char *temp_prefix,
 
 	now = time(NULL);
 
-	lock_path = t_strconcat(path, lock_suffix, NULL);
-	stale_notify_threshold = stale_timeout / 2;
-	max_wait_time = now + timeout;
+	lock_path = t_strconcat(path, set->lock_suffix, NULL);
+	stale_notify_threshold = set->stale_timeout / 2;
+	max_wait_time = (flags & DOTLOCK_CREATE_FLAG_NONBLOCK) != 0 ? 0 :
+		now + set->timeout;
 
 	memset(&lock_info, 0, sizeof(lock_info));
 	lock_info.path = path;
+	lock_info.set = set;
 	lock_info.lock_path = lock_path;
-	lock_info.stale_timeout = stale_timeout;
-	lock_info.immediate_stale_timeout = immediate_stale_timeout;
 	lock_info.last_change = now;
 	lock_info.fd = -1;
 
@@ -323,17 +345,16 @@ dotlock_create(const char *path, const char *temp_prefix,
 			break;
 
 		if (ret == 1) {
-			if (checkonly)
+			if ((flags & DOTLOCK_CREATE_FLAG_CHECKONLY) != 0)
 				break;
 
-			ret = try_create_lock(&lock_info, temp_prefix,
-					      write_pid);
+			ret = try_create_lock(&lock_info, write_pid);
 			if (ret != 0)
 				break;
 		}
 
 		do_wait = TRUE;
-		if (last_notify != now && callback != NULL) {
+		if (last_notify != now && set->callback != NULL) {
 			last_notify = now;
 			change_secs = now - lock_info.last_change;
 			wait_left = max_wait_time - now;
@@ -341,14 +362,17 @@ dotlock_create(const char *path, const char *temp_prefix,
 			t_push();
 			if (change_secs >= stale_notify_threshold &&
 			    change_secs <= wait_left) {
-				if (!callback(stale_timeout < change_secs ? 0 :
-					      stale_timeout - change_secs,
-					      TRUE, context)) {
+				unsigned int secs_left =
+					set->stale_timeout < change_secs ?
+					0 : set->stale_timeout - change_secs;
+				if (!set->callback(secs_left, TRUE,
+						   set->context)) {
 					/* we don't want to override */
 					lock_info.last_change = now;
 				}
 			} else {
-				(void)callback(wait_left, FALSE, context);
+				(void)set->callback(wait_left, FALSE,
+						    set->context);
 			}
 			t_pop();
 		}
@@ -359,48 +383,71 @@ dotlock_create(const char *path, const char *temp_prefix,
 	if (ret <= 0 && lock_info.fd != -1) {
 		int old_errno = errno;
 
-		(void)close(lock_info.fd);
-		lock_info.fd = -1;
+		if (close(lock_info.fd) < 0)
+			i_error("close(dotlock) failed: %m");
 		errno = old_errno;
+	} else {
+		dotlock->path = i_strdup(path);
+		dotlock->fd = lock_info.fd;
 	}
-	*fd = lock_info.fd;
 
 	if (ret == 0)
 		errno = EAGAIN;
 	return ret;
 }
 
-int file_lock_dotlock(const char *path, const char *temp_prefix, int checkonly,
-		      unsigned int timeout, unsigned int stale_timeout,
-		      unsigned int immediate_stale_timeout,
-		      int (*callback)(unsigned int secs_left, int stale,
-				      void *context),
-		      void *context, struct dotlock *dotlock_r)
+static void file_dotlock_free(struct dotlock *dotlock)
 {
+	int old_errno;
+
+	if (dotlock->fd != -1) {
+		old_errno = errno;
+		if (close(dotlock->fd) < 0)
+			i_error("close(%s) failed: %m", dotlock->path);
+		dotlock->fd = -1;
+		errno = old_errno;
+	}
+
+	i_free(dotlock->path);
+	i_free(dotlock);
+}
+
+int file_dotlock_create(const struct dotlock_settings *set, const char *path,
+			enum dotlock_create_flags flags,
+			struct dotlock **dotlock_r)
+{
+	struct dotlock *dotlock;
 	const char *lock_path;
 	struct stat st;
 	int fd, ret;
 
-	lock_path = t_strconcat(path, DEFAULT_LOCK_SUFFIX, NULL);
+	*dotlock_r = NULL;
 
-	ret = dotlock_create(path, temp_prefix, DEFAULT_LOCK_SUFFIX,
-			     checkonly, &fd, timeout, stale_timeout,
-			     immediate_stale_timeout, TRUE, callback, context);
-	if (ret <= 0 || checkonly)
+	dotlock = file_dotlock_alloc(set);
+	lock_path = t_strconcat(path, dotlock->settings.lock_suffix, NULL);
+
+	ret = dotlock_create(path, dotlock, flags, TRUE);
+	if (ret <= 0 || (flags & DOTLOCK_CREATE_FLAG_CHECKONLY) != 0) {
+		i_free(dotlock);
 		return ret;
+	}
 
 	/* save the inode info after writing */
-	if (fstat(fd, &st) < 0) {
+	if (fstat(dotlock->fd, &st) < 0) {
 		i_error("fstat(%s) failed: %m", lock_path);
-		(void)close(fd);
+                file_dotlock_free(dotlock);
 		return -1;
 	}
 
-	dotlock_r->dev = st.st_dev;
-	dotlock_r->ino = st.st_ino;
+	dotlock->dev = st.st_dev;
+	dotlock->ino = st.st_ino;
+
+	fd = dotlock->fd;
+	dotlock->fd = -1;
 
 	if (close(fd) < 0) {
-		i_error("fstat(%s) failed: %m", lock_path);
+		i_error("close(%s) failed: %m", lock_path);
+		file_dotlock_free(dotlock);
 		return -1;
 	}
 
@@ -408,34 +455,43 @@ int file_lock_dotlock(const char *path, const char *temp_prefix, int checkonly,
 	   fstat() call. Check again to avoid "dotlock was modified" errors. */
 	if (stat(lock_path, &st) < 0) {
 		i_error("stat(%s) failed: %m", lock_path);
+                file_dotlock_free(dotlock);
 		return -1;
 	}
 	/* extra sanity check won't hurt.. */
-	if (st.st_dev != dotlock_r->dev ||
-	    st.st_ino != dotlock_r->ino) {
+	if (st.st_dev != dotlock->dev || st.st_ino != dotlock->ino) {
 		i_error("dotlock %s was immediately recreated under us",
 			lock_path);
+                file_dotlock_free(dotlock);
 		return -1;
 	}
-	dotlock_r->mtime = st.st_mtime;
+	dotlock->mtime = st.st_mtime;
+
+	*dotlock_r = dotlock;
 	return 1;
 }
 
-static int dotlock_delete(const char *path, const char *lock_suffix,
-			  const struct dotlock *dotlock, int check_mtime)
+int file_dotlock_delete(struct dotlock **dotlock_p)
 {
+	struct dotlock *dotlock;
 	const char *lock_path;
         struct stat st;
 
-	lock_path = t_strconcat(path, lock_suffix, NULL);
+	dotlock = *dotlock_p;
+	*dotlock_p = NULL;
+
+	lock_path = t_strconcat(dotlock->path,
+				dotlock->settings.lock_suffix, NULL);
 
 	if (lstat(lock_path, &st) < 0) {
 		if (errno == ENOENT) {
 			i_warning("Our dotlock file %s was deleted", lock_path);
+			file_dotlock_free(dotlock);
 			return 0;
 		}
 
 		i_error("lstat(%s) failed: %m", lock_path);
+		file_dotlock_free(dotlock);
 		return -1;
 	}
 
@@ -443,10 +499,11 @@ static int dotlock_delete(const char *path, const char *lock_suffix,
 	    !CMP_DEV_T(dotlock->dev, st.st_dev)) {
 		i_warning("Our dotlock file %s was overridden", lock_path);
 		errno = EEXIST;
+		file_dotlock_free(dotlock);
 		return 0;
 	}
 
-	if (dotlock->mtime != st.st_mtime && check_mtime) {
+	if (dotlock->mtime != st.st_mtime && dotlock->fd == -1) {
 		i_warning("Our dotlock file %s was modified (%s vs %s), "
 			  "assuming it wasn't overridden", lock_path,
 			  dec2str(dotlock->mtime), dec2str(st.st_mtime));
@@ -455,72 +512,66 @@ static int dotlock_delete(const char *path, const char *lock_suffix,
 	if (unlink(lock_path) < 0) {
 		if (errno == ENOENT) {
 			i_warning("Our dotlock file %s was deleted", lock_path);
+			file_dotlock_free(dotlock);
 			return 0;
 		}
 
 		i_error("unlink(%s) failed: %m", lock_path);
+		file_dotlock_free(dotlock);
 		return -1;
 	}
 
+	file_dotlock_free(dotlock);
 	return 1;
 }
 
-int file_unlock_dotlock(const char *path, const struct dotlock *dotlock)
+int file_dotlock_open(const struct dotlock_settings *set, const char *path,
+		      enum dotlock_create_flags flags,
+		      struct dotlock **dotlock_r)
 {
-	return dotlock_delete(path, DEFAULT_LOCK_SUFFIX, dotlock, TRUE);
-}
+	struct dotlock *dotlock;
+	int ret;
 
-int file_dotlock_open(const char *path,
-		      const char *temp_prefix, const char *lock_suffix,
-		      unsigned int timeout, unsigned int stale_timeout,
-		      unsigned int immediate_stale_timeout,
-		      int (*callback)(unsigned int secs_left, int stale,
-				      void *context),
-		      void *context)
-{
-	int ret, fd;
+	dotlock = file_dotlock_alloc(set);
 
-	if (lock_suffix == NULL)
-		lock_suffix = DEFAULT_LOCK_SUFFIX;
-
-	ret = dotlock_create(path, temp_prefix, lock_suffix, FALSE, &fd,
-			     timeout, stale_timeout, immediate_stale_timeout,
-			     FALSE, callback, context);
-	if (ret <= 0)
+	ret = dotlock_create(path, dotlock, flags, FALSE);
+	if (ret <= 0) {
+		file_dotlock_free(dotlock);
+		*dotlock_r = NULL;
 		return -1;
-	return fd;
+	}
+
+	*dotlock_r = dotlock;
+	return dotlock->fd;
 }
 
-int file_dotlock_replace(const char *path, const char *lock_suffix,
-			 int fd, int verify_owner)
+int file_dotlock_replace(struct dotlock **dotlock_p,
+			 enum dotlock_replace_flags flags)
 {
+	struct dotlock *dotlock;
 	struct stat st, st2;
 	const char *lock_path;
-	int old_errno;
+	int fd;
 
-	if (lock_suffix == NULL)
-		lock_suffix = DEFAULT_LOCK_SUFFIX;
+	dotlock = *dotlock_p;
+	*dotlock_p = NULL;
 
-	lock_path = t_strconcat(path, lock_suffix, NULL);
-	if (verify_owner) {
+	fd = dotlock->fd;
+	if ((flags & DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) != 0)
+		dotlock->fd = -1;
+
+	lock_path = t_strconcat(dotlock->path,
+				dotlock->settings.lock_suffix, NULL);
+	if ((flags & DOTLOCK_REPLACE_FLAG_VERIFY_OWNER) != 0) {
 		if (fstat(fd, &st) < 0) {
-			old_errno = errno;
 			i_error("fstat(%s) failed: %m", lock_path);
-			(void)close(fd);
-			errno = old_errno;
+			file_dotlock_free(dotlock);
 			return -1;
 		}
-	}
-	if (fd != -1) {
-		if (close(fd) < 0) {
-			i_error("close(%s) failed: %m", lock_path);
-			return -1;
-		}
-	}
 
-	if (verify_owner) {
 		if (lstat(lock_path, &st2) < 0) {
 			i_error("lstat(%s) failed: %m", lock_path);
+			file_dotlock_free(dotlock);
 			return -1;
 		}
 
@@ -529,44 +580,16 @@ int file_dotlock_replace(const char *path, const char *lock_suffix,
 			i_warning("Our dotlock file %s was overridden",
 				  lock_path);
 			errno = EEXIST;
+			file_dotlock_free(dotlock);
 			return 0;
 		}
 	}
 
-	if (rename(lock_path, path) < 0) {
-		i_error("rename(%s, %s) failed: %m", lock_path, path);
+	if (rename(lock_path, dotlock->path) < 0) {
+		i_error("rename(%s, %s) failed: %m", lock_path, dotlock->path);
+		file_dotlock_free(dotlock);
 		return -1;
 	}
+	file_dotlock_free(dotlock);
 	return 1;
-}
-
-int file_dotlock_delete(const char *path, const char *lock_suffix, int fd)
-{
-	struct dotlock dotlock;
-	struct stat st;
-	int old_errno;
-
-	if (lock_suffix == NULL)
-		lock_suffix = DEFAULT_LOCK_SUFFIX;
-
-	if (fstat(fd, &st) < 0) {
-		old_errno = errno;
-		i_error("fstat(%s) failed: %m",
-			t_strconcat(path, lock_suffix, NULL));
-		(void)close(fd);
-		errno = old_errno;
-		return -1;
-	}
-
-	if (close(fd) < 0) {
-		i_error("close(%s) failed: %m",
-			t_strconcat(path, lock_suffix, NULL));
-		return -1;
-	}
-
-	dotlock.dev = st.st_dev;
-	dotlock.ino = st.st_ino;
-	dotlock.mtime = st.st_mtime;
-
-	return dotlock_delete(path, lock_suffix, &dotlock, FALSE);
 }

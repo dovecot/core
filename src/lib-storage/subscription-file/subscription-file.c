@@ -70,6 +70,8 @@ static const char *next_line(struct mail_storage *storage, const char *path,
 int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 			    const char *temp_prefix, const char *name, int set)
 {
+	struct dotlock_settings dotlock_set;
+	struct dotlock *dotlock;
 	const char *line;
 	struct istream *input;
 	struct ostream *output;
@@ -78,12 +80,14 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 	if (strcasecmp(name, "INBOX") == 0)
 		name = "INBOX";
 
+	memset(&dotlock_set, 0, sizeof(dotlock_set));
+	dotlock_set.temp_prefix = temp_prefix;
+	dotlock_set.timeout = SUBSCRIPTION_FILE_LOCK_TIMEOUT;
+	dotlock_set.stale_timeout = SUBSCRIPTION_FILE_CHANGE_TIMEOUT;
+	dotlock_set.immediate_stale_timeout = SUBSCRIPTION_FILE_IMMEDIATE_TIMEOUT;
+
 	/* FIXME: set lock notification callback */
-	fd_out = file_dotlock_open(path, temp_prefix, NULL,
-				   SUBSCRIPTION_FILE_LOCK_TIMEOUT,
-				   SUBSCRIPTION_FILE_CHANGE_TIMEOUT,
-				   SUBSCRIPTION_FILE_IMMEDIATE_TIMEOUT,
-				   NULL, NULL);
+	fd_out = file_dotlock_open(&dotlock_set, path, 0, &dotlock);
 	if (fd_out == -1) {
 		if (errno == EAGAIN) {
 			mail_storage_set_error(storage,
@@ -98,7 +102,7 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 	fd_in = open(path, O_RDONLY);
 	if (fd_in == -1 && errno != ENOENT) {
 		subsfile_set_syscall_error(storage, "open()", path);
-		file_dotlock_delete(path, NULL, fd_out);
+		(void)file_dotlock_delete(&dotlock);
 		return -1;
 	}
 
@@ -138,13 +142,15 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 	o_stream_unref(output);
 
 	if (failed || (set && found) || (!set && !found)) {
-		if (file_dotlock_delete(path, NULL, fd_out) < 0) {
+		if (file_dotlock_delete(&dotlock) < 0) {
 			subsfile_set_syscall_error(storage,
 				"file_dotlock_delete()", path);
 			failed = TRUE;
 		}
 	} else {
-		if (file_dotlock_replace(path, NULL, fd_out, TRUE) < 0) {
+		enum dotlock_replace_flags flags =
+			DOTLOCK_REPLACE_FLAG_VERIFY_OWNER;
+		if (file_dotlock_replace(&dotlock, flags) < 0) {
 			subsfile_set_syscall_error(storage,
 				"file_dotlock_replace()", path);
 			failed = TRUE;

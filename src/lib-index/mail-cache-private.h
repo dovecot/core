@@ -1,6 +1,7 @@
 #ifndef __MAIL_CACHE_PRIVATE_H
 #define __MAIL_CACHE_PRIVATE_H
 
+#include "file-dotlock.h"
 #include "mail-index-private.h"
 #include "mail-cache.h"
 
@@ -125,7 +126,9 @@ struct mail_cache {
 	const void *data;
 	size_t mmap_length;
 	struct file_cache *file_cache;
-	struct dotlock dotlock;
+
+	struct dotlock_settings dotlock_settings;
+	struct dotlock *dotlock;
 
 	const struct mail_cache_header *hdr;
 	struct mail_cache_header hdr_copy;

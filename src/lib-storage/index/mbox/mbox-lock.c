@@ -227,29 +227,33 @@ static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
 			     time_t max_wait_time __attr_unused__)
 {
 	struct index_mailbox *ibox = ctx->ibox;
+	struct dotlock_settings set;
 	int ret;
 
 	if (lock_type == F_UNLCK) {
-		if (ibox->mbox_dotlock.ino == 0)
+		if (!ibox->mbox_dotlocked)
 			return 1;
 
-		if (file_unlock_dotlock(ibox->path, &ibox->mbox_dotlock) <= 0) {
-			mbox_set_syscall_error(ibox, "file_unlock_dotlock()");
+		if (file_dotlock_delete(&ibox->mbox_dotlock) <= 0) {
+			mbox_set_syscall_error(ibox, "file_dotlock_delete()");
 			ret = -1;
 		}
-                ibox->mbox_dotlock.ino = 0;
+                ibox->mbox_dotlocked = FALSE;
 		return 1;
 	}
 
-	if (ibox->mbox_dotlock.ino != 0)
+	if (ibox->mbox_dotlocked)
 		return 1;
 
         ctx->dotlock_last_stale = -1;
 
-	ret = file_lock_dotlock(ibox->path, NULL, FALSE, lock_timeout,
-				dotlock_change_timeout, 0,
-				dotlock_callback, ctx, &ibox->mbox_dotlock);
+	memset(&set, 0, sizeof(set));
+	set.timeout = lock_timeout;
+	set.stale_timeout = dotlock_change_timeout;
+	set.callback = dotlock_callback;
+	set.context = ctx;
 
+	ret = file_dotlock_create(&set, ibox->path, 0, &ibox->mbox_dotlock);
 	if (ret < 0) {
 		mbox_set_syscall_error(ibox, "file_lock_dotlock()");
 		return -1;
@@ -259,6 +263,8 @@ static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
 				       "Timeout while waiting for lock");
 		return 0;
 	}
+	ibox->mbox_dotlocked = TRUE;
+
 	if (mbox_file_open_latest(ctx, lock_type) < 0)
 		return -1;
 	return 1;

@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "file-dotlock.h"
 #include "mail-index.h"
 
 struct mail_transaction_header;
@@ -133,7 +132,7 @@ struct mail_index {
 	int lock_type, shared_lock_count, excl_lock_count;
 	unsigned int lock_id;
 	char *copy_lock_path;
-	struct dotlock dotlock;
+	struct dotlock *dotlock;
 	enum mail_index_lock_method lock_method;
 
 	/* These are typically same as map->hdr->log_file_*, but with

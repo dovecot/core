@@ -76,7 +76,7 @@ struct index_mailbox {
 	dev_t mbox_dev;
 	ino_t mbox_ino;
 	unsigned int mbox_excl_locks, mbox_shared_locks;
-	struct dotlock mbox_dotlock;
+	struct dotlock *mbox_dotlock;
 	unsigned int mbox_lock_id;
 	int mbox_readonly, mbox_writeonly;
 	time_t mbox_dirty_stamp;
@@ -104,6 +104,7 @@ struct index_mailbox {
 	unsigned int mbox_do_dirty_syncs:1;
 	unsigned int mbox_very_dirty_syncs:1;
 	unsigned int mbox_save_md5:1;
+	unsigned int mbox_dotlocked:1;
 };
 
 struct index_transaction_context {

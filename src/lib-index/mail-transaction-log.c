@@ -65,11 +65,9 @@ mail_transaction_log_file_dotlock(struct mail_transaction_log_file *file)
 	if (file->log->dotlock_count > 0)
 		ret = 1;
 	else {
-		ret = file_lock_dotlock(file->filepath, NULL, FALSE,
-					LOG_DOTLOCK_TIMEOUT,
-					LOG_DOTLOCK_STALE_TIMEOUT,
-					LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT,
-					NULL, NULL, &file->log->dotlock);
+		ret = file_dotlock_create(&file->log->dotlock_settings,
+					  file->filepath, 0,
+					  &file->log->dotlock);
 	}
 	if (ret > 0) {
 		file->log->dotlock_count++;
@@ -79,7 +77,7 @@ mail_transaction_log_file_dotlock(struct mail_transaction_log_file *file)
 	if (ret < 0) {
 		mail_index_file_set_syscall_error(file->log->index,
 						  file->filepath,
-						  "file_lock_dotlock()");
+						  "file_dotlock_create()");
 		return -1;
 	}
 
@@ -99,10 +97,10 @@ mail_transaction_log_file_undotlock(struct mail_transaction_log_file *file)
 	if (--file->log->dotlock_count > 0)
 		return 0;
 
-	ret = file_unlock_dotlock(file->filepath, &file->log->dotlock);
+	ret = file_dotlock_delete(&file->log->dotlock);
 	if (ret < 0) {
 		mail_index_file_set_syscall_error(file->log->index,
-			file->filepath, "file_unlock_dotlock()");
+			file->filepath, "file_dotlock_delete()");
 		return -1;
 	}
 
@@ -218,11 +216,19 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 	log = i_new(struct mail_transaction_log, 1);
 	log->index = index;
 
+	log->dotlock_settings.timeout = LOG_DOTLOCK_TIMEOUT;
+	log->dotlock_settings.stale_timeout = LOG_DOTLOCK_STALE_TIMEOUT;
+	log->dotlock_settings.immediate_stale_timeout =
+		LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT;
+
+	log->new_dotlock_settings = log->dotlock_settings;
+	log->new_dotlock_settings.lock_suffix = LOG_NEW_DOTLOCK_SUFFIX;
+
 	path = t_strconcat(log->index->filepath,
 			   MAIL_TRANSACTION_LOG_PREFIX, NULL);
 	log->head = mail_transaction_log_file_open_or_create(log, path);
 	if (log->head == NULL) {
-		i_free(log);
+		mail_transaction_log_close(log);
 		return NULL;
 	}
 
@@ -240,8 +246,10 @@ void mail_transaction_log_close(struct mail_transaction_log *log)
 {
 	mail_transaction_log_views_close(log);
 
-	log->head->refcount--;
-	mail_transaction_logs_clean(log);
+	if (log->head != NULL) {
+		log->head->refcount--;
+		mail_transaction_logs_clean(log);
+	}
 
 	log->index->log = NULL;
 	i_free(log);
@@ -336,8 +344,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 		} else if (st.st_ino == ino && CMP_DEV_T(st.st_dev, dev)) {
 			/* same file, still broken */
 		} else {
-			(void)file_dotlock_delete(path, LOG_NEW_DOTLOCK_SUFFIX,
-						  fd);
+			(void)file_dotlock_delete(&log->dotlock);
 			return fd2;
 		}
 
@@ -382,7 +389,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 		return -1;
 	}
 
-	if (file_dotlock_replace(path, LOG_NEW_DOTLOCK_SUFFIX, fd, FALSE) <= 0)
+	if (file_dotlock_replace(&log->dotlock, 0) <= 0)
 		return -1;
 
 	/* success */
@@ -399,10 +406,8 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 	/* With dotlocking we might already have path.lock created, so this
 	   filename has to be different. */
 	old_mask = umask(log->index->mode ^ 0666);
-	fd = file_dotlock_open(path, NULL, LOG_NEW_DOTLOCK_SUFFIX,
-			       LOG_DOTLOCK_TIMEOUT,
-			       LOG_DOTLOCK_STALE_TIMEOUT,
-			       LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT, NULL, NULL);
+	fd = file_dotlock_open(&log->new_dotlock_settings, path, 0,
+			       &log->dotlock);
 	umask(old_mask);
 
 	if (fd == -1) {
@@ -414,12 +419,13 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 	if (log->index->gid != (gid_t)-1 &&
 	    fchown(fd, (uid_t)-1, log->index->gid) < 0) {
 		mail_index_file_set_syscall_error(log->index, path, "fchown()");
+		(void)file_dotlock_delete(&log->dotlock);
 		return -1;
 	}
 
 	fd2 = mail_transaction_log_file_create2(log, path, fd, dev, ino);
 	if (fd2 < 0) {
-		(void)file_dotlock_delete(path, LOG_NEW_DOTLOCK_SUFFIX, fd);
+		(void)file_dotlock_delete(&log->dotlock);
 		return -1;
 	}
 	return fd2;
