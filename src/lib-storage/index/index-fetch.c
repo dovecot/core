@@ -309,7 +309,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 
 		sect = ctx->fetch_data->body_sections;
 		for (; sect != NULL; sect = sect->next) {
-			if (!index_fetch_body_section(rec, seq, sect, ctx))
+			if (!index_fetch_body_section(rec, sect, ctx))
 				break;
 		}
 

@@ -376,9 +376,8 @@ static int fetch_part(MailFetchBodyData *sect, FetchContext *ctx,
 	return FALSE;
 }
 
-int index_fetch_body_section(MailIndexRecord *rec,
-			     unsigned int seq __attr_unused__,
-			     MailFetchBodyData *sect, FetchContext *ctx)
+int index_fetch_body_section(MailIndexRecord *rec, MailFetchBodyData *sect,
+			     FetchContext *ctx)
 {
 	const char *prefix;
 
