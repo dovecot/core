@@ -72,7 +72,7 @@ unsigned int primes_closest(unsigned int num)
 	unsigned int i;
 
 	for (i = 0; i < primes_count; i++)
-		if (primes[i] > num)
+		if (primes[i] >= num)
 			return primes[i];
 
 	return primes[primes_count - 1];

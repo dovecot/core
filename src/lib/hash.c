@@ -314,7 +314,7 @@ static int hash_resize(HashTable *table)
 	    (nodes_per_list < 3.0 || table->size >= HASH_TABLE_MAX_SIZE))
 		return FALSE;
 
-	new_size = CLAMP(primes_closest(table->nodes_count),
+	new_size = CLAMP(primes_closest(table->nodes_count+1),
 			 HASH_TABLE_MIN_SIZE,
 			 HASH_TABLE_MAX_SIZE);
 
