@@ -196,7 +196,7 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 			/* beginning of group */
 			addr = new_address(pool, &next_addr);
 			max_addresses--;
-			addr->name = p_strdup(pool, str_c(mailbox));
+			addr->mailbox = p_strdup(pool, str_c(mailbox));
 
 			str_truncate(mailbox, 0);
 			str_truncate(comment, 0);
