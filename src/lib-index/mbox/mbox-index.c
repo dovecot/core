@@ -85,11 +85,6 @@ struct istream *mbox_get_stream(struct mail_index *index, uoff_t offset,
 						     MAIL_MMAP_BLOCK_SIZE,
 						     0, 0, FALSE);
 		} else {
-			if (lseek(index->mbox_fd, 0, SEEK_SET) < 0) {
-				mbox_set_syscall_error(index, "lseek()");
-				return NULL;
-			}
-
 			index->mbox_stream =
 				i_stream_create_file(index->mbox_fd,
 						     default_pool,

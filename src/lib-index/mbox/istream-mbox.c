@@ -80,7 +80,7 @@ static ssize_t _read(struct _istream *stream)
 
 	if (limit != old_limit)
 		i_stream_set_read_limit(mstream->input, old_limit);
-	return ret;
+	return mstream->istream.pos == 0 ? -1 : (ssize_t)mstream->istream.pos;
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset)
