@@ -119,6 +119,7 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 	status->unseen = hdr->messages_count - hdr->seen_messages_count;
 	status->uidvalidity = hdr->uid_validity;
 	status->uidnext = hdr->next_uid;
+	status->diskspace_full = ibox->index->nodiskspace;
 
 	if (items & STATUS_FIRST_UNSEEN_SEQ) {
 		status->first_unseen_seq =

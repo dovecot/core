@@ -91,6 +91,11 @@ int cmd_select_full(Client *client, int readonly)
 		t_strdup_printf("* OK [UIDVALIDITY %u] UIDs valid",
 				status.uidvalidity));
 
+	if (status.diskspace_full) {
+		client_send_line(client, "* OK [ALERT] Disk space is full, "
+				 "delete some messages.");
+	}
+
 	client_send_tagline(client, box->readonly ?
 			    "OK [READ-ONLY] Select completed." :
 			    "OK [READ-WRITE] Select completed.");
