@@ -92,6 +92,8 @@
 	__attribute__((format (printf, format_idx, arg_idx)))
 #  define __attr_format_arg__(arg_idx) \
 	__attribute__((format_arg (arg_idx)))
+#  define __attr_scanf__(format_idx, arg_idx) \
+	__attribute__((format (scanf, format_idx, arg_idx)))
 #  define __attr_unused__ __attribute__((unused))
 #  define __attr_noreturn__ __attribute__((noreturn))
 #  define __attr_const__ __attribute__((const))
