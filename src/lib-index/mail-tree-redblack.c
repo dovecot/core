@@ -722,6 +722,9 @@ int mail_tree_insert(MailTree *tree, unsigned int uid, uoff_t pos)
 	if ((z = rb_alloc(tree)) == RBNULL)
 		return FALSE;
 
+	/* rb_alloc() may change mmap base */
+	node = tree->node_base;
+
 	node[z].key = uid;
 	node[z].value = pos;
 	node[z].up = x;
