@@ -448,9 +448,11 @@ int i_snprintf(char *str, size_t max_chars, const char *format, ...)
 	i_assert(max_chars < SSIZE_T_MAX);
 	i_assert(format != NULL);
 
+	t_push();
 	va_start(args, format);
 	ret = vsnprintf(str, max_chars, fix_format(format), args);
 	va_end(args);
+	t_pop();
 
 	if (ret < 0) {
 		str[max_chars-1] = '\0';
@@ -467,10 +469,12 @@ int i_snprintf(char *str, size_t max_chars, const char *format, ...)
 	i_assert(max_chars < SSIZE_T_MAX);
 	i_assert(format != NULL);
 
+	t_push();
 	va_start(args, format);
 	format = fix_format(format);
 	buf = t_buffer_get(printf_string_upper_bound(format, args));
 	va_end(args);
+	t_pop();
 
 	len = vsprintf(buf, format, args);
 	if (len >= (int)max_chars)
@@ -647,6 +651,8 @@ strdup_vprintf_core(const char *format, va_list args,
 
 	if (format == NULL)
 		return NULL;
+
+	t_push();
 	format = fix_format(format);
 
 	VA_COPY(temp_args, args);
@@ -655,6 +661,7 @@ strdup_vprintf_core(const char *format, va_list args,
 	vsprintf(ret, format, args);
 
 	va_end(temp_args);
+	t_pop();
 
         return ret;
 }
