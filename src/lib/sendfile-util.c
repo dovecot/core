@@ -82,6 +82,7 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 #elif defined (HAVE_SOLARIS_SENDFILEV)
 
 #include <sys/sendfile.h>
+#include "network.h"
 
 ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 {
@@ -90,6 +91,13 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 	ssize_t ret;
 
 	i_assert(count <= SSIZE_T_MAX);
+
+	/* outfd must be socket, or at least some Solaris versions will
+	   kernel panic */
+	if (net_getsockname(out_fd, NULL, NULL) < 0) {
+		errno = EINVAL;
+		return -1;
+	}
 
 	vec.sfv_fd = in_fd;
 	vec.sfv_flag = 0;
