@@ -19,7 +19,6 @@ struct mmap_istream {
 	unsigned int autoclose_fd:1;
 };
 
-static size_t mmap_pagesize = 0;
 static size_t mmap_pagemask = 0;
 
 static void _close(struct _iostream *stream)
@@ -59,11 +58,13 @@ static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
 	/* allow only full page sizes */
-	if (max_size < mmap_pagesize)
-		mstream->mmap_block_size = mmap_pagesize;
+	if (max_size < mmap_get_page_size())
+		mstream->mmap_block_size = mmap_get_page_size();
 	else {
-		if (max_size % mmap_pagesize != 0)
-			max_size += mmap_pagesize - (max_size % mmap_pagesize);
+		if (max_size % mmap_get_page_size() != 0) {
+			max_size += mmap_get_page_size() -
+				(max_size % mmap_get_page_size());
+		}
 		mstream->mmap_block_size = max_size;
 	}
 }
@@ -127,7 +128,7 @@ static ssize_t _read(struct _istream *stream)
 		stream->buffer = mstream->mmap_base;
 	}
 
-	if (stream->buffer_size > mmap_pagesize) {
+	if (stream->buffer_size > mmap_get_page_size()) {
 		if (madvise(mstream->mmap_base, stream->buffer_size,
 			    MADV_SEQUENTIAL) < 0)
 			i_error("mmap_istream.madvise(): %m");
@@ -171,10 +172,8 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
         struct istream *istream;
 	struct stat st;
 
-	if (mmap_pagesize == 0) {
-		mmap_pagesize = getpagesize();
-		mmap_pagemask = mmap_pagesize-1;
-	}
+	if (mmap_pagemask == 0)
+		mmap_pagemask = mmap_get_page_size()-1;
 
 	if (v_size == 0) {
 		if (fstat(fd, &st) < 0)

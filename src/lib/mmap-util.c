@@ -43,3 +43,13 @@ int my_madvise(void *start __attr_unused__, size_t length __attr_unused__,
 {
 }
 #endif
+
+size_t mmap_get_page_size(void)
+{
+	static size_t size = 0;
+
+	if (size != 0)
+		return size;
+	size = getpagesize();
+	return size;
+}
