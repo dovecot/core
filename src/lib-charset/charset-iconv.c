@@ -67,17 +67,6 @@ void charset_to_utf8_reset(CharsetTranslation *t)
 		(void)iconv(t->cd, NULL, NULL, NULL, NULL);
 }
 
-static void str_ucase_utf8(const unsigned char *src, size_t src_size,
-			   Buffer *dest, size_t destpos)
-{
-	char *destbuf;
-	size_t i;
-
-	destbuf = buffer_get_space(dest, destpos, src_size);
-	for (i = 0; i < src_size; i++)
-		destbuf[i] = i_toupper(src[i]); /* FIXME: utf8 */
-}
-
 CharsetResult
 charset_to_ucase_utf8(CharsetTranslation *t,
 		      const Buffer *src, size_t *src_pos, Buffer *dest)
@@ -95,7 +84,8 @@ charset_to_ucase_utf8(CharsetTranslation *t,
 		size = buffer_get_used_size(src);
 		if (size > destleft)
 			size = destleft;
-		str_ucase_utf8(buffer_get_data(src, NULL), size, dest, destpos);
+		_charset_utf8_ucase(buffer_get_data(src, NULL),
+				    size, dest, destpos);
 		if (src_pos != NULL)
 			*src_pos = size;
 		return CHARSET_RET_OK;
@@ -124,25 +114,9 @@ charset_to_ucase_utf8(CharsetTranslation *t,
 	if (src_pos != NULL)
 		*src_pos = buffer_get_used_size(src) - srcleft;
 
-	str_ucase_utf8((unsigned char *) ic_destbuf - size, size,
-		       dest, destpos);
+	_charset_utf8_ucase((unsigned char *) ic_destbuf - size, size,
+			    dest, destpos);
 	return ret;
-}
-
-static const char *alloc_str_ucase_utf8(const Buffer *data, size_t *utf8_size)
-{
-	const char *buf;
-	size_t size;
-	Buffer *dest;
-
-	buf = buffer_get_data(data, &size);
-
-	dest = buffer_create_dynamic(data_stack_pool, size, (size_t)-1);
-	str_ucase_utf8(buf, size, dest, 0);
-	if (utf8_size != NULL)
-		*utf8_size = buffer_get_used_size(dest);
-	buffer_append_c(dest, '\0');
-	return buffer_free_without_data(dest);
 }
 
 const char *
@@ -157,8 +131,11 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0 ||
 	    strcasecmp(charset, "ascii") == 0 ||
 	    strcasecmp(charset, "UTF-8") == 0 ||
-	    strcasecmp(charset, "UTF8") == 0)
-	       return alloc_str_ucase_utf8(data, utf8_size);
+	    strcasecmp(charset, "UTF8") == 0) {
+		if (unknown_charset != NULL)
+			*unknown_charset = FALSE;
+		return _charset_utf8_ucase_strdup(data, utf8_size);
+	}
 
 	cd = iconv_open("UTF-8", charset);
 	if (cd == (iconv_t)-1) {

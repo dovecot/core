@@ -30,4 +30,8 @@ const char *
 charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 			     const Buffer *data, size_t *utf8_size);
 
+void _charset_utf8_ucase(const unsigned char *src, size_t src_size,
+			 Buffer *dest, size_t destpos);
+const char *_charset_utf8_ucase_strdup(const Buffer *data, size_t *utf8_size);
+
 #endif

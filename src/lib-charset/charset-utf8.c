@@ -1,7 +1,38 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "charset-utf8.h"
+
+#include <ctype.h>
+
+void _charset_utf8_ucase(const unsigned char *src, size_t src_size,
+			 Buffer *dest, size_t destpos)
+{
+	char *destbuf;
+	size_t i;
+
+	destbuf = buffer_get_space(dest, destpos, src_size);
+	for (i = 0; i < src_size; i++)
+		destbuf[i] = i_toupper(src[i]); /* FIXME: utf8 */
+}
+
+const char *_charset_utf8_ucase_strdup(const Buffer *data, size_t *utf8_size)
+{
+	const char *buf;
+	size_t size;
+	Buffer *dest;
+
+	buf = buffer_get_data(data, &size);
+
+	dest = buffer_create_dynamic(data_stack_pool, size, (size_t)-1);
+	_charset_utf8_ucase(buf, size, dest, 0);
+	if (utf8_size != NULL)
+		*utf8_size = buffer_get_used_size(dest);
+	buffer_append_c(dest, '\0');
+	return buffer_free_without_data(dest);
+}
+
 
 #ifndef HAVE_ICONV_H
 
@@ -41,40 +72,41 @@ void charset_to_utf8_reset(CharsetTranslation *t __attr_unused__)
 {
 }
 
-int charset_to_ucase_utf8(CharsetTranslation *t __attr_unused__,
-			  const unsigned char **inbuf, size_t *insize,
-			  unsigned char *outbuf, size_t *outsize)
+CharsetResult
+charset_to_ucase_utf8(CharsetTranslation *t __attr_unused__,
+		      const Buffer *src, size_t *src_pos, Buffer *dest)
 {
-	size_t max_size, i;
+	size_t size, destpos, destleft;
 
-	max_size = I_MIN(*insize, *outsize);
-	for (i = 0; i < max_size; i++)
-		outbuf[i] = i_toupper((*inbuf)[i]); /* FIXME: utf8 */
+	destpos = buffer_get_used_size(dest);
+	destleft = buffer_get_size(dest) - destpos;
 
-	*insize = 0;
-	*outsize = max_size;
-
-	return TRUE;
+	/* no translation needed - just copy it to outbuf uppercased */
+	size = buffer_get_used_size(src);
+	if (size > destleft)
+		size = destleft;
+	_charset_utf8_ucase(buffer_get_data(src, NULL), size, dest, destpos);
+	if (src_pos != NULL)
+		*src_pos = size;
+	return CHARSET_RET_OK;
 }
 
 const char *
 charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
-			     const unsigned char *buf,
-			     size_t *size __attr_unused__)
+			     const Buffer *data, size_t *utf8_size)
 {
 	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0 ||
 	    strcasecmp(charset, "ascii") == 0 ||
 	    strcasecmp(charset, "UTF-8") == 0 ||
 	    strcasecmp(charset, "UTF8") == 0) {
-		outbuf = t_malloc(*size + 1);
-		memcpy(outbuf, buf, *size);
-		outbuf[*size] = '\0';
-		return str_ucase(outbuf); /* FIXME: utf8 */
+		if (unknown_charset != NULL)
+			*unknown_charset = FALSE;
+		return _charset_utf8_ucase_strdup(data, utf8_size);
+	} else {
+		if (unknown_charset != NULL)
+			*unknown_charset = TRUE;
+		return NULL;
 	}
-
-	if (unknown_charset != NULL)
-		*unknown_charset = TRUE;
-	return NULL;
 }
 
 #endif
