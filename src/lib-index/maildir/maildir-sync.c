@@ -132,12 +132,14 @@
    for example include microseconds in it which Dovecot does.
 
    There's a simple way to prevent this from happening in some cases:
-   Don't move the mail from new/ to cur/ if it's mtime (it's included
-   in beginning of file name, so stat() isn't needed) is >= time() -
+   Don't move the mail from new/ to cur/ if it's mtime is >= time() -
    MAILDIR_SYNC_SECS. The second delivery's link() call then fails
    because the file is already in new/, and it will then use a
    different filename. There's a few problems with this however:
 
+      - while it's usually possible to read the mtime from beginning of
+        the file name, it is against the Maildir specs. stat()ing the
+	file then makes syncing slower.
       - another MUA might still move the mail to cur/
       - if first file's flags are modified by either Dovecot or another
         MUA, it's moved to cur/ (you _could_ just do the dirty-flagging
