@@ -102,7 +102,8 @@ struct mbox_sync_context {
 	uint32_t update_base_uid_last;
 
 	/* mail state: */
-	buffer_t *mails, *syncs;
+	array_t ARRAY_DEFINE(mails, struct mbox_sync_mail);
+	array_t ARRAY_DEFINE(syncs, struct mail_index_sync_rec);
 	struct mail_index_sync_rec sync_rec;
 
 	uint32_t prev_msg_uid, next_uid;
@@ -126,7 +127,7 @@ int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
 			       struct mail_index_view *view, uint32_t seq);
 
 void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
-			     buffer_t *syncs_buf);
+			     array_t *syncs_arr);
 void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 				  const struct mbox_sync_mail *mail);
 int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff);

@@ -395,14 +395,14 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 	uoff_t offset, dest_offset, next_end_offset, next_move_diff;
 	uoff_t start_offset, expunged_space;
 	uint32_t idx, first_nonexpunged_idx, padding_per_mail;
-	size_t size;
+	unsigned int count;
 	int ret = 0;
 
 	i_assert(extra_space < OFF_T_MAX);
 	i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
 
-	mails = buffer_get_modifyable_data(sync_ctx->mails, &size);
-	i_assert(size / sizeof(*mails) == last_seq - first_seq + 1);
+	mails = array_get_modifyable(&sync_ctx->mails, &count);
+	i_assert(count == last_seq - first_seq + 1);
 
 	/* if there's expunges in mails[], we would get more correct balancing
 	   by counting only them here. however, that might make us overwrite

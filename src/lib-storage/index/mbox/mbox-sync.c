@@ -73,24 +73,24 @@ int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset)
 	return 0;
 }
 
-static void mbox_sync_buffer_delete_old(buffer_t *syncs_buf, uint32_t uid)
+static void mbox_sync_array_delete_old(array_t *syncs_arr, uint32_t uid)
 {
-	struct mail_index_sync_rec *sync;
-	size_t size, src, dest;
+	ARRAY_SET_TYPE(syncs_arr, struct mail_index_sync_rec);
+	struct mail_index_sync_rec *syncs;
+	unsigned int src, dest, count;
 
-	sync = buffer_get_modifyable_data(syncs_buf, &size);
-	size /= sizeof(*sync);
+	syncs = array_get_modifyable(syncs_arr, &count);
 
-	for (src = dest = 0; src < size; src++) {
-		if (uid <= sync[src].uid2) {
+	for (src = dest = 0; src < count; src++) {
+		if (uid <= syncs[src].uid2) {
 			/* keep it */
 			if (src != dest)
-				sync[dest] = sync[src];
+				syncs[dest] = syncs[src];
 			dest++;
 		}
 	}
 
-	buffer_set_used_size(syncs_buf, dest * sizeof(*sync));
+	array_delete(syncs_arr, dest, count - dest);
 }
 
 static int
@@ -137,16 +137,15 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	return 1;
 }
 
-static int mbox_sync_buf_have_expunges(buffer_t *syncs_buf)
+static int mbox_sync_buf_have_expunges(array_t *syncs_arr)
 {
-	const struct mail_index_sync_rec *sync;
-	size_t size, i;
+	ARRAY_SET_TYPE(syncs_arr, struct mail_index_sync_rec);
+	const struct mail_index_sync_rec *syncs;
+	unsigned int i, count;
 
-	sync = buffer_get_data(syncs_buf, &size);
-	size /= sizeof(*sync);
-
-	for (i = 0; i < size; i++) {
-		if (sync[i].type == MAIL_INDEX_SYNC_TYPE_EXPUNGE)
+	syncs = array_get(syncs_arr, &count);
+	for (i = 0; i < count; i++) {
+		if (syncs[i].type == MAIL_INDEX_SYNC_TYPE_EXPUNGE)
 			return TRUE;
 	}
 	return FALSE;
@@ -168,14 +167,13 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 		uid = (uint32_t)-1;
 	}
 
-	mbox_sync_buffer_delete_old(sync_ctx->syncs, uid);
+	mbox_sync_array_delete_old(&sync_ctx->syncs, uid);
 	while (uid >= sync_rec->uid1) {
 		if (uid <= sync_rec->uid2 &&
 		    sync_rec->type != MAIL_INDEX_SYNC_TYPE_APPEND &&
 		    (sync_rec->type != MAIL_INDEX_SYNC_TYPE_EXPUNGE ||
 		     !sync_ctx->ibox->mbox_readonly)) {
-			buffer_append(sync_ctx->syncs, sync_rec,
-				      sizeof(*sync_rec));
+			array_append(&sync_ctx->syncs, sync_rec, 1);
 
 			if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE)
 				*sync_expunge_r = TRUE;
@@ -202,23 +200,21 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 	}
 
 	if (!*sync_expunge_r)
-		*sync_expunge_r = mbox_sync_buf_have_expunges(sync_ctx->syncs);
+		*sync_expunge_r = mbox_sync_buf_have_expunges(&sync_ctx->syncs);
 
 	return 0;
 }
 
-static void mbox_sync_apply_index_syncs(buffer_t *syncs_buf, uint8_t *flags)
+static void mbox_sync_apply_index_syncs(array_t *syncs_arr, uint8_t *flags)
 {
-	const struct mail_index_sync_rec *sync;
-	size_t size, i;
+	ARRAY_SET_TYPE(syncs_arr, struct mail_index_sync_rec);
+	const struct mail_index_sync_rec *syncs;
+	unsigned int i, count;
 
-	sync = buffer_get_data(syncs_buf, &size);
-	size /= sizeof(*sync);
-
-	for (i = 0; i < size; i++) {
-		if (sync[i].type != MAIL_INDEX_SYNC_TYPE_FLAGS)
-			continue;
-		mail_index_sync_flags_apply(&sync[i], flags);
+	syncs = array_get(syncs_arr, &count);
+	for (i = 0; i < count; i++) {
+		if (syncs[i].type == MAIL_INDEX_SYNC_TYPE_FLAGS)
+			mail_index_sync_flags_apply(&syncs[i], flags);
 	}
 }
 
@@ -366,7 +362,7 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 	} else {
 		/* see if flags changed */
 		idx_flags = rec->flags;
-		mbox_sync_apply_index_syncs(sync_ctx->syncs, &idx_flags);
+		mbox_sync_apply_index_syncs(&sync_ctx->syncs, &idx_flags);
 
 		if ((idx_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
 			/* flags are dirty, ignore whatever was in the file.
@@ -471,22 +467,20 @@ mbox_write_from_line(struct mbox_sync_mail_context *ctx)
 static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 {
 	const struct mbox_sync_mail *mails;
-	uint32_t idx, ext_idx;
+	unsigned int i, count;
+	uint32_t ext_idx;
 	uint64_t offset;
-	size_t size;
 
 	ext_idx = sync_ctx->ibox->mbox_ext_idx;
 
-	mails = buffer_get_modifyable_data(sync_ctx->mails, &size);
-	size /= sizeof(*mails);
-
-	for (idx = 0; idx < size; idx++) {
-		if (mails[idx].idx_seq == 0 ||
-		    (mails[idx].flags & MBOX_EXPUNGED) != 0)
+	mails = array_get(&sync_ctx->mails, &count);
+	for (i = 0; i < count; i++) {
+		if (mails[i].idx_seq == 0 ||
+		    (mails[i].flags & MBOX_EXPUNGED) != 0)
 			continue;
 
-		offset = mails[idx].from_offset;
-		mail_index_update_ext(sync_ctx->t, mails[idx].idx_seq,
+		offset = mails[i].from_offset;
+		mail_index_update_ext(sync_ctx->t, mails[i].idx_seq,
 				      ext_idx, &offset, NULL);
 	}
 }
@@ -530,7 +524,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 		if (mbox_read_from_line(mail_ctx) < 0)
 			return -1;
 
-		mbox_sync_update_header(mail_ctx, sync_ctx->syncs);
+		mbox_sync_update_header(mail_ctx, &sync_ctx->syncs);
 		ret = mbox_sync_try_rewrite(mail_ctx, move_diff);
 		if (ret < 0)
 			return -1;
@@ -550,10 +544,10 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			}
 		}
 	} else if (mail_ctx->need_rewrite ||
-		   buffer_get_used_size(sync_ctx->syncs) != 0 ||
+		   array_count(&sync_ctx->syncs) != 0 ||
 		   (mail_ctx->seq == 1 &&
 		    sync_ctx->update_base_uid_last != 0)) {
-		mbox_sync_update_header(mail_ctx, sync_ctx->syncs);
+		mbox_sync_update_header(mail_ctx, &sync_ctx->syncs);
 		if (sync_ctx->delay_writes) {
 			/* mark it dirty and do it later */
 			mail_ctx->dirty = TRUE;
@@ -589,7 +583,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			i_assert(sync_ctx->space_diff < -mail_ctx->mail.space);
 
 			sync_ctx->need_space_seq--;
-			buffer_append(sync_ctx->mails, &mail, sizeof(mail));
+			array_append(&sync_ctx->mails, &mail, 1);
 		}
 	}
 	return 0;
@@ -604,7 +598,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 
 	i_assert(mail_ctx->mail.uid == 0 || mail_ctx->mail.space > 0 ||
 		 mail_ctx->mail.offset == mail_ctx->hdr_offset);
-	buffer_append(sync_ctx->mails, &mail_ctx->mail, sizeof(mail_ctx->mail));
+	array_append(&sync_ctx->mails, &mail_ctx->mail, 1);
 
 	sync_ctx->space_diff += mail_ctx->mail.space;
 	if (sync_ctx->space_diff < 0) {
@@ -637,8 +631,8 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 			sync_ctx->expunged_space = 0;
 		}
 		last_seq = sync_ctx->seq - 1;
-		buffer_set_used_size(sync_ctx->mails, sync_ctx->mails->used -
-				     sizeof(mail_ctx->mail));
+		array_delete(&sync_ctx->mails,
+			     array_count(&sync_ctx->mails) - 1, 1);
 		end_offset = mail_ctx->mail.from_offset;
 	} else {
 		/* this message gave enough space from headers. rewriting stops
@@ -663,7 +657,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 
 	sync_ctx->need_space_seq = 0;
 	sync_ctx->space_diff = 0;
-	buffer_set_used_size(sync_ctx->mails, 0);
+	array_clear(&sync_ctx->mails);
 	return 0;
 }
 
@@ -776,23 +770,23 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		/* we sync only what we need to. jump to first record that
 		   needs updating */
 		const struct mail_index_sync_rec *sync_rec;
-		size_t size;
+		unsigned int count;
 
-		if (buffer_get_used_size(sync_ctx->syncs) == 0 &&
+		if (array_count(&sync_ctx->syncs) == 0 &&
 		    sync_ctx->sync_rec.uid1 == 0) {
 			if (mbox_sync_read_index_syncs(sync_ctx, 1,
 						       &expunged) < 0)
 				return -1;
 
-			if (buffer_get_used_size(sync_ctx->syncs) == 0 &&
+			if (array_count(&sync_ctx->syncs) == 0 &&
 			    sync_ctx->sync_rec.uid1 == 0) {
 				/* nothing to do */
 				return 1;
 			}
 		}
 
-		sync_rec = buffer_get_data(sync_ctx->syncs, &size);
-		if (size == 0)
+		sync_rec = array_get(&sync_ctx->syncs, &count);
+		if (count == 0)
 			sync_rec = &sync_ctx->sync_rec;
 
 		ret = mbox_sync_seek_to_uid(sync_ctx, sync_rec->uid1);
@@ -919,8 +913,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		} else if (sync_ctx->seq >= min_message_count) {
 			/* +1 because we want to delete sync records
 			   from the current UID as well */
-			mbox_sync_buffer_delete_old(sync_ctx->syncs, uid+1);
-			if (buffer_get_used_size(sync_ctx->syncs) == 0) {
+			mbox_sync_array_delete_old(&sync_ctx->syncs, uid+1);
+			if (array_count(&sync_ctx->syncs) == 0) {
 				/* if there's no sync records left,
 				   we can stop */
 				if (sync_ctx->sync_rec.uid1 == 0)
@@ -1037,7 +1031,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		update_from_offsets(sync_ctx);
 
 		sync_ctx->need_space_seq = 0;
-		buffer_set_used_size(sync_ctx->mails, 0);
+		array_clear(&sync_ctx->mails);
 	}
 
 	if (sync_ctx->expunged_space > 0) {
@@ -1135,8 +1129,8 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 	sync_ctx->base_uid_validity = 0;
 	sync_ctx->base_uid_last = 0;
 
-	buffer_set_used_size(sync_ctx->mails, 0);
-	buffer_set_used_size(sync_ctx->syncs, 0);
+	array_clear(&sync_ctx->mails);
+	array_clear(&sync_ctx->syncs);
 	memset(&sync_ctx->sync_rec, 0, sizeof(sync_ctx->sync_rec));
 
 	sync_ctx->prev_msg_uid = 0;
@@ -1219,7 +1213,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	/* only syncs left should be just appends (and their updates)
 	   which weren't synced yet for some reason (crash). we'll just
 	   ignore them, as we've overwritten them above. */
-	buffer_set_used_size(sync_ctx->syncs, 0);
+	array_clear(&sync_ctx->syncs);
 	memset(&sync_ctx->sync_rec, 0, sizeof(sync_ctx->sync_rec));
 
 	if (mbox_sync_update_index_header(sync_ctx) < 0)
@@ -1389,8 +1383,10 @@ __again:
 	sync_ctx.sync_view = sync_view;
 	sync_ctx.t = mail_index_transaction_begin(sync_view, FALSE, TRUE);
 
-	sync_ctx.mails = buffer_create_dynamic(default_pool, 4096);
-	sync_ctx.syncs = buffer_create_dynamic(default_pool, 256);
+	ARRAY_CREATE(&sync_ctx.mails, default_pool,
+		     struct mbox_sync_mail, 64);
+	ARRAY_CREATE(&sync_ctx.syncs, default_pool,
+		     struct mail_index_sync_rec, 32);
 
 	sync_ctx.file_input = sync_ctx.ibox->mbox_file_stream;
 	sync_ctx.input = sync_ctx.ibox->mbox_stream;
@@ -1486,8 +1482,8 @@ __again:
 
 	str_free(sync_ctx.header);
 	str_free(sync_ctx.from_line);
-	buffer_free(sync_ctx.mails);
-	buffer_free(sync_ctx.syncs);
+	array_free(&sync_ctx.mails);
+	array_free(&sync_ctx.syncs);
 	return ret;
 }
 

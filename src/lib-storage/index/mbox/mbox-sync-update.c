@@ -258,29 +258,29 @@ static void mbox_sync_update_x_uid(struct mbox_sync_mail_context *ctx)
 }
 
 void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
-			     buffer_t *syncs_buf)
+			     array_t *syncs_arr)
 {
-	const struct mail_index_sync_rec *sync;
-	size_t size, i;
+	ARRAY_SET_TYPE(syncs_arr, struct mail_index_sync_rec);
+	const struct mail_index_sync_rec *syncs;
 	uint8_t old_flags;
 	uint32_t old_keywords_idx;
+	unsigned int i, count;
 
 	i_assert(ctx->mail.uid != 0 || ctx->pseudo);
 
-	sync = buffer_get_data(syncs_buf, &size);
-	size /= sizeof(*sync);
-
+	syncs = array_get(syncs_arr, &count);
 	old_flags = ctx->mail.flags;
 
-	if (size != 0) {
+	if (count != 0) {
 		old_keywords_idx = ctx->mail.keywords_idx;
 
-		for (i = 0; i < size; i++) {
-			if (sync[i].type != MAIL_INDEX_SYNC_TYPE_FLAGS)
-				continue;
+		for (i = 0; i < count; i++) {
+			if (syncs[i].type == MAIL_INDEX_SYNC_TYPE_FLAGS) {
+				mail_index_sync_flags_apply(&syncs[i],
+							    &ctx->mail.flags);
+			}
 
 			// FIXME: keywords
-			mail_index_sync_flags_apply(&sync[i], &ctx->mail.flags);
 		}
 
 		/* keep our old recent flag. especially because we use it
