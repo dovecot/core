@@ -283,8 +283,13 @@ static pid_t create_login_process(void)
 	fd_close_on_exec(LOGIN_IMAP_LISTEN_FD, FALSE);
 
 	/* move the SSL listen handle */
-	if (dup2(imaps_fd, LOGIN_IMAPS_LISTEN_FD) < 0)
-		i_fatal("login: dup2(imaps) failed: %m");
+	if (!set_ssl_disable) {
+		if (dup2(imaps_fd, LOGIN_IMAPS_LISTEN_FD) < 0)
+			i_fatal("login: dup2(imaps) failed: %m");
+	} else {
+		if (dup2(null_fd, LOGIN_IMAPS_LISTEN_FD) < 0)
+			i_fatal("login: dup2(imaps) failed: %m");
+	}
 	fd_close_on_exec(LOGIN_IMAPS_LISTEN_FD, FALSE);
 
 	/* imap_fd and imaps_fd are closed by clean_child_process() */
