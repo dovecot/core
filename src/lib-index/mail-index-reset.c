@@ -6,28 +6,60 @@
 #include "mail-index-private.h"
 #include "mail-transaction-log.h"
 
-int mail_index_reset(struct mail_index *index)
+static int mail_index_mark_corrupted(struct mail_index *index)
 {
 	struct mail_index_header hdr;
 
-	if (mail_index_mark_corrupted(index) < 0)
+	if (index->readonly)
+		return 0;
+
+	/* make sure we can write the header */
+	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(index->map)) {
+		if (mprotect(index->map->mmap_base, sizeof(hdr),
+			     PROT_READ | PROT_WRITE) < 0) {
+			mail_index_set_syscall_error(index, "mprotect()");
+			return -1;
+		}
+	}
+
+	hdr = *index->hdr;
+	hdr.flags |= MAIL_INDEX_HDR_FLAG_CORRUPTED;
+	if (mail_index_write_header(index, &hdr) < 0)
 		return -1;
+
+	if (fsync(index->fd) < 0)
+		return mail_index_set_syscall_error(index, "fsync()");
+
+	mail_index_set_inconsistent(index);
+	return 0;
+}
+
+int mail_index_reset(struct mail_index *index)
+{
+	struct mail_index_header hdr;
+	uint32_t file_seq;
+	uoff_t file_offset;
+	int log_locked;
 
 	mail_index_header_init(&hdr);
 	if (hdr.indexid == index->indexid)
 		hdr.indexid++;
 
-	// FIXME: close it? ..
-	if (mail_index_create(index, &hdr) < 0)
+	if (mail_index_mark_corrupted(index) < 0)
 		return -1;
 
-	/* reopen transaction log - FIXME: doesn't work, we have log views
-	   open.. */
-        mail_transaction_log_close(index->log);
-	index->log = mail_transaction_log_open_or_create(index);
-	if (index->log == NULL) {
-		/* FIXME: creates potential crashes.. */
+	log_locked = index->log_locked;
+	if (log_locked)
+                mail_transaction_log_sync_unlock(index->log);
+        mail_index_close(index);
+
+	if (mail_index_open(index, MAIL_INDEX_OPEN_FLAG_CREATE) < 0)
 		return -1;
+
+	if (log_locked) {
+		if (mail_transaction_log_sync_lock(index->log,
+						   &file_seq, &file_offset) < 0)
+			return -1;
 	}
 
 	return 0;

@@ -100,8 +100,15 @@ static int mail_index_has_changed(struct mail_index *index)
 
 	if (fstat(index->fd, &st1) < 0)
 		return mail_index_set_syscall_error(index, "fstat()");
-	if (stat(index->filepath, &st2) < 0)
-		return mail_index_set_syscall_error(index, "stat()");
+	if (stat(index->filepath, &st2) < 0) {
+		mail_index_set_syscall_error(index, "stat()");
+		if (errno != ENOENT)
+			return -1;
+
+		/* lost it? recreate */
+		(void)mail_index_reset(index);
+		return -1;
+	}
 
 	if (st1.st_ino != st2.st_ino ||
 	    !CMP_DEV_T(st1.st_dev, st2.st_dev)) {

@@ -399,7 +399,8 @@ int mail_index_create_tmp_file(struct mail_index *index, const char **path_r)
 	return fd;
 }
 
-int mail_index_create(struct mail_index *index, struct mail_index_header *hdr)
+static int mail_index_create(struct mail_index *index,
+			     struct mail_index_header *hdr)
 {
 	const char *path;
 	uint32_t seq;
@@ -518,8 +519,8 @@ int mail_index_try_open(struct mail_index *index, unsigned int *lock_id_r)
 	return ret;
 }
 
-static int
-mail_index_open2(struct mail_index *index, enum mail_index_open_flags flags)
+static int mail_index_open_files(struct mail_index *index,
+				 enum mail_index_open_flags flags)
 {
 	struct mail_index_header hdr;
 	unsigned int lock_id = 0;
@@ -573,7 +574,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 
 		index->filepath = i_strconcat(index->dir, "/",
 					      index->prefix, NULL);
-		ret = mail_index_open2(index, flags);
+		ret = mail_index_open_files(index, flags);
 		if (ret <= 0)
 			break;
 
@@ -652,35 +653,6 @@ int mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 void mail_index_set_inconsistent(struct mail_index *index)
 {
 	index->indexid = 0;
-}
-
-int mail_index_mark_corrupted(struct mail_index *index)
-{
-	struct mail_index_header hdr;
-
-	if (index->readonly || index->hdr == NULL ||
-	    (index->hdr->flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0)
-		return 0;
-
-	/* make sure we can write the header */
-	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(index->map)) {
-		if (mprotect(index->map->mmap_base, sizeof(hdr),
-			     PROT_READ | PROT_WRITE) < 0) {
-			mail_index_set_syscall_error(index, "mprotect()");
-			return -1;
-		}
-	}
-
-	hdr = *index->hdr;
-	hdr.flags |= MAIL_INDEX_HDR_FLAG_CORRUPTED;
-	if (mail_index_write_header(index, &hdr) < 0)
-		return -1;
-
-	if (fsync(index->fd) < 0)
-		return mail_index_set_syscall_error(index, "fsync()");
-
-	mail_index_set_inconsistent(index);
-	return 0;
 }
 
 int mail_index_set_syscall_error(struct mail_index *index,

@@ -87,7 +87,6 @@ void mail_index_header_init(struct mail_index_header *hdr);
 int mail_index_write_header(struct mail_index *index,
 			    const struct mail_index_header *hdr);
 
-int mail_index_create(struct mail_index *index, struct mail_index_header *hdr);
 int mail_index_try_open_only(struct mail_index *index);
 int mail_index_try_open(struct mail_index *index, unsigned int *lock_id_r);
 int mail_index_create_tmp_file(struct mail_index *index, const char **path_r);
@@ -129,7 +128,6 @@ int mail_index_sync_get_rec(struct mail_index_view *view,
 			    const void *data, size_t *data_offset);
 
 void mail_index_set_inconsistent(struct mail_index *index);
-int mail_index_mark_corrupted(struct mail_index *index);
 
 int mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 	__attr_format__(2, 3);

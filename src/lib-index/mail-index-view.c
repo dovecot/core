@@ -83,7 +83,7 @@ int mail_index_view_lock_head(struct mail_index_view *view, int update_index)
 
 int mail_index_view_lock(struct mail_index_view *view)
 {
-	if (view->inconsistent)
+	if (mail_index_view_is_inconsistent(view))
 		return -1;
 
 	if (view->map != view->index->map) {
@@ -116,6 +116,8 @@ uint32_t mail_index_view_get_message_count(struct mail_index_view *view)
 
 int mail_index_view_is_inconsistent(struct mail_index_view *view)
 {
+	if (view->index->indexid != view->indexid)
+		view->inconsistent = TRUE;
 	return view->inconsistent;
 }
 

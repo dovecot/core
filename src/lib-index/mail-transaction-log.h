@@ -94,6 +94,8 @@ mail_transaction_log_view_set_corrupted(struct mail_transaction_log_view *view,
 int
 mail_transaction_log_view_is_corrupted(struct mail_transaction_log_view *view);
 
+void mail_transaction_log_views_close(struct mail_transaction_log *log);
+
 /* Write data to transaction log. This is atomic operation. Sequences in
    updates[] and expunges[] are relative to given view, they're modified
    to real ones. */

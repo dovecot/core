@@ -45,11 +45,28 @@ mail_transaction_log_view_open(struct mail_transaction_log *log)
 
 void mail_transaction_log_view_close(struct mail_transaction_log_view *view)
 {
+	struct mail_transaction_log_view **p;
+
+	for (p = &view->log->views; *p != NULL; p = &(*p)->next) {
+		if (*p == view) {
+			*p = view->next;
+			break;
+		}
+	}
+
 	mail_transaction_log_view_unset(view);
 	if (view->data_buf != NULL)
 		buffer_free(view->data_buf);
 	buffer_free(view->expunges_buf);
 	i_free(view);
+}
+
+void mail_transaction_log_views_close(struct mail_transaction_log *log)
+{
+	struct mail_transaction_log_view *view;
+
+	for (view = log->views; view != NULL; view = view->next)
+		view->log = NULL;
 }
 
 int
@@ -69,6 +86,9 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	i_assert(min_file_seq <= max_file_seq);
 	i_assert(min_file_offset >= sizeof(struct mail_transaction_log_header));
 	i_assert(max_file_offset >= sizeof(struct mail_transaction_log_header));
+
+	if (view->log == NULL)
+		return -1;
 
 	ret = mail_transaction_log_file_find(view->log, min_file_seq, &file);
 	if (ret <= 0) {

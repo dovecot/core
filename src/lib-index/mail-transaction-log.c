@@ -127,8 +127,9 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 
 void mail_transaction_log_close(struct mail_transaction_log *log)
 {
-	i_assert(log->views == NULL);
+	mail_transaction_log_views_close(log);
 
+	log->index->log = NULL;
 	i_free(log);
 }
 
@@ -683,7 +684,8 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	if (st.st_size == file->hdr.used_size &&
 	    file->buffer_offset <= start_offset && end_offset == (uoff_t)-1) {
 		/* we've seen the whole file.. do we have all of it mapped? */
-		size = buffer_get_used_size(file->buffer);
+		size = file->buffer == NULL ? 0 :
+			buffer_get_used_size(file->buffer);
 		if (file->buffer_offset + size == file->hdr.used_size)
 			return 1;
 	}
@@ -709,13 +711,13 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 
 	if (start_offset < sizeof(file->hdr)) {
 		mail_transaction_log_file_set_corrupted(file,
-			"offset (%"PRIuUOFF_T"u) < header size (%"PRIuSIZE_T")",
+			"offset (%"PRIuUOFF_T") < header size (%"PRIuSIZE_T")",
 			start_offset, sizeof(file->hdr));
 		return -1;
 	}
 	if (end_offset > file->hdr.used_size) {
 		mail_transaction_log_file_set_corrupted(file,
-			"offset (%"PRIuUOFF_T"u) > used_size (%u)",
+			"offset (%"PRIuUOFF_T") > used_size (%u)",
 			end_offset, file->hdr.used_size);
 		return -1;
 	}
