@@ -58,7 +58,7 @@ struct file_ostream {
 	size_t head, tail; /* first unsent/unused byte */
 
 	int timeout_msecs;
-	void (*timeout_func)(void *);
+	void (*timeout_cb)(void *);
 	void *timeout_context;
 
 	unsigned int full:1; /* if head == tail, is buffer empty or full? */
@@ -108,12 +108,12 @@ static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 }
 
 static void _set_blocking(struct _iostream *stream, int timeout_msecs,
-			  void (*timeout_func)(void *), void *context)
+			  void (*timeout_cb)(void *), void *context)
 {
 	struct file_ostream *fstream = (struct file_ostream *) stream;
 
 	fstream->timeout_msecs = timeout_msecs;
-	fstream->timeout_func = timeout_func;
+	fstream->timeout_cb = timeout_cb;
 	fstream->timeout_context = context;
 
 	net_set_nonblock(fstream->fd, timeout_msecs == 0);
@@ -263,8 +263,8 @@ static int o_stream_send_blocking(struct file_ostream *fstream,
 			first = FALSE;
 		else if (timeout_time > 0 && time(NULL) > timeout_time) {
 			/* timeouted */
-			if (fstream->timeout_func != NULL)
-				fstream->timeout_func(fstream->timeout_context);
+			if (fstream->timeout_cb != NULL)
+				fstream->timeout_cb(fstream->timeout_context);
 			fstream->ostream.ostream.stream_errno = EAGAIN;
 			return -1;
 		}
@@ -531,8 +531,8 @@ static off_t io_stream_sendfile(struct _ostream *outstream,
 			first = FALSE;
 		else if (timeout_time > 0 && time(NULL) > timeout_time) {
 			/* timeouted */
-			if (foutstream->timeout_func != NULL) {
-				foutstream->timeout_func(
+			if (foutstream->timeout_cb != NULL) {
+				foutstream->timeout_cb(
 					foutstream->timeout_context);
 			}
 			outstream->ostream.stream_errno = EAGAIN;
@@ -617,8 +617,8 @@ static off_t io_stream_copy(struct _ostream *outstream,
 
 		if (timeout_time > 0 && time(NULL) > timeout_time) {
 			/* timeouted */
-			if (foutstream->timeout_func != NULL) {
-				foutstream->timeout_func(
+			if (foutstream->timeout_cb != NULL) {
+				foutstream->timeout_cb(
 					foutstream->timeout_context);
 			}
 			outstream->ostream.stream_errno = EAGAIN;

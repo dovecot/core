@@ -4,7 +4,7 @@
 #include "commands-util.h"
 #include "imap-parser.h"
 
-ClientCommandFunc client_command_find(const char *name);
+client_command_func_t client_command_find(const char *name);
 
 /* Non-Authenticated State */
 int cmd_authenticate(struct client *client);

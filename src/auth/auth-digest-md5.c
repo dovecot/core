@@ -522,7 +522,7 @@ static void
 auth_digest_md5_continue(struct cookie_data *cookie,
 			 struct auth_continued_request_data *request,
 			 const unsigned char *data,
-			 AuthCallback callback, void *context)
+			 auth_callback_t callback, void *context)
 {
 	struct auth_data *auth = cookie->context;
 	struct auth_reply_data reply;
@@ -583,7 +583,7 @@ static void auth_digest_md5_free(struct cookie_data *cookie)
 
 static void auth_digest_md5_init(unsigned int login_pid,
 				 struct auth_init_request_data *request,
-				 AuthCallback callback, void *context)
+				 auth_callback_t callback, void *context)
 {
 	struct cookie_data *cookie;
 	struct auth_reply_data reply;

@@ -170,7 +170,7 @@ int subsfile_set_subscribed(struct mail_storage *storage,
 }
 
 int subsfile_foreach(struct mail_storage *storage, const char *mask,
-		     SubsFileForeachFunc func, void *context)
+		     subsfile_foreach_callback_t callback, void *context)
 {
         struct imap_match_glob *glob;
 	const char *path, *start, *end, *p, *line;
@@ -197,7 +197,7 @@ int subsfile_foreach(struct mail_storage *storage, const char *mask,
 
 		line = t_strdup_until(start, p);
 		if (line != NULL && *line != '\0' && imap_match(glob, line) > 0)
-			ret = func(storage, line, context);
+			ret = callback(storage, line, context);
 		t_pop();
 
 		if (p == end)

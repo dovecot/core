@@ -132,7 +132,7 @@ static int match_next_record(struct mail_index *index,
 			   message flags in Status and X-Status fields */
 			mbox_header_init_context(&ctx, index, input);
 			message_parse_header(NULL, input, &hdr_parsed_size,
-					     mbox_header_func, &ctx);
+					     mbox_header_cb, &ctx);
 			md5_final(&ctx.md5, current_digest);
 
 			mbox_header_free_context(&ctx);

@@ -26,10 +26,10 @@ void o_stream_close(struct ostream *stream);
 void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size);
 /* Stream is made to be flushed out whenever it gets full (assumes max_size
    is already set), ie. writes will never be partial. Also makes any blocking
-   writes to fail after specified timeout, calling timeout_func if it's
+   writes to fail after specified timeout, calling timeout_cb if it's
    set. This call changes non-blocking state of file descriptor. */
 void o_stream_set_blocking(struct ostream *stream, int timeout_msecs,
-			   void (*timeout_func)(void *), void *context);
+			   void (*timeout_cb)(void *), void *context);
 
 /* Delays sending as far as possible, writing only full buffers. Also sets
    TCP_CORK on if supported. o_stream_flush() removes the cork. */

@@ -95,8 +95,9 @@ enum mail_index_error {
 	MAIL_INDEX_ERROR_MAILBOX_LOCK_TIMEOUT
 };
 
-typedef void (*MailLockNotifyFunc)(enum mail_lock_notify_type notify_type,
-				   unsigned int secs_left, void *context);
+typedef void (*mail_lock_notify_callback_t)
+	(enum mail_lock_notify_type notify_type,
+	 unsigned int secs_left, void *context);
 
 struct mail_index_header {
 	unsigned char compat_data[8];
@@ -209,7 +210,7 @@ struct mail_index {
 	/* If we have to wait for the lock, the given lock notify function
 	   is called once in a while. */
 	void (*set_lock_notify_callback)(struct mail_index *index,
-					 MailLockNotifyFunc func,
+					 mail_lock_notify_callback_t callback,
 					 void *context);
 
 	/* Rebuild the whole index. Note that this changes the indexid
@@ -390,7 +391,7 @@ struct mail_index {
 	time_t file_sync_stamp;
 	unsigned int first_recent_uid;
 
-	MailLockNotifyFunc lock_notify_func;
+	mail_lock_notify_callback_t lock_notify_cb;
 	void *lock_notify_context;
 
 	/* these fields are OR'ed to the fields in index header once we
@@ -432,7 +433,7 @@ int mail_index_set_lock(struct mail_index *index,
 int mail_index_try_lock(struct mail_index *index,
 			enum mail_lock_type lock_type);
 void mail_index_set_lock_notify_callback(struct mail_index *index,
-					 MailLockNotifyFunc func,
+					 mail_lock_notify_callback_t callback,
 					 void *context);
 int mail_index_fsck(struct mail_index *index);
 struct mail_index_header *mail_index_get_header(struct mail_index *index);
@@ -491,7 +492,8 @@ void mail_index_mark_flag_changes(struct mail_index *index,
 void mail_index_update_headers(struct mail_index_update *update,
 			       struct istream *input,
                                enum mail_data_field cache_fields,
-			       MessageHeaderFunc header_func, void *context);
+			       message_header_callback_t header_cb,
+			       void *context);
 int mail_index_update_cache(struct mail_index *index);
 int mail_index_compress(struct mail_index *index);
 int mail_index_compress_data(struct mail_index *index);

@@ -37,22 +37,25 @@ struct message_part {
 
 /* NOTE: name and value aren't \0-terminated. Also called once at end of
    headers with name_len = value_len = 0. */
-typedef void (*MessageHeaderFunc)(struct message_part *part,
-				  const unsigned char *name, size_t name_len,
-				  const unsigned char *value, size_t value_len,
-				  void *context);
+typedef void (*message_header_callback_t)(struct message_part *part,
+					  const unsigned char *name,
+					  size_t name_len,
+					  const unsigned char *value,
+					  size_t value_len,
+					  void *context);
 
-/* func is called for each field in message header. */
+/* callback is called for each field in message header. */
 struct message_part *message_parse(pool_t pool, struct istream *input,
-				   MessageHeaderFunc func, void *context);
+				   message_header_callback_t callback,
+				   void *context);
 
-/* Call func for each field in message header. Fills the hdr_size.
+/* Call callback for each field in message header. Fills the hdr_size.
    part can be NULL, just make sure your header function works with it.
    This function doesn't use data stack so your header function may save
    values to it. When finished, input will point to beginning of message
    body. */
 void message_parse_header(struct message_part *part, struct istream *input,
 			  struct message_size *hdr_size,
-			  MessageHeaderFunc func, void *context);
+			  message_header_callback_t callback, void *context);
 
 #endif

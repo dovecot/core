@@ -373,14 +373,14 @@ struct header_update_context {
 	pool_t envelope_pool;
 	struct message_part_envelope_data *envelope;
 
-	MessageHeaderFunc header_func;
+	message_header_callback_t header_cb;
 	void *context;
 };
 
-static void update_header_func(struct message_part *part,
-			       const unsigned char *name, size_t name_len,
-			       const unsigned char *value, size_t value_len,
-			       void *context)
+static void update_header_cb(struct message_part *part,
+			     const unsigned char *name, size_t name_len,
+			     const unsigned char *value, size_t value_len,
+			     void *context)
 {
 	struct header_update_context *ctx = context;
 
@@ -397,16 +397,17 @@ static void update_header_func(struct message_part *part,
 					   name, name_len, value, value_len);
 	}
 
-	if (ctx->header_func != NULL) {
-		ctx->header_func(part, name, name_len,
-				 value, value_len, ctx->context);
+	if (ctx->header_cb != NULL) {
+		ctx->header_cb(part, name, name_len,
+			       value, value_len, ctx->context);
 	}
 }
 
 void mail_index_update_headers(struct mail_index_update *update,
 			       struct istream *input,
                                enum mail_data_field cache_fields,
-			       MessageHeaderFunc header_func, void *context)
+			       message_header_callback_t header_cb,
+			       void *context)
 {
 	struct header_update_context ctx;
 	struct message_part *part;
@@ -420,7 +421,7 @@ void mail_index_update_headers(struct mail_index_update *update,
 	ctx.update = update;
 	ctx.envelope_pool = NULL;
 	ctx.envelope = NULL;
-	ctx.header_func = header_func;
+	ctx.header_cb = header_cb;
 	ctx.context = context;
 
 	if (cache_fields == 0)
@@ -453,13 +454,13 @@ void mail_index_update_headers(struct mail_index_update *update,
 
 		if (part == NULL) {
 			part = message_parse(pool, input,
-					     update_header_func, &ctx);
+					     update_header_cb, &ctx);
 		} else {
 			/* cached, construct the bodystructure using it.
 			   also we need to parse the header.. */
 			i_stream_seek(input, start_offset);
 			message_parse_header(NULL, input, NULL,
-					     update_header_func, &ctx);
+					     update_header_cb, &ctx);
 		}
 
 		/* save sizes */
@@ -508,7 +509,7 @@ void mail_index_update_headers(struct mail_index_update *update,
 		pool_unref(pool);
 	} else {
 		message_parse_header(NULL, input, &hdr_size,
-				     update_header_func, &ctx);
+				     update_header_cb, &ctx);
 
 		body_size.physical_size = input->v_limit - input->v_offset;
 		if (body_size.physical_size == 0)

@@ -243,10 +243,10 @@ static const char *strip_custom_flags(const unsigned char *value, size_t len,
 	return str_len(str) == 0 ? NULL : str_c(str);
 }
 
-static void header_func(struct message_part *part __attr_unused__,
-			const unsigned char *name, size_t name_len,
-			const unsigned char *value, size_t value_len,
-			void *context)
+static void header_cb(struct message_part *part __attr_unused__,
+		      const unsigned char *name, size_t name_len,
+		      const unsigned char *value, size_t value_len,
+		      void *context)
 {
 	struct mbox_rewrite_context *ctx = context;
 	const char *str;
@@ -338,7 +338,7 @@ static int mbox_write_header(struct mail_index *index,
 	ctx.custom_flags = mail_custom_flags_list_get(index->custom_flags);
 
 	i_stream_set_read_limit(input, input->v_offset + hdr_size);
-	message_parse_header(NULL, input, &hdr_parsed_size, header_func, &ctx);
+	message_parse_header(NULL, input, &hdr_parsed_size, header_cb, &ctx);
 	i_stream_set_read_limit(input, 0);
 
 	i_assert(hdr_parsed_size.physical_size == hdr_size);

@@ -46,7 +46,7 @@ struct file_istream {
 	uoff_t skip_left;
 
 	int timeout_msecs;
-	void (*timeout_func)(void *);
+	void (*timeout_cb)(void *);
 	void *timeout_context;
 
 	unsigned int file:1;
@@ -80,12 +80,12 @@ static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 }
 
 static void _set_blocking(struct _iostream *stream, int timeout_msecs,
-			  void (*timeout_func)(void *), void *context)
+			  void (*timeout_cb)(void *), void *context)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 
 	fstream->timeout_msecs = timeout_msecs;
-	fstream->timeout_func = timeout_func;
+	fstream->timeout_cb = timeout_cb;
 	fstream->timeout_context = context;
 
 	net_set_nonblock(fstream->istream.fd, timeout_msecs == 0);
@@ -186,8 +186,8 @@ static ssize_t _read(struct _istream *stream)
 	do {
 		if (ret == 0 && timeout_time > 0 && time(NULL) > timeout_time) {
 			/* timeouted */
-			if (fstream->timeout_func != NULL)
-				fstream->timeout_func(fstream->timeout_context);
+			if (fstream->timeout_cb != NULL)
+				fstream->timeout_cb(fstream->timeout_context);
 			stream->istream.stream_errno = EAGAIN;
 			return -1;
 		}

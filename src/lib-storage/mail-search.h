@@ -67,8 +67,8 @@ struct mail_search_arg {
 	int result;
 };
 
-typedef void (*MailSearchForeachFunc)(struct mail_search_arg *arg,
-				      void *context);
+typedef void (*mail_search_foreach_callback_t)(struct mail_search_arg *arg,
+					       void *context);
 
 /* Builds search arguments based on IMAP arguments. */
 struct mail_search_arg *
@@ -80,7 +80,8 @@ void mail_search_args_reset(struct mail_search_arg *args);
 /* goes through arguments in list that don't have a result yet.
    Returns 1 = search matched, -1 = search unmatched, 0 = don't know yet */
 int mail_search_args_foreach(struct mail_search_arg *args,
-			     MailSearchForeachFunc func, void *context);
+			     mail_search_foreach_callback_t callback,
+			     void *context);
 
 /* Fills have_headers, have_body and have_text based on if such search
    argument exists that needs to be checked. */

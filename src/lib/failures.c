@@ -44,11 +44,13 @@ static void default_warning_handler(const char *format, va_list args);
 static void default_info_handler(const char *format, va_list args);
 
 /* Initialize working defaults */
-static FailureFunc panic_handler __attr_noreturn__ = default_panic_handler;
-static FatalFailureFunc fatal_handler __attr_noreturn__ = default_fatal_handler;
-static FailureFunc error_handler = default_error_handler;
-static FailureFunc warning_handler = default_warning_handler;
-static FailureFunc info_handler = default_info_handler;
+static failure_callback_t panic_handler __attr_noreturn__ =
+	default_panic_handler;
+static fatal_failure_callback_t fatal_handler __attr_noreturn__ =
+	default_fatal_handler;
+static failure_callback_t error_handler = default_error_handler;
+static failure_callback_t warning_handler = default_warning_handler;
+static failure_callback_t info_handler = default_info_handler;
 
 static FILE *log_fd = NULL, *log_info_fd = NULL;
 static char *log_prefix = NULL, *log_stamp_format = NULL;
@@ -241,39 +243,39 @@ void i_info(const char *format, ...)
 	va_end(args);
 }
 
-void i_set_panic_handler(FailureFunc func __attr_noreturn__)
+void i_set_panic_handler(failure_callback_t callback __attr_noreturn__)
 {
-	if (func == NULL)
-		func = default_panic_handler;
-        panic_handler = func;
+	if (callback == NULL)
+		callback = default_panic_handler;
+        panic_handler = callback;
 }
 
-void i_set_fatal_handler(FatalFailureFunc func __attr_noreturn__)
+void i_set_fatal_handler(fatal_failure_callback_t callback __attr_noreturn__)
 {
-	if (func == NULL)
-		func = default_fatal_handler;
-        fatal_handler = func;
+	if (callback == NULL)
+		callback = default_fatal_handler;
+        fatal_handler = callback;
 }
 
-void i_set_error_handler(FailureFunc func)
+void i_set_error_handler(failure_callback_t callback)
 {
-	if (func == NULL)
-		func = default_error_handler;
-        error_handler = func;
+	if (callback == NULL)
+		callback = default_error_handler;
+        error_handler = callback;
 }
 
-void i_set_warning_handler(FailureFunc func)
+void i_set_warning_handler(failure_callback_t callback)
 {
-	if (func == NULL)
-		func = default_warning_handler;
-        warning_handler = func;
+	if (callback == NULL)
+		callback = default_warning_handler;
+        warning_handler = callback;
 }
 
-void i_set_info_handler(FailureFunc func)
+void i_set_info_handler(failure_callback_t callback)
 {
-	if (func == NULL)
-		func = default_info_handler;
-        info_handler = func;
+	if (callback == NULL)
+		callback = default_info_handler;
+        info_handler = callback;
 }
 
 static int syslog_handler(int level, const char *format, va_list args)

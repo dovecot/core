@@ -31,7 +31,7 @@
 #include <signal.h>
 
 static int file_lock(int fd, int wait_lock, int lock_type, unsigned int timeout,
-		     void (*func)(unsigned int secs_left, void *context),
+		     void (*callback)(unsigned int secs_left, void *context),
 		     void *context)
 {
 	struct flock fl;
@@ -62,8 +62,8 @@ static int file_lock(int fd, int wait_lock, int lock_type, unsigned int timeout,
 			return 0;
 		}
 
-		if (func != NULL)
-			func(timeout_time - now, context);
+		if (callback != NULL)
+			callback(timeout_time - now, context);
 	}
 
 	return 1;
@@ -81,8 +81,8 @@ int file_wait_lock(int fd, int lock_type)
 }
 
 int file_wait_lock_full(int fd, int lock_type, unsigned int timeout,
-			void (*func)(unsigned int secs_left, void *context),
+			void (*callback)(unsigned int secs_left, void *context),
 			void *context)
 {
-	return file_lock(fd, TRUE, lock_type, timeout, func, context);
+	return file_lock(fd, TRUE, lock_type, timeout, callback, context);
 }

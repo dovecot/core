@@ -40,12 +40,12 @@ void i_stream_set_start_offset(struct istream *stream, uoff_t offset);
 /* Stream won't be read past specified offset. Giving 0 as offset
    removes the limit. */
 void i_stream_set_read_limit(struct istream *stream, uoff_t v_offset);
-/* Makes reads blocking until at least one byte is read. timeout_func is
+/* Makes reads blocking until at least one byte is read. timeout_cb is
    called if nothing is read in specified time. Setting timeout_msecs to 0
    makes it non-blocking. This call changes non-blocking state of file
    descriptor. */
 void i_stream_set_blocking(struct istream *stream, int timeout_msecs,
-			   void (*timeout_func)(void *), void *context);
+			   void (*timeout_cb)(void *), void *context);
 
 /* Returns number of bytes read if read was ok, -1 if EOF or error, -2 if the
    input buffer is full. */

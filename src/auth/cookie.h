@@ -11,7 +11,7 @@ struct cookie_data {
 	void (*auth_continue)(struct cookie_data *cookie,
 			      struct auth_continued_request_data *request,
 			      const unsigned char *data,
-			      AuthCallback callback, void *context);
+			      auth_callback_t callback, void *context);
 
 	/* fills reply from cookie, returns TRUE if successful */
 	int (*auth_fill_reply)(struct cookie_data *cookie,
@@ -22,8 +22,6 @@ struct cookie_data {
 
 	void *context;
 };
-
-typedef void (*CookieFreeFunc)(void *data);
 
 /* data->cookie is filled */
 void cookie_add(struct cookie_data *data);

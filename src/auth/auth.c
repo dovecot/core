@@ -55,7 +55,7 @@ void auth_unregister_module(struct auth_module *module)
 
 void auth_init_request(unsigned int login_pid,
 		       struct auth_init_request_data *request,
-		       AuthCallback callback, void *context)
+		       auth_callback_t callback, void *context)
 {
 	struct auth_module_list *list;
 
@@ -88,7 +88,7 @@ void auth_init_request(unsigned int login_pid,
 void auth_continue_request(unsigned int login_pid,
 			   struct auth_continued_request_data *request,
 			   const unsigned char *data,
-			   AuthCallback callback, void *context)
+			   auth_callback_t callback, void *context)
 {
 	struct cookie_data *cookie_data;
 

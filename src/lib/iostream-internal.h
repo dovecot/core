@@ -11,7 +11,7 @@ struct _iostream {
 	void (*destroy)(struct _iostream *stream);
 	void (*set_max_buffer_size)(struct _iostream *stream, size_t max_size);
 	void (*set_blocking)(struct _iostream *stream, int timeout_msecs,
-			     void (*timeout_func)(void *), void *context);
+			     void (*timeout_cb)(void *), void *context);
 };
 
 void _io_stream_init(pool_t pool, struct _iostream *stream);
@@ -20,7 +20,7 @@ void _io_stream_unref(struct _iostream *stream);
 void _io_stream_close(struct _iostream *stream);
 void _io_stream_set_max_buffer_size(struct _iostream *stream, size_t max_size);
 void _io_stream_set_blocking(struct _iostream *stream, int timeout_msecs,
-			     void (*timeout_func)(void *), void *context);
+			     void (*timeout_cb)(void *), void *context);
 
 #define GET_TIMEOUT_TIME(fstream) \
         ((fstream)->timeout_msecs == 0 ? 0 : \

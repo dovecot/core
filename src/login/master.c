@@ -13,7 +13,7 @@ struct waiting_request {
 	struct waiting_request *next;
 
 	unsigned int id;
-	MasterCallback callback;
+	master_callback_t callback;
 	void *context;
 };
 
@@ -23,7 +23,7 @@ static struct waiting_request *requests, **next_request;
 static unsigned int master_pos;
 static char master_buf[sizeof(struct master_reply)];
 
-static void push_request(unsigned int id, MasterCallback callback,
+static void push_request(unsigned int id, master_callback_t callback,
 			 void *context)
 {
 	struct waiting_request *req;
@@ -66,7 +66,7 @@ void master_request_imap(int fd, unsigned int auth_process,
 			 const char *login_tag,
 			 unsigned char cookie[AUTH_COOKIE_SIZE],
 			 struct ip_addr *ip,
-			 MasterCallback callback, void *context)
+			 master_callback_t callback, void *context)
 {
 	struct master_request req;
 

@@ -12,9 +12,9 @@ struct update_context {
 	int notify;
 };
 
-static int update_func(struct mail_index *index, struct mail_index_record *rec,
-		       unsigned int client_seq, unsigned int idx_seq,
-		       void *context)
+static int update_cb(struct mail_index *index, struct mail_index_record *rec,
+		     unsigned int client_seq, unsigned int idx_seq,
+		     void *context)
 {
 	struct update_context *ctx = context;
 	struct mail_storage *storage;
@@ -91,7 +91,7 @@ int index_storage_update_flags(struct mailbox *box,
 	ctx.notify = notify;
 
 	ret = index_messageset_foreach(ibox, messageset, uidset,
-				       update_func, &ctx);
+				       update_cb, &ctx);
 
 	if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
 		return FALSE;

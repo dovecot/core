@@ -11,13 +11,13 @@
 #include <sys/stat.h>
 
 struct find_subscribed_context {
-	MailboxFunc func;
+	mailbox_list_callback_t callback;
 	void *context;
 };
 
 static int mbox_find_path(struct mail_storage *storage,
 			  struct imap_match_glob *glob,
-			  MailboxFunc func, void *context,
+			  mailbox_list_callback_t callback, void *context,
 			  const char *relative_dir)
 {
 	DIR *dirp;
@@ -112,10 +112,10 @@ static int mbox_find_path(struct mail_storage *storage,
 		if (S_ISDIR(st.st_mode)) {
 			/* subdirectory, scan it too */
 			t_push();
-			func(storage, listpath, MAILBOX_NOSELECT, context);
+			callback(storage, listpath, MAILBOX_NOSELECT, context);
 			t_pop();
 
-			if (!mbox_find_path(storage, glob, func,
+			if (!mbox_find_path(storage, glob, callback,
 					    context, listpath)) {
 				failed = TRUE;
 				break;
@@ -123,7 +123,7 @@ static int mbox_find_path(struct mail_storage *storage,
 		} else if (match > 0 &&
 			   strcmp(fullpath, storage->inbox_file) != 0) {
 			t_push();
-			func(storage, listpath, MAILBOX_NOINFERIORS, context);
+			callback(storage, listpath, MAILBOX_NOINFERIORS, context);
 			t_pop();
 		}
 	}
@@ -148,7 +148,7 @@ static const char *mask_get_dir(const char *mask)
 }
 
 int mbox_find_mailboxes(struct mail_storage *storage, const char *mask,
-			MailboxFunc func, void *context)
+			mailbox_list_callback_t callback, void *context)
 {
 	struct imap_match_glob *glob;
 	const char *relative_dir;
@@ -168,17 +168,17 @@ int mbox_find_mailboxes(struct mail_storage *storage, const char *mask,
 	glob = imap_match_init(mask, TRUE, '/');
 	if (relative_dir == NULL && imap_match(glob, "INBOX") > 0) {
 		/* INBOX exists always, even if the file doesn't. */
-		func(storage, "INBOX", MAILBOX_NOINFERIORS, context);
+		callback(storage, "INBOX", MAILBOX_NOINFERIORS, context);
 	}
 
-	if (!mbox_find_path(storage, glob, func, context, relative_dir))
+	if (!mbox_find_path(storage, glob, callback, context, relative_dir))
 		return FALSE;
 
 	return TRUE;
 }
 
-static int mbox_subs_func(struct mail_storage *storage, const char *name,
-			  void *context)
+static int mbox_subs_cb(struct mail_storage *storage, const char *name,
+			void *context)
 {
 	struct find_subscribed_context *ctx = context;
 	enum mailbox_flags flags;
@@ -195,19 +195,19 @@ static int mbox_subs_func(struct mail_storage *storage, const char *name,
 			0 : MAILBOX_NOSELECT;
 	}
 
-	ctx->func(storage, name, flags, ctx->context);
+	ctx->callback(storage, name, flags, ctx->context);
 	return TRUE;
 }
 
 int mbox_find_subscribed(struct mail_storage *storage, const char *mask,
-			 MailboxFunc func, void *context)
+			 mailbox_list_callback_t callback, void *context)
 {
 	struct find_subscribed_context ctx;
 
-	ctx.func = func;
+	ctx.callback = callback;
 	ctx.context = context;
 
-	if (subsfile_foreach(storage, mask, mbox_subs_func, &ctx) <= 0)
+	if (subsfile_foreach(storage, mask, mbox_subs_cb, &ctx) <= 0)
 		return FALSE;
 
 	return TRUE;

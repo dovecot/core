@@ -37,7 +37,7 @@ struct waiting_request {
         struct waiting_request *next;
 	unsigned int id;
 
-	AuthCallback callback;
+	auth_callback_t callback;
 	void *context;
 };
 
@@ -47,7 +47,7 @@ static struct auth_process *processes;
 static void auth_process_destroy(struct auth_process *p);
 
 static void push_request(struct auth_process *process, unsigned int id,
-			 AuthCallback callback, void *context)
+			 auth_callback_t callback, void *context)
 {
 	struct waiting_request *req;
 
@@ -310,7 +310,7 @@ struct auth_process *auth_process_find(unsigned int id)
 void auth_process_request(unsigned int login_pid,
 			  struct auth_process *process, unsigned int id,
 			  unsigned char cookie[AUTH_COOKIE_SIZE],
-			  AuthCallback callback, void *context)
+			  auth_callback_t callback, void *context)
 {
 	struct auth_cookie_request_data req;
 

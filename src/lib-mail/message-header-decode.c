@@ -46,7 +46,8 @@ static int split_encoded(const unsigned char *data, size_t *size_p,
 
 static int
 message_header_decode_encoded(const unsigned char *data, size_t *size,
-			      MessageHeaderDecodeFunc func, void *context)
+			      message_header_decode_callback_t callback,
+			      void *context)
 {
 	const unsigned char *text;
 	const char *charset, *encoding;
@@ -75,15 +76,16 @@ message_header_decode_encoded(const unsigned char *data, size_t *size,
 		}
 	}
 
-	ret = func(buffer_get_data(decodebuf, NULL),
-		   buffer_get_used_size(decodebuf), charset, context);
+	ret = callback(buffer_get_data(decodebuf, NULL),
+		       buffer_get_used_size(decodebuf), charset, context);
 
 	t_pop();
 	return ret;
 }
 
 void message_header_decode(const unsigned char *data, size_t size,
-			   MessageHeaderDecodeFunc func, void *context)
+			   message_header_decode_callback_t callback,
+			   void *context)
 {
 	size_t pos, start_pos, subsize;
 
@@ -93,15 +95,15 @@ void message_header_decode(const unsigned char *data, size_t size,
 			/* encoded string beginning */
 			if (pos != start_pos) {
 				/* send the unencoded data so far */
-				if (!func(data + start_pos, pos - start_pos,
-					  NULL, context))
+				if (!callback(data + start_pos, pos - start_pos,
+					      NULL, context))
 					return;
 			}
 
 			pos += 2;
 			subsize = size - pos;
 			if (!message_header_decode_encoded(data + pos, &subsize,
-							   func, context))
+							   callback, context))
 				return;
 
 			pos += subsize;
@@ -111,5 +113,5 @@ void message_header_decode(const unsigned char *data, size_t size,
 		}
 	}
 
-	(void)func(data + start_pos, size - start_pos, NULL, context);
+	(void)callback(data + start_pos, size - start_pos, NULL, context);
 }

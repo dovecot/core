@@ -29,7 +29,7 @@ struct io {
 	unsigned int destroyed:1;
 	unsigned int invalid:1;
 
-	IOFunc func;
+	io_callback_t callback;
         void *context;
 };
 
@@ -41,7 +41,7 @@ struct timeout {
 	int run_now;
         int destroyed;
 
-	TimeoutFunc func;
+	timeout_callback_t callback;
         void *context;
 };
 

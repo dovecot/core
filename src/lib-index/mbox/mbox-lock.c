@@ -91,11 +91,11 @@ static int mbox_lock_flock(struct mail_index *index,
 			return FALSE;
 		}
 
-		if (now != last_notify && index->lock_notify_func != NULL) {
+		if (now != last_notify && index->lock_notify_cb != NULL) {
 			last_notify = now;
-			index->lock_notify_func(MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
-						max_wait_time - now,
-						index->lock_notify_context);
+			index->lock_notify_cb(MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
+					      max_wait_time - now,
+					      index->lock_notify_context);
 		}
 
 		usleep(LOCK_RANDOM_USLEEP_TIME);
@@ -131,10 +131,10 @@ static int mbox_lock_fcntl(struct mail_index *index,
 			return FALSE;
 		}
 
-		if (index->lock_notify_func != NULL) {
-			index->lock_notify_func(MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
-						max_wait_time - now,
-						index->lock_notify_context);
+		if (index->lock_notify_cb != NULL) {
+			index->lock_notify_cb(MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
+					      max_wait_time - now,
+					      index->lock_notify_context);
 		}
 	}
 
@@ -186,17 +186,17 @@ static int mbox_lock_dotlock(struct mail_index *index, const char *path,
 			}
 
 			if (last_notify != now &&
-			    index->lock_notify_func != NULL) {
+			    index->lock_notify_cb != NULL) {
 				last_notify = now;
 				if (now > last_change + stale_notify) {
 					secs_left = now - last_change +
 						dotlock_change_timeout;
-					index->lock_notify_func(
+					index->lock_notify_cb(
 					      MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE,
 					      secs_left,
 					      index->lock_notify_context);
 				} else {
-					index->lock_notify_func(
+					index->lock_notify_cb(
 						MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
 						max_wait_time - now,
 						index->lock_notify_context);

@@ -296,19 +296,19 @@ static int cache_fields(struct imap_message_cache *cache,
 
 		if (msg->part == NULL && imap_msgcache_get_stream(cache, 0)) {
 			/* we need to parse the message */
-			MessageHeaderFunc func;
+			message_header_callback_t callback;
 
 			if ((fields & IMAP_CACHE_ENVELOPE) &&
 			    msg->cached_envelope == NULL) {
 				/* we need envelope too, fill the info
 				   while parsing headers */
-				func = parse_envelope_header;
+				callback = parse_envelope_header;
 			} else {
-				func = NULL;
+				callback = NULL;
 			}
 
 			msg->part = message_parse(msg->pool, cache->open_stream,
-						  func, msg);
+						  callback, msg);
 		}
 
 		failed = msg->part == NULL;

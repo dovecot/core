@@ -386,7 +386,8 @@ void mail_search_args_reset(struct mail_search_arg *args)
 }
 
 static void search_arg_foreach(struct mail_search_arg *arg,
-			       MailSearchForeachFunc func, void *context)
+			       mail_search_foreach_callback_t callback,
+			       void *context)
 {
 	struct mail_search_arg *subarg;
 
@@ -401,7 +402,7 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 		subarg = arg->value.subargs;
 		while (subarg != NULL) {
 			if (subarg->result == 0)
-				search_arg_foreach(subarg, func, context);
+				search_arg_foreach(subarg, callback, context);
 
 			if (subarg->result == -1) {
 				/* failed */
@@ -422,7 +423,7 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 		arg->result = -1;
 		while (subarg != NULL) {
 			if (subarg->result == 0)
-				search_arg_foreach(subarg, func, context);
+				search_arg_foreach(subarg, callback, context);
 
 			if (subarg->result == 1) {
 				/* matched */
@@ -437,18 +438,19 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 		}
 	} else {
 		/* just a single condition */
-		func(arg, context);
+		callback(arg, context);
 	}
 }
 
 int mail_search_args_foreach(struct mail_search_arg *args,
-			     MailSearchForeachFunc func, void *context)
+			     mail_search_foreach_callback_t callback,
+			     void *context)
 {
 	int result;
 
 	result = 1;
 	for (; args != NULL; args = args->next) {
-		search_arg_foreach(args, func, context);
+		search_arg_foreach(args, callback, context);
 
 		if (args->result == -1) {
 			/* failed, abort */

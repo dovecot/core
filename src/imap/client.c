@@ -34,7 +34,8 @@ extern struct mail_storage_callbacks mail_storage_callbacks;
 static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
-static void client_input(struct client *client);
+static void client_input(void *context, int fd __attr_unused__,
+			 struct io *io __attr_unused__);
 
 static void client_output_timeout(void *context)
 {
@@ -72,7 +73,7 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 	o_stream_set_blocking(client->output, CLIENT_OUTPUT_TIMEOUT,
 			      client_output_timeout, client);
 
-	client->io = io_add(hin, IO_READ, (IOFunc) client_input, client);
+	client->io = io_add(hin, IO_READ, client_input, client);
 	client->parser = imap_parser_create(client->input, client->output,
 					    MAX_INBUF_SIZE,
 					    MAX_IMAP_ARG_ELEMENTS);
@@ -301,8 +302,11 @@ static int client_handle_input(struct client *client)
 	return TRUE;
 }
 
-static void client_input(struct client *client)
+static void client_input(void *context, int fd __attr_unused__,
+			 struct io *io __attr_unused__)
 {
+	struct client *client = context;
+
 	client->last_input = ioloop_time;
 
 	switch (i_stream_read(client->input)) {

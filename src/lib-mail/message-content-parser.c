@@ -6,8 +6,8 @@
 #include "message-content-parser.h"
 
 void message_content_parse_header(const unsigned char *data, size_t size,
-				  ParseContentFunc func,
-				  ParseContentParamFunc param_func,
+				  parse_content_callback_t callback,
+				  parse_content_param_callback_t param_cb,
 				  void *context)
 {
 	static const enum message_token stop_tokens[] = { ';', TOKEN_LAST };
@@ -26,12 +26,12 @@ void message_content_parse_header(const unsigned char *data, size_t size,
         /* first ';' separates the parameters */
 	message_tokenize_get_string(tok, str, NULL, stop_tokens);
 
-	if (func != NULL)
-		func(str_data(str), str_len(str), context);
+	if (callback != NULL)
+		callback(str_data(str), str_len(str), context);
 
 	t_pop();
 
-	if (param_func != NULL && message_tokenize_get(tok) == ';') {
+	if (param_cb != NULL && message_tokenize_get(tok) == ';') {
 		/* parse the parameters */
 		while ((token = message_tokenize_next(tok)) != TOKEN_LAST) {
 			/* <token> "=" <token> | <quoted-string> */
@@ -48,8 +48,8 @@ void message_content_parse_header(const unsigned char *data, size_t size,
 				continue;
 
 			value = message_tokenize_get_value(tok, &value_len);
-			param_func(key, key_len, value, value_len,
-				   token == TOKEN_QSTRING, context);
+			param_cb(key, key_len, value, value_len,
+				 token == TOKEN_QSTRING, context);
 		}
 	}
 

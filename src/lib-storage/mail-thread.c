@@ -102,7 +102,7 @@ mail_thread_init(enum mail_thread_type type, struct ostream *output,
 					       APPROX_MSGID_SIZE);
 	ctx->msgid_hash = hash_create(default_pool, ctx->temp_pool,
 				      APPROX_MSG_COUNT*2, str_hash,
-				      (HashCompareFunc)strcmp);
+				      (hash_cmp_callback_t)strcmp);
 	ctx->callbacks = callbacks;
 	ctx->callback_context = callback_context;
 	ctx->output = output;
@@ -586,7 +586,7 @@ static void gather_base_subjects(struct mail_thread_context *ctx)
 	cb = ctx->callbacks;
 	ctx->subject_hash =
 		hash_create(default_pool, ctx->temp_pool, ctx->root_count * 2,
-			    str_hash, (HashCompareFunc)strcmp);
+			    str_hash, (hash_cmp_callback_t)strcmp);
 	for (node = ctx->root_nodes; node != NULL; node = node->next) {
 		if (!NODE_IS_DUMMY(node))
 			id = node->id;

@@ -85,7 +85,7 @@ static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 
 static void _set_blocking(struct _iostream *stream __attr_unused__,
 			  int timeout_msecs __attr_unused__,
-			  void (*timeout_func)(void *) __attr_unused__,
+			  void (*timeout_cb)(void *) __attr_unused__,
 			  void *context __attr_unused__)
 {
 	/* we never block */

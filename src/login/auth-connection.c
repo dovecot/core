@@ -282,7 +282,7 @@ static void auth_input(void *context, int fd __attr_unused__,
 	i_stream_skip(conn->input, conn->in_reply.data_size);
 }
 
-int auth_init_request(enum auth_mech mech, AuthCallback callback,
+int auth_init_request(enum auth_mech mech, auth_callback_t callback,
 		      void *context, const char **error)
 {
 	struct auth_connection *conn;

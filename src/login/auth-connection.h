@@ -5,11 +5,13 @@ struct auth_request;
 
 /* If result == AUTH_RESULT_INTERNAL_FAILURE, request may be NULL and
    reply_data_size contains the error message. */
-typedef void (*AuthCallback)(struct auth_request *request,
-			     unsigned int auth_process, enum auth_result result,
-			     const unsigned char *reply_data,
-			     size_t reply_data_size, const char *virtual_user,
-			     void *context);
+typedef void (*auth_callback_t)(struct auth_request *request,
+				unsigned int auth_process,
+				enum auth_result result,
+				const unsigned char *reply_data,
+				size_t reply_data_size,
+				const char *virtual_user,
+				void *context);
 
 struct auth_request {
         enum auth_mech mech;
@@ -18,7 +20,7 @@ struct auth_request {
 	unsigned int id;
 	unsigned char cookie[AUTH_COOKIE_SIZE];
 
-	AuthCallback callback;
+	auth_callback_t callback;
 	void *context;
 
 	unsigned int init_sent:1;
@@ -26,7 +28,7 @@ struct auth_request {
 
 extern enum auth_mech available_auth_mechs;
 
-int auth_init_request(enum auth_mech mech, AuthCallback callback,
+int auth_init_request(enum auth_mech mech, auth_callback_t callback,
 		      void *context, const char **error);
 
 void auth_continue_request(struct auth_request *request,

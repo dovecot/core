@@ -16,10 +16,10 @@ struct copy_hard_context {
 	const char **custom_flags;
 };
 
-static int copy_hard_func(struct mail_index *index,
-			  struct mail_index_record *rec,
-			  unsigned int client_seq __attr_unused__,
-			  unsigned int idx_seq __attr_unused__, void *context)
+static int copy_hard_cb(struct mail_index *index,
+			struct mail_index_record *rec,
+			unsigned int client_seq __attr_unused__,
+			unsigned int idx_seq __attr_unused__, void *context)
 {
 	struct copy_hard_context *ctx = context;
 	enum mail_flags flags;
@@ -77,7 +77,7 @@ static int maildir_copy_with_hardlinks(struct index_mailbox *src,
 	ctx.custom_flags = mail_custom_flags_list_get(src->index->custom_flags);
 
 	ret = index_messageset_foreach(src, messageset, uidset,
-				       copy_hard_func, &ctx);
+				       copy_hard_cb, &ctx);
 
 	(void)index_storage_lock(src, MAIL_LOCK_UNLOCK);
 

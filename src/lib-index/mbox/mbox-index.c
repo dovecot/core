@@ -248,10 +248,10 @@ static int mbox_parse_imapbase(const unsigned char *value, size_t len,
 	return ret > 0;
 }
 
-void mbox_header_func(struct message_part *part __attr_unused__,
-		      const unsigned char *name, size_t name_len,
-		      const unsigned char *value, size_t value_len,
-		      void *context)
+void mbox_header_cb(struct message_part *part __attr_unused__,
+		    const unsigned char *name, size_t name_len,
+		    const unsigned char *value, size_t value_len,
+		    void *context)
 {
 	struct mbox_header_context *ctx = context;
 	uoff_t start_offset, end_offset;

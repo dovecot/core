@@ -15,10 +15,10 @@ int file_try_lock(int fd, int lock_type);
    DEFAULT_LOCK_TIMEOUT. */
 int file_wait_lock(int fd, int lock_type);
 
-/* Like file_wait_lock(), but you can specify the timout and a function which
+/* Like file_wait_lock(), but you can specify the timout and a callback which
    is called once in a while if waiting takes longer. */
 int file_wait_lock_full(int fd, int lock_type, unsigned int timeout,
-			void (*func)(unsigned int secs_left, void *context),
+			void (*callback)(unsigned int secs_left, void *context),
 			void *context);
 
 #endif

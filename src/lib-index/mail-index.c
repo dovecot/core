@@ -460,9 +460,10 @@ int mail_index_try_lock(struct mail_index *index, enum mail_lock_type lock_type)
 }
 
 void mail_index_set_lock_notify_callback(struct mail_index *index,
-					 MailLockNotifyFunc func, void *context)
+					 mail_lock_notify_callback_t callback,
+					 void *context)
 {
-	index->lock_notify_func = func;
+	index->lock_notify_cb = callback;
 	index->lock_notify_context = context;
 }
 

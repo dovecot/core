@@ -111,11 +111,11 @@ static void mail_index_lock_notify(unsigned int secs_left, void *context)
 {
 	struct mail_index *index = context;
 
-	if (index->lock_notify_func == NULL)
+	if (index->lock_notify_cb == NULL)
 		return;
 
-	index->lock_notify_func(MAIL_LOCK_NOTIFY_INDEX_ABORT,
-				secs_left, index->lock_notify_context);
+	index->lock_notify_cb(MAIL_LOCK_NOTIFY_INDEX_ABORT, secs_left,
+			      index->lock_notify_context);
 }
 
 int mail_index_wait_lock(struct mail_index *index, int lock_type)

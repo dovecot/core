@@ -83,26 +83,26 @@ static void io_list_insert(struct ioloop *ioloop, struct io *io)
 	}
 }
 
-struct io *io_add(int fd, int condition, IOFunc func, void *data)
+struct io *io_add(int fd, int condition, io_callback_t callback, void *data)
 {
 	return io_add_priority(fd, IO_PRIORITY_DEFAULT,
-			       condition, func, data);
+			       condition, callback, data);
 }
 
 struct io *io_add_priority(int fd, int priority, int condition,
-			   IOFunc func, void *context)
+			   io_callback_t callback, void *context)
 {
 	struct io *io;
 
 	i_assert(fd >= 0);
-	i_assert(func != NULL);
+	i_assert(callback != NULL);
 
 	io = p_new(current_ioloop->pool, struct io, 1);
 	io->fd = fd;
 	io->priority = priority;
         io->condition = condition;
 
-	io->func = func;
+	io->callback = callback;
         io->context = context;
 
 	if (io->fd > current_ioloop->highest_fd)
@@ -184,14 +184,15 @@ timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 	}
 }
 
-struct timeout *timeout_add(int msecs, TimeoutFunc func, void *context)
+struct timeout *timeout_add(int msecs, timeout_callback_t callback,
+			    void *context)
 {
 	struct timeout *timeout;
 
 	timeout = p_new(current_ioloop->pool, struct timeout, 1);
         timeout->msecs = msecs;
 
-	timeout->func = func;
+	timeout->callback = callback;
 	timeout->context = context;
 
 	timeout_update_next(timeout, current_ioloop->running ?
@@ -280,7 +281,7 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
                 timeout_update_next(t, &ioloop_timeval);
 
                 t_id = t_push();
-		t->func(t->context, t);
+		t->callback(t->context, t);
 		if (t_pop() != t_id)
                         i_panic("Leaked a t_pop() call!");
 	}
@@ -331,7 +332,7 @@ void io_loop_destroy(struct ioloop *ioloop)
 
 		if (!io->destroyed) {
 			i_warning("I/O leak: %p (%d)",
-				  (void *) io->func, io->fd);
+				  (void *) io->callback, io->fd);
 			io_remove(io);
 		}
 		io_destroy(ioloop, io);
@@ -341,7 +342,7 @@ void io_loop_destroy(struct ioloop *ioloop)
 		struct timeout *to = ioloop->timeouts;
 
 		if (!to->destroyed) {
-			i_warning("Timeout leak: %p", (void *) to->func);
+			i_warning("Timeout leak: %p", (void *) to->callback);
 			timeout_remove(to);
 		}
                 timeout_destroy(ioloop, to);

@@ -24,7 +24,7 @@ static unsigned int get_next_number(const char **str)
 
 static int mail_index_foreach(struct mail_index *index,
 			      unsigned int seq, unsigned int seq2,
-			      MsgsetForeachFunc func, void *context)
+			      msgset_foreach_callback_t callback, void *context)
 {
 	struct mail_index_record *rec;
 	const struct modify_log_expunge *expunges;
@@ -72,7 +72,7 @@ static int mail_index_foreach(struct mail_index *index,
 			break;
 
 		t_push();
-		if (!func(index, rec, seq, idx_seq, context)) {
+		if (!callback(index, rec, seq, idx_seq, context)) {
 			t_pop();
 			return 0;
 		}
@@ -93,8 +93,8 @@ static int mail_index_foreach(struct mail_index *index,
 static int mail_index_messageset_foreach(struct mail_index *index,
 					 const char *messageset,
 					 unsigned int messages_count,
-					 MsgsetForeachFunc func, void *context,
-					 const char **error)
+					 msgset_foreach_callback_t callback,
+					 void *context, const char **error)
 {
 	const char *input;
 	unsigned int seq, seq2;
@@ -164,7 +164,7 @@ static int mail_index_messageset_foreach(struct mail_index *index,
 		}
 
 		t_push();
-		ret = mail_index_foreach(index, seq, seq2, func, context);
+		ret = mail_index_foreach(index, seq, seq2, callback, context);
 		t_pop();
 		if (ret <= 0)
 			return ret;
@@ -177,7 +177,8 @@ static int mail_index_messageset_foreach(struct mail_index *index,
 
 static int mail_index_uid_foreach(struct mail_index *index,
 				  unsigned int uid, unsigned int uid2,
-				  MsgsetForeachFunc func, void *context)
+				  msgset_foreach_callback_t callback,
+				  void *context)
 {
 	struct mail_index_record *rec;
 	const struct modify_log_expunge *expunges;
@@ -215,7 +216,7 @@ static int mail_index_uid_foreach(struct mail_index *index,
 			   expunges->uid2 >= rec->uid));
 
 		t_push();
-		if (!func(index, rec, client_seq, idx_seq, context)) {
+		if (!callback(index, rec, client_seq, idx_seq, context)) {
 			t_pop();
 			return 0;
 		}
@@ -237,8 +238,8 @@ static int mail_index_uid_foreach(struct mail_index *index,
 static int mail_index_uidset_foreach(struct mail_index *index,
 				     const char *uidset,
 				     unsigned int messages_count,
-				     MsgsetForeachFunc func, void *context,
-				     const char **error)
+				     msgset_foreach_callback_t callback,
+				     void *context, const char **error)
 {
 	struct mail_index_record *rec;
 	const char *input;
@@ -299,7 +300,7 @@ static int mail_index_uidset_foreach(struct mail_index *index,
 
 		t_push();
 		ret = mail_index_uid_foreach(index, uid, uid2,
-					     func, context);
+					     callback, context);
 		t_pop();
 		if (ret <= 0)
 			return ret;
@@ -312,7 +313,7 @@ static int mail_index_uidset_foreach(struct mail_index *index,
 
 int index_messageset_foreach(struct index_mailbox *ibox,
 			     const char *messageset, int uidset,
-			     MsgsetForeachFunc func, void *context)
+			     msgset_foreach_callback_t callback, void *context)
 {
 	const char *error;
 	int ret;
@@ -320,11 +321,11 @@ int index_messageset_foreach(struct index_mailbox *ibox,
 	if (uidset) {
 		ret = mail_index_uidset_foreach(ibox->index, messageset,
 						ibox->synced_messages_count,
-						func, context, &error);
+						callback, context, &error);
 	} else {
 		ret = mail_index_messageset_foreach(ibox->index, messageset,
 						    ibox->synced_messages_count,
-						    func, context, &error);
+						    callback, context, &error);
 	}
 
 	if (ret < 0) {

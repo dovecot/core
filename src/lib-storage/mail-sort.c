@@ -156,7 +156,7 @@ mail_sort_init(const enum mail_sort_type *input, enum mail_sort_type *output,
 		ctx->str_pool = pool_alloconly_create("sort str", 8192);
 		ctx->string_table = hash_create(default_pool, ctx->str_pool,
 						0, str_hash,
-						(HashCompareFunc)strcmp);
+						(hash_cmp_callback_t)strcmp);
 	}
 
 	ctx->sort_buffer = buffer_create_dynamic(system_pool,

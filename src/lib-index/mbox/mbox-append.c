@@ -75,7 +75,7 @@ static int mbox_index_append_next(struct mail_index *index,
 	   from Status and X-Status fields. temporarily limit the stream length
 	   so the message body is parsed properly.
 
-	   the stream length limit is raised again by mbox_header_func after
+	   the stream length limit is raised again by mbox_header_cb after
 	   reading the headers. it uses Content-Length if available or finds
 	   the next From-line. */
 	mbox_header_init_context(&ctx, index, input);
@@ -84,7 +84,7 @@ static int mbox_index_append_next(struct mail_index *index,
 	i_stream_seek(input, abs_start_offset - input->start_offset);
 
 	i_stream_set_read_limit(input, eoh_offset);
-	mail_index_update_headers(update, input, 0, mbox_header_func, &ctx);
+	mail_index_update_headers(update, input, 0, mbox_header_cb, &ctx);
 
 	i_stream_seek(input, input->v_limit);
 	i_stream_set_read_limit(input, 0);

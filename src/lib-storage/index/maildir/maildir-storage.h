@@ -11,9 +11,9 @@ int maildir_storage_save(struct mailbox *box, enum mail_flags flags,
 			 struct istream *data, uoff_t data_size);
 
 int maildir_find_mailboxes(struct mail_storage *storage, const char *mask,
-			   MailboxFunc func, void *context);
+			   mailbox_list_callback_t callback, void *context);
 int maildir_find_subscribed(struct mail_storage *storage, const char *mask,
-			    MailboxFunc func, void *context);
+			    mailbox_list_callback_t callback, void *context);
 
 int maildir_expunge_locked(struct index_mailbox *ibox, int notify);
 

@@ -55,10 +55,10 @@ void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size)
 }
 
 void i_stream_set_blocking(struct istream *stream, int timeout_msecs,
-			   void (*timeout_func)(void *), void *context)
+			   void (*timeout_cb)(void *), void *context)
 {
 	_io_stream_set_blocking(stream->real_stream, timeout_msecs,
-				timeout_func, context);
+				timeout_cb, context);
 }
 
 void i_stream_set_start_offset(struct istream *stream, uoff_t offset)

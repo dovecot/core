@@ -29,15 +29,18 @@ struct message_tokenizer;
 
    missing_char == '\0': unexpected character at str[pos]
    missing_char != '\0': missing character */
-typedef int (*MessageTokenizeErrorFunc)(const unsigned char *str, size_t pos,
-					char missing_char, void *context);
+typedef int (*message_tokenize_error_callback_t)(const unsigned char *str,
+						 size_t pos,
+						 char missing_char,
+						 void *context);
 
 /* Tokenize the string. Returns NULL if string is empty. Memory for
    returned array is allocated from data stack. You don't have to use
    the tokens_count, since last token is always 0. */
 struct message_tokenizer *
 message_tokenize_init(const unsigned char *data, size_t size,
-		      MessageTokenizeErrorFunc error_func, void *error_context);
+		      message_tokenize_error_callback_t error_cb,
+		      void *error_context);
 void message_tokenize_deinit(struct message_tokenizer *tok);
 
 /* Specify whether comments should be silently skipped (default yes). */

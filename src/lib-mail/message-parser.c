@@ -23,7 +23,7 @@ struct parser_context {
 	char *last_content_type;
 	struct message_boundary *boundaries;
 
-	MessageHeaderFunc func;
+	message_header_callback_t callback;
 	void *context;
 };
 
@@ -127,9 +127,9 @@ static void parse_header_field(struct message_part *part,
 	struct parser_context *parser_ctx = context;
 
 	/* call the user-defined header parser */
-	if (parser_ctx->func != NULL) {
-		parser_ctx->func(part, name, name_len, value, value_len,
-				 parser_ctx->context);
+	if (parser_ctx->callback != NULL) {
+		parser_ctx->callback(part, name, name_len, value, value_len,
+				     parser_ctx->context);
 	}
 
 	if (name_len == 12 && memcasecmp(name, "Content-Type", 12) == 0) {
@@ -253,14 +253,15 @@ message_parse_part(struct istream *input, struct parser_context *parser_ctx)
 }
 
 struct message_part *message_parse(pool_t pool, struct istream *input,
-				   MessageHeaderFunc func, void *context)
+				   message_header_callback_t callback,
+				   void *context)
 {
 	struct message_part *part;
 	struct parser_context parser_ctx;
 
 	memset(&parser_ctx, 0, sizeof(parser_ctx));
 	parser_ctx.pool = pool;
-	parser_ctx.func = func;
+	parser_ctx.callback = callback;
 	parser_ctx.context = context;
 	parser_ctx.part = part = p_new(pool, struct message_part, 1);
 
@@ -314,7 +315,7 @@ static void message_skip_line(struct istream *input,
 
 void message_parse_header(struct message_part *part, struct istream *input,
 			  struct message_size *hdr_size,
-			  MessageHeaderFunc func, void *context)
+			  message_header_callback_t callback, void *context)
 {
 	const unsigned char *msg;
 	size_t i, size, parse_size, startpos, missing_cr_count;
@@ -376,7 +377,8 @@ void message_parse_header(struct message_part *part, struct istream *input,
 			/* make sure the header doesn't continue to next line */
 			if (i+1 == size || !IS_LWSP(msg[i+1])) {
 				if (colon_pos != UINT_MAX &&
-				    colon_pos != line_start && func != NULL &&
+				    colon_pos != line_start &&
+				    callback != NULL &&
 				    !IS_LWSP(msg[line_start])) {
 					/* we have a valid header line */
 
@@ -399,9 +401,10 @@ void message_parse_header(struct message_part *part, struct istream *input,
 					if (msg[i-1] == '\r') value_len--;
 
 					/* and finally call the function */
-					func(part, msg + line_start, name_len,
-					     msg + colon_pos, value_len,
-					     context);
+					callback(part,
+						 msg + line_start, name_len,
+						 msg + colon_pos, value_len,
+						 context);
 				}
 
 				colon_pos = UINT_MAX;
@@ -435,9 +438,9 @@ void message_parse_header(struct message_part *part, struct istream *input,
 		i_assert(hdr_size->virtual_size >= hdr_size->physical_size);
 	}
 
-	if (func != NULL) {
+	if (callback != NULL) {
 		/* "end of headers" notify */
-		func(part, NULL, 0, NULL, 0, context);
+		callback(part, NULL, 0, NULL, 0, context);
 	}
 }
 

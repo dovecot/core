@@ -2,8 +2,8 @@
 #define __AUTH_PROCESS_H
 
 /* cookie_reply is NULL if some error occured */
-typedef void (*AuthCallback)(struct auth_cookie_reply_data *cookie_reply,
-			     void *context);
+typedef void (*auth_callback_t)(struct auth_cookie_reply_data *cookie_reply,
+				void *context);
 
 /* Find process for given id */
 struct auth_process *auth_process_find(unsigned int id);
@@ -12,7 +12,7 @@ struct auth_process *auth_process_find(unsigned int id);
 void auth_process_request(unsigned int login_pid,
 			  struct auth_process *process, unsigned int id,
 			  unsigned char cookie[AUTH_COOKIE_SIZE],
-			  AuthCallback callback, void *context);
+			  auth_callback_t callback, void *context);
 
 /* Close any fds used by auth processes */
 void auth_processes_destroy_all(void);

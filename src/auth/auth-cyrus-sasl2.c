@@ -31,7 +31,7 @@ static const char *auth_mech_to_str(enum auth_mech mech)
 static void auth_sasl_continue(struct cookie_data *cookie,
 			       struct auth_continued_request_data *request,
 			       const unsigned char *data,
-			       AuthCallback callback, void *context)
+			       auth_callback_t callback, void *context)
 {
 	struct auth_context *ctx = cookie->context;
 	struct auth_reply_data reply;
@@ -124,7 +124,7 @@ static void auth_sasl_free(struct cookie_data *cookie)
 
 void auth_cyrus_sasl_init(unsigned int login_pid,
 			  struct auth_init_request_data *request,
-			  AuthCallback callback, void *context)
+			  auth_callback_t callback, void *context)
 {
 	static const char *propnames[] = {
 		SASL_AUX_UIDNUM,

@@ -188,8 +188,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		if (pollfd->revents & POLLNVAL) {
 			if (!io->invalid) {
 				io->invalid = TRUE;
-				i_warning("invalid I/O fd %d, func %p",
-					  io->fd, (void *) io->func);
+				i_warning("invalid I/O fd %d, callback %p",
+					  io->fd, (void *) io->callback);
 			}
 
                         continue;
@@ -209,7 +209,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		}
 
 		t_id = t_push();
-		io->func(io->context, io->fd, io);
+		io->callback(io->context, io->fd, io);
 		if (t_pop() != t_id)
 			i_panic("Leaked a t_pop() call!");
 

@@ -14,9 +14,9 @@ struct copy_context {
 	int copy_inside_mailbox;
 };
 
-static int copy_func(struct mail_index *index, struct mail_index_record *rec,
-		     unsigned int client_seq __attr_unused__,
-		     unsigned int idx_seq __attr_unused__, void *context)
+static int copy_cb(struct mail_index *index, struct mail_index_record *rec,
+		   unsigned int client_seq __attr_unused__,
+		   unsigned int idx_seq __attr_unused__, void *context)
 {
 	struct copy_context *ctx = context;
 	struct index_mailbox *dest_ibox = NULL;
@@ -82,7 +82,7 @@ int index_storage_copy(struct mailbox *box, struct mailbox *destbox,
 	ctx.dest = destbox;
 
 	failed = index_messageset_foreach(ibox, messageset, uidset,
-					  copy_func, &ctx) <= 0;
+					  copy_cb, &ctx) <= 0;
 
 	if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
 		return FALSE;

@@ -63,8 +63,8 @@ struct hash_table {
 
 	struct collision_node *free_cnodes;
 
-	HashFunc hash_func;
-	HashCompareFunc key_compare_func;
+	hash_callback_t hash_cb;
+	hash_cmp_callback_t key_compare_cb;
 };
 
 static int hash_resize(struct hash_table *table);
@@ -82,9 +82,9 @@ static unsigned int direct_hash(const void *p)
 	return POINTER_CAST_TO(p, unsigned int);
 }
 
-struct hash_table *hash_create(pool_t table_pool, pool_t node_pool,
-			       size_t initial_size, HashFunc hash_func,
-			       HashCompareFunc key_compare_func)
+struct hash_table *
+hash_create(pool_t table_pool, pool_t node_pool, size_t initial_size,
+	    hash_callback_t hash_cb, hash_cmp_callback_t key_compare_cb)
 {
 	struct hash_table *table;
 
@@ -94,9 +94,9 @@ struct hash_table *hash_create(pool_t table_pool, pool_t node_pool,
 	table->size = I_MAX(primes_closest(initial_size),
 			    HASH_TABLE_MIN_SIZE);
 
-	table->hash_func = hash_func != NULL ? hash_func : direct_hash;
-	table->key_compare_func = key_compare_func == NULL ?
-		direct_cmp : key_compare_func;
+	table->hash_cb = hash_cb != NULL ? hash_cb : direct_hash;
+	table->key_compare_cb = key_compare_cb == NULL ?
+		direct_cmp : key_compare_cb;
 	table->nodes = p_new(table_pool, struct hash_node, table->size);
 	table->collisions_size = I_MAX(table->size / 10, COLLISIONS_MIN_SIZE);
 	table->collisions = p_new(table_pool, struct collision_node,
@@ -180,7 +180,7 @@ hash_lookup_collision(struct hash_table *table,
 	cnode = &table->collisions[hash % table->collisions_size];
 	do {
 		if (cnode->node.key != NULL) {
-			if (table->key_compare_func(cnode->node.key, key) == 0)
+			if (table->key_compare_cb(cnode->node.key, key) == 0)
 				return &cnode->node;
 		}
 		cnode = cnode->next;
@@ -200,7 +200,7 @@ hash_lookup_node(struct hash_table *table, const void *key, unsigned int hash)
 		if (table->removed_count == 0)
 			return NULL;
 	} else {
-		if (table->key_compare_func(node->key, key) == 0)
+		if (table->key_compare_cb(node->key, key) == 0)
 			return node;
 	}
 
@@ -211,7 +211,7 @@ void *hash_lookup(struct hash_table *table, const void *key)
 {
 	struct hash_node *node;
 
-	node = hash_lookup_node(table, key, table->hash_func(key));
+	node = hash_lookup_node(table, key, table->hash_cb(key));
 	return node != NULL ? node->value : NULL;
 }
 
@@ -221,7 +221,7 @@ int hash_lookup_full(struct hash_table *table, const void *lookup_key,
 	struct hash_node *node;
 
 	node = hash_lookup_node(table, lookup_key,
-				table->hash_func(lookup_key));
+				table->hash_cb(lookup_key));
 	if (node == NULL)
 		return FALSE;
 
@@ -242,7 +242,7 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 
 	i_assert(key != NULL);
 
-	hash = table->hash_func(key);
+	hash = table->hash_cb(key);
 
 	if (check_existing && table->removed_count > 0) {
 		/* there may be holes, have to check everything */
@@ -264,7 +264,7 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 	}
 
 	if (check_existing) {
-		if (table->key_compare_func(node->key, key) == 0)
+		if (table->key_compare_cb(node->key, key) == 0)
 			return node;
 	}
 
@@ -277,7 +277,7 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 			break;
 
 		if (check_existing) {
-			if (table->key_compare_func(cnode->node.key, key) == 0)
+			if (table->key_compare_cb(cnode->node.key, key) == 0)
 				return node;
 		}
 
@@ -366,7 +366,7 @@ static void hash_compress(struct hash_table *table,
 
 		/* see if node in primary table was deleted */
 		if (hash == 0)
-			hash = table->hash_func(croot->node.key);
+			hash = table->hash_cb(croot->node.key);
 		node = &table->nodes[hash % table->size];
 		if (node->key == NULL) {
 			memcpy(node, &croot->node, sizeof(*node));
@@ -398,7 +398,7 @@ void hash_remove(struct hash_table *table, const void *key)
 	struct hash_node *node;
 	unsigned int hash;
 
-	hash = table->hash_func(key);
+	hash = table->hash_cb(key);
 
 	node = hash_lookup_node(table, key, hash);
 	node->key = NULL;
@@ -414,7 +414,8 @@ size_t hash_size(struct hash_table *table)
 	return table->nodes_count;
 }
 
-void hash_foreach(struct hash_table *table, HashForeachFunc func, void *context)
+void hash_foreach(struct hash_table *table, hash_foreach_callback_t callback,
+		  void *context)
 {
 	struct hash_node *node;
 	struct collision_node *cnode;
@@ -428,7 +429,7 @@ void hash_foreach(struct hash_table *table, HashForeachFunc func, void *context)
 		node = &table->nodes[i];
 
 		if (node->key != NULL) {
-			func(node->key, node->value, context);
+			callback(node->key, node->value, context);
 			if (foreach_stop) {
 				table->frozen--;
 				return;
@@ -442,8 +443,8 @@ void hash_foreach(struct hash_table *table, HashForeachFunc func, void *context)
 
 			do {
 				if (cnode->node.key != NULL) {
-					func(cnode->node.key, cnode->node.value,
-					     context);
+					callback(cnode->node.key,
+						 cnode->node.value, context);
 					if (foreach_stop) {
 						table->frozen--;
 						return;

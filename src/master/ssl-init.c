@@ -94,7 +94,8 @@ void ssl_init(void)
 	generating = FALSE;
 
 	/* check every 10 mins */
-	to = timeout_add(600*1000, (TimeoutFunc) check_parameters_file, NULL);
+	to = timeout_add(600*1000,
+			 (timeout_callback_t)check_parameters_file, NULL);
 
 	check_parameters_file();
 }

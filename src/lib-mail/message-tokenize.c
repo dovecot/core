@@ -9,7 +9,7 @@ struct message_tokenizer {
 	const unsigned char *data;
 	size_t size;
 
-	MessageTokenizeErrorFunc error_func;
+	message_tokenize_error_callback_t error_cb;
 	void *error_context;
 
 	int token;
@@ -24,8 +24,8 @@ struct message_tokenizer {
 
 #define PARSE_ERROR() \
 	STMT_START { \
-	if (tok->error_func != NULL && \
-	    !tok->error_func(data, i, '\0', tok->error_context)) { \
+	if (tok->error_cb != NULL && \
+	    !tok->error_cb(data, i, '\0', tok->error_context)) { \
 		tok->token = TOKEN_LAST; \
 		return TOKEN_LAST; \
 	} \
@@ -33,8 +33,8 @@ struct message_tokenizer {
 
 #define PARSE_ERROR_MISSING(c) \
 	STMT_START { \
-	if (tok->error_func != NULL && \
-	    !tok->error_func(data, i, c, tok->error_context)) { \
+	if (tok->error_cb != NULL && \
+	    !tok->error_cb(data, i, c, tok->error_context)) { \
 		tok->token = TOKEN_LAST; \
 		return TOKEN_LAST; \
 	} \
@@ -43,7 +43,8 @@ struct message_tokenizer {
 
 struct message_tokenizer *
 message_tokenize_init(const unsigned char *data, size_t size,
-		      MessageTokenizeErrorFunc error_func, void *error_context)
+		      message_tokenize_error_callback_t error_cb,
+		      void *error_context)
 {
 	struct message_tokenizer *tok;
 
@@ -51,7 +52,7 @@ message_tokenize_init(const unsigned char *data, size_t size,
 	tok->data = data;
 	tok->size = size;
 
-	tok->error_func = error_func;
+	tok->error_cb = error_cb;
 	tok->error_context = error_context;
 
 	tok->skip_comments = TRUE;
@@ -262,8 +263,8 @@ enum message_token message_tokenize_next(struct message_tokenizer *tok)
 	tok->parse_pos = i;
 
 	if (tok->token == TOKEN_LAST && tok->in_bracket &&
-	    tok->error_func != NULL) {
-		if (tok->error_func(data, i, '>', tok->error_context))
+	    tok->error_cb != NULL) {
+		if (tok->error_cb(data, i, '>', tok->error_context))
 			tok->token = TOKEN_LAST;
 	}
 

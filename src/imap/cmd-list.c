@@ -77,8 +77,8 @@ static struct list_node *list_node_get(pool_t pool, struct list_node **node,
 	return *node;
 }
 
-static void list_func(struct mail_storage *storage __attr_unused__,
-		      const char *name, enum mailbox_flags flags, void *context)
+static void list_cb(struct mail_storage *storage __attr_unused__,
+		    const char *name, enum mailbox_flags flags, void *context)
 {
 	struct list_context *ctx = context;
 	struct list_node *node;
@@ -173,11 +173,11 @@ int _cmd_list_full(struct client *client, int subscribed)
 		if (!subscribed) {
 			failed = !client->storage->
 				find_mailboxes(client->storage,
-					       pattern, list_func, &ctx);
+					       pattern, list_cb, &ctx);
 		} else {
 			failed = !client->storage->
 				find_subscribed(client->storage,
-						pattern, list_func, &ctx);
+						pattern, list_cb, &ctx);
 		}
 
 		if (!failed) {
