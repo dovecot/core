@@ -124,20 +124,35 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	end_offset = min_file_seq == max_file_seq ?
 		max_file_offset : (uoff_t)-1;
 	ret = mail_transaction_log_file_map(file, min_file_offset, end_offset);
-	if (ret <= 0)
+	if (ret <= 0) {
+		if (ret == 0) {
+			mail_index_set_error(view->log->index,
+				"Lost transaction log file %s seq %u",
+				file->filepath, file->hdr.file_seq);
+		}
 		return -1;
+	}
 	first = file;
 
 	for (seq = min_file_seq+1; seq <= max_file_seq; seq++) {
 		file = file->next;
-		if (file == NULL || file->hdr.file_seq != seq) 
+		if (file == NULL || file->hdr.file_seq != seq)  {
+			mail_index_set_error(view->log->index,
+				"Lost transaction log file %s seq %u",
+				file->filepath, seq);
 			return -1;
+		}
 
 		end_offset = file->hdr.file_seq == max_file_seq ?
 			max_file_offset : (uoff_t)-1;
 		ret = mail_transaction_log_file_map(file,
 			sizeof(struct mail_transaction_log_header),
 			end_offset);
+		if (ret == 0) {
+			mail_index_set_error(view->log->index,
+				"Lost transaction log file %s seq %u",
+				file->filepath, file->hdr.file_seq);
+		}
 		if (ret <= 0)
 			return -1;
 	}
