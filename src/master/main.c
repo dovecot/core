@@ -170,7 +170,7 @@ static struct ip_addr *resolve_ip(const char *name, unsigned int *port)
 		if (p == NULL)
 			i_fatal("Missing ']' in address %s", name);
 
-		name = t_strdup_until(name, p);
+		name = t_strdup_until(name+1, p);
 
 		p++;
 		if (*p != '\0' && *p != ':')
