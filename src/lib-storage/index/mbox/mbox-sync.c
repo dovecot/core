@@ -96,7 +96,8 @@ static void mbox_sync_buffer_delete_old(buffer_t *syncs_buf, uint32_t uid)
 	size /= sizeof(*sync);
 
 	for (src = dest = 0; src < size; src++) {
-		if (sync[src].uid2 > uid) {
+		if (uid <= sync[src].uid2) {
+			/* keep it */
 			if (src != dest)
 				sync[dest] = sync[src];
 			dest++;
