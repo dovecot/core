@@ -22,7 +22,7 @@ mech_anonymous_auth_continue(struct auth_request *request,
 	request->callback = callback;
 	request->user = p_strdup(request->pool, anonymous_username);
 
-	mech_auth_finish(request, NULL, 0, TRUE);
+	mech_auth_success(request, NULL, 0);
 }
 
 static void

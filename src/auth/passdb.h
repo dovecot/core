@@ -22,6 +22,7 @@ enum passdb_result {
 	PASSDB_RESULT_USER_UNKNOWN = -1,
 	PASSDB_RESULT_USER_DISABLED = -2,
 	PASSDB_RESULT_INTERNAL_FAILURE = -3,
+	PASSDB_RESULT_SCHEME_NOT_AVAILABLE = -4,
 
 	PASSDB_RESULT_PASSWORD_MISMATCH = 0,
 	PASSDB_RESULT_OK = 1,
@@ -29,7 +30,8 @@ enum passdb_result {
 
 typedef void verify_plain_callback_t(enum passdb_result result,
 				     struct auth_request *request);
-typedef void lookup_credentials_callback_t(const char *result,
+typedef void lookup_credentials_callback_t(enum passdb_result result,
+					   const char *credentials,
 					   struct auth_request *request);
 
 struct passdb_module {
@@ -50,7 +52,8 @@ struct passdb_module {
 				   lookup_credentials_callback_t *callback);
 };
 
-void passdb_handle_credentials(enum passdb_credentials credentials,
+void passdb_handle_credentials(enum passdb_result result,
+			       enum passdb_credentials credentials,
 			       const char *password, const char *scheme,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request);

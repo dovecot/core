@@ -35,6 +35,7 @@ struct auth_request {
 	mech_callback_t *callback;
 
 	unsigned int successful:1;
+	unsigned int internal_failure:1;
 	unsigned int accept_input:1;
 	unsigned int no_failure_delay:1;
 	unsigned int no_login:1;
@@ -81,8 +82,10 @@ struct mech_module *mech_module_find(const char *name);
 
 const string_t *auth_mechanisms_get_list(void);
 
-void mech_auth_finish(struct auth_request *request,
-		      const void *data, size_t data_size, int success);
+void mech_auth_success(struct auth_request *request,
+		       const void *data, size_t data_size);
+void mech_auth_fail(struct auth_request *request);
+void mech_auth_internal_failure(struct auth_request *request);
 
 int mech_fix_username(char *username, const char **error_r);
 

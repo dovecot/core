@@ -71,44 +71,49 @@ passdb_credentials_to_str(enum passdb_credentials credentials)
 	return "??";
 }
 
-void passdb_handle_credentials(enum passdb_credentials credentials,
+void passdb_handle_credentials(enum passdb_result result,
+			       enum passdb_credentials credentials,
 			       const char *password, const char *scheme,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request)
 {
 	const char *wanted_scheme;
 
+	if (result != PASSDB_RESULT_OK) {
+		callback(result, NULL, auth_request);
+		return;
+	}
+	i_assert(password != NULL);
+
 	if (credentials == PASSDB_CREDENTIALS_CRYPT) {
 		/* anything goes */
-		if (password != NULL)
-			password = t_strdup_printf("{%s}%s", scheme, password);
-		callback(password, auth_request);
+		password = t_strdup_printf("{%s}%s", scheme, password);
+		callback(result, password, auth_request);
 		return;
 	}
 
-	if (password != NULL) {
-		wanted_scheme = passdb_credentials_to_str(credentials);
-		if (strcasecmp(scheme, wanted_scheme) != 0) {
-			if (strcasecmp(scheme, "PLAIN") == 0 ||
-			    strcasecmp(scheme, "CLEARTEXT") == 0) {
-				/* we can generate anything out of plaintext
-				   passwords */
-				password = password_generate(password,
-							     auth_request->user,
-							     wanted_scheme);
-			} else {
-				if (verbose) {
-					i_info("password(%s): Requested %s "
-					       "scheme, but we have only %s",
-					       auth_request->user,
-					       wanted_scheme, scheme);
-				}
-				password = NULL;
+	wanted_scheme = passdb_credentials_to_str(credentials);
+	if (strcasecmp(scheme, wanted_scheme) != 0) {
+		if (strcasecmp(scheme, "PLAIN") != 0 &&
+		    strcasecmp(scheme, "CLEARTEXT") != 0) {
+			if (verbose) {
+				i_info("password(%s): Requested %s "
+				       "scheme, but we have only %s",
+				       auth_request->user,
+				       wanted_scheme, scheme);
 			}
+			callback(PASSDB_RESULT_SCHEME_NOT_AVAILABLE,
+				 NULL, auth_request);
+			return;
 		}
+
+		/* we can generate anything out of plaintext passwords */
+		password = password_generate(password, auth_request->user,
+					     wanted_scheme);
+		i_assert(password != NULL);
 	}
 
-	callback(password, auth_request);
+	callback(PASSDB_RESULT_OK, password, auth_request);
 }
 
 void passdb_preinit(void)

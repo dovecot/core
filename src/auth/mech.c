@@ -127,37 +127,9 @@ void auth_request_destroy(struct auth_request *request)
 	auth_request_unref(request);
 }
 
-void mech_auth_finish(struct auth_request *request,
-		      const void *data, size_t data_size, int success)
+void mech_auth_success(struct auth_request *request,
+		       const void *data, size_t data_size)
 {
-	if (!success) {
-		if (request->no_failure_delay) {
-			/* passdb specifically requested to to delay the
-			   reply. */
-			request->callback(request, AUTH_CLIENT_RESULT_FAILURE,
-					  NULL, 0);
-			auth_request_destroy(request);
-			return;
-		}
-
-		/* failure. don't announce it immediately to avoid
-		   a) timing attacks, b) flooding */
-		if (auth_failures_buf->used > 0) {
-			const struct auth_request *const *requests;
-
-			requests = auth_failures_buf->data;
-			requests += auth_failures_buf->used/sizeof(*requests)-1;
-			i_assert(*requests != request);
-		}
-
-		buffer_append(auth_failures_buf, &request, sizeof(request));
-
-		/* make sure the request isn't found anymore */
-		auth_request_ref(request);
-		auth_request_destroy(request);
-		return;
-	}
-
 	request->successful = TRUE;
 	if (request->conn != NULL) {
 		request->callback(request, AUTH_CLIENT_RESULT_SUCCESS,
@@ -170,6 +142,38 @@ void mech_auth_finish(struct auth_request *request,
 		   needed */
 		auth_request_destroy(request);
 	}
+}
+
+void mech_auth_fail(struct auth_request *request)
+{
+	if (request->no_failure_delay) {
+		/* passdb specifically requested to to delay the reply. */
+		request->callback(request, AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
+		auth_request_destroy(request);
+		return;
+	}
+
+	/* failure. don't announce it immediately to avoid
+	   a) timing attacks, b) flooding */
+	if (auth_failures_buf->used > 0) {
+		const struct auth_request *const *requests;
+
+		requests = auth_failures_buf->data;
+		requests += auth_failures_buf->used/sizeof(*requests)-1;
+		i_assert(*requests != request);
+	}
+
+	buffer_append(auth_failures_buf, &request, sizeof(request));
+
+	/* make sure the request isn't found anymore */
+	auth_request_ref(request);
+	auth_request_destroy(request);
+}
+
+void mech_auth_internal_failure(struct auth_request *request)
+{
+	request->internal_failure = TRUE;
+	mech_auth_fail(request);
 }
 
 int mech_fix_username(char *username, const char **error_r)

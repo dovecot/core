@@ -57,9 +57,11 @@ static void sql_query_callback(struct sql_result *result, void *context)
 {
 	struct passdb_sql_request *sql_request = context;
 	struct auth_request *auth_request = sql_request->auth_request;
+	enum passdb_result passdb_result;
 	const char *user, *password, *scheme;
 	int ret, idx;
 
+	passdb_result = PASSDB_RESULT_USER_UNKNOWN;
 	user = auth_request->user;
 	password = NULL;
 
@@ -68,6 +70,7 @@ static void sql_query_callback(struct sql_result *result, void *context)
 		i_error("sql(%s): Password query failed: %s",
 			get_log_prefix(auth_request),
 			sql_result_get_error(result));
+		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (ret == 0) {
 		if (verbose) {
 			i_info("sql(%s): Unknown user",
@@ -101,8 +104,8 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	}
 
 	if (sql_request->credentials != -1) {
-		passdb_handle_credentials(sql_request->credentials,
-			password, scheme,
+		passdb_handle_credentials(passdb_result,
+			sql_request->credentials, password, scheme,
 			sql_request->callback.lookup_credentials,
 			auth_request);
 		i_free(sql_request);
@@ -111,8 +114,7 @@ static void sql_query_callback(struct sql_result *result, void *context)
 
 	/* verify plain */
 	if (password == NULL) {
-		sql_request->callback.verify_plain(PASSDB_RESULT_USER_UNKNOWN,
-						   auth_request);
+		sql_request->callback.verify_plain(passdb_result, auth_request);
 		i_free(sql_request);
 		return;
 	}
@@ -129,8 +131,8 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	}
 
 	sql_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
-					     PASSDB_RESULT_PASSWORD_MISMATCH,
-					     auth_request);
+					   PASSDB_RESULT_PASSWORD_MISMATCH,
+					   auth_request);
 	i_free(sql_request);
 }
 
@@ -186,7 +188,9 @@ static void sql_lookup_credentials(struct auth_request *request,
 					    &result, &scheme)) {
 		if (scheme == NULL)
 			scheme = passdb_sql_conn->set.default_pass_scheme;
-		passdb_handle_credentials(credentials, result, scheme,
+		passdb_handle_credentials(result != NULL ? PASSDB_RESULT_OK :
+					  PASSDB_RESULT_USER_UNKNOWN,
+					  credentials, result, scheme,
 					  callback, request);
 		return;
 	}

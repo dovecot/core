@@ -33,64 +33,77 @@ struct ntlm_auth_request {
 	struct ntlmssp_response *response;
 };
 
-static void
-lm_credentials_callback(const char *credentials,
-			struct auth_request *auth_request)
+static int lm_verify_credentials(struct ntlm_auth_request *request,
+				 const char *credentials)
 {
-	struct ntlm_auth_request *request =
-		(struct ntlm_auth_request *)auth_request;
 	const unsigned char *client_response;
 	unsigned char lm_response[LM_RESPONSE_SIZE];
 	unsigned char hash[LM_HASH_SIZE];
 	unsigned int response_length;
 	buffer_t *hash_buffer;
-	int ret;
 
 	response_length =
 		ntlmssp_buffer_length(request->response, lm_response);
 	client_response = ntlmssp_buffer_data(request->response, lm_response);
 
-	if (credentials == NULL || response_length < LM_RESPONSE_SIZE) {
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
-		return;
+	if (response_length < LM_RESPONSE_SIZE) {
+		i_error("ntlm(%s): passdb credentials' length is too small",
+			get_log_prefix(&request->auth_request));
+		return FALSE;
 	}
 
-	hash_buffer = buffer_create_data(auth_request->pool,
+	hash_buffer = buffer_create_data(request->auth_request.pool,
 					 hash, sizeof(hash));
-	hex_to_binary(credentials, hash_buffer);
+	if (hex_to_binary(credentials, hash_buffer) < 0) {
+		i_error("ntlm(%s): passdb credentials are not in hex",
+			get_log_prefix(&request->auth_request));
+		return FALSE;
+	}
 
 	ntlmssp_v1_response(hash, request->challenge, lm_response);
-
-	ret = memcmp(lm_response, client_response, LM_RESPONSE_SIZE) == 0;
-
-	mech_auth_finish(auth_request, NULL, 0, ret);
+	return memcmp(lm_response, client_response, LM_RESPONSE_SIZE) == 0;
 }
 
 static void
-ntlm_credentials_callback(const char *credentials,
-			  struct auth_request *auth_request)
+lm_credentials_callback(enum passdb_result result,
+			const char *credentials,
+			struct auth_request *auth_request)
 {
 	struct ntlm_auth_request *request =
 		(struct ntlm_auth_request *)auth_request;
+
+	switch (result) {
+	case PASSDB_RESULT_OK:
+		if (lm_verify_credentials(request, credentials))
+			mech_auth_success(auth_request, NULL, 0);
+		else
+			mech_auth_fail(auth_request);
+		break;
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		mech_auth_internal_failure(auth_request);
+		break;
+	default:
+		mech_auth_fail(auth_request);
+		break;
+	}
+}
+
+static int ntlm_verify_credentials(struct ntlm_auth_request *request,
+				   const char *credentials)
+{
+        struct auth_request *auth_request = &request->auth_request;
 	const unsigned char *client_response;
 	unsigned char hash[NTLMSSP_HASH_SIZE];
 	unsigned int response_length;
 	buffer_t *hash_buffer;
-	int ret;
 
 	response_length =
 		ntlmssp_buffer_length(request->response, ntlm_response);
 	client_response = ntlmssp_buffer_data(request->response, ntlm_response);
 
-	if (credentials == NULL || response_length == 0) {
-		/* We can't use LM authentication if NTLM2 was negotiated */
-		if (request->ntlm2_negotiated)
-			mech_auth_finish(auth_request, NULL, 0, FALSE);
-		else
-			passdb->lookup_credentials(auth_request,
-						   PASSDB_CREDENTIALS_LANMAN,
-						   lm_credentials_callback);
-		return;
+	if (response_length == 0) {
+		/* try LM authentication unless NTLM2 was negotiated */
+		return request->ntlm2_negotiated ? -1 : 0;
 	}
 
 	hash_buffer = buffer_create_data(auth_request->pool,
@@ -112,8 +125,8 @@ ntlm_credentials_callback(const char *credentials,
 				    response_length - NTLMSSP_V2_RESPONSE_SIZE,
 				    ntlm_v2_response);
 
-		ret = memcmp(ntlm_v2_response, client_response,
-			     NTLMSSP_V2_RESPONSE_SIZE) == 0;
+		return memcmp(ntlm_v2_response, client_response,
+			      NTLMSSP_V2_RESPONSE_SIZE) == 0 ? 1 : -1;
 	} else {
 		unsigned char ntlm_response[NTLMSSP_RESPONSE_SIZE];
 		const unsigned char *client_lm_response =
@@ -127,11 +140,43 @@ ntlm_credentials_callback(const char *credentials,
 			ntlmssp_v1_response(hash, request->challenge,
 					    ntlm_response);
 
-		ret = memcmp(ntlm_response, client_response,
-			     NTLMSSP_RESPONSE_SIZE) == 0;
+		return memcmp(ntlm_response, client_response,
+			      NTLMSSP_RESPONSE_SIZE) == 0 ? 1 : -1;
+	}
+}
+
+static void
+ntlm_credentials_callback(enum passdb_result result,
+			  const char *credentials,
+			  struct auth_request *auth_request)
+{
+	struct ntlm_auth_request *request =
+		(struct ntlm_auth_request *)auth_request;
+	int ret;
+
+	switch (result) {
+	case PASSDB_RESULT_OK:
+		ret = ntlm_verify_credentials(request, credentials);
+		if (ret > 0) {
+			mech_auth_success(auth_request, NULL, 0);
+			return;
+		}
+		if (ret < 0) {
+			mech_auth_fail(auth_request);
+			return;
+		}
+		break;
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		mech_auth_internal_failure(auth_request);
+		return;
+	default:
+		break;
 	}
 
-	mech_auth_finish(auth_request, NULL, 0, ret);
+	/* NTLM credentials not found or didn't want to use them,
+	   try with LM credentials */
+	passdb->lookup_credentials(auth_request, PASSDB_CREDENTIALS_LANMAN,
+				   lm_credentials_callback);
 }
 
 static void
@@ -158,7 +203,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 				       get_log_prefix(auth_request),
 				       error);
 			}
-			mech_auth_finish(auth_request, NULL, 0, FALSE);
+			mech_auth_fail(auth_request);
 			return;
 		}
 
@@ -183,7 +228,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 				       get_log_prefix(auth_request),
 				       error);
 			}
-			mech_auth_finish(auth_request, NULL, 0, FALSE);
+			mech_auth_fail(auth_request);
 			return;
 		}
 
@@ -199,7 +244,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 				i_info("ntlm(%s): %s",
 				       get_log_prefix(auth_request), error);
 			}
-			mech_auth_finish(auth_request, NULL, 0, FALSE);
+			mech_auth_fail(auth_request);
 			return;
 		}
 

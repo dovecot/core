@@ -89,6 +89,8 @@ static void auth_callback(struct auth_request *request,
 			str_append_c(str, '\t');
 			str_append(str, request->extra_fields);
 		}
+		if (request->internal_failure)
+			str_append(str, "\ttemp");
 		break;
 	}
 

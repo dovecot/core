@@ -118,13 +118,19 @@ static int verify_credentials(struct digest_auth_request *request,
 	int i;
 
 	/* get the MD5 password */
-	if (credentials == NULL || strlen(credentials) != sizeof(digest)*2)
+	if (strlen(credentials) != sizeof(digest)*2) {
+		i_error("digest-md5(%s): passdb credentials' length is wrong",
+			get_log_prefix(&request->auth_request));
 		return FALSE;
+	}
 
 	digest_buf = buffer_create_data(pool_datastack_create(),
 					digest, sizeof(digest));
-	if (hex_to_binary(credentials, digest_buf) < 0)
+	if (hex_to_binary(credentials, digest_buf) < 0) {
+		i_error("digest-md5(%s): passdb credentials are not in hex",
+			get_log_prefix(&request->auth_request));
 		return FALSE;
+	}
 
 	/*
 	   response =
@@ -508,20 +514,31 @@ static int parse_digest_response(struct digest_auth_request *request,
 	return !failed;
 }
 
-static void credentials_callback(const char *result,
+static void credentials_callback(enum passdb_result result,
+				 const char *credentials,
 				 struct auth_request *auth_request)
 {
 	struct digest_auth_request *request =
 		(struct digest_auth_request *)auth_request;
 
-	if (!verify_credentials(request, result)) {
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
-		return;
-	}
+	switch (result) {
+	case PASSDB_RESULT_OK:
+		if (!verify_credentials(request, credentials)) {
+			mech_auth_fail(auth_request);
+			return;
+		}
 
-	request->authenticated = TRUE;
-	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
-			       request->rspauth, strlen(request->rspauth));
+		request->authenticated = TRUE;
+		auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
+				       request->rspauth, strlen(request->rspauth));
+		break;
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		mech_auth_internal_failure(auth_request);
+		break;
+	default:
+		mech_auth_fail(auth_request);
+		break;
+	}
 }
 
 static void
@@ -536,7 +553,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	if (request->authenticated) {
 		/* authentication is done, we were just waiting the last
 		   word from client */
-		mech_auth_finish(auth_request, NULL, 0, TRUE);
+		mech_auth_success(auth_request, NULL, 0);
 		return;
 	}
 
@@ -566,7 +583,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 		       get_log_prefix(auth_request), error);
 	}
 
-	mech_auth_finish(auth_request, NULL, 0, FALSE);
+	mech_auth_fail(auth_request);
 }
 
 static void

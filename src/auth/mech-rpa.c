@@ -29,7 +29,7 @@ struct rpa_auth_request {
 	int phase;
 
 	/* cached: */
-	unsigned char *pwd_md5;
+	unsigned char pwd_md5[16];
 	size_t service_len;
 	const unsigned char *service_ucs2be;
 	size_t username_len;
@@ -399,36 +399,48 @@ mech_rpa_build_token4(struct rpa_auth_request *request, size_t *size)
 	return buffer_free_without_data(buf);
 }
 
-static void
-rpa_credentials_callback(const char *credentials,
-			 struct auth_request *auth_request)
+static int verify_credentials(struct rpa_auth_request *request,
+			      const char *credentials)
 {
-	struct rpa_auth_request *request =
-		(struct rpa_auth_request *)auth_request;
 	unsigned char response[16];
 	buffer_t *hash_buffer;
-	const unsigned char *token4;
-	size_t token4_size;
 
-	if (credentials == NULL) {
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
-		return;
-	}
-
-	request->pwd_md5 = p_malloc(request->pool, 16);
 	hash_buffer = buffer_create_data(request->pool, request->pwd_md5, 16);
 	hex_to_binary(credentials, hash_buffer);
 
 	rpa_user_response(request, response);
-	if (memcmp(response, request->user_response, 16) != 0) {
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
-		return;
-	}
+	return memcmp(response, request->user_response, 16) == 0;
+}
 
-	token4 = mech_rpa_build_token4(request, &token4_size);
-	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
-			       token4, token4_size);
-	request->phase = 2;
+static void
+rpa_credentials_callback(enum passdb_result result,
+			 const char *credentials,
+			 struct auth_request *auth_request)
+{
+	struct rpa_auth_request *request =
+		(struct rpa_auth_request *)auth_request;
+	const unsigned char *token4;
+	size_t token4_size;
+
+	switch (result) {
+	case PASSDB_RESULT_OK:
+		if (!verify_credentials(request, credentials))
+			mech_auth_fail(auth_request);
+		else {
+			token4 = mech_rpa_build_token4(request, &token4_size);
+			auth_request->callback(auth_request,
+					       AUTH_CLIENT_RESULT_CONTINUE,
+					       token4, token4_size);
+			request->phase = 2;
+		}
+		break;
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		mech_auth_internal_failure(auth_request);
+		break;
+	default:
+		mech_auth_fail(auth_request);
+		break;
+	}
 }
 
 static void
@@ -446,7 +458,7 @@ mech_rpa_auth_phase1(struct auth_request *auth_request,
 			i_info("rpa(%s): invalid token 1, %s",
 			       get_log_prefix(auth_request), error);
 		}
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
+		mech_auth_fail(auth_request);
 		return;
 	}
 
@@ -478,7 +490,7 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 			i_info("rpa(%s): invalid token 3, %s",
 			       get_log_prefix(auth_request), error);
 		}
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
+		mech_auth_fail(auth_request);
 		return;
 	}
 
@@ -487,7 +499,7 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 			i_info("rpa(%s): %s",
 			       get_log_prefix(auth_request), error);
 		}
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
+		mech_auth_fail(auth_request);
 		return;
 	}
 
@@ -500,7 +512,6 @@ mech_rpa_auth_phase3(struct auth_request *auth_request,
 		     const unsigned char *data, size_t data_size)
 {
 	static const unsigned char client_ack[3] = { 0x60, 0x01, 0x00 };
-	int ret = TRUE;
 
 	if ((data_size != sizeof(client_ack)) ||
 	    (memcmp(data, client_ack, sizeof(client_ack)) != 0)) {
@@ -508,10 +519,10 @@ mech_rpa_auth_phase3(struct auth_request *auth_request,
 			i_info("rpa(%s): invalid token 5 or client rejects us",
 			       get_log_prefix(auth_request));
 		}
-		ret = FALSE;
+		mech_auth_fail(auth_request);
+	} else {
+		mech_auth_success(auth_request, NULL, 0);
 	}
-
-	mech_auth_finish(auth_request, NULL, 0, ret);
 }
 
 static void
@@ -535,7 +546,7 @@ mech_rpa_auth_continue(struct auth_request *auth_request,
 		mech_rpa_auth_phase3(auth_request, data, data_size);
 		break;
 	default:
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
+		mech_auth_fail(auth_request);
 		break;
 	}
 }

@@ -17,7 +17,17 @@
 static void verify_callback(enum passdb_result result,
 			    struct auth_request *request)
 {
-	mech_auth_finish(request, NULL, 0, result == PASSDB_RESULT_OK);
+	switch (result) {
+	case PASSDB_RESULT_OK:
+		mech_auth_success(request, NULL, 0);
+		break;
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		mech_auth_internal_failure(request);
+		break;
+	default:
+		mech_auth_fail(request);
+		break;
+	}
 }
 
 static void
@@ -38,7 +48,7 @@ mech_login_auth_continue(struct auth_request *request,
 				i_info("login(%s): %s",
 				       get_log_prefix(request), error);
 			}
-			mech_auth_finish(request, NULL, 0, FALSE);
+			mech_auth_fail(request);
 			return;
 		}
 

@@ -56,14 +56,14 @@ passwd_file_lookup_credentials(struct auth_request *request,
 
 	pu = db_passwd_file_lookup(passdb_pwf, request);
 	if (pu == NULL) {
-		callback(NULL, request);
+		callback(PASSDB_RESULT_USER_UNKNOWN, NULL, request);
 		return;
 	}
 
 	crypted_pass = pu->password;
 	scheme = password_get_scheme(&crypted_pass);
 
-	passdb_handle_credentials(credentials, crypted_pass,
+	passdb_handle_credentials(PASSDB_RESULT_OK, credentials, crypted_pass,
 				  scheme, callback, request);
 }
 

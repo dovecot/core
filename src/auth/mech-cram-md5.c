@@ -55,15 +55,15 @@ static int verify_credentials(struct cram_auth_request *request,
 	buffer_t *context_digest_buf;
 	const char *response_hex;
 
-	if (credentials == NULL)
-		return FALSE;
-
 	context_digest_buf =
 		buffer_create_data(pool_datastack_create(),
 				   context_digest, sizeof(context_digest));
 
-	if (hex_to_binary(credentials, context_digest_buf) < 0)
+	if (hex_to_binary(credentials, context_digest_buf) < 0) {
+		i_error("cram-md5(%s): passdb credentials are not in hex",
+			get_log_prefix(&request->auth_request));
 		return FALSE;
+	}
 
 	hmac_md5_set_cram_context(&ctx, context_digest);
 	hmac_md5_update(&ctx, request->challenge, strlen(request->challenge));
@@ -109,20 +109,26 @@ static int parse_cram_response(struct cram_auth_request *request,
 	return TRUE;
 }
 
-static void credentials_callback(const char *result,
+static void credentials_callback(enum passdb_result result,
+				 const char *credentials,
 				 struct auth_request *auth_request)
 {
 	struct cram_auth_request *request =
 		(struct cram_auth_request *)auth_request;
 
-	if (verify_credentials(request, result))
-		mech_auth_finish(auth_request, NULL, 0, TRUE);
-	else {
-		if (verbose) {
-			i_info("cram-md5(%s): authentication failed",
-			       get_log_prefix(auth_request));
-		}
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
+	switch (result) {
+	case PASSDB_RESULT_OK:
+		if (verify_credentials(request, credentials))
+			mech_auth_success(auth_request, NULL, 0);
+		else
+			mech_auth_fail(auth_request);
+		break;
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		mech_auth_internal_failure(auth_request);
+		break;
+	default:
+		mech_auth_fail(auth_request);
+		break;
 	}
 }
 
@@ -154,9 +160,7 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 
 	if (verbose)
 		i_info("cram-md5(%s): %s", get_log_prefix(auth_request), error);
-
-	/* failed */
-	mech_auth_finish(auth_request, NULL, 0, FALSE);
+	mech_auth_fail(auth_request);
 }
 
 static void

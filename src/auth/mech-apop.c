@@ -31,27 +31,42 @@ struct apop_auth_request {
 	unsigned char digest[16];
 };
 
+static int verify_credentials(struct apop_auth_request *request,
+			      const char *credentials)
+{
+	unsigned char digest[16];
+	struct md5_context ctx;
+
+	md5_init(&ctx);
+	md5_update(&ctx, request->challenge, strlen(request->challenge));
+	md5_update(&ctx, credentials, strlen(credentials));
+	md5_final(&ctx, digest);
+
+	return memcmp(digest, request->digest, 16) == 0;
+}
+
 static void
-apop_credentials_callback(const char *credentials,
+apop_credentials_callback(enum passdb_result result,
+			  const char *credentials,
 			  struct auth_request *auth_request)
 {
 	struct apop_auth_request *request =
 		(struct apop_auth_request *)auth_request;
-	unsigned char digest[16];
-	struct md5_context ctx;
-	int ret = FALSE;
 
-	if (credentials != NULL) {
-		md5_init(&ctx);
-		md5_update(&ctx, request->challenge,
-			   strlen(request->challenge));
-		md5_update(&ctx, credentials, strlen(credentials));
-		md5_final(&ctx, digest);
-
-		ret = memcmp(digest, request->digest, 16) == 0;
+	switch (result) {
+	case PASSDB_RESULT_OK:
+		if (verify_credentials(request, credentials))
+			mech_auth_success(auth_request, NULL, 0);
+		else
+			mech_auth_fail(auth_request);
+		break;
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		mech_auth_internal_failure(auth_request);
+		break;
+	default:
+		mech_auth_fail(auth_request);
+		break;
 	}
-
-	mech_auth_finish(auth_request, NULL, 0, ret);
 }
 
 static void
@@ -72,7 +87,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 			i_info("apop(%s): no initial respone",
 			       get_log_prefix(auth_request));
 		}
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
+		mech_auth_fail(auth_request);
 		return;
 	}
 
@@ -92,7 +107,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 			i_info("apop(%s): invalid challenge",
 			       get_log_prefix(auth_request));
 		}
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
+		mech_auth_fail(auth_request);
 		return;
 	}
 	request->challenge = p_strdup(request->pool, (const char *)data);
@@ -109,7 +124,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 			i_info("apop(%s): malformed data",
 			       get_log_prefix(auth_request));
 		}
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
+		mech_auth_fail(auth_request);
 		return;
 	}
 	tmp++;
@@ -120,7 +135,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 			i_info("apop(%s): %s",
 			       get_log_prefix(auth_request), error);
 		}
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
+		mech_auth_fail(auth_request);
 		return;
 	}
 

@@ -54,12 +54,14 @@ static void handle_request(struct ldap_connection *conn,
 	struct passdb_ldap_request *ldap_request =
 		(struct passdb_ldap_request *) request;
         struct auth_request *auth_request = request->context;
+	enum passdb_result result;
 	LDAPMessage *entry;
 	BerElement *ber;
 	char *attr, **vals;
 	const char *user, *password, *scheme;
 	int ret;
 
+	result = PASSDB_RESULT_USER_UNKNOWN;
 	user = auth_request->user;
 	password = NULL;
 
@@ -69,6 +71,8 @@ static void handle_request(struct ldap_connection *conn,
 			i_error("ldap(%s): ldap_search() failed: %s",
 				get_log_prefix(auth_request),
 				ldap_err2string(ret));
+
+                        result = PASSDB_RESULT_INTERNAL_FAILURE;
 			res = NULL;
 		}
 	}
@@ -105,7 +109,7 @@ static void handle_request(struct ldap_connection *conn,
 		}
 	}
 
-	/* LDAP result is free'd now. we can check if auth_request is
+	/* LDAP result is freed now. we can check if auth_request is
 	   even needed anymore */
 	if (!auth_request_unref(auth_request))
 		return;
@@ -117,7 +121,7 @@ static void handle_request(struct ldap_connection *conn,
 	}
 
 	if (ldap_request->credentials != -1) {
-		passdb_handle_credentials(ldap_request->credentials,
+		passdb_handle_credentials(result, ldap_request->credentials,
 			password, scheme,
 			ldap_request->callback.lookup_credentials,
 			auth_request);
@@ -126,8 +130,7 @@ static void handle_request(struct ldap_connection *conn,
 
 	/* verify plain */
 	if (password == NULL) {
-		ldap_request->callback.verify_plain(PASSDB_RESULT_USER_UNKNOWN,
-						    auth_request);
+		ldap_request->callback.verify_plain(result, auth_request);
 		return;
 	}
 
@@ -219,7 +222,9 @@ static void ldap_lookup_credentials(struct auth_request *request,
 			scheme = passdb_ldap_conn->conn->set.
 				default_pass_scheme;
 		}
-		passdb_handle_credentials(credentials, result, scheme,
+		passdb_handle_credentials(result != NULL ? PASSDB_RESULT_OK :
+					  PASSDB_RESULT_USER_UNKNOWN,
+					  credentials, result, scheme,
 					  callback, request);
 		return;
 	}

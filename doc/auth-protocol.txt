@@ -111,9 +111,10 @@ AUTH parameters are:
 
 FAIL parameters may contain "reason=.." parameter which should be sent to
 remote user instead of a standard "Authentication failed" message. For
-example "invalid base64 data" or "temporary internal failure". It should
-NOT be used to give exact reason for authentication failure (ie. "user not
-found" vs. "password mismatch").
+example "invalid base64 data". It should NOT be used to give exact reason
+for authentication failure (ie. "user not found" vs. "password mismatch").
+Sending "temp" parameter indicates that the error was a temporary internal
+failure, eg. connection was lost to SQL database.
 
 CONT command means that the authentication continues, and more data is
 expected from client to finish the authentication. Given base64 data should
