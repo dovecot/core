@@ -9,7 +9,9 @@ int mkdir_parents(const char *path, mode_t mode)
 {
 	const char *p;
 
-	if (mkdir(path, mode) < 0 && errno != EEXIST) {
+	/* EISDIR check is for BSD/OS which returns it if path contains '/'
+	   at the end and it exists. */
+	if (mkdir(path, mode) < 0 && errno != EEXIST && errno != EISDIR) {
 		if (errno != ENOENT)
 			return -1;
 
