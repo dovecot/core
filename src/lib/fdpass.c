@@ -32,9 +32,9 @@
 */
 
 #define _XPG4_2
-#define _XOPEN_SOURCE /* for IRIX */
 
 #ifndef _AIX
+#  define _XOPEN_SOURCE /* for IRIX, breaks AIX */
 #  define _XOPEN_SOURCE_EXTENDED /* for Tru64, breaks AIX */
 #endif
 
