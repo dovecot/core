@@ -126,6 +126,7 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 	/* set socket options */
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
+	net_set_nonblock(fd, TRUE);
 
 	/* set our own address */
 	if (my_ip != NULL) {
