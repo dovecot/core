@@ -104,15 +104,21 @@ static const char *expand_mail_env(const char *env, const char *user,
 }
 
 static void env_put_namespace(struct namespace_settings *ns,
+			      const char *default_location,
 			      const char *user, const char *home)
 {
 	const char *location;
 	unsigned int i;
 
+	if (default_location == NULL)
+		default_location = "";
+
 	for (i = 1; ns != NULL; i++, ns = ns->next) {
 		t_push();
 
-		location = expand_mail_env(ns->location, user, home);
+		location = ns->location != NULL ? ns->location :
+			default_location;
+		location = expand_mail_env(location, user, home);
 		env_put(t_strdup_printf("NAMESPACE_%u=%s", i, location));
 
 		if (ns->separator != NULL) {
@@ -280,8 +286,10 @@ int create_mail_process(struct login_group *group, int socket,
 	if (*mail == '\0' && set->default_mail_env != NULL)
 		mail = expand_mail_env(set->default_mail_env, user, home_dir);
 
-	if (set->server->namespaces != NULL)
-		env_put_namespace(set->server->namespaces, user, home_dir);
+	if (set->server->namespaces != NULL) {
+		env_put_namespace(set->server->namespaces,
+				  set->default_mail_env, user, home_dir);
+	}
 
 	env_put(t_strconcat("MAIL=", mail, NULL));
 	env_put(t_strconcat("USER=", data + reply->virtual_user_idx, NULL));

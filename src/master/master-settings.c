@@ -328,10 +328,6 @@ static int namespace_settings_verify(struct namespace_settings *ns)
 	const char *name;
 
 	name = ns->prefix != NULL ? ns->prefix : "";
-	if (ns->location == NULL) {
-		i_error("Namespace '%s': Missing location", name);
-		return FALSE;
-	}
 
 	if (ns->separator != NULL &&
 	    ns->separator[0] != '\0' && ns->separator[1] != '\0') {
