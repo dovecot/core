@@ -22,6 +22,8 @@
 #define LOG_DOTLOCK_STALE_TIMEOUT 0
 #define LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT 300
 
+#define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
+
 struct mail_transaction_add_ctx {
 	struct mail_transaction_log *log;
 	struct mail_index_view *view;
@@ -342,27 +344,15 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 }
 
 static int
-mail_transaction_log_file_create(struct mail_transaction_log *log,
-				 const char *path, dev_t dev, ino_t ino)
+mail_transaction_log_file_create2(struct mail_transaction_log *log,
+				  const char *path, int fd,
+				  dev_t dev, ino_t ino)
 {
-#define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
 	struct mail_index *index = log->index;
 	struct mail_transaction_log_header hdr;
 	struct stat st;
 	unsigned int lock_id;
-	int fd, fd2, ret;
-
-	/* With dotlocking we might already have path.lock created, so this
-	   filename has to be different. */
-	fd = file_dotlock_open(path, NULL, LOG_NEW_DOTLOCK_SUFFIX,
-			       LOG_DOTLOCK_TIMEOUT,
-			       LOG_DOTLOCK_STALE_TIMEOUT,
-			       LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT, NULL, NULL);
-	if (fd == -1) {
-		mail_index_file_set_syscall_error(index, path,
-						  "file_dotlock_open()");
-		return -1;
-	}
+	int fd2, ret;
 
 	/* log creation is locked now - see if someone already created it */
 	fd2 = open(path, O_RDWR);
@@ -411,14 +401,12 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
 		mail_index_file_set_syscall_error(index, path,
 						  "write_full()");
-                (void)file_dotlock_delete(path, LOG_NEW_DOTLOCK_SUFFIX, fd);
 		return -1;
 	}
 
 	fd2 = dup(fd);
 	if (fd2 < 0) {
 		mail_index_file_set_syscall_error(index, path, "dup()");
-                (void)file_dotlock_delete(path, LOG_NEW_DOTLOCK_SUFFIX, fd);
 		return -1;
 	}
 
@@ -426,6 +414,32 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 		return -1;
 
 	/* success */
+	return fd2;
+}
+
+static int
+mail_transaction_log_file_create(struct mail_transaction_log *log,
+				 const char *path, dev_t dev, ino_t ino)
+{
+	int fd, fd2;
+
+	/* With dotlocking we might already have path.lock created, so this
+	   filename has to be different. */
+	fd = file_dotlock_open(path, NULL, LOG_NEW_DOTLOCK_SUFFIX,
+			       LOG_DOTLOCK_TIMEOUT,
+			       LOG_DOTLOCK_STALE_TIMEOUT,
+			       LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT, NULL, NULL);
+	if (fd == -1) {
+		mail_index_file_set_syscall_error(log->index, path,
+						  "file_dotlock_open()");
+		return -1;
+	}
+
+	fd2 = mail_transaction_log_file_create2(log, path, fd, dev, ino);
+	if (fd2 < 0) {
+		(void)file_dotlock_delete(path, LOG_NEW_DOTLOCK_SUFFIX, fd);
+		return -1;
+	}
 	return fd2;
 }
 
@@ -440,6 +454,7 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 
 	if (fstat(fd, &st) < 0) {
 		mail_index_file_set_syscall_error(log->index, path, "fstat()");
+		(void)close(fd);
 		return NULL;
 	}
 
