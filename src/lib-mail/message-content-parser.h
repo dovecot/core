@@ -1,20 +1,16 @@
 #ifndef __MESSAGE_CONTENT_PARSER_H
 #define __MESSAGE_CONTENT_PARSER_H
 
-/* functions can safely store data into data stack,
-   ie. message_content_parse_header() is guaranteed not to call
-   t_push()/t_pop() */
-
-/* Note that count can be 0 */
-typedef void (*ParseContentFunc)(const Rfc822Token *tokens, int count,
+/* NOTE: name and value aren't \0-terminated. */
+typedef void (*ParseContentFunc)(const char *value, size_t value_len,
 				 void *context);
-/* name is always atom, value_count is always > 0 */
-typedef void (*ParseContentParamFunc)(const Rfc822Token *name,
-				      const Rfc822Token *value,
-				      int value_count, void *context);
+typedef void (*ParseContentParamFunc)(const char *name, size_t name_len,
+				      const char *value, size_t value_len,
+				      int value_quoted, void *context);
 
-int message_content_parse_header(const char *value, ParseContentFunc func,
-				 ParseContentParamFunc param_func,
-				 void *context);
+void message_content_parse_header(const char *data, size_t size,
+				  ParseContentFunc func,
+				  ParseContentParamFunc param_func,
+				  void *context);
 
 #endif

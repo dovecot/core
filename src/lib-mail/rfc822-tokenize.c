@@ -1,64 +1,207 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "str.h"
+#include "strescape.h"
 #include "rfc822-tokenize.h"
 
-#define INITIAL_COUNT 4
+struct _Rfc822TokenizeContext {
+	const char *data;
+	size_t size;
+
+	Rfc822TokenizeErrorFunc error_func;
+	void *error_context;
+
+	int token;
+	size_t token_pos, token_len;
+	size_t parse_pos;
+
+	unsigned int skip_comments:1;
+	unsigned int dot_token:1;
+
+	unsigned int in_bracket:1;
+};
 
 #define PARSE_ERROR() \
 	STMT_START { \
-	if (error_func != NULL && \
-	    !error_func(str, (size_t) (p-str), '\0', context)) \
-		return NULL; \
+	if (ctx->error_func != NULL && \
+	    !ctx->error_func(data, i, '\0', ctx->error_context)) \
+		return FALSE; \
 	} STMT_END
 
 #define PARSE_ERROR_MISSING(c) \
 	STMT_START { \
-	if (error_func != NULL && \
-	    !error_func(str, (size_t) (p-str), c, context)) \
-		return NULL; \
+	if (ctx->error_func != NULL && \
+	    !ctx->error_func(data, i, c, ctx->error_context)) \
+		return FALSE; \
 	} STMT_END
 
-static Rfc822Token *alloc_token(Rfc822Token **tokens, int *pos, int type)
+
+Rfc822TokenizeContext *
+rfc822_tokenize_init(const char *data, size_t size,
+		     Rfc822TokenizeErrorFunc error_func, void *error_context)
 {
-	Rfc822Token *token;
+	Rfc822TokenizeContext *ctx;
 
-	/* @UNSAFE */
-	if (*pos+1 >= INITIAL_COUNT)
-		*tokens = t_buffer_reget_type(*tokens, Rfc822Token, *pos + 2);
+	ctx = i_new(Rfc822TokenizeContext, 1);
+	ctx->data = data;
+	ctx->size = size;
 
-	token = (*tokens) + *pos;
-	(*pos)++;
+	ctx->error_func = error_func;
+	ctx->error_context = error_context;
 
-	token->token = type;
-	token->ptr = NULL;
-	token->len = 0;
-	return token;
+	ctx->skip_comments = TRUE;
+	ctx->dot_token = TRUE;
+
+	ctx->token = -1;
+	return ctx;
 }
 
-const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
-				   Rfc822TokenizeErrorFunc error_func,
-				   void *context)
+void rfc822_tokenize_deinit(Rfc822TokenizeContext *ctx)
 {
-	Rfc822Token *first_token, *token;
-	const char *p, *last_atom;
-	int level, in_bracket, pos;
+	i_free(ctx);
+}
 
-	first_token = t_buffer_get_type(Rfc822Token, INITIAL_COUNT);
-	pos = 0;
+void rfc822_tokenize_skip_comments(Rfc822TokenizeContext *ctx, int set)
+{
+	ctx->skip_comments = set;
+}
 
-	token = NULL;
-	last_atom = NULL;
+void rfc822_tokenize_dot_token(Rfc822TokenizeContext *ctx, int set)
+{
+	ctx->dot_token = set;
+}
 
-	in_bracket = FALSE;
-	for (p = str; *p != '\0'; p++) {
-		switch (*p) {
+int rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
+{
+	int token, level, last_atom;
+	const char *data;
+	size_t i, size;
+
+	if (ctx->token == TOKEN_LAST)
+		return FALSE;
+
+	data = ctx->data;
+	size = ctx->size;
+
+	ctx->token = TOKEN_LAST;
+
+	last_atom = FALSE;
+	for (i = ctx->parse_pos; i < size && data[i] != '\0'; i++) {
+		token = -1;
+		switch (data[i]) {
 		case ' ':
 		case '\t':
 		case '\r':
 		case '\n':
 			/* skip whitespace */
 			break;
+
+		case '(':
+			/* (comment) - nesting is allowed */
+			if (last_atom)
+				break;
+
+			token = '(';
+			ctx->token_pos = ++i;
+
+			level = 1;
+			for (; i < size && data[i] != '\0'; i++) {
+				if (data[i] == '\\' &&
+				    i+1 < size && data[i+1] != '\0')
+					i++;
+				else if (data[i] == '(')
+					level++;
+				else if (data[i] == ')') {
+					if (--level == 0)
+						break;
+				}
+			}
+
+			if (level > 0)
+				PARSE_ERROR_MISSING(')');
+
+			ctx->token_len = (size_t) (i - ctx->token_pos);
+			break;
+
+		case '[':
+			/* domain literal - nesting isn't allowed */
+			if (last_atom)
+				break;
+
+			token = '[';
+			ctx->token_pos = ++i;
+
+			while (i < size && data[i] != '\0' && data[i] != ']') {
+				if (data[i] == '\\' &&
+				    i+1 < size && data[i+1] != '\0')
+					i++;
+				else if (data[i] == '[') {
+					/* nesting not allowed, but
+					   continue anyway */
+					PARSE_ERROR();
+				}
+
+				i++;
+			}
+
+			if (i == size || data[i] == '\0')
+				PARSE_ERROR_MISSING(']');
+
+			ctx->token_len = (size_t) (i - ctx->token_pos);
+			break;
+
+		case '"':
+			/* quoted string */
+			if (last_atom)
+				break;
+
+			token = '"';
+			ctx->token_pos = ++i;
+
+			while (i < size && data[i] != '\0' && data[i] != '"') {
+				if (data[i] == '\\' &&
+				    i+1 < size && data[i+1] != '\0')
+					i++;
+				i++;
+			}
+
+			if (i == size || data[i] == '\0')
+				PARSE_ERROR_MISSING('"');
+
+			ctx->token_len = (size_t) (i - ctx->token_pos);
+			break;
+
+		case '<':
+			if (last_atom)
+				break;
+
+			if (ctx->in_bracket) {
+				/* '<' cannot be nested */
+				PARSE_ERROR();
+			}
+
+			token = '<';
+			ctx->in_bracket = TRUE;
+			break;
+		case '>':
+			if (last_atom)
+				break;
+
+			if (!ctx->in_bracket) {
+				/* missing '<' */
+                                PARSE_ERROR();
+			}
+
+			token = '>';
+			ctx->in_bracket = FALSE;
+			break;
+
+		case ')':
+		case ']':
+		case '\\':
+			PARSE_ERROR();
+			/* fall through */
 
 		/* RFC822 specials: */
 		case '@':
@@ -70,240 +213,134 @@ const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 		case '/':
 		case '?':
 		case '=':
-			token = alloc_token(&first_token, &pos, *p);
-			break;
-
-		case '(':
-			/* (comment) - nesting is allowed */
-			token = alloc_token(&first_token, &pos, '(');
-			token->ptr = ++p;
-
-			level = 1;
-			for (; *p != '\0'; p++) {
-				if (*p == '\\' && p[1] != '\0')
-					p++;
-				else if (*p == '(')
-					level++;
-				else if (*p == ')') {
-					if (--level == 0)
-						break;
-				}
-			}
-
-			if (level > 0)
-				PARSE_ERROR_MISSING(')');
-
-			token->len = (size_t) (p - token->ptr);
-			break;
-
-		case '[':
-			/* domain literal - nesting isn't allowed */
-			token = alloc_token(&first_token, &pos, '[');
-			token->ptr = ++p;
-
-			for (; *p != '\0' && *p != ']'; p++) {
-				if (*p == '\\' && p[1] != '\0')
-					p++;
-				else if (*p == '[') {
-					/* nesting not allowed, but
-					   continue anyway */
-					PARSE_ERROR();
-				}
-			}
-			token->len = (size_t) (p - token->ptr);
-
-			if (*p == '\0')
-				PARSE_ERROR_MISSING(']');
-			break;
-
-		case '"':
-			/* quoted string */
-			token = alloc_token(&first_token, &pos, '"');
-			token->ptr = ++p;
-
-			for (; *p != '\0' && *p != '"'; p++) {
-				if (*p == '\\' && p[1] != '\0')
-					p++;
-			}
-			token->len = (size_t) (p - token->ptr);
-
-			if (*p == '\0')
-				PARSE_ERROR_MISSING('"');
-			break;
-
-		case '<':
-			if (in_bracket) {
-				/* '<' cannot be nested */
-				PARSE_ERROR();
+			token = ctx->data[i];
+			if (token != '.' || ctx->dot_token)
 				break;
-			}
-
-			token = alloc_token(&first_token, &pos, '<');
-			in_bracket = TRUE;
-			break;
-		case '>':
-			if (!in_bracket) {
-				/* missing '<' */
-                                PARSE_ERROR();
-				break;
-			}
-
-			token = alloc_token(&first_token, &pos, '>');
-			in_bracket = FALSE;
-			break;
-
-		case ')':
-		case ']':
-		case '\\':
-                        PARSE_ERROR();
-			break;
+			/* fall through */
 		default:
 			/* atom */
-			if (last_atom != p-1) {
-				token = alloc_token(&first_token, &pos, 'A');
-				token->ptr = p;
+			token = 'A';
+			if (!last_atom) {
+				ctx->token = token;
+				ctx->token_pos = i;
+				last_atom = TRUE;
 			}
-
-			token->len++;
-			last_atom = p;
 			break;
 		}
 
-		if (*p == '\0')
-			break;
-	}
-
-	if (in_bracket && error_func != NULL) {
-		if (!error_func(str, (size_t) (p-str), '>', context))
-			return NULL;
-	}
-
-	if (tokens_count != NULL)
-		*tokens_count = pos;
-
-	/* @UNSAFE */
-	first_token[pos++].token = 0;
-	t_buffer_alloc(sizeof(Rfc822Token) * pos);
-	return first_token;
-}
-
-const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count)
-{
-	/* @UNSAFE */
-	char *buf;
-	size_t i, len, buf_size;
-	int last_atom;
-
-	if (count <= 0)
-		return "";
-
-	buf_size = 256;
-	buf = t_buffer_get(buf_size);
-
-	len = 0; last_atom = FALSE;
-	for (; count > 0; count--, tokens++) {
-		if (tokens->token == '(')
-			continue; /* skip comments */
-
-		/* +4 == ' ' '[' ']' '\0' */
-		if (len + tokens->len+4 >= buf_size) {
-			buf_size = nearest_power(buf_size + tokens->len + 3);
-			buf = t_buffer_reget(buf, buf_size);
-		}
-
-		switch (tokens->token) {
-		case '"':
-		case '[':
-			if (tokens->token == '[')
-				buf[len++] = '[';
-
-			/* copy the string removing '\' chars */
-			for (i = 0; i < tokens->len; i++) {
-				if (tokens->ptr[i] == '\\' && i+1 < tokens->len)
+		if (last_atom) {
+			if (token != 'A') {
+				/* end of atom */
+				ctx->token_len = (size_t) (i - ctx->token_pos);
+				last_atom = FALSE;
+				break;
+			}
+		} else {
+			if (token != -1) {
+				ctx->token = token;
+				if (i < ctx->size && data[i] != '\0')
 					i++;
-
-				buf[len++] = tokens->ptr[i];
+				break;
 			}
-
-			if (tokens->token == '[')
-				buf[len++] = ']';
-			break;
-		case 'A':
-			if (last_atom)
-				buf[len++] = ' ';
-
-			memcpy(buf+len, tokens->ptr, tokens->len);
-			len += tokens->len;
-			break;
-		default:
-			i_assert(tokens->token != 0);
-			buf[len++] = (char) tokens->token;
-			break;
 		}
 
-		last_atom = tokens->token == 'A';
+		if (i == ctx->size || data[i] == '\0') {
+			/* unexpected eol */
+			break;
+		}
 	}
 
-	buf[len++] = '\0';
-        t_buffer_alloc(len);
-	return buf;
+	if (last_atom) {
+		/* end of atom */
+		ctx->token_len = (size_t) (i - ctx->token_pos);
+	}
+
+	ctx->parse_pos = i;
+
+	if (ctx->token == TOKEN_LAST && ctx->in_bracket &&
+	    ctx->error_func != NULL) {
+		if (!ctx->error_func(data, i, '>', ctx->error_context))
+			return FALSE;
+	}
+
+	return TRUE;
 }
 
-const char *rfc822_tokens_get_value_quoted(const Rfc822Token *tokens,
-					   int count)
+Rfc822Token rfc822_tokenize_get(const Rfc822TokenizeContext *ctx)
 {
-	/* @UNSAFE */
-	char *buf;
-	size_t len, buf_size;
-	int last_atom;
+	return ctx->token;
+}
 
-	if (count <= 0)
-		return "\"\"";
+const char *rfc822_tokenize_get_value(const Rfc822TokenizeContext *ctx,
+				      size_t *len)
+{
+	i_assert(IS_TOKEN_STRING(ctx->token));
 
-	buf_size = 256;
-	buf = t_buffer_get(buf_size);
-	buf[0] = '"'; len = 1; last_atom = FALSE;
+	*len = ctx->token_len;
+	return ctx->data + ctx->token_pos;
+}
 
-	for (; count > 0; count--, tokens++) {
-		if (tokens->token == '(')
-			continue; /* skip comments */
+int rfc822_tokenize_get_string(Rfc822TokenizeContext *ctx,
+			       String *str, String *comments,
+			       const Rfc822Token *stop_tokens)
+{
+	Rfc822Token token;
+	const char *value;
+	size_t len;
+	int i, token_str, last_str;
 
-		/* +5 == ' ' '[' ']' '"' '\0' */
-		if (len + tokens->len+5 >= buf_size) {
-			buf_size = nearest_power(buf_size + tokens->len + 3);
-			buf = t_buffer_reget(buf, buf_size);
+	last_str = FALSE;
+	while (rfc822_tokenize_next(ctx)) {
+		token = rfc822_tokenize_get(ctx);
+		if (token == TOKEN_LAST)
+			return TRUE;
+
+		for (i = 0; stop_tokens[i] != TOKEN_LAST; i++)
+			if (token == stop_tokens[i])
+				return TRUE;
+
+		if (token == TOKEN_COMMENT) {
+			/* handle comment specially */
+			if (comments != NULL) {
+				if (str_len(comments) > 0)
+					str_append_c(comments, ' ');
+
+				value = rfc822_tokenize_get_value(ctx, &len);
+				str_append_unescaped(comments, value, len);
+			}
+			continue;
 		}
 
-		switch (tokens->token) {
-		case '"':
-		case '[':
-			if (tokens->token == '[')
-				buf[len++] = '[';
+		token_str = token == TOKEN_ATOM || token == TOKEN_QSTRING ||
+			token == TOKEN_DLITERAL || token == TOKEN_COMMENT;
 
-			memcpy(buf+len, tokens->ptr, tokens->len);
-			len += tokens->len;
+		if (!token_str)
+			str_append_c(str, token);
+		else if (token == TOKEN_QSTRING) {
+			/* unescape only quoted strings, since we're removing
+			   the quotes. for domain literals I don't see much
+			   point in unescaping if [] is still kept.. */
+			if (last_str)
+				str_append_c(str, ' ');
 
-			if (tokens->token == '[')
-				buf[len++] = ']';
-			break;
-		case 'A':
-			if (last_atom)
-				buf[len++] = ' ';
+			value = rfc822_tokenize_get_value(ctx, &len);
+			str_append_unescaped(str, value, len);
+		} else {
+			if (last_str)
+				str_append_c(str, ' ');
 
-			memcpy(buf+len, tokens->ptr, tokens->len);
-			len += tokens->len;
-			break;
-		default:
-			i_assert(tokens->token != 0);
-			buf[len++] = (char) tokens->token;
-			break;
+			if (token == TOKEN_DLITERAL)
+				str_append_c(str, '[');
+
+			value = rfc822_tokenize_get_value(ctx, &len);
+			str_append_n(str, value, len);
+
+			if (token == TOKEN_DLITERAL)
+				str_append_c(str, ']');
 		}
 
-		last_atom = tokens->token == 'A';
+		last_str = token_str;
 	}
 
-	buf[len++] = '"';
-	buf[len++] = '\0';
-        t_buffer_alloc(len);
-	return buf;
+	return FALSE;
 }

@@ -1,38 +1,29 @@
 #ifndef __RFC822_TOKENIZE_H
 #define __RFC822_TOKENIZE_H
 
-typedef struct _Rfc822Token Rfc822Token;
-
 #define IS_TOKEN_STRING(token) \
-	((token) == 'A' || (token) == '"' || (token) == '(' || (token) == '[')
+	((token) == TOKEN_ATOM || (token) == TOKEN_QSTRING || \
+	 (token) == TOKEN_COMMENT || (token) == TOKEN_DLITERAL)
 
-#define IS_LWSP(c) \
-	((c) == ' ' || (c) == '\t')
+typedef enum {
+	TOKEN_ATOM	= 'A',
+	TOKEN_QSTRING	= '"',
+	TOKEN_COMMENT	= '(',
+	TOKEN_DLITERAL	= '[',
 
-struct _Rfc822Token {
-	/*
-	   0   = last token
-	   'A' = atom
-	   '"' = quoted string
-	   '(' = comment
-	   '[' = domain literal
+	/* RFC822 specials:
 
-	   RFC822 specials:
-
-	   '<', '>', '@', ',', ';', ':', '\', '.'
+	   '<', '>', '@', ',', ';', ':', '\'
+	   '.' (optional)
 
 	   RFC2045 tspecials:
 
-	   '/', '?', '='
-	*/
-	int token;
+	   '/', '?', '=' */
 
-        /* - not including enclosing "", () or []
-	   - '\' isn't expanded
-	   - [CR+]LF+LWSP (continued header) isn't removed */
-	const char *ptr;
-	size_t len;
-};
+	TOKEN_LAST	= 0
+} Rfc822Token;
+
+typedef struct _Rfc822TokenizeContext Rfc822TokenizeContext;
 
 /* Parsing is aborted if returns FALSE. There's two kinds of errors:
 
@@ -44,15 +35,36 @@ typedef int (*Rfc822TokenizeErrorFunc)(const char *str, size_t pos,
 /* Tokenize the string. Returns NULL if string is empty. Memory for
    returned array is allocated from data stack. You don't have to use
    the tokens_count, since last token is always 0. */
-const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
-				   Rfc822TokenizeErrorFunc error_func,
-				   void *context);
+Rfc822TokenizeContext *
+rfc822_tokenize_init(const char *data, size_t size,
+		     Rfc822TokenizeErrorFunc error_func, void *error_context);
+void rfc822_tokenize_deinit(Rfc822TokenizeContext *ctx);
 
-/* Returns the tokens as a string. Tokens are merged together, except
-   spaces are added between atoms. */
-const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count);
-/* Returns the tokens as a "string". */
-const char *rfc822_tokens_get_value_quoted(const Rfc822Token *tokens,
-					   int count);
+/* Specify whether comments should be silently skipped (default yes). */
+void rfc822_tokenize_skip_comments(Rfc822TokenizeContext *ctx, int set);
+/* Specify whether '.' should be treated as a separate token (default yes). */
+void rfc822_tokenize_dot_token(Rfc822TokenizeContext *ctx, int set);
+
+/* Parse the next token. Returns FALSE if parsing error occured and error
+   function wanted to abort. It's not required to check the return value,
+   rfc822_tokenize_get() will return TOKEN_LAST after errors. Returns FALSE
+   also when last token was already read. */
+int rfc822_tokenize_next(Rfc822TokenizeContext *ctx);
+
+/* Return the next token. */
+Rfc822Token rfc822_tokenize_get(const Rfc822TokenizeContext *ctx);
+
+/* - not including enclosing "", () or []
+   - '\' isn't expanded
+   - [CR+]LF+LWSP (continued header) isn't removed */
+const char *rfc822_tokenize_get_value(const Rfc822TokenizeContext *ctx,
+				      size_t *len);
+
+/* Return tokens as a string, all quoted strings will be unquoted.
+   Reads until stop_token is found. Returns FALSE if rfc822_tokenize_next()
+   failed. */
+int rfc822_tokenize_get_string(Rfc822TokenizeContext *ctx,
+			       String *str, String *comments,
+			       const Rfc822Token *stop_tokens);
 
 #endif

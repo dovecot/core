@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "istream.h"
 #include "ostream.h"
+#include "strescape.h"
 #include "imap-parser.h"
 
 #define is_linebreak(c) \
@@ -215,8 +216,8 @@ static void imap_parser_save_arg(ImapParser *parser, const char *data,
 		if (parser->str_first_escape >= 0 &&
 		    (parser->flags & IMAP_PARSE_FLAG_NO_UNESCAPE) == 0) {
 			/* -1 because we skipped the '"' prefix */
-			str_remove_escapes(arg->_data.str +
-					   parser->str_first_escape-1);
+			str_unescape(arg->_data.str +
+				     parser->str_first_escape-1);
 		}
 		break;
 	case ARG_PARSE_LITERAL_DATA:

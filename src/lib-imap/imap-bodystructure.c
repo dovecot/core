@@ -33,92 +33,95 @@ typedef struct {
 static void part_write_bodystructure(MessagePart *part, String *str,
 				     int extended);
 
-static void parse_content_type(const Rfc822Token *tokens,
-			       int count, void *context)
+static void parse_content_type(const char *value, size_t value_len,
+			       void *context)
 {
         MessagePartBodyData *data = context;
-	const char *value;
-	int i;
+	size_t i;
 
-	/* find the content type separator */
-	for (i = 0; i < count; i++) {
-		if (tokens[i].token == '/')
+	for (i = 0; i < value_len; i++) {
+		if (value[i] == '/')
 			break;
 	}
 
-	value = rfc822_tokens_get_value_quoted(tokens, i);
-	data->content_type = p_strdup(data->pool, value);
+	if (i == value_len) {
+		data->content_type =
+                        imap_quote_value(data->pool, value, value_len);
+	} else {
+		data->content_type =
+                        imap_quote_value(data->pool, value, i);
 
-	value = rfc822_tokens_get_value_quoted(tokens+i+1, count-i-1);
-	data->content_subtype = p_strdup(data->pool, value);
+		i++;
+		data->content_subtype =
+                        imap_quote_value(data->pool, value+i, value_len-i);
+	}
 }
 
-static void parse_save_params_list(const Rfc822Token *name,
-				   const Rfc822Token *value, int value_count,
+static void parse_save_params_list(const char *name, size_t name_len,
+				   const char *value, size_t value_len,
+				   int value_quoted __attr_unused__,
 				   void *context)
 {
         MessagePartBodyData *data = context;
-	const char *str;
 
 	if (str_len(data->str) != 0)
 		str_append_c(data->str, ' ');
 
 	str_append_c(data->str, '"');
-	str_append_n(data->str, name->ptr, name->len);
+	str_append_n(data->str, name, name_len);
 	str_append(data->str, "\" ");
 
-        str = rfc822_tokens_get_value_quoted(value, value_count);
-	str_append(data->str, str);
+	str_append_c(data->str, '"');
+	str_append_n(data->str, value, value_len);
+	str_append_c(data->str, '"');
 }
 
-static void parse_content_transfer_encoding(const Rfc822Token *tokens,
-					    int count, void *context)
+static void parse_content_transfer_encoding(const char *value, size_t value_len,
+					    void *context)
 {
         MessagePartBodyData *data = context;
-	const char *value;
 
-	value = rfc822_tokens_get_value_quoted(tokens, count);
-	data->content_transfer_encoding = p_strdup(data->pool, value);
+	data->content_transfer_encoding =
+		imap_quote_value(data->pool, value, value_len);
 }
 
-static void parse_content_disposition(const Rfc822Token *tokens,
-				      int count, void *context)
+static void parse_content_disposition(const char *value, size_t value_len,
+				      void *context)
 {
         MessagePartBodyData *data = context;
-	const char *value;
 
-	value = rfc822_tokens_get_value_quoted(tokens, count);
-	data->content_disposition = p_strdup(data->pool, value);
+	data->content_disposition =
+		imap_quote_value(data->pool, value, value_len);
 }
 
-static void parse_content_language(const Rfc822Token *tokens,
-				   int count, void *context)
+static void parse_content_language(const char *value, size_t value_len,
+				   MessagePartBodyData *data)
 {
-        MessagePartBodyData *data = context;
+	Rfc822TokenizeContext *ctx;
+        Rfc822Token token;
 	String *str;
 	int quoted;
 
 	/* Content-Language: en-US, az-arabic (comments allowed) */
 
-	if (count <= 0)
-		return;
+	ctx = rfc822_tokenize_init(value, value_len, NULL, NULL);
 
+	t_push();
 	str = t_str_new(256);
 
 	quoted = FALSE;
-	for (; count > 0; count--, tokens++) {
-		switch (tokens->token) {
-		case '(':
-			/* ignore comment */
+	while (rfc822_tokenize_next(ctx)) {
+		token = rfc822_tokenize_get(ctx);
+		if (token == TOKEN_LAST)
 			break;
-		case ',':
+
+		if (token == ',') {
 			/* list separator */
 			if (quoted) {
 				str_append_c(str, '"');
 				quoted = FALSE;
 			}
-			break;
-		default:
+		} else {
 			/* anything else goes as-is. only alphabetic characters
 			   and '-' is allowed, so anything else is error
 			   which we can deal with however we want. */
@@ -129,11 +132,13 @@ static void parse_content_language(const Rfc822Token *tokens,
 				quoted = TRUE;
 			}
 
-			if (IS_TOKEN_STRING(tokens->token))
-				str_append_n(str, tokens->ptr, tokens->len);
-			else
-				str_append_c(str, tokens->token);
-			break;
+			if (!IS_TOKEN_STRING(token))
+				str_append_c(str, token);
+			else {
+				value = rfc822_tokenize_get_value(ctx,
+								  &value_len);
+				str_append_n(str, value, value_len);
+			}
 		}
 	}
 
@@ -141,6 +146,10 @@ static void parse_content_language(const Rfc822Token *tokens,
 		str_append_c(str, '"');
 
 	data->content_language = p_strdup(data->pool, str_c(str));
+
+	t_pop();
+
+	rfc822_tokenize_deinit(ctx);
 }
 
 static void parse_header(MessagePart *part,
@@ -174,17 +183,16 @@ static void parse_header(MessagePart *part,
 	if (strcasecmp(name, "Content-Type") == 0 &&
 	    part_data->content_type == NULL) {
 		part_data->str = t_str_new(256);
-		(void)message_content_parse_header(t_strndup(value, value_len),
-						   parse_content_type,
-						   parse_save_params_list,
-						   part_data);
+		message_content_parse_header(value, value_len,
+					     parse_content_type,
+					     parse_save_params_list, part_data);
 		part_data->content_type_params =
 			p_strdup_empty(pool, str_c(part_data->str));
 	} else if (strcasecmp(name, "Content-Transfer-Encoding") == 0 &&
 		   part_data->content_transfer_encoding == NULL) {
-		(void)message_content_parse_header(t_strndup(value, value_len),
-						parse_content_transfer_encoding,
-						NULL, part_data);
+		message_content_parse_header(value, value_len,
+					     parse_content_transfer_encoding,
+					     NULL, part_data);
 	} else if (strcasecmp(name, "Content-ID") == 0 &&
 		   part_data->content_id == NULL) {
 		part_data->content_id =
@@ -196,16 +204,13 @@ static void parse_header(MessagePart *part,
 	} else if (strcasecmp(name, "Content-Disposition") == 0 &&
 		   part_data->content_disposition_params == NULL) {
 		part_data->str = t_str_new(256);
-		(void)message_content_parse_header(t_strndup(value, value_len),
-						   parse_content_disposition,
-						   parse_save_params_list,
-						   part_data);
+		message_content_parse_header(value, value_len,
+					     parse_content_disposition,
+					     parse_save_params_list, part_data);
 		part_data->content_disposition_params =
 			p_strdup_empty(pool, str_c(part_data->str));
 	} else if (strcasecmp(name, "Content-Language") == 0) {
-		(void)message_content_parse_header(t_strndup(value, value_len),
-						   parse_content_language, NULL,
-						   part_data);
+		parse_content_language(value, value_len, part_data);
 	} else if (strcasecmp(name, "Content-MD5") == 0 &&
 		   part_data->content_md5 == NULL) {
 		part_data->content_md5 =
@@ -262,7 +267,7 @@ static void part_write_body_multipart(MessagePart *part, String *str,
 	if (data->content_subtype != NULL)
 		str_append(str, data->content_subtype);
 	else
-		str_append(str, "x-unknown");
+		str_append(str, "\"x-unknown\"");
 
 	if (!extended)
 		return;

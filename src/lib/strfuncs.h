@@ -49,7 +49,6 @@ int str_ppath(char *dest, size_t dstsize, const char *dir,
 
 char *str_ucase(char *str);
 char *str_lcase(char *str);
-void str_remove_escapes(char *str);
 
 /* seprators is an array of separator characters, not a separator string. */
 const char **t_strsplit(const char *data, const char *separators);

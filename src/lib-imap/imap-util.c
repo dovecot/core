@@ -47,29 +47,3 @@ const char *imap_write_flags(MailFlags flags, const char *custom_flags[],
 
 	return str_c(str);
 }
-
-const char *imap_escape(const char *str)
-{
-	char *ret, *p;
-	size_t i, esc;
-
-	/* get length of string and number of chars to escape */
-	esc = 0;
-	for (i = 0; str[i] != '\0'; i++) {
-		if (IS_ESCAPED_CHAR(str[i]))
-			esc++;
-	}
-
-	if (esc == 0)
-		return str;
-
-	/* @UNSAFE: escape them */
-	p = ret = t_malloc(i + esc + 1);
-	for (; *str != '\0'; str++) {
-		if (IS_ESCAPED_CHAR(*str))
-			*p++ = '\\';
-		*p++ = *str;
-	}
-	*p = '\0';
-	return ret;
-}

@@ -4,7 +4,6 @@
 #include "str.h"
 #include "istream.h"
 #include "ostream.h"
-#include "rfc822-tokenize.h"
 #include "message-send.h"
 #include "index-storage.h"
 #include "index-fetch.h"

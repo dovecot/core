@@ -4,8 +4,8 @@
 #include "base64.h"
 #include "buffer.h"
 #include "istream.h"
+#include "strescape.h"
 #include "charset-utf8.h"
-#include "rfc822-tokenize.h"
 #include "quoted-printable.h"
 #include "message-parser.h"
 #include "message-content-parser.h"
@@ -45,57 +45,51 @@ typedef struct {
 	unsigned int found:1;
 } PartSearchContext;
 
-static void parse_content_type(const Rfc822Token *tokens, int count,
+static void parse_content_type(const char *value, size_t value_len,
 			       void *context)
 {
 	PartSearchContext *ctx = context;
 
-	if (ctx->content_type != NULL && tokens[0].token == 'A') {
-		ctx->content_type =
-			i_strdup(rfc822_tokens_get_value(tokens, count));
+	if (ctx->content_type != NULL) {
+		ctx->content_type = i_strndup(value, value_len);
 		ctx->content_type_text =
 			strncasecmp(ctx->content_type, "text/", 5) == 0 ||
 			strncasecmp(ctx->content_type, "message/", 8) == 0;
 	}
 }
 
-static void parse_content_type_param(const Rfc822Token *name,
-				     const Rfc822Token *value,
-				     int value_count, void *context)
+static void parse_content_type_param(const char *name, size_t name_len,
+				     const char *value, size_t value_len,
+				     int value_quoted, void *context)
 {
 	PartSearchContext *ctx = context;
 
-	if (name->len != 7 || strncasecmp(name->ptr, "charset", 7) != 0)
-		return;
-
-	if (ctx->content_charset == NULL) {
-		ctx->content_charset =
-			i_strdup(rfc822_tokens_get_value(value, value_count));
+	if (name_len == 7 && strncasecmp(name, "charset", 7) == 0 &&
+	    ctx->content_charset == NULL) {
+		ctx->content_charset = i_strndup(value, value_len);
+		if (value_quoted) str_unescape(ctx->content_charset);
 	}
 }
 
-static void parse_content_encoding(const Rfc822Token *tokens,
-				   int count __attr_unused__, void *context)
+static void parse_content_encoding(const char *value, size_t value_len,
+				   void *context)
 {
 	PartSearchContext *ctx = context;
 
-	if (tokens[0].token != 'A')
-		return;
-
-	switch (tokens[0].len) {
+	switch (value_len) {
 	case 4:
-		if (strncasecmp(tokens[0].ptr, "7bit", 4) != 0 &&
-		    strncasecmp(tokens[0].ptr, "8bit", 4) != 0)
+		if (strncasecmp(value, "7bit", 4) != 0 &&
+		    strncasecmp(value, "8bit", 4) != 0)
 			ctx->content_unknown = TRUE;
 		break;
 	case 6:
-		if (strncasecmp(tokens[0].ptr, "base64", 6) == 0)
+		if (strncasecmp(value, "base64", 6) == 0)
 			ctx->content_base64 = TRUE;
-		else if (strncasecmp(tokens[0].ptr, "binary", 6) != 0)
+		else if (strncasecmp(value, "binary", 6) != 0)
 			ctx->content_unknown = TRUE;
 		break;
 	case 16:
-		if (strncasecmp(tokens[0].ptr, "quoted-printable", 16) == 0)
+		if (strncasecmp(value, "quoted-printable", 16) == 0)
 			ctx->content_qp = TRUE;
 		else
 			ctx->content_unknown = TRUE;
@@ -120,21 +114,17 @@ static void header_find(MessagePart *part __attr_unused__,
 						   ctx->hdr_search_ctx);
 	}
 
-	t_push();
-
 	if (name_len == 12 && strncasecmp(name, "Content-Type", 12) == 0) {
-		(void)message_content_parse_header(t_strndup(value, value_len),
-						   parse_content_type,
-						   parse_content_type_param,
-						   ctx);
+		message_content_parse_header(value, value_len,
+					     parse_content_type,
+					     parse_content_type_param,
+					     ctx);
 	} else if (name_len == 25 &&
 		   strncasecmp(name, "Content-Transfer-Encoding", 25) == 0) {
-		(void)message_content_parse_header(t_strndup(value, value_len),
-						   parse_content_encoding,
-						   NULL, ctx);
+		message_content_parse_header(value, value_len,
+					     parse_content_encoding,
+					     NULL, ctx);
 	}
-
-	t_pop();
 }
 
 static int message_search_header(PartSearchContext *ctx, IStream *input)

@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
-#include "rfc822-tokenize.h"
+#include "strescape.h"
 #include "message-content-parser.h"
 #include "message-parser.h"
 #include "message-size.h"
@@ -68,20 +68,17 @@ static MessagePart *message_part_append(Pool pool, MessagePart *parent)
 	return part;
 }
 
-static void parse_content_type(const Rfc822Token *tokens, int count,
+static void parse_content_type(const char *value, size_t value_len,
 			       void *context)
 {
 	MessageParseContext *parse_ctx = context;
 	const char *str;
 
-	if (tokens[0].token != 'A')
+	if (parse_ctx->last_content_type != NULL || value_len == 0)
 		return;
 
-	if (parse_ctx->last_content_type != NULL)
-		return;
-
-	str = rfc822_tokens_get_value(tokens, count);
-	parse_ctx->last_content_type = p_strdup(parse_ctx->pool, str);
+	str = parse_ctx->last_content_type =
+		p_strndup(parse_ctx->pool, value, value_len);
 
 	if (strcasecmp(str, "message/rfc822") == 0)
 		parse_ctx->part->flags |= MESSAGE_PART_FLAG_MESSAGE_RFC822;
@@ -97,20 +94,21 @@ static void parse_content_type(const Rfc822Token *tokens, int count,
 	}
 }
 
-static void parse_content_type_param(const Rfc822Token *name,
-				     const Rfc822Token *value,
-				     int value_count, void *context)
+static void parse_content_type_param(const char *name, size_t name_len,
+				     const char *value, size_t value_len,
+				     int value_quoted, void *context)
 {
 	MessageParseContext *parse_ctx = context;
-	const char *str;
 
 	if ((parse_ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
-	    name->len != 8 || strncasecmp(name->ptr, "boundary", 8) != 0)
+	    name_len != 8 || strncasecmp(name, "boundary", 8) != 0)
 		return;
 
 	if (parse_ctx->last_boundary == NULL) {
-		str = rfc822_tokens_get_value(value, value_count);
-		parse_ctx->last_boundary = p_strdup(parse_ctx->pool, str);
+		parse_ctx->last_boundary =
+			p_strndup(parse_ctx->pool, value, value_len);
+		if (value_quoted)
+			str_unescape(parse_ctx->last_boundary);
 	}
 }
 
@@ -129,10 +127,10 @@ static void parse_header_field(MessagePart *part,
 
 	if (name_len == 12 && strncasecmp(name, "Content-Type", 12) == 0) {
 		/* we need to know the boundary */
-		(void)message_content_parse_header(t_strndup(value, value_len),
-						   parse_content_type,
-						   parse_content_type_param,
-						   parse_ctx);
+		message_content_parse_header(value, value_len,
+					     parse_content_type,
+					     parse_content_type_param,
+					     parse_ctx);
 	}
 }
 

@@ -5,7 +5,6 @@
 #include "istream.h"
 #include "ioloop.h"
 #include "rfc822-date.h"
-#include "rfc822-tokenize.h"
 #include "message-parser.h"
 #include "message-part-serialize.h"
 #include "message-size.h"

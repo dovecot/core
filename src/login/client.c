@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "process-title.h"
 #include "safe-memset.h"
+#include "strescape.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "ssl-proxy.h"
@@ -157,7 +158,7 @@ static char *get_next_arg(char **linep)
 
 		if (*line == '"')
 			*line++ = '\0';
-		str_remove_escapes(start);
+		str_unescape(start);
 	} else {
 		start = line;
 		while (*line != '\0' && *line != ' ')

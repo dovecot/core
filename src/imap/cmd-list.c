@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "strescape.h"
 #include "commands.h"
 #include "imap-match.h"
 
@@ -48,7 +49,7 @@ static ListNode *list_node_get(Pool pool, ListNode **node,
 
 		/* escaping is done here to make sure we don't try to escape
 		   the separator char */
-		name = imap_escape(t_strdup_until(name, path));
+		name = str_escape(t_strdup_until(name, path));
 
 		/* find the node */
 		while (*node != NULL) {

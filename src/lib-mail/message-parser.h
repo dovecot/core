@@ -1,6 +1,9 @@
 #ifndef __MESSAGE_PARSER_H
 #define __MESSAGE_PARSER_H
 
+#define IS_LWSP(c) \
+	((c) == ' ' || (c) == '\t')
+
 typedef struct _MessagePart MessagePart;
 typedef struct _MessagePosition MessagePosition;
 typedef struct _MessageSize MessageSize;

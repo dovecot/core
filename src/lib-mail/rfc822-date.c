@@ -86,64 +86,58 @@ static int parse_timezone(const char *str, size_t len)
 	return 0;
 }
 
-static const Rfc822Token *next_token(const Rfc822Token **tokens)
+static Rfc822Token next_token(Rfc822TokenizeContext *ctx,
+			      const char **value, size_t *value_len)
 {
-	const Rfc822Token *ret;
+	Rfc822Token token;
 
-	if ((*tokens)->token == 0)
-		return NULL;
+	(void)rfc822_tokenize_next(ctx);
 
-	ret = *tokens;
-	(*tokens)++;
-	return ret;
+	token = rfc822_tokenize_get(ctx);
+	if (token == 'A')
+		*value = rfc822_tokenize_get_value(ctx, value_len);
+	return token;
 }
 
-int rfc822_parse_date(const char *str, time_t *time, int *timezone_offset)
+static int rfc822_parse_date_tokens(Rfc822TokenizeContext *ctx, time_t *time,
+				    int *timezone_offset)
 {
 	struct tm tm;
-	const Rfc822Token *tokens, *tok;
-	size_t i;
+	Rfc822Token token;
+	const char *value;
+	size_t i, len;
 
-	if (str == NULL || *str == '\0')
-		return FALSE;
-
-	/* [weekday_name "," ] dd month_name [yy]yy hh:mi[:ss] timezone
-
-	   we support comments here even while no-one ever uses them */
-
-	tokens = rfc822_tokenize(str, NULL, NULL, NULL);
-
+	/* [weekday_name "," ] dd month_name [yy]yy hh:mi[:ss] timezone */
 	memset(&tm, 0, sizeof(tm));
 
 	/* skip the optional weekday */
-	tok = next_token(&tokens);
-	if (tok != NULL && tok->token == 'A' && tok->len == 3) {
-		tok = next_token(&tokens);
-		if (tok == NULL || tok->token != ',')
+	token = next_token(ctx, &value, &len);
+	if (token == 'A' && len == 3) {
+		token = next_token(ctx, &value, &len);
+		if (token != ',')
 			return FALSE;
 
-		tok = next_token(&tokens);
+		token = next_token(ctx, &value, &len);
 	}
 
 	/* dd */
-	if (tok == NULL || tok->token != 'A' || tok->len > 2 ||
-	    !i_isdigit(tok->ptr[0]))
+	if (token != 'A' || len > 2 || !i_isdigit(value[0]))
 		return FALSE;
 
-	tm.tm_mday = tok->ptr[0]-'0';
-	if (tok->len == 2) {
-		if (!i_isdigit(tok->ptr[1]))
+	tm.tm_mday = value[0]-'0';
+	if (len == 2) {
+		if (!i_isdigit(value[1]))
 			return FALSE;
-		tm.tm_mday = (tm.tm_mday * 10) + (tok->ptr[1]-'0');
+		tm.tm_mday = (tm.tm_mday * 10) + (value[1]-'0');
 	}
 
 	/* month name */
-	tok = next_token(&tokens);
-	if (tok == NULL || tok->token != 'A' || tok->len != 3)
+	token = next_token(ctx, &value, &len);
+	if (token != 'A' || len != 3)
 		return FALSE;
 
 	for (i = 0; i < 12; i++) {
-		if (strncasecmp(month_names[i], tok->ptr, 3) == 0) {
+		if (strncasecmp(month_names[i], value, 3) == 0) {
 			tm.tm_mon = i;
 			break;
 		}
@@ -152,18 +146,17 @@ int rfc822_parse_date(const char *str, time_t *time, int *timezone_offset)
 		return FALSE;
 
 	/* [yy]yy */
-	tok = next_token(&tokens);
-	if (tok == NULL || tok->token != 'A' ||
-	    (tok->len != 2 && tok->len != 4))
+	token = next_token(ctx, &value, &len);
+	if (token != 'A' || (len != 2 && len != 4))
 		return FALSE;
 
-	for (i = 0; i < tok->len; i++) {
-		if (!i_isdigit(tok->ptr[i]))
+	for (i = 0; i < len; i++) {
+		if (!i_isdigit(value[i]))
 			return FALSE;
-		tm.tm_year = tm.tm_year * 10 + (tok->ptr[i]-'0');
+		tm.tm_year = tm.tm_year * 10 + (value[i]-'0');
 	}
 
-	if (tok->len == 2) {
+	if (len == 2) {
 		/* two digit year, assume 1970+ */
 		if (tm.tm_year < 70)
 			tm.tm_year += 100;
@@ -174,36 +167,36 @@ int rfc822_parse_date(const char *str, time_t *time, int *timezone_offset)
 	}
 
 	/* hh */
-	tok = next_token(&tokens);
-	if (tok == NULL || tok->token != 'A' || tok->len != 2 ||
-	    !i_isdigit(tok->ptr[0]) || !i_isdigit(tok->ptr[1]))
+	token = next_token(ctx, &value, &len);
+	if (token != 'A' || len != 2 ||
+	    !i_isdigit(value[0]) || !i_isdigit(value[1]))
 		return FALSE;
-	tm.tm_hour = (tok->ptr[0]-'0') * 10 + (tok->ptr[1]-'0');
+	tm.tm_hour = (value[0]-'0') * 10 + (value[1]-'0');
 
 	/* :mm */
-	tok = next_token(&tokens);
-	if (tok == NULL || tok->token != ':')
+	token = next_token(ctx, &value, &len);
+	if (token != ':')
 		return FALSE;
-	tok = next_token(&tokens);
-	if (tok == NULL || tok->token != 'A' || tok->len != 2 ||
-	    !i_isdigit(tok->ptr[0]) || !i_isdigit(tok->ptr[1]))
+	token = next_token(ctx, &value, &len);
+	if (token != 'A' || len != 2 ||
+	    !i_isdigit(value[0]) || !i_isdigit(value[1]))
 		return FALSE;
-	tm.tm_min = (tok->ptr[0]-'0') * 10 + (tok->ptr[1]-'0');
+	tm.tm_min = (value[0]-'0') * 10 + (value[1]-'0');
 
 	/* [:ss] */
-	tok = next_token(&tokens);
-	if (tok != NULL && tok->token == ':') {
-		tok = next_token(&tokens);
-		if (tok == NULL || tok->token != 'A' || tok->len != 2 ||
-		    !i_isdigit(tok->ptr[0]) || !i_isdigit(tok->ptr[1]))
+	token = next_token(ctx, &value, &len);
+	if (token == ':') {
+		token = next_token(ctx, &value, &len);
+		if (token != 'A' || len != 2 ||
+		    !i_isdigit(value[0]) || !i_isdigit(value[1]))
 			return FALSE;
-		tm.tm_sec = (tok->ptr[0]-'0') * 10 + (tok->ptr[1]-'0');
+		tm.tm_sec = (value[0]-'0') * 10 + (value[1]-'0');
 	}
 
 	/* timezone */
-	if (tok == NULL || tok->token != 'A')
+	if (token != 'A')
 		return FALSE;
-	*timezone_offset = parse_timezone(tok->ptr, tok->len);
+	*timezone_offset = parse_timezone(value, len);
 
 	tm.tm_isdst = -1;
 	*time = utc_mktime(&tm);
@@ -213,6 +206,21 @@ int rfc822_parse_date(const char *str, time_t *time, int *timezone_offset)
 	*time -= *timezone_offset;
 
 	return TRUE;
+}
+
+int rfc822_parse_date(const char *data, time_t *time, int *timezone_offset)
+{
+	Rfc822TokenizeContext *ctx;
+	int ret;
+
+	if (data == NULL || *data == '\0')
+		return FALSE;
+
+	ctx = rfc822_tokenize_init(data, (size_t)-1, NULL, NULL);
+	ret = rfc822_parse_date_tokens(ctx, time, timezone_offset);
+	rfc822_tokenize_deinit(ctx);
+
+	return ret;
 }
 
 const char *rfc822_to_date(time_t time)

@@ -44,8 +44,9 @@ liblib_a_SOURCES = \
 	safe-memset.c \
 	safe-mkdir.c \
 	sendfile-util.c \
-	strfuncs.c \
 	str.c \
+	strescape.c \
+	strfuncs.c \
 	unlink-directory.c \
 	unlink-lockfiles.c \
 	utc-offset.c \
@@ -91,8 +92,9 @@ noinst_HEADERS = \
 	safe-memset.h \
 	safe-mkdir.h \
 	sendfile-util.h \
-	strfuncs.h \
 	str.h \
+	strescape.h \
+	strfuncs.h \
 	unlink-directory.h \
 	unlink-lockfiles.h \
 	utc-offset.h \

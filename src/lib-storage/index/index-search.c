@@ -4,7 +4,6 @@
 #include "istream.h"
 #include "ostream.h"
 #include "mmap-util.h"
-#include "rfc822-tokenize.h"
 #include "rfc822-date.h"
 #include "message-size.h"
 #include "message-body-search.h"

@@ -1,52 +1,61 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "str.h"
 #include "rfc822-tokenize.h"
 #include "message-content-parser.h"
 
-int message_content_parse_header(const char *value, ParseContentFunc func,
-				 ParseContentParamFunc param_func,
-				 void *context)
+void message_content_parse_header(const char *data, size_t size,
+				  ParseContentFunc func,
+				  ParseContentParamFunc param_func,
+				  void *context)
 {
-	const Rfc822Token *tokens;
-	int i, next, ntokens;
+	static const Rfc822Token stop_tokens[] = { ';', TOKEN_LAST };
+	Rfc822TokenizeContext *ctx;
+	Rfc822Token token;
+	String *str;
+	const char *key, *value;
+	size_t key_len, value_len;
 
-	tokens = rfc822_tokenize(value, &ntokens, NULL, NULL);
-	if (tokens == NULL) {
-		/* error */
-		return FALSE;
-	}
+	ctx = rfc822_tokenize_init(data, size, NULL, NULL);
+        rfc822_tokenize_dot_token(ctx, FALSE);
 
-	/* first ';' separates the parameters */
-	for (i = 0; i < ntokens; i++) {
-		if (tokens[i].token == ';')
-			break;
-	}
+	t_push();
+	str = t_str_new(256);
+
+        /* first ';' separates the parameters */
+	(void)rfc822_tokenize_get_string(ctx, str, NULL, stop_tokens);
 
 	if (func != NULL)
-		func(tokens, i, context);
+		func(str_c(str), str_len(str), context);
 
-	if (param_func != NULL) {
+	t_pop();
+
+	if (param_func != NULL && rfc822_tokenize_get(ctx) == ';') {
 		/* parse the parameters */
-		i++;
-		while (i < ntokens) {
-			/* find the next ';' */
-			for (next = i; next < ntokens; next++) {
-				if (tokens[next].token == ';')
-					break;
-			}
+		while (rfc822_tokenize_next(ctx)) {
+			token = rfc822_tokenize_get(ctx);
 
-			if (i+2 < next &&
-			    tokens[i].token == 'A' &&
-			    tokens[i+1].token == '=') {
-				/* <atom> = <value> */
-				param_func(tokens + i, tokens + i + 2,
-					   next - (i+2), context);
-			}
+			/* <token> "=" <token> | <quoted-string> */
+			if (token != TOKEN_ATOM)
+				continue;
 
-                        i = next+1;
+			key = rfc822_tokenize_get_value(ctx, &key_len);
+
+			(void)rfc822_tokenize_next(ctx);
+			if (rfc822_tokenize_get(ctx) != '=')
+				continue;
+
+			(void)rfc822_tokenize_next(ctx);
+			token = rfc822_tokenize_get(ctx);
+			if (token != TOKEN_ATOM && token != TOKEN_QSTRING)
+				continue;
+
+			value = rfc822_tokenize_get_value(ctx, &value_len);
+			param_func(key, key_len, value, value_len,
+				   token == TOKEN_QSTRING, context);
 		}
 	}
 
-	return TRUE;
+	rfc822_tokenize_deinit(ctx);
 }

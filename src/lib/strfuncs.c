@@ -462,18 +462,6 @@ char *str_lcase(char *str)
         return str;
 }
 
-void str_remove_escapes(char *str)
-{
-	char *dest;
-
-	for (dest = str; *str != '\0'; str++) {
-		if (*str != '\\' || str[1] == '\0')
-			*dest++ = *str;
-	}
-
-	*dest = '\0';
-}
-
 const char **t_strsplit(const char *data, const char *separators)
 {
         const char **array;

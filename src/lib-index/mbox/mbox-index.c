@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "buffer.h"
 #include "istream.h"
-#include "rfc822-tokenize.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
 #include "mail-index-util.h"

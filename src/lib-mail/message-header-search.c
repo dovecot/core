@@ -4,8 +4,8 @@
 #include "base64.h"
 #include "buffer.h"
 #include "charset-utf8.h"
-#include "rfc822-tokenize.h"
 #include "quoted-printable.h"
+#include "message-parser.h"
 #include "message-header-decode.h"
 #include "message-header-search.h"
 
