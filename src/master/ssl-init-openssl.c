@@ -3,7 +3,11 @@
 #include "common.h"
 #include "ssl-init.h"
 
+#ifdef HAVE_OPENSSL
+
 void _ssl_generate_parameters(int fd __attr_unused__,
 			      const char *fname __attr_unused__)
 {
 }
+
+#endif
