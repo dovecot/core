@@ -22,16 +22,21 @@ static int maildir_file_do_try(struct index_mailbox *ibox, uint32_t uid,
 	if (fname == NULL)
 		return -2; /* expunged */
 
+	t_push();
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
 		/* probably in new/ dir */
 		path = t_strconcat(ibox->path, "/new/", fname, NULL);
 		ret = func(ibox, path, context);
-		if (ret != 0)
+		if (ret != 0) {
+			t_pop();
 			return ret;
+		}
 	}
 
 	path = t_strconcat(ibox->path, "/cur/", fname, NULL);
-	return func(ibox, path, context);
+	ret = func(ibox, path, context);
+	t_pop();
+	return ret;
 }
 
 int maildir_file_do(struct index_mailbox *ibox, uint32_t uid,
