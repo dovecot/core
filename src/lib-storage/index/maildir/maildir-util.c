@@ -256,8 +256,13 @@ int maildir_create_tmp(struct index_mailbox *ibox, const char *dir,
 
 	*fname_r = t_strdup(path);
 	if (fd == -1) {
-		mail_storage_set_critical(ibox->box.storage,
-					  "open(%s) failed: %m", path);
+		if (ENOSPACE(errno)) {
+			mail_storage_set_error(ibox->box.storage,
+					       "Not enough disk space");
+		} else {
+			mail_storage_set_critical(ibox->box.storage,
+						  "open(%s) failed: %m", path);
+		}
 	}
 
 	pool_unref(pool);
