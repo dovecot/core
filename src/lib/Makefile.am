@@ -3,7 +3,6 @@ noinst_LIBRARIES = liblib.a
 liblib_a_SOURCES = \
 	base64.c \
 	buffer.c \
-	byteorder.c \
 	compat.c \
 	data-stack.c \
 	env-util.c \
@@ -73,7 +72,6 @@ liblib_a_SOURCES = \
 noinst_HEADERS = \
 	base64.h \
 	buffer.h \
-	byteorder.h \
 	compat.h \
 	data-stack.h \
 	env-util.h \
