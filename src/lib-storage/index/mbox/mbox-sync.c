@@ -1179,9 +1179,6 @@ static int mbox_sync_update_imap_base(struct mbox_sync_context *sync_ctx)
 {
 	struct mbox_sync_mail_context mail_ctx;
 
-	if (mbox_sync_seek(sync_ctx, 0) < 0)
-		return -1;
-
 	sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view, FALSE);
 	sync_ctx->update_base_uid_last = sync_ctx->next_uid-1;
 
