@@ -188,13 +188,13 @@ const char *maildir_fix_mailbox_name(struct mail_storage *storage,
 	if (storage->namespace != NULL && remove_namespace) {
 		len = strlen(storage->namespace);
 		if (strncmp(storage->namespace, name, len) != 0) {
-			i_panic("mbox: expecting namespace '%s' in name '%s'",
-				storage->namespace, name);
+			i_panic("maildir: expecting namespace '%s' in name "
+				"'%s'", storage->namespace, name);
 		}
 		name += len;
 	}
 
-	if (*name == '/' && full_filesystem_access)
+	if (full_filesystem_access && (*name == '/' || *name == '~'))
 		return name;
 
 	sep = storage->hierarchy_sep;
