@@ -23,7 +23,7 @@ static void master_handle_request(AuthCookieRequestData *request,
 	CookieData *cookie;
         AuthCookieReplyData *reply, temp_reply;
 
-	cookie = cookie_lookup_and_remove(request->cookie);
+	cookie = cookie_lookup_and_remove(request->login_pid, request->cookie);
 	if (cookie == NULL)
 		reply = &failure_reply;
 	else {

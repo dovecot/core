@@ -54,7 +54,8 @@ void auth_unregister_module(AuthModule *module)
 	}
 }
 
-void auth_init_request(AuthInitRequestData *request,
+void auth_init_request(unsigned int login_pid,
+		       AuthInitRequestData *request,
 		       AuthCallback callback, void *context)
 {
 	AuthModuleList *list;
@@ -70,7 +71,8 @@ void auth_init_request(AuthInitRequestData *request,
 
 	for (list = auth_modules; list != NULL; list = list->next) {
 		if (list->module.method == request->method) {
-			list->module.init(request, callback, context);
+			list->module.init(login_pid, request,
+					  callback, context);
 			return;
 		}
 	}
@@ -78,7 +80,8 @@ void auth_init_request(AuthInitRequestData *request,
 	i_unreached();
 }
 
-void auth_continue_request(AuthContinuedRequestData *request,
+void auth_continue_request(unsigned int login_pid,
+			   AuthContinuedRequestData *request,
 			   const unsigned char *data,
 			   AuthCallback callback, void *context)
 {
@@ -89,9 +92,11 @@ void auth_continue_request(AuthContinuedRequestData *request,
 		/* timeouted cookie */
 		failure_reply.id = request->id;
 		callback(&failure_reply, NULL, context);
+	} else if (cookie_data->login_pid != login_pid) {
+		i_error("BUG: imap-login requested cookie it didn't own");
 	} else {
-		cookie_data->auth_continue(cookie_data, request, data,
-					   callback, context);
+		cookie_data->auth_continue(cookie_data, request,
+					   data, callback, context);
 	}
 }
 

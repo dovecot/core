@@ -34,16 +34,21 @@ typedef enum {
 
 /* Initialization reply, sent after client is connected */
 typedef struct {
-	int auth_process; /* unique auth process identifier */
+	unsigned int auth_process; /* unique auth process identifier */
 	AuthMethod auth_methods; /* valid authentication methods */
 } AuthInitData;
+
+/* Initialization handshake from client. */
+typedef struct {
+	unsigned int pid; /* unique identifier for client process */
+} ClientAuthInitData;
 
 /* New authentication request */
 typedef struct {
 	AuthRequestType type; /* AUTH_REQUEST_INIT */
 
 	AuthMethod method;
-	int id; /* AuthReplyData.id will contain this value */
+	unsigned int id; /* AuthReplyData.id will contain this value */
 } AuthInitRequestData;
 
 /* Continued authentication request */
@@ -51,7 +56,7 @@ typedef struct {
 	AuthRequestType type; /* AUTH_REQUEST_CONTINUE */
 
 	unsigned char cookie[AUTH_COOKIE_SIZE];
-	int id; /* AuthReplyData.id will contain this value */
+	unsigned int id; /* AuthReplyData.id will contain this value */
 
 	size_t data_size;
 	/* unsigned char data[]; */
@@ -59,7 +64,7 @@ typedef struct {
 
 /* Reply to authentication */
 typedef struct {
-	int id;
+	unsigned int id;
 	unsigned char cookie[AUTH_COOKIE_SIZE];
 	AuthResult result;
 
@@ -69,13 +74,14 @@ typedef struct {
 
 /* Request data associated to cookie */
 typedef struct {
-	int id;
+	unsigned int id;
+	unsigned int login_pid;
 	unsigned char cookie[AUTH_COOKIE_SIZE];
 } AuthCookieRequestData;
 
 /* Reply to cookie request */
 typedef struct {
-	int id;
+	unsigned int id;
 	int success; /* FALSE if cookie wasn't found */
 
 	char system_user[AUTH_MAX_USER_LEN]; /* system user, if available */

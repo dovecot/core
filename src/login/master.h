@@ -6,7 +6,8 @@
 typedef void (*MasterCallback)(MasterReplyResult result, void *context);
 
 /* Request IMAP process for given cookie. */
-void master_request_imap(int fd, int auth_process,  const char *login_tag,
+void master_request_imap(int fd, unsigned int auth_process,
+			 const char *login_tag,
 			 unsigned char cookie[AUTH_COOKIE_SIZE], IPADDR *ip,
 			 MasterCallback callback, void *context);
 

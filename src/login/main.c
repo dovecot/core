@@ -17,6 +17,7 @@
 
 int disable_plaintext_auth, process_per_connection, verbose_proctitle;
 unsigned int max_logging_users;
+unsigned int login_process_uid;
 
 static IOLoop ioloop;
 static IO io_imap, io_imaps;
@@ -152,6 +153,13 @@ static void main_init(void)
 
 	value = getenv("MAX_LOGGING_USERS");
 	max_logging_users = value == NULL ? 0 : strtoul(value, NULL, 10);
+
+	value = getenv("PROCESS_UID");
+	if (value == NULL)
+		i_fatal("BUG: PROCESS_UID environment not given");
+        login_process_uid = strtoul(value, NULL, 10);
+	if (login_process_uid == 0)
+		i_fatal("BUG: PROCESS_UID environment is 0");
 
         closing_down = FALSE;
 	main_refcount = 0;

@@ -71,7 +71,8 @@ static void main_init(void)
 	master_init();
 	userinfo_init();
 
-	io_listen = io_add(LOGIN_LISTEN_FD, IO_READ, auth_accept, NULL);
+	io_listen = io_add_priority(LOGIN_LISTEN_FD, IO_PRIORITY_LOW,
+				    IO_READ, auth_accept, NULL);
 }
 
 static void main_deinit(void)

@@ -32,15 +32,15 @@ struct _LoginProcess {
 
 typedef struct {
 	LoginProcess *process;
-	int login_id;
-	int auth_id;
+	unsigned int login_id;
+	unsigned int auth_id;
 	int fd;
 
 	IPADDR ip;
 	char login_tag[LOGIN_TAG_SIZE];
 } LoginAuthRequest;
 
-static int auth_id_counter;
+static unsigned int auth_id_counter;
 static Timeout to;
 
 static HashTable *processes;
@@ -163,8 +163,8 @@ static void login_process_input(void *context, int fd __attr_unused__,
 			req.auth_process);
 		auth_callback(NULL, authreq);
 	} else {
-		auth_process_request(auth_process, authreq->auth_id, req.cookie,
-				     auth_callback, authreq);
+		auth_process_request(p->pid, auth_process, authreq->auth_id,
+				     req.cookie, auth_callback, authreq);
 	}
 }
 
@@ -321,9 +321,11 @@ static pid_t create_login_process(void)
 		env_put("PROCESS_PER_CONNECTION=1");
 		env_put("MAX_LOGGING_USERS=1");
 	} else {
-		env_put(t_strdup_printf("MAX_LOGGING_USERS=%d",
+		env_put(t_strdup_printf("MAX_LOGGING_USERS=%u",
 					set_max_logging_users));
 	}
+
+	env_put(t_strdup_printf("PROCESS_UID=%s", dec2str(getpid())));
 
 	restrict_process_size(set_login_process_size);
 

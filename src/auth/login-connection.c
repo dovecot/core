@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "network.h"
 #include "safe-memset.h"
+#include "cookie.h"
 #include "login-connection.h"
 
 #include <stdlib.h>
@@ -23,7 +24,9 @@ struct _LoginConnection {
 	IO io;
 	IStream *input;
 	OStream *output;
-        AuthRequestType type;
+
+	unsigned int pid;
+	AuthRequestType type;
 };
 
 static AuthInitData auth_init_data;
@@ -44,27 +47,49 @@ static void request_callback(AuthReplyData *reply, const unsigned char *data,
 	}
 }
 
-static void login_input(void *context, int fd __attr_unused__,
-			IO io __attr_unused__)
+static LoginConnection *login_find_pid(unsigned int pid)
 {
-	LoginConnection *conn  = context;
+	LoginConnection *conn;
+
+	for (conn = connections; conn != NULL; conn = conn->next) {
+		if (conn->pid == pid)
+			return conn;
+	}
+
+	return NULL;
+}
+
+static void login_input_handshake(LoginConnection *conn)
+{
+        ClientAuthInitData rec;
         unsigned char *data;
 	size_t size;
 
-	switch (i_stream_read(conn->input)) {
-	case 0:
+	data = i_stream_get_modifyable_data(conn->input, &size);
+	if (size < sizeof(ClientAuthInitData))
 		return;
-	case -1:
-		/* disconnected */
+
+	/* Don't just cast because of alignment issues. */
+	memcpy(&rec, data, sizeof(rec));
+	i_stream_skip(conn->input, sizeof(rec));
+
+	if (rec.pid == 0) {
+		i_error("BUG: imap-login said it's PID 0");
 		login_connection_destroy(conn);
-		return;
-	case -2:
-		/* buffer full */
-		i_error("BUG: imap-login sent us more than %d bytes of data",
-			(int)MAX_INBUF_SIZE);
+	} else if (login_find_pid(rec.pid) != NULL) {
+		/* well, it might have just reconnected very fast .. although
+		   there's not much reason for it. */
+		i_error("BUG: imap-login gave a PID of existing connection");
 		login_connection_destroy(conn);
-		return;
+	} else {
+		conn->pid = rec.pid;
 	}
+}
+
+static void login_input_request(LoginConnection *conn)
+{
+        unsigned char *data;
+	size_t size;
 
 	data = i_stream_get_modifyable_data(conn->input, &size);
 	if (size < sizeof(AuthRequestType))
@@ -87,7 +112,7 @@ static void login_input(void *context, int fd __attr_unused__,
 		i_stream_skip(conn->input, sizeof(request));
 
 		/* we have a full init request */
-		auth_init_request(&request, request_callback, conn);
+		auth_init_request(conn->pid, &request, request_callback, conn);
 		conn->type = AUTH_REQUEST_NONE;
 	} else if (conn->type == AUTH_REQUEST_CONTINUE) {
                 AuthContinuedRequestData request;
@@ -102,7 +127,8 @@ static void login_input(void *context, int fd __attr_unused__,
 		i_stream_skip(conn->input, sizeof(request) + request.data_size);
 
 		/* we have a full continued request */
-		auth_continue_request(&request, data + sizeof(request),
+		auth_continue_request(conn->pid, &request,
+				      data + sizeof(request),
 				      request_callback, conn);
 		conn->type = AUTH_REQUEST_NONE;
 
@@ -114,6 +140,32 @@ static void login_input(void *context, int fd __attr_unused__,
 			conn->type);
 		login_connection_destroy(conn);
 	}
+}
+
+static void login_input(void *context, int fd __attr_unused__,
+			IO io __attr_unused__)
+{
+	LoginConnection *conn  = context;
+
+	switch (i_stream_read(conn->input)) {
+	case 0:
+		return;
+	case -1:
+		/* disconnected */
+		login_connection_destroy(conn);
+		return;
+	case -2:
+		/* buffer full */
+		i_error("BUG: imap-login sent us more than %d bytes of data",
+			(int)MAX_INBUF_SIZE);
+		login_connection_destroy(conn);
+		return;
+	}
+
+	if (conn->pid == 0)
+		login_input_handshake(conn);
+	else
+		login_input_request(conn);
 }
 
 LoginConnection *login_connection_create(int fd)
@@ -152,6 +204,8 @@ void login_connection_destroy(LoginConnection *conn)
 			break;
 		}
 	}
+
+	cookies_remove_login_pid(conn->pid);
 
 	i_stream_unref(conn->input);
 	o_stream_unref(conn->output);

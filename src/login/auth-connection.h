@@ -5,7 +5,7 @@ typedef struct _AuthConnection AuthConnection;
 
 /* If result == AUTH_RESULT_INTERNAL_FAILURE, request may be NULL and
    reply_data_size contains the error message. */
-typedef void (*AuthCallback)(AuthRequest *request, int auth_process,
+typedef void (*AuthCallback)(AuthRequest *request, unsigned int auth_process,
 			     AuthResult result, const unsigned char *reply_data,
 			     size_t reply_data_size, void *context);
 
@@ -13,7 +13,7 @@ struct _AuthRequest {
         AuthMethod method;
         AuthConnection *conn;
 
-	int id;
+	unsigned int id;
 	unsigned char cookie[AUTH_COOKIE_SIZE];
 
 	AuthCallback callback;

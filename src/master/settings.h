@@ -72,7 +72,7 @@ struct _AuthConfig {
 	char *user;
 	char *chroot;
 
-	int count;
+	unsigned int count;
 	unsigned int process_size;
 };
 

@@ -84,6 +84,7 @@ static void cookie_destroy(unsigned char cookie[AUTH_COOKIE_SIZE],
 
 	hash_remove(cookies, cookie);
 
+	/* FIXME: slow */
 	list = NULL;
 	for (pos = &oldest_cookie; *pos != NULL; pos = &(*pos)->next) {
 		if (cookie_cmp((*pos)->data->cookie, cookie) == 0) {
@@ -112,14 +113,32 @@ void cookie_remove(unsigned char cookie[AUTH_COOKIE_SIZE])
 	cookie_destroy(cookie, TRUE);
 }
 
-CookieData *cookie_lookup_and_remove(unsigned char cookie[AUTH_COOKIE_SIZE])
+CookieData *cookie_lookup_and_remove(unsigned int login_pid,
+				     unsigned char cookie[AUTH_COOKIE_SIZE])
 {
 	CookieData *data;
 
 	data = hash_lookup(cookies, cookie);
-	if (data != NULL)
-		cookie_destroy(cookie, FALSE);
+	if (data != NULL) {
+		if (data->login_pid != login_pid)
+			data = NULL;
+		else
+			cookie_destroy(cookie, FALSE);
+	}
 	return data;
+}
+
+void cookies_remove_login_pid(unsigned int login_pid)
+{
+	CookieList *list, *next;
+
+	/* FIXME: slow */
+	for (list = oldest_cookie; list != NULL; list = next) {
+		next = list->next;
+
+		if (list->data->login_pid == login_pid)
+			cookie_destroy(list->data->cookie, TRUE);
+	}
 }
 
 static void cookie_timeout(void *context __attr_unused__,

@@ -80,13 +80,15 @@ static void auth_plain_free(CookieData *cookie)
 	i_free(cookie);
 }
 
-static void auth_plain_init(AuthInitRequestData *request,
+static void auth_plain_init(unsigned int login_pid,
+			    AuthInitRequestData *request,
 			    AuthCallback callback, void *context)
 {
 	CookieData *cookie;
 	AuthReplyData reply;
 
 	cookie = i_new(CookieData, 1);
+	cookie->login_pid = login_pid;
 	cookie->auth_fill_reply = auth_plain_fill_reply;
 	cookie->auth_continue = auth_plain_continue;
 	cookie->free = auth_plain_free;

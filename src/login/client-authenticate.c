@@ -123,7 +123,7 @@ static void client_send_auth_data(Client *client, const unsigned char *data,
 	t_pop();
 }
 
-static int auth_callback(AuthRequest *request, int auth_process,
+static int auth_callback(AuthRequest *request, unsigned int auth_process,
 			 AuthResult result, const unsigned char *reply_data,
 			 size_t reply_data_size, void *context)
 {
@@ -167,7 +167,7 @@ static int auth_callback(AuthRequest *request, int auth_process,
 	}
 }
 
-static void login_callback(AuthRequest *request, int auth_process,
+static void login_callback(AuthRequest *request, unsigned int auth_process,
 			   AuthResult result, const unsigned char *reply_data,
 			   size_t reply_data_size, void *context)
 {
@@ -219,8 +219,8 @@ int cmd_login(Client *client, const char *user, const char *pass)
 	}
 }
 
-static void authenticate_callback(AuthRequest *request, int auth_process,
-				  AuthResult result,
+static void authenticate_callback(AuthRequest *request,
+				  unsigned int auth_process, AuthResult result,
 				  const unsigned char *reply_data,
 				  size_t reply_data_size, void *context)
 {

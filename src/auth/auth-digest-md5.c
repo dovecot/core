@@ -575,7 +575,8 @@ static void auth_digest_md5_free(CookieData *cookie)
 	pool_unref(((AuthData *) cookie->context)->pool);
 }
 
-static void auth_digest_md5_init(AuthInitRequestData *request,
+static void auth_digest_md5_init(unsigned int login_pid,
+				 AuthInitRequestData *request,
 				 AuthCallback callback, void *context)
 {
 	CookieData *cookie;
@@ -591,6 +592,7 @@ static void auth_digest_md5_init(AuthInitRequestData *request,
 	auth->qop = QOP_AUTH;
 
 	cookie = p_new(pool, CookieData, 1);
+	cookie->login_pid = login_pid;
 	cookie->auth_fill_reply = auth_digest_md5_fill_reply;
 	cookie->auth_continue = auth_digest_md5_continue;
 	cookie->free = auth_digest_md5_free;

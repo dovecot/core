@@ -34,9 +34,9 @@ static Timeout to;
 HashTable *pids;
 int null_fd, imap_fd, imaps_fd;
 
-int validate_str(const char *str, int max_len)
+int validate_str(const char *str, size_t max_len)
 {
-	int i;
+	size_t i;
 
 	for (i = 0; i < max_len; i++) {
 		if (str[i] == '\0')
@@ -125,8 +125,8 @@ static void timeout_handler(void *context __attr_unused__,
 			if (status != 0) {
 				login_process_abormal_exit(pid);
 				msg = get_exit_status_message(status);
-				if (msg != NULL)
-					msg = t_strconcat(" (", msg, ")", NULL);
+				msg = msg == NULL ? "" :
+					t_strconcat(" (", msg, ")", NULL);
 				i_error("child %s (%s) returned error %d%s",
 					dec2str(pid), process_type_name,
 					status, msg);

@@ -25,7 +25,7 @@ struct _AuthConnection {
 	IStream *input;
 	OStream *output;
 
-	int auth_process;
+	unsigned int auth_process;
 	AuthMethod available_auth_methods;
         AuthReplyData in_reply;
 
@@ -38,10 +38,11 @@ struct _AuthConnection {
 AuthMethod available_auth_methods;
 
 static int auth_reconnect;
-static int request_id_counter;
+static unsigned int request_id_counter;
 static AuthConnection *auth_connections;
 static Timeout to;
 
+static void auth_connection_destroy(AuthConnection *conn);
 static void auth_input(void *context, int fd, IO io);
 static void auth_connect_missing(void);
 
@@ -59,7 +60,8 @@ static AuthConnection *auth_connection_find(const char *path)
 
 static AuthConnection *auth_connection_new(const char *path)
 {
-        AuthConnection *conn;
+	AuthConnection *conn;
+        ClientAuthInitData init_data;
 	int fd;
 
 	fd = net_connect_unix(path);
@@ -81,6 +83,14 @@ static AuthConnection *auth_connection_new(const char *path)
 
 	conn->next = auth_connections;
 	auth_connections = conn;
+
+	/* send our handshake */
+	memset(&init_data, 0, sizeof(init_data));
+	init_data.pid = login_process_uid;
+	if (o_stream_send(conn->output, &init_data, sizeof(init_data)) < 0) {
+                auth_connection_destroy(conn);
+		return NULL;
+	}
 	return conn;
 }
 

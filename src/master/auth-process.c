@@ -35,7 +35,7 @@ struct _AuthProcess {
 
 struct _WaitingRequest {
         WaitingRequest *next;
-	int id;
+	unsigned int id;
 
 	AuthCallback callback;
 	void *context;
@@ -46,7 +46,7 @@ static AuthProcess *processes;
 
 static void auth_process_destroy(AuthProcess *p);
 
-static void push_request(AuthProcess *process, int id,
+static void push_request(AuthProcess *process, unsigned int id,
 			 AuthCallback callback, void *context)
 {
 	WaitingRequest *req;
@@ -275,25 +275,27 @@ static pid_t create_auth_process(AuthConfig *config)
 	return -1;
 }
 
-AuthProcess *auth_process_find(int id)
+AuthProcess *auth_process_find(unsigned int id)
 {
 	AuthProcess *p;
 
 	for (p = processes; p != NULL; p = p->next) {
-		if (p->pid == id)
+		if ((unsigned int)p->pid == id)
 			return p;
 	}
 
 	return NULL;
 }
 
-void auth_process_request(AuthProcess *process, int id,
+void auth_process_request(unsigned int login_pid,
+			  AuthProcess *process, unsigned int id,
 			  unsigned char cookie[AUTH_COOKIE_SIZE],
 			  AuthCallback callback, void *context)
 {
 	AuthCookieRequestData req;
 
 	req.id = id;
+	req.login_pid = login_pid;
 	memcpy(req.cookie, cookie, AUTH_COOKIE_SIZE);
 
 	if (o_stream_send(process->output, &req, sizeof(req)) < 0)
@@ -302,10 +304,10 @@ void auth_process_request(AuthProcess *process, int id,
 	push_request(process, id, callback, context);
 }
 
-static int auth_process_get_count(const char *name)
+static unsigned int auth_process_get_count(const char *name)
 {
 	AuthProcess *p;
-	int count = 0;
+	unsigned int count = 0;
 
 	for (p = processes; p != NULL; p = p->next) {
 		if (strcmp(p->name, name) == 0)
@@ -330,7 +332,7 @@ static void auth_processes_start_missing(void *context __attr_unused__,
 					 Timeout timeout __attr_unused__)
 {
 	AuthConfig *config;
-	int count;
+	unsigned int count;
 
         config = auth_processes_config;
 	for (; config != NULL; config = config->next) {

@@ -14,7 +14,7 @@ typedef struct _WaitingRequest WaitingRequest;
 struct _WaitingRequest {
 	WaitingRequest *next;
 
-	int id;
+	unsigned int id;
 	MasterCallback callback;
 	void *context;
 };
@@ -25,7 +25,8 @@ static WaitingRequest *requests, **next_request;
 static unsigned int master_pos;
 static char master_buf[sizeof(MasterReply)];
 
-static void push_request(int id, MasterCallback callback, void *context)
+static void push_request(unsigned int id, MasterCallback callback,
+			 void *context)
 {
 	WaitingRequest *req;
 
@@ -63,7 +64,8 @@ static void pop_request(MasterReply *reply)
 	i_free(req);
 }
 
-void master_request_imap(int fd, int auth_process, const char *login_tag,
+void master_request_imap(int fd, unsigned int auth_process,
+			 const char *login_tag,
 			 unsigned char cookie[AUTH_COOKIE_SIZE], IPADDR *ip,
 			 MasterCallback callback, void *context)
 {

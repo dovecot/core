@@ -9,7 +9,8 @@ typedef void (*AuthCallback) (AuthReplyData *reply, const unsigned char *data,
 typedef struct {
 	AuthMethod method;
 
-	void (*init)(AuthInitRequestData *request,
+	void (*init)(unsigned int login_pid,
+		     AuthInitRequestData *request,
 		     AuthCallback callback, void *context);
 } AuthModule;
 
@@ -19,9 +20,11 @@ extern char *const *auth_realms;
 void auth_register_module(AuthModule *module);
 void auth_unregister_module(AuthModule *module);
 
-void auth_init_request(AuthInitRequestData *request,
+void auth_init_request(unsigned int login_pid,
+		       AuthInitRequestData *request,
 		       AuthCallback callback, void *context);
-void auth_continue_request(AuthContinuedRequestData *request,
+void auth_continue_request(unsigned int login_pid,
+			   AuthContinuedRequestData *request,
 			   const unsigned char *data,
 			   AuthCallback callback, void *context);
 

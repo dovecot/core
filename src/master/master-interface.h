@@ -17,9 +17,9 @@ typedef enum {
 } MasterReplyResult;
 
 typedef struct {
-	int id;
+	unsigned int id;
 
-	int auth_process;
+	unsigned int auth_process;
 	unsigned char cookie[AUTH_COOKIE_SIZE];
 
 	IPADDR ip;
@@ -27,7 +27,7 @@ typedef struct {
 } MasterRequest;
 
 typedef struct {
-	int id;
+	unsigned int id;
         MasterReplyResult result;
 } MasterReply;
 

@@ -6,6 +6,7 @@
 typedef struct _CookieData CookieData;
 
 struct _CookieData {
+	unsigned int login_pid;
 	unsigned char cookie[AUTH_COOKIE_SIZE];
 
 	/* continue authentication */
@@ -32,7 +33,11 @@ CookieData *cookie_lookup(unsigned char cookie[AUTH_COOKIE_SIZE]);
 /* Removes and frees the cookie */
 void cookie_remove(unsigned char cookie[AUTH_COOKIE_SIZE]);
 /* Looks up the cookie and removes it, you have to free the returned data. */
-CookieData *cookie_lookup_and_remove(unsigned char cookie[AUTH_COOKIE_SIZE]);
+CookieData *cookie_lookup_and_remove(unsigned int login_pid,
+				     unsigned char cookie[AUTH_COOKIE_SIZE]);
+
+/* Remove all cookies created by a login process. */
+void cookies_remove_login_pid(unsigned int login_pid);
 
 void cookies_init(void);
 void cookies_deinit(void);

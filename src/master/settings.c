@@ -368,14 +368,20 @@ static const char *parse_auth(const char *key, const char *value)
 	}
 
 	if (strcmp(key, "auth_count") == 0) {
-		if (!sscanf(value, "%i", &auth->count))
+		int num;
+
+		if (!sscanf(value, "%i", &num) || num < 0)
 			return t_strconcat("Invalid number: ", value, NULL);
+                auth->count = num;
 		return NULL;
 	}
 
 	if (strcmp(key, "auth_process_size") == 0) {
-		if (!sscanf(value, "%i", &auth->process_size))
+		int num;
+
+		if (!sscanf(value, "%i", &num) || num < 0)
 			return t_strconcat("Invalid number: ", value, NULL);
+                auth->process_size = num;
 		return NULL;
 	}
 

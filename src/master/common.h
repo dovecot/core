@@ -44,6 +44,6 @@ void imap_process_destroyed(pid_t pid);
 /* misc */
 #define VALIDATE_STR(str) \
 	validate_str(str, sizeof(str))
-int validate_str(const char *str, int max_len);
+int validate_str(const char *str, size_t max_len);
 
 #endif

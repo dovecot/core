@@ -8,10 +8,11 @@ typedef void (*AuthCallback)(AuthCookieReplyData *cookie_reply,
 typedef struct _AuthProcess AuthProcess;
 
 /* Find process for given id */
-AuthProcess *auth_process_find(int id);
+AuthProcess *auth_process_find(unsigned int id);
 
 /* Request information about given cookie */
-void auth_process_request(AuthProcess *process, int id,
+void auth_process_request(unsigned int login_pid,
+			  AuthProcess *process, unsigned int id,
 			  unsigned char cookie[AUTH_COOKIE_SIZE],
 			  AuthCallback callback, void *context);
 
