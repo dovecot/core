@@ -139,6 +139,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 
 	if (hdr == NULL) {
 		/* finished */
+		if (!mstream->header_read && mstream->callback != NULL)
+			mstream->callback(NULL, &matched, mstream->context);
 		mstream->header_read = TRUE;
 
 		message_parse_header_deinit(mstream->hdr_ctx);
