@@ -1,7 +1,6 @@
 /* Copyright (c) 2002-2003 Timo Sirainen */
 
 /* @UNSAFE: whole file */
-
 #include "lib.h"
 #include "mempool.h"
 
@@ -19,11 +18,12 @@ struct alloconly_pool {
 	struct pool pool;
 	int refcount;
 
+	size_t base_size;
 	struct pool_block *block;
-
-	char name[MEM_ALIGN_SIZE]; /* variable size */
+#ifdef DEBUG
+	const char *name;
+#endif
 };
-#define SIZEOF_ALLOCONLYPOOL (sizeof(struct alloconly_pool)-MEM_ALIGN_SIZE)
 
 struct pool_block {
 	struct pool_block *prev;
@@ -71,43 +71,51 @@ static struct pool static_alloconly_pool = {
 
 pool_t pool_alloconly_create(const char *name, size_t size)
 {
-	struct alloconly_pool *apool;
-	size_t len;
+	struct alloconly_pool apool, *new_apool;
+	size_t min_alloc = sizeof(struct alloconly_pool) + SIZEOF_POOLBLOCK;
 
-	len = strlen(name)+1;
-
-#ifndef USE_GC
-	apool = calloc(SIZEOF_ALLOCONLYPOOL + len, 1);
-#else
-	apool = GC_malloc(SIZEOF_ALLOCONLYPOOL + len);
-	memset(apool, 0, SIZEOF_ALLOCONLYPOOL + len);
+#ifdef DEBUG
+	min_alloc += strlen(name) + 1;
 #endif
-	if (apool == NULL)
-		i_panic("pool_alloconly_create(): Out of memory");
-	apool->pool = static_alloconly_pool;
-	apool->refcount = 1;
-	memcpy(apool->name, name, len);
 
-	block_alloc(apool, size);
-	return (struct pool *) apool;
+	/* create a fake alloconly_pool so we can call block_alloc() */
+	memset(&apool, 0, sizeof(apool));
+	apool.pool = static_alloconly_pool;
+	apool.refcount = 1;
+
+	if (size < min_alloc)
+		size = nearest_power(size + min_alloc);
+	block_alloc(&apool, size);
+
+	/* now allocate the actual alloconly_pool from the created block */
+	new_apool = p_new(&apool.pool, struct alloconly_pool, 1);
+	*new_apool = apool;
+#ifdef DEBUG
+	new_apool->name = p_strdup(&new_apool->pool, name);
+#endif
+
+	/* set base_size so p_clear() doesn't trash alloconly_pool structure. */
+	new_apool->base_size = new_apool->block->size - new_apool->block->left;
+	new_apool->block->last_alloc_size = 0;
+
+	return &new_apool->pool;
 }
 
 static void pool_alloconly_destroy(struct alloconly_pool *apool)
 {
+	void *block;
+
 	/* destroy all but the last block */
 	pool_alloconly_clear(&apool->pool);
 
 	/* destroy the last block */
+	block = apool->block;
 #ifdef DEBUG
-	memset(apool->block, 0xde, SIZEOF_POOLBLOCK + apool->block->size);
+	memset(block, 0xde, SIZEOF_POOLBLOCK + apool->block->size);
 #endif
 
 #ifndef USE_GC
-	free(apool->block);
-	free(apool);
-#else
-	apool->block = NULL;
-	apool = NULL;
+	free(block);
 #endif
 }
 
@@ -115,7 +123,11 @@ static const char *pool_alloconly_get_name(pool_t pool)
 {
 	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
 
+#ifdef DEBUG
 	return apool->name;
+#else
+	return "alloconly";
+#endif
 }
 
 static void pool_alloconly_ref(pool_t pool)
@@ -137,18 +149,19 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 {
 	struct pool_block *block;
 
-	/* each block is at least twice the size of the previous one */
-	if (apool->block != NULL && size <= apool->block->size)
-		size += apool->block->size;
+	i_assert(size > SIZEOF_POOLBLOCK);
 
-	size = nearest_power(size + SIZEOF_POOLBLOCK);
-
-#ifdef DEBUG
 	if (apool->block != NULL) {
+		/* each block is at least twice the size of the previous one */
+		if (size <= apool->block->size)
+			size += apool->block->size;
+
+		size = nearest_power(size);
+#ifdef DEBUG
 		i_warning("Growing pool '%s' with: %"PRIuSIZE_T,
 			  apool->name, size);
-	}
 #endif
+	}
 
 #ifndef USE_GC
 	block = calloc(size, 1);
@@ -177,7 +190,7 @@ static void *pool_alloconly_malloc(pool_t pool, size_t size)
 
 	if (apool->block->left < size) {
 		/* we need a new block */
-		block_alloc(apool, size);
+		block_alloc(apool, size + SIZEOF_POOLBLOCK);
 	}
 
 	mem = POOL_BLOCK_DATA(apool->block) +
@@ -253,11 +266,13 @@ static void pool_alloconly_clear(pool_t pool)
 {
 	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
 	struct pool_block *block;
+	size_t avail_size;
 
-	/* destroy all blocks but the first, which is the largest */
+	/* destroy all blocks but the oldest, which contains the
+	   struct alloconly_pool allocation. */
 	while (apool->block->prev != NULL) {
-		block = apool->block->prev;
-		apool->block->prev = block->prev;
+		block = apool->block;
+		apool->block = block->prev;
 
 #ifdef DEBUG
 		memset(block, 0xde, SIZEOF_POOLBLOCK + block->size);
@@ -267,10 +282,11 @@ static void pool_alloconly_clear(pool_t pool)
 #endif
 	}
 
-	/* clear the block */
-	memset(POOL_BLOCK_DATA(apool->block), 0,
-	       apool->block->size - apool->block->left);
-	apool->block->left = apool->block->size;
+	/* clear the first block */
+	avail_size = apool->block->size - apool->base_size;
+	memset(PTR_OFFSET(POOL_BLOCK_DATA(apool->block), apool->base_size), 0,
+	       avail_size - apool->block->left);
+	apool->block->left = avail_size;
 	apool->block->last_alloc_size = 0;
 }
 
