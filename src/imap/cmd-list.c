@@ -124,7 +124,6 @@ list_namespace_mailboxes(struct client *client, struct imap_match_glob *glob,
 		imap_quote_append_string(str, name, FALSE);
 		client_send_line(client, str_c(str));
 	}
-	t_pop();
 
 	if (!inbox_found && ns->inbox && match_inbox) {
 		/* INBOX always exists */
@@ -132,6 +131,7 @@ list_namespace_mailboxes(struct client *client, struct imap_match_glob *glob,
 		str_printfa(str, "* LIST () \"%s\" \"INBOX\"", ns->sep_str);
 		client_send_line(client, str_c(str));
 	}
+	t_pop();
 
 	return mail_storage_mailbox_list_deinit(ctx);
 }
