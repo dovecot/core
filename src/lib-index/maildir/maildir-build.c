@@ -11,9 +11,8 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-static MailIndexRecord *
-mail_index_record_append(MailIndex *index, time_t internal_date,
-			 unsigned int *uid)
+static MailIndexRecord *mail_index_record_append_begin(MailIndex *index,
+						       time_t internal_date)
 {
 	MailIndexRecord trec, *rec;
 
@@ -21,7 +20,7 @@ mail_index_record_append(MailIndex *index, time_t internal_date,
 	trec.internal_date = internal_date;
 
 	rec = &trec;
-	if (!index->append(index, &rec, uid))
+	if (!index->append_begin(index, &rec))
 		return NULL;
 
 	return rec;
@@ -33,7 +32,6 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 	MailIndexRecord *rec;
 	MailIndexUpdate *update;
 	struct stat st;
-	unsigned int uid;
 	int failed;
 
 	i_assert(path != NULL);
@@ -57,7 +55,7 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 		return FALSE;
 
 	/* append the file into index */
-	rec = mail_index_record_append(index, st.st_mtime, &uid);
+	rec = mail_index_record_append_begin(index, st.st_mtime);
 	if (rec == NULL)
 		return FALSE;
 
@@ -77,13 +75,7 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 	if (!index->update_end(update) || failed)
 		return FALSE;
 
-	/* make sure everything is written before setting it's UID
-	   to mark it as non-deleted. */
-	if (!mail_index_fmsync(index, index->mmap_length))
-		return FALSE;
-	rec->uid = uid;
-
-	return TRUE;
+	return index->append_end(index, rec);
 }
 
 int maildir_index_append_file(MailIndex *index, const char *dir,

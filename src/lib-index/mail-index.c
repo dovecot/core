@@ -1381,8 +1381,7 @@ int mail_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 					 rec->uid, external_change);
 }
 
-int mail_index_append(MailIndex *index, MailIndexRecord **rec,
-		      unsigned int *uid)
+int mail_index_append_begin(MailIndex *index, MailIndexRecord **rec)
 {
 	off_t pos;
 
@@ -1405,9 +1404,6 @@ int mail_index_append(MailIndex *index, MailIndexRecord **rec,
 	index->header->messages_count++;
         mail_index_mark_flag_changes(index, *rec, 0, (*rec)->msg_flags);
 
-	if (index->hash != NULL)
-		mail_hash_update(index->hash, (*rec)->uid, (uoff_t)pos);
-
 	/* file size changed, let others know about it too by changing
 	   sync_id in header. */
 	index->header->sync_id++;
@@ -1423,7 +1419,25 @@ int mail_index_append(MailIndex *index, MailIndexRecord **rec,
 		return FALSE;
 
 	*rec = (MailIndexRecord *) ((char *) index->mmap_base + pos);
-	*uid = index->header->next_uid++;
+	return TRUE;
+}
+
+int mail_index_append_end(MailIndex *index, MailIndexRecord *rec)
+{
+	/* make sure everything is written before setting it's UID
+	   to mark it as non-deleted. */
+	if (!mail_index_data_sync_file(index->data))
+		return FALSE;
+	if (!mail_index_fmsync(index, index->mmap_length))
+		return FALSE;
+
+	rec->uid = index->header->next_uid++;
+
+	if (index->hash != NULL) {
+		mail_hash_update(index->hash, rec->uid,
+				 INDEX_FILE_POSITION(index, rec));
+	}
+
 	return TRUE;
 }
 
