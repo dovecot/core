@@ -5,6 +5,7 @@
 #include "index-mail.h"
 #include "mbox-storage.h"
 #include "mbox-file.h"
+#include "mbox-sync-private.h"
 #include "istream-raw-mbox.h"
 
 #include <fcntl.h>
@@ -16,16 +17,22 @@ static int mbox_mail_seek(struct index_mail *mail)
 	struct index_mailbox *ibox = mail->ibox;
 	const void *data;
 
+	if (ibox->mbox_lock_type == F_UNLCK) {
+		if (mbox_sync(ibox, FALSE, TRUE) < 0)
+			return -1;
+
+		i_assert(ibox->mbox_lock_type != F_UNLCK);
+                mail->ibox->mbox_mail_lock_id = ibox->mbox_lock_id;
+	}
+
+	if (mbox_file_open_stream(ibox) < 0)
+		return -1;
+
 	if (mail_index_lookup_extra(ibox->view, mail->mail.seq,
 				    ibox->mbox_extra_idx, &data) < 0) {
 		mail_storage_set_index_error(ibox);
 		return -1;
 	}
-
-	// FIXME: lock the file. sync if needed.
-
-	if (mbox_file_open_stream(ibox) < 0)
-		return -1;
 
 	istream_raw_mbox_seek(ibox->mbox_stream, *((const uint64_t *)data));
 	return 0;

@@ -409,6 +409,7 @@ static int mbox_unlock_files(struct index_mailbox *ibox)
 
 int mbox_unlock(struct index_mailbox *ibox, unsigned int lock_id)
 {
+	i_assert(ibox->mbox_locks > 0);
 	i_assert(ibox->mbox_lock_id == lock_id);
 
 	if (--ibox->mbox_locks > 0)

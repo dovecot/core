@@ -864,12 +864,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx)
 	struct mbox_sync_mail_context mail_ctx;
 	struct stat st;
 	uint32_t min_msg_count;
-	int ret, lock_type;
-
-	lock_type = mail_index_sync_have_more(sync_ctx->index_sync_ctx) ?
-		F_WRLCK : F_RDLCK;
-	if (mbox_sync_lock(sync_ctx, lock_type) < 0)
-		return -1;
+	int ret;
 
 	if (fstat(sync_ctx->fd, &st) < 0) {
 		mbox_set_syscall_error(sync_ctx->ibox, "stat()");
@@ -949,17 +944,26 @@ static int mbox_sync_has_changed(struct index_mailbox *ibox)
 		(uint64_t)st.st_size != hdr->sync_size;
 }
 
-int mbox_sync(struct index_mailbox *ibox, int last_commit)
+int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
 {
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
 	struct mbox_sync_context sync_ctx;
 	uint32_t seq;
 	uoff_t offset;
-	int ret;
+	unsigned int lock_id = 0;
+	int ret, lock_type;
 
-	if ((ret = mbox_sync_has_changed(ibox)) < 0)
+	if (lock) {
+		if (mbox_lock(ibox, F_RDLCK, &lock_id) <= 0)
+			return -1;
+	}
+
+	if ((ret = mbox_sync_has_changed(ibox)) < 0) {
+		if (lock)
+			(void)mbox_unlock(ibox, lock_id);
 		return -1;
+	}
 	if (ret == 0 && !last_commit)
 		return 0;
 
@@ -994,6 +998,15 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 	ret = mail_index_get_header(sync_view, &sync_ctx.hdr);
 	i_assert(ret == 0);
 
+	lock_type = mail_index_sync_have_more(index_sync_ctx) ?
+		F_WRLCK : F_RDLCK;
+	if (lock_type == F_WRLCK && lock) {
+		(void)mbox_unlock(ibox, lock_id);
+		lock_id = 0;
+	}
+	if (mbox_sync_lock(&sync_ctx, lock_type) < 0)
+		return -1;
+
 	if (mbox_sync_do(&sync_ctx) < 0)
 		ret = -1;
 
@@ -1009,7 +1022,7 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 	if (mail_index_sync_end(index_sync_ctx) < 0)
 		ret = -1;
 
-	if (sync_ctx.lock_id != 0) {
+	if (sync_ctx.lock_id != 0 && (ret < 0 || !lock)) {
 		/* FIXME: drop to read locking and keep it MBOX_SYNC_SECS+1
 		   to make sure we notice changes made by others */
 		if (mbox_unlock(ibox, sync_ctx.lock_id) < 0)
@@ -1031,7 +1044,7 @@ int mbox_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
 		ibox->sync_last_check = ioloop_time;
 
-		if (mbox_sync(ibox, FALSE) < 0)
+		if (mbox_sync(ibox, FALSE, FALSE) < 0)
 			return -1;
 	}
 

@@ -390,6 +390,14 @@ static uint32_t mbox_get_recent_count(struct index_mailbox *ibox)
 	return 0; // FIXME
 }
 
+static void mbox_mail_deinit(struct index_mail *mail)
+{
+	if (mail->ibox->mbox_mail_lock_id != 0) {
+		(void)mbox_unlock(mail->ibox, mail->ibox->mbox_mail_lock_id);
+                mail->ibox->mbox_mail_lock_id = 0;
+	}
+}
+
 static struct mailbox *
 mbox_open(struct index_storage *storage, const char *name,
 	  enum mailbox_open_flags flags)
@@ -427,6 +435,7 @@ mbox_open(struct index_storage *storage, const char *name,
 	ibox->mbox_extra_idx = mbox_extra_idx;
 
 	ibox->get_recent_count = mbox_get_recent_count;
+	ibox->mail_deinit = mbox_mail_deinit;
 	ibox->mail_interface = &mbox_mail;
 
 	return &ibox->box;

@@ -83,7 +83,7 @@ struct mbox_sync_context {
 	off_t expunged_space, space_diff;
 };
 
-int mbox_sync(struct index_mailbox *ibox, int last_commit);
+int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock);
 void mbox_sync_parse_next_mail(struct istream *input,
 			       struct mbox_sync_mail_context *ctx,
 			       int rewriting);
