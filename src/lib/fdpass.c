@@ -31,12 +31,20 @@
 #include <sys/uio.h>
 
 #ifndef CMSG_SPACE
-#  define CMSG_ALIGN(len) \
+#  if defined(_CMSG_DATA_ALIGN) && defined(_CMSG_HDR_ALIGN)  /* for Solaris */
+#    define CMSG_ALIGN(len) _CMSG_DATA_ALIGN(len)
+#    define CMSG_SPACE(len) \
+	(_CMSG_DATA_ALIGN(len) + _CMSG_HDR_ALIGN(sizeof(struct cmsghdr)))
+#    define CMSG_LEN(len) \
+	(_CMSG_HDR_ALIGN(sizeof(struct cmsghdr)) + (len))
+#  else
+#    define CMSG_ALIGN(len) \
 	(((len) + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1))
-#  define CMSG_SPACE(len) \
+#    define CMSG_SPACE(len) \
 	(CMSG_ALIGN(len) + CMSG_ALIGN(sizeof(struct cmsghdr)))
-#  define CMSG_LEN(len) \
+#    define CMSG_LEN(len) \
 	(CMSG_ALIGN(sizeof(struct cmsghdr)) + (len))
+#  endif
 #endif
 
 #ifdef SCM_RIGHTS
