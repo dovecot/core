@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "utc-mktime.h"
 #include "mbox-index.h"
 
 #include <time.h>
@@ -20,7 +21,8 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 {
 	const unsigned char *msg_end;
 	struct tm tm;
-	int i;
+	int i, timezone;
+	time_t t;
 
 	/* <sender> <date> <moreinfo> */
 	msg_end = msg + size;
@@ -33,10 +35,10 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 	}
 	while (msg < msg_end && *msg == ' ') msg++;
 
-	/* next 24 chars should be in the date in asctime() format,
-	   eg. "Thu Nov 29 22:33:52 2001"
+	/* next 24 chars should be in the date in asctime() format, eg.
+	   "Thu Nov 29 22:33:52 2001 +0300"
 
-	   Some some also include timezone:
+	   Some also include named timezone, which we ignore:
 
 	   "Thu Nov 29 22:33:52 EEST 2001"
 	*/
@@ -97,7 +99,7 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 	tm.tm_sec = (msg[0]-'0') * 10 + (msg[1]-'0');
 	msg += 3;
 
-	/* optional timezone */
+	/* optional named timezone */
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
 	    !i_isdigit(msg[2]) || !i_isdigit(msg[3])) {
 		/* skip to next space */
@@ -118,9 +120,26 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 
 	tm.tm_year = (msg[0]-'0') * 1000 + (msg[1]-'0') * 100 +
 		(msg[2]-'0') * 10 + (msg[3]-'0') - 1900;
+	msg += 4;
 
 	tm.tm_isdst = -1;
-	return mktime(&tm);
+	if ((msg[0] == '-' || msg[0] == '+') &&
+	    i_isdigit(msg[1]) && i_isdigit(msg[2]) &&
+	    i_isdigit(msg[3]) && i_isdigit(msg[4])) {
+		timezone = (msg[1]-'0') * 1000 + (msg[2]-'0') * 100 +
+			(msg[3]-'0') * 10 +(msg[4]-'0');
+		if (msg[0] == '-') timezone = -timezone;
+
+		t = utc_mktime(&tm);
+		if (t == (time_t)-1)
+			return (time_t)-1;
+
+		t -= timezone * 60;
+		return t;
+	} else {
+		/* assume local timezone */
+		return mktime(&tm);
+	}
 }
 
 const char *mbox_from_create(const char *sender, time_t time)
