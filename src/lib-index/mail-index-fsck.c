@@ -81,7 +81,7 @@ int mail_index_fsck(MailIndex *index)
 		if (rec->uid == 0) {
 			/* expunged message */
 			pos = INDEX_RECORD_INDEX(index, rec);
-			if (hdr->first_hole_index == 0) {
+			if (hdr->first_hole_records == 0) {
 				hdr->first_hole_index = pos;
 				hdr->first_hole_records = 1;
 			} else if (hdr->first_hole_index +

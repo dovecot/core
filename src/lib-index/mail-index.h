@@ -333,8 +333,6 @@ struct _MailIndex {
         MailLockType lock_type;
 
 	MailIndexHeader *header;
-	MailIndexRecord *last_lookup;
-	unsigned int last_lookup_seq;
 	unsigned int first_recent_uid;
 
 	unsigned int modifylog_id;
@@ -356,8 +354,7 @@ struct _MailIndex {
 #define MAIL_INDEX_PRIVATE_FILL \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0
+	0, 0, 0, 0, 0, 0, 0, 0, 0 \
 
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent, int fast);

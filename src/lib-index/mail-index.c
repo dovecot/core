@@ -40,9 +40,6 @@ static int mmap_verify(MailIndex *index)
 		(void)ftruncate(index->fd, (off_t)index->mmap_full_length);
 	}
 
-	index->last_lookup_seq = 0;
-	index->last_lookup = NULL;
-
 	/* keep the header set even if we fail, so we can update the flags */
 	hdr = index->mmap_base;
 	index->header = hdr;
@@ -294,10 +291,6 @@ static int mail_index_lock_remove(MailIndex *index)
 	old_lock_type = index->lock_type;
 	index->lock_type = MAIL_LOCK_UNLOCK;
 
-	/* reset last_lookup so rebuilds don't try to use it */
-	index->last_lookup_seq = 0;
-	index->last_lookup = NULL;
-
 	if (old_lock_type == MAIL_LOCK_SHARED) {
 		/* releasing shared lock. we may need to update some
 		   flags in header. */
@@ -413,8 +406,7 @@ int mail_index_verify_hole_range(MailIndex *index)
 	}
 
 	/* check that first_hole_records is in valid range */
-	if (hdr->first_hole_records > max_records ||
-	    hdr->first_hole_index + hdr->first_hole_records > max_records) {
+	if (max_records - hdr->first_hole_index < hdr->first_hole_records) {
 		index_set_corrupted(index,
 				    "first_hole_records points outside file");
 		return FALSE;
@@ -439,12 +431,6 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 
 	i_assert(seq > 0);
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
-
-	if (seq == index->last_lookup_seq &&
-	    index->last_lookup != NULL && index->last_lookup->uid != 0) {
-		/* wanted the same record as last time */
-		return index->last_lookup;
-	}
 
 	hdr = index->header;
 	if (seq > hdr->messages_count) {
@@ -489,8 +475,6 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 		return NULL;
 	}
 
-	index->last_lookup = rec;
-	index->last_lookup_seq = seq;
 	return rec;
 }
 
@@ -710,38 +694,13 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	i_assert(seq != 0);
 	i_assert(rec->uid != 0);
 
-	if (seq != 0 && index->modifylog != NULL) {
-		if (!mail_modifylog_add_expunge(index->modifylog, seq,
-						rec->uid, external_change))
-			return FALSE;
-	}
-
-	/* expunge() may be called while index is being rebuilt and when
-	   there's no hash yet */
-	if (index->tree != NULL)
-		mail_tree_delete(index->tree, rec->uid);
-	else {
-		/* make sure it also gets updated */
-		index->header->flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
-	}
-
-	/* setting UID to 0 is enough for deleting the mail from index */
-	rec->uid = 0;
-
-	/* update last_lookup_seq */
-	if (seq != 0) {
-		/* note that last_lookup can be left to point to
-		   invalid record so that next() works properly */
-		if (seq == index->last_lookup_seq)
-			index->last_lookup = NULL;
-		else if (seq < index->last_lookup_seq)
-			index->last_lookup_seq--;
-	}
-
 	if (!mail_index_verify_hole_range(index))
 		return FALSE;
 
 	hdr = index->header;
+
+	/* setting UID to 0 is enough for deleting the mail from index */
+	rec->uid = 0;
 
 	/* update first hole */
 	idx = INDEX_RECORD_INDEX(index, rec);
@@ -749,11 +708,11 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		/* first deleted message in index */
 		hdr->first_hole_index = idx;
 		hdr->first_hole_records = 1;
-	} else if (idx == hdr->first_hole_index+1) {
+	} else if (idx+1 == hdr->first_hole_index) {
 		/* deleted the previous record before hole */
 		hdr->first_hole_index--;
 		hdr->first_hole_records++;
-	} else if (hdr->first_hole_index + hdr->first_hole_records == idx) {
+	} else if (idx == hdr->first_hole_index + hdr->first_hole_records) {
 		/* deleted the next record after hole */
 		hdr->first_hole_records++;
 		update_first_hole_records(index);
@@ -786,6 +745,21 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	} else {
 		if (INDEX_NEED_COMPRESS(records, hdr))
 			hdr->flags |= MAIL_INDEX_FLAG_COMPRESS;
+	}
+
+	/* expunge() may be called while index is being rebuilt and when
+	   tree file hasn't been opened yet */
+	if (index->tree != NULL)
+		mail_tree_delete(index->tree, rec->uid);
+	else {
+		/* make sure it also gets updated */
+		index->header->flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
+	}
+
+	if (seq != 0 && index->modifylog != NULL) {
+		if (!mail_modifylog_add_expunge(index->modifylog, seq,
+						rec->uid, external_change))
+			return FALSE;
 	}
 
 	return TRUE;
