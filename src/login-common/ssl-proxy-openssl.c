@@ -203,10 +203,9 @@ static void ssl_read_step(struct ssl_proxy *proxy)
 
 	ret = SSL_read(proxy->ssl, proxy->plainout_buf,
 		       sizeof(proxy->plainout_buf));
-	if (ret <= 0) {
-		plain_block_input(proxy, TRUE);
+	if (ret <= 0)
 		ssl_handle_error(proxy, ret, "SSL_read()");
-	} else {
+	else {
 		plain_block_input(proxy, FALSE);
 		ssl_set_direction(proxy, IO_READ);
 
@@ -222,10 +221,9 @@ static void ssl_write_step(struct ssl_proxy *proxy)
 
 	ret = SSL_write(proxy->ssl, proxy->sslout_buf + proxy->sslout_pos,
 			proxy->sslout_size);
-	if (ret <= 0) {
-		plain_block_input(proxy, TRUE);
+	if (ret <= 0)
 		ssl_handle_error(proxy, ret, "SSL_write()");
-	} else {
+	else {
 		proxy->sslout_size -= ret;
 		proxy->sslout_pos += ret;
 
