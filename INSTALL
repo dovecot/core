@@ -1,4 +1,4 @@
-Build instructions
+Build Instructions
 ------------------
 
 For most people, the usual:
@@ -27,7 +27,7 @@ For GNUTLS support you need version 0.5.5 or later. You can get GNUTLS from
 http://www.gnutls.org/
 
 
-Optional configure options
+Optional Configure Options
 --------------------------
 
 You can get a full list with:
@@ -60,20 +60,54 @@ memory accessing work. Currently it should also be safe to set to 4 when
 using 32bit file offets. With x86 it could be 1 as well if you want to save
 a bit of disk space (in .imap.index.data file) and memory.
 
-Specifies memory alignment to use. Many non-x86 systems require this 
+  --with-rawlog           Build support for logging user traffic
 
-With many non-x86 systems this is
-required to be 64bit (8 bytes) since all 64bit memo
+When Dovecot is compiled with this option and user's home directory
+contains rawlog directory, all IMAP connections are logged into
+timstamp-pid.in and .out files. This is mostly useful for debugging.
+
+  --enable-debug          Enable some extra checks for debugging
+
+This is mostly useful for developers. It does quite a lot of unnecessary
+work but should catch some programming mistakes more quickly.
+
+  --with-ssl=gnutls|openssl Build with GNUTLS (default) or OpenSSL
+  --with-ssldir=DIR       SSL base directory for certificates (/etc/ssl)
+
+SSL options.
+
+  --with-pop3d            Build POP3 server (default)
+
+Build pop3d binary. It still has to be separately enabled from configuration
+file.
 
   --with-passwd           Build with /etc/passwd support (default)
   --with-passwd-file      Build with passwd-like file support (default)
   --with-shadow           Build with shadow password support (default)
   --with-pam              Build with PAM support (default)
+  --with-ldap             Build with LDAP support
   --with-vpopmail         Build with vpopmail support (default)
+  --with-static-userdb    Build with static userdb support (default)
 
 Specify which authentication modules to use. Disabling them give you a few
 bytes smaller binary, but not much else.
 
-  --with-ssl=gnutls|openssl Build with GNUTLS (default) or OpenSSL
 
-Specify wanted SSL library.
+Dynamic Authentication Modules
+------------------------------
+
+Dovecot can also dynamically load authentication modules from
+$prefix/lib/dovecot/auth/ directory. Binary packages builders should use
+them for auth modules which require external libraries (eg. LDAP and
+vpopmail). There's no standard way to build them as modules currently, but
+something like this should work:
+
+gcc -shared -DUSERDB_LDAP -DPASSDB_LDAP -I../.. -I../lib -I../lib-settings \
+db-ldap.c userdb-ldap.c passdb-ldap.c -o ldap.so \
+../lib-settings/libsettings.a -lldap
+
+gcc -shared -DUSERDB_VPOPMAIL -DPASSDB_VPOPMAIL -I../.. -I../lib \
+userdb-vpopmail.c passdb-ldap.c -o vpopmail.so -lvpopmail
+
+Including libsettings.a in ldap.so is kind of annoying, but it's not
+currently needed elsewhere in dovecot-auth.
