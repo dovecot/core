@@ -28,6 +28,7 @@ struct _IndexMailbox {
 	unsigned int synced_messages_count;
 
 	unsigned int sent_diskspace_warning:1;
+	unsigned int delay_save_unlocking:1; /* For COPYing inside mailbox */
 };
 
 extern ImapMessageCacheIface index_msgcache_iface;

@@ -176,7 +176,7 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		return FALSE;
 	}
 
-	/* we don't need the real flags, easier to keep using our own.
+	/* we don't need the real flag positions, easier to keep using our own.
 	   they need to be checked/added though. */
 	real_flags = flags;
 	if (!index_mailbox_fix_custom_flags(ibox, &real_flags, custom_flags))
@@ -205,7 +205,10 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		    !index_storage_save(box->storage, mbox_path,
 					data, outbuf, data_size) ||
 		    !mbox_append_lf(box->storage, outbuf, mbox_path)) {
-			/* failed, truncate file back to original size */
+			/* failed, truncate file back to original size.
+			   output buffer needs to be flushed before truncating
+			   so unref() won't write anything. */
+			o_buffer_flush(outbuf);
 			(void)ftruncate(index->mbox_fd, pos);
 			failed = TRUE;
 		}
@@ -213,8 +216,11 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		t_pop();
 	}
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
-		return mail_storage_set_index_error(ibox);
+	/* kludgy.. for copying inside same mailbox. */
+	if (!ibox->delay_save_unlocking) {
+		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
+			return mail_storage_set_index_error(ibox);
+	}
 
 	return !failed;
 }
