@@ -1018,7 +1018,10 @@ static void index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 		} else if (rec->uid < index->header->first_unseen_uid_lowwater)
 			index->header->first_unseen_uid_lowwater = rec->uid;
 
-		index->header->seen_messages_count--;
+		if (index->header->seen_messages_count == 0)
+			index->header->flags |= MAIL_INDEX_FLAG_FSCK;
+		else
+			index->header->seen_messages_count--;
 	} else if ((old_flags & MAIL_DELETED) == 0 &&
 		   (new_flags & MAIL_DELETED)) {
 		/* undeleted -> deleted */
@@ -1032,22 +1035,34 @@ static void index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 	} else if ((old_flags & MAIL_DELETED) &&
 		   (new_flags & MAIL_DELETED) == 0) {
 		/* deleted -> undeleted */
-		index->header->deleted_messages_count--;
+		if (index->header->deleted_messages_count == 0)
+			index->header->flags |= MAIL_INDEX_FLAG_FSCK;
+		else
+			index->header->deleted_messages_count--;
 	}
 }
 
 static int mail_index_truncate(MailIndex *index)
 {
+	/* truncate index file */
+	if (ftruncate(index->fd, index->header->first_hole_position) < 0)
+		return FALSE;
+
 	/* update header */
 	index->header->first_hole_position = 0;
 	index->header->first_hole_records = 0;
 
-	/* truncate index file */
-	if (ftruncate(index->fd, sizeof(MailIndexHeader)) < 0)
+	if (index->header->messages_count == 0) {
+		/* all mail was deleted, truncate data file */
+		if (!mail_index_data_reset(index->data))
+			return FALSE;
+	}
+
+	index->dirty_mmap = TRUE;
+	if (!mmap_update(index))
 		return FALSE;
 
-	/* truncate data file */
-	return mail_index_data_reset(index->data);
+	return TRUE;
 }
 
 int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
@@ -1115,8 +1130,9 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	hdr->messages_count--;
 	index_mark_flag_changes(index, rec, rec->msg_flags, 0);
 
-	if (hdr->messages_count == 0) {
-		/* all messages are deleted, truncate the index files */
+	if ((hdr->first_hole_position - sizeof(MailIndexHeader)) /
+	    sizeof(MailIndexRecord) == hdr->messages_count) {
+		/* the hole reaches end of file, truncate it */
 		(void)mail_index_truncate(index);
 	} else {
 		/* update deleted_space in data file */
