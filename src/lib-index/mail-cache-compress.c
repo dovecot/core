@@ -233,20 +233,15 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	return mail_index_transaction_commit(t, &seq, &offset);
 }
 
-int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
+static int mail_cache_compress_locked(struct mail_cache *cache,
+				      struct mail_index_view *view)
 {
         mode_t old_mask;
-	int fd, ret, locked;
-
-	if ((ret = mail_cache_lock(cache)) < 0)
-		return -1;
-	locked = ret > 0;
+	int fd;
 
 	/* get the latest info on fields */
-	if (mail_cache_header_fields_read(cache) < 0) {
-		if (locked) mail_cache_unlock(cache);
+	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
-	}
 
 #ifdef DEBUG
 	i_warning("Compressing cache file %s", cache->filepath);
@@ -261,7 +256,6 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 
 	if (fd == -1) {
 		mail_cache_set_syscall_error(cache, "file_dotlock_open()");
-		if (locked) mail_cache_unlock(cache);
 		return -1;
 	}
 
@@ -273,37 +267,51 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 
 	// FIXME: check that cache file wasn't just recreated
 
-	ret = 0;
 	if (mail_cache_copy(cache, view, fd) < 0) {
 		(void)file_dotlock_delete(cache->filepath, NULL, fd);
-		ret = -1;
-	} else {
-		if (file_dotlock_replace(cache->filepath, NULL,
-					 -1, FALSE) < 0) {
-			mail_cache_set_syscall_error(cache,
-						     "file_dotlock_replace()");
-			(void)close(fd);
-			ret = -1;
-		} else {
-			mail_cache_file_close(cache);
-			cache->fd = fd;
-
-			if (cache->file_cache != NULL)
-				file_cache_set_fd(cache->file_cache, cache->fd);
-
-			if (mail_cache_map(cache, 0, 0) < 0)
-				ret = -1;
-			else if (mail_cache_header_fields_read(cache) < 0)
-				ret = -1;
-		}
+		return -1;
 	}
 
-	if (locked)
-		mail_cache_unlock(cache);
+	if (file_dotlock_replace(cache->filepath, NULL,
+				 -1, FALSE) < 0) {
+		mail_cache_set_syscall_error(cache,
+					     "file_dotlock_replace()");
+		(void)close(fd);
+		return -1;
+	}
 
-	if (ret == 0)
-                cache->need_compress = FALSE;
-	return ret;
+	mail_cache_file_close(cache);
+	cache->fd = fd;
+
+	if (cache->file_cache != NULL)
+		file_cache_set_fd(cache->file_cache, cache->fd);
+
+	if (mail_cache_map(cache, 0, 0) < 0)
+		return -1;
+	if (mail_cache_header_fields_read(cache) < 0)
+		return -1;
+
+	cache->need_compress = FALSE;
+	return 0;
+}
+
+int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
+{
+	int ret;
+
+	switch (mail_cache_lock(cache)) {
+	case -1:
+		return -1;
+	case 0:
+		/* couldn't lock, either it's broken or doesn't exist.
+		   just start creating it. */
+		return mail_cache_compress_locked(cache, view);
+	default:
+		/* locking succeeded. */
+		ret = mail_cache_compress_locked(cache, view);
+		mail_cache_unlock(cache);
+		return ret;
+	}
 }
 
 int mail_cache_need_compress(struct mail_cache *cache)

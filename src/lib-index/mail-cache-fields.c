@@ -275,23 +275,15 @@ static void copy_to_buf_byte(struct mail_cache *cache, buffer_t *dest,
 	}
 }
 
-int mail_cache_header_fields_update(struct mail_cache *cache)
+static int mail_cache_header_fields_update_locked(struct mail_cache *cache)
 {
-	int locked = cache->locked;
 	buffer_t *buffer;
 	uint32_t i, offset;
 	int ret = 0;
 
-	if (!locked) {
-		if (mail_cache_lock(cache) <= 0)
-			return -1;
-	}
-
 	if (mail_cache_header_fields_read(cache) < 0 ||
-	    mail_cache_header_fields_get_offset(cache, &offset) < 0) {
-		mail_cache_unlock(cache);
+	    mail_cache_header_fields_get_offset(cache, &offset) < 0)
 		return -1;
-	}
 
 	t_push();
 	buffer = buffer_create_dynamic(pool_datastack_create(), 256);
@@ -321,8 +313,21 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 	if (ret == 0)
 		cache->field_header_write_pending = FALSE;
 
-	if (!locked)
-		mail_cache_unlock(cache);
+	return ret;
+}
+
+int mail_cache_header_fields_update(struct mail_cache *cache)
+{
+	int ret;
+
+	if (cache->locked)
+		return mail_cache_header_fields_update_locked(cache);
+
+	if (mail_cache_lock(cache) <= 0)
+		return -1;
+
+	ret = mail_cache_header_fields_update_locked(cache);
+	mail_cache_unlock(cache);
 	return ret;
 }
 

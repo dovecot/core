@@ -352,12 +352,15 @@ int mail_cache_lock(struct mail_cache *cache)
 			file_cache_invalidate(cache->file_cache, 0,
 					      sizeof(struct mail_cache_header));
 		}
-		if (mail_cache_map(cache, 0, 0) < 0)
+		if (mail_cache_map(cache, 0, 0) < 0) {
+			mail_cache_unlock(cache);
 			ret = -1;
+		}
 		cache->hdr_copy = *cache->hdr;
 	}
 
 	mail_index_view_close(view);
+	i_assert((ret <= 0 && !cache->locked) || (ret > 0 && cache->locked));
 	return ret;
 }
 
