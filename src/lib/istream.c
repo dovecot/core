@@ -69,6 +69,7 @@ void i_stream_set_read_limit(struct istream *stream, uoff_t v_offset)
 
 	i_assert(stream->v_size == 0 || v_offset <= stream->v_size);
 
+	stream->eof = FALSE;
 	if (_stream->high_pos != 0) {
 		_stream->pos = _stream->high_pos;
 		_stream->high_pos = 0;
@@ -100,6 +101,7 @@ ssize_t i_stream_read(struct istream *stream)
 		return -1;
 	}
 
+	stream->eof = FALSE;
 	return _stream->read(_stream);
 }
 
@@ -136,11 +138,12 @@ void i_stream_seek(struct istream *stream, uoff_t v_offset)
 {
 	struct _istream *_stream = stream->real_stream;
 
-	i_assert(v_offset <= stream->v_size);
+	i_assert(stream->v_size == 0 || v_offset <= stream->v_size);
 
 	if (stream->closed)
 		return;
 
+	stream->eof = FALSE;
 	_stream->high_pos = 0;
 	_stream->seek(_stream, v_offset);
 }

@@ -689,7 +689,8 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 	out_offset = outstream->ostream.offset +
 		(instream->v_limit - instream->v_offset);
 
-	i_assert(out_offset <= instream->start_offset + instream->v_size);
+	i_assert(instream->v_size == 0 ||
+		 out_offset <= instream->start_offset + instream->v_size);
 
 	while (in_offset > in_start_offset) {
 		if (in_offset - in_start_offset <= buffer_size)
@@ -756,12 +757,13 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 	return (off_t) (instream->v_limit - in_start_offset);
 }
 
-static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
+static off_t send_istream_fd(struct _ostream *outstream,
+			     struct istream *instream, int in_fd)
 {
 	struct file_ostream *foutstream = (struct file_ostream *) outstream;
 	uoff_t old_limit;
 	off_t ret;
-	int in_fd, overlapping;
+	int overlapping;
 
 	i_assert(instream->v_limit <= OFF_T_MAX);
 	i_assert(instream->v_offset <= instream->v_limit);
@@ -771,7 +773,6 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 	if (instream->v_offset == instream->v_limit)
 		return 0;
 
-	in_fd = i_stream_get_fd(instream);
 	if (in_fd != foutstream->fd)
 		overlapping = 0;
 	else {
@@ -808,6 +809,29 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 		old_limit = instream->v_limit;
 		ret = io_stream_copy_backwards(outstream, instream);
 		i_stream_set_read_limit(instream, old_limit);
+		return ret;
+	}
+}
+
+static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
+{
+	struct stat st;
+	int in_fd, ret;
+
+	in_fd = i_stream_get_fd(instream);
+	if (fstat(in_fd, &st) < 0) {
+		outstream->ostream.stream_errno = errno;
+		return -1;
+	}
+
+	if (instream->v_limit != 0)
+		return send_istream_fd(outstream, instream, in_fd);
+	else {
+		/* easier this way so we know exactly how much data we're
+		   moving */
+		i_stream_set_read_limit(instream, st.st_size);
+		ret = send_istream_fd(outstream, instream, in_fd);
+		i_stream_set_read_limit(instream, 0);
 		return ret;
 	}
 }

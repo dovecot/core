@@ -36,7 +36,7 @@ off_t message_send(struct ostream *output, struct istream *input,
 		old_limit = input->v_limit;
 		limit = input->v_offset + max_virtual_size;
 		i_stream_set_read_limit(input, I_MIN(limit, old_limit));
-		ret = o_stream_send_istream(output, input) > 0;
+		ret = o_stream_send_istream(output, input);
 		i_stream_set_read_limit(input, old_limit);
 
 		return ret;

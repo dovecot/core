@@ -35,6 +35,9 @@ static int mbox_index_append_next(struct mail_index *index,
 			break;
 	}
 
+	if (size == 0)
+		return -1;
+
 	if (pos == size || size <= 5 ||
 	    strncmp((const char *) data, "From ", 5) != 0) {
 		/* a) no \n found, or line too long
@@ -164,7 +167,7 @@ int mbox_index_append_stream(struct mail_index *index, struct istream *input)
 	uoff_t offset;
 	int ret;
 
-	if (input->v_offset == input->v_size) {
+	if (input->eof) {
 		/* no new data */
 		return TRUE;
 	}
@@ -192,14 +195,14 @@ int mbox_index_append_stream(struct mail_index *index, struct istream *input)
 			}
 		}
 
-		if (input->v_offset == input->v_size) {
-			ret = 1;
-			break;
-		}
-
 		t_push();
 		ret = mbox_index_append_next(index, trans_ctx, input);
 		t_pop();
+
+		if (input->eof) {
+			ret = 1;
+			break;
+		}
 
 		if (ret == 0) {
 			/* we want to rescan this message with exclusive

@@ -81,7 +81,8 @@ static int mbox_move_data(struct mbox_expunge_context *ctx)
 	failed = o_stream_send_istream(ctx->output, ctx->input) < 0;
 	i_stream_set_read_limit(ctx->input, old_limit);
 
-	if (failed || ctx->input->v_offset != ctx->from_offset)
+	if (failed || (ctx->input->v_offset != ctx->from_offset &&
+		       ctx->from_offset != 0))
 		return FALSE;
 	return TRUE;
 }

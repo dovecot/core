@@ -100,6 +100,7 @@ static ssize_t _read(struct _istream *stream)
 	    (uoff_t)mstream->mmap_offset + stream->pos) {
 		/* end of file */
 		stream->istream.stream_errno = 0;
+		stream->istream.eof = TRUE;
 		return -1;
 	}
 

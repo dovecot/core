@@ -137,6 +137,7 @@ static ssize_t _read(struct _istream *stream)
 			stream->istream.v_offset + fstream->skip_left;
 		if (read_limit <= stream->pos - stream->skip) {
 			/* virtual limit reached == EOF */
+			stream->istream.eof = TRUE;
 			return -1;
 		}
 
@@ -170,6 +171,7 @@ static ssize_t _read(struct _istream *stream)
 		if (ret == 0) {
 			/* EOF */
 			stream->istream.stream_errno = 0;
+			stream->istream.eof = TRUE;
 			return -1;
 		}
 
@@ -177,6 +179,7 @@ static ssize_t _read(struct _istream *stream)
 			if (errno == ECONNRESET || errno == ETIMEDOUT) {
 				/* treat as disconnection */
 				stream->istream.stream_errno = 0;
+				stream->istream.eof = TRUE;
 				return -1;
 			}
 
@@ -252,11 +255,8 @@ struct istream *i_stream_create_file(int fd, pool_t pool,
 	fstream->istream.seek = _seek;
 
 	/* get size of fd if it's a file */
-	if (fstat(fd, &st) < 0 || !S_ISREG(st.st_mode))
-		st.st_size = 0;
-	else
+	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode))
 		fstream->file = TRUE;
 
-	return _i_stream_create(&fstream->istream, pool, fd, 0,
-				(uoff_t)st.st_size);
+	return _i_stream_create(&fstream->istream, pool, fd, 0, 0);
 }

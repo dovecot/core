@@ -692,13 +692,6 @@ int mbox_index_rewrite(struct mail_index *index)
 				break;
 			}
 
-			if (offset + body_size > input->v_size) {
-				mail_cache_set_corrupted(index->cache,
-					"Invalid message size");
-				failed = TRUE;
-				break;
-			}
-
 			if (!dirty_found) {
 				/* first dirty message */
 				dirty_found = TRUE;

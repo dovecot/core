@@ -649,22 +649,17 @@ int mbox_verify_end_of_body(struct istream *input, uoff_t end_offset)
 	const unsigned char *data;
 	size_t size;
 
-	if (end_offset > input->v_size) {
-		/* missing data */
-		return FALSE;
-	}
-
 	i_stream_seek(input, end_offset);
-
-	if (input->v_offset == input->v_size) {
-		/* end of file. a bit unexpected though,
-		   since \n is missing. */
-		return TRUE;
-	}
 
 	/* read forward a bit */
 	if (i_stream_read_data(input, &data, &size, 6) < 0)
 		return FALSE;
+
+	if (input->eof) {
+		/* end of file. a bit unexpected though,
+		   since \n is missing. */
+		return TRUE;
+	}
 
 	/* either there should be the next From-line,
 	   or [\r]\n at end of file */

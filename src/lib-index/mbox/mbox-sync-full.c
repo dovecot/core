@@ -18,8 +18,9 @@ static void skip_line(struct istream *input)
 {
 	const unsigned char *msg;
 	size_t i, size;
+	int ret;
 
-	while (i_stream_read_data(input, &msg, &size, 0) > 0) {
+	while ((ret = i_stream_read_data(input, &msg, &size, 0)) > 0) {
 		for (i = 0; i < size; i++) {
 			if (msg[i] == '\n') {
 				i_stream_skip(input, i+1);
@@ -90,6 +91,8 @@ static int match_next_record(struct mail_index *index,
 
 	/* skip the From-line */
 	skip_line(input);
+	if (input->eof)
+		return -1;
 	header_offset = input->v_offset;
 
 	first_rec = last_rec = NULL;
@@ -248,12 +251,12 @@ static int mbox_sync_from_stream(struct mail_index *index,
 			}
 		}
 
-		if (input->v_offset == input->v_size)
-			break;
-
 		ret = match_next_record(index, rec, &seq, input, &rec, &dirty);
-		if (ret < 0)
+		if (ret < 0) {
+			if (input->eof)
+				break;
 			return FALSE;
+		}
 
 		if (ret == 0) {
 			/* Get back to line before From */
@@ -274,8 +277,7 @@ static int mbox_sync_from_stream(struct mail_index *index,
 		index->header->flags &= ~MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES;
 	}
 
-	if (input->v_offset == input->v_size ||
-	    (index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD))
+	if (input->eof || (index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD))
 		return TRUE;
 	else
 		return mbox_index_append_stream(index, input);
@@ -300,7 +302,7 @@ int mbox_sync_full(struct mail_index *index)
 		failed = TRUE;
 	} else {
 		failed = !mbox_sync_from_stream(index, input);
-		continue_offset = failed || input->v_offset == input->v_size ||
+		continue_offset = failed || input->eof ||
 			(index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD) ?
 			(uoff_t)-1 : input->v_offset;
 		i_stream_unref(input);
