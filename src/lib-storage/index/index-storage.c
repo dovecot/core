@@ -299,12 +299,20 @@ int index_storage_lock(struct index_mailbox *ibox,
 struct index_mailbox *
 index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
 			   struct mail_index *index, const char *name,
-			   int readonly, int fast)
+			   enum mailbox_open_flags flags)
 {
 	struct index_mailbox *ibox;
-	enum mail_index_open_flags flags;
+	enum mail_index_open_flags index_flags;
 
 	i_assert(name != NULL);
+
+	index_flags = MAIL_INDEX_OPEN_FLAG_CREATE;
+	if ((flags & MAILBOX_OPEN_FAST) != 0)
+		index_flags |= MAIL_INDEX_OPEN_FLAG_FAST;
+	if ((flags & MAILBOX_OPEN_READONLY) != 0)
+		index_flags |= MAIL_INDEX_OPEN_FLAG_UPDATE_RECENT;
+	if ((flags & MAILBOX_OPEN_MMAP_INVALIDATE) != 0)
+		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_INVALIDATE;
 
 	do {
 		ibox = i_new(struct index_mailbox, 1);
@@ -312,7 +320,7 @@ index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
 
 		ibox->box.storage = storage;
 		ibox->box.name = i_strdup(name);
-		ibox->box.readonly = readonly;
+		ibox->box.readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
 
 		ibox->index = index;
 
@@ -326,13 +334,7 @@ index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
 			index->never_cache_fields =
 				get_never_cache_fields();
 
-			flags = MAIL_INDEX_OPEN_FLAG_CREATE;
-			if (fast)
-				flags |= MAIL_INDEX_OPEN_FLAG_FAST;
-			if (!readonly)
-				flags |= MAIL_INDEX_OPEN_FLAG_UPDATE_RECENT;
-
-			if (!index->open(index, flags))
+			if (!index->open(index, index_flags))
 				break;
 
 			if (INDEX_IS_IN_MEMORY(index) &&

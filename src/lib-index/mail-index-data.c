@@ -133,6 +133,12 @@ static int mmap_update(struct mail_index_data *data, uoff_t pos, size_t size)
 {
 	struct mail_index_data_header *hdr;
 
+	if (data->index->mmap_invalidate && data->mmap_base != NULL) {
+		if (msync(data->mmap_base, data->mmap_used_length,
+			  MS_SYNC | MS_INVALIDATE) < 0)
+			return index_data_set_syscall_error(data, "msync()");
+	}
+
 	if (data->header != NULL &&
 	    data->header->indexid != data->index->indexid) {
 		if (data->header->indexid != 0) {

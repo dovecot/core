@@ -5,6 +5,12 @@ struct message_size;
 
 #include "imap-util.h"
 
+enum mailbox_open_flags {
+	MAILBOX_OPEN_READONLY		= 0x01,
+	MAILBOX_OPEN_FAST		= 0x02,
+	MAILBOX_OPEN_MMAP_INVALIDATE	= 0x04
+};
+
 enum mailbox_list_flags {
 	MAILBOX_LIST_SUBSCRIBED	= 0x01,
 	MAILBOX_LIST_FAST_FLAGS	= 0x02,
@@ -148,7 +154,7 @@ struct mail_storage {
 	   with possibly different readonly-state. */
 	struct mailbox *(*open_mailbox)(struct mail_storage *storage,
 					const char *name,
-					int readonly, int fast);
+					enum mailbox_open_flags flags);
 
 	/* name is allowed to contain multiple new hierarchy levels.
 	   If only_hierarchy is TRUE, the mailbox itself isn't created, just

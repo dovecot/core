@@ -7,6 +7,7 @@ int _cmd_select_full(struct client *client, int readonly)
 {
 	struct mailbox *box;
 	struct mailbox_status status;
+	enum mailbox_open_flags flags;
 	const char *mailbox;
 
 	/* <mailbox> */
@@ -20,8 +21,10 @@ int _cmd_select_full(struct client *client, int readonly)
                         client_send_untagged_storage_error(client);
 	}
 
-	box = client->storage->open_mailbox(client->storage, mailbox,
-					    readonly, FALSE);
+	flags = mailbox_open_flags;
+	if (readonly)
+		flags |= MAILBOX_OPEN_READONLY;
+	box = client->storage->open_mailbox(client->storage, mailbox, flags);
 	if (box == NULL) {
 		client_send_storage_error(client);
 		return TRUE;

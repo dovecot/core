@@ -67,7 +67,8 @@ int cmd_append(struct client *client)
 		return TRUE;
 
 	box = client->storage->open_mailbox(client->storage,
-					    mailbox, FALSE, TRUE);
+					    mailbox, mailbox_open_flags |
+					    MAILBOX_OPEN_FAST);
 	if (box == NULL) {
 		client_send_storage_error(client);
 		return TRUE;

@@ -176,6 +176,12 @@ static int mmap_update(struct modify_log_file *file, int forced)
 	struct modify_log_header *hdr;
 	unsigned int extra;
 
+	if (file->log->index->mmap_invalidate && file->mmap_base != NULL) {
+		if (msync(file->mmap_base, file->mmap_used_length,
+			  MS_SYNC | MS_INVALIDATE) < 0)
+			return modifylog_set_syscall_error(file, "msync()");
+	}
+
 	if (!forced && file->header != NULL &&
 	    file->mmap_full_length >= file->header->used_file_size) {
 		file->mmap_used_length = file->header->used_file_size;

@@ -92,6 +92,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_INT, mbox_dotlock_change_timeout),
 	DEF(SET_INT, umask),
 	DEF(SET_BOOL, mail_drop_priv_before_exec),
+	DEF(SET_BOOL, index_mmap_invalidate),
 
 	DEF(SET_STR, mail_executable),
 	DEF(SET_INT, mail_process_size),
@@ -193,6 +194,11 @@ struct settings default_settings = {
 	MEMBER(mbox_dotlock_change_timeout) 30,
 	MEMBER(umask) 0077,
 	MEMBER(mail_drop_priv_before_exec) FALSE,
+#ifdef NEED_MS_INVALIDATE
+	MEMBER(index_mmap_invalidate) TRUE,
+#else
+	MEMBER(index_mmap_invalidate) FALSE,
+#endif
 
 	MEMBER(mail_executable) PKG_LIBEXECDIR"/imap",
 	MEMBER(mail_process_size) 256,

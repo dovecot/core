@@ -321,7 +321,7 @@ static int verify_inbox(struct mail_storage *storage)
 
 static struct mailbox *
 maildir_open(struct mail_storage *storage, const char *name,
-	     int readonly, int fast)
+	     enum mailbox_open_flags flags)
 {
 	struct index_mailbox *ibox;
 	struct mail_index *index;
@@ -338,7 +338,7 @@ maildir_open(struct mail_storage *storage, const char *name,
 	}
 
 	ibox = index_storage_mailbox_init(storage, &maildir_mailbox,
-					  index, name, readonly, fast);
+					  index, name, flags);
 	if (ibox != NULL)
 		ibox->expunge_locked = maildir_expunge_locked;
 	return (struct mailbox *) ibox;
@@ -359,7 +359,7 @@ static const char *inbox_fix_case(struct mail_storage *storage,
 
 static struct mailbox *
 maildir_open_mailbox(struct mail_storage *storage,
-		     const char *name, int readonly, int fast)
+		     const char *name, enum mailbox_open_flags flags)
 {
 	const char *path;
 	struct stat st;
@@ -370,7 +370,7 @@ maildir_open_mailbox(struct mail_storage *storage,
 	if (strcmp(name, "INBOX") == 0) {
 		if (!verify_inbox(storage))
 			return NULL;
-		return maildir_open(storage, "INBOX", readonly, fast);
+		return maildir_open(storage, "INBOX", flags);
 	}
 
 	if (!maildir_is_valid_existing_name(name)) {
@@ -386,7 +386,7 @@ maildir_open_mailbox(struct mail_storage *storage,
 		    !create_control_dir(storage, name))
 			return FALSE;
 
-		return maildir_open(storage, name, readonly, fast);
+		return maildir_open(storage, name, flags);
 	} else if (errno == ENOENT) {
 		mail_storage_set_error(storage, "Mailbox doesn't exist: %s",
 				       name);

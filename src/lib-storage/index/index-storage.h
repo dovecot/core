@@ -52,7 +52,7 @@ void index_storage_deinit(struct mail_storage *storage);
 struct index_mailbox *
 index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
 			   struct mail_index *index, const char *name,
-			   int readonly, int fast);
+			   enum mailbox_open_flags flags);
 int index_storage_mailbox_free(struct mailbox *box);
 
 int index_storage_sync_and_lock(struct index_mailbox *ibox,

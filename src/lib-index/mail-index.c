@@ -89,6 +89,15 @@ int mail_index_mmap_update(struct mail_index *index)
 	if (index->mmap_base != NULL) {
 		index->header = (struct mail_index_header *) index->mmap_base;
 
+		if (index->mmap_invalidate) {
+			if (msync(index->mmap_base,
+				  index->mmap_used_length,
+				  MS_SYNC | MS_INVALIDATE) < 0) {
+				index_set_syscall_error(index, "msync()");
+				return FALSE;
+			}
+		}
+
 		/* make sure file size hasn't changed */
 		if (index->header->sync_id == index->sync_id) {
 			index->mmap_used_length = index->header->used_file_size;
@@ -99,9 +108,13 @@ int mail_index_mmap_update(struct mail_index *index)
 			return TRUE;
 		}
 
-		if (msync(index->mmap_base,
-			  index->mmap_used_length, MS_SYNC) < 0)
-			return index_set_syscall_error(index, "msync()");
+		if (!index->mmap_invalidate) {
+			if (msync(index->mmap_base,
+				  index->mmap_used_length, MS_SYNC) < 0) {
+				index_set_syscall_error(index, "msync()");
+				return FALSE;
+			}
+		}
 
 		if (munmap(index->mmap_base, index->mmap_full_length) < 0)
 			return index_set_syscall_error(index, "munmap()");

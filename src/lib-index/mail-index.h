@@ -16,9 +16,11 @@ enum mail_index_open_flags {
 	MAIL_INDEX_OPEN_FLAG_UPDATE_RECENT	= 0x02,
 	/* Compressing and cache updates are not performed */
 	MAIL_INDEX_OPEN_FLAG_FAST		= 0x04,
+	/* Invalidate memory maps before accessing them */
+	MAIL_INDEX_OPEN_FLAG_MMAP_INVALIDATE	= 0x08,
 
 	/* internal: we're creating the index */
-	_MAIL_INDEX_OPEN_FLAG_CREATING		= 0x10
+	_MAIL_INDEX_OPEN_FLAG_CREATING		= 0x100
 };
 
 enum mail_index_header_compat {
@@ -433,6 +435,7 @@ struct mail_index {
 	enum mail_data_field set_cache_fields;
 
 	unsigned int anon_mmap:1;
+	unsigned int mmap_invalidate:1;
 	unsigned int opened:1;
 	unsigned int rebuilding:1;
 	unsigned int mail_read_mmaped:1;
@@ -460,7 +463,7 @@ struct mail_index {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0
 #endif
 
 /* defaults - same as above but prefixed with mail_index_. */

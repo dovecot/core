@@ -21,7 +21,8 @@ int cmd_copy(struct client *client)
 		return TRUE;
 
 	destbox = client->storage->open_mailbox(client->storage,
-						mailbox, FALSE, TRUE);
+						mailbox, mailbox_open_flags |
+						MAILBOX_OPEN_FAST);
 	if (destbox == NULL) {
 		client_send_storage_error(client);
 		return TRUE;

@@ -320,7 +320,7 @@ static const char *mbox_get_path(struct mail_storage *storage, const char *name)
 }
 
 static struct mailbox *mbox_open(struct mail_storage *storage, const char *name,
-				 int readonly, int fast)
+				 enum mailbox_open_flags flags)
 {
 	struct index_mailbox *ibox;
 	struct mail_index *index;
@@ -347,7 +347,7 @@ static struct mailbox *mbox_open(struct mail_storage *storage, const char *name,
 	}
 
 	ibox = index_storage_mailbox_init(storage, &mbox_mailbox, index,
-					  name, readonly, fast);
+					  name, flags);
 	if (ibox != NULL)
 		ibox->expunge_locked = mbox_expunge_locked;
 	return (struct mailbox *) ibox;
@@ -355,7 +355,7 @@ static struct mailbox *mbox_open(struct mail_storage *storage, const char *name,
 
 static struct mailbox *
 mbox_open_mailbox(struct mail_storage *storage,
-		  const char *name, int readonly, int fast)
+		  const char *name, enum mailbox_open_flags flags)
 {
 	const char *path;
 	struct stat st;
@@ -367,7 +367,7 @@ mbox_open_mailbox(struct mail_storage *storage,
 		/* make sure inbox exists */
 		if (!verify_inbox(storage))
 			return FALSE;
-		return mbox_open(storage, "INBOX", readonly, fast);
+		return mbox_open(storage, "INBOX", flags);
 	}
 
 	if (!mbox_is_valid_existing_name(name)) {
@@ -387,7 +387,7 @@ mbox_open_mailbox(struct mail_storage *storage,
 		if (!create_mbox_index_dirs(storage, name))
 			return NULL;
 
-		return mbox_open(storage, name, readonly, fast);
+		return mbox_open(storage, name, flags);
 	}
 
 	if (ENOTFOUND(errno)) {

@@ -79,6 +79,7 @@ struct settings {
 	unsigned int mbox_dotlock_change_timeout;
 	unsigned int umask;
 	int mail_drop_priv_before_exec;
+	int index_mmap_invalidate;
 
 	const char *mail_executable;
 	unsigned int mail_process_size;

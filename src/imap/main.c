@@ -24,6 +24,7 @@
 struct ioloop *ioloop;
 unsigned int max_custom_flag_length, mailbox_check_interval;
 unsigned int imap_max_line_length;
+enum mailbox_open_flags mailbox_open_flags;
 
 static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
@@ -146,6 +147,9 @@ static void main_init(void)
 	str = getenv("MAILBOX_CHECK_INTERVAL");
 	mailbox_check_interval = str == NULL ? 0 :
 		(unsigned int)strtoul(str, NULL, 10);
+
+	mailbox_open_flags = getenv("MMAP_INVALIDATE") != NULL ?
+		MAILBOX_OPEN_MMAP_INVALIDATE : 0;
 
 	client = client_create(hin, hout, storage);
 

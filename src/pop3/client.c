@@ -106,6 +106,7 @@ static int init_mailbox(struct client *client)
 struct client *client_create(int hin, int hout, struct mail_storage *storage)
 {
 	struct client *client;
+	enum mailbox_open_flags flags;
 
 	client = i_new(struct client, 1);
 	client->input = i_stream_create_file(hin, default_pool,
@@ -122,7 +123,9 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 
 	storage->set_callbacks(storage, &mail_storage_callbacks, client);
 
-	client->mailbox = storage->open_mailbox(storage, "INBOX", FALSE, FALSE);
+	flags = getenv("MMAP_INVALIDATE") != NULL ?
+		MAILBOX_OPEN_MMAP_INVALIDATE : 0;
+	client->mailbox = storage->open_mailbox(storage, "INBOX", flags);
 	if (client->mailbox == NULL) {
 		client_send_line(client, "-ERR No INBOX for user.");
 		return NULL;

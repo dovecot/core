@@ -131,6 +131,12 @@ static int mmap_verify(struct mail_tree *tree)
 
 int _mail_tree_mmap_update(struct mail_tree *tree, int forced)
 {
+	if (tree->index->mmap_invalidate && tree->mmap_base != NULL) {
+		if (msync(tree->mmap_base, tree->mmap_used_length,
+			  MS_SYNC | MS_INVALIDATE) < 0)
+			return tree_set_syscall_error(tree, "msync()");
+	}
+
 	debug_mprotect(tree->mmap_base, tree->mmap_full_length,
 		       tree->index);
 
