@@ -1,14 +1,174 @@
-/*
-   1. read files in maildir
-   2. see if they're all found in uidlist read in memory
-   3. if not, check if uidlist's mtime has changed and read it if so
-   4. if still not, lock uidlist, sync it once more and generate UIDs for new
-      files
-   5. apply changes in transaction log
-   6. apply changes in maildir to index
-*/
-
 /* Copyright (C) 2004 Timo Sirainen */
+
+/*
+   Here's a description of how we handle Maildir synchronization and
+   it's problems:
+
+   We want to be as efficient as we can. The most efficient way to
+   check if changes have occured is to stat() the new/ and cur/
+   directories and uidlist file - if their mtimes haven't changed,
+   there's no changes and we don't need to do anything.
+
+   Problem 1: Multiple changes can happen within a single second -
+   nothing guarantees that once we synced it, someone else didn't just
+   then make a modification. Such modifications wouldn't get noticed
+   until a new modification occured later.
+
+   Problem 2: Syncing cur/ directory is much more costly than syncing
+   new/. Moving mails from new/ to cur/ will always change mtime of
+   cur/ causing us to sync it as well.
+
+   Problem 3: We may not be able to move mail from new/ to cur/
+   because we're out of quota, or simply because we're accessing a
+   read-only mailbox.
+
+
+   MAILDIR_SYNC_SECS
+   -----------------
+
+   Several checks below use MAILDIR_SYNC_SECS, which should be maximum
+   clock drift between all computers accessing the maildir (eg. via
+   NFS), rounded up to next second. Our default is 1 second, since
+   everyone should be using NTP.
+
+   Note that setting it to 0 works only if there's only one computer
+   accessing the maildir. It's practically impossible to make two
+   clocks _exactly_ synchronized.
+
+   It might be possible to only use file server's clock by looking at
+   the atime field, but I don't know how well that would actually work.
+
+   cur directory
+   -------------
+
+   We have dirty_cur_time variable which is set to cur/ directory's
+   mtime when it's >= time() - MAILDIR_SYNC_SECS and we _think_ we have
+   synchronized the directory.
+
+   When dirty_cur_time is non-zero, we don't synchronize the cur/
+   directory until
+
+      a) cur/'s mtime changes
+      b) opening a mail fails with ENOENT
+      c) time() > dirty_cur_time + MAILDIR_SYNC_SECS
+
+   This allows us to modify the maildir multiple times without having
+   to sync it at every change. The sync will eventually be done to
+   make sure we didn't miss any external changes.
+
+   The dirty_cur_time is set when:
+
+      - we change message flags
+      - we expunge messages
+      - we move mail from new/ to cur/
+      - we sync cur/ directory and it's mtime is >= time() - MAILDIR_SYNC_SECS
+
+   It's unset when we do the final syncing, ie. when mtime is
+   older than time() - MAILDIR_SYNC_SECS.
+
+   new directory
+   -------------
+
+   If new/'s mtime is >= time() - MAILDIR_SYNC_SECS, always synchronize
+   it. dirty_cur_time-like feature might save us a few syncs, but
+   that might break a client which saves a mail in one connection and
+   tries to fetch it in another one. new/ directory is almost always
+   empty, so syncing it should be very fast anyway. Actually this can
+   still happen if we sync only new/ dir while another client is also
+   moving mails from it to cur/ - it takes us a while to see them.
+   That's pretty unlikely to happen however, and only way to fix it
+   would be to always synchronize cur/ after new/.
+
+   Normally we move all mails from new/ to cur/ whenever we sync it. If
+   it's not possible for some reason, we mark the mail with "probably
+   exists in new/ directory" flag.
+
+   If rename() still fails because of ENOSPC or EDQUOT, we still save
+   the flag changes in index with dirty-flag on. When moving the mail
+   to cur/ directory, or when we notice it's already moved there, we
+   apply the flag changes to the filename, rename it and remove the
+   dirty flag. If there's dirty flags, this should be tried every time
+   after expunge or when closing the mailbox.
+
+   uidlist
+   -------
+
+   This file contains UID <-> filename mappings. It's updated only when
+   new mail arrives, so it may contain filenames that have already been
+   deleted. Updating is done by getting uidlist.lock file, writing the
+   whole uidlist into it and rename()ing it over the old uidlist. This
+   means there's no need to lock the file for reading.
+
+   Whenever uidlist is rewritten, it's mtime must be larger than the old
+   one's. Use utime() before rename() if needed. Note that inode checking
+   wouldn't have been sufficient as inode numbers can be reused.
+
+   This file is usually read the first time you need to know filename for
+   given UID. After that it's not re-read unless new mails come that we
+   don't know about.
+
+   broken clients
+   --------------
+
+   Originally the middle identifier in Maildir filename was specified
+   only as <process id>_<delivery counter>. That however created a
+   problem with randomized PIDs which made it possible that the same
+   PID was reused within one second.
+
+   So if within one second a mail was delivered, MUA moved it to cur/
+   and another mail was delivered by a new process using same PID as
+   the first one, we likely ended up overwriting the first mail when
+   the second mail was moved over it.
+
+   Nowadays everyone should be giving a bit more specific identifier,
+   for example include microseconds in it which Dovecot does.
+
+   There's a simple way to prevent this from happening in some cases:
+   Don't move the mail from new/ to cur/ if it's mtime is >= time() -
+   MAILDIR_SYNC_SECS. The second delivery's link() call then fails
+   because the file is already in new/, and it will then use a
+   different filename. There's a few problems with this however:
+
+      - it requires extra stat() call which is unneeded extra I/O
+      - another MUA might still move the mail to cur/
+      - if first file's flags are modified by either Dovecot or another
+        MUA, it's moved to cur/ (you _could_ just do the dirty-flagging
+	but that'd be ugly)
+
+   Because this is useful only for very few people and it requires
+   extra I/O, I decided not to implement this. It should be however
+   quite easy to do since we need to be able to deal with files in new/
+   in any case.
+
+   It's also possible to never accidentally overwrite a mail by using
+   link() + unlink() rather than rename(). This however isn't very
+   good idea as it introduces potential race conditions when multiple
+   clients are accessing the mailbox:
+
+   Trying to move the same mail from new/ to cur/ at the same time:
+
+      a) Client 1 uses slightly different filename than client 2,
+         for example one sets read-flag on but the other doesn't.
+	 You have the same mail duplicated now.
+
+      b) Client 3 sees the mail between Client 1's and 2's link() calls
+         and changes it's flag. You have the same mail duplicated now.
+
+   And it gets worse when they're unlink()ing in cur/ directory:
+
+      c) Client 1 changes mails's flag and client 2 changes it back
+         between 1's link() and unlink(). The mail is now expunged.
+
+      d) If you try to deal with the duplicates by unlink()ing another
+         one of them, you might end up unlinking both of them.
+
+   So, what should we do then if we notice a duplicate? First of all,
+   it might not be a duplicate at all, readdir() might have just
+   returned it twice because it was just renamed. What we should do is
+   create a completely new base name for it and rename() it to that.
+   If the call fails with ENOENT, it only means that it wasn't a
+   duplicate after all.
+*/
 
 #include "lib.h"
 #include "ioloop.h"
@@ -38,8 +198,10 @@ struct maildir_sync_context {
 static int maildir_expunge(struct index_mailbox *ibox, const char *path,
 			   void *context __attr_unused__)
 {
-	if (unlink(path) == 0)
+	if (unlink(path) == 0) {
+		ibox->dirty_cur_time = ioloop_time;
 		return 1;
+	}
 	if (errno == ENOENT)
 		return 0;
 
@@ -63,8 +225,10 @@ static int maildir_sync_flags(struct index_mailbox *ibox, const char *path,
 	mail_index_sync_flags_apply(syncrec, &flags8, custom_flags);
 
 	newpath = maildir_filename_set_flags(path, flags8, custom_flags);
-	if (rename(path, newpath) == 0)
+	if (rename(path, newpath) == 0) {
+		ibox->dirty_cur_time = ioloop_time;
 		return 1;
+	}
 	if (errno == ENOENT)
 		return 0;
 
@@ -215,6 +379,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 			str_printfa(dest, "%s/%s", ctx->cur_dir, dp->d_name);
 			if (rename(str_c(src), str_c(dest)) == 0) {
 				/* we moved it - it's \Recent for use */
+                                ctx->ibox->dirty_cur_time = ioloop_time;
 				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED |
 					MAILDIR_UIDLIST_REC_FLAG_RECENT;
 			} else if (ENOTFOUND(errno)) {
@@ -290,20 +455,20 @@ static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 	}
 
 	if (new_mtime != ibox->last_new_mtime ||
-	    new_mtime >= ibox->last_sync - MAILDIR_SYNC_SECS) {
+	    new_mtime >= ibox->last_new_sync_time - MAILDIR_SYNC_SECS) {
 		*new_changed_r = TRUE;
 		ibox->last_new_mtime = new_mtime;
+		ibox->last_new_sync_time = ioloop_time;
 	}
 
 	if (cur_mtime != ibox->last_cur_mtime ||
-	    (ibox->last_cur_dirty &&
-	     ioloop_time - ibox->last_sync > MAILDIR_SYNC_SECS)) {
+	    ioloop_time - ibox->dirty_cur_time > MAILDIR_SYNC_SECS) {
 		/* cur/ changed, or delayed cur/ check */
 		*cur_changed_r = TRUE;
 		ibox->last_cur_mtime = cur_mtime;
 	}
-	ibox->last_sync = ioloop_time;
-	ibox->last_cur_dirty = cur_mtime >= ibox->last_sync - MAILDIR_SYNC_SECS;
+	ibox->dirty_cur_time =
+		cur_mtime >= ioloop_time - MAILDIR_SYNC_SECS ? cur_mtime : 0;
 
 	return 0;
 }
@@ -417,7 +582,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		}
 	}
 
-	sync_stamp = ibox->last_cur_dirty ? 0 : ibox->last_cur_mtime;
+	sync_stamp = ibox->dirty_cur_time != 0 ? 0 : ibox->last_cur_mtime;
 	if (mail_index_sync_end(sync_ctx, sync_stamp, 0) < 0)
 		ret = -1;
 

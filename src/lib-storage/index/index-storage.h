@@ -76,7 +76,8 @@ struct index_mailbox {
 
 	/* sync: */
 	struct maildir_uidlist *uidlist;
-	time_t last_new_mtime, last_cur_mtime, last_sync;
+	time_t last_new_mtime, last_cur_mtime, last_new_sync_time;
+	time_t dirty_cur_time;
 
         mode_t mail_create_mode;
 	unsigned int private_flags_mask;
@@ -86,9 +87,6 @@ struct index_mailbox {
 	unsigned int sent_readonly_flags_warning:1;
 	unsigned int autosync_pending:1;
 	unsigned int mail_read_mmaped:1;
-
-	unsigned int maildir_keep_new:1;
-	unsigned int last_cur_dirty:1;
 };
 
 struct index_transaction_context {
