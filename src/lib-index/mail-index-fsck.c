@@ -35,8 +35,8 @@ static int mail_index_fsck_locked(struct mail_index *index,
 	/* locking already does the most important sanity checks for header */
 	hdr = *index->hdr;
 
-	if (hdr.uid_validity == 0) {
-		*error_r = "uid_validity = 0";
+	if (hdr.uid_validity == 0 && hdr.next_uid != 1) {
+		*error_r = "uid_validity = 0 && next_uid != 1";
 		return 0;
 	}
 

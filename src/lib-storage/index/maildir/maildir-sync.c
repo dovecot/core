@@ -593,7 +593,8 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 	i_assert(ret == 0); /* view is locked, can't happen */
 
 	uid_validity = maildir_uidlist_get_uid_validity(ibox->uidlist);
-	if (uid_validity != hdr->uid_validity && hdr->next_uid != 1) {
+	if (uid_validity != hdr->uid_validity &&
+	    uid_validity != 0 && hdr->uid_validity != 0) {
 		/* uidvalidity changed and mailbox isn't being initialized,
 		   index must be rebuilt */
 		mail_storage_set_critical(ibox->box.storage,
@@ -737,7 +738,22 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			&sync_stamp, sizeof(sync_stamp));
 	}
 
-	if (uid_validity != hdr->uid_validity) {
+	if (hdr->uid_validity == 0) {
+		/* get the initial uidvalidity */
+		if (maildir_uidlist_update(ibox->uidlist) < 0)
+			ret = -1;
+		uid_validity = maildir_uidlist_get_uid_validity(ibox->uidlist);
+		if (uid_validity == 0) {
+			uid_validity = ioloop_time;
+			maildir_uidlist_set_uid_validity(ibox->uidlist,
+							 uid_validity);
+		}
+	} else if (uid_validity == 0) {
+		maildir_uidlist_set_uid_validity(ibox->uidlist,
+						 hdr->uid_validity);
+	}
+
+	if (uid_validity != hdr->uid_validity && uid_validity != 0) {
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity));

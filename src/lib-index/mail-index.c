@@ -68,9 +68,10 @@ static int mail_index_check_header(struct mail_index *index,
 	}
 
 	/* following some extra checks that only take a bit of CPU */
-	if (hdr->uid_validity == 0) {
+	if (hdr->uid_validity == 0 && hdr->next_uid != 1) {
 		mail_index_set_error(index, "Corrupted index file %s: "
-				     "uid_validity = 0", index->filepath);
+				     "uid_validity = 0, next_uid = %u",
+				     index->filepath, hdr->next_uid);
 		return -1;
 	}
 
@@ -379,7 +380,6 @@ void mail_index_header_init(struct mail_index_header *hdr)
 
 	hdr->indexid = now;
 
-	hdr->uid_validity = now;
 	hdr->next_uid = 1;
 }
 

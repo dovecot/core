@@ -45,6 +45,7 @@ struct maildir_uidlist {
 
 	unsigned int initial_read:1;
 	unsigned int initial_sync:1;
+	unsigned int file_missing:1;
 };
 
 struct maildir_uidlist_sync_ctx {
@@ -109,8 +110,7 @@ void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
 	uidlist->lock_fd = -1;
 }
 
-struct maildir_uidlist *
-maildir_uidlist_init(struct index_mailbox *ibox, uint32_t uid_validity)
+struct maildir_uidlist *maildir_uidlist_init(struct index_mailbox *ibox)
 {
 	struct maildir_uidlist *uidlist;
 
@@ -124,7 +124,6 @@ maildir_uidlist_init(struct index_mailbox *ibox, uint32_t uid_validity)
 	uidlist->files = hash_create(default_pool, default_pool, 4096,
 				     maildir_hash, maildir_cmp);
 
-	uidlist->uid_validity = uid_validity;
 	uidlist->next_uid = 1;
 
 	return uidlist;
@@ -258,9 +257,11 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 				"open(%s) failed: %m", uidlist->fname);
 			return -1;
 		}
+		uidlist->file_missing = TRUE;
 		uidlist->initial_read = TRUE;
 		return 0;
 	}
+	uidlist->file_missing = FALSE;
 
 	if (fstat(fd, &st) < 0) {
 		mail_storage_set_critical(storage,
@@ -422,6 +423,12 @@ uint32_t maildir_uidlist_get_uid_validity(struct maildir_uidlist *uidlist)
 	return uidlist->uid_validity;
 }
 
+void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
+				      uint32_t uid_validity)
+{
+	uidlist->uid_validity = uid_validity;
+}
+
 uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist)
 {
 	return !uidlist->initial_read ? 0 : uidlist->next_uid;
@@ -439,7 +446,10 @@ static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist,
 	const char *filename, *flags_str;
 	int ret = 0;
 
-        uidlist->version = 2;
+	uidlist->version = 2;
+
+	if (uidlist->uid_validity == 0)
+		uidlist->uid_validity = ioloop_time;
 
 	str = t_str_new(4096);
 	str_printfa(str, "%u %u %u\n", uidlist->version,
@@ -516,6 +526,8 @@ static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
 			mail_storage_set_critical(ibox->box.storage,
 				"file_dotlock_replace(%s) failed: %m", db_path);
 			ret = -1;
+		} else {
+			uidlist->file_missing = FALSE;
 		}
 	} else {
 		(void)close(uidlist->lock_fd);
@@ -623,6 +635,12 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 				sizeof(rec);
 		}
 		ctx->new_files_count++;
+
+		if (uidlist->record_pool == NULL) {
+			uidlist->record_pool =
+				pool_alloconly_create("uidlist record_pool",
+						      1024);
+		}
 
 		rec = p_new(uidlist->record_pool,
 			    struct maildir_uidlist_rec, 1);

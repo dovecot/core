@@ -13,8 +13,7 @@ enum maildir_uidlist_rec_flag {
 int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist);
 void maildir_uidlist_unlock(struct maildir_uidlist *uidlist);
 
-struct maildir_uidlist *
-maildir_uidlist_init(struct index_mailbox *ibox, uint32_t uid_validity);
+struct maildir_uidlist *maildir_uidlist_init(struct index_mailbox *ibox);
 void maildir_uidlist_deinit(struct maildir_uidlist *uidlist);
 
 /* Returns -1 if error, 0 if file is broken or lost, 1 if ok. */
@@ -31,6 +30,9 @@ uint32_t maildir_uidlist_get_recent_count(struct maildir_uidlist *uidlist);
 
 uint32_t maildir_uidlist_get_uid_validity(struct maildir_uidlist *uidlist);
 uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist);
+
+void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
+				      uint32_t uid_validity);
 
 /* Sync uidlist with what's actually on maildir. */
 struct maildir_uidlist_sync_ctx *
