@@ -19,6 +19,7 @@ imap_auth_SOURCES = \
 	login-connection.c \
 	main.c \
 	master.c \
+	mycrypt.c \
 	userinfo.c \
 	userinfo-passwd.c \
 	userinfo-shadow.c \
@@ -32,5 +33,6 @@ noinst_HEADERS = \
 	common.h \
 	cookie.h \
 	login-connection.h \
+	mycrypt.h \
 	userinfo.h \
 	userinfo-passwd.h

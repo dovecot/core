@@ -30,7 +30,6 @@ liblib_a_SOURCES = \
 	mempool-system.c \
 	mmap-anon.c \
 	mmap-util.c \
-	mycrypt.c \
 	network.c \
 	obuffer.c \
 	obuffer-file.c \
@@ -70,7 +69,6 @@ noinst_HEADERS = \
 	md5.h \
 	mempool.h \
 	mmap-util.h \
-	mycrypt.h \
 	network.h \
 	obuffer.h \
 	obuffer-internal.h \
