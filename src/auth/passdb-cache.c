@@ -88,7 +88,6 @@ int passdb_cache_lookup_credentials(struct auth_request *request,
 				    const char **scheme_r)
 {
 	const char *value, *const *list;
-	const char *cached_pw;
 
 	if (passdb_cache == NULL)
 		return FALSE;
@@ -108,7 +107,7 @@ int passdb_cache_lookup_credentials(struct auth_request *request,
         list_save(request, NULL, list+1);
 
 	*result_r = list[0];
-	*scheme_r = password_get_scheme(&cached_pw);
+	*scheme_r = password_get_scheme(result_r);
 	return TRUE;
 }
 
