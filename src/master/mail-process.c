@@ -252,8 +252,7 @@ int create_mail_process(struct login_group *group, int socket,
 
 	child_process_init_env();
 
-	/* move the client socket into stdin and stdout fds */
-	fd_close_on_exec(socket, FALSE);
+	/* move the client socket into stdin and stdout fds, log to stderr */
 	if (dup2(socket, 0) < 0)
 		i_fatal("dup2(stdin) failed: %m");
 	if (dup2(socket, 1) < 0)
@@ -261,8 +260,8 @@ int create_mail_process(struct login_group *group, int socket,
 	if (dup2(log_fd, 2) < 0)
 		i_fatal("dup2(stderr) failed: %m");
 
-	if (close(socket) < 0)
-		i_error("close(mail client) failed: %m");
+	for (i = 0; i < 3; i++)
+		fd_close_on_exec(i, FALSE);
 
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
