@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "ioloop.h"
 #include "commands.h"
 #include "imap-parser.h"
 #include "rfc822-date.h"
@@ -13,16 +14,15 @@ static int validate_args(Client *client, const char **mailbox,
 			 unsigned int *msg_size, unsigned int count)
 {
 	ImapArg *args;
-	int ret;
 
 	i_assert(count >= 2 && count <= 4);
 
 	*flags = NULL;
 	*internal_date = NULL;
 
-	ret = client_read_args(client, count, IMAP_PARSE_FLAG_LITERAL_SIZE,
-			       &args);
-	i_assert((unsigned int) ret == count);
+	if (!client_read_args(client, count, IMAP_PARSE_FLAG_LITERAL_SIZE,
+			      &args))
+		return 0;
 
 	switch (count) {
 	case 2:
@@ -61,10 +61,10 @@ static int validate_args(Client *client, const char **mailbox,
 	if (*mailbox == NULL)
 		return -1;
 
-	if (args[ret-1].type != IMAP_ARG_LITERAL_SIZE)
+	if (args[count-1].type != IMAP_ARG_LITERAL_SIZE)
 		return -1;
 
-	*msg_size = args[ret-1].data.literal_size;
+	*msg_size = args[count-1].data.literal_size;
 	return 1;
 }
 
@@ -95,7 +95,10 @@ int cmd_append(Client *client)
 	if (!client_parse_mail_flags(client, flags_list, &flags, custom_flags))
 		return TRUE;
 
-	if (!rfc822_parse_date(internal_date_str, &internal_date)) {
+	if (internal_date_str == NULL) {
+		/* no time given, default to now. */
+		internal_date = ioloop_time;
+	} else if (!rfc822_parse_date(internal_date_str, &internal_date)) {
 		client_send_tagline(client, "BAD Invalid internal date.");
 		return TRUE;
 	}
