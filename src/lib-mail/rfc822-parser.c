@@ -182,6 +182,7 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
 		if (*ctx->data == '"') {
 			str_append_n(str, start, ctx->data - start);
+			ctx->data++;
 			return rfc822_skip_lwsp(ctx);
 		}
 
