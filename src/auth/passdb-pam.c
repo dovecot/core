@@ -366,7 +366,7 @@ pam_verify_plain(struct auth_request *request, const char *password,
 
 static void pam_init(const char *args)
 {
-	service_name = i_strdup(*args != '\0' ? args : "imap");
+	service_name = i_strdup(*args != '\0' ? args : "dovecot");
 	to_wait = NULL;
 }
 
