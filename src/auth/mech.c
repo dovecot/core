@@ -118,6 +118,13 @@ void mech_auth_finish(struct auth_request *request,
 	if (!success) {
 		/* failure. don't announce it immediately to avoid
 		   a) timing attacks, b) flooding */
+		if (auth_failures_buf->used > 0) {
+			const struct auth_request *const *requests;
+
+			requests = auth_failures_buf->data;
+			requests += auth_failures_buf->used/sizeof(*requests)-1;
+			i_assert(*requests != request);
+		}
 		buffer_append(auth_failures_buf, &request, sizeof(request));
 		return;
 	}
