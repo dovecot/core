@@ -21,6 +21,10 @@
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/* We have a primary hash consisting of just key/value entries. When collisions
+   occur, we move on to another hash (10% of the size of primary) which also
+   contains pointer to next collision, working as linked list. */
+
 /* @UNSAFE: whole file */
 
 #include "lib.h"
@@ -379,6 +383,8 @@ static void hash_compress_collisions(struct hash_table *table)
 		if (cnode->node.key != NULL || cnode->next != NULL)
 			hash_compress(table, i, 0);
 	}
+
+        table->removed_count = 0;
 }
 
 void hash_remove(struct hash_table *table, const void *key)
@@ -458,6 +464,7 @@ void hash_freeze(struct hash_table *table)
 void hash_thaw(struct hash_table *table)
 {
 	i_assert(table->frozen > 0);
+
 	if (--table->frozen > 0)
 		return;
 
@@ -472,7 +479,6 @@ static int hash_resize(struct hash_table *table)
 	struct hash_node *old_nodes;
 	struct collision_node *old_cnodes, *cnode;
 	size_t old_size, old_csize, i;
-
 	float nodes_per_list;
 
         nodes_per_list = (float) table->nodes_count / (float) table->size;
