@@ -1,10 +1,10 @@
 #ifndef __PASSDB_H
 #define __PASSDB_H
 
-#include "mech.h"
-
 #define IS_VALID_PASSWD(pass) \
 	((pass)[0] != '\0' && (pass)[0] != '*' && (pass)[0] != '!')
+
+struct auth_request;
 
 enum passdb_credentials {
 	_PASSDB_CREDENTIALS_INTERNAL = -1,
@@ -61,5 +61,7 @@ void passdb_handle_credentials(enum passdb_result result,
 void passdb_preinit(struct auth *auth, const char *data);
 void passdb_init(struct auth *auth);
 void passdb_deinit(struct auth *auth);
+
+#include "auth-request.h"
 
 #endif

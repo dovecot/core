@@ -68,8 +68,8 @@ mech_plain_auth_continue(struct auth_request *request,
 			}
 			auth_request_fail(request);
 		} else {
-			request->auth->passdb->verify_plain(request, pass,
-							    verify_callback);
+			auth_request_verify_plain(request, pass,
+						  verify_callback);
 		}
 
 		/* make sure it's cleared */

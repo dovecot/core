@@ -175,9 +175,8 @@ ntlm_credentials_callback(enum passdb_result result,
 
 	/* NTLM credentials not found or didn't want to use them,
 	   try with LM credentials */
-	auth_request->auth->passdb->
-		lookup_credentials(auth_request, PASSDB_CREDENTIALS_LANMAN,
-				   lm_credentials_callback);
+	auth_request_lookup_credentials(auth_request, PASSDB_CREDENTIALS_LANMAN,
+					lm_credentials_callback);
 }
 
 static void
@@ -248,10 +247,9 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 			return;
 		}
 
-		auth_request->auth->passdb->
-			lookup_credentials(auth_request,
-					   PASSDB_CREDENTIALS_NTLM,
-					   ntlm_credentials_callback);
+		auth_request_lookup_credentials(auth_request,
+						PASSDB_CREDENTIALS_NTLM,
+						ntlm_credentials_callback);
 	}
 }
 

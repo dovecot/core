@@ -1,7 +1,7 @@
 #ifndef __USERDB_H
 #define __USERDB_H
 
-#include "auth-request.h"
+struct auth_request;
 
 struct user_data {
 	const char *virtual_user;
@@ -32,5 +32,7 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str);
 void userdb_preinit(struct auth *auth, const char *data);
 void userdb_init(struct auth *auth);
 void userdb_deinit(struct auth *auth);
+
+#include "auth-request.h"
 
 #endif

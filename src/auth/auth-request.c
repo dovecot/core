@@ -117,6 +117,41 @@ int auth_request_unref(struct auth_request *request)
 	return FALSE;
 }
 
+void auth_request_initial(struct auth_request *request,
+			  const unsigned char *data, size_t data_size,
+			  mech_callback_t *callback)
+{
+	request->mech->auth_initial(request, data, data_size, callback);
+}
+
+void auth_request_continue(struct auth_request *request,
+			   const unsigned char *data, size_t data_size,
+			   mech_callback_t *callback)
+{
+	request->mech->auth_continue(request, data, data_size, callback);
+}
+
+void auth_request_verify_plain(struct auth_request *request,
+			       const char *password,
+			       verify_plain_callback_t *callback)
+{
+	request->auth->passdb->verify_plain(request, password, callback);
+}
+
+void auth_request_lookup_credentials(struct auth_request *request,
+				     enum passdb_credentials credentials,
+				     lookup_credentials_callback_t *callback)
+{
+	request->auth->passdb->lookup_credentials(request, credentials,
+						  callback);
+}
+
+void auth_request_lookup_user(struct auth_request *request,
+			      userdb_callback_t *callback, void *context)
+{
+	request->auth->userdb->lookup(request, callback, context);
+}
+
 int auth_request_set_username(struct auth_request *request,
 			      const char *username, const char **error_r)
 {

@@ -141,9 +141,9 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 
 	memcpy(request->digest, tmp, sizeof(request->digest));
 
-	auth_request->auth->passdb->
-		lookup_credentials(auth_request, PASSDB_CREDENTIALS_PLAINTEXT,
-				   apop_credentials_callback);
+	auth_request_lookup_credentials(auth_request,
+					PASSDB_CREDENTIALS_PLAINTEXT,
+					apop_credentials_callback);
 }
 
 static void mech_apop_auth_free(struct auth_request *request)

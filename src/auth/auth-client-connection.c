@@ -313,8 +313,8 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 
 	/* connection is referenced only until auth_callback is called. */
 	conn->refcount++;
-	mech->auth_initial(request, initial_resp_data, initial_resp_len,
-			   auth_callback);
+	auth_request_initial(request, initial_resp_data, initial_resp_len,
+			     auth_callback);
 	return TRUE;
 }
 
@@ -367,8 +367,7 @@ auth_client_input_cont(struct auth_client_connection *conn, const char *args)
 	}
 
 	conn->refcount++;
-	request->mech->auth_continue(request, buf->data, buf->used,
-				     auth_callback);
+	auth_request_continue(request, buf->data, buf->used, auth_callback);
 	return TRUE;
 }
 

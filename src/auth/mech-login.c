@@ -56,8 +56,7 @@ mech_login_auth_continue(struct auth_request *request,
 			 prompt2, strlen(prompt2));
 	} else {
 		char *pass = p_strndup(unsafe_data_stack_pool, data, data_size);
-		request->auth->passdb->verify_plain(request, pass,
-						    verify_callback);
+		auth_request_verify_plain(request, pass, verify_callback);
 		safe_memset(pass, 0, strlen(pass));
 	}
 }

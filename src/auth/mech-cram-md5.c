@@ -146,10 +146,9 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 
 		if (auth_request_set_username(auth_request, request->username,
 					      &error)) {
-			auth_request->auth->passdb->
-				lookup_credentials(auth_request,
-						   PASSDB_CREDENTIALS_CRAM_MD5,
-						   credentials_callback);
+			auth_request_lookup_credentials(auth_request,
+						PASSDB_CREDENTIALS_CRAM_MD5,
+						credentials_callback);
 			return;
 		}
 	}

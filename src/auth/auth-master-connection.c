@@ -149,8 +149,8 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 		master_request->auth_request = request;
 
 		conn->refcount++;
-		request->auth->userdb->lookup(request, userdb_callback,
-					      master_request);
+		auth_request_lookup_user(request, userdb_callback,
+					 master_request);
 	}
 	return TRUE;
 }

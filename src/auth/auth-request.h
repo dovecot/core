@@ -3,6 +3,8 @@
 
 #include "network.h"
 #include "mech.h"
+#include "userdb.h"
+#include "passdb.h"
 
 struct auth_client_connection;
 
@@ -44,6 +46,22 @@ struct auth_request *auth_request_new(struct auth *auth,
 void auth_request_destroy(struct auth_request *request);
 void auth_request_ref(struct auth_request *request);
 int auth_request_unref(struct auth_request *request);
+
+void auth_request_initial(struct auth_request *request,
+			  const unsigned char *data, size_t data_size,
+			  mech_callback_t *callback);
+void auth_request_continue(struct auth_request *request,
+			   const unsigned char *data, size_t data_size,
+			   mech_callback_t *callback);
+
+void auth_request_verify_plain(struct auth_request *request,
+			       const char *password,
+			       verify_plain_callback_t *callback);
+void auth_request_lookup_credentials(struct auth_request *request,
+				     enum passdb_credentials credentials,
+				     lookup_credentials_callback_t *callback);
+void auth_request_lookup_user(struct auth_request *request,
+			      userdb_callback_t *callback, void *context);
 
 int auth_request_set_username(struct auth_request *request,
 			      const char *username, const char **error_r);
