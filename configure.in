@@ -176,6 +176,9 @@ fi
 if test x$sizeof_ssize_t = x$ac_cv_sizeof_int; then
   AC_DEFINE_UNQUOTED(SSIZE_T_MAX, INT_MAX)
   AC_DEFINE_UNQUOTED(PRIuSIZE_T, "u")
+elif test x$sizeof_ssize_t = x$ac_cv_sizeof_long; then
+  AC_DEFINE_UNQUOTED(SSIZE_T_MAX, LONG_MAX)
+  AC_DEFINE_UNQUOTED(PRIuSIZE_T, "lu")
 elif test x$sizeof_ssize_t = x$ac_cv_sizeof_long_long; then
   AC_DEFINE_UNQUOTED(SSIZE_T_MAX, LLONG_MAX)
   AC_DEFINE_UNQUOTED(PRIuSIZE_T, "llu")
