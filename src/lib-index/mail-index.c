@@ -18,7 +18,8 @@
 #include <fcntl.h>
 #include <utime.h>
 
-static const char *index_file_prefixes[] = { "data", "hash", "log", NULL };
+static const char *index_file_prefixes[] =
+	{ "data", "hash", "log", "log.2", NULL };
 
 static int mmap_update(MailIndex *index)
 {
