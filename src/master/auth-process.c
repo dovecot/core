@@ -223,6 +223,7 @@ static struct auth_process *
 auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 {
 	struct auth_process *p;
+	const char *handshake;
 
 	if (pid != 0)
 		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_AUTH);
@@ -237,6 +238,11 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 	p->output = o_stream_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
 					 FALSE);
 	p->requests = hash_create(default_pool, default_pool, 0, NULL, NULL);
+
+	handshake = t_strdup_printf("VERSION\t%u.%u\n",
+				    AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
+				    AUTH_MASTER_PROTOCOL_MINOR_VERSION);
+	(void)o_stream_send_str(p->output, handshake);
 
 	p->next = group->processes;
 	group->processes = p;
