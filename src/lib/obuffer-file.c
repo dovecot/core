@@ -611,6 +611,7 @@ static off_t io_buffer_copy(_OBuffer *outbuf, IBuffer *inbuf)
 			/* timeouted */
 			if (foutbuf->timeout_func != NULL)
 				foutbuf->timeout_func(foutbuf->timeout_context);
+			outbuf->obuffer.buf_errno = EAGAIN;
 			return -1;
 		}
 
