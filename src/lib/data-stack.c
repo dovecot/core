@@ -385,6 +385,8 @@ struct _FrameAlloc {
 	void *mem;
 };
 
+unsigned int data_stack_frame;
+
 static StackFrame *current_frame;
 static void *buffer_mem;
 
@@ -461,15 +463,8 @@ void *t_malloc0(size_t size)
 	return mem;
 }
 
-int t_try_realloc(void *mem, size_t size)
+int t_try_realloc(void *mem __attr_unused__, size_t size __attr_unused__)
 {
-	void *new_mem;
-
-	new_mem = realloc(mem, size);
-	if (new_mem == mem)
-		return TRUE;
-
-	free(new_mem);
 	return FALSE;
 }
 
