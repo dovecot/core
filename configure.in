@@ -272,11 +272,20 @@ AC_DEFUN(AC_TYPEOF, [
         int)
 	  fmt="%d"
 	  ;;
+        unsigned-int)
+	  fmt="%u"
+	  ;;
         long)
 	  fmt="%ld"
 	  ;;
+        unsigned-long)
+	  fmt="%lu"
+	  ;;
         long-long)
 	  fmt="%lld"
+	  ;;
+        unsigned-long-long)
+	  fmt="%llu"
 	  ;;
 	*)
 	  fmt=""
