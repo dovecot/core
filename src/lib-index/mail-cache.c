@@ -263,7 +263,7 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 	cache->fd = -1;
         cache->split_header_pool = pool_alloconly_create("Headers", 512);
 
-	if (!index->mmap_disable) {
+	if (!index->mmap_disable && !index->mmap_no_write) {
 		if (mail_cache_open_and_verify(cache) < 0) {
 			/* failed for some reason - doesn't really matter,
 			   it's disabled for now. */
