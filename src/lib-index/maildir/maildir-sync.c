@@ -581,7 +581,10 @@ static int maildir_index_full_sync_init(struct maildir_sync_context *ctx)
 		hash_rec = p_new(ctx->pool, struct maildir_hash_rec, 1);
 		hash_rec->rec = rec;
 		hash_rec->action = MAILDIR_FILE_ACTION_EXPUNGE;
-		hash_insert(ctx->files, (void *) fname, hash_rec);
+
+		/* FIXME: p_strdup() eats uselessly memory. fix the code so
+		   that it's not needed. */
+		hash_insert(ctx->files, (void *) p_strdup(ctx->pool, fname), hash_rec);
 
 		rec = index->next(index, rec);
 	}
