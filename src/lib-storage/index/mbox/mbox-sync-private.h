@@ -79,7 +79,6 @@ struct mbox_sync_mail_context {
 struct mbox_sync_context {
 	struct index_mailbox *ibox;
 	struct istream *input, *file_input;
-	unsigned int lock_id;
 	int fd;
 
 	struct mail_index_sync_ctx *index_sync_ctx;

@@ -350,7 +350,7 @@ int maildir_sync_last_commit(struct index_mailbox *ibox)
 		}
 		if (mail_index_transaction_commit(ctx.trans, &seq, &offset) < 0)
 			ret = -1;
-		if (mail_index_sync_end(ctx.sync_ctx) < 0)
+		if (mail_index_sync_commit(ctx.sync_ctx) < 0)
 			ret = -1;
 	}
         ibox->syncing_commit = FALSE;
@@ -612,7 +612,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			"Maildir %s sync: UIDVALIDITY changed (%u -> %u)",
 			ibox->path, hdr->uid_validity, uid_validity);
 		mail_index_mark_corrupted(ibox->index);
-		(void)mail_index_sync_end(sync_ctx.sync_ctx);
+		(void)mail_index_sync_rollback(sync_ctx.sync_ctx);
 		return -1;
 	}
 
@@ -815,9 +815,10 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			&next_uid, sizeof(next_uid));
 	}
 
-	if (ret < 0)
+	if (ret < 0) {
 		mail_index_transaction_rollback(trans);
-	else {
+		mail_index_sync_rollback(sync_ctx.sync_ctx);
+	} else {
 		uint32_t seq;
 		uoff_t offset;
 
@@ -827,10 +828,9 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			ibox->commit_log_file_seq = seq;
 			ibox->commit_log_file_offset = offset;
 		}
+		if (mail_index_sync_commit(sync_ctx.sync_ctx) < 0)
+			ret = -1;
 	}
-
-	if (mail_index_sync_end(sync_ctx.sync_ctx) < 0)
-		ret = -1;
 
 	if (ret == 0) {
 		ibox->commit_log_file_seq = 0;

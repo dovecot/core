@@ -198,8 +198,8 @@ mail_index_transaction_open_updated_view(struct mail_index_transaction *t);
    sync types, then they might). You must go through all of them and update
    the mailbox accordingly.
 
-   None of the changes actually show up in index until at
-   mail_index_sync_end().
+   None of the changes actually show up in index until after successful
+   mail_index_sync_commit().
 
    Returned sequence numbers describe the mailbox state at the beginning of
    synchronization, ie. expunges don't affect them.
@@ -217,8 +217,11 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec);
 /* Returns 1 if there's more to sync, 0 if not. */
 int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
-/* End synchronization by unlocking the index and closing the view. */
-int mail_index_sync_end(struct mail_index_sync_ctx *ctx);
+/* Commit synchronization by writing all changes to mail index file. */
+int mail_index_sync_commit(struct mail_index_sync_ctx *ctx);
+/* Rollback synchronization - none of the changes listed by sync_next() are
+   actually written to index file. */
+void mail_index_sync_rollback(struct mail_index_sync_ctx *ctx);
 
 /* Mark index file corrupted. Invalidates all views. */
 void mail_index_mark_corrupted(struct mail_index *index);
