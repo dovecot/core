@@ -8,7 +8,7 @@
 typedef int write_func_t(struct ostream *, const void *, size_t);
 
 /* Return -1 = failure, 0 = don't write the header, 1 = write it */
-typedef int header_callback_t(const unsigned char *name, size_t len,
+typedef int header_callback_t(const char *name,
 			      write_func_t *write_func, void *context);
 
 struct index_autosync_file {

@@ -38,6 +38,7 @@ struct index_mail {
 
 	pool_t pool;
 	struct index_mailbox *ibox;
+	buffer_t *header_buf;
 
 	enum mail_fetch_field wanted_fields;
 	const char *const *wanted_headers;
@@ -51,8 +52,6 @@ void index_mail_deinit(struct index_mail *mail);
 
 void index_mail_init_parse_header(struct index_mail *mail);
 void index_mail_parse_header(struct message_part *part,
-			     const unsigned char *name, size_t name_len,
-			     const unsigned char *value, size_t value_len,
-			     void *context);
+			     struct message_header_line *hdr, void *context);
 
 #endif

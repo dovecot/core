@@ -9,19 +9,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-struct save_header_context {
-	struct mail_storage *storage;
-	const char *path;
-
-	struct ostream *output;
-	write_func_t *write_func;
-
-	header_callback_t *header_callback;
-	void *context;
-
-	int failed;
-};
-
 static int write_with_crlf(struct ostream *output, const void *v_data,
 			   size_t size)
 {
@@ -103,45 +90,53 @@ static void set_write_error(struct mail_storage *storage,
 	}
 }
 
-static void save_header_callback(struct message_part *part __attr_unused__,
-				 const unsigned char *name, size_t name_len,
-				 const unsigned char *value, size_t value_len,
-				 void *context)
+static int save_headers(struct istream *input, struct ostream *output,
+			header_callback_t *header_callback, void *context,
+			write_func_t *write_func)
 {
-	struct save_header_context *ctx = context;
-	int ret;
+	struct message_header_parser_ctx *hdr_ctx;
+	struct message_header_line *hdr;
+	int ret, failed = FALSE;
 
-	if (ctx->failed)
-		return;
+	hdr_ctx = message_parse_header_init(input, NULL);
+	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
+		ret = header_callback(hdr->name, write_func, context);
+		if (ret <= 0) {
+			if (ret < 0) {
+				failed = TRUE;
+				break;
+			}
+			continue;
+		}
 
-	ret = ctx->header_callback(name, name_len, ctx->write_func,
-				   ctx->context);
-	if (ret <= 0) {
-		if (ret < 0)
-			ctx->failed = TRUE;
-		return;
+		if (!hdr->eoh) {
+			if (!hdr->continued) {
+				(void)o_stream_send(output, hdr->name,
+						    hdr->name_len);
+				(void)o_stream_send(output, ": ", 2);
+			}
+			(void)o_stream_send(output, hdr->value, hdr->value_len);
+			if (!hdr->no_newline)
+				write_func(output, "\n", 1);
+		}
 	}
+	if (!failed) {
+		if (header_callback(NULL, write_func, context) < 0)
+			failed = TRUE;
 
-	if (name_len == 0) {
-		name = "\n"; value_len = 1;
-	} else {
-		if (value[value_len] == '\r')
-			value_len++;
-		i_assert(value[value_len] == '\n');
-		value_len += (size_t) (value-name) + 1;
+		/* end of headers */
+		write_func(output, "\n", 1);
 	}
+	message_parse_header_deinit(hdr_ctx);
 
-	if (ctx->write_func(ctx->output, name, value_len) < 0) {
-		set_write_error(ctx->storage, ctx->output, ctx->path);
-		ctx->failed = TRUE;
-	}
+	return !failed;
 }
 
 int index_storage_save(struct mail_storage *storage, const char *path,
 		       struct istream *input, struct ostream *output,
 		       header_callback_t *header_callback, void *context)
 {
-	int (*write_func)(struct ostream *, const void *, size_t);
+        write_func_t *write_func;
 	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
@@ -150,20 +145,8 @@ int index_storage_save(struct mail_storage *storage, const char *path,
 	write_func = getenv("MAIL_SAVE_CRLF") ? write_with_crlf : write_with_lf;
 
 	if (header_callback != NULL) {
-		struct save_header_context ctx;
-
-		memset(&ctx, 0, sizeof(ctx));
-		ctx.storage = storage;
-		ctx.output = output;
-		ctx.path = path;
-		ctx.write_func = write_func;
-		ctx.header_callback = header_callback;
-		ctx.context = context;
-
-		message_parse_header(NULL, input, NULL,
-				     save_header_callback, &ctx);
-
-		if (ctx.failed)
+		if (!save_headers(input, output, header_callback,
+				  context, write_func))
 			return FALSE;
 	}
 

@@ -1,7 +1,9 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "istream.h"
+#include "str.h"
 #include "strescape.h"
 #include "message-content-parser.h"
 #include "message-parser.h"
@@ -25,6 +27,17 @@ struct parser_context {
 
 	message_header_callback_t *callback;
 	void *context;
+};
+
+struct message_header_parser_ctx {
+	struct message_header_line line;
+
+	struct istream *input;
+	struct message_size *hdr_size;
+
+	string_t *name;
+	buffer_t *value_buf;
+	size_t skip;
 };
 
 static struct message_part *
@@ -119,28 +132,6 @@ parse_content_type_param(const unsigned char *name, size_t name_len,
 	}
 }
 
-static void parse_header_field(struct message_part *part,
-			       const unsigned char *name, size_t name_len,
-			       const unsigned char *value, size_t value_len,
-			       void *context)
-{
-	struct parser_context *parser_ctx = context;
-
-	/* call the user-defined header parser */
-	if (parser_ctx->callback != NULL) {
-		parser_ctx->callback(part, name, name_len, value, value_len,
-				     parser_ctx->context);
-	}
-
-	if (name_len == 12 && memcasecmp(name, "Content-Type", 12) == 0) {
-		/* we need to know the boundary */
-		message_content_parse_header(value, value_len,
-					     parse_content_type,
-					     parse_content_type_param,
-					     parser_ctx);
-	}
-}
-
 static struct message_part *
 message_parse_multipart(struct istream *input,
 			struct parser_context *parser_ctx)
@@ -197,12 +188,38 @@ message_parse_multipart(struct istream *input,
 static struct message_part *
 message_parse_part(struct istream *input, struct parser_context *parser_ctx)
 {
+	struct message_header_parser_ctx *hdr_ctx;
+	struct message_header_line *hdr;
 	struct message_part *next_part, *part;
 	uoff_t hdr_size;
 
-	message_parse_header(parser_ctx->part, input,
-			     &parser_ctx->part->header_size,
-			     parse_header_field, parser_ctx);
+	hdr_ctx = message_parse_header_init(input,
+					    &parser_ctx->part->header_size);
+	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
+		/* call the user-defined header parser */
+		if (parser_ctx->callback != NULL) {
+			parser_ctx->callback(parser_ctx->part, hdr,
+					     parser_ctx->context);
+		}
+
+		if (strcasecmp(hdr->name, "Content-Type") == 0) {
+			if (hdr->continues) {
+				hdr->use_full_value = TRUE;
+				continue;
+			}
+			/* we need to know the boundary */
+			message_content_parse_header(hdr->full_value,
+						     hdr->full_value_len,
+						     parse_content_type,
+						     parse_content_type_param,
+						     parser_ctx);
+		}
+	}
+	if (parser_ctx->callback != NULL) {
+		parser_ctx->callback(parser_ctx->part, NULL,
+				     parser_ctx->context);
+	}
+	message_parse_header_deinit(hdr_ctx);
 
 	i_assert((parser_ctx->part->flags & MUTEX_FLAGS) != MUTEX_FLAGS);
 
@@ -252,23 +269,6 @@ message_parse_part(struct istream *input, struct parser_context *parser_ctx)
 	return next_part;
 }
 
-struct message_part *message_parse(pool_t pool, struct istream *input,
-				   message_header_callback_t *callback,
-				   void *context)
-{
-	struct message_part *part;
-	struct parser_context parser_ctx;
-
-	memset(&parser_ctx, 0, sizeof(parser_ctx));
-	parser_ctx.pool = pool;
-	parser_ctx.callback = callback;
-	parser_ctx.context = context;
-	parser_ctx.part = part = p_new(pool, struct message_part, 1);
-
-	message_parse_part(input, &parser_ctx);
-	return part;
-}
-
 static void message_skip_line(struct istream *input,
 			      struct message_size *msg_size, int skip_lf)
 {
@@ -312,135 +312,6 @@ __break:
 	if (msg_size != NULL) {
 		msg_size->physical_size += startpos;
 		msg_size->virtual_size += startpos;
-	}
-}
-
-void message_parse_header(struct message_part *part, struct istream *input,
-			  struct message_size *hdr_size,
-			  message_header_callback_t *callback, void *context)
-{
-	const unsigned char *msg;
-	size_t i, size, parse_size, startpos, missing_cr_count;
-	size_t line_start, colon_pos, end_pos, name_len, value_len;
-	int ret;
-
-	if (hdr_size != NULL)
-		memset(hdr_size, 0, sizeof(struct message_size));
-
-	missing_cr_count = startpos = line_start = 0;
-	colon_pos = UINT_MAX;
-	for (;;) {
-		ret = i_stream_read_data(input, &msg, &size, startpos+1);
-		if (ret == -2) {
-			/* overflow, line is too long. just skip it. */
-			i_assert(size > 2);
-
-                        message_skip_line(input, hdr_size, TRUE);
-			startpos = line_start = 0;
-			colon_pos = UINT_MAX;
-			continue;
-		}
-
-		if (ret < 0 || (ret <= 0 && size == startpos)) {
-			/* EOF and nothing in buffer. the later check is
-			   needed only when there's no message body */
-			break;
-		}
-
-		parse_size = size <= startpos+1 ? size : size-1;
-		for (i = startpos; i < parse_size; i++) {
-			if (msg[i] == ':' && colon_pos == UINT_MAX) {
-				colon_pos = i;
-				continue;
-			}
-
-			if (msg[i] != '\n')
-				continue;
-
-			if (hdr_size != NULL)
-				hdr_size->lines++;
-
-			if (i == 0 || msg[i-1] != '\r') {
-				/* missing CR */
-				missing_cr_count++;
-			}
-
-			if (i == 0 || (i == 1 && msg[i-1] == '\r')) {
-				/* no headers at all */
-				break;
-			}
-
-			if ((i > 0 && msg[i-1] == '\n') ||
-			    (i > 1 && msg[i-2] == '\n' && msg[i-1] == '\r')) {
-				/* \n\n or \n\r\n - end of headers */
-				break;
-			}
-
-			/* make sure the header doesn't continue to next line */
-			if (i+1 == size || !IS_LWSP(msg[i+1])) {
-				if (colon_pos != UINT_MAX &&
-				    colon_pos != line_start &&
-				    callback != NULL &&
-				    !IS_LWSP(msg[line_start])) {
-					/* we have a valid header line */
-
-					/* get length of name-field */
-					end_pos = colon_pos-1;
-					while (end_pos > line_start &&
-					       IS_LWSP(msg[end_pos]))
-						end_pos--;
-					name_len = end_pos - line_start + 1;
-
-					/* get length of value field.
-					   skip all LWSP after ':'. */
-					colon_pos++;
-					while (colon_pos < i &&
-					       IS_LWSP(msg[colon_pos]))
-						colon_pos++;
-					value_len = i - colon_pos;
-					if (msg[i-1] == '\r') value_len--;
-
-					/* and finally call the function */
-					callback(part,
-						 msg + line_start, name_len,
-						 msg + colon_pos, value_len,
-						 context);
-				}
-
-				colon_pos = UINT_MAX;
-				line_start = i+1;
-			}
-		}
-
-		if (i < parse_size) {
-			/* end of header */
-			startpos = i+1;
-			break;
-		}
-
-		/* leave the last line to buffer */
-		if (colon_pos != UINT_MAX)
-			colon_pos -= line_start;
-		if (hdr_size != NULL)
-			hdr_size->physical_size += line_start;
-		i_stream_skip(input, line_start);
-
-		startpos = i-line_start;
-		line_start = 0;
-	}
-
-	i_stream_skip(input, startpos);
-
-	if (hdr_size != NULL) {
-		hdr_size->physical_size += startpos;
-		hdr_size->virtual_size +=
-			hdr_size->physical_size + missing_cr_count;
-		i_assert(hdr_size->virtual_size >= hdr_size->physical_size);
-	}
-
-	if (callback != NULL) {
-		/* "end of headers" notify */
-		callback(part, NULL, 0, NULL, 0, context);
 	}
 }
 
@@ -615,4 +486,246 @@ message_skip_boundary(struct istream *input,
 	}
 
 	return boundary == NULL ? NULL : boundary->part;
+}
+
+struct message_part *message_parse(pool_t pool, struct istream *input,
+				   message_header_callback_t *callback,
+				   void *context)
+{
+	struct message_part *part;
+	struct parser_context parser_ctx;
+
+	memset(&parser_ctx, 0, sizeof(parser_ctx));
+	parser_ctx.pool = pool;
+	parser_ctx.callback = callback;
+	parser_ctx.context = context;
+	parser_ctx.part = part = p_new(pool, struct message_part, 1);
+
+	message_parse_part(input, &parser_ctx);
+	return part;
+}
+
+void message_parse_header(struct message_part *part, struct istream *input,
+			  struct message_size *hdr_size,
+			  message_header_callback_t *callback, void *context)
+{
+	struct message_header_parser_ctx *hdr_ctx;
+	struct message_header_line *hdr;
+
+	hdr_ctx = message_parse_header_init(input, hdr_size);
+	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL)
+		callback(part, hdr, context);
+	callback(part, NULL, context);
+	message_parse_header_deinit(hdr_ctx);
+}
+
+struct message_header_parser_ctx *
+message_parse_header_init(struct istream *input, struct message_size *hdr_size)
+{
+	struct message_header_parser_ctx *ctx;
+
+	ctx = i_new(struct message_header_parser_ctx, 1);
+	ctx->input = input;
+	ctx->hdr_size = hdr_size;
+	ctx->name = str_new(default_pool, 128);
+
+	if (hdr_size != NULL)
+		memset(hdr_size, 0, sizeof(*hdr_size));
+	return ctx;
+}
+
+void message_parse_header_deinit(struct message_header_parser_ctx *ctx)
+{
+	i_stream_skip(ctx->input, ctx->skip);
+	if (ctx->value_buf != NULL)
+		buffer_free(ctx->value_buf);
+	str_free(ctx->name);
+	i_free(ctx);
+}
+
+struct message_header_line *
+message_parse_header_next(struct message_header_parser_ctx *ctx)
+{
+        struct message_header_line *line = &ctx->line;
+	const unsigned char *msg;
+	size_t i, size, startpos, colon_pos, parse_size;
+	int ret;
+
+	if (line->eoh)
+		return NULL;
+
+	if (ctx->skip > 0) {
+		i_stream_skip(ctx->input, ctx->skip);
+		ctx->skip = 0;
+	}
+
+	startpos = 0; colon_pos = UINT_MAX;
+
+	line->no_newline = FALSE;
+
+	if (line->continues) {
+		if (line->use_full_value && !line->continued) {
+			/* save the first line */
+			if (ctx->value_buf != NULL)
+				buffer_set_used_size(ctx->value_buf, 0);
+			else {
+				ctx->value_buf =
+					buffer_create_dynamic(default_pool,
+							      4096, (size_t)-1);
+			}
+			buffer_append(ctx->value_buf,
+				      line->value, line->value_len);
+		}
+
+		line->continued = TRUE;
+		line->continues = FALSE;
+		colon_pos = 0;
+	} else {
+		/* new header line */
+		line->continued = FALSE;
+	}
+
+	for (;;) {
+		ret = i_stream_read_data(ctx->input, &msg, &size, startpos+1);
+
+		if (ret != 0) {
+			/* we want to know one byte in advance to find out
+			   if it's multiline header */
+			parse_size = size-1;
+		} else {
+			parse_size = size;
+		}
+
+		if (ret <= 0 && (ret != 0 || startpos == size)) {
+			if (ret == -1) {
+				/* error / EOF with no bytes */
+				return NULL;
+			}
+
+			/* a) line is larger than input buffer
+			   b) header ended unexpectedly */
+			if (colon_pos == UINT_MAX) {
+				/* header name is huge. just skip it. */
+				message_skip_line(ctx->input, ctx->hdr_size,
+						  TRUE);
+				continue;
+			}
+
+			/* go back to last LWSP if found. */
+			for (i = size-1; i > colon_pos; i--) {
+				if (IS_LWSP(msg[i])) {
+					size = i;
+					break;
+				}
+			}
+
+			line->no_newline = TRUE;
+			line->continues = TRUE;
+			ctx->skip = size;
+			break;
+		}
+
+		/* find ':' */
+		if (colon_pos == UINT_MAX) {
+			for (i = startpos; i < parse_size; i++) {
+				if (msg[i] <= ':') {
+					if (msg[i] == ':') {
+						colon_pos = i;
+						break;
+					}
+					if (msg[i] == '\n') {
+						/* end of headers, or error */
+						break;
+					}
+				}
+			}
+		}
+
+		/* find '\n' */
+		for (i = startpos; i < parse_size; i++) {
+			if (msg[i] == '\n')
+				break;
+		}
+
+		if (i < parse_size) {
+			/* got a line */
+			line->continues = i+1 < size && IS_LWSP(msg[i+1]);
+
+			if (ctx->hdr_size != NULL)
+				ctx->hdr_size->lines++;
+			if (i == 0 || msg[i-1] != '\r') {
+				/* missing CR */
+				if (ctx->hdr_size != NULL)
+					ctx->hdr_size->virtual_size++;
+				size = i;
+			} else {
+				size = i-1;
+			}
+
+			ctx->skip = i+1;
+			break;
+		}
+
+		startpos = i;
+	}
+
+	if (size == 0 || (size == 1 && msg[0] == '\r')) {
+		/* end of headers */
+		line->eoh = TRUE;
+		line->name_len = line->value_len = 0;
+	} else if (line->continued) {
+		line->value = msg;
+		line->value_len = size;
+	} else if (colon_pos == UINT_MAX) {
+		/* missing ':', assume the whole line is name */
+		line->value = NULL;
+		line->value_len = 0;
+
+		str_truncate(ctx->name, 0);
+		str_append_n(ctx->name, msg, size);
+		line->name = str_c(ctx->name);
+		line->name_len = str_len(ctx->name);
+	} else {
+		/* get value, skip only first LWSP after ':' */
+		line->value = msg + colon_pos+1;
+		line->value_len = size - colon_pos - 1;
+		if (line->value_len > 0 &&
+		    IS_LWSP(line->value[0])) {
+			line->value++;
+			line->value_len--;
+		}
+
+		/* get name, skip LWSP before ':' */
+		while (colon_pos > 0 && IS_LWSP(msg[colon_pos-1]))
+			colon_pos--;
+
+		str_truncate(ctx->name, 0);
+		str_append_n(ctx->name, msg, colon_pos);
+		line->name = str_c(ctx->name);
+		line->name_len = str_len(ctx->name);
+	}
+
+	if (!line->continued) {
+		/* first header line, set full_value = value */
+		line->full_value = line->value;
+		line->full_value_len = line->value_len;
+	} else if (line->use_full_value) {
+		/* continue saving the full value */
+		buffer_append(ctx->value_buf, line->value, line->value_len);
+		line->full_value = buffer_get_data(ctx->value_buf,
+						   &line->full_value_len);
+	} else {
+		/* we didn't want full_value, and this is a continued line. */
+		line->full_value = NULL;
+		line->full_value_len = 0;
+	}
+
+	/* always reset it */
+	line->use_full_value = FALSE;
+
+	if (ctx->hdr_size != NULL) {
+		ctx->hdr_size->physical_size += ctx->skip;
+		ctx->hdr_size->virtual_size += ctx->skip;
+	}
+	return line;
 }

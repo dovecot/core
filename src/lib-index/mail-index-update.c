@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "str.h"
 #include "istream.h"
 #include "ioloop.h"
 #include "str.h"
@@ -384,9 +385,7 @@ struct header_update_context {
 };
 
 static void update_header_cb(struct message_part *part,
-			     const unsigned char *name, size_t name_len,
-			     const unsigned char *value, size_t value_len,
-			     void *context)
+			     struct message_header_line *hdr, void *context)
 {
 	struct header_update_context *ctx = context;
 
@@ -399,14 +398,12 @@ static void update_header_cb(struct message_part *part,
 			ctx->envelope_pool =
 				pool_alloconly_create("index envelope", 2048);
 		}
-		imap_envelope_parse_header(ctx->envelope_pool, &ctx->envelope,
-					   name, name_len, value, value_len);
+		imap_envelope_parse_header(ctx->envelope_pool,
+					   &ctx->envelope, hdr);
 	}
 
-	if (ctx->header_cb != NULL) {
-		ctx->header_cb(part, name, name_len,
-			       value, value_len, ctx->context);
-	}
+	if (ctx->header_cb != NULL)
+		ctx->header_cb(part, hdr, ctx->context);
 }
 
 void mail_index_update_headers(struct mail_index_update *update,

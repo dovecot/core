@@ -20,7 +20,6 @@
 
 struct mbox_rewrite_context {
 	struct ostream *output;
-	int failed;
 
 	uoff_t content_length;
 	unsigned int seq, uid;
@@ -258,51 +257,96 @@ static const char *strip_custom_flags(const unsigned char *value, size_t len,
 	return str_len(str) == 0 ? NULL : str_c(str);
 }
 
-static void header_cb(struct message_part *part __attr_unused__,
-		      const unsigned char *name, size_t name_len,
-		      const unsigned char *value, size_t value_len,
-		      void *context)
+static int write_header(struct mbox_rewrite_context *ctx,
+			struct message_header_line *hdr)
 {
-	struct mbox_rewrite_context *ctx = context;
 	const char *str;
 
-	if (ctx->failed)
-		return;
+	switch (hdr->name_len) {
+	case 5:
+		if (strcasecmp(hdr->name, "X-UID") == 0) {
+			if (ctx->xuid_found)
+				return TRUE;
 
-	if (name_len == 6 && memcasecmp(name, "Status", 6) == 0) {
-		ctx->status_found = TRUE;
-		str = strip_chars(value, value_len, "RO");
-		(void)mbox_write_status(ctx, str);
-	} else if (name_len == 8 && memcasecmp(name, "X-Status", 8) == 0) {
-		ctx->xstatus_found = TRUE;
-		str = strip_chars(value, value_len, "ADFT");
-		(void)mbox_write_xstatus(ctx, str);
-	} else if (name_len == 10 && memcasecmp(name, "X-Keywords", 10) == 0) {
-		ctx->xkeywords_found = TRUE;
-		str = strip_custom_flags(value, value_len, ctx);
-		(void)mbox_write_xkeywords(ctx, str);
-	} else if (name_len == 10 && memcasecmp(name, "X-IMAPbase", 10) == 0) {
-		if (ctx->seq == 1) {
-			ctx->ximapbase_found = TRUE;
-			(void)mbox_write_ximapbase(ctx);
+			ctx->xuid_found = TRUE;
+			return mbox_write_xuid(ctx);
 		}
-	} else if (name_len == 5 && memcasecmp(name, "X-UID", 5) == 0) {
-		ctx->xuid_found = TRUE;
-		(void)mbox_write_xuid(ctx);
-	} else if (name_len == 14 &&
-		   memcasecmp(name, "Content-Length", 14) == 0) {
-		ctx->content_length_found = TRUE;
-		(void)mbox_write_content_length(ctx);
-	} else if (name_len > 0) {
-		/* save this header */
-		(void)o_stream_send(ctx->output, name, name_len);
-		(void)o_stream_send(ctx->output, ": ", 2);
-		(void)o_stream_send(ctx->output, value, value_len);
-		(void)o_stream_send(ctx->output, "\n", 1);
+		break;
+	case 6:
+		if (strcasecmp(hdr->name, "Status") == 0) {
+			if (ctx->status_found)
+				return TRUE;
+			if (hdr->continues) {
+				hdr->use_full_value = TRUE;
+				return TRUE;
+			}
+
+			ctx->status_found = TRUE;
+			str = strip_chars(hdr->full_value,
+					  hdr->full_value_len, "RO");
+			return mbox_write_status(ctx, str);
+		}
+		break;
+	case 8:
+		if (strcasecmp(hdr->name, "X-Status") == 0) {
+			if (ctx->xstatus_found)
+				return TRUE;
+			if (hdr->continues) {
+				hdr->use_full_value = TRUE;
+				return TRUE;
+			}
+
+			ctx->xstatus_found = TRUE;
+			str = strip_chars(hdr->full_value,
+					  hdr->full_value_len, "ADFT");
+			return mbox_write_xstatus(ctx, str);
+		}
+		break;
+	case 10:
+		if (strcasecmp(hdr->name, "X-Keywords") == 0) {
+			if (ctx->xkeywords_found)
+				return TRUE;
+			if (hdr->continues) {
+				hdr->use_full_value = TRUE;
+				return TRUE;
+			}
+
+			ctx->xkeywords_found = TRUE;
+			str = strip_custom_flags(hdr->full_value,
+						 hdr->full_value_len, ctx);
+			return mbox_write_xkeywords(ctx, str);
+		} else if (strcasecmp(hdr->name, "X-IMAPbase") == 0) {
+			if (ctx->seq != 1 || ctx->ximapbase_found)
+				return TRUE;
+
+			ctx->ximapbase_found = TRUE;
+			return mbox_write_ximapbase(ctx);
+		}
+		break;
+	case 14:
+		if (strcasecmp(hdr->name, "Content-Length") == 0) {
+			if (ctx->content_length_found)
+				return TRUE;
+
+			ctx->content_length_found = TRUE;
+			return mbox_write_content_length(ctx);
+		}
+		break;
 	}
 
-	if (ctx->output->closed)
-		ctx->failed = TRUE;
+	if (!hdr->eoh) {
+		/* save this header */
+		if (!hdr->continued) {
+			(void)o_stream_send(ctx->output, hdr->name,
+					    hdr->name_len);
+			(void)o_stream_send(ctx->output, ": ", 2);
+		}
+		(void)o_stream_send(ctx->output, hdr->value, hdr->value_len);
+		if (!hdr->no_newline)
+			(void)o_stream_send(ctx->output, "\n", 1);
+	}
+
+	return !ctx->output->closed;
 }
 
 static int mbox_write_header(struct mail_index *index,
@@ -323,6 +367,8 @@ static int mbox_write_header(struct mail_index *index,
 	   Last used UID is also not updated, and set to 0 initially.
 	*/
 	struct mbox_rewrite_context ctx;
+	struct message_header_parser_ctx *hdr_ctx;
+	struct message_header_line *hdr;
 	struct message_size hdr_parsed_size;
 
 	if (input->v_offset >= end_offset) {
@@ -346,7 +392,12 @@ static int mbox_write_header(struct mail_index *index,
 	ctx.custom_flags = mail_custom_flags_list_get(index->custom_flags);
 
 	i_stream_set_read_limit(input, input->v_offset + hdr_size);
-	message_parse_header(NULL, input, &hdr_parsed_size, header_cb, &ctx);
+
+	hdr_ctx = message_parse_header_init(input, &hdr_parsed_size);
+	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL)
+		write_header(&ctx, hdr);
+	message_parse_header_deinit(hdr_ctx);
+
 	i_stream_set_read_limit(input, 0);
 
 	i_assert(hdr_parsed_size.physical_size == hdr_size);

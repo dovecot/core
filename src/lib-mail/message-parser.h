@@ -31,27 +31,44 @@ struct message_part {
 	void *context;
 };
 
-/* NOTE: name and value aren't \0-terminated. Also called once at end of
-   headers with name_len = value_len = 0. */
+struct message_header_parser_ctx;
+
+struct message_header_line {
+	const char *name;
+	size_t name_len;
+
+	const unsigned char *value;
+	size_t value_len;
+
+	const unsigned char *full_value;
+	size_t full_value_len;
+
+	unsigned int continues:1; /* multiline header, continues in next line */
+	unsigned int continued:1; /* multiline header, continues */
+	unsigned int eoh:1; /* "end of headers" line */
+	unsigned int no_newline:1; /* no \n after this line */
+	unsigned int use_full_value:1; /* set if you want full_value */
+};
+
+/* called once with hdr = NULL at end of headers */
 typedef void message_header_callback_t(struct message_part *part,
-				       const unsigned char *name,
-				       size_t name_len,
-				       const unsigned char *value,
-				       size_t value_len,
+				       struct message_header_line *hdr,
 				       void *context);
 
 /* callback is called for each field in message header. */
 struct message_part *message_parse(pool_t pool, struct istream *input,
 				   message_header_callback_t *callback,
 				   void *context);
-
-/* Call callback for each field in message header. Fills the hdr_size.
-   part can be NULL, just make sure your header function works with it.
-   This function doesn't use data stack so your header function may save
-   values to it. When finished, input will point to beginning of message
-   body. */
 void message_parse_header(struct message_part *part, struct istream *input,
 			  struct message_size *hdr_size,
 			  message_header_callback_t *callback, void *context);
+
+struct message_header_parser_ctx *
+message_parse_header_init(struct istream *input, struct message_size *hdr_size);
+void message_parse_header_deinit(struct message_header_parser_ctx *ctx);
+
+/* Read and return next header line. */
+struct message_header_line *
+message_parse_header_next(struct message_header_parser_ctx *ctx);
 
 #endif

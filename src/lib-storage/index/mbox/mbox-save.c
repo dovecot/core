@@ -169,8 +169,8 @@ static const char *get_custom_flags(const struct mail_full_flags *flags)
 	return str_c(str);
 }
 
-static int save_header_callback(const unsigned char *name, size_t len,
-				write_func_t *write_func, void *context)
+static int save_header_callback(const char *name, write_func_t *write_func,
+				void *context)
 {
 	static const char *content_length = "Content-Length: ";
 	struct mail_save_context *ctx = context;
@@ -178,8 +178,7 @@ static int save_header_callback(const unsigned char *name, size_t len,
 	char *buf;
 	size_t space;
 
-	switch (len) {
-	case 0:
+	if (name == NULL) {
 		/* write system flags */
 		str = get_system_flags(ctx->flags->flags);
 		if (write_func(ctx->output, str, strlen(str)) < 0)
@@ -209,27 +208,29 @@ static int save_header_callback(const unsigned char *name, size_t len,
 			return -1;
 		}
 		ctx->eoh_offset = ctx->output->offset;
-		break;
-	case 5:
-		if (memcasecmp(name, "X-UID", 5) == 0)
+		return 1;
+	}
+
+	switch (*name) {
+	case 'C':
+	case 'c':
+		if (strcasecmp(name, "Content-Length") == 0)
 			return 0;
 		break;
-	case 6:
-		if (memcasecmp(name, "Status", 6) == 0)
+	case 'S':
+	case 's':
+		if (strcasecmp(name, "Status") == 0)
 			return 0;
 		break;
-	case 8:
-		if (memcasecmp(name, "X-Status", 8) == 0)
+	case 'X':
+	case 'x':
+		if (strcasecmp(name, "X-UID") == 0)
 			return 0;
-		break;
-	case 10:
-		if (memcasecmp(name, "X-Keywords", 10) == 0)
+		if (strcasecmp(name, "X-Status") == 0)
 			return 0;
-		if (memcasecmp(name, "X-IMAPbase", 10) == 0)
+		if (strcasecmp(name, "X-Keywords") == 0)
 			return 0;
-		break;
-	case 14:
-		if (memcasecmp(name, "Content-Length", 14) == 0)
+		if (strcasecmp(name, "X-IMAPbase") == 0)
 			return 0;
 		break;
 	}

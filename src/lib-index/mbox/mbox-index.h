@@ -33,10 +33,8 @@ void mbox_header_init_context(struct mbox_header_context *ctx,
 			      struct mail_index *index,
 			      struct istream *input);
 void mbox_header_free_context(struct mbox_header_context *ctx);
-void mbox_header_cb(struct message_part *part __attr_unused__,
-		    const unsigned char *name, size_t name_len,
-		    const unsigned char *value, size_t value_len,
-		    void *context);
+void mbox_header_cb(struct message_part *part,
+		    struct message_header_line *hdr, void *context);
 void mbox_keywords_parse(const unsigned char *value, size_t len,
 			 const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT],
 			 void (*func)(const unsigned char *, size_t,

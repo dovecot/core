@@ -41,8 +41,7 @@ struct search_header_context {
         struct mail_search_context *index_context;
 	struct mail_search_arg *args;
 
-	const unsigned char *name, *value;
-	size_t name_len, value_len;
+        struct message_header_line *hdr;
 
 	unsigned int custom_header:1;
 	unsigned int threading:1;
@@ -283,7 +282,7 @@ static void search_cached_arg(struct mail_search_arg *arg, void *context)
 }
 
 static int search_sent(enum mail_search_arg_type type, const char *search_value,
-		       const char *sent_value)
+		       const unsigned char *sent_value, size_t sent_value_len)
 {
 	time_t search_time, sent_time;
 	int timezone_offset;
@@ -296,7 +295,7 @@ static int search_sent(enum mail_search_arg_type type, const char *search_value,
 
 	/* NOTE: Latest IMAP4rev1 draft specifies that timezone is ignored
 	   in searches. sent_time is returned as UTC, so change it. */
-	if (!message_date_parse((const unsigned char *) sent_value, (size_t)-1,
+	if (!message_date_parse(sent_value, sent_value_len,
 				&sent_time, &timezone_offset))
 		return 0;
 	sent_time -= timezone_offset * 60;
@@ -404,7 +403,9 @@ static int search_arg_match_envelope(struct mail_search_context *ctx,
 		case SEARCH_SENTBEFORE:
 		case SEARCH_SENTON:
 		case SEARCH_SENTSINCE:
-			ret = search_sent(arg->type, arg->value.str, field);
+			ret = search_sent(arg->type, arg->value.str,
+					  (const unsigned char *) field,
+					  (size_t)-1);
 			break;
 		default:
 			if (arg->value.str[0] == '\0') {
@@ -457,7 +458,6 @@ static void search_header_arg(struct mail_search_arg *arg, void *context)
 {
 	struct search_header_context *ctx = context;
         struct header_search_context *hdr_search_ctx;
-	size_t len;
 	int ret;
 
 	/* first check that the field name matches to argument. */
@@ -466,41 +466,50 @@ static void search_header_arg(struct mail_search_arg *arg, void *context)
 	case SEARCH_SENTON:
 	case SEARCH_SENTSINCE:
 		/* date is handled differently than others */
-		if (ctx->name_len == 4 &&
-		    memcasecmp(ctx->name, "Date", 4) == 0) {
+		if (strcasecmp(ctx->hdr->name, "Date") == 0) {
+			if (ctx->hdr->continues) {
+				ctx->hdr->use_full_value = TRUE;
+				return;
+			}
 			ret = search_sent(arg->type, arg->value.str,
-				t_strndup(ctx->value, ctx->value_len));
+					  ctx->hdr->full_value,
+					  ctx->hdr->full_value_len);
 			ARG_SET_RESULT(arg, ret);
 		}
 		return;
 
 	case SEARCH_FROM:
-		if (ctx->name_len != 4 || memcasecmp(ctx->name, "From", 4) != 0)
+		if (strcasecmp(ctx->hdr->name, "From") != 0)
 			return;
 		break;
 	case SEARCH_TO:
-		if (ctx->name_len != 2 || memcasecmp(ctx->name, "To", 2) != 0)
+		if (strcasecmp(ctx->hdr->name, "To") != 0)
 			return;
 		break;
 	case SEARCH_CC:
-		if (ctx->name_len != 2 || memcasecmp(ctx->name, "Cc", 2) != 0)
+		if (strcasecmp(ctx->hdr->name, "Cc") != 0)
 			return;
 		break;
 	case SEARCH_BCC:
-		if (ctx->name_len != 3 || memcasecmp(ctx->name, "Bcc", 3) != 0)
+		if (strcasecmp(ctx->hdr->name, "Bcc") != 0)
 			return;
 		break;
 	case SEARCH_SUBJECT:
-		if (ctx->name_len != 7 ||
-		    memcasecmp(ctx->name, "Subject", 7) != 0)
+		if (strcasecmp(ctx->hdr->name, "Subject") != 0)
+			return;
+		break;
+	case SEARCH_IN_REPLY_TO:
+		if (strcasecmp(ctx->hdr->name, "In-Reply-To") != 0)
+			return;
+		break;
+	case SEARCH_MESSAGE_ID:
+		if (strcasecmp(ctx->hdr->name, "Message-ID") != 0)
 			return;
 		break;
 	case SEARCH_HEADER:
 		ctx->custom_header = TRUE;
 
-		len = strlen(arg->hdr_field_name);
-		if (ctx->name_len != len ||
-		    memcasecmp(ctx->name, arg->hdr_field_name, len) != 0)
+		if (strcasecmp(ctx->hdr->name, arg->hdr_field_name) != 0)
 			return;
 	case SEARCH_TEXT:
 		/* TEXT goes through all headers */
@@ -514,6 +523,11 @@ static void search_header_arg(struct mail_search_arg *arg, void *context)
 		/* we're just testing existence of the field. always matches. */
 		ret = 1;
 	} else {
+		if (ctx->hdr->continues) {
+			ctx->hdr->use_full_value = TRUE;
+			return;
+		}
+
 		t_push();
 
 		hdr_search_ctx = search_header_context(ctx->index_context, arg);
@@ -526,14 +540,16 @@ static void search_header_arg(struct mail_search_arg *arg, void *context)
 			string_t *str;
 
 			addr = message_address_parse(data_stack_pool,
-						     ctx->value, ctx->value_len,
+						     ctx->hdr->full_value,
+						     ctx->hdr->full_value_len,
 						     0);
-			str = t_str_new(ctx->value_len);
+			str = t_str_new(ctx->hdr->value_len);
 			message_address_write(str, addr);
 			ret = message_header_search(str_data(str), str_len(str),
 						    hdr_search_ctx) ? 1 : 0;
 		} else {
-			ret = message_header_search(ctx->value, ctx->value_len,
+			ret = message_header_search(ctx->hdr->full_value,
+						    ctx->hdr->full_value_len,
 						    hdr_search_ctx) ? 1 : 0;
 		}
 		t_pop();
@@ -565,6 +581,8 @@ static void search_header_unmatch(struct mail_search_arg *arg,
 	case SEARCH_BCC:
 	case SEARCH_SUBJECT:
 	case SEARCH_HEADER:
+	case SEARCH_IN_REPLY_TO:
+	case SEARCH_MESSAGE_ID:
 		ARG_SET_RESULT(arg, 0);
 		break;
 	default:
@@ -573,32 +591,34 @@ static void search_header_unmatch(struct mail_search_arg *arg,
 }
 
 static void search_header(struct message_part *part,
-			  const unsigned char *name, size_t name_len,
-			  const unsigned char *value, size_t value_len,
-			  void *context)
+                          struct message_header_line *hdr, void *context)
 {
 	struct search_header_context *ctx = context;
 
-	index_mail_parse_header(part, name, name_len, value, value_len,
-				ctx->index_context->mail);
+	if (hdr == NULL) {
+		/* end of headers, mark all unknown SEARCH_HEADERs unmatched */
+		mail_search_args_foreach(ctx->args, search_header_unmatch, ctx);
+		return;
+	}
 
-	if ((ctx->custom_header && name_len > 0) ||
-	    (name_len == 4 && memcasecmp(name, "Date", 4) == 0) ||
-	    (name_len == 4 && memcasecmp(name, "From", 4) == 0) ||
-	    (name_len == 2 && memcasecmp(name, "To", 2) == 0) ||
-	    (name_len == 2 && memcasecmp(name, "Cc", 2) == 0) ||
-	    (name_len == 3 && memcasecmp(name, "Bcc", 3) == 0) ||
-	    (name_len == 7 && memcasecmp(name, "Subject", 7) == 0)) {
-		ctx->name = name;
-		ctx->value = value;
-		ctx->name_len = name_len;
-		ctx->value_len = value_len;
+	if (hdr->eoh)
+		return;
+
+	index_mail_parse_header(part, hdr, ctx->index_context->mail);
+
+	if (ctx->custom_header ||
+	    strcasecmp(hdr->name, "Date") == 0 ||
+	    strcasecmp(hdr->name, "From") == 0 ||
+	    strcasecmp(hdr->name, "To") == 0 ||
+	    strcasecmp(hdr->name, "Cc") == 0 ||
+	    strcasecmp(hdr->name, "Bcc") == 0 ||
+	    strcasecmp(hdr->name, "Subject") == 0 ||
+	    strcasecmp(hdr->name, "In-Reply-To") == 0 ||
+	    strcasecmp(hdr->name, "Message-ID") == 0) {
+		ctx->hdr = hdr;
 
 		ctx->custom_header = FALSE;
 		mail_search_args_foreach(ctx->args, search_header_arg, ctx);
-	} else if (name_len == 0) {
-		/* last header, mark all unknown SEARCH_HEADERs unmatched */
-		mail_search_args_foreach(ctx->args, search_header_unmatch, ctx);
 	}
 }
 

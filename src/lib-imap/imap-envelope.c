@@ -4,6 +4,7 @@
 #include "istream.h"
 #include "str.h"
 #include "message-address.h"
+#include "message-parser.h"
 #include "imap-parser.h"
 #include "imap-envelope.h"
 #include "imap-quote.h"
@@ -18,12 +19,80 @@ struct message_part_envelope_data {
 	char *in_reply_to, *message_id;
 };
 
+int imap_envelope_get_field(const char *name, enum imap_envelope_field *ret)
+{
+	*ret = (enum imap_envelope_field)-1;
+
+	switch (*name) {
+	case 'B':
+	case 'b':
+		if (strcasecmp(name, "Bcc") == 0)
+			*ret = IMAP_ENVELOPE_BCC;
+		break;
+	case 'C':
+	case 'c':
+		if (strcasecmp(name, "Cc") == 0)
+			*ret = IMAP_ENVELOPE_CC;
+		break;
+	case 'D':
+	case 'd':
+		if (strcasecmp(name, "Date") == 0)
+			*ret = IMAP_ENVELOPE_DATE;
+		break;
+	case 'F':
+	case 'f':
+		if (strcasecmp(name, "From") == 0)
+			*ret = IMAP_ENVELOPE_FROM;
+		break;
+	case 'I':
+	case 'i':
+		if (strcasecmp(name, "In-reply-to") == 0)
+			*ret = IMAP_ENVELOPE_IN_REPLY_TO;
+		break;
+	case 'M':
+	case 'm':
+		if (strcasecmp(name, "Message-id") == 0)
+			*ret = IMAP_ENVELOPE_MESSAGE_ID;
+		break;
+	case 'R':
+	case 'r':
+		if (strcasecmp(name, "Reply-to") == 0)
+			*ret = IMAP_ENVELOPE_REPLY_TO;
+		break;
+	case 'S':
+	case 's':
+		if (strcasecmp(name, "Subject") == 0)
+			*ret = IMAP_ENVELOPE_SUBJECT;
+		if (strcasecmp(name, "Sender") == 0)
+			*ret = IMAP_ENVELOPE_SENDER;
+		break;
+	case 'T':
+	case 't':
+		if (strcasecmp(name, "To") == 0)
+			*ret = IMAP_ENVELOPE_TO;
+		break;
+	}
+
+	return *ret != (enum imap_envelope_field)-1;
+}
+
 void imap_envelope_parse_header(pool_t pool,
 				struct message_part_envelope_data **data,
-				const unsigned char *name, size_t name_len,
-				const unsigned char *value, size_t value_len)
+				struct message_header_line *hdr)
 {
 	struct message_part_envelope_data *d;
+	enum imap_envelope_field field;
+	struct message_address **addr_p;
+	char **str_p;
+
+	if (hdr == NULL || !imap_envelope_get_field(hdr->name, &field))
+		return;
+
+	if (hdr->continues) {
+		/* wait for full value */
+		hdr->use_full_value = TRUE;
+		return;
+	}
 
 	if (*data == NULL) {
 		*data = p_new(pool, struct message_part_envelope_data, 1);
@@ -31,61 +100,50 @@ void imap_envelope_parse_header(pool_t pool,
 	}
 	d = *data;
 
-	t_push();
+	addr_p = NULL; str_p = NULL;
+	switch (field) {
+	case IMAP_ENVELOPE_DATE:
+		str_p = &d->date;
+		break;
+	case IMAP_ENVELOPE_SUBJECT:
+		str_p = &d->subject;
+		break;
+	case IMAP_ENVELOPE_MESSAGE_ID:
+		str_p = &d->message_id;
+		break;
+	case IMAP_ENVELOPE_IN_REPLY_TO:
+		str_p = &d->in_reply_to;
+		break;
 
-	switch (name_len) {
-	case 2:
-		if (memcasecmp(name, "To", 2) == 0 && d->to == NULL) {
-			d->to = message_address_parse(pool, value,
-						      value_len, 0);
-		} else if (memcasecmp(name, "Cc", 2) == 0 && d->cc == NULL) {
-			d->cc = message_address_parse(pool, value,
-						      value_len, 0);
-		}
+	case IMAP_ENVELOPE_CC:
+		addr_p = &d->cc;
 		break;
-	case 3:
-		if (memcasecmp(name, "Bcc", 3) == 0 && d->bcc == NULL) {
-			d->bcc = message_address_parse(pool, value,
-						       value_len, 0);
-		}
+	case IMAP_ENVELOPE_BCC:
+		addr_p = &d->bcc;
 		break;
-	case 4:
-		if (memcasecmp(name, "From", 4) == 0 && d->from == NULL) {
-			d->from = message_address_parse(pool, value,
-							value_len, 0);
-		} else if (memcasecmp(name, "Date", 4) == 0 && d->date == NULL)
-			d->date = imap_quote(pool, value, value_len);
+	case IMAP_ENVELOPE_FROM:
+		addr_p = &d->from;
 		break;
-	case 6:
-		if (memcasecmp(name, "Sender", 6) == 0 && d->sender == NULL) {
-			d->sender = message_address_parse(pool, value,
-							  value_len, 0);
-		}
+	case IMAP_ENVELOPE_SENDER:
+		addr_p = &d->sender;
 		break;
-	case 7:
-		if (memcasecmp(name, "Subject", 7) == 0 && d->subject == NULL)
-			d->subject = imap_quote(pool, value, value_len);
+	case IMAP_ENVELOPE_TO:
+		addr_p = &d->to;
 		break;
-	case 8:
-		if (memcasecmp(name, "Reply-To", 8) == 0 &&
-		    d->reply_to == NULL) {
-			d->reply_to = message_address_parse(pool, value,
-							    value_len, 0);
-		}
+	case IMAP_ENVELOPE_REPLY_TO:
+		addr_p = &d->reply_to;
 		break;
-	case 10:
-		if (memcasecmp(name, "Message-Id", 10) == 0 &&
-		    d->message_id == NULL)
-			d->message_id = imap_quote(pool, value, value_len);
-		break;
-	case 11:
-		if (memcasecmp(name, "In-Reply-To", 11) == 0 &&
-		    d->in_reply_to == NULL)
-			d->in_reply_to = imap_quote(pool, value, value_len);
+	case IMAP_ENVELOPE_FIELDS:
 		break;
 	}
 
-	t_pop();
+	if (addr_p != NULL) {
+		*addr_p = message_address_parse(pool, hdr->full_value,
+						hdr->full_value_len, 0);
+	}
+
+	if (str_p != NULL)
+		*str_p = imap_quote(pool, hdr->full_value, hdr->full_value_len);
 }
 
 static void imap_write_address(string_t *str, struct message_address *addr)

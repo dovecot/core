@@ -19,8 +19,6 @@
    double-parsing. */
 #define MAX_HEADER_BUFFER_SIZE (32*1024)
 
-#define UNSIGNED_CRLF (const unsigned char *) "\r\n"
-
 struct fetch_header_field_context {
 	string_t *dest;
 	struct ostream *output;
@@ -216,53 +214,12 @@ static int fetch_header_append(struct fetch_header_field_context *ctx,
 	return ctx->dest_size < ctx->max_size;
 }
 
-static void fetch_header_field(struct message_part *part __attr_unused__,
-			       const unsigned char *name, size_t name_len,
-			       const unsigned char *value __attr_unused__,
-			       size_t value_len __attr_unused__,
-			       void *context)
-{
-	struct fetch_header_field_context *ctx = context;
-	const unsigned char *field_start, *field_end, *cr, *p;
-
-	/* see if we want this field. */
-	if (!ctx->match_func(ctx->fields, name, name_len) || name_len == 0)
-		return;
-
-	/* add the field, inserting CRs when needed. FIXME: is this too
-	   kludgy? we assume name continues with ": value". but otherwise
-	   we wouldn't reply with correct LWSP around ":". */
-	field_start = name;
-	field_end = value + value_len;
-
-	cr = NULL;
-	for (p = field_start; p != field_end; p++) {
-		if (*p == '\r')
-			cr = p;
-		else if (*p == '\n' && cr != p-1) {
-			/* missing CR */
-			if (!fetch_header_append(ctx, field_start,
-						 (size_t) (p-field_start)))
-				return;
-			if (!fetch_header_append(ctx, UNSIGNED_CRLF, 2))
-				return;
-
-			field_start = p+1;
-		}
-	}
-
-	if (field_start != field_end) {
-		if (!fetch_header_append(ctx, field_start,
-					 (size_t) (field_end-field_start)))
-			return;
-	}
-
-	(void)fetch_header_append(ctx, UNSIGNED_CRLF, 2);
-}
-
 static int fetch_header_fields(struct istream *input, const char *section,
 			       struct fetch_header_field_context *ctx)
 {
+	struct message_header_parser_ctx *hdr_ctx;
+	struct message_header_line *hdr;
+
 	if (strncmp(section, "HEADER.FIELDS ", 14) == 0) {
 		ctx->fields = get_fields_array(section + 14);
 		ctx->match_func = header_match;
@@ -279,13 +236,31 @@ static int fetch_header_fields(struct istream *input, const char *section,
 	}
 
 	ctx->dest_size = 0;
-	message_parse_header(NULL, input, NULL, fetch_header_field, ctx);
 
-	/* FIXME: The blank line must not be filtered, says RFC. However, we
-	   shouldn't add it if it wasn't there in the first place. Not very
-	   easy to know currently so we'll just do it always, it'll be present
-	   in all sane messages anyway.. */
-	(void)fetch_header_append(ctx, UNSIGNED_CRLF, 2);
+	hdr_ctx = message_parse_header_init(input, NULL);
+	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
+		/* see if we want this field.
+		   we always want the end-of-headers line */
+		if (!ctx->match_func(ctx->fields, hdr->name, hdr->name_len) &&
+		    !hdr->eoh)
+			continue;
+
+		if (!hdr->continued && !hdr->eoh) {
+			if (!fetch_header_append(ctx, hdr->name, hdr->name_len))
+				break;
+			if (!fetch_header_append(ctx,
+					(const unsigned char *) ": ", 2))
+				break;
+		}
+		if (!fetch_header_append(ctx, hdr->value, hdr->value_len))
+			break;
+		if (!hdr->no_newline) {
+			if (!fetch_header_append(ctx,
+					(const unsigned char *) "\r\n", 2))
+				break;
+		}
+	}
+	message_parse_header_deinit(hdr_ctx);
 
 	i_assert(ctx->dest_size <= ctx->max_size);
 	i_assert(ctx->dest == NULL || str_len(ctx->dest) == ctx->dest_size);

@@ -16,55 +16,6 @@
 
 #include <ctype.h>
 
-static int get_envelope_header_field(const char *name,
-				     enum imap_envelope_field *ret)
-{
-	*ret = (enum imap_envelope_field)-1;
-
-	switch (i_toupper(*name)) {
-	case 'B':
-		if (strcasecmp(name, "bcc") == 0)
-			*ret = IMAP_ENVELOPE_BCC;
-		break;
-	case 'C':
-		if (strcasecmp(name, "cc") == 0)
-			*ret = IMAP_ENVELOPE_CC;
-		break;
-	case 'D':
-		if (strcasecmp(name, "date") == 0)
-			*ret = IMAP_ENVELOPE_DATE;
-		break;
-	case 'F':
-		if (strcasecmp(name, "from") == 0)
-			*ret = IMAP_ENVELOPE_FROM;
-		break;
-	case 'I':
-		if (strcasecmp(name, "in-reply-to") == 0)
-			*ret = IMAP_ENVELOPE_IN_REPLY_TO;
-		break;
-	case 'M':
-		if (strcasecmp(name, "message-id") == 0)
-			*ret = IMAP_ENVELOPE_MESSAGE_ID;
-		break;
-	case 'R':
-		if (strcasecmp(name, "reply-to") == 0)
-			*ret = IMAP_ENVELOPE_REPLY_TO;
-		break;
-	case 'S':
-		if (strcasecmp(name, "subject") == 0)
-			*ret = IMAP_ENVELOPE_SUBJECT;
-		if (strcasecmp(name, "sender") == 0)
-			*ret = IMAP_ENVELOPE_SENDER;
-		break;
-	case 'T':
-		if (strcasecmp(name, "to") == 0)
-			*ret = IMAP_ENVELOPE_TO;
-		break;
-	}
-
-	return *ret != (enum imap_envelope_field)-1;
-}
-
 static struct message_part *get_cached_parts(struct index_mail *mail)
 {
 	struct message_part *part;
@@ -192,20 +143,17 @@ void index_mail_init_parse_header(struct index_mail *mail)
 }
 
 void index_mail_parse_header(struct message_part *part __attr_unused__,
-			     const unsigned char *name, size_t name_len,
-			     const unsigned char *value, size_t value_len,
-			     void *context)
+			     struct message_header_line *hdr, void *context)
 {
 	struct index_mail *mail = context;
 	struct index_mail_data *data = &mail->data;
-	struct cached_header *hdr;
+	struct cached_header *cached_hdr;
 
 	if (data->save_envelope) {
+		imap_envelope_parse_header(mail->pool,
+					   &data->envelope_data, hdr);
 
-		imap_envelope_parse_header(mail->pool, &data->envelope_data,
-					   name, name_len, value, value_len);
-
-		if (name_len == 0) {
+		if (hdr == NULL) {
 			/* finalize the envelope */
 			string_t *str;
 
@@ -215,9 +163,24 @@ void index_mail_parse_header(struct message_part *part __attr_unused__,
 		}
 	}
 
-	if (name_len == 4 && data->save_sent_time &&
-	    memcasecmp(name, "date",4) == 0) {
-		if (!message_date_parse(value, value_len, &data->sent_time,
+	if (hdr == NULL) {
+		/* end of headers */
+		if (data->save_sent_time) {
+			/* not found */
+			data->sent_time = 0;
+			data->sent_timezone = 0;
+			data->save_sent_time = FALSE;
+		}
+		return;
+	}
+
+	if (data->save_sent_time && strcasecmp(hdr->name, "Date") == 0) {
+		if (hdr->continues) {
+			hdr->use_full_value = TRUE;
+			return;
+		}
+		if (!message_date_parse(hdr->full_value, hdr->full_value_len,
+					&data->sent_time,
 					&data->sent_timezone)) {
 			/* 0 == parse error */
 			data->sent_time = 0;
@@ -226,26 +189,25 @@ void index_mail_parse_header(struct message_part *part __attr_unused__,
 		data->save_sent_time = FALSE;
 	}
 
-	if (name_len == 0) {
-		/* end of headers */
-		if (data->save_sent_time) {
-			/* not found */
-			data->sent_time = 0;
-			data->sent_timezone = 0;
-			data->save_sent_time = FALSE;
-		}
-	}
-
-	for (hdr = data->headers; hdr != NULL; hdr = hdr->next) {
-		if (hdr->name_len == name_len &&
-		    memcasecmp(hdr->name, name, name_len) == 0) {
+        cached_hdr = data->headers;
+	while (cached_hdr != NULL) {
+		if (cached_hdr->name_len == hdr->name_len &&
+		    memcasecmp(hdr->name, hdr->name, hdr->name_len) == 0) {
 			/* save only the first header */
-			if (hdr->value == NULL) {
-				hdr->value = p_strndup(mail->pool,
-						       value, value_len);
+			if (cached_hdr->value != NULL)
+				break;
+
+			if (hdr->continues) {
+				hdr->use_full_value = TRUE;
+				break;
 			}
+
+			cached_hdr->value = p_strndup(mail->pool,
+						      hdr->full_value,
+						      hdr->full_value_len);
 			break;
 		}
+                cached_hdr = cached_hdr->next;
 	}
 }
 
@@ -479,7 +441,7 @@ static const char *get_header(struct mail *_mail, const char *field)
 	}
 
 	if (data->parse_header || data->envelope == NULL ||
-	    !get_envelope_header_field(field, &env_field)) {
+	    !imap_envelope_get_field(field, &env_field)) {
 		/* if we have to parse the header, do it even if we could use
 		   envelope - envelope parsing would just slow up. */
                 prepend_cached_header(mail, field);
@@ -528,7 +490,7 @@ static const char *get_first_mailbox(struct mail *_mail, const char *field)
 	const char *ret = NULL;
 
 	if (data->envelope != NULL &&
-	    get_envelope_header_field(field, &env_field)) {
+	    imap_envelope_get_field(field, &env_field)) {
 		/* prefer parsing envelope - faster than having to actually
 		   parse the header field */
 		t_push();
@@ -748,7 +710,7 @@ int index_mail_next(struct index_mail *mail, struct mail_index_record *rec)
 		int envelope_headers = FALSE;
 
 		for (tmp = mail->wanted_headers; *tmp != NULL; tmp++) {
-			if (get_envelope_header_field(*tmp, &env_field))
+			if (imap_envelope_get_field(*tmp, &env_field))
 				envelope_headers = TRUE;
 			else {
 				open_mail = TRUE;

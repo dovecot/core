@@ -28,7 +28,6 @@ struct body_search_context {
 struct part_search_context {
 	struct body_search_context *body_ctx;
 
-	struct header_search_context *hdr_search_ctx;
 	struct charset_translation *translation;
 
 	buffer_t *decode_buf;
@@ -42,7 +41,6 @@ struct part_search_context {
 	unsigned int content_unknown:1;
 	unsigned int content_type_text:1; /* text/any or message/any */
 	unsigned int ignore_header:1;
-	unsigned int found:1;
 };
 
 static void parse_content_type(const unsigned char *value, size_t value_len,
@@ -101,47 +99,59 @@ static void parse_content_encoding(const unsigned char *value, size_t value_len,
 	}
 }
 
-static void header_find(struct message_part *part __attr_unused__,
-			const unsigned char *name, size_t name_len,
-			const unsigned char *value, size_t value_len,
-			void *context)
-{
-	struct part_search_context *ctx = context;
-
-	if (ctx->found)
-		return;
-
-	if (!ctx->ignore_header) {
-		ctx->found = message_header_search(value, value_len,
-						   ctx->hdr_search_ctx);
-	}
-
-	if (name_len == 12 && memcasecmp(name, "Content-Type", 12) == 0) {
-		message_content_parse_header(value, value_len,
-					     parse_content_type,
-					     parse_content_type_param,
-					     ctx);
-	} else if (name_len == 25 &&
-		   memcasecmp(name, "Content-Transfer-Encoding", 25) == 0) {
-		message_content_parse_header(value, value_len,
-					     parse_content_encoding,
-					     NULL, ctx);
-	}
-}
-
 static int message_search_header(struct part_search_context *ctx,
 				 struct istream *input)
 {
-	ctx->hdr_search_ctx = message_header_search_init(data_stack_pool,
-							 ctx->body_ctx->key,
-							 ctx->body_ctx->charset,
-							 NULL);
+	struct header_search_context *hdr_search_ctx;
+	struct message_header_parser_ctx *hdr_ctx;
+	struct message_header_line *hdr;
+	int found = FALSE;
+
+	hdr_search_ctx = message_header_search_init(data_stack_pool,
+						    ctx->body_ctx->key,
+						    ctx->body_ctx->charset,
+						    NULL);
 
 	/* we default to text content-type */
 	ctx->content_type_text = TRUE;
-	message_parse_header(NULL, input, NULL, header_find, ctx);
 
-	return ctx->found;
+	hdr_ctx = message_parse_header_init(input, NULL);
+	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
+		if (!ctx->ignore_header) {
+			if (message_header_search(hdr->value, hdr->value_len,
+						  hdr_search_ctx)) {
+				found = TRUE;
+				break;
+			}
+		}
+
+		if (hdr->name_len == 12 &&
+		    strcasecmp(hdr->name, "Content-Type") == 0) {
+			if (hdr->continues) {
+				hdr->use_full_value = TRUE;
+				continue;
+			}
+			message_content_parse_header(hdr->full_value,
+						     hdr->full_value_len,
+						     parse_content_type,
+						     parse_content_type_param,
+						     ctx);
+		} else if (hdr->name_len == 25 &&
+			   strcasecmp(hdr->name,
+				      "Content-Transfer-Encoding") == 0) {
+			if (hdr->continues) {
+				hdr->use_full_value = TRUE;
+				continue;
+			}
+			message_content_parse_header(hdr->full_value,
+						     hdr->full_value_len,
+						     parse_content_encoding,
+						     NULL, ctx);
+		}
+	}
+	message_parse_header_deinit(hdr_ctx);
+
+	return found;
 }
 
 static int message_search_decoded_block(struct part_search_context *ctx,

@@ -248,16 +248,14 @@ static void mbox_parse_imapbase(const unsigned char *value, size_t len,
 }
 
 void mbox_header_cb(struct message_part *part __attr_unused__,
-		    const unsigned char *name, size_t name_len,
-		    const unsigned char *value, size_t value_len,
-		    void *context)
+		    struct message_header_line *hdr, void *context)
 {
 	struct mbox_header_context *ctx = context;
 	uoff_t start_offset, end_offset;
 	size_t i;
 	int fixed = FALSE;
 
-	if (name_len == 0) {
+	if (hdr == NULL) {
 		/* End of headers */
 		if (!ctx->set_read_limit)
 			return;
@@ -281,99 +279,109 @@ void mbox_header_cb(struct message_part *part __attr_unused__,
 		return;
 	}
 
+	if (hdr->eoh)
+		return;
+
 	/* Pretty much copy&pasted from popa3d by Solar Designer */
-	switch (*name) {
+	switch (*hdr->name) {
 	case 'R':
 	case 'r':
-		if (!ctx->received && name_len == 8 &&
-		    memcasecmp(name, "Received", 8) == 0) {
-			ctx->received = TRUE;
+		if (!ctx->received &&
+		    strcasecmp(hdr->name, "Received") == 0) {
+			/* get only the first received-header */
 			fixed = TRUE;
+			if (!hdr->continues)
+				ctx->received = TRUE;
 		}
 		break;
 
 	case 'C':
 	case 'c':
-		if (name_len == 14 && ctx->set_read_limit &&
-		    memcasecmp(name, "Content-Length", 14) == 0) {
+		if (ctx->set_read_limit &&
+		    strcasecmp(hdr->name, "Content-Length") == 0) {
 			/* manual parsing, so we can deal with uoff_t */
 			ctx->content_length = 0;
-			for (i = 0; i < value_len; i++) {
-				if (value[i] < '0' || value[i] > '9') {
+			for (i = 0; i < hdr->value_len; i++) {
+				if (hdr->value[i] < '0' ||
+				    hdr->value[i] > '9') {
 					/* invalid */
 					ctx->content_length = 0;
 					break;
 				}
 
 				ctx->content_length = ctx->content_length * 10 +
-					(value[i] - '0');
+					(hdr->value[i] - '0');
 			}
 		}
 		break;
 
 	case 'D':
 	case 'd':
-		if (name_len == 12)
-			fixed = memcasecmp(name, "Delivered-To", 12) == 0;
-		else if (name_len == 4) {
+		if (strcasecmp(hdr->name, "Delivered-To") == 0)
+			fixed = TRUE;
+		else if (!ctx->received && strcasecmp(hdr->name, "Date") == 0) {
 			/* Received-header contains date too,
 			   and more trusted one */
-			fixed = !ctx->received &&
-				memcasecmp(name, "Date", 4) == 0;
+			fixed = TRUE;
 		}
 		break;
 
 	case 'M':
 	case 'm':
-		if (name_len == 10) {
+		if (!ctx->received &&
+		    strcasecmp(hdr->name, "Message-ID") == 0) {
 			/* Received-header contains unique ID too,
 			   and more trusted one */
-			fixed = !ctx->received &&
-				memcasecmp(name, "Message-ID", 10) == 0;
+			fixed = TRUE;
 		}
 		break;
 
 	case 'S':
 	case 's':
-		if (name_len == 6 && memcasecmp(name, "Status", 6) == 0) {
+		if (strcasecmp(hdr->name, "Status") == 0) {
 			/* update message flags */
-			ctx->flags |= mbox_get_status_flags(value, value_len);
+			ctx->flags |= mbox_get_status_flags(hdr->value,
+							    hdr->value_len);
 		}
 		break;
 
 	case 'X':
 	case 'x':
-		if (name_len == 13) {
+		if (strcasecmp(hdr->name, "X-Delivery-ID:") == 0) {
 			/* Let the local delivery agent help generate unique
 			   ID's but don't blindly trust this header alone as
 			   it could just as easily come from the remote. */
-			fixed = memcasecmp(name, "X-Delivery-ID:", 13) == 0;
-		} else if (name_len == 5 &&
-			   memcasecmp(name, "X-UID", 5) == 0) {
+			fixed = TRUE;
+		} else if (strcasecmp(hdr->name, "X-UID") == 0) {
 			ctx->uid = 0;
-			for (i = 0; i < value_len; i++) {
-				if (value[i] < '0' || value[i] > '9')
+			for (i = 0; i < hdr->value_len; i++) {
+				if (hdr->value[i] < '0' ||
+				    hdr->value[i] > '9')
 					break;
-				ctx->uid = ctx->uid * 10 + (value[i]-'0');
+				ctx->uid = ctx->uid * 10 + (hdr->value[i]-'0');
 			}
-		} else if (name_len == 8 &&
-			   memcasecmp(name, "X-Status", 8) == 0) {
+		} else if (strcasecmp(hdr->name, "X-Status") == 0) {
 			/* update message flags */
-			ctx->flags |= mbox_get_status_flags(value, value_len);
-		} else if (name_len == 10 &&
-			   memcasecmp(name, "X-Keywords", 10) == 0) {
+			ctx->flags |= mbox_get_status_flags(hdr->value,
+							    hdr->value_len);
+		} else if (strcasecmp(hdr->name, "X-Keywords") == 0) {
 			/* update custom message flags */
-			ctx->flags |= mbox_get_keyword_flags(value, value_len,
+			ctx->flags |= mbox_get_keyword_flags(hdr->value,
+							     hdr->value_len,
 							     ctx->custom_flags);
-		} else if (name_len == 10 &&
-			   memcasecmp(name, "X-IMAPbase", 10) == 0) {
-			mbox_parse_imapbase(value, value_len, ctx);
+		} else if (strcasecmp(hdr->name, "X-IMAPbase") == 0) {
+			if (hdr->continues) {
+				hdr->use_full_value = TRUE;
+				break;
+			}
+			mbox_parse_imapbase(hdr->full_value,
+					    hdr->full_value_len, ctx);
 		}
 		break;
 	}
 
 	if (fixed)
-		md5_update(&ctx->md5, value, value_len);
+		md5_update(&ctx->md5, hdr->value, hdr->value_len);
 }
 
 void mbox_keywords_parse(const unsigned char *value, size_t len,

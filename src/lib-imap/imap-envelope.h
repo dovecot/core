@@ -1,6 +1,8 @@
 #ifndef __IMAP_ENVELOPE_H
 #define __IMAP_ENVELOPE_H
 
+struct message_header_line;
+
 enum imap_envelope_field {
 	/* NOTE: in the same order as listed in ENVELOPE */
 	IMAP_ENVELOPE_DATE = 0,
@@ -24,11 +26,12 @@ enum imap_envelope_result_type {
 
 struct message_part_envelope_data;
 
+int imap_envelope_get_field(const char *name, enum imap_envelope_field *ret);
+
 /* Update envelope data based from given header field */
 void imap_envelope_parse_header(pool_t pool,
 				struct message_part_envelope_data **data,
-				const unsigned char *name, size_t name_len,
-				const unsigned char *value, size_t value_len);
+				struct message_header_line *hdr);
 
 /* Write envelope to given string */
 void imap_envelope_write_part_data(struct message_part_envelope_data *data,
