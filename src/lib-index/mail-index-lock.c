@@ -123,7 +123,7 @@ static int mail_index_lock_mprotect(struct mail_index *index, int lock_type)
 			lock_type == F_WRLCK ? (PROT_READ|PROT_WRITE) :
 			PROT_READ;
 		if (mprotect(index->map->mmap_base,
-			     index->map->file_size, prot) < 0) {
+			     index->map->mmap_size, prot) < 0) {
 			mail_index_set_syscall_error(index, "mprotect()");
 			return -1;
 		}

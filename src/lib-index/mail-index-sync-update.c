@@ -98,14 +98,20 @@ static void mail_index_sync_update_flags(struct mail_index_update_ctx *ctx,
 static int mail_index_grow(struct mail_index *index, unsigned int count)
 {
 	struct mail_index_map *map = index->map;
-	size_t size, file_used_size;
 	unsigned int records_count;
+	size_t size;
 
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
 		(void)buffer_append_space_unsafe(map->buffer,
 			count * sizeof(struct mail_index_record));
+		map->records = buffer_get_modifyable_data(map->buffer, NULL);
 		return 0;
 	}
+
+	size = map->hdr->header_size +
+		(map->records_count + count) * sizeof(struct mail_index_record);
+	if (size <= map->mmap_size)
+		return 0;
 
 	/* when we grow fast, do it exponentially */
 	if (count < index->last_grow_count)
@@ -113,19 +119,18 @@ static int mail_index_grow(struct mail_index *index, unsigned int count)
 	count = nearest_power(count);
 	index->last_grow_count = count;
 
-	size = map->file_used_size + count * sizeof(struct mail_index_record);
+	size = map->hdr->header_size +
+		(map->records_count + count) * sizeof(struct mail_index_record);
 	if (file_set_size(index->fd, (off_t)size) < 0)
 		return mail_index_set_syscall_error(index, "file_set_size()");
 
 	records_count = map->records_count;
-	file_used_size = map->file_used_size;
 
 	if (mail_index_map(index, TRUE) <= 0)
 		return -1;
 
-	i_assert(map->file_size >= size);
+	i_assert(map->mmap_size >= size);
 	map->records_count = records_count;
-	map->file_used_size = file_used_size;
 	return 0;
 }
 
@@ -135,14 +140,10 @@ static int mail_index_sync_appends(struct mail_index_update_ctx *ctx,
 {
 	struct mail_index_map *map = ctx->index->map;
 	unsigned int i;
-	size_t space;
 	uint32_t next_uid;
 
-	space = (map->file_size - map->file_used_size) / sizeof(*appends);
-	if (space < count) {
-		if (mail_index_grow(ctx->index, count) < 0)
-			return -1;
-	}
+	if (mail_index_grow(ctx->index, count) < 0)
+		return -1;
 
 	next_uid = ctx->hdr.next_uid;
 	for (i = 0; i < count; i++) {
@@ -166,7 +167,6 @@ static int mail_index_sync_appends(struct mail_index_update_ctx *ctx,
 	memcpy(map->records + map->records_count, appends,
 	       count * sizeof(*appends));
 	map->records_count += count;
-	map->file_used_size += count * sizeof(struct mail_index_record);
 	return 0;
 }
 
@@ -254,8 +254,6 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 		dest_idx += count;
 
 		map->records_count = dest_idx;
-		map->file_used_size = index->hdr->header_size +
-			map->records_count * sizeof(struct mail_index_record);
 	}
 
 	ret = 0;
@@ -269,8 +267,11 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	ctx.hdr.log_file_offset = file_offset;
 
 	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
+		map->mmap_used_size = index->hdr->header_size +
+			map->records_count * sizeof(struct mail_index_record);
+
 		memcpy(map->mmap_base, &ctx.hdr, sizeof(ctx.hdr));
-		if (msync(map->mmap_base, map->file_used_size, MS_SYNC) < 0) {
+		if (msync(map->mmap_base, map->mmap_used_size, MS_SYNC) < 0) {
 			mail_index_set_syscall_error(index, "msync()");
 			ret = -1;
 		}

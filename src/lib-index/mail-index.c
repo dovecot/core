@@ -36,36 +36,11 @@ void mail_index_free(struct mail_index *index)
 	i_free(index);
 }
 
-static int mail_index_check_quick_header(struct mail_index *index,
-					 struct mail_index_map *map)
-{
-	if ((map->hdr->flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0) {
-		/* either a crash or we've already complained about it */
-		return -1;
-	}
-
-	if (map->file_used_size > map->file_size) {
-		map->records_count =
-			(map->file_size - map->hdr->header_size) /
-			sizeof(struct mail_index_record);
-		map->file_used_size = map->file_size;
-
-		mail_index_set_error(index, "Corrupted index file %s: "
-				     "messages_count too large (%u > %u)",
-				     index->filepath, map->hdr->messages_count,
-				     map->records_count);
-		return 0;
-	}
-
-	return 1;
-}
-
 static int mail_index_check_header(struct mail_index *index,
 				   struct mail_index_map *map)
 {
 	const struct mail_index_header *hdr = map->hdr;
 	unsigned char compat_data[3];
-	int ret;
 
 #ifndef WORDS_BIGENDIAN
 	compat_data[0] = MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
@@ -84,8 +59,10 @@ static int mail_index_check_header(struct mail_index *index,
 		return -1;
 	}
 
-	if ((ret = mail_index_check_quick_header(index, map)) <= 0)
-		return ret;
+	if ((map->hdr->flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0) {
+		/* either a crash or we've already complained about it */
+		return -1;
+	}
 
 	/* following some extra checks that only take a bit of CPU */
 	if (hdr->uid_validity == 0) {
@@ -117,14 +94,14 @@ static void mail_index_map_clear(struct mail_index *index,
 		map->buffer = NULL;
 	} else if (map->mmap_base != NULL) {
 		i_assert(map->buffer == NULL);
-		if (munmap(map->mmap_base, map->file_size) < 0)
+		if (munmap(map->mmap_base, map->mmap_size) < 0)
 			mail_index_set_syscall_error(index, "munmap()");
 		map->mmap_base = NULL;
 	}
 
 	if (map->refcount > 0) {
-		map->file_size = 0;
-		map->file_used_size = 0;
+		map->mmap_size = 0;
+		map->mmap_used_size = 0;
 		map->hdr = NULL;
 		map->records = NULL;
 		map->records_count = 0;
@@ -148,31 +125,92 @@ static void mail_index_unmap_forced(struct mail_index *index,
 	mail_index_unmap(index, map);
 }
 
+static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
+{
+	const struct mail_index_header *hdr;
+	unsigned int records_count;
+
+	map->mmap_base = index->lock_type != F_WRLCK ?
+		mmap_ro_file(index->fd, &map->mmap_size) :
+		mmap_rw_file(index->fd, &map->mmap_size);
+	if (map->mmap_base == MAP_FAILED) {
+		map->mmap_base = NULL;
+		mail_index_set_syscall_error(index, "mmap()");
+		return -1;
+	}
+
+	if (map->mmap_size < MAIL_INDEX_HEADER_MIN_SIZE) {
+		mail_index_set_error(index, "Corrupted index file %s: "
+				     "File too small (%"PRIuSIZE_T")",
+				     index->filepath, map->mmap_size);
+		return 0;
+	}
+
+	hdr = map->mmap_base;
+	map->mmap_used_size = hdr->header_size +
+		hdr->messages_count * sizeof(struct mail_index_record);
+
+	if (map->mmap_used_size > map->mmap_size) {
+		records_count = (map->mmap_size - hdr->header_size) /
+			sizeof(struct mail_index_record);
+		mail_index_set_error(index, "Corrupted index file %s: "
+				     "messages_count too large (%u > %u)",
+				     index->filepath, map->hdr->messages_count,
+				     records_count);
+		return 0;
+	}
+
+	map->hdr = hdr;
+	if (map->hdr->header_size < sizeof(*map->hdr)) {
+		/* header smaller than ours, make a copy so our newer headers
+		   won't have garbage in them */
+		memcpy(&map->hdr_copy, map->hdr, map->hdr->header_size);
+		map->hdr = &map->hdr_copy;
+	}
+
+	map->records = PTR_OFFSET(map->mmap_base, map->hdr->header_size);
+	map->records_count = map->hdr->messages_count;
+	return 1;
+}
+
 static int mail_index_read_map(struct mail_index *index,
 			       struct mail_index_map *map)
 {
-	struct stat st;
+	struct mail_index_header hdr;
 	void *data;
-	size_t file_size;
-	int ret;
+	ssize_t ret;
+	size_t pos, records_size;
 
-	if (fstat(index->fd, &st) < 0) {
-		if (errno == ESTALE)
-			return 0;
-		mail_index_set_syscall_error(index, "fstat()");
-		return -1;
-	}
-	file_size = st.st_size;
+	do {
+		memset(&hdr, 0, sizeof(hdr));
 
-	if (map->buffer == NULL) {
-		map->buffer = buffer_create_dynamic(default_pool,
-						    file_size, (size_t)-1);
-	}
+		ret = 1;
+		for (pos = 0; ret > 0 && pos < sizeof(hdr); ) {
+			ret = pread(index->fd, PTR_OFFSET(&hdr, pos),
+				    sizeof(hdr) - pos, pos);
+			if (ret > 0)
+				pos += ret;
+		}
+		if (ret < 0 || pos < MAIL_INDEX_HEADER_MIN_SIZE)
+			break;
 
-	/* @UNSAFE */
-	buffer_set_used_size(map->buffer, 0);
-	data = buffer_append_space_unsafe(map->buffer, file_size);
-	ret = pread_full(index->fd, data, file_size, 0);
+		records_size = hdr.messages_count *
+			sizeof(struct mail_index_record);
+
+		if (map->buffer == NULL) {
+			map->buffer = buffer_create_dynamic(default_pool,
+							    records_size,
+							    (size_t)-1);
+		}
+
+		/* @UNSAFE */
+		buffer_set_used_size(map->buffer, 0);
+		data = buffer_append_space_unsafe(map->buffer, records_size);
+
+		ret = pread_full(index->fd, data, records_size,
+				 hdr.header_size);
+	} while (0);
+
 	if (ret < 0) {
 		if (errno == ESTALE)
 			return 0;
@@ -185,7 +223,11 @@ static int mail_index_read_map(struct mail_index *index,
 		return -1;
 	}
 
-	map->file_size = file_size;
+	map->records = data;
+	map->records_count = hdr.messages_count;
+
+	map->hdr_copy = hdr;
+	map->hdr = &map->hdr_copy;
 	return 1;
 }
 
@@ -224,17 +266,19 @@ int mail_index_map(struct mail_index *index, int force)
 {
 	struct mail_index_map *map;
 	size_t used_size;
-	void *base;
 	int ret;
 
-	if (index->map != NULL) {
+	if (index->map != NULL && MAIL_INDEX_MAP_IS_IN_MEMORY(index->map)) {
+		/* FIXME: can we avoid reading it? */
+		map = index->map;
+	} else if (index->map != NULL) {
 		map = index->map;
 
 		/* see if re-mmaping is needed (file has grown) */
                 used_size = map->hdr->header_size +
 			map->hdr->messages_count *
 			sizeof(struct mail_index_record);
-		if (map->file_size >= used_size && !force) {
+		if (map->mmap_size >= used_size && !force) {
 			/* update log file position in case it has changed */
 			map->log_file_seq = map->hdr->log_file_seq;
 			map->log_file_offset = map->hdr->log_file_offset;
@@ -242,7 +286,7 @@ int mail_index_map(struct mail_index *index, int force)
 		}
 
 		if (map->mmap_base != NULL) {
-			if (munmap(map->mmap_base, map->file_size) < 0)
+			if (munmap(map->mmap_base, map->mmap_size) < 0)
 				mail_index_set_syscall_error(index, "munmap()");
 			map->mmap_base = NULL;
 		}
@@ -254,20 +298,10 @@ int mail_index_map(struct mail_index *index, int force)
 	index->hdr = NULL;
 	index->map = NULL;
 
-	/* make sure if we fail we don't try to access anything outside the
-	   buffer */
-	map->file_size = 0;
-	map->file_used_size = 0;
-
 	if (!index->mmap_disable) {
-		map->mmap_base = index->lock_type != F_WRLCK ?
-			mmap_ro_file(index->fd, &map->file_size) :
-			mmap_rw_file(index->fd, &map->file_size);
-		if (map->mmap_base == MAP_FAILED) {
-			map->mmap_base = NULL;
-			mail_index_set_syscall_error(index, "mmap()");
+		if ((ret = mail_index_mmap(index, map)) <= 0) {
 			mail_index_unmap_forced(index, map);
-			return -1;
+			return ret;
 		}
 	} else {
 		if (mail_index_read_map_with_retry(index, map) < 0) {
@@ -275,30 +309,6 @@ int mail_index_map(struct mail_index *index, int force)
 			return -1;
 		}
 	}
-
-	if (map->file_size < MAIL_INDEX_HEADER_MIN_SIZE) {
-		mail_index_set_error(index, "Corrupted index file %s: "
-				     "File too small (%"PRIuSIZE_T")",
-				     index->filepath, map->file_size);
-		mail_index_unmap_forced(index, map);
-		return 0;
-	}
-
-	base = !MAIL_INDEX_MAP_IS_IN_MEMORY(map) ? map->mmap_base :
-		buffer_get_modifyable_data(map->buffer, NULL);
-	map->hdr = base;
-
-	if (map->hdr->header_size < sizeof(*map->hdr)) {
-		/* header smaller than ours, make a copy so our newer headers
-		   won't have garbage in them */
-		memcpy(&map->hdr_copy, map->hdr, map->hdr->header_size);
-		map->hdr = &map->hdr_copy;
-	}
-
-	map->records = PTR_OFFSET(base, map->hdr->header_size);
-	map->records_count = map->hdr->messages_count;
-	map->file_used_size = map->hdr->header_size +
-		map->records_count * sizeof(struct mail_index_record);
 
 	ret = mail_index_check_header(index, map);
 	if (ret < 0) {
@@ -613,8 +623,10 @@ void mail_index_close(struct mail_index *index)
 		index->log = NULL;
 	}
 
-	mail_index_unmap(index, index->map);
-	index->map = NULL;
+	if (index->map != NULL) {
+		mail_index_unmap(index, index->map);
+		index->map = NULL;
+	}
 
 	if (index->fd != -1) {
 		if (close(index->fd) < 0)
@@ -623,6 +635,7 @@ void mail_index_close(struct mail_index *index)
 	}
 
 	i_free(index->copy_lock_path);
+	index->copy_lock_path = NULL;
 	i_free(index->filepath);
 	index->filepath = NULL;
 

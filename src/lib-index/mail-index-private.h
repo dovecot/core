@@ -41,7 +41,7 @@ struct mail_index_map {
 	unsigned int records_count;
 
 	void *mmap_base;
-	size_t file_size, file_used_size;
+	size_t mmap_size, mmap_used_size;
 
 	buffer_t *buffer;
 

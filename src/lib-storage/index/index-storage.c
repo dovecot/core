@@ -363,7 +363,8 @@ void index_storage_mailbox_free(struct mailbox *box)
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
 	/* make sure we're unlocked */
-	mail_index_view_unlock(ibox->view);
+	if (ibox->view != NULL)
+		mail_index_view_unlock(ibox->view);
 
 	index_mailbox_check_remove_all(ibox);
 	if (ibox->index != NULL)
@@ -419,7 +420,8 @@ int mail_storage_set_index_error(struct index_mailbox *ibox)
 		break;
 	}
 
-	mail_index_view_unlock(ibox->view);
+	if (ibox->view != NULL)
+		mail_index_view_unlock(ibox->view);
 	mail_index_reset_error(ibox->index);
 	return FALSE;
 }
