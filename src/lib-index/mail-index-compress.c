@@ -16,7 +16,7 @@ int mail_index_truncate(MailIndex *index)
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	if (index->mmap_full_length <= INDEX_FILE_MIN_SIZE)
+	if (index->mmap_full_length <= INDEX_FILE_MIN_SIZE || index->anon_mmap)
 		return TRUE;
 
 	/* really truncate the file only when it's almost empty */

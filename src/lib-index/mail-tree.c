@@ -403,7 +403,7 @@ void _mail_tree_truncate(MailTree *tree)
 
 	i_assert(tree->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	if (tree->mmap_full_length <= MAIL_TREE_MIN_SIZE)
+	if (tree->mmap_full_length <= MAIL_TREE_MIN_SIZE || tree->anon_mmap)
 		return;
 
 	empty_space = tree->mmap_full_length - tree->mmap_used_length;
