@@ -13,7 +13,8 @@ AC_C_INLINE
 AC_ARG_PROGRAM
 AM_PROG_LIBTOOL
 
-AC_CHECK_HEADERS(string.h stdlib.h unistd.h dirent.h sys/sendfile.h)
+AC_CHECK_HEADERS(string.h stdlib.h unistd.h dirent.h)
+AC_CHECK_HEADERS(sys/sendfile.h linux/mman.h)
 
 # check posix headers
 AC_CHECK_HEADERS(sys/time.h)
@@ -227,6 +228,20 @@ if test $i_cv_field_tm_gmtoff = yes; then
 	AC_DEFINE(HAVE_TM_GMTOFF)
 fi
 AC_MSG_RESULT($i_cv_field_tm_gmtoff)
+
+dnl * linux compatible mremap()
+AC_MSG_CHECKING([linux compatible mremap()])
+AC_TRY_RUN([
+  #include <unistd.h>
+  #define __USE_GNU
+  #include <sys/mman.h>
+  int main() { mremap(0, 0, 0, MREMAP_MAYMOVE); }
+], [
+  AC_DEFINE(HAVE_LINUX_MREMAP)
+  AC_MSG_RESULT(yes)
+], [
+  AC_MSG_RESULT(no)
+])
 
 dnl **
 dnl ** SSL (gnutls)
