@@ -466,7 +466,7 @@ fi
 
 dnl * find random source
 AC_MSG_CHECKING([for /dev/urandom])
-if test -e /dev/urandom; then
+if test -c /dev/urandom; then
   AC_MSG_RESULT(yes)
   AC_DEFINE(HAVE_DEV_URANDOM,, Define if you have /dev/urandom)
   have_random_source=yes
