@@ -60,14 +60,26 @@ static void index_mailbox_expunge_recent(struct index_mailbox *ibox,
 {
 	const unsigned char *data;
 	size_t size;
-	uint32_t i, idx, count;
+	uint32_t i, idx, count, move;
 
-	if (seq2 < ibox->recent_flags_start_seq ||
-	    ibox->recent_flags_start_seq == 0)
+	if (ibox->recent_flags_start_seq == 0) {
+		/* no recent flags */
 		return;
+	}
 
-	if (seq1 < ibox->recent_flags_start_seq)
+	if (seq2 < ibox->recent_flags_start_seq) {
+		/* expunging messages before recent flags, just modify
+		   the recent start position */
+		ibox->recent_flags_start_seq -= seq2 - seq1 + 1;
+		return;
+	}
+
+	if (seq1 < ibox->recent_flags_start_seq) {
+		move = ibox->recent_flags_start_seq - seq1;
 		seq1 = ibox->recent_flags_start_seq;
+	} else {
+		move = 0;
+	}
 
 	idx = seq1 - ibox->recent_flags_start_seq;
 	count = seq2 - seq1 + 1;
@@ -86,7 +98,7 @@ static void index_mailbox_expunge_recent(struct index_mailbox *ibox,
 	buffer_copy(ibox->recent_flags, idx,
 		    ibox->recent_flags, idx + count, (size_t)-1);
 	buffer_set_used_size(ibox->recent_flags, size - count);
-
+        ibox->recent_flags_start_seq -= move;
 }
 
 static int index_mailbox_update_recent(struct index_mailbox *ibox,

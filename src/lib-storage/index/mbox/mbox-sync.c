@@ -420,7 +420,9 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 		}
 	}
 
-	if (mail_ctx->recent)
+	if (mail_ctx->recent &&
+	    (rec == NULL || (rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) == 0 ||
+	    (rec->flags & MAIL_RECENT) != 0))
 		index_mailbox_set_recent(sync_ctx->ibox, sync_ctx->idx_seq);
 
 	/* update from_offsets, but not if we're going to rewrite this message.
