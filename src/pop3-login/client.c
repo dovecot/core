@@ -430,10 +430,14 @@ void client_send_line(struct pop3_client *client, const char *line)
 	iov[1].iov_base = "\r\n";
 	iov[1].iov_len = 2;
 
-	if ((ret = o_stream_sendv(client->output, iov, 2)) < 0)
-		client_destroy(client, "Disconnected");
-	else if ((size_t)ret != iov[0].iov_len + iov[1].iov_len)
-		client_destroy(client, "Transmit buffer full");
+	ret = o_stream_sendv(client->output, iov, 2);
+	if (ret < 0 || (size_t)ret != iov[0].iov_len + iov[1].iov_len) {
+		/* either disconnection or buffer full. in either case we
+		   want this connection destroyed. however destroying it here
+		   might break things if client is still tried to be accessed
+		   without being referenced.. */
+		i_stream_close(client->input);
+	}
 }
 
 static void client_check_idle(struct pop3_client *client)

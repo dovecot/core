@@ -429,6 +429,8 @@ struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 
 	client_send_line(client, str_c(greet));
 	client_set_title(client);
+
+	client->created = TRUE;
 	return &client->common;
 }
 
@@ -531,10 +533,14 @@ void client_send_line(struct imap_client *client, const char *line)
 	iov[1].iov_base = "\r\n";
 	iov[1].iov_len = 2;
 
-	if ((ret = o_stream_sendv(client->output, iov, 2)) < 0)
-		client_destroy(client, "Disconnected");
-	else if ((size_t)ret != iov[0].iov_len + iov[1].iov_len)
-		client_destroy(client, "Transmit buffer full");
+	ret = o_stream_sendv(client->output, iov, 2);
+	if (ret < 0 || (size_t)ret != iov[0].iov_len + iov[1].iov_len) {
+		/* either disconnection or buffer full. in either case we
+		   want this connection destroyed. however destroying it here
+		   might break things if client is still tried to be accessed
+		   without being referenced.. */
+		i_stream_close(client->input);
+	}
 }
 
 void client_send_tagline(struct imap_client *client, const char *line)
