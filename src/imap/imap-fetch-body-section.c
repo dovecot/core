@@ -462,8 +462,10 @@ static int part_find(struct mail *mail, const struct imap_fetch_body_data *body,
 		}
 
 		if (part != NULL &&
-		    (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822)) {
-			/* skip the message/rfc822 part */
+		    (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) &&
+		    (*path >= '0' && *path <= '9' || strncmp(path, "HEADER", 6) == 0)) {
+			/* if remainder of path is a number or "HEADER",
+				skip the message/rfc822 part */
 			part = part->children;
 		}
 	}
