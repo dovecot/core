@@ -509,7 +509,7 @@ int main(int argc, char *argv[])
 			if (i == argc) i_fatal("Missing protocol argument");
 			exec_protocol = argv[i];
 			if (i+1 != argc) 
-				exec_section = argv[i++];
+				exec_section = argv[++i];
 		} else if (strcmp(argv[i], "--version") == 0) {
 			printf("%s\n", VERSION);
 			return 0;
