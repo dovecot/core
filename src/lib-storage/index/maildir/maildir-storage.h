@@ -38,7 +38,8 @@ int maildir_mailbox_list_deinit(struct mailbox_list_context *ctx);
 struct mailbox_list *
 maildir_mailbox_list_next(struct mailbox_list_context *ctx);
 
-int maildir_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
+struct mailbox_sync_context *
+maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 int maildir_storage_sync_force(struct index_mailbox *ibox);
 
 struct mailbox_transaction_context *

@@ -1320,17 +1320,18 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit,
 	return ret;
 }
 
-int mbox_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
+struct mailbox_sync_context *
+mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	int ret = 0;
 
 	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
 	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
 		ibox->sync_last_check = ioloop_time;
 
-		if (mbox_sync(ibox, FALSE, FALSE, FALSE) < 0)
-			return -1;
+		ret = mbox_sync(ibox, FALSE, FALSE, FALSE);
 	}
 
-	return index_storage_sync(box, flags);
+	return index_mailbox_sync_init(box, flags, ret < 0);
 }

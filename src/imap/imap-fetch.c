@@ -58,7 +58,9 @@ static int fetch_flags(struct imap_fetch_context *ctx, struct mail *mail,
 		flags = &full_flags;
 	}
 
-	str_printfa(ctx->str, "FLAGS (%s) ", imap_write_flags(flags));
+	str_append(ctx->str, "FLAGS (");
+	imap_write_flags(ctx->str, flags);
+	str_append(ctx->str, ") ");
 	return TRUE;
 }
 

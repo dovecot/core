@@ -89,6 +89,11 @@ enum mailbox_sync_flags {
 	MAILBOX_SYNC_AUTO_STOP		= 0x04
 };
 
+enum mailbox_sync_type {
+	MAILBOX_SYNC_TYPE_EXPUNGE	= 0x01,
+	MAILBOX_SYNC_TYPE_FLAGS		= 0x02
+};
+
 struct mail_storage;
 struct mail_storage_callbacks;
 struct mailbox_list;
@@ -123,6 +128,11 @@ struct mailbox_status {
 	const char **keywords;
 };
 
+struct mailbox_sync_rec {
+	uint32_t seq1, seq2;
+	enum mailbox_sync_type type;
+};
+
 struct mail_storage_callbacks {
 	/* Alert: Not enough disk space */
 	void (*alert_no_diskspace)(struct mailbox *mailbox, void *context);
@@ -133,26 +143,9 @@ struct mail_storage_callbacks {
 	void (*notify_no)(struct mailbox *mailbox, const char *text,
 			  void *context);
 
-	/* EXPUNGE */
-	void (*expunge)(struct mailbox *mailbox, unsigned int seq,
-			void *context);
-	/* FETCH FLAGS */
-	void (*update_flags)(struct mailbox *mailbox, unsigned int seq,
-			     const struct mail_full_flags *flags,
-			     void *context);
-
-	/* EXISTS */
-	void (*message_count_changed)(struct mailbox *mailbox,
-				      unsigned int count, void *context);
-	/* RECENT */
-	void (*recent_count_changed)(struct mailbox *mailbox,
-				     unsigned int count, void *context);
-	/* FLAGS, PERMANENTFLAGS */
-	void (*new_keywords)(struct mailbox *mailbox,
-			     const char *keywords[],
-			     unsigned int keywords_count, void *context);
-
 };
+
+typedef void mailbox_notify_callback_t(struct mailbox *box, void *context);
 
 extern int full_filesystem_access;
 
@@ -271,12 +264,17 @@ int mailbox_get_status(struct mailbox *box,
 		       struct mailbox_status *status);
 
 /* Synchronize the mailbox. */
-int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags);
+struct mailbox_sync_context *
+mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
+int mailbox_sync_next(struct mailbox_sync_context *ctx,
+		      struct mailbox_sync_rec *sync_rec_r);
+int mailbox_sync_deinit(struct mailbox_sync_context *ctx,
+			struct mailbox_status *status_r);
 
-/* Synchronize mailbox in background. It's done until this function is
-   called with flags = MAILBOX_SYNC_AUTO_STOP. */
-void mailbox_auto_sync(struct mailbox *box, enum mailbox_sync_flags flags,
-		       unsigned int min_newmail_notify_interval);
+/* Call given callback function when something changes in the mailbox.
+   It's done until this function is called with callback = NULL. */
+void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
+			    mailbox_notify_callback_t *callback, void *context);
 
 struct mailbox_transaction_context *
 mailbox_transaction_begin(struct mailbox *box, int hide);

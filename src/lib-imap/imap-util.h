@@ -4,6 +4,6 @@
 struct mail_full_flags;
 
 /* Return flags as a space separated string. */
-const char *imap_write_flags(const struct mail_full_flags *flags);
+void imap_write_flags(string_t *dest, const struct mail_full_flags *flags);
 
 #endif

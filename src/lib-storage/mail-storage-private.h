@@ -66,9 +66,17 @@ struct mailbox {
 	int (*get_status)(struct mailbox *box, enum mailbox_status_items items,
 			  struct mailbox_status *status);
 
-	int (*sync)(struct mailbox *box, enum mailbox_sync_flags flags);
-	void (*auto_sync)(struct mailbox *box, enum mailbox_sync_flags flags,
-			  unsigned int min_newmail_notify_interval);
+	struct mailbox_sync_context *
+		(*sync_init)(struct mailbox *box,
+			     enum mailbox_sync_flags flags);
+	int (*sync_next)(struct mailbox_sync_context *ctx,
+			 struct mailbox_sync_rec *sync_rec_r);
+	int (*sync_deinit)(struct mailbox_sync_context *ctx,
+			   struct mailbox_status *status_r);
+
+	void (*notify_changes)(struct mailbox *box, unsigned int min_interval,
+			       mailbox_notify_callback_t *callback,
+			       void *context);
 
 	struct mailbox_transaction_context *
 		(*transaction_begin)(struct mailbox *box, int hide);
@@ -113,6 +121,10 @@ struct mailbox_transaction_context {
 };
 
 struct mail_search_context {
+	struct mailbox *box;
+};
+
+struct mailbox_sync_context {
 	struct mailbox *box;
 };
 

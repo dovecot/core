@@ -34,7 +34,8 @@ mbox_transaction_begin(struct mailbox *box, int hide);
 int mbox_transaction_commit(struct mailbox_transaction_context *t);
 void mbox_transaction_rollback(struct mailbox_transaction_context *t);
 
-int mbox_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
+struct mailbox_sync_context *
+mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 
 int mbox_save(struct mailbox_transaction_context *t,
 	      const struct mail_full_flags *flags,

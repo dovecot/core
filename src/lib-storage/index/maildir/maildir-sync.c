@@ -913,11 +913,12 @@ int maildir_storage_sync_force(struct index_mailbox *ibox)
 	return ret;
 }
 
-int maildir_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
+struct mailbox_sync_context *
+maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	struct maildir_sync_context *ctx;
-	int ret;
+	int ret = 0;
 
 	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
 	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
@@ -926,10 +927,7 @@ int maildir_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 		ctx = maildir_sync_context_new(ibox);
 		ret = maildir_sync_context(ctx, FALSE);
 		maildir_sync_deinit(ctx);
-
-		if (ret < 0)
-			return -1;
 	}
 
-	return index_storage_sync(box, flags);
+	return index_mailbox_sync_init(box, flags, ret < 0);
 }

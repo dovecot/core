@@ -22,19 +22,6 @@ enum mailbox_lock_notify_type {
 	MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE
 };
 
-struct index_autosync_file {
-	struct index_autosync_file *next;
-
-	char *path;
-	time_t last_stamp;
-};
-
-struct index_autosync_io {
-	struct index_autosync_io *next;
-	struct io *io;
-	int fd;
-};
-
 struct index_storage {
 	struct mail_storage storage;
 
@@ -63,12 +50,13 @@ struct index_mailbox {
 	void (*mail_deinit)(struct index_mail *mail);
 	int (*is_recent)(struct index_mailbox *ibox, uint32_t uid);
 
-	struct timeout *autosync_to;
-	struct index_autosync_file *autosync_files;
-        struct index_autosync_io *autosync_ios;
-	enum mailbox_sync_flags autosync_flags;
-	time_t sync_last_check, sync_last_notify;
-	unsigned int min_newmail_notify_interval;
+	struct timeout *notify_to;
+	struct index_notify_file *notify_files;
+        struct index_notify_io *notify_ios;
+	time_t notify_last_check, notify_last_sent;
+	unsigned int min_notify_interval;
+	mailbox_notify_callback_t *notify_callback;
+	void *notify_context;
 
 	time_t next_lock_notify; /* temporary */
 	enum mailbox_lock_notify_type last_notify_type;
@@ -78,7 +66,8 @@ struct index_mailbox {
 
 	buffer_t *recent_flags;
 	uint32_t recent_flags_start_seq, recent_flags_count;
-	unsigned int synced_recent_count;
+	uint32_t synced_recent_count;
+	time_t sync_last_check;
 
 	/* mbox: */
 	int mbox_fd;
@@ -106,7 +95,7 @@ struct index_mailbox {
 	unsigned int recent_flags_synced:1;
 	unsigned int sent_diskspace_warning:1;
 	unsigned int sent_readonly_flags_warning:1;
-	unsigned int autosync_pending:1;
+	unsigned int notify_pending:1;
 	unsigned int mail_read_mmaped:1;
 	unsigned int syncing_commit:1;
 };
@@ -164,6 +153,14 @@ void index_mailbox_check_add(struct index_mailbox *ibox,
 			     const char *path, int dir);
 void index_mailbox_check_remove_all(struct index_mailbox *ibox);
 
+struct mailbox_sync_context *
+index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
+			int failed);
+int index_mailbox_sync_next(struct mailbox_sync_context *ctx,
+			    struct mailbox_sync_rec *sync_rec_r);
+int index_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
+			      struct mailbox_status *status_r);
+
 int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
 
 void index_storage_set_callbacks(struct mail_storage *storage,
@@ -174,6 +171,9 @@ const char *index_storage_get_last_error(struct mail_storage *storage,
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status);
+int index_storage_get_status_locked(struct index_mailbox *ibox,
+				    enum mailbox_status_items items,
+				    struct mailbox_status *status_r);
 
 struct mail *
 index_storage_fetch(struct mailbox_transaction_context *t, uint32_t seq,

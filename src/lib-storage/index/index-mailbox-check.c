@@ -9,31 +9,46 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+struct index_notify_file {
+	struct index_notify_file *next;
+
+	char *path;
+	time_t last_stamp;
+};
+
+struct index_notify_io {
+	struct index_notify_io *next;
+	struct io *io;
+	int fd;
+};
+
 static void check_timeout(void *context)
 {
 	struct index_mailbox *ibox = context;
-	struct index_autosync_file *file;
+	struct index_notify_file *file;
 	struct stat st;
-	int sync;
+	time_t last_check;
+	int notify;
 
 	/* check changes only when we can also notify of new mail */
-	if ((unsigned int) (ioloop_time - ibox->sync_last_check) <
-	    ibox->min_newmail_notify_interval)
+	last_check = I_MAX(ibox->sync_last_check, ibox->notify_last_check);
+	if ((unsigned int)(ioloop_time - last_check) <
+	    ibox->min_notify_interval)
 		return;
 
-	ibox->sync_last_check = ioloop_time;
+	ibox->notify_last_check = ioloop_time;
 
-	sync = ibox->autosync_pending;
-	for (file = ibox->autosync_files; file != NULL; file = file->next) {
+	notify = ibox->notify_pending;
+	for (file = ibox->notify_files; file != NULL; file = file->next) {
 		if (stat(file->path, &st) == 0 &&
 		    file->last_stamp != st.st_mtime)
 			file->last_stamp = st.st_mtime;
 	}
 
-	if (sync) {
-		ibox->box.sync(&ibox->box, ibox->autosync_flags);
-		ibox->sync_last_notify = ioloop_time;
-		ibox->autosync_pending = FALSE;
+	if (notify) {
+		ibox->notify_last_sent = ioloop_time;
+		ibox->notify_pending = FALSE;
+		ibox->notify_callback(&ibox->box, ibox->notify_context);
 	}
 }
 
@@ -41,24 +56,24 @@ static void notify_callback(void *context)
 {
 	struct index_mailbox *ibox = context;
 
-	ibox->sync_last_check = ioloop_time;
-	if ((unsigned int) (ioloop_time - ibox->sync_last_notify) >=
-	    ibox->min_newmail_notify_interval) {
-		ibox->box.sync(&ibox->box, ibox->autosync_flags);
-		ibox->sync_last_notify = ioloop_time;
-                ibox->autosync_pending = FALSE;
+	ibox->notify_last_check = ioloop_time;
+	if ((unsigned int)(ioloop_time - ibox->notify_last_sent) >=
+	    ibox->min_notify_interval) {
+		ibox->notify_last_sent = ioloop_time;
+                ibox->notify_pending = FALSE;
+		ibox->notify_callback(&ibox->box, ibox->notify_context);
 	} else {
-		ibox->autosync_pending = TRUE;
+		ibox->notify_pending = TRUE;
 	}
 }
 
 void index_mailbox_check_add(struct index_mailbox *ibox,
 			     const char *path, int dir)
 {
-	struct index_autosync_file *file;
+	struct index_notify_file *file;
 	struct stat st;
 	struct io *io;
-	struct index_autosync_io *aio;
+	struct index_notify_io *aio;
 	int fd;
 
 	fd = open(path, O_RDONLY);
@@ -66,56 +81,56 @@ void index_mailbox_check_add(struct index_mailbox *ibox,
 		io = io_add(fd, dir ? IO_DIR_NOTIFY : IO_FILE_NOTIFY,
 			    notify_callback, ibox);
 		if (io != NULL) {
-			aio = i_new(struct index_autosync_io, 1);
+			aio = i_new(struct index_notify_io, 1);
 			aio->io = io;
 			aio->fd = fd;
-			aio->next = ibox->autosync_ios;
-			ibox->autosync_ios = aio;
+			aio->next = ibox->notify_ios;
+			ibox->notify_ios = aio;
 		}
 	}
 
-	file = i_new(struct index_autosync_file, 1);
+	file = i_new(struct index_notify_file, 1);
 	file->path = i_strdup(path);
 	if (fd < 0)
 		file->last_stamp = stat(path, &st) < 0 ? 0 : st.st_mtime;
 	else
 		file->last_stamp = fstat(fd, &st) < 0 ? 0 : st.st_mtime;
 
-	file->next = ibox->autosync_files;
-        ibox->autosync_files = file;
+	file->next = ibox->notify_files;
+        ibox->notify_files = file;
 
-	if (ibox->autosync_to == NULL)
-		ibox->autosync_to = timeout_add(1000, check_timeout, ibox);
+	if (ibox->notify_to == NULL)
+		ibox->notify_to = timeout_add(1000, check_timeout, ibox);
 }
 
 void index_mailbox_check_remove_all(struct index_mailbox *ibox)
 {
-	struct index_autosync_file *file;
-	struct index_autosync_io *aio;
+	struct index_notify_file *file;
+	struct index_notify_io *aio;
 
 	/* reset notify stamp */
-	ibox->sync_last_notify = 0;
+	ibox->notify_last_sent = 0;
 
-	while (ibox->autosync_files != NULL) {
-		file = ibox->autosync_files;
-		ibox->autosync_files = file->next;
+	while (ibox->notify_files != NULL) {
+		file = ibox->notify_files;
+		ibox->notify_files = file->next;
 
                 i_free(file->path);
 		i_free(file);
 	}
 
-	while (ibox->autosync_ios != NULL) {
-		aio = ibox->autosync_ios;
-		ibox->autosync_ios = aio->next;
+	while (ibox->notify_ios != NULL) {
+		aio = ibox->notify_ios;
+		ibox->notify_ios = aio->next;
 
 		io_remove(aio->io);
 		if (close(aio->fd) < 0)
-			i_error("close(autosync_io) failed: %m");
+			i_error("close(notify_io) failed: %m");
 		i_free(aio);
 	}
 
-	if (ibox->autosync_to != NULL) {
-		timeout_remove(ibox->autosync_to);
-		ibox->autosync_to = NULL;
+	if (ibox->notify_to != NULL) {
+		timeout_remove(ibox->notify_to);
+		ibox->notify_to = NULL;
 	}
 }

@@ -7,6 +7,7 @@
 #include "imap-util.h"
 #include "mail-storage.h"
 #include "imap-parser.h"
+#include "imap-sync.h"
 #include "namespace.h"
 
 /* Maximum length for mailbox name, including it's path. This isn't fully
@@ -116,7 +117,7 @@ void client_sync_full(struct client *client)
 	if (client->mailbox == NULL)
 		return;
 
-	if (mailbox_sync(client->mailbox, 0) < 0) {
+	if (imap_sync(client, client->mailbox, 0) < 0) {
 		client_send_untagged_storage_error(client,
 			mailbox_get_storage(client->mailbox));
 	}
@@ -127,7 +128,7 @@ void client_sync_full_fast(struct client *client)
 	if (client->mailbox == NULL)
 		return;
 
-	if (mailbox_sync(client->mailbox, MAILBOX_SYNC_FLAG_FAST) < 0) {
+	if (imap_sync(client, client->mailbox, MAILBOX_SYNC_FLAG_FAST) < 0) {
 		client_send_untagged_storage_error(client,
 			mailbox_get_storage(client->mailbox));
 	}
@@ -138,8 +139,8 @@ void client_sync_without_expunges(struct client *client)
 	if (client->mailbox == NULL)
 		return;
 
-	if (mailbox_sync(client->mailbox, MAILBOX_SYNC_FLAG_FAST |
-			 MAILBOX_SYNC_FLAG_NO_EXPUNGES) < 0) {
+	if (imap_sync(client, client->mailbox, MAILBOX_SYNC_FLAG_FAST |
+		      MAILBOX_SYNC_FLAG_NO_EXPUNGES) < 0) {
 		client_send_untagged_storage_error(client,
 			mailbox_get_storage(client->mailbox));
 	}

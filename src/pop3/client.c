@@ -38,6 +38,18 @@ static void client_output_timeout(void *context)
 	o_stream_close(client->output);
 }
 
+static int sync_mailbox(struct mailbox *box)
+{
+	struct mailbox_sync_context *ctx;
+        struct mailbox_sync_rec sync_rec;
+	struct mailbox_status status;
+
+	ctx = mailbox_sync_init(box, 0);
+	while (mailbox_sync_next(ctx, &sync_rec) > 0)
+		;
+	return mailbox_sync_deinit(ctx, &status);
+}
+
 static int init_mailbox(struct client *client)
 {
 	struct mail_search_arg search_arg;
@@ -51,6 +63,10 @@ static int init_mailbox(struct client *client)
 	search_arg.type = SEARCH_ALL;
 
 	for (i = 0; i < 2; i++) {
+		if (sync_mailbox(client->mailbox) < 0) {
+			client_send_storage_error(client);
+			return FALSE;
+		}
 		if (mailbox_get_status(client->mailbox, STATUS_MESSAGES,
 				       &status) < 0) {
 			client_send_storage_error(client);
@@ -104,10 +120,6 @@ static int init_mailbox(struct client *client)
 
 		/* well, sync and try again */
 		mailbox_transaction_rollback(t);
-		if (mailbox_sync(client->mailbox, 0) < 0) {
-			client_send_storage_error(client);
-			return FALSE;
-		}
 	}
 
 	client_send_line(client, "-ERR [IN-USE] Couldn't sync mailbox.");

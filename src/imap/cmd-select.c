@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "commands.h"
+#include "imap-sync.h"
 
 int _cmd_select_full(struct client *client, int readonly)
 {
@@ -34,6 +35,12 @@ int _cmd_select_full(struct client *client, int readonly)
 		return TRUE;
 	}
 
+	if (imap_sync(client, box, 0) < 0) {
+		client_send_storage_error(client, storage);
+		mailbox_close(box);
+		return TRUE;
+	}
+
 	if (mailbox_get_status(box, STATUS_MESSAGES | STATUS_RECENT |
 			       STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
 			       STATUS_UIDNEXT | STATUS_KEYWORDS,
@@ -45,6 +52,8 @@ int _cmd_select_full(struct client *client, int readonly)
 
 	client_save_keywords(&client->keywords,
 			     status.keywords, status.keywords_count);
+	client->messages_count = status.messages;
+	client->recent_count = status.recent;
 
 	/* set client's mailbox only after getting status to make sure
 	   we're not sending any expunge/exists replies too early to client */
@@ -81,12 +90,6 @@ int _cmd_select_full(struct client *client, int readonly)
 	client_send_tagline(client, mailbox_is_readonly(box) ?
 			    "OK [READ-ONLY] Select completed." :
 			    "OK [READ-WRITE] Select completed.");
-
-	if (mailbox_check_interval != 0) {
-		mailbox_auto_sync(box, MAILBOX_SYNC_FLAG_NO_EXPUNGES,
-				  mailbox_check_interval);
-	}
-
 	return TRUE;
 }
 

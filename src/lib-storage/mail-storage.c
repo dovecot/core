@@ -334,15 +334,28 @@ int mailbox_get_status(struct mailbox *box,
 	return box->get_status(box, items, status);
 }
 
-int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags)
+struct mailbox_sync_context *
+mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
-	return box->sync(box, flags);
+	return box->sync_init(box, flags);
 }
 
-void mailbox_auto_sync(struct mailbox *box, enum mailbox_sync_flags flags,
-		       unsigned int min_newmail_notify_interval)
+int mailbox_sync_next(struct mailbox_sync_context *ctx,
+		      struct mailbox_sync_rec *sync_rec_r)
 {
-	box->auto_sync(box, flags, min_newmail_notify_interval);
+	return ctx->box->sync_next(ctx, sync_rec_r);
+}
+
+int mailbox_sync_deinit(struct mailbox_sync_context *ctx,
+			struct mailbox_status *status_r)
+{
+	return ctx->box->sync_deinit(ctx, status_r);
+}
+
+void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
+			    mailbox_notify_callback_t *callback, void *context)
+{
+	box->notify_changes(box, min_interval, callback, context);
 }
 
 struct mail *mailbox_fetch(struct mailbox_transaction_context *t, uint32_t seq,

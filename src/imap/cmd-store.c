@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "str.h"
 #include "commands.h"
 #include "imap-search.h"
 #include "imap-util.h"
@@ -37,19 +38,21 @@ static int get_modify_type(struct client *client, const char *item,
 static int mail_send_flags(struct client *client, struct mail *mail)
 {
 	const struct mail_full_flags *flags;
-	const char *str;
+	string_t *str;
 
 	flags = mail->get_flags(mail);
 	if (flags == NULL)
 		return FALSE;
 
 	t_push();
-	str = imap_write_flags(flags);
-	str = t_strdup_printf(client->cmd_uid ?
-			      "* %u FETCH (FLAGS (%s) UID %u)" :
-			      "* %u FETCH (FLAGS (%s))",
-			      mail->seq, str, mail->uid);
-	client_send_line(client, str);
+	str = t_str_new(128);
+	str_printfa(str, "* %u FETCH (FLAGS (", mail->seq);
+	imap_write_flags(str, flags);
+	if (client->cmd_uid)
+		str_printfa(str, ") UID %u)", mail->uid);
+	else
+		str_append(str, "))");
+	client_send_line(client, str_c(str));
 	t_pop();
 
 	return TRUE;

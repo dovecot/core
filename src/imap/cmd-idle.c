@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "commands.h"
+#include "imap-sync.h"
 
 #include <stdlib.h>
 
@@ -19,7 +20,7 @@ static void idle_finish(struct client *client, int done_ok)
 
 	o_stream_cork(client->output);
 
-	if (client->idle_expunge) {
+	if (client->idle_expunge != 0) {
 		client_send_line(client,
 			t_strdup_printf("* %u EXPUNGE", client->idle_expunge));
 	}
@@ -28,12 +29,8 @@ static void idle_finish(struct client *client, int done_ok)
 	client->io = io_add(i_stream_get_fd(client->input),
 			    IO_READ, _client_input, client);
 
-	if (client->mailbox != NULL) {
-		mailbox_auto_sync(client->mailbox, mailbox_check_interval != 0 ?
-				  MAILBOX_SYNC_FLAG_NO_EXPUNGES :
-				  MAILBOX_SYNC_AUTO_STOP,
-				  mailbox_check_interval);
-	}
+	if (client->mailbox != NULL)
+		mailbox_notify_changes(client->mailbox, 0, NULL, NULL);
 
 	client_sync_full(client);
 	if (done_ok)
@@ -78,21 +75,28 @@ static void idle_client_input(void *context)
 static void idle_timeout(void *context)
 {
 	struct client *client = context;
-	struct mailbox_status status;
+
+	/* outlook workaround - it hasn't sent anything for a long time and
+	   we're about to disconnect unless it does something. send a fake
+	   EXISTS to see if it responds. it's expunged later. */
 
 	timeout_remove(client->idle_to);
 	client->idle_to = NULL;
 
-	if (mailbox_get_status(client->mailbox, STATUS_MESSAGES, &status) < 0) {
+	client->idle_expunge = client->messages_count+1;
+	client_send_line(client,
+			 t_strdup_printf("* %u EXISTS", client->idle_expunge));
+	mailbox_notify_changes(client->mailbox, 0, NULL, NULL);
+}
+
+static void idle_callback(struct mailbox *box, void *context)
+{
+	struct client *client = context;
+
+	if (imap_sync(client, box, 0) < 0) {
 		client_send_untagged_storage_error(client,
 			mailbox_get_storage(client->mailbox));
-		idle_finish(client, TRUE);
-	} else {
-                client->idle_expunge = status.messages+1;
-		client_send_line(client,
-			t_strdup_printf("* %u EXISTS", client->idle_expunge));
-
-		mailbox_auto_sync(client->mailbox, MAILBOX_SYNC_AUTO_STOP, 0);
+		mailbox_notify_changes(client->mailbox, 0, NULL, NULL);
 	}
 }
 
@@ -113,9 +117,10 @@ int cmd_idle(struct client *client)
 	if (interval == 0)
 		interval = DEFAULT_IDLE_CHECK_INTERVAL;
 
-	if (client->mailbox != NULL)
-		mailbox_auto_sync(client->mailbox, 0, interval);
-
+	if (client->mailbox != NULL) {
+		mailbox_notify_changes(client->mailbox, interval,
+				       idle_callback, client);
+	}
 	client_send_line(client, "+ idling");
 
 	io_remove(client->io);

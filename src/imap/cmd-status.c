@@ -4,6 +4,7 @@
 #include "str.h"
 #include "imap-quote.h"
 #include "commands.h"
+#include "imap-sync.h"
 
 /* Returns status items, or -1 if error */
 static enum mailbox_status_items
@@ -64,7 +65,10 @@ static int get_mailbox_status(struct client *client,
 			return FALSE;
 	}
 
-	failed = mailbox_get_status(box, items, status) < 0;
+	if (imap_sync(client, box, 0) < 0)
+		failed = TRUE;
+	else
+		failed = mailbox_get_status(box, items, status) < 0;
 
 	if (box != client->mailbox)
 		mailbox_close(box);

@@ -831,22 +831,17 @@ static int mbox_storage_close(struct mailbox *box)
 	return 0;
 }
 
-static void mbox_storage_auto_sync(struct mailbox *box,
-				   enum mailbox_sync_flags flags,
-				   unsigned int min_newmail_notify_interval)
+static void
+mbox_notify_changes(struct mailbox *box, unsigned int min_interval,
+		    mailbox_notify_callback_t *callback, void *context)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 
-	ibox->min_newmail_notify_interval = min_newmail_notify_interval;
+	ibox->min_notify_interval = min_interval;
+	ibox->notify_callback = callback;
+	ibox->notify_context = context;
 
-	if ((ibox->autosync_flags == 0 && flags == 0) ||
-	    (ibox->autosync_flags != 0 && flags != 0)) {
-		/* flags or interval just changed. or nothing. */
-		ibox->autosync_flags = flags;
-	}
-	ibox->autosync_flags = flags;
-
-	if (flags == 0)
+	if (callback == NULL)
 		index_mailbox_check_remove_all(ibox);
 	else
 		index_mailbox_check_add(ibox, ibox->path, FALSE);
@@ -885,8 +880,10 @@ struct mailbox mbox_mailbox = {
         index_storage_allow_new_keywords,
 	mbox_storage_close,
 	index_storage_get_status,
-	mbox_storage_sync,
-	mbox_storage_auto_sync,
+	mbox_storage_sync_init,
+	index_mailbox_sync_next,
+	index_mailbox_sync_deinit,
+	mbox_notify_changes,
 	mbox_transaction_begin,
 	mbox_transaction_commit,
 	mbox_transaction_rollback,

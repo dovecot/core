@@ -32,19 +32,20 @@ static int _get_status(struct mailbox *box, enum mailbox_status_items items,
 	return p->box->get_status(p->box, items, status);
 }
 
-static int _sync(struct mailbox *box, enum mailbox_sync_flags flags)
+static struct mailbox_sync_context *
+_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
 
-	return p->box->sync(p->box, flags);
+	return p->box->sync_init(p->box, flags);
 }
 
-static void _auto_sync(struct mailbox *box, enum mailbox_sync_flags flags,
-		       unsigned int min_newmail_notify_interval)
+static void _notify_changes(struct mailbox *box, unsigned int min_interval,
+			    mailbox_notify_callback_t *callback, void *context)
 {
 	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
 
-	p->box->auto_sync(p->box, flags, min_newmail_notify_interval);
+	return p->box->notify_changes(box, min_interval, callback, context);
 }
 
 static struct mail *_fetch(struct mailbox_transaction_context *t, uint32_t seq,
@@ -150,8 +151,10 @@ void proxy_mailbox_init(struct proxy_mailbox *proxy, struct mailbox *box)
 	pb->allow_new_keywords = _allow_new_keywords;
 	pb->close = _close;
 	pb->get_status = _get_status;
-	pb->sync = _sync;
-	pb->auto_sync = _auto_sync;
+	pb->sync_init = _sync_init;
+	pb->sync_next = box->sync_next;
+	pb->sync_deinit = box->sync_deinit;
+	pb->notify_changes = _notify_changes;
 	pb->fetch = _fetch;
 	pb->get_uids = _get_uids;
 

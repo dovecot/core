@@ -5,38 +5,33 @@
 #include "mail-types.h"
 #include "imap-util.h"
 
-const char *imap_write_flags(const struct mail_full_flags *flags)
+void imap_write_flags(string_t *dest, const struct mail_full_flags *flags)
 {
-	string_t *str;
-	const char *sysflags;
 	unsigned int i;
+	size_t size;
 
-	if (flags == 0)
-		return "";
+	size = str_len(dest);
+	if ((flags->flags & MAIL_ANSWERED) != 0)
+		str_append(dest, "\\Answered ");
+	if ((flags->flags & MAIL_FLAGGED) != 0)
+		str_append(dest, "\\Flagged ");
+	if ((flags->flags & MAIL_DELETED) != 0)
+		str_append(dest, "\\Deleted ");
+	if ((flags->flags & MAIL_SEEN) != 0)
+		str_append(dest, "\\Seen ");
+	if ((flags->flags & MAIL_DRAFT) != 0)
+		str_append(dest, "\\Draft ");
+	if ((flags->flags & MAIL_RECENT) != 0)
+		str_append(dest, "\\Recent ");
 
-	sysflags = t_strconcat(
-		(flags->flags & MAIL_ANSWERED) ? " \\Answered" : "",
-		(flags->flags & MAIL_FLAGGED) ? " \\Flagged" : "",
-		(flags->flags & MAIL_DELETED) ? " \\Deleted" : "",
-		(flags->flags & MAIL_SEEN) ? " \\Seen" : "",
-		(flags->flags & MAIL_DRAFT) ? " \\Draft" : "",
-		(flags->flags & MAIL_RECENT)  ? " \\Recent" : "",
-		NULL);
-
-	if (*sysflags != '\0')
-		sysflags++;
-
-	if (flags->keywords_count == 0)
-		return sysflags;
-
-	/* we have keywords too */
-	str = t_str_new(256);
-	str_append(str, sysflags);
-
-	for (i = 0; i < flags->keywords_count; i++) {
-		if (str_len(str) > 0)
-			str_append_c(str, ' ');
-		str_append(str, flags->keywords[i]);
+	if (flags->keywords_count > 0) {
+		/* we have keywords too */
+		for (i = 0; i < flags->keywords_count; i++) {
+			str_append(dest, flags->keywords[i]);
+			str_append_c(dest, ' ');
+		}
 	}
-	return str_c(str);
+
+	if (str_len(dest) != size)
+		str_truncate(dest, str_len(dest)-1);
 }

@@ -68,6 +68,7 @@ imap_SOURCES = \
 	imap-messageset.c \
 	imap-search.c \
 	imap-sort.c \
+	imap-sync.c \
 	imap-thread.c \
 	mail-storage-callbacks.c \
 	main.c \
@@ -84,5 +85,6 @@ noinst_HEADERS = \
 	imap-messageset.h \
 	imap-search.h \
 	imap-sort.h \
+	imap-sync.h \
 	imap-thread.h \
 	namespace.h
