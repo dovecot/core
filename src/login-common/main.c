@@ -3,6 +3,7 @@
 #include "common.h"
 #include "ioloop.h"
 #include "lib-signals.h"
+#include "randgen.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "process-title.h"
@@ -136,6 +137,7 @@ static void drop_privileges()
 
 	/* Initialize SSL proxy so it can read certificate and private
 	   key file. */
+	random_init();
 	ssl_proxy_init();
 
 	/* Refuse to run as root - we should never need it and it's

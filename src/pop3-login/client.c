@@ -1,11 +1,13 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "base64.h"
 #include "buffer.h"
 #include "hash.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "randgen.h"
 #include "process-title.h"
 #include "safe-memset.h"
 #include "strescape.h"
@@ -14,7 +16,6 @@
 #include "auth-client.h"
 #include "ssl-proxy.h"
 #include "hostpid.h"
-#include "imem.h"
 
 /* max. length of input command line (spec says 512), or max reply length in
    SASL authentication */
@@ -258,12 +259,25 @@ static void client_destroy_oldest(void)
 static char *get_apop_challenge(struct pop3_client *client)
 {
 	struct auth_connect_id *id = &client->auth_id;
+	unsigned char buffer[16];
+        buffer_t *buf;
+	char *ret;
 
 	if (!auth_client_reserve_connection(auth_client, "APOP", id))
 		return NULL;
 
-	return i_strdup_printf("<%x.%x.%s@%s>", id->server_pid, id->connect_uid,
-			       dec2str(ioloop_time), my_hostname);
+	t_push();
+	random_fill(buffer, sizeof(buffer));
+	buf = buffer_create_static_hard(pool_datastack_create(),
+			MAX_BASE64_ENCODED_SIZE(sizeof(buffer)) + 1);
+	base64_encode(buffer, sizeof(buffer), buf);
+	buffer_append_c(buf, '\0');
+
+	ret = i_strdup_printf("<%x.%x.%s@%s>",
+			      id->server_pid, id->connect_uid,
+			      (const char *)buf->data, my_hostname);
+	t_pop();
+	return ret;
 }
 
 static void client_auth_ready(struct pop3_client *client)
