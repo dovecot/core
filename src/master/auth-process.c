@@ -202,8 +202,10 @@ static pid_t create_auth_process(AuthConfig *config)
 	(void)unlink(path);
         (void)umask(0177); /* we want 0600 mode for the socket */
 	listen_fd = net_listen_unix(path);
-	if (listen_fd == -1)
+	if (listen_fd < 0)
 		i_fatal("Can't listen in UNIX socket %s: %m", path);
+
+	i_assert(listen_fd > 2);
 
 	/* set correct permissions */
 	(void)chown(path, set_login_uid, set_login_gid);
