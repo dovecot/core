@@ -53,5 +53,11 @@
 /* Define if you have Linux-compatible mremap() */
 #undef HAVE_LINUX_MREMAP
 
+/* Define if you have Linux-compatible sendfile() */
+#undef HAVE_LINUX_SENDFILE
+
+/* Define if you have FreeBSD-compatible sendfile() */
+#undef HAVE_FREEBSD_SENDFILE
+
 /* Define if you have fdatasync() */
 #undef HAVE_FDATASYNC

@@ -2,12 +2,15 @@
    It's required to be able to include sys/sendfile.h with Linux. */
 #include "../../config.h"
 #undef HAVE_CONFIG_H
-#undef _FILE_OFFSET_BITS
+
+#ifdef HAVE_LINUX_SENDFILE
+#  undef _FILE_OFFSET_BITS
+#endif
 
 #include "lib.h"
 #include "sendfile-util.h"
 
-#ifdef HAVE_SYS_SENDFILE_H
+#ifdef HAVE_LINUX_SENDFILE
 
 #include <sys/sendfile.h>
 
@@ -21,7 +24,7 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 	if (sizeof(off_t) * CHAR_BIT == 32) {
 		/* 32bit off_t */
 		if (*offset > 2147483647L) {
-			errno = EINVAL;
+			errno = EOVERFLOW;
 			return -1;
 		}
 	} else {
@@ -30,7 +33,7 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 		i_assert(sizeof(off_t) == sizeof(uoff_t));
 
 		if (*offset > OFF_T_MAX) {
-			errno = EINVAL;
+			errno = EOVERFLOW;
 			return -1;
 		}
 	}
@@ -42,6 +45,29 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 	return ret;
 }
 
+#elif defined(HAVE_FREEBSD_SENDFILE)
+
+#include <sys/socket.h>
+#include <sys/uio.h>
+
+ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
+{
+	struct sf_hdtr hdtr;
+	off_t sbytes;
+	int ret;
+
+	i_assert(count <= SSIZE_T_MAX);
+
+	memset(&hdtr, 0, sizeof(hdtr));
+	ret = sendfile(in_fd, out_fd, *offset, count, &hdtr, &sbytes, 0);
+
+	*offset += sbytes;
+
+	if (ret == 0 || (ret == 0 && errno == EAGAIN && sbytes > 0))
+		return (ssize_t)sbytes;
+	else
+		return -1;
+}
 #else
 ssize_t safe_sendfile(int out_fd __attr_unused__, int in_fd __attr_unused__,
 		      uoff_t *offset __attr_unused__,
