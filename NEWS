@@ -1,3 +1,17 @@
+v0.99.2 2002-11-26  Timo Sirainen <tss@iki.fi>
+
+	+ If we have to wait for a lock longer, the client is now notified
+	  about it every 30 seconds.
+	- Default settings still pointed to lib directory instead of the
+	  libexec directory where the binaries were actually installed
+	- vpopmail support had to be kludged to fix a bug in vpopmail library
+	  which sometimes left extra character after the user name.
+	- Login process crashed if master process didn't let some user login.
+	  Normally this couldn't happen without error in configuration.
+	- select() based I/O loop wasn't working so Dovecot didn't work in
+	  eg. OSX. Also PAM authentication wasn't detected with OSX.
+	- Didn't compile with NetBSD-current
+
 v0.99.1 2002-11-25  Timo Sirainen <tss@iki.fi>
 
 	+ Added doc/mkcert.sh script to easily generate yourself a self-signed

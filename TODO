@@ -198,7 +198,6 @@ cleanups / checks:
    can't free memory used by it .. what to do about it? at least count the
    malloc/free calls and complain if at the exit they don't match
  - ..wonder what it would look like if I did s/FooBarBaz/struct foo_bar_baz/..
- - create env_put() and env_clean()
  - nearest_power() could be problematic with things that want it for ints,
    not size_t..
 
