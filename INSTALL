@@ -1,0 +1,59 @@
+Build instructions
+------------------
+
+For most people, the usual:
+
+  ./configure
+  make
+  sudo make install
+
+is enough. This installs Dovecot under /usr/local. You must also rename the
+configuration file to get it to work:
+
+  mv /usr/local/etc/dovecot-example.conf /usr/local/etc/dovecot.conf
+
+Read through it, make needed modifications and start imap-master.
+
+SSL/TLS
+-------
+
+GNUTLS v0.5.5 or later is required to enable SSL and TLS support. OpenSSL
+isn't supported. You can get GNUTLS from http://www.gnutls.org/
+
+Optional configure options
+--------------------------
+
+You can get a full list with:
+
+  ./configure --help
+
+The options are listed like --with-thing or --enable-thing, usually they're
+also enabled by default. You can disable them with --without-thing or
+--disable-thing.
+
+Besides the standard options, Dovecot has added these:
+
+  --enable-ipv6           Enable IPv6 support (default)
+
+Enable IPv6 support. By default it's enabled if system is detected to
+support it.
+
+  --with-file-offset-size=BITS
+
+Specifies if we use 32bit or 64bit file offsets. 64bit is default if system
+supports it (Linux and Solaris does). You most likely won't have mails
+larger than 2GB, so you may want to drop this to 32bit for a bit smaller
+disk and memory usage.
+
+  --with-passwd           Build with /etc/passwd support (default)
+  --with-passwd-file      Build with passwd-like file support (default)
+  --with-shadow           Build with shadow password support (default)
+  --with-pam              Build with PAM support (default)
+  --with-vpopmail         Build with vpopmail support (default)
+
+Specify which authentication modules to use. Disabling them give you a few
+bytes smaller binary, but not much else.
+
+  --with-gnutls           Build with GNUTLS (default)
+
+Use GNUTLS for SSL and TLS support.
