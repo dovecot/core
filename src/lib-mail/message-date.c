@@ -120,7 +120,7 @@ static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
 	}
 
 	/* dd */
-	if (token != 'A' || len > 2 || !i_isdigit(value[0]))
+	if (token != 'A' || len < 1 || len > 2 || !i_isdigit(value[0]))
 		return FALSE;
 
 	tm.tm_mday = value[0]-'0';
@@ -165,12 +165,16 @@ static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
 		tm.tm_year -= 1900;
 	}
 
-	/* hh */
+	/* hh, allow also single digit */
 	token = next_token(ctx, &value, &len);
-	if (token != 'A' || len != 2 ||
-	    !i_isdigit(value[0]) || !i_isdigit(value[1]))
+	if (token != 'A' || len < 1 || len > 2 || !i_isdigit(value[0]))
 		return FALSE;
-	tm.tm_hour = (value[0]-'0') * 10 + (value[1]-'0');
+	tm.tm_hour = value[0]-'0';
+	if (len == 2) {
+		if (!i_isdigit(value[1]))
+			return FALSE;
+		tm.tm_hour = tm.tm_hour * 10 + (value[1]-'0');
+	}
 
 	/* :mm */
 	token = next_token(ctx, &value, &len);
