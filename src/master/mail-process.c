@@ -193,7 +193,9 @@ int create_mail_process(struct login_group *group, int socket,
 
 	restrict_process_size(group->set->mail_process_size, (unsigned int)-1);
 
-	if (*home_dir != '\0') {
+	if (*home_dir == '\0')
+		ret = -1;
+	else {
 		full_home_dir = *chroot_dir == '\0' ? home_dir :
 			t_strconcat(chroot_dir, "/", home_dir, NULL);
 		/* NOTE: if home directory is NFS-mounted, we might not
@@ -204,11 +206,16 @@ int create_mail_process(struct login_group *group, int socket,
 		ret = chdir(full_home_dir);
 		if (reply->uid != master_uid && seteuid(master_uid) < 0)
 			i_fatal("seteuid(%s) failed: %m", dec2str(master_uid));
-		if (ret < 0) {
+
+		/* If user's home directory doesn't exist and we're not
+		   trying to chroot anywhere, fallback to /tmp as the mails
+		   could be stored elsewhere. */
+		if (ret < 0 && (errno != ENOENT || *chroot_dir != '\0')) {
 			i_fatal("chdir(%s) failed with uid %s: %m",
 				full_home_dir, dec2str(reply->uid));
 		}
-	} else {
+	}
+	if (ret < 0) {
 		/* We still have to change to some directory where we have
 		   rx-access. /tmp should exist everywhere. */
 		if (chdir("/tmp") < 0)
