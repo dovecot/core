@@ -229,6 +229,7 @@ static int sync_cache_update(const struct mail_transaction_cache_update *u,
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
 	uint32_t seq;
+	int ret;
 
 	if (mail_index_lookup_uid_range(view, u->uid, u->uid, &seq, &seq) < 0)
 		return -1;
@@ -242,8 +243,8 @@ static int sync_cache_update(const struct mail_transaction_cache_update *u,
 	if (rec->cache_offset != 0 && ctx->update_cache) {
 		/* we'll need to link the old and new cache records */
 		if (!ctx->cache_locked) {
-			if (mail_cache_lock(view->index->cache) <= 0)
-				return -1;
+			if ((ret = mail_cache_lock(view->index->cache)) <= 0)
+				return ret < 0 ? -1 : 1;
 			ctx->cache_locked = TRUE;
 		}
 
