@@ -46,7 +46,8 @@ static int arg_new(SearchBuildData *data, ImapArg **args,
 			return FALSE;
 		}
 
-		sarg->hdr_value = str_ucase((*args)->data.str);
+                sarg->hdr_field_name = sarg->value.str;
+		sarg->value.str = str_ucase((*args)->data.str);
 		*args += 1;
 	}
 

@@ -73,7 +73,7 @@ int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
 			       int *all_found);
 int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 			OBuffer *outbuf, int *all_found);
-int index_storage_search(Mailbox *box, MailSearchArg *args,
+int index_storage_search(Mailbox *box, const char *charset, MailSearchArg *args,
 			 OBuffer *outbuf, int uid_result);
 
 #endif

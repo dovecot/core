@@ -14,7 +14,7 @@ AC_ARG_PROGRAM
 AM_PROG_LIBTOOL
 
 AC_CHECK_HEADERS(string.h stdlib.h unistd.h dirent.h)
-AC_CHECK_HEADERS(sys/uio.h linux/mman.h)
+AC_CHECK_HEADERS(sys/uio.h iconv.h linux/mman.h)
 
 # check posix headers
 AC_CHECK_HEADERS(sys/time.h)
@@ -510,6 +510,7 @@ Makefile
 doc/Makefile
 src/Makefile
 src/lib/Makefile
+src/lib-charset/Makefile
 src/lib-imap/Makefile
 src/lib-index/Makefile
 src/lib-index/maildir/Makefile

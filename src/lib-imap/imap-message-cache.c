@@ -477,6 +477,8 @@ int imap_msgcache_get_rfc822(ImapMessageCache *cache, IBuffer **inbuf,
 
 	msg = cache->open_msg;
 	if (inbuf != NULL) {
+		if (msg->hdr_size == NULL)
+			cache_fields(cache, IMAP_CACHE_MESSAGE_HDR_SIZE);
 		offset = hdr_size != NULL ? 0 :
 			msg->hdr_size->physical_size;
 		if (!imap_msgcache_get_inbuf(cache, offset))

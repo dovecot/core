@@ -10,7 +10,7 @@ int cmd_search(Client *client)
 	ImapArg *args;
 	int args_count;
 	Pool pool;
-	const char *error;
+	const char *error, *charset;
 
 	args_count = imap_parser_read_args(client->parser, 0, 0, &args);
 	if (args_count == -2)
@@ -25,6 +25,23 @@ int cmd_search(Client *client)
 	if (!client_verify_open_mailbox(client))
 		return TRUE;
 
+	if (args->type == IMAP_ARG_ATOM &&
+	    strcasecmp(args->data.str, "CHARSET") == 0) {
+		/* CHARSET specified */
+		args++;
+		if (args->type != IMAP_ARG_ATOM &&
+		    args->type != IMAP_ARG_STRING) {
+			client_send_command_error(client,
+						  "Invalid charset argument.");
+			return TRUE;
+		}
+
+		charset = args->data.str;
+		args++;
+	} else {
+		charset = NULL;
+	}
+
 	pool = pool_create("MailSearchArgs", 2048, FALSE);
 
 	sargs = mail_search_args_build(pool, args, &error);
@@ -32,7 +49,7 @@ int cmd_search(Client *client)
 		/* error in search arguments */
 		client_send_tagline(client, t_strconcat("NO ", error, NULL));
 	} else {
-		if (client->mailbox->search(client->mailbox, sargs,
+		if (client->mailbox->search(client->mailbox, charset, sargs,
 					    client->outbuf, client->cmd_uid)) {
 			/* NOTE: syncing isn't allowed here */
 			client_sync_without_expunges(client);

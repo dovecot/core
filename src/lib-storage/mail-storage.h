@@ -155,8 +155,10 @@ struct _Mailbox {
 		     OBuffer *outbuf, int *all_found);
 
 	/* Search wanted mail data. args contains the search criteria.
-	   results are written into outbuf in RFC2060 SEARCH format. */
-	int (*search)(Mailbox *box, MailSearchArg *args,
+	   Results are written into outbuf in RFC2060 SEARCH format.
+	   If charset is NULL, the given search strings are matched without
+	   any conversion. */
+	int (*search)(Mailbox *box, const char *charset, MailSearchArg *args,
 		      OBuffer *outbuf, int uid_result);
 
 	/* Save a new mail into mailbox. timezone_offset specifies the

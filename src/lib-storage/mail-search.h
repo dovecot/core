@@ -60,7 +60,8 @@ struct _MailSearchArg {
 		const char *str;
 	} value;
 
-	const char *hdr_value; /* for SEARCH_HEADER */
+        void *context;
+	const char *hdr_field_name; /* for SEARCH_HEADER */
 	unsigned int not:1;
 
 	int result;

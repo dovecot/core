@@ -17,6 +17,7 @@ imap_LDADD = \
 	../lib-storage/subscription-file/libstorage_subscription_file.a \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \
+	../lib-charset/libcharset.a \
 	../lib/liblib.a
 
 cmds = \

@@ -7,6 +7,7 @@
 #include "rfc822-tokenize.h"
 #include "rfc822-date.h"
 #include "message-size.h"
+#include "message-header-search.h"
 #include "imap-date.h"
 #include "imap-envelope.h"
 #include "index-storage.h"
@@ -24,13 +25,17 @@
 	} STMT_END
 
 typedef struct {
+	Pool hdr_pool;
 	IndexMailbox *ibox;
 	MailIndexRecord *rec;
 	unsigned int client_seq;
 	int cached;
+	const char *charset;
+	const char *error;
 } SearchIndexContext;
 
 typedef struct {
+        SearchIndexContext *index_context;
 	MailSearchArg *args;
 	int custom_header;
 
@@ -295,30 +300,44 @@ static int search_sent(MailSearchArgType type, const char *value,
 	}
 }
 
-static int search_substr(const char *haystack, const char *needle)
+static HeaderSearchContext *search_header_context(SearchIndexContext *ctx,
+						  MailSearchArg *arg)
 {
-	size_t i, needle_len;
+	int unknown_charset;
 
-	/* note: needle is already uppercased */
-	needle_len = strlen(needle);
-	for (i = 0; haystack[i] != '\0'; i++) {
-		if (needle[0] == i_toupper(haystack[i]) &&
-		    strncasecmp(needle, haystack+i, needle_len) == 0)
-			return 1;
+	if (arg->context != NULL) {
+                message_header_search_reset(arg->context);
+		return arg->context;
 	}
 
-	return 0;
+	if (ctx->hdr_pool == NULL) {
+		ctx->hdr_pool = pool_create("message_header_search",
+					    8192, FALSE);
+	}
+
+	arg->context = message_header_search_init(ctx->hdr_pool, arg->value.str,
+						  ctx->charset,
+						  &unknown_charset);
+	if (arg->context == NULL) {
+		ctx->error = unknown_charset ?
+			"Unknown charset" : "Invalid search key";
+	}
+
+	return arg->context;
 }
 
 /* Returns >0 = matched, 0 = not matched, -1 = unknown */
-static int search_arg_match_envelope(MailIndex *index, MailIndexRecord *rec,
-				     MailSearchArgType type, const char *value)
+static int search_arg_match_envelope(SearchIndexContext *ctx,
+				     MailSearchArg *arg)
 {
-        ImapEnvelopeField env_field;
+	MailIndex *index = ctx->ibox->index;
+	ImapEnvelopeField env_field;
+        HeaderSearchContext *hdr_search_ctx;
 	const char *envelope, *field;
+	size_t size;
 	int ret;
 
-	switch (type) {
+	switch (arg->type) {
 	case SEARCH_SENTBEFORE:
 	case SEARCH_SENTON:
 	case SEARCH_SENTSINCE:
@@ -354,7 +373,7 @@ static int search_arg_match_envelope(MailIndex *index, MailIndexRecord *rec,
 	t_push();
 
 	/* get field from hopefully cached envelope */
-	envelope = index->lookup_field(index, rec, DATA_FIELD_ENVELOPE);
+	envelope = index->lookup_field(index, ctx->rec, DATA_FIELD_ENVELOPE);
 	if (envelope != NULL)
 		field = imap_envelope_parse(envelope, env_field);
 	else {
@@ -365,13 +384,21 @@ static int search_arg_match_envelope(MailIndex *index, MailIndexRecord *rec,
 	if (field == NULL)
 		ret = -1;
 	else {
-		switch (type) {
+		switch (arg->type) {
 		case SEARCH_SENTBEFORE:
 		case SEARCH_SENTON:
 		case SEARCH_SENTSINCE:
-			ret = search_sent(type, value, field);
+			ret = search_sent(arg->type, arg->value.str, field);
 		default:
-			ret = search_substr(field, value);
+			hdr_search_ctx = search_header_context(ctx, arg);
+			if (hdr_search_ctx == NULL) {
+				ret = 0;
+				break;
+			}
+
+			size = strlen(field);
+			ret = message_header_search(field, &size,
+						    hdr_search_ctx) ? 1 : 0;
 		}
 	}
 	t_pop();
@@ -382,8 +409,7 @@ static void search_envelope_arg(MailSearchArg *arg, void *context)
 {
 	SearchIndexContext *ctx = context;
 
-	switch (search_arg_match_envelope(ctx->ibox->index, ctx->rec,
-					  arg->type, arg->value.str)) {
+	switch (search_arg_match_envelope(ctx, arg)) {
 	case -1:
 		/* unknown */
 		break;
@@ -396,52 +422,10 @@ static void search_envelope_arg(MailSearchArg *arg, void *context)
 	}
 }
 
-/* needle must be uppercased */
-static int header_value_match(const char *haystack, size_t haystack_len,
-			      const char *needle)
-{
-	const char *n;
-	size_t i, j, needle_len, max;
-
-	if (*needle == '\0')
-		return TRUE;
-
-	needle_len = strlen(needle);
-	if (haystack_len < needle_len)
-		return FALSE;
-
-	max = haystack_len - needle_len;
-	for (i = 0; i <= max; i++) {
-		if (needle[0] != i_toupper(haystack[i]))
-			continue;
-
-		for (j = i, n = needle; j < haystack_len; j++) {
-			if (haystack[j] == '\r') {
-				if (j+1 != haystack_len)
-					j++;
-			}
-
-			if (haystack[j] == '\n' && j+1 < haystack_len &&
-			    IS_LWSP(haystack[j+1])) {
-				/* long header continuation */
-				j++;
-			}
-
-			if (*n++ != i_toupper(haystack[j]))
-				break;
-
-			if (*n == '\0')
-				return 1;
-		}
-	}
-
-	return -1;
-}
-
 static void search_header_arg(MailSearchArg *arg, void *context)
 {
 	SearchHeaderContext *ctx = context;
-	const char *value;
+        HeaderSearchContext *hdr_search_ctx;
 	size_t len;
 	int ret;
 
@@ -462,47 +446,48 @@ static void search_header_arg(MailSearchArg *arg, void *context)
 		if (ctx->name_len != 4 ||
 		    strncasecmp(ctx->name, "From", 4) != 0)
 			return;
-		value = arg->value.str;
 		break;
 	case SEARCH_TO:
 		if (ctx->name_len != 2 ||
 		    strncasecmp(ctx->name, "To", 2) != 0)
 			return;
-		value = arg->value.str;
 		break;
 	case SEARCH_CC:
 		if (ctx->name_len != 2 ||
 		    strncasecmp(ctx->name, "Cc", 2) != 0)
 			return;
-		value = arg->value.str;
 		break;
 	case SEARCH_BCC:
 		if (ctx->name_len != 3 ||
 		    strncasecmp(ctx->name, "Bcc", 3) != 0)
 			return;
-		value = arg->value.str;
 		break;
 	case SEARCH_SUBJECT:
 		if (ctx->name_len != 7 ||
 		    strncasecmp(ctx->name, "Subject", 7) != 0)
 			return;
-		value = arg->value.str;
 		break;
 	case SEARCH_HEADER:
 		ctx->custom_header = TRUE;
 
-		len = strlen(arg->value.str);
+		len = strlen(arg->hdr_field_name);
 		if (ctx->name_len != len ||
-		    strncasecmp(ctx->name, arg->value.str, len) != 0)
+		    strncasecmp(ctx->name, arg->hdr_field_name, len) != 0)
 			return;
-
-		value = arg->hdr_value;
 	default:
 		return;
 	}
 
 	/* then check if the value matches */
-	ret = header_value_match(ctx->value, ctx->value_len, value);
+	hdr_search_ctx = search_header_context(ctx->index_context, arg);
+	if (hdr_search_ctx == NULL)
+		ret = 0;
+	else {
+		len = ctx->value_len;
+		ret = message_header_search(ctx->value, &len,
+					    hdr_search_ctx) ? 1 : 0;
+	}
+
         ARG_SET_RESULT(arg, ret);
 }
 
@@ -623,15 +608,16 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 		return FALSE;
 
 	if (have_headers) {
-		SearchHeaderContext ctx;
+		SearchHeaderContext hdr_ctx;
 
-		memset(&ctx, 0, sizeof(ctx));
+		memset(&hdr_ctx, 0, sizeof(hdr_ctx));
 
 		/* header checks */
-		ctx.custom_header = TRUE;
-		ctx.args = args;
+		hdr_ctx.index_context = ctx;
+		hdr_ctx.custom_header = TRUE;
+		hdr_ctx.args = args;
 		message_parse_header(NULL, inbuf, &hdr_size,
-				     search_header, &ctx);
+				     search_header, &hdr_ctx);
 	}
 
 	if (have_text) {
@@ -822,8 +808,8 @@ static int search_get_uid_range(IndexMailbox *ibox, MailSearchArg *args,
 	return TRUE;
 }
 
-static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
-			   OBuffer *outbuf, int uid_result)
+static int search_messages(IndexMailbox *ibox, const char *charset,
+			   MailSearchArg *args, OBuffer *outbuf, int uid_result)
 {
 	SearchIndexContext ctx;
 	MailIndexRecord *rec;
@@ -850,7 +836,10 @@ static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
 						   &expunges_before);
 	client_seq += expunges_before;
 
+	memset(&ctx, 0, sizeof(ctx));
 	ctx.ibox = ibox;
+	ctx.charset = charset;
+
 	for (; rec != NULL && rec->uid <= last_uid; client_seq++) {
 		while (expunges->uid1 != 0 && expunges->uid1 < rec->uid) {
 			i_assert(expunges->uid2 < rec->uid);
@@ -875,6 +864,9 @@ static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
                 imap_msgcache_close(ibox->cache);
 		t_pop();
 
+		if (ctx.error != NULL)
+			break;
+
 		if (!failed) {
 			found = TRUE;
 			for (arg = args; arg != NULL; arg = arg->next) {
@@ -894,10 +886,15 @@ static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
 		rec = ibox->index->next(ibox->index, rec);
 	}
 
-	return TRUE;
+	if (ctx.hdr_pool != NULL)
+		pool_unref(ctx.hdr_pool);
+
+	if (ctx.error != NULL)
+		mail_storage_set_error(ibox->box.storage, "%s", ctx.error);
+	return ctx.error == NULL;
 }
 
-int index_storage_search(Mailbox *box, MailSearchArg *args,
+int index_storage_search(Mailbox *box, const char *charset, MailSearchArg *args,
 			 OBuffer *outbuf, int uid_result)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
@@ -907,7 +904,7 @@ int index_storage_search(Mailbox *box, MailSearchArg *args,
 		return FALSE;
 
 	o_buffer_send(outbuf, "* SEARCH", 8);
-	failed = !search_messages(ibox, args, outbuf, uid_result);
+	failed = !search_messages(ibox, charset, args, outbuf, uid_result);
 	o_buffer_send(outbuf, "\r\n", 2);
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
