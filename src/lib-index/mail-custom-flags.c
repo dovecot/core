@@ -62,7 +62,10 @@ static int update_mmap(struct mail_custom_flags *mcf)
 			index_cf_set_syscall_error(mcf, "munmap()");
 	}
 
-	mcf->mmap_base = mmap_rw_file(mcf->fd, &mcf->mmap_length);
+
+	mcf->mmap_base = mcf->noupdate ?
+		mmap_ro_file(mcf->fd, &mcf->mmap_length) :
+		mmap_rw_file(mcf->fd, &mcf->mmap_length);
 	if (mcf->mmap_base == MAP_FAILED) {
 		mcf->mmap_base = NULL;
 		return index_cf_set_syscall_error(mcf, "mmap()");
@@ -166,7 +169,7 @@ static void custom_flags_sync(struct mail_custom_flags *mcf)
 
 static int custom_flags_check_sync(struct mail_custom_flags *mcf)
 {
-	if (mcf->noupdate)
+	if (mcf->fd == -1)
 		return TRUE;
 
 	if (mcf->mmap_length != 0 &&
@@ -177,7 +180,7 @@ static int custom_flags_check_sync(struct mail_custom_flags *mcf)
 	if (!update_mmap(mcf))
 		return FALSE;
 
-	if (mcf->mmap_length < HEADER_SIZE) {
+	if (mcf->mmap_length < HEADER_SIZE && !mcf->noupdate) {
 		/* it's broken, rewrite header */
 		if (mcf->lock_type == F_RDLCK)
 			(void)lock_file(mcf, F_UNLCK);
@@ -236,41 +239,49 @@ int mail_custom_flags_open_or_create(struct mail_index *index)
 {
 	struct mail_custom_flags *mcf;
 	const char *path;
-	int fd;
+	int fd, readonly;
 
 	path = t_strconcat(index->control_dir, "/",
 			   CUSTOM_FLAGS_FILE_NAME, NULL);
-	if (path == NULL)
-		fd = -1;
-	else {
-		fd = open(path, O_RDWR | O_CREAT, 0660);
-		if (fd == -1)
+	readonly = index->mailbox_readonly;
+	fd = !index->mailbox_readonly ?
+		open(path, O_RDWR | O_CREAT, 0660) : open(path, O_RDONLY);
+	if (fd == -1) {
+		if (errno == EACCES) {
+			fd = open(path, O_RDONLY);
+			readonly = TRUE;
+		}
+		if (errno != EACCES && errno != ENOENT && !ENOSPACE(errno)) {
 			index_file_set_syscall_error(index, path, "open()");
+			return FALSE;
+		}
 	}
 
 	mcf = i_new(struct mail_custom_flags, 1);
 	mcf->index = index;
 	mcf->filepath = i_strdup(path);
 	mcf->fd = fd;
+	mcf->noupdate = mcf->fd == -1 || readonly;
 
 	if (fd != -1) {
 		if (!update_mmap(mcf)) {
 			(void)close(mcf->fd);
 			mcf->fd = -1;
+			mcf->noupdate = TRUE;
 		}
 
-		if (mcf->mmap_length < HEADER_SIZE) {
+		if (mcf->mmap_length < HEADER_SIZE && !mcf->noupdate) {
 			/* we just created it, write the header */
 			mcf->syncing = TRUE;
 			if (!custom_flags_init(mcf) || !update_mmap(mcf)) {
 				(void)close(mcf->fd);
 				mcf->fd = -1;
+				mcf->noupdate = TRUE;
 			}
 			mcf->syncing = FALSE;
 		}
 	}
 
-	mcf->noupdate = mcf->fd == -1;
 	mcf->index->allow_new_custom_flags = mcf->fd != -1;
 
 	custom_flags_sync(mcf);

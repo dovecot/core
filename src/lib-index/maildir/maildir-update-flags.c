@@ -17,7 +17,7 @@ static int handle_error(struct mail_index *index,
 		return -2;
 	}
 
-	if (errno == EPERM)
+	if (errno == EACCES)
 		index->mailbox_readonly = TRUE;
 	else {
 		index_set_error(index, "rename(%s, %s) failed: %m",

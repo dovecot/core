@@ -227,6 +227,7 @@ maildir_index_alloc(const char *maildir, const char *index_dir,
 	index->maildir_lock_fd = -1;
 	index->mailbox_path = i_strdup(maildir);
 	index->control_dir = i_strdup(control_dir);
+	index->mailbox_readonly = access(maildir, W_OK) < 0;
 	mail_index_init(index, index_dir);
 	return index;
 }

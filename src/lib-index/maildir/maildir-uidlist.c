@@ -33,6 +33,10 @@ int maildir_uidlist_try_lock(struct mail_index *index)
 			break;
 
 		if (errno != EEXIST) {
+			if (errno == EACCES) {
+				/* read-only mailbox */
+				return 0;
+			}
 			index_file_set_syscall_error(index, path, "open()");
 			return -1;
 		}

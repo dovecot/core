@@ -704,18 +704,16 @@ static int maildir_index_full_sync_dirs(struct maildir_sync_context *ctx)
 	DIR *dirp;
 	int failed;
 
-	if (ctx->index->maildir_have_new || ctx->index->maildir_keep_new) {
-		if (ctx->new_dirp == NULL) {
-			if (!maildir_new_scan_first_file(ctx))
-				return FALSE;
-		}
+	if (ctx->new_dirp == NULL &&
+	    (ctx->index->maildir_have_new || ctx->index->maildir_keep_new)) {
+		if (!maildir_new_scan_first_file(ctx))
+			return FALSE;
+	}
 
-		if (ctx->new_dent != NULL) {
-			if (!maildir_index_full_sync_dir(ctx, ctx->new_dir,
-							 TRUE, ctx->new_dirp,
-							 ctx->new_dent))
-				return FALSE;
-		}
+	if (ctx->new_dent != NULL) {
+		if (!maildir_index_full_sync_dir(ctx, ctx->new_dir, TRUE,
+						 ctx->new_dirp, ctx->new_dent))
+			return FALSE;
 	}
 
 	dirp = opendir(ctx->cur_dir);
