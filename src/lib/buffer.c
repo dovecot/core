@@ -56,44 +56,28 @@ static int buffer_check_read(const buffer_t *buf,
 	return TRUE;
 }
 
-static int buffer_check_write(buffer_t *buf, size_t *pos,
-			      size_t *data_size, int accept_partial)
+static inline int
+buffer_check_limits(buffer_t *buf, size_t pos, size_t *data_size,
+		    int accept_partial)
 {
-	size_t max_size, new_size, alloc_size;
+	size_t new_size, alloc_size;
 
 	if (buf->readonly)
 		return FALSE;
 
-	/* check that we don't overflow size_t */
-	if (*pos >= (size_t)-1 - buf->start_pos)
-		return FALSE;
-	*pos += buf->start_pos;
-
-	max_size = (size_t)-1 - *pos;
-	if (*data_size <= max_size)
-		new_size = *pos + *data_size;
-	else {
-		if (max_size == 0 || !accept_partial)
-			return FALSE;
-
-		new_size = *pos + max_size;
-		*data_size = max_size;
-	}
-
 	/* make sure we're within our limits */
-	if (new_size > buf->limit) {
+	if (buf->limit - pos < *data_size) {
 		if (buf->hard) {
 			i_panic("Buffer full (%"PRIuSIZE_T" > "
-				"%"PRIuSIZE_T")",
-				new_size, buf->limit);
+				"%"PRIuSIZE_T")", pos + *data_size, buf->limit);
 		}
 
-		if (!accept_partial || *pos >= buf->limit)
+		if (!accept_partial)
 			return FALSE;
 
-		new_size = buf->limit;
-		*data_size = new_size - *pos;
+		*data_size = buf->limit - pos;
 	}
+	new_size = pos + *data_size;
 
 	/* see if we need to grow the buffer */
 	if (new_size > buf->alloc) {
@@ -108,6 +92,21 @@ static int buffer_check_write(buffer_t *buf, size_t *pos,
 	if (new_size > buf->used)
 		buf->used = new_size;
 	return TRUE;
+}
+
+static int buffer_check_write(buffer_t *buf, size_t *pos,
+			      size_t *data_size, int accept_partial)
+{
+	if (*pos >= buf->limit - buf->start_pos) {
+		if (buf->hard) {
+			i_panic("Buffer offset too large (%"PRIuSIZE_T")",
+				*pos);
+		}
+		return FALSE;
+	}
+	*pos += buf->start_pos;
+
+	return buffer_check_limits(buf, *pos, data_size, accept_partial);
 }
 
 buffer_t *buffer_create_static(pool_t pool, size_t size)
@@ -192,20 +191,24 @@ size_t buffer_write(buffer_t *buf, size_t pos,
 
 size_t buffer_append(buffer_t *buf, const void *data, size_t data_size)
 {
-	return buffer_write(buf, buf->used - buf->start_pos, data, data_size);
+	size_t pos = buf->used;
+
+	if (pos >= buf->limit) {
+		if (buf->hard)
+			i_panic("Buffer full (%"PRIuSIZE_T")", pos);
+		return 0;
+	}
+
+	if (!buffer_check_limits(buf, pos, &data_size, TRUE))
+		return 0;
+
+	memcpy(buf->w_buffer + pos, data, data_size);
+	return data_size;
 }
 
 size_t buffer_append_c(buffer_t *buf, char chr)
 {
-	size_t pos, data_size = 1;
-
-	pos = buf->used - buf->start_pos;
-	if (!buffer_check_write(buf, &pos, &data_size, TRUE))
-		return 0;
-
-	if (data_size == 1)
-		buf->w_buffer[pos] = chr;
-	return data_size;
+	return buffer_append(buf, &chr, 1);
 }
 
 size_t buffer_insert(buffer_t *buf, size_t pos,
