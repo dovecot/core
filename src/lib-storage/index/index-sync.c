@@ -34,11 +34,15 @@ int index_storage_sync_and_lock(struct index_mailbox *ibox, int sync_size,
 {
 	struct mail_storage *storage = ibox->box.storage;
 	struct mail_index *index = ibox->index;
-	int changes, set_shared_lock;
+	int failed, changes, set_shared_lock;
 
         set_shared_lock = ibox->index->lock_type != MAIL_LOCK_EXCLUSIVE;
 
-	if (index->sync_and_lock(index, data_lock_type, &changes)) {
+        index_storage_init_lock_notify(ibox);
+	failed = !index->sync_and_lock(index, data_lock_type, &changes);
+	ibox->index->set_lock_notify_callback(ibox->index, NULL, NULL);
+
+	if (!failed) {
 		/* reset every time it has worked */
 		ibox->sent_diskspace_warning = FALSE;
 	} else {

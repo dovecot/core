@@ -31,6 +31,7 @@ struct index_mailbox {
 extern struct imap_message_cache_iface index_msgcache_iface;
 
 int mail_storage_set_index_error(struct index_mailbox *ibox);
+void index_storage_init_lock_notify(struct index_mailbox *ibox);
 int index_storage_lock(struct index_mailbox *ibox,
 		       enum mail_lock_type lock_type);
 

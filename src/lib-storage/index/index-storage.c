@@ -185,16 +185,20 @@ static void lock_notify(enum mail_lock_notify_type notify_type,
 	}
 }
 
+void index_storage_init_lock_notify(struct index_mailbox *ibox)
+{
+	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
+	ibox->index->set_lock_notify_callback(ibox->index, lock_notify, ibox);
+}
+
 int index_storage_lock(struct index_mailbox *ibox,
 		       enum mail_lock_type lock_type)
 {
 	int ret;
 
-	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
-
 	/* we have to set/reset this every time, because the same index
 	   may be used by multiple IndexMailboxes. */
-	ibox->index->set_lock_notify_callback(ibox->index, lock_notify, ibox);
+        index_storage_init_lock_notify(ibox);
 	ret = ibox->index->set_lock(ibox->index, lock_type);
 	ibox->index->set_lock_notify_callback(ibox->index, NULL, NULL);
 
