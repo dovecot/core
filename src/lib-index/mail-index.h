@@ -213,7 +213,7 @@ int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
 int mail_index_sync_end(struct mail_index_sync_ctx *ctx);
 
 /* Mark index file corrupted. Invalidates all views. */
-int mail_index_mark_corrupted(struct mail_index *index);
+void mail_index_mark_corrupted(struct mail_index *index);
 /* Check and fix any found problems. If index is broken beyond repair, calls
    mail_index_reset() and returns 0. Otherwise returns -1 if there was some
    I/O error or 1 if everything went ok. */
