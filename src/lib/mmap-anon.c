@@ -125,7 +125,7 @@ void *mmap_anon(size_t length)
 		/* this is fully guessing */
 		movable_mmap_base = ((char *) mmap_anon) + MMAP_BASE_MOVE;
 		movable_mmap_base = (char *) NULL +
-			PAGE_ALIGN((size_t) (movable_mmap_base - NULL));
+			PAGE_ALIGN((size_t)((char *) movable_mmap_base - NULL));
 	}
 
 	do {
