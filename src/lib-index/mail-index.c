@@ -621,6 +621,12 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 	mail_index_view_close(view);
 	mail_transaction_log_view_close(log_view);
 
+	if (sync_to_index) {
+		/* make sure log file offsets get copied. most of the other
+		   fields should stay the same. */
+		map->hdr = hdr;
+	}
+
 	index->map = NULL;
 	return ret < 0 ? -1 : 1;
 }
