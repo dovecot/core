@@ -21,7 +21,7 @@ struct _istream {
 	unsigned char *w_buffer; /* may be NULL */
 	size_t buffer_size;
 
-	size_t skip, pos;
+	size_t skip, pos, high_pos;
 };
 
 struct istream *_i_stream_create(struct _istream *_buf, pool_t pool, int fd,

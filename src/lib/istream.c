@@ -76,13 +76,13 @@ void i_stream_set_start_offset(struct istream *stream, uoff_t offset)
 	diff = (off_t)stream->start_offset - (off_t)offset;
 	stream->start_offset = offset;
 	stream->v_offset += diff;
-	if (stream->v_size != 0) {
+	if (stream->v_size != 0)
 		stream->v_size += diff;
+	if (stream->v_limit != 0)
 		stream->v_limit += diff;
-	}
 
 	/* reset buffer data */
-	_stream->skip = _stream->pos = 0;
+	_stream->skip = _stream->pos = _stream->high_pos = 0;
 }
 
 void i_stream_set_read_limit(struct istream *stream, uoff_t v_offset)
@@ -92,6 +92,11 @@ void i_stream_set_read_limit(struct istream *stream, uoff_t v_offset)
 
 	i_assert(stream->v_size == 0 || v_offset <= stream->v_size);
 
+	if (_stream->high_pos != 0) {
+		_stream->pos = _stream->high_pos;
+		_stream->high_pos = 0;
+	}
+
 	if (v_offset == 0)
 		stream->v_limit = stream->v_size;
 	else {
@@ -99,8 +104,11 @@ void i_stream_set_read_limit(struct istream *stream, uoff_t v_offset)
 
 		stream->v_limit = v_offset;
 		max_pos = v_offset - stream->v_offset + _stream->skip;
-		if (_stream->pos > max_pos)
+		if (_stream->pos > max_pos) {
+			if (_stream->high_pos == 0)
+				_stream->high_pos = _stream->pos;
 			_stream->pos = max_pos;
+		}
 	}
 }
 
@@ -110,6 +118,11 @@ ssize_t i_stream_read(struct istream *stream)
 
 	if (stream->closed)
 		return -1;
+
+	if (_stream->pos < _stream->high_pos) {
+		/* virtual limit reached */
+		return -1;
+	}
 
 	return _stream->read(_stream);
 }
@@ -137,7 +150,11 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 	count -= data_size;
 	stream->v_offset += data_size;
 
-	_stream->skip_count(_stream, count);
+	if (_stream->pos < _stream->high_pos) {
+		/* virtual limit reached */
+	} else {
+		_stream->skip_count(_stream, count);
+	}
 }
 
 void i_stream_seek(struct istream *stream, uoff_t v_offset)
@@ -237,7 +254,7 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data,
 
 	while (_stream->pos - _stream->skip <= threshold) {
 		/* we need more data */
-		ret = _stream->read(_stream);
+		ret = i_stream_read(stream);
 		if (ret < 0)
 			break;
 	}
