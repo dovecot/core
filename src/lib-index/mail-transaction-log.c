@@ -900,6 +900,9 @@ log_view_fix_sequences(struct mail_index_view *view, buffer_t *view_expunges,
 	for (src_idx = dest_idx = 0; src_idx < size; src_idx += record_size) {
 		seq = (uint32_t *)&data[src_idx];
 
+		i_assert(src_idx + record_size == size ||
+			 *seq <= *((uint32_t *) &data[src_idx+record_size]));
+
 		while (exp != exp_end && exp->seq1 < seq[0]) {
 			expunges_before += exp->seq2 - exp->seq1 + 1;
 			exp++;
@@ -940,8 +943,12 @@ log_view_fix_sequences(struct mail_index_view *view, buffer_t *view_expunges,
 			}
 		}
 
-		if (src_idx != dest_idx)
+		if (src_idx != dest_idx) {
 			memcpy(&data[dest_idx], &data[src_idx], record_size);
+			i_assert(dest_idx == 0 ||
+				 *((uint32_t *) &data[dest_idx]) >=
+				 *((uint32_t *) &data[dest_idx-record_size]));
+		}
 		dest_idx += record_size;
 	}
 	buffer_set_used_size(buf, dest_idx);
