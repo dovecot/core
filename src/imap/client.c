@@ -15,7 +15,6 @@ extern struct mail_storage_callbacks mail_storage_callbacks;
 static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
-static void client_input(void *context);
 static void client_output(void *context);
 
 struct client *client_create(int hin, int hout, struct namespace *namespaces)
@@ -34,7 +33,7 @@ struct client *client_create(int hin, int hout, struct namespace *namespaces)
 
 	o_stream_set_flush_callback(client->output, client_output, client);
 
-	client->io = io_add(hin, IO_READ, client_input, client);
+	client->io = io_add(hin, IO_READ, _client_input, client);
 	client->parser = imap_parser_create(client->input, client->output,
 					    imap_max_line_length);
         client->last_input = ioloop_time;
@@ -223,7 +222,7 @@ void _client_reset_command(struct client *client)
 	client->command_pending = FALSE;
 	if (client->io == NULL) {
 		client->io = io_add(i_stream_get_fd(client->input),
-				    IO_READ, client_input, client);
+				    IO_READ, _client_input, client);
 	}
 
 	client->cmd_tag = NULL;
@@ -233,9 +232,6 @@ void _client_reset_command(struct client *client)
 
 	p_clear(client->cmd_pool);
 	imap_parser_reset(client->parser);
-
-	if (client->input_pending)
-                client_input(client);
 }
 
 /* Skip incoming data until newline is found,
@@ -324,7 +320,7 @@ static int client_handle_input(struct client *client)
 	return TRUE;
 }
 
-static void client_input(void *context)
+void _client_input(void *context)
 {
 	struct client *client = context;
 
@@ -385,6 +381,9 @@ static void client_output(void *context)
 			_client_reset_command(client);
 		}
 		o_stream_uncork(client->output);
+
+		if (client->input_pending)
+			_client_input(client);
 	}
 }
 

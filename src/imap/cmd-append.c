@@ -59,6 +59,9 @@ static void client_input(void *context)
 		/* command execution was finished */
 		client->bad_counter = 0;
 		_client_reset_command(client);
+
+		if (client->input_pending)
+			_client_input(client);
 	}
 }
 
