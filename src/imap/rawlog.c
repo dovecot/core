@@ -101,7 +101,7 @@ void rawlog_open(int *hin, int *hout)
 		home = ".";
 
 	/* see if we want rawlog */
-	path = t_strconcat(home, "/rawlog", NULL);
+	path = t_strconcat(home, "/dovecot.rawlog", NULL);
 	if (stat(path, &st) < 0) {
 		if (errno != ENOENT)
 			i_warning("stat() failed for %s: %m", path);

@@ -63,7 +63,7 @@ a bit of disk space (in .imap.index.data file) and memory.
   --with-rawlog           Build support for logging user traffic
 
 When Dovecot is compiled with this option and user's home directory
-contains rawlog directory, all IMAP connections are logged into
+contains dovecot.rawlog directory, all IMAP connections are logged into
 timstamp-pid.in and .out files. This is mostly useful for debugging.
 
   --enable-debug          Enable some extra checks for debugging
