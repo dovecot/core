@@ -514,6 +514,8 @@ void mail_index_mark_flag_changes(struct mail_index *index,
 	if ((old_flags & MAIL_SEEN) == 0 && (new_flags & MAIL_SEEN)) {
 		/* unseen -> seen */
 		index->header->seen_messages_count++;
+		if (index->header->first_unseen_uid_lowwater == rec->uid)
+			index->header->first_unseen_uid_lowwater++;
 	} else if ((old_flags & MAIL_SEEN) && (new_flags & MAIL_SEEN) == 0) {
 		/* seen -> unseen */
 		if (index->header->seen_messages_count ==
@@ -543,6 +545,8 @@ void mail_index_mark_flag_changes(struct mail_index *index,
 	} else if ((old_flags & MAIL_DELETED) &&
 		   (new_flags & MAIL_DELETED) == 0) {
 		/* deleted -> undeleted */
+		if (index->header->first_deleted_uid_lowwater == rec->uid)
+			index->header->first_deleted_uid_lowwater++;
 		if (index->header->deleted_messages_count == 0) {
 			index_set_corrupted(index,
 				"deleted_messages_count in header is invalid");
