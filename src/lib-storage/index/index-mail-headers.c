@@ -331,6 +331,7 @@ void index_mail_headers_get_envelope(struct index_mail *mail)
 	struct mailbox_header_lookup_ctx *header_ctx;
 	struct istream *stream;
 
+	mail->data.save_envelope = TRUE;
 	header_ctx = mailbox_header_lookup_init(&mail->ibox->box,
 						imap_envelope_headers);
 	stream = mail->mail.get_headers(&mail->mail, header_ctx);
