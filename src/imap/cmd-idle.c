@@ -9,7 +9,7 @@
 
 #define DEFAULT_IDLE_CHECK_INTERVAL 30
 
-static void idle_finish(struct client *client)
+static void idle_finish(struct client *client, int done_ok)
 {
 	if (client->idle_to != NULL) {
 		timeout_remove(client->idle_to);
@@ -25,16 +25,19 @@ static void idle_finish(struct client *client)
 	client->io = io_add(i_stream_get_fd(client->input),
 			    IO_READ, _client_input, client);
 
-	_client_reset_command(client);
-	client->bad_counter = 0;
-
 	client->mailbox->auto_sync(client->mailbox,
 				   mailbox_check_interval != 0 ?
 				   MAILBOX_SYNC_NO_EXPUNGES : MAILBOX_SYNC_NONE,
 				   mailbox_check_interval);
 
 	client_sync_full(client);
-	client_send_tagline(client, "OK Idle completed.");
+	if (done_ok)
+		client_send_tagline(client, "OK Idle completed.");
+	else
+		client_send_tagline(client, "BAD Expected DONE.");
+
+	_client_reset_command(client);
+	client->bad_counter = 0;
 }
 
 static void idle_client_input(void *context)
@@ -51,8 +54,7 @@ static void idle_client_input(void *context)
 		return;
 	case -2:
 		client->input_skip_line = TRUE;
-		client_send_line(client, "* BAD Expected DONE.");
-		idle_finish(client);
+		idle_finish(client, FALSE);
 		break;
 	}
 
@@ -60,11 +62,7 @@ static void idle_client_input(void *context)
 		if (client->input_skip_line)
 			client->input_skip_line = FALSE;
 		else {
-			if (strcmp(line, "DONE") != 0) {
-				client_send_line(client,
-						 "* BAD Expected DONE.");
-			}
-			idle_finish(client);
+			idle_finish(client, strcmp(line, "DONE") == 0);
 			break;
 		}
 	}
@@ -81,7 +79,7 @@ static void idle_timeout(void *context)
 	if (!client->mailbox->get_status(client->mailbox, STATUS_MESSAGES,
 					 &status)) {
 		client_send_untagged_storage_error(client);
-		idle_finish(client);
+		idle_finish(client, TRUE);
 	} else {
                 client->idle_expunge = status.messages+1;
 		client_send_line(client,
