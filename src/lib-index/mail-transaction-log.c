@@ -334,6 +334,8 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 		hdr.prev_file_offset = index->hdr->log_file_offset;
 	hdr.file_seq = index->hdr->log_file_seq+1;
 
+	i_assert(log->head == NULL || hdr.file_seq > log->head->hdr.file_seq);
+
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
 		mail_index_file_set_syscall_error(index, path, "write_full()");
                 (void)file_dotlock_delete(path, fd);
