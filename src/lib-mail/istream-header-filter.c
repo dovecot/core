@@ -287,7 +287,8 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->input = input;
 	i_stream_ref(mstream->input);
 
-	mstream->headers = p_new(pool, const char *, headers_count);
+	mstream->headers = headers_count == 0 ? NULL :
+		p_new(pool, const char *, headers_count);
 	for (i = 0; i < headers_count; i++) 
 		mstream->headers[i] = p_strdup(pool, headers[i]);
 	mstream->headers_count = headers_count;
