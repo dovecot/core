@@ -37,7 +37,7 @@ match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
 {
 	MessageSize hdr_size;
 	MboxHeaderContext ctx;
-	off_t old_offset;
+	off_t body_offset;
 	unsigned char *data, current_digest[16], old_digest[16];
 	unsigned int size;
 	const char *md5sum;
@@ -51,8 +51,8 @@ match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
 	message_parse_header(NULL, inbuf, &hdr_size, mbox_header_func, &ctx);
 	md5_final(&ctx.md5, current_digest);
 
+	body_offset = inbuf->offset;
 	do {
-		old_offset = inbuf->offset;
 		do {
 			/* MD5 sums must match */
 			md5sum = index->lookup_field(index, rec,
@@ -66,7 +66,7 @@ match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
 
 			/* don't bother parsing the whole body, just make
 			   sure it ends properly */
-			io_buffer_skip(inbuf, rec->body_size);
+			io_buffer_seek(inbuf, body_offset + rec->body_size);
 
 			if (inbuf->offset == inbuf->size) {
 				/* last message */
@@ -89,10 +89,6 @@ match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
 			return rec;
 		} while (0);
 
-		/* get back to beginning of message body */
-		if (inbuf->offset != old_offset)
-			io_buffer_seek(inbuf, old_offset);
-
 		/* try next message */
 		(*seq)++;
 		(void)index->expunge(index, rec, *seq, TRUE);
@@ -105,6 +101,7 @@ match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
 static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 {
 	MailIndexRecord *rec;
+	off_t from_offset;
 	unsigned char *data;
 	unsigned int seq, size;
 
@@ -135,6 +132,7 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 	rec = index->lookup(index, 1);
 
 	while (rec != NULL) {
+		from_offset = inbuf->offset;
 		if (inbuf->offset != 0) {
 			/* we're at the [\r]\n before the From-line,
 			   skip it */
@@ -149,8 +147,11 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 			break;
 
 		rec = match_next_record(index, rec, &seq, inbuf);
-		if (rec == NULL)
+		if (rec == NULL) {
+			/* Get back to line before From */
+			io_buffer_seek(inbuf, from_offset);
 			break;
+		}
 
 		seq++;
 		rec = index->next(index, rec);

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "iobuffer.h"
+#include "hex-binary.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
 
@@ -14,7 +15,7 @@ static off_t get_indexed_mbox_size(MailIndex *index)
 {
 	MailIndexRecord *rec, *prev;
 	const char *location;
-	unsigned long size;
+	off_t size;
 
 	if (index->lock_type == MAIL_LOCK_UNLOCK) {
 		if (!mail_index_set_lock(index, MAIL_LOCK_SHARED))
@@ -44,15 +45,21 @@ static off_t get_indexed_mbox_size(MailIndex *index)
 			index_set_error(index, "Corrupted index file %s: "
 					"Missing location field for record %u",
 					index->filepath, rec->uid);
+		} else if (strlen(location) != sizeof(size)*2 ||
+			   hex_to_binary(location,
+					 (unsigned char *) &size) <= 0) {
+			INDEX_MARK_CORRUPTED(index);
+			index_set_error(index, "Corrupted index file %s: "
+					"Invalid location field for record %u",
+					index->filepath, rec->uid);
 		} else {
-			size = strtoul(location, NULL, 10) +
-				rec->header_size + rec->body_size;
+			size += rec->header_size + rec->body_size;
 		}
 	}
 
 	if (index->lock_type == MAIL_LOCK_SHARED)
 		(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
-	return (off_t)size;
+	return size;
 }
 
 static int mbox_check_new_mail(MailIndex *index)
