@@ -1,7 +1,9 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "str.h"
 #include "strescape.h"
+#include "imap-quote.h"
 #include "imap-match.h"
 #include "commands.h"
 
@@ -23,6 +25,7 @@ struct list_send_context {
 	struct client *client;
 	const char *response_name;
 	const char *sep;
+	char sep_chr;
 	struct imap_match_glob *glob;
 	int listext, no_placeholder;
 };
@@ -72,9 +75,7 @@ static void list_node_update(pool_t pool, struct list_node **node,
 
 		t_push();
 
-		/* escaping is done here to make sure we don't try to escape
-		   the separator char */
-		name = str_escape(t_strdup_until(name, path));
+		name = t_strdup_until(name, path);
 
 		/* find the node */
 		while (*node != NULL) {
@@ -116,16 +117,18 @@ static void list_node_update(pool_t pool, struct list_node **node,
 static void list_send(struct list_send_context *ctx, struct list_node *node,
 		      const char *path)
 {
-	const char *name, *send_name, *str, *flagstr;
+	const char *name, *send_name, *flagstr;
 	enum imap_match_result match;
+	string_t *str;
 
 	for (; node != NULL; node = node->next) {
 		t_push();
 
 		/* Send INBOX always uppercased */
-		if (path != NULL)
-			name = t_strconcat(path, ctx->sep, node->name, NULL);
-		else if (strcasecmp(node->name, "INBOX") == 0)
+		if (path != NULL) {
+			name = t_strdup_printf("%s%c%s", path, ctx->sep_chr,
+					       node->name);
+		} else if (strcasecmp(node->name, "INBOX") == 0)
 			name = "INBOX";
 		else
 			name = node->name;
@@ -147,8 +150,9 @@ static void list_send(struct list_send_context *ctx, struct list_node *node,
 			      this is sent
 			   c) cyrus and courier doesn't do this either..
 
-			   if (match == IMAP_MATCH_CHILDREN) {
-				send_name = t_strconcat(name, ctx->sep, NULL);
+			if (match == IMAP_MATCH_CHILDREN) {
+				send_name = t_strdup_printf("%s%c", name,
+							    ctx->sep);
 				buf = str_unescape(t_strdup_noconst(send_name));
 				match = imap_match(ctx->glob, buf);
 			}*/
@@ -158,10 +162,13 @@ static void list_send(struct list_send_context *ctx, struct list_node *node,
 			/* node->name should already be escaped */
 			flagstr = mailbox_flags2str(node->flags, ctx->listext,
 						    ctx->no_placeholder);
-			str = t_strdup_printf("* %s (%s) \"%s\" \"%s\"",
-					      ctx->response_name, flagstr,
-					      ctx->sep, send_name);
-			client_send_line(ctx->client, str);
+			t_push();
+			str = t_str_new(256);
+			str_printfa(str, "* %s (%s) \"%s\" ",
+				    ctx->response_name, flagstr, ctx->sep);
+			imap_quote_append_string(str, send_name);
+			client_send_line(ctx->client, str_c(str));
+			t_pop();
 		}
 
 		if (node->children != NULL)
@@ -173,8 +180,8 @@ static void list_send(struct list_send_context *ctx, struct list_node *node,
 
 static void list_and_sort(struct client *client,
 			  struct mailbox_list_context *ctx,
-			  const char *response_name,
-			  const char *sep, const char *mask,
+			  const char *response_name, const char *mask,
+			  const char *sep, char sep_chr,
 			  enum mailbox_list_flags list_flags, int listext)
 {
 	struct mailbox_list *list;
@@ -194,6 +201,7 @@ static void list_and_sort(struct client *client,
 	send_ctx.client = client;
 	send_ctx.response_name = response_name;
 	send_ctx.sep = sep;
+	send_ctx.sep_chr = sep_chr;
 	send_ctx.glob = imap_match_init(data_stack_pool, mask, TRUE,
 					client->storage->hierarchy_sep);
 	send_ctx.listext = listext;
@@ -209,19 +217,19 @@ static void list_unsorted(struct client *client,
 			  const char *reply, const char *sep, int listext)
 {
 	struct mailbox_list *list;
-	const char *name, *str;
+	string_t *str;
 
 	while ((list = client->storage->list_mailbox_next(ctx)) != NULL) {
 		t_push();
+		str = t_str_new(256);
+		str_printfa(str, "* %s (%s) \"%s\" ", reply,
+			    mailbox_flags2str(list->flags, listext, FALSE),
+			    sep);
 		if (strcasecmp(list->name, "INBOX") == 0)
-			name = "INBOX";
+			str_append(str, "INBOX");
 		else
-			name = str_escape(list->name);
-		str = t_strdup_printf("* %s (%s) \"%s\" \"%s\"", reply,
-				      mailbox_flags2str(list->flags, listext,
-							FALSE),
-				      sep, name);
-		client_send_line(client, str);
+			imap_quote_append_string(str, list->name);
+		client_send_line(client, str_c(str));
 		t_pop();
 	}
 }
@@ -333,8 +341,9 @@ int _cmd_list_full(struct client *client, int lsub)
 				list_unsorted(client, ctx, response_name, sep,
 					      listext);
 			} else {
-				list_and_sort(client, ctx, response_name, sep,
-					      mask, list_flags, listext);
+				list_and_sort(client, ctx, response_name, mask,
+					      sep, sep_chr, list_flags,
+					      listext);
 			}
 
 			failed = !client->storage->list_mailbox_deinit(ctx);

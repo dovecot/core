@@ -1,9 +1,9 @@
 #ifndef __STRESCAPE_H
 #define __STRESCAPE_H
 
-#define IS_ESCAPED_CHAR(c) ((c) == '"' || (c) == '\\')
+#define IS_ESCAPED_CHAR(c) ((c) == '"' || (c) == '\\' || (c) == '\'')
 
-/* escape all '\' and '"' characters */
+/* escape all '\', '"' and "'" characters */
 const char *str_escape(const char *str);
 
 /* remove all '\' characters, append to given string */

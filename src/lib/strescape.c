@@ -27,28 +27,28 @@
 
 const char *str_escape(const char *str)
 {
-	char *ret, *p;
-	size_t i, esc;
+	const char *p;
+	string_t *ret;
 
-	/* get length of string and number of chars to escape */
-	esc = 0;
-	for (i = 0; str[i] != '\0'; i++) {
-		if (IS_ESCAPED_CHAR(str[i]))
-			esc++;
+	/* see if we need to quote it */
+	for (p = str; *p != '\0'; p++) {
+		if (IS_ESCAPED_CHAR(*p))
+			break;
 	}
 
-	if (esc == 0)
+	if (*p == '\0')
 		return str;
 
-	/* @UNSAFE: escape them */
-	p = ret = t_malloc(i + esc + 1);
-	for (; *str != '\0'; str++) {
-		if (IS_ESCAPED_CHAR(*str))
-			*p++ = '\\';
-		*p++ = *str;
+	/* quote */
+	ret = t_str_new((size_t) (p - str) + 128);
+	str_append_n(ret, str, (size_t) (p - str));
+
+	for (; *p != '\0'; p++) {
+		if (IS_ESCAPED_CHAR(*p))
+			str_append_c(ret, '\\');
+		str_append_c(ret, *p);
 	}
-	*p = '\0';
-	return ret;
+	return str_c(ret);
 }
 
 void str_append_unescaped(string_t *dest, const void *src, size_t src_size)
