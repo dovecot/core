@@ -36,6 +36,7 @@ static struct message_part *get_cached_parts(struct index_mail *mail)
 {
 	struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	struct message_part *part;
+	const struct message_size *new_hdr_size;
 	buffer_t *part_buf;
 	const char *error;
 
@@ -49,10 +50,21 @@ static struct message_part *get_cached_parts(struct index_mail *mail)
 		return NULL;
 	}
 
+	if (!mail->ibox->unreliable_headers)
+		new_hdr_size = NULL;
+	else {
+		if (!mail->data.hdr_size_set) {
+			if (index_mail_parse_headers(mail, NULL) < 0)
+				return NULL;
+		}
+
+		new_hdr_size = &mail->data.hdr_size;
+	}
+
 	part = message_part_deserialize(mail->pool,
 					buffer_get_data(part_buf, NULL),
 					buffer_get_used_size(part_buf),
-					&error);
+					new_hdr_size, &error);
 	t_pop();
 
 	if (part == NULL) {

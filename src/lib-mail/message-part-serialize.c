@@ -240,11 +240,26 @@ static int message_part_deserialize_part(struct deserialize_context *ctx,
 	return TRUE;
 }
 
-struct message_part *message_part_deserialize(pool_t pool, const void *data,
-					      size_t size, const char **error)
+static void
+message_parts_update_physical_pos(struct message_part *parent, off_t diff)
+{
+	struct message_part *part;
+
+	for (part = parent->children; part != NULL; part = part->next) {
+		part->physical_pos += diff;
+		if (part->children != NULL)
+			message_parts_update_physical_pos(part, diff);
+	}
+}
+
+struct message_part *
+message_part_deserialize(pool_t pool, const void *data, size_t size,
+			 const struct message_size *new_hdr_size,
+			 const char **error_r)
 {
 	struct deserialize_context ctx;
         struct message_part *part;
+	off_t diff;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool;
@@ -252,58 +267,29 @@ struct message_part *message_part_deserialize(pool_t pool, const void *data,
 	ctx.end = ctx.data + size;
 
 	if (!message_part_deserialize_part(&ctx, NULL, 1, &part)) {
-		*error = ctx.error;
+		*error_r = ctx.error;
 		return NULL;
 	}
 
 	if (ctx.data != ctx.end) {
-		*error = "Too much data";
+		*error_r = "Too much data";
 		return NULL;
 	}
 
-	return part;
-}
-
-int message_part_deserialize_size(const void *data, size_t size,
-				  struct message_size *hdr_size,
-				  struct message_size *body_size)
-{
-	const unsigned char *buf = data;
-	unsigned int flags;
-
-	/* make sure it looks valid */
-	if (size < MINIMUM_SERIALIZED_SIZE)
-		return FALSE;
-
-	memcpy(&flags, buf, sizeof(flags));
-	buf += sizeof(flags);
-
-	if (hdr_size == NULL)
-		buf += sizeof(uoff_t) * 2;
-	else {
-		memcpy(&hdr_size->physical_size, buf, sizeof(uoff_t));
-		buf += sizeof(uoff_t);
-		memcpy(&hdr_size->virtual_size, buf, sizeof(uoff_t));
-		buf += sizeof(uoff_t);
-		hdr_size->lines = 0;
-	}
-
-	if (body_size != NULL) {
-		memcpy(&body_size->physical_size, buf, sizeof(uoff_t));
-		buf += sizeof(uoff_t);
-		memcpy(&body_size->virtual_size, buf, sizeof(uoff_t));
-		buf += sizeof(uoff_t);
-
-		if ((flags & (MESSAGE_PART_FLAG_TEXT |
-			      MESSAGE_PART_FLAG_MESSAGE_RFC822)) == 0)
-			body_size->lines = 0;
-		else {
-			if (size < MINIMUM_SERIALIZED_SIZE +
-			    sizeof(unsigned int))
-				return FALSE;
-			memcpy(&body_size->lines, buf, sizeof(unsigned int));
+	if (new_hdr_size != NULL) {
+		if (new_hdr_size->virtual_size !=
+		    part->header_size.virtual_size) {
+			part->header_size.virtual_size =
+				new_hdr_size->virtual_size;
+		}
+		if (new_hdr_size->physical_size !=
+		    part->header_size.physical_size) {
+			diff = new_hdr_size->physical_size -
+				part->header_size.physical_size;
+                        part->header_size.physical_size += diff;
+			message_parts_update_physical_pos(part, diff);
 		}
 	}
 
-	return TRUE;
+	return part;
 }
