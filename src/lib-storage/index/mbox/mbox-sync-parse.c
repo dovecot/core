@@ -274,8 +274,7 @@ static struct header_func *header_func_find(const char *header)
 }
 
 void mbox_sync_parse_next_mail(struct istream *input,
-			       struct mbox_sync_mail_context *ctx,
-			       int rewriting)
+			       struct mbox_sync_mail_context *ctx)
 {
 	struct mbox_sync_context *sync_ctx = ctx->sync_ctx;
 	struct message_header_parser_ctx *hdr_ctx;

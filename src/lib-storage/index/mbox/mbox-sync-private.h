@@ -91,7 +91,7 @@ struct mbox_sync_context {
 	struct mail_index_sync_rec sync_rec;
 
 	uint32_t prev_msg_uid, next_uid;
-	uint32_t seq, idx_seq, need_space_seq;
+	uint32_t seq, idx_seq, need_space_seq, need_space_idx_seq;
 	off_t expunged_space, space_diff;
 
 	unsigned int dest_first_mail:1;
@@ -103,8 +103,7 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit,
 int mbox_sync_has_changed(struct index_mailbox *ibox);
 
 void mbox_sync_parse_next_mail(struct istream *input,
-			       struct mbox_sync_mail_context *ctx,
-			       int rewriting);
+			       struct mbox_sync_mail_context *ctx);
 void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 			     buffer_t *syncs_buf);
 void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,

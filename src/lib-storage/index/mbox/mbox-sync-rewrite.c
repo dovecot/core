@@ -301,7 +301,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	sync_ctx->prev_msg_uid = mails[idx].uid-1;
 	sync_ctx->dest_first_mail = mails[idx].from_offset == 0;
 
-	mbox_sync_parse_next_mail(sync_ctx->input, &mail_ctx, TRUE);
+	mbox_sync_parse_next_mail(sync_ctx->input, &mail_ctx);
 	if (mails[idx].space != 0)
 		mbox_sync_update_header_from(&mail_ctx, &mails[idx]);
 	else {
