@@ -11,6 +11,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <utime.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <time.h>
 
 struct mail_filename {
 	struct mail_filename *next;
@@ -27,38 +30,58 @@ struct mail_save_context {
 	struct mail_filename *files;
 };
 
-const char *maildir_generate_tmp_filename(void)
+const char *maildir_generate_tmp_filename(const struct timeval *tv)
 {
 	static unsigned int create_count = 0;
 
 	hostpid_init();
-
-	return t_strdup_printf("%s.P%sQ%u.%s", dec2str(ioloop_time),
-			       my_pid, create_count++, my_hostname);
+	return t_strdup_printf("%s.P%sQ%uM%s.%s",
+			       dec2str(tv->tv_sec), my_pid, create_count++,
+			       dec2str(tv->tv_usec), my_hostname);
 }
 
 static int maildir_create_tmp(struct mail_storage *storage, const char *dir,
 			      const char **fname)
 {
-	const char *path;
+	const char *path, *tmp_fname;
+	struct stat st;
+	struct timeval *tv, tv_now;
+	pool_t pool;
 	int fd;
 
-	*fname = maildir_generate_tmp_filename();
+	tv = &ioloop_timeval;
+	pool = pool_alloconly_create("maildir_tmp", 4096);
+	for (;;) {
+		p_clear(pool);
+		tmp_fname = maildir_generate_tmp_filename(tv);
 
-	path = t_strconcat(dir, "/", *fname, NULL);
-	fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0660);
+		path = p_strconcat(pool, dir, "/", tmp_fname, NULL);
+		if (stat(path, &st) < 0 && errno == ENOENT) {
+			/* doesn't exist */
+			fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+			if (fd != -1 || errno != EEXIST)
+				break;
+		}
+
+		/* wait and try again - very unlikely */
+		sleep(2);
+		tv = &tv_now;
+		if (gettimeofday(&tv_now, NULL) < 0)
+			i_fatal("gettimeofday(): %m");
+	}
+
+	*fname = t_strdup(tmp_fname);
 	if (fd == -1) {
 		if (errno == ENOSPC) {
 			mail_storage_set_error(storage,
-					       "Not enough disk space");
+				"Not enough disk space");
 		} else {
-			/* don't bother checking if it was because file
-			   existed - if that happens it's itself an error. */
-			mail_storage_set_critical(storage, "Can't create file "
-						  "%s: %m", path);
+			mail_storage_set_critical(storage,
+				"Can't create file %s: %m", path);
 		}
 	}
 
+	pool_unref(pool);
 	return fd;
 }
 
@@ -166,7 +189,8 @@ int maildir_storage_save_next(struct mail_save_context *ctx,
 	/* now, if we want to be able to rollback the whole append session,
 	   we'll just store the name of this temp file and move it later
 	   into new/ */
-	dest_fname = maildir_filename_set_flags(fname, mail_flags);
+	dest_fname = mail_flags == 0 ? fname :
+		maildir_filename_set_flags(fname, mail_flags);
 	if (ctx->transaction) {
 		struct mail_filename *mf;
 

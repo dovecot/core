@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "maildir-index.h"
 #include "maildir-storage.h"
 #include "mail-custom-flags.h"
@@ -57,8 +58,9 @@ static int hardlink_messageset(struct messageset_context *ctx,
 		t_push();
 		src_path = t_strconcat(index->mailbox_path, "/cur/",
 				       fname, NULL);
-		dest_fname = t_strconcat(maildir_filename_set_flags(
-				maildir_generate_tmp_filename(), flags), NULL);
+
+		dest_fname = maildir_generate_tmp_filename(&ioloop_timeval);
+		dest_fname = maildir_filename_set_flags(dest_fname, flags);
 		dest_path = t_strconcat(dest->index->mailbox_path, "/new/",
 					dest_fname, NULL);
 

@@ -25,7 +25,7 @@ maildir_list_mailbox_next(struct mailbox_list_context *ctx);
 int maildir_expunge_locked(struct index_mailbox *ibox, int notify);
 
 /* Return new filename base to save into tmp/ */
-const char *maildir_generate_tmp_filename(void);
+const char *maildir_generate_tmp_filename(const struct timeval *tv);
 
 const char *maildir_get_path(struct mail_storage *storage, const char *name);
 
