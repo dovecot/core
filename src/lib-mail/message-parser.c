@@ -807,8 +807,6 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 				if (ctx->hdr_size != NULL)
 					ctx->hdr_size->virtual_size++;
 				size = i;
-			} else {
-				size = i-1;
 			}
 
 			ctx->skip = i+1;
