@@ -10,8 +10,8 @@ typedef void (*HashForeachFunc) (void *key, void *value, void *context);
 /* Create a new hash table. If initial_size is 0, the default value is used.
    If hash_func or key_compare_func is NULL, direct hashing/comparing
    is used. */
-struct hash_table *hash_create(pool_t node_pool, pool_t hash_pool,
-			       unsigned int initial_size, HashFunc hash_func,
+struct hash_table *hash_create(pool_t pool, unsigned int initial_size,
+			       HashFunc hash_func,
 			       HashCompareFunc key_compare_func);
 void hash_destroy(struct hash_table *table);
 
