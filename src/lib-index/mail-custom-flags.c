@@ -241,25 +241,34 @@ int mail_custom_flags_open_or_create(struct mail_index *index)
 	const char *path;
 	int fd, readonly;
 
-	path = t_strconcat(index->control_dir, "/",
-			   CUSTOM_FLAGS_FILE_NAME, NULL);
 	readonly = index->mailbox_readonly;
-	fd = !index->mailbox_readonly ?
-		open(path, O_RDWR | O_CREAT, 0660) : open(path, O_RDONLY);
-	if (fd == -1) {
-		if (errno == EACCES) {
-			fd = open(path, O_RDONLY);
-			readonly = TRUE;
+
+	if (index->control_dir != NULL) {
+		path = t_strconcat(index->control_dir, "/",
+				   CUSTOM_FLAGS_FILE_NAME, NULL);
+		fd = !readonly ? open(path, O_RDWR | O_CREAT, 0660) :
+			open(path, O_RDONLY);
+		if (fd == -1) {
+			if (errno == EACCES) {
+				fd = open(path, O_RDONLY);
+				readonly = TRUE;
+			}
+			if (errno != EACCES && errno != ENOENT &&
+			    !ENOSPACE(errno)) {
+				index_file_set_syscall_error(index, path, "open()");
+				return FALSE;
+			}
 		}
-		if (errno != EACCES && errno != ENOENT && !ENOSPACE(errno)) {
-			index_file_set_syscall_error(index, path, "open()");
-			return FALSE;
-		}
+	} else {
+		path = NULL;
+		fd = -1;
 	}
 
 	mcf = i_new(struct mail_custom_flags, 1);
 	mcf->index = index;
-	mcf->filepath = i_strdup(path);
+	mcf->filepath = fd != -1 ? i_strdup(path) :
+		i_strdup_printf("(in-memory custom flags for %s)",
+				index->mailbox_path);
 	mcf->fd = fd;
 	mcf->noupdate = mcf->fd == -1 || readonly;
 
