@@ -304,6 +304,11 @@ void io_loop_set_running(struct ioloop *ioloop)
         ioloop->running = TRUE;
 }
 
+int io_loop_is_running(struct ioloop *ioloop)
+{
+        return ioloop->running;
+}
+
 struct ioloop *io_loop_create(pool_t pool)
 {
 	struct ioloop *ioloop;
