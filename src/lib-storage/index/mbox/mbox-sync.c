@@ -985,6 +985,12 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	if (sync_ctx->expunged_space > 0) {
 		/* copy trailer, then truncate the file */
 		file_size = i_stream_get_size(sync_ctx->file_input);
+		if (file_size == (uoff_t)sync_ctx->expunged_space) {
+			/* everything deleted, the trailer_size still contains
+			   the \n trailer though */
+			trailer_size = 0;
+		}
+
 		i_assert(file_size >= sync_ctx->expunged_space + trailer_size);
 		offset = file_size - sync_ctx->expunged_space - trailer_size;
 
