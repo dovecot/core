@@ -1218,7 +1218,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 			continue;
 
 		/* FIXME: do data_id mapping conversion */
-		extra_rec_hdr.idx = i;
+		extra_rec_hdr.data_id = i;
 		ret = log_append_buffer(file, t->extra_rec_updates[i], hdr_buf,
 					MAIL_TRANSACTION_EXTRA_REC_UPDATE,
 					view->external);

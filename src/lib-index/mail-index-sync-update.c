@@ -262,7 +262,7 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 	void *data;
 
 	data = PTR_OFFSET(&ctx->view->map->hdr_copy, u->offset);
-	memcpy(data, u->data, u->size);
+	memcpy(data, u + 1, u->size);
 	return 1;
 }
 
@@ -283,11 +283,11 @@ sync_extra_rec_update(const struct mail_transaction_extra_rec_header *hdr,
 		return -1;
 
 	if (seq != 0) {
-		offset = view->index->extra_records[hdr->idx].offset;
-		size = view->index->extra_records[hdr->idx].size;
+		offset = view->index->extra_records[hdr->data_id].offset;
+		size = view->index->extra_records[hdr->data_id].size;
 
 		rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
-		memcpy(PTR_OFFSET(rec, offset), u->data, size);
+		memcpy(PTR_OFFSET(rec, offset), u + 1, size);
 	}
 	return 1;
 }

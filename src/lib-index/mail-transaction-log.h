@@ -62,16 +62,16 @@ struct mail_transaction_cache_update {
 struct mail_transaction_header_update {
 	uint16_t offset;
 	uint16_t size;
-	unsigned char data[1]; /* variable size */
+	/* unsigned char data[]; */
 };
 
 struct mail_transaction_extra_rec_header {
-	uint32_t idx;
+	uint32_t data_id;
 };
 
 struct mail_transaction_extra_rec_update {
 	uint32_t uid;
-	unsigned char data[1]; /* variable size */
+	/* unsigned char data[]; */
 };
 
 struct mail_transaction_append_header {

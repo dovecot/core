@@ -143,22 +143,21 @@ int mail_transaction_map(struct mail_index *index,
 			if (ret <= 0)
 				break;
 
-			i += sizeof(uint16_t)*2 + rec->size;
+			i += sizeof(*rec) + rec->size;
 		}
 		break;
 	}
 	case MAIL_TRANSACTION_EXTRA_REC_UPDATE: {
-		const struct mail_transaction_extra_rec_header *ehdr;
+		const struct mail_transaction_extra_rec_header *ehdr = data;
 		const struct mail_transaction_extra_rec_update *rec, *end;
 		unsigned int record_size;
 
 		if (map->extra_rec_update == NULL)
 			break;
 
-		ehdr = data;
-		i_assert(ehdr->idx < index->extra_records_count);
-		record_size = sizeof(uint32_t) +
-			index->extra_records[ehdr->idx].size;
+		i_assert(ehdr->data_id < index->extra_records_count);
+		record_size = sizeof(*ehdr) +
+			index->extra_records[ehdr->data_id].size;
 
 		rec = CONST_PTR_OFFSET(data, sizeof(*ehdr));
 		end = CONST_PTR_OFFSET(data, hdr->size);

@@ -311,10 +311,10 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 	} else if (hdr->type == MAIL_TRANSACTION_EXTRA_REC_UPDATE) {
 		const struct mail_transaction_extra_rec_header *ehdr = data;
 
-		if (ehdr->idx >= view->log->index->extra_records_count) {
+		if (ehdr->data_id >= view->log->index->extra_records_count) {
 			mail_transaction_log_file_set_corrupted(file,
 				"extra record update out of range (%u > %u)",
-				ehdr->idx,
+				ehdr->data_id,
 				view->log->index->extra_records_count);
 			return -1;
 		}
