@@ -762,7 +762,7 @@ static int mbox_get_mailbox_name_status(struct mail_storage *_storage,
 	}
 
 	path = mbox_get_path(storage, name);
-	if (stat(path, &st) == 0) {
+	if (strcmp(name, "INBOX") == 0 || stat(path, &st) == 0) {
 		*status = MAILBOX_NAME_EXISTS;
 		return 0;
 	}
