@@ -26,11 +26,12 @@
 
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 int safe_mkdir(const char *dir, mode_t mode, uid_t uid, gid_t gid)
 {
 	struct stat st;
-	int ret = 1;
+	int fd, ret = 1;
 
 	if (lstat(dir, &st) < 0) {
 		if (errno != ENOENT)
@@ -38,26 +39,37 @@ int safe_mkdir(const char *dir, mode_t mode, uid_t uid, gid_t gid)
 
 		if (mkdir(dir, mode) < 0)
 			i_fatal("Can't create directory %s: %m", dir);
-
-		if (lchown(dir, uid, gid) < 0)
-			i_fatal("lchown() failed for %s: %m", dir);
 	} else {
-		/* make sure it's permissions are correct */
-		if (!S_ISDIR(st.st_mode) || S_ISLNK(st.st_mode))
-			i_fatal("Not a directory %s", dir);
-
-		if (st.st_uid != uid || st.st_gid != gid) {
-			if (lchown(dir, uid, gid) < 0)
-				i_fatal("lchown() failed for %s: %m", dir);
-			ret = 0;
-		}
-
-		if ((st.st_mode & 07777) != mode) {
-			if (chmod(dir, mode) < 0)
-				i_fatal("chmod() failed for %s: %m", dir);
-			ret = 0;
-		}
+		/* already exists. */
+		ret = 2;
 	}
+
+	/* use fchown() and fchmod() just to make sure we aren't following
+	   symbolic links. */
+	fd = open(dir, O_RDONLY);
+	if (fd == -1)
+		i_fatal("open() failed for %s: %m", dir);
+
+	if (fstat(fd, &st) < 0)
+		i_fatal("fstat() failed for %s: %m", dir);
+
+	if (!S_ISDIR(st.st_mode) || S_ISLNK(st.st_mode))
+		i_fatal("Not a directory %s", dir);
+
+	if (st.st_uid != uid || st.st_gid != gid) {
+		if (fchown(fd, uid, gid) < 0)
+			i_fatal("fchown() failed for %s: %m", dir);
+		ret = 0;
+	}
+
+	if ((st.st_mode & 07777) != mode) {
+		if (fchmod(fd, mode) < 0)
+			i_fatal("chmod() failed for %s: %m", dir);
+		ret = 0;
+	}
+
+	if (close(fd) < 0)
+		i_fatal("close() failed for %s: %m", dir);
 
 	/* make sure we succeeded in everything. chown() and chmod()
 	   are racy: user owned 0777 file - change either and the user
@@ -65,10 +77,8 @@ int safe_mkdir(const char *dir, mode_t mode, uid_t uid, gid_t gid)
 	if (lstat(dir, &st) < 0)
 		i_fatal("lstat() check failed for %s: %m", dir);
 
-	if (!S_ISDIR(st.st_mode) || S_ISLNK(st.st_mode)) {
-		i_fatal("safe_mkdir() failed: %s is still not a directory",
-			dir);
-	}
+	if (!S_ISDIR(st.st_mode) || S_ISLNK(st.st_mode))
+		i_fatal("Not a directory %s", dir);
 
 	if ((st.st_mode & 07777) != mode) {
 		i_fatal("safe_mkdir() failed: %s (%o) is still not mode %o",
