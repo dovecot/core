@@ -1376,8 +1376,10 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 	header_str = write_header_string(headers, &size);
 	if (idx != 0) {
 		prev_str = mail_cache_get_header_fields_str(cache, idx-1);
-		if (prev_str == NULL)
+		if (prev_str == NULL) {
+			t_pop();
 			return FALSE;
+		}
 
 		i_assert(strcmp(header_str, prev_str) != 0);
 	}
