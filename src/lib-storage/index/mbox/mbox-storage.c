@@ -727,7 +727,11 @@ static int mbox_mailbox_rename(struct mail_storage *_storage,
 		mail_storage_set_error(_storage,
 				       "Target mailbox already exists");
 		return -1;
-	} else if (!ENOTFOUND(errno) && errno != EACCES) {
+	} else if (errno == ENOTDIR) {
+		mail_storage_set_error(_storage,
+			"Target mailbox doesn't allow inferior mailboxes");
+		return -1;
+	} else if (errno != ENOENT && errno != EACCES) {
 		mail_storage_set_critical(_storage, "lstat(%s) failed: %m",
 					  newpath);
 		return -1;
