@@ -137,7 +137,7 @@ int main(int argc __attr_unused__, char *argv[] __attr_unused__)
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
-	ioloop = io_loop_create();
+	ioloop = io_loop_create(system_pool);
 
 	main_init();
         io_loop_run(ioloop);
