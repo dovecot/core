@@ -19,12 +19,12 @@
 
 static struct setting_def setting_defs[] = {
 	DEF(SET_STR, db_host),
-	DEF(SET_STR, db_port),
+	DEF(SET_INT, db_port),
 	DEF(SET_STR, db_unix_socket),
 	DEF(SET_STR, db),
 	DEF(SET_STR, db_user),
 	DEF(SET_STR, db_passwd),
-	DEF(SET_STR, db_client_flags),
+	DEF(SET_INT, db_client_flags),
 	DEF(SET_STR, password_query),
 	DEF(SET_STR, user_query),
 	DEF(SET_STR, default_pass_scheme)
@@ -32,12 +32,12 @@ static struct setting_def setting_defs[] = {
 
 struct mysql_settings default_mysql_settings = {
 	MEMBER(db_host) "localhost",
-	MEMBER(db_port) "0",
-	MEMBER(db_unix_socket) "/var/tmp/mysql.sock",
-	MEMBER(db) "email_accounts",
-	MEMBER(db_user) "dovecot",
-	MEMBER(db_passwd) "changeme",
-	MEMBER(db_client_flags) "0",
+	MEMBER(db_port) 3306,
+	MEMBER(db_unix_socket) NULL,
+	MEMBER(db) NULL,
+	MEMBER(db_user) NULL,
+	MEMBER(db_passwd) NULL,
+	MEMBER(db_client_flags) 0,
 	MEMBER(password_query) "SELECT password FROM users WHERE userid = '%u'",
 	MEMBER(user_query) "SELECT home, uid, gid FROM users WHERE userid = '%u'",
 	MEMBER(default_pass_scheme) "PLAIN-MD5"
@@ -96,10 +96,9 @@ static int mysql_conn_open(struct mysql_connection *conn)
 		if (!mysql_real_connect(conn->mysql, conn->set.db_host,
 					conn->set.db_user, conn->set.db_passwd,
 					conn->set.db,
-					atoi(conn->set.db_port),
+					conn->set.db_port,
 					conn->set.db_unix_socket,
-					strtoul(conn->set.db_client_flags,
-						NULL, 10))) {
+					conn->set.db_client_flags)) {
 			i_error("MYSQL: Can't connect to database %s: %s",
 				conn->set.db, mysql_error(conn->mysql));
 			return FALSE;
@@ -162,6 +161,11 @@ struct mysql_connection *db_mysql_init(const char *config_path)
 	conn->set = default_mysql_settings;
 	if (!settings_read(config_path, NULL, parse_setting, NULL, conn))
 		exit(FATAL_DEFAULT);
+
+	if (conn->set.db == NULL)
+		i_fatal("MYSQL: db variable isn't set in config file");
+	if (conn->set.user == NULL)
+		i_fatal("MYSQL: user variable isn't set in config file");
 
 	(void)mysql_conn_open(conn);
 
