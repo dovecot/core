@@ -75,15 +75,13 @@ static ssize_t _read(struct _istream *stream)
 
 	ret = i_stream_read(mstream->input);
 
+	mstream->istream.pos -= mstream->istream.skip;
 	mstream->istream.skip = 0;
 	mstream->istream.buffer = i_stream_get_data(mstream->input, &pos);
 
-	if (pos <= mstream->istream.pos)
-		ret = -1;
-	else {
-		ret = pos - mstream->istream.pos;
-                mstream->istream.pos = pos;
-	}
+	ret = pos <= mstream->istream.pos ? -1 :
+		(ssize_t) (pos - mstream->istream.pos);
+	mstream->istream.pos = pos;
 
 	if (limit != old_limit)
 		i_stream_set_read_limit(mstream->input, old_limit);
@@ -106,8 +104,8 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 		stream->skip = stream->pos = stream->high_pos = 0;
 		stream->buffer = NULL;
 
-		v_offset += mstream->header_size.physical_size -
-			mstream->header_size.virtual_size;
+		v_offset += (off_t)mstream->header_size.physical_size -
+			(off_t)mstream->header_size.virtual_size;
 		i_stream_seek(mstream->input, v_offset);
 	}
 }
