@@ -71,6 +71,7 @@ int mbox_index_sync(MailIndex *index, MailLockType data_lock_type,
 	struct stat st;
 	time_t index_mtime;
 	uoff_t filesize;
+	int count, fd;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
@@ -86,8 +87,20 @@ int mbox_index_sync(MailIndex *index, MailLockType data_lock_type,
 		index_mtime = st.st_mtime;
 	}
 
-	if (stat(index->mbox_path, &st) < 0)
-		return mbox_set_syscall_error(index, "stat()");
+	count = 0;
+	while (stat(index->mbox_path, &st) < 0) {
+		if (errno != ENOENT || ++count == 3)
+			return mbox_set_syscall_error(index, "stat()");
+
+		/* mbox was deleted by someone - happens with some MUAs
+		   when all mail is expunged. easiest way to deal with this
+		   is to recreate the file. */
+		fd = open(index->mbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
+		if (fd != -1)
+			(void)close(fd);
+		else if (errno != EEXIST)
+			return mbox_set_syscall_error(index, "open()");
+	}
 	filesize = st.st_size;
 
 	if (index->mbox_dev != st.st_dev || index->mbox_ino != st.st_ino) {
