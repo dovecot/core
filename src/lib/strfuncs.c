@@ -552,7 +552,9 @@ char *p_strdup_until(Pool pool, const char *start, const char *end)
 	i_assert(start <= end);
 
 	size = (unsigned int) (end-start);
-	mem = p_malloc(pool, size+1);
+	i_assert(size < UINT_MAX);
+
+	mem = p_malloc(pool, size + 1);
 	memcpy(mem, start, size);
 	return mem;
 }
@@ -565,7 +567,9 @@ const char *t_strdup_until(const char *start, const char *end)
 	i_assert(start <= end);
 
 	size = (unsigned int) (end-start);
-	mem = t_malloc(size+1);
+	i_assert(size < UINT_MAX);
+
+	mem = t_malloc(size + 1);
 	memcpy(mem, start, size);
 	mem[size] = '\0';
 	return mem;
