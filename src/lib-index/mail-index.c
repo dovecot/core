@@ -212,7 +212,7 @@ static int mail_index_sync_file(MailIndex *index)
 
 	for (i = 0; i < sizeof(fsync_fds)/sizeof(fsync_fds[0]); i++) {
 		if (fsync_fds[i] != -1 && fdatasync(fsync_fds[i]) < 0)
-			index_set_error(index, "fdatasync(%d) failed: %m", i);
+			index_set_error(index, "fdatasync(%u) failed: %m", i);
 	}
 
 	if (fsync(index->fd) < 0)
@@ -229,7 +229,7 @@ int mail_index_fmdatasync(MailIndex *index, size_t size)
 		if (msync(index->mmap_base, size, MS_SYNC) < 0)
 			return index_set_syscall_error(index, "msync()");
 		if (fdatasync(index->fd) < 0)
-			return index_set_syscall_error(index, "fsync()");
+			return index_set_syscall_error(index, "fdatasync()");
 	}
 
 	return TRUE;
