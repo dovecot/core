@@ -11,6 +11,7 @@
 #include "hash.h"
 #include "hex-binary.h"
 #include "md5.h"
+#include "mycrypt.h"
 
 #include <stdlib.h>
 #include <fcntl.h>
@@ -116,7 +117,7 @@ static int passwd_file_verify_plain(const char *user, const char *password,
 	/* verify that password matches */
 	switch (pu->password_type) {
 	case PASSWORD_DES:
-		if (strcmp(crypt(password, pu->password), pu->password) != 0)
+		if (strcmp(mycrypt(password, pu->password), pu->password) != 0)
 			return FALSE;
 		break;
 	case PASSWORD_MD5:

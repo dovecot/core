@@ -30,6 +30,7 @@ liblib_a_SOURCES = \
 	mempool-system.c \
 	mmap-anon.c \
 	mmap-util.c \
+	mycrypt.c \
 	network.c \
 	obuffer.c \
 	obuffer-file.c \

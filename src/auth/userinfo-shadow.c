@@ -11,6 +11,7 @@
 #ifdef USERINFO_SHADOW
 
 #include "userinfo-passwd.h"
+#include "mycrypt.h"
 
 #include <shadow.h>
 
@@ -28,7 +29,7 @@ static int shadow_verify_plain(const char *user, const char *password,
 
 	/* check if the password is valid */
         passdup = t_strdup_noconst(password);
-	result = strcmp(crypt(passdup, spw->sp_pwdp), spw->sp_pwdp) == 0;
+	result = strcmp(mycrypt(passdup, spw->sp_pwdp), spw->sp_pwdp) == 0;
 
 	/* clear the passwords from memory */
 	memset(passdup, 0, strlen(passdup));

@@ -11,6 +11,7 @@
 #ifdef USERINFO_PASSWD
 
 #include "userinfo-passwd.h"
+#include "mycrypt.h"
 
 void passwd_fill_cookie_reply(struct passwd *pw, AuthCookieReplyData *reply)
 {
@@ -37,7 +38,7 @@ static int passwd_verify_plain(const char *user, const char *password,
 
 	/* check if the password is valid */
         passdup = t_strdup_noconst(password);
-	result = strcmp(crypt(passdup, pw->pw_passwd), pw->pw_passwd) == 0;
+	result = strcmp(mycrypt(passdup, pw->pw_passwd), pw->pw_passwd) == 0;
 
 	/* clear the passwords from memory */
 	memset(passdup, 0, strlen(passdup));

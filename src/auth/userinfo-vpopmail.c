@@ -8,6 +8,7 @@
 #ifdef USERINFO_VPOPMAIL
 
 #include "userinfo-passwd.h"
+#include "mycrypt.h"
 
 #include <stdio.h>
 #include <vpopmail.h>
