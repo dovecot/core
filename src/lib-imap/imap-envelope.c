@@ -98,13 +98,13 @@ static void imap_write_address(string_t *str, struct message_address *addr)
 	str_append_c(str, '(');
 	while (addr != NULL) {
 		str_append_c(str, '(');
-		str_append(str, imap_quote_str_nil(addr->name));
+		imap_quote_append_string(str, addr->name);
 		str_append_c(str, ' ');
-		str_append(str, imap_quote_str_nil(addr->route));
+		imap_quote_append_string(str, addr->route);
 		str_append_c(str, ' ');
-		str_append(str, imap_quote_str_nil(addr->mailbox));
+		imap_quote_append_string(str, addr->mailbox);
 		str_append_c(str, ' ');
-		str_append(str, imap_quote_str_nil(addr->domain));
+		imap_quote_append_string(str, addr->domain);
 		str_append_c(str, ')');
 
 		addr = addr->next;
@@ -136,16 +136,6 @@ void imap_envelope_write_part_data(struct message_part_envelope_data *data,
 	str_append(str, NVL(data->in_reply_to, "NIL"));
 	str_append_c(str, ' ');
 	str_append(str, NVL(data->message_id, "NIL"));
-}
-
-const char *
-imap_envelope_get_part_data(struct message_part_envelope_data *data)
-{
-	string_t *str;
-
-	str = t_str_new(2048);
-        imap_envelope_write_part_data(data, str);
-	return str_c(str);
 }
 
 static int imap_address_arg_append(struct imap_arg *arg, string_t *str,

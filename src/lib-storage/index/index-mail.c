@@ -209,11 +209,9 @@ void index_mail_parse_header(struct message_part *part __attr_unused__,
 			/* finalize the envelope */
 			string_t *str;
 
-			t_push();
 			str = str_new(mail->pool, 256);
 			imap_envelope_write_part_data(data->envelope_data, str);
 			data->envelope = str_c(str);
-			t_pop();
 		}
 	}
 
@@ -687,7 +685,9 @@ void index_mail_init(struct index_mailbox *ibox, struct index_mail *mail,
 int index_mail_next(struct index_mail *mail, struct mail_index_record *rec)
 {
 	struct index_mail_data *data = &mail->data;
-	int open_mail, parse_header;
+	int ret, open_mail, parse_header;
+
+	t_push();
 
 	/* close the old one */
 	if (data->stream != NULL)
@@ -773,22 +773,26 @@ int index_mail_next(struct index_mail *mail, struct mail_index_record *rec)
 			open_mail(mail->ibox->index, data->rec,
 				  &data->received_date, &deleted);
 		if (data->stream == NULL)
-			return deleted ? 0 : -1;
+			ret = deleted ? 0 : -1;
+		else
+			ret = 1;
+	} else {
+		if ((mail->wanted_fields & MAIL_FETCH_RECEIVED_DATE) &&
+		    data->received_date == (time_t)-1) {
+			/* check this only after open_mail() */
+			data->received_date = get_cached_received_date(mail);
+		}
+
+		if (mail->wanted_fields & MAIL_FETCH_DATE)
+			data->save_sent_time = TRUE;
+		if (mail->wanted_fields & MAIL_FETCH_IMAP_ENVELOPE)
+			data->save_envelope = TRUE;
+
+		data->parse_header = parse_header;
+		ret = 1;
 	}
-
-	if ((mail->wanted_fields & MAIL_FETCH_RECEIVED_DATE) &&
-	    data->received_date == (time_t)-1) {
-		/* check this only after open_mail() */
-		data->received_date = get_cached_received_date(mail);
-	}
-
-	if (mail->wanted_fields & MAIL_FETCH_DATE)
-		data->save_sent_time = TRUE;
-	if (mail->wanted_fields & MAIL_FETCH_IMAP_ENVELOPE)
-		data->save_envelope = TRUE;
-
-	data->parse_header = parse_header;
-	return 1;
+	t_pop();
+	return ret;
 }
 
 void index_mail_deinit(struct index_mail *mail)

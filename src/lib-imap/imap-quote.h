@@ -9,7 +9,7 @@ char *imap_quote(pool_t pool, const unsigned char *value, size_t value_len);
 void imap_quote_append(string_t *str, const unsigned char *value,
 		       size_t value_len);
 
-/* If value is NULL, return NIL. */
-const char *imap_quote_str_nil(const char *value);
+#define imap_quote_append_string(str, value) \
+	imap_quote_append(str, (const unsigned char *) value, (size_t)-1)
 
 #endif

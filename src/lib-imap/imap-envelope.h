@@ -33,9 +33,6 @@ void imap_envelope_parse_header(pool_t pool,
 /* Write envelope to given string */
 void imap_envelope_write_part_data(struct message_part_envelope_data *data,
 				   string_t *str);
-/* Return envelope. */
-const char *
-imap_envelope_get_part_data(struct message_part_envelope_data *data);
 
 /* Parse envelope and store specified field to result. NIL is stored as NULL.
    Returns TRUE if successful. */

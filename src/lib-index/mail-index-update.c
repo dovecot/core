@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "istream.h"
 #include "ioloop.h"
+#include "str.h"
 #include "message-date.h"
 #include "message-parser.h"
 #include "message-part-serialize.h"
@@ -529,10 +530,13 @@ void mail_index_update_headers(struct mail_index_update *update,
 	}
 
 	if (ctx.envelope != NULL) {
+		string_t *str;
+
 		t_push();
-		value = imap_envelope_get_part_data(ctx.envelope);
+		str = str_new(data_stack_pool, 2048);
+		imap_envelope_write_part_data(ctx.envelope, str);
 		update->index->update_field(update, DATA_FIELD_ENVELOPE,
-					    value, 0);
+					    str_c(str), 0);
 		t_pop();
 
 		pool_unref(ctx.envelope_pool);
