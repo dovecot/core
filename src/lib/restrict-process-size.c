@@ -39,7 +39,8 @@ void restrict_process_size(unsigned int size __attr_unused__,
 #ifdef HAVE_RLIMIT_NPROC
 	rlim.rlim_max = rlim.rlim_cur =
 		max_processes < INT_MAX ? max_processes : RLIM_INFINITY;
-	if (setrlimit(RLIMIT_NPROC, &rlim) < 0)
+	if (rlim.rlim_cur != RLIM_INFINITY &&
+	    setrlimit(RLIMIT_NPROC, &rlim) < 0)
 		i_fatal("setrlimit(RLIMIT_NPROC, %u): %m", size);
 #endif
 
@@ -47,11 +48,13 @@ void restrict_process_size(unsigned int size __attr_unused__,
 		size > 0 && size < INT_MAX/1024/1024 ?
 		size*1024*1024 : RLIM_INFINITY;
 
-	if (setrlimit(RLIMIT_DATA, &rlim) < 0)
+	if (rlim.rlim_cur != RLIM_INFINITY &&
+	    setrlimit(RLIMIT_DATA, &rlim) < 0)
 		i_fatal("setrlimit(RLIMIT_DATA, %u): %m", size);
 
 #ifdef HAVE_RLIMIT_AS
-	if (setrlimit(RLIMIT_AS, &rlim) < 0)
+	if (rlim.rlim_cur != RLIM_INFINITY &&
+	    setrlimit(RLIMIT_AS, &rlim) < 0)
 		i_fatal("setrlimit(RLIMIT_AS, %u): %m", size);
 #endif
 #else
