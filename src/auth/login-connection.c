@@ -47,7 +47,7 @@ static void login_input(void *context, int fd __attr_unused__,
 			IO io __attr_unused__)
 {
 	LoginConnection *conn  = context;
-        const unsigned char *data;
+        unsigned char *data;
 	size_t size;
 
 	switch (i_buffer_read(conn->inbuf)) {
@@ -65,7 +65,7 @@ static void login_input(void *context, int fd __attr_unused__,
 		return;
 	}
 
-	data = i_buffer_get_data(conn->inbuf, &size);
+	data = i_buffer_get_modifyable_data(conn->inbuf, &size);
 	if (size < sizeof(AuthRequestType))
 		return;
 
@@ -104,6 +104,9 @@ static void login_input(void *context, int fd __attr_unused__,
 		auth_continue_request(&request, data + sizeof(request),
 				      request_callback, conn);
 		conn->type = AUTH_REQUEST_NONE;
+
+		/* clear any sensitive data from memory */
+		memset(data + sizeof(request), 0, request.data_size);
 	} else {
 		/* unknown request */
 		i_error("BUG: imap-login sent us unknown request %u",

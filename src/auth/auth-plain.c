@@ -12,8 +12,9 @@ static void auth_plain_continue(CookieData *cookie,
 {
 	AuthCookieReplyData *cookie_reply = cookie->context;
 	AuthReplyData reply;
-	const char *user, *pass;
-	size_t i, count;
+	const char *user;
+	char *pass;
+	size_t i, count, len;
 
 	/* initialize reply */
 	memset(&reply, 0, sizeof(reply));
@@ -26,13 +27,16 @@ static void auth_plain_continue(CookieData *cookie,
 	pass = NULL;
 	count = 0;
 	for (i = 0; i < request->data_size; i++) {
-		if (data[i] == '\0') {
-			if (++count == 2) {
-				pass = i+1 == request->data_size ? "" :
-					t_strndup((const char *) data + i + 1,
-						  request->data_size - i - 1);
-				break;
+		if (data[i] == '\0' && ++count == 2) {
+			if (i+1 == request->data_size)
+				pass = "";
+			else {
+				len = request->data_size - (i+1);
+				pass = t_malloc(len+1);
+				memcpy(pass, (const char *) data + (i+1), len);
+				pass[len] = '\0';
 			}
+			break;
 		}
 	}
 
@@ -40,6 +44,11 @@ static void auth_plain_continue(CookieData *cookie,
 		if (userinfo->verify_plain(user, pass, cookie_reply)) {
 			cookie_reply->success = TRUE;
 			reply.result = AUTH_RESULT_SUCCESS;
+		}
+
+		if (*pass != '\0') {
+			/* make sure it's cleared */
+			memset(pass, 0, strlen(pass));
 		}
 	}
 
