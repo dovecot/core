@@ -754,16 +754,18 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 				continue;
 			}
 
-			/* go back to last LWSP if found. */
-			for (i = size-1; i > colon_pos; i--) {
-				if (IS_LWSP(msg[i])) {
-					size = i;
-					break;
+			if (ret == -2) {
+				/* go back to last LWSP if found. */
+				for (i = size-1; i > colon_pos; i--) {
+					if (IS_LWSP(msg[i])) {
+						size = i;
+						break;
+					}
 				}
-			}
 
+				line->continues = TRUE;
+			}
 			line->no_newline = TRUE;
-			line->continues = TRUE;
 			ctx->skip = size;
 			break;
 		}
