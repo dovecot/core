@@ -241,8 +241,8 @@ struct settings default_settings = {
 	MEMBER(mail_extra_groups) NULL,
 
 	MEMBER(default_mail_env) NULL,
-	MEMBER(mail_cache_fields) "MessagePart",
-	MEMBER(mail_never_cache_fields) NULL,
+	MEMBER(mail_cache_fields) NULL,
+	MEMBER(mail_never_cache_fields) "imap.envelope",
 	MEMBER(mailbox_check_interval) 0,
 	MEMBER(mailbox_idle_check_interval) 30,
 	MEMBER(mail_full_filesystem_access) FALSE,
