@@ -212,8 +212,8 @@ static MessagePart *message_parse_part(IOBuffer *inbuf,
 		}
 	}
 
-	p_free_and_null(parse_data->pool, parse_data->last_boundary);
-	p_free_and_null(parse_data->pool, parse_data->last_content_type);
+	parse_data->last_boundary = NULL;
+        parse_data->last_content_type = NULL;
 
 	if (parse_data->part->message_rfc822) {
 		/* message/rfc822 part - the message body begins with
