@@ -111,6 +111,9 @@ int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted)
 			seq_count = (log->seq2 - log->seq1) + 1;
 			messages -= seq_count;
 
+			if (sc->expunge == NULL)
+				break;
+
 			for (; seq_count > 0; seq_count--) {
 				sc->expunge(&ibox->box, log->seq1,
 					    sc_context);
@@ -132,6 +135,11 @@ int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted)
 	/* now show the flags */
 	messages = first_flag_messages_count;
 	custom_flags = mail_custom_flags_list_get(ibox->index->custom_flags);
+
+	if (sc->update_flags == NULL) {
+		/* don't bother going through, we're not printing them anyway */
+		total_count = 0;
+	}
 
 	log = first_flag_log;
 	for (i = first_flag_change; i < total_count; i++, log++) {
