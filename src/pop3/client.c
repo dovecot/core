@@ -230,9 +230,7 @@ int client_send_line(struct client *client, const char *fmt, ...)
 	str_append(str, "\r\n");
 
 	ret = o_stream_send(client->output, str_data(str), str_len(str));
-	if (ret < 0)
-		client_destroy(client);
-	else {
+	if (ret >= 0) {
 		i_assert((size_t)ret == str_len(str));
 
 		if (o_stream_get_buffer_used_size(client->output) <
