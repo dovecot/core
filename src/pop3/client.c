@@ -20,14 +20,14 @@
    size has dropped to half of it, start reading input again. */
 #define OUTBUF_THROTTLE_SIZE 4096
 
-/* If we can't send anything for a minute, disconnect the client */
-#define CLIENT_OUTPUT_TIMEOUT (60*1000)
+/* If we can't send anything for 10 minutes, disconnect the client */
+#define CLIENT_OUTPUT_TIMEOUT (10*60)
 
 /* Disconnect client when it sends too many bad commands in a row */
 #define CLIENT_MAX_BAD_COMMANDS 20
 
 /* Disconnect client after idling this many seconds */
-#define CLIENT_IDLE_TIMEOUT (60*30)
+#define CLIENT_IDLE_TIMEOUT (10*60)
 
 extern struct mail_storage_callbacks mail_storage_callbacks;
 
@@ -363,8 +363,7 @@ static void idle_timeout(void *context __attr_unused__)
 
 	if (my_client->cmd != NULL) {
 		if (ioloop_time - my_client->last_output >=
-		    CLIENT_OUTPUT_TIMEOUT &&
-		    my_client->last_input < my_client->last_output)
+		    CLIENT_OUTPUT_TIMEOUT)
 			client_destroy(my_client);
 	} else {
 		if (ioloop_time - my_client->last_input >=
