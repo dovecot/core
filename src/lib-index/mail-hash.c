@@ -38,7 +38,7 @@
 struct _MailHash {
 	MailIndex *index;
 
-	unsigned int updateid;
+	unsigned int sync_id;
 	unsigned int size;
 
 	int fd;
@@ -85,7 +85,7 @@ static int hash_verify_header(MailHash *hash)
 	}
 
 	hash->header = hash->mmap_base;
-	hash->updateid = hash->header->updateid;
+	hash->sync_id = hash->header->sync_id;
 	hash->size = (hash->mmap_length - sizeof(MailHashHeader)) /
 		sizeof(MailHashRecord);
 
@@ -108,7 +108,7 @@ static int mmap_update(MailHash *hash)
 
 	if (!hash->dirty_mmap) {
 		/* see if someone else modified it */
-		if (hash->header->updateid == hash->updateid)
+		if (hash->header->sync_id == hash->sync_id)
 			return TRUE;
 	}
 
@@ -290,7 +290,7 @@ static int hash_rebuild_to_file(MailIndex *index, int fd,
 	/* setup header */
 	hdr = mmap_base;
 	hdr->indexid = index->indexid;
-	hdr->updateid = ioloop_time;
+	hdr->sync_id = ioloop_time;
 	hdr->used_records = count;
 
 	return munmap(mmap_base, mmap_length) == 0;

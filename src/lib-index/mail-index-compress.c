@@ -61,7 +61,7 @@ int mail_index_compress(MailIndex *index)
 	index->header->first_hole_position = 0;
 	index->header->first_hole_records = 0;
 
-	index->header->updateid++;
+	index->header->sync_id++;
 	index->dirty_mmap = TRUE;
 
 	/* make sure the whole file is synced before removing rebuild-flag */

@@ -29,7 +29,7 @@ static int mmap_update(MailIndex *index)
 		index->header = (MailIndexHeader *) index->mmap_base;
 
 		/* make sure file size hasn't changed */
-		if (index->header->updateid == index->updateid)
+		if (index->header->sync_id == index->sync_id)
 			return TRUE;
 	}
 
@@ -65,7 +65,7 @@ static int mmap_update(MailIndex *index)
 	index->last_lookup = NULL;
 
 	index->header = (MailIndexHeader *) index->mmap_base;
-	index->updateid = index->header->updateid;
+	index->sync_id = index->header->sync_id;
 	index->dirty_mmap = FALSE;
 	return TRUE;
 }
@@ -1233,7 +1233,7 @@ static int mail_index_truncate(MailIndex *index)
 	index->header->first_hole_position = 0;
 	index->header->first_hole_records = 0;
 
-	index->header->updateid++;
+	index->header->sync_id++;
 	index->dirty_mmap = TRUE;
 
 	if (index->header->messages_count == 0) {
@@ -1391,8 +1391,8 @@ int mail_index_append(MailIndex *index, MailIndexRecord **rec)
 		mail_hash_update(index->hash, (*rec)->uid, (uoff_t)pos);
 
 	/* file size changed, let others know about it too by changing
-	   updateid in header. */
-	index->header->updateid++;
+	   sync_id in header. */
+	index->header->sync_id++;
 	index->dirty_mmap = TRUE;
 
 	if (!mmap_update(index))

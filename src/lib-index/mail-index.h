@@ -86,8 +86,8 @@ struct _MailIndexHeader {
 	   5 = MEM_ALIGN_SIZE */
 
 	unsigned int indexid;
-	unsigned int updateid; /* re-mmap() when changed, required only
-	                          if file size is changed */
+	unsigned int sync_id; /* re-mmap() when changed, required only
+	                         if file size is changed */
 
 	unsigned int flags;
 	unsigned int cache_fields;
@@ -289,7 +289,7 @@ struct _MailIndex {
 	char *dir; /* directory where to place the index files */
 	char *filepath; /* index file path */
 	unsigned int indexid;
-	unsigned int updateid;
+	unsigned int sync_id;
 
 	char *mbox_path; /* mbox-specific path to the actual mbox file */
 	uoff_t mbox_size; /* last synced size of mbox file */
