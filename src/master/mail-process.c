@@ -105,7 +105,7 @@ int create_mail_process(int socket, struct ip_addr *ip,
 			const char *data)
 {
 	static const char *argv[] = { NULL, NULL, NULL };
-	const char *host, *mail;
+	const char *host, *mail, *home_dir;
 	char title[1024];
 	pid_t pid;
 	int i, err;
@@ -154,8 +154,14 @@ int create_mail_process(int socket, struct ip_addr *ip,
 
 	restrict_process_size(process_size, (unsigned int)-1);
 
+	home_dir = data + reply->home_idx;
+	if (*home_dir != '\0') {
+		if (chdir(home_dir) < 0)
+			i_fatal("chdir(%s) failed: %m", home_dir);
+	}
+
 	env_put("LOGGED_IN=1");
-	env_put(t_strconcat("HOME=", data + reply->home_idx, NULL));
+	env_put(t_strconcat("HOME=", home_dir, NULL));
 	env_put(t_strconcat("MAIL_CACHE_FIELDS=",
 			    set->mail_cache_fields, NULL));
 	env_put(t_strconcat("MAIL_NEVER_CACHE_FIELDS=",

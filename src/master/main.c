@@ -396,6 +396,9 @@ static void daemonize(void)
 
 	if (setsid() < 0)
 		i_fatal("setsid() failed: %m");
+
+	if (chdir(set->base_dir) < 0)
+		i_fatal("chdir(%s) failed: %m", set->base_dir);
 }
 
 static void print_help(void)
