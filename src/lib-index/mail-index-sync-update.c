@@ -80,12 +80,12 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 	struct mail_index_header *hdr = &map->hdr_copy;
 	struct mail_index_record *rec;
 	uint32_t count, seq, seq1, seq2;
-	int ret;
 
 	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));
 
-	ret = mail_index_lookup_uid_range(view, e->uid1, e->uid2, &seq1, &seq2);
-	i_assert(ret == 0);
+	if (mail_index_lookup_uid_range(view, e->uid1, e->uid2,
+					&seq1, &seq2) < 0)
+		return -1;
 
 	if (seq1 == 0)
 		return 1;
@@ -167,10 +167,11 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	uint8_t flag_mask, old_flags;
 	keywords_mask_t keyword_mask;
 	uint32_t i, idx, seq1, seq2;
-	int update_keywords, ret;
+	int update_keywords;
 
-	ret = mail_index_lookup_uid_range(view, u->uid1, u->uid2, &seq1, &seq2);
-	i_assert(ret == 0);
+	if (mail_index_lookup_uid_range(view, u->uid1, u->uid2,
+					&seq1, &seq2) < 0)
+		return -1;
 
 	if (seq1 == 0)
 		return 1;
@@ -228,11 +229,9 @@ static int sync_cache_update(const struct mail_transaction_cache_update *u,
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
 	uint32_t seq;
-	int ret;
 
-	ret = mail_index_lookup_uid_range(view, u->uid, u->uid,
-					  &seq, &seq);
-	i_assert(ret == 0);
+	if (mail_index_lookup_uid_range(view, u->uid, u->uid, &seq, &seq) < 0)
+		return -1;
 
 	if (seq == 0) {
 		/* already expunged */
@@ -277,13 +276,11 @@ sync_extra_rec_update(const struct mail_transaction_extra_rec_header *hdr,
 	struct mail_index_record *rec;
 	uint32_t seq;
 	uint16_t offset, size;
-	int ret;
 
 	/* FIXME: do data_id mapping conversion */
 
-	ret = mail_index_lookup_uid_range(view, u->uid, u->uid,
-					  &seq, &seq);
-	i_assert(ret == 0);
+	if (mail_index_lookup_uid_range(view, u->uid, u->uid, &seq, &seq) < 0)
+		return -1;
 
 	if (seq != 0) {
 		offset = view->index->extra_records[hdr->idx].offset;
