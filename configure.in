@@ -255,7 +255,7 @@ AC_MSG_RESULT($i_cv_field_tm_gmtoff)
 dnl * do we have struct iovec
 AC_MSG_CHECKING([for struct iovec])
 AC_CACHE_VAL(i_cv_struct_iovec,
-AC_TRY_COMPILE([
+[AC_TRY_COMPILE([
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>],
