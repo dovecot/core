@@ -173,7 +173,9 @@ static struct ip_addr *resolve_ip(const char *name, unsigned int *port)
 		name = t_strdup_until(name+1, p);
 
 		p++;
-		if (*p != '\0' && *p != ':')
+		if (*p == '\0')
+			p = NULL;
+		else if (*p != ':')
 			i_fatal("Invalid data after ']' in address %s", name);
 	} else {
 		p = strrchr(name, ':');
