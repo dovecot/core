@@ -137,7 +137,7 @@ static void fetch_header_field(MessagePart *part __attr_unused__,
 			       void *context)
 {
 	FetchHeaderFieldContext *ctx = context;
-	const char *name_start, *name_end, *cr;
+	const char *field_start, *field_end, *cr, *p;
 	unsigned int len;
 
 	/* see if we want this field */
@@ -145,33 +145,36 @@ static void fetch_header_field(MessagePart *part __attr_unused__,
 		return;
 
 	/* add the field, inserting CRs when needed. FIXME: is this too
-	   kludgy? we assume name continues with ": value\n".. */
-	name_start = name;
-	name_end = name + name_len;
+	   kludgy? we assume name continues with ": value".. */
+	field_start = name;
+	field_end = value + value_len;
 
 	cr = NULL;
-	for (name_start = name; name != name_end; name++) {
-		if (*name == '\r')
-			cr = name;
-		else if (*name == '\n' && cr != name-1) {
+	for (p = field_start; p != field_end; p++) {
+		if (*p == '\r')
+			cr = p;
+		else if (*p == '\n' && cr != p-1) {
 			/* missing CR */
-			len = (unsigned int) (name-name_start);
-			memcpy(ctx->dest, name_start, len);
+			len = (unsigned int) (p-field_start);
+			memcpy(ctx->dest, field_start, len);
 
 			ctx->dest[len++] = '\r';
 			ctx->dest[len++] = '\n';
 			ctx->dest += len;
 
-			name_start = name+1;
+			field_start = p+1;
 		}
 	}
 
-	if (name_start != name_end) {
-		/* last linebreak was \r\n */
-		len = (unsigned int) (name_end-name_start);
-		memcpy(ctx->dest, name_start, len);
+	if (field_start != field_end) {
+		len = (unsigned int) (field_end-field_start);
+		memcpy(ctx->dest, field_start, len);
 		ctx->dest += len;
 	}
+
+	ctx->dest[0] = '\r';
+	ctx->dest[1] = '\n';
+	ctx->dest += 2;
 }
 
 /* Store headers into dest, returns number of bytes written. */
