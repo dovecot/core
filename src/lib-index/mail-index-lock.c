@@ -344,12 +344,16 @@ int mail_index_lock_exclusive(struct mail_index *index,
 	   for the main index file */
 	i_assert(index->log_locked);
 
-	/* wait two seconds for exclusive lock */
-	ret = mail_index_lock(index, F_WRLCK, 2, TRUE, lock_id_r);
-	if (ret > 0)
-		return 0;
-	if (ret < 0)
-		return -1;
+	/* if header size is smaller than what we have, we'll have to recreate
+	   the index to grow it. so don't even try regular locking. */
+	if (index->hdr->header_size >= sizeof(*index->hdr)) {
+		/* wait two seconds for exclusive lock */
+		ret = mail_index_lock(index, F_WRLCK, 2, TRUE, lock_id_r);
+		if (ret > 0)
+			return 0;
+		if (ret < 0)
+			return -1;
+	}
 
 	if (mail_index_lock_exclusive_copy(index) < 0)
 		return -1;
