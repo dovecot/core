@@ -26,10 +26,11 @@
 #include "lib.h"
 #include "alarm-hup.h"
 #include "ibuffer-internal.h"
+#include "network.h"
 
 #include <time.h>
 #include <unistd.h>
-#include <network.h>
+#include <sys/stat.h>
 
 #define I_BUFFER_MIN_SIZE 4096
 
@@ -46,6 +47,7 @@ typedef struct {
 	void (*timeout_func)(void *);
 	void *timeout_context;
 
+	unsigned int file:1;
 	unsigned int autoclose_fd:1;
 } FileIBuffer;
 
@@ -124,11 +126,27 @@ static ssize_t _read(_IBuffer *buf)
 {
 	FileIBuffer *fbuf = (FileIBuffer *) buf;
 	time_t timeout_time;
+	uoff_t read_limit;
 	size_t size;
 	ssize_t ret;
 
 	if (buf->ibuffer.closed)
 		return -1;
+
+	if (fbuf->skip_left > 0) {
+		i_assert(buf->skip == buf->pos);
+
+		if (fbuf->file) {
+			/* we're a file, so we can lseek() */
+			buf->ibuffer.v_offset -= fbuf->skip_left;
+
+			i_buffer_seek(&buf->ibuffer, buf->ibuffer.v_offset +
+				      fbuf->skip_left);
+
+			if (buf->ibuffer.closed)
+				return -1;
+		}
+	}
 
 	buf->ibuffer.buf_errno = 0;
 
@@ -143,19 +161,23 @@ static ssize_t _read(_IBuffer *buf)
 		}
 
 		if (buf->pos == buf->buffer_size)
-                        return -2; /* buffer full */
+			return -2; /* buffer full */
 	}
 
 	size = buf->buffer_size - buf->pos;
 	if (buf->ibuffer.v_limit > 0) {
 		i_assert(buf->ibuffer.v_limit >= buf->ibuffer.v_offset);
-		if (size >= buf->ibuffer.v_limit - buf->ibuffer.v_offset) {
-			size = buf->ibuffer.v_limit - buf->ibuffer.v_offset;
-			if (size == 0) {
-				/* virtual limit reached == EOF */
-				return -1;
-			}
+
+		read_limit = buf->ibuffer.v_limit -
+			buf->ibuffer.v_offset + fbuf->skip_left;
+		if (read_limit <= buf->pos - buf->skip) {
+			/* virtual limit reached == EOF */
+			return -1;
 		}
+
+		read_limit -= buf->pos - buf->skip;
+		if (size > read_limit)
+			size = read_limit;
 	}
 
 	timeout_time = GET_TIMEOUT_TIME(fbuf);
@@ -187,13 +209,13 @@ static ssize_t _read(_IBuffer *buf)
 		}
 
 		if (ret > 0 && fbuf->skip_left > 0) {
-			if (fbuf->skip_left > (uoff_t)ret) {
-				buf->skip += ret;
+			if (fbuf->skip_left >= (size_t)ret) {
 				fbuf->skip_left -= ret;
 				ret = 0;
 			} else {
 				ret -= fbuf->skip_left;
-				buf->skip -= fbuf->skip_left;
+				buf->pos += fbuf->skip_left;
+				buf->skip += fbuf->skip_left;
 				fbuf->skip_left = 0;
 			}
 		}
@@ -206,34 +228,15 @@ static ssize_t _read(_IBuffer *buf)
 static void _skip(_IBuffer *buf, uoff_t count)
 {
 	FileIBuffer *fbuf = (FileIBuffer *) buf;
-	uoff_t old_limit;
-	ssize_t ret;
-	off_t skipped;
 
-	if (buf->buffer_size == 0)
-		i_buffer_grow(buf, I_BUFFER_MIN_SIZE);
-
-	skipped = 0;
-	old_limit = buf->ibuffer.v_limit;
-	i_buffer_set_read_limit(&buf->ibuffer, buf->ibuffer.v_offset + count);
-
-	while (count > 0 && (ret = i_buffer_read(&buf->ibuffer)) > 0) {
-		if ((size_t)ret > count)
-			ret = count;
-
-		count -= ret;
-		buf->skip += ret;
-		buf->ibuffer.v_offset += ret;
-	}
-
-	i_buffer_set_read_limit(&buf->ibuffer, old_limit);
-
-	fbuf->skip_left = count;
+	fbuf->skip_left += count - (buf->pos - buf->skip);
+	buf->skip = buf->pos = 0;
 	buf->ibuffer.v_offset += count;
 }
 
 static void _seek(_IBuffer *buf, uoff_t v_offset)
 {
+	FileIBuffer *fbuf = (FileIBuffer *) buf;
 	uoff_t real_offset;
 	off_t ret;
 
@@ -248,6 +251,9 @@ static void _seek(_IBuffer *buf, uoff_t v_offset)
 		else if (ret != (off_t)real_offset) {
 			buf->ibuffer.buf_errno = EINVAL;
 			ret = -1;
+		} else {
+			buf->skip = buf->pos = 0;
+			fbuf->skip_left = 0;
 		}
 	}
 
@@ -262,20 +268,27 @@ static void _seek(_IBuffer *buf, uoff_t v_offset)
 IBuffer *i_buffer_create_file(int fd, Pool pool, size_t max_buffer_size,
 			      int autoclose_fd)
 {
-	FileIBuffer *mbuf;
+	FileIBuffer *fbuf;
+	struct stat st;
 
-	mbuf = p_new(pool, FileIBuffer, 1);
-	mbuf->max_buffer_size = max_buffer_size;
-	mbuf->autoclose_fd = autoclose_fd;
+	fbuf = p_new(pool, FileIBuffer, 1);
+	fbuf->max_buffer_size = max_buffer_size;
+	fbuf->autoclose_fd = autoclose_fd;
 
-	mbuf->ibuf.iobuf.close = _close;
-	mbuf->ibuf.iobuf.destroy = _destroy;
-	mbuf->ibuf.iobuf.set_max_size = _set_max_size;
-	mbuf->ibuf.iobuf.set_blocking = _set_blocking;
+	fbuf->ibuf.iobuf.close = _close;
+	fbuf->ibuf.iobuf.destroy = _destroy;
+	fbuf->ibuf.iobuf.set_max_size = _set_max_size;
+	fbuf->ibuf.iobuf.set_blocking = _set_blocking;
 
-	mbuf->ibuf.read = _read;
-	mbuf->ibuf.skip_count = _skip;
-	mbuf->ibuf.seek = _seek;
+	fbuf->ibuf.read = _read;
+	fbuf->ibuf.skip_count = _skip;
+	fbuf->ibuf.seek = _seek;
 
-	return _i_buffer_create(&mbuf->ibuf, pool, fd, 0, 0);
+	/* get size of fd if it's a file */
+	if (fstat(fd, &st) < 0)
+		st.st_size = 0;
+	else if (S_ISREG(st.st_mode))
+		fbuf->file = TRUE;
+
+	return _i_buffer_create(&fbuf->ibuf, pool, fd, 0, (uoff_t)st.st_size);
 }
