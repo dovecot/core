@@ -410,9 +410,6 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 	if (buf->closed)
                 return -1;
 
-	if (size == 0)
-		return 1;
-
 	if (buf->pos == 0) {
 		/* buffer is empty, try to send the data immediately */
 		ret = buf->file ? my_write(buf->fd, data, size) :
@@ -425,7 +422,12 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 
 		buf->offset += ret;
 		data = (const char *) data + ret;
-                size -= ret;
+		size -= ret;
+	}
+
+	if (size == 0) {
+		/* all sent */
+		return 1;
 	}
 
 	if (io_buffer_get_space(buf, size) == NULL) {
@@ -829,6 +831,7 @@ int io_buffer_read_data(IOBuffer *buf, unsigned char **data,
 
 unsigned char *io_buffer_get_space(IOBuffer *buf, unsigned int size)
 {
+	i_assert(size > 0);
 	i_assert(size <= INT_MAX);
 	i_assert(!buf->receive);
 	buf->transmit = TRUE;
