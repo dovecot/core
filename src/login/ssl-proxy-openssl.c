@@ -149,6 +149,7 @@ const char *ssl_last_error(void)
 static void ssl_handle_error(SSLProxy *proxy, int err, const char *func)
 {
 	err = SSL_get_error(proxy->ssl, err);
+
 	switch (err) {
 	case SSL_ERROR_WANT_READ:
 		ssl_set_direction(proxy, IO_READ);
@@ -158,12 +159,20 @@ static void ssl_handle_error(SSLProxy *proxy, int err, const char *func)
 		break;
 	case SSL_ERROR_SYSCALL:
 		/* eat up the error queue */
-		i_error("%s failed: %s", func, ssl_last_error());
+		i_warning("%s failed: %s", func, ssl_last_error());
 		ssl_proxy_destroy(proxy);
 		break;
 	case SSL_ERROR_ZERO_RETURN:
 		/* clean connection closing */
+		ssl_proxy_destroy(proxy);
+		break;
+	case SSL_ERROR_SSL:
+		i_warning("%s failed: %s", func, ssl_last_error());
+		ssl_proxy_destroy(proxy);
+		break;
 	default:
+		i_warning("%s failed: unknown failure %d (%s)",
+			  func, err, ssl_last_error());
 		ssl_proxy_destroy(proxy);
 		break;
 	}
