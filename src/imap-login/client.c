@@ -385,9 +385,6 @@ void client_destroy(struct imap_client *client, const char *reason)
 
 	hash_remove(clients, client);
 
-	imap_parser_destroy(client->parser);
-	client->parser = NULL;
-
 	i_stream_close(client->input);
 	o_stream_close(client->output);
 
@@ -413,6 +410,8 @@ int client_unref(struct imap_client *client)
 {
 	if (--client->refcount > 0)
 		return TRUE;
+
+	imap_parser_destroy(client->parser);
 
 	i_stream_unref(client->input);
 	o_stream_unref(client->output);

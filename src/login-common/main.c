@@ -64,8 +64,7 @@ void main_close_listen(void)
 	}
 
 	closing_down = TRUE;
-	if (!is_inetd)
-		master_notify_finished();
+	master_notify_finished();
 }
 
 static void sig_quit(int signo __attr_unused__)
@@ -206,9 +205,9 @@ static void main_deinit(void)
 
 	ssl_proxy_deinit();
 
+	auth_connection_deinit();
 	clients_deinit();
 	master_deinit();
-	auth_connection_deinit();
 
 	closelog();
 }
@@ -270,9 +269,8 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 		}
 
 		master_init(master_fd, FALSE);
+		closing_down = TRUE;
 	}
-
-	main_close_listen();
 
 	if (fd != -1)
 		(void)client_create(fd, &ip, TRUE);
