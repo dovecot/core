@@ -12,7 +12,7 @@ const char *home_expand(const char *path)
 	const char *home, *p, *orig_path;
 	struct passwd *pw;
 
-	if (*path != '~')
+	if (path == NULL || *path != '~')
 		return path;
 
 	orig_path = path++;
