@@ -39,6 +39,32 @@
 */
 #define RBNULL 0
 
+/* If highest bit in node_count is set, the node is red. */
+#define RED_MASK (1 << (SIZEOF_INT*CHAR_BIT-1))
+
+#define IS_NODE_BLACK(node) \
+	(((node).node_count & RED_MASK) == 0)
+#define IS_NODE_RED(node) \
+	(((node).node_count & RED_MASK) != 0)
+
+#define NODE_SET_BLACK(node) \
+	STMT_START { (node).node_count &= ~RED_MASK; } STMT_END
+#define NODE_SET_RED(node) \
+	STMT_START { (node).node_count |= RED_MASK; } STMT_END
+
+#define NODE_COPY_COLOR(dest, src) \
+	STMT_START { \
+		if (((src).node_count & RED_MASK) != \
+		    ((dest).node_count & RED_MASK)) \
+        		(dest).node_count ^= RED_MASK; \
+	} STMT_END
+
+#define NODE_COUNT(node) \
+	((node).node_count & ~RED_MASK)
+
+#define NODE_COUNT_ADD(node, count) \
+	STMT_START { (node).node_count += (count); } STMT_END
+
 /*
 ** OK here we go, the balanced tree stuff. The algorithm is the
 ** fairly standard red/black taken from "Introduction to Algorithms"
@@ -160,8 +186,8 @@ rb_left_rotate(MailTree *tree, unsigned int x)
 	i_assert(node[x].right != RBNULL);
 
 	y = node[x].right;
-	a_nodes = node[node[x].left].node_count;
-	c_nodes = node[node[y].right].node_count;
+	a_nodes = NODE_COUNT(node[node[x].left]);
+	c_nodes = NODE_COUNT(node[node[y].right]);
 
 	/* Turn Y's left subtree into X's right subtree (move B) */
 	node[x].right = node[y].left;
@@ -191,8 +217,8 @@ rb_left_rotate(MailTree *tree, unsigned int x)
 	node[x].up = y;
 
 	/* Update node counts */
-	node[x].node_count -= c_nodes+1;
-	node[y].node_count += a_nodes+1;
+        NODE_COUNT_ADD(node[x], -(c_nodes+1));
+        NODE_COUNT_ADD(node[y], a_nodes+1);
 }
 
 static void
@@ -205,8 +231,8 @@ rb_right_rotate(MailTree *tree, unsigned int y)
 	i_assert(node[y].left != RBNULL);
 
 	x = node[y].left;
-	a_nodes = node[node[x].left].node_count;
-	c_nodes = node[node[y].right].node_count;
+	a_nodes = NODE_COUNT(node[node[x].left]);
+	c_nodes = NODE_COUNT(node[node[y].right]);
 
 	/* Turn X's right subtree into Y's left subtree (move B) */
 	node[y].left = node[x].right;
@@ -236,8 +262,8 @@ rb_right_rotate(MailTree *tree, unsigned int y)
 	node[y].up = x;
 
 	/* Update node counts */
-	node[x].node_count += c_nodes+1;
-	node[y].node_count -= a_nodes+1;
+	NODE_COUNT_ADD(node[x], c_nodes+1);
+	NODE_COUNT_ADD(node[y], -(a_nodes+1));
 }
 
 /* Return index to the smallest key greater than x
@@ -279,7 +305,7 @@ rb_insert_fix(MailTree *tree, unsigned int z)
 	unsigned int x, y, x_up_up;
 
 	/* color this new node red */
-	node[z].color = RED;
+	NODE_SET_RED(node[z]);
 
 	/* Having added a red node, we must now walk back up the tree balancing
 	** it, by a series of rotations and changing of colors
@@ -291,19 +317,19 @@ rb_insert_fix(MailTree *tree, unsigned int z)
 	** are also going to stop if we are the child of the root
 	*/
 
-	while (x != tree->header->root && node[node[x].up].color == RED) {
+	while (x != tree->header->root && IS_NODE_RED(node[node[x].up])) {
 		/* if our parent is on the left side of our grandparent */
 		x_up_up = node[node[x].up].up;
 		if (node[x].up == node[x_up_up].left) {
 			/* get the right side of our grandparent (uncle?) */
 			y = node[x_up_up].right;
-			if (node[y].color == RED) {
+			if (IS_NODE_RED(node[y])) {
 				/* make our parent black */
-				node[node[x].up].color = BLACK;
+				NODE_SET_BLACK(node[node[x].up]);
 				/* make our uncle black */
-				node[y].color = BLACK;
+				NODE_SET_BLACK(node[y]);
 				/* make our grandparent red */
-				node[x_up_up].color = RED;
+				NODE_SET_RED(node[x_up_up]);
 
 				/* now consider our grandparent */
 				x = x_up_up;
@@ -316,9 +342,9 @@ rb_insert_fix(MailTree *tree, unsigned int z)
 				}
 
 				/* make our parent black */
-				node[node[x].up].color = BLACK;
+				NODE_SET_BLACK(node[node[x].up]);
 				/* make our grandparent red */
-				node[x_up_up].color = RED;
+				NODE_SET_RED(node[x_up_up]);
 				/* right rotate our grandparent */
 				rb_right_rotate(tree, x_up_up);
 			}
@@ -328,10 +354,10 @@ rb_insert_fix(MailTree *tree, unsigned int z)
 			*/
 
 			y = node[x_up_up].left;
-			if (node[y].color == RED) {
-				node[node[x].up].color = BLACK;
-				node[y].color = BLACK;
-				node[x_up_up].color = RED;
+			if (IS_NODE_RED(node[y])) {
+				NODE_SET_BLACK(node[node[x].up]);
+				NODE_SET_BLACK(node[y]);
+				NODE_SET_RED(node[x_up_up]);
 
 				x = x_up_up;
 			} else {
@@ -340,15 +366,15 @@ rb_insert_fix(MailTree *tree, unsigned int z)
 					rb_right_rotate(tree, x);
 				}
 
-				node[node[x].up].color = BLACK;
-				node[x_up_up].color = RED;
+				NODE_SET_BLACK(node[node[x].up]);
+				NODE_SET_RED(node[x_up_up]);
 				rb_left_rotate(tree, x_up_up);
 			}
 		}
 	}
 
 	/* Set the root node black */
-	node[tree->header->root].color = BLACK;
+	NODE_SET_BLACK(node[tree->header->root]);
 	return z;
 }
 
@@ -359,66 +385,66 @@ rb_delete_fix(MailTree *tree, unsigned int x)
 	MailTreeNode *node = tree->node_base;
 	unsigned int w;
 
-	while (x != tree->header->root && node[x].color == BLACK) {
+	while (x != tree->header->root && IS_NODE_BLACK(node[x])) {
 		if (x == node[node[x].up].left) {
 			w = node[node[x].up].right;
-			if (node[w].color == RED) {
-				node[w].color = BLACK;
-				node[node[x].up].color = RED;
+			if (IS_NODE_RED(node[w])) {
+				NODE_SET_BLACK(node[w]);
+				NODE_SET_RED(node[node[x].up]);
 				rb_left_rotate(tree, node[x].up);
 				w = node[node[x].up].right;
 			}
 
-			if (node[node[w].left].color == BLACK &&
-			    node[node[w].right].color == BLACK) {
-				node[w].color = RED;
+			if (IS_NODE_BLACK(node[node[w].left]) &&
+			    IS_NODE_BLACK(node[node[w].right])) {
+				NODE_SET_RED(node[w]);
 				x = node[x].up;
 			} else {
-				if (node[node[w].right].color == BLACK) {
-					node[node[w].left].color = BLACK;
-					node[w].color = RED;
+				if (IS_NODE_BLACK(node[node[w].right])) {
+					NODE_SET_BLACK(node[node[w].left]);
+					NODE_SET_RED(node[w]);
 					rb_right_rotate(tree, w);
 					w = node[node[x].up].right;
 				}
 
 
-				node[w].color = node[node[x].up].color;
-				node[node[x].up].color = BLACK;
-				node[node[w].right].color = BLACK;
+				NODE_COPY_COLOR(node[w], node[node[x].up]);
+				NODE_SET_BLACK(node[node[x].up]);
+				NODE_SET_BLACK(node[node[w].right]);
 				rb_left_rotate(tree, node[x].up);
 				x = tree->header->root;
 			}
 		} else {
 			w = node[node[x].up].left;
-			if (node[w].color == RED) {
-				node[w].color = BLACK;
-				node[node[x].up].color = RED;
+			if (IS_NODE_RED(node[w])) {
+				NODE_SET_BLACK(node[w]);
+				NODE_SET_RED(node[node[x].up]);
 				rb_right_rotate(tree, node[x].up);
 				w = node[node[x].up].left;
 			}
 
-			if (node[node[w].right].color == BLACK &&
-			    node[node[w].left].color == BLACK) {
-				node[w].color = RED;
+			if (IS_NODE_BLACK(node[node[w].right]) &&
+			    IS_NODE_BLACK(node[node[w].left])) {
+				NODE_SET_RED(node[w]);
 				x = node[x].up;
 			} else {
-				if (node[node[w].left].color == BLACK) {
-					node[node[w].right].color = BLACK;
-					node[w].color = RED;
+				if (IS_NODE_BLACK(node[node[w].left])) {
+					NODE_SET_BLACK(node[node[w].right]);
+					NODE_SET_RED(node[w]);
 					rb_left_rotate(tree, w);
 					w = node[node[x].up].left;
 				}
 
-				node[w].color = node[node[x].up].color;
-				node[node[x].up].color = BLACK;
-				node[node[w].left].color = BLACK;
+				NODE_COPY_COLOR(node[w], node[node[x].up]);
+				NODE_SET_BLACK(node[node[x].up]);
+				NODE_SET_BLACK(node[node[w].left]);
 				rb_right_rotate(tree, node[x].up);
 				x = tree->header->root;
 			}
 		}
 	}
 
-	node[x].color = BLACK;
+	NODE_SET_BLACK(node[x]);
 }
 
 /*
@@ -506,17 +532,17 @@ rb_delete(MailTree *tree, unsigned int z)
 	if (b != RBNULL) {
 		/* case 3 updates */
 		while (b != x) {
-			node[b].node_count--;
+			NODE_COUNT_ADD(node[b], -1);
 			b = node[b].left;
 		}
 	}
 
 	while (z != RBNULL) {
-		node[z].node_count--;
+		NODE_COUNT_ADD(node[z], -1);
 		z = node[z].up;
 	}
 
-	if (node[y].color == BLACK)
+	if (IS_NODE_BLACK(node[y]))
 		rb_delete_fix(tree, x);
 
 	rb_free(tree, y);
@@ -528,9 +554,9 @@ rb_check1(MailTree *tree, unsigned int x)
 {
         MailTreeNode *node = tree->node_base;
 
-	if (node[x].color == RED) {
-		if (node[node[x].left].color != BLACK &&
-		    node[node[x].right].color != BLACK) {
+	if (IS_NODE_RED(node[x])) {
+		if (!IS_NODE_BLACK(node[node[x].left]) ||
+		    !IS_NODE_BLACK(node[node[x].right])) {
 			i_error("Children of red node not both black, x=%u", x);
 			return -1;
 		}
@@ -578,7 +604,7 @@ int count_black(MailTree *tree, unsigned int x)
 		return -1;
 	}
 
-	if (node[x].color == BLACK)
+	if (IS_NODE_BLACK(node[x]))
 		nleft++;
 
 	return nleft;
@@ -598,9 +624,9 @@ int count_nodes(MailTree *tree, unsigned int x)
 	if (nleft == -1 || nright == -1)
 		return -1;
 
-	if (nleft+nright+1 != (int)node[x].node_count) {
+	if (nleft+nright+1 != (int)NODE_COUNT(node[x])) {
 		i_error("Invalid node count, x=%u, %d+%d+1 != %u",
-			x, nleft, nright, node[x].node_count);
+			x, nleft, nright, NODE_COUNT(node[x]));
 		return -1;
 	}
 
@@ -615,8 +641,8 @@ void dumptree(MailTree *tree, unsigned int x, int n)
 		n++;
 		i_error("Tree: %*s %u: left=%u, right=%u, color=%s, nodes=%u, key=%u",
 			n, "", x, node[x].left, node[x].right,
-			node[x].color == BLACK ? "BLACK" : "RED",
-			node[x].node_count, node[x].key);
+			IS_NODE_BLACK(node[x]) ? "BLACK" : "RED",
+			NODE_COUNT(node[x]), node[x].key);
 
 		dumptree(tree, node[x].left, n);
 		dumptree(tree, node[x].right, n);
@@ -689,7 +715,7 @@ unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 		if (first_uid < node[x].key)
 			x = node[x].left;
 		else {
-			seq += node[node[x].left].node_count+1;
+			seq += NODE_COUNT(node[node[x].left])+1;
 			if (first_uid > node[x].key)
 				x = node[x].right;
 			else {
@@ -739,7 +765,7 @@ unsigned int mail_tree_lookup_sequence(MailTree *tree, unsigned int seq)
 	seq--;
 	upleft_nodes = left_nodes = 0;
 	while (x != RBNULL) {
-		left_nodes = upleft_nodes + node[node[x].left].node_count;
+		left_nodes = upleft_nodes + NODE_COUNT(node[node[x].left]);
 
 		if (seq < left_nodes)
 			x = node[x].left;
@@ -805,7 +831,7 @@ int mail_tree_insert(MailTree *tree, unsigned int uid, unsigned int index)
 	}
 
 	for (; x != RBNULL; x = node[x].up)
-	     node[x].node_count++;
+	     NODE_COUNT_ADD(node[x], 1);
 
         rb_insert_fix(tree, z);
         rb_check(tree);

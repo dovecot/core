@@ -4,8 +4,6 @@
 typedef struct _MailTreeHeader MailTreeHeader;
 typedef struct _MailTreeNode MailTreeNode;
 
-enum nodecolor { BLACK = 0, RED };
-
 struct _MailTree {
 	MailIndex *index;
 
@@ -38,7 +36,6 @@ struct _MailTreeNode {
 	unsigned int left;
 	unsigned int right;
 	unsigned int up;
-	unsigned int color;
 
 	/* number of child nodes + 1, used to figure out message
 	   sequence numbers */
