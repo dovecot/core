@@ -545,6 +545,19 @@ const char **t_strsplit_spaces(const char *data, const char *separators)
 	return _strsplit(data, separators, TRUE);
 }
 
+unsigned int strarray_length(const char *const *arr)
+{
+	unsigned int count;
+
+	if (arr == NULL)
+		return 0;
+
+	for (count = 0; *arr != NULL; arr++)
+		count++;
+
+	return count;
+}
+
 const char *dec2str(uintmax_t number)
 {
 	char *buffer;

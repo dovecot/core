@@ -65,6 +65,9 @@ const char **t_strsplit_spaces(const char *data, const char *separators);
 
 const char *dec2str(uintmax_t number);
 
+/* Return length of NULL-terminated list string array */
+unsigned int strarray_length(const char *const *arr);
+
 /* INTERNAL */
 const char *_vstrconcat(const char *str1, va_list args, size_t *ret_len);
 
