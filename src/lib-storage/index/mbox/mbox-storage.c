@@ -222,12 +222,6 @@ const char *mbox_fix_mailbox_name(struct mail_storage *storage,
 	char *dup, *p, sep;
 	size_t len;
 
-	len = strlen(name);
-	if (len > 1 && name[len-1] == storage->hierarchy_sep) {
-		/* mailbox and mailbox/ should be treated equally */
-		name = t_strndup(name, len-1);
-	}
-
 	if (strncasecmp(name, "INBOX", 5) == 0 &&
 	    (name[5] == '\0' || name[5] == storage->hierarchy_sep)) {
 		name = t_strconcat("INBOX", name+5, NULL);
