@@ -668,14 +668,6 @@ static int search_limit_by_flags(struct index_mailbox *ibox,
 					return -1;
 			}
 		}
-
-		/*FIXME:if (args->type == SEARCH_RECENT) {
-			uid = ibox->index->first_recent_uid;
-			if (!args->not && *first_uid < uid)
-				*first_uid = ibox->index->first_recent_uid;
-			else if (args->not && *last_uid >= uid)
-				*last_uid = uid-1;
-		}*/
 	}
 
 	return *seq1 <= *seq2;
@@ -738,9 +730,6 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 		i_fatal("BUG: index_storage_search_init(): "
 			 "invalid sort_program");
 	}
-
-	/*FIXME:if (!index_storage_sync_and_lock(ibox, TRUE, TRUE, MAIL_LOCK_SHARED))
-		return NULL;*/
 
 	ctx = i_new(struct index_search_context, 1);
 	ctx->mail_ctx.box = &t->ibox->box;
