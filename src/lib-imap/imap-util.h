@@ -32,7 +32,8 @@ enum {
 
 /* Return flags as a space separated string. custom_flags[] is a list of
    names for custom flags, flags having NULL or "" entry are ignored. */
-const char *imap_write_flags(MailFlags flags, const char *custom_flags[]);
+const char *imap_write_flags(MailFlags flags, const char *custom_flags[],
+			     unsigned int custom_flags_count);
 
 /* Escape the string */
 const char *imap_escape(const char *str);

@@ -5,7 +5,7 @@
 
 int cmd_noop(Client *client)
 {
-	client_sync_mailbox(client);
+	client_sync_full(client);
 	client_send_tagline(client, "OK NOOP completed.");
 	return TRUE;
 }

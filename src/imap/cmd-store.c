@@ -2,35 +2,6 @@
 
 #include "common.h"
 #include "commands.h"
-#include "imap-util.h"
-
-static void update_func(Mailbox *mailbox __attr_unused__, unsigned int seq,
-			unsigned int uid __attr_unused__, MailFlags flags,
-			const char *custom_flags[], void *context)
-{
-	Client *client = context;
-	const char *str;
-
-	t_push();
-	str = imap_write_flags(flags, custom_flags);
-	client_send_line(client,
-			 t_strdup_printf("* %u FETCH (FLAGS (%s))", seq, str));
-	t_pop();
-}
-
-static void update_func_uid(Mailbox *mailbox __attr_unused__, unsigned int seq,
-			    unsigned int uid, MailFlags flags,
-			    const char *custom_flags[], void *context)
-{
-	Client *client = context;
-	const char *str;
-
-	t_push();
-	str = imap_write_flags(flags, custom_flags);
-	client_send_line(client, t_strdup_printf(
-		"* %u FETCH (FLAGS (%s) UID %u)", seq, str, uid));
-	t_pop();
-}
 
 static int get_modify_type(Client *client, const char *item,
 			   ModifyType *modify_type, int *silent)
@@ -66,7 +37,6 @@ int cmd_store(Client *client)
 	ImapArg *args;
 	MailFlags flags;
 	ModifyType modify_type;
-	MailFlagUpdateFunc func;
 	const char *custflags[MAIL_CUSTOM_FLAGS_COUNT];
 	const char *messageset, *item;
 	int silent, all_found;
@@ -101,18 +71,18 @@ int cmd_store(Client *client)
 	}
 
 	/* and update the flags */
-	func = silent ? NULL :
-		client->cmd_uid ? update_func_uid : update_func;
+	client->sync_flags_send_uid = client->cmd_uid;
 	if (client->mailbox->update_flags(client->mailbox, messageset,
 					  client->cmd_uid, flags, custflags,
-					  modify_type, func, client,
-					  &all_found)) {
+					  modify_type, !silent, &all_found)) {
 		/* NOTE: syncing isn't allowed here */
-                client_check_new_mail(client);
+		client_sync_without_expunges(client);
 		client_send_tagline(client, all_found ? "OK Store completed." :
 				    "NO Some of the messages no longer exist.");
-	} else
+	} else {
 		client_send_storage_error(client);
+	}
 
+	client->sync_flags_send_uid = FALSE;
 	return TRUE;
 }

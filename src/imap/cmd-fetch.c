@@ -266,7 +266,7 @@ int cmd_fetch(Client *client)
 	if (client->mailbox->fetch(client->mailbox, &data,
 				   client->outbuf, &all_found)) {
 		/* NOTE: syncing isn't allowed here */
-                client_check_new_mail(client);
+                client_sync_without_expunges(client);
 		client_send_tagline(client, all_found ? "OK Fetch completed." :
 				    "NO Some of the requested messages "
 				    "no longer exist.");

@@ -29,7 +29,7 @@ int cmd_copy(Client *client)
 	/* copy the mail */
 	if (client->mailbox->copy(client->mailbox, destbox,
 				  messageset, client->cmd_uid)) {
-                client_sync_mailbox(client);
+                client_sync_full(client);
 		client_send_tagline(client, "OK Copy completed.");
 	} else
 		client_send_storage_error(client);

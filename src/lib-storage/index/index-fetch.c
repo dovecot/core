@@ -91,7 +91,8 @@ static void index_fetch_flags(MailIndexRecord *rec, FetchContext *ctx)
 		flags |= MAIL_SEEN;
 
 	t_string_printfa(ctx->str, "FLAGS (%s) ",
-			 imap_write_flags(flags, ctx->custom_flags));
+			 imap_write_flags(flags, ctx->custom_flags,
+					  ctx->custom_flags_count));
 }
 
 static void index_fetch_internaldate(MailIndexRecord *rec, FetchContext *ctx)
@@ -348,7 +349,7 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 	MailFetchBodyData *sect;
 	int ret;
 
-	if (!index_storage_sync_if_possible(ibox))
+	if (!index_storage_sync_index_if_possible(ibox))
 		return FALSE;
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -388,6 +389,7 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 	ctx.index = ibox->index;
 	ctx.custom_flags =
 		mail_custom_flags_list_get(ibox->index->custom_flags);
+        ctx.custom_flags_count = MAIL_CUSTOM_FLAGS_COUNT;
 
 	ctx.fetch_data = fetch_data;
 	ctx.outbuf = outbuf;

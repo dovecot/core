@@ -35,7 +35,7 @@ int cmd_search(Client *client)
 		if (client->mailbox->search(client->mailbox, sargs,
 					    client->outbuf, client->cmd_uid)) {
 			/* NOTE: syncing isn't allowed here */
-			client_check_new_mail(client);
+			client_sync_without_expunges(client);
 			client_send_tagline(client, "OK Search completed.");
 		} else {
 			client_send_storage_error(client);

@@ -12,7 +12,7 @@
 
 static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 			unsigned int seq, IBuffer *inbuf, OBuffer *outbuf,
-			MailExpungeFunc expunge_func, void *context)
+			int notify)
 {
 	uoff_t offset, end_offset, from_offset, copy_size, old_limit;
 	unsigned int uid;
@@ -53,8 +53,12 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 						  seq, FALSE))
 				return FALSE;
 
-			if (expunge_func != NULL)
-				expunge_func(&ibox->box, seq, uid, context);
+			if (notify) {
+				ibox->sync_callbacks.expunge(
+						&ibox->box, seq, uid,
+						ibox->sync_context);
+			}
+			ibox->synced_messages_count--;
 			seq--;
 
 			if (!expunges) {
@@ -106,8 +110,7 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 	return o_buffer_send_ibuffer(outbuf, inbuf) >= 0;
 }
 
-int mbox_expunge_locked(IndexMailbox *ibox,
-			MailExpungeFunc expunge_func, void *context)
+int mbox_expunge_locked(IndexMailbox *ibox, int notify)
 {
 	MailIndexRecord *rec;
 	IBuffer *inbuf;
@@ -136,8 +139,7 @@ int mbox_expunge_locked(IndexMailbox *ibox,
 	outbuf = o_buffer_create_file(ibox->index->mbox_fd, data_stack_pool,
 				      4096, IO_PRIORITY_DEFAULT, FALSE);
 
-	failed = !expunge_real(ibox, rec, seq, inbuf, outbuf,
-			       expunge_func, context);
+	failed = !expunge_real(ibox, rec, seq, inbuf, outbuf, notify);
 
 	if (failed && outbuf->offset > 0) {
 		/* we moved some of the data. move the rest as well so there

@@ -8,8 +8,12 @@ int cmd_close(Client *client)
 	if (!client_verify_open_mailbox(client))
 		return TRUE;
 
-	/* Ignore expunge errors - we can't really do anything about it */
-	(void)client->mailbox->expunge(client->mailbox);
+	if (!client->mailbox->expunge(client->mailbox, FALSE)) {
+		/* just warn about the error */
+		client_send_tagline(client, t_strconcat("* NO ",
+			client->storage->get_last_error(client->storage),
+			NULL));
+	}
 
 	client->mailbox->close(client->mailbox);
 	client->mailbox = NULL;

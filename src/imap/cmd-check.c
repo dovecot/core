@@ -9,7 +9,7 @@ int cmd_check(Client *client)
 		return TRUE;
 
 	/* we don't need this command, but sync the mailbox anyway. */
-	client_sync_mailbox(client);
+	client_sync_full(client);
 	client_send_tagline(client, "OK Check completed.");
 	return TRUE;
 }

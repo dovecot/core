@@ -43,7 +43,7 @@ int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
 	return TRUE;
 }
 
-int index_storage_expunge(Mailbox *box)
+int index_storage_expunge(Mailbox *box, int notify)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	int failed;
@@ -53,12 +53,20 @@ int index_storage_expunge(Mailbox *box)
 		return FALSE;
 	}
 
+	if (!index_storage_sync_index_if_possible(ibox))
+		return FALSE;
+
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
 		return mail_storage_set_index_error(ibox);
 
-	failed = !ibox->expunge_locked(ibox, NULL, NULL);
+	/* modifylog must be marked synced before expunging anything new */
+	failed = !index_storage_sync_modifylog(ibox);
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK) || failed)
+	if (!failed)
+		failed = !ibox->expunge_locked(ibox, notify);
+
+	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);
-	return TRUE;
+
+	return !failed;
 }

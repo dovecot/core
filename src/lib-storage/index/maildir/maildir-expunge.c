@@ -30,8 +30,7 @@ static int expunge_msg(IndexMailbox *ibox, MailIndexRecord *rec,
 
 }
 
-int maildir_expunge_locked(IndexMailbox *ibox,
-			   MailExpungeFunc expunge_func, void *context)
+int maildir_expunge_locked(IndexMailbox *ibox, int notify)
 {
 	MailIndexRecord *rec;
 	unsigned int seq, uid;
@@ -47,8 +46,12 @@ int maildir_expunge_locked(IndexMailbox *ibox,
 			if (!expunge_msg(ibox, rec, seq))
 				return FALSE;
 
-			if (expunge_func != NULL)
-				expunge_func(&ibox->box, seq, uid, context);
+			if (notify) {
+				ibox->sync_callbacks.expunge(
+						&ibox->box, seq, uid,
+						ibox->sync_context);
+			}
+			ibox->synced_messages_count--;
 			seq--;
 		}
 		rec = ibox->index->next(ibox->index, rec);

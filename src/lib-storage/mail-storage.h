@@ -40,19 +40,13 @@ typedef enum {
 typedef struct _MailStorage MailStorage;
 typedef struct _Mailbox Mailbox;
 typedef struct _MailboxStatus MailboxStatus;
+typedef struct _MailboxSyncCallbacks MailboxSyncCallbacks;
 typedef struct _MailFetchData MailFetchData;
 typedef struct _MailFetchBodyData MailFetchBodyData;
 typedef struct _MailSearchArg MailSearchArg;
 
 typedef void (*MailboxFunc)(MailStorage *storage, const char *name,
 			    MailboxFlags flags, void *context);
-
-typedef void (*MailExpungeFunc)(Mailbox *mailbox, unsigned int seq,
-				unsigned int uid, void *context);
-typedef void (*MailFlagUpdateFunc)(Mailbox *mailbox, unsigned int seq,
-				   unsigned int uid, MailFlags flags,
-				   const char *custom_flags[],
-				   void *context);
 
 /* All methods returning int return either TRUE or FALSE. */
 struct _MailStorage {
@@ -73,13 +67,17 @@ struct _MailStorage {
 	/* Open a mailbox. If readonly is TRUE, mailbox must not be
 	   modified in any way even when it's asked. If fast is TRUE,
 	   any extra time consuming operations shouldn't be performed
-	   (eg. when opening mailbox just for STATUS). */
+	   (eg. when opening mailbox just for STATUS).
+
+	   Note that append and copy may open the selected mailbox again
+	   with possibly different readonly-state. */
 	Mailbox *(*open_mailbox)(MailStorage *storage, const char *name,
 				 int readonly, int fast);
 
 	/* name is allowed to contain multiple new hierarchy levels */
 	int (*create_mailbox)(MailStorage *storage, const char *name);
 	int (*delete_mailbox)(MailStorage *storage, const char *name);
+
 	/* If the name has inferior hierarchical names, then the inferior
 	   hierarchical names MUST also be renamed (ie. foo -> bar renames
 	   also foo/bar -> bar/bar).
@@ -124,35 +122,29 @@ struct _Mailbox {
 	/* Close the box */
 	void (*close)(Mailbox *box);
 
+	/* Set synchronization callback functions to use. */
+	void (*set_sync_callbacks)(Mailbox *box,
+				   MailboxSyncCallbacks *callbacks,
+				   void *context);
+
 	/* Gets the mailbox status information. */
 	int (*get_status)(Mailbox *box, MailboxStatusItems items,
 			  MailboxStatus *status);
 
-	/* Synchronize the mailbox by reading all expunges and flag changes.
-	   If new mail has been added to mailbox, messages contains the total
-	   number of messages in mailbox and recent is set, otherwise 0.
+	/* Synchronize the mailbox. If sync_expunges is FALSE, everything
+	   but expunges are synced. */
+	int (*sync)(Mailbox *box, int sync_expunges);
 
-	   If both functions are NULL, only the message counts are returned
-	   and mailbox isn't marked synchronized.
+	/* Expunge all mails with \Deleted flag. If notify is TRUE, call
+	   expunge callbacks. Also always does full syncing. */
+	int (*expunge)(Mailbox *box, int notify);
 
-	   If expunge is TRUE, deleted mails are expunged as well. Difference
-	   to expunge() function is that expunge_func is also called. */
-	int (*sync)(Mailbox *box, int expunge,
-		    unsigned int *messages, unsigned int *recent,
-		    MailExpungeFunc expunge_func, MailFlagUpdateFunc flag_func,
-		    void *context);
-
-	/* Expunge all mails with \Deleted flag. */
-	int (*expunge)(Mailbox *box);
-
-	/* Update mail flags. func may be NULL. */
+	/* Update mail flags, calling update_flags callbacks. */
 	int (*update_flags)(Mailbox *box, const char *messageset, int uidset,
 			    MailFlags flags, const char *custom_flags[],
-			    ModifyType modify_type,
-			    MailFlagUpdateFunc func, void *context,
-			    int *all_found);
+			    ModifyType modify_type, int notify, int *all_found);
 
-	/* Copy mails to another mailbox */
+	/* Copy mails to another mailbox. */
 	int (*copy)(Mailbox *box, Mailbox *destbox,
 		    const char *messageset, int uidset);
 
@@ -177,8 +169,10 @@ struct _Mailbox {
 	   do forced CLOSE. */
 	int (*is_inconsistency_error)(Mailbox *box);
 
-/* private: */
+/* public: */
 	unsigned int readonly:1;
+	unsigned int allow_custom_flags:1;
+/* private: */
 	unsigned int inconsistent:1;
 };
 
@@ -195,7 +189,31 @@ struct _MailboxStatus {
 	unsigned int diskspace_full:1;
 
 	/* may be allocated from data stack */
-	const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT];
+	unsigned int custom_flags_count;
+	const char **custom_flags;
+};
+
+struct _MailboxSyncCallbacks {
+	/* Alert: Not enough disk space */
+	void (*alert_no_diskspace)(Mailbox *mailbox, void *context);
+
+	/* EXPUNGE */
+	void (*expunge)(Mailbox *mailbox, unsigned int seq,
+			unsigned int uid, void *context);
+	/* FETCH FLAGS */
+	void (*update_flags)(Mailbox *mailbox, unsigned int seq,
+			     unsigned int uid, MailFlags flags,
+			     const char *custom_flags[],
+			     unsigned int custom_flags_count, void *context);
+
+	/* EXISTS, RECENT */
+	void (*new_messages)(Mailbox *mailbox, unsigned int messages_count,
+			     unsigned int recent_count, void *context);
+	/* FLAGS, PERMANENTFLAGS */
+	void (*new_custom_flags)(Mailbox *mailbox, const char *custom_flags[],
+				 unsigned int custom_flags_count,
+				 void *context);
+
 };
 
 struct _MailFetchData {

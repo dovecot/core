@@ -35,17 +35,19 @@ struct _MailCustomFlags {
 
 	unsigned int syncing:1;
 	unsigned int noupdate:1;
+	unsigned int changed:1;
 };
 
 static int lock_file(MailCustomFlags *mcf, int type);
 
-static void index_cf_set_syscall_error(MailCustomFlags *mcf,
+static int index_cf_set_syscall_error(MailCustomFlags *mcf,
 				       const char *function)
 {
 	i_assert(function != NULL);
 
 	index_set_error(mcf->index, "%s failed with custom flags file %s: %m",
 			function, mcf->filepath);
+	return FALSE;
 }
 
 static int update_mmap(MailCustomFlags *mcf)
@@ -53,8 +55,7 @@ static int update_mmap(MailCustomFlags *mcf)
 	mcf->mmap_base = mmap_rw_file(mcf->fd, &mcf->mmap_length);
 	if (mcf->mmap_base == MAP_FAILED) {
 		mcf->mmap_base = NULL;
-		index_cf_set_syscall_error(mcf, "mmap()");
-		return FALSE;
+		return index_cf_set_syscall_error(mcf, "mmap()");
 	}
 
 	(void)madvise(mcf->mmap_base, mcf->mmap_length, MADV_SEQUENTIAL);
@@ -191,6 +192,7 @@ static int custom_flags_check_sync(MailCustomFlags *mcf)
 	}
 
 	custom_flags_sync(mcf);
+	mcf->changed = TRUE;
 	return TRUE;
 }
 
@@ -199,10 +201,8 @@ static int lock_file(MailCustomFlags *mcf, int type)
 	if (mcf->lock_type == type)
 		return TRUE;
 
-	if (file_wait_lock(mcf->fd, type) < 0) {
-		index_cf_set_syscall_error(mcf, "file_wait_lock()");
-		return FALSE;
-	}
+	if (file_wait_lock(mcf->fd, type) < 0)
+		return index_cf_set_syscall_error(mcf, "file_wait_lock()");
 
 	mcf->lock_type = type;
 
@@ -290,10 +290,8 @@ static int custom_flags_update_counter(MailCustomFlags *mcf)
 {
 	int i;
 
-	if (lseek(mcf->fd, 0, SEEK_SET) < 0) {
-		index_cf_set_syscall_error(mcf, "lseek()");
-		return FALSE;
-	}
+	if (lseek(mcf->fd, 0, SEEK_SET) < 0)
+		return index_cf_set_syscall_error(mcf, "lseek()");
 
 	for (i = COUNTER_SIZE-1; i >= 0; i--) {
 		if (mcf->sync_counter[i] == '9') {
@@ -310,11 +308,10 @@ static int custom_flags_update_counter(MailCustomFlags *mcf)
 		}
 	}
 
-	if (write_full(mcf->fd, mcf->sync_counter, COUNTER_SIZE) < 0) {
-		index_cf_set_syscall_error(mcf, "write_full()");
-		return FALSE;
-	}
+	if (write_full(mcf->fd, mcf->sync_counter, COUNTER_SIZE) < 0)
+		return index_cf_set_syscall_error(mcf, "write_full()");
 
+	mcf->changed = TRUE;
 	return TRUE;
 }
 
@@ -332,10 +329,8 @@ static int custom_flags_add(MailCustomFlags *mcf, int idx, const char *name)
 
 	/* add the flag */
 	pos = lseek(mcf->fd, 0, SEEK_END);
-	if (pos < 0) {
-		index_cf_set_syscall_error(mcf, "lseek()");
-		return FALSE;
-	}
+	if (pos < 0)
+		return index_cf_set_syscall_error(mcf, "lseek()");
 
 	if (pos != (off_t)mcf->mmap_length) {
 		index_set_error(mcf->index, "Custom flags file %s was "
@@ -353,10 +348,8 @@ static int custom_flags_add(MailCustomFlags *mcf, int idx, const char *name)
 		len--;
 	}
 
-	if (write_full(mcf->fd, buf, len) < 0) {
-		index_cf_set_syscall_error(mcf, "write_full()");
-		return FALSE;
-	}
+	if (write_full(mcf->fd, buf, len) < 0)
+		return index_cf_set_syscall_error(mcf, "write_full()");
 
 	if (!update_mmap(mcf))
 		return FALSE;
@@ -484,6 +477,8 @@ static int get_flag_index(MailCustomFlags *mcf, const char *flag,
 	if (mcf->lock_type != F_WRLCK) {
 		if (!lock_file(mcf, F_UNLCK) || !lock_file(mcf, F_WRLCK))
 			return -1;
+
+		// FIXME: sync and check it again
 	}
 
 	/* new flag, add it. first find the first free flag, note that
@@ -558,4 +553,14 @@ void mail_custom_flags_list_unref(MailCustomFlags *mcf)
 	i_assert(mcf->custom_flags_refcount > 0);
 
 	mcf->custom_flags_refcount--;
+}
+
+int mail_custom_flags_has_changes(MailCustomFlags *mcf)
+{
+	if (!mcf->changed)
+		return FALSE;
+	else {
+		mcf->changed = FALSE;
+		return TRUE;
+	}
 }

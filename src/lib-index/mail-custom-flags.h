@@ -21,4 +21,8 @@ const char **mail_custom_flags_list_get(MailCustomFlags *mcf);
 /* Call this after you've done with the flags list above */
 void mail_custom_flags_list_unref(MailCustomFlags *mcf);
 
+/* Returns TRUE if there's been any changes since this function was
+   called last time, or since open if this is the first call. */
+int mail_custom_flags_has_changes(MailCustomFlags *mcf);
+
 #endif

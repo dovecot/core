@@ -879,7 +879,7 @@ int index_storage_search(Mailbox *box, MailSearchArg *args,
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	int failed;
 
-	if (!index_storage_sync_if_possible(ibox))
+	if (!index_storage_sync_index_if_possible(ibox))
 		return FALSE;
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))

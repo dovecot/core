@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "temp-string.h"
 #include "commands-util.h"
 #include "imap-util.h"
 
@@ -72,68 +73,16 @@ int client_verify_open_mailbox(Client *client)
 	}
 }
 
-static void sync_expunge_func(Mailbox *mailbox __attr_unused__,
-			      unsigned int seq,
-			      unsigned int uid __attr_unused__, void *context)
+void client_sync_full(Client *client)
 {
-	Client *client = context;
-	char str[MAX_LARGEST_T_STRLEN+20];
-
-	i_snprintf(str, sizeof(str), "* %u EXPUNGE", seq);
-	client_send_line(client, str);
+	if (client->mailbox != NULL)
+		(void)client->mailbox->sync(client->mailbox, TRUE);
 }
 
-static void sync_flags_func(Mailbox *mailbox __attr_unused__, unsigned int seq,
-			    unsigned int uid __attr_unused__, MailFlags flags,
-			    const char *custom_flags[], void *context)
+void client_sync_without_expunges(Client *client)
 {
-	Client *client = context;
-	const char *str;
-
-	t_push();
-	str = imap_write_flags(flags, custom_flags);
-	client_send_line(client,
-			 t_strdup_printf("* %u FETCH (FLAGS (%s))", seq, str));
-	t_pop();
-}
-
-static int client_sync_full(Client *client, int sync_log, int expunge)
-{
-	unsigned int messages, recent;
-	char str[MAX_LARGEST_T_STRLEN+20];
-
-	if (client->mailbox == NULL)
-		return TRUE;
-
-	if (!client->mailbox->sync(client->mailbox, expunge, &messages, &recent,
-				   sync_log ? sync_expunge_func : NULL,
-				   sync_log ? sync_flags_func : NULL, client))
-		return FALSE;
-
-	if (messages != 0) {
-		i_snprintf(str, sizeof(str), "* %u EXISTS", messages);
-		client_send_line(client, str);
-
-		i_snprintf(str, sizeof(str), "* %u RECENT", recent);
-		client_send_line(client, str);
-	}
-
-	return TRUE;
-}
-
-void client_check_new_mail(Client *client)
-{
-	(void)client_sync_full(client, FALSE, FALSE);
-}
-
-void client_sync_mailbox(Client *client)
-{
-	(void)client_sync_full(client, TRUE, FALSE);
-}
-
-int client_sync_and_expunge_mailbox(Client *client)
-{
-	return client_sync_full(client, TRUE, TRUE);
+	if (client->mailbox != NULL)
+		(void)client->mailbox->sync(client->mailbox, FALSE);
 }
 
 void client_send_storage_error(Client *client)
@@ -211,4 +160,52 @@ int client_parse_mail_flags(Client *client, ImapArg *args, size_t args_count,
 	}
 
 	return TRUE;
+}
+
+static const char *get_custom_flags_string(const char *custom_flags[],
+					   unsigned int custom_flags_count)
+{
+	TempString *str;
+	unsigned int i;
+
+	/* first see if there even is custom flags */
+	for (i = 0; i < custom_flags_count; i++) {
+		if (custom_flags[i] != NULL)
+			break;
+	}
+
+	if (i == custom_flags_count)
+		return "";
+
+	str = t_string_new(256);
+	for (; i < custom_flags_count; i++) {
+		if (custom_flags[i] != NULL) {
+			t_string_append_c(str, ' ');
+			t_string_append(str, custom_flags[i]);
+		}
+	}
+	return str->str;
+}
+
+#define SYSTEM_FLAGS "\\Answered \\Flagged \\Deleted \\Seen \\Draft"
+
+void client_send_mailbox_flags(Client *client, Mailbox *box,
+			       const char *custom_flags[],
+			       unsigned int custom_flags_count)
+{
+	const char *str;
+
+	str = get_custom_flags_string(custom_flags, custom_flags_count);
+	client_send_line(client,
+		t_strconcat("* FLAGS ("SYSTEM_FLAGS, str, ")", NULL));
+
+	if (box->readonly) {
+		client_send_line(client, "* OK [PERMANENTFLAGS ()] "
+				 "Read-only mailbox.");
+	} else {
+		client_send_line(client,
+			t_strconcat("* OK [PERMANENTFLAGS ("SYSTEM_FLAGS, str,
+				    box->allow_custom_flags ? " \\*" : "",
+				    ")] Flags permitted.", NULL));
+	}
 }

@@ -126,13 +126,19 @@ static Mailbox *maildir_open(MailStorage *storage, const char *name,
 			     int readonly, int fast)
 {
 	IndexMailbox *ibox;
+	MailIndex *index;
 	const char *path;
 
 	path = t_strconcat(storage->dir, "/.", name, NULL);
 
-	ibox = index_storage_init(storage, &maildir_mailbox,
-				  maildir_index_alloc(path), name, readonly,
-				  fast);
+	index = index_storage_lookup_ref(path);
+	if (index == NULL) {
+		index = maildir_index_alloc(path);
+		index_storage_add(index);
+	}
+
+	ibox = index_storage_init(storage, &maildir_mailbox, index, name,
+				  readonly, fast);
 	if (ibox != NULL)
 		ibox->expunge_locked = maildir_expunge_locked;
 	return (Mailbox *) ibox;
@@ -394,6 +400,7 @@ Mailbox maildir_mailbox = {
 	NULL, /* storage */
 
 	index_storage_close,
+	index_storage_set_sync_callbacks,
 	index_storage_get_status,
 	index_storage_sync,
 	index_storage_expunge,
@@ -404,6 +411,7 @@ Mailbox maildir_mailbox = {
 	maildir_storage_save,
 	mail_storage_is_inconsistency_error,
 
+	FALSE,
 	FALSE,
 	FALSE
 };

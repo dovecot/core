@@ -92,9 +92,16 @@ int cmd_append(Client *client)
 		return FALSE;
 	}
 
-	if (!client_parse_mail_flags(client, flags_list->args, flags_list->size,
-				     &flags, custom_flags))
-		return TRUE;
+	if (flags_list != NULL) {
+		if (!client_parse_mail_flags(client, flags_list->args,
+					     flags_list->size,
+					     &flags, custom_flags))
+			return TRUE;
+	} else {
+		if (!client_parse_mail_flags(client, NULL, 0,
+					     &flags, custom_flags))
+			return TRUE;
+	}
 
 	if (internal_date_str == NULL) {
 		/* no time given, default to now. */
@@ -104,21 +111,15 @@ int cmd_append(Client *client)
 		return TRUE;
 	}
 
-	if (client->mailbox != NULL &&
-	    strcmp(client->mailbox->name, mailbox) == 0) {
-		/* this mailbox is selected */
-		box = client->mailbox;
-	} else {
-		/* open the mailbox */
-		if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
-			return TRUE;
+	/* open the mailbox */
+	if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
+		return TRUE;
 
-		box = client->storage->open_mailbox(client->storage,
-						    mailbox, FALSE, TRUE);
-		if (box == NULL) {
-			client_send_storage_error(client);
-			return TRUE;
-		}
+	box = client->storage->open_mailbox(client->storage,
+					    mailbox, FALSE, TRUE);
+	if (box == NULL) {
+		client_send_storage_error(client);
+		return TRUE;
 	}
 
 	o_buffer_send(client->outbuf, "+ OK\r\n", 6);
@@ -127,13 +128,12 @@ int cmd_append(Client *client)
 	/* save the mail */
 	failed = !box->save(box, flags, custom_flags, internal_date,
 			    client->inbuf, msg_size);
-	if (box != client->mailbox)
-		box->close(box);
+	box->close(box);
 
 	if (failed) {
 		client_send_storage_error(client);
 	} else {
-		client_sync_mailbox(client);
+		client_sync_full(client);
 		client_send_tagline(client, "OK Append completed.");
 	}
 	return TRUE;

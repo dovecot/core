@@ -98,7 +98,7 @@ static int mail_modifylog_have_other_users(MailModifyLog *log)
 
 	if (ret == 0) {
 		/* shouldn't happen */
-		index_set_error(log->index, "file_lock(F_WRLCK -> F_RDLCK) "
+		index_set_error(log->index, "file_try_lock(F_WRLCK -> F_RDLCK) "
 				"failed with file %s", log->filepath);
 		return -1;
 	}
@@ -807,7 +807,7 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 	expunges = arr = t_malloc((max_records+1) * sizeof(unsigned int));
 
 	before = 0;
-	while (rec < end_rec) {
+	for (; rec < end_rec; rec++) {
 		if (rec->type != RECORD_TYPE_EXPUNGE)
 			continue;
 
@@ -825,7 +825,6 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 			/* before our range */
 			before++;
 		}
-		rec++;
 	}
 	*arr = 0;
 

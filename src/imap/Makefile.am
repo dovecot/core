@@ -50,6 +50,7 @@ imap_SOURCES = \
 	client.c \
 	commands.c \
 	commands-util.c \
+	mailbox-sync.c \
 	main.c
 
 noinst_HEADERS = \

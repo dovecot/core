@@ -338,6 +338,33 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type)
 		return FALSE;
 	}
 
+	if (index->header->flags & MAIL_INDEX_FLAG_FSCK) {
+		/* someone just partially updated the index, need to fsck it */
+		if (lock_type == MAIL_LOCK_SHARED) {
+			/* we need exclusive lock so fsck()'s set_lock() won't
+			   get us back here */
+			if (!mail_index_lock_remove(index))
+				return FALSE;
+
+			if (file_wait_lock(index->fd, MAIL_LOCK_EXCLUSIVE) < 0)
+				return index_set_syscall_error(index,
+							"file_wait_lock()");
+			index->lock_type = MAIL_LOCK_EXCLUSIVE;
+		}
+
+		/* check again, in case it was already fscked while we had
+		   it unlocked for a while */
+		if (index->header->flags & MAIL_INDEX_FLAG_FSCK) {
+			if (!index->fsck(index))
+				return FALSE;
+		}
+
+		if (lock_type == MAIL_LOCK_SHARED) {
+			/* drop exclusive lock */
+			return mail_index_set_lock(index, lock_type);
+		}
+	}
+
 	if (lock_type == MAIL_LOCK_EXCLUSIVE) {
 		/* while holding exclusive lock, keep the FSCK flag on.
 		   when the lock is released, the FSCK flag will also be

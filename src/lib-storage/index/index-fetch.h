@@ -6,7 +6,9 @@ typedef struct {
 	MailStorage *storage;
 	ImapMessageCache *cache;
 	MailIndex *index;
+
 	const char **custom_flags;
+	unsigned int custom_flags_count;
 
 	MailFetchData *fetch_data;
 	OBuffer *outbuf;

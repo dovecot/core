@@ -14,16 +14,12 @@ int client_verify_mailbox_name(Client *client, const char *mailbox,
    error message to client. */
 int client_verify_open_mailbox(Client *client);
 
-/* Check if there's new mail in mailbox. If yes, notify client by sending
-   EXISTS and RECENT. */
-void client_check_new_mail(Client *client);
+/* Synchronize selected mailbox with client by sending EXPUNGE,
+   FETCH FLAGS, EXISTS and RECENT responses. */
+void client_sync_full(Client *client);
 
-/* Synchronize selected mailbox with client by sending EXPUNGE and
-   FETCH FLAGS responses. Also does new mail checking. */
-void client_sync_mailbox(Client *client);
-
-/* Synchronize selected mailbox and expunge messages with \Deleted flag. */
-int client_sync_and_expunge_mailbox(Client *client);
+/* Synchronize all but expunges with client. */
+void client_sync_without_expunges(Client *client);
 
 /* Send last mail storage error message to client. */
 void client_send_storage_error(Client *client);
@@ -34,5 +30,10 @@ void client_send_storage_error(Client *client);
 int client_parse_mail_flags(Client *client, ImapArg *args, size_t args_count,
 			    MailFlags *flags,
 			    const char *custflags[MAIL_CUSTOM_FLAGS_COUNT]);
+
+/* Send FLAGS + PERMANENTFLAGS to client. */
+void client_send_mailbox_flags(Client *client, Mailbox *box,
+			       const char *custom_flags[],
+			       unsigned int custom_flags_count);
 
 #endif

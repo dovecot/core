@@ -135,11 +135,6 @@ static int mail_index_messageset_foreach(MailIndex *index,
 							     messageset, NULL);
 					return -2;
 				}
-
-				if (seq2 > messages_count) {
-					/* too large .. ignore silently */
-					seq2 = messages_count;
-				}
 			} else {
 				seq2 = messages_count;
 				input++;
@@ -155,18 +150,24 @@ static int mail_index_messageset_foreach(MailIndex *index,
 			return -2;
 		}
 
-		if (seq > messages_count) {
-			/* too large .. ignore silently */
-		} else {
-			t_push();
-			ret = mail_index_foreach(index, seq, seq2,
-						 func, context, error);
-			t_pop();
-			if (ret <= 0)
-				return ret;
-			if (ret == 2)
-				all_found = FALSE;
+		if (seq > messages_count || seq2 > messages_count) {
+			/* non-existent messages requested */
+			if (seq <= messages_count)
+				seq = seq2;
+			*error = t_strdup_printf("Message sequence %u "
+						 "larger than mailbox size %u",
+						 seq, messages_count);
+			return -2;
 		}
+
+		t_push();
+		ret = mail_index_foreach(index, seq, seq2,
+					 func, context, error);
+		t_pop();
+		if (ret <= 0)
+			return ret;
+		if (ret == 2)
+			all_found = FALSE;
 	}
 
 	return all_found ? 1 : 2;

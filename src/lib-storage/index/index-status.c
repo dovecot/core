@@ -49,15 +49,17 @@ static unsigned int get_first_unseen_seq(MailIndex *index)
 }
 
 static void
-get_custom_flags(MailCustomFlags *mcf,
-		 const char *result[MAIL_CUSTOM_FLAGS_COUNT])
+get_custom_flags(MailCustomFlags *mcf, MailboxStatus *status)
 {
 	const char **flags;
-	int i;
+	unsigned int i;
+
+	status->custom_flags_count = MAIL_CUSTOM_FLAGS_COUNT;
+	status->custom_flags = t_new(const char *, MAIL_CUSTOM_FLAGS_COUNT);
 
 	flags = mail_custom_flags_list_get(mcf);
 	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++)
-		result[i] = t_strdup(flags[i]);
+		status->custom_flags[i] = t_strdup(flags[i]);
 	mail_custom_flags_list_unref(mcf);
 }
 
@@ -69,11 +71,19 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 
 	memset(status, 0, sizeof(MailboxStatus));
 
-	if (!index_storage_sync_if_possible(ibox))
+	/* if we're doing STATUS for selected mailbox, we have to sync it
+	   first or STATUS reply may give different data */
+	if (!index_storage_sync_index_if_possible(ibox))
 		return FALSE;
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(ibox);
+
+	if (!index_storage_sync_modifylog(ibox)) {
+		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
+			return mail_storage_set_index_error(ibox);
+		return FALSE;
+	}
 
 	/* we can get most of the status items without any trouble */
 	hdr = mail_index_get_header(ibox->index);
@@ -91,13 +101,8 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 	if (items & STATUS_RECENT)
 		status->recent = index_storage_get_recent_count(ibox->index);
 
-	if (items & STATUS_CUSTOM_FLAGS) {
-		get_custom_flags(ibox->index->custom_flags,
-				 status->custom_flags);
-	}
-
-	/* STATUS sends EXISTS, so we've synced it */
-	ibox->synced_messages_count = hdr->messages_count;
+	if (items & STATUS_CUSTOM_FLAGS)
+		get_custom_flags(ibox->index->custom_flags, status);
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);

@@ -4,11 +4,14 @@
 #include "temp-string.h"
 #include "imap-util.h"
 
-const char *imap_write_flags(MailFlags flags, const char *custom_flags[])
+const char *imap_write_flags(MailFlags flags, const char *custom_flags[],
+			     unsigned int custom_flags_count)
 {
 	TempString *str;
 	const char *sysflags, *name;
-	int i;
+	unsigned int i;
+
+	i_assert(custom_flags_count <= MAIL_CUSTOM_FLAGS_COUNT);
 
 	if (flags == 0)
 		return "";
@@ -31,7 +34,7 @@ const char *imap_write_flags(MailFlags flags, const char *custom_flags[])
 	str = t_string_new(256);
 	t_string_append(str, sysflags);
 
-	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
+	for (i = 0; i < custom_flags_count; i++) {
 		if (flags & (1 << (i + MAIL_CUSTOM_FLAG_1_BIT))) {
 			name = custom_flags[i];
 			if (name != NULL && *name != '\0') {

@@ -150,7 +150,11 @@ struct _MailIndexDataRecord {
         (SIZEOF_MAIL_INDEX_DATA + (rec)->full_field_size)
 
 struct _MailIndex {
-	/* If fast is TRUE, compressing and cache updates are not performed. */
+	/* If fast is TRUE, compressing and cache updates are not performed.
+	   Note that opening same index twice in the same process is a bad
+	   idea since they share the same file locks. As soon one of the
+	   indexes is closed, the locks in second index are dropped which
+	   especially hurts modify log since it keeps locks all the time. */
 	int (*open)(MailIndex *index, int update_recent, int fast);
 	int (*open_or_create)(MailIndex *index, int update_recent, int fast);
 
@@ -184,7 +188,8 @@ struct _MailIndex {
 	int (*rebuild)(MailIndex *index);
 
 	/* Verify that the index is valid. If anything invalid is found,
-	   rebuild() is called. Same locking issues as with rebuild(). */
+	   index is set inconsistent and to be rebuilt at next open.
+	   Same locking issues as with rebuild(). */
 	int (*fsck)(MailIndex *index);
 
 	/* Synchronize the index with the mailbox. Same locking issues as
