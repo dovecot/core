@@ -91,6 +91,7 @@ static void master_callback(MasterReplyResult result, void *context)
 	switch (result) {
 	case MASTER_RESULT_SUCCESS:
 		client_destroy(client, "Logged in.");
+		client_unref(client);
 		break;
 	case MASTER_RESULT_INTERNAL_FAILURE:
 		client_auth_abort(client, "Internal failure");
@@ -99,8 +100,6 @@ static void master_callback(MasterReplyResult result, void *context)
 		client_auth_abort(client, NULL);
 		break;
 	}
-
-	client_unref(client);
 }
 
 static void client_send_auth_data(Client *client, const unsigned char *data,
