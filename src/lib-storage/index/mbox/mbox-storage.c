@@ -647,10 +647,12 @@ static int mbox_storage_close(struct mailbox *box)
 	int failed = FALSE;
 
 	/* update flags by rewrite mbox file */
+        index_storage_init_lock_notify(ibox);
 	if (!mbox_index_rewrite(ibox->index)) {
 		mail_storage_set_index_error(ibox);
 		failed = TRUE;
 	}
+	ibox->index->set_lock_notify_callback(ibox->index, NULL, NULL);
 
 	return index_storage_close(box) && !failed;
 }

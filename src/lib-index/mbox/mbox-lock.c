@@ -217,9 +217,13 @@ static int dotlock_callback(unsigned int secs_left, int stale, void *context)
 	}
 	ctx->last_stale = stale;
 
-	ctx->index->lock_notify_cb(stale ? MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE :
-				   MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
-				   secs_left, ctx->index->lock_notify_context);
+	if (ctx->index->lock_notify_cb != NULL) {
+		ctx->index->lock_notify_cb(stale ?
+					   MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE :
+					   MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
+					   secs_left,
+					   ctx->index->lock_notify_context);
+	}
 	return TRUE;
 }
 
