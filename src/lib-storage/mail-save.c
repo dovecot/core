@@ -94,7 +94,7 @@ static int save_headers(struct istream *input, struct ostream *output,
 {
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
-	int ret = 0;
+	int last_newline = TRUE, ret = 0;
 
 	hdr_ctx = message_parse_header_init(input, NULL, FALSE);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
@@ -114,10 +114,17 @@ static int save_headers(struct istream *input, struct ostream *output,
 			(void)o_stream_send(output, hdr->value, hdr->value_len);
 			if (!hdr->no_newline)
 				write_func(output, "\n", 1);
+			last_newline = !hdr->no_newline;
+		} else {
+			last_newline = TRUE;
 		}
 	}
 
 	if (ret >= 0) {
+		if (!last_newline) {
+			/* don't allow headers that don't terminate with \n */
+			write_func(output, "\n", 1);
+		}
 		if (header_callback(NULL, write_func, context) < 0)
 			ret = -1;
 
