@@ -147,5 +147,5 @@ struct istream *i_stream_create_mbox(pool_t pool, struct istream *input,
 	mstream->istream.seek = _seek;
 
 	return _i_stream_create(&mstream->istream, pool, -1, 0,
-				mstream->body_offset + body_size);
+				mstream->header_size.virtual_size + body_size);
 }
