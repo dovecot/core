@@ -1131,6 +1131,8 @@ int mbox_sync(struct index_mailbox *ibox, enum mbox_sync_flags flags)
 	unsigned int lock_id = 0;
 	int ret, changed;
 
+	ibox->sync_last_check = ioloop_time;
+
 	if (!ibox->mbox_do_dirty_syncs)
 		flags |= MBOX_SYNC_UNDIRTY;
 
@@ -1330,11 +1332,8 @@ mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	int ret = 0;
 
 	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
-	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
-		ibox->sync_last_check = ioloop_time;
-
+	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time)
 		ret = mbox_sync(ibox, mbox_sync_flags);
-	}
 
 	return index_mailbox_sync_init(box, flags, ret < 0);
 }
