@@ -6,6 +6,9 @@ disk (see mail-storage.txt).
    Many NFS servers don't support it, at least without a separate lockd
    daemon. I'll add optional support for .lock files later.
 
+ - .lock files currently rely on O_EXCL which may not work with all NFS
+   servers
+
  - gethostname() must return different name for each IMAP server accessing
    a user's mailboxes
 
