@@ -28,6 +28,7 @@
 
 void _io_stream_init(pool_t pool, struct _iostream *stream)
 {
+	pool_ref(pool);
 	stream->pool = pool;
 	stream->refcount = 1;
 }
