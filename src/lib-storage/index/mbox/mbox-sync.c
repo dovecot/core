@@ -603,7 +603,7 @@ static int
 mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 {
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
-	uoff_t end_offset, move_diff, extra_space;
+	uoff_t end_offset, move_diff, extra_space, needed_space;
 	uint32_t last_seq;
 
 	buffer_append(sync_ctx->mails, &mail_ctx->mail, sizeof(mail_ctx->mail));
@@ -620,15 +620,18 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 
 	/* we have enough space now */
 	if (mail_ctx->mail.uid == 0) {
-		/* this message was expunged. fill more or less of the space. */
+		/* this message was expunged. fill more or less of the space.
+		   space_diff now consists of a negative "bytes needed" sum,
+		   plus the expunged space of this message. so it contains how
+		   many bytes of _extra_ space we have. */
 		extra_space = MBOX_HEADER_PADDING *
 			(sync_ctx->seq - sync_ctx->need_space_seq + 1);
-		if ((uoff_t)sync_ctx->space_diff > extra_space) {
+		needed_space = mail_ctx->mail.space - sync_ctx->space_diff;
+		if ((uoff_t)sync_ctx->space_diff > needed_space + extra_space) {
 			/* don't waste too much on padding */
-			i_assert(mail_ctx->mail.space > (off_t)extra_space);
-			sync_ctx->expunged_space =
-				mail_ctx->mail.space - extra_space;
-			sync_ctx->space_diff = extra_space;
+			sync_ctx->expunged_space = mail_ctx->mail.space -
+				(needed_space + extra_space);
+			sync_ctx->space_diff = needed_space + extra_space;
 		} else {
 			extra_space = sync_ctx->space_diff;
 		}
