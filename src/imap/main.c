@@ -123,10 +123,10 @@ static void main_deinit(void)
 int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
 #ifdef DEBUG
-	if (getenv("LOGGED_IN") != NULL) {
+	if (getenv("LOGGED_IN") != NULL)
 		fd_debug_verify_leaks(3, 1024);
+	else
 		putenv("DISABLE_ALARMHUP=1"); /* annoying when debugging */
-	}
 #endif
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
