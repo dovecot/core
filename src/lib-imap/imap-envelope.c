@@ -57,6 +57,9 @@ static size_t next_token(const char *value, size_t len, int *need_qp, int qp_on)
 			if (value[i] != ' ')
 				break;
 		}
+
+		if (i == len)
+			return i;
 	}
 
 	if (IS_BREAK_CHAR(value[i])) {
@@ -131,12 +134,13 @@ static TempString *get_quoted_str(const char *value, size_t value_len)
 	t_string_append_c(str, '"');
 	while (value_len > 0) {
 		token_len = next_token(value, value_len, &need_qp, qp);
-		i_assert(token_len > 0);
+		i_assert(token_len > 0 && token_len <= value_len);
 
 		/* header may be split to multiple lines, we don't want them */
 		while (token_len > 0 && (value[0] == '\r' ||
 					 value[0] == '\n')) {
 			value++;
+			token_len--;
 			value_len--;
 		}
 
