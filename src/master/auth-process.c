@@ -330,7 +330,7 @@ static pid_t create_auth_process(struct auth_settings *auth_set)
 	if (auth_set->verbose)
 		env_put("VERBOSE=1");
 
-	restrict_process_size(auth_set->process_size);
+	restrict_process_size(auth_set->process_size, (unsigned int)-1);
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */

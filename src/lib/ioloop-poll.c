@@ -201,7 +201,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		} else if (io->condition & IO_READ) {
 			if ((pollfd->revents & IO_POLL_INPUT) == 0)
 				continue;
-                        pollfd->revents &= ~IO_POLL_INPUT;
+			pollfd->revents &= ~IO_POLL_INPUT;
 		} else if (io->condition & IO_WRITE) {
 			if ((pollfd->revents & IO_POLL_OUTPUT) == 0)
 				continue;

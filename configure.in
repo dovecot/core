@@ -510,6 +510,18 @@ AC_TRY_COMPILE([
   AC_DEFINE(HAVE_RLIMIT_AS,, Define if you have RLIMIT_AS for setrlimit())
 ])
 
+dnl * Do we have RLIMIT_NPROC?
+AC_TRY_COMPILE([
+  #include <sys/types.h>
+  #include <sys/time.h>
+  #include <sys/resource.h>
+], [
+  struct rlimit r;
+  getrlimit(RLIMIT_NPROC, &r);
+], [
+  AC_DEFINE(HAVE_RLIMIT_NPROC,, Define if you have RLIMIT_NPROC for setrlimit())
+])
+
 dnl * Linux compatible mremap()
 AC_MSG_CHECKING([Linux compatible mremap()])
 AC_TRY_COMPILE([

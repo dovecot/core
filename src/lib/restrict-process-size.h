@@ -3,6 +3,7 @@
 
 /* Restrict max. process size. The size is in megabytes, setting it to
    (unsigned int)-1 sets it unlimited. */
-void restrict_process_size(unsigned int size);
+void restrict_process_size(unsigned int size __attr_unused__,
+			   unsigned int max_processes __attr_unused__);
 
 #endif

@@ -385,7 +385,7 @@ static pid_t create_login_process(struct login_group *group)
 
 	env_put(t_strdup_printf("PROCESS_UID=%s", dec2str(getpid())));
 
-	restrict_process_size(group->set->process_size);
+	restrict_process_size(group->set->process_size, 0);
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */

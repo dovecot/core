@@ -152,7 +152,7 @@ int create_mail_process(int socket, struct ip_addr *ip,
 				reply->uid, reply->gid,
 				reply->chroot ? data + reply->home_idx : NULL);
 
-	restrict_process_size(process_size);
+	restrict_process_size(process_size, (unsigned int)-1);
 
 	env_put("LOGGED_IN=1");
 	env_put(t_strconcat("HOME=", data + reply->home_idx, NULL));

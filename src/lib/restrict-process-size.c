@@ -30,10 +30,18 @@
 #  include <sys/resource.h>
 #endif
 
-void restrict_process_size(unsigned int size __attr_unused__)
+void restrict_process_size(unsigned int size __attr_unused__,
+			   unsigned int max_processes __attr_unused__)
 {
 #ifdef HAVE_SETRLIMIT
 	struct rlimit rlim;
+
+#ifdef HAVE_RLIMIT_NPROC
+	rlim.rlim_max = rlim.rlim_cur =
+		max_processes < INT_MAX ? max_processes : RLIM_INFINITY;
+	if (setrlimit(RLIMIT_NPROC, &rlim) < 0)
+		i_fatal("setrlimit(RLIMIT_NPROC, %u): %m", size);
+#endif
 
 	rlim.rlim_max = rlim.rlim_cur =
 		size > 0 && size < INT_MAX/1024/1024 ?
