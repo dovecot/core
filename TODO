@@ -43,13 +43,6 @@
 	- don't give internal error to user but "mailbox is locked" or
 	  "index is locked" when we can't do something because of locking
 	- optionally don't fail if index is locked, but build it in memory
-    - setting for choosing mbox locking methods. timeout settings. currently
-      fcntl/flock doesn't have any timeout.
-    - UW-IMAP doesn't send it's fields to client: X-IMAPbase, Status, X-Status,
-      X-Keywords, X-UID.. should we? probably just makes things more difficult
-    - option: use mmap() vs. read() to access mails. read() seems to be a bit
-      faster with linux/x86, and better through NFS since it doesn't read
-      data uselessly.
     - when fetching body/envelope/etc we could try to cache it immediately if
       we can get lock with try_lock.
     - optionally use only in-memory indexes
@@ -95,7 +88,9 @@ index:
        in the beginning of it. We could do that too.
      - When expunging the first message we could move the X-IMAPbase header
        to next message to avoid full rewriting later.
-     - Our X-flags wouldn't need to be sent to clients. UW-IMAPd doesn't.
+     - UW-IMAP doesn't send it's fields to client: X-IMAPbase, Status,
+       X-Status, X-Keywords, X-UID.. should we? probably just makes things
+       more difficult
      - COPY 1 copies X-IMAPbase header too which isn't good idea. save() could
        actually strip this (and X-UID) while also fixing From-lines etc.
      - we need either From-line escaping or writing Content-Length when saving
@@ -175,9 +170,6 @@ general:
  - ulimit / setrlimit() should be set somewhere for imap process. and maybe
    also separate limits for data stack and mem pools
  - create indexer binary
- - SIGHUPing master should reload the configuration .. killing imap-auth and
-   imap-login processes? or just signal imap-login to stop accepting new
-   connections and let it kill itself
  - imap-login leaks I/O descriptors when killed, that's because the SSL
    fds are destroyed lazily.. should we bother fixing..?
  - logins are always sent now using syslog(), we'd need to have i_info()
