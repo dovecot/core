@@ -61,6 +61,12 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 	va_end(va);
 }
 
+#define INDEX_HAS_MISSING_LOGS(index, file) \
+	((file)->hdr.file_seq != (index)->hdr->log_file_seq && \
+	 ((file)->hdr.file_seq != (index)->hdr->log_file_seq+1 || \
+	  (file)->hdr.prev_file_offset != (index)->hdr->log_file_offset))
+
+
 static int mail_transaction_log_check_file_seq(struct mail_transaction_log *log)
 {
 	struct mail_index *index = log->index;
@@ -77,7 +83,7 @@ static int mail_transaction_log_check_file_seq(struct mail_transaction_log *log)
 		ret = mail_index_map(index, FALSE);
 		if (ret <= 0)
 			ret = -1;
-		else if (file->hdr.file_seq != index->hdr->log_file_seq) {
+		else if (INDEX_HAS_MISSING_LOGS(index, file)) {
 			/* broken - fix it by creating a new log file */
 			ret = mail_transaction_log_rotate(log);
 		}
@@ -104,11 +110,10 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 	}
 
 	if (index->fd != -1 &&
-	    log->head->hdr.file_seq != index->hdr->log_file_seq) {
+	    INDEX_HAS_MISSING_LOGS(index, log->head)) {
 		/* head log file isn't same as head index file -
 		   shouldn't happen except in race conditions. lock them and
-		   check again - FIXME: missing error handling.
-		   FIXME: index->hdr check crashes if we created the log */
+		   check again - FIXME: missing error handling. */
 		(void)mail_transaction_log_check_file_seq(log);
 	}
 	return log;
@@ -280,14 +285,13 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 	return 1;
 }
 
-static int mail_transaction_log_file_create(struct mail_transaction_log *log,
-					    const char *path,
-					    dev_t dev, ino_t ino)
+static int
+mail_transaction_log_file_create(struct mail_transaction_log *log,
+				 const char *path, dev_t dev, ino_t ino)
 {
 	struct mail_index *index = log->index;
 	struct mail_transaction_log_header hdr;
 	struct stat st;
-	unsigned int lock_id;
 	int fd, fd2, ret;
 
 	fd = file_dotlock_open(path, NULL, LOG_DOTLOCK_TIMEOUT,
@@ -326,37 +330,9 @@ static int mail_transaction_log_file_create(struct mail_transaction_log *log,
 	hdr.indexid = index->indexid;
 	hdr.used_size = sizeof(hdr);
 
-	if (index->fd != -1) {
-		index->log_locked = TRUE; /* kludging around assert.. */
-		if (mail_index_lock_exclusive(index, &lock_id) < 0) {
-			(void)file_dotlock_delete(path, fd);
-			index->log_locked = FALSE;
-			return -1;
-		}
-
-		ret = mail_index_map(index, FALSE);
-		if (ret > 0) {
-			/* update log_file_* fields in header */
-			struct mail_index_header idx_hdr;
-
-			idx_hdr = *index->hdr;
-			idx_hdr.log_file_seq++;
-			idx_hdr.log_file_offset = sizeof(hdr);
-			if (mail_index_write_header(index, &idx_hdr) < 0)
-				ret = -1;
-		}
-		hdr.file_seq = index->hdr->log_file_seq;
-		mail_index_unlock(index, lock_id);
-		index->log_locked = FALSE;
-
-		if (ret <= 0) {
-			(void)file_dotlock_delete(path, fd);
-			return -1;
-		}
-	} else {
-		/* creating new index file */
-		hdr.file_seq = index->hdr->log_file_seq+1;
-	}
+	if (index->fd != -1)
+		hdr.prev_file_offset = index->hdr->log_file_offset;
+	hdr.file_seq = index->hdr->log_file_seq+1;
 
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
 		mail_index_file_set_syscall_error(index, path, "write_full()");

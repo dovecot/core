@@ -538,10 +538,10 @@ static int
 mail_index_open2(struct mail_index *index, enum mail_index_open_flags flags)
 {
 	struct mail_index_header hdr;
+	unsigned int lock_id = 0;
 	int ret;
 
-	index->opening_lock_id = 0;
-	ret = mail_index_try_open(index, &index->opening_lock_id);
+	ret = mail_index_try_open(index, &lock_id);
 	if (ret > 0)
 		hdr = *index->hdr;
 	else if (ret == 0) {
@@ -559,10 +559,8 @@ mail_index_open2(struct mail_index *index, enum mail_index_open_flags flags)
 	if (index->log == NULL)
 		return -1;
 
-	if (index->opening_lock_id != 0) {
-		mail_index_unlock(index, index->opening_lock_id);
-                index->opening_lock_id = 0;
-	}
+	if (lock_id != 0)
+		mail_index_unlock(index, lock_id);
 	return index->fd != -1 ? 1 : mail_index_create(index, &hdr);
 }
 

@@ -70,7 +70,7 @@ struct mail_index {
 	uint32_t indexid;
 
 	int lock_type, shared_lock_count, excl_lock_count;
-	unsigned int lock_id, opening_lock_id;
+	unsigned int lock_id;
 	char *copy_lock_path;
 	struct dotlock dotlock;
 

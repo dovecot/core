@@ -88,8 +88,33 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
         mail_transaction_log_view_close_files(view);
 
 	ret = mail_transaction_log_file_find(view->log, min_file_seq, &file);
-	if (ret <= 0)
-		return -1;
+	if (ret <= 0) {
+		if (ret == 0 &&
+		    min_file_seq == view->log->tail->hdr.file_seq-1 &&
+		    min_file_offset == view->log->tail->hdr.prev_file_offset) {
+			/* we can skip this */
+			min_file_seq++;
+			min_file_offset =
+				sizeof(struct mail_transaction_log_header);
+			ret = mail_transaction_log_file_find(view->log,
+							     min_file_seq,
+							     &file);
+		}
+
+		if (ret == 0) {
+			mail_index_set_error(view->log->index,
+				"Lost transaction log file %s seq %u",
+				view->log->tail->filepath, min_file_seq);
+		}
+		if (ret <= 0)
+			return -1;
+
+		if (min_file_seq > max_file_seq) {
+			/* empty view */
+			max_file_seq = min_file_seq;
+			max_file_offset = min_file_offset;
+		}
+	}
 	end_offset = min_file_seq == max_file_seq ?
 		max_file_offset : (uoff_t)-1;
 	ret = mail_transaction_log_file_map(file, min_file_offset, end_offset);
