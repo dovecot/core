@@ -688,7 +688,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		       unsigned int seq, int external_change)
 {
 	MailIndexHeader *hdr;
-	unsigned int records, idx;
+	unsigned int records, uid, idx;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 	i_assert(seq != 0);
@@ -700,6 +700,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	hdr = index->header;
 
 	/* setting UID to 0 is enough for deleting the mail from index */
+	uid = rec->uid;
 	rec->uid = 0;
 
 	/* update first hole */
@@ -750,7 +751,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	/* expunge() may be called while index is being rebuilt and when
 	   tree file hasn't been opened yet */
 	if (index->tree != NULL)
-		mail_tree_delete(index->tree, rec->uid);
+		mail_tree_delete(index->tree, uid);
 	else {
 		/* make sure it also gets updated */
 		index->header->flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
@@ -758,7 +759,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 
 	if (seq != 0 && index->modifylog != NULL) {
 		if (!mail_modifylog_add_expunge(index->modifylog, seq,
-						rec->uid, external_change))
+						uid, external_change))
 			return FALSE;
 	}
 

@@ -626,6 +626,8 @@ unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 	MailTreeNode *node = tree->node_base;
 	unsigned int x, y, seq;
 
+	i_assert(first_uid > 0 && last_uid > 0);
+	i_assert(first_uid <= last_uid);
 	i_assert(tree->index->lock_type != MAIL_LOCK_UNLOCK);
 
 	rb_check(tree);
@@ -654,7 +656,7 @@ unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 		}
 	}
 
-	if (first_uid < last_uid) {
+	if (first_uid != last_uid) {
 		/* get the next key, make sure it's in range */
 		if (node[y].key > first_uid)
 			x = y;
@@ -675,6 +677,7 @@ unsigned int mail_tree_lookup_sequence(MailTree *tree, unsigned int seq)
         MailTreeNode *node = tree->node_base;
 	unsigned int x, upleft_nodes, left_nodes;
 
+	i_assert(seq != 0);
 	i_assert(tree->index->lock_type != MAIL_LOCK_UNLOCK);
 
 	rb_check(tree);
@@ -706,6 +709,7 @@ int mail_tree_insert(MailTree *tree, unsigned int uid, unsigned int index)
         MailTreeNode *node = tree->node_base;
 	unsigned int x, z;
 
+	i_assert(uid != 0);
 	i_assert(tree->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
 	tree->modified = TRUE;
@@ -759,6 +763,7 @@ int mail_tree_update(MailTree *tree, unsigned int uid, unsigned int index)
 	MailTreeNode *node = tree->node_base;
 	unsigned int x;
 
+	i_assert(uid != 0);
 	i_assert(tree->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
 	rb_check(tree);
@@ -788,6 +793,7 @@ void mail_tree_delete(MailTree *tree, unsigned int uid)
 	MailTreeNode *node = tree->node_base;
 	unsigned int x;
 
+	i_assert(uid != 0);
 	i_assert(tree->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
 	tree->modified = TRUE;
