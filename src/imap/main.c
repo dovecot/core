@@ -26,6 +26,9 @@ static void main_init(int use_syslog)
 	const char *logfile, *mail, *tag;
 	int hin, hout;
 
+	if (getenv("USER") == NULL)
+		i_fatal("USER environment missing");
+
 	hin = 0; hout = 1;
 
 	lib_init_signals(sig_quit);
