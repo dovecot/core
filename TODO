@@ -1,5 +1,5 @@
  - bugs
-    - fix update_by_replace (.data file updating is broken now)
+    - mbox: copy 1 selected-mailbox doesn't work too well
     - RENAME: If the name has inferior hierarchical names, then the inferior
 	      hierarchical names MUST also be renamed (ie. foo -> bar renames
 	      also foo/bar -> bar/bar). (and RENAME INBOX!)
@@ -11,16 +11,20 @@
     - mail-lockdir.c isn't 100% safe.. stale locks are detected by checking
       that hard link count is 1, then it's unlink()ed. but what if another
       process did the same unlink() + creat() in the middle of our
-      stat()..unlink()?
+      stat()..unlink()? no easy way to fix this really, just replace it with a
+      fcntl() lock.
     - SEARCH FROM/TO/CC/BCC now generates the field from ENVELOPE which it
       uses for matching. This however gives different results than when
       matching from headers.
-    - mbox: what if 1 msg is deleted is x-imapbase rewritten?
+    - mbox: what if 1 msg is deleted is x-imapbase rewritten? it should be
+      done by the expunging itself so we don't force another large rewrite..
+    - Outlook Express sometimes says "message not found" when trying to open
+      one, why?
 
  - reliability fixes:
-    - if we deleted mail but didn't write modify log, other dovecots don't
-      handle it properly. they either assert at index-sync.c:42 or if new
-      mails have also been added since, they don't notice it at all
+    - if we deleted mail from index but didn't write modify log, other
+      dovecots don't handle it properly. they either assert at index-sync.c:42
+      or if new mails have also been added since, they don't notice it at all
       actually, that breaks reads as well since we get expunges only from
       the old file.. and check that deleting file does "inconsistency error"
     - if imap process notices that both modify logs are getting full because
@@ -40,7 +44,15 @@
    - make sure connection limits work
 
  - enhancements:
-    - "* NO Mailbox is locked, will override in xx seconds"
+    - "* NO Stale mailbox lock file detected, will override in xx seconds",
+      "* NO Mailbox is locked, will abort in xx seconds",
+      "* NO Mailbox index is locked, will abort in xx seconds"
+        - before even considering this, check that we can do fcntl() locking
+	- don't give internal error to user but "mailbox is locked" or
+	  "index is locked" when we can't do something because of locking
+	- optionally don't fail if index is locked, but build it in memory
+    - setting for choosing mbox locking methods. timeout settings. currently
+      fcntl/flock doesn't have any timeout.
     - UW-IMAP doesn't send it's fields to client: X-IMAPbase, Status, X-Status,
       X-Keywords, X-UID.. should we? probably just makes things more difficult
     - search: support having longer keywords than buffer block
@@ -56,12 +68,17 @@
     - optionally keep the message file name as it's UID. Then we don't have to
       save the filename anywhere.
     - send EXISTS immediately after new mail arrives.
-        - linux: we can use dnotify for maildir (but not mbox I think)
+        - linux: we can use dnotify for maildir (but not mbox I think, we'd
+	  get interrupted all the time if we checked eg. large /var/spool/mail)
 	- *bsd: kqueue() can notify changes in mbox and maildir
-	- rest: stat() mbox file and maildir directory once in a while.
-	  maybe configurable how often if at all, not nice with NFS.
-	- we could sync flag changes at least if there's no expunges
-	- don't send it more often than once in 30 secs or so
+    - .subscriptions currently uses fcntl() locking - maybe we should instead
+      just write to external file and rename()? optionally at least, so it
+      works with NFS.
+
+ - lib-charset:
+     - utf8_toupper() is a must
+     - add support for other things than iconv() as well? we could reuse
+       the code from cyrus or courier
 
  - allow index files to be in completely separate location than mail data.
    mails could be read through slow NFS access but indexes from fast local
@@ -75,8 +92,6 @@
    with maildir a) file:2,flags,Uuid b) file,U=uid:2,flags. uid validity
    would be in .uidvalidity file. the b-case would require that to be done
    by the client moving it from new/ to cur/
-     - other possible maildir flags to use in filename: S=size (file size,
-       for maildir++ quota), W=size (rfc822.size by some uw-imap patch)
 
 index:
  - mbox:
@@ -95,12 +110,8 @@ index:
    records are ok, and that if data file isn't ok the record is deleted.
  - if .customflags is removed and Maildir files have custom flags, add
    "unknown1" "unknown2" etc. flags to .customflags file for each found flag
- - debug: index could be read-only mmaped when it's not locked. 
  - when index is being rebuilt, it always complains about tree/modifylog
    having wrong indexid..
- - we sometimes leave some space in the index files (memory alignment,
-   extra_space). we should keep those bytes zeroed to make sure nothing
-   sensitive is left there.
  - log transferred amount of bytes. just a bit problematic who logs it, since
    imap-login does SSL transfers but not unencrypted.. could also log SSL
    settings (especially compression).
@@ -123,11 +134,15 @@ lib-storage:
    RemoteMailStorage which would use TCP/UNIX sockets to connect to another 
    imap session.
  - SEARCH:
-     - CHARSET support, iconv()? also means we need to parse the charset stuff
-       in headers.
+     - CHARSET support for message body
      - could optionally support scanning inside file attachments and use
        plugins to extract text out of them (word, excel, pdf, etc. etc.)
      - use a trie index for fast text searching, like cyrus squat?
+     - Create our own extension: When searching with TEXT/BODY, return
+       the message text surrounding the keywords just like web search engines
+       do. like: SEARCH X-PRINT-MATCHES TEXT "hello" -> * SEARCH 1 "He said:
+       Hello world!" 2 "Hello, I'm ...". This would be especially useful with
+       the above attachment scanning.
  - DELETE/RENAME: when someone else had the mailbox open, we should
    disconnect it (when stat() fails with ENOENT while syncing)
  - RENAME INBOX isn't atomic with Maildir. And in general, RENAME can't
@@ -161,7 +176,6 @@ general:
  - SIGHUPing master should reload the configuration .. killing imap-auth and
    imap-login processes? or just signal imap-login to stop accepting new
    connections and let it kill itself
- - setting for choosing mbox locking methods
  - imap-login leaks I/O descriptors when killed, that's because the SSL
    fds are destroyed lazily.. should we bother fixing..?
  - logins are always sent now using syslog(), we'd need to have i_info()
@@ -209,9 +223,6 @@ cleanups / checks:
    can't free memory used by it .. what to do about it? at least count the
    malloc/free calls and complain if at the exit they don't match
  - ..wonder what it would look like if I did s/FooBarBaz/struct foo_bar_baz/..
- - HIGH: Make sure messages of size INT_MAX..UINT_MAX (and more) work
-   correctly with 32bit file offsets. virtual_size can also overflow making
-   it less than physical_size.
  - create env_put() and env_clean()
  - nearest_power() could be problematic with things that want it for ints,
    not size_t..
