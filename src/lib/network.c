@@ -172,6 +172,8 @@ int net_connect_unix(const char *path)
 	if (fd == -1)
 		return -1;
 
+	net_set_nonblock(fd, TRUE);
+
 	/* connect */
 	ret = connect(fd, (struct sockaddr *) &sa, sizeof(sa));
 	if (ret < 0 && errno != EINPROGRESS) {
