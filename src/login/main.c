@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "lib-signals.h"
 #include "restrict-access.h"
+#include "process-title.h"
 #include "fd-close-on-exec.h"
 #include "auth-connection.h"
 #include "master.h"
@@ -14,13 +15,13 @@
 #include <unistd.h>
 #include <syslog.h>
 
-int disable_plaintext_auth;
+int disable_plaintext_auth, process_per_connection, verbose_proctitle;
 unsigned int max_logging_users;
 
 static IOLoop ioloop;
 static IO io_imap, io_imaps;
 static int main_refcount;
-static int process_per_connection, closing_down;
+static int closing_down;
 
 void main_ref(void)
 {
@@ -72,10 +73,10 @@ static void sig_quit(int signo __attr_unused__)
 static void login_accept(void *context __attr_unused__, int listen_fd,
 			 IO io __attr_unused__)
 {
-	IPADDR addr;
+	IPADDR ip;
 	int fd;
 
-	fd = net_accept(listen_fd, &addr, NULL);
+	fd = net_accept(listen_fd, &ip, NULL);
 	if (fd < 0) {
 		if (fd < -1)
 			i_fatal("accept() failed: %m");
@@ -85,7 +86,7 @@ static void login_accept(void *context __attr_unused__, int listen_fd,
 	if (process_per_connection)
 		main_close_listen();
 
-	(void)client_create(fd, &addr);
+	(void)client_create(fd, &ip, FALSE);
 }
 
 static void login_accept_ssl(void *context __attr_unused__, int listen_fd,
@@ -102,11 +103,14 @@ static void login_accept_ssl(void *context __attr_unused__, int listen_fd,
 		return;
 	}
 
+	if (process_per_connection)
+		main_close_listen();
+
 	fd_ssl = ssl_proxy_new(fd);
 	if (fd_ssl == -1)
 		net_disconnect(fd);
 	else {
-		client = client_create(fd_ssl, &addr);
+		client = client_create(fd_ssl, &addr, TRUE);
 		client->tls = TRUE;
 	}
 }
@@ -134,7 +138,8 @@ static void main_init(void)
 	}
 
 	disable_plaintext_auth = getenv("DISABLE_PLAINTEXT_AUTH") != NULL;
-        process_per_connection = getenv("PROCESS_PER_CONNECTION") != NULL;
+	process_per_connection = getenv("PROCESS_PER_CONNECTION") != NULL;
+        verbose_proctitle = getenv("VERBOSE_PROCTITLE") != NULL;
 
 	value = getenv("MAX_LOGGING_USERS");
 	max_logging_users = value == NULL ? 0 : strtoul(value, NULL, 10);
@@ -191,7 +196,7 @@ static void main_deinit(void)
 	closelog();
 }
 
-int main(int argc __attr_unused__, char *argv[] __attr_unused__)
+int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
 #ifdef DEBUG
         fd_debug_verify_leaks(3, 1024);
@@ -199,6 +204,7 @@ int main(int argc __attr_unused__, char *argv[] __attr_unused__)
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
+        process_title_init(argv, envp);
 	ioloop = io_loop_create(system_pool);
 
 	main_init();

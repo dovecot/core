@@ -24,7 +24,7 @@ struct _Client {
 	unsigned int tls:1;
 };
 
-Client *client_create(int fd, IPADDR *ip);
+Client *client_create(int fd, IPADDR *ip, int imaps);
 void client_destroy(Client *client, const char *reason);
 
 void client_ref(Client *client);

@@ -7,7 +7,7 @@
 typedef struct _Client Client;
 typedef struct _AuthRequest AuthRequest;
 
-extern int disable_plaintext_auth;
+extern int disable_plaintext_auth, process_per_connection, verbose_proctitle;
 extern unsigned int max_logging_users;
 
 void main_ref(void);

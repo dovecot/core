@@ -5,6 +5,7 @@
 #include "ioloop.h"
 #include "ibuffer.h"
 #include "obuffer.h"
+#include "process-title.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "ssl-proxy.h"
@@ -21,6 +22,20 @@
 
 static HashTable *clients;
 static Timeout to_idle;
+
+static void client_set_title(Client *client)
+{
+	char host[MAX_IP_LEN];
+
+	if (!verbose_proctitle || !process_per_connection)
+		return;
+
+	if (net_ip2host(&client->ip, host) < 0)
+		strcpy(host, "??");
+
+	process_title_set(t_strdup_printf(client->tls ? "[%s TLS]" : "[%s]",
+					  host));
+}
 
 static int cmd_capability(Client *client)
 {
@@ -63,6 +78,8 @@ static int cmd_starttls(Client *client)
 	fd_ssl = ssl_proxy_new(client->fd);
 	if (fd_ssl != -1) {
 		client->tls = TRUE;
+                client_set_title(client);
+
 		client->fd = fd_ssl;
 
 		i_buffer_unref(client->inbuf);
@@ -247,7 +264,7 @@ static void client_destroy_oldest(void)
 	}
 }
 
-Client *client_create(int fd, IPADDR *ip)
+Client *client_create(int fd, IPADDR *ip, int imaps)
 {
 	Client *client;
 
@@ -264,6 +281,7 @@ Client *client_create(int fd, IPADDR *ip)
 	client = i_new(Client, 1);
 	client->created = ioloop_time;
 	client->refcount = 1;
+	client->tls = imaps;
 
 	memcpy(&client->ip, ip, sizeof(IPADDR));
 	client->fd = fd;
@@ -277,6 +295,7 @@ Client *client_create(int fd, IPADDR *ip)
 	main_ref();
 
 	client_send_line(client, "* OK " PACKAGE " ready.");
+	client_set_title(client);
 	return client;
 }
 

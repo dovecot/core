@@ -36,6 +36,7 @@ liblib_a_SOURCES = \
 	obuffer.c \
 	obuffer-file.c \
 	primes.c \
+	process-title.c \
 	randgen.c \
 	restrict-access.c \
 	restrict-process-size.c \
@@ -78,6 +79,7 @@ noinst_HEADERS = \
 	obuffer.h \
 	obuffer-internal.h \
 	primes.h \
+	process-title.h \
 	randgen.h \
 	restrict-access.h \
 	restrict-process-size.h \
