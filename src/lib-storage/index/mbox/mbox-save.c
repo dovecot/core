@@ -254,7 +254,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 
 		if (!want_mail) {
 			/* assign UIDs only if mbox doesn't require syncing */
-			ret = mbox_sync_has_changed(ibox);
+			ret = mbox_sync_has_changed(ibox, TRUE);
 			if (ret < 0)
 				return -1;
 			if (ret == 0) {
@@ -272,7 +272,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 
 	if (!ctx->synced && want_mail) {
 		/* we'll need to assign UID for the mail immediately. */
-		if (mbox_sync(ibox, FALSE, FALSE, FALSE) < 0)
+		if (mbox_sync(ibox, 0) < 0)
 			return -1;
 		if (mbox_save_init_sync(t) < 0)
 			return -1;

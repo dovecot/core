@@ -8,5 +8,5 @@ int cmd_check(struct client *client)
 	if (!client_verify_open_mailbox(client))
 		return TRUE;
 
-	return cmd_sync(client, 0, "OK Check completed.");
+	return cmd_sync(client, MAILBOX_SYNC_FLAG_FULL, "OK Check completed.");
 }

@@ -85,9 +85,10 @@ enum mail_fetch_field {
 };
 
 enum mailbox_sync_flags {
-	MAILBOX_SYNC_FLAG_FAST		= 0x01,
-	MAILBOX_SYNC_FLAG_NO_EXPUNGES	= 0x02,
-	MAILBOX_SYNC_AUTO_STOP		= 0x04
+	MAILBOX_SYNC_FLAG_FULL		= 0x01,
+	MAILBOX_SYNC_FLAG_FAST		= 0x02,
+	MAILBOX_SYNC_FLAG_NO_EXPUNGES	= 0x04,
+	MAILBOX_SYNC_AUTO_STOP		= 0x08
 };
 
 enum mailbox_sync_type {

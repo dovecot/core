@@ -5,6 +5,7 @@
 #include "index-mail.h"
 #include "mbox-storage.h"
 #include "mbox-file.h"
+#include "mbox-lock.h"
 #include "mbox-sync-private.h"
 #include "istream-raw-mbox.h"
 #include "istream-header-filter.h"
@@ -16,42 +17,49 @@
 static int mbox_mail_seek(struct index_mail *mail)
 {
 	struct index_mailbox *ibox = mail->ibox;
-	const void *data;
-	uint64_t offset;
-	int ret;
+	enum mbox_sync_flags sync_flags = 0;
+	int ret, deleted;
 
 	if (mail->data.deleted)
 		return 0;
 
+__again:
 	if (ibox->mbox_lock_type == F_UNLCK) {
-		if (mbox_sync(ibox, FALSE, FALSE, TRUE) < 0)
+		sync_flags |= MBOX_SYNC_LOCK_READING;
+		if (mbox_sync(ibox, sync_flags) < 0)
 			return -1;
 
 		i_assert(ibox->mbox_lock_type != F_UNLCK);
-                mail->ibox->mbox_mail_lock_id = ibox->mbox_lock_id;
+		ibox->mbox_mail_lock_id = ibox->mbox_lock_id;
 	}
 
 	if (mbox_file_open_stream(ibox) < 0)
 		return -1;
 
-	ret = mail_index_lookup_extra(mail->trans->trans_view, mail->mail.seq,
-				      ibox->mbox_extra_idx, &data);
-	if (ret <= 0) {
-		if (ret < 0)
-			mail_storage_set_index_error(ibox);
-		else
+	ret = mbox_file_seek(ibox, mail->trans->trans_view, mail->mail.seq,
+			     &deleted);
+	if (ret < 0) {
+		if (deleted) {
 			mail->data.deleted = TRUE;
-		return ret;
-	}
-
-	offset = *((const uint64_t *)data);
-	if (istream_raw_mbox_seek(ibox->mbox_stream, offset) < 0) {
-		mail_storage_set_critical(ibox->box.storage,
-			"Cached message offset %s is invalid for mbox file %s",
-			dec2str(offset), ibox->path);
-		mail_index_mark_corrupted(ibox->index);
+			return 0;
+		}
 		return -1;
 	}
+
+	if (ret == 0) {
+		/* we'll need to re-sync it completely */
+		if (ibox->mbox_lock_type == F_RDLCK) {
+			if (ibox->mbox_mail_lock_id == ibox->mbox_lock_id)
+                                ibox->mbox_mail_lock_id = 0;
+			(void)mbox_unlock(mail->ibox, ibox->mbox_lock_id);
+			ibox->mbox_lock_id = 0;
+			i_assert(ibox->mbox_lock_type == F_UNLCK);
+		}
+
+		sync_flags |= MBOX_SYNC_UNDIRTY;
+		goto __again;
+	}
+
 	return 1;
 }
 

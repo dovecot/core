@@ -630,10 +630,59 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 }
 
 static int
+mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
+{
+	struct index_mailbox *ibox = sync_ctx->ibox;
+	uoff_t old_offset;
+	int ret, deleted;
+
+	if (seq == 0) {
+		if (istream_raw_mbox_seek(ibox->mbox_stream, 0) < 0) {
+			mail_storage_set_error(ibox->box.storage,
+				"Mailbox isn't a valid mbox file");
+			return -1;
+		}
+		seq++;
+	} else {
+		old_offset = istream_raw_mbox_get_start_offset(sync_ctx->input);
+
+		ret = mbox_file_seek(ibox, sync_ctx->sync_view, seq, &deleted);
+		if (ret < 0) {
+			mail_storage_set_index_error(ibox);
+			return -1;
+		}
+
+		if (ret == 0) {
+			if (istream_raw_mbox_seek(ibox->mbox_stream,
+						  old_offset) < 0) {
+				mail_storage_set_critical(ibox->box.storage,
+					"Error seeking back to original "
+					"offset %s in mbox file %s",
+					dec2str(old_offset), ibox->path);
+				return -1;
+			}
+			return 0;
+		}
+	}
+
+        /* set to -1, since it's always increased later */
+	sync_ctx->seq = seq-1;
+	if (sync_ctx->seq == 0 &&
+	    istream_raw_mbox_get_start_offset(sync_ctx->input) != 0) {
+		/* this mbox has pseudo mail which contains the X-IMAP header */
+		sync_ctx->seq++;
+	}
+
+        sync_ctx->idx_seq = seq;
+	sync_ctx->dest_first_mail = sync_ctx->seq == 0;
+        (void)istream_raw_mbox_get_body_offset(sync_ctx->input);
+	return 1;
+}
+
+static int
 mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 {
 	uint32_t seq1, seq2;
-	uint64_t offset;
 
 	if (mail_index_lookup_uid_range(sync_ctx->sync_view, uid, (uint32_t)-1,
 					&seq1, &seq2) < 0) {
@@ -641,44 +690,25 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 		return -1;
 	}
 
-	if (seq1 == 0)
-		return 0;
-
-	if (mbox_sync_get_from_offset(sync_ctx, seq1, &offset) < 0)
-		return -1;
-
-        /* set to -1, since it's always increased later */
-	sync_ctx->seq = seq1-1;
-	if (sync_ctx->seq == 0 && offset != 0) {
-		/* this mbox has pseudo mail which contains the X-IMAP header */
-		sync_ctx->seq++;
-	}
-
-        sync_ctx->idx_seq = seq1;
-	sync_ctx->dest_first_mail = sync_ctx->seq == 0;
-	if (istream_raw_mbox_seek(sync_ctx->input, offset) < 0) {
-		mail_storage_set_critical(sync_ctx->ibox->box.storage,
-			"Cached message offset %s is invalid for mbox file %s",
-			dec2str(offset), sync_ctx->ibox->path);
-		mail_index_mark_corrupted(sync_ctx->ibox->index);
-		return -1;
-	}
-        (void)istream_raw_mbox_get_body_offset(sync_ctx->input);
-	return 1;
+	return mbox_sync_seek_to_seq(sync_ctx, seq1);
 }
 
 static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			  struct mbox_sync_mail_context *mail_ctx,
-			  uint32_t min_message_count)
+			  uint32_t min_message_count, int partial)
 {
 	const struct mail_index_record *rec;
 	uint32_t uid, messages_count;
 	uoff_t offset;
 	int ret, expunged;
 
-	if (min_message_count != 0)
-		ret = 0;
-	else {
+	messages_count = mail_index_view_get_message_count(sync_ctx->sync_view);
+
+	if (min_message_count != 0) {
+		ret = mbox_sync_seek_to_seq(sync_ctx,
+					    partial || messages_count == 0 ?
+					    messages_count : 1);
+	} else {
 		/* we sync only what we need to. jump to first record that
 		   needs updating */
 		const struct mail_index_sync_rec *sync_rec;
@@ -693,7 +723,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			if (buffer_get_used_size(sync_ctx->syncs) == 0 &&
 			    sync_ctx->sync_rec.uid1 == 0) {
 				/* nothing to do */
-				return 0;
+				return 1;
 			}
 		}
 
@@ -702,21 +732,10 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			sync_rec = &sync_ctx->sync_rec;
 
 		ret = mbox_sync_seek_to_uid(sync_ctx, sync_rec->uid1);
-		if (ret < 0)
-			return -1;
 	}
 
-	if (ret == 0) {
-		if (istream_raw_mbox_seek(sync_ctx->input, 0) < 0) {
-			/* doesn't begin with a From-line */
-			mail_storage_set_error(sync_ctx->ibox->box.storage,
-				"Mailbox isn't a valid mbox file");
-			return -1;
-		}
-		sync_ctx->dest_first_mail = TRUE;
-	}
-
-	messages_count = mail_index_view_get_message_count(sync_ctx->sync_view);
+	if (ret <= 0)
+		return ret;
 
 	while ((ret = mbox_sync_read_next_mail(sync_ctx, mail_ctx)) > 0) {
 		uid = mail_ctx->mail.uid;
@@ -774,10 +793,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			mail_ctx->mail.uid = 0;
 			ret = mbox_sync_handle_expunge(mail_ctx);
 		}
-		if (ret < 0) {
-			/* -1 = error, -2 = need to restart */
-			return ret;
-		}
+		if (ret < 0)
+			return -1;
 
 		if (!mail_ctx->pseudo) {
 			if (!expunged) {
@@ -818,7 +835,9 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 					break;
 
 				/* we can skip forward to next record which
-				   needs updating. */
+				   needs updating. if it failes because the
+				   offset is dirty, just ignore and continue
+				   from where we are now. */
 				uid = sync_ctx->sync_rec.uid1;
 				if (mbox_sync_seek_to_uid(sync_ctx, uid) < 0)
 					return -1;
@@ -832,7 +851,10 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			mail_index_expunge(sync_ctx->t, sync_ctx->idx_seq++);
 	}
 
-	return 0;
+	if (!partial)
+		sync_ctx->ibox->mbox_sync_dirty = FALSE;
+
+	return 1;
 }
 
 static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
@@ -946,20 +968,25 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 			&sync_ctx->next_uid, sizeof(sync_ctx->next_uid));
 	}
 
-	if ((uint32_t)st.st_mtime != sync_ctx->hdr->sync_stamp) {
+	if ((uint32_t)st.st_mtime != sync_ctx->hdr->sync_stamp &&
+	    !sync_ctx->ibox->mbox_sync_dirty) {
 		uint32_t sync_stamp = st.st_mtime;
 
 		mail_index_update_header(sync_ctx->t,
 			offsetof(struct mail_index_header, sync_stamp),
 			&sync_stamp, sizeof(sync_stamp));
 	}
-	if ((uint64_t)st.st_size != sync_ctx->hdr->sync_size) {
+	if ((uint64_t)st.st_size != sync_ctx->hdr->sync_size &&
+	    !sync_ctx->ibox->mbox_sync_dirty) {
 		uint64_t sync_size = st.st_size;
 
 		mail_index_update_header(sync_ctx->t,
 			offsetof(struct mail_index_header, sync_size),
 			&sync_size, sizeof(sync_size));
 	}
+
+	sync_ctx->ibox->mbox_dirty_stamp = st.st_mtime;
+	sync_ctx->ibox->mbox_dirty_size = st.st_size;
 
 	return 0;
 }
@@ -978,14 +1005,17 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
         sync_ctx->seen_first_mail = FALSE;
 }
 
-static int mbox_sync_do(struct mbox_sync_context *sync_ctx, int sync_header)
+static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
+			enum mbox_sync_flags flags)
 {
 	struct mbox_sync_mail_context mail_ctx;
 	struct stat st;
 	uint32_t min_msg_count;
-	int ret;
+	int ret, partial;
 
-	if (sync_header)
+	partial = FALSE;
+
+	if ((flags & MBOX_SYNC_HEADER) != 0)
 		min_msg_count = 1;
 	else {
 		if (fstat(sync_ctx->fd, &st) < 0) {
@@ -993,29 +1023,35 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx, int sync_header)
 			return -1;
 		}
 
-		min_msg_count =
-			(uint32_t)st.st_mtime == sync_ctx->hdr->sync_stamp &&
-			(uint64_t)st.st_size == sync_ctx->hdr->sync_size ?
-			0 : (uint32_t)-1;
+		if ((uint32_t)st.st_mtime == sync_ctx->hdr->sync_stamp &&
+		    (uint64_t)st.st_size == sync_ctx->hdr->sync_size) {
+			/* file is fully synced */
+			sync_ctx->ibox->mbox_sync_dirty = FALSE;
+			min_msg_count = 0;
+		} else if ((flags & MBOX_SYNC_UNDIRTY) != 0) {
+			/* we want to do full syncing */
+			min_msg_count = (uint32_t)-1;
+			sync_ctx->ibox->mbox_sync_dirty = TRUE;
+		} else {
+			/* see if we can delay syncing the whole file.
+			   normally we only notice expunges and appends
+			   in partial syncing. */
+			partial = TRUE;
+			min_msg_count = (uint32_t)-1;
+			sync_ctx->ibox->mbox_sync_dirty = TRUE;
+		}
 	}
 
 	mbox_sync_restart(sync_ctx);
-	if ((ret = mbox_sync_loop(sync_ctx, &mail_ctx, min_msg_count)) == -1)
-		return -1;
+	ret = mbox_sync_loop(sync_ctx, &mail_ctx, min_msg_count, partial);
+	if (ret <= 0) {
+		if (ret < 0)
+			return -1;
 
-	if (ret == -2) {
-		/* initially we had mbox read-locked, but later we needed a
-		   write-lock. doing it required dropping the read lock.
-		   we're here because mbox was modified before we got the
-		   write-lock. so, restart the whole syncing. */
-		i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
-
-		mail_index_transaction_rollback(sync_ctx->t);
-		sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view,
-							   FALSE);
-
+		/* partial syncing didn't work, do it again */
 		mbox_sync_restart(sync_ctx);
-		if (mbox_sync_loop(sync_ctx, &mail_ctx, (uint32_t)-1) < 0)
+		if (mbox_sync_loop(sync_ctx, &mail_ctx,
+				   (uint32_t)-1, FALSE) < 0)
 			return -1;
 	}
 
@@ -1034,7 +1070,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx, int sync_header)
 	return 0;
 }
 
-int mbox_sync_has_changed(struct index_mailbox *ibox)
+int mbox_sync_has_changed(struct index_mailbox *ibox, int leave_dirty)
 {
 	const struct mail_index_header *hdr;
 	struct stat st;
@@ -1049,8 +1085,18 @@ int mbox_sync_has_changed(struct index_mailbox *ibox)
 		return -1;
 	}
 
-	return (uint32_t)st.st_mtime != hdr->sync_stamp ||
-		(uint64_t)st.st_size != hdr->sync_size;
+	if ((uint32_t)st.st_mtime == hdr->sync_stamp &&
+	    (uint64_t)st.st_size == hdr->sync_size) {
+		/* fully synced */
+		ibox->mbox_sync_dirty = FALSE;
+		return 0;
+	}
+
+	if (!ibox->mbox_sync_dirty || !leave_dirty)
+		return 1;
+
+	return st.st_mtime != ibox->mbox_dirty_stamp ||
+		st.st_size != ibox->mbox_dirty_size;
 }
 
 static int mbox_sync_update_imap_base(struct mbox_sync_context *sync_ctx)
@@ -1064,7 +1110,7 @@ static int mbox_sync_update_imap_base(struct mbox_sync_context *sync_ctx)
 	sync_ctx->update_base_uid_last = sync_ctx->next_uid-1;
 
 	mbox_sync_restart(sync_ctx);
-	if (mbox_sync_loop(sync_ctx, &mail_ctx, 1) < 0)
+	if (mbox_sync_loop(sync_ctx, &mail_ctx, 1, 0) < 0)
 		return -1;
 
 	if (mbox_sync_handle_eof_updates(sync_ctx, &mail_ctx) < 0)
@@ -1076,8 +1122,7 @@ static int mbox_sync_update_imap_base(struct mbox_sync_context *sync_ctx)
 	return 0;
 }
 
-int mbox_sync(struct index_mailbox *ibox, int last_commit,
-	      int sync_header, int lock)
+int mbox_sync(struct index_mailbox *ibox, enum mbox_sync_flags flags)
 {
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
@@ -1087,22 +1132,23 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit,
 	unsigned int lock_id = 0;
 	int ret, changed;
 
-	if (lock) {
+	if ((flags & MBOX_SYNC_LOCK_READING) != 0) {
 		if (mbox_lock(ibox, F_RDLCK, &lock_id) <= 0)
 			return -1;
 	}
 
-	if (sync_header)
+	if ((flags & MBOX_SYNC_HEADER) != 0)
 		changed = 1;
 	else {
-		if ((changed = mbox_sync_has_changed(ibox)) < 0) {
-			if (lock)
+		int leave_dirty = (flags & MBOX_SYNC_UNDIRTY) == 0;
+		if ((changed = mbox_sync_has_changed(ibox, leave_dirty)) < 0) {
+			if ((flags & MBOX_SYNC_LOCK_READING) != 0)
 				(void)mbox_unlock(ibox, lock_id);
 			return -1;
 		}
 	}
 
-	if (lock) {
+	if ((flags & MBOX_SYNC_LOCK_READING) != 0) {
 		/* we just want to lock it for reading. if mbox hasn't been
 		   modified don't do any syncing. */
 		if (!changed)
@@ -1124,7 +1170,7 @@ __again:
 			return -1;
 	}
 
-	if (last_commit) {
+	if ((flags & MBOX_SYNC_LAST_COMMIT) != 0) {
 		seq = ibox->commit_log_file_seq;
 		offset = ibox->commit_log_file_offset;
 	} else {
@@ -1184,7 +1230,7 @@ __again:
 	sync_ctx.input = sync_ctx.ibox->mbox_stream;
 	sync_ctx.fd = sync_ctx.ibox->mbox_fd;
 
-	if (mbox_sync_do(&sync_ctx, sync_header) < 0)
+	if (mbox_sync_do(&sync_ctx, flags) < 0)
 		ret = -1;
 
 	if (ret < 0)
@@ -1257,9 +1303,11 @@ __again:
 		}
 	}
 
-	if (lock_id != 0 && !lock) {
+	if (lock_id != 0 && (flags & MBOX_SYNC_LOCK_READING) == 0) {
 		/* FIXME: keep the lock MBOX_SYNC_SECS+1 to make sure we
-		   notice changes made by others */
+		   notice changes made by others .. and this has to be done
+		   even if lock_reading is set.. except if
+		   mbox_sync_dirty = TRUE */
 		if (mbox_unlock(ibox, lock_id) < 0)
 			ret = -1;
 	}
@@ -1276,13 +1324,18 @@ struct mailbox_sync_context *
 mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	enum mbox_sync_flags mbox_sync_flags = 0;
 	int ret = 0;
 
 	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
 	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
 		ibox->sync_last_check = ioloop_time;
 
-		ret = mbox_sync(ibox, FALSE, FALSE, FALSE);
+		if ((flags & MAILBOX_SYNC_FLAG_FULL) != 0 ||
+		    !ibox->mbox_do_dirty_syncs)
+			mbox_sync_flags |= MBOX_SYNC_UNDIRTY;
+
+		ret = mbox_sync(ibox, mbox_sync_flags);
 	}
 
 	return index_mailbox_sync_init(box, flags, ret < 0);

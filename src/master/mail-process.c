@@ -222,6 +222,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("FULL_FILESYSTEM_ACCESS=1");
 	if (set->pop3_mails_keep_recent)
 		env_put("POP3_MAILS_KEEP_RECENT=1");
+	if (set->mbox_dirty_syncs)
+		env_put("MBOX_DIRTY_SYNCS=1");
 	(void)umask(set->umask);
 
 	env_put(t_strconcat("MBOX_READ_LOCKS=", set->mbox_read_locks, NULL));

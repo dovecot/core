@@ -88,3 +88,46 @@ void mbox_file_close_stream(struct index_mailbox *ibox)
 		ibox->mbox_stream = NULL;
 	}
 }
+
+int mbox_file_seek(struct index_mailbox *ibox, struct mail_index_view *view,
+		   uint32_t seq, int *deleted_r)
+{
+	const void *data;
+	uint64_t offset;
+	int ret;
+
+	*deleted_r = FALSE;
+
+	ret = mail_index_lookup_extra(view, seq, ibox->mbox_extra_idx, &data);
+	if (ret <= 0) {
+		if (ret < 0)
+			mail_storage_set_index_error(ibox);
+		else
+			*deleted_r = TRUE;
+		return -1;
+	}
+
+	offset = *((const uint64_t *)data);
+	if (istream_raw_mbox_seek(ibox->mbox_stream, offset) < 0) {
+		if (offset == 0) {
+			mail_storage_set_error(ibox->box.storage,
+				"Mailbox isn't a valid mbox file");
+			return -1;
+		}
+
+		if (ibox->mbox_sync_dirty)
+			return 0;
+
+		mail_storage_set_critical(ibox->box.storage,
+			"Cached message offset %s is invalid for mbox file %s",
+			dec2str(offset), ibox->path);
+		mail_index_mark_corrupted(ibox->index);
+		return -1;
+	}
+
+	if (ibox->mbox_sync_dirty) {
+		/* FIXME: we're dirty - make sure this is the correct mail */
+	}
+
+	return 1;
+}

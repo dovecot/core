@@ -4,6 +4,13 @@
 #include "md5.h"
 #include "mail-index.h"
 
+enum mbox_sync_flags {
+	MBOX_SYNC_LAST_COMMIT	= 0x01,
+	MBOX_SYNC_HEADER	= 0x02,
+	MBOX_SYNC_LOCK_READING	= 0x04,
+	MBOX_SYNC_UNDIRTY	= 0x08
+};
+
 struct mbox_flag_type {
 	char chr;
 	enum mail_flags flag;
@@ -103,9 +110,8 @@ struct mbox_sync_context {
 	unsigned int seen_first_mail:1;
 };
 
-int mbox_sync(struct index_mailbox *ibox, int last_commit,
-	      int sync_header, int lock);
-int mbox_sync_has_changed(struct index_mailbox *ibox);
+int mbox_sync(struct index_mailbox *ibox, enum mbox_sync_flags flags);
+int mbox_sync_has_changed(struct index_mailbox *ibox, int leave_dirty);
 
 void mbox_sync_parse_next_mail(struct istream *input,
 			       struct mbox_sync_mail_context *ctx);

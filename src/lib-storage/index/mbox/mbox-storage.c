@@ -418,6 +418,7 @@ mbox_open(struct index_storage *storage, const char *name,
 	ibox->is_recent = mbox_mail_is_recent;
 	ibox->mail_interface = &mbox_mail;
 	ibox->unreliable_headers = TRUE;
+        ibox->mbox_do_dirty_syncs = getenv("MBOX_DIRTY_SYNCS") != NULL;
 
 	if (access(path, R_OK|W_OK) < 0) {
 		if (errno < EACCES)

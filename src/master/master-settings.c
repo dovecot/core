@@ -104,6 +104,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, mbox_write_locks),
 	DEF(SET_INT, mbox_lock_timeout),
 	DEF(SET_INT, mbox_dotlock_change_timeout),
+	DEF(SET_BOOL, mbox_dirty_syncs),
 	DEF(SET_INT, umask),
 	DEF(SET_BOOL, mail_drop_priv_before_exec),
 
@@ -265,6 +266,7 @@ struct settings default_settings = {
 	MEMBER(mbox_write_locks) "dotlock fcntl",
 	MEMBER(mbox_lock_timeout) 300,
 	MEMBER(mbox_dotlock_change_timeout) 30,
+	MEMBER(mbox_dirty_syncs) TRUE,
 	MEMBER(umask) 0077,
 	MEMBER(mail_drop_priv_before_exec) FALSE,
 

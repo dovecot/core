@@ -37,7 +37,8 @@ int mbox_transaction_commit(struct mailbox_transaction_context *_t)
 	t = NULL;
 
 	if (ret == 0) {
-		if (mbox_sync(ibox, TRUE, mbox_modified, FALSE) < 0)
+		if (mbox_sync(ibox, MBOX_SYNC_LAST_COMMIT |
+			      (mbox_modified ? MBOX_SYNC_HEADER : 0)) < 0)
 			ret = -1;
 	}
 
