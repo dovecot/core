@@ -118,6 +118,9 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	i_assert(min_file_offset >= sizeof(struct mail_transaction_log_header));
 	i_assert(max_file_offset >= sizeof(struct mail_transaction_log_header));
 
+	i_assert(min_file_seq != max_file_seq ||
+		 min_file_offset <= max_file_offset);
+
 	end_offset = min_file_seq == max_file_seq ?
 		max_file_offset : (uoff_t)-1;
 	ret = mail_transaction_log_file_map(file, min_file_offset, end_offset);
