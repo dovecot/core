@@ -261,9 +261,9 @@ auth_master_connection_create(int fd, unsigned int pid)
 void auth_master_connection_send_handshake(struct auth_master_connection *conn)
 {
 	if (conn->output != NULL) {
-		master_send(conn, "VERSION\t%u.%u\n",
+		master_send(conn, "VERSION\t%u.%u\nSPID\t%u\n",
 			    AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
-                            AUTH_MASTER_PROTOCOL_MINOR_VERSION);
+                            AUTH_MASTER_PROTOCOL_MINOR_VERSION, conn->pid);
 	}
 }
 

@@ -46,6 +46,7 @@ struct auth_process {
 	struct hash_table *requests;
 
 	unsigned int external:1;
+	unsigned int version_received:1;
 	unsigned int initialized:1;
 	unsigned int in_auth_reply:1;
 };
@@ -136,6 +137,33 @@ auth_process_input_notfound(struct auth_process *process, const char *args)
 }
 
 static int
+auth_process_input_spid(struct auth_process *process, const char *args)
+{
+	unsigned int pid;
+
+	if (process->initialized) {
+		i_error("BUG: Authentication server re-handshaking");
+		return FALSE;
+	}
+
+	pid = (unsigned int)strtoul(args, NULL, 10);
+	if (pid == 0) {
+		i_error("BUG: Authentication server said it's PID 0");
+		return FALSE;
+	}
+
+	if (process->pid != 0 && process->pid != (pid_t)pid) {
+		i_error("BUG: Authentication server sent invalid SPID "
+			"(%u != %s)", pid, dec2str(process->pid));
+		return FALSE;
+	}
+
+	process->pid = pid;
+        process->initialized = TRUE;
+	return TRUE;
+}
+
+static int
 auth_process_input_fail(struct auth_process *process, const char *args)
 {
 	void *context;
@@ -182,7 +210,7 @@ static void auth_process_input(void *context)
 		return;
 	}
 
-	if (!process->initialized) {
+	if (!process->version_received) {
 		line = i_stream_next_line(process->input);
 		if (line == NULL)
 			return;
@@ -197,7 +225,7 @@ static void auth_process_input(void *context)
 			auth_process_destroy(process);
 			return;
 		}
-		process->initialized = TRUE;
+		process->version_received = TRUE;
 	}
 
 	while ((line = i_stream_next_line(process->input)) != NULL) {
@@ -208,6 +236,8 @@ static void auth_process_input(void *context)
 			ret = auth_process_input_notfound(process, line + 9);
 		else if (strncmp(line, "FAIL\t", 5) == 0)
 			ret = auth_process_input_fail(process, line + 5);
+		else if (strncmp(line, "SPID\t", 5) == 0)
+			ret = auth_process_input_spid(process, line + 5);
 		else
 			ret = TRUE;
 		t_pop();
