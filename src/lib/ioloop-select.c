@@ -34,10 +34,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#ifndef FD_SETSIZE
-#  define FD_SETSIZE 1024
-#endif
-
 struct _IOLoopHandlerData {
 	fd_set read_fds, write_fds;
 };
