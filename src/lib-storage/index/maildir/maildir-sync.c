@@ -834,18 +834,18 @@ static int maildir_sync_context(struct maildir_sync_context *ctx)
 	if (!new_changed && !cur_changed)
 		return 0;
 
-	ctx->partial = !cur_changed;
-	ctx->uidlist_sync_ctx =
-		maildir_uidlist_sync_init(ctx->ibox->uidlist, ctx->partial);
-
 	/* we have to lock uidlist immediately, otherwise there's race
 	   conditions with other processes who might write older maildir
 	   file list into uidlist.
 
 	   alternative would be to lock it when new files are found, but
 	   the directory scans _must_ be restarted then */
-	if (maildir_uidlist_try_lock(ctx->ibox->uidlist) < 0)
-		return -1;
+	if ((ret = maildir_uidlist_try_lock(ctx->ibox->uidlist)) <= 0)
+		return ret;
+
+	ctx->partial = !cur_changed;
+	ctx->uidlist_sync_ctx =
+		maildir_uidlist_sync_init(ctx->ibox->uidlist, ctx->partial);
 
 	if (maildir_scan_dir(ctx, TRUE) < 0)
 		return -1;
@@ -855,10 +855,9 @@ static int maildir_sync_context(struct maildir_sync_context *ctx)
 	}
 
 	/* finish uidlist syncing, but keep it still locked */
-	if (maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx)) {
-		if (maildir_sync_index(ctx) < 0)
-			return -1;
-	}
+	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
+	if (maildir_sync_index(ctx) < 0)
+		return -1;
 
 	ret = maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
         ctx->uidlist_sync_ctx = NULL;
@@ -878,6 +877,7 @@ static int maildir_sync_context_readonly(struct maildir_sync_context *ctx)
 	if (maildir_scan_dir(ctx, FALSE) < 0)
 		return -1;
 
+	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
 	ret = maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
         ctx->uidlist_sync_ctx = NULL;
 

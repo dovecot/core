@@ -58,8 +58,6 @@ struct maildir_uidlist_sync_ctx {
 	unsigned int new_files_count;
 
 	unsigned int partial:1;
-	unsigned int synced:1;
-	unsigned int locked:1;
 	unsigned int finished:1;
 	unsigned int failed:1;
 };
@@ -592,42 +590,6 @@ maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, int partial)
 	return ctx;
 }
 
-static int maildir_uidlist_sync_uidlist(struct maildir_uidlist_sync_ctx *ctx)
-{
-	int ret;
-
-	i_assert(!ctx->synced);
-
-	if (UIDLIST_IS_LOCKED(ctx->uidlist)) {
-		ctx->synced = TRUE;
-		return 1;
-	}
-
-	if (!ctx->uidlist->initial_read) {
-		/* first time reading the uidlist,
-		   no locking yet */
-		if (maildir_uidlist_update(ctx->uidlist) < 0) {
-			ctx->failed = TRUE;
-			return -1;
-		}
-		return 0;
-	}
-
-	/* lock and update uidlist to see if it's just been added */
-	ret = maildir_uidlist_try_lock(ctx->uidlist);
-	if (ret <= 0) {
-		if (ret == 0) {
-			ctx->locked = TRUE;
-			return -1;
-		}
-		ctx->failed = TRUE;
-		return -1;
-	}
-
-	ctx->synced = TRUE;
-	return 1;
-}
-
 static int
 maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 				  const char *filename,
@@ -638,7 +600,7 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 
 	/* we'll update uidlist directly */
 	rec = hash_lookup(uidlist->files, filename);
-	i_assert(rec != NULL || ctx->synced);
+	i_assert(rec != NULL || UIDLIST_IS_LOCKED(uidlist));
 
 	if (rec == NULL) {
 		if (ctx->new_files_count == 0) {
@@ -673,19 +635,19 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 int maildir_uidlist_sync_next_pre(struct maildir_uidlist_sync_ctx *ctx,
 				  const char *filename)
 {
-	int ret;
-
-	if (!ctx->synced &&
+	if (!UIDLIST_IS_LOCKED(ctx->uidlist) &&
 	    hash_lookup(ctx->uidlist->files, filename) == NULL &&
 	    (ctx->partial || hash_lookup(ctx->files, filename) == NULL)) {
-		if (ctx->locked)
-			return 0;
-
-		ret = maildir_uidlist_sync_uidlist(ctx);
-		if (ret < 0)
-			return ctx->locked ? 0 : -1;
-		if (ret == 0)
+		if (!ctx->uidlist->initial_read) {
+			/* first time reading the uidlist */
+			if (maildir_uidlist_update(ctx->uidlist) < 0) {
+				ctx->failed = TRUE;
+				return -1;
+			}
 			return maildir_uidlist_sync_next_pre(ctx, filename);
+		}
+
+		return 0;
 	}
 
 	return 1;
@@ -716,7 +678,7 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 				MAILDIR_UIDLIST_REC_FLAG_MOVED);
 	} else {
 		old_rec = hash_lookup(uidlist->files, filename);
-		i_assert(old_rec != NULL || ctx->synced);
+		i_assert(old_rec != NULL || UIDLIST_IS_LOCKED(uidlist));
 
 		rec = p_new(ctx->record_pool, struct maildir_uidlist_rec, 1);
 
@@ -825,10 +787,10 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 	}
 }
 
-int maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
+void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 {
 	if (!ctx->partial) {
-		if (!ctx->failed && !ctx->locked)
+		if (!ctx->failed)
 			maildir_uidlist_swap(ctx);
 	} else {
 		if (ctx->new_files_count != 0) {
@@ -839,7 +801,6 @@ int maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 
 	ctx->finished = TRUE;
 	ctx->uidlist->initial_sync = TRUE;
-	return !ctx->locked;
 }
 
 int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
@@ -849,7 +810,7 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
 	if (!ctx->finished)
 		maildir_uidlist_sync_finish(ctx);
 
-	if (ctx->new_files_count != 0 && !ctx->failed && !ctx->locked) {
+	if (ctx->new_files_count != 0 && !ctx->failed) {
 		t_push();
 		ret = maildir_uidlist_rewrite(ctx->uidlist);
 		t_pop();
