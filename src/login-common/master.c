@@ -29,7 +29,9 @@ static void request_handle(struct master_login_reply *reply)
 	if (client == NULL)
 		i_fatal("Master sent reply with unknown tag %u", reply->tag);
 
+	client->master_tag = 0;
 	client->master_callback(client, reply->success);
+	client->master_callback = NULL;
 
 	hash_remove(master_requests, POINTER_CAST(reply->tag));
 }
@@ -60,10 +62,10 @@ void master_request_login(struct client *client, master_callback_t *callback,
 
 void master_request_abort(struct client *client)
 {
+	hash_remove(master_requests, POINTER_CAST(client->master_tag));
+
 	client->master_tag = 0;
 	client->master_callback = NULL;
-
-	hash_remove(master_requests, POINTER_CAST(client->master_tag));
 }
 
 void master_notify_finished(void)

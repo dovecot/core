@@ -105,7 +105,9 @@ void auth_client_connect_missing_servers(struct auth_client *client)
 		client->to_reconnect = NULL;
 	}
 
-	client->connect_notify_callback(client,
-					auth_client_is_connected(client),
-					client->connect_notify_context);
+	if (client->connect_notify_callback != NULL) {
+		client->connect_notify_callback(client,
+				auth_client_is_connected(client),
+				client->connect_notify_context);
+	}
 }

@@ -144,9 +144,6 @@ static void master_handle_request(struct auth_master_connection *conn,
 		master_send_reply(conn, &failure_reply, sizeof(failure_reply),
 				  request->tag);
 	} else {
-		/* the auth request is finished, we don't need it anymore */
-		mech_request_free(client_conn, auth_request, request->id);
-
 		master_request = i_new(struct master_userdb_request, 1);
 		master_request->conn = conn;
 		master_request->tag = request->tag;
@@ -154,6 +151,9 @@ static void master_handle_request(struct auth_master_connection *conn,
 		conn->refcount++;
 		userdb->lookup(auth_request->user, userdb_callback,
 			       master_request);
+
+		/* the auth request is finished, we don't need it anymore */
+		mech_request_free(client_conn, auth_request, request->id);
 	}
 }
 

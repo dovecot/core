@@ -44,7 +44,8 @@ static void auth_handle_handshake(struct auth_server_connection *conn,
         conn->client->conn_waiting_handshake_count--;
 	update_available_auth_mechs(conn->client);
 
-	if (auth_client_is_connected(conn->client)) {
+	if (conn->client->connect_notify_callback != NULL &&
+	    auth_client_is_connected(conn->client)) {
 		conn->client->connect_notify_callback(conn->client, TRUE,
 				conn->client->connect_notify_context);
 	}
@@ -187,7 +188,7 @@ void auth_server_connection_destroy(struct auth_server_connection *conn,
 
 	if (reconnect)
 		auth_client_connect_missing_servers(client);
-	else {
+	else if (client->connect_notify_callback != NULL) {
 		client->connect_notify_callback(client,
 				auth_client_is_connected(client),
 				client->connect_notify_context);
