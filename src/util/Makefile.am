@@ -13,9 +13,6 @@ rawlog_LDADD = \
 rawlog_SOURCES = \
 	rawlog.c
 
-dovecotpw_INCLUDES = \
-	-DAUTH_MODULE_DIR=\""$(moduledir)/auth"\"
-
 dovecotpw_LDADD = \
 	../lib/liblib.a \
 	../auth/password-scheme.o \
