@@ -179,11 +179,13 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 	return 0;
 }
 
-static int create_temp_file(const char *prefix, const char **path_r)
+static int
+create_temp_file(const char *prefix, const char **path_r, int write_pid)
 {
 	string_t *path;
 	size_t len;
 	struct stat st;
+	const char *str;
 	unsigned char randbuf[8];
 	int fd;
 
@@ -207,16 +209,31 @@ static int create_temp_file(const char *prefix, const char **path_r)
 
 		fd = open(*path_r, O_RDWR | O_EXCL | O_CREAT, 0666);
 		if (fd != -1)
-			return fd;
+			break;
 
 		if (errno != EEXIST) {
 			i_error("open(%s) failed: %m", *path_r);
 			return -1;
 		}
 	}
+
+	if (write_pid) {
+		/* write our pid and host, if possible */
+		str = t_strdup_printf("%s:%s", my_pid, my_hostname);
+		if (write_full(fd, str, strlen(str)) < 0) {
+			/* failed, leave it empty then */
+			if (ftruncate(fd, 0) < 0) {
+				i_error("ftruncate(%s) failed: %m", *path_r);
+				(void)close(fd);
+				return -1;
+			}
+		}
+	}
+	return fd;
 }
 
-static int try_create_lock(struct lock_info *lock_info, const char *temp_prefix)
+static int try_create_lock(struct lock_info *lock_info, const char *temp_prefix,
+			   int write_pid)
 {
 	const char *str, *p;
 
@@ -234,7 +251,7 @@ static int try_create_lock(struct lock_info *lock_info, const char *temp_prefix)
 			temp_prefix = t_strconcat(str, temp_prefix, NULL);
 		}
 
-		lock_info->fd = create_temp_file(temp_prefix, &str);
+		lock_info->fd = create_temp_file(temp_prefix, &str, write_pid);
 		if (lock_info->fd == -1)
 			return -1;
 
@@ -263,7 +280,7 @@ static int
 dotlock_create(const char *path, const char *temp_prefix,
 	       const char *lock_suffix, int checkonly, int *fd,
 	       unsigned int timeout, unsigned int stale_timeout,
-	       unsigned int immediate_stale_timeout,
+	       unsigned int immediate_stale_timeout, int write_pid,
 	       int (*callback)(unsigned int secs_left, int stale,
 			       void *context),
 	       void *context)
@@ -305,7 +322,8 @@ dotlock_create(const char *path, const char *temp_prefix,
 			if (checkonly)
 				break;
 
-			ret = try_create_lock(&lock_info, temp_prefix);
+			ret = try_create_lock(&lock_info, temp_prefix,
+					      write_pid);
 			if (ret != 0)
 				break;
 		}
@@ -355,7 +373,7 @@ int file_lock_dotlock(const char *path, const char *temp_prefix, int checkonly,
 				      void *context),
 		      void *context, struct dotlock *dotlock_r)
 {
-	const char *lock_path, *str;
+	const char *lock_path;
 	struct stat st;
 	int fd, ret;
 
@@ -363,20 +381,9 @@ int file_lock_dotlock(const char *path, const char *temp_prefix, int checkonly,
 
 	ret = dotlock_create(path, temp_prefix, DEFAULT_LOCK_SUFFIX,
 			     checkonly, &fd, timeout, stale_timeout,
-			     immediate_stale_timeout, callback, context);
+			     immediate_stale_timeout, TRUE, callback, context);
 	if (ret <= 0 || checkonly)
 		return ret;
-
-	/* write our pid and host, if possible */
-	str = t_strdup_printf("%s:%s", my_pid, my_hostname);
-	if (write_full(fd, str, strlen(str)) < 0) {
-		/* failed, leave it empty then */
-		if (ftruncate(fd, 0) < 0) {
-			i_error("ftruncate(%s) failed: %m", lock_path);
-			(void)close(fd);
-			return -1;
-		}
-	}
 
 	/* save the inode info after writing */
 	if (fstat(fd, &st) < 0) {
@@ -474,7 +481,7 @@ int file_dotlock_open(const char *path,
 
 	ret = dotlock_create(path, temp_prefix, lock_suffix, FALSE, &fd,
 			     timeout, stale_timeout, immediate_stale_timeout,
-			     callback, context);
+			     FALSE, callback, context);
 	if (ret <= 0)
 		return -1;
 	return fd;
