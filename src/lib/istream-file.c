@@ -2,6 +2,8 @@
 
 /* @UNSAFE: whole file */
 
+#define _XOPEN_SOURCE 500 /* for pread() / Linux */
+
 #include "lib.h"
 #include "alarm-hup.h"
 #include "istream-internal.h"
@@ -113,18 +115,6 @@ static ssize_t _read(struct _istream *stream)
 	if (stream->istream.closed)
 		return -1;
 
-	if (fstream->skip_left > 0) {
-		i_assert(stream->skip == stream->pos);
-
-		if (fstream->file) {
-			/* we're a file, so we can lseek() */
-			i_stream_seek(&stream->istream,
-				      stream->istream.v_offset);
-			if (stream->istream.closed)
-				return -1;
-		}
-	}
-
 	stream->istream.stream_errno = 0;
 
 	if (stream->pos == stream->buffer_size) {
@@ -169,7 +159,15 @@ static ssize_t _read(struct _istream *stream)
 			return -1;
 		}
 
-		ret = read(stream->fd, stream->w_buffer + stream->pos, size);
+		if (fstream->file) {
+			ret = pread(stream->fd,
+				    stream->w_buffer + stream->pos, size,
+				    stream->istream.start_offset +
+				    stream->istream.v_offset);
+		} else {
+			ret = read(stream->fd,
+				   stream->w_buffer + stream->pos, size);
+		}
 		if (ret == 0) {
 			/* EOF */
 			stream->istream.stream_errno = 0;
@@ -192,6 +190,7 @@ static ssize_t _read(struct _istream *stream)
 		}
 
 		if (ret > 0 && fstream->skip_left > 0) {
+			i_assert(!fstream->file);
 			if (fstream->skip_left >= (size_t)ret) {
 				fstream->skip_left -= ret;
 				ret = 0;
@@ -212,40 +211,24 @@ static void _skip(struct _istream *stream, uoff_t count)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 
-	fstream->skip_left += count - (stream->pos - stream->skip);
-	stream->skip = stream->pos = 0;
+	if (!fstream->file)
+		fstream->skip_left += count - (stream->pos - stream->skip);
 	stream->istream.v_offset += count;
+	stream->skip = stream->pos = 0;
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
-	uoff_t real_offset;
-	off_t ret;
 
-	real_offset = stream->istream.start_offset + v_offset;
-	if (real_offset > OFF_T_MAX) {
-		stream->istream.stream_errno = EOVERFLOW;
-		ret = -1;
-	} else {
-		ret = lseek(stream->fd, (off_t)real_offset, SEEK_SET);
-		if (ret < 0)
-			stream->istream.stream_errno = errno;
-		else if (ret != (off_t)real_offset) {
-			stream->istream.stream_errno = EINVAL;
-			ret = -1;
-		} else {
-			stream->skip = stream->pos = 0;
-			fstream->skip_left = 0;
-		}
+	if (!fstream->file) {
+		stream->istream.stream_errno = ESPIPE;
+		return;
 	}
 
-	if (ret < 0)
-                i_stream_close(&stream->istream);
-	else {
-		stream->istream.stream_errno = 0;
-		stream->istream.v_offset = v_offset;
-	}
+	stream->istream.stream_errno = 0;
+	stream->istream.v_offset = v_offset;
+	stream->skip = stream->pos = 0;
 }
 
 struct istream *i_stream_create_file(int fd, pool_t pool,
