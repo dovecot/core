@@ -293,8 +293,10 @@ static void part_write_body(MessagePart *part, TempString *str, int extended)
 
 		t_string_append_c(str, ' ');
 		if (child_data != NULL && child_data->envelope != NULL) {
+			t_string_append_c(str, '(');
 			imap_envelope_write_part_data(child_data->envelope,
 						      str);
+			t_string_append_c(str, ')');
 		} else {
 			/* buggy message */
 			t_string_append(str, "NIL");
