@@ -37,9 +37,6 @@ unsigned int alarm_hup_set_interval(unsigned int timeout)
 {
 	unsigned int old;
 
-	if (getenv("DISABLE_ALARMHUP") != NULL)
-		return 0;
-
 	old = alarm_timeout;
 	alarm_timeout = timeout;
 
@@ -49,32 +46,18 @@ unsigned int alarm_hup_set_interval(unsigned int timeout)
 
 static void sig_alarm(int signo __attr_unused__)
 {
-	/* we need syscalls to stop with EINTR */
-	if (raise(SIGHUP) < 0)
-		i_fatal("kill(): %m");
-
 	/* do it again */
 	alarm(alarm_timeout);
-
-#ifndef HAVE_SIGACTION
-	signal(SIGALRM, sig_alarm);
-#endif
 }
 
 void alarm_hup_init(void)
 {
-#ifdef HAVE_SIGACTION
 	struct sigaction act;
-#endif
-
-	if (getenv("DISABLE_ALARMHUP") != NULL)
-		alarm_timeout = 0;
 
 	if (initialized)
 		return;
 	initialized = TRUE;
 
-#ifdef HAVE_SIGACTION
 	if (sigemptyset(&act.sa_mask) < 0)
 		i_fatal("sigemptyset(): %m");
 	act.sa_flags = 0;
@@ -84,23 +67,13 @@ void alarm_hup_init(void)
 		if (errno != EINTR)
 			i_fatal("sigaction(): %m");
 	}
-#else
-	/* at least Linux blocks raise(SIGHUP) inside SIGALRM
-	   handler if it's added with signal().. sigaction() should
-	   be pretty much everywhere though, so this code is pretty
-	   useless. */
-#warning timeouting may not work
-	signal(SIGALRM, sig_alarm);
-#endif
 
 	alarm(alarm_timeout);
 }
 
 void alarm_hup_deinit(void)
 {
-#ifdef HAVE_SIGACTION
 	struct sigaction act;
-#endif
 
 	if (!initialized)
 		return;
@@ -108,7 +81,6 @@ void alarm_hup_deinit(void)
 
 	alarm(0);
 
-#ifdef HAVE_SIGACTION
 	if (sigemptyset(&act.sa_mask) < 0)
 		i_fatal("sigemptyset(): %m");
 	act.sa_flags = 0;
@@ -117,7 +89,4 @@ void alarm_hup_deinit(void)
 		if (errno != EINTR)
 			i_fatal("sigaction(): %m");
 	}
-#else
-	signal(SIGALRM, SIG_DFL);
-#endif
 }
