@@ -302,7 +302,7 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 			MAIL_CACHE_FIELD_DECISION(cache->file_fields_count));
 
 		if (ret == 0) {
-			for (i = 0; i < cache->fields_count; i++)
+			for (i = 0; i < cache->file_fields_count; i++)
 				cache->fields[i].decision_dirty = FALSE;
 		}
 	}
