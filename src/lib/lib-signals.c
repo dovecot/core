@@ -61,4 +61,5 @@ void lib_init_signals(void (*sig_quit_handler) (int))
 	signal(SIGINT, sig_quit);
         signal(SIGTERM, sig_quit);
         signal(SIGPIPE, SIG_IGN);
+        signal(SIGALRM, SIG_IGN);
 }
