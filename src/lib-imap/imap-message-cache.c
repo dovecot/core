@@ -307,9 +307,9 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 
 			msg->part = message_parse(msg->pool, cache->open_stream,
 						  func, msg);
-		} else {
-			failed = TRUE;
 		}
+
+		failed = msg->part == NULL;
 	}
 
 	if ((fields & IMAP_CACHE_MESSAGE_BODY_SIZE) && msg->body_size == NULL) {
@@ -521,12 +521,23 @@ static void get_partial_size(IStream *stream,
 	}
 
 	message_skip_virtual(stream, virtual_skip, partial, cr_skipped);
+
+	if (*cr_skipped && max_virtual_size != (uoff_t)-1) {
+		/* get_body_size() sees \n first, counting it as \r\n */
+		max_virtual_size++;
+	}
+
 	message_get_body_size(stream, dest, max_virtual_size);
 
 	if (*cr_skipped) {
+		/* extra virtual \r counted, drop it */
 		dest->virtual_size--;
+		/* we'll see \n as first character next time, so make sure
+		   we don't count the (virtual) \r twice. */
 		partial->virtual_size--;
 	}
+
+	// FIXME: add dest to partial
 }
 
 int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
