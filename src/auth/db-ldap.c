@@ -272,28 +272,41 @@ static void ldap_conn_close(struct ldap_connection *conn)
 	}
 }
 
-void db_ldap_set_attrs(struct ldap_connection *conn, const char *value,
-		       unsigned int **attrs, char ***attr_names)
+void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
+		       const char *const default_attr_map[])
 {
 	const char *const *attr;
-	unsigned int i, dest, size;
+	char *name, *value, *p;
+	unsigned int i, size;
 
-	attr = t_strsplit(value, ",");
-	if (*attr == NULL || **attr == '\0')
-		i_fatal("Missing uid field in attrs");
+	if (*attrlist == '\0')
+		return;
+
+	t_push();
+	attr = t_strsplit(attrlist, ",");
 
 	for (size = 0; attr[size] != NULL; size++) ;
+	conn->attr_names = p_new(conn->pool, char *, size);
 
-	/* +1 for terminating NULL */
-	*attrs = p_new(conn->pool, unsigned int, size);
-	*attr_names = p_new(conn->pool, char *, size + 1);
-	for (i = 0, dest = 0; *attr != NULL; i++, attr++) {
-		if (**attr != '\0') {
-			(*attrs)[dest] = i;
-			(*attr_names)[dest] = p_strdup(conn->pool, *attr);
-			dest++;
+	for (i = 0; i < size; i++) {
+		p = strchr(attr[i], '=');
+		if (p == NULL) {
+			name = p_strdup(conn->pool, attr[i]);
+			value = *default_attr_map == NULL ? name :
+				p_strdup(conn->pool, *default_attr_map);
+		} else {
+			name = p_strdup_until(conn->pool, attr[i], p);
+			value = p_strdup(conn->pool, p + 1);
 		}
+
+		conn->attr_names[i] = name;
+		if (*name != '\0')
+			hash_insert(conn->attr_map, name, value);
+
+		if (*default_attr_map != NULL)
+			default_attr_map++;
 	}
+	t_pop();
 }
 
 #define IS_LDAP_ESCAPED_CHAR(c) \
@@ -362,6 +375,8 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 
 	conn->refcount = 1;
 	conn->requests = hash_create(default_pool, pool, 0, NULL, NULL);
+	conn->attr_map = hash_create(default_pool, pool, 0, str_hash,
+				     (hash_cmp_callback_t *)strcmp);
 
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_ldap_settings;
@@ -387,6 +402,7 @@ void db_ldap_unref(struct ldap_connection *conn)
 	ldap_conn_close(conn);
 
 	hash_destroy(conn->requests);
+	hash_destroy(conn->attr_map);
 	pool_unref(conn->pool);
 }
 

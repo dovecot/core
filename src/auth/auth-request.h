@@ -69,10 +69,11 @@ int auth_request_set_username(struct auth_request *request,
 			      const char *username, const char **error_r);
 
 struct auth_request_extra *
-auth_request_extra_begin(struct auth_request *request, const char *password);
+auth_request_extra_begin(struct auth_request *request);
 void auth_request_extra_next(struct auth_request_extra *extra,
 			     const char *name, const char *value);
 void auth_request_extra_finish(struct auth_request_extra *extra,
+			       const char *user_password,
 			       const char *cache_key);
 
 const struct var_expand_table *

@@ -12,83 +12,68 @@
 
 #include <stdlib.h>
 
-static uid_t static_uid;
-static gid_t static_gid;
-static char *static_home_template, *static_mail_template;
+static char *static_template;
 
 static void static_lookup(struct auth_request *auth_request,
 			  userdb_callback_t *callback, void *context)
 {
-	struct user_data data;
 	string_t *str;
 
-	memset(&data, 0, sizeof(data));
-	data.uid = static_uid;
-	data.gid = static_gid;
-
-	data.virtual_user = data.system_user = auth_request->user;
-
-	if (static_home_template != NULL) {
-		str = t_str_new(256);
-		var_expand(str, static_home_template,
-			   auth_request_get_var_expand_table(auth_request,
-							     NULL));
-		data.home = str_c(str);
-	}
-	if (static_mail_template != NULL) {
-		str = t_str_new(256);
-		var_expand(str, static_mail_template,
-			   auth_request_get_var_expand_table(auth_request,
-							     NULL));
-		data.mail = str_c(str);
-	}
-
-	callback(&data, context);
+	str = t_str_new(128);
+	str_append(str, auth_request->user);
+	var_expand(str, static_template,
+		   auth_request_get_var_expand_table(auth_request, NULL));
+	callback(str_c(str), context);
 }
 
 static void static_init(const char *args)
 {
 	const char *const *tmp;
+	uid_t uid;
+	gid_t gid;
+	string_t *str;
 
-	static_uid = 0;
-	static_gid = 0;
-	static_home_template = NULL;
-	static_mail_template = NULL;
+	uid = (uid_t)-1;
+	gid = (gid_t)-1;
+
+	t_push();
+	str = t_str_new(128);
 
 	for (tmp = t_strsplit_spaces(args, " "); *tmp != NULL; tmp++) {
+		str_append_c(str, '\t');
 		if (strncasecmp(*tmp, "uid=", 4) == 0) {
-			static_uid = userdb_parse_uid(NULL, *tmp + 4);
-			if (static_uid == (uid_t)-1) {
+			uid = userdb_parse_uid(NULL, *tmp + 4);
+			if (uid == (uid_t)-1) {
 				i_fatal("static userdb: Invalid uid: %s",
 					*tmp + 4);
 			}
+			str_append(str, "uid=");
+			str_append(str, dec2str(uid));
 		} else if (strncasecmp(*tmp, "gid=", 4) == 0) {
-			static_gid = userdb_parse_gid(NULL, *tmp + 4);
-			if (static_gid == (gid_t)-1) {
+			gid = userdb_parse_gid(NULL, *tmp + 4);
+			if (gid == (gid_t)-1) {
 				i_fatal("static userdb: Invalid gid: %s",
 					*tmp + 4);
 			}
-		} else if (strncasecmp(*tmp, "home=", 5) == 0) {
-			i_free(static_home_template);
-			static_home_template = i_strdup(*tmp + 5);
-		} else if (strncasecmp(*tmp, "mail=", 5) == 0) {
-			i_free(static_mail_template);
-			static_mail_template = i_strdup(*tmp + 5);
+			str_append(str, "gid=");
+			str_append(str, dec2str(gid));
 		} else {
-			i_fatal("static userdb: Invalid option: '%s'", *tmp);
+			str_append(str, *tmp);
 		}
 	}
 
-	if (static_uid == 0)
+	if (uid == (uid_t)-1)
 		i_fatal("static userdb: uid missing");
-	if (static_gid == 0)
+	if (gid == (gid_t)-1)
 		i_fatal("static userdb: gid missing");
+
+	static_template = i_strdup(str_c(str));
+	t_pop();
 }
 
 static void static_deinit(void)
 {
-	i_free(static_home_template);
-	i_free(static_mail_template);
+	i_free(static_template);
 }
 
 struct userdb_module userdb_static = {

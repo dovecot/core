@@ -376,51 +376,20 @@ _auth_continue(struct auth_request_handler *handler, const char *args)
 	return TRUE;
 }
 
-static void append_user_reply(string_t *str, const struct user_data *user)
-{
-	const char *p;
-
-	str_printfa(str, "%s\tuid=%s\tgid=%s", user->virtual_user,
-		    dec2str(user->uid), dec2str(user->gid));
-
-	if (user->system_user != NULL)
-		str_printfa(str, "\tsystem_user=%s", user->system_user);
-	if (user->mail != NULL)
-		str_printfa(str, "\tmail=%s", user->mail);
-
-	p = user->home != NULL ? strstr(user->home, "/./") : NULL;
-	if (p == NULL) {
-		if (user->home != NULL)
-			str_printfa(str, "\thome=%s", user->home);
-	} else {
-		/* wu-ftpd like <chroot>/./<home> */
-		str_printfa(str, "\thome=%s\tchroot=%s",
-			    p + 3, t_strdup_until(user->home, p));
-	}
-}
-
-static void userdb_callback(const struct user_data *user, void *context)
+static void userdb_callback(const char *result, void *context)
 {
         struct auth_request *request = context;
         struct auth_request_handler *handler = request->context;
 	string_t *reply;
 
-	if (user != NULL) {
-		auth_request_log_debug(request, "userdb",
-				       "uid=%s gid=%s home=%s mail=%s",
-				       dec2str(user->uid), dec2str(user->gid),
-				       user->home != NULL ? user->home : "",
-				       user->mail != NULL ? user->mail : "");
-	}
-
 	reply = t_str_new(256);
 	if (handler->prepend_connect_uid)
 		str_printfa(reply, "%u\t", request->connect_uid);
-	if (user == NULL)
+	if (result == NULL)
 		str_printfa(reply, "NOTFOUND\t%u", request->id);
 	else {
 		str_printfa(reply, "USER\t%u\t", request->id);
-		append_user_reply(reply, user);
+		str_append(reply, result);
 	}
 	handler->master_callback(str_c(reply), handler->master_context);
 

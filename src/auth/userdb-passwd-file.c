@@ -6,6 +6,7 @@
 #ifdef USERDB_PASSWD_FILE
 
 #include "common.h"
+#include "str.h"
 #include "userdb.h"
 #include "db-passwd-file.h"
 
@@ -14,8 +15,8 @@ struct passwd_file *userdb_pwf = NULL;
 static void passwd_file_lookup(struct auth_request *auth_request,
 			       userdb_callback_t *callback, void *context)
 {
-	struct user_data data;
 	struct passwd_user *pu;
+	string_t *str;
 
 	pu = db_passwd_file_lookup(userdb_pwf, auth_request);
 	if (pu == NULL) {
@@ -23,15 +24,16 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 		return;
 	}
 
-	memset(&data, 0, sizeof(data));
-	data.uid = pu->uid;
-	data.gid = pu->gid;
+	str = t_str_new(128);
+	str_printfa(str, "%s\tuid=%s\tgid=%s",
+		    auth_request->user, dec2str(pu->uid), dec2str(pu->gid));
 
-	data.virtual_user = auth_request->user;
-	data.home = pu->home;
-	data.mail = pu->mail;
+	if (pu->home != NULL)
+		str_printfa(str, "\thome=%s", pu->home);
+	if (pu->mail != NULL)
+		str_printfa(str, "\tmail=%s", pu->mail);
 
-	callback(&data, context);
+	callback(str_c(str), context);
 }
 
 static void passwd_file_init(const char *args)

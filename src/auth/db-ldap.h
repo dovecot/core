@@ -45,6 +45,9 @@ struct ldap_connection {
 	struct io *io;
 	struct hash_table *requests;
 
+	char **attr_names;
+	struct hash_table *attr_map;
+
 	unsigned int connected:1;
 };
 
@@ -57,8 +60,8 @@ void db_ldap_search(struct ldap_connection *conn, const char *base, int scope,
 		    const char *filter, char **attributes,
 		    struct ldap_request *request);
 
-void db_ldap_set_attrs(struct ldap_connection *conn, const char *value,
-		       unsigned int **attrs, char ***attr_names);
+void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
+		       const char *const default_attr_map[]);
 
 struct ldap_connection *db_ldap_init(const char *config_path);
 void db_ldap_unref(struct ldap_connection *conn);

@@ -45,6 +45,9 @@ void auth_master_request_callback(const char *reply, void *context)
 	struct auth_master_connection *conn = context;
 	struct const_iovec iov[2];
 
+	if (conn->auth->verbose_debug)
+		i_info("master out: %s", reply);
+
 	iov[0].iov_base = reply;
 	iov[0].iov_len = strlen(reply);
 	iov[1].iov_base = "\n";
@@ -129,6 +132,9 @@ static void master_input(void *context)
 	}
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
+		if (conn->auth->verbose_debug)
+			i_info("master in: %s", line);
+
 		t_push();
 		if (strncmp(line, "REQUEST\t", 8) == 0)
 			ret = master_input_request(conn, line + 8);

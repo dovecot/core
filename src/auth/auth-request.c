@@ -143,14 +143,12 @@ int auth_request_set_username(struct auth_request *request,
 }
 
 struct auth_request_extra *
-auth_request_extra_begin(struct auth_request *request,
-			 const char *user_password)
+auth_request_extra_begin(struct auth_request *request)
 {
 	struct auth_request_extra *extra;
 
 	extra = i_new(struct auth_request_extra, 1);
 	extra->request = request;
-	extra->user_password = i_strdup(user_password);
 	return extra;
 }
 
@@ -199,7 +197,7 @@ void auth_request_extra_next(struct auth_request_extra *extra,
 }
 
 void auth_request_extra_finish(struct auth_request_extra *extra,
-			       const char *cache_key)
+			       const char *user_password, const char *cache_key)
 {
 	string_t *str;
 
@@ -219,16 +217,12 @@ void auth_request_extra_finish(struct auth_request_extra *extra,
 					      str_c(str), NULL));
 	}
 
-	if (extra->user_password != NULL) {
+	if (user_password != NULL) {
 		if (extra->request->proxy) {
 			/* we're proxying - send back the password that was
 			   sent by user (not the password in passdb). */
-			str_printfa(extra->str, "\tpass=%s",
-				    extra->user_password);
+			str_printfa(extra->str, "\tpass=%s", user_password);
 		}
-		safe_memset(extra->user_password, 0,
-			    strlen(extra->user_password));
-		i_free(extra->user_password);
 	}
 
 	if (extra->str != NULL)
@@ -353,7 +347,7 @@ void auth_request_log_error(struct auth_request *auth_request,
 
 	va_start(va, format);
 	t_push();
-	i_info("%s", get_log_str(auth_request, subsystem, format, va));
+	i_error("%s", get_log_str(auth_request, subsystem, format, va));
 	t_pop();
 	va_end(va);
 }

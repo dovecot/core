@@ -6,6 +6,7 @@
 #ifdef PASSDB_LDAP
 
 #include "common.h"
+#include "hash.h"
 #include "str.h"
 #include "var-expand.h"
 #include "password-scheme.h"
@@ -16,18 +17,8 @@
 #include <ldap.h>
 #include <stdlib.h>
 
-enum ldap_user_attr {
-	ATTR_VIRTUAL_USER = 0,
-	ATTR_PASSWORD,
-
-	ATTR_COUNT
-};
-
-struct passdb_ldap_connection {
-	struct ldap_connection *conn;
-
-        unsigned int *attrs;
-	char **attr_names;
+static const char *default_attr_map[] = {
+	"user", "password", NULL
 };
 
 struct passdb_ldap_request {
@@ -42,8 +33,44 @@ struct passdb_ldap_request {
 	char password[1]; /* variable width */
 };
 
-static struct passdb_ldap_connection *passdb_ldap_conn;
+static struct ldap_connection *passdb_ldap_conn;
 static char *passdb_ldap_cache_key;
+
+static const char *
+ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
+                       struct passdb_ldap_request *ldap_request,
+		       struct auth_request *auth_request)
+{
+	struct auth_request_extra *extra;
+	BerElement *ber;
+	const char *name, *password;
+	char *attr, **vals;
+	unsigned int i;
+
+	extra = auth_request_extra_begin(auth_request);
+
+	password = NULL;
+	attr = ldap_first_attribute(conn->ld, entry, &ber);
+	while (attr != NULL) {
+		name = hash_lookup(passdb_ldap_conn->attr_map, attr);
+		vals = ldap_get_values(conn->ld, entry, attr);
+
+		if (name != NULL && vals != NULL && vals[0] != NULL) {
+			if (strcmp(name, "password") == 0 && vals[1] == NULL)
+				password = t_strdup(vals[0]);
+			for (i = 0; vals[i] != NULL; i++)
+				auth_request_extra_next(extra, name, vals[i]);
+		}
+
+		ldap_value_free(vals);
+		ldap_memfree(attr);
+
+		attr = ldap_next_attribute(conn->ld, entry, ber);
+	}
+
+	auth_request_extra_finish(extra, ldap_request->password, NULL);
+	return password;
+}
 
 static void handle_request(struct ldap_connection *conn,
 			   struct ldap_request *request, LDAPMessage *res)
@@ -53,13 +80,10 @@ static void handle_request(struct ldap_connection *conn,
         struct auth_request *auth_request = request->context;
 	enum passdb_result result;
 	LDAPMessage *entry;
-	BerElement *ber;
-	char *attr, **vals;
-	const char *user, *password, *scheme;
+	const char *password, *scheme;
 	int ret;
 
 	result = PASSDB_RESULT_USER_UNKNOWN;
-	user = auth_request->user;
 	password = NULL;
 
 	if (res != NULL) {
@@ -81,20 +105,8 @@ static void handle_request(struct ldap_connection *conn,
 					      "unknown user");
 		}
 	} else {
-		attr = ldap_first_attribute(conn->ld, entry, &ber);
-		while (attr != NULL) {
-			vals = ldap_get_values(conn->ld, entry, attr);
-			if (vals != NULL && vals[0] != NULL &&
-			    vals[1] == NULL) {
-				if (strcasecmp(attr, passdb_ldap_conn->
-					       attr_names[ATTR_PASSWORD]) == 0)
-					password = t_strdup(vals[0]);
-			}
-			ldap_value_free(vals);
-			ldap_memfree(attr);
-
-			attr = ldap_next_attribute(conn->ld, entry, ber);
-		}
+		password = ldap_query_save_result(conn, entry, ldap_request,
+						  auth_request);
 
 		if (password == NULL) {
 			auth_request_log_error(auth_request, "ldap",
@@ -131,7 +143,8 @@ static void handle_request(struct ldap_connection *conn,
 		return;
 	}
 
-	ret = password_verify(ldap_request->password, password, scheme, user);
+	ret = password_verify(ldap_request->password, password, scheme,
+			      auth_request->user);
 	if (ret < 0) {
 		auth_request_log_error(auth_request, "ldap",
 			"Unknown password scheme %s", scheme);
@@ -148,9 +161,9 @@ static void handle_request(struct ldap_connection *conn,
 static void ldap_lookup_pass(struct auth_request *auth_request,
 			     struct ldap_request *ldap_request)
 {
-	struct ldap_connection *conn = passdb_ldap_conn->conn;
+	struct ldap_connection *conn = passdb_ldap_conn;
         const struct var_expand_table *vars;
-	const char **attr_names = (const char **)passdb_ldap_conn->attr_names;
+	const char **attr_names = (const char **)conn->attr_names;
 	const char *filter, *base;
 	string_t *str;
 
@@ -182,12 +195,12 @@ static void
 ldap_verify_plain(struct auth_request *request, const char *password,
 		  verify_plain_callback_t *callback)
 {
-	struct ldap_connection *conn = passdb_ldap_conn->conn;
 	struct passdb_ldap_request *ldap_request;
 	enum passdb_result result;
 
 	if (passdb_cache_verify_plain(request, passdb_ldap_cache_key, password,
-				      conn->set.default_pass_scheme, &result)) {
+				      passdb_ldap_conn->set.default_pass_scheme,
+				      &result)) {
 		callback(result, request);
 		return;
 	}
@@ -210,10 +223,8 @@ static void ldap_lookup_credentials(struct auth_request *request,
 
 	if (passdb_cache_lookup_credentials(request, passdb_ldap_cache_key,
 					    &result, &scheme)) {
-		if (scheme == NULL) {
-			scheme = passdb_ldap_conn->conn->set.
-				default_pass_scheme;
-		}
+		if (scheme == NULL)
+			scheme = passdb_ldap_conn->set.default_pass_scheme;
 		passdb_handle_credentials(result != NULL ? PASSDB_RESULT_OK :
 					  PASSDB_RESULT_USER_UNKNOWN,
 					  credentials, result, scheme,
@@ -230,24 +241,22 @@ static void ldap_lookup_credentials(struct auth_request *request,
 
 static void passdb_ldap_preinit(const char *args)
 {
-	struct ldap_connection *conn;
+	passdb_ldap_conn = db_ldap_init(args);
 
-	passdb_ldap_conn = i_new(struct passdb_ldap_connection, 1);
-	passdb_ldap_conn->conn = conn = db_ldap_init(args);
-
-	db_ldap_set_attrs(conn, conn->set.pass_attrs, &passdb_ldap_conn->attrs,
-			  &passdb_ldap_conn->attr_names);
-	passdb_ldap_cache_key = auth_cache_parse_key(conn->set.pass_filter);
+	db_ldap_set_attrs(passdb_ldap_conn, passdb_ldap_conn->set.pass_attrs,
+			  default_attr_map);
+	passdb_ldap_cache_key =
+		auth_cache_parse_key(passdb_ldap_conn->set.pass_filter);
 }
 
 static void passdb_ldap_init(const char *args __attr_unused__)
 {
-	(void)db_ldap_connect(passdb_ldap_conn->conn);
+	(void)db_ldap_connect(passdb_ldap_conn);
 }
 
 static void passdb_ldap_deinit(void)
 {
-	db_ldap_unref(passdb_ldap_conn->conn);
+	db_ldap_unref(passdb_ldap_conn);
 	i_free(passdb_ldap_cache_key);
 	i_free(passdb_ldap_conn);
 }

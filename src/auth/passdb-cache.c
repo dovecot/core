@@ -18,7 +18,7 @@ static void list_save(struct auth_request *request, const char *password,
 	if (*list == NULL)
 		return;
 
-	extra = auth_request_extra_begin(request, password);
+	extra = auth_request_extra_begin(request);
 	for (; *list != NULL; list++) {
 		t_push();
 		value = strchr(*list, '=');
@@ -33,7 +33,7 @@ static void list_save(struct auth_request *request, const char *password,
 		auth_request_extra_next(extra, name, value);
 		t_pop();
 	}
-	auth_request_extra_finish(extra, NULL);
+	auth_request_extra_finish(extra, password, NULL);
 }
 
 int passdb_cache_verify_plain(struct auth_request *request, const char *key,

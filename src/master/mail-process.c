@@ -298,7 +298,7 @@ int create_mail_process(struct login_group *group, int socket,
 {
 	struct settings *set = group->set;
 	const struct var_expand_table *var_expand_table;
-	const char *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
+	const char *p, *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
 	const char *system_user;
 	char title[1024];
 	struct log_io *log;
@@ -325,10 +325,21 @@ int create_mail_process(struct login_group *group, int socket,
 			chroot_dir = *args + 7;
 		else if (strncmp(*args, "system_user=", 12) == 0)
 			system_user = *args + 12;
-		else if (strncmp(*args, "uid=", 4) == 0)
+		else if (strncmp(*args, "uid=", 4) == 0) {
+			if (uid != 0) {
+				i_error("uid specified multiple times for %s",
+					user);
+				return FALSE;
+			}
 			uid = (uid_t)strtoul(*args + 4, NULL, 10);
-		else if (strncmp(*args, "gid=", 4) == 0)
+		} else if (strncmp(*args, "gid=", 4) == 0)
 			gid = (gid_t)strtoul(*args + 4, NULL, 10);
+	}
+
+	if (*chroot_dir == '\0' && (p = strstr(home_dir, "/./")) != NULL) {
+		/* wu-ftpd like <chroot>/./<home> */
+		chroot_dir = t_strdup_until(home_dir, p);
+		home_dir = p + 3;
 	}
 
 	if (!validate_uid_gid(set, uid, gid, user))

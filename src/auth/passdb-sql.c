@@ -32,17 +32,21 @@ static struct sql_connection *passdb_sql_conn;
 static char *passdb_sql_cache_key;
 
 static void result_save_extra_fields(struct sql_result *result,
-				     struct passdb_sql_request *sql_request,
-				     struct auth_request *auth_request)
+				     unsigned int skip_idx,
+				     struct passdb_sql_request *sql_request)
 {
+	struct auth_request *auth_request = sql_request->auth_request;
 	struct auth_request_extra *extra;
 	unsigned int i, fields_count;
 	const char *name, *value;
 
-	extra = auth_request_extra_begin(auth_request, sql_request->password);
+	extra = auth_request_extra_begin(auth_request);
 
 	fields_count = sql_result_get_fields_count(result);
 	for (i = 0; i < fields_count; i++) {
+		if (i == skip_idx)
+			continue;
+
 		name = sql_result_get_field_name(result, i);
 		value = sql_result_get_field_value(result, i);
 
@@ -50,7 +54,8 @@ static void result_save_extra_fields(struct sql_result *result,
 			auth_request_extra_next(extra, name, value);
 	}
 
-	auth_request_extra_finish(extra, passdb_sql_cache_key);
+	auth_request_extra_finish(extra, sql_request->password,
+				  passdb_sql_cache_key);
 }
 
 static void sql_query_callback(struct sql_result *result, void *context)
@@ -82,7 +87,7 @@ static void sql_query_callback(struct sql_result *result, void *context)
 			"Password query must return a field named 'password'");
 	} else {
 		password = t_strdup(sql_result_get_field_value(result, idx));
-		result_save_extra_fields(result, sql_request, auth_request);
+		result_save_extra_fields(result, idx, sql_request);
 		passdb_result = PASSDB_RESULT_OK;
 	}
 

@@ -3,17 +3,7 @@
 
 struct auth_request;
 
-struct user_data {
-	const char *virtual_user;
-	const char *home;
-	const char *mail;
-
-	const char *system_user;
-	uid_t uid;
-	gid_t gid;
-};
-
-typedef void userdb_callback_t(const struct user_data *user, void *context);
+typedef void userdb_callback_t(const char *result, void *context);
 
 struct userdb_module {
 	const char *name;

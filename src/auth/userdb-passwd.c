@@ -13,8 +13,8 @@
 static void passwd_lookup(struct auth_request *auth_request,
 			  userdb_callback_t *callback, void *context)
 {
-	struct user_data data;
 	struct passwd *pw;
+	const char *result;
 
 	pw = getpwnam(auth_request->user);
 	if (pw == NULL) {
@@ -23,14 +23,11 @@ static void passwd_lookup(struct auth_request *auth_request,
 		return;
 	}
 
-	memset(&data, 0, sizeof(data));
-	data.uid = pw->pw_uid;
-	data.gid = pw->pw_gid;
-
-	data.virtual_user = data.system_user = pw->pw_name;
-	data.home = pw->pw_dir;
-
-	callback(&data, context);
+	result = t_strdup_printf("%s\tsystem_user=%s\tuid=%s\tgid=%s\t"
+				 "home=%s", pw->pw_name, pw->pw_name,
+				 dec2str(pw->pw_uid), dec2str(pw->pw_gid),
+				 pw->pw_dir);
+	callback(result, context);
 }
 
 struct userdb_module userdb_passwd = {

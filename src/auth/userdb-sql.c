@@ -23,15 +23,67 @@ struct userdb_sql_request {
 
 static struct sql_connection *userdb_sql_conn;
 
+static const char *sql_query_get_result(struct sql_result *result,
+					struct auth_request *auth_request)
+{
+	string_t *str;
+	uid_t uid, gid;
+	const char *name, *value;
+	unsigned int i, fields_count;
+
+	uid = (uid_t)-1;
+	gid = (gid_t)-1;
+
+	str = t_str_new(256);
+	str_append(str, auth_request->user);
+
+	fields_count = sql_result_get_fields_count(result);
+	for (i = 0; i < fields_count; i++) {
+		name = sql_result_get_field_name(result, i);
+		value = sql_result_get_field_value(result, i);
+
+		if (value == NULL)
+			continue;
+
+		str_append_c(str, '\t');
+		str_append(str, name);
+		str_append_c(str, '=');
+
+		/* some special handling for UID and GID. */
+		if (strcmp(name, "uid") == 0) {
+			uid = userdb_parse_uid(auth_request, value);
+			if (uid == (uid_t)-1)
+				return NULL;
+			value = dec2str(uid);
+		} else if (strcmp(name, "gid") == 0) {
+			gid = userdb_parse_gid(auth_request, value);
+			if (gid == (gid_t)-1)
+				return NULL;
+			value = dec2str(gid);
+		}
+
+		str_append(str, value);
+	}
+
+	if (uid == (uid_t)-1) {
+		auth_request_log_error(auth_request, "sql",
+			"Password query didn't return uid, or it was NULL");
+	}
+	if (gid == (gid_t)-1) {
+		auth_request_log_error(auth_request, "sql",
+			"Password query didn't return gid, or it was NULL");
+	}
+
+	return str_c(str);
+}
+
 static void sql_query_callback(struct sql_result *result, void *context)
 {
 	struct userdb_sql_request *sql_request = context;
 	struct auth_request *auth_request = sql_request->auth_request;
-	struct user_data user;
-	const char *uid, *gid;
+	const char *user_result = NULL;
 	int ret;
 
-	uid = gid = NULL;
 	ret = sql_result_next_row(result);
 	if (ret < 0) {
 		auth_request_log_error(auth_request, "sql",
@@ -39,37 +91,10 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	} else if (ret == 0) {
 		auth_request_log_info(auth_request, "sql", "User not found");
 	} else {
-		uid = sql_result_find_field_value(result, "uid");
-		if (uid == NULL) {
-			auth_request_log_error(auth_request, "sql",
-				"Password query didn't return uid, "
-				"or it was NULL");
-		}
-		gid = sql_result_find_field_value(result, "gid");
-		if (gid == NULL) {
-			auth_request_log_error(auth_request, "sql",
-				"Password query didn't return gid, "
-				"or it was NULL");
-		}
+                user_result = sql_query_get_result(result, auth_request);
 	}
 
-	if (uid == NULL || gid == NULL)
-		sql_request->callback(NULL, sql_request->context);
-	else {
-		memset(&user, 0, sizeof(user));
-		user.virtual_user = auth_request->user;
-		user.system_user =
-			sql_result_find_field_value(result, "system_user");
-		user.home = sql_result_find_field_value(result, "home");
-		user.mail = sql_result_find_field_value(result, "mail");
-
-		user.uid = userdb_parse_uid(auth_request, uid);
-		user.gid = userdb_parse_gid(auth_request, uid);
-		if (user.uid == (uid_t)-1 || user.gid == (gid_t)-1)
-			sql_request->callback(NULL, sql_request->context);
-		else
-			sql_request->callback(&user, sql_request->context);
-	}
+	sql_request->callback(user_result, sql_request->context);
 	i_free(sql_request);
 }
 

@@ -34,6 +34,10 @@ static void auth_client_send(struct auth_client_connection *conn,
 	va_start(args, fmt);
 	str = t_str_new(256);
 	str_vprintfa(str, fmt, args);
+
+	if (conn->auth->verbose_debug)
+		i_info("client out: %s", str_c(str));
+
 	str_append_c(str, '\n');
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
 
@@ -133,6 +137,9 @@ static int auth_client_output(void *context)
 static int
 auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 {
+	if (conn->auth->verbose_debug)
+		i_info("client in: %s", line);
+
 	if (strncmp(line, "AUTH\t", 5) == 0) {
 		return auth_request_handler_auth_begin(conn->request_handler,
 						       line + 5);

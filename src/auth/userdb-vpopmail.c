@@ -46,10 +46,9 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
-        struct user_data data;
+	const char *result;
 	uid_t uid;
 	gid_t gid;
-	pool_t pool;
 
 	vpw = vpopmail_lookup_vqp(auth_request, vpop_user, vpop_domain);
 	if (vpw == NULL) {
@@ -87,14 +86,11 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 		}
 	}
 
-	memset(&data, 0, sizeof(data));
-	data.uid = uid;
-	data.gid = gid;
+	result = t_strdup_printf("%s\tuid=%s\tgid=%s\thome=%s",
+				 vpw->pw_name, dec2str(uid), dec2str(gid),
+				 vpw->pw_dir);
 
-	data.virtual_user = vpw->pw_name;
-	data.home = vpw->pw_dir;
-
-	callback(&data, context);
+	callback(result, context);
 }
 
 struct userdb_module userdb_vpopmail = {

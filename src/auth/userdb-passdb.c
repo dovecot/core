@@ -15,18 +15,27 @@
 static void passdb_lookup(struct auth_request *auth_request,
 			  userdb_callback_t *callback, void *context)
 {
-	struct user_data data;
 	const char *const *args;
+	string_t *str;
+	uid_t uid;
+	gid_t gid;
 	int uid_seen, gid_seen;
 
-	memset(&data, 0, sizeof(data));
-	data.virtual_user = auth_request->user;
-
-	uid_seen = gid_seen = FALSE;
-	data.uid = (uid_t)-1;
-	data.gid = (gid_t)-1;
+	if (auth_request->extra_fields == NULL) {
+		auth_request_log_error(auth_request, "passdb",
+				       "passdb didn't return userdb entries");
+		callback(NULL, context);
+		return;
+	}
 
 	t_push();
+
+	uid = (uid_t)-1; gid = (gid_t)-1;
+	uid_seen = gid_seen = FALSE;
+
+	str = t_str_new(256);
+	str_append(str, auth_request->user);
+
 	args = t_strsplit(auth_request->extra_fields, "\t");
 	for (; *args != NULL; args++) {
 		const char *arg = *args;
@@ -35,16 +44,26 @@ static void passdb_lookup(struct auth_request *auth_request,
 			continue;
 		arg += 7;
 
+		str_append_c(str, '\t');
 		if (strncmp(arg, "uid=", 4) == 0) {
 			uid_seen = TRUE;
-                        data.uid = userdb_parse_uid(auth_request, arg+4);
+			uid = userdb_parse_uid(auth_request, arg+4);
+			if (uid == (uid_t)-1)
+				break;
+
+			str_append(str, "uid=");
+			str_append(str, dec2str(uid));
 		} else if (strncmp(arg, "gid=", 4) == 0) {
 			gid_seen = TRUE;
-			data.gid = userdb_parse_gid(auth_request, arg+4);
-		} else if (strncmp(arg, "home=", 5) == 0)
-			data.home = arg + 5;
-		else if (strncmp(arg, "mail=", 5) == 0)
-			data.mail = arg + 5;
+			gid = userdb_parse_gid(auth_request, arg+4);
+			if (gid == (gid_t)-1)
+				break;
+
+			str_append(str, "gid=");
+			str_append(str, dec2str(gid));
+		} else {
+			str_append(str, arg);
+		}
 	}
 
 	if (!uid_seen) {
@@ -56,10 +75,10 @@ static void passdb_lookup(struct auth_request *auth_request,
 				       "userdb_gid not returned");
 	}
 
-	if (data.uid == (uid_t)-1 || data.gid == (gid_t)-1)
+	if (uid == (uid_t)-1 || gid == (gid_t)-1)
 		callback(NULL, context);
 	else
-		callback(&data, context);
+		callback(str_c(str), context);
 	t_pop();
 }
 
