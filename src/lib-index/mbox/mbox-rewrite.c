@@ -18,6 +18,7 @@ typedef struct {
 	IOBuffer *outbuf;
 	int failed;
 
+	uoff_t content_length;
 	unsigned int seq;
 	unsigned int msg_flags;
         const char **custom_flags;
@@ -29,6 +30,7 @@ typedef struct {
 	unsigned int xkeywords_found:1;
 	unsigned int status_found:1;
 	unsigned int xstatus_found:1;
+	unsigned int content_length_found:1;
 } MboxRewriteContext;
 
 /* Remove dirty flag from all messages */
@@ -172,6 +174,18 @@ static int mbox_write_xstatus(MboxRewriteContext *ctx, const char *x_status)
 	return TRUE;
 }
 
+static int mbox_write_content_length(MboxRewriteContext *ctx)
+{
+	char str[MAX_LARGEST_T_STRLEN+30];
+
+	i_snprintf(str, sizeof(str), "Content-Length: %"PRIuUOFF_T"\n",
+		   ctx->content_length);
+
+	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+		return FALSE;
+	return TRUE;
+}
+
 static const char *strip_chars(const char *value, size_t value_len,
 			       const char *list)
 {
@@ -254,6 +268,10 @@ static void header_func(MessagePart *part __attr_unused__,
 			ctx->ximapbase_found = TRUE;
 			(void)mbox_write_ximapbase(ctx);
 		}
+	} else if (name_len == 14 &&
+		   strncasecmp(name, "Content-Length", 14) == 0) {
+		ctx->content_length_found = TRUE;
+		(void)mbox_write_content_length(ctx);
 	} else if (name_len > 0) {
 		/* save this header */
 		(void)io_buffer_send(ctx->outbuf, name, name_len);
@@ -298,6 +316,7 @@ static int mbox_write_header(MailIndex *index,
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.outbuf = outbuf;
 	ctx.seq = seq;
+	ctx.content_length = rec->body_size;
 	ctx.msg_flags = rec->msg_flags;
 	ctx.uid_validity = index->header->uid_validity-1;
 	ctx.custom_flags = mail_custom_flags_list_get(index->custom_flags);
@@ -320,6 +339,8 @@ static int mbox_write_header(MailIndex *index,
 		(void)mbox_write_status(&ctx, NULL);
 	if (!ctx.xstatus_found)
 		(void)mbox_write_xstatus(&ctx, NULL);
+	if (!ctx.content_length_found)
+		(void)mbox_write_content_length(&ctx);
 
 	t_pop();
 
