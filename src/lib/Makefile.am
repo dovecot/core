@@ -51,6 +51,7 @@ liblib_a_SOURCES = \
 	unlink-lockfiles.c \
 	utc-offset.c \
 	utc-mktime.c \
+	var-expand.c \
 	write-full.c
 
 noinst_HEADERS = \
@@ -99,4 +100,5 @@ noinst_HEADERS = \
 	unlink-lockfiles.h \
 	utc-offset.h \
 	utc-mktime.h \
+	var-expand.h \
 	write-full.h
