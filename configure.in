@@ -317,12 +317,17 @@ fi
 
 if test $want_vpopmail = yes; then
 	vpopmail_home="`echo ~vpopmail`"
-	if test -f $vpopmail_home/etc/lib_deps; then
+	vpop_libdeps="$vpopmail_home/etc/lib_deps"
+
+	AC_MSG_CHECKING([for vpopmail configuration at $vpop_libdeps])
+	if test -f $vpop_libdeps; then
 		VPOPMAIL_CFLAGS="`cat $vpopmail_home/etc/inc_deps` $CFLAGS"
-		VPOPMAIL_LIBS="`cat $vpopmail_home/etc/lib_deps`"
+		VPOPMAIL_LIBS="`cat $vpop_libdeps`"
 		AC_DEFINE(USERINFO_VPOPMAIL)
+		AC_MSG_RESULT(found)
 	else
 		want_vpopmail=no
+		AC_MSG_RESULT(not found)
 	fi
 fi
 
