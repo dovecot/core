@@ -445,10 +445,16 @@ static int fetch_part_body(struct imap_fetch_context *ctx,
 {
 	const char *str;
 	int skip_cr;
+	uoff_t size;
 	off_t ret;
 
-	str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
-			      ctx->prefix, part->body_size.virtual_size);
+	if (body->skip >= part->body_size.virtual_size)
+		size = 0;
+	else {
+		size = part->body_size.virtual_size - body->skip;
+		if (size > body->max_size) size = body->max_size;
+	}
+	str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n", ctx->prefix, size);
 	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
