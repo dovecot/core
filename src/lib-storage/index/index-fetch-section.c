@@ -11,6 +11,13 @@
 #include <ctype.h>
 #include <unistd.h>
 
+/* For FETCH[HEADER.FIELDS*] we need to modify the header data before sending
+   it. We can either save it in memory and then send it, or we can parse it
+   twice, first calculating the size and then send it. This value specifies
+   the maximum amount of memory we allow to allocate before using
+   double-parsing. */
+#define MAX_HEADER_BUFFER_SIZE (32*1024)
+
 ImapCacheField index_fetch_body_get_cache(const char *section)
 {
 	if (*section >= '0' && *section <= '9')
@@ -125,10 +132,44 @@ static int header_match_mime(char *const *fields __attr_unused__,
 }
 
 typedef struct {
-	char *dest;
+	TempString *dest;
+	IOBuffer *outbuf;
+	uoff_t dest_size;
+
+	uoff_t skip, max_size;
 	char *const *fields;
 	int (*match_func) (char *const *, const char *, size_t);
 } FetchHeaderFieldContext;
+
+static int fetch_header_append(FetchHeaderFieldContext *ctx,
+			       const char *str, size_t size)
+{
+	if (ctx->skip > 0) {
+		if (ctx->skip >= size) {
+			ctx->skip -= size;
+			return TRUE;
+		}
+
+		str += ctx->skip;
+		size -= ctx->skip;
+		ctx->skip = 0;
+	}
+
+	if (ctx->dest_size + size > ctx->max_size) {
+		i_assert(ctx->dest_size <= ctx->max_size);
+		size = ctx->max_size - ctx->dest_size;
+	}
+
+	if (ctx->dest != NULL)
+		t_string_append_n(ctx->dest, str, size);
+	ctx->dest_size += size;
+
+	if (ctx->outbuf != NULL) {
+		if (io_buffer_send(ctx->outbuf, str, size) < 0)
+			return FALSE;
+	}
+	return ctx->dest_size < ctx->max_size;
+}
 
 static void fetch_header_field(MessagePart *part __attr_unused__,
 			       const char *name, size_t name_len,
@@ -138,7 +179,6 @@ static void fetch_header_field(MessagePart *part __attr_unused__,
 {
 	FetchHeaderFieldContext *ctx = context;
 	const char *field_start, *field_end, *cr, *p;
-	size_t len;
 
 	/* see if we want this field */
 	if (!ctx->match_func(ctx->fields, name, name_len))
@@ -155,51 +195,58 @@ static void fetch_header_field(MessagePart *part __attr_unused__,
 			cr = p;
 		else if (*p == '\n' && cr != p-1) {
 			/* missing CR */
-			len = (size_t) (p-field_start);
-			memcpy(ctx->dest, field_start, len);
-
-			ctx->dest[len++] = '\r';
-			ctx->dest[len++] = '\n';
-			ctx->dest += len;
+			if (!fetch_header_append(ctx, field_start,
+						 (size_t) (p-field_start)))
+				return;
+			if (!fetch_header_append(ctx, "\r\n", 2))
+				return;
 
 			field_start = p+1;
 		}
 	}
 
 	if (field_start != field_end) {
-		len = (size_t) (field_end-field_start);
-		memcpy(ctx->dest, field_start, len);
-		ctx->dest += len;
+		if (!fetch_header_append(ctx, field_start,
+					 (size_t) (field_end-field_start)))
+			return;
 	}
 
-	ctx->dest[0] = '\r';
-	ctx->dest[1] = '\n';
-	ctx->dest += 2;
+	(void)fetch_header_append(ctx, "\r\n", 2);
 }
 
-/* Store headers into dest, returns number of bytes written. */
-static size_t
-fetch_header_fields(IOBuffer *inbuf, char *dest, char *const *fields,
-		    int (*match_func) (char *const *, const char *, size_t))
+static int fetch_header_fields(IOBuffer *inbuf, const char *section,
+			       FetchHeaderFieldContext *ctx)
 {
-	FetchHeaderFieldContext ctx;
+	if (strncasecmp(section, "HEADER.FIELDS ", 14) == 0) {
+		ctx->fields = get_fields_array(section + 14);
+		ctx->match_func = header_match;
+	} else if (strncasecmp(section, "HEADER.FIELDS.NOT ", 18) == 0) {
+		ctx->fields = get_fields_array(section + 18);
+		ctx->match_func = header_match_not;
+	} else if (strcasecmp(section, "MIME") == 0) {
+		/* Mime-Version + Content-* fields */
+		ctx->match_func = header_match_mime;
+	} else {
+		/* invalid section given by user - FIXME: tell user about it */
+		return FALSE;
+	}
 
-	ctx.dest = dest;
-	ctx.fields = fields;
-	ctx.match_func = match_func;
+	ctx->dest_size = 0;
+	message_parse_header(NULL, inbuf, NULL, fetch_header_field, ctx);
 
-	message_parse_header(NULL, inbuf, NULL, fetch_header_field, &ctx);
-	return (size_t) (ctx.dest - dest);
+	i_assert(ctx->dest_size <= ctx->max_size);
+	i_assert(ctx->dest == NULL || ctx->dest->len == ctx->dest_size);
+	return TRUE;
 }
 
 /* fetch wanted headers from given data */
-static int fetch_header_from(IOBuffer *inbuf, MessageSize *size,
-			     const char *section, MailFetchBodyData *sect,
-			     FetchContext *ctx, const char *prefix)
+static int fetch_header_from(IOBuffer *inbuf, IOBuffer *outbuf, 
+			     const char *prefix, MessageSize *size,
+			     const char *section, MailFetchBodyData *sect)
 {
+	FetchHeaderFieldContext ctx;
 	const char *str;
-	char *dest;
-	size_t len;
+	uoff_t start_offset;
 	int failed;
 
 	/* HEADER, MIME, HEADER.FIELDS (list), HEADER.FIELDS.NOT (list) */
@@ -208,54 +255,67 @@ static int fetch_header_from(IOBuffer *inbuf, MessageSize *size,
 		/* all headers */
 		str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
 				      prefix, size->virtual_size);
-		if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+		if (io_buffer_send(outbuf, str, strlen(str)) < 0)
 			return FALSE;
-		return message_send(ctx->outbuf, inbuf, size,
+		return message_send(outbuf, inbuf, size,
 				    sect->skip, sect->max_size);
 	}
 
 	/* partial headers - copy the wanted fields into temporary memory.
-	   Insert missing CRs on the way. FIXME: not a good idea with huge
-	   headers. */
-	if (size->virtual_size > SSIZE_T_MAX) {
-		i_error("Message header too large");
-		return FALSE;
-	}
+	   Insert missing CRs on the way. If the header is too large,
+	   calculate the size first and then send the data directly to
+	   output buffer. */
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.skip = sect->skip;
+	ctx.max_size = sect->max_size;
+
+	failed = FALSE;
+	start_offset = inbuf->offset;
 
 	t_push();
-	dest = t_malloc((size_t)size->virtual_size);
 
-	if (strncasecmp(section, "HEADER.FIELDS ", 14) == 0) {
-		len = fetch_header_fields(inbuf, dest,
-					  get_fields_array(section + 14),
-					  header_match);
-	} else if (strncasecmp(section, "HEADER.FIELDS.NOT ", 18) == 0) {
-		len = fetch_header_fields(inbuf, dest,
-					  get_fields_array(section + 18),
-					  header_match_not);
-	} else if (strcasecmp(section, "MIME") == 0) {
-		/* Mime-Version + Content-* fields */
-		len = fetch_header_fields(inbuf, dest, NULL, header_match_mime);
+	/* first pass, we need at least the size */
+	if (size->virtual_size > MAX_HEADER_BUFFER_SIZE &&
+	    sect->max_size > MAX_HEADER_BUFFER_SIZE) {
+		if (!fetch_header_fields(inbuf, section, &ctx))
+			failed = TRUE;
+
+		i_assert(ctx.dest_size <= size->virtual_size);
 	} else {
-		/* error */
-		len = 0;
+		ctx.dest = t_string_new(size->virtual_size < 4096 ?
+					size->virtual_size : 4096);
+		if (!fetch_header_fields(inbuf, section, &ctx))
+			failed = TRUE;
 	}
 
-	i_assert(len <= size->virtual_size);
-
-	if (len <= sect->skip)
-		len = 0;
-	else {
-		dest += sect->skip;
-		len -= sect->skip;
-
-		if (len > sect->max_size)
-			len = sect->max_size;
+	if (!failed) {
+		str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
+				      prefix, ctx.dest_size);
+		if (io_buffer_send(outbuf, str, strlen(str)) < 0)
+			failed = TRUE;
 	}
 
-	str = t_strdup_printf("%s {%"PRIuSIZE_T"}\r\n", prefix, len);
-	failed = io_buffer_send(ctx->outbuf, str, strlen(str)) < 0 ||
-		io_buffer_send(ctx->outbuf, dest, len);
+	if (!failed) {
+		if (ctx.dest == NULL) {
+			/* second pass, write the data to output buffer */
+			uoff_t first_size = ctx.dest_size;
+
+			ctx.outbuf = outbuf;
+			if (!io_buffer_seek(inbuf, start_offset))
+				failed = TRUE;
+
+			if (!failed &&
+			    !fetch_header_fields(inbuf, section, &ctx))
+				failed = TRUE;
+
+			i_assert(first_size == ctx.dest_size);
+		} else {
+			if (io_buffer_send(outbuf, ctx.dest->str,
+					   ctx.dest->len) < 0)
+				failed = TRUE;
+		}
+	}
 
 	t_pop();
 	return !failed;
@@ -271,8 +331,8 @@ static int fetch_header(MailFetchBodyData *sect, FetchContext *ctx,
 	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, &hdr_size, NULL))
 		return FALSE;
 
-	return fetch_header_from(inbuf, &hdr_size, sect->section,
-				 sect, ctx, prefix);
+	return fetch_header_from(inbuf, ctx->outbuf, prefix, &hdr_size,
+				 sect->section, sect);
 }
 
 /* Find MessagePart for section (eg. 1.3.4) */
@@ -352,8 +412,8 @@ static int fetch_part_header(MessagePart *part, const char *section,
 		return FALSE;
 
 	io_buffer_skip(inbuf, part->physical_pos);
-	return fetch_header_from(inbuf, &part->header_size, section,
-				 sect, ctx, prefix);
+	return fetch_header_from(inbuf, ctx->outbuf, prefix, &part->header_size,
+				 section, sect);
 }
 
 static int fetch_part(MailFetchBodyData *sect, FetchContext *ctx,
