@@ -1,13 +1,13 @@
 SUBDIRS = maildir mbox
 
-noinst_LIBRARIES = libstorage_index.a
+noinst_LIBRARIES = libindex.a
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap
 
-libstorage_index_a_SOURCES = \
+libindex_a_SOURCES = \
 	mail-custom-flags.c \
         mail-index.c \
         mail-index-compress.c \
