@@ -6,6 +6,7 @@
 
 #ifdef HAVE_GNUTLS
 
+#include <stdlib.h>
 #include <gnutls/gnutls.h>
 
 static int prime_nums[] = { 768, 1024, 0 };
@@ -76,8 +77,8 @@ void _ssl_generate_parameters(int fd, const char *fname)
 			gnutls_strerror(ret));
 	}
 
-	generate_dh_parameters(fd, temp_fname);
-	generate_rsa_parameters(fd, temp_fname);
+	generate_dh_parameters(fd, fname);
+	generate_rsa_parameters(fd, fname);
 
 	gnutls_global_deinit();
 }

@@ -19,8 +19,12 @@ doc/configuration.txt tells you more about configuring Dovecot.
 SSL/TLS
 -------
 
-GNUTLS v0.5.5 or later is required to enable SSL and TLS support. OpenSSL
-isn't supported. You can get GNUTLS from http://www.gnutls.org/
+Dovecot supports both GNUTLS and OpenSSL. Dovecot prefers GNUTLS if it's
+found, but fallbacks to OpenSSL. If you wish to force using OpenSSL, give
+--with-ssl=openssl to configure.
+
+For GNUTLS support you need version 0.5.5 or later. You can get GNUTLS from
+http://www.gnutls.org/
 
 
 Optional configure options
@@ -70,6 +74,6 @@ required to be 64bit (8 bytes) since all 64bit memo
 Specify which authentication modules to use. Disabling them give you a few
 bytes smaller binary, but not much else.
 
-  --with-gnutls           Build with GNUTLS (default)
+  --with-ssl=gnutls|openssl Build with GNUTLS (default) or OpenSSL
 
-Use GNUTLS for SSL and TLS support.
+Specify wanted SSL library.

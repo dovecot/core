@@ -359,38 +359,33 @@ dnl **
 dnl ** SSL
 dnl **
 
+have_ssl=no
+
 if test $want_gnutls = yes; then
 	AC_CHECK_LIB(gnutls, gnutls_global_init, [
-		AC_DEFINE(HAVE_SSL)
-		AC_DEFINE(HAVE_GNUTLS)
-		SSL_LIBS="-lgnutls -lgcrypt"
-		AC_SUBST(SSL_LIBS)
-		have_ssl="yes (GNUTLS)"
-		have_gnutls=yes
-	], [
-		have_ssl=no
+		AC_CHECK_HEADERS(gnutls/gnutls.h, [
+			AC_DEFINE(HAVE_SSL)
+			AC_DEFINE(HAVE_GNUTLS)
+			SSL_LIBS="-lgnutls -lgcrypt"
+			AC_SUBST(SSL_LIBS)
+			have_ssl="yes (GNUTLS)"
+			have_gnutls=yes
+		])
 	], -lgcrypt)
-else
-	have_ssl=no
 fi
 
 if test "$want_openssl" = "yes" -a "$have_ssl" = "no"; then
 	AC_CHECK_LIB(ssl, SSL_read, [
-		AC_CHECK_LIB(crypto, X509_new, [
-			AC_CHECK_HEADERS(openssl/ssl.h openssl/err.h, [
-				AC_DEFINE(HAVE_SSL)
-				AC_DEFINE(HAVE_OPENSSL)
-				SSL_LIBS="-lssl -lcrypto"
-				AC_SUBST(SSL_LIBS)
-				have_ssl="yes (OpenSSL)"
-				have_openssl=yes
-			])
+		AC_CHECK_HEADERS(openssl/ssl.h openssl/err.h, [
+			AC_DEFINE(HAVE_SSL)
+			AC_DEFINE(HAVE_OPENSSL)
+			SSL_LIBS="-lssl -lcrypto"
+			AC_SUBST(SSL_LIBS)
+			have_ssl="yes (OpenSSL)"
+			have_openssl=yes
 		])
 	])
 fi
-
-AM_CONDITIONAL(SSL_GNUTLS, test "$have_gnutls" = "yes")
-AM_CONDITIONAL(SSL_OPENSSL, test "$have_openssl" = "yes")
 
 dnl **
 dnl ** shadow/pam support
