@@ -249,7 +249,7 @@ static ssize_t _read(struct _istream *stream)
 	}
 
 	if (new_pos == stream->pos)
-		ret = -2;
+		ret = stream->istream.eof ? -1 : -2;
 	else {
 		i_assert(new_pos > stream->pos);
 		ret = new_pos - stream->pos;
