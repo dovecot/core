@@ -100,46 +100,46 @@ static const char index_64[256] = {
 };
 #define CHAR64(c)  (index_64[(int)(unsigned char)(c)])
 
-ssize_t base64_decode(char *data)
+ssize_t base64_decode(const char *src, unsigned char *dest)
 {
-	char *p, *start;
+	unsigned char *p;
 	int c1, c2, c3, c4;
 
-	p = start = data;
-	while (*data != '\0') {
-		c1 = *data++;
+	p = dest;
+	while (*src != '\0') {
+		c1 = *src++;
 
 		if (CHAR64(c1) == XX)
 			return -1;
 
-		c2 = *data++;
+		c2 = *src++;
 		if (CHAR64(c2) == XX)
 			return -1;
 
-		c3 = *data++;
+		c3 = *src++;
 		if (c3 != '=' && CHAR64(c3) == XX)
 			return -1;
 
-		c4 = *data++;
+		c4 = *src++;
 		if (c4 != '=' && CHAR64(c4) == XX)
 			return -1;
 
 		*p++ = ((CHAR64(c1) << 2) | ((CHAR64(c2) & 0x30) >> 4));
 
 		if (c3 == '=') {
-			if (*data != '\0' || c4 != '=')
+			if (*src != '\0' || c4 != '=')
 				return -1;
 			break;
 		}
 
 		*p++ = (((CHAR64(c2) & 0xf) << 4) | ((CHAR64(c3) & 0x3c) >> 2));
 		if (c4 == '=') {
-			if (*data != '\0')
+			if (*src != '\0')
 				return -1;
 			break;
 		}
 		*p++ = (((CHAR64(c3) & 0x3) << 6) | CHAR64(c4));
 	}
 
-	return (ssize_t) (p-start);
+	return (ssize_t) (p-dest);
 }
