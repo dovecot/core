@@ -472,7 +472,7 @@ rb_delete(MailTree *tree, unsigned int z)
 	}
 
 	while (z != RBNULL) {
-		node[b].node_count--;
+		node[z].node_count--;
 		z = node[z].up;
 	}
 
