@@ -248,6 +248,10 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 		view->cur_offset = sizeof(struct mail_transaction_log_header);
 	}
 
+	if (view->cur_offset >= view->max_file_offset &&
+	    file->hdr.file_seq == view->max_file_seq)
+		return 0;
+
 	data = buffer_get_data(file->buffer, &file_size);
 	file_size += file->buffer_offset;
 
