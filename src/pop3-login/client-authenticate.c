@@ -279,6 +279,17 @@ int cmd_auth(struct pop3_client *client, const char *args)
 	string_t *buf;
 	size_t argslen;
 
+	if (*args == '\0' &&
+	    auth_client_find_mech(auth_client, "NTLM") != NULL) {
+		/* This is needed to allow MS Outlook to use NTLM
+		   authentication. Sometimes this kludge is called
+		   "old-style SASL discovery". */
+		client_send_line(client, "+OK");
+ 		client_send_line(client, "NTLM");
+ 		client_send_line(client, ".");
+ 		return TRUE;
+ 	}
+
 	/* <mechanism name> <initial response> */
 	p = strchr(args, ' ');
 	if (p == NULL) {
