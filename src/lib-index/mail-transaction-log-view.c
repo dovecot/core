@@ -91,24 +91,19 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	if (min_file_seq == 0) {
 		/* new index, transaction file not synced yet */
 		min_file_seq = 1;
-		min_file_offset = sizeof(struct mail_transaction_log_header);
+		min_file_offset = 0;
 
 		if (max_file_seq == 0) {
 			max_file_seq = min_file_seq;
 			max_file_offset = min_file_offset;
 		}
-	} else if (min_file_offset == 0) {
-		/* this could happen if internal transactions haven't yet been
-		   committed but external are. just assume we're at the
-		   beginning. */
-		min_file_offset = sizeof(struct mail_transaction_log_header);
-	}
+	} 
 
 	if (min_file_seq == view->log->tail->hdr.prev_file_seq &&
 	    min_file_offset == view->log->tail->hdr.prev_file_offset) {
 		/* we can skip this */
 		min_file_seq = view->log->tail->hdr.file_seq;
-		min_file_offset = sizeof(struct mail_transaction_log_header);
+		min_file_offset = 0;
 
 		if (min_file_seq > max_file_seq) {
 			/* empty view */
@@ -127,13 +122,20 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
+	if (min_file_offset == 0) {
+		/* this could happen if internal transactions haven't yet been
+		   committed but external are. just assume we're at the
+		   beginning. */
+		min_file_offset = file->hdr.hdr_size;
+		if (max_file_offset == 0 && min_file_seq == max_file_seq)
+			max_file_offset = min_file_offset;
+	}
+
 	/* check these later than others as index file may have corrupted
 	   log_file_offset. we should have recreated the log file and
 	   skipped min_file_seq file above.. max_file_offset can be broken
 	   only if min_file_seq = max_file_seq. */
-	i_assert(min_file_offset >= sizeof(struct mail_transaction_log_header));
-	i_assert(max_file_offset >= sizeof(struct mail_transaction_log_header));
-
+	i_assert(min_file_offset >= file->hdr.hdr_size);
 	i_assert(min_file_seq != max_file_seq ||
 		 min_file_offset <= max_file_offset);
 
@@ -167,9 +169,8 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 
 		end_offset = file->hdr.file_seq == max_file_seq ?
 			max_file_offset : (uoff_t)-1;
-		ret = mail_transaction_log_file_map(file,
-			sizeof(struct mail_transaction_log_header),
-			end_offset);
+		ret = mail_transaction_log_file_map(file, file->hdr.hdr_size,
+						    end_offset);
 		if (ret == 0) {
 			mail_index_set_error(view->log->index,
 				"Lost transaction log file %s seq %u",
@@ -211,6 +212,8 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	view->max_file_offset = max_file_offset;
 	view->type_mask = type_mask;
 	view->broken = FALSE;
+
+	i_assert(view->cur->hdr.file_seq == min_file_seq);
 	return 0;
 }
 
@@ -258,23 +261,27 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	uint32_t hdr_size;
 	size_t file_size;
 
+	if (view->cur == NULL)
+		return 0;
+
+	view->prev_file_seq = view->cur->hdr.file_seq;
+	view->prev_file_offset = view->cur_offset;
+
 	for (;;) {
 		file = view->cur;
 		if (file == NULL)
 			return 0;
 
-		view->prev_file_seq = file->hdr.file_seq;
-		view->prev_file_offset = view->cur_offset;
-
 		if (view->cur_offset != file->sync_offset)
 			break;
 
 		view->cur = file->next;
-		view->cur_offset = sizeof(struct mail_transaction_log_header);
+		view->cur_offset = file->hdr.hdr_size;
 	}
 
-	if (view->cur_offset >= view->max_file_offset &&
-	    file->hdr.file_seq == view->max_file_seq)
+	if (file->hdr.file_seq > view->max_file_seq ||
+	    (view->cur_offset >= view->max_file_offset &&
+	     file->hdr.file_seq == view->max_file_seq))
 		return 0;
 
 	data = buffer_get_data(file->buffer, &file_size);

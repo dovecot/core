@@ -732,7 +732,10 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 
 	mail_transaction_log_view_get_prev_pos(log_view, &prev_seq,
 					       &prev_offset);
-        index->map->hdr.log_file_seq = prev_seq;
+	i_assert(prev_seq <= max_seq &&
+		 (prev_seq != max_seq || prev_offset <= max_offset));
+
+	index->map->hdr.log_file_seq = prev_seq;
 	index->map->hdr.log_file_int_offset =
 		index->map->hdr.log_file_ext_offset = prev_offset;
 

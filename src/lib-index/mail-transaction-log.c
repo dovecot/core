@@ -233,9 +233,12 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 	if (index->fd != -1 &&
 	    INDEX_HAS_MISSING_LOGS(index, log->head)) {
 		/* head log file isn't same as head index file -
-		   shouldn't happen except in race conditions. lock them and
-		   check again - FIXME: missing error handling. */
-		(void)mail_transaction_log_check_file_seq(log);
+		   shouldn't happen except in race conditions.
+		   lock them and check again */
+		if (mail_transaction_log_check_file_seq(log) < 0) {
+			mail_transaction_log_close(log);
+			return NULL;
+		}
 	}
 	return log;
 }
@@ -256,6 +259,11 @@ void mail_transaction_log_close(struct mail_transaction_log *log)
 static void
 mail_transaction_log_file_close(struct mail_transaction_log_file *file)
 {
+	if (file == file->log->head)
+		file->log->head = NULL;
+	if (file == file->log->tail)
+		file->log->tail = file->next;
+
 	mail_transaction_log_file_unlock(file);
 
 	if (file->buffer != NULL)
@@ -340,7 +348,8 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file)
 static int
 mail_transaction_log_file_create2(struct mail_transaction_log *log,
 				  const char *path, int fd,
-				  dev_t dev, ino_t ino)
+				  struct dotlock **dotlock,
+				  dev_t dev, ino_t ino, uoff_t file_size)
 {
 	struct mail_index *index = log->index;
 	struct mail_transaction_log_header hdr;
@@ -354,10 +363,11 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 		if ((ret = fstat(fd2, &st)) < 0) {
 			mail_index_file_set_syscall_error(index, path,
 							  "fstat()");
-		} else if (st.st_ino == ino && CMP_DEV_T(st.st_dev, dev)) {
+		} else if (st.st_ino == ino && CMP_DEV_T(st.st_dev, dev) &&
+			   (uoff_t)st.st_size == file_size) {
 			/* same file, still broken */
 		} else {
-			(void)file_dotlock_delete(&log->dotlock);
+			(void)file_dotlock_delete(dotlock);
 			return fd2;
 		}
 
@@ -400,31 +410,27 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 		return -1;
 	}
 
-	fd2 = dup(fd);
-	if (fd2 < 0) {
-		mail_index_file_set_syscall_error(index, path, "dup()");
-		return -1;
-	}
-
-	if (file_dotlock_replace(&log->dotlock, 0) <= 0)
+	if (file_dotlock_replace(dotlock,
+				 DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) <= 0)
 		return -1;
 
 	/* success */
-	return fd2;
+	return fd;
 }
 
 static int
 mail_transaction_log_file_create(struct mail_transaction_log *log,
-				 const char *path, dev_t dev, ino_t ino)
+				 const char *path,
+				 dev_t dev, ino_t ino, uoff_t file_size)
 {
+	struct dotlock *dotlock;
         mode_t old_mask;
 	int fd, fd2;
 
 	/* With dotlocking we might already have path.lock created, so this
 	   filename has to be different. */
 	old_mask = umask(log->index->mode ^ 0666);
-	fd = file_dotlock_open(&log->new_dotlock_settings, path, 0,
-			       &log->dotlock);
+	fd = file_dotlock_open(&log->new_dotlock_settings, path, 0, &dotlock);
 	umask(old_mask);
 
 	if (fd == -1) {
@@ -436,13 +442,14 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 	if (log->index->gid != (gid_t)-1 &&
 	    fchown(fd, (uid_t)-1, log->index->gid) < 0) {
 		mail_index_file_set_syscall_error(log->index, path, "fchown()");
-		(void)file_dotlock_delete(&log->dotlock);
+		(void)file_dotlock_delete(&dotlock);
 		return -1;
 	}
 
-	fd2 = mail_transaction_log_file_create2(log, path, fd, dev, ino);
+	fd2 = mail_transaction_log_file_create2(log, path, fd, &dotlock,
+						dev, ino, file_size);
 	if (fd2 < 0) {
-		(void)file_dotlock_delete(&log->dotlock);
+		(void)file_dotlock_delete(&dotlock);
 		return -1;
 	}
 	return fd2;
@@ -475,8 +482,8 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 	ret = mail_transaction_log_file_read_hdr(file);
 	if (ret == 0) {
 		/* corrupted header */
-		fd = mail_transaction_log_file_create(log, path,
-						      st.st_dev, st.st_ino);
+		fd = mail_transaction_log_file_create(log, path, st.st_dev,
+						      st.st_ino, st.st_size);
 		if (fd == -1)
 			ret = -1;
 		else if (fstat(fd, &st) < 0) {
@@ -520,6 +527,8 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 			/* log replaced with file having same sequence as
 			   previous one. shouldn't happen unless previous
 			   log file was corrupted.. */
+			file->next = (*p)->next;
+			(*p)->next = NULL;
 			break;
 		}
 	}
@@ -542,7 +551,7 @@ mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
 			return NULL;
 		}
 
-		fd = mail_transaction_log_file_create(log, path, 0, 0);
+		fd = mail_transaction_log_file_create(log, path, 0, 0, 0);
 		if (fd == -1)
 			return NULL;
 	}
@@ -563,9 +572,6 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
 			*p = next;
 		}
 	}
-
-	if (log->tail == NULL)
-		log->head = NULL;
 }
 
 int mail_transaction_log_rotate(struct mail_transaction_log *log, int lock)
@@ -573,6 +579,8 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, int lock)
 	struct mail_transaction_log_file *file;
 	struct stat st;
 	int fd;
+
+	i_assert(log->head->locked);
 
 	if (fstat(log->head->fd, &st) < 0) {
 		mail_index_file_set_syscall_error(log->index,
@@ -582,7 +590,7 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, int lock)
 	}
 
 	fd = mail_transaction_log_file_create(log, log->head->filepath,
-					      st.st_dev, st.st_ino);
+					      st.st_dev, st.st_ino, st.st_size);
 	if (fd == -1)
 		return -1;
 
@@ -609,19 +617,6 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, int lock)
 	return 0;
 }
 
-static int mail_transaction_log_recreate(struct mail_transaction_log *log)
-{
-	unsigned int lock_id;
-	int ret;
-
-	if (mail_index_lock_shared(log->index, TRUE, &lock_id) < 0)
-		return -1;
-
-	ret = mail_transaction_log_rotate(log, FALSE);
-	mail_index_unlock(log->index, lock_id);
-	return ret;
-}
-
 static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 {
         struct mail_transaction_log_file *file;
@@ -632,10 +627,6 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 			   MAIL_TRANSACTION_LOG_PREFIX, NULL);
 	if (stat(path, &st) < 0) {
 		mail_index_file_set_syscall_error(log->index, path, "stat()");
-		if (errno == ENOENT && log->head->locked) {
-			/* lost? */
-			return mail_transaction_log_recreate(log);
-		}
 		return -1;
 	}
 

@@ -345,7 +345,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 
 	if (log->head->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_SIZE &&
 	    (time_t)log->head->hdr.create_stamp <
-	    ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_MIN_TIME) {
+	    ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_TIME) {
 		/* we might want to rotate, but check first that everything is
 		   synced in index. */
 		if (mail_index_lock_shared(log->index, TRUE, &lock_id) < 0) {
