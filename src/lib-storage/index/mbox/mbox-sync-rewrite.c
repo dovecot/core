@@ -73,8 +73,8 @@ static int mbox_fill_space(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
-static void
-mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx, size_t size)
+void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
+				 size_t size)
 {
 	size_t data_size, pos, start_pos;
 	const unsigned char *data;
@@ -322,9 +322,13 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	}
 
 	mbox_sync_parse_next_mail(sync_ctx->input, &mail_ctx);
-	if (mails[idx].space != 0)
+	if (mails[idx].space != 0) {
+		if (mails[idx].space < 0) {
+			/* remove all possible spacing before updating */
+			mbox_sync_headers_remove_space(&mail_ctx, (size_t)-1);
+		}
 		mbox_sync_update_header_from(&mail_ctx, &mails[idx]);
-	else {
+	} else {
 		/* updating might just try to add headers and mess up our
 		   calculations completely. so only add the EOH here. */
 		if (mail_ctx.have_eoh)

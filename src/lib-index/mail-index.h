@@ -106,6 +106,14 @@ struct mail_index_record {
 	uint8_t flags; /* enum mail_flags | enum mail_index_mail_flags */
 };
 
+struct mail_keywords {
+	struct mail_index *index;
+	unsigned int count;
+
+        /* variable sized list of keyword indexes */
+	unsigned int idx[1];
+};
+
 enum mail_index_sync_type {
 	MAIL_INDEX_SYNC_TYPE_APPEND		= 0x01,
 	MAIL_INDEX_SYNC_TYPE_EXPUNGE		= 0x02,
@@ -124,11 +132,10 @@ struct mail_index_sync_rec {
 	uint8_t add_flags;
 	uint8_t remove_flags;
 
-	/* MAIL_INDEX_SYNC_TYPE_KEYWORDS: */
+	/* MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD, .._REMOVE: */
 	unsigned int keyword_idx;
 };
 
-struct mail_keywords;
 struct mail_index;
 struct mail_index_map;
 struct mail_index_view;
@@ -256,7 +263,7 @@ int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
 			   struct mail_index_map **map_r,
 			   const struct mail_index_record **rec_r);
 int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
-			       buffer_t *buf, const char *const **keywords_r);
+			       array_t *keyword_idx);
 /* Returns the UID for given message. May be slightly faster than
    mail_index_lookup()->uid. */
 int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
@@ -291,13 +298,24 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 				   enum modify_type modify_type,
 				   enum mail_flags flags);
 
-/* Return a NULL-terminated list of all existing keywords. */
-const char *const *mail_index_get_keywords(struct mail_index *index);
+/* Lookup a keyword, returns TRUE if found, FALSE if not. If autocreate is
+   TRUE, the keyword is automatically created and TRUE is always returned. */
+int mail_index_keyword_lookup(struct mail_index *index,
+			      const char *keyword, int autocreate,
+			      unsigned int *idx_r);
+/* Return a pointer to array of NULL-terminated list of keywords. Note that
+   the array contents (and thus pointers inside it) may change after calling
+   mail_index_keywords_create() or mail_index_sync_begin(). */
+const array_t *mail_index_get_keywords(struct mail_index *index);
+
 /* Create a keyword list structure. It's freed automatically at the end of
    the transaction. */
 struct mail_keywords *
 mail_index_keywords_create(struct mail_index_transaction *t,
 			   const char *const keywords[]);
+struct mail_keywords *
+mail_index_keywords_create_from_indexes(struct mail_index_transaction *t,
+					const array_t *keyword_indexes);
 /* Free the keywords. */
 void mail_index_keywords_free(struct mail_keywords *keywords);
 /* Update keywords for given message. */
@@ -317,15 +335,14 @@ const char *mail_index_get_error_message(struct mail_index *index);
 /* Reset the error message. */
 void mail_index_reset_error(struct mail_index *index);
 
-/* Return a pointer to NULL-terminated list of keywords which are referenced
-   in mail_index_sync_rec->keyword_idx. Note tat the pointer may change after
-   calling mail_index_keywords_create(). */
-const char *const *const *
-mail_index_sync_get_keywords(struct mail_index_sync_ctx *ctx);
 /* Apply changes in MAIL_INDEX_SYNC_TYPE_FLAGS typed sync records to given
-   flags variables. */
+   flags variable. */
 void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
 				 uint8_t *flags);
+/* Apply changes in MAIL_INDEX_SYNC_TYPE_KEYWORD_* typed sync records to given
+   keywords array. Returns TRUE If something was changed. */
+int mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
+				   array_t *keywords);
 
 /* register index extension. name is a unique identifier for the extension.
    returns unique identifier for the name. */

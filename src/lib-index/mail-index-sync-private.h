@@ -26,7 +26,8 @@ struct mail_index_sync_ctx {
 struct mail_index_sync_list {
 	const array_t *ARRAY_DEFINE_PTR(array, struct uid_range);
 	unsigned int idx;
-	unsigned int keyword_num;
+	unsigned int keyword_idx:31;
+	unsigned int keyword_remove:1;
 };
 
 struct mail_index_expunge_handler {

@@ -153,9 +153,7 @@ struct mailbox_status {
 
 	unsigned int diskspace_full:1;
 
-	/* may be allocated from data stack */
-	unsigned int keywords_count;
-	const char *const *keywords;
+	const array_t *ARRAY_DEFINE_PTR(keywords, const char *);
 };
 
 struct mailbox_sync_rec {

@@ -56,11 +56,15 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 	}
 
 	if (array_is_created(&t->keyword_updates)) {
-		recs = array_get_modifyable(&t->keyword_updates, &count);
+		struct mail_index_transaction_keyword_update *u;
+
+		u = array_get_modifyable(&t->keyword_updates, &count);
 
 		for (i = 0; i < count; i++) {
-			if (array_is_created(&recs[i]))
-				array_free(&recs[i]);
+			if (array_is_created(&u[i].add_seq))
+				array_free(&u[i].add_seq);
+			if (array_is_created(&u[i].remove_seq))
+				array_free(&u[i].remove_seq);
 		}
 		array_free(&t->keyword_updates);
 	}
@@ -830,11 +834,9 @@ struct mail_keywords *
 mail_index_keywords_create(struct mail_index_transaction *t,
 			   const char *const keywords[])
 {
-	/* @UNSAFE */
 	struct mail_index *index = t->view->index;
 	struct mail_keywords *k;
-	const char **missing_keywords, *keyword;
-	unsigned int count, i, j, k_pos = 0, missing_count = 0;
+	unsigned int i, count;
 
 	if (keywords == NULL) {
 		k = i_new(struct mail_keywords, 1);
@@ -843,48 +845,39 @@ mail_index_keywords_create(struct mail_index_transaction *t,
 	}
 	count = strarray_length(keywords);
 
+	/* @UNSAFE */
+	k = i_malloc(sizeof(struct mail_keywords) +
+		     (sizeof(k->idx) * (count-1)));
+	k->index = index;
+	k->count = count;
+
+	/* look up the keywords from index. they're never removed from there
+	   so we can permanently store indexes to them. */
+	for (i = 0; i < count; i++) {
+		(void)mail_index_keyword_lookup(index, keywords[i],
+						TRUE, &k->idx[i]);
+	}
+	return k;
+}
+
+struct mail_keywords *
+mail_index_keywords_create_from_indexes(struct mail_index_transaction *t,
+					const array_t *keyword_indexes)
+{
+	ARRAY_SET_TYPE(keyword_indexes, unsigned int);
+	struct mail_keywords *k;
+	unsigned int count;
+
+	count = array_count(keyword_indexes);
+
+	/* @UNSAFE */
 	k = i_malloc(sizeof(struct mail_keywords) +
 		     (sizeof(k->idx) * (count-1)));
 	k->index = t->view->index;
 	k->count = count;
 
-	t_push();
-	missing_keywords = t_new(const char *, count + 1);
-
-	/* look up the keywords from index. they're never removed from there
-	   so we can permanently store indexes to them. */
-	for (i = 0; i < count; i++) {
-		for (j = 0; index->keywords[j] != NULL; j++) {
-			if (strcasecmp(keywords[i], index->keywords[j]) == 0)
-				break;
-		}
-
-		if (index->keywords[j] != NULL)
-			k->idx[k_pos++] = j;
-		else
-			missing_keywords[missing_count++] = keywords[i];
-	}
-
-	if (missing_count > 0) {
-		/* add missing keywords. first drop the trailing NULL. */
-		array_delete(&index->keywords_arr,
-			     array_count(&index->keywords_arr) - 1, 1);
-
-		j = array_count(&index->keywords_arr);
-		for (; *missing_keywords != NULL; missing_keywords++, j++) {
-			keyword = p_strdup(index->keywords_pool,
-					   *missing_keywords);
-			array_append(&index->keywords_arr, &keyword, 1);
-
-			k->idx[k_pos++] = j;
-		}
-
-		(void)array_modifyable_append(&index->keywords_arr);
-		index->keywords = array_idx(&index->keywords_arr, 0);
-	}
-	i_assert(k_pos == count);
-
-	t_pop();
+	memcpy(k->idx, array_get(keyword_indexes, NULL),
+	       count * sizeof(k->idx[0]));
 	return k;
 }
 
@@ -897,8 +890,8 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 				enum modify_type modify_type,
 				struct mail_keywords *keywords)
 {
-	array_t *arr;
-	unsigned int i, idx;
+	struct mail_index_transaction_keyword_update *u;
+	unsigned int i;
 
 	i_assert(seq > 0 &&
 		 (seq <= mail_index_view_get_messages_count(t->view) ||
@@ -906,48 +899,40 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 	i_assert(keywords->count > 0 || modify_type == MODIFY_REPLACE);
 	i_assert(keywords->index == t->view->index);
 
-	/* keyword_updates is an array of
-	   { buffer_t *add_seq; buffer_t *remove_seq; }
-	   which is why there's the multiplication by 2.
-
-	   If t->keyword_resets is set for the sequence, there's no need to
-	   update remove_seq as it will remove all keywords. */
-
 	if (!array_is_created(&t->keyword_updates)) {
 		uint32_t max_idx = keywords->idx[keywords->count-1];
 
 		ARRAY_CREATE(&t->keyword_updates, default_pool,
-			     array_t, max_idx * 2);
+			     struct mail_index_transaction_keyword_update,
+			     max_idx);
 	}
 
 	switch (modify_type) {
 	case MODIFY_ADD:
 		for (i = 0; i < keywords->count; i++) {
-			idx = keywords->idx[i] * 2;
-			arr = array_modifyable_idx(&t->keyword_updates, idx);
-			mail_index_seq_range_array_add(arr, 16, seq);
-
-			arr = array_modifyable_idx(&t->keyword_updates, idx+1);
-			mail_index_seq_range_array_remove(arr, seq);
+			u = array_modifyable_idx(&t->keyword_updates,
+						 keywords->idx[i]);
+			mail_index_seq_range_array_add(&u->add_seq, 16, seq);
+			mail_index_seq_range_array_remove(&u->remove_seq, seq);
 		}
 		break;
 	case MODIFY_REMOVE:
 		for (i = 0; i < keywords->count; i++) {
-			idx = keywords->idx[i] * 2;
-			arr = array_modifyable_idx(&t->keyword_updates, idx);
-			mail_index_seq_range_array_remove(arr, seq);
-
-			arr = array_modifyable_idx(&t->keyword_updates, idx+1);
-			mail_index_seq_range_array_add(arr, 16, seq);
+			u = array_modifyable_idx(&t->keyword_updates,
+						 keywords->idx[i]);
+			mail_index_seq_range_array_remove(&u->add_seq, seq);
+			mail_index_seq_range_array_add(&u->remove_seq, 16, seq);
 		}
 		break;
 	case MODIFY_REPLACE:
 		for (i = 0; i < keywords->count; i++) {
-			idx = keywords->idx[i] * 2;
-			arr = array_modifyable_idx(&t->keyword_updates, idx);
-			mail_index_seq_range_array_add(arr, 16, seq);
+			u = array_modifyable_idx(&t->keyword_updates,
+						 keywords->idx[i]);
+			mail_index_seq_range_array_add(&u->add_seq, 16, seq);
 		}
 
+		/* If t->keyword_resets is set for a sequence, there's no
+		   need to update remove_seq as it will remove all keywords. */
 		mail_index_seq_range_array_add(&t->keyword_resets, 16, seq);
 		break;
 	}

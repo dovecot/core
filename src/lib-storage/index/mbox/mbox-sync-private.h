@@ -42,7 +42,7 @@ struct mbox_sync_mail {
 	uint32_t uid;
 	uint32_t idx_seq;
 	uint8_t flags;
-	uint32_t keywords_idx; /* +1 */
+	array_t ARRAY_DEFINE(keywords, unsigned int);
 
 	uoff_t from_offset;
 	uoff_t body_size;
@@ -85,6 +85,7 @@ struct mbox_sync_mail_context {
 	unsigned int recent:1;
 	unsigned int dirty:1;
 	unsigned int uid_broken:1;
+	unsigned int update_imapbase_keywords:1;
 };
 
 struct mbox_sync_context {
@@ -109,6 +110,8 @@ struct mbox_sync_context {
 	array_t ARRAY_DEFINE(syncs, struct mail_index_sync_rec);
 	struct mail_index_sync_rec sync_rec;
 
+	pool_t mail_keyword_pool;
+
 	uint32_t prev_msg_uid, next_uid;
 	uint32_t seq, idx_seq, need_space_seq;
 	off_t expunged_space, space_diff;
@@ -129,8 +132,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
 			       struct mail_index_view *view, uint32_t seq);
 
-void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
-			     array_t *syncs_arr);
+void mbox_sync_update_header(struct mbox_sync_mail_context *ctx);
 void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 				  const struct mbox_sync_mail *mail);
 int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff);
@@ -138,11 +140,15 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 		      uoff_t end_offset, off_t move_diff, uoff_t extra_space,
 		      uint32_t first_seq, uint32_t last_seq);
 
-void mbox_sync_apply_index_syncs(array_t *syncs_arr, uint8_t *flags);
+void mbox_sync_apply_index_syncs(struct mbox_sync_context *sync_ctx,
+				 struct mbox_sync_mail *mail,
+				 int *keywords_changed_r);
 int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset);
 int mbox_move(struct mbox_sync_context *sync_ctx,
 	      uoff_t dest, uoff_t source, uoff_t size);
 void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 			   size_t pos, size_t need, size_t have);
+void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
+				 size_t size);
 
 #endif

@@ -103,6 +103,68 @@ static void status_flags_replace(struct mbox_sync_mail_context *ctx, size_t pos,
 	}
 }
 
+static void keywords_append(struct mbox_sync_context *sync_ctx, string_t *dest,
+			    const array_t *keyword_indexes_arr)
+{
+	ARRAY_SET_TYPE(keyword_indexes_arr, unsigned int);
+	const char *const *keyword_names;
+	const unsigned int *keyword_indexes;
+	unsigned int i, idx_count, keywords_count;
+	size_t last_break;
+
+	keyword_names = array_get(sync_ctx->ibox->keyword_names,
+				  &keywords_count);
+	keyword_indexes = array_get(keyword_indexes_arr, &idx_count);
+
+	for (i = 0, last_break = 0; i < idx_count; i++) {
+		i_assert(keyword_indexes[i] < keywords_count);
+
+		/* try avoid overly long lines but cutting them
+		   every 70 chars or so */
+		if (str_len(dest) - last_break < 70) {
+			if (i > 0)
+				str_append_c(dest, ' ');
+		} else {
+			str_append(dest, "\n\t");
+			last_break = str_len(dest);
+		}
+		str_append(dest, keyword_names[keyword_indexes[i]]);
+	}
+}
+
+static void
+keywords_append_all(struct mbox_sync_mail_context *ctx, string_t *dest)
+{
+	const char *const *names;
+	const unsigned char *p;
+	unsigned int i, count;
+	size_t last_break;
+
+	p = str_data(dest);
+	if (str_len(dest) < 70)
+		last_break = 0;
+	else {
+		/* set last_break to beginning of line */
+		for (last_break = str_len(dest); last_break > 0; last_break--) {
+			if (p[last_break-1] == '\n')
+				break;
+		}
+	}
+
+	names = array_get(ctx->sync_ctx->ibox->keyword_names, &count);
+	for (i = 0; i < count; i++) {
+		/* try avoid overly long lines but cutting them
+		   every 70 chars or so */
+		if (str_len(dest) - last_break < 70)
+			str_append_c(dest, ' ');
+		else {
+			str_append(dest, "\n\t");
+			last_break = str_len(dest);
+		}
+		str_append(dest, names[i]);
+	}
+}
+
 static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 {
 	size_t old_hdr_size, new_hdr_size;
@@ -130,7 +192,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		str_printfa(ctx->header, "%u %010u",
 			    ctx->sync_ctx->base_uid_validity,
 			    ctx->sync_ctx->next_uid-1);
-		//FIXME:keywords_append(ctx, all_keywords);
+		keywords_append_all(ctx, ctx->header);
 		str_append_c(ctx->header, '\n');
 	}
 
@@ -157,10 +219,12 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 	}
 
 	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == (size_t)-1 &&
-	    ctx->mail.keywords_idx != 0) {
+	    array_is_created(&ctx->mail.keywords) &&
+	    array_count(&ctx->mail.keywords) > 0) {
 		str_append(ctx->header, "X-Keywords: ");
 		ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] = str_len(ctx->header);
-		//keywords_append(ctx, ctx->mail.keywords);
+		keywords_append(ctx->sync_ctx, ctx->header,
+				&ctx->mail.keywords);
 		str_append_c(ctx->header, '\n');
 	}
 
@@ -196,14 +260,11 @@ static void mbox_sync_update_xstatus(struct mbox_sync_mail_context *ctx)
 	}
 }
 
-static void mbox_sync_update_xkeywords(struct mbox_sync_mail_context *ctx)
-{
-}
-
 static void mbox_sync_update_line(struct mbox_sync_mail_context *ctx,
 				  size_t pos, string_t *new_line)
 {
 	const char *hdr, *p;
+	uoff_t file_pos;
 
 	if (ctx->header_first_change > pos)
 		ctx->header_first_change = pos;
@@ -213,32 +274,61 @@ static void mbox_sync_update_line(struct mbox_sync_mail_context *ctx,
 
 	if (p == NULL) {
 		/* shouldn't really happen, but allow anyway.. */
-		ctx->header_last_change = (size_t)-1;
-		str_truncate(ctx->header, pos);
-		str_append_str(ctx->header, new_line);
-	} else {
-		mbox_sync_move_buffer(ctx, pos, str_len(new_line), p - hdr + 1);
-		buffer_copy(ctx->header, pos, new_line, 0, (size_t)-1);
+		p = hdr + strlen(hdr);
 	}
+
+	file_pos = pos + ctx->hdr_offset;
+	if (ctx->mail.space > 0 && ctx->mail.offset >= file_pos &&
+	    ctx->mail.offset < file_pos + (p - hdr)) {
+		/* extra space points to this line. remove it. */
+		ctx->mail.offset = ctx->hdr_offset;
+		ctx->mail.space = 0;
+	}
+
+	mbox_sync_move_buffer(ctx, pos, str_len(new_line), p - hdr + 1);
+	buffer_copy(ctx->header, pos, new_line, 0, (size_t)-1);
+}
+
+static void mbox_sync_update_xkeywords(struct mbox_sync_mail_context *ctx)
+{
+	string_t *str;
+
+	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == (size_t)-1)
+		return;
+
+	t_push();
+	str = t_str_new(256);
+	keywords_append(ctx->sync_ctx, str, &ctx->mail.keywords);
+	str_append_c(str, '\n');
+	mbox_sync_update_line(ctx, ctx->hdr_pos[MBOX_HDR_X_KEYWORDS], str);
+	t_pop();
 }
 
 static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 {
+	struct mbox_sync_context *sync_ctx = ctx->sync_ctx;
 	string_t *str;
 
-	if (!ctx->sync_ctx->dest_first_mail ||
-	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1 ||
-	    ctx->sync_ctx->update_base_uid_last == 0 ||
-	    ctx->sync_ctx->update_base_uid_last < ctx->sync_ctx->base_uid_last)
+	if (!sync_ctx->dest_first_mail ||
+	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1)
+		return;
+
+	if (sync_ctx->update_base_uid_last <= sync_ctx->base_uid_last)
+                sync_ctx->update_base_uid_last = 0;
+
+	/* see if anything changed */
+	if (!(ctx->update_imapbase_keywords ||
+	      sync_ctx->update_base_uid_last != 0))
 		return;
 
 	/* update uid-last field in X-IMAPbase */
 	t_push();
 
 	str = t_str_new(200);
-	str_printfa(str, "%u %010u", ctx->sync_ctx->base_uid_validity,
-		    ctx->sync_ctx->update_base_uid_last);
-	//FIXME:keywords_append(ctx, all_keywords);
+	str_printfa(str, "%u %010u", sync_ctx->base_uid_validity,
+		    sync_ctx->update_base_uid_last != 0 ?
+		    sync_ctx->update_base_uid_last : sync_ctx->base_uid_last);
+	keywords_append_all(ctx, str);
 	str_append_c(str, '\n');
 
         mbox_sync_update_line(ctx, ctx->hdr_pos[MBOX_HDR_X_IMAPBASE], str);
@@ -260,30 +350,24 @@ static void mbox_sync_update_x_uid(struct mbox_sync_mail_context *ctx)
 	t_pop();
 }
 
-void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
-			     array_t *syncs_arr)
+void mbox_sync_update_header(struct mbox_sync_mail_context *ctx)
 {
-	ARRAY_SET_TYPE(syncs_arr, struct mail_index_sync_rec);
-	const struct mail_index_sync_rec *syncs;
 	uint8_t old_flags;
-	uint32_t old_keywords_idx;
-	unsigned int i, count;
+	int keywords_changed;
 
 	i_assert(ctx->mail.uid != 0 || ctx->pseudo);
 
-	syncs = array_get(syncs_arr, &count);
 	old_flags = ctx->mail.flags;
 
-	if (count != 0) {
-		old_keywords_idx = ctx->mail.keywords_idx;
-                mbox_sync_apply_index_syncs(syncs_arr, &ctx->mail.flags);
+	if (array_count(&ctx->sync_ctx->syncs) > 0) {
+		mbox_sync_apply_index_syncs(ctx->sync_ctx, &ctx->mail,
+					    &keywords_changed);
 
 		if ((old_flags & XSTATUS_FLAGS_MASK) !=
 		    (ctx->mail.flags & XSTATUS_FLAGS_MASK))
 			mbox_sync_update_xstatus(ctx);
-		/*FIXME:if (memcmp(old_keywords, ctx->mail.keywords,
-			   INDEX_KEYWORDS_BYTE_COUNT) != 0)
-			mbox_sync_update_xkeywords(ctx);*/
+		if (keywords_changed)
+			mbox_sync_update_xkeywords(ctx);
 	}
 
 	if (!ctx->sync_ctx->ibox->keep_recent)
@@ -317,12 +401,30 @@ void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 			(mail->flags & XSTATUS_FLAGS_MASK);
 		mbox_sync_update_xstatus(ctx);
 	}
-	/*FIXME:if (memcmp(ctx->mail.keywords, mail->keywords,
-		   INDEX_KEYWORDS_BYTE_COUNT) != 0) {
-		memcpy(ctx->mail.keywords, mail->keywords,
-		       INDEX_KEYWORDS_BYTE_COUNT);
+	if (!array_is_created(&mail->keywords) ||
+	    array_count(&mail->keywords) == 0) {
+		/* no keywords for this mail */
+		if (array_is_created(&ctx->mail.keywords)) {
+			array_clear(&ctx->mail.keywords);
+			mbox_sync_update_xkeywords(ctx);
+		}
+	} else if (!array_is_created(&ctx->mail.keywords)) {
+		/* adding first keywords */
+		ARRAY_CREATE(&ctx->mail.keywords,
+			     ctx->sync_ctx->mail_keyword_pool,
+			     unsigned int,
+			     array_count(&mail->keywords));
+		array_append_array(&ctx->mail.keywords,
+				   &mail->keywords);
 		mbox_sync_update_xkeywords(ctx);
-	}*/
+	} else if (!buffer_cmp(ctx->mail.keywords.buffer,
+			       mail->keywords.buffer)) {
+		/* keywords changed. */
+		array_clear(&ctx->mail.keywords);
+		array_append_array(&ctx->mail.keywords,
+				   &mail->keywords);
+		mbox_sync_update_xkeywords(ctx);
+	}
 
 	i_assert(ctx->mail.uid == 0 || ctx->mail.uid == mail->uid);
 	ctx->mail.uid = mail->uid;

@@ -53,7 +53,6 @@ struct message_header_line;
 
 struct index_mail_data {
 	enum mail_flags flags;
-	const char *const *keywords;
 	time_t date, received_date;
 	uoff_t virtual_size, physical_size;
 
@@ -73,7 +72,7 @@ struct index_mail_data {
 	struct message_size hdr_size, body_size;
 	struct message_parser_ctx *parser_ctx;
 	int parsing_count;
-	buffer_t *keywords_buf;
+	array_t ARRAY_DEFINE(keywords, const char *);
 
 	unsigned int parse_header:1;
 	unsigned int save_envelope:1;

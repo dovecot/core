@@ -332,6 +332,7 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 		ibox->cache = mail_index_get_cache(index);
 		index_cache_register_defaults(ibox);
 		ibox->view = mail_index_view_open(index);
+		ibox->keyword_names = mail_index_get_keywords(index);
 		return 0;
 	} while (0);
 

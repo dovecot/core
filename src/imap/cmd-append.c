@@ -393,8 +393,8 @@ int cmd_append(struct client_command_context *cmd)
 			mailbox_close(ctx->box);
 			ctx->box = NULL;
 		} else {
-			client_save_keywords(&client->keywords, status.keywords,
-					     status.keywords_count);
+			client_save_keywords(&client->keywords,
+					     status.keywords);
 		}
 		ctx->t = ctx->box == NULL ? NULL :
 			mailbox_transaction_begin(ctx->box,

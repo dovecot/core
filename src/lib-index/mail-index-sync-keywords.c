@@ -11,18 +11,24 @@ keyword_lookup(struct mail_index_sync_map_ctx *ctx,
 	       const char *keyword_name, unsigned int *idx_r)
 {
 	struct mail_index_map *map = ctx->view->map;
-	unsigned int i;
+	const unsigned int *idx_map;
+	unsigned int i, count, keyword_idx;
 
 	if (!ctx->keywords_read) {
 		if (mail_index_map_read_keywords(ctx->view->index, map) < 0)
 			return -1;
 		ctx->keywords_read = TRUE;
 	}
-
-	for (i = 0; i < map->keywords_count; i++) {
-		if (strcmp(map->keywords[i], keyword_name) == 0) {
-			*idx_r = i;
-			return 1;
+	if (mail_index_keyword_lookup(ctx->view->index, keyword_name,
+				      FALSE, &keyword_idx) &&
+	    array_is_created(&map->keyword_idx_map)) {
+		/* FIXME: slow. maybe create index -> file mapping as well */
+		idx_map = array_get(&map->keyword_idx_map, &count);
+		for (i = 0; i < count; i++) {
+			if (idx_map[i] == keyword_idx) {
+				*idx_r = i;
+				return 1;
+			}
 		}
 	}
 

@@ -29,10 +29,8 @@ int index_storage_get_status_locked(struct index_mailbox *ibox,
 		}
 	}
 
-	if (items & STATUS_KEYWORDS) {
+	if (items & STATUS_KEYWORDS)
 		status_r->keywords = mail_index_get_keywords(ibox->index);
-		status_r->keywords_count = strarray_length(status_r->keywords);
-	}
 	return 0;
 }
 

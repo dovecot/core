@@ -272,37 +272,56 @@ static int log_append_ext_rec_updates(struct mail_transaction_log_file *file,
 	return 0;
 }
 
+static int
+log_append_keyword_update(struct mail_transaction_log_file *file,
+			  struct mail_index_transaction *t,
+			  buffer_t *hdr_buf, enum modify_type modify_type,
+			  const char *keyword, const buffer_t *buffer)
+{
+	struct mail_transaction_keyword_update kt_hdr;
+
+	memset(&kt_hdr, 0, sizeof(kt_hdr));
+	kt_hdr.modify_type = modify_type;
+	kt_hdr.name_size = strlen(keyword);
+
+	buffer_set_used_size(hdr_buf, 0);
+	buffer_append(hdr_buf, &kt_hdr, sizeof(kt_hdr));
+	buffer_append(hdr_buf, keyword, kt_hdr.name_size);
+	if ((hdr_buf->used % 4) != 0)
+		buffer_append_zero(hdr_buf, 4 - (hdr_buf->used % 4));
+
+	return log_append_buffer(file, buffer, hdr_buf,
+				 MAIL_TRANSACTION_KEYWORD_UPDATE, t->external);
+}
+
 static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 				      struct mail_index_transaction *t)
 {
-	struct mail_index *index = t->view->index;
-	struct mail_transaction_keyword_update kt_hdr;
+        const struct mail_index_transaction_keyword_update *updates;
+	const char *const *keywords;
 	buffer_t *hdr_buf;
-	array_t *updates;
-	unsigned int i, count;
+	unsigned int i, count, keywords_count;
 
 	hdr_buf = buffer_create_dynamic(pool_datastack_create(), 64);
 
+	keywords = array_get_modifyable(&t->view->index->keywords,
+					&keywords_count);
 	updates = array_get_modifyable(&t->keyword_updates, &count);
+	i_assert(count <= keywords_count);
+
 	for (i = 0; i < count; i++) {
-		if (!array_is_created(&updates[i]))
-			continue;
-
-		buffer_set_used_size(hdr_buf, 0);
-
-		memset(&kt_hdr, 0, sizeof(kt_hdr));
-		kt_hdr.modify_type = (i & 1) == 0 ? MODIFY_ADD : MODIFY_REMOVE;
-		kt_hdr.name_size = strlen(index->keywords[i / 2]);
-		buffer_append(hdr_buf, &kt_hdr, sizeof(kt_hdr));
-		buffer_append(hdr_buf, index->keywords[i / 2],
-			      kt_hdr.name_size);
-		if ((hdr_buf->used % 4) != 0)
-			buffer_append_zero(hdr_buf, 4 - (hdr_buf->used % 4));
-
-		if (log_append_buffer(file, updates[i].buffer, hdr_buf,
-				      MAIL_TRANSACTION_KEYWORD_UPDATE,
-				      t->external) < 0)
-			return -1;
+		if (array_is_created(&updates[i].add_seq)) {
+			if (log_append_keyword_update(file, t, hdr_buf,
+					MODIFY_ADD, keywords[i],
+					updates[i].add_seq.buffer) < 0)
+				return -1;
+		}
+		if (array_is_created(&updates[i].remove_seq)) {
+			if (log_append_keyword_update(file, t, hdr_buf,
+					MODIFY_REMOVE, keywords[i],
+					updates[i].remove_seq.buffer) < 0)
+				return -1;
+		}
 	}
 
 	return 0;

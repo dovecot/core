@@ -107,6 +107,46 @@ static int parse_x_status(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
+static void
+parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
+                         struct message_header_line *hdr, size_t pos)
+{
+	const char *keyword;
+	size_t keyword_start;
+	unsigned int idx, count;
+
+	count = 0;
+	while (pos < hdr->full_value_len) {
+		if (IS_LWSP_LF(hdr->full_value[pos])) {
+                        pos++;
+			continue;
+		}
+
+		/* read the keyword */
+		keyword_start = pos;
+		for (; pos < hdr->full_value_len; pos++) {
+			if (IS_LWSP_LF(hdr->full_value[pos]))
+				break;
+		}
+
+		/* add it to index's keyword list if it's not there already */
+		t_push();
+		keyword = t_strndup(hdr->full_value + keyword_start,
+				    pos - keyword_start);
+		(void)mail_index_keyword_lookup(ctx->sync_ctx->ibox->index,
+						keyword, TRUE, &idx);
+		t_pop();
+
+		count++;
+	}
+
+	if (count != array_count(ctx->sync_ctx->ibox->keyword_names)) {
+		/* need to update this list */
+		ctx->update_imapbase_keywords = TRUE;
+		ctx->need_rewrite = TRUE;
+	}
+}
+
 static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 			     struct message_header_line *hdr)
 {
@@ -128,17 +168,16 @@ static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 	pos = end - str;
 	t_pop();
 
-	while (pos < hdr->full_value_len && IS_LWSP_LF(hdr->full_value[pos]))
-		pos++;
-
 	if (uid_validity == 0) {
 		/* broken */
 		return FALSE;
 	}
 
 	if (ctx->sync_ctx->base_uid_validity == 0) {
+		/* first time parsing this. save the values. */
 		ctx->sync_ctx->base_uid_validity = uid_validity;
 		ctx->sync_ctx->base_uid_last = uid_last;
+
 		if (ctx->sync_ctx->next_uid-1 <= uid_last)
 			ctx->sync_ctx->next_uid = uid_last+1;
 		else {
@@ -156,12 +195,8 @@ static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 	ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
 	ctx->seen_imapbase = TRUE;
 
-	if (pos == hdr->full_value_len)
-		return TRUE;
-
-	// FIXME: save keywords
-
-        parse_trailing_whitespace(ctx, hdr);
+	parse_imap_keywords_list(ctx, hdr, pos);
+	parse_trailing_whitespace(ctx, hdr);
 	return TRUE;
 }
 
@@ -180,10 +215,73 @@ static int parse_x_imap(struct mbox_sync_mail_context *ctx,
 static int parse_x_keywords(struct mbox_sync_mail_context *ctx,
 			    struct message_header_line *hdr)
 {
-	// FIXME: parse them
+	array_t ARRAY_DEFINE(keyword_list, unsigned int);
+	string_t *keyword;
+	size_t keyword_start;
+	unsigned int idx;
+	size_t pos;
+
+	if (array_is_created(&ctx->mail.keywords))
+		return FALSE; /* duplicate header, delete */
+
+	/* read keyword indexes to temporary array first */
+	t_push();
+	keyword = t_str_new(128);
+	ARRAY_CREATE(&keyword_list, pool_datastack_create(), unsigned int, 16);
+
+	for (pos = 0; pos < hdr->full_value_len; ) {
+		if (IS_LWSP_LF(hdr->full_value[pos])) {
+                        pos++;
+			continue;
+		}
+
+		/* read the keyword string */
+		keyword_start = pos;
+		for (; pos < hdr->full_value_len; pos++) {
+			if (IS_LWSP_LF(hdr->full_value[pos]))
+				break;
+		}
+
+		str_truncate(keyword, 0);
+		str_append_n(keyword, hdr->full_value + keyword_start,
+			     pos - keyword_start);
+		if (!mail_index_keyword_lookup(ctx->sync_ctx->ibox->index,
+					       str_c(keyword), FALSE, &idx)) {
+			if (ctx->sync_ctx->ibox->mbox_sync_dirty &&
+			    !ctx->sync_ctx->dest_first_mail &&
+			    !ctx->sync_ctx->seen_first_mail) {
+				/* we'll have to read the X-IMAP header to
+				   make sure we have the latest list of
+				   keywords */
+				i_assert(!ctx->sync_ctx->sync_restart);
+				ctx->sync_ctx->sync_restart = TRUE;
+				t_pop();
+				return FALSE;
+			}
+
+			/* index is fully up-to-date and the keyword wasn't
+			   found. that means the sent mail originally
+			   contained X-Keywords header. Delete it. */
+			t_pop();
+			return FALSE;
+		}
+
+		array_append(&keyword_list, &idx, 1);
+	}
+
+	/* once we know how many keywords there are, we can allocate the array
+	   from mail_keyword_pool without wasting memory. */
+	if (array_count(&keyword_list) > 0) {
+		ARRAY_CREATE(&ctx->mail.keywords,
+			     ctx->sync_ctx->mail_keyword_pool,
+			     unsigned int, array_count(&keyword_list));
+		array_append_array(&ctx->mail.keywords, &keyword_list);
+	}
 
 	ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] = str_len(ctx->header);
 	parse_trailing_whitespace(ctx, hdr);
+
+	t_pop();
 	return TRUE;
 }
 

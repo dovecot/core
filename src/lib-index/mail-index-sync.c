@@ -185,7 +185,8 @@ static int
 mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 			      int *seen_external_r)
 {
-        struct mail_index_sync_list *synclist;
+	struct mail_index_sync_list *synclist;
+        const struct mail_index_transaction_keyword_update *keyword_updates;
 	unsigned int i, keyword_count;
 	int ret;
 
@@ -236,10 +237,20 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 		synclist->array = &ctx->trans->keyword_resets;
 	}
 
+	keyword_updates = keyword_count == 0 ? NULL :
+		array_get(&ctx->trans->keyword_updates, NULL);
 	for (i = 0; i < keyword_count; i++) {
-		synclist = array_modifyable_append(&ctx->sync_list);
-		synclist->array = array_idx(&ctx->trans->keyword_updates, i);
-		synclist->keyword_num = i;
+		if (array_is_created(&keyword_updates[i].add_seq)) {
+			synclist = array_modifyable_append(&ctx->sync_list);
+			synclist->array = &keyword_updates[i].add_seq;
+			synclist->keyword_idx = i;
+		}
+		if (array_is_created(&keyword_updates[i].remove_seq)) {
+			synclist = array_modifyable_append(&ctx->sync_list);
+			synclist->array = &keyword_updates[i].remove_seq;
+			synclist->keyword_idx = i;
+			synclist->keyword_remove = TRUE;
+		}
 	}
 
 	return ret;
@@ -430,16 +441,17 @@ mail_index_sync_get_update(struct mail_index_sync_rec *rec,
 	rec->remove_flags = update->remove_flags;
 }
 
-static void mail_index_sync_get_keyword_update(struct mail_index_sync_rec *rec,
-					       const struct uid_range *range,
-					       unsigned int num)
+static void
+mail_index_sync_get_keyword_update(struct mail_index_sync_rec *rec,
+				   const struct uid_range *range,
+				   struct mail_index_sync_list *sync_list)
 {
-	rec->type = num % 2 == 0 ?
+	rec->type = !sync_list->keyword_remove ?
 		MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD :
 		MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE;
 	rec->uid1 = range->uid1;
 	rec->uid2 = range->uid2;
-	rec->keyword_idx = num / 2;
+	rec->keyword_idx = sync_list->keyword_idx;
 }
 
 static void mail_index_sync_get_keyword_reset(struct mail_index_sync_rec *rec,
@@ -530,7 +542,7 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 		mail_index_sync_get_keyword_reset(sync_rec, uid_range);
 	} else {
 		mail_index_sync_get_keyword_update(sync_rec, uid_range,
-						   sync_list[i].keyword_num);
+						   &sync_list[i]);
 	}
 	sync_list[i].idx++;
 
@@ -624,16 +636,48 @@ void mail_index_sync_rollback(struct mail_index_sync_ctx *ctx)
 	mail_index_sync_end(ctx);
 }
 
-const char *const *const *
-mail_index_sync_get_keywords(struct mail_index_sync_ctx *ctx)
-{
-	return &ctx->index->keywords;
-}
-
 void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
 				 uint8_t *flags)
 {
 	i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
 
 	*flags = (*flags & ~sync_rec->remove_flags) | sync_rec->add_flags;
+}
+
+int mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
+				   array_t *keywords)
+{
+	ARRAY_SET_TYPE(keywords, unsigned int);
+	const unsigned int *keyword_indexes;
+	unsigned int idx = sync_rec->keyword_idx;
+	unsigned int i, count;
+
+	keyword_indexes = array_get(keywords, &count);
+	switch (sync_rec->type) {
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+		for (i = 0; i < count; i++) {
+			if (keyword_indexes[i] == idx)
+				return FALSE;
+		}
+
+		array_append(keywords, &idx, 1);
+		return TRUE;
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+		for (i = 0; i < count; i++) {
+			if (keyword_indexes[i] == idx) {
+				array_delete(keywords, i, 1);
+				return TRUE;
+			}
+		}
+		return FALSE;
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
+		if (array_count(keywords) == 0)
+			return FALSE;
+
+		array_clear(keywords);
+		return TRUE;
+	default:
+		i_unreached();
+		return FALSE;
+	}
 }

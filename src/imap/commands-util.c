@@ -154,13 +154,13 @@ void client_send_untagged_storage_error(struct client *client,
 static int is_valid_keyword(struct client_command_context *cmd,
 			    const char *keyword)
 {
-	struct mailbox_keywords *keywords = &cmd->client->keywords;
-	size_t i;
+	const char *const *names;
+	unsigned int i, count;
 
 	/* if it already exists, skip validity checks */
-	for (i = 0; i < keywords->keywords_count; i++) {
-		if (keywords->keywords[i] != NULL &&
-		    strcasecmp(keywords->keywords[i], keyword) == 0)
+	names = array_get(&cmd->client->keywords.keywords, &count);
+	for (i = 0; i < count; i++) {
+		if (strcasecmp(names[i], keyword) == 0)
 			return TRUE;
 	}
 
@@ -241,27 +241,21 @@ int client_parse_mail_flags(struct client_command_context *cmd,
 	return TRUE;
 }
 
-static const char *
-get_keywords_string(const char *const keywords[], unsigned int keywords_count)
+static const char *get_keywords_string(const array_t *keywords)
 {
+	ARRAY_SET_TYPE(keywords, const char *);
 	string_t *str;
-	unsigned int i;
+	const char *const *names;
+	unsigned int i, count;
 
-	/* first see if there even is keywords */
-	for (i = 0; i < keywords_count; i++) {
-		if (keywords[i] != NULL)
-			break;
-	}
-
-	if (i == keywords_count)
+	if (array_count(keywords) == 0)
 		return "";
 
 	str = t_str_new(256);
-	for (; i < keywords_count; i++) {
-		if (keywords[i] != NULL) {
-			str_append_c(str, ' ');
-			str_append(str, keywords[i]);
-		}
+	names = array_get(keywords, &count);
+	for (i = 0; i < count; i++) {
+		str_append_c(str, ' ');
+		str_append(str, names[i]);
 	}
 	return str_c(str);
 }
@@ -269,12 +263,11 @@ get_keywords_string(const char *const keywords[], unsigned int keywords_count)
 #define SYSTEM_FLAGS "\\Answered \\Flagged \\Deleted \\Seen \\Draft"
 
 void client_send_mailbox_flags(struct client *client, struct mailbox *box,
-			       const char *const keywords[],
-			       unsigned int keywords_count)
+			       const array_t *keywords)
 {
 	const char *str;
 
-	str = get_keywords_string(keywords, keywords_count);
+	str = get_keywords_string(keywords);
 	client_send_line(client,
 		t_strconcat("* FLAGS ("SYSTEM_FLAGS, str, ")", NULL));
 
@@ -290,24 +283,22 @@ void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 }
 
 void client_save_keywords(struct mailbox_keywords *dest,
-			  const char *const keywords[],
-			  unsigned int keywords_count)
+			  const array_t *keywords)
 {
-	unsigned int i;
+	ARRAY_SET_TYPE(keywords, const char *);
+	const char *const *names;
+	unsigned int i, count;
 
 	p_clear(dest->pool);
+	ARRAY_CREATE(&dest->keywords, dest->pool,
+		     const char *, array_count(keywords));
 
-	if (keywords_count == 0) {
-		dest->keywords = NULL;
-		dest->keywords_count = 0;
-		return;
+	names = array_get(keywords, &count);
+	for (i = 0; i < count; i++) {
+		const char *name = p_strdup(dest->pool, names[i]);
+
+		array_append(&dest->keywords, &name, 1);
 	}
-
-	dest->keywords = p_new(dest->pool, char *, keywords_count);
-	dest->keywords_count = keywords_count;
-
-	for (i = 0; i < keywords_count; i++)
-		dest->keywords[i] = p_strdup(dest->pool, keywords[i]);
 }
 
 int mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,

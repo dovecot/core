@@ -281,4 +281,16 @@ array_count(const array_t *array)
 	return array->buffer->used / array->element_size;
 }
 
+static inline int
+array_cmp(const array_t *array1, const array_t *array2)
+{
+	if (!array_is_created(array1) || array1->buffer->used == 0)
+		return !array_is_created(array2) || array2->buffer->used == 0;
+
+	if (!array_is_created(array2))
+		return FALSE;
+
+	return buffer_cmp(array1->buffer, array2->buffer);
+}
+
 #endif

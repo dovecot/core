@@ -458,58 +458,71 @@ int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
 }
 
 int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
-			       buffer_t *buf, const char *const **keywords_r)
+			       array_t *keyword_idx)
 {
+	ARRAY_SET_TYPE(keyword_idx, unsigned int);
 	struct mail_index_map *map;
 	const struct mail_index_ext *ext;
 	const void *data;
-	unsigned int i, j;
+	const unsigned int *keyword_idx_map;
+	unsigned int i, j, keyword_count, index_idx;
 	uint32_t ext_id, idx;
 	int ret;
 
-	*keywords_r = NULL;
-	buffer_set_used_size(buf, 0);
+	array_clear(keyword_idx);
 
 	ext_id = view->index->keywords_ext_id;
 	ret = mail_index_lookup_ext_full(view, seq, ext_id, &map, &data);
 	if (ret < 0)
 		return -1;
 
-	if (!mail_index_map_get_ext_idx(map, ext_id, &idx)) {
-		buffer_append_zero(buf, sizeof(const char *));
-		*keywords_r = buf->data;
+	if (!mail_index_map_get_ext_idx(map, ext_id, &idx))
 		return ret;
-	}
 
 	ext = array_idx(&map->extensions, idx);
+	if (!array_is_created(&map->keyword_idx_map)) {
+		keyword_idx_map = NULL;
+		keyword_count = 0;
+	} else {
+		keyword_idx_map = array_get(&map->keyword_idx_map,
+					    &keyword_count);
+	}
+
 	for (i = 0, idx = 0; i < ext->record_size; i++) {
-		if (((const char *)data)[i] == 0)
+		if (((const unsigned char *)data)[i] == 0)
 			continue;
 
+		idx = i * CHAR_BIT;
 		for (j = 0; j < CHAR_BIT; j++, idx++) {
-			if ((((const char *)data)[i] & (1 << j)) == 0)
+			if ((((const unsigned char *)data)[i] & (1 << j)) == 0)
 				continue;
 
-			if (idx >= map->keywords_count) {
+			if (idx >= keyword_count) {
 				/* keyword header is updated, re-read
 				   it so we know what this one is
 				   called */
 				if (mail_index_map_read_keywords(view->index,
 								 map) < 0)
 					return -1;
-				if (idx >= map->keywords_count) {
+
+				if (!array_is_created(&map->keyword_idx_map))
+					return ret;
+
+				keyword_idx_map =
+					array_get(&map->keyword_idx_map,
+						  &keyword_count);
+
+				if (idx >= keyword_count) {
 					/* extra bits set in keyword bytes.
 					   shouldn't happen, but just ignore. */
 					break;
 				}
 			}
-			buffer_append(buf, &map->keywords[idx],
-				      sizeof(const char *));
+
+			index_idx = keyword_idx_map[idx];
+			array_append(keyword_idx, &index_idx, 1);
 		}
 	}
-	buffer_append_zero(buf, sizeof(const char *));
-	*keywords_r = buf->data;
-
 	return ret;
 }
 

@@ -62,14 +62,6 @@ struct mail_index_ext_header {
 	/* unsigned char name[] */
 };
 
-struct mail_keywords {
-	struct mail_index *index;
-	unsigned int count;
-
-        /* variable sized list of keyword indexes */
-	uint32_t idx[1];
-};
-
 struct mail_index_keyword_header {
 	uint32_t keywords_count;
 	/* struct mail_index_keyword_header_rec[] */
@@ -99,9 +91,7 @@ struct mail_index_map {
 	buffer_t *buffer;
 	buffer_t *hdr_copy_buf;
 
-	pool_t keywords_pool;
-	const char *const *keywords;
-	unsigned int keywords_count;
+	array_t ARRAY_DEFINE(keyword_idx_map, unsigned int); /* file -> index */
 
 	unsigned int write_to_disk:1;
 };
@@ -142,8 +132,8 @@ struct mail_index {
 	uoff_t sync_log_file_offset;
 
 	pool_t keywords_pool;
-	array_t ARRAY_DEFINE(keywords_arr, const char *);
-	const char *const *keywords;
+	array_t ARRAY_DEFINE(keywords, const char *);
+	struct hash_table *keywords_hash; /* name -> idx */
 
 	uint32_t keywords_ext_id;
 	unsigned int last_grow_count;

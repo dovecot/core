@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "hash.h"
 #include "mmap-util.h"
 #include "read-full.h"
 #include "write-full.h"
@@ -45,23 +46,25 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->keywords_ext_id =
 		mail_index_ext_register(index, "keywords", 128, 2, 1);
 	index->keywords_pool = pool_alloconly_create("keywords", 512);
-	ARRAY_CREATE(&index->keywords_arr, default_pool,
-		     const char *, 16);
-	(void)array_modifyable_append(&index->keywords_arr);
-	index->keywords = array_idx(&index->keywords_arr, 0);
+	ARRAY_CREATE(&index->keywords, default_pool, const char *, 16);
+	index->keywords_hash =
+		hash_create(default_pool, index->keywords_pool, 0,
+			    strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 	return index;
 }
 
 void mail_index_free(struct mail_index *index)
 {
 	mail_index_close(index);
+
+	hash_destroy(index->keywords_hash);
 	pool_unref(index->extension_pool);
 	pool_unref(index->keywords_pool);
 
 	array_free(&index->sync_handlers);
 	array_free(&index->sync_lost_handlers);
 	array_free(&index->expunge_handlers);
-	array_free(&index->keywords_arr);
+	array_free(&index->keywords);
 
 	i_free(index->error);
 	i_free(index->dir);
@@ -333,20 +336,45 @@ static int mail_index_read_extensions(struct mail_index *index,
 	return 1;
 }
 
+int mail_index_keyword_lookup(struct mail_index *index,
+			      const char *keyword, int autocreate,
+			      unsigned int *idx_r)
+{
+	char *keyword_dup;
+	void *value;
+
+	if (hash_lookup_full(index->keywords_hash, keyword, NULL, &value)) {
+		*idx_r = POINTER_CAST_TO(value, unsigned int);
+		return TRUE;
+	}
+
+	if (!autocreate) {
+		*idx_r = (unsigned int)-1;
+		return FALSE;
+	}
+
+	keyword = keyword_dup = p_strdup(index->keywords_pool, keyword);
+	*idx_r = array_count(&index->keywords);
+
+	hash_insert(index->keywords_hash, keyword_dup, POINTER_CAST(*idx_r));
+	array_append(&index->keywords, &keyword, 1);
+	return TRUE;
+}
+
 int mail_index_map_read_keywords(struct mail_index *index,
 				 struct mail_index_map *map)
 {
 	const struct mail_index_ext *ext;
 	const struct mail_index_keyword_header *kw_hdr;
 	const struct mail_index_keyword_header_rec *kw_rec;
-	const char *name, **keywords_list;
-	unsigned int i, name_len;
+	const char *name;
+	unsigned int i, name_len, old_count;
 	uint32_t ext_id;
 
 	ext_id = mail_index_map_lookup_ext(map, "keywords");
 	if (ext_id == (uint32_t)-1) {
-		map->keywords = NULL;
-		map->keywords_count = 0;
+		if (array_is_created(&map->keyword_idx_map))
+			array_clear(&map->keyword_idx_map);
 		return 0;
 	}
 
@@ -356,6 +384,23 @@ int mail_index_map_read_keywords(struct mail_index *index,
 	kw_rec = (const void *)(kw_hdr + 1);
 	name = (const char *)(kw_rec + kw_hdr->keywords_count);
 
+	old_count = !array_is_created(&map->keyword_idx_map) ? 0 :
+		array_count(&map->keyword_idx_map);
+
+	/* Keywords can only be added in mapping. */
+	if (kw_hdr->keywords_count == old_count) {
+		/* nothing changed */
+		return 0;
+	}
+
+	/* make sure the header is valid */
+	if (kw_hdr->keywords_count < old_count) {
+		mail_index_set_error(index, "Corrupted index file %s: "
+				     "Keywords removed unexpectedly",
+				     index->filepath);
+		return -1;
+	}
+
 	if ((size_t)(name - (const char *)kw_hdr) > ext->hdr_size) {
 		mail_index_set_error(index, "Corrupted index file %s: "
 				     "keywords_count larger than header size",
@@ -363,7 +408,6 @@ int mail_index_map_read_keywords(struct mail_index *index,
 		return -1;
 	}
 
-	/* make sure the header is valid */
 	name_len = (const char *)kw_hdr + ext->hdr_size - name;
 	for (i = 0; i < kw_hdr->keywords_count; i++) {
 		if (kw_rec[i].name_offset > name_len) {
@@ -380,42 +424,43 @@ int mail_index_map_read_keywords(struct mail_index *index,
 		return -1;
 	}
 
-	if (map->keywords_pool == NULL)
-		map->keywords_pool = pool_alloconly_create("keywords", 1024);
-
-	/* Save keywords in memory. Only new keywords should come into the
-	   mapping, so keep the existing keyword strings in memory to allow
-	   mail_index_lookup_keywords() to safely return direct pointers
-	   into them. */
-	if (kw_hdr->keywords_count < map->keywords_count) {
-		mail_index_set_error(index, "Corrupted index file %s: "
-				     "Keywords removed unexpectedly",
-				     index->filepath);
-		return -1;
-	}
-	if (kw_hdr->keywords_count == map->keywords_count) {
-		/* nothing changed */
-		return 0;
+	/* create file -> index mapping */
+	if (!array_is_created(&map->keyword_idx_map)) {
+		ARRAY_CREATE(&map->keyword_idx_map, default_pool,
+			     unsigned int, kw_hdr->keywords_count);
 	}
 
-	/* @UNSAFE */
-	keywords_list = p_new(map->keywords_pool,
-			      const char *, kw_hdr->keywords_count + 1);
-	for (i = 0; i < map->keywords_count; i++)
-		keywords_list[i] = map->keywords[i];
+#ifdef DEBUG
+	for (i = 0; i < array_count(&map->keyword_idx_map); i++) {
+		const char *keyword = name + kw_rec[i].name_offset;
+		const unsigned int *old_idx;
+		unsigned int idx;
+
+		old_idx = array_idx(&map->keyword_idx_map, i);
+		if (!mail_index_keyword_lookup(index, keyword, FALSE, &idx) ||
+		    idx != *old_idx) {
+			mail_index_set_error(index, "Corrupted index file %s: "
+					     "Keywords changed unexpectedly",
+					     index->filepath);
+			return -1;
+		}
+	}
+#endif
+	i = array_count(&map->keyword_idx_map);
 	for (; i < kw_hdr->keywords_count; i++) {
-		keywords_list[i] = p_strdup(map->keywords_pool,
-					    name + kw_rec[i].name_offset);
+		const char *keyword = name + kw_rec[i].name_offset;
+		unsigned int idx;
+
+		(void)mail_index_keyword_lookup(index, keyword, TRUE, &idx);
+		array_append(&map->keyword_idx_map, &idx, 1);
 	}
-	map->keywords = keywords_list;
-	map->keywords_count = kw_hdr->keywords_count;
 	return 0;
 }
 
-const char *const *mail_index_get_keywords(struct mail_index *index)
+const array_t *mail_index_get_keywords(struct mail_index *index)
 {
 	(void)mail_index_map_read_keywords(index, index->map);
-	return index->map->keywords;
+	return &index->keywords;
 }
 
 static int mail_index_check_header(struct mail_index *index,
@@ -508,8 +553,8 @@ void mail_index_unmap(struct mail_index *index, struct mail_index_map *map)
 	mail_index_map_clear(index, map);
 	if (map->extension_pool != NULL)
 		pool_unref(map->extension_pool);
-	if (map->keywords_pool != NULL)
-		pool_unref(map->keywords_pool);
+	if (array_is_created(&map->keyword_idx_map))
+		array_free(&map->keyword_idx_map);
 	buffer_free(map->hdr_copy_buf);
 	i_free(map);
 }

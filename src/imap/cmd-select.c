@@ -51,8 +51,7 @@ int _cmd_select_full(struct client_command_context *cmd, int readonly)
 		return TRUE;
 	}
 
-	client_save_keywords(&client->keywords,
-			     status.keywords, status.keywords_count);
+	client_save_keywords(&client->keywords, status.keywords);
 	client->messages_count = status.messages;
 	client->recent_count = status.recent;
 
@@ -61,8 +60,7 @@ int _cmd_select_full(struct client_command_context *cmd, int readonly)
 	client->mailbox = box;
 	client->select_counter++;
 
-	client_send_mailbox_flags(client, box, status.keywords,
-				  status.keywords_count);
+	client_send_mailbox_flags(client, box, status.keywords);
 
 	client_send_line(client,
 		t_strdup_printf("* %u EXISTS", status.messages));

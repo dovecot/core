@@ -170,20 +170,41 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
-	const char *const *keywords;
+	array_t ARRAY_DEFINE(keyword_indexes_arr, unsigned int);
+	const char *const *names;
+	const unsigned int *keyword_indexes;
+	unsigned int i, count, names_count;
 
-	if (data->keywords_buf == NULL) {
-		data->keywords_buf =
-			buffer_create_dynamic(mail->data_pool, 128);
-	}
+	if (array_is_created(&data->keywords))
+		return array_get(&data->keywords, NULL);
 
+	t_push();
+	ARRAY_CREATE(&keyword_indexes_arr, pool_datastack_create(),
+		     unsigned int, 128);
 	if (mail_index_lookup_keywords(mail->ibox->view, mail->data.seq,
-				       data->keywords_buf, &keywords) < 0) {
+				       &keyword_indexes_arr) < 0) {
 		mail_storage_set_index_error(mail->ibox);
+		t_pop();
 		return NULL;
 	}
 
-	return keywords;
+	keyword_indexes = array_get(&keyword_indexes_arr, &count);
+	names = array_get(mail->ibox->keyword_names, &names_count);
+
+	ARRAY_CREATE(&data->keywords, mail->data_pool, const char *, count);
+	for (i = 0; i < count; i++) {
+		const char *name;
+		i_assert(keyword_indexes[i] < names_count);
+
+		name = names[keyword_indexes[i]];
+		array_append(&data->keywords, &name, 1);
+	}
+
+	/* end with NULL */
+	(void)array_modifyable_append(&data->keywords);
+
+	t_pop();
+	return array_get(&data->keywords, NULL);
 }
 
 const struct message_part *index_mail_get_parts(struct mail *_mail)

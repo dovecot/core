@@ -3,6 +3,11 @@
 
 #include "mail-transaction-log.h"
 
+struct mail_index_transaction_keyword_update {
+	array_t ARRAY_DEFINE(add_seq, uint32_t);
+	array_t ARRAY_DEFINE(remove_seq, uint32_t);
+};
+
 struct mail_index_transaction {
 	int refcount;
 	struct mail_index_view *view;
@@ -21,7 +26,8 @@ struct mail_index_transaction {
 	array_t ARRAY_DEFINE(ext_resizes, struct mail_transaction_ext_intro);
 	array_t ARRAY_DEFINE(ext_resets, uint32_t);
 
-	array_t ARRAY_DEFINE(keyword_updates, array_t);
+	array_t ARRAY_DEFINE(keyword_updates,
+			     struct mail_index_transaction_keyword_update);
 	array_t ARRAY_DEFINE(keyword_resets, struct seq_range);
 
         struct mail_cache_transaction_ctx *cache_trans_ctx;
