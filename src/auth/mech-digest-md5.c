@@ -281,23 +281,6 @@ static int parse_next(char **data, char **key, char **value)
 	return TRUE;
 }
 
-/* remove leading and trailing whitespace */
-static const char *trim(const char *str)
-{
-	const char *ret;
-
-	while (IS_LWS(*str)) str++;
-	ret = str;
-
-	while (*str != '\0') str++;
-	if (str > ret) {
-		while (IS_LWS(str[-1])) str--;
-		ret = t_strdup_until(ret, str);
-	}
-
-	return ret;
-}
-
 static int auth_handle_response(struct digest_auth_request *auth,
 				char *key, char *value, const char **error)
 {
