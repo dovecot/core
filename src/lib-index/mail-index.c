@@ -980,6 +980,13 @@ int mail_index_append_end(MailIndex *index, MailIndexRecord *rec)
 {
 	i_assert(rec->uid == 0);
 
+	if (index->header->next_uid == MAX_ALLOWED_UID) {
+		index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
+		index_set_error(index, "Reached maximum UID in mailbox %s, "
+				"rebuilding index", index->filepath);
+		return FALSE;
+	}
+
 	index->header->messages_count++;
 	rec->uid = index->header->next_uid++;
 

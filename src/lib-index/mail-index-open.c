@@ -139,7 +139,7 @@ static int mail_index_open_init(MailIndex *index, int update_recent)
 		index->first_recent_uid = hdr->last_nonrecent_uid+1;
 	}
 
-	if (hdr->next_uid >= INT_MAX-1024) {
+	if (hdr->next_uid >= MAX_ALLOWED_UID - 1000) {
 		/* UID values are getting too high, rebuild index */
 		index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
 	}

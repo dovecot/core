@@ -478,6 +478,9 @@ int mail_index_compress(MailIndex *index);
 int mail_index_compress_data(MailIndex *index);
 int mail_index_truncate(MailIndex *index);
 
+/* Maximum allowed UID number. */
+#define MAX_ALLOWED_UID 4294967295U /* 2^32 - 1 */
+
 /* Max. mmap()ed size for a message */
 #define MAIL_MMAP_BLOCK_SIZE (1024*256)
 /* Block size when read()ing message. */
