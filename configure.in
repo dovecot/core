@@ -814,6 +814,17 @@ if test $need_crypt = yes; then
 	])
 fi
 
+dnl * dynamic modules?
+AC_CHECK_LIB(dl, dlopen, [
+  PASSDB_LIBS="$PASSDB_LIBS -ldl"
+  AC_DEFINE(AUTH_MODULES,, Define if you want to build with dynamic auth modules)
+  auth_modules=yes
+  userdb="$userdb (modules)"
+  passdb="$passdb (modules)"
+])
+
+AM_CONDITIONAL(AUTH_MODULES, test "$auth_modules" = "yes")
+
 AC_SUBST(PASSDB_LIBS)
 
 dnl **
@@ -917,8 +928,8 @@ echo "}" >> $file
 echo
 echo "Install prefix ...................... : $prefix"
 echo "File offsets ........................ : ${offt_bits}bit"
-echo "Building with user database modules . :$userdb"
-echo "Building with password lookup modules :$passdb"
 echo "Building with SSL support ........... : $have_ssl"
 echo "Building with IPv6 support .......... : $want_ipv6"
 echo "Building with pop3 server ........... : $want_pop3d"
+echo "Building with user database modules . :$userdb"
+echo "Building with password lookup modules :$passdb"

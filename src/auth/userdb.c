@@ -1,9 +1,14 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "common.h"
+#include "auth-module.h"
 #include "userdb.h"
 
 #include <stdlib.h>
+
+#ifdef AUTH_MODULES
+static struct auth_module *userdb_module = NULL;
+#endif
 
 struct userdb_module *userdb;
 
@@ -40,6 +45,13 @@ void userdb_init(void)
 	if (strcasecmp(name, "ldap") == 0)
 		userdb = &userdb_ldap;
 #endif
+#ifdef AUTH_MODULES
+	userdb_module = auth_module_open(name);
+	if (userdb_module != NULL) {
+		userdb = auth_module_sym(userdb_module,
+					 t_strconcat("userdb_", name, NULL));
+	}
+#endif
 
 	if (userdb == NULL)
 		i_fatal("Unknown userdb type '%s'", name);
@@ -53,4 +65,8 @@ void userdb_deinit(void)
 {
 	if (userdb != NULL && userdb->deinit != NULL)
 		userdb->deinit();
+#ifdef AUTH_MODULES
+	if (userdb_module != NULL)
+                auth_module_close(userdb_module);
+#endif
 }

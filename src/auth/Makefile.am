@@ -5,6 +5,7 @@ pkglibexec_PROGRAMS = dovecot-auth
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
+	-DAUTH_MODULE_DIR=\""$(libdir)/dovecot/auth"\" \
 	$(VPOPMAIL_CFLAGS)
 
 dovecot_auth_LDADD = \
@@ -14,7 +15,12 @@ dovecot_auth_LDADD = \
 	$(SASL_LIBS) \
 	$(VPOPMAIL_LIBS)
 
+if AUTH_MODULES
+dovecot_auth_LDFLAGS = -export-dynamic
+endif
+
 dovecot_auth_SOURCES = \
+	auth-module.c \
 	db-ldap.c \
 	db-passwd-file.c \
 	login-connection.c \
@@ -43,6 +49,7 @@ noinst_HEADERS = \
 	auth-login-interface.h \
 	auth-master-interface.h \
 	auth-mech-desc.h \
+	auth-module.h \
 	db-ldap.h \
 	db-passwd-file.h \
 	common.h \

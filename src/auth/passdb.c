@@ -2,9 +2,14 @@
 
 #include "common.h"
 #include "mech.h"
+#include "auth-module.h"
 #include "passdb.h"
 
 #include <stdlib.h>
+
+#ifdef AUTH_MODULES
+static struct auth_module *passdb_module = NULL;
+#endif
 
 struct passdb_module *passdb;
 
@@ -61,6 +66,13 @@ void passdb_init(void)
 	if (strcasecmp(name, "ldap") == 0)
 		passdb = &passdb_ldap;
 #endif
+#ifdef AUTH_MODULES
+	passdb_module = auth_module_open(name);
+	if (passdb_module != NULL) {
+		passdb = auth_module_sym(passdb_module,
+					 t_strconcat("passdb_", name, NULL));
+	}
+#endif
 
 	if (passdb == NULL)
 		i_fatal("Unknown passdb type '%s'", name);
@@ -82,4 +94,8 @@ void passdb_deinit(void)
 {
 	if (passdb != NULL && passdb->deinit != NULL)
 		passdb->deinit();
+#ifdef AUTH_MODULES
+	if (passdb_module != NULL)
+                auth_module_close(passdb_module);
+#endif
 }
