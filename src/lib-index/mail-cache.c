@@ -1609,9 +1609,8 @@ int mail_cache_delete(struct mail_cache_transaction_ctx *ctx,
 	/* see if we've reached the max. deleted space in file */
 	max_del_space = cache->used_file_size / 100 * COMPRESS_PERCENTAGE;
 	if (deleted_space >= max_del_space &&
-	    cache->used_file_size >= COMPRESS_MIN_SIZE) {
+	    cache->used_file_size >= COMPRESS_MIN_SIZE)
 		cache->index->set_flags |= MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE;
-	}
 
 	cache->header->deleted_space = uint32_to_nbo(deleted_space);
 
