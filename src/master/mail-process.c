@@ -118,8 +118,10 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	if (!validate_uid_gid(reply->uid, reply->gid))
 		return FALSE;
 
-	if (reply->chroot && !validate_chroot(data + reply->home_idx))
+	if (reply->chroot && !validate_chroot(data + reply->home_idx)) {
+		i_error("Invalid chroot directory: %s", data + reply->home_idx);
 		return FALSE;
+	}
 
 	pid = fork();
 	if (pid < 0) {
