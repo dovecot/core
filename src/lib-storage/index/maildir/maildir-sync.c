@@ -339,6 +339,7 @@ int maildir_sync_last_commit(struct index_mailbox *ibox)
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.ibox = ibox;
 
+        ibox->syncing_commit = TRUE;
 	ret = mail_index_sync_begin(ibox->index, &ctx.sync_ctx, &ctx.view,
 				    ibox->commit_log_file_seq,
 				    ibox->commit_log_file_offset);
@@ -361,6 +362,7 @@ int maildir_sync_last_commit(struct index_mailbox *ibox)
 		if (mail_index_sync_end(ctx.sync_ctx) < 0)
 			ret = -1;
 	}
+        ibox->syncing_commit = FALSE;
 
 	if (ret == 0) {
 		ibox->commit_log_file_seq = 0;
@@ -843,14 +845,21 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 	   file list into uidlist.
 
 	   alternative would be to lock it when new files are found, but
-	   the directory scans _must_ be restarted then */
-	if ((ret = maildir_uidlist_try_lock(ctx->ibox->uidlist)) < 0)
-		return ret;
-	if (ret == 0 && !forced) {
-		/* we didn't get a lock, don't do syncing unless we really
-		   want to check for expunges or renames. new files won't
-		   be added. */
-		return 0;
+	   the directory scans _must_ be restarted then.
+
+	   if we got here through maildir_sync_last_commit(), we can't sync
+	   index as it's already being synced. so, don't try locking uidlist
+	   either, we only want to find new filename for some mail.
+	   */
+	if (!ctx->ibox->syncing_commit) {
+		if ((ret = maildir_uidlist_try_lock(ctx->ibox->uidlist)) < 0)
+			return ret;
+		if (ret == 0 && !forced) {
+			/* we didn't get a lock, don't do syncing unless we
+			   really want to check for expunges or renames. new
+			   files won't be added. */
+			return 0;
+		}
 	}
 
 	ctx->partial = !cur_changed;
@@ -866,8 +875,10 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 
 	/* finish uidlist syncing, but keep it still locked */
 	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
-	if (maildir_sync_index(ctx) < 0)
-		return -1;
+	if (!ctx->ibox->syncing_commit) {
+		if (maildir_sync_index(ctx) < 0)
+			return -1;
+	}
 
 	ret = maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
         ctx->uidlist_sync_ctx = NULL;
