@@ -25,15 +25,23 @@ const char *maildir_filename_set_flags(const char *fname,
 				       enum mail_flags flags);
 
 int maildir_index_rebuild(struct mail_index *index);
+int maildir_index_sync_readonly(struct mail_index *index,
+				const char *fname, int *found);
 int maildir_index_sync(struct mail_index *index,
 		       enum mail_lock_type lock_type, int *changes);
 
 int maildir_index_append_file(struct mail_index *index, const char *dir,
-			      const char *fname);
+			      const char *fname, int new_dir);
+int maildir_index_update_flags(struct mail_index *index,
+			       struct mail_index_record *rec, unsigned int seq,
+			       enum mail_flags flags, int external_change);
 
 struct istream *maildir_open_mail(struct mail_index *index,
 				  struct mail_index_record *rec,
 				  time_t *internal_date, int *deleted);
+
+int maildir_expunge_mail(struct mail_index *index,
+			 struct mail_index_record *rec);
 
 void maildir_clean_tmp(const char *dir);
 

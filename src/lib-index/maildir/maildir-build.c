@@ -31,7 +31,7 @@ static int maildir_record_update(struct mail_index *index,
 }
 
 static int maildir_index_append_fd(struct mail_index *index,
-				   int fd, const char *fname)
+				   int fd, const char *fname, int new_dir)
 {
 	struct mail_index_record *rec;
 	struct mail_index_update *update;
@@ -79,6 +79,8 @@ static int maildir_index_append_fd(struct mail_index *index,
 	}
 
 	/* set the location */
+	if (new_dir)
+		rec->index_flags |= INDEX_MAIL_FLAG_MAILDIR_NEW;
 	index->update_field(update, DATA_FIELD_LOCATION, fname,
 			    MAILDIR_LOCATION_EXTRA_SPACE);
 
@@ -94,7 +96,7 @@ static int maildir_index_append_fd(struct mail_index *index,
 }
 
 int maildir_index_append_file(struct mail_index *index, const char *dir,
-			      const char *fname)
+			      const char *fname, int new_dir)
 {
 	const char *path;
 	int fd, ret;
@@ -103,22 +105,25 @@ int maildir_index_append_file(struct mail_index *index, const char *dir,
 
 	if ((index->header->cache_fields & ~DATA_FIELD_LOCATION) == 0) {
 		/* nothing cached, don't bother opening the file */
-		return maildir_index_append_fd(index, -1, fname);
+		return maildir_index_append_fd(index, -1, fname, new_dir);
 	}
 
 	path = t_strconcat(dir, "/", fname, NULL);
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
-		/* open() failed - treat it as error unless the error was
-		   "file doesn't exist" in which case someone just managed
-		   to delete it before we saw it */
-		if (errno == EEXIST)
-			return TRUE;
+		if (errno == ENOENT) {
+			/* it's not found because it's deleted or renamed.
+			   don't try to handle any error cases here, just
+			   save the thing and let the syncing handle it
+			   later */
+			return maildir_index_append_fd(index, -1,
+						       fname, new_dir);
+		}
 
 		return index_file_set_syscall_error(index, path, "open()");
 	}
 
-	ret = maildir_index_append_fd(index, fd, fname);
+	ret = maildir_index_append_fd(index, fd, fname, new_dir);
 	if (close(fd) < 0)
 		return index_file_set_syscall_error(index, path, "close()");
 	return ret;

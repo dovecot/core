@@ -83,7 +83,7 @@ void maildir_uidlist_unlock(struct mail_index *index)
 struct maildir_uidlist *maildir_uidlist_open(struct mail_index *index)
 {
 	const char *path, *line;
-        struct maildir_uidlist *uidlist;
+	struct maildir_uidlist *uidlist;
 	unsigned int version;
 	int fd;
 

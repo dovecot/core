@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "hash.h"
 #include "hostpid.h"
 #include "str.h"
 #include "maildir-index.h"
@@ -25,13 +26,20 @@ static int maildir_index_open(struct mail_index *index,
 const char *maildir_get_location(struct mail_index *index,
 				 struct mail_index_record *rec)
 {
-	const char *fname;
+	const char *fname, *new_fname;
 
 	fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
 	if (fname == NULL) {
 		index_data_set_corrupted(index->data,
 			"Missing location field for record %u", rec->uid);
 	}
+
+	if (index->new_filenames != NULL) {
+		new_fname = hash_lookup(index->new_filenames, fname);
+		if (new_fname != NULL)
+			return new_fname;
+	}
+
 	return fname;
 }
 
@@ -225,9 +233,15 @@ maildir_index_alloc(const char *maildir, const char *index_dir,
 
 static void maildir_index_free(struct mail_index *index)
 {
+	if (index->new_filenames != NULL)
+		hash_destroy(index->new_filenames);
+	if (index->new_filename_pool != NULL)
+		pool_unref(index->new_filename_pool);
+
 	mail_index_close(index);
 	i_free(index->dir);
 	i_free(index->mailbox_path);
+	i_free(index->control_dir);
 	i_free(index);
 }
 
@@ -254,53 +268,6 @@ static time_t maildir_get_internal_date(struct mail_index *index,
 	}
 
 	return st.st_mtime;
-}
-
-static int maildir_index_update_flags(struct mail_index *index,
-				      struct mail_index_record *rec,
-				      unsigned int seq, enum mail_flags flags,
-				      int external_change)
-{
-	struct mail_index_update *update;
-	const char *old_fname, *new_fname;
-	const char *old_path, *new_path;
-
-	/* we need to update the flags in the file name */
-	old_fname = maildir_get_location(index, rec);
-	if (old_fname == NULL)
-		return FALSE;
-
-	new_fname = maildir_filename_set_flags(old_fname, flags);
-
-	if (strcmp(old_fname, new_fname) != 0) {
-		old_path = t_strconcat(index->mailbox_path,
-				       "/cur/", old_fname, NULL);
-		new_path = t_strconcat(index->mailbox_path,
-				       "/cur/", new_fname, NULL);
-
-		/* minor problem: new_path is overwritten if it exists.. */
-		if (rename(old_path, new_path) < 0) {
-			if (ENOSPACE(errno))
-				index->nodiskspace = TRUE;
-
-			index_set_error(index, "maildir flags update: "
-					"rename(%s, %s) failed: %m",
-					old_path, new_path);
-			return FALSE;
-		}
-
-		/* update the filename in index */
-		update = index->update_begin(index, rec);
-		index->update_field(update, DATA_FIELD_LOCATION, new_fname, 0);
-
-		if (!index->update_end(update))
-			return FALSE;
-	}
-
-	if (!mail_index_update_flags(index, rec, seq, flags, external_change))
-		return FALSE;
-
-	return TRUE;
 }
 
 struct mail_index maildir_index = {

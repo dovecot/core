@@ -69,9 +69,12 @@ enum mail_index_mail_flag {
 	INDEX_MAIL_FLAG_BINARY_HEADER	= 0x0001,
 	INDEX_MAIL_FLAG_BINARY_BODY	= 0x0002,
 
-	/* Currently this means with mbox format that message flags have
-	   been changed in index, but not written into mbox file yet. */
-	INDEX_MAIL_FLAG_DIRTY		= 0x0004
+	/* Mail flags have been changed in index, but not written into
+	   actual mailbox yet. */
+	INDEX_MAIL_FLAG_DIRTY		= 0x0004,
+
+	/* Maildir: Mail file is in new/ dir instead of cur/ */
+	INDEX_MAIL_FLAG_MAILDIR_NEW	= 0x0008
 };
 
 enum mail_lock_type {
@@ -394,8 +397,11 @@ struct mail_index {
 	ino_t mbox_ino;
 
 	/* last maildir sync: */
-	time_t uidlist_mtime;
+	time_t last_new_mtime, last_cur_mtime, last_uidlist_mtime;
+	time_t maildir_cur_dirty;
 	int maildir_lock_fd;
+	pool_t new_filename_pool;
+	struct hash_table *new_filenames;
 
 	int fd; /* opened index file */
 	char *error; /* last error message */
@@ -428,6 +434,8 @@ struct mail_index {
 	unsigned int allow_new_custom_flags:1;
 	unsigned int mailbox_readonly:1;
 	unsigned int mailbox_lock_timeout:1;
+	unsigned int maildir_keep_new:1;
+	unsigned int maildir_have_new:1;
 };
 
 #ifdef DEV_T_STRUCT
@@ -443,7 +451,8 @@ struct mail_index {
 	0, 0, 0, 0, 0, 0, { 0, 0, 0 }, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	0, 0, 0, 0, 0
 #endif
 
 /* defaults - same as above but prefixed with mail_index_. */

@@ -10,10 +10,12 @@ libindex_maildir_a_SOURCES = \
 	maildir-index.c \
 	maildir-build.c \
 	maildir-clean.c \
+	maildir-expunge.c \
 	maildir-open.c \
 	maildir-rebuild.c \
 	maildir-sync.c \
-	maildir-uidlist.c
+	maildir-uidlist.c \
+	maildir-update-flags.c
 
 noinst_HEADERS = \
 	maildir-index.h \
