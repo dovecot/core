@@ -261,19 +261,25 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 
 int mail_index_map(struct mail_index *index, int force)
 {
+	const struct mail_index_header *hdr;
 	struct mail_index_map *map;
+	size_t used_size;
 	int ret;
 
-	if (index->map != NULL) {
-		map = index->map;
-		if (map != NULL && !force)
+	map = index->map;
+	if (map != NULL && MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
+		/* FIXME: we need to re-read header */
+	} else if (map != NULL) {
+		/* see if re-mmaping is needed (file has grown) */
+		hdr = map->mmap_base;
+                used_size = hdr->header_size +
+			hdr->messages_count * sizeof(struct mail_index_record);
+		if (map->mmap_size >= used_size && !force)
 			return 1;
 
-		if (map->mmap_base != NULL) {
-			if (munmap(map->mmap_base, map->mmap_size) < 0)
-				mail_index_set_syscall_error(index, "munmap()");
-			map->mmap_base = NULL;
-		}
+		if (munmap(map->mmap_base, map->mmap_size) < 0)
+			mail_index_set_syscall_error(index, "munmap()");
+		map->mmap_base = NULL;
 	} else {
 		map = i_new(struct mail_index_map, 1);
 		map->refcount = 1;
