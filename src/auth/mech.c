@@ -64,7 +64,7 @@ static struct mech_module *mech_module_find(const char *name)
 	struct mech_module_list *list;
 
 	for (list = mech_modules; list != NULL; list = list->next) {
-		if (strcmp(list->module.mech_name, name) == 0)
+		if (strcasecmp(list->module.mech_name, name) == 0)
 			return &list->module;
 	}
 	return NULL;
