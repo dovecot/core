@@ -877,8 +877,11 @@ mail_index_keywords_create(struct mail_index_transaction *t,
 	unsigned int count, i, j, k_pos = 0, missing_count = 0;
 	size_t size;
 
-	if (keywords == NULL)
-		return i_new(struct mail_keywords, 1);
+	if (keywords == NULL) {
+		k = i_new(struct mail_keywords, 1);
+		k->index = index;
+		return k;
+	}
 	count = strarray_length(keywords);
 
 	k = i_malloc(sizeof(struct mail_keywords) +
