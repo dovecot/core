@@ -364,7 +364,7 @@ void index_mail_headers_get_envelope(struct index_mail *mail)
 	header_ctx = mailbox_header_lookup_init(&mail->ibox->box,
 						imap_envelope_headers);
 	stream = mail->mail.get_headers(&mail->mail, header_ctx);
-	if (mail->data.envelope == NULL) {
+	if (mail->data.envelope == NULL && stream != NULL) {
 		/* we got the headers from cache - parse them to get the
 		   envelope */
 		message_parse_header(NULL, stream, NULL,
