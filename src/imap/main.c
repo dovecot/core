@@ -106,7 +106,8 @@ static void main_deinit(void)
 int main(int argc, char *argv[])
 {
 #ifdef DEBUG
-        fd_debug_verify_leaks(3, 1024);
+	if (getenv("LOGIN_TAG") != NULL)
+		fd_debug_verify_leaks(3, 1024);
 #endif
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
