@@ -53,8 +53,18 @@ maildir_read_into_tmp(struct index_mailbox *ibox, const char *dir,
 		fname = NULL;
 
 	o_stream_unref(output);
-	if (close(fd) < 0)
+	/* FIXME: when saving multiple messages, we could get better
+	   performance if we left the fd open and fsync()ed it later */
+	if (fsync(fd) < 0) {
+		mail_storage_set_critical(ibox->box.storage,
+					  "fsync() failed for %s: %m", path);
 		fname = NULL;
+	}
+	if (close(fd) < 0) {
+		mail_storage_set_critical(ibox->box.storage,
+					  "close() failed for %s: %m", path);
+		fname = NULL;
+	}
 
 	if (fname == NULL)
 		(void)unlink(path);

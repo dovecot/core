@@ -357,6 +357,11 @@ int mbox_storage_save_deinit(struct mail_save_context *ctx, int rollback)
 			syscall_error(ctx, "ftruncate()");
 			failed = TRUE;
 		}
+	} else {
+		if (fdatasync(ctx->ibox->index->mbox_fd) < 0) {
+			syscall_error(ctx, "fsync()");
+			failed = TRUE;
+		}
 	}
 
 	i_free(ctx);
