@@ -807,6 +807,8 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 				if (ctx->hdr_size != NULL)
 					ctx->hdr_size->virtual_size++;
 				size = i;
+			} else {
+				size = i-1;
 			}
 
 			ctx->skip = i+1;
@@ -816,7 +818,7 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 		startpos = i;
 	}
 
-	if (size == 0 || (size == 1 && msg[0] == '\r')) {
+	if (size == 0) {
 		/* end of headers */
 		line->eoh = TRUE;
 		line->name_len = line->value_len = line->full_value_len = 0;
