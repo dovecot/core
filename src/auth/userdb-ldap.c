@@ -14,9 +14,6 @@
 #include <ldap.h>
 #include <stdlib.h>
 
-/* using posixAccount */
-#define DEFAULT_ATTRIBUTES "uid,homeDirectory,,,uidNumber,gidNumber"
-
 enum ldap_user_attr {
 	ATTR_VIRTUAL_USER = 0,
 	ATTR_HOME,
@@ -176,14 +173,8 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	var_expand(str, conn->set.base, vars);
 	base = t_strdup(str_c(str));
 
-	if (conn->set.user_filter == NULL) {
-		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
-					 attr_names[ATTR_VIRTUAL_USER],
-					 ldap_escape(auth_request->user));
-	} else {
-		var_expand(str, conn->set.user_filter, vars);
-		filter = str_c(str);
-	}
+	var_expand(str, conn->set.user_filter, vars);
+	filter = str_c(str);
 
 	request = i_new(struct userdb_ldap_request, 1);
 	request->request.callback = handle_request;
@@ -208,9 +199,7 @@ static void userdb_ldap_preinit(const char *args)
 	userdb_ldap_conn = i_new(struct userdb_ldap_connection, 1);
 	userdb_ldap_conn->conn = conn = db_ldap_init(args);
 
-	db_ldap_set_attrs(conn, conn->set.user_attrs ?
-			  conn->set.user_attrs : DEFAULT_ATTRIBUTES,
-			  &userdb_ldap_conn->attrs,
+	db_ldap_set_attrs(conn, conn->set.user_attrs, &userdb_ldap_conn->attrs,
 			  &userdb_ldap_conn->attr_names);
 }
 

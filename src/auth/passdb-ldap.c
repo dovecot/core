@@ -16,9 +16,6 @@
 #include <ldap.h>
 #include <stdlib.h>
 
-/* using posixAccount */
-#define DEFAULT_ATTRIBUTES "uid,userPassword"
-
 enum ldap_user_attr {
 	ATTR_VIRTUAL_USER = 0,
 	ATTR_PASSWORD,
@@ -163,14 +160,8 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	var_expand(str, conn->set.base, vars);
 	base = t_strdup(str_c(str));
 
-	if (conn->set.pass_filter == NULL) {
-		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
-					 attr_names[ATTR_VIRTUAL_USER],
-					 ldap_escape(auth_request->user));
-	} else {
-		var_expand(str, conn->set.pass_filter, vars);
-		filter = str_c(str);
-	}
+	var_expand(str, conn->set.pass_filter, vars);
+	filter = str_c(str);
 
 	auth_request_ref(auth_request);
 	ldap_request->callback = handle_request;
@@ -243,9 +234,7 @@ static void passdb_ldap_preinit(const char *args)
 	passdb_ldap_conn = i_new(struct passdb_ldap_connection, 1);
 	passdb_ldap_conn->conn = conn = db_ldap_init(args);
 
-	db_ldap_set_attrs(conn, conn->set.pass_attrs ?
-			  conn->set.pass_attrs : DEFAULT_ATTRIBUTES,
-			  &passdb_ldap_conn->attrs,
+	db_ldap_set_attrs(conn, conn->set.pass_attrs, &passdb_ldap_conn->attrs,
 			  &passdb_ldap_conn->attr_names);
 	passdb_ldap_cache_key = auth_cache_parse_key(conn->set.pass_filter);
 }
