@@ -30,6 +30,7 @@
 
 #include <stdlib.h>
 
+static const char *pool_system_get_name(pool_t pool);
 static void pool_system_ref(pool_t pool);
 static void pool_system_unref(pool_t pool);
 static void *pool_system_malloc(pool_t pool, size_t size);
@@ -39,6 +40,8 @@ static void *pool_system_realloc(pool_t pool, void *mem,
 static void pool_system_clear(pool_t pool);
 
 static struct pool static_system_pool = {
+	pool_system_get_name,
+
 	pool_system_ref,
 	pool_system_unref,
 
@@ -53,6 +56,11 @@ static struct pool static_system_pool = {
 };
 
 pool_t system_pool = &static_system_pool;
+
+static const char *pool_system_get_name(pool_t pool __attr_unused__)
+{
+	return "system";
+}
 
 static void pool_system_ref(pool_t pool __attr_unused__)
 {

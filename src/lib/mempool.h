@@ -12,6 +12,8 @@
 typedef struct pool *pool_t;
 
 struct pool {
+	const char *(*get_name)(pool_t pool);
+
 	void (*ref)(pool_t pool);
 	void (*unref)(pool_t pool);
 
@@ -40,6 +42,7 @@ extern pool_t data_stack_pool;
 pool_t pool_alloconly_create(const char *name, size_t size);
 
 /* Pools should be used through these macros: */
+#define pool_get_name(pool) (pool)->get_name(pool)
 #define pool_ref(pool) (pool)->ref(pool)
 #define pool_unref(pool) (pool)->unref(pool)
 

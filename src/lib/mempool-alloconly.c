@@ -57,6 +57,7 @@ struct pool_block {
 #define POOL_BLOCK_DATA(block) \
 	((char *) (block) + SIZEOF_POOLBLOCK)
 
+static const char *pool_alloconly_get_name(pool_t pool);
 static void pool_alloconly_ref(pool_t pool);
 static void pool_alloconly_unref(pool_t pool);
 static void *pool_alloconly_malloc(pool_t pool, size_t size);
@@ -68,6 +69,8 @@ static void pool_alloconly_clear(pool_t pool);
 static void block_alloc(struct alloconly_pool *pool, size_t size);
 
 static struct pool static_alloconly_pool = {
+	pool_alloconly_get_name,
+
 	pool_alloconly_ref,
 	pool_alloconly_unref,
 
@@ -110,6 +113,13 @@ static void pool_alloconly_destroy(struct alloconly_pool *apool)
 #endif
 	free(apool->block);
 	free(apool);
+}
+
+static const char *pool_alloconly_get_name(pool_t pool)
+{
+	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
+
+	return apool->name;
 }
 
 static void pool_alloconly_ref(pool_t pool)
