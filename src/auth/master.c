@@ -5,6 +5,7 @@
 #include "obuffer.h"
 #include "network.h"
 #include "cookie.h"
+#include "master.h"
 
 #define MAX_OUTBUF_SIZE (10 * sizeof(AuthCookieReplyData))
 

@@ -87,7 +87,7 @@ static void auth_callback(AuthCookieReplyData *cookie_reply, void *context)
 	i_free(request);
 }
 
-void login_process_mark_nonlistening(LoginProcess *p)
+static void login_process_mark_nonlistening(LoginProcess *p)
 {
 	if (!p->listening) {
 		i_error("login: received another \"not listening\" "
@@ -189,7 +189,7 @@ static LoginProcess *login_process_new(pid_t pid, int fd)
 	return p;
 }
 
-void login_process_remove_from_lists(LoginProcess *p)
+static void login_process_remove_from_lists(LoginProcess *p)
 {
 	if (p == oldest_nonlisten_process)
 		oldest_nonlisten_process = p->next_nonlisten;
@@ -236,7 +236,7 @@ static void login_process_unref(LoginProcess *p)
 
 static pid_t create_login_process(void)
 {
-	static const char *argv[] = { NULL, NULL };
+	static char *argv[] = { NULL, NULL };
 	pid_t pid;
 	int fd[2];
 

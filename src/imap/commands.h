@@ -41,4 +41,9 @@ int cmd_store(Client *client);
 int cmd_copy(Client *client);
 int cmd_uid(Client *client);
 
+/* private: */
+int _cmd_list_full(Client *client, int subscribed);
+int _cmd_select_full(Client *client, int readonly);
+int _cmd_subscribe_full(Client *client, int subscribe);
+
 #endif

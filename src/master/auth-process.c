@@ -166,7 +166,7 @@ static void auth_process_destroy(AuthProcess *p)
 
 static pid_t create_auth_process(AuthConfig *config)
 {
-	static const char *argv[] = { NULL, NULL };
+	static char *argv[] = { NULL, NULL };
 	const char *path;
 	struct passwd *pwd;
 	pid_t pid;

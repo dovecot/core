@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_subscribe_full(Client *client, int subscribe)
+int _cmd_subscribe_full(Client *client, int subscribe)
 {
 	const char *mailbox;
 
@@ -28,5 +28,5 @@ int cmd_subscribe_full(Client *client, int subscribe)
 
 int cmd_subscribe(Client *client)
 {
-	return cmd_subscribe_full(client, TRUE);
+	return _cmd_subscribe_full(client, TRUE);
 }

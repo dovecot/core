@@ -4,7 +4,7 @@
 #include "temp-string.h"
 #include "commands.h"
 
-int cmd_select_full(Client *client, int readonly)
+int _cmd_select_full(Client *client, int readonly)
 {
 	Mailbox *box;
 	MailboxStatus status;
@@ -70,5 +70,5 @@ int cmd_select_full(Client *client, int readonly)
 
 int cmd_select(Client *client)
 {
-	return cmd_select_full(client, FALSE);
+	return _cmd_select_full(client, FALSE);
 }

@@ -66,4 +66,6 @@ Pool pool_create(const char *name, size_t size, int allocfree);
 #  define p_free_clean(pool, mem)
 #endif
 
+Pool _pool_alloconly_create(const char *name, size_t size);
+
 #endif

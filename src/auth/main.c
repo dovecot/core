@@ -10,12 +10,10 @@
 #include "cookie.h"
 #include "login-connection.h"
 #include "userinfo.h"
+#include "master.h"
 
 #include <stdlib.h>
 #include <syslog.h>
-
-void master_init(void);
-void master_deinit(void);
 
 IOLoop ioloop;
 static IO io_listen;

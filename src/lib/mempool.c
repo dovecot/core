@@ -26,12 +26,10 @@
 #include "lib.h"
 #include "mempool.h"
 
-Pool pool_alloconly_create(const char *name, size_t size);
-
 Pool pool_create(const char *name, size_t size, int allocfree)
 {
 	if (allocfree)
 		return system_pool;
 
-	return pool_alloconly_create(name, size);
+	return _pool_alloconly_create(name, size);
 }

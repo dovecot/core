@@ -121,7 +121,7 @@ static void list_send(Client *client, ListNode *node, const char *cmd,
 	}
 }
 
-int cmd_list_full(Client *client, int subscribed)
+int _cmd_list_full(Client *client, int subscribed)
 {
 	ListContext ctx;
 	const char *ref, *pattern;
@@ -183,5 +183,5 @@ int cmd_list_full(Client *client, int subscribed)
 
 int cmd_list(Client *client)
 {
-	return cmd_list_full(client, FALSE);
+	return _cmd_list_full(client, FALSE);
 }
