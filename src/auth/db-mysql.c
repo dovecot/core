@@ -32,7 +32,7 @@ static struct setting_def setting_defs[] = {
 
 struct mysql_settings default_mysql_settings = {
 	MEMBER(db_host) "localhost",
-	MEMBER(db_port) 3306,
+	MEMBER(db_port) 0,
 	MEMBER(db_unix_socket) NULL,
 	MEMBER(db) NULL,
 	MEMBER(db_user) NULL,
