@@ -178,7 +178,7 @@ mail_index_transaction_update_append_size(struct mail_index_transaction *t)
 		size /= t->append_record_size;
 
 		new_buf = buffer_create_dynamic(default_pool,
-						size * new_record_size,
+						(size + 10) * new_record_size,
 						(size_t)-1);
 		for (i = 0; i < size; i++) {
 			dest = buffer_append_space_unsafe(new_buf,
@@ -186,6 +186,8 @@ mail_index_transaction_update_append_size(struct mail_index_transaction *t)
 			memcpy(dest, src, t->append_record_size);
 			src = CONST_PTR_OFFSET(src, t->append_record_size);
 		}
+		buffer_free(t->appends);
+		t->appends = new_buf;
 	}
 
 	t->append_record_size = new_record_size;
