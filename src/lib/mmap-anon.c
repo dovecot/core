@@ -234,7 +234,7 @@ static void *mremap_move(struct movable_header *hdr, size_t new_size)
 		p -= block_size;
 
 		memcpy((char *) new_base + (p - (char *) hdr), p, block_size);
-		if (munmap(p, block_size) < 0)
+		if (munmap((void *) p, block_size) < 0)
 			i_panic("munmap() failed: %m");
 	} while (p != (char *) hdr);
 
@@ -276,7 +276,7 @@ void *mremap_anon(void *old_address, size_t old_size  __attr_unused__,
 
 	if (new_size < hdr->size) {
 		/* shrink */
-		if (munmap((char *) hdr + header_size + new_size,
+		if (munmap((void *) ((char *) hdr + header_size + new_size),
 			   hdr->size - new_size) < 0)
 			i_panic("munmap() failed: %m");
 		hdr->size = new_size;
@@ -298,7 +298,7 @@ int munmap_anon(void *start, size_t length __attr_unused__)
 	if (hdr->signature != MMAP_SIGNATURE)
 		i_panic("movable_munmap(): Invalid address");
 
-	if (munmap(hdr, hdr->size + header_size) < 0)
+	if (munmap((void *) hdr, hdr->size + header_size) < 0)
 		i_panic("munmap() failed: %m");
 
 	return 0;
