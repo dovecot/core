@@ -302,6 +302,8 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	next_update = ctx->update_idx == ctx->updates_count ? NULL :
 		&ctx->updates[ctx->update_idx];
 
+	// FIXME: return dirty flagged records as flag updates
+
 	/* the ugliness here is to avoid returning overlapping expunge
 	   and update areas. For example:
 
