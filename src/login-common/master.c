@@ -104,7 +104,7 @@ void master_close(void)
 
 static void master_exec(int fd)
 {
-	char *argv[] = { "dovecot", "--inetd", NULL };
+	char *argv[] = { "dovecot", NULL };
 
 	switch (fork()) {
 	case -1:
@@ -117,6 +117,7 @@ static void master_exec(int fd)
 		if (setsid() < 0)
 			i_fatal("setsid() failed: %m");
 
+		env_put("DOVECOT_INETD=1");
 		execv(SBINDIR"/dovecot", argv);
 		i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
 			       SBINDIR"/dovecot");

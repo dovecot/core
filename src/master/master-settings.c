@@ -908,7 +908,7 @@ static int parse_section(const char *type, const char *name, void *context,
 	return FALSE;
 }
 
-int master_settings_read(const char *path)
+int master_settings_read(const char *path, int nochecks)
 {
 	struct settings_parse_ctx ctx;
 	struct server_settings *server, *prev;
@@ -949,7 +949,7 @@ int master_settings_read(const char *path)
 		if (!settings_is_active(server->imap))
 			server->imap = NULL;
 		else {
-			if (!settings_verify(server->imap))
+			if (!nochecks && !settings_verify(server->imap))
 				return FALSE;
 			server->defaults = server->imap;
 		}
@@ -957,7 +957,7 @@ int master_settings_read(const char *path)
 		if (!settings_is_active(server->pop3))
 			server->pop3 = NULL;
 		else {
-			if (!settings_verify(server->pop3))
+			if (!nochecks && !settings_verify(server->pop3))
 				return FALSE;
 			if (server->defaults == NULL)
 				server->defaults = server->pop3;
@@ -976,14 +976,16 @@ int master_settings_read(const char *path)
 				return FALSE;
 			}
 
-			for (; auth != NULL; auth = auth->next) {
-				if (!auth_settings_verify(auth))
-					return FALSE;
-			}
-                        ns = server->namespaces;
-			for (; ns != NULL; ns = ns->next) {
-				if (!namespace_settings_verify(ns))
-					return FALSE;
+			if (!nochecks) {
+				for (; auth != NULL; auth = auth->next) {
+					if (!auth_settings_verify(auth))
+						return FALSE;
+				}
+				ns = server->namespaces;
+				for (; ns != NULL; ns = ns->next) {
+					if (!namespace_settings_verify(ns))
+						return FALSE;
+				}
 			}
 			prev = server;
 		}

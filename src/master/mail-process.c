@@ -75,10 +75,9 @@ static int validate_chroot(struct settings *set, const char *dir)
 }
 
 static const struct var_expand_table *
-get_var_expand_table(enum process_type process_type,
+get_var_expand_table(const char *protocol,
 		     const char *user, const char *home,
-		     const struct ip_addr *local_ip,
-		     const struct ip_addr *remote_ip, pid_t pid)
+		     const char *local_ip, const char *remote_ip, pid_t pid)
 {
 	static struct var_expand_table static_tab[] = {
 		{ 'u', NULL },
@@ -100,10 +99,10 @@ get_var_expand_table(enum process_type process_type,
 	tab[1].value = t_strcut(user, '@');
 	tab[2].value = strchr(user, '@');
 	if (tab[2].value != NULL) tab[2].value++;
-	tab[3].value = t_str_ucase(process_names[process_type]);
+	tab[3].value = t_str_ucase(protocol);
 	tab[4].value = home;
-	tab[5].value = net_ip2addr(local_ip);
-	tab[6].value = net_ip2addr(remote_ip);
+	tab[5].value = local_ip;
+	tab[6].value = remote_ip;
 	tab[7].value = dec2str(pid);
 
 	return tab;
@@ -180,130 +179,10 @@ env_put_namespace(struct namespace_settings *ns, const char *default_location,
 	}
 }
 
-int create_mail_process(struct login_group *group, int socket,
-			const struct ip_addr *local_ip,
-			const struct ip_addr *remote_ip,
-			struct auth_master_reply *reply, const char *data)
+static void
+mail_process_set_environment(struct settings *set, const char *mail,
+			     const struct var_expand_table *var_expand_table)
 {
-	struct settings *set = group->set;
-	const struct var_expand_table *var_expand_table;
-	const char *argv[4];
-	const char *addr, *mail, *user, *chroot_dir, *home_dir, *full_home_dir;
-	const char *executable, *p;
-	struct log_io *log;
-	char title[1024];
-	string_t *str;
-	pid_t pid;
-	int i, err, ret, log_fd;
-
-	// FIXME: per-group
-	if (mail_process_count == set->max_mail_processes) {
-		i_error("Maximum number of mail processes exceeded");
-		return FALSE;
-	}
-
-	if (!validate_uid_gid(set, reply->uid, reply->gid,
-			      data + reply->virtual_user_idx))
-		return FALSE;
-
-	user = data + reply->virtual_user_idx;
-	mail = data + reply->mail_idx;
-	home_dir = data + reply->home_idx;
-	chroot_dir = data + reply->chroot_idx;
-
-	if (*chroot_dir == '\0' && set->mail_chroot != NULL)
-		chroot_dir = set->mail_chroot;
-
-	if (*chroot_dir != '\0' && !validate_chroot(set, chroot_dir)) {
-		i_error("Invalid chroot directory '%s' (user %s) "
-			"(see valid_chroot_dirs in config file)",
-			chroot_dir, user);
-		return FALSE;
-	}
-
-	log_fd = log_create_pipe(&log);
-
-	pid = fork();
-	if (pid < 0) {
-		i_error("fork() failed: %m");
-		(void)close(log_fd);
-		return FALSE;
-	}
-
-	var_expand_table =
-		get_var_expand_table(group->process_type, user, home_dir,
-				     local_ip, remote_ip,
-				     pid != 0 ? pid : getpid());
-	str = t_str_new(128);
-
-	if (pid != 0) {
-		/* master */
-		var_expand(str, set->mail_log_prefix, var_expand_table);
-		log_set_prefix(log, str_c(str));
-
-		mail_process_count++;
-		PID_ADD_PROCESS_TYPE(pid, group->process_type);
-		(void)close(log_fd);
-		return TRUE;
-	}
-
-	str_append(str, "master-");
-	var_expand(str, set->mail_log_prefix, var_expand_table);
-	log_set_prefix(log, str_c(str));
-
-	child_process_init_env();
-
-	/* move the client socket into stdin and stdout fds, log to stderr */
-	if (dup2(socket, 0) < 0)
-		i_fatal("dup2(stdin) failed: %m");
-	if (dup2(socket, 1) < 0)
-		i_fatal("dup2(stdout) failed: %m");
-	if (dup2(log_fd, 2) < 0)
-		i_fatal("dup2(stderr) failed: %m");
-
-	for (i = 0; i < 3; i++)
-		fd_close_on_exec(i, FALSE);
-
-	/* setup environment - set the most important environment first
-	   (paranoia about filling up environment without noticing) */
-	restrict_access_set_env(data + reply->system_user_idx,
-				reply->uid, reply->gid, chroot_dir,
-				set->first_valid_gid, set->last_valid_gid,
-				set->mail_extra_groups);
-
-	restrict_process_size(group->set->mail_process_size, (unsigned int)-1);
-
-	if (*home_dir == '\0')
-		ret = -1;
-	else {
-		full_home_dir = *chroot_dir == '\0' ? home_dir :
-			t_strconcat(chroot_dir, "/", home_dir, NULL);
-		/* NOTE: if home directory is NFS-mounted, we might not
-		   have access to it as root. Change the effective UID
-		   temporarily to make it work. */
-		if (reply->uid != master_uid && seteuid(reply->uid) < 0)
-			i_fatal("seteuid(%s) failed: %m", dec2str(reply->uid));
-		ret = chdir(full_home_dir);
-		if (reply->uid != master_uid && seteuid(master_uid) < 0)
-			i_fatal("seteuid(%s) failed: %m", dec2str(master_uid));
-
-		/* If user's home directory doesn't exist and we're not
-		   trying to chroot anywhere, fallback to /tmp as the mails
-		   could be stored elsewhere. */
-		if (ret < 0 && (errno != ENOENT || *chroot_dir != '\0')) {
-			i_fatal("chdir(%s) failed with uid %s: %m",
-				full_home_dir, dec2str(reply->uid));
-		}
-	}
-	if (ret < 0) {
-		/* We still have to change to some directory where we have
-		   rx-access. /tmp should exist everywhere. */
-		if (chdir("/tmp") < 0)
-			i_fatal("chdir(/tmp) failed: %m");
-	}
-
-	env_put("LOGGED_IN=1");
-	env_put(t_strconcat("HOME=", home_dir, NULL));
 	env_put(t_strconcat("MAIL_CACHE_FIELDS=",
 			    set->mail_cache_fields, NULL));
 	env_put(t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
@@ -350,25 +229,209 @@ int create_mail_process(struct login_group *group, int socket,
 	env_put(t_strdup_printf("MBOX_DOTLOCK_CHANGE_TIMEOUT=%u",
 				set->mbox_dotlock_change_timeout));
 
-	if (group->set->mail_use_modules &&
-	    group->set->mail_modules != NULL &&
-	    *group->set->mail_modules != '\0') {
+	if (set->mail_use_modules &&
+	    set->mail_modules != NULL && *set->mail_modules != '\0') {
 		env_put(t_strconcat("MODULE_DIR=",
-				    group->set->mail_modules, NULL));
+				    set->mail_modules, NULL));
 	}
 
 	/* user given environment - may be malicious. virtual_user comes from
 	   auth process, but don't trust that too much either. Some auth
 	   mechanism might allow leaving extra data there. */
-	if (*mail == '\0' && set->default_mail_env != NULL)
+	if ((mail == NULL || *mail == '\0') && set->default_mail_env != NULL)
 		mail = expand_mail_env(set->default_mail_env, var_expand_table);
+	env_put(t_strconcat("MAIL=", mail, NULL));
 
 	if (set->server->namespaces != NULL) {
 		env_put_namespace(set->server->namespaces,
 				  mail, var_expand_table);
 	}
+}
 
-	env_put(t_strconcat("MAIL=", mail, NULL));
+static void mail_process_exec_set(struct settings *set, const char *title)
+{
+	const char *executable, *p, *argv[4];
+	int i;
+
+	/* very simple argument splitting. */
+	i = 0;
+	argv[i++] = executable = t_strcut(set->mail_executable, ' ');
+	argv[i] = strchr(set->mail_executable, ' ');
+	if (argv[i] != NULL) {
+		argv[i]++;
+		i++;
+	}
+	if (title[0] != '\0')
+		argv[i++] = title;
+	argv[i] = NULL;
+
+	/* hide the path, it's ugly */
+	p = strrchr(argv[0], '/');
+	if (p != NULL) argv[0] = p+1;
+
+	execv(executable, (char **) argv);
+}
+
+void mail_process_exec(const char *protocol, const char *section)
+{
+	struct server_settings *server = settings_root;
+	const struct var_expand_table *var_expand_table;
+	struct settings *set;
+
+	if (section != NULL) {
+		for (; server != NULL; server = server->next) {
+			if (strcmp(server->name, section) == 0)
+				break;
+		}
+		if (server == NULL)
+			i_fatal("Section not found: '%s'", section);
+	}
+
+	if (strcmp(protocol, "imap") == 0)
+		set = server->imap;
+	else if (strcmp(protocol, "pop3") == 0)
+		set = server->pop3;
+	else
+		i_fatal("Unknown protocol: '%s'", protocol);
+
+	var_expand_table =
+		get_var_expand_table(protocol, getenv("USER"), getenv("HOME"),
+				     getenv("TCPLOCALIP"),
+				     getenv("TCPREMOTEIP"), getpid());
+
+	mail_process_set_environment(set, getenv("MAIL"), var_expand_table);
+	mail_process_exec_set(set, "");
+
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
+		       set->mail_executable);
+}
+
+int create_mail_process(struct login_group *group, int socket,
+			const struct ip_addr *local_ip,
+			const struct ip_addr *remote_ip,
+			struct auth_master_reply *reply, const char *data)
+{
+	struct settings *set = group->set;
+	const struct var_expand_table *var_expand_table;
+	const char *addr, *mail, *user, *chroot_dir, *home_dir, *full_home_dir;
+	char title[1024];
+	struct log_io *log;
+	string_t *str;
+	pid_t pid;
+	int i, err, ret, log_fd;
+
+	// FIXME: per-group
+	if (mail_process_count == set->max_mail_processes) {
+		i_error("Maximum number of mail processes exceeded");
+		return FALSE;
+	}
+
+	if (!validate_uid_gid(set, reply->uid, reply->gid,
+			      data + reply->virtual_user_idx))
+		return FALSE;
+
+	user = data + reply->virtual_user_idx;
+	mail = data + reply->mail_idx;
+	home_dir = data + reply->home_idx;
+	chroot_dir = data + reply->chroot_idx;
+
+	if (*chroot_dir == '\0' && set->mail_chroot != NULL)
+		chroot_dir = set->mail_chroot;
+
+	if (*chroot_dir != '\0' && !validate_chroot(set, chroot_dir)) {
+		i_error("Invalid chroot directory '%s' (user %s) "
+			"(see valid_chroot_dirs in config file)",
+			chroot_dir, user);
+		return FALSE;
+	}
+
+	log_fd = log_create_pipe(&log);
+
+	pid = fork();
+	if (pid < 0) {
+		i_error("fork() failed: %m");
+		(void)close(log_fd);
+		return FALSE;
+	}
+
+	var_expand_table =
+		get_var_expand_table(process_names[group->process_type],
+				     user, home_dir,
+				     net_ip2addr(local_ip),
+				     net_ip2addr(remote_ip),
+				     pid != 0 ? pid : getpid());
+	str = t_str_new(128);
+
+	if (pid != 0) {
+		/* master */
+		var_expand(str, set->mail_log_prefix, var_expand_table);
+		log_set_prefix(log, str_c(str));
+
+		mail_process_count++;
+		PID_ADD_PROCESS_TYPE(pid, group->process_type);
+		(void)close(log_fd);
+		return TRUE;
+	}
+
+	str_append(str, "master-");
+	var_expand(str, set->mail_log_prefix, var_expand_table);
+	log_set_prefix(log, str_c(str));
+
+	child_process_init_env();
+
+	/* move the client socket into stdin and stdout fds, log to stderr */
+	if (dup2(socket, 0) < 0)
+		i_fatal("dup2(stdin) failed: %m");
+	if (dup2(socket, 1) < 0)
+		i_fatal("dup2(stdout) failed: %m");
+	if (dup2(log_fd, 2) < 0)
+		i_fatal("dup2(stderr) failed: %m");
+
+	for (i = 0; i < 3; i++)
+		fd_close_on_exec(i, FALSE);
+
+	/* setup environment - set the most important environment first
+	   (paranoia about filling up environment without noticing) */
+	restrict_access_set_env(data + reply->system_user_idx,
+				reply->uid, reply->gid, chroot_dir,
+				set->first_valid_gid, set->last_valid_gid,
+				set->mail_extra_groups);
+
+	restrict_process_size(set->mail_process_size, (unsigned int)-1);
+
+	if (*home_dir == '\0')
+		ret = -1;
+	else {
+		full_home_dir = *chroot_dir == '\0' ? home_dir :
+			t_strconcat(chroot_dir, "/", home_dir, NULL);
+		/* NOTE: if home directory is NFS-mounted, we might not
+		   have access to it as root. Change the effective UID
+		   temporarily to make it work. */
+		if (reply->uid != master_uid && seteuid(reply->uid) < 0)
+			i_fatal("seteuid(%s) failed: %m", dec2str(reply->uid));
+		ret = chdir(full_home_dir);
+		if (reply->uid != master_uid && seteuid(master_uid) < 0)
+			i_fatal("seteuid(%s) failed: %m", dec2str(master_uid));
+
+		/* If user's home directory doesn't exist and we're not
+		   trying to chroot anywhere, fallback to /tmp as the mails
+		   could be stored elsewhere. */
+		if (ret < 0 && (errno != ENOENT || *chroot_dir != '\0')) {
+			i_fatal("chdir(%s) failed with uid %s: %m",
+				full_home_dir, dec2str(reply->uid));
+		}
+	}
+	if (ret < 0) {
+		/* We still have to change to some directory where we have
+		   rx-access. /tmp should exist everywhere. */
+		if (chdir("/tmp") < 0)
+			i_fatal("chdir(/tmp) failed: %m");
+	}
+
+        mail_process_set_environment(set, mail, var_expand_table);
+
+	env_put("LOGGED_IN=1");
+	env_put(t_strconcat("HOME=", home_dir, NULL));
 	env_put(t_strconcat("USER=", data + reply->virtual_user_idx, NULL));
 
 	addr = net_ip2addr(remote_ip);
@@ -391,23 +454,7 @@ int create_mail_process(struct login_group *group, int socket,
 	if (set->mail_drop_priv_before_exec)
 		restrict_access_by_env(TRUE);
 
-	/* very simple argument splitting. */
-	i = 0;
-	argv[i++] = executable = t_strcut(group->set->mail_executable, ' ');
-	argv[i] = strchr(group->set->mail_executable, ' ');
-	if (argv[i] != NULL) {
-		argv[i]++;
-		i++;
-	}
-	if (title[0] != '\0')
-		argv[i++] = title;
-	argv[i] = NULL;
-
-	/* hide the path, it's ugly */
-	p = strrchr(argv[0], '/');
-	if (p != NULL) argv[0] = p+1;
-
-	execv(executable, (char **) argv);
+	mail_process_exec_set(set, title);
 	err = errno;
 
 	for (i = 0; i < 3; i++)
@@ -415,7 +462,7 @@ int create_mail_process(struct login_group *group, int socket,
 
 	errno = err;
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
-		       group->set->mail_executable);
+		       set->mail_executable);
 
 	/* not reached */
 	return FALSE;

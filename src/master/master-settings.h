@@ -171,7 +171,7 @@ struct server_settings {
 
 extern struct server_settings *settings_root;
 
-int master_settings_read(const char *path);
+int master_settings_read(const char *path, int nochecks);
 
 void master_settings_init(void);
 void master_settings_deinit(void);

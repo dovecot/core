@@ -99,7 +99,7 @@ static void settings_reload(void)
         login_processes_destroy_all();
         auth_processes_destroy_all();
 
-	if (!master_settings_read(configfile))
+	if (!master_settings_read(configfile, FALSE))
 		i_warning("Invalid configuration, keeping old one");
 	else {
 		listen_fds_close(old_set);
@@ -482,9 +482,13 @@ static void print_help(void)
 int main(int argc, char *argv[])
 {
 	/* parse arguments */
+	const char *exec_protocol = NULL, *exec_section = NULL;
 	int foreground = FALSE;
 	int i;
 
+#ifdef DEBUG
+	gdb = getenv("GDB") != NULL;
+#endif
 	lib_init();
 
 	master_uid = geteuid();
@@ -498,13 +502,14 @@ int main(int argc, char *argv[])
 			i++;
 			if (i == argc) i_fatal("Missing config file argument");
 			configfile = argv[i];
-		} else if (strcmp(argv[i], "--inetd") == 0) {
-			/* starting through inetd. */
-			inetd_login_fd = dup(0);
-			if (inetd_login_fd == -1)
-				i_fatal("dup(0) failed: %m");
-			fd_close_on_exec(inetd_login_fd, TRUE);
-			foreground = TRUE;
+		} else if (strcmp(argv[i], "--exec-mail") == 0) {
+			/* <protocol> [<server section>]
+			   read configuration and execute mail process */
+			i++;
+			if (i == argc) i_fatal("Missing protocol argument");
+			exec_protocol = argv[i];
+			if (i+1 != argc) 
+				exec_section = argv[i++];
 		} else if (strcmp(argv[i], "--version") == 0) {
 			printf("%s\n", VERSION);
 			return 0;
@@ -514,17 +519,27 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (getenv("DOVECOT_INETD") != NULL) {
+		/* starting through inetd. */
+		inetd_login_fd = dup(0);
+		if (inetd_login_fd == -1)
+			i_fatal("dup(0) failed: %m");
+		fd_close_on_exec(inetd_login_fd, TRUE);
+		foreground = TRUE;
+	}
+
 	/* read and verify settings before forking */
 	master_settings_init();
-	if (!master_settings_read(configfile))
+	if (!master_settings_read(configfile, exec_protocol != NULL))
 		exit(FATAL_DEFAULT);
-	open_fds();
 
-#ifdef DEBUG
-	gdb = getenv("GDB") != NULL;
-#endif
-	/* we don't need any environment */
+	if (exec_protocol != NULL)
+		mail_process_exec(exec_protocol, exec_section);
+
+	/* we don't need any environment anymore */
 	env_clean();
+
+	open_fds();
 
 	if (!foreground)
 		daemonize(settings_root->defaults);
