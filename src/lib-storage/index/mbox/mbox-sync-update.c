@@ -228,7 +228,7 @@ static void mbox_sync_update_line(struct mbox_sync_mail_context *ctx,
 		str_truncate(ctx->header, pos);
 		str_append_str(ctx->header, new_line);
 	} else {
-		mbox_sync_move_buffer(ctx, pos, str_len(new_line), p - hdr);
+		mbox_sync_move_buffer(ctx, pos, str_len(new_line), p - hdr + 1);
 		buffer_copy(ctx->header, pos, new_line, 0, (size_t)-1);
 	}
 }
@@ -266,7 +266,7 @@ static void mbox_sync_update_x_uid(struct mbox_sync_mail_context *ctx)
 
 	t_push();
 	str = t_str_new(64);
-	str_printfa(str, "%u", ctx->mail.uid);
+	str_printfa(str, "%u\n", ctx->mail.uid);
 	mbox_sync_update_line(ctx, ctx->hdr_pos[MBOX_HDR_X_UID], str);
 	t_pop();
 }
