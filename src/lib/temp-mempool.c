@@ -48,7 +48,7 @@ struct _MemBlock {
 	MemBlock *next;
 
 	unsigned int size, left;
-	unsigned char data[1];
+	/* unsigned char data[]; */
 };
 
 /* current_stack contains last t_push()ed blocks. After that new
@@ -159,7 +159,7 @@ static MemBlock *mem_block_alloc(unsigned int min_size)
 	prev_size = current_block == NULL ? 0 : current_block->size;
 	alloc_size = nearest_power(prev_size + min_size);
 
-	block = malloc(sizeof(MemBlock)-1 + alloc_size);
+	block = malloc(MEM_ALIGN(sizeof(MemBlock)) + alloc_size);
 	if (block == NULL) {
 		i_panic("mem_block_alloc(): "
 			"Out of memory when allocating %u bytes",
@@ -196,7 +196,7 @@ static void *t_malloc_real(unsigned int size, int permanent)
 
 	if (current_block->left >= size) {
 		/* enough space in current block, use it */
-		ret = current_block->data +
+		ret = (char *) current_block + MEM_ALIGN(sizeof(MemBlock)) +
 			(current_block->size - current_block->left);
                 if (permanent)
 			current_block->left -= size;
@@ -219,7 +219,7 @@ static void *t_malloc_real(unsigned int size, int permanent)
 	current_block->next = block;
 	current_block = block;
 
-        return current_block->data;
+        return (char *) current_block + MEM_ALIGN(sizeof(MemBlock));
 }
 
 void *t_malloc(unsigned int size)
@@ -239,9 +239,9 @@ void *t_malloc0(unsigned int size)
 int t_try_grow(void *mem, unsigned int size)
 {
 	/* see if we want to grow the memory we allocated last */
-	if (current_block->data + (current_block->size -
-				   current_block->left -
-				   last_alloc_size) == mem) {
+	if ((char *) current_block + MEM_ALIGN(sizeof(MemBlock)) +
+	    (current_block->size - current_block->left -
+	     last_alloc_size) == mem) {
 		/* yeah, see if we can grow */
 		size = MEM_ALIGN(size);
 		if (current_block->left >= size-last_alloc_size) {
