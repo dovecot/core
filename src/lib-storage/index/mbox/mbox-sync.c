@@ -733,7 +733,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		if (mbox_sync_read_index_syncs(sync_ctx, uid, &expunged) < 0)
 			return -1;
 
-		if (uid != 0) {
+		rec = NULL;
+		if (uid != 0 && !mail_ctx->pseudo) {
 			ret = mbox_sync_read_index_rec(sync_ctx, uid, &rec);
 			if (ret < 0)
 				return -1;
@@ -741,6 +742,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				/* this UID was already in index and it was
 				   expunged */
 				uid = 0;
+				rec = NULL;
 			}
 		}
 		if (uid == 0) {
@@ -748,7 +750,6 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			mail_ctx->need_rewrite = TRUE;
 			mail_ctx->mail.uid = sync_ctx->next_uid++;
 			sync_ctx->prev_msg_uid = mail_ctx->mail.uid;
-			rec = NULL;
 		}
 
 		if (!expunged) {
@@ -763,7 +764,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			return ret;
 		}
 
-		if (!expunged) {
+		if (!expunged && !mail_ctx->pseudo) {
 			if (mbox_sync_update_index(sync_ctx, &mail_ctx->mail,
 						   rec) < 0)
 				return -1;
