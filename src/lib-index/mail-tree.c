@@ -201,6 +201,32 @@ int mail_tree_create(MailIndex *index)
 	return TRUE;
 }
 
+static int mail_tree_open_init(MailTree *tree)
+{
+	if (!mmap_update(tree))
+		return FALSE;
+
+	if (tree->mmap_full_length == 0) {
+		/* just created it */
+		return FALSE;
+	}
+
+	if (!mmap_verify(tree)) {
+		/* broken header */
+		return FALSE;
+	}
+
+	if (tree->header->indexid != tree->index->indexid) {
+		index_set_error(tree->index,
+				"IndexID mismatch for binary tree file %s",
+				tree->filepath);
+
+		return FALSE;
+	} 
+
+	return TRUE;
+}
+
 int mail_tree_open_or_create(MailIndex *index)
 {
 	MailTree *tree;
@@ -209,32 +235,23 @@ int mail_tree_open_or_create(MailIndex *index)
 	if (tree == NULL)
 		return FALSE;
 
-	do {
-		if (!mmap_update(tree))
-			break;
-
-		if (tree->mmap_full_length == 0) {
-			/* just created it */
-			if (!mail_tree_rebuild(tree))
-				break;
-		} else if (!mmap_verify(tree)) {
-			/* broken header */
-			if (!mail_tree_rebuild(tree))
-				break;
-		} else if (tree->header->indexid != index->indexid) {
-			index_set_error(tree->index,
-				"IndexID mismatch for binary tree file %s",
-				tree->filepath);
-
-			if (!mail_tree_rebuild(tree))
-				break;
+	if (!mail_tree_open_init(tree)) {
+		/* lock and check again, just to avoid rebuilding it twice
+		   if two processes notice the error at the same time */
+		if (!tree->index->set_lock(tree->index, MAIL_LOCK_EXCLUSIVE)) {
+			mail_tree_free(tree);
+			return FALSE;
 		}
 
-		return TRUE;
-	} while (0);
+		if (!mail_tree_open_init(tree)) {
+			if (!mail_tree_rebuild(tree)) {
+				mail_tree_free(tree);
+				return FALSE;
+			}
+		}
+	}
 
-	mail_tree_free(tree);
-	return FALSE;
+	return TRUE;
 }
 
 static void mail_tree_close(MailTree *tree)
