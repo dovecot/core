@@ -203,7 +203,8 @@ int create_mail_process(struct login_group *group, int socket,
 		chroot_dir = set->mail_chroot;
 
 	if (*chroot_dir != '\0' && !validate_chroot(set, chroot_dir)) {
-		i_error("Invalid chroot directory: %s", chroot_dir);
+		i_error("chroot directory no included in valid_chroot_dirs: %s",
+			chroot_dir);
 		return FALSE;
 	}
 
