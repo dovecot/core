@@ -32,7 +32,7 @@
 #define NVL(str, nullstr) ((str) != NULL ? (str) : (nullstr))
 
 #define POINTER_TO_INT(p)	((int) (p))
-#define POINTER_TO_UINT(p)	((unsigned int) (size_t) (p))
+#define POINTER_TO_UINT(p)	((unsigned int) ((char *) p - (char *) NULL))
 
 #define INT_TO_POINTER(i)	((void *) (i))
 #define UINT_TO_POINTER(u)	((void *) (u))
