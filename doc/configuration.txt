@@ -1,3 +1,18 @@
+Quick setup
+-----------
+
+If you use mbox, make sure that mbox_locks is set up the same way as rest
+of your system.
+
+Check client_workarounds and enable those you think you need.
+
+If you need to create new SSL certificate, edit dovecot-openssl.cnf and
+run mkcert.sh.
+
+Going through settings in dovecot-example.conf is a good idea, they should
+be well commented.
+
+
 Authentication
 --------------
 
@@ -18,7 +33,7 @@ is much faster than with mbox.
 With larger mailboxes it's a good idea to use a filesystem which uses
 b-tree or hash indexes for directories, for example ReiserFS, XFS or JFS.
 ext2 and ext3 have some patches to implement this but they're not in Linux
-2.4.19 yet. I'm not sure about *BSD's filesystems, FreeBSD's ufs had some
+2.4.20 yet. I'm not sure about *BSD's filesystems, FreeBSD's ufs had some
 support for hashes.
 
 mbox is just a single file where new mails are appeneded, flags are stored
@@ -47,10 +62,10 @@ Chrooting
 ---------
 
 Chrooting can be used for extra security hardening to prevent users from
-having full access to the system, in case some security hole was found. It
-can also be used for local users to gain root privileges if used
-incorrectly. This is possible with hardlinking setuid binaries inside the
-chroot jail. There's at least two possibilities: create your own
+having full access to the system in case some security hole was found. If
+used incorrectly, it can also allow local users to gain root privileges.
+This is possible by hardlinking setuid binaries inside the chroot jail and
+tricking them. There's at least two possibilities: create your own
 chroot/etc/passwd and run /bin/su, or create your own chroot/lib/libc.so
 and run any setuid binary.
 
