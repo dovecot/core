@@ -258,7 +258,7 @@ static int o_buffer_send_blocking(FileOBuffer *fbuf, const void *data,
 	while (iov[iov_len-1].iov_len != 0) {
 		if (first)
 			first = FALSE;
-		else if (time(NULL) > timeout_time) {
+		else if (timeout_time > 0 && time(NULL) > timeout_time) {
 			/* timeouted */
 			if (fbuf->timeout_func != NULL)
 				fbuf->timeout_func(fbuf->timeout_context);
@@ -524,7 +524,7 @@ static off_t io_buffer_sendfile(_OBuffer *outbuf, IBuffer *inbuf)
 	for (;;) {
 		if (first)
 			first = FALSE;
-		else if (time(NULL) > timeout_time) {
+		else if (timeout_time > 0 && time(NULL) > timeout_time) {
 			/* timeouted */
 			if (foutbuf->timeout_func != NULL)
 				foutbuf->timeout_func(foutbuf->timeout_context);
@@ -607,7 +607,7 @@ static off_t io_buffer_copy(_OBuffer *outbuf, IBuffer *inbuf)
 			break;
 		}
 
-		if (time(NULL) > timeout_time) {
+		if (timeout_time > 0 && time(NULL) > timeout_time) {
 			/* timeouted */
 			if (foutbuf->timeout_func != NULL)
 				foutbuf->timeout_func(foutbuf->timeout_context);

@@ -162,7 +162,7 @@ static ssize_t _read(_IBuffer *buf)
 
 	ret = -1;
 	do {
-		if (ret == 0 && time(NULL) > timeout_time) {
+		if (ret == 0 && timeout_time > 0 && time(NULL) > timeout_time) {
 			/* timeouted */
 			if (fbuf->timeout_func != NULL)
 				fbuf->timeout_func(fbuf->timeout_context);
