@@ -9,7 +9,9 @@
 #include <ctype.h>
 
 /* Message to show to users when critical error occurs */
-#define CRITICAL_MSG "Internal error [%Y-%m-%d %H:%M:%S]"
+#define CRITICAL_MSG \
+	"Internal error occured. Error report written to server log."
+#define CRITICAL_MSG_STAMP CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
 
 struct mail_storage_list {
 	struct mail_storage_list *next;
@@ -234,8 +236,9 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 	tm = localtime(&ioloop_time);
 
 	i_free(storage->error);
-	storage->error = strftime(str, sizeof(str), CRITICAL_MSG, tm) > 0 ?
-		i_strdup(str) : i_strdup("Internal error");
+	storage->error =
+		strftime(str, sizeof(str), CRITICAL_MSG_STAMP, tm) > 0 ?
+		i_strdup(str) : i_strdup(CRITICAL_MSG);
 	storage->syntax_error = FALSE;
 }
 
