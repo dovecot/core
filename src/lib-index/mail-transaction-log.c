@@ -890,7 +890,6 @@ static int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 			break;
 		}
 
-		i_assert(!log->head->locked);
 		if (file != NULL)
 			mail_transaction_log_file_unlock(file);
 
