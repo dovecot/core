@@ -1,9 +1,41 @@
  - if we deleted mail but didn't write modify log, other dovecots don't
    handle it properly. they either assert at index-sync.c:42 or if new
    mails have also been added since, they don't notice it at all
+   actually, that breaks reads as well since we get expunges only from
+   the old file.. and check that deleting file does "inconsistency error"
+ - if we have entries in modifylog with UID 10..11, 9..12, 8..13 etc.
+   do they work correctly?
+ - when modifylog gets switched, the others who haven't synced it try to
+   add flag changes add them to old file.. we need to support having two files
+   open, one for reading and one for writing (or just one for both).
+ - if we're only process accessing modify log when it gets full, we can just
+   truncate it instead of switching
+ - if imap process notices that both modify logs are getting full because it's
+   client isn't syncing, the client should be disconnected
 
- - when modifylog gets switched, the others who haven't synced it and try to
-   add flag changes add them to old file..
+ - maildir: if mail file isn't found, it may be because it was renamed
+   (flag changed). we must then sync the directory and see again if the mail
+   is found
+ - allow index files to be in completely separate location than mail data.
+   mails could be read through slow NFS access but indexes from fast local
+   disk. with this thinking it makes more sense to create larger index files
+   to save for example mail headers. also index rebuilding should be very
+   light operation, the indexes would be filled while the data is being
+   accessed by the imap client. of course all this should be optional so
+   we don't slow down when mails and indexes are stored in same disk.
+ - mail-lockdir.c isn't 100% safe.. stale locks are detected by checking that
+   hard link count is 1, then it's unlink()ed. but what if another process
+   did the same unlink() + creat() in the middle of our stat()..unlink()?
+ - MAP_SHARED with NFS doesn't update well. add option to update sync_id
+   after every change in file. when reading, if sync_id hasn't changed also
+   check with lseek()+read() if it has changed.
+     - mail-index.c, mail-index-data.c needs to keep track if file has been
+       modified.
+ - use fdatasync() instead of fsync() in several places
+ - mail_index_sync_file() does msync(), fsync(), msync(), fsync(), .. would
+   be faster to do msync(), msync(), .., fsync(), fsync(), ..
+ - would be nice if file_wait_lock() could timeout... use alarm() and get
+   timeout parameter
  - RENAME: If the name has inferior hierarchical names, then the inferior
 	   hierarchical names MUST also be renamed (ie. foo -> bar renames
 	   also foo/bar -> bar/bar). (and RENAME INBOX!)
@@ -40,7 +72,6 @@
    
 
 test:
- - make sure mmap()s work properly with NFS
  - make sure locking is done properly when opening/switching modifylog 
  - make sure SELECT rebuilds index properly when next_uid is near 32bit value
  - make sure connection limits work
@@ -136,7 +167,8 @@ lib-storage:
    counters separate for modify log. flags would need to update the seq
    though, too slow?
  - things calling message_send() could verify that it wrote enough data.
-   if not, fill the rest with spaces and return failure.
+   if not, fill the rest with spaces and return failure. -1 = error,
+   0 = filled, 1 = ok.
 
 general:
  - sieve (rfc3028)
@@ -231,9 +263,10 @@ capabilities:
        the group read/write access bits would be set. or alternatively we
        could launch another imap process to handle it, which we should support
        anyway. ACLs could be stored into ".acl" ascii file in each folder.
-     - are flags private or shared between users? lets see if we can
-       get ACL2 to configure this.. \Deleted must be shared always,
-       \Seen should be private by default.
+     - support for private and shared flags, configurable by mailbox admin.
+       this isn't in any draft yet, but ACL2 author was going to create one.
+       [SHAREDFLAGS (...)] would specify which ones are shared, don't know yet
+       how they would be configured.
  - quota (rfc2087, draft-cridland-imap-quota)
      - give filesystem values only to admins
      - support for Maildir++, probably no need to support more.
