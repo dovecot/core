@@ -64,6 +64,19 @@ maildir_open_mail(struct index_mailbox *ibox, uint32_t uid, int *deleted)
 	}
 }
 
+static const struct mail_full_flags *maildir_mail_get_flags(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail_data *data = &mail->data;
+        const struct mail_full_flags *flags;
+
+	flags = index_mail_get_flags(_mail);
+
+	if (maildir_uidlist_is_recent(mail->ibox->uidlist, _mail->uid))
+		data->flags.flags |= MAIL_RECENT;
+	return &data->flags;
+}
+
 static time_t maildir_mail_get_received_date(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
@@ -107,7 +120,7 @@ static uoff_t maildir_mail_get_size(struct mail *_mail)
 	struct index_mail_data *data = &mail->data;
 	const char *fname, *p;
 	uoff_t virtual_size;
-	int new_dir;
+        enum maildir_uidlist_rec_flag flags;
 
 	if (data->size != (uoff_t)-1)
 		return data->size;
@@ -119,7 +132,7 @@ static uoff_t maildir_mail_get_size(struct mail *_mail)
 	}
 
 	fname = maildir_uidlist_lookup(mail->ibox->uidlist,
-				       mail->mail.uid, &new_dir);
+				       mail->mail.uid, &flags);
 	if (fname == NULL)
 		return (uoff_t)-1;
 
@@ -165,7 +178,7 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 struct mail maildir_mail = {
 	0, 0, 0, 0, 0, 0,
 
-	index_mail_get_flags,
+	maildir_mail_get_flags,
 	index_mail_get_parts,
 	maildir_mail_get_received_date,
 	index_mail_get_date,

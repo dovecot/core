@@ -108,10 +108,13 @@ static int search_keyword(struct mail_index *index,
 
 /* Returns >0 = matched, 0 = not matched, -1 = unknown */
 static int search_arg_match_index(struct index_mailbox *ibox,
-				  const struct mail_index_record *rec,
+				  struct index_mail *imail,
 				  enum mail_search_arg_type type,
 				  const char *value)
 {
+	const struct mail_index_record *rec = imail->data.rec;
+	const struct mail_full_flags *full_flags;
+
 	switch (type) {
 	case SEARCH_ALL:
 		return 1;
@@ -128,8 +131,8 @@ static int search_arg_match_index(struct index_mailbox *ibox,
 	case SEARCH_SEEN:
 		return rec->flags & MAIL_SEEN;
 	case SEARCH_RECENT:
-		//FIXME:return rec->uid >= ibox->index->first_recent_uid;
-		return FALSE;
+		full_flags = imail->mail.get_flags(&imail->mail);
+		return full_flags->flags & MAIL_RECENT;
 	case SEARCH_KEYWORD:
 		return search_keyword(ibox->index, rec, value);
 
@@ -155,7 +158,7 @@ static void search_index_arg(struct mail_search_arg *arg, void *context)
 		return;
 	}
 
-	switch (search_arg_match_index(ctx->ibox, ctx->imail.data.rec,
+	switch (search_arg_match_index(ctx->ibox, &ctx->imail,
 				       arg->type, arg->value.str)) {
 	case -1:
 		/* unknown */

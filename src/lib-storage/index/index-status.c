@@ -55,8 +55,8 @@ int index_storage_get_status(struct mailbox *box,
 		}
 	}
 
-	/*FIXME:if (items & STATUS_RECENT)
-		status->recent = index_storage_get_recent_count(view);*/
+	if ((items & STATUS_RECENT) != 0)
+		status->recent = ibox->get_recent_count(ibox);
 
 	/*FIXME:if (items & STATUS_CUSTOM_FLAGS)
 		get_custom_flags(ibox, status);*/

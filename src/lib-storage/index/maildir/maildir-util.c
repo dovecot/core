@@ -15,13 +15,14 @@ static int maildir_file_do_try(struct index_mailbox *ibox, uint32_t uid,
 			       maildir_file_do_func *func, void *context)
 {
 	const char *fname, *path;
-	int ret, new_dir;
+        enum maildir_uidlist_rec_flag flags;
+	int ret;
 
-	fname = maildir_uidlist_lookup(ibox->uidlist, uid, &new_dir);
+	fname = maildir_uidlist_lookup(ibox->uidlist, uid, &flags);
 	if (fname == NULL)
 		return -2; /* expunged */
 
-	if (new_dir) {
+	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
 		/* probably in new/ dir */
 		path = t_strconcat(ibox->path, "/new/", fname, NULL);
 		ret = func(ibox, path, context);

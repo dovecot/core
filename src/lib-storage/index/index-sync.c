@@ -15,7 +15,7 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 	size_t i, expunges_count;
 	void *sc_context;
 	enum mail_index_sync_type sync_mask;
-	uint32_t seq, new_count;
+	uint32_t seq, new_count, recent_count;
 	int ret, appends;
 
 	sync_mask = MAIL_INDEX_SYNC_MASK_ALL;
@@ -81,7 +81,9 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 
 	if (appends) {
 		new_count = mail_index_view_get_message_count(ibox->view);
-		sc->new_messages(&ibox->box, new_count, 0, sc_context);
+		recent_count = ibox->get_recent_count(ibox);
+		sc->new_messages(&ibox->box, new_count, recent_count,
+				 sc_context);
 	}
 
 	mail_index_view_unlock(ibox->view);

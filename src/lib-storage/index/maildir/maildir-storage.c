@@ -393,6 +393,11 @@ static int verify_inbox(struct index_storage *storage)
 	return 0;
 }
 
+static uint32_t maildir_get_recent_count(struct index_mailbox *ibox)
+{
+	return maildir_uidlist_get_recent_count(ibox->uidlist);
+}
+
 static struct mailbox *
 maildir_open(struct index_storage *storage, const char *name,
 	     enum mailbox_open_flags flags)
@@ -416,6 +421,7 @@ maildir_open(struct index_storage *storage, const char *name,
 	ibox->path = i_strdup(path);
 	ibox->control_dir = i_strdup(control_dir);
 
+	ibox->get_recent_count = maildir_get_recent_count;
 	ibox->mail_interface = &maildir_mail;
 	ibox->uidlist = maildir_uidlist_init(ibox);
 

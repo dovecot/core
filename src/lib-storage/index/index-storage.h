@@ -59,6 +59,8 @@ struct index_mailbox {
 	struct mail_cache_view *cache_view;
 	struct mail *mail_interface;
 
+	uint32_t (*get_recent_count)(struct index_mailbox *ibox);
+
 	struct timeout *autosync_to;
 	struct index_autosync_file *autosync_files;
         struct index_autosync_io *autosync_ios;

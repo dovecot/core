@@ -187,7 +187,8 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 	DIR *dirp;
 	string_t *src, *dest;
 	struct dirent *dp;
-	int move_new, this_new, ret = 1;
+        enum maildir_uidlist_rec_flag flags;
+	int move_new, ret = 1;
 
 	src = t_str_new(1024);
 	dest = t_str_new(1024);
@@ -200,34 +201,43 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 		return -1;
 	}
 
-	move_new = new_dir;
+	move_new = new_dir && !mailbox_is_readonly(&ctx->ibox->box);
 	while ((dp = readdir(dirp)) != NULL) {
 		if (dp->d_name[0] == '.')
 			continue;
 
-		this_new = new_dir;
+		flags = 0;
 		if (move_new) {
 			str_truncate(src, 0);
 			str_truncate(dest, 0);
 			str_printfa(src, "%s/%s", ctx->new_dir, dp->d_name);
 			str_printfa(dest, "%s/%s", ctx->cur_dir, dp->d_name);
-			if (rename(str_c(src), str_c(dest)) == 0 ||
-			    ENOTFOUND(errno)) {
-				/* moved - we'll look at it later in cur/ dir */
-				this_new = FALSE;
-				continue;
+			if (rename(str_c(src), str_c(dest)) == 0) {
+				/* we moved it - it's \Recent for use */
+				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED |
+					MAILDIR_UIDLIST_REC_FLAG_RECENT;
+			} else if (ENOTFOUND(errno)) {
+				/* someone else moved it already */
+				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED;
 			} else if (ENOSPACE(errno)) {
 				/* not enough disk space, leave here */
+				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
+					MAILDIR_UIDLIST_REC_FLAG_RECENT;
 				move_new = FALSE;
 			} else {
+				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
+					MAILDIR_UIDLIST_REC_FLAG_RECENT;
 				mail_storage_set_critical(storage,
 					"rename(%s, %s) failed: %m",
 					str_c(src), str_c(dest));
 			}
+		} else if (new_dir) {
+			flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
+				MAILDIR_UIDLIST_REC_FLAG_RECENT;
 		}
 
 		ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
-						dp->d_name, this_new);
+						dp->d_name, flags);
 		if (ret <= 0) {
 			if (ret < 0)
 				break;
@@ -353,8 +363,6 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		}
 
 		maildir_filename_get_flags(filename, &flags, custom_flags);
-		if (rec->flags & MAIL_RECENT)
-			flags |= MAIL_RECENT;
 		if ((uint8_t)flags != (rec->flags & MAIL_FLAGS_MASK) ||
 		    memcmp(custom_flags, rec->custom_flags,
 			   INDEX_CUSTOM_FLAGS_BYTE_COUNT) != 0) {
@@ -398,14 +406,17 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 	return ret;
 }
 
-static int maildir_sync_context(struct maildir_sync_context *ctx,
-				int *changes_r)
+static int maildir_sync_context(struct maildir_sync_context *ctx)
 {
 	int ret, new_changed, cur_changed;
 
 	if (maildir_sync_quick_check(ctx, &new_changed, &cur_changed) < 0)
 		return -1;
 
+	if (!new_changed && !cur_changed)
+		return 0;
+
+	// FIXME: don't sync cur/ directory if not needed
 	ctx->uidlist_sync_ctx = maildir_uidlist_sync_init(ctx->ibox->uidlist);
 
 	if (maildir_scan_dir(ctx, TRUE) < 0)
@@ -453,14 +464,14 @@ int maildir_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	struct maildir_sync_context *ctx;
-	int changes, ret;
+	int ret;
 
 	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
 	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
 		ibox->sync_last_check = ioloop_time;
 
 		ctx = maildir_sync_context_new(ibox);
-		ret = maildir_sync_context(ctx, &changes);
+		ret = maildir_sync_context(ctx);
 		maildir_sync_deinit(ctx);
 
 		if (ret < 0)

@@ -172,10 +172,7 @@ const struct mail_full_flags *index_mail_get_flags(struct mail *_mail)
 	data->flags.flags = data->rec->flags;
 	/*FIXME:data->flags.custom_flags =
 		mail_custom_flags_list_get(mail->ibox->index->custom_flags);
-	data->flags.custom_flags_count = MAIL_CUSTOM_FLAGS_COUNT;
-
-	if (data->rec->uid >= mail->ibox->index->first_recent_uid)
-		data->flags.flags |= MAIL_RECENT;*/
+	data->flags.custom_flags_count = MAIL_CUSTOM_FLAGS_COUNT;*/
 
 	return &data->flags;
 }

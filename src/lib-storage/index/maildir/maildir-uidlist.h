@@ -3,6 +3,12 @@
 
 #define MAILDIR_UIDLIST_NAME "dovecot-uidlist"
 
+enum maildir_uidlist_rec_flag {
+	MAILDIR_UIDLIST_REC_FLAG_NEW_DIR	= 0x01,
+	MAILDIR_UIDLIST_REC_FLAG_MOVED		= 0x02,
+	MAILDIR_UIDLIST_REC_FLAG_RECENT		= 0x04
+};
+
 int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist);
 void maildir_uidlist_unlock(struct maildir_uidlist *uidlist);
 
@@ -13,14 +19,20 @@ void maildir_uidlist_deinit(struct maildir_uidlist *uidlist);
 int maildir_uidlist_update(struct maildir_uidlist *uidlist);
 
 /* Returns uidlist record for given filename, or NULL if not found. */
-const char *maildir_uidlist_lookup(struct maildir_uidlist *uidlist,
-				   uint32_t uid, int *new_dir_r);
+const char *
+maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
+		       enum maildir_uidlist_rec_flag *flags_r);
+/* Returns TRUE if mail with given UID is recent. */
+int maildir_uidlist_is_recent(struct maildir_uidlist *uidlist, uint32_t uid);
+/* Returns number of recent messages. */
+uint32_t maildir_uidlist_get_recent_count(struct maildir_uidlist *uidlist);
 
 /* Sync uidlist with what's actually on maildir. */
 struct maildir_uidlist_sync_ctx *
 maildir_uidlist_sync_init(struct maildir_uidlist *uidlist);
 int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
-			      const char *filename, int new_dir);
+			      const char *filename,
+			      enum maildir_uidlist_rec_flag flags);
 int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx);
 
 /* List all maildir files. */
