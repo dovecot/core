@@ -29,9 +29,10 @@ static void mbox_read_message(IOBuffer *inbuf, unsigned int *virtual_size)
 {
 	unsigned char *msg;
 	unsigned int i, size, startpos, vsize;
+	int lastmsg;
 
 	/* read until "[\r]\nFrom " is found */
-	startpos = i = vsize = 0;
+	startpos = i = vsize = 0; lastmsg = TRUE;
 	while (io_buffer_read_data(inbuf, &msg, &size, startpos) >= 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] == '\n') {
@@ -57,6 +58,7 @@ static void mbox_read_message(IOBuffer *inbuf, unsigned int *virtual_size)
 
 		if (i < size) {
 			startpos = i;
+                        lastmsg = FALSE;
 			break;
 		}
 
@@ -69,7 +71,7 @@ static void mbox_read_message(IOBuffer *inbuf, unsigned int *virtual_size)
 		}
 	}
 
-	if (i == startpos && startpos > 0) {
+	if (lastmsg && startpos > 0) {
 		/* end of file, remove the last [\r]\n */
 		if (msg[startpos-1] == '\n')
 			startpos--;
