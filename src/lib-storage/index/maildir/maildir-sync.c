@@ -513,7 +513,6 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 				    int *new_changed_r, int *cur_changed_r)
 {
-	const struct mail_index_header *hdr;
 	struct index_mailbox *ibox = ctx->ibox;
 	struct stat st;
 	time_t new_mtime, cur_mtime;
@@ -534,10 +533,26 @@ static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 	}
 	cur_mtime = st.st_mtime;
 
-	if (ibox->last_cur_mtime == 0) {
-		/* first sync in this session, get cur stamp from index */
-		if (mail_index_get_header(ibox->view, &hdr) == 0)
-			ibox->last_cur_mtime = hdr->sync_stamp;
+	if (ibox->dirty_cur_time == 0) {
+		/* cur stamp is kept in index, we don't have to sync if
+		   someone else has done it and updated the index. make sure
+		   we have a fresh index with latest sync_stamp. */
+		struct mail_index_view *view;
+		const struct mail_index_header *hdr;
+
+		if (mail_index_refresh(ibox->index) < 0) {
+			mail_storage_set_index_error(ibox);
+			return -1;
+		}
+
+		view = mail_index_view_open(ibox->index);
+		if (mail_index_get_header(view, &hdr) < 0) {
+			mail_index_view_close(view);
+			mail_storage_set_index_error(ibox);
+			return -1;
+		}
+		ibox->last_cur_mtime = hdr->sync_stamp;
+		mail_index_view_close(view);
 	}
 
 	if (new_mtime != ibox->last_new_mtime ||
@@ -690,7 +705,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 				mail_index_mark_corrupted(ibox->index);
 				ret = -1;
 				break;
-			 }
+			}
 
 			ibox->dirty_cur_time = ioloop_time;
 			maildir_uidlist_add_flags(ibox->uidlist, filename,
@@ -740,7 +755,8 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		}
 	}
 
-	if (ibox->dirty_cur_time == 0) {
+	if (ibox->dirty_cur_time == 0 &&
+	    ibox->last_cur_mtime != (time_t)hdr->sync_stamp) {
 		uint32_t sync_stamp = ibox->last_cur_mtime;
 
 		mail_index_update_header(trans,
