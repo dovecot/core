@@ -79,6 +79,9 @@ static int msgset_contains(const char *set, unsigned int match_num,
 				num = num*10 + (*set-'0');
 				set++;
 			}
+
+			if (num == 0)
+				return FALSE;
 		}
 
 		if (*set == ',' || *set == '\0') {
@@ -99,6 +102,17 @@ static int msgset_contains(const char *set, unsigned int match_num,
 				while (*set >= '0' && *set <= '9') {
 					num2 = num2*10 + (*set-'0');
 					set++;
+				}
+
+				if (num2 == 0)
+					return FALSE;
+
+				if (num > num2) {
+					/* swap, as specified by latest
+					   IMAP4rev1 draft */
+					unsigned int temp = num;
+					num = num2;
+					num2 = temp;
 				}
 
 				if (match_num >= num && match_num <= num2)
@@ -167,7 +181,7 @@ static int search_arg_match_index(struct index_mailbox *ibox,
 				       ibox->synced_messages_count);
 	case SEARCH_UID:
 		return msgset_contains(value, rec->uid,
-				       ibox->synced_messages_count);
+				       ibox->index->header->next_uid-1);
 
 	/* flags */
 	case SEARCH_ANSWERED:
@@ -651,10 +665,11 @@ static int search_arg_match_text(struct mail_search_arg *args,
 	return TRUE;
 }
 
-static void seq_update(const char *set, unsigned int *first_seq,
-		       unsigned int *last_seq, unsigned int max_value)
+static int seq_update(const char *set, unsigned int *first_seq,
+		      unsigned int *last_seq, unsigned int max_value)
 {
 	unsigned int seq;
+	int first = TRUE;
 
 	while (*set != '\0') {
 		if (*set == '*') {
@@ -668,40 +683,64 @@ static void seq_update(const char *set, unsigned int *first_seq,
 			}
 		}
 
-		if (seq != 0) {
-			if (*first_seq == 0 || seq < *first_seq)
-				*first_seq = seq;
-			if (*last_seq == 0 || seq > *last_seq)
-				*last_seq = seq;
-		}
+		if (seq == 0)
+			return FALSE;
 
-		set++;
+		if (*first_seq == 0 || seq < *first_seq)
+			*first_seq = seq;
+		if (*last_seq == 0 || seq > *last_seq)
+			*last_seq = seq;
+
+		if (*set != '\0') {
+			if (*set == ',')
+				first = TRUE;
+			else if (*set == ':' && first)
+				first = FALSE;
+			else
+				return FALSE;
+			set++;
+		}
 	}
+
+	return TRUE;
 }
 
-static void search_get_sequid(struct index_mailbox *ibox,
-			      struct mail_search_arg *args,
-			      unsigned int *first_seq, unsigned int *last_seq,
-			      unsigned int *first_uid, unsigned int *last_uid)
+static int search_get_sequid(struct index_mailbox *ibox,
+			     struct mail_search_arg *args,
+			     unsigned int *first_seq, unsigned int *last_seq,
+			     unsigned int *first_uid, unsigned int *last_uid)
 {
 	for (; args != NULL; args = args->next) {
 		if (args->type == SEARCH_OR || args->type == SEARCH_SUB) {
-			search_get_sequid(ibox, args->value.subargs,
-					  first_seq, last_seq,
-					  first_uid, last_uid);
+			if (!search_get_sequid(ibox, args->value.subargs,
+					       first_seq, last_seq,
+					       first_uid, last_uid))
+				return FALSE;
 		} if (args->type == SEARCH_SET) {
-			seq_update(args->value.str, first_seq, last_seq,
-				   ibox->synced_messages_count);
+			if (!seq_update(args->value.str, first_seq, last_seq,
+					ibox->synced_messages_count)) {
+				mail_storage_set_error(ibox->box.storage,
+						       "Invalid messageset: %s",
+						       args->value.str);
+				return FALSE;
+			}
 		} else if (args->type == SEARCH_UID) {
-			seq_update(args->value.str, first_uid, last_uid,
-				   ibox->index->header->next_uid-1);
+			if (!seq_update(args->value.str, first_uid, last_uid,
+					ibox->index->header->next_uid-1)) {
+				mail_storage_set_error(ibox->box.storage,
+						       "Invalid messageset: %s",
+						       args->value.str);
+				return FALSE;
+			}
 		} else if (args->type == SEARCH_ALL) {
 			/* go through everything */
 			*first_seq = 1;
 			*last_seq = ibox->synced_messages_count;
-			return;
+			return TRUE;
 		}
 	}
+
+	return TRUE;
 }
 
 static int search_limit_by_flags(struct index_mailbox *ibox,
@@ -758,66 +797,75 @@ static int search_limit_by_flags(struct index_mailbox *ibox,
 	return *first_uid <= *last_uid;
 }
 
-static unsigned int client_seq_to_uid(struct mail_index *index,
-				      unsigned int seq)
+static int client_seq_to_uid(struct index_mailbox *ibox,
+			     unsigned int seq, unsigned int *uid)
 {
 	struct mail_index_record *rec;
 	unsigned int expunges_before;
 
-	(void)mail_modifylog_seq_get_expunges(index->modifylog, seq, seq,
+	if (seq > ibox->synced_messages_count) {
+		mail_storage_set_error(ibox->box.storage,
+				       "Sequence out of range: %u", seq);
+		return FALSE;
+	}
+
+	(void)mail_modifylog_seq_get_expunges(ibox->index->modifylog, seq, seq,
 					      &expunges_before);
 	seq -= expunges_before;
 
-	rec = index->lookup(index, seq);
-	return rec == NULL ? 0 : rec->uid;
+	rec = ibox->index->lookup(ibox->index, seq);
+	*uid = rec == NULL ? 0 : rec->uid;
+	return TRUE;
 }
 
 static int search_get_uid_range(struct index_mailbox *ibox,
 				struct mail_search_arg *args,
-				unsigned int *first_uid,
-				unsigned int *last_uid)
+				unsigned int *first_uid, unsigned int *last_uid)
 {
 	unsigned int first_seq, last_seq, uid;
 
 	*first_uid = *last_uid = 0;
 	first_seq = last_seq = 0;
 
-	search_get_sequid(ibox, args, &first_seq, &last_seq,
-			  first_uid, last_uid);
+	if (!search_get_sequid(ibox, args, &first_seq, &last_seq,
+			       first_uid, last_uid))
+		return -1;
 
 	/* seq_update() should make sure that these can't happen */
 	i_assert(first_seq <= last_seq);
 	i_assert(*first_uid <= *last_uid);
 
 	if (first_seq > 1) {
-		uid = client_seq_to_uid(ibox->index, first_seq);
+		if (!client_seq_to_uid(ibox, first_seq, &uid))
+			return -1;
 		if (uid == 0)
-			return FALSE;
+			return 0;
 
 		if (*first_uid == 0 || uid < *first_uid)
 			*first_uid = uid;
 	}
 
 	if (last_seq > 1 && last_seq != ibox->synced_messages_count) {
-		uid = client_seq_to_uid(ibox->index, last_seq);
+		if (!client_seq_to_uid(ibox, last_seq, &uid))
+			return -1;
 		if (uid == 0)
-			return FALSE;
+			return 0;
 
-		if (uid > *last_uid)
+		if (*last_uid == 0 || uid > *last_uid)
 			*last_uid = uid;
 	}
 
 	if (*first_uid == 0)
 		*first_uid = 1;
-	if (*last_uid == 0)
+	if (*last_uid == 0 || last_seq == ibox->synced_messages_count)
 		*last_uid = ibox->index->header->next_uid-1;
 
 	/* UNSEEN and DELETED in root search level may limit the range */
 	if (!search_limit_by_flags(ibox, args, first_uid, last_uid))
-		return FALSE;
+		return 0;
 
 	i_assert(*first_uid <= *last_uid);
-	return TRUE;
+	return 1;
 }
 
 static int search_messages(struct index_mailbox *ibox, const char *charset,
@@ -839,8 +887,14 @@ static int search_messages(struct index_mailbox *ibox, const char *charset,
 		return TRUE;
 
 	/* see if we can limit the records we look at */
-	if (!search_get_uid_range(ibox, args, &first_uid, &last_uid))
+	switch (search_get_uid_range(ibox, args, &first_uid, &last_uid)) {
+	case -1:
+		/* error */
+		return FALSE;
+	case 0:
+		/* nothing found */
 		return TRUE;
+	}
 
 	rec = ibox->index->lookup_uid_range(ibox->index, first_uid, last_uid,
 					    &client_seq);
