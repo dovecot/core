@@ -145,6 +145,8 @@ search_arg_analyze(struct mail_search_arg *arg, buffer_t *headers,
 		break;
 	case SEARCH_TEXT:
 		*have_text = TRUE;
+		*have_headers = TRUE;
+		*have_body = TRUE;
 		break;
 	default:
 		break;
