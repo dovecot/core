@@ -15,7 +15,7 @@ struct mail_transaction_expunge_iter_ctx {
 
 const struct mail_transaction_type_map mail_transaction_type_map[] = {
 	{ MAIL_TRANSACTION_APPEND, MAIL_INDEX_SYNC_TYPE_APPEND,
-	  sizeof(struct mail_index_record) },
+	  1 }, /* index-specific size, use 1 */
 	{ MAIL_TRANSACTION_EXPUNGE, MAIL_INDEX_SYNC_TYPE_EXPUNGE,
 	  sizeof(struct mail_transaction_expunge) },
 	{ MAIL_TRANSACTION_FLAG_UPDATE, MAIL_INDEX_SYNC_TYPE_FLAGS,
@@ -51,7 +51,8 @@ mail_transaction_type_mask_get(enum mail_index_sync_type sync_type)
 	return type;
 }
 
-int mail_transaction_map(const struct mail_transaction_header *hdr,
+int mail_transaction_map(struct mail_index *index,
+			 const struct mail_transaction_header *hdr,
 			 const void *data,
 			 struct mail_transaction_map_functions *map,
 			 void *context)
@@ -61,15 +62,17 @@ int mail_transaction_map(const struct mail_transaction_header *hdr,
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_APPEND: {
 		const struct mail_index_record *rec, *end;
+		uint32_t record_size = index->record_size;
 
 		if (map->append == NULL)
 			break;
 
 		end = CONST_PTR_OFFSET(data, hdr->size);
-		for (rec = data; rec != end; rec++) {
+		for (rec = data; rec != end; ) {
 			ret = map->append(rec, context);
 			if (ret <= 0)
 				break;
+			rec = CONST_PTR_OFFSET(rec, record_size);
 		}
 		break;
 	}

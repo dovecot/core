@@ -24,7 +24,8 @@ mail_transaction_type_lookup(enum mail_transaction_type type);
 enum mail_transaction_type
 mail_transaction_type_mask_get(enum mail_index_sync_type sync_type);
 
-int mail_transaction_map(const struct mail_transaction_header *hdr,
+int mail_transaction_map(struct mail_index *index,
+			 const struct mail_transaction_header *hdr,
 			 const void *data,
 			 struct mail_transaction_map_functions *map,
 			 void *context);

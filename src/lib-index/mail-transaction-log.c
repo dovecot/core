@@ -874,11 +874,13 @@ static int mail_transaction_log_fix_appends(struct mail_transaction_log *log,
 	const struct mail_transaction_header *hdr;
 	const void *data;
 	size_t size;
+	uint32_t record_size;
 	int ret, deleted = FALSE;
 
 	if (t->appends == NULL)
 		return 0;
 
+	record_size = log->index->record_size;
 	appends = buffer_get_modifyable_data(t->appends, &size);
 	end = PTR_OFFSET(appends, size);
 
@@ -902,9 +904,9 @@ static int mail_transaction_log_fix_appends(struct mail_transaction_log *log,
 
 		old = data;
 		old_end = CONST_PTR_OFFSET(old, hdr->size);
-		for (; old != old_end; old++) {
+		while (old != old_end) {
 			/* appends are sorted */
-			for (rec = appends; rec != end; rec++) {
+			for (rec = appends; rec != end; ) {
 				if (rec->uid >= old->uid) {
 					if (rec->uid == old->uid) {
 						rec->uid = 0;
@@ -912,7 +914,9 @@ static int mail_transaction_log_fix_appends(struct mail_transaction_log *log,
 					}
 					break;
 				}
+				rec = PTR_OFFSET(rec, record_size);
 			}
+                        old = CONST_PTR_OFFSET(old, record_size);
 		}
 	}
 

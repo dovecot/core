@@ -173,7 +173,7 @@ int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
 	if (mail_index_view_lock(view) < 0)
 		return -1;
 
-	rec = &view->map->records[seq-1];
+	rec = MAIL_INDEX_MAP_IDX(view->index, view->map, seq-1);
 	if (view->map == view->index->map) {
 		*rec_r = rec;
 		return 0;
@@ -190,12 +190,13 @@ int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
 	map = view->index->map;
 	while (seq > 0) {
 		// FIXME: we could be skipping more by uid diff
-		if (map->records[--seq].uid <= uid)
+		seq--;
+		if (MAIL_INDEX_MAP_IDX(view->index, map, seq-1)->uid <= uid)
 			break;
 	}
 
-	*rec_r = map->records[seq].uid == uid ?
-		&map->records[seq] : rec;
+	*rec_r = MAIL_INDEX_MAP_IDX(view->index, map, seq)->uid == uid ?
+		MAIL_INDEX_MAP_IDX(view->index, map, seq) : rec;
 	return 0;
 }
 
@@ -208,7 +209,7 @@ int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
 	if (mail_index_view_lock(view) < 0)
 		return -1;
 
-	*uid_r = view->map->records[seq-1].uid;
+	*uid_r = MAIL_INDEX_MAP_IDX(view->index, view->map, seq-1)->uid;
 	return 0;
 }
 
@@ -216,10 +217,11 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 				       uint32_t uid, uint32_t *left_idx_p,
 				       int nearest_side)
 {
-	const struct mail_index_record *rec;
-	uint32_t idx, left_idx, right_idx;
+	const struct mail_index_record *rec_base, *rec;
+	uint32_t idx, left_idx, right_idx, record_size;
 
-	rec = view->map->records;
+	rec_base = view->map->records;
+	record_size = view->index->record_size;
 
 	idx = left_idx = *left_idx_p;
 	right_idx = view->messages_count;
@@ -227,9 +229,10 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
 
-		if (rec[idx].uid < uid)
+                rec = CONST_PTR_OFFSET(rec_base, idx * record_size);
+		if (rec->uid < uid)
 			left_idx = idx+1;
-		else if (rec[idx].uid > uid)
+		else if (rec->uid > uid)
 			right_idx = idx;
 		else
 			break;
@@ -241,14 +244,15 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 	}
 
         *left_idx_p = left_idx;
-	if (rec[idx].uid != uid) {
+	rec = CONST_PTR_OFFSET(rec_base, idx * record_size);
+	if (rec->uid != uid) {
 		if (nearest_side > 0) {
 			/* we want uid or larger */
-			return rec[idx].uid > uid ? idx+1 :
+			return rec->uid > uid ? idx+1 :
 				idx == view->messages_count-1 ? 0 : idx+2;
 		} else {
 			/* we want uid or smaller */
-			return rec[idx].uid < uid ? idx + 1 : idx;
+			return rec->uid < uid ? idx + 1 : idx;
 		}
 	}
 
@@ -279,7 +283,8 @@ int mail_index_lookup_uid_range(struct mail_index_view *view,
 	left_idx = 0;
 	*first_seq_r = mail_index_bsearch_uid(view, first_uid, &left_idx, 1);
 	if (*first_seq_r == 0 ||
-	    view->map->records[*first_seq_r-1].uid > last_uid) {
+	    MAIL_INDEX_MAP_IDX(view->index, view->map, *first_seq_r-1)->uid >
+	    last_uid) {
 		*first_seq_r = 0;
 		*last_seq_r = 0;
 		return 0;
@@ -326,8 +331,8 @@ int mail_index_lookup_first(struct mail_index_view *view, enum mail_flags flags,
 			return 0;
 	}
 
-	rec = &view->map->records[seq-1];
 	for (; seq <= view->messages_count; seq++, rec++) {
+		rec = MAIL_INDEX_MAP_IDX(view->index, view->map, seq-1);
 		if ((rec->flags & flags_mask) == (uint8_t)flags) {
 			*seq_r = seq;
 			break;

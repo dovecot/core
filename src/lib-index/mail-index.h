@@ -6,7 +6,7 @@
 #define MAIL_INDEX_MAJOR_VERSION 4
 #define MAIL_INDEX_MINOR_VERSION 0
 
-#define MAIL_INDEX_HEADER_MIN_SIZE 72
+#define MAIL_INDEX_HEADER_MIN_SIZE 80
 
 /* Number of keywords in mail_index_record. */
 #define INDEX_KEYWORDS_COUNT (3*8)
@@ -62,12 +62,15 @@ struct mail_index_header {
 	   increased to contain new non-critical fields. */
 	uint8_t major_version;
 	uint8_t minor_version;
+
 	uint16_t header_size;
+	uint16_t record_size;
+	uint16_t keywords_mask_size;
 
 	/* 0 = flags
 	   1 = sizeof(uoff_t)
 	   2 = sizeof(time_t)
-	   3 = sizeof(keywords_mask_t) */
+	   3 = unused */
 	uint8_t compat_data[4];
 
 	uint32_t indexid;
@@ -132,6 +135,12 @@ struct mail_index_view_sync_ctx;
 
 struct mail_index *mail_index_alloc(const char *dir, const char *prefix);
 void mail_index_free(struct mail_index *index);
+
+/* register extra data to be used in mail_index_record. calls to this function
+   must remain in same order as long as the index exists, or it breaks.
+   returns the relative offset in mail_index_record for the data. */
+uint16_t mail_index_register_record_extra(struct mail_index *index,
+					  uint16_t size);
 
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags);
 void mail_index_close(struct mail_index *index);

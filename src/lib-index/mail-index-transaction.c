@@ -54,9 +54,12 @@ mail_index_buffer_convert_to_uids(struct mail_index_view *view,
 	for (i = 0; i < size; i += record_size) {
 		seq = (uint32_t *)&data[i];
 
-		seq[0] = view->map->records[seq[0]-1].uid;
-		if (range)
-			seq[1] = view->map->records[seq[1]-1].uid;
+		seq[0] = MAIL_INDEX_MAP_IDX(view->index, view->map,
+					    seq[0]-1)->uid;
+		if (range) {
+			seq[1] = MAIL_INDEX_MAP_IDX(view->index, view->map,
+						    seq[1]-1)->uid;
+		}
 	}
 }
 
@@ -124,8 +127,9 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 			mail_index_view_get_message_count(t->view)+1;
 	}
 
-	rec = buffer_append_space_unsafe(t->appends, sizeof(*rec));
-	memset(rec, 0, sizeof(*rec));
+	rec = buffer_append_space_unsafe(t->appends,
+					 t->view->index->record_size);
+	memset(rec, 0, t->view->index->record_size);
 	rec->uid = uid;
 }
 
@@ -262,8 +266,9 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 		/* just appended message, modify it directly */
 		i_assert(seq > 0 && seq <= t->last_new_seq);
 
-		pos = (seq - t->first_new_seq) * sizeof(*rec);
-		rec = buffer_get_space_unsafe(t->appends, pos, sizeof(*rec));
+		pos = (seq - t->first_new_seq) * t->view->index->record_size;
+		rec = buffer_get_space_unsafe(t->appends, pos,
+					      t->view->index->record_size);
 		mail_index_record_modify_flags(rec, modify_type,
 					       flags, keywords);
 		return;

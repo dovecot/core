@@ -17,11 +17,15 @@ struct mail_transaction_header;
 #define MAIL_INDEX_MAP_IS_IN_MEMORY(map) \
 	((map)->buffer != NULL)
 
+#define MAIL_INDEX_MAP_IDX(index, map, idx) \
+	((struct mail_index_record *) \
+		PTR_OFFSET((map)->records, (idx) * (index)->record_size))
+
 struct mail_index_map {
 	int refcount;
 
 	const struct mail_index_header *hdr;
-	struct mail_index_record *records;
+	void *records; /* struct mail_index_record[] */
 	unsigned int records_count;
 
 	void *mmap_base;
@@ -45,6 +49,7 @@ struct mail_index {
 
 	mode_t mode;
 	gid_t gid;
+	unsigned int record_size;
 
 	char *filepath;
 	int fd;
@@ -99,7 +104,8 @@ int mail_index_map_lock_mprotect(struct mail_index *index,
 int mail_index_map(struct mail_index *index, int force);
 /* Unreference given mapping and unmap it if it's dropped to zero. */
 void mail_index_unmap(struct mail_index *index, struct mail_index_map *map);
-struct mail_index_map *mail_index_map_to_memory(struct mail_index_map *map);
+struct mail_index_map *
+mail_index_map_to_memory(struct mail_index *index, struct mail_index_map *map);
 
 void mail_index_update_cache(struct mail_index_transaction *t,
 			     uint32_t seq, uint32_t offset);

@@ -27,8 +27,8 @@ static int mail_index_fsck_locked(struct mail_index *index,
 				  const char **error_r)
 {
 	struct mail_index_header hdr;
-	const struct mail_index_record *rec, *end;
-	uint32_t last_uid;
+	const struct mail_index_record *rec;
+	uint32_t i, last_uid;
 
 	*error_r = NULL;
 
@@ -49,8 +49,8 @@ static int mail_index_fsck_locked(struct mail_index *index,
 	hdr.first_unseen_uid_lowwater = 0;
 	hdr.first_deleted_uid_lowwater = 0;
 
-	end = index->map->records + index->map->records_count; last_uid = 0;
-	for (rec = index->map->records; rec != end; rec++) {
+	rec = index->map->records; last_uid = 0;
+	for (i = 0; i < index->map->records_count; i++) {
 		if (rec->uid <= last_uid) {
 			*error_r = "Record UIDs are not ordered";
 			return 0;
@@ -75,6 +75,7 @@ static int mail_index_fsck_locked(struct mail_index *index,
 			hdr.first_deleted_uid_lowwater = rec->uid;
 
 		last_uid = rec->uid;
+		rec = CONST_PTR_OFFSET(rec, index->record_size);
 	}
 
 	if (hdr.next_uid <= last_uid) {

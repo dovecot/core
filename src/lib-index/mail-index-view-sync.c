@@ -125,7 +125,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		if (view->map != view->index->map)
 			ctx->sync_map_update = TRUE;
 
-		map = mail_index_map_to_memory(view->map);
+		map = mail_index_map_to_memory(view->index, view->map);
 		mail_index_unmap(view->index, view->map);
 		view->map = map;
 	}
@@ -189,7 +189,7 @@ static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 	   see only updated information. */
 	if (ctx->sync_map_update &&
 	    (ctx->hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0) {
-		if (mail_transaction_map(ctx->hdr, ctx->data,
+		if (mail_transaction_map(view->index, ctx->hdr, ctx->data,
 					 &mail_index_map_sync_funcs, view) < 0)
 			return -1;
 	}

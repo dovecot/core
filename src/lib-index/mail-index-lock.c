@@ -187,7 +187,7 @@ static int mail_index_copy(struct mail_index *index)
 	ret = write_full(fd, index->map->hdr, sizeof(*index->map->hdr));
 	if (ret < 0 || write_full(fd, index->map->records,
 				  index->map->records_count *
-				  sizeof(struct mail_index_record)) < 0) {
+				  index->record_size) < 0) {
 		mail_index_file_set_syscall_error(index, path, "write_full()");
 		(void)close(fd);
 		(void)unlink(path);

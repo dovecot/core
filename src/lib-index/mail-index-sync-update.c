@@ -56,6 +56,7 @@ mail_index_header_update_lowwaters(struct mail_index_header *hdr,
 static void mail_index_sync_expunge(struct mail_index_view *view,
 				    const struct mail_transaction_expunge *e)
 {
+	struct mail_index *index = view->index;
 	struct mail_index_map *map = view->map;
 	struct mail_index_header *hdr = &map->hdr_copy;
 	struct mail_index_record *rec;
@@ -70,22 +71,24 @@ static void mail_index_sync_expunge(struct mail_index_view *view,
 	if (seq1 == 0)
 		return;
 
-	rec = &map->records[seq1-1];
-	for (seq = seq1; seq <= seq2; seq++, rec++)
+	for (seq = seq1; seq <= seq2; seq++) {
+                rec = MAIL_INDEX_MAP_IDX(index, map, seq-1);
 		mail_index_header_update_counts(hdr, rec->flags, 0);
+	}
 
 	/* @UNSAFE */
 	count = seq2 - seq1 + 1;
-	memcpy(map->records + (seq1-1), map->records + seq2,
-	       (map->records_count - seq2) * sizeof(*map->records));
+	memcpy(MAIL_INDEX_MAP_IDX(index, map, seq-1),
+               MAIL_INDEX_MAP_IDX(index, map, seq2),
+	       (map->records_count - seq2) * view->index->record_size);
 
 	map->records_count -= count;
 	hdr->messages_count -= count;
 	view->messages_count -= count;
 
 	if (map->buffer != NULL) {
-		buffer_set_used_size(map->buffer,
-				     map->records_count * sizeof(*rec));
+		buffer_set_used_size(map->buffer, map->records_count *
+				     view->index->record_size);
 		map->records = buffer_get_modifyable_data(map->buffer, NULL);
 	}
 }
@@ -101,6 +104,7 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 static int sync_append(const struct mail_index_record *rec, void *context)
 {
 	struct mail_index_view *view = context;
+	struct mail_index *index = view->index;
 	struct mail_index_map *map = view->map;
 
 	if (rec->uid < map->hdr_copy.next_uid) {
@@ -111,14 +115,15 @@ static int sync_append(const struct mail_index_record *rec, void *context)
 	}
 
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
-		i_assert(map->records_count * sizeof(*rec) ==
+		i_assert(map->records_count * index->record_size ==
 			 buffer_get_used_size(map->buffer));
-		buffer_append(map->buffer, rec, sizeof(*rec));
+		buffer_append(map->buffer, rec, index->record_size);
 		map->records = buffer_get_modifyable_data(map->buffer, NULL);
 	} else {
-		i_assert((map->records_count+1) * sizeof(*rec) <=
+		i_assert((map->records_count+1) * index->record_size <=
 			 map->mmap_size);
-		map->records[map->records_count] = *rec;
+		memcpy(MAIL_INDEX_MAP_IDX(index, map, map->records_count),
+		       rec, index->record_size);
 	}
 
 	map->hdr_copy.messages_count++;
@@ -135,12 +140,12 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 			    void *context)
 {
         struct mail_index_view *view = context;
-	struct mail_index_record *rec, *end;
+	struct mail_index_record *rec;
 	struct mail_index_header *hdr;
 	uint8_t flag_mask, old_flags;
 	keywords_mask_t keyword_mask;
-	uint32_t seq1, seq2;
-	int i, update_keywords, ret;
+	uint32_t i, seq1, seq2;
+	int update_keywords, ret;
 
 	ret = mail_index_lookup_uid_range(view, u->uid1, u->uid2, &seq1, &seq2);
 	i_assert(ret == 0);
@@ -162,9 +167,9 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	}
         flag_mask = ~u->remove_flags;
 
-	rec = &view->map->records[seq1-1];
-	end = rec + (seq2 - seq1) + 1;
-	for (; rec != end; rec++) {
+	for (i = seq1-1; i < seq2; i++) {
+                rec = MAIL_INDEX_MAP_IDX(view->index, view->map, i);
+
 		old_flags = rec->flags;
 		rec->flags = (rec->flags & flag_mask) | u->add_flags;
 		if (update_keywords) {
@@ -191,8 +196,10 @@ static int sync_cache_update(const struct mail_transaction_cache_update *u,
 					  &seq, &seq);
 	i_assert(ret == 0);
 
-	if (seq != 0)
-		view->map->records[seq-1].cache_offset = u->cache_offset;
+	if (seq != 0) {
+		MAIL_INDEX_MAP_IDX(view->index, view->map, seq-1)->
+			cache_offset = u->cache_offset;
+	}
 	return 1;
 }
 
@@ -218,7 +225,7 @@ static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 	i_assert(map == index->map);
 
 	size = map->hdr->header_size +
-		(map->records_count + count) * sizeof(struct mail_index_record);
+		(map->records_count + count) * index->record_size;
 	if (size <= map->mmap_size)
 		return 0;
 
@@ -230,7 +237,7 @@ static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 	index->last_grow_count = count;
 
 	size = map->hdr->header_size +
-		(map->records_count + count) * sizeof(struct mail_index_record);
+		(map->records_count + count) * index->record_size;
 	if (file_set_size(index->fd, (off_t)size) < 0)
 		return mail_index_set_syscall_error(index, "file_set_size()");
 
@@ -282,7 +289,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 			   replace the whole index file. to avoid extra disk
 			   I/O we copy the index into memory rather than to
 			   temporary file */
-			map = mail_index_map_to_memory(map);
+			map = mail_index_map_to_memory(index, map);
 			mail_index_unmap(index, view->map);
 			view->map = map;
 			view->map->refcount++;
@@ -293,12 +300,13 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 		}
 
 		if ((hdr->type & MAIL_TRANSACTION_APPEND) != 0) {
-			count = hdr->size / sizeof(struct mail_index_record);
+			count = hdr->size / index->record_size;
 			if (mail_index_grow(index, view->map, count) < 0)
 				return -1;
 		}
 
-		if (mail_transaction_map(hdr, data, &mail_index_map_sync_funcs,
+		if (mail_transaction_map(index, hdr, data,
+					 &mail_index_map_sync_funcs,
 					 view) < 0) {
 			ret = -1;
 			break;
@@ -316,9 +324,11 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	if ((map->hdr_copy.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) == 0 &&
 	    had_dirty) {
 		/* do we have dirty flags anymore? */
+		const struct mail_index_record *rec;
+
 		for (i = 0; i < map->records_count; i++) {
-			if ((map->records[i].flags &
-			     MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
+			rec = MAIL_INDEX_MAP_IDX(index, map, i);
+			if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
 				map->hdr_copy.flags |=
 					MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 				break;
@@ -328,7 +338,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 
 	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
 		map->mmap_used_size = index->hdr->header_size +
-			map->records_count * sizeof(struct mail_index_record);
+			map->records_count * index->record_size;
 
 		memcpy(map->mmap_base, &map->hdr_copy, sizeof(map->hdr_copy));
 		if (msync(map->mmap_base, map->mmap_used_size, MS_SYNC) < 0) {

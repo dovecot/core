@@ -24,6 +24,7 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->dir = i_strdup(dir);
 	index->prefix = i_strdup(prefix);
 	index->fd = -1;
+	index->record_size = sizeof(struct mail_index_record);
 
 	index->mode = 0600;
 	index->gid = (gid_t)-1;
@@ -40,20 +41,28 @@ void mail_index_free(struct mail_index *index)
 	i_free(index);
 }
 
+uint16_t mail_index_register_record_extra(struct mail_index *index,
+					  uint16_t size)
+{
+	i_assert(!index->opened);
+	i_assert(index->record_size + size <= 65535);
+
+	index->record_size += size;
+	return index->record_size - size;
+}
+
 static int mail_index_check_header(struct mail_index *index,
 				   struct mail_index_map *map)
 {
 	const struct mail_index_header *hdr = map->hdr;
-	unsigned char compat_data[3];
+	unsigned char compat_data[sizeof(hdr->compat_data)];
 
+	memset(compat_data, 0, sizeof(compat_data));
 #ifndef WORDS_BIGENDIAN
 	compat_data[0] = MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
-#else
-	compat_data[0] = 0;
 #endif
 	compat_data[1] = sizeof(uoff_t);
 	compat_data[2] = sizeof(time_t);
-	compat_data[3] = sizeof(keywords_mask_t);
 
 	if (hdr->major_version != MAIL_INDEX_MAJOR_VERSION) {
 		/* major version change - handle silently(?) */
@@ -74,6 +83,22 @@ static int mail_index_check_header(struct mail_index *index,
 		mail_index_set_error(index, "Corrupted index file %s: "
 				     "uid_validity = 0, next_uid = %u",
 				     index->filepath, hdr->next_uid);
+		return -1;
+	}
+
+	if (hdr->keywords_mask_size != sizeof(keywords_mask_t)) {
+		mail_index_set_error(index, "Corrupted index file %s: "
+				     "keywords_mask_size mismatch: %d != %d",
+				     index->filepath, hdr->keywords_mask_size,
+				     (int)sizeof(keywords_mask_t));
+		return -1;
+	}
+
+	if (hdr->record_size != index->record_size) {
+		mail_index_set_error(index, "Corrupted index file %s: "
+				     "record_size mismatch: %d != %d",
+				     index->filepath, hdr->record_size,
+				     (int)index->record_size);
 		return -1;
 	}
 
@@ -157,11 +182,11 @@ static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 
 	hdr = map->mmap_base;
 	map->mmap_used_size = hdr->header_size +
-		hdr->messages_count * sizeof(struct mail_index_record);
+		hdr->messages_count * index->record_size;
 
 	if (map->mmap_used_size > map->mmap_size) {
 		records_count = (map->mmap_size - hdr->header_size) /
-			sizeof(struct mail_index_record);
+			index->record_size;
 		mail_index_set_error(index, "Corrupted index file %s: "
 				     "messages_count too large (%u > %u)",
 				     index->filepath, map->hdr->messages_count,
@@ -202,8 +227,7 @@ static int mail_index_read_map(struct mail_index *index,
 			pos += ret;
 	}
 	if (ret >= 0 && pos >= MAIL_INDEX_HEADER_MIN_SIZE) {
-		records_size = hdr.messages_count *
-			sizeof(struct mail_index_record);
+		records_size = hdr.messages_count * index->record_size;
 
 		if (map->buffer == NULL) {
 			map->buffer = buffer_create_dynamic(default_pool,
@@ -298,7 +322,7 @@ int mail_index_map(struct mail_index *index, int force)
 			return -1;
 
 		used_size = hdr->header_size +
-			hdr->messages_count * sizeof(struct mail_index_record);
+			hdr->messages_count * index->record_size;
 		if (map->mmap_size >= used_size && !force) {
 			map->records_count = hdr->messages_count;
 			return 1;
@@ -340,7 +364,8 @@ int mail_index_map(struct mail_index *index, int force)
 	return 1;
 }
 
-struct mail_index_map *mail_index_map_to_memory(struct mail_index_map *map)
+struct mail_index_map *
+mail_index_map_to_memory(struct mail_index *index, struct mail_index_map *map)
 {
 	const struct mail_index_header *hdr;
 	struct mail_index_map *mem_map;
@@ -351,7 +376,7 @@ struct mail_index_map *mail_index_map_to_memory(struct mail_index_map *map)
 		return map;
 	}
 
-        size = map->records_count * sizeof(struct mail_index_record);
+        size = map->records_count * index->record_size;
 
 	mem_map = i_new(struct mail_index_map, 1);
 	mem_map->refcount = 1;
@@ -525,7 +550,8 @@ static int mail_index_create(struct mail_index *index,
 	return 1;
 }
 
-static void mail_index_header_init(struct mail_index_header *hdr)
+static void mail_index_header_init(struct mail_index *index,
+				   struct mail_index_header *hdr)
 {
 	time_t now = time(NULL);
 
@@ -534,13 +560,14 @@ static void mail_index_header_init(struct mail_index_header *hdr)
 	hdr->major_version = MAIL_INDEX_MAJOR_VERSION;
 	hdr->minor_version = MAIL_INDEX_MINOR_VERSION;
 	hdr->header_size = sizeof(*hdr);
+	hdr->record_size = index->record_size;
+	hdr->keywords_mask_size = sizeof(keywords_mask_t);
 
 #ifndef WORDS_BIGENDIAN
 	hdr->compat_data[0] = MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
 #endif
 	hdr->compat_data[1] = sizeof(uoff_t);
 	hdr->compat_data[2] = sizeof(time_t);
-	hdr->compat_data[3] = sizeof(keywords_mask_t);
 
 	hdr->indexid = now;
 
@@ -561,7 +588,7 @@ static int mail_index_open_files(struct mail_index *index,
 		/* doesn't exist, or corrupted */
 		if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0)
 			return 0;
-		mail_index_header_init(&hdr);
+		mail_index_header_init(index, &hdr);
 		index->hdr = &hdr;
 	} else if (ret < 0)
 		return -1;
