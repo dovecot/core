@@ -93,8 +93,10 @@ unsigned int t_push(void)
 			frame_block = GC_malloc(sizeof(*frame_block));
                         memset(frame_block, 0, sizeof(*frame_block));
 #endif
-			if (frame_block == NULL)
-				i_panic("t_push(): Out of memory");
+			if (frame_block == NULL) {
+				i_fatal_status(FATAL_OUTOFMEM,
+					       "t_push(): Out of memory");
+			}
 		} else {
 			/* use existing unused frame_block */
 			frame_block = unused_frame_blocks;
@@ -190,9 +192,9 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 	block = GC_malloc_atomic(SIZEOF_MEMBLOCK + alloc_size);
 #endif
 	if (block == NULL) {
-		i_panic("mem_block_alloc(): "
-			"Out of memory when allocating %"PRIuSIZE_T" bytes",
-			alloc_size + SIZEOF_MEMBLOCK);
+		i_fatal_status(FATAL_OUTOFMEM, "mem_block_alloc(): "
+			       "Out of memory when allocating %"PRIuSIZE_T
+			       " bytes", alloc_size + SIZEOF_MEMBLOCK);
 	}
 	block->size = alloc_size;
 	block->next = NULL;

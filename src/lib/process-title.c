@@ -32,12 +32,12 @@ static void linux_proctitle_init(char *argv[], char *envp[])
 		;
 
 	if ((p = malloc((i + 1) * sizeof(char *))) == NULL)
-		i_panic("malloc() failed: %m");
+		i_fatal_status(FATAL_OUTOFMEM, "malloc() failed: %m");
 	environ = p;
 
 	for (i = 0; envp[i] != NULL; i++) {
 		if ((environ[i] = strdup(envp[i])) == NULL)
-			i_panic("malloc() failed: %m");
+			i_fatal_status(FATAL_OUTOFMEM, "strdup() failed: %m");
 	}
 	environ[i] = NULL;
 

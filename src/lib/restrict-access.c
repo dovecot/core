@@ -112,7 +112,7 @@ static void grant_extra_groups(const char *groups)
 			continue;
 
 		if (!t_try_realloc(gid_list, (gid_count+1) * sizeof(gid_t)))
-			i_panic("won't happen");
+			i_unreached();
 		gid_list[gid_count++] = get_group_id(*tmp);
 	}
 

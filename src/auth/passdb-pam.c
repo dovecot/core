@@ -132,12 +132,12 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 		case PAM_PROMPT_ECHO_ON:
 			string = strdup(userpass->user);
 			if (string == NULL)
-				i_fatal("Out of memory");
+				i_fatal_status(FATAL_OUTOFMEM, "Out of memory");
 			break;
 		case PAM_PROMPT_ECHO_OFF:
 			string = strdup(userpass->pass);
 			if (string == NULL)
-				i_fatal("Out of memory");
+				i_fatal_status(FATAL_OUTOFMEM, "Out of memory");
 			break;
 		case PAM_ERROR_MSG:
 		case PAM_TEXT_INFO:

@@ -155,7 +155,7 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 	memset(block, 0, size);
 #endif
 	if (block == NULL)
-		i_panic("block_alloc(): Out of memory");
+		i_fatal_status(FATAL_OUTOFMEM, "block_alloc(): Out of memory");
 	block->prev = apool->block;
 	apool->block = block;
 

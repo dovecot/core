@@ -58,7 +58,7 @@ void io_loop_handler_init(struct ioloop *ioloop)
 
 	data->epfd = epoll_create(INITIAL_EPOLL_EVENTS);
 	if (data->epfd < 0)
-		i_panic("epoll_create(): %m");
+		i_fatal("epoll_create(): %m");
 }
 
 void io_loop_handler_deinit(struct ioloop *ioloop)
@@ -161,7 +161,7 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 
 	ret = epoll_ctl(data->epfd, op, fd, &event);
 	if (ret < 0)
-		i_panic("epoll_ctl(): %m");
+		i_fatal("epoll_ctl(): %m");
 
 	if (data->events_pos >= data->events_size) {
 		data->events_size = nearest_power(data->events_size + 1);
