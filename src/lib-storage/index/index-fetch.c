@@ -239,7 +239,9 @@ static void index_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
 }
 
 static int index_fetch_mail(MailIndex *index __attr_unused__,
-			    MailIndexRecord *rec, unsigned int seq,
+			    MailIndexRecord *rec,
+			    unsigned int client_seq,
+			    unsigned int idx_seq __attr_unused__,
 			    void *context)
 {
 	FetchContext *ctx = context;
@@ -249,7 +251,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 
 	ctx->str = t_string_new(2048);
 
-	t_string_printfa(ctx->str, "* %u FETCH (", seq);
+	t_string_printfa(ctx->str, "* %u FETCH (", client_seq);
 	orig_len = ctx->str->len;
 
 	/* first see what we need to do. this way we don't first do some

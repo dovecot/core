@@ -30,7 +30,7 @@ static int mail_index_foreach(MailIndex *index,
 {
 	MailIndexRecord *rec;
 	const unsigned int *expunges;
-	unsigned int expunges_before;
+	unsigned int idx_seq, expunges_before;
 	int expunges_found;
 
 	if (seq > seq2) {
@@ -55,8 +55,9 @@ static int mail_index_foreach(MailIndex *index,
 
 	/* get the first non-expunged message. note that if all messages
 	   were expunged in the range, this points outside wanted range. */
-	rec = index->lookup(index, seq - expunges_before);
-	for (; rec != NULL; seq++) {
+	idx_seq = seq - expunges_before;
+	rec = index->lookup(index, idx_seq);
+	for (; rec != NULL; seq++, idx_seq++) {
 		/* skip expunged sequences */
 		i_assert(rec->uid != 0);
 
@@ -70,7 +71,7 @@ static int mail_index_foreach(MailIndex *index,
 			break;
 
 		t_push();
-		if (!func(index, rec, seq, context)) {
+		if (!func(index, rec, seq, idx_seq, context)) {
 			t_pop();
 			return 0;
 		}
@@ -158,8 +159,10 @@ static int mail_index_messageset_foreach(MailIndex *index,
 		if (seq > messages_count) {
 			/* too large .. ignore silently */
 		} else {
+			t_push();
 			ret = mail_index_foreach(index, seq, seq2,
 						 func, context, error);
+			t_pop();
 			if (ret <= 0)
 				return ret;
 			if (ret == 2)
@@ -177,7 +180,7 @@ static int mail_index_uid_foreach(MailIndex *index,
 {
 	MailIndexRecord *rec;
 	const unsigned int *expunges;
-	unsigned int seq;
+	unsigned int client_seq, idx_seq, expunges_before;
 	int expunges_found;
 
 	if (uid > uid2) {
@@ -188,7 +191,8 @@ static int mail_index_uid_foreach(MailIndex *index,
 	}
 
 	/* get list of expunged messages in our range. */
-	expunges = mail_modifylog_uid_get_expunges(index->modifylog, uid, uid2);
+	expunges = mail_modifylog_uid_get_expunges(index->modifylog, uid, uid2,
+						   &expunges_before);
 	expunges_found = *expunges != '\0';
 
 	/* skip expunged messages at the beginning */
@@ -205,23 +209,25 @@ static int mail_index_uid_foreach(MailIndex *index,
 	if (rec == NULL)
 		return expunges_found ? 2 : 1;
 
-	seq = index->get_sequence(index, rec);
+	idx_seq = index->get_sequence(index, rec);
+	client_seq = idx_seq + expunges_before;
+
 	while (rec != NULL && rec->uid <= uid2) {
 		uid = rec->uid;
 		while (*expunges != 0 && *expunges < rec->uid) {
 			expunges++;
-			seq++;
+			client_seq++;
 		}
 		i_assert(*expunges != rec->uid);
 
 		t_push();
-		if (!func(index, rec, seq, context)) {
+		if (!func(index, rec, client_seq, idx_seq, context)) {
 			t_pop();
 			return 0;
 		}
 		t_pop();
 
-		seq++;
+		client_seq++; idx_seq++;
 		rec = index->next(index, rec);
 	}
 
@@ -304,8 +310,10 @@ static int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 		if (uid >= index->header->next_uid) {
 			/* too large .. ignore silently */
 		} else {
+			t_push();
 			ret = mail_index_uid_foreach(index, uid, uid2,
 						     func, context, error);
+			t_pop();
 			if (ret <= 0)
 				return ret;
 			if (ret == 2)

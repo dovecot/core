@@ -25,6 +25,54 @@ int index_storage_sync_if_possible(IndexMailbox *ibox)
 	return TRUE;
 }
 
+static int index_storage_sync_log(Mailbox *box, MailIndex *index,
+				  MailExpungeFunc expunge_func,
+				  MailFlagUpdateFunc flag_func,
+				  void *context)
+{
+	ModifyLogRecord *log;
+	MailIndexRecord *rec;
+	MailFlags flags;
+	const char **custom_flags;
+	unsigned int count;
+
+	/* show the log */
+	log = mail_modifylog_get_nonsynced(index->modifylog, &count);
+	if (log == NULL)
+		return FALSE;
+
+	custom_flags = mail_custom_flags_list_get(index->custom_flags);
+	for (; count > 0; count--, log++) {
+		switch (log->type) {
+		case RECORD_TYPE_EXPUNGE:
+			if (expunge_func != NULL) {
+				expunge_func(box, log->seq,
+					     log->uid, context);
+			}
+			break;
+		case RECORD_TYPE_FLAGS_CHANGED:
+			if (flag_func == NULL)
+				break;
+
+			rec = index->lookup_uid_range(index,
+						      log->uid, log->uid);
+			if (rec != NULL) {
+				flags = rec->msg_flags;
+				if (rec->uid >= index->first_recent_uid)
+					flags |= MAIL_RECENT;
+
+				flag_func(box, log->seq, log->uid, flags,
+					  custom_flags, context);
+			}
+			break;
+		}
+	}
+	mail_custom_flags_list_unref(index->custom_flags);
+
+	/* mark synced */
+	return mail_modifylog_mark_synced(index->modifylog);
+}
+
 int index_storage_sync(Mailbox *box, int expunge,
 		       unsigned int *messages, unsigned int *recent,
 		       MailExpungeFunc expunge_func,
@@ -32,10 +80,6 @@ int index_storage_sync(Mailbox *box, int expunge,
 		       void *context)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
-	ModifyLogRecord *log;
-	MailIndexRecord *rec;
-	MailFlags flags;
-	const char **custom_flags;
 	unsigned int count;
 	int failed;
 
@@ -53,41 +97,12 @@ int index_storage_sync(Mailbox *box, int expunge,
 				   MAIL_LOCK_EXCLUSIVE : MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(ibox);
 
-	/* show the log */
-	log = mail_modifylog_get_nonsynced(ibox->index->modifylog, &count);
-	if (log == NULL)
-		failed = TRUE;
+	failed = FALSE;
 
-	custom_flags = mail_custom_flags_list_get(ibox->index->custom_flags);
-	for (; count > 0; count--, log++) {
-		switch (log->type) {
-		case RECORD_TYPE_EXPUNGE:
-			if (expunge_func != NULL) {
-				expunge_func(box, log->seq,
-					     log->uid, context);
-			}
-			break;
-		case RECORD_TYPE_FLAGS_CHANGED:
-			if (flag_func == NULL)
-				break;
-
-			rec = ibox->index->lookup_uid_range(ibox->index,
-							    log->uid, log->uid);
-			if (rec != NULL) {
-				flags = rec->msg_flags;
-				if (rec->uid >= ibox->index->first_recent_uid)
-					flags |= MAIL_RECENT;
-
-				flag_func(box, log->seq, log->uid, flags,
-					  custom_flags, context);
-			}
-			break;
-		}
+	if (expunge_func != NULL || flag_func != NULL) {
+		failed = !index_storage_sync_log(box, ibox->index, expunge_func,
+						 flag_func, context);
 	}
-	mail_custom_flags_list_unref(ibox->index->custom_flags);
-
-	/* mark synced */
-	failed = !mail_modifylog_mark_synced(ibox->index->modifylog);
 
 	if (!failed && expunge) {
 		/* expunge messages */
@@ -97,6 +112,7 @@ int index_storage_sync(Mailbox *box, int expunge,
 	/* get the messages count even if there was some failures.
 	   also it must be done after expunging messages */
 	count = ibox->index->get_header(ibox->index)->messages_count;
+	count += mail_modifylog_get_expunge_count(ibox->index->modifylog);
 	if (count != ibox->synced_messages_count) {
 		if (count > ibox->synced_messages_count) {
 			/* new messages in mailbox */

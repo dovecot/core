@@ -14,7 +14,8 @@ typedef struct {
 } CopyContext;
 
 static int copy_func(MailIndex *index, MailIndexRecord *rec,
-		     unsigned int seq __attr_unused__, void *context)
+		     unsigned int client_seq __attr_unused__,
+		     unsigned int idx_seq __attr_unused__, void *context)
 {
 	CopyContext *ctx = context;
 	IOBuffer *inbuf;

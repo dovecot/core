@@ -15,7 +15,8 @@ typedef struct {
 } UpdateContext;
 
 static int update_func(MailIndex *index, MailIndexRecord *rec,
-		       unsigned int seq, void *context)
+		       unsigned int client_seq, unsigned int idx_seq,
+		       void *context)
 {
 	UpdateContext *ctx = context;
 	MailFlags flags;
@@ -35,14 +36,14 @@ static int update_func(MailIndex *index, MailIndexRecord *rec,
 		i_assert(0);
 	}
 
-	if (!index->update_flags(index, rec, seq, flags, FALSE))
+	if (!index->update_flags(index, rec, idx_seq, flags, FALSE))
 		return FALSE;
 
 	if (rec->uid >= index->first_recent_uid)
 		flags |= MAIL_RECENT;
 
 	if (ctx->func != NULL) {
-		ctx->func(ctx->box, seq, rec->uid, flags,
+		ctx->func(ctx->box, client_seq, rec->uid, flags,
 			  mail_custom_flags_list_get(ctx->custom_flags),
 			  ctx->context);
 		mail_custom_flags_list_unref(ctx->custom_flags);

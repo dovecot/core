@@ -14,7 +14,8 @@ typedef struct {
 } CopyHardContext;
 
 static int copy_hard_func(MailIndex *index, MailIndexRecord *rec,
-			  unsigned int seq __attr_unused__, void *context)
+			  unsigned int client_seq __attr_unused__,
+			  unsigned int idx_seq __attr_unused__, void *context)
 {
 	CopyHardContext *ctx = context;
 	const char *fname;

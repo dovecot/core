@@ -63,6 +63,10 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 const unsigned int *
 mail_modifylog_uid_get_expunges(MailModifyLog *log,
 				unsigned int first_uid,
-				unsigned int last_uid);
+				unsigned int last_uid,
+				unsigned int *expunges_before);
+
+/* Get number of non-synced expunges in modify log. */
+unsigned int mail_modifylog_get_expunge_count(MailModifyLog *log);
 
 #endif

@@ -7,6 +7,7 @@
 #include "imap-date.h"
 #include "index-storage.h"
 #include "mail-index-util.h"
+#include "mail-modifylog.h"
 #include "mail-search.h"
 
 #include <stdlib.h>
@@ -20,7 +21,7 @@
 typedef struct {
 	IndexMailbox *ibox;
 	MailIndexRecord *rec;
-	unsigned int seq;
+	unsigned int client_seq;
 } SearchIndexContext;
 
 typedef struct {
@@ -107,8 +108,8 @@ static uoff_t str_to_uoff_t(const char *str)
 
 /* Returns >0 = matched, 0 = not matched, -1 = unknown */
 static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
-				  unsigned int seq, MailSearchArgType type,
-				  const char *value)
+				  unsigned int client_seq,
+				  MailSearchArgType type, const char *value)
 {
 	time_t t;
 	uoff_t size;
@@ -117,7 +118,8 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 	case SEARCH_ALL:
 		return TRUE;
 	case SEARCH_SET:
-		return msgset_contains(value, seq, ibox->synced_messages_count);
+		return msgset_contains(value, client_seq,
+				       ibox->synced_messages_count);
 	case SEARCH_UID:
 		return msgset_contains(value, rec->uid,
 				       ibox->synced_messages_count);
@@ -185,7 +187,7 @@ static void search_index_arg(MailSearchArg *arg, void *context)
 {
 	SearchIndexContext *ctx = context;
 
-	switch (search_arg_match_index(ctx->ibox, ctx->rec, ctx->seq,
+	switch (search_arg_match_index(ctx->ibox, ctx->rec, ctx->client_seq,
 				       arg->type, arg->value.str)) {
 	case -1:
 		/* unknown */
@@ -606,76 +608,104 @@ static void search_get_sequid(IndexMailbox *ibox, MailSearchArg *args,
 	}
 }
 
-static void search_get_sequences(IndexMailbox *ibox, MailSearchArg *args,
-				 unsigned int *first_seq,
-				 unsigned int *last_seq)
+static unsigned int client_seq_to_uid(MailIndex *index, unsigned int seq)
 {
 	MailIndexRecord *rec;
-	unsigned int seq, first_uid, last_uid;
+	unsigned int expunges_before;
 
-	*first_seq = *last_seq = 0;
-	first_uid = last_uid = 0;
+	(void)mail_modifylog_seq_get_expunges(index->modifylog, seq, seq,
+					      &expunges_before);
+	seq -= expunges_before;
 
-	search_get_sequid(ibox, args, first_seq, last_seq,
-			  &first_uid, &last_uid);
-
-	/* seq_update() should make sure that these can't happen */
-	i_assert(*first_seq <= *last_seq);
-	i_assert(first_uid <= last_uid);
-
-	if (first_uid != 0 && (*first_seq != 1 ||
-			       *last_seq != ibox->synced_messages_count)) {
-		/* UIDs were used - see if they affect the sequences */
-		rec = ibox->index->lookup_uid_range(ibox->index,
-						    first_uid, last_uid);
-		if (rec != NULL) {
-			/* update lower UID */
-			seq = ibox->index->get_sequence(ibox->index, rec);
-			if (seq < *first_seq)
-				*first_seq = seq;
-
-			/* update higher UID .. except we don't really
-			   know it and it'd be uselessly slow to find it.
-			   use a kludgy method which might limit the
-			   sequences. */
-			seq += last_uid-first_uid;
-			if (seq >= ibox->synced_messages_count)
-				seq = ibox->synced_messages_count;
-
-			if (seq > *last_seq)
-				*last_seq = seq;
-		}
-	}
-
-	if (*first_seq == 0)
-		*first_seq = 1;
-	if (*last_seq == 0)
-		*last_seq = ibox->synced_messages_count;
-
-	i_assert(*first_seq <= *last_seq);
+	rec = index->lookup(index, seq);
+	return rec == NULL ? 0 : rec->uid;
 }
 
-static void search_messages(IndexMailbox *ibox, MailSearchArg *args,
-			    IOBuffer *outbuf, int uid_result)
+static int search_get_uid_range(IndexMailbox *ibox, MailSearchArg *args,
+				unsigned int *first_uid,
+				unsigned int *last_uid)
+{
+	unsigned int first_seq, last_seq, uid;
+
+	*first_uid = *last_uid = 0;
+	first_seq = last_seq = 0;
+
+	search_get_sequid(ibox, args, &first_seq, &last_seq,
+			  first_uid, last_uid);
+
+	/* seq_update() should make sure that these can't happen */
+	i_assert(first_seq <= last_seq);
+	i_assert(*first_uid <= *last_uid);
+
+	if (first_seq > 1) {
+		uid = client_seq_to_uid(ibox->index, first_seq);
+		if (uid == 0)
+			return FALSE;
+
+		if (*first_uid == 0 || uid < *first_uid)
+			*first_uid = uid;
+	}
+
+	if (last_seq > 1 && last_seq != ibox->synced_messages_count) {
+		uid = client_seq_to_uid(ibox->index, last_seq);
+		if (uid == 0)
+			return FALSE;
+
+		if (uid > *last_uid)
+			*last_uid = uid;
+	}
+
+	if (*first_uid == 0)
+		*first_uid = 1;
+	if (*last_uid == 0)
+		*last_uid = ibox->index->header->next_uid-1;
+
+	i_assert(*first_uid <= *last_uid);
+	return TRUE;
+}
+
+static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
+			   IOBuffer *outbuf, int uid_result)
 {
 	SearchIndexContext ctx;
 	MailIndexRecord *rec;
         MailSearchArg *arg;
-	unsigned int first_seq, last_seq, seq;
+	const unsigned int *expunges;
+	unsigned int first_uid, last_uid, client_seq, expunges_before;
 	char num[MAX_LARGEST_T_STRLEN+10];
 	int found;
 
 	if (ibox->synced_messages_count == 0)
-		return;
+		return TRUE;
 
 	/* see if we can limit the records we look at */
-	search_get_sequences(ibox, args, &first_seq, &last_seq);
+	if (!search_get_uid_range(ibox, args, &first_uid, &last_uid))
+		return TRUE;
+
+	rec = ibox->index->lookup_uid_range(ibox->index, first_uid, last_uid);
+	if (rec == NULL)
+		return TRUE;
+
+	expunges = mail_modifylog_uid_get_expunges(ibox->index->modifylog,
+						   rec->uid, last_uid,
+						   &expunges_before);
+
+	client_seq = ibox->index->get_sequence(ibox->index, rec);
+	if (client_seq == 0)
+		return mail_storage_set_index_error(ibox);
+
+	client_seq += expunges_before;
 
 	ctx.ibox = ibox;
-	rec = ibox->index->lookup(ibox->index, first_seq);
-	for (seq = first_seq; rec != NULL && seq <= last_seq; seq++) {
+	for (; rec != NULL && rec->uid <= last_uid; client_seq++) {
+		while (*expunges != 0 && *expunges < rec->uid) {
+			expunges++;
+			client_seq++;
+		}
+		i_assert(*expunges != rec->uid);
+
 		ctx.rec = rec;
-		ctx.seq = seq;
+		ctx.client_seq = client_seq;
 
 		mail_search_args_reset(args);
 
@@ -694,18 +724,22 @@ static void search_messages(IndexMailbox *ibox, MailSearchArg *args,
 
 			if (found) {
 				i_snprintf(num, sizeof(num), " %u",
-					   uid_result ? rec->uid : seq);
+					   uid_result ? rec->uid : client_seq);
 				io_buffer_send(outbuf, num, strlen(num));
 			}
 		}
+
 		rec = ibox->index->next(ibox->index, rec);
 	}
+
+	return TRUE;
 }
 
 int index_storage_search(Mailbox *box, MailSearchArg *args,
 			 IOBuffer *outbuf, int uid_result)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
+	int failed;
 
 	if (!index_storage_sync_if_possible(ibox))
 		return FALSE;
@@ -714,11 +748,11 @@ int index_storage_search(Mailbox *box, MailSearchArg *args,
 		return mail_storage_set_index_error(ibox);
 
 	io_buffer_send(outbuf, "* SEARCH", 8);
-	search_messages(ibox, args, outbuf, uid_result);
+	failed = !search_messages(ibox, args, outbuf, uid_result);
 	io_buffer_send(outbuf, "\r\n", 2);
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);
 
-	return TRUE;
+	return !failed;
 }
