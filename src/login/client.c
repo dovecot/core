@@ -245,8 +245,7 @@ int client_read(struct client *client)
 	}
 }
 
-void client_input(void *context, int fd __attr_unused__,
-		  struct io *io __attr_unused__)
+void client_input(void *context)
 {
 	struct client *client = context;
 
@@ -422,8 +421,7 @@ static void client_hash_check_idle(void *key, void *value __attr_unused__,
 	}
 }
 
-static void idle_timeout(void *context __attr_unused__,
-			 struct timeout *timeout __attr_unused__)
+static void idle_timeout(void *context __attr_unused__)
 {
 	hash_foreach(clients, client_hash_check_idle, NULL);
 }

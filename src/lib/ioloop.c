@@ -83,14 +83,14 @@ static void io_list_insert(struct ioloop *ioloop, struct io *io)
 	}
 }
 
-struct io *io_add(int fd, int condition, io_callback_t callback, void *data)
+struct io *io_add(int fd, int condition, io_callback_t *callback, void *data)
 {
 	return io_add_priority(fd, IO_PRIORITY_DEFAULT,
 			       condition, callback, data);
 }
 
 struct io *io_add_priority(int fd, int priority, int condition,
-			   io_callback_t callback, void *context)
+			   io_callback_t *callback, void *context)
 {
 	struct io *io;
 
@@ -184,7 +184,7 @@ timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 	}
 }
 
-struct timeout *timeout_add(int msecs, timeout_callback_t callback,
+struct timeout *timeout_add(int msecs, timeout_callback_t *callback,
 			    void *context)
 {
 	struct timeout *timeout;
@@ -281,7 +281,7 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
                 timeout_update_next(t, &ioloop_timeval);
 
                 t_id = t_push();
-		t->callback(t->context, t);
+		t->callback(t->context);
 		if (t_pop() != t_id)
                         i_panic("Leaked a t_pop() call!");
 	}

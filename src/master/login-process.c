@@ -100,8 +100,7 @@ static void login_process_mark_nonlistening(struct login_process *p)
 		oldest_nonlisten_process = p;
 }
 
-static void login_process_input(void *context, int fd __attr_unused__,
-				struct io *io __attr_unused__)
+static void login_process_input(void *context)
 {
 	struct login_process *p = context;
 	struct auth_process *auth_process;
@@ -369,8 +368,7 @@ void login_processes_destroy_all(void)
 }
 
 static void
-login_processes_start_missing(void *context __attr_unused__,
-			      struct timeout *timeout __attr_unused__)
+login_processes_start_missing(void *context __attr_unused__)
 {
 	if (!set_login_process_per_connection) {
 		/* create max. one process every second, that way if it keeps

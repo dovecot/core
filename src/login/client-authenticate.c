@@ -256,8 +256,7 @@ static void authenticate_callback(struct auth_request *request,
 		client_send_auth_data(client, data, reply->data_size);
 }
 
-static void client_auth_input(void *context, int fd __attr_unused__,
-			      struct io *io __attr_unused__)
+static void client_auth_input(void *context)
 {
 	struct client *client = context;
 	buffer_t *buf;

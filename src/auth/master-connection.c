@@ -110,12 +110,11 @@ static void master_handle_request(struct auth_master_request *request,
 	}
 }
 
-static void master_input(void *context __attr_unused__, int fd,
-			 struct io *io __attr_unused__)
+static void master_input(void *context __attr_unused__)
 {
 	int ret;
 
-	ret = net_receive(fd, master_buf + master_pos,
+	ret = net_receive(MASTER_SOCKET_FD, master_buf + master_pos,
 			  sizeof(master_buf) - master_pos);
 	if (ret < 0) {
 		/* master died, kill ourself too */
@@ -129,7 +128,7 @@ static void master_input(void *context __attr_unused__, int fd,
 
 	/* reply is now read */
 	master_handle_request((struct auth_master_request *) master_buf,
-			      fd);
+			      MASTER_SOCKET_FD);
 	master_pos = 0;
 }
 

@@ -410,8 +410,7 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 	fstream->buffer_size = size;
 }
 
-static void stream_send_io(void *context, int fd __attr_unused__,
-			   struct io *io __attr_unused__)
+static void stream_send_io(void *context)
 {
 	struct file_ostream *fstream = context;
 	struct iovec iov[2];

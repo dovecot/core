@@ -26,12 +26,11 @@ static void sig_quit(int signo __attr_unused__)
 	io_loop_stop(ioloop);
 }
 
-static void auth_accept(void *context __attr_unused__, int listen_fd,
-			struct io *io __attr_unused__)
+static void auth_accept(void *context __attr_unused__)
 {
 	int fd;
 
-	fd = net_accept(listen_fd, NULL, NULL);
+	fd = net_accept(LOGIN_LISTEN_FD, NULL, NULL);
 	if (fd < 0) {
 		if (fd < -1)
 			i_fatal("accept() failed: %m");

@@ -104,8 +104,7 @@ static const char *get_exit_status_message(enum fatal_exit_status status)
 	return NULL;
 }
 
-static void timeout_handler(void *context __attr_unused__,
-			    struct timeout *timeout __attr_unused__)
+static void timeout_handler(void *context __attr_unused__)
 {
 	const char *process_type_name, *msg;
 	pid_t pid;
@@ -261,7 +260,7 @@ static void main_deinit(void)
 		i_warning("Killed with signal %d", lib_signal_kill);
 
 	/* make sure we log if child processes died unexpectedly */
-	timeout_handler(NULL, NULL);
+	timeout_handler(NULL);
 
 	login_processes_deinit();
 	auth_processes_deinit();

@@ -76,14 +76,12 @@ static void copy(int in, int out, int log)
 	last_write = time(NULL);
 }
 
-static void imap_input(void *context __attr_unused__, int fd __attr_unused__,
-		       struct io *io __attr_unused__)
+static void imap_input(void *context __attr_unused__)
 {
 	copy(imap_in, client_out, log_out);
 }
 
-static void client_input(void *context __attr_unused__, int fd __attr_unused__,
-			 struct io *io __attr_unused__)
+static void client_input(void *context __attr_unused__)
 {
 	copy(client_in, imap_out, log_in);
 }

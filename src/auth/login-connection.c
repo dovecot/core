@@ -138,8 +138,7 @@ static void login_input_request(struct login_connection *conn)
 	}
 }
 
-static void login_input(void *context, int fd __attr_unused__,
-			struct io *io __attr_unused__)
+static void login_input(void *context)
 {
 	struct login_connection *conn  = context;
 

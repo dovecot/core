@@ -71,13 +71,12 @@ static void sig_quit(int signo __attr_unused__)
 	io_loop_stop(ioloop);
 }
 
-static void login_accept(void *context __attr_unused__, int listen_fd,
-			 struct io *io __attr_unused__)
+static void login_accept(void *context __attr_unused__)
 {
 	struct ip_addr ip;
 	int fd;
 
-	fd = net_accept(listen_fd, &ip, NULL);
+	fd = net_accept(LOGIN_IMAP_LISTEN_FD, &ip, NULL);
 	if (fd < 0) {
 		if (fd < -1)
 			i_fatal("accept() failed: %m");
@@ -90,14 +89,13 @@ static void login_accept(void *context __attr_unused__, int listen_fd,
 	(void)client_create(fd, &ip, FALSE);
 }
 
-static void login_accept_ssl(void *context __attr_unused__, int listen_fd,
-			     struct io *io __attr_unused__)
+static void login_accept_ssl(void *context __attr_unused__)
 {
 	struct client *client;
 	struct ip_addr addr;
 	int fd, fd_ssl;
 
-	fd = net_accept(listen_fd, &addr, NULL);
+	fd = net_accept(LOGIN_IMAPS_LISTEN_FD, &addr, NULL);
 	if (fd < 0) {
 		if (fd < -1)
 			i_fatal("accept() failed: %m");

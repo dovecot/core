@@ -46,8 +46,8 @@ static gnutls_certificate_credentials x509_cred;
 static gnutls_dh_params dh_params;
 static gnutls_rsa_params rsa_params;
 
-static void ssl_input(void *context, int handle, struct io *io);
-static void plain_input(void *context, int handle, struct io *io);
+static void ssl_input(void *context);
+static void plain_input(void *context);
 static int ssl_proxy_destroy(struct ssl_proxy *proxy);
 
 static const char *get_alert_text(struct ssl_proxy *proxy)
@@ -138,8 +138,7 @@ static int ssl_proxy_destroy(struct ssl_proxy *proxy)
 	return FALSE;
 }
 
-static void ssl_output(void *context, int fd __attr_unused__,
-		       struct io *io __attr_unused__)
+static void ssl_output(void *context)
 {
         struct ssl_proxy *proxy = context;
 	int sent;
@@ -164,8 +163,7 @@ static void ssl_output(void *context, int fd __attr_unused__,
 	proxy->io_ssl = io_add(proxy->fd_ssl, IO_READ, ssl_input, proxy);
 }
 
-static void ssl_input(void *context, int fd __attr_unused__,
-		      struct io *io __attr_unused__)
+static void ssl_input(void *context)
 {
         struct ssl_proxy *proxy = context;
 	int rcvd, sent;
@@ -194,8 +192,7 @@ static void ssl_input(void *context, int fd __attr_unused__,
 	proxy->io_ssl = io_add(proxy->fd_ssl, IO_WRITE, ssl_output, proxy);
 }
 
-static void plain_output(void *context, int fd __attr_unused__,
-			 struct io *io __attr_unused__)
+static void plain_output(void *context)
 {
 	struct ssl_proxy *proxy = context;
 	int sent;
@@ -213,8 +210,7 @@ static void plain_output(void *context, int fd __attr_unused__,
 	proxy->io_plain = io_add(proxy->fd_plain, IO_READ, plain_input, proxy);
 }
 
-static void plain_input(void *context, int fd __attr_unused__,
-			struct io *io __attr_unused__)
+static void plain_input(void *context)
 {
 	struct ssl_proxy *proxy = context;
 	char buf[1024];
@@ -240,8 +236,7 @@ static void plain_input(void *context, int fd __attr_unused__,
 	proxy->io_plain = io_add(proxy->fd_ssl, IO_WRITE, plain_output, proxy);
 }
 
-static void ssl_handshake(void *context, int fd __attr_unused__,
-			  struct io *io __attr_unused__)
+static void ssl_handshake(void *context)
 {
 	struct ssl_proxy *proxy = context;
 	int ret, dir;
@@ -319,7 +314,7 @@ int ssl_proxy_new(int fd)
 	proxy->fd_plain = sfd[0];
 
 	proxy->refcount++;
-	ssl_handshake(proxy, -1, NULL);
+	ssl_handshake(proxy);
 	if (!ssl_proxy_destroy(proxy))
 		return -1;
 

@@ -117,8 +117,7 @@ void auth_process_request(struct auth_process *process, unsigned int login_pid,
 	hash_insert(process->requests, POINTER_CAST(req.tag), context);
 }
 
-static void auth_process_input(void *context, int fd __attr_unused__,
-			       struct io *io __attr_unused__)
+static void auth_process_input(void *context)
 {
 	struct auth_process *p = context;
 	const unsigned char *data;
@@ -386,8 +385,7 @@ void auth_processes_destroy_all(void)
 }
 
 static void
-auth_processes_start_missing(void *context __attr_unused__,
-			     struct timeout *timeout __attr_unused__)
+auth_processes_start_missing(void *context __attr_unused__)
 {
 	struct auth_config *config;
 	unsigned int count;

@@ -42,7 +42,7 @@ void client_send_tagline(struct client *client, const char *line);
 void client_syslog(struct client *client, const char *text);
 
 int client_read(struct client *client);
-void client_input(void *context, int fd, struct io *io);
+void client_input(void *context);
 
 unsigned int clients_get_count(void);
 void clients_destroy_all(void);

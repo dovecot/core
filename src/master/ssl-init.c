@@ -64,7 +64,7 @@ void ssl_parameter_process_destroyed(pid_t pid __attr_unused__)
 	generating = FALSE;
 }
 
-static void check_parameters_file(void)
+static void check_parameters_file(void *context __attr_unused__)
 {
 	struct stat st;
 	time_t regen_time;
@@ -94,10 +94,9 @@ void ssl_init(void)
 	generating = FALSE;
 
 	/* check every 10 mins */
-	to = timeout_add(600*1000,
-			 (timeout_callback_t)check_parameters_file, NULL);
+	to = timeout_add(600 * 1000, check_parameters_file, NULL);
 
-	check_parameters_file();
+	check_parameters_file(NULL);
 }
 
 void ssl_deinit(void)

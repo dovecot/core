@@ -30,8 +30,7 @@ extern struct mail_storage_callbacks mail_storage_callbacks;
 static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
-static void client_input(void *context, int fd __attr_unused__,
-			 struct io *io __attr_unused__);
+static void client_input(void *context);
 
 static void client_output_timeout(void *context)
 {
@@ -313,8 +312,7 @@ static int client_handle_input(struct client *client)
 	return TRUE;
 }
 
-static void client_input(void *context, int fd __attr_unused__,
-			 struct io *io __attr_unused__)
+static void client_input(void *context)
 {
 	struct client *client = context;
 
@@ -345,8 +343,7 @@ static void client_input(void *context, int fd __attr_unused__,
 		client_destroy(client);
 }
 
-static void idle_timeout(void *context __attr_unused__,
-			 struct timeout *timeout __attr_unused__)
+static void idle_timeout(void *context __attr_unused__)
 {
 	if (my_client == NULL)
 		return;

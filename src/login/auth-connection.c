@@ -27,7 +27,7 @@ static struct auth_connection *auth_connections;
 static struct timeout *to;
 
 static void auth_connection_destroy(struct auth_connection *conn);
-static void auth_input(void *context, int fd, struct io *io);
+static void auth_input(void *context);
 static void auth_connect_missing(void);
 
 static struct auth_connection *auth_connection_find(const char *path)
@@ -190,8 +190,7 @@ static void auth_handle_reply(struct auth_connection *conn,
 		request_destroy(request);
 }
 
-static void auth_input(void *context, int fd __attr_unused__,
-		       struct io *io __attr_unused__)
+static void auth_input(void *context)
 {
 	struct auth_connection *conn = context;
         struct auth_login_handshake_output handshake;
@@ -345,8 +344,7 @@ static void auth_connect_missing(void)
 }
 
 static void
-auth_connect_missing_timeout(void *context __attr_unused__,
-			     struct timeout *timeout __attr_unused__)
+auth_connect_missing_timeout(void *context __attr_unused__)
 {
 	if (auth_reconnect)
                 auth_connect_missing();

@@ -9,8 +9,7 @@
 
 static int check_interval = -1;
 
-static void check_timeout(void *context,
-			  struct timeout *timeout __attr_unused__)
+static void check_timeout(void *context)
 {
 	struct index_mailbox *ibox = context;
 	struct stat st;

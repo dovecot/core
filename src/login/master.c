@@ -80,12 +80,11 @@ void master_close(void)
 	main_unref();
 }
 
-static void master_input(void *context __attr_unused__, int fd,
-			 struct io *io __attr_unused__)
+static void master_input(void *context __attr_unused__)
 {
 	int ret;
 
-	ret = net_receive(fd, master_buf + master_pos,
+	ret = net_receive(LOGIN_MASTER_SOCKET_FD, master_buf + master_pos,
 			  sizeof(master_buf) - master_pos);
 	if (ret < 0) {
 		/* master died, kill all clients logging in */
