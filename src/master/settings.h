@@ -2,6 +2,7 @@
 #define __SETTINGS_H
 
 /* common */
+extern char *set_base_dir;
 extern char *set_log_path;
 extern char *set_info_log_path;
 extern char *set_log_timestamp;

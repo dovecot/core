@@ -86,6 +86,7 @@ static Setting settings[] = {
 };
 
 /* common */
+char *set_base_dir = PKG_RUNDIR;
 char *set_log_path = NULL;
 char *set_info_log_path = NULL;
 char *set_log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT;
@@ -99,7 +100,7 @@ char *set_imaps_listen = NULL;
 int set_ssl_disable = FALSE;
 char *set_ssl_cert_file = SSLDIR"/certs/imapd.pem";
 char *set_ssl_key_file = SSLDIR"/private/imapd.pem";
-char *set_ssl_parameters_file = PKG_RUNDIR"/ssl-parameters.dat";
+char *set_ssl_parameters_file = "ssl-parameters.dat";
 unsigned int set_ssl_parameters_regenerate = 24;
 int set_disable_plaintext_auth = FALSE;
 
@@ -107,7 +108,7 @@ int set_disable_plaintext_auth = FALSE;
 char *set_login_executable = PKG_LIBEXECDIR"/imap-login";
 unsigned int set_login_process_size = 16;
 char *set_login_user = "imapd";
-char *set_login_dir = PKG_RUNDIR"/login";
+char *set_login_dir = "login";
 
 int set_login_chroot = TRUE;
 int set_login_process_per_connection = TRUE;
@@ -146,6 +147,17 @@ unsigned int set_umask = 0077;
 /* auth */
 AuthConfig *auth_processes_config = NULL;
 
+static void fix_base_path(char **str)
+{
+	char *fullpath;
+
+	if (*str != NULL && **str != '\0' && **str != '/') {
+		fullpath = i_strconcat(set_base_dir, "/", *str, NULL);
+		i_free(*str);
+		*str = i_strdup(fullpath);
+	}
+}
+
 static void get_login_uid(void)
 {
 	struct passwd *pw;
@@ -166,6 +178,8 @@ static void auth_settings_verify(void)
 			i_fatal("Can't use auth executable %s: %m",
 				auth->executable);
 		}
+
+		fix_base_path(&auth->chroot);
 		if (auth->chroot != NULL && access(auth->chroot, X_OK) < 0) {
 			i_fatal("Can't access auth chroot directory %s: %m",
 				auth->chroot);
@@ -231,9 +245,13 @@ static void settings_verify(void)
 	}
 #endif
 
+	/* fix relative paths */
+	fix_base_path(&set_ssl_parameters_file);
+	fix_base_path(&set_login_dir);
+
 	/* since they're under /var/run by default, they may have been
 	   deleted. */
-	if (safe_mkdir(PKG_RUNDIR, 0700, geteuid(), getegid()) == 0) {
+	if (safe_mkdir(set_base_dir, 0700, geteuid(), getegid()) == 0) {
 		i_warning("Corrected permissions for base directory %s",
 			  PKG_RUNDIR);
 	}
