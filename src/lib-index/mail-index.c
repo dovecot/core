@@ -1006,8 +1006,9 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 				index_set_error(index,
 						"Corrupted hash for index %s: "
 						"lookup returned offset to "
-						"different UID",
-						index->filepath);
+						"different UID (%u vs %u)",
+						index->filepath,
+						rec->uid, uid);
 				index->set_flags |=
 					MAIL_INDEX_FLAG_REBUILD_HASH;
 				rec = NULL;
