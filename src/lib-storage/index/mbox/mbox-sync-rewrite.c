@@ -204,7 +204,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	mail_ctx.mail.offset = mails[idx].offset;
 	mail_ctx.mail.body_size = mails[idx].body_size;
 
-	mbox_sync_parse_next_mail(sync_ctx->file_input, &mail_ctx);
+	mbox_sync_parse_next_mail(sync_ctx->file_input, &mail_ctx, TRUE);
 	mbox_sync_update_header_from(&mail_ctx, &mails[idx]);
 
 	i_assert(mail_ctx.mail.space == mails[idx].space);
@@ -249,7 +249,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 {
 	struct mbox_sync_mail *mails;
 	size_t size;
-	uoff_t offset, end_offset;
+	uoff_t offset, end_offset, dest_offset;
 	uint32_t idx, extra_per_mail;
 	int ret = 0;
 
@@ -264,7 +264,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 	extra_per_mail = (extra_space / (last_seq - first_seq + 1));
 
 	mails[last_seq-1].space -= extra_per_mail;
-	i_assert(mails[last_seq-1].space > 0);
+	i_assert(mails[last_seq-1].space >= 0);
 	end_offset = mails[last_seq-1].offset + mails[last_seq-1].space;
 
 	/* start moving backwards */
@@ -288,8 +288,9 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 			   move data forward so mails before us gets the extra
 			   space (ie. we temporarily get more space to us) */
 			offset = mails[idx].offset + mails[idx].space;
-			if (mbox_move(sync_ctx, offset + mails[idx+1].space,
-				      offset, end_offset - offset)) {
+			dest_offset = offset + mails[idx+1].space;
+			if (mbox_move(sync_ctx, dest_offset, offset,
+				      end_offset - dest_offset)) {
 				// FIXME: error handling
 				ret = -1;
 				break;

@@ -116,7 +116,7 @@ mbox_sync_next_mail(struct mbox_sync_context *sync_ctx,
 	mail_ctx->mail.offset =
 		istream_raw_mbox_get_header_offset(sync_ctx->input);
 
-	mbox_sync_parse_next_mail(sync_ctx->input, mail_ctx);
+	mbox_sync_parse_next_mail(sync_ctx->input, mail_ctx, FALSE);
 	i_assert(sync_ctx->input->v_offset != from_offset);
 
 	mail_ctx->mail.body_size =
@@ -182,6 +182,7 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 	sync_ctx.input = ibox->mbox_stream;
 	sync_ctx.fd = ibox->mbox_fd;
 	sync_ctx.header = str_new(default_pool, 4096);
+	sync_ctx.next_uid = 1;
 
 	input = sync_ctx.input;
 	istream_raw_mbox_seek(input, 0);
@@ -193,11 +194,12 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 	messages_count = mail_index_view_get_message_count(sync_view);
 
 	space_diff = 0; need_space_seq = 0; idx_seq = 0; rec = NULL;
-	for (seq = 1;; seq++) {
+	for (seq = 0;;) {
 		/* set input->eof */
 		(void)istream_raw_mbox_get_header_offset(input);
 		if (input->eof)
 			break;
+		seq++;
 
 		mbox_sync_next_mail(&sync_ctx, &mail_ctx, seq);
 
@@ -325,7 +327,6 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 					ret = -1;
 					break;
 				}
-
 				/* mail_ctx may contain wrong data after
 				   rewrite, so make sure we don't try to access
 				   it */
@@ -339,13 +340,14 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 	if (need_space_seq != 0) {
 		i_assert(space_diff < 0);
 		extra_space = MBOX_HEADER_EXTRA_SPACE *
-			((seq-1) - need_space_seq);
+			(seq - need_space_seq + 1);
+
 		if (mbox_sync_grow_file(&sync_ctx, &mail_ctx,
 					-space_diff + extra_space) < 0)
 			ret = -1;
 		else if (mbox_sync_try_rewrite(&mail_ctx) < 0)
 			ret = -1;
-		else if (--seq != need_space_seq) {
+		else if (seq != need_space_seq) {
 			buffer_set_used_size(mails,
 					     (seq-1) * sizeof(mail_ctx.mail));
 			buffer_append(mails, &mail_ctx.mail,

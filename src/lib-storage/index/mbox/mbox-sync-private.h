@@ -66,7 +66,8 @@ struct mbox_sync_context {
 
 int mbox_sync(struct index_mailbox *ibox, int last_commit);
 void mbox_sync_parse_next_mail(struct istream *input,
-			       struct mbox_sync_mail_context *ctx);
+			       struct mbox_sync_mail_context *ctx,
+			       int rewriting);
 void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 			     buffer_t *syncs_buf);
 void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,

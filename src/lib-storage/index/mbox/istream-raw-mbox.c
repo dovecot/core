@@ -105,7 +105,7 @@ static ssize_t _read(struct _istream *stream)
 	const char *fromp;
 	char *sender, eoh_char;
 	time_t received_time;
-	size_t i, pos;
+	size_t i, pos, new_pos;
 	ssize_t ret;
 
 	i_stream_seek(rstream->input, stream->istream.v_offset);
@@ -137,6 +137,8 @@ static ssize_t _read(struct _istream *stream)
 		return _read(stream);
 	}
 
+	i = 0;
+
 	if (pos >= 31) {
 		if (memcmp(buf, "\nFrom ", 6) == 0 &&
 		    mbox_from_parse(buf+6, pos-6,
@@ -150,6 +152,9 @@ static ssize_t _read(struct _istream *stream)
 			i_assert(stream->pos == 0);
 			return -1;
 		}
+
+		/* we don't want to get stuck at invalid From-line */
+		i += 6;
 	} else if (ret == -1) {
 		/* last few bytes, can't contain From-line */
 		if (buf[pos-1] == '\n') {
@@ -172,7 +177,7 @@ static ssize_t _read(struct _istream *stream)
 	/* See if we have From-line here - note that it works right only
 	   because all characters are different in mbox_from. */
 	eoh_char = rstream->body_offset == (uoff_t)-1 ? '\n' : '\0';
-	for (i = 0, fromp = mbox_from; i < pos; i++) {
+	for (fromp = mbox_from; i < pos; i++) {
 		if (buf[i] == eoh_char && i > 0 && buf[i-1] == '\n') {
 			rstream->body_offset = stream->istream.v_offset + i + 1;
 			eoh_char = '\0';
@@ -189,12 +194,18 @@ static ssize_t _read(struct _istream *stream)
 				fromp++;
 		}
 	}
-	pos = i - (fromp - mbox_from);
+	new_pos = i - (fromp - mbox_from);
 
-	ret = pos <= stream->pos ? -1 :
+	ret = new_pos <= stream->pos ? -1 :
 		(ssize_t) (pos - stream->pos);
 	stream->buffer = buf;
-	stream->pos = pos;
+	stream->pos = new_pos;
+
+	if (i < pos && new_pos == stream->pos) {
+		/* beginning from From-line, try again */
+		ret = 0;
+	}
+
 	return ret;
 }
 

@@ -130,8 +130,7 @@ static int parse_x_keywords(struct mbox_sync_mail_context *ctx,
 	}
 
 	if (space > ctx->mail.space) {
-		ctx->mail.offset = ctx->hdr_offset +
-			hdr->full_value_offset + i;
+		ctx->mail.offset = hdr->full_value_offset + i;
 		ctx->mail.space = space;
 	}
 
@@ -179,8 +178,7 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 	if (extra_space != 0 && ctx->mail.space == 0) {
 		/* set it only if X-Keywords hasn't been seen. spaces in X-UID
 		   should be removed when writing X-Keywords. */
-		ctx->mail.offset = ctx->hdr_offset +
-			hdr->full_value_offset + space_pos;
+		ctx->mail.offset = hdr->full_value_offset + space_pos;
 		ctx->mail.space = extra_space;
 	}
 	return TRUE;
@@ -236,7 +234,8 @@ static struct header_func *header_func_find(const char *header)
 }
 
 void mbox_sync_parse_next_mail(struct istream *input,
-			       struct mbox_sync_mail_context *ctx)
+			       struct mbox_sync_mail_context *ctx,
+			       int rewriting)
 {
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
@@ -283,10 +282,12 @@ void mbox_sync_parse_next_mail(struct istream *input,
 				}
 				continue;
 			}
+			buffer_append(ctx->header, hdr->full_value,
+				      hdr->full_value_len);
+		} else {
+			buffer_append(ctx->header, hdr->value,
+				      hdr->value_len);
 		}
-
-		buffer_append(ctx->header, hdr->full_value,
-			      hdr->full_value_len);
 		if (!hdr->no_newline)
 			str_append_c(ctx->header, '\n');
 	}
@@ -296,10 +297,11 @@ void mbox_sync_parse_next_mail(struct istream *input,
 		/* missing X-IMAPbase */
 		ctx->need_rewrite = TRUE;
 	}
-	if (ctx->mail.uid == 0) {
+	if (ctx->mail.uid == 0 && !rewriting) {
 		/* missing X-UID */
 		ctx->need_rewrite = TRUE;
 		ctx->mail.uid = ctx->sync_ctx->next_uid++;
+		ctx->sync_ctx->prev_msg_uid = ctx->mail.uid;
 	}
 
 	ctx->body_offset = input->v_offset;
