@@ -70,8 +70,6 @@ void master_close(void)
 	if (io_master == NULL)
 		return;
 
-	clients_destroy_all();
-
 	if (close(LOGIN_MASTER_SOCKET_FD) < 0)
 		i_fatal("close(master) failed: %m");
 
@@ -80,6 +78,9 @@ void master_close(void)
 
         main_close_listen();
 	main_unref();
+
+        /* may call this function again through main_unref() */
+	clients_destroy_all();
 }
 
 static void master_input(void *context __attr_unused__)
