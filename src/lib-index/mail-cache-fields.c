@@ -36,11 +36,11 @@ void mail_cache_register_fields(struct mail_cache *cache,
 		return;
 
 	/* @UNSAFE */
-	cache->fields = p_realloc(cache->field_pool, cache->fields,
+	cache->fields = i_realloc(cache->fields,
 				  cache->fields_count * sizeof(*cache->fields),
 				  new_idx * sizeof(*cache->fields));
 	cache->field_file_map =
-		p_realloc(cache->field_pool, cache->field_file_map,
+		i_realloc(cache->field_file_map,
 			  cache->fields_count * sizeof(*cache->field_file_map),
 			  new_idx * sizeof(*cache->field_file_map));
 
