@@ -454,17 +454,22 @@ int mbox_index_rewrite(MailIndex *index)
 	failed = FALSE; seq = 1;
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
-		/* get offset to beginning of mail headers */
-		if (!mbox_mail_get_start_offset(index, rec, &offset)) {
-			/* fsck should have fixed it */
-			failed = TRUE;
-			break;
-		}
+		if (dirty_found || (rec->index_flags & INDEX_MAIL_FLAG_DIRTY)) {
+			/* get offset to beginning of mail headers */
+			if (!mbox_mail_get_start_offset(index, rec, &offset)) {
+				/* fsck should have fixed it */
+				failed = TRUE;
+				break;
+			}
 
-		if (offset + rec->header_size + rec->body_size > inbuf->size) {
-			index_set_corrupted(index, "Invalid message size");
-			failed = TRUE;
-			break;
+			if (offset + rec->header_size + rec->body_size > inbuf->size) {
+				index_set_corrupted(index,
+						    "Invalid message size");
+				failed = TRUE;
+				break;
+			}
+		} else {
+			offset = 0;
 		}
 
 		if (!dirty_found &&

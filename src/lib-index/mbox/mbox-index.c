@@ -228,7 +228,7 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 
 	case 'C':
 	case 'c':
-		if (name_len == 14 &&
+		if (name_len == 14 && ctx->set_read_limit &&
 		    strncasecmp(name, "Content-Length", 14) == 0) {
 			/* manual parsing, so we can deal with uoff_t */
 			ctx->content_length = 0;
