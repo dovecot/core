@@ -93,7 +93,8 @@ static int cmd_capability(struct imap_client *client)
 
 	auths = client_authenticate_get_capabilities(client->tls);
 	capability = t_strconcat("* CAPABILITY " CAPABILITY_STRING,
-				 ssl_initialized ? " STARTTLS" : "",
+				 (ssl_initialized && !client->tls) ?
+				 " STARTTLS" : "",
 				 disable_plaintext_auth && !client->tls ?
 				 " LOGINDISABLED" : "", auths, NULL);
 	client_send_line(client, capability);
