@@ -28,9 +28,10 @@ int message_content_parse_header(const char *value, ParseContentFunc func,
 
 	if (param_func != NULL) {
 		/* parse the parameters */
-		for (i++; i < ntokens; i = next) {
+		i++;
+		while (i < ntokens) {
 			/* find the next ';' */
-			for (next = i+1; next < ntokens; next++) {
+			for (next = i; next < ntokens; next++) {
 				if (tokens[next].token == ';')
 					break;
 			}
@@ -42,6 +43,8 @@ int message_content_parse_header(const char *value, ParseContentFunc func,
 				param_func(tokens + i, tokens + i + 2,
 					   next - (i+2), context);
 			}
+
+                        i = next+1;
 		}
 	}
 
