@@ -28,11 +28,8 @@ client_get_auth_flags(struct client *client)
 static void master_callback(struct client *client, int success)
 {
 	client->authenticating = FALSE;
-	i_free(client->auth_mech_name);
-	client->auth_mech_name = NULL;
-
 	client->sasl_callback(client, success ? SASL_SERVER_REPLY_SUCCESS :
-			      SASL_SERVER_REPLY_MASTER_FAILED, NULL);
+			      SASL_SERVER_REPLY_MASTER_FAILED, NULL, NULL);
 }
 
 static void authenticate_callback(struct auth_request *request, int status,
@@ -40,7 +37,8 @@ static void authenticate_callback(struct auth_request *request, int status,
 				  const char *const *args, void *context)
 {
 	struct client *client = context;
-	const char *error;
+	unsigned int i;
+	int nologin;
 
 	if (!client->authenticating) {
 		/* client aborted */
@@ -60,33 +58,47 @@ static void authenticate_callback(struct auth_request *request, int status,
 		}
 
 		client->sasl_callback(client, SASL_SERVER_REPLY_CONTINUE,
-				      data_base64);
+				      data_base64, NULL);
 		break;
 	case 1:
 		client->auth_request = NULL;
 
-		for (; *args != NULL; args++) {
-			if (strncmp(*args, "user=", 5) == 0) {
+		nologin = FALSE;
+		for (i = 0; args[i] != NULL; i++) {
+			if (strncmp(args[i], "user=", 5) == 0) {
 				i_free(client->virtual_user);
-				client->virtual_user = i_strdup(*args + 5);
+				client->virtual_user = i_strdup(args[i] + 5);
+			}
+			if (strcmp(args[i], "nologin") == 0) {
+				/* user can't login */
+				nologin = TRUE;
 			}
 		}
 
-		master_request_login(client, master_callback,
+		if (nologin) {
+			client->authenticating = FALSE;
+			client->sasl_callback(client, SASL_SERVER_REPLY_SUCCESS,
+					      NULL, args);
+		} else {
+			master_request_login(client, master_callback,
 				auth_client_request_get_server_pid(request),
 				auth_client_request_get_id(request));
+		}
 		break;
 	case -1:
 		client->auth_request = NULL;
 
-		/* see if we have error message */
-		if (data_base64 != NULL) {
-			error = t_strconcat("Authentication failed: ",
-					    (const char *)data_base64, NULL);
-		} else {
-			error = NULL;
+		/* base64 contains error message, if there is one */
+		if (verbose_auth && data_base64 != NULL) {
+			client_syslog(client, "Authenticate %s failed: %s",
+				      str_sanitize(client->auth_mech_name,
+						   MAX_MECH_NAME),
+				      (const char *)data_base64);
 		}
-		sasl_server_auth_cancel(client, error);
+
+		client->authenticating = FALSE;
+		client->sasl_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
+				      (const char *)data_base64, args);
 		break;
 	}
 }
@@ -101,6 +113,7 @@ void sasl_server_auth_begin(struct client *client,
 	const char *error;
 
 	client->authenticating = TRUE;
+	i_free(client->auth_mech_name);
 	client->auth_mech_name = i_strdup(mech_name);
 	client->sasl_callback = callback;
 
@@ -144,13 +157,12 @@ void sasl_server_auth_cancel(struct client *client, const char *reason)
 	}
 
 	client->authenticating = FALSE;
-	i_free(client->auth_mech_name);
-	client->auth_mech_name = NULL;
 
 	if (client->auth_request != NULL) {
 		auth_client_request_abort(client->auth_request);
 		client->auth_request = NULL;
 	}
 
-	client->sasl_callback(client, SASL_SERVER_REPLY_AUTH_FAILED, reason);
+	client->sasl_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
+			      reason, NULL);
 }

@@ -10,7 +10,7 @@ enum sasl_server_reply {
 
 typedef void sasl_server_callback_t(struct client *client,
 				    enum sasl_server_reply reply,
-				    const char *data);
+				    const char *data, const char *const *args);
 
 void sasl_server_auth_begin(struct client *client,
 			    const char *protocol, const char *mech_name,

@@ -201,19 +201,29 @@ int auth_client_input_fail(struct auth_server_connection *conn,
 {
 	struct auth_request *request;
         struct auth_server_connection *next;
-	const char *error;
+	const char *error, *const *list;
 	unsigned int id;
 
-	error = strchr(args, '\t');
-	if (error != NULL)
-		error++;
+	list = t_strsplit(args, "\t");
+	if (list[0] == NULL) {
+		i_error("BUG: Authentication server sent broken OK line");
+		return FALSE;
+	}
 
-	id = (unsigned int)strtoul(args, NULL, 10);
+	id = (unsigned int)strtoul(list[0], NULL, 10);
 
 	request = hash_lookup(conn->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		/* We've already destroyed the request */
 		return TRUE;
+	}
+
+	if (list[1] == NULL) {
+		error = NULL;
+		list++;
+	} else {
+		error = *list[1] == '\0' ? NULL : list[1];
+		list += 2;
 	}
 
 	hash_remove(conn->requests, POINTER_CAST(request->id));
@@ -241,7 +251,7 @@ int auth_client_input_fail(struct auth_server_connection *conn,
 		}
 	}
 
-	request->callback(request, -1, error, NULL, request->context);
+	request->callback(request, -1, error, list, request->context);
 	auth_client_request_free(request);
 	return TRUE;
 }

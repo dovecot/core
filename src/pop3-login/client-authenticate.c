@@ -77,8 +77,42 @@ static void client_auth_input(void *context)
 	safe_memset(line, 0, strlen(line));
 }
 
+static int client_handle_success_args(struct pop3_client *client,
+				      const char *const *args)
+{
+	const char *reason = NULL;
+	string_t *reply;
+	int nologin = FALSE;
+
+	for (; *args != NULL; args++) {
+		if (strcmp(*args, "nologin") == 0)
+			nologin = TRUE;
+		else if (strncmp(*args, "reason=", 7) == 0)
+			reason = *args + 7;
+	}
+
+	if (!nologin)
+		return FALSE;
+
+	reply = t_str_new(128);
+	str_append(reply, "-ERR ");
+	if (reason != NULL)
+		str_append(reply, reason);
+	else
+		str_append(reply, "Login disabled.");
+
+	client_send_line(client, str_c(reply));
+
+	/* get back to normal client input. */
+	if (client->io != NULL)
+		io_remove(client->io);
+	client->io = io_add(client->common.fd, IO_READ,
+			    client_input, client);
+	return TRUE;
+}
+
 static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
-			  const char *data)
+			  const char *data, const char *const *args)
 {
 	struct pop3_client *client = (struct pop3_client *)_client;
 	struct const_iovec iov[3];
@@ -87,6 +121,11 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 
 	switch (reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
+		if (args != NULL) {
+			if (client_handle_success_args(client, args))
+				break;
+		}
+
 		client_send_line(client, "+OK Logged in.");
 		client_destroy(client, t_strconcat(
 			"Login: ", client->common.virtual_user, NULL));

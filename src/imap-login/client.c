@@ -483,6 +483,7 @@ int client_unref(struct imap_client *client)
 	o_stream_unref(client->output);
 
 	i_free(client->common.virtual_user);
+	i_free(client->common.auth_mech_name);
 	i_free(client);
 
 	main_unref();
