@@ -280,6 +280,9 @@ int cmd_pass(struct pop3_client *client, const char *args)
 	str_append_c(plain_login, '\0');
 	str_append(plain_login, args);
 
+	i_free(client->last_user);
+	client->last_user = NULL;
+
 	base64 = buffer_create_dynamic(pool_datastack_create(),
         			MAX_BASE64_ENCODED_SIZE(plain_login->used));
 	base64_encode(plain_login->data, plain_login->used, base64);
