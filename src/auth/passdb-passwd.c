@@ -21,9 +21,7 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 
 	pw = getpwnam(request->user);
 	if (pw == NULL) {
-		if (errno != 0)
-			i_error("getpwnam(%s) failed: %m", request->user);
-		else if (verbose)
+		if (verbose)
 			i_info("passwd(%s): unknown user", request->user);
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;

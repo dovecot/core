@@ -18,9 +18,7 @@ static void passwd_lookup(const char *user, userdb_callback_t *callback,
 
 	pw = getpwnam(user);
 	if (pw == NULL) {
-		if (errno != 0)
-			i_error("getpwnam(%s) failed: %m", user);
-		else if (verbose)
+		if (verbose)
 			i_info("passwd(%s): unknown user", user);
 		callback(NULL, context);
 		return;

@@ -21,9 +21,7 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 
 	spw = getspnam(request->user);
 	if (spw == NULL) {
-		if (errno != 0)
-			i_error("getspnam(%s) failed: %m", request->user);
-		else if (verbose)
+		if (verbose)
 			i_info("shadow(%s): unknown user", request->user);
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
