@@ -188,7 +188,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 		if (keep_fields == cached_fields &&
 		    cache_rec->prev_offset == 0) {
 			/* just one unmodified block, save it */
-                        mail_index_update_cache(t, seq, output->offset, NULL);
+			mail_index_update_cache(t, seq, hdr.file_seq,
+						output->offset, NULL);
 			o_stream_send(output, cache_rec, cache_rec->size);
 
 			if ((cache_rec->size & 3) != 0) {
@@ -198,7 +199,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 		} else {
 			/* a) dropping fields
 			   b) multiple blocks, sort them into buffer */
-                        mail_index_update_cache(t, seq, output->offset, NULL);
+			mail_index_update_cache(t, seq, hdr.file_seq,
+						output->offset, NULL);
 
 			t_push();
 			cache_rec = mail_cache_compress_record(cache_view, seq,

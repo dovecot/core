@@ -369,6 +369,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 		   synced. */
 		for (; seq_idx < seq_limit; seq_idx++) {
 			mail_index_update_cache(ctx->trans, seq[seq_idx],
+						cache->hdr->file_seq,
 						write_offset, &old_offset);
 			if (old_offset != 0) {
 				/* we added records for this message multiple

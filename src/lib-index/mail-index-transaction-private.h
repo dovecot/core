@@ -22,7 +22,7 @@ struct mail_index_transaction {
 
 	buffer_t *extra_rec_updates[MAIL_INDEX_MAX_EXTRA_RECORDS];
 
-	uint32_t new_cache_file_seq;
+	uint32_t new_cache_file_seq, last_cache_file_seq;
 	buffer_t *cache_updates;
         struct mail_cache_transaction_ctx *cache_trans_ctx;
 

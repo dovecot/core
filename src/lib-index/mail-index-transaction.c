@@ -563,17 +563,43 @@ static int mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
 	return FALSE;
 }
 
+static void
+mail_index_transaction_reset_cache_updates(struct mail_index_transaction *t)
+{
+	struct mail_index_record *rec;
+	uint32_t seq;
+
+	if (t->last_cache_file_seq == 0)
+		return;
+
+	buffer_set_used_size(t->cache_updates, 0);
+
+	if (t->first_new_seq != 0) {
+		for (seq = t->first_new_seq; seq <= t->last_new_seq; seq++) {
+			rec = mail_index_transaction_lookup(t, seq);
+			rec->cache_offset = 0;
+		}
+	}
+}
+
 void mail_index_reset_cache(struct mail_index_transaction *t,
 			    uint32_t new_file_seq)
 {
+	mail_index_transaction_reset_cache_updates(t);
 	t->new_cache_file_seq = new_file_seq;
+        t->last_cache_file_seq = new_file_seq;
 }
 
-void mail_index_update_cache(struct mail_index_transaction *t,
-			     uint32_t seq, uint32_t offset,
+void mail_index_update_cache(struct mail_index_transaction *t, uint32_t seq,
+			     uint32_t file_seq, uint32_t offset,
 			     uint32_t *old_offset_r)
 {
 	struct mail_index_record *rec;
+
+	if (file_seq > t->last_cache_file_seq) {
+		mail_index_transaction_reset_cache_updates(t);
+                t->last_cache_file_seq = file_seq;
+	}
 
 	if (seq >= t->first_new_seq) {
 		/* just appended message, modify it directly */

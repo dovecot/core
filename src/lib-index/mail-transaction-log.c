@@ -883,62 +883,45 @@ static int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 	return ret;
 }
 
-static int mail_transaction_log_fix_appends(struct mail_transaction_log *log,
-					    struct mail_index_transaction *t)
+static void
+mail_transaction_log_append_fix(struct mail_index_transaction *t,
+				const struct mail_transaction_header *hdr,
+				const void *data)
 {
-	struct mail_transaction_log_view *sync_view;
+        const struct mail_transaction_append_header *append_hdr = data;
 	const struct mail_index_record *old, *old_end;
 	struct mail_index_record *appends, *end, *rec, *dest;
-        const struct mail_transaction_append_header *append_hdr;
-	const struct mail_transaction_header *hdr;
-	const void *data;
+	uint32_t record_size = t->append_record_size;
 	size_t size;
-	uint32_t record_size;
-	int ret, deleted = FALSE;
+	int deleted = FALSE;
 
 	if (t->appends == NULL)
-		return 0;
+		return;
 
-	record_size = t->append_record_size;
 	appends = buffer_get_modifyable_data(t->appends, &size);
 	end = PTR_OFFSET(appends, size);
 
 	if (appends == end)
-		return 0;
+		return;
 
 	/* we'll just check that none of the appends are already in
 	   transaction log. this could happen if we crashed before we had
 	   a chance to update index file */
-	sync_view = mail_transaction_log_view_open(log);
-	ret = mail_transaction_log_view_set(sync_view, t->view->log_file_seq,
-					    t->view->log_file_offset,
-					    log->head->hdr.file_seq,
-					    log->head->hdr.used_size,
-					    MAIL_TRANSACTION_TYPE_MASK);
-	while ((ret = mail_transaction_log_view_next(sync_view,
-						     &hdr, &data, NULL)) == 1) {
-		if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) !=
-		    MAIL_TRANSACTION_APPEND)
-			continue;
-
-                append_hdr = data;
-
-		old = CONST_PTR_OFFSET(data, sizeof(*append_hdr));
-		old_end = CONST_PTR_OFFSET(data, hdr->size);
-		while (old != old_end) {
-			/* appends are sorted */
-			for (rec = appends; rec != end; ) {
-				if (rec->uid >= old->uid) {
-					if (rec->uid == old->uid) {
-						rec->uid = 0;
-						deleted = TRUE;
-					}
-					break;
+	old = CONST_PTR_OFFSET(data, sizeof(*append_hdr));
+	old_end = CONST_PTR_OFFSET(data, hdr->size);
+	while (old != old_end) {
+		/* appends are sorted */
+		for (rec = appends; rec != end; ) {
+			if (rec->uid >= old->uid) {
+				if (rec->uid == old->uid) {
+					rec->uid = 0;
+					deleted = TRUE;
 				}
-				rec = PTR_OFFSET(rec, record_size);
+				break;
 			}
-                        old = CONST_PTR_OFFSET(old, append_hdr->record_size);
+			rec = PTR_OFFSET(rec, record_size);
 		}
+		old = CONST_PTR_OFFSET(old, append_hdr->record_size);
 	}
 
 	if (deleted) {
@@ -952,6 +935,44 @@ static int mail_transaction_log_fix_appends(struct mail_transaction_log *log,
 		}
 		buffer_set_used_size(t->appends,
 				     (char *)dest - (char *)appends);
+	}
+}
+
+static int mail_transaction_log_scan_pending(struct mail_transaction_log *log,
+					     struct mail_index_transaction *t)
+{
+	struct mail_transaction_log_view *sync_view;
+	const struct mail_transaction_header *hdr;
+	const void *data;
+	uint32_t max_cache_file_seq = 0;
+	int ret;
+
+	sync_view = mail_transaction_log_view_open(log);
+	ret = mail_transaction_log_view_set(sync_view, t->view->log_file_seq,
+					    t->view->log_file_offset,
+					    log->head->hdr.file_seq,
+					    log->head->hdr.used_size,
+					    MAIL_TRANSACTION_TYPE_MASK);
+	while ((ret = mail_transaction_log_view_next(sync_view,
+						     &hdr, &data, NULL)) == 1) {
+		switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
+		case MAIL_TRANSACTION_APPEND:
+			mail_transaction_log_append_fix(t, hdr, data);
+			break;
+		case MAIL_TRANSACTION_CACHE_RESET: {
+			const struct mail_transaction_cache_reset *reset = data;
+
+			max_cache_file_seq = reset->new_file_seq;
+			break;
+		}
+		}
+	}
+
+	/* make sure we're not writing cache_offsets to old cache file */
+	if (t->new_cache_file_seq == 0 && max_cache_file_seq != 0 &&
+	    max_cache_file_seq != t->last_cache_file_seq) {
+		buffer_free(t->cache_updates);
+		t->cache_updates = NULL;
 	}
 
 	mail_transaction_log_view_close(sync_view);
@@ -1107,10 +1128,15 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	file = log->head;
 	append_offset = file->hdr.used_size;
 
-	if (mail_transaction_log_fix_appends(log, t) < 0) {
-		if (!log->index->log_locked)
-			(void)mail_transaction_log_file_lock(file, F_UNLCK);
-		return -1;
+	if (t->appends != NULL ||
+	    (t->cache_updates != NULL && t->new_cache_file_seq == 0)) {
+		if (mail_transaction_log_scan_pending(log, t) < 0) {
+			if (!log->index->log_locked) {
+				(void)mail_transaction_log_file_lock(file,
+								     F_UNLCK);
+			}
+			return -1;
+		}
 	}
 
 	ret = 0;
