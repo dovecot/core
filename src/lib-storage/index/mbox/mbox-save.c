@@ -49,13 +49,14 @@ struct mbox_save_context {
 
 static char my_hostdomain[256] = "";
 
-static void write_error(struct mbox_save_context *ctx)
+static void write_error(struct mbox_save_context *ctx, int error)
 {
-	if (ENOSPACE(errno)) {
+	if (ENOSPACE(error)) {
 		mail_storage_set_error(ctx->ibox->box.storage,
 				       "Not enough disk space");
 	} else {
-                mbox_set_syscall_error(ctx->ibox, "write()");
+		errno = error;
+		mbox_set_syscall_error(ctx->ibox, "write()");
 	}
 }
 
@@ -81,7 +82,7 @@ static int mbox_seek_to_end(struct mbox_save_context *ctx, uoff_t *offset)
 
 	if (ch != '\n') {
 		if (write_full(fd, "\n", 1) < 0) {
-			write_error(ctx);
+			write_error(ctx, errno);
 			return -1;
 		}
 		*offset += 1;
@@ -93,7 +94,7 @@ static int mbox_seek_to_end(struct mbox_save_context *ctx, uoff_t *offset)
 static int mbox_append_lf(struct mbox_save_context *ctx)
 {
 	if (o_stream_send(ctx->output, "\n", 1) < 0) {
-		write_error(ctx);
+		write_error(ctx, ctx->output->stream_errno);
 		return -1;
 	}
 
@@ -130,7 +131,7 @@ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 	line = mbox_from_create(from_envelope, received_date);
 
 	if ((ret = o_stream_send_str(ctx->output, line)) < 0)
-		write_error(ctx);
+		write_error(ctx, ctx->output->stream_errno);
 	t_pop();
 
 	return ret;
@@ -156,7 +157,7 @@ static int mbox_write_content_length(struct mbox_save_context *ctx)
 		mbox_set_syscall_error(ctx->ibox, "o_stream_seek()");
 		ret = -1;
 	} else if (o_stream_send(ctx->output, str, len) < 0) {
-		write_error(ctx);
+		write_error(ctx, ctx->output->stream_errno);
 		ret = -1;
 	} else {
 		if (o_stream_seek(ctx->output, end_offset) < 0) {
