@@ -12,8 +12,11 @@
 #include "imap-envelope.h"
 #include "imap-bodystructure.h"
 
+#define DEFAULT_CHARSET \
+	"\"charset\" \"us-ascii\""
+
 #define EMPTY_BODYSTRUCTURE \
-        "(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0)"
+        "(\"text\" \"plain\" ("DEFAULT_CHARSET") NIL NIL \"7bit\" 0 0)"
 
 struct message_part_body_data {
 	pool_t pool;
@@ -29,6 +32,8 @@ struct message_part_body_data {
 	char *content_language;
 
 	struct message_part_envelope_data *envelope;
+
+	unsigned int charset_found:1;
 };
 
 static void part_write_bodystructure(struct message_part *part,
@@ -65,6 +70,9 @@ static void parse_save_params_list(const unsigned char *name, size_t name_len,
 
 	if (str_len(data->str) != 0)
 		str_append_c(data->str, ' ');
+
+	if (name_len == 7 && memcasecmp(name, "charset", 7) == 0)
+		data->charset_found = TRUE;
 
 	imap_quote_append(data->str, name, name_len);
 	str_append_c(data->str, ' ');
@@ -182,6 +190,13 @@ static void parse_content_header(struct message_part_body_data *d,
 			message_content_parse_header(value, value_len,
 						     parse_content_type,
 						     parse_save_params_list, d);
+			if (!d->charset_found &&
+			    strncasecmp(d->content_type, "\"text\"", 6) == 0) {
+				/* set a default charset */
+				if (str_len(d->str) != 0)
+					str_append_c(d->str, ' ');
+				str_append(d->str, DEFAULT_CHARSET);
+			}
 			d->content_type_params =
 				p_strdup_empty(pool, str_c(d->str));
 		}
@@ -366,9 +381,13 @@ static void part_write_body(struct message_part *part,
 
 	/* ("content type param key" "value" ...) */
 	str_append_c(str, ' ');
-	if (data->content_type_params == NULL)
-		str_append(str, "NIL");
-	else {
+	if (data->content_type_params == NULL) {
+		if (data->content_type != NULL &&
+		    strncasecmp(data->content_type, "\"text\"", 6) != 0)
+			str_append(str, "NIL");
+		else
+			str_append(str, "("DEFAULT_CHARSET")");
+	} else {
 		str_append_c(str, '(');
 		str_append(str, data->content_type_params);
 		str_append_c(str, ')');
