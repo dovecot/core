@@ -7,7 +7,8 @@ enum maildir_uidlist_rec_flag {
 	MAILDIR_UIDLIST_REC_FLAG_NEW_DIR	= 0x01,
 	MAILDIR_UIDLIST_REC_FLAG_MOVED		= 0x02,
 	MAILDIR_UIDLIST_REC_FLAG_RECENT		= 0x04,
-	MAILDIR_UIDLIST_REC_FLAG_NONSYNCED	= 0x08
+	MAILDIR_UIDLIST_REC_FLAG_NONSYNCED	= 0x08,
+	MAILDIR_UIDLIST_REC_FLAG_RACING		= 0x10
 };
 
 int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist);
@@ -46,6 +47,10 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 /* Returns 1 = ok, 0 = uidlist is locked, don't try syncing any further */
 int maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx);
 int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx);
+
+void maildir_uidlist_add_flags(struct maildir_uidlist *uidlist,
+			       const char *filename,
+			       enum maildir_uidlist_rec_flag flags);
 
 /* List all maildir files. */
 struct maildir_uidlist_iter_ctx *

@@ -848,6 +848,18 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
 	return ret;
 }
 
+void maildir_uidlist_add_flags(struct maildir_uidlist *uidlist,
+			       const char *filename,
+			       enum maildir_uidlist_rec_flag flags)
+{
+	struct maildir_uidlist_rec *rec;
+
+	rec = hash_lookup(uidlist->files, filename);
+	i_assert(rec != NULL);
+
+	rec->flags |= flags;
+}
+
 struct maildir_uidlist_iter_ctx *
 maildir_uidlist_iter_init(struct maildir_uidlist *uidlist)
 {

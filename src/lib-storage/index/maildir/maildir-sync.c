@@ -629,15 +629,33 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 
 		if (seq > hdr->messages_count) {
 			if (uid < hdr->next_uid) {
-				/* message not in index, but next_uid header
-				   is updated? shouldn't really happen.. */
-				mail_storage_set_critical(ibox->box.storage,
-					"Maildir sync: UID < next_uid "
-					"(%u < %u, file = %s)",
-					uid, hdr->next_uid, filename);
-				mail_index_mark_corrupted(ibox->index);
-				ret = -1;
-				break;
+				/* most likely a race condition: we read the
+				   maildir, then someone else expunged messages
+				   and committed changes to index. so, this
+				   message shouldn't actually exist. mark it
+				   racy and check in next sync.
+
+				   the difference between this and the later
+				   check is that this one happens when messages
+				   are expunged from the end */
+				if ((uflags &
+				     MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
+					mail_storage_set_critical(
+						ibox->box.storage,
+						"Maildir sync: UID < next_uid "
+						"(%u < %u, file = %s)",
+						uid, hdr->next_uid, filename);
+					mail_index_mark_corrupted(ibox->index);
+					ret = -1;
+					break;
+				}
+				ibox->dirty_cur_time = ioloop_time;
+				maildir_uidlist_add_flags(ibox->uidlist,
+					filename,
+					MAILDIR_UIDLIST_REC_FLAG_RACING);
+
+				seq--;
+				continue;
 			}
 
 			mail_index_append(trans, uid, &seq);
@@ -661,20 +679,9 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			/* most likely a race condition: we read the
 			   maildir, then someone else expunged messages and
 			   committed changes to index. so, this message
-			   shouldn't actually exist. check to be sure.
-
-			   FIXME: we could avoid this stat() and just mark
-			   this check in the uidlist and check it at next
-			   sync.. */
-			struct stat st;
-			const char *str;
-
-			t_push();
-			str = t_strdup_printf("%s/%s",
-				(uflags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) ?
-				ctx->new_dir : ctx->cur_dir, filename);
-			if (stat(str, &st) == 0) {
-				t_pop();
+			   shouldn't actually exist. mark it racy and check
+			   in next sync. */
+			if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
 				mail_storage_set_critical(ibox->box.storage,
 					"Maildir sync: UID inserted in the "
 					"middle of mailbox "
@@ -683,8 +690,11 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 				mail_index_mark_corrupted(ibox->index);
 				ret = -1;
 				break;
-			}
-			t_pop();
+			 }
+
+			ibox->dirty_cur_time = ioloop_time;
+			maildir_uidlist_add_flags(ibox->uidlist, filename,
+				MAILDIR_UIDLIST_REC_FLAG_RACING);
 
 			seq--;
 			continue;
