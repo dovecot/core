@@ -365,7 +365,7 @@ int mail_index_lock_exclusive(struct mail_index *index,
 
 static int mail_index_copy_lock_finish(struct mail_index *index)
 {
-	if (index->shared_lock_count > 0) {
+	if (index->shared_lock_count > 0 && !index->fcntl_locks_disable) {
 		/* leave ourself shared locked. */
 		if (file_try_lock(index->fd, F_RDLCK) <= 0) {
 			mail_index_file_set_syscall_error(index,
