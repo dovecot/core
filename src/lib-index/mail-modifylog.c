@@ -116,12 +116,12 @@ static int mail_modifylog_have_other_users(MailModifyLog *log)
 	return 0;
 }
 
-static int mmap_update(MailModifyLog *log)
+static int mmap_update(MailModifyLog *log, int forced)
 {
 	ModifyLogHeader *hdr;
 	unsigned int extra;
 
-	if (log->header != NULL &&
+	if (!forced && log->header != NULL &&
 	    log->mmap_full_length >= log->header->used_file_size)
 		return TRUE;
 
@@ -321,7 +321,7 @@ int mail_modifylog_create(MailIndex *index)
 
 		if (!modifylog_open_and_init_file(log, path) ||
 		    !mail_modifylog_wait_lock(log) ||
-		    !mmap_update(log)) {
+		    !mmap_update(log, TRUE)) {
 			/* fatal failure */
 			mail_modifylog_free(log);
 			return FALSE;
@@ -429,7 +429,7 @@ int mail_modifylog_open_or_create(MailIndex *index)
 
 	if (!mail_modifylog_find_or_create(log) ||
 	    !mail_modifylog_wait_lock(log) ||
-	    !mmap_update(log)) {
+	    !mmap_update(log, TRUE)) {
 		/* fatal failure */
 		mail_modifylog_free(log);
 		return FALSE;
@@ -494,7 +494,7 @@ static int mail_modifylog_grow(MailModifyLog *log)
 		return modifylog_set_syscall_error(log, "file_set_size()");
 	}
 
-	if (!mmap_update(log))
+	if (!mmap_update(log, TRUE))
 		return FALSE;
 
 	return TRUE;
@@ -526,8 +526,8 @@ static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord *rec,
 	}
 
 	i_assert(log->header->used_file_size == log->mmap_used_length);
-	i_assert(log->mmap_used_length <=
-		 log->mmap_full_length - sizeof(ModifyLogRecord));
+	i_assert(log->mmap_used_length + sizeof(ModifyLogRecord) <=
+		 log->mmap_full_length);
 
 	destrec = (ModifyLogRecord *) ((char *) log->mmap_base +
 				       log->mmap_used_length);
@@ -580,7 +580,7 @@ ModifyLogRecord *mail_modifylog_get_nonsynced(MailModifyLog *log,
 	i_assert(log->index->lock_type != MAIL_LOCK_UNLOCK);
 
 	*count = 0;
-	if (!mmap_update(log))
+	if (!mmap_update(log, FALSE))
 		return NULL;
 
 	i_assert(log->synced_position <= log->mmap_used_length);
@@ -616,7 +616,7 @@ int mail_modifylog_mark_synced(MailModifyLog *log)
 {
 	i_assert(log->index->lock_type != MAIL_LOCK_UNLOCK);
 
-	if (!mmap_update(log))
+	if (!mmap_update(log, FALSE))
 		return FALSE;
 
 	if (log->header->sync_id == SYNC_ID_FULL) {
@@ -664,7 +664,7 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 
 	*expunges_before = 0;
 
-	if (!mmap_update(log))
+	if (!mmap_update(log, FALSE))
 		return NULL;
 
 	/* find the first expunged message that affects our range */
@@ -746,7 +746,7 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 
 	i_assert(log->index->lock_type != MAIL_LOCK_UNLOCK);
 
-	if (!mmap_update(log))
+	if (!mmap_update(log, FALSE))
 		return NULL;
 
 	/* find the first expunged message that affects our range */
