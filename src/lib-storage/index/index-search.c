@@ -697,15 +697,15 @@ static int search_get_seqset(struct index_search_context *ctx,
 		return -1;
 	}
 
+	if (search_parse_msgset_args(ctx->ibox, hdr, args,
+				     &ctx->seq1, &ctx->seq2) < 0)
+		return -1;
+
 	if (hdr->messages_count == 0) {
 		ctx->seq1 = 1;
 		ctx->seq2 = 0;
 		return 0;
 	}
-
-	if (search_parse_msgset_args(ctx->ibox, hdr, args,
-				     &ctx->seq1, &ctx->seq2) < 0)
-		return -1;
 
 	if (ctx->seq1 == 0) {
 		ctx->seq1 = 1;
