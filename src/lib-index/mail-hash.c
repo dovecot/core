@@ -194,9 +194,17 @@ static MailHash *mail_hash_new(MailIndex *index)
 
 int mail_hash_create(MailIndex *index)
 {
+	MailHash *hash;
+
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	return mail_hash_rebuild(mail_hash_new(index));
+	hash = mail_hash_new(index);
+	if (!mail_hash_rebuild(hash) || !hash_verify_header(index->hash)) {
+		mail_hash_free(hash);
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 int mail_hash_open_or_create(MailIndex *index)

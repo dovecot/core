@@ -126,10 +126,11 @@ int cmd_append(Client *client)
 	if (box != client->mailbox)
 		box->close(box);
 
-	if (failed)
-		return FALSE;
-
-	client_sync_mailbox(client);
-	client_send_tagline(client, "OK Append completed.");
+	if (failed) {
+		client_send_storage_error(client);
+	} else {
+		client_sync_mailbox(client);
+		client_send_tagline(client, "OK Append completed.");
+	}
 	return TRUE;
 }

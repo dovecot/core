@@ -122,7 +122,7 @@ static int mmap_update(MailModifyLog *log)
 	unsigned int extra;
 
 	if (log->header != NULL &&
-	    log->mmap_full_length == log->header->used_file_size)
+	    log->mmap_full_length >= log->header->used_file_size)
 		return TRUE;
 
 	i_assert(!log->anon_mmap);
@@ -232,11 +232,17 @@ static int mail_modifylog_init_fd(MailModifyLog *log, int fd,
 
         mail_modifylog_init_header(log, &hdr);
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
+		if (errno == ENOSPC)
+			log->index->nodiskspace = TRUE;
+
 		index_file_set_syscall_error(log->index, path, "write_full()");
 		return FALSE;
 	}
 
 	if (file_set_size(fd, MODIFY_LOG_INITIAL_SIZE) < 0) {
+		if (errno == ENOSPC)
+			log->index->nodiskspace = TRUE;
+
 		index_file_set_syscall_error(log->index, path,
 					     "file_set_size()");
 		return FALSE;
@@ -258,6 +264,9 @@ static int modifylog_mark_full(MailModifyLog *log)
 static int modifylog_open_and_init_file(MailModifyLog *log, const char *path)
 {
 	int fd, ret;
+
+	if (log->index->nodiskspace)
+		return FALSE;
 
 	fd = open(path, O_RDWR | O_CREAT, 0660);
 	if (fd == -1) {
@@ -303,6 +312,7 @@ int mail_modifylog_create(MailIndex *index)
 
 		mail_modifylog_init_header(log, log->mmap_base);
 		log->header = log->mmap_base;
+		log->mmap_used_length = log->header->used_file_size;
 
 		log->anon_mmap = TRUE;
 		log->filepath = i_strdup("(in-memory modify log)");
@@ -327,7 +337,8 @@ int mail_modifylog_create(MailIndex *index)
 static int mail_modifylog_open_and_verify(MailModifyLog *log, const char *path)
 {
 	ModifyLogHeader hdr;
-	int fd, ret;
+	ssize_t ret;
+	int fd;
 
 	fd = open(path, O_RDWR);
 	if (fd == -1) {
@@ -338,10 +349,14 @@ static int mail_modifylog_open_and_verify(MailModifyLog *log, const char *path)
 		return -1;
 	}
 
-	ret = 1;
-	if (read(fd, &hdr, sizeof(hdr)) != sizeof(hdr)) {
+	ret = read(fd, &hdr, sizeof(hdr));
+	if (ret < 0)
 		index_file_set_syscall_error(log->index, path, "read()");
+	else if (ret != sizeof(hdr)) {
+		index_set_error(log->index, "Corrupted modify log %s ", path);
 		ret = -1;
+
+		(void)unlink(path);
 	}
 
 	if (ret != -1 && hdr.indexid != log->index->indexid) {
@@ -398,8 +413,11 @@ static int mail_modifylog_find_or_create(MailModifyLog *log)
 		/* maybe the file was just switched, check the logs again */
 	}
 
-	index_set_error(log->index, "We could neither use nor create "
-			"the modify log for index %s", log->index->filepath);
+	if (!log->index->nodiskspace) {
+		index_set_error(log->index, "We could neither use nor create "
+				"the modify log for index %s",
+				log->index->filepath);
+	}
 	return FALSE;
 }
 

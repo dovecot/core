@@ -376,11 +376,12 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 
 	if (fd == -1) {
 		/* no space for index files, keep it in memory */
-		index->mmap_used_length = sizeof(MailIndexHeader);
 		index->mmap_full_length = INDEX_FILE_MIN_SIZE;
 		index->mmap_base = mmap_anon(index->mmap_full_length);
 
 		memcpy(index->mmap_base, &hdr, sizeof(hdr));
+		index->header = index->mmap_base;
+		index->mmap_used_length = index->header->used_file_size;
 
 		index->anon_mmap = TRUE;
 		index->filepath = i_strdup("(in-memory index)");

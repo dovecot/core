@@ -242,11 +242,17 @@ int maildir_index_sync(MailIndex *index)
 	struct stat sti, std;
 	struct utimbuf ut;
 	const char *cur_dir, *new_dir;
+	time_t index_mtime;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
-	if (fstat(index->fd, &sti) < 0)
-		return index_set_syscall_error(index, "fstat()");
+	if (index->fd == -1)
+		index_mtime = index->file_sync_stamp;
+	else {
+		if (fstat(index->fd, &sti) < 0)
+			return index_set_syscall_error(index, "fstat()");
+		index_mtime = sti.st_mtime;
+	}
 
 	/* cur/ and new/ directories can have new mail - sync the cur/ first
 	   so it'll be a bit bit faster since we haven't yet added the new
@@ -255,7 +261,7 @@ int maildir_index_sync(MailIndex *index)
 	if (stat(cur_dir, &std) < 0)
 		return index_file_set_syscall_error(index, cur_dir, "stat()");
 
-	if (std.st_mtime != sti.st_mtime) {
+	if (std.st_mtime != index_mtime) {
 		if (!maildir_index_sync_dir(index, cur_dir))
 			return FALSE;
 	}
@@ -265,7 +271,7 @@ int maildir_index_sync(MailIndex *index)
 	if (stat(new_dir, &std) < 0)
 		return index_file_set_syscall_error(index, new_dir, "stat()");
 
-	if (std.st_mtime != sti.st_mtime) {
+	if (std.st_mtime != index_mtime) {
 		if (!maildir_index_build_dir(index, new_dir, cur_dir))
 			return FALSE;
 
@@ -296,7 +302,7 @@ int maildir_index_sync(MailIndex *index)
 		return index_file_set_syscall_error(index, cur_dir, "stat()");
 	index->file_sync_stamp = std.st_mtime;
 
-	if (index->lock_type == MAIL_LOCK_UNLOCK) {
+	if (index->fd != -1 && index->lock_type == MAIL_LOCK_UNLOCK) {
 		/* no changes, we need to update index's timestamp
 		   ourself to get it changed */
 		ut.actime = ioloop_time;

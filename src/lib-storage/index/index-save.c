@@ -43,10 +43,11 @@ int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 	unsigned char *data;
 	size_t size;
 	ssize_t ret;
-	int last_cr;
+	int last_cr, failed;
 
 	last_cr = FALSE;
 
+	failed = FALSE;
 	while (data_size > 0) {
 		ret = io_buffer_read_blocking(buf, SSIZE_T_MAX);
 		if (ret < 0) {
@@ -60,7 +61,7 @@ int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 			size = (size_t)data_size;
 		data_size -= size;
 
-		if (!write_with_crlf(fd, data, size, &last_cr)) {
+		if (!failed && !write_with_crlf(fd, data, size, &last_cr)) {
 			if (errno == ENOSPC) {
 				mail_storage_set_error(storage,
 						       "Not enough disk space");
@@ -69,11 +70,11 @@ int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 							  "write() failed for "
 							  "file %s: %m", path);
 			}
-			return FALSE;
+			failed = TRUE;
 		}
 
 		io_buffer_skip(buf, size);
 	}
 
-	return TRUE;
+	return !failed;
 }

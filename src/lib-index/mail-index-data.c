@@ -274,6 +274,7 @@ int mail_index_data_create(MailIndex *index)
 
 		memcpy(data->mmap_base, &hdr, sizeof(hdr));
 		data->header = data->mmap_base;
+		data->mmap_used_length = data->header->used_file_size;
 
 		data->anon_mmap = TRUE;
 		data->filepath = i_strdup("(in-memory index data)");

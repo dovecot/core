@@ -124,7 +124,6 @@ void mail_index_close(MailIndex *index)
 
 	index->opened = FALSE;
 	index->inconsistent = FALSE;
-	index->nodiskspace = FALSE;
 
 	index->lock_type = MAIL_LOCK_UNLOCK;
 	index->header = NULL;
