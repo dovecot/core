@@ -385,6 +385,7 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 {
 	struct auth_process_group *group;
 	const char *path;
+	mode_t old_umask;
 
 	group = i_new(struct auth_process_group, 1);
 	group->set = auth_set;
@@ -393,9 +394,11 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 	path = t_strconcat(auth_set->parent->defaults->login_dir, "/",
 			   auth_set->name, NULL);
 	(void)unlink(path);
-        (void)umask(0117); /* we want 0660 mode for the socket */
 
+	old_umask = umask(0117); /* we want 0660 mode for the socket */
 	group->listen_fd = net_listen_unix(path);
+	umask(old_umask);
+
 	if (group->listen_fd < 0)
 		i_fatal("Can't listen in UNIX socket %s: %m", path);
 	net_set_nonblock(group->listen_fd, TRUE);
