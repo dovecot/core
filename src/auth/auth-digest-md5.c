@@ -548,15 +548,14 @@ auth_digest_md5_continue(struct cookie_data *cookie,
 		reply.result = AUTH_RESULT_CONTINUE;
 
 		reply.data_size = strlen(auth->rspauth);
-		callback(&reply, (const unsigned char *) auth->rspauth,
-			 context);
+		callback(&reply, auth->rspauth, context);
 		auth->authenticated = TRUE;
 		return;
 	}
 
 	/* failed */
 	reply.result = AUTH_RESULT_FAILURE;
-	callback(&reply, (const unsigned char *) error, context);
+	callback(&reply, error, context);
 	cookie_remove(cookie->cookie);
 }
 
@@ -614,12 +613,12 @@ static void auth_digest_md5_init(unsigned int login_pid,
 
 	challenge = get_digest_challenge(auth);
 	reply.data_size = strlen(challenge);
-	callback(&reply, (const unsigned char *) challenge, context);
+	callback(&reply, challenge, context);
 
 	t_pop();
 }
 
 struct auth_module auth_digest_md5 = {
-	AUTH_METHOD_DIGEST_MD5,
+	AUTH_MECH_DIGEST_MD5,
 	auth_digest_md5_init
 };

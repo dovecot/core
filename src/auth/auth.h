@@ -4,17 +4,17 @@
 #include "auth-interface.h"
 
 typedef void (*AuthCallback)(struct auth_reply_data *reply,
-			     const unsigned char *data, void *context);
+			     const void *data, void *context);
 
 struct auth_module {
-	enum auth_method method;
+	enum auth_mech mech;
 
 	void (*init)(unsigned int login_pid,
 		     struct auth_init_request_data *request,
 		     AuthCallback callback, void *context);
 };
 
-extern enum auth_method auth_methods;
+extern enum auth_mech auth_mechanisms;
 extern const char *const *auth_realms;
 
 void auth_register_module(struct auth_module *module);
@@ -27,6 +27,11 @@ void auth_continue_request(unsigned int login_pid,
 			   struct auth_continued_request_data *request,
 			   const unsigned char *data,
 			   AuthCallback callback, void *context);
+
+void auth_cyrus_sasl_init_lib(void);
+void auth_cyrus_sasl_init(unsigned int login_pid,
+			  struct auth_init_request_data *request,
+			  AuthCallback callback, void *context);
 
 void auth_init(void);
 void auth_deinit(void);

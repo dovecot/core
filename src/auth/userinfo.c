@@ -49,10 +49,10 @@ void userinfo_init(void)
 		userinfo->init(args);
 	}
 
-	if ((auth_methods & AUTH_METHOD_PLAIN) &&
+	if ((auth_mechanisms & AUTH_MECH_PLAIN) &&
 	    userinfo->verify_plain == NULL)
 		i_fatal("Userinfo %s doesn't support PLAIN method", name);
-	if ((auth_methods & AUTH_METHOD_DIGEST_MD5) &&
+	if ((auth_mechanisms & AUTH_MECH_DIGEST_MD5) &&
 	    userinfo->lookup_digest_md5 == NULL)
 		i_fatal("Userinfo %s doesn't support DIGEST-MD5 method", name);
 }

@@ -34,7 +34,7 @@ static struct auth_init_data auth_init_data;
 static struct login_connection *connections;
 
 static void request_callback(struct auth_reply_data *reply,
-			     const unsigned char *data, void *context)
+			     const void *data, void *context)
 {
 	struct login_connection *conn = context;
 
@@ -226,7 +226,7 @@ void login_connections_init(void)
 
 	memset(&auth_init_data, 0, sizeof(auth_init_data));
 	auth_init_data.auth_process = atoi(env);
-	auth_init_data.auth_methods = auth_methods;
+	auth_init_data.auth_mechanisms = auth_mechanisms;
 
 	connections = NULL;
 }

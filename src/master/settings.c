@@ -170,6 +170,18 @@ static void get_login_uid(void)
 	set_login_gid = pw->pw_gid;
 }
 
+static const char *get_bool(const char *value, int *result)
+{
+	if (strcasecmp(value, "yes") == 0)
+		*result = TRUE;
+	else if (strcasecmp(value, "no") == 0)
+		*result = FALSE;
+	else
+		return t_strconcat("Invalid boolean: ", value, NULL);
+
+	return NULL;
+}
+
 static void auth_settings_verify(void)
 {
 	struct auth_config *auth;
@@ -328,7 +340,7 @@ static struct auth_config *auth_config_new(const char *name)
 static void auth_config_free(struct auth_config *auth)
 {
 	i_free(auth->name);
-	i_free(auth->methods);
+	i_free(auth->mechanisms);
 	i_free(auth->realms);
 	i_free(auth->userinfo);
 	i_free(auth->userinfo_args);
@@ -366,8 +378,10 @@ static const char *parse_auth(const char *key, const char *value)
 		return "Authentication process name not defined yet";
 
 	/* check the easy string values first */
-	if (strcmp(key, "auth_methods") == 0)
-		ptr = &auth->methods;
+	if (strcmp(key, "auth_mechanisms") == 0)
+		ptr = &auth->mechanisms;
+	else if (strcmp(key, "auth_methods") == 0) /* backwards compatibility */
+		ptr = &auth->mechanisms;
 	else if (strcmp(key, "auth_realms") == 0)
 		ptr = &auth->realms;
 	else if (strcmp(key, "auth_executable") == 0)
@@ -399,6 +413,9 @@ static const char *parse_auth(const char *key, const char *value)
 		auth->userinfo_args = i_strdup(p);
 		return NULL;
 	}
+
+	if (strcmp(key, "auth_cyrus_sasl") == 0)
+		return get_bool(value, &auth->use_cyrus_sasl);
 
 	if (strcmp(key, "auth_count") == 0) {
 		int num;
@@ -445,14 +462,7 @@ static const char *parse_setting(const char *key, const char *value)
 							   value, NULL);
 				break;
 			case SET_BOOL:
-				if (strcasecmp(value, "yes") == 0)
-					*((int *) set->ptr) = TRUE;
-				else if (strcasecmp(value, "no") == 0)
-					*((int *) set->ptr) = FALSE;
-				else
-					return t_strconcat("Invalid boolean: ",
-							   value, NULL);
-				break;
+				return get_bool(value, set->ptr);
 			}
 			return NULL;
 		}

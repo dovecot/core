@@ -254,11 +254,13 @@ static pid_t create_auth_process(struct auth_config *config)
 
 	/* set other environment */
 	env_put(t_strconcat("AUTH_PROCESS=", dec2str(getpid()), NULL));
-	env_put(t_strconcat("METHODS=", config->methods, NULL));
+	env_put(t_strconcat("MECHANISMS=", config->mechanisms, NULL));
 	env_put(t_strconcat("REALMS=", config->realms, NULL));
 	env_put(t_strconcat("USERINFO=", config->userinfo, NULL));
-	env_put(t_strconcat("USERINFO_ARGS=", config->userinfo_args,
-				    NULL));
+	env_put(t_strconcat("USERINFO_ARGS=", config->userinfo_args, NULL));
+
+	if (config->use_cyrus_sasl)
+		env_put("USE_CYRUS_SASL=1");
 
 	restrict_process_size(config->process_size);
 

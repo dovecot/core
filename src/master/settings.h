@@ -64,12 +64,14 @@ struct auth_config {
 	struct auth_config *next;
 
 	char *name;
-	char *methods;
+	char *mechanisms;
 	char *realms;
 	char *userinfo, *userinfo_args;
 	char *executable;
 	char *user;
 	char *chroot;
+
+	int use_cyrus_sasl;
 
 	unsigned int count;
 	unsigned int process_size;

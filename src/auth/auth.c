@@ -12,9 +12,10 @@ struct auth_module_list {
 	struct auth_module module;
 };
 
-enum auth_method auth_methods;
+enum auth_mech auth_mechanisms;
 const char *const *auth_realms;
 
+static int set_use_cyrus_sasl;
 static struct auth_module_list *auth_modules;
 static struct auth_reply_data failure_reply;
 
@@ -22,9 +23,9 @@ void auth_register_module(struct auth_module *module)
 {
 	struct auth_module_list *list;
 
-	i_assert((auth_methods & module->method) == 0);
+	i_assert((auth_mechanisms & module->mech) == 0);
 
-	auth_methods |= module->method;
+	auth_mechanisms |= module->mech;
 
 	list = i_new(struct auth_module_list, 1);
 	memcpy(&list->module, module, sizeof(struct auth_module));
@@ -37,13 +38,13 @@ void auth_unregister_module(struct auth_module *module)
 {
 	struct auth_module_list **pos, *list;
 
-	if ((auth_methods & module->method) == 0)
+	if ((auth_mechanisms & module->mech) == 0)
 		return; /* not registered */
 
-        auth_methods &= ~module->method;
+        auth_mechanisms &= ~module->mech;
 
 	for (pos = &auth_modules; *pos != NULL; pos = &(*pos)->next) {
-		if ((*pos)->module.method == module->method) {
+		if ((*pos)->module.mech == module->mech) {
 			list = *pos;
 			*pos = (*pos)->next;
 			i_free(list);
@@ -58,23 +59,29 @@ void auth_init_request(unsigned int login_pid,
 {
 	struct auth_module_list *list;
 
-	if ((auth_methods & request->method) == 0) {
-		/* unsupported method */
+	if ((auth_mechanisms & request->mech) == 0) {
+		/* unsupported mechanism */
 		i_error("BUG: imap-login requested unsupported "
-			"auth method %d", request->method);
+			"auth mechanism %d", request->mech);
 		failure_reply.id = request->id;
 		callback(&failure_reply, NULL, context);
 		return;
 	}
 
+#ifdef USE_CYRUS_SASL2
+	if (set_use_cyrus_sasl) {
+		auth_cyrus_sasl_init(login_pid, request, callback, context);
+		return;
+	}
+#endif
+
 	for (list = auth_modules; list != NULL; list = list->next) {
-		if (list->module.method == request->method) {
+		if (list->module.mech == request->mech) {
 			list->module.init(login_pid, request,
 					  callback, context);
 			return;
 		}
 	}
-
 	i_unreached();
 }
 
@@ -103,31 +110,32 @@ extern struct auth_module auth_digest_md5;
 
 void auth_init(void)
 {
-	const char *const *methods;
+	const char *const *mechanisms;
 	const char *env;
 
         auth_modules = NULL;
-	auth_methods = 0;
+	auth_mechanisms = 0;
 
 	memset(&failure_reply, 0, sizeof(failure_reply));
 	failure_reply.result = AUTH_RESULT_FAILURE;
 
-	/* register wanted methods */
-	env = getenv("METHODS");
+	/* register wanted mechanisms */
+	env = getenv("MECHANISMS");
 	if (env == NULL || *env == '\0')
-		i_fatal("METHODS environment is unset");
+		i_fatal("MECHANISMS environment is unset");
 
-	methods = t_strsplit(env, " ");
-	while (*methods != NULL) {
-		if (strcasecmp(*methods, "plain") == 0)
+	mechanisms = t_strsplit(env, " ");
+	while (*mechanisms != NULL) {
+		if (strcasecmp(*mechanisms, "PLAIN") == 0)
 			auth_register_module(&auth_plain);
-		else if (strcasecmp(*methods, "digest-md5") == 0)
+		else if (strcasecmp(*mechanisms, "DIGEST-MD5") == 0)
 			auth_register_module(&auth_digest_md5);
 		else {
-			i_fatal("Unknown authentication method '%s'",
-				*methods);
+			i_fatal("Unknown authentication mechanism '%s'",
+				*mechanisms);
 		}
-		methods++;
+
+		mechanisms++;
 	}
 
 	/* get our realm - note that we allocate from data stack so
@@ -137,6 +145,13 @@ void auth_init(void)
 	if (env == NULL)
 		env = "";
 	auth_realms = t_strsplit(env, " ");
+
+	set_use_cyrus_sasl = getenv("USE_CYRUS_SASL") != NULL;
+
+#ifdef USE_CYRUS_SASL2
+	if (set_use_cyrus_sasl)
+		auth_cyrus_sasl_init_lib();
+#endif
 }
 
 void auth_deinit(void)

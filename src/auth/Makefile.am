@@ -9,10 +9,12 @@ INCLUDES = \
 imap_auth_LDADD = \
 	../lib/liblib.a \
 	$(USERINFO_LIBS) \
+	$(SASL_LIBS) \
 	$(VPOPMAIL_LIBS)
 
 imap_auth_SOURCES = \
 	auth.c \
+	auth-cyrus-sasl2.c \
 	auth-plain.c \
 	auth-digest-md5.c \
 	cookie.c \

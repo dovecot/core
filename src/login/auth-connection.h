@@ -11,7 +11,7 @@ typedef void (*AuthCallback)(struct auth_request *request,
 			     size_t reply_data_size, void *context);
 
 struct auth_request {
-        enum auth_method method;
+        enum auth_mech mech;
         struct auth_connection *conn;
 
 	unsigned int id;
@@ -23,9 +23,9 @@ struct auth_request {
 	unsigned int init_sent:1;
 };
 
-extern enum auth_method available_auth_methods;
+extern enum auth_mech available_auth_mechs;
 
-int auth_init_request(enum auth_method method, AuthCallback callback,
+int auth_init_request(enum auth_mech mech, AuthCallback callback,
 		      void *context, const char **error);
 
 void auth_continue_request(struct auth_request *request,

@@ -27,7 +27,7 @@ struct auth_connection {
 	struct ostream *output;
 
 	unsigned int auth_process;
-	enum auth_method available_auth_methods;
+	enum auth_mech available_auth_mechs;
         struct auth_reply_data in_reply;
 
         struct hash_table *requests;
@@ -36,7 +36,7 @@ struct auth_connection {
 	unsigned int in_reply_received:1;
 };
 
-enum auth_method available_auth_methods;
+enum auth_mech available_auth_mechs;
 
 static int auth_reconnect;
 static unsigned int request_id_counter;
@@ -140,14 +140,14 @@ static void auth_connection_destroy(struct auth_connection *conn)
 }
 
 static struct auth_connection *
-auth_connection_get(enum auth_method method, size_t size, const char **error)
+auth_connection_get(enum auth_mech mech, size_t size, const char **error)
 {
 	struct auth_connection *conn;
 	int found;
 
 	found = FALSE;
 	for (conn = auth_connections; conn != NULL; conn = conn->next) {
-		if ((conn->available_auth_methods & method)) {
+		if ((conn->available_auth_mechs & mech)) {
 			if (o_stream_have_space(conn->output, size) > 0)
 				return conn;
 
@@ -156,8 +156,8 @@ auth_connection_get(enum auth_method method, size_t size, const char **error)
 	}
 
 	if (!found) {
-		if ((available_auth_methods & method) == 0)
-			*error = "Unsupported authentication method";
+		if ((available_auth_mechs & mech) == 0)
+			*error = "Unsupported authentication mechanism";
 		else {
 			*error = "Authentication server isn't connected, "
 				"try again later..";
@@ -171,23 +171,23 @@ auth_connection_get(enum auth_method method, size_t size, const char **error)
 	return NULL;
 }
 
-static void update_available_auth_methods(void)
+static void update_available_auth_mechs(void)
 {
 	struct auth_connection *conn;
 
-        available_auth_methods = 0;
+        available_auth_mechs = 0;
 	for (conn = auth_connections; conn != NULL; conn = conn->next)
-                available_auth_methods |= conn->available_auth_methods;
+                available_auth_mechs |= conn->available_auth_mechs;
 }
 
 static void auth_handle_init(struct auth_connection *conn,
 			     struct auth_init_data *init_data)
 {
 	conn->auth_process = init_data->auth_process;
-	conn->available_auth_methods = init_data->auth_methods;
+	conn->available_auth_mechs = init_data->auth_mechanisms;
 	conn->init_received = TRUE;
 
-	update_available_auth_methods();
+	update_available_auth_mechs();
 }
 
 static void auth_handle_reply(struct auth_connection *conn,
@@ -281,7 +281,7 @@ static void auth_input(void *context, int fd __attr_unused__,
 	i_stream_skip(conn->input, conn->in_reply.data_size);
 }
 
-int auth_init_request(enum auth_method method, AuthCallback callback,
+int auth_init_request(enum auth_mech mech, AuthCallback callback,
 		      void *context, const char **error)
 {
 	struct auth_connection *conn;
@@ -291,13 +291,13 @@ int auth_init_request(enum auth_method method, AuthCallback callback,
 	if (auth_reconnect)
 		auth_connect_missing();
 
-	conn = auth_connection_get(method, sizeof(request_data), error);
+	conn = auth_connection_get(mech, sizeof(request_data), error);
 	if (conn == NULL)
 		return FALSE;
 
 	/* create internal request structure */
 	request = i_new(struct auth_request, 1);
-	request->method = method;
+	request->mech = mech;
 	request->conn = conn;
 	request->id = ++request_id_counter;
 	request->callback = callback;
@@ -307,7 +307,7 @@ int auth_init_request(enum auth_method method, AuthCallback callback,
 
 	/* send request to auth */
 	request_data.type = AUTH_REQUEST_INIT;
-	request_data.method = request->method;
+	request_data.mech = request->mech;
 	request_data.id = request->id;
 	if (o_stream_send(request->conn->output, &request_data,
 			  sizeof(request_data)) < 0)

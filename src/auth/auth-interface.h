@@ -25,17 +25,17 @@ enum auth_result {
 	AUTH_RESULT_FAILURE
 };
 
-enum auth_method {
-	AUTH_METHOD_PLAIN	= 0x01,
-	AUTH_METHOD_DIGEST_MD5	= 0x02,
+enum auth_mech {
+	AUTH_MECH_PLAIN		= 0x01,
+	AUTH_MECH_DIGEST_MD5	= 0x02,
 
-	AUTH_METHODS_COUNT	= 2
+	AUTH_MECH_COUNT		= 2
 };
 
 /* Initialization reply, sent after client is connected */
 struct auth_init_data {
 	unsigned int auth_process; /* unique auth process identifier */
-	enum auth_method auth_methods; /* valid authentication methods */
+	enum auth_mech auth_mechanisms; /* valid authentication mechanisms */
 };
 
 /* Initialization handshake from client. */
@@ -47,7 +47,7 @@ struct client_auth_init_data {
 struct auth_init_request_data {
 	enum auth_request_type type; /* AUTH_REQUEST_INIT */
 
-	enum auth_method method;
+	enum auth_mech mech;
 	unsigned int id; /* AuthReplyData.id will contain this value */
 };
 

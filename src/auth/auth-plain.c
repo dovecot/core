@@ -107,6 +107,6 @@ static void auth_plain_init(unsigned int login_pid,
 }
 
 struct auth_module auth_plain = {
-	AUTH_METHOD_PLAIN,
+	AUTH_MECH_PLAIN,
 	auth_plain_init
 };

@@ -9,58 +9,48 @@
 #include "safe-memset.h"
 #include "str.h"
 #include "auth-connection.h"
+#include "../auth/auth-mech-desc.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "master.h"
 
-struct auth_method_desc {
-	int method;
-	const char *name;
-	int plaintext;
-};
-
-static enum auth_method auth_methods = 0;
-static char *auth_methods_capability = NULL;
-
-static struct auth_method_desc auth_method_desc[AUTH_METHODS_COUNT] = {
-	{ AUTH_METHOD_PLAIN,		NULL,		TRUE },
-	{ AUTH_METHOD_DIGEST_MD5,	"DIGEST-MD5",	FALSE }
-};
+static enum auth_mech auth_mechs = 0;
+static char *auth_mechs_capability = NULL;
 
 const char *client_authenticate_get_capabilities(void)
 {
 	string_t *str;
 	int i;
 
-	if (auth_methods == available_auth_methods)
-		return auth_methods_capability;
+	if (auth_mechs == available_auth_mechs)
+		return auth_mechs_capability;
 
-	auth_methods = available_auth_methods;
-	i_free(auth_methods_capability);
+	auth_mechs = available_auth_mechs;
+	i_free(auth_mechs_capability);
 
 	str = t_str_new(128);
 
-	for (i = 0; i < AUTH_METHODS_COUNT; i++) {
-		if ((auth_methods & auth_method_desc[i].method) &&
-		    auth_method_desc[i].name != NULL) {
+	for (i = 0; i < AUTH_MECH_COUNT; i++) {
+		if ((auth_mechs & auth_mech_desc[i].mech) &&
+		    auth_mech_desc[i].name != NULL) {
 			str_append_c(str, ' ');
 			str_append(str, "AUTH=");
-			str_append(str, auth_method_desc[i].name);
+			str_append(str, auth_mech_desc[i].name);
 		}
 	}
 
-	auth_methods_capability = i_strdup_empty(str_c(str));
-	return auth_methods_capability;
+	auth_mechs_capability = i_strdup_empty(str_c(str));
+	return auth_mechs_capability;
 }
 
-static struct auth_method_desc *auth_method_find(const char *name)
+static struct auth_mech_desc *auth_mech_find(const char *name)
 {
 	int i;
 
-	for (i = 0; i < AUTH_METHODS_COUNT; i++) {
-		if (auth_method_desc[i].name != NULL &&
-		    strcasecmp(auth_method_desc[i].name, name) == 0)
-			return &auth_method_desc[i];
+	for (i = 0; i < AUTH_MECH_COUNT; i++) {
+		if (auth_mech_desc[i].name != NULL &&
+		    strcasecmp(auth_mech_desc[i].name, name) == 0)
+			return &auth_mech_desc[i];
 	}
 
 	return NULL;
@@ -202,8 +192,8 @@ int cmd_login(struct client *client, const char *user, const char *pass)
 	buffer_append(client->plain_login, pass, strlen(pass));
 
 	client_ref(client);
-	if (auth_init_request(AUTH_METHOD_PLAIN,
-			      login_callback, client, &error)) {
+	if (auth_init_request(AUTH_MECH_PLAIN, login_callback,
+			      client, &error)) {
 		/* don't read any input from client until login is finished */
 		if (client->io != NULL) {
 			io_remove(client->io);
@@ -273,29 +263,29 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 	safe_memset(buffer_free_without_data(buf), 0, bufsize);
 }
 
-int cmd_authenticate(struct client *client, const char *method_name)
+int cmd_authenticate(struct client *client, const char *mech_name)
 {
-	struct auth_method_desc *method;
+	struct auth_mech_desc *mech;
 	const char *error;
 
-	if (*method_name == '\0')
+	if (*mech_name == '\0')
 		return FALSE;
 
-	method = auth_method_find(method_name);
-	if (method == NULL) {
+	mech = auth_mech_find(mech_name);
+	if (mech == NULL) {
 		client_send_tagline(client,
-				    "NO Unsupported authentication method.");
+				    "NO Unsupported authentication mechanism.");
 		return TRUE;
 	}
 
-	if (!client->tls && method->plaintext && disable_plaintext_auth) {
+	if (!client->tls && mech->plaintext && disable_plaintext_auth) {
 		client_send_tagline(client,
 				    "NO Plaintext authentication disabled.");
 		return TRUE;
 	}
 
 	client_ref(client);
-	if (auth_init_request(method->method, authenticate_callback,
+	if (auth_init_request(mech->mech, authenticate_callback,
 			      client, &error)) {
 		/* following input data will go to authentication */
 		if (client->io != NULL)

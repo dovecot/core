@@ -97,6 +97,15 @@ AC_ARG_WITH(vpopmail,
 	fi,
 	want_vpopmail=yes)
 
+AC_ARG_WITH(cyrus-sasl2,
+[  --with-cyrus-sasl2      Build with Cyrus SASL 2 library support],
+	if test x$withval = xno; then
+		want_cyrus_sasl2=no
+	else
+		want_cyrus_sasl2=yes
+	fi,
+	want_cyrus_sasl2=no)
+
 AC_ARG_WITH(rawlog,
 [  --with-rawlog           Build support for logging user traffic],
 	if test x$withval = xyes; then
@@ -702,6 +711,18 @@ fi
 
 AC_SUBST(VPOPMAIL_CFLAGS)
 AC_SUBST(VPOPMAIL_LIBS)
+
+if test $want_cyrus_sasl2 = yes; then
+	AC_CHECK_LIB(sasl2, sasl_server_start, [
+		AC_CHECK_HEADER(sasl/sasl.h, [
+			AC_DEFINE(USE_CYRUS_SASL2,,
+				  Define if you want to use Cyrus SASL library)
+			SASL_LIBS="-lsasl2"
+		])
+	])
+fi
+
+AC_SUBST(SASL_LIBS)
 
 if test $need_crypt = yes; then
 	AC_CHECK_LIB(crypt, crypt, [
