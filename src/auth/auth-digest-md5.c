@@ -29,7 +29,7 @@ enum qop_option {
 	QOP_COUNT	= 3
 };
 
-static char *qop_names[] = { "auth", "auth-int", "auth-conf" };
+static const char *qop_names[] = { "auth", "auth-int", "auth-conf" };
 
 struct auth_data {
 	pool_t pool;
