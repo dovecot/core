@@ -29,6 +29,11 @@ static int subsfile_set_syscall_error(struct mail_storage *storage,
 {
 	i_assert(function != NULL);
 
+	if (errno == EACCES) {
+		mail_storage_set_error(storage, "Permission denied");
+		return FALSE;
+	}
+
 	mail_storage_set_critical(storage,
 				  "%s failed with subscription file %s: %m",
 				  function, path);
