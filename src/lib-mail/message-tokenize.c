@@ -275,6 +275,11 @@ enum message_token message_tokenize_get(const struct message_tokenizer *tok)
 	return tok->token;
 }
 
+size_t message_tokenize_get_parse_position(const struct message_tokenizer *tok)
+{
+	return tok->parse_pos;
+}
+
 const unsigned char *
 message_tokenize_get_value(const struct message_tokenizer *tok, size_t *len)
 {

@@ -51,6 +51,9 @@ enum message_token message_tokenize_next(struct message_tokenizer *tok);
 /* Return the current token. */
 enum message_token message_tokenize_get(const struct message_tokenizer *tok);
 
+/* Return position in string where we're currently parsing. */
+size_t message_tokenize_get_parse_position(const struct message_tokenizer *tok);
+
 /* - not including enclosing "", () or []
    - '\' isn't expanded
    - [CR+]LF+LWSP (continued header) isn't removed */
