@@ -680,6 +680,9 @@ static ssize_t io_buffer_read_mmaped(IOBuffer *buf)
 			   buf->fd, buf->mmap_offset);
 	if (buf->buffer == MAP_FAILED) {
 		buf->buf_errno = errno;
+		buf->buffer = NULL;
+		buf->buffer_size = 0;
+		buf->skip = buf->pos;
 		i_error("io_buffer_read_mmaped(): mmap() failed: %m");
 		return -1;
 	}
