@@ -237,6 +237,9 @@ Client *client_create(int fd, IPADDR *ip)
 		client_destroy_oldest();
 	}
 
+	/* always use nonblocking I/O */
+	net_set_nonblock(fd, TRUE);
+
 	client = i_new(Client, 1);
 	client->created = ioloop_time;
 	client->refcount = 1;
