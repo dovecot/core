@@ -861,7 +861,7 @@ char *const *t_strsplit(const char *data, const char *separators)
 
         i_assert(*separators != '\0');
 
-	len = strlen(data+1);
+	len = strlen(data)+1;
 	str = t_malloc(len);
 	memcpy(str, data, len);
 
