@@ -293,13 +293,11 @@ static int fetch_header_fields(struct istream *input, const char *section,
 
 	hdr_ctx = message_parse_header_init(input, NULL);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
-		/* see if we want this field.
-		   we always want the end-of-headers line */
-		if (!hdr->eoh &&
-		    !ctx->match_func(ctx->fields, hdr->name, hdr->name_len))
+		/* see if we want this field. */
+		if (!ctx->match_func(ctx->fields, hdr->name, hdr->name_len))
 			continue;
 
-		if (!hdr->continued && !hdr->eoh) {
+		if (!hdr->continued) {
 			if (!fetch_header_append(ctx, hdr->name, hdr->name_len))
 				break;
 			if (!fetch_header_append(ctx, ": ", 2))
@@ -312,6 +310,16 @@ static int fetch_header_fields(struct istream *input, const char *section,
 				break;
 		}
 	}
+
+	/* FIXME: We'll just always add the end of headers mark now.
+	   mail-storage should rather include it in the header stream..
+	   however, not much of a problem since all non-broken mails have it.
+
+	   Also, Netscape 4.x seems to require this or it won't show the
+	   mail.. So if we do make this as RFC says, we'll need to add
+	   netscape-workaround. */
+	(void)fetch_header_append(ctx, "\r\n", 2);
+
 	message_parse_header_deinit(hdr_ctx);
 
 	i_assert(ctx->dest_size <= ctx->max_size);
