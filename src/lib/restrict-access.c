@@ -203,7 +203,7 @@ void restrict_access_by_env(int disallow_root)
 	}
 
 	env = getenv("RESTRICT_GID_FIRST");
-	if (gid != 0 || (env != NULL && atoi(env) != 0)) {
+	if ((gid != 0 || (env != NULL && atoi(env) != 0)) && uid != 0) {
 		if (getgid() == 0 || getegid() == 0 || setgid(0) == 0) {
 			if (gid == 0)
 				i_fatal("GID 0 isn't permitted");
