@@ -46,9 +46,9 @@ static void _set_blocking(struct _iostream *stream __attr_unused__,
 {
 }
 
-static ssize_t _read(struct _istream *stream)
+static ssize_t _read(struct _istream *stream __attr_unused__)
 {
-	return stream->pos - stream->skip;
+	return -1;
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset)
