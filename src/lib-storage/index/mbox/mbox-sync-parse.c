@@ -31,12 +31,6 @@ struct mbox_flag_type mbox_xstatus_flags[] = {
 	{ 0, 0 }
 };
 
-struct header_func {
-	const char *header;
-	int (*func)(struct mbox_sync_mail_context *ctx,
-		    struct message_header_line *hdr);
-};
-
 static void parse_trailing_whitespace(struct mbox_sync_mail_context *ctx,
 				      struct message_header_line *hdr)
 {
@@ -286,57 +280,7 @@ static int parse_content_length(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
-static int parse_date(struct mbox_sync_mail_context *ctx,
-		      struct message_header_line *hdr)
-{
-	if (!ctx->seen_received_hdr) {
-		/* Received-header contains date too, and more trusted one */
-		md5_update(&ctx->hdr_md5_ctx, hdr->value, hdr->value_len);
-	}
-	return TRUE;
-}
-
-static int parse_delivered_to(struct mbox_sync_mail_context *ctx,
-			      struct message_header_line *hdr)
-{
-	md5_update(&ctx->hdr_md5_ctx, hdr->value, hdr->value_len);
-	return TRUE;
-}
-
-static int parse_message_id(struct mbox_sync_mail_context *ctx,
-			    struct message_header_line *hdr)
-{
-	if (!ctx->seen_received_hdr) {
-		/* Received-header contains unique ID too,
-		   and more trusted one */
-		md5_update(&ctx->hdr_md5_ctx, hdr->value, hdr->value_len);
-	}
-	return TRUE;
-}
-
-static int parse_received(struct mbox_sync_mail_context *ctx,
-			  struct message_header_line *hdr)
-{
-	if (!ctx->seen_received_hdr) {
-		/* get only the first received-header */
-		md5_update(&ctx->hdr_md5_ctx, hdr->value, hdr->value_len);
-		if (!hdr->continues)
-			ctx->seen_received_hdr = TRUE;
-	}
-	return TRUE;
-}
-
-static int parse_x_delivery_id(struct mbox_sync_mail_context *ctx,
-			       struct message_header_line *hdr)
-{
-	/* Let the local delivery agent help generate unique ID's but don't
-	   blindly trust this header alone as it could just as easily come from
-	   the remote. */
-	md5_update(&ctx->hdr_md5_ctx, hdr->value, hdr->value_len);
-	return TRUE;
-}
-
-static struct header_func header_funcs[] = {
+static struct mbox_sync_header_func header_funcs[] = {
 	{ "Content-Length", parse_content_length },
 	{ "Status", parse_status },
 	{ "X-IMAP", parse_x_imap },
@@ -348,20 +292,10 @@ static struct header_func header_funcs[] = {
 };
 #define HEADER_FUNCS_COUNT (sizeof(header_funcs) / sizeof(*header_funcs))
 
-static struct header_func md5_header_funcs[] = {
-	{ "Date", parse_date },
-	{ "Delivered-To", parse_delivered_to },
-	{ "Message-ID", parse_message_id },
-	{ "Received", parse_received },
-	{ "X-Delivery-ID", parse_x_delivery_id }
-};
-#define MD5_HEADER_FUNCS_COUNT \
-	(sizeof(md5_header_funcs) / sizeof(*md5_header_funcs))
-
-static int bsearch_header_func_cmp(const void *p1, const void *p2)
+int mbox_sync_bsearch_header_func_cmp(const void *p1, const void *p2)
 {
 	const char *key = p1;
-	const struct header_func *func = p2;
+	const struct mbox_sync_header_func *func = p2;
 
 	return strcasecmp(key, func->header);
 }
@@ -372,7 +306,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	struct mbox_sync_context *sync_ctx = ctx->sync_ctx;
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
-	struct header_func *func;
+	struct mbox_sync_header_func *func;
 	size_t line_start_pos;
 	int i, ret;
 
@@ -403,20 +337,9 @@ void mbox_sync_parse_next_mail(struct istream *input,
 			str_append_n(ctx->header, hdr->middle, hdr->middle_len);
 		}
 
-		func = bsearch(hdr->name, md5_header_funcs,
-			       MD5_HEADER_FUNCS_COUNT,
-			       sizeof(*header_funcs), bsearch_header_func_cmp);
-		if (func != NULL) {
-			/* these functions do nothing more than update
-			   MD5 sums */
-			(void)func->func(ctx, hdr);
-			func = NULL;
-		} else {
-			func = bsearch(hdr->name, header_funcs,
-				       HEADER_FUNCS_COUNT,
-				       sizeof(*header_funcs),
-				       bsearch_header_func_cmp);
-		}
+		func = bsearch(hdr->name, header_funcs,
+			       HEADER_FUNCS_COUNT, sizeof(*header_funcs),
+			       mbox_sync_bsearch_header_func_cmp);
 
 		if (func != NULL) {
 			if (hdr->continues) {
@@ -437,6 +360,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 			buffer_append(ctx->header, hdr->full_value,
 				      hdr->full_value_len);
 		} else {
+			mbox_sync_md5(ctx, hdr);
 			buffer_append(ctx->header, hdr->value,
 				      hdr->value_len);
 		}
@@ -473,6 +397,10 @@ int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
 	uint32_t uid;
 	int ret;
 
+	/* we only wish to be sure that this mail actually is what we expect
+	   it to be. If there's X-UID header, it's used. Otherwise use
+	   the MD5 sum. */
+
 	memset(&ctx, 0, sizeof(ctx));
 	md5_init(&ctx.hdr_md5_ctx);
 
@@ -481,22 +409,22 @@ int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
 		if (hdr->eoh)
 			break;
 
-		func = bsearch(hdr->name, md5_header_funcs,
-			       MD5_HEADER_FUNCS_COUNT,
-			       sizeof(*header_funcs), bsearch_header_func_cmp);
+		func = bsearch(hdr->name, header_funcs,
+			       HEADER_FUNCS_COUNT, sizeof(*header_funcs),
+			       mbox_sync_bsearch_header_func_cmp);
 		if (func != NULL) {
-			/* these functions do nothing more than update
-			   MD5 sums */
-			(void)func->func(&ctx, hdr);
-		} else if (strcasecmp(hdr->name, "X-UID") == 0) {
-			if (hdr->continues) {
-				hdr->use_full_value = TRUE;
-				continue;
-			}
-			(void)parse_x_uid(&ctx, hdr);
+			if (strcasecmp(hdr->name, "X-UID") == 0) {
+				if (hdr->continues) {
+					hdr->use_full_value = TRUE;
+					continue;
+				}
+				(void)parse_x_uid(&ctx, hdr);
 
-			if (ctx.mail.uid != 0)
-				break;
+				if (ctx.mail.uid != 0)
+					break;
+			}
+		} else {
+			mbox_sync_md5(&ctx, hdr);
 		}
 	}
 	i_assert(ret != 0);
