@@ -73,6 +73,8 @@ static int data_file_reopen(MailIndexData *data)
 {
 	int fd;
 
+	i_assert(!data->anon_mmap);
+
 	fd = open(data->filepath, O_RDWR);
 	if (fd == -1)
 		return index_data_set_syscall_error(data, "open()");
@@ -121,10 +123,15 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 		}
 	}
 
+	i_assert(!data->anon_mmap);
+
 	data->header = NULL;
 	data->mmap_used_length = 0;
 
 	if (data->mmap_base != NULL) {
+		if (msync(data->mmap_base, data->mmap_used_length, MS_SYNC) < 0)
+			return index_data_set_syscall_error(data, "msync()");
+
 		if (munmap(data->mmap_base, data->mmap_full_length) < 0)
 			index_data_set_syscall_error(data, "munmap()");
 	}
@@ -263,8 +270,10 @@ int mail_index_data_create(MailIndex *index)
 
 	if (fd == -1) {
 		data->mmap_full_length = INDEX_DATA_INITIAL_SIZE;
-		data->mmap_base = mmap_anon(index->mmap_full_length);
+		data->mmap_base = mmap_anon(data->mmap_full_length);
+
 		memcpy(data->mmap_base, &hdr, sizeof(hdr));
+		data->header = data->mmap_base;
 
 		data->anon_mmap = TRUE;
 		data->filepath = i_strdup("(in-memory index data)");
@@ -288,23 +297,18 @@ void mail_index_data_free(MailIndexData *data)
 {
 	data->index->data = NULL;
 
-	if (data->mmap_base != NULL) {
-		if (data->anon_mmap) {
-			if (munmap_anon(data->mmap_base,
-					data->mmap_full_length) < 0) {
-				index_data_set_syscall_error(data,
-							     "munmap_anon()");
-			}
-		} else {
-			if (munmap(data->mmap_base, data->mmap_full_length) < 0)
-				index_data_set_syscall_error(data, "munmap()");
-		}
-
-		data->mmap_base = NULL;
+	if (data->anon_mmap) {
+		if (munmap_anon(data->mmap_base, data->mmap_full_length) < 0)
+			index_data_set_syscall_error(data, "munmap_anon()");
+	} else if (data->mmap_base != NULL) {
+		if (munmap(data->mmap_base, data->mmap_full_length) < 0)
+			index_data_set_syscall_error(data, "munmap()");
 	}
 
-	if (data->fd != -1)
-		(void)close(data->fd);
+	if (data->fd != -1) {
+		if (close(data->fd) < 0)
+			index_data_set_syscall_error(data, "close()");
+	}
 	i_free(data->filepath);
 	i_free(data);
 }

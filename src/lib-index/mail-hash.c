@@ -42,7 +42,6 @@
 struct _MailHash {
 	MailIndex *index;
 
-	unsigned int sync_id;
 	unsigned int size;
 
 	int fd;
@@ -57,12 +56,19 @@ struct _MailHash {
 	unsigned int modified:1;
 };
 
+static int hash_set_syscall_error(MailHash *hash, const char *function)
+{
+	i_assert(function != NULL);
+
+	index_set_error(hash->index, "%s failed with hash file %s: %m",
+			function, hash->filepath);
+	return FALSE;
+}
+
 static void mail_hash_file_close(MailHash *hash)
 {
-	if (close(hash->fd) < 0) {
-		index_file_set_syscall_error(hash->index,
-					     hash->filepath, "close()");
-	}
+	if (close(hash->fd) < 0)
+		hash_set_syscall_error(hash, "close()");
 	hash->fd = -1;
 }
 
@@ -70,11 +76,8 @@ static int mail_hash_file_open(MailHash *hash)
 {
 	hash->fd = open(hash->filepath, O_RDWR);
 	if (hash->fd == -1) {
-		if (errno != ENOENT) {
-			index_file_set_syscall_error(hash->index,
-						     hash->filepath, "open()");
-			return FALSE;
-		}
+		if (errno != ENOENT)
+			return hash_set_syscall_error(hash, "open()");
 
 		return mail_hash_rebuild(hash);
 	}
@@ -86,15 +89,16 @@ static int mmap_update_real(MailHash *hash)
 {
 	i_assert(!hash->anon_mmap);
 
-	if (hash->mmap_base != NULL)
-		(void)munmap(hash->mmap_base, hash->mmap_length);
+	if (hash->mmap_base != NULL) {
+		if (munmap(hash->mmap_base, hash->mmap_length) < 0)
+			hash_set_syscall_error(hash, "munmap()");
+	}
 
 	hash->mmap_base = mmap_rw_file(hash->fd, &hash->mmap_length);
 	if (hash->mmap_base == MAP_FAILED) {
 		hash->mmap_base = NULL;
 		hash->header = NULL;
-		index_file_set_syscall_error(hash->index, hash->filepath,
-					     "mmap()");
+		hash_set_syscall_error(hash, "mmap()");
 		return FALSE;
 	}
 
@@ -160,15 +164,20 @@ static int mmap_update(MailHash *hash)
 
 static void hash_munmap(MailHash *hash)
 {
-	if (hash->mmap_base != NULL) {
-		if (!hash->anon_mmap)
-			(void)munmap(hash->mmap_base, hash->mmap_length);
-		else {
-			(void)munmap_anon(hash->mmap_base, hash->mmap_length);
-			hash->anon_mmap = FALSE;
-		}
-		hash->mmap_base = NULL;
+	if (hash->mmap_base == NULL)
+		return;
+
+	if (hash->anon_mmap) {
+		if (munmap_anon(hash->mmap_base, hash->mmap_length) < 0)
+			hash_set_syscall_error(hash, "munmap_anon()");
+
+		hash->anon_mmap = FALSE;
+	} else {
+		if (munmap(hash->mmap_base, hash->mmap_length) < 0)
+			hash_set_syscall_error(hash, "munmap()");
 	}
+
+	hash->mmap_base = NULL;
 }
 
 static MailHash *mail_hash_new(MailIndex *index)
@@ -242,18 +251,14 @@ void mail_hash_free(MailHash *hash)
 
 int mail_hash_sync_file(MailHash *hash)
 {
-	if (!hash->modified)
+	if (!hash->modified || hash->anon_mmap)
 		return TRUE;
-	hash->modified = FALSE;
 
-	if (hash->anon_mmap ||
-	    msync(hash->mmap_base, hash->mmap_length, MS_SYNC) == 0)
-		return TRUE;
-	else {
-		index_file_set_syscall_error(hash->index, hash->filepath,
-					     "msync()");
-		return FALSE;
-	}
+	if (msync(hash->mmap_base, hash->mmap_length, MS_SYNC) < 0)
+		return hash_set_syscall_error(hash, "msync()");
+
+	hash->modified = FALSE;
+	return TRUE;
 }
 
 static void hash_build(MailIndex *index, void *mmap_base,
@@ -348,11 +353,8 @@ static int mail_hash_mark_deleted(MailHash *hash)
 	}
 
 	memset(&hdr, 0, sizeof(hdr));
-	if (write_full(hash->fd, &hdr, sizeof(hdr)) < 0) {
-		index_file_set_syscall_error(hash->index, hash->filepath,
-					     "write_full()");
-		return FALSE;
-	}
+	if (write_full(hash->fd, &hdr, sizeof(hdr)) < 0)
+		return hash_set_syscall_error(hash, "write_full()");
 
 	return TRUE;
 }
@@ -384,9 +386,16 @@ int mail_hash_rebuild(MailHash *hash)
 		return FALSE;
 	}
 
-	/* build the hash in a temp file, renaming it to the real hash
-	   once finished */
-	fd = mail_index_create_temp_file(hash->index, &path);
+	if (hash->index->nodiskspace) {
+		/* out of disk space - don't even try building it to file */
+		fd = -1;
+		errno = ENOSPC;
+	} else {
+		/* build the hash in a temp file, renaming it to the real hash
+		   once finished */
+		fd = mail_index_create_temp_file(hash->index, &path);
+	}
+
 	if (fd != -1) {
 		failed = !hash_rebuild_to_file(hash->index, fd,
 					       path, hash_size);

@@ -16,6 +16,7 @@ typedef struct _ModifyLogRecord ModifyLogRecord;
 struct _ModifyLogHeader {
 	unsigned int indexid;
 	unsigned int sync_id;
+	uoff_t used_file_size;
 };
 
 struct _ModifyLogRecord {

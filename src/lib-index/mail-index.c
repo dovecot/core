@@ -44,9 +44,6 @@ static int mmap_verify(MailIndex *index)
 	index->last_lookup = NULL;
 
 	hdr = index->mmap_base;
-	index->header = hdr;
-	index->sync_id = hdr->sync_id;
-
 	if (hdr->used_file_size > index->mmap_full_length) {
 		index_set_corrupted(index, "used_file_size larger than real "
 				    "file size (%"PRIuUOFF_T" vs %"PRIuSIZE_T
@@ -77,6 +74,8 @@ static int mmap_verify(MailIndex *index)
 		return FALSE;
 	}
 
+	index->header = hdr;
+	index->sync_id = hdr->sync_id;
 	index->mmap_used_length = hdr->used_file_size;
 	return TRUE;
 }
@@ -99,7 +98,12 @@ static int mmap_update(MailIndex *index)
 			return TRUE;
 		}
 
-		(void)munmap(index->mmap_base, index->mmap_full_length);
+		if (msync(index->mmap_base,
+			  index->mmap_used_length, MS_SYNC) < 0)
+			return index_set_syscall_error(index, "msync()");
+
+		if (munmap(index->mmap_base, index->mmap_full_length) < 0)
+			return index_set_syscall_error(index, "munmap()");
 	}
 
 	index->mmap_base = mmap_rw_file(index->fd, &index->mmap_full_length);
@@ -126,7 +130,8 @@ void mail_index_close(MailIndex *index)
 	index->header = NULL;
 
 	if (index->fd != -1) {
-		(void)close(index->fd);
+		if (close(index->fd) < 0)
+			index_set_syscall_error(index, "close()");
 		index->fd = -1;
 	}
 
@@ -135,17 +140,15 @@ void mail_index_close(MailIndex *index)
 		index->filepath = NULL;
 	}
 
-	if (index->mmap_base != NULL) {
-		if (index->anon_mmap) {
-			(void)munmap_anon(index->mmap_base,
-					  index->mmap_full_length);
-			index->anon_mmap = FALSE;
-		} else {
-			(void)munmap(index->mmap_base,
-				     index->mmap_full_length);
-		}
-		index->mmap_base = NULL;
+	if (index->anon_mmap) {
+		if (munmap_anon(index->mmap_base, index->mmap_full_length) < 0)
+			index_set_syscall_error(index, "munmap_anon()");
+		index->anon_mmap = FALSE;
+	} else if (index->mmap_base != NULL) {
+		if (munmap(index->mmap_base, index->mmap_full_length) < 0)
+			index_set_syscall_error(index, "munmap()");
 	}
+	index->mmap_base = NULL;
 
 	if (index->data != NULL) {
                 mail_index_data_free(index->data);
@@ -957,9 +960,6 @@ static int mail_index_grow(MailIndex *index)
 	   sync_id in header. */
 	index->header->sync_id++;
 
-	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) < 0)
-		return index_set_syscall_error(index, "msync()");
-
 	if (!mmap_update(index))
 		return FALSE;
 
@@ -975,7 +975,6 @@ int mail_index_append_begin(MailIndex *index, MailIndexRecord **rec)
 	i_assert((*rec)->msg_flags == 0);
 
 	if (index->mmap_used_length == index->mmap_full_length) {
-		/* we need more space */
 		if (!mail_index_grow(index))
 			return FALSE;
 	}

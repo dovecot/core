@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "file-lock.h"
+#include "file-set-size.h"
 #include "mmap-util.h"
 #include "write-full.h"
 #include "mail-index.h"
@@ -14,6 +15,10 @@
 /* Maximum size for modify log (isn't exact) */
 #define MAX_MODIFYLOG_SIZE 10240
 
+#define MODIFYLOG_GROW_SIZE (sizeof(ModifyLogRecord) * 128)
+
+#define MODIFY_LOG_INITIAL_SIZE (sizeof(ModifyLogHeader) + MODIFYLOG_GROW_SIZE)
+
 #define MODIFYLOG_FILE_POSITION(log, ptr) \
 	((int) ((char *) (ptr) - (char *) (log)->mmap_base))
 
@@ -24,12 +29,14 @@ struct _MailModifyLog {
 	char *filepath;
 
 	void *mmap_base;
-	size_t mmap_length;
+	size_t mmap_used_length;
+	size_t mmap_full_length;
 
 	ModifyLogHeader *header;
-	size_t synced_position;
-	unsigned int synced_id, mmaped_id;
+	uoff_t synced_position;
+	unsigned int synced_id;
 
+	unsigned int anon_mmap:1;
 	unsigned int modified:1;
 	unsigned int second_log:1;
 };
@@ -46,10 +53,18 @@ static int modifylog_set_syscall_error(MailModifyLog *log,
 	return FALSE;
 }
 
-static int modifylog_set_corrupted(MailModifyLog *log)
+static int modifylog_set_corrupted(MailModifyLog *log, const char *fmt, ...)
 {
-	index_set_error(log->index, "Modify log %s is corrupted",
-			log->filepath);
+	va_list va;
+
+	va_start(va, fmt);
+	t_push();
+
+	index_set_error(log->index, "Corrupted modify log file %s: %s",
+			log->filepath, t_strdup_vprintf(fmt, va));
+
+	t_pop();
+	va_end(va);
 
 	/* make sure we don't get back here */
 	log->index->inconsistent = TRUE;
@@ -60,6 +75,8 @@ static int modifylog_set_corrupted(MailModifyLog *log)
 
 static int mail_modifylog_wait_lock(MailModifyLog *log)
 {
+	i_assert(!log->anon_mmap);
+
 	if (file_wait_lock(log->fd, F_RDLCK) < 1)
                 modifylog_set_syscall_error(log, "file_wait_lock()");
 
@@ -71,12 +88,15 @@ static int mail_modifylog_have_other_users(MailModifyLog *log)
 {
 	int ret;
 
+	if (log->anon_mmap)
+		return 0;
+
 	/* try grabbing exclusive lock */
 	ret = file_try_lock(log->fd, F_WRLCK);
 	if (ret <= 0) {
 		if (ret < 0)
 			modifylog_set_syscall_error(log, "file_try_lock()");
-		return ret;
+		return ret < 0 ? -1 : 1;
 	}
 
 	/* revert back to shared lock */
@@ -93,49 +113,76 @@ static int mail_modifylog_have_other_users(MailModifyLog *log)
 		return -1;
 	}
 
-	return 1;
+	return 0;
 }
 
 static int mmap_update(MailModifyLog *log)
 {
+	ModifyLogHeader *hdr;
 	unsigned int extra;
 
-	if (log->header != NULL && log->mmaped_id == log->header->sync_id)
+	if (log->header != NULL &&
+	    log->mmap_full_length == log->header->used_file_size)
 		return TRUE;
 
+	i_assert(!log->anon_mmap);
+
 	if (log->mmap_base != NULL) {
-		if (munmap(log->mmap_base, log->mmap_length) < 0)
+		/* make sure we're synced before munmap() */
+		if (log->modified &&
+		    msync(log->mmap_base, log->mmap_used_length, MS_SYNC) < 0)
+			return modifylog_set_syscall_error(log, "msync()");
+
+		if (munmap(log->mmap_base, log->mmap_full_length) < 0)
 			modifylog_set_syscall_error(log, "munmap()");
 	}
 
+	log->mmap_used_length = 0;
 	log->header = NULL;
 
-	log->mmap_base = mmap_rw_file(log->fd, &log->mmap_length);
+	log->mmap_base = mmap_rw_file(log->fd, &log->mmap_full_length);
 	if (log->mmap_base == MAP_FAILED) {
 		log->mmap_base = NULL;
 		return modifylog_set_syscall_error(log, "mmap()");
 	}
 
-	if (log->mmap_length < sizeof(ModifyLogHeader)) {
+	if (log->mmap_full_length < sizeof(ModifyLogHeader)) {
 		index_set_error(log->index, "Too small modify log %s",
 				log->filepath);
 		(void)unlink(log->filepath);
 		return FALSE;
 	}
 
-	extra = (log->mmap_length - sizeof(ModifyLogHeader)) %
+	extra = (log->mmap_full_length - sizeof(ModifyLogHeader)) %
 		sizeof(ModifyLogRecord);
 
 	if (extra != 0) {
 		/* partial write or corrupted -
 		   truncate the file to valid length */
-		log->mmap_length -= extra;
-		if (ftruncate(log->fd, (off_t)log->mmap_length) < 0)
+		log->mmap_full_length -= extra;
+		if (ftruncate(log->fd, (off_t)log->mmap_full_length) < 0)
 			modifylog_set_syscall_error(log, "ftruncate()");
 	}
 
+	hdr = log->mmap_base;
+	if (hdr->used_file_size > log->mmap_full_length) {
+		modifylog_set_corrupted(log,
+			"used_file_size larger than real file size "
+			"(%"PRIuUOFF_T" vs %"PRIuSIZE_T")",
+			hdr->used_file_size, log->mmap_full_length);
+		return FALSE;
+	}
+
+	if ((hdr->used_file_size - sizeof(ModifyLogHeader)) %
+	    sizeof(ModifyLogRecord) != 0) {
+		modifylog_set_corrupted(log,
+			"Invalid used_file_size in header (%"PRIuUOFF_T")",
+			hdr->used_file_size);
+		return FALSE;
+	}
+
 	log->header = log->mmap_base;
-	log->mmaped_id = log->header->sync_id;
+	log->mmap_used_length = log->header->used_file_size;
 	return TRUE;
 }
 
@@ -153,17 +200,29 @@ static MailModifyLog *mail_modifylog_new(MailIndex *index)
 
 static void mail_modifylog_close(MailModifyLog *log)
 {
-	if (log->mmap_base != NULL) {
-		munmap(log->mmap_base, log->mmap_length);
-		log->mmap_base = NULL;
+	if (log->anon_mmap) {
+		if (munmap_anon(log->mmap_base, log->mmap_full_length) < 0)
+			modifylog_set_syscall_error(log, "munmap_anon()");
+	} else if (log->mmap_base != NULL) {
+		if (munmap(log->mmap_base, log->mmap_full_length) < 0)
+			modifylog_set_syscall_error(log, "munmap()");
 	}
+	log->mmap_base = NULL;
 
 	if (log->fd != -1) {
-		(void)close(log->fd);
+		if (close(log->fd) < 0)
+			modifylog_set_syscall_error(log, "close()");
 		log->fd = -1;
 	}
 
 	i_free(log->filepath);
+}
+
+static void mail_modifylog_init_header(MailModifyLog *log, ModifyLogHeader *hdr)
+{
+	memset(hdr, 0, sizeof(ModifyLogHeader));
+	hdr->indexid = log->index->indexid;
+	hdr->used_file_size = sizeof(ModifyLogHeader);
 }
 
 static int mail_modifylog_init_fd(MailModifyLog *log, int fd,
@@ -171,17 +230,15 @@ static int mail_modifylog_init_fd(MailModifyLog *log, int fd,
 {
         ModifyLogHeader hdr;
 
-	/* write header */
-	memset(&hdr, 0, sizeof(hdr));
-	hdr.indexid = log->index->indexid;
-
+        mail_modifylog_init_header(log, &hdr);
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
 		index_file_set_syscall_error(log->index, path, "write_full()");
 		return FALSE;
 	}
 
-	if (ftruncate(fd, sizeof(hdr)) < 0) {
-		index_file_set_syscall_error(log->index, path, "ftruncate()");
+	if (file_set_size(fd, MODIFY_LOG_INITIAL_SIZE) < 0) {
+		index_file_set_syscall_error(log->index, path,
+					     "file_set_size()");
 		return FALSE;
 	}
 
@@ -207,12 +264,11 @@ static int modifylog_open_and_init_file(MailModifyLog *log, const char *path)
 		if (errno == ENOSPC)
 			log->index->nodiskspace = TRUE;
 
-		index_file_set_syscall_error(log->index, path, "open()");
-		return FALSE;
+		return index_file_set_syscall_error(log->index, path, "open()");
 	}
 
 	ret = file_wait_lock(fd, F_WRLCK);
-	if (ret == -1) {
+	if (ret < 0) {
 		index_file_set_syscall_error(log->index, path,
 					     "file_wait_lock()");
 	}
@@ -227,7 +283,8 @@ static int modifylog_open_and_init_file(MailModifyLog *log, const char *path)
 		}
 	}
 
-	(void)close(fd);
+	if (close(fd) < 0)
+		index_file_set_syscall_error(log->index, path, "close()");
 	return FALSE;
 }
 
@@ -240,17 +297,29 @@ int mail_modifylog_create(MailIndex *index)
 
 	log = mail_modifylog_new(index);
 
-	path = t_strconcat(log->index->filepath, ".log", NULL);
-	if (!modifylog_open_and_init_file(log, path) ||
-	    !mail_modifylog_wait_lock(log) ||
-	    !mmap_update(log)) {
-		/* fatal failure */
-		mail_modifylog_free(log);
-		return FALSE;
+	if (index->nodiskspace) {
+		log->mmap_full_length = MODIFY_LOG_INITIAL_SIZE;
+		log->mmap_base = mmap_anon(log->mmap_full_length);
+
+		mail_modifylog_init_header(log, log->mmap_base);
+		log->header = log->mmap_base;
+
+		log->anon_mmap = TRUE;
+		log->filepath = i_strdup("(in-memory modify log)");
+	} else {
+		path = t_strconcat(log->index->filepath, ".log", NULL);
+
+		if (!modifylog_open_and_init_file(log, path) ||
+		    !mail_modifylog_wait_lock(log) ||
+		    !mmap_update(log)) {
+			/* fatal failure */
+			mail_modifylog_free(log);
+			return FALSE;
+		}
 	}
 
 	log->synced_id = log->header->sync_id;
-	log->synced_position = log->mmap_length;
+	log->synced_position = log->mmap_used_length;
 	return TRUE;
 }
 
@@ -349,7 +418,7 @@ int mail_modifylog_open_or_create(MailIndex *index)
 	}
 
 	log->synced_id = log->header->sync_id;
-	log->synced_position = log->mmap_length;
+	log->synced_position = log->mmap_used_length;
 	return TRUE;
 }
 
@@ -363,11 +432,11 @@ void mail_modifylog_free(MailModifyLog *log)
 
 int mail_modifylog_sync_file(MailModifyLog *log)
 {
-	if (!log->modified)
+	if (!log->modified || log->anon_mmap)
 		return TRUE;
 
 	if (log->mmap_base != NULL) {
-		if (msync(log->mmap_base, log->mmap_length, MS_SYNC) < 0)
+		if (msync(log->mmap_base, log->mmap_used_length, MS_SYNC) < 0)
 			return modifylog_set_syscall_error(log, "msync()");
 	}
 
@@ -378,9 +447,46 @@ int mail_modifylog_sync_file(MailModifyLog *log)
 	return TRUE;
 }
 
+static int mail_modifylog_grow(MailModifyLog *log)
+{
+	uoff_t new_fsize;
+	void *base;
+
+	new_fsize = (uoff_t)log->mmap_full_length + MODIFYLOG_GROW_SIZE;
+	i_assert(new_fsize < OFF_T_MAX);
+
+	if (log->anon_mmap) {
+		i_assert(new_fsize < SSIZE_T_MAX);
+
+		base = mremap_anon(log->mmap_base, log->mmap_full_length,
+				   (size_t)new_fsize, MREMAP_MAYMOVE);
+		if (base == MAP_FAILED) {
+			modifylog_set_syscall_error(log, "mremap_anon()");
+			return FALSE;
+		}
+
+		log->mmap_base = base;
+		log->mmap_full_length = (size_t)new_fsize;
+		return TRUE;
+	}
+
+	if (file_set_size(log->fd, (off_t)new_fsize) < 0) {
+		if (errno == ENOSPC)
+			log->index->nodiskspace = TRUE;
+		return modifylog_set_syscall_error(log, "file_set_size()");
+	}
+
+	if (!mmap_update(log))
+		return FALSE;
+
+	return TRUE;
+}
+
 static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord *rec,
 				 int external_change)
 {
+	ModifyLogRecord *destrec;
+
 	i_assert(log->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 	i_assert(rec->seq != 0);
 	i_assert(rec->uid != 0);
@@ -396,16 +502,26 @@ static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord *rec,
 		}
 	}
 
-	if (lseek(log->fd, 0, SEEK_END) < 0)
-		return modifylog_set_syscall_error(log, "lseek()");
+	if (log->mmap_used_length == log->mmap_full_length) {
+		if (!mail_modifylog_grow(log))
+			return FALSE;
+	}
 
-	if (write_full(log->fd, rec, sizeof(ModifyLogRecord)) < 0)
-                return modifylog_set_syscall_error(log, "write_full()");
+	i_assert(log->header->used_file_size == log->mmap_used_length);
+	i_assert(log->mmap_used_length <=
+		 log->mmap_full_length - sizeof(ModifyLogRecord));
+
+	destrec = (ModifyLogRecord *) ((char *) log->mmap_base +
+				       log->mmap_used_length);
+	memcpy(destrec, rec, sizeof(ModifyLogRecord));
 
 	if (!external_change && log->header->sync_id == log->synced_id) {
 		log->synced_position += sizeof(ModifyLogRecord);
 		log->synced_id++;
 	}
+
+	log->header->used_file_size += sizeof(ModifyLogRecord);
+	log->mmap_used_length += sizeof(ModifyLogRecord);
 
 	log->header->sync_id++;
 	log->modified = TRUE;
@@ -449,13 +565,13 @@ ModifyLogRecord *mail_modifylog_get_nonsynced(MailModifyLog *log,
 	if (!mmap_update(log))
 		return NULL;
 
-	i_assert(log->synced_position <= log->mmap_length);
+	i_assert(log->synced_position <= log->mmap_used_length);
 	i_assert(log->synced_position >= sizeof(ModifyLogHeader));
 
 	rec = (ModifyLogRecord *) ((char *) log->mmap_base +
 				   log->synced_position);
 	end_rec = (ModifyLogRecord *) ((char *) log->mmap_base +
-				       log->mmap_length);
+				       log->mmap_used_length);
 	*count = (unsigned int) (end_rec - rec);
 	return rec;
 }
@@ -496,11 +612,11 @@ int mail_modifylog_mark_synced(MailModifyLog *log)
 	}
 
 	log->synced_id = log->header->sync_id;
-	log->synced_position = log->mmap_length;
+	log->synced_position = log->mmap_used_length;
 
 	log->modified = TRUE;
 
-	if (log->mmap_length > MAX_MODIFYLOG_SIZE) {
+	if (log->mmap_used_length > MAX_MODIFYLOG_SIZE) {
 		/* if the other file isn't locked, switch to it */
 		mail_modifylog_try_switch_file(log);
 		return TRUE;
@@ -537,7 +653,7 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 	rec = (ModifyLogRecord *) ((char *) log->mmap_base +
 				   log->synced_position);
 	end_rec = (ModifyLogRecord *) ((char *) log->mmap_base +
-				       log->mmap_length);
+				       log->mmap_used_length);
 
 	while (rec < end_rec) {
 		if (rec->type == RECORD_TYPE_EXPUNGE && rec->seq <= last_seq)
@@ -554,7 +670,8 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 	   position should be quite near the amount of memory we need, unless
 	   there's lots of FLAGS_CHANGED records which is why there's the
 	   second check to make sure it's not unneededly large. */
-	max_records = (log->mmap_length - MODIFYLOG_FILE_POSITION(log, rec)) /
+	max_records = (log->mmap_used_length -
+		       MODIFYLOG_FILE_POSITION(log, rec)) /
 		sizeof(ModifyLogRecord);
 	if (max_records > last_seq - first_seq + 1)
 		max_records = last_seq - first_seq + 1;
@@ -581,7 +698,8 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 			if (max_records-- == 0) {
 				/* log contains more data than it should
 				   have - must be corrupted. */
-				modifylog_set_corrupted(log);
+				modifylog_set_corrupted(log,
+					"Contains more data than expected");
 				return NULL;
 			}
 
@@ -617,7 +735,7 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 	rec = (ModifyLogRecord *) ((char *) log->mmap_base +
 				   log->synced_position);
 	end_rec = (ModifyLogRecord *) ((char *) log->mmap_base +
-				       log->mmap_length);
+				       log->mmap_used_length);
 
 	while (rec < end_rec) {
 		if (rec->type == RECORD_TYPE_EXPUNGE && rec->uid <= last_uid)
@@ -634,7 +752,8 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 	   position should be quite near the amount of memory we need, unless
 	   there's lots of FLAGS_CHANGED records which is why there's the
 	   second check to make sure it's not unneededly large. */
-	max_records = (log->mmap_length - MODIFYLOG_FILE_POSITION(log, rec)) /
+	max_records = (log->mmap_used_length -
+		       MODIFYLOG_FILE_POSITION(log, rec)) /
 		sizeof(ModifyLogRecord);
 	if (max_records > last_uid - first_uid + 1)
 		max_records = last_uid - first_uid + 1;
@@ -649,7 +768,8 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 			if (max_records-- == 0) {
 				/* log contains more data than it should
 				   have - must be corrupted. */
-				modifylog_set_corrupted(log);
+				modifylog_set_corrupted(log,
+					"Contains more data than expected");
 				return NULL;
 			}
 			*arr++ = rec->uid;
