@@ -70,8 +70,8 @@ static void drop_privileges(void)
 
 	/* Initialize databases so their configuration files can be readable
 	   only by root. Also load all modules here. */
-	userdb_init();
-	passdb_init();
+	userdb_preinit();
+	passdb_preinit();
         password_schemes_init();
 
 	/* Password lookups etc. may require roots, allow it. */
@@ -197,6 +197,9 @@ static void main_init(int nodaemon)
 	size_t i, size;
 	const char *env;
 	unsigned int pid;
+
+	userdb_init();
+	passdb_init();
 
 	lib_init_signals(sig_quit);
 	mech_init();
