@@ -794,7 +794,12 @@ mail_index_keywords_build(struct mail_index *index,
 			if (keyword_buf->used == 0) {
 				/* first one */
 				k.start = j;
-				buffer_append(keyword_buf, &k, bitmask_offset);
+			} else if (j < k.start) {
+				buffer_copy(keyword_buf,
+					    bitmask_offset + k.start - j,
+					    keyword_buf, bitmask_offset,
+					    (size_t)-1);
+				k.start = j;
 			}
 			b = buffer_get_space_unsafe(keyword_buf,
 						    bitmask_offset +
