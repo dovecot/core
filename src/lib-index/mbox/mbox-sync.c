@@ -74,8 +74,9 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
 	}
 	filesize = st.st_size;
 
-	if (index->mbox_ino != st.st_ino ||
-            !CMP_DEV_T(index->mbox_dev, st.st_dev)) {
+	if (index->mbox_fd != -1 &&
+	    (index->mbox_ino != st.st_ino ||
+	     !CMP_DEV_T(index->mbox_dev, st.st_dev))) {
 		/* mbox file was overwritten, close it if it was open */
 		index->mbox_dev = st.st_dev;
 		index->mbox_ino = st.st_ino;
