@@ -14,6 +14,7 @@ struct _HeaderSearchContext {
 
 	unsigned char *key;
 	size_t key_len;
+	char *key_charset;
 
 	size_t *matches; /* size of strlen(key) */
 	ssize_t match_count;
@@ -21,6 +22,7 @@ struct _HeaderSearchContext {
 	unsigned int last_newline:1;
 	unsigned int submatch:1;
 	unsigned int eoh:1;
+	unsigned int key_ascii:1;
 	unsigned int unknown_charset:1;
 };
 
@@ -29,6 +31,7 @@ message_header_search_init(Pool pool, const char *key, const char *charset,
 			   int *unknown_charset)
 {
 	HeaderSearchContext *ctx;
+	const char *p;
 	size_t size;
 
 	ctx = p_new(pool, HeaderSearchContext, 1);
@@ -45,7 +48,16 @@ message_header_search_init(Pool pool, const char *key, const char *charset,
 
 	ctx->key = p_strdup(pool, key);
 	ctx->key_len = size;
+	ctx->key_charset = p_strdup(pool, charset);
 	ctx->unknown_charset = charset == NULL;
+
+	ctx->key_ascii = TRUE;
+	for (p = key; *p != '\0'; p++) {
+		if ((*p & 0x80) != 0) {
+			ctx->key_ascii = FALSE;
+			break;
+		}
+	}
 
 	ctx->matches = p_malloc(pool, sizeof(size_t) * ctx->key_len);
 	return ctx;
@@ -57,6 +69,7 @@ void message_header_search_free(HeaderSearchContext *ctx)
 
 	pool = ctx->pool;
 	p_free(pool, ctx->key);
+	p_free(pool, ctx->key_charset);
 	p_free(pool, ctx->matches);
 	p_free(pool, ctx);
 }
@@ -70,6 +83,10 @@ static int match_data(const unsigned char *data, size_t size,
 		/* we don't know the source charset, so assume we want to
 		   match using same charsets */
 		charset = NULL;
+	} else if (charset != NULL && strcasecmp(charset, "x-unknown") == 0) {
+		/* compare with same charset as search key. the key is already
+		   in utf-8 so we can't use charset = NULL comparing. */
+		charset = ctx->key_charset;
 	}
 
 	data = (const unsigned char *)
@@ -184,6 +201,20 @@ int message_header_search(const unsigned char *header_block,
 
 			i_assert(p != end);
 			continue;
+		}
+
+		if (ctx->submatch)
+			chr = *p;
+		else if ((*p & 0x80) == 0)
+			chr = i_toupper(*p);
+		else if (ctx->key_ascii || ctx->unknown_charset)
+			chr = *p;
+		else {
+			/* we have non-ascii in header. treat the rest of the
+			   header as encoded with the key's charset */
+			found = match_data(p, (size_t) (end-p),
+					   ctx->key_charset, ctx);
+			break;
 		}
 
 		chr = ctx->submatch || (*p & 0x80) != 0 ? *p : i_toupper(*p);

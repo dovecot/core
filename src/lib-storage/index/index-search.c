@@ -556,12 +556,11 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 	if (!have_headers && !have_body && !have_text)
 		return TRUE;
 
-	if (!imap_msgcache_get_rfc822(search_open_cache(ctx), &inbuf,
-				      have_headers ? NULL : &hdr_size, NULL))
-		return FALSE;
-
 	if (have_headers || have_text) {
 		SearchHeaderContext hdr_ctx;
+
+		if (!imap_msgcache_get_data(search_open_cache(ctx), &inbuf))
+			return FALSE;
 
 		memset(&hdr_ctx, 0, sizeof(hdr_ctx));
 		hdr_ctx.index_context = ctx;
@@ -570,6 +569,10 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 
 		message_parse_header(NULL, inbuf, &hdr_size,
 				     search_header, &hdr_ctx);
+	} else {
+		if (!imap_msgcache_get_rfc822(search_open_cache(ctx), &inbuf,
+					      &hdr_size, NULL))
+			return FALSE;
 	}
 
 	if (have_text || have_body) {
