@@ -160,8 +160,7 @@ static void timeout_list_insert(struct ioloop *ioloop, struct timeout *timeout)
         *t = timeout;
 }
 
-inline static void
-timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
+static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 {
         if (tv_now == NULL)
 		gettimeofday(&timeout->next_run, NULL);
@@ -172,8 +171,7 @@ timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 
 	/* we don't want microsecond accuracy or this function will be
 	   called all the time - millisecond is more than enough */
-	timeout->next_run.tv_usec /= 1000;
-	timeout->next_run.tv_usec *= 1000;
+	timeout->next_run.tv_usec -= timeout->next_run.tv_usec % 1000;
 
 	timeout->next_run.tv_sec += timeout->msecs/1000;
 	timeout->next_run.tv_usec += (timeout->msecs%1000)*1000;
