@@ -23,4 +23,5 @@ noinst_HEADERS = \
 	common.h \
 	login-process.h \
 	master-interface.h \
-	settings.h
+	settings.h \
+	ssl-init.h
