@@ -23,6 +23,10 @@ static int parse_timezone(const char *str, unsigned int len)
 
 	if (len == 5 && (*str == '+' || *str == '-')) {
 		/* numeric offset */
+		if (!i_isdigit(str[0]) || !i_isdigit(str[1]) ||
+		    !i_isdigit(str[1]) || !i_isdigit(str[2]))
+			return FALSE;
+
 		offset = (str[1]-'0') * 1000 + (str[2]-'0') * 100 +
 			(str[3]-'0') * 10 + (str[4]-'0');
 		return *str == '+' ? offset : -offset;
@@ -105,10 +109,6 @@ int rfc822_parse_date(const char *str, time_t *time)
 
 	/* [weekday_name "," ] dd month_name [yy]yy hh:mi[:ss] timezone
 
-	   don't waste time checking it too properly, if there's errors we
-	   either pick them up at mktime() or have an invalid timestamp,
-	   which would happen anyway.
-
 	   we support comments here even while no-one ever uses them */
 
 	tokens = rfc822_tokenize(str, NULL, NULL, NULL);
@@ -126,9 +126,10 @@ int rfc822_parse_date(const char *str, time_t *time)
 	}
 
 	/* dd */
-	if (tok == NULL || tok->token != 'A' || tok->len != 2)
+	if (tok == NULL || tok->token != 'A' || tok->len != 2 ||
+	    !i_isdigit(tok->ptr[0]) || !i_isdigit(tok->ptr[1]))
 		return FALSE;
-	tm.tm_mday = (tok->ptr[0]-'0') * 10 + tok->ptr[1]-'0';
+	tm.tm_mday = (tok->ptr[0]-'0') * 10 + (tok->ptr[1]-'0');
 
 	/* month name */
 	tok = next_token(&tokens);
@@ -146,44 +147,51 @@ int rfc822_parse_date(const char *str, time_t *time)
 
 	/* [yy]yy */
 	tok = next_token(&tokens);
-	if (tok == NULL || tok->token != 'A')
+	if (tok == NULL || tok->token != 'A' ||
+	    (tok->len != 2 && tok->len != 4))
 		return FALSE;
 
-	for (i = 0; i < tok->len; i++)
-		tm.tm_year = tm.tm_year * 10 + tok->ptr[i]-'0';
+	for (i = 0; i < tok->len; i++) {
+		if (!i_isdigit(tok->ptr[i]))
+			return FALSE;
+		tm.tm_year = tm.tm_year * 10 + (tok->ptr[i]-'0');
+	}
 
 	if (tok->len == 2) {
 		/* two digit year, assume 1970+ */
 		if (tm.tm_year < 70)
 			tm.tm_year += 100;
-	} else if (tok->len != 4) {
-		/* y10k bug here */
+	} else {
+		if (tm.tm_year < 1900)
+			return FALSE;
 		tm.tm_year -= 1900;
-		return FALSE;
 	}
 
 	/* hh */
 	tok = next_token(&tokens);
-	if (tok == NULL || tok->token != 'A' || tok->len != 2)
+	if (tok == NULL || tok->token != 'A' || tok->len != 2 ||
+	    !i_isdigit(tok->ptr[0]) || !i_isdigit(tok->ptr[1]))
 		return FALSE;
-	tm.tm_hour = (tok->ptr[0]-'0') * 10 + tok->ptr[1]-'0';
+	tm.tm_hour = (tok->ptr[0]-'0') * 10 + (tok->ptr[1]-'0');
 
 	/* :mm */
 	tok = next_token(&tokens);
 	if (tok == NULL || tok->token != ':')
 		return FALSE;
 	tok = next_token(&tokens);
-	if (tok == NULL || (tok->token != 'A' && tok->len != 2))
+	if (tok == NULL || tok->token != 'A' || tok->len != 2 ||
+	    !i_isdigit(tok->ptr[0]) || !i_isdigit(tok->ptr[1]))
 		return FALSE;
-	tm.tm_min = (tok->ptr[0]-'0') * 10 + tok->ptr[1]-'0';
+	tm.tm_min = (tok->ptr[0]-'0') * 10 + (tok->ptr[1]-'0');
 
 	/* [:ss] */
 	tok = next_token(&tokens);
 	if (tok != NULL && tok->token == ':') {
 		tok = next_token(&tokens);
-		if (tok == NULL || (tok->token != 'A' && tok->len != 2))
+		if (tok == NULL || tok->token != 'A' || tok->len != 2 ||
+		    !i_isdigit(tok->ptr[0]) || !i_isdigit(tok->ptr[1]))
 			return FALSE;
-		tm.tm_sec = (tok->ptr[0]-'0') * 10 + tok->ptr[1]-'0';
+		tm.tm_sec = (tok->ptr[0]-'0') * 10 + (tok->ptr[1]-'0');
 	}
 
 	/* timezone */
