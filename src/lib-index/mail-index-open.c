@@ -206,10 +206,9 @@ static int mail_index_is_compatible(const struct mail_index_header *hdr)
 }
 
 static int mail_index_init_file(struct mail_index *index,
-				struct mail_index_header *hdr)
+				const struct mail_index_header *hdr)
 {
-	hdr->used_file_size = sizeof(*hdr) +
-		INDEX_MIN_RECORDS_COUNT * sizeof(struct mail_index_record);
+	uoff_t file_size;
 
 	if (lseek(index->fd, 0, SEEK_SET) < 0) {
 		index_set_syscall_error(index, "lseek()");
@@ -221,7 +220,9 @@ static int mail_index_init_file(struct mail_index *index,
 		return FALSE;
 	}
 
-	if (file_set_size(index->fd, (off_t)hdr->used_file_size) < 0) {
+	file_size = sizeof(*hdr) +
+		INDEX_MIN_RECORDS_COUNT * sizeof(struct mail_index_record);
+	if (file_set_size(index->fd, (off_t)file_size) < 0) {
 		index_set_syscall_error(index, "file_set_size()");
 		return FALSE;
 	}
