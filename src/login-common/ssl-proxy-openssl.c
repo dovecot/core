@@ -269,6 +269,7 @@ static void ssl_set_direction(struct ssl_proxy *proxy, int dir)
 	if (proxy->io_ssl != NULL)
 		io_remove(proxy->io_ssl);
 	proxy->io_ssl = io_add(proxy->fd_ssl, dir, ssl_step, proxy);
+        proxy->io_ssl_dir = dir;
 }
 
 int ssl_proxy_new(int fd)
