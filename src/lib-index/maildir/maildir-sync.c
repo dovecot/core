@@ -543,7 +543,8 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 		case MAILDIR_FILE_ACTION_NONE:
 			break;
 		default:
-			i_unreached();
+			i_panic("BUG: %s/%s suddenly appeared as UID %u",
+				index->mailbox_path, (char *) orig_key, uid);
 		}
 
 		if (uid_rec.uid == uid) {
