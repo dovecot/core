@@ -49,11 +49,7 @@ pool_t pool_datastack_create(void);
 /* Pools should be used through these macros: */
 #define pool_get_name(pool) (pool)->get_name(pool)
 #define pool_ref(pool) (pool)->ref(pool)
-#define pool_unref(pool) \
-	STMT_START { \
-          (pool)->unref(pool); \
-          (pool) = NULL; \
-	} STMT_END
+#define pool_unref(pool) (pool)->unref(pool)
 
 #define p_new(pool, type, count) \
 	((type *) p_malloc(pool, sizeof(type) * (count)))
