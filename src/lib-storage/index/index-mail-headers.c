@@ -470,6 +470,17 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 	return TRUE;
 }
 
+static void trash_partial_headers(struct index_mail *mail)
+{
+	struct index_mail_data *data = &mail->data;
+
+	data->header_data_cached_partial = FALSE;
+	data->header_data_cached = data->header_data_cached_contiguous;
+
+	str_truncate(data->header_data, data->header_data_uncached_offset);
+	cached_headers_clear_values(mail);
+}
+
 int index_mail_parse_headers(struct index_mail *mail)
 {
 	struct mail_cache *cache = mail->ibox->index->cache;
@@ -489,13 +500,7 @@ int index_mail_parse_headers(struct index_mail *mail)
 	if (!data->header_fully_parsed && index_mail_can_cache_headers(mail)) {
 		if (data->header_data_cached_partial) {
 			/* too difficult to handle efficiently, trash it */
-			data->header_data_cached_partial = FALSE;
-			data->header_data_cached =
-				data->header_data_cached_contiguous;
-
-			str_truncate(data->header_data,
-				     data->header_data_uncached_offset);
-			cached_headers_clear_values(mail);
+                        trash_partial_headers(mail);
 		}
 
 		/* add all cached headers to beginning of header_data */
@@ -610,12 +615,17 @@ struct istream *index_mail_get_headers(struct mail *_mail,
 
 	i_assert(*minimum_fields != NULL);
 
-	if (mail->data.header_data == NULL)
-		mail->data.header_data = str_new(mail->pool, 4096);
+	if (data->header_data == NULL)
+		data->header_data = str_new(mail->pool, 4096);
 
 	idx = mail_find_wanted_headers(mail, minimum_fields);
 	if (idx >= 0) {
 		/* copy from cache to header_data */
+		if (data->header_data_cached_partial) {
+			/* Some headers may already partially be in
+			   header_data, we don't want them twice */
+			trash_partial_headers(mail);
+		}
 		for (i = data->header_data_cached; i <= idx; i++) {
 			str = mail_cache_lookup_string_field(
 					mail->ibox->index->cache, data->rec,
@@ -626,11 +636,8 @@ struct istream *index_mail_get_headers(struct mail *_mail,
 			str_append(data->header_data, str);
 		}
 		data->header_data_cached = idx+1;
-		if (!data->header_data_cached_partial) {
-			data->header_data_uncached_offset =
-				str_len(data->header_data);
-			data->header_data_cached_contiguous = idx+1;
-		}
+		data->header_data_uncached_offset = str_len(data->header_data);
+		data->header_data_cached_contiguous = idx+1;
 	} else {
 		/* it's not cached yet - see if we have them parsed */
 		all_saved = TRUE;
