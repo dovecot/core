@@ -247,12 +247,16 @@ void index_mail_parse_header_init(struct index_mail *mail,
 	} else {
 		t_push();
 		headers = sort_array(headers);
-		for (i = 0; i < size && *headers != NULL; i++) {
+		for (i = 0; i < size && *headers != NULL;) {
 			cmp = strcasecmp(*headers, data[i]->name);
 			if (cmp <= 0) {
-				if (cmp == 0)
+				if (cmp == 0) {
 					data[i]->parsing = TRUE;
+					i++;
+				}
 				headers++;
+			} else {
+				i++;
 			}
 		}
 		t_pop();
