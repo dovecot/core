@@ -63,7 +63,7 @@ auth_client_connection_lookup(struct auth_master_connection *master,
 	return NULL;
 }
 
-static void auth_client_input_handshake(struct auth_client_connection *conn)
+static int auth_client_input_handshake(struct auth_client_connection *conn)
 {
         struct auth_client_handshake_request rec;
         unsigned char *data;
@@ -71,7 +71,7 @@ static void auth_client_input_handshake(struct auth_client_connection *conn)
 
 	data = i_stream_get_modifyable_data(conn->input, &size);
 	if (size < sizeof(rec))
-		return;
+		return FALSE;
 
 	/* Don't just cast because of alignment issues. */
 	memcpy(&rec, data, sizeof(rec));
@@ -80,16 +80,21 @@ static void auth_client_input_handshake(struct auth_client_connection *conn)
 	if (rec.client_pid == 0) {
 		i_error("BUG: Auth client said it's PID 0");
 		auth_client_connection_destroy(conn);
-	} else if (auth_client_connection_lookup(conn->master,
-						 rec.client_pid) != NULL) {
+		return FALSE;
+	}
+
+	if (auth_client_connection_lookup(conn->master,
+					  rec.client_pid) != NULL) {
 		/* well, it might have just reconnected very fast .. although
 		   there's not much reason for it. */
 		i_error("BUG: Auth client gave a PID %u of existing connection",
 			rec.client_pid);
 		auth_client_connection_destroy(conn);
-	} else {
-		conn->pid = rec.client_pid;
+		return FALSE;
 	}
+
+	conn->pid = rec.client_pid;
+	return TRUE;
 }
 
 static int auth_client_input_request(struct auth_client_connection *conn)
@@ -174,8 +179,10 @@ static void auth_client_input(void *context)
 		return;
 	}
 
-	if (conn->pid == 0)
-		auth_client_input_handshake(conn);
+	if (conn->pid == 0) {
+		if (!auth_client_input_handshake(conn))
+			return;
+	}
 
 	while (auth_client_input_request(conn))
 		;
