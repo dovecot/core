@@ -279,10 +279,15 @@ int file_unlock_dotlock(const char *path, const struct dotlock *dotlock)
 	}
 
 	if (dotlock->ino != st.st_ino ||
-	    !CMP_DEV_T(dotlock->dev, st.st_dev) ||
-	    dotlock->mtime != st.st_mtime) {
+	    !CMP_DEV_T(dotlock->dev, st.st_dev)) {
 		i_warning("Our dotlock file %s was overridden", lock_path);
 		return 0;
+	}
+
+	if (dotlock->mtime != st.st_mtime) {
+		i_warning("Our dotlock file %s was modified (%s vs %s), "
+			  "assuming it wasn't overridden", lock_path,
+			  dec2str(dotlock->mtime), dec2str(st.st_mtime));
 	}
 
 	if (unlink(lock_path) < 0) {
