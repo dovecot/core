@@ -212,7 +212,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	const char *name;
 
 #ifdef DEBUG
-        fd_debug_verify_leaks(3, 1024);
+        fd_debug_verify_leaks(4, 1024);
 #endif
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */

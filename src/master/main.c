@@ -281,6 +281,21 @@ static void open_fds(void)
 			fd_close_on_exec(mail_fd[i], TRUE);
 		}
 	}
+
+	/* close stdin and stdout. close stderr unless we're logging
+	   into /dev/stderr. */
+	if (dup2(null_fd, 0) < 0)
+		i_fatal("dup2(0) failed: %m");
+	if (dup2(null_fd, 1) < 0)
+		i_fatal("dup2(1) failed: %m");
+
+	if ((set->log_path == NULL ||
+	     strcmp(set->log_path, "/dev/stderr") != 0) &&
+	    (set->info_log_path == NULL ||
+	     strcmp(set->info_log_path, "/dev/stderr") != 0)) {
+		if (dup2(null_fd, 2) < 0)
+			i_fatal("dup(0) failed: %m");
+	}
 }
 
 static void open_logfile(void)

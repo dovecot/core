@@ -293,12 +293,10 @@ static pid_t create_auth_process(struct auth_settings *auth_set)
 	(void)close(fd[0]);
 	(void)close(fd[1]);
 
-	/* set /dev/null handle into 1 and 2, so if something is printed into
-	   stdout/stderr it can't go anywhere where it could cause harm */
+	/* set stdout to /dev/null, so anything written into it gets ignored.
+	   leave stderr alone, we might want to use it for logging. */
 	if (dup2(null_fd, 1) < 0)
 		i_fatal("login: dup2(1) failed: %m");
-	if (dup2(null_fd, 2) < 0)
-		i_fatal("login: dup2(2) failed: %m");
 
 	clean_child_process();
 

@@ -140,8 +140,6 @@ int create_mail_process(int socket, struct ip_addr *ip,
 		i_fatal("mail: dup2(stdin) failed: %m");
 	if (dup2(socket, 1) < 0)
 		i_fatal("mail: dup2(stdout) failed: %m");
-	if (dup2(null_fd, 2) < 0)
-		i_fatal("mail: dup2(stderr) failed: %m");
 
 	if (close(socket) < 0)
 		i_error("mail: close(mail client) failed: %m");
