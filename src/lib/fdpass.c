@@ -24,6 +24,7 @@
 */
 
 #define _XPG4_2
+#define _XOPEN_SOURCE_EXTENDED /* for Tru64 */
 
 #include "lib.h"
 #include "fdpass.h"
