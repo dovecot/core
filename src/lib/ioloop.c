@@ -116,6 +116,8 @@ IO io_add_priority(int fd, int priority, int condition,
 void io_remove(IO io)
 {
 	i_assert(io != NULL);
+	i_assert(io->fd >= 0);
+	i_assert(io->fd <= current_ioloop->highest_fd);
 
         /* notify the real I/O handler */
 	io_loop_handle_remove(current_ioloop, io->fd, io->condition);
