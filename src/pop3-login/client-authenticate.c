@@ -183,7 +183,7 @@ int cmd_pass(struct pop3_client *client, const char *args)
 	buffer_append(client->plain_login, args, strlen(args));
 
 	client_ref(client);
-	if (auth_init_request(AUTH_MECH_PLAIN, AUTH_PROTOCOL_IMAP,
+	if (auth_init_request(AUTH_MECH_PLAIN, AUTH_PROTOCOL_POP3,
 			      login_callback, &client->common, &error)) {
 		/* don't read any input from client until login is finished */
 		if (client->common.io != NULL) {
@@ -287,7 +287,7 @@ int cmd_auth(struct pop3_client *client, const char *args)
 	}
 
 	client_ref(client);
-	if (auth_init_request(mech->mech, AUTH_PROTOCOL_IMAP,
+	if (auth_init_request(mech->mech, AUTH_PROTOCOL_POP3,
 			      authenticate_callback, &client->common, &error)) {
 		/* following input data will go to authentication */
 		if (client->common.io != NULL)
