@@ -43,8 +43,9 @@ struct auth_request {
 
 extern enum auth_mech available_auth_mechs;
 
-int auth_init_request(enum auth_mech mech, auth_callback_t *callback,
-		      void *context, const char **error);
+int auth_init_request(enum auth_mech mech, enum auth_protocol protocol,
+		      auth_callback_t callback, void *context,
+		      const char **error);
 
 void auth_continue_request(struct auth_request *request,
 			   const unsigned char *data, size_t data_size);

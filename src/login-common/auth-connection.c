@@ -274,8 +274,9 @@ static void auth_input(void *context)
 	i_stream_skip(conn->input, conn->reply.data_size);
 }
 
-int auth_init_request(enum auth_mech mech, auth_callback_t callback,
-		      void *context, const char **error)
+int auth_init_request(enum auth_mech mech, enum auth_protocol protocol,
+		      auth_callback_t callback, void *context,
+		      const char **error)
 {
 	struct auth_connection *conn;
 	struct auth_request *request;
@@ -304,6 +305,7 @@ int auth_init_request(enum auth_mech mech, auth_callback_t callback,
 
 	/* send request to auth */
 	auth_request.type = AUTH_LOGIN_REQUEST_NEW;
+	auth_request.protocol = protocol;
 	auth_request.mech = request->mech;
 	auth_request.id = request->id;
 	if (o_stream_send(request->conn->output, &auth_request,

@@ -176,8 +176,8 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	buffer_append(client->plain_login, pass, strlen(pass));
 
 	client_ref(client);
-	if (auth_init_request(AUTH_MECH_PLAIN, login_callback,
-			      &client->common, &error)) {
+	if (auth_init_request(AUTH_MECH_PLAIN, AUTH_PROTOCOL_IMAP,
+			      login_callback, &client->common, &error)) {
 		/* don't read any input from client until login is finished */
 		if (client->common.io != NULL) {
 			io_remove(client->common.io);
@@ -296,8 +296,8 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 	}
 
 	client_ref(client);
-	if (auth_init_request(mech->mech, authenticate_callback,
-			      &client->common, &error)) {
+	if (auth_init_request(mech->mech, AUTH_PROTOCOL_IMAP,
+			      authenticate_callback, &client->common, &error)) {
 		/* following input data will go to authentication */
 		if (client->common.io != NULL)
 			io_remove(client->common.io);
