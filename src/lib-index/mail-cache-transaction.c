@@ -249,8 +249,8 @@ mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
 		do {
 			i_assert(size >= 2);
 			size -= 2;
-		} while (buf[size] != ctx->reserved_space_offset);
-		buf[size+1] = ctx->reserved_space;
+		} while (buf[size] + buf[size+1] != hdr->used_file_size);
+		buf[size+1] += ctx->reserved_space;
 	} else {
 		ctx->reserved_space_offset = hdr->used_file_size;
 		ctx->reserved_space = block_size;
