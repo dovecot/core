@@ -129,7 +129,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 		internal_date = ioloop_time;
 
 	io_buffer_skip(inbuf, pos+1);
-	start_offset = inbuf->offset;
+	start_offset = inbuf->start_offset + inbuf->offset;
 
 	/* now, find the ending "[\r]\nFrom " */
 	mbox_read_message(inbuf, &virtual_size);
