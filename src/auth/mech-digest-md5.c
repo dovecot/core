@@ -219,6 +219,9 @@ static int verify_realm(const char *realm)
 {
 	const char *const *tmp;
 
+	if (*realm == '\0')
+		return TRUE;
+
 	for (tmp = auth_realms; *tmp != NULL; tmp++) {
 		if (strcasecmp(realm, *tmp) == 0)
 			return TRUE;
@@ -500,15 +503,17 @@ static int parse_digest_response(struct digest_auth_request *auth,
 			copy++;
 	}
 
-	if (!auth->nonce_found) {
-		*error = "Missing nonce parameter";
-		failed = TRUE;
-	} else if (auth->cnonce == NULL) {
-		*error = "Missing cnonce parameter";
-		failed = TRUE;
-	} else if (auth->username == NULL) {
-		*error = "Missing username parameter";
-		failed = TRUE;
+	if (!failed) {
+		if (!auth->nonce_found) {
+			*error = "Missing nonce parameter";
+			failed = TRUE;
+		} else if (auth->cnonce == NULL) {
+			*error = "Missing cnonce parameter";
+			failed = TRUE;
+		} else if (auth->username == NULL) {
+			*error = "Missing username parameter";
+			failed = TRUE;
+		}
 	}
 
 	if (auth->nonce_count == NULL)
