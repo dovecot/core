@@ -13,12 +13,15 @@ configuration file to get it to work:
   mv /usr/local/etc/dovecot-example.conf /usr/local/etc/dovecot.conf
 
 Read through it, make needed modifications and start imap-master.
+doc/configuration.txt tells you more about configuring Dovecot.
+
 
 SSL/TLS
 -------
 
 GNUTLS v0.5.5 or later is required to enable SSL and TLS support. OpenSSL
 isn't supported. You can get GNUTLS from http://www.gnutls.org/
+
 
 Optional configure options
 --------------------------

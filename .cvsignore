@@ -22,7 +22,6 @@ config.h.in
 install-sh
 missing
 mkinstalldirs
-INSTALL
 intl
 ABOUT-NLS
 COPYING

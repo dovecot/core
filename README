@@ -1,56 +1,17 @@
+Installation
+------------
 
- * Alpha release
+See INSTALL file.
 
-This release has not been extensively tested, I don't recommend putting it
-into production usage yet. All the IMAP4rev1 features are fully supported,
-except custom message flags still need to be implemented. There's several
-minor problems left, see TODO file.
 
- * Mail storages
+Configuration
+-------------
 
-Maildir is the preferred storage with most robust implementation. mbox
-support is available but currently it relies a little bit on good luck, I
-made it mostly for personal use and I strongly recommend using maildir if
-at all possible.
+See doc/configuration.txt file.
 
-Maildir folders are done like with courier. INBOX is the ~/Maildir
-directory, all the other folders named as ".<folder>.<subfolder>.<etc>"
-under it, any directories not starting with a dot are simply ignored.
-Deleting folders is made atomic by renaming them as "..<folder name>" and
-deleting the directory after that. So, all directories beginning with ".."
-are deleted whenever they're noticed. Indexes are stored into each folder's
-root directory.
 
-mbox storage currently requires that all mail is in user-writable
-directory, eg. ~/mail. Especially using /var/mail/user is NOT supported.
-You may however create a ~/mail/inbox hardlink (or symlink if not chrooted)
-to pointing to /var/mail/user. All files in the mail directory are
-considered as mailboxes. Directories specify subfolders in IMAP. "inbox"
-file specifies the INBOX folder and can not be named otherwise. Indexes are
-stored into ".imap/<mailbox name>/" directories.
-
-imap process detects the storage from MAIL-environment which is preferred
-to be in format "<storage>:<data>", for example "maildir:~/Maildir". It's
-anyway allowed to be in pretty much any format as long as some of the
-storages recognizes it as a valid data, so for example "MAIL=~/mail" is
-first checked by maildir storage to see if it's valid maildir and
-mbox storage after that.
-
-If the MAIL environment isn't given at all, all the storages are gone
-through which try to find a valid directory for themselves to use. Also as
-a special case, if MAILDIR environment exists, maildir storage is used with
-the directory specified in it.
-
-Maildir storage is autodetected by checking if <directory>/cur/ exists and
-we have rwx access to it. If directory isn't known, / and ~/Maildir are
-checked. / is checked because we could be chrooted.
-
-mbox storage is autodetected by checking if .imap/ (+rwx), inbox (+rw) or
-mbox (+rw) exists in directory. If directory isn't known, / is tried first.
-After that, ~/mail and ~/Mail directories are used if they're found without
-checking if they even contain any files.
-
- * Code
+Code
+----
 
 The code is split into a several libraries and binaries:
 
@@ -67,20 +28,22 @@ The code is split into a several libraries and binaries:
                    imap binary uses only the interface so it's possible to
 		   add support for any kind of mail storage (eg. SQL).
 
- * RFCs conformed
 
-822  - Standard for ARPA Internet Text Messages
-2822 - Internet Message Format (updated rfc822)
-2045..2049 - Multipurpose Internet Mail Extensions (MIME)
+RFCs conformed
+--------------
 
-2060 - IMAP4rev1
-2180 - IMAP4 Multi-Accessed Mailbox Practice
+ 822        - Standard for ARPA Internet Text Messages
+ 2822       - Internet Message Format (updated rfc822)
+ 2045..2049 - Multipurpose Internet Mail Extensions (MIME)
 
-2595 - Using TLS with IMAP, POP3 and ACAP
-2831 - Using Digest Authentication as a SASL Mechanism (DIGEST-MD5)
+ 2060       - IMAP4rev1
+ 2180       - IMAP4 Multi-Accessed Mailbox Practice
 
-rfc2831
+ 2595       - Using TLS with IMAP, POP3 and ACAP
+ 2831       - Using Digest Authentication as a SASL Mechanism (DIGEST-MD5)
 
- * Contact info
+
+Contact info
+------------
 
 Timo Sirainen <tss@iki.fi>, http://dovecot.procontrol.fi/
