@@ -1,10 +1,4 @@
  - bugs
-    - mbox: copy 1 selected-mailbox doesn't work too well
-    - RENAME: If the name has inferior hierarchical names, then the inferior
-	      hierarchical names MUST also be renamed (ie. foo -> bar renames
-	      also foo/bar -> bar/bar). (and RENAME INBOX!)
-    - passwd-file doesn't notice changes in the file
-    - tree has some locking issues while opening it
     - maildir: if mail file isn't found, it may be because it was renamed
       (flag changed). we must then sync the directory and see again if the mail
       is found
@@ -16,8 +10,6 @@
     - SEARCH FROM/TO/CC/BCC now generates the field from ENVELOPE which it
       uses for matching. This however gives different results than when
       matching from headers.
-    - mbox: what if 1 msg is deleted is x-imapbase rewritten? it should be
-      done by the expunging itself so we don't force another large rewrite..
     - Outlook Express sometimes says "message not found" when trying to open
       one, why?
 
@@ -73,9 +65,10 @@
     - .subscriptions currently uses fcntl() locking - maybe we should instead
       just write to temp file and rename()? optionally at least, so it
       works with NFS.
+    - OpenSSL: support generated DH parameters
 
  - lib-charset:
-     - utf8_toupper() is a must
+     - utf8_toupper() is a must. and a bit difficult if we want to do it right.
      - add support for other things than iconv() as well? we could reuse
        the code from cyrus or courier
 
@@ -100,6 +93,11 @@ index:
      - UW-IMAPd writes empty spaces after X-Keywords which it uses so that
        it doesn't have to rewrite the whole file if status flags changed
        in the beginning of it. We could do that too.
+     - When expunging the first message we could move the X-IMAPbase header
+       to next message to avoid full rewriting later.
+     - Our X-flags wouldn't need to be sent to clients. UW-IMAPd doesn't.
+     - COPY 1 copies X-IMAPbase header too which isn't good idea. save() could
+       actually strip this (and X-UID) while also fixing From-lines etc.
      - we need either From-line escaping or writing Content-Length when saving
        mails.
  - read-only support for mailboxes where we don't have write-access
