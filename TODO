@@ -1,19 +1,19 @@
+ - support for multiple auth checkers. passdb+userdb should be tied together.
+   auth process configurations really should be used for this..
  - openbsd: if we ever write() to a file that is mmaped(), even if munmap()ed
    in the middle, the mmaped area doesn't get updated. This mostly happens
    when updating headers with write().. is it worth fixing? ..
  - maildir append doesn't actually need the mailbox to be synced.
    index->open_mailbox() could have some parameter to specify if mailbox
    should be synced or not.
- - postgresql support doesn't reconnect if connection drops.
  - we could process multiple commands (especially command + implicit sync
    after it) without dropping (index) lock in the middle. that'd mean all
    commands should be able to begin in any lock state and they shouldn't drop
    the lock. there'd be some new drop_lock() function which finally does that.
-
+ - imap_parser() should rather have a full-line memory limiting rather than
+   per-parameter. some clients can send huge messageset parameters and it'd
+   be nice to make the max. line length configurable
  - fix cygwin compile? _close and _read in *stream*.c fails.
- - fix SSL for RedHat 9. Use pkg-config.
- - PAM waits for two seconds on wrong passwords. dovecot-auth is completely
-   stuck at that time. maybe fork() new PAM checkers?
  - mailbox_check_interval: we shouldn't send anything if write() returns
    EAGAIN. not all clients are reading input all the time and there's no point
    in sending updates when no-one is reading them.

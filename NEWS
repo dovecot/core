@@ -1,3 +1,43 @@
+v0.99.10 2003-06-26  Timo Sirainen <tss@iki.fi>
+
+	* Default PAM service name changed to "dovecot". This means that
+	  if you're using PAM, you most likely have to do
+	    mv /etc/pam.d/imap /etc/pam.d/dovecot
+	  If you wish to keep using imap, see doc/auth.txt.
+
+	* ~/rawlog directory changed to ~/dovecot.rawlog
+
+	+ Faster and better maildir synchronization. We support read-only
+	  maildirs and out-of-quota conditions are handled a lot better.
+	  dovecot-uidlist file still isn't out-of-quota-safe though, but you
+	  can keep it in another location where quota isn't checked. For
+	  example:
+	    default_mail_env = Maildir:~/Maildir:
+	      INDEX=/noquota/%u:CONTROL=/noquota/%u
+	+ Read-only mboxes are supported now.
+	+ Only NOOP and CHECK now always do a mailbox sync checking. Other
+	  commands sync max. once in 5 seconds, plus always from indexes.
+	  This should reduce I/O a bit.
+	+ All NUL characters are translated to ascii #128 before sending to
+	  client. RFC prohibits sending NULs and this is how UW-IMAP handles
+	  it as well.
+	+ Make ENVELOPE, BODY and BODYSTRUCTURE replies more compact by
+	  removing multiple LWSPs and translating TABs to spaces. RFC doesn't
+	  specifically require this, but this seems to be the wanted
+	  behaviour..
+	+ Added ANONYMOUS SASL mechanism.
+	+ More flexible user chrooting configuration in home directories:
+	  "<chroot>/./<homedir>"
+	+ Added support for dynamically loadable IMAP/POP3 modules. See
+	  INSTALL file for more information.
+	- Partial fetches were broken if mails had CR+LF linefeeds
+	- SEARCH DELETED didn't return anything if all messages were deleted
+	- OpenSSL support was broken in many installations because we were
+	  chrooted and it couldn't open /dev/urandom.
+	- PAM: Giving wrong password blocked the whole process for two
+	  seconds. Now we create a new process for each check.
+	- Lots of other smaller bugfixes and better error handling
+
 v0.99.9.1 2003-05-03  Timo Sirainen <tss@iki.fi>
 
 	- Messages having lines longer than 8192 bytes caused problems.
