@@ -28,7 +28,7 @@ static int parse_timezone(const unsigned char *str, size_t len)
 		    !i_isdigit(str[3]) || !i_isdigit(str[4]))
 			return FALSE;
 
-		offset = (str[1]-'0') * 1000 + (str[2]-'0') * 100 +
+		offset = ((str[1]-'0') * 10 + (str[2]-'0')) * 60  +
 			(str[3]-'0') * 10 + (str[4]-'0');
 		return *str == '+' ? offset : -offset;
 	}
