@@ -71,7 +71,6 @@ struct settings {
 	const char *lock_method;
 	int maildir_stat_dirs;
 	int maildir_copy_with_hardlinks;
-	int maildir_check_content_changes;
 	const char *mbox_read_locks;
 	const char *mbox_write_locks;
 	unsigned int mbox_lock_timeout;
