@@ -212,7 +212,8 @@ int net_connect_unix(const char *path)
 /* Disconnect socket */
 void net_disconnect(int fd)
 {
-        close(fd);
+	if (close(fd) < 0)
+		i_error("net_disconnect() failed: %m");
 }
 
 /* Set socket blocking/nonblocking */
