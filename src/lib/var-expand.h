@@ -11,4 +11,8 @@ struct var_expand_table {
 void var_expand(string_t *dest, const char *str,
 		const struct var_expand_table *table);
 
+/* Returns the actual key character for given string, ie. skip any modifiers
+   that are before it. The string should be the data after the '%' character. */
+char var_get_key(const char *str);
+
 #endif

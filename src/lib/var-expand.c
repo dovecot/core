@@ -90,3 +90,27 @@ void var_expand(string_t *dest, const char *str,
 		}
 	}
 }
+
+char var_get_key(const char *str)
+{
+	const struct var_expand_modifier *m;
+
+	/* [<offset>.]<width>[<modifier>]<variable> */
+	while (*str >= '0' && *str <= '9')
+		str++;
+
+	if (*str == '.') {
+		str++;
+		while (*str >= '0' && *str <= '9')
+			str++;
+	}
+
+	for (m = modifiers; m->key != '\0'; m++) {
+		if (m->key == *str) {
+			str++;
+			break;
+		}
+	}
+
+	return *str;
+}
