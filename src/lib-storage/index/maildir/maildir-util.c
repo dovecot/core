@@ -207,7 +207,7 @@ const char *maildir_generate_tmp_filename(const struct timeval *tv)
 
 	if (first_stamp == 0 || first_stamp == ioloop_time) {
 		/* it's possible that within last second another process had
-		   the same UID as us. Use usecs to make sure we don't create
+		   the same PID as us. Use usecs to make sure we don't create
 		   duplicate base name. */
 		first_stamp = ioloop_time;
 		return t_strdup_printf("%s.P%sQ%uM%s.%s",
