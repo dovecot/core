@@ -972,6 +972,7 @@ int mail_index_append_begin(MailIndex *index, MailIndexRecord **rec)
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 	i_assert((*rec)->uid == 0);
+	i_assert((*rec)->msg_flags == 0);
 
 	if (index->mmap_used_length == index->mmap_full_length) {
 		/* we need more space */
@@ -996,7 +997,6 @@ int mail_index_append_begin(MailIndex *index, MailIndexRecord **rec)
 int mail_index_append_end(MailIndex *index, MailIndexRecord *rec)
 {
 	index->header->messages_count++;
-        mail_index_mark_flag_changes(index, rec, 0, rec->msg_flags);
 
 	rec->uid = index->header->next_uid++;
 
