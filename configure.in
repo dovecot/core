@@ -1,4 +1,4 @@
-AC_INIT(dovecot, 1.0-test62, [dovecot@dovecot.org])
+AC_INIT(dovecot, 1.0-test65, [dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AC_CONFIG_HEADERS([config.h])
@@ -1370,6 +1370,7 @@ src/login-common/Makefile
 src/master/Makefile
 src/pop3/Makefile
 src/pop3-login/Makefile
+src/deliver/Makefile
 src/util/Makefile
 stamp.h
 dovecot.spec])
