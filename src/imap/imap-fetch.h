@@ -24,6 +24,7 @@ struct imap_fetch_context {
 	enum mail_fetch_field fetch_data;
 	enum imap_fetch_field imap_data;
 	struct imap_fetch_body_data *bodies;
+	struct mailbox_header_lookup_ctx *headers_ctx;
 
 	string_t *str;
 	struct ostream *output;

@@ -112,14 +112,16 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	}
 }
 
-static void read_and_hide_headers(struct istream *input,
-				  const char *const *headers,
-				  size_t headers_count, buffer_t *dest,
-				  struct message_size *hdr_size)
+static void
+read_and_hide_headers(struct istream *input, int filter,
+		      const char *const *headers, size_t headers_count,
+		      buffer_t *dest, struct message_size *hdr_size,
+		      header_filter_callback *callback, void *context)
 {
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
 	uoff_t virtual_size = 0;
+	int matched;
 
 	hdr_ctx = message_parse_header_init(input, hdr_size, FALSE);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
@@ -131,8 +133,12 @@ static void read_and_hide_headers(struct istream *input,
 			break;
 		}
 
-		if (bsearch(hdr->name, headers, headers_count,
-			    sizeof(*headers), bsearch_strcasecmp) != NULL) {
+		matched = bsearch(hdr->name, headers, headers_count,
+				  sizeof(*headers), bsearch_strcasecmp) != NULL;
+		if (callback != NULL)
+			callback(hdr, matched, context);
+
+		if (matched == filter) {
 			/* ignore */
 		} else if (dest != NULL) {
 			if (!hdr->continued) {
@@ -157,8 +163,9 @@ static void read_and_hide_headers(struct istream *input,
 }
 
 struct istream *
-i_stream_create_header_filter(pool_t pool, struct istream *input,
-			      const char *const *headers, size_t headers_count)
+i_stream_create_header_filter(pool_t pool, struct istream *input, int filter,
+			      const char *const *headers, size_t headers_count,
+			      header_filter_callback *callback, void *context)
 {
 	struct header_filter_istream *mstream;
 
@@ -168,8 +175,11 @@ i_stream_create_header_filter(pool_t pool, struct istream *input,
 
 	mstream->headers = buffer_create_dynamic(default_pool,
 						 8192, (size_t)-1);
-	read_and_hide_headers(input, headers, headers_count, mstream->headers,
-			      &mstream->header_size);
+	read_and_hide_headers(input, filter, headers, headers_count,
+			      mstream->headers, &mstream->header_size,
+			      callback, context);
+	if (callback != NULL)
+		callback(NULL, FALSE, context);
 
 	mstream->istream.buffer = buffer_get_data(mstream->headers, NULL);
 	mstream->istream.pos = mstream->header_size.virtual_size;

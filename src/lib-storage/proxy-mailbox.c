@@ -66,6 +66,14 @@ static int _get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 	return p->box->get_uids(p->box, uid1, uid2, seq1_r, seq2_r);
 }
 
+static struct mailbox_header_lookup_ctx *
+_header_lookup_init(struct mailbox *box, const char *const headers[])
+{
+	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
+
+	return p->box->header_lookup_init(p->box, headers);
+}
+
 static int _search_get_sorting(struct mailbox *box,
 			       enum mail_sort_type *sort_program)
 {
@@ -79,7 +87,7 @@ _search_init(struct mailbox_transaction_context *t,
 	     const char *charset, struct mail_search_arg *args,
 	     const enum mail_sort_type *sort_program,
 	     enum mail_fetch_field wanted_fields,
-	     const char *const wanted_headers[])
+	     struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct proxy_mailbox_transaction_context *pt =
 		(struct proxy_mailbox_transaction_context *)t;
@@ -157,6 +165,7 @@ void proxy_mailbox_init(struct proxy_mailbox *proxy, struct mailbox *box)
 	pb->notify_changes = _notify_changes;
 	pb->fetch = _fetch;
 	pb->get_uids = _get_uids;
+	pb->header_lookup_init = _header_lookup_init;
 
 	pb->search_get_sorting = _search_get_sorting;
 	pb->search_init = _search_init;

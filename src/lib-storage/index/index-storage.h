@@ -181,6 +181,10 @@ index_storage_fetch(struct mailbox_transaction_context *t, uint32_t seq,
 int index_storage_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			   uint32_t *seq1_r, uint32_t *seq2_r);
 
+struct mailbox_header_lookup_ctx *
+index_header_lookup_init(struct mailbox *box, const char *const headers[]);
+void index_header_lookup_deinit(struct mailbox_header_lookup_ctx *ctx);
+
 int index_storage_search_get_sorting(struct mailbox *box,
 				     enum mail_sort_type *sort_program);
 struct mail_search_context *
@@ -188,7 +192,7 @@ index_storage_search_init(struct mailbox_transaction_context *t,
 			  const char *charset, struct mail_search_arg *args,
 			  const enum mail_sort_type *sort_program,
 			  enum mail_fetch_field wanted_fields,
-			  const char *const wanted_headers[]);
+			  struct mailbox_header_lookup_ctx *wanted_headers);
 int index_storage_search_deinit(struct mail_search_context *ctx);
 struct mail *index_storage_search_next(struct mail_search_context *ctx);
 

@@ -289,6 +289,11 @@ struct mail *mailbox_fetch(struct mailbox_transaction_context *t, uint32_t seq,
 int mailbox_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 		     uint32_t *seq1_r, uint32_t *seq2_r);
 
+/* Initialize header lookup for given headers. */
+struct mailbox_header_lookup_ctx *
+mailbox_header_lookup_init(struct mailbox *box, const char *const headers[]);
+void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx *ctx);
+
 /* Modify sort_program to specify a sort program acceptable for
    search_init(). If mailbox supports no sorting, it's simply set to
    {MAIL_SORT_END}. */
@@ -308,7 +313,7 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 		    const char *charset, struct mail_search_arg *args,
 		    const enum mail_sort_type *sort_program,
 		    enum mail_fetch_field wanted_fields,
-		    const char *const wanted_headers[]);
+                    struct mailbox_header_lookup_ctx *wanted_headers);
 /* Deinitialize search request. */
 int mailbox_search_deinit(struct mail_search_context *ctx);
 /* Search the next message. Returned mail object can be used until
@@ -365,10 +370,10 @@ struct mail {
 
 	/* Get value for single header field */
 	const char *(*get_header)(struct mail *mail, const char *field);
-	/* Returns partial headers which contain _at least_ the given fields,
-	   but it may contain others as well. */
-	struct istream *(*get_headers)(struct mail *mail,
-				       const char *const minimum_fields[]);
+	/* Returns stream containing specified headers. */
+	struct istream *
+		(*get_headers)(struct mail *mail,
+			       struct mailbox_header_lookup_ctx *headers);
 
 	/* Returns input stream pointing to beginning of message header.
 	   hdr_size and body_size are updated unless they're NULL. */
@@ -376,7 +381,7 @@ struct mail {
 				      struct message_size *hdr_size,
 				      struct message_size *body_size);
 
-	/* Get the any of the "special" fields. */
+	/* Get any of the "special" fields. */
 	const char *(*get_special)(struct mail *mail,
 				   enum mail_fetch_field field);
 

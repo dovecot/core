@@ -16,9 +16,6 @@ struct mail_cache_transaction_ctx {
 	struct mail_cache_view *view;
 	struct mail_index_transaction *trans;
 
-	uint32_t update_header_offsets[MAIL_CACHE_HEADERS_COUNT];
-	unsigned int next_unused_header_lowwater;
-
 	buffer_t *cache_data, *cache_data_seq;
 	uint32_t prev_seq;
 	size_t prev_pos;
@@ -279,6 +276,9 @@ mail_cache_transaction_get_space(struct mail_cache_transaction_ctx *ctx,
 	size_t size;
 	int ret;
 
+	i_assert((min_size & 3) == 0);
+	i_assert((max_size & 3) == 0);
+
 	if (min_size > ctx->reserved_space) {
 		if (!locked) {
 			if (mail_cache_lock(ctx->cache) <= 0)
@@ -302,6 +302,7 @@ mail_cache_transaction_get_space(struct mail_cache_transaction_ctx *ctx,
 	ctx->reserved_space -= size;
 	if (available_space_r != NULL)
 		*available_space_r = size;
+	i_assert((size & 3) == 0);
 
 	if (size == max_size && commit) {
 		/* final commit - see if we can free the rest of the
@@ -436,8 +437,7 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 {
 	struct mail_cache *cache = ctx->cache;
-	uint32_t offset;
-	int i, ret = 0;
+	int ret = 0;
 
 	if (!ctx->changes) {
 		mail_cache_transaction_free(ctx);
@@ -461,24 +461,7 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 		ret = -1;
 	}
 
-	if (ret == 0) {
-		for (i = 0; i < MAIL_CACHE_HEADERS_COUNT; i++) {
-			offset = ctx->update_header_offsets[i];
-			if (offset != 0) {
-				cache->hdr_copy.header_offsets[i] =
-					mail_cache_uint32_to_offset(offset);
-				cache->hdr_modified = TRUE;
-			}
-		}
-	}
-
 	mail_cache_unlock(cache);
-
-	if (ctx->next_unused_header_lowwater == MAIL_CACHE_HEADERS_COUNT) {
-		/* they're all used - compress the cache to get more */
-		cache->need_compress = TRUE;
-	}
-
 	mail_cache_transaction_free(ctx);
 	return ret;
 }
@@ -488,7 +471,6 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache *cache = ctx->cache;
 	const uint32_t *buf;
 	size_t size;
-	unsigned int i;
 
 	if (mail_cache_lock(cache) > 0) {
 		mail_cache_transaction_free_space(ctx);
@@ -510,112 +492,86 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 		mail_cache_unlock(cache);
 	}
 
-	/* make sure we don't cache the headers */
-	for (i = 0; i < ctx->next_unused_header_lowwater; i++) {
-		uint32_t offset = cache->hdr->header_offsets[i];
-		if (mail_cache_offset_to_uint32(offset) == 0)
-			cache->split_offsets[i] = 1;
-	}
-
 	mail_cache_transaction_free(ctx);
 }
 
-static const char *write_header_string(const char *const headers[],
-				       uint32_t *size_r)
-{
-	buffer_t *buffer;
-	size_t size;
-
-	buffer = buffer_create_dynamic(pool_datastack_create(),
-				       512, (size_t)-1);
-
-	while (*headers != NULL) {
-		if (buffer_get_used_size(buffer) != 0)
-			buffer_append(buffer, "\n", 1);
-		buffer_append(buffer, *headers, strlen(*headers));
-		headers++;
-	}
-	buffer_append(buffer, null4, 1);
-
-	size = buffer_get_used_size(buffer);
-	if ((size & 3) != 0) {
-		buffer_append(buffer, null4, 4 - (size & 3));
-		size += 4 - (size & 3);
-	}
-	*size_r = size;
-	return buffer_get_data(buffer, NULL);
-}
-
-int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
-				 unsigned int idx, const char *const headers[])
+static int
+mail_cache_header_write_fields(struct mail_cache_transaction_ctx *ctx)
 {
 	struct mail_cache *cache = ctx->cache;
-	uint32_t offset, size, total_size;
-	const char *header_str, *prev_str;
+	buffer_t *buffer;
+	const void *data;
+	size_t size;
+	uint32_t offset, hdr_offset;
+	int ret = 0;
 
-	i_assert(*headers != NULL);
-	i_assert(idx < MAIL_CACHE_HEADERS_COUNT);
-	i_assert(idx >= ctx->next_unused_header_lowwater);
-	i_assert(mail_cache_offset_to_uint32(cache->hdr->
-					     header_offsets[idx]) == 0);
+	if (mail_cache_lock(cache) <= 0)
+		return -1;
 
 	t_push();
+	buffer = buffer_create_dynamic(pool_datastack_create(),
+				       256, (size_t)-1);
+	mail_cache_header_fields_get(cache, buffer);
+	data = buffer_get_data(buffer, &size);
 
-	header_str = write_header_string(headers, &size);
-	if (idx != 0) {
-		prev_str = mail_cache_get_header_fields_str(cache, idx-1);
-		if (prev_str == NULL) {
-			t_pop();
-			return FALSE;
-		}
-
-		i_assert(strcmp(header_str, prev_str) != 0);
-	}
-
-	total_size = size + sizeof(uint32_t);
-	offset = mail_cache_transaction_get_space(ctx, total_size, total_size,
-						  NULL, FALSE);
-	if (offset != 0) {
-		if (pwrite_full(cache->fd, &size, sizeof(size), offset) < 0 ||
-		    pwrite_full(cache->fd, header_str, size,
-				offset + sizeof(uint32_t)) < 0) {
+	offset = mail_cache_transaction_get_space(ctx, size, size, &size, TRUE);
+	if (offset == 0)
+		ret = -1;
+	else if (pwrite_full(cache->fd, data, size, offset) < 0) {
+		mail_cache_set_syscall_error(cache, "pwrite_full()");
+		ret = -1;
+	} else if (fdatasync(cache->fd) < 0) {
+		mail_cache_set_syscall_error(cache, "fdatasync()");
+		ret = -1;
+	} else if (mail_cache_header_fields_get_next_offset(cache,
+							    &hdr_offset) < 0)
+		ret = -1;
+	else {
+		/* after it's guaranteed to be in disk, update header offset */
+		offset = mail_cache_uint32_to_offset(offset);
+		if (pwrite_full(cache->fd, &offset, sizeof(offset),
+				hdr_offset) < 0) {
 			mail_cache_set_syscall_error(cache, "pwrite_full()");
-			offset = 0;
+			ret = -1;
+		} else {
+			/* we'll need to fix mappings. */
+			if (mail_cache_header_fields_read(cache) < 0)
+				ret = -1;
 		}
 	}
-
-	if (offset != 0) {
-		ctx->update_header_offsets[idx] = offset;
-		ctx->changes = TRUE;
-
-		/* update cached headers */
-		cache->split_offsets[idx] = cache->hdr->header_offsets[idx];
-		cache->split_headers[idx] =
-			mail_cache_split_header(cache, header_str);
-
-		/* make sure get_header_fields() still works for this header
-		   while the transaction isn't yet committed. */
-		ctx->next_unused_header_lowwater = idx + 1;
-	}
-
 	t_pop();
-	return offset > 0;
+
+	mail_cache_unlock(cache);
+	return ret;
 }
 
 void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
-		    enum mail_cache_field field,
-		    const void *data, size_t data_size)
+		    unsigned int field, const void *data, size_t data_size)
 {
-	uint32_t fixed_size, data_size32;
+	uint32_t file_field, data_size32;
+	unsigned int fixed_size;
 	size_t full_size;
 
-	i_assert(field < MAIL_CACHE_FIELD_COUNT);
-	i_assert(data_size > 0);
+	i_assert(field < ctx->cache->fields_count);
 	i_assert(data_size < (uint32_t)-1);
+
+	if (ctx->cache->fields[field].decision ==
+	    (MAIL_CACHE_DECISION_NO | MAIL_CACHE_DECISION_FORCED))
+		return;
+
+	file_field = ctx->cache->field_file_map[field];
+	if (file_field == (uint32_t)-1) {
+		/* we'll have to add this field to headers */
+		if (mail_cache_header_write_fields(ctx) < 0)
+			return;
+
+		file_field = ctx->cache->field_file_map[field];
+		i_assert(file_field != (uint32_t)-1);
+	}
 
 	mail_cache_decision_add(ctx->view, seq, field);
 
-	fixed_size = mail_cache_field_sizes[field];
+	fixed_size = ctx->cache->fields[field].field_size;
 	i_assert(fixed_size == (unsigned int)-1 || fixed_size == data_size);
 
 	data_size32 = (uint32_t)data_size;
@@ -643,7 +599,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 			return;
 	}
 
-	buffer_append(ctx->cache_data, &field, sizeof(field));
+	buffer_append(ctx->cache_data, &file_field, sizeof(file_field));
 	if (fixed_size == (unsigned int)-1) {
 		buffer_append(ctx->cache_data, &data_size32,
 			      sizeof(data_size32));
@@ -652,12 +608,6 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	buffer_append(ctx->cache_data, data, data_size);
 	if ((data_size & 3) != 0)
                 buffer_append(ctx->cache_data, null4, 4 - (data_size & 3));
-}
-
-int mail_cache_update_record_flags(struct mail_cache_view *view, uint32_t seq,
-				   enum mail_cache_record_flag flags)
-{
-	return -1;
 }
 
 int mail_cache_transaction_lookup(struct mail_cache_transaction_ctx *ctx,

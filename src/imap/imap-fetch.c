@@ -347,7 +347,7 @@ int imap_fetch(struct client *client,
 	struct mail *mail;
 	struct imap_fetch_body_data *body;
 	const char *null = NULL;
-	const char *const *wanted_headers, *const *arr;
+	const char *const *arr;
 	buffer_t *buffer;
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -375,27 +375,33 @@ int imap_fetch(struct client *client,
 	/* If we have only BODY[HEADER.FIELDS (...)] fetches, get them
 	   separately rather than parsing the full header so mail storage
 	   can try to cache them. */
-	ctx.body_fetch_from_cache = TRUE;
-	buffer = buffer_create_dynamic(pool_datastack_create(), 64, (size_t)-1);
-	for (body = bodies; body != NULL; body = body->next) {
-		if (strncmp(body->section, "HEADER.FIELDS ", 14) != 0) {
-                        ctx.body_fetch_from_cache = FALSE;
-			break;
-		}
+	ctx.body_fetch_from_cache = (imap_data & (IMAP_FETCH_RFC822 |
+						  IMAP_FETCH_RFC822_HEADER |
+						  IMAP_FETCH_RFC822_TEXT)) == 0;
+	if (ctx.body_fetch_from_cache) {
+		buffer = buffer_create_dynamic(pool_datastack_create(),
+					       64, (size_t)-1);
+		for (body = bodies; body != NULL; body = body->next) {
+			if (strncmp(body->section, "HEADER.FIELDS ", 14) != 0) {
+				ctx.body_fetch_from_cache = FALSE;
+				break;
+			}
 
-		arr = imap_fetch_get_body_fields(body->section + 14);
-		while (*arr != NULL) {
-			buffer_append(buffer, arr, sizeof(*arr));
-			arr++;
+			arr = imap_fetch_get_body_fields(body->section + 14);
+			while (*arr != NULL) {
+				buffer_append(buffer, arr, sizeof(*arr));
+				arr++;
+			}
 		}
+		buffer_append(buffer, &null, sizeof(null));
+		ctx.headers_ctx = !ctx.body_fetch_from_cache ? NULL :
+			mailbox_header_lookup_init(box, buffer_get_data(buffer,
+									NULL));
 	}
-	buffer_append(buffer, &null, sizeof(null));
-	wanted_headers = !ctx.body_fetch_from_cache ? NULL :
-		buffer_get_data(buffer, NULL);
 
 	t = mailbox_transaction_begin(box, TRUE);
 	ctx.search_ctx = mailbox_search_init(t, NULL, search_args, NULL,
-					     fetch_data, wanted_headers);
+					     fetch_data, ctx.headers_ctx);
 	if (ctx.search_ctx == NULL)
 		ctx.failed = TRUE;
 	else {
@@ -411,6 +417,8 @@ int imap_fetch(struct client *client,
 		if (mailbox_search_deinit(ctx.search_ctx) < 0)
 			ctx.failed = TRUE;
 	}
+	if (ctx.headers_ctx != NULL)
+		mailbox_header_lookup_deinit(ctx.headers_ctx);
 
 	if (ctx.failed)
 		mailbox_transaction_rollback(t);

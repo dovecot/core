@@ -254,7 +254,7 @@ static int fetch_header_append(struct fetch_header_field_context *ctx,
 
 	if (ctx->dest != NULL)
 		buffer_append(ctx->dest, str, size);
-	if (ctx->output != NULL) {
+	else {
 		if (o_stream_send(ctx->output, str, size) < 0)
 			return FALSE;
 	}
@@ -273,7 +273,9 @@ static int fetch_header_fields(struct istream *input, const char *section,
 		ctx->match_func = header_match;
 
 		if (ctx->fetch_ctx->body_fetch_from_cache) {
-			input = ctx->mail->get_headers(ctx->mail, ctx->fields);
+			input = ctx->mail->
+				get_headers(ctx->mail,
+					    ctx->fetch_ctx->headers_ctx);
 			if (input == NULL)
 				return FALSE;
 		}

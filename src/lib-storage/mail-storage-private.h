@@ -89,15 +89,19 @@ struct mailbox {
 	int (*get_uids)(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			uint32_t *seq1_r, uint32_t *seq2_r);
 
+	struct mailbox_header_lookup_ctx *
+		(*header_lookup_init)(struct mailbox *box,
+				      const char *const headers[]);
+	void (*header_lookup_deinit)(struct mailbox_header_lookup_ctx *ctx);
+
 	int (*search_get_sorting)(struct mailbox *box,
 				  enum mail_sort_type *sort_program);
 	struct mail_search_context *
-		(*search_init)(struct mailbox_transaction_context *t,
-			       const char *charset,
-			       struct mail_search_arg *args,
-			       const enum mail_sort_type *sort_program,
-			       enum mail_fetch_field wanted_fields,
-			       const char *const wanted_headers[]);
+	(*search_init)(struct mailbox_transaction_context *t,
+		       const char *charset, struct mail_search_arg *args,
+		       const enum mail_sort_type *sort_program,
+		       enum mail_fetch_field wanted_fields,
+		       struct mailbox_header_lookup_ctx *wanted_headers);
 	int (*search_deinit)(struct mail_search_context *ctx);
 	struct mail *(*search_next)(struct mail_search_context *ctx);
 
@@ -125,6 +129,10 @@ struct mail_search_context {
 };
 
 struct mailbox_sync_context {
+	struct mailbox *box;
+};
+
+struct mailbox_header_lookup_ctx {
 	struct mailbox *box;
 };
 

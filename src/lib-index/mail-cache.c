@@ -1,36 +1,14 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
+#include "hash.h"
 #include "file-lock.h"
-#include "file-set-size.h"
 #include "mmap-util.h"
 #include "write-full.h"
 #include "mail-cache-private.h"
 
 #include <unistd.h>
-
-unsigned int mail_cache_field_sizes[32] = {
-	sizeof(enum mail_cache_record_flag),
-	sizeof(struct mail_sent_date),
-	sizeof(time_t),
-	sizeof(uoff_t),
-
-	/* variable sized */
-	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,
-	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,
-	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,
-	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,
-	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,
-	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,
-	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1
-};
-
-enum mail_cache_field mail_cache_header_fields[MAIL_CACHE_HEADERS_COUNT] = {
-	MAIL_CACHE_HEADERS1,
-	MAIL_CACHE_HEADERS2,
-	MAIL_CACHE_HEADERS3,
-	MAIL_CACHE_HEADERS4
-};
 
 uint32_t mail_cache_uint32_to_offset(uint32_t offset)
 {
@@ -127,6 +105,9 @@ int mail_cache_reopen(struct mail_cache *cache)
 	}
 
 	if (mail_cache_map(cache, 0, 0) < 0)
+		return -1;
+
+	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
 
 	if (cache->hdr->file_seq != cache->index->hdr->cache_file_seq) {
@@ -240,7 +221,10 @@ static int mail_cache_open_and_verify(struct mail_cache *cache)
 		return -1;
 	}
 
-	return mail_cache_map(cache, 0, sizeof(struct mail_cache_header));
+	if (mail_cache_map(cache, 0, sizeof(struct mail_cache_header)) < 0)
+		return -1;
+
+	return mail_cache_header_fields_read(cache);
 }
 
 struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
@@ -250,7 +234,10 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 	cache = i_new(struct mail_cache, 1);
 	cache->index = index;
 	cache->fd = -1;
-        cache->split_header_pool = pool_alloconly_create("Headers", 512);
+        cache->field_pool = pool_alloconly_create("Cache fields", 512);
+	cache->field_name_hash =
+		hash_create(default_pool, cache->field_pool, 0,
+			    strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 
 	if (!index->mmap_disable && !index->mmap_no_write) {
 		if (mail_cache_open_and_verify(cache) < 0) {
@@ -267,16 +254,11 @@ void mail_cache_free(struct mail_cache *cache)
 {
 	mail_cache_file_close(cache);
 
-	pool_unref(cache->split_header_pool);
+	hash_destroy(cache->field_name_hash);
+	pool_unref(cache->field_pool);
+	i_free(cache->file_field_map);
 	i_free(cache->filepath);
 	i_free(cache);
-}
-
-void mail_cache_set_defaults(struct mail_cache *cache,
-			     const enum mail_cache_decision_type dec[32])
-{
-	memcpy(cache->default_field_usage_decision_type, dec,
-	       sizeof(cache->default_field_usage_decision_type));
 }
 
 int mail_cache_lock(struct mail_cache *cache)
@@ -367,10 +349,15 @@ mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview)
 	view = i_new(struct mail_cache_view, 1);
 	view->cache = cache;
 	view->view = iview;
+	view->cached_exists_buf =
+		buffer_create_dynamic(default_pool,
+				      cache->file_fields_count + 10,
+				      (size_t)-1);
 	return view;
 }
 
 void mail_cache_view_close(struct mail_cache_view *view)
 {
+	buffer_free(view->cached_exists_buf);
 	i_free(view);
 }

@@ -107,6 +107,7 @@ int imap_thread(struct client *client, const char *charset,
 		"message-id", "in-reply-to", "references", "subject",
 		NULL
 	};
+	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct thread_context *ctx;
 	struct mail *mail;
 	int ret;
@@ -115,14 +116,17 @@ int imap_thread(struct client *client, const char *charset,
 		i_fatal("Only REFERENCES threading supported");
 
 	ctx = t_new(struct thread_context, 1);
+	headers_ctx = mailbox_header_lookup_init(client->mailbox,
+						 wanted_headers);
 
 	/* initialize searching */
 	ctx->t = mailbox_transaction_begin(client->mailbox, FALSE);
 	ctx->search_ctx =
 		mailbox_search_init(ctx->t, charset, args, NULL,
-				    MAIL_FETCH_DATE, wanted_headers);
+				    MAIL_FETCH_DATE, headers_ctx);
 	if (ctx->search_ctx == NULL) {
 		mailbox_transaction_rollback(ctx->t);
+		mailbox_header_lookup_deinit(headers_ctx);
 		return -1;
 	}
 
@@ -149,6 +153,8 @@ int imap_thread(struct client *client, const char *charset,
 	ret = mailbox_search_deinit(ctx->search_ctx);
 	if (mailbox_transaction_commit(ctx->t) < 0)
 		ret = -1;
+
+	mailbox_header_lookup_deinit(headers_ctx);
         mail_thread_deinit(ctx);
 	return ret;
 }

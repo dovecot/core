@@ -444,7 +444,7 @@ static void search_header(struct message_part *part,
 	if (hdr->eoh)
 		return;
 
-	index_mail_parse_header(part, hdr, &ctx->index_context->imail);
+	index_mail_parse_header(NULL, hdr, &ctx->index_context->imail);
 
 	if (ctx->custom_header || strcasecmp(hdr->name, "Date") == 0) {
 		ctx->hdr = hdr;
@@ -482,6 +482,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 				 struct index_search_context *ctx)
 {
 	struct istream *input;
+	struct mailbox_header_lookup_ctx *headers_ctx;
 	const char *const *headers;
 	int have_headers, have_body;
 
@@ -496,20 +497,33 @@ static int search_arg_match_text(struct mail_search_arg *args,
 		if (have_body)
 			headers = NULL;
 
-		input = headers == NULL ?
-			ctx->mail->get_stream(ctx->mail, NULL, NULL) :
-			ctx->mail->get_headers(ctx->mail, headers);
-		if (input == NULL)
-			return FALSE;
+		if (headers == NULL) {
+			headers_ctx = NULL;
+			input = ctx->mail->get_stream(ctx->mail, NULL, NULL);
+			if (input == NULL)
+				return FALSE;
+		} else {
+			/* FIXME: do this once in init */
+			headers_ctx =
+				mailbox_header_lookup_init(&ctx->ibox->box,
+							   headers);
+			input = ctx->mail->get_headers(ctx->mail, headers_ctx);
+			if (input == NULL) {
+				mailbox_header_lookup_deinit(headers_ctx);
+				return FALSE;
+			}
+		}
 
 		memset(&hdr_ctx, 0, sizeof(hdr_ctx));
 		hdr_ctx.index_context = ctx;
 		hdr_ctx.custom_header = TRUE;
 		hdr_ctx.args = args;
 
-		index_mail_parse_header_init(&ctx->imail, headers);
+		index_mail_parse_header_init(&ctx->imail, headers_ctx);
 		message_parse_header(NULL, input, NULL,
 				     search_header, &hdr_ctx);
+		if (headers_ctx != NULL)
+			mailbox_header_lookup_deinit(headers_ctx);
 	} else {
 		struct message_size hdr_size;
 
@@ -720,7 +734,7 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 			  const char *charset, struct mail_search_arg *args,
 			  const enum mail_sort_type *sort_program,
 			  enum mail_fetch_field wanted_fields,
-			  const char *const wanted_headers[])
+			  struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;

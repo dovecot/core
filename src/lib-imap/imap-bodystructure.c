@@ -350,24 +350,27 @@ static void part_write_body(struct message_part *part,
 			    string_t *str, int extended)
 {
 	struct message_part_body_data *data = part->context;
+	int text;
 
 	if (data == NULL) {
 		/* there was no content headers, use an empty structure */
 		data = t_new(struct message_part_body_data, 1);
 	}
 
-	if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822)
+	if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
 		str_append(str, "\"message\" \"rfc822\"");
-	else {
+		text = FALSE;
+	} else {
 		/* "content type" "subtype" */
+		text = data->content_type == NULL ||
+			strcasecmp(data->content_type, "\"text\"") == 0;
 		str_append(str, NVL(data->content_type, "\"text\""));
 		str_append_c(str, ' ');
 
 		if (data->content_subtype != NULL)
 			str_append(str, data->content_subtype);
 		else {
-			if (data->content_type == NULL ||
-			    strcasecmp(data->content_type, "\"text\"") == 0)
+			if (text)
 				str_append(str, "\"plain\"");
 			else
 				str_append(str, "\"unknown\"");
@@ -378,8 +381,7 @@ static void part_write_body(struct message_part *part,
 	/* ("content type param key" "value" ...) */
 	str_append_c(str, ' ');
 	if (data->content_type_params == NULL) {
-		if (data->content_type != NULL &&
-		    strncasecmp(data->content_type, "\"text\"", 6) != 0)
+		if (!text)
 			str_append(str, "NIL");
 		else
 			str_append(str, "("DEFAULT_CHARSET")");
@@ -395,7 +397,7 @@ static void part_write_body(struct message_part *part,
 		    NVL(data->content_transfer_encoding, "\"7bit\""),
 		    part->body_size.virtual_size);
 
-	if (part->flags & MESSAGE_PART_FLAG_TEXT) {
+	if (text) {
 		/* text/.. contains line count */
 		str_printfa(str, " %u", part->body_size.lines);
 	} else if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {

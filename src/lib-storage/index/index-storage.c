@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#define DEFAULT_NEVER_CACHE_FIELDS "imap.envelope"
+
 /* How many seconds to keep index opened for reuse after it's been closed */
 #define INDEX_CACHE_TIMEOUT 10
 /* How many closed indexes to keep */
@@ -173,28 +175,9 @@ void index_storage_destroy_unrefed(void)
 	destroy_unrefed(TRUE);
 }
 
-static void set_cache_fields(const char *fields,
-			     enum mail_cache_decision_type dest[32],
-			     enum mail_cache_decision_type dec)
+static void set_cache_decisions(const char *fields,
+				enum mail_cache_decision_type dec)
 {
-	static enum mail_cache_field field_enums[] = {
-		MAIL_CACHE_SENT_DATE,
-		MAIL_CACHE_RECEIVED_DATE,
-		MAIL_CACHE_VIRTUAL_FULL_SIZE,
-		MAIL_CACHE_BODY,
-		MAIL_CACHE_BODYSTRUCTURE,
-		MAIL_CACHE_MESSAGEPART
-	};
-	static const char *field_names[] = {
-		"sent_date",
-		"received_date",
-		"virtual_size",
-		"body",
-		"bodystructure",
-		"messagepart",
-		NULL
-	};
-
 	const char *const *arr;
 	int i;
 
@@ -202,33 +185,34 @@ static void set_cache_fields(const char *fields,
 		return;
 
 	for (arr = t_strsplit_spaces(fields, " ,"); *arr != NULL; arr++) {
-		for (i = 0; field_names[i] != NULL; i++) {
-			if (strcasecmp(field_names[i], *arr) == 0) {
-				dest[field_enums[i]] = dec;
+		for (i = 0; i < MAIL_CACHE_FIELD_COUNT; i++) {
+			if (strcasecmp(cache_fields[i].name, *arr) == 0) {
+				cache_fields[i].decision = dec;
 				break;
 			}
 		}
-		if (field_names[i] == NULL) {
+		if (i == MAIL_CACHE_FIELD_COUNT) {
 			i_error("Invalid cache field name '%s', ignoring ",
 				*arr);
 		}
 	}
 }
 
-static const enum mail_cache_decision_type *get_default_cache_decisions(void)
+static void index_cache_register_defaults(struct mail_cache *cache)
 {
-	static enum mail_cache_decision_type dec[32];
-	static int dec_set = FALSE;
+	const char *never_env;
 
-	if (dec_set)
-		return dec;
+	never_env = getenv("MAIL_NEVER_CACHE_FIELDS");
+	if (never_env == NULL)
+		never_env = DEFAULT_NEVER_CACHE_FIELDS;
 
-	memset(dec, 0, sizeof(dec));
-	set_cache_fields(getenv("MAIL_CACHE_FIELDS"), dec,
-			 MAIL_CACHE_DECISION_TEMP);
-	set_cache_fields(getenv("MAIL_NEVER_CACHE_FIELDS"), dec,
-			 MAIL_CACHE_DECISION_NO | MAIL_CACHE_DECISION_FORCED);
-	return dec;
+	set_cache_decisions(getenv("MAIL_CACHE_FIELDS"),
+			    MAIL_CACHE_DECISION_TEMP);
+	set_cache_decisions(never_env, MAIL_CACHE_DECISION_NO |
+			    MAIL_CACHE_DECISION_FORCED);
+
+	mail_cache_register_fields(cache, cache_fields,
+				   MAIL_CACHE_FIELD_COUNT);
 }
 
 void index_storage_lock_notify(struct index_mailbox *ibox,
@@ -327,8 +311,7 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 			break;
 
 		ibox->cache = mail_index_get_cache(index);
-		mail_cache_set_defaults(ibox->cache,
-					get_default_cache_decisions());
+		index_cache_register_defaults(ibox->cache);
 		ibox->view = mail_index_view_open(index);
 		return ibox;
 	} while (0);

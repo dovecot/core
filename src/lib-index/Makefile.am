@@ -8,6 +8,7 @@ libindex_a_SOURCES = \
 	mail-cache.c \
 	mail-cache-compress.c \
 	mail-cache-decisions.c \
+	mail-cache-fields.c \
 	mail-cache-lookup.c \
 	mail-cache-transaction.c \
         mail-index.c \

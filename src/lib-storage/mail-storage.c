@@ -370,6 +370,17 @@ int mailbox_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 	return box->get_uids(box, uid1, uid2, seq1_r, seq2_r);
 }
 
+struct mailbox_header_lookup_ctx *
+mailbox_header_lookup_init(struct mailbox *box, const char *const headers[])
+{
+	return box->header_lookup_init(box, headers);
+}
+
+void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx *ctx)
+{
+	ctx->box->header_lookup_deinit(ctx);
+}
+
 int mailbox_search_get_sorting(struct mailbox *box,
 			       enum mail_sort_type *sort_program)
 {
@@ -381,7 +392,7 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 		    const char *charset, struct mail_search_arg *args,
 		    const enum mail_sort_type *sort_program,
 		    enum mail_fetch_field wanted_fields,
-		    const char *const wanted_headers[])
+		    struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	return t->box->search_init(t, charset, args, sort_program,
 				   wanted_fields, wanted_headers);

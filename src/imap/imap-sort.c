@@ -194,6 +194,7 @@ int imap_sort(struct client *client, const char *charset,
 	enum mail_sort_type norm_prog[MAX_SORT_PROGRAM_SIZE];
         enum mail_fetch_field wanted_fields;
 	const char *wanted_headers[MAX_WANTED_HEADERS];
+	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct sort_context *ctx;
 	struct mail *mail;
 	buffer_t *buf;
@@ -222,14 +223,17 @@ int imap_sort(struct client *client, const char *charset,
 
 	memset(wanted_headers, 0, sizeof(wanted_headers));
 	wanted_fields = init_sort_elements(ctx, wanted_headers);
+	headers_ctx = mailbox_header_lookup_init(client->mailbox,
+						 wanted_headers);
 
 	/* initialize searching */
 	ctx->t = mailbox_transaction_begin(client->mailbox, FALSE);
 	ctx->search_ctx =
 		mailbox_search_init(ctx->t, charset, args, norm_prog,
-				    wanted_fields, wanted_headers);
+				    wanted_fields, headers_ctx);
 	if (ctx->search_ctx == NULL) {
 		mailbox_transaction_rollback(ctx->t);
+		mailbox_header_lookup_deinit(headers_ctx);
 		return -1;
 	}
 
@@ -259,6 +263,7 @@ int imap_sort(struct client *client, const char *charset,
 			      str_len(ctx->str));
 	}
 
+	mailbox_header_lookup_deinit(headers_ctx);
         mail_sort_deinit(ctx);
 	return ret;
 }
