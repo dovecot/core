@@ -182,7 +182,7 @@ static int parse_mailbox(struct message_address_parser_context *ctx)
 	}
 
 	if (ctx->addr.mailbox == NULL)
-		ctx->addr.domain = p_strdup(ctx->pool, "MISSING_MAILBOX");
+		ctx->addr.mailbox = p_strdup(ctx->pool, "MISSING_MAILBOX");
 	if (ctx->addr.domain == NULL)
 		ctx->addr.domain = p_strdup(ctx->pool, "MISSING_DOMAIN");
 	add_address(ctx);
@@ -299,11 +299,14 @@ void message_address_write(string_t *str, const struct message_address *addr)
 
 		if (addr->domain == NULL) {
 			if (!in_group) {
+				/* beginning of group. mailbox is the group
+				   name, others are NULL. */
 				if (addr->mailbox != NULL)
 					str_append(str, addr->mailbox);
 				str_append(str, ": ");
 				first = TRUE;
 			} else {
+				/* end of group. all fields should be NULL. */
 				i_assert(addr->mailbox == NULL);
 
 				/* cut out the ", " */
@@ -314,14 +317,14 @@ void message_address_write(string_t *str, const struct message_address *addr)
 			in_group = !in_group;
 		} else if ((addr->name == NULL || *addr->name == '\0') &&
 			   addr->route == NULL) {
+			/* no name and no route. use only mailbox@domain */
 			i_assert(addr->mailbox != NULL);
 
 			str_append(str, addr->mailbox);
-			if (addr->domain != NULL) {
-				str_append_c(str, '@');
-				str_append(str, addr->domain);
-			}
+			str_append_c(str, '@');
+			str_append(str, addr->domain);
 		} else {
+			/* name and/or route. use full <mailbox@domain> Name */
 			i_assert(addr->mailbox != NULL);
 
 			if (addr->name != NULL) {
@@ -335,10 +338,8 @@ void message_address_write(string_t *str, const struct message_address *addr)
 				str_append_c(str, ':');
 			}
 			str_append(str, addr->mailbox);
-			if (addr->domain != NULL) {
-				str_append_c(str, '@');
-				str_append(str, addr->domain);
-			}
+			str_append_c(str, '@');
+			str_append(str, addr->domain);
 			str_append_c(str, '>');
 		}
 
