@@ -127,7 +127,7 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 					       mail_ctx->content_length);
 	i_assert(mail_ctx->mail.body_size < OFF_T_MAX);
 
-	if ((mail_ctx->mail.flags & MBOX_NONRECENT) == 0 && !mail_ctx->pseudo) {
+	if ((mail_ctx->mail.flags & MAIL_RECENT) != 0 && !mail_ctx->pseudo) {
 		if (!sync_ctx->ibox->keep_recent) {
 			/* need to add 'O' flag to Status-header */
 			mail_ctx->need_rewrite = TRUE;
@@ -205,7 +205,7 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
-static void mbox_sync_apply_index_syncs(array_t *syncs_arr, uint8_t *flags)
+void mbox_sync_apply_index_syncs(array_t *syncs_arr, uint8_t *flags)
 {
 	ARRAY_SET_TYPE(syncs_arr, struct mail_index_sync_rec);
 	const struct mail_index_sync_rec *syncs;
@@ -342,15 +342,16 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 	struct mbox_sync_mail *mail = &mail_ctx->mail;
 	uint8_t idx_flags, mbox_flags;
 
+	mbox_flags = mail->flags & MAIL_FLAGS_MASK;
+
+	if (mail_ctx->dirty)
+		mbox_flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
+	else if (!sync_ctx->delay_writes)
+		mbox_flags &= ~MAIL_INDEX_MAIL_FLAG_DIRTY;
+
 	if (rec == NULL) {
 		/* new message */
 		mail_index_append(sync_ctx->t, mail->uid, &sync_ctx->idx_seq);
-		mbox_flags = mail->flags & (MAIL_FLAGS_MASK^MAIL_RECENT);
-		if (mail_ctx->dirty)
-			mbox_flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
-		if (sync_ctx->ibox->keep_recent &&
-		    (mail->flags & MBOX_NONRECENT) == 0)
-			mbox_flags |= MAIL_RECENT;
 		mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
 					MODIFY_REPLACE, mbox_flags);
 
@@ -360,29 +361,26 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 					      mail_ctx->hdr_md5_sum, NULL);
 		}
 	} else {
-		/* see if flags changed */
+		/* see if we need to update flags in index file. the flags in
+		   sync records are automatically applied to rec->flags at the
+		   end of index syncing, so calculate those new flags first */
 		idx_flags = rec->flags;
 		mbox_sync_apply_index_syncs(&sync_ctx->syncs, &idx_flags);
 
 		if ((idx_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
-			/* flags are dirty, ignore whatever was in the file.
-			   but remove recent flag if needed. */
-			mbox_flags = idx_flags;
-			if (!sync_ctx->ibox->keep_recent)
-				mbox_flags &= ~MAIL_RECENT;
+			/* flags are dirty. ignore whatever was in the mbox,
+			   but update recent flag state if needed. */
+			mbox_flags &= MAIL_RECENT;
+			mbox_flags |= idx_flags & ~MAIL_RECENT;
 		} else {
-			mbox_flags = (rec->flags & ~MAIL_FLAGS_MASK) |
-				(mail->flags & MAIL_FLAGS_MASK);
-			mbox_flags ^= MAIL_RECENT;
+			/* keep index's internal flags */
+			mbox_flags &= MAIL_FLAGS_MASK;
+			mbox_flags |= idx_flags & ~MAIL_FLAGS_MASK;
 		}
-
-		if (mail_ctx->dirty)
-			mbox_flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
-		else if (!sync_ctx->delay_writes)
-			mbox_flags &= ~MAIL_INDEX_MAIL_FLAG_DIRTY;
 
 		if ((idx_flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY) ==
 		    (mbox_flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY)) {
+			/* all flags are same, except possibly dirty flag */
 			if (idx_flags != mbox_flags) {
 				/* dirty flag state changed */
 				int dirty = (mbox_flags &
@@ -394,6 +392,7 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 			}
 		} else if ((idx_flags & ~MAIL_RECENT) !=
 			   (mbox_flags & ~MAIL_RECENT)) {
+			/* flags other than MAIL_RECENT have changed */
 			mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
 						MODIFY_REPLACE, mbox_flags);
 		} else if (((idx_flags ^ mbox_flags) & MAIL_RECENT) != 0) {

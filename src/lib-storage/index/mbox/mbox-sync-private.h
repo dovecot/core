@@ -27,10 +27,13 @@ enum header_position {
         MBOX_HDR_COUNT
 };
 
-#define MBOX_NONRECENT MAIL_RECENT /* kludgy */
+/* kludgy. swap MAIL_RECENT with MBOX_NONRECENT_KLUDGE when writing Status
+   header, because 'O' flag means non-recent but internally we want to use
+   recent flag. */
+#define MBOX_NONRECENT_KLUDGE MAIL_RECENT
 #define MBOX_EXPUNGED 0x40
 
-#define STATUS_FLAGS_MASK (MAIL_SEEN|MBOX_NONRECENT)
+#define STATUS_FLAGS_MASK (MAIL_SEEN|MBOX_NONRECENT_KLUDGE)
 #define XSTATUS_FLAGS_MASK (MAIL_ANSWERED|MAIL_FLAGGED|MAIL_DRAFT|MAIL_DELETED)
 extern struct mbox_flag_type mbox_status_flags[];
 extern struct mbox_flag_type mbox_xstatus_flags[];
@@ -135,6 +138,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 		      uoff_t end_offset, off_t move_diff, uoff_t extra_space,
 		      uint32_t first_seq, uint32_t last_seq);
 
+void mbox_sync_apply_index_syncs(array_t *syncs_arr, uint8_t *flags);
 int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset);
 int mbox_move(struct mbox_sync_context *sync_ctx,
 	      uoff_t dest, uoff_t source, uoff_t size);

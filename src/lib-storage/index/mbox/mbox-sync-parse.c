@@ -26,7 +26,7 @@ struct mbox_sync_header_func {
 
 struct mbox_flag_type mbox_status_flags[] = {
 	{ 'R', MAIL_SEEN },
-	{ 'O', MBOX_NONRECENT },
+	{ 'O', MBOX_NONRECENT_KLUDGE },
 	{ 0, 0 }
 };
 
@@ -83,10 +83,12 @@ static void parse_status_flags(struct mbox_sync_mail_context *ctx,
 {
 	size_t i;
 
+	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 	for (i = 0; i < hdr->full_value_len; i++) {
 		ctx->mail.flags |=
 			mbox_flag_find(flags_list, hdr->full_value[i]);
 	}
+	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 }
 
 static int parse_status(struct mbox_sync_mail_context *ctx,
@@ -318,6 +320,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	int i, ret;
 
 	ctx->hdr_offset = ctx->mail.offset;
+	ctx->mail.flags = MAIL_RECENT; /* default to having recent flag */
 
         ctx->header_first_change = (size_t)-1;
 	ctx->header_last_change = 0;

@@ -14,10 +14,13 @@ static void status_flags_append(struct mbox_sync_mail_context *ctx,
 {
 	int i;
 
+	/* kludgy kludgy */
+	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 	for (i = 0; flags_list[i].chr != 0; i++) {
 		if ((ctx->mail.flags & flags_list[i].flag) != 0)
 			str_append_c(ctx->header, flags_list[i].chr);
 	}
+	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 }
 
 void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
@@ -273,20 +276,7 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 
 	if (count != 0) {
 		old_keywords_idx = ctx->mail.keywords_idx;
-
-		for (i = 0; i < count; i++) {
-			if (syncs[i].type == MAIL_INDEX_SYNC_TYPE_FLAGS) {
-				mail_index_sync_flags_apply(&syncs[i],
-							    &ctx->mail.flags);
-			}
-
-			// FIXME: keywords
-		}
-
-		/* keep our old recent flag. especially because we use it
-		   negatively as non-recent */
-		ctx->mail.flags = (ctx->mail.flags & ~MAIL_RECENT) |
-			(old_flags & MAIL_RECENT);
+                mbox_sync_apply_index_syncs(syncs_arr, &ctx->mail.flags);
 
 		if ((old_flags & XSTATUS_FLAGS_MASK) !=
 		    (ctx->mail.flags & XSTATUS_FLAGS_MASK))
@@ -297,7 +287,7 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 	}
 
 	if (!ctx->sync_ctx->ibox->keep_recent)
-		ctx->mail.flags |= MBOX_NONRECENT;
+		ctx->mail.flags &= ~MAIL_RECENT;
 
 	if ((old_flags & STATUS_FLAGS_MASK) !=
 	    (ctx->mail.flags & STATUS_FLAGS_MASK))
@@ -314,11 +304,11 @@ void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 {
 	if ((ctx->mail.flags & STATUS_FLAGS_MASK) !=
 	    (mail->flags & STATUS_FLAGS_MASK) ||
-	    (ctx->mail.flags & MBOX_NONRECENT) == 0) {
+	    (ctx->mail.flags & MAIL_RECENT) != 0) {
 		ctx->mail.flags = (ctx->mail.flags & ~STATUS_FLAGS_MASK) |
 			(mail->flags & STATUS_FLAGS_MASK);
 		if (!ctx->sync_ctx->ibox->keep_recent)
-                        ctx->mail.flags |= MBOX_NONRECENT;
+                        ctx->mail.flags &= ~MAIL_RECENT;
 		mbox_sync_update_status(ctx);
 	}
 	if ((ctx->mail.flags & XSTATUS_FLAGS_MASK) !=

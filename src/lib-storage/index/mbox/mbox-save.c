@@ -203,10 +203,12 @@ static void status_flags_append(string_t *str, enum mail_flags flags,
 {
 	int i;
 
+	flags ^= MBOX_NONRECENT_KLUDGE;
 	for (i = 0; flags_list[i].chr != 0; i++) {
 		if ((flags & flags_list[i].flag) != 0)
 			str_append_c(str, flags_list[i].chr);
 	}
+	flags ^= MBOX_NONRECENT_KLUDGE;
 }
 
 static void mbox_save_append_flag_headers(string_t *str, enum mail_flags flags)
@@ -364,8 +366,7 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 				      ibox->mbox_ext_idx, &offset, NULL);
 		ctx->next_uid++;
 	}
-	mbox_save_append_flag_headers(ctx->headers,
-				      save_flags ^ MBOX_NONRECENT);
+	mbox_save_append_flag_headers(ctx->headers, save_flags);
 	mbox_save_append_keyword_headers(ctx, keywords);
 	str_append_c(ctx->headers, '\n');
 
