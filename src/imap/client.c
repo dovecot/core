@@ -163,7 +163,7 @@ void client_send_command_error(struct client *client, const char *msg)
 	else if (client->cmd_name == NULL)
 		error = t_strconcat("BAD Error in IMAP command: ", msg, NULL);
 	else {
-		cmd = str_ucase(t_strdup_noconst(client->cmd_name));
+		cmd = t_str_ucase(client->cmd_name);
 		error = t_strconcat("BAD Error in IMAP command ",
 				    cmd, ": ", msg, NULL);
 	}

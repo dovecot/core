@@ -431,7 +431,7 @@ int client_command_execute(struct client *client,
 			    const char *name, const char *args)
 {
 	/* keep the command uppercased */
-	name = str_ucase(t_strdup_noconst(name));
+	name = t_str_ucase(name);
 
 	while (*args == ' ') args++;
 

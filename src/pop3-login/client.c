@@ -113,7 +113,7 @@ static int cmd_quit(struct pop3_client *client)
 static int client_command_execute(struct pop3_client *client, const char *cmd,
 				  const char *args)
 {
-	cmd = str_ucase(t_strdup_noconst(cmd));
+	cmd = t_str_ucase(cmd);
 	if (strcmp(cmd, "CAPA") == 0)
 		return cmd_capa(client, args);
 	if (strcmp(cmd, "USER") == 0)

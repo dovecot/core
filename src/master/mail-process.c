@@ -95,7 +95,7 @@ get_var_expand_table(const char *user, const char *home,
 	tab[1].value = t_strcut(user, '@');
 	tab[2].value = strchr(user, '@');
 	if (tab[2].value != NULL) tab[2].value++;
-	tab[3].value = str_ucase(t_strdup_noconst(process_names[process_type]));
+	tab[3].value = t_str_ucase(process_names[process_type]);
 	tab[4].value = home;
 
 	return tab;

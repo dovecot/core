@@ -168,7 +168,7 @@ static int cmd_logout(struct imap_client *client)
 static int client_command_execute(struct imap_client *client, const char *cmd,
 				  struct imap_arg *args)
 {
-	cmd = str_ucase(t_strdup_noconst(cmd));
+	cmd = t_str_ucase(cmd);
 	if (strcmp(cmd, "LOGIN") == 0)
 		return cmd_login(client, args);
 	if (strcmp(cmd, "AUTHENTICATE") == 0)

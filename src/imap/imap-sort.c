@@ -313,7 +313,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	if (ctx->common_mask & MAIL_SORT_CC) {
 		str = get_first_mailbox(mail, "cc");
 		if (str != NULL)
-			str = str_ucase(t_strdup_noconst(str));
+			str = t_str_ucase(str);
 
 		if (null_strcmp(str, ctx->last_cc) != 0) {
 			i_free(ctx->last_cc);
@@ -333,7 +333,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	if (ctx->common_mask & MAIL_SORT_FROM) {
 		str = get_first_mailbox(mail, "from");
 		if (str != NULL)
-			str = str_ucase(t_strdup_noconst(str));
+			str = t_str_ucase(str);
 
 		if (null_strcmp(str, ctx->last_from) != 0) {
 			i_free(ctx->last_from);
@@ -367,7 +367,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	if (ctx->common_mask & MAIL_SORT_TO) {
 		str = get_first_mailbox(mail, "to");
 		if (str != NULL)
-			str = str_ucase(t_strdup_noconst(str));
+			str = t_str_ucase(str);
 
 		if (null_strcmp(str, ctx->last_to) != 0) {
 			i_free(ctx->last_to);
@@ -430,7 +430,7 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 		else {
 			str = get_first_mailbox(mail, "cc");
 			if (str != NULL)
-				str = str_ucase(t_strdup_noconst(str));
+				str = t_str_ucase(str);
 		}
 		str = string_table_get(ctx, str);
 
@@ -444,7 +444,7 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 		else {
 			str = get_first_mailbox(mail, "from");
 			if (str != NULL)
-				str = str_ucase(t_strdup_noconst(str));
+				str = t_str_ucase(str);
 		}
 		str = string_table_get(ctx, str);
 
@@ -458,7 +458,7 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 		else {
 			str = get_first_mailbox(mail, "to");
 			if (str != NULL)
-				str = str_ucase(t_strdup_noconst(str));
+				str = t_str_ucase(str);
 		}
 		str = string_table_get(ctx, str);
 
@@ -592,7 +592,7 @@ static const char *get_str(enum mail_sort_type type, const unsigned char *buf,
 		}
 
 		if (str != NULL)
-			str = str_ucase(t_strdup_noconst(str));
+			str = t_str_ucase(str);
 		return str;
 	}
 
