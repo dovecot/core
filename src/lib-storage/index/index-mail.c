@@ -482,6 +482,8 @@ const char *index_mail_get_special(struct mail *_mail,
 		data->save_envelope = TRUE;
 		(void)_mail->get_header(_mail, "Date");
 		return data->envelope;
+	case MAIL_FETCH_FROM_ENVELOPE:
+		return NULL;
 	default:
 		i_unreached();
 		return NULL;
