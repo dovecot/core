@@ -24,7 +24,7 @@
 #include "mail-index.h"
 #include "mail-tree.h"
 
-#define DEBUG_TREE
+/* #define DEBUG_TREE */
 
 #ifndef DEBUG_TREE
 #  define rb_check(tree)
