@@ -307,7 +307,7 @@ void message_parse_header(MessagePart *part, IBuffer *inbuf,
 			  MessageHeaderFunc func, void *context)
 {
 	const unsigned char *msg;
-	size_t i, size, startpos, missing_cr_count;
+	size_t i, size, parse_size, startpos, missing_cr_count;
 	size_t line_start, colon_pos, end_pos, name_len, value_len;
 	int ret;
 
@@ -334,7 +334,8 @@ void message_parse_header(MessagePart *part, IBuffer *inbuf,
 			break;
 		}
 
-		for (i = startpos; i < size; i++) {
+		parse_size = ret > 0 && size > 0 ? size-1 : size;
+		for (i = startpos; i < parse_size; i++) {
 			if (msg[i] == ':' && colon_pos == UINT_MAX) {
 				colon_pos = i;
 				continue;
