@@ -258,9 +258,8 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 
 	mbox_sync_buffer_delete_old(sync_ctx->syncs, uid);
 	while (uid >= sync_rec->uid1) {
-		if (sync_rec->uid1 != 0 &&
+		if (uid <= sync_rec->uid2 &&
 		    sync_rec->type != MAIL_INDEX_SYNC_TYPE_APPEND) {
-			i_assert(uid <= sync_rec->uid2);
 			buffer_append(sync_ctx->syncs, sync_rec,
 				      sizeof(*sync_rec));
 
@@ -642,23 +641,23 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 static int
 mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 {
-	uint32_t seq;
+	uint32_t seq1, seq2;
 	uint64_t offset;
 
-	if (mail_index_lookup_uid_range(sync_ctx->sync_view, uid, uid,
-					&seq, &seq) < 0) {
+	if (mail_index_lookup_uid_range(sync_ctx->sync_view, uid, (uint32_t)-1,
+					&seq1, &seq2) < 0) {
 		mail_storage_set_index_error(sync_ctx->ibox);
 		return -1;
 	}
 
-	if (seq == 0)
+	if (seq1 == 0)
 		return 0;
 
-	if (mbox_sync_get_from_offset(sync_ctx, seq, &offset) < 0)
+	if (mbox_sync_get_from_offset(sync_ctx, seq1, &offset) < 0)
 		return -1;
 
         /* set to -1, since they're always increased later */
-	sync_ctx->seq = sync_ctx->idx_seq = seq-1;
+	sync_ctx->seq = sync_ctx->idx_seq = seq1-1;
 	sync_ctx->dest_first_mail = sync_ctx->seq == 0;
 	if (istream_raw_mbox_seek(sync_ctx->input, offset) < 0) {
 		mail_storage_set_critical(sync_ctx->ibox->box.storage,
@@ -668,7 +667,7 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 		return -1;
 	}
         (void)istream_raw_mbox_get_body_offset(sync_ctx->input);
-	return 0;
+	return 1;
 }
 
 static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
@@ -680,15 +679,9 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	uoff_t offset;
 	int ret, expunged;
 
-	if (min_message_count != 0) {
-		if (istream_raw_mbox_seek(sync_ctx->input, 0) < 0) {
-			/* doesn't begin with a From-line */
-			mail_storage_set_error(sync_ctx->ibox->box.storage,
-				"Mailbox isn't a valid mbox file");
-			return -1;
-		}
-		sync_ctx->dest_first_mail = TRUE;
-	} else {
+	if (min_message_count != 0)
+		ret = 0;
+	else {
 		/* we sync only what we need to. jump to first record that
 		   needs updating */
 		const struct mail_index_sync_rec *sync_rec;
@@ -710,8 +703,20 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		sync_rec = buffer_get_data(sync_ctx->syncs, &size);
 		if (size == 0)
 			sync_rec = &sync_ctx->sync_rec;
-		if (mbox_sync_seek_to_uid(sync_ctx, sync_rec->uid1) < 0)
+
+		ret = mbox_sync_seek_to_uid(sync_ctx, sync_rec->uid1);
+		if (ret < 0)
 			return -1;
+	}
+
+	if (ret == 0) {
+		if (istream_raw_mbox_seek(sync_ctx->input, 0) < 0) {
+			/* doesn't begin with a From-line */
+			mail_storage_set_error(sync_ctx->ibox->box.storage,
+				"Mailbox isn't a valid mbox file");
+			return -1;
+		}
+		sync_ctx->dest_first_mail = TRUE;
 	}
 
 	while ((ret = mbox_sync_read_next_mail(sync_ctx, mail_ctx)) > 0) {
