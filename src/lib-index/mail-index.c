@@ -18,6 +18,7 @@
 
 static int mmap_verify(MailIndex *index)
 {
+	MailIndexHeader *hdr;
 	unsigned int extra;
 
 	index->mmap_used_length = 0;
@@ -42,26 +43,41 @@ static int mmap_verify(MailIndex *index)
 	index->last_lookup_seq = 0;
 	index->last_lookup = NULL;
 
-	index->header = (MailIndexHeader *) index->mmap_base;
-	index->sync_id = index->header->sync_id;
+	hdr = index->mmap_base;
+	index->header = hdr;
+	index->sync_id = hdr->sync_id;
 
-	if (index->header->used_file_size > index->mmap_full_length) {
+	if (hdr->used_file_size > index->mmap_full_length) {
 		index_set_corrupted(index, "used_file_size larger than real "
 				    "file size (%"PRIuUOFF_T" vs %"PRIuSIZE_T
-				    ")", index->header->used_file_size,
+				    ")", hdr->used_file_size,
 				    index->mmap_full_length);
 		return FALSE;
 	}
 
-	if ((index->header->used_file_size - sizeof(MailIndexHeader)) %
+	if ((hdr->used_file_size - sizeof(MailIndexHeader)) %
 	    sizeof(MailIndexRecord) != 0) {
 		index_set_corrupted(index, "Invalid used_file_size in header "
 				    "(%"PRIuUOFF_T")",
-				    index->header->used_file_size);
+				    hdr->used_file_size);
 		return FALSE;
 	}
 
-	index->mmap_used_length = index->header->used_file_size;
+	if (hdr->messages_count < hdr->seen_messages_count) {
+		index_set_corrupted(index, "Invalid seen messages count "
+				    "(%u < %u)", hdr->messages_count,
+				    hdr->seen_messages_count);
+		return FALSE;
+	}
+
+	if (hdr->messages_count < hdr->deleted_messages_count) {
+		index_set_corrupted(index, "Invalid deleted messages count "
+				    "(%u < %u)", hdr->messages_count,
+				    hdr->deleted_messages_count);
+		return FALSE;
+	}
+
+	index->mmap_used_length = hdr->used_file_size;
 	return TRUE;
 }
 
