@@ -29,12 +29,13 @@ static struct mail_index_view_methods dummy_view_methods = {
 	NULL
 };
 
-struct mail_index_view *mail_index_dummy_view_open(void)
+struct mail_index_view *mail_index_dummy_view_open(struct mail_index *index)
 {
 	struct mail_index_view *view;
 
 	view = i_new(struct mail_index_view, 1);
 	view->refcount = 1;
 	view->methods = dummy_view_methods;
+	view->index = index;
 	return view;
 }

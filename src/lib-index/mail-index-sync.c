@@ -264,7 +264,7 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	ctx->view = mail_index_view_open(index);
 
-	dummy_view = mail_index_dummy_view_open();
+	dummy_view = mail_index_dummy_view_open(index);
 	ctx->trans = mail_index_transaction_begin(dummy_view, FALSE, TRUE);
 	mail_index_view_close(dummy_view);
 

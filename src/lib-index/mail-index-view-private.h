@@ -61,6 +61,6 @@ void mail_index_view_add_synced_transaction(struct mail_index_view *view,
 					    uint32_t log_file_seq,
 					    uoff_t log_file_offset);
 
-struct mail_index_view *mail_index_dummy_view_open(void);
+struct mail_index_view *mail_index_dummy_view_open(struct mail_index *index);
 
 #endif
