@@ -24,7 +24,13 @@ static int mbox_autodetect(const char *data)
 	const char *path;
 	struct stat st;
 
-        path = t_strconcat(data, "/.imap", NULL);
+	/* Is it INBOX file? */
+	if (*data != '\0' && stat(data, &st) == 0 && !S_ISDIR(st.st_mode) &&
+	    access(data, R_OK|W_OK) == 0)
+		return TRUE;
+
+	/* or directory for IMAP folders? */
+	path = t_strconcat(data, "/.imap", NULL);
 	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode) &&
 	    access(path, R_OK|W_OK|X_OK) == 0)
 		return TRUE;
@@ -42,39 +48,69 @@ static int mbox_autodetect(const char *data)
 	return FALSE;
 }
 
+static const char *get_root_dir(void)
+{
+	const char *home, *path;
+
+	if (mbox_autodetect(""))
+		return "/";
+
+	home = getenv("HOME");
+	if (home != NULL) {
+		path = t_strconcat(home, "/mail", NULL);
+		if (access(path, R_OK|W_OK|X_OK) == 0)
+			return path;
+
+		path = t_strconcat(home, "/Mail", NULL);
+		if (access(path, R_OK|W_OK|X_OK) == 0)
+			return path;
+	}
+
+	return NULL;
+}
+
 static MailStorage *mbox_create(const char *data, const char *user)
 {
 	MailStorage *storage;
-	const char *home, *path;
+	const char *root_dir, *inbox_file, *p;
+	struct stat st;
+
+	root_dir = inbox_file = NULL;
 
 	if (data == NULL || *data == '\0') {
 		/* we'll need to figure out the mail location ourself.
 		   it's root dir if we've already chroot()ed, otherwise
 		   either $HOME/mail or $HOME/Mail */
-		if (mbox_autodetect(""))
-			data = "/";
-		else {
-			home = getenv("HOME");
-			if (home != NULL) {
-				path = t_strconcat(home, "/mail", NULL);
-				if (access(path, R_OK|W_OK|X_OK) == 0)
-					data = path;
-				else {
-					path = t_strconcat(home, "/Mail", NULL);
-					if (access(path, R_OK|W_OK|X_OK) == 0)
-						data = path;
-				}
+		root_dir = get_root_dir();
+	} else {
+		/* <root folder> | <INBOX path> [:INBOX=<path>]
+		   [:<reserved for future>] */
+		p = strchr(data, ':');
+		if (p == NULL) {
+			if (stat(data, &st) == 0 && S_ISDIR(st.st_mode))
+				root_dir = data;
+			else {
+				root_dir = get_root_dir();
+				inbox_file = data;
 			}
+		} else {
+			root_dir = t_strdup_until(data, p);
+			if (strncmp(p+1, "INBOX=", 6) == 0)
+				inbox_file = t_strcut(p+7, ':');
 		}
 	}
 
-	if (data == NULL)
+	if (root_dir == NULL)
 		return NULL;
+
+	if (inbox_file == NULL)
+		inbox_file = t_strconcat(root_dir, "/inbox", NULL);
 
 	storage = i_new(MailStorage, 1);
 	memcpy(storage, &mbox_storage, sizeof(MailStorage));
 
-	storage->dir = i_strdup(data);
+	storage->dir = i_strdup(root_dir);
+	storage->inbox_file = i_strdup(inbox_file);
 	storage->user = i_strdup(user);
 	storage->callbacks = i_new(MailStorageCallbacks, 1);
 	return storage;
@@ -143,19 +179,25 @@ static int create_mbox_index_dirs(const char *mbox_path, int verify)
 
 static void verify_inbox(MailStorage *storage)
 {
-	char path[PATH_MAX];
+	const char *index_dir;
 	int fd;
 
-	if (str_path(path, sizeof(path), storage->dir, "inbox") < 0)
-		return;
-
 	/* make sure inbox file itself exists */
-	fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0660);
+	fd = open(storage->inbox_file, O_RDWR | O_CREAT | O_EXCL, 0660);
 	if (fd != -1)
 		(void)close(fd);
 
 	/* make sure the index directories exist */
-	(void)create_mbox_index_dirs(path, TRUE);
+	index_dir = t_strconcat(storage->dir, "/INBOX", NULL);
+	(void)create_mbox_index_dirs(index_dir, TRUE);
+}
+
+static const char *mbox_get_path(MailStorage *storage, const char *name)
+{
+	if (strcasecmp(name, "INBOX") == 0)
+		return storage->inbox_file;
+	else
+		return t_strconcat(storage->dir, "/", name, NULL);
 }
 
 static Mailbox *mbox_open(MailStorage *storage, const char *name,
@@ -165,11 +207,20 @@ static Mailbox *mbox_open(MailStorage *storage, const char *name,
 	MailIndex *index;
 	const char *path, *index_dir;
 
-	/* name = "foo/bar"
-	   mbox_path = "/mail/foo/bar"
-	   index_dir = "/mail/foo/.imap/bar" */
-	path = t_strconcat(storage->dir, "/", name, NULL);
-	index_dir = mbox_get_index_dir(path);
+	if (strcasecmp(name, "INBOX") == 0) {
+		/* name = "INBOX"
+		   path = "<inbox_file>/INBOX"
+		   index_dir = "/mail/.imap/INBOX" */
+		path = storage->inbox_file;
+		index_dir = mbox_get_index_dir(t_strconcat(storage->dir,
+							   "/INBOX", NULL));
+	} else {
+		/* name = "foo/bar"
+		   path = "/mail/foo/bar"
+		   index_dir = "/mail/foo/.imap/bar" */
+		path = mbox_get_path(storage, name);
+		index_dir = mbox_get_index_dir(path);
+	}
 
 	index = index_storage_lookup_ref(index_dir);
 	if (index == NULL) {
@@ -189,8 +240,8 @@ static Mailbox *mbox_open(MailStorage *storage, const char *name,
 static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 				  int readonly, int fast)
 {
+	const char *path;
 	struct stat st;
-	char path[PATH_MAX];
 
 	mail_storage_clear_error(storage);
 
@@ -198,7 +249,7 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 	if (strcasecmp(name, "INBOX") == 0) {
 		/* make sure inbox exists */
 		verify_inbox(storage);
-		return mbox_open(storage, "inbox", readonly, fast);
+		return mbox_open(storage, "INBOX", readonly, fast);
 	}
 
 	if (!mbox_is_valid_name(storage, name)) {
@@ -206,8 +257,8 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 		return FALSE;
 	}
 
-	if (str_path(path, sizeof(path), storage->dir, name) == 0 &&
-	    stat(path, &st) == 0) {
+	path = mbox_get_path(storage, name);
+	if (stat(path, &st) == 0) {
 		/* exists - make sure the required directories are also there */
 		(void)create_mbox_index_dirs(path, TRUE);
 
@@ -225,14 +276,14 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 
 static int mbox_create_mailbox(MailStorage *storage, const char *name)
 {
+	const char *path;
 	struct stat st;
-	char path[PATH_MAX];
 	int fd;
 
 	mail_storage_clear_error(storage);
 
 	if (strcasecmp(name, "INBOX") == 0)
-		name = "inbox";
+		name = "INBOX";
 
 	if (!mbox_is_valid_name(storage, name)) {
 		mail_storage_set_error(storage, "Invalid mailbox name");
@@ -240,12 +291,7 @@ static int mbox_create_mailbox(MailStorage *storage, const char *name)
 	}
 
 	/* make sure it doesn't exist already */
-	if (str_path(path, sizeof(path), storage->dir, name) < 0) {
-		mail_storage_set_error(storage, "Mailbox name too long: %s",
-				       name);
-		return FALSE;
-	}
-
+	path = mbox_get_path(storage, name);
 	if (stat(path, &st) == 0) {
 		mail_storage_set_error(storage, "Mailbox already exists");
 		return FALSE;
@@ -275,8 +321,7 @@ static int mbox_create_mailbox(MailStorage *storage, const char *name)
 
 static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 {
-	const char *index_dir;
-	char path[PATH_MAX];
+	const char *index_dir, *path;
 
 	mail_storage_clear_error(storage);
 
@@ -290,13 +335,8 @@ static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 		return FALSE;
 	}
 
-	if (str_path(path, sizeof(path), storage->dir, name) < 0) {
-		mail_storage_set_error(storage, "Mailbox name too long: %s",
-				       name);
-		return FALSE;
-	}
-
 	/* first unlink the mbox file */
+	path = mbox_get_path(storage, name);
 	if (unlink(path) == -1) {
 		if (errno == ENOENT) {
 			mail_storage_set_error(storage,
@@ -323,8 +363,7 @@ static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 static int mbox_rename_mailbox(MailStorage *storage, const char *oldname,
 			       const char *newname)
 {
-	const char *old_indexdir, *new_indexdir;
-	char oldpath[PATH_MAX], newpath[PATH_MAX];
+	const char *oldpath, *newpath, *old_indexdir, *new_indexdir;
 
 	mail_storage_clear_error(storage);
 
@@ -335,18 +374,10 @@ static int mbox_rename_mailbox(MailStorage *storage, const char *oldname,
 	}
 
 	if (strcasecmp(oldname, "INBOX") == 0)
-		oldname = "inbox";
+		oldname = "INBOX";
 
-	if (str_path(oldpath, sizeof(oldpath), storage->dir, oldname) < 0) {
-		mail_storage_set_error(storage, "Mailbox name too long: %s",
-				       oldname);
-		return FALSE;
-	}
-	if (str_path(newpath, sizeof(newpath), storage->dir, newname) < 0) {
-		mail_storage_set_error(storage, "Mailbox name too long: %s",
-				       newname);
-		return FALSE;
-	}
+	oldpath = mbox_get_path(storage, oldname);
+	newpath = mbox_get_path(storage, newname);
 
 	/* NOTE: renaming INBOX works just fine with us, it's simply created
 	   the next time it's needed. */
@@ -374,24 +405,19 @@ static int mbox_get_mailbox_name_status(MailStorage *storage, const char *name,
 					MailboxNameStatus *status)
 {
 	struct stat st;
-	char path[PATH_MAX];
+	const char *path;
 
 	mail_storage_clear_error(storage);
 
 	if (strcasecmp(name, "INBOX") == 0)
-		name = "inbox";
+		name = "INBOX";
 
 	if (!mbox_is_valid_name(storage, name)) {
 		*status = MAILBOX_NAME_INVALID;
 		return TRUE;
 	}
 
-	if (str_path(path, sizeof(path), storage->dir, name) < 0) {
-		mail_storage_set_error(storage, "Mailbox name too long: %s",
-				       name);
-		return FALSE;
-	}
-
+	path = mbox_get_path(storage, name);
 	if (stat(path, &st) == 0) {
 		*status = MAILBOX_NAME_EXISTS;
 		return TRUE;
@@ -438,6 +464,7 @@ MailStorage mbox_storage = {
 	mbox_get_mailbox_name_status,
 	mail_storage_get_last_error,
 
+	NULL,
 	NULL,
 	NULL,
 	NULL,

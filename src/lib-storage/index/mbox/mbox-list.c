@@ -17,7 +17,7 @@ typedef struct {
 
 static int mbox_find_path(MailStorage *storage, ImapMatchGlob *glob,
 			  MailboxFunc func, void *context,
-			  const char *relative_dir, int *found_inbox)
+			  const char *relative_dir)
 {
 	DIR *dirp;
 	struct dirent *d;
@@ -113,15 +113,12 @@ static int mbox_find_path(MailStorage *storage, ImapMatchGlob *glob,
 			func(storage, listpath, MAILBOX_NOSELECT, context);
 
 			if (!mbox_find_path(storage, glob, func,
-					    context, listpath, NULL)) {
+					    context, listpath)) {
 				failed = TRUE;
 				break;
 			}
-		} else if (match > 0) {
-			if (found_inbox != NULL &&
-			    strcasecmp(listpath, "inbox") == 0)
-				*found_inbox = TRUE;
-
+		} else if (match > 0 &&
+			   strcmp(fullpath, storage->inbox_file) != 0) {
 			func(storage, listpath, MAILBOX_NOINFERIORS, context);
 		}
 	}
@@ -150,7 +147,6 @@ int mbox_find_mailboxes(MailStorage *storage, const char *mask,
 {
 	ImapMatchGlob *glob;
 	const char *relative_dir;
-	int found_inbox;
 
 	/* check that we're not trying to do any "../../" lists */
 	if (!mbox_is_valid_mask(mask)) {
@@ -165,18 +161,13 @@ int mbox_find_mailboxes(MailStorage *storage, const char *mask,
 	relative_dir = mask_get_dir(mask);
 
 	glob = imap_match_init(mask, TRUE, '/');
-
-	found_inbox = FALSE;
-	if (!mbox_find_path(storage, glob, func, context,
-			    relative_dir, &found_inbox))
-		return FALSE;
-
-	if (!found_inbox && relative_dir == NULL &&
-	    imap_match(glob, "INBOX") > 0) {
-		/* INBOX always exists, even if the file doesn't. */
-		func(storage, "INBOX", MAILBOX_UNMARKED | MAILBOX_NOINFERIORS,
-		     context);
+	if (relative_dir == NULL && imap_match(glob, "INBOX") > 0) {
+		/* INBOX exists always, even if the file doesn't. */
+		func(storage, "INBOX", MAILBOX_NOINFERIORS, context);
 	}
+
+	if (!mbox_find_path(storage, glob, func, context, relative_dir))
+		return FALSE;
 
 	return TRUE;
 }

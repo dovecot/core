@@ -115,6 +115,7 @@ struct _MailStorage {
 
 /* private: */
 	char *dir; /* root directory */
+	char *inbox_file; /* INBOX file for mbox */
 	char *user; /* name of user accessing the storage */
 	char *error;
 

@@ -16,14 +16,18 @@ file is then used to map the letters to names (a=0, b=1, etc).
 mbox
 ----
 
-mbox storage currently requires that all mail is in user-writable
-directory, eg. ~/mail. Especially using /var/mail/user is NOT supported.
-You may however create a ~/mail/inbox hardlink (or symlink if not chrooted)
-to pointing to /var/mail/user. All files in the mail directory are
-considered as mailboxes. Directories specify subfolders in IMAP. "inbox"
-file specifies the INBOX folder and can not be named otherwise. Indexes are
-stored into ".imap/<mailbox name>/" directories.
+mbox storage requires an IMAP root directory where to store IMAP folders
+and some other information. mbox file for INBOX is a special case which may
+exist elsewhere in filesystem.
 
+All files in the IMAP root directory not beginning with a "." are treated
+as IMAP folders. Directories are treated as being IMAP subfolders.
+
+Dovecot's indexes are stored in ".imap/<mailbox name>/" directories under
+the folder directories.
+
+MAIL environment for mbox is: <root folder>|<INBOX path>[:INBOX=<path>].
+For example ~/Mail:INBOX=/var/mail/username.
 
 Detecting what to use
 ---------------------
@@ -44,9 +48,12 @@ Maildir storage is autodetected by checking if <directory>/cur/ exists and
 we have rwx access to it. If directory isn't known, / and ~/Maildir are
 checked. / is checked because we could be chrooted.
 
-mbox storage is autodetected by checking if .imap/ (+rwx), inbox (+rw) or
-mbox (+rw) exists in directory. If directory isn't known, / is tried first.
-After that, ~/mail and ~/Mail directories are used.
+mbox storage requires detecting INBOX location and IMAP root directory. If
+MAIL environment points to file (+rw) it's treated as the INBOX file. If it
+points to directory (+rwx) which contains .imap/ (+rwx), inbox (+rw) or
+mbox (+rw) it's treated as IMAP root directory. If INBOX isn't known,
+imap_root/inbox file is used by default. If root directory isn't known, we
+try to find it from /, ~/mail or ~/Mail.
 
 
 Files created by Dovecot
