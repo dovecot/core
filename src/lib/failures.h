@@ -10,6 +10,7 @@ void i_fatal(const char *format, ...) __attr_format__(1, 2) __attr_noreturn__;
 void i_error(const char *format, ...) __attr_format__(1, 2);
 void i_warning(const char *format, ...) __attr_format__(1, 2);
 
+/* Change failure handlers. Make sure they don't modify errno. */
 void i_set_panic_handler(FailureFunc func __attr_noreturn__);
 void i_set_fatal_handler(FailureFunc func __attr_noreturn__);
 void i_set_error_handler(FailureFunc func);

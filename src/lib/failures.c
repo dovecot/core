@@ -82,6 +82,8 @@ static void default_fatal_handler(const char *format, va_list args)
 
 static void default_error_handler(const char *format, va_list args)
 {
+	int old_errno = errno;
+
 	write_prefix();
 
 	fputs("Error: ", log_fd);
@@ -89,10 +91,14 @@ static void default_error_handler(const char *format, va_list args)
         fputc('\n', log_fd);
 
 	fflush(log_fd);
+
+	errno = old_errno;
 }
 
 static void default_warning_handler(const char *format, va_list args)
 {
+	int old_errno = errno;
+
 	write_prefix();
 
 	fputs("Warning: ", log_fd);
@@ -100,6 +106,8 @@ static void default_warning_handler(const char *format, va_list args)
         fputc('\n', log_fd);
 
 	fflush(log_fd);
+
+	errno = old_errno;
 }
 
 void i_panic(const char *format, ...)
