@@ -2,6 +2,10 @@
 
 #include "lib.h"
 
+#ifdef PREAD_WRAPPERS
+#  define _XOPEN_SOURCE 500 /* Linux */
+#endif
+
 #include <stdio.h>
 #include <ctype.h>
 #include <unistd.h>
@@ -96,7 +100,7 @@ ssize_t my_writev(int fd, const struct iovec *iov, int iov_len)
 }
 #endif
 
-#ifndef HAVE_PWRITE
+#ifndef HAVE_PREAD
 ssize_t my_pread(int fd, void *buf, size_t count, off_t offset)
 {
 	ssize_t ret;
@@ -127,5 +131,17 @@ ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset)
 	if (lseek(fd, offset, SEEK_SET) < 0)
 		return -1;
 	return ret;
+}
+#endif
+
+#ifdef PREAD_WRAPPERS
+ssize_t my_pread(int fd, void *buf, size_t count, off_t offset)
+{
+	return pread(fd, buf, count, offset);
+}
+
+ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset)
+{
+	return pwrite(fd, buf, count, offset);
 }
 #endif

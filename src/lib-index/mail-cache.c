@@ -1,7 +1,5 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
-#define _XOPEN_SOURCE 500 /* for pwrite() / Linux */
-
 #include "lib.h"
 #include "buffer.h"
 #include "byteorder.h"

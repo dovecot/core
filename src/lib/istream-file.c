@@ -2,8 +2,6 @@
 
 /* @UNSAFE: whole file */
 
-#define _XOPEN_SOURCE 500 /* for pread() / Linux */
-
 #include "lib.h"
 #include "alarm-hup.h"
 #include "istream-internal.h"

@@ -227,8 +227,12 @@ fi
 
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock inet_aton sigaction getpagesize madvise \
-               strcasecmp stricmp vsnprintf vsyslog writev pwrite \
+               strcasecmp stricmp vsnprintf vsyslog writev pread \
 	       setrlimit setproctitle)
+
+if test `uname` = "Linux"; then
+	AC_DEFINE(PREAD_WRAPPERS,, Define if pread/pwrite needs _XOPEN_SOURCE 500)
+fi
 
 dnl * poll/select?
 
