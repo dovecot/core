@@ -38,11 +38,6 @@ int mbox_index_rebuild(MailIndex *index)
 	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) < 0)
 		return index_set_syscall_error(index, "msync()");
 
-	/* truncate the file first, so it won't contain
-	   any invalid data even if we crash */
-	if (ftruncate(index->fd, sizeof(MailIndexHeader)) < 0)
-		return index_set_syscall_error(index, "ftruncate()");
-
 	/* reset data file */
 	if (!mail_index_data_reset(index->data))
 		return FALSE;
