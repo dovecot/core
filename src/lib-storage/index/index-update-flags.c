@@ -39,11 +39,9 @@ static int update_func(MailIndex *index, MailIndexRecord *rec,
 		return FALSE;
 
 	if (mail_custom_flags_has_changes(index->custom_flags)) {
-                custom_flags = mail_custom_flags_list_get(index->custom_flags);
-		ctx->ibox->sync_callbacks.new_custom_flags(
-			&ctx->ibox->box, custom_flags, MAIL_CUSTOM_FLAGS_COUNT,
-			ctx->ibox->sync_context);
-		mail_custom_flags_list_unref(index->custom_flags);
+		ctx->ibox->sync_callbacks.new_custom_flags(&ctx->ibox->box,
+			mail_custom_flags_list_get(index->custom_flags),
+			MAIL_CUSTOM_FLAGS_COUNT, ctx->ibox->sync_context);
 	}
 
 	if (ctx->notify) {
@@ -56,7 +54,6 @@ static int update_func(MailIndex *index, MailIndexRecord *rec,
 						       flags, custom_flags,
 						       MAIL_CUSTOM_FLAGS_COUNT,
 						       ctx->ibox->sync_context);
-		mail_custom_flags_list_unref(index->custom_flags);
 	}
 
 	return TRUE;

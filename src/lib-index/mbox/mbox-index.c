@@ -61,9 +61,8 @@ void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index,
 	ctx->custom_flags = mail_custom_flags_list_get(index->custom_flags);
 }
 
-void mbox_header_free_context(MboxHeaderContext *ctx)
+void mbox_header_free_context(MboxHeaderContext *ctx __attr_unused__)
 {
-	mail_custom_flags_list_unref(ctx->index->custom_flags);
 }
 
 static MailFlags mbox_get_status_flags(const char *value, size_t len)
@@ -166,14 +165,9 @@ static int mbox_parse_imapbase(const char *value, size_t len,
 		}
 	}
 
-	mail_custom_flags_list_unref(ctx->index->custom_flags);
-
 	flags = MAIL_CUSTOM_FLAGS_MASK;
 	ret = mail_custom_flags_fix_list(ctx->index->custom_flags, &flags,
 					 custom_flags, idx);
-
-	ctx->custom_flags =
-		mail_custom_flags_list_get(ctx->index->custom_flags);
 
 	t_pop();
 

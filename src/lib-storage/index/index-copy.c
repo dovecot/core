@@ -60,8 +60,6 @@ int index_storage_copy(Mailbox *box, Mailbox *destbox,
 	failed = index_messageset_foreach(ibox, messageset, uidset,
 					  copy_func, &ctx) <= 0;
 
-	mail_custom_flags_list_unref(ibox->index->custom_flags);
-
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);
 

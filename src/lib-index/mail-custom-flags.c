@@ -28,7 +28,6 @@ struct _MailCustomFlags {
 
 	char sync_counter[COUNTER_SIZE];
 	char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT];
-	int custom_flags_refcount;
 
 	void *mmap_base;
 	size_t mmap_length;
@@ -163,11 +162,6 @@ static void custom_flags_sync(MailCustomFlags *mcf)
 
 static int custom_flags_check_sync(MailCustomFlags *mcf)
 {
-	if (mcf->custom_flags_refcount > 0) {
-		/* we've been locked from updates for now.. */
-		return TRUE;
-	}
-
 	if (mcf->noupdate)
 		return TRUE;
 
@@ -461,24 +455,25 @@ static int get_flag_index(MailCustomFlags *mcf, const char *flag,
 
 	/* check existing flags */
 	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
-		if (mcf->custom_flags[i] == NULL)
-			continue;
-
-		i_assert(mcf->custom_flags[i] != '\0');
-		if (strcasecmp(mcf->custom_flags[i], flag) == 0)
-			return i;
+		if (mcf->custom_flags[i] != NULL) {
+			i_assert(mcf->custom_flags[i] != '\0');
+			if (strcasecmp(mcf->custom_flags[i], flag) == 0)
+				return i;
+		}
 	}
 
 	if (mcf->noupdate)
 		return -1;
 
-	/* unlock + write lock, don't directly change from read -> write lock
-	   to prevent deadlocking */
 	if (mcf->lock_type != F_WRLCK) {
+		/* unlock + write lock, don't directly change from
+		   read -> write lock to prevent deadlocking */
 		if (!lock_file(mcf, F_UNLCK) || !lock_file(mcf, F_WRLCK))
 			return -1;
 
-		// FIXME: sync and check it again
+		/* list may have already changed between the lock changes,
+		   check again */
+		return get_flag_index(mcf, flag, -1);
 	}
 
 	/* new flag, add it. first find the first free flag, note that
@@ -511,8 +506,6 @@ int mail_custom_flags_fix_list(MailCustomFlags *mcf, MailFlags *flags,
 	unsigned int i;
 	int idx;
 
-	i_assert(mcf->custom_flags_refcount == 0);
-
 	if ((*flags & MAIL_CUSTOM_FLAGS_MASK) == 0)
 		return 1;
 
@@ -544,15 +537,7 @@ int mail_custom_flags_fix_list(MailCustomFlags *mcf, MailFlags *flags,
 
 const char **mail_custom_flags_list_get(MailCustomFlags *mcf)
 {
-	mcf->custom_flags_refcount++;
 	return (const char **) mcf->custom_flags;
-}
-
-void mail_custom_flags_list_unref(MailCustomFlags *mcf)
-{
-	i_assert(mcf->custom_flags_refcount > 0);
-
-	mcf->custom_flags_refcount--;
 }
 
 int mail_custom_flags_has_changes(MailCustomFlags *mcf)

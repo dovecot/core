@@ -15,11 +15,11 @@ void mail_custom_flags_free(MailCustomFlags *mcf);
 int mail_custom_flags_fix_list(MailCustomFlags *mcf, MailFlags *flags,
 			       const char *custom_flags[], unsigned int count);
 
-/* Returns a pointer to list of flags. */
+/* Returns a pointer to list of flags. Note that calls to
+   mail_cutom_flags_fix_list() may modify the flags in the returned list.
+   It can modify only the flags that aren't in use anywhere, so this should
+   be safe. */
 const char **mail_custom_flags_list_get(MailCustomFlags *mcf);
-
-/* Call this after you've done with the flags list above */
-void mail_custom_flags_list_unref(MailCustomFlags *mcf);
 
 /* Returns TRUE if there's been any changes since this function was
    called last time, or since open if this is the first call. */

@@ -398,8 +398,6 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 				       fetch_data->uidset,
 				       index_fetch_mail, &ctx);
 
-        mail_custom_flags_list_unref(ibox->index->custom_flags);
-
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);
 

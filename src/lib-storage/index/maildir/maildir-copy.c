@@ -75,8 +75,6 @@ static int maildir_copy_with_hardlinks(IndexMailbox *src,
 	ret = index_messageset_foreach(src, messageset, uidset,
 				       copy_hard_func, &ctx);
 
-	mail_custom_flags_list_unref(src->index->custom_flags);
-
 	if (!dest->index->set_lock(dest->index, MAIL_LOCK_UNLOCK))
 		mail_storage_set_index_error(dest);
 

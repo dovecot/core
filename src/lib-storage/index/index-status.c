@@ -60,7 +60,6 @@ get_custom_flags(MailCustomFlags *mcf, MailboxStatus *status)
 	flags = mail_custom_flags_list_get(mcf);
 	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++)
 		status->custom_flags[i] = t_strdup(flags[i]);
-	mail_custom_flags_list_unref(mcf);
 }
 
 int index_storage_get_status(Mailbox *box, MailboxStatusItems items,

@@ -350,8 +350,6 @@ static int mbox_write_header(MailIndex *index,
 
 	t_pop();
 
-	mail_custom_flags_list_unref(index->custom_flags);
-
 	/* empty line ends headers */
 	(void)o_buffer_send(outbuf, "\n", 1);
 

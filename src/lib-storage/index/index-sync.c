@@ -10,7 +10,6 @@
 int index_storage_sync_index_if_possible(IndexMailbox *ibox)
 {
 	unsigned int messages, recent;
-	const char **custom_flags;
 
 	if (ibox->index->sync(ibox->index)) {
 		/* reset every time it has worked */
@@ -50,12 +49,9 @@ int index_storage_sync_index_if_possible(IndexMailbox *ibox)
 
 	/* notify changes in custom flags */
 	if (mail_custom_flags_has_changes(ibox->index->custom_flags)) {
-		custom_flags = mail_custom_flags_list_get(
-					ibox->index->custom_flags);
-		ibox->sync_callbacks.new_custom_flags(
-			&ibox->box, custom_flags, MAIL_CUSTOM_FLAGS_COUNT,
-			ibox->sync_context);
-		mail_custom_flags_list_unref(ibox->index->custom_flags);
+		ibox->sync_callbacks.new_custom_flags(&ibox->box,
+                	mail_custom_flags_list_get(ibox->index->custom_flags),
+			MAIL_CUSTOM_FLAGS_COUNT, ibox->sync_context);
 	}
 
 	return TRUE;
@@ -109,7 +105,6 @@ int index_storage_sync_modifylog(IndexMailbox *ibox)
 			break;
 		}
 	}
-	mail_custom_flags_list_unref(ibox->index->custom_flags);
 
 	/* mark synced */
 	if (!mail_modifylog_mark_synced(ibox->index->modifylog))
