@@ -198,6 +198,9 @@ int subsfile_foreach(MailStorage *storage, const char *mask,
 		start = p+1;
 	}
 
-	(void)close(fd);
+	if (mmap_base != NULL && munmap(mmap_base, mmap_length) < 0)
+		subsfile_set_syscall_error(storage, "munmap()", path);
+	if (close(fd) < 0)
+		subsfile_set_syscall_error(storage, "close()", path);
 	return ret;
 }
