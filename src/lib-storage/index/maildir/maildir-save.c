@@ -12,17 +12,23 @@
 #include <fcntl.h>
 #include <utime.h>
 
-static int maildir_create_tmp(MailStorage *storage, const char *dir,
-			      const char **fname)
+const char *maildir_generate_tmp_filename(void)
 {
 	static unsigned int create_count = 0;
-	const char *path;
-	int fd;
 
 	hostpid_init();
 
-	*fname = t_strdup_printf("%lu.%s_%u.%s", (unsigned long) ioloop_time,
-				 my_pid, create_count++, my_hostname);
+	return t_strdup_printf("%lu.%s_%u.%s", (unsigned long) ioloop_time,
+			       my_pid, create_count++, my_hostname);
+}
+
+static int maildir_create_tmp(MailStorage *storage, const char *dir,
+			      const char **fname)
+{
+	const char *path;
+	int fd;
+
+	*fname = maildir_generate_tmp_filename();
 
 	path = t_strconcat(dir, "/", *fname, NULL);
 	fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0660);

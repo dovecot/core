@@ -16,4 +16,7 @@ int maildir_find_subscribed(MailStorage *storage, const char *mask,
 
 int maildir_expunge_locked(IndexMailbox *ibox, int notify);
 
+/* Return new filename base to save into tmp/ */
+const char *maildir_generate_tmp_filename(void);
+
 #endif

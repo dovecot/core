@@ -34,7 +34,8 @@ static int copy_hard_func(MailIndex *index, MailIndexRecord *rec,
 	fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
 	i_snprintf(src, sizeof(src), "%s/cur/%s", index->dir, fname);
 
-	fname = maildir_filename_set_flags(fname, flags);
+	fname = maildir_filename_set_flags(maildir_generate_tmp_filename(),
+					   flags);
 	i_snprintf(dest, sizeof(dest), "%s/new/%s",
 		   ctx->dest->index->dir, fname);
 
@@ -62,10 +63,6 @@ static int maildir_copy_with_hardlinks(IndexMailbox *src,
 
 	if (!src->index->set_lock(src->index, MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(src);
-	if (!dest->index->set_lock(dest->index, MAIL_LOCK_EXCLUSIVE)) {
-		(void)src->index->set_lock(src->index, MAIL_LOCK_UNLOCK);
-		return mail_storage_set_index_error(dest);
-	}
 
 	ctx.storage = src->box.storage;
 	ctx.dest = dest;
@@ -74,9 +71,6 @@ static int maildir_copy_with_hardlinks(IndexMailbox *src,
 
 	ret = index_messageset_foreach(src, messageset, uidset,
 				       copy_hard_func, &ctx);
-
-	if (!dest->index->set_lock(dest->index, MAIL_LOCK_UNLOCK))
-		mail_storage_set_index_error(dest);
 
 	if (!src->index->set_lock(src->index, MAIL_LOCK_UNLOCK))
 		mail_storage_set_index_error(src);
