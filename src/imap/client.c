@@ -163,6 +163,11 @@ void client_send_command_error(struct client *client, const char *msg)
 		client_disconnect_with_error(client,
 			"Too many invalid IMAP commands.");
 	}
+
+	/* client_read_args() failures rely on this being set, so that the
+	   command processing is stopped even while command function returns
+	   FALSE. */
+	client->cmd_param_error = TRUE;
 }
 
 int client_read_args(struct client *client, unsigned int count,
@@ -236,6 +241,7 @@ void _client_reset_command(struct client *client)
 	client->cmd_name = NULL;
 	client->cmd_func = NULL;
 	client->cmd_uid = FALSE;
+	client->cmd_param_error = FALSE;
 
 	p_clear(client->cmd_pool);
 	imap_parser_reset(client->parser);
@@ -266,7 +272,7 @@ static int client_handle_input(struct client *client)
 {
         if (client->cmd_func != NULL) {
 		/* command is being executed - continue it */
-		if (client->cmd_func(client)) {
+		if (client->cmd_func(client) || client->cmd_param_error) {
 			/* command execution was finished */
                         client->bad_counter = 0;
 			_client_reset_command(client);
@@ -314,8 +320,8 @@ static int client_handle_input(struct client *client)
 		_client_reset_command(client);
 	} else {
 		client->input_skip_line = TRUE;
-		if (client->cmd_func(client)) {
-			/* command execution was finished */
+		if (client->cmd_func(client) || client->cmd_param_error) {
+			/* command execution was finished. */
                         client->bad_counter = 0;
 			_client_reset_command(client);
 		} else {
@@ -382,7 +388,7 @@ static void client_output(void *context)
 
 	if (client->command_pending) {
 		o_stream_cork(client->output);
-		finished = client->cmd_func(client);
+		finished = client->cmd_func(client) || client->cmd_param_error;
 		o_stream_uncork(client->output);
 
 		if (finished) {
