@@ -183,7 +183,7 @@ static void parse_header(MessagePart *part,
 		part_data->content_type_params =
 			p_strdup(pool, part_data->str->str);
 	} else if (strcasecmp(name, "Content-Transfer-Encoding") == 0 &&
-		   data->content_transfer_encoding == NULL) {
+		   part_data->content_transfer_encoding == NULL) {
 		(void)message_content_parse_header(t_strndup(value, value_len),
 						parse_content_transfer_encoding,
 						NULL, part_data);
