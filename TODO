@@ -1,7 +1,6 @@
 test:
  - make sure mmap()s work properly with NFS
  - make sure locking is done properly when opening/switching modifylog 
- - make sure index->header->flags are updated at correct times
  - make sure SELECT rebuilds index properly when next_uid is near 32bit value
  - make sure rfc822_parse_date() works properly
  - make sure imap_match functions work properly
@@ -46,9 +45,6 @@ index:
      - mbox-rewrite rename()s the file, which breaks if the original was a
        symlink. but how do we fix this? we may not have write-access to the
        directory where it points to, so we'd need to manually copy it..
- - mbox-append.c changes iobuffer->size .. it's not very good behaviour, but
-   since it calls io_buffer_seek() after it works. but maybe a separate
-   function to do that? io_buffer_limit_mmap_size(IOBuffer *, uoff_t size)
  - read-only support for mailboxes where we don't have write-access? Maybe,
    but don't try to use their indexes since that's way too problematic, and
    probably even impossible since we can't lock it.
@@ -184,5 +180,6 @@ optional optimizations:
    based on user and have a proxy in the front redirecting the connection.
    cyrus had something like this except a lot more complicated - it tried
    to fix the problem of having shared mailboxes. we have the same problem
-   with local shared mailboxes as we chroot(), so locally we could communicate
-   with UNIX sockets, remotely that could be done with TCP sockets.
+   with local shared mailboxes as we don't use same UID for everyone's mail
+   and we may be chrooted, so locally we could communicate with UNIX sockets,
+   remotely that could be done with TCP sockets.
