@@ -129,10 +129,14 @@ static int unlink_directory_r(const char *dir)
 			continue;
 		}
 
-		if (unlink(d->d_name) == -1 && errno != ENOENT) {
+		if (unlink(d->d_name) < 0 && errno != ENOENT) {
 			old_errno = errno;
 
-			if (lstat(d->d_name, &st) == 0 && S_ISDIR(st.st_mode)) {
+			if (lstat(d->d_name, &st) < 0) {
+				if (errno != ENOENT)
+					break;
+				errno = 0;
+			} else if (S_ISDIR(st.st_mode)) {
 				if (unlink_directory_r(d->d_name) < 0) {
 					if (errno != ENOENT)
 						break;
@@ -147,7 +151,7 @@ static int unlink_directory_r(const char *dir)
 					errno = 0;
 				}
 			} else {
-				/* so it wasn't a directory */
+                                /* so it wasn't a directory */
 				errno = old_errno;
 				break;
 			}
