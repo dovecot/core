@@ -646,6 +646,7 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 	if (sync_to_index) {
 		/* make sure log file offsets get copied. most of the other
 		   fields should stay the same. */
+		i_assert(hdr.messages_count == (*map)->hdr.messages_count);
 		(*map)->hdr = hdr;
 	}
 
