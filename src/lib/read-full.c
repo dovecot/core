@@ -14,6 +14,7 @@ int read_full(int fd, void *data, size_t size)
 		if (ret <= 0)
 			return ret;
 
+		data = PTR_OFFSET(data, ret);
 		size -= ret;
 	}
 
@@ -30,6 +31,7 @@ int pread_full(int fd, void *data, size_t size, off_t offset)
 		if (ret <= 0)
 			return ret;
 
+		data = PTR_OFFSET(data, ret);
 		size -= ret;
 		offset += ret;
 	}

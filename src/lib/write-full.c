@@ -20,6 +20,8 @@ int write_full(int fd, const void *data, size_t size)
 			errno = ENOSPC;
 			return -1;
 		}
+
+		data = PTR_OFFSET(data, ret);
 		size -= ret;
 	}
 
@@ -42,6 +44,8 @@ int pwrite_full(int fd, const void *data, size_t size, off_t offset)
 			errno = ENOSPC;
 			return -1;
 		}
+
+		data = PTR_OFFSET(data, ret);
 		size -= ret;
 		offset += ret;
 	}
