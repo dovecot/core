@@ -12,14 +12,16 @@ struct client {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct imap_parser *parser;
 
 	time_t last_input;
-	char *tag;
+	const char *cmd_tag, *cmd_name;
 
 	buffer_t *plain_login;
 	struct auth_request *auth_request;
 
 	unsigned int tls:1;
+	unsigned int cmd_finished:1;
 };
 
 struct client *client_create(int fd, struct ip_addr *ip, int imaps);

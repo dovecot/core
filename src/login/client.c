@@ -9,11 +9,19 @@
 #include "process-title.h"
 #include "safe-memset.h"
 #include "strescape.h"
+#include "imap-parser.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "ssl-proxy.h"
 
 #include <syslog.h>
+
+/* max. size of one parameter in line */
+#define MAX_INBUF_SIZE 512
+
+/* max. number of IMAP argument elements to accept. The maximum memory usage
+   for command from user is around MAX_INBUF_SIZE * MAX_IMAP_ARG_ELEMENTS */
+#define MAX_IMAP_ARG_ELEMENTS 4
 
 /* Disconnect client after idling this many seconds */
 #define CLIENT_LOGIN_IDLE_TIMEOUT 60
@@ -118,6 +126,95 @@ static int cmd_logout(struct client *client)
 	return TRUE;
 }
 
+static int client_command_execute(struct client *client, const char *cmd,
+				  struct imap_arg *args)
+{
+	cmd = str_ucase(t_strdup_noconst(cmd));
+	if (strcmp(cmd, "LOGIN") == 0)
+		return cmd_login(client, args);
+	if (strcmp(cmd, "AUTHENTICATE") == 0)
+		return cmd_authenticate(client, args);
+	if (strcmp(cmd, "CAPABILITY") == 0)
+		return cmd_capability(client);
+	if (strcmp(cmd, "STARTTLS") == 0)
+		return cmd_starttls(client);
+	if (strcmp(cmd, "NOOP") == 0)
+		return cmd_noop(client);
+	if (strcmp(cmd, "LOGOUT") == 0)
+		return cmd_logout(client);
+
+	return FALSE;
+}
+
+/* Skip incoming data until newline is found,
+   returns TRUE if newline was found. */
+static int client_skip_line(struct client *client)
+{
+	const unsigned char *data;
+	size_t i, data_size;
+
+	data = i_stream_get_data(client->input, &data_size);
+
+	for (i = 0; i < data_size; i++) {
+		if (data[i] == '\n') {
+			i_stream_skip(client->input, i+1);
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+static void client_handle_input(struct client *client)
+{
+	struct imap_arg *args;
+
+	if (client->cmd_finished) {
+		/* clear the previous command from memory. don't do this
+		   immediately after handling command since we need the
+		   cmd_tag to stay some time after authentication commands. */
+		client->cmd_tag = NULL;
+		client->cmd_name = NULL;
+		imap_parser_reset(client->parser);
+
+		/* remove \r\n */
+		if (!client_skip_line(client))
+			return;
+
+		client->cmd_finished = FALSE;
+	}
+
+	if (client->cmd_tag == NULL) {
+                client->cmd_tag = imap_parser_read_word(client->parser);
+		if (client->cmd_tag == NULL)
+			return; /* need more data */
+	}
+
+	if (client->cmd_name == NULL) {
+                client->cmd_name = imap_parser_read_word(client->parser);
+		if (client->cmd_name == NULL)
+			return; /* need more data */
+	}
+
+	switch (imap_parser_read_args(client->parser, 0, 0, &args)) {
+	case -1:
+		/* error */
+		client_destroy(client, NULL);
+		return;
+	case -2:
+		/* not enough data */
+		return;
+	}
+
+	if (*client->cmd_tag == '\0' ||
+	    !client_command_execute(client, client->cmd_name, args)) {
+		client_send_tagline(client,
+			"BAD Error in IMAP command received by server.");
+	}
+
+	client->cmd_finished = TRUE;
+}
+
 int client_read(struct client *client)
 {
 	switch (i_stream_read(client->input)) {
@@ -136,104 +233,20 @@ int client_read(struct client *client)
 	}
 }
 
-static char *get_next_arg(char **linep)
-{
-	char *line, *start;
-	int quoted;
-
-	line = *linep;
-	while (*line == ' ') line++;
-
-	/* @UNSAFE: get next argument, unescape arg if it's quoted */
-	if (*line == '"') {
-		quoted = TRUE;
-		line++;
-
-		start = line;
-		while (*line != '\0' && *line != '"') {
-			if (*line == '\\' && line[1] != '\0')
-				line++;
-			line++;
-		}
-
-		if (*line == '"')
-			*line++ = '\0';
-		str_unescape(start);
-	} else {
-		start = line;
-		while (*line != '\0' && *line != ' ')
-			line++;
-
-		if (*line == ' ')
-			*line++ = '\0';
-	}
-
-	*linep = line;
-	return start;
-}
-
-static int client_command_execute(struct client *client, char *line)
-{
-	char *cmd;
-	int ret;
-
-	cmd = get_next_arg(&line);
-	str_ucase(cmd);
-
-	if (strcmp(cmd, "LOGIN") == 0) {
-		char *user, *pass;
-
-		user = get_next_arg(&line);
-		pass = get_next_arg(&line);
-		ret = cmd_login(client, user, pass);
-
-		safe_memset(pass, 0, strlen(pass));
-		return ret;
-	}
-	if (strcmp(cmd, "AUTHENTICATE") == 0)
-		return cmd_authenticate(client, get_next_arg(&line));
-	if (strcmp(cmd, "CAPABILITY") == 0)
-		return cmd_capability(client);
-	if (strcmp(cmd, "STARTTLS") == 0)
-		return cmd_starttls(client);
-	if (strcmp(cmd, "NOOP") == 0)
-		return cmd_noop(client);
-	if (strcmp(cmd, "LOGOUT") == 0)
-		return cmd_logout(client);
-
-	return FALSE;
-}
-
 void client_input(void *context, int fd __attr_unused__,
 		  struct io *io __attr_unused__)
 {
 	struct client *client = context;
-	char *line;
 
 	client->last_input = ioloop_time;
-
-	i_free(client->tag);
-	client->tag = i_strdup("*");
 
 	if (!client_read(client))
 		return;
 
 	client_ref(client);
+
 	o_stream_cork(client->output);
-
-	while ((line = i_stream_next_line(client->input)) != NULL) {
-		/* split the arguments, make sure we have at
-		   least tag + command */
-		i_free(client->tag);
-		client->tag = i_strdup(get_next_arg(&line));
-
-		if (*client->tag == '\0' ||
-		    !client_command_execute(client, line)) {
-			/* error */
-			client_send_tagline(client, "BAD Error in IMAP command "
-					    "received by server.");
-		}
-	}
+	client_handle_input(client);
 
 	if (client_unref(client))
 		o_stream_flush(client->output);
@@ -306,7 +319,11 @@ struct client *client_create(int fd, struct ip_addr *ip, int imaps)
 	client->input = i_stream_create_file(fd, default_pool, 8192, FALSE);
 	client->output = o_stream_create_file(fd, default_pool, 1024,
 					      IO_PRIORITY_DEFAULT, FALSE);
+	client->parser = imap_parser_create(client->input, client->output,
+					    MAX_INBUF_SIZE,
+					    MAX_IMAP_ARG_ELEMENTS);
 	client->plain_login = buffer_create_dynamic(system_pool, 128, 8192);
+
 	client->last_input = ioloop_time;
 	hash_insert(clients, client, client);
 
@@ -324,6 +341,7 @@ void client_destroy(struct client *client, const char *reason)
 
 	hash_remove(clients, client);
 
+	imap_parser_destroy(client->parser);
 	i_stream_close(client->input);
 	o_stream_close(client->output);
 
@@ -351,7 +369,6 @@ int client_unref(struct client *client)
 	i_stream_unref(client->input);
 	o_stream_unref(client->output);
 
-	i_free(client->tag);
 	buffer_free(client->plain_login);
 	i_free(client);
 
@@ -367,7 +384,7 @@ void client_send_line(struct client *client, const char *line)
 
 void client_send_tagline(struct client *client, const char *line)
 {
-	client_send_line(client, t_strconcat(client->tag, " ", line, NULL));
+	client_send_line(client, t_strconcat(client->cmd_tag, " ", line, NULL));
 }
 
 void client_syslog(struct client *client, const char *text)

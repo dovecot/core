@@ -3,10 +3,12 @@ pkglibexecdir = $(libexecdir)/dovecot
 pkglibexec_PROGRAMS = imap-login
 
 INCLUDES = \
-	-I$(top_srcdir)/src/lib
+	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-imap
 
 imap_login_LDADD = \
 	../lib/liblib.a \
+	../lib-imap/imap-parser.o \
 	$(SSL_LIBS)
 
 imap_login_SOURCES = \

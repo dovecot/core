@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "safe-memset.h"
 #include "str.h"
+#include "imap-parser.h"
 #include "auth-connection.h"
 #include "../auth/auth-mech-desc.h"
 #include "client.h"
@@ -128,7 +129,7 @@ static int auth_callback(struct auth_request *request,
 	case AUTH_RESULT_SUCCESS:
 		client->auth_request = NULL;
 
-		master_request_imap(client->fd, auth_process, client->tag,
+		master_request_imap(client->fd, auth_process, client->cmd_tag,
 				    request->cookie, &client->ip,
 				    master_callback, client);
 
@@ -180,9 +181,20 @@ static void login_callback(struct auth_request *request,
 	}
 }
 
-int cmd_login(struct client *client, const char *user, const char *pass)
+int cmd_login(struct client *client, struct imap_arg *args)
 {
-	const char *error;
+	const char *user, *pass, *error;
+
+	/* two arguments: username and password */
+	if (args[0].type != IMAP_ARG_ATOM && args[0].type != IMAP_ARG_STRING)
+		return FALSE;
+	if (args[1].type != IMAP_ARG_ATOM && args[1].type != IMAP_ARG_STRING)
+		return FALSE;
+	if (args[2].type != IMAP_ARG_EOL)
+		return FALSE;
+
+	user = IMAP_ARG_STR(&args[0]);
+	pass = IMAP_ARG_STR(&args[1]);
 
 	if (!client->tls && disable_plaintext_auth) {
 		client_send_tagline(client,
@@ -239,6 +251,7 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 	if (!client_read(client))
 		return;
 
+	/* @UNSAFE */
 	line = i_stream_next_line(client->input);
 	if (line == NULL)
 		return;
@@ -270,11 +283,18 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 	safe_memset(buffer_free_without_data(buf), 0, bufsize);
 }
 
-int cmd_authenticate(struct client *client, const char *mech_name)
+int cmd_authenticate(struct client *client, struct imap_arg *args)
 {
 	struct auth_mech_desc *mech;
-	const char *error;
+	const char *mech_name, *error;
 
+	/* we want only one argument: authentication mechanism name */
+	if (args[0].type != IMAP_ARG_ATOM && args[0].type != IMAP_ARG_STRING)
+		return FALSE;
+	if (args[1].type != IMAP_ARG_EOL)
+		return FALSE;
+
+	mech_name = IMAP_ARG_STR(&args[0]);
 	if (*mech_name == '\0')
 		return FALSE;
 
