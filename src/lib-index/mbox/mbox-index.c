@@ -198,6 +198,8 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 		end_offset = start_offset + ctx->content_length;
 		if (ctx->content_length == 0 ||
 		    !mbox_verify_end_of_body(ctx->inbuf, end_offset)) {
+			if (ctx->content_length != 0)
+				i_buffer_seek(ctx->inbuf, start_offset);
 			mbox_skip_message(ctx->inbuf);
 			end_offset = ctx->inbuf->v_offset;
 			ctx->content_length = end_offset - start_offset;
