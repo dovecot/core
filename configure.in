@@ -309,7 +309,7 @@ AC_DEFUN(AC_CHECKTYPE2, [
   AC_MSG_RESULT($i_cv_type_$1)
 ])
 
-AC_CHECKTYPE2(uintmax_t, [#include <stdint.h>])
+AC_CHECKTYPE2(uintmax_t, [#include <inttypes.h>])
 if test $i_cv_type_uintmax_t = yes; then
   AC_DEFINE(HAVE_UINTMAX_T)
 fi
