@@ -197,6 +197,8 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 {
         struct mail_index_record *rec;
 
+	t->log_updates = TRUE;
+
 	if (t->appends == NULL) {
 		t->appends = buffer_create_dynamic(default_pool,
 						   4096, (size_t)-1);
@@ -248,6 +250,7 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 
 	i_assert(seq > 0 && seq <= mail_index_view_get_message_count(t->view));
 
+	t->log_updates = TRUE;
 	exp.uid1 = exp.uid2 = seq;
 
 	/* expunges is a sorted array of {seq1, seq2, ..}, .. */
@@ -367,6 +370,8 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum mail_flags flags, keywords_mask_t keywords)
 {
 	struct mail_index_record *rec;
+
+	t->log_updates = TRUE;
 
 	if (seq >= t->first_new_seq) {
 		/* just appended message, modify it directly */
@@ -585,6 +590,8 @@ mail_index_transaction_reset_cache_updates(struct mail_index_transaction *t)
 void mail_index_reset_cache(struct mail_index_transaction *t,
 			    uint32_t new_file_seq)
 {
+	t->log_updates = TRUE;
+
 	mail_index_transaction_reset_cache_updates(t);
 	t->new_cache_file_seq = new_file_seq;
         t->last_cache_file_seq = new_file_seq;
@@ -599,6 +606,8 @@ void mail_index_update_cache(struct mail_index_transaction *t, uint32_t seq,
 	i_assert(seq > 0 &&
 		 (seq <= mail_index_view_get_message_count(t->view) ||
 		  seq <= t->last_new_seq));
+
+	t->log_updates = TRUE;
 
 	if (file_seq != t->last_cache_file_seq) {
 		mail_index_transaction_reset_cache_updates(t);
@@ -662,6 +671,8 @@ void mail_index_update_extra_rec(struct mail_index_transaction *t,
 		  seq <= t->last_new_seq));
 	i_assert(data_id < index->extra_infos->used / sizeof(*einfo));
 
+	t->log_updates = TRUE;
+
 	einfo = index->extra_infos->data;
 	einfo += data_id;
 
@@ -682,6 +693,7 @@ void mail_index_update_header(struct mail_index_transaction *t,
 	i_assert(size <= sizeof(t->hdr_change) - offset);
 
 	t->hdr_changed = TRUE;
+	t->log_updates = TRUE;
 
 	memcpy(t->hdr_change + offset, data, size);
 	for (; size > 0; size--)

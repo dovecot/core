@@ -29,6 +29,7 @@ struct mail_index_transaction {
 
 	unsigned int hide_transaction:1;
 	unsigned int hdr_changed:1;
+	unsigned int log_updates:1;
 };
 
 struct mail_index_record *
