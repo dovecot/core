@@ -91,8 +91,7 @@ static void list_func(MailStorage *storage __attr_unused__, const char *name,
 }
 
 static void list_send(Client *client, ListNode *node, const char *cmd,
-		      const char *path, const char *sep,
-		      const ImapMatchGlob *glob)
+		      const char *path, const char *sep, ImapMatchGlob *glob)
 {
 	const char *name;
 
@@ -106,7 +105,7 @@ static void list_send(Client *client, ListNode *node, const char *cmd,
 			list_send(client, node->children, cmd, name, sep, glob);
 
 		if ((node->flags & MAILBOX_NOSELECT) &&
-		    imap_match(glob, name, 0, NULL) < 0) {
+		    imap_match(glob, name) <= 0) {
 			/* doesn't match the mask */
 			t_pop();
 			continue;
@@ -126,6 +125,7 @@ int _cmd_list_full(Client *client, int subscribed)
 	ListContext ctx;
 	const char *ref, *pattern;
 	char sep_chr, sep[3];
+	int failed;
 
 	sep_chr = client->storage->hierarchy_sep;
 	if (IS_ESCAPED_CHAR(sep_chr)) {
@@ -145,6 +145,7 @@ int _cmd_list_full(Client *client, int subscribed)
 		/* special request to return the hierarchy delimiter */
 		client_send_line(client, t_strconcat(
 			"* LIST (\\Noselect) \"", sep, "\" \"\"", NULL));
+		failed = FALSE;
 	} else {
 		if (*ref != '\0') {
 			/* join reference + pattern */
@@ -161,23 +162,30 @@ int _cmd_list_full(Client *client, int subscribed)
 		ctx.storage = client->storage;
 
 		if (!subscribed) {
-			client->storage->find_mailboxes(client->storage,
-							pattern,
-							list_func, &ctx);
+			failed = !client->storage->
+				find_mailboxes(client->storage,
+					       pattern, list_func, &ctx);
 		} else {
-			client->storage->find_subscribed(client->storage,
-							 pattern,
-							 list_func, &ctx);
+			failed = !client->storage->
+				find_subscribed(client->storage,
+						pattern, list_func, &ctx);
 		}
 
-		list_send(client, ctx.nodes, subscribed ? "LSUB" : "LIST",
-			  NULL, sep, imap_match_init(pattern, TRUE, sep_chr));
+		if (!failed) {
+			list_send(client, ctx.nodes,
+				  subscribed ? "LSUB" : "LIST", NULL, sep,
+				  imap_match_init(pattern, TRUE, sep_chr));
+		}
 		pool_unref(ctx.pool);
 	}
 
-	client_send_tagline(client, subscribed ?
-			    "OK Lsub completed." :
-			    "OK List completed.");
+	if (failed)
+		client_send_storage_error(client);
+	else {
+		client_send_tagline(client, subscribed ?
+				    "OK Lsub completed." :
+				    "OK List completed.");
+	}
 	return TRUE;
 }
 

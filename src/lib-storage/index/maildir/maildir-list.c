@@ -74,7 +74,7 @@ maildir_get_marked_flags(MailStorage *storage, const char *dir)
 int maildir_find_mailboxes(MailStorage *storage, const char *mask,
 			   MailboxFunc func, void *context)
 {
-        const ImapMatchGlob *glob;
+        ImapMatchGlob *glob;
 	DIR *dirp;
 	struct dirent *d;
 	struct stat st;
@@ -106,7 +106,7 @@ int maildir_find_mailboxes(MailStorage *storage, const char *mask,
 
 		/* make sure the mask matches - dirs beginning with ".."
 		   should be deleted and we always want to check those. */
-		if (fname[1] == '.' || imap_match(glob, fname+1, 0, NULL) < 0)
+		if (fname[1] == '.' || imap_match(glob, fname+1) <= 0)
 			continue;
 
 		/* make sure it's a directory */
@@ -142,8 +142,7 @@ int maildir_find_mailboxes(MailStorage *storage, const char *mask,
 		func(storage, fname+1, flags, context);
 	}
 
-	if (!failed && !found_inbox &&
-	    imap_match(glob, "INBOX", 0, NULL) >= 0) {
+	if (!failed && !found_inbox && imap_match(glob, "INBOX") > 0) {
 		/* .INBOX directory doesn't exist yet, but INBOX still exists */
 		func(storage, "INBOX", 0, context);
 	}
