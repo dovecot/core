@@ -151,7 +151,8 @@ static void auth_request_save_cache(struct auth_request *request,
 	}
 
 	/* save all except the currently given password in cache */
-	str = t_str_new(32 + str_len(request->extra_fields));
+	str = t_str_new(32 + (request->extra_fields != NULL ? 
+			      str_len(request->extra_fields) : 0));
 	if (*request->passdb_password != '{') {
 		/* cached passwords must have a known scheme */
 		str_append_c(str, '{');
