@@ -2,14 +2,13 @@
 
 /* Thanks to Courier-IMAP for showing how the vpopmail API should be used */
 
-#include "common.h"
+#include "config.h"
+#undef HAVE_CONFIG_H
 
 #ifdef USERINFO_VPOPMAIL
 
-#include "userinfo.h"
 #include "userinfo-passwd.h"
 
-#include <unistd.h>
 #include <vpopmail.h>
 #include <vauth.h>
 

@@ -1,24 +1,18 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
-#ifndef _XOPEN_SOURCE_EXTENDED
-#  define _XOPEN_SOURCE_EXTENDED
-#endif
-#define _XOPEN_SOURCE 4
-#define _XPG4_2
-
-#include "common.h"
+#include "config.h"
+#undef HAVE_CONFIG_H
 
 #ifdef USERINFO_PASSWD_FILE
+
+#include "userinfo-passwd.h"
 
 #include "ibuffer.h"
 #include "hash.h"
 #include "hex-binary.h"
 #include "md5.h"
-#include "userinfo.h"
-#include "userinfo-passwd.h"
 
 #include <stdlib.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 

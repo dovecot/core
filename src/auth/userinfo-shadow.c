@@ -5,20 +5,13 @@
    Copyright (C) 2002 Timo Sirainen
 */
 
-#ifndef _XOPEN_SOURCE_EXTENDED
-#  define _XOPEN_SOURCE_EXTENDED
-#endif
-#define _XOPEN_SOURCE 4
-#define _XPG4_2
-
-#include "common.h"
+#include "config.h"
+#undef HAVE_CONFIG_H
 
 #ifdef USERINFO_SHADOW
 
-#include "userinfo.h"
 #include "userinfo-passwd.h"
 
-#include <unistd.h>
 #include <shadow.h>
 
 static int shadow_verify_plain(const char *user, const char *password,

@@ -5,20 +5,12 @@
    Copyright (C) 2002 Timo Sirainen
 */
 
-#ifndef _XOPEN_SOURCE_EXTENDED
-#  define _XOPEN_SOURCE_EXTENDED
-#endif
-#define _XOPEN_SOURCE 4
-#define _XPG4_2
-
-#include "common.h"
+#include "config.h"
+#undef HAVE_CONFIG_H
 
 #ifdef USERINFO_PASSWD
 
-#include "userinfo.h"
 #include "userinfo-passwd.h"
-
-#include <unistd.h>
 
 void passwd_fill_cookie_reply(struct passwd *pw, AuthCookieReplyData *reply)
 {

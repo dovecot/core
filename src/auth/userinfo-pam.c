@@ -7,23 +7,14 @@
    modified versions are marked as such.  There's absolutely no warranty.
 */
 
-#ifndef _XOPEN_SOURCE_EXTENDED
-#  define _XOPEN_SOURCE_EXTENDED
-#endif
-#define _XOPEN_SOURCE 4
-#define _XPG4_2
-
-#include "common.h"
+#include "config.h"
+#undef HAVE_CONFIG_H
 
 #ifdef USERINFO_PAM
 
-#include "userinfo.h"
 #include "userinfo-passwd.h"
 
 #include <stdlib.h>
-#include <unistd.h>
-#include <shadow.h>
-
 #include <security/pam_appl.h>
 
 #if !defined(_SECURITY_PAM_APPL_H) && !defined(LINUX_PAM)
