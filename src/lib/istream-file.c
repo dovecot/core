@@ -161,7 +161,8 @@ static ssize_t _read(struct _istream *stream)
 			ret = pread(stream->fd,
 				    stream->w_buffer + stream->pos, size,
 				    stream->istream.start_offset +
-				    stream->istream.v_offset);
+				    stream->istream.v_offset +
+				    (stream->pos - stream->skip));
 		} else {
 			ret = read(stream->fd,
 				   stream->w_buffer + stream->pos, size);
@@ -209,8 +210,10 @@ static void _skip(struct _istream *stream, uoff_t count)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 
+	i_assert(stream->skip == stream->pos);
+
 	if (!fstream->file)
-		fstream->skip_left += count - (stream->pos - stream->skip);
+		fstream->skip_left += count;
 	stream->istream.v_offset += count;
 	stream->skip = stream->pos = 0;
 }

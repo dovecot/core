@@ -48,6 +48,7 @@ static ssize_t _read(struct _istream *stream)
 {
 	struct mbox_istream *mstream = (struct mbox_istream *) stream;
 	ssize_t ret;
+	size_t pos;
 	uoff_t limit, old_limit;
 	off_t vsize_diff;
 
@@ -75,12 +76,18 @@ static ssize_t _read(struct _istream *stream)
 	ret = i_stream_read(mstream->input);
 
 	mstream->istream.skip = 0;
-	mstream->istream.buffer =
-		i_stream_get_data(mstream->input, &mstream->istream.pos);
+	mstream->istream.buffer = i_stream_get_data(mstream->input, &pos);
+
+	if (pos == mstream->istream.pos)
+		ret = -1;
+	else {
+		ret = mstream->istream.pos - pos;
+                mstream->istream.pos = pos;
+	}
 
 	if (limit != old_limit)
 		i_stream_set_read_limit(mstream->input, old_limit);
-	return mstream->istream.pos == 0 ? -1 : (ssize_t)mstream->istream.pos;
+	return ret;
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset)
