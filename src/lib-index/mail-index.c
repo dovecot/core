@@ -504,7 +504,7 @@ static int mail_index_read_map(struct mail_index *index,
 		mail_index_set_error(index,
 			"Corrupted index file %s: File too small",
 			index->filepath);
-		return -1;
+		return 0;
 	}
 
 	map->records = data;
