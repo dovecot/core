@@ -357,7 +357,7 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 
 		if (*data_id >= max_data_id) {
 			mail_transaction_log_file_set_corrupted(file,
-				"extra record update out of range (%u > %u)",
+				"extra record update out of range (%u >= %u)",
 				*data_id, max_data_id);
 			return -1;
 		}
