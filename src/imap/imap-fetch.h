@@ -28,6 +28,7 @@ struct imap_fetch_context {
 	string_t *str;
 	struct ostream *output;
 	const char *prefix;
+	unsigned int select_counter;
 
 	int first, failed;
 };

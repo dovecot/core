@@ -7,18 +7,19 @@
 #include "message-send.h"
 #include "message-size.h"
 
-int message_send(struct ostream *output, struct istream *input,
-		 const struct message_size *msg_size,
-		 uoff_t virtual_skip, uoff_t max_virtual_size)
+off_t message_send(struct ostream *output, struct istream *input,
+		   const struct message_size *msg_size,
+		   uoff_t virtual_skip, uoff_t max_virtual_size)
 {
 	const unsigned char *msg;
 	uoff_t old_limit, limit;
 	size_t i, size;
-	int cr_skipped, add_cr, ret;
+	off_t ret;
+	int cr_skipped, add_cr;
 
 	if (msg_size->physical_size == 0 ||
 	    virtual_skip >= msg_size->virtual_size)
-		return TRUE;
+		return 0;
 
 	if (max_virtual_size > msg_size->virtual_size - virtual_skip)
 		max_virtual_size = msg_size->virtual_size - virtual_skip;
@@ -39,6 +40,7 @@ int message_send(struct ostream *output, struct istream *input,
 	message_skip_virtual(input, virtual_skip, NULL, &cr_skipped);
 
 	/* go through the message data and insert CRs where needed.  */
+	ret = 0;
 	while (max_virtual_size > 0 &&
 	       i_stream_read_data(input, &msg, &size, 0) > 0) {
 		add_cr = FALSE;
@@ -55,12 +57,14 @@ int message_send(struct ostream *output, struct istream *input,
 			}
 		}
 
+		ret += i;
 		if (o_stream_send(output, msg, i) < 0)
-			return FALSE;
+			return -1;
 
 		if (add_cr) {
+			ret++;
 			if (o_stream_send(output, "\r", 1) < 0)
-				return FALSE;
+				return -1;
 			cr_skipped = TRUE;
 		} else {
 			cr_skipped = i > 0 && msg[i-1] == '\r';
@@ -69,5 +73,5 @@ int message_send(struct ostream *output, struct istream *input,
 		i_stream_skip(input, i);
 	}
 
-	return TRUE;
+	return ret;
 }

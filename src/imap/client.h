@@ -16,6 +16,7 @@ struct client {
 
 	struct mail_storage *storage;
 	struct mailbox *mailbox;
+	unsigned int select_counter; /* increased when mailbox is changed */
 
 	time_t last_input;
 	unsigned int bad_counter;

@@ -31,6 +31,46 @@ struct fetch_header_field_context {
 	int (*match_func) (const char *const *, const unsigned char *, size_t);
 };
 
+struct partial_cache {
+	unsigned int select_counter;
+	unsigned int uid;
+
+	uoff_t physical_start;
+	struct message_size pos;
+};
+
+static struct partial_cache partial = { 0, 0, 0, { 0, 0, 0 } };
+
+static int seek_partial(unsigned int select_counter, unsigned int uid,
+			struct partial_cache *partial, struct istream *stream,
+			uoff_t physical_start, uoff_t virtual_skip)
+{
+	int cr_skipped;
+
+	if (select_counter == partial->select_counter && uid == partial->uid &&
+	    physical_start == partial->physical_start &&
+	    virtual_skip >= partial->pos.virtual_size) {
+		/* we can use the cache */
+		virtual_skip -= partial->pos.virtual_size;
+	} else {
+		partial->select_counter = select_counter;
+		partial->uid = uid;
+		partial->physical_start = physical_start;
+		memset(&partial->pos, 0, sizeof(partial->pos));
+	}
+
+	i_warning("skipping %lld", virtual_skip);
+
+	i_stream_seek(stream, partial->physical_start +
+		      partial->pos.physical_size);
+	message_skip_virtual(stream, virtual_skip, &partial->pos, &cr_skipped);
+
+	if (cr_skipped)
+		partial->pos.virtual_size--;
+
+	return cr_skipped;
+}
+
 /* fetch BODY[] or BODY[TEXT] */
 static int fetch_body(struct imap_fetch_context *ctx,
 		      const struct imap_fetch_body_data *body,
@@ -39,6 +79,8 @@ static int fetch_body(struct imap_fetch_context *ctx,
 	struct message_size hdr_size, body_size;
 	struct istream *stream;
 	const char *str;
+	int skip_cr;
+	off_t ret;
 
 	stream = mail->get_stream(mail, &hdr_size, &body_size);
 	if (stream == NULL)
@@ -54,9 +96,16 @@ static int fetch_body(struct imap_fetch_context *ctx,
 	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
-	/* FIXME: SLOW! we need some cache for this. */
-	return message_send(ctx->output, stream, &body_size,
-			    body->skip, body->max_size);
+	skip_cr = seek_partial(ctx->select_counter, mail->uid,
+			       &partial, stream, 0, body->skip);
+	ret = message_send(ctx->output, stream, &body_size,
+			   skip_cr, body->max_size);
+	if (ret > 0) {
+		partial.pos.physical_size =
+			stream->v_offset - partial.physical_start;
+		partial.pos.virtual_size += ret;
+	}
+	return ret >= 0;
 }
 
 static const char **get_fields_array(const char *fields)
@@ -258,7 +307,7 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 		if (o_stream_send_str(ctx->output, str) < 0)
 			return FALSE;
 		return message_send(ctx->output, input, size,
-				    body->skip, body->max_size);
+				    body->skip, body->max_size) >= 0;
 	}
 
 	/* partial headers - copy the wanted fields into memory, inserting
@@ -386,23 +435,28 @@ part_find(struct mail *mail, const struct imap_fetch_body_data *body,
 static int fetch_part_body(struct imap_fetch_context *ctx,
 			   struct istream *stream,
 			   const struct imap_fetch_body_data *body,
-			   const struct message_part *part)
+			   struct mail *mail, const struct message_part *part)
 {
 	const char *str;
-
-	/* jump to beginning of part body */
-	i_stream_seek(stream, part->physical_pos +
-		      part->header_size.physical_size);
+	int skip_cr;
+	off_t ret;
 
 	str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
 			      ctx->prefix, part->body_size.virtual_size);
 	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
-	/* FIXME: potential performance problem with big messages:
-	   FETCH BODY[1]<100000..1024>, hopefully no clients do this */
-	return message_send(ctx->output, stream, &part->body_size,
-			    body->skip, body->max_size);
+	skip_cr = seek_partial(ctx->select_counter, mail->uid,
+			       &partial, stream, part->physical_pos +
+			       part->header_size.physical_size, body->skip);
+	ret = message_send(ctx->output, stream, &part->body_size,
+			   skip_cr, body->max_size);
+	if (ret > 0) {
+		partial.pos.physical_size =
+			stream->v_offset - partial.physical_start;
+		partial.pos.virtual_size += ret;
+	}
+	return ret >= 0;
 }
 
 static int fetch_part(struct imap_fetch_context *ctx, struct mail *mail,
@@ -421,7 +475,7 @@ static int fetch_part(struct imap_fetch_context *ctx, struct mail *mail,
 		return FALSE;
 
 	if (*section == '\0' || strcmp(section, "TEXT") == 0)
-		return fetch_part_body(ctx, stream, body, part);
+		return fetch_part_body(ctx, stream, body, mail, part);
 
 	if (strncmp(section, "HEADER", 6) == 0 ||
 	    strcmp(section, "MIME") == 0) {
