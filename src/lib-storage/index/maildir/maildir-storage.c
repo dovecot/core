@@ -482,12 +482,36 @@ maildir_mailbox_open(struct mail_storage *_storage,
 	}
 }
 
+static int maildir_create_shared(struct mail_storage *storage,
+				 const char *path, mode_t mode, gid_t gid)
+{
+	mode_t old_mask = umask(0);
+	int fd;
+
+	fd = open(path, O_WRONLY | O_CREAT, mode);
+	umask(old_mask);
+
+	if (fd == -1) {
+		mail_storage_set_critical(storage,
+					  "open(%s) failed: %m", path);
+		return -1;
+	}
+
+	if (fchown(fd, (uid_t)-1, gid) < 0) {
+		mail_storage_set_critical(storage,
+					  "fchown(%s) failed: %m", path);
+	}
+	(void)close(fd);
+	return 0;
+}
+
 static int maildir_mailbox_create(struct mail_storage *_storage,
 				  const char *name,
 				  int directory __attr_unused__)
 {
 	struct index_storage *storage = (struct index_storage *)_storage;
-	const char *path;
+	struct stat st;
+	const char *path, *shared_path;
 
 	mail_storage_clear_error(_storage);
 
@@ -503,6 +527,15 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 					       "Mailbox already exists");
 		}
 		return -1;
+	}
+
+	/* if dovecot-shared exists in the root dir, copy it to the
+	   created mailbox */
+	shared_path = t_strconcat(storage->dir, "/dovecot-shared", NULL);
+	if (stat(shared_path, &st) == 0) {
+		path = t_strconcat(path, "/dovecot-shared", NULL);
+		(void)maildir_create_shared(_storage, path,
+					    st.st_mode & 0666, st.st_gid);
 	}
 
 	return 0;
