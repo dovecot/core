@@ -508,6 +508,7 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 	return TRUE;
 }
 
+/* ARG_PARSE_NONE checks that last argument isn't only partially parsed. */
 #define IS_UNFINISHED(parser) \
         ((parser)->cur_type != ARG_PARSE_NONE || \
 	 (parser)->cur_list != parser->root_list)
@@ -534,8 +535,13 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 		return -1;
 	} else if ((!IS_UNFINISHED(parser) && count > 0 &&
 		    parser->root_list->size >= count) || parser->eol) {
-		/* all arguments read / end of line. ARG_PARSE_NONE checks
-		   that last argument isn't only partially parsed. */
+		/* all arguments read / end of line. */
+		if (parser->list_arg != NULL) {
+			parser->error = "Missing ')'";
+			*args = NULL;
+			return -1;
+		}
+
 		if (count >= parser->root_list->alloc) {
 			/* unused arguments must be NIL-filled. */
 			parser->root_list = LIST_REALLOC(parser,
