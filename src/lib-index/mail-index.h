@@ -115,10 +115,12 @@ struct mail_index_header {
 	uint8_t compat_data[4];
 
 	uint32_t indexid;
-
 	uint32_t used_file_size;
-	uint32_t sync_id; /* re-mmap() when changed, required only
-	                     if file size is shrinked */
+
+	/* file needs to be reopened if sync_ids change. */
+	uint32_t master_sync_id;
+	uint32_t cache_sync_id;
+	uint32_t log_sync_id;
 
 	uint32_t flags;
 
@@ -281,7 +283,7 @@ struct mail_index {
 	char *mailbox_path; /* file/directory for mailbox location */
 	char *control_dir; /* destination for control files */
 	unsigned int indexid;
-	unsigned int sync_id;
+	unsigned int master_sync_id, cache_sync_id, log_sync_id;
 
         /* updated whenever exclusive lock is set/unset */
 	unsigned int excl_lock_counter;
@@ -358,11 +360,11 @@ struct mail_index {
    members.. */
 #define MAIL_INDEX_PRIVATE_FILL \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, { 0, 0, 0 }, 0, 0, 0, \
+	0, 0, 0, 0, 0, 0, { 0, 0, 0 }, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0, 0, 0
 #endif
 
 /* defaults - same as above but prefixed with mail_index_. */

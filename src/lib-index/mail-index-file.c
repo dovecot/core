@@ -142,7 +142,7 @@ int mail_index_compress(struct mail_index *index)
 			return FALSE;
 		}
 
-		index->header->sync_id++;
+		index->header->master_sync_id++;
 		if (!mail_index_mmap_update(index))
 			return FALSE;
 	}
@@ -162,7 +162,7 @@ int mail_index_compress(struct mail_index *index)
 
 	index->header->header_size = sizeof(struct mail_index_header);
 	index->header->used_file_size += diff;
-	index->header->sync_id++;
+	index->header->master_sync_id++;
  
 	if (!mail_index_fmdatasync(index, index->mmap_used_length))
 		return FALSE;
@@ -201,7 +201,7 @@ int mail_index_truncate(struct mail_index *index)
 		if (ftruncate(index->fd, (off_t)index->mmap_full_length) < 0)
 			return index_set_syscall_error(index, "ftruncate()");
 
-		index->header->sync_id++;
+		index->header->master_sync_id++;
 	}
 
 	return TRUE;

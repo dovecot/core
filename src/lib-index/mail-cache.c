@@ -42,6 +42,8 @@
 
 struct mail_cache_header {
 	uint32_t indexid;
+	uint32_t sync_id;
+
 	uint32_t continued_record_count;
 
 	uint32_t used_file_size;
@@ -70,6 +72,7 @@ struct mail_cache {
 	void *mmap_base;
 	size_t mmap_length;
 	uint32_t used_file_size;
+	uint32_t sync_id;
 
 	struct mail_cache_header *header;
 
@@ -249,6 +252,7 @@ static int mmap_verify_header(struct mail_cache *cache)
 	if (cache->mmap_length < sizeof(struct mail_cache_header))
 		return mail_cache_set_corrupted(cache, "File too small");
 	cache->header = hdr = cache->mmap_base;
+	cache->sync_id = hdr->sync_id;
 
 	if (cache->header->indexid != cache->index->indexid) {
 		/* index id changed */
@@ -290,25 +294,33 @@ static int mmap_verify_header(struct mail_cache *cache)
 static int mmap_update_nocheck(struct mail_cache *cache,
 			       size_t offset, size_t size)
 {
-	if (cache->header != NULL &&
-	    cache->header->indexid != cache->index->indexid) {
-		/* indexid changed, most likely it was rebuilt.
-		   try reopening. */
+	struct stat st;
+
+	/* if sync id has changed, the file has to be reopened.
+	   note that if main index isn't locked, it may change again */
+	if (cache->sync_id != cache->index->cache_sync_id &&
+	    cache->mmap_base != NULL) {
 		if (!mail_cache_file_reopen(cache))
 			return -1;
-
-		/* force mmap refresh */
-		size = 0;
 	}
 
-	if (size != 0 && offset < cache->mmap_length &&
-	    size <= cache->mmap_length - offset) {
+	if (offset < cache->mmap_length &&
+	    size <= cache->mmap_length - offset &&
+	    !cache->mmap_refresh) {
 		/* already mapped */
-		if (!cache->mmap_refresh)
+		if (size != 0 || cache->anon_mmap)
 			return 1;
 
-		cache->mmap_refresh = FALSE;
+		/* requesting the whole file - see if we need to
+		   re-mmap */
+		if (fstat(cache->fd, &st) < 0) {
+			mail_cache_set_syscall_error(cache, "fstat()");
+			return -1;
+		}
+		if ((uoff_t)st.st_size == cache->mmap_length)
+			return 1;
 	}
+	cache->mmap_refresh = FALSE;
 
 	if (cache->anon_mmap)
 		return 1;
@@ -346,14 +358,28 @@ static int mmap_update_nocheck(struct mail_cache *cache,
 
 static int mmap_update(struct mail_cache *cache, size_t offset, size_t size)
 {
-	int ret;
+	int synced, ret;
 
-	ret = mmap_update_nocheck(cache, offset, size);
-	if (ret > 0)
-		return TRUE;
-	if (ret < 0)
-		return FALSE;
-	return mmap_verify_header(cache);
+	for (synced = FALSE;; synced = TRUE) {
+		ret = mmap_update_nocheck(cache, offset, size);
+		if (ret > 0)
+			return TRUE;
+		if (ret < 0)
+			return FALSE;
+
+		if (!mmap_verify_header(cache))
+			return FALSE;
+
+		/* see if cache file was rebuilt - do it only once to avoid
+		   infinite looping */
+		if (cache->header->sync_id == cache->index->cache_sync_id ||
+		    synced)
+			break;
+
+		if (!mail_cache_file_reopen(cache))
+			return FALSE;
+	}
+	return TRUE;
 }
 
 static int mail_cache_open_and_verify(struct mail_cache *cache, int silent)
@@ -475,6 +501,7 @@ int mail_cache_open_or_create(struct mail_index *index)
 
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.indexid = index->indexid;
+	hdr.sync_id = index->cache_sync_id;
 	hdr.used_file_size = uint32_to_nbo(sizeof(hdr));
 
 	cache = i_new(struct mail_cache, 1);
@@ -688,6 +715,8 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 
 	/* update header */
 	hdr->indexid = cache->index->indexid;
+	hdr->sync_id = cache->sync_id = cache->index->cache_sync_id =
+		++cache->index->header->cache_sync_id;
 	hdr->used_file_size = uint32_to_nbo(offset);
 	hdr->used_fields = used_fields;
 	hdr->field_usage_start = uint32_to_nbo(ioloop_time);
@@ -710,11 +739,18 @@ int mail_cache_compress(struct mail_cache *cache)
 
 	i_assert(cache->trans_ctx == NULL);
 
+	if (cache->anon_mmap)
+		return TRUE;
+
 	if (!cache->index->set_lock(cache->index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
 	if (mail_cache_lock(cache, TRUE) <= 0)
 		return FALSE;
+
+#ifdef DEBUG
+	i_warning("Compressing cache file %s", cache->filepath);
+#endif
 
 	fd = file_dotlock_open(cache->filepath, NULL, MAIL_CACHE_LOCK_TIMEOUT,
 			       MAIL_CACHE_LOCK_STALE_TIMEOUT, NULL, NULL);
@@ -759,8 +795,12 @@ int mail_cache_truncate(struct mail_cache *cache)
 	struct mail_cache_header hdr;
 	int ret, fd;
 
+	i_assert(cache->index->lock_type == MAIL_LOCK_EXCLUSIVE);
+
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.indexid = cache->index->indexid;
+	hdr.sync_id = cache->sync_id = cache->index->cache_sync_id
+		=++cache->index->header->cache_sync_id;
 	hdr.used_file_size = uint32_to_nbo(sizeof(hdr));
 	cache->used_file_size = sizeof(hdr);
 
@@ -840,9 +880,19 @@ int mail_cache_lock(struct mail_cache *cache, int nonblock)
 	}
 
 	if (ret > 0) {
-		if (!mmap_verify_header(cache)) {
+		if (!mmap_update(cache, 0, 0)) {
 			(void)mail_cache_unlock(cache);
-			ret = -1;
+			return -1;
+		}
+		if (cache->sync_id != cache->index->cache_sync_id) {
+			/* we have the cache file locked and sync_id still
+			   doesn't match. it means we crashed between updating
+			   cache file and updating sync_id in index header.
+			   just update the sync_ids so they match. */
+			i_warning("Updating broken sync_id in cache file %s",
+				  cache->filepath);
+			cache->sync_id = cache->header->sync_id =
+				cache->index->cache_sync_id;
 		}
 	}
 	return ret;

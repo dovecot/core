@@ -74,7 +74,9 @@ static int mmap_verify(struct mail_index *index)
 		return FALSE;
 	}
 
-	index->sync_id = hdr->sync_id;
+	index->master_sync_id = hdr->master_sync_id;
+	index->cache_sync_id = hdr->cache_sync_id;
+	index->log_sync_id = hdr->log_sync_id;
 	index->sync_stamp = hdr->sync_stamp;
 	index->sync_size = hdr->sync_size;
 	index->mmap_used_length = hdr->used_file_size;
@@ -89,6 +91,9 @@ int mail_index_mmap_update(struct mail_index *index)
 	if (index->mmap_base != NULL) {
 		index->header = (struct mail_index_header *) index->mmap_base;
 
+		index->cache_sync_id = index->header->cache_sync_id;
+		index->log_sync_id = index->header->log_sync_id;
+
 		if (index->mmap_invalidate) {
 			if (msync(index->mmap_base,
 				  index->mmap_used_length,
@@ -99,7 +104,7 @@ int mail_index_mmap_update(struct mail_index *index)
 		}
 
 		/* make sure file size hasn't changed */
-		if (index->header->sync_id == index->sync_id) {
+		if (index->header->master_sync_id == index->master_sync_id) {
 			index->mmap_used_length = index->header->used_file_size;
 			if (index->mmap_used_length > index->mmap_full_length) {
 				i_panic("Index file size was grown without "
@@ -647,7 +652,7 @@ static int mail_index_grow(struct mail_index *index)
 
 	/* file size changed, let others know about it too by changing
 	   sync_id in header. */
-	index->header->sync_id++;
+	index->header->master_sync_id++;
 
 	if (!mail_index_mmap_update(index))
 		return FALSE;
