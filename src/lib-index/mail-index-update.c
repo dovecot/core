@@ -20,7 +20,7 @@ struct _MailIndexUpdate {
 	MailIndexRecord *rec;
 
 	unsigned int updated_fields;
-	char *fields[FIELD_TYPE_MAX_BITS];
+	void *fields[FIELD_TYPE_MAX_BITS];
 	unsigned int field_sizes[FIELD_TYPE_MAX_BITS];
 	unsigned int field_extra_sizes[FIELD_TYPE_MAX_BITS];
 };
@@ -254,22 +254,32 @@ int mail_index_update_end(MailIndexUpdate *update)
 	return !failed;
 }
 
-void mail_index_update_field(MailIndexUpdate *update, MailField field,
-			     const char *value, unsigned int extra_space)
+static void update_field_full(MailIndexUpdate *update, MailField field,
+			      const void *value, unsigned int size,
+			      unsigned int extra_space)
 {
-	unsigned int size;
 	int index;
 
 	index = mail_field_get_index(field);
 	i_assert(index >= 0);
-
-	size = strlen(value)+1;
 
 	update->updated_fields |= field;
 	update->field_sizes[index] = size;
 	update->field_extra_sizes[index] = extra_space;
 	update->fields[index] = p_malloc(update->pool, size);
 	memcpy(update->fields[index], value, size);
+}
+
+void mail_index_update_field(MailIndexUpdate *update, MailField field,
+			     const char *value, unsigned int extra_space)
+{
+	update_field_full(update, field, value, strlen(value)+1, extra_space);
+}
+
+void mail_index_update_field_raw(MailIndexUpdate *update, MailField field,
+				 const void *value, unsigned int size)
+{
+	update_field_full(update, field, value, size, 0);
 }
 
 static MailField mail_header_get_field(const char *str, unsigned int len)

@@ -99,7 +99,6 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	uoff_t abs_start_offset, stop_offset, old_size;
 	unsigned char *data, md5_digest[16];
 	unsigned int size, pos, virtual_size;
-	const char *location;
 
 	/* get the From-line */
 	pos = 0;
@@ -142,10 +141,9 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 
 	update = index->update_begin(index, rec);
 
-	/* location = offset to beginning of message */
-	location = binary_to_hex((unsigned char *) &abs_start_offset,
-				 sizeof(abs_start_offset));
-	index->update_field(update, FIELD_TYPE_LOCATION, location, 0);
+	/* location = offset to beginning of headers in message */
+	index->update_field_raw(update, FIELD_TYPE_LOCATION,
+				&abs_start_offset, sizeof(uoff_t));
 
 	/* parse the header and cache wanted fields. get the message flags
 	   from Status and X-Status fields. temporarily limit the buffer size

@@ -200,9 +200,14 @@ struct _MailIndex {
 					     unsigned int first_uid,
 					     unsigned int last_uid);
 
-	/* Find field from specified record, or NULL if it's not in index. */
+	/* Find field from specified record, or NULL if it's not in index.
+	   Makes sure that the field ends with \0. */
 	const char *(*lookup_field)(MailIndex *index, MailIndexRecord *rec,
 				    MailField field);
+
+	/* Find field from specified record, or NULL if it's not in index. */
+	const void *(*lookup_field_raw)(MailIndex *index, MailIndexRecord *rec,
+					MailField field, unsigned int *size);
 
 	/* Returns sequence for given message, or 0 if failed. */
 	unsigned int (*get_sequence)(MailIndex *index, MailIndexRecord *rec);
@@ -256,6 +261,8 @@ struct _MailIndex {
 
 	void (*update_field)(MailIndexUpdate *update, MailField field,
 			     const char *value, unsigned int extra_space);
+	void (*update_field_raw)(MailIndexUpdate *update, MailField field,
+				 const void *value, unsigned int size);
 
 	/* Returns last error message */
 	const char *(*get_last_error)(MailIndex *index);
@@ -328,6 +335,8 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 					     unsigned int last_uid);
 const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
 				    MailField field);
+const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
+					MailField field, unsigned int *size);
 unsigned int mail_index_get_sequence(MailIndex *index, MailIndexRecord *rec);
 int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		       unsigned int seq, int external_change);
@@ -340,6 +349,8 @@ MailIndexUpdate *mail_index_update_begin(MailIndex *index,
 int mail_index_update_end(MailIndexUpdate *update);
 void mail_index_update_field(MailIndexUpdate *update, MailField field,
 			     const char *value, unsigned int extra_space);
+void mail_index_update_field_raw(MailIndexUpdate *update, MailField field,
+				 const void *value, unsigned int size);
 const char *mail_index_get_last_error(MailIndex *index);
 int mail_index_is_inconsistency_error(MailIndex *index);
 

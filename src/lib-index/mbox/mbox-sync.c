@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "iobuffer.h"
-#include "hex-binary.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
 
@@ -14,8 +13,9 @@
 static uoff_t get_indexed_mbox_size(MailIndex *index)
 {
 	MailIndexRecord *rec, *prev;
-	const char *location;
-	uoff_t size;
+	const uoff_t *location;
+	uoff_t offset;
+	unsigned int size;
 
 	if (index->lock_type == MAIL_LOCK_UNLOCK) {
 		if (!mail_index_set_lock(index, MAIL_LOCK_SHARED))
@@ -35,38 +35,36 @@ static uoff_t get_indexed_mbox_size(MailIndex *index)
 		rec = prev;
 	}
 
-	size = 0;
+	offset = 0;
 	if (rec != NULL) {
 		/* get the offset + size of last message, which tells the
 		   last known mbox file size */
-		location = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
+		location = index->lookup_field_raw(index, rec,
+						   FIELD_TYPE_LOCATION, &size);
 		if (location == NULL) {
 			INDEX_MARK_CORRUPTED(index);
 			index_set_error(index, "Corrupted index file %s: "
 					"Missing location field for record %u",
 					index->filepath, rec->uid);
-		} else if (strlen(location) != sizeof(size)*2 ||
-			   hex_to_binary(location,
-					 (unsigned char *) &size) <= 0) {
-			size = 0;
+		} else if (size != sizeof(uoff_t) || *location > OFF_T_MAX) {
 			INDEX_MARK_CORRUPTED(index);
 			index_set_error(index, "Corrupted index file %s: "
 					"Invalid location field for record %u",
 					index->filepath, rec->uid);
 		} else {
-			size += rec->header_size + rec->body_size;
+			offset = *location + rec->header_size + rec->body_size;
 		}
 	}
 
 	if (index->lock_type == MAIL_LOCK_SHARED)
 		(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
 
-	if (size > OFF_T_MAX) {
+	if (offset > OFF_T_MAX) {
 		/* too large to fit in off_t */
 		return 0;
 	}
 
-	return size;
+	return offset;
 }
 
 static int mbox_check_new_mail(MailIndex *index)

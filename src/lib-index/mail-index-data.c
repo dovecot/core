@@ -381,6 +381,8 @@ int mail_index_data_record_verify(MailIndexData *data, MailIndexDataRecord *rec)
 	int i;
 
 	if (rec->full_field_size > INT_MAX) {
+		/* we already check that the full_field_size is within file,
+		   so this can happen only if the file really is huge.. */
 		INDEX_MARK_CORRUPTED(data->index);
 		index_set_error(data->index, "Error in data file %s: "
 				"full_field_size > INT_MAX", data->filepath);

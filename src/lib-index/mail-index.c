@@ -997,8 +997,8 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 	return NULL;
 }
 
-const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
-				    MailField field)
+static MailIndexDataRecord *
+index_lookup_data_field(MailIndex *index, MailIndexRecord *rec, MailField field)
 {
 	MailIndexDataRecord *datarec;
 
@@ -1031,11 +1031,38 @@ const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
 		return NULL;
 	}
 
+	return datarec;
+}
+
+const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
+				    MailField field)
+{
+	MailIndexDataRecord *datarec;
+
+	datarec = index_lookup_data_field(index, rec, field);
+	if (datarec == NULL)
+		return NULL;
+
 	if (!mail_index_data_record_verify(index->data, datarec)) {
 		/* index is corrupted, it will be rebuilt */
 		return NULL;
 	}
 
+	return datarec->data;
+}
+
+const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
+					MailField field, unsigned int *size)
+{
+	MailIndexDataRecord *datarec;
+
+	datarec = index_lookup_data_field(index, rec, field);
+	if (datarec == NULL) {
+		*size = 0;
+		return NULL;
+	}
+
+	*size = datarec->full_field_size;
 	return datarec->data;
 }
 

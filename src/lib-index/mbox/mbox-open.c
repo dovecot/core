@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "iobuffer.h"
-#include "hex-binary.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
 
@@ -12,15 +11,17 @@
 
 IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 {
-	const char *location;
+	const uoff_t *location;
 	uoff_t offset, stop_offset;
 	off_t pos;
+	unsigned int size;
 	char buf[7], *p;
 	int fd, ret, failed;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
-	location = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
+	location = index->lookup_field_raw(index, rec, FIELD_TYPE_LOCATION,
+					   &size);
 	if (location == NULL) {
                 INDEX_MARK_CORRUPTED(index);
 		index_set_error(index, "Corrupted index file %s: "
@@ -29,17 +30,16 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 		return NULL;
 	}
 
-	/* location = offset in hex */
-	if (strlen(location) != sizeof(offset)*2 ||
-	    hex_to_binary(location, (unsigned char *) &offset) <= 0 ||
-	    offset > OFF_T_MAX) {
-                INDEX_MARK_CORRUPTED(index);
+	/* location = offset to beginning of headers in message */
+	if (size != sizeof(uoff_t) || *location > OFF_T_MAX) {
+		INDEX_MARK_CORRUPTED(index);
 		index_set_error(index, "Corrupted index file %s: "
 				"Invalid location field for record %u",
 				index->filepath, rec->uid);
 		return NULL;
 	}
 
+	offset = *location;
 	stop_offset = offset + rec->header_size + rec->body_size;
 
 	fd = open(index->mbox_path, O_RDONLY);

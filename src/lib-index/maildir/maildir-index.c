@@ -212,6 +212,7 @@ static MailIndex maildir_index = {
 	mail_index_next,
         mail_index_lookup_uid_range,
 	mail_index_lookup_field,
+	mail_index_lookup_field_raw,
 	mail_index_get_sequence,
 	maildir_open_mail,
 	mail_index_expunge,
@@ -220,6 +221,7 @@ static MailIndex maildir_index = {
 	mail_index_update_begin,
 	mail_index_update_end,
 	mail_index_update_field,
+	mail_index_update_field_raw,
 	mail_index_get_last_error,
 	mail_index_is_inconsistency_error,
 
