@@ -51,7 +51,7 @@ Pool pool_create(const char *name, size_t size, int allocfree);
 
 /* Extra macros to make life easier: */
 #define p_new(pool, type, count) \
-	((type *) p_malloc(pool, (unsigned) sizeof(type) * (count)))
+	((type *) p_malloc(pool, sizeof(type) * (count)))
 #define p_free_and_null(pool, rec) \
 	STMT_START { \
           p_free(pool, rec); \

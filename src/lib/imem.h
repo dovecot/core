@@ -5,7 +5,7 @@ extern Pool default_pool;
 
 /* For easy allocation of memory from default memory pool. */
 #define i_new(type, count) \
-        ((type *) i_malloc((unsigned) sizeof(type) * (count)))
+        ((type *) i_malloc(sizeof(type) * (count)))
 void *i_malloc(size_t size);
 void i_free(void *mem);
 void *i_realloc(void *mem, size_t size);
