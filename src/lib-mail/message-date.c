@@ -190,6 +190,8 @@ static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
 		    !i_isdigit(value[0]) || !i_isdigit(value[1]))
 			return FALSE;
 		tm.tm_sec = (value[0]-'0') * 10 + (value[1]-'0');
+
+		token = next_token(ctx, &value, &len);
 	}
 
 	/* timezone */
