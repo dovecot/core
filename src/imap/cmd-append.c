@@ -44,16 +44,16 @@ static int validate_args(Client *client, const char **mailbox,
 					     internal_date, msg_size, 4);
 
 		if (args[1].type == IMAP_ARG_LIST)
-			*flags = args[1].data.list;
+			*flags = IMAP_ARG_LIST(&args[1]);
 		else if (args[1].type == IMAP_ARG_STRING)
-			*internal_date = args[1].data.str;
+			*internal_date = IMAP_ARG_STR(&args[1]);
 		else
 			return -1;
 		break;
 	case 4:
 		/* we have all parameters */
-		*flags = args[1].data.list;
-		*internal_date = args[2].data.str;
+		*flags = IMAP_ARG_LIST(&args[1]);
+		*internal_date = IMAP_ARG_STR(&args[2]);
 		break;
 	default:
                 i_unreached();
@@ -67,7 +67,7 @@ static int validate_args(Client *client, const char **mailbox,
 	if (args[count-1].type != IMAP_ARG_LITERAL_SIZE)
 		return -1;
 
-	*msg_size = args[count-1].data.literal_size;
+	*msg_size = IMAP_ARG_LITERAL_SIZE(&args[count-1]);
 	return 1;
 }
 

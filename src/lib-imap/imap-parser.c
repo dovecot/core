@@ -57,7 +57,7 @@ static void imap_args_realloc(ImapParser *parser, size_t size)
 	if (parser->list_arg == NULL)
 		parser->root_list = parser->cur_list;
 	else
-		parser->list_arg->data.list = parser->cur_list;
+		parser->list_arg->_data.list = parser->cur_list;
 }
 
 ImapParser *imap_parser_create(IStream *input, OStream *output,
@@ -156,7 +156,7 @@ static void imap_parser_open_list(ImapParser *parser)
 	imap_args_realloc(parser, LIST_ALLOC_SIZE);
 
 	parser->list_arg->type = IMAP_ARG_LIST;
-	parser->list_arg->data.list = parser->cur_list;
+	parser->list_arg->_data.list = parser->cur_list;
 
 	parser->cur_type = ARG_PARSE_NONE;
 }
@@ -179,7 +179,7 @@ static int imap_parser_close_list(ImapParser *parser)
 	if (parser->list_arg == NULL) {
 		parser->cur_list = parser->root_list;
 	} else {
-		parser->cur_list = parser->list_arg->data.list;
+		parser->cur_list = parser->list_arg->_data.list;
 	}
 
 	parser->cur_type = ARG_PARSE_NONE;
@@ -201,7 +201,7 @@ static void imap_parser_save_arg(ImapParser *parser, const char *data,
 		} else {
 			/* simply save the string */
 			arg->type = IMAP_ARG_ATOM;
-			arg->data.str = p_strndup(parser->pool, data, lastpos);
+			arg->_data.str = p_strndup(parser->pool, data, lastpos);
 		}
 		break;
 	case ARG_PARSE_STRING:
@@ -209,13 +209,13 @@ static void imap_parser_save_arg(ImapParser *parser, const char *data,
 		i_assert(lastpos > 0);
 
 		arg->type = IMAP_ARG_STRING;
-		arg->data.str = p_strndup(parser->pool, data+1, lastpos-1);
+		arg->_data.str = p_strndup(parser->pool, data+1, lastpos-1);
 
 		/* remove the escapes */
 		if (parser->str_first_escape >= 0 &&
 		    (parser->flags & IMAP_PARSE_FLAG_NO_UNESCAPE) == 0) {
 			/* -1 because we skipped the '"' prefix */
-			str_remove_escapes(arg->data.str +
+			str_remove_escapes(arg->_data.str +
 					   parser->str_first_escape-1);
 		}
 		break;
@@ -223,11 +223,11 @@ static void imap_parser_save_arg(ImapParser *parser, const char *data,
 		if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0) {
 			/* simply save the string */
 			arg->type = IMAP_ARG_STRING;
-			arg->data.str = p_strndup(parser->pool, data, lastpos);
+			arg->_data.str = p_strndup(parser->pool, data, lastpos);
 		} else {
 			/* save literal size */
 			arg->type = IMAP_ARG_LITERAL_SIZE;
-			arg->data.literal_size = parser->literal_size;
+			arg->_data.literal_size = parser->literal_size;
 		}
 		break;
 	default:
@@ -596,9 +596,27 @@ const char *imap_arg_string(ImapArg *arg)
 
 	case IMAP_ARG_ATOM:
 	case IMAP_ARG_STRING:
-		return arg->data.str;
+		return arg->_data.str;
 
 	default:
 		return NULL;
 	}
+}
+
+char *_imap_arg_str_error(const ImapArg *arg)
+{
+	i_panic("Tried to access ImapArg type %d as string", arg->type);
+	return NULL;
+}
+
+uoff_t _imap_arg_literal_size_error(const ImapArg *arg)
+{
+	i_panic("Tried to access ImapArg type %d as literal size", arg->type);
+	return 0;
+}
+
+ImapArgList *_imap_arg_list_error(const ImapArg *arg)
+{
+	i_panic("Tried to access ImapArg type %d as list", arg->type);
+	return NULL;
 }

@@ -456,15 +456,15 @@ static int imap_write_list(const ImapArg *args, String *str)
 			str_append(str, "NIL");
 			break;
 		case IMAP_ARG_ATOM:
-			str_append(str, args->data.str);
+			str_append(str, IMAP_ARG_STR(args));
 			break;
 		case IMAP_ARG_STRING:
 			str_append_c(str, '"');
-			str_append(str, args->data.str);
+			str_append(str, IMAP_ARG_STR(args));
 			str_append_c(str, '"');
 			break;
 		case IMAP_ARG_LIST:
-			if (!imap_write_list(args->data.list->args, str))
+			if (!imap_write_list(IMAP_ARG_LIST(args)->args, str))
 				return FALSE;
 			break;
 		default:
@@ -482,12 +482,14 @@ static int imap_write_list(const ImapArg *args, String *str)
 static int imap_parse_bodystructure_args(const ImapArg *args, String *str)
 {
 	ImapArg *subargs;
+	ImapArgList *list;
 	int i, multipart, text, message_rfc822;
 
 	multipart = FALSE;
 	while (args->type == IMAP_ARG_LIST) {
 		str_append_c(str, '(');
-		if (!imap_parse_bodystructure_args(args->data.list->args, str))
+		list = IMAP_ARG_LIST(args);
+		if (!imap_parse_bodystructure_args(list->args, str))
 			return FALSE;
 		str_append_c(str, ')');
 
@@ -500,7 +502,7 @@ static int imap_parse_bodystructure_args(const ImapArg *args, String *str)
 		if (args->type != IMAP_ARG_STRING)
 			return FALSE;
 
-		str_printfa(str, " \"%s\"", args->data.str);
+		str_printfa(str, " \"%s\"", IMAP_ARG_STR(args));
 		return TRUE;
 	}
 
@@ -508,24 +510,26 @@ static int imap_parse_bodystructure_args(const ImapArg *args, String *str)
 	if (args[0].type != IMAP_ARG_STRING || args[1].type != IMAP_ARG_STRING)
 		return FALSE;
 
-	text = strcasecmp(args[0].data.str, "text") == 0;
-	message_rfc822 = strcasecmp(args[0].data.str, "message") == 0 &&
-		strcasecmp(args[1].data.str, "rfc822") == 0;
+	text = strcasecmp(IMAP_ARG_STR(&args[0]), "text") == 0;
+	message_rfc822 = strcasecmp(IMAP_ARG_STR(&args[0]), "message") == 0 &&
+		strcasecmp(IMAP_ARG_STR(&args[1]), "rfc822") == 0;
 
-	str_printfa(str, "\"%s\" \"%s\"", args[0].data.str, args[1].data.str);
+	str_printfa(str, "\"%s\" \"%s\"", IMAP_ARG_STR(&args[0]),
+		    IMAP_ARG_STR(&args[1]));
 	args += 2;
 
 	/* ("content type param key" "value" ...) | NIL */
 	if (args->type == IMAP_ARG_LIST) {
 		str_append(str, " (");
-                subargs = args->data.list->args;
+                subargs = IMAP_ARG_LIST(args)->args;
 		for (; subargs->type != IMAP_ARG_EOL; ) {
 			if (subargs[0].type != IMAP_ARG_STRING ||
 			    subargs[1].type != IMAP_ARG_STRING)
 				return FALSE;
 
 			str_printfa(str, "\"%s\" \"%s\"",
-				    subargs[0].data.str, subargs[1].data.str);
+				    IMAP_ARG_STR(&subargs[0]),
+				    IMAP_ARG_STR(&subargs[1]));
 
 			subargs += 2;
 			if (subargs->type == IMAP_ARG_EOL)
@@ -546,9 +550,9 @@ static int imap_parse_bodystructure_args(const ImapArg *args, String *str)
 			str_append(str, " NIL");
 		} else if (args->type == IMAP_ARG_ATOM) {
 			str_append_c(str, ' ');
-			str_append(str, args->data.str);
+			str_append(str, IMAP_ARG_STR(args));
 		} else if (args->type == IMAP_ARG_STRING) {
-			str_printfa(str, " \"%s\"", args->data.str);
+			str_printfa(str, " \"%s\"", IMAP_ARG_STR(args));
 		} else {
 			return FALSE;
 		}
@@ -560,7 +564,7 @@ static int imap_parse_bodystructure_args(const ImapArg *args, String *str)
 			return FALSE;
 
 		str_append_c(str, ' ');
-		str_append(str, args->data.str);
+		str_append(str, IMAP_ARG_STR(args));
 	} else if (message_rfc822) {
 		/* message/rfc822 - envelope + bodystructure + text lines */
 		if (args[0].type != IMAP_ARG_LIST ||
@@ -570,17 +574,18 @@ static int imap_parse_bodystructure_args(const ImapArg *args, String *str)
 
 		str_append_c(str, ' ');
 
-		if (!imap_write_list(args[0].data.list->args, str))
+		list = IMAP_ARG_LIST(&args[0]);
+		if (!imap_write_list(list->args, str))
 			return FALSE;
 
 		str_append_c(str, ' ');
 
-		if (!imap_parse_bodystructure_args(args[1].data.list->args,
-						   str))
+		list = IMAP_ARG_LIST(&args[1]);
+		if (!imap_parse_bodystructure_args(list->args, str))
 			return FALSE;
 
 		str_append_c(str, ' ');
-		str_append(str, args[2].data.str);
+		str_append(str, IMAP_ARG_STR(&args[2]));
 	}
 
 	return TRUE;

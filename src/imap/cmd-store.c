@@ -60,8 +60,9 @@ int cmd_store(Client *client)
 		return TRUE;
 
 	if (args[2].type == IMAP_ARG_LIST) {
-		if (!client_parse_mail_flags(client, args[2].data.list->args,
-					     args[2].data.list->size,
+		if (!client_parse_mail_flags(client,
+					     IMAP_ARG_LIST(&args[2])->args,
+					     IMAP_ARG_LIST(&args[2])->size,
 					     &flags, custflags))
 			return TRUE;
 	} else {

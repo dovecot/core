@@ -34,7 +34,7 @@ static MailSortType *get_sort_program(Client *client, ImapArg *args)
 				    (size_t)-1);
 
 	while (args->type == IMAP_ARG_ATOM || args->type == IMAP_ARG_STRING) {
-		const char *arg = args->data.str;
+		const char *arg = IMAP_ARG_STR(args);
 
 		for (i = 0; sort_names[i].type != MAIL_SORT_END; i++) {
 			if (strcasecmp(arg, sort_names[i].name) == 0)
@@ -91,7 +91,7 @@ int cmd_sort(Client *client)
 		return TRUE;
 	}
 
-	sorting = get_sort_program(client, args->data.list->args);
+	sorting = get_sort_program(client, IMAP_ARG_LIST(args)->args);
 	if (sorting == NULL)
 		return TRUE;
 	args++;
@@ -101,7 +101,7 @@ int cmd_sort(Client *client)
 		client_send_command_error(client,
 					  "Invalid charset argument.");
 	}
-	charset = args->data.str;
+	charset = IMAP_ARG_STR(args);
 	args++;
 
 	pool = pool_alloconly_create("MailSortArgs", 2048);

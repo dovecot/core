@@ -26,7 +26,7 @@ int cmd_search(Client *client)
 		return TRUE;
 
 	if (args->type == IMAP_ARG_ATOM &&
-	    strcasecmp(args->data.str, "CHARSET") == 0) {
+	    strcasecmp(IMAP_ARG_STR(args), "CHARSET") == 0) {
 		/* CHARSET specified */
 		args++;
 		if (args->type != IMAP_ARG_ATOM &&
@@ -36,7 +36,7 @@ int cmd_search(Client *client)
 			return TRUE;
 		}
 
-		charset = args->data.str;
+		charset = IMAP_ARG_STR(args);
 		args++;
 	} else {
 		charset = NULL;

@@ -129,7 +129,7 @@ int client_parse_mail_flags(Client *client, ImapArg *args, size_t args_count,
 			return FALSE;
 		}
 
-		atom = args[pos].data.str;
+		atom = IMAP_ARG_STR(&args[pos]);
 		if (*atom == '\\') {
 			/* system flag */
 			str_ucase(atom);

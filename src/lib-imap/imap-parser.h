@@ -33,8 +33,22 @@ struct _ImapArg {
 		char *str;
 		uoff_t literal_size;
 		ImapArgList *list;
-	} data;
+	} _data;
 };
+
+#define IMAP_ARG_STR(arg) \
+	((arg)->type == IMAP_ARG_NIL ? NULL : \
+	 (arg)->type == IMAP_ARG_ATOM || (arg)->type == IMAP_ARG_STRING ? \
+	 (arg)->_data.str : _imap_arg_str_error(arg))
+
+#define IMAP_ARG_LITERAL_SIZE(arg) \
+	((arg)->type == IMAP_ARG_LITERAL_SIZE ? \
+	 (arg)->_data.literal_size : _imap_arg_literal_size_error(arg))
+
+#define IMAP_ARG_LIST(arg) \
+	((arg)->type == IMAP_ARG_NIL ? NULL : \
+	 (arg)->type == IMAP_ARG_LIST ? \
+	 (arg)->_data.list : _imap_arg_list_error(arg))
 
 struct _ImapArgList {
 	size_t size, alloc;
@@ -77,5 +91,10 @@ const char *imap_parser_read_line(ImapParser *parser);
 
 /* Returns the imap argument as string. NIL returns "" and list returns NULL. */
 const char *imap_arg_string(ImapArg *arg);
+
+/* Error functions */
+char *_imap_arg_str_error(const ImapArg *arg);
+uoff_t _imap_arg_literal_size_error(const ImapArg *arg);
+ImapArgList *_imap_arg_list_error(const ImapArg *arg);
 
 #endif

@@ -128,7 +128,7 @@ static int imap_address_arg_append(ImapArg *arg, String *str, int *in_group)
 
 	if (arg->type != IMAP_ARG_LIST)
 		return FALSE;
-	list = arg->data.list;
+	list = IMAP_ARG_LIST(arg);
 
 	/* we require 4 arguments, strings or NILs */
 	if (list->size < 4)
@@ -137,8 +137,9 @@ static int imap_address_arg_append(ImapArg *arg, String *str, int *in_group)
 	for (i = 0; i < 4; i++) {
 		if (list->args[i].type == IMAP_ARG_NIL)
 			args[i] = NULL;
-		else if (list->args[i].type == IMAP_ARG_STRING)
-			args[i] = list->args[i].data.str;
+		else if (list->args[i].type == IMAP_ARG_STRING ||
+			 list->args[i].type == IMAP_ARG_ATOM)
+			args[i] = IMAP_ARG_STR(&list->args[i]);
 		else
 			return FALSE;
 	}
@@ -200,7 +201,7 @@ static const char *imap_envelope_parse_address(ImapArg *arg)
 	in_group = FALSE;
 	str = t_str_new(128);
 
-        list = arg->data.list;
+        list = IMAP_ARG_LIST(arg);
 	for (i = 0; i < list->size; i++) {
 		if (!imap_address_arg_append(&list->args[i], str, &in_group))
 			return NULL;
@@ -211,18 +212,25 @@ static const char *imap_envelope_parse_address(ImapArg *arg)
 
 static const char *imap_envelope_parse_first_mailbox(ImapArg *arg)
 {
+	ImapArgList *list;
+
 	/* ((name route mailbox domain) ...) */
 	if (arg->type != IMAP_ARG_LIST)
 		return NULL;
 
-	if (arg->data.list->size == 0)
+	list = IMAP_ARG_LIST(arg);
+	if (list->size == 0)
 		return "";
 
-	arg = arg->data.list->args;
-	if (arg->type != IMAP_ARG_LIST || arg->data.list->size != 4)
+	arg = IMAP_ARG_LIST(arg)->args;
+	if (arg->type != IMAP_ARG_LIST)
 		return NULL;
 
-	return t_strdup(arg->data.list->args[2].data.str);
+	list = IMAP_ARG_LIST(arg);
+	if (list->size != 4)
+		return NULL;
+
+	return t_strdup(imap_arg_string(&list->args[2]));
 }
 
 static const char *
@@ -238,8 +246,8 @@ imap_envelope_parse_arg(ImapArg *arg, ImapEnvelopeField field,
 	case IMAP_ENVELOPE_RESULT_STRING:
 		if (field >= IMAP_ENVELOPE_FROM && field <= IMAP_ENVELOPE_BCC)
 			value = imap_envelope_parse_address(arg);
-		else if (arg->type == IMAP_ARG_STRING || arg->type == IMAP_ARG_ATOM)
-			value = t_strdup(arg->data.str);
+		else
+			value = t_strdup(imap_arg_string(arg));
 		break;
 	case IMAP_ENVELOPE_RESULT_FIRST_MAILBOX:
 		i_assert(field >= IMAP_ENVELOPE_FROM &&

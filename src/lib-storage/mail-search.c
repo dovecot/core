@@ -36,7 +36,13 @@ static int arg_new(SearchBuildData *data, ImapArg **args,
 		return FALSE;
 	}
 
-	sarg->value.str = str_ucase((*args)->data.str);
+	if ((*args)->type != IMAP_ARG_ATOM &&
+	    (*args)->type != IMAP_ARG_STRING) {
+		data->error = "Invalid parameter for argument";
+		return FALSE;
+	}
+
+	sarg->value.str = str_ucase(IMAP_ARG_STR(*args));
 	*args += 1;
 
 	/* second arg */
@@ -46,8 +52,14 @@ static int arg_new(SearchBuildData *data, ImapArg **args,
 			return FALSE;
 		}
 
+		if ((*args)->type != IMAP_ARG_ATOM &&
+		    (*args)->type != IMAP_ARG_STRING) {
+			data->error = "Invalid parameter for argument";
+			return FALSE;
+		}
+
                 sarg->hdr_field_name = sarg->value.str;
-		sarg->value.str = str_ucase((*args)->data.str);
+		sarg->value.str = str_ucase(IMAP_ARG_STR(*args));
 		*args += 1;
 	}
 
@@ -75,7 +87,7 @@ static int search_arg_build(SearchBuildData *data, ImapArg **args,
 	}
 
 	if (arg->type == IMAP_ARG_LIST) {
-		ImapArg *listargs = arg->data.list->args;
+		ImapArg *listargs = IMAP_ARG_LIST(arg)->args;
 
 		*next_sarg = search_arg_new(data->pool, SEARCH_SUB);
 		subargs = &(*next_sarg)->value.subargs;
@@ -93,7 +105,7 @@ static int search_arg_build(SearchBuildData *data, ImapArg **args,
 		 arg->type == IMAP_ARG_STRING);
 
 	/* string argument - get the name and jump to next */
-	str = arg->data.str;
+	str = IMAP_ARG_STR(arg);
 	*args += 1;
 	str_ucase(str);
 
@@ -145,7 +157,13 @@ static int search_arg_build(SearchBuildData *data, ImapArg **args,
 				data->error = "Missing parameter for HEADER";
 				return FALSE;
 			}
-			key = str_ucase((*args)->data.str);
+			if ((*args)->type != IMAP_ARG_ATOM &&
+			    (*args)->type != IMAP_ARG_STRING) {
+				data->error = "Invalid parameter for HEADER";
+				return FALSE;
+			}
+
+			key = str_ucase(IMAP_ARG_STR(*args));
 
 			if (strcmp(key, "FROM") == 0) {
 				*args += 1;
@@ -221,7 +239,7 @@ static int search_arg_build(SearchBuildData *data, ImapArg **args,
 					break;
 
 				if ((*args)->type != IMAP_ARG_ATOM ||
-				    strcasecmp((*args)->data.str, "OR") != 0)
+				    strcasecmp(IMAP_ARG_STR(*args), "OR") != 0)
 					break;
 
 				*args += 1;

@@ -19,8 +19,7 @@ static MailboxStatusItems get_status_items(Client *client, ImapArg *args)
 			return -1;
 		}
 
-		str_ucase(args->data.str);
-		item = args->data.str;
+		item = str_ucase(IMAP_ARG_STR(args));
 
 		if (strcmp(item, "MESSAGES") == 0)
 			items |= STATUS_MESSAGES;
@@ -95,7 +94,7 @@ int cmd_status(Client *client)
 	}
 
 	/* get the items client wants */
-	items = get_status_items(client, args[1].data.list->args);
+	items = get_status_items(client, IMAP_ARG_LIST(&args[1])->args);
 	if (items == (MailboxStatusItems)-1) {
 		/* error */
 		return TRUE;

@@ -105,8 +105,7 @@ static int parse_arg(Client *client, ImapArg *arg, MailFetchData *data)
 		return FALSE;
 	}
 
-	item = arg->data.str;
-	str_ucase(item);
+	item = str_ucase(IMAP_ARG_STR(arg));
 
 	switch (*item) {
 	case 'A':
@@ -215,7 +214,7 @@ static int parse_arg(Client *client, ImapArg *arg, MailFetchData *data)
 	if (item == NULL) {
 		/* unknown item */
 		client_send_tagline(client, t_strconcat(
-			"BAD Invalid item ", arg->data.str, NULL));
+			"BAD Invalid item ", IMAP_ARG_STR(arg), NULL));
 		return FALSE;
 	}
 
@@ -248,7 +247,7 @@ int cmd_fetch(Client *client)
 		if (!parse_arg(client, &args[1], &data))
 			return TRUE;
 	} else {
-		listargs = args[1].data.list->args;
+		listargs = IMAP_ARG_LIST(&args[1])->args;
 		while (listargs->type != IMAP_ARG_EOL) {
 			if (!parse_arg(client, listargs, &data))
 				return TRUE;
