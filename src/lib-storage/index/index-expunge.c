@@ -13,6 +13,8 @@ int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
 	hdr = ibox->index->get_header(ibox->index);
 	if (hdr->deleted_messages_count == 0) {
 		/* no deleted messages */
+		*seq = 0;
+		*rec = NULL;
 		return TRUE;
 	}
 
