@@ -884,7 +884,9 @@ log_view_fix_sequences(struct mail_index_view *view, buffer_t *view_expunges,
 	const struct mail_transaction_expunge *exp, *exp_end, *exp2;
 	unsigned char *data;
 	uint32_t *seq, expunges_before, count;
+	uint32_t last_exp, last_nonexp, last_nonexp_count;
 	size_t src_idx, dest_idx, size;
+	int ret;
 
 	if (buf == NULL)
 		return;
@@ -903,44 +905,63 @@ log_view_fix_sequences(struct mail_index_view *view, buffer_t *view_expunges,
 		i_assert(src_idx + record_size == size ||
 			 *seq <= *((uint32_t *) &data[src_idx+record_size]));
 
-		while (exp != exp_end && exp->seq1 < seq[0]) {
+		while (exp != exp_end && exp->seq2 < seq[0]) {
 			expunges_before += exp->seq2 - exp->seq1 + 1;
 			exp++;
 		}
-		if (exp != exp_end && exp->seq1 == seq[0]) {
-			/* this sequence was expunged */
+		if (exp != exp_end && exp->seq1 <= seq[0]) {
+			/* this sequence was expunged at least partially */
 			if (!two)
 				continue;
 
+			if (exp->seq2 >= seq[1])
+				continue;
+
 			/* we point to next non-expunged message */
-		}
-		if (expunges_before != 0) {
+			seq[0] = exp->seq2 + 1;
 			if (uids) {
-				(void)mail_index_lookup_uid(view, seq[0],
+				/* get new first UID */
+				ret = mail_index_lookup_uid(view, seq[0],
 							    &seq[2]);
+				i_assert(ret == 0);
 			}
-			seq[0] -= expunges_before;
+
+			expunges_before += exp->seq2 - exp->seq1 + 1;
+			exp++;
 		}
+		seq[0] -= expunges_before;
 
 		if (two) {
-			exp2 = exp;
 			count = expunges_before;
+			last_exp = 0;
+			last_nonexp = seq[0];
+			last_nonexp_count = count;
+
+			exp2 = exp;
 			while (exp2 != exp_end && exp2->seq1 <= seq[1]) {
-				count += exp->seq2 - exp->seq1 + 1;
+				if (exp2->seq1-1 != last_exp) {
+					last_nonexp = exp2->seq1-1;
+					last_nonexp_count = count;
+				}
+
+				count += exp2->seq2 - exp2->seq1 + 1;
+				last_exp = exp2->seq2;
 				exp2++;
 			}
-			if (seq[1] < count || seq[1]-count < seq[0]) {
-				/* whole range is expunged */
-				continue;
-			}
-			if (count != 0) {
+
+			if (last_exp >= seq[1]) {
+				seq[1] = last_nonexp;
+				count = last_nonexp_count;
 				if (uids) {
-					(void)mail_index_lookup_uid(view,
+					/* ending of the range was expunged,
+					   we need to get last UID */
+					ret = mail_index_lookup_uid(view,
 								    seq[1],
 								    &seq[3]);
+					i_assert(ret == 0);
 				}
-				seq[1] -= count;
 			}
+			seq[1] -= count;
 		}
 
 		if (src_idx != dest_idx) {
