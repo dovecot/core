@@ -138,11 +138,7 @@ static ssize_t _read(_IBuffer *buf)
 
 		if (fbuf->file) {
 			/* we're a file, so we can lseek() */
-			buf->ibuffer.v_offset -= fbuf->skip_left;
-
-			i_buffer_seek(&buf->ibuffer, buf->ibuffer.v_offset +
-				      fbuf->skip_left);
-
+			i_buffer_seek(&buf->ibuffer, buf->ibuffer.v_offset);
 			if (buf->ibuffer.closed)
 				return -1;
 		}
