@@ -58,9 +58,15 @@ time_t mbox_from_parse_date(const char *msg, size_t size)
 	msg += 4;
 
 	/* day */
-	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
-		return 0;
-	tm.tm_mday = (msg[0]-'0') * 10 + (msg[1]-'0');
+	if (msg[0] == ' ') {
+		if (!i_isdigit(msg[1]) || msg[2] != ' ')
+			return 0;
+		tm.tm_mday = msg[1]-'0';
+	} else {
+		if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
+			return 0;
+		tm.tm_mday = (msg[0]-'0') * 10 + (msg[1]-'0');
+	}
 	msg += 3;
 
 	/* hour */
