@@ -36,10 +36,11 @@ int index_transaction_commit(struct mailbox_transaction_context *_t)
 	ret = mail_index_transaction_commit(t->trans, &seq, &offset);
 	if (ret < 0)
 		mail_storage_set_index_error(t->ibox);
-
-	if (seq != 0) {
-		t->ibox->commit_log_file_seq = seq;
-		t->ibox->commit_log_file_offset = offset;
+	else {
+		if (seq != 0) {
+			t->ibox->commit_log_file_seq = seq;
+			t->ibox->commit_log_file_offset = offset;
+		}
 	}
 
 	index_transaction_free(t);
