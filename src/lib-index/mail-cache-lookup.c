@@ -13,6 +13,9 @@ mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx)
 	uint32_t offset, data_size;
 	unsigned char *buf;
 
+	if (cache->disabled)
+		return NULL;
+
 	offset = mail_cache_offset_to_uint32(cache->hdr->header_offsets[idx]);
 
 	if (offset == 0)
@@ -89,6 +92,9 @@ const char *const *mail_cache_get_header_fields(struct mail_cache_view *view,
 	int i;
 
 	i_assert(idx < MAIL_CACHE_HEADERS_COUNT);
+
+	if (view->cache->disabled)
+		return NULL;
 
 	/* t_strsplit() is a bit slow, so we cache it */
 	if (cache->hdr->header_offsets[idx] != cache->split_offsets[idx]) {
