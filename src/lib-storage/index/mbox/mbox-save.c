@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "hostpid.h"
 #include "ostream.h"
+#include "str.h"
 #include "write-full.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
@@ -14,15 +15,27 @@
 #include <sys/stat.h>
 #include <netdb.h>
 
+#define HEADER_EXTRA_SPACE 100
+
 struct mail_save_context {
 	struct index_mailbox *ibox;
 	int transaction;
 
 	struct ostream *output;
-	uoff_t sync_offset;
+	uoff_t sync_offset, content_length_offset, eoh_offset;
+
+	const struct mail_full_flags *flags;
 };
 
 static char my_hostdomain[256] = "";
+
+static int syscall_error(struct mail_save_context *ctx, const char *function)
+{
+	mail_storage_set_critical(ctx->ibox->box.storage,
+				  "%s failed for mbox file %s: %m",
+				  function, ctx->ibox->index->mailbox_path);
+	return FALSE;
+}
 
 static int write_error(struct mail_save_context *ctx)
 {
@@ -30,9 +43,7 @@ static int write_error(struct mail_save_context *ctx)
 		mail_storage_set_error(ctx->ibox->box.storage,
 				       "Not enough disk space");
 	} else {
-		mail_storage_set_critical(ctx->ibox->box.storage,
-			"Error writing to mbox file %s: %m",
-			ctx->ibox->index->mailbox_path);
+                syscall_error(ctx, "write()");
 	}
 
 	return FALSE;
@@ -45,30 +56,18 @@ static int mbox_seek_to_end(struct mail_save_context *ctx, uoff_t *offset)
 	int fd;
 
 	fd = ctx->ibox->index->mbox_fd;
-	if (fstat(fd, &st) < 0) {
-		mail_storage_set_critical(ctx->ibox->box.storage,
-					  "fstat() failed for mbox file %s: %m",
-					  ctx->ibox->index->mailbox_path);
-		return FALSE;
-	}
+	if (fstat(fd, &st) < 0)
+                return syscall_error(ctx, "fstat()");
 
 	*offset = (uoff_t)st.st_size;
 	if (st.st_size == 0)
 		return TRUE;
 
-	if (lseek(fd, st.st_size-1, SEEK_SET) < 0) {
-		mail_storage_set_critical(ctx->ibox->box.storage,
-					  "lseek() failed for mbox file %s: %m",
-					 ctx->ibox->index->mailbox_path);
-		return FALSE;
-	}
+	if (lseek(fd, st.st_size-1, SEEK_SET) < 0)
+                return syscall_error(ctx, "lseek()");
 
-	if (read(fd, &ch, 1) != 1) {
-		mail_storage_set_critical(ctx->ibox->box.storage,
-					  "read() failed for mbox file %s: %m",
-					  ctx->ibox->index->mailbox_path);
-		return FALSE;
-	}
+	if (read(fd, &ch, 1) != 1)
+		return syscall_error(ctx, "read()");
 
 	if (ch != '\n') {
 		if (write_full(fd, "\n", 1) < 0)
@@ -118,58 +117,154 @@ static int write_from_line(struct mail_save_context *ctx, time_t received_date)
 	return TRUE;
 }
 
-static int write_flags(struct mail_save_context *ctx,
-		       const struct mail_full_flags *full_flags)
+static const char *get_system_flags(enum mail_flags flags)
 {
-	enum mail_flags flags = full_flags->flags;
-	const char *str;
+	string_t *str;
+
+	if (flags == 0)
+		return "";
+
+	str = t_str_new(32);
+	if (flags & MAIL_SEEN)
+		str_append(str, "Status: R\n");
+
+	if (flags & (MAIL_ANSWERED|MAIL_DRAFT|MAIL_FLAGGED|MAIL_DELETED)) {
+		str_append(str, "X-Status: ");
+
+		if ((flags & MAIL_ANSWERED) != 0)
+			str_append_c(str, 'A');
+		if ((flags & MAIL_DRAFT) != 0)
+			str_append_c(str, 'D');
+		if ((flags & MAIL_FLAGGED) != 0)
+			str_append_c(str, 'F');
+		if ((flags & MAIL_DELETED) != 0)
+			str_append_c(str, 'T');
+		str_append_c(str, '\n');
+	}
+
+	return str_c(str);
+}
+
+static const char *get_custom_flags(const struct mail_full_flags *flags)
+{
+	string_t *str;
 	unsigned int field;
 	unsigned int i;
 
-	if (flags == 0)
-		return TRUE;
+	if ((flags->flags & MAIL_CUSTOM_FLAGS_MASK) == 0)
+		return "";
 
-	if (flags & MAIL_SEEN) {
-		if (o_stream_send_str(ctx->output, "Status: R\n") < 0)
-			return write_error(ctx);
-	}
+	str = t_str_new(256);
+	field = 1 << MAIL_CUSTOM_FLAG_1_BIT;
+	for (i = 0; i < flags->custom_flags_count; i++) {
+		const char *custom_flag = flags->custom_flags[i];
 
-	if (flags & (MAIL_ANSWERED|MAIL_DRAFT|MAIL_FLAGGED|MAIL_DELETED)) {
-		str = t_strconcat("X-Status: ",
-				  (flags & MAIL_ANSWERED) ? "A" : "",
-				  (flags & MAIL_DRAFT) ? "D" : "",
-				  (flags & MAIL_FLAGGED) ? "F" : "",
-				  (flags & MAIL_DELETED) ? "T" : "",
-				  "\n", NULL);
-
-		if (o_stream_send_str(ctx->output, str) < 0)
-			return write_error(ctx);
-	}
-
-	if (flags & MAIL_CUSTOM_FLAGS_MASK) {
-		if (o_stream_send_str(ctx->output, "X-Keywords:") < 0)
-			return write_error(ctx);
-
-		field = 1 << MAIL_CUSTOM_FLAG_1_BIT;
-		for (i = 0; i < full_flags->custom_flags_count; i++) {
-			const char *custom_flag = full_flags->custom_flags[i];
-
-			if ((flags & field) && custom_flag != NULL) {
-				if (o_stream_send(ctx->output, " ", 1) < 0)
-					return write_error(ctx);
-
-				if (o_stream_send_str(ctx->output,
-						      custom_flag) < 0)
-					return write_error(ctx);
-			}
-
-                        field <<= 1;
+		if ((flags->flags & field) && custom_flag != NULL) {
+			str_append_c(str, ' ');
+			str_append(str, custom_flag);
 		}
 
-		if (o_stream_send(ctx->output, "\n", 1) < 0)
-			return write_error(ctx);
+		field <<= 1;
 	}
 
+	return str_c(str);
+}
+
+static int save_header_callback(const unsigned char *name, size_t len,
+				write_func_t *write_func, void *context)
+{
+	static const char *content_length = "Content-Length: ";
+	struct mail_save_context *ctx = context;
+	const char *str;
+	char *buf;
+	size_t space;
+
+	switch (len) {
+	case 0:
+		/* write system flags */
+		str = get_system_flags(ctx->flags->flags);
+		if (write_func(ctx->output, str, strlen(str)) < 0)
+			return -1;
+
+		/* write beginning of content-length header */
+		if (write_func(ctx->output, content_length,
+			       strlen(content_length)) < 0) {
+			write_error(ctx);
+			return -1;
+		}
+		ctx->content_length_offset = ctx->output->offset;
+
+		/* calculate how much space custom flags and content-length
+		   value needs, then write that amount of spaces. */
+		space = strlen(get_custom_flags(ctx->flags));
+		space += sizeof("X-Keywords: ");
+		space += HEADER_EXTRA_SPACE + MAX_INT_STRLEN + 1;
+
+		/* @UNSAFE */
+		buf = t_malloc(space);
+		memset(buf, ' ', space-1);
+		buf[space-1] = '\n';
+
+		if (write_func(ctx->output, buf, space) < 0) {
+			write_error(ctx);
+			return -1;
+		}
+		ctx->eoh_offset = ctx->output->offset;
+		break;
+	case 5:
+		if (memcasecmp(name, "X-UID", 5) == 0)
+			return 0;
+		break;
+	case 6:
+		if (memcasecmp(name, "Status", 6) == 0)
+			return 0;
+		break;
+	case 8:
+		if (memcasecmp(name, "X-Status", 8) == 0)
+			return 0;
+		break;
+	case 10:
+		if (memcasecmp(name, "X-Keywords", 10) == 0)
+			return 0;
+		if (memcasecmp(name, "X-IMAPbase", 10) == 0)
+			return 0;
+		break;
+	case 14:
+		if (memcasecmp(name, "Content-Length", 14) == 0)
+			return 0;
+		break;
+	}
+
+	return 1;
+}
+
+static int mbox_fix_header(struct mail_save_context *ctx)
+{
+	uoff_t old_offset;
+	const char *str;
+	int crlf = getenv("MAIL_SAVE_CRLF") != NULL;
+
+	old_offset = ctx->output->offset;
+	if (o_stream_seek(ctx->output, ctx->content_length_offset) < 0)
+                return syscall_error(ctx, "o_stream_seek()");
+
+	/* write value for Content-Length */
+	str = dec2str(old_offset - (ctx->eoh_offset + 1 + crlf));
+	if (o_stream_send_str(ctx->output, str) < 0)
+		return write_error(ctx);
+
+	/* [CR]LF X-Keywords: */
+	str = crlf ? "\r\nX-Keywords:" : "\nX-Keywords:";
+	if (o_stream_send_str(ctx->output, str) < 0)
+		return write_error(ctx);
+
+	/* write custom flags into X-Keywords */
+	str = get_custom_flags(ctx->flags);
+	if (o_stream_send_str(ctx->output, str) < 0)
+		return write_error(ctx);
+
+	if (o_stream_seek(ctx->output, old_offset) < 0)
+		return syscall_error(ctx, "o_stream_seek()");
 	return TRUE;
 }
 
@@ -184,6 +279,7 @@ int mbox_storage_save_next(struct mail_save_context *ctx,
 
 	/* we don't need the real flag positions, easier to keep using our own.
 	   they need to be checked/added though. */
+	ctx->flags = flags;
 	real_flags = flags->flags;
 	if (!index_mailbox_fix_custom_flags(ctx->ibox, &real_flags,
 					    flags->custom_flags,
@@ -192,10 +288,10 @@ int mbox_storage_save_next(struct mail_save_context *ctx,
 
 	t_push();
 	if (!write_from_line(ctx, received_date) ||
-	    !write_flags(ctx, flags) ||
 	    !index_storage_save(ctx->ibox->box.storage,
 				ctx->ibox->index->mailbox_path,
-				data, ctx->output) ||
+				data, ctx->output, save_header_callback, ctx) ||
+	    !mbox_fix_header(ctx) ||
 	    !mbox_append_lf(ctx)) {
 		/* failed, truncate file back to original size.
 		   output stream needs to be flushed before truncating
@@ -260,9 +356,7 @@ int mbox_storage_save_deinit(struct mail_save_context *ctx, int rollback)
 	if (rollback && ctx->sync_offset != (uoff_t)-1) {
 		if (ftruncate(ctx->ibox->index->mbox_fd,
 			      ctx->sync_offset) < 0) {
-			mail_storage_set_critical(ctx->ibox->box.storage,
-				"ftruncate(%s) failed: %m",
-				ctx->ibox->index->mailbox_path);
+			syscall_error(ctx, "ftruncate()");
 			failed = TRUE;
 		}
 	}

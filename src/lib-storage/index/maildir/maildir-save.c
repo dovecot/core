@@ -103,7 +103,7 @@ maildir_read_into_tmp(struct mail_storage *storage, const char *dir,
 	o_stream_set_blocking(output, 60000, NULL, NULL);
 
 	path = t_strconcat(dir, "/", fname, NULL);
-	if (!index_storage_save(storage, path, input, output))
+	if (!index_storage_save(storage, path, input, output, NULL, NULL))
 		fname = NULL;
 
 	o_stream_unref(output);

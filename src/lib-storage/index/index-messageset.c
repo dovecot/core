@@ -71,6 +71,11 @@ int index_messageset_deinit(struct messageset_context *ctx)
 {
 	int ret = ctx->ret;
 
+	if (ret == 0) {
+		/* we just didn't go through all of them */
+		ret = 1;
+	}
+
 	if (ret == 1 && ctx->expunges_found) {
 		/* some of the messages weren't found */
 		ret = 0;
