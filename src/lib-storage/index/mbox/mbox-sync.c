@@ -207,6 +207,7 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 			struct mail_index_view *sync_view,
 			buffer_t *syncs, struct mail_index_sync_rec *sync_rec)
 {
+	/* a horrible function. needs some serious cleanups. */
 	struct mbox_sync_context sync_ctx;
 	struct mbox_sync_mail_context mail_ctx;
 	struct mail_index_transaction *t;
@@ -583,7 +584,7 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 			offsetof(struct mail_index_header, sync_stamp),
 			&sync_stamp, sizeof(sync_stamp));
 	}
-	if ((uint64_t)st.st_mtime != hdr->sync_size) {
+	if ((uint64_t)st.st_size != hdr->sync_size) {
 		uint64_t sync_size = st.st_size;
 
 		mail_index_update_header(t,
@@ -623,16 +624,38 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 	return ret < 0 ? ret : 0;
 }
 
+static int mbox_sync_has_changed(struct index_mailbox *ibox)
+{
+	const struct mail_index_header *hdr;
+	struct stat st;
+
+	if (mail_index_get_header(ibox->view, &hdr) < 0) {
+		mail_storage_set_index_error(ibox);
+		return -1;
+	}
+
+	if (stat(ibox->path, &st) < 0) {
+		mbox_set_syscall_error(ibox, "stat()");
+		return -1;
+	}
+
+	return (uint32_t)st.st_mtime != hdr->sync_stamp ||
+		(uint64_t)st.st_size != hdr->sync_size;
+}
+
 int mbox_sync(struct index_mailbox *ibox, int last_commit)
 {
 	struct mail_index_sync_ctx *index_sync_ctx;
-        struct mail_index_view *sync_view;
+	struct mail_index_view *sync_view;
 	unsigned int lock_id;
 	uint32_t seq;
 	uoff_t offset;
 	struct mail_index_sync_rec sync_rec;
 	buffer_t *syncs;
 	int ret, lock_type;
+
+	if ((ret = mbox_sync_has_changed(ibox)) <= 0)
+		return ret;
 
 	if (last_commit) {
 		seq = ibox->commit_log_file_seq;
@@ -644,8 +667,11 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 
 	ret = mail_index_sync_begin(ibox->index, &index_sync_ctx, &sync_view,
 				    seq, offset);
-	if (ret <= 0)
+	if (ret <= 0) {
+		if (ret < 0)
+			mail_storage_set_index_error(ibox);
 		return ret;
+	}
 
 	memset(&sync_rec, 0, sizeof(sync_rec));
 	syncs = buffer_create_dynamic(default_pool, 256, (size_t)-1);
