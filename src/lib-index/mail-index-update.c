@@ -19,17 +19,19 @@ struct _MailIndexUpdate {
 
 	MailIndex *index;
 	MailIndexRecord *rec;
+	MailIndexDataRecordHeader data_hdr;
 
 	unsigned int updated_fields;
-	void *fields[FIELD_TYPE_MAX_BITS];
-	size_t field_sizes[FIELD_TYPE_MAX_BITS];
-	size_t field_extra_sizes[FIELD_TYPE_MAX_BITS];
+	void *fields[DATA_FIELD_MAX_BITS];
+	size_t field_sizes[DATA_FIELD_MAX_BITS];
+	size_t field_extra_sizes[DATA_FIELD_MAX_BITS];
 };
 
 MailIndexUpdate *mail_index_update_begin(MailIndex *index, MailIndexRecord *rec)
 {
 	Pool pool;
 	MailIndexUpdate *update;
+	MailIndexDataRecordHeader *data_hdr;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
@@ -39,14 +41,18 @@ MailIndexUpdate *mail_index_update_begin(MailIndex *index, MailIndexRecord *rec)
 	update->pool = pool;
 	update->index = index;
 	update->rec = rec;
+
+	data_hdr = mail_index_data_lookup_header(index->data, rec);
+	if (data_hdr != NULL)
+		memcpy(&update->data_hdr, data_hdr, sizeof(*data_hdr));
 	return update;
 }
 
-static int mail_field_get_index(MailField field)
+static int mail_field_get_index(MailDataField field)
 {
 	unsigned int i, mask;
 
-	for (i = 0, mask = 1; i < FIELD_TYPE_MAX_BITS; i++, mask <<= 1) {
+	for (i = 0, mask = 1; i < DATA_FIELD_MAX_BITS; i++, mask <<= 1) {
 		if (field == mask)
 			return i;
 	}
@@ -54,131 +60,99 @@ static int mail_field_get_index(MailField field)
 	return -1;
 }
 
-static int have_new_fields(MailIndexUpdate *update)
+static void get_changed_field_sizes(MailIndexUpdate *update,
+				    size_t *min_size, size_t *max_size)
 {
-	MailField field;
+	int i;
 
-	if (update->rec->cached_fields == 0) {
-		/* new record */
-		return TRUE;
+	for (i = 0; i < DATA_FIELD_MAX_BITS; i++) {
+		if (update->fields[i] != NULL) {
+			*min_size += SIZEOF_MAIL_INDEX_DATA +
+				MEM_ALIGN(update->field_sizes[i]);
+			*max_size += SIZEOF_MAIL_INDEX_DATA +
+				MEM_ALIGN(update->field_sizes[i] +
+					  update->field_extra_sizes[i]);
+		}
 	}
-
-	for (field = 1; field != FIELD_TYPE_LAST; field <<= 1) {
-		if ((update->updated_fields & field) &&
-		    (update->rec->cached_fields & field) == 0)
-			return TRUE;
-	}
-
-	return FALSE;
 }
 
-static int have_too_large_fields(MailIndexUpdate *update)
+static void get_data_block_sizes(MailIndexUpdate *update,
+				 size_t *min_size, size_t *max_size)
 {
 	MailIndexDataRecord *rec;
-	unsigned int size_left;
-	int index;
 
-	size_left = update->rec->data_size;
+	/* first get size of new fields */
+	*min_size = *max_size = sizeof(MailIndexDataRecordHeader);
+	get_changed_field_sizes(update, min_size, max_size);
 
-	/* start from the first data field - it's required to exist */
+	/* then the size of unchanged fields */
 	rec = mail_index_data_lookup(update->index->data, update->rec, 0);
 	while (rec != NULL) {
-		if (rec->full_field_size > size_left) {
-			/* corrupted */
-			update->index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
-			return TRUE;
+		if ((rec->field & update->updated_fields) == 0) {
+			*min_size += SIZEOF_MAIL_INDEX_DATA +
+				rec->full_field_size;
+			*max_size += SIZEOF_MAIL_INDEX_DATA +
+				rec->full_field_size;
 		}
-		size_left -= rec->full_field_size;
 
-		if (rec->field & update->updated_fields) {
-			/* field was changed */
-			index = mail_field_get_index(rec->field);
-			i_assert(index >= 0);
-
-			if (update->field_sizes[index] +
-			    update->field_extra_sizes[index] >
-			    rec->full_field_size)
-				return TRUE;
-		}
 		rec = mail_index_data_next(update->index->data,
 					   update->rec, rec);
 	}
-
-	return FALSE;
 }
 
 /* Append all the data at the end of the data file and update 
    the index's data position */
-static int update_by_append(MailIndexUpdate *update)
+static int update_by_append(MailIndexUpdate *update, size_t data_size)
 {
+        MailIndexDataRecordHeader *dest_hdr;
         MailIndexDataRecord *rec, *destrec;
-	MailField field;
+	MailDataField field;
 	uoff_t fpos;
 	void *mem;
 	const void *src;
-	size_t max_size, pos, src_size;
+	size_t pos, src_size;
 	int i;
 
-	/* allocate the old size + also the new size of all changed or added
-	   fields. this is more than required, but it's much easier than
-	   calculating the exact size.
+	i_assert(data_size <= UINT_MAX);
 
-	   If this calculation overflows (no matter what value), it doesn't
-	   really matter as it's later checked anyway. */
-	max_size = update->rec->data_size;
-	for (i = 0; i < FIELD_TYPE_MAX_BITS; i++) {
-		max_size += SIZEOF_MAIL_INDEX_DATA +
-			update->field_sizes[i] +
-			update->field_extra_sizes[i] + MEM_ALIGN_SIZE-1;
-	}
+	mem = p_malloc(update->pool, data_size);
 
-	if (max_size > INT_MAX) {
-		/* rec->data_size most likely corrupted */
-		index_set_corrupted(update->index,
-				    "data_size points outside file");
-		return FALSE;
-	}
+	/* set header */
+	dest_hdr = (MailIndexDataRecordHeader *) mem;
+	pos = sizeof(MailIndexDataRecordHeader);
 
-	/* allocate two extra records to avoid overflows in case of bad
-	   rec->full_field_size which itself fits into max_size, but
-	   either the record part would make it point ouside allocate memory,
-	   or the next field's record would do that */
-	mem = p_malloc(update->pool, max_size + sizeof(MailIndexDataRecord)*2);
-	pos = 0;
+	memcpy(dest_hdr, &update->data_hdr, sizeof(*dest_hdr));
+	dest_hdr->data_size = data_size;
 
+	/* set fields */
 	rec = mail_index_data_lookup(update->index->data, update->rec, 0);
-	for (i = 0, field = 1; field != FIELD_TYPE_LAST; i++, field <<= 1) {
+	for (i = 0, field = 1; field != DATA_FIELD_LAST; i++, field <<= 1) {
 		destrec = (MailIndexDataRecord *) ((char *) mem + pos);
 
 		if (update->fields[i] != NULL) {
 			/* value was modified - use it */
-			destrec->full_field_size = update->field_sizes[i] +
-				update->field_extra_sizes[i];
+			destrec->full_field_size =
+				MEM_ALIGN(update->field_sizes[i] +
+					  update->field_extra_sizes[i]);
 			src = update->fields[i];
 			src_size = update->field_sizes[i];
 		} else if (rec != NULL && rec->field == field) {
 			/* use the old value */
 			destrec->full_field_size = rec->full_field_size;
 			src = rec->data;
-			src_size = rec->full_field_size;
+			src_size = destrec->full_field_size;
 		} else {
 			/* the field doesn't exist, jump to next */
 			continue;
 		}
+		i_assert((destrec->full_field_size % MEM_ALIGN_SIZE) == 0);
 
-		if (src_size > max_size || max_size - src_size < pos) {
-			/* corrupted data file - old value had a field
-			   larger than expected */
-			index_set_corrupted(update->index,
-				"full_field_size points outside data_size "
-				"(field %u?)", update->index->filepath,
-				rec == NULL ? 0 : rec->field);
-			return FALSE;
+		/* make sure we don't overflow our buffer */
+		if (src_size > data_size || data_size - src_size < pos) {
+			i_panic("data file for index %s unexpectedly modified",
+				update->index->filepath);
 		}
 		memcpy(destrec->data, src, src_size);
-
-		/* memory alignment fix */
-		destrec->full_field_size = MEM_ALIGN(destrec->full_field_size);
 
 		destrec->field = field;
 		pos += DATA_RECORD_SIZE(destrec);
@@ -189,7 +163,7 @@ static int update_by_append(MailIndexUpdate *update)
 		}
 	}
 
-	i_assert(pos <= max_size);
+	i_assert(pos == data_size);
 
 	/* append the data at the end of the data file */
 	fpos = mail_index_data_append(update->index->data, mem, pos);
@@ -197,13 +171,11 @@ static int update_by_append(MailIndexUpdate *update)
 		return FALSE;
 
 	/* the old data is discarded */
-	(void)mail_index_data_add_deleted_space(update->index->data,
-						update->rec->data_size);
+	(void)mail_index_data_delete(update->index->data, update->rec);
 
 	/* update index file position - it's mmap()ed so it'll be written
 	   into disk when index is unlocked. */
 	update->rec->data_position = fpos;
-	update->rec->data_size = pos;
 	return TRUE;
 }
 
@@ -214,7 +186,9 @@ static void update_by_replace(MailIndexUpdate *update)
 	MailIndexDataRecord *rec;
 	int index;
 
-	/* start from the first data field - it's required to exist */
+	// FIXME: 1) this doesn't work, 2) we need to handle optimally the
+	// writing of extra_space
+
 	rec = mail_index_data_lookup(update->index->data, update->rec, 0);
 	while (rec != NULL) {
 		if (rec->field & update->updated_fields) {
@@ -237,22 +211,27 @@ static void update_by_replace(MailIndexUpdate *update)
 
 int mail_index_update_end(MailIndexUpdate *update)
 {
+	MailIndexDataRecordHeader *data_hdr;
+	size_t min_size, max_size;
 	int failed = FALSE;
 
 	i_assert(update->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
 	if (update->updated_fields != 0) {
-		/* if any of the fields were newly added, or have grown larger
-		   than their old max. size, we need to move the record to end
-		   of file. */
-		if (have_new_fields(update) || have_too_large_fields(update))
-			failed = !update_by_append(update);
-		else
+		/* if fields don't fit to allocated data block, we have
+		   to move it to end of file */
+		get_data_block_sizes(update, &min_size, &max_size);
+		data_hdr = mail_index_data_lookup_header(update->index->data,
+							 update->rec);
+
+		if (data_hdr != NULL && min_size <= data_hdr->data_size)
 			update_by_replace(update);
+		else
+			failed = !update_by_append(update, max_size);
 
 		if (!failed) {
 			/* update cached fields mask */
-			update->rec->cached_fields |= update->updated_fields;
+			update->rec->data_fields |= update->updated_fields;
 		}
 	}
 
@@ -260,7 +239,7 @@ int mail_index_update_end(MailIndexUpdate *update)
 	return !failed;
 }
 
-static void update_field_full(MailIndexUpdate *update, MailField field,
+static void update_field_full(MailIndexUpdate *update, MailDataField field,
 			      const void *value, size_t size,
 			      size_t extra_space)
 {
@@ -276,16 +255,46 @@ static void update_field_full(MailIndexUpdate *update, MailField field,
 	memcpy(update->fields[index], value, size);
 }
 
-void mail_index_update_field(MailIndexUpdate *update, MailField field,
+static void update_header_field(MailIndexUpdate *update, MailDataField field,
+				const void *value, size_t size)
+{
+	switch (field) {
+	case DATA_HDR_INTERNAL_DATE:
+		i_assert(size == sizeof(time_t));
+		update->data_hdr.internal_date = *((time_t *) value);
+		break;
+	case DATA_HDR_VIRTUAL_SIZE:
+		i_assert(size == sizeof(uoff_t));
+		update->data_hdr.virtual_size = *((uoff_t *) value);
+		break;
+	case DATA_HDR_HEADER_SIZE:
+		i_assert(size == sizeof(uoff_t));
+		update->data_hdr.header_size = *((uoff_t *) value);
+		break;
+	case DATA_HDR_BODY_SIZE:
+		i_assert(size == sizeof(uoff_t));
+		update->data_hdr.body_size = *((uoff_t *) value);
+		break;
+	default:
+		i_assert(0);
+	}
+
+	update->updated_fields |= field;
+}
+
+void mail_index_update_field(MailIndexUpdate *update, MailDataField field,
 			     const char *value, size_t extra_space)
 {
 	update_field_full(update, field, value, strlen(value) + 1, extra_space);
 }
 
-void mail_index_update_field_raw(MailIndexUpdate *update, MailField field,
+void mail_index_update_field_raw(MailIndexUpdate *update, MailDataField field,
 				 const void *value, size_t size)
 {
-	update_field_full(update, field, value, size, 0);
+	if (field >= DATA_FIELD_LAST)
+		update_header_field(update, field, value, size);
+	else
+		update_field_full(update, field, value, size, 0);
 }
 
 typedef struct {
@@ -308,7 +317,7 @@ static void update_header_func(MessagePart *part,
 		return;
 
 	/* see if we can do anything with this field */
-	if (ctx->update->index->header->cache_fields & FIELD_TYPE_ENVELOPE) {
+	if (ctx->update->index->header->cache_fields & DATA_FIELD_ENVELOPE) {
 		if (ctx->envelope_pool == NULL) {
 			ctx->envelope_pool =
 				pool_create("index envelope", 2048, FALSE);
@@ -326,7 +335,7 @@ static void update_header_func(MessagePart *part,
 }
 
 void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
-                               MailField cache_fields,
+                               MailDataField cache_fields,
 			       MessageHeaderFunc header_func, void *context)
 {
 	HeaderUpdateContext ctx;
@@ -335,7 +344,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 	Pool pool;
 	const char *value;
 	size_t size;
-	uoff_t start_offset;
+	uoff_t start_offset, uoff_size;
 
 	ctx.update = update;
 	ctx.envelope_pool = NULL;
@@ -354,7 +363,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 
 		value = update->index->lookup_field_raw(update->index,
 							update->rec,
-							FIELD_TYPE_MESSAGEPART,
+							DATA_FIELD_MESSAGEPART,
 							&size);
 		if (value == NULL)
 			part = NULL;
@@ -381,40 +390,49 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 		}
 
 		/* update our sizes */
-		update->rec->header_size = part->header_size.physical_size;
-		update->rec->body_size = part->body_size.physical_size;
+		update->index->update_field_raw(update, DATA_HDR_HEADER_SIZE,
+			&part->header_size.physical_size,
+			sizeof(part->header_size.physical_size));
+		update->index->update_field_raw(update, DATA_HDR_BODY_SIZE,
+			&part->body_size.physical_size,
+			sizeof(part->body_size.physical_size));
+
+		uoff_size = part->header_size.virtual_size +
+			part->body_size.virtual_size;
+		update->index->update_field_raw(update, DATA_HDR_VIRTUAL_SIZE,
+						&uoff_size, sizeof(uoff_size));
 
 		/* don't save both BODY + BODYSTRUCTURE since BODY can be
 		   generated from BODYSTRUCTURE. FIXME: However that takes
 		   CPU, maybe this should be configurable (I/O vs. CPU)? */
-		if ((cache_fields & FIELD_TYPE_BODY) &&
-		    ((update->rec->cached_fields | cache_fields) &
-		     FIELD_TYPE_BODYSTRUCTURE) == 0) {
+		if ((cache_fields & DATA_FIELD_BODY) &&
+		    ((update->rec->data_fields | cache_fields) &
+		     DATA_FIELD_BODYSTRUCTURE) == 0) {
 			t_push();
 			i_buffer_seek(inbuf, start_offset);
 			value = imap_part_get_bodystructure(pool, &part,
 							    inbuf, FALSE);
-			update->index->update_field(update, FIELD_TYPE_BODY,
+			update->index->update_field(update, DATA_FIELD_BODY,
 						    value, 0);
 			t_pop();
 		}
 
-		if (cache_fields & FIELD_TYPE_BODYSTRUCTURE) {
+		if (cache_fields & DATA_FIELD_BODYSTRUCTURE) {
 			t_push();
 			i_buffer_seek(inbuf, start_offset);
 			value = imap_part_get_bodystructure(pool, &part,
 							    inbuf, TRUE);
 			update->index->update_field(update,
-						    FIELD_TYPE_BODYSTRUCTURE,
+						    DATA_FIELD_BODYSTRUCTURE,
 						    value, 0);
 			t_pop();
 		}
 
-		if (cache_fields & FIELD_TYPE_MESSAGEPART) {
+		if (cache_fields & DATA_FIELD_MESSAGEPART) {
 			t_push();
 			value = message_part_serialize(part, &size);
 			update->index->update_field_raw(update,
-							FIELD_TYPE_MESSAGEPART,
+							DATA_FIELD_MESSAGEPART,
 							value, size);
 			t_pop();
 		}
@@ -424,14 +442,19 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 		message_parse_header(NULL, inbuf, &hdr_size,
 				     update_header_func, &ctx);
 
-		update->rec->header_size = hdr_size.physical_size;
-		update->rec->body_size = inbuf->v_size - inbuf->v_offset;
+		update->index->update_field_raw(update, DATA_HDR_HEADER_SIZE,
+			&hdr_size.physical_size,
+			sizeof(hdr_size.physical_size));
+
+		uoff_size = inbuf->v_size - inbuf->v_offset;
+		update->index->update_field_raw(update, DATA_HDR_BODY_SIZE,
+						&uoff_size, sizeof(uoff_size));
 	}
 
 	if (ctx.envelope != NULL) {
 		t_push();
 		value = imap_envelope_get_part_data(ctx.envelope);
-		update->index->update_field(update, FIELD_TYPE_ENVELOPE,
+		update->index->update_field(update, DATA_FIELD_ENVELOPE,
 					    value, 0);
 		t_pop();
 

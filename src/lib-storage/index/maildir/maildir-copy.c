@@ -31,7 +31,7 @@ static int copy_hard_func(MailIndex *index, MailIndexRecord *rec,
 		return FALSE;
 
 	/* link the file */
-	fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
+	fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
 	i_snprintf(src, sizeof(src), "%s/cur/%s", index->dir, fname);
 
 	fname = maildir_filename_set_flags(maildir_generate_tmp_filename(),

@@ -12,7 +12,7 @@ int mail_index_data_reset(MailIndexData *data);
 
 /* Set indexid to 0 to notify other processes using this file that they should
    re-open it. */
-int mail_index_data_mark_deleted(MailIndexData *data);
+int mail_index_data_mark_file_deleted(MailIndexData *data);
 
 /* Mark the file as being modified */
 void mail_index_data_mark_modified(MailIndexData *data);
@@ -22,17 +22,22 @@ void mail_index_data_mark_modified(MailIndexData *data);
 uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
 			      size_t size);
 
-/* Increase header->deleted_space field */
-int mail_index_data_add_deleted_space(MailIndexData *data, size_t data_size);
+/* Mark the given record deleted. */
+int mail_index_data_delete(MailIndexData *data, MailIndexRecord *index_rec);
 
 /* Synchronize the data into disk */
 int mail_index_data_sync_file(MailIndexData *data, int *fsync_fd);
+
+/* Looks up a record header from data file. Returns NULL if not found or
+   if error occured. */
+MailIndexDataRecordHeader *
+mail_index_data_lookup_header(MailIndexData *data, MailIndexRecord *index_rec);
 
 /* Looks up a field from data file. If field is 0, returns the first field
    found. Returns NULL if not found or if error occured. */
 MailIndexDataRecord *
 mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
-		       MailField field);
+		       MailDataField field);
 
 /* Returns the next record in data file, or NULL if there's no more. */
 MailIndexDataRecord *

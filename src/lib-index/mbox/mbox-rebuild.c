@@ -28,8 +28,8 @@ int mbox_index_rebuild(MailIndex *index)
 	index->mmap_used_length = index->header->used_file_size;
 
 	/* require these fields */
-	index->header->cache_fields |= FIELD_TYPE_LOCATION |
-		FIELD_TYPE_MESSAGEPART | FIELD_TYPE_MD5;
+	index->header->cache_fields |= DATA_FIELD_LOCATION |
+		DATA_FIELD_MESSAGEPART | DATA_FIELD_MD5;
 
 	/* update indexid, which also means that our state has completely
 	   changed */

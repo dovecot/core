@@ -19,15 +19,16 @@ static int copy_func(MailIndex *index, MailIndexRecord *rec,
 {
 	CopyContext *ctx = context;
 	IBuffer *inbuf;
+	time_t internal_date;
 	int failed, deleted;
 
-	inbuf = index->open_mail(index, rec, &deleted);
+	inbuf = index->open_mail(index, rec, &internal_date, &deleted);
 	if (inbuf == NULL)
 		return FALSE;
 
 	/* save it in destination mailbox */
 	failed = !ctx->dest->save(ctx->dest, rec->msg_flags,
-				  ctx->custom_flags, rec->internal_date, 0,
+				  ctx->custom_flags, internal_date, 0,
 				  inbuf, inbuf->v_size);
 
 	i_buffer_unref(inbuf);

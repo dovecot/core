@@ -36,7 +36,7 @@ static int verify_header_md5sum(MailIndex *index, MailIndexRecord *rec,
 	size_t size;
 
 	/* MD5 sums must match */
-	old_digest = index->lookup_field_raw(index, rec, FIELD_TYPE_MD5, &size);
+	old_digest = index->lookup_field_raw(index, rec, DATA_FIELD_MD5, &size);
 	return old_digest != NULL && size >= 16 &&
                 memcmp(old_digest, current_digest, 16) == 0;
 }
@@ -49,14 +49,16 @@ static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
 	void *part_data_copy;
 	size_t size;
 
-	/* update index record */
-	rec->header_size = hdr_size->physical_size;
+	/* update FIELD_HDR_HEADER_SIZE */
+	index->update_field_raw(update, DATA_HDR_HEADER_SIZE,
+				&hdr_size->physical_size,
+				sizeof(hdr_size->physical_size));
 
-	if ((rec->cached_fields & FIELD_TYPE_MESSAGEPART) == 0)
+	if ((rec->data_fields & DATA_FIELD_MESSAGEPART) == 0)
 		return TRUE;
 
-	/* update FIELD_TYPE_MESSAGEPART */
-	part_data = index->lookup_field_raw(index, rec, FIELD_TYPE_MESSAGEPART,
+	/* update DATA_FIELD_MESSAGEPART */
+	part_data = index->lookup_field_raw(index, rec, DATA_FIELD_MESSAGEPART,
 					    &size);
 	if (part_data == NULL) {
 		/* well, this wasn't expected but don't bother failing */
@@ -77,7 +79,7 @@ static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
 
 	t_pop();
 
-	index->update_field_raw(update, FIELD_TYPE_MESSAGEPART,
+	index->update_field_raw(update, DATA_FIELD_MESSAGEPART,
 				part_data_copy, size);
 	return TRUE;
 }
@@ -87,19 +89,21 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 			     MailIndexRecord **next_rec, int *dirty)
 {
         MailIndexUpdate *update;
-	MessageSize hdr_size;
+	MessageSize hdr_parsed_size;
 	MboxHeaderContext ctx;
-	uoff_t header_offset, body_offset, offset;
+	uoff_t header_offset, body_offset, offset, hdr_size, body_size;
 	unsigned char current_digest[16];
 
 	*next_rec = NULL;
 
 	/* skip the From-line */
 	skip_line(inbuf);
-
 	header_offset = inbuf->v_offset;
 
-	if (rec->body_size == 0) {
+	if (!mbox_mail_get_location(index, rec, NULL, &hdr_size, &body_size))
+		return FALSE;
+
+	if (body_size == 0) {
 		/* possibly broken message, find the next From-line and make
 		   sure header parser won't pass it. */
 		mbox_skip_header(inbuf);
@@ -110,7 +114,8 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	/* get the MD5 sum of fixed headers and the current message flags
 	   in Status and X-Status fields */
         mbox_header_init_context(&ctx, index, inbuf);
-	message_parse_header(NULL, inbuf, &hdr_size, mbox_header_func, &ctx);
+	message_parse_header(NULL, inbuf, &hdr_parsed_size,
+			     mbox_header_func, &ctx);
 	md5_final(&ctx.md5, current_digest);
 
 	mbox_header_free_context(&ctx);
@@ -119,8 +124,7 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	body_offset = inbuf->v_offset;
 	do {
 		if (verify_header_md5sum(index, rec, current_digest) &&
-		    mbox_verify_end_of_body(inbuf,
-					    body_offset + rec->body_size)) {
+		    mbox_verify_end_of_body(inbuf, body_offset + body_size)) {
 			/* valid message */
 			update = index->update_begin(index, rec);
 
@@ -138,19 +142,20 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 			}
 
 			/* update location */
-			if (!mbox_mail_get_start_offset(index, rec, &offset))
+			if (!mbox_mail_get_location(index, rec, &offset,
+						    NULL, NULL))
 				return FALSE;
 			if (offset != header_offset) {
 				index->update_field_raw(update,
-							FIELD_TYPE_LOCATION,
+							DATA_FIELD_LOCATION,
 							&header_offset,
 							sizeof(uoff_t));
 			}
 
 			/* update size */
-			if (rec->header_size != hdr_size.physical_size ) {
-				if (!mail_update_header_size(index, rec,
-							     update, &hdr_size))
+			if (hdr_size != hdr_parsed_size.physical_size ) {
+				if (!mail_update_header_size(index, rec, update,
+							     &hdr_parsed_size))
 					return FALSE;
 			}
 

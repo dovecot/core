@@ -8,10 +8,12 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
-			   int *deleted)
+			   time_t *internal_date, int *deleted)
 {
+	struct stat st;
 	const char *fname, *path;
 	int fd;
 
@@ -23,10 +25,10 @@ IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
 	if (index->inconsistent)
 		return NULL;
 
-	fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
+	fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
 	if (fname == NULL) {
-		index_data_set_corrupted(index->data, "Missing location field "
-					 "for record %u", rec->uid);
+		index_data_set_corrupted(index->data,
+			"Missing location field for record %u", rec->uid);
 		return NULL;
 	}
 
@@ -40,6 +42,15 @@ IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
 
 		index_set_error(index, "Error opening mail file %s: %m", path);
 		return NULL;
+	}
+
+	if (internal_date != NULL) {
+		*internal_date = mail_get_internal_date(index, rec);
+
+		if (*internal_date == (time_t)-1) {
+			if (fstat(fd, &st) == 0)
+				*internal_date = st.st_mtime;
+		}
 	}
 
 	return i_buffer_create_mmap(fd, default_pool, MAIL_MMAP_BLOCK_SIZE,

@@ -11,21 +11,6 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-static MailIndexRecord *mail_index_record_append_begin(MailIndex *index,
-						       time_t internal_date)
-{
-	MailIndexRecord trec, *rec;
-
-	memset(&trec, 0, sizeof(MailIndexRecord));
-	trec.internal_date = internal_date;
-
-	rec = &trec;
-	if (!index->append_begin(index, &rec))
-		return NULL;
-
-	return rec;
-}
-
 static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 				   const char *fname)
 {
@@ -37,24 +22,10 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 	i_assert(path != NULL);
 	i_assert(fname != NULL);
 
-	/* check that file size is somewhat reasonable */
-	if (fstat(fd, &st) < 0)
-		return index_file_set_syscall_error(index, path, "fstat()");
-
-	if (st.st_size < 10) {
-		/* This cannot be a mail file - delete it */
-		index_set_error(index, "Invalid size %"PRIuUOFF_T
-				" with mail in %s - deleted", st.st_size, path);
-		if (unlink(path) < 0)
-			index_file_set_syscall_error(index, path, "unlink()");
-		return TRUE;
-	}
-
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	/* append the file into index */
-	rec = mail_index_record_append_begin(index, st.st_mtime);
+	rec = index->append_begin(index);
 	if (rec == NULL)
 		return FALSE;
 
@@ -64,12 +35,18 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 
 	update = index->update_begin(index, rec);
 
+	/* set internal date */
+	if (fd != -1 && fstat(fd, &st) == 0) {
+		index->update_field_raw(update, DATA_HDR_INTERNAL_DATE,
+					&st.st_mtime, sizeof(st.st_mtime));
+	}
+
 	/* set the location */
-	index->update_field(update, FIELD_TYPE_LOCATION, fname,
+	index->update_field(update, DATA_FIELD_LOCATION, fname,
 			    MAILDIR_LOCATION_EXTRA_SPACE);
 
 	/* parse the header and update record's fields */
-	failed = !maildir_record_update(index, update, fd);
+	failed = fd == -1 ? FALSE : !maildir_record_update(index, update, fd);
 
 	if (!index->update_end(update) || failed)
 		return FALSE;

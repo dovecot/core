@@ -295,8 +295,8 @@ static void header_func(MessagePart *part __attr_unused__,
 
 static int mbox_write_header(MailIndex *index,
 			     MailIndexRecord *rec, unsigned int seq,
-			     IBuffer *inbuf, OBuffer *outbuf,
-			     uoff_t end_offset)
+			     IBuffer *inbuf, OBuffer *outbuf, uoff_t end_offset,
+			     uoff_t hdr_size, uoff_t body_size)
 {
 	/* We need to update fields that define message flags. Standard fields
 	   are stored in Status and X-Status. For custom flags we use
@@ -310,7 +310,7 @@ static int mbox_write_header(MailIndex *index,
 	   Last used UID is also not updated, and set to 0 initially.
 	*/
 	MboxRewriteContext ctx;
-	MessageSize hdr_size;
+	MessageSize hdr_parsed_size;
 
 	if (inbuf->v_offset >= end_offset) {
 		/* fsck should have noticed it.. */
@@ -325,16 +325,16 @@ static int mbox_write_header(MailIndex *index,
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.outbuf = outbuf;
 	ctx.seq = seq;
-	ctx.content_length = rec->body_size;
+	ctx.content_length = body_size;
 	ctx.msg_flags = rec->msg_flags;
 	ctx.uid_validity = index->header->uid_validity-1;
 	ctx.custom_flags = mail_custom_flags_list_get(index->custom_flags);
 
-	i_buffer_set_read_limit(inbuf, inbuf->v_offset + rec->header_size);
-	message_parse_header(NULL, inbuf, &hdr_size, header_func, &ctx);
+	i_buffer_set_read_limit(inbuf, inbuf->v_offset + hdr_size);
+	message_parse_header(NULL, inbuf, &hdr_parsed_size, header_func, &ctx);
 	i_buffer_set_read_limit(inbuf, 0);
 
-	i_assert(hdr_size.physical_size == rec->header_size);
+	i_assert(hdr_parsed_size.physical_size == hdr_size);
 
 	/* append the flag fields */
 	if (seq == 1 && !ctx.ximapbase_found) {
@@ -402,7 +402,7 @@ int mbox_index_rewrite(MailIndex *index)
 	MailIndexRecord *rec;
 	IBuffer *inbuf;
 	OBuffer *outbuf;
-	uoff_t offset, dirty_offset;
+	uoff_t offset, hdr_size, body_size, dirty_offset;
 	const char *path;
 	unsigned int seq;
 	int tmp_fd, failed, dirty_found, rewrite;
@@ -456,6 +456,8 @@ int mbox_index_rewrite(MailIndex *index)
 	}
 	dirty_offset = 0;
 
+	//offset = hdr_size = body_size = 0; /* just to keep compiler happy */
+
 	t_push();
 	outbuf = o_buffer_create_file(tmp_fd, data_stack_pool, 8192,
 				      IO_PRIORITY_DEFAULT, FALSE);
@@ -465,21 +467,19 @@ int mbox_index_rewrite(MailIndex *index)
 	while (rec != NULL) {
 		if (dirty_found || (rec->index_flags & INDEX_MAIL_FLAG_DIRTY)) {
 			/* get offset to beginning of mail headers */
-			if (!mbox_mail_get_start_offset(index, rec, &offset)) {
+			if (!mbox_mail_get_location(index, rec, &offset,
+						    &hdr_size, &body_size)) {
 				/* fsck should have fixed it */
 				failed = TRUE;
 				break;
 			}
 
-			if (offset + rec->header_size +
-			    rec->body_size > inbuf->v_size) {
+			if (offset + hdr_size + body_size > inbuf->v_size) {
 				index_set_corrupted(index,
 						    "Invalid message size");
 				failed = TRUE;
 				break;
 			}
-		} else {
-			offset = 0;
 		}
 
 		if (!dirty_found &&
@@ -499,15 +499,15 @@ int mbox_index_rewrite(MailIndex *index)
 			}
 
 			/* write header, updating flag fields */
-			offset += rec->header_size;
+			offset += hdr_size;
 			if (!mbox_write_header(index, rec, seq, inbuf, outbuf,
-					       offset)) {
+					       offset, hdr_size, body_size)) {
 				failed = TRUE;
 				break;
 			}
 
 			/* write body */
-			offset += rec->body_size;
+			offset += body_size;
 			if (!mbox_write(index, inbuf, outbuf, offset)) {
 				failed = TRUE;
 				break;

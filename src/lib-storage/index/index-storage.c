@@ -76,7 +76,7 @@ void index_storage_unref(MailIndex *index)
 	i_assert(0);
 }
 
-static MailField get_cache_fields(const char *fields)
+static MailDataField get_data_fields(const char *fields)
 {
 	static const char *field_names[] = {
 		"Location",
@@ -89,7 +89,7 @@ static MailField get_cache_fields(const char *fields)
 	};
 
 	char *const *arr;
-	MailField ret;
+	MailDataField ret;
 	int i;
 
 	if (fields == NULL || *fields == '\0')
@@ -115,28 +115,28 @@ static MailField get_cache_fields(const char *fields)
 	return ret;
 }
 
-static MailField get_default_cache_fields(void)
+static MailDataField get_default_cache_fields(void)
 {
-	static MailField ret = 0;
+	static MailDataField ret = 0;
 	static int ret_set = FALSE;
 
 	if (ret_set)
 		return ret;
 
-	ret = get_cache_fields(getenv("MAIL_CACHE_FIELDS"));
+	ret = get_data_fields(getenv("MAIL_CACHE_FIELDS"));
 	ret_set = TRUE;
 	return ret;
 }
 
-static MailField get_never_cache_fields(void)
+static MailDataField get_never_cache_fields(void)
 {
-	static MailField ret = 0;
+	static MailDataField ret = 0;
 	static int ret_set = FALSE;
 
 	if (ret_set)
 		return ret;
 
-	ret = get_cache_fields(getenv("MAIL_NEVER_CACHE_FIELDS"));
+	ret = get_data_fields(getenv("MAIL_NEVER_CACHE_FIELDS"));
 	ret_set = TRUE;
 	return ret;
 }

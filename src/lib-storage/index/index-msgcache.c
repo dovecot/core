@@ -2,26 +2,73 @@
 
 #include "lib.h"
 #include "ibuffer.h"
+#include "imap-date.h"
 #include "imap-message-cache.h"
 #include "message-part-serialize.h"
 #include "mail-index.h"
 #include "mail-index-util.h"
+#include "index-storage.h"
 
 #include <unistd.h>
 
 typedef struct {
 	MailIndex *index;
 	MailIndexRecord *rec;
+	time_t internal_date;
 } IndexMsgcacheContext;
 
-void *index_msgcache_get_context(MailIndex *index, MailIndexRecord *rec)
+int index_msgcache_open(ImapMessageCache *cache, MailIndex *index,
+			MailIndexRecord *rec, ImapCacheField fields)
 {
 	IndexMsgcacheContext *ctx;
+	uoff_t vp_header_size, vp_body_size, full_virtual_size;
+	const uoff_t *uoff_p;
+	size_t size;
 
 	ctx = t_new(IndexMsgcacheContext, 1);
 	ctx->index = index;
 	ctx->rec = rec;
-	return ctx;
+	ctx->internal_date = (time_t)-1;
+
+	full_virtual_size = (uoff_t)-1;
+	vp_header_size = (uoff_t)-1;
+	vp_body_size = (uoff_t)-1;
+
+	if ((ctx->rec->index_flags & INDEX_MAIL_FLAG_BINARY_HEADER)) {
+		uoff_p = ctx->index->lookup_field_raw(ctx->index, ctx->rec,
+						      DATA_HDR_HEADER_SIZE,
+						      &size);
+		if (uoff_p != NULL) {
+			i_assert(size == sizeof(*uoff_p));
+			vp_header_size = *uoff_p;
+		}
+	}
+
+	if ((ctx->rec->index_flags & INDEX_MAIL_FLAG_BINARY_BODY)) {
+		uoff_p = ctx->index->lookup_field_raw(ctx->index, ctx->rec,
+						      DATA_HDR_BODY_SIZE,
+						      &size);
+		if (uoff_p != NULL) {
+			i_assert(size == sizeof(*uoff_p));
+			vp_body_size = *uoff_p;
+		}
+	}
+
+	if (vp_header_size != (uoff_t)-1 && vp_body_size != (uoff_t)-1)
+		full_virtual_size = vp_header_size + vp_body_size;
+	else {
+		uoff_p = ctx->index->lookup_field_raw(ctx->index, ctx->rec,
+						      DATA_HDR_VIRTUAL_SIZE,
+						      &size);
+		if (uoff_p != NULL) {
+			i_assert(size == sizeof(*uoff_p));
+			full_virtual_size = *uoff_p;
+		}
+	}
+
+	return imap_msgcache_open(cache, rec->uid, fields,
+				  vp_header_size, vp_body_size,
+				  full_virtual_size, ctx);
 }
 
 static IBuffer *index_msgcache_open_mail(void *context)
@@ -29,7 +76,8 @@ static IBuffer *index_msgcache_open_mail(void *context)
 	IndexMsgcacheContext *ctx = context;
 	int deleted;
 
-	return ctx->index->open_mail(ctx->index, ctx->rec, &deleted);
+	return ctx->index->open_mail(ctx->index, ctx->rec,
+				     &ctx->internal_date, &deleted);
 }
 
 static IBuffer *index_msgcache_inbuf_rewind(IBuffer *inbuf,
@@ -49,26 +97,43 @@ static const char *index_msgcache_get_cached_field(ImapCacheField field,
 						   void *context)
 {
 	IndexMsgcacheContext *ctx = context;
-	MailField index_field;
+	MailDataField data_field;
+	const time_t *time_p;
 	const char *ret;
+	size_t size;
 
 	switch (field) {
+	case IMAP_CACHE_INTERNALDATE:
+		if (ctx->internal_date != (time_t)-1)
+			return imap_to_datetime(ctx->internal_date);
+
+		time_p = ctx->index->lookup_field_raw(ctx->index, ctx->rec,
+						      DATA_HDR_INTERNAL_DATE,
+						      &size);
+		if (time_p == NULL) {
+			i_assert(size == sizeof(*time_p));
+			return imap_to_datetime(*time_p);
+		} else {
+			ctx->index->cache_fields_later(ctx->index,
+						       DATA_HDR_INTERNAL_DATE);
+			return NULL;
+		}
 	case IMAP_CACHE_BODY:
-		index_field = FIELD_TYPE_BODY;
+		data_field = DATA_FIELD_BODY;
 		break;
 	case IMAP_CACHE_BODYSTRUCTURE:
-		index_field = FIELD_TYPE_BODYSTRUCTURE;
+		data_field = DATA_FIELD_BODYSTRUCTURE;
 		break;
 	case IMAP_CACHE_ENVELOPE:
-		index_field = FIELD_TYPE_ENVELOPE;
+		data_field = DATA_FIELD_ENVELOPE;
 		break;
 	default:
 		return NULL;
 	}
 
-	ret = ctx->index->lookup_field(ctx->index, ctx->rec, index_field);
+	ret = ctx->index->lookup_field(ctx->index, ctx->rec, data_field);
 	if (ret == NULL)
-		ctx->index->cache_fields_later(ctx->index, index_field);
+		ctx->index->cache_fields_later(ctx->index, data_field);
 	return ret;
 }
 
@@ -80,11 +145,11 @@ static MessagePart *index_msgcache_get_cached_parts(Pool pool, void *context)
 	size_t part_size;
 
 	part_data = ctx->index->lookup_field_raw(ctx->index, ctx->rec,
-						 FIELD_TYPE_MESSAGEPART,
+						 DATA_FIELD_MESSAGEPART,
 						 &part_size);
 	if (part_data == NULL) {
 		ctx->index->cache_fields_later(ctx->index,
-					       FIELD_TYPE_MESSAGEPART);
+					       DATA_FIELD_MESSAGEPART);
 		return NULL;
 	}
 
@@ -98,9 +163,20 @@ static MessagePart *index_msgcache_get_cached_parts(Pool pool, void *context)
 	return part;
 }
 
+static time_t index_msgcache_get_internal_date(void *context)
+{
+	IndexMsgcacheContext *ctx = context;
+
+	if (ctx->internal_date != (time_t)-1)
+		return ctx->internal_date;
+
+	return ctx->index->get_internal_date(ctx->index, ctx->rec);
+}
+
 ImapMessageCacheIface index_msgcache_iface = {
 	index_msgcache_open_mail,
 	index_msgcache_inbuf_rewind,
 	index_msgcache_get_cached_field,
-	index_msgcache_get_cached_parts
+	index_msgcache_get_cached_parts,
+	index_msgcache_get_internal_date
 };

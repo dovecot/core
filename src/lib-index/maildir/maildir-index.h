@@ -21,7 +21,7 @@ int maildir_index_build_dir(MailIndex *index, const char *source_dir,
 			    const char *dest_dir);
 
 IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
-			   int *deleted);
+			   time_t *internal_date, int *deleted);
 
 int maildir_record_update(MailIndex *index, MailIndexUpdate *update, int fd);
 

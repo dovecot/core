@@ -8,21 +8,6 @@
 #include "mbox-index.h"
 #include "mail-index-util.h"
 
-static MailIndexRecord *mail_index_record_append_begin(MailIndex *index,
-						       time_t internal_date)
-{
-	MailIndexRecord trec, *rec;
-
-	memset(&trec, 0, sizeof(MailIndexRecord));
-	trec.internal_date = internal_date;
-
-	rec = &trec;
-	if (!index->append_begin(index, &rec))
-		return NULL;
-
-	return rec;
-}
-
 static int mbox_index_append_next(MailIndex *index, IBuffer *inbuf)
 {
 	MailIndexRecord *rec;
@@ -72,14 +57,17 @@ static int mbox_index_append_next(MailIndex *index, IBuffer *inbuf)
 	eoh_offset = inbuf->v_offset;
 
 	/* add message to index */
-	rec = mail_index_record_append_begin(index, internal_date);
+	rec = index->append_begin(index);
 	if (rec == NULL)
 		return FALSE;
 
 	update = index->update_begin(index, rec);
 
+	index->update_field_raw(update, DATA_HDR_INTERNAL_DATE,
+				&internal_date, sizeof(internal_date));
+
 	/* location = offset to beginning of headers in message */
-	index->update_field_raw(update, FIELD_TYPE_LOCATION,
+	index->update_field_raw(update, DATA_FIELD_LOCATION,
 				&abs_start_offset, sizeof(uoff_t));
 
 	/* parse the header and cache wanted fields. get the message flags
@@ -102,7 +90,7 @@ static int mbox_index_append_next(MailIndex *index, IBuffer *inbuf)
 
 	/* save MD5 */
 	md5_final(&ctx.md5, md5_digest);
-	index->update_field_raw(update, FIELD_TYPE_MD5,
+	index->update_field_raw(update, DATA_FIELD_MD5,
 				md5_digest, sizeof(md5_digest));
 
 	if (!index->update_end(update))

@@ -13,7 +13,7 @@
 static uoff_t get_indexed_mbox_size(MailIndex *index)
 {
 	MailIndexRecord *rec;
-	uoff_t offset;
+	uoff_t offset, hdr_size, body_size;
 
 	if (index->lock_type == MAIL_LOCK_UNLOCK) {
 		if (!mail_index_set_lock(index, MAIL_LOCK_SHARED))
@@ -28,8 +28,9 @@ static uoff_t get_indexed_mbox_size(MailIndex *index)
 	if (rec != NULL) {
 		/* get the offset + size of last message, which tells the
 		   last known mbox file size */
-		if (mbox_mail_get_start_offset(index, rec, &offset))
-			offset += rec->header_size + rec->body_size;
+		if (mbox_mail_get_location(index, rec, &offset,
+					   &hdr_size, &body_size))
+			offset += hdr_size + body_size;
 	}
 
 	if (index->lock_type == MAIL_LOCK_SHARED)

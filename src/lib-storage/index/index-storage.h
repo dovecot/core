@@ -53,7 +53,8 @@ int index_expunge_mail(IndexMailbox *ibox, MailIndexRecord *rec,
 int index_storage_save(MailStorage *storage, const char *path,
 		       IBuffer *inbuf, OBuffer *outbuf, uoff_t data_size);
 
-void *index_msgcache_get_context(MailIndex *index, MailIndexRecord *rec);
+int index_msgcache_open(ImapMessageCache *cache, MailIndex *index,
+			MailIndexRecord *rec, ImapCacheField fields);
 
 /* Mailbox methods: */
 void index_storage_set_sync_callbacks(Mailbox *box,

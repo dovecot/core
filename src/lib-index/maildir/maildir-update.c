@@ -7,11 +7,11 @@
 int maildir_record_update(MailIndex *index, MailIndexUpdate *update, int fd)
 {
 	IBuffer *inbuf;
-        MailField cache_fields;
+        MailDataField cache_fields;
 
 	/* don't even bother opening the file if we're not going to do
 	   anything */
-	cache_fields = index->header->cache_fields & ~FIELD_TYPE_LOCATION;
+	cache_fields = index->header->cache_fields & ~DATA_FIELD_LOCATION;
 	if (cache_fields == 0)
 		return TRUE;
 

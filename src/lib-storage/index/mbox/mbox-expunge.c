@@ -14,7 +14,8 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 			unsigned int seq, IBuffer *inbuf, OBuffer *outbuf,
 			int notify)
 {
-	uoff_t offset, end_offset, from_offset, copy_size, old_limit;
+	uoff_t offset, hdr_size, body_size;
+	uoff_t end_offset, from_offset, copy_size, old_limit;
 	const unsigned char *data;
 	size_t size;
 	int expunges, failed;
@@ -26,9 +27,10 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 		   not the fastest way maybe, but easiest.. */
 		rec = ibox->index->lookup(ibox->index, seq-1);
 		
-		if (!mbox_mail_get_start_offset(ibox->index, rec, &offset))
+		if (!mbox_mail_get_location(ibox->index, rec, &offset,
+					    &hdr_size, &body_size))
 			return FALSE;
-		end_offset = offset + rec->header_size + rec->body_size;
+		end_offset = offset + hdr_size + body_size;
 
 		/* get back to the deleted record */
 		rec = ibox->index->next(ibox->index, rec);
@@ -38,11 +40,12 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 
 	expunges = FALSE;
 	while (rec != NULL) {
-		if (!mbox_mail_get_start_offset(ibox->index, rec, &offset))
+		if (!mbox_mail_get_location(ibox->index, rec, &offset,
+					    &hdr_size, &body_size))
 			return FALSE;
 
 		from_offset = end_offset;
-		end_offset = offset + rec->header_size + rec->body_size;
+		end_offset = offset + hdr_size + body_size;
 
 		if (rec->msg_flags & MAIL_DELETED) {
 			if (!index_expunge_mail(ibox, rec, seq, notify))

@@ -6,6 +6,7 @@
 #include "mail-index-util.h"
 
 #include <stdio.h>
+#include <sys/stat.h>
 
 extern MailIndex maildir_index;
 
@@ -159,6 +160,33 @@ static void maildir_index_free(MailIndex *index)
 	i_free(index);
 }
 
+static time_t maildir_get_internal_date(MailIndex *index, MailIndexRecord *rec)
+{
+	struct stat st;
+	const char *fname;
+	time_t date;
+
+	/* try getting it from cache */
+	date = mail_get_internal_date(index, rec);
+	if (date != (time_t)-1)
+		return date;
+
+	/* stat() gives it */
+	fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
+	if (fname == NULL) {
+		index_data_set_corrupted(index->data,
+			"Missing location field for record %u", rec->uid);
+		return (time_t)-1;
+	}
+
+	if (stat(fname, &st) < 0) {
+		index_file_set_syscall_error(index, fname, "stat()");
+		return (time_t)-1;
+	}
+
+	return st.st_mtime;
+}
+
 static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 				      unsigned int seq, MailFlags flags,
 				      int external_change)
@@ -168,10 +196,10 @@ static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 	const char *old_path, *new_path;
 
 	/* we need to update the flags in the file name */
-	old_fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
+	old_fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
 	if (old_fname == NULL) {
-		index_data_set_corrupted(index->data, "Missing location field "
-					 "for record %u", rec->uid);
+		index_data_set_corrupted(index->data,
+			"Missing location field for record %u", rec->uid);
 		return FALSE;
 	}
 
@@ -194,7 +222,7 @@ static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 
 		/* update the filename in index */
 		update = index->update_begin(index, rec);
-		index->update_field(update, FIELD_TYPE_LOCATION, new_fname, 0);
+		index->update_field(update, DATA_FIELD_LOCATION, new_fname, 0);
 
 		if (!index->update_end(update))
 			return FALSE;
@@ -223,6 +251,7 @@ MailIndex maildir_index = {
 	mail_index_lookup_field_raw,
 	mail_index_cache_fields_later,
 	maildir_open_mail,
+	maildir_get_internal_date,
 	mail_index_expunge,
 	maildir_index_update_flags,
 	mail_index_append_begin,

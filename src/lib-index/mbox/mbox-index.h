@@ -43,14 +43,15 @@ void mbox_skip_empty_lines(IBuffer *inbuf);
 void mbox_skip_header(IBuffer *inbuf);
 void mbox_skip_message(IBuffer *inbuf);
 int mbox_verify_end_of_body(IBuffer *inbuf, uoff_t end_offset);
-int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
-			       uoff_t *offset);
+int mbox_mail_get_location(MailIndex *index, MailIndexRecord *rec,
+			   uoff_t *offset, uoff_t *hdr_size, uoff_t *body_size);
 
 MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path);
 int mbox_index_rebuild(MailIndex *index);
 int mbox_index_sync(MailIndex *index);
 int mbox_sync_full(MailIndex *index);
-IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec, int *deleted);
+IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
+			time_t *internal_date, int *deleted);
 
 int mbox_index_append(MailIndex *index, IBuffer *inbuf);
 

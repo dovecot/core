@@ -580,11 +580,11 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 }
 
 const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
-				    MailField field)
+				    MailDataField field)
 {
 	MailIndexDataRecord *datarec;
 
-	datarec = (rec->cached_fields & field) == 0 ? NULL :
+	datarec = (rec->data_fields & field) == 0 ? NULL :
 		mail_index_data_lookup(index->data, rec, field);
 	if (datarec == NULL)
 		return NULL;
@@ -598,22 +598,55 @@ const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
 }
 
 const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
-					MailField field, size_t *size)
+					MailDataField field, size_t *size)
 {
+	MailIndexDataRecordHeader *datahdr;
 	MailIndexDataRecord *datarec;
 
-	datarec = (rec->cached_fields & field) == 0 ? NULL :
-		mail_index_data_lookup(index->data, rec, field);
-	if (datarec == NULL) {
+	if ((rec->data_fields & field) == 0) {
 		*size = 0;
 		return NULL;
 	}
 
-	*size = datarec->full_field_size;
-	return datarec->data;
+	if (field < DATA_FIELD_LAST) {
+		/* read data field */
+		datarec = mail_index_data_lookup(index->data, rec, field);
+		if (datarec == NULL) {
+			*size = 0;
+			return NULL;
+		}
+
+		*size = datarec->full_field_size;
+		return datarec->data;
+	}
+
+	/* read header field */
+	datahdr = mail_index_data_lookup_header(index->data, rec);
+	if (datahdr == NULL) {
+		*size = 0;
+		return NULL;
+	}
+
+	switch (field) {
+	case DATA_HDR_INTERNAL_DATE:
+		*size = sizeof(datahdr->internal_date);
+		return &datahdr->internal_date;
+	case DATA_HDR_VIRTUAL_SIZE:
+		*size = sizeof(datahdr->virtual_size);
+		return &datahdr->virtual_size;
+	case DATA_HDR_HEADER_SIZE:
+		*size = sizeof(datahdr->header_size);
+		return &datahdr->header_size;
+	case DATA_HDR_BODY_SIZE:
+		*size = sizeof(datahdr->body_size);
+		return &datahdr->body_size;
+	default:
+		*size = 0;
+		return NULL;
+	}
 }
 
-void mail_index_cache_fields_later(MailIndex *index, MailField field)
+void mail_index_cache_fields_later(MailIndex *index, MailDataField field)
 {
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
@@ -632,6 +665,21 @@ void mail_index_cache_fields_later(MailIndex *index, MailField field)
 			   make sure it'll be cached soon. */
 			index->set_flags |= MAIL_INDEX_FLAG_CACHE_FIELDS;
 		}
+	}
+}
+
+time_t mail_get_internal_date(MailIndex *index, MailIndexRecord *rec)
+{
+	const time_t *date;
+	size_t size;
+
+	date = index->lookup_field_raw(index, rec,
+				       DATA_HDR_INTERNAL_DATE, &size);
+	if (date == NULL)
+		return (time_t)-1;
+	else {
+		i_assert(size == sizeof(*date));
+		return *date;
 	}
 }
 
@@ -776,7 +824,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	hdr->messages_count--;
 	mail_index_mark_flag_changes(index, rec, rec->msg_flags, 0);
 
-	(void)mail_index_data_add_deleted_space(index->data, rec->data_size);
+	(void)mail_index_data_delete(index->data, rec);
 
 	records = MAIL_INDEX_RECORD_COUNT(index);
 	if (hdr->first_hole_index + hdr->first_hole_records == records) {
@@ -866,31 +914,29 @@ static int mail_index_grow(MailIndex *index)
 	return TRUE;
 }
 
-int mail_index_append_begin(MailIndex *index, MailIndexRecord **rec)
+MailIndexRecord *mail_index_append_begin(MailIndex *index)
 {
-	MailIndexRecord *destrec;
+	MailIndexRecord *rec;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
-	i_assert((*rec)->uid == 0);
-	i_assert((*rec)->msg_flags == 0);
 
 	if (index->mmap_used_length == index->mmap_full_length) {
 		if (!mail_index_grow(index))
-			return FALSE;
+			return NULL;
 	}
 
 	i_assert(index->header->used_file_size == index->mmap_used_length);
 	i_assert(index->mmap_used_length + sizeof(MailIndexRecord) <=
 		 index->mmap_full_length);
 
-	destrec = (MailIndexRecord *) ((char *) index->mmap_base +
-				       index->mmap_used_length);
-	memcpy(destrec, *rec, sizeof(MailIndexRecord));
-	*rec = destrec;
+	rec = (MailIndexRecord *) ((char *) index->mmap_base +
+				   index->mmap_used_length);
+	memset(rec, 0, sizeof(MailIndexRecord));
 
 	index->header->used_file_size += sizeof(MailIndexRecord);
 	index->mmap_used_length += sizeof(MailIndexRecord);
-	return TRUE;
+
+	return rec;
 }
 
 int mail_index_append_end(MailIndex *index, MailIndexRecord *rec)

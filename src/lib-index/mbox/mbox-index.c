@@ -616,28 +616,58 @@ int mbox_verify_end_of_body(IBuffer *inbuf, uoff_t end_offset)
 		(size >= 5 && strncmp((const char *) data, "From ", 5) == 0);
 }
 
-int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
-			       uoff_t *offset)
+int mbox_mail_get_location(MailIndex *index, MailIndexRecord *rec,
+			   uoff_t *offset, uoff_t *hdr_size, uoff_t *body_size)
 {
+	MailIndexDataRecordHeader *data_hdr;
 	const uoff_t *location;
 	size_t size;
 
-	location = index->lookup_field_raw(index, rec,
-					   FIELD_TYPE_LOCATION, &size);
-	if (location == NULL) {
-		index_data_set_corrupted(index->data, "Missing location field "
-					 "for record %u", rec->uid);
-		*offset = 0;
-		return FALSE;
-	} else if (size < sizeof(uoff_t) || *location > OFF_T_MAX) {
-		index_data_set_corrupted(index->data, "Invalid location field "
-					 "for record %u", rec->uid);
-		*offset = 0;
-		return FALSE;
-	} else {
+	if (offset != NULL) {
+		location = index->lookup_field_raw(index, rec,
+						   DATA_FIELD_LOCATION, &size);
+		if (location == NULL) {
+			index_data_set_corrupted(index->data,
+				"Missing location field for record %u",
+				rec->uid);
+			return FALSE;
+		} else if (size != sizeof(uoff_t) || *location > OFF_T_MAX) {
+			index_data_set_corrupted(index->data,
+				"Invalid location field for record %u",
+				rec->uid);
+			return FALSE;
+		}
+
 		*offset = *location;
-		return TRUE;
 	}
+
+	if (hdr_size != NULL || body_size != NULL) {
+		data_hdr = mail_index_data_lookup_header(index->data, rec);
+		if (data_hdr == NULL) {
+			index_set_corrupted(index,
+				"Missing data header for record %u", rec->uid);
+			return FALSE;
+		}
+
+		if ((rec->data_fields & DATA_HDR_HEADER_SIZE) == 0) {
+			index_set_corrupted(index,
+				"Missing header size for record %u", rec->uid);
+			return FALSE;
+		}
+
+		if ((rec->data_fields & DATA_HDR_BODY_SIZE) == 0) {
+			index_set_corrupted(index,
+				"Missing body size for record %u", rec->uid);
+			return FALSE;
+		}
+
+		if (hdr_size != NULL)
+			*hdr_size = data_hdr->header_size;
+		if (body_size != NULL)
+			*body_size = data_hdr->body_size;
+	}
+
+	return TRUE;
 }
 
 MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path)
@@ -702,6 +732,7 @@ MailIndex mbox_index = {
 	mail_index_lookup_field_raw,
 	mail_index_cache_fields_later,
 	mbox_open_mail,
+	mail_get_internal_date,
 	mail_index_expunge,
 	mbox_index_update_flags,
 	mail_index_append_begin,

@@ -11,7 +11,7 @@ static int expunge_msg(IndexMailbox *ibox, MailIndexRecord *rec)
 	char path[1024];
 
 	fname = ibox->index->lookup_field(ibox->index, rec,
-					  FIELD_TYPE_LOCATION);
+					  DATA_FIELD_LOCATION);
 	if (fname != NULL) {
 		i_snprintf(path, sizeof(path), "%s/cur/%s",
 			   ibox->index->dir, fname);

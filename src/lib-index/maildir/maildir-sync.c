@@ -33,7 +33,7 @@ static int maildir_index_sync_file(MailIndex *index, MailIndexRecord *rec,
 	update = index->update_begin(index, rec);
 
 	if (fname_changed)
-		index->update_field(update, FIELD_TYPE_LOCATION, fname, 0);
+		index->update_field(update, DATA_FIELD_LOCATION, fname, 0);
 	if (file_changed) {
 		/* file itself changed - reload the header */
 		fd = open(path, O_RDONLY);
@@ -68,6 +68,7 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 				    HashTable *files, int check_content_changes)
 {
 	MailIndexRecord *rec;
+	MailIndexDataRecordHeader *data_hdr;
 	struct stat st;
 	const char *fname, *value;
 	char str[1024], *p;
@@ -78,11 +79,11 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 
 	rec = index->lookup(index, 1);
 	for (seq = 1; rec != NULL; rec = index->next(index, rec)) {
-		fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
+		fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
 		if (fname == NULL) {
 			index_data_set_corrupted(index->data,
-						 "Missing location field for "
-						 "record %u", rec->uid);
+				"Missing location field for record %u",
+				rec->uid);
 			return FALSE;
 		}
 
@@ -116,8 +117,11 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 				return FALSE;
 			}
 
-			file_changed = (uoff_t)st.st_size !=
-				rec->body_size + rec->header_size;
+			data_hdr = mail_index_data_lookup_header(index->data,
+								 rec);
+			file_changed = data_hdr != NULL &&
+				(uoff_t)st.st_size !=
+				data_hdr->body_size + data_hdr->header_size;
 		}
 
 		/* changed - update */

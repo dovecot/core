@@ -24,7 +24,7 @@ int maildir_index_rebuild(MailIndex *index)
 	index->mmap_used_length = index->header->used_file_size;
 
 	/* require these fields */
-	index->header->cache_fields |= FIELD_TYPE_LOCATION;
+	index->header->cache_fields |= DATA_FIELD_LOCATION;
 
 	/* update indexid, which also means that our state has completely
 	   changed */

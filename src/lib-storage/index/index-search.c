@@ -12,6 +12,7 @@
 #include "index-storage.h"
 #include "mail-index-util.h"
 #include "mail-modifylog.h"
+#include "mail-custom-flags.h"
 #include "mail-search.h"
 
 #include <stdlib.h>
@@ -26,6 +27,7 @@ typedef struct {
 	IndexMailbox *ibox;
 	MailIndexRecord *rec;
 	unsigned int client_seq;
+	int cached;
 } SearchIndexContext;
 
 typedef struct {
@@ -105,9 +107,31 @@ static uoff_t str_to_uoff_t(const char *str)
 			return 0;
 
 		num = num*10 + (*str - '0');
+		str++;
 	}
 
 	return num;
+}
+
+static int search_keyword(MailIndex *index, MailIndexRecord *rec,
+			  const char *value)
+{
+	const char **custom_flags;
+	int i;
+
+	if ((rec->msg_flags & MAIL_CUSTOM_FLAGS_MASK) == 0)
+		return FALSE;
+
+	custom_flags = mail_custom_flags_list_get(index->custom_flags);
+	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
+		if (custom_flags[i] != NULL &&
+		    strcasecmp(custom_flags[i], value) == 0) {
+			return rec->msg_flags &
+				(1 << (MAIL_CUSTOM_FLAG_1_BIT+i));
+		}
+	}
+
+	return FALSE;
 }
 
 /* Returns >0 = matched, 0 = not matched, -1 = unknown */
@@ -115,9 +139,6 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 				  unsigned int client_seq,
 				  MailSearchArgType type, const char *value)
 {
-	time_t t;
-	uoff_t size, user_size;
-
 	switch (type) {
 	case SEARCH_ALL:
 		return TRUE;
@@ -142,42 +163,8 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 	case SEARCH_RECENT:
 		return rec->uid >= ibox->index->first_recent_uid;
 	case SEARCH_KEYWORD:
-		return FALSE;
+		return search_keyword(ibox->index, rec, value);
 
-	/* dates */
-	case SEARCH_BEFORE:
-		if (!imap_parse_date(value, &t))
-			return FALSE;
-		return rec->internal_date < t;
-	case SEARCH_ON:
-		if (!imap_parse_date(value, &t))
-			return FALSE;
-		return rec->internal_date >= t &&
-			rec->internal_date < t + 3600*24;
-	case SEARCH_SINCE:
-		if (!imap_parse_date(value, &t))
-			return FALSE;
-		return rec->internal_date >= t;
-
-	/* sizes, only with fastscanning */
-	case SEARCH_SMALLER:
-		user_size = str_to_uoff_t(value);
-		if (mail_index_get_virtual_size(ibox->index, rec, TRUE, &size))
-			return size > 0 && size < user_size;
-
-		/* knowing physical size may be enough */
-		if (rec->header_size + rec->body_size >= user_size)
-			return 0;
-		return -1;
-	case SEARCH_LARGER:
-		user_size = str_to_uoff_t(value);
-		if (mail_index_get_virtual_size(ibox->index, rec, TRUE, &size))
-			return size > user_size;
-
-		/* knowing physical size may be enough */
-		if (rec->header_size + rec->body_size > user_size)
-			return 1;
-		return -1;
 	default:
 		return -1;
 	}
@@ -189,6 +176,86 @@ static void search_index_arg(MailSearchArg *arg, void *context)
 
 	switch (search_arg_match_index(ctx->ibox, ctx->rec, ctx->client_seq,
 				       arg->type, arg->value.str)) {
+	case -1:
+		/* unknown */
+		break;
+	case 0:
+		ARG_SET_RESULT(arg, -1);
+		break;
+	default:
+		ARG_SET_RESULT(arg, 1);
+		break;
+	}
+}
+
+static ImapMessageCache *search_open_cache(SearchIndexContext *ctx)
+{
+	if (!ctx->cached) {
+		(void)index_msgcache_open(ctx->ibox->cache,
+					  ctx->ibox->index, ctx->rec, 0);
+		ctx->cached = TRUE;
+	}
+	return ctx->ibox->cache;
+}
+
+/* Returns >0 = matched, 0 = not matched, -1 = unknown */
+static int search_arg_match_cached(SearchIndexContext *ctx,
+				   MailSearchArgType type, const char *value)
+{
+	time_t internal_date, search_time;
+	uoff_t virtual_size, search_size;
+
+	switch (type) {
+	/* internal dates */
+	case SEARCH_BEFORE:
+	case SEARCH_ON:
+	case SEARCH_SINCE:
+		internal_date = imap_msgcache_get_internal_date(
+					search_open_cache(ctx));
+		if (internal_date == (time_t)-1)
+			return -1;
+
+		if (!imap_parse_date(value, &search_time))
+			return 0;
+
+		switch (type) {
+		case SEARCH_BEFORE:
+			return internal_date < search_time;
+		case SEARCH_ON:
+			return internal_date >= search_time &&
+				internal_date < search_time + 3600*24;
+		case SEARCH_SINCE:
+			return internal_date >= search_time;
+		default:
+			/* unreachable */
+			break;
+		}
+
+	/* sizes */
+	case SEARCH_SMALLER:
+	case SEARCH_LARGER:
+		virtual_size = imap_msgcache_get_virtual_size(
+					search_open_cache(ctx));
+		if (virtual_size == (uoff_t)-1)
+			return -1;
+
+		search_size = str_to_uoff_t(value);
+		if (type == SEARCH_SMALLER)
+			return virtual_size < search_size;
+		else
+			return virtual_size > search_size;
+
+	default:
+		return -1;
+	}
+}
+
+static void search_cached_arg(MailSearchArg *arg, void *context)
+{
+	SearchIndexContext *ctx = context;
+
+	switch (search_arg_match_cached(ctx, arg->type,
+					arg->value.str)) {
 	case -1:
 		/* unknown */
 		break;
@@ -244,8 +311,8 @@ static int search_substr(const char *haystack, const char *needle)
 }
 
 /* Returns >0 = matched, 0 = not matched, -1 = unknown */
-static int search_arg_match_cached(MailIndex *index, MailIndexRecord *rec,
-				   MailSearchArgType type, const char *value)
+static int search_arg_match_envelope(MailIndex *index, MailIndexRecord *rec,
+				     MailSearchArgType type, const char *value)
 {
         ImapEnvelopeField env_field;
 	const char *envelope, *field;
@@ -287,11 +354,11 @@ static int search_arg_match_cached(MailIndex *index, MailIndexRecord *rec,
 	t_push();
 
 	/* get field from hopefully cached envelope */
-	envelope = index->lookup_field(index, rec, FIELD_TYPE_ENVELOPE);
+	envelope = index->lookup_field(index, rec, DATA_FIELD_ENVELOPE);
 	if (envelope != NULL)
 		field = imap_envelope_parse(envelope, env_field);
 	else {
-		index->cache_fields_later(index, FIELD_TYPE_ENVELOPE);
+		index->cache_fields_later(index, DATA_FIELD_ENVELOPE);
 		field = NULL;
 	}
 
@@ -311,52 +378,12 @@ static int search_arg_match_cached(MailIndex *index, MailIndexRecord *rec,
 	return ret;
 }
 
-static void search_cached_arg(MailSearchArg *arg, void *context)
+static void search_envelope_arg(MailSearchArg *arg, void *context)
 {
 	SearchIndexContext *ctx = context;
 
-	switch (search_arg_match_cached(ctx->ibox->index, ctx->rec,
-					arg->type, arg->value.str)) {
-	case -1:
-		/* unknown */
-		break;
-	case 0:
-		ARG_SET_RESULT(arg, -1);
-		break;
-	default:
-		ARG_SET_RESULT(arg, 1);
-		break;
-	}
-}
-
-/* Returns >0 = matched, 0 = not matched, -1 = unknown */
-static int search_arg_match_slow(MailIndex *index, MailIndexRecord *rec,
-				 MailSearchArgType type, const char *value)
-{
-	uoff_t size;
-
-	switch (type) {
-	/* sizes, only with fastscanning */
-	case SEARCH_SMALLER:
-		if (!mail_index_get_virtual_size(index, rec, FALSE, &size))
-			return -1;
-		return size > 0 && size < str_to_uoff_t(value);
-	case SEARCH_LARGER:
-		if (!mail_index_get_virtual_size(index, rec, FALSE, &size))
-			return -1;
-		return size > str_to_uoff_t(value);
-
-	default:
-		return -1;
-	}
-}
-
-static void search_slow_arg(MailSearchArg *arg, void *context)
-{
-	SearchIndexContext *ctx = context;
-
-	switch (search_arg_match_slow(ctx->ibox->index, ctx->rec,
-				      arg->type, arg->value.str)) {
+	switch (search_arg_match_envelope(ctx->ibox->index, ctx->rec,
+					  arg->type, arg->value.str)) {
 	case -1:
 		/* unknown */
 		break;
@@ -544,8 +571,7 @@ static void search_text_body(MailSearchArg *arg, void *context)
 		search_text(arg, ctx);
 }
 
-static void search_arg_match_data(IBuffer *inbuf, uoff_t max_size,
-				  MailSearchArg *args,
+static void search_arg_match_data(IBuffer *inbuf, MailSearchArg *args,
 				  MailSearchForeachFunc search_func)
 {
 	SearchTextContext ctx;
@@ -558,8 +584,6 @@ static void search_arg_match_data(IBuffer *inbuf, uoff_t max_size,
 	/* first get the max. search keyword length */
 	mail_search_args_foreach(args, search_func, &ctx);
         max_searchword_len = ctx.max_searchword_len;
-
-	i_buffer_set_read_limit(inbuf, inbuf->v_offset + max_size);
 
 	/* do this in blocks: read data, compare it for all search words, skip
 	   for block size - (strlen(largest_searchword)-1) and continue. */
@@ -582,20 +606,20 @@ static void search_arg_match_data(IBuffer *inbuf, uoff_t max_size,
 	i_buffer_set_read_limit(inbuf, 0);
 }
 
-static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
-				 MailSearchArg *args)
+static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 {
 	IBuffer *inbuf;
 	MessageSize hdr_size;
-	int have_headers, have_body, have_text, deleted;
+	uoff_t old_limit;
+	int have_headers, have_body, have_text;
 
 	/* first check what we need to use */
 	mail_search_args_analyze(args, &have_headers, &have_body, &have_text);
 	if (!have_headers && !have_body && !have_text)
 		return TRUE;
 
-	inbuf = ibox->index->open_mail(ibox->index, rec, &deleted);
-	if (inbuf == NULL)
+	if (!imap_msgcache_get_rfc822(search_open_cache(ctx), &inbuf,
+				      have_headers ? NULL : &hdr_size, NULL))
 		return FALSE;
 
 	if (have_headers) {
@@ -608,13 +632,6 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 		ctx.args = args;
 		message_parse_header(NULL, inbuf, &hdr_size,
 				     search_header, &ctx);
-
-		i_assert(rec->header_size == 0 ||
-			 hdr_size.physical_size == rec->header_size);
-	} else if (rec->header_size == 0) {
-		message_get_header_size(inbuf, &hdr_size);
-	} else {
-		hdr_size.physical_size = rec->header_size;
 	}
 
 	if (have_text) {
@@ -627,8 +644,10 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 			}
 		}
 
-		search_arg_match_data(inbuf, hdr_size.physical_size,
-				      args, search_text_header);
+		old_limit = inbuf->v_limit;
+		i_buffer_set_read_limit(inbuf, hdr_size.physical_size);
+		search_arg_match_data(inbuf, args, search_text_header);
+		i_buffer_set_read_limit(inbuf, old_limit);
 	}
 
 	if (have_text || have_body) {
@@ -637,8 +656,7 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 			i_buffer_skip(inbuf, hdr_size.physical_size);
 		}
 
-		search_arg_match_data(inbuf, rec->body_size, args,
-				      search_text_body);
+		search_arg_match_data(inbuf, args, search_text_body);
 	}
 
 	i_buffer_unref(inbuf);
@@ -819,7 +837,7 @@ static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
 	const ModifyLogExpunge *expunges;
 	unsigned int first_uid, last_uid, client_seq, expunges_before;
 	char num[MAX_LARGEST_T_STRLEN+10];
-	int found;
+	int found, failed;
 
 	if (ibox->synced_messages_count == 0)
 		return TRUE;
@@ -851,14 +869,19 @@ static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
 
 		ctx.rec = rec;
 		ctx.client_seq = client_seq;
+		ctx.cached = FALSE;
 
 		mail_search_args_reset(args);
 
+		t_push();
 		mail_search_args_foreach(args, search_index_arg, &ctx);
 		mail_search_args_foreach(args, search_cached_arg, &ctx);
-		mail_search_args_foreach(args, search_slow_arg, &ctx);
+		mail_search_args_foreach(args, search_envelope_arg, &ctx);
+		failed = !search_arg_match_text(args, &ctx);
+                imap_msgcache_close(ibox->cache);
+		t_pop();
 
-		if (search_arg_match_text(ibox, rec, args)) {
+		if (!failed) {
 			found = TRUE;
 			for (arg = args; arg != NULL; arg = arg->next) {
 				if (arg->result != 1) {

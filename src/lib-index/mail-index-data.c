@@ -368,7 +368,7 @@ int mail_index_data_reset(MailIndexData *data)
 	return mmap_update(data, 0, 0);
 }
 
-int mail_index_data_mark_deleted(MailIndexData *data)
+int mail_index_data_mark_file_deleted(MailIndexData *data)
 {
 	if (data->anon_mmap)
 		return TRUE;
@@ -459,13 +459,19 @@ uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
 	return offset;
 }
 
-int mail_index_data_add_deleted_space(MailIndexData *data, size_t data_size)
+int mail_index_data_delete(MailIndexData *data, MailIndexRecord *index_rec)
 {
+        MailIndexDataRecordHeader *rec_hdr;
 	uoff_t max_del_space;
 
 	i_assert(data->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	data->header->deleted_space += data_size;
+	rec_hdr = mail_index_data_lookup_header(data, index_rec);
+	if (rec_hdr == NULL)
+		return FALSE;
+
+	/* just mark it deleted. */
+	data->header->deleted_space += rec_hdr->data_size;
 
 	/* see if we've reached the max. deleted space in file */
 	if (data->header->used_file_size >= COMPRESS_MIN_SIZE &&
@@ -502,42 +508,75 @@ int mail_index_data_sync_file(MailIndexData *data, int *fsync_fd)
 	return TRUE;
 }
 
-MailIndexDataRecord *
-mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
-		       MailField field)
+MailIndexDataRecordHeader *
+mail_index_data_lookup_header(MailIndexData *data, MailIndexRecord *index_rec)
 {
-	MailIndexDataRecord *rec;
-	uoff_t pos, max_pos;
+	uoff_t pos;
 
-	if (index_rec->data_position == 0) {
-		/* data not yet written to record - FIXME: is this an error? */
+	pos = index_rec->data_position;
+	if (pos == 0) {
+		/* data not yet written to record */
 		return NULL;
 	}
 
-	if (!mmap_update(data, index_rec->data_position, index_rec->data_size))
+	if (!mmap_update(data, pos, sizeof(MailIndexDataRecordHeader)))
 		return NULL;
 
-	pos = index_rec->data_position;
-	max_pos = pos + index_rec->data_size;
-
-	if (pos > data->mmap_used_length ||
-	    (data->mmap_used_length - pos < index_rec->data_size)) {
+	if (pos + sizeof(MailIndexDataRecordHeader) > data->mmap_used_length) {
 		index_data_set_corrupted(data,
-			"Given data size larger than file size "
-			"(%"PRIuUOFF_T" + %u > %"PRIuSIZE_T") for record %u",
-			index_rec->data_position, index_rec->data_size,
-			data->mmap_used_length, index_rec->uid);
+			"Data position of record %u points outside file "
+			"(%"PRIuUOFF_T" + %"PRIuSIZE_T" > %"PRIuSIZE_T")",
+			index_rec->uid, pos, sizeof(MailIndexDataRecordHeader),
+			data->mmap_used_length);
 		return NULL;
 	}
 
 	if ((pos % MEM_ALIGN_SIZE) != 0) {
 		index_data_set_corrupted(data,
 			"Data position (%"PRIuUOFF_T") is not memory aligned "
-			"for record %u", index_rec->data_position,
-			index_rec->uid);
+			"for record %u", pos, index_rec->uid);
 		return NULL;
 	}
 
+	return (MailIndexDataRecordHeader *) ((char *) data->mmap_base + pos);
+}
+
+MailIndexDataRecord *
+mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
+		       MailDataField field)
+{
+        MailIndexDataRecordHeader *rec_hdr;
+	MailIndexDataRecord *rec;
+	uoff_t pos, max_pos;
+
+	index_reset_error(data->index);
+
+	if (index_rec->data_position == 0) {
+		/* data not yet written to record */
+		return NULL;
+	}
+
+	rec_hdr = mail_index_data_lookup_header(data, index_rec);
+	if (rec_hdr == NULL)
+		return NULL;
+
+	if (!mmap_update(data, index_rec->data_position, rec_hdr->data_size))
+		return NULL;
+
+	pos = index_rec->data_position;
+	max_pos = index_rec->data_position + rec_hdr->data_size;
+
+	if (pos > data->mmap_used_length ||
+	    (data->mmap_used_length - pos < rec_hdr->data_size)) {
+		index_data_set_corrupted(data,
+			"Given data size larger than file size "
+			"(%"PRIuUOFF_T" + %u > %"PRIuSIZE_T") for record %u",
+			index_rec->data_position, rec_hdr->data_size,
+			data->mmap_used_length, index_rec->uid);
+		return NULL;
+	}
+
+	pos += sizeof(MailIndexDataRecordHeader);
 	do {
 		rec = (MailIndexDataRecord *) ((char *) data->mmap_base + pos);
 
@@ -579,14 +618,20 @@ MailIndexDataRecord *
 mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
 		     MailIndexDataRecord *rec)
 {
+        MailIndexDataRecordHeader *rec_hdr;
 	uoff_t pos, end_pos, max_pos;
+
+	index_reset_error(data->index);
 
 	if (rec == NULL)
 		return NULL;
 
+	rec_hdr = (MailIndexDataRecordHeader *) ((char *) data->mmap_base +
+						 index_rec->data_position);
+
 	/* get position to next record */
 	pos = DATA_FILE_POSITION(data, rec) + DATA_RECORD_SIZE(rec);
-	max_pos = index_rec->data_position + index_rec->data_size;
+	max_pos = index_rec->data_position + rec_hdr->data_size;
 
 	/* make sure it's within range */
 	if (pos >= max_pos)

@@ -120,6 +120,7 @@ int mail_index_compress(MailIndex *index)
 static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 {
 	MailIndexDataHeader data_hdr;
+	MailIndexDataRecordHeader *rec_hdr;
 	MailIndexRecord *rec;
 	unsigned char *mmap_data;
 	size_t mmap_data_size;
@@ -149,14 +150,24 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 	offset = sizeof(data_hdr);
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
-		if (rec->data_position + rec->data_size > mmap_data_size) {
-			index_set_corrupted(index, "data_position+data_size "
-					    "points outside file");
+		if (rec->data_position +
+		    sizeof(MailIndexDataRecordHeader) > mmap_data_size) {
+			index_set_corrupted(index,
+				"data_position points outside file");
+			return FALSE;
+		}
+
+		rec_hdr = (MailIndexDataRecordHeader *) (mmap_data +
+							 rec_hdr->data_size);
+
+		if (rec->data_position + rec_hdr->data_size > mmap_data_size) {
+			index_set_corrupted(index,
+				"data_size points outside file");
 			return FALSE;
 		}
 
 		if (write_full(fd, mmap_data + rec->data_position,
-			       rec->data_size) < 0) {
+			       rec_hdr->data_size) < 0) {
 			if (errno == ENOSPC)
 				index->nodiskspace = TRUE;
 
@@ -166,7 +177,7 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 		}
 
 		rec->data_position = offset;
-		offset += rec->data_size;
+		offset += rec_hdr->data_size;
 
 		rec = index->next(index, rec);
 	}
@@ -222,7 +233,7 @@ int mail_index_compress_data(MailIndex *index)
 		/* now, rename the temp file to new data file. but before that
 		   reset indexid to make sure that other processes know the
 		   data file is closed. */
-		(void)mail_index_data_mark_deleted(index->data);
+		(void)mail_index_data_mark_file_deleted(index->data);
 
 		mail_index_data_free(index->data);
 

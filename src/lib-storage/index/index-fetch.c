@@ -14,6 +14,23 @@
 
 #include <unistd.h>
 
+static int index_fetch_internaldate(MailIndexRecord *rec, FetchContext *ctx)
+{
+	time_t date;
+
+	date = imap_msgcache_get_internal_date(ctx->cache);
+	if (date != (time_t)-1) {
+		t_string_printfa(ctx->str, "INTERNALDATE \"%s\" ",
+				 imap_to_datetime(date));
+		return TRUE;
+	} else {
+		mail_storage_set_critical(ctx->storage,
+			"Couldn't generate INTERNALDATE for UID %u (index %s)",
+			rec->uid, ctx->index->filepath);
+		return FALSE;
+	}
+}
+
 static int index_fetch_body(MailIndexRecord *rec, FetchContext *ctx)
 {
 	const char *body;
@@ -65,18 +82,17 @@ static int index_fetch_envelope(MailIndexRecord *rec, FetchContext *ctx)
 
 static int index_fetch_rfc822_size(MailIndexRecord *rec, FetchContext *ctx)
 {
-	MessageSize hdr_size, body_size;
+	uoff_t size;
 
-	if (!imap_msgcache_get_rfc822(ctx->cache, NULL,
-				      &hdr_size, &body_size)) {
+	size = imap_msgcache_get_virtual_size(ctx->cache);
+	if (size == (uoff_t)-1) {
 		mail_storage_set_critical(ctx->storage,
 			"Couldn't get RFC822.SIZE for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return FALSE;
 	}
 
-	t_string_printfa(ctx->str, "RFC822.SIZE %"PRIuUOFF_T" ",
-			 hdr_size.virtual_size + body_size.virtual_size);
+	t_string_printfa(ctx->str, "RFC822.SIZE %"PRIuUOFF_T" ", size);
 	return TRUE;
 }
 
@@ -93,12 +109,6 @@ static void index_fetch_flags(MailIndexRecord *rec, FetchContext *ctx)
 	t_string_printfa(ctx->str, "FLAGS (%s) ",
 			 imap_write_flags(flags, ctx->custom_flags,
 					  ctx->custom_flags_count));
-}
-
-static void index_fetch_internaldate(MailIndexRecord *rec, FetchContext *ctx)
-{
-	t_string_printfa(ctx->str, "INTERNALDATE \"%s\" ",
-			 imap_to_datetime(rec->internal_date));
 }
 
 static void index_fetch_uid(MailIndexRecord *rec, FetchContext *ctx)
@@ -194,11 +204,11 @@ static ImapCacheField index_get_cache(MailFetchData *fetch_data)
 		field |= IMAP_CACHE_BODYSTRUCTURE;
 	if (fetch_data->envelope)
 		field |= IMAP_CACHE_ENVELOPE;
+	if (fetch_data->internaldate)
+		field |= IMAP_CACHE_INTERNALDATE;
 
-	if (fetch_data->rfc822_size) {
-		field |= IMAP_CACHE_MESSAGE_HDR_SIZE |
-			IMAP_CACHE_MESSAGE_BODY_SIZE;
-	}
+	if (fetch_data->rfc822_size)
+		field |= IMAP_CACHE_VIRTUAL_SIZE;
 	if (fetch_data->rfc822) {
 		field |= IMAP_CACHE_MESSAGE_OPEN | IMAP_CACHE_MESSAGE_HDR_SIZE |
 			IMAP_CACHE_MESSAGE_BODY_SIZE;
@@ -215,33 +225,15 @@ static ImapCacheField index_get_cache(MailFetchData *fetch_data)
 	return field;
 }
 
-static int index_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
+static int fetch_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
 {
 	ImapCacheField fields;
-	uoff_t virtual_header_size, virtual_body_size;
-	void *mail_cache_context;
 
 	fields = index_get_cache(ctx->fetch_data);
 	if (fields == 0)
 		return TRUE;
 
-	mail_cache_context = index_msgcache_get_context(ctx->index, rec);
-
-	if (rec->header_size == 0) {
-		virtual_header_size = 0;
-		virtual_body_size = 0;
-	} else {
-		virtual_header_size =
-			(rec->index_flags & INDEX_MAIL_FLAG_BINARY_HEADER) ?
-			rec->header_size : 0;
-		virtual_body_size =
-			(rec->index_flags & INDEX_MAIL_FLAG_BINARY_BODY) ?
-			rec->body_size : 0;
-	}
-
-	return imap_msgcache_open(ctx->cache, rec->uid, fields,
-				  virtual_header_size, virtual_body_size,
-				  mail_cache_context);
+	return index_msgcache_open(ctx->cache, ctx->index, rec, fields);
 }
 
 static int index_fetch_mail(MailIndex *index __attr_unused__,
@@ -258,7 +250,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 	/* first see what we need to do. this way we don't first do some
 	   light parsing and later notice that we need to do heavier parsing
 	   anyway */
-	if (!index_msgcache_open(ctx, rec)) {
+	if (!fetch_msgcache_open(ctx, rec)) {
 		/* most likely message not found, just ignore it. */
 		imap_msgcache_close(ctx->cache);
 		ctx->failed = TRUE;
@@ -286,10 +278,11 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 			index_fetch_uid(rec, ctx);
 		if (ctx->fetch_data->flags || fetch_flags)
 			index_fetch_flags(rec, ctx);
-		if (ctx->fetch_data->internaldate)
-			index_fetch_internaldate(rec, ctx);
 
 		/* rest can */
+		if (ctx->fetch_data->internaldate)
+			if (!index_fetch_internaldate(rec, ctx))
+				break;
 		if (ctx->fetch_data->body)
 			if (!index_fetch_body(rec, ctx))
 				break;
