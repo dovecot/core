@@ -8,14 +8,14 @@
 
 IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 				 MailIndex *index, const char *name,
-				 int readonly)
+				 int readonly, int fast)
 {
 	IndexMailbox *ibox;
 
 	i_assert(name != NULL);
 
 	/* open the index first */
-	if (!index->open_or_create(index, !readonly)) {
+	if (!index->open_or_create(index, !readonly, fast)) {
 		mail_storage_set_internal_error(storage);
 		index->free(index);
 		return NULL;

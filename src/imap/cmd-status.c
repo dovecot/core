@@ -63,7 +63,7 @@ static int get_mailbox_status(Client *client, const char *mailbox,
 	} else {
 		/* open the mailbox */
 		box = client->storage->open_mailbox(client->storage,
-						    mailbox, FALSE);
+						    mailbox, FALSE, TRUE);
 		if (box == NULL)
 			return FALSE;
 	}

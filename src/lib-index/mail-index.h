@@ -165,8 +165,9 @@ struct _MailIndexDataRecord {
         (SIZEOF_MAIL_INDEX_DATA + (rec)->full_field_size)
 
 struct _MailIndex {
-	int (*open)(MailIndex *index, int update_recent);
-	int (*open_or_create)(MailIndex *index, int update_recent);
+	/* If fast is TRUE, compressing and cache updates are not performed. */
+	int (*open)(MailIndex *index, int update_recent, int fast);
+	int (*open_or_create)(MailIndex *index, int update_recent, int fast);
 
 	/* Free index from memory. */
 	void (*free)(MailIndex *index);
@@ -355,8 +356,8 @@ struct _MailIndex {
 	0, 0, 0, 0, 0, 0, 0, 0, 0
 
 /* defaults - same as above but prefixed with mail_index_. */
-int mail_index_open(MailIndex *index, int update_recent);
-int mail_index_open_or_create(MailIndex *index, int update_recent);
+int mail_index_open(MailIndex *index, int update_recent, int fast);
+int mail_index_open_or_create(MailIndex *index, int update_recent, int fast);
 int mail_index_set_lock(MailIndex *index, MailLockType lock_type);
 int mail_index_try_lock(MailIndex *index, MailLockType lock_type);
 int mail_index_fsck(MailIndex *index);

@@ -113,7 +113,7 @@ int cmd_append(Client *client)
 			return TRUE;
 
 		box = client->storage->open_mailbox(client->storage,
-						    mailbox, FALSE);
+						    mailbox, FALSE, TRUE);
 		if (box == NULL) {
 			client_send_storage_error(client);
 			return TRUE;

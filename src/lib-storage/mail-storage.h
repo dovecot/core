@@ -71,9 +71,11 @@ struct _MailStorage {
 	int (*autodetect)(const char *data);
 
 	/* Open a mailbox. If readonly is TRUE, mailbox must not be
-	   modified in any way even when it's asked. */
+	   modified in any way even when it's asked. If fast is TRUE,
+	   any extra time consuming operations shouldn't be performed
+	   (eg. when opening mailbox just for STATUS). */
 	Mailbox *(*open_mailbox)(MailStorage *storage, const char *name,
-				 int readonly);
+				 int readonly, int fast);
 
 	/* name is allowed to contain multiple new hierarchy levels */
 	int (*create_mailbox)(MailStorage *storage, const char *name);

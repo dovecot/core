@@ -47,7 +47,8 @@ int cmd_select_full(Client *client, int readonly)
 		client->mailbox->close(client->mailbox);
 
 	client->mailbox = client->storage->open_mailbox(client->storage,
-							mailbox, readonly);
+							mailbox, readonly,
+							FALSE);
 	if (client->mailbox == NULL) {
 		client_send_storage_error(client);
 		return TRUE;

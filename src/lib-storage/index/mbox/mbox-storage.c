@@ -149,7 +149,8 @@ static void verify_inbox(MailStorage *storage)
 	(void)create_mbox_index_dirs(path, TRUE);
 }
 
-static Mailbox *mbox_open(MailStorage *storage, const char *name, int readonly)
+static Mailbox *mbox_open(MailStorage *storage, const char *name,
+			  int readonly, int fast)
 {
 	IndexMailbox *ibox;
 	const char *path, *index_dir;
@@ -162,14 +163,14 @@ static Mailbox *mbox_open(MailStorage *storage, const char *name, int readonly)
 
 	ibox = index_storage_init(storage, &mbox_mailbox,
 				  mbox_index_alloc(index_dir, path),
-				  name, readonly);
+				  name, readonly, fast);
 	if (ibox != NULL)
 		ibox->expunge_locked = mbox_expunge_locked;
 	return (Mailbox *) ibox;
 }
 
 static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
-				  int readonly)
+				  int readonly, int fast)
 {
 	struct stat st;
 	char path[1024];
@@ -180,7 +181,7 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 	if (strcasecmp(name, "INBOX") == 0) {
 		/* make sure inbox exists */
 		verify_inbox(storage);
-		return mbox_open(storage, "inbox", readonly);
+		return mbox_open(storage, "inbox", readonly, fast);
 	}
 
 	if (!mbox_is_valid_name(storage, name)) {
@@ -193,7 +194,7 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 		/* exists - make sure the required directories are also there */
 		(void)create_mbox_index_dirs(path, TRUE);
 
-		return mbox_open(storage, name, readonly);
+		return mbox_open(storage, name, readonly, fast);
 	} else if (errno == ENOENT) {
 		mail_storage_set_error(storage, "Mailbox doesn't exist: %s",
 				       name);

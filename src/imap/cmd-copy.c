@@ -20,7 +20,7 @@ int cmd_copy(Client *client)
 		return TRUE;
 
 	destbox = client->storage->open_mailbox(client->storage,
-						mailbox, FALSE);
+						mailbox, FALSE, TRUE);
 	if (destbox == NULL) {
 		client_send_storage_error(client);
 		return TRUE;

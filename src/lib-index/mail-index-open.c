@@ -152,7 +152,7 @@ static int mail_index_open_init(MailIndex *index, int update_recent)
 	return TRUE;
 }
 
-static int index_open_and_fix(MailIndex *index, int update_recent)
+static int index_open_and_fix(MailIndex *index, int update_recent, int fast)
 {
 	int rebuild;
 
@@ -200,7 +200,7 @@ static int index_open_and_fix(MailIndex *index, int update_recent)
 			return FALSE;
 	}
 
-	if (index->header->flags & MAIL_INDEX_FLAG_COMPRESS) {
+	if (fast && (index->header->flags & MAIL_INDEX_FLAG_COMPRESS)) {
 		/* remove deleted blocks from index file */
 		if (!mail_index_compress(index))
 			return FALSE;
@@ -216,13 +216,13 @@ static int index_open_and_fix(MailIndex *index, int update_recent)
 	if (!index->sync(index))
 		return FALSE;
 
-	if (index->header->flags & MAIL_INDEX_FLAG_CACHE_FIELDS) {
+	if (fast && (index->header->flags & MAIL_INDEX_FLAG_CACHE_FIELDS)) {
 		/* need to update cached fields */
 		if (!mail_index_update_cache(index))
 			return FALSE;
 	}
 
-	if (index->header->flags & MAIL_INDEX_FLAG_COMPRESS_DATA) {
+	if (fast && (index->header->flags & MAIL_INDEX_FLAG_COMPRESS_DATA)) {
 		/* remove unused space from index data file.
 		   keep after cache_fields which may move data
 		   and create unused space.. */
@@ -240,7 +240,7 @@ static int index_open_and_fix(MailIndex *index, int update_recent)
 }
 
 static int mail_index_open_file(MailIndex *index, const char *path,
-				int update_recent)
+				int update_recent, int fast)
 {
         MailIndexHeader hdr;
 	int fd;
@@ -276,7 +276,7 @@ static int mail_index_open_file(MailIndex *index, const char *path,
 	index->filepath = i_strdup(path);
 	index->indexid = hdr.indexid;
 
-	if (!index_open_and_fix(index, update_recent)) {
+	if (!index_open_and_fix(index, update_recent, fast)) {
 		mail_index_close(index);
 		return FALSE;
 	}
@@ -477,7 +477,7 @@ void mail_index_init_header(MailIndexHeader *hdr)
 	hdr->next_uid = 1;
 }
 
-int mail_index_open(MailIndex *index, int update_recent)
+int mail_index_open(MailIndex *index, int update_recent, int fast)
 {
 	const char *name, *path;
 
@@ -491,20 +491,20 @@ int mail_index_open(MailIndex *index, int update_recent)
 		return FALSE;
 
 	path = t_strconcat(index->dir, "/", name, NULL);
-	if (!mail_index_open_file(index, path, update_recent))
+	if (!mail_index_open_file(index, path, update_recent, fast))
 		return FALSE;
 
 	index->opened = TRUE;
 	return TRUE;
 }
 
-int mail_index_open_or_create(MailIndex *index, int update_recent)
+int mail_index_open_or_create(MailIndex *index, int update_recent, int fast)
 {
 	int failed, dir_unlocked;
 
 	i_assert(!index->opened);
 
-	if (mail_index_open(index, update_recent))
+	if (mail_index_open(index, update_recent, fast))
 		return TRUE;
 
 	/* index wasn't found or it was broken. lock the directory and check
@@ -513,7 +513,7 @@ int mail_index_open_or_create(MailIndex *index, int update_recent)
 	if (!mail_index_lock_dir(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	if (mail_index_open(index, update_recent)) {
+	if (mail_index_open(index, update_recent, fast)) {
 		dir_unlocked = FALSE;
 		failed = FALSE;
 	} else {
