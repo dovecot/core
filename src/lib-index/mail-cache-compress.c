@@ -241,7 +241,7 @@ int mail_cache_compress(struct mail_cache *cache)
 			  MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE);
 	}
 
-	if (!mail_cache_unlock(cache))
+	if (mail_cache_unlock(cache) < 0)
 		ret = FALSE;
 
 	return ret;

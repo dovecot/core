@@ -9,7 +9,6 @@
 
 #include <sys/stat.h>
 
-#if 0
 struct mail_cache_transaction_ctx {
 	struct mail_cache *cache;
 	struct mail_cache_view *view;
@@ -171,7 +170,7 @@ static int mail_cache_grow(struct mail_cache *cache, uint32_t size)
 
 	if (cache->used_file_size + size <= (uoff_t)st.st_size) {
 		/* no need to grow, just update mmap */
-		if (mmap_update(cache, 0, 0) < 0)
+		if (mail_cache_mmap_update(cache, 0, 0) < 0)
 			return -1;
 
 		i_assert(cache->mmap_length >= (uoff_t)st.st_size);
@@ -183,7 +182,7 @@ static int mail_cache_grow(struct mail_cache *cache, uint32_t size)
 		return -1;
 	}
 
-	return mmap_update(cache, 0, 0);
+	return mail_cache_mmap_update(cache, 0, 0);
 }
 
 static uint32_t mail_cache_append_space(struct mail_cache_transaction_ctx *ctx,
@@ -219,46 +218,54 @@ static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 	uint32_t write_offset, update_offset;
 	const void *buf;
 	size_t size, buf_size;
+	int ret;
 
 	buf = buffer_get_data(ctx->cache_data, &buf_size);
 
 	size = sizeof(*cache_rec) + buf_size;
 	ctx->cache_rec.size = uint32_to_nbo(size);
 
-	write_offset = mail_cache_append_space(ctx, size);
-	if (write_offset == 0)
-		return -1;
-
 	// FIXME: check cache_offset in transaction
-	if (mail_index_lookup_latest(ctx->view->view, ctx->prev_seq, &rec) < 0)
+	ret = mail_index_lookup(ctx->view->view, ctx->prev_seq, &rec);
+	if (ret < 0)
 		return -1;
 
-	cache_rec = mail_cache_get_record(cache, rec->cache_offset);
-	if (cache_rec == NULL) {
-		/* first cache record - update offset in index file */
-		mail_index_update_cache(ctx->trans, ctx->prev_seq,
-					write_offset);
+	if (ret == 0) {
+		/* it's been expunged already, do nothing */
 	} else {
-		/* find the last cache record */
-		while ((next = mail_cache_get_next_record(cache,
-							  cache_rec)) != NULL)
-			cache_rec = next;
+		write_offset = mail_cache_append_space(ctx, size);
+		if (write_offset == 0)
+			return -1;
 
-		/* mark next_offset to be updated later */
-		update_offset = (char *) &cache_rec->next_offset -
-			(char *) cache->mmap_base;
-		mark_update(&ctx->cache_marks, update_offset,
-			    mail_cache_uint32_to_offset(write_offset));
+		cache_rec = mail_cache_get_record(cache, rec->cache_offset,
+						  TRUE);
+		if (cache_rec == NULL) {
+			/* first cache record - update offset in index file */
+			mail_index_update_cache(ctx->trans, ctx->prev_seq,
+						write_offset);
+		} else {
+			/* find the last cache record */
+			while ((next = mail_cache_get_next_record(cache,
+								  cache_rec)) != NULL)
+				cache_rec = next;
+
+			/* mark next_offset to be updated later */
+			update_offset = (char *) &cache_rec->next_offset -
+				(char *) cache->mmap_base;
+			mark_update(&ctx->cache_marks, update_offset,
+				    mail_cache_uint32_to_offset(write_offset));
+		}
+
+		memcpy((char *) cache->mmap_base + write_offset,
+		       &ctx->cache_rec, sizeof(ctx->cache_rec));
+		memcpy((char *) cache->mmap_base + write_offset +
+		       sizeof(ctx->cache_rec), buf, buf_size);
 	}
+
+	/* reset the write context */
 	ctx->prev_seq = 0;
 	ctx->prev_fields = 0;
 
-	memcpy((char *) cache->mmap_base + write_offset,
-	       &ctx->cache_rec, sizeof(ctx->cache_rec));
-	memcpy((char *) cache->mmap_base + write_offset +
-	       sizeof(ctx->cache_rec), buf, buf_size);
-
-	/* reset the write context */
 	memset(&ctx->cache_rec, 0, sizeof(ctx->cache_rec));
 	buffer_set_used_size(ctx->cache_data, 0);
 	return 0;
@@ -558,5 +565,9 @@ mail_cache_transaction_autocommit(struct mail_cache_view *view,
 
 	return 0;
 }
-#else
-#endif
+
+int mail_cache_update_record_flags(struct mail_cache_view *view, uint32_t seq,
+				   enum mail_cache_record_flag flags)
+{
+	return -1;
+}

@@ -95,7 +95,8 @@ const char *const *
 mail_cache_split_header(struct mail_cache *cache, const char *header);
 
 struct mail_cache_record *
-mail_cache_get_record(struct mail_cache *cache, uint32_t offset);
+mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
+		      int index_offset);
 struct mail_cache_record *
 mail_cache_get_next_record(struct mail_cache *cache,
 			   struct mail_cache_record *rec);
@@ -107,6 +108,9 @@ mail_cache_lookup(struct mail_cache_view *view, uint32_t seq,
 int
 mail_cache_transaction_autocommit(struct mail_cache_view *view,
 				  uint32_t seq, enum mail_cache_field fields);
+
+int mail_cache_mmap_update(struct mail_cache *cache,
+			   size_t offset, size_t size);
 
 void mail_cache_set_syscall_error(struct mail_cache *cache,
 				  const char *function);

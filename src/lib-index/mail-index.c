@@ -8,6 +8,7 @@
 #include "write-full.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log.h"
+#include "mail-cache.h"
 
 #include <stdio.h>
 #include <stddef.h>
@@ -553,7 +554,7 @@ static int mail_index_create(struct mail_index *index,
 	ret = mail_index_try_open(index, NULL);
 	if (ret != 0) {
 		mail_transaction_log_sync_unlock(index->log);
-		return ret;
+		return ret < 0 ? -1 : 0;
 	}
 
 	/* create it fully in index.tmp first */
@@ -618,6 +619,7 @@ static void mail_index_header_init(struct mail_index *index,
 	hdr->next_uid = 1;
 }
 
+/* returns -1 = error, 0 = won't create, 1 = ok */
 static int mail_index_open_files(struct mail_index *index,
 				 enum mail_index_open_flags flags)
 {
@@ -643,9 +645,27 @@ static int mail_index_open_files(struct mail_index *index,
 	if (index->log == NULL)
 		return -1;
 
-	if (lock_id != 0)
-		mail_index_unlock(index, lock_id);
-	return index->fd != -1 ? 1 : mail_index_create(index, &hdr);
+	if (index->fd == -1) {
+		if (lock_id != 0) {
+			mail_index_unlock(index, lock_id);
+			lock_id = 0;
+		}
+		if (mail_index_create(index, &hdr) < 0)
+			return -1;
+	}
+
+	if (lock_id == 0) {
+		if (mail_index_lock_shared(index, FALSE, &lock_id) < 0)
+			return -1;
+
+	}
+
+	index->cache = mail_cache_open_or_create(index);
+	if (index->cache == NULL)
+		return -1;
+
+	mail_index_unlock(index, lock_id);
+	return 1;
 }
 
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
@@ -709,6 +729,11 @@ void mail_index_close(struct mail_index *index)
 	if (index->map != NULL) {
 		mail_index_unmap(index, index->map);
 		index->map = NULL;
+	}
+
+	if (index->cache != NULL) {
+		mail_cache_free(index->cache);
+		index->cache = NULL;
 	}
 
 	if (index->fd != -1) {

@@ -157,8 +157,8 @@ void index_mail_cache_add(struct index_mail *mail, enum mail_cache_field field,
         if (!index_mail_cache_can_add(mail, field))
 		return;
 
-	if (!mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-			    field, data, size))
+	if (mail_cache_add(mail->trans->cache_trans, mail->data.seq,
+			   field, data, size) < 0)
 		mail_cache_transaction_rollback(mail->trans->cache_trans);
 
 	mail->data.cached_fields |= field;

@@ -5,7 +5,6 @@
 #include "byteorder.h"
 #include "mail-cache-private.h"
 
-#if 0
 const char *
 mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx)
 {
@@ -17,7 +16,7 @@ mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx)
 	if (offset == 0)
 		return NULL;
 
-	if (!mmap_update(cache, offset, 1024))
+	if (mail_cache_mmap_update(cache, offset, 1024) < 0)
 		return NULL;
 
 	if (offset + sizeof(data_size) > cache->mmap_length) {
@@ -37,7 +36,7 @@ mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx)
 		return NULL;
 	}
 
-	if (!mmap_update(cache, offset, data_size))
+	if (mail_cache_mmap_update(cache, offset, data_size) < 0)
 		return NULL;
 
 	if (offset + data_size > cache->mmap_length) {
@@ -107,17 +106,20 @@ const char *const *mail_cache_get_header_fields(struct mail_cache_view *view,
 }
 
 struct mail_cache_record *
-mail_cache_get_record(struct mail_cache *cache, uint32_t offset)
+mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
+		      int index_offset)
 {
 #define CACHE_PREFETCH 1024
 	struct mail_cache_record *cache_rec;
 	size_t size;
 
-	offset = mail_cache_offset_to_uint32(offset);
+	if (!index_offset)
+		offset = mail_cache_offset_to_uint32(offset);
 	if (offset == 0)
 		return NULL;
 
-	if (!mmap_update(cache, offset, sizeof(*cache_rec) + CACHE_PREFETCH))
+	if (mail_cache_mmap_update(cache, offset,
+				   sizeof(*cache_rec) + CACHE_PREFETCH) < 0)
 		return NULL;
 
 	if (offset + sizeof(*cache_rec) > cache->mmap_length) {
@@ -132,7 +134,7 @@ mail_cache_get_record(struct mail_cache *cache, uint32_t offset)
 		return NULL;
 	}
 	if (size > CACHE_PREFETCH) {
-		if (!mmap_update(cache, offset, size))
+		if (mail_cache_mmap_update(cache, offset, size) < 0)
 			return NULL;
 	}
 
@@ -149,7 +151,7 @@ mail_cache_get_next_record(struct mail_cache *cache,
 {
 	struct mail_cache_record *next;
 
-	next = mail_cache_get_record(cache, rec->next_offset);
+	next = mail_cache_get_record(cache, rec->next_offset, FALSE);
 	if (next != NULL && next <= rec) {
 		mail_cache_set_corrupted(cache, "next_offset points backwards");
 		return NULL;
@@ -165,11 +167,13 @@ mail_cache_lookup(struct mail_cache_view *view, uint32_t seq,
 
 	if (mail_cache_transaction_autocommit(view, seq, fields) < 0)
 		return NULL;
-	// FIXME: check cache_offset in transaction
-	if (mail_index_lookup_latest(view->view, seq, &rec) < 0)
+	/* FIXME: check cache_offset in transaction
+	   FIXME: if rec doesn't point to header record, the file seq may
+	   be different and the offset wrong */
+	if (mail_index_lookup(view->view, seq, &rec) < 0)
 		return NULL;
 
-	return mail_cache_get_record(view->cache, rec->cache_offset);
+	return mail_cache_get_record(view->cache, rec->cache_offset, TRUE);
 }
 
 enum mail_cache_field
@@ -318,5 +322,10 @@ int mail_cache_copy_fixed_field(struct mail_cache_view *view, uint32_t seq,
 	memcpy(buffer, data, buffer_size);
 	return TRUE;
 }
-#else
-#endif
+
+enum mail_cache_record_flag
+mail_cache_get_record_flags(struct mail_cache_view *view, uint32_t seq)
+{
+	// FIXME:
+	return 0;
+}

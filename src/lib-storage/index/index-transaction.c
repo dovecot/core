@@ -20,8 +20,11 @@ int index_transaction_commit(struct mailbox_transaction_context *_t)
 	uoff_t offset;
 	int ret;
 
-	if (t->cache_trans != NULL) 
+	if (t->cache_trans != NULL)  {
 		(void)mail_cache_transaction_commit(t->cache_trans);
+		(void)mail_cache_transaction_end(t->cache_trans);
+		t->cache_trans = NULL;
+	}
 
 	ret = mail_index_transaction_commit(t->trans, &seq, &offset);
 	if (ret < 0)

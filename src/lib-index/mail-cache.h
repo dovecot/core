@@ -28,12 +28,9 @@ enum mail_cache_record_flag {
 enum mail_cache_field {
 	/* fixed size fields */
 	MAIL_CACHE_INDEX_FLAGS		= 0x00000001,
-	MAIL_CACHE_LOCATION_OFFSET	= 0x00000002,
-	MAIL_CACHE_MD5			= 0x00000004,
 	MAIL_CACHE_SENT_DATE		= 0x00000008,
 	MAIL_CACHE_RECEIVED_DATE	= 0x00000010,
 	MAIL_CACHE_VIRTUAL_FULL_SIZE	= 0x00000020,
-	MAIL_CACHE_PHYSICAL_BODY_SIZE	= 0x00000040,
 
 	/* variable sized field */
 	MAIL_CACHE_HEADERS1		= 0x40000000,
@@ -47,12 +44,9 @@ enum mail_cache_field {
 	MAIL_CACHE_MESSAGEPART		= 0x00400000,
 
 	MAIL_CACHE_FIXED_MASK		= MAIL_CACHE_INDEX_FLAGS |
-					  MAIL_CACHE_LOCATION_OFFSET |
-					  MAIL_CACHE_MD5 |
 					  MAIL_CACHE_SENT_DATE |
 					  MAIL_CACHE_RECEIVED_DATE |
-					  MAIL_CACHE_VIRTUAL_FULL_SIZE |
-					  MAIL_CACHE_PHYSICAL_BODY_SIZE,
+					  MAIL_CACHE_VIRTUAL_FULL_SIZE,
 	MAIL_CACHE_HEADERS_MASK		= MAIL_CACHE_HEADERS1 |
 					  MAIL_CACHE_HEADERS2 |
 					  MAIL_CACHE_HEADERS3 |
@@ -74,7 +68,7 @@ struct mail_sent_date {
 
 extern enum mail_cache_field mail_cache_header_fields[MAIL_CACHE_HEADERS_COUNT];
 
-int mail_cache_open_or_create(struct mail_index *index);
+struct mail_cache *mail_cache_open_or_create(struct mail_index *index);
 void mail_cache_free(struct mail_cache *cache);
 
 void mail_cache_set_defaults(struct mail_cache *cache,
@@ -166,11 +160,6 @@ mail_cache_get_record_flags(struct mail_cache_view *view, uint32_t seq);
    already inserted to the record. */
 int mail_cache_update_record_flags(struct mail_cache_view *view, uint32_t seq,
 				   enum mail_cache_record_flag flags);
-
-/* Update location offset. External locking is assumed to take care of locking
-   readers out to prevent race conditions. */
-int mail_cache_update_location_offset(struct mail_cache_view *view,
-				      uint32_t seq, uoff_t offset);
 
 /* "Error in index cache file %s: ...". */
 void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
