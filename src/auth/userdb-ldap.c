@@ -164,20 +164,24 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 			       userdb_callback_t *callback, void *context)
 {
 	struct ldap_connection *conn = userdb_ldap_conn->conn;
+        const struct var_expand_table *vars;
 	const char **attr_names = (const char **)userdb_ldap_conn->attr_names;
 	struct userdb_ldap_request *request;
-	const char *filter;
+	const char *filter, *base;
 	string_t *str;
+
+	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
+
+	str = t_str_new(512);
+	var_expand(str, conn->set.base, vars);
+	base = t_strdup(str_c(str));
 
 	if (conn->set.user_filter == NULL) {
 		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
 					 attr_names[ATTR_VIRTUAL_USER],
 					 ldap_escape(auth_request->user));
 	} else {
-		str = t_str_new(512);
-		var_expand(str, conn->set.user_filter,
-			   auth_request_get_var_expand_table(auth_request,
-							     ldap_escape));
+		var_expand(str, conn->set.user_filter, vars);
 		filter = str_c(str);
 	}
 
@@ -192,7 +196,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 			       conn->set.base, conn->set.scope, filter,
 			       t_strarray_join(attr_names, ","));
 
-	db_ldap_search(conn, conn->set.base, conn->set.ldap_scope,
+	db_ldap_search(conn, base, conn->set.ldap_scope,
 		       filter, userdb_ldap_conn->attr_names,
 		       &request->request);
 }
