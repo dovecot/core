@@ -44,10 +44,9 @@ index:
    does the syncing really need to be there? maybe put it into separate
    function which can be called after set_lock() by functions which actually
    care about the sync state (fetch, search, store, etc).
- - read-only support so we could use an index where we don't have
-   write-access? we should use MAP_PRIVATE everywhere with these boxes to
-   make sure we don't get exploited .. and anyway recheck everything to make
-   sure there wouldn't be a way to exploit them.
+ - read-only support for mailboxes where we don't have write-access? Could be
+   a bigger job. At least the mmap()ed file contents can't be trusted since
+   they might change at any time.
  - if index was just rebuilt, modify log complains about indexid mismatch
    at first open
  - does append work?
@@ -120,9 +119,6 @@ general:
    error" with a timestamp and the real error would be written into syslog.
    all errors from lib-index should be done this, and maybe some/all
    lib-storage errors as well (there's separate error vs. critical)
- - mmap()ing large messages isn't very good idea. we need to support doing
-   everything in pieces .. add mmap() support for iobuffers, and use them
-   everywhere?
  - Make sure messages of size INT_MAX..UINT_MAX work correctly
  - allocating readwrite pools now just uses system_pool .. so pool_unref()
    can't free memory used by it .. what to do about it? at least count the
@@ -130,6 +126,16 @@ general:
  - put IMAP_LOGFILE into config file. and the timestamp format.
  - SIGHUPing master should reload the configuration
  - Something's wrong with expunging mails from maildir ..
+ - io_buffer_fd_ref() .. unref() and destroy() would close if refcount = 0?
+   annoying those close(inbuf->fd)s with open_mail()..
+ - PAM: support some options so /etc/passwd-lookup isn't needed. uid=x, gid=y,
+   mailroot=/var/mail. maildirs should be then created when needed
+ - check for "../" folder names with mbox
+ - check that (off_t) castings are safe
+ - IOBuffer is a bit confusing and weird. especially the offset-parameter
+   works strangely.. And maybe split it into IBuffer and OBuffer?
+ - optimize imap_message_send() by using a buffer. most mails don't have long
+   lines and without a buffer it creates tons of write() calls.
 
 optional optimizations:
  - provide some helper binary to save new mail into mailboxes with CR+LF
