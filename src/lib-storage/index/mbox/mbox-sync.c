@@ -467,7 +467,7 @@ mbox_write_from_line(struct mbox_sync_mail_context *ctx)
 	return 0;
 }
 
-static int update_from_offsets(struct mbox_sync_context *sync_ctx)
+static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 {
 	const struct mbox_sync_mail *mails;
 	uint32_t idx, extra_idx;
@@ -488,10 +488,9 @@ static int update_from_offsets(struct mbox_sync_context *sync_ctx)
 		mail_index_update_extra_rec(sync_ctx->t, mails[idx].idx_seq,
 					    extra_idx, &offset);
 	}
-	return 0;
 }
 
-static int mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
+static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 {
 	mail_ctx->mail.offset = mail_ctx->mail.from_offset;
 	mail_ctx->mail.space =
@@ -506,7 +505,6 @@ static int mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 	}
 
 	mail_ctx->sync_ctx->expunged_space += mail_ctx->mail.space;
-	return 0;
 }
 
 static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
@@ -602,8 +600,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 			      sync_ctx->need_space_seq, sync_ctx->seq) < 0)
 		return -1;
 
-	if (update_from_offsets(sync_ctx) < 0)
-		return -1;
+	update_from_offsets(sync_ctx);
 
 	/* mail_ctx may contain wrong data after rewrite, so make sure we
 	   don't try to access it */
@@ -774,14 +771,13 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		mail_ctx->mail.idx_seq = sync_ctx->idx_seq;
 
 		if (!expunged) {
-			ret = mbox_sync_handle_header(mail_ctx);
+			if (mbox_sync_handle_header(mail_ctx) < 0)
+				return -1;
 			sync_ctx->dest_first_mail = FALSE;
 		} else {
 			mail_ctx->mail.uid = 0;
-			ret = mbox_sync_handle_expunge(mail_ctx);
+			mbox_sync_handle_expunge(mail_ctx);
 		}
-		if (ret < 0)
-			return -1;
 
 		if (!mail_ctx->pseudo) {
 			if (!expunged) {
@@ -897,8 +893,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 				return -1;
 		}
 
-		if (update_from_offsets(sync_ctx) < 0)
-			return -1;
+		update_from_offsets(sync_ctx);
 
 		sync_ctx->need_space_seq = 0;
 		buffer_set_used_size(sync_ctx->mails, 0);
