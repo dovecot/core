@@ -1,3 +1,53 @@
+v0.99.5 2003-01-02  Timo Sirainen <tss@iki.fi>
+
+	* This release includes a lot of code cleanups, especially related to
+	  security. Direct buffer modifying was replaced in several places
+	  with a new buffer API, which provides a safe way to do it. Code that
+	  looks unsafe contains @UNSAFE tag to make auditing easier.
+
+	+ Support for SORT extension. Originally I thought about not
+	  implementing any extensions before 1.0, but too many people want
+	  webmails which want SORT. THREAD is another extension which they
+	  want, but we don't support it yet.
+	+ imap_listen and imaps_listen settings now accept "*" and "::" to
+	  specify if we want to listen in IPv4 or IPv6 addresses. "::" may
+	  also listen in all IPv4 addresses depending on the OS (Linux does,
+	  BSD doesn't)
+	+ New setting: default_mail_env can be used to specify where to find
+	  users mailbox. Default is still to use autodetection.
+	+ New setting: imap_log_path to log logins etc. informational messages
+	  to different file.
+	+ We support now separate mbox file for INBOX folder, no need for
+	  symlink kludging anymore.
+	+ Support for keeping index files in different location than actual
+	  mailboxes.
+	? Disabled mailbox_check_interval setting by default, it breaks
+	  Evolution.
+	- SEARCH was still somewhat buggy, especially with laggy networks.
+	  Also body/header searches might have crashed or at least used
+	  memory too much
+	- Deleting messages in the middle of mbox caused dovecot to reindex
+	  the following messages as new messages (ie. change UIDs and set
+	  \Recent flag).
+	- Digest-MD5 auth: Initial server challenge packet was missing a comma,
+	  which might have made it incompatible with some implementations.
+	- Some more fixes to unnecessarily high memory usage
+	- SELECT and EXAMINE often printed UNSEEN reply or maybe complained
+	  about corrupted indexes. Happened usually only with mbox.
+	- FETCH BODYSTRUCTURE gave incorrect reply, breaking pine
+	- LIST was pretty buggy with mbox subfolders
+	- CHECK command returned just "missing parameters" error
+	- DELETE didn't work with mbox folders
+	- CREATE mailbox<hierarchy separator> failed always.
+	- CREATE and RENAME didn't create required hierarchies with mbox
+	- RFC822 date parser didn't handle single digit days correctly.
+	- login_process_per_connection = yes didn't work with imaps port
+	  connections which is exactly where it was mostly wanted.
+	- ssl_disabled = yes didn't disable listening in imaps port
+	- process limiting code didn't compile everywhere (eg. FreeBSD).
+	- Linux sendfile() was never detected
+	- We didn't work at all with gcc/PowerPC
+
 v0.99.4 2002-12-01  Timo Sirainen <tss@iki.fi>
 
 	- Command parser had several bugs when it didn't have enough data to
