@@ -9,6 +9,14 @@
 #include <dirent.h>
 #include <dlfcn.h>
 
+#ifndef RTLD_GLOBAL
+#  define RTLD_GLOBAL 0
+#endif
+
+#ifndef RTLD_NOW
+#  define RTLD_NOW 0
+#endif
+
 static void *get_symbol(const char *path, void *handle, const char *symbol)
 {
 	const char *error;
