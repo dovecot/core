@@ -55,6 +55,7 @@ static int seek_partial(unsigned int select_counter, unsigned int uid,
 		partial->select_counter = select_counter;
 		partial->uid = uid;
 		partial->physical_start = physical_start;
+		partial->cr_skipped = FALSE;
 		memset(&partial->pos, 0, sizeof(partial->pos));
 	}
 
