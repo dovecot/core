@@ -614,10 +614,6 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 		str_append(str, " (");
                 subargs = IMAP_ARG_LIST(args)->args;
 		for (; subargs->type != IMAP_ARG_EOL; ) {
-			if (subargs[0].type != IMAP_ARG_STRING ||
-			    subargs[1].type != IMAP_ARG_STRING)
-				return FALSE;
-
 			if (!str_append_imap_arg(str, &subargs[0]))
 				return FALSE;
 			str_append_c(str, ' ');
@@ -695,9 +691,8 @@ const char *imap_body_parse_from_bodystructure(const char *bodystructure)
 	(void)i_stream_read(input);
 
 	parser = imap_parser_create(input, NULL, (size_t)-1);
-	ret = imap_parser_read_args(parser, 0, IMAP_PARSE_FLAG_NO_UNESCAPE |
-				    IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
-
+	ret = imap_parser_finish_line(parser, 0, IMAP_PARSE_FLAG_NO_UNESCAPE |
+				      IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
 	if (ret <= 0 || !imap_parse_bodystructure_args(args, str))
 		value = NULL;
 	else

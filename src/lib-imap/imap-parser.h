@@ -95,6 +95,12 @@ const char *imap_parser_get_error(struct imap_parser *parser, int *fatal);
 int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 			  enum imap_parser_flags flags, struct imap_arg **args);
 
+/* just like imap_parser_read_args(), but assume \n at end of data in
+   input stream. */
+int imap_parser_finish_line(struct imap_parser *parser, unsigned int count,
+			    enum imap_parser_flags flags,
+			    struct imap_arg **args);
+
 /* Read one word - used for reading tag and command name.
    Returns NULL if more data is needed. */
 const char *imap_parser_read_word(struct imap_parser *parser);
