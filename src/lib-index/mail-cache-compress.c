@@ -265,5 +265,5 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 
 int mail_cache_need_compress(struct mail_cache *cache)
 {
-	return cache->need_compress;
+	return FALSE; //FIXME:cache->need_compress;
 }
