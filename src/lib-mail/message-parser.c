@@ -329,12 +329,10 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 			continue;
 		}
 
-		if (ret < 0) {
-			/* EOF, but we may still have something in buffer.
-			   this is needed only when there's no message body */
-			msg = io_buffer_get_data(inbuf, &size);
-			if (size == startpos)
-				break;
+		if (ret < 0 || (ret == 0 && size == startpos)) {
+			/* EOF and nothing in buffer. the later check is
+			   needed only when there's no message body */
+			break;
 		}
 
 		for (i = startpos; i < size; i++) {
@@ -573,10 +571,8 @@ static MessagePart *message_skip_boundary(IOBuffer *inbuf,
 
 	/* now, see if it's end boundary */
 	end_boundary = FALSE;
-	if (io_buffer_read_data_blocking(inbuf, &msg, &size, 1) > 0) {
-		i_assert(size >= 2);
+	if (io_buffer_read_data_blocking(inbuf, &msg, &size, 1) > 0)
 		end_boundary = msg[0] == '-' && msg[1] == '-';
-	}
 
 	/* skip the rest of the line */
 	message_skip_line(inbuf, boundary_size);

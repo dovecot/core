@@ -79,7 +79,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	MailIndexUpdate *update;
         MboxHeaderContext ctx;
 	time_t internal_date;
-	uoff_t abs_start_offset, stop_offset, old_size;
+	uoff_t abs_start_offset, stop_offset;
 	unsigned char *data, md5_digest[16];
 	size_t size, pos;
 	int failed;
@@ -135,13 +135,12 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	   side effects?) */
 	mbox_header_init_context(&ctx, index);
 
-        old_size = inbuf->size;
-	inbuf->size = stop_offset;
 	io_buffer_seek(inbuf, abs_start_offset - inbuf->start_offset);
 
+	io_buffer_set_read_limit(inbuf, stop_offset);
 	mail_index_update_headers(update, inbuf, 0, mbox_header_func, &ctx);
+	io_buffer_set_read_limit(inbuf, 0);
 
-	inbuf->size = old_size;
 	io_buffer_seek(inbuf, stop_offset);
 
 	/* save MD5 */

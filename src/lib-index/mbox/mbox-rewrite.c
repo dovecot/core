@@ -183,7 +183,9 @@ static int mbox_write_header(MailIndex *index,
 	ctx.msg_flags = rec->msg_flags;
 	ctx.custom_flags = custom_flags;
 
+	io_buffer_set_read_limit(inbuf, inbuf->offset + rec->header_size);
 	message_parse_header(NULL, inbuf, &hdr_size, header_func, &ctx);
+	io_buffer_set_read_limit(inbuf, 0);
 
 	i_assert(hdr_size.physical_size == rec->header_size);
 

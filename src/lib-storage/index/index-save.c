@@ -49,7 +49,7 @@ int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 
 	failed = FALSE;
 	while (data_size > 0) {
-		ret = io_buffer_read_blocking(buf, SSIZE_T_MAX);
+		ret = io_buffer_read_blocking(buf);
 		if (ret < 0) {
 			mail_storage_set_critical(storage,
 						  "Error reading mail: %m");

@@ -118,6 +118,7 @@ IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
 
 	buf->start_offset = start_offset;
 	buf->size = size > 0 ? size : stop_offset - start_offset;
+	buf->limit = buf->size;
 
 	buf->skip = buf->pos = buf->start_offset;
 	return buf;
@@ -133,8 +134,12 @@ void io_buffer_destroy(IOBuffer *buf)
 	if (buf->buffer != NULL) {
 		if (!buf->mmaped)
 			p_free(buf->pool, buf->buffer);
-		else
-			(void)munmap(buf->buffer, buf->buffer_size);
+		else {
+			if (munmap(buf->buffer, buf->buffer_size) < 0) {
+				i_error("io_buffer_destroy(): "
+					"munmap() failed: %m");
+			}
+		}
 	}
         p_free(buf->pool, buf);
 }
@@ -153,7 +158,8 @@ void io_buffer_reset(IOBuffer *buf)
 	buf->last_cr = FALSE;
 
 	if (buf->mmaped && buf->buffer != NULL) {
-		(void)munmap(buf->buffer, buf->buffer_size);
+		if (munmap(buf->buffer, buf->buffer_size) < 0)
+			i_error("io_buffer_reset(): munmap() failed: %m");
 		buf->buffer = NULL;
 		buf->buffer_size = 0;
 	}
@@ -579,6 +585,7 @@ int io_buffer_send_iobuffer(IOBuffer *outbuf, IOBuffer *inbuf, uoff_t size)
 	int ret;
 
 	i_assert(size < OFF_T_MAX);
+	i_assert(inbuf->limit > 0 || size <= inbuf->limit - inbuf->offset);
 
 	ret = io_buffer_sendfile(outbuf, inbuf, size);
 	if (ret > 0 || errno != EINVAL)
@@ -621,15 +628,27 @@ void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 	buf->flush_context = context;
 }
 
-static ssize_t io_buffer_read_mmaped(IOBuffer *buf, size_t size)
+static ssize_t io_buffer_set_mmaped_pos(IOBuffer *buf)
 {
-	uoff_t stop_offset;
+	buf->pos = buf->buffer_size;
+	if (buf->pos - buf->skip > buf->limit - buf->offset)
+		buf->pos = buf->limit - buf->offset + buf->skip;
+	return buf->pos - buf->skip;
+}
+
+static ssize_t io_buffer_read_mmaped(IOBuffer *buf)
+{
 	size_t aligned_skip;
 
-	stop_offset = buf->start_offset + buf->size;
-	if (stop_offset - buf->mmap_offset <= buf->buffer_size) {
-		/* end of file is already mapped */
+	if (buf->start_offset + buf->limit <=
+	    (uoff_t)buf->mmap_offset + buf->pos) {
+		/* end of file */
 		return -1;
+	}
+
+	if (buf->pos < buf->buffer_size) {
+		/* more bytes available without needing to mmap() */
+		return io_buffer_set_mmaped_pos(buf);
 	}
 
 	aligned_skip = buf->skip & ~mmap_pagemask;
@@ -641,14 +660,17 @@ static ssize_t io_buffer_read_mmaped(IOBuffer *buf, size_t size)
 	buf->skip -= aligned_skip;
 	buf->mmap_offset += aligned_skip;
 
-	if (buf->buffer != NULL)
-		(void)munmap(buf->buffer, buf->buffer_size);
+	if (buf->buffer != NULL) {
+		if (munmap(buf->buffer, buf->buffer_size) < 0)
+			i_error("io_buffer_read_mmaped(): munmap() failed: %m");
+	}
 
-	buf->buffer_size = stop_offset - buf->mmap_offset;
+	buf->buffer_size = buf->start_offset + buf->size - buf->mmap_offset;
 	if (buf->buffer_size > buf->max_buffer_size)
 		buf->buffer_size = buf->max_buffer_size;
-	if (buf->buffer_size > size + buf->skip)
-		buf->buffer_size = size + buf->skip;
+
+	i_assert((uoff_t)buf->mmap_offset + buf->buffer_size <=
+		 buf->start_offset + buf->size);
 
 	buf->buffer = mmap(NULL, buf->buffer_size, PROT_READ, MAP_PRIVATE,
 			   buf->fd, buf->mmap_offset);
@@ -660,20 +682,29 @@ static ssize_t io_buffer_read_mmaped(IOBuffer *buf, size_t size)
 
 	(void)madvise(buf->buffer, buf->buffer_size, MADV_SEQUENTIAL);
 
-	buf->pos = buf->buffer_size;
-	return buf->buffer_size - buf->skip;
+	return io_buffer_set_mmaped_pos(buf);
+}
+
+void io_buffer_set_read_limit(IOBuffer *inbuf, uoff_t offset)
+{
+	i_assert(offset <= inbuf->size);
+
+	if (offset == 0)
+		inbuf->limit = inbuf->size;
+	else {
+		i_assert(offset >= inbuf->offset);
+
+		inbuf->limit = offset;
+		if (inbuf->offset + (inbuf->pos - inbuf->skip) > offset)
+			inbuf->pos = offset - inbuf->offset + inbuf->skip;
+	}
 }
 
 ssize_t io_buffer_read(IOBuffer *buf)
 {
-        return io_buffer_read_max(buf, SSIZE_T_MAX);
-}
-
-ssize_t io_buffer_read_max(IOBuffer *buf, size_t size)
-{
+	size_t size;
 	ssize_t ret;
 
-	i_assert(size <= SSIZE_T_MAX);
 	i_assert(!buf->transmit);
 	buf->receive = TRUE;
 
@@ -681,7 +712,7 @@ ssize_t io_buffer_read_max(IOBuffer *buf, size_t size)
 		return -1;
 
 	if (buf->mmaped)
-		return io_buffer_read_mmaped(buf, size);
+		return io_buffer_read_mmaped(buf);
 
 	if (buf->pos == buf->buffer_size) {
 		if (buf->skip > 0) {
@@ -697,14 +728,21 @@ ssize_t io_buffer_read_max(IOBuffer *buf, size_t size)
                         return -2; /* buffer full */
 	}
 
-        /* fill the buffer */
-	if (buf->buffer_size-buf->pos < size)
-		size = buf->buffer_size - buf->pos;
+	size = buf->buffer_size - buf->pos;
+	if (buf->limit > 0) {
+		i_assert(buf->limit >= buf->offset);
+		if (size >= buf->limit - buf->offset) {
+			size = buf->limit - buf->offset;
+			if (size == 0)
+				return -1;
+		}
+	}
 
+        /* fill the buffer */
 	if (!buf->file) {
 		ret = net_receive(buf->fd, buf->buffer + buf->pos, size);
 	} else {
-                ret = read(buf->fd, buf->buffer + buf->pos, size);
+		ret = read(buf->fd, buf->buffer + buf->pos, size);
 		if (ret == 0)
 			ret = -1; /* EOF */
 		else if (ret < 0 && (errno == EINTR || errno == EAGAIN))
@@ -726,20 +764,20 @@ static void io_read_data(void *context, int fd __attr_unused__,
 {
 	IOBufferBlockContext *ctx = context;
 
-	if (io_buffer_read_max(ctx->inbuf, (size_t)ctx->size) != 0) {
+	if (io_buffer_read(ctx->inbuf) != 0) {
 		/* got data / error */
 		io_loop_stop(ctx->ioloop);
 	}
 }
 
-ssize_t io_buffer_read_blocking(IOBuffer *buf, size_t size)
+ssize_t io_buffer_read_blocking(IOBuffer *buf)
 {
         IOBufferBlockContext ctx;
 	Timeout to;
 	ssize_t ret;
 
 	/* first check if we can get some data */
-	ret = io_buffer_read_max(buf, size);
+	ret = io_buffer_read(buf);
 	if (ret != 0)
 		return ret;
 
@@ -749,7 +787,6 @@ ssize_t io_buffer_read_blocking(IOBuffer *buf, size_t size)
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.ioloop = io_loop_create();
 	ctx.inbuf = buf;
-	ctx.size = size;
 
 	buf->io = io_add(buf->fd, IO_READ, io_read_data, &ctx);
 	to = buf->timeout_msecs <= 0 ? NULL :
@@ -776,36 +813,36 @@ ssize_t io_buffer_read_blocking(IOBuffer *buf, size_t size)
 		(ssize_t) (buf->pos-buf->skip) : -1;
 }
 
-void io_buffer_skip(IOBuffer *buf, uoff_t size)
+void io_buffer_skip(IOBuffer *buf, uoff_t count)
 {
+	uoff_t old_limit;
 	ssize_t ret;
 
-	buf->offset += size;
+	buf->offset += count;
 
-	if (size <= buf->pos - buf->skip) {
-		buf->skip += size;
+	if (count <= buf->pos - buf->skip) {
+		buf->skip += count;
 		return;
 	}
 
 	if (buf->mmaped) {
 		/* these point outside mmap now, next io_buffer_read_mmaped()
 		   will fix them */
-		buf->skip += size;
+		buf->skip += count;
 		buf->pos = buf->skip;
 	} else {
 		if (buf->buffer_size == 0)
 			buffer_alloc_more(buf, IO_BUFFER_MIN_SIZE);
 
-		size -= buf->skip;
-		while (size > buf->buffer_size) {
-			ret = io_buffer_read_max(buf, buf->buffer_size);
-			if (ret <= 0)
-				break;
+		count -= buf->skip;
 
-			size -= ret;
-		}
+		old_limit = buf->limit;
+		io_buffer_set_read_limit(buf, buf->offset + count);
 
-		(void)io_buffer_read_max(buf, (size_t)size);
+		while ((ret = io_buffer_read_blocking(buf)) > 0)
+			io_buffer_skip(buf, ret);
+
+		io_buffer_set_read_limit(buf, old_limit);
 	}
 }
 
@@ -900,19 +937,19 @@ int io_buffer_read_data_blocking(IOBuffer *buf, unsigned char **data,
 {
 	ssize_t ret;
 
-	if (buf->pos - buf->skip <= threshold) {
+	while (buf->pos - buf->skip <= threshold) {
 		/* we need more data */
-		ret = io_buffer_read_blocking(buf, SSIZE_T_MAX);
+		ret = io_buffer_read_blocking(buf);
 		if (ret < 0) {
-			*size = 0;
-			*data = NULL;
-			return ret;
+			if (ret == -2)
+				return -2;
+			else
+				break;
 		}
 	}
 
 	*data = io_buffer_get_data(buf, size);
-	i_assert(*size > 0);
-	return 1;
+	return *size > threshold ? 1 : *size > 0 ? 0 : -1;
 }
 
 unsigned char *io_buffer_get_space(IOBuffer *buf, size_t size)

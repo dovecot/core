@@ -11,7 +11,7 @@ struct _IOBuffer {
 	int fd;
 
 	uoff_t start_offset;
-	uoff_t offset, size; /* virtual offset, 0 = start_offset */
+	uoff_t offset, size, limit; /* virtual offsets, 0 = start_offset */
 	int buf_errno; /* set when write() or read() failed. */
 
 /* private: */
@@ -106,19 +106,20 @@ void io_buffer_send_flush(IOBuffer *buf);
 void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 				   void *context);
 
+/* IO buffer won't be read past specified offset. Giving 0 as offset removes
+   the limit. */
+void io_buffer_set_read_limit(IOBuffer *inbuf, uoff_t offset);
+
 /* Returns number of bytes read if read was ok,
    -1 if disconnected / EOF, -2 if the buffer is full */
 ssize_t io_buffer_read(IOBuffer *buf);
-/* Like io_buffer_read(), but don't read more than specified size. */
-ssize_t io_buffer_read_max(IOBuffer *buf, size_t size);
 /* Blocking read, doesn't return until at least one byte is read, or until
    socket is disconnected or timeout has occured. Note that the fd must be
-   nonblocking, or the timeout doesn't work. If you don't want limit size,
-   set it to SSIZE_T_MAX. Returns number of bytes read (never 0), -1 if
-   error or -2 if buffer is full. */
-ssize_t io_buffer_read_blocking(IOBuffer *buf, size_t size);
+   nonblocking, or the timeout doesn't work. Returns number of bytes read
+   (never 0), -1 if error or -2 if buffer is full. */
+ssize_t io_buffer_read_blocking(IOBuffer *buf);
 /* Skip forward a number of bytes */
-void io_buffer_skip(IOBuffer *buf, uoff_t size);
+void io_buffer_skip(IOBuffer *buf, uoff_t count);
 /* Seek to specified position from beginning of file. This works only for
    files. Returns TRUE if successful. */
 int io_buffer_seek(IOBuffer *buf, uoff_t offset);
@@ -129,9 +130,9 @@ char *io_buffer_next_line(IOBuffer *buf);
 /* Returns pointer to beginning of data in buffer,
    or NULL if there's no data. */
 unsigned char *io_buffer_get_data(IOBuffer *buf, size_t *size);
-/* Like io_buffer_get_data(), but read it when needed. There always must be
-   more than `threshold' bytes in buffer. Returns 1 if data was read,
-   -1 if EOF / error */
+/* Like io_buffer_get_data(), but read it when needed. Returns 1 if more
+   than threshold bytes were stored into buffer, 0 if less, -1 if error or
+   EOF with no bytes in buffer or -2 if buffer is full. */
 int io_buffer_read_data_blocking(IOBuffer *buf, unsigned char **data,
 				 size_t *size, size_t threshold);
 

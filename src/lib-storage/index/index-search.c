@@ -473,34 +473,37 @@ static void search_arg_match_data(IOBuffer *inbuf, uoff_t max_size,
 				  MailSearchForeachFunc search_func)
 {
 	SearchTextContext ctx;
-	size_t size;
-	ssize_t ret;
+	unsigned char *data;
+	size_t size, max_searchword_len;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.args = args;
 
+	/* first get the max. search keyword length */
+	mail_search_args_foreach(args, search_func, &ctx);
+        max_searchword_len = ctx.max_searchword_len;
+
+	io_buffer_set_read_limit(inbuf, inbuf->offset + max_size);
+
 	/* do this in blocks: read data, compare it for all search words, skip
 	   for block size - (strlen(largest_searchword)-1) and continue. */
-	while (max_size > 0) {
-		size = max_size < SSIZE_T_MAX ? max_size : SSIZE_T_MAX;
-		if ((ret = io_buffer_read_max(inbuf, size)) < 0)
-			break;
-
-		ctx.msg = io_buffer_get_data(inbuf, &size);
-		if (size > 0) {
-			if (size > max_size)
-				size = max_size;
-
-			ctx.size = size;
-			mail_search_args_foreach(args, search_func, &ctx);
-
-			if (ctx.max_searchword_len < size && size < max_size)
-				size -= ctx.max_searchword_len-1;
-
-			max_size -= size;
-			io_buffer_skip(inbuf, size);
-		}
+	while (io_buffer_read_data_blocking(inbuf, &data, &size,
+					    max_searchword_len-1) > 0) {
+		ctx.msg = data;
+		ctx.size = size;
+		mail_search_args_foreach(args, search_func, &ctx);
+		io_buffer_skip(inbuf, size - (max_searchword_len-1));
 	}
+
+	if (size > 0) {
+		/* last block */
+		ctx.msg = data;
+		ctx.size = size;
+		mail_search_args_foreach(args, search_func, &ctx);
+		io_buffer_skip(inbuf, size);
+	}
+
+	io_buffer_set_read_limit(inbuf, 0);
 }
 
 static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
