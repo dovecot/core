@@ -627,7 +627,11 @@ static off_t o_buffer_sendfile(_OBuffer *outbuf, IBuffer *inbuf)
 	if (s_ret < 0) {
 		if (errno != EINTR && errno != EAGAIN) {
 			outbuf->obuffer.buf_errno = errno;
-			buffer_closed(foutbuf);
+			if (errno != EINVAL) {
+				/* close only if error wasn't because
+				   sendfile() isn't supported */
+				buffer_closed(foutbuf);
+			}
 			return -1;
 		}
 		s_ret = 0;
@@ -672,6 +676,9 @@ static off_t _send_ibuffer(_OBuffer *outbuf, IBuffer *inbuf)
 	ret = o_buffer_sendfile(outbuf, inbuf);
 	if (ret >= 0 || outbuf->obuffer.buf_errno != EINVAL)
 		return ret;
+
+	/* sendfile() not supported, reset error */
+	outbuf->obuffer.buf_errno = 0;
 
 	/* sendfile() not supported (with this fd), fallback to
 	   regular sending */
