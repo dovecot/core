@@ -10,9 +10,15 @@ INCLUDES = \
 libstorage_a_SOURCES = \
 	mail-save.c \
 	mail-search.c \
-	mail-storage.c
+	mail-storage.c \
+	proxy-mail.c \
+	proxy-mail-storage.c \
+	proxy-mailbox.c
 
 noinst_HEADERS = \
 	mail-save.h \
 	mail-search.h \
-	mail-storage.h
+	mail-storage.h \
+	proxy-mail.h \
+	proxy-mail-storage.h \
+	proxy-mailbox.h
