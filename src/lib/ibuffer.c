@@ -148,21 +148,6 @@ int i_buffer_seek(IBuffer *buf, uoff_t v_offset)
 	return _buf->seek(_buf, v_offset);
 }
 
-/* skip the first LF, if it exists */
-static void i_buffer_skip_lf(_IBuffer *_buf)
-{
-	if (!_buf->last_cr || _buf->skip >= _buf->pos)
-		return;
-
-	if (_buf->buffer[_buf->skip] == 10) {
-		if (_buf->skip == _buf->cr_lookup_pos)
-			_buf->cr_lookup_pos++;
-		_buf->skip++;
-		_buf->ibuffer.v_offset++;
-	}
-	_buf->last_cr = FALSE;
-}
-
 char *i_buffer_next_line(IBuffer *buf)
 {
 	_IBuffer *_buf = buf->real_buffer;
@@ -171,7 +156,6 @@ char *i_buffer_next_line(IBuffer *buf)
 
         i_assert(buf != NULL);
 
-	i_buffer_skip_lf(_buf);
 	if (_buf->skip >= _buf->pos)
 		return NULL;
 
@@ -182,12 +166,13 @@ char *i_buffer_next_line(IBuffer *buf)
 
 	ret_buf = NULL;
 	for (i = _buf->cr_lookup_pos; i < _buf->pos; i++) {
-		if (_buf->buffer[i] == 13 || _buf->buffer[i] == 10) {
+		if (_buf->buffer[i] == 10) {
 			/* got it */
-			_buf->last_cr = _buf->buffer[i] == 13;
-
+			if (i > 0 && _buf->buffer[i-1] == '\r')
+				_buf->w_buffer[i-1] = '\0';
+			else
+				_buf->w_buffer[i] = '\0';
 			ret_buf = (char *) _buf->buffer + _buf->skip;
-			_buf->w_buffer[i] = '\0';
 
 			i++;
 			buf->v_offset += i - _buf->skip;
@@ -203,8 +188,6 @@ char *i_buffer_next_line(IBuffer *buf)
 const unsigned char *i_buffer_get_data(IBuffer *buf, size_t *size)
 {
 	_IBuffer *_buf = buf->real_buffer;
-
-	i_buffer_skip_lf(_buf);
 
 	if (_buf->skip >= _buf->pos) {
 		*size = 0;
