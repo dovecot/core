@@ -159,12 +159,12 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 				   auth_request->realm, NULL);
 	}
 
-	if (conn->set.filter == NULL) {
+	if (conn->set.pass_filter == NULL) {
 		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
 			passdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER], user);
 	} else {
 		str = t_str_new(512);
-		var_expand(str, conn->set.filter, user, NULL);
+		var_expand(str, conn->set.pass_filter, user, NULL);
 		filter = str_c(str);
 	}
 
@@ -211,8 +211,8 @@ static void passdb_ldap_init(const char *args)
 	passdb_ldap_conn = i_new(struct passdb_ldap_connection, 1);
 	passdb_ldap_conn->conn = conn = db_ldap_init(args);
 
-	db_ldap_set_attrs(conn, conn->set.attrs ?
-			  conn->set.attrs : DEFAULT_ATTRIBUTES,
+	db_ldap_set_attrs(conn, conn->set.pass_attrs ?
+			  conn->set.pass_attrs : DEFAULT_ATTRIBUTES,
 			  &passdb_ldap_conn->attrs,
 			  &passdb_ldap_conn->attr_names);
 }

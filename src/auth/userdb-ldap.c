@@ -144,12 +144,12 @@ static void userdb_ldap_lookup(const char *user, const char *realm,
 	if (realm != NULL)
 		user = t_strconcat(user, "@", realm, NULL);
 
-	if (conn->set.filter == NULL) {
+	if (conn->set.user_filter == NULL) {
 		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
 			userdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER], user);
 	} else {
 		str = t_str_new(512);
-		var_expand(str, conn->set.filter, user, NULL);
+		var_expand(str, conn->set.user_filter, user, NULL);
 		filter = str_c(str);
 	}
 
@@ -170,8 +170,8 @@ static void userdb_ldap_init(const char *args)
 	userdb_ldap_conn = i_new(struct userdb_ldap_connection, 1);
 	userdb_ldap_conn->conn = conn = db_ldap_init(args);
 
-	db_ldap_set_attrs(conn, conn->set.attrs ?
-			  conn->set.attrs : DEFAULT_ATTRIBUTES,
+	db_ldap_set_attrs(conn, conn->set.user_attrs ?
+			  conn->set.user_attrs : DEFAULT_ATTRIBUTES,
 			  &userdb_ldap_conn->attrs,
 			  &userdb_ldap_conn->attr_names);
 }

@@ -29,8 +29,10 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, deref),
 	DEF(SET_STR, scope),
 	DEF(SET_STR, base),
-	DEF(SET_STR, attrs),
-	DEF(SET_STR, filter)
+	DEF(SET_STR, user_attrs),
+	DEF(SET_STR, user_filter),
+	DEF(SET_STR, pass_attrs),
+	DEF(SET_STR, pass_filter)
 };
 
 struct ldap_settings default_ldap_settings = {
@@ -40,8 +42,10 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(deref) "never",
 	MEMBER(scope) "subtree",
 	MEMBER(base) NULL,
-	MEMBER(attrs) NULL,
-	MEMBER(filter) NULL
+	MEMBER(user_attrs) NULL,
+	MEMBER(user_filter) NULL,
+	MEMBER(pass_attrs) NULL,
+	MEMBER(pass_filter) NULL
 };
 
 static int ldap_conn_open(struct ldap_connection *conn);
