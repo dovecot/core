@@ -150,8 +150,10 @@ static ssize_t _read(struct _istream *stream)
 	if (ret < 0) {
 		if (ret == -2) {
 			if (stream->istream.v_offset + pos ==
-			    rstream->input_peak_offset)
+			    rstream->input_peak_offset) {
+				stream->buffer = buf;
 				return -2;
+			}
 		} else {
 			/* we've read the whole file, final byte should be
 			   the \n trailer */
