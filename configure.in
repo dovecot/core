@@ -1,4 +1,4 @@
-AC_INIT(dovecot, 1.0-test60, [dovecot@dovecot.org])
+AC_INIT(dovecot, 1.0-test62, [dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AC_CONFIG_HEADERS([config.h])
@@ -243,10 +243,6 @@ if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
 	], [
 	  CFLAGS="$old_cflags"
 	])
-
-	# say specifically that we want C99 features.
-	# we can make use of GNU features as well, so don't use -std=c99.
-	CFLAGS="$CFLAGS -std=gnu99"
 fi
 
 dnl **
