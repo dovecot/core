@@ -20,8 +20,6 @@ struct Pool {
 
 	/* reallocate the `mem' to be exactly `size' */
 	void *(*realloc)(Pool pool, void *mem, size_t size);
-	/* reallocate the `mem' to be at least `size' if it wasn't previously */
-	void *(*realloc_min)(Pool pool, void *mem, size_t size);
 
 	/* Frees all the memory in pool. NOTE: system_pool doesn't support
 	   this and crashes if it's used */
@@ -44,7 +42,6 @@ Pool pool_alloconly_create(const char *name, size_t size);
 
 #define p_malloc(pool, size) (pool)->malloc(pool, size)
 #define p_realloc(pool, mem, size) (pool)->realloc(pool, mem, size)
-#define p_realloc_min(pool, mem, size) (pool)->realloc_min(pool, mem, size)
 #define p_free(pool, mem) (pool)->free(pool, mem)
 
 #define p_clear(pool) (pool)->clear(pool)

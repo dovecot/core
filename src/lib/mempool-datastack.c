@@ -41,7 +41,6 @@ static void pool_data_stack_unref(Pool pool);
 static void *pool_data_stack_malloc(Pool pool, size_t size);
 static void pool_data_stack_free(Pool pool, void *mem);
 static void *pool_data_stack_realloc(Pool pool, void *mem, size_t size);
-static void *pool_data_stack_realloc_min(Pool pool, void *mem, size_t size);
 static void pool_data_stack_clear(Pool pool);
 
 static struct Pool static_data_stack_pool = {
@@ -52,7 +51,6 @@ static struct Pool static_data_stack_pool = {
 	pool_data_stack_free,
 
 	pool_data_stack_realloc,
-	pool_data_stack_realloc_min,
 
 	pool_data_stack_clear
 };
@@ -85,13 +83,8 @@ static void pool_data_stack_free(Pool pool __attr_unused__,
 {
 }
 
-static void *pool_data_stack_realloc(Pool pool, void *mem, size_t size)
-{
-	return pool_data_stack_realloc_min(pool, mem, size);
-}
-
-static void *pool_data_stack_realloc_min(Pool pool __attr_unused__,
-					 void *mem, size_t size)
+static void *pool_data_stack_realloc(Pool pool __attr_unused__,
+				     void *mem, size_t size)
 {
 	/* @UNSAFE */
 	PoolAlloc *alloc, *new_alloc;

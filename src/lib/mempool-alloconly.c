@@ -40,7 +40,6 @@ typedef struct {
 	int refcount;
 
 	PoolBlock *block;
-	size_t last_alloc_size;
 
 	char name[MEM_ALIGN_SIZE]; /* variable size */
 } AlloconlyPool;
@@ -51,6 +50,7 @@ struct _PoolBlock {
 
 	size_t size;
 	size_t left;
+	size_t last_alloc_size;
 
 	/* unsigned char data[]; */
 };
@@ -73,7 +73,6 @@ static void pool_alloconly_unref(Pool pool);
 static void *pool_alloconly_malloc(Pool pool, size_t size);
 static void pool_alloconly_free(Pool pool, void *mem);
 static void *pool_alloconly_realloc(Pool pool, void *mem, size_t size);
-static void *pool_alloconly_realloc_min(Pool pool, void *mem, size_t size);
 static void pool_alloconly_clear(Pool pool);
 
 static void block_alloc(AlloconlyPool *pool, size_t size);
@@ -86,7 +85,6 @@ static struct Pool static_alloconly_pool = {
 	pool_alloconly_free,
 
 	pool_alloconly_realloc,
-	pool_alloconly_realloc_min,
 
 	pool_alloconly_clear
 };
@@ -139,12 +137,10 @@ static void block_alloc(AlloconlyPool *apool, size_t size)
 	PoolBlock *block;
 
 	/* each block is at least twice the size of the previous one */
-	if (apool->block != NULL)
+	if (apool->block != NULL && size <= apool->block->size)
 		size += apool->block->size;
 
-	if (size <= SIZEOF_POOLBLOCK)
-		size += SIZEOF_POOLBLOCK;
-	size = nearest_power(size);
+	size = nearest_power(size + SIZEOF_POOLBLOCK);
 
 #ifdef DEBUG
 	if (apool->block != NULL) {
@@ -183,7 +179,7 @@ static void *pool_alloconly_malloc(Pool pool, size_t size)
 	alloc->size.size = size;
 
 	apool->block->left -= size + SIZEOF_POOLALLOC;
-	apool->last_alloc_size = size;
+	apool->block->last_alloc_size = size;
 	return alloc->data;
 }
 
@@ -193,24 +189,18 @@ static void pool_alloconly_free(Pool pool __attr_unused__,
 	/* ignore */
 }
 
-static void *pool_alloconly_realloc(Pool pool, void *mem, size_t size)
-{
-	/* there's no point in shrinking the memory usage,
-	   so just do the same as realloc_min() */
-	return pool_alloconly_realloc_min(pool, mem, size);
-}
-
 static int pool_try_grow(AlloconlyPool *apool, void *mem, size_t size)
 {
 	/* see if we want to grow the memory we allocated last */
-	if (POOL_BLOCK_DATA(apool->block) + (apool->block->size -
-					     apool->block->left -
-					     apool->last_alloc_size) == mem) {
+	if (POOL_BLOCK_DATA(apool->block) +
+	    (apool->block->size - apool->block->left -
+	     apool->block->last_alloc_size) == mem) {
 		/* yeah, see if we can grow */
-		if (apool->block->left >= size-apool->last_alloc_size) {
+		if (apool->block->left >= size-apool->block->last_alloc_size) {
 			/* just shrink the available size */
-			apool->block->left -= size - apool->last_alloc_size;
-			apool->last_alloc_size = size;
+			apool->block->left -=
+				size - apool->block->last_alloc_size;
+			apool->block->last_alloc_size = size;
 			return TRUE;
 		}
 	}
@@ -218,7 +208,7 @@ static int pool_try_grow(AlloconlyPool *apool, void *mem, size_t size)
 	return FALSE;
 }
 
-static void *pool_alloconly_realloc_min(Pool pool, void *mem, size_t size)
+static void *pool_alloconly_realloc(Pool pool, void *mem, size_t size)
 {
 	AlloconlyPool *apool = (AlloconlyPool *) pool;
 	PoolAlloc *alloc;
@@ -228,16 +218,14 @@ static void *pool_alloconly_realloc_min(Pool pool, void *mem, size_t size)
 	if (size == 0 || size > SSIZE_T_MAX)
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
-	if (mem == NULL) {
-		alloc = NULL;
-		old_size = 0;
-	} else {
-		/* get old size */
-                alloc = (PoolAlloc *) ((char *) mem - SIZEOF_POOLALLOC);
-		old_size = alloc->size.size;
-	}
+	if (mem == NULL)
+		return pool_alloconly_malloc(pool, size);
 
-	if (old_size >= size)
+	/* get old size */
+	alloc = (PoolAlloc *) ((char *) mem - SIZEOF_POOLALLOC);
+	old_size = alloc->size.size;
+
+	if (size <= old_size)
 		return mem;
 
 	size = MEM_ALIGN(size);
@@ -275,6 +263,5 @@ static void pool_alloconly_clear(Pool pool)
 	memset(POOL_BLOCK_DATA(apool->block), 0,
 	       apool->block->size - apool->block->left);
 	apool->block->left = apool->block->size;
-
-	apool->last_alloc_size = 0;
+	apool->block->last_alloc_size = 0;
 }

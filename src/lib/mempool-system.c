@@ -43,7 +43,6 @@ static void pool_system_unref(Pool pool);
 static void *pool_system_malloc(Pool pool, size_t size);
 static void pool_system_free(Pool pool, void *mem);
 static void *pool_system_realloc(Pool pool, void *mem, size_t size);
-static void *pool_system_realloc_min(Pool pool, void *mem, size_t size);
 static void pool_system_clear(Pool pool);
 
 static struct Pool static_system_pool = {
@@ -54,7 +53,6 @@ static struct Pool static_system_pool = {
 	pool_system_free,
 
 	pool_system_realloc,
-	pool_system_realloc_min,
 
 	pool_system_clear
 };
@@ -122,25 +120,6 @@ static void *pool_system_realloc(Pool pool __attr_unused__, void *mem,
 	}
 
         return rmem;
-}
-
-static void *pool_system_realloc_min(Pool pool, void *mem, size_t size)
-{
-	PoolAlloc *alloc;
-        size_t old_size;
-
-	if (mem == NULL)
-		old_size = 0;
-	else {
-		/* get old size */
-                alloc = (PoolAlloc *) ((char *) mem - sizeof(PoolAlloc));
-		old_size = alloc->size.size;
-	}
-
-	if (old_size >= size)
-		return mem;
-	else
-                return pool_system_realloc(pool, mem, size);
 }
 
 static void pool_system_clear(Pool pool __attr_unused__)

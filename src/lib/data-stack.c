@@ -36,11 +36,6 @@
 
 #ifndef DISABLE_DATA_STACK
 
-/* Max. number of bytes to even try to allocate. This is done just to avoid
-   allocating less memory than was actually requested because of integer
-   overflows. */
-#define MAX_ALLOC_SIZE SSIZE_T_MAX
-
 /* Initial stack size - this should be kept in a size that doesn't exceed
    in a normal use to avoid extra malloc()ing. */
 #ifdef DEBUG
