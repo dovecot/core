@@ -199,7 +199,13 @@ static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 	const struct mail_index_header *hdr;
 	unsigned int records_count;
 
-	i_assert(map->buffer == NULL);
+	i_assert(!map->write_to_disk);
+
+	if (map->buffer != NULL) {
+		/* we had temporarily used a buffer, eg. for updating index */
+		buffer_free(map->buffer);
+		map->buffer = NULL;
+	}
 
 	map->mmap_base = index->lock_type != F_WRLCK ?
 		mmap_ro_file(index->fd, &map->mmap_size) :
@@ -352,6 +358,7 @@ int mail_index_map(struct mail_index *index, int force)
 		/* FIXME: we need to re-read header */
 	} else if (map->mmap_base != NULL) {
 		/* see if re-mmaping is needed (file has grown) */
+		i_assert(map->buffer == NULL);
 		hdr = map->mmap_base;
 
 		/* always check corrupted-flag to avoid errors later */
