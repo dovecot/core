@@ -455,6 +455,13 @@ static const char *parse_setting(const char *key, const char *value,
 				 void *context)
 {
 	struct settings *set = context;
+	const char *error;
+
+	/* check defaults first, there's a few login_ settings defined in it
+	   which need to be checked before trying to feed it to login
+	   handler.. */
+	error = parse_setting_from_defs(settings_pool, setting_defs,
+					set, key, value);
 
 	if (strcmp(key, "auth") == 0)
 		return parse_new_auth(set, value);
@@ -477,8 +484,7 @@ static const char *parse_setting(const char *key, const char *value,
 					       set->logins, key + 6, value);
 	}
 
-	return parse_setting_from_defs(settings_pool, setting_defs,
-				       set, key, value);
+	return error;
 }
 
 void master_settings_read(const char *path)
