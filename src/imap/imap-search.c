@@ -3,6 +3,7 @@
 #include "common.h"
 #include "mail-search.h"
 #include "imap-search.h"
+#include "imap-parser.h"
 
 struct search_build_data {
 	pool_t pool;

@@ -7,6 +7,7 @@
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
 #include "process-title.h"
+#include "mail-storage.h"
 
 #include <stdlib.h>
 #include <syslog.h>

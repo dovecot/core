@@ -33,6 +33,7 @@
 #include "str.h"
 #include "message-tokenize.h"
 #include "imap-base-subject.h"
+#include "mail-storage.h"
 #include "imap-thread.h"
 
 #include <stdlib.h>

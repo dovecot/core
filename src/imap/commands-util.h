@@ -1,6 +1,8 @@
 #ifndef __COMMANDS_UTIL_H
 #define __COMMANDS_UTIL_H
 
+struct mail_full_flags;
+
 /* If should_exist is TRUE, this function returns TRUE if the mailbox
    exists. If it doesn't exist but would be a valid mailbox name, the
    error message is prefixed with [TRYCREATE].

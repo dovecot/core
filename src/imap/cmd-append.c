@@ -7,6 +7,7 @@
 #include "commands.h"
 #include "imap-parser.h"
 #include "imap-date.h"
+#include "mail-storage.h"
 
 #include <sys/time.h>
 

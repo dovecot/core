@@ -11,6 +11,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "imap-base-subject.h"
+#include "mail-storage.h"
 #include "imap-sort.h"
 
 #include <stdlib.h>

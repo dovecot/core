@@ -1,10 +1,10 @@
 #ifndef __CLIENT_H
 #define __CLIENT_H
 
-#include "imap-parser.h"
-#include "mail-storage.h"
-
 struct client;
+struct mail_storage;
+struct imap_parser;
+struct imap_arg;
 
 typedef int client_command_func_t(struct client *client);
 

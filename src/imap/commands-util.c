@@ -4,6 +4,8 @@
 #include "str.h"
 #include "commands-util.h"
 #include "imap-util.h"
+#include "mail-storage.h"
+#include "imap-parser.h"
 
 /* Maximum length for mailbox name, including it's path. This isn't fully
    exact since the user can create folder hierarchy with small names, then

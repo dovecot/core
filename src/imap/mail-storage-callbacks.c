@@ -3,6 +3,7 @@
 #include "common.h"
 #include "ostream.h"
 #include "imap-util.h"
+#include "mail-storage.h"
 #include "commands-util.h"
 
 static void alert_no_diskspace(struct mailbox *mailbox __attr_unused__,

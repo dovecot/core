@@ -1,8 +1,9 @@
 #ifndef __COMMANDS_H
 #define __COMMANDS_H
 
-#include "commands-util.h"
+#include "mail-storage.h"
 #include "imap-parser.h"
+#include "commands-util.h"
 
 client_command_func_t *client_command_find(const char *name);
 
