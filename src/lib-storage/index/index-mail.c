@@ -413,6 +413,15 @@ static uoff_t get_size(struct mail *_mail)
 	return data->size;
 }
 
+static void parse_bodystructure_header(struct message_part *part,
+				       struct message_header_line *hdr,
+				       void *context)
+{
+	pool_t pool = context;
+
+	imap_bodystructure_parse_header(pool, part, hdr);
+}
+
 static int index_mail_parse_body(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
@@ -423,7 +432,13 @@ static int index_mail_parse_body(struct index_mail *mail)
 
 	i_stream_seek(data->stream, data->hdr_size.physical_size);
 
-	message_parser_parse_body(data->parser_ctx, NULL, NULL, NULL);
+	if (data->bodystructure_header_parsed) {
+		message_parser_parse_body(data->parser_ctx,
+					  parse_bodystructure_header,
+					  NULL, mail->pool);
+	} else {
+		message_parser_parse_body(data->parser_ctx, NULL, NULL, NULL);
+	}
 	data->parts = message_parser_deinit(data->parser_ctx);
         data->parser_ctx = NULL;
 
@@ -510,15 +525,6 @@ static struct istream *get_stream(struct mail *_mail,
 
 	i_stream_seek(data->stream, 0);
 	return data->stream;
-}
-
-static void parse_bodystructure_header(struct message_part *part,
-				       struct message_header_line *hdr,
-				       void *context)
-{
-	pool_t pool = context;
-
-	imap_bodystructure_parse_header(pool, part, hdr);
 }
 
 static const char *get_special(struct mail *_mail, enum mail_fetch_field field)
