@@ -201,6 +201,7 @@ void client_send_line(struct client *client, const char *fmt, ...)
 void client_send_storage_error(struct client *client)
 {
 	const char *error;
+	int syntax;
 
 	if (mailbox_is_inconsistent(client->mailbox)) {
 		client_send_line(client, "-ERR Mailbox is in inconsistent "
@@ -209,7 +210,7 @@ void client_send_storage_error(struct client *client)
 		return;
 	}
 
-	error = mail_storage_get_last_error(client->storage, NULL);
+	error = mail_storage_get_last_error(client->storage, &syntax);
 	client_send_line(client, "-ERR %s", error != NULL ? error :
 			 "BUG: Unknown error");
 }
