@@ -480,6 +480,7 @@ static int update_from_offsets(struct mbox_sync_context *sync_ctx)
 	size /= sizeof(*mails);
 	i_assert(sync_ctx->seq - sync_ctx->need_space_seq + 1 == size);
 
+	idx_seq = 0;
 	for (idx = 0; idx < size; idx++) {
 		if (mails[idx].uid == 0)
 			continue;
