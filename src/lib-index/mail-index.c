@@ -1112,8 +1112,15 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 {
 	int i = 0, ret;
 
-	if (index->opened)
-		return 0;
+	if (index->opened) {
+		if (index->hdr != NULL &&
+		    (index->hdr->flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0) {
+			/* corrupted, reopen files */
+                        mail_index_close(index);
+		} else {
+			return 0;
+		}
+	}
 
 	index->filepath = i_strconcat(index->dir, "/", index->prefix, NULL);
 
