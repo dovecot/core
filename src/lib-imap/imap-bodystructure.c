@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
-#include "temp-string.h"
+#include "str.h"
 #include "rfc822-tokenize.h"
 #include "message-parser.h"
 #include "message-content-parser.h"
@@ -16,7 +16,7 @@
 
 typedef struct {
 	Pool pool;
-	TempString *str;
+	String *str;
 	char *content_type, *content_subtype;
 	char *content_type_params;
 	char *content_transfer_encoding;
@@ -30,7 +30,7 @@ typedef struct {
 	MessagePartEnvelopeData *envelope;
 } MessagePartBodyData;
 
-static void part_write_bodystructure(MessagePart *part, TempString *str,
+static void part_write_bodystructure(MessagePart *part, String *str,
 				     int extended);
 
 static void parse_content_type(const Rfc822Token *tokens,
@@ -60,15 +60,15 @@ static void parse_save_params_list(const Rfc822Token *name,
         MessagePartBodyData *data = context;
 	const char *str;
 
-	if (data->str->len != 0)
-		t_string_append_c(data->str, ' ');
+	if (str_len(data->str) != 0)
+		str_append_c(data->str, ' ');
 
-	t_string_append_c(data->str, '"');
-	t_string_append_n(data->str, name->ptr, name->len);
-	t_string_append(data->str, "\" ");
+	str_append_c(data->str, '"');
+	str_append_n(data->str, name->ptr, name->len);
+	str_append(data->str, "\" ");
 
         str = rfc822_tokens_get_value_quoted(value, value_count);
-	t_string_append(data->str, str);
+	str_append(data->str, str);
 }
 
 static void parse_content_transfer_encoding(const Rfc822Token *tokens,
@@ -95,7 +95,7 @@ static void parse_content_language(const Rfc822Token *tokens,
 				   int count, void *context)
 {
         MessagePartBodyData *data = context;
-	TempString *str;
+	String *str;
 	int quoted;
 
 	/* Content-Language: en-US, az-arabic (comments allowed) */
@@ -103,7 +103,7 @@ static void parse_content_language(const Rfc822Token *tokens,
 	if (count <= 0)
 		return;
 
-	str = t_string_new(256);
+	str = t_str_new(256);
 
 	quoted = FALSE;
 	for (; count > 0; count--, tokens++) {
@@ -114,7 +114,7 @@ static void parse_content_language(const Rfc822Token *tokens,
 		case ',':
 			/* list separator */
 			if (quoted) {
-				t_string_append_c(str, '"');
+				str_append_c(str, '"');
 				quoted = FALSE;
 			}
 			break;
@@ -123,26 +123,24 @@ static void parse_content_language(const Rfc822Token *tokens,
 			   and '-' is allowed, so anything else is error
 			   which we can deal with however we want. */
 			if (!quoted) {
-				if (str->len > 0)
-					t_string_append_c(str, ' ');
-				t_string_append_c(str, '"');
+				if (str_len(str) > 0)
+					str_append_c(str, ' ');
+				str_append_c(str, '"');
 				quoted = TRUE;
 			}
 
-			if (IS_TOKEN_STRING(tokens->token)) {
-				t_string_append_n(str, tokens->ptr,
-						  tokens->len);
-			} else {
-				t_string_append_c(str, tokens->token);
-			}
+			if (IS_TOKEN_STRING(tokens->token))
+				str_append_n(str, tokens->ptr, tokens->len);
+			else
+				str_append_c(str, tokens->token);
 			break;
 		}
 	}
 
 	if (quoted)
-		t_string_append_c(str, '"');
+		str_append_c(str, '"');
 
-	data->content_language = p_strdup(data->pool, str->str);
+	data->content_language = p_strdup(data->pool, str_c(str));
 }
 
 static void parse_header(MessagePart *part,
@@ -175,13 +173,13 @@ static void parse_header(MessagePart *part,
 
 	if (strcasecmp(name, "Content-Type") == 0 &&
 	    part_data->content_type == NULL) {
-		part_data->str = t_string_new(256);
+		part_data->str = t_str_new(256);
 		(void)message_content_parse_header(t_strndup(value, value_len),
 						   parse_content_type,
 						   parse_save_params_list,
 						   part_data);
 		part_data->content_type_params =
-			p_strdup(pool, part_data->str->str);
+			p_strdup(pool, str_c(part_data->str));
 	} else if (strcasecmp(name, "Content-Transfer-Encoding") == 0 &&
 		   part_data->content_transfer_encoding == NULL) {
 		(void)message_content_parse_header(t_strndup(value, value_len),
@@ -197,13 +195,13 @@ static void parse_header(MessagePart *part,
 			imap_quote_value(pool, value, value_len);
 	} else if (strcasecmp(name, "Content-Disposition") == 0 &&
 		   part_data->content_disposition_params == NULL) {
-		part_data->str = t_string_new(256);
+		part_data->str = t_str_new(256);
 		(void)message_content_parse_header(t_strndup(value, value_len),
 						   parse_content_disposition,
 						   parse_save_params_list,
 						   part_data);
 		part_data->content_disposition_params =
-			p_strdup(pool, part_data->str->str);
+			p_strdup(pool, str_c(part_data->str));
 	} else if (strcasecmp(name, "Content-Language") == 0) {
 		(void)message_content_parse_header(t_strndup(value, value_len),
 						   parse_content_language, NULL,
@@ -241,7 +239,7 @@ static void part_parse_headers(MessagePart *part, IStream *input,
 	}
 }
 
-static void part_write_body_multipart(MessagePart *part, TempString *str,
+static void part_write_body_multipart(MessagePart *part, String *str,
 				      int extended)
 {
 	MessagePartBodyData *data = part->context;
@@ -257,53 +255,53 @@ static void part_write_body_multipart(MessagePart *part, TempString *str,
 		/* no parts in multipart message,
 		   that's not allowed. write a single
 		   0-length text/plain structure */
-		t_string_append(str, EMPTY_BODYSTRUCTURE);
+		str_append(str, EMPTY_BODYSTRUCTURE);
 	}
 
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	if (data->content_subtype != NULL)
-		t_string_append(str, data->content_subtype);
+		str_append(str, data->content_subtype);
 	else
-		t_string_append(str, "x-unknown");
+		str_append(str, "x-unknown");
 
 	if (!extended)
 		return;
 
 	/* BODYSTRUCTURE data */
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	if (data->content_type_params == NULL)
-		t_string_append(str, "NIL");
+		str_append(str, "NIL");
 	else {
-		t_string_append_c(str, '(');
-		t_string_append(str, data->content_type_params);
-		t_string_append_c(str, ')');
+		str_append_c(str, '(');
+		str_append(str, data->content_type_params);
+		str_append_c(str, ')');
 	}
 
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	if (data->content_disposition == NULL)
-		t_string_append(str, "NIL");
+		str_append(str, "NIL");
 	else {
-		t_string_append_c(str, '(');
-		t_string_append(str, data->content_disposition);
+		str_append_c(str, '(');
+		str_append(str, data->content_disposition);
 		if (data->content_disposition_params != NULL) {
-			t_string_append(str, " (");
-			t_string_append(str, data->content_disposition_params);
-			t_string_append_c(str, ')');
+			str_append(str, " (");
+			str_append(str, data->content_disposition_params);
+			str_append_c(str, ')');
 		}
-		t_string_append_c(str, ')');
+		str_append_c(str, ')');
 	}
 
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	if (data->content_language == NULL)
-		t_string_append(str, "NIL");
+		str_append(str, "NIL");
 	else {
-		t_string_append_c(str, '(');
-		t_string_append(str, data->content_language);
-		t_string_append_c(str, ')');
+		str_append_c(str, '(');
+		str_append(str, data->content_language);
+		str_append_c(str, ')');
 	}
 }
 
-static void part_write_body(MessagePart *part, TempString *str, int extended)
+static void part_write_body(MessagePart *part, String *str, int extended)
 {
 	MessagePartBodyData *data = part->context;
 
@@ -313,29 +311,29 @@ static void part_write_body(MessagePart *part, TempString *str, int extended)
 	}
 
 	/* "content type" "subtype" */
-	t_string_append(str, NVL(data->content_type, "\"text\""));
-	t_string_append_c(str, ' ');
-	t_string_append(str, NVL(data->content_subtype, "\"plain\""));
+	str_append(str, NVL(data->content_type, "\"text\""));
+	str_append_c(str, ' ');
+	str_append(str, NVL(data->content_subtype, "\"plain\""));
 
 	/* ("content type param key" "value" ...) */
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	if (data->content_type_params == NULL)
-		t_string_append(str, "NIL");
+		str_append(str, "NIL");
 	else {
-		t_string_append_c(str, '(');
-		t_string_append(str, data->content_type_params);
-		t_string_append_c(str, ')');
+		str_append_c(str, '(');
+		str_append(str, data->content_type_params);
+		str_append_c(str, ')');
 	}
 
-	t_string_printfa(str, " %s %s %s %"PRIuUOFF_T,
-			 NVL(data->content_id, "NIL"),
-			 NVL(data->content_description, "NIL"),
-			 NVL(data->content_transfer_encoding, "\"8bit\""),
-			 part->body_size.virtual_size);
+	str_printfa(str, " %s %s %s %"PRIuUOFF_T,
+		    NVL(data->content_id, "NIL"),
+		    NVL(data->content_description, "NIL"),
+		    NVL(data->content_transfer_encoding, "\"8bit\""),
+		    part->body_size.virtual_size);
 
 	if (part->flags & MESSAGE_PART_FLAG_TEXT) {
 		/* text/.. contains line count */
-		t_string_printfa(str, " %u", part->body_size.lines);
+		str_printfa(str, " %u", part->body_size.lines);
 	} else if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
 		/* message/rfc822 contains envelope + body + line count */
 		MessagePartBodyData *child_data;
@@ -345,19 +343,19 @@ static void part_write_body(MessagePart *part, TempString *str, int extended)
 
                 child_data = part->children->context;
 
-		t_string_append_c(str, ' ');
+		str_append_c(str, ' ');
 		if (child_data != NULL && child_data->envelope != NULL) {
-			t_string_append_c(str, '(');
+			str_append_c(str, '(');
 			imap_envelope_write_part_data(child_data->envelope,
 						      str);
-			t_string_append_c(str, ')');
+			str_append_c(str, ')');
 		} else {
 			/* buggy message */
-			t_string_append(str, "NIL");
+			str_append(str, "NIL");
 		}
-		t_string_append_c(str, ' ');
+		str_append_c(str, ' ');
 		part_write_bodystructure(part->children, str, extended);
-		t_string_printfa(str, " %u", part->body_size.lines);
+		str_printfa(str, " %u", part->body_size.lines);
 	}
 
 	if (!extended)
@@ -367,42 +365,42 @@ static void part_write_body(MessagePart *part, TempString *str, int extended)
 
 	/* "md5" ("content disposition" ("disposition" "params"))
 	   ("body" "language" "params") */
-	t_string_append_c(str, ' ');
-	t_string_append(str, NVL(data->content_md5, "NIL"));
+	str_append_c(str, ' ');
+	str_append(str, NVL(data->content_md5, "NIL"));
 
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	if (data->content_disposition == NULL)
-		t_string_append(str, "NIL");
+		str_append(str, "NIL");
 	else {
-		t_string_append_c(str, '(');
-		t_string_append(str, data->content_disposition);
-		t_string_append_c(str, ')');
+		str_append_c(str, '(');
+		str_append(str, data->content_disposition);
+		str_append_c(str, ')');
 
 		if (data->content_disposition_params != NULL) {
-			t_string_append(str, " (");
-			t_string_append(str, data->content_disposition_params);
-			t_string_append_c(str, ')');
+			str_append(str, " (");
+			str_append(str, data->content_disposition_params);
+			str_append_c(str, ')');
 		}
 	}
 
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	if (data->content_language == NULL)
-		t_string_append(str, "NIL");
+		str_append(str, "NIL");
 	else {
-		t_string_append_c(str, '(');
-		t_string_append(str, data->content_language);
-		t_string_append_c(str, ')');
+		str_append_c(str, '(');
+		str_append(str, data->content_language);
+		str_append_c(str, ')');
 	}
 }
 
-static void part_write_bodystructure(MessagePart *part, TempString *str,
+static void part_write_bodystructure(MessagePart *part, String *str,
 				     int extended)
 {
 	i_assert(part->parent != NULL || part->next == NULL);
 
 	while (part != NULL) {
 		if (part->parent != NULL)
-			t_string_append_c(str, '(');
+			str_append_c(str, '(');
 
 		if (part->flags & MESSAGE_PART_FLAG_MULTIPART)
 			part_write_body_multipart(part, str, extended);
@@ -410,7 +408,7 @@ static void part_write_bodystructure(MessagePart *part, TempString *str,
 			part_write_body(part, str, extended);
 
 		if (part->parent != NULL)
-			t_string_append_c(str, ')');
+			str_append_c(str, ')');
 
 		part = part->next;
 	}
@@ -418,11 +416,11 @@ static void part_write_bodystructure(MessagePart *part, TempString *str,
 
 static const char *part_get_bodystructure(MessagePart *part, int extended)
 {
-	TempString *str;
+	String *str;
 
-	str = t_string_new(2048);
+	str = t_str_new(2048);
 	part_write_bodystructure(part, str, extended);
-	return str->str;
+	return str_c(str);
 }
 
 const char *imap_part_get_bodystructure(Pool pool, MessagePart **part,
@@ -440,22 +438,22 @@ const char *imap_part_get_bodystructure(Pool pool, MessagePart **part,
 	return part_get_bodystructure(*part, extended);
 }
 
-static int imap_write_list(ImapArg *args, TempString *str)
+static int imap_write_list(ImapArg *args, String *str)
 {
 	/* don't do any typechecking, just write it out */
-	t_string_append_c(str, '(');
+	str_append_c(str, '(');
 	while (args->type != IMAP_ARG_EOL) {
 		switch (args->type) {
 		case IMAP_ARG_NIL:
-			t_string_append(str, "NIL");
+			str_append(str, "NIL");
 			break;
 		case IMAP_ARG_ATOM:
-			t_string_append(str, args->data.str);
+			str_append(str, args->data.str);
 			break;
 		case IMAP_ARG_STRING:
-			t_string_append_c(str, '"');
-			t_string_append(str, args->data.str);
-			t_string_append_c(str, '"');
+			str_append_c(str, '"');
+			str_append(str, args->data.str);
+			str_append_c(str, '"');
 			break;
 		case IMAP_ARG_LIST:
 			if (!imap_write_list(args->data.list->args, str))
@@ -467,23 +465,23 @@ static int imap_write_list(ImapArg *args, TempString *str)
 		args++;
 
 		if (args->type != IMAP_ARG_EOL)
-			t_string_append_c(str, ' ');
+			str_append_c(str, ' ');
 	}
-	t_string_append_c(str, ')');
+	str_append_c(str, ')');
 	return TRUE;
 }
 
-static int imap_parse_bodystructure_args(ImapArg *args, TempString *str)
+static int imap_parse_bodystructure_args(ImapArg *args, String *str)
 {
 	ImapArg *subargs;
 	int i, multipart, text, message_rfc822;
 
 	multipart = FALSE;
 	while (args->type == IMAP_ARG_LIST) {
-		t_string_append_c(str, '(');
+		str_append_c(str, '(');
 		if (!imap_parse_bodystructure_args(args->data.list->args, str))
 			return FALSE;
-		t_string_append_c(str, ')');
+		str_append_c(str, ')');
 
 		multipart = TRUE;
 		args++;
@@ -494,7 +492,7 @@ static int imap_parse_bodystructure_args(ImapArg *args, TempString *str)
 		if (args->type != IMAP_ARG_STRING)
 			return FALSE;
 
-		t_string_printfa(str, " \"%s\"", args->data.str);
+		str_printfa(str, " \"%s\"", args->data.str);
 		return TRUE;
 	}
 
@@ -506,31 +504,29 @@ static int imap_parse_bodystructure_args(ImapArg *args, TempString *str)
 	message_rfc822 = strcasecmp(args[0].data.str, "message") == 0 &&
 		strcasecmp(args[1].data.str, "rfc822") == 0;
 
-	t_string_printfa(str, "\"%s\" \"%s\"",
-			 args[0].data.str, args[1].data.str);
+	str_printfa(str, "\"%s\" \"%s\"", args[0].data.str, args[1].data.str);
 	args += 2;
 
 	/* ("content type param key" "value" ...) | NIL */
 	if (args->type == IMAP_ARG_LIST) {
-		t_string_append(str, " (");
+		str_append(str, " (");
                 subargs = args->data.list->args;
 		for (; subargs->type != IMAP_ARG_EOL; ) {
 			if (subargs[0].type != IMAP_ARG_STRING ||
 			    subargs[1].type != IMAP_ARG_STRING)
 				return FALSE;
 
-			t_string_printfa(str, "\"%s\" \"%s\"",
-					 subargs[0].data.str,
-					 subargs[1].data.str);
+			str_printfa(str, "\"%s\" \"%s\"",
+				    subargs[0].data.str, subargs[1].data.str);
 
 			subargs += 2;
 			if (subargs->type == IMAP_ARG_EOL)
 				break;
-			t_string_append_c(str, ' ');
+			str_append_c(str, ' ');
 		}
-		t_string_append(str, ")");
+		str_append(str, ")");
 	} else if (args->type == IMAP_ARG_NIL) {
-		t_string_append(str, " NIL");
+		str_append(str, " NIL");
 	} else {
 		return FALSE;
 	}
@@ -539,12 +535,12 @@ static int imap_parse_bodystructure_args(ImapArg *args, TempString *str)
 	/* "content id" "content description" "transfer encoding" size */
 	for (i = 0; i < 4; i++, args++) {
 		if (args->type == IMAP_ARG_NIL) {
-			t_string_append(str, " NIL");
+			str_append(str, " NIL");
 		} else if (args->type == IMAP_ARG_ATOM) {
-			t_string_append_c(str, ' ');
-			t_string_append(str, args->data.str);
+			str_append_c(str, ' ');
+			str_append(str, args->data.str);
 		} else if (args->type == IMAP_ARG_STRING) {
-			t_string_printfa(str, " \"%s\"", args->data.str);
+			str_printfa(str, " \"%s\"", args->data.str);
 		} else {
 			return FALSE;
 		}
@@ -555,8 +551,8 @@ static int imap_parse_bodystructure_args(ImapArg *args, TempString *str)
 		if (args->type != IMAP_ARG_ATOM)
 			return FALSE;
 
-		t_string_append_c(str, ' ');
-		t_string_append(str, args->data.str);
+		str_append_c(str, ' ');
+		str_append(str, args->data.str);
 	} else if (message_rfc822) {
 		/* message/rfc822 - envelope + bodystructure + text lines */
 		if (args[0].type != IMAP_ARG_LIST ||
@@ -564,19 +560,19 @@ static int imap_parse_bodystructure_args(ImapArg *args, TempString *str)
 		    args[2].type != IMAP_ARG_ATOM)
 			return FALSE;
 
-		t_string_append_c(str, ' ');
+		str_append_c(str, ' ');
 
 		if (!imap_write_list(args[0].data.list->args, str))
 			return FALSE;
 
-		t_string_append_c(str, ' ');
+		str_append_c(str, ' ');
 
 		if (!imap_parse_bodystructure_args(args[1].data.list->args,
 						   str))
 			return FALSE;
 
-		t_string_append_c(str, ' ');
-		t_string_append(str, args[2].data.str);
+		str_append_c(str, ' ');
+		str_append(str, args[2].data.str);
 	}
 
 	return TRUE;
@@ -587,13 +583,13 @@ const char *imap_body_parse_from_bodystructure(const char *bodystructure)
 	IStream *input;
 	ImapParser *parser;
 	ImapArg *args;
-	TempString *str;
+	String *str;
 	const char *value;
 	size_t len;
 	int ret;
 
 	len = strlen(bodystructure);
-	str = t_string_new(len);
+	str = t_str_new(len);
 
 	input = i_stream_create_from_data(data_stack_pool, bodystructure, len);
 	(void)i_stream_read(input);
@@ -605,7 +601,7 @@ const char *imap_body_parse_from_bodystructure(const char *bodystructure)
 	if (ret <= 0 || !imap_parse_bodystructure_args(args, str))
 		value = NULL;
 	else
-		value = str->str;
+		value = str_c(str);
 
 	if (value == NULL)
 		i_error("Error parsing IMAP bodystructure: %s", bodystructure);

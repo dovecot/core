@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "temp-string.h"
+#include "str.h"
 #include "istream.h"
 #include "ostream.h"
 #include "rfc822-tokenize.h"
@@ -138,7 +138,7 @@ static int header_match_mime(char *const *fields __attr_unused__,
 }
 
 typedef struct {
-	TempString *dest;
+	String *dest;
 	OStream *output;
 	uoff_t dest_size;
 
@@ -167,7 +167,7 @@ static int fetch_header_append(FetchHeaderFieldContext *ctx,
 	}
 
 	if (ctx->dest != NULL)
-		t_string_append_n(ctx->dest, str, size);
+		str_append_n(ctx->dest, str, size);
 	ctx->dest_size += size;
 
 	if (ctx->output != NULL) {
@@ -241,7 +241,7 @@ static int fetch_header_fields(IStream *input, const char *section,
 	message_parse_header(NULL, input, NULL, fetch_header_field, ctx);
 
 	i_assert(ctx->dest_size <= ctx->max_size);
-	i_assert(ctx->dest == NULL || ctx->dest->len == ctx->dest_size);
+	i_assert(ctx->dest == NULL || str_len(ctx->dest) == ctx->dest_size);
 	return TRUE;
 }
 
@@ -288,8 +288,8 @@ static int fetch_header_from(IStream *input, OStream *output,
 
 		i_assert(ctx.dest_size <= size->virtual_size);
 	} else {
-		ctx.dest = t_string_new(size->virtual_size < 4096 ?
-					size->virtual_size : 4096);
+		ctx.dest = t_str_new(size->virtual_size < 4096 ?
+				     size->virtual_size : 4096);
 		if (!fetch_header_fields(input, section, &ctx))
 			failed = TRUE;
 	}
@@ -315,8 +315,8 @@ static int fetch_header_from(IStream *input, OStream *output,
 
 			i_assert(first_size == ctx.dest_size);
 		} else {
-			if (o_stream_send(output, ctx.dest->str,
-					  ctx.dest->len) < 0)
+			if (o_stream_send(output, str_c(ctx.dest),
+					  str_len(ctx.dest)) < 0)
 				failed = TRUE;
 		}
 	}

@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "temp-string.h"
+#include "str.h"
 #include "rfc822-tokenize.h"
 #include "rfc822-address.h"
 
@@ -18,8 +18,9 @@ static Rfc822Address *new_address(Pool pool, Rfc822Address ***next_addr)
 }
 
 static int read_until(const Rfc822Token *tokens, const char *stop_tokens,
-		      TempString *comment)
+		      String *comment)
 {
+	char *c_str;
 	int i, pos;
 
 	/* find the stop token */
@@ -29,15 +30,15 @@ static int read_until(const Rfc822Token *tokens, const char *stop_tokens,
 
 		if (tokens[i].token == '(' && comment != NULL) {
 			/* save comment */
-			if (comment->len > 0)
-				t_string_append_c(comment, ' ');
-			pos = comment->len;
+			if (str_len(comment) > 0)
+				str_append_c(comment, ' ');
+			pos = str_len(comment);
 
-			t_string_append_n(comment, tokens[i].ptr,
-					  tokens[i].len);
+			str_append_n(comment, tokens[i].ptr, tokens[i].len);
+			c_str = str_c_modifyable(comment);
 
-			str_remove_escapes(comment->str + pos);
-			comment->len = strlen(comment->str);
+			str_remove_escapes(c_str + pos);
+			str_truncate(comment, strlen(c_str));
 		}
 	}
 
@@ -45,7 +46,7 @@ static int read_until(const Rfc822Token *tokens, const char *stop_tokens,
 }
 
 static void read_until_get(const Rfc822Token **tokens, const char *stop_tokens,
-			   TempString *phrase, TempString *comment)
+			   String *phrase, String *comment)
 {
 	const char *value;
 	int count;
@@ -53,7 +54,7 @@ static void read_until_get(const Rfc822Token **tokens, const char *stop_tokens,
 	count = read_until(*tokens, stop_tokens, comment);
 	if (count > 0) {
 		value = rfc822_tokens_get_value(*tokens, count);
-		t_string_append(phrase, value);
+		str_append(phrase, value);
 
 		*tokens += count;
 	}
@@ -62,7 +63,7 @@ static void read_until_get(const Rfc822Token **tokens, const char *stop_tokens,
 Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 {
 	Rfc822Address *first_addr, **next_addr, *addr;
-	TempString *mailbox, *domain, *route, *name, *comment, *next_phrase;
+	String *mailbox, *domain, *route, *name, *comment, *next_phrase;
 	const Rfc822Token *tokens;
 	const char *list, *value;
 	int ingroup, stop, count;
@@ -83,11 +84,11 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 	tokens = rfc822_tokenize(str, NULL, NULL, NULL);
 
 	t_push();
-	mailbox = t_string_new(128);
-	domain = t_string_new(128);
-	route = t_string_new(128);
-	name = t_string_new(128);
-	comment = t_string_new(128);
+	mailbox = t_str_new(128);
+	domain = t_str_new(128);
+	route = t_str_new(128);
+	name = t_str_new(128);
+	comment = t_str_new(128);
 
 	ingroup = FALSE;
 	list = ",@<:";
@@ -97,14 +98,14 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 		count = read_until(tokens, list, comment);
 		if (count > 0) {
 			if ((tokens[count].token == '<' ||
-			     next_phrase == name) && next_phrase->len > 0) {
+			     next_phrase == name) && str_len(next_phrase) > 0) {
 				/* continuing previously started name,
 				   separate it from us with space */
-				t_string_append_c(next_phrase, ' ');
+				str_append_c(next_phrase, ' ');
 			}
 
 			value = rfc822_tokens_get_value(tokens, count);
-			t_string_append(next_phrase, value);
+			str_append(next_phrase, value);
 			tokens += count;
 		}
 
@@ -113,17 +114,17 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 		case ',':
 		case ';':
 			/* end of address */
-			if (mailbox->len > 0 || domain->len > 0 ||
-			    route->len > 0 || name->len > 0) {
+			if (str_len(mailbox) > 0 || str_len(domain) > 0 ||
+			    str_len(route) > 0 || str_len(name) > 0) {
 				addr = new_address(pool, &next_addr);
-				addr->mailbox = p_strdup(pool, mailbox->str);
-				addr->domain = domain->len == 0 ? NULL :
-					p_strdup(pool, domain->str);
-				addr->route = route->len == 0 ? NULL :
-					p_strdup(pool, route->str);
+				addr->mailbox = p_strdup(pool, str_c(mailbox));
+				addr->domain = str_len(domain) == 0 ? NULL :
+					p_strdup(pool, str_c(domain));
+				addr->route = str_len(route) == 0 ? NULL :
+					p_strdup(pool, str_c(route));
 				addr->name = next_phrase == name ?
-					p_strdup(pool, name->str) :
-					p_strdup(pool, comment->str);
+					p_strdup(pool, str_c(name)) :
+					p_strdup(pool, str_c(comment));
 			}
 
 			if (ingroup && tokens->token == ';') {
@@ -139,11 +140,11 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 
 			list = ingroup ? ",@<;" :  ",@<:";
 
-			t_string_truncate(mailbox, 0);
-			t_string_truncate(domain, 0);
-			t_string_truncate(route, 0);
-			t_string_truncate(name, 0);
-			t_string_truncate(comment, 0);
+			str_truncate(mailbox, 0);
+			str_truncate(domain, 0);
+			str_truncate(route, 0);
+			str_truncate(name, 0);
+			str_truncate(comment, 0);
 
 			tokens++;
 			next_phrase = mailbox;
@@ -160,17 +161,17 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 
 			/* mailbox/domain name so far has actually
 			   been the real name */
-			t_string_append(name, mailbox->str);
-			if (domain->len > 0) {
-                                t_string_append_c(name, '@');
-				t_string_append(name, domain->str);
+			str_append_str(name, mailbox);
+			if (str_len(domain) > 0) {
+                                str_append_c(name, '@');
+				str_append_str(name, domain);
 			}
 
-			t_string_truncate(mailbox, 0);
-			t_string_truncate(domain, 0);
+			str_truncate(mailbox, 0);
+			str_truncate(domain, 0);
 
 			read_until_get(&tokens, "@>", mailbox, NULL);
-			if (tokens->token == '@' && mailbox->len == 0) {
+			if (tokens->token == '@' && str_len(mailbox) == 0) {
 				/* route is given */
 				tokens++;
 				read_until_get(&tokens, ":>", route, NULL);
@@ -196,9 +197,9 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 		case ':':
 			/* beginning of group */
 			addr = new_address(pool, &next_addr);
-			addr->name = p_strdup(pool, mailbox->str);
+			addr->name = p_strdup(pool, str_c(mailbox));
 
-			t_string_truncate(mailbox, 0);
+			str_truncate(mailbox, 0);
 			tokens++;
 
 			ingroup = TRUE;

@@ -1,13 +1,13 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "temp-string.h"
+#include "str.h"
 #include "imap-util.h"
 
 const char *imap_write_flags(MailFlags flags, const char *custom_flags[],
 			     unsigned int custom_flags_count)
 {
-	TempString *str;
+	String *str;
 	const char *sysflags, *name;
 	unsigned int i;
 
@@ -31,21 +31,21 @@ const char *imap_write_flags(MailFlags flags, const char *custom_flags[],
 		return sysflags;
 
 	/* we have custom flags too */
-	str = t_string_new(256);
-	t_string_append(str, sysflags);
+	str = t_str_new(256);
+	str_append(str, sysflags);
 
 	for (i = 0; i < custom_flags_count; i++) {
 		if (flags & (1 << (i + MAIL_CUSTOM_FLAG_1_BIT))) {
 			name = custom_flags[i];
 			if (name != NULL && *name != '\0') {
-				if (str->len > 0)
-					t_string_append_c(str, ' ');
-				t_string_append(str, name);
+				if (str_len(str) > 0)
+					str_append_c(str, ' ');
+				str_append(str, name);
 			}
 		}
 	}
 
-	return str->str;
+	return str_c(str);
 }
 
 const char *imap_escape(const char *str)

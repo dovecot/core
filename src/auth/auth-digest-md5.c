@@ -8,7 +8,7 @@
 #include "hex-binary.h"
 #include "md5.h"
 #include "randgen.h"
-#include "temp-string.h"
+#include "str.h"
 
 #include "auth.h"
 #include "cookie.h"
@@ -57,7 +57,7 @@ typedef struct {
 
 static const char *get_digest_challenge(AuthData *auth)
 {
-	TempString *qoplist, *realms;
+	String *qoplist, *realms;
 	Buffer *buf;
 	char *const *tmp;
 	unsigned char nonce[16];
@@ -86,24 +86,24 @@ static const char *get_digest_challenge(AuthData *auth)
 	t_pop();
 
 	/* get list of allowed QoPs */
-	qoplist = t_string_new(32);
+	qoplist = t_str_new(32);
 	for (i = 0; i < QOP_COUNT; i++) {
 		if (auth->qop & (1 << i)) {
-			if (qoplist->len > 0)
-				t_string_append_c(qoplist, ',');
-			t_string_append(qoplist, qop_names[i]);
+			if (str_len(qoplist) > 0)
+				str_append_c(qoplist, ',');
+			str_append(qoplist, qop_names[i]);
 		}
 	}
 
-	realms = t_string_new(128);
+	realms = t_str_new(128);
 	for (tmp = auth_realms; *tmp != NULL; tmp++) {
-		t_string_printfa(realms, "realm=\"%s\"", *tmp);
-		t_string_append_c(realms, ',');
+		str_printfa(realms, "realm=\"%s\"", *tmp);
+		str_append_c(realms, ',');
 	}
 
-	return t_strconcat(realms->str,
+	return t_strconcat(str_c(realms),
 			   "nonce=\"", auth->nonce, "\",",
-			   "qop-options=\"", qoplist->str, "\",",
+			   "qop-options=\"", str_c(qoplist), "\",",
 			   "charset=\"utf-8\",",
 			   "algorithm=\"md5-sess\"",
 			   NULL);

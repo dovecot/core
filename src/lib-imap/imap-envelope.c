@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
-#include "temp-string.h"
+#include "str.h"
 #include "rfc822-address.h"
 #include "imap-parser.h"
 #include "imap-envelope.h"
@@ -61,66 +61,66 @@ void imap_envelope_parse_header(Pool pool, MessagePartEnvelopeData **data,
 	t_pop();
 }
 
-static void imap_write_address(TempString *str, Rfc822Address *addr)
+static void imap_write_address(String *str, Rfc822Address *addr)
 {
 	if (addr == NULL) {
-		t_string_append(str, "NIL");
+		str_append(str, "NIL");
 		return;
 	}
 
-	t_string_append_c(str, '(');
+	str_append_c(str, '(');
 	while (addr != NULL) {
-		t_string_append_c(str, '(');
-		t_string_append(str, imap_quote_str_nil(addr->name));
-		t_string_append_c(str, ' ');
-		t_string_append(str, imap_quote_str_nil(addr->route));
-		t_string_append_c(str, ' ');
-		t_string_append(str, imap_quote_str_nil(addr->mailbox));
-		t_string_append_c(str, ' ');
-		t_string_append(str, imap_quote_str_nil(addr->domain));
-		t_string_append_c(str, ')');
+		str_append_c(str, '(');
+		str_append(str, imap_quote_str_nil(addr->name));
+		str_append_c(str, ' ');
+		str_append(str, imap_quote_str_nil(addr->route));
+		str_append_c(str, ' ');
+		str_append(str, imap_quote_str_nil(addr->mailbox));
+		str_append_c(str, ' ');
+		str_append(str, imap_quote_str_nil(addr->domain));
+		str_append_c(str, ')');
 
 		addr = addr->next;
 	}
-	t_string_append_c(str, ')');
+	str_append_c(str, ')');
 }
 
 void imap_envelope_write_part_data(MessagePartEnvelopeData *data,
-				   TempString *str)
+				   String *str)
 {
-	t_string_append(str, NVL(data->date, "NIL"));
-	t_string_append_c(str, ' ');
-	t_string_append(str, NVL(data->subject, "NIL"));
+	str_append(str, NVL(data->date, "NIL"));
+	str_append_c(str, ' ');
+	str_append(str, NVL(data->subject, "NIL"));
 
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	imap_write_address(str, data->from);
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	imap_write_address(str, NVL(data->sender, data->from));
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	imap_write_address(str, NVL(data->reply_to, data->from));
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	imap_write_address(str, data->to);
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	imap_write_address(str, data->cc);
-	t_string_append_c(str, ' ');
+	str_append_c(str, ' ');
 	imap_write_address(str, data->bcc);
 
-	t_string_append_c(str, ' ');
-	t_string_append(str, NVL(data->in_reply_to, "NIL"));
-	t_string_append_c(str, ' ');
-	t_string_append(str, NVL(data->message_id, "NIL"));
+	str_append_c(str, ' ');
+	str_append(str, NVL(data->in_reply_to, "NIL"));
+	str_append_c(str, ' ');
+	str_append(str, NVL(data->message_id, "NIL"));
 }
 
 const char *imap_envelope_get_part_data(MessagePartEnvelopeData *data)
 {
-	TempString *str;
+	String *str;
 
-	str = t_string_new(2048);
+	str = t_str_new(2048);
         imap_envelope_write_part_data(data, str);
-	return str->str;
+	return str_c(str);
 }
 
-static int imap_address_arg_append(ImapArg *arg, TempString *str, int *in_group)
+static int imap_address_arg_append(ImapArg *arg, String *str, int *in_group)
 {
 	ImapArgList *list;
 	const char *args[4];
@@ -143,14 +143,14 @@ static int imap_address_arg_append(ImapArg *arg, TempString *str, int *in_group)
 			return FALSE;
 	}
 
-	if (str->len > 0)
-		t_string_append(str, ", ");
+	if (str_len(str) > 0)
+		str_append(str, ", ");
 
 	if (*in_group) {
 		if (args[0] == NULL && args[1] == NULL &&
 		    args[2] == NULL && args[3] == NULL) {
 			/* end of group */
-			t_string_append_c(str, ';');
+			str_append_c(str, ';');
 			*in_group = FALSE;
 			return TRUE;
 		}
@@ -158,8 +158,8 @@ static int imap_address_arg_append(ImapArg *arg, TempString *str, int *in_group)
 		if (args[0] == NULL && args[1] == NULL &&
 		    args[2] != NULL && args[3] == NULL) {
 			/* beginning of group */
-			t_string_append(str, args[2]);
-			t_string_append(str, ": ");
+			str_append(str, args[2]);
+			str_append(str, ": ");
 			*in_group = TRUE;
 			return TRUE;
 		}
@@ -167,30 +167,30 @@ static int imap_address_arg_append(ImapArg *arg, TempString *str, int *in_group)
 
         /* name <@route:mailbox@domain> */
 	if (args[0] != NULL) {
-		t_string_append(str, args[0]);
-		t_string_append_c(str, ' ');
+		str_append(str, args[0]);
+		str_append_c(str, ' ');
 	}
 
-	t_string_append_c(str, '<');
+	str_append_c(str, '<');
 	if (args[1] != NULL) {
-		t_string_append_c(str, '@');
-		t_string_append(str, args[1]);
-		t_string_append_c(str, ':');
+		str_append_c(str, '@');
+		str_append(str, args[1]);
+		str_append_c(str, ':');
 	}
 	if (args[2] != NULL)
-		t_string_append(str, args[2]);
+		str_append(str, args[2]);
 	if (args[3] != NULL) {
-		t_string_append_c(str, '@');
-		t_string_append(str, args[3]);
+		str_append_c(str, '@');
+		str_append(str, args[3]);
 	}
-	t_string_append_c(str, '>');
+	str_append_c(str, '>');
 	return TRUE;
 }
 
 static const char *imap_envelope_parse_address(ImapArg *arg)
 {
 	ImapArgList *list;
-	TempString *str;
+	String *str;
 	size_t i;
 	int in_group;
 
@@ -198,7 +198,7 @@ static const char *imap_envelope_parse_address(ImapArg *arg)
 		return NULL;
 
 	in_group = FALSE;
-	str = t_string_new(128);
+	str = t_str_new(128);
 
         list = arg->data.list;
 	for (i = 0; i < list->size; i++) {
@@ -206,7 +206,7 @@ static const char *imap_envelope_parse_address(ImapArg *arg)
 			return NULL;
 	}
 
-	return str->str;
+	return str_c(str);
 }
 
 static const char *imap_envelope_parse_first_mailbox(ImapArg *arg)

@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
-#include "temp-string.h"
+#include "str.h"
 #include "commands-util.h"
 #include "imap-util.h"
 
@@ -176,7 +176,7 @@ int client_parse_mail_flags(Client *client, ImapArg *args, size_t args_count,
 static const char *get_custom_flags_string(const char *custom_flags[],
 					   unsigned int custom_flags_count)
 {
-	TempString *str;
+	String *str;
 	unsigned int i;
 
 	/* first see if there even is custom flags */
@@ -188,14 +188,14 @@ static const char *get_custom_flags_string(const char *custom_flags[],
 	if (i == custom_flags_count)
 		return "";
 
-	str = t_string_new(256);
+	str = t_str_new(256);
 	for (; i < custom_flags_count; i++) {
 		if (custom_flags[i] != NULL) {
-			t_string_append_c(str, ' ');
-			t_string_append(str, custom_flags[i]);
+			str_append_c(str, ' ');
+			str_append(str, custom_flags[i]);
 		}
 	}
-	return str->str;
+	return str_c(str);
 }
 
 #define SYSTEM_FLAGS "\\Answered \\Flagged \\Deleted \\Seen \\Draft"

@@ -25,7 +25,7 @@ typedef struct _IPADDR IPADDR;
 typedef struct _IStream IStream;
 typedef struct _OStream OStream;
 typedef struct _Buffer Buffer;
-typedef struct _TempString TempString;
+typedef struct _Buffer String;
 
 #include "compat.h"
 #include "macros.h"

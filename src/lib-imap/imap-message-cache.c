@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "istream.h"
-#include "temp-string.h"
 #include "mmap-util.h"
 #include "message-parser.h"
 #include "message-part-serialize.h"

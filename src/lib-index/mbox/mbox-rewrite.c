@@ -4,7 +4,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
-#include "temp-string.h"
+#include "str.h"
 #include "write-full.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
@@ -219,25 +219,25 @@ static const char *strip_chars(const char *value, size_t value_len,
 static void update_stripped_custom_flags(const char *value, size_t len,
 					 int index, void *context)
 {
-	TempString *str = context;
+	String *str = context;
 
 	if (index < 0) {
 		/* not found, keep it */
-		if (str->len != 0)
-			t_string_append_c(str, ' ');
-		t_string_append_n(str, value, len);
+		if (str_len(str) != 0)
+			str_append_c(str, ' ');
+		str_append_n(str, value, len);
 	}
 }
 
 static const char *strip_custom_flags(const char *value, size_t len,
 				      MboxRewriteContext *ctx)
 {
-	TempString *str;
+	String *str;
 
-	str = t_string_new(len+1);
+	str = t_str_new(len+1);
 	mbox_keywords_parse(value, len, ctx->custom_flags,
 			    update_stripped_custom_flags, str);
-	return str->len == 0 ? NULL : str->str;
+	return str_len(str) == 0 ? NULL : str_c(str);
 }
 
 static void header_func(MessagePart *part __attr_unused__,

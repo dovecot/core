@@ -2,7 +2,7 @@
 
 #include "common.h"
 #include "env-util.h"
-#include "temp-string.h"
+#include "str.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 
@@ -67,33 +67,33 @@ static int validate_chroot(const char *dir)
 static const char *expand_mail_env(const char *env, const char *user,
 				   const char *home)
 {
-	TempString *str;
+	String *str;
 	const char *p, *var;
 	unsigned int width;
 
-	str = t_string_new(256);
+	str = t_str_new(256);
 
 	/* it's either type:data or just data */
 	p = strchr(env, ':');
 	if (p != NULL) {
 		while (env != p) {
-			t_string_append_c(str, *env);
+			str_append_c(str, *env);
 			env++;
 		}
 
-		t_string_append_c(str, *env++);
+		str_append_c(str, *env++);
 	}
 
 	if (env[0] == '~' && env[1] == '/') {
 		/* expand home */
-		t_string_append(str, home);
+		str_append(str, home);
 		env++;
 	}
 
 	/* expand %vars */
 	for (; *env != '\0'; env++) {
 		if (*env != '%')
-			t_string_append_c(str, *env);
+			str_append_c(str, *env);
 		else {
 			width = 0;
 			while (env[1] >= '0' && env[1] <= '9') {
@@ -125,14 +125,14 @@ static const char *expand_mail_env(const char *env, const char *user,
 
 			if (var != NULL) {
 				if (width == 0)
-					t_string_append(str, var);
+					str_append(str, var);
 				else
-					t_string_append_n(str, var, width);
+					str_append_n(str, var, width);
 			}
 		}
 	}
 
-	return str->str;
+	return str_c(str);
 }
 
 MasterReplyResult create_imap_process(int socket, IPADDR *ip,

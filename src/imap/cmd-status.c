@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
-#include "temp-string.h"
+#include "str.h"
 #include "commands.h"
 
 /* Returns status items, or -1 if error */
@@ -82,7 +82,7 @@ int cmd_status(Client *client)
 	MailboxStatus status;
 	MailboxStatusItems items;
 	const char *mailbox;
-	TempString *str;
+	String *str;
 
 	/* <mailbox> <status items> */
 	if (!client_read_args(client, 2, 0, &args))
@@ -107,24 +107,24 @@ int cmd_status(Client *client)
 		return TRUE;
 	}
 
-	str = t_string_new(128);
-	t_string_printfa(str, "* STATUS %s (", mailbox);
+	str = t_str_new(128);
+	str_printfa(str, "* STATUS %s (", mailbox);
 	if (items & STATUS_MESSAGES)
-		t_string_printfa(str, "MESSAGES %u ", status.messages);
+		str_printfa(str, "MESSAGES %u ", status.messages);
 	if (items & STATUS_RECENT)
-		t_string_printfa(str, "RECENT %u ", status.recent);
+		str_printfa(str, "RECENT %u ", status.recent);
 	if (items & STATUS_UIDNEXT)
-		t_string_printfa(str, "UIDNEXT %u ", status.uidnext);
+		str_printfa(str, "UIDNEXT %u ", status.uidnext);
 	if (items & STATUS_UIDVALIDITY)
-		t_string_printfa(str, "UIDVALIDITY %u ", status.uidvalidity);
+		str_printfa(str, "UIDVALIDITY %u ", status.uidvalidity);
 	if (items & STATUS_UNSEEN)
-		t_string_printfa(str, "UNSEEN %u ", status.unseen);
+		str_printfa(str, "UNSEEN %u ", status.unseen);
 
-	if (str->str[str->len-1] == ' ')
-		t_string_truncate(str, str->len-1);
-	t_string_append_c(str, ')');
+	if (items != 0)
+		str_truncate(str, str_len(str)-1);
+	str_append_c(str, ')');
 
-	client_send_line(client, str->str);
+	client_send_line(client, str_c(str));
 	client_send_tagline(client, "OK Status completed.");
 
 	return TRUE;

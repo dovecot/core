@@ -1,7 +1,6 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
-#include "temp-string.h"
 #include "commands.h"
 
 int _cmd_select_full(Client *client, int readonly)

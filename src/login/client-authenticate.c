@@ -7,7 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "safe-memset.h"
-#include "temp-string.h"
+#include "str.h"
 #include "auth-connection.h"
 #include "client.h"
 #include "client-authenticate.h"
@@ -29,7 +29,7 @@ static AuthMethodDesc auth_method_desc[AUTH_METHODS_COUNT] = {
 
 const char *client_authenticate_get_capabilities(void)
 {
-	TempString *str;
+	String *str;
 	int i;
 
 	if (auth_methods == available_auth_methods)
@@ -38,19 +38,18 @@ const char *client_authenticate_get_capabilities(void)
 	auth_methods = available_auth_methods;
 	i_free(auth_methods_capability);
 
-	str = t_string_new(128);
+	str = t_str_new(128);
 
 	for (i = 0; i < AUTH_METHODS_COUNT; i++) {
 		if ((auth_methods & auth_method_desc[i].method) &&
 		    auth_method_desc[i].name != NULL) {
-			t_string_append_c(str, ' ');
-			t_string_append(str, "AUTH=");
-			t_string_append(str, auth_method_desc[i].name);
+			str_append_c(str, ' ');
+			str_append(str, "AUTH=");
+			str_append(str, auth_method_desc[i].name);
 		}
 	}
 
-	auth_methods_capability = str->len == 1 ? NULL :
-		i_strdup_empty(str->str);
+	auth_methods_capability = i_strdup_empty(str_c(str));
 	return auth_methods_capability;
 }
 

@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "ostream.h"
-#include "temp-string.h"
+#include "str.h"
 #include "mail-custom-flags.h"
 #include "index-storage.h"
 #include "index-fetch.h"
@@ -20,8 +20,8 @@ static int index_fetch_internaldate(MailIndexRecord *rec, FetchContext *ctx)
 
 	date = imap_msgcache_get_internal_date(ctx->cache);
 	if (date != (time_t)-1) {
-		t_string_printfa(ctx->str, "INTERNALDATE \"%s\" ",
-				 imap_to_datetime(date));
+		str_printfa(ctx->str, "INTERNALDATE \"%s\" ",
+			    imap_to_datetime(date));
 		return TRUE;
 	} else {
 		mail_storage_set_critical(ctx->storage,
@@ -37,7 +37,7 @@ static int index_fetch_body(MailIndexRecord *rec, FetchContext *ctx)
 
 	body = imap_msgcache_get(ctx->cache, IMAP_CACHE_BODY);
 	if (body != NULL) {
-		t_string_printfa(ctx->str, "BODY (%s) ", body);
+		str_printfa(ctx->str, "BODY (%s) ", body);
 		return TRUE;
 	} else {
 		mail_storage_set_critical(ctx->storage,
@@ -53,8 +53,7 @@ static int index_fetch_bodystructure(MailIndexRecord *rec, FetchContext *ctx)
 
 	bodystructure = imap_msgcache_get(ctx->cache, IMAP_CACHE_BODYSTRUCTURE);
 	if (bodystructure != NULL) {
-		t_string_printfa(ctx->str, "BODYSTRUCTURE (%s) ",
-				 bodystructure);
+		str_printfa(ctx->str, "BODYSTRUCTURE (%s) ", bodystructure);
 		return TRUE;
 	} else {
 		mail_storage_set_critical(ctx->storage,
@@ -70,7 +69,7 @@ static int index_fetch_envelope(MailIndexRecord *rec, FetchContext *ctx)
 
 	envelope = imap_msgcache_get(ctx->cache, IMAP_CACHE_ENVELOPE);
 	if (envelope != NULL) {
-		t_string_printfa(ctx->str, "ENVELOPE (%s) ", envelope);
+		str_printfa(ctx->str, "ENVELOPE (%s) ", envelope);
 		return TRUE;
 	} else {
 		mail_storage_set_critical(ctx->storage,
@@ -92,7 +91,7 @@ static int index_fetch_rfc822_size(MailIndexRecord *rec, FetchContext *ctx)
 		return FALSE;
 	}
 
-	t_string_printfa(ctx->str, "RFC822.SIZE %"PRIuUOFF_T" ", size);
+	str_printfa(ctx->str, "RFC822.SIZE %"PRIuUOFF_T" ", size);
 	return TRUE;
 }
 
@@ -106,14 +105,14 @@ static void index_fetch_flags(MailIndexRecord *rec, FetchContext *ctx)
 	if (ctx->update_seen)
 		flags |= MAIL_SEEN;
 
-	t_string_printfa(ctx->str, "FLAGS (%s) ",
-			 imap_write_flags(flags, ctx->custom_flags,
-					  ctx->custom_flags_count));
+	str_printfa(ctx->str, "FLAGS (%s) ",
+		    imap_write_flags(flags, ctx->custom_flags,
+				     ctx->custom_flags_count));
 }
 
 static void index_fetch_uid(MailIndexRecord *rec, FetchContext *ctx)
 {
-	t_string_printfa(ctx->str, "UID %u ", rec->uid);
+	str_printfa(ctx->str, "UID %u ", rec->uid);
 }
 
 static int index_fetch_send_rfc822(MailIndexRecord *rec, FetchContext *ctx)
@@ -244,7 +243,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 {
 	FetchContext *ctx = context;
 	MailFetchBodyData *sect;
-	unsigned int orig_len;
+	size_t len, orig_len;
 	int failed, data_written, fetch_flags;
 
 	/* first see what we need to do. this way we don't first do some
@@ -265,10 +264,10 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 		fetch_flags = FALSE;
 	}
 
-	ctx->str = t_string_new(2048);
+	ctx->str = t_str_new(2048);
 
-	t_string_printfa(ctx->str, "* %u FETCH (", client_seq);
-	orig_len = ctx->str->len;
+	str_printfa(ctx->str, "* %u FETCH (", client_seq);
+	orig_len = str_len(ctx->str);
 
 	failed = TRUE;
 	data_written = FALSE;
@@ -298,13 +297,14 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 
 		/* send the data written into temp string,
 		   not including the trailing zero */
-		ctx->first = ctx->str->len == orig_len;
-		if (ctx->str->len > 0) {
+		ctx->first = str_len(ctx->str) == orig_len;
+		len = str_len(ctx->str);
+		if (len > 0) {
 			if (!ctx->first)
-				ctx->str->len--;
+				str_truncate(ctx->str, len-1);
 
-			if (o_stream_send(ctx->output, ctx->str->str,
-					  ctx->str->len) < 0)
+			if (o_stream_send(ctx->output,
+					  str_c(ctx->str), len) < 0)
 				break;
 		}
 

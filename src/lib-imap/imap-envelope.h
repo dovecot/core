@@ -31,7 +31,7 @@ void imap_envelope_parse_header(Pool pool, MessagePartEnvelopeData **data,
 
 /* Write envelope to given string */
 void imap_envelope_write_part_data(MessagePartEnvelopeData *data,
-				   TempString *str);
+				   String *str);
 /* Return envelope. */
 const char *imap_envelope_get_part_data(MessagePartEnvelopeData *data);
 

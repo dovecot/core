@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "temp-string.h"
+#include "str.h"
 #include "imap-quote.h"
 
 #define IS_BREAK_CHAR(c) \
@@ -78,7 +78,7 @@ static size_t next_token(const char *value, size_t len,
 	return i;
 }
 
-static void append_quoted_qp(TempString *str, const char *value, size_t len)
+static void append_quoted_qp(String *str, const char *value, size_t len)
 {
 	size_t i;
 	unsigned char c;
@@ -89,44 +89,44 @@ static void append_quoted_qp(TempString *str, const char *value, size_t len)
 
 	for (i = 0; i < len; i++) {
 		if (value[i] == ' ')
-			t_string_append_c(str, '_');
+			str_append_c(str, '_');
 		else if ((value[i] >= 'A' && value[i] <= 'Z') ||
 			 (value[i] >= 'a' && value[i] <= 'z') ||
 			 (value[i] >= '0' && value[i] <= '9')) {
-			t_string_append_c(str, value[i]);
+			str_append_c(str, value[i]);
 		} else {
-			t_string_append_c(str, '=');
+			str_append_c(str, '=');
 			c = (unsigned char)value[i] >> 4;
-			t_string_append_c(str, c < 10 ? (c+'0') : (c-10+'A'));
+			str_append_c(str, c < 10 ? (c+'0') : (c-10+'A'));
 			c = (unsigned char)value[i] & 0x0f;
-			t_string_append_c(str, c < 10 ? (c+'0') : (c-10+'A'));
+			str_append_c(str, c < 10 ? (c+'0') : (c-10+'A'));
 		}
 	}
 }
 
-static void append_quoted(TempString *str, const char *value, size_t len)
+static void append_quoted(String *str, const char *value, size_t len)
 {
 	size_t i;
 
 	for (i = 0; i < len; i++) {
 		if (value[i] == '\\' || value[i] == '"')
-			t_string_append_c(str, '\\');
-		t_string_append_c(str, value[i]);
+			str_append_c(str, '\\');
+		str_append_c(str, value[i]);
 	}
 }
 
 /* does two things: 1) escape '\' and '"' characters, 2) 8bit text -> QP */
-static TempString *get_quoted_str(const char *value, size_t value_len)
+static String *get_quoted_str(const char *value, size_t value_len)
 {
-	TempString *str;
+	String *str;
 	size_t token_len;
 	int qp, need_qp, quoted;
 
-	str = t_string_new(value_len * 2);
+	str = t_str_new(value_len * 2);
 	qp = FALSE;
 	quoted = FALSE;
 
-	t_string_append_c(str, '"');
+	str_append_c(str, '"');
 	while (value_len > 0) {
 		token_len = next_token(value, value_len, &need_qp, &quoted, qp);
 		i_assert(token_len > 0 && token_len <= value_len);
@@ -140,10 +140,10 @@ static TempString *get_quoted_str(const char *value, size_t value_len)
 		}
 
 		if (need_qp && !qp) {
-			t_string_append(str, "=?x-unknown?Q?");
+			str_append(str, "=?x-unknown?Q?");
 			qp = TRUE;
 		} else if (!need_qp && qp) {
-			t_string_append(str, "?=");
+			str_append(str, "?=");
 			qp = FALSE;
 		}
 
@@ -156,8 +156,8 @@ static TempString *get_quoted_str(const char *value, size_t value_len)
 		value_len -= token_len;
 	}
 
-	if (qp) t_string_append(str, "?=");
-	t_string_append_c(str, '"');
+	if (qp) str_append(str, "?=");
+	str_append_c(str, '"');
 
 	return str;
 }
@@ -165,13 +165,13 @@ static TempString *get_quoted_str(const char *value, size_t value_len)
 const char *imap_quote_str_nil(const char *value)
 {
 	return value == NULL ? "NIL" :
-		get_quoted_str(value, strlen(value))->str;
+		str_c(get_quoted_str(value, strlen(value)));
 }
 
 char *imap_quote_value(Pool pool, const char *value, size_t value_len)
 {
-	TempString *str;
+	String *str;
 
 	str = get_quoted_str(value, value_len);
-	return p_strndup(pool, str->str, str->len);
+	return p_strndup(pool, str_c(str), str_len(str));
 }
