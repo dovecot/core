@@ -28,6 +28,7 @@ struct imap_client {
 };
 
 void client_destroy(struct imap_client *client, const char *reason);
+void client_destroy_internal_failure(struct imap_client *client);
 
 void client_send_line(struct imap_client *client, const char *line);
 void client_send_tagline(struct imap_client *client, const char *line);

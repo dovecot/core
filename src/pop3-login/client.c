@@ -366,6 +366,14 @@ void client_destroy(struct pop3_client *client, const char *reason)
 	client_unref(client);
 }
 
+void client_destroy_internal_failure(struct pop3_client *client)
+{
+	client_send_line(client, "-ERR [IN-USE] Internal login failure. "
+			 "Refer to server log for more information.");
+	client_destroy(client, t_strconcat("Internal login failure: ",
+					   client->common.virtual_user, NULL));
+}
+
 void client_ref(struct pop3_client *client)
 {
 	client->refcount++;

@@ -10,15 +10,17 @@ INCLUDES = \
 
 imap_login_LDADD = \
 	../login-common/liblogin-common.a \
-	../lib-imap/imap-parser.o \
+	../lib-imap/libimap.a \
 	../lib-auth/libauth.a \
 	../lib/liblib.a \
 	$(SSL_LIBS)
 
 imap_login_SOURCES = \
 	client.c \
-	client-authenticate.c
+	client-authenticate.c \
+	imap-proxy.c
 
 noinst_HEADERS = \
 	client.h \
-	client-authenticate.h
+	client-authenticate.h \
+	imap-proxy.h

@@ -88,6 +88,16 @@ static void authenticate_callback(struct auth_request *request, int status,
 	case -1:
 		client->auth_request = NULL;
 
+		if (args != NULL) {
+			for (i = 0; args[i] != NULL; i++) {
+				if (strncmp(args[i], "user=", 5) == 0) {
+					i_free(client->virtual_user);
+					client->virtual_user =
+						i_strdup(args[i] + 5);
+				}
+			}
+		}
+
 		/* base64 contains error message, if there is one */
 		if (verbose_auth && data_base64 != NULL) {
 			client_syslog(client, "Authenticate %s failed: %s",

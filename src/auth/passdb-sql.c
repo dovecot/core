@@ -30,6 +30,7 @@ struct passdb_sql_request {
 static struct sql_connection *passdb_sql_conn;
 
 static void result_save_extra_fields(struct sql_result *result,
+                                     struct passdb_sql_request *sql_request,
 				     struct auth_request *auth_request)
 {
 	unsigned int i, fields_count;
@@ -65,6 +66,21 @@ static void result_save_extra_fields(struct sql_result *result,
 				if (str_len(str) > 0)
 					str_append_c(str, '\t');
 				str_append(str, name);
+			}
+		} else if (strcmp(name, "proxy") == 0) {
+			if (*value == 'Y') {
+				/* we're proxying authentication for this
+				   user. send password back if using plaintext
+				   authentication. */
+				auth_request->proxy = TRUE;
+				if (str_len(str) > 0)
+					str_append_c(str, '\t');
+				str_append(str, name);
+
+				if (*sql_request->password != '\0') {
+					str_printfa(str, "\tpass=%s",
+						    sql_request->password);
+				}
 			}
 		} else {
 			if (str_len(str) > 0)
@@ -102,7 +118,7 @@ static void sql_query_callback(struct sql_result *result, void *context)
 			get_log_prefix(auth_request));
 	} else {
 		password = t_strdup(sql_result_get_field_value(result, idx));
-                result_save_extra_fields(result, auth_request);
+                result_save_extra_fields(result, sql_request, auth_request);
 	}
 
 	if (ret > 0) {

@@ -12,6 +12,7 @@
 #include "client-common.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
+#include "login-proxy.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -219,6 +220,7 @@ static void main_deinit(void)
 	if (io_ssl_listen != NULL) io_remove(io_ssl_listen);
 
 	ssl_proxy_deinit();
+	login_proxy_deinit();
 
 	auth_client_free(auth_client);
 	clients_deinit();

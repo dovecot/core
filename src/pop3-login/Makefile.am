@@ -15,8 +15,10 @@ pop3_login_LDADD = \
 
 pop3_login_SOURCES = \
 	client.c \
-	client-authenticate.c
+	client-authenticate.c \
+	pop3-proxy.c
 
 noinst_HEADERS = \
 	client.h \
-	client-authenticate.h
+	client-authenticate.h \
+	pop3-proxy.h

@@ -13,6 +13,9 @@
 #include "auth-client.h"
 #include "client.h"
 #include "client-authenticate.h"
+#include "imap-proxy.h"
+
+#include <stdlib.h>
 
 const char *client_authenticate_get_capabilities(int secured)
 {
@@ -76,39 +79,85 @@ static void client_auth_input(void *context)
 	safe_memset(line, 0, strlen(line));
 }
 
-static int client_handle_success_args(struct imap_client *client,
-				      const char *const *args, int nologin)
+static int client_handle_args(struct imap_client *client,
+			      const char *const *args, int nologin)
 {
-	const char *reason = NULL, *referral = NULL;
+	const char *reason = NULL, *host = NULL, *destuser = NULL, *pass = NULL;
 	string_t *reply;
+	unsigned int port = 143;
+	int proxy = FALSE;
 
 	for (; *args != NULL; args++) {
 		if (strcmp(*args, "nologin") == 0)
 			nologin = TRUE;
+		else if (strcmp(*args, "proxy") == 0)
+			proxy = TRUE;
 		else if (strncmp(*args, "reason=", 7) == 0)
 			reason = *args + 7;
-		else  if (strncmp(*args, "referral=", 9) == 0)
-			referral = *args + 9;
+		else if (strncmp(*args, "host=", 5) == 0)
+			host = *args + 5;
+		else if (strncmp(*args, "port=", 5) == 0)
+			port = atoi(*args + 5);
+		else if (strncmp(*args, "destuser=", 9) == 0)
+			destuser = *args + 9;
+		else if (strncmp(*args, "pass=", 5) == 0)
+			pass = *args + 5;
 	}
 
-	if (!nologin && referral == NULL)
+	if (destuser == NULL)
+		destuser = client->common.virtual_user;
+
+	if (proxy) {
+		/* we want to proxy the connection to another server.
+
+		   proxy host=.. [port=..] [destuser=..] pass=.. */
+		if (imap_proxy_new(client, host, port, destuser, pass) < 0)
+			client_destroy_internal_failure(client);
+		else {
+			client_destroy(client, t_strconcat(
+				"Proxy: ", client->common.virtual_user, NULL));
+		}
+		return TRUE;
+	} else if (host != NULL) {
+		/* IMAP referral
+
+		   [nologin] referral host=.. [port=..] [destuser=..]
+		   [reason=..]
+
+		   NO [REFERRAL imap://destuser;AUTH=..@host:port/] Can't login.
+		   OK [...] Logged in, but you should use this server instead.
+		   .. [REFERRAL ..] (Reason from auth server)
+		*/
+		reply = t_str_new(128);
+		str_append(reply, nologin ? "NO " : "OK ");
+		str_printfa(reply, "[REFERRAL imap://%s;AUTH=%s@%s",
+			    destuser, client->common.auth_mech_name, host);
+		if (port != 143)
+			str_printfa(reply, ":%u", port);
+		str_append(reply, "/] ");
+		if (reason != NULL)
+			str_append(reply, reason);
+		else if (nologin)
+			str_append(reply, "Try this server instead.");
+		else {
+			str_append(reply, "Logged in, but you should use "
+				   "this server instead.");
+		}
+		client_send_tagline(client, str_c(reply));
+	} else if (nologin) {
+		/* Authentication went ok, but for some reason user isn't
+		   allowed to log in. Shouldn't probably happen. */
+		reply = t_str_new(128);
+		if (reason != NULL)
+			str_printfa(reply, "NO %s", reason);
+		else
+			str_append(reply, "NO Login not allowed.");
+		client_send_tagline(client, str_c(reply));
+	} else {
+		/* normal login/failure */
 		return FALSE;
+	}
 
-	reply = t_str_new(128);
-	str_append(reply, nologin ? "NO " : "OK ");
-	if (referral != NULL)
-		str_printfa(reply, "[REFERRAL %s] ", referral);
-
-	if (reason != NULL)
-		str_append(reply, reason);
-	else if (!nologin)
-		str_append(reply, "Logged in.");
-	else if (referral != NULL)
-		str_append(reply, "Try this server instead.");
-	else
-		str_append(reply, "Login disabled.");
-
-	client_send_tagline(client, str_c(reply));
 	if (!nologin) {
 		client_destroy(client, t_strconcat(
 			"Login: ", client->common.virtual_user, NULL));
@@ -133,7 +182,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	switch (reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
 		if (args != NULL) {
-			if (client_handle_success_args(client, args, FALSE))
+			if (client_handle_args(client, args, FALSE))
 				break;
 		}
 
@@ -143,7 +192,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
 		if (args != NULL) {
-			if (client_handle_success_args(client, args, TRUE))
+			if (client_handle_args(client, args, TRUE))
 				break;
 		}
 
@@ -161,11 +210,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 				    client_input, client);
 		break;
 	case SASL_SERVER_REPLY_MASTER_FAILED:
-		client_send_line(client, "* BYE Internal login failure. "
-				 "Refer to server log for more information.");
-		client_destroy(client, t_strconcat("Internal login failure: ",
-						   client->common.virtual_user,
-						   NULL));
+		client_destroy_internal_failure(client);
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:
 		data_len = strlen(data);

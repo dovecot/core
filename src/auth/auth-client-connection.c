@@ -80,10 +80,11 @@ static void auth_callback(struct auth_request *request,
 		break;
 	case AUTH_CLIENT_RESULT_FAILURE:
 		str = t_str_new(128);
-		str_printfa(str, "FAIL\t%u", request->id);
-		str_append_c(str, '\t');
+		str_printfa(str, "FAIL\t%u\t", request->id);
 		if (reply != NULL)
 			str_append(str, reply);
+		if (request->user != NULL)
+			str_printfa(str, "\tuser=%s", request->user);
 		if (request->extra_fields) {
 			str_append_c(str, '\t');
 			str_append(str, request->extra_fields);

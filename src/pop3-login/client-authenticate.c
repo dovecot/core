@@ -15,6 +15,9 @@
 #include "ssl-proxy.h"
 #include "client.h"
 #include "client-authenticate.h"
+#include "pop3-proxy.h"
+
+#include <stdlib.h>
 
 int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 {
@@ -77,18 +80,45 @@ static void client_auth_input(void *context)
 	safe_memset(line, 0, strlen(line));
 }
 
-static int client_handle_success_args(struct pop3_client *client,
-				      const char *const *args)
+static int client_handle_args(struct pop3_client *client,
+			      const char *const *args, int nologin)
 {
-	const char *reason = NULL;
+	const char *reason = NULL, *host = NULL, *destuser = NULL, *pass = NULL;
 	string_t *reply;
-	int nologin = FALSE;
+	unsigned int port = 110;
+	int proxy = FALSE;
 
 	for (; *args != NULL; args++) {
 		if (strcmp(*args, "nologin") == 0)
 			nologin = TRUE;
+		else if (strcmp(*args, "proxy") == 0)
+			proxy = TRUE;
 		else if (strncmp(*args, "reason=", 7) == 0)
 			reason = *args + 7;
+		else if (strncmp(*args, "host=", 5) == 0)
+			host = *args + 5;
+		else if (strncmp(*args, "port=", 5) == 0)
+			port = atoi(*args + 5);
+		else if (strncmp(*args, "destuser=", 9) == 0)
+			destuser = *args + 9;
+		else if (strncmp(*args, "pass=", 5) == 0)
+			pass = *args + 5;
+	}
+
+	if (destuser == NULL)
+		destuser = client->common.virtual_user;
+
+	if (proxy) {
+		/* we want to proxy the connection to another server.
+
+		   proxy host=.. [port=..] [destuser=..] pass=.. */
+		if (pop3_proxy_new(client, host, port, destuser, pass) < 0)
+			client_destroy_internal_failure(client);
+		else {
+			client_destroy(client, t_strconcat(
+				"Proxy: ", client->common.virtual_user, NULL));
+		}
+		return TRUE;
 	}
 
 	if (!nologin)
@@ -122,7 +152,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	switch (reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
 		if (args != NULL) {
-			if (client_handle_success_args(client, args))
+			if (client_handle_args(client, args, FALSE))
 				break;
 		}
 
@@ -131,6 +161,11 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 			"Login: ", client->common.virtual_user, NULL));
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
+		if (args != NULL) {
+			if (client_handle_args(client, args, TRUE))
+				break;
+		}
+
 		if (data == NULL)
 			client_send_line(client, "-ERR Authentication failed");
 		else {
@@ -145,12 +180,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 				    client_input, client);
 		break;
 	case SASL_SERVER_REPLY_MASTER_FAILED:
-		client_send_line(client,
-				 "-ERR [IN-USE] Internal login failure. "
-				 "Refer to server log for more information.");
-		client_destroy(client, t_strconcat("Internal login failure: ",
-						   client->common.virtual_user,
-						   NULL));
+		client_destroy_internal_failure(client);
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:
 		data_len = strlen(data);

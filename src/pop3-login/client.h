@@ -30,6 +30,7 @@ struct pop3_client {
 };
 
 void client_destroy(struct pop3_client *client, const char *reason);
+void client_destroy_internal_failure(struct pop3_client *client);
 
 void client_send_line(struct pop3_client *client, const char *line);
 

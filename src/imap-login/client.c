@@ -15,6 +15,7 @@
 #include "client-authenticate.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
+#include "imap-proxy.h"
 
 /* max. size of one parameter in line, or max reply length in SASL
    authentication */
@@ -442,7 +443,8 @@ void client_destroy(struct imap_client *client, const char *reason)
 	hash_remove(clients, client);
 
 	i_stream_close(client->input);
-	o_stream_close(client->output);
+	if (client->output != NULL)
+		o_stream_close(client->output);
 
 	if (client->common.auth_request != NULL) {
 		auth_client_request_abort(client->common.auth_request);
@@ -467,6 +469,14 @@ void client_destroy(struct imap_client *client, const char *reason)
 	client_unref(client);
 }
 
+void client_destroy_internal_failure(struct imap_client *client)
+{
+	client_send_line(client, "* BYE Internal login failure. "
+			 "Refer to server log for more information.");
+	client_destroy(client, t_strconcat("Internal login failure: ",
+					   client->common.virtual_user, NULL));
+}
+
 void client_ref(struct imap_client *client)
 {
 	client->refcount++;
@@ -480,7 +490,8 @@ int client_unref(struct imap_client *client)
 	imap_parser_destroy(client->parser);
 
 	i_stream_unref(client->input);
-	o_stream_unref(client->output);
+	if (client->output != NULL)
+		o_stream_unref(client->output);
 
 	i_free(client->common.virtual_user);
 	i_free(client->common.auth_mech_name);
