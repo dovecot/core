@@ -283,7 +283,8 @@ static int modifylog_open_and_init_file(MailModifyLog *log, const char *path)
 			ret = -1;
 		}
 
-		if (ret > 0 && (log->fd == -1 || modifylog_mark_full(log))) {
+		if (ret > 0 && (log->header == NULL ||
+				modifylog_mark_full(log))) {
 			mail_modifylog_close(log);
 
 			log->fd = fd;
@@ -385,7 +386,7 @@ static int mail_modifylog_open_and_verify(MailModifyLog *log, const char *path)
 		(void)close(fd);
 	}
 
-	return ret;
+	return ret > 0;
 }
 
 static int mail_modifylog_find_or_create(MailModifyLog *log)
