@@ -198,10 +198,15 @@ static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
 		token = next_token(ctx, &value, &len);
 	}
 
-	/* timezone */
-	if (token != 'A')
-		return FALSE;
-	*timezone_offset = parse_timezone(value, len);
+	if (token == TOKEN_LAST) {
+		/* missing timezone */
+		*timezone_offset = 0;
+	} else {
+		/* timezone */
+		if (token != 'A')
+			return FALSE;
+		*timezone_offset = parse_timezone(value, len);
+	}
 
 	tm.tm_isdst = -1;
 	*time = utc_mktime(&tm);
