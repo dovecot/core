@@ -8,7 +8,7 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-storage
 
-imap_LDADD = \
+libs = \
 	../lib-storage/register/libstorage-register.a \
 	$(STORAGE_LIBS) \
 	../lib-storage/libstorage.a \
@@ -16,10 +16,14 @@ imap_LDADD = \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \
 	../lib-charset/libcharset.a \
-	../lib/liblib.a \
-	$(LIBICONV)
+	../lib/liblib.a
 
-imap_DEPENDENCIES = $(imap_LDADD)
+imap_LDADD = \
+	$(libs) \
+	$(LIBICONV) \
+	$(MODULE_LIBS)
+
+imap_DEPENDENCIES = $(libs)
 
 cmds = \
 	cmd-append.c \

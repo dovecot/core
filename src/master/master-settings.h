@@ -57,10 +57,14 @@ struct settings {
 	/* imap */
 	const char *imap_executable;
 	unsigned int imap_process_size;
+	int imap_use_modules;
+	const char *imap_modules;
 
 	/* pop3 */
 	const char *pop3_executable;
 	unsigned int pop3_process_size;
+	int pop3_use_modules;
+	const char *pop3_modules;
 
 	/* .. */
 	gid_t login_gid;

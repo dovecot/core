@@ -73,10 +73,14 @@ static struct setting_def setting_defs[] = {
 	/* imap */
 	DEF(SET_STR, imap_executable),
 	DEF(SET_INT, imap_process_size),
+	DEF(SET_BOOL, imap_use_modules),
+	DEF(SET_STR, imap_modules),
 
 	/* pop3 */
 	DEF(SET_STR, pop3_executable),
 	DEF(SET_INT, pop3_process_size),
+	DEF(SET_BOOL, pop3_use_modules),
+	DEF(SET_STR, pop3_modules),
 
 	{ 0, NULL, 0 }
 };
@@ -182,10 +186,14 @@ struct settings default_settings = {
 	/* imap */
 	MEMBER(imap_executable) PKG_LIBEXECDIR"/imap",
 	MEMBER(imap_process_size) 256,
+	MEMBER(imap_use_modules) FALSE,
+	MEMBER(imap_modules) PKG_LIBDIR"/imap",
 
 	/* pop3 */
 	MEMBER(pop3_executable) PKG_LIBEXECDIR"/pop3",
 	MEMBER(pop3_process_size) 256,
+	MEMBER(pop3_use_modules) FALSE,
+	MEMBER(pop3_modules) PKG_LIBDIR"/imap",
 
 	MEMBER(login_gid) 0,
 	MEMBER(auths) NULL,

@@ -12,11 +12,8 @@ dovecot_auth_LDADD = \
 	../lib-settings/libsettings.a \
 	../lib/liblib.a \
 	$(AUTH_LIBS) \
-	$(RAND_LIBS)
-
-if AUTH_MODULES
-dovecot_auth_LDFLAGS = -export-dynamic
-endif
+	$(RAND_LIBS) \
+	$(MODULE_LIBS)
 
 dovecot_auth_SOURCES = \
 	auth-module.c \

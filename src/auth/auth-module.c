@@ -2,7 +2,7 @@
 
 #include "lib.h"
 
-#ifdef AUTH_MODULES
+#ifdef HAVE_MODULES
 
 #include "auth-module.h"
 

@@ -103,18 +103,27 @@ them for auth modules which require external libraries (eg. LDAP and
 vpopmail). There's no standard way to build them as modules currently, but
 something like this should work:
 
-gcc -shared -fPIC -DUSERDB_LDAP -DPASSDB_LDAP \
+gcc -shared -fPIC -DHAVE_CONFIG_H -DUSERDB_LDAP -DPASSDB_LDAP \
 -I../.. -I../lib -I../lib-settings \
 db-ldap.c userdb-ldap.c passdb-ldap.c -o ldap.so \
 ../lib-settings/libsettings.a -lldap
 
-gcc -shared -fPIC -DUSERDB_PGSQL -DPASSDB_PGSQL \
+gcc -shared -fPIC -DHAVE_CONFIG_H -DUSERDB_PGSQL -DPASSDB_PGSQL \
 -I../.. -I../lib -I../lib-settings -I/usr/include/postgresql \
 db-pgsql.c userdb-pgsql.c passdb-pgsql.c -o pgsql.so \
 ../lib-settings/libsettings.a -L/usr/lib/postgresql -lpq
 
-gcc -shared -fPIC -DUSERDB_VPOPMAIL -DPASSDB_VPOPMAIL -I../.. -I../lib \
-userdb-vpopmail.c passdb-vpopmail.c -o vpopmail.so -lvpopmail
+gcc -shared -fPIC -DHAVE_CONFIG_H -DUSERDB_VPOPMAIL -DPASSDB_VPOPMAIL \
+-I../.. -I../lib userdb-vpopmail.c passdb-vpopmail.c -o vpopmail.so \
+-lvpopmail
 
 Including libsettings.a in ldap.so and pgsql.so is kind of annoying, but it's
 not needed elsewhere in dovecot-auth.
+
+Dynamic IMAP and POP3 Modules
+-----------------------------
+
+If imap_use_modules or pop3_use_modules is set to yes, Dovecot will load all
+*.so modules from directory pointed by imap_modules or pop3_modules. These
+modules can do anything, they're only expected to contain <module name>_init
+and <module name>_deinit functions which are called.

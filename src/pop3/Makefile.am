@@ -8,7 +8,7 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-storage
 
-pop3_LDADD = \
+libs = \
 	../lib-storage/register/libstorage-register.a \
 	$(STORAGE_LIBS) \
 	../lib-storage/libstorage.a \
@@ -16,10 +16,14 @@ pop3_LDADD = \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \
 	../lib-charset/libcharset.a \
-	../lib/liblib.a \
-	$(LIBICONV)
+	../lib/liblib.a
 
-pop3_DEPENDENCIES = $(pop3_LDADD)
+pop3_LDADD = \
+	$(libs) \
+	$(LIBICONV) \
+	$(MODULE_LIBS)
+
+pop3_DEPENDENCIES = $(libs)
 
 pop3_SOURCES = \
 	client.c \

@@ -6,6 +6,7 @@
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
 #include "process-title.h"
+#include "module-dir.h"
 #include "mail-storage.h"
 
 #include <stdlib.h>
@@ -15,6 +16,8 @@
         (getenv("LOGGED_IN") == NULL)
 
 struct ioloop *ioloop;
+
+static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 
 static void sig_quit(int signo __attr_unused__)
@@ -69,6 +72,9 @@ static int main_init(void)
 	mail_storage_register_all();
 	clients_init();
 
+	modules = getenv("MODULE_DIR") == NULL ? NULL :
+		module_dir_load(getenv("MODULE_DIR"));
+
 	mail = getenv("MAIL");
 	if (mail == NULL) {
 		/* support also maildir-specific environment */
@@ -102,6 +108,8 @@ static void main_deinit(void)
 	   which is too common at least while testing :) */
 	if (lib_signal_kill != 0 && lib_signal_kill != 2)
 		i_warning("Killed with signal %d", lib_signal_kill);
+
+	module_dir_unload(modules);
 
 	clients_deinit();
         mail_storage_deinit();

@@ -34,6 +34,7 @@ liblib_a_SOURCES = \
 	mempool-system.c \
 	mmap-anon.c \
 	mmap-util.c \
+	module-dir.c \
 	network.c \
 	ostream.c \
 	ostream-file.c \
@@ -85,6 +86,7 @@ noinst_HEADERS = \
 	md5.h \
 	mempool.h \
 	mmap-util.h \
+	module-dir.h \
 	network.h \
 	ostream.h \
 	ostream-internal.h \

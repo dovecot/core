@@ -100,9 +100,9 @@ static const char *expand_mail_env(const char *env, const char *user,
 }
 
 int create_mail_process(int socket, struct ip_addr *ip,
-			const char *executable, unsigned int process_size,
-			int process_type, struct auth_master_reply *reply,
-			const char *data)
+			const char *executable, const char *module_dir,
+			unsigned int process_size, int process_type,
+			struct auth_master_reply *reply, const char *data)
 {
 	static const char *argv[] = { NULL, NULL, NULL };
 	const char *host, *mail, *chroot_dir, *home_dir, *full_home_dir;
@@ -199,6 +199,8 @@ int create_mail_process(int socket, struct ip_addr *ip,
 				set->mbox_dotlock_change_timeout));
 	if (set->mbox_read_dotlock)
 		env_put("MBOX_READ_DOTLOCK=1");
+
+	env_put(t_strconcat("MODULE_DIR=", module_dir, NULL));
 
 	/* user given environment - may be malicious. virtual_user comes from
 	   auth process, but don't trust that too much either. Some auth
