@@ -1,7 +1,101 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "index-storage.h"
+
+void index_mailbox_set_recent(struct index_mailbox *ibox, uint32_t seq)
+{
+	unsigned char *p;
+	static char flag;
+
+	if (ibox->recent_flags_start_seq == 0) {
+		ibox->recent_flags =
+			buffer_create_dynamic(default_pool, 128, (size_t)-1);
+		ibox->recent_flags_start_seq = seq;
+	} else if (seq < ibox->recent_flags_start_seq) {
+		buffer_copy(ibox->recent_flags,
+			    ibox->recent_flags_start_seq - seq,
+			    ibox->recent_flags, 0, (size_t)-1);
+		ibox->recent_flags_start_seq = seq;
+	}
+
+	flag = TRUE;
+	p = buffer_get_space_unsafe(ibox->recent_flags,
+				    seq - ibox->recent_flags_start_seq, 1);
+	if (*p == 0) {
+		ibox->recent_flags_count++;
+		*p = 1;
+	}
+}
+
+int index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t seq)
+{
+	const unsigned char *data;
+	size_t size;
+	uint32_t idx;
+
+	if (seq < ibox->recent_flags_start_seq ||
+	    ibox->recent_flags_start_seq == 0)
+		return FALSE;
+
+	idx = seq - ibox->recent_flags_start_seq;
+	data = buffer_get_data(ibox->recent_flags, &size);
+	return idx < size ? data[idx] : FALSE;
+}
+
+static void index_mailbox_expunge_recent(struct index_mailbox *ibox,
+					 uint32_t seq1, uint32_t seq2)
+{
+	const unsigned char *data;
+	size_t size;
+	uint32_t i, idx, count;
+
+	if (seq2 < ibox->recent_flags_start_seq ||
+	    ibox->recent_flags_start_seq == 0)
+		return;
+
+	if (seq1 < ibox->recent_flags_start_seq)
+		seq1 = ibox->recent_flags_start_seq;
+
+	idx = seq1 - ibox->recent_flags_start_seq;
+	count = seq2 - seq1 + 1;
+
+	data = buffer_get_data(ibox->recent_flags, &size);
+	if (idx > size)
+		return;
+	if (idx + count > size)
+		count = size - idx;
+
+	for (i = 0; i < count; i++) {
+		if (data[idx+i])
+			ibox->recent_flags_count--;
+	}
+
+	buffer_copy(ibox->recent_flags, idx,
+		    ibox->recent_flags, idx + count, (size_t)-1);
+	buffer_set_used_size(ibox->recent_flags, size - count);
+
+}
+
+static int index_mailbox_update_recent(struct index_mailbox *ibox,
+				       uint32_t seq1, uint32_t seq2)
+{
+	const struct mail_index_record *rec;
+
+	for (; seq1 <= seq2; seq1++) {
+		if (mail_index_lookup(ibox->view, seq1, &rec) < 0) {
+			mail_storage_set_index_error(ibox);
+			return -1;
+		}
+
+		if ((rec->flags & MAIL_RECENT) != 0 ||
+		    ibox->is_recent(ibox, rec->uid))
+                        index_mailbox_set_recent(ibox, seq1);
+	}
+
+	return 0;
+}
 
 int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 {
@@ -16,7 +110,7 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 	void *sc_context;
 	enum mail_index_sync_type sync_mask;
 	uint32_t seq, seq1, seq2;
-	uint32_t messages_count, last_messages_count, recent_count;
+	uint32_t messages_count, last_messages_count;
 	int ret;
 
 	sync_mask = MAIL_INDEX_SYNC_MASK_ALL;
@@ -28,11 +122,12 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 		return -1;
 	}
 
-	if (!ibox->last_recent_count_initialized) {
-                ibox->last_recent_count_initialized = TRUE;
-		ibox->last_recent_count = ibox->get_recent_count(ibox);
-	}
 	last_messages_count = mail_index_view_get_message_count(ibox->view);
+
+	if (!ibox->recent_flags_synced) {
+		ibox->recent_flags_synced = TRUE;
+                index_mailbox_update_recent(ibox, 1, last_messages_count);
+	}
 
 	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0) {
 		expunges_count = 0;
@@ -76,6 +171,8 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 					break;
 				}
 				full_flags.flags = rec->flags; // FIXME
+				if (index_mailbox_is_recent(ibox, seq))
+					full_flags.flags |= MAIL_RECENT;
 				sc->update_flags(&ibox->box, seq,
 						 &full_flags, sc_context);
 			}
@@ -92,6 +189,7 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 		messages_count = mail_index_view_get_message_count(ibox->view);
 		for (i = expunges_count*2; i > 0; i -= 2) {
 			seq = expunges[i-1];
+			index_mailbox_expunge_recent(ibox, expunges[i-2], seq);
 			if (seq > messages_count)
 				seq = messages_count;
 			for (; seq >= expunges[i-2]; seq--) {
@@ -105,17 +203,16 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 
 	messages_count = mail_index_view_get_message_count(ibox->view);
 	if (messages_count != last_messages_count) {
+		index_mailbox_update_recent(ibox, last_messages_count+1,
+					    messages_count);
 		sc->message_count_changed(&ibox->box, messages_count,
 					  sc_context);
-		recent_count = ibox->get_recent_count(ibox);
-	} else if (expunges_count != 0)
-		recent_count = ibox->get_recent_count(ibox);
-	else
-		recent_count = ibox->last_recent_count;
+	}
 
-	if (recent_count != ibox->last_recent_count) {
-		ibox->last_recent_count = recent_count;
-		sc->recent_count_changed(&ibox->box, recent_count, sc_context);
+	if (ibox->recent_flags_count != ibox->synced_recent_count) {
+                ibox->synced_recent_count = ibox->recent_flags_count;
+		sc->recent_count_changed(&ibox->box, ibox->synced_recent_count,
+					 sc_context);
 	}
 
 	mail_index_view_unlock(ibox->view);

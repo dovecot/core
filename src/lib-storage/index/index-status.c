@@ -41,6 +41,7 @@ int index_storage_get_status(struct mailbox *box,
 		return -1;
 	if ((items & STATUS_MESSAGE_COUNTS) != 0) {
 		status->messages = hdr->messages_count;
+		status->recent = ibox->synced_recent_count;
 		status->unseen = hdr->messages_count - hdr->seen_messages_count;
 		status->uidvalidity = hdr->uid_validity;
 		status->uidnext = hdr->next_uid;
@@ -53,11 +54,6 @@ int index_storage_get_status(struct mailbox *box,
 			mail_storage_set_index_error(ibox);
 			return -1;
 		}
-	}
-
-	if ((items & STATUS_RECENT) != 0) {
-		i_assert(ibox->last_recent_count_initialized);
-		status->recent = ibox->last_recent_count;
 	}
 
 	/*FIXME:if (items & STATUS_KEYWORDS)

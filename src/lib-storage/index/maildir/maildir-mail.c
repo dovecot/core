@@ -64,18 +64,6 @@ maildir_open_mail(struct index_mailbox *ibox, uint32_t uid, int *deleted)
 	}
 }
 
-static const struct mail_full_flags *maildir_mail_get_flags(struct mail *_mail)
-{
-	struct index_mail *mail = (struct index_mail *)_mail;
-	struct index_mail_data *data = &mail->data;
-
-	(void)index_mail_get_flags(_mail);
-
-	if (maildir_uidlist_is_recent(mail->ibox->uidlist, _mail->uid))
-		data->flags.flags |= MAIL_RECENT;
-	return &data->flags;
-}
-
 static time_t maildir_mail_get_received_date(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
@@ -180,7 +168,7 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 struct mail maildir_mail = {
 	0, 0, 0, 0, 0, 0,
 
-	maildir_mail_get_flags,
+	index_mail_get_flags,
 	index_mail_get_parts,
 	maildir_mail_get_received_date,
 	index_mail_get_date,

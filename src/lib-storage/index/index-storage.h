@@ -60,9 +60,8 @@ struct index_mailbox {
 	struct mail_cache *cache;
 	struct mail *mail_interface;
 
-	uint32_t (*get_recent_count)(struct index_mailbox *ibox);
 	void (*mail_deinit)(struct index_mail *mail);
-	unsigned int last_recent_count;
+	int (*is_recent)(struct index_mailbox *ibox, uint32_t uid);
 
 	struct timeout *autosync_to;
 	struct index_autosync_file *autosync_files;
@@ -76,6 +75,10 @@ struct index_mailbox {
 
 	uint32_t commit_log_file_seq;
 	uoff_t commit_log_file_offset;
+
+	buffer_t *recent_flags;
+	uint32_t recent_flags_start_seq, recent_flags_count;
+	unsigned int synced_recent_count;
 
 	/* mbox: */
 	int mbox_fd;
@@ -100,11 +103,11 @@ struct index_mailbox {
 
 	unsigned int readonly:1;
 	unsigned int keep_recent:1;
+	unsigned int recent_flags_synced:1;
 	unsigned int sent_diskspace_warning:1;
 	unsigned int sent_readonly_flags_warning:1;
 	unsigned int autosync_pending:1;
 	unsigned int mail_read_mmaped:1;
-	unsigned int last_recent_count_initialized:1;
 	unsigned int syncing_commit:1;
 };
 
@@ -151,6 +154,9 @@ int index_mailbox_fix_keywords(struct index_mailbox *ibox,
 			       enum mail_flags *flags,
 			       const char *keywords[],
 			       unsigned int keywords_count);
+
+void index_mailbox_set_recent(struct index_mailbox *ibox, uint32_t seq);
+int index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t seq);
 
 unsigned int index_storage_get_recent_count(struct mail_index_view *view);
 

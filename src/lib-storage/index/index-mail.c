@@ -133,6 +133,9 @@ const struct mail_full_flags *index_mail_get_flags(struct mail *_mail)
 	struct index_mail_data *data = &mail->data;
 
 	data->flags.flags = data->rec->flags & MAIL_FLAGS_MASK;
+	if (index_mailbox_is_recent(mail->ibox, data->seq))
+		data->flags.flags |= MAIL_RECENT;
+
 	/*FIXME:data->flags.keywords =
 		mail_keywords_list_get(mail->ibox->index->keywords);
 	data->flags.keywords_count = MAIL_KEYWORDS_COUNT;*/

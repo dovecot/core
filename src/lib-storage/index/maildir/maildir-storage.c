@@ -401,9 +401,9 @@ static int verify_inbox(struct index_storage *storage)
 	return 0;
 }
 
-static uint32_t maildir_get_recent_count(struct index_mailbox *ibox)
+static int maildir_is_recent(struct index_mailbox *ibox, uint32_t uid)
 {
-	return maildir_uidlist_get_recent_count(ibox->uidlist);
+	return maildir_uidlist_is_recent(ibox->uidlist, uid);
 }
 
 static struct mailbox *
@@ -429,9 +429,9 @@ maildir_open(struct index_storage *storage, const char *name,
 	ibox->path = i_strdup(path);
 	ibox->control_dir = i_strdup(control_dir);
 
-	ibox->get_recent_count = maildir_get_recent_count;
 	ibox->mail_interface = &maildir_mail;
 	ibox->uidlist = maildir_uidlist_init(ibox);
+	ibox->is_recent = maildir_is_recent;
 
 	/* for shared mailboxes get the create mode from the
 	   permissions of dovecot-shared file */
