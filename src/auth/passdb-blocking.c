@@ -87,6 +87,8 @@ void passdb_blocking_verify_plain(struct auth_request *request)
 {
 	string_t *str;
 
+	i_assert(request->extra_fields == NULL);
+
 	str = t_str_new(64);
 	str_append(str, "PASSV\t");
 	str_append(str, request->mech_password);
@@ -117,6 +119,8 @@ lookup_credentials_callback(struct auth_request *request, const char *reply)
 void passdb_blocking_lookup_credentials(struct auth_request *request)
 {
 	string_t *str;
+
+	i_assert(request->extra_fields == NULL);
 
 	str = t_str_new(64);
 	str_printfa(str, "PASSL\t%d\t", request->credentials);

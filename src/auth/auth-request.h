@@ -8,10 +8,19 @@
 
 struct auth_client_connection;
 
+enum auth_request_state {
+	AUTH_REQUEST_STATE_NEW,
+	AUTH_REQUEST_STATE_PASSDB,
+	AUTH_REQUEST_STATE_MECH_CONTINUE,
+	AUTH_REQUEST_STATE_FINISHED,
+	AUTH_REQUEST_STATE_USERDB
+};
+
 struct auth_request {
 	int refcount;
 
 	pool_t pool;
+        enum auth_request_state state;
 	char *user;
 	char *mech_password; /* set if verify_plain() is called */
 	char *passdb_password; /* set after password lookup if successful */
@@ -40,7 +49,6 @@ struct auth_request {
 
 	unsigned int successful:1;
 	unsigned int internal_failure:1;
-	unsigned int finished:1;
 	unsigned int delayed_failure:1;
 	unsigned int accept_input:1;
 	unsigned int no_failure_delay:1;

@@ -23,6 +23,7 @@ auth_request_new(struct auth *auth, struct mech_module *mech,
 	struct auth_request *request;
 
 	request = mech->auth_new();
+	request->state = AUTH_REQUEST_STATE_NEW;
 
 	request->refcount = 1;
 	request->created = ioloop_time;
@@ -37,9 +38,9 @@ auth_request_new(struct auth *auth, struct mech_module *mech,
 void auth_request_success(struct auth_request *request,
 			  const void *data, size_t data_size)
 {
-	i_assert(!request->finished);
-	request->finished = TRUE;
+	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
+	request->state = AUTH_REQUEST_STATE_FINISHED;
 	request->successful = TRUE;
 	request->callback(request, AUTH_CLIENT_RESULT_SUCCESS,
 			  data, data_size);
@@ -47,9 +48,9 @@ void auth_request_success(struct auth_request *request,
 
 void auth_request_fail(struct auth_request *request)
 {
-	i_assert(!request->finished);
-	request->finished = TRUE;
+	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
+	request->state = AUTH_REQUEST_STATE_FINISHED;
 	request->callback(request, AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
 }
 
@@ -89,12 +90,17 @@ void auth_request_export(struct auth_request *request, string_t *str)
 void auth_request_initial(struct auth_request *request,
 			  const unsigned char *data, size_t data_size)
 {
+	i_assert(request->state == AUTH_REQUEST_STATE_NEW);
+
+	request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
 	request->mech->auth_initial(request, data, data_size);
 }
 
 void auth_request_continue(struct auth_request *request,
 			   const unsigned char *data, size_t data_size)
 {
+	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
+
 	request->mech->auth_continue(request, data, data_size);
 }
 
@@ -149,7 +155,10 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 					struct auth_request *request)
 {
 	const char *cache_key;
-	int expired;
+
+	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
+
+	request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
 
         auth_request_save_cache(request, result);
 
@@ -161,7 +170,7 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 		   expired record. */
 		if (passdb_cache_verify_plain(request, cache_key,
 					      request->mech_password,
-					      &result, &expired)) {
+					      &result, TRUE)) {
 			request->private_callback.verify_plain(result, request);
 			safe_memset(request->mech_password, 0,
 				    strlen(request->mech_password));
@@ -193,7 +202,8 @@ void auth_request_verify_plain(struct auth_request *request,
 	struct passdb_module *passdb = request->auth->passdb;
 	enum passdb_result result;
 	const char *cache_key;
-	int expired;
+
+	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 	request->mech_password = p_strdup(request->pool, password);
 	request->private_callback.verify_plain = callback;
@@ -201,11 +211,13 @@ void auth_request_verify_plain(struct auth_request *request,
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
 	if (cache_key != NULL) {
 		if (passdb_cache_verify_plain(request, cache_key, password,
-					      &result, &expired) && !expired) {
+					      &result, FALSE)) {
 			callback(result, request);
 			return;
 		}
 	}
+
+	request->state = AUTH_REQUEST_STATE_PASSDB;
 
 	if (passdb->blocking)
 		passdb_blocking_verify_plain(request);
@@ -220,8 +232,10 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 					      struct auth_request *request)
 {
 	const char *cache_key, *scheme;
-	int expired;
 
+	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
+
+	request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
         auth_request_save_cache(request, result);
 
 	if (request->passdb_password != NULL) {
@@ -237,7 +251,7 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 		   expired record. */
 		if (passdb_cache_lookup_credentials(request, cache_key,
 						    &credentials, &scheme,
-						    &expired)) {
+						    TRUE)) {
 			passdb_handle_credentials(credentials != NULL ?
 				PASSDB_RESULT_OK : PASSDB_RESULT_USER_UNKNOWN,
 				request->credentials, credentials, scheme,
@@ -257,13 +271,13 @@ void auth_request_lookup_credentials(struct auth_request *request,
 {
 	struct passdb_module *passdb = request->auth->passdb;
 	const char *cache_key, *result, *scheme;
-	int expired;
+
+	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
 	if (cache_key != NULL) {
 		if (passdb_cache_lookup_credentials(request, cache_key,
-						    &result, &scheme,
-						    &expired) && !expired) {
+						    &result, &scheme, FALSE)) {
 			passdb_handle_credentials(result != NULL ?
 						  PASSDB_RESULT_OK :
 						  PASSDB_RESULT_USER_UNKNOWN,
@@ -273,6 +287,7 @@ void auth_request_lookup_credentials(struct auth_request *request,
 		}
 	}
 
+	request->state = AUTH_REQUEST_STATE_PASSDB;
 	request->credentials = credentials;
 	request->private_callback.lookup_credentials = callback;
 

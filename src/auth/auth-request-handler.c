@@ -384,6 +384,10 @@ static void userdb_callback(const char *result, struct auth_request *request)
         struct auth_request_handler *handler = request->context;
 	string_t *reply;
 
+	i_assert(request->state == AUTH_REQUEST_STATE_USERDB);
+
+	request->state = AUTH_REQUEST_STATE_FINISHED;
+
 	reply = t_str_new(256);
 	if (handler->prepend_connect_uid)
 		str_printfa(reply, "%u\t", request->connect_uid);
@@ -422,7 +426,8 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 	auth_request_ref(request);
 	auth_request_handler_remove(handler, request);
 
-	if (!request->successful) {
+	if (request->state != AUTH_REQUEST_STATE_FINISHED ||
+	    !request->successful) {
 		i_error("Master requested unfinished authentication request "
 			"%u.%u", handler->client_pid, client_id);
 		str_printfa(reply, "NOTFOUND\t%u", id);
@@ -431,6 +436,7 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 		/* the request isn't being referenced anywhere anymore,
 		   so we can do a bit of kludging.. replace the request's
 		   old client_id with master's id. */
+		request->state = AUTH_REQUEST_STATE_USERDB;
 		request->id = id;
 		request->context = handler;
 
@@ -449,6 +455,7 @@ void auth_request_handler_flush_failures(void)
 	size /= sizeof(*auth_request);
 
 	for (i = 0; i < size; i++) {
+		i_assert(auth_request[i]->state == AUTH_REQUEST_STATE_FINISHED);
 		auth_request[i]->callback(auth_request[i],
 					  AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
 		auth_request_unref(auth_request[i]);
