@@ -116,7 +116,7 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 				  MailSearchArgType type, const char *value)
 {
 	time_t t;
-	uoff_t size;
+	uoff_t size, user_size;
 
 	switch (type) {
 	case SEARCH_ALL:
@@ -161,14 +161,23 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 
 	/* sizes, only with fastscanning */
 	case SEARCH_SMALLER:
-		if (!mail_index_get_virtual_size(ibox->index, rec, TRUE, &size))
-			return -1;
-		return size < str_to_uoff_t(value);
-	case SEARCH_LARGER:
-		if (!mail_index_get_virtual_size(ibox->index, rec, TRUE, &size))
-			return -1;
-		return size > str_to_uoff_t(value);
+		user_size = str_to_uoff_t(value);
+		if (mail_index_get_virtual_size(ibox->index, rec, TRUE, &size))
+			return size < user_size;
 
+		/* knowing physical size may be enough */
+		if (rec->header_size + rec->body_size >= user_size)
+			return 0;
+		return -1;
+	case SEARCH_LARGER:
+		user_size = str_to_uoff_t(value);
+		if (mail_index_get_virtual_size(ibox->index, rec, TRUE, &size))
+			return size > user_size;
+
+		/* knowing physical size may be enough */
+		if (rec->header_size + rec->body_size > user_size)
+			return 1;
+		return -1;
 	default:
 		return -1;
 	}
