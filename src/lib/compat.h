@@ -97,4 +97,8 @@ ssize_t my_writev(int fd, const struct iovec *iov, size_t iov_len);
 #define i_isupper(x) isupper((int) (unsigned char) (x))
 #define i_isxdigit(x) isxdigit((int) (unsigned char) (x))
 
+#ifndef EOVERFLOW
+#  define EOVERFLOW EINVAL
+#endif
+
 #endif
