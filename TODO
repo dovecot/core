@@ -1,5 +1,5 @@
  - bugs
-    - fix update_by_replace
+    - fix update_by_replace (.data file updating is broken now)
     - RENAME: If the name has inferior hierarchical names, then the inferior
 	      hierarchical names MUST also be renamed (ie. foo -> bar renames
 	      also foo/bar -> bar/bar). (and RENAME INBOX!)
@@ -25,8 +25,6 @@
       the old file.. and check that deleting file does "inconsistency error"
     - if imap process notices that both modify logs are getting full because
       it's client isn't syncing, the client should be disconnected
-    - TempString and temp. mempool could make sure the stack frame stays same
-      for every allocation
     - if opening indexes fails because we timeout while trying to lock it, we
       recreate the indexes. that's not very good idea .. also does it do that
       even if .customflags can't be locked? it's not really related to
@@ -41,23 +39,15 @@
    - make sure SELECT rebuilds index properly when next_uid is near 32bit value
    - make sure connection limits work
 
- - cleanups:
-    - iobuffers could do blocking reads/writes and use alarm() to timeout.
-      faster than tons of poll() + gettimeofday() calls.
-    - are the lowwater marks always reset to 0 when they don't exist? could be
-      just as well set to next_uid..
-    - i_buffer_seek() could maybe be void and errors would be shown at read()
-      time like with skip()..
-    - use EOVERFLOW instead of EINVAL wherever appropriate
-
  - enhancements:
     - "* NO Mailbox is locked, will override in xx seconds"
     - UW-IMAP doesn't send it's fields to client: X-IMAPbase, Status, X-Status,
       X-Keywords, X-UID.. should we? probably just makes things more difficult
     - search: support having longer keywords than buffer block
-    - use mmap() vs. read() to access mails. read() seems to be a bit
-      faster with linux/x86.
-    - when fetching body/envelope we could try to cache it immediately if
+    - option: use mmap() vs. read() to access mails. read() seems to be a bit
+      faster with linux/x86, and better through NFS since it doesn't read
+      data uselessly.
+    - when fetching body/envelope/etc we could try to cache it immediately if
       we can get lock with try_lock.
     - optionally use only in-memory indexes
     - maildir could support also the dirty-flag in messages. files would be
@@ -65,6 +55,13 @@
       forking and doing it in background)
     - optionally keep the message file name as it's UID. Then we don't have to
       save the filename anywhere.
+    - send EXISTS immediately after new mail arrives.
+        - linux: we can use dnotify for maildir (but not mbox I think)
+	- *bsd: kqueue() can notify changes in mbox and maildir
+	- rest: stat() mbox file and maildir directory once in a while.
+	  maybe configurable how often if at all, not nice with NFS.
+	- we could sync flag changes at least if there's no expunges
+	- don't send it more often than once in 30 secs or so
 
  - allow index files to be in completely separate location than mail data.
    mails could be read through slow NFS access but indexes from fast local
