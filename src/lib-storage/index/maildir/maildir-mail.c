@@ -232,6 +232,7 @@ struct mail maildir_mail = {
 	0, 0, 0, 0, 0, 0,
 
 	index_mail_get_flags,
+	index_mail_get_keywords,
 	index_mail_get_parts,
 	maildir_mail_get_received_date,
 	index_mail_get_date,
@@ -242,5 +243,6 @@ struct mail maildir_mail = {
 	maildir_mail_get_stream,
 	maildir_mail_get_special,
 	index_mail_update_flags,
+	index_mail_update_keywords,
 	index_mail_expunge
 };

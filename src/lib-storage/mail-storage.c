@@ -347,6 +347,13 @@ void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 	box->notify_changes(box, min_interval, callback, context);
 }
 
+struct mail_keywords *
+mailbox_keywords_create(struct mailbox_transaction_context *t,
+			const char *const keywords[])
+{
+	return t->box->keywords_create(t, keywords);
+}
+
 struct mail *mailbox_fetch(struct mailbox_transaction_context *t, uint32_t seq,
 			   enum mail_fetch_field wanted_fields)
 {
@@ -416,12 +423,13 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context *t)
 
 struct mail_save_context *
 mailbox_save_init(struct mailbox_transaction_context *t,
-		  const struct mail_full_flags *flags,
+		  enum mail_flags flags, const struct mail_keywords *keywords,
 		  time_t received_date, int timezone_offset,
 		  const char *from_envelope, struct istream *input,
 		  int want_mail)
 {
-	return t->box->save_init(t, flags, received_date, timezone_offset,
+	return t->box->save_init(t, flags, keywords,
+				 received_date, timezone_offset,
 				 from_envelope, input, want_mail);
 }
 

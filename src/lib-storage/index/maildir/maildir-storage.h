@@ -58,7 +58,7 @@ void maildir_transaction_rollback(struct mailbox_transaction_context *t);
 
 struct mail_save_context *
 maildir_save_init(struct mailbox_transaction_context *_t,
-		  const struct mail_full_flags *flags,
+		  enum mail_flags flags, const struct mail_keywords *keywords,
 		  time_t received_date, int timezone_offset,
 		  const char *from_envelope, struct istream *input,
 		  int want_mail);
@@ -79,10 +79,11 @@ const char *maildir_get_path(struct index_storage *storage, const char *name);
 
 int maildir_sync_last_commit(struct index_mailbox *ibox);
 
-int maildir_filename_get_flags(const char *fname, enum mail_flags *flags_r,
-			       keywords_mask_t keywords_r);
+int maildir_filename_get_flags(const char *fname, pool_t pool,
+			       enum mail_flags *flags_r,
+			       const char *const **keywords_r);
 const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
-				       keywords_mask_t keywords);
+				       const char *const *keywords);
 
 unsigned int maildir_hash(const void *p);
 int maildir_cmp(const void *p1, const void *p2);

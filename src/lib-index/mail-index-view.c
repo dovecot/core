@@ -400,6 +400,7 @@ static int _view_get_header_ext(struct mail_index_view *view,
 				const void **data_r, size_t *data_size_r)
 {
 	const struct mail_index_ext *ext;
+	uint32_t idx;
 
 	if (map != NULL) {
 		if (mail_index_view_lock(view) < 0)
@@ -411,8 +412,14 @@ static int _view_get_header_ext(struct mail_index_view *view,
 		map = view->index->map;
 	}
 
+	if (!mail_index_map_get_ext_idx(map, ext_id, &idx)) {
+		*data_r = NULL;
+		*data_size_r = 0;
+		return 0;
+	}
+
 	ext = map->extensions->data;
-	ext += ext_id;
+	ext += idx;
 
 	*data_r = CONST_PTR_OFFSET(map->hdr_base, ext->hdr_offset);
 	*data_size_r = ext->hdr_size;
@@ -451,6 +458,64 @@ int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
 			   const struct mail_index_record **rec_r)
 {
 	return view->methods.lookup_full(view, seq, map_r, rec_r);
+}
+
+int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
+			       buffer_t *buf, const char *const **keywords_r)
+{
+	struct mail_index_map *map;
+	const struct mail_index_ext *ext;
+	const void *data;
+	unsigned int i, j;
+	uint32_t ext_id, idx;
+	int ret;
+
+	*keywords_r = NULL;
+	buffer_set_used_size(buf, 0);
+
+	ext_id = view->index->keywords_ext_id;
+	ret = mail_index_lookup_ext_full(view, seq, ext_id, &map, &data);
+	if (ret < 0)
+		return -1;
+
+	if (!mail_index_map_get_ext_idx(map, ext_id, &idx)) {
+		buffer_append_zero(buf, sizeof(const char *));
+		*keywords_r = buf->data;
+		return ret;
+	}
+
+	ext = map->extensions->data;
+	ext += idx;
+
+	for (i = 0, idx = 0; i < ext->record_size; i++) {
+		if (((const char *)data)[i] == 0)
+			continue;
+
+		for (j = 0; j < CHAR_BIT; j++, idx++) {
+			if ((((const char *)data)[i] & (1 << j)) == 0)
+				continue;
+
+			if (idx >= map->keywords_count) {
+				/* keyword header is updated, re-read
+				   it so we know what this one is
+				   called */
+				if (mail_index_map_read_keywords(view->index,
+								 map) < 0)
+					return -1;
+				if (idx >= map->keywords_count) {
+					/* extra bits set in keyword bytes.
+					   shouldn't happen, but just ignore. */
+					break;
+				}
+			}
+			buffer_append(buf, &map->keywords[idx],
+				      sizeof(const char *));
+		}
+	}
+	buffer_append_zero(buf, sizeof(const char *));
+	*keywords_r = buf->data;
+
+	return ret;
 }
 
 int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,

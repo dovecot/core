@@ -81,6 +81,10 @@ struct mailbox {
 				  enum mailbox_sync_flags flags);
 	void (*transaction_rollback)(struct mailbox_transaction_context *t);
 
+	struct mail_keywords *
+		(*keywords_create)(struct mailbox_transaction_context *t,
+				   const char *const keywords[]);
+
 	struct mail *(*fetch)(struct mailbox_transaction_context *t,
 			      uint32_t seq,
 			      enum mail_fetch_field wanted_fields);
@@ -105,7 +109,8 @@ struct mailbox {
 
 	struct mail_save_context *
 		(*save_init)(struct mailbox_transaction_context *t,
-			     const struct mail_full_flags *flags,
+			     enum mail_flags flags,
+			     const struct mail_keywords *keywords,
 			     time_t received_date, int timezone_offset,
 			     const char *from_envelope, struct istream *input,
 			     int want_mail);

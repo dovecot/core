@@ -1188,6 +1188,50 @@ static int log_append_ext_rec_updates(struct mail_transaction_log_file *file,
 	return 0;
 }
 
+static int log_append_keyword_updates(struct mail_transaction_log_file *file,
+				      struct mail_index_transaction *t)
+{
+	struct mail_index_keyword_transaction *kt;
+	struct mail_transaction_keyword_update *kt_hdr;
+	buffer_t *buf;
+	size_t i, size;
+	unsigned int j;
+
+	buf = buffer_create_dynamic(pool_datastack_create(), 128);
+
+	kt = buffer_get_modifyable_data(t->keyword_updates, &size);
+	size /= sizeof(*kt);
+	for (i = 0; i < size; i++) {
+		if (kt[i].messages == NULL)
+			continue;
+
+		buffer_set_used_size(buf, 0);
+		kt_hdr = buffer_append_space_unsafe(buf, sizeof(*kt_hdr));
+		kt_hdr->keywords_count = kt[i].keywords.count;
+		kt_hdr->modify_type = kt[i].modify_type;
+		kt_hdr->name_size[0] = strlen(kt[i].keywords.keywords[0]);
+
+		for (j = 1; j < kt[i].keywords.count; j++) {
+			uint16_t name_size = strlen(kt[i].keywords.keywords[j]);
+			buffer_append(buf, &name_size, sizeof(name_size));
+		}
+		for (j = 0; j < kt[i].keywords.count; j++) {
+			const char *name = kt[i].keywords.keywords[j];
+			buffer_append(buf, name, strlen(name));
+		}
+		if ((buf->used % 4) != 0)
+			buffer_append_zero(buf, 4 - (buf->used % 4));
+		buffer_append_buf(buf, kt[i].messages, 0, (size_t)-1);
+
+		if (log_append_buffer(file, buf, NULL,
+				      MAIL_TRANSACTION_KEYWORD_UPDATE,
+				      t->external) < 0)
+			return -1;
+	}
+
+	return 0;
+}
+
 int mail_transaction_log_append(struct mail_index_transaction *t,
 				uint32_t *log_file_seq_r,
 				uoff_t *log_file_offset_r)
@@ -1271,6 +1315,9 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 
 	if (t->ext_rec_updates != NULL && ret == 0)
 		ret = log_append_ext_rec_updates(file, t);
+
+	if (t->keyword_updates != NULL && ret == 0)
+		ret = log_append_keyword_updates(file, t);
 
 	if (t->expunges != NULL && ret == 0) {
 		ret = log_append_buffer(file, t->expunges, NULL,

@@ -90,7 +90,6 @@ struct imap_fetch_context *imap_fetch_init(struct client *client)
 	ctx->box = client->mailbox;
 
 	ctx->cur_str = str_new(default_pool, 8192);
-	ctx->seen_flag.flags = MAIL_SEEN;
 	ctx->all_headers_buf = buffer_create_dynamic(client->cmd_pool, 128);
 	ctx->handlers = buffer_create_dynamic(client->cmd_pool, 128);
 	ctx->line_finished = TRUE;
@@ -374,27 +373,23 @@ static int fetch_envelope_init(struct imap_fetch_context *ctx,
 static int fetch_flags(struct imap_fetch_context *ctx, struct mail *mail,
 		       void *context __attr_unused__)
 {
-	const struct mail_full_flags *flags;
-	struct mail_full_flags full_flags;
+	enum mail_flags flags;
+	const char *const *keywords;
 
 	flags = mail->get_flags(mail);
-	if (flags == NULL)
-		return -1;
+	keywords = mail->get_keywords(mail);
 
-	if (ctx->flags_update_seen && (flags->flags & MAIL_SEEN) == 0) {
+	if (ctx->flags_update_seen && (flags & MAIL_SEEN) == 0) {
 		/* Add \Seen flag */
-		full_flags = *flags;
-		full_flags.flags |= MAIL_SEEN;
-		flags = &full_flags;
-
-		if (mail->update_flags(mail, &ctx->seen_flag, MODIFY_ADD) < 0)
+		flags |= MAIL_SEEN;
+		if (mail->update_flags(mail, MAIL_SEEN, MODIFY_ADD) < 0)
 			return -1;
 	} else if (ctx->flags_show_only_seen_changes) {
 		return 1;
 	}
 
 	str_append(ctx->cur_str, "FLAGS (");
-	imap_write_flags(ctx->cur_str, flags);
+	imap_write_flags(ctx->cur_str, flags, keywords);
 	str_append(ctx->cur_str, ") ");
 	return 1;
 }

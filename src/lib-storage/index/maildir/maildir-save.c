@@ -106,7 +106,7 @@ maildir_transaction_save_init(struct maildir_transaction_context *t)
 
 struct mail_save_context *
 maildir_save_init(struct mailbox_transaction_context *_t,
-		  const struct mail_full_flags *flags,
+		  enum mail_flags flags, const struct mail_keywords *keywords,
 		  time_t received_date, int timezone_offset __attr_unused__,
 		  const char *from_envelope __attr_unused__,
 		  struct istream *input, int want_mail __attr_unused__)
@@ -118,8 +118,6 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 	struct maildir_filename *mf;
 	struct ostream *output;
 	const char *fname, *dest_fname, *path;
-	enum mail_flags mail_flags;
-	keywords_mask_t keywords;
 
 	t_push();
 
@@ -149,19 +147,16 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 		o_stream_create_lf(default_pool, output);
 	o_stream_unref(output);
 
-	mail_flags = (flags->flags & ~MAIL_RECENT) |
-		(ibox->keep_recent ? MAIL_RECENT : 0);
-	/*FIXME:if (!index_mailbox_fix_keywords(ibox, &mail_flags,
-					    flags->keywords,
-					    flags->keywords_count))
-		return FALSE;*/
+	flags &= ~MAIL_RECENT;
+	if (ibox->keep_recent)
+		flags |= MAIL_RECENT;
 
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
 	   into new/ or cur/. if dest_fname is NULL, it's moved to new/,
 	   otherwise to cur/. */
-	dest_fname = mail_flags == MAIL_RECENT ? NULL :
-		maildir_filename_set_flags(fname, mail_flags, NULL);
+	dest_fname = flags == MAIL_RECENT ? NULL :
+		maildir_filename_set_flags(fname, flags, NULL); // FIXME
 
 	mf = p_new(ctx->pool, struct maildir_filename, 1);
 	mf->next = ctx->files;
@@ -170,12 +165,12 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 	ctx->files = mf;
 
 	/* insert into index */
-	memset(keywords, 0, INDEX_KEYWORDS_BYTE_COUNT);
-	// FIXME: set keywords
-
 	mail_index_append(ctx->trans, 0, &ctx->seq);
-	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
-				mail_flags, keywords);
+	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE, flags);
+	if (keywords != NULL) {
+		mail_index_update_keywords(ctx->trans, ctx->seq,
+					   MODIFY_REPLACE, keywords);
+	}
 	t_pop();
 
 	ctx->failed = FALSE;

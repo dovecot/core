@@ -343,7 +343,6 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 {
         struct fetch_context *ctx;
 	struct mail *mail;
-	const struct mail_full_flags *flags;
 
 	ctx = i_new(struct fetch_context, 1);
 
@@ -364,15 +363,9 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 	}
 
 	if (body_lines == (uoff_t)-1 && !no_flag_updates) {
-		flags = mail->get_flags(mail);
-
-		if (flags != NULL && (flags->flags & MAIL_SEEN) == 0) {
+		if ((mail->get_flags(mail) & MAIL_SEEN) == 0) {
 			/* mark the message seen with RETR command */
-			struct mail_full_flags seen_flag;
-			memset(&seen_flag, 0, sizeof(seen_flag));
-			seen_flag.flags = MAIL_SEEN;
-
-			(void)mail->update_flags(mail, &seen_flag, MODIFY_ADD);
+			(void)mail->update_flags(mail, MAIL_SEEN, MODIFY_ADD);
 		}
 	}
 
@@ -409,7 +402,6 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
 	struct mail_search_arg search_arg;
-	struct mail_full_flags seen_flag;
 
 	client->last_seen = 0;
 
@@ -429,13 +421,10 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 		memset(&search_arg, 0, sizeof(search_arg));
 		search_arg.type = SEARCH_ALL;
 
-		memset(&seen_flag, 0, sizeof(seen_flag));
-		seen_flag.flags = MAIL_SEEN;
-
 		search_ctx = mailbox_search_init(client->trans, NULL,
 						 &search_arg, NULL, 0, NULL);
 		while ((mail = mailbox_search_next(search_ctx)) != NULL) {
-			if (mail->update_flags(mail, &seen_flag,
+			if (mail->update_flags(mail, MAIL_SEEN,
 					       MODIFY_REMOVE) < 0)
 				break;
 		}

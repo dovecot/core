@@ -19,6 +19,7 @@ libindex_a_SOURCES = \
         mail-index-transaction-view.c \
         mail-index-sync.c \
         mail-index-sync-ext.c \
+        mail-index-sync-keywords.c \
         mail-index-sync-update.c \
         mail-index-view.c \
         mail-index-view-sync.c \

@@ -155,20 +155,34 @@ static void get_cached_sent_date(struct index_mail *mail,
 	}
 }
 
-const struct mail_full_flags *index_mail_get_flags(struct mail *_mail)
+enum mail_flags index_mail_get_flags(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
 
-	data->flags.flags = data->rec->flags & MAIL_FLAGS_MASK;
+	data->flags = data->rec->flags & MAIL_FLAGS_MASK;
 	if (index_mailbox_is_recent(mail->ibox, data->seq))
-		data->flags.flags |= MAIL_RECENT;
+		data->flags |= MAIL_RECENT;
 
-	/*FIXME:data->flags.keywords =
-		mail_keywords_list_get(mail->ibox->index->keywords);
-	data->flags.keywords_count = MAIL_KEYWORDS_COUNT;*/
+	return data->flags;
+}
 
-	return &data->flags;
+const char *const *index_mail_get_keywords(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *) _mail;
+	struct index_mail_data *data = &mail->data;
+	const char *const *keywords;
+
+	if (data->keywords_buf == NULL)
+		data->keywords_buf = buffer_create_dynamic(mail->pool, 128);
+
+	if (mail_index_lookup_keywords(mail->ibox->view, mail->data.seq,
+				       data->keywords_buf, &keywords) < 0) {
+		mail_storage_set_index_error(mail->ibox);
+		return NULL;
+	}
+
+	return keywords;
 }
 
 const struct message_part *index_mail_get_parts(struct mail *_mail)
@@ -736,31 +750,23 @@ void index_mail_deinit(struct index_mail *mail)
 	memset(mail, 0, sizeof(*mail));
 }
 
-int index_mail_update_flags(struct mail *mail,
-			    const struct mail_full_flags *flags,
-			    enum modify_type modify_type)
+int index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
+			    enum mail_flags flags)
 {
 	struct index_mail *imail = (struct index_mail *)mail;
-	enum mail_flags modify_flags;
-	keywords_mask_t keywords;
 
-	modify_flags = flags->flags & MAIL_FLAGS_MASK;
-
-	/*if (!index_mailbox_fix_keywords(ibox, &modify_flags,
-					    flags->keywords,
-					    flags->keywords_count))
-		return FALSE;*/
-
-	memset(keywords, 0, sizeof(keywords));
 	mail_index_update_flags(imail->trans->trans, mail->seq, modify_type,
-				flags->flags, keywords);
+				flags & MAIL_FLAGS_MASK);
+	return 0;
+}
 
-	/*if (mail_keywords_has_changes(ibox->index->keywords)) {
-		storage->callbacks->new_keywords(&ibox->box,
-			mail_keywords_list_get(ibox->index->keywords),
-			MAIL_KEYWORDS_COUNT, storage->callback_context);
-	}*/
+int index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
+			       const struct mail_keywords *keywords)
+{
+	struct index_mail *imail = (struct index_mail *)mail;
 
+	mail_index_update_keywords(imail->trans->trans, mail->seq, modify_type,
+				   keywords);
 	return 0;
 }
 

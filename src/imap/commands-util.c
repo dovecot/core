@@ -3,11 +3,11 @@
 #include "common.h"
 #include "buffer.h"
 #include "str.h"
-#include "commands-util.h"
-#include "imap-util.h"
 #include "mail-storage.h"
+#include "commands-util.h"
 #include "imap-parser.h"
 #include "imap-sync.h"
+#include "imap-util.h"
 #include "namespace.h"
 
 /* Maximum length for mailbox name, including it's path. This isn't fully
@@ -150,16 +150,14 @@ void client_send_untagged_storage_error(struct client *client,
 			 t_strconcat(syntax ? "* BAD " : "* NO ", error, NULL));
 }
 
-static int is_valid_keyword(struct client *client,
-			    const struct mailbox_keywords *old_keywords,
-			    const char *keyword)
+static int is_valid_keyword(struct client *client, const char *keyword)
 {
 	size_t i;
 
 	/* if it already exists, skip validity checks */
-	for (i = 0; i < old_keywords->keywords_count; i++) {
-		if (old_keywords->keywords[i] != NULL &&
-		    strcasecmp(old_keywords->keywords[i], keyword) == 0)
+	for (i = 0; i < client->keywords.keywords_count; i++) {
+		if (client->keywords.keywords[i] != NULL &&
+		    strcasecmp(client->keywords.keywords[i], keyword) == 0)
 			return TRUE;
 	}
 
@@ -175,15 +173,16 @@ static int is_valid_keyword(struct client *client,
 }
 
 int client_parse_mail_flags(struct client *client, struct imap_arg *args,
-                            const struct mailbox_keywords *old_keywords,
-			    struct mail_full_flags *flags)
+			    enum mail_flags *flags_r,
+			    const char *const **keywords_r)
 {
 	const char *const *keywords;
 	char *atom;
 	buffer_t *buffer;
 	size_t size, i;
 
-	memset(flags, 0, sizeof(*flags));
+	*flags_r = 0;
+	*keywords_r = NULL;
 	buffer = buffer_create_dynamic(client->cmd_pool, 256);
 
 	while (args->type != IMAP_ARG_EOL) {
@@ -198,15 +197,15 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 			/* system flag */
 			str_ucase(atom);
 			if (strcmp(atom, "\\ANSWERED") == 0)
-				flags->flags |= MAIL_ANSWERED;
+				*flags_r |= MAIL_ANSWERED;
 			else if (strcmp(atom, "\\FLAGGED") == 0)
-				flags->flags |= MAIL_FLAGGED;
+				*flags_r |= MAIL_FLAGGED;
 			else if (strcmp(atom, "\\DELETED") == 0)
-				flags->flags |= MAIL_DELETED;
+				*flags_r |= MAIL_DELETED;
 			else if (strcmp(atom, "\\SEEN") == 0)
-				flags->flags |= MAIL_SEEN;
+				*flags_r |= MAIL_SEEN;
 			else if (strcmp(atom, "\\DRAFT") == 0)
-				flags->flags |= MAIL_DRAFT;
+				*flags_r |= MAIL_DRAFT;
 			else {
 				client_send_tagline(client, t_strconcat(
 					"BAD Invalid system flag ",
@@ -223,8 +222,7 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 			}
 
 			if (i == size) {
-				if (!is_valid_keyword(client, old_keywords,
-						      atom))
+				if (!is_valid_keyword(client, atom))
 					return FALSE;
 				buffer_append(buffer, &atom, sizeof(atom));
 			}
@@ -233,8 +231,9 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 		args++;
 	}
 
-	flags->keywords = buffer_get_modifyable_data(buffer, &size);
-	flags->keywords_count = size / sizeof(const char *);
+	atom = NULL;
+	buffer_append(buffer, &atom, sizeof(atom));
+	*keywords_r = buffer_get_data(buffer, NULL);
 	return TRUE;
 }
 

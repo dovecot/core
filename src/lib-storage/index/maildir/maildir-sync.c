@@ -229,15 +229,16 @@ static int maildir_sync_flags(struct index_mailbox *ibox, const char *path,
         struct maildir_index_sync_context *ctx = context;
 	const char *newpath;
 	enum mail_flags flags;
+	const char *const *keywords;
 	uint8_t flags8;
-        keywords_mask_t keywords;
 
 	ctx->dirty_state = 0;
 
-	(void)maildir_filename_get_flags(path, &flags, keywords);
+	(void)maildir_filename_get_flags(path, pool_datastack_create(),
+					 &flags, &keywords);
 
 	flags8 = flags;
-	mail_index_sync_flags_apply(&ctx->sync_rec, &flags8, keywords);
+	mail_index_sync_flags_apply(&ctx->sync_rec, &flags8);
 
 	newpath = maildir_filename_set_flags(path, flags8, keywords);
 	if (rename(path, newpath) == 0) {
@@ -250,9 +251,8 @@ static int maildir_sync_flags(struct index_mailbox *ibox, const char *path,
 		return 0;
 
 	if (ENOSPACE(errno) || errno == EACCES) {
-		memset(keywords, 0, sizeof(keywords));
 		mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_ADD,
-					MAIL_INDEX_MAIL_FLAG_DIRTY, keywords);
+					MAIL_INDEX_MAIL_FLAG_DIRTY);
 		ctx->dirty_state = 1;
 		return 1;
 	}
@@ -308,14 +308,14 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 				return -1;
 			if (ctx->dirty_state < 0) {
 				/* flag isn't dirty anymore */
-				keywords_mask_t keywords;
-
-				memset(keywords, 0, sizeof(keywords));
 				mail_index_update_flags(ctx->trans, ctx->seq,
-					MODIFY_REMOVE,
-					MAIL_INDEX_MAIL_FLAG_DIRTY, keywords);
+						MODIFY_REMOVE,
+						MAIL_INDEX_MAIL_FLAG_DIRTY);
 			}
 		}
+		break;
+	case MAIL_INDEX_SYNC_TYPE_KEYWORDS:
+		// FIXME
 		break;
 	}
 
@@ -604,7 +604,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
         enum maildir_uidlist_rec_flag uflags;
 	const char *filename;
 	enum mail_flags flags;
-	keywords_mask_t keywords;
+	const char *const *keywords;
 	uint32_t uid_validity, next_uid;
 	int ret;
 
@@ -628,7 +628,9 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	seq = 0;
 	iter = maildir_uidlist_iter_init(ibox->uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &uflags, &filename)) {
-		maildir_filename_get_flags(filename, &flags, keywords);
+		// FIXME: t_push..
+		maildir_filename_get_flags(filename, pool_datastack_create(),
+					   &flags, &keywords);
 
 		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 &&
 		    (uflags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0 &&
@@ -680,7 +682,8 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 
 			mail_index_append(trans, uid, &seq);
 			mail_index_update_flags(trans, seq, MODIFY_REPLACE,
-						flags, keywords);
+						flags);
+			// FIXME: set keywords
 			continue;
 		}
 
@@ -733,7 +736,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 			} else {
 				mail_index_update_flags(trans, seq,
 							MODIFY_REMOVE,
-							MAIL_RECENT, keywords);
+							MAIL_RECENT);
 			}
 		}
 
@@ -749,21 +752,19 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 		}
 
 		if (((uint8_t)flags & ~MAIL_RECENT) !=
-		    (rec->flags & (MAIL_FLAGS_MASK^MAIL_RECENT)) ||
-		    memcmp(keywords, rec->keywords,
-			   INDEX_KEYWORDS_BYTE_COUNT) != 0) {
+		    (rec->flags & (MAIL_FLAGS_MASK^MAIL_RECENT))) {
 			/* FIXME: this is wrong if there's pending changes in
 			   transaction log already. it gets fixed in next sync
 			   however.. */
 			mail_index_update_flags(trans, seq, MODIFY_REPLACE,
-						flags, keywords);
+						flags);
 		} else if ((flags & MAIL_RECENT) == 0 &&
 			   (rec->flags & MAIL_RECENT) != 0) {
 			/* just remove recent flag */
-			memset(keywords, 0, sizeof(keywords));
 			mail_index_update_flags(trans, seq, MODIFY_REMOVE,
-						MAIL_RECENT, keywords);
+						MAIL_RECENT);
 		}
+		// FIXME: update keywords
 	}
 	maildir_uidlist_iter_deinit(iter);
 

@@ -166,7 +166,9 @@ static int cmd_append_continue_parsing(struct client *client)
 	struct cmd_append_context *ctx = client->cmd_context;
 	struct imap_arg *args;
 	struct imap_arg_list *flags_list;
-	struct mail_full_flags flags;
+	enum mail_flags flags;
+	const char *const *keywords_list;
+	struct mail_keywords *keywords;
 	const char *internal_date_str;
 	time_t internal_date;
 	int ret, timezone_offset, nonsync;
@@ -228,10 +230,13 @@ static int cmd_append_continue_parsing(struct client *client)
 
 	if (flags_list != NULL) {
 		if (!client_parse_mail_flags(client, flags_list->args,
-					     &client->keywords, &flags))
+					     &flags, &keywords_list))
 			return cmd_append_cancel(ctx, nonsync);
+		keywords = keywords_list == NULL ? NULL :
+			mailbox_keywords_create(ctx->t, keywords_list);
 	} else {
-		memset(&flags, 0, sizeof(flags));
+		flags = 0;
+		keywords = NULL;
 	}
 
 	if (internal_date_str == NULL) {
@@ -263,8 +268,8 @@ static int cmd_append_continue_parsing(struct client *client)
 	ctx->input = i_stream_create_limit(default_pool, client->input,
 					   client->input->v_offset,
 					   ctx->msg_size);
-	ctx->save_ctx = mailbox_save_init(ctx->t, &flags, internal_date,
-					  timezone_offset, NULL,
+	ctx->save_ctx = mailbox_save_init(ctx->t, flags, keywords,
+					  internal_date, timezone_offset, NULL,
 					  ctx->input, FALSE);
 
 	client->command_pending = TRUE;

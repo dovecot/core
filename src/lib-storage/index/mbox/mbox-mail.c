@@ -72,21 +72,6 @@ __again:
 	return 1;
 }
 
-static const struct mail_full_flags *mbox_mail_get_flags(struct mail *_mail)
-{
-	return index_mail_get_flags(_mail);
-	/*FIXME:struct index_mail *mail = (struct index_mail *)_mail;
-	struct index_mail_data *data = &mail->data;
-
-	i_assert(_mail->seq <= mail->ibox->mbox_data_count);
-
-	(void)index_mail_get_flags(_mail);
-	if ((mail->ibox->mbox_data[_mail->seq-1] & 1) != 0)
-		data->flags.flags |= MAIL_RECENT;
-
-	return &data->flags;*/
-}
-
 static time_t mbox_mail_get_received_date(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
@@ -178,7 +163,8 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 struct mail mbox_mail = {
 	0, 0, 0, 0, 0, 0,
 
-	mbox_mail_get_flags,
+	index_mail_get_flags,
+	index_mail_get_keywords,
 	index_mail_get_parts,
 	mbox_mail_get_received_date,
 	index_mail_get_date,
@@ -189,5 +175,6 @@ struct mail mbox_mail = {
 	mbox_mail_get_stream,
 	mbox_mail_get_special,
 	index_mail_update_flags,
+	index_mail_update_keywords,
 	index_mail_expunge
 };

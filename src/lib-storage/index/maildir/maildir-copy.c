@@ -59,12 +59,14 @@ static int maildir_copy_hardlink(struct mail *mail,
 	struct index_mail *imail = (struct index_mail *) mail;
 	struct hardlink_ctx do_ctx;
 	struct rollback *rb;
-	const struct mail_full_flags *flags;
+	enum mail_flags flags;
+	const char *const *keywords;
 	const char *dest_fname;
 
         flags = mail->get_flags(mail);
+        keywords = mail->get_keywords(mail);
 	dest_fname = maildir_generate_tmp_filename(&ioloop_timeval);
-	dest_fname = maildir_filename_set_flags(dest_fname, flags->flags, NULL);
+	dest_fname = maildir_filename_set_flags(dest_fname, flags, keywords);
 
 	memset(&do_ctx, 0, sizeof(do_ctx));
 	do_ctx.dest_path =

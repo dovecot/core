@@ -116,9 +116,20 @@ static void _transaction_rollback(struct mailbox_transaction_context *t)
 	pbox->box->transaction_rollback(pt->ctx);
 }
 
+static struct mail_keywords *
+_keywords_create(struct mailbox_transaction_context *t,
+		 const char *const keywords[])
+{
+	struct proxy_mailbox_transaction_context *pt =
+		(struct proxy_mailbox_transaction_context *)t;
+	struct proxy_mailbox *pbox = (struct proxy_mailbox *)t->box;
+
+	return pbox->box->keywords_create(pt->ctx, keywords);
+}
+
 static struct mail_save_context *
 _save_init(struct mailbox_transaction_context *t,
-	   const struct mail_full_flags *flags,
+	   enum mail_flags flags, const struct mail_keywords *keywords,
 	   time_t received_date, int timezone_offset,
 	   const char *from_envelope, struct istream *input, int want_mail)
 {
@@ -126,7 +137,7 @@ _save_init(struct mailbox_transaction_context *t,
 		(struct proxy_mailbox_transaction_context *)t;
 	struct proxy_mailbox *pbox = (struct proxy_mailbox *)t->box;
 
-	return pbox->box->save_init(pt->ctx, flags, received_date,
+	return pbox->box->save_init(pt->ctx, flags, keywords, received_date,
 				    timezone_offset, from_envelope, input,
 				    want_mail);
 }
@@ -177,6 +188,8 @@ void proxy_mailbox_init(struct proxy_mailbox *proxy, struct mailbox *box)
 	pb->transaction_begin = NULL; /* must be implemented */
 	pb->transaction_commit = _transaction_commit;
 	pb->transaction_rollback = _transaction_rollback;
+
+	pb->keywords_create = _keywords_create;
 
 	pb->save_init = _save_init;
 	pb->save_continue = box->save_continue;

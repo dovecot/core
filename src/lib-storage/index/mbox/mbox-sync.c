@@ -193,8 +193,7 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
-static void mbox_sync_apply_index_syncs(buffer_t *syncs_buf, uint8_t *flags,
-					keywords_mask_t keywords)
+static void mbox_sync_apply_index_syncs(buffer_t *syncs_buf, uint8_t *flags)
 {
 	const struct mail_index_sync_rec *sync;
 	size_t size, i;
@@ -205,7 +204,7 @@ static void mbox_sync_apply_index_syncs(buffer_t *syncs_buf, uint8_t *flags,
 	for (i = 0; i < size; i++) {
 		if (sync[i].type != MAIL_INDEX_SYNC_TYPE_FLAGS)
 			continue;
-		mail_index_sync_flags_apply(&sync[i], flags, keywords);
+		mail_index_sync_flags_apply(&sync[i], flags);
 	}
 }
 
@@ -331,7 +330,6 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 				  const struct mail_index_record *rec)
 {
 	struct mbox_sync_mail *mail = &mail_ctx->mail;
-	keywords_mask_t idx_keywords;
 	uint8_t idx_flags, mbox_flags;
 
 	if (rec == NULL) {
@@ -344,8 +342,7 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 		    (mail->flags & MBOX_NONRECENT) == 0)
 			mbox_flags |= MAIL_RECENT;
 		mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
-					MODIFY_REPLACE, mbox_flags,
-					mail->keywords);
+					MODIFY_REPLACE, mbox_flags);
 
 		if (sync_ctx->ibox->mbox_save_md5 != 0) {
 			mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
@@ -355,9 +352,7 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 	} else {
 		/* see if flags changed */
 		idx_flags = rec->flags;
-		memcpy(idx_keywords, rec->keywords, INDEX_KEYWORDS_BYTE_COUNT);
-		mbox_sync_apply_index_syncs(sync_ctx->syncs,
-					    &idx_flags, idx_keywords);
+		mbox_sync_apply_index_syncs(sync_ctx->syncs, &idx_flags);
 
 		if ((idx_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
 			/* flags are dirty, ignore whatever was in the file.
@@ -377,35 +372,27 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 			mbox_flags &= ~MAIL_INDEX_MAIL_FLAG_DIRTY;
 
 		if ((idx_flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY) ==
-		    (mbox_flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY) &&
-		    memcmp(idx_keywords, mail->keywords,
-			   INDEX_KEYWORDS_BYTE_COUNT) == 0) {
+		    (mbox_flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY)) {
 			if (idx_flags != mbox_flags) {
 				/* dirty flag state changed */
 				int dirty = (mbox_flags &
 					     MAIL_INDEX_MAIL_FLAG_DIRTY) != 0;
-				memset(idx_keywords, 0,
-				       INDEX_KEYWORDS_BYTE_COUNT);
 				mail_index_update_flags(sync_ctx->t,
 					sync_ctx->idx_seq,
 					dirty ? MODIFY_ADD : MODIFY_REMOVE,
-					MAIL_INDEX_MAIL_FLAG_DIRTY,
-					idx_keywords);
+					MAIL_INDEX_MAIL_FLAG_DIRTY);
 			}
 		} else if ((idx_flags & ~MAIL_RECENT) !=
-			   (mbox_flags & ~MAIL_RECENT) ||
-			   memcmp(idx_keywords, mail->keywords,
-				  INDEX_KEYWORDS_BYTE_COUNT) != 0) {
+			   (mbox_flags & ~MAIL_RECENT)) {
 			mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
-						MODIFY_REPLACE, mbox_flags,
-						mail->keywords);
+						MODIFY_REPLACE, mbox_flags);
 		} else if (((idx_flags ^ mbox_flags) & MAIL_RECENT) != 0) {
 			/* drop recent flag */
-			memset(idx_keywords, 0, INDEX_KEYWORDS_BYTE_COUNT);
 			mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
-						MODIFY_REMOVE, MAIL_RECENT,
-						idx_keywords);
+						MODIFY_REMOVE, MAIL_RECENT);
 		}
+
+		// FIXME: keywords
 	}
 
 	if (mail_ctx->recent &&

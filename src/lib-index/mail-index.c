@@ -34,6 +34,9 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 
 	index->mode = 0600;
 	index->gid = (gid_t)-1;
+
+	index->keywords_ext_id =
+		mail_index_ext_register(index, "keywords", 128, 2, 1);
 	return index;
 }
 
@@ -270,6 +273,92 @@ static int mail_index_read_extensions(struct mail_index *index,
 	return 1;
 }
 
+int mail_index_map_read_keywords(struct mail_index *index,
+				 struct mail_index_map *map)
+{
+	const struct mail_index_ext *ext;
+	const struct mail_index_keyword_header *kw_hdr;
+	const struct mail_index_keyword_header_rec *kw_rec;
+	const char *name, **keywords_list;
+	unsigned int i, name_len;
+	uint32_t ext_id;
+
+	ext_id = mail_index_map_lookup_ext(map, "keywords");
+	if (ext_id == (uint32_t)-1) {
+		map->keywords = NULL;
+		map->keywords_count = 0;
+		return 0;
+	}
+
+	ext = map->extensions->data;
+	ext += ext_id;
+
+	kw_hdr = CONST_PTR_OFFSET(map->hdr_base, ext->hdr_offset);
+	kw_rec = (const void *)(kw_hdr + 1);
+	name = (const char *)(kw_rec + kw_hdr->keywords_count);
+
+	if ((size_t)(name - (const char *)kw_hdr) > ext->hdr_size) {
+		mail_index_set_error(index, "Corrupted index file %s: "
+				     "keywords_count larger than header size",
+				     index->filepath);
+		return -1;
+	}
+
+	/* make sure the header is valid */
+	name_len = (const char *)kw_hdr + ext->hdr_size - name;
+	for (i = 0; i < kw_hdr->keywords_count; i++) {
+		if (kw_rec[i].name_offset > name_len) {
+			mail_index_set_error(index, "Corrupted index file %s: "
+				"name_offset points outside allocated header",
+				index->filepath);
+			return -1;
+		}
+	}
+	if (name[name_len-1] != '\0') {
+		mail_index_set_error(index, "Corrupted index file %s: "
+				     "header doesn't end with NUL",
+				     index->filepath);
+		return -1;
+	}
+
+	if (map->keywords_pool == NULL)
+		map->keywords_pool = pool_alloconly_create("keywords", 1024);
+
+	/* Save keywords in memory. Only new keywords should come into the
+	   mapping, so keep the existing keyword strings in memory to allow
+	   mail_index_lookup_keywords() to safely return direct pointers
+	   into them. */
+	if (kw_hdr->keywords_count < map->keywords_count) {
+		mail_index_set_error(index, "Corrupted index file %s: "
+				     "Keywords removed unexpectedly",
+				     index->filepath);
+		return -1;
+	}
+	if (kw_hdr->keywords_count == map->keywords_count) {
+		/* nothing changed */
+		return 0;
+	}
+
+	/* @UNSAFE */
+	keywords_list = p_new(map->keywords_pool,
+			      const char *, kw_hdr->keywords_count + 1);
+	for (i = 0; i < map->keywords_count; i++)
+		keywords_list[i] = map->keywords[i];
+	for (; i < kw_hdr->keywords_count; i++) {
+		keywords_list[i] = p_strdup(map->keywords_pool,
+					    name + kw_rec[i].name_offset);
+	}
+	map->keywords = keywords_list;
+	map->keywords_count = kw_hdr->keywords_count;
+	return 0;
+}
+
+const char *const *mail_index_get_keywords(struct mail_index *index)
+{
+	(void)mail_index_map_read_keywords(index, index->map);
+	return index->map->keywords;
+}
+
 static int mail_index_check_header(struct mail_index *index,
 				   struct mail_index_map *map)
 {
@@ -302,14 +391,6 @@ static int mail_index_check_header(struct mail_index *index,
 		mail_index_set_error(index, "Corrupted index file %s: "
 				     "uid_validity = 0, next_uid = %u",
 				     index->filepath, hdr->next_uid);
-		return -1;
-	}
-
-	if (hdr->keywords_mask_size != sizeof(keywords_mask_t)) {
-		mail_index_set_error(index, "Corrupted index file %s: "
-				     "keywords_mask_size mismatch: %d != %d",
-				     index->filepath, hdr->keywords_mask_size,
-				     (int)sizeof(keywords_mask_t));
 		return -1;
 	}
 
@@ -368,6 +449,8 @@ void mail_index_unmap(struct mail_index *index, struct mail_index_map *map)
 	mail_index_map_clear(index, map);
 	if (map->extension_pool != NULL)
 		pool_unref(map->extension_pool);
+	if (map->keywords_pool != NULL)
+		pool_unref(map->keywords_pool);
 	buffer_free(map->hdr_copy_buf);
 	i_free(map);
 }
@@ -1080,7 +1163,6 @@ static void mail_index_header_init(struct mail_index_header *hdr)
 	hdr->base_header_size = sizeof(*hdr);
 	hdr->header_size = sizeof(*hdr);
 	hdr->record_size = sizeof(struct mail_index_record);
-	hdr->keywords_mask_size = sizeof(keywords_mask_t);
 
 #ifndef WORDS_BIGENDIAN
 	hdr->compat_data[0] = MAIL_INDEX_COMPAT_LITTLE_ENDIAN;

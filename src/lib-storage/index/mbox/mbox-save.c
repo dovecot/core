@@ -41,7 +41,6 @@ struct mbox_save_context {
 	char last_char;
 
 	struct index_mail mail;
-	const struct mail_full_flags *flags;
 	struct mbox_md5_context *mbox_md5_ctx;
 
 	unsigned int synced:1;
@@ -222,19 +221,19 @@ static void mbox_save_append_flag_headers(string_t *str, enum mail_flags flags)
 	}
 }
 
-static void mbox_save_append_keyword_headers(struct mbox_save_context *ctx,
-					     const char *const *keywords,
-					     unsigned int count)
+static void
+mbox_save_append_keyword_headers(struct mbox_save_context *ctx,
+				 const struct mail_keywords *keywords)
 {
 	unsigned char space[MBOX_HEADER_PADDING+1 +
 			    sizeof("Content-Length: \n")-1 + MAX_INT_STRLEN];
 	unsigned int i;
 
 	str_append(ctx->headers, "X-Keywords:");
-	for (i = 0; i < count; i++) {
+	/*FIXME:for (i = 0; i < count; i++) {
 		str_append_c(ctx->headers, ' ');
 		str_append(ctx->headers, keywords[i]);
-	}
+	}*/
 
 	memset(space, ' ', sizeof(space));
 	str_append_n(ctx->headers, space, sizeof(space));
@@ -302,7 +301,7 @@ static void save_header_callback(struct message_header_line *hdr,
 
 struct mail_save_context *
 mbox_save_init(struct mailbox_transaction_context *_t,
-	       const struct mail_full_flags *flags,
+	       enum mail_flags flags, const struct mail_keywords *keywords,
 	       time_t received_date, int timezone_offset __attr_unused__,
 	       const char *from_envelope, struct istream *input, int want_mail)
 {
@@ -311,7 +310,6 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 	struct index_mailbox *ibox = t->ictx.ibox;
 	struct mbox_save_context *ctx = t->save_ctx;
 	enum mail_flags save_flags;
-	keywords_mask_t keywords;
 	uint64_t offset;
 
 	/* FIXME: we could write timezone_offset to From-line.. */
@@ -333,25 +331,22 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 	ctx->failed = FALSE;
 	ctx->seq = 0;
 
-	ctx->flags = flags;
-
 	if (mbox_save_init_file(ctx, t, want_mail) < 0) {
 		ctx->failed = TRUE;
 		return &ctx->ctx;
 	}
 
-	save_flags = (flags->flags & ~MAIL_RECENT) | MAIL_RECENT;
+	save_flags = (flags & ~MAIL_RECENT) | MAIL_RECENT;
 	str_truncate(ctx->headers, 0);
 	if (ctx->synced) {
 		str_printfa(ctx->headers, "X-UID: %u\n", ctx->next_uid);
 		if (!ibox->keep_recent)
 			save_flags &= ~MAIL_RECENT;
 
-		memset(keywords, 0, INDEX_KEYWORDS_BYTE_COUNT);
 		// FIXME: set keywords
 		mail_index_append(ctx->trans, ctx->next_uid, &ctx->seq);
 		mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
-					save_flags, keywords);
+					save_flags);
 
 		offset = ctx->output->offset == 0 ? 0 :
 			ctx->output->offset - 1;
@@ -361,8 +356,7 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 	}
 	mbox_save_append_flag_headers(ctx->headers,
 				      save_flags ^ MBOX_NONRECENT);
-	mbox_save_append_keyword_headers(ctx, flags->keywords,
-					 flags->keywords_count);
+	mbox_save_append_keyword_headers(ctx, keywords);
 	str_append_c(ctx->headers, '\n');
 
 	i_assert(ibox->mbox_lock_type == F_WRLCK);

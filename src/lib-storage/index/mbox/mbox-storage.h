@@ -43,7 +43,7 @@ mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 
 struct mail_save_context *
 mbox_save_init(struct mailbox_transaction_context *_t,
-	       const struct mail_full_flags *flags,
+	       enum mail_flags flags, const struct mail_keywords *keywords,
 	       time_t received_date, int timezone_offset,
 	       const char *from_envelope, struct istream *input, int want_mail);
 int mbox_save_continue(struct mail_save_context *ctx);

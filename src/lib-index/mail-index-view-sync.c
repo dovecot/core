@@ -74,7 +74,7 @@ view_sync_get_expunges(struct mail_index_view *view, buffer_t **expunges_r)
 
 #define MAIL_INDEX_VIEW_VISIBLE_SYNC_MASK \
 	(MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_APPEND | \
-	 MAIL_TRANSACTION_FLAG_UPDATE)
+	 MAIL_TRANSACTION_FLAG_UPDATE | MAIL_TRANSACTION_KEYWORD_UPDATE)
 
 int mail_index_view_sync_begin(struct mail_index_view *view,
                                enum mail_index_sync_type sync_mask,
@@ -240,17 +240,14 @@ static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 	return 1;
 }
 
-#define FLAG_UPDATE_IS_INTERNAL(u, empty) \
+#define FLAG_UPDATE_IS_INTERNAL(u) \
 	((((u)->add_flags | (u)->remove_flags) & \
-	  ~(MAIL_INDEX_MAIL_FLAG_DIRTY | MAIL_RECENT)) == 0 && \
-	 memcmp((u)->add_keywords, empty, INDEX_KEYWORDS_BYTE_COUNT) == 0 && \
-	 memcmp((u)->add_keywords, empty, INDEX_KEYWORDS_BYTE_COUNT) == 0)
+	  ~(MAIL_INDEX_MAIL_FLAG_DIRTY | MAIL_RECENT)) == 0)
 
 static int
 mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 			     struct mail_index_sync_rec *rec)
 {
-	static keywords_mask_t empty_keywords = { 0, };
 	const struct mail_transaction_header *hdr = ctx->hdr;
 	const void *data = ctx->data;
 
@@ -275,13 +272,38 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 
 		for (;;) {
 			ctx->data_offset += sizeof(*update);
-			if (!FLAG_UPDATE_IS_INTERNAL(update, empty_keywords))
+			if (!FLAG_UPDATE_IS_INTERNAL(update))
 				break;
 
 			if (ctx->data_offset == ctx->hdr->size)
 				return 0;
 		}
                 mail_index_sync_get_update(rec, update);
+		break;
+	}
+	case MAIL_TRANSACTION_KEYWORD_UPDATE: {
+		const struct mail_transaction_keyword_update *update = data;
+		const unsigned char *p;
+		const uint32_t *uids;
+		uint32_t i;
+
+		if (ctx->data_offset == 0) {
+			p = (const unsigned char *)
+				(update->name_size + update->keywords_count);
+
+			for (i = 0; i < update->keywords_count; i++)
+				p += update->name_size[i];
+
+			ctx->data_offset = p - (const unsigned char *)update;
+			if ((ctx->data_offset % 4) != 0)
+				ctx->data_offset += 4 - (ctx->data_offset % 4);
+		}
+
+		uids = CONST_PTR_OFFSET(data, ctx->data_offset);
+		rec->type = MAIL_INDEX_SYNC_TYPE_KEYWORDS;
+		rec->uid1 = uids[0];
+		rec->uid2 = uids[1];
+		ctx->data_offset += sizeof(uint32_t) * 2;
 		break;
 	}
 	default:

@@ -206,9 +206,7 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	struct mail_index_header *hdr;
 	struct mail_index_record *rec;
 	uint8_t flag_mask, old_flags;
-	keywords_mask_t keyword_mask;
-	uint32_t i, idx, seq1, seq2;
-	int update_keywords;
+	uint32_t idx, seq1, seq2;
 
 	if (u->uid1 > u->uid2 || u->uid1 == 0) {
 		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
@@ -228,13 +226,6 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	if ((u->add_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 		hdr->flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
-	update_keywords = FALSE;
-	for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
-		if (u->add_keywords[i] != 0 ||
-		    u->remove_keywords[i] != 0)
-			update_keywords = TRUE;
-		keyword_mask[i] = ~u->remove_keywords[i];
-	}
         flag_mask = ~u->remove_flags;
 
 	for (idx = seq1-1; idx < seq2; idx++) {
@@ -242,12 +233,6 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 
 		old_flags = rec->flags;
 		rec->flags = (rec->flags & flag_mask) | u->add_flags;
-		if (update_keywords) {
-			for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
-				rec->keywords[i] = u->add_keywords[i] |
-					(rec->keywords[i] & keyword_mask[i]);
-			}
-		}
 
 		mail_index_header_update_counts(hdr, old_flags, rec->flags);
                 mail_index_header_update_lowwaters(hdr, rec);
@@ -381,6 +366,7 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 {
 	int ret = 0;
 
+	t_push();
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_APPEND: {
 		const struct mail_index_record *rec, *end;
@@ -507,9 +493,16 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		}
 		break;
 	}
+	case MAIL_TRANSACTION_KEYWORD_UPDATE: {
+		const struct mail_transaction_keyword_update *rec = data;
+
+		ret = mail_index_sync_keywords(ctx, hdr, rec);
+		break;
+	}
 	default:
 		i_unreached();
 	}
+	t_pop();
 
 	i_assert(ctx->view->map->records_count ==
 		 ctx->view->map->hdr.messages_count);

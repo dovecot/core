@@ -44,8 +44,6 @@ struct imap_fetch_context {
 
 	unsigned int select_counter;
 
-	struct mail_full_flags seen_flag;
-
 	unsigned int flags_have_handler:1;
 	unsigned int flags_update_seen:1;
 	unsigned int flags_show_only_seen_changes:1;

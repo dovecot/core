@@ -21,6 +21,7 @@ enum mail_transaction_type {
 	MAIL_TRANSACTION_EXT_RESET		= 0x00000080,
 	MAIL_TRANSACTION_EXT_HDR_UPDATE		= 0x00000100,
 	MAIL_TRANSACTION_EXT_REC_UPDATE		= 0x00000200,
+	MAIL_TRANSACTION_KEYWORD_UPDATE		= 0x00000400,
 
 	MAIL_TRANSACTION_TYPE_MASK		= 0x0000ffff,
 
@@ -46,9 +47,17 @@ struct mail_transaction_expunge {
 struct mail_transaction_flag_update {
 	uint32_t uid1, uid2;
 	uint8_t add_flags;
-	keywords_mask_t add_keywords;
 	uint8_t remove_flags;
-	keywords_mask_t remove_keywords;
+};
+
+struct mail_transaction_keyword_update {
+	uint32_t keywords_count;
+	uint8_t modify_type; /* enum modify_type */
+	uint8_t padding;
+	uint16_t name_size[1]; /* [keywords_count] */
+	/* unsigned char name[keywords_count][name_size];
+	   array of { uint32_t uid1, uid2; }
+	*/
 };
 
 struct mail_transaction_header_update {

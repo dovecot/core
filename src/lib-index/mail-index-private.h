@@ -60,6 +60,23 @@ struct mail_index_ext_header {
 	/* unsigned char name[] */
 };
 
+struct mail_keywords {
+	unsigned int count;
+	const char **keywords;
+        struct mail_index_keyword_transaction *transaction;
+};
+
+struct mail_index_keyword_header {
+	uint32_t keywords_count;
+	/* struct mail_index_keyword_header_rec[] */
+	/* char name[][] */
+};
+
+struct mail_index_keyword_header_rec {
+	uint32_t count;
+	uint32_t name_offset; /* relative to beginning of name[] */
+};
+
 struct mail_index_map {
 	int refcount;
 
@@ -77,6 +94,10 @@ struct mail_index_map {
 
 	buffer_t *buffer;
 	buffer_t *hdr_copy_buf;
+
+	pool_t keywords_pool;
+	const char *const *keywords;
+	unsigned int keywords_count;
 
 	unsigned int write_to_disk:1;
 };
@@ -108,13 +129,14 @@ struct mail_index {
 	unsigned int lock_id;
 	char *copy_lock_path;
 	struct dotlock dotlock;
-        enum mail_index_lock_method lock_method;
+	enum mail_index_lock_method lock_method;
 
 	/* These are typically same as map->hdr->log_file_*, but with
 	   mmap_disable we may have synced more than index */
 	uint32_t sync_log_file_seq;
 	uoff_t sync_log_file_offset;
 
+	uint32_t keywords_ext_id;
 	unsigned int last_grow_count;
 
 	char *error;
@@ -195,6 +217,9 @@ int mail_index_map_get_ext_idx(struct mail_index_map *map,
 			       uint32_t ext_id, uint32_t *idx_r);
 const struct mail_index_ext *
 mail_index_view_get_ext(struct mail_index_view *view, uint32_t ext_id);
+
+int mail_index_map_read_keywords(struct mail_index *index,
+				 struct mail_index_map *map);
 
 int mail_index_fix_header(struct mail_index *index, struct mail_index_map *map,
 			  struct mail_index_header *hdr, const char **error_r);

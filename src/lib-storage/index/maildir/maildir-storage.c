@@ -794,6 +794,7 @@ struct mailbox maildir_mailbox = {
 	maildir_transaction_begin,
 	maildir_transaction_commit,
 	maildir_transaction_rollback,
+	index_keywords_create,
 	index_storage_fetch,
 	index_storage_get_uids,
 	index_header_lookup_init,

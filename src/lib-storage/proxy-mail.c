@@ -3,11 +3,18 @@
 #include "lib.h"
 #include "proxy-mail.h"
 
-static const struct mail_full_flags *_get_flags(struct mail *mail)
+static enum mail_flags _get_flags(struct mail *mail)
 {
 	struct proxy_mail *p = (struct proxy_mail *) mail;
 
 	return p->mail->get_flags(p->mail);
+}
+
+static const char *const *_get_keywords(struct mail *mail)
+{
+	struct proxy_mail *p = (struct proxy_mail *) mail;
+
+	return p->mail->get_keywords(p->mail);
 }
 
 static const struct message_part *_get_parts(struct mail *mail)
@@ -76,13 +83,20 @@ static const char *_get_special(struct mail *mail, enum mail_fetch_field field)
 	return p->mail->get_special(p->mail, field);
 }
 
-static int _update_flags(struct mail *mail,
-			 const struct mail_full_flags *flags,
-			 enum modify_type modify_type)
+static int _update_flags(struct mail *mail, enum modify_type modify_type,
+			 enum mail_flags flags)
 {
 	struct proxy_mail *p = (struct proxy_mail *) mail;
 
-	return p->mail->update_flags(p->mail, flags, modify_type);
+	return p->mail->update_flags(p->mail, modify_type, flags);
+}
+
+static int _update_keywords(struct mail *mail, enum modify_type modify_type,
+			    const struct mail_keywords *keywords)
+{
+	struct proxy_mail *p = (struct proxy_mail *) mail;
+
+	return p->mail->update_keywords(p->mail, modify_type, keywords);
 }
 
 static int _expunge(struct mail *mail)
@@ -101,6 +115,7 @@ void proxy_mail_init(struct proxy_mail *proxy, struct mail *mail)
 	pm->box = mail->box;
 
 	pm->get_flags = _get_flags;
+	pm->get_keywords = _get_keywords;
 	pm->get_parts = _get_parts;
 	pm->get_received_date = _get_received_date;
 	pm->get_date = _get_date;
@@ -111,6 +126,7 @@ void proxy_mail_init(struct proxy_mail *proxy, struct mail *mail)
 	pm->get_stream = _get_stream;
 	pm->get_special = _get_special;
 	pm->update_flags = _update_flags;
+	pm->update_keywords = _update_keywords;
 	pm->expunge = _expunge;
 }
 

@@ -3,14 +3,10 @@
 
 #include "mail-types.h"
 
-#define MAIL_INDEX_MAJOR_VERSION 6
+#define MAIL_INDEX_MAJOR_VERSION 7
 #define MAIL_INDEX_MINOR_VERSION 0
 
 #define MAIL_INDEX_HEADER_MIN_SIZE 120
-
-/* Number of keywords in mail_index_record. */
-#define INDEX_KEYWORDS_COUNT (3*8)
-#define INDEX_KEYWORDS_BYTE_COUNT ((INDEX_KEYWORDS_COUNT+CHAR_BIT-1) / CHAR_BIT)
 
 enum mail_index_open_flags {
 	/* Create index if it doesn't exist */
@@ -58,8 +54,6 @@ enum mail_index_error {
 #define MAIL_INDEX_FLAGS_MASK \
 	(MAIL_ANSWERED | MAIL_FLAGGED | MAIL_DELETED | MAIL_SEEN | MAIL_DRAFT)
 
-typedef unsigned char keywords_mask_t[INDEX_KEYWORDS_BYTE_COUNT];
-
 struct mail_index_header {
 	/* major version is increased only when you can't have backwards
 	   compatibility. minor version is increased when header size is
@@ -69,8 +63,7 @@ struct mail_index_header {
 
 	uint16_t base_header_size;
 	uint32_t header_size; /* base + extended header size */
-	uint16_t record_size;
-	uint16_t keywords_mask_size;
+	uint32_t record_size;
 
 	/* 0 = flags
 	   1 = sizeof(uoff_t)
@@ -110,14 +103,14 @@ struct mail_index_header {
 
 struct mail_index_record {
 	uint32_t uid;
-	uint8_t flags; /* mail_flags | mail_index_mail_flags */
-	keywords_mask_t keywords;
+	uint8_t flags; /* enum mail_flags | enum mail_index_mail_flags */
 };
 
 enum mail_index_sync_type {
 	MAIL_INDEX_SYNC_TYPE_APPEND	= 0x01,
 	MAIL_INDEX_SYNC_TYPE_EXPUNGE	= 0x02,
-	MAIL_INDEX_SYNC_TYPE_FLAGS	= 0x04
+	MAIL_INDEX_SYNC_TYPE_FLAGS	= 0x04,
+	MAIL_INDEX_SYNC_TYPE_KEYWORDS	= 0x08
 };
 #define MAIL_INDEX_SYNC_MASK_ALL 0xff
 
@@ -127,11 +120,10 @@ struct mail_index_sync_rec {
 
 	/* MAIL_INDEX_SYNC_TYPE_FLAGS: */
 	uint8_t add_flags;
-	keywords_mask_t add_keywords;
 	uint8_t remove_flags;
-	keywords_mask_t remove_keywords;
 };
 
+struct mail_keywords;
 struct mail_index;
 struct mail_index_map;
 struct mail_index_view;
@@ -258,6 +250,8 @@ int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
 int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
 			   struct mail_index_map **map_r,
 			   const struct mail_index_record **rec_r);
+int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
+			       buffer_t *buf, const char *const **keywords_r);
 /* Returns the UID for given message. May be slightly faster than
    mail_index_lookup()->uid. */
 int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
@@ -286,7 +280,20 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq);
 /* Update flags in index. */
 void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum modify_type modify_type,
-			     enum mail_flags flags, keywords_mask_t keywords);
+			     enum mail_flags flags);
+
+/* Return a list of all existing keywords, or NULL if there is none. */
+const char *const *mail_index_get_keywords(struct mail_index *index);
+/* Create a keyword list structure. It's freed automatically at the end of
+   the transaction. */
+struct mail_keywords *
+mail_index_keywords_create(struct mail_index_transaction *t,
+			   const char *const keywords[]);
+/* Update keywords for given message. */
+void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
+				enum modify_type modify_type,
+				const struct mail_keywords *keywords);
+
 /* Update field in header. */
 void mail_index_update_header(struct mail_index_transaction *t,
 			      size_t offset, const void *data, size_t size);
@@ -302,7 +309,7 @@ void mail_index_reset_error(struct mail_index *index);
 /* Apply changes in MAIL_INDEX_SYNC_TYPE_FLAGS typed sync records to given
    flags variables. */
 void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
-				 uint8_t *flags, keywords_mask_t keywords);
+				 uint8_t *flags);
 
 /* register index extension. name is a unique identifier for the extension.
    returns unique identifier for the name. */

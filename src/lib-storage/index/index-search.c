@@ -79,41 +79,13 @@ static uoff_t str_to_uoff_t(const char *str)
 	return num;
 }
 
-static int search_keyword(struct mail_index *index,
-			  const struct mail_index_record *rec,
-			  const char *value)
-{
-	const char **keywords;
-	int i;
-
-	for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
-		if (rec->keywords[i] != 0)
-			break;
-	}
-
-	if (i == INDEX_KEYWORDS_BYTE_COUNT)
-		return FALSE; /* no keywords set */
-
-	/*FIXME:keywords = mail_keywords_list_get(index->keywords);
-	for (i = 0; i < MAIL_KEYWORDS_COUNT; i++) {
-		if (keywords[i] != NULL &&
-		    strcasecmp(keywords[i], value) == 0) {
-			return rec->msg_flags &
-				(1 << (MAIL_KEYWORD_1_BIT+i));
-		}
-	}*/
-
-	return FALSE;
-}
-
 /* Returns >0 = matched, 0 = not matched, -1 = unknown */
-static int search_arg_match_index(struct index_mailbox *ibox,
-				  struct index_mail *imail,
+static int search_arg_match_index(struct index_mail *imail,
 				  enum mail_search_arg_type type,
 				  const char *value)
 {
 	const struct mail_index_record *rec = imail->data.rec;
-	const struct mail_full_flags *full_flags;
+	const char *const *keywords;
 
 	switch (type) {
 	case SEARCH_ALL:
@@ -131,10 +103,17 @@ static int search_arg_match_index(struct index_mailbox *ibox,
 	case SEARCH_SEEN:
 		return rec->flags & MAIL_SEEN;
 	case SEARCH_RECENT:
-		full_flags = imail->mail.get_flags(&imail->mail);
-		return full_flags->flags & MAIL_RECENT;
+		return imail->mail.get_flags(&imail->mail) & MAIL_RECENT;
 	case SEARCH_KEYWORD:
-		return search_keyword(ibox->index, rec, value);
+		keywords = imail->mail.get_keywords(&imail->mail);
+		if (keywords != NULL) {
+			while (*keywords != NULL) {
+				if (strcasecmp(*keywords, value) == 0)
+					return 1;
+				keywords++;
+			}
+		}
+		return 0;
 
 	default:
 		return -1;
@@ -158,8 +137,8 @@ static void search_index_arg(struct mail_search_arg *arg, void *context)
 		return;
 	}
 
-	switch (search_arg_match_index(ctx->ibox, &ctx->imail,
-				       arg->type, arg->value.str)) {
+	switch (search_arg_match_index(&ctx->imail, arg->type,
+				       arg->value.str)) {
 	case -1:
 		/* unknown */
 		break;
@@ -430,7 +409,7 @@ static void search_header_unmatch(struct mail_search_arg *arg,
 	}
 }
 
-static void search_header(struct message_part *part,
+static void search_header(struct message_part *part __attr_unused__,
                           struct message_header_line *hdr, void *context)
 {
 	struct search_header_context *ctx = context;

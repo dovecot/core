@@ -12,13 +12,6 @@ enum mail_flags {
 	MAIL_FLAGS_MASK = 0x3f
 };
 
-struct mail_full_flags {
-	enum mail_flags flags;
-
-	const char **keywords;
-	unsigned int keywords_count;
-};
-
 enum modify_type {
 	MODIFY_ADD,
 	MODIFY_REMOVE,

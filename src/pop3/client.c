@@ -86,16 +86,13 @@ static int init_mailbox(struct client *client)
 		failed = FALSE;
 		while ((mail = mailbox_search_next(ctx)) != NULL) {
 			uoff_t size = mail->get_virtual_size(mail);
-			const struct mail_full_flags *flags;
 
-			flags = mail->get_flags(mail);
-
-			if (flags == NULL || size == (uoff_t)-1) {
+			if (size == (uoff_t)-1) {
 				failed = TRUE;
 				break;
 			}
 
-			if ((flags->flags & MAIL_SEEN) != 0)
+			if ((mail->get_flags(mail) & MAIL_SEEN) != 0)
 				client->last_seen = mail->seq;
                         client->total_size += size;
 

@@ -2,8 +2,8 @@
 
 #include "common.h"
 #include "str.h"
-#include "imap-util.h"
 #include "mail-storage.h"
+#include "imap-util.h"
 #include "imap-sync.h"
 #include "commands.h"
 
@@ -81,7 +81,8 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 int imap_sync_more(struct imap_sync_context *ctx)
 {
 	struct mail *mail;
-        const struct mail_full_flags *mail_flags;
+	enum mail_flags flags;
+	const char *const *keywords;
 	string_t *str;
 
 	t_push();
@@ -97,6 +98,7 @@ int imap_sync_more(struct imap_sync_context *ctx)
 
 		switch (ctx->sync_rec.type) {
 		case MAILBOX_SYNC_TYPE_FLAGS:
+		case MAILBOX_SYNC_TYPE_KEYWORDS:
 			if (ctx->seq == 0)
 				ctx->seq = ctx->sync_rec.seq1;
 
@@ -104,14 +106,13 @@ int imap_sync_more(struct imap_sync_context *ctx)
 				mail = mailbox_fetch(ctx->t, ctx->seq,
 						     MAIL_FETCH_FLAGS);
 
-				mail_flags = mail->get_flags(mail);
-				if (mail_flags == NULL)
-					continue;
+				flags = mail->get_flags(mail);
+				keywords = mail->get_keywords(mail);
 
 				str_truncate(str, 0);
 				str_printfa(str, "* %u FETCH (FLAGS (",
 					    ctx->seq);
-				imap_write_flags(str, mail_flags);
+				imap_write_flags(str, flags, keywords);
 				str_append(str, "))");
 				if (!client_send_line(ctx->client,
 						      str_c(str))) {

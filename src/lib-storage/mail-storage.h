@@ -103,16 +103,13 @@ enum mailbox_sync_flags {
 
 enum mailbox_sync_type {
 	MAILBOX_SYNC_TYPE_EXPUNGE	= 0x01,
-	MAILBOX_SYNC_TYPE_FLAGS		= 0x02
+	MAILBOX_SYNC_TYPE_FLAGS		= 0x02,
+	MAILBOX_SYNC_TYPE_KEYWORDS	= 0x04
 };
 
 struct mail_storage;
-struct mail_storage_callbacks;
-struct mailbox_list;
-struct mailbox_status;
 struct mail_search_arg;
-struct fetch_context;
-struct search_context;
+struct mail_keywords;
 struct mail;
 struct mailbox;
 struct mailbox_list_context;
@@ -137,7 +134,7 @@ struct mailbox_status {
 
 	/* may be allocated from data stack */
 	unsigned int keywords_count;
-	const char **keywords;
+	const char *const *keywords;
 };
 
 struct mailbox_sync_rec {
@@ -289,6 +286,11 @@ int mailbox_transaction_commit(struct mailbox_transaction_context *t,
 			       enum mailbox_sync_flags flags);
 void mailbox_transaction_rollback(struct mailbox_transaction_context *t);
 
+/* Build mail_keywords from NULL-terminated keywords list. */
+struct mail_keywords *
+mailbox_keywords_create(struct mailbox_transaction_context *t,
+			const char *const keywords[]);
+
 /* Simplified fetching for a single sequence. */
 struct mail *mailbox_fetch(struct mailbox_transaction_context *t, uint32_t seq,
 			   enum mail_fetch_field wanted_fields);
@@ -337,7 +339,7 @@ struct mail *mailbox_search_next(struct mail_search_context *ctx);
    require mailbox syncing, so don't set it unless you need it. */
 struct mail_save_context *
 mailbox_save_init(struct mailbox_transaction_context *t,
-		  const struct mail_full_flags *flags,
+		  enum mail_flags flags, const struct mail_keywords *keywords,
 		  time_t received_date, int timezone_offset,
 		  const char *from_envelope, struct istream *input,
 		  int want_mail);
@@ -367,7 +369,8 @@ struct mail {
 	unsigned int has_nuls:1; /* message data is known to contain NULs */
 	unsigned int has_no_nuls:1; /* -''- known to not contain NULs */
 
-	const struct mail_full_flags *(*get_flags)(struct mail *mail);
+	enum mail_flags (*get_flags)(struct mail *mail);
+	const char *const *(*get_keywords)(struct mail *mail);
 	const struct message_part *(*get_parts)(struct mail *mail);
 
 	/* Get the time message was received (IMAP INTERNALDATE).
@@ -402,9 +405,11 @@ struct mail {
 				   enum mail_fetch_field field);
 
 	/* Update message flags. */
-	int (*update_flags)(struct mail *mail,
-			    const struct mail_full_flags *flags,
-			    enum modify_type modify_type);
+	int (*update_flags)(struct mail *mail, enum modify_type modify_type,
+			    enum mail_flags flags);
+	/* Update message keywords. */
+	int (*update_keywords)(struct mail *mail, enum modify_type modify_type,
+			       const struct mail_keywords *keywords);
 
 	/* Expunge this message. Sequence numbers don't change until commit. */
 	int (*expunge)(struct mail *mail);

@@ -145,10 +145,9 @@ int index_storage_is_readonly(struct mailbox *box);
 int index_storage_allow_new_keywords(struct mailbox *box);
 int index_storage_is_inconsistent(struct mailbox *box);
 
-int index_mailbox_fix_keywords(struct index_mailbox *ibox,
-			       enum mail_flags *flags,
-			       const char *keywords[],
-			       unsigned int keywords_count);
+struct mail_keywords *
+index_keywords_create(struct mailbox_transaction_context *t,
+		      const char *const keywords[]);
 
 void index_mailbox_set_recent(struct index_mailbox *ibox, uint32_t seq);
 int index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t seq);

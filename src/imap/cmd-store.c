@@ -38,7 +38,9 @@ static int get_modify_type(struct client *client, const char *item,
 int cmd_store(struct client *client)
 {
 	struct imap_arg *args;
-	struct mail_full_flags flags;
+	enum mail_flags flags;
+	const char *const *keywords_list;
+	struct mail_keywords *keywords;
 	enum modify_type modify_type;
 	struct mailbox *box;
 	struct mail_search_arg *search_arg;
@@ -69,11 +71,11 @@ int cmd_store(struct client *client)
 	if (args[2].type == IMAP_ARG_LIST) {
 		if (!client_parse_mail_flags(client,
 					     IMAP_ARG_LIST(&args[2])->args,
-					     &client->keywords, &flags))
+					     &flags, &keywords_list))
 			return TRUE;
 	} else {
 		if (!client_parse_mail_flags(client, args+2,
-					     &client->keywords, &flags))
+					     &flags, &keywords_list))
 			return TRUE;
 	}
 
@@ -83,14 +85,25 @@ int cmd_store(struct client *client)
 		return TRUE;
 
 	t = mailbox_transaction_begin(box, silent);
+	keywords = keywords_list == NULL ? NULL :
+		mailbox_keywords_create(t, keywords_list);
 	search_ctx = mailbox_search_init(t, NULL, search_arg, NULL,
 					 MAIL_FETCH_FLAGS, NULL);
 
 	failed = FALSE;
 	while ((mail = mailbox_search_next(search_ctx)) != NULL) {
-		if (mail->update_flags(mail, &flags, modify_type) < 0) {
-			failed = TRUE;
-			break;
+		if (modify_type == MODIFY_REPLACE || flags != 0) {
+			if (mail->update_flags(mail, modify_type, flags) < 0) {
+				failed = TRUE;
+				break;
+			}
+		}
+		if (modify_type == MODIFY_REPLACE || keywords != NULL) {
+			if (mail->update_keywords(mail, modify_type,
+						  keywords) < 0) {
+				failed = TRUE;
+				break;
+			}
 		}
 	}
 

@@ -185,6 +185,7 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 			/* later */
 			break;
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORDS:
 			/* FIXME: hide the flag updates for expunged messages */
 			if (mail_index_lookup_uid_range(ctx->ibox->view,
 						sync.uid1, sync.uid2,
@@ -197,7 +198,10 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 			if (sync_rec_r->seq1 == 0)
 				break;
 
-			sync_rec_r->type = MAILBOX_SYNC_TYPE_FLAGS;
+			sync_rec_r->type =
+				sync.type == MAIL_INDEX_SYNC_TYPE_FLAGS ?
+				MAILBOX_SYNC_TYPE_FLAGS :
+				MAILBOX_SYNC_TYPE_KEYWORDS;
 			return 1;
 		}
 	}

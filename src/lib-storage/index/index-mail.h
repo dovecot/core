@@ -53,7 +53,8 @@ struct index_mail_line {
 struct message_header_line;
 
 struct index_mail_data {
-	struct mail_full_flags flags;
+	enum mail_flags flags;
+	const char *const *keywords;
 	time_t date, received_date;
 	uoff_t virtual_size, physical_size;
 
@@ -73,6 +74,7 @@ struct index_mail_data {
 	struct message_size hdr_size, body_size;
 	struct message_parser_ctx *parser_ctx;
 	int parsing_count;
+	buffer_t *keywords_buf;
 
 	unsigned int parse_header:1;
 	unsigned int save_envelope:1;
@@ -128,7 +130,8 @@ struct istream *
 index_mail_get_headers(struct mail *_mail,
 		       struct mailbox_header_lookup_ctx *headers);
 
-const struct mail_full_flags *index_mail_get_flags(struct mail *_mail);
+enum mail_flags index_mail_get_flags(struct mail *_mail);
+const char *const *index_mail_get_keywords(struct mail *_mail);
 const struct message_part *index_mail_get_parts(struct mail *_mail);
 time_t index_mail_get_received_date(struct mail *_mail);
 time_t index_mail_get_date(struct mail *_mail, int *timezone);
@@ -140,9 +143,10 @@ struct istream *index_mail_init_stream(struct index_mail *mail,
 const char *index_mail_get_special(struct mail *_mail,
 				   enum mail_fetch_field field);
 
-int index_mail_update_flags(struct mail *mail,
-			    const struct mail_full_flags *flags,
-			    enum modify_type modify_type);
+int index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
+			    enum mail_flags flags);
+int index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
+			       const struct mail_keywords *keywords);
 int index_mail_expunge(struct mail *mail);
 
 const char *index_mail_get_cached_string(struct index_mail *mail,

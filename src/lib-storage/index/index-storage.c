@@ -414,23 +414,12 @@ int mail_storage_set_index_error(struct index_mailbox *ibox)
 	return FALSE;
 }
 
-int index_mailbox_fix_keywords(struct index_mailbox *ibox,
-			       enum mail_flags *flags,
-			       const char *keywords[],
-			       unsigned int keywords_count)
+struct mail_keywords *
+index_keywords_create(struct mailbox_transaction_context *_t,
+		      const char *const keywords[])
 {
-	/*FIXME:int ret;
+	struct index_transaction_context *t =
+		(struct index_transaction_context *)_t;
 
-	ret = mail_keywords_fix_list(ibox->index, flags, keywords,
-				     keywords_count);
-	switch (ret) {
-	case 1:
-		return TRUE;
-	case 0:
-		mail_storage_set_error(ibox->box.storage,
-			"Maximum number of different keywords exceeded");
-		return FALSE;
-	default:
-		return mail_storage_set_index_error(ibox);
-	}*/
+	return mail_index_keywords_create(t->trans, keywords);
 }

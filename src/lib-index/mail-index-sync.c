@@ -19,7 +19,6 @@ mail_index_sync_sort_flags(buffer_t *dest_buf,
 	struct mail_transaction_flag_update *dest;
 	struct mail_transaction_flag_update new_update, tmp_update;
 	size_t i, dest_count;
-	int j;
 
 	dest = buffer_get_modifyable_data(dest_buf, &dest_count);
 	dest_count /= sizeof(*dest);
@@ -91,17 +90,6 @@ mail_index_sync_sort_flags(buffer_t *dest_buf,
 			dest[i].add_flags &= ~new_update.remove_flags;
 			dest[i].remove_flags |= new_update.remove_flags;
 			dest[i].remove_flags &= ~new_update.add_flags;
-
-			for (j = 0; j < INDEX_KEYWORDS_BYTE_COUNT; j++) {
-				dest[i].add_keywords[j] |=
-					new_update.add_keywords[j];
-				dest[i].add_keywords[j] &=
-					~new_update.remove_keywords[j];
-				dest[i].remove_keywords[j] |=
-					new_update.remove_keywords[j];
-				dest[i].remove_keywords[j] &=
-					~new_update.add_keywords[j];
-			}
 		}
 
 		if (new_update.uid1 <= new_update.uid2) {
@@ -147,7 +135,6 @@ static int mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
 	struct mail_transaction_flag_update update;
 	const struct mail_index_record *rec;
 	uint32_t seq, messages_count;
-	int i;
 
 	memset(&update, 0, sizeof(update));
 
@@ -162,10 +149,6 @@ static int mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
 		update.uid1 = update.uid2 = rec->uid;
 		update.add_flags = rec->flags;
 		update.remove_flags = ~update.add_flags;
-		memcpy(update.add_keywords, rec->keywords,
-		       INDEX_KEYWORDS_BYTE_COUNT);
-		for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++)
-			update.remove_keywords[i] = ~update.add_keywords[i];
 
 		mail_index_sync_sort_flags(ctx->updates_buf,
 					   &update, sizeof(update));
@@ -426,11 +409,7 @@ mail_index_sync_get_update(struct mail_index_sync_rec *rec,
 	rec->uid2 = update->uid2;
 
 	rec->add_flags = update->add_flags;
-	memcpy(rec->add_keywords, update->add_keywords,
-	       sizeof(rec->add_keywords));
 	rec->remove_flags = update->remove_flags;
-	memcpy(rec->remove_keywords, update->remove_keywords,
-	       sizeof(rec->remove_keywords));
 }
 
 static int mail_index_sync_rec_check(struct mail_index_view *view,
@@ -439,6 +418,7 @@ static int mail_index_sync_rec_check(struct mail_index_view *view,
 	switch (rec->type) {
 	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
 	case MAIL_INDEX_SYNC_TYPE_FLAGS:
+	case MAIL_INDEX_SYNC_TYPE_KEYWORDS:
 		if (rec->uid1 > rec->uid2 || rec->uid1 == 0) {
 			mail_transaction_log_view_set_corrupted(view->log_view,
 				"Broken UID range: %u..%u (type 0x%x)",
@@ -585,15 +565,9 @@ void mail_index_sync_rollback(struct mail_index_sync_ctx *ctx)
 }
 
 void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
-				 uint8_t *flags, keywords_mask_t keywords)
+				 uint8_t *flags)
 {
-	int i;
-
 	i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
 
 	*flags = (*flags & ~sync_rec->remove_flags) | sync_rec->add_flags;
-	for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
-		keywords[i] = (keywords[i] & ~sync_rec->remove_keywords[i]) |
-			sync_rec->add_keywords[i];
-	}
 }

@@ -63,14 +63,15 @@ int maildir_file_do(struct index_mailbox *ibox, uint32_t uid,
 	return ret == -2 ? 0 : ret;
 }
 
-int maildir_filename_get_flags(const char *fname, enum mail_flags *flags_r,
-			       keywords_mask_t keywords_r)
+int maildir_filename_get_flags(const char *fname, pool_t pool,
+			       enum mail_flags *flags_r,
+			       const char *const **keywords_r)
 {
 	const char *info;
 	unsigned int num;
 
 	*flags_r = 0;
-	memset(keywords_r, 0, INDEX_KEYWORDS_BYTE_COUNT);
+	*keywords_r = NULL;
 
 	info = strchr(fname, ':');
 	if (info == NULL || info[1] != '2' || info[2] != ',')
@@ -95,9 +96,8 @@ int maildir_filename_get_flags(const char *fname, enum mail_flags *flags_r,
 			break;
 		default:
 			if (*info >= 'a' && *info <= 'z') {
-				/* keyword */
+				/* FIXME: keyword */
 				num = (*info - 'a');
-				keywords_r[num / CHAR_BIT] |= num % CHAR_BIT;
 				break;
 			}
 
@@ -110,21 +110,12 @@ int maildir_filename_get_flags(const char *fname, enum mail_flags *flags_r,
 }
 
 const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
-				       keywords_mask_t keywords)
+				       const char *const *keywords)
 {
 	string_t *flags_str;
+	enum mail_flags flags_left;
 	const char *info, *oldflags;
-	int i, nextflag;
-
-	if (keywords != NULL) {
-		/* see if any keywords are given */
-		for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
-			if (keywords[i] != 0)
-				break;
-		}
-		if (i == INDEX_KEYWORDS_BYTE_COUNT)
-			keywords = NULL;
-	}
+	int nextflag;
 
 	/* remove the old :info from file name, and get the old flags */
 	info = strrchr(fname, ':');
@@ -143,6 +134,7 @@ const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
 	flags_str = t_str_new(256);
 	str_append(flags_str, fname);
 	str_append(flags_str, ":2,");
+	flags_left = flags;
 	for (;;) {
 		/* skip all known flags */
 		while (*oldflags == 'D' || *oldflags == 'F' ||
@@ -154,34 +146,29 @@ const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
 		nextflag = *oldflags == '\0' || *oldflags == ',' ? 256 :
 			(unsigned char) *oldflags;
 
-		if ((flags & MAIL_DRAFT) && nextflag > 'D') {
+		if ((flags_left & MAIL_DRAFT) && nextflag > 'D') {
 			str_append_c(flags_str, 'D');
-			flags &= ~MAIL_DRAFT;
+			flags_left &= ~MAIL_DRAFT;
 		}
-		if ((flags & MAIL_FLAGGED) && nextflag > 'F') {
+		if ((flags_left & MAIL_FLAGGED) && nextflag > 'F') {
 			str_append_c(flags_str, 'F');
-			flags &= ~MAIL_FLAGGED;
+			flags_left &= ~MAIL_FLAGGED;
 		}
-		if ((flags & MAIL_ANSWERED) && nextflag > 'R') {
+		if ((flags_left & MAIL_ANSWERED) && nextflag > 'R') {
 			str_append_c(flags_str, 'R');
-			flags &= ~MAIL_ANSWERED;
+			flags_left &= ~MAIL_ANSWERED;
 		}
-		if ((flags & MAIL_SEEN) && nextflag > 'S') {
+		if ((flags_left & MAIL_SEEN) && nextflag > 'S') {
 			str_append_c(flags_str, 'S');
-			flags &= ~MAIL_SEEN;
+			flags_left &= ~MAIL_SEEN;
 		}
-		if ((flags & MAIL_DELETED) && nextflag > 'T') {
+		if ((flags_left & MAIL_DELETED) && nextflag > 'T') {
 			str_append_c(flags_str, 'T');
-			flags &= ~MAIL_DELETED;
+			flags_left &= ~MAIL_DELETED;
 		}
 
 		if (keywords != NULL && nextflag > 'a') {
-			for (i = 0; i < INDEX_KEYWORDS_COUNT; i++) {
-				if ((keywords[i / CHAR_BIT] &
-				     (1 << (i % CHAR_BIT))) != 0)
-					str_append_c(flags_str, 'a' + i);
-			}
-			keywords = NULL;
+			// FIXME
 		}
 
 		if (*oldflags == '\0' || *oldflags == ',')

@@ -39,7 +39,7 @@ struct mbox_sync_mail {
 	uint32_t uid;
 	uint32_t idx_seq;
 	uint8_t flags;
-	keywords_mask_t keywords;
+	uint32_t keywords_idx; /* +1 */
 
 	uoff_t from_offset;
 	uoff_t body_size;

@@ -100,16 +100,9 @@ static void status_flags_replace(struct mbox_sync_mail_context *ctx, size_t pos,
 	}
 }
 
-static void keywords_append(struct mbox_sync_mail_context *ctx,
-			    keywords_mask_t keywords)
-{
-	// FIXME
-}
-
 static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 {
 	size_t old_hdr_size, new_hdr_size;
-	int i, have_keywords;
 
 	old_hdr_size = ctx->body_offset - ctx->hdr_offset;
 	new_hdr_size = str_len(ctx->header);
@@ -160,18 +153,11 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		str_append_c(ctx->header, '\n');
 	}
 
-	have_keywords = FALSE;
-	for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
-		if (ctx->mail.keywords[i] != 0) {
-			have_keywords = TRUE;
-			break;
-		}
-	}
-
-	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == (size_t)-1 && have_keywords) {
+	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == (size_t)-1 &&
+	    ctx->mail.keywords_idx != 0) {
 		str_append(ctx->header, "X-Keywords: ");
 		ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] = str_len(ctx->header);
-		keywords_append(ctx, ctx->mail.keywords);
+		//keywords_append(ctx, ctx->mail.keywords);
 		str_append_c(ctx->header, '\n');
 	}
 
@@ -277,7 +263,7 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 	const struct mail_index_sync_rec *sync;
 	size_t size, i;
 	uint8_t old_flags;
-	keywords_mask_t old_keywords;
+	uint32_t old_keywords_idx;
 
 	i_assert(ctx->mail.uid != 0 || ctx->pseudo);
 
@@ -287,14 +273,14 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 	old_flags = ctx->mail.flags;
 
 	if (size != 0) {
-		memcpy(old_keywords, ctx->mail.keywords, sizeof(old_keywords));
+		old_keywords_idx = ctx->mail.keywords_idx;
 
 		for (i = 0; i < size; i++) {
 			if (sync[i].type != MAIL_INDEX_SYNC_TYPE_FLAGS)
 				continue;
 
-			mail_index_sync_flags_apply(&sync[i], &ctx->mail.flags,
-						    ctx->mail.keywords);
+			// FIXME: keywords
+			mail_index_sync_flags_apply(&sync[i], &ctx->mail.flags);
 		}
 
 		/* keep our old recent flag. especially because we use it
@@ -305,9 +291,9 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 		if ((old_flags & XSTATUS_FLAGS_MASK) !=
 		    (ctx->mail.flags & XSTATUS_FLAGS_MASK))
 			mbox_sync_update_xstatus(ctx);
-		if (memcmp(old_keywords, ctx->mail.keywords,
+		/*FIXME:if (memcmp(old_keywords, ctx->mail.keywords,
 			   INDEX_KEYWORDS_BYTE_COUNT) != 0)
-			mbox_sync_update_xkeywords(ctx);
+			mbox_sync_update_xkeywords(ctx);*/
 	}
 
 	if (!ctx->sync_ctx->ibox->keep_recent)
@@ -341,12 +327,12 @@ void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 			(mail->flags & XSTATUS_FLAGS_MASK);
 		mbox_sync_update_xstatus(ctx);
 	}
-	if (memcmp(ctx->mail.keywords, mail->keywords,
+	/*FIXME:if (memcmp(ctx->mail.keywords, mail->keywords,
 		   INDEX_KEYWORDS_BYTE_COUNT) != 0) {
 		memcpy(ctx->mail.keywords, mail->keywords,
 		       INDEX_KEYWORDS_BYTE_COUNT);
 		mbox_sync_update_xkeywords(ctx);
-	}
+	}*/
 
 	i_assert(ctx->mail.uid == 0 || ctx->mail.uid == mail->uid);
 	ctx->mail.uid = mail->uid;

@@ -12,6 +12,7 @@
 #include "mail-index-transaction-private.h"
 
 #include <stddef.h>
+#include <stdlib.h>
 
 static void mail_index_transaction_add_last(struct mail_index_transaction *t);
 
@@ -56,6 +57,17 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 				buffer_free(recs[i]);
 		}
 		buffer_free(t->ext_rec_updates);
+	}
+
+	if (t->keyword_updates != NULL) {
+		struct mail_index_keyword_transaction *kt;
+
+		kt = buffer_get_modifyable_data(t->keyword_updates, &size);
+		size /= sizeof(*kt);
+
+		for (i = 0; i < size; i++)
+			pool_unref(kt[i].pool);
+		buffer_free(t->keyword_updates);
 	}
 
 	if (t->appends != NULL)
@@ -138,6 +150,21 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 			mail_index_buffer_convert_to_uids(t, updates[i],
 				sizeof(uint32_t) + extensions[i].record_size,
 				FALSE);
+		}
+	}
+
+	if (t->keyword_updates != NULL) {
+		struct mail_index_keyword_transaction *kt;
+
+		kt = buffer_get_modifyable_data(t->keyword_updates, &size);
+		size /= sizeof(*kt);
+
+		for (i = 0; i < size; i++) {
+			if (kt[i].messages == NULL)
+				continue;
+
+			mail_index_buffer_convert_to_uids(t, kt[i].messages,
+				sizeof(uint32_t) * 2, TRUE);
 		}
 	}
 
@@ -249,46 +276,39 @@ void mail_index_append_assign_uids(struct mail_index_transaction *t,
 	*next_uid_r = first_uid;
 }
 
-void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
+struct seq_range {
+	uint32_t seq1, seq2;
+};
+
+static void mail_index_update_seq_range_buffer(buffer_t *buffer, uint32_t seq)
 {
-        struct mail_transaction_expunge exp, *data;
+        struct seq_range *data, value;
 	unsigned int idx, left_idx, right_idx;
 	size_t size;
 
-	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(t->view));
+	value.seq1 = value.seq2 = seq;
 
-	t->log_updates = TRUE;
-	exp.uid1 = exp.uid2 = seq;
-
-	/* expunges is a sorted array of {seq1, seq2, ..}, .. */
-
-	if (t->expunges == NULL) {
-		t->expunges = buffer_create_dynamic(default_pool, 1024);
-		buffer_append(t->expunges, &exp, sizeof(exp));
-		return;
-	}
-
-	data = buffer_get_modifyable_data(t->expunges, &size);
+	data = buffer_get_modifyable_data(buffer, &size);
 	size /= sizeof(*data);
 	i_assert(size > 0);
 
 	/* quick checks */
-	if (data[size-1].uid2 == seq-1) {
+	if (data[size-1].seq2 == seq-1) {
 		/* grow last range */
-		data[size-1].uid2 = seq;
+		data[size-1].seq2 = seq;
 		return;
 	}
-	if (data[size-1].uid2 < seq) {
-		buffer_append(t->expunges, &exp, sizeof(exp));
+	if (data[size-1].seq2 < seq) {
+		buffer_append(buffer, &value, sizeof(value));
 		return;
 	}
-	if (data[0].uid1 == seq+1) {
+	if (data[0].seq1 == seq+1) {
 		/* grow down first range */
-		data[0].uid1 = seq;
+		data[0].seq1 = seq;
 		return;
 	}
-	if (data[0].uid1 > seq) {
-		buffer_insert(t->expunges, 0, &exp, sizeof(exp));
+	if (data[0].seq1 > seq) {
+		buffer_insert(buffer, 0, &value, sizeof(value));
 		return;
 	}
 
@@ -298,8 +318,8 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
 
-		if (data[idx].uid1 <= seq) {
-			if (data[idx].uid2 >= seq) {
+		if (data[idx].seq1 <= seq) {
+			if (data[idx].seq2 >= seq) {
 				/* it's already expunged */
 				return;
 			}
@@ -309,70 +329,77 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 		}
 	}
 
-	if (data[idx].uid2 < seq)
+	if (data[idx].seq2 < seq)
 		idx++;
 
         /* idx == size couldn't happen because we already handle it above */
-	i_assert(idx < size && data[idx].uid1 >= seq);
-	i_assert(data[idx].uid1 > seq || data[idx].uid2 < seq);
+	i_assert(idx < size && data[idx].seq1 >= seq);
+	i_assert(data[idx].seq1 > seq || data[idx].seq2 < seq);
 
-	if (data[idx].uid1 == seq+1) {
-		data[idx].uid1 = seq;
-		if (idx > 0 && data[idx-1].uid2 == seq-1) {
+	if (data[idx].seq1 == seq+1) {
+		data[idx].seq1 = seq;
+		if (idx > 0 && data[idx-1].seq2 == seq-1) {
 			/* merge */
-			data[idx-1].uid2 = data[idx].uid2;
-			buffer_delete(t->expunges, idx * sizeof(*data),
+			data[idx-1].seq2 = data[idx].seq2;
+			buffer_delete(buffer, idx * sizeof(*data),
 				      sizeof(*data));
 		}
-	} else if (data[idx].uid2 == seq-1) {
+	} else if (data[idx].seq2 == seq-1) {
 		i_assert(idx+1 < size); /* already handled above */
-		data[idx].uid2 = seq;
-		if (data[idx+1].uid1 == seq+1) {
+		data[idx].seq2 = seq;
+		if (data[idx+1].seq1 == seq+1) {
 			/* merge */
-			data[idx+1].uid1 = data[idx].uid1;
-			buffer_delete(t->expunges, idx * sizeof(*data),
+			data[idx+1].seq1 = data[idx].seq1;
+			buffer_delete(buffer, idx * sizeof(*data),
 				      sizeof(*data));
 		}
 	} else {
-		buffer_insert(t->expunges, idx * sizeof(*data),
-                              &exp, sizeof(exp));
+		buffer_insert(buffer, idx * sizeof(*data),
+                              &value, sizeof(value));
 	}
+}
+
+void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
+{
+	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(t->view));
+
+	t->log_updates = TRUE;
+
+	/* expunges is a sorted array of {seq1, seq2, ..}, .. */
+	if (t->expunges == NULL) {
+		t->expunges = buffer_create_dynamic(default_pool, 1024);
+		buffer_append(t->expunges, &seq, sizeof(seq));
+		buffer_append(t->expunges, &seq, sizeof(seq));
+		return;
+	}
+
+	mail_index_update_seq_range_buffer(t->expunges, seq);
 }
 
 static void mail_index_record_modify_flags(struct mail_index_record *rec,
 					   enum modify_type modify_type,
-					   enum mail_flags flags,
-					   keywords_mask_t keywords)
+					   enum mail_flags flags)
 {
-	int i;
-
 	switch (modify_type) {
 	case MODIFY_REPLACE:
 		rec->flags = flags;
-		memcpy(rec->keywords, keywords, INDEX_KEYWORDS_BYTE_COUNT);
 		break;
 	case MODIFY_ADD:
 		rec->flags |= flags;
-		for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++)
-			rec->keywords[i] |= keywords[i];
 		break;
 	case MODIFY_REMOVE:
 		rec->flags &= ~flags;
-		for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++)
-			rec->keywords[i] &= ~keywords[i];
 		break;
 	}
 }
 
-#define IS_COMPATIBLE_UPDATE(t, modify_type, flags, keywords) \
+#define IS_COMPATIBLE_UPDATE(t, modify_type, flags) \
 	((t)->last_update_modify_type == (modify_type) && \
-	 (t)->last_update.add_flags == (flags) && \
-	 memcmp((t)->last_update.add_keywords, keywords, \
-	        INDEX_KEYWORDS_BYTE_COUNT) == 0)
+	 (t)->last_update.add_flags == (flags))
 
 void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum modify_type modify_type,
-			     enum mail_flags flags, keywords_mask_t keywords)
+			     enum mail_flags flags)
 {
 	struct mail_index_record *rec;
 
@@ -381,8 +408,7 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 	if (seq >= t->first_new_seq) {
 		/* just appended message, modify it directly */
                 rec = mail_index_transaction_lookup(t, seq);
-		mail_index_record_modify_flags(rec, modify_type,
-					       flags, keywords);
+		mail_index_record_modify_flags(rec, modify_type, flags);
 		return;
 	}
 
@@ -393,13 +419,13 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 	   transaction (eg. 1:10 +seen, 1:10 +deleted) */
 	if (t->last_update.uid2 == seq-1) {
 		if (t->last_update.uid1 != 0 &&
-		    IS_COMPATIBLE_UPDATE(t, modify_type, flags, keywords)) {
+		    IS_COMPATIBLE_UPDATE(t, modify_type, flags)) {
 			t->last_update.uid2 = seq;
 			return;
 		}
 	} else if (t->last_update.uid1 == seq+1) {
 		if (t->last_update.uid1 != 0 &&
-		    IS_COMPATIBLE_UPDATE(t, modify_type, flags, keywords)) {
+		    IS_COMPATIBLE_UPDATE(t, modify_type, flags)) {
 			t->last_update.uid1 = seq;
 			return;
 		}
@@ -411,24 +437,18 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 	t->last_update_modify_type = modify_type;
 	t->last_update.uid1 = t->last_update.uid2 = seq;
 	t->last_update.add_flags = flags;
-	memcpy(t->last_update.add_keywords, keywords,
-	       INDEX_KEYWORDS_BYTE_COUNT);
 }
 
 static void
 mail_index_transaction_get_last(struct mail_index_transaction *t,
 				struct mail_transaction_flag_update *update)
 {
-	int i;
-
 	*update = t->last_update;
 	switch (t->last_update_modify_type) {
 	case MODIFY_REPLACE:
 		/* remove_flags = ~add_flags */
 		update->remove_flags =
 			~update->add_flags & MAIL_INDEX_FLAGS_MASK;
-		for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++)
-			update->remove_keywords[i] = ~update->add_keywords[i];
 		break;
 	case MODIFY_ADD:
 		/* already in add_flags */
@@ -436,10 +456,7 @@ mail_index_transaction_get_last(struct mail_index_transaction *t,
 	case MODIFY_REMOVE:
 		/* add_flags -> remove_flags */
 		update->remove_flags = update->add_flags;
-		memcpy(&update->remove_keywords, &update->add_keywords,
-		       INDEX_KEYWORDS_BYTE_COUNT);
 		update->add_flags = 0;
-		memset(&update->add_keywords, 0, INDEX_KEYWORDS_BYTE_COUNT);
 		break;
 	}
 }
@@ -697,4 +714,108 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 		if (old_data_r != NULL)
 			memset(old_data_r, 0, record_size);
 	}
+}
+
+static int keywords_match(const struct mail_keywords *keywords,
+			  const char *const *list)
+{
+	unsigned int i;
+
+	for (i = 0; list[i] != NULL; i++) {
+		if (strcasecmp(keywords->keywords[i], list[i]) != 0)
+			return FALSE;
+	}
+	i_assert(i == keywords->count);
+	return TRUE;
+}
+
+static struct mail_index_keyword_transaction *
+mail_index_keyword_transaction_new(struct mail_index_transaction *t,
+				   const char *const sorted_keywords[],
+				   unsigned int count)
+{
+	struct mail_index_keyword_transaction *kt;
+	unsigned int i;
+
+	kt = buffer_append_space_unsafe(t->keyword_updates, sizeof(*kt));
+	kt->pool = pool_alloconly_create("keywords", 128);
+	kt->keywords.count = count;
+	kt->keywords.keywords = p_new(kt->pool, const char *, count + 1);
+	kt->keywords.transaction = kt;
+	for (i = 0; i < count; i++) {
+		kt->keywords.keywords[i] =
+			p_strdup(kt->pool, sorted_keywords[i]);
+	}
+
+	return kt;
+}
+
+static struct mail_index_keyword_transaction *
+mail_index_keyword_transaction_clone(struct mail_index_transaction *t,
+				     struct mail_index_keyword_transaction *kt)
+{
+	struct mail_index_keyword_transaction *new_kt;
+
+	new_kt = buffer_append_space_unsafe(t->keyword_updates, sizeof(*kt));
+	new_kt->pool = pool_alloconly_create("keywords", 128);
+	new_kt->keywords = kt->keywords;
+	return new_kt;
+}
+
+struct mail_keywords *
+mail_index_keywords_create(struct mail_index_transaction *t,
+			   const char *const keywords[])
+{
+        struct mail_index_keyword_transaction *kt;
+	const char **sorted_keywords;
+	unsigned int i, count;
+	size_t size;
+
+	count = strarray_length(keywords);
+
+	sorted_keywords = t_new(const char *, count + 1);
+	memcpy(sorted_keywords, keywords, count * sizeof(*sorted_keywords));
+	qsort(sorted_keywords, count, sizeof(*sorted_keywords), strcasecmp_p);
+
+	if (t->keyword_updates == NULL)
+                t->keyword_updates = buffer_create_dynamic(default_pool, 512);
+
+	kt = buffer_get_modifyable_data(t->keyword_updates, &size);
+	size /= sizeof(*kt);
+
+	/* try to use existing ones */
+	for (i = 0; i < size; i++) {
+		if (kt[i].keywords.count == count &&
+		    keywords_match(&kt[i].keywords, sorted_keywords))
+			return &kt[i].keywords;
+	}
+
+	kt = mail_index_keyword_transaction_new(t, sorted_keywords, count);
+	return &kt->keywords;
+}
+
+void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
+				enum modify_type modify_type,
+				const struct mail_keywords *keywords)
+{
+	struct mail_index_keyword_transaction *kt;
+
+	kt = keywords->transaction;
+	while (kt->modify_type != modify_type && kt->messages != NULL) {
+		if (kt->next == NULL) {
+			kt = mail_index_keyword_transaction_clone(t, kt);
+			break;
+		}
+		kt = kt->next;
+	}
+
+	if (kt->messages == NULL) {
+		kt->messages = buffer_create_dynamic(kt->pool, 32);
+		kt->modify_type = modify_type;
+		buffer_append(kt->messages, &seq, sizeof(seq));
+		buffer_append(kt->messages, &seq, sizeof(seq));
+	} else {
+		mail_index_update_seq_range_buffer(kt->messages, seq);
+	}
+	t->log_updates = TRUE;
 }

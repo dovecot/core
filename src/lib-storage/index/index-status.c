@@ -3,20 +3,6 @@
 #include "lib.h"
 #include "index-storage.h"
 
-/*static void
-get_keywords(struct mail_keywords *mcf, struct mailbox_status *status)
-{
-	const char **flags;
-	unsigned int i;
-
-	status->keywords_count = MAIL_KEYWORDS_COUNT;
-	status->keywords = t_new(const char *, MAIL_KEYWORDS_COUNT);
-
-	flags = mail_keywords_list_get(mcf);
-	for (i = 0; i < MAIL_KEYWORDS_COUNT; i++)
-		status->keywords[i] = t_strdup(flags[i]);
-}*/
-
 int index_storage_get_status_locked(struct index_mailbox *ibox,
 				    enum mailbox_status_items items,
 				    struct mailbox_status *status_r)
@@ -43,8 +29,10 @@ int index_storage_get_status_locked(struct index_mailbox *ibox,
 		}
 	}
 
-	/*FIXME:if (items & STATUS_KEYWORDS)
-		get_keywords(ibox, status_r);*/
+	if (items & STATUS_KEYWORDS) {
+		status_r->keywords = mail_index_get_keywords(ibox->index);
+		status_r->keywords_count = strarray_length(status_r->keywords);
+	}
 	return 0;
 }
 
