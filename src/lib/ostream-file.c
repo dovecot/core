@@ -298,7 +298,9 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 {
 	size_t size, new_size, end_size;
 
-	size = nearest_power(fstream->buffer_size + bytes);
+	size = pool_get_exp_grown_size(fstream->ostream.iostream.pool,
+				       fstream->buffer_size,
+                                       fstream->buffer_size + bytes);
 	if (size > fstream->max_buffer_size) {
 		/* limit the size */
 		size = fstream->max_buffer_size;

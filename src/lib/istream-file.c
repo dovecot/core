@@ -58,8 +58,11 @@ static void i_stream_grow_buffer(struct _istream *stream, size_t bytes)
 	stream->buffer_size = stream->pos + bytes;
 	if (stream->buffer_size <= I_STREAM_MIN_SIZE)
 		stream->buffer_size = I_STREAM_MIN_SIZE;
-	else
-		stream->buffer_size = nearest_power(stream->buffer_size);
+	else {
+		stream->buffer_size =
+			pool_get_exp_grown_size(stream->iostream.pool,
+						old_size, stream->buffer_size);
+	}
 
 	if (fstream->max_buffer_size > 0 &&
 	    stream->buffer_size > fstream->max_buffer_size)

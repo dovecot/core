@@ -50,6 +50,11 @@ pool_t pool_alloconly_create(const char *name, size_t size);
    that the stack frame is the same. This should make it quite safe to use. */
 pool_t pool_datastack_create(void);
 
+/* Similar to nearest_power(), but try not to exceed buffer's easy
+   allocation size. If you don't have any explicit minimum size, use
+   old_size + 1. */
+size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
+
 /* Pools should be used through these macros: */
 #define pool_get_name(pool) (pool)->get_name(pool)
 #define pool_ref(pool) (pool)->ref(pool)

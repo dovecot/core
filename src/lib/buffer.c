@@ -54,7 +54,8 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 				buf->pool->get_name(buf->pool));
 		}
 
-		buffer_alloc(buf, nearest_power(new_size));
+		buffer_alloc(buf, pool_get_exp_grown_size(buf->pool, buf->alloc,
+							  new_size));
 	}
 
 	if (new_size > buf->used)
