@@ -68,6 +68,7 @@ static void sql_query_callback(struct sql_result *result, void *context)
 		user.gid = (gid_t)strtoul(gid, NULL, 10);
 		sql_request->callback(&user, sql_request->context);
 	}
+	i_free(sql_request);
 }
 
 static void userdb_sql_lookup(struct auth_request *auth_request,
