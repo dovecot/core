@@ -82,7 +82,7 @@ int o_stream_seek(struct ostream *stream, uoff_t offset)
 	return _stream->seek(_stream, offset);
 }
 
-int o_stream_send(struct ostream *stream, const void *data, size_t size)
+ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size)
 {
 	struct const_iovec iov;
 
@@ -103,7 +103,7 @@ ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 	return _stream->sendv(_stream, iov, iov_count);
 }
 
-int o_stream_send_str(struct ostream *stream, const char *str)
+ssize_t o_stream_send_str(struct ostream *stream, const char *str)
 {
 	return o_stream_send(stream, str, strlen(str));
 }
