@@ -431,10 +431,14 @@ static int maildir_delete_mailbox(struct mail_storage *storage,
 	if (storage->index_dir != NULL && *name != '/' && *name != '~' &&
 	    strcmp(storage->index_dir, storage->dir) != 0) {
 		index_dir = t_strconcat(storage->index_dir, "/.", name, NULL);
-		if (unlink_directory(index_dir, TRUE) < 0) {
+		index_storage_destroy_unrefed();
+
+		/* it can fail with some NFS implementations if indexes are
+		   opened by another session.. can't really help it. */
+		if (unlink_directory(index_dir, TRUE) < 0 &&
+		    errno != ENOTEMPTY) {
 			mail_storage_set_critical(storage,
-						  "unlink_directory(%s) "
-						  "failed: %m", index_dir);
+				"unlink_directory(%s) failed: %m", index_dir);
 			return FALSE;
 		}
 	}
@@ -443,24 +447,22 @@ static int maildir_delete_mailbox(struct mail_storage *storage,
 	while (rename(src, dest) < 0 && count < 2) {
 		if (errno != EEXIST && errno != ENOTEMPTY) {
 			mail_storage_set_critical(storage,
-						  "rename(%s, %s) failed: %m",
-						  src, dest);
+				"rename(%s, %s) failed: %m", src, dest);
 			return FALSE;
 		}
 
 		/* ..dir already existed? delete it and try again */
 		if (unlink_directory(dest, TRUE) < 0) {
 			mail_storage_set_critical(storage,
-						  "unlink_directory(%s) "
-						  "failed: %m", dest);
+				"unlink_directory(%s) failed: %m", dest);
 			return FALSE;
 		}
 		count++;
 	}
 
-	if (unlink_directory(dest, TRUE) < 0) {
-		mail_storage_set_critical(storage, "unlink_directory(%s) "
-					  "failed: %m", dest);
+	if (unlink_directory(dest, TRUE) < 0 && errno != ENOTEMPTY) {
+		mail_storage_set_critical(storage,
+			"unlink_directory(%s) failed: %m", dest);
 
 		/* it's already renamed to ..dir, which means it's deleted
 		   as far as client is concerned. Report success. */

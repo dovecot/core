@@ -44,6 +44,7 @@ int index_storage_lock(struct index_mailbox *ibox,
 void index_storage_add(struct mail_index *index);
 struct mail_index *index_storage_lookup_ref(const char *path);
 void index_storage_unref(struct mail_index *index);
+void index_storage_destroy_unrefed(void);
 
 struct index_mailbox *
 index_storage_init(struct mail_storage *storage, struct mailbox *box,

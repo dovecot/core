@@ -99,6 +99,23 @@ void index_storage_unref(struct mail_index *index)
 	i_unreached();
 }
 
+void index_storage_destroy_unrefed(void)
+{
+	struct index_list **list, *rec;
+
+	for (list = &indexes; *list != NULL;) {
+		rec = *list;
+
+		if (rec->refcount == 0) {
+			rec->index->free(rec->index);
+			*list = rec->next;
+			i_free(rec);
+		} else {
+			list = &(*list)->next;
+		}
+	}
+}
+
 static enum mail_data_field get_data_fields(const char *fields)
 {
 	static const char *field_names[] = {
