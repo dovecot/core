@@ -388,6 +388,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 	Pool pool;
 	const char *value;
 	size_t size;
+	uoff_t start_offset;
 
 	ctx.update = update;
 	ctx.envelope_pool = NULL;
@@ -420,13 +421,15 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 			}
 		}
 
+		start_offset = inbuf->offset;
+
 		if (part == NULL) {
 			part = message_parse(pool, inbuf,
 					     update_header_func, &ctx);
 		} else {
 			/* cached, construct the bodystructure using it.
 			   also we need to parse the header.. */
-			io_buffer_seek(inbuf, 0);
+			io_buffer_seek(inbuf, start_offset);
 			message_parse_header(NULL, inbuf, NULL,
 					     update_header_func, &ctx);
 		}
@@ -437,7 +440,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 
 		if (cache_fields & FIELD_TYPE_BODY) {
 			t_push();
-			io_buffer_seek(inbuf, 0);
+			io_buffer_seek(inbuf, start_offset);
 			value = imap_part_get_bodystructure(pool, &part,
 							    inbuf, FALSE);
 			update->index->update_field(update, FIELD_TYPE_BODY,
@@ -447,7 +450,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 
 		if (cache_fields & FIELD_TYPE_BODYSTRUCTURE) {
 			t_push();
-			io_buffer_seek(inbuf, 0);
+			io_buffer_seek(inbuf, start_offset);
 			value = imap_part_get_bodystructure(pool, &part,
 							    inbuf, TRUE);
 			update->index->update_field(update,
