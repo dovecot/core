@@ -270,7 +270,8 @@ int cmd_fetch(Client *client)
 				   client->outbuf, &all_found)) {
 		/* NOTE: syncing isn't allowed here */
 		client_send_tagline(client, all_found ? "OK Fetch completed." :
-				    "NO Some messages were not found.");
+				    "NO Some of the requested messages "
+				    "no longer exist.");
 	} else {
 		client_send_storage_error(client);
 	}

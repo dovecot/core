@@ -110,7 +110,7 @@ int cmd_store(Client *client)
 					  &all_found)) {
 		/* NOTE: syncing isn't allowed here */
 		client_send_tagline(client, all_found ? "OK Store completed." :
-				    "NO Some messages were not found.");
+				    "NO Some of the messages no longer exist.");
 	} else
 		client_send_storage_error(client);
 
