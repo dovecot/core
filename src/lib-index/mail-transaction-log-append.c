@@ -353,6 +353,13 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 				mail_transaction_log_file_unlock(log->head);
 			return -1;
 		}
+		if (mail_index_map(index, FALSE) <= 0) {
+			mail_index_unlock(index, lock_id);
+			if (!log->index->log_locked)
+				mail_transaction_log_file_unlock(log->head);
+			return -1;
+		}
+
 		idx_hdr = *log->index->hdr;
 		mail_index_unlock(log->index, lock_id);
 
