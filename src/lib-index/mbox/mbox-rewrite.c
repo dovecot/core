@@ -388,6 +388,7 @@ static int write_header(struct mbox_rewrite_context *ctx,
 static int mbox_write_header(struct mail_index *index,
 			     struct mail_index_record *rec, unsigned int seq,
 			     struct istream *input, struct ostream *output,
+			     uoff_t dirty_offset,
 			     uoff_t *hdr_input_size, uoff_t body_size)
 {
 	/* We need to update fields that define message flags. Standard fields
@@ -459,7 +460,8 @@ static int mbox_write_header(struct mail_index *index,
 
 	/* write the x-keywords header last so it can fill the extra space
 	   with spaces. -1 is for ending \n. */
-	(void)mbox_write_xkeywords(&ctx, ctx.x_keywords, input->v_offset - 1,
+	(void)mbox_write_xkeywords(&ctx, ctx.x_keywords,
+				   input->v_offset - dirty_offset - 1,
 				   force_filler);
 	i_free(ctx.x_keywords);
 
@@ -710,6 +712,7 @@ int mbox_index_rewrite(struct mail_index *index)
 
 			/* write header, updating flag fields */
 			if (!mbox_write_header(index, rec, seq, input, output,
+					       dirty_offset,
 					       &hdr_size, body_size)) {
 				failed = TRUE;
 				break;
