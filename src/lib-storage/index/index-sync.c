@@ -85,19 +85,19 @@ static void index_mailbox_expunge_recent(struct index_mailbox *ibox,
 	count = seq2 - seq1 + 1;
 
 	data = buffer_get_data(ibox->recent_flags, &size);
-	if (idx > size)
-		return;
-	if (idx + count > size)
-		count = size - idx;
+	if (idx < size) {
+		if (idx + count > size)
+			count = size - idx;
 
-	for (i = 0; i < count; i++) {
-		if (data[idx+i])
-			ibox->recent_flags_count--;
+		for (i = 0; i < count; i++) {
+			if (data[idx+i])
+				ibox->recent_flags_count--;
+		}
+
+		buffer_copy(ibox->recent_flags, idx,
+			    ibox->recent_flags, idx + count, (size_t)-1);
+		buffer_set_used_size(ibox->recent_flags, size - count);
 	}
-
-	buffer_copy(ibox->recent_flags, idx,
-		    ibox->recent_flags, idx + count, (size_t)-1);
-	buffer_set_used_size(ibox->recent_flags, size - count);
         ibox->recent_flags_start_seq -= move;
 }
 
@@ -246,9 +246,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 						    ctx->messages_count+1,
 						    messages_count);
 		}
-
-		if (ibox->recent_flags_count != ibox->synced_recent_count)
-			ibox->synced_recent_count = ibox->recent_flags_count;
+		ibox->synced_recent_count = ibox->recent_flags_count;
 
 		ret = index_storage_get_status_locked(ctx->ibox,
 						      SYNC_STATUS_FLAGS,
