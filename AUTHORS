@@ -1,0 +1,21 @@
+Timo Sirainen <tss@iki.fi>
+
+Solar Designer <solar@openwall.com> (src/auth/userinfo-passwd|shadow|pam.c)
+
+This product includes software developed by Computing Services
+at Carnegie Mellon University (http://www.cmu.edu/computing/).
+(src/lib/base64.c, src/lib-imap/imap-match.c)
+
+GLib Team (src/lib/hash.c, primes.c, strfuncs.c)
+---------
+Shawn T. Amundson  <amundson@gimp.org>
+Jeff Garzik        <jgarzik@pobox.com>
+Raja R Harinath    <harinath@cs.umn.edu>
+Tim Janik          <timj@gtk.org>
+Elliot Lee         <sopwith@redhat.com>
+Tor Lillqvist      <tml@iki.fi>
+Paolo Molaro       <lupus@debian.org>
+Havoc Pennington   <hp@pobox.com>
+Manish Singh       <yosh@gimp.org>
+Owen Taylor        <otaylor@gtk.org>
+Sebastian Wilhelmi <wilhelmi@ira.uka.de>

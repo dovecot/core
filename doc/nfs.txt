@@ -1,0 +1,18 @@
+ - In general, we should be NFS-safe.
+
+ - NFS server must support fcntl() locking currently. It's possible to
+   add file-based locking code, but I haven't bothered.
+
+ - Modifylog uses fcntl() for figuring out when to delete the log file, and
+   assumes that changing file locking between F_RDLCK / F_WRLCK is atomic
+   (not sure if this is the case with all operating systems, I hope so).
+   This anyway could be more difficult to change not to use fcntl().
+
+ - gethostname() must return different name for each IMAP server accessing
+   a user's mailboxes
+
+ - Clocks should be somewhat synchronized:
+    - maildir: One minute difference is enough to have a small chance of
+      new mail to get temporarily lost until more mail arrives.
+    - One hour is enough to create a problem when two imap servers try to
+      open the same mailbox at the same time.

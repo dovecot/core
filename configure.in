@@ -1,0 +1,302 @@
+AC_INIT(src)
+
+AM_CONFIG_HEADER(config.h)
+AM_INIT_AUTOMAKE(dovecot, 0.96)
+
+AM_MAINTAINER_MODE
+
+AC_ISC_POSIX
+AC_PROG_CC
+AC_PROG_CPP
+AC_STDC_HEADERS
+AC_C_INLINE
+AC_ARG_PROGRAM
+AM_PROG_LIBTOOL
+
+AC_CHECK_HEADERS(string.h stdlib.h unistd.h dirent.h sys/sendfile.h)
+
+# check posix headers
+AC_CHECK_HEADERS(sys/time.h)
+
+AC_ARG_ENABLE(ipv6,
+[  --enable-ipv6           Enable IPv6 support],
+	if test x$enableval = xno; then
+		want_ipv6=no
+	else
+		want_ipv6=yes
+	fi,
+	want_ipv6=no)
+
+AC_ARG_ENABLE(passwd,
+[  --disable-passwd        Disable /etc/passwd support],
+	if test x$enableval = xno; then
+		want_passwd=no
+	else
+		want_passwd=yes
+	fi,
+	want_passwd=yes)
+
+AC_ARG_ENABLE(passwd-file,
+[  --disable-passwd-file   Disable passwd-like file support],
+	if test x$enableval = xno; then
+		want_passwd_file=no
+	else
+		want_passwd_file=yes
+	fi,
+	want_passwd_file=yes)
+
+AC_ARG_ENABLE(shadow,
+[  --disable-shadow        Disable shadow password support],
+	if test x$enableval = xno; then
+		want_shadow=no
+	else
+		want_shadow=yes
+	fi,
+	want_shadow=yes)
+
+AC_ARG_ENABLE(pam,
+[  --disable-pam           Disable PAM support],
+	if test x$enableval = xno; then
+		want_pam=no
+	else
+		want_pam=yes
+	fi,
+	want_pam=yes)
+
+dnl **
+dnl ** just some generic stuff...
+dnl **
+
+AC_CHECK_FUNC(socket, [], [
+	AC_CHECK_LIB(socket, socket, [
+		LIBS="$LIBS -lsocket"
+	])
+])
+
+AC_CHECK_FUNC(inet_addr, [], [
+	AC_CHECK_LIB(nsl, inet_addr, [
+		LIBS="$LIBS -lnsl"
+	])
+])
+
+dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
+AC_CHECK_FUNCS(fcntl flock inet_aton sigaction getpagesize madvise setreuid)
+AC_CHECK_FUNCS(strcasecmp stricmp vsnprintf memmove vsyslog)
+
+dnl * poll/select?
+
+AC_CHECK_FUNC(poll, [
+	have_poll=yes
+], [
+	have_poll=no
+])
+AM_CONDITIONAL(IOLOOP_POLL, test "$have_poll" = "yes")
+
+dnl * gcc specific options
+if test "x$ac_cv_prog_gcc" = "xyes"; then
+	# -W -Wchar-subscripts -Wpointer-arith -Wcast-align -Wconversion -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
+	CFLAGS="$CFLAGS -Wall"
+fi
+
+dnl * OS specific options
+case "$host_os" in
+	hpux*)
+		CFLAGS="$CFLAGS -D_XOPEN_SOURCE_EXTENDED"
+		;;
+	*)
+		;;
+esac
+
+dnl * memory alignment, could be 1 for x86 systems but 4 should be
+dnl * compatible with everyone. note that only 1, 2 and 4 work corrently.
+dnl * is 8 needed anywhere?
+AC_DEFINE(MEM_ALIGN_SIZE, 4)
+
+dnl * socklen_t - AC_CHECK_TYPE() would be _really_ useful if it only would
+dnl * accept header files where to find the typedef..
+AC_MSG_CHECKING([for socklen_t])
+AC_CACHE_VAL(i_cv_type_socklen_t,
+[AC_TRY_COMPILE([
+#include <sys/types.h>
+#include <sys/socket.h>],
+[socklen_t t;],
+i_cv_type_socklen_t=yes,
+i_cv_type_socklen_t=no,
+)])
+if test $i_cv_type_socklen_t = no; then
+	AC_DEFINE(socklen_t, int, Define to 'int' if <sys/socket.h> doesn't define.)
+fi
+AC_MSG_RESULT($i_cv_type_socklen_t)
+
+dnl * do we have tm_gmtoff
+AC_MSG_CHECKING([for tm_gmtoff])
+AC_CACHE_VAL(i_cv_field_tm_gmtoff,
+[AC_TRY_COMPILE([
+#include <time.h>],
+[struct tm *tm; return tm->tm_gmtoff;],
+i_cv_field_tm_gmtoff=yes,
+i_cv_field_tm_gmtoff=no,
+)])
+if test $i_cv_field_tm_gmtoff = yes; then
+	AC_DEFINE(HAVE_TM_GMTOFF)
+fi
+AC_MSG_RESULT($i_cv_field_tm_gmtoff)
+
+dnl **
+dnl ** SSL (gnutls)
+dnl **
+
+AC_CHECK_LIB(gnutls, gnutls_global_init, [
+	AC_DEFINE(HAVE_SSL)
+	SSL_LIBS="-lgnutls -lgcrypt"
+	AC_SUBST(SSL_LIBS)
+	have_ssl=yes
+], [
+	have_ssl=no
+], -lgcrypt)
+
+dnl **
+dnl ** shadow/pam support
+dnl **
+
+need_crypt=no
+auths=""
+
+if test $want_passwd = yes; then
+	need_crypt=yes
+        AC_DEFINE(USERINFO_PASSWD)
+	auths="$auths passwd"
+fi
+
+if test $want_passwd_file = yes; then
+	need_crypt=yes
+        AC_DEFINE(USERINFO_PASSWD_FILE)
+	auths="$auths passwd-file"
+fi
+
+if test $want_shadow = yes; then
+	AC_CHECK_FUNC(getspnam, [
+		need_crypt=yes
+		AC_DEFINE(USERINFO_SHADOW)
+		auths="$auths shadow"
+	])
+fi
+
+if test $want_pam = yes; then
+	AC_CHECK_LIB(pam, pam_start, [
+		AC_CHECK_HEADER(security/pam_appl.h, [
+			USERINFO_LIBS="$USERINFO_LIBS -lpam"
+			AC_DEFINE(USERINFO_PAM)
+			auths="$auths pam"
+		])
+	])
+fi
+
+if test $need_crypt = yes; then
+	AC_CHECK_LIB(crypt, crypt, [
+		USERINFO_LIBS="$USERINFO_LIBS -lcrypt"
+	], [
+		AC_CHECK_FUNC(crypt,, [
+			AC_ERROR([crypt() wasn't found])
+		])
+	])
+fi
+
+AC_SUBST(USERINFO_LIBS)
+
+dnl **
+dnl ** Index file compatibility flags
+dnl **
+
+dnl * currently just checking for endianess
+
+AC_C_BIGENDIAN
+
+if test $ac_cv_c_bigendian = yes; then
+	flags=0
+
+else
+	flags=1
+fi
+
+AC_DEFINE_UNQUOTED(MAIL_INDEX_COMPAT_FLAGS, $flags)
+
+dnl **
+dnl ** IPv6 support
+dnl **
+
+if test "x$want_ipv6" = "xyes"; then
+	AC_MSG_CHECKING([for IPv6])
+	AC_CACHE_VAL(i_cv_type_in6_addr,
+	[AC_TRY_COMPILE([
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	#include <netinet/in.h>
+	#include <netdb.h>
+	#include <arpa/inet.h>],
+	[struct in6_addr i;],
+	i_cv_type_in6_addr=yes,
+	i_cv_type_in6_addr=no,
+	)])
+	if test $i_cv_type_in6_addr = yes; then
+		AC_DEFINE(HAVE_IPV6)
+	fi
+	AC_MSG_RESULT($i_cv_type_in6_addr)
+fi
+
+dnl **
+dnl ** capabilities
+dnl **
+
+capability="IMAP4rev1"
+if test "$have_ssl" = "yes"; then
+	capability="$capability STARTTLS"
+fi
+AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability")
+
+dnl **
+dnl ** register the storage classes
+dnl **
+
+STORAGE="maildir mbox"
+file="src/lib-storage/mail-storage-register.c"
+
+echo "/* this file is generated by configure */" > $file
+echo '#include "lib.h"' >> $file
+echo '#include "mail-storage.h"' >> $file
+for storage in $STORAGE; do
+	echo "extern MailStorage ${storage}_storage;" >> $file
+done
+echo "void mail_storage_register_all(void) {" >> $file
+for storage in $STORAGE; do
+	echo "mail_storage_class_register(&${storage}_storage);" >> $file
+done
+echo "}" >> $file
+
+AC_OUTPUT(
+Makefile
+doc/Makefile
+src/Makefile
+src/lib/Makefile
+src/lib-imap/Makefile
+src/lib-index/Makefile
+src/lib-index/maildir/Makefile
+src/lib-index/mbox/Makefile
+src/lib-mail/Makefile
+src/lib-storage/Makefile
+src/lib-storage/index/Makefile
+src/lib-storage/index/maildir/Makefile
+src/lib-storage/index/mbox/Makefile
+src/lib-storage/subscription-file/Makefile
+src/lib-storage/flags-file/Makefile
+src/auth/Makefile
+src/imap/Makefile
+src/login/Makefile
+src/master/Makefile
+stamp.h)
+
+echo
+echo "Install prefix ............. : $prefix"
+echo "Building with auth modules . :$auths"
+echo "Building with SSL support .. : $have_ssl"
+echo "Building with IPv6 support . : $want_ipv6"

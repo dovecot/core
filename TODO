@@ -1,0 +1,142 @@
+test:
+ - make sure mmap()s work properly with NFS
+ - make sure first_hole_records is updated properly
+ - make sure locking is done properly when opening/switching modifylog 
+ - make sure index->header->flags are updated at correct times
+ - make sure SELECT rebuilds index properly when next_uid is near 32bit value
+ - make sure io_buffer_send() handles huge inputs properly
+ - make sure rfc822_parse_date() works properly
+ - make sure imap_match functions work properly
+ - try imap_message_send() / io_buffer_send_file()
+ - make sure connection limits work
+
+index:
+ - optimization:
+     - optimize so that when all mail is deleted, the indexes will be
+       truncated
+     - could hash function be better..? like uid*uid? what about changing
+       probe strategy from linear to something else?
+     - support shrinking hash file when it becomes 99% empty or so
+     - save part sizes + positions so MessagePart could be regenerated from
+       index..? probably only needed if BODY/BODYSTRUCTURE is saved, as it's
+       only useful with FETCH BODY[mime.sections] and they wouldn't be known
+       without bodystructure..
+     - index->lookup_uid_range(): first_uid could quite often be either the
+       first UID or some UIDs below the first. optimize these by remembering
+       the first UID in index.
+ - mbox:
+     - BUG: adding new mail after indexes are created doesn't work
+     - save MD5 sums for messages?
+     - update Status and X-Status headers when flags are changed
+     - last \n shouldn't be sent for messages. also remember to fix
+       the From-checks to check for [\r]\nFrom instead then..
+     - EXPUNGE doesn't delete the mail from the mbox file
+     - fsck should probably (or optionally?) really scan the message body
+       for "\nFrom " text instead of just jumping over the message body.
+       Quite useless actually, but this would make it fully reliable with md5
+       anyway..
+ - there's some race condition issues when opening mailboxes..
+ - when opening index files, check the flags and do what's needed. fsck and
+   rebuild is supported currently. compression and hash rebuilding is still
+   needed. and the cache_fields .. not sure when that'd be done, preferably
+   in the separate compress-process..
+ - set_lock() is ugly and horrible and should really be done something.
+   does the syncing really need to be there? maybe put it into separate
+   function which can be called after set_lock() by functions which actually
+   care about the sync state (fetch, search, store, etc).
+ - read-only support so we could use an index where we don't have
+   write-access? we should use MAP_PRIVATE everywhere with these boxes to
+   make sure we don't get exploited .. and anyway recheck everything to make
+   sure there wouldn't be a way to exploit them.
+ - if index was just rebuilt, modify log complains about indexid mismatch
+   at first open
+ - does append work?
+
+lib-storage:
+ - support multiple mailbox formats and locations for one user. that would
+   require support for multiple MailStorages, and since we're chroot()ed,
+   usually the only way to communicate with others would be to create
+   RemoteMailStorage which would use TCP/UNIX sockets to connect to another 
+   imap session.
+ - DELETE/RENAME: when someone else had the mailbox open, we should
+   disconnect it (when stat() fails with ENOENT while syncing)
+ - optimize SEARCH [UN]SEEN, [UN]DELETED and [UN]RECENT. They're able to
+   skip lots of messages based on the index header data.
+ - use a trie index for fast text searching, like cyrus squat?
+ - hardlink-COPY doesn't copy flags
+ - maildir: atomic COPY could be done by setting a "temporary" flag into the
+   file's name. once copying is done, set an ignore-temporary field into
+   index's header. at next sync the temporary flag will be removed.
+ - mbox: internal_date isn't saved 
+ - select "" shouldn't work.
+
+general:
+ - capabilities:
+     - acl (rfc2086)
+     - quota (rfc2087)
+     - namespace (rfc2342), id (rfc2971), mailbox-referrals (rfc2193),
+       literal+ (rfc2088), idle (rfc2177), uidplus (rfc2359)
+     - drafts: listext, children, unselect, multiappend, annotatemore
+         - sort, thread: are these really useful for clients? do any actually
+	   use them? i'd think most clients want to know all the messages
+	   anyway and can do the sorting/threading themselves.
+         - http://www.imc.org/ids.html
+ - check if t_push()/t_pop() should be added somewhere
+ - rfc-2231 continuation support
+ - "UID FETCH|SEARCH|STORE *" doesn't work if latest message was deleted.
+   should we bother to fix this? I doubt there's a client that would use this.
+ - RENAME INBOX isn't atomic with Maildir. And in general, RENAME can't
+   be moved to another storage. Maybe support doing also using COPY + delete
+   once COPY is atomic?
+
+ - go through .temp files and delete them
+ - grep for FIXME
+ - cache keeps the last message mmap()ed .. is there some case when it's not
+   a good idea? like the file changes in the background? cache should be
+   updated then. yes, especially with mbox support. the mmap should be
+   removed after unlocking. also, it shouldn't depend on mmap() anyway as
+   it's not possible to use it with eg. SQL storage.. except if we make
+   mmap()ing it optional, just give it some function which in some way
+   generates const char *msg + size_t.
+ - if auth process died and login couldn't immediately reconnect to it, it's
+   left until next user connects. however the connection needs to read the
+   init data before it can be used, so the user gets "NO Unknown
+   authentication method" error the first time
+ - ulimit / setrlimit() should be set somewhere
+ - create indexer binary
+ - SEARCH CHARSET support, iconv()?
+ - Fix the blocking SSL handshake
+ - SRP authentication support?
+ - Digest-MD5: support integrity protection, and maybe crypting. Do it
+   through imap-login like SSL is done?
+ - imap-auth should limit how fast authentication requests are allowed from
+   login processes. especially if there's one login/connection the speed
+   should be something like once/sec.
+ - support executing each login in it's own process, so if an exploit is ever
+   found from it, the attacker can't see other users' passwords
+ - the error messages given in command replies can sometimes be quite
+   specific, eg. rename(/full/path, /full/new/path) failed: xxx. These
+   probably shouldn't be shown to user, instead just print some "internal
+   error" with a timestamp and the real error would be written into syslog.
+   all errors from lib-index should be done this, and maybe some/all
+   lib-storage errors as well (there's separate error vs. critical)
+ - mmap()ing large messages isn't very good idea. we need to support doing
+   everything in pieces .. add mmap() support for iobuffers, and use them
+   everywhere?
+ - Make sure messages of size INT_MAX..UINT_MAX work correctly
+ - allocating readwrite pools now just uses system_pool .. so pool_unref()
+   can't free memory used by it .. what to do about it? at least count the
+   malloc/free calls and make complain if at the exit they don't match
+ - put IMAP_LOGFILE into config file. and the timestamp format.
+ - SIGHUPing master should reload the configuration
+ - Something's wrong with expunging mails from maildir ..
+
+optional optimizations:
+ - provide some helper binary to save new mail into mailboxes with CR+LF
+   line breaks?
+ - disk I/O is the biggest problem, so split the mail into multiple computers
+   based on user and have a proxy in the front redirecting the connection.
+   cyrus had something like this except a lot more complicated - it tried
+   to fix the problem of having shared mailboxes. we have the same problem
+   with local shared mailboxes as we chroot(), so locally we could communicate
+   with UNIX sockets, remotely that could be done with TCP sockets.

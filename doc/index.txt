@@ -1,0 +1,180 @@
+imap index files
+----------------
+
+Designed to be NFS-safe and accessible from multiple computers, even with
+different architecture. Should support pretty much any mail format, at
+least maildir and mbox can be implemented with it.
+
+
+Index file
+----------
+
+.imap.index: ID => data lookups
+
+header:
+	unsigned char compat_data[4];
+	/* 0 = flags,
+	   1 = sizeof(unsigned int),
+	   2 = sizeof(time_t),
+	   3 = sizeof(off_t) */
+
+	unsigned int version;
+	unsigned int indexid;
+
+	unsigned int flags;
+	unsigned int cache_fields;
+
+	off_t first_hole_position;
+	off_t first_hole_records;
+
+	unsigned int uid_validity;
+	unsigned int first_uid;
+	unsigned int next_uid;
+
+	unsigned int messages_count;
+	unsigned int last_nonrecent_uid;
+	unsigned int first_unseen_seq;
+
+	unsigned int reserved_for_future_usage[5];
+
+Version is always currently always 1, anything else will be considered
+invalid. The compat_data[] is just for making sure the index isn't tried to
+be accessed by incompatible computers. If they don't match, either another
+index is created or everything is aborted.
+
+All index files must begin with name ".imap.index", which is also the first
+file name tried. If it can't be used, all the files beginning with 
+".imap.index" are checked. If compatible index isn't found,
+".imap.index-<hostname>" is created as the index.
+
+File name of all the other files related to the index (data, hash, modify
+log) begin with the index's name and have ".data", ".hash" etc. appended to
+it. Also, all the files must have the same value in indexid field as the
+index or they'll be treated as being corrupted.
+
+first_hole_position and first_hole_size specify the first deleted block in
+this index file. This allows us to quickly do sequence => UID lookup even
+if some messages are already deleted. The deleted blocks should be
+compressed whenever there's time, to keep index lookups fast. 
+
+cache_fields contains the bitmask of fields that should be indexed, it can
+be updated at any time, so some earlier messages may not have indexed
+everything that newer messages have. This field can be used to quickly
+check if it's even possible to find some field from index.
+
+data:
+	unsigned int uid;
+	unsigned int msg_flags; /* MailFlags | IndexMailFlags */
+	time_t internal_date;
+	time_t sent_date;
+
+	off_t data_position;
+	unsigned int data_size;
+
+	unsigned int cached_fields;
+	unsigned int headers_size;
+
+cached_fields is a bitmask of indexed fields in data file.
+
+
+Index data file
+---------------
+
+.imap.index.data: variable length sized data
+
+header:
+	unsigned int indexid
+
+data:
+	unsigned int field; /* MailField */
+	unsigned int full_field_size;
+	char data[]; /* variable size */
+	...
+
+Fields are ordered by the field type, beginning with lowest. The fields are
+always \0 terminated which determines their real length, the
+full_field_size only marks how much space is entirely allocated for the
+field. This may differ from the real size if we've allocated some extra
+space for a field which may grow (eg. flags in maildir filename).
+
+
+Hash File
+---------
+
+.imap.index.hash: UID => index lookups
+
+header:
+	unsigned int indexid;
+	unsigned int flags;
+	unsigned int used_records;
+
+data:
+	unsigned int uid;
+	off_t position;
+
+File is treated as a hash map. The hash function is UID*2 % size, where
+size is (filesize - sizeof(header)) / sizeof(data). If the position is
+already taken, the value is placed into next available position. When
+looking up the hash, lookup can't be aborted until first free slot is
+found. Free slots are identified by having UID 0.
+
+
+Locking
+-------
+
+File locking is done using fcntl(), so currently there's no support for NFS
+servers that don't support it. File based locking would be possible, but I
+haven't bothered to do it at least yet.
+
+There's also directory lock which is done by creating a
+.dirlock.<hostname>.<pid> file and once linking it to .dirlock succeeds,
+the process owns the lock.
+
+There's of course the problem that some process may die and leave the file
+locked. So, if the first lock try fails, the invalid locks are looked up
+and deleted. For locks in the same host, the pids are checked to be valid.
+For other hosts there's a timeout of 30 minutes. The locks shouldn't be
+hold more than a few seconds at maximum, so the 30 mins is probably a bit
+too much, but it's there only to be sure that small clock differences
+between hosts don't break things.
+
+
+Modify log file
+---------------
+
+.imap.index.access: mailbox access counter
+
+Everyone who are accessing the mailbox must mark themselves known, so when
+someone is updating the mailbox, it should append to log file the expunges
+and mail flag updates it did. Using the log file other imap processes can
+quickly notify clients about the changes.
+
+Besides using it to notify clients, it's also used to map client given
+message sequence numbers to real sequence numbers. They're different when
+client hasn't yet been notified of the latest expunges in the mailbox.
+
+The access counter is implemented using hard links - there's the one base
+.imap.index.access file that all processes link to
+.imap.index.access.<hostname>.<pid> files. Invalid links are checked and
+deleted the same way as directory locks above.
+
+
+External changes
+----------------
+
+(Maildir-specific)
+
+External changes are noticed when index file's timestamp is different than
+the maildir's timestamp. When modifying the index file, it's timestamp
+should be set to maildir directory's timestamp when it was last in a known
+synced state.
+
+There's still the possibility that new mail comes just after we've synced
+the dir (or in the middle of it), but that's a bit difficult to fix without
+scanning the directory through all the time which gets slow.
+
+Luckily however this shouldn't be much of a problem, as new mail comes to
+new/ directory where it's always noticed. It's only the cur/ directory that
+may not always be exactly synced if someone else has been messing up with
+it. And if someone else has done that, she most likely has also seen the
+mail using that other mail client.
