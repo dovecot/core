@@ -28,13 +28,15 @@
 #include "mempool.h"
 #include "imem.h"
 
-#include "strfuncs.h"
-
 typedef struct buffer buffer_t;
+typedef struct array array_t;
 typedef struct buffer string_t;
 
 struct istream;
 struct ostream;
+
+#include "array.h" /* ARRAY_DEFINE()s may exist in any header */
+#include "strfuncs.h"
 
 extern unsigned char null4[4]; /* 4 zeros - useful for padding */
 

@@ -71,6 +71,7 @@ liblib_a_SOURCES = \
 	write-full.c
 
 noinst_HEADERS = \
+	array.h \
 	base64.h \
 	buffer.h \
 	compat.h \
