@@ -68,7 +68,7 @@ const char *dec2str(uintmax_t number);
 /* Return length of NULL-terminated list string array */
 unsigned int strarray_length(const char *const *arr);
 /* Return all strings from array joined into one string. */
-const char *strarray_join(const char *const *arr, const char *separator);
+const char *t_strarray_join(const char *const *arr, const char *separator);
 
 /* INTERNAL */
 const char *_vstrconcat(const char *str1, va_list args, size_t *ret_len);

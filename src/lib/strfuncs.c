@@ -558,11 +558,12 @@ unsigned int strarray_length(const char *const *arr)
 	return count;
 }
 
-const char *strarray_join(const char *const *arr, const char *separator)
+const char *t_strarray_join(const char *const *arr, const char *separator)
 {
 	size_t alloc_len, sep_len, len, pos, needed_space;
 	char *str;
 
+	sep_len = strlen(separator);
         alloc_len = 64;
         str = t_buffer_get(alloc_len);
 

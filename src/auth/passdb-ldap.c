@@ -177,8 +177,8 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 		i_info("ldap(%s): base=%s scope=%s filter=%s fields=%s",
 		       get_log_prefix(auth_request), conn->set.base,
 		       conn->set.scope, filter,
-		       strarray_join((const char **)
-				     passdb_ldap_conn->attr_names, ","));
+		       t_strarray_join((const char **)
+				       passdb_ldap_conn->attr_names, ","));
 	}
 
 	db_ldap_search(conn, conn->set.base, conn->set.ldap_scope,
