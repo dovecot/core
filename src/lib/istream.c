@@ -105,8 +105,7 @@ void i_stream_set_read_limit(struct istream *stream, uoff_t v_offset)
 		stream->v_limit = v_offset;
 		max_pos = v_offset - stream->v_offset + _stream->skip;
 		if (_stream->pos > max_pos) {
-			if (_stream->high_pos == 0)
-				_stream->high_pos = _stream->pos;
+			_stream->high_pos = _stream->pos;
 			_stream->pos = max_pos;
 		}
 	}
@@ -166,6 +165,7 @@ void i_stream_seek(struct istream *stream, uoff_t v_offset)
 	if (stream->closed)
 		return;
 
+	_stream->high_pos = 0;
 	_stream->seek(_stream, v_offset);
 }
 
