@@ -96,9 +96,12 @@ int mail_index_create_temp_file(struct mail_index *index, const char **path)
 	hostpid_init();
 
 	/* use ".temp.host.pid" as temporary file name. unlink() it first,
-	   just to be sure it's not symlinked somewhere for some reason.. */
-	*path = t_strconcat(index->dir, "/.temp.",
-			    my_hostname, ".", my_pid, NULL);
+	   just to be sure it's not symlinked somewhere for some reason..
+	   FIXME: this function should rather be removed entirely. With
+	   in-memory indexes index->dir is NULL, so we fallback to /tmp
+           so that mbox rewriting doesn't crash. */
+	*path = t_strconcat(index->dir != NULL ? index->dir : "/tmp",
+			    "/.temp.", my_hostname, ".", my_pid, NULL);
 	(void)unlink(*path);
 
 	/* usage of O_EXCL isn't exactly needed since the path should be
