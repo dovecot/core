@@ -756,7 +756,7 @@ struct mail_index *mbox_index_alloc(const char *dir, const char *mbox_path)
 
 	index->mbox_fd = -1;
 	index->mbox_sync_counter = (unsigned int)-1;
-	index->mailbox_readonly = access(index->mailbox_path, W_OK) < 0;
+	index->mailbox_readonly = access(mbox_path, W_OK) < 0;
 
 	index->mailbox_path = i_strdup(mbox_path);
 	mail_index_init(index, dir);
