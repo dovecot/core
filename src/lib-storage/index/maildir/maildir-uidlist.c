@@ -203,21 +203,10 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 
 	while (*line == ' ') line++;
 
-	flags = 0;
-	if (uidlist->version > 1) {
-		while (*line != ' ') {
-			switch (*line) {
-			case 'N':
-				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
-				break;
-			}
-			line++;
-		}
+	if (uidlist->version == 2) {
+		/* skip flags parameter */
+		while (*line != ' ') line++;
 		while (*line == ' ') line++;
-	} else {
-		/* old version, have to assume it's in new dir since we
-		   don't know */
-		flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
 	}
 
 	if (hash_lookup_full(uidlist->files, line, NULL, NULL)) {
@@ -229,7 +218,7 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 
 	rec = p_new(uidlist->record_pool, struct maildir_uidlist_rec, 1);
 	rec->uid = uid;
-	rec->flags = flags | MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
+	rec->flags = MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
 	rec->filename = p_strdup(uidlist->record_pool, line);
 	hash_insert(uidlist->files, rec->filename, rec);
 	buffer_append(uidlist->record_buf, &rec, sizeof(rec));
@@ -463,10 +452,10 @@ static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist,
 	string_t *str;
 	uint32_t uid;
         enum maildir_uidlist_rec_flag flags;
-	const char *filename, *flags_str;
+	const char *filename;
 	int ret = 0;
 
-	uidlist->version = 2;
+	uidlist->version = 1;
 
 	if (uidlist->uid_validity == 0)
 		uidlist->uid_validity = ioloop_time;
@@ -492,9 +481,7 @@ static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist,
 			str_truncate(str, 0);
 		}
 
-		flags_str = (flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0 ?
-			"N" : "-";
-		str_printfa(str, "%u %s %s\n", uid, flags_str, filename);
+		str_printfa(str, "%u %s\n", uid, filename);
 	}
 	maildir_uidlist_iter_deinit(iter);
 
