@@ -66,6 +66,7 @@ static int mbox_check_uidvalidity(struct mail_index *index,
 	} else {
 		/* UID validity has changed - rebuild whole index */
 		index->set_flags |= MAIL_INDEX_HDR_FLAG_REBUILD;
+		index->inconsistent = TRUE;
 		return FALSE;
 	}
 
@@ -257,11 +258,8 @@ static int mbox_sync_from_stream(struct mail_index *index,
 		}
 
 		ret = match_next_record(index, rec, &seq, input, &rec, &dirty);
-		if (ret < 0) {
-			if (input->eof)
-				break;
+		if (ret < 0)
 			return -1;
-		}
 
 		if (ret == 0) {
 			/* Get back to line before From */
