@@ -177,7 +177,8 @@ static int _seek(_IBuffer *buf, uoff_t v_offset)
 	uoff_t abs_offset;
 
 	abs_offset = buf->ibuffer.start_offset + v_offset;
-	if (mbuf->mmap_offset <= abs_offset &&
+	if (buf->buffer_size != 0 &&
+	    mbuf->mmap_offset <= abs_offset &&
 	    mbuf->mmap_offset + buf->pos > abs_offset) {
 		/* already mmaped */
 		buf->skip = abs_offset - mbuf->mmap_offset;
