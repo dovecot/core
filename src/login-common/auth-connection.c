@@ -27,6 +27,8 @@ static struct auth_connection *auth_connections;
 static struct timeout *to;
 
 static void auth_connection_destroy(struct auth_connection *conn);
+static void auth_connection_unref(struct auth_connection *conn);
+
 static void auth_input(void *context);
 static void auth_connect_missing(void);
 
@@ -59,6 +61,7 @@ static struct auth_connection *auth_connection_new(const char *path)
         net_set_nonblock(fd, FALSE);
 
 	conn = i_new(struct auth_connection, 1);
+	conn->refcount = 1;
 	conn->path = i_strdup(path);
 	conn->fd = fd;
 	conn->io = io_add(fd, IO_READ, auth_input, conn);
@@ -88,18 +91,28 @@ static void request_destroy(struct auth_request *request)
 	i_free(request);
 }
 
+static void request_hash_remove(void *key __attr_unused__, void *value,
+				void *context __attr_unused__)
+{
+	struct auth_request *request = value;
+
+	request->callback(request, NULL, NULL, request->context);
+}
+
 static void request_hash_destroy(void *key __attr_unused__, void *value,
 				 void *context __attr_unused__)
 {
 	struct auth_request *request = value;
 
-	request->callback(request, NULL, NULL, request->context);
 	request_destroy(request);
 }
 
 static void auth_connection_destroy(struct auth_connection *conn)
 {
 	struct auth_connection **pos;
+
+	if (conn->fd == -1)
+		return;
 
 	for (pos = &auth_connections; *pos != NULL; pos = &(*pos)->next) {
 		if (*pos == conn) {
@@ -108,12 +121,24 @@ static void auth_connection_destroy(struct auth_connection *conn)
 		}
 	}
 
-	hash_foreach(conn->requests, request_hash_destroy, NULL);
-	hash_destroy(conn->requests);
-
 	if (close(conn->fd) < 0)
 		i_error("close(auth) failed: %m");
 	io_remove(conn->io);
+	conn->fd = -1;
+
+	hash_foreach(conn->requests, request_hash_remove, NULL);
+
+        auth_connection_unref(conn);
+}
+
+static void auth_connection_unref(struct auth_connection *conn)
+{
+	if (--conn->refcount > 0)
+		return;
+
+	hash_foreach(conn->requests, request_hash_destroy, NULL);
+	hash_destroy(conn->requests);
+
 	i_stream_unref(conn->input);
 	o_stream_unref(conn->output);
 	i_free(conn->path);
@@ -307,6 +332,16 @@ void auth_continue_request(struct auth_request *request,
 void auth_abort_request(struct auth_request *request)
 {
         request_destroy(request);
+}
+
+void auth_request_ref(struct auth_request *request)
+{
+	request->conn->refcount++;
+}
+
+void auth_request_unref(struct auth_request *request)
+{
+	auth_connection_unref(request->conn);
 }
 
 static void auth_connect_missing(void)

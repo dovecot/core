@@ -11,6 +11,7 @@ typedef void auth_callback_t(struct auth_request *request,
 
 struct auth_connection {
 	struct auth_connection *next;
+	int refcount;
 
 	char *path;
 	int fd;
@@ -49,6 +50,9 @@ void auth_continue_request(struct auth_request *request,
 			   const unsigned char *data, size_t data_size);
 
 void auth_abort_request(struct auth_request *request);
+
+void auth_request_ref(struct auth_request *request);
+void auth_request_unref(struct auth_request *request);
 
 void auth_connection_init(void);
 void auth_connection_deinit(void);
