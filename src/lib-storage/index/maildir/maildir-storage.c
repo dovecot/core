@@ -293,7 +293,8 @@ static int mkdir_verify(struct index_storage *storage,
 		}
 	}
 
-	if (mkdir_parents(dir, CREATE_MODE) < 0 && (errno != EEXIST || !verify)) {
+	if (mkdir_parents(dir, CREATE_MODE) < 0 &&
+	    (errno != EEXIST || !verify)) {
 		if (errno != EEXIST && (!verify || errno != ENOENT)) {
 			mail_storage_set_critical(&storage->storage,
 						  "mkdir(%s) failed: %m", dir);
@@ -346,7 +347,7 @@ static int create_index_dir(struct index_storage *storage, const char *name)
 		return 0;
 
 	dir = t_strconcat(storage->index_dir, "/"MAILDIR_FS_SEP_S, name, NULL);
-	if (mkdir_parents(dir, CREATE_MODE) == -1 && errno != EEXIST) {
+	if (mkdir_parents(dir, CREATE_MODE) < 0 && errno != EEXIST) {
 		mail_storage_set_critical(&storage->storage,
 					  "mkdir(%s) failed: %m", dir);
 		return -1;
