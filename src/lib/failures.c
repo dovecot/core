@@ -79,8 +79,8 @@ static void write_prefix(FILE *f)
 	}
 }
 
-static void default_handler(const char *prefix, const char *format,
-			    va_list args)
+static void default_handler(const char *prefix, FILE *f,
+			    const char *format, va_list args)
 {
 	static int recursed = 0;
 	int old_errno = errno;
@@ -93,8 +93,12 @@ static void default_handler(const char *prefix, const char *format,
 
 	recursed++;
 
-	if (log_fd == NULL)
-		log_fd = stderr;
+	if (f == NULL) {
+		f = stderr;
+
+		if (log_fd == NULL)
+			log_fd = stderr;
+	}
 
 	t_push();
 	if (recursed == 2) {
@@ -103,19 +107,19 @@ static void default_handler(const char *prefix, const char *format,
 
 		/* make sure there's no %n in there */
                 (void)printf_string_upper_bound(format, args);
-		vfprintf(log_fd, format, args);
-		fputs(" - recursed!", log_fd);
+		vfprintf(f, format, args);
+		fputs(" - recursed!", f);
 	} else {
-		write_prefix(log_fd);
+		write_prefix(f);
 
-		fputs(prefix, log_fd);
+		fputs(prefix, f);
 		format = printf_string_fix_format(format);
 		/* make sure there's no %n in there */
                 (void)printf_string_upper_bound(format, args);
-		vfprintf(log_fd, format, args);
+		vfprintf(f, format, args);
 	}
 
-	fputc('\n', log_fd);
+	fputc('\n', f);
 
 	t_pop();
 
@@ -125,13 +129,13 @@ static void default_handler(const char *prefix, const char *format,
 
 static void default_panic_handler(const char *format, va_list args)
 {
-	default_handler("Panic: ", format, args);
+	default_handler("Panic: ", log_fd, format, args);
 	abort();
 }
 
 static void default_fatal_handler(int status, const char *format, va_list args)
 {
-	default_handler("Fatal: ", format, args);
+	default_handler("Fatal: ", log_fd, format, args);
 
 	if (fflush(log_fd) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGWRITE;
@@ -143,7 +147,7 @@ static void default_error_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
-	default_handler("Error: ", format, args);
+	default_handler("Error: ", log_fd, format, args);
 
 	if (fflush(log_fd) < 0)
 		exit(FATAL_LOGWRITE);
@@ -155,7 +159,7 @@ static void default_warning_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
-	default_handler("Warning: ", format, args);
+	default_handler("Warning: ", log_fd, format, args);
 
 	if (fflush(log_fd) < 0)
 		exit(FATAL_LOGWRITE);
@@ -167,9 +171,9 @@ static void default_info_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
-	default_handler("Info: ", format, args);
+	default_handler("Info: ", log_info_fd, format, args);
 
-	if (fflush(log_fd) < 0)
+	if (fflush(log_info_fd) < 0)
 		exit(FATAL_LOGWRITE);
 
 	errno = old_errno;
@@ -342,10 +346,9 @@ void i_set_failure_file(const char *path, const char *prefix)
 
 	open_log_file(&log_fd, path);
 
-	if (log_info_fd != NULL && log_info_fd != stderr) {
+	if (log_info_fd != NULL && log_info_fd != stderr)
 		(void)fclose(log_info_fd);
-		log_info_fd = log_fd;
-	}
+	log_info_fd = log_fd;
 }
 
 void i_set_info_file(const char *path)
