@@ -4,12 +4,22 @@
 #include "buffer.h"
 #include "mail-search.h"
 
-void mail_search_args_reset(struct mail_search_arg *args)
+void mail_search_args_reset(struct mail_search_arg *args, int full_reset)
 {
 	while (args != NULL) {
 		if (args->type == SEARCH_OR || args->type == SEARCH_SUB)
-			mail_search_args_reset(args->value.subargs);
-		args->result = -1;
+			mail_search_args_reset(args->value.subargs, full_reset);
+
+		if (!args->match_always)
+			args->result = -1;
+		else {
+			if (!full_reset)
+				args->result = 1;
+			else {
+				args->match_always = FALSE;
+				args->result = -1;
+			}
+		}
 
 		args = args->next;
 	}

@@ -52,6 +52,7 @@ struct mail_search_arg {
         void *context;
 	const char *hdr_field_name; /* for SEARCH_HEADER* */
 	unsigned int not:1;
+	unsigned int match_always:1; /* result = 1 always */
 
 	int result; /* -1 = unknown, 0 = unmatched, 1 = matched */
 };
@@ -65,8 +66,9 @@ struct mail_search_arg {
 typedef void (*mail_search_foreach_callback_t)(struct mail_search_arg *arg,
 					       void *context);
 
-/* Reset the results in search arguments */
-void mail_search_args_reset(struct mail_search_arg *args);
+/* Reset the results in search arguments. match_always is reset only if
+   full_reset is TRUE. */
+void mail_search_args_reset(struct mail_search_arg *args, int full_reset);
 
 /* goes through arguments in list that don't have a result yet.
    Returns 1 = search matched, 0 = search unmatched, -1 = don't know yet */

@@ -19,6 +19,9 @@ struct messageset_context *
 index_messageset_init_range(struct index_mailbox *ibox,
 			    unsigned int num1, unsigned int num2, int uidset);
 
+void index_messageset_limit_range(struct messageset_context *ctx,
+				  unsigned int min_uid, unsigned int max_uid);
+
 /* Returns 1 if all were found, 0 if some messages were expunged,
    -1 if internal error occured or -2 if messageset was invalid. */
 int index_messageset_deinit(struct messageset_context *ctx);

@@ -17,6 +17,7 @@ struct messageset_context {
 	struct messageset_mail mail;
 	unsigned int messages_count;
 	unsigned int num1, num2;
+	unsigned int min_uid, max_uid;
 
 	const char *messageset, *p;
 	int uidset, skip_expunged;
@@ -44,6 +45,9 @@ index_messageset_init(struct index_mailbox *ibox,
 	ctx->uidset = uidset;
 	ctx->skip_expunged = skip_expunged;
 
+	ctx->min_uid = 1;
+	ctx->max_uid = (unsigned int)-1;
+
 	/* Reset index errors, we rely on it to check for failures */
 	index_reset_error(ctx->index);
 
@@ -65,6 +69,13 @@ index_messageset_init_range(struct index_mailbox *ibox,
 		ctx->num2 = num1;
 	}
 	return ctx;
+}
+
+void index_messageset_limit_range(struct messageset_context *ctx,
+				  unsigned int min_uid, unsigned int max_uid)
+{
+	ctx->min_uid = min_uid;
+	ctx->max_uid = max_uid;
 }
 
 int index_messageset_deinit(struct messageset_context *ctx)
@@ -220,6 +231,14 @@ static int uidset_init(struct messageset_context *ctx)
 			ctx->num2 = temp;
 		}
 	}
+	i_assert(ctx->num1 <= ctx->num2);
+
+	if (ctx->num1 < ctx->min_uid)
+		ctx->num1 = ctx->min_uid;
+	if (ctx->num2 > ctx->max_uid)
+		ctx->num2 = ctx->max_uid;
+	if (ctx->num1 > ctx->num2)
+		return 1;
 
 	/* get list of expunged messages in our range. */
 	ctx->expunges = mail_modifylog_uid_get_expunges(ctx->index->modifylog,
@@ -269,13 +288,24 @@ static int seqset_init(struct messageset_context *ctx)
 	/* get the first non-expunged message. note that if all messages
 	   were expunged in the range, this points outside wanted range. */
 	ctx->mail.idx_seq = ctx->num1 - expunges_before;
+	ctx->mail.client_seq = ctx->num1;
 	ctx->mail.rec = ctx->index->lookup(ctx->index, ctx->mail.idx_seq);
+	while (ctx->mail.rec != NULL && ctx->mail.rec->uid < ctx->min_uid) {
+		ctx->mail.idx_seq++;
+		ctx->mail.client_seq++;
+		ctx->mail.rec = ctx->index->next(ctx->index, ctx->mail.rec);
+	}
+
+	if (ctx->mail.rec != NULL && ctx->mail.rec->uid > ctx->max_uid) {
+		ctx->mail.rec = NULL;
+		return 1;
+	}
+
 	if (ctx->mail.rec == NULL) {
 		return ctx->index->get_last_error(ctx->index) ==
 			MAIL_INDEX_ERROR_NONE ? 1 : -1;
 	}
 
-	ctx->mail.client_seq = ctx->num1;
 	return 0;
 }
 
