@@ -1137,8 +1137,8 @@ unsigned int mail_index_get_sequence(MailIndex *index, MailIndexRecord *rec)
 	return seq;
 }
 
-static void index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
-				    MailFlags old_flags, MailFlags new_flags)
+void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
+				  MailFlags old_flags, MailFlags new_flags)
 {
 	if ((old_flags & MAIL_SEEN) == 0 && (new_flags & MAIL_SEEN)) {
 		/* unseen -> seen */
@@ -1222,6 +1222,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	uoff_t pos;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
+	i_assert(seq != 0);
 	i_assert(rec->uid != 0);
 
 	if (seq != 0 && index->modifylog != NULL) {
@@ -1291,7 +1292,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	}
 
 	hdr->messages_count--;
-	index_mark_flag_changes(index, rec, rec->msg_flags, 0);
+	mail_index_mark_flag_changes(index, rec, rec->msg_flags, 0);
 
 	if ((hdr->first_hole_position - sizeof(MailIndexHeader)) /
 	    sizeof(MailIndexRecord) == hdr->messages_count) {
@@ -1311,12 +1312,12 @@ int mail_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 			    int external_change)
 {
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
-	i_assert(seq != 0 || !external_change);
+	i_assert(seq != 0);
 
 	if (flags == rec->msg_flags)
 		return TRUE; /* no changes */
 
-        index_mark_flag_changes(index, rec, rec->msg_flags, flags);
+        mail_index_mark_flag_changes(index, rec, rec->msg_flags, flags);
 
 	rec->msg_flags = flags;
 	return index->modifylog == NULL ? TRUE :
@@ -1346,7 +1347,7 @@ int mail_index_append(MailIndex *index, MailIndexRecord **rec)
 	}
 
 	index->header->messages_count++;
-        index_mark_flag_changes(index, *rec, 0, (*rec)->msg_flags);
+        mail_index_mark_flag_changes(index, *rec, 0, (*rec)->msg_flags);
 
 	if (index->hash != NULL)
 		mail_hash_update(index->hash, (*rec)->uid, (uoff_t)pos);

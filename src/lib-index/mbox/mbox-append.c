@@ -139,6 +139,10 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	if (rec == NULL)
 		return FALSE;
 
+	/* save message flags */
+	rec->msg_flags = ctx.flags;
+	mail_index_mark_flag_changes(index, rec, 0, rec->msg_flags);
+
 	update = index->update_begin(index, rec);
 
 	/* location = offset to beginning of headers in message */
@@ -170,10 +174,6 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 		(void)index->expunge(index, rec, 0, FALSE);
 		return FALSE;
 	}
-
-	/* save message flags, after location field is saved */
-	if (!index->update_flags(index, rec, 0, ctx.flags, FALSE))
-		return FALSE;
 
 	return TRUE;
 }
