@@ -103,7 +103,7 @@ int mail_index_fsck(MailIndex *index)
 
 		if (rec->msg_flags & MAIL_SEEN)
 			hdr->seen_messages_count++;
-		else if (hdr->first_unseen_uid_lowwater)
+		else if (hdr->first_unseen_uid_lowwater == 0)
 			hdr->first_unseen_uid_lowwater = rec->uid;
 
 		if (rec->msg_flags & MAIL_DELETED) {
