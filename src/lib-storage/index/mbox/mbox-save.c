@@ -8,6 +8,7 @@
 #include "mbox-index.h"
 #include "mbox-lock.h"
 #include "mbox-storage.h"
+#include "mail-save.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -286,9 +287,11 @@ int mbox_storage_save_next(struct mail_save_context *ctx,
 
 	t_push();
 	if (!write_from_line(ctx, received_date) ||
-	    !index_storage_save(ctx->ibox->box.storage,
-				ctx->ibox->index->mailbox_path,
-				data, ctx->output, save_header_callback, ctx) ||
+	    !mail_storage_save(ctx->ibox->box.storage,
+			       ctx->ibox->index->mailbox_path,
+			       data, ctx->output,
+			       getenv("MAIL_SAVE_CRLF") != NULL,
+			       save_header_callback, ctx) ||
 	    !mbox_fix_header(ctx) ||
 	    !mbox_append_lf(ctx)) {
 		/* failed, truncate file back to original size.

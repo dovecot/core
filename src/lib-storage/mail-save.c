@@ -3,11 +3,9 @@
 #include "lib.h"
 #include "istream.h"
 #include "ostream.h"
-#include "write-full.h"
-#include "index-storage.h"
-
-#include <stdlib.h>
-#include <unistd.h>
+#include "message-parser.h"
+#include "mail-storage.h"
+#include "mail-save.h"
 
 static int write_with_crlf(struct ostream *output, const void *v_data,
 			   size_t size)
@@ -132,9 +130,9 @@ static int save_headers(struct istream *input, struct ostream *output,
 	return !failed;
 }
 
-int index_storage_save(struct mail_storage *storage, const char *path,
-		       struct istream *input, struct ostream *output,
-		       header_callback_t *header_callback, void *context)
+int mail_storage_save(struct mail_storage *storage, const char *path,
+		      struct istream *input, struct ostream *output, int crlf,
+		      header_callback_t *header_callback, void *context)
 {
         write_func_t *write_func;
 	const unsigned char *data;
@@ -142,7 +140,7 @@ int index_storage_save(struct mail_storage *storage, const char *path,
 	ssize_t ret;
 	int failed;
 
-	write_func = getenv("MAIL_SAVE_CRLF") ? write_with_crlf : write_with_lf;
+	write_func = crlf ? write_with_crlf : write_with_lf;
 
 	if (header_callback != NULL) {
 		if (!save_headers(input, output, header_callback,

@@ -5,12 +5,6 @@
 #include "mail-index.h"
 #include "index-mail.h"
 
-typedef int write_func_t(struct ostream *, const void *, size_t);
-
-/* Return -1 = failure, 0 = don't write the header, 1 = write it */
-typedef int header_callback_t(const char *name,
-			      write_func_t *write_func, void *context);
-
 struct index_autosync_file {
 	struct index_autosync_file *next;
 
@@ -73,10 +67,6 @@ int index_expunge_seek_first(struct index_mailbox *ibox, unsigned int *seq,
 int index_expunge_mail(struct index_mailbox *ibox,
 		       struct mail_index_record *rec,
 		       unsigned int seq, int notify);
-
-int index_storage_save(struct mail_storage *storage, const char *path,
-		       struct istream *input, struct ostream *output,
-		       header_callback_t *header_callback, void *context);
 
 void index_mailbox_check_add(struct index_mailbox *ibox, const char *path);
 void index_mailbox_check_remove_all(struct index_mailbox *ibox);

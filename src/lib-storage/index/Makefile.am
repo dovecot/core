@@ -16,7 +16,6 @@ libstorage_index_a_SOURCES = \
 	index-mail.c \
 	index-mailbox-check.c \
 	index-messageset.c \
-	index-save.c \
 	index-search.c \
 	index-status.c \
 	index-storage.c \

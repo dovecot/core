@@ -8,9 +8,11 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib-imap
 
 libstorage_a_SOURCES = \
+	mail-save.c \
 	mail-search.c \
 	mail-storage.c
 
 noinst_HEADERS = \
+	mail-save.h \
 	mail-search.h \
 	mail-storage.h

@@ -5,8 +5,10 @@
 #include "ostream.h"
 #include "maildir-index.h"
 #include "maildir-storage.h"
+#include "mail-save.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <utime.h>
@@ -48,8 +50,8 @@ maildir_read_into_tmp(struct index_mailbox *ibox, const char *dir,
 				      IO_PRIORITY_DEFAULT, FALSE);
 	o_stream_set_blocking(output, 60000, NULL, NULL);
 
-	if (!index_storage_save(ibox->box.storage, path, input, output,
-				NULL, NULL))
+	if (!mail_storage_save(ibox->box.storage, path, input, output,
+                               getenv("MAIL_SAVE_CRLF") != NULL, NULL, NULL))
 		fname = NULL;
 
 	o_stream_unref(output);
