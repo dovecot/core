@@ -89,7 +89,7 @@ auth_client_request_new(struct auth_client *client,
 	if (o_stream_send(request->conn->output, &auth_request,
 			  sizeof(auth_request)) < 0) {
 		errno = request->conn->output->stream_errno;
-		i_warning("Error sending request to auth process: %m");
+		i_warning("Error sending request to auth server: %m");
 		auth_server_connection_destroy(request->conn, TRUE);
 	}
 	return request;
@@ -109,7 +109,7 @@ void auth_client_request_continue(struct auth_request *request,
 			  sizeof(auth_request)) < 0 ||
 	    o_stream_send(request->conn->output, data, data_size) < 0) {
 		errno = request->conn->output->stream_errno;
-		i_warning("Error sending continue request to auth process: %m");
+		i_warning("Error sending continue request to auth server: %m");
 		auth_server_connection_destroy(request->conn, TRUE);
 	}
 }
