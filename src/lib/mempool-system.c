@@ -92,7 +92,7 @@ static void *pool_system_realloc(pool_t pool __attr_unused__, void *mem,
 
 	if (old_size < new_size) {
                 /* clear new data */
-		memset(mem + old_size, 0, new_size - old_size);
+		memset((char *) mem + old_size, 0, new_size - old_size);
 	}
 
         return mem;
