@@ -291,9 +291,9 @@ struct istream *i_stream_create_file(int fd, pool_t pool,
 	fstream->istream.seek = _seek;
 
 	/* get size of fd if it's a file */
-	if (fstat(fd, &st) < 0)
+	if (fstat(fd, &st) < 0 || !S_ISREG(st.st_mode))
 		st.st_size = 0;
-	else if (S_ISREG(st.st_mode))
+	else
 		fstream->file = TRUE;
 
 	return _i_stream_create(&fstream->istream, pool, fd, 0,
