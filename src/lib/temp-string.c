@@ -64,7 +64,7 @@ static void t_string_inc(TempString *tstr, size_t size)
 	if (size > rstr->alloc_size) {
                 rstr->alloc_size = nearest_power(size);
 
-		if (!t_try_grow(rstr->str, rstr->alloc_size)) {
+		if (!t_try_realloc(rstr->str, rstr->alloc_size)) {
 			str = t_malloc(rstr->alloc_size);
 			memcpy(str, rstr->str, rstr->len+1);
 			rstr->str = str;

@@ -49,13 +49,16 @@ int t_pop(void);
    You probably should never use this function directly, rather
    create functions that return 'const xxx*' types and use t_malloc()
    internally in them. This is a lot safer, since usually compiler
-   warns if you try to place them in xxx*. See strfuncs.c for examples. */
+   warns if you try to place them in xxx*. See strfuncs.c for examples.
+
+   t_malloc() calls never fail, but return NULL if size == 0. If there's
+   not enough memory left, i_panic() will be called. */
 void *t_malloc(size_t size);
 void *t_malloc0(size_t size);
 
 /* Try growing allocated memory. Returns TRUE if successful. Works only
    for last allocated memory in current stack frame. */
-int t_try_grow(void *mem, size_t size);
+int t_try_realloc(void *mem, size_t size);
 
 #define t_new(type, count) \
 	((type *) t_malloc0(sizeof(type) * (count)))

@@ -31,6 +31,9 @@ struct Pool {
 /* system_pool uses calloc() + realloc() + free() */
 extern Pool system_pool;
 
+/* memory allocated from data_stack is valid only until next t_pop() call. */
+extern Pool data_stack_pool;
+
 /* If allocfree is FALSE, p_free() has no effect. Note that `size' specifies
    the initial malloc()ed block size, part of it is used internally. */
 Pool pool_create(const char *name, size_t size, int allocfree);

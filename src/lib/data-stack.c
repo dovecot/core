@@ -202,7 +202,7 @@ static void *t_malloc_real(size_t size, int permanent)
 	   always properly */
 	size = MEM_ALIGN(size);
 
-	/* used for t_try_grow() */
+	/* used for t_try_realloc() */
 	current_frame_block->last_alloc_size[frame_pos] = size;
 
 	if (current_block->left >= size) {
@@ -247,7 +247,7 @@ void *t_malloc0(size_t size)
         return mem;
 }
 
-int t_try_grow(void *mem, size_t size)
+int t_try_realloc(void *mem, size_t size)
 {
 	size_t last_alloc_size;
 
@@ -367,8 +367,8 @@ int t_push(void)
 	frame = malloc(sizeof(StackFrame));
 	frame->allocs = NULL;
 
-	frame->next = current_frame_block;
-	current_frame_block = frame;
+	frame->next = current_frame;
+	current_frame = frame;
 	return stack_counter++;
 }
 
@@ -377,8 +377,8 @@ int t_pop(void)
 	StackFrame *frame;
 	FrameAlloc *alloc;
 
-	frame = current_frame_block;
-	current_frame_block = frame->next;
+	frame = current_frame;
+	current_frame = frame->next;
 
 	while (frame->allocs != NULL) {
 		alloc = frame->allocs;
@@ -425,7 +425,7 @@ void *t_malloc0(size_t size)
 	return mem;
 }
 
-int t_try_grow(void *mem, size_t size)
+int t_try_realloc(void *mem, size_t size)
 {
 	void *new_mem;
 
@@ -457,7 +457,7 @@ void t_buffer_alloc(size_t size)
 
 	i_assert(buffer_mem != NULL);
 
-	mem = buffer_mem;
+	mem = realloc(buffer_mem, size);
 	buffer_mem = NULL;
 
 	add_alloc(mem);
@@ -466,7 +466,7 @@ void t_buffer_alloc(size_t size)
 void data_stack_init(void)
 {
         stack_counter = 0;
-	current_frame_block = NULL;
+	current_frame = NULL;
 	buffer_mem = NULL;
 
 	t_push();
