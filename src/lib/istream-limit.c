@@ -39,8 +39,10 @@ static ssize_t _read(struct _istream *stream)
 	size_t pos;
 
 	if (stream->istream.v_offset +
-	    (stream->pos - stream->skip) >= lstream->v_size)
+	    (stream->pos - stream->skip) >= lstream->v_size) {
+		stream->istream.eof = TRUE;
 		return -1;
+	}
 
 	if (lstream->input->v_offset !=
 	    lstream->v_start_offset + stream->istream.v_offset) {
