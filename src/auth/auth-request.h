@@ -17,36 +17,39 @@ struct auth_request {
 
 	struct mech_module *mech;
 	struct auth *auth;
-	struct auth_client_connection *conn;
 
+	unsigned int connect_uid;
+	unsigned int client_pid;
 	unsigned int id;
 	time_t created;
 
 	const char *service;
 	struct ip_addr local_ip, remote_ip;
+
 	mech_callback_t *callback;
+	void *context;
 
 	unsigned int successful:1;
 	unsigned int internal_failure:1;
+	unsigned int finished:1;
+	unsigned int delayed_failure:1;
 	unsigned int accept_input:1;
 	unsigned int no_failure_delay:1;
 	unsigned int no_login:1;
 	unsigned int proxy:1;
-	unsigned int destroyed:1;
 	/* ... mechanism specific data ... */
 };
+
+struct auth_request *
+auth_request_new(struct auth *auth, struct mech_module *mech,
+		 mech_callback_t *callback, void *context);
+void auth_request_ref(struct auth_request *request);
+int auth_request_unref(struct auth_request *request);
 
 void auth_request_success(struct auth_request *request,
 			  const void *data, size_t data_size);
 void auth_request_fail(struct auth_request *request);
 void auth_request_internal_failure(struct auth_request *request);
-
-struct auth_request *
-auth_request_new(struct auth *auth, struct mech_module *mech,
-		 mech_callback_t *callback);
-void auth_request_destroy(struct auth_request *request);
-void auth_request_ref(struct auth_request *request);
-int auth_request_unref(struct auth_request *request);
 
 void auth_request_initial(struct auth_request *request,
 			  const unsigned char *data, size_t data_size);
@@ -85,10 +88,5 @@ void auth_request_log_info(struct auth_request *auth_request,
 void auth_request_log_error(struct auth_request *auth_request,
 			    const char *subsystem,
 			    const char *format, ...) __attr_format__(3, 4);
-
-void auth_failure_buf_flush(void);
-
-void auth_requests_init(void);
-void auth_requests_deinit(void);
 
 #endif

@@ -473,7 +473,7 @@ static int create_auth_process(struct auth_process_group *group)
 				0, 0, NULL);
 
 	/* set other environment */
-	env_put(t_strconcat("AUTH_PROCESS=", dec2str(getpid()), NULL));
+	env_put("DOVECOT_MASTER=1");
 	env_put(t_strconcat("MECHANISMS=", group->set->mechanisms, NULL));
 	env_put(t_strconcat("REALMS=", group->set->realms, NULL));
 	env_put(t_strconcat("DEFAULT_REALM=", group->set->default_realm, NULL));

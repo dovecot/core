@@ -11,7 +11,7 @@
 #include "password-scheme.h"
 #include "mech.h"
 #include "auth.h"
-#include "auth-request.h"
+#include "auth-request-handler.h"
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 
@@ -153,7 +153,7 @@ static void add_extra_listeners(void)
 		str = t_strdup_printf("AUTH_%u_MASTER", i);
 		master_fd = create_unix_listener(str);
 
-		master = auth_master_connection_create(auth, -1, getpid());
+		master = auth_master_connection_create(auth, -1);
 		if (master_fd != -1) {
 			auth_master_connection_add_listener(master, master_fd,
 							    master_path, FALSE);
@@ -191,19 +191,18 @@ static void main_init(int nodaemon)
 {
 	struct auth_master_connection *master, **master_p;
 	size_t i, size;
-	const char *env;
-	unsigned int pid;
+
+	process_start_time = ioloop_time;
 
 	process_start_time = ioloop_time;
 
 	mech_init();
 	auth_init(auth);
-	auth_requests_init();
+	auth_request_handlers_init();
 
 	lib_init_signals(sig_quit);
 
-	env = getenv("AUTH_PROCESS");
-	standalone = env == NULL;
+	standalone = getenv("DOVECOT_MASTER") == NULL;
 	if (standalone) {
 		/* starting standalone */
 		if (getenv("AUTH_1") == NULL) {
@@ -230,12 +229,7 @@ static void main_init(int nodaemon)
 				i_fatal("chdir(/) failed: %m");
 		}
        } else {
-		pid = atoi(env);
-		if (pid == 0)
-			i_fatal("AUTH_PROCESS can't be 0");
-
-		master = auth_master_connection_create(auth, MASTER_SOCKET_FD,
-						       pid);
+		master = auth_master_connection_create(auth, MASTER_SOCKET_FD);
 		auth_master_connection_add_listener(master, LOGIN_LISTEN_FD,
 						    NULL, TRUE);
 		auth_client_connections_init(master);
@@ -257,7 +251,7 @@ static void main_deinit(void)
         if (lib_signal_kill != 0)
 		i_warning("Killed with signal %d", lib_signal_kill);
 
-	auth_failure_buf_flush();
+	auth_request_handlers_flush_failures();
 
 	master = buffer_get_modifyable_data(masters_buf, &size);
 	size /= sizeof(*master);
@@ -265,7 +259,7 @@ static void main_deinit(void)
 		auth_master_connection_destroy(master[i]);
 
         password_schemes_deinit();
-	auth_requests_deinit();
+	auth_request_handlers_deinit();
 	auth_deinit(auth);
 	mech_deinit();
 

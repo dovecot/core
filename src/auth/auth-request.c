@@ -20,81 +20,41 @@ struct auth_request_extra {
 	char *user_password, *password;
 };
 
-static buffer_t *auth_failures_buf;
-static struct timeout *to_auth_failures;
-
 struct auth_request *
 auth_request_new(struct auth *auth, struct mech_module *mech,
-		 mech_callback_t *callback)
+		 mech_callback_t *callback, void *context)
 {
 	struct auth_request *request;
 
 	request = mech->auth_new();
 
 	request->refcount = 1;
+	request->created = ioloop_time;
+
 	request->auth = auth;
 	request->mech = mech;
 	request->callback = callback;
-	request->created = ioloop_time;
+	request->context = context;
 	return request;
-}
-
-void auth_request_destroy(struct auth_request *request)
-{
-	i_assert(request->refcount > 0);
-
-	if (request->destroyed)
-		return;
-	request->destroyed = TRUE;
-
-	if (request->conn != NULL) {
-		hash_remove(request->conn->auth_requests,
-			    POINTER_CAST(request->id));
-	}
-	auth_request_unref(request);
 }
 
 void auth_request_success(struct auth_request *request,
 			  const void *data, size_t data_size)
 {
-	request->successful = TRUE;
-	if (request->conn != NULL) {
-		request->callback(request, AUTH_CLIENT_RESULT_SUCCESS,
-				  data, data_size);
-	}
+	i_assert(!request->finished);
+	request->finished = TRUE;
 
-	if (request->no_login || request->conn == NULL ||
-	    AUTH_MASTER_IS_DUMMY(request->conn->master)) {
-		/* we don't have master process, the request is no longer
-		   needed */
-		auth_request_destroy(request);
-	}
+	request->successful = TRUE;
+	request->callback(request, AUTH_CLIENT_RESULT_SUCCESS,
+			  data, data_size);
 }
 
 void auth_request_fail(struct auth_request *request)
 {
-	if (request->no_failure_delay) {
-		/* passdb specifically requested to to delay the reply. */
-		request->callback(request, AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
-		auth_request_destroy(request);
-		return;
-	}
+	i_assert(!request->finished);
+	request->finished = TRUE;
 
-	/* failure. don't announce it immediately to avoid
-	   a) timing attacks, b) flooding */
-	if (auth_failures_buf->used > 0) {
-		const struct auth_request *const *requests;
-
-		requests = auth_failures_buf->data;
-		requests += auth_failures_buf->used/sizeof(*requests)-1;
-		i_assert(*requests != request);
-	}
-
-	buffer_append(auth_failures_buf, &request, sizeof(request));
-
-	/* make sure the request isn't found anymore */
-	auth_request_ref(request);
-	auth_request_destroy(request);
+	request->callback(request, AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
 }
 
 void auth_request_internal_failure(struct auth_request *request)
@@ -320,7 +280,7 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 		tab[5].value = net_ip2addr(&auth_request->local_ip);
 	if (auth_request->remote_ip.family != 0)
 		tab[6].value = net_ip2addr(&auth_request->remote_ip);
-	tab[7].value = dec2str(auth_request->conn->pid);
+	tab[7].value = dec2str(auth_request->client_pid);
 	return tab;
 }
 
@@ -396,40 +356,4 @@ void auth_request_log_error(struct auth_request *auth_request,
 	i_info("%s", get_log_str(auth_request, subsystem, format, va));
 	t_pop();
 	va_end(va);
-}
-
-void auth_failure_buf_flush(void)
-{
-	struct auth_request **auth_request;
-	size_t i, size;
-
-	auth_request = buffer_get_modifyable_data(auth_failures_buf, &size);
-	size /= sizeof(*auth_request);
-
-	for (i = 0; i < size; i++) {
-		if (auth_request[i]->conn != NULL) {
-			auth_request[i]->callback(auth_request[i],
-						  AUTH_CLIENT_RESULT_FAILURE,
-						  NULL, 0);
-		}
-		auth_request_destroy(auth_request[i]);
-	}
-	buffer_set_used_size(auth_failures_buf, 0);
-}
-
-static void auth_failure_timeout(void *context __attr_unused__)
-{
-	auth_failure_buf_flush();
-}
-
-void auth_requests_init(void)
-{
-	auth_failures_buf = buffer_create_dynamic(default_pool, 1024);
-        to_auth_failures = timeout_add(2000, auth_failure_timeout, NULL);
-}
-
-void auth_requests_deinit(void)
-{
-	buffer_free(auth_failures_buf);
-	timeout_remove(to_auth_failures);
 }

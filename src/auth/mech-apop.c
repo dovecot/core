@@ -101,7 +101,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 
 	if (sscanf((const char *)data, "<%lx.%lx.%lx.",
 		   &pid, &connect_uid, &timestamp) != 3 ||
-	    connect_uid != auth_request->conn->connect_uid ||
+	    connect_uid != auth_request->connect_uid ||
             pid != (unsigned long)getpid() ||
 	    (time_t)timestamp < process_start_time) {
 		auth_request_log_info(auth_request, "apop",

@@ -13,14 +13,11 @@ struct auth_client_connection {
 	struct istream *input;
 	struct ostream *output;
 
-	pool_t pool;
-	struct hash_table *auth_requests;
-
 	unsigned int pid;
 	unsigned int connect_uid;
+	struct auth_request_handler *request_handler;
 
 	unsigned int version_received:1;
-	unsigned int delayed_destroy:1;
 };
 
 struct auth_client_connection *

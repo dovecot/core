@@ -9,7 +9,7 @@
 #include "ostream.h"
 #include "network.h"
 #include "userdb.h"
-#include "auth-request.h"
+#include "auth-request-handler.h"
 #include "auth-master-interface.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
@@ -38,81 +38,23 @@ static int master_output(void *context);
 static void auth_master_connection_close(struct auth_master_connection *conn);
 static int auth_master_connection_unref(struct auth_master_connection *conn);
 
-static void master_send(struct auth_master_connection *conn,
-			const char *fmt, ...) __attr_format__(2, 3);
-static void master_send(struct auth_master_connection *conn,
-			const char *fmt, ...)
+void auth_master_request_callback(const char *reply, void *context)
 {
-	va_list args;
-	string_t *str;
+	struct auth_master_connection *conn = context;
+	struct const_iovec iov[2];
 
-	t_push();
-	va_start(args, fmt);
-	str = t_str_new(256);
-	str_vprintfa(str, fmt, args);
-	str_append_c(str, '\n');
-	(void)o_stream_send(conn->output, str_data(str), str_len(str));
-	va_end(args);
-	t_pop();
-}
+	iov[0].iov_base = reply;
+	iov[0].iov_len = strlen(reply);
+	iov[1].iov_base = "\n";
+	iov[1].iov_len = 1;
 
-static void append_user_reply(string_t *str, const struct user_data *user)
-{
-	const char *p;
-
-	str_printfa(str, "%s\tuid=%s\tgid=%s", user->virtual_user,
-		    dec2str(user->uid), dec2str(user->gid));
-
-	if (user->system_user != NULL)
-		str_printfa(str, "\tsystem_user=%s", user->system_user);
-	if (user->mail != NULL)
-		str_printfa(str, "\tmail=%s", user->mail);
-
-	p = user->home != NULL ? strstr(user->home, "/./") : NULL;
-	if (p == NULL) {
-		if (user->home != NULL)
-			str_printfa(str, "\thome=%s", user->home);
-	} else {
-		/* wu-ftpd like <chroot>/./<home> */
-		str_printfa(str, "\thome=%s\tchroot=%s",
-			    p + 3, t_strdup_until(user->home, p));
-	}
-}
-
-static void userdb_callback(const struct user_data *user, void *context)
-{
-	struct master_userdb_request *master_request = context;
-	string_t *str;
-
-	if (user != NULL) {
-		auth_request_log_debug(master_request->auth_request, "userdb",
-				       "uid=%s gid=%s home=%s mail=%s",
-				       dec2str(user->uid), dec2str(user->gid),
-				       user->home != NULL ? user->home : "",
-				       user->mail != NULL ? user->mail : "");
-	}
-
-	if (auth_master_connection_unref(master_request->conn)) {
-		if (user == NULL) {
-			master_send(master_request->conn, "NOTFOUND\t%u",
-				    master_request->id);
-		} else {
-			str = t_str_new(256);
-			str_printfa(str, "USER\t%u\t", master_request->id);
-			append_user_reply(str,  user);
-			master_send(master_request->conn, "%s", str_c(str));
-		}
-	}
-	auth_request_destroy(master_request->auth_request);
-	i_free(master_request);
+	(void)o_stream_sendv(conn->output, iov, 2);
 }
 
 static int
 master_input_request(struct auth_master_connection *conn, const char *args)
 {
 	struct auth_client_connection *client_conn;
-	struct master_userdb_request *master_request;
-	struct auth_request *request;
 	const char *const *list;
 	unsigned int id, client_pid, client_id;
 
@@ -128,27 +70,14 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 	client_id = (unsigned int)strtoul(list[2], NULL, 10);
 
 	client_conn = auth_client_connection_lookup(conn, client_pid);
-	request = client_conn == NULL ? NULL :
-		hash_lookup(client_conn->auth_requests,
-			    POINTER_CAST(client_id));
-
-	if (request == NULL) {
-		i_error("Master request %u.%u not found",
-			client_pid, client_id);
-		master_send(conn, "NOTFOUND\t%u", id);
-	} else if (!request->successful) {
-		i_error("Master requested unfinished authentication request "
-			"%u.%u", client_pid, client_id);
-		master_send(conn, "NOTFOUND\t%u", id);
+	if (client_conn == NULL) {
+		i_error("Master requested auth for nonexisting client %u",
+			client_pid);
+		(void)o_stream_send_str(conn->output,
+					t_strdup_printf("NOTFOUND\t%u\n", id));
 	} else {
-		master_request = i_new(struct master_userdb_request, 1);
-		master_request->conn = conn;
-		master_request->id = id;
-		master_request->auth_request = request;
-
-		conn->refcount++;
-		auth_request_lookup_user(request, userdb_callback,
-					 master_request);
+		auth_request_handler_master_request(
+			client_conn->request_handler, id, client_id);
 	}
 	return TRUE;
 }
@@ -255,14 +184,14 @@ auth_master_connection_set_fd(struct auth_master_connection *conn, int fd)
 }
 
 struct auth_master_connection *
-auth_master_connection_create(struct auth *auth, int fd, unsigned int pid)
+auth_master_connection_create(struct auth *auth, int fd)
 {
 	struct auth_master_connection *conn;
 
 	conn = i_new(struct auth_master_connection, 1);
 	conn->auth = auth;
 	conn->refcount = 1;
-	conn->pid = pid;
+	conn->pid = (unsigned int)getpid();
 	conn->fd = fd;
 	conn->listeners_buf = buffer_create_dynamic(default_pool, 64);
 	if (fd != -1)
@@ -272,11 +201,15 @@ auth_master_connection_create(struct auth *auth, int fd, unsigned int pid)
 
 void auth_master_connection_send_handshake(struct auth_master_connection *conn)
 {
-	if (conn->output != NULL) {
-		master_send(conn, "VERSION\t%u\t%u\nSPID\t%u\n",
-			    AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
-                            AUTH_MASTER_PROTOCOL_MINOR_VERSION, conn->pid);
-	}
+	const char *line;
+
+	if (conn->output == NULL)
+		return;
+
+	line = t_strdup_printf("VERSION\t%u\t%u\nSPID\t%u\n",
+			       AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
+			       AUTH_MASTER_PROTOCOL_MINOR_VERSION, conn->pid);
+	(void)o_stream_send_str(conn->output, line);
 }
 
 static void auth_master_connection_close(struct auth_master_connection *conn)
