@@ -64,7 +64,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		str_append(auth, client->proxy_password);
 
 		str = t_str_new(128);
-		str_append(str, "AUTH ");
+		str_append(str, "AUTH PLAIN ");
 		base64_encode(str_data(auth), str_len(auth), str);
 		str_append(str, "\r\n");
 		(void)o_stream_send(output, str_data(str), str_len(str));

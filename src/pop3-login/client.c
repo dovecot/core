@@ -343,8 +343,10 @@ void client_destroy(struct pop3_client *client, const char *reason)
 
 	hash_remove(clients, client);
 
-	i_stream_close(client->input);
-	o_stream_close(client->output);
+	if (client->input != NULL)
+		i_stream_close(client->input);
+	if (client->output != NULL)
+		o_stream_close(client->output);
 
 	if (client->common.auth_request != NULL) {
 		auth_client_request_abort(client->common.auth_request);
@@ -401,8 +403,10 @@ int client_unref(struct pop3_client *client)
 	if (--client->refcount > 0)
 		return TRUE;
 
-	i_stream_unref(client->input);
-	o_stream_unref(client->output);
+	if (client->input != NULL)
+		i_stream_unref(client->input);
+	if (client->output != NULL)
+		o_stream_unref(client->output);
 
 	i_free(client->apop_challenge);
 	i_free(client->common.virtual_user);
