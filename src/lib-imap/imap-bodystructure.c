@@ -36,12 +36,6 @@ struct message_part_body_data {
 	unsigned int charset_found:1;
 };
 
-struct imap_bodystructure_parse_ctx {
-	pool_t pool;
-	int extended;
-        struct message_part *root;
-};
-
 static void part_write_bodystructure(struct message_part *part,
 				     string_t *str, int extended);
 
