@@ -67,6 +67,7 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	const char *input;
 	char *output;
 	char flags;
+	size_t userlen, passlen;
 
 	if (num_msg != 1 || msg[0]->msg_style != PAM_BINARY_PROMPT)
 		return PAM_CONV_ERR;
