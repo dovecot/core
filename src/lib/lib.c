@@ -30,9 +30,9 @@
 
 size_t nearest_power(size_t num)
 {
-	unsigned int n = 1;
+	size_t n = 1;
 
-	i_assert(num <= (unsigned int) (1 << (BITS_IN_SIZE_T-1)));
+	i_assert(num <= (size_t) (1 << (BITS_IN_SIZE_T-1)));
 
 	while (n < num) n <<= 1;
 	return n;
