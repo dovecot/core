@@ -691,6 +691,10 @@ mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size)
 		}
 	}
 
+	mem_map->log_file_seq = mem_map->hdr->log_file_seq;
+	mem_map->log_file_offset = mem_map->hdr->log_file_offset;
+	mem_map->base_header_size = mem_map->hdr->base_header_size;
+
 	return mem_map;
 }
 
