@@ -695,11 +695,12 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 		line->name = str_c(ctx->name);
 		line->name_len = str_len(ctx->name);
 	} else {
-		/* get value, skip only first LWSP after ':' */
+		/* get value. skip all LWSP after ':'. Note that RFC2822
+		   doesn't say we should, but history behind it.. */
 		line->value = msg + colon_pos+1;
 		line->value_len = size - colon_pos - 1;
-		if (line->value_len > 0 &&
-		    IS_LWSP(line->value[0])) {
+		while (line->value_len > 0 &&
+		       IS_LWSP(line->value[0])) {
 			line->value++;
 			line->value_len--;
 		}
