@@ -47,7 +47,9 @@ static struct pool static_system_pool = {
 
 	pool_system_realloc,
 
-	pool_system_clear
+	pool_system_clear,
+
+        FALSE
 };
 
 pool_t system_pool = &static_system_pool;

@@ -25,6 +25,8 @@ struct pool {
 	/* Frees all the memory in pool. NOTE: system_pool doesn't support
 	   this and crashes if it's used */
 	void (*clear)(pool_t pool);
+
+	unsigned int alloconly_pool:1;
 };
 
 /* system_pool uses calloc() + realloc() + free() */

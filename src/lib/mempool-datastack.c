@@ -45,7 +45,9 @@ static struct pool static_data_stack_pool = {
 
 	pool_data_stack_realloc,
 
-	pool_data_stack_clear
+	pool_data_stack_clear,
+
+	TRUE
 };
 
 pool_t data_stack_pool = &static_data_stack_pool;
