@@ -78,7 +78,7 @@ struct index_mailbox {
 	unsigned int mbox_excl_locks, mbox_shared_locks;
 	struct dotlock mbox_dotlock;
 	unsigned int mbox_lock_id;
-	int mbox_readonly;
+	int mbox_readonly, mbox_writeonly;
 	time_t mbox_dirty_stamp;
 	off_t mbox_dirty_size;
 
