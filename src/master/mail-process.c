@@ -18,26 +18,26 @@
 
 static unsigned int mail_process_count = 0;
 
-static int validate_uid_gid(uid_t uid, gid_t gid)
+static int validate_uid_gid(uid_t uid, gid_t gid, const char *user)
 {
 	if (uid == 0) {
-		i_error("mail process isn't allowed for root");
+		i_error("Logins with UID 0 not permitted (user %s)", user);
 		return FALSE;
 	}
 
 	if (uid < (uid_t)set->first_valid_uid ||
 	    (set->last_valid_uid != 0 && uid > (uid_t)set->last_valid_uid)) {
-		i_error("mail process isn't allowed to use UID %s "
+		i_error("Logins with UID %s (user %s) not permitted "
 			"(modify first_valid_uid in config file)",
-			dec2str(uid));
+			dec2str(uid), user);
 		return FALSE;
 	}
 
 	if (gid < (gid_t)set->first_valid_gid ||
 	    (set->last_valid_gid != 0 && gid > (gid_t)set->last_valid_gid)) {
-		i_error("mail process isn't allowed to use primary group ID %s "
-			"with UID %s (see first_valid_gid in config file).",
-			dec2str(gid), dec2str(uid));
+		i_error("Logins for users with primary group ID %s (user %s) "
+			"not permitted (see first_valid_gid in config file).",
+			dec2str(gid), user);
 		return FALSE;
 	}
 
@@ -111,7 +111,8 @@ int create_mail_process(int socket, struct ip_addr *ip,
 		return FALSE;
 	}
 
-	if (!validate_uid_gid(reply->uid, reply->gid))
+	if (!validate_uid_gid(reply->uid, reply->gid,
+			      data + reply->virtual_user_idx))
 		return FALSE;
 
 	home_dir = data + reply->home_idx;
