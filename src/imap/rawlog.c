@@ -8,6 +8,7 @@
 #include "ioloop.h"
 #include "network.h"
 #include "write-full.h"
+#include "process-title.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -92,7 +93,7 @@ void rawlog_open(int *hin, int *hout)
 	struct tm *tm;
 	struct stat st;
 	int sfd[2];
-	pid_t pid;
+	pid_t pid, parent_pid;
 
 	home = getenv("HOME");
 	if (home == NULL)
@@ -132,6 +133,8 @@ void rawlog_open(int *hin, int *hout)
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sfd) < 0)
 		i_fatal("socketpair() failed: %m");
 
+	parent_pid = getpid();
+
 	pid = fork();
 	if (pid < 0)
 		i_fatal("fork() failed: %m");
@@ -145,6 +148,9 @@ void rawlog_open(int *hin, int *hout)
 		return;
 	}
 	close(sfd[1]);
+
+	process_title_set(t_strdup_printf("[%s:%d rawlog]", getenv("USER"),
+					  (int)parent_pid));
 
 	/* child */
 	client_in = *hin;
