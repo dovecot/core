@@ -27,7 +27,7 @@ static int read_until(const Rfc822Token *tokens, const char *stop_tokens,
 		if (strchr(stop_tokens, tokens[i].token) != NULL)
 			break;
 
-		if (tokens[i].token == '(') {
+		if (tokens[i].token == '(' && comment != NULL) {
 			/* save comment */
 			if (comment->len > 0)
 				t_string_append_c(comment, ' ');
