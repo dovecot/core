@@ -30,6 +30,12 @@ struct hash_table {
 	hash_cmp_callback_t *key_compare_cb;
 };
 
+struct hash_iterate_context {
+	struct hash_table *table;
+	struct hash_node *next;
+	size_t pos;
+};
+
 static int hash_resize(struct hash_table *table, int grow);
 
 static int direct_cmp(const void *p1, const void *p2)
@@ -318,12 +324,6 @@ size_t hash_size(struct hash_table *table)
 {
 	return table->nodes_count;
 }
-
-struct hash_iterate_context {
-	struct hash_table *table;
-	struct hash_node *next;
-	size_t pos;
-};
 
 struct hash_iterate_context *hash_iterate_init(struct hash_table *table)
 {
