@@ -205,7 +205,7 @@ void md5_update(MD5Context *ctx, const void *data, size_t size)
 		}
 
 		memcpy(&ctx->buffer[used], data, free);
-		(unsigned char *)data += free;
+		data = (unsigned char *) data + free;
 		size -= free;
 		body(ctx, ctx->buffer, 64);
 	}
