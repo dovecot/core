@@ -56,7 +56,7 @@ static int expunge_real(struct index_mailbox *ibox,
 			if (!expunges) {
 				/* first expunged record, seek to position
 				   where we want to begin writing */
-				if (!o_stream_seek(output, from_offset))
+				if (o_stream_seek(output, from_offset) < 0)
 					return FALSE;
 				expunges = TRUE;
 			}
