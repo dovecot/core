@@ -24,6 +24,7 @@ typedef struct {
 } Setting;
 
 static Setting settings[] = {
+	{ "base_dir",		SET_STR, &set_base_dir },
 	{ "log_path",		SET_STR, &set_log_path },
 	{ "info_log_path",	SET_STR, &set_info_log_path },
 	{ "log_timestamp",	SET_STR, &set_log_timestamp },
