@@ -15,7 +15,6 @@ imap_LDADD = \
 	../lib-index/mbox/libstorage_index_mbox.a \
 	../lib-index/libstorage_index.a \
 	../lib-storage/subscription-file/libstorage_subscription_file.a \
-	../lib-storage/flags-file/libstorage_flags_file.a \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \
 	../lib/liblib.a
