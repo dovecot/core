@@ -353,7 +353,7 @@ static int maildir_delete_mailbox(struct mail_storage *storage,
 
 	count = 0;
 	while (rename(src, dest) < 0 && count < 2) {
-		if (errno != EEXIST) {
+		if (errno != EEXIST && errno != ENOTEMPTY) {
 			mail_storage_set_critical(storage,
 						  "rename(%s, %s) failed: %m",
 						  src, dest);
