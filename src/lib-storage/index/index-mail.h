@@ -23,7 +23,7 @@ struct index_mail_data {
 	int header_save_idx;
 
 	struct message_part *parts;
-	const char *envelope, *body, *bodystructure;
+	const char *envelope, *body, *bodystructure, *uid_string;
 	struct message_part_envelope_data *envelope_data;
 
 	uint32_t seq;
@@ -57,6 +57,7 @@ struct index_mail {
 	struct index_transaction_context *trans;
 	unsigned int expunge_counter;
 	buffer_t *header_buf;
+	uint32_t uid_validity;
 
 	enum mail_fetch_field wanted_fields;
 	const char *const *wanted_headers;

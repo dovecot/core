@@ -51,8 +51,7 @@ static int init_mailbox(struct client *client)
 	search_arg.type = SEARCH_ALL;
 
 	for (i = 0; i < 2; i++) {
-		if (mailbox_get_status(client->mailbox,
-				       STATUS_MESSAGES | STATUS_UIDVALIDITY,
+		if (mailbox_get_status(client->mailbox, STATUS_MESSAGES,
 				       &status) < 0) {
 			client_send_storage_error(client);
 			return FALSE;
@@ -60,7 +59,6 @@ static int init_mailbox(struct client *client)
 
 		client->messages_count = status.messages;
 		client->deleted_size = 0;
-		client->uidvalidity = status.uidvalidity;
 
 		if (client->messages_count == 0)
 			return TRUE;

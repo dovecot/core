@@ -54,7 +54,7 @@ struct mbox_sync_mail_context {
 	uoff_t from_offset, hdr_offset, body_offset;
 
 	size_t header_first_change, header_last_change;
-	string_t *header;
+	string_t *header, *uidl;
 
 	uoff_t content_length;
 
@@ -80,7 +80,7 @@ struct mbox_sync_context {
 	struct mail_index_transaction *t;
 	const struct mail_index_header *hdr;
 
-	string_t *header, *from_line;
+	string_t *header, *uidl, *from_line;
 
 	/* header state: */
 	uint32_t base_uid_validity, base_uid_last;

@@ -366,6 +366,7 @@ static void list_uids(struct client *client, unsigned int message)
         struct mailbox_transaction_context *t;
 	struct mail_search_context *ctx;
 	struct mail *mail;
+	const char *uid_str;
 	int found = FALSE;
 
 	if (client->messages_count == 0 && message == 0)
@@ -396,9 +397,9 @@ static void list_uids(struct client *client, unsigned int message)
 				continue;
 		}
 
-		client_send_line(client, message == 0 ?
-				 "%u %u.%u" : "+OK %u %u.%u",
-				 mail->seq, client->uidvalidity, mail->uid);
+		uid_str = mail->get_special(mail, MAIL_FETCH_UID_STRING);
+		client_send_line(client, message == 0 ? "%u %s" : "+OK %u %s",
+				 mail->seq, uid_str);
 		found = TRUE;
 	}
 

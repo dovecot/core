@@ -17,7 +17,6 @@ struct client {
 
 	unsigned int messages_count;
 	unsigned int deleted_count;
-	unsigned int uidvalidity;
 	uoff_t *message_sizes;
 	uoff_t total_size;
 	uoff_t deleted_size;

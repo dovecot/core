@@ -499,6 +499,13 @@ const char *index_mail_get_special(struct mail *_mail,
 		return data->envelope;
 	case MAIL_FETCH_FROM_ENVELOPE:
 		return NULL;
+	case MAIL_FETCH_UID_STRING:
+		if (data->uid_string == NULL) {
+			data->uid_string =
+				p_strdup_printf(mail->pool, "%u.%u",
+						mail->uid_validity, _mail->uid);
+		}
+		return data->uid_string;
 	default:
 		i_unreached();
 		return NULL;
@@ -510,8 +517,16 @@ void index_mail_init(struct index_transaction_context *t,
 		     enum mail_fetch_field wanted_fields,
 		     const char *const wanted_headers[])
 {
+	const struct mail_index_header *hdr;
+	int ret;
+
 	mail->mail = *t->ibox->mail_interface;
 	mail->mail.box = &t->ibox->box;
+
+	ret = mail_index_get_header(t->ibox->view, &hdr);
+	i_assert(ret == 0);
+
+	mail->uid_validity = hdr->uid_validity;
 
 	mail->pool = pool_alloconly_create("index_mail", 16384);
 	mail->ibox = t->ibox;

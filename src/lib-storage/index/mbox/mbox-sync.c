@@ -198,6 +198,8 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	mail_ctx->sync_ctx = sync_ctx;
 	mail_ctx->seq = ++sync_ctx->seq;
 	mail_ctx->header = sync_ctx->header;
+	mail_ctx->uidl = sync_ctx->uidl;
+	str_truncate(mail_ctx->uidl, 0);
 
 	mail_ctx->from_offset =
 		istream_raw_mbox_get_start_offset(sync_ctx->input);
@@ -403,9 +405,10 @@ mbox_sync_update_from_offset(struct mbox_sync_context *sync_ctx,
 }
 
 static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
-				  struct mbox_sync_mail *mail,
+                                  struct mbox_sync_mail_context *mail_ctx,
 				  const struct mail_index_record *rec)
 {
+	struct mbox_sync_mail *mail = &mail_ctx->mail;
 	keywords_mask_t idx_keywords;
 	uint8_t idx_flags, mbox_flags;
 
@@ -416,6 +419,12 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 		mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
 					MODIFY_REPLACE, mbox_flags,
 					mail->keywords);
+		if (str_len(mail_ctx->uidl) > 0) {
+			/*FIXME:mail_cache_add(sync_ctx->cache_trans,
+				       MAIL_CACHE_UID_STRING,
+				       str_data(mail_ctx->uidl),
+				       str_len(mail_ctx->uidl));*/
+		}
 	} else {
 		/* see if flags changed */
 		idx_flags = rec->flags;
@@ -785,7 +794,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		}
 
 		if (!expunged && !mail_ctx->pseudo) {
-			if (mbox_sync_update_index(sync_ctx, &mail_ctx->mail,
+			if (mbox_sync_update_index(sync_ctx, mail_ctx,
 						   rec) < 0)
 				return -1;
 		}
@@ -1129,6 +1138,7 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit,
 	sync_ctx.ibox = ibox;
 	sync_ctx.from_line = str_new(default_pool, 256);
 	sync_ctx.header = str_new(default_pool, 4096);
+	sync_ctx.uidl = str_new(default_pool, 128);
 	sync_ctx.lock_id = lock_id;
 
 	sync_ctx.index_sync_ctx = index_sync_ctx;
@@ -1227,6 +1237,7 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit,
 			ret = -1;
 	}
 
+	str_free(sync_ctx.uidl);
 	str_free(sync_ctx.header);
 	str_free(sync_ctx.from_line);
 	buffer_free(sync_ctx.mails);

@@ -223,6 +223,21 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
+static int parse_x_uidl(struct mbox_sync_mail_context *ctx,
+			struct message_header_line *hdr)
+{
+	size_t i;
+
+	for (i = 0; i < hdr->full_value_len; i++) {
+		if (IS_LWSP_LF(hdr->full_value[i]))
+			break;
+	}
+
+	str_truncate(ctx->uidl, 0);
+	str_append_n(ctx->uidl, hdr->full_value, i);
+	return TRUE;
+}
+
 static int parse_content_length(struct mbox_sync_mail_context *ctx,
 				struct message_header_line *hdr)
 {
@@ -259,6 +274,7 @@ static struct header_func header_funcs[] = {
 	{ "X-Keywords", parse_x_keywords },
 	{ "X-Status", parse_x_status },
 	{ "X-UID", parse_x_uid },
+	{ "X-UIDL", parse_x_uidl },
 	{ NULL, NULL }
 };
 
