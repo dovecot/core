@@ -296,12 +296,8 @@ void ssl_proxy_init(void)
 	certfile = getenv("SSL_CERT_FILE");
 	keyfile = getenv("SSL_KEY_FILE");
 
-	if (certfile == NULL) {
-		i_warning("SSL certification not set, SSL/TLS is disabled");
-		return;
-	}
-	if (keyfile == NULL) {
-		i_warning("SSL private key not set, SSL/TLS is disabled");
+	if (certfile == NULL || keyfile == NULL) {
+		/* SSL support is disabled */
 		return;
 	}
 
