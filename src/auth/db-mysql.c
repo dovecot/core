@@ -54,6 +54,9 @@ void db_mysql_query(struct mysql_connection *conn, const char *query,
 	MYSQL_RES *res;
 	int failed;
 
+	if (verbose_debug)
+		i_info("MySQL: Performing query: %s", query);
+
 	if (!conn->connected) {
 		if (!mysql_conn_open(conn)) {
 			request->callback(conn, request, NULL);
@@ -61,23 +64,25 @@ void db_mysql_query(struct mysql_connection *conn, const char *query,
 		}
 	}
 
-	if (verbose_debug)
-		i_info("MYSQL: Performing query: %s", query);
-
-	if (mysql_query(conn->mysql, query))
-		i_info("MYSQL: Error executing query \"%s\": %s", query,
-		       mysql_error(conn->mysql));
-
-	if ((res = mysql_store_result(conn->mysql)))
-		failed = FALSE;
-	else {
-		i_info("MYSQL: Error retrieving results: %s",
-		       mysql_error(conn->mysql));
+	if (mysql_query(conn->mysql, query) == 0) {
+		/* query succeeded */
+		if ((res = mysql_store_result(conn->mysql)))
+			failed = FALSE;
+		else {
+			/* something went wrong on storing result */
+			i_error("MySQL: Error retrieving results: %s",
+				mysql_error(conn->mysql));
+		}
+	} else {
+		/* query failed */
+		i_error("MySQL: Error executing query \"%s\": %s", query,
+			mysql_error(conn->mysql));
 		failed = TRUE;
 	}
 
 	request->callback(conn, request, failed ? NULL : res);
-	mysql_free_result(res);
+	if (!failed)
+		mysql_free_result(res);
 	i_free(request);
 }
 
@@ -89,7 +94,7 @@ static int mysql_conn_open(struct mysql_connection *conn)
 	if (conn->mysql == NULL) {
 		conn->mysql = mysql_init(NULL);
 		if (conn->mysql == NULL) {
-			i_error("MYSQL: mysql_init failed");
+			i_error("MySQL: mysql_init failed");
 			return FALSE;
 		}
 
@@ -99,14 +104,17 @@ static int mysql_conn_open(struct mysql_connection *conn)
 					conn->set.db_port,
 					conn->set.db_unix_socket,
 					conn->set.db_client_flags)) {
-			i_error("MYSQL: Can't connect to database %s: %s",
+			i_error("MySQL: Can't connect to database %s: %s",
 				conn->set.db, mysql_error(conn->mysql));
-			return FALSE;
+			conn->connected = FALSE;
+			conn->mysql = NULL;
+		} else {
+			conn->connected = TRUE;
+			i_info("MySQL: connected to %s", conn->set.db_host);
 		}
 	}
-
-	conn->connected = TRUE;
-	return TRUE;
+	
+	return conn->connected;
 }
 
 static void mysql_conn_close(struct mysql_connection *conn)
@@ -163,9 +171,9 @@ struct mysql_connection *db_mysql_init(const char *config_path)
 		exit(FATAL_DEFAULT);
 
 	if (conn->set.db == NULL)
-		i_fatal("MYSQL: db variable isn't set in config file");
+		i_fatal("MySQL: db variable isn't set in config file");
 	if (conn->set.db_user == NULL)
-		i_fatal("MYSQL: db_user variable isn't set in config file");
+		i_fatal("MySQL: db_user variable isn't set in config file");
 
 	(void)mysql_conn_open(conn);
 
