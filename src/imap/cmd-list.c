@@ -8,7 +8,14 @@
 #include "commands.h"
 #include "namespace.h"
 
-static const char *mailbox_flags2str(enum mailbox_flags flags, int listext)
+enum imap_list_flags {
+	IMAP_LIST_FLAG_EXT	= 0x01,
+	IMAP_LIST_FLAG_CHILDREN
+};
+
+static const char *
+mailbox_flags2str(enum mailbox_flags flags, enum mailbox_list_flags list_flags,
+		  int listext)
 {
 	const char *str;
 
@@ -21,6 +28,11 @@ static const char *mailbox_flags2str(enum mailbox_flags flags, int listext)
 	}
 	if ((flags & MAILBOX_NONEXISTENT) != 0 && !listext)
 		flags |= MAILBOX_NOSELECT;
+
+	if (listext && (list_flags & MAILBOX_LIST_CHILDREN) == 0) {
+		/* LISTEXT used and we didn't want children info */
+		flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
+	}
 
 	str = t_strconcat((flags & MAILBOX_NOSELECT) ? " \\Noselect" : "",
 			  (flags & MAILBOX_NONEXISTENT) ? " \\NonExistent" : "",
@@ -51,7 +63,7 @@ static int mailbox_list(struct client *client, struct mail_storage *storage,
 	while ((list = storage->list_mailbox_next(ctx)) != NULL) {
 		str_truncate(str, 0);
 		str_printfa(str, "* %s (%s) \"%s\" ", reply,
-			    mailbox_flags2str(list->flags, listext),
+			    mailbox_flags2str(list->flags, list_flags, listext),
 			    sep);
 		if (strcasecmp(list->name, "INBOX") == 0)
 			str_append(str, "INBOX");
