@@ -541,8 +541,17 @@ static off_t io_stream_copy(struct _ostream *outstream,
 			}
 		}
 		outstream->ostream.offset += ret;
-		i_stream_skip(instream, ret - (pos == 1 ? 0 : iov[0].iov_len));
 
+		/* only the last iov is from input stream. skip others. */
+		for (pos = 0; pos < iov_len-1; pos++) {
+			if ((size_t)ret < iov[pos].iov_len)
+				break;
+			ret -= iov[pos].iov_len;
+		}
+		if (pos != iov_len-1)
+			break;
+
+		i_stream_skip(instream, ret);
 		if ((size_t)ret != iov[pos].iov_len)
 			break;
 
