@@ -853,7 +853,9 @@ char *const *t_strsplit(const char *data, const char *separators)
 
         i_assert(*separators != '\0');
 
-	str = (char *) t_strdup(data);
+	len = strlen(data+1);
+	str = t_malloc(len);
+	memcpy(str, data, len);
 
         alloc_len = 20;
         array = t_buffer_get(sizeof(const char *) * alloc_len);

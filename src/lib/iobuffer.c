@@ -802,7 +802,7 @@ char *io_buffer_next_line(IOBuffer *buf)
 	}
 
 	buf->cr_lookup_pos = i;
-        return (char *) ret_buf;
+        return ret_buf;
 }
 
 unsigned char *io_buffer_get_data(IOBuffer *buf, unsigned int *size)
