@@ -121,7 +121,11 @@ static int mbox_find_path(struct mail_storage *storage,
 				break;
 			}
 		} else if (match > 0 &&
-			   strcmp(fullpath, storage->inbox_file) != 0) {
+			   strcmp(fullpath, storage->inbox_file) != 0 &&
+			   strcasecmp(listpath, "INBOX") != 0) {
+			/* don't match any INBOX here, it's added later.
+			   we might also have ~/mail/inbox, ~/mail/Inbox etc.
+			   Just ignore them for now. */
 			t_push();
 			callback(storage, listpath, MAILBOX_NOINFERIORS, context);
 			t_pop();

@@ -137,8 +137,13 @@ int maildir_find_mailboxes(struct mail_storage *storage, const char *mask,
 			continue;
 		}
 
-		if (strcasecmp(fname+1, "INBOX") == 0)
+		if (strcasecmp(fname+1, "INBOX") == 0) {
+			if (found_inbox) {
+				/* another inbox, ignore it */
+				continue;
+			}
 			found_inbox = TRUE;
+		}
 
 		t_push();
 		flags = maildir_get_marked_flags(storage, path);
