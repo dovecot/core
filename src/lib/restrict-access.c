@@ -23,6 +23,7 @@
 
 #include "lib.h"
 #include "restrict-access.h"
+#include "env-util.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -33,12 +34,12 @@ void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 			     const char *chroot_dir)
 {
 	if (user != NULL && *user != '\0')
-		putenv((char *) t_strconcat("USER=", user, NULL));
+		env_put(t_strconcat("USER=", user, NULL));
 	if (chroot_dir != NULL && *chroot_dir != '\0')
-		putenv((char *) t_strconcat("CHROOT=", chroot_dir, NULL));
+		env_put(t_strconcat("CHROOT=", chroot_dir, NULL));
 
-	putenv((char *) t_strdup_printf("SETUID=%ld", (long) uid));
-	putenv((char *) t_strdup_printf("SETGID=%ld", (long) gid));
+	env_put(t_strdup_printf("SETUID=%ld", (long) uid));
+	env_put(t_strdup_printf("SETGID=%ld", (long) gid));
 }
 
 void restrict_access_by_env(void)

@@ -5,12 +5,12 @@
 #include "network.h"
 #include "obuffer.h"
 #include "fdpass.h"
+#include "env-util.h"
 #include "restrict-access.h"
 #include "login-process.h"
 #include "auth-process.h"
 #include "master-interface.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <syslog.h>
 
@@ -303,23 +303,21 @@ static pid_t create_login_process(void)
 	}
 
 	if (!set_ssl_disable) {
-		putenv((char *) t_strconcat("SSL_CERT_FILE=",
-					    set_ssl_cert_file, NULL));
-		putenv((char *) t_strconcat("SSL_KEY_FILE=",
-					    set_ssl_key_file, NULL));
-		putenv((char *) t_strconcat("SSL_PARAM_FILE=",
-					    set_ssl_parameters_file, NULL));
+		env_put(t_strconcat("SSL_CERT_FILE=", set_ssl_cert_file, NULL));
+		env_put(t_strconcat("SSL_KEY_FILE=", set_ssl_key_file, NULL));
+		env_put(t_strconcat("SSL_PARAM_FILE=",
+				    set_ssl_parameters_file, NULL));
 	}
 
 	if (set_disable_plaintext_auth)
-		putenv("DISABLE_PLAINTEXT_AUTH=1");
+		env_put("DISABLE_PLAINTEXT_AUTH=1");
 
 	if (set_login_process_per_connection) {
-		putenv("PROCESS_PER_CONNECTION=1");
-		putenv("MAX_LOGGING_USERS=1");
+		env_put("PROCESS_PER_CONNECTION=1");
+		env_put("MAX_LOGGING_USERS=1");
 	} else {
-		putenv((char *) t_strdup_printf("MAX_LOGGING_USERS=%d",
-						set_max_logging_users));
+		env_put(t_strdup_printf("MAX_LOGGING_USERS=%d",
+					set_max_logging_users));
 	}
 
 	/* hide the path, it's ugly */

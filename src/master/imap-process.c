@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "env-util.h"
 #include "restrict-access.h"
 
 #include <stdlib.h>
@@ -110,38 +111,36 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
 
 	/* setup environment */
 	while (env[0] != NULL && env[1] != NULL) {
-		putenv((char *) t_strconcat(env[0], "=", env[1], NULL));
+		env_put(t_strconcat(env[0], "=", env[1], NULL));
 		env += 2;
 	}
 
-	putenv((char *) t_strconcat("HOME=", home, NULL));
-	putenv((char *) t_strconcat("MAIL_CACHE_FIELDS=",
-				    set_mail_cache_fields, NULL));
-	putenv((char *) t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
-				    set_mail_never_cache_fields, NULL));
-	putenv((char *) t_strdup_printf("MAILBOX_CHECK_INTERVAL=%u",
-					set_mailbox_check_interval));
+	env_put(t_strconcat("HOME=", home, NULL));
+	env_put(t_strconcat("MAIL_CACHE_FIELDS=", set_mail_cache_fields, NULL));
+	env_put(t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
+			    set_mail_never_cache_fields, NULL));
+	env_put(t_strdup_printf("MAILBOX_CHECK_INTERVAL=%u",
+				set_mailbox_check_interval));
 
 	if (set_mail_save_crlf)
-		putenv("MAIL_SAVE_CRLF=1");
+		env_put("MAIL_SAVE_CRLF=1");
 	if (set_mail_read_mmaped)
-		putenv("MAIL_READ_MMAPED=1");
+		env_put("MAIL_READ_MMAPED=1");
 	if (set_maildir_copy_with_hardlinks)
-		putenv("MAILDIR_COPY_WITH_HARDLINKS=1");
+		env_put("MAILDIR_COPY_WITH_HARDLINKS=1");
 	if (set_maildir_check_content_changes)
-		putenv("MAILDIR_CHECK_CONTENT_CHANGES=1");
+		env_put("MAILDIR_CHECK_CONTENT_CHANGES=1");
 	if (set_overwrite_incompatible_index)
-		putenv("OVERWRITE_INCOMPATIBLE_INDEX=1");
+		env_put("OVERWRITE_INCOMPATIBLE_INDEX=1");
 	if (umask(set_umask) != set_umask)
 		i_fatal("Invalid umask: %o", set_umask);
 
-	putenv((char *) t_strconcat("MBOX_LOCKS=", set_mbox_locks, NULL));
-	putenv((char *) t_strdup_printf("MBOX_LOCK_TIMEOUT=%u",
-					set_mbox_lock_timeout));
-	putenv((char *) t_strdup_printf("MBOX_DOTLOCK_CHANGE_TIMEOUT=%u",
-					set_mbox_dotlock_change_timeout));
+	env_put(t_strconcat("MBOX_LOCKS=", set_mbox_locks, NULL));
+	env_put(t_strdup_printf("MBOX_LOCK_TIMEOUT=%u", set_mbox_lock_timeout));
+	env_put(t_strdup_printf("MBOX_DOTLOCK_CHANGE_TIMEOUT=%u",
+				set_mbox_dotlock_change_timeout));
 	if (set_mbox_read_dotlock)
-		putenv("MBOX_READ_DOTLOCK=1");
+		env_put("MBOX_READ_DOTLOCK=1");
 
 	if (set_verbose_proctitle && net_ip2host(ip, host) == 0) {
 		i_snprintf(title, sizeof(title), "[%s %s]", user, host);

@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "lib-signals.h"
 #include "network.h"
+#include "env-util.h"
 
 #include "auth-process.h"
 #include "login-process.h"
@@ -46,21 +47,14 @@ int validate_str(const char *str, int max_len)
 
 void clean_child_process(void)
 {
-	extern char **environ;
-
 	/* remove all environment, we don't need them */
-	if (environ != NULL)
-		*environ = NULL;
+	env_clean();
 
 	/* set the failure log */
-	if (set_log_path != NULL) {
-		putenv((char *) t_strconcat("IMAP_LOGFILE=",
-					    set_log_path, NULL));
-	}
-	if (set_log_timestamp != NULL) {
-		putenv((char *) t_strconcat("IMAP_LOGSTAMP=",
-					    set_log_timestamp, NULL));
-	}
+	if (set_log_path != NULL)
+		env_put(t_strconcat("IMAP_LOGFILE=", set_log_path, NULL));
+	if (set_log_timestamp != NULL)
+		env_put(t_strconcat("IMAP_LOGSTAMP=", set_log_timestamp, NULL));
 
 	(void)close(null_fd);
 	(void)close(imap_fd);

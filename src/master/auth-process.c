@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "ioloop.h"
+#include "env-util.h"
 #include "network.h"
 #include "obuffer.h"
 #include "restrict-access.h"
@@ -237,11 +238,11 @@ static pid_t create_auth_process(AuthConfig *config)
 				config->chroot);
 
 	/* set other environment */
-	putenv((char *) t_strdup_printf("AUTH_PROCESS=%d", (int) getpid()));
-	putenv((char *) t_strconcat("METHODS=", config->methods, NULL));
-	putenv((char *) t_strconcat("REALMS=", config->realms, NULL));
-	putenv((char *) t_strconcat("USERINFO=", config->userinfo, NULL));
-	putenv((char *) t_strconcat("USERINFO_ARGS=", config->userinfo_args,
+	env_put(t_strdup_printf("AUTH_PROCESS=%d", (int) getpid()));
+	env_put(t_strconcat("METHODS=", config->methods, NULL));
+	env_put(t_strconcat("REALMS=", config->realms, NULL));
+	env_put(t_strconcat("USERINFO=", config->userinfo, NULL));
+	env_put(t_strconcat("USERINFO_ARGS=", config->userinfo_args,
 				    NULL));
 	/* hide the path, it's ugly */
 	argv[0] = strrchr(config->executable, '/');

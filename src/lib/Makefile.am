@@ -5,6 +5,7 @@ liblib_a_SOURCES = \
 	base64.c \
 	compat.c \
 	data-stack.c \
+	env-util.c \
 	failures.c \
 	fdpass.c \
 	file-lock.c \
@@ -50,6 +51,7 @@ noinst_HEADERS = \
 	base64.h \
 	compat.h \
 	data-stack.h \
+	env-util.h \
 	failures.h \
 	fdpass.h \
 	file-lock.h \
