@@ -1,7 +1,6 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
-#include "hash.h"
 #include "safe-memset.h"
 #include "mech.h"
 #include "passdb.h"
