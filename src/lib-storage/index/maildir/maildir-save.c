@@ -92,7 +92,7 @@ maildir_transaction_save_init(struct maildir_transaction_context *t)
 	ctx->ctx.box = &ibox->box;
 	ctx->pool = pool;
 	ctx->ibox = ibox;
-	ctx->trans = t->ictx.trans;
+	ctx->trans = mail_index_transaction_begin(ibox->view, FALSE, TRUE);
 
 	index_mail_init(&t->ictx, &ctx->mail, 0, NULL);
 
@@ -313,6 +313,8 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	uint32_t first_uid, last_uid;
 	enum maildir_uidlist_rec_flag flags;
 	const char *fname;
+	uint32_t seq;
+	uoff_t offset;
 	int ret = 0;
 
 	i_assert(ctx->output == NULL);
@@ -354,6 +356,9 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 			return -1;
 		}
 	}
+
+	if (mail_index_transaction_commit(ctx->trans, &seq, &offset) < 0)
+		ret = -1;
 	return ret;
 
 }
@@ -385,6 +390,7 @@ void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
 	}
 	t_pop();
 
+	mail_index_transaction_rollback(ctx->trans);
 	index_mail_deinit(&ctx->mail);
 	pool_unref(ctx->pool);
 }

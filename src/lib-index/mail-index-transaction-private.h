@@ -26,6 +26,7 @@ struct mail_index_transaction {
         struct mail_cache_transaction_ctx *cache_trans_ctx;
 
 	unsigned int hide_transaction:1;
+	unsigned int external:1;
 	unsigned int hdr_changed:1;
 	unsigned int log_updates:1;
 };

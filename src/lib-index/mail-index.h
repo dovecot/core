@@ -176,7 +176,8 @@ int mail_index_view_is_inconsistent(struct mail_index_view *view);
    multiple transactions open simultaneously. Note that committed transactions
    won't show up until you've synchronized mailbox (mail_index_sync_begin). */
 struct mail_index_transaction *
-mail_index_transaction_begin(struct mail_index_view *view, int hide);
+mail_index_transaction_begin(struct mail_index_view *view,
+			     int hide, int external);
 int mail_index_transaction_commit(struct mail_index_transaction *t,
 				  uint32_t *log_file_seq_r,
 				  uoff_t *log_file_offset_r);

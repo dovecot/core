@@ -340,7 +340,7 @@ int maildir_sync_last_commit(struct index_mailbox *ibox)
 				    ibox->commit_log_file_seq,
 				    ibox->commit_log_file_offset, FALSE, FALSE);
 	if (ret > 0) {
-		ctx.trans = mail_index_transaction_begin(ctx.view, FALSE);
+		ctx.trans = mail_index_transaction_begin(ctx.view, FALSE, TRUE);
 
 		while ((ret = mail_index_sync_next(ctx.sync_ctx,
 						   &ctx.sync_rec)) > 0) {
@@ -636,7 +636,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 		return -1;
 	}
 
-	trans = mail_index_transaction_begin(view, FALSE);
+	trans = mail_index_transaction_begin(view, FALSE, TRUE);
 	sync_ctx->trans = trans;
 
 	seq = 0;

@@ -158,7 +158,7 @@ mail_index_map_register_ext(struct mail_index *index,
 			    uint32_t record_align, uint32_t reset_id)
 {
 	struct mail_index_ext *ext;
-	uint32_t idx, ext_id;
+	uint32_t idx, ext_id, empty_id = (uint32_t)-1;
 
 	if (map->extensions == NULL) {
                 mail_index_map_init_extbufs(map, 5);
@@ -180,6 +180,8 @@ mail_index_map_register_ext(struct mail_index *index,
 
 	ext_id = mail_index_ext_register(index, name, hdr_size,
 					 record_size, record_align);
+	while (map->ext_id_map->used < ext_id * sizeof(uint32_t))
+		buffer_append(map->ext_id_map, &empty_id, sizeof(empty_id));
 	buffer_write(map->ext_id_map, ext_id * sizeof(uint32_t),
 		     &idx, sizeof(idx));
 	return idx;

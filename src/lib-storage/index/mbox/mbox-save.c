@@ -313,7 +313,8 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 		ctx = t->save_ctx = i_new(struct mbox_save_context, 1);
 		ctx->ctx.box = &ibox->box;
 		ctx->ibox = ibox;
-		ctx->trans = t->ictx.trans;
+		ctx->trans = mail_index_transaction_begin(ibox->view,
+							  FALSE, TRUE);
 		ctx->append_offset = (uoff_t)-1;
 		ctx->headers = str_new(default_pool, 512);
 		ctx->save_crlf = getenv("MAIL_SAVE_CRLF") != NULL;
@@ -520,6 +521,8 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 
 int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 {
+	uint32_t seq;
+	uoff_t offset;
 	int ret = 0;
 
 	if (ctx->synced) {
@@ -534,6 +537,9 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 			ret = -1;
 		}
 	}
+
+	if (mail_index_transaction_commit(ctx->trans, &seq, &offset) < 0)
+		ret = -1;
 
 	mbox_transaction_save_deinit(ctx);
 	return ret;
@@ -555,5 +561,6 @@ void mbox_transaction_save_rollback(struct mbox_save_context *ctx)
 			mbox_set_syscall_error(ibox, "ftruncate()");
 	}
 
+	mail_index_transaction_rollback(ctx->trans);
 	mbox_transaction_save_deinit(ctx);
 }

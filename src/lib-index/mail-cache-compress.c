@@ -137,7 +137,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	}
 
 	cache_view = mail_cache_view_open(cache, view);
-	t = mail_index_transaction_begin(view, FALSE);
+	t = mail_index_transaction_begin(view, FALSE, TRUE);
 	output = o_stream_create_file(fd, default_pool, 0, FALSE);
 
 	memset(&hdr, 0, sizeof(hdr));

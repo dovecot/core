@@ -329,7 +329,6 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx->sync_dirty = sync_dirty;
 
 	ctx->view = mail_index_view_open(index);
-	ctx->view->external = TRUE;
 
 	if (mail_transaction_log_view_set(ctx->view->log_view,
 					  index->hdr->log_file_seq,

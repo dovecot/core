@@ -16,7 +16,8 @@
 static void mail_index_transaction_add_last(struct mail_index_transaction *t);
 
 struct mail_index_transaction *
-mail_index_transaction_begin(struct mail_index_view *view, int hide)
+mail_index_transaction_begin(struct mail_index_view *view,
+			     int hide, int external)
 {
 	struct mail_index_transaction *t;
 
@@ -27,6 +28,7 @@ mail_index_transaction_begin(struct mail_index_view *view, int hide)
 	t->refcount = 1;
 	t->view = view;
 	t->hide_transaction = hide;
+	t->external = external;
 	t->first_new_seq = mail_index_view_get_message_count(t->view)+1;
 	return t;
 }

@@ -1068,7 +1068,7 @@ static int log_append_ext_intro(struct mail_transaction_log_file *file,
 		buffer_append_zero(buf, 4 - (buf->used % 4));
 
 	return log_append_buffer(file, buf, NULL, MAIL_TRANSACTION_EXT_INTRO,
-				 t->view->external);
+				 t->external);
 }
 
 static int
@@ -1127,7 +1127,7 @@ mail_transaction_log_append_ext_intros(struct mail_transaction_log_file *file,
 		if (ext_reset.new_reset_id != 0) {
 			if (log_append_buffer(file, buf, NULL,
 					      MAIL_TRANSACTION_EXT_RESET,
-					      t->view->external) < 0)
+					      t->external) < 0)
 				return -1;
 		}
 	}
@@ -1136,8 +1136,7 @@ mail_transaction_log_append_ext_intros(struct mail_transaction_log_file *file,
 }
 
 static int log_append_ext_rec_updates(struct mail_transaction_log_file *file,
-				      struct mail_index_transaction *t,
-				      int external)
+				      struct mail_index_transaction *t)
 {
 	buffer_t **updates;
 	const uint32_t *reset;
@@ -1171,7 +1170,7 @@ static int log_append_ext_rec_updates(struct mail_transaction_log_file *file,
 
 		if (log_append_buffer(file, updates[ext_id], NULL,
 				      MAIL_TRANSACTION_EXT_REC_UPDATE,
-				      external) < 0)
+				      t->external) < 0)
 			return -1;
 	}
 	return 0;
@@ -1201,7 +1200,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 
 	if (log->index->log_locked) {
-		i_assert(view->external);
+		i_assert(t->external);
 	} else {
 		if (mail_transaction_log_lock_head(log) < 0)
 			return -1;
@@ -1250,27 +1249,25 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 
 	if (t->appends != NULL && ret == 0) {
 		ret = log_append_buffer(file, t->appends, NULL,
-					MAIL_TRANSACTION_APPEND,
-					view->external);
+					MAIL_TRANSACTION_APPEND, t->external);
 	}
 	if (t->updates != NULL && ret == 0) {
 		ret = log_append_buffer(file, t->updates, NULL,
 					MAIL_TRANSACTION_FLAG_UPDATE,
-					view->external);
+					t->external);
 	}
 
 	if (t->ext_rec_updates != NULL && ret == 0)
-		ret = log_append_ext_rec_updates(file, t, view->external);
+		ret = log_append_ext_rec_updates(file, t);
 
 	if (t->expunges != NULL && ret == 0) {
 		ret = log_append_buffer(file, t->expunges, NULL,
-					MAIL_TRANSACTION_EXPUNGE,
-					view->external);
+					MAIL_TRANSACTION_EXPUNGE, t->external);
 	}
 	if (t->hdr_changed && ret == 0) {
 		ret = log_append_buffer(file, log_get_hdr_update_buffer(t),
 					NULL, MAIL_TRANSACTION_HEADER_UPDATE,
-					view->external);
+					t->external);
 	}
 
 	if (ret < 0) {

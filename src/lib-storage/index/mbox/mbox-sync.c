@@ -1158,7 +1158,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 
 		mail_index_transaction_rollback(sync_ctx->t);
 		sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view,
-							   FALSE);
+							   FALSE, TRUE);
 
 		ret = mbox_sync_loop(sync_ctx, &mail_ctx, (uint32_t)-1, FALSE);
 		if (ret <= 0) {
@@ -1215,7 +1215,8 @@ static int mbox_sync_update_imap_base(struct mbox_sync_context *sync_ctx)
 {
 	struct mbox_sync_mail_context mail_ctx;
 
-	sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view, FALSE);
+	sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view,
+						   FALSE, TRUE);
 	sync_ctx->update_base_uid_last = sync_ctx->next_uid-1;
 
 	mbox_sync_restart(sync_ctx);
@@ -1351,7 +1352,7 @@ __again:
 
 	sync_ctx.index_sync_ctx = index_sync_ctx;
 	sync_ctx.sync_view = sync_view;
-	sync_ctx.t = mail_index_transaction_begin(sync_view, FALSE);
+	sync_ctx.t = mail_index_transaction_begin(sync_view, FALSE, TRUE);
 
 	sync_ctx.mails = buffer_create_dynamic(default_pool, 4096);
 	sync_ctx.syncs = buffer_create_dynamic(default_pool, 256);
