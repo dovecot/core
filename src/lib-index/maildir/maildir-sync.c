@@ -443,6 +443,27 @@ static void uidlist_hash_get_filenames(void *key, void *value, void *context)
 		buffer_append(buf, (const void *) &key, sizeof(const char *));
 }
 
+static int maildir_time_cmp(const void *p1, const void *p2)
+{
+	const char *s1 = *((const char **) p1);
+	const char *s2 = *((const char **) p2);
+	time_t t1 = 0, t2 = 0;
+
+	/* we have to do numeric comparision, strcmp() will break when
+	   there's different amount of digits (mostly the 999999999 ->
+	   1000000000 change in Sep 9 2001) */
+	while (*s1 >= '0' && *s1 <= '9') {
+		t1 = t1*10 + (*s1 - '0');
+		s1++;
+	}
+	while (*s2 >= '0' && *s2 <= '9') {
+		t2 = t2*10 + (*s2 - '0');
+		s2++;
+	}
+
+	return t1 < t2 ? -1 : t1 > t2 ? 1 : 0;
+}
+
 static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 {
 	struct mail_index *index = ctx->index;
@@ -647,7 +668,7 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 
 	new_files = buffer_get_modifyable_data(buf, NULL);
 	qsort(new_files, ctx->new_count, sizeof(const char *),
-	      (int (*)(const void *, const void *)) strcmp);
+	      maildir_time_cmp);
 
 	if (!index->maildir_keep_new) {
 		dir = ctx->cur_dir;
