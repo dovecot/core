@@ -625,10 +625,17 @@ static int mail_modifylog_try_switch_file(MailModifyLog *log)
 	path = t_strconcat(log->index->filepath,
 			   log->second_log ? ".log" : ".log.2", NULL);
 
-	if (modifylog_open_and_init_file(log, path))
-		return mmap_update(log, TRUE);
-	else
+	if (!modifylog_open_and_init_file(log, path)) {
+		/* old log file is still open */
 		return TRUE;
+	}
+
+	if (!mmap_update(log, TRUE))
+		return FALSE;
+
+	log->synced_id = log->header->sync_id;
+	log->synced_position = log->mmap_used_length;
+	return TRUE;
 }
 
 int mail_modifylog_mark_synced(MailModifyLog *log)
