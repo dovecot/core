@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "buffer.h"
 #include "ioloop.h"
 #include "network.h"
 #include "istream.h"
@@ -54,8 +55,10 @@ static int init_mailbox(struct client *client)
         struct mailbox_transaction_context *t;
 	struct mail_search_context *ctx;
 	struct mail *mail;
-	struct mailbox_status status;
+	buffer_t *message_sizes_buf;
 	int i, failed;
+
+	message_sizes_buf = buffer_create_dynamic(default_pool, 512);
 
 	memset(&search_arg, 0, sizeof(search_arg));
 	search_arg.type = SEARCH_ALL;
@@ -63,33 +66,21 @@ static int init_mailbox(struct client *client)
 	for (i = 0; i < 2; i++) {
 		if (sync_mailbox(client->mailbox) < 0) {
 			client_send_storage_error(client);
-			return FALSE;
+			break;
 		}
-		if (mailbox_get_status(client->mailbox, STATUS_MESSAGES,
-				       &status) < 0) {
-			client_send_storage_error(client);
-			return FALSE;
-		}
-
-		client->last_seen = 0;
-		client->messages_count = status.messages;
-		client->total_size = 0;
-		client->deleted_size = 0;
-
-		if (client->messages_count == 0)
-			return TRUE;
-
-		i_free(client->message_sizes);
-		client->message_sizes = i_new(uoff_t, client->messages_count);
 
 		t = mailbox_transaction_begin(client->mailbox, FALSE);
 		ctx = mailbox_search_init(t, NULL, &search_arg, NULL,
 					  MAIL_FETCH_VIRTUAL_SIZE, NULL);
 		if (ctx == NULL) {
 			client_send_storage_error(client);
-                        mailbox_transaction_rollback(t);
-			return FALSE;
+			mailbox_transaction_rollback(t);
+			break;
 		}
+
+		client->last_seen = 0;
+		client->total_size = 0;
+		buffer_set_used_size(message_sizes_buf, 0);
 
 		failed = FALSE;
 		while ((mail = mailbox_search_next(ctx)) != NULL) {
@@ -107,18 +98,21 @@ static int init_mailbox(struct client *client)
 				client->last_seen = mail->seq;
                         client->total_size += size;
 
-			i_assert(mail->seq <= client->messages_count);
-			client->message_sizes[mail->seq-1] = size;
+			buffer_append(message_sizes_buf, &size, sizeof(size));
 		}
+		client->messages_count =
+			message_sizes_buf->used / sizeof(uoff_t);
 
 		if (mailbox_search_deinit(ctx) < 0) {
 			client_send_storage_error(client);
-                        mailbox_transaction_rollback(t);
-			return FALSE;
+			mailbox_transaction_rollback(t);
+			break;
 		}
 
 		if (!failed) {
-			mailbox_transaction_commit(t, 0);
+			client->trans = t;
+			client->message_sizes =
+				buffer_free_without_data(message_sizes_buf);
 			return TRUE;
 		}
 
@@ -126,65 +120,10 @@ static int init_mailbox(struct client *client)
 		mailbox_transaction_rollback(t);
 	}
 
-	client_send_line(client, "-ERR [IN-USE] Couldn't sync mailbox.");
+	if (i == 2)
+		client_send_line(client, "-ERR [IN-USE] Couldn't sync mailbox.");
+	buffer_free(message_sizes_buf);
 	return FALSE;
-}
-
-int client_update_mailbox(struct client *client, struct mailbox *box,
-			  int delete_mails)
-{
-	struct mail_search_arg search_arg;
-        struct mailbox_transaction_context *t;
-	struct mail_search_context *ctx;
-	struct mail *mail;
-	struct mail_full_flags seen_flag;
-	uint32_t i, bitmask;
-	int failed = FALSE;
-
-	if (delete_mails && client->deleted_bitmask == NULL)
-                delete_mails = FALSE;
-
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_ALL;
-
-	t = mailbox_transaction_begin(box, FALSE);
-	ctx = mailbox_search_init(t, NULL, &search_arg, NULL, 0, NULL);
-	if (ctx == NULL) {
-		mailbox_transaction_rollback(t);
-		return FALSE;
-	}
-
-	memset(&seen_flag, 0, sizeof(seen_flag));
-	seen_flag.flags = MAIL_SEEN;
-
-	while ((mail = mailbox_search_next(ctx)) != NULL) {
-		i = mail->seq-1;
-
-		bitmask = 1 << (i % CHAR_BIT);
-		if (delete_mails &&
-		    (client->deleted_bitmask[i/CHAR_BIT] & bitmask) != 0) {
-			if (mail->expunge(mail) < 0) {
-				failed = TRUE;
-				break;
-			}
-		} else if (client->seen_bitmask != NULL &&
-			   (client->seen_bitmask[i/CHAR_BIT] & bitmask) != 0) {
-			if (mail->update_flags(mail, &seen_flag,
-					       MODIFY_ADD) < 0) {
-				failed = TRUE;
-				break;
-			}
-		}
-	}
-
-	if (mailbox_search_deinit(ctx) < 0 || failed) {
-		mailbox_transaction_rollback(t);
-		return FALSE;
-	}
-
-	mailbox_transaction_commit(t, MAILBOX_SYNC_FLAG_FULL_READ |
-				   MAILBOX_SYNC_FLAG_FULL_WRITE);
-	return TRUE;
 }
 
 struct client *client_create(int hin, int hout, struct mail_storage *storage)
@@ -244,18 +183,14 @@ void client_destroy(struct client *client)
 		client->cmd(client);
 		i_assert(client->cmd == NULL);
 	}
-	if (client->mailbox != NULL) {
-		if (client->seen_bitmask != NULL) {
-			(void)client_update_mailbox(client, client->mailbox,
-						    FALSE);
-		}
+	if (client->trans != NULL)
+		mailbox_transaction_rollback(client->trans);
+	if (client->mailbox != NULL)
 		mailbox_close(client->mailbox);
-	}
 	mail_storage_destroy(client->storage);
 
 	i_free(client->message_sizes);
 	i_free(client->deleted_bitmask);
-	i_free(client->seen_bitmask);
 
 	if (client->io != NULL)
 		io_remove(client->io);

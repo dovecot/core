@@ -178,19 +178,45 @@ static int cmd_noop(struct client *client, const char *args __attr_unused__)
 	return TRUE;
 }
 
+static int expunge_mails(struct client *client)
+{
+	struct mail_search_arg search_arg;
+	struct mail_search_context *ctx;
+	struct mail *mail;
+	uint32_t idx;
+
+	if (client->deleted_bitmask == NULL)
+		return TRUE;
+
+	memset(&search_arg, 0, sizeof(search_arg));
+	search_arg.type = SEARCH_ALL;
+
+	ctx = mailbox_search_init(client->trans, NULL, &search_arg,
+				  NULL, 0, NULL);
+	while ((mail = mailbox_search_next(ctx)) != NULL) {
+		idx = mail->seq - 1;
+		if ((client->deleted_bitmask[idx / CHAR_BIT] &
+		     1 << (idx % CHAR_BIT)) != 0) {
+			if (mail->expunge(mail) < 0)
+				return FALSE;
+		}
+	}
+
+	return mailbox_search_deinit(ctx) == 0;
+}
+
 static int cmd_quit(struct client *client, const char *args __attr_unused__)
 {
 	if (client->deleted) {
-		if (!client_update_mailbox(client, client->mailbox, TRUE)) {
+		if (!expunge_mails(client)) {
 			client_send_storage_error(client);
 			client_disconnect(client);
 			return TRUE;
 		}
-
-		/* don't sync them again at client_destroy() */
-		i_free(client->seen_bitmask);
-                client->seen_bitmask = NULL;
 	}
+
+	mailbox_transaction_commit(client->trans, MAILBOX_SYNC_FLAG_FULL_WRITE);
+	client->trans = NULL;
 
 	if (!client->deleted)
 		client_send_line(client, "+OK Logging out.");
@@ -202,7 +228,6 @@ static int cmd_quit(struct client *client, const char *args __attr_unused__)
 }
 
 struct fetch_context {
-        struct mailbox_transaction_context *t;
 	struct mail_search_context *search_ctx;
 	struct istream *stream;
 	uoff_t body_lines;
@@ -217,7 +242,6 @@ struct fetch_context {
 static void fetch_deinit(struct fetch_context *ctx)
 {
 	(void)mailbox_search_deinit(ctx->search_ctx);
-	(void)mailbox_transaction_commit(ctx->t, 0);
 	i_free(ctx);
 }
 
@@ -320,8 +344,8 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 	ctx->search_arg.type = SEARCH_SEQSET;
 	ctx->search_arg.value.seqset = &ctx->seqset;
 
-	ctx->t = mailbox_transaction_begin(client->mailbox, FALSE);
-	ctx->search_ctx = mailbox_search_init(ctx->t, NULL, &ctx->search_arg,
+	ctx->search_ctx = mailbox_search_init(client->trans, NULL,
+					      &ctx->search_arg,
 					      NULL, MAIL_FETCH_STREAM_HEADER |
 					      MAIL_FETCH_STREAM_BODY, NULL);
 	mail = mailbox_search_next(ctx->search_ctx);
@@ -334,12 +358,11 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 
 	if (body_lines == (uoff_t)-1 && !no_flag_updates) {
 		/* mark the message seen with RETR command */
-		if (client->seen_bitmask == NULL) {
-			client->seen_bitmask =
-				i_malloc(MSGS_BITMASK_SIZE(client));
-		}
-		client->seen_bitmask[msgnum / CHAR_BIT] |=
-			1 << (msgnum % CHAR_BIT);
+		struct mail_full_flags seen_flag;
+		memset(&seen_flag, 0, sizeof(seen_flag));
+		seen_flag.flags = MAIL_SEEN;
+
+		(void)mail->update_flags(mail, &seen_flag, MODIFY_ADD);
 	}
 
 	ctx->body_lines = body_lines;
@@ -372,7 +395,6 @@ static int cmd_retr(struct client *client, const char *args)
 
 static int cmd_rset(struct client *client, const char *args __attr_unused__)
 {
-	struct mailbox_transaction_context *t;
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
 	struct mail_search_arg search_arg;
@@ -387,6 +409,10 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 		client->deleted_size = 0;
 	}
 
+	/* forget all our seen flag updates as well.. */
+	mailbox_transaction_rollback(client->trans);
+	client->trans = mailbox_transaction_begin(client->mailbox, FALSE);
+
 	if (enable_last_command) {
 		/* remove all \Seen flags */
 		memset(&search_arg, 0, sizeof(search_arg));
@@ -395,16 +421,14 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 		memset(&seen_flag, 0, sizeof(seen_flag));
 		seen_flag.flags = MAIL_SEEN;
 
-		t = mailbox_transaction_begin(client->mailbox, FALSE);
-		search_ctx = mailbox_search_init(t, NULL, &search_arg,
-						 NULL, 0, NULL);
+		search_ctx = mailbox_search_init(client->trans, NULL,
+						 &search_arg, NULL, 0, NULL);
 		while ((mail = mailbox_search_next(search_ctx)) != NULL) {
 			if (mail->update_flags(mail, &seen_flag,
 					       MODIFY_REMOVE) < 0)
 				break;
 		}
 		(void)mailbox_search_deinit(search_ctx);
-		(void)mailbox_transaction_commit(t, 0);
 	}
 
 	client_send_line(client, "+OK");
@@ -435,7 +459,6 @@ static int cmd_top(struct client *client, const char *args)
 }
 
 struct cmd_uidl_context {
-        struct mailbox_transaction_context *t;
 	struct mail_search_context *search_ctx;
 	unsigned int message;
 
@@ -474,7 +497,6 @@ static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 
 	/* finished */
 	(void)mailbox_search_deinit(ctx->search_ctx);
-	(void)mailbox_transaction_commit(ctx->t, 0);
 
 	client->cmd = NULL;
 
@@ -507,9 +529,8 @@ cmd_uidl_init(struct client *client, unsigned int message)
 		ctx->search_arg.value.seqset = &ctx->seqset;
 	}
 
-	ctx->t = mailbox_transaction_begin(client->mailbox, FALSE);
-	ctx->search_ctx = mailbox_search_init(ctx->t, NULL, &ctx->search_arg,
-					      NULL, 0, NULL);
+	ctx->search_ctx = mailbox_search_init(client->trans, NULL,
+					      &ctx->search_arg, NULL, 0, NULL);
 	if (message == 0) {
 		client->cmd = cmd_uidl_callback;
 		client->cmd_context = ctx;
