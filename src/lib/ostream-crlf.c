@@ -81,22 +81,21 @@ sendv_crlf(struct crlf_ostream *cstream, const struct const_iovec *iov,
 	   size_t iov_count, const char *diff, ssize_t *total_r)
 {
 	ssize_t ret;
-	size_t pos;
+	size_t i, pos;
 
 	ret = o_stream_sendv(cstream->output, iov, iov_count);
 	if (ret > 0) {
 		pos = (size_t)ret - 1;
-		while (pos >= iov->iov_len) {
-			*total_r += iov->iov_len + *diff;
-			pos -= iov->iov_len;
-			iov++;
-			diff++;
+		for (i = 0; i < iov_count && pos >= iov[i].iov_len; i++) {
+			*total_r += iov[i].iov_len + diff[i];
+			pos -= iov[i].iov_len;
 		}
 
-		cstream->last_cr = *((const char *)iov->iov_base + pos) == '\r';
+		cstream->last_cr =
+			*((const char *)iov[i].iov_base + pos) == '\r';
 
-		if (pos + 1 == iov->iov_len)
-			*total_r += iov->iov_len + *diff;
+		if (pos + 1 == iov[i].iov_len)
+			*total_r += iov[i].iov_len + diff[i];
 		else
 			*total_r += pos;
 	}
@@ -198,16 +197,14 @@ sendv_lf(struct crlf_ostream *cstream, const struct const_iovec *iov,
 	 size_t iov_count, const char *diff, ssize_t *total_r)
 {
 	ssize_t ret;
-	size_t left;
+	size_t i, left;
 
 	ret = o_stream_sendv(cstream->output, iov, iov_count);
 	if (ret >= 0) {
 		left = (size_t)ret;
-		while (left >= iov->iov_len) {
-			*total_r += iov->iov_len + *diff;
-			left -= iov->iov_len;
-			iov++;
-			diff++;
+		for (i = 0; i < iov_count && left >= iov[i].iov_len; i++) {
+			*total_r += iov[i].iov_len + diff[i];
+			left -= iov[i].iov_len;
 		}
 		*total_r += left;
 	}
@@ -281,7 +278,7 @@ _sendv_lf(struct _ostream *stream, const struct const_iovec *iov,
 
 			start = i = next;
 
-			if (new_iov_count == IOVBUF_COUNT) {
+			if (new_iov_count >= IOVBUF_COUNT-1) {
 				ret = sendv_lf(cstream, iov_buf->data,
 					       new_iov_count, diff_buf->data,
 					       &total);
