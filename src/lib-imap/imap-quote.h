@@ -2,7 +2,8 @@
 #define __IMAP_QUOTE_H
 
 /* Return value suitable for sending to client, either as quoted-string or
-   literal. */
+   literal. Note that this also converts TABs into spaces, multiple spaces
+   into single space and NULs to #128. */
 char *imap_quote(pool_t pool, const unsigned char *value, size_t value_len);
 
 /* Append to existing string. */
