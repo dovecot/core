@@ -265,6 +265,7 @@ static void auth_client_connection_unref(struct auth_client_connection *conn)
 		struct auth_request *auth_request = value;
 
 		auth_request->conn = NULL;
+		auth_request_unref(auth_request);
 	}
 	hash_iterate_deinit(iter);
 	hash_destroy(conn->auth_requests);
