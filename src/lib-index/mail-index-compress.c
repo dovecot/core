@@ -45,12 +45,12 @@ int mail_index_truncate(MailIndex *index)
 int mail_index_compress(MailIndex *index)
 {
 	MailIndexRecord *rec, *hole_rec, *end_rec;
-	uoff_t pos;
+	unsigned int idx;
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	if (index->header->first_hole_position == 0) {
+	if (index->header->first_hole_records == 0) {
 		/* we don't need to compress after all. shouldn't happen.. */
 		index->header->flags &= ~MAIL_INDEX_FLAG_COMPRESS;
 		return TRUE;
@@ -69,13 +69,14 @@ int mail_index_compress(MailIndex *index)
 	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
 				       index->mmap_used_length);
 	hole_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-					index->header->first_hole_position);
+					sizeof(MailIndexHeader)) +
+		index->header->first_hole_index;
 	rec = hole_rec + index->header->first_hole_records;
 	while (rec < end_rec) {
 		if (rec->uid != 0) {
 			memcpy(hole_rec, rec, sizeof(MailIndexRecord));
-			pos = INDEX_FILE_POSITION(index, hole_rec);
-			if (!mail_tree_update(index->tree, rec->uid, pos))
+			idx = INDEX_RECORD_INDEX(index, hole_rec);
+			if (!mail_tree_update(index->tree, rec->uid, idx))
 				return FALSE;
 			hole_rec++;
 		}
@@ -91,7 +92,7 @@ int mail_index_compress(MailIndex *index)
 		return FALSE;
 
 	/* update headers */
-	index->header->first_hole_position = 0;
+	index->header->first_hole_index = 0;
 	index->header->first_hole_records = 0;
 
 	/* make sure the whole file is synced before removing rebuild-flag */

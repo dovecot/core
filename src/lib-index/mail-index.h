@@ -110,7 +110,7 @@ struct _MailIndexHeader {
 
 	uoff_t used_file_size;
 
-	uoff_t first_hole_position;
+	unsigned int first_hole_index;
 	unsigned int first_hole_records;
 
 	unsigned int uid_validity;
@@ -432,6 +432,10 @@ int mail_index_truncate(MailIndex *index);
 /* index number for uoff_t position */
 #define INDEX_POSITION_INDEX(pos) \
 	(((pos) - sizeof(MailIndexHeader)) / sizeof(MailIndexRecord))
+
+/* index number for given record */
+#define INDEX_RECORD_INDEX(index, ptr) \
+	INDEX_POSITION_INDEX(INDEX_FILE_POSITION(index, ptr))
 
 /* mark the index corrupted */
 #define INDEX_MARK_CORRUPTED(index) \

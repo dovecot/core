@@ -13,10 +13,10 @@
 static void print_differences(MailIndexHeader *old_hdr,
 			      MailIndexHeader *new_hdr)
 {
-	if (old_hdr->first_hole_position != new_hdr->first_hole_position) {
-		i_warning("fsck: first_hole_position %"PRIuUOFF_T
-			  " != %"PRIuUOFF_T, old_hdr->first_hole_position,
-			  new_hdr->first_hole_position);
+	if (old_hdr->first_hole_index != new_hdr->first_hole_index) {
+		i_warning("fsck: first_hole_position %u != %u",
+			  old_hdr->first_hole_index,
+			  new_hdr->first_hole_index);
 	}
 	CHECK(first_hole_records);
 
@@ -51,8 +51,7 @@ int mail_index_fsck(MailIndex *index)
 	MailIndexHeader old_hdr;
 	MailIndexHeader *hdr;
 	MailIndexRecord *rec, *end_rec;
-	unsigned int max_uid;
-	uoff_t pos;
+	unsigned int max_uid, pos;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
@@ -62,7 +61,7 @@ int mail_index_fsck(MailIndex *index)
 	hdr = index->header;
 	memcpy(&old_hdr, hdr, sizeof(MailIndexHeader));
 
-	hdr->first_hole_position = 0;
+	hdr->first_hole_index = 0;
 	hdr->first_hole_records = 0;
 
 	hdr->messages_count = 0;
@@ -81,13 +80,12 @@ int mail_index_fsck(MailIndex *index)
 	for (; rec < end_rec; rec++) {
 		if (rec->uid == 0) {
 			/* expunged message */
-			pos = INDEX_FILE_POSITION(index, rec);
-			if (hdr->first_hole_position == 0) {
-				hdr->first_hole_position = pos;
+			pos = INDEX_RECORD_INDEX(index, rec);
+			if (hdr->first_hole_index == 0) {
+				hdr->first_hole_index = pos;
 				hdr->first_hole_records = 1;
-			} else if (hdr->first_hole_position +
-				   (hdr->first_hole_records *
-				    sizeof(MailIndexRecord)) == pos) {
+			} else if (hdr->first_hole_index +
+				   hdr->first_hole_records == pos) {
 				/* hole continues */
 				hdr->first_hole_records++;
 			}

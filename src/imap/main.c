@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
-	ioloop = io_loop_create();
+	ioloop = io_loop_create(system_pool);
 
 	main_init(argc == 2 && strcmp(argv[1], "-s") == 0);
         io_loop_run(ioloop);

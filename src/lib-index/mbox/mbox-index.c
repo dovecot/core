@@ -37,13 +37,9 @@ IOBuffer *mbox_file_open(MailIndex *index, uoff_t offset, int reopen)
 		}
 	}
 
-	if (lseek(index->mbox_fd, (off_t)offset, SEEK_SET) != (off_t)offset) {
-		mbox_set_syscall_error(index, "lseek()");
-		return NULL;
-	}
-
 	return io_buffer_create_mmap(index->mbox_fd, default_pool,
-				     MAIL_MMAP_BLOCK_SIZE, 0, FALSE);
+				     MAIL_MMAP_BLOCK_SIZE,
+				     (uoff_t)offset, 0, FALSE);
 }
 
 void mbox_file_close(MailIndex *index)

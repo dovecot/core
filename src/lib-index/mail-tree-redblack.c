@@ -619,9 +619,9 @@ rb_check(MailTree *tree)
 }
 #endif
 
-uoff_t mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
-				  unsigned int first_uid,
-				  unsigned int last_uid)
+unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
+					unsigned int first_uid,
+					unsigned int last_uid)
 {
 	MailTreeNode *node = tree->node_base;
 	unsigned int x, y, seq;
@@ -667,10 +667,10 @@ uoff_t mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 			*seq_r = seq+1;
 	}
 
-	return x == RBNULL ? 0 : node[x].value;
+	return x == RBNULL ? (unsigned int)-1 : node[x].value;
 }
 
-uoff_t mail_tree_lookup_sequence(MailTree *tree, unsigned int seq)
+unsigned int mail_tree_lookup_sequence(MailTree *tree, unsigned int seq)
 {
         MailTreeNode *node = tree->node_base;
 	unsigned int x, upleft_nodes, left_nodes;
@@ -698,10 +698,10 @@ uoff_t mail_tree_lookup_sequence(MailTree *tree, unsigned int seq)
 		}
 	}
 
-	return 0;
+	return (unsigned int)-1;
 }
 
-int mail_tree_insert(MailTree *tree, unsigned int uid, uoff_t pos)
+int mail_tree_insert(MailTree *tree, unsigned int uid, unsigned int index)
 {
         MailTreeNode *node = tree->node_base;
 	unsigned int x, z;
@@ -731,7 +731,7 @@ int mail_tree_insert(MailTree *tree, unsigned int uid, uoff_t pos)
 	node = tree->node_base;
 
 	node[z].key = uid;
-	node[z].value = pos;
+	node[z].value = index;
 	node[z].up = x;
 	node[z].node_count = 1;
 	node[z].left = RBNULL;
@@ -754,7 +754,7 @@ int mail_tree_insert(MailTree *tree, unsigned int uid, uoff_t pos)
 	return TRUE;
 }
 
-int mail_tree_update(MailTree *tree, unsigned int uid, uoff_t pos)
+int mail_tree_update(MailTree *tree, unsigned int uid, unsigned int index)
 {
 	MailTreeNode *node = tree->node_base;
 	unsigned int x;
@@ -773,7 +773,7 @@ int mail_tree_update(MailTree *tree, unsigned int uid, uoff_t pos)
 			x = node[x].right;
 		else {
 			/* found it */
-			node[x].value = pos;
+			node[x].value = index;
 			return TRUE;
 		}
 	}

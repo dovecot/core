@@ -78,10 +78,13 @@ IOBuffer *io_buffer_create_file(int fd, Pool pool, size_t max_buffer_size,
 }
 
 IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
-				uoff_t size, int autoclose_fd)
+				uoff_t start_offset, uoff_t size,
+				int autoclose_fd)
 {
 	IOBuffer *buf;
-	off_t start_offset, stop_offset;
+	off_t stop_offset;
+
+	i_assert(start_offset < OFF_T_MAX);
 
 	/* block size must be page aligned, and at least two pages long */
 	if (mmap_pagesize == 0) {
@@ -100,19 +103,17 @@ IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
 	buf->mmaped = TRUE;
 	buf->receive = TRUE;
 
-	/* set offsets */
-	start_offset = lseek(fd, 0, SEEK_CUR);
 	stop_offset = lseek(fd, 0, SEEK_END);
-
-	if (start_offset < 0 || stop_offset < 0) {
+	if (stop_offset < 0) {
 		i_error("io_buffer_create_mmap(): lseek() failed: %m");
-		buf->start_offset = buf->size = 0;
+		stop_offset = 0;
+		buf->size = 0;
 	}
 
-	if (start_offset > stop_offset)
+	if (start_offset > (uoff_t)stop_offset)
 		start_offset = stop_offset;
 
-	if (size > (uoff_t) (stop_offset-start_offset)) {
+	if (size > (uoff_t)stop_offset-start_offset) {
 		i_warning("Trying to create IOBuffer with size %"PRIuUOFF_T
 			  " but we have only %"PRIuUOFF_T" bytes available "
 			  "in file", size, stop_offset-start_offset);
@@ -341,6 +342,7 @@ static void block_loop_timeout(void *context, Timeout timeout __attr_unused__)
 static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockContext *ctx,
 			    void (*send_func)(IOBufferBlockContext *ctx))
 {
+	Pool pool;
 	Timeout to;
 	int save_errno;
 
@@ -349,7 +351,8 @@ static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockContext *ctx,
 		io_remove(buf->io);
 
 	/* create a new I/O loop */
-	ctx->ioloop = io_loop_create();
+	pool = pool_create("io_buffer_ioloop", 1024, FALSE);
+	ctx->ioloop = io_loop_create(pool);
 	ctx->outbuf = buf;
 
 	buf->io = io_add(buf->fd, IO_WRITE, (IOFunc) send_func, ctx);
@@ -379,6 +382,7 @@ static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockContext *ctx,
 	}
 
 	io_loop_destroy(ctx->ioloop);
+	pool_unref(pool);
 
 	errno = save_errno;
 	return ctx->size > 0 ? -1 : 1;
@@ -829,6 +833,7 @@ static void io_read_data(void *context, int fd __attr_unused__,
 ssize_t io_buffer_read_blocking(IOBuffer *buf)
 {
         IOBufferBlockContext ctx;
+	Pool pool;
 	Timeout to;
 	ssize_t ret;
 
@@ -841,7 +846,8 @@ ssize_t io_buffer_read_blocking(IOBuffer *buf)
 
 	/* create a new I/O loop */
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.ioloop = io_loop_create();
+	pool = pool_create("io_buffer_read_blocking", 1024, FALSE);
+	ctx.ioloop = io_loop_create(pool);
 	ctx.inbuf = buf;
 
 	buf->io = io_add(buf->fd, IO_READ, io_read_data, &ctx);
@@ -864,6 +870,7 @@ ssize_t io_buffer_read_blocking(IOBuffer *buf)
 	}
 
 	io_loop_destroy(ctx.ioloop);
+	pool_unref(pool);
 
 	return buf->pos > buf->skip ?
 		(ssize_t) (buf->pos-buf->skip) : -1;

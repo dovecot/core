@@ -359,12 +359,10 @@ static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
 
 	i_assert(out_offset <= OFF_T_MAX);
 
-	if (lseek(in_fd, 0, SEEK_SET) < 0)
-		return -1;
 	if (lseek(out_fd, (off_t)out_offset, SEEK_SET) < 0)
 		return -1;
 
-	inbuf = io_buffer_create_mmap(in_fd, default_pool, 65536, 0, FALSE);
+	inbuf = io_buffer_create_mmap(in_fd, default_pool, 65536, 0, 0, FALSE);
 	outbuf = io_buffer_create_file(out_fd, default_pool, 1024, FALSE);
 
 	ret = io_buffer_send_iobuffer(outbuf, inbuf, inbuf->size);

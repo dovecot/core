@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
 	if (!foreground)
 		daemonize();
 
-	ioloop = io_loop_create();
+	ioloop = io_loop_create(system_pool);
 
 	main_init();
         io_loop_run(ioloop);

@@ -56,7 +56,8 @@ IOBuffer *io_buffer_create_file(int fd, Pool pool, size_t max_buffer_size,
 /* Read the file by mmap()ing it in blocks. stop_offset specifies where to
    stop reading, or 0 to end of file. */
 IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
-				uoff_t size, int autoclose_fd);
+				uoff_t start_offset, uoff_t size,
+				int autoclose_fd);
 
 /* Reference counting. References start from 1, so calling io_buffer_unref()
    destroys the buffer if io_buffer_ref() is never used. */

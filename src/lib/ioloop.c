@@ -300,7 +300,7 @@ void io_loop_set_running(IOLoop ioloop)
         ioloop->running = TRUE;
 }
 
-IOLoop io_loop_create(void)
+IOLoop io_loop_create(Pool pool)
 {
 	IOLoop ioloop;
 
@@ -308,8 +308,9 @@ IOLoop io_loop_create(void)
 	gettimeofday(&ioloop_timeval, NULL);
 	ioloop_time = ioloop_timeval.tv_sec;
 
-        ioloop = i_new(struct _IOLoop, 1);
-	ioloop->pool = pool_create("I/O loop", 10240, TRUE);
+        ioloop = p_new(pool, struct _IOLoop, 1);
+	pool_ref(pool);
+	ioloop->pool = pool;
 	ioloop->highest_fd = -1;
 
 	io_loop_handler_init(ioloop);
@@ -349,5 +350,4 @@ void io_loop_destroy(IOLoop ioloop)
 	current_ioloop = current_ioloop->prev;
 
 	pool_unref(ioloop->pool);
-        i_free(ioloop);
 }

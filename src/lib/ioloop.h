@@ -37,7 +37,7 @@ void io_loop_stop(IOLoop ioloop); /* safe to run in signal handler */
 void io_loop_set_running(IOLoop ioloop);
 void io_loop_handler_run(IOLoop ioloop);
 
-IOLoop io_loop_create(void);
+IOLoop io_loop_create(Pool pool);
 void io_loop_destroy(IOLoop ioloop);
 
 #endif

@@ -399,36 +399,24 @@ int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
 int mail_index_verify_hole_range(MailIndex *index)
 {
 	MailIndexHeader *hdr;
-	unsigned int max_records, first_records;
+	unsigned int max_records;
 
 	hdr = index->header;
-	if (hdr->first_hole_position == 0)
+	if (hdr->first_hole_records == 0)
 		return TRUE;
 
-	/* make sure position is valid */
-	if (hdr->first_hole_position < sizeof(MailIndexHeader) ||
-	    (hdr->first_hole_position -
-	     sizeof(MailIndexHeader)) % sizeof(MailIndexRecord) != 0) {
-		index_set_corrupted(index, "first_hole_position contains "
-				    "invalid value");
-		return FALSE;
-	}
-
-	/* make sure position is in range.. */
-	if (hdr->first_hole_position >= index->mmap_used_length) {
-		index_set_corrupted(index, "first_hole_position points "
-				    "outside file");
-		return FALSE;
-	}
-
-	/* and finally check that first_hole_records is in valid range */
 	max_records = MAIL_INDEX_RECORD_COUNT(index);
-	first_records = (hdr->first_hole_position -
-			 sizeof(MailIndexHeader)) / sizeof(MailIndexRecord);
-	if (index->header->first_hole_records > max_records ||
-	    first_records + index->header->first_hole_records > max_records) {
-		index_set_corrupted(index, "first_hole_records points "
-				    "outside file");
+	if (hdr->first_hole_index >= max_records) {
+		index_set_corrupted(index,
+				    "first_hole_index points outside file");
+		return FALSE;
+	}
+
+	/* check that first_hole_records is in valid range */
+	if (hdr->first_hole_records > max_records ||
+	    hdr->first_hole_index + hdr->first_hole_records > max_records) {
+		index_set_corrupted(index,
+				    "first_hole_records points outside file");
 		return FALSE;
 	}
 
@@ -447,7 +435,7 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 	MailIndexHeader *hdr;
 	MailIndexRecord *rec;
 	const char *format;
-	uoff_t pos;
+	unsigned int idx;
 
 	i_assert(seq > 0);
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
@@ -467,23 +455,20 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 	if (!mail_index_verify_hole_range(index))
 		return NULL;
 
-	pos = sizeof(MailIndexHeader) +
-		(uoff_t)(seq-1) * sizeof(MailIndexRecord);
-	if (hdr->first_hole_position == 0 ||
-	    hdr->first_hole_position > pos) {
+	idx = seq-1;
+	if (hdr->first_hole_records == 0 || hdr->first_hole_index > idx) {
 		/* easy, it's just at the expected index */
-		format = "Invalid first_hole_position in header: %"PRIuUOFF_T;
+		format = "Invalid first_hole_index in header: %"PRIuUOFF_T;
 	} else if (hdr->first_hole_records ==
 		   MAIL_INDEX_RECORD_COUNT(index) - hdr->messages_count) {
 		/* only one hole in file, skip it and we're at
 		   correct position */
-		pos += (size_t)hdr->first_hole_records *
-			sizeof(MailIndexRecord);
+		idx += hdr->first_hole_records;
 		format = "Invalid hole locations in header: %"PRIuUOFF_T;
 	} else {
 		/* find from binary tree */
-		pos = mail_tree_lookup_sequence(index->tree, seq);
-		if (pos == 0) {
+		idx = mail_tree_lookup_sequence(index->tree, seq);
+		if (idx == (unsigned int)-1) {
 			index_set_corrupted(index, "Sequence %u not found from "
 					    "binary tree (%u msgs says header)",
 					    seq, hdr->messages_count);
@@ -492,16 +477,15 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 		format = "Invalid offset returned by binary tree: %"PRIuUOFF_T;
 	}
 
-	if (pos < sizeof(MailIndexHeader) ||
-	    pos > index->mmap_used_length - sizeof(MailIndexRecord) ||
-	    (pos - sizeof(MailIndexHeader)) % sizeof(MailIndexRecord) != 0) {
-		index_set_corrupted(index, format, pos);
+	if (idx >= MAIL_INDEX_RECORD_COUNT(index)) {
+		index_set_corrupted(index, format, idx);
 		return NULL;
 	}
 
-	rec = (MailIndexRecord *) ((char *) index->mmap_base + pos);
+	rec = (MailIndexRecord *) ((char *) index->mmap_base +
+				   sizeof(MailIndexHeader)) + idx;
 	if (rec->uid == 0) {
-		index_set_corrupted(index, format, pos);
+		index_set_corrupted(index, format, idx);
 		return NULL;
 	}
 
@@ -537,18 +521,28 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 					     unsigned int *seq_r)
 {
 	MailIndexRecord *rec;
-	uoff_t pos;
+	unsigned int idx;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 	i_assert(first_uid > 0 && last_uid > 0);
 	i_assert(first_uid <= last_uid);
 
-	pos = mail_tree_lookup_uid_range(index->tree, seq_r,
+	idx = mail_tree_lookup_uid_range(index->tree, seq_r,
 					 first_uid, last_uid);
-	if (pos == 0)
+	if (idx == (unsigned int)-1)
 		return NULL;
 
-	rec = (MailIndexRecord *) ((char *) index->mmap_base + pos);
+	if (idx >= MAIL_INDEX_RECORD_COUNT(index)) {
+		index_set_error(index, "Corrupted binary tree for index %s: "
+				"lookup returned index outside range "
+				"(%u >= %u)", index->filepath, idx,
+				MAIL_INDEX_RECORD_COUNT(index));
+		index->set_flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
+		return NULL;
+	}
+
+	rec = (MailIndexRecord *) ((char *) index->mmap_base +
+				   sizeof(MailIndexRecord)) + idx;
 	if (rec->uid < first_uid || rec->uid > last_uid) {
 		index_set_error(index, "Corrupted binary tree for index %s: "
 				"lookup returned offset to wrong UID "
@@ -669,7 +663,8 @@ static void update_first_hole_records(MailIndex *index)
 
 	/* see if first_hole_records can be grown */
 	rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				   index->header->first_hole_position) +
+				   sizeof(MailIndexHeader)) +
+		index->header->first_hole_index +
 		index->header->first_hole_records;
 	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
 				       index->mmap_used_length);
@@ -681,9 +676,10 @@ static void update_first_hole_records(MailIndex *index)
 
 static int mail_index_truncate_hole(MailIndex *index)
 {
-	index->header->used_file_size =
-		(size_t)index->header->first_hole_position;
-	index->header->first_hole_position = 0;
+	index->header->used_file_size = sizeof(MailIndexHeader) +
+		(uoff_t)index->header->first_hole_index *
+		sizeof(MailIndexRecord);
+	index->header->first_hole_index = 0;
 	index->header->first_hole_records = 0;
 
 	index->mmap_used_length = index->header->used_file_size;
@@ -708,8 +704,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		       unsigned int seq, int external_change)
 {
 	MailIndexHeader *hdr;
-	unsigned int records;
-	uoff_t pos;
+	unsigned int records, idx;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 	i_assert(seq != 0);
@@ -749,25 +744,24 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	hdr = index->header;
 
 	/* update first hole */
-	pos = INDEX_FILE_POSITION(index, rec);
-	if (hdr->first_hole_position < sizeof(MailIndexRecord)) {
+	idx = INDEX_RECORD_INDEX(index, rec);
+	if (hdr->first_hole_records == 0) {
 		/* first deleted message in index */
-		hdr->first_hole_position = pos;
+		hdr->first_hole_index = idx;
 		hdr->first_hole_records = 1;
-	} else if (hdr->first_hole_position - sizeof(MailIndexRecord) == pos) {
+	} else if (idx == hdr->first_hole_index+1) {
 		/* deleted the previous record before hole */
-		hdr->first_hole_position -= sizeof(MailIndexRecord);
+		hdr->first_hole_index--;
 		hdr->first_hole_records++;
-	} else if (hdr->first_hole_position +
-		   (hdr->first_hole_records * sizeof(MailIndexRecord)) == pos) {
+	} else if (hdr->first_hole_index + hdr->first_hole_records == idx) {
 		/* deleted the next record after hole */
 		hdr->first_hole_records++;
 		update_first_hole_records(index);
 	} else {
 		/* second hole coming to index file */
-		if (hdr->first_hole_position > pos) {
+		if (idx < hdr->first_hole_index) {
 			/* new hole before the old hole */
-			hdr->first_hole_position = pos;
+			hdr->first_hole_index = idx;
 			hdr->first_hole_records = 1;
 		}
 	}
@@ -783,7 +777,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	hdr->messages_count--;
 	mail_index_mark_flag_changes(index, rec, rec->msg_flags, 0);
 
-	if ((hdr->first_hole_position - sizeof(MailIndexHeader)) /
+	if ((hdr->first_hole_index - sizeof(MailIndexHeader)) /
 	    sizeof(MailIndexRecord) == hdr->messages_count) {
 		/* the hole reaches end of file, truncate it */
 		(void)mail_index_truncate_hole(index);
@@ -892,12 +886,11 @@ int mail_index_append_end(MailIndex *index, MailIndexRecord *rec)
 	i_assert(rec->uid == 0);
 
 	index->header->messages_count++;
-
 	rec->uid = index->header->next_uid++;
 
 	if (index->tree != NULL) {
 		mail_tree_insert(index->tree, rec->uid,
-				 INDEX_FILE_POSITION(index, rec));
+				 INDEX_RECORD_INDEX(index, rec));
 	}
 
 	return TRUE;
