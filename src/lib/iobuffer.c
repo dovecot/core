@@ -497,8 +497,10 @@ static void block_loop_sendfile(IOBufferBlockContext *ctx)
 	ret = safe_sendfile(ctx->outbuf->fd, ctx->inbuf->fd, &offset,
 			    MAX_SSIZE_T(ctx->size));
 	if (ret < 0) {
-		if (errno != EINTR && errno != EAGAIN)
+		if (errno != EINTR && errno != EAGAIN) {
+			ctx->outbuf->buf_errno = errno;
 			ctx->outbuf->closed = TRUE;
+		}
 		ret = 0;
 	}
 
@@ -526,8 +528,10 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 	ret = safe_sendfile(outbuf->fd, inbuf->fd, &offset,
 			    MAX_SSIZE_T(long_size));
 	if (ret < 0) {
-		if (errno != EINTR && errno != EAGAIN)
+		if (errno != EINTR && errno != EAGAIN) {
+			outbuf->buf_errno = errno;
 			return -1;
+		}
 		ret = 0;
 	}
 
@@ -545,10 +549,10 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 	ctx.size = long_size - ret;
 
 	ret = io_buffer_ioloop(outbuf, &ctx, block_loop_sendfile);
-	if (ret < 0 && errno == EINVAL) {
+	if (ret < 0 && outbuf->buf_errno == EINVAL) {
 		/* this shouldn't happen, must be a bug. It would also
 		   mess up later if we let this pass. */
-		i_fatal("io_buffer_sendfile() failed: %m");
+		i_panic("io_buffer_sendfile() failed: %m");
 	}
 	return ret;
 }
@@ -588,7 +592,7 @@ int io_buffer_send_iobuffer(IOBuffer *outbuf, IOBuffer *inbuf, uoff_t size)
 	i_assert(inbuf->limit > 0 || size <= inbuf->limit - inbuf->offset);
 
 	ret = io_buffer_sendfile(outbuf, inbuf, size);
-	if (ret > 0 || errno != EINVAL)
+	if (ret > 0 || outbuf->buf_errno != EINVAL)
 		return ret < 0 ? -1 : 1;
 
 	/* sendfile() not supported (with this fd), fallback to
