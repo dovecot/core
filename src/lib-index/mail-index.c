@@ -43,7 +43,10 @@ static int mmap_verify(MailIndex *index)
 	index->last_lookup_seq = 0;
 	index->last_lookup = NULL;
 
+	/* keep the header set even if we fail, so we can update the flags */
 	hdr = index->mmap_base;
+	index->header = hdr;
+
 	if (hdr->used_file_size > index->mmap_full_length) {
 		index_set_corrupted(index, "used_file_size larger than real "
 				    "file size (%"PRIuUOFF_T" vs %"PRIuSIZE_T
@@ -74,7 +77,6 @@ static int mmap_verify(MailIndex *index)
 		return FALSE;
 	}
 
-	index->header = hdr;
 	index->sync_id = hdr->sync_id;
 	index->mmap_used_length = hdr->used_file_size;
 	return TRUE;
@@ -933,7 +935,7 @@ static int mail_index_grow(MailIndex *index)
 	if (grow_size < 16)
 		grow_size = 16;
 
-	pos = index->mmap_full_length + grow_size;
+	pos = index->mmap_full_length + (grow_size * sizeof(MailIndexRecord));
 	i_assert(pos < OFF_T_MAX);
 
 	if (index->anon_mmap) {
@@ -979,8 +981,8 @@ int mail_index_append_begin(MailIndex *index, MailIndexRecord **rec)
 	}
 
 	i_assert(index->header->used_file_size == index->mmap_used_length);
-	i_assert(index->mmap_used_length <=
-		 index->mmap_full_length - sizeof(MailIndexRecord));
+	i_assert(index->mmap_used_length + sizeof(MailIndexRecord) <=
+		 index->mmap_full_length);
 
 	destrec = (MailIndexRecord *) ((char *) index->mmap_base +
 				       index->mmap_used_length);
