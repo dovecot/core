@@ -462,6 +462,8 @@ static const char *parse_setting(const char *key, const char *value,
 	   handler.. */
 	error = parse_setting_from_defs(settings_pool, setting_defs,
 					set, key, value);
+	if (error == NULL)
+		return NULL;
 
 	if (strcmp(key, "auth") == 0)
 		return parse_new_auth(set, value);
