@@ -16,7 +16,8 @@ off_t message_send(struct ostream *output, struct istream *input,
 	uoff_t old_limit, limit;
 	size_t i, size;
 	off_t ret;
-	int cr_skipped, add;
+	int cr_skipped;
+	unsigned char add;
 
 	if (last_cr != NULL)
 		*last_cr = -1;
