@@ -47,9 +47,7 @@ int _cmd_select_full(struct client *client, int readonly)
 				  status.custom_flags_count);
 
 	client_send_line(client,
-		t_strdup_printf("* 1073741824 EXISTS", status.messages));
-	client_send_line(client,
-		t_strdup_printf("* SORT 1145324612 1145324612 1145324612 1145324612 1145324612 1145324612 1145324612 1145324612 1145324612 1145324612", status.messages));
+		t_strdup_printf("* %u EXISTS", status.messages));
 	client_send_line(client,
 		t_strdup_printf("* %u RECENT", status.recent));
 
