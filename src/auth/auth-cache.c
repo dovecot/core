@@ -167,11 +167,8 @@ void auth_cache_insert(struct auth_cache *cache,
 		       const char *key, const char *value)
 {
 	string_t *str;
-	time_t now, ttl_time;
         struct cache_node *node;
 	size_t data_size, alloc_size, value_len = strlen(value);
-
-	now = time(NULL);
 
 	str = t_str_new(256);
 	var_expand(str, key,
@@ -180,19 +177,19 @@ void auth_cache_insert(struct auth_cache *cache,
 	data_size = str_len(str) + 1 + value_len + 1;
 	alloc_size = sizeof(struct cache_node) - sizeof(node->data) + data_size;
 
-	ttl_time = now - cache->ttl_secs;
-	while (cache->tail != NULL && cache->tail->created < ttl_time) {
-		/* TTL expired, destroy */
-		auth_cache_node_destroy(cache, cache->tail);
-	}
-
 	/* make sure we have enough space */
 	while (cache->size_left < alloc_size)
 		auth_cache_node_destroy(cache, cache->tail);
 
+	node = hash_lookup(cache->hash, str_c(str));
+	if (node != NULL) {
+		/* key is already in cache (probably expired), remove it */
+		auth_cache_node_destroy(cache, node);
+	}
+
 	/* @UNSAFE */
 	node = i_malloc(alloc_size);
-	node->created = now;
+	node->created = time(NULL);
 	node->alloc_size = alloc_size;
 	memcpy(node->data, str_data(str), str_len(str));
 	memcpy(node->data + str_len(str) + 1, value, value_len);
