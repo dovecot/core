@@ -18,6 +18,7 @@ struct pop3_client {
 
 	struct login_proxy *proxy;
 	char *proxy_user, *proxy_password;
+	int proxy_state;
 
 	time_t last_input;
 	unsigned int bad_counter;

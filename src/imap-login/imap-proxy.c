@@ -15,7 +15,7 @@ static int proxy_input_line(struct imap_client *client,
 {
 	string_t *str;
 
-	if (client->proxy_user != NULL) {
+	if (!client->proxy_login_sent) {
 		/* this is a banner */
 		if (strncmp(line, "* OK ", 5) != 0) {
 			i_error("imap-proxy(%s): "
@@ -36,10 +36,9 @@ static int proxy_input_line(struct imap_client *client,
 
 		safe_memset(client->proxy_password, 0,
 			    strlen(client->proxy_password));
-		i_free(client->proxy_user);
 		i_free(client->proxy_password);
-		client->proxy_user = NULL;
 		client->proxy_password = NULL;
+		client->proxy_login_sent = TRUE;
 		return 0;
 	} else if (strncmp(line, "P OK ", 5) == 0) {
 		/* Login successful. Send this line to client. */
@@ -71,6 +70,9 @@ static int proxy_input_line(struct imap_client *client,
 
 		login_proxy_free(client->proxy);
 		client->proxy = NULL;
+
+		i_free(client->proxy_user);
+		client->proxy_user = NULL;
 		return -1;
 	} else {
 		/* probably some untagged reply */
@@ -131,6 +133,7 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 	if (client->proxy == NULL)
 		return -1;
 
+	client->proxy_login_sent = FALSE;
 	client->proxy_user = i_strdup(user);
 	client->proxy_password = i_strdup(password);
 

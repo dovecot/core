@@ -46,7 +46,8 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	if (line == NULL)
 		return;
 
-	if (client->proxy_user != NULL) {
+	switch (client->proxy_state) {
+	case 0:
 		/* this is a banner */
 		if (strncmp(line, "+OK", 3) != 0) {
 			i_error("pop3-proxy(%s): "
@@ -63,52 +64,67 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		str_append(str, "\r\n");
 		(void)o_stream_send(output, str_data(str), str_len(str));
 
-		i_free(client->proxy_user);
-		client->proxy_user = NULL;
-	} else if (strncmp(line, "+OK", 3) == 0) {
-		if (client->proxy_password != NULL) {
-			/* USER successful, send PASS */
-			str = t_str_new(128);
-			str_append(str, "PASS ");
-			str_append(str, client->proxy_password);
-			str_append(str, "\r\n");
-			(void)o_stream_send(output, str_data(str),
-					    str_len(str));
+		client->proxy_state++;
+		return;
+	case 1:
+		if (strncmp(line, "+OK", 3) != 0)
+			break;
 
-			safe_memset(client->proxy_password, 0,
-				    strlen(client->proxy_password));
-			i_free(client->proxy_password);
-			client->proxy_password = NULL;
-		} else {
-			/* Login successful. Send this line to client. */
-			(void)o_stream_send_str(client->output, line);
-			(void)o_stream_send(client->output, "\r\n", 2);
+		/* USER successful, send PASS */
+		str = t_str_new(128);
+		str_append(str, "PASS ");
+		str_append(str, client->proxy_password);
+		str_append(str, "\r\n");
+		(void)o_stream_send(output, str_data(str),
+				    str_len(str));
 
-			login_proxy_detach(client->proxy, client->input,
-					   client->output);
+		safe_memset(client->proxy_password, 0,
+			    strlen(client->proxy_password));
+		i_free(client->proxy_password);
+		client->proxy_password = NULL;
 
-			client->proxy = NULL;
-			client->input = NULL;
-			client->output = NULL;
-			client->common.fd = -1;
-			client_destroy(client,
-				t_strdup_printf("proxy(%s): started",
-						client->common.virtual_user));
-		}
-	} else {
-		/* Login failed. Send our own failure reply so client can't
-		   figure out if user exists or not just by looking at the
-		   reply string. */
-		client_send_line(client, "-ERR "AUTH_FAILED_MSG);
+		client->proxy_state++;
+		return;
+	case 2:
+		/* Login successful. Send this line to client. */
+		(void)o_stream_send_str(client->output, line);
+		(void)o_stream_send(client->output, "\r\n", 2);
 
-		/* allow client input again */
-		i_assert(client->io == NULL);
-		client->io = io_add(client->common.fd, IO_READ,
-				    client_input, client);
+		login_proxy_detach(client->proxy, client->input,
+				   client->output);
 
-		login_proxy_free(client->proxy);
 		client->proxy = NULL;
+		client->input = NULL;
+		client->output = NULL;
+		client->common.fd = -1;
+		client_destroy(client,
+			       t_strdup_printf("proxy(%s): started",
+					       client->common.virtual_user));
+		return;
 	}
+
+	/* Login failed. Send our own failure reply so client can't
+	   figure out if user exists or not just by looking at the
+	   reply string. */
+	client_send_line(client, "-ERR "AUTH_FAILED_MSG);
+
+	/* allow client input again */
+	i_assert(client->io == NULL);
+	client->io = io_add(client->common.fd, IO_READ,
+			    client_input, client);
+
+	login_proxy_free(client->proxy);
+	client->proxy = NULL;
+
+	if (client->proxy_password != NULL) {
+		safe_memset(client->proxy_password, 0,
+			    strlen(client->proxy_password));
+		i_free(client->proxy_password);
+		client->proxy_password = NULL;
+	}
+
+	i_free(client->proxy_user);
+	client->proxy_user = NULL;
 }
 
 int pop3_proxy_new(struct pop3_client *client, const char *host,
@@ -127,6 +143,7 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 	if (client->proxy == NULL)
 		return -1;
 
+	client->proxy_state = 0;
 	client->proxy_user = i_strdup(user);
 	client->proxy_password = i_strdup(password);
 

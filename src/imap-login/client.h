@@ -25,6 +25,7 @@ struct imap_client {
 	const char *cmd_tag, *cmd_name;
 
 	unsigned int cmd_finished:1;
+	unsigned int proxy_login_sent:1;
 	unsigned int skip_line:1;
 	unsigned int input_blocked:1;
 	unsigned int destroyed:1;
