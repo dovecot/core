@@ -56,8 +56,13 @@ index_messageset_init_range(struct index_mailbox *ibox,
 	struct messageset_context *ctx;
 
 	ctx = index_messageset_init(ibox, NULL, uidset);
-	ctx->num1 = num1;
-	ctx->num2 = num2;
+	if (num1 <= num2) {
+		ctx->num1 = num1;
+		ctx->num2 = num2;
+	} else {
+		ctx->num1 = num2;
+		ctx->num2 = num1;
+	}
 	return ctx;
 }
 
@@ -168,8 +173,16 @@ static int uidset_init(struct messageset_context *ctx)
 		ctx->num1 = rec == NULL ? 0 : rec->uid;
 	}
 
-	if (ctx->num2 == (unsigned int)-1)
+	if (ctx->num2 == (unsigned int)-1) {
 		ctx->num2 = ctx->index->header->next_uid-1;
+
+		/* num1 might actually be larger, check */
+		if (ctx->num1 > ctx->num2) {
+			unsigned int temp = ctx->num1;
+			ctx->num1 = ctx->num2;
+			ctx->num2 = temp;
+		}
+	}
 
 	/* get list of expunged messages in our range. */
 	ctx->expunges = mail_modifylog_uid_get_expunges(ctx->index->modifylog,
@@ -247,6 +260,12 @@ index_messageset_next(struct messageset_context *ctx)
 		mail->rec = ctx->index->next(ctx->index, mail->rec);
 		mail->client_seq++;
 		mail->idx_seq++;
+
+		if (mail->rec == NULL) {
+			/* finished early (high UID larger than exists) */
+			ctx->ret = 1;
+			return NULL;
+		}
 	} else {
 		do {
 			if (ctx->p != NULL && *ctx->p == '\0') {
