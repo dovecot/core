@@ -108,7 +108,7 @@ db-ldap.c userdb-ldap.c passdb-ldap.c -o ldap.so \
 ../lib-settings/libsettings.a -lldap
 
 gcc -shared -fPIC -DUSERDB_VPOPMAIL -DPASSDB_VPOPMAIL -I../.. -I../lib \
-userdb-vpopmail.c passdb-ldap.c -o vpopmail.so -lvpopmail
+userdb-vpopmail.c passdb-vpopmail.c -o vpopmail.so -lvpopmail
 
 Including libsettings.a in ldap.so is kind of annoying, but it's not
 currently needed elsewhere in dovecot-auth.
