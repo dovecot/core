@@ -13,4 +13,6 @@ extern unsigned int max_logging_users;
 void main_ref(void);
 void main_unref(void);
 
+void main_close_listen(void);
+
 #endif

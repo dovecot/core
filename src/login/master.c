@@ -93,6 +93,9 @@ void master_notify_finished(void)
 {
 	MasterRequest req;
 
+	if (io_master == NULL)
+		return;
+
 	memset(&req, 0, sizeof(req));
 
 	/* sending -1 as fd does the notification */
@@ -109,6 +112,7 @@ void master_close(void)
 	io_remove(io_master);
 	io_master = NULL;
 
+        main_close_listen();
 	main_unref();
 }
 

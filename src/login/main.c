@@ -38,6 +38,31 @@ void main_unref(void)
 	}
 }
 
+void main_close_listen(void)
+{
+	if (closing_down)
+		return;
+
+	if (io_imap != NULL) {
+		if (close(LOGIN_IMAP_LISTEN_FD) < 0)
+			i_fatal("can't close() IMAP listen handle");
+
+		io_remove(io_imap);
+		io_imap = NULL;
+	}
+
+	if (io_imaps != NULL) {
+		if (close(LOGIN_IMAPS_LISTEN_FD) < 0)
+			i_fatal("can't close() IMAPS listen handle");
+
+		io_remove(io_imaps);
+		io_imaps = NULL;
+	}
+
+	closing_down = TRUE;
+	master_notify_finished();
+}
+
 static void sig_quit(int signo __attr_unused__)
 {
 	io_loop_stop(ioloop);
@@ -53,22 +78,8 @@ static void login_accept(void *context __attr_unused__, int listen_fd,
 	if (fd == -1)
 		return;
 
-	if (process_per_connection) {
-		if (close(listen_fd) < 0)
-			i_fatal("can't close() listen handle");
-
-		if (io_imap != NULL) {
-			io_remove(io_imap);
-			io_imap = NULL;
-		}
-		if (io_imaps != NULL) {
-			io_remove(io_imaps);
-			io_imaps = NULL;
-		}
-
-		closing_down = TRUE;
-		master_notify_finished();
-	}
+	if (process_per_connection)
+		main_close_listen();
 
 	(void)client_create(fd, &addr);
 }
