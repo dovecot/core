@@ -296,16 +296,18 @@ static int _seek(struct _ostream *stream, uoff_t offset)
 
 static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 {
-	size_t size, head_size;
+	size_t size, head_size, new_size;
 
 	size = nearest_power(fstream->buffer_size + bytes);
 	if (size > fstream->max_buffer_size) {
 		/* limit the size */
 		size = fstream->max_buffer_size;
 	} else if (fstream->corked) {
-		/* use optimal buffer size with corking */
-		size = I_MIN(fstream->optimal_block_size,
-			     fstream->max_buffer_size);
+		/* try to use optimal buffer size with corking */
+		new_size = I_MIN(fstream->optimal_block_size,
+				 fstream->max_buffer_size);
+		if (new_size > size)
+			size = new_size;
 	}
 
 	if (size <= fstream->buffer_size)
