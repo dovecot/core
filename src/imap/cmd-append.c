@@ -80,7 +80,8 @@ int cmd_append(struct client *client)
 	    mailbox_name_equals(mailbox_get_name(client->mailbox), mailbox))
 		box = client->mailbox;
 	else {
-		box = mailbox_open(storage, mailbox, MAILBOX_OPEN_FAST);
+		box = mailbox_open(storage, mailbox, MAILBOX_OPEN_FAST |
+				   MAILBOX_OPEN_KEEP_RECENT);
 		if (box == NULL) {
 			client_send_storage_error(client, storage);
 			return TRUE;

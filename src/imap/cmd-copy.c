@@ -102,7 +102,8 @@ int cmd_copy(struct client *client)
 	if (mailbox_name_equals(mailbox_get_name(client->mailbox), mailbox))
 		destbox = client->mailbox;
 	else {
-		destbox = mailbox_open(storage, mailbox, MAILBOX_OPEN_FAST);
+		destbox = mailbox_open(storage, mailbox, MAILBOX_OPEN_FAST |
+				       MAILBOX_OPEN_KEEP_RECENT);
 		if (destbox == NULL) {
 			client_send_storage_error(client, storage);
 			return TRUE;
