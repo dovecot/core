@@ -1202,7 +1202,7 @@ static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 	kt = buffer_get_modifyable_data(t->keyword_updates, &size);
 	size /= sizeof(*kt);
 	for (i = 0; i < size; i++) {
-		if (kt[i].messages == NULL)
+		if (kt[i].messages == NULL || kt[i].keywords.count == 0)
 			continue;
 
 		buffer_set_used_size(buf, 0);
