@@ -199,7 +199,7 @@ void restrict_access_by_env(int disallow_root)
 			i_fatal("We couldn't drop root privileges");
 	}
 
-	if ((gid != 0 && uid != 0) || disallow_root) {
+	if (gid != 0) {
 		if (getgid() == 0 || getegid() == 0 || setgid(0) == 0)
 			i_fatal("We couldn't drop root group privileges");
 	}
