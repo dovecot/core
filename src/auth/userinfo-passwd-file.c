@@ -108,7 +108,6 @@ static int passwd_file_verify_plain(const char *user, const char *password,
 				    struct auth_cookie_reply_data *reply)
 {
 	struct passwd_user *pu;
-	const char *const *tmp;
 	unsigned char digest[16];
 	const char *str;
 
@@ -116,15 +115,6 @@ static int passwd_file_verify_plain(const char *user, const char *password,
 
 	/* find it from all realms */
 	pu = hash_lookup(passwd_file->users, user);
-	if (pu == NULL) {
-		t_push();
-		for (tmp = auth_realms; *tmp != NULL; tmp++) {
-                        str = t_strconcat(user, ":", *tmp, NULL);
-			pu = hash_lookup(passwd_file->users, str);
-		}
-		t_pop();
-	}
-
 	if (pu == NULL)
 		return FALSE;
 
