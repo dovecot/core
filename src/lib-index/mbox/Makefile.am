@@ -9,13 +9,13 @@ INCLUDES = \
 libstorage_index_mbox_a_SOURCES = \
 	mbox-append.c \
 	mbox-from.c \
-	mbox-fsck.c \
 	mbox-index.c \
 	mbox-lock.c \
 	mbox-open.c \
 	mbox-rebuild.c \
 	mbox-rewrite.c \
-	mbox-sync.c
+	mbox-sync.c \
+	mbox-sync-full.c
 
 noinst_HEADERS = \
 	mbox-index.h \

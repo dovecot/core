@@ -114,14 +114,14 @@ int mbox_expunge_locked(IndexMailbox *ibox, int notify)
 		return TRUE;
 	}
 
-	inbuf = mbox_file_open(ibox->index, 0, TRUE);
+	/* mbox must be already opened, synced and locked at this point.
+	   we just want the IBuffer. */
+	inbuf = mbox_get_inbuf(ibox->index, 0, MAIL_LOCK_EXCLUSIVE);
 	if (inbuf == NULL)
 		return FALSE;
 
-	if (!mbox_lock_write(ibox->index)) {
-		i_buffer_unref(inbuf);
-		return FALSE;
-	}
+	i_assert(ibox->index->mbox_sync_counter ==
+		 ibox->index->mbox_lock_counter);
 
 	t_push();
 	outbuf = o_buffer_create_file(ibox->index->mbox_fd, data_stack_pool,
@@ -142,9 +142,20 @@ int mbox_expunge_locked(IndexMailbox *ibox, int notify)
 		failed = TRUE;
 	}
 
-	(void)mbox_unlock(ibox->index);
 	o_buffer_unref(outbuf);
 	t_pop();
 
 	return !failed;
+}
+
+int mbox_storage_expunge(Mailbox *box, int notify)
+{
+	IndexMailbox *ibox = (IndexMailbox *) box;
+	int ret;
+
+	ibox->index->mbox_lock_next_sync = MAIL_LOCK_EXCLUSIVE;
+	ret = index_storage_expunge(box, notify);
+	(void)mbox_unlock(ibox->index);
+
+	return ret;
 }

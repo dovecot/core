@@ -4,12 +4,14 @@
 #include "ibuffer.h"
 #include "rfc822-tokenize.h"
 #include "mbox-index.h"
+#include "mbox-lock.h"
 #include "mail-index-util.h"
 #include "mail-index-data.h"
 #include "mail-custom-flags.h"
 
-#include <fcntl.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 extern MailIndex mbox_index;
 
@@ -22,28 +24,79 @@ int mbox_set_syscall_error(MailIndex *index, const char *function)
 	return FALSE;
 }
 
-IBuffer *mbox_file_open(MailIndex *index, uoff_t offset, int reopen)
+int mbox_file_open(MailIndex *index)
+{
+	struct stat st;
+	int fd;
+
+	i_assert(index->mbox_fd == -1);
+
+	fd = open(index->mbox_path, O_RDWR);
+	if (fd == -1) {
+		mbox_set_syscall_error(index, "open()");
+		return FALSE;
+	}
+
+	if (fstat(fd, &st) < 0) {
+		mbox_set_syscall_error(index, "fstat()");
+		(void)close(fd);
+		return FALSE;
+	}
+
+	index->mbox_fd = fd;
+	index->mbox_dev = st.st_dev;
+	index->mbox_ino = st.st_ino;
+	return TRUE;
+}
+
+IBuffer *mbox_get_inbuf(MailIndex *index, uoff_t offset, MailLockType lock_type)
 {
 	i_assert(offset < OFF_T_MAX);
 
-	if (reopen)
-		mbox_file_close(index);
-
-	if (index->mbox_fd == -1) {
-		index->mbox_fd = open(index->mbox_path, O_RDWR);
-		if (index->mbox_fd == -1) {
-			mbox_set_syscall_error(index, "open()");
-			return NULL;
+	switch (lock_type) {
+	case MAIL_LOCK_SHARED:
+	case MAIL_LOCK_EXCLUSIVE:
+		/* don't drop exclusive lock, it may be there for a reason */
+		if (index->mbox_lock_type != MAIL_LOCK_EXCLUSIVE) {
+			if (!mbox_lock(index, lock_type))
+				return NULL;
 		}
+		break;
+	default:
+		if (index->mbox_fd == -1) {
+			if (!mbox_file_open(index))
+				return NULL;
+		}
+		break;
 	}
 
-	return i_buffer_create_mmap(index->mbox_fd, default_pool,
-				    MAIL_MMAP_BLOCK_SIZE,
-				    (uoff_t)offset, 0, FALSE);
+	if (index->mbox_inbuf == NULL) {
+		index->mbox_inbuf =
+			i_buffer_create_mmap(index->mbox_fd, default_pool,
+					     MAIL_MMAP_BLOCK_SIZE, 0, 0, FALSE);
+	}
+
+	i_buffer_set_read_limit(index->mbox_inbuf, 0);
+	i_buffer_set_start_offset(index->mbox_inbuf, (uoff_t)offset);
+	i_buffer_seek(index->mbox_inbuf, 0);
+
+	i_buffer_ref(index->mbox_inbuf);
+	return index->mbox_inbuf;
 }
 
-void mbox_file_close(MailIndex *index)
+void mbox_file_close_inbuf(MailIndex *index)
 {
+	if (index->mbox_inbuf != NULL) {
+		i_buffer_close(index->mbox_inbuf);
+		i_buffer_unref(index->mbox_inbuf);
+		index->mbox_inbuf = NULL;
+	}
+}
+
+void mbox_file_close_fd(MailIndex *index)
+{
+	mbox_file_close_inbuf(index);
+
 	if (index->mbox_fd != -1) {
 		close(index->mbox_fd);
 		index->mbox_fd = -1;
@@ -599,6 +652,7 @@ MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path)
 
 	index->fd = -1;
 	index->mbox_fd = -1;
+	index->mbox_sync_counter = (unsigned int)-1;
 	index->dir = i_strdup(dir);
 
 	len = strlen(index->dir);
@@ -611,7 +665,7 @@ MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path)
 
 static void mbox_index_free(MailIndex *index)
 {
-        mbox_file_close(index);
+        mbox_file_close_fd(index);
 	mail_index_close(index);
 	i_free(index->dir);
 	i_free(index);
@@ -638,7 +692,7 @@ MailIndex mbox_index = {
 	mail_index_set_lock,
 	mail_index_try_lock,
 	mbox_index_rebuild,
-	mbox_index_fsck,
+	mail_index_fsck,
 	mbox_index_sync,
 	mail_index_get_header,
 	mail_index_lookup,

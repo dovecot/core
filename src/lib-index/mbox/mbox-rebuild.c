@@ -43,15 +43,9 @@ int mbox_index_rebuild(MailIndex *index)
 	if (!mail_index_data_reset(index->data))
 		return FALSE;
 
-	inbuf = mbox_file_open(index, 0, TRUE);
+	inbuf = mbox_get_inbuf(index, 0, MAIL_LOCK_SHARED);
 	if (inbuf == NULL)
 		return FALSE;
-
-	/* lock the mailbox so we can be sure no-one interrupts us. */
-	if (!mbox_lock_read(index)) {
-		i_buffer_unref(inbuf);
-		return FALSE;
-	}
 
 	mbox_skip_empty_lines(inbuf);
 	failed = !mbox_index_append(index, inbuf);

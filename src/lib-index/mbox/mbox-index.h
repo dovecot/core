@@ -21,8 +21,11 @@ int mbox_set_syscall_error(MailIndex *index, const char *function);
 /* Make sure the mbox is opened. If reopen is TRUE, the file is closed first,
    which is useful when you want to be sure you're not accessing a deleted
    mbox file. */
-IBuffer *mbox_file_open(MailIndex *index, uoff_t offset, int reopen);
-void mbox_file_close(MailIndex *index);
+int mbox_file_open(MailIndex *index);
+IBuffer *mbox_get_inbuf(MailIndex *index, uoff_t offset,
+			MailLockType lock_type);
+void mbox_file_close_inbuf(MailIndex *index);
+void mbox_file_close_fd(MailIndex *index);
 
 void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index,
 			      IBuffer *inbuf);
@@ -46,7 +49,7 @@ int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
 MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path);
 int mbox_index_rebuild(MailIndex *index);
 int mbox_index_sync(MailIndex *index);
-int mbox_index_fsck(MailIndex *index);
+int mbox_sync_full(MailIndex *index);
 IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec, int *deleted);
 
 int mbox_index_append(MailIndex *index, IBuffer *inbuf);

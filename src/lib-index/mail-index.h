@@ -316,10 +316,20 @@ struct _MailIndex {
 	unsigned int sync_id;
 
 	char *mbox_path; /* mbox-specific path to the actual mbox file */
-	uoff_t mbox_size; /* last synced size of mbox file */
 	int mbox_fd;
-	int mbox_locks;
-	int mbox_lock_type;
+	IBuffer *mbox_inbuf;
+	MailLockType mbox_lock_type;
+	MailLockType mbox_lock_next_sync;
+
+	/* these counters can be used to check that we've synced the mailbox
+	   after locking it */
+	unsigned int mbox_lock_counter;
+	unsigned int mbox_sync_counter;
+
+	/* last mbox sync: */
+	uoff_t mbox_size;
+	dev_t mbox_dev;
+	ino_t mbox_ino;
 
 	int fd; /* opened index file */
 	char *error; /* last error message */
@@ -328,13 +338,11 @@ struct _MailIndex {
 	size_t mmap_used_length;
 	size_t mmap_full_length;
 
-        MailLockType lock_type;
-
 	MailIndexHeader *header;
-	unsigned int first_recent_uid;
 
-	unsigned int modifylog_id;
+        MailLockType lock_type;
 	time_t file_sync_stamp;
+	unsigned int first_recent_uid;
 
 	/* these fields are OR'ed to the fields in index header once we
 	   get around grabbing exclusive lock */
@@ -353,7 +361,7 @@ struct _MailIndex {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0
+	0, 0, 0, 0, 0
 
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent, int fast);

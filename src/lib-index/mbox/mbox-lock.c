@@ -147,67 +147,83 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path, int set)
 	return FALSE;
 }
 
-static int mbox_lock(MailIndex *index, int exclusive)
+int mbox_lock(MailIndex *index, MailLockType lock_type)
 {
-	i_assert(index->mbox_fd != -1);
+	struct stat st;
 
-	if (++index->mbox_locks > 1)
+	i_assert(lock_type == MAIL_LOCK_SHARED ||
+		 lock_type == MAIL_LOCK_EXCLUSIVE);
+	i_assert(lock_type != MAIL_LOCK_EXCLUSIVE ||
+		 index->mbox_lock_type != MAIL_LOCK_SHARED);
+
+	if (index->mbox_lock_type == lock_type)
 		return TRUE;
 
-        index->mbox_lock_type = exclusive ? F_WRLCK : F_RDLCK;
-	if (!mbox_lock_fcntl(index, index->mbox_lock_type)) {
-		(void)mbox_lock_dotlock(index, index->mbox_path, FALSE);
-		return FALSE;
-	}
-#ifdef HAVE_FLOCK
-	if (!mbox_lock_flock(index, index->mbox_lock_type)) {
-		(void)mbox_lock_dotlock(index, index->mbox_path, FALSE);
-		return FALSE;
-	}
-#endif
-
-	if (exclusive) {
+	/* make .lock file first to protect overwriting the file */
+	if (index->mbox_lock_type == MAIL_LOCK_UNLOCK) {
 		if (!mbox_lock_dotlock(index, index->mbox_path, TRUE))
 			return FALSE;
 	}
 
+	/* now we need to have the file itself locked. open it if needed. */
+	do {
+		if (stat(index->mbox_path, &st) < 0)
+			return mbox_set_syscall_error(index, "stat()");
 
-	return TRUE;
-}
+		if (st.st_dev != index->mbox_dev ||
+		    st.st_ino != index->mbox_ino)
+			mbox_file_close_fd(index);
 
-int mbox_lock_read(MailIndex *index)
-{
-	return mbox_lock(index, FALSE);
-}
+		if (index->mbox_fd == -1) {
+			if (!mbox_file_open(index))
+				break;
+		}
 
-int mbox_lock_write(MailIndex *index)
-{
-	i_assert(index->mbox_locks == 0 || index->mbox_lock_type != F_RDLCK);
-	return mbox_lock(index, TRUE);
+		if (!mbox_lock_fcntl(index, index->mbox_lock_type))
+			break;
+#ifdef HAVE_FLOCK
+		if (!mbox_lock_flock(index, index->mbox_lock_type))
+			break;
+#endif
+		index->mbox_lock_type = lock_type;
+		return TRUE;
+	} while (0);
+
+	if (index->mbox_lock_type == MAIL_LOCK_UNLOCK)
+		(void)mbox_lock_dotlock(index, index->mbox_path, FALSE);
+
+	return FALSE;
 }
 
 int mbox_unlock(MailIndex *index)
 {
 	int failed;
 
-	i_assert(index->mbox_fd != -1);
-	i_assert(index->mbox_locks > 0);
+	index->mbox_lock_counter++;
+	index->mbox_lock_next_sync = MAIL_LOCK_UNLOCK;
 
-	if (--index->mbox_locks > 0)
+	if (index->mbox_lock_type == MAIL_LOCK_UNLOCK)
 		return TRUE;
 
 	failed = FALSE;
+	if (index->mbox_fd != -1) {
 #ifdef HAVE_FLOCK
-	if (!mbox_lock_flock(index, F_UNLCK))
-		failed = TRUE;
+		if (!mbox_lock_flock(index, F_UNLCK))
+			failed = TRUE;
 #endif
-	if (!mbox_lock_fcntl(index, F_UNLCK))
-		failed = TRUE;
-
-	if (index->mbox_lock_type == F_WRLCK) {
-		if (!mbox_lock_dotlock(index, index->mbox_path, FALSE))
+		if (!mbox_lock_fcntl(index, F_UNLCK))
 			failed = TRUE;
 	}
 
+	if (!mbox_lock_dotlock(index, index->mbox_path, FALSE))
+		failed = TRUE;
+
+	/* make sure we don't keep mmap() between locks - there could have
+	   been changes to file size which would break things. or actually
+	   it'd break only if file was shrinked+grown back to exact size,
+	   but still possible :) */
+	mbox_file_close_inbuf(index);
+
+	index->mbox_lock_type = MAIL_LOCK_UNLOCK;
 	return !failed;
 }

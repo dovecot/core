@@ -169,7 +169,7 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-static int mbox_index_fsck_buf(MailIndex *index, IBuffer *inbuf)
+static int mbox_sync_buf(MailIndex *index, IBuffer *inbuf)
 {
 	MailIndexRecord *rec;
 	uoff_t from_offset;
@@ -250,26 +250,21 @@ static int mbox_index_fsck_buf(MailIndex *index, IBuffer *inbuf)
 		return mbox_index_append(index, inbuf);
 }
 
-int mbox_index_fsck(MailIndex *index)
+int mbox_sync_full(MailIndex *index)
 {
 	IBuffer *inbuf;
-	int failed;
+	int failed, unlock;
 
-	inbuf = mbox_file_open(index, 0, TRUE);
+	unlock = index->mbox_lock_type == MAIL_LOCK_UNLOCK;
+	inbuf = mbox_get_inbuf(index, 0, MAIL_LOCK_SHARED);
 	if (inbuf == NULL)
 		return FALSE;
 
-	if (!mbox_lock_read(index))
-		failed = TRUE;
-	else {
-		failed = !mbox_index_fsck_buf(index, inbuf);
-		(void)mbox_unlock(index);
-	}
+	failed = !mbox_sync_buf(index, inbuf);
 	i_buffer_unref(inbuf);
 
-	if (failed)
-		return FALSE;
+	if (unlock)
+		(void)mbox_unlock(index);
 
-	/* check the header */
-	return mail_index_fsck(index);
+	return !failed;
 }

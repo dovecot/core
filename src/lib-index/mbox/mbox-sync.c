@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mbox-index.h"
+#include "mbox-lock.h"
 #include "mail-index-util.h"
 
 #include <stdlib.h>
@@ -45,10 +46,15 @@ static uoff_t get_indexed_mbox_size(MailIndex *index)
 int mbox_index_sync(MailIndex *index)
 {
 	struct stat st;
+	MailLockType lock_type;
 	time_t index_mtime;
 	uoff_t filesize;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
+
+	lock_type = index->mbox_lock_next_sync;
+	index->mbox_lock_next_sync = MAIL_LOCK_UNLOCK;
+	index->mbox_sync_counter = index->mbox_lock_counter;
 
 	if (index->fd == -1) {
 		/* anon-mmaped */
@@ -63,8 +69,24 @@ int mbox_index_sync(MailIndex *index)
 		return mbox_set_syscall_error(index, "stat()");
 	filesize = st.st_size;
 
+	if (index->mbox_dev != st.st_dev || index->mbox_ino != st.st_ino) {
+		/* mbox file was overwritten, close it if it was open */
+		index->mbox_dev = st.st_dev;
+		index->mbox_ino = st.st_ino;
+		index->mbox_size = (uoff_t)-1;
+
+                mbox_file_close_fd(index);
+	}
+
+	if (lock_type != MAIL_LOCK_UNLOCK) {
+		if (!mbox_lock(index, lock_type))
+			return FALSE;
+	}
+
 	if (index_mtime == st.st_mtime && index->mbox_size == filesize)
 		return TRUE;
+
+	mbox_file_close_inbuf(index);
 
 	/* problem .. index->mbox_size points to data after the last message.
 	   that should be \n, \r\n, or end of file. modify filesize
@@ -85,5 +107,5 @@ int mbox_index_sync(MailIndex *index)
 	index->file_sync_stamp = st.st_mtime;
 
 	/* file has changed, scan through the whole mbox */
-	return mbox_index_fsck(index);
+	return mbox_sync_full(index);
 }

@@ -405,7 +405,7 @@ int mbox_index_rewrite(MailIndex *index)
 	uoff_t offset, dirty_offset;
 	const char *path;
 	unsigned int seq;
-	int tmp_fd, failed, dirty_found, locked, rewrite;
+	int tmp_fd, failed, dirty_found, rewrite;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
@@ -414,20 +414,16 @@ int mbox_index_rewrite(MailIndex *index)
 		return TRUE;
 	}
 
-	tmp_fd = -1; locked = FALSE;
+	tmp_fd = -1;
 	failed = TRUE; rewrite = FALSE;
 	do {
 		/* lock before fscking to prevent race conditions between
 		   fsck's unlock and our lock. */
-		inbuf = mbox_file_open(index, 0, TRUE);
+		inbuf = mbox_get_inbuf(index, 0, MAIL_LOCK_EXCLUSIVE);
 		if (inbuf == NULL)
 			break;
 
-		if (!mbox_lock_write(index))
-			break;
-		locked = TRUE;
-
-		if (!mbox_index_fsck(index))
+		if (!index->sync(index))
 			break;
 
 		if ((index->header->flags &
@@ -446,8 +442,7 @@ int mbox_index_rewrite(MailIndex *index)
 	} while (0);
 
 	if (!rewrite) {
-		if (locked)
-			(void)mbox_unlock(index);
+		(void)mbox_unlock(index);
 		if (inbuf != NULL)
 			i_buffer_unref(inbuf);
 		return !failed;
