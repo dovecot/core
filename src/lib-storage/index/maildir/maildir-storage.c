@@ -393,6 +393,8 @@ maildir_open(struct index_storage *storage, const char *name,
 	else {
 		ibox->mail_create_mode = st.st_mode & 0666;
 		ibox->private_flags_mask = MAIL_SEEN;
+		mail_index_set_permissions(ibox->index, st.st_mode & 0666,
+					   st.st_gid);
 	}
 
 	return &ibox->box;

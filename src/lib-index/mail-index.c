@@ -48,6 +48,13 @@ void mail_index_free(struct mail_index *index)
 	i_free(index);
 }
 
+void mail_index_set_permissions(struct mail_index *index,
+				mode_t mode, gid_t gid)
+{
+	index->mode = mode & 0666;
+	index->gid = gid;
+}
+
 uint32_t mail_index_register_record_extra(struct mail_index *index,
 					  const char *name, uint32_t hdr_size,
 					  uint16_t record_size)

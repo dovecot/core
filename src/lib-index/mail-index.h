@@ -137,6 +137,9 @@ struct mail_index_view_sync_ctx;
 struct mail_index *mail_index_alloc(const char *dir, const char *prefix);
 void mail_index_free(struct mail_index *index);
 
+void mail_index_set_permissions(struct mail_index *index,
+				mode_t mode, gid_t gid);
+
 /* register extra data to be used in mail_index_record. name is a unique
    identifier for the data. if same name is tried to be registered multiple
    times, the rest are ignored. returns identifier for the name. */
