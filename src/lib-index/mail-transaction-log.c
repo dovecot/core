@@ -914,20 +914,28 @@ log_view_fix_sequences(struct mail_index_view *view, buffer_t *view_expunges,
 			if (!two)
 				continue;
 
-			if (exp->seq2 >= seq[1])
-				continue;
+			exp2 = exp;
+			count = 0;
+			do {
+				/* we point to next non-expunged message */
+				seq[0] = exp2->seq2 + 1;
+				count += exp->seq2 - exp->seq1 + 1;
+				exp2++;
+			} while (exp2 != exp_end && exp2->seq1 == seq[0]);
 
-			/* we point to next non-expunged message */
-			seq[0] = exp->seq2 + 1;
+			if (seq[0] > seq[1] ||
+			    seq[0] > view->map->records_count) {
+				/* it's all expunged */
+				continue;
+			}
+
 			if (uids) {
 				/* get new first UID */
 				ret = mail_index_lookup_uid(view, seq[0],
 							    &seq[2]);
 				i_assert(ret == 0);
 			}
-
-			expunges_before += exp->seq2 - exp->seq1 + 1;
-			exp++;
+			seq[0] -= count;
 		}
 		seq[0] -= expunges_before;
 
