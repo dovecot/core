@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "randgen.h"
 
+#include <stdlib.h>
+
 #ifdef HAVE_DEV_URANDOM
 
 #include "fd-close-on-exec.h"
@@ -29,6 +31,8 @@ void random_fill(void *buf, size_t size)
 
 void random_init(void)
 {
+	unsigned int seed;
+
 	if (init_refcount++ > 0)
 		return;
 
@@ -41,6 +45,9 @@ void random_init(void)
 			i_fatal("Can't open /dev/urandom: %m");
 		}
 	}
+
+	random_fill(&seed, sizeof(seed));
+	srand(seed);
 
 	fd_close_on_exec(urandom_fd, TRUE);
 }
@@ -80,9 +87,24 @@ void random_fill(void *buf, size_t size)
 		i_fatal("RAND_pseudo_bytes() failed: %s", ssl_last_error());
 }
 
-void random_init(void) {}
+void random_init(void)
+{
+	unsigned int seed;
+
+	random_fill(&seed, sizeof(seed));
+	srand(seed);
+}
+
 void random_deinit(void) {}
 
 #else
 #  error No random number generator, use eg. OpenSSL.
 #endif
+
+void random_fill_weak(void *buf, size_t size)
+{
+	unsigned char *cbuf = buf;
+
+	for (; size > 0; size--)
+		*cbuf++ = (unsigned char)rand();
+}

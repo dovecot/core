@@ -169,8 +169,6 @@ static void add_extra_listeners(void)
 
 static void drop_privileges(void)
 {
-	unsigned int seed;
-
 	verbose = getenv("VERBOSE") != NULL;
 	verbose_debug = getenv("VERBOSE_DEBUG") != NULL;
 
@@ -178,8 +176,6 @@ static void drop_privileges(void)
 
 	/* Open /dev/urandom before chrooting */
 	random_init();
-	random_fill(&seed, sizeof(seed));
-	srand(seed);
 
 	/* Initialize databases so their configuration files can be readable
 	   only by root. Also load all modules here. */
