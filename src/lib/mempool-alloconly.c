@@ -194,6 +194,7 @@ static void pool_alloconly_free(pool_t pool, void *mem)
 	if (POOL_BLOCK_DATA(apool->block) +
 	    (apool->block->size - apool->block->left -
 	     apool->block->last_alloc_size) == mem) {
+		memset(mem, 0, apool->block->last_alloc_size);
 		apool->block->left += apool->block->last_alloc_size;
                 apool->block->last_alloc_size = 0;
 	}
