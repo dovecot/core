@@ -1,4 +1,4 @@
-AC_INIT(dovecot, 1.0-test50, [dovecot@dovecot.org])
+AC_INIT(dovecot, 1.0-test52, [dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AC_CONFIG_HEADERS([config.h])
@@ -15,7 +15,7 @@ AM_PROG_LIBTOOL
 AM_ICONV
 
 AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h \
-  sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h)
+  sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h)
 
 # check posix headers
 AC_CHECK_HEADERS(sys/time.h)

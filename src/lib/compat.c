@@ -172,3 +172,15 @@ int my_seteuid(uid_t euid)
 #endif
 }
 #endif
+
+#ifndef HAVE_LIBGEN_H
+char *my_basename(char *path)
+{
+	char *p;
+
+	/* note that this isn't POSIX-compliant basename() replacement.
+	   too much trouble without any gain. */
+	p = strrchr(path, '/');
+	return p == NULL ? path : p + 1;
+}
+#endif

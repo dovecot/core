@@ -109,7 +109,13 @@ ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset);
 #endif
 
 #ifndef HAVE_SETEUID
+#  define seteuid my_seteuid
 int my_seteuid(uid_t euid);
+#endif
+
+#ifndef HAVE_LIBGEN_H
+#  define basename my_basename
+char *my_basename(char *path);
 #endif
 
 /* ctype.h isn't safe with signed chars,
