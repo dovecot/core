@@ -60,6 +60,64 @@
 #include <stddef.h>
 #include <sys/stat.h>
 
+#define MBOX_SYNC_SECS 1
+
+/* returns -1 = error, 0 = mbox changed since previous lock, 1 = didn't */
+static int mbox_sync_lock(struct mbox_sync_context *sync_ctx, int lock_type)
+{
+	struct index_mailbox *ibox = sync_ctx->ibox;
+	struct stat old_st, st;
+	uoff_t old_from_offset, old_offset = 0;
+
+	if (sync_ctx->lock_id != 0) {
+		if (fstat(sync_ctx->fd, &old_st) < 0) {
+			mbox_set_syscall_error(ibox, "stat()");
+			return -1;
+		}
+		old_from_offset =
+			istream_raw_mbox_get_start_offset(sync_ctx->input);
+		old_offset = sync_ctx->input->v_offset;
+
+		(void)mbox_unlock(ibox, sync_ctx->lock_id);
+		sync_ctx->lock_id = 0;
+	} else {
+		memset(&old_st, 0, sizeof(old_st));
+	}
+
+	if (mbox_lock(ibox, lock_type, &sync_ctx->lock_id) <= 0)
+		return -1;
+	if (mbox_file_open_stream(ibox) < 0)
+		return -1;
+
+	sync_ctx->file_input = sync_ctx->ibox->mbox_file_stream;
+	sync_ctx->input = sync_ctx->ibox->mbox_stream;
+	sync_ctx->fd = sync_ctx->ibox->mbox_fd;
+
+	if (old_st.st_mtime == 0) {
+		/* we didn't have the file open before -> it changed */
+		return 0;
+	}
+
+	if (fstat(sync_ctx->fd, &st) < 0) {
+		mbox_set_syscall_error(ibox, "fstat()");
+		return -1;
+	}
+
+	if (st.st_mtime != old_st.st_mtime || st.st_size != old_st.st_size ||
+	    st.st_ino != old_st.st_ino ||
+	    !CMP_DEV_T(st.st_dev, old_st.st_dev) ||
+	    time(NULL) - st.st_mtime <= MBOX_SYNC_SECS)
+		return 0;
+
+	/* same as before. we'll have to fix mbox stream to contain
+	   correct from_offset, hdr_offset and body_offset. so, seek
+	   to from_offset and read through the header. */
+	istream_raw_mbox_seek(sync_ctx->input, old_from_offset);
+        (void)istream_raw_mbox_get_body_offset(sync_ctx->input);
+	i_stream_seek(sync_ctx->input, old_offset);
+	return 1;
+}
+
 static int mbox_sync_grow_file(struct mbox_sync_context *sync_ctx,
 			       struct mbox_sync_mail_context *mail_ctx,
 			       uoff_t grow_size)
@@ -230,25 +288,35 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
+static int mbox_sync_get_from_offset(struct mbox_sync_context *sync_ctx,
+				     uint32_t seq, uint64_t *offset_r)
+{
+	const void *data;
+
+	/* see if from_offset needs updating */
+	if (mail_index_lookup_extra(sync_ctx->sync_view, seq,
+				    sync_ctx->ibox->mbox_extra_idx,
+				    &data) < 0) {
+		mail_storage_set_index_error(sync_ctx->ibox);
+		return -1;
+	}
+
+	*offset_r = *((const uint64_t *)data);
+	return 0;
+}
+
 static int
 mbox_sync_update_from_offset(struct mbox_sync_context *sync_ctx,
                              struct mbox_sync_mail *mail,
 			     int nocheck)
 {
-	const void *data;
 	uint64_t offset;
 
 	if (!nocheck) {
-		/* see if from_offset needs updating */
-		if (mail_index_lookup_extra(sync_ctx->sync_view,
-					    sync_ctx->idx_seq,
-					    sync_ctx->ibox->mbox_extra_idx,
-					    &data) < 0) {
-			mail_storage_set_index_error(sync_ctx->ibox);
+		if (mbox_sync_get_from_offset(sync_ctx, sync_ctx->idx_seq,
+					      &offset) < 0)
 			return -1;
-		}
 
-		offset = *((const uint64_t *)data);
 		if (offset == mail->from_offset)
 			return 0;
 	} else {
@@ -367,10 +435,25 @@ update_from_offsets(struct index_mailbox *ibox,
 	}
 }
 
+static int mbox_sync_check_excl_lock(struct mbox_sync_context *sync_ctx)
+{
+	int ret;
+
+	if (sync_ctx->ibox->mbox_lock_type == F_RDLCK) {
+		if ((ret = mbox_sync_lock(sync_ctx, F_WRLCK)) < 0)
+			return -1;
+		if (ret == 0)
+			return -2;
+	}
+	return 0;
+}
+
 static int mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 {
-	if (mail_ctx->sync_ctx->ibox->mbox_lock_type == F_RDLCK)
-		return -2;
+	int ret;
+
+	if ((ret = mbox_sync_check_excl_lock(mail_ctx->sync_ctx)) < 0)
+		return ret;
 
 	mail_ctx->mail.offset = mail_ctx->from_offset;
 	mail_ctx->mail.space =
@@ -402,8 +485,8 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 
 	if (sync_ctx->expunged_space > 0 && sync_ctx->need_space_seq == 0) {
 		/* move the header backwards to fill expunged space */
-		if (sync_ctx->ibox->mbox_lock_type == F_RDLCK)
-			return -2;
+		if ((ret = mbox_sync_check_excl_lock(sync_ctx)) < 0)
+			return ret;
 
 		move_diff = -sync_ctx->expunged_space;
 
@@ -425,11 +508,11 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 		}
 	} else if (mail_ctx->need_rewrite ||
 		   buffer_get_used_size(sync_ctx->syncs) != 0) {
-		if (sync_ctx->ibox->mbox_lock_type == F_RDLCK)
-			return -2;
+		if ((ret = mbox_sync_check_excl_lock(sync_ctx)) < 0)
+			return ret;
 
 		mbox_sync_update_header(mail_ctx, sync_ctx->syncs);
-		if ((ret = mbox_sync_try_rewrite(mail_ctx, move_diff)) < 0)
+		if ((ret = mbox_sync_try_rewrite(mail_ctx, 0)) < 0)
 			return -1;
 	} else {
 		/* nothing to do */
@@ -498,19 +581,63 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 	return 0;
 }
 
-static int mbox_sync_parse_all(struct mbox_sync_context *sync_ctx,
-			       struct mbox_sync_mail_context *mail_ctx)
+static int
+mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
+{
+	uint32_t seq;
+	uint64_t offset;
+
+	if (mail_index_lookup_uid_range(sync_ctx->sync_view, uid, uid,
+					&seq, &seq) < 0)
+		return -1;
+
+	if (seq == 0)
+		return 0;
+
+	if (mbox_sync_get_from_offset(sync_ctx, seq, &offset) < 0)
+		return -1;
+
+        /* set to -1, since they're always increased later */
+	sync_ctx->seq = sync_ctx->idx_seq = seq-1;
+	istream_raw_mbox_seek(sync_ctx->input, offset);
+	return 0;
+}
+
+static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
+			  struct mbox_sync_mail_context *mail_ctx,
+			  uint32_t min_message_count)
 {
 	const struct mail_index_record *rec;
 	uint32_t uid, messages_count;
 	uoff_t offset;
 	int ret, expunged;
 
-	sync_ctx->file_input = sync_ctx->ibox->mbox_file_stream;
-	sync_ctx->input = sync_ctx->ibox->mbox_stream;
-	sync_ctx->fd = sync_ctx->ibox->mbox_fd;
+	if (min_message_count != 0)
+		istream_raw_mbox_seek(sync_ctx->input, 0);
+	else {
+		/* we sync only what we need to. jump to first record that
+		   needs updating */
+		if (sync_ctx->sync_rec.uid1 == 0) {
+			if (mbox_sync_read_index_syncs(sync_ctx, 1,
+						       &expunged) < 0)
+				return -1;
+		}
 
-	istream_raw_mbox_seek(sync_ctx->input, 0);
+		if (sync_ctx->sync_rec.uid1 == 0) {
+			/* nothing to do */
+			return 0;
+		}
+
+		uid = sync_ctx->sync_rec.uid1;
+		if (mbox_sync_seek_to_uid(sync_ctx, uid) < 0)
+			return -1;
+
+		if (sync_ctx->seq > 0) {
+			if (mail_index_lookup_uid(sync_ctx->sync_view, 1,
+						  &sync_ctx->first_uid) < 0)
+				return -1;
+		}
+	}
 
 	while ((ret = mbox_sync_read_next_mail(sync_ctx, mail_ctx)) > 0) {
 		uid = mail_ctx->mail.uid;
@@ -526,7 +653,7 @@ static int mbox_sync_parse_all(struct mbox_sync_context *sync_ctx,
 			ret = mbox_sync_handle_expunge(mail_ctx);
 		}
 		if (ret < 0) {
-			/* -1 = error, -2 = need exclusive lock */
+			/* -1 = error, -2 = need to restart */
 			return ret;
 		}
 
@@ -547,22 +674,47 @@ static int mbox_sync_parse_all(struct mbox_sync_context *sync_ctx,
 			if (mbox_sync_handle_missing_space(mail_ctx) < 0)
 				return -1;
 			i_stream_seek(sync_ctx->input, offset);
-		} else if (sync_ctx->expunged_space > 0 && !expunged) {
-			/* move the body */
-			if (mbox_move(sync_ctx,
-				      mail_ctx->body_offset -
-				      sync_ctx->expunged_space,
-				      mail_ctx->body_offset,
-				      mail_ctx->mail.body_size) < 0)
-				return -1;
-			i_stream_seek(sync_ctx->input, offset);
+		} else if (sync_ctx->expunged_space > 0) {
+			if (!expunged) {
+				/* move the body */
+				if (mbox_move(sync_ctx,
+					      mail_ctx->body_offset -
+					      sync_ctx->expunged_space,
+					      mail_ctx->body_offset,
+					      mail_ctx->mail.body_size) < 0)
+					return -1;
+				i_stream_seek(sync_ctx->input, offset);
+			}
+		} else if (sync_ctx->seq >= min_message_count) {
+			mbox_sync_buffer_delete_old(sync_ctx->syncs, uid+1);
+			if (buffer_get_used_size(sync_ctx->syncs) == 0) {
+				/* if there's no sync records left,
+				   we can stop */
+				if (sync_ctx->sync_rec.uid1 == 0)
+					break;
+
+				/* we can skip forward to next record which
+				   needs updating. */
+				uid = sync_ctx->sync_rec.uid1;
+				if (mbox_sync_seek_to_uid(sync_ctx, uid) < 0)
+					return -1;
+			}
 		}
 	}
 
-	/* rest of the messages in index don't exist -> expunge them */
-	messages_count = mail_index_view_get_message_count(sync_ctx->sync_view);
-	while (sync_ctx->idx_seq < messages_count)
-		mail_index_expunge(sync_ctx->t, ++sync_ctx->idx_seq);
+	if (sync_ctx->input->eof) {
+		/* rest of the messages in index don't exist -> expunge them */
+		messages_count =
+			mail_index_view_get_message_count(sync_ctx->sync_view);
+		while (sync_ctx->idx_seq < messages_count)
+			mail_index_expunge(sync_ctx->t, ++sync_ctx->idx_seq);
+	} else {
+		/* we didn't go through everything. fake the headers and all */
+		i_assert(sync_ctx->next_uid <= sync_ctx->hdr->next_uid);
+		sync_ctx->next_uid = sync_ctx->hdr->next_uid;
+		sync_ctx->base_uid_last = sync_ctx->hdr->next_uid-1;
+		sync_ctx->base_uid_validity = sync_ctx->hdr->uid_validity;
+	}
 
 	return 0;
 }
@@ -571,6 +723,12 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					struct mbox_sync_mail_context *mail_ctx)
 {
 	uoff_t offset, extra_space, trailer_size;
+
+	if (!sync_ctx->input->eof) {
+		i_assert(sync_ctx->need_space_seq == 0);
+		i_assert(sync_ctx->expunged_space == 0);
+		return 0;
+	}
 
 	trailer_size = i_stream_get_size(sync_ctx->file_input) -
 		sync_ctx->file_input->v_offset;
@@ -613,6 +771,9 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					    sync_ctx->need_space_seq,
 					    sync_ctx->seq);
 		}
+
+		sync_ctx->need_space_seq = 0;
+		buffer_set_used_size(sync_ctx->mails, 0);
 	}
 
 	if (sync_ctx->expunged_space > 0) {
@@ -624,8 +785,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 			      offset + sync_ctx->expunged_space,
 			      trailer_size) < 0)
 			return -1;
-		if (ftruncate(sync_ctx->ibox->mbox_fd,
-			      offset + trailer_size) < 0) {
+		if (ftruncate(sync_ctx->fd, offset + trailer_size) < 0) {
 			mbox_set_syscall_error(sync_ctx->ibox, "ftruncate()");
 			return -1;
 		}
@@ -639,7 +799,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 {
 	struct stat st;
 
-	if (fstat(sync_ctx->ibox->mbox_fd, &st) < 0) {
+	if (fstat(sync_ctx->fd, &st) < 0) {
 		mbox_set_syscall_error(sync_ctx->ibox, "fstat()");
 		return -1;
 	}
@@ -687,48 +847,59 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 	sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view, FALSE);
 }
 
-static int mbox_sync_do(struct mbox_sync_context *sync_ctx, int index_synced)
+static int mbox_sync_do(struct mbox_sync_context *sync_ctx)
 {
-	struct index_mailbox *ibox = sync_ctx->ibox;
 	struct mbox_sync_mail_context mail_ctx;
+	struct stat st;
+	uint32_t min_msg_count;
 	int ret, lock_type;
 
 	lock_type = mail_index_sync_have_more(sync_ctx->index_sync_ctx) ?
 		F_WRLCK : F_RDLCK;
-	if ((ret = mbox_lock(ibox, lock_type, &sync_ctx->lock_id)) <= 0)
-		return ret;
-
-	if (mbox_file_open_stream(ibox) < 0)
+	if (mbox_sync_lock(sync_ctx, lock_type) < 0)
 		return -1;
 
-	if ((ret = mbox_sync_parse_all(sync_ctx, &mail_ctx)) == -1)
+	if (fstat(sync_ctx->fd, &st) < 0) {
+		mbox_set_syscall_error(sync_ctx->ibox, "stat()");
+		return -1;
+	}
+
+	min_msg_count =
+		(uint32_t)st.st_mtime == sync_ctx->hdr->sync_stamp &&
+		(uint64_t)st.st_size == sync_ctx->hdr->sync_size ?
+		0 : (uint32_t)-1;
+
+	mbox_sync_restart(sync_ctx);
+	if ((ret = mbox_sync_loop(sync_ctx, &mail_ctx, min_msg_count)) == -1)
 		return -1;
 
 	if (ret == -2) {
-		/* we want to modify mbox, get exclusive lock. this requires
-		   dropping the read lock first, so we have to parse the whole
-		   mbox again */
-		(void)mbox_unlock(ibox, sync_ctx->lock_id);
-		sync_ctx->lock_id = 0;
+		/* initially we had mbox read-locked, but later we needed a
+		   write-lock. doing it required dropping the read lock.
+		   we're here because mbox was modified before we got the
+		   write-lock. so, restart the whole syncing. */
+		i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
 
-		if ((ret = mbox_lock(ibox, F_WRLCK, &sync_ctx->lock_id)) <= 0)
-			return ret;
-		if (mbox_file_open_stream(ibox) < 0)
-			return -1;
-
-		/* FIXME: if mbox timestamp hasn't changed and it's older than
-		   2 secs, we could continue from where we left */
 		mbox_sync_restart(sync_ctx);
-
-		if (mbox_sync_parse_all(sync_ctx, &mail_ctx) < 0)
+		if (mbox_sync_loop(sync_ctx, &mail_ctx, (uint32_t)-1) < 0)
 			return -1;
 	}
 
 	if (mbox_sync_handle_eof_updates(sync_ctx, &mail_ctx) < 0)
 		return -1;
 
-	if (sync_ctx->base_uid_last+1 != sync_ctx->next_uid) {
-		// FIXME: rewrite X-IMAPbase header
+	if (sync_ctx->base_uid_last != sync_ctx->next_uid-1) {
+		/* rewrite X-IMAPbase header */
+		if (mbox_sync_check_excl_lock(sync_ctx) == -1)
+			return -1;
+
+		sync_ctx->update_base_uid_last = sync_ctx->next_uid-1;
+		mbox_sync_restart(sync_ctx);
+		if (mbox_sync_loop(sync_ctx, &mail_ctx, 1) < 0)
+			return -1;
+
+		if (mbox_sync_handle_eof_updates(sync_ctx, &mail_ctx) < 0)
+			return -1;
 	}
 
 	/* only syncs left should be just appends (and their updates)
@@ -770,13 +941,12 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 	struct mbox_sync_context sync_ctx;
 	uint32_t seq;
 	uoff_t offset;
-	int ret, index_synced;
+	int ret;
 
 	if ((ret = mbox_sync_has_changed(ibox)) < 0)
 		return -1;
 	if (ret == 0 && !last_commit)
 		return 0;
-	index_synced = ret > 0;
 
 	if (last_commit) {
 		seq = ibox->commit_log_file_seq;
@@ -805,12 +975,11 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 
 	sync_ctx.mails = buffer_create_dynamic(default_pool, 4096, (size_t)-1);
 	sync_ctx.syncs = buffer_create_dynamic(default_pool, 256, (size_t)-1);
-	sync_ctx.next_uid = 1;
 
 	ret = mail_index_get_header(sync_view, &sync_ctx.hdr);
 	i_assert(ret == 0);
 
-	if (mbox_sync_do(&sync_ctx, index_synced) < 0)
+	if (mbox_sync_do(&sync_ctx) < 0)
 		ret = -1;
 
 	if (ret < 0)
@@ -826,6 +995,8 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 		ret = -1;
 
 	if (sync_ctx.lock_id != 0) {
+		/* FIXME: drop to read locking and keep it MBOX_SYNC_SECS+1
+		   to make sure we notice changes made by others */
 		if (mbox_unlock(ibox, sync_ctx.lock_id) < 0)
 			ret = -1;
 	}

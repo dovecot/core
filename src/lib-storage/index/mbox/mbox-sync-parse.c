@@ -260,6 +260,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 			       struct mbox_sync_mail_context *ctx,
 			       int rewriting)
 {
+	struct mbox_sync_context *sync_ctx = ctx->sync_ctx;
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
 	struct header_func *func;
@@ -316,16 +317,21 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	}
 	message_parse_header_deinit(hdr_ctx);
 
-	if ((ctx->seq == 1 && ctx->sync_ctx->base_uid_validity == 0) ||
-	    (ctx->seq > 1 && ctx->sync_ctx->first_uid == 0)) {
+	if ((ctx->seq == 1 && sync_ctx->base_uid_validity == 0) ||
+	    (ctx->seq > 1 && sync_ctx->first_uid == 0)) {
 		/* missing X-IMAPbase */
+		ctx->need_rewrite = TRUE;
+	}
+	if (ctx->seq == 1 && sync_ctx->update_base_uid_last != 0 &&
+	    sync_ctx->update_base_uid_last > sync_ctx->base_uid_last) {
+		/* update uid-last field in X-IMAPbase */
 		ctx->need_rewrite = TRUE;
 	}
 	if (ctx->mail.uid == 0 && !rewriting) {
 		/* missing X-UID */
 		ctx->need_rewrite = TRUE;
-		ctx->mail.uid = ctx->sync_ctx->next_uid++;
-		ctx->sync_ctx->prev_msg_uid = ctx->mail.uid;
+		ctx->mail.uid = sync_ctx->next_uid++;
+		sync_ctx->prev_msg_uid = ctx->mail.uid;
 	}
 
 	ctx->body_offset = input->v_offset;

@@ -295,6 +295,30 @@ uoff_t istream_raw_mbox_get_header_offset(struct istream *stream)
 	return rstream->hdr_offset;
 }
 
+uoff_t istream_raw_mbox_get_body_offset(struct istream *stream)
+{
+	struct raw_mbox_istream *rstream =
+		(struct raw_mbox_istream *)stream->real_stream;
+	uoff_t offset;
+	size_t pos;
+
+	if (rstream->body_offset != (uoff_t)-1)
+		return rstream->body_offset;
+
+	offset = stream->v_offset;
+	i_stream_seek(stream, rstream->hdr_offset);
+	while (rstream->body_offset == (uoff_t)-1) {
+		i_stream_get_data(rstream->input, &pos);
+		i_stream_skip(stream, pos);
+
+		if (_read(&rstream->istream) < 0)
+			break;
+	}
+
+	i_stream_seek(stream, offset);
+	return rstream->body_offset;
+}
+
 uoff_t istream_raw_mbox_get_body_size(struct istream *stream, uoff_t body_size)
 {
 	struct raw_mbox_istream *rstream =
@@ -302,13 +326,15 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream, uoff_t body_size)
 	const unsigned char *data;
 	size_t size;
 
+	i_assert(rstream->hdr_offset != (uoff_t)-1);
+	i_assert(rstream->body_offset != (uoff_t)-1);
+
 	if (rstream->mail_size != (uoff_t)-1) {
 		return rstream->mail_size -
 			(rstream->body_offset - rstream->hdr_offset);
 	}
 
 	if (body_size != (uoff_t)-1) {
-		i_assert(rstream->body_offset != (uoff_t)-1);
 		i_stream_seek(rstream->input, rstream->body_offset + body_size);
 		if (istream_raw_mbox_is_valid_from(rstream) > 0) {
 			rstream->mail_size = body_size +

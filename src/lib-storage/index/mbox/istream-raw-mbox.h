@@ -9,6 +9,8 @@ struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input);
 uoff_t istream_raw_mbox_get_start_offset(struct istream *stream);
 /* Return offset to beginning of the headers. */
 uoff_t istream_raw_mbox_get_header_offset(struct istream *stream);
+/* Return offset to beginning of the body. */
+uoff_t istream_raw_mbox_get_body_offset(struct istream *stream);
 
 /* Return the number of bytes in the body of this message. If body_size isn't
    (uoff_t)-1, we'll use it as potentially valid body size to avoid actually

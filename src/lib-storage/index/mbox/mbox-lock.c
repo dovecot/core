@@ -258,7 +258,8 @@ static int mbox_file_locks(struct index_mailbox *ibox, int lock_type,
 		return -1;
 	}
 
-	if (st.st_dev != ibox->mbox_dev || st.st_ino != ibox->mbox_ino)
+	if (st.st_ino != ibox->mbox_ino ||
+	    !CMP_DEV_T(st.st_dev, ibox->mbox_dev))
 		mbox_file_close(ibox);
 
 	if (ibox->mbox_fd == -1) {

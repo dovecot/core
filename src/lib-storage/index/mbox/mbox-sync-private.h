@@ -69,9 +69,12 @@ struct mbox_sync_context {
 	const struct mail_index_header *hdr;
 
 	string_t *header, *from_line;
-	uint32_t base_uid_validity, base_uid_last;
 
-	/* state: */
+	/* header state: */
+	uint32_t base_uid_validity, base_uid_last;
+	uint32_t update_base_uid_last;
+
+	/* mail state: */
 	buffer_t *mails, *syncs;
 	struct mail_index_sync_rec sync_rec;
 
