@@ -106,6 +106,7 @@ struct index_mailbox {
 	unsigned int autosync_pending:1;
 	unsigned int mail_read_mmaped:1;
 	unsigned int last_recent_count_initialized:1;
+	unsigned int syncing_commit:1;
 };
 
 struct index_transaction_context {
