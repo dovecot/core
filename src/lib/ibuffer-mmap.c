@@ -214,6 +214,9 @@ IBuffer *i_buffer_create_mmap(int fd, Pool pool, size_t block_size,
 			v_size = 0;
 		} else {
 			v_size = st.st_size;
+			if (start_offset > v_size)
+				start_offset = v_size;
+			v_size -= start_offset;
 		}
 	}
 
