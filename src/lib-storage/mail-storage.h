@@ -253,21 +253,6 @@ struct mailbox {
 	void (*auto_sync)(struct mailbox *box, enum mailbox_sync_flags flags,
 			  unsigned int min_newmail_notify_interval);
 
-	/* Initialize new fetch request. wanted_fields isn't required, but it
-	   can be used for optimizations. update_flags must be set to TRUE, if
-	   you want to call mail->update_flags() */
-	struct mail_fetch_context *
-		(*fetch_init)(struct mailbox *box,
-			      enum mail_fetch_field wanted_fields,
-			      const char *const *wanted_headers,
-			      const char *messageset, int uidset);
-	/* Deinitialize fetch request. all_found is set to TRUE if all of the
-	   fetched messages were found (ie. not just deleted). */
-	int (*fetch_deinit)(struct mail_fetch_context *ctx, int *all_found);
-	/* Fetch the next message. Returned mail object can be used until
-	   the next call to fetch_next() or fetch_deinit(). */
-	struct mail *(*fetch_next)(struct mail_fetch_context *ctx);
-
 	/* Simplified fetching for a single UID or sequence. Must be called
 	   between fetch_init() .. fetch_deinit() or
 	   search_init() .. search_deinit() */
@@ -296,8 +281,9 @@ struct mailbox {
 			       const enum mail_sort_type *sort_program,
 			       enum mail_fetch_field wanted_fields,
 			       const char *const wanted_headers[]);
-	/* Deinitialize search request. */
-	int (*search_deinit)(struct mail_search_context *ctx);
+	/* Deinitialize search request. all_found is set to TRUE if all of the
+	   messages in search range were found. */
+	int (*search_deinit)(struct mail_search_context *ctx, int *all_found);
 	/* Search the next message. Returned mail object can be used until
 	   the next call to search_next() or search_deinit(). */
 	struct mail *(*search_next)(struct mail_search_context *ctx);

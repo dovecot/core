@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "commands.h"
+#include "imap-search.h"
 
 static int get_modify_type(struct client *client, const char *item,
 			   enum modify_type *modify_type, int *silent)
@@ -59,7 +60,8 @@ int cmd_store(struct client *client)
 	struct mail_full_flags flags;
 	enum modify_type modify_type;
 	struct mailbox *box;
-	struct mail_fetch_context *fetch_ctx;
+	struct mail_search_arg *search_arg;
+	struct mail_search_context *search_ctx;
 	struct mail *mail;
 	const char *messageset, *item;
 	int silent, all_found, failed;
@@ -104,14 +106,16 @@ int cmd_store(struct client *client)
 				    MAILBOX_LOCK_READ);
 	}
 
-	fetch_ctx = failed ? NULL :
-		box->fetch_init(box, MAIL_FETCH_FLAGS, NULL,
-				messageset, client->cmd_uid);
-	if (fetch_ctx == NULL)
+	search_arg = imap_search_get_msgset_arg(messageset, client->cmd_uid);
+	search_ctx = failed ? NULL :
+		box->search_init(box, NULL, search_arg, NULL,
+				 MAIL_FETCH_FLAGS, NULL);
+
+	if (search_ctx == NULL)
 		failed = TRUE;
 	else {
 		failed = FALSE;
-		while ((mail = box->fetch_next(fetch_ctx)) != NULL) {
+		while ((mail = box->search_next(search_ctx)) != NULL) {
 			if (!mail->update_flags(mail, &flags, modify_type)) {
 				failed = TRUE;
 				break;
@@ -126,7 +130,7 @@ int cmd_store(struct client *client)
 		}
 	}
 
-	if (!box->fetch_deinit(fetch_ctx, &all_found))
+	if (!box->search_deinit(search_ctx, &all_found))
 		failed = TRUE;
 
 	(void)box->lock(box, MAILBOX_LOCK_UNLOCK);

@@ -142,7 +142,7 @@ int imap_thread(struct client *client, const char *charset,
 	mail_thread_finish(ctx);
 	o_stream_send_str(client->output, "\r\n");
 
-	ret = client->mailbox->search_deinit(ctx->search_ctx);
+	ret = client->mailbox->search_deinit(ctx->search_ctx, NULL);
         mail_thread_deinit(ctx);
 	return ret;
 }

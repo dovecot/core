@@ -54,17 +54,6 @@ static void _auto_sync(struct mailbox *box, enum mailbox_sync_flags flags,
 	p->box->auto_sync(p->box, flags, min_newmail_notify_interval);
 }
 
-static struct mail_fetch_context *
-_fetch_init(struct mailbox *box, enum mail_fetch_field wanted_fields,
-	    const char *const *wanted_headers,
-	    const char *messageset, int uidset)
-{
-	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
-
-	return p->box->fetch_init(p->box, wanted_fields, wanted_headers,
-				  messageset, uidset);
-}
-
 static struct mail *_fetch_uid(struct mailbox *box, unsigned int uid,
 			       enum mail_fetch_field wanted_fields)
 {
@@ -142,8 +131,6 @@ void proxy_mailbox_init(struct proxy_mailbox *proxy, struct mailbox *box)
 	pb->name = box->name;
 	pb->storage = box->storage;
 
-	pb->fetch_deinit = box->fetch_deinit;
-	pb->fetch_next = box->fetch_next;
 	pb->search_deinit = box->search_deinit;
 	pb->search_next = box->search_next;
 	pb->save_deinit = box->save_deinit;
@@ -159,7 +146,6 @@ void proxy_mailbox_init(struct proxy_mailbox *proxy, struct mailbox *box)
 	pb->get_status = _get_status;
 	pb->sync = _sync;
 	pb->auto_sync = _auto_sync;
-	pb->fetch_init = _fetch_init;
 	pb->fetch_uid = _fetch_uid;
 	pb->fetch_seq = _fetch_seq;
 	pb->search_get_sorting = _search_get_sorting;

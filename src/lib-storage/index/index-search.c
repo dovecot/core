@@ -870,15 +870,21 @@ index_storage_search_init(struct mailbox *box, const char *charset,
 	return ctx;
 }
 
-int index_storage_search_deinit(struct mail_search_context *ctx)
+int index_storage_search_deinit(struct mail_search_context *ctx, int *all_found)
 {
-	int ret;
+	int ret, msgset_ret;
 
 	ret = !ctx->failed && ctx->error == NULL;
 
 	if (ctx->msgset_ctx != NULL) {
-		if (index_messageset_deinit(ctx->msgset_ctx) < 0)
+		msgset_ret = index_messageset_deinit(ctx->msgset_ctx);
+		if (msgset_ret < 0)
 			ret = FALSE;
+		if (all_found != NULL)
+			*all_found = msgset_ret > 0;
+	} else {
+		if (all_found != NULL)
+			*all_found = !ctx->failed;
 	}
 
 	if (ctx->ibox->fetch_mail.pool != NULL)

@@ -10,6 +10,7 @@
 #include "imap-date.h"
 #include "commands.h"
 #include "imap-fetch.h"
+#include "imap-search.h"
 
 #include <unistd.h>
 
@@ -330,6 +331,7 @@ int imap_fetch(struct client *client,
 	       const char *messageset, int uidset)
 {
 	struct mailbox *box = client->mailbox;
+	struct mail_search_arg *search_arg;
 	struct imap_fetch_context ctx;
 	struct mail *mail;
 	struct imap_fetch_body_data *body;
@@ -386,13 +388,14 @@ int imap_fetch(struct client *client,
 			return -1;
 	}
 
-	ctx.fetch_ctx = box->fetch_init(box, fetch_data, wanted_headers,
-					messageset, uidset);
-	if (ctx.fetch_ctx == NULL)
+	search_arg = imap_search_get_msgset_arg(messageset, uidset);
+	ctx.search_ctx = box->search_init(box, NULL, search_arg, NULL,
+					  fetch_data, wanted_headers);
+	if (ctx.search_ctx == NULL)
 		ctx.failed = TRUE;
 	else {
 		ctx.str = str_new(default_pool, 8192);
-		while ((mail = box->fetch_next(ctx.fetch_ctx)) != NULL) {
+		while ((mail = box->search_next(ctx.search_ctx)) != NULL) {
 			if (!fetch_mail(&ctx, mail)) {
 				ctx.failed = TRUE;
 				break;
@@ -400,7 +403,7 @@ int imap_fetch(struct client *client,
 		}
 		str_free(ctx.str);
 
-		if (!box->fetch_deinit(ctx.fetch_ctx, &all_found))
+		if (!box->search_deinit(ctx.search_ctx, &all_found))
 			ctx.failed = TRUE;
 	}
 

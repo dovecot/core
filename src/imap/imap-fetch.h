@@ -19,7 +19,7 @@ struct imap_fetch_body_data {
 };
 
 struct imap_fetch_context {
-	struct mail_fetch_context *fetch_ctx;
+	struct mail_search_context *search_ctx;
 
 	enum mail_fetch_field fetch_data;
 	enum imap_fetch_field imap_data;

@@ -7,6 +7,7 @@
 #include "ostream.h"
 #include "mail-storage.h"
 #include "commands.h"
+#include "mail-search.h"
 
 #include <stdlib.h>
 
@@ -39,10 +40,10 @@ static void client_output_timeout(void *context)
 
 static int init_mailbox(struct client *client)
 {
-	struct mail_fetch_context *ctx;
+	struct mail_search_arg search_arg;
+	struct mail_search_context *ctx;
 	struct mail *mail;
 	struct mailbox_status status;
-	const char *messageset;
 	int i, all_found, failed;
 
 	if (!client->mailbox->get_status(client->mailbox,
@@ -58,12 +59,14 @@ static int init_mailbox(struct client *client)
 	if (client->messages_count == 0)
 		return TRUE;
 
+	memset(&search_arg, 0, sizeof(search_arg));
+	search_arg.type = SEARCH_ALL;
+
 	client->message_sizes = i_new(uoff_t, client->messages_count);
-	messageset = t_strdup_printf("1:%u", client->messages_count);
 	for (i = 0; i < 2; i++) {
-		ctx = client->mailbox->fetch_init(client->mailbox,
-						  MAIL_FETCH_SIZE, NULL,
-						  messageset, FALSE);
+		ctx = client->mailbox->search_init(client->mailbox, NULL,
+						   &search_arg, NULL,
+						   MAIL_FETCH_SIZE, NULL);
 		if (ctx == NULL) {
 			client_send_storage_error(client);
 			return FALSE;
@@ -71,7 +74,7 @@ static int init_mailbox(struct client *client)
 
 		client->total_size = 0;
 		failed = FALSE;
-		while ((mail = client->mailbox->fetch_next(ctx)) != NULL) {
+		while ((mail = client->mailbox->search_next(ctx)) != NULL) {
 			uoff_t size = mail->get_size(mail);
 
 			if (size == (uoff_t)-1) {
@@ -84,7 +87,7 @@ static int init_mailbox(struct client *client)
 			client->message_sizes[mail->seq-1] = size;
 		}
 
-		if (!client->mailbox->fetch_deinit(ctx, &all_found)) {
+		if (!client->mailbox->search_deinit(ctx, &all_found)) {
 			client_send_storage_error(client);
 			return FALSE;
 		}

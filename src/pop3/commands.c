@@ -6,6 +6,7 @@
 #include "str.h"
 #include "message-size.h"
 #include "mail-storage.h"
+#include "mail-search.h"
 #include "capability.h"
 #include "commands.h"
 
@@ -255,20 +256,25 @@ static void stream_send_escaped(struct ostream *output, struct istream *input,
 static void fetch(struct client *client, unsigned int msgnum,
 		  uoff_t body_lines)
 {
-	struct mail_fetch_context *ctx;
+	struct mail_search_arg search_arg;
+	struct mail_search_context *ctx;
 	struct mail *mail;
 	struct istream *stream;
 
-	ctx = client->mailbox->fetch_init(client->mailbox,
-					  MAIL_FETCH_STREAM_HEADER |
-					  MAIL_FETCH_STREAM_BODY, NULL,
-					  dec2str(msgnum+1), FALSE);
+	memset(&search_arg, 0, sizeof(search_arg));
+	search_arg.type = SEARCH_SET;
+	search_arg.value.str = dec2str(msgnum+1);
+
+	ctx = client->mailbox->search_init(client->mailbox, NULL,
+					   &search_arg, NULL,
+					   MAIL_FETCH_STREAM_HEADER |
+					   MAIL_FETCH_STREAM_BODY, NULL);
 	if (ctx == NULL) {
 		client_send_storage_error(client);
 		return;
 	}
 
-	mail = client->mailbox->fetch_next(ctx);
+	mail = client->mailbox->search_next(ctx);
 	stream = mail == NULL ? NULL : mail->get_stream(mail, NULL, NULL);
 	if (stream == NULL)
 		client_send_line(client, "-ERR Message not found.");
@@ -284,7 +290,7 @@ static void fetch(struct client *client, unsigned int msgnum,
 		client_send_line(client, ".");
 	}
 
-	(void)client->mailbox->fetch_deinit(ctx, NULL);
+	(void)client->mailbox->search_deinit(ctx, NULL);
 }
 
 static int cmd_retr(struct client *client, const char *args)
@@ -333,33 +339,37 @@ static int cmd_top(struct client *client, const char *args)
 
 static void list_uids(struct client *client, unsigned int message)
 {
-	struct mail_fetch_context *ctx;
+	struct mail_search_arg search_arg;
+	struct mail_search_context *ctx;
 	struct mail *mail;
-	const char *messageset;
 	int found = FALSE;
 
 	if (client->messages_count == 0 && message == 0)
 		return;
 
-	messageset = message == 0 ?
-		t_strdup_printf("1:%u", client->messages_count) :
-		t_strdup_printf("%u", message);
+	memset(&search_arg, 0, sizeof(search_arg));
+	if (message == 0)
+		search_arg.type = SEARCH_ALL;
+	else {
+		search_arg.type = SEARCH_SET;
+		search_arg.value.str = dec2str(message);
+	}
 
-	ctx = client->mailbox->fetch_init(client->mailbox, 0, NULL,
-					  messageset, FALSE);
+	ctx = client->mailbox->search_init(client->mailbox, NULL,
+					   &search_arg, NULL, 0, NULL);
 	if (ctx == NULL) {
 		client_send_storage_error(client);
 		return;
 	}
 
-	while ((mail = client->mailbox->fetch_next(ctx)) != NULL) {
+	while ((mail = client->mailbox->search_next(ctx)) != NULL) {
 		client_send_line(client, message == 0 ?
 				 "%u %u.%u" : "+OK %u %u.%u",
 				 mail->seq, client->uidvalidity, mail->uid);
 		found = TRUE;
 	}
 
-	(void)client->mailbox->fetch_deinit(ctx, NULL);
+	(void)client->mailbox->search_deinit(ctx, NULL);
 
 	if (!found && message != 0)
 		client_send_line(client, "-ERR Message not found.");

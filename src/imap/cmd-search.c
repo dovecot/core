@@ -37,7 +37,7 @@ static int imap_search(struct client *client, const char *charset,
 		str_printfa(str, " %u", uid ? mail->uid : mail->seq);
 	}
 
-	ret = client->mailbox->search_deinit(ctx);
+	ret = client->mailbox->search_deinit(ctx, NULL);
 
 	if (!first || ret) {
 		str_append(str, "\r\n");

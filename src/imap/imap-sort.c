@@ -244,7 +244,7 @@ int imap_sort(struct client *client, const char *charset,
 		mail_sort_input(ctx, mail);
 
 	mail_sort_flush(ctx);
-	ret = client->mailbox->search_deinit(ctx->search_ctx);
+	ret = client->mailbox->search_deinit(ctx->search_ctx, NULL);
 
 	if (ctx->written || ret) {
 		str_append(ctx->str, "\r\n");

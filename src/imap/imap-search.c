@@ -349,3 +349,13 @@ imap_search_args_build(pool_t pool, struct imap_arg *args, const char **error)
 	return first_sarg;
 }
 
+struct mail_search_arg *
+imap_search_get_msgset_arg(const char *messageset, int uidset)
+{
+	struct mail_search_arg *arg;
+
+	arg = t_new(struct mail_search_arg, 1);
+	arg->type = uidset ? SEARCH_UID : SEARCH_SET;
+	arg->value.str = t_strdup(messageset);
+	return arg;
+}

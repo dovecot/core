@@ -98,14 +98,6 @@ int index_storage_get_status(struct mailbox *box,
 			     struct mailbox_status *status);
 int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
 
-struct mail_fetch_context *
-index_storage_fetch_init(struct mailbox *box,
-			 enum mail_fetch_field wanted_fields,
-			 const char *const *wanted_headers,
-			 const char *messageset, int uidset);
-int index_storage_fetch_deinit(struct mail_fetch_context *ctx, int *all_found);
-struct mail *index_storage_fetch_next(struct mail_fetch_context *ctx);
-
 struct mail *index_storage_fetch_uid(struct mailbox *box, unsigned int uid,
 				     enum mail_fetch_field wanted_fields);
 struct mail *index_storage_fetch_seq(struct mailbox *box, unsigned int seq,
@@ -119,7 +111,8 @@ index_storage_search_init(struct mailbox *box, const char *charset,
 			  const enum mail_sort_type *sort_program,
 			  enum mail_fetch_field wanted_fields,
 			  const char *const wanted_headers[]);
-int index_storage_search_deinit(struct mail_search_context *ctx);
+int index_storage_search_deinit(struct mail_search_context *ctx,
+				int *all_found);
 struct mail *index_storage_search_next(struct mail_search_context *ctx);
 
 struct mail_copy_context *index_storage_copy_init(struct mailbox *box);
