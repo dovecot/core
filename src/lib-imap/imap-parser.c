@@ -11,8 +11,7 @@
 
 #define IS_ATOM_SPECIAL(c) \
 	((c) == '(' || (c) == ')' || (c) == '{' || \
-	 (c) == '*' || (c) == '%' || (c) == '"' || (c) == '\\' || \
-	 (c) <= 32 || (c) == 0x7f)
+	 (c) == '"' || (c) == '\\' || (c) <= 32 || (c) == 0x7f)
 
 #define LIST_ALLOC_SIZE 7
 
@@ -257,6 +256,19 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 	parser->cur_type = ARG_PARSE_NONE;
 }
 
+static int is_valid_atom_char(struct imap_parser *parser, char chr)
+{
+	if (IS_ATOM_SPECIAL(chr)) {
+		parser->error = "Invalid characters in atom";
+		return FALSE;
+	} else if ((chr & 0x80) != 0) {
+		parser->error = "8bit data in atom";
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 static int imap_parser_read_atom(struct imap_parser *parser,
 				 const unsigned char *data, size_t data_size)
 {
@@ -286,13 +298,8 @@ static int imap_parser_read_atom(struct imap_parser *parser,
 				 is_linebreak(data[i])) {
 				imap_parser_save_arg(parser, data, i);
 				break;
-			} else if (IS_ATOM_SPECIAL(data[i])) {
-				parser->error = "Invalid characters in atom";
+			} else if (!is_valid_atom_char(parser, data[i]))
 				return FALSE;
-			} else if ((data[i] & 0x80) != 0) {
-				parser->error = "8bit data in atom";
-				return FALSE;
-			}
 		}
 	}
 
@@ -501,6 +508,8 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 			}
 			break;
 		default:
+			if (!is_valid_atom_char(parser, data[0]))
+				return FALSE;
 			parser->cur_type = ARG_PARSE_ATOM;
                         parser->inside_bracket = FALSE;
 			break;
