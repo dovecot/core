@@ -337,12 +337,38 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 	return -1;
 }
 
-int mail_index_map(struct mail_index *index, int force)
+static int mail_index_map_try_existing(struct mail_index_map *map)
 {
 	const struct mail_index_header *hdr;
-	struct mail_index_map *map;
 	size_t used_size;
+
+	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map))
+		return 0;
+
+	hdr = map->mmap_base;
+
+	/* always check corrupted-flag to avoid errors later */
+	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0)
+		return -1;
+
+	used_size = hdr->header_size + hdr->messages_count * hdr->record_size;
+	if (map->mmap_size >= used_size && map->hdr == hdr) {
+		map->records_count = hdr->messages_count;
+		return 1;
+	}
+	return 0;
+}
+
+int mail_index_map(struct mail_index *index, int force)
+{
+	struct mail_index_map *map;
 	int ret;
+
+	if (!force && index->map != NULL) {
+		ret = mail_index_map_try_existing(index->map);
+		if (ret != 0)
+			return ret;
+	}
 
 	if (index->map != NULL && index->map->refcount > 1) {
 		/* this map is already used by some views and they may have
@@ -364,21 +390,7 @@ int mail_index_map(struct mail_index *index, int force)
 		}
 		/* FIXME: we need to re-read header */
 	} else if (map->mmap_base != NULL) {
-		/* see if re-mmaping is needed (file has grown) */
 		i_assert(map->buffer == NULL);
-		hdr = map->mmap_base;
-
-		/* always check corrupted-flag to avoid errors later */
-		if ((map->hdr->flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0)
-			return -1;
-
-		used_size = hdr->header_size +
-			hdr->messages_count * hdr->record_size;
-		if (map->mmap_size >= used_size && !force) {
-			map->records_count = hdr->messages_count;
-			return 1;
-		}
-
 		if (munmap(map->mmap_base, map->mmap_size) < 0)
 			mail_index_set_syscall_error(index, "munmap()");
 		map->mmap_base = NULL;
