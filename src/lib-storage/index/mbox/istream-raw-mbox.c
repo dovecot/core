@@ -148,33 +148,38 @@ static ssize_t _read(struct _istream *stream)
 	stream->skip = 0;
 	stream->buffer = NULL;
 
+	ret = 0;
 	do {
-		ret = i_stream_read(rstream->input);
 		buf = i_stream_get_data(rstream->input, &pos);
-	} while (ret > 0 && (pos == 1 ||
-			     stream->istream.v_offset + pos <=
-			     rstream->input_peak_offset));
+		if (pos > 1 &&
+		    stream->istream.v_offset + pos > rstream->input_peak_offset)
+			break;
+		ret = i_stream_read(rstream->input);
+	} while (ret > 0);
 
 	if (ret < 0) {
-		if (ret == -2)
-			return -2;
+		if (ret == -2) {
+			if (stream->istream.v_offset + pos ==
+			    rstream->input_peak_offset)
+				return -2;
+		} else {
+			/* we've read the whole file, final byte should be
+			   the \n trailer */
+			if (pos > 0 && buf[pos-1] == '\n')
+				pos--;
 
-		/* we've read the whole file, final byte should be
-		   the \n trailer */
-		if (pos > 0 && buf[pos-1] == '\n')
-			pos--;
+			i_assert(pos >= stream->pos);
+			ret = pos == stream->pos ? -1 :
+				(ssize_t)(pos - stream->pos);
 
-		i_assert(pos >= stream->pos);
-		ret = pos == stream->pos ? -1 :
-			(ssize_t)(pos - stream->pos);
+			stream->buffer = buf;
+			stream->pos = pos;
 
-		stream->buffer = buf;
-		stream->pos = pos;
-
-		rstream->eom = TRUE;
-		rstream->eof = TRUE;
-		handle_end_of_mail(rstream, pos);
-		return ret < 0 ? _read(stream) : ret;
+			rstream->eom = TRUE;
+			rstream->eof = TRUE;
+			handle_end_of_mail(rstream, pos);
+			return ret < 0 ? _read(stream) : ret;
+		}
 	}
 
 	if (stream->istream.v_offset == rstream->from_offset) {
