@@ -78,8 +78,9 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		if ((ret2 = mail_index_refresh(index)) < 0)
 			return -1;
 		if (ret > 0 && ret2 == 0) {
-			if (mail_index_lock_mprotect(index,
-						     index->lock_type) < 0)
+			i_assert(lock_type == F_RDLCK);
+			i_assert(index->lock_type == F_RDLCK);
+			if (mail_index_lock_mprotect(index, lock_type) < 0)
 				return -1;
 			return 1;
 		}
