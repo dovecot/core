@@ -734,7 +734,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				/* error / EOF with no bytes */
 				return -1;
 			}
-			if (ret == 0) {
+			if (ret == 0 && !ctx->input->eof) {
 				/* stream is nonblocking - need more data */
 				return 0;
 			}

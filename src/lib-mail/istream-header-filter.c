@@ -202,19 +202,21 @@ static ssize_t _read(struct _istream *stream)
 
 	stream->buffer = i_stream_get_data(mstream->input, &pos);
 	if (pos <= stream->pos) {
-		if (i_stream_read(mstream->input) == -2) {
+		if ((ret = i_stream_read(mstream->input)) == -2) {
 			if (stream->skip == 0)
 				return -2;
 		}
 		stream->istream.eof = mstream->input->eof;
 		stream->buffer = i_stream_get_data(mstream->input, &pos);
+	} else {
+		ret = 0;
 	}
 
 	stream->pos -= stream->skip;
 	stream->skip = 0;
 
-	ret = pos <= stream->pos ? -1 :
-		(ssize_t) (pos - stream->pos);
+	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
+		(ret == 0 ? 0 : -1);
 	stream->pos = pos;
 	return ret;
 }
