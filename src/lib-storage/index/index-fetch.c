@@ -356,6 +356,11 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 						    index_fetch_mail, &ctx);
 	}
 
+	/* close open message files in cache, they're reopened at next fetch
+	   anyway, and especially with mbox the old data may not be valid
+	   then */
+	imap_msgcache_close(ibox->cache);
+
         flags_file_list_unref(ibox->flagsfile);
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK) || ret == -1)
