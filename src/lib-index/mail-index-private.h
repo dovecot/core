@@ -99,9 +99,8 @@ int mail_index_create_tmp_file(struct mail_index *index, const char **path_r);
    races, unless transaction log is exclusively locked). */
 int mail_index_lock_shared(struct mail_index *index, int update_index,
 			   unsigned int *lock_id_r);
-/* Returns 1 = ok, 0 = already synced up to given log_file_offset, -1 = error */
+/* Returns 0 = ok, -1 = error. */
 int mail_index_lock_exclusive(struct mail_index *index,
-			      uint32_t log_file_seq, uoff_t log_file_offset,
 			      unsigned int *lock_id_r);
 void mail_index_unlock(struct mail_index *index, unsigned int lock_id);
 /* Returns 1 if given lock_id is valid, 0 if not. */

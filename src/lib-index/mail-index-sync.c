@@ -115,6 +115,19 @@ static int mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 	return ret;
 }
 
+static int mail_index_need_lock(struct mail_index *index,
+				uint32_t log_file_seq, uoff_t log_file_offset)
+{
+	if (index->hdr->log_file_seq > log_file_seq ||
+	     (index->hdr->log_file_seq == log_file_seq &&
+	      index->hdr->log_file_offset >= log_file_offset)) {
+		/* already synced */
+		return 0;
+	}
+
+	return 1;
+}
+
 int mail_index_sync_begin(struct mail_index *index,
                           struct mail_index_sync_ctx **ctx_r,
 			  struct mail_index_view **view_r,
@@ -125,23 +138,25 @@ int mail_index_sync_begin(struct mail_index *index,
 	uoff_t offset;
 	size_t size;
 	unsigned int lock_id;
-	int ret;
 
 	if (mail_transaction_log_sync_lock(index->log, &seq, &offset) < 0)
 		return -1;
 
-	/* FIXME: really needed yet? If there are readers, the index file
-	   is copied even if there are no changes.. */
-	ret = mail_index_lock_exclusive(index, log_file_seq,
-					log_file_offset, &lock_id);
-	if (ret <= 0) {
+	if (mail_index_lock_shared(index, TRUE, &lock_id) < 0) {
 		mail_transaction_log_sync_unlock(index->log);
-		return ret;
+		return -1;
 	}
 
 	if (mail_index_map(index, FALSE) <= 0) {
 		mail_transaction_log_sync_unlock(index->log);
+		mail_index_unlock(index, lock_id);
 		return -1;
+	}
+
+	if (!mail_index_need_lock(index, log_file_seq, log_file_offset)) {
+		mail_index_unlock(index, lock_id);
+		mail_transaction_log_sync_unlock(index->log);
+		return 0;
 	}
 
 	ctx = i_new(struct mail_index_sync_ctx, 1);

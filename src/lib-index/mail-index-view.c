@@ -50,6 +50,8 @@ int mail_index_view_lock_head(struct mail_index_view *view, int update_index)
 			view->inconsistent = TRUE;
 			return -1;
 		}
+	} else if (update_index) {
+		// FIXME: check if we need to reopen it!
 	}
 
 	return 0;

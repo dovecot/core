@@ -176,6 +176,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	unsigned int append_count;
 	uint32_t count, file_seq, src_idx, dest_idx;
 	uoff_t file_offset;
+	unsigned int lock_id;
 	int ret;
 
 	/* rewind */
@@ -187,6 +188,9 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 		/* nothing to sync */
 		return 0;
 	}
+
+	if (mail_index_lock_exclusive(index, &lock_id) < 0)
+		return -1;
 
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map))
 		map->write_to_disk = TRUE;
@@ -261,12 +265,15 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 
 	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
 		memcpy(map->mmap_base, &ctx.hdr, sizeof(ctx.hdr));
-		if (msync(map->mmap_base, map->file_used_size, MS_SYNC) < 0)
-			return mail_index_set_syscall_error(index, "msync()");
+		if (msync(map->mmap_base, map->file_used_size, MS_SYNC) < 0) {
+			mail_index_set_syscall_error(index, "msync()");
+			ret = -1;
+		}
 	} else {
 		map->hdr_copy = ctx.hdr;
 		map->hdr = &map->hdr_copy;
 	}
 
+	mail_index_unlock(index, lock_id);
 	return ret;
 }

@@ -327,7 +327,7 @@ static int mail_transaction_log_file_create(struct mail_transaction_log *log,
 
 	if (index->fd != -1) {
 		index->log_locked = TRUE; /* kludging around assert.. */
-		if (mail_index_lock_exclusive(index, 0, 0, &lock_id) < 0) {
+		if (mail_index_lock_exclusive(index, &lock_id) < 0) {
 			(void)file_dotlock_delete(path, fd);
 			index->log_locked = FALSE;
 			return -1;

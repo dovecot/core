@@ -72,7 +72,8 @@ int mail_transaction_map(const struct mail_transaction_header *hdr,
 		}
 		break;
 	}
-	case MAIL_TRANSACTION_EXPUNGE: {
+	case MAIL_TRANSACTION_EXPUNGE:
+	case MAIL_TRANSACTION_EXPUNGE|MAIL_TRANSACTION_EXPUNGE_PROT: {
 		const struct mail_transaction_expunge *rec, *end;
 
 		if (map->expunge == NULL)

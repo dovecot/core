@@ -371,9 +371,15 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 					view->expunges_buf);
 		ret = mail_transaction_map(hdr, data, &seqfix_funcs, view);
 		mail_transaction_expunge_traverse_deinit(view->exp_ctx);
-		i_assert(buffer_get_used_size(view->data_buf) == hdr->size);
 
-		*data_r = buffer_get_data(view->data_buf, NULL);
+		if (ret > 0) {
+			/* modified */
+			i_assert(buffer_get_used_size(view->data_buf) ==
+				 hdr->size);
+			*data_r = buffer_get_data(view->data_buf, NULL);
+		} else {
+			i_assert(buffer_get_used_size(view->data_buf) == 0);
+		}
 	}
 
 	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {

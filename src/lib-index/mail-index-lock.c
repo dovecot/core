@@ -108,8 +108,13 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		   locks then, though */
 		if (lock_type == F_WRLCK)
 			return 0;
+		if (update_index && index->lock_type == F_UNLCK) {
+			if (mail_index_has_changed(index) < 0)
+				return -1;
+		}
 		if (mail_index_lock_mprotect(index, lock_type) < 0)
 			return -1;
+		index->lock_type = lock_type;
 		return 1;
 	}
 
@@ -227,23 +232,6 @@ static int mail_index_copy(struct mail_index *index)
 	return fd;
 }
 
-static int mail_index_need_lock(struct mail_index *index,
-				uint32_t log_file_seq, uoff_t log_file_offset)
-{
-	if (mail_index_map(index, FALSE) <= 0)
-		return 1;
-
-	if (log_file_seq != 0 &&
-	    (index->hdr->log_file_seq > log_file_seq ||
-	     (index->hdr->log_file_seq == log_file_seq &&
-	      index->hdr->log_file_offset >= log_file_offset))) {
-		/* already synced */
-		return 0;
-	}
-
-	return 1;
-}
-
 static int mail_index_lock_exclusive_copy(struct mail_index *index)
 {
 	int fd;
@@ -252,7 +240,7 @@ static int mail_index_lock_exclusive_copy(struct mail_index *index)
 
 	if (index->copy_lock_path != NULL) {
 		index->excl_lock_count++;
-		return 1;
+		return 0;
 	}
 
 	/* copy the index to index.tmp and use it. when */
@@ -280,14 +268,12 @@ static int mail_index_lock_exclusive_copy(struct mail_index *index)
 	}
 
         i_assert(index->excl_lock_count == 1);
-	return 1;
+	return 0;
 }
 
 int mail_index_lock_exclusive(struct mail_index *index,
-			      uint32_t log_file_seq, uoff_t log_file_offset,
 			      unsigned int *lock_id_r)
 {
-	unsigned int lock_id;
 	int ret;
 
 	/* exclusive transaction log lock protects exclusive locking
@@ -296,32 +282,10 @@ int mail_index_lock_exclusive(struct mail_index *index,
 
 	/* wait two seconds for exclusive lock */
 	ret = mail_index_lock(index, F_WRLCK, 2, TRUE, lock_id_r);
-	if (ret > 0) {
-		if (mail_index_need_lock(index, log_file_seq, log_file_offset))
-			return 1;
-
-		mail_index_unlock(index, *lock_id_r);
+	if (ret > 0)
 		return 0;
-	}
 	if (ret < 0)
 		return -1;
-
-	/* Grab shared lock to make sure it's not already being
-	   exclusively locked */
-	if (mail_index_lock_shared(index, TRUE, &lock_id) < 0)
-		return -1;
-
-	if (log_file_seq != 0) {
-		/* check first if we really need to recreate it */
-		ret = mail_index_need_lock(index, log_file_seq,
-					   log_file_offset);
-		if (ret == 0) {
-			mail_index_unlock(index, lock_id);
-			return 0;
-		}
-	}
-
-	mail_index_unlock(index, lock_id);
 
 	*lock_id_r = index->lock_id + 1;
 	return mail_index_lock_exclusive_copy(index);

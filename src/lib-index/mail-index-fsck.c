@@ -112,7 +112,7 @@ int mail_index_fsck(struct mail_index *index)
 	if (mail_transaction_log_sync_lock(index->log, &file_seq,
 					   &file_offset) < 0)
 		return -1;
-	if (mail_index_lock_exclusive(index, 0, 0, &lock_id) < 0) {
+	if (mail_index_lock_exclusive(index, &lock_id) < 0) {
                 mail_transaction_log_sync_unlock(index->log);
 		return -1;
 	}
