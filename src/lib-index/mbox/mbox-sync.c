@@ -125,9 +125,6 @@ int mbox_index_sync(MailIndex *index, MailLockType lock_type, int *changes)
 	if (lock_type != MAIL_LOCK_UNLOCK) {
 		if (!mbox_lock(index, lock_type))
 			return FALSE;
-	} else {
-		if (!mbox_unlock(index))
-			return FALSE;
 	}
 
 	return TRUE;

@@ -448,8 +448,7 @@ int mbox_index_rewrite(MailIndex *index)
 	} while (0);
 
 	if (!rewrite) {
-		(void)mbox_unlock(index);
-		if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
+		if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
 			failed = TRUE;
 		if (inbuf != NULL)
 			i_buffer_unref(inbuf);
@@ -575,7 +574,6 @@ int mbox_index_rewrite(MailIndex *index)
 	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
 		failed = TRUE;
 
-	(void)mbox_unlock(index);
 	(void)unlink(path);
 
 	if (close(tmp_fd) < 0)
