@@ -204,6 +204,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
 			} else if (io->condition & IO_WRITE) {
 				call = (pollfd->revents & IO_POLL_OUTPUT) != 0;
 				pollfd->revents &= ~IO_POLL_OUTPUT;
+			} else {
+				call = FALSE;
 			}
 
 			if (call) {
