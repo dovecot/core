@@ -642,10 +642,6 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 
 	__again:
 		seq++;
-		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
-			/* partial syncing */
-			continue;
-		}
 
 		if (seq > hdr->messages_count) {
 			if (uid < hdr->next_uid) {
@@ -658,6 +654,11 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 				   the difference between this and the later
 				   check is that this one happens when messages
 				   are expunged from the end */
+				if ((uflags &
+				    MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
+					/* partial syncing */
+					continue;
+				}
 				if ((uflags &
 				     MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
 					mail_storage_set_critical(
@@ -703,6 +704,12 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			   committed changes to index. so, this message
 			   shouldn't actually exist. mark it racy and check
 			   in next sync. */
+			if ((uflags &
+			    MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
+				/* partial syncing */
+				seq--;
+				continue;
+			}
 			if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
 				mail_storage_set_critical(ibox->box.storage,
 					"Maildir %s sync: UID inserted in the "
@@ -719,6 +726,11 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 				MAILDIR_UIDLIST_REC_FLAG_RACING);
 
 			seq--;
+			continue;
+		}
+
+		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
+			/* partial syncing */
 			continue;
 		}
 
