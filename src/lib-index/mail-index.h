@@ -72,20 +72,20 @@ typedef struct _MailIndexDataRecord MailIndexDataRecord;
 typedef struct _MailIndexUpdate MailIndexUpdate;
 
 struct _MailIndexHeader {
-	unsigned char compat_data[4];
-	/* 0 = flags,
-	   1 = sizeof(unsigned int),
-	   2 = sizeof(time_t),
-	   3 = sizeof(uoff_t) */
+	unsigned char compat_data[8];
+	/* 0 = version
+	   1 = flags,
+	   2 = sizeof(unsigned int),
+	   3 = sizeof(time_t),
+	   4 = sizeof(uoff_t) */
 
-	unsigned int version;
 	unsigned int indexid;
-
 	unsigned int flags;
-	unsigned int cache_fields;
 
 	uoff_t first_hole_position;
 	unsigned int first_hole_records;
+
+	unsigned int cache_fields;
 
 	unsigned int uid_validity;
 	unsigned int next_uid;
@@ -104,10 +104,13 @@ struct _MailIndexHeader {
 
 struct _MailIndexDataHeader {
 	unsigned int indexid;
+	unsigned int reserved; /* for alignment mostly */
+
 	uoff_t deleted_space;
 };
 
 struct _MailIndexRecord {
+	/* remember to keep uoff_t's 8 byte aligned so we don't waste space */
 	unsigned int uid;
 	unsigned int msg_flags; /* MailFlags */
 	time_t internal_date;

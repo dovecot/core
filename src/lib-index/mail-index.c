@@ -368,14 +368,11 @@ static int read_and_verify_header(int fd, MailIndexHeader *hdr)
 		return FALSE;
 
 	/* check the compatibility */
-	if (hdr->compat_data[0] != MAIL_INDEX_COMPAT_FLAGS ||
-	    hdr->compat_data[1] != sizeof(unsigned int) ||
-	    hdr->compat_data[2] != sizeof(time_t) ||
-	    hdr->compat_data[3] != sizeof(uoff_t))
-		return FALSE;
-
-	/* check the version */
-	return hdr->version == MAIL_INDEX_VERSION;
+	return hdr->compat_data[0] == MAIL_INDEX_VERSION &&
+		hdr->compat_data[1] == MAIL_INDEX_COMPAT_FLAGS &&
+		hdr->compat_data[2] == sizeof(unsigned int) &&
+		hdr->compat_data[3] == sizeof(time_t) &&
+		hdr->compat_data[4] == sizeof(uoff_t);
 }
 
 /* Returns TRUE if we're compatible with given index file */
@@ -572,11 +569,11 @@ static int mail_index_open_file(MailIndex *index, const char *filename,
 void mail_index_init_header(MailIndexHeader *hdr)
 {
 	memset(hdr, 0, sizeof(MailIndexHeader));
-	hdr->compat_data[0] = MAIL_INDEX_COMPAT_FLAGS;
-	hdr->compat_data[1] = sizeof(unsigned int);
-	hdr->compat_data[2] = sizeof(time_t);
-	hdr->compat_data[3] = sizeof(uoff_t);
-	hdr->version = MAIL_INDEX_VERSION;
+	hdr->compat_data[0] = MAIL_INDEX_VERSION;
+	hdr->compat_data[1] = MAIL_INDEX_COMPAT_FLAGS;
+	hdr->compat_data[2] = sizeof(unsigned int);
+	hdr->compat_data[3] = sizeof(time_t);
+	hdr->compat_data[4] = sizeof(uoff_t);
 	hdr->indexid = ioloop_time;
 
 	/* mark the index being rebuilt - rebuild() removes this flag

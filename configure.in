@@ -153,10 +153,11 @@ else
   AC_ERROR([Couldn't find integer type for off_t])
 fi
 
-dnl * memory alignment, could be 1 for x86 systems but 4 should be
-dnl * compatible with everyone. note that only 1, 2 and 4 work corrently.
-dnl * is 8 needed anywhere?
-AC_DEFINE(MEM_ALIGN_SIZE, 4)
+dnl * memory alignment, needed with non-x86 systems and should speed up
+dnl * x86 systems too. Use 8 with everyone to make sure 64bit lookups
+dnl * work. Currently it should also be safe to set to 4 if off_t == 32bit.
+dnl * With x86 it could be 1 as well if you want to save a bit space/memory.
+AC_DEFINE(MEM_ALIGN_SIZE, 8)
 
 dnl * socklen_t - AC_CHECK_TYPE() would be _really_ useful if it only would
 dnl * accept header files where to find the typedef..
