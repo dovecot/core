@@ -205,6 +205,8 @@ static void get_compat_data(unsigned char compat_data[4])
 {
 #ifndef WORDS_BIGENDIAN
 	compat_data[0] = MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
+#else
+	compat_data[0] = 0;
 #endif
 	compat_data[1] = sizeof(uoff_t);
 	compat_data[2] = sizeof(time_t);
