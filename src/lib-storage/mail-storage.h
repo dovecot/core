@@ -330,13 +330,21 @@ struct mail *mailbox_search_next(struct mail_search_context *ctx);
 
 /* Save a mail into mailbox. timezone_offset specifies the timezone in
    minutes in which received_date was originally given with. To use
-   current time, set received_date to (time_t)-1. */
+   current time, set received_date to (time_t)-1.
+
+   If mail_r is non-NULL, the saved message can be accessed using it.
+   Note that setting it non-NULL may require mailbox syncing, so don't give
+   give it unless you need it. */
 int mailbox_save(struct mailbox_transaction_context *t,
 		 const struct mail_full_flags *flags,
 		 time_t received_date, int timezone_offset,
-		 const char *from_envelope, struct istream *data);
-/* Copy given message. */
-int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail);
+		 const char *from_envelope, struct istream *data,
+		 struct mail **mail_r);
+/* Copy given message. If dest_mail_r is non-NULL, the copied message can be
+   accessed using it. Note that setting it non-NULL may require mailbox
+   syncing, so don't give give it unless you need it. */
+int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
+		 struct mail **dest_mail_r);
 
 /* Returns TRUE if mailbox is now in inconsistent state, meaning that
    the message IDs etc. may have changed - only way to recover this

@@ -5,7 +5,7 @@
 #include "mail-search.h"
 #include "imap-expunge.h"
 
-int imap_expunge(struct mailbox *box)
+int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 {
 	struct mail_search_context *ctx;
         struct mailbox_transaction_context *t;
@@ -15,6 +15,7 @@ int imap_expunge(struct mailbox *box)
 
 	memset(&search_arg, 0, sizeof(search_arg));
 	search_arg.type = SEARCH_DELETED;
+	search_arg.next = next_search_arg;
 
 	t = mailbox_transaction_begin(box, FALSE);
 	ctx = mailbox_search_init(t, NULL, &search_arg, NULL, 0, NULL);
@@ -41,4 +42,3 @@ int imap_expunge(struct mailbox *box)
 
 	return !failed;
 }
-

@@ -262,6 +262,13 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 		mbox_set_syscall_error(ctx->sync_ctx->ibox, "pwrite_full()");
 		return -1;
 	}
+
+	if (ctx->sync_ctx->dest_first_mail) {
+		ctx->sync_ctx->base_uid_last =
+			ctx->sync_ctx->update_base_uid_last;
+                ctx->sync_ctx->update_base_uid_last = 0;
+	}
+
 	istream_raw_mbox_flush(ctx->sync_ctx->input);
 	return 1;
 }
@@ -292,7 +299,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	   so we have to fool it. */
 	old_prev_msg_uid = sync_ctx->prev_msg_uid;
 	sync_ctx->prev_msg_uid = mails[idx].uid-1;
-	sync_ctx->dest_first_mail = seq == 1;
+	sync_ctx->dest_first_mail = mails[idx].from_offset == 0;
 
 	mbox_sync_parse_next_mail(sync_ctx->input, &mail_ctx, TRUE);
 	if (mails[idx].space != 0)
@@ -335,6 +342,12 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 			str_len(mail_ctx.header), hdr_offset) < 0) {
 		mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
 		return -1;
+	}
+
+	if (mails[idx].from_offset == 0) {
+		sync_ctx->base_uid_last =
+			sync_ctx->update_base_uid_last;
+                sync_ctx->update_base_uid_last = 0;
 	}
 
 	return 0;

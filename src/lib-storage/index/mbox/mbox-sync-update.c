@@ -3,6 +3,7 @@
 #include "buffer.h"
 #include "str.h"
 #include "message-parser.h"
+#include "index-storage.h"
 #include "mbox-sync-private.h"
 
 static void status_flags_append(struct mbox_sync_mail_context *ctx,
@@ -140,7 +141,8 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 
 	if (ctx->hdr_pos[MBOX_HDR_STATUS] == (size_t)-1 &&
 	    (ctx->mail.flags & STATUS_FLAGS_MASK) != 0) {
-		ctx->mail.flags |= MBOX_NONRECENT;
+		if (!ctx->sync_ctx->ibox->keep_recent)
+                        ctx->mail.flags |= MBOX_NONRECENT;
 		ctx->hdr_pos[MBOX_HDR_STATUS] = str_len(ctx->header);
 		str_append(ctx->header, "Status: ");
 		status_flags_append(ctx, mbox_status_flags);
@@ -278,7 +280,8 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 			   INDEX_KEYWORDS_BYTE_COUNT) != 0)
 			mbox_sync_update_xkeywords(ctx);
 	} else {
-		if ((ctx->mail.flags & MBOX_NONRECENT) == 0) {
+		if ((ctx->mail.flags & MBOX_NONRECENT) == 0 &&
+		    !ctx->sync_ctx->ibox->keep_recent) {
 			ctx->mail.flags |= MBOX_NONRECENT;
 			mbox_sync_update_status(ctx);
 		}
@@ -296,7 +299,9 @@ void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 	    (mail->flags & STATUS_FLAGS_MASK) ||
 	    (ctx->mail.flags & MBOX_NONRECENT) == 0) {
 		ctx->mail.flags = (ctx->mail.flags & ~STATUS_FLAGS_MASK) |
-			(mail->flags & STATUS_FLAGS_MASK) | MBOX_NONRECENT;
+			(mail->flags & STATUS_FLAGS_MASK);
+		if (!ctx->sync_ctx->ibox->keep_recent)
+                        ctx->mail.flags |= MBOX_NONRECENT;
 		mbox_sync_update_status(ctx);
 	}
 	if ((ctx->mail.flags & XSTATUS_FLAGS_MASK) !=

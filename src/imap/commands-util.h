@@ -1,6 +1,11 @@
 #ifndef __COMMANDS_UTIL_H
 #define __COMMANDS_UTIL_H
 
+struct msgset_generator_context {
+	string_t *str;
+	uint32_t first_uid, last_uid;
+};
+
 struct mail_full_flags;
 
 /* Finds mail storage for given mailbox from namespaces. If not found,
@@ -53,5 +58,11 @@ void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 /* Copy keywords into dest. dest must have been initialized. */
 void client_save_keywords(struct mailbox_keywords *dest,
 			  const char *keywords[], unsigned int keywords_count);
+
+int mailbox_name_equals(const char *box1, const char *box2);
+
+void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str);
+void msgset_generator_next(struct msgset_generator_context *ctx, uint32_t uid);
+void msgset_generator_finish(struct msgset_generator_context *ctx);
 
 #endif

@@ -46,6 +46,7 @@ const struct command imap_ext_commands[] = {
 	{ "NAMESPACE",		cmd_namespace },
 	{ "SORT",		cmd_sort },
 	{ "THREAD",		cmd_thread },
+	{ "UID EXPUNGE",	cmd_uid_expunge },
 	{ "UID SORT",		cmd_sort },
 	{ "UID THREAD",		cmd_thread },
 	{ "UNSELECT",		cmd_unselect }

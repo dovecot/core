@@ -49,11 +49,13 @@ void maildir_transaction_rollback(struct mailbox_transaction_context *t);
 int maildir_save(struct mailbox_transaction_context *t,
 		 const struct mail_full_flags *flags,
 		 time_t received_date, int timezone_offset,
-		 const char *from_envelope, struct istream *data);
+		 const char *from_envelope, struct istream *data,
+		 struct mail **mail_r);
 int maildir_save_commit(struct maildir_save_context *ctx);
 void maildir_save_rollback(struct maildir_save_context *ctx);
 
-int maildir_copy(struct mailbox_transaction_context *t, struct mail *mail);
+int maildir_copy(struct mailbox_transaction_context *t, struct mail *mail,
+		 struct mail **dest_mail_r);
 int maildir_copy_commit(struct maildir_copy_context *ctx);
 void maildir_copy_rollback(struct maildir_copy_context *ctx);
 

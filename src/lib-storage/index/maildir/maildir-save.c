@@ -33,7 +33,7 @@ maildir_read_into_tmp(struct index_mailbox *ibox, const char *dir,
 {
 	const char *path, *fname;
 	struct ostream *output;
-	int fd;
+	int fd, crlf;
 
 	fd = maildir_create_tmp(ibox, dir, ibox->mail_create_mode, &path);
 	if (fd == -1)
@@ -46,8 +46,9 @@ maildir_read_into_tmp(struct index_mailbox *ibox, const char *dir,
 	output = o_stream_create_file(fd, pool_datastack_create(), 4096, FALSE);
 	o_stream_set_blocking(output, 60000, NULL, NULL);
 
+	crlf = getenv("MAIL_SAVE_CRLF") != NULL;
 	if (mail_storage_save(ibox->box.storage, path, input, output,
-			      getenv("MAIL_SAVE_CRLF") != NULL, NULL, NULL) < 0)
+			      crlf, crlf, NULL, NULL) < 0)
 		fname = NULL;
 
 	o_stream_unref(output);
@@ -121,7 +122,7 @@ int maildir_save(struct mailbox_transaction_context *_t,
 		 const struct mail_full_flags *flags,
 		 time_t received_date, int timezone_offset __attr_unused__,
 		 const char *from_envelope __attr_unused__,
-		 struct istream *data)
+		 struct istream *data, struct mail **mail_r)
 {
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)_t;

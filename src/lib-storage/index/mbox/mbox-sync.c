@@ -258,7 +258,8 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 
 	mbox_sync_buffer_delete_old(sync_ctx->syncs, uid);
 	while (uid >= sync_rec->uid1) {
-		if (sync_rec->uid1 != 0) {
+		if (sync_rec->uid1 != 0 &&
+		    sync_rec->type != MAIL_INDEX_SYNC_TYPE_APPEND) {
 			i_assert(uid <= sync_rec->uid2);
 			buffer_append(sync_ctx->syncs, sync_rec,
 				      sizeof(*sync_rec));
@@ -276,6 +277,14 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 		if (ret == 0) {
 			memset(sync_rec, 0, sizeof(*sync_rec));
 			break;
+		}
+
+		if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_APPEND) {
+			if (sync_rec->uid2 >= sync_ctx->next_uid) {
+				sync_ctx->next_uid = sync_rec->uid2 + 1;
+                                sync_ctx->update_base_uid_last = sync_rec->uid2;
+			}
+			memset(sync_rec, 0, sizeof(*sync_rec));
 		}
 	}
 
@@ -555,7 +564,9 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 				return -1;
 		}
 	} else if (mail_ctx->need_rewrite ||
-		   buffer_get_used_size(sync_ctx->syncs) != 0) {
+		   buffer_get_used_size(sync_ctx->syncs) != 0 ||
+		   (mail_ctx->seq == 1 &&
+		    sync_ctx->update_base_uid_last != 0)) {
 		if ((ret = mbox_sync_check_excl_lock(sync_ctx)) < 0)
 			return ret;
 
@@ -923,22 +934,26 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
         sync_ctx->seen_first_mail = FALSE;
 }
 
-static int mbox_sync_do(struct mbox_sync_context *sync_ctx)
+static int mbox_sync_do(struct mbox_sync_context *sync_ctx, int sync_header)
 {
 	struct mbox_sync_mail_context mail_ctx;
 	struct stat st;
 	uint32_t min_msg_count;
 	int ret;
 
-	if (fstat(sync_ctx->fd, &st) < 0) {
-		mbox_set_syscall_error(sync_ctx->ibox, "stat()");
-		return -1;
-	}
+	if (sync_header)
+		min_msg_count = 1;
+	else {
+		if (fstat(sync_ctx->fd, &st) < 0) {
+			mbox_set_syscall_error(sync_ctx->ibox, "stat()");
+			return -1;
+		}
 
-	min_msg_count =
-		(uint32_t)st.st_mtime == sync_ctx->hdr->sync_stamp &&
-		(uint64_t)st.st_size == sync_ctx->hdr->sync_size ?
-		0 : (uint32_t)-1;
+		min_msg_count =
+			(uint32_t)st.st_mtime == sync_ctx->hdr->sync_stamp &&
+			(uint64_t)st.st_size == sync_ctx->hdr->sync_size ?
+			0 : (uint32_t)-1;
+	}
 
 	mbox_sync_restart(sync_ctx);
 	if ((ret = mbox_sync_loop(sync_ctx, &mail_ctx, min_msg_count)) == -1)
@@ -975,7 +990,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx)
 	return 0;
 }
 
-static int mbox_sync_has_changed(struct index_mailbox *ibox)
+int mbox_sync_has_changed(struct index_mailbox *ibox)
 {
 	const struct mail_index_header *hdr;
 	struct stat st;
@@ -1020,7 +1035,8 @@ static int mbox_sync_update_imap_base(struct mbox_sync_context *sync_ctx)
 	return 0;
 }
 
-int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
+int mbox_sync(struct index_mailbox *ibox, int last_commit,
+	      int sync_header, int lock)
 {
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
@@ -1035,11 +1051,16 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
 			return -1;
 	}
 
-	if ((ret = mbox_sync_has_changed(ibox)) < 0) {
-		if (lock)
-			(void)mbox_unlock(ibox, lock_id);
-		return -1;
+	if (sync_header)
+		ret = 0;
+	else {
+		if ((ret = mbox_sync_has_changed(ibox)) < 0) {
+			if (lock)
+				(void)mbox_unlock(ibox, lock_id);
+			return -1;
+		}
 	}
+
 	if (ret == 0 && !last_commit)
 		return 0;
 
@@ -1084,7 +1105,7 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
 
 	if (mbox_sync_lock(&sync_ctx, lock_type) < 0)
 		ret = -1;
-	else if (mbox_sync_do(&sync_ctx) < 0)
+	else if (mbox_sync_do(&sync_ctx, sync_header) < 0)
 		ret = -1;
 
 	if (ret < 0)
@@ -1103,8 +1124,9 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
 		ret = -1;
 	}
 
-	if (sync_ctx.base_uid_last != sync_ctx.next_uid-1 && ret == 0 &&
-	    !ibox->mbox_readonly) {
+	if (sync_ctx.seen_first_mail &&
+	    sync_ctx.base_uid_last != sync_ctx.next_uid-1 &&
+	    ret == 0 && !ibox->mbox_readonly) {
 		/* rewrite X-IMAPbase header. do it after mail_index_sync_end()
 		   so previous transactions have been committed. */
 		/* FIXME: ugly .. */
@@ -1155,7 +1177,7 @@ int mbox_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
 		ibox->sync_last_check = ioloop_time;
 
-		if (mbox_sync(ibox, FALSE, FALSE) < 0)
+		if (mbox_sync(ibox, FALSE, FALSE, FALSE) < 0)
 			return -1;
 	}
 

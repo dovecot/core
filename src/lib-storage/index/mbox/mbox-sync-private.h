@@ -97,7 +97,10 @@ struct mbox_sync_context {
 	unsigned int seen_first_mail:1;
 };
 
-int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock);
+int mbox_sync(struct index_mailbox *ibox, int last_commit,
+	      int sync_header, int lock);
+int mbox_sync_has_changed(struct index_mailbox *ibox);
+
 void mbox_sync_parse_next_mail(struct istream *input,
 			       struct mbox_sync_mail_context *ctx,
 			       int rewriting);

@@ -19,7 +19,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 	uint64_t offset;
 
 	if (ibox->mbox_lock_type == F_UNLCK) {
-		if (mbox_sync(ibox, FALSE, TRUE) < 0)
+		if (mbox_sync(ibox, FALSE, FALSE, TRUE) < 0)
 			return -1;
 
 		i_assert(ibox->mbox_lock_type != F_UNLCK);
@@ -74,12 +74,15 @@ static time_t mbox_mail_get_received_date(struct mail *_mail)
 		return (time_t)-1;
 	data->received_date =
 		istream_raw_mbox_get_received_time(mail->ibox->mbox_stream);
-
-	if (data->received_date != (time_t)-1) {
-		index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE,
-				     &data->received_date,
-				     sizeof(data->received_date));
+	if (data->received_date == (time_t)-1) {
+		/* it's broken and conflicts with our "not found"
+		   return value. change it. */
+		data->received_date = 0;
 	}
+
+	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE,
+			     &data->received_date,
+			     sizeof(data->received_date));
 	return data->received_date;
 }
 

@@ -66,6 +66,7 @@ int cmd_idle(struct client *client);
 int cmd_namespace(struct client *client);
 int cmd_sort(struct client *client);
 int cmd_thread(struct client *client);
+int cmd_uid_expunge(struct client *client);
 int cmd_unselect(struct client *client);
 
 /* private: */

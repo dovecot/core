@@ -130,7 +130,8 @@ static int save_headers(struct istream *input, struct ostream *output,
 }
 
 int mail_storage_save(struct mail_storage *storage, const char *path,
-		      struct istream *input, struct ostream *output, int crlf,
+		      struct istream *input, struct ostream *output,
+		      int crlf_hdr, int crlf_body,
 		      header_callback_t *header_callback, void *context)
 {
         write_func_t *write_func;
@@ -139,13 +140,14 @@ int mail_storage_save(struct mail_storage *storage, const char *path,
 	ssize_t ret;
 	int failed;
 
-	write_func = crlf ? write_with_crlf : write_with_lf;
-
 	if (header_callback != NULL) {
+		write_func = crlf_hdr ? write_with_crlf : write_with_lf;
 		if (save_headers(input, output, header_callback,
 				 context, write_func) < 0)
 			return -1;
 	}
+
+	write_func = crlf_body ? write_with_crlf : write_with_lf;
 
 	failed = FALSE;
 	for (;;) {
@@ -188,7 +190,8 @@ int mail_storage_save(struct mail_storage *storage, const char *path,
 	return failed ? -1 : 0;
 }
 
-int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail)
+int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
+		      struct mail **dest_mail_r)
 {
 	struct istream *input;
 
@@ -199,5 +202,5 @@ int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail)
 	return mailbox_save(t, mail->get_flags(mail),
 			    mail->get_received_date(mail), 0,
 			    mail->get_special(mail, MAIL_FETCH_FROM_ENVELOPE),
-			    input);
+			    input, dest_mail_r);
 }

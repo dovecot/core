@@ -131,10 +131,16 @@ static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 	if (ctx->sync_ctx->base_uid_validity == 0) {
 		ctx->sync_ctx->base_uid_validity = uid_validity;
 		ctx->sync_ctx->base_uid_last = uid_last;
-		ctx->sync_ctx->next_uid = uid_last+1;
+		if (ctx->sync_ctx->next_uid-1 <= uid_last)
+			ctx->sync_ctx->next_uid = uid_last+1;
+		else {
+			ctx->sync_ctx->update_base_uid_last =
+				ctx->sync_ctx->next_uid - 1;
+			ctx->need_rewrite = TRUE;
+		}
 	}
 
-	if (ctx->sync_ctx->prev_msg_uid >= ctx->sync_ctx->next_uid) {
+	if (ctx->sync_ctx->next_uid <= ctx->sync_ctx->prev_msg_uid) {
 		/* broken, update */
                 ctx->sync_ctx->next_uid = ctx->sync_ctx->prev_msg_uid+1;
 	}

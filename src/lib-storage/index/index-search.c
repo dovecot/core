@@ -821,11 +821,7 @@ struct mail *index_storage_search_next(struct mail_search_context *_ctx)
 			return NULL;
 		}
 
-		ctx->imail.data.rec = rec;
-		ctx->mail->seq = ctx->seq1++;
-		ctx->mail->uid = rec == NULL ? 0 : rec->uid;
-
-		ret = index_mail_next(&ctx->imail, rec, ctx->mail->seq, TRUE);
+		ret = index_mail_next(&ctx->imail, rec, ctx->seq1++, TRUE);
 		if (ret < 0)
 			break;
 

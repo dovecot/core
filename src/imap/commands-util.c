@@ -339,3 +339,42 @@ void client_save_keywords(struct mailbox_keywords *dest,
 	for (i = 0; i < keywords_count; i++)
 		dest->keywords[i] = p_strdup(dest->pool, keywords[i]);
 }
+
+int mailbox_name_equals(const char *box1, const char *box2)
+{
+	if (strcmp(box1, box2) == 0)
+		return TRUE;
+
+	return strcasecmp(box1, "INBOX") == 0 && strcasecmp(box2, "INBOX") == 0;
+}
+
+void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str)
+{
+	memset(ctx, 0, sizeof(*ctx));
+	ctx->str = str;
+	ctx->last_uid = (uint32_t)-1;
+}
+
+void msgset_generator_next(struct msgset_generator_context *ctx, uint32_t uid)
+{
+	if (uid != ctx->last_uid+1) {
+		if (ctx->first_uid == 0)
+			;
+		else if (ctx->first_uid == ctx->last_uid)
+			str_printfa(ctx->str, "%u,", ctx->first_uid);
+		else {
+			str_printfa(ctx->str, "%u:%u,",
+				    ctx->first_uid, ctx->last_uid);
+		}
+		ctx->first_uid = uid;
+	}
+	ctx->last_uid = uid;
+}
+
+void msgset_generator_finish(struct msgset_generator_context *ctx)
+{
+	if (ctx->first_uid == ctx->last_uid)
+		str_printfa(ctx->str, "%u", ctx->first_uid);
+	else
+		str_printfa(ctx->str, "%u:%u", ctx->first_uid, ctx->last_uid);
+}

@@ -14,6 +14,7 @@ struct mbox_transaction_context {
 
 	struct mbox_save_context *save_ctx;
 	unsigned int mbox_lock_id;
+	unsigned int mbox_modified:1;
 };
 
 extern struct mail mbox_mail;
@@ -36,7 +37,8 @@ int mbox_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
 int mbox_save(struct mailbox_transaction_context *t,
 	      const struct mail_full_flags *flags,
 	      time_t received_date, int timezone_offset,
-	      const char *from_envelope, struct istream *data);
+	      const char *from_envelope, struct istream *data,
+	      struct mail **mail_r);
 int mbox_save_commit(struct mbox_save_context *ctx);
 void mbox_save_rollback(struct mbox_save_context *ctx);
 

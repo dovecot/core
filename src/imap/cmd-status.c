@@ -43,14 +43,6 @@ get_status_items(struct client *client, struct imap_arg *args)
 	return items;
 }
 
-static int mailbox_name_equals(const char *box1, const char *box2)
-{
-	if (strcmp(box1, box2) == 0)
-		return TRUE;
-
-	return strcasecmp(box1, "INBOX") == 0 && strcasecmp(box2, "INBOX") == 0;
-}
-
 static int get_mailbox_status(struct client *client,
 			      struct mail_storage *storage, const char *mailbox,
 			      enum mailbox_status_items items,
@@ -66,7 +58,8 @@ static int get_mailbox_status(struct client *client,
 	} else {
 		/* open the mailbox */
 		box = mailbox_open(storage, mailbox, MAILBOX_OPEN_FAST |
-				   MAILBOX_OPEN_READONLY);
+				   MAILBOX_OPEN_READONLY |
+				   MAILBOX_OPEN_KEEP_RECENT);
 		if (box == NULL)
 			return FALSE;
 	}

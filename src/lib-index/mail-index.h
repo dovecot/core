@@ -277,6 +277,10 @@ void mail_index_update_header(struct mail_index_transaction *t,
 void mail_index_update_extra_rec(struct mail_index_transaction *t,
 				 uint32_t seq, uint32_t data_id,
 				 const void *data);
+/* Returns given appended message, with all updates that have been done
+   to it since the append. */
+const struct mail_index_record *
+mail_index_lookup_append(struct mail_index_transaction *t, uint32_t seq);
 
 /* Returns the last error code. */
 enum mail_index_error mail_index_get_last_error(struct mail_index *index);

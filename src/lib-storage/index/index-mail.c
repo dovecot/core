@@ -546,6 +546,8 @@ int index_mail_next(struct index_mail *mail,
 	cache_flags = (data->cached_fields & MAIL_CACHE_INDEX_FLAGS) == 0 ? 0 :
 		mail_cache_get_record_flags(mail->ibox->cache_view, seq);
 
+	mail->mail.seq = seq;
+	mail->mail.uid = rec->uid;
 	mail->mail.has_nuls = (cache_flags & MAIL_INDEX_FLAG_HAS_NULS) != 0;
 	mail->mail.has_no_nuls =
 		(cache_flags & MAIL_INDEX_FLAG_HAS_NO_NULS) != 0;

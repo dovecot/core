@@ -96,8 +96,10 @@ struct mailbox {
 	int (*save)(struct mailbox_transaction_context *t,
 		    const struct mail_full_flags *flags,
 		    time_t received_date, int timezone_offset,
-		    const char *from_envelope, struct istream *data);
-	int (*copy)(struct mailbox_transaction_context *t, struct mail *mail);
+		    const char *from_envelope, struct istream *data,
+		    struct mail **dest_mail_r);
+	int (*copy)(struct mailbox_transaction_context *t, struct mail *mail,
+		    struct mail **dest_mail_r);
 
 	int (*is_inconsistent)(struct mailbox *box);
 };

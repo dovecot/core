@@ -436,15 +436,17 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context *t)
 int mailbox_save(struct mailbox_transaction_context *t,
 		 const struct mail_full_flags *flags,
 		 time_t received_date, int timezone_offset,
-		 const char *from_envelope, struct istream *data)
+		 const char *from_envelope, struct istream *data,
+		 struct mail **mail_r)
 {
 	return t->box->save(t, flags, received_date, timezone_offset,
-			    from_envelope, data);
+			    from_envelope, data, mail_r);
 }
 
-int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail)
+int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
+		 struct mail **dest_mail_r)
 {
-	return t->box->copy(t, mail);
+	return t->box->copy(t, mail, dest_mail_r);
 }
 
 int mailbox_is_inconsistent(struct mailbox *box)

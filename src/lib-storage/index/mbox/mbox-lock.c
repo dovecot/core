@@ -331,6 +331,7 @@ int mbox_lock(struct index_mailbox *ibox, int lock_type,
 
 	if (ibox->mbox_lock_type == lock_type) {
 		ibox->mbox_locks++;
+		*lock_id_r = ibox->mbox_lock_id;
 		return 1;
 	}
 

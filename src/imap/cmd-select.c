@@ -27,8 +27,8 @@ int _cmd_select_full(struct client *client, int readonly)
 	if (storage == NULL)
 		return TRUE;
 
-	box = mailbox_open(storage, mailbox,
-			   readonly ? MAILBOX_OPEN_READONLY : 0);
+	box = mailbox_open(storage, mailbox, !readonly ? 0 :
+			   (MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT));
 	if (box == NULL) {
 		client_send_storage_error(client, storage);
 		return TRUE;

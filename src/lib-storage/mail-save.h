@@ -8,9 +8,11 @@ typedef int header_callback_t(const char *name,
 			      write_func_t *write_func, void *context);
 
 int mail_storage_save(struct mail_storage *storage, const char *path,
-		      struct istream *input, struct ostream *output, int crlf,
+		      struct istream *input, struct ostream *output,
+		      int crlf_hdr, int crlf_body,
 		      header_callback_t *header_callback, void *context);
 
-int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail);
+int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
+		      struct mail **dest_mail_r);
 
 #endif

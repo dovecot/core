@@ -161,6 +161,18 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 	rec->uid = uid;
 }
 
+static struct mail_index_record *
+mail_index_lookup_append_rec(struct mail_index_transaction *t, uint32_t seq)
+{
+	size_t pos;
+
+	i_assert(seq >= t->first_new_seq && seq <= t->last_new_seq);
+
+	pos = (seq - t->first_new_seq) * t->view->index->record_size;
+	return buffer_get_space_unsafe(t->appends, pos,
+				       t->view->index->record_size);
+}
+
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 {
         struct mail_transaction_expunge exp, *data;
@@ -288,15 +300,10 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum mail_flags flags, keywords_mask_t keywords)
 {
 	struct mail_index_record *rec;
-	size_t pos;
 
 	if (t->first_new_seq != 0 && seq >= t->first_new_seq) {
 		/* just appended message, modify it directly */
-		i_assert(seq > 0 && seq <= t->last_new_seq);
-
-		pos = (seq - t->first_new_seq) * t->view->index->record_size;
-		rec = buffer_get_space_unsafe(t->appends, pos,
-					      t->view->index->record_size);
+                rec = mail_index_lookup_append_rec(t, seq);
 		mail_index_record_modify_flags(rec, modify_type,
 					       flags, keywords);
 		return;
@@ -467,33 +474,15 @@ static void mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
 	memcpy(seq_p+1, record, record_size);
 }
 
-static void mail_index_update_record(struct mail_index_transaction *t,
-				     uint32_t seq, size_t offset,
-				     const void *record, size_t record_size)
-{
-	struct mail_index *index = t->view->index;
-	struct mail_index_record *rec;
-	size_t pos;
-
-	i_assert(seq > 0 && seq <= t->last_new_seq);
-
-	pos = (seq - t->first_new_seq) * index->record_size;
-	rec = buffer_get_space_unsafe(t->appends, pos,
-				      index->record_size);
-
-	memcpy(PTR_OFFSET(rec, offset), record, record_size);
-}
-
 void mail_index_update_cache(struct mail_index_transaction *t,
 			     uint32_t seq, uint32_t offset)
 {
+	struct mail_index_record *rec;
+
 	if (t->first_new_seq != 0 && seq >= t->first_new_seq) {
 		/* just appended message, modify it directly */
-		size_t rec_offset;
-
-		rec_offset = offsetof(struct mail_index_record, cache_offset);
-		mail_index_update_record(t, seq, rec_offset,
-					 &offset, sizeof(offset));
+		rec = mail_index_lookup_append_rec(t, seq);
+		rec->cache_offset = offset;
 	} else {
 		mail_index_update_seq_buffer(&t->cache_updates, seq,
 					     &offset, sizeof(offset));
@@ -505,15 +494,16 @@ void mail_index_update_extra_rec(struct mail_index_transaction *t,
 				 const void *data)
 {
 	struct mail_index *index = t->view->index;
+	struct mail_index_record *rec;
 
 	i_assert(data_id < index->extra_records_count);
 
 	if (t->first_new_seq != 0 && seq >= t->first_new_seq) {
 		/* just appended message, modify it directly */
 		/* FIXME: do data_id mapping conversion */
-		mail_index_update_record(t, seq,
-			index->extra_records[data_id].offset, data,
-			index->extra_records[data_id].size);
+		rec = mail_index_lookup_append_rec(t, seq);
+		memcpy(PTR_OFFSET(rec, index->extra_records[data_id].offset),
+		       data, index->extra_records[data_id].size);
 	} else {
 		mail_index_update_seq_buffer(&t->extra_rec_updates[data_id],
 			seq, data, index->extra_records[data_id].size);
@@ -531,4 +521,10 @@ void mail_index_update_header(struct mail_index_transaction *t,
 	memcpy(t->hdr_change + offset, data, size);
 	for (; size > 0; size--)
 		t->hdr_mask[offset++] = 1;
+}
+
+const struct mail_index_record *
+mail_index_lookup_append(struct mail_index_transaction *t, uint32_t seq)
+{
+	return mail_index_lookup_append_rec(t, seq);
 }
