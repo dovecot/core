@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "ioloop.h"
+#include "network.h"
 #include "ostream.h"
 #include "str.h"
 #include "lib-signals.h"
@@ -14,6 +15,7 @@
 #include "commands.h"
 #include "namespace.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <syslog.h>
@@ -203,6 +205,13 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	if (getenv("LOGGED_IN") != NULL && getenv("GDB") == NULL)
 		fd_debug_verify_leaks(3, 1024);
 #endif
+	if (IS_STANDALONE() && getuid() == 0 &&
+	    net_getpeername(1, NULL, NULL) == 0) {
+		printf("* BAD [ALERT] imap binary must not be started from "
+		       "inetd, use imap-login instead.\n");
+		return 1;
+	}
+
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
