@@ -112,10 +112,23 @@ int maildir_file_do(struct mail_index *index, struct mail_index_record *rec,
 const char *maildir_generate_tmp_filename(const struct timeval *tv)
 {
 	static unsigned int create_count = 0;
+	static time_t first_stamp = 0;
 
-	return t_strdup_printf("%s.P%sQ%uM%s.%s",
-			       dec2str(tv->tv_sec), my_pid, create_count++,
-			       dec2str(tv->tv_usec), my_hostname);
+	if (first_stamp == 0 || first_stamp == ioloop_time) {
+		/* it's possible that within last second another process had
+		   the same UID as us. Use usecs to make sure we don't create
+		   duplicate base name. */
+		first_stamp = ioloop_time;
+		return t_strdup_printf("%s.P%sQ%uM%s.%s",
+				       dec2str(tv->tv_sec), my_pid,
+				       create_count++,
+				       dec2str(tv->tv_usec), my_hostname);
+	} else {
+		/* Don't bother with usecs. Saves a bit space :) */
+		return t_strdup_printf("%s.P%sQ%u.%s",
+				       dec2str(tv->tv_sec), my_pid,
+				       create_count++, my_hostname);
+	}
 }
 
 int maildir_create_tmp(struct mail_index *index, const char *dir,
