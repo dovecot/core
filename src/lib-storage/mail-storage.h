@@ -111,7 +111,7 @@ struct _MailStorage {
 				       MailboxNameStatus *status);
 
 	/* Returns the error message of last occured error. */
-	const char *(*get_last_error)(MailStorage *storage);
+	const char *(*get_last_error)(MailStorage *storage, int *syntax_error);
 
 /* private: */
 	char *dir; /* root directory */
@@ -123,6 +123,8 @@ struct _MailStorage {
 
 	MailStorageCallbacks *callbacks;
 	void *callback_context;
+
+	unsigned int syntax_error:1; /* Give a BAD reply instead of NO */
 };
 
 struct _Mailbox {
@@ -282,11 +284,13 @@ MailStorage *mail_storage_create_with_data(const char *data, const char *user);
 void mail_storage_clear_error(MailStorage *storage);
 void mail_storage_set_error(MailStorage *storage, const char *fmt, ...)
 	__attr_format__(2, 3);
+void mail_storage_set_syntax_error(MailStorage *storage, const char *fmt, ...)
+	__attr_format__(2, 3);
 void mail_storage_set_critical(MailStorage *storage, const char *fmt, ...)
 	__attr_format__(2, 3);
 void mail_storage_set_internal_error(MailStorage *storage);
 
-const char *mail_storage_get_last_error(MailStorage *storage);
+const char *mail_storage_get_last_error(MailStorage *storage, int *syntax);
 int mail_storage_is_inconsistency_error(Mailbox *box);
 
 #endif

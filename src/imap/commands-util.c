@@ -98,6 +98,9 @@ void client_sync_without_expunges(Client *client)
 
 void client_send_storage_error(Client *client)
 {
+	const char *error;
+	int syntax;
+
 	if (client->mailbox != NULL &&
 	    client->mailbox->is_inconsistency_error(client->mailbox)) {
 		/* we can't do forced CLOSE, so have to disconnect */
@@ -107,8 +110,9 @@ void client_send_storage_error(Client *client)
 		return;
 	}
 
-	client_send_tagline(client, t_strconcat("NO ",
-		client->storage->get_last_error(client->storage), NULL));
+	error = client->storage->get_last_error(client->storage, &syntax);
+	client_send_tagline(client, t_strconcat(syntax ? "BAD " : "NO ",
+						error, NULL));
 }
 
 int client_parse_mail_flags(Client *client, ImapArg *args, size_t args_count,

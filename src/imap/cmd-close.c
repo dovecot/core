@@ -5,8 +5,12 @@
 
 static void client_send_untagged_storage_error(Client *client)
 {
-	client_send_line(client, t_strconcat("* NO ",
-		client->storage->get_last_error(client->storage), NULL));
+	const char *error;
+	int syntax;
+
+	error = client->storage->get_last_error(client->storage, &syntax);
+	client_send_line(client,
+			 t_strconcat(syntax ? "* BAD " : "* NO ", error, NULL));
 }
 
 int cmd_close(Client *client)

@@ -26,7 +26,7 @@
 		(arg)->result = !(arg)->not ? (res) : -(res); \
 	} STMT_END
 
-#define TXT_UNKNOWN_CHARSET "Unknown charset"
+#define TXT_UNKNOWN_CHARSET "[BADCHARSET] Unknown charset"
 #define TXT_INVALID_SEARCH_KEY "Invalid search key"
 
 typedef struct {
@@ -403,6 +403,12 @@ static int search_arg_match_envelope(SearchIndexContext *ctx,
 				/* we're just testing existence of the field.
 				   assume it matches with non-NIL values. */
 				ret = field != NULL ? 1 : 0;
+				break;
+			}
+
+			if (field == NULL) {
+				/* doesn't exist */
+				ret = 0;
 				break;
 			}
 

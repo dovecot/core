@@ -538,7 +538,9 @@ MailStorage maildir_storage = {
 	NULL,
 	NULL,
 	NULL,
-	NULL, NULL
+	NULL, NULL,
+
+	0
 };
 
 Mailbox maildir_mailbox = {

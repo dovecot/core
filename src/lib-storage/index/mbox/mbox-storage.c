@@ -513,7 +513,9 @@ MailStorage mbox_storage = {
 	NULL,
 	NULL,
 	NULL,
-	NULL, NULL
+	NULL, NULL,
+
+	0
 };
 
 Mailbox mbox_mailbox = {

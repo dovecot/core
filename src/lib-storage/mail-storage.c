@@ -127,6 +127,8 @@ void mail_storage_clear_error(MailStorage *storage)
 {
 	i_free(storage->error);
 	storage->error = NULL;
+
+	storage->syntax_error = FALSE;
 }
 
 void mail_storage_set_error(MailStorage *storage, const char *fmt, ...)
@@ -140,6 +142,23 @@ void mail_storage_set_error(MailStorage *storage, const char *fmt, ...)
 	else {
 		va_start(va, fmt);
 		storage->error = i_strdup_vprintf(fmt, va);
+		storage->syntax_error = FALSE;
+		va_end(va);
+	}
+}
+
+void mail_storage_set_syntax_error(MailStorage *storage, const char *fmt, ...)
+{
+	va_list va;
+
+	i_free(storage->error);
+
+	if (fmt == NULL)
+		storage->error = NULL;
+	else {
+		va_start(va, fmt);
+		storage->error = i_strdup_vprintf(fmt, va);
+		storage->syntax_error = TRUE;
 		va_end(va);
 	}
 }
@@ -153,6 +172,7 @@ void mail_storage_set_internal_error(MailStorage *storage)
 
 	storage->error = strftime(str, sizeof(str), CRITICAL_MSG, tm) > 0 ?
 		i_strdup(str) : i_strdup("Internal error");
+	storage->syntax_error = FALSE;
 }
 
 void mail_storage_set_critical(MailStorage *storage, const char *fmt, ...)
@@ -174,8 +194,10 @@ void mail_storage_set_critical(MailStorage *storage, const char *fmt, ...)
 	}
 }
 
-const char *mail_storage_get_last_error(MailStorage *storage)
+const char *mail_storage_get_last_error(MailStorage *storage, int *syntax)
 {
+	if (syntax != NULL)
+		*syntax = storage->syntax_error;
 	return storage->error;
 }
 

@@ -24,22 +24,18 @@ static unsigned int get_next_number(const char **str)
 
 static int mail_index_foreach(MailIndex *index,
 			      unsigned int seq, unsigned int seq2,
-			      MsgsetForeachFunc func, void *context,
-			      const char **error)
+			      MsgsetForeachFunc func, void *context)
 {
 	MailIndexRecord *rec;
 	const ModifyLogExpunge *expunges;
-	unsigned int idx_seq, expunges_before;
+	unsigned int idx_seq, expunges_before, temp;
 	int expunges_found;
 
 	if (seq > seq2) {
-		/* Second sequence can't be smaller than first - we could swap
-		   them but I think it's a bug in client if it does this,
-		   and better complain about it immediately than later let
-		   them wonder why it doesn't work with other imapds.. */
-		*error = t_strdup_printf("Invalid messageset range: %u > %u",
-					 seq, seq2);
-		return -2;
+		/* swap, as specified by latest IMAP4rev1 spec */
+		temp = seq;
+		seq = seq2;
+		seq2 = temp;
 	}
 
 	/* get list of expunged messages in our range. the expunges_before
@@ -108,8 +104,8 @@ static int mail_index_messageset_foreach(MailIndex *index,
 
 	*error = NULL;
 	if (messages_count == 0) {
-		/* no messages in mailbox */
-		return 1;
+		*error = "No messages in mailbox";
+		return -2;
 	}
 
 	all_found = TRUE;
@@ -168,8 +164,7 @@ static int mail_index_messageset_foreach(MailIndex *index,
 		}
 
 		t_push();
-		ret = mail_index_foreach(index, seq, seq2,
-					 func, context, error);
+		ret = mail_index_foreach(index, seq, seq2, func, context);
 		t_pop();
 		if (ret <= 0)
 			return ret;
@@ -182,19 +177,18 @@ static int mail_index_messageset_foreach(MailIndex *index,
 
 static int mail_index_uid_foreach(MailIndex *index,
 				  unsigned int uid, unsigned int uid2,
-				  MsgsetForeachFunc func, void *context,
-				  const char **error)
+				  MsgsetForeachFunc func, void *context)
 {
 	MailIndexRecord *rec;
 	const ModifyLogExpunge *expunges;
-	unsigned int client_seq, idx_seq, expunges_before;
+	unsigned int client_seq, idx_seq, expunges_before, temp;
 	int expunges_found;
 
 	if (uid > uid2) {
-		/* not allowed - see mail_index_foreach() */
-		*error = t_strdup_printf("Invalid uidset range: %u > %u",
-					 uid, uid2);
-		return -2;
+		/* swap, as specified by latest IMAP4rev1 spec */
+		temp = uid;
+		uid = uid2;
+		uid2 = temp;
 	}
 
 	/* get list of expunged messages in our range. */
@@ -290,12 +284,6 @@ static int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 				}
 			} else {
 				uid2 = index->header->next_uid-1;
-				if (uid2 < uid) {
-					/* allow requesting "n:*" where n is
-					   larger than the actual (synced)
-					   messages count */
-					uid2 = uid;
-				}
 				input++;
 			}
 		}
@@ -308,18 +296,14 @@ static int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 			return -2;
 		}
 
-		if (uid >= index->header->next_uid) {
-			/* too large .. ignore silently */
-		} else {
-			t_push();
-			ret = mail_index_uid_foreach(index, uid, uid2,
-						     func, context, error);
-			t_pop();
-			if (ret <= 0)
-				return ret;
-			if (ret == 2)
-				all_found = FALSE;
-		}
+		t_push();
+		ret = mail_index_uid_foreach(index, uid, uid2,
+					     func, context);
+		t_pop();
+		if (ret <= 0)
+			return ret;
+		if (ret == 2)
+			all_found = FALSE;
 	}
 
 	return all_found ? 1 : 2;
@@ -345,7 +329,8 @@ int index_messageset_foreach(IndexMailbox *ibox,
 	if (ret < 0) {
 		if (ret == -2) {
 			/* user error */
-			mail_storage_set_error(ibox->box.storage, "%s", error);
+			mail_storage_set_syntax_error(ibox->box.storage,
+						      "%s", error);
 		} else {
 			mail_storage_set_index_error(ibox);
 		}

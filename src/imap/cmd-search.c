@@ -52,8 +52,11 @@ int cmd_search(Client *client)
 		if (client->mailbox->search(client->mailbox, charset,
 					    sargs, NULL,
 					    client->output, client->cmd_uid)) {
-			/* NOTE: syncing isn't allowed here */
-			client_sync_without_expunges(client);
+			/* NOTE: syncing is allowed when returning UIDs */
+			if (client->cmd_uid)
+				client_sync_full(client);
+			else
+				client_sync_without_expunges(client);
 			client_send_tagline(client, "OK Search completed.");
 		} else {
 			client_send_storage_error(client);
