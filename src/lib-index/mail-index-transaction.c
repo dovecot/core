@@ -1,5 +1,9 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
+/* Inside transaction we keep messages stored in sequences in uid fields.
+   Before they're written to transaction log the sequences are changed to
+   UIDs. This is because we're able to compress sequence ranges better. */
+
 #include "lib.h"
 #include "buffer.h"
 #include "mail-index-view-private.h"
@@ -34,6 +38,43 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 	i_free(t);
 }
 
+static void
+mail_index_buffer_convert_to_uids(struct mail_index_view *view,
+				  buffer_t *buf, size_t record_size, int range)
+{
+	unsigned char *data;
+	size_t size, i;
+	uint32_t *seq;
+
+	if (buf == NULL)
+		return;
+
+	/* @UNSAFE */
+	data = buffer_get_modifyable_data(buf, &size);
+	for (i = 0; i < size; i += record_size) {
+		seq = (uint32_t *)&data[i];
+
+		seq[0] = view->map->records[seq[0]-1].uid;
+		if (range)
+			seq[1] = view->map->records[seq[1]-1].uid;
+	}
+}
+
+static int
+mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
+{
+	if (mail_index_view_lock(t->view) < 0)
+		return -1;
+
+	mail_index_buffer_convert_to_uids(t->view, t->expunges,
+		sizeof(struct mail_transaction_expunge), TRUE);
+	mail_index_buffer_convert_to_uids(t->view, t->updates,
+		sizeof(struct mail_transaction_flag_update), TRUE);
+	mail_index_buffer_convert_to_uids(t->view, t->cache_updates,
+		sizeof(struct mail_transaction_cache_update), TRUE);
+	return 0;
+}
+
 int mail_index_transaction_commit(struct mail_index_transaction *t,
 				  uint32_t *log_file_seq_r,
 				  uoff_t *log_file_offset_r)
@@ -45,10 +86,15 @@ int mail_index_transaction_commit(struct mail_index_transaction *t,
 		return -1;
 	}
 
-	if (t->last_update.seq1 != 0)
+	if (t->last_update.uid1 != 0)
 		mail_index_transaction_add_last(t);
 
-	ret = mail_transaction_log_append(t, log_file_seq_r, log_file_offset_r);
+	if (mail_index_transaction_convert_to_uids(t) < 0)
+		ret = -1;
+	else {
+		ret = mail_transaction_log_append(t, log_file_seq_r,
+						  log_file_offset_r);
+	}
 
 	mail_index_transaction_free(t);
 	return ret;
@@ -87,14 +133,11 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 {
         struct mail_transaction_expunge exp, *data;
 	unsigned int idx, left_idx, right_idx;
-	uint32_t uid;
 	size_t size;
 
 	i_assert(seq > 0 && seq <= mail_index_view_get_message_count(t->view));
 
-	uid = t->view->map->records[seq-1].uid;
-	exp.seq1 = exp.seq2 = seq;
-	exp.uid1 = exp.uid2 = uid;
+	exp.uid1 = exp.uid2 = seq;
 
 	/* expunges is a sorted array of {seq1, seq2, ..}, .. */
 
@@ -110,23 +153,21 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 	i_assert(size > 0);
 
 	/* quick checks */
-	if (data[size-1].seq2 == seq-1) {
+	if (data[size-1].uid2 == seq-1) {
 		/* grow last range */
-		data[size-1].seq2 = seq;
-		data[size-1].uid2 = uid;
+		data[size-1].uid2 = seq;
 		return;
 	}
-	if (data[size-1].seq2 < seq) {
+	if (data[size-1].uid2 < seq) {
 		buffer_append(t->expunges, &exp, sizeof(exp));
 		return;
 	}
-	if (data[0].seq1 == seq+1) {
+	if (data[0].uid1 == seq+1) {
 		/* grow down first range */
-		data[0].seq1 = seq;
-		data[0].uid1 = uid;
+		data[0].uid1 = seq;
 		return;
 	}
-	if (data[0].seq1 > seq) {
+	if (data[0].uid1 > seq) {
 		buffer_insert(t->expunges, 0, &exp, sizeof(exp));
 		return;
 	}
@@ -137,42 +178,38 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
 
-		if (data[idx].seq1 < seq)
+		if (data[idx].uid1 < seq)
 			left_idx = idx+1;
-		else if (data[idx].seq1 > seq)
+		else if (data[idx].uid1 > seq)
 			right_idx = idx;
 		else
 			break;
 	}
 
-	if (data[idx].seq2 < seq)
+	if (data[idx].uid2 < seq)
 		idx++;
 
         /* idx == size couldn't happen because we already handle it above */
-	i_assert(idx < size && data[idx].seq1 >= seq);
+	i_assert(idx < size && data[idx].uid1 >= seq);
 
-	if (data[idx].seq1 <= seq && data[idx].seq2 >= seq) {
+	if (data[idx].uid1 <= seq && data[idx].uid2 >= seq) {
 		/* already expunged */
 		return;
 	}
 
-	if (data[idx].seq1 == seq+1) {
-		data[idx].seq1 = seq;
-		data[idx].uid1 = uid;
-		if (idx > 0 && data[idx-1].seq2 == seq-1) {
+	if (data[idx].uid1 == seq+1) {
+		data[idx].uid1 = seq;
+		if (idx > 0 && data[idx-1].uid2 == seq-1) {
 			/* merge */
-			data[idx-1].seq2 = data[idx].seq2;
 			data[idx-1].uid2 = data[idx].uid2;
 			buffer_delete(t->expunges, idx * sizeof(*data),
 				      sizeof(*data));
 		}
-	} else if (data[idx].seq2 == seq-1) {
+	} else if (data[idx].uid2 == seq-1) {
 		i_assert(idx+1 < size); /* already handled above */
-		data[idx].seq2 = seq;
-		data[idx].uid2 = uid;
-		if (data[idx+1].seq1 == seq+1) {
+		data[idx].uid2 = seq;
+		if (data[idx+1].uid1 == seq+1) {
 			/* merge */
-			data[idx+1].seq1 = data[idx].seq1;
 			data[idx+1].uid1 = data[idx].uid1;
 			buffer_delete(t->expunges, idx * sizeof(*data),
 				      sizeof(*data));
@@ -237,25 +274,25 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 	/* first get group updates into same structure. this allows faster
 	   updates if same mails have multiple flag updates during same
 	   transaction (eg. 1:10 +seen, 1:10 +deleted) */
-	if (t->last_update.seq2 == seq-1) {
-		if (t->last_update.seq1 != 0 &&
+	if (t->last_update.uid2 == seq-1) {
+		if (t->last_update.uid1 != 0 &&
 		    IS_COMPATIBLE_UPDATE(t, modify_type, flags, keywords)) {
-			t->last_update.seq2 = seq;
+			t->last_update.uid2 = seq;
 			return;
 		}
-	} else if (t->last_update.seq1 == seq+1) {
-		if (t->last_update.seq1 != 0 &&
+	} else if (t->last_update.uid1 == seq+1) {
+		if (t->last_update.uid1 != 0 &&
 		    IS_COMPATIBLE_UPDATE(t, modify_type, flags, keywords)) {
-			t->last_update.seq1 = seq;
+			t->last_update.uid1 = seq;
 			return;
 		}
 	}
 
-	if (t->last_update.seq1 != 0)
+	if (t->last_update.uid1 != 0)
 		mail_index_transaction_add_last(t);
 
 	t->last_update_modify_type = modify_type;
-	t->last_update.seq1 = t->last_update.seq2 = seq;
+	t->last_update.uid1 = t->last_update.uid2 = seq;
 	t->last_update.add_flags = flags;
 	memcpy(t->last_update.add_keywords, keywords,
 	       INDEX_KEYWORDS_BYTE_COUNT);
@@ -312,35 +349,35 @@ static void mail_index_transaction_add_last(struct mail_index_transaction *t)
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
 
-		if (data[idx].seq1 < update.seq1)
+		if (data[idx].uid1 < update.uid1)
 			left_idx = idx+1;
-		else if (data[idx].seq1 > update.seq1)
+		else if (data[idx].uid1 > update.uid1)
 			right_idx = idx;
 		else
 			break;
 	}
-	if (idx < size && data[idx].seq2 < update.seq1)
+	if (idx < size && data[idx].uid2 < update.uid1)
 		idx++;
 
-	i_assert(idx == size || data[idx].seq1 < update.seq1);
+	i_assert(idx == size || data[idx].uid1 < update.uid1);
 
 	/* insert it into buffer, split it in multiple parts if needed
 	   to make sure the ordering stays the same */
 	for (; idx < size; idx++) {
-		if (data[idx].seq1 > update.seq2)
+		if (data[idx].uid1 > update.uid2)
 			break;
 
 		/* partial */
-		last = update.seq2;
-		update.seq2 = data[idx].seq1-1;
+		last = update.uid2;
+		update.uid2 = data[idx].uid1-1;
 
 		buffer_insert(t->updates, idx * sizeof(update),
 			      &update, sizeof(update));
 		data = buffer_get_modifyable_data(t->updates, NULL);
 		size++;
 
-		update.seq1 = update.seq2+1;
-		update.seq2 = last;
+		update.uid1 = update.uid2+1;
+		update.uid2 = last;
 	}
 
 	buffer_insert(t->updates, idx * sizeof(update),
@@ -363,16 +400,16 @@ void mail_index_update_cache(struct mail_index_transaction *t,
 	size /= sizeof(*data);
 
 	/* we're probably appending it, check */
-	if (size == 0 || data[size-1].seq < seq)
+	if (size == 0 || data[size-1].uid < seq)
 		idx = size;
 	else {
 		idx = 0; left_idx = 0; right_idx = size;
 		while (left_idx < right_idx) {
 			idx = (left_idx + right_idx) / 2;
 
-			if (data[idx].seq < seq)
+			if (data[idx].uid < seq)
 				left_idx = idx+1;
-			else if (data[idx].seq > seq)
+			else if (data[idx].uid > seq)
 				right_idx = idx;
 			else {
 				/* already there, update */
@@ -382,7 +419,7 @@ void mail_index_update_cache(struct mail_index_transaction *t,
 		}
 	}
 
-	update.seq = seq;
+	update.uid = seq;
 	update.cache_offset = offset;
 	buffer_insert(t->updates, idx * sizeof(update),
 		      &update, sizeof(update));

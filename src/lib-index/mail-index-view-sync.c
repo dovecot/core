@@ -25,9 +25,13 @@ struct mail_index_view_sync_ctx {
 static int
 view_sync_get_expunges(struct mail_index_view *view, buffer_t **expunges_r)
 {
-	const struct mail_transaction_expunge *exp, *end;
-	buffer_t *expunges;
+	const struct mail_transaction_header *hdr;
+	struct mail_transaction_expunge *src, *src_end, *dest;
+	const void *data;
 	size_t size;
+	int ret;
+
+	*expunges_r = buffer_create_dynamic(default_pool, 512, (size_t)-1);
 
 	/* with mask 0 we don't get anything, we'll just read the expunges
 	   while seeking to end */
@@ -36,23 +40,37 @@ view_sync_get_expunges(struct mail_index_view *view, buffer_t **expunges_r)
 					  view->log_file_offset,
 					  view->index->hdr->log_file_seq,
 					  view->index->hdr->log_file_offset,
-					  0) < 0)
+					  MAIL_TRANSACTION_EXPUNGE) < 0)
 		return -1;
-	if (mail_transaction_log_view_next(view->log_view,
-					   NULL, NULL, NULL) < 0)
-		return -1;
-
-	expunges = mail_transaction_log_view_get_expunges(view->log_view);
-	exp = buffer_get_data(expunges, &size);
-	end = CONST_PTR_OFFSET(exp, size);
-
-	*expunges_r = buffer_create_dynamic(default_pool, size, (size_t)-1);
-	for (; exp != end; exp++) {
-		buffer_append(*expunges_r, &exp->seq1, sizeof(exp->seq1));
-		buffer_append(*expunges_r, &exp->seq2, sizeof(exp->seq2));
+	while ((ret = mail_transaction_log_view_next(view->log_view,
+						     &hdr, &data, NULL)) > 0) {
+		mail_transaction_log_sort_expunges(*expunges_r,
+						   data, hdr->size);
 	}
-        mail_transaction_log_view_unset(view->log_view);
-	return 0;
+
+	if (ret == 0) {
+		/* convert to sequences */
+		src = dest = buffer_get_modifyable_data(*expunges_r, &size);
+		src_end = src + size / sizeof(*src);
+		for (; src != src_end; src++) {
+			ret = mail_index_lookup_uid_range(view, src->uid1,
+							  src->uid2,
+							  &dest->uid1,
+							  &dest->uid2);
+			i_assert(ret == 0);
+
+			if (dest->uid1 == 0)
+				size -= sizeof(*dest);
+			else
+				dest++;
+		}
+		buffer_set_used_size(*expunges_r, size);
+	} else {
+		buffer_set_used_size(*expunges_r, 0);
+	}
+
+	mail_transaction_log_view_unset(view->log_view);
+	return ret;
 }
 
 int mail_index_view_sync_begin(struct mail_index_view *view,
@@ -135,17 +153,26 @@ static int view_is_transaction_synced(struct mail_index_view *view,
 
 static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 {
-	struct mail_index_map *map = context;
-	unsigned int idx, count;
+        struct mail_index_view_sync_ctx *ctx = context;
+	struct mail_index_map *map = ctx->sync_map;
+	uint32_t idx, count, seq1, seq2;
+	int ret;
 
-	for (idx = e->seq1-1; idx < e->seq2; idx++) {
+	ret = mail_index_lookup_uid_range(ctx->view, e->uid1, e->uid2,
+					  &seq1, &seq2);
+	i_assert(ret == 0);
+
+	if (seq1 == 0)
+		return 1;
+
+	for (idx = seq1-1; idx < seq2; idx++) {
 		mail_index_header_update_counts(&map->hdr_copy,
 						map->records[idx].flags, 0);
 	}
 
-	count = e->seq2 - e->seq1 + 1;
+	count = seq2 - seq1 + 1;
 	buffer_delete(map->buffer,
-		      (e->seq1-1) * sizeof(struct mail_index_record),
+		      (seq1-1) * sizeof(struct mail_index_record),
 		      count * sizeof(struct mail_index_record));
 	map->records = buffer_get_modifyable_data(map->buffer, NULL);
 
@@ -156,7 +183,8 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 
 static int sync_append(const struct mail_index_record *rec, void *context)
 {
-	struct mail_index_map *map = context;
+        struct mail_index_view_sync_ctx *ctx = context;
+	struct mail_index_map *map = ctx->sync_map;
 
 	buffer_append(map->buffer, rec, sizeof(*rec));
 	map->records = buffer_get_modifyable_data(map->buffer, NULL);
@@ -173,12 +201,21 @@ static int sync_append(const struct mail_index_record *rec, void *context)
 static int sync_flag_update(const struct mail_transaction_flag_update *u,
 			    void *context)
 {
-	struct mail_index_map *map = context;
+        struct mail_index_view_sync_ctx *ctx = context;
+	struct mail_index_map *map = ctx->sync_map;
 	struct mail_index_record *rec;
-	unsigned int i, idx;
+	uint32_t i, idx, seq1, seq2;
 	uint8_t old_flags;
+	int ret;
 
-	for (idx = u->seq1-1; idx < u->seq2; idx++) {
+	ret = mail_index_lookup_uid_range(ctx->view, u->uid1, u->uid2,
+					  &seq1, &seq2);
+	i_assert(ret == 0);
+
+	if (seq1 == 0)
+		return 1;
+
+	for (idx = seq1-1; idx < seq2; idx++) {
 		rec = &map->records[idx];
 
 		old_flags = rec->flags;
@@ -198,9 +235,16 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 static int sync_cache_update(const struct mail_transaction_cache_update *u,
 			     void *context)
 {
-	struct mail_index_map *map = context;
+        struct mail_index_view_sync_ctx *ctx = context;
+	uint32_t seq;
+	int ret;
 
-	map->records[u->seq-1].cache_offset = u->cache_offset;
+	ret = mail_index_lookup_uid_range(ctx->view, u->uid, u->uid,
+					  &seq, &seq);
+	i_assert(ret == 0);
+
+	if (seq != 0)
+		ctx->sync_map->records[seq-1].cache_offset = u->cache_offset;
 	return 1;
 }
 
@@ -211,7 +255,7 @@ static int mail_index_view_sync_map(struct mail_index_view_sync_ctx *ctx)
 	};
 
 	return mail_transaction_map(ctx->hdr, ctx->data,
-				    &map_funcs, ctx->sync_map);
+				    &map_funcs, ctx);
 }
 
 static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
@@ -258,12 +302,7 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_APPEND: {
 		rec->type = MAIL_INDEX_SYNC_TYPE_APPEND;
-		rec->seq1 = ctx->messages_count + 1;
-		ctx->messages_count +=
-			hdr->size / sizeof(struct mail_index_record);
-		rec->seq2 = ctx->messages_count;
-		rec->appends = NULL;
-
+		rec->uid1 = rec->uid2 = 0;
 		ctx->data_offset += hdr->size;
 		break;
 	}

@@ -853,172 +853,6 @@ static int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 	return ret;
 }
 
-static int get_expunge_buf(struct mail_transaction_log *log,
-			   struct mail_index_view *view, buffer_t *expunges)
-{
-	struct mail_transaction_log_view *sync_view;
-	const struct mail_transaction_header *hdr;
-	const void *data;
-	int ret;
-
-	sync_view = mail_transaction_log_view_open(log);
-	ret = mail_transaction_log_view_set(sync_view, view->log_file_seq,
-					    view->log_file_offset,
-					    log->head->hdr.file_seq,
-					    log->head->hdr.used_size,
-					    MAIL_TRANSACTION_TYPE_MASK);
-	while ((ret = mail_transaction_log_view_next(sync_view,
-						     &hdr, &data, NULL)) == 1) {
-		if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
-		    MAIL_TRANSACTION_EXPUNGE) {
-			mail_transaction_log_sort_expunges(expunges,
-							   data, hdr->size);
-		}
-	}
-	mail_transaction_log_view_close(sync_view);
-	return ret;
-}
-
-static void
-log_view_fix_sequences(struct mail_index_view *view, buffer_t *view_expunges,
-		       buffer_t *buf, size_t record_size, int two, int uids)
-{
-	// FIXME: make sure this function works correctly
-	const struct mail_transaction_expunge *exp, *exp_end, *exp2;
-	unsigned char *data;
-	uint32_t *seq, expunges_before, count;
-	uint32_t last_exp, last_nonexp, last_nonexp_count;
-	size_t src_idx, dest_idx, size;
-	int ret;
-
-	if (buf == NULL)
-		return;
-
-	exp = buffer_get_data(view_expunges, &size);
-	exp_end = exp + (size / sizeof(*exp));
-	if (exp == exp_end)
-		return;
-
-	data = buffer_get_modifyable_data(buf, &size);
-
-	expunges_before = 0;
-	for (src_idx = dest_idx = 0; src_idx < size; src_idx += record_size) {
-		seq = (uint32_t *)&data[src_idx];
-
-		i_assert(src_idx + record_size == size ||
-			 *seq <= *((uint32_t *) &data[src_idx+record_size]));
-
-		while (exp != exp_end && exp->seq2 < seq[0]) {
-			expunges_before += exp->seq2 - exp->seq1 + 1;
-			exp++;
-		}
-		if (exp != exp_end && exp->seq1 <= seq[0]) {
-			/* this sequence was expunged at least partially */
-			if (!two)
-				continue;
-
-			exp2 = exp;
-			count = 0;
-			do {
-				/* we point to next non-expunged message */
-				seq[0] = exp2->seq2 + 1;
-				count += exp->seq2 - exp->seq1 + 1;
-				exp2++;
-			} while (exp2 != exp_end && exp2->seq1 == seq[0]);
-
-			if (seq[0] > seq[1] ||
-			    seq[0] > view->map->records_count) {
-				/* it's all expunged */
-				continue;
-			}
-
-			if (uids) {
-				/* get new first UID */
-				ret = mail_index_lookup_uid(view, seq[0],
-							    &seq[2]);
-				i_assert(ret == 0);
-			}
-			seq[0] -= count;
-		}
-		seq[0] -= expunges_before;
-
-		if (two) {
-			count = expunges_before;
-			last_exp = 0;
-			last_nonexp = seq[0];
-			last_nonexp_count = count;
-
-			exp2 = exp;
-			while (exp2 != exp_end && exp2->seq1 <= seq[1]) {
-				if (exp2->seq1-1 != last_exp) {
-					last_nonexp = exp2->seq1-1;
-					last_nonexp_count = count;
-				}
-
-				count += exp2->seq2 - exp2->seq1 + 1;
-				last_exp = exp2->seq2;
-				exp2++;
-			}
-
-			if (last_exp >= seq[1]) {
-				seq[1] = last_nonexp;
-				count = last_nonexp_count;
-				if (uids) {
-					/* ending of the range was expunged,
-					   we need to get last UID */
-					ret = mail_index_lookup_uid(view,
-								    seq[1],
-								    &seq[3]);
-					i_assert(ret == 0);
-				}
-			}
-			seq[1] -= count;
-		}
-
-		if (src_idx != dest_idx) {
-			memcpy(&data[dest_idx], &data[src_idx], record_size);
-			i_assert(dest_idx == 0 ||
-				 *((uint32_t *) &data[dest_idx]) >=
-				 *((uint32_t *) &data[dest_idx-record_size]));
-		}
-		dest_idx += record_size;
-	}
-	buffer_set_used_size(buf, dest_idx);
-}
-
-static int
-mail_transaction_log_fix_sequences(struct mail_transaction_log *log,
-                                   struct mail_index_transaction *t)
-{
-	buffer_t *view_expunges;
-
-	if (t->updates == NULL && t->cache_updates == NULL &&
-	    t->expunges == NULL)
-		return 0;
-
-	/* all sequences are currently relative to given view. we have to
-	   find out all the expunges since then, even the ones that aren't
-	   yet synchronized to index file. */
-	view_expunges = buffer_create_dynamic(default_pool, 1024, (size_t)-1);
-	if (get_expunge_buf(log, t->view, view_expunges) < 0) {
-		buffer_free(view_expunges);
-		return -1;
-	}
-
-	log_view_fix_sequences(t->view, view_expunges, t->updates,
-			       sizeof(struct mail_transaction_flag_update),
-			       TRUE, FALSE);
-	log_view_fix_sequences(t->view, view_expunges, t->cache_updates,
-			       sizeof(struct mail_transaction_cache_update),
-			       FALSE, FALSE);
-	log_view_fix_sequences(t->view, view_expunges, t->expunges,
-			       sizeof(struct mail_transaction_expunge),
-			       TRUE, TRUE);
-
-	buffer_free(view_expunges);
-	return 0;
-}
-
 static int mail_transaction_log_fix_appends(struct mail_transaction_log *log,
 					    struct mail_index_transaction *t)
 {
@@ -1155,6 +989,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 			return -1;
 	}
 
+	/* FIXME: index->hdr may not be up-to-date and so log_file_seq check
+	   might go wrong! sync header before we get here. */
 	if (log->head->hdr.file_seq == index->hdr->log_file_seq &&
 	    log->head->hdr.used_size > MAIL_TRANSACTION_LOG_ROTATE_SIZE &&
 	    log->head->last_mtime <
@@ -1172,8 +1008,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	file = log->head;
 	append_offset = file->hdr.used_size;
 
-	if (mail_transaction_log_fix_sequences(log, t) < 0 ||
-	    mail_transaction_log_fix_appends(log, t) < 0) {
+	if (mail_transaction_log_fix_appends(log, t) < 0) {
 		if (!log->index->log_locked)
 			(void)mail_transaction_log_file_lock(file, F_UNLCK);
 		return -1;

@@ -257,13 +257,23 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 {
 	struct mail_index_sync_rec *sync_rec = &ctx->sync_rec;
 	struct mail_index_view *view = ctx->view;
-	uint32_t seq, uid;
+	uint32_t seq, seq1, seq2, uid;
 
 	switch (sync_rec->type) {
 	case MAIL_INDEX_SYNC_TYPE_APPEND:
 		break;
 	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-		for (seq = sync_rec->seq1; seq <= sync_rec->seq2; seq++) {
+		/* make it go through sequences to avoid looping through huge
+		   holes in UID range */
+		if (mail_index_lookup_uid_range(view, sync_rec->uid1,
+						sync_rec->uid2,
+						&seq1, &seq2) < 0)
+			return -1;
+
+		if (seq1 == 0)
+			break;
+
+		for (seq = seq1; seq <= seq2; seq++) {
 			if (mail_index_lookup_uid(view, seq, &uid) < 0)
 				return -1;
 			if (maildir_file_do(ibox, uid, maildir_expunge,
@@ -272,8 +282,15 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 		}
 		break;
 	case MAIL_INDEX_SYNC_TYPE_FLAGS:
-                ctx->seq = sync_rec->seq1;
-		for (; ctx->seq <= sync_rec->seq2; ctx->seq++) {
+		if (mail_index_lookup_uid_range(view, sync_rec->uid1,
+						sync_rec->uid2,
+						&seq1, &seq2) < 0)
+			return -1;
+
+		if (seq1 == 0)
+			break;
+
+		for (ctx->seq = seq1; ctx->seq <= seq2; ctx->seq++) {
 			if (mail_index_lookup_uid(view, ctx->seq, &uid) < 0)
 				return -1;
 			if (maildir_file_do(ibox, uid, maildir_sync_flags,

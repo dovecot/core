@@ -37,17 +37,16 @@ struct mail_transaction_header {
 };
 
 struct mail_transaction_expunge {
-	uint32_t seq1, seq2;
-	uint32_t uid1, uid2; /* only to avoid accidental expunges due to bugs */
+	uint32_t uid1, uid2;
 };
 
 struct mail_transaction_cache_update {
-	uint32_t seq;
+	uint32_t uid;
 	uint32_t cache_offset;
 };
 
 struct mail_transaction_flag_update {
-	uint32_t seq1, seq2;
+	uint32_t uid1, uid2;
 	uint8_t add_flags;
 	keywords_mask_t add_keywords;
 	uint8_t remove_flags;
@@ -83,9 +82,6 @@ void
 mail_transaction_log_view_get_prev_pos(struct mail_transaction_log_view *view,
 				       uint32_t *file_seq_r,
 				       uoff_t *file_offset_r);
-
-buffer_t *
-mail_transaction_log_view_get_expunges(struct mail_transaction_log_view *view);
 
 /* Marks the log file in current position to be corrupted. */
 void

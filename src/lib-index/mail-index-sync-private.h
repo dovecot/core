@@ -15,7 +15,7 @@ struct mail_index_sync_ctx {
 	const void *data;
 
 	size_t expunge_idx, update_idx;
-	uint32_t next_seq;
+	uint32_t next_uid;
 
 	unsigned int lock_id, dirty_lock_id;
 

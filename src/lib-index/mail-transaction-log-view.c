@@ -14,8 +14,7 @@ struct mail_transaction_log_view {
 	uoff_t min_file_offset, max_file_offset;
 
 	enum mail_transaction_type type_mask;
-	buffer_t *expunges_buf, *data_buf;
-        struct mail_transaction_expunge_iter_ctx *exp_ctx;
+	buffer_t *expunges_buf;
 	struct mail_transaction_header tmp_hdr;
 
         struct mail_transaction_log_file *file;
@@ -55,8 +54,6 @@ void mail_transaction_log_view_close(struct mail_transaction_log_view *view)
 	}
 
 	mail_transaction_log_view_unset(view);
-	if (view->data_buf != NULL)
-		buffer_free(view->data_buf);
 	buffer_free(view->expunges_buf);
 	i_free(view);
 }
@@ -314,74 +311,10 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 	return 1;
 }
 
-static int seqfix_expunge(const struct mail_transaction_expunge *e,
-			  void *context)
-{
-	struct mail_transaction_log_view *view = context;
-	struct mail_transaction_expunge new_e;
-
-	if (!mail_transaction_expunge_iter_seek(view->exp_ctx,
-						e->seq1, e->seq2)) {
-		new_e = *e;
-		/*FIXME:buffer_append(view->data_buf, e, sizeof(*e));
-		return 1;*/
-	}
-
-	new_e.uid1 = new_e.uid2 = 0; // FIXME: this breaks anyway
-
-	while (mail_transaction_expunge_iter_get(view->exp_ctx,
-						 &new_e.seq1, &new_e.seq2)) {
-		i_assert(new_e.seq1 != 0);
-		buffer_append(view->data_buf, &new_e, sizeof(new_e));
-	}
-	return 1;
-}
-
-static int seqfix_flag_update(const struct mail_transaction_flag_update *u,
-			      void *context)
-{
-	struct mail_transaction_log_view *view = context;
-	struct mail_transaction_flag_update new_u;
-
-	if (!mail_transaction_expunge_iter_seek(view->exp_ctx,
-						u->seq1, u->seq2)) {
-		buffer_append(view->data_buf, u, sizeof(*u));
-		return 1;
-	}
-
-	new_u = *u;
-	while (mail_transaction_expunge_iter_get(view->exp_ctx,
-						 &new_u.seq1, &new_u.seq2))
-		buffer_append(view->data_buf, &new_u, sizeof(new_u));
-	return 1;
-}
-
-static int seqfix_cache_update(const struct mail_transaction_cache_update *u,
-			       void *context)
-{
-	struct mail_transaction_log_view *view = context;
-	struct mail_transaction_cache_update new_u;
-
-	if (!mail_transaction_expunge_iter_seek(view->exp_ctx,
-						u->seq, u->seq)) {
-		buffer_append(view->data_buf, u, sizeof(*u));
-		return 1;
-	}
-
-	new_u = *u;
-	if (mail_transaction_expunge_iter_get(view->exp_ctx,
-					      &new_u.seq, &new_u.seq))
-		buffer_append(view->data_buf, &new_u, sizeof(new_u));
-	return 1;
-}
-
 int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 				   const struct mail_transaction_header **hdr_r,
 				   const void **data_r, int *skipped_r)
 {
-	struct mail_transaction_map_functions seqfix_funcs = {
-		seqfix_expunge, NULL, seqfix_flag_update, seqfix_cache_update
-	};
 	const struct mail_transaction_header *hdr;
 	const void *data;
 	int ret = 0;
@@ -399,11 +332,6 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 		if (skipped_r != NULL)
 			*skipped_r = TRUE;
 
-		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
-			mail_transaction_log_sort_expunges(view->expunges_buf,
-							   data, hdr->size);
-		}
-
 		/* FIXME: hide flag/cache updates for appends if
 		   append isn't in mask */
 	}
@@ -414,38 +342,7 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 	*hdr_r = hdr;
 	*data_r = data;
 
-	if (buffer_get_used_size(view->expunges_buf) > 0) {
-		/* we have to fix sequences in the data */
-		if (view->data_buf == NULL) {
-			view->data_buf =
-				buffer_create_dynamic(default_pool,
-						      hdr->size, (size_t)-1);
-		} else {
-			buffer_set_used_size(view->data_buf, 0);
-		}
-
-		view->exp_ctx =
-			mail_transaction_expunge_iter_init(view->expunges_buf);
-		ret = mail_transaction_map(hdr, data, &seqfix_funcs, view);
-		mail_transaction_expunge_iter_deinit(view->exp_ctx);
-
-		if (ret > 0) {
-			/* modified - size may have changed, so update header */
-			view->tmp_hdr = *hdr;
-			view->tmp_hdr.size =
-				buffer_get_used_size(view->data_buf);
-			*hdr_r = &view->tmp_hdr;
-
-			*data_r = buffer_get_data(view->data_buf, NULL);
-		} else {
-			i_assert(buffer_get_used_size(view->data_buf) == 0);
-		}
-	}
-
 	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
-		mail_transaction_log_sort_expunges(view->expunges_buf,
-						   data, hdr->size);
-
 		/* hide expunge protection */
 		if (*hdr_r != &view->tmp_hdr) {
 			view->tmp_hdr = *hdr;
@@ -455,10 +352,4 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 	}
 
 	return 1;
-}
-
-buffer_t *
-mail_transaction_log_view_get_expunges(struct mail_transaction_log_view *view)
-{
-	return view->expunges_buf;
 }

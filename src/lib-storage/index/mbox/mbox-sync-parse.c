@@ -299,6 +299,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	if (ctx->mail.uid == 0) {
 		/* missing X-UID */
 		ctx->need_rewrite = TRUE;
+		ctx->mail.uid = ctx->sync_ctx->next_uid++;
 	}
 
 	ctx->body_offset = input->v_offset;

@@ -15,7 +15,7 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 	size_t i, expunges_count;
 	void *sc_context;
 	enum mail_index_sync_type sync_mask;
-	uint32_t seq, messages_count, recent_count;
+	uint32_t seq, seq1, seq2, messages_count, recent_count;
 	int ret, appends;
 
 	sync_mask = MAIL_INDEX_SYNC_MASK_ALL;
@@ -54,11 +54,18 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 			if (sc->update_flags == NULL)
 				break;
 
-			if (sync.seq2 > messages_count)
-				sync.seq2 = messages_count;
+			if (mail_index_lookup_uid_range(ibox->view,
+							sync.uid1, sync.uid2,
+							&seq1, &seq2) < 0) {
+				ret = -1;
+				break;
+			}
+
+			if (seq1 == 0)
+				break;
 
 			/* FIXME: hide the flag updates for expunged messages */
-			for (seq = sync.seq1; seq <= sync.seq2; seq++) {
+			for (seq = seq1; seq <= seq2; seq++) {
 				if (mail_index_lookup(ibox->view,
 						      seq, &rec) < 0) {
 					ret = -1;
@@ -76,6 +83,7 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 		mail_storage_set_index_error(ibox);
 
 	if (sc->expunge != NULL) {
+		// FIXME: these are UIDs now..
 		for (i = expunges_count*2; i > 0; i -= 2) {
 			seq = expunges[i-1];
 			if (seq > messages_count)

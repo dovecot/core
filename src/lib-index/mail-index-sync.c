@@ -14,7 +14,6 @@ static void mail_index_sync_sort_flags(struct mail_index_sync_ctx *ctx)
 	const struct mail_transaction_flag_update *src, *src_end;
 	const struct mail_transaction_flag_update *dest;
 	struct mail_transaction_flag_update new_update;
-	struct mail_transaction_expunge_iter_ctx *exp_ctx;
 	uint32_t last;
 	size_t i, dest_count;
 
@@ -26,41 +25,29 @@ static void mail_index_sync_sort_flags(struct mail_index_sync_ctx *ctx)
 	dest = buffer_get_data(ctx->updates_buf, &dest_count);
 	dest_count /= sizeof(*dest);
 
-	exp_ctx = mail_transaction_expunge_iter_init(ctx->expunges_buf);
-	mail_transaction_expunge_iter_seek(exp_ctx, src->seq1, src->seq2);
-
 	for (i = 0; src != src_end; ) {
 		new_update = *src;
-
-		if (!mail_transaction_expunge_iter_get(exp_ctx,
-						       &new_update.seq1,
-						       &new_update.seq2)) {
-			mail_transaction_expunge_iter_seek(exp_ctx, src->seq1,
-							   src->seq2);
-			src++;
-			continue;
-		}
 
 		/* insert it into buffer, split it in multiple parts if needed
 		   to make sure the ordering stays the same */
 		for (; i < dest_count; i++) {
-			if (dest[i].seq1 <= new_update.seq1)
+			if (dest[i].uid1 <= new_update.uid1)
 				continue;
 
-			if (dest[i].seq1 > new_update.seq2)
+			if (dest[i].uid1 > new_update.uid2)
 				break;
 
 			/* partial */
-			last = new_update.seq2;
-			new_update.seq2 = dest[i].seq1-1;
+			last = new_update.uid2;
+			new_update.uid2 = dest[i].uid1-1;
 
 			buffer_insert(ctx->updates_buf, i * sizeof(new_update),
 				      &new_update, sizeof(new_update));
 			dest = buffer_get_data(ctx->updates_buf, NULL);
 			dest_count++;
 
-			new_update.seq1 = new_update.seq2+1;
-			new_update.seq2 = last;
+			new_update.uid1 = new_update.uid2+1;
+			new_update.uid2 = last;
 		}
 
 		buffer_insert(ctx->updates_buf, i * sizeof(new_update),
@@ -68,7 +55,6 @@ static void mail_index_sync_sort_flags(struct mail_index_sync_ctx *ctx)
 		dest = buffer_get_data(ctx->updates_buf, NULL);
 		dest_count++;
 	}
-	mail_transaction_expunge_iter_deinit(exp_ctx);
 }
 
 static void mail_index_sync_sort_transaction(struct mail_index_sync_ctx *ctx)
@@ -205,8 +191,8 @@ mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
 			    const struct mail_transaction_expunge *exp)
 {
 	rec->type = MAIL_INDEX_SYNC_TYPE_EXPUNGE;
-	rec->seq1 = exp->seq1;
-	rec->seq2 = exp->seq2;
+	rec->uid1 = exp->uid1;
+	rec->uid2 = exp->uid2;
 }
 
 void
@@ -214,8 +200,8 @@ mail_index_sync_get_update(struct mail_index_sync_rec *rec,
 			   const struct mail_transaction_flag_update *update)
 {
 	rec->type = MAIL_INDEX_SYNC_TYPE_FLAGS;
-	rec->seq1 = update->seq1;
-	rec->seq2 = update->seq2;
+	rec->uid1 = update->uid1;
+	rec->uid2 = update->uid2;
 
 	rec->add_flags = update->add_flags;
 	memcpy(rec->add_keywords, update->add_keywords,
@@ -228,23 +214,13 @@ mail_index_sync_get_update(struct mail_index_sync_rec *rec,
 static int mail_index_sync_rec_check(struct mail_index_view *view,
 				     struct mail_index_sync_rec *rec)
 {
-	uint32_t message_count;
-
 	switch (rec->type) {
 	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
 	case MAIL_INDEX_SYNC_TYPE_FLAGS:
-		if (rec->seq1 > rec->seq2 || rec->seq1 == 0) {
+		if (rec->uid1 > rec->uid2 || rec->uid1 == 0) {
 			mail_transaction_log_view_set_corrupted(view->log_view,
-				"Broken sequence: %u..%u (type 0x%x)",
-				rec->seq1, rec->seq2, rec->type);
-			return FALSE;
-		}
-
-		message_count = mail_index_view_get_message_count(view);
-		if (rec->seq2 > message_count) {
-			mail_transaction_log_view_set_corrupted(view->log_view,
-				"Sequence out of range: %u > %u (type 0x%x)",
-				rec->seq2, message_count, rec->type);
+				"Broken UID range: %u..%u (type 0x%x)",
+				rec->uid1, rec->uid2, rec->type);
 			return FALSE;
 		}
 		break;
@@ -281,19 +257,19 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	   update A: 7, 7
 	*/
 	while (next_update != NULL &&
-	       (next_exp == NULL || next_update->seq1 < next_exp->seq1)) {
-		if (next_update->seq2 >= ctx->next_seq) {
+	       (next_exp == NULL || next_update->uid1 < next_exp->uid1)) {
+		if (next_update->uid2 >= ctx->next_uid) {
 			mail_index_sync_get_update(sync_rec, next_update);
 			if (next_exp != NULL &&
-			    next_exp->seq1 <= next_update->seq2) {
+			    next_exp->uid1 <= next_update->uid2) {
 				/* it's overlapping.. */
-				sync_rec->seq2 = next_exp->seq1-1;
+				sync_rec->uid2 = next_exp->uid1-1;
 			}
 
-			if (sync_rec->seq1 < ctx->next_seq)
-				sync_rec->seq1 = ctx->next_seq;
+			if (sync_rec->uid1 < ctx->next_uid)
+				sync_rec->uid1 = ctx->next_uid;
 
-			i_assert(sync_rec->seq1 <= sync_rec->seq2);
+			i_assert(sync_rec->uid1 <= sync_rec->uid2);
 			ctx->update_idx++;
 			return mail_index_sync_rec_check(ctx->view, sync_rec);
 		}
@@ -304,44 +280,25 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	}
 
 	if (next_exp != NULL) {
-		/* a few sanity checks here, we really don't ever want to
-		   accidentally expunge a message. If sequence and UID matches,
-		   it's quite unlikely this expunge was caused by some bug. */
-		uint32_t uid1, uid2;
-
 		mail_index_sync_get_expunge(sync_rec, next_exp);
 		if (mail_index_sync_rec_check(ctx->view, sync_rec) < 0)
 			return -1;
-
-		if (mail_index_lookup_uid(ctx->view, next_exp->seq1, &uid1) < 0)
-			return -1;
-		if (mail_index_lookup_uid(ctx->view, next_exp->seq2, &uid2) < 0)
-			return -1;
-		if (next_exp->uid1 != uid1 || next_exp->uid2 != uid2) {
-			mail_transaction_log_view_set_corrupted(
-				ctx->view->log_view, "Expunge range %u..%u: "
-				"UIDs %u..%u doesn't match real UIDs %u..%u",
-				next_exp->seq1, next_exp->seq2,
-				next_exp->uid1, next_exp->uid2, uid1, uid2);
-			return -1;
-		}
 
 		ctx->expunge_idx++;
 
 		/* scan updates again from the beginning */
 		ctx->update_idx = 0;
-		ctx->next_seq = next_exp->seq2;          
+		ctx->next_uid = next_exp->uid2+1;
 		return 1;
 	}
 
 	if (ctx->sync_appends) {
 		ctx->sync_appends = FALSE;
 		sync_rec->type = MAIL_INDEX_SYNC_TYPE_APPEND;
-		sync_rec->seq1 = ctx->index->map->records_count+1;
-		sync_rec->seq2 = sync_rec->seq1-1 +
-			buffer_get_used_size(ctx->appends_buf) /
-			sizeof(struct mail_index_record);
-		sync_rec->appends = buffer_get_data(ctx->appends_buf, NULL);
+		sync_rec->appends = buffer_get_data(ctx->appends_buf,
+						    &sync_rec->appends_count);
+		sync_rec->appends_count /= sizeof(*sync_rec->appends);
+		sync_rec->uid1 = sync_rec->uid2 = 0;
 		return 1;
 	}
 
@@ -363,6 +320,8 @@ int mail_index_sync_set_dirty(struct mail_index_sync_ctx *ctx, uint32_t seq)
 			return -1;
 	}
 
+	/* FIXME: maybe this should go through transaction log anyway?
+	   doesn't work well with non-mmaped indexes.. */
 	i_assert(seq <= ctx->view->map->records_count);
 	ctx->view->map->records[seq-1].flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
 	ctx->have_dirty = TRUE;

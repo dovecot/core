@@ -10,6 +10,7 @@
 
 struct mail_index_update_ctx {
 	struct mail_index *index;
+	struct mail_index_view *view;
 	struct mail_index_header hdr;
 	struct mail_transaction_log_view *log_view;
 };
@@ -64,7 +65,15 @@ static void mail_index_sync_update_flags(struct mail_index_update_ctx *ctx,
 	struct mail_index_record *rec, *end;
 	uint8_t flag_mask, old_flags;
 	keywords_mask_t keyword_mask;
-	int i, update_keywords;
+	uint32_t seq1, seq2;
+	int i, update_keywords, ret;
+
+	ret = mail_index_lookup_uid_range(ctx->view, syncrec->uid1,
+					  syncrec->uid2, &seq1, &seq2);
+	i_assert(ret == 0);
+
+	if (seq1 == 0)
+		return;
 
 	update_keywords = FALSE;
 	for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
@@ -76,8 +85,8 @@ static void mail_index_sync_update_flags(struct mail_index_update_ctx *ctx,
 	}
 
 	flag_mask = ~syncrec->remove_flags;
-	rec = &ctx->index->map->records[syncrec->seq1-1];
-	end = rec + (syncrec->seq2 - syncrec->seq1) + 1;
+	rec = &ctx->index->map->records[seq1-1];
+	end = rec + (seq2 - seq1) + 1;
 	for (; rec != end; rec++) {
 		old_flags = rec->flags;
 		rec->flags = (rec->flags & flag_mask) | syncrec->add_flags;
@@ -177,6 +186,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	const struct mail_index_record *appends;
 	unsigned int append_count;
 	uint32_t count, file_seq, src_idx, dest_idx, dirty_flag;
+	uint32_t seq1, seq2;
 	uoff_t file_offset;
 	unsigned int lock_id;
 	int ret, changed;
@@ -190,6 +200,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.index = index;
+	ctx.view = sync_ctx->view;
 	ctx.hdr = *index->hdr;
 	ctx.log_view = sync_ctx->view->log_view;
 
@@ -227,10 +238,18 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 		switch (rec.type) {
 		case MAIL_INDEX_SYNC_TYPE_APPEND:
 			i_assert(appends == NULL);
-			append_count = rec.seq2 - rec.seq1 + 1;
 			appends = rec.appends;
+			append_count = rec.appends_count;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
+			ret = mail_index_lookup_uid_range(sync_ctx->view,
+							  rec.uid1, rec.uid2,
+							  &seq1, &seq2);
+			i_assert(ret == 0);
+
+			if (seq1 == 0)
+				break;
+
 			if (src_idx == 0) {
 				/* expunges have to be atomic. so we'll have
 				   to copy the mapping, do the changes there
@@ -244,18 +263,17 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 				index->hdr = map->hdr;
 				map->write_to_disk = TRUE;
 
-				dest_idx = rec.seq1-1;
+				dest_idx = seq1-1;
 			} else {
-				count = (rec.seq1-1) - src_idx;
+				count = (seq1-1) - src_idx;
 				memmove(map->records + dest_idx,
 					map->records + src_idx,
 					count * sizeof(*map->records));
 				dest_idx += count;
 			}
 
-			mail_index_sync_update_expunges(&ctx, rec.seq1,
-							rec.seq2);
-			src_idx = rec.seq2;
+			mail_index_sync_update_expunges(&ctx, seq1, seq2);
+			src_idx = seq2;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
 			mail_index_sync_update_flags(&ctx, &rec);

@@ -109,7 +109,7 @@ enum mail_index_sync_type {
 #define MAIL_INDEX_SYNC_MASK_ALL 0xff
 
 struct mail_index_sync_rec {
-	uint32_t seq1, seq2;
+	uint32_t uid1, uid2;
 	enum mail_index_sync_type type;
 
 	/* MAIL_INDEX_SYNC_TYPE_FLAGS: */
@@ -119,7 +119,8 @@ struct mail_index_sync_rec {
 	keywords_mask_t remove_keywords;
 
 	/* MAIL_INDEX_SYNC_TYPE_APPEND: */
-        const struct mail_index_record *appends;
+	const struct mail_index_record *appends;
+	size_t appends_count;
 };
 
 struct mail_index;

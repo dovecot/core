@@ -448,27 +448,3 @@ int index_mailbox_fix_keywords(struct index_mailbox *ibox,
 		return mail_storage_set_index_error(ibox);
 	}*/
 }
-
-unsigned int index_storage_get_recent_count(struct mail_index_view *view)
-{
-#if 0
-	struct mail_index_header *hdr;
-	struct mail_index_record *rec;
-	unsigned int seq;
-
-	hdr = mail_index_get_header(view);
-	if (index->first_recent_uid <= 1) {
-		/* all are recent */
-		return hdr->messages_count;
-	}
-
-	/* get the first recent message */
-	if (index->first_recent_uid >= hdr->next_uid)
-		return 0;
-
-	rec = mail_index_lookup_uid_range(view, index->first_recent_uid,
-					  hdr->next_uid - 1, &seq);
-	return rec == NULL ? 0 : hdr->messages_count+1 - seq;
-#endif
-	return 0;
-}

@@ -82,7 +82,7 @@ static int mbox_sync_grow_file(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
-static void mbox_sync_buffer_delete_old(buffer_t *syncs_buf, uint32_t seq)
+static void mbox_sync_buffer_delete_old(buffer_t *syncs_buf, uint32_t uid)
 {
 	struct mail_index_sync_rec *sync;
 	size_t size, src, dest;
@@ -91,7 +91,7 @@ static void mbox_sync_buffer_delete_old(buffer_t *syncs_buf, uint32_t seq)
 	size /= sizeof(*sync);
 
 	for (src = dest = 0; src < size; src++) {
-		if (sync[src].seq2 >= seq) {
+		if (sync[src].uid2 >= uid) {
 			if (src != dest)
 				sync[dest] = sync[src];
 			dest++;
@@ -199,12 +199,14 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 		if (input->eof)
 			break;
 
+		mbox_sync_next_mail(&sync_ctx, &mail_ctx, seq);
+
 		/* get all sync records related to this message */
 		ret = 1;
-		mbox_sync_buffer_delete_old(syncs, seq);
-		while (seq >= sync_rec.seq1 && ret > 0) {
-			if (sync_rec.seq1 != 0) {
-				i_assert(seq <= sync_rec.seq2);
+		mbox_sync_buffer_delete_old(syncs, mail_ctx.mail.uid);
+		while (mail_ctx.mail.uid >= sync_rec.uid1 && ret > 0) {
+			if (sync_rec.uid1 != 0) {
+				i_assert(mail_ctx.mail.uid <= sync_rec.uid2);
 				buffer_append(syncs, &sync_rec,
 					      sizeof(sync_rec));
 			}
@@ -214,8 +216,6 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 		}
 		if (ret < 0)
 			break;
-
-		mbox_sync_next_mail(&sync_ctx, &mail_ctx, seq);
 
 		if (seq == 1 && sync_ctx.base_uid_validity == 0) {
 			if (mail_index_get_header(sync_view, &hdr) < 0) {
