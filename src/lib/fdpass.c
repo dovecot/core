@@ -23,6 +23,12 @@
 #  define _XOPEN_SOURCE_EXTENDED /* for Tru64, breaks AIX */
 #endif
 
+#ifdef HAVE_CONFIG_H
+#  include "lib.h"
+#else
+#  define i_assert(x)
+#endif
+
 #include <string.h>
 #include <limits.h>
 #include <sys/types.h>
@@ -31,11 +37,6 @@
 #include <sys/un.h>
 #include <sys/uio.h>
 
-#ifdef HAVE_CONFIG_H
-#  include "lib.h"
-#else
-#  define i_assert(x)
-#endif
 #include "fdpass.h"
 
 /* RFC 2292 defines CMSG_*() macros, but some operating systems don't have them
