@@ -32,7 +32,8 @@ static int validate_uid_gid(uid_t uid, gid_t gid)
 
 	if (uid < (uid_t)set->first_valid_uid ||
 	    (set->last_valid_uid != 0 && uid > (uid_t)set->last_valid_uid)) {
-		i_error("mail process isn't allowed to use UID %s",
+		i_error("mail process isn't allowed to use UID %s "
+			"(modify first_valid_uid in config file)",
 			dec2str(uid));
 		return FALSE;
 	}
