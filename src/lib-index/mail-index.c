@@ -506,12 +506,18 @@ static int mail_index_open_file(MailIndex *index, const char *filename,
 		if (hdr.flags & MAIL_INDEX_FLAG_REBUILD) {
 			/* index is corrupted, rebuild */
 			if (!mail_index_rebuild_all(index))
-				return FALSE;
+				break;
 		}
 
 		if (hdr.flags & MAIL_INDEX_FLAG_FSCK) {
 			/* index needs fscking */
 			if (!index->fsck(index))
+				break;
+		}
+
+		if (hdr.flags & MAIL_INDEX_FLAG_CACHE_FIELDS) {
+			/* need to update cached fields */
+			if (!mail_index_update_cache(index))
 				break;
 		}
 
@@ -525,8 +531,6 @@ static int mail_index_open_file(MailIndex *index, const char *filename,
 
 	index->updating = FALSE;
 
-	/* last_recent_uid update, hash or modifylog creation
-	   may create locks */
 	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
 		failed = TRUE;
 
@@ -894,26 +898,34 @@ const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
 
 	/* first check if the field even could be in the file */
 	if ((rec->cached_fields & field) != field) {
-		/* no, but make sure the future records will have it.
-		   we don't immediately mark the index to cache this field
-		   for old messages as some clients never ask the info again */
-		index->set_cache_fields |= field;
+		if ((index->header->cache_fields & field) == 0) {
+			/* no, but make sure the future records will have it.
+			   we don't immediately mark the index to cache this
+			   field for old messages as some clients never ask
+			   the info again */
+			index->set_cache_fields |= field;
+		} else {
+			/* this is at least the second time it's being asked,
+			   make sure it'll be cached soon. */
+			index->set_flags |= MAIL_INDEX_FLAG_CACHE_FIELDS;
+		}
+
 		return NULL;
 	}
 
 	datarec = mail_index_data_lookup(index->data, rec, field);
-	if (datarec != NULL) {
-		if (mail_index_data_record_verify(index->data, datarec))
-			return datarec->data;
-
-		/* index is corrupted, it will be rebuilt */
-	} else {
-		/* field doesn't exist, make sure it willl be added later
-		   when there's time */
-                index->set_flags |= MAIL_INDEX_FLAG_CACHE_FIELDS;
+	if (datarec == NULL) {
+		/* corrupted, the field should have been there */
+		index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
+		return NULL;
 	}
 
-	return NULL;
+	if (!mail_index_data_record_verify(index->data, datarec)) {
+		/* index is corrupted, it will be rebuilt */
+		return NULL;
+	}
+
+	return datarec->data;
 }
 
 unsigned int mail_index_get_sequence(MailIndex *index, MailIndexRecord *rec)

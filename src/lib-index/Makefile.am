@@ -13,6 +13,7 @@ libstorage_index_a_SOURCES = \
         mail-index-fsck.c \
         mail-index-data.c \
         mail-index-update.c \
+        mail-index-update-cache.c \
         mail-index-util.c \
         mail-lockdir.c \
         mail-messageset.c \

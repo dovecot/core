@@ -142,7 +142,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	inbuf->size = stop_offset;
 	io_buffer_seek(inbuf, start_offset);
 
-	mail_index_update_headers(update, inbuf, mbox_header_func, &ctx);
+	mail_index_update_headers(update, inbuf, 0, mbox_header_func, &ctx);
 
 	inbuf->size = old_size;
 	io_buffer_seek(inbuf, stop_offset);

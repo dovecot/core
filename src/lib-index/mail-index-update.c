@@ -232,8 +232,6 @@ void mail_index_update_field(MailIndexUpdate *update, MailField field,
 
 static MailField mail_header_get_field(const char *str, unsigned int len)
 {
-	if (len == 10 && strncasecmp(str, "Message-ID", 10) == 0)
-		return FIELD_TYPE_MESSAGEID;
 	if (len == 7 && strncasecmp(str, "Subject", 7) == 0)
 		return FIELD_TYPE_SUBJECT;
 	if (len == 4 && strncasecmp(str, "From", 4) == 0)
@@ -329,10 +327,10 @@ static void update_header_func(MessagePart *part,
 }
 
 void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
+                               MailField cache_fields,
 			       MessageHeaderFunc header_func, void *context)
 {
 	HeaderUpdateContext ctx;
-	MailField cache_fields;
 	MessagePart *part;
 	MessageSize hdr_size, body_size;
 	Pool pool;
@@ -344,7 +342,9 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 	ctx.header_func = header_func;
 	ctx.context = context;
 
-	cache_fields = update->index->header->cache_fields;
+	if (cache_fields == 0)
+                cache_fields = update->index->header->cache_fields;
+
 	if ((cache_fields & (FIELD_TYPE_BODY|FIELD_TYPE_BODYSTRUCTURE)) != 0) {
 		/* for body / bodystructure, we need need to
 		   fully parse the message */
@@ -360,6 +360,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 
 		if (cache_fields & FIELD_TYPE_BODY) {
 			t_push();
+			io_buffer_seek(inbuf, 0);
 			value = imap_part_get_bodystructure(pool, &part,
 							    inbuf, FALSE);
 			update->index->update_field(update, FIELD_TYPE_BODY,
@@ -369,6 +370,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 
 		if (cache_fields & FIELD_TYPE_BODYSTRUCTURE) {
 			t_push();
+			io_buffer_seek(inbuf, 0);
 			value = imap_part_get_bodystructure(pool, &part,
 							    inbuf, TRUE);
 			update->index->update_field(update,

@@ -27,11 +27,14 @@ static MailFlags mbox_get_status_flags(const char *value, unsigned int len)
 		case 'F':
 			flags |= MAIL_FLAGGED;
 			break;
+		case 'D':
+			flags |= MAIL_DELETED;
+			break;
 		case 'R':
 			flags |= MAIL_SEEN;
 			break;
-		case 'D':
-			flags |= MAIL_DELETED;
+		case 'T':
+			flags |= MAIL_DRAFT;
 			break;
 		}
 	}

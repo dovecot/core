@@ -37,21 +37,20 @@ typedef enum {
 	FIELD_TYPE_ENVELOPE		= 0x0002,
 	FIELD_TYPE_BODY			= 0x0004,
 	FIELD_TYPE_BODYSTRUCTURE	= 0x0008,
-	FIELD_TYPE_MESSAGEID		= 0x0010,
-	FIELD_TYPE_FROM			= 0x0020,
-	FIELD_TYPE_TO			= 0x0040,
-	FIELD_TYPE_CC			= 0x0080,
-	FIELD_TYPE_BCC			= 0x0100,
-	FIELD_TYPE_SUBJECT		= 0x0200,
-	FIELD_TYPE_MD5			= 0x0400,
+	FIELD_TYPE_FROM			= 0x0010,
+	FIELD_TYPE_TO			= 0x0020,
+	FIELD_TYPE_CC			= 0x0040,
+	FIELD_TYPE_BCC			= 0x0080,
+	FIELD_TYPE_SUBJECT		= 0x0100,
+	FIELD_TYPE_MD5			= 0x0200,
 
-	FIELD_TYPE_LAST			= 0x0800,
-	FIELD_TYPE_MAX_BITS		= 11
+	FIELD_TYPE_LAST			= 0x0400,
+	FIELD_TYPE_MAX_BITS		= 10
 } MailField;
 
 #define IS_HEADER_FIELD(field) \
-	(((field) & (FIELD_TYPE_MESSAGEID | FIELD_TYPE_FROM | FIELD_TYPE_TO | \
-		     FIELD_TYPE_CC | FIELD_TYPE_BCC | FIELD_TYPE_SUBJECT)) != 0)
+	(((field) & (FIELD_TYPE_FROM | FIELD_TYPE_TO | FIELD_TYPE_CC | \
+		     FIELD_TYPE_BCC | FIELD_TYPE_SUBJECT)) != 0)
 
 typedef enum {
 	MAIL_LOCK_UNLOCK = 0,
@@ -345,7 +344,9 @@ void mail_index_close(MailIndex *index);
 int mail_index_rebuild_all(MailIndex *index);
 int mail_index_sync_file(MailIndex *index);
 void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
+                               MailField cache_fields,
 			       MessageHeaderFunc header_func, void *context);
+int mail_index_update_cache(MailIndex *index);
 
 /* Max. mmap()ed size for a message */
 #define MAIL_MMAP_BLOCK_SIZE (1024*256)

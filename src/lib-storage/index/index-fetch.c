@@ -199,11 +199,8 @@ static int index_cache_message(MailIndexRecord *rec, FetchContext *ctx,
 	IOBuffer *inbuf;
 
 	inbuf = ctx->index->open_mail(ctx->index, rec);
-	if (inbuf == NULL) {
-		i_error("Couldn't open message UID %u (index %s)",
-			rec->uid, ctx->index->filepath);
+	if (inbuf == NULL)
 		return FALSE;
-	}
 
 	if (MSG_HAS_VALID_CRLF_DATA(rec)) {
 		imap_msgcache_message(ctx->cache, rec->uid,
