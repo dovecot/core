@@ -11,7 +11,7 @@ int cmd_subscribe_full(Client *client, int subscribe)
 	if (!client_read_string_args(client, 1, &mailbox))
 		return FALSE;
 
-	if (!client_verify_mailbox_name(client, mailbox, TRUE))
+	if (!client_verify_mailbox_name(client, mailbox, subscribe))
 		return TRUE;
 
 	if (client->storage->set_subscribed(client->storage,
