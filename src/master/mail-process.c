@@ -200,7 +200,8 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	if (set->mbox_read_dotlock)
 		env_put("MBOX_READ_DOTLOCK=1");
 
-	env_put(t_strconcat("MODULE_DIR=", module_dir, NULL));
+	if (module_dir != NULL && *module_dir != '\0')
+		env_put(t_strconcat("MODULE_DIR=", module_dir, NULL));
 
 	/* user given environment - may be malicious. virtual_user comes from
 	   auth process, but don't trust that too much either. Some auth

@@ -89,7 +89,7 @@ static void login_group_create(struct login_settings *login_set)
 		group->process_type = PROCESS_TYPE_IMAP;
 		group->listen_fd = &mail_fd[FD_IMAP];
 		group->ssl_listen_fd = &mail_fd[FD_IMAPS];
-		group->module_dir = set->imap_use_modules ? NULL :
+		group->module_dir = !set->imap_use_modules ? NULL :
                         set->imap_modules;
 	} else if (strcmp(login_set->name, "pop3") == 0) {
 		group->executable = set->pop3_executable;
@@ -97,7 +97,7 @@ static void login_group_create(struct login_settings *login_set)
 		group->process_type = PROCESS_TYPE_POP3;
 		group->listen_fd = &mail_fd[FD_POP3];
 		group->ssl_listen_fd = &mail_fd[FD_POP3S];
-		group->module_dir = set->pop3_use_modules ? NULL :
+		group->module_dir = !set->pop3_use_modules ? NULL :
                         set->pop3_modules;
 	} else
 		i_panic("Unknown login group name '%s'", login_set->name);
