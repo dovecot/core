@@ -4,6 +4,7 @@
 #include "lib.h"
 
 #define AUTH_FAILED_MSG "Authentication failed."
+#define AUTH_TEMP_FAILED_MSG "Temporary authentication failure."
 
 extern int disable_plaintext_auth, process_per_connection, greeting_capability;
 extern int verbose_proctitle, verbose_ssl, verbose_auth;

@@ -85,13 +85,15 @@ static int client_handle_args(struct imap_client *client,
 	const char *reason = NULL, *host = NULL, *destuser = NULL, *pass = NULL;
 	string_t *reply;
 	unsigned int port = 143;
-	int proxy = FALSE;
+	int proxy = FALSE, temp = FALSE;
 
 	for (; *args != NULL; args++) {
 		if (strcmp(*args, "nologin") == 0)
 			nologin = TRUE;
 		else if (strcmp(*args, "proxy") == 0)
 			proxy = TRUE;
+		else if (strcmp(*args, "temp") == 0)
+			temp = TRUE;
 		else if (strncmp(*args, "reason=", 7) == 0)
 			reason = *args + 7;
 		else if (strncmp(*args, "host=", 5) == 0)
@@ -146,6 +148,8 @@ static int client_handle_args(struct imap_client *client,
 		reply = t_str_new(128);
 		if (reason != NULL)
 			str_printfa(reply, "NO %s", reason);
+		else if (temp)
+			str_append(reply, "NO "AUTH_TEMP_FAILED_MSG);
 		else
 			str_append(reply, "NO "AUTH_FAILED_MSG);
 		client_send_tagline(client, str_c(reply));

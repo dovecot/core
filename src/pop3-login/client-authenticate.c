@@ -86,13 +86,15 @@ static int client_handle_args(struct pop3_client *client,
 	const char *reason = NULL, *host = NULL, *destuser = NULL, *pass = NULL;
 	string_t *reply;
 	unsigned int port = 110;
-	int proxy = FALSE;
+	int proxy = FALSE, temp = FALSE;
 
 	for (; *args != NULL; args++) {
 		if (strcmp(*args, "nologin") == 0)
 			nologin = TRUE;
 		else if (strcmp(*args, "proxy") == 0)
 			proxy = TRUE;
+		else if (strcmp(*args, "temp") == 0)
+			temp = TRUE;
 		else if (strncmp(*args, "reason=", 7) == 0)
 			reason = *args + 7;
 		else if (strncmp(*args, "host=", 5) == 0)
@@ -124,6 +126,8 @@ static int client_handle_args(struct pop3_client *client,
 	str_append(reply, "-ERR ");
 	if (reason != NULL)
 		str_append(reply, reason);
+	else if (temp)
+		str_append(reply, AUTH_TEMP_FAILED_MSG);
 	else
 		str_append(reply, AUTH_FAILED_MSG);
 
