@@ -26,11 +26,11 @@ struct charset_translation *charset_to_utf8_begin(const char *charset,
 
 	if (strcasecmp(charset, "us-ascii") == 0 ||
 	    strcasecmp(charset, "ascii") == 0) {
-		cd = NULL;
+		cd = (iconv_t)-1;
 		ascii = TRUE;
 	} else if (strcasecmp(charset, "UTF-8") == 0 ||
 		   strcasecmp(charset, "UTF8") == 0) {
-		cd = NULL;
+		cd = (iconv_t)-1;
 		ascii = FALSE;
 	} else {
 		ascii = FALSE;
@@ -50,14 +50,14 @@ struct charset_translation *charset_to_utf8_begin(const char *charset,
 
 void charset_to_utf8_end(struct charset_translation *t)
 {
-	if (t->cd != NULL)
+	if (t->cd != (iconv_t)-1)
 		iconv_close(t->cd);
 	i_free(t);
 }
 
 void charset_to_utf8_reset(struct charset_translation *t)
 {
-	if (t->cd != NULL)
+	if (t->cd != (iconv_t)-1)
 		(void)iconv(t->cd, NULL, NULL, NULL, NULL);
 }
 
@@ -74,7 +74,7 @@ charset_to_ucase_utf8(struct charset_translation *t,
 	destpos = buffer_get_used_size(dest);
 	destleft = buffer_get_size(dest) - destpos;
 
-	if (t->cd == NULL) {
+	if (t->cd == (iconv_t)-1) {
 		/* no translation needed - just copy it to outbuf uppercased */
 		if (*src_size > destleft)
 			*src_size = destleft;
