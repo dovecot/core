@@ -37,9 +37,12 @@ static int subscription_open(MailStorage *storage, int update,
 	fd = update ? open(*path, O_RDWR | O_CREAT, 0660) :
 		open(*path, O_RDONLY);
 	if (fd == -1) {
-		if (update || errno != ENOENT)
+		if (update || errno != ENOENT) {
                         subsfile_set_syscall_error(storage, "open()", *path);
-		return -1;
+			return -1;
+		}
+
+		return -2;
 	}
 
 	/* FIXME: we should work without locking, rename() would be easiest
@@ -173,8 +176,10 @@ int subsfile_foreach(MailStorage *storage, const char *mask,
 	int fd, ret;
 
 	fd = subscription_open(storage, FALSE, &path, &mmap_base, &mmap_length);
-	if (fd == -1)
-		return -1;
+	if (fd < 0) {
+		/* -2 = no subscription file, ignore */
+		return fd == -1 ? -1 : 1;
+	}
 
 	glob = imap_match_init(mask, TRUE, storage->hierarchy_sep);
 
