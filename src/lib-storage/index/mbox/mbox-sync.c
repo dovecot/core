@@ -62,31 +62,6 @@ int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset)
 	return 0;
 }
 
-static int mbox_sync_grow_file(struct mbox_sync_context *sync_ctx,
-			       struct mbox_sync_mail_context *mail_ctx,
-			       uoff_t grow_size)
-{
-	uoff_t src_offset, file_size;
-
-	i_assert(grow_size > 0);
-
-	/* put the padding between last message's header and body */
-	file_size = i_stream_get_size(sync_ctx->file_input) + grow_size;
-	if (file_set_size(sync_ctx->fd, file_size) < 0) {
-		mbox_set_syscall_error(sync_ctx->ibox, "file_set_size()");
-		return -1;
-	}
-
-	src_offset = mail_ctx->body_offset;
-	mail_ctx->body_offset += grow_size;
-	if (mbox_move(sync_ctx, mail_ctx->body_offset, src_offset,
-		      file_size - mail_ctx->body_offset) < 0)
-		return -1;
-
-	istream_raw_mbox_flush(sync_ctx->input);
-	return 0;
-}
-
 static void mbox_sync_buffer_delete_old(buffer_t *syncs_buf, uint32_t uid)
 {
 	struct mail_index_sync_rec *sync;
@@ -555,7 +530,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			return -1;
 
 		mbox_sync_update_header(mail_ctx, sync_ctx->syncs);
-		ret = mbox_sync_try_rewrite(mail_ctx, move_diff, FALSE);
+		ret = mbox_sync_try_rewrite(mail_ctx, move_diff);
 		if (ret < 0)
 			return -1;
 
@@ -578,7 +553,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			return 0;
 		}
 
-		if ((ret = mbox_sync_try_rewrite(mail_ctx, 0, FALSE)) < 0)
+		if ((ret = mbox_sync_try_rewrite(mail_ctx, 0)) < 0)
 			return -1;
 	} else {
 		/* nothing to do */
@@ -611,7 +586,7 @@ static int
 mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 {
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
-	uoff_t padding;
+	uoff_t end_offset, move_diff, extra_space, needed_space;
 	uint32_t last_seq;
 
 	buffer_append(sync_ctx->mails, &mail_ctx->mail, sizeof(mail_ctx->mail));
@@ -621,23 +596,36 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		return 0;
 
 	/* we have enough space now */
-	padding = MBOX_HEADER_PADDING *
-		(sync_ctx->seq - sync_ctx->need_space_seq + 1);
-
-	if (mail_ctx->mail.uid == 0 &&
-	    (uoff_t)sync_ctx->space_diff > padding) {
-		/* don't waste too much on padding */
-		sync_ctx->expunged_space = sync_ctx->space_diff - padding;
-		sync_ctx->space_diff = padding;
+	if (mail_ctx->mail.uid == 0) {
+		/* this message was expunged. fill more or less of the space. */
+		extra_space = MBOX_HEADER_PADDING *
+			(sync_ctx->seq - sync_ctx->need_space_seq + 1);
+		needed_space = mail_ctx->mail.space - sync_ctx->space_diff;
+		if ((uoff_t)sync_ctx->space_diff > needed_space + extra_space) {
+			/* don't waste too much on padding */
+			sync_ctx->expunged_space = mail_ctx->mail.space -
+				(needed_space + extra_space);
+			sync_ctx->space_diff = needed_space + extra_space;
+		} else {
+			extra_space = sync_ctx->space_diff - needed_space;
+		}
 		last_seq = sync_ctx->seq - 1;
 		buffer_set_used_size(sync_ctx->mails, sync_ctx->mails->used -
 				     sizeof(mail_ctx->mail));
+		end_offset = mail_ctx->mail.from_offset;
+		move_diff = sync_ctx->space_diff;
 	} else {
+		/* this message gave enough space from headers. rewriting stops
+		   at the end of this message's headers. */
 		sync_ctx->expunged_space = 0;
 		last_seq = sync_ctx->seq;
+		end_offset = mail_ctx->body_offset;
+
+		move_diff = 0;
+		extra_space = sync_ctx->space_diff;
 	}
 
-	if (mbox_sync_rewrite(sync_ctx, sync_ctx->space_diff,
+	if (mbox_sync_rewrite(sync_ctx, end_offset, move_diff, extra_space,
 			      sync_ctx->need_space_seq, last_seq) < 0)
 		return -1;
 
@@ -648,6 +636,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 	memset(mail_ctx, 0, sizeof(*mail_ctx));
 
 	sync_ctx->need_space_seq = 0;
+	sync_ctx->space_diff = 0;
 	buffer_set_used_size(sync_ctx->mails, 0);
 	return 0;
 }
@@ -923,8 +912,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					struct mbox_sync_mail_context *mail_ctx)
 {
-	uoff_t offset, padding, trailer_size;
-	int need_rewrite;
+	uoff_t offset, padding, trailer_size, old_file_size;
 
 	if (!istream_raw_mbox_is_eof(sync_ctx->input)) {
 		i_assert(sync_ctx->need_space_seq == 0);
@@ -950,28 +938,22 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		if (mail_ctx->have_eoh && !mail_ctx->updated)
 			str_append_c(mail_ctx->header, '\n');
 
-		if (sync_ctx->space_diff < 0 &&
-		    mbox_sync_grow_file(sync_ctx, mail_ctx,
-					-sync_ctx->space_diff) < 0)
+		i_assert(sync_ctx->space_diff < 0);
+
+		old_file_size = i_stream_get_size(sync_ctx->file_input);
+		if (file_set_size(sync_ctx->fd,
+				  old_file_size + -sync_ctx->space_diff) < 0) {
+			mbox_set_syscall_error(sync_ctx->ibox,
+					       "file_set_size()");
 			return -1;
-
-		need_rewrite = sync_ctx->seq != sync_ctx->need_space_seq;
-		if (mbox_sync_try_rewrite(mail_ctx, 0, need_rewrite) < 0)
-			return -1;
-
-		if (need_rewrite) {
-			buffer_set_used_size(sync_ctx->mails,
-					     (sync_ctx->seq -
-					      sync_ctx->need_space_seq) *
-					     sizeof(mail_ctx->mail));
-			buffer_append(sync_ctx->mails, &mail_ctx->mail,
-				      sizeof(mail_ctx->mail));
-
-			if (mbox_sync_rewrite(sync_ctx, padding,
-					      sync_ctx->need_space_seq,
-					      sync_ctx->seq) < 0)
-				return -1;
 		}
+		istream_raw_mbox_flush(sync_ctx->input);
+
+		if (mbox_sync_rewrite(sync_ctx, old_file_size,
+				      -sync_ctx->space_diff, padding,
+				      sync_ctx->need_space_seq,
+				      sync_ctx->seq) < 0)
+			return -1;
 
 		update_from_offsets(sync_ctx);
 
