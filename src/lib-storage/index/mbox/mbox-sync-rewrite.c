@@ -320,7 +320,9 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 		(mail_ctx.body_offset - mail_ctx.hdr_offset);
 	i_assert(need_space == (uoff_t)-mails[idx].space);
 
-	if (padding < (uoff_t)mail_ctx.mail.space) {
+	if (mail_ctx.mail.space == 0) {
+		/* don't touch spacing */
+	} else if (padding < (uoff_t)mail_ctx.mail.space) {
 		mbox_sync_headers_remove_space(&mail_ctx, mail_ctx.mail.space -
 					       padding);
 	} else {
@@ -348,7 +350,6 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	mails[idx].offset = dest_offset +
 		(mail_ctx.mail.offset - mail_ctx.hdr_offset);
 	mails[idx].space = mail_ctx.mail.space;
-	i_assert(mails[idx].space == padding);
 
 	if (mails[idx].from_offset == 0) {
 		sync_ctx->base_uid_last =
@@ -407,7 +408,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 		if (mails[idx].space <= 0 &&
 		    (mails[idx].flags & MBOX_EXPUNGED) == 0) {
 			/* give space to this mail */
-			next_move_diff = -mails[idx].space + padding_per_mail;
+			next_move_diff = -mails[idx].space;
 			if (mbox_sync_read_and_move(sync_ctx, mails,
 						    first_seq + idx, idx,
 						    padding_per_mail, move_diff,
@@ -415,7 +416,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 				ret = -1;
 				break;
 			}
-			move_diff -= next_move_diff;
+			move_diff -= next_move_diff + mails[idx].space;
 		} else {
 			/* this mail provides more space. just move it forward
 			   from the extra space offset and set end_offset to
