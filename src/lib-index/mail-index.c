@@ -584,7 +584,7 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 	if (idx >= MAIL_INDEX_RECORD_COUNT(index)) {
 		index_set_error(index, "Corrupted binary tree for index %s: "
 				"lookup returned index outside range "
-				"(%u >= %u)", index->filepath, idx,
+				"(%u >= %"PRIuSIZE_T")", index->filepath, idx,
 				MAIL_INDEX_RECORD_COUNT(index));
 		index->set_flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
 		return NULL;
