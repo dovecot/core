@@ -227,6 +227,7 @@ static void buf_send_real(IOBuffer *buf)
 
 	if (ret < 0) {
 		buf->closed = TRUE;
+		buf->buf_errno = errno;
 	} else {
 		buf->offset += ret;
 		buf->skip += ret;
@@ -287,6 +288,7 @@ static void block_loop_send(IOBufferBlockContext *ctx)
 
 		if (ret < 0) {
 			ctx->outbuf->closed = TRUE;
+			ctx->outbuf->buf_errno = errno;
 		} else {
 			ctx->outbuf->offset += ret;
 			ctx->data += ret;
@@ -430,6 +432,7 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 			if (ret < 0) {
 				/* disconnected */
 				buf->closed = TRUE;
+				buf->buf_errno = errno;
 				return -1;
 			}
 
@@ -457,6 +460,8 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 		}
 	}
 
+	i_assert(buf->pos + size <= buf->buffer_size);
+
 	/* add to buffer */
 	memcpy(buf->buffer + buf->pos, data, size);
 	buf->pos += size;
@@ -470,17 +475,20 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 
 static void block_loop_sendfile(IOBufferBlockContext *ctx)
 {
+	uoff_t offset;
 	int ret;
 
 	i_assert(ctx->inbuf->offset < OFF_T_MAX);
 
+	offset = ctx->inbuf->offset;
 	ret = safe_sendfile(ctx->outbuf->fd, ctx->inbuf->fd,
-			    &ctx->inbuf->offset, ctx->size);
+			    &offset, ctx->size);
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN)
 			ctx->outbuf->closed = TRUE;
 		ret = 0;
 	}
+	io_buffer_skip(ctx->inbuf, (unsigned int)ret);
 
 	ctx->size -= ret;
 	if (ctx->outbuf->closed || ctx->size == 0)
@@ -491,6 +499,7 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 			      unsigned int size)
 {
         IOBufferBlockContext ctx;
+	uoff_t offset;
 	int ret;
 
 	i_assert(inbuf->offset < OFF_T_MAX);
@@ -498,12 +507,14 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 	io_buffer_send_flush(outbuf);
 
 	/* first try if we can do it with a single sendfile() call */
-	ret = safe_sendfile(outbuf->fd, inbuf->fd, &inbuf->offset, size);
+	offset = inbuf->offset;
+	ret = safe_sendfile(outbuf->fd, inbuf->fd, &offset, size);
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN)
 			return -1;
 		ret = 0;
 	}
+	io_buffer_skip(inbuf, (unsigned int)ret);
 
 	if ((unsigned int) ret == size) {
 		/* yes, all sent */
@@ -547,7 +558,8 @@ static void block_loop_copy(IOBufferBlockContext *ctx)
 	io_buffer_skip(ctx->inbuf, size - ctx->size);
 }
 
-int io_buffer_send_buf(IOBuffer *outbuf, IOBuffer *inbuf, unsigned int size)
+int io_buffer_send_iobuffer(IOBuffer *outbuf, IOBuffer *inbuf,
+			    unsigned int size)
 {
 	IOBufferBlockContext ctx;
 	unsigned char *in_data;
@@ -571,8 +583,10 @@ int io_buffer_send_buf(IOBuffer *outbuf, IOBuffer *inbuf, unsigned int size)
 	ret = !outbuf->file ?
 		net_transmit(outbuf->fd, in_data, in_size) :
 		my_write(outbuf->fd, in_data, in_size);
-	if (ret < 0)
+	if (ret < 0) {
+		outbuf->buf_errno = errno;
 		return -1;
+	}
 
 	outbuf->offset += ret;
 	io_buffer_skip(inbuf, (unsigned int)ret);
@@ -647,6 +661,7 @@ static int io_buffer_read_mmaped(IOBuffer *buf, unsigned int size)
 	buf->buffer = mmap(NULL, buf->buffer_size, PROT_READ, MAP_PRIVATE,
 			   buf->fd, buf->mmap_offset);
 	if (buf->buffer == MAP_FAILED) {
+		buf->buf_errno = errno;
 		i_error("io_buffer_read_mmaped(): mmap() failed: %m");
 		return -1;
 	}
@@ -703,6 +718,7 @@ int io_buffer_read_max(IOBuffer *buf, unsigned int size)
 
 	if (ret < 0) {
 		/* disconnected */
+		buf->buf_errno = errno;
                 return -1;
 	}
 
@@ -892,7 +908,8 @@ int io_buffer_send_buffer(IOBuffer *buf, unsigned int size)
 			net_transmit(buf->fd, buf->buffer, size);
 		if (ret < 0) {
 			/* disconnected */
-                        buf->closed = TRUE;
+			buf->closed = TRUE;
+			buf->buf_errno = errno;
 			return -1;
 		}
 

@@ -12,6 +12,7 @@ struct _IOBuffer {
 
 	uoff_t start_offset;
 	uoff_t offset, size; /* virtual offset, 0 = start_offset */
+	int buf_errno; /* set when write() or read() failed. */
 
 /* private: */
 	Pool pool;
@@ -86,7 +87,8 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size);
 /* Send data from input buffer to output buffer using the fastest
    possible method. Returns 1 if all was ok, -1 if disconnected.
    Note that this function may block. */
-int io_buffer_send_buf(IOBuffer *outbuf, IOBuffer *inbuf, unsigned int size);
+int io_buffer_send_iobuffer(IOBuffer *outbuf, IOBuffer *inbuf,
+			    unsigned int size);
 /* Flush the output buffer, blocks until all is sent. If
    io_buffer_set_send_blocking() is called, it's timeout settings are used. */
 void io_buffer_send_flush(IOBuffer *buf);
