@@ -31,7 +31,7 @@ index_storage_fetch_init(struct mailbox *box,
 
 	ctx = i_new(struct mail_fetch_context, 1);
 
-	if (!box->readonly && update_seen != NULL)
+	if (box->readonly && update_seen != NULL)
 		*update_seen = FALSE;
 
 	/* need exclusive lock to update the \Seen flags */
