@@ -272,6 +272,7 @@ typedef struct {
 	IOBuffer *inbuf;
 
 	int timeout;
+	int last_block;
 } IOBufferBlockContext;
 
 static void block_loop_send(IOBufferBlockContext *ctx)
@@ -296,7 +297,7 @@ static void block_loop_send(IOBufferBlockContext *ctx)
 		}
 	}
 
-	if (ctx->outbuf->closed || ctx->size == 0)
+	if (ctx->outbuf->closed || (ctx->size == 0 && ctx->last_block))
 		io_loop_stop(ctx->ioloop);
 }
 
@@ -363,6 +364,7 @@ static int io_buffer_send_blocking(IOBuffer *buf, const void *data,
 
 	ctx.data = data;
 	ctx.size = size;
+	ctx.last_block = TRUE;
 
         return io_buffer_ioloop(buf, &ctx, block_loop_send);
 }
@@ -538,7 +540,7 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 static void block_loop_copy(IOBufferBlockContext *ctx)
 {
 	unsigned char *in_data;
-	unsigned int size;
+	unsigned int size, full_size, sent_size, data_size;
 	int ret;
 
 	while ((ret = io_buffer_read_data(ctx->inbuf, &in_data,
@@ -550,20 +552,26 @@ static void block_loop_copy(IOBufferBlockContext *ctx)
 		}
 	}
 
+	full_size = ctx->size;
+	data_size = size < full_size ? size : full_size;
+
 	/* send the data */
+	ctx->size = data_size;
 	ctx->data = (const char *) in_data;
-	ctx->size = size;
+	ctx->last_block = data_size == full_size;
 	block_loop_send(ctx);
 
-	io_buffer_skip(ctx->inbuf, size - ctx->size);
+	/* ctx->size now contains number of bytes unsent */
+	sent_size = data_size - ctx->size;
+	ctx->size = full_size - sent_size;
+
+	io_buffer_skip(ctx->inbuf, sent_size);
 }
 
 int io_buffer_send_iobuffer(IOBuffer *outbuf, IOBuffer *inbuf,
 			    unsigned int size)
 {
 	IOBufferBlockContext ctx;
-	unsigned char *in_data;
-	unsigned int in_size;
 	int ret;
 
 	i_assert(size < INT_MAX);
@@ -574,26 +582,6 @@ int io_buffer_send_iobuffer(IOBuffer *outbuf, IOBuffer *inbuf,
 
 	/* sendfile() not supported (with this fd), fallback to
 	   regular sending */
-
-	/* see if we can do it at one go */
-	ret = io_buffer_read_data(inbuf, &in_data, &in_size, 0);
-	if (ret == -1)
-		return -1;
-
-	ret = !outbuf->file ?
-		net_transmit(outbuf->fd, in_data, in_size) :
-		my_write(outbuf->fd, in_data, in_size);
-	if (ret < 0) {
-		outbuf->buf_errno = errno;
-		return -1;
-	}
-
-	outbuf->offset += ret;
-	io_buffer_skip(inbuf, (unsigned int)ret);
-	if ((unsigned int) ret == size) {
-		/* all sent */
-		return 1;
-	}
 
 	/* create blocking send loop */
 	memset(&ctx, 0, sizeof(ctx));
