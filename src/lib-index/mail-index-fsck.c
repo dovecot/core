@@ -6,15 +6,17 @@
 
 #define CHECK(field) \
 	if (old_hdr->field != new_hdr->field) \
-		i_warning("fsck: "#field" %u != %u", \
-			  old_hdr->field, new_hdr->field);
+		i_warning("fsck %s: "#field" %u != %u", \
+			  index->filepath, old_hdr->field, new_hdr->field);
 
 
-static void print_differences(MailIndexHeader *old_hdr,
+static void print_differences(MailIndex *index,
+			      MailIndexHeader *old_hdr,
 			      MailIndexHeader *new_hdr)
 {
 	if (old_hdr->first_hole_index != new_hdr->first_hole_index) {
-		i_warning("fsck: first_hole_position %u != %u",
+		i_warning("fsck %s: first_hole_position %u != %u",
+			  index->filepath,
 			  old_hdr->first_hole_index,
 			  new_hdr->first_hole_index);
 	}
@@ -29,14 +31,16 @@ static void print_differences(MailIndexHeader *old_hdr,
 
 	if (old_hdr->first_unseen_uid_lowwater >
 	    new_hdr->first_unseen_uid_lowwater) {
-		i_warning("fsck: first_unseen_uid_lowwater %u > %u",
+		i_warning("fsck %s: first_unseen_uid_lowwater %u > %u",
+			  index->filepath,
 			  old_hdr->first_unseen_uid_lowwater,
                           new_hdr->first_unseen_uid_lowwater);
 	}
 
 	if (old_hdr->first_deleted_uid_lowwater >
 	    new_hdr->first_deleted_uid_lowwater) {
-		i_warning("fsck: first_deleted_uid_lowwater %u > %u",
+		i_warning("fsck %s: first_deleted_uid_lowwater %u > %u",
+			  index->filepath,
 			  old_hdr->first_deleted_uid_lowwater,
                           new_hdr->first_deleted_uid_lowwater);
 	}
@@ -120,7 +124,7 @@ int mail_index_fsck(MailIndex *index)
 	if (hdr->first_deleted_uid_lowwater == 0)
 		hdr->first_deleted_uid_lowwater = hdr->next_uid;
 
-	print_differences(&old_hdr, hdr);
+	print_differences(index, &old_hdr, hdr);
 
 	/* FSCK flag is removed automatically by set_lock() */
 	return TRUE;
