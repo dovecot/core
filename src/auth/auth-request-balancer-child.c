@@ -153,6 +153,8 @@ unsigned int auth_request_balancer_send(const char *line)
 	child = buffer_get_modifyable_data(balancer_children, &size);
 	size /= sizeof(*child);
 
+	i_assert(size > 0);
+
 	start = i = balancer_next_idx % size;
 	balancer_next_idx++;
 
