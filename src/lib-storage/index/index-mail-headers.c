@@ -419,30 +419,29 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
 	struct istream *istream;
-	const char *str, *const *idx_headers;
+	const char *const *idx_headers;
+	string_t *str;
 
-	t_push();
 	if (idx < data->header_data_cached) {
 		/* it's already in header_data. */
-		istream = i_stream_create_from_data(pool_datastack_create(),
+		istream = i_stream_create_from_data(mail->pool,
 						    str_data(data->header_data),
 						    str_len(data->header_data));
 		/* we might be parsing a bit more.. */
 		idx = data->header_data_cached-1;
 		data->header_stream = istream;
 	} else {
-		str = mail_cache_lookup_string_field(
-			mail->trans->cache_view, data->seq,
-			mail_cache_header_fields[idx]);
-		if (str == NULL) {
+		str = str_new(mail->pool, 32);
+		if (!mail_cache_lookup_string_field(
+				mail->trans->cache_view, str, data->seq,
+				mail_cache_header_fields[idx])) {
 			/* broken - we expected the header to exist */
-			t_pop();
 			return FALSE;
 		}
 
 		data->header_data_cached_partial = TRUE;
-		istream = i_stream_create_from_data(pool_datastack_create(),
-						    str, strlen(str));
+		istream = i_stream_create_from_data(mail->pool, str_data(str),
+						    str_len(str));
 	}
 
 	idx_headers = mail_cache_get_header_fields(mail->trans->cache_view,
@@ -450,7 +449,6 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 	if (idx_headers == NULL) {
 		mail_cache_set_corrupted(mail->ibox->cache,
 			"Headers %d names not found", idx);
-		t_pop();
 		return FALSE;
 	}
 
@@ -466,7 +464,6 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 
 	data->header_stream = NULL;
 	i_stream_unref(istream);
-	t_pop();
 
 	return TRUE;
 }
@@ -485,7 +482,7 @@ static void trash_partial_headers(struct index_mail *mail)
 int index_mail_parse_headers(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
-	const char *str, *const *headers;
+	const char *const *headers;
 	int idx, max;
 
 	if (data->stream == NULL) {
@@ -508,14 +505,12 @@ int index_mail_parse_headers(struct index_mail *mail)
 		/* add all cached headers to beginning of header_data */
                 idx = data->header_data_cached; max = idx-1;
 		for (; idx < MAIL_CACHE_HEADERS_COUNT; idx++) {
-			str = mail_cache_lookup_string_field(
-				mail->trans->cache_view, mail->data.seq,
-				mail_cache_header_fields[idx]);
-			if (str == NULL)
+			if (!mail_cache_lookup_string_field(
+				mail->trans->cache_view, mail->data.header_data,
+				mail->data.seq, mail_cache_header_fields[idx]))
 				continue;
 
 			max = idx;
-			str_append(mail->data.header_data, str);
 		}
 		data->header_data_cached = max+1;
 		data->header_data_uncached_offset =
@@ -635,7 +630,7 @@ struct istream *index_mail_get_headers(struct mail *_mail,
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
 	struct cached_header *hdr;
-	const char *const *tmp, *str;
+	const char *const *tmp;
 	int i, idx, all_saved;
 
 	i_assert(*minimum_fields != NULL);
@@ -652,13 +647,9 @@ struct istream *index_mail_get_headers(struct mail *_mail,
 			trash_partial_headers(mail);
 		}
 		for (i = data->header_data_cached; i <= idx; i++) {
-			str = mail_cache_lookup_string_field(
-					mail->trans->cache_view, data->seq,
-					mail_cache_header_fields[i]);
-			if (str == NULL)
-				continue;
-
-			str_append(data->header_data, str);
+			(void)mail_cache_lookup_string_field(
+				mail->trans->cache_view, data->header_data,
+				data->seq, mail_cache_header_fields[i]);
 		}
 		data->header_data_cached = idx+1;
 		data->header_data_uncached_offset = str_len(data->header_data);

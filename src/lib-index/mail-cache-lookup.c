@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "str.h"
 #include "mail-cache-private.h"
 
 #define CACHE_PREFETCH 1024
@@ -204,8 +205,7 @@ mail_cache_get_fields(struct mail_cache_view *view, uint32_t seq)
 
 static int cache_get_field(struct mail_cache *cache,
 			   const struct mail_cache_record *cache_rec,
-			   enum mail_cache_field field,
-			   const void **data_r, size_t *size_r)
+			   enum mail_cache_field field, buffer_t *dest_buf)
 {
 	unsigned int mask;
 	uint32_t data_size;
@@ -247,8 +247,9 @@ static int cache_get_field(struct mail_cache *cache,
 							 "Field size is 0");
 				return FALSE;
 			}
-			*data_r = CONST_PTR_OFFSET(cache_rec, offset);
-			*size_r = data_size;
+			buffer_append(dest_buf,
+				      CONST_PTR_OFFSET(cache_rec, offset),
+				      data_size);
 			return TRUE;
 		}
 		offset = prev_offset;
@@ -258,9 +259,8 @@ static int cache_get_field(struct mail_cache *cache,
 	return FALSE;
 }
 
-int mail_cache_lookup_field(struct mail_cache_view *view, uint32_t seq,
-			    enum mail_cache_field field,
-			    const void **data_r, size_t *size_r)
+int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
+			    uint32_t seq, enum mail_cache_field field)
 {
 	struct mail_cache_record *cache_rec;
 
@@ -270,7 +270,7 @@ int mail_cache_lookup_field(struct mail_cache_view *view, uint32_t seq,
 	while (cache_rec != NULL) {
 		if ((cache_rec->fields & field) != 0) {
 			return cache_get_field(view->cache, cache_rec, field,
-					       data_r, size_r);
+					       dest_buf);
 		}
 		cache_rec = mail_cache_get_record(view->cache,
 						  cache_rec->prev_offset);
@@ -279,45 +279,25 @@ int mail_cache_lookup_field(struct mail_cache_view *view, uint32_t seq,
 	return FALSE;
 }
 
-const char *
-mail_cache_lookup_string_field(struct mail_cache_view *view, uint32_t seq,
-			       enum mail_cache_field field)
+int mail_cache_lookup_string_field(struct mail_cache_view *view, string_t *dest,
+				   uint32_t seq, enum mail_cache_field field)
 {
-	const void *data;
-	size_t size;
+	size_t old_size, new_size;
 
 	i_assert((field & MAIL_CACHE_STRING_MASK) != 0);
 
-	if (!mail_cache_lookup_field(view, seq, field, &data, &size))
-		return NULL;
-
-	if (((const char *)data)[size-1] != '\0') {
-		mail_cache_set_corrupted(view->cache,
-			"String field %x doesn't end with NUL", field);
-		return NULL;
-	}
-	return data;
-}
-
-int mail_cache_copy_fixed_field(struct mail_cache_view *view, uint32_t seq,
-				enum mail_cache_field field,
-				void *buffer, size_t buffer_size)
-{
-	const void *data;
-	size_t size;
-
-	i_assert((field & MAIL_CACHE_FIXED_MASK) != 0);
-
-	if (!mail_cache_lookup_field(view, seq, field, &data, &size))
+	old_size = str_len(dest);
+	if (!mail_cache_lookup_field(view, dest, seq, field))
 		return FALSE;
 
-	if (buffer_size != size) {
-		i_panic("cache: fixed field %x wrong size "
-			"(%"PRIuSIZE_T" vs %"PRIuSIZE_T")",
-			field, size, buffer_size);
+	new_size = str_len(dest);
+	if (old_size == new_size ||
+	    str_data(dest)[new_size-1] != '\0') {
+		mail_cache_set_corrupted(view->cache,
+			"String field %x doesn't end with NUL", field);
+		return FALSE;
 	}
-
-	memcpy(buffer, data, buffer_size);
+	str_truncate(dest, new_size-1);
 	return TRUE;
 }
 

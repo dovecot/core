@@ -16,14 +16,15 @@ mail_cache_compress_record(struct mail_cache_view *view, uint32_t seq,
 	enum mail_cache_field cached_fields, field;
 	struct mail_cache_record cache_rec;
 	buffer_t *buffer;
+	pool_t pool;
 	const void *data;
 	size_t size, pos;
-	uint32_t size32;
+	uint32_t *p, size32 = 0;
 	int i;
 
 	memset(&cache_rec, 0, sizeof(cache_rec));
-	buffer = buffer_create_dynamic(pool_datastack_create(),
-				       4096, (size_t)-1);
+	pool = pool_datastack_create();
+	buffer = buffer_create_dynamic(pool, 4096, (size_t)-1);
 
 	cached_fields = orig_cached_fields & ~MAIL_CACHE_HEADERS_MASK;
 	buffer_append(buffer, &cache_rec, sizeof(cache_rec));
@@ -31,18 +32,24 @@ mail_cache_compress_record(struct mail_cache_view *view, uint32_t seq,
 		if ((cached_fields & field) == 0)
 			continue;
 
-		if (!mail_cache_lookup_field(view, seq, field, &data, &size)) {
+		pos = buffer_get_used_size(buffer);
+		if ((field & MAIL_CACHE_FIXED_MASK) == 0)
+			buffer_append(buffer, &size32, sizeof(size32));
+
+		if (!mail_cache_lookup_field(view, buffer, seq, field)) {
 			cached_fields &= ~field;
+			buffer_set_used_size(buffer, pos);
 			continue;
 		}
 
-		size32 = (uint32_t)size;
+		if ((field & MAIL_CACHE_FIXED_MASK) == 0) {
+			p = buffer_get_space_unsafe(buffer, pos,
+						    sizeof(uint32_t));
+			*p = (uint32_t)size;
+		}
 
-		if ((field & MAIL_CACHE_FIXED_MASK) == 0)
-			buffer_append(buffer, &size32, sizeof(size32));
-		buffer_append(buffer, data, size);
-		if ((size32 & 3) != 0)
-			buffer_append(buffer, null4, 4 - (size32 & 3));
+		if ((size & 3) != 0)
+			buffer_append(buffer, null4, 4 - (size & 3));
 	}
 
 	/* now merge all the headers if we have them all */
@@ -53,15 +60,15 @@ mail_cache_compress_record(struct mail_cache_view *view, uint32_t seq,
 
 		for (i = 0; i <= header_idx; i++) {
 			field = mail_cache_header_fields[i];
-			if (mail_cache_lookup_field(view, seq, field,
-						    &data, &size) && size > 1) {
-				size--; /* terminating \0 */
-				buffer_append(buffer, data, size);
-				size32 += size;
+			if (mail_cache_lookup_field(view, buffer, seq, field)) {
+				/* remove terminating \0 */
+				buffer_set_used_size(buffer,
+					buffer_get_used_size(buffer)-1);
 			}
 		}
 		buffer_append(buffer, null4, 1);
-		size32++;
+
+		size32 = buffer_get_used_size(buffer) - pos;
 		if ((size32 & 3) != 0)
 			buffer_append(buffer, null4, 4 - (size32 & 3));
 		buffer_write(buffer, pos, &size32, sizeof(size32));

@@ -109,8 +109,8 @@ int index_mail_update_flags(struct mail *mail,
 			    enum modify_type modify_type);
 int index_mail_expunge(struct mail *mail);
 
-char *index_mail_get_cached_string(struct index_mail *mail,
-				   enum mail_cache_field field);
+const char *index_mail_get_cached_string(struct index_mail *mail,
+					 enum mail_cache_field field);
 uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
 				    enum mail_cache_field field);
 uoff_t index_mail_get_cached_virtual_size(struct index_mail *mail);

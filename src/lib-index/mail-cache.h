@@ -113,21 +113,12 @@ mail_cache_get_fields(struct mail_cache_view *view, uint32_t seq);
 /* Set data_r and size_r to point to wanted field in cache file.
    Returns TRUE if field was found. If field contains multiple fields,
    first one found is returned. This is mostly useful for finding headers. */
-int mail_cache_lookup_field(struct mail_cache_view *view, uint32_t seq,
-			    enum mail_cache_field field,
-			    const void **data_r, size_t *size_r);
+int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
+			    uint32_t seq, enum mail_cache_field field);
 
 /* Return string field. */
-const char *
-mail_cache_lookup_string_field(struct mail_cache_view *view, uint32_t seq,
-			       enum mail_cache_field field);
-
-/* Copy fixed size field to given buffer. buffer_size must be exactly the
-   expected size. The result will be converted to host byte order.
-   Returns TRUE if field was found. */
-int mail_cache_copy_fixed_field(struct mail_cache_view *view, uint32_t seq,
-				enum mail_cache_field field,
-				void *buffer, size_t buffer_size);
+int mail_cache_lookup_string_field(struct mail_cache_view *view, string_t *dest,
+				   uint32_t seq, enum mail_cache_field field);
 
 /* Mark given field as missing, ie. it should be cached when possible. */
 void mail_cache_mark_missing(struct mail_cache_view *view, uint32_t uid,

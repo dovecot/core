@@ -18,9 +18,8 @@ static void index_mail_parse_body(struct index_mail *mail);
 static struct message_part *get_cached_parts(struct index_mail *mail)
 {
 	struct message_part *part;
-	const void *part_data;
+	buffer_t *part_buf;
 	const char *error;
-	size_t part_size;
 
 	if ((mail->data.cached_fields & MAIL_CACHE_MESSAGEPART) == 0) {
 		mail_cache_mark_missing(mail->trans->cache_view, mail->data.seq,
@@ -28,14 +27,17 @@ static struct message_part *get_cached_parts(struct index_mail *mail)
 		return NULL;
 	}
 
-	if (!mail_cache_lookup_field(mail->trans->cache_view, mail->data.seq,
-				     MAIL_CACHE_MESSAGEPART,
-				     &part_data, &part_size)) {
+	part_buf = buffer_create_dynamic(pool_datastack_create(),
+					 128, (size_t)-1);
+	if (!mail_cache_lookup_field(mail->trans->cache_view, part_buf,
+				     mail->data.seq, MAIL_CACHE_MESSAGEPART)) {
 		/* unexpected - must be an error */
 		return NULL;
 	}
 
-	part = message_part_deserialize(mail->pool, part_data, part_size,
+	part = message_part_deserialize(mail->pool,
+					buffer_get_data(part_buf, NULL),
+					buffer_get_used_size(part_buf),
 					&error);
 	if (part == NULL) {
 		mail_cache_set_corrupted(mail->ibox->cache,
@@ -55,10 +57,10 @@ static struct message_part *get_cached_parts(struct index_mail *mail)
 	return part;
 }
 
-char *index_mail_get_cached_string(struct index_mail *mail,
-				   enum mail_cache_field field)
+const char *index_mail_get_cached_string(struct index_mail *mail,
+					 enum mail_cache_field field)
 {
-	const char *ret;
+	string_t *str;
 
 	if ((mail->data.cached_fields & field) == 0) {
 		mail_cache_mark_missing(mail->trans->cache_view,
@@ -66,9 +68,35 @@ char *index_mail_get_cached_string(struct index_mail *mail,
 		return NULL;
 	}
 
-	ret = mail_cache_lookup_string_field(mail->trans->cache_view,
-					     mail->data.seq, field);
-	return p_strdup(mail->pool, ret);
+	str = str_new(mail->pool, 32);
+	if (!mail_cache_lookup_string_field(mail->trans->cache_view, str,
+					    mail->data.seq, field))
+		return NULL;
+
+	return str_c(str);
+}
+
+static int index_mail_get_fixed_field(struct index_mail *mail,
+				      enum mail_cache_field field,
+				      void *data, size_t data_size)
+{
+	buffer_t *buf;
+	int ret;
+
+	t_push();
+	buf = buffer_create_data(pool_datastack_create(), data, data_size);
+	if (!mail_cache_lookup_field(mail->trans->cache_view, buf,
+				     mail->data.seq, field)) {
+		mail_cache_mark_missing(mail->trans->cache_view,
+					mail->data.seq, field);
+		ret = FALSE;
+	} else {
+		i_assert(buffer_get_used_size(buf) == data_size);
+		ret = TRUE;
+	}
+	t_pop();
+
+	return ret;
 }
 
 uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
@@ -76,13 +104,8 @@ uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
 {
 	uoff_t uoff;
 
-	if (!mail_cache_copy_fixed_field(mail->trans->cache_view,
-					 mail->data.seq, field,
-					 &uoff, sizeof(uoff))) {
-		mail_cache_mark_missing(mail->trans->cache_view,
-					mail->data.seq, field);
+	if (!index_mail_get_fixed_field(mail, field, &uoff, sizeof(uoff)))
 		uoff = (uoff_t)-1;
-	}
 
 	return uoff;
 }
@@ -96,28 +119,17 @@ time_t index_mail_get_cached_received_date(struct index_mail *mail)
 {
 	time_t t;
 
-	if (!mail_cache_copy_fixed_field(mail->trans->cache_view,
-					 mail->data.seq,
-					 MAIL_CACHE_RECEIVED_DATE,
-					 &t, sizeof(t))) {
-		mail_cache_mark_missing(mail->trans->cache_view, mail->data.seq,
-					MAIL_CACHE_RECEIVED_DATE);
+	if (!index_mail_get_fixed_field(mail, MAIL_CACHE_RECEIVED_DATE,
+					&t, sizeof(t)))
 		t = (time_t)-1;
-	}
-
 	return t;
 }
 
 static void get_cached_sent_date(struct index_mail *mail,
 				 struct mail_sent_date *sent_date)
 {
-	if (!mail_cache_copy_fixed_field(mail->trans->cache_view,
-					 mail->data.seq,
-					 MAIL_CACHE_SENT_DATE,
-					 sent_date, sizeof(*sent_date))) {
-		mail_cache_mark_missing(mail->trans->cache_view, mail->data.seq,
-					MAIL_CACHE_SENT_DATE);
-
+	if (!index_mail_get_fixed_field(mail, MAIL_CACHE_SENT_DATE,
+					sent_date, sizeof(*sent_date))) {
 		sent_date->time = (time_t)-1;
 		sent_date->timezone = 0;
 	}
