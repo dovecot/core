@@ -637,7 +637,8 @@ mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size)
 	size_t size, copy_size;
 	unsigned int i, count;
 
-	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
+	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map) &&
+	    map->hdr->record_size == new_record_size) {
 		map->refcount++;
 		return map;
 	}
