@@ -32,18 +32,18 @@ int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 		   c) we allow insecure authentication
 		*/
 		if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
-		    (client->secured || disable_plaintext_auth ||
+		    (client->common.secured || disable_plaintext_auth ||
 		     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0)) {
 			str_append_c(str, ' ');
 			str_append(str, mech[i].name);
 		}
 	}
 
-	client_send_line(client, t_strconcat("+OK\r\n" POP3_CAPABILITY_REPLY,
-					     (ssl_initialized && !client->tls) ?
-					     "STLS\r\n" : "",
-					     str_c(str),
-					     "\r\n.", NULL));
+	client_send_line(client,
+			 t_strconcat("+OK\r\n" POP3_CAPABILITY_REPLY,
+				     (ssl_initialized && !client->common.tls) ?
+				     "STLS\r\n" : "",
+				     str_c(str), "\r\n.", NULL));
 	return TRUE;
 }
 
@@ -149,7 +149,7 @@ int cmd_auth(struct pop3_client *client, const char *args)
 		mech = auth_client_get_available_mechs(auth_client, &count);
 		for (i = 0; i < count; i++) {
 			if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
-			    (client->secured || disable_plaintext_auth ||
+			    (client->common.secured || disable_plaintext_auth ||
 			     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0))
 		 		client_send_line(client, mech[i].name);
 		}
@@ -183,7 +183,7 @@ int cmd_auth(struct pop3_client *client, const char *args)
 
 int cmd_user(struct pop3_client *client, const char *args)
 {
-	if (!client->secured && disable_plaintext_auth) {
+	if (!client->common.secured && disable_plaintext_auth) {
 		if (verbose_auth) {
 			client_syslog(&client->common, "Login failed: "
 				      "Plaintext authentication disabled");

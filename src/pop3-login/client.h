@@ -24,8 +24,6 @@ struct pop3_client {
 	char *apop_challenge;
 	struct auth_connect_id auth_id;
 
-	unsigned int tls:1;
-	unsigned int secured:1;
 	unsigned int authenticating:1;
 	unsigned int auth_connected:1;
 	unsigned int destroyed:1;

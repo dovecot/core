@@ -54,8 +54,8 @@ static void client_set_title(struct pop3_client *client)
 	if (addr == NULL)
 		addr = "??";
 
-	process_title_set(t_strdup_printf(client->tls ? "[%s TLS]" : "[%s]",
-					  addr));
+	process_title_set(t_strdup_printf(client->common.tls ?
+					  "[%s TLS]" : "[%s]", addr));
 }
 
 static void client_open_streams(struct pop3_client *client, int fd)
@@ -78,8 +78,8 @@ static void client_start_tls(struct pop3_client *client)
 		return;
 	}
 
-	client->tls = TRUE;
-	client->secured = TRUE;
+	client->common.tls = TRUE;
+	client->common.secured = TRUE;
 	client_set_title(client);
 
 	client->common.fd = fd_ssl;
@@ -107,7 +107,7 @@ static void client_output_starttls(void *context)
 
 static int cmd_stls(struct pop3_client *client)
 {
-	if (client->tls) {
+	if (client->common.tls) {
 		client_send_line(client, "-ERR TLS is already active.");
 		return TRUE;
 	}
@@ -307,10 +307,10 @@ struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 	client = i_new(struct pop3_client, 1);
 	client->created = ioloop_time;
 	client->refcount = 1;
-	client->tls = ssl;
+	client->common.tls = ssl;
 
         addr = net_ip2addr(ip);
-	client->secured = ssl ||
+	client->common.secured = ssl ||
 		(IPADDR_IS_V4(ip) && strncmp(addr, "127.", 4) == 0) ||
 		(IPADDR_IS_V6(ip) && strcmp(addr, "::1") == 0);
 
