@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2003 Timo Sirainen */
+/* Copyright (c) 2002-2004 Timo Sirainen */
 
 #include "lib.h"
 #include "restrict-access.h"
@@ -8,12 +8,6 @@
 #include <unistd.h>
 #include <time.h>
 #include <grp.h>
-
-#define HARD_MAX_GROUPS 10240
-
-#ifndef NGROUPS_MAX
-#  define NGROUPS_MAX 128
-#endif
 
 void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 			     const char *chroot_dir,
@@ -44,21 +38,16 @@ void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 
 static gid_t *get_groups_list(int *gid_count_r)
 {
-	/* @UNSAFE */
 	gid_t *gid_list;
 	int ret, gid_count;
 
-	gid_count = NGROUPS_MAX;
-	gid_list = t_buffer_get(sizeof(gid_t) * gid_count);
-	while ((ret = getgroups(gid_count, gid_list)) < 0) {
-		if (errno != EINVAL ||
-		    gid_count < HARD_MAX_GROUPS)
-			i_fatal("getgroups() failed: %m");
+	if ((gid_count = getgroups(0, NULL)) < 0)
+		i_fatal("getgroups() failed: %m");
 
-		gid_count *= 2;
-		gid_list = t_buffer_reget(gid_list, sizeof(gid_t) * gid_count);
-	}
-	t_buffer_alloc(sizeof(gid_t) * ret);
+	/* @UNSAFE */
+	gid_list = t_new(gid_t, gid_count);
+	if ((ret = getgroups(gid_count, gid_list)) < 0)
+		i_fatal("getgroups() failed: %m");
 
 	*gid_count_r = ret;
 	return gid_list;
