@@ -21,8 +21,10 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 
 	pw = getpwnam(request->user);
 	if (pw == NULL) {
-		if (verbose)
-			i_info("passwd(%s): unknown user", request->user);
+		if (verbose) {
+			i_info("passwd(%s): unknown user",
+			       get_log_prefix(request));
+		}
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
@@ -30,7 +32,7 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 	if (!IS_VALID_PASSWD(pw->pw_passwd)) {
 		if (verbose) {
 			i_info("passwd(%s): invalid password field '%s'",
-			       request->user, pw->pw_passwd);
+			       get_log_prefix(request), pw->pw_passwd);
 		}
 		callback(PASSDB_RESULT_USER_DISABLED, request);
 		return;
@@ -43,8 +45,10 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 	safe_memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
 
 	if (!result) {
-		if (verbose)
-			i_info("passwd(%s): password mismatch", request->user);
+		if (verbose) {
+			i_info("passwd(%s): password mismatch",
+			       get_log_prefix(request));
+		}
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}

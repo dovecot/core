@@ -34,8 +34,8 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	    ((vpw->pw_gid & NO_POP) != 0 &&
 	     strcmp(request->protocol, "POP3") == 0)) {
 		if (verbose) {
-			i_info("vpopmail(%s@%s): %s disabled",
-			       vpop_user, vpop_domain, request->protocol);
+			i_info("vpopmail(%s): %s disabled",
+			       get_log_prefix(request), request->protocol);
 		}
 		callback(PASSDB_RESULT_USER_DISABLED, request);
 		return;
@@ -47,8 +47,8 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 
 	if (!result) {
 		if (verbose) {
-			i_info("vpopmail(%s@%s): password mismatch",
-			       vpop_user, vpop_domain);
+			i_info("vpopmail(%s): password mismatch",
+			       get_log_prefix(request));
 		}
 
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);

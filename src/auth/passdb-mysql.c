@@ -48,13 +48,17 @@ static void mysql_handle_request(struct mysql_connection *conn,
 
 	if (res != NULL) {
 		if (mysql_num_rows(res) == 0) {
-			if (verbose)
-				i_info("mysql(%s): Unknown user", user);
+			if (verbose) {
+				i_info("mysql(%s): Unknown user",
+				       get_log_prefix(auth_request));
+			}
 		} else if (mysql_num_rows(res) > 1) {
-			i_error("mysql(%s): Multiple matches for user", user);
+			i_error("mysql(%s): Multiple matches for user",
+				get_log_prefix(auth_request));
 		} else if (mysql_num_fields(res) != 1) {
 			i_error("mysql(%s): Password query returned "
-				"more than one field", user);
+				"more than one field",
+				get_log_prefix(auth_request));
 		} else {
 			MYSQL_ROW row;
 
@@ -87,11 +91,14 @@ static void mysql_handle_request(struct mysql_connection *conn,
 
 	ret = password_verify(mysql_request->password, password,
 			      scheme, user);
-	if (ret < 0)
-		i_error("mysql(%s): Unknown password scheme %s", user, scheme);
-	else if (ret == 0) {
-		if (verbose)
-			i_info("mysql(%s): Password mismatch", user);
+	if (ret < 0) {
+		i_error("mysql(%s): Unknown password scheme %s",
+			get_log_prefix(auth_request), scheme);
+	} else if (ret == 0) {
+		if (verbose) {
+			i_info("mysql(%s): Password mismatch",
+			       get_log_prefix(auth_request));
+		}
 	}
 
 	mysql_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :

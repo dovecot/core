@@ -198,9 +198,11 @@ static int verify_credentials(struct digest_auth_request *auth,
 			/* verify response */
 			if (memcmp(response_hex, auth->response, 32) != 0) {
 				if (verbose) {
+					struct auth_request *auth_request =
+						&auth->auth_request;
 					i_info("digest-md5(%s): "
 					       "password mismatch",
-					       auth->username);
+					       get_log_prefix(auth_request));
 				}
 				return FALSE;
 			}
@@ -571,7 +573,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
                 error = "Authentication failed";
 	else if (verbose) {
 		i_info("digest-md5(%s): %s",
-		       auth->username == NULL ? "" : auth->username, error);
+		       get_log_prefix(auth_request), error);
 	}
 
 	/* failed */

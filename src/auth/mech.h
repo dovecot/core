@@ -97,6 +97,8 @@ const struct var_expand_table *
 auth_request_get_var_expand_table(const struct auth_request *auth_request,
 				  const char *(*escape_func)(const char *));
 
+const char *get_log_prefix(const struct auth_request *auth_request);
+
 void mech_init(void);
 void mech_deinit(void);
 

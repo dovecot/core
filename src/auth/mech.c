@@ -110,16 +110,6 @@ void mech_request_new(struct auth_client_connection *conn,
 		return;
 	}
 
-	if (ssl_require_client_cert &&
-	    (request->flags & AUTH_CLIENT_FLAG_SSL_VALID_CLIENT_CERT) == 0) {
-		/* we fail without valid certificate */
-		if (verbose)
-			i_info("Client didn't present valid SSL certificate");
-		failure_reply.id = request->id;
-		callback(&failure_reply, NULL, conn);
-		return;
-	}
-
 #ifdef USE_CYRUS_SASL2
 	if (set_use_cyrus_sasl)
 		auth_request = mech_cyrus_sasl_new(conn, request, callback);
@@ -127,31 +117,44 @@ void mech_request_new(struct auth_client_connection *conn,
 #endif
 		auth_request = mech->auth_new();
 
-	if (auth_request != NULL) {
-		auth_request->created = ioloop_time;
-		auth_request->conn = conn;
-		auth_request->id = request->id;
-		auth_request->protocol =
-			p_strdup(auth_request->pool,
-				 (const char *)data + request->protocol_idx);
+	if (auth_request == NULL)
+		return;
 
-		if (request->ip_family != 0) {
-			auth_request->local_ip.family = request->ip_family;
-			auth_request->remote_ip.family = request->ip_family;
-				
+	auth_request->created = ioloop_time;
+	auth_request->conn = conn;
+	auth_request->id = request->id;
+	auth_request->protocol =
+		p_strdup(auth_request->pool,
+			 (const char *)data + request->protocol_idx);
 
-			memcpy(&auth_request->local_ip, data, ip_size);
-			memcpy(&auth_request->remote_ip, data + ip_size,
-			       ip_size);
-		}
+	if (request->ip_family != 0) {
+		auth_request->local_ip.family = request->ip_family;
+		auth_request->remote_ip.family = request->ip_family;
 
-		hash_insert(conn->auth_requests, POINTER_CAST(request->id),
-			    auth_request);
-
-		if (!auth_request->auth_initial(auth_request, request, data,
-						callback))
-			mech_request_free(auth_request, request->id);
+		memcpy(&auth_request->local_ip.ip, data, ip_size);
+		memcpy(&auth_request->remote_ip.ip, data + ip_size, ip_size);
 	}
+
+	if (ssl_require_client_cert &&
+	    (request->flags & AUTH_CLIENT_FLAG_SSL_VALID_CLIENT_CERT) == 0) {
+		/* we fail without valid certificate */
+		if (verbose) {
+			i_info("ssl-cert-check(%s): "
+			       "Client didn't present valid SSL certificate",
+			       get_log_prefix(auth_request));
+		}
+		auth_request_unref(auth_request);
+
+		failure_reply.id = request->id;
+		callback(&failure_reply, NULL, conn);
+		return;
+	}
+
+	hash_insert(conn->auth_requests, POINTER_CAST(request->id),
+		    auth_request);
+
+	if (!auth_request->auth_initial(auth_request, request, data, callback))
+		mech_request_free(auth_request, request->id);
 }
 
 void mech_request_continue(struct auth_client_connection *conn,
@@ -310,6 +313,46 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 		tab[6].value = net_ip2addr(&auth_request->remote_ip);
 	tab[7].value = dec2str(auth_request->conn->pid);
 	return tab;
+}
+
+const char *get_log_prefix(const struct auth_request *auth_request)
+{
+#define MAX_LOG_USERNAME_LEN 64
+	const char *p, *ip;
+	string_t *str;
+
+	str = t_str_new(64);
+
+	if (auth_request->user == NULL)
+		str_append(str, "?");
+	else {
+		/* any control characters in username will be replaced by '?' */
+		for (p = auth_request->user; *p != '\0'; p++) {
+			if ((unsigned char)*p < 32)
+				break;
+		}
+
+		str_append_n(str, auth_request->user,
+			     (size_t)(p - auth_request->user));
+		for (; *p != '\0'; p++) {
+			if ((unsigned char)*p < 32)
+				str_append_c(str, '?');
+			else
+				str_append_c(str, *p);
+		}
+
+		if (str_len(str) > MAX_LOG_USERNAME_LEN) {
+			str_truncate(str, MAX_LOG_USERNAME_LEN);
+			str_append(str, "...");
+		}
+	}
+
+	ip = net_ip2addr(&auth_request->remote_ip);
+	if (ip != NULL) {
+		str_append_c(str, ',');
+		str_append(str, ip);
+	}
+	return str_c(str);
 }
 
 extern struct mech_module mech_plain;

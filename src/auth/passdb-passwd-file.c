@@ -20,7 +20,7 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 	const char *scheme, *crypted_pass;
 	int ret;
 
-	pu = db_passwd_file_lookup(passdb_pwf, request->user);
+	pu = db_passwd_file_lookup(passdb_pwf, request);
 	if (pu == NULL) {
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
@@ -37,10 +37,10 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 	else {
 		if (ret < 0) {
 			i_error("passwd-file(%s): Unknown password scheme %s",
-				pu->user_realm, scheme);
+				get_log_prefix(request), scheme);
 		} else if (verbose) {
 			i_info("passwd-file(%s): %s password mismatch",
-			       pu->user_realm, scheme);
+			       get_log_prefix(request), scheme);
 		}
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 	}
@@ -54,7 +54,7 @@ passwd_file_lookup_credentials(struct auth_request *request,
 	struct passwd_user *pu;
 	const char *crypted_pass, *scheme;
 
-	pu = db_passwd_file_lookup(passdb_pwf, request->user);
+	pu = db_passwd_file_lookup(passdb_pwf, request);
 	if (pu == NULL) {
 		callback(NULL, request);
 		return;

@@ -30,7 +30,7 @@ extern struct passwd_file *userdb_pwf;
 extern struct passwd_file *passdb_pwf;
 
 struct passwd_user *
-db_passwd_file_lookup(struct passwd_file *pw, const char *user);
+db_passwd_file_lookup(struct passwd_file *pw, struct auth_request *request);
 
 struct passwd_file *db_passwd_file_parse(const char *path, int userdb);
 void db_passwd_file_unref(struct passwd_file *pw);

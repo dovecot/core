@@ -11,12 +11,15 @@ mech_anonymous_auth_continue(struct auth_request *auth_request,
 	i_assert(anonymous_username != NULL);
 
 	if (verbose) {
-		i_info("mech-anonymous: login by %s",
-		       t_strndup(data, data_size));
+		auth_request->user =
+			p_strndup(pool_datastack_create(), data, data_size);
+		i_info("anonymous(%s): login",
+		       get_log_prefix(auth_request));
 	}
 
 	auth_request->callback = callback;
 	auth_request->user = p_strdup(auth_request->pool, anonymous_username);
+
 	mech_auth_finish(auth_request, NULL, 0, TRUE);
 	return TRUE;
 }

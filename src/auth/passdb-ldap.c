@@ -65,15 +65,18 @@ static void handle_request(struct ldap_connection *conn,
 		ret = ldap_result2error(conn->ld, res, 0);
 		if (ret != LDAP_SUCCESS) {
 			i_error("ldap(%s): ldap_search() failed: %s",
-				user, ldap_err2string(ret));
+				get_log_prefix(auth_request),
+				ldap_err2string(ret));
 			res = NULL;
 		}
 	}
 
 	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);
 	if (entry == NULL) {
-		if (res != NULL)
-			i_error("ldap(%s): unknown user", user);
+		if (res != NULL && verbose) {
+			i_info("ldap(%s): unknown user",
+			       get_log_prefix(auth_request));
+		}
 	} else {
 		attr = ldap_first_attribute(conn->ld, entry, &ber);
 		while (attr != NULL) {
@@ -90,10 +93,12 @@ static void handle_request(struct ldap_connection *conn,
 			attr = ldap_next_attribute(conn->ld, entry, ber);
 		}
 
-		if (password == NULL)
-			i_error("ldap(%s): No password in reply", user);
-		else if (ldap_next_entry(conn->ld, entry) != NULL) {
-			i_error("ldap(%s): Multiple password replies", user);
+		if (password == NULL) {
+			i_error("ldap(%s): No password in reply",
+				get_log_prefix(auth_request));
+		} else if (ldap_next_entry(conn->ld, entry) != NULL) {
+			i_error("ldap(%s): Multiple password replies",
+				get_log_prefix(auth_request));
 			password = NULL;
 		}
 	}
@@ -125,11 +130,14 @@ static void handle_request(struct ldap_connection *conn,
 	}
 
 	ret = password_verify(ldap_request->password, password, scheme, user);
-	if (ret < 0)
-		i_error("ldap(%s): Unknown password scheme %s", user, scheme);
-	else if (ret == 0) {
-		if (verbose)
-			i_info("ldap(%s): password mismatch", user);
+	if (ret < 0) {
+		i_error("ldap(%s): Unknown password scheme %s",
+			get_log_prefix(auth_request), scheme);
+	} else if (ret == 0) {
+		if (verbose) {
+			i_info("ldap(%s): password mismatch",
+			       get_log_prefix(auth_request));
+		}
 	}
 
 	ldap_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :

@@ -94,7 +94,7 @@ static int verify_credentials(struct cram_auth_request *auth,
 	if (memcmp(response_hex, auth->response, 32) != 0) {
 		if (verbose) {
 			i_info("cram-md5(%s): password mismatch",
-			       auth->username);
+			       get_log_prefix(&auth->auth_request));
 		}
 		return FALSE;
 	}
@@ -135,13 +135,13 @@ static void credentials_callback(const char *result,
 	if (verify_credentials(auth, result)) {
 		if (verbose) {
 			i_info("cram-md5(%s): authenticated",
-			       auth->username == NULL ? "" : auth->username);
+			       get_log_prefix(&auth->auth_request));
 		}
 		mech_auth_finish(request, NULL, 0, TRUE);
 	} else {
 		if (verbose) {
 			i_info("cram-md5(%s): authentication failed",
-			       auth->username == NULL ? "" : auth->username);
+			       get_log_prefix(&auth->auth_request));
 		}
 		mech_auth_finish(request, NULL, 0, FALSE);
 	}
@@ -177,7 +177,7 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 
 	if (verbose) {
 		i_info("cram-md5(%s): %s",
-		       auth->username == NULL ? "" : auth->username, error);
+                       get_log_prefix(&auth->auth_request), error);
 	}
 
 	/* failed */

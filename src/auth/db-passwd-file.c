@@ -215,16 +215,18 @@ void db_passwd_file_unref(struct passwd_file *pw)
 }
 
 struct passwd_user *
-db_passwd_file_lookup(struct passwd_file *pw, const char *user)
+db_passwd_file_lookup(struct passwd_file *pw, struct auth_request *request)
 {
 	struct passwd_user *pu;
 
 	passwd_file_sync(pw);
 
-	pu = hash_lookup(pw->users, user);
+	pu = hash_lookup(pw->users, request->user);
 	if (pu == NULL) {
-		if (verbose)
-			i_info("passwd-file(%s): unknown user", user);
+		if (verbose) {
+			i_info("passwd-file(%s): unknown user",
+			       get_log_prefix(request));
+		}
 	}
 
 	return pu;

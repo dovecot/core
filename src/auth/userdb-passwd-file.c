@@ -17,7 +17,7 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	struct user_data data;
 	struct passwd_user *pu;
 
-	pu = db_passwd_file_lookup(userdb_pwf, auth_request->user);
+	pu = db_passwd_file_lookup(userdb_pwf, auth_request);
 	if (pu == NULL) {
 		callback(NULL, context);
 		return;

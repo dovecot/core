@@ -44,8 +44,10 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 
 	if (authenid == NULL) {
 		/* invalid input */
-		if (verbose)
-			i_info("mech-plain: no username given");
+		if (verbose) {
+			i_info("plain(%s): no username given",
+			       get_log_prefix(auth_request));
+		}
 		mech_auth_finish(auth_request, NULL, 0, FALSE);
 	} else {
 		/* split and save user/realm */
@@ -61,8 +63,8 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 		if (!mech_is_valid_username(auth_request->user)) {
 			/* invalid username */
 			if (verbose) {
-				i_info("mech-plain(%s): invalid username",
-				       auth_request->user);
+				i_info("plain(%s): invalid username",
+				       get_log_prefix(auth_request));
 			}
 			mech_auth_finish(auth_request, NULL, 0, FALSE);
 		} else {

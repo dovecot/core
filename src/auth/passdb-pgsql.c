@@ -49,13 +49,17 @@ static void pgsql_handle_request(struct pgsql_connection *conn,
 
 	if (res != NULL) {
 		if (PQntuples(res) == 0) {
-			if (verbose)
-				i_info("pgsql(%s): Unknown user", user);
+			if (verbose) {
+				i_info("pgsql(%s): Unknown user",
+				       get_log_prefix(auth_request));
+			}
 		} else if (PQntuples(res) > 1) {
-			i_error("pgsql(%s): Multiple matches for user", user);
+			i_error("pgsql(%s): Multiple matches for user",
+				get_log_prefix(auth_request));
 		} else if (PQnfields(res) != 1) {
 			i_error("pgsql(%s): Password query returned "
-				"more than one field", user);
+				"more than one field",
+				get_log_prefix(auth_request));
 		} else {
 			password = t_strdup(PQgetvalue(res, 0, 0));
 		}
@@ -84,11 +88,14 @@ static void pgsql_handle_request(struct pgsql_connection *conn,
 
 	ret = password_verify(pgsql_request->password, password,
 			      scheme, user);
-	if (ret < 0)
-		i_error("pgsql(%s): Unknown password scheme %s", user, scheme);
-	else if (ret == 0) {
-		if (verbose)
-			i_info("pgsql(%s): Password mismatch", user);
+	if (ret < 0) {
+		i_error("pgsql(%s): Unknown password scheme %s",
+			get_log_prefix(auth_request), scheme);
+	} else if (ret == 0) {
+		if (verbose) {
+			i_info("pgsql(%s): Password mismatch",
+			       get_log_prefix(auth_request));
+		}
 	}
 
 	pgsql_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
