@@ -50,12 +50,13 @@ static int validate_chroot(const char *dir)
 	if (*dir == '\0')
 		return TRUE;
 
-	if (set_valid_chroot_dirs == '\0')
+	if (set_valid_chroot_dirs == NULL)
 		return FALSE;
 
 	chroot_dirs = t_strsplit(set_valid_chroot_dirs, ":");
 	while (*chroot_dirs != NULL) {
-		if (strncmp(dir, *chroot_dirs, strlen(*chroot_dirs)) == 0)
+		if (**chroot_dirs != '\0' &&
+		    strncmp(dir, *chroot_dirs, strlen(*chroot_dirs)) == 0)
 			return TRUE;
 		chroot_dirs++;
 	}

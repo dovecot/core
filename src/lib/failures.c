@@ -40,38 +40,38 @@ static void default_fatal_handler(int status, const char *format, va_list args)
 
 static void default_error_handler(const char *format, va_list args);
 static void default_warning_handler(const char *format, va_list args);
+static void default_info_handler(const char *format, va_list args);
 
 /* Initialize working defaults */
 static FailureFunc panic_handler __attr_noreturn__ = default_panic_handler;
 static FatalFailureFunc fatal_handler __attr_noreturn__ = default_fatal_handler;
 static FailureFunc error_handler = default_error_handler;
 static FailureFunc warning_handler = default_warning_handler;
+static FailureFunc info_handler = default_info_handler;
 
-static FILE *log_fd = NULL;
+static FILE *log_fd = NULL, *log_info_fd = NULL;
 static char *log_prefix = NULL, *log_stamp_format = NULL;
 
-static void write_prefix(void)
+static void write_prefix(FILE *f)
 {
 	struct tm *tm;
 	char str[256];
 
-	if (log_fd == NULL)
-		log_fd = stderr;
-
 	if (log_prefix != NULL)
-		fputs(log_prefix, log_fd);
+		fputs(log_prefix, f);
 
 	if (log_stamp_format != NULL) {
 		tm = localtime(&ioloop_time);
 
 		if (strftime(str, sizeof(str), log_stamp_format, tm) > 0)
-			fputs(str, log_fd);
+			fputs(str, f);
 	}
 }
 
 static void default_panic_handler(const char *format, va_list args)
 {
-	write_prefix();
+	if (log_fd == NULL) log_fd = stderr;
+	write_prefix(log_fd);
 
 	fputs("Panic: ", log_fd);
 	vfprintf(log_fd, printf_string_fix_format(format), args);
@@ -82,7 +82,8 @@ static void default_panic_handler(const char *format, va_list args)
 
 static void default_fatal_handler(int status, const char *format, va_list args)
 {
-	write_prefix();
+	if (log_fd == NULL) log_fd = stderr;
+	write_prefix(log_fd);
 
 	fputs("Fatal: ", log_fd);
 	vfprintf(log_fd, printf_string_fix_format(format), args);
@@ -98,7 +99,8 @@ static void default_error_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
-	write_prefix();
+	if (log_fd == NULL) log_fd = stderr;
+	write_prefix(log_fd);
 
 	t_push();
 	fputs("Error: ", log_fd);
@@ -116,7 +118,8 @@ static void default_warning_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
-	write_prefix();
+	if (log_fd == NULL) log_fd = stderr;
+	write_prefix(log_fd);
 
 	t_push();
 	fputs("Warning: ", log_fd);
@@ -125,6 +128,24 @@ static void default_warning_handler(const char *format, va_list args)
 	t_pop();
 
 	if (fflush(log_fd) < 0)
+		exit(FATAL_LOGWRITE);
+
+	errno = old_errno;
+}
+
+static void default_info_handler(const char *format, va_list args)
+{
+	int old_errno = errno;
+
+	if (log_info_fd == NULL) log_info_fd = stderr;
+	write_prefix(log_info_fd);
+
+	t_push();
+	vfprintf(log_info_fd, printf_string_fix_format(format), args);
+	fputc('\n', log_info_fd);
+	t_pop();
+
+	if (fflush(log_info_fd) < 0)
 		exit(FATAL_LOGWRITE);
 
 	errno = old_errno;
@@ -175,6 +196,15 @@ void i_warning(const char *format, ...)
 	va_end(args);
 }
 
+void i_info(const char *format, ...)
+{
+	va_list args;
+
+	va_start(args, format);
+	info_handler(format, args);
+	va_end(args);
+}
+
 void i_set_panic_handler(FailureFunc func __attr_noreturn__)
 {
 	if (func == NULL)
@@ -203,6 +233,13 @@ void i_set_warning_handler(FailureFunc func)
         warning_handler = func;
 }
 
+void i_set_info_handler(FailureFunc func)
+{
+	if (func == NULL)
+		func = default_info_handler;
+        info_handler = func;
+}
+
 void i_syslog_panic_handler(const char *fmt, va_list args)
 {
 	vsyslog(LOG_CRIT, fmt, args);
@@ -225,6 +262,11 @@ void i_syslog_warning_handler(const char *fmt, va_list args)
 	vsyslog(LOG_WARNING, fmt, args);
 }
 
+void i_syslog_info_handler(const char *fmt, va_list args)
+{
+	vsyslog(LOG_INFO, fmt, args);
+}
+
 void i_set_failure_syslog(const char *ident, int options, int facility)
 {
 	openlog(ident, options, facility);
@@ -233,26 +275,46 @@ void i_set_failure_syslog(const char *ident, int options, int facility)
 	i_set_fatal_handler(i_syslog_fatal_handler);
 	i_set_error_handler(i_syslog_error_handler);
 	i_set_warning_handler(i_syslog_warning_handler);
+	i_set_info_handler(i_syslog_info_handler);
+}
+
+static void open_log_file(FILE **file, const char *path)
+{
+	if (*file != NULL && *file != stderr)
+		(void)fclose(*file);
+
+	if (path == NULL)
+		*file = stderr;
+	else {
+		*file = fopen(path, "a");
+		if (*file == NULL) {
+			i_fatal_status(FATAL_LOGOPEN,
+				       "Can't open log file %s: %m", path);
+		}
+		fd_close_on_exec(fileno(*file), TRUE);
+	}
 }
 
 void i_set_failure_file(const char *path, const char *prefix)
 {
-	if (log_fd != NULL && log_fd != stderr)
-		(void)fclose(log_fd);
-
 	i_free(log_prefix);
 	log_prefix = i_strconcat(prefix, ": ", NULL);
 
-	if (path == NULL)
-		log_fd = stderr;
-	else {
-		log_fd = fopen(path, "a");
-		if (log_fd == NULL) {
-			i_fatal_status(FATAL_LOGOPEN,
-				       "Can't open log file %s: %m", path);
-		}
-		fd_close_on_exec(fileno(log_fd), TRUE);
+	open_log_file(&log_fd, path);
+
+	if (log_info_fd != NULL && log_info_fd != stderr) {
+		(void)fclose(log_info_fd);
+		log_info_fd = log_fd;
 	}
+}
+
+void i_set_info_file(const char *path)
+{
+	if (log_info_fd == log_fd)
+		log_info_fd = NULL;
+
+	open_log_file(&log_info_fd, path);
+        info_handler = default_info_handler;
 }
 
 void i_set_failure_timestamp_format(const char *fmt)
@@ -263,8 +325,16 @@ void i_set_failure_timestamp_format(const char *fmt)
 
 void failures_deinit(void)
 {
+	if (log_info_fd == log_fd)
+		log_info_fd = NULL;
+
 	if (log_fd != NULL && log_fd != stderr) {
 		(void)fclose(log_fd);
 		log_fd = stderr;
+	}
+
+	if (log_info_fd != NULL && log_info_fd != stderr) {
+		(void)fclose(log_info_fd);
+		log_info_fd = stderr;
 	}
 }

@@ -45,8 +45,12 @@ static void open_logfile(void)
 	else {
 		/* log to file or stderr */
 		i_set_failure_file(getenv("IMAP_LOGFILE"), "imap-auth");
-		i_set_failure_timestamp_format(getenv("IMAP_LOGSTAMP"));
 	}
+
+	if (getenv("IMAP_INFOLOGFILE") != NULL)
+		i_set_info_file(getenv("IMAP_INFOLOGFILE"));
+
+	i_set_failure_timestamp_format(getenv("IMAP_LOGSTAMP"));
 }
 
 static void drop_privileges(void)

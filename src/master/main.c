@@ -52,10 +52,15 @@ void clean_child_process(void)
 	env_clean();
 
 	/* set the failure log */
-	if (set_log_path != NULL)
-		env_put(t_strconcat("IMAP_LOGFILE=", set_log_path, NULL));
-	else
+	if (set_log_path == NULL)
 		env_put("IMAP_USE_SYSLOG=1");
+	else
+		env_put(t_strconcat("IMAP_LOGFILE=", set_log_path, NULL));
+
+	if (set_info_log_path != NULL) {
+		env_put(t_strconcat("IMAP_INFOLOGFILE=",
+				    set_info_log_path, NULL));
+	}
 
 	if (set_log_timestamp != NULL)
 		env_put(t_strconcat("IMAP_LOGSTAMP=", set_log_timestamp, NULL));
@@ -148,7 +153,7 @@ static IPADDR *resolve_ip(const char *name)
 	IPADDR *ip;
 	int ret, ips_count;
 
-	if (name == NULL || *name == '\0')
+	if (name == NULL)
 		return NULL; /* defaults to "*" or "::" */
 
 	if (strcmp(name, "*") == 0) {
@@ -217,8 +222,12 @@ static void open_logfile(void)
 	else {
 		/* log to file or stderr */
 		i_set_failure_file(set_log_path, "imap-master");
-		i_set_failure_timestamp_format(set_log_timestamp);
 	}
+
+	if (set_info_log_path != NULL)
+		i_set_info_file(set_info_log_path);
+
+	i_set_failure_timestamp_format(set_log_timestamp);
 }
 
 static void main_init(void)

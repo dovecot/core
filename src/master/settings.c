@@ -24,6 +24,7 @@ typedef struct {
 
 static Setting settings[] = {
 	{ "log_path",		SET_STR, &set_log_path },
+	{ "info_log_path",	SET_STR, &set_info_log_path },
 	{ "log_timestamp",	SET_STR, &set_log_timestamp },
 
 	{ "imap_port",		SET_INT, &set_imap_port },
@@ -85,6 +86,7 @@ static Setting settings[] = {
 
 /* common */
 char *set_log_path = NULL;
+char *set_info_log_path = NULL;
 char *set_log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT;
 
 /* general */
@@ -163,8 +165,7 @@ static void auth_settings_verify(void)
 			i_fatal("Can't use auth executable %s: %m",
 				auth->executable);
 		}
-		if (auth->chroot != NULL && *auth->chroot != '\0' &&
-		    access(auth->chroot, X_OK) < 0) {
+		if (auth->chroot != NULL && access(auth->chroot, X_OK) < 0) {
 			i_fatal("Can't access auth chroot directory %s: %m",
 				auth->chroot);
 		}
@@ -204,11 +205,15 @@ static void settings_verify(void)
 	}
 
 	if (set_log_path != NULL) {
-		/* log_path specifies a full file,  */
 		dir = get_directory(set_log_path);
-
 		if (access(dir, W_OK) < 0)
 			i_fatal("Can't access log directory %s: %m", dir);
+	}
+
+	if (set_info_log_path != NULL) {
+		dir = get_directory(set_info_log_path);
+		if (access(dir, W_OK) < 0)
+			i_fatal("Can't access info log directory %s: %m", dir);
 	}
 
 #ifdef HAVE_SSL
@@ -401,7 +406,8 @@ static const char *parse_setting(const char *key, const char *value)
 		if (strcmp(set->name, key) == 0) {
 			switch (set->type) {
 			case SET_STR:
-				i_strdup_replace((char **) set->ptr, value);
+				i_free(*((char **)set->ptr));
+				*((char **)set->ptr) = i_strdup_empty(value);
 				break;
 			case SET_INT:
 				/* use %i so we can handle eg. 0600

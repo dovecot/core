@@ -3,6 +3,7 @@
 
 /* common */
 extern char *set_log_path;
+extern char *set_info_log_path;
 extern char *set_log_timestamp;
 
 /* general */

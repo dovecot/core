@@ -376,7 +376,7 @@ void client_syslog(Client *client, const char *text)
 	if (host == NULL)
 		host = "??";
 
-	syslog(LOG_INFO, "%s [%s]", text, host);
+	i_info("%s [%s]", text, host);
 }
 
 static void client_hash_check_idle(void *key, void *value __attr_unused__,
