@@ -749,8 +749,8 @@ static int mbox_index_try_lock(MailIndex *index, MailLockType lock_type)
 	return mail_index_try_lock(index, lock_type);
 }
 
-int mbox_index_expunge(MailIndex *index, MailIndexRecord *rec,
-		       unsigned int seq, int external_change)
+static int mbox_index_expunge(MailIndex *index, MailIndexRecord *rec,
+			      unsigned int seq, int external_change)
 {
 	if (!mail_index_expunge(index, rec, seq, external_change))
 		return FALSE;

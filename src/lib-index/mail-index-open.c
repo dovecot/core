@@ -303,7 +303,7 @@ static int mail_index_init_new_file(MailIndex *index, MailIndexHeader *hdr,
 				    const char *temp_path)
 {
 	const char *index_path;
-	uoff_t fsize;
+	off_t fsize;
 
 	/* set the index's path temporarily */
 	index->filepath = t_strdup_noconst(temp_path);

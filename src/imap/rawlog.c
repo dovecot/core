@@ -1,12 +1,12 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "rawlog.h"
 
 #ifdef BUILD_RAWLOG
 
 #include "ioloop.h"
 #include "network.h"
-#include "rawlog.h"
 #include "write-full.h"
 
 #include <stdlib.h>
