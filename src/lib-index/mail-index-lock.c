@@ -322,12 +322,13 @@ static void mail_index_excl_unlock_finish(struct mail_index *index)
 
 	if (index->shared_lock_count > 0 && !index->fcntl_locks_disable) {
 		/* leave ourself shared locked. */
-		index->lock_type = F_RDLCK;
 		if (file_try_lock(index->fd, F_RDLCK) <= 0) {
 			mail_index_file_set_syscall_error(index,
 							  index->copy_lock_path,
 							  "file_try_lock()");
 		}
+		index->lock_type = F_RDLCK;
+                (void)mail_index_lock_mprotect(index, F_RDLCK);
 	}
 
 	if (index->copy_lock_path != NULL) {
