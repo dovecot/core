@@ -96,8 +96,12 @@ int mail_index_create_temp_file(MailIndex *index, const char **path)
 	   condition). also, might not won't work through NFS but that
 	   can't be helped. */
 	fd = open(*path, O_RDWR | O_CREAT | O_EXCL, 0660);
-	if (fd == -1)
+	if (fd == -1) {
+		if (errno == ENOSPC)
+			index->nodiskspace = TRUE;
+
 		index_set_error(index, "Can't create temp index %s: %m", *path);
+	}
 
 	return fd;
 }
