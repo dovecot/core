@@ -1,6 +1,7 @@
 /* Copyright (C) 2004 Timo Sirainen */
 
 #include "common.h"
+#include "lib-signals.h"
 #include "hash.h"
 #include "str.h"
 #include "strescape.h"
@@ -23,6 +24,7 @@ struct auth_cache {
 
 	size_t size_left;
 	unsigned int ttl_secs;
+	unsigned int hup_count;
 };
 
 char *auth_cache_parse_key(const char *query)
@@ -90,6 +92,7 @@ struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs)
 	struct auth_cache *cache;
 
 	cache = i_new(struct auth_cache, 1);
+	cache->hup_count = lib_signal_hup_count;
 	cache->hash = hash_create(default_pool, default_pool, 0, str_hash,
 				  (hash_cmp_callback_t *)strcmp);
 	cache->size_left = max_size;
@@ -109,6 +112,8 @@ void auth_cache_clear(struct auth_cache *cache)
 	while (cache->tail != NULL)
 		auth_cache_node_destroy(cache, cache->tail);
 	hash_clear(cache->hash, FALSE);
+
+	cache->hup_count = lib_signal_hup_count;
 }
 
 const char *auth_cache_lookup(struct auth_cache *cache,
@@ -116,7 +121,13 @@ const char *auth_cache_lookup(struct auth_cache *cache,
 			      const char *key)
 {
 	string_t *str;
-        struct cache_node *node;
+	struct cache_node *node;
+
+	if (cache->hup_count != lib_signal_hup_count) {
+		/* SIGHUP received - clear cache */
+		auth_cache_clear(cache);
+		return NULL;
+	}
 
 	str = t_str_new(256);
 	var_expand(str, key,
