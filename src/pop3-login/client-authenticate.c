@@ -15,6 +15,7 @@
 #include "auth-common.h"
 #include "client.h"
 #include "client-authenticate.h"
+#include "ssl-proxy.h"
 
 static enum auth_mech auth_mechs = 0;
 static char *auth_mechs_capability = NULL;
@@ -45,6 +46,7 @@ int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 	}
 
 	client_send_line(client, t_strconcat("+OK\r\n" POP3_CAPABILITY_REPLY,
+					     ssl_initialized ? "STLS\r\n" : "",
 					     auth_mechs_capability,
 					     "\r\n.", NULL));
 	return TRUE;
