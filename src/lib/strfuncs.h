@@ -3,11 +3,15 @@
 
 #include <limits.h>
 
-/* max. size for %d */
+/* max. size for %d and %ld */
 #define MAX_INT_STRLEN ((sizeof(int) * CHAR_BIT + 2) / 3 + 1)
-/* `str' should be type char[MAX_INT_STRLEN] */
+#define MAX_LONG_STRLEN ((sizeof(long) * CHAR_BIT + 2) / 3 + 1)
+
+/* `str' should be type char[MAX_INT_STRLEN] or char[MAX_LONG_STRLEN] */
 #define itoa(str, num) \
 	i_snprintf(str, sizeof(str), "%d", num)
+#define ltoa(str, num) \
+	i_snprintf(str, sizeof(str), "%ld", num)
 
 #define is_empty_str(str) \
         ((str) == NULL || (str)[0] == '\0')
