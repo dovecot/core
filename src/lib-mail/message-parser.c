@@ -680,7 +680,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
         struct message_header_line *line = &ctx->line;
 	const unsigned char *msg;
 	size_t i, size, startpos, colon_pos, parse_size;
-	int ret;
+	int ret, last_no_newline;
 
 	*hdr_r = NULL;
 	if (line->eoh)
@@ -693,6 +693,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 
 	startpos = 0; colon_pos = UINT_MAX;
 
+	last_no_newline = line->no_newline;
 	line->no_newline = FALSE;
 
 	if (line->continues) {
@@ -914,7 +915,8 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		line->full_value_len = line->value_len;
 	} else if (line->use_full_value) {
 		/* continue saving the full value */
-		buffer_append_c(ctx->value_buf, '\n');
+		if (!last_no_newline)
+			buffer_append_c(ctx->value_buf, '\n');
 		buffer_append(ctx->value_buf, line->value, line->value_len);
 		line->full_value = buffer_get_data(ctx->value_buf,
 						   &line->full_value_len);
