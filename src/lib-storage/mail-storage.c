@@ -28,12 +28,15 @@ struct client_workaround_list client_workaround_list[] = {
 
 static struct mail_storage_list *storages = NULL;
 enum client_workarounds client_workarounds = 0;
+int full_filesystem_access = FALSE;
 
 void mail_storage_init(void)
 {
         struct client_workaround_list *list;
 	const char *env;
 	const char *const *str;
+
+        full_filesystem_access = getenv("FULL_FILESYSTEM_ACCESS") != NULL;
 
 	env = getenv("CLIENT_WORKAROUNDS");
 	if (env == NULL)

@@ -220,6 +220,13 @@ int mbox_is_valid_mask(const char *mask)
 	const char *p;
 	int newdir;
 
+	if (full_filesystem_access)
+		return TRUE;
+
+	/* make sure it's not absolute path */
+	if (*mask == '/' || *mask == '\\' || *mask == '~')
+		return FALSE;
+
 	/* make sure there's no "../" or "..\" stuff */
 	newdir = TRUE;
 	for (p = mask; *p != '\0'; p++) {

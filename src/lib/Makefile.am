@@ -14,6 +14,7 @@ liblib_a_SOURCES = \
 	file-set-size.c \
 	hash.c \
 	hex-binary.c \
+	home-expand.c \
 	hostpid.c \
 	imem.c \
 	iostream.c \
@@ -68,6 +69,7 @@ noinst_HEADERS = \
 	file-set-size.h \
 	hash.h \
 	hex-binary.h \
+	home-expand.h \
 	hostpid.h \
 	imem.h \
 	iostream-internal.h \

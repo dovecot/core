@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "hostpid.h"
+#include "home-expand.h"
 #include "unlink-directory.h"
 #include "imap-match.h"
 #include "subscription-file/subscription-file.h"
@@ -79,15 +80,32 @@ int maildir_find_mailboxes(struct mail_storage *storage, const char *mask,
 	struct dirent *d;
 	struct stat st;
         enum mailbox_flags flags;
+	const char *dir, *prefix, *p;
 	char path[PATH_MAX];
-	int failed, found_inbox;
+	int failed, found_inbox, ret;
 
 	mail_storage_clear_error(storage);
 
-	dirp = opendir(storage->dir);
+	if (!full_filesystem_access || (p = strrchr(mask, '/')) == NULL) {
+		dir = storage->dir;
+		prefix = "";
+	} else {
+		if (mask == p)
+			dir = prefix = "/";
+		else {
+			dir = t_strdup_until(mask, p);
+			prefix = t_strdup_until(mask, p+1);
+		}
+
+		if (*mask != '/' && *mask != '~')
+			dir = t_strconcat(storage->dir, "/", dir, NULL);
+		dir = home_expand(dir);
+	}
+
+	dirp = opendir(dir);
 	if (dirp == NULL) {
 		mail_storage_set_critical(storage, "opendir(%s) failed: %m",
-					  storage->dir);
+					  dir);
 		return FALSE;
 	}
 
@@ -106,10 +124,13 @@ int maildir_find_mailboxes(struct mail_storage *storage, const char *mask,
 
 		/* make sure the mask matches - dirs beginning with ".."
 		   should be deleted and we always want to check those. */
-		if (fname[1] == '.' || imap_match(glob, fname+1) <= 0)
+		t_push();
+		ret = imap_match(glob, t_strconcat(prefix, fname+1, NULL));
+		t_pop();
+		if (fname[1] == '.' || ret <= 0)
 			continue;
 
-		if (str_path(path, sizeof(path), storage->dir, fname) < 0)
+		if (str_path(path, sizeof(path), dir, fname) < 0)
 			continue;
 
 		/* make sure it's a directory */
@@ -147,7 +168,8 @@ int maildir_find_mailboxes(struct mail_storage *storage, const char *mask,
 
 		t_push();
 		flags = maildir_get_marked_flags(storage, path);
-		callback(storage, fname+1, flags, context);
+		callback(storage, t_strconcat(prefix, fname+1, NULL),
+			 flags, context);
 		t_pop();
 	}
 

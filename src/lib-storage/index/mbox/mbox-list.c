@@ -6,6 +6,7 @@
 #include "subscription-file/subscription-file.h"
 #include "mbox-index.h"
 #include "mbox-storage.h"
+#include "home-expand.h"
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -15,10 +16,16 @@ struct find_subscribed_context {
 	void *context;
 };
 
-static int mbox_find_path(struct mail_storage *storage,
-			  struct imap_match_glob *glob,
-			  mailbox_list_callback_t callback, void *context,
-			  const char *relative_dir)
+struct list_context {
+	struct mail_storage *storage;
+	struct imap_match_glob *glob;
+	mailbox_list_callback_t *callback;
+	void *context;
+
+	const char *rootdir;
+};
+
+static int mbox_find_path(struct list_context *ctx, const char *relative_dir)
 {
 	DIR *dirp;
 	struct dirent *d;
@@ -31,11 +38,14 @@ static int mbox_find_path(struct mail_storage *storage,
 	t_push();
 
 	if (relative_dir == NULL)
-		dir = storage->dir;
+		dir = ctx->rootdir;
+	else if (*ctx->rootdir == '\0' && *relative_dir != '\0')
+		dir = relative_dir;
 	else {
 		if (str_path(fulldir, sizeof(fulldir),
-			     storage->dir, relative_dir) < 0) {
-			mail_storage_set_critical(storage, "Path too long: %s",
+			     ctx->rootdir, relative_dir) < 0) {
+			mail_storage_set_critical(ctx->storage,
+						  "Path too long: %s",
 						  relative_dir);
 			return FALSE;
 		}
@@ -43,6 +53,7 @@ static int mbox_find_path(struct mail_storage *storage,
 		dir = fulldir;
 	}
 
+	dir = home_expand(dir);
 	dirp = opendir(dir);
 	if (dirp == NULL) {
 		t_pop();
@@ -54,7 +65,16 @@ static int mbox_find_path(struct mail_storage *storage,
 			return TRUE;
 		}
 
-		mail_storage_set_critical(storage,
+		if (errno == EACCES) {
+			if (relative_dir != NULL) {
+				/* subfolder, ignore */
+				return TRUE;
+			}
+			mail_storage_set_error(ctx->storage, "Access denied");
+			return FALSE;
+		}
+
+		mail_storage_set_critical(ctx->storage,
 					  "opendir(%s) failed: %m", dir);
 		return FALSE;
 	}
@@ -78,7 +98,7 @@ static int mbox_find_path(struct mail_storage *storage,
 		else {
 			if (str_path(path, sizeof(path),
 				     relative_dir, fname) < 0) {
-				mail_storage_set_critical(storage,
+				mail_storage_set_critical(ctx->storage,
 					"Path too long: %s/%s",
 					relative_dir, fname);
 				failed = TRUE;
@@ -87,12 +107,12 @@ static int mbox_find_path(struct mail_storage *storage,
 			listpath = path;
 		}
 
-		if ((match = imap_match(glob, listpath)) < 0)
+		if ((match = imap_match(ctx->glob, listpath)) < 0)
 			continue;
 
 		/* see if it's a directory */
 		if (str_path(fullpath, sizeof(fullpath), dir, fname) < 0) {
-			mail_storage_set_critical(storage,
+			mail_storage_set_critical(ctx->storage,
 						  "Path too long: %s/%s",
 						  dir, fname);
 			failed = TRUE;
@@ -103,8 +123,9 @@ static int mbox_find_path(struct mail_storage *storage,
 			if (errno == ENOENT)
 				continue; /* just deleted, ignore */
 
-			mail_storage_set_critical(storage, "stat(%s) failed: "
-						  "%m", fullpath);
+			mail_storage_set_critical(ctx->storage,
+						  "stat(%s) failed: %m",
+						  fullpath);
 			failed = TRUE;
 			break;
 		}
@@ -112,22 +133,23 @@ static int mbox_find_path(struct mail_storage *storage,
 		if (S_ISDIR(st.st_mode)) {
 			/* subdirectory, scan it too */
 			t_push();
-			callback(storage, listpath, MAILBOX_NOSELECT, context);
+			ctx->callback(ctx->storage, listpath, MAILBOX_NOSELECT,
+				      ctx->context);
 			t_pop();
 
-			if (!mbox_find_path(storage, glob, callback,
-					    context, listpath)) {
+			if (!mbox_find_path(ctx, listpath)) {
 				failed = TRUE;
 				break;
 			}
 		} else if (match > 0 &&
-			   strcmp(fullpath, storage->inbox_file) != 0 &&
+			   strcmp(fullpath, ctx->storage->inbox_file) != 0 &&
 			   strcasecmp(listpath, "INBOX") != 0) {
 			/* don't match any INBOX here, it's added later.
 			   we might also have ~/mail/inbox, ~/mail/Inbox etc.
 			   Just ignore them for now. */
 			t_push();
-			callback(storage, listpath, MAILBOX_NOINFERIORS, context);
+			ctx->callback(ctx->storage, listpath,
+				      MAILBOX_NOINFERIORS, ctx->context);
 			t_pop();
 		}
 	}
@@ -148,12 +170,13 @@ static const char *mask_get_dir(const char *mask)
 			last_dir = p;
 	}
 
-	return last_dir != NULL ? t_strdup_until(mask, last_dir) : NULL;
+	return last_dir == NULL ? NULL : t_strdup_until(mask, last_dir);
 }
 
 int mbox_find_mailboxes(struct mail_storage *storage, const char *mask,
 			mailbox_list_callback_t callback, void *context)
 {
+        struct list_context ctx;
 	struct imap_match_glob *glob;
 	const char *relative_dir;
 
@@ -175,7 +198,31 @@ int mbox_find_mailboxes(struct mail_storage *storage, const char *mask,
 		callback(storage, "INBOX", MAILBOX_NOINFERIORS, context);
 	}
 
-	if (!mbox_find_path(storage, glob, callback, context, relative_dir))
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.storage = storage;
+	ctx.glob = glob;
+	ctx.callback = callback;
+	ctx.context = context;
+
+	if (!full_filesystem_access || relative_dir == NULL ||
+	    (*relative_dir != '/' && *relative_dir != '~' &&
+	     *relative_dir != '\0'))
+		ctx.rootdir = storage->dir;
+	else
+		ctx.rootdir = "";
+
+	if (relative_dir != NULL) {
+		const char *matchdir = t_strconcat(relative_dir, "/", NULL);
+
+		if (imap_match(ctx.glob, matchdir) > 0) {
+			t_push();
+			ctx.callback(ctx.storage, matchdir, MAILBOX_NOSELECT,
+				     ctx.context);
+			t_pop();
+		}
+	}
+
+	if (!mbox_find_path(&ctx, relative_dir))
 		return FALSE;
 
 	return TRUE;
