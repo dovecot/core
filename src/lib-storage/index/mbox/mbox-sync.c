@@ -506,7 +506,7 @@ static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 		mail_ctx->mail.body_size;
 	mail_ctx->mail.body_size = 0;
 
-	if (mail_ctx->sync_ctx->dest_first_mail) {
+	if (mail_ctx->sync_ctx->seq == 1) {
 		/* expunging first message, fix space to contain next
 		   message's \n header too since it will be removed. */
 		mail_ctx->mail.space++;
