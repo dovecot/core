@@ -1,12 +1,13 @@
 #ifndef __COMMON_H
 #define __COMMON_H
 
+struct ip_addr;
+
 #include "lib.h"
 #include "hash.h"
 #include "settings.h"
 
-#include "../auth/auth-interface.h"
-#include "master-interface.h"
+#include "../auth/auth-master-interface.h"
 
 enum {
 	PROCESS_TYPE_UNKNOWN,
@@ -33,13 +34,6 @@ extern int null_fd, imap_fd, imaps_fd;
 	hash_remove(pids, POINTER_CAST(pid))
 
 void clean_child_process(void);
-
-enum master_reply_result
-create_imap_process(int socket, struct ip_addr *ip,
-		    const char *system_user, const char *virtual_user,
-		    uid_t uid, gid_t gid, const char *home, int chroot,
-		    const char *mail, const char *login_tag);
-void imap_process_destroyed(pid_t pid);
 
 /* misc */
 #define VALIDATE_STR(str) \

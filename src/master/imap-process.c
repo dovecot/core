@@ -1,10 +1,14 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "fd-close-on-exec.h"
 #include "env-util.h"
 #include "str.h"
+#include "network.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
+#include "var-expand.h"
+#include "imap-process.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -48,7 +52,7 @@ static int validate_chroot(const char *dir)
 	const char *const *chroot_dirs;
 
 	if (*dir == '\0')
-		return TRUE;
+		return FALSE;
 
 	if (set_valid_chroot_dirs == NULL)
 		return FALSE;
@@ -68,8 +72,7 @@ static const char *expand_mail_env(const char *env, const char *user,
 				   const char *home)
 {
 	string_t *str;
-	const char *p, *var;
-	unsigned int width;
+	const char *p;
 
 	str = t_str_new(256);
 
@@ -91,93 +94,48 @@ static const char *expand_mail_env(const char *env, const char *user,
 	}
 
 	/* expand %vars */
-	for (; *env != '\0'; env++) {
-		if (*env != '%')
-			str_append_c(str, *env);
-		else {
-			width = 0;
-			while (env[1] >= '0' && env[1] <= '9') {
-				width = width*10 + (env[1] - '0');
-				env++;
-			}
-
-			switch (env[1]) {
-			case '%':
-				var = "%";
-				break;
-			case 'u':
-				var = user;
-				break;
-			case 'h':
-				var = home;
-				break;
-			case 'n':
-				var = t_strcut(user, '@');
-				break;
-			case 'd':
-				var = strchr(user, '@');
-				if (var != NULL) var++;
-				break;
-			default:
-				var = NULL;
-				break;
-			}
-
-			if (var == NULL)
-				str_append_c(str, '%');
-			else {
-				env++;
-				if (width == 0)
-					str_append(str, var);
-				else
-					str_append_n(str, var, width);
-			}
-		}
-	}
-
-
+        var_expand(str, env, user, home);
 	return str_c(str);
 }
 
-enum master_reply_result
-create_imap_process(int socket, struct ip_addr *ip,
-		    const char *system_user, const char *virtual_user,
-		    uid_t uid, gid_t gid, const char *home, int chroot,
-		    const char *mail, const char *login_tag)
+int create_imap_process(int socket, struct ip_addr *ip,
+			struct auth_master_reply *reply,
+			const unsigned char *data)
 {
 	static char *argv[] = { NULL, NULL, NULL };
-	const char *host;
+	const char *host, *mail;
 	char title[1024];
 	pid_t pid;
 	int i, err;
 
 	if (imap_process_count == set_max_imap_processes) {
 		i_error("Maximum number of imap processes exceeded");
-		return MASTER_RESULT_INTERNAL_FAILURE;
+		return FALSE;
 	}
 
-	if (!validate_uid_gid(uid, gid))
-		return MASTER_RESULT_FAILURE;
+	if (!validate_uid_gid(reply->uid, reply->gid))
+		return FALSE;
 
-	if (chroot && !validate_chroot(home))
-		return MASTER_RESULT_FAILURE;
+	if (reply->chroot && !validate_chroot(data + reply->home_idx))
+		return FALSE;
 
 	pid = fork();
 	if (pid < 0) {
 		i_error("fork() failed: %m");
-		return MASTER_RESULT_INTERNAL_FAILURE;
+		return FALSE;
 	}
 
 	if (pid != 0) {
 		/* master */
 		imap_process_count++;
 		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_IMAP);
-		return MASTER_RESULT_SUCCESS;
+		return TRUE;
 	}
 
 	clean_child_process();
 
 	/* move the imap socket into stdin, stdout and stderr fds */
+	fd_close_on_exec(socket, FALSE);
 	for (i = 0; i < 3; i++) {
 		if (dup2(socket, i) < 0)
 			i_fatal("imap: dup2(%d) failed: %m", i);
@@ -188,10 +146,13 @@ create_imap_process(int socket, struct ip_addr *ip,
 
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
-	restrict_access_set_env(system_user, uid, gid, chroot ? home : NULL);
+	restrict_access_set_env(data + reply->system_user_idx,
+				reply->uid, reply->gid,
+				reply->chroot ? data + reply->home_idx : NULL);
 	restrict_process_size(set_imap_process_size);
 
-	env_put(t_strconcat("HOME=", home, NULL));
+	env_put("LOGGED_IN=1");
+	env_put(t_strconcat("HOME=", data + reply->home_idx, NULL));
 	env_put(t_strconcat("MAIL_CACHE_FIELDS=", set_mail_cache_fields, NULL));
 	env_put(t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
 			    set_mail_never_cache_fields, NULL));
@@ -221,22 +182,23 @@ create_imap_process(int socket, struct ip_addr *ip,
 	/* user given environment - may be malicious. virtual_user comes from
 	   auth process, but don't trust that too much either. Some auth
 	   mechanism might allow leaving extra data there. */
-	if ((mail == NULL || *mail == '\0') && set_default_mail_env != NULL) {
+	mail = data + reply->mail_idx;
+	if (*mail == '\0' && set_default_mail_env != NULL) {
 		mail = expand_mail_env(set_default_mail_env,
-				       virtual_user, home);
-		env_put(t_strconcat("MAIL=", mail, NULL));
+				       data + reply->virtual_user_idx,
+				       data + reply->home_idx);
 	}
 
 	env_put(t_strconcat("MAIL=", mail, NULL));
-	env_put(t_strconcat("USER=", virtual_user, NULL));
-	env_put(t_strconcat("LOGIN_TAG=", login_tag, NULL));
+	env_put(t_strconcat("USER=", data + reply->virtual_user_idx, NULL));
 
 	if (set_verbose_proctitle) {
 		host = net_ip2host(ip);
 		if (host == NULL)
 			host = "??";
 
-		i_snprintf(title, sizeof(title), "[%s %s]", virtual_user, host);
+		i_snprintf(title, sizeof(title), "[%s %s]",
+			   data + reply->virtual_user_idx, host);
 		argv[1] = title;
 	}
 
@@ -257,7 +219,7 @@ create_imap_process(int socket, struct ip_addr *ip,
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", set_imap_executable);
 
 	/* not reached */
-	return 0;
+	return FALSE;
 }
 
 void imap_process_destroyed(pid_t pid __attr_unused__)

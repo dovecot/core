@@ -1,34 +1,32 @@
-/*
-   Loosely based on auth_shadow.c from popa3d by
-   Solar Designer <solar@openwall.com>
-
-   Copyright (C) 2002 Timo Sirainen
-*/
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "config.h"
 #undef HAVE_CONFIG_H
 
-#ifdef USERINFO_SHADOW
+#ifdef PASSDB_PASSWD
 
-#include "userinfo-passwd.h"
+#include "common.h"
+#include "safe-memset.h"
+#include "passdb.h"
 #include "mycrypt.h"
 
 #include <shadow.h>
 
-static int shadow_verify_plain(const char *user, const char *password,
-			       struct auth_cookie_reply_data *reply)
+static enum passdb_result
+shadow_verify_plain(const char *user, const char *realm, const char *password)
 {
-	struct passwd *pw;
 	struct spwd *spw;
 	int result;
 
+	if (realm != NULL)
+		user = t_strconcat(user, "@", realm, NULL);
 	spw = getspnam(user);
 	if (spw == NULL) {
 		if (errno != 0)
 			i_error("getspnam(%s) failed: %m", user);
 		else if (verbose)
 			i_info("shadow(%s): unknown user", user);
-		return FALSE;
+		return PASSDB_RESULT_USER_UNKNOWN;
 	}
 
 	if (!IS_VALID_PASSWD(spw->sp_pwdp)) {
@@ -36,7 +34,7 @@ static int shadow_verify_plain(const char *user, const char *password,
 			i_info("shadow(%s): invalid password field '%s'",
 			       user, spw->sp_pwdp);
 		}
-		return FALSE;
+		return PASSDB_RESULT_USER_DISABLED;
 	}
 
 	/* check if the password is valid */
@@ -48,27 +46,18 @@ static int shadow_verify_plain(const char *user, const char *password,
 	if (!result) {
 		if (verbose)
 			i_info("shadow(%s): password mismatch", user);
-		return FALSE;
+		return PASSDB_RESULT_PASSWORD_MISMATCH;
 	}
 
-	/* password ok, save the user info */
-	pw = getpwnam(user);
-	if (pw == NULL) {
-		i_error("shadow(%s): getpwnam() failed: %m", user);
-		return FALSE;
-	}
-
-        passwd_fill_cookie_reply(pw, reply);
-	return TRUE;
+	return PASSDB_RESULT_OK;
 }
 
 static void shadow_deinit(void)
 {
-	endpwent();
         endspent();
 }
 
-struct user_info_module userinfo_shadow = {
+struct passdb_module passdb_shadow = {
 	NULL,
 	shadow_deinit,
 

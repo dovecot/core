@@ -11,7 +11,8 @@
 #include "restrict-process-size.h"
 #include "login-process.h"
 #include "auth-process.h"
-#include "master-interface.h"
+#include "imap-process.h"
+#include "master-login-interface.h"
 
 #include <unistd.h>
 #include <syslog.h>
@@ -31,12 +32,12 @@ struct login_process {
 
 struct login_auth_request {
 	struct login_process *process;
-	unsigned int login_id;
-	unsigned int auth_id;
+	unsigned int tag;
+
+	unsigned int login_tag;
 	int fd;
 
 	struct ip_addr ip;
-	char login_tag[LOGIN_TAG_SIZE];
 };
 
 static unsigned int auth_id_counter;
@@ -51,38 +52,30 @@ static unsigned int wanted_processes_count;
 static void login_process_destroy(struct login_process *p);
 static void login_process_unref(struct login_process *p);
 
-static void auth_callback(struct auth_cookie_reply_data *cookie_reply,
-			  void *context)
+void auth_master_callback(struct auth_master_reply *reply,
+			  const unsigned char *data, void *context)
 {
 	struct login_auth_request *request = context;
-        struct login_process *process;
-	struct master_reply reply;
+	struct master_login_reply master_reply;
 
-	if (cookie_reply == NULL || !cookie_reply->success)
-		reply.result = MASTER_RESULT_FAILURE;
+	if (reply == NULL || !reply->success)
+		master_reply.success = FALSE;
 	else {
-		reply.result = create_imap_process(request->fd,
-						   &request->ip,
-						   cookie_reply->system_user,
-						   cookie_reply->virtual_user,
-						   cookie_reply->uid,
-						   cookie_reply->gid,
-						   cookie_reply->home,
-						   cookie_reply->chroot,
-						   cookie_reply->mail,
-						   request->login_tag);
+		master_reply.success = create_imap_process(request->fd,
+							   &request->ip,
+							   reply, data);
 	}
 
 	/* reply to login */
-	reply.id = request->login_id;
+	master_reply.tag = request->login_tag;
 
-	process = request->process;
-	if (o_stream_send(process->output, &reply, sizeof(reply)) < 0)
-		login_process_destroy(process);
+	if (o_stream_send(request->process->output, &master_reply,
+			  sizeof(master_reply)) < 0)
+		login_process_destroy(request->process);
 
 	if (close(request->fd) < 0)
 		i_error("close(imap client) failed: %m");
-	login_process_unref(process);
+	login_process_unref(request->process);
 	i_free(request);
 }
 
@@ -113,7 +106,7 @@ static void login_process_input(void *context, int fd __attr_unused__,
 	struct login_process *p = context;
 	struct auth_process *auth_process;
 	struct login_auth_request *authreq;
-	struct master_request req;
+	struct master_login_request req;
 	int client_fd, ret;
 
 	ret = fd_read(p->fd, &req, sizeof(req), &client_fd);
@@ -148,36 +141,25 @@ static void login_process_input(void *context, int fd __attr_unused__,
 		return;
 	}
 
-	/* login process isn't trusted, validate all data to make sure
-	   it's not trying to exploit us */
-	if (!VALIDATE_STR(req.login_tag)) {
-		i_error("login: Received corrupted data");
-		if (close(client_fd) < 0)
-			i_error("close(imap client) failed: %m");
-		login_process_destroy(p);
-		return;
-	}
+	fd_close_on_exec(client_fd, TRUE);
 
 	/* ask the cookie from the auth process */
 	authreq = i_new(struct login_auth_request, 1);
 	p->refcount++;
 	authreq->process = p;
-	authreq->login_id = req.id;
-	authreq->auth_id = ++auth_id_counter;
+	authreq->tag = ++auth_id_counter;
+	authreq->login_tag = req.tag;
 	authreq->fd = client_fd;
-	memcpy(&authreq->ip, &req.ip, sizeof(struct ip_addr));
-	if (strocpy(authreq->login_tag, req.login_tag,
-		    sizeof(authreq->login_tag)) < 0)
-		i_panic("login_tag overflow");
+	authreq->ip = req.ip;
 
-	auth_process = auth_process_find(req.auth_process);
+	auth_process = auth_process_find(req.auth_pid);
 	if (auth_process == NULL) {
 		i_error("login: Authentication process %u doesn't exist",
-			req.auth_process);
-		auth_callback(NULL, authreq);
+			req.auth_pid);
+		auth_master_callback(NULL, NULL, authreq);
 	} else {
-		auth_process_request(p->pid, auth_process, authreq->auth_id,
-				     req.cookie, auth_callback, authreq);
+		auth_process_request(auth_process, p->pid,
+				     req.auth_id, authreq);
 	}
 }
 
@@ -194,7 +176,7 @@ static struct login_process *login_process_new(pid_t pid, int fd)
 	p->listening = TRUE;
 	p->io = io_add(fd, IO_READ, login_process_input, p);
 	p->output = o_stream_create_file(fd, default_pool,
-					 sizeof(struct master_reply)*10,
+					 sizeof(struct master_login_reply)*10,
 					 IO_PRIORITY_DEFAULT, FALSE);
 
 	hash_insert(processes, POINTER_CAST(pid), p);
@@ -223,7 +205,7 @@ static void login_process_destroy(struct login_process *p)
 		return;
 	p->destroyed = TRUE;
 
-	if (!p->initialized) {
+	if (!p->initialized && io_loop_is_running(ioloop)) {
 		i_error("Login process died too early - shutting down");
 		io_loop_stop(ioloop);
 	}

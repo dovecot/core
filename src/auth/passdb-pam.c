@@ -10,9 +10,12 @@
 #include "config.h"
 #undef HAVE_CONFIG_H
 
-#ifdef USERINFO_PAM
+#ifdef PASSDB_PAM
 
-#include "userinfo-passwd.h"
+#include "common.h"
+#include "passdb.h"
+#include "mycrypt.h"
+#include "safe-memset.h"
 
 #include <stdlib.h>
 #ifdef HAVE_SECURITY_PAM_APPL_H
@@ -191,14 +194,16 @@ static int pam_auth(pam_handle_t *pamh, const char *user)
 	return PAM_SUCCESS;
 }
 
-static int pam_verify_plain(const char *user, const char *password,
-			    struct auth_cookie_reply_data *reply)
+static enum passdb_result
+pam_verify_plain(const char *user, const char *realm, const char *password)
 {
 	pam_handle_t *pamh;
 	struct pam_userpass userpass;
 	struct pam_conv conv;
-	struct passwd *pw;
 	int status, status2;
+
+	if (realm != NULL)
+		user = t_strconcat(user, "@", realm, NULL);
 
 	conv.conv = pam_userpass_conv;
 	conv.appdata_ptr = &userpass;
@@ -212,29 +217,19 @@ static int pam_verify_plain(const char *user, const char *password,
 			i_info("PAM: pam_start(%s) failed: %s",
 			       user, pam_strerror(pamh, status));
 		}
-		return FALSE;
+		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
 	status = pam_auth(pamh, user);
 	if ((status2 = pam_end(pamh, status)) != PAM_SUCCESS) {
 		i_error("pam_end(%s) failed: %s",
 			user, pam_strerror(pamh, status2));
-		return FALSE;
+		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
-	if (status != PAM_SUCCESS)
-		return FALSE;
-
-	/* password ok, save the user info */
-	pw = getpwnam(user);
-	if (pw == NULL) {
-		i_error("PAM: getpwnam(%s) failed: %m", user);
-		return FALSE;
-	}
-
-	safe_memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
-	passwd_fill_cookie_reply(pw, reply);
-	return TRUE;
+	/* FIXME: check for PASSDB_RESULT_UNKNOWN_USER somehow */
+	return status == PAM_SUCCESS ? PASSDB_RESULT_OK :
+		PASSDB_RESULT_PASSWORD_MISMATCH;
 }
 
 static void pam_init(const char *args)
@@ -247,7 +242,7 @@ static void pam_deinit(void)
 	i_free(service_name);
 }
 
-struct user_info_module userinfo_pam = {
+struct passdb_module passdb_pam = {
 	pam_init,
 	pam_deinit,
 

@@ -342,8 +342,10 @@ static void auth_config_free(struct auth_config *auth)
 	i_free(auth->name);
 	i_free(auth->mechanisms);
 	i_free(auth->realms);
-	i_free(auth->userinfo);
-	i_free(auth->userinfo_args);
+	i_free(auth->userdb);
+	i_free(auth->userdb_args);
+	i_free(auth->passdb);
+	i_free(auth->passdb_args);
 	i_free(auth->executable);
 	i_free(auth->user);
 	i_free(auth->chroot);
@@ -380,8 +382,6 @@ static const char *parse_auth(const char *key, const char *value)
 	/* check the easy string values first */
 	if (strcmp(key, "auth_mechanisms") == 0)
 		ptr = &auth->mechanisms;
-	else if (strcmp(key, "auth_methods") == 0) /* backwards compatibility */
-		ptr = &auth->mechanisms;
 	else if (strcmp(key, "auth_realms") == 0)
 		ptr = &auth->realms;
 	else if (strcmp(key, "auth_executable") == 0)
@@ -399,18 +399,33 @@ static const char *parse_auth(const char *key, const char *value)
 		return NULL;
 	}
 
-	if (strcmp(key, "auth_userinfo") == 0) {
-		/* split it into userinfo + userinfo_args */
+	if (strcmp(key, "auth_userdb") == 0) {
+		/* split it into userdb + userdb_args */
 		for (p = value; *p != ' ' && *p != '\0'; )
 			p++;
 
-		i_free(auth->userinfo);
-		auth->userinfo = i_strdup_until(value, p);
+		i_free(auth->userdb);
+		auth->userdb = i_strdup_until(value, p);
 
 		while (*p == ' ') p++;
 
-		i_free(auth->userinfo_args);
-		auth->userinfo_args = i_strdup(p);
+		i_free(auth->userdb_args);
+		auth->userdb_args = i_strdup(p);
+		return NULL;
+	}
+
+	if (strcmp(key, "auth_passdb") == 0) {
+		/* split it into passdb + passdb_args */
+		for (p = value; *p != ' ' && *p != '\0'; )
+			p++;
+
+		i_free(auth->passdb);
+		auth->passdb = i_strdup_until(value, p);
+
+		while (*p == ' ') p++;
+
+		i_free(auth->passdb_args);
+		auth->passdb_args = i_strdup(p);
 		return NULL;
 	}
 

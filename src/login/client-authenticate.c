@@ -77,23 +77,20 @@ static void client_auth_abort(struct client *client, const char *msg)
 	client_unref(client);
 }
 
-static void master_callback(enum master_reply_result result, void *context)
+static void master_callback(struct client *client, int success)
 {
-	struct client *client = context;
+	const char *reason = NULL;
 
-	switch (result) {
-	case MASTER_RESULT_SUCCESS:
-		client_destroy(client, t_strconcat("Login: ",
-						   client->virtual_user, NULL));
-		client_unref(client);
-		break;
-	case MASTER_RESULT_INTERNAL_FAILURE:
-		client_auth_abort(client, "Internal failure");
-		break;
-	default:
-		client_auth_abort(client, NULL);
-		break;
+	if (success)
+		reason = t_strconcat("Login: ", client->virtual_user, NULL);
+	else {
+		reason = t_strconcat("Internal login failure: ",
+				     client->virtual_user, NULL);
+		client_send_line(client, "* BYE Internal login failure.");
 	}
+
+	client_destroy(client, reason);
+	client_unref(client);
 }
 
 static void client_send_auth_data(struct client *client,
@@ -115,28 +112,55 @@ static void client_send_auth_data(struct client *client,
 	t_pop();
 }
 
+static const char *auth_login_get_str(struct auth_login_reply *reply,
+				      const unsigned char *data, size_t idx)
+{
+	size_t stop;
+
+	if (idx >= reply->data_size || idx >= reply->reply_idx)
+		return NULL;
+
+	stop = reply->reply_idx < reply->data_size ?
+		reply->reply_idx-1 : reply->data_size;
+
+	return t_strndup(data, stop);
+}
+
 static int auth_callback(struct auth_request *request,
-			 unsigned int auth_process, enum auth_result result,
-			 const unsigned char *reply_data,
-			 size_t reply_data_size, const char *virtual_user,
-			 void *context)
+			 struct auth_login_reply *reply,
+			 const unsigned char *data, void *context)
 {
 	struct client *client = context;
+	const char *user, *realm;
 
-	switch (result) {
-	case AUTH_RESULT_CONTINUE:
+	if (reply == NULL) {
+		/* failed */
+		client->auth_request = NULL;
+		client_auth_abort(client, "NO Authentication process died.");
+		return FALSE;
+	}
+
+	switch (reply->result) {
+	case AUTH_LOGIN_RESULT_CONTINUE:
 		client->auth_request = request;
 		return TRUE;
 
-	case AUTH_RESULT_SUCCESS:
+	case AUTH_LOGIN_RESULT_SUCCESS:
 		client->auth_request = NULL;
 
-		i_free(client->virtual_user);
-		client->virtual_user = i_strdup(virtual_user);
+		user = auth_login_get_str(reply, data, reply->username_idx);
+		realm = auth_login_get_str(reply, data, reply->realm_idx);
 
-		master_request_imap(client->fd, auth_process, client->cmd_tag,
-				    request->cookie, &client->ip,
-				    master_callback, client);
+		i_free(client->virtual_user);
+		client->virtual_user = realm == NULL ?
+			i_strdup(user) : i_strconcat(user, "@", realm, NULL);
+
+		/* we should be able to log in. if we fail, just
+		   disconnect the client. */
+		client_send_tagline(client, "OK Logged in.");
+
+		master_request_imap(client, master_callback,
+				    request->conn->pid, request->id);
 
 		/* disable IO until we're back from master */
 		if (client->io != NULL) {
@@ -145,42 +169,33 @@ static int auth_callback(struct auth_request *request,
 		}
 		return FALSE;
 
-	case AUTH_RESULT_FAILURE:
+	case AUTH_LOGIN_RESULT_FAILURE:
 		/* see if we have error message */
 		client->auth_request = NULL;
 
-		if (reply_data_size > 0 &&
-		    reply_data[reply_data_size-1] == '\0') {
+		if (reply->data_size > 0 && data[reply->data_size-1] == '\0') {
 			client_auth_abort(client, t_strconcat(
 				"NO Authentication failed: ",
-				(const char *) reply_data, NULL));
+				(const char *) data, NULL));
 		} else {
 			/* default error message */
 			client_auth_abort(client, NULL);
 		}
 		return FALSE;
-	default:
-		client->auth_request = NULL;
-
-		client_auth_abort(client, t_strconcat(
-			"NO Authentication failed: ", reply_data, NULL));
-		return FALSE;
 	}
+
+	i_unreached();
 }
 
 static void login_callback(struct auth_request *request,
-			   unsigned int auth_process, enum auth_result result,
-			   const unsigned char *reply_data,
-			   size_t reply_data_size, const char *virtual_user,
-			   void *context)
+			   struct auth_login_reply *reply,
+			   const unsigned char *data, struct client *client)
 {
-	struct client *client = context;
 	const void *ptr;
 	size_t size;
 
-	if (auth_callback(request, auth_process, result,
-			  reply_data, reply_data_size, virtual_user, context)) {
-                ptr = buffer_get_data(client->plain_login, &size);
+	if (auth_callback(request, reply, data, client)) {
+		ptr = buffer_get_data(client->plain_login, &size);
 		auth_continue_request(request, ptr, size);
 
 		buffer_set_used_size(client->plain_login, 0);
@@ -233,17 +248,12 @@ int cmd_login(struct client *client, struct imap_arg *args)
 }
 
 static void authenticate_callback(struct auth_request *request,
-				  unsigned int auth_process,
-				  enum auth_result result,
-				  const unsigned char *reply_data,
-				  size_t reply_data_size,
-				  const char *virtual_user, void *context)
+				  struct auth_login_reply *reply,
+				  const unsigned char *data,
+				  struct client *client)
 {
-	struct client *client = context;
-
-	if (auth_callback(request, auth_process, result,
-			  reply_data, reply_data_size, virtual_user, context))
-		client_send_auth_data(client, reply_data, reply_data_size);
+	if (auth_callback(request, reply, data, client))
+		client_send_auth_data(client, data, reply->data_size);
 }
 
 static void client_auth_input(void *context, int fd __attr_unused__,

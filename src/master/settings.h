@@ -66,7 +66,8 @@ struct auth_config {
 	char *name;
 	char *mechanisms;
 	char *realms;
-	char *userinfo, *userinfo_args;
+	char *userdb, *userdb_args;
+	char *passdb, *passdb_args;
 	char *executable;
 	char *user;
 	char *chroot;

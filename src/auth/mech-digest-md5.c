@@ -1,6 +1,6 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
-/* Digest-MD5 SASL authentication, see rfc-2831 */
+/* Digest-MD5 SASL authentication, see RFC-2831 */
 
 #include "common.h"
 #include "base64.h"
@@ -9,10 +9,8 @@
 #include "md5.h"
 #include "randgen.h"
 #include "str.h"
-
-#include "auth.h"
-#include "cookie.h"
-#include "userinfo.h"
+#include "mech.h"
+#include "passdb.h"
 
 #include <stdlib.h>
 
@@ -31,7 +29,9 @@ enum qop_option {
 
 static const char *qop_names[] = { "auth", "auth-int", "auth-conf" };
 
-struct auth_data {
+struct digest_auth_request {
+	struct auth_request auth_request;
+
 	pool_t pool;
 	unsigned int authenticated:1;
 
@@ -52,16 +52,15 @@ struct auth_data {
 
 	/* final reply: */
 	char *rspauth;
-        struct auth_cookie_reply_data cookie_reply;
 };
 
-static const char *get_digest_challenge(struct auth_data *auth)
+static string_t *get_digest_challenge(struct digest_auth_request *auth)
 {
-	string_t *qoplist, *realms;
 	buffer_t *buf;
+	string_t *str;
 	const char *const *tmp;
 	unsigned char nonce[16];
-	int i;
+	int i, first_qop;
 
 	/*
 	   realm="hostname" (multiple allowed)
@@ -85,44 +84,52 @@ static const char *get_digest_challenge(struct auth_data *auth)
 	auth->nonce = p_strdup(auth->pool, buffer_get_data(buf, NULL));
 	t_pop();
 
-	/* get list of allowed QoPs */
-	qoplist = t_str_new(32);
+	str = t_str_new(256);
+
+	for (tmp = auth_realms; *tmp != NULL; tmp++) {
+		str_printfa(str, "realm=\"%s\"", *tmp);
+		str_append_c(str, ',');
+	}
+
+	str_printfa(str, "nonce=\"%s\",", auth->nonce);
+
+	str_append(str, "qop=\""); first_qop = TRUE;
 	for (i = 0; i < QOP_COUNT; i++) {
 		if (auth->qop & (1 << i)) {
-			if (str_len(qoplist) > 0)
-				str_append_c(qoplist, ',');
-			str_append(qoplist, qop_names[i]);
+			if (first_qop)
+				first_qop = FALSE;
+			else
+				str_append_c(str, ',');
+			str_append(str, qop_names[i]);
 		}
 	}
+	str_append(str, "\",");
 
-	realms = t_str_new(128);
-	for (tmp = auth_realms; *tmp != NULL; tmp++) {
-		str_printfa(realms, "realm=\"%s\"", *tmp);
-		str_append_c(realms, ',');
-	}
-
-	return t_strconcat(str_c(realms),
-			   "nonce=\"", auth->nonce, "\",",
-			   "qop=\"", str_c(qoplist), "\",",
-			   "charset=\"utf-8\",",
-			   "algorithm=\"md5-sess\"",
-			   NULL);
+	str_append(str, "charset=\"utf-8\","
+		   "algorithm=\"md5-sess\"");
+	return str;
 }
 
-static int verify_auth(struct auth_data *auth)
+static int verify_auth(struct digest_auth_request *auth)
 {
 	struct md5_context ctx;
 	unsigned char digest[16];
-	const char *a1_hex, *a2_hex, *response_hex;
+	const char *a1_hex, *a2_hex, *response_hex, *data;
+	buffer_t *digest_buf;
 	int i;
 
 	/* we should have taken care of this at startup */
-	i_assert(userinfo->lookup_digest_md5 != NULL);
+	i_assert(passdb->lookup_credentials != NULL);
 
 	/* get the MD5 password */
-	if (!userinfo->lookup_digest_md5(auth->username, auth->realm != NULL ?
-					 auth->realm : "", digest,
-					 &auth->cookie_reply))
+	data = passdb->lookup_credentials(auth->username, auth->realm,
+					  PASSDB_CREDENTIALS_DIGEST_MD5);
+	if (data == NULL || strlen(data) != sizeof(digest)*2)
+		return FALSE;
+
+	digest_buf = buffer_create_data(data_stack_pool,
+					digest, sizeof(digest));
+	if (hex_to_binary(data, digest_buf) <= 0)
 		return FALSE;
 
 	/*
@@ -294,7 +301,7 @@ static const char *trim(const char *str)
 	return ret;
 }
 
-static int auth_handle_response(struct auth_data *auth, char *key, char *value,
+static int auth_handle_response(struct digest_auth_request *auth, char *key, char *value,
 				const char **error)
 {
 	int i;
@@ -457,7 +464,7 @@ static int auth_handle_response(struct auth_data *auth, char *key, char *value,
 	return TRUE;
 }
 
-static int parse_digest_response(struct auth_data *auth, const char *data,
+static int parse_digest_response(struct digest_auth_request *auth, const char *data,
 				 size_t size, const char **error)
 {
 	char *copy, *key, *value;
@@ -524,43 +531,43 @@ static int parse_digest_response(struct auth_data *auth, const char *data,
 	return !failed;
 }
 
-static void
-auth_digest_md5_continue(struct cookie_data *cookie,
-			 struct auth_continued_request_data *request,
-			 const unsigned char *data,
-			 auth_callback_t callback, void *context)
+static int
+mech_digest_md5_auth_continue(struct login_connection *conn,
+			      struct auth_request *auth_request,
+			      struct auth_login_request_continue *request,
+			      const unsigned char *data,
+			      mech_callback_t *callback)
 {
-	struct auth_data *auth = cookie->context;
-	struct auth_reply_data reply;
+	struct digest_auth_request *auth =
+		(struct digest_auth_request *)auth_request;
+	struct auth_login_reply reply;
 	const char *error;
 
 	/* initialize reply */
-	memset(&reply, 0, sizeof(reply));
+	mech_init_login_reply(&reply);
 	reply.id = request->id;
-	memcpy(reply.cookie, cookie->cookie, AUTH_COOKIE_SIZE);
 
 	if (auth->authenticated) {
 		/* authentication is done, we were just waiting the last
 		   word from client */
-		if (strocpy(reply.virtual_user, auth->cookie_reply.virtual_user,
-			    sizeof(reply.virtual_user)) < 0)
-			i_panic("virtual_user overflow");
+		void *data;
 
-		auth->cookie_reply.success = TRUE;
-		reply.result = AUTH_RESULT_SUCCESS;
-		callback(&reply, NULL, context);
-		return;
+		data = mech_auth_success(&reply, auth_request, NULL, 0);
+		callback(&reply, data, conn);
+		return TRUE;
 	}
 
 	if (parse_digest_response(auth, (const char *) data,
-					 request->data_size, &error)) {
+				  request->data_size, &error)) {
 		/* authentication ok */
-		reply.result = AUTH_RESULT_CONTINUE;
-
-		reply.data_size = strlen(auth->rspauth);
-		callback(&reply, auth->rspauth, context);
 		auth->authenticated = TRUE;
-		return;
+
+		reply.reply_idx = 0;
+
+		reply.result = AUTH_LOGIN_RESULT_CONTINUE;
+		reply.data_size = strlen(auth->rspauth);
+		callback(&reply, auth->rspauth, conn);
+		return TRUE;
 	}
 
 	if (error == NULL)
@@ -569,71 +576,50 @@ auth_digest_md5_continue(struct cookie_data *cookie,
 		i_info("digest-md5: %s", error);
 
 	/* failed */
-	reply.result = AUTH_RESULT_FAILURE;
-	callback(&reply, error, context);
-	cookie_remove(cookie->cookie);
+	reply.result = AUTH_LOGIN_RESULT_FAILURE;
+	reply.data_size = strlen(error)+1;
+	callback(&reply, error, conn);
+	return FALSE;
 }
 
-static int auth_digest_md5_fill_reply(struct cookie_data *cookie,
-				      struct auth_cookie_reply_data *reply)
+static void mech_digest_md5_auth_free(struct auth_request *auth_request)
 {
-	struct auth_data *auth = cookie->context;
-
-	if (!auth->authenticated)
-		return FALSE;
-
-	memcpy(reply, &auth->cookie_reply,
-	       sizeof(struct auth_cookie_reply_data));
-	return TRUE;
+	pool_unref(auth_request->pool);
 }
 
-static void auth_digest_md5_free(struct cookie_data *cookie)
+static struct auth_request *
+mech_digest_md5_auth_new(struct login_connection *conn,
+			 unsigned int id, mech_callback_t *callback)
 {
-	pool_unref(((struct auth_data *) cookie->context)->pool);
-}
-
-static void auth_digest_md5_init(unsigned int login_pid,
-				 struct auth_init_request_data *request,
-				 auth_callback_t callback, void *context)
-{
-	struct cookie_data *cookie;
-	struct auth_reply_data reply;
-	struct auth_data *auth;
+	struct auth_login_reply reply;
+	struct digest_auth_request *auth;
 	pool_t pool;
-	const char *challenge;
+	string_t *challenge;
 
-	pool = pool_alloconly_create("Digest-MD5", 2048);
-	auth = p_new(pool, struct auth_data, 1);
+	pool = pool_alloconly_create("digest_md5_auth_request", 2048);
+	auth = p_new(pool, struct digest_auth_request, 1);
 	auth->pool = pool;
 
+	auth->auth_request.pool = pool;
+	auth->auth_request.auth_continue = mech_digest_md5_auth_continue;
+	auth->auth_request.auth_free = mech_digest_md5_auth_free;
 	auth->qop = QOP_AUTH;
 
-	cookie = p_new(pool, struct cookie_data, 1);
-	cookie->login_pid = login_pid;
-	cookie->auth_fill_reply = auth_digest_md5_fill_reply;
-	cookie->auth_continue = auth_digest_md5_continue;
-	cookie->free = auth_digest_md5_free;
-	cookie->context = auth;
-
-	cookie_add(cookie);
-
 	/* initialize reply */
-	memset(&reply, 0, sizeof(reply));
-	reply.id = request->id;
-	reply.result = AUTH_RESULT_CONTINUE;
-	memcpy(reply.cookie, cookie->cookie, AUTH_COOKIE_SIZE);
+	mech_init_login_reply(&reply);
+	reply.id = id;
+	reply.result = AUTH_LOGIN_RESULT_CONTINUE;
 
 	/* send the initial challenge */
-	t_push();
-
+	reply.reply_idx = 0;
 	challenge = get_digest_challenge(auth);
-	reply.data_size = strlen(challenge);
-	callback(&reply, challenge, context);
+	reply.data_size = str_len(challenge);
+	callback(&reply, str_data(challenge), conn);
 
-	t_pop();
+	return &auth->auth_request;
 }
 
-struct auth_module auth_digest_md5 = {
+struct mech_module mech_digest_md5 = {
 	AUTH_MECH_DIGEST_MD5,
-	auth_digest_md5_init
+	mech_digest_md5_auth_new
 };

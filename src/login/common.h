@@ -2,7 +2,7 @@
 #define __COMMON_H
 
 #include "lib.h"
-#include "../auth/auth-interface.h"
+#include "../auth/auth-login-interface.h"
 
 extern int disable_plaintext_auth, process_per_connection, verbose_proctitle;
 extern unsigned int max_logging_users;

@@ -1,5 +1,5 @@
-#ifndef __CHILD_LOGIN_H
-#define __CHILD_LOGIN_H
+#ifndef __LOGIN_PROCESS_H
+#define __LOGIN_PROCESS_H
 
 void login_process_abormal_exit(pid_t pid);
 void login_processes_destroy_all(void);

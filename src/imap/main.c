@@ -12,7 +12,7 @@
 #include <syslog.h>
 
 #define IS_STANDALONE() \
-        (getenv("LOGIN_TAG") == NULL)
+        (getenv("LOGGED_IN") == NULL)
 
 struct ioloop *ioloop;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
@@ -104,9 +104,6 @@ static void main_init(void)
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY "CAPABILITY_STRING"] "
 			"Logged in as ", getenv("USER"), NULL));
-	} else {
-		client_send_line(client, t_strconcat(getenv("LOGIN_TAG"),
-						     " OK Logged in.", NULL));
 	}
 }
 
@@ -125,8 +122,10 @@ static void main_deinit(void)
 int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
 #ifdef DEBUG
-	if (getenv("LOGIN_TAG") != NULL)
+	if (getenv("LOGGED_IN") != NULL) {
 		fd_debug_verify_leaks(3, 1024);
+		putenv("DISABLE_ALARMHUP=1"); /* annoying when debugging */
+	}
 #endif
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */

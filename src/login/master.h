@@ -1,17 +1,14 @@
 #ifndef __MASTER_H
 #define __MASTER_H
 
-#include "../master/master-interface.h"
+struct client;
 
-typedef void (*master_callback_t)(enum master_reply_result result,
-				  void *context);
+#include "../master/master-login-interface.h"
 
-/* Request IMAP process for given cookie. */
-void master_request_imap(int fd, unsigned int auth_process,
-			 const char *login_tag,
-			 unsigned char cookie[AUTH_COOKIE_SIZE],
-			 struct ip_addr *ip,
-			 master_callback_t callback, void *context);
+typedef void master_callback_t(struct client *client, int success);
+
+void master_request_imap(struct client *client, master_callback_t *callback,
+			 unsigned int auth_pid, unsigned int auth_id);
 
 /* Notify master that we're not listening for new connections anymore. */
 void master_notify_finished(void);

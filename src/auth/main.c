@@ -7,11 +7,11 @@
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
 #include "randgen.h"
-#include "auth.h"
-#include "cookie.h"
+#include "mech.h"
+#include "userdb.h"
+#include "passdb.h"
+#include "master-connection.h"
 #include "login-connection.h"
-#include "userinfo.h"
-#include "master.h"
 
 #include <stdlib.h>
 #include <syslog.h>
@@ -73,16 +73,17 @@ static void main_init(void)
 
 	verbose = getenv("VERBOSE") != NULL;
 
-	auth_init();
-	cookies_init();
+	mech_init();
+	userdb_init();
+	passdb_init();
+
 	login_connections_init();
-	userinfo_init();
 
 	io_listen = io_add_priority(LOGIN_LISTEN_FD, IO_PRIORITY_LOW,
 				    IO_READ, auth_accept, NULL);
 
 	/* initialize master last - it sends the "we're ok" notification */
-	master_init();
+	master_connection_init();
 }
 
 static void main_deinit(void)
@@ -92,12 +93,13 @@ static void main_deinit(void)
 
 	io_remove(io_listen);
 
-	userinfo_deinit();
-	master_deinit();
 	login_connections_deinit();
-	cookies_deinit();
-	auth_deinit();
 
+	passdb_deinit();
+	userdb_deinit();
+	mech_deinit();
+
+	master_connection_deinit();
 	random_deinit();
 
 	closelog();

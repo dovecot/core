@@ -12,29 +12,12 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-#define MAX_INBUF_SIZE AUTH_MAX_REQUEST_DATA_SIZE
+/* Maximum size for an auth reply. 50kB should be more than enough. */
+#define MAX_INBUF_SIZE (1024*50)
+
 #define MAX_OUTBUF_SIZE \
-	(sizeof(struct auth_continued_request_data) + \
-	 AUTH_MAX_REQUEST_DATA_SIZE)
-
-struct auth_connection {
-	struct auth_connection *next;
-
-	char *path;
-	int fd;
-	struct io *io;
-	struct istream *input;
-	struct ostream *output;
-
-	unsigned int auth_process;
-	enum auth_mech available_auth_mechs;
-        struct auth_reply_data in_reply;
-
-        struct hash_table *requests;
-
-	unsigned int init_received:1;
-	unsigned int in_reply_received:1;
-};
+	(sizeof(struct auth_login_request_continue) + \
+	 AUTH_LOGIN_MAX_REQUEST_DATA_SIZE)
 
 enum auth_mech available_auth_mechs;
 
@@ -62,7 +45,7 @@ static struct auth_connection *auth_connection_find(const char *path)
 static struct auth_connection *auth_connection_new(const char *path)
 {
 	struct auth_connection *conn;
-        struct client_auth_init_data init_data;
+        struct auth_login_handshake_input handshake;
 	int fd;
 
 	fd = net_connect_unix(path);
@@ -71,6 +54,9 @@ static struct auth_connection *auth_connection_new(const char *path)
                 auth_reconnect = TRUE;
 		return NULL;
 	}
+
+	/* we depend on auth process - if it's slow, just wait */
+        net_set_nonblock(fd, FALSE);
 
 	conn = i_new(struct auth_connection, 1);
 	conn->path = i_strdup(path);
@@ -87,9 +73,9 @@ static struct auth_connection *auth_connection_new(const char *path)
 	auth_connections = conn;
 
 	/* send our handshake */
-	memset(&init_data, 0, sizeof(init_data));
-	init_data.pid = login_process_uid;
-	if (o_stream_send(conn->output, &init_data, sizeof(init_data)) < 0) {
+	memset(&handshake, 0, sizeof(handshake));
+	handshake.pid = login_process_uid;
+	if (o_stream_send(conn->output, &handshake, sizeof(handshake)) < 0) {
                 auth_connection_destroy(conn);
 		return NULL;
 	}
@@ -102,19 +88,13 @@ static void request_destroy(struct auth_request *request)
 	i_free(request);
 }
 
-static void request_abort(struct auth_request *request)
-{
-	request->callback(request, request->conn->auth_process,
-			  AUTH_RESULT_INTERNAL_FAILURE,
-			  (const unsigned char *) "Authentication process died",
-			  0, NULL, request->context);
-	request_destroy(request);
-}
-
 static void request_hash_destroy(void *key __attr_unused__, void *value,
 				 void *context __attr_unused__)
 {
-	request_abort(value);
+	struct auth_request *request = value;
+
+	request->callback(request, NULL, NULL, request->context);
+	request_destroy(request);
 }
 
 static void auth_connection_destroy(struct auth_connection *conn)
@@ -181,39 +161,32 @@ static void update_available_auth_mechs(void)
                 available_auth_mechs |= conn->available_auth_mechs;
 }
 
-static void auth_handle_init(struct auth_connection *conn,
-			     struct auth_init_data *init_data)
+static void auth_handle_handshake(struct auth_connection *conn,
+				  struct auth_login_handshake_output *handshake)
 {
-	conn->auth_process = init_data->auth_process;
-	conn->available_auth_mechs = init_data->auth_mechanisms;
-	conn->init_received = TRUE;
+	conn->pid = handshake->pid;
+	conn->available_auth_mechs = handshake->auth_mechanisms;
+	conn->handshake_received = TRUE;
 
 	update_available_auth_mechs();
 }
 
 static void auth_handle_reply(struct auth_connection *conn,
-			      struct auth_reply_data *reply_data,
+			      struct auth_login_reply *reply,
 			      const unsigned char *data)
 {
 	struct auth_request *request;
 
-	request = hash_lookup(conn->requests, POINTER_CAST(reply_data->id));
+	request = hash_lookup(conn->requests, POINTER_CAST(reply->id));
 	if (request == NULL) {
 		i_error("BUG: imap-auth sent us reply with unknown ID %u",
-			reply_data->id);
+			reply->id);
 		return;
 	}
 
-	/* save the returned cookie */
-	memcpy(request->cookie, reply_data->cookie, AUTH_COOKIE_SIZE);
+	request->callback(request, reply, data, request->context);
 
-	t_push();
-	request->callback(request, request->conn->auth_process,
-			  reply_data->result, data, reply_data->data_size,
-			  reply_data->virtual_user, request->context);
-	t_pop();
-
-	if (reply_data->result != AUTH_RESULT_CONTINUE)
+	if (reply->result != AUTH_LOGIN_RESULT_CONTINUE)
 		request_destroy(request);
 }
 
@@ -221,7 +194,7 @@ static void auth_input(void *context, int fd __attr_unused__,
 		       struct io *io __attr_unused__)
 {
 	struct auth_connection *conn = context;
-        struct auth_init_data init_data;
+        struct auth_login_handshake_output handshake;
 	const unsigned char *data;
 	size_t size;
 
@@ -241,45 +214,40 @@ static void auth_input(void *context, int fd __attr_unused__,
 		return;
 	}
 
-	data = i_stream_get_data(conn->input, &size);
+	if (!conn->handshake_received) {
+		data = i_stream_get_data(conn->input, &size);
+		if (size == sizeof(handshake)) {
+			memcpy(&handshake, data, sizeof(handshake));
+			i_stream_skip(conn->input, sizeof(handshake));
 
-	if (!conn->init_received) {
-		if (size == sizeof(struct auth_init_data)) {
-			memcpy(&init_data, data, sizeof(struct auth_init_data));
-			i_stream_skip(conn->input,
-				      sizeof(struct auth_init_data));
-
-			auth_handle_init(conn, &init_data);
-		} else if (size > sizeof(struct auth_init_data)) {
-			i_error("BUG: imap-auth sent us too much "
-				"initialization data (%"PRIuSIZE_T " vs %"
-				PRIuSIZE_T")", size,
-				sizeof(struct auth_init_data));
+			auth_handle_handshake(conn, &handshake);
+		} else if (size > sizeof(handshake)) {
+			i_error("BUG: imap-auth sent us too large handshake "
+				"(%"PRIuSIZE_T " vs %"PRIuSIZE_T")", size,
+				sizeof(handshake));
 			auth_connection_destroy(conn);
 		}
-
 		return;
 	}
 
-	if (!conn->in_reply_received) {
+	if (!conn->reply_received) {
 		data = i_stream_get_data(conn->input, &size);
-		if (size < sizeof(struct auth_reply_data))
+		if (size < sizeof(conn->reply))
 			return;
 
-		memcpy(&conn->in_reply, data, sizeof(struct auth_reply_data));
-		data += sizeof(struct auth_reply_data);
-		size -= sizeof(struct auth_reply_data);
-		i_stream_skip(conn->input, sizeof(struct auth_reply_data));
-		conn->in_reply_received = TRUE;
+		memcpy(&conn->reply, data, sizeof(conn->reply));
+		i_stream_skip(conn->input, sizeof(conn->reply));
+		conn->reply_received = TRUE;
 	}
 
-	if (size < conn->in_reply.data_size)
+	data = i_stream_get_data(conn->input, &size);
+	if (size < conn->reply.data_size)
 		return;
 
 	/* we've got a full reply */
-	conn->in_reply_received = FALSE;
-	auth_handle_reply(conn, &conn->in_reply, data);
-	i_stream_skip(conn->input, conn->in_reply.data_size);
+	conn->reply_received = FALSE;
+	auth_handle_reply(conn, &conn->reply, data);
+	i_stream_skip(conn->input, conn->reply.data_size);
 }
 
 int auth_init_request(enum auth_mech mech, auth_callback_t callback,
@@ -287,12 +255,12 @@ int auth_init_request(enum auth_mech mech, auth_callback_t callback,
 {
 	struct auth_connection *conn;
 	struct auth_request *request;
-	struct auth_init_request_data request_data;
+	struct auth_login_request_new auth_request;
 
 	if (auth_reconnect)
 		auth_connect_missing();
 
-	conn = auth_connection_get(mech, sizeof(request_data), error);
+	conn = auth_connection_get(mech, sizeof(auth_request), error);
 	if (conn == NULL)
 		return FALSE;
 
@@ -311,11 +279,11 @@ int auth_init_request(enum auth_mech mech, auth_callback_t callback,
 	hash_insert(conn->requests, POINTER_CAST(request->id), request);
 
 	/* send request to auth */
-	request_data.type = AUTH_REQUEST_INIT;
-	request_data.mech = request->mech;
-	request_data.id = request->id;
-	if (o_stream_send(request->conn->output, &request_data,
-			  sizeof(request_data)) < 0)
+	auth_request.type = AUTH_LOGIN_REQUEST_NEW;
+	auth_request.mech = request->mech;
+	auth_request.id = request->id;
+	if (o_stream_send(request->conn->output, &auth_request,
+			  sizeof(auth_request)) < 0)
 		auth_connection_destroy(request->conn);
 	return TRUE;
 }
@@ -323,16 +291,15 @@ int auth_init_request(enum auth_mech mech, auth_callback_t callback,
 void auth_continue_request(struct auth_request *request,
 			   const unsigned char *data, size_t data_size)
 {
-	struct auth_continued_request_data request_data;
+	struct auth_login_request_continue auth_request;
 
 	/* send continued request to auth */
-	memcpy(request_data.cookie, request->cookie, AUTH_COOKIE_SIZE);
-	request_data.type = AUTH_REQUEST_CONTINUE;
-	request_data.id = request->id;
-	request_data.data_size = data_size;
+	auth_request.type = AUTH_LOGIN_REQUEST_CONTINUE;
+	auth_request.id = request->id;
+	auth_request.data_size = data_size;
 
-	if (o_stream_send(request->conn->output, &request_data,
-			  sizeof(request_data)) < 0)
+	if (o_stream_send(request->conn->output, &auth_request,
+			  sizeof(auth_request)) < 0)
 		auth_connection_destroy(request->conn);
 	else if (o_stream_send(request->conn->output, data, data_size) < 0)
 		auth_connection_destroy(request->conn);

@@ -1,26 +1,40 @@
 #ifndef __AUTH_CONNECTION_H
 #define __AUTH_CONNECTION_H
 
+struct client;
 struct auth_request;
 
-/* If result == AUTH_RESULT_INTERNAL_FAILURE, request may be NULL and
-   reply_data_size contains the error message. */
-typedef void (*auth_callback_t)(struct auth_request *request,
-				unsigned int auth_process,
-				enum auth_result result,
-				const unsigned char *reply_data,
-				size_t reply_data_size,
-				const char *virtual_user,
-				void *context);
+/* reply is NULL if auth connection died */
+typedef void auth_callback_t(struct auth_request *request,
+			     struct auth_login_reply *reply,
+			     const unsigned char *data, struct client *client);
+
+struct auth_connection {
+	struct auth_connection *next;
+
+	char *path;
+	int fd;
+	struct io *io;
+	struct istream *input;
+	struct ostream *output;
+
+	unsigned int pid;
+	enum auth_mech available_auth_mechs;
+        struct auth_login_reply reply;
+
+        struct hash_table *requests;
+
+	unsigned int handshake_received:1;
+	unsigned int reply_received:1;
+};
 
 struct auth_request {
         enum auth_mech mech;
         struct auth_connection *conn;
 
 	unsigned int id;
-	unsigned char cookie[AUTH_COOKIE_SIZE];
 
-	auth_callback_t callback;
+	auth_callback_t *callback;
 	void *context;
 
 	unsigned int init_sent:1;
@@ -28,7 +42,7 @@ struct auth_request {
 
 extern enum auth_mech available_auth_mechs;
 
-int auth_init_request(enum auth_mech mech, auth_callback_t callback,
+int auth_init_request(enum auth_mech mech, auth_callback_t *callback,
 		      void *context, const char **error);
 
 void auth_continue_request(struct auth_request *request,

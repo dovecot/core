@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "hash.h"
 #include "ioloop.h"
 #include "network.h"
 #include "fdpass.h"
@@ -9,88 +10,47 @@
 
 #include <unistd.h>
 
-struct waiting_request {
-	struct waiting_request *next;
-
-	unsigned int id;
-	master_callback_t callback;
-	void *context;
-};
-
 static struct io *io_master;
-static struct waiting_request *requests, **next_request;
+static struct hash_table *master_requests;
 
 static unsigned int master_pos;
-static char master_buf[sizeof(struct master_reply)];
+static char master_buf[sizeof(struct master_login_reply)];
 
-static void push_request(unsigned int id, master_callback_t callback,
-			 void *context)
+static void request_handle(struct master_login_reply *reply)
 {
-	struct waiting_request *req;
+	struct client *client;
 
-	req = i_new(struct waiting_request, 1);
-	req->id = id;
-	req->callback = callback;
-	req->context = context;
+	client = hash_lookup(master_requests, POINTER_CAST(reply->tag));
+	if (client == NULL)
+		i_fatal("Master sent reply with unknown tag %u", reply->tag);
 
-	*next_request = req;
-	next_request = &req->next;
+	client->master_callback(client, reply->success);
+
+	hash_remove(master_requests, POINTER_CAST(reply->tag));
 }
 
-static void pop_request(struct master_reply *reply)
+void master_request_imap(struct client *client, master_callback_t *callback,
+			 unsigned int auth_pid, unsigned int auth_id)
 {
-	struct waiting_request *req;
-
-	req = requests;
-	if (req == NULL) {
-		i_error("Master sent us unrequested reply for id %d",
-			reply->id);
-		return;
-	}
-
-	if (reply->id != req->id) {
-		i_fatal("Master sent invalid id for reply "
-			"(got %d, expecting %d)", reply->id, req->id);
-	}
-
-	req->callback(reply->result, req->context);
-
-	requests = req->next;
-	if (requests == NULL)
-		next_request = &requests;
-
-	i_free(req);
-}
-
-void master_request_imap(int fd, unsigned int auth_process,
-			 const char *login_tag,
-			 unsigned char cookie[AUTH_COOKIE_SIZE],
-			 struct ip_addr *ip,
-			 master_callback_t callback, void *context)
-{
-	struct master_request req;
-
-	i_assert(fd > 1);
+	struct master_login_request req;
 
 	memset(&req, 0, sizeof(req));
-	req.id = fd;
-	req.auth_process = auth_process;
-	memcpy(&req.ip, ip, sizeof(struct ip_addr));
-	memcpy(req.cookie, cookie, AUTH_COOKIE_SIZE);
-
-	if (strocpy(req.login_tag, login_tag, sizeof(req.login_tag)) < 0)
-		strocpy(req.login_tag, "*", sizeof(req.login_tag));
+	req.tag = client->fd;
+	req.auth_pid = auth_pid;
+	req.auth_id = auth_id;
+	req.ip = client->ip;
 
 	if (fd_send(LOGIN_MASTER_SOCKET_FD,
-		    fd, &req, sizeof(req)) != sizeof(req))
+		    client->fd, &req, sizeof(req)) != sizeof(req))
 		i_fatal("fd_send() failed: %m");
 
-	push_request(req.id, callback, context);
+	client->master_callback = callback;
+	hash_insert(master_requests, POINTER_CAST(req.tag), client);
 }
 
 void master_notify_finished(void)
 {
-	struct master_request req;
+	struct master_login_request req;
 
 	if (io_master == NULL)
 		return;
@@ -138,7 +98,7 @@ static void master_input(void *context __attr_unused__, int fd,
 		return;
 
 	/* reply is now read */
-	pop_request((struct master_reply *) master_buf);
+	request_handle((struct master_login_reply *) master_buf);
 	master_pos = 0;
 }
 
@@ -146,8 +106,8 @@ void master_init(void)
 {
 	main_ref();
 
-	requests = NULL;
-	next_request = &requests;
+	master_requests = hash_create(default_pool, default_pool,
+				      0, NULL, NULL);
 
         master_pos = 0;
 	io_master = io_add(LOGIN_MASTER_SOCKET_FD, IO_READ, master_input, NULL);
@@ -159,13 +119,7 @@ void master_init(void)
 
 void master_deinit(void)
 {
-	struct waiting_request *next;
-
-	while (requests != NULL) {
-		next = requests->next;
-		i_free(requests);
-		requests = next;
-	}
+	hash_destroy(master_requests);
 
 	if (io_master != NULL)
 		io_remove(io_master);

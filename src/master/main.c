@@ -9,6 +9,7 @@
 
 #include "auth-process.h"
 #include "login-process.h"
+#include "imap-process.h"
 #include "ssl-init.h"
 
 #include <stdio.h>

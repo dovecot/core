@@ -26,7 +26,8 @@ imap_master_SOURCES = \
 noinst_HEADERS = \
 	auth-process.h \
 	common.h \
+	imap-process.h \
 	login-process.h \
-	master-interface.h \
+	master-login-interface.h \
 	settings.h \
 	ssl-init.h

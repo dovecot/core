@@ -8,35 +8,42 @@ INCLUDES = \
 
 imap_auth_LDADD = \
 	../lib/liblib.a \
-	$(USERINFO_LIBS) \
+	$(PASSDB_LIBS) \
 	$(SASL_LIBS) \
 	$(VPOPMAIL_LIBS)
 
 imap_auth_SOURCES = \
-	auth.c \
-	auth-cyrus-sasl2.c \
-	auth-plain.c \
-	auth-digest-md5.c \
-	cookie.c \
 	login-connection.c \
 	main.c \
-	master.c \
+	master-connection.c \
+	mech.c \
+	mech-cyrus-sasl2.c \
+	mech-plain.c \
+	mech-digest-md5.c \
 	mycrypt.c \
-	userinfo.c \
-	userinfo-passwd.c \
-	userinfo-shadow.c \
-	userinfo-pam.c \
-	userinfo-passwd-file.c \
-	userinfo-vpopmail.c
+	passdb.c \
+	passdb-passwd.c \
+	passdb-passwd-file.c \
+	passdb-pam.c \
+	passdb-shadow.c \
+	passdb-vpopmail.c \
+	passwd-file.c \
+	userdb.c \
+	userdb-passwd.c \
+	userdb-passwd-file.c \
+	userdb-static.c \
+	userdb-vpopmail.c
 
 noinst_HEADERS = \
-	auth.h \
+	auth-login-interface.h \
+	auth-master-interface.h \
 	auth-mech-desc.h \
-	auth-interface.h \
 	common.h \
-	cookie.h \
 	login-connection.h \
-	master.h \
+	master-connection.h \
+	mech.h \
 	mycrypt.h \
-	userinfo.h \
-	userinfo-passwd.h
+	passdb.h \
+	passwd-file.h \
+	userdb.h \
+	userdb-vpopmail.h
