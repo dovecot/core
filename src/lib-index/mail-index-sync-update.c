@@ -258,10 +258,10 @@ static int sync_cache_update(const struct mail_transaction_cache_update *u,
 static int sync_header_update(const struct mail_transaction_header_update *u,
 			      void *context)
 {
-	struct mail_index_view *view = context;
+        struct mail_index_sync_ctx *sync_ctx = context;
 	void *data;
 
-	data = PTR_OFFSET(&view->map->hdr_copy, u->offset);
+	data = PTR_OFFSET(&sync_ctx->view->map->hdr_copy, u->offset);
 	memcpy(data, u->data, u->size);
 	return 1;
 }
@@ -271,7 +271,8 @@ sync_extra_rec_update(const struct mail_transaction_extra_rec_header *hdr,
 		      const struct mail_transaction_extra_rec_update *u,
 		      void *context)
 {
-	struct mail_index_view *view = context;
+        struct mail_index_sync_ctx *sync_ctx = context;
+	struct mail_index_view *view = sync_ctx->view;
 	struct mail_index_record *rec;
 	uint32_t seq;
 	uint16_t offset, size;
