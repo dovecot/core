@@ -198,6 +198,9 @@ static void mail_modifylog_close(MailModifyLog *log)
 			modifylog_set_syscall_error(log, "munmap()");
 	}
 	log->mmap_base = NULL;
+	log->mmap_full_length = 0;
+	log->mmap_used_length = 0;
+	log->header = NULL;
 
 	if (log->fd != -1) {
 		if (close(log->fd) < 0)
@@ -607,14 +610,20 @@ static int mail_modifylog_switch_file(MailModifyLog *log)
 	return mail_modifylog_open_or_create(index);
 }
 
-static void mail_modifylog_try_switch_file(MailModifyLog *log)
+static int mail_modifylog_try_switch_file(MailModifyLog *log)
 {
 	const char *path;
+
+	if (log->anon_mmap)
+		return TRUE;
 
 	path = t_strconcat(log->index->filepath,
 			   log->second_log ? ".log" : ".log.2", NULL);
 
-	(void)modifylog_open_and_init_file(log, path);
+	if (modifylog_open_and_init_file(log, path))
+		return mmap_update(log, TRUE);
+	else
+		return TRUE;
 }
 
 int mail_modifylog_mark_synced(MailModifyLog *log)
@@ -641,8 +650,7 @@ int mail_modifylog_mark_synced(MailModifyLog *log)
 
 	if (log->mmap_used_length > MAX_MODIFYLOG_SIZE) {
 		/* if the other file isn't locked, switch to it */
-		mail_modifylog_try_switch_file(log);
-		return TRUE;
+		return mail_modifylog_try_switch_file(log);
 	}
 
 	return TRUE;
