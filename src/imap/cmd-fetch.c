@@ -324,7 +324,7 @@ int cmd_fetch(struct client *client)
 	messageset = imap_arg_string(&args[0]);
 	if (messageset == NULL ||
 	    (args[1].type != IMAP_ARG_LIST && args[1].type != IMAP_ARG_ATOM)) {
-		client_send_command_error(client, "Invalid FETCH arguments.");
+		client_send_command_error(client, "Invalid arguments.");
 		return TRUE;
 	}
 

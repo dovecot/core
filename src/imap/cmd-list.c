@@ -304,7 +304,7 @@ int _cmd_list_full(struct client *client, int lsub)
 	mask = imap_arg_string(&args[1]);
 
 	if (ref == NULL || mask == NULL) {
-		client_send_command_error(client, "Invalid FETCH arguments.");
+		client_send_command_error(client, "Invalid arguments.");
 		return TRUE;
 	}
 

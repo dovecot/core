@@ -51,7 +51,7 @@ int cmd_store(struct client *client)
 	item = imap_arg_string(&args[1]);
 
 	if (messageset == NULL || item == NULL) {
-		client_send_command_error(client, "Invalid STORE arguments.");
+		client_send_command_error(client, "Invalid arguments.");
 		return TRUE;
 	}
 

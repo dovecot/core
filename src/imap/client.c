@@ -143,7 +143,7 @@ void client_send_tagline(struct client *client, const char *data)
 
 void client_send_command_error(struct client *client, const char *msg)
 {
-	const char *error;
+	const char *error, *cmd;
 	int fatal;
 
 	if (msg == NULL) {
@@ -153,7 +153,16 @@ void client_send_command_error(struct client *client, const char *msg)
 			return;
 		}
 	}
-	error = t_strconcat("BAD Error in IMAP command: ", msg, NULL);
+
+	if (client->cmd_tag == NULL)
+		error = t_strconcat("BAD Error in IMAP tag: ", msg, NULL);
+	else if (client->cmd_name == NULL)
+		error = t_strconcat("BAD Error in IMAP command: ", msg, NULL);
+	else {
+		cmd = str_ucase(t_strdup_noconst(client->cmd_name));
+		error = t_strconcat("BAD Error in IMAP command ",
+				    cmd, ": ", msg, NULL);
+	}
 
 	client->cmd_error = TRUE;
 	client_send_tagline(client, error);
@@ -242,11 +251,12 @@ static int client_skip_line(struct client *client)
 	for (i = 0; i < data_size; i++) {
 		if (data[i] == '\n') {
 			client->input_skip_line = FALSE;
-			i_stream_skip(client->input, i+1);
+			i++;
 			break;
 		}
 	}
 
+	i_stream_skip(client->input, i);
 	return !client->input_skip_line;
 }
 
@@ -296,8 +306,7 @@ static int client_handle_input(struct client *client)
 
 	if (client->cmd_func == NULL) {
 		/* unknown command */
-		client_send_command_error(client, t_strconcat(
-			"Unknown command '", client->cmd_name, "'", NULL));
+		client_send_command_error(client, "Unknown command.");
 		client->input_skip_line = TRUE;
 		_client_reset_command(client);
 	} else {
