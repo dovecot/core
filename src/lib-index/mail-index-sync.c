@@ -233,16 +233,16 @@ static int mail_index_sync_rec_check(struct mail_index_view *view,
 	case MAIL_INDEX_SYNC_TYPE_FLAGS:
 		if (rec->seq1 > rec->seq2 || rec->seq1 == 0) {
 			mail_transaction_log_view_set_corrupted(view->log_view,
-				"Broken sequence: %u..%u",
-				rec->seq1, rec->seq2);
+				"Broken sequence: %u..%u (type 0x%x)",
+				rec->seq1, rec->seq2, rec->type);
 			return FALSE;
 		}
 
 		message_count = mail_index_view_get_message_count(view);
 		if (rec->seq2 > message_count) {
 			mail_transaction_log_view_set_corrupted(view->log_view,
-				"Sequence out of range: %u > %u",
-				rec->seq2, message_count);
+				"Sequence out of range: %u > %u (type 0x%x)",
+				rec->seq2, message_count, rec->type);
 			return FALSE;
 		}
 		break;
