@@ -381,14 +381,12 @@ boundary_find(struct message_boundary *boundaries,
 	return NULL;
 }
 
-/* read until next boundary is found. if skip_over = FALSE, stop at the
-   [\r]\n before the boundary, otherwise leave it right after the known
-   boundary so the ending "--" can be checked. */
+/* read until next boundary is found. stops at the [\r]\n before the
+   boundary. */
 static struct message_boundary *
 message_find_boundary(struct istream *input,
 		      struct message_boundary *boundaries,
-		      struct message_size *msg_size, int skip_over,
-		      int *has_nuls)
+		      struct message_size *msg_size, int *has_nuls)
 {
 	struct message_boundary *boundary;
 	const unsigned char *msg;
@@ -476,10 +474,7 @@ message_find_boundary(struct istream *input,
 
 	if (boundary != NULL) {
 		i_assert(line_start != (size_t)-1);
-		if (skip_over) {
-			/* leave the pointer right after the boundary */
-			line_start += 2 + boundary->len;
-		} else if (line_start > 0 && msg[line_start-1] == '\n') {
+		if (line_start > 0 && msg[line_start-1] == '\n') {
 			/* leave the \r\n before the boundary */
 			line_start--;
 			msg_size->lines--;
@@ -515,7 +510,7 @@ message_parse_body(struct message_parser_ctx *parser_ctx,
 		boundary = NULL;
 	} else {
 		boundary = message_find_boundary(parser_ctx->input, boundaries,
-						 msg_size, FALSE, has_nuls);
+						 msg_size, has_nuls);
 	}
 
 	return boundary == NULL ? NULL : boundary->part;
@@ -534,14 +529,21 @@ message_skip_boundary(struct message_parser_ctx *parser_ctx,
 	int end_boundary;
 
 	boundary = message_find_boundary(parser_ctx->input, boundaries,
-					 boundary_size, TRUE, has_nuls);
+					 boundary_size, has_nuls);
 	if (boundary == NULL)
 		return NULL;
 
 	/* now, see if it's end boundary */
 	end_boundary = FALSE;
-	if (i_stream_read_data(parser_ctx->input, &msg, &size, 1) > 0)
-		end_boundary = msg[0] == '-' && msg[1] == '-';
+	if (i_stream_read_data(parser_ctx->input, &msg, &size,
+			       2 + boundary->len + 1) > 0) {
+		end_boundary = msg[boundary->len + 2] == '-' &&
+			msg[boundary->len + 2 + 1] == '-';
+	}
+
+	/* now, the boundary we found may not be what we expected.
+	   change boundary_size to be the found boundary's parent part */
+	boundary_size = &boundary->part->body_size;
 
 	/* skip the rest of the line */
 	message_skip_line(parser_ctx->input, boundary_size,
