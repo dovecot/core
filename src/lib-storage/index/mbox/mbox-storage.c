@@ -940,6 +940,7 @@ static int mbox_storage_close(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	const struct mail_index_header *hdr;
+	struct mail_index *free_index = NULL;
 	int ret = 0;
 
 	hdr = mail_index_get_header(ibox->view);
@@ -954,9 +955,16 @@ static int mbox_storage_close(struct mailbox *box)
         mbox_file_close(ibox);
 	if (ibox->mbox_file_stream != NULL) {
 		i_stream_unref(ibox->mbox_file_stream);
-                ibox->mbox_file_stream = NULL;
+		ibox->mbox_file_stream = NULL;
+
+		/* it's not in storage's index cache, so free it manually */
+		free_index = ibox->index;
+		ibox->index = NULL;
 	}
+
 	index_storage_mailbox_free(box);
+	if (free_index != NULL)
+		mail_index_free(free_index);
 	return ret;
 }
 
