@@ -497,8 +497,9 @@ int mail_index_compress(struct mail_index *index);
 int mail_index_compress_data(struct mail_index *index);
 int mail_index_truncate(struct mail_index *index);
 
-/* Maximum allowed UID number. */
-#define MAX_ALLOWED_UID 4294967295U /* 2^32 - 1 */
+/* Maximum allowed UID number. Reserve UINT_MAX for "invalid uid",
+   used by at least THREAD extension. */
+#define MAX_ALLOWED_UID 4294967294U /* 2^32 - 2 */
 
 /* Max. mmap()ed size for a message */
 #define MAIL_MMAP_BLOCK_SIZE (1024*256)
