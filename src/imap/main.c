@@ -27,7 +27,6 @@ static void main_init(int use_syslog)
 	hin = 0; hout = 1;
 
 	lib_init_signals(sig_quit);
-	rawlog_open(&hin, &hout);
 
 	i_snprintf(log_prefix, sizeof(log_prefix), "imap(%s)", getenv("USER"));
 
@@ -48,6 +47,8 @@ static void main_init(int use_syslog)
 
 	/* do the chrooting etc. */
 	restrict_access_by_env();
+
+	rawlog_open(&hin, &hout);
 
 	mail_storage_register_all();
 	clients_init();
