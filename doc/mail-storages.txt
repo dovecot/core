@@ -117,12 +117,8 @@ Dovecots check to see if the file has changed. Other lines list the flags
 in format "<flag number> <flag name>". Currently there can be 26 different
 flags (0..25).
 
-.imap.index.log and .imap.index.tree files can be deleted without any data
-loss, they're simply recreated/rebuilt when they're noticed missing.
-
-Deleting .imap.index and .imap.index.data files results in loss of message
-UIDs. That may be a bad thing with some IMAP clients which store some data
-about message locally and identifies the message by it's UID.
+.imap.index* files can be deleted without any data loss, they're simply
+recreated/rebuilt when they're noticed missing.
 
 Deleting .customflags results in loss of custom flag names for Maildir.
 With mbox the .customflags is simply recreated based on the flags listed
