@@ -268,12 +268,22 @@ struct mailbox {
 	   the next call to search_next() or search_deinit(). */
 	struct mail *(*search_next)(struct mail_search_context *ctx);
 
-	/* Save a new mail into mailbox. timezone_offset specifies the
-	   timezone in minutes which received_date was originally given
-	   with. */
-	int (*save)(struct mailbox *box, const struct mail_full_flags *flags,
-		    time_t received_date, int timezone_offset,
-		    struct istream *data, uoff_t data_size);
+	/* Initialize saving one or more mails. If transaction is TRUE, all
+	   the saved mails are deleted if an error occurs or save_deinit()
+	   is called with rollback TRUE. */
+	struct mail_save_context *(*save_init)(struct mailbox *box,
+					       int transaction);
+	/* Deinitialize saving. rollback has effect only if save_init() was
+	   called with transaction being TRUE. If rollback is FALSE but
+	   committing the changes fails, all the commits are rollbacked if
+	   possible. */
+	int (*save_deinit)(struct mail_save_context *ctx, int rollback);
+	/* Save a mail into mailbox. timezone_offset specifies the timezone in
+	   minutes in which received_date was originally given with. */
+	int (*save_next)(struct mail_save_context *ctx,
+			 const struct mail_full_flags *flags,
+			 time_t received_date, int timezone_offset,
+			 struct istream *data);
 
 	/* Returns TRUE if mailbox is now in inconsistent state, meaning that
 	   the message IDs etc. may have changed - only way to recover this

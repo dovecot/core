@@ -19,7 +19,7 @@ struct messageset_context {
 	unsigned int num1, num2;
 
 	const char *messageset, *p;
-	int uidset;
+	int uidset, skip_expunged;
 
 	int first, ret;
 	const char *error;
@@ -30,7 +30,7 @@ static int seqset_init(struct messageset_context *ctx);
 
 struct messageset_context *
 index_messageset_init(struct index_mailbox *ibox,
-		      const char *messageset, int uidset)
+		      const char *messageset, int uidset, int skip_expunged)
 {
 	struct messageset_context *ctx;
 
@@ -42,6 +42,7 @@ index_messageset_init(struct index_mailbox *ibox,
 	ctx->messages_count = ibox->synced_messages_count;
 	ctx->p = ctx->messageset = messageset;
 	ctx->uidset = uidset;
+	ctx->skip_expunged = skip_expunged;
 
 	/* Reset index errors, we rely on it to check for failures */
 	index_reset_error(ctx->index);
@@ -55,7 +56,7 @@ index_messageset_init_range(struct index_mailbox *ibox,
 {
 	struct messageset_context *ctx;
 
-	ctx = index_messageset_init(ibox, NULL, uidset);
+	ctx = index_messageset_init(ibox, NULL, uidset, TRUE);
 	if (num1 <= num2) {
 		ctx->num1 = num1;
 		ctx->num2 = num2;
@@ -283,6 +284,13 @@ index_messageset_next(struct messageset_context *ctx)
 				ctx->ret = uidset_init(ctx);
 			else
 				ctx->ret = seqset_init(ctx);
+
+			if (ctx->expunges_found && !ctx->skip_expunged) {
+				/* we wish to abort if there's any
+				   expunged messages */
+				ctx->ret = 1;
+				return NULL;
+			}
 		} while (ctx->ret == 1);
 
 		if (ctx->ret != 0)

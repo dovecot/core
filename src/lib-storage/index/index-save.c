@@ -71,8 +71,7 @@ static int write_with_lf(struct ostream *output, const unsigned char *data,
 }
 
 int index_storage_save(struct mail_storage *storage, const char *path,
-		       struct istream *input, struct ostream *output,
-		       uoff_t data_size)
+		       struct istream *input, struct ostream *output)
 {
 	int (*write_func)(struct ostream *, const unsigned char *, size_t);
 	const unsigned char *data;
@@ -83,13 +82,13 @@ int index_storage_save(struct mail_storage *storage, const char *path,
 	write_func = getenv("MAIL_SAVE_CRLF") ? write_with_crlf : write_with_lf;
 
 	failed = FALSE;
-	while (data_size > 0) {
+	for (;;) {
 		ret = i_stream_read(input);
 		if (ret < 0) {
 			errno = input->stream_errno;
 			if (errno == 0) {
-				mail_storage_set_error(storage,
-					"Client disconnected");
+				/* EOF */
+				break;
 			} else if (errno == EAGAIN) {
 				mail_storage_set_error(storage,
 					"Timeout while waiting for input");
@@ -97,13 +96,11 @@ int index_storage_save(struct mail_storage *storage, const char *path,
 				mail_storage_set_critical(storage,
 					"Error reading mail from client: %m");
 			}
-			return FALSE;
+			failed = TRUE;
+			break;
 		}
 
 		data = i_stream_get_data(input, &size);
-		if (size > data_size)
-			size = (size_t)data_size;
-
 		if (!failed) {
 			ret = write_func(output, data, size);
 			if (ret < 0) {
@@ -122,7 +119,6 @@ int index_storage_save(struct mail_storage *storage, const char *path,
 			}
 		}
 
-		data_size -= size;
 		i_stream_skip(input, size);
 	}
 

@@ -58,7 +58,7 @@ index_storage_fetch_init(struct mailbox *box,
 	ctx->update_seen = *update_seen;
 
 	index_mail_init(ibox, &ctx->mail, wanted_fields, NULL);
-	ctx->msgset_ctx = index_messageset_init(ibox, messageset, uidset);
+	ctx->msgset_ctx = index_messageset_init(ibox, messageset, uidset, TRUE);
 	return ctx;
 }
 

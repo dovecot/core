@@ -10,24 +10,38 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+struct rollback {
+	struct rollback *next;
+	const char *fname;
+};
+
 static int hardlink_messageset(struct messageset_context *ctx,
 			       struct index_mailbox *src,
 			       struct index_mailbox *dest)
 {
-        struct mail_index *index = src->index;
+	struct mail_index *index = src->index;
+	pool_t pool;
+        struct rollback *rollbacks, *rb;
         const struct messageset_mail *mail;
 	enum mail_flags flags;
 	const char **custom_flags;
-	const char *fname, *src_fname, *dest_fname;
+	const char *fname, *src_path, *dest_fname, *dest_path;
+	int ret;
+
+	pool = pool_alloconly_create("hard copy rollbacks", 2048);
+	rollbacks = NULL;
 
 	custom_flags = mail_custom_flags_list_get(index->custom_flags);
 
+	ret = 1;
 	while ((mail = index_messageset_next(ctx)) != NULL) {
 		flags = mail->rec->msg_flags;
 		if (!index_mailbox_fix_custom_flags(dest, &flags,
 						    custom_flags,
-						    MAIL_CUSTOM_FLAGS_COUNT))
-			return -1;
+						    MAIL_CUSTOM_FLAGS_COUNT)) {
+			ret = -1;
+			break;
+		}
 
 		/* link the file */
 		fname = index->lookup_field(index, mail->rec,
@@ -36,31 +50,50 @@ static int hardlink_messageset(struct messageset_context *ctx,
 			index_set_corrupted(index,
 				"Missing location field for record %u",
 				mail->rec->uid);
-			return -1;
+			ret = -1;
+			break;
 		}
 
 		t_push();
-		src_fname = t_strconcat(index->mailbox_path, "cur/",
-					fname, NULL);
-		dest_fname = t_strconcat(dest->index->mailbox_path, "new/",
-                	maildir_filename_set_flags(
+		src_path = t_strconcat(index->mailbox_path, "/cur/",
+				       fname, NULL);
+		dest_fname = t_strconcat(maildir_filename_set_flags(
 				maildir_generate_tmp_filename(), flags), NULL);
+		dest_path = t_strconcat(dest->index->mailbox_path, "/new/",
+					dest_fname, NULL);
 
-		if (link(src_fname, dest_fname) < 0) {
+		if (link(src_path, dest_path) == 0) {
+			rb = p_new(pool, struct rollback, 1);
+			rb->fname = p_strdup(pool, dest_fname);
+			rb->next = rollbacks;
+			rollbacks = rb;
+		} else {
 			if (errno != EXDEV) {
 				mail_storage_set_critical(src->box.storage,
 					"link(%s, %s) failed: %m",
-					src_fname, dest_fname);
+					src_path, dest_path);
 				t_pop();
-				return -1;
+				ret = -1;
+				break;
 			}
 			t_pop();
-			return 0;
+			ret = 0;
+			break;
 		}
 		t_pop();
 	}
 
-	return 1;
+	if (ret <= 0) {
+		for (rb = rollbacks; rb != NULL; rb = rb->next) {
+			t_push();
+			(void)unlink(t_strconcat(dest->index->mailbox_path,
+						 "new/", rb->fname, NULL));
+			t_pop();
+		}
+	}
+
+	pool_unref(pool);
+	return ret;
 }
 
 static int copy_with_hardlinks(struct index_mailbox *src,
@@ -68,15 +101,21 @@ static int copy_with_hardlinks(struct index_mailbox *src,
 			       const char *messageset, int uidset)
 {
         struct messageset_context *ctx;
-	int ret;
+	int ret, ret2;
 
 	if (!index_storage_sync_and_lock(src, TRUE, MAIL_LOCK_SHARED))
 		return -1;
 
-	ctx = index_messageset_init(src, messageset, uidset);
+	ctx = index_messageset_init(src, messageset, uidset, FALSE);
 	ret = hardlink_messageset(ctx, src, dest);
-	if (index_messageset_deinit(ctx) < 0)
+	ret2 = index_messageset_deinit(ctx);
+	if (ret2 < 0)
 		ret = -1;
+	else {
+		mail_storage_set_error(src->box.storage,
+			"Some of the requested messages no longer exist.");
+		ret = -1;
+	}
 
 	(void)index_storage_lock(src, MAIL_LOCK_UNLOCK);
 

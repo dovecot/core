@@ -85,7 +85,7 @@ int index_storage_update_flags(struct mailbox *box, const char *messageset,
 
 	mail_flags &= ~MAIL_RECENT; /* \Recent can't be changed */
 
-	ctx = index_messageset_init(ibox, messageset, uidset);
+	ctx = index_messageset_init(ibox, messageset, uidset, TRUE);
 	ret = update_messageset(ctx, ibox, mail_flags, modify_type, notify);
 	ret2 = index_messageset_deinit(ctx);
 

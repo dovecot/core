@@ -25,7 +25,6 @@ struct index_mailbox {
 	time_t next_lock_notify; /* temporary */
 
 	unsigned int sent_diskspace_warning:1;
-	unsigned int delay_save_unlocking:1; /* For COPYing inside mailbox */
 };
 
 int mail_storage_set_index_error(struct index_mailbox *ibox);
@@ -61,8 +60,7 @@ int index_expunge_mail(struct index_mailbox *ibox,
 		       unsigned int seq, int notify);
 
 int index_storage_save(struct mail_storage *storage, const char *path,
-		       struct istream *input, struct ostream *output,
-		       uoff_t data_size);
+		       struct istream *input, struct ostream *output);
 
 void index_mailbox_check_add(struct index_mailbox *ibox, const char *path);
 void index_mailbox_check_remove(struct index_mailbox *ibox);

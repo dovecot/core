@@ -13,6 +13,4 @@ handled the same way as FETCH.
 
 SEARCH ignores expunged messages.
 
-COPY fails if any of the given messages were expunged. Messages copied
-until the failure is noticed are currently left to destination mailbox -
-this may change later.
+COPY fails if any of the given messages were expunged.

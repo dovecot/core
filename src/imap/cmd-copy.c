@@ -7,6 +7,7 @@ int cmd_copy(struct client *client)
 {
 	struct mailbox *destbox;
 	const char *messageset, *mailbox;
+	int ret;
 
 	/* <message set> <mailbox> */
 	if (!client_read_string_args(client, 2, &messageset, &mailbox))
@@ -27,11 +28,16 @@ int cmd_copy(struct client *client)
 	}
 
 	/* copy the mail */
-	if (client->mailbox->copy(client->mailbox, destbox,
-				  messageset, client->cmd_uid)) {
-                client_sync_full(client);
+	ret = client->mailbox->copy(client->mailbox, destbox,
+				    messageset, client->cmd_uid);
+
+	/* sync always - if COPY fails because of expunges they'll get
+	   synced here */
+	client_sync_full(client);
+
+	if (ret)
 		client_send_tagline(client, "OK Copy completed.");
-	} else
+	else
 		client_send_storage_error(client);
 
 	destbox->close(destbox);

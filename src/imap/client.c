@@ -12,10 +12,6 @@
 /* max. size of one parameter in line */
 #define MAX_INBUF_SIZE 8192
 
-/* max. number of IMAP argument elements to accept. The maximum memory usage
-   for command from user is around MAX_INBUF_SIZE * MAX_IMAP_ARG_ELEMENTS */
-#define MAX_IMAP_ARG_ELEMENTS 128
-
 /* If we can't send a buffer in a minute, disconnect the client */
 #define CLIENT_OUTPUT_TIMEOUT (60*1000)
 
@@ -164,6 +160,8 @@ int client_read_args(struct client *client, unsigned int count,
 {
 	int ret;
 
+	i_assert(count <= INT_MAX);
+
 	ret = imap_parser_read_args(client->parser, count, flags, args);
 	if (ret >= (int)count) {
 		/* all parameters read successfully */
@@ -193,11 +191,15 @@ int client_read_string_args(struct client *client, unsigned int count, ...)
 	for (i = 0; i < count; i++) {
 		const char **ret = va_arg(va, const char **);
 
+		if (imap_args[i].type == IMAP_ARG_EOL) {
+			client_send_command_error(client, "Missing arguments.");
+			break;
+		}
+
 		str = imap_arg_string(&imap_args[i]);
 		if (str == NULL) {
-			client_send_command_error(client, "Missing arguments.");
-			va_end(va);
-			return FALSE;
+			client_send_command_error(client, "Invalid arguments.");
+			break;
 		}
 
 		if (ret != NULL)
@@ -205,7 +207,7 @@ int client_read_string_args(struct client *client, unsigned int count, ...)
 	}
 	va_end(va);
 
-	return TRUE;
+	return i == count;
 }
 
 static void client_reset_command(struct client *client)
@@ -217,12 +219,6 @@ static void client_reset_command(struct client *client)
 	client->cmd_uid = FALSE;
 
         imap_parser_reset(client->parser);
-}
-
-static void client_command_finished(struct client *client)
-{
-	client->input_skip_line = TRUE;
-        client_reset_command(client);
 }
 
 /* Skip incoming data until newline is found,
@@ -249,9 +245,10 @@ static int client_handle_input(struct client *client)
 {
         if (client->cmd_func != NULL) {
 		/* command is being executed - continue it */
+		client->input_skip_line = TRUE;
 		if (client->cmd_func(client) || client->cmd_error) {
 			/* command execution was finished */
-			client_command_finished(client);
+			client_reset_command(client);
                         client->bad_counter = 0;
 			return TRUE;
 		}
@@ -292,11 +289,13 @@ static int client_handle_input(struct client *client)
 		/* unknown command */
 		client_send_command_error(client, t_strconcat(
 			"Unknown command '", client->cmd_name, "'", NULL));
-		client_command_finished(client);
+		client->input_skip_line = TRUE;
+		client_reset_command(client);
 	} else {
+		client->input_skip_line = TRUE;
 		if (client->cmd_func(client) || client->cmd_error) {
 			/* command execution was finished */
-			client_command_finished(client);
+			client_reset_command(client);
                         client->bad_counter = 0;
 		}
 	}
@@ -323,7 +322,7 @@ static void client_input(void *context, int fd __attr_unused__,
 		client->input_skip_line = TRUE;
 
 		client_send_command_error(client, "Too long argument.");
-		client_command_finished(client);
+		client_reset_command(client);
 		break;
 	}
 

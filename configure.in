@@ -796,7 +796,7 @@ dnl **
 dnl ** capabilities
 dnl **
 
-capability="IMAP4rev1 SORT THREAD=REFERENCES"
+capability="IMAP4rev1 SORT THREAD=REFERENCES MULTIAPPEND"
 AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability", IMAP capabilities)
 
 dnl **

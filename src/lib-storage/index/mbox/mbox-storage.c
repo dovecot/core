@@ -630,7 +630,9 @@ struct mailbox mbox_mailbox = {
 	index_storage_search_init,
 	index_storage_search_deinit,
 	index_storage_search_next,
-	mbox_storage_save,
+	mbox_storage_save_init,
+	mbox_storage_save_deinit,
+	mbox_storage_save_next,
 	mail_storage_is_inconsistency_error,
 
 	FALSE,

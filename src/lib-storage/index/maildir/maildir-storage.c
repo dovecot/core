@@ -569,7 +569,9 @@ struct mailbox maildir_mailbox = {
 	index_storage_search_init,
 	index_storage_search_deinit,
 	index_storage_search_next,
-	maildir_storage_save,
+	maildir_storage_save_init,
+	maildir_storage_save_deinit,
+	maildir_storage_save_next,
 	mail_storage_is_inconsistency_error,
 
 	FALSE,

@@ -12,6 +12,21 @@
 #include <fcntl.h>
 #include <utime.h>
 
+struct mail_filename {
+	struct mail_filename *next;
+	const char *src, *dest;
+};
+
+struct mail_save_context {
+	pool_t pool;
+
+	struct index_mailbox *ibox;
+	int transaction;
+
+	const char *tmpdir, *newdir;
+	struct mail_filename *files;
+};
+
 const char *maildir_generate_tmp_filename(void)
 {
 	static unsigned int create_count = 0;
@@ -49,7 +64,7 @@ static int maildir_create_tmp(struct mail_storage *storage, const char *dir,
 
 static const char *
 maildir_read_into_tmp(struct mail_storage *storage, const char *dir,
-		      struct istream *input, uoff_t data_size)
+		      struct istream *input)
 {
 	const char *fname, *path;
 	struct ostream *output;
@@ -65,7 +80,7 @@ maildir_read_into_tmp(struct mail_storage *storage, const char *dir,
 	o_stream_set_blocking(output, 60000, NULL, NULL);
 
 	path = t_strconcat(dir, "/", fname, NULL);
-	if (!index_storage_save(storage, path, input, output, data_size))
+	if (!index_storage_save(storage, path, input, output))
 		fname = NULL;
 
 	o_stream_unref(output);
@@ -78,25 +93,48 @@ maildir_read_into_tmp(struct mail_storage *storage, const char *dir,
 	return fname;
 }
 
-int maildir_storage_save(struct mailbox *box,
-			 const struct mail_full_flags *flags,
-			 time_t internal_date,
-			 int timezone_offset __attr_unused__,
-			 struct istream *data, uoff_t data_size)
+static int maildir_copy(struct mail_save_context *ctx,
+			const char *src, const char *dest)
 {
-        struct index_mailbox *ibox = (struct index_mailbox *) box;
-	enum mail_flags mail_flags;
-        struct utimbuf buf;
-	const char *tmpdir, *fname, *tmp_path, *new_path;
-	int failed;
+	const char *tmp_path, *new_path;
 
-	if (box->readonly) {
-		mail_storage_set_error(box->storage, "Mailbox is read-only");
-		return FALSE;
+	t_push();
+
+	tmp_path = t_strconcat(ctx->tmpdir, "/", src, NULL);
+	new_path = t_strconcat(ctx->newdir, "/", dest, NULL);
+
+	if (rename(tmp_path, new_path) == 0) {
+		t_pop();
+		return TRUE;
 	}
 
+	if (errno == ENOSPC) {
+		mail_storage_set_error(ctx->ibox->box.storage,
+				       "Not enough disk space");
+	} else {
+		mail_storage_set_critical(ctx->ibox->box.storage,
+					  "rename(%s, %s) failed: %m",
+					  tmp_path, new_path);
+	}
+
+	(void)unlink(tmp_path);
+	t_pop();
+	return FALSE;
+}
+
+int maildir_storage_save_next(struct mail_save_context *ctx,
+			      const struct mail_full_flags *flags,
+			      time_t received_date,
+			      int timezone_offset __attr_unused__,
+			      struct istream *data)
+{
+	enum mail_flags mail_flags;
+        struct utimbuf buf;
+	const char *fname, *dest_fname, *tmp_path;
+	int failed;
+
 	mail_flags = flags->flags;
-	if (!index_mailbox_fix_custom_flags(ibox, &mail_flags,
+	if (!index_mailbox_fix_custom_flags(ctx->ibox, &mail_flags,
 					    flags->custom_flags,
 					    flags->custom_flags_count))
 		return FALSE;
@@ -104,44 +142,100 @@ int maildir_storage_save(struct mailbox *box,
 	t_push();
 
 	/* create the file into tmp/ directory */
-	tmpdir = t_strconcat(ibox->index->mailbox_path, "/tmp", NULL);
-	fname = maildir_read_into_tmp(box->storage, tmpdir, data, data_size);
+	fname = maildir_read_into_tmp(ctx->ibox->box.storage,
+				      ctx->tmpdir, data);
 	if (fname == NULL) {
 		t_pop();
 		return FALSE;
 	}
-	tmp_path = t_strconcat(tmpdir, "/", fname, NULL);
 
-	fname = maildir_filename_set_flags(fname, mail_flags);
-	new_path = t_strconcat(ibox->index->mailbox_path, "/new/", fname, NULL);
+	tmp_path = t_strconcat(ctx->tmpdir, "/", fname, NULL);
 
-	/* set the internal_date by modifying mtime */
+	/* set the received_date by modifying mtime */
 	buf.actime = ioloop_time;
-	buf.modtime = internal_date;
+	buf.modtime = received_date;
 	if (utime(tmp_path, &buf) < 0) {
-		/* just warn, don't bother actually failing */
-		mail_storage_set_critical(box->storage, "utime() failed for "
-					  "%s: %m", tmp_path);
+		mail_storage_set_critical(ctx->ibox->box.storage,
+					  "utime() failed for %s: %m",
+					  tmp_path);
+		t_pop();
+		return FALSE;
 	}
 
-	/* move the file into new/ directory - syncing will pick it
-	   up from there */
-	if (rename(tmp_path, new_path) == 0)
-		failed = FALSE;
-	else {
-		if (errno == ENOSPC) {
-			mail_storage_set_error(box->storage,
-					       "Not enough disk space");
-		} else {
-			mail_storage_set_critical(box->storage,
-						  "rename(%s, %s) failed: %m",
-						  tmp_path, new_path);
-		}
+	/* now, if we want to be able to rollback the whole append session,
+	   we'll just store the name of this temp file and move it later
+	   into new/ */
+	dest_fname = maildir_filename_set_flags(fname, mail_flags);
+	if (ctx->transaction) {
+		struct mail_filename *mf;
 
-		(void)unlink(tmp_path);
-		failed = TRUE;
+		mf = p_new(ctx->pool, struct mail_filename, 1);
+		mf->next = ctx->files;
+		mf->src = p_strdup(ctx->pool, fname);
+		mf->dest = p_strdup(ctx->pool, dest_fname);
+		ctx->files = mf;
+
+		failed = FALSE;
+	} else {
+		failed = !maildir_copy(ctx, fname, dest_fname);
 	}
 
 	t_pop();
+	return !failed;
+}
+
+struct mail_save_context *
+maildir_storage_save_init(struct mailbox *box, int transaction)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+	struct mail_save_context *ctx;
+	pool_t pool;
+
+	if (box->readonly) {
+		mail_storage_set_error(box->storage, "Mailbox is read-only");
+		return NULL;
+	}
+
+	pool = pool_alloconly_create("mail_save_context", 2048);
+	ctx = p_new(pool, struct mail_save_context, 1);
+	ctx->pool = pool;
+	ctx->ibox = ibox;
+	ctx->transaction = transaction;
+
+	ctx->tmpdir = p_strconcat(pool, ibox->index->mailbox_path,
+				  "/tmp", NULL);
+	ctx->newdir = p_strconcat(pool, ibox->index->mailbox_path,
+				  "/new", NULL);
+
+	return ctx;
+}
+
+int maildir_storage_save_deinit(struct mail_save_context *ctx, int rollback)
+{
+	struct mail_filename *mf, *mf2;
+	const char *new_path;
+	int failed = FALSE;
+
+	if (!rollback) {
+		for (mf = ctx->files; mf != NULL; mf = mf->next) {
+			if (!maildir_copy(ctx, mf->src, mf->dest)) {
+				failed = TRUE;
+				break;
+			}
+		}
+
+		if (failed) {
+			/* failed, try to unlink the mails already moved */
+			for (mf2 = ctx->files; mf2 != mf; mf2 = mf2->next) {
+				t_push();
+				new_path = t_strconcat(ctx->newdir, "/",
+						       mf2->dest, NULL);
+				(void)unlink(new_path);
+				t_pop();
+			}
+		}
+	}
+
+	pool_unref(ctx->pool);
 	return !failed;
 }
