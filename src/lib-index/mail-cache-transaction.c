@@ -171,10 +171,6 @@ static int mail_cache_unlink_hole(struct mail_cache *cache, size_t size,
 			mail_cache_set_syscall_error(cache, "pwrite_full()");
 			return FALSE;
 		}
-		if (cache->file_cache != NULL) {
-			file_cache_invalidate(cache->file_cache, prev_offset,
-					      sizeof(hole.next_offset));
-		}
 	}
 	hdr->deleted_space -= hole.size;
 	cache->hdr_modified = TRUE;
@@ -288,11 +284,6 @@ mail_cache_free_space(struct mail_cache *cache, uint32_t offset, uint32_t size)
 		if (pwrite_full(cache->fd, &hole, sizeof(hole), offset) < 0) {
 			mail_cache_set_syscall_error(cache, "pwrite_full()");
 			return;
-		}
-
-		if (cache->file_cache != NULL) {
-			file_cache_invalidate(cache->file_cache, offset,
-					      sizeof(hole));
 		}
 
 		cache->hdr_copy.deleted_space += size;
@@ -491,10 +482,6 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 			mail_cache_set_syscall_error(cache, "pwrite_full()");
 			return -1;
 		}
-		if (cache->file_cache != NULL) {
-			file_cache_invalidate(cache->file_cache,
-					      write_offset, max_size);
-		}
 
 		size = mail_cache_transaction_update_index(ctx, rec, seq,
 							   &seq_idx, seq_limit,
@@ -654,11 +641,6 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 		ret = -1;
 	else {
 		/* after it's guaranteed to be in disk, update header offset */
-		if (cache->file_cache != NULL) {
-			file_cache_invalidate(cache->file_cache, offset, size);
-			file_cache_invalidate(cache->file_cache, hdr_offset,
-					      sizeof(offset));
-		}
 		offset = mail_index_uint32_to_offset(offset);
 		if (pwrite_full(cache->fd, &offset, sizeof(offset),
 				hdr_offset) < 0) {
@@ -749,10 +731,6 @@ static int mail_cache_link_unlocked(struct mail_cache *cache,
 			sizeof(old_offset), new_offset) < 0) {
 		mail_cache_set_syscall_error(cache, "pwrite_full()");
 		return -1;
-	}
-	if (cache->file_cache != NULL) {
-		file_cache_invalidate(cache->file_cache,
-				      new_offset, sizeof(old_offset));
 	}
 	return 0;
 }

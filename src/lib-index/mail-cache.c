@@ -345,6 +345,10 @@ int mail_cache_lock(struct mail_cache *cache)
 
 	if (ret > 0) {
 		/* make sure our header is up to date */
+		if (cache->file_cache != NULL) {
+			file_cache_invalidate(cache->file_cache, 0,
+					      sizeof(struct mail_cache_header));
+		}
 		if (mail_cache_map(cache, 0, 0) < 0)
 			ret = -1;
 		cache->hdr_copy = *cache->hdr;
@@ -390,10 +394,6 @@ void mail_cache_unlock(struct mail_cache *cache)
 		if (pwrite_full(cache->fd, &cache->hdr_copy,
 				sizeof(cache->hdr_copy), 0) < 0)
 			mail_cache_set_syscall_error(cache, "pwrite_full()");
-		if (cache->file_cache != NULL) {
-			file_cache_invalidate(cache->file_cache, 0,
-					      sizeof(cache->hdr_copy));
-		}
 		mail_cache_update_need_compress(cache);
 	}
 

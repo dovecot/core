@@ -108,6 +108,12 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 		}
 		offset = next_offset;
 
+		if (cache->file_cache != NULL) {
+			/* we can't trust that the cached data is valid */
+			file_cache_invalidate(cache->file_cache, offset,
+					      sizeof(*field_hdr) +
+					      CACHE_HDR_PREFETCH);
+		}
 		if (mail_cache_map(cache, offset,
 				   sizeof(*field_hdr) + CACHE_HDR_PREFETCH) < 0)
 			return -1;
@@ -155,6 +161,12 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	}
 
 	if (field_hdr->size > sizeof(*field_hdr) + CACHE_HDR_PREFETCH) {
+		if (cache->file_cache != NULL) {
+			/* we can't trust that the cached data is valid */
+			file_cache_invalidate(cache->file_cache, offset,
+					      sizeof(*field_hdr) +
+					      CACHE_HDR_PREFETCH);
+		}
 		if (mail_cache_map(cache, offset, field_hdr->size) < 0)
 			return -1;
 	}
@@ -268,7 +280,6 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 	int locked = cache->locked;
 	buffer_t *buffer;
 	uint32_t i, offset;
-	size_t size;
 	int ret = 0;
 
 	if (!locked) {
@@ -288,8 +299,6 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 	copy_to_buf(cache, buffer,
 		    offsetof(struct mail_cache_field_private, last_used),
 		    sizeof(uint32_t));
-	size = buffer->used;
-
 	ret = pwrite_full(cache->fd, buffer->data,
 			  sizeof(uint32_t) * cache->file_fields_count,
 			  offset + MAIL_CACHE_FIELD_LAST_USED());
@@ -297,7 +306,6 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 		buffer_set_used_size(buffer, 0);
 		copy_to_buf_byte(cache, buffer,
 				 offsetof(struct mail_cache_field, decision));
-		size += buffer->used;
 
 		ret = pwrite_full(cache->fd, buffer->data,
 			sizeof(uint8_t) * cache->file_fields_count, offset +
@@ -310,11 +318,8 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 	}
 	t_pop();
 
-	if (ret == 0) {
+	if (ret == 0)
 		cache->field_header_write_pending = FALSE;
-		if (cache->file_cache != NULL)
-			file_cache_invalidate(cache->file_cache, offset, size);
-	}
 
 	if (!locked)
 		mail_cache_unlock(cache);
