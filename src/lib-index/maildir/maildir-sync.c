@@ -153,7 +153,7 @@ static int maildir_sync_uidlist(struct mail_index *index, const char *dir,
         struct maildir_uidlist_rec uid_rec;
 	const char *fname, **new_files;
 	void *orig_key, *orig_value;
-	unsigned int seq, last_uid, i;
+	unsigned int seq, uid, last_uid, i;
 	buffer_t *buf;
 
         seq = 0;
@@ -167,10 +167,10 @@ static int maildir_sync_uidlist(struct mail_index *index, const char *dir,
 	}
 
 	while (rec != NULL) {
-		seq++;
+		seq++; uid = rec->uid;
 
 		/* skip over the expunged records in uidlist */
-		while (uid_rec.uid != 0 && uid_rec.uid < rec->uid) {
+		while (uid_rec.uid != 0 && uid_rec.uid < uid) {
 			uidlist->rewrite = TRUE;
 			if (!maildir_uidlist_next(uidlist, &uid_rec))
 				return FALSE;
@@ -189,10 +189,10 @@ static int maildir_sync_uidlist(struct mail_index *index, const char *dir,
 			return FALSE;
 		}
 
-		if (uid_rec.uid != 0 &&
+		if (uid_rec.uid == uid &&
 		    maildir_cmp(fname, uid_rec.filename) != 0) {
 			index_set_corrupted(index, "Filename mismatch for UID "
-					    "%u: %s vs %s", rec->uid, fname,
+					    "%u: %s vs %s", uid, fname,
 					    uid_rec.filename);
 			return FALSE;
 		}
@@ -220,7 +220,7 @@ static int maildir_sync_uidlist(struct mail_index *index, const char *dir,
 			i_unreached();
 		}
 
-		if (uid_rec.uid != 0) {
+		if (uid_rec.uid != 0 && uid_rec.uid <= uid) {
 			if (maildir_uidlist_next(uidlist, &uid_rec) < 0)
 				return FALSE;
 		}
