@@ -5,7 +5,6 @@
 #include "mail-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
-#include "mail-tree.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -42,75 +41,6 @@ int mail_index_truncate(struct mail_index *index)
 		index->header->sync_id++;
 	}
 
-	return TRUE;
-}
-
-int mail_index_compress(struct mail_index *index)
-{
-	struct mail_index_record *rec, *hole_rec, *end_rec;
-	unsigned int idx;
-	int tree_fd;
-
-	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
-		return FALSE;
-
-	if (index->header->first_hole_records == 0) {
-		/* we don't need to compress after all. shouldn't happen.. */
-		index->header->flags &= ~MAIL_INDEX_FLAG_COMPRESS;
-		return TRUE;
-	}
-
-	if (!mail_index_verify_hole_range(index))
-		return FALSE;
-
-	/* if we get interrupted, the whole index is probably corrupted.
-	   so keep rebuild-flag on while doing this */
-	index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
-	if (!mail_index_fmdatasync(index, sizeof(struct mail_index_header)))
-		return FALSE;
-
-	/* first actually compress the data */
-	hole_rec = INDEX_RECORD_AT(index, index->header->first_hole_index);
-	end_rec = INDEX_END_RECORD(index);
-	rec = hole_rec + index->header->first_hole_records;
-	while (rec < end_rec) {
-		if (rec->uid != 0) {
-			memcpy(hole_rec, rec, sizeof(struct mail_index_record));
-			idx = INDEX_RECORD_INDEX(index, hole_rec);
-			if (!mail_tree_update(index->tree, rec->uid, idx))
-				return FALSE;
-			hole_rec++;
-		}
-		rec++;
-	}
-
-	/* truncate the file to get rid of the extra records */
-	index->mmap_used_length = (size_t) ((char *) hole_rec -
-					    (char *) index->mmap_base);
-	index->header->used_file_size = index->mmap_used_length;
-
-	if (!mail_index_truncate(index))
-		return FALSE;
-
-	/* update headers */
-	index->header->first_hole_index = 0;
-	index->header->first_hole_records = 0;
-
-	/* make sure the whole file is synced before removing rebuild-flag */
-	if (!mail_tree_sync_file(index->tree, &tree_fd))
-		return FALSE;
-
-	if (fdatasync(tree_fd) < 0) {
-		index_file_set_syscall_error(index, index->tree->filepath,
-					     "fdatasync()");
-		return FALSE;
-	}
-
-	if (!mail_index_fmdatasync(index, index->mmap_used_length))
-		return FALSE;
-
-	index->header->flags &= ~(MAIL_INDEX_FLAG_COMPRESS |
-				  MAIL_INDEX_FLAG_REBUILD);
 	return TRUE;
 }
 

@@ -69,9 +69,11 @@ unsigned int index_storage_get_recent_count(struct mail_index *index);
 
 int index_expunge_seek_first(struct index_mailbox *ibox, unsigned int *seq,
 			     struct mail_index_record **rec);
-int index_expunge_mail(struct index_mailbox *ibox,
-		       struct mail_index_record *rec,
-		       unsigned int seq, int notify);
+int index_expunge_mails(struct index_mailbox *ibox,
+			struct mail_index_record *first_rec,
+			struct mail_index_record *last_rec,
+			unsigned int first_seq, unsigned int last_seq,
+			int notify);
 
 void index_mailbox_check_add(struct index_mailbox *ibox, const char *path);
 void index_mailbox_check_remove_all(struct index_mailbox *ibox);

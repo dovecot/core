@@ -11,15 +11,14 @@ libindex_a_SOURCES = \
 	mail-custom-flags.c \
         mail-index.c \
         mail-index-compress.c \
+        mail-index-file.c \
         mail-index-fsck.c \
         mail-index-data.c \
         mail-index-open.c \
         mail-index-update.c \
         mail-index-update-cache.c \
         mail-index-util.c \
-	mail-modifylog.c \
-	mail-tree.c \
-	mail-tree-redblack.c
+	mail-modifylog.c
 
 noinst_HEADERS = \
 	mail-custom-flags.h \

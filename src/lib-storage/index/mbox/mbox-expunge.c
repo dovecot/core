@@ -15,11 +15,13 @@ static int expunge_real(struct index_mailbox *ibox,
 			struct istream *input, struct ostream *output,
 			int notify)
 {
+	struct mail_index_record *first_rec, *last_rec;
 	uoff_t offset, hdr_size, body_size;
 	uoff_t end_offset, from_offset, copy_size, old_limit;
 	const unsigned char *data;
 	size_t size;
-	int expunges, failed;
+	unsigned int first_seq, last_seq;
+	int expunges, skip_next, deleted, failed;
 
 	if (seq == 1)
 		end_offset = 0;
@@ -39,7 +41,10 @@ static int expunge_real(struct index_mailbox *ibox,
 
 	old_limit = input->v_limit;
 
-	expunges = FALSE;
+	first_rec = last_rec = NULL;
+	first_seq = last_seq = 0;
+
+	expunges = FALSE; skip_next = FALSE;
 	while (rec != NULL) {
 		if (!mbox_mail_get_location(ibox->index, rec, &offset,
 					    &hdr_size, &body_size))
@@ -48,10 +53,14 @@ static int expunge_real(struct index_mailbox *ibox,
 		from_offset = end_offset;
 		end_offset = offset + hdr_size + body_size;
 
-		if (rec->msg_flags & MAIL_DELETED) {
-			if (!index_expunge_mail(ibox, rec, seq, notify))
-				return FALSE;
-			seq--;
+		deleted = (rec->msg_flags & MAIL_DELETED) != 0;
+		if (deleted) {
+			if (first_rec == NULL) {
+				first_rec = rec;
+				first_seq = seq;
+			}
+			last_rec = rec;
+			last_seq = seq;
 
 			if (!expunges) {
 				/* first expunged record, seek to position
@@ -60,7 +69,25 @@ static int expunge_real(struct index_mailbox *ibox,
 					return FALSE;
 				expunges = TRUE;
 			}
-		} else if (expunges) {
+		} else if (first_rec != NULL) {
+			if (!index_expunge_mails(ibox, first_rec, last_rec,
+						 first_seq, last_seq, notify))
+				return FALSE;
+			first_rec = NULL;
+
+			rec = ibox->index->lookup(ibox->index, first_seq);
+			seq = first_seq;
+			skip_next = TRUE;
+		}
+
+		if (skip_next)
+			skip_next = FALSE;
+		else {
+			rec = ibox->index->next(ibox->index, rec);
+			seq++;
+		}
+
+		if (expunges && !deleted) {
 			/* seek to wanted input position, and copy
 			   this messages */
 			i_assert(input->v_offset <= from_offset);
@@ -85,9 +112,12 @@ static int expunge_real(struct index_mailbox *ibox,
 			if (failed || input->v_offset != end_offset)
 				return FALSE;
 		}
+	}
 
-		rec = ibox->index->next(ibox->index, rec);
-		seq++;
+	if (first_rec != NULL) {
+		if (!index_expunge_mails(ibox, first_rec, last_rec,
+					 first_seq, last_seq, notify))
+			return FALSE;
 	}
 
 	i_stream_skip(input, end_offset - input->v_offset);

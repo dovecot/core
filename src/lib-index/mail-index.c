@@ -8,7 +8,6 @@
 #include "mail-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
-#include "mail-tree.h"
 #include "mail-modifylog.h"
 #include "mail-custom-flags.h"
 
@@ -180,11 +179,6 @@ void mail_index_close(struct mail_index *index)
 		index->data = NULL;
 	}
 
-	if (index->tree != NULL) {
-                mail_tree_free(index->tree);
-		index->tree = NULL;
-	}
-
 	if (index->modifylog != NULL) {
                 mail_modifylog_free(index->modifylog);
 		index->modifylog = NULL;
@@ -219,11 +213,6 @@ static int mail_index_sync_file(struct mail_index *index)
 		return index_set_syscall_error(index, "msync()");
 
 	failed = FALSE;
-
-	if (index->tree != NULL) {
-		if (!mail_tree_sync_file(index->tree, &fsync_fds[1]))
-			failed = TRUE;
-	}
 
 	if (index->modifylog != NULL) {
 		if (!mail_modifylog_sync_file(index->modifylog, &fsync_fds[2]))
@@ -506,157 +495,11 @@ void mail_index_set_lock_notify_callback(struct mail_index *index,
 	index->lock_notify_context = context;
 }
 
-int mail_index_verify_hole_range(struct mail_index *index)
-{
-	struct mail_index_header *hdr;
-	unsigned int max_records;
-
-	hdr = index->header;
-	if (hdr->first_hole_records == 0)
-		return TRUE;
-
-	max_records = MAIL_INDEX_RECORD_COUNT(index);
-	if (hdr->first_hole_index >= max_records) {
-		index_set_corrupted(index,
-				    "first_hole_index points outside file");
-		return FALSE;
-	}
-
-	/* check that first_hole_records is in valid range */
-	if (max_records - hdr->first_hole_index < hdr->first_hole_records) {
-		index_set_corrupted(index,
-				    "first_hole_records points outside file");
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
 struct mail_index_header *mail_index_get_header(struct mail_index *index)
 {
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
 	return index->header;
-}
-
-struct mail_index_record *mail_index_lookup(struct mail_index *index,
-					    unsigned int seq)
-{
-	struct mail_index_header *hdr;
-	struct mail_index_record *rec;
-	const char *error;
-	unsigned int idx;
-
-	i_assert(seq > 0);
-	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
-
-	hdr = index->header;
-	if (seq > hdr->messages_count) {
-		/* out of range */
-		return NULL;
-	}
-
-	if (!mail_index_verify_hole_range(index))
-		return NULL;
-
-	idx = seq-1;
-	if (hdr->first_hole_records == 0 || hdr->first_hole_index > idx) {
-		/* easy, it's just at the expected index */
-		error = t_strdup_printf("Invalid first_hole_index in header: "
-					"%u", idx);
-	} else if (hdr->first_hole_records ==
-		   MAIL_INDEX_RECORD_COUNT(index) - hdr->messages_count) {
-		/* only one hole in file, skip it and we're at
-		   correct position */
-		idx += hdr->first_hole_records;
-		error = t_strdup_printf("Invalid hole locations in header: %u",
-					idx);
-	} else {
-		/* find from binary tree */
-		idx = mail_tree_lookup_sequence(index->tree, seq);
-		if (idx == (unsigned int)-1) {
-			index_set_corrupted(index,
-				"Sequence %u not found from binary tree "
-				"(%u msgs says header)",
-				seq, hdr->messages_count);
-			return NULL;
-		}
-
-		error = t_strdup_printf("Invalid offset returned by "
-					"binary tree: %u", idx);
-	}
-
-	if (idx >= MAIL_INDEX_RECORD_COUNT(index)) {
-		index_set_corrupted(index, "%s", error);
-		return NULL;
-	}
-
-	rec = INDEX_RECORD_AT(index, idx);
-	if (rec->uid == 0) {
-		index_set_corrupted(index, "%s", error);
-		return NULL;
-	}
-
-	return rec;
-}
-
-struct mail_index_record *mail_index_next(struct mail_index *index,
-					  struct mail_index_record *rec)
-{
-	struct mail_index_record *end_rec;
-
-	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
-	i_assert(rec >= (struct mail_index_record *) index->mmap_base);
-
-	if (rec == NULL)
-		return NULL;
-
-	/* go to the next non-deleted record */
-	end_rec = INDEX_END_RECORD(index);
-	while (++rec < end_rec) {
-		if (rec->uid != 0)
-			return rec;
-	}
-
-	return NULL;
-}
-
-struct mail_index_record *
-mail_index_lookup_uid_range(struct mail_index *index, unsigned int first_uid,
-			    unsigned int last_uid, unsigned int *seq_r)
-{
-	struct mail_index_record *rec;
-	unsigned int idx;
-
-	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
-	i_assert(first_uid > 0 && last_uid > 0);
-	i_assert(first_uid <= last_uid);
-
-	idx = mail_tree_lookup_uid_range(index->tree, seq_r,
-					 first_uid, last_uid);
-	if (idx == (unsigned int)-1)
-		return NULL;
-
-	if (idx >= MAIL_INDEX_RECORD_COUNT(index)) {
-		index_set_error(index, "Corrupted binary tree for index %s: "
-				"lookup returned index outside range "
-				"(%u >= %"PRIuSIZE_T")", index->filepath, idx,
-				MAIL_INDEX_RECORD_COUNT(index));
-		index->set_flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
-		return NULL;
-	}
-
-	rec = INDEX_RECORD_AT(index, idx);
-	if (rec->uid < first_uid || rec->uid > last_uid) {
-		index_set_error(index, "Corrupted binary tree for index %s: "
-				"lookup returned offset to wrong UID "
-				"(%u vs %u..%u)", index->filepath,
-				rec->uid, first_uid, last_uid);
-		index->set_flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
-		return NULL;
-	}
-
-	return rec;
 }
 
 const char *mail_index_lookup_field(struct mail_index *index,
@@ -814,20 +657,7 @@ void mail_index_mark_flag_changes(struct mail_index *index,
 	}
 }
 
-static void update_first_hole_records(struct mail_index *index)
-{
-        struct mail_index_record *rec, *end_rec;
-
-	/* see if first_hole_records can be grown */
-	rec = INDEX_RECORD_AT(index, index->header->first_hole_index +
-			      index->header->first_hole_records);
-	end_rec = INDEX_END_RECORD(index);
-	while (rec < end_rec && rec->uid == 0) {
-		index->header->first_hole_records++;
-		rec++;
-	}
-}
-
+#if 0
 static int mail_index_truncate_hole(struct mail_index *index)
 {
 	index->header->used_file_size = sizeof(struct mail_index_header) +
@@ -848,96 +678,36 @@ static int mail_index_truncate_hole(struct mail_index *index)
 
 	return TRUE;
 }
-
-static void update_first_hole(struct mail_index *index,
-			      struct mail_index_record *rec)
-{
-	struct mail_index_header *hdr = index->header;
-	unsigned int idx;
-
-	idx = INDEX_RECORD_INDEX(index, rec);
-	if (hdr->first_hole_records == 0) {
-		/* first deleted message in index */
-		hdr->first_hole_index = idx;
-		hdr->first_hole_records = 1;
-	} else if (idx+1 == hdr->first_hole_index) {
-		/* deleted the previous record before hole */
-		hdr->first_hole_index--;
-		hdr->first_hole_records++;
-	} else if (idx == hdr->first_hole_index + hdr->first_hole_records) {
-		/* deleted the next record after hole */
-		hdr->first_hole_records++;
-		update_first_hole_records(index);
-	} else {
-		/* second hole coming to index file */
-		if (idx < hdr->first_hole_index) {
-			/* new hole before the old hole */
-			hdr->first_hole_index = idx;
-			hdr->first_hole_records = 1;
-		}
-	}
-}
+#endif
 
 #define INDEX_NEED_COMPRESS(records, hdr) \
 	((records) > INDEX_MIN_RECORDS_COUNT && \
 	 (records) * (100-INDEX_COMPRESS_PERCENTAGE) / 100 > \
 	 	(hdr)->messages_count)
 
-int mail_index_expunge(struct mail_index *index, struct mail_index_record *rec,
-		       unsigned int seq, int external_change)
+int mail_index_expunge(struct mail_index *index,
+		       struct mail_index_record *first_rec,
+		       struct mail_index_record *last_rec,
+		       unsigned int first_seq, unsigned int last_seq,
+		       int external_change)
 {
-	struct mail_index_header *hdr;
-	unsigned int records, uid;
+	unsigned int first_uid, last_uid;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
-	i_assert(seq != 0);
-	i_assert(rec->uid != 0);
+	i_assert(first_seq != 0);
+	i_assert(first_seq <= last_seq);
 
-	if (!mail_index_verify_hole_range(index))
+	first_uid = first_rec->uid;
+	last_uid = last_rec->uid;
+
+	if (!mail_index_expunge_record_range(index, first_rec, last_rec))
 		return FALSE;
 
-	hdr = index->header;
-
-	/* setting UID to 0 is enough for deleting the mail from index */
-	uid = rec->uid;
-	rec->uid = 0;
-
-	update_first_hole(index, rec);
-
-	/* update message counts */
-	if (hdr->messages_count == 0) {
-		/* corrupted */
-		index_set_corrupted(index,
-			"Header says there's no mail while expunging");
-		return FALSE;
-	}
-
-	hdr->messages_count--;
-	mail_index_mark_flag_changes(index, rec, rec->msg_flags, 0);
-
-	(void)mail_index_data_delete(index->data, rec);
-
-	records = MAIL_INDEX_RECORD_COUNT(index);
-	if (hdr->first_hole_index + hdr->first_hole_records == records) {
-		/* the hole reaches end of file, truncate it */
-		(void)mail_index_truncate_hole(index);
-	} else {
-		if (INDEX_NEED_COMPRESS(records, hdr))
-			hdr->flags |= MAIL_INDEX_FLAG_COMPRESS;
-	}
-
-	/* expunge() may be called while index is being rebuilt and when
-	   tree file hasn't been opened yet */
-	if (index->tree != NULL)
-		mail_tree_delete(index->tree, uid);
-	else {
-		/* make sure it also gets updated */
-		index->header->flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
-	}
-
-	if (seq != 0 && index->modifylog != NULL) {
-		if (!mail_modifylog_add_expunge(index->modifylog, seq,
-						uid, external_change))
+	if (index->modifylog != NULL) {
+		if (!mail_modifylog_add_expunges(index->modifylog,
+						 first_seq, last_seq,
+						 first_uid, last_uid,
+						 external_change))
 			return FALSE;
 	}
 
@@ -1044,11 +814,6 @@ int mail_index_append_end(struct mail_index *index,
 	index->header->messages_count++;
 	rec->uid = index->header->next_uid++;
 
-	if (index->tree != NULL) {
-		mail_tree_insert(index->tree, rec->uid,
-				 INDEX_RECORD_INDEX(index, rec));
-	}
-
 	return TRUE;
 }
 
@@ -1064,7 +829,7 @@ void mail_index_append_abort(struct mail_index *index,
 		index->mmap_used_length -= sizeof(*rec);
 	} else {
 		/* mark it deleted */
-		update_first_hole(index, rec);
+		(void)mail_index_expunge_record_range(index, rec, rec);
 	}
 }
 

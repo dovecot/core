@@ -468,14 +468,14 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 {
 	struct mail_index *index = ctx->index;
         struct maildir_uidlist *uidlist;
-	struct mail_index_record *rec;
+	struct mail_index_record *rec, *first_rec, *last_rec;
 	struct maildir_hash_rec *hash_rec;
 	struct maildir_uidlist_rec uid_rec;
         enum maildir_file_action action;
 	const char *fname, **new_files, *dir;
 	void *orig_key, *orig_value;
-	unsigned int seq, uid, last_uid, i, new_flag;
-	int new_dir;
+	unsigned int seq, first_seq, last_seq, uid, last_uid, i, new_flag;
+	int new_dir, skip_next;
 	buffer_t *buf;
 
 	if (ctx->new_count > 0) {
@@ -489,7 +489,7 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 			return FALSE;
 	}
 
-        seq = 0;
+        seq = 1;
 	rec = index->lookup(index, 1);
 	uidlist = ctx->uidlist;
 
@@ -500,8 +500,11 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 			return FALSE;
 	}
 
+	first_rec = last_rec = NULL;
+	first_seq = last_seq = 0;
+	skip_next = FALSE;
 	while (rec != NULL) {
-		seq++; uid = rec->uid;
+		uid = rec->uid;
 
 		/* skip over the expunged records in uidlist */
 		while (uid_rec.uid != 0 && uid_rec.uid < uid) {
@@ -542,26 +545,36 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 		action = hash_rec != NULL ?
 			ACTION(hash_rec) : MAILDIR_FILE_ACTION_NONE;
 		switch (action) {
+		case MAILDIR_FILE_ACTION_UPDATE_CONTENT:
+			hash_rec->action = MAILDIR_FILE_ACTION_NEW |
+				(hash_rec->action & MAILDIR_FILE_FLAGS);
+			ctx->new_count++;
+			/* fall through */
 		case MAILDIR_FILE_ACTION_EXPUNGE:
-			if (!index->expunge(index, rec, seq, TRUE))
-				return FALSE;
-			seq--;
+			if (first_rec == NULL) {
+				first_rec = rec;
+				first_seq = seq;
+			}
+			last_rec = rec;
+			last_seq = seq;
 			break;
 		case MAILDIR_FILE_ACTION_UPDATE_FLAGS:
 			if (!maildir_update_filename(ctx, rec, orig_key))
 				return FALSE;
 			if (!maildir_update_flags(ctx, rec, seq, fname))
 				return FALSE;
-			break;
-		case MAILDIR_FILE_ACTION_UPDATE_CONTENT:
-			if (!index->expunge(index, rec, seq, TRUE))
-				return FALSE;
-			seq--;
-			hash_rec->action = MAILDIR_FILE_ACTION_NEW |
-				(hash_rec->action & MAILDIR_FILE_FLAGS);
-			ctx->new_count++;
-			break;
+			/* fall through */
 		case MAILDIR_FILE_ACTION_NONE:
+			if (first_rec != NULL) {
+				if (!index->expunge(index, first_rec, last_rec,
+						    first_seq, last_seq, TRUE))
+					return FALSE;
+				first_rec = NULL;
+
+				seq = first_seq;
+				rec = index->lookup(index, seq);
+				skip_next = TRUE;
+			}
 			break;
 		default:
 			i_panic("BUG: %s/%s suddenly appeared as UID %u",
@@ -572,10 +585,23 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 			if (maildir_uidlist_next(uidlist, &uid_rec) < 0)
 				return FALSE;
 		}
-		rec = index->next(index, rec);
+
+		if (skip_next)
+			skip_next = FALSE;
+		else {
+			rec = index->next(index, rec);
+			seq++;
+		}
 	}
 
-	if (seq != index->header->messages_count) {
+	if (first_rec != NULL) {
+		if (!index->expunge(index, first_rec, last_rec,
+				    first_seq, last_seq, TRUE))
+			return FALSE;
+		seq = first_seq;
+	}
+
+	if (seq-1 != index->header->messages_count) {
 		index_set_corrupted(index, "Wrong messages_count in header "
 				    "(%u != %u)", seq,
 				    index->header->messages_count);

@@ -216,6 +216,13 @@ static int mmap_update(struct mail_index_data *data, uoff_t pos, size_t size)
 		return FALSE;
 	}
 
+	if ((hdr->used_file_size & (INDEX_ALIGN_SIZE-1)) != 0) {
+		index_data_set_corrupted(data,
+			"used_file_size not aligned (%"PRIuUOFF_T")",
+			hdr->used_file_size);
+		return FALSE;
+	}
+
 	data->mmap_used_length = hdr->used_file_size;
 	data->header = hdr;
 	debug_mprotect(data->mmap_base, data->mmap_full_length, data->index);
@@ -593,7 +600,7 @@ mail_index_data_lookup(struct mail_index_data *data,
 	    (data->mmap_used_length - pos < rec_hdr->data_size)) {
 		index_data_set_corrupted(data,
 			"Given data size larger than file size "
-			"(%"PRIuUOFF_T" + %u > %"PRIuSIZE_T") for record %u",
+			"(%u + %u > %"PRIuSIZE_T") for record %u",
 			index_rec->data_position, rec_hdr->data_size,
 			data->mmap_used_length, index_rec->uid);
 		return NULL;

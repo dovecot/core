@@ -127,9 +127,11 @@ static int match_next_record(struct mail_index *index,
         struct mail_index_update *update;
 	struct message_size hdr_parsed_size;
 	struct mbox_header_context ctx;
+	struct mail_index_record *first_rec, *last_rec;
 	uoff_t header_offset, body_offset, offset;
 	uoff_t hdr_size, body_size;
 	unsigned char current_digest[16];
+	unsigned int first_seq, last_seq;
 	int hdr_size_fixed;
 
 	*next_rec = NULL;
@@ -138,6 +140,8 @@ static int match_next_record(struct mail_index *index,
 	skip_line(input);
 	header_offset = input->v_offset;
 
+	first_rec = last_rec = NULL;
+	first_seq = last_seq = 0;
 	hdr_size = 0; body_offset = 0; hdr_size_fixed = FALSE;
 	do {
 		if (!mbox_mail_get_location(index, rec, NULL, NULL, &body_size))
@@ -221,15 +225,29 @@ static int match_next_record(struct mail_index *index,
 
 			if (!index->update_end(update))
 				return FALSE;
-
-			*next_rec = rec;
 			break;
 		}
 
 		/* try next message */
-		(void)index->expunge(index, rec, seq, TRUE);
-		rec = index->next(index, rec);
+		if (first_rec == NULL) {
+			first_rec = rec;
+			first_seq = seq;
+		}
+		last_rec = rec;
+		last_seq = seq;
+
+		rec = index->next(index, rec); seq++;
 	} while (rec != NULL);
+
+	if (first_rec == NULL)
+		*next_rec = rec == NULL ? NULL : index->next(index, rec);
+	else {
+		if (!index->expunge(index, first_rec, last_rec,
+				    first_seq, last_seq, TRUE))
+			return FALSE;
+
+		*next_rec = index->lookup(index, first_seq);
+	}
 
 	return TRUE;
 }
@@ -296,14 +314,13 @@ static int mbox_sync_from_stream(struct mail_index *index,
 		}
 
 		seq++;
-		rec = index->next(index, rec);
 	}
 
 	/* delete the rest of the records */
-	while (rec != NULL) {
-		(void)index->expunge(index, rec, seq, TRUE);
-
-		rec = index->next(index, rec);
+	if (rec != NULL) {
+		if (!index->expunge(index, rec, INDEX_END_RECORD(index)-1,
+				    seq, index->header->messages_count, TRUE))
+			return FALSE;
 	}
 
 	if (!dirty && (index->header->flags & MAIL_INDEX_FLAG_DIRTY_MESSAGES)) {

@@ -38,11 +38,6 @@ int maildir_index_rebuild(struct mail_index *index)
 	if (!mail_index_data_reset(index->data))
 		return FALSE;
 
-	if (index->tree != NULL) {
-		if (!mail_tree_reset(index->tree))
-			return FALSE;
-	}
-
 	/* read the mails by syncing */
 	if (!index->sync_and_lock(index, FALSE, MAIL_LOCK_UNLOCK, NULL))
 		return FALSE;

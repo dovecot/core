@@ -5,7 +5,7 @@
 #include "message-parser.h"
 #include "imap-util.h"
 
-#define MAIL_INDEX_VERSION 2
+#define MAIL_INDEX_VERSION 3
 
 #define INDEX_FILE_PREFIX ".imap.index"
 
@@ -36,7 +36,6 @@ enum mail_index_header_flag {
 	MAIL_INDEX_FLAG_CACHE_FIELDS		= 0x0004,
 	MAIL_INDEX_FLAG_COMPRESS		= 0x0008,
 	MAIL_INDEX_FLAG_COMPRESS_DATA		= 0x0010,
-	MAIL_INDEX_FLAG_REBUILD_TREE		= 0x0020,
 	MAIL_INDEX_FLAG_DIRTY_MESSAGES		= 0x0040,
 	MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS	= 0x0080,
 	MAIL_INDEX_FLAG_MAILDIR_NEW		= 0x0100
@@ -140,9 +139,6 @@ struct mail_index_header {
 
 	uoff_t used_file_size;
 
-	unsigned int first_hole_index;
-	unsigned int first_hole_records;
-
 	unsigned int uid_validity;
 	unsigned int next_uid;
 
@@ -166,12 +162,11 @@ struct mail_index_data_header {
 
 struct mail_index_record {
 	unsigned int uid;
-	unsigned int msg_flags; /* enum mail_flags */
+	unsigned int msg_flags;
+	unsigned int data_position; /* first bit must be 0 */
 
 	unsigned int index_flags; /* enum mail_index_mail_flag */
 	unsigned int data_fields; /* enum mail_data_field */
-
-	uoff_t data_position;
 };
 
 struct mail_index_data_record_header {
@@ -268,7 +263,7 @@ struct mail_index {
 
 	/* Return the next record after specified record, or NULL if it was
 	   last record. The index must be locked all the time between
-	   lookup() and last next() call. */
+	   lookup() and last next() call. rec must not have been expunged. */
 	struct mail_index_record *(*next)(struct mail_index *index,
 					  struct mail_index_record *rec);
 
@@ -309,18 +304,19 @@ struct mail_index {
 	time_t (*get_internal_date)(struct mail_index *index,
 				    struct mail_index_record *rec);
 
-	/* Expunge a mail from index. Tree and modifylog is also updated. The
+	/* Expunge mails from index. Modifylog is also updated. The
 	   index must be exclusively locked before calling this function.
-	   If seq is 0, the modify log isn't updated. This is useful if
-	   after append() something goes wrong and you wish to delete the
-	   mail immediately. If external_change is TRUE, the modify log is
-	   always written.
 
-	   Note that the sequence numbers also update immediately after this
-	   call, so if you want to delete messages 1..4 just call this
-	   function 4 times with seq being 1. */
-	int (*expunge)(struct mail_index *index, struct mail_index_record *rec,
-		       unsigned int seq, int external_change);
+	   first_rec+1 .. last_rec-1 range may contain already expunged
+	   records.
+
+	   Note that all record pointers are invalidated after this call as
+	   expunging may radically modify the file. */
+	int (*expunge)(struct mail_index *index,
+		       struct mail_index_record *first_rec,
+		       struct mail_index_record *last_rec,
+		       unsigned int first_seq, unsigned int last_seq,
+		       int external_change);
 
 	/* Update mail flags. The index must be exclusively locked before
 	   calling this function. This shouldn't be called in the middle of
@@ -376,7 +372,6 @@ struct mail_index {
 
 /* private: */
 	struct mail_index_data *data;
-	struct mail_tree *tree;
 	struct mail_modify_log *modifylog;
 	struct mail_custom_flags *custom_flags;
 
@@ -459,7 +454,7 @@ struct mail_index {
    members.. */
 #define MAIL_INDEX_PRIVATE_FILL \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, { 0, 0, 0 }, 0, 0, \
+	0, 0, 0, 0, 0, { 0, 0, 0 }, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
@@ -493,8 +488,11 @@ const void *mail_index_lookup_field_raw(struct mail_index *index,
 					size_t *size);
 void mail_index_cache_fields_later(struct mail_index *index,
 				   enum mail_data_field field);
-int mail_index_expunge(struct mail_index *index, struct mail_index_record *rec,
-		       unsigned int seq, int external_change);
+int mail_index_expunge(struct mail_index *index,
+		       struct mail_index_record *first_rec,
+		       struct mail_index_record *last_rec,
+		       unsigned int first_seq, unsigned int last_seq,
+		       int external_change);
 int mail_index_update_flags(struct mail_index *index,
 			    struct mail_index_record *rec,
 			    unsigned int seq, enum mail_flags flags,
@@ -527,7 +525,6 @@ void mail_index_init_header(struct mail_index *index,
 			    struct mail_index_header *hdr);
 void mail_index_close(struct mail_index *index);
 int mail_index_fmdatasync(struct mail_index *index, size_t size);
-int mail_index_verify_hole_range(struct mail_index *index);
 void mail_index_mark_flag_changes(struct mail_index *index,
 				  struct mail_index_record *rec,
 				  enum mail_flags old_flags,
@@ -541,6 +538,9 @@ int mail_index_update_cache(struct mail_index *index);
 int mail_index_compress(struct mail_index *index);
 int mail_index_compress_data(struct mail_index *index);
 int mail_index_truncate(struct mail_index *index);
+int mail_index_expunge_record_range(struct mail_index *index,
+				    struct mail_index_record *first_rec,
+				    struct mail_index_record *last_rec);
 
 /* Maximum allowed UID number. */
 #define MAX_ALLOWED_UID 4294967295U /* 2^32 - 1 */
@@ -565,6 +565,8 @@ int mail_index_truncate(struct mail_index *index);
 #define INDEX_TRUNCATE_KEEP_PERCENTAGE 10
 /* Compress the file when deleted space reaches n% of total size */
 #define INDEX_COMPRESS_PERCENTAGE 50
+/* Compress the file when searching deleted records tree has to go this deep */
+#define INDEX_COMPRESS_DEPTH 10
 
 /* uoff_t to index file for given record */
 #define INDEX_FILE_POSITION(index, ptr) \

@@ -14,14 +14,6 @@ static void print_differences(struct mail_index *index,
 			      struct mail_index_header *old_hdr,
 			      struct mail_index_header *new_hdr)
 {
-	if (old_hdr->first_hole_index != new_hdr->first_hole_index) {
-		i_warning("fsck %s: first_hole_position %u != %u",
-			  index->filepath,
-			  old_hdr->first_hole_index,
-			  new_hdr->first_hole_index);
-	}
-	CHECK(first_hole_records);
-
 	CHECK(next_uid);
 
 	CHECK(messages_count);
@@ -48,22 +40,20 @@ static void print_differences(struct mail_index *index,
 
 int mail_index_fsck(struct mail_index *index)
 {
-	/* we verify only the fields in the header. other problems will be
-	   noticed and fixed while reading the messages. */
 	struct mail_index_header old_hdr, *hdr;
 	struct mail_index_record *rec, *end_rec;
-	unsigned int max_uid, pos;
+	unsigned int max_uid;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
-	if (!mail_index_set_lock(index, MAIL_LOCK_EXCLUSIVE))
+	/* Expunge tree can get easily corrupted, compress it away first. */
+	if (!mail_index_compress(index))
 		return FALSE;
 
+	/* then we verify only the fields in the header. other problems will
+	   be noticed and fixed while reading the messages. */
 	hdr = index->header;
 	memcpy(&old_hdr, hdr, sizeof(struct mail_index_header));
-
-	hdr->first_hole_index = 0;
-	hdr->first_hole_records = 0;
 
 	hdr->messages_count = 0;
 	hdr->seen_messages_count = 0;
@@ -77,20 +67,6 @@ int mail_index_fsck(struct mail_index *index)
 
 	max_uid = 0;
 	for (; rec < end_rec; rec++) {
-		if (rec->uid == 0) {
-			/* expunged message */
-			pos = INDEX_RECORD_INDEX(index, rec);
-			if (hdr->first_hole_records == 0) {
-				hdr->first_hole_index = pos;
-				hdr->first_hole_records = 1;
-			} else if (hdr->first_hole_index +
-				   hdr->first_hole_records == pos) {
-				/* hole continues */
-				hdr->first_hole_records++;
-			}
-			continue;
-		}
-
 		if (rec->uid < max_uid) {
 			index_set_corrupted(index, "UIDs are not ordered "
 					    "(%u < %u)", rec->uid, max_uid);

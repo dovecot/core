@@ -43,20 +43,36 @@ int index_expunge_seek_first(struct index_mailbox *ibox, unsigned int *seq,
 	return TRUE;
 }
 
-int index_expunge_mail(struct index_mailbox *ibox,
-		       struct mail_index_record *rec,
-		       unsigned int seq, int notify)
+int index_expunge_mails(struct index_mailbox *ibox,
+			struct mail_index_record *first_rec,
+			struct mail_index_record *last_rec,
+			unsigned int first_seq, unsigned int last_seq,
+			int notify)
 {
-	if (!ibox->index->expunge(ibox->index, rec, seq, FALSE))
+	unsigned int max;
+
+	if (!ibox->index->expunge(ibox->index, first_rec, last_rec,
+				  first_seq, last_seq, FALSE))
 		return FALSE;
 
-	if (seq <= ibox->synced_messages_count) {
-		if (notify) {
-			struct mail_storage *storage = ibox->box.storage;
-			storage->callbacks->expunge(&ibox->box, seq,
-						    storage->callback_context);
+	if (first_seq > ibox->synced_messages_count)
+		return TRUE;
+
+	max = last_seq > ibox->synced_messages_count ?
+		ibox->synced_messages_count : last_seq;
+
+	ibox->synced_messages_count -= max - first_seq + 1;
+	if (notify) {
+		struct mail_storage_callbacks *cb;
+		void *cb_ctx;
+
+		cb = ibox->box.storage->callbacks;
+		cb_ctx = ibox->box.storage->callback_context;
+
+		while (max >= first_seq) {
+			cb->expunge(&ibox->box, first_seq, cb_ctx);
+			max--;
 		}
-		ibox->synced_messages_count--;
 	}
 
 	return TRUE;

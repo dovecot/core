@@ -770,8 +770,10 @@ static int mail_modifylog_append(struct modify_log_file *file,
 	return TRUE;
 }
 
-int mail_modifylog_add_expunge(struct mail_modify_log *log, unsigned int seq,
-			       unsigned int uid, int external_change)
+int mail_modifylog_add_expunges(struct mail_modify_log *log,
+				unsigned int first_seq, unsigned int last_seq,
+				unsigned int first_uid, unsigned int last_uid,
+				int external_change)
 {
 	struct modify_log_file *file;
 	struct modify_log_record rec, *recp;
@@ -786,24 +788,24 @@ int mail_modifylog_add_expunge(struct mail_modify_log *log, unsigned int seq,
 
 	if (file->last_expunge != NULL &&
 	    file->last_expunge_external == external_change) {
-		if (seq+1 == file->last_expunge->seq1) {
-			i_assert(uid < file->last_expunge->uid1);
-			file->last_expunge->seq1 = seq;
-			file->last_expunge->uid1 = uid;
+		if (last_seq+1 == file->last_expunge->seq1) {
+			i_assert(last_uid < file->last_expunge->uid1);
+			file->last_expunge->seq1 = first_seq;
+			file->last_expunge->uid1 = first_uid;
 			return TRUE;
-		} else if (seq == file->last_expunge->seq1) {
-			/* note the different weirder logic than with
-			   flag changing, because of reordered seq numbers. */
-			i_assert(uid > file->last_expunge->uid2);
-			file->last_expunge->seq2++;
-			file->last_expunge->uid2 = uid;
+		} else if (first_seq == file->last_expunge->seq1) {
+			/* note that the weird looking logic above is correct.
+			   it's because of reordered seq numbers. */
+			i_assert(first_uid > file->last_expunge->uid2);
+			file->last_expunge->seq2 = last_seq;
+			file->last_expunge->uid2 = last_uid;
 			return TRUE;
 		}
 	}
 
 	rec.type = RECORD_TYPE_EXPUNGE;
-	rec.seq1 = rec.seq2 = seq;
-	rec.uid1 = rec.uid2 = uid;
+	rec.seq1 = first_seq; rec.seq2 = last_seq;
+	rec.uid1 = first_uid; rec.uid2 = last_uid;
 
 	recp = &rec;
 	if (!mail_modifylog_append(file, &recp, external_change))

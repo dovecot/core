@@ -793,13 +793,16 @@ static int mbox_index_try_lock(struct mail_index *index,
 }
 
 static int mbox_index_expunge(struct mail_index *index,
-			      struct mail_index_record *rec,
-			      unsigned int seq, int external_change)
+			      struct mail_index_record *first_rec,
+			      struct mail_index_record *last_rec,
+			      unsigned int first_seq, unsigned int last_seq,
+			      int external_change)
 {
-	if (!mail_index_expunge(index, rec, seq, external_change))
+	if (!mail_index_expunge(index, first_rec, last_rec,
+				first_seq, last_seq, external_change))
 		return FALSE;
 
-	if (seq == 1) {
+	if (first_seq == 1) {
 		/* Our message containing X-IMAPbase was deleted.
 		   Get it back there. */
 		index->header->flags |= MAIL_INDEX_FLAG_DIRTY_MESSAGES |

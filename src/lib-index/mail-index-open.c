@@ -11,7 +11,6 @@
 #include "mail-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
-#include "mail-tree.h"
 #include "mail-modifylog.h"
 #include "mail-custom-flags.h"
 
@@ -111,13 +110,9 @@ static int index_open_and_fix(struct mail_index *index,
 	}
 
 	if ((flags & _MAIL_INDEX_OPEN_FLAG_CREATING) == 0) {
-		if (!mail_tree_open_or_create(index))
-			return FALSE;
 		if (!mail_modifylog_open_or_create(index))
 			return FALSE;
 	} else {
-		if (!mail_tree_create(index))
-			return FALSE;
 		if (!mail_modifylog_create(index))
 			return FALSE;
 	}
@@ -125,11 +120,6 @@ static int index_open_and_fix(struct mail_index *index,
 	if (index->header->flags & MAIL_INDEX_FLAG_FSCK) {
 		/* index needs fscking */
 		if (!index->fsck(index))
-			return FALSE;
-	}
-
-	if ((index->header->flags & MAIL_INDEX_FLAG_REBUILD_TREE) != 0) {
-		if (!mail_tree_rebuild(index->tree))
 			return FALSE;
 	}
 

@@ -37,8 +37,10 @@ void mail_modifylog_free(struct mail_modify_log *log);
 /* Append EXPUGE or FLAGS entry to modify log. Index must be exclusively
    locked before calling these functions, and modifylog must have been
    marked synced within the same lock. */
-int mail_modifylog_add_expunge(struct mail_modify_log *log, unsigned int seq,
-			       unsigned int uid, int external_change);
+int mail_modifylog_add_expunges(struct mail_modify_log *log,
+				unsigned int first_seq, unsigned int last_seq,
+				unsigned int first_uid, unsigned int last_uid,
+				int external_change);
 int mail_modifylog_add_flags(struct mail_modify_log *log, unsigned int seq,
 			     unsigned int uid, int external_change);
 
