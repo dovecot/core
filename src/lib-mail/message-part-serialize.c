@@ -231,8 +231,7 @@ int message_part_serialize_update_header(void *data, size_t size,
 	struct serialized_message_part *spart = data;
 	uoff_t first_pos;
 	off_t pos_diff;
-	size_t i, count;
-	unsigned int children;
+	unsigned int children, i, count;
 
 	if (!check_size(size, error))
 		return FALSE;
