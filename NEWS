@@ -1,3 +1,14 @@
+v0.99.9.1 2003-05-03  Timo Sirainen <tss@iki.fi>
+
+	- Messages having lines longer than 8192 bytes caused problems.
+	- There was some problems when opening a mbox first time that had been
+	  empty for a while.
+	- Didn't compile with OpenBSD.
+	- POP3 server crashed sometimes instead of printing error message.
+	- If cached IMAP envelope contained literals, SEARCHing in it wrote
+	  errors to log file. For example if subject contained highascii, '"'
+	  or '\' characters this happened.
+
 v0.99.9 2003-04-28  Timo Sirainen <tss@iki.fi>
 
 	* WARNING: mbox rewriting works now faster, but it's less likely to

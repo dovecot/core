@@ -1,0 +1,160 @@
+# DarContact: Timo Sirainen <tss@iki.fi>
+
+Summary: Dovecot secure IMAP server.
+Name: dovecot
+Version: @VERSION@
+Release: 0
+License: GPL
+Group: System Environment/Daemons
+URL: http://dovecot.procontrol.fi/
+
+Packager: Dag Wieers <dag@wieers.com>
+Vendor: Dag Apt Repository, http://dag.wieers.com/home-made/apt/
+
+Source: http://dovecot.procontrol.fi/%{name}-%{version}.tar.gz
+BuildRoot: %{_tmppath}/root-%{name}-%{version}
+Prefix: %{_prefix}
+
+Prereq: /usr/sbin/useradd, /usr/sbin/usermod
+BuildRequires: openssl-devel %{!?rh62:, pam-devel} %{?rh62: pam}
+
+%description
+Dovecot is an IMAP server for Linux/UNIX-like systems, written with
+security primarily in mind. Although it's written with C, it uses
+several coding techniques to avoid most of the common pitfalls. Next
+release will also contain a small POP3 server.
+
+Dovecot can work with standard mbox and maildir formats and it's fully
+compatible with UW-IMAP and Courier IMAP servers as well as mail
+clients accessing the mailboxes directly.
+
+%prep
+%setup
+
+%{__cat} <<EOF >dovecot.sysv
+#!/bin/bash
+#
+# Init file for Dovecot IMAP daemon
+#
+# chkconfig: - 54 46
+# description: Dovecot IMAP Daemon
+#
+# processname: dovecot
+# config: %{_sysconfdir}/dovecot.conf
+# pidfile: %{_localstatedir}/run/dovecot
+
+# source function library
+. %{_initrddir}/functions
+
+[ -x %{_sbindir}/dovecot ] || exit 1
+[ -r %{_sysconfdir}/dovecot.conf ] || exit 1
+
+RETVAL=0
+prog="dovecot"
+
+start() {
+	echo -n \$"Starting \$prog: "
+	daemon \$prog
+	RETVAL=\$?
+	echo
+	[ \$RETVAL -eq 0 ] && touch %{_localstatedir}/lock/subsys/\$prog
+	return \$RETVAL
+}
+
+stop() {
+	echo -n \$"Shutting down \$prog: "
+	killproc \$prog
+	RETVAL=\$?
+	echo
+	[ \$RETVAL -eq 0 ] && rm -f %{_localstatedir}/lock/subsys/\$prog
+	return \$RETVAL
+}
+
+restart(){
+	stop
+	start
+}
+
+case "\$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart|reload)
+	restart
+	;;
+  condrestart)
+	[ -e %{_localstatedir}/lock/subsys/\$prog ] && restart
+	RETVAL=\$?
+	;;
+  status)
+	status \$prog
+	RETVAL=\$?
+	;;
+  *)
+	echo \$"Usage: \$0 {start|stop|restart|condrestart|status}"
+	RETVAL=1
+esac
+
+exit \$RETVAL
+EOF
+
+%build
+export CPPFLAGS="-I/usr/kerberos/include"
+%configure \
+	--with-ssl="openssl" \
+	--with-ssldir="%{_sysconfdir}/ssl"
+%{__make} %{?_smp_mflags}
+
+%install
+%{__rm} -rf %{buildroot}
+%makeinstall
+%{__install} -d -m0755 %{buildroot}%{_initrddir}
+%{__install} -m0755 dovecot.sysv %{buildroot}%{_initrddir}/dovecot
+%{__mv} -f %{buildroot}%{_sysconfdir}/dovecot-example.conf %{buildroot}%{_sysconfdir}/dovecot.conf
+
+### Clean up buildroot
+%{__rm} -rf %{buildroot}%{_datadir}/doc/dovecot/
+
+%pre
+/usr/sbin/useradd -M -s /sbin/nologin -r dovecot &>/dev/null || :
+/usr/sbin/usermod -s /sbin/nologin dovecot &>/dev/null || :
+
+%post
+/sbin/chkconfig --add dovecot
+
+%preun
+if [ $1 -eq 0 ]; then
+	/sbin/service dovecot stop &>/dev/null || :
+	/sbin/chkconfig --del dovecot
+fi
+
+%postun
+/sbin/service dovecot condrestart &>/dev/null || :
+
+%clean
+%{__rm} -rf %{buildroot}
+
+%files
+%defattr(-, root, root, 0755)
+%doc AUTHORS ChangeLog COPYING* NEWS README TODO
+%doc doc/*.conf doc/*.sh doc/*.txt
+%config %{_sysconfdir}/dovecot.conf
+%config %{_initrddir}/dovecot
+%{_sbindir}/*
+%{_libexecdir}/dovecot/
+
+%changelog
+* Tue Apr 29 2003 Dag Wieers <dag@wieers.com> - 0.99.9-0
+- Updated to release 0.99.9.
+
+* Mon Apr 14 2003 Dag Wieers <dag@wieers.com> - 0.99.8.1-1
+- Improved dovecot.sysv script.
+
+* Thu Mar 13 2003 Dag Wieers <dag@wieers.com> - 0.99.8.1-0
+- Updated to release 0.99.8.1.
+
+* Fri Feb 28 2003 Dag Wieers <dag@wieers.com> - 0.99.8-0
+- Initial package. (using DAR)

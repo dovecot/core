@@ -5,5 +5,6 @@ conf_DATA = dovecot-example.conf
 
 EXTRA_DIST = \
 	config.rpath \
+	dovecot.spec.in \
 	COPYING.LGPL \
 	$(conf_DATA)

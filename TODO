@@ -1,3 +1,9 @@
+ - fix SSL for RedHat 9. Use pkg-config.
+ - PAM waits for two seconds on wrong passwords. dovecot-auth is completely
+   stuck at that time. maybe fork() new PAM checkers?
+ - mailbox_check_interval: we shouldn't send anything if write() returns
+   EAGAIN. not all clients are reading input all the time and there's no point
+   in sending updates when no-one is reading them.
  - mbox: we don't notice external flag changes if they don't change file size
     - Create new X-IMAPlog header which Dovecot uses internally to store
       changes. If change is in the log header, we don't have to reparse the
