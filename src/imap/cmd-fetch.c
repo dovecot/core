@@ -68,26 +68,33 @@ fetch_parse_args(struct imap_fetch_context *ctx, struct imap_arg *arg)
 	return TRUE;
 }
 
-static int cmd_fetch_finish(struct client_command_context *cmd, int failed)
+static int cmd_fetch_finish(struct imap_fetch_context *ctx)
 {
-	struct client *client = cmd->client;
+	struct client_command_context *cmd = ctx->cmd;
 	static const char *ok_message = "OK Fetch completed.";
+	int failed, partial;
 
-	if (failed) {
+	partial = ctx->partial_fetch;
+	failed = ctx->failed;
+
+	if (imap_fetch_deinit(ctx) < 0)
+		failed = TRUE;
+
+	if (failed || (partial && !cmd->uid)) {
 		struct mail_storage *storage;
 		const char *error;
 		int syntax;
 
-                storage = mailbox_get_storage(client->mailbox);
+                storage = mailbox_get_storage(cmd->client->mailbox);
 		error = mail_storage_get_last_error(storage, &syntax);
 		if (!syntax) {
 			/* We never want to reply NO to FETCH requests,
 			   BYE is preferrable (see imap-ml for reasons). */
-			if (error == NULL) {
+			if (partial) {
 				error = "Out of sync: "
 					"Trying to fetch expunged message";
 			}
-			client_disconnect_with_error(client, error);
+			client_disconnect_with_error(cmd->client, error);
 		} else {
 			/* user error, we'll reply with BAD */
 			client_send_storage_error(cmd, storage);
@@ -121,9 +128,7 @@ static int cmd_fetch_continue(struct client_command_context *cmd)
 	if (ret < 0)
 		ctx->failed = TRUE;
 
-	if (imap_fetch_deinit(ctx) < 0)
-		ret = -1;
-	return cmd_fetch_finish(cmd, ret < 0);
+	return cmd_fetch_finish(ctx);
 }
 
 int cmd_fetch(struct client_command_context *cmd)
@@ -171,7 +176,6 @@ int cmd_fetch(struct client_command_context *cmd)
 	}
 	if (ret < 0)
 		ctx->failed = TRUE;
-	if (imap_fetch_deinit(ctx) < 0)
-		ret = -1;
-	return cmd_fetch_finish(cmd, ret < 0);
+
+	return cmd_fetch_finish(ctx);
 }

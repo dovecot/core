@@ -163,8 +163,19 @@ int imap_fetch(struct imap_fetch_context *ctx)
 	int ret;
 
 	if (ctx->cont_handler != NULL) {
-		if ((ret = ctx->cont_handler(ctx)) <= 0)
-			return ret;
+		ret = ctx->cont_handler(ctx);
+		if (ret == 0)
+			return 0;
+
+		if (ret < 0) {
+			if (ctx->cur_mail->expunged) {
+				/* not an error, just lost it. */
+				ctx->partial_fetch = TRUE;
+				ctx->partial_fetch = TRUE;
+			} else {
+				return -1;
+			}
+		}
 
 		ctx->cont_handler = NULL;
 		ctx->cur_offset = 0;
@@ -212,9 +223,18 @@ int imap_fetch(struct imap_fetch_context *ctx)
 					handlers[ctx->cur_handler].context);
 			t_pop();
 
-			if (ret <= 0) {
-				i_assert(ret < 0 || ctx->cont_handler != NULL);
-				return ret;
+			if (ret == 0)
+				return 0;
+
+			if (ret < 0) {
+				if (ctx->cur_mail->expunged) {
+					/* not an error, just lost it. */
+					ctx->partial_fetch = TRUE;
+				} else {
+					i_assert(ret < 0 ||
+						 ctx->cont_handler != NULL);
+					return -1;
+				}
 			}
 
 			ctx->cont_handler = NULL;
