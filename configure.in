@@ -497,39 +497,6 @@ AC_TRY_COMPILE([
   AC_MSG_RESULT(no)
 ])
 
-dnl * Linux compatible sendfile()
-AC_MSG_CHECKING([Linux compatible sendfile()])
-AC_TRY_COMPILE([
-  #undef _FILE_OFFSET_BITS
-  #include <sys/types.h>
-  #include <sys/socket.h>
-  #include <sys/uio.h>
-  #include <sys/sendfile.h>
-], [
-  sendfile(0, 0, (void *) 0, 0);
-], [
-  AC_DEFINE(HAVE_LINUX_SENDFILE,, Define if you have Linux-compatible sendfile())
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
-])
-
-dnl * FreeBSD compatible sendfile()
-AC_MSG_CHECKING([FreeBSD compatible sendfile()])
-AC_TRY_COMPILE([
-  #include <sys/types.h>
-  #include <sys/socket.h>
-  #include <sys/uio.h>
-], [
-  struct sf_hdtr hdtr;
-  sendfile(0, 0, 0, 0, &hdtr, (void *) 0, 0);
-], [
-  AC_DEFINE(HAVE_FREEBSD_SENDFILE,, Define if you have FreeBSD-compatible sendfile())
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
-])
-
 dnl * Solaris compatible sendfilev()
 AC_MSG_CHECKING([Solaris compatible sendfilev()])
 AC_CHECK_LIB(sendfile, sendfilev, [
@@ -538,6 +505,39 @@ AC_CHECK_LIB(sendfile, sendfilev, [
   AC_MSG_RESULT(yes)
 ], [
   AC_MSG_RESULT(no)
+
+  dnl * Linux compatible sendfile() - don't check if Solaris one was found.
+  dnl * This seems to pass with Solaris for some reason..
+  AC_MSG_CHECKING([Linux compatible sendfile()])
+  AC_TRY_COMPILE([
+    #undef _FILE_OFFSET_BITS
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <sys/sendfile.h>
+  ], [
+    sendfile(0, 0, (void *) 0, 0);
+  ], [
+    AC_DEFINE(HAVE_LINUX_SENDFILE,, Define if you have Linux-compatible sendfile())
+    AC_MSG_RESULT(yes)
+  ], [
+    AC_MSG_RESULT(no)
+  ])
+
+  dnl * FreeBSD compatible sendfile()
+  AC_MSG_CHECKING([FreeBSD compatible sendfile()])
+  AC_TRY_COMPILE([
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <sys/uio.h>
+  ], [
+    struct sf_hdtr hdtr;
+    sendfile(0, 0, 0, 0, &hdtr, (void *) 0, 0);
+  ], [
+    AC_DEFINE(HAVE_FREEBSD_SENDFILE,, Define if you have FreeBSD-compatible sendfile())
+    AC_MSG_RESULT(yes)
+  ], [
+    AC_MSG_RESULT(no)
+  ])
 ])
 
 dnl ***
