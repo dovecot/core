@@ -194,14 +194,13 @@ mail_index_transaction_open_updated_view(struct mail_index_transaction *t);
 
    mail_index_sync_next() returns all changes from previously committed
    transactions which haven't yet been committed to the actual mailbox.
-   They're returned in ascending order. You must go through all of them and
-   update the mailbox accordingly.
+   They're returned in ascending order and they never overlap (if we add more
+   sync types, then they might). You must go through all of them and update
+   the mailbox accordingly.
 
    None of the changes actually show up in index until at
    mail_index_sync_end().
 
-   Note that there may be multiple overlapping flag changes. They're returned
-   sorted by their beginning sequence. They never overlap expunges however.
    Returned sequence numbers describe the mailbox state at the beginning of
    synchronization, ie. expunges don't affect them.
 

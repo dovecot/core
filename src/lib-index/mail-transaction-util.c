@@ -189,12 +189,17 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 	size_t first, i, dest_count;
 
 	i_assert(src_buf_size % sizeof(*src) == 0);
-	src_end = CONST_PTR_OFFSET(src, src_buf_size);
 
 	/* @UNSAFE */
 	dest = buffer_get_modifyable_data(expunges_buf, &dest_count);
 	dest_count /= sizeof(*dest);
 
+	if (dest_count == 0) {
+		buffer_append(expunges_buf, src, src_buf_size);
+		return;
+	}
+
+	src_end = CONST_PTR_OFFSET(src, src_buf_size);
 	for (i = 0; src != src_end; src++) {
 		/* src[] must be sorted. */
 		i_assert(src+1 == src_end || src->uid1 < src[1].uid1);

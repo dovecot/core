@@ -10,51 +10,106 @@
 
 #include <stdlib.h>
 
-static void mail_index_sync_sort_flags(struct mail_index_sync_ctx *ctx)
+static void
+mail_index_sync_sort_flags(buffer_t *dest_buf,
+			   const struct mail_transaction_flag_update *src,
+			   size_t src_size)
 {
-	const struct mail_transaction_flag_update *src, *src_end;
-	const struct mail_transaction_flag_update *dest;
-	struct mail_transaction_flag_update new_update;
-	uint32_t last;
+	const struct mail_transaction_flag_update *src_end;
+	struct mail_transaction_flag_update *dest;
+	struct mail_transaction_flag_update new_update, tmp_update;
 	size_t i, dest_count;
+	int j;
 
-	src = ctx->data;
-	src_end = PTR_OFFSET(src, ctx->hdr->size);
-	if (src == src_end)
-		return;
-
-	dest = buffer_get_data(ctx->updates_buf, &dest_count);
+	dest = buffer_get_modifyable_data(dest_buf, &dest_count);
 	dest_count /= sizeof(*dest);
 
+	if (dest_count == 0) {
+		buffer_append(dest_buf, src, src_size);
+		return;
+	}
+
+	src_end = PTR_OFFSET(src, src_size);
 	for (i = 0; src != src_end; src++) {
 		new_update = *src;
 
-		/* insert it into buffer, split it in multiple parts if needed
-		   to make sure the ordering stays the same */
+		/* insert it into buffer, split and merge it with existing
+		   updates if needed. */
 		for (; i < dest_count; i++) {
-			if (dest[i].uid1 <= new_update.uid1)
+			if (new_update.uid1 > dest[i].uid2)
 				continue;
 
-			if (dest[i].uid1 > new_update.uid2)
+			if (new_update.uid2 < dest[i].uid1)
 				break;
 
-			/* partial */
-			last = new_update.uid2;
-			new_update.uid2 = dest[i].uid1-1;
+			/* at least partially overlapping */
 
-			buffer_insert(ctx->updates_buf, i * sizeof(new_update),
-				      &new_update, sizeof(new_update));
-			dest = buffer_get_data(ctx->updates_buf, NULL);
-			dest_count++;
+			if (new_update.uid1 < dest[i].uid1) {
+				/* { 5..6 } + { 1..5 } -> { 1..4 } + { 5..6 } */
+				tmp_update = new_update;
+				tmp_update.uid2 = dest[i].uid1-1;
+				new_update.uid1 = dest[i].uid1;
+				buffer_insert(dest_buf, i * sizeof(tmp_update),
+					      &tmp_update, sizeof(tmp_update));
+				dest = buffer_get_modifyable_data(dest_buf,
+								  NULL);
+				dest_count++; i++;
+			} else if (new_update.uid1 > dest[i].uid1) {
+				/* { 5..7 } + { 6..6 } ->
+				   split old to { 5..5 } + { 6..7 } */
+				tmp_update = dest[i];
+				tmp_update.uid2 = new_update.uid1-1;
+				dest[i].uid1 = new_update.uid1;
+				buffer_insert(dest_buf, i * sizeof(tmp_update),
+					      &tmp_update, sizeof(tmp_update));
+				dest = buffer_get_modifyable_data(dest_buf,
+								  NULL);
+				dest_count++; i++;
+			}
+			i_assert(new_update.uid1 == dest[i].uid1);
 
-			new_update.uid1 = new_update.uid2+1;
-			new_update.uid2 = last;
+			if (new_update.uid2 < dest[i].uid2) {
+				/* { 5..7 } + { 5..6 } -> { 5..6 } + { 7..7 } */
+				tmp_update = dest[i];
+				tmp_update.uid1 = new_update.uid2+1;
+				dest[i].uid2 = new_update.uid2;
+				buffer_insert(dest_buf,
+					      (i+1) * sizeof(tmp_update),
+					      &tmp_update, sizeof(tmp_update));
+				dest = buffer_get_modifyable_data(dest_buf,
+								  NULL);
+				dest_count++;
+				new_update.uid2 = 0;
+			} else {
+				/* full match, or continues. */
+				new_update.uid1 = dest[i].uid2+1;
+			}
+
+			/* dest[i] now contains the overlapping area.
+			   merge them - new_update overrides old changes. */
+			dest[i].add_flags |= new_update.add_flags;
+			dest[i].add_flags &= ~new_update.remove_flags;
+			dest[i].remove_flags |= new_update.remove_flags;
+			dest[i].remove_flags &= ~new_update.add_flags;
+
+			for (j = 0; j < INDEX_KEYWORDS_BYTE_COUNT; j++) {
+				dest[i].add_keywords[j] |=
+					new_update.add_keywords[j];
+				dest[i].add_keywords[j] &=
+					~new_update.remove_keywords[j];
+				dest[i].remove_keywords[j] |=
+					new_update.remove_keywords[j];
+				dest[i].remove_keywords[j] &=
+					~new_update.add_keywords[j];
+			}
 		}
 
-		buffer_insert(ctx->updates_buf, i * sizeof(new_update),
-			      &new_update, sizeof(new_update));
-		dest = buffer_get_data(ctx->updates_buf, NULL);
-		dest_count++;
+		if (new_update.uid1 <= new_update.uid2) {
+			buffer_insert(dest_buf, i * sizeof(new_update),
+				      &new_update, sizeof(new_update));
+			dest = buffer_get_modifyable_data(dest_buf, NULL);
+			dest_count++;
+		}
 	}
 }
 
@@ -62,23 +117,12 @@ static void mail_index_sync_sort_transaction(struct mail_index_sync_ctx *ctx)
 {
 	switch (ctx->hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_EXPUNGE:
-		if (buffer_get_used_size(ctx->expunges_buf) == 0) {
-			buffer_append(ctx->expunges_buf, ctx->data,
-				      ctx->hdr->size);
-		} else {
-			mail_transaction_log_sort_expunges(ctx->expunges_buf,
-							   ctx->data,
-							   ctx->hdr->size);
-		}
+		mail_transaction_log_sort_expunges(ctx->expunges_buf,
+						   ctx->data, ctx->hdr->size);
 		break;
 	case MAIL_TRANSACTION_FLAG_UPDATE:
-		if (buffer_get_used_size(ctx->expunges_buf) == 0 &&
-		    buffer_get_used_size(ctx->updates_buf) == 0) {
-			buffer_append(ctx->updates_buf, ctx->data,
-				      ctx->hdr->size);
-		} else {
-			mail_index_sync_sort_flags(ctx);
-		}
+		mail_index_sync_sort_flags(ctx->updates_buf, ctx->data,
+					   ctx->hdr->size);
 		break;
 	case MAIL_TRANSACTION_APPEND: {
 		const struct mail_transaction_append_header *hdr = ctx->data;
@@ -99,10 +143,47 @@ static void mail_index_sync_sort_transaction(struct mail_index_sync_ctx *ctx)
 	}
 }
 
+static int mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
+{
+	struct mail_transaction_flag_update update;
+	const struct mail_index_record *rec;
+	uint32_t seq, messages_count;
+	int i;
+
+	memset(&update, 0, sizeof(update));
+
+	messages_count = mail_index_view_get_message_count(ctx->view);
+	for (seq = 1; seq <= messages_count; seq++) {
+		if (mail_index_lookup(ctx->view, seq, &rec) < 0)
+			return -1;
+
+		if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) == 0)
+			continue;
+
+		update.uid1 = update.uid2 = rec->uid;
+		update.add_flags = rec->flags;
+		update.remove_flags = ~update.add_flags;
+		memcpy(update.add_keywords, rec->keywords,
+		       INDEX_KEYWORDS_BYTE_COUNT);
+		for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++)
+			update.remove_keywords[i] = ~update.add_keywords[i];
+
+		mail_index_sync_sort_flags(ctx->updates_buf,
+					   &update, sizeof(update));
+	}
+	return 0;
+}
+
 static int mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 {
 	size_t size;
 	int ret;
+
+	if (ctx->view->map->hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) {
+		/* show dirty flags as flag updates */
+		if (mail_index_sync_add_dirty_updates(ctx) < 0)
+			return -1;
+	}
 
 	while ((ret = mail_transaction_log_view_next(ctx->view->log_view,
 						     &ctx->hdr,
@@ -260,42 +341,22 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	next_update = ctx->update_idx == ctx->updates_count ? NULL :
 		&ctx->updates[ctx->update_idx];
 
-	// FIXME: return dirty flagged records as flag updates
-
-	/* the ugliness here is to avoid returning overlapping expunge
-	   and update areas. For example:
-
-	   updates[] = A { 1, 7 }, B { 1, 3 }
-	   expunges[] = { 5, 6 }
-
-	   will make us return
-
-	   update A: 1, 4
-	   update B: 1, 3
-	   expunge : 5, 6
-	   update A: 7, 7
-	*/
-	while (next_update != NULL &&
-	       (next_exp == NULL || next_update->uid1 < next_exp->uid1)) {
-		if (next_update->uid2 >= ctx->next_uid) {
-			mail_index_sync_get_update(sync_rec, next_update);
-			if (next_exp != NULL &&
-			    next_exp->uid1 <= next_update->uid2) {
-				/* it's overlapping.. */
-				sync_rec->uid2 = next_exp->uid1-1;
-			}
-
-			if (sync_rec->uid1 < ctx->next_uid)
-				sync_rec->uid1 = ctx->next_uid;
-
-			i_assert(sync_rec->uid1 <= sync_rec->uid2);
-			ctx->update_idx++;
-			return mail_index_sync_rec_check(ctx->view, sync_rec);
+	if (next_update != NULL &&
+	    (next_exp == NULL || next_update->uid1 < next_exp->uid1)) {
+		mail_index_sync_get_update(sync_rec, next_update);
+		if (next_exp != NULL && next_exp->uid1 <= next_update->uid2) {
+			/* it's overlapping with next expunge */
+			sync_rec->uid2 = next_exp->uid1-1;
 		}
 
-		if (++ctx->update_idx == ctx->updates_count)
-			break;
-		next_update++;
+		if (sync_rec->uid1 < ctx->next_uid) {
+			/* overlapping with previous expunge */
+			sync_rec->uid1 = ctx->next_uid;
+		}
+
+		i_assert(sync_rec->uid1 <= sync_rec->uid2);
+		ctx->update_idx++;
+		return mail_index_sync_rec_check(ctx->view, sync_rec);
 	}
 
 	if (next_exp != NULL) {
@@ -304,9 +365,6 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			return -1;
 
 		ctx->expunge_idx++;
-
-		/* scan updates again from the beginning */
-		ctx->update_idx = 0;
 		ctx->next_uid = next_exp->uid2+1;
 		return 1;
 	}

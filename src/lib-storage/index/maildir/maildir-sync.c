@@ -204,7 +204,7 @@ struct maildir_index_sync_context {
 
 	struct mail_index_sync_rec sync_rec;
 	uint32_t seq;
-	int have_dirty, last_dirty;
+	int dirty_state;
 };
 
 static int maildir_expunge(struct index_mailbox *ibox, const char *path,
@@ -231,7 +231,7 @@ static int maildir_sync_flags(struct index_mailbox *ibox, const char *path,
 	uint8_t flags8;
         keywords_mask_t keywords;
 
-	ctx->last_dirty = FALSE;
+	ctx->dirty_state = 0;
 
 	(void)maildir_filename_get_flags(path, &flags, keywords);
 
@@ -240,6 +240,8 @@ static int maildir_sync_flags(struct index_mailbox *ibox, const char *path,
 
 	newpath = maildir_filename_set_flags(path, flags8, keywords);
 	if (rename(path, newpath) == 0) {
+		if ((flags8 & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
+			ctx->dirty_state = -1;
 		ibox->dirty_cur_time = ioloop_time;
 		return 1;
 	}
@@ -250,7 +252,7 @@ static int maildir_sync_flags(struct index_mailbox *ibox, const char *path,
 		memset(keywords, 0, sizeof(keywords));
 		mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_ADD,
 					MAIL_INDEX_MAIL_FLAG_DIRTY, keywords);
-		ctx->last_dirty = TRUE;
+		ctx->dirty_state = 1;
 		return 1;
 	}
 
@@ -264,7 +266,6 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 {
 	struct mail_index_sync_rec *sync_rec = &ctx->sync_rec;
 	struct mail_index_view *view = ctx->view;
-	const struct mail_index_record *rec;
 	uint32_t seq, seq1, seq2, uid;
 
 	switch (sync_rec->type) {
@@ -304,19 +305,14 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 			if (maildir_file_do(ibox, uid,
 					    maildir_sync_flags, ctx) < 0)
 				return -1;
-			if (!ctx->last_dirty) {
-				/* if this flag was dirty, drop it */
-				if (mail_index_lookup(view, ctx->seq, &rec) < 0)
-					return -1;
-				if (rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) {
-					keywords_mask_t keywords;
+			if (ctx->dirty_state < 0) {
+				/* flag isn't dirty anymore */
+				keywords_mask_t keywords;
 
-					memset(keywords, 0, sizeof(keywords));
-					mail_index_update_flags(ctx->trans,
-						ctx->seq, MODIFY_REMOVE,
-						MAIL_INDEX_MAIL_FLAG_DIRTY,
-						keywords);
-				}
+				memset(keywords, 0, sizeof(keywords));
+				mail_index_update_flags(ctx->trans, ctx->seq,
+					MODIFY_REMOVE,
+					MAIL_INDEX_MAIL_FLAG_DIRTY, keywords);
 			}
 		}
 		break;
@@ -328,7 +324,6 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 int maildir_sync_last_commit(struct index_mailbox *ibox)
 {
 	struct maildir_index_sync_context ctx;
-	const struct mail_index_header *hdr;
 	uint32_t seq;
 	uoff_t offset;
 	int ret;
@@ -344,10 +339,6 @@ int maildir_sync_last_commit(struct index_mailbox *ibox)
 				    ibox->commit_log_file_seq,
 				    ibox->commit_log_file_offset);
 	if (ret > 0) {
-		if (mail_index_get_header(ctx.view, &hdr) == 0 &&
-		    (hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0)
-			ctx.have_dirty = TRUE;
-
 		ctx.trans = mail_index_transaction_begin(ctx.view, FALSE);
 
 		while ((ret = mail_index_sync_next(ctx.sync_ctx,
