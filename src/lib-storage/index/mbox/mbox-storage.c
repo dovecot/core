@@ -413,6 +413,9 @@ mbox_open(struct index_storage *storage, const char *name,
 	ibox->mail_interface = &mbox_mail;
         ibox->mbox_do_dirty_syncs = getenv("MBOX_DIRTY_SYNCS") != NULL;
 
+	ibox->md5hdr_ext_idx =
+		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
+
 	if (access(path, R_OK|W_OK) < 0) {
 		if (errno < EACCES)
 			mbox_set_syscall_error(ibox, "access()");
