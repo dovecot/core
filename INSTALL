@@ -66,12 +66,6 @@ memory accessing work. Currently it should also be safe to set to 4 when
 using 32bit file offets. With x86 it could be 1 as well if you want to save
 a bit of disk space (in .imap.index.data file) and memory.
 
-  --with-rawlog           Build support for logging user traffic
-
-When Dovecot is compiled with this option and user's home directory
-contains dovecot.rawlog directory, all IMAP connections are logged into
-timstamp-pid.in and .out files. This is mostly useful for debugging.
-
   --enable-debug          Enable some extra checks for debugging
 
 This is mostly useful for developers. It does quite a lot of unnecessary
