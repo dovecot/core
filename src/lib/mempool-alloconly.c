@@ -97,6 +97,8 @@ Pool pool_alloconly_create(const char *name, size_t size)
 	len = strlen(name);
 
 	apool = calloc(SIZEOF_ALLOCONLYPOOL + len+1, 1);
+	if (apool == NULL)
+		i_panic("pool_alloconly_create(): Out of memory");
 	apool->pool = static_alloconly_pool;
 	apool->refcount = 1;
 
@@ -144,6 +146,8 @@ static void block_alloc(AlloconlyPool *apool, size_t size)
 	size = nearest_power(size);
 
 	block = calloc(size, 1);
+	if (block == NULL)
+		i_panic("block_alloc(): Out of memory");
 	block->prev = apool->block;
 	apool->block = block;
 
