@@ -94,6 +94,11 @@ struct iovec;
 ssize_t my_writev(int fd, const struct iovec *iov, int iov_len);
 #endif
 
+#ifndef HAVE_PWRITE
+ssize_t pread(int fd, void *buf, size_t count, off_t offset);
+ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset);
+#endif
+
 /* ctype.h isn't safe with signed chars,
    use our own instead if really needed */
 #define i_toupper(x) ((char) toupper((int) (unsigned char) (x)))

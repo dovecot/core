@@ -225,8 +225,8 @@ fi
 
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock inet_aton sigaction getpagesize madvise \
-               strcasecmp stricmp vsnprintf vsyslog writev setrlimit \
-	       setproctitle)
+               strcasecmp stricmp vsnprintf vsyslog writev pwrite \
+	       setrlimit setproctitle)
 
 dnl * poll/select?
 
