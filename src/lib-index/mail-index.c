@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "hostpid.h"
 #include "mmap-util.h"
+#include "write-full.h"
 #include "mail-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
@@ -147,6 +148,24 @@ int mail_index_sync_file(MailIndex *index)
 	}
 
 	return !failed;
+}
+
+int mail_index_fmsync(MailIndex *index, size_t size)
+{
+	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
+
+	if (msync(index->mmap_base, size, MS_SYNC) == -1) {
+		index_set_error(index, "msync() failed for %s: %m",
+				index->filepath);
+		return FALSE;
+	}
+	if (fsync(index->fd) == -1) {
+		index_set_error(index, "fsync() failed for %s: %m",
+				index->filepath);
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 int mail_index_rebuild_all(MailIndex *index)
@@ -309,16 +328,7 @@ int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
 		   when the lock is released, the FSCK flag will also be
 		   removed. */
 		index->header->flags |= MAIL_INDEX_FLAG_FSCK;
-		if (msync(index->mmap_base, sizeof(MailIndexHeader),
-			  MS_SYNC) == -1) {
-			index_set_error(index, "msync() failed for %s: %m",
-					index->filepath);
-			(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
-			return FALSE;
-		}
-		if (fsync(index->fd) == -1) {
-			index_set_error(index, "fsync() failed for %s: %m",
-					index->filepath);
+		if (!mail_index_fmsync(index, sizeof(MailIndexHeader))) {
 			(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
 			return FALSE;
 		}
@@ -515,9 +525,28 @@ static int mail_index_open_file(MailIndex *index, const char *filename,
 				break;
 		}
 
+		if (hdr.flags & MAIL_INDEX_FLAG_COMPRESS) {
+			/* remove deleted blocks from index file */
+			if (!mail_index_compress(index))
+				break;
+		}
+
+		if (hdr.flags & MAIL_INDEX_FLAG_REBUILD_HASH) {
+			if (!mail_hash_rebuild(index->hash))
+				break;
+		}
+
 		if (hdr.flags & MAIL_INDEX_FLAG_CACHE_FIELDS) {
 			/* need to update cached fields */
 			if (!mail_index_update_cache(index))
+				break;
+		}
+
+		if (hdr.flags & MAIL_INDEX_FLAG_COMPRESS_DATA) {
+			/* remove unused space from index data file.
+			   keep after cache_fields which may move data
+			   and create unused space.. */
+			if (!mail_index_compress_data(index))
 				break;
 		}
 
@@ -582,7 +611,7 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
         mail_index_init_header(&hdr);
 
 	/* write header */
-	if (write(fd, &hdr, sizeof(hdr)) != sizeof(hdr)) {
+	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
 		index_set_error(index, "Error writing to temp index %s: %m",
 				path);
 		(void)close(fd);
@@ -728,7 +757,7 @@ static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 						 unsigned int lookup_seq)
 {
 	MailIndexHeader *hdr;
-	MailIndexRecord *rec, *last_rec;
+	MailIndexRecord *rec, *end_rec;
 	unsigned int seq;
 	off_t seekpos;
 
@@ -764,9 +793,6 @@ static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 	}
 
 	/* we need to walk through the index to get to wanted position */
-	last_rec = rec + (index->mmap_length-sizeof(MailIndexHeader)) /
-		sizeof(MailIndexRecord);
-
 	if (lookup_seq > index->last_lookup_seq && index->last_lookup != NULL) {
 		/* we want to lookup data after last lookup -
 		   this helps us some */
@@ -781,17 +807,11 @@ static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 		rec += seq-1 + hdr->first_hole_records;
 	}
 
-	if (rec == last_rec)
-		return NULL;
-
-	while (seq < lookup_seq || rec->uid == 0) {
+	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
+				       index->mmap_length);
+	while (seq < lookup_seq && rec < end_rec) {
 		if (rec->uid != 0)
 			seq++;
-
-		if (rec == last_rec) {
-			/* out of range */
-			return NULL;
-		}
 		rec++;
 	}
 
@@ -1119,8 +1139,7 @@ int mail_index_append(MailIndex *index, MailIndexRecord **rec)
 		return FALSE;
 	}
 
-	if (write(index->fd, *rec, sizeof(MailIndexRecord)) !=
-	    sizeof(MailIndexRecord)) {
+	if (write_full(index->fd, *rec, sizeof(MailIndexRecord)) < 0) {
 		index_set_error(index, "Error appending to file %s: %m",
 				index->filepath);
 		return FALSE;

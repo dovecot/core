@@ -4,6 +4,7 @@
 
 #include "lib.h"
 #include "mmap-util.h"
+#include "write-full.h"
 #include "imap-match.h"
 #include "mail-storage.h"
 #include "subscription-file.h"
@@ -95,7 +96,7 @@ static int subscription_append(MailStorage *storage, int fd, const char *name,
 		len++;
 	}
 
-	if ((size_t) write(fd, buf, len) != len) {
+	if (write_full(fd, buf, len) < 0) {
 		mail_storage_set_critical(storage, "write() failed for "
 					  "subscription file %s: %m", path);
 		return FALSE;

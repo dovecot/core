@@ -1,6 +1,8 @@
 #ifndef __MAIL_INDEX_DATA_H
 #define __MAIL_INDEX_DATA_H
 
+#define DATA_FILE_PREFIX ".data"
+
 int mail_index_data_open(MailIndex *index);
 int mail_index_data_create(MailIndex *index);
 void mail_index_data_free(MailIndexData *data);
@@ -37,5 +39,8 @@ mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
 /* Returns TRUE if rec->data is a valid \0-terminated string */
 int mail_index_data_record_verify(MailIndexData *data,
 				  MailIndexDataRecord *rec);
+
+/* Return the whole data file mmap()ed. */
+void *mail_index_data_get_mmaped(MailIndexData *data, size_t *size);
 
 #endif

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "primes.h"
 #include "mmap-util.h"
+#include "write-full.h"
 #include "mail-index.h"
 #include "mail-index-util.h"
 #include "mail-hash.h"
@@ -172,13 +173,13 @@ static int file_set_size(int fd, off_t size)
 	/* write in 1kb blocks */
 	full_blocks = size / sizeof(block);
 	for (i = 0; i < full_blocks; i++) {
-		if (write(fd, block, sizeof(block)) != sizeof(block))
+		if (write_full(fd, block, sizeof(block)) < 0)
 			return FALSE;
 	}
 
 	/* write the remainder */
 	i = size % sizeof(block);
-	return i == 0 ? TRUE : (size_t) write(fd, block, i) == i;
+	return i == 0 ? TRUE : write_full(fd, block, i) == 0;
 }
 
 static int hash_rebuild_to_file(MailIndex *index, int fd,

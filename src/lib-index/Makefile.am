@@ -10,6 +10,7 @@ INCLUDES = \
 libstorage_index_a_SOURCES = \
 	mail-hash.c \
         mail-index.c \
+        mail-index-compress.c \
         mail-index-fsck.c \
         mail-index-data.c \
         mail-index-update.c \

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mmap-util.h"
+#include "write-full.h"
 #include "imap-util.h"
 #include "flags-file.h"
 
@@ -64,7 +65,7 @@ static int flags_file_init(FlagsFile *ff)
 	}
 
 	/* write the header - it's a 4 byte counter as hex */
-	if (write(ff->fd, buf, HEADER_SIZE) != HEADER_SIZE) {
+	if (write_full(ff->fd, buf, HEADER_SIZE) < 0) {
 		mail_storage_set_critical(ff->storage, "write() failed for "
 					  "flags file %s: %m", ff->path);
 		return FALSE;
@@ -276,7 +277,7 @@ static int flags_file_update_counter(FlagsFile *ff)
 		}
 	}
 
-	if (write(ff->fd, ff->sync_counter, COUNTER_SIZE) != COUNTER_SIZE) {
+	if (write_full(ff->fd, ff->sync_counter, COUNTER_SIZE) < 0) {
 		mail_storage_set_critical(ff->storage, "write() failed for "
 					  "flags file %s: %m", ff->path);
 		return FALSE;
@@ -321,7 +322,7 @@ static int flags_file_add(FlagsFile *ff, int idx, const char *name)
 		len--;
 	}
 
-	if ((size_t) write(ff->fd, buf, len) != len) {
+	if (write_full(ff->fd, buf, len) < 0) {
 		mail_storage_set_critical(ff->storage, "write() failed for "
 					  "flags file %s: %m", ff->path);
 		return FALSE;

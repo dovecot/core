@@ -24,7 +24,7 @@ void mail_hash_free(MailHash *hash);
 /* Synchronize the hash file with memory map */
 int mail_hash_sync_file(MailHash *hash);
 
-/* Rebuild hash from index and reset the FLAG_REBUILD in header.
+/* Rebuild hash from index and reset the FLAG_REBUILD_HASH in header.
    The index must have an exclusive lock before this function is called. */
 int mail_hash_rebuild(MailHash *hash);
 

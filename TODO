@@ -25,27 +25,17 @@ index:
        the first UID in index.
  - mbox:
      - BUG: adding new mail after indexes are created doesn't work
-     - save MD5 sums for messages?
-     - update Status and X-Status headers when flags are changed
-     - last \n shouldn't be sent for messages. also remember to fix
-       the From-checks to check for [\r]\nFrom instead then..
+     - update Status and X-Status headers when flags are changed.
+       how? probably by just writing a new mbox file at close time.
      - EXPUNGE doesn't delete the mail from the mbox file
-     - fsck should probably (or optionally?) really scan the message body
-       for "\nFrom " text instead of just jumping over the message body.
-       Quite useless actually, but this would make it fully reliable with md5
-       anyway..
  - there's some race condition issues when opening mailboxes..
- - when opening index files, check the flags and do what's needed. fsck and
-   rebuild is supported currently. compression and hash rebuilding is still
-   needed. and the cache_fields .. not sure when that'd be done, preferably
-   in the separate compress-process..
  - set_lock() is ugly and horrible and should really be done something.
    does the syncing really need to be there? maybe put it into separate
    function which can be called after set_lock() by functions which actually
    care about the sync state (fetch, search, store, etc).
  - read-only support for mailboxes where we don't have write-access? Could be
-   a bigger job. At least the mmap()ed file contents can't be trusted since
-   they might change at any time.
+   a bigger job. At least the mmap()ed file contents (== pretty much
+   everything) can't be trusted since they might change at any time.
  - if index was just rebuilt, modify log complains about indexid mismatch
    at first open
  - does append work?
@@ -65,7 +55,8 @@ lib-storage:
  - maildir: atomic COPY could be done by setting a "temporary" flag into the
    file's name. once copying is done, set an ignore-temporary field into
    index's header. at next sync the temporary flag will be removed.
- - mbox: internal_date isn't saved 
+ - mbox: should we bother checking if mbox file doesn't end with \n when 
+   appending?
  - select "" shouldn't work.
 
 general:
@@ -108,7 +99,13 @@ general:
  - Something's wrong with expunging mails from maildir ..
  - PAM: support some options so /etc/passwd-lookup isn't needed. uid=x, gid=y,
    mailroot=/var/mail. maildirs should be then created when needed
- - check for "../" folder names with mbox
+ - index_rec->full_virtual_size could be 0 to indicate it's not calculated
+   yet. this way we don't need to read the messages fully just to find out
+   that.
+ - ability to automatically try again if some command fails because error
+   occured in the middle of it, but was most likely also fixed. for example
+   if mbox is compressed in the middle of FETCH operation or some index
+   corruption was noticed
 
 cleanups / checks:
  - grep for FIXME
@@ -121,7 +118,7 @@ cleanups / checks:
  - allocating readwrite pools now just uses system_pool .. so pool_unref()
    can't free memory used by it .. what to do about it? at least count the
    malloc/free calls and make complain if at the exit they don't match
- - Make sure messages of size INT_MAX..UINT_MAX (and more) work correctly
+ - Make sure messages of size INT_MAX..UINT_MAX (and more) work correctly.
    virtual_size can also overflow making it less than physical_size
 
 optional optimizations:

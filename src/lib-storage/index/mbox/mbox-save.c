@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "hostpid.h"
 #include "iobuffer.h"
+#include "write-full.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
 #include "mbox-storage.h"
@@ -40,7 +41,7 @@ static int write_from_line(MailStorage *storage, int fd, time_t internal_date)
 	line = mbox_from_create(sender, internal_date);
 	len = strlen(line);
 
-	return (size_t)write(fd, line, len) == len;
+	return write_full(fd, line, len) < 0;
 }
 
 int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],

@@ -38,7 +38,8 @@ liblib_a_SOURCES = \
 	temp-mempool.c \
 	temp-string.c \
 	unlink-directory.c \
-	unlink-lockfiles.c
+	unlink-lockfiles.c \
+	write-full.c
 
 noinst_HEADERS = \
 	base64.h \
@@ -67,7 +68,8 @@ noinst_HEADERS = \
 	temp-mempool.h \
 	temp-string.h \
 	unlink-directory.h \
-	unlink-lockfiles.h
+	unlink-lockfiles.h \
+	write-full.h
 
 EXTRA_DIST = \
 	$(ioloop_sources)

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mmap-util.h"
+#include "write-full.h"
 #include "mail-index.h"
 #include "mail-index-util.h"
 #include "mail-modifylog.h"
@@ -181,7 +182,7 @@ static int mail_modifylog_init_fd(MailModifyLog *log, int fd,
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.indexid = log->index->indexid;
 
-	if (write(fd, &hdr, sizeof(hdr)) != sizeof(hdr)) {
+	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
 		index_set_error(log->index, "write() failed for modify "
 				"log %s: %m", path);
 		return FALSE;
@@ -397,8 +398,7 @@ static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord *rec,
 		return FALSE;
 	}
 
-	if (write(log->fd, rec, sizeof(ModifyLogRecord)) !=
-	    sizeof(ModifyLogRecord)) {
+	if (write_full(log->fd, rec, sizeof(ModifyLogRecord)) < 0) {
 		index_set_error(log->index, "Error appending to file %s: %m",
 				log->filepath);
 		return FALSE;

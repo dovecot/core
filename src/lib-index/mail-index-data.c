@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mmap-util.h"
+#include "write-full.h"
 #include "mail-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
@@ -62,7 +63,7 @@ int mail_index_data_open(MailIndex *index)
 	const char *path;
 	int fd;
 
-	path = t_strconcat(index->filepath, ".data", NULL);
+	path = t_strconcat(index->filepath, DATA_FILE_PREFIX, NULL);
 	fd = open(path, O_RDWR);
 	if (fd == -1) {
 		if (errno == ENOENT) {
@@ -109,7 +110,7 @@ static const char *init_data_file(MailIndex *index, int fd,
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.indexid = index->indexid;
 
-	if (write(fd, &hdr, sizeof(hdr)) != sizeof(hdr)) {
+	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
 		index_set_error(index, "Error writing to temp index data "
 				"%s: %m", temppath);
 		return NULL;
@@ -117,7 +118,7 @@ static const char *init_data_file(MailIndex *index, int fd,
 
 	/* move temp file into .data file, deleting old one
 	   if it already exists */
-	realpath = t_strconcat(index->filepath, ".data", NULL);
+	realpath = t_strconcat(index->filepath, DATA_FILE_PREFIX, NULL);
 	if (rename(temppath, realpath) == -1) {
 		index_set_error(index, "rename(%s, %s) failed: %m",
 				temppath, realpath);
@@ -189,7 +190,7 @@ int mail_index_data_reset(MailIndexData *data)
 		return FALSE;
 	}
 
-	if (write(data->fd, &hdr, sizeof(hdr)) != sizeof(hdr)) {
+	if (write_full(data->fd, &hdr, sizeof(hdr)) < 0) {
 		index_set_error(data->index, "write() failed for data file "
 				"%s: %m", data->filepath);
 		return FALSE;
@@ -216,7 +217,7 @@ off_t mail_index_data_append(MailIndexData *data, void *buffer, size_t size)
 		return -1;
 	}
 
-	if ((size_t) write(data->fd, buffer, size) != size) {
+	if (write_full(data->fd, buffer, size) < 0) {
 		index_set_error(data->index, "Error appending to file %s: %m",
 				data->filepath);
 		return -1;
@@ -375,4 +376,13 @@ int mail_index_data_record_verify(MailIndexData *data, MailIndexDataRecord *rec)
 			data->filepath, rec->field,
 			(unsigned long) DATA_FILE_POSITION(data, rec));
 	return FALSE;
+}
+
+void *mail_index_data_get_mmaped(MailIndexData *data, size_t *size)
+{
+	if (!mmap_update(data, 0, UINT_MAX))
+		return NULL;
+
+	*size = data->mmap_length;
+	return data->mmap_base;
 }

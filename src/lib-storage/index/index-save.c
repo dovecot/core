@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "iobuffer.h"
+#include "write-full.h"
 #include "index-storage.h"
 
 #include <stdlib.h>
@@ -10,19 +11,17 @@
 static int write_with_crlf(int fd, const unsigned char *data,
 			   unsigned int size, unsigned int *last_cr)
 {
-	int i, cr;
-
-	i_assert(size < INT_MAX);
+	unsigned int i, cr;
 
 	cr = *last_cr ? -1 : -2;
-	for (i = 0; i < (int)size; i++) {
+	for (i = 0; i < size; i++) {
 		if (data[i] == '\r')
 			cr = i;
 		else if (data[i] == '\n' && cr != i-1) {
 			/* missing CR */
-			if (write(fd, data, (size_t) i) != i)
+			if (write_full(fd, data, i) < 0)
 				return FALSE;
-			if (write(fd, "\r", 1) != 1)
+			if (write_full(fd, "\r", 1) < 0)
 				return FALSE;
 
 			/* skip the data so far. \n is left into buffer and
@@ -33,7 +32,7 @@ static int write_with_crlf(int fd, const unsigned char *data,
 		}
 	}
 
-	return write(fd, data, size) == i;
+	return write_full(fd, data, size) < 0;
 }
 
 int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
