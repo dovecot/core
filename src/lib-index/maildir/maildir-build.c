@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "str.h"
 #include "maildir-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
@@ -103,64 +104,59 @@ int maildir_index_append_file(struct mail_index *index, const char *dir,
 	return ret;
 }
 
-int maildir_index_build_dir(struct mail_index *index, const char *source_dir,
-			    const char *dest_dir)
+int maildir_index_build_dir(struct mail_index *index,
+			    const char *source_dir, const char *dest_dir,
+			    DIR *dirp, struct dirent *d)
 {
-	DIR *dirp;
 	const char *final_dir;
-	struct dirent *d;
-	struct stat st;
-	char sourcepath[PATH_MAX], destpath[PATH_MAX];
+	string_t *sourcepath, *destpath;
 	int failed;
 
+	i_assert(index->maildir_lock_fd != -1);
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
-	i_assert(source_dir != NULL);
 
-	dirp = opendir(source_dir);
-	if (dirp == NULL) {
-		return index_file_set_syscall_error(index, source_dir,
-						    "opendir()");
-	}
+	sourcepath = t_str_new(PATH_MAX);
+	destpath = t_str_new(PATH_MAX);
 
 	final_dir = dest_dir != NULL ? dest_dir : source_dir;
 
 	failed = FALSE;
-	while (!failed && (d = readdir(dirp)) != NULL) {
+	for (; d != NULL && !failed; d = readdir(dirp)) {
 		if (d->d_name[0] == '.')
 			continue;
 
 		if (dest_dir != NULL) {
-			/* move the file into dest_dir - abort everything if it
-			   already exists, as that should never happen */
-			if (str_path(sourcepath, sizeof(sourcepath),
-				     source_dir, d->d_name) < 0) {
-				index_set_error(index, "Path too long: %s/%s",
-						source_dir, d->d_name);
-				failed = TRUE;
-				break;
-			}
-			if (str_path(destpath, sizeof(destpath),
-				     dest_dir, d->d_name) < 0) {
-				index_set_error(index, "Path too long: %s/%s",
-						dest_dir, d->d_name);
-				failed = TRUE;
-				break;
-			}
-			if (stat(destpath, &st) == 0) {
-				index_set_error(index, "Can't move mail %s to "
-						"%s: file already exists",
-						sourcepath, destpath);
-				failed = TRUE;
-				break;
-			}
+			/* rename() has the problem that it might overwrite
+			   some mails, but that happens only with a broken
+			   client that has created non-unique base name.
 
-			/* race condition here - ignore it as the chance of it
-			   happening is pretty much zero */
+			   Alternative would be link() + unlink(), but that's
+			   racy when multiple clients try to move the mail from
+			   new/ to cur/:
 
-			if (rename(sourcepath, destpath) < 0) {
+			   a) One of the clients uses slightly different
+			   filename (eg. sets flags)
+
+			   b) Third client changes mail's flag between
+			   client1's unlink() and client2's link() calls.
+
+			   Checking first if file exists with stat() is pretty
+			   useless as well. It requires that we also stat the
+			   file in new/, to make sure that the dest file isn't
+			   actually the same file which someone _just_ had
+			   rename()d. */
+			str_truncate(sourcepath, 0);
+			str_truncate(destpath, 0);
+
+			str_printfa(sourcepath, "%s/%s", source_dir, d->d_name);
+			str_printfa(destpath, "%s/%s", dest_dir, d->d_name);
+
+			if (rename(str_c(sourcepath), str_c(destpath)) < 0 &&
+			    errno != ENOENT) {
 				index_set_error(index, "maildir build: "
 						"rename(%s, %s) failed: %m",
-						sourcepath, destpath);
+						str_c(sourcepath),
+						str_c(destpath));
 				failed = TRUE;
 				break;
 			}
@@ -172,7 +168,5 @@ int maildir_index_build_dir(struct mail_index *index, const char *source_dir,
 		t_pop();
 	}
 
-	if (closedir(dirp) < 0)
-		index_file_set_syscall_error(index, source_dir, "closedir()");
 	return !failed;
 }

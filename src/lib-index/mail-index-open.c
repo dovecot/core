@@ -64,6 +64,8 @@ static int mail_index_open_init(struct mail_index *index,
 static int index_open_and_fix(struct mail_index *index,
 			      enum mail_index_open_flags flags)
 {
+	int rebuilt;
+
 	/* open/create the index files */
 	if ((flags & _MAIL_INDEX_OPEN_FLAG_CREATING) == 0) {
 		if (!mail_index_data_open(index)) {
@@ -97,6 +99,9 @@ static int index_open_and_fix(struct mail_index *index,
 		/* no inconsistency problems since we're still opening
 		   the index */
 		index->inconsistent = FALSE;
+		rebuilt = TRUE;
+	} else {
+		rebuilt = FALSE;
 	}
 
 	if ((flags & _MAIL_INDEX_OPEN_FLAG_CREATING) == 0) {
@@ -122,11 +127,14 @@ static int index_open_and_fix(struct mail_index *index,
 			return FALSE;
 	}
 
-	/* sync ourself. do it before updating cache and compression which
-	   may happen because of this. */
-	if (!index->sync_and_lock(index, MAIL_LOCK_SHARED, NULL))
-		return FALSE;
-	index->inconsistent = FALSE;
+	if (!rebuilt) {
+		/* sync ourself. do it before updating cache and compression
+		   which may happen because of this. */
+		if (!index->sync_and_lock(index, MAIL_LOCK_SHARED, NULL))
+			return FALSE;
+
+		index->inconsistent = FALSE;
+	}
 
 	/* we never want to keep shared lock if syncing happens to set it.
 	   either exclusive or nothing (NOTE: drop it directly, not through

@@ -1,6 +1,8 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
+#include "hostpid.h"
 #include "str.h"
 #include "maildir-index.h"
 #include "mail-index-data.h"
@@ -8,6 +10,8 @@
 
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <time.h>
 
 extern struct mail_index maildir_index;
 
@@ -29,6 +33,53 @@ const char *maildir_get_location(struct mail_index *index,
 			"Missing location field for record %u", rec->uid);
 	}
 	return fname;
+}
+
+const char *maildir_generate_tmp_filename(const struct timeval *tv)
+{
+	static unsigned int create_count = 0;
+
+	return t_strdup_printf("%s.P%sQ%uM%s.%s",
+			       dec2str(tv->tv_sec), my_pid, create_count++,
+			       dec2str(tv->tv_usec), my_hostname);
+}
+
+int maildir_create_tmp(struct mail_index *index, const char *dir,
+		       const char **fname)
+{
+	const char *path, *tmp_fname;
+	struct stat st;
+	struct timeval *tv, tv_now;
+	pool_t pool;
+	int fd;
+
+	tv = &ioloop_timeval;
+	pool = pool_alloconly_create("maildir_tmp", 4096);
+	for (;;) {
+		p_clear(pool);
+		tmp_fname = maildir_generate_tmp_filename(tv);
+
+		path = p_strconcat(pool, dir, "/", tmp_fname, NULL);
+		if (stat(path, &st) < 0 && errno == ENOENT) {
+			/* doesn't exist */
+			fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+			if (fd != -1 || errno != EEXIST)
+				break;
+		}
+
+		/* wait and try again - very unlikely */
+		sleep(2);
+		tv = &tv_now;
+		if (gettimeofday(&tv_now, NULL) < 0)
+			i_fatal("gettimeofday(): %m");
+	}
+
+	*fname = t_strdup(path);
+	if (fd == -1)
+		index_file_set_syscall_error(index, path, "open()");
+
+	pool_unref(pool);
+	return fd;
 }
 
 enum mail_flags maildir_filename_get_flags(const char *fname,
@@ -163,6 +214,7 @@ struct mail_index *maildir_index_alloc(const char *dir, const char *maildir)
 	index = i_new(struct mail_index, 1);
 	memcpy(index, &maildir_index, sizeof(struct mail_index));
 
+	index->maildir_lock_fd = -1;
 	index->mailbox_path = i_strdup(maildir);
 	mail_index_init(index, dir);
 	return index;

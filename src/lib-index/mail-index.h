@@ -393,6 +393,14 @@ struct mail_index {
 	dev_t mbox_dev;
 	ino_t mbox_ino;
 
+	/* last maildir sync: */
+	dev_t uidlist_dev;
+	ino_t uidlist_ino;
+	time_t uidlist_mtime;
+	off_t uidlist_size;
+
+	int maildir_lock_fd;
+
 	int fd; /* opened index file */
 	char *error; /* last error message */
 
@@ -416,6 +424,7 @@ struct mail_index {
 
 	unsigned int anon_mmap:1;
 	unsigned int opened:1;
+	unsigned int rebuilding:1;
 	unsigned int mail_read_mmaped:1;
 	unsigned int inconsistent:1;
 	unsigned int nodiskspace:1;
@@ -438,7 +447,8 @@ struct mail_index {
 	0, 0, 0, 0, 0, 0, { 0, 0, 0 }, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	0
 #endif
 
 /* defaults - same as above but prefixed with mail_index_. */

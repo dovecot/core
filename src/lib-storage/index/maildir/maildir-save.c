@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "hostpid.h"
 #include "ostream.h"
 #include "maildir-index.h"
 #include "maildir-storage.h"
@@ -12,8 +11,6 @@
 #include <fcntl.h>
 #include <utime.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <time.h>
 
 struct mail_filename {
 	struct mail_filename *next;
@@ -30,80 +27,29 @@ struct mail_save_context {
 	struct mail_filename *files;
 };
 
-const char *maildir_generate_tmp_filename(const struct timeval *tv)
-{
-	static unsigned int create_count = 0;
-
-	hostpid_init();
-	return t_strdup_printf("%s.P%sQ%uM%s.%s",
-			       dec2str(tv->tv_sec), my_pid, create_count++,
-			       dec2str(tv->tv_usec), my_hostname);
-}
-
-static int maildir_create_tmp(struct mail_storage *storage, const char *dir,
-			      const char **fname)
-{
-	const char *path, *tmp_fname;
-	struct stat st;
-	struct timeval *tv, tv_now;
-	pool_t pool;
-	int fd;
-
-	tv = &ioloop_timeval;
-	pool = pool_alloconly_create("maildir_tmp", 4096);
-	for (;;) {
-		p_clear(pool);
-		tmp_fname = maildir_generate_tmp_filename(tv);
-
-		path = p_strconcat(pool, dir, "/", tmp_fname, NULL);
-		if (stat(path, &st) < 0 && errno == ENOENT) {
-			/* doesn't exist */
-			fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
-			if (fd != -1 || errno != EEXIST)
-				break;
-		}
-
-		/* wait and try again - very unlikely */
-		sleep(2);
-		tv = &tv_now;
-		if (gettimeofday(&tv_now, NULL) < 0)
-			i_fatal("gettimeofday(): %m");
-	}
-
-	*fname = t_strdup(tmp_fname);
-	if (fd == -1) {
-		if (ENOSPACE(errno)) {
-			mail_storage_set_error(storage,
-				"Not enough disk space");
-		} else {
-			mail_storage_set_critical(storage,
-				"Can't create file %s: %m", path);
-		}
-	}
-
-	pool_unref(pool);
-	return fd;
-}
-
 static const char *
-maildir_read_into_tmp(struct mail_storage *storage, const char *dir,
+maildir_read_into_tmp(struct index_mailbox *ibox, const char *dir,
 		      struct istream *input)
 {
-	const char *fname, *path;
+	const char *path, *fname;
 	struct ostream *output;
 	int fd;
 
-	fd = maildir_create_tmp(storage, dir, &fname);
+	fd = maildir_create_tmp(ibox->index, dir, &path);
 	if (fd == -1)
 		return NULL;
+
+	fname = strrchr(path, '/');
+	i_assert(fname != NULL);
+	fname++;
 
 	t_push();
 	output = o_stream_create_file(fd, data_stack_pool, 4096,
 				      IO_PRIORITY_DEFAULT, FALSE);
 	o_stream_set_blocking(output, 60000, NULL, NULL);
 
-	path = t_strconcat(dir, "/", fname, NULL);
-	if (!index_storage_save(storage, path, input, output, NULL, NULL))
+	if (!index_storage_save(ibox->box.storage, path, input, output,
+				NULL, NULL))
 		fname = NULL;
 
 	o_stream_unref(output);
@@ -166,8 +112,7 @@ int maildir_storage_save_next(struct mail_save_context *ctx,
 	t_push();
 
 	/* create the file into tmp/ directory */
-	fname = maildir_read_into_tmp(ctx->ibox->box.storage,
-				      ctx->tmpdir, data);
+	fname = maildir_read_into_tmp(ctx->ibox, ctx->tmpdir, data);
 	if (fname == NULL) {
 		t_pop();
 		return FALSE;
