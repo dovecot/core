@@ -31,6 +31,7 @@ imap_auth_SOURCES = \
 
 noinst_HEADERS = \
 	auth.h \
+	auth-mech-desc.h \
 	auth-interface.h \
 	common.h \
 	cookie.h \
