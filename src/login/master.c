@@ -77,10 +77,8 @@ void master_request_imap(int fd, int auth_process, const char *login_tag,
 	memcpy(&req.ip, ip, sizeof(IPADDR));
 	memcpy(req.cookie, cookie, AUTH_COOKIE_SIZE);
 
-	if (strlen(login_tag) >= sizeof(req.login_tag))
-		strcpy(req.login_tag, "*");
-	else
-		strcpy(req.login_tag, login_tag);
+	if (strocpy(req.login_tag, login_tag, sizeof(req.login_tag)) < 0)
+		strocpy(req.login_tag, "*", sizeof(req.login_tag));
 
 	if (fd_send(LOGIN_MASTER_SOCKET_FD,
 		    fd, &req, sizeof(req)) != sizeof(req))

@@ -103,10 +103,9 @@ Pool _pool_alloconly_create(const char *name, size_t size)
 		i_panic("pool_alloconly_create(): Out of memory");
 	apool->pool = static_alloconly_pool;
 	apool->refcount = 1;
+	memcpy(apool->name, name, len+1);
 
 	block_alloc(apool, size);
-
-	strcpy(apool->name, name);
 	return (Pool) apool;
 }
 

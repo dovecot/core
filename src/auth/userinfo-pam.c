@@ -88,14 +88,15 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	if (!(*resp = malloc(sizeof(struct pam_response))))
 		return PAM_CONV_ERR;
 
+	userlen = strlen(userpass->user);
+	passlen = strlen(userpass->pass);
+
 	prompt = NULL;
-	PAM_BP_RENEW(&prompt, PAM_BPC_DONE,
-		strlen(userpass->user) + 1 + strlen(userpass->pass));
+	PAM_BP_RENEW(&prompt, PAM_BPC_DONE, userlen + 1 + passlen);
 	output = PAM_BP_WDATA(prompt);
 
-	strcpy(output, userpass->user);
-	output += strlen(output) + 1;
-	memcpy(output, userpass->pass, strlen(userpass->pass));
+	memcpy(output, userpass->user, userlen + 1);
+	memcpy(output + userlen + 1, userpass->pass, passlen);
 
 	(*resp)[0].resp_retcode = 0;
 	(*resp)[0].resp = (char *)prompt;

@@ -107,7 +107,7 @@ int maildir_index_build_dir(MailIndex *index, const char *source_dir,
 	const char *final_dir;
 	struct dirent *d;
 	struct stat st;
-	char sourcepath[1024], destpath[1024];
+	char sourcepath[PATH_MAX], destpath[PATH_MAX];
 	int failed;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
@@ -129,10 +129,20 @@ int maildir_index_build_dir(MailIndex *index, const char *source_dir,
 		if (dest_dir != NULL) {
 			/* move the file into dest_dir - abort everything if it
 			   already exists, as that should never happen */
-			i_snprintf(sourcepath, sizeof(sourcepath), "%s/%s",
-				   source_dir, d->d_name);
-			i_snprintf(destpath, sizeof(destpath), "%s/%s",
-				   dest_dir, d->d_name);
+			if (str_path(sourcepath, sizeof(sourcepath),
+				     source_dir, d->d_name) < 0) {
+				index_set_error(index, "Path too long: %s/%s",
+						source_dir, d->d_name);
+				failed = TRUE;
+				break;
+			}
+			if (str_path(destpath, sizeof(destpath),
+				     dest_dir, d->d_name) < 0) {
+				index_set_error(index, "Path too long: %s/%s",
+						dest_dir, d->d_name);
+				failed = TRUE;
+				break;
+			}
 			if (stat(destpath, &st) == 0) {
 				index_set_error(index, "Can't move mail %s to "
 						"%s: file already exists",

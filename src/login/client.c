@@ -156,7 +156,7 @@ static char *get_next_arg(char **linep)
 
 		if (*line == '"')
 			*line++ = '\0';
-		string_remove_escapes(start);
+		str_remove_escapes(start);
 	} else {
 		start = line;
 		while (*line != '\0' && *line != ' ')
@@ -359,7 +359,7 @@ int client_unref(Client *client)
 
 void client_send_line(Client *client, const char *line)
 {
-	o_stream_send(client->output, line, strlen(line));
+	o_stream_send_str(client->output, line);
 	o_stream_send(client->output, "\r\n", 2);
 }
 

@@ -18,7 +18,7 @@ const char *maildir_generate_tmp_filename(void)
 
 	hostpid_init();
 
-	return t_strdup_printf("%lu.%s_%u.%s", (unsigned long) ioloop_time,
+	return t_strdup_printf("%s.%s_%u.%s", dec2str(ioloop_time),
 			       my_pid, create_count++, my_hostname);
 }
 

@@ -28,15 +28,15 @@ static int validate_uid_gid(uid_t uid, gid_t gid)
 
 	if (uid < (uid_t)set_first_valid_uid ||
 	    (set_last_valid_uid != 0 && uid > (uid_t)set_last_valid_uid)) {
-		i_error("imap process isn't allowed to use UID %ld",
-			(long) uid);
+		i_error("imap process isn't allowed to use UID %s",
+			dec2str(uid));
 		return FALSE;
 	}
 
 	if (gid < (gid_t)set_first_valid_gid ||
 	    (set_last_valid_gid != 0 && gid > (gid_t)set_last_valid_gid)) {
 		i_error("imap process isn't allowed to use "
-			"GID %ld (UID is %ld)", (long) gid, (long) uid);
+			"GID %s (UID is %s)", dec2str(gid), dec2str(uid));
 		return FALSE;
 	}
 
@@ -135,8 +135,6 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip,
 		/* master */
 		imap_process_count++;
 		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_IMAP);
-		if (close(socket) < 0)
-			i_error("close(imap client) failed: %m");
 		return MASTER_RESULT_SUCCESS;
 	}
 

@@ -45,6 +45,7 @@ int o_stream_have_space(OStream *stream, size_t size);
 int o_stream_seek(OStream *stream, uoff_t offset);
 /* Returns number of bytes sent or buffered, or -1 if disconnected */
 ssize_t o_stream_send(OStream *stream, const void *data, size_t size);
+ssize_t o_stream_send_str(OStream *stream, const char *str);
 /* Send data from input stream. Returns number of bytes sent, or -1 if error.
    Note that this function may block if either instream or outstream is
    blocking. */

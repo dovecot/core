@@ -57,7 +57,7 @@ static int fetch_body(MailIndexRecord *rec, MailFetchBodyData *sect,
 
 	str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
 			      prefix, size.virtual_size);
-	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
+	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
 	if (cr_skipped)
@@ -261,7 +261,7 @@ static int fetch_header_from(IStream *input, OStream *output,
 		/* all headers */
 		str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
 				      prefix, size->virtual_size);
-		if (o_stream_send(output, str, strlen(str)) < 0)
+		if (o_stream_send_str(output, str) < 0)
 			return FALSE;
 		return message_send(output, input, size,
 				    sect->skip, sect->max_size);
@@ -297,7 +297,7 @@ static int fetch_header_from(IStream *input, OStream *output,
 	if (!failed) {
 		str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
 				      prefix, ctx.dest_size);
-		if (o_stream_send(output, str, strlen(str)) < 0)
+		if (o_stream_send_str(output, str) < 0)
 			failed = TRUE;
 	}
 
@@ -402,7 +402,7 @@ static int fetch_part_body(MessagePart *part, MailFetchBodyData *sect,
 
 	str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
 			      prefix, part->body_size.virtual_size);
-	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
+	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
 	/* FIXME: potential performance problem with big messages:

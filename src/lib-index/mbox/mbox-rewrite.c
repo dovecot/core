@@ -84,7 +84,7 @@ static int mbox_write_ximapbase(MboxRewriteContext *ctx)
 
 	str = t_strdup_printf("X-IMAPbase: %u %u",
 			      ctx->uid_validity, ctx->uid_last);
-	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
+	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
 	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
@@ -92,8 +92,8 @@ static int mbox_write_ximapbase(MboxRewriteContext *ctx)
 			if (o_stream_send(ctx->output, " ", 1) < 0)
 				return FALSE;
 
-			if (o_stream_send(ctx->output, ctx->custom_flags[i],
-					  strlen(ctx->custom_flags[i])) < 0)
+			if (o_stream_send_str(ctx->output,
+					      ctx->custom_flags[i]) < 0)
 				return FALSE;
 		}
 	}
@@ -113,7 +113,7 @@ static int mbox_write_xkeywords(MboxRewriteContext *ctx, const char *x_keywords)
 	    x_keywords == NULL)
 		return TRUE;
 
-	if (o_stream_send(ctx->output, "X-Keywords:", 11) < 0)
+	if (o_stream_send_str(ctx->output, "X-Keywords:") < 0)
 		return FALSE;
 
 	field = 1 << MAIL_CUSTOM_FLAG_1_BIT;
@@ -122,8 +122,8 @@ static int mbox_write_xkeywords(MboxRewriteContext *ctx, const char *x_keywords)
 			if (o_stream_send(ctx->output, " ", 1) < 0)
 				return FALSE;
 
-			if (o_stream_send(ctx->output, ctx->custom_flags[i],
-					  strlen(ctx->custom_flags[i])) < 0)
+			if (o_stream_send_str(ctx->output,
+					      ctx->custom_flags[i]) < 0)
 				return FALSE;
 		}
 	}
@@ -133,8 +133,7 @@ static int mbox_write_xkeywords(MboxRewriteContext *ctx, const char *x_keywords)
 		if (o_stream_send(ctx->output, " ", 1) < 0)
 			return FALSE;
 
-		if (o_stream_send(ctx->output, x_keywords,
-				  strlen(x_keywords)) < 0)
+		if (o_stream_send_str(ctx->output, x_keywords) < 0)
 			return FALSE;
 	}
 
@@ -152,7 +151,7 @@ static int mbox_write_status(MboxRewriteContext *ctx, const char *status)
 	if (status != NULL)
 		str = t_strconcat(str, status, NULL);
 
-	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
+	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 	if (o_stream_send(ctx->output, "\n", 1) < 0)
 		return FALSE;
@@ -176,7 +175,7 @@ static int mbox_write_xstatus(MboxRewriteContext *ctx, const char *x_status)
 			  (ctx->msg_flags & MAIL_DELETED) ? "T" : "",
 			  x_status, NULL);
 
-	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
+	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 	if (o_stream_send(ctx->output, "\n", 1) < 0)
 		return FALSE;
@@ -191,7 +190,7 @@ static int mbox_write_content_length(MboxRewriteContext *ctx)
 	i_snprintf(str, sizeof(str), "Content-Length: %"PRIuUOFF_T"\n",
 		   ctx->content_length);
 
-	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
+	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 	return TRUE;
 }

@@ -38,7 +38,7 @@ void unlink_lockfiles(const char *dir, const char *pidprefix,
 	DIR *dirp;
 	struct dirent *d;
 	struct stat st;
-	char path[1024];
+	char path[PATH_MAX];
 	unsigned int pidlen, otherlen;
 
 	/* check for any invalid access files */
@@ -61,15 +61,14 @@ void unlink_lockfiles(const char *dir, const char *pidprefix,
 			if (kill(atoi(fname+pidlen), 0) == 0)
 				continue; /* valid */
 
-			i_snprintf(path, sizeof(path), "%s/%s", dir, fname);
-			(void)unlink(path);
+			if (str_path(path, sizeof(path), dir, fname) == 0)
+				(void)unlink(path);
 		} else if (otherprefix != 0 &&
 			   strncmp(fname, otherprefix, otherlen) == 0) {
-			i_snprintf(path, sizeof(path), "%s/%s", dir, fname);
-			if (stat(path, &st) == 0 &&
-			    st.st_mtime < other_min_time) {
+			if (str_path(path, sizeof(path), dir, fname) == 0 &&
+			    stat(path, &st) == 0 &&
+			    st.st_mtime < other_min_time)
 				(void)unlink(path);
-			}
 		}
 	}
 

@@ -135,7 +135,7 @@ static int index_fetch_send_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
-	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
+	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
 	body_size.physical_size += hdr_size.physical_size;
@@ -162,7 +162,7 @@ static int index_fetch_send_rfc822_header(MailIndexRecord *rec,
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
-	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
+	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
 	return message_send(ctx->output, input, &hdr_size, 0, (uoff_t)-1);
@@ -186,7 +186,7 @@ static int index_fetch_send_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
-	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
+	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
 	return message_send(ctx->output, input, &body_size, 0, (uoff_t)-1);

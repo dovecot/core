@@ -153,7 +153,9 @@ static void login_process_input(void *context, int fd __attr_unused__,
 	authreq->auth_id = ++auth_id_counter;
 	authreq->fd = client_fd;
 	memcpy(&authreq->ip, &req.ip, sizeof(IPADDR));
-	strcpy(authreq->login_tag, req.login_tag);
+	if (strocpy(authreq->login_tag, req.login_tag,
+		    sizeof(authreq->login_tag)) < 0)
+		i_panic("login_tag overflow");
 
 	auth_process = auth_process_find(req.auth_process);
 	if (auth_process == NULL) {

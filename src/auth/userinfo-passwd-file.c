@@ -78,20 +78,21 @@ static int get_reply_data(PasswdUser *pu, AuthCookieReplyData *reply)
 		reply->gid = pu->gid;
 
 	if (pu->home != NULL) {
-		i_assert(sizeof(reply->home) > strlen(pu->home));
-		strcpy(reply->home, pu->home);
+		if (strocpy(reply->home, pu->home, sizeof(reply->home)) < 0)
+			i_panic("home overflow");
 	}
 
 	if (pu->mail != NULL) {
-		i_assert(sizeof(reply->mail) > strlen(pu->mail));
-		strcpy(reply->mail, pu->mail);
+		if (strocpy(reply->mail, pu->mail, sizeof(reply->mail)) < 0)
+			i_panic("mail overflow");
 	}
 
-	i_assert(sizeof(reply->virtual_user) > strlen(pu->user_realm));
-	strcpy(reply->virtual_user, pu->user_realm);
+	if (strocpy(reply->virtual_user, pu->user_realm,
+		    sizeof(reply->virtual_user)) < 0)
+		i_panic("virtual_user overflow");
 
 	if (pu->realm != NULL) {
-		/* ':' -> '@' to make it look prettier */
+		/* @UNSAFE: ':' -> '@' to make it look prettier */
 		size_t pos;
 
 		pos = (size_t) (pu->realm - (const char *) pu->user_realm);

@@ -66,15 +66,15 @@ static void pop_request(AuthProcess *process, AuthCookieReplyData *reply)
 
 	req = process->requests;
 	if (req == NULL) {
-		i_warning("imap-auth %ld sent us unrequested reply for id %d",
-			  (long)process->pid, reply->id);
+		i_warning("imap-auth %s sent us unrequested reply for id %d",
+			  dec2str(process->pid), reply->id);
 		return;
 	}
 
 	if (reply->id != req->id) {
-		i_fatal("imap-auth %ld sent invalid id for reply "
+		i_fatal("imap-auth %s sent invalid id for reply "
 			"(got %d, expecting %d)",
-			(long)process->pid, reply->id, req->id);
+			dec2str(process->pid), reply->id, req->id);
 	}
 
 	/* auth process isn't trusted, validate all data to make sure
@@ -215,8 +215,8 @@ static pid_t create_auth_process(AuthConfig *config)
 
 	/* set correct permissions */
 	if (chown(path, set_login_uid, set_login_gid) < 0) {
-		i_fatal("login: chown(%s, %d, %d) failed: %m",
-			path, (int)set_login_uid, (int)set_login_gid);
+		i_fatal("login: chown(%s, %s, %s) failed: %m",
+			path, dec2str(set_login_uid), dec2str(set_login_gid));
 	}
 
 	/* move master communication handle to 0 */
@@ -252,7 +252,7 @@ static pid_t create_auth_process(AuthConfig *config)
 				config->chroot);
 
 	/* set other environment */
-	env_put(t_strdup_printf("AUTH_PROCESS=%d", (int) getpid()));
+	env_put(t_strconcat("AUTH_PROCESS=", dec2str(getpid()), NULL));
 	env_put(t_strconcat("METHODS=", config->methods, NULL));
 	env_put(t_strconcat("REALMS=", config->realms, NULL));
 	env_put(t_strconcat("USERINFO=", config->userinfo, NULL));

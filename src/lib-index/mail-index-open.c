@@ -26,7 +26,7 @@ static const char *index_file_prefixes[] =
 
 static int delete_index(const char *path)
 {
-	char tmp[1024];
+	char tmp[PATH_MAX];
 	int i;
 
 	/* main index */
@@ -34,8 +34,10 @@ static int delete_index(const char *path)
 		return FALSE;
 
 	for (i = 0; index_file_prefixes[i] != NULL; i++) {
-		i_snprintf(tmp, sizeof(tmp), "%s.%s",
-			   path, index_file_prefixes[i]);
+		if (i_snprintf(tmp, sizeof(tmp), "%s.%s",
+			       path, index_file_prefixes[i]) < 0)
+			return FALSE;
+
 		if (unlink(tmp) < 0)
 			return FALSE;
 		i++;
@@ -95,20 +97,20 @@ static int mail_check_compatible_index(MailIndex *index, const char *path)
 static const char *mail_find_index(MailIndex *index)
 {
 	const char *name;
-	char path[1024];
+	char path[PATH_MAX];
 
 	hostpid_init();
 
 	/* first try .imap.index-<hostname> */
 	name = t_strconcat(INDEX_FILE_PREFIX "-", my_hostname, NULL);
-	i_snprintf(path, sizeof(path), "%s/%s", index->dir, name);
-	if (mail_check_compatible_index(index, path))
+	if (str_path(path, sizeof(path), index->dir, name) == 0 &&
+	    mail_check_compatible_index(index, path))
 		return name;
 
 	/* then try the generic .imap.index */
 	name = INDEX_FILE_PREFIX;
-	i_snprintf(path, sizeof(path), "%s/%s", index->dir, name);
-	if (mail_check_compatible_index(index, path))
+	if (str_path(path, sizeof(path), index->dir, name) == 0 &&
+	    mail_check_compatible_index(index, path))
 		return name;
 
 	return NULL;

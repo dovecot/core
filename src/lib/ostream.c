@@ -105,6 +105,11 @@ ssize_t o_stream_send(OStream *stream, const void *data, size_t size)
 	return _stream->send(_stream, data, size);
 }
 
+ssize_t o_stream_send_str(OStream *stream, const char *str)
+{
+	return o_stream_send(stream, str, strlen(str));
+}
+
 off_t o_stream_send_istream(OStream *outstream, IStream *instream)
 {
 	_OStream *_outstream = outstream->real_stream;

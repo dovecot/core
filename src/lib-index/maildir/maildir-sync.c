@@ -70,8 +70,8 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 	MailIndexRecord *rec;
 	MailIndexDataRecordHeader *data_hdr;
 	struct stat st;
-	const char *fname, *value;
-	char str[1024], *p;
+	const char *fname, *base_fname, *value;
+	char path[PATH_MAX];
 	unsigned int seq;
 	int fname_changed, file_changed;
 
@@ -87,13 +87,15 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 			return FALSE;
 		}
 
-		/* get the filename without the ":flags" part */
-		strncpy(str, fname, sizeof(str)-1); str[sizeof(str)-1] = '\0';
-		p = strchr(str, ':');
-		if (p != NULL) *p = '\0';
+		t_push();
 
-		value = hash_lookup(files, str);
-		hash_remove(files, str);
+		/* get the filename without the ":flags" part */
+		base_fname = t_strcut(fname, ':');
+
+		value = hash_lookup(files, base_fname);
+		hash_remove(files, base_fname);
+
+		t_pop();
 
 		if (value == NULL) {
 			/* mail is expunged */
@@ -106,13 +108,17 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 		}
 
 		/* file still exists */
-		i_snprintf(str, sizeof(str), "%s/%s", dir, value);
+		if (str_path(path, sizeof(path), dir, value) < 0) {
+			index_set_error(index, "Path too long: %s/%s",
+					dir, value);
+			return FALSE;
+		}
 
 		if (!check_content_changes)
 			file_changed = FALSE;
 		else {
-			if (stat(str, &st) < 0) {
-				index_file_set_syscall_error(index, str,
+			if (stat(path, &st) < 0) {
+				index_file_set_syscall_error(index, path,
 							     "stat()");
 				return FALSE;
 			}
@@ -128,7 +134,7 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 		fname_changed = strcmp(value, fname) != 0;
 		if (fname_changed || file_changed) {
 			if (!maildir_index_sync_file(index, rec, seq, value,
-						     str, fname_changed,
+						     path, fname_changed,
 						     file_changed))
 				return FALSE;
 		}
@@ -140,6 +146,7 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 		index_set_corrupted(index, "Wrong messages_count in header "
 				    "(%u != %u)", seq-1,
 				    index->header->messages_count);
+		return FALSE;
 	}
 
 	return TRUE;

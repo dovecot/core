@@ -36,15 +36,15 @@ void hostpid_init(void)
 	static char hostname[256], pid[MAX_INT_STRLEN];
 
 	if (my_hostname == NULL) {
-		hostname[sizeof(hostname)-1] = '\0';
 		if (gethostname(hostname, sizeof(hostname)-1) == -1)
-			strcpy(hostname, "unknown");
+			strocpy(hostname, "unknown", sizeof(hostname));
+		hostname[sizeof(hostname)-1] = '\0';
 
 		my_hostname = hostname;
 	}
 
 	if (my_pid == NULL) {
-		dec2str(pid, sizeof(pid), getpid());
+		strocpy(pid, dec2str(getpid()), sizeof(pid));
 		my_pid = pid;
 	}
 }

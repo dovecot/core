@@ -181,7 +181,9 @@ int net_connect_unix(const char *path)
 	struct sockaddr_un sa;
 	int fd, ret;
 
-	if (strlen(path) > sizeof(sa.sun_path)-1) {
+	memset(&sa, 0, sizeof(sa));
+	sa.sun_family = AF_UNIX;
+	if (strocpy(sa.sun_path, path, sizeof(sa.sun_path)) < 0) {
 		/* too long path */
 		errno = EINVAL;
 		return -1;
@@ -196,10 +198,6 @@ int net_connect_unix(const char *path)
         net_set_nonblock(fd, TRUE);
 
 	/* connect */
-	memset(&sa, 0, sizeof(sa));
-	sa.sun_family = AF_UNIX;
-	strcpy(sa.sun_path, path);
-
 	ret = connect(fd, (struct sockaddr *) &sa, sizeof(sa));
 	if (ret < 0 && errno != EINPROGRESS) {
                 close_save_errno(fd);
@@ -312,7 +310,9 @@ int net_listen_unix(const char *path)
 	struct sockaddr_un sa;
 	int fd;
 
-	if (strlen(path) > sizeof(sa.sun_path)-1) {
+	memset(&sa, 0, sizeof(sa));
+	sa.sun_family = AF_UNIX;
+	if (strocpy(sa.sun_path, path, sizeof(sa.sun_path)) < 0) {
 		/* too long path */
 		errno = EINVAL;
 		return -1;
@@ -327,10 +327,6 @@ int net_listen_unix(const char *path)
         net_set_nonblock(fd, TRUE);
 
 	/* bind */
-	memset(&sa, 0, sizeof(sa));
-	sa.sun_family = AF_UNIX;
-	strcpy(sa.sun_path, path);
-
 	if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) == 0) {
 		/* start listening */
 		if (listen(fd, LISTEN_BACKLOG) == 0)

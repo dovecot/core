@@ -141,12 +141,13 @@ static void _input_reset(void *context)
 static void _output(unsigned int *data, size_t count, void *context)
 {
 	IndexSortContext *ctx = context;
-	char num[MAX_INT_STRLEN+1];
-	size_t i, len;
+	size_t i;
 
 	for (i = 0; i < count; i++) {
-		len = i_snprintf(num, sizeof(num), " %u", data[i]);
-		o_stream_send(ctx->output, num, len);
+		t_push();
+		o_stream_send(ctx->output, " ", 1);
+		o_stream_send_str(ctx->output, dec2str(data[i]));
+		t_pop();
 	}
 }
 

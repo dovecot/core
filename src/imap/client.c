@@ -120,7 +120,7 @@ void client_send_line(Client *client, const char *data)
 	if (client->output->closed)
 		return;
 
-	(void)o_stream_send(client->output, data, strlen(data));
+	(void)o_stream_send_str(client->output, data);
 	(void)o_stream_send(client->output, "\r\n", 2);
 }
 
@@ -134,9 +134,9 @@ void client_send_tagline(Client *client, const char *data)
 	if (tag == NULL || *tag == '\0')
 		tag = "*";
 
-	(void)o_stream_send(client->output, tag, strlen(tag));
+	(void)o_stream_send_str(client->output, tag);
 	(void)o_stream_send(client->output, " ", 1);
-	(void)o_stream_send(client->output, data, strlen(data));
+	(void)o_stream_send_str(client->output, data);
 	(void)o_stream_send(client->output, "\r\n", 2);
 }
 

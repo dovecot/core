@@ -20,11 +20,11 @@ static MailboxFlags
 maildir_get_marked_flags_from(const char *dir, time_t index_stamp)
 {
 	struct stat st;
-	char path[1024];
+	char path[PATH_MAX];
 	time_t cur_stamp;
 
-	i_snprintf(path, sizeof(path), "%s/cur", dir);
-	if (stat(path, &st) == -1) {
+	if (str_path(path, sizeof(path), dir, "cur") < 0 ||
+	    stat(path, &st) < 0) {
 		/* no cur/ directory - broken */
 		return 0;
 	}
@@ -35,8 +35,8 @@ maildir_get_marked_flags_from(const char *dir, time_t index_stamp)
 		return MAILBOX_MARKED;
 	}
 
-	i_snprintf(path, sizeof(path), "%s/new", dir);
-	if (stat(path, &st) == -1) {
+	if (str_path(path, sizeof(path), dir, "new") < 0 ||
+	    stat(path, &st) < 0) {
 		/* no new/ directory - broken */
 		return 0;
 	}
@@ -79,7 +79,7 @@ int maildir_find_mailboxes(MailStorage *storage, const char *mask,
 	struct dirent *d;
 	struct stat st;
         MailboxFlags flags;
-	char path[1024];
+	char path[PATH_MAX];
 	int failed, found_inbox;
 
 	mail_storage_clear_error(storage);
@@ -109,8 +109,10 @@ int maildir_find_mailboxes(MailStorage *storage, const char *mask,
 		if (fname[1] == '.' || imap_match(glob, fname+1) <= 0)
 			continue;
 
+		if (str_path(path, sizeof(path), storage->dir, fname) < 0)
+			continue;
+
 		/* make sure it's a directory */
-		i_snprintf(path, sizeof(path), "%s/%s", storage->dir, fname);
 		if (stat(path, &st) != 0) {
 			if (errno == ENOENT)
 				continue; /* just deleted, ignore */
@@ -138,8 +140,10 @@ int maildir_find_mailboxes(MailStorage *storage, const char *mask,
 		if (strcasecmp(fname+1, "INBOX") == 0)
 			found_inbox = TRUE;
 
-                flags = maildir_get_marked_flags(storage, path);
+		t_push();
+		flags = maildir_get_marked_flags(storage, path);
 		func(storage, fname+1, flags, context);
+		t_pop();
 	}
 
 	if (!failed && !found_inbox && imap_match(glob, "INBOX") > 0) {
@@ -157,14 +161,16 @@ static int maildir_subs_func(MailStorage *storage, const char *name,
 	FindSubscribedContext *ctx = context;
 	MailboxFlags flags;
 	struct stat st;
-	char path[1024];
+	char path[PATH_MAX];
 
-	i_snprintf(path, sizeof(path), "%s/.%s", storage->dir, name);
-
-	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
-		flags = maildir_get_marked_flags(storage, path);
-	else
+	if (str_ppath(path, sizeof(path), storage->dir, ".", name) < 0)
 		flags = MAILBOX_NOSELECT;
+	else {
+		if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
+			flags = maildir_get_marked_flags(storage, path);
+		else
+			flags = MAILBOX_NOSELECT;
+	}
 
 	ctx->func(storage, name, flags, ctx->context);
 	return TRUE;

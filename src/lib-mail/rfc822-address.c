@@ -36,7 +36,7 @@ static int read_until(const Rfc822Token *tokens, const char *stop_tokens,
 			t_string_append_n(comment, tokens[i].ptr,
 					  tokens[i].len);
 
-			string_remove_escapes(comment->str + pos);
+			str_remove_escapes(comment->str + pos);
 			comment->len = strlen(comment->str);
 		}
 	}

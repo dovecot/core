@@ -8,13 +8,19 @@
 static int expunge_msg(IndexMailbox *ibox, MailIndexRecord *rec)
 {
 	const char *fname;
-	char path[1024];
+	char path[PATH_MAX];
 
 	fname = ibox->index->lookup_field(ibox->index, rec,
 					  DATA_FIELD_LOCATION);
 	if (fname != NULL) {
-		i_snprintf(path, sizeof(path), "%s/cur/%s",
-			   ibox->index->dir, fname);
+		if (str_ppath(path, sizeof(path),
+			      ibox->index->dir, "cur/", fname) < 0) {
+			mail_storage_set_critical(ibox->box.storage,
+						  "Filename too long: %s",
+						  fname);
+			return FALSE;
+		}
+
 		if (unlink(path) < 0) {
 			/* if it didn't exist, someone just had either
 			   deleted it or changed it's flags */
@@ -26,7 +32,6 @@ static int expunge_msg(IndexMailbox *ibox, MailIndexRecord *rec)
 	}
 
 	return TRUE;
-
 }
 
 int maildir_expunge_locked(IndexMailbox *ibox, int notify)

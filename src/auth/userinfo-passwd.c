@@ -15,16 +15,17 @@
 
 void passwd_fill_cookie_reply(struct passwd *pw, AuthCookieReplyData *reply)
 {
-	i_assert(sizeof(reply->system_user) > strlen(pw->pw_name));
-	i_assert(sizeof(reply->virtual_user) > strlen(pw->pw_name));
-	i_assert(sizeof(reply->home) > strlen(pw->pw_dir));
-
 	reply->uid = pw->pw_uid;
 	reply->gid = pw->pw_gid;
 
-	strcpy(reply->system_user, pw->pw_name);
-	strcpy(reply->virtual_user, pw->pw_name);
-	strcpy(reply->home, pw->pw_dir);
+	if (strocpy(reply->system_user, pw->pw_name,
+		    sizeof(reply->system_user)) < 0)
+		i_panic("system_user overflow");
+	if (strocpy(reply->virtual_user, pw->pw_name,
+		    sizeof(reply->virtual_user)) < 0)
+		i_panic("virtual_user overflow");
+	if (strocpy(reply->home, pw->pw_dir, sizeof(reply->home)) < 0)
+		i_panic("home overflow");
 }
 
 static int passwd_verify_plain(const char *user, const char *password,

@@ -387,34 +387,35 @@ const char *printf_string_fix_format(const char *fmt)
 	return fmt;
 }
 
-int i_snprintf(char *str, size_t max_chars, const char *format, ...)
+int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 {
 #ifdef HAVE_VSNPRINTF
 	va_list args;
 	int ret;
 
-	i_assert(str != NULL);
+	i_assert(dest != NULL);
 	i_assert(max_chars < INT_MAX);
 	i_assert(format != NULL);
 
 	t_push();
 	va_start(args, format);
-	ret = vsnprintf(str, max_chars, printf_string_fix_format(format), args);
+	ret = vsnprintf(dest, max_chars,
+			printf_string_fix_format(format), args);
 	va_end(args);
 	t_pop();
 
 	if (ret < 0 || (size_t)ret >= max_chars) {
-		str[max_chars-1] = '\0';
-		ret = strlen(str);
+		dest[max_chars-1] = '\0';
+		return -1;
 	}
 
-	return ret;
+	return 0;
 #else
 	char *buf;
 	va_list args;
-        int len;
+        int len, ret;
 
-	i_assert(str != NULL);
+	i_assert(dest != NULL);
 	i_assert(max_chars < INT_MAX);
 	i_assert(format != NULL);
 
@@ -426,14 +427,23 @@ int i_snprintf(char *str, size_t max_chars, const char *format, ...)
 	va_end(args);
 
 	len = vsprintf(buf, format, args);
-	if (len >= (int)max_chars)
+	if (len < 0) {
+		/* some error occured */
+		len = 0;
+		ret = -1;
+	} else if ((size_t)len >= max_chars) {
+		/* too large */
 		len = max_chars-1;
+		ret = -1;
+	} else {
+		ret = 0;
+	}
 
-        memcpy(str, buf, len);
-	str[len] = '\0';
+        memcpy(dest, buf, len);
+	dest[len] = '\0';
 
 	t_pop();
-	return len;
+	return ret;
 #endif
 }
 
@@ -738,6 +748,65 @@ int is_numeric(const char *str, char end_char)
 	return TRUE;
 }
 
+int strocpy(char *dest, const char *src, size_t dstsize)
+{
+	if (dstsize == 0)
+		return -1;
+
+	while (*src != '\0' && dstsize > 1) {
+		*dest++ = *src++;
+		dstsize--;
+	}
+
+	*dest++ = '\0';
+	return *src == '\0' ? 0 : -1;
+}
+
+int str_path(char *dest, size_t dstsize, const char *dir, const char *file)
+{
+	size_t dirlen, filelen;
+
+	dirlen = strlen(dir);
+	filelen = strlen(file);
+
+	if (dirlen+1+filelen >= dstsize) {
+		if (dstsize > 0)
+			*dest = '\0';
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	memcpy(dest, dir, dirlen);
+	dest[dirlen] = '/';
+	memcpy(dest + dirlen + 1, file, filelen);
+	dest[dirlen + 1 + filelen] = '\0';
+	return 0;
+}
+
+int str_ppath(char *dest, size_t dstsize, const char *dir,
+	      const char *file_prefix, const char *file)
+{
+	size_t dirlen, prefixlen, filelen;
+
+	dirlen = strlen(dir);
+	prefixlen = strlen(file_prefix);
+	filelen = strlen(file);
+
+	if (dirlen+1+prefixlen+filelen >= dstsize) {
+		if (dstsize > 0)
+			*dest = '\0';
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	memcpy(dest, dir, dirlen);
+	dest[dirlen] = '/';
+	memcpy(dest + dirlen + 1, file_prefix, prefixlen);
+	memcpy(dest + dirlen + prefixlen + 1, file, filelen);
+	dest[dirlen + 1 + prefixlen + filelen] = '\0';
+	return 0;
+}
+
 char *str_ucase(char *str)
 {
 	char *p;
@@ -756,26 +825,7 @@ char *str_lcase(char *str)
         return str;
 }
 
-char *i_strtoken(char **str, char delim)
-{
-	char *ret;
-
-	if (*str == NULL || **str == '\0')
-                return NULL;
-
-	ret = *str;
-	while (**str != '\0') {
-		if (**str == delim) {
-			**str = '\0';
-                        (*str)++;
-                        break;
-		}
-                (*str)++;
-	}
-        return ret;
-}
-
-void string_remove_escapes(char *str)
+void str_remove_escapes(char *str)
 {
 	char *dest;
 
@@ -851,65 +901,19 @@ char *const *t_strsplit(const char *data, const char *separators)
         return (char *const *) array;
 }
 
-const char *t_strjoin_replace(char *const args[], char separator,
-			      int replacearg, const char *replacedata)
+const char *dec2str(uintmax_t number)
 {
-        const char *arg;
-        char *data;
-	size_t alloc_len, arg_len, full_len;
-	int i;
+	char *buffer;
+	int pos;
 
-	if (args[0] == NULL)
-                return NULL;
+	pos = MAX_INT_STRLEN;
+	buffer = t_malloc(pos);
 
-        alloc_len = 512; full_len = 0;
-	data = t_buffer_get(alloc_len);
-	for (i = 0; args[i] != NULL; i++) {
-		arg = i == replacearg ? replacedata : args[i];
-		arg_len = strlen(arg);
-
-		if (full_len + arg_len+1 >= alloc_len) {
-			alloc_len = nearest_power(full_len + arg_len+1);
-                        data = t_buffer_reget(data, alloc_len);
-		}
-
-		memcpy(data+full_len, arg, arg_len);
-                full_len += arg_len;
-
-                data[full_len++] = separator;
-	}
-        data[full_len-1] = '\0';
-
-        t_buffer_alloc(full_len);
-        return data;
-}
-
-static size_t dec2str_recurse(char *buffer, size_t pos, size_t size,
-			      uintmax_t number)
-{
-	if (number == 0)
-		return 0;
-
-	pos = dec2str_recurse(buffer, pos, size-1, number / 10);
-	if (pos < size)
-		buffer[pos] = '0' + (number % 10);
-	return pos + 1;
-}
-
-void dec2str(char *buffer, size_t size, uintmax_t number)
-{
-	size_t pos;
-
-	if (size == 0)
-		return;
-
-	pos = dec2str_recurse(buffer, 0, size, number);
-
-	if (pos == 0 && size > 1) {
-		/* we wrote nothing, because number is 0 */
-		buffer[0] = '0';
-		pos++;
-	}
-
-	buffer[pos < size ? pos : size-1] = '\0';
+	buffer[--pos] = '\0';
+	do {
+		buffer[--pos] = (number % 10) + '0';
+		number /= 10;
+	} while (number != 0 && pos >= 0);
+	i_assert(pos >= 0);
+	return buffer + pos;
 }

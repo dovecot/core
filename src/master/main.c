@@ -127,14 +127,15 @@ static void timeout_handler(void *context __attr_unused__,
 				msg = get_exit_status_message(status);
 				if (msg != NULL)
 					msg = t_strconcat(" (", msg, ")", NULL);
-				i_error("child %d (%s) returned error %d%s",
-					(int)pid, process_type_name,
+				i_error("child %s (%s) returned error %d%s",
+					dec2str(pid), process_type_name,
 					status, msg);
 			}
 		} else if (WIFSIGNALED(status)) {
 			login_process_abormal_exit(pid);
-			i_error("child %d (%s) killed with signal %d",
-				(int)pid, process_type_name, WTERMSIG(status));
+			i_error("child %s (%s) killed with signal %d",
+				dec2str(pid), process_type_name,
+				WTERMSIG(status));
 		}
 	}
 

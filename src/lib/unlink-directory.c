@@ -35,7 +35,7 @@ int unlink_directory(const char *dir)
 	DIR *dirp;
 	struct dirent *d;
 	struct stat st;
-	char path[1024];
+	char path[PATH_MAX];
 
 	dirp = opendir(dir);
 	if (dirp == NULL)
@@ -49,7 +49,8 @@ int unlink_directory(const char *dir)
 			continue;
 		}
 
-		i_snprintf(path, sizeof(path), "%s/%s", dir, d->d_name);
+		if (str_path(path, sizeof(path), dir, d->d_name) < 0)
+			return FALSE;
 
 		if (unlink(path) == -1 && errno != ENOENT) {
 			int old_errno = errno;

@@ -85,13 +85,14 @@ static int maildir_is_valid_name(MailStorage *storage, const char *name)
 static int create_maildir(const char *dir, int verify)
 {
 	const char **tmp;
-	char path[1024];
+	char path[PATH_MAX];
 
 	if (mkdir(dir, CREATE_MODE) == -1 && (errno != EEXIST || !verify))
 		return FALSE;
 
 	for (tmp = maildirs; *tmp != NULL; tmp++) {
-		i_snprintf(path, sizeof(path), "%s/%s", dir, *tmp);
+		if (str_path(path, sizeof(path), dir, *tmp) < 0)
+			return FALSE;
 
 		if (mkdir(path, CREATE_MODE) == -1 &&
 		    (errno != EEXIST || !verify))
@@ -104,13 +105,17 @@ static int create_maildir(const char *dir, int verify)
 static int verify_inbox(MailStorage *storage, const char *dir)
 {
 	const char **tmp;
-	char src[1024], dest[1024];
+	char src[PATH_MAX], dest[PATH_MAX];
 
 	/* first make sure the cur/ new/ and tmp/ dirs exist in root dir */
 	(void)create_maildir(dir, TRUE);
 
 	/* create the .INBOX directory */
-	i_snprintf(dest, sizeof(dest), "%s/.INBOX", dir);
+	if (str_path(dest, sizeof(dest), dir, ".INBOX") < 0) {
+		mail_storage_set_critical(storage, "Path too long: %s", dir);
+		return FALSE;
+	}
+
 	if (mkdir(dest, CREATE_MODE) == -1 && errno != EEXIST) {
 		mail_storage_set_critical(storage, "Can't create directory "
 					  "%s: %m", dest);
@@ -119,8 +124,16 @@ static int verify_inbox(MailStorage *storage, const char *dir)
 
 	/* then symlink the cur/ new/ and tmp/ into the .INBOX/ directory */
 	for (tmp = maildirs; *tmp != NULL; tmp++) {
-		i_snprintf(src, sizeof(src), "../%s", *tmp);
-		i_snprintf(dest, sizeof(dest), "%s/.INBOX/%s", dir, *tmp);
+		if (str_path(src, sizeof(src), "..", *tmp) < 0) {
+			mail_storage_set_critical(storage, "Path too long: %s",
+						  *tmp);
+			return FALSE;
+		}
+		if (str_ppath(dest, sizeof(dest), dir, ".INBOX/", *tmp) < 0) {
+			mail_storage_set_critical(storage, "Path too long: %s",
+						  dir);
+			return FALSE;
+		}
 
 		if (symlink(src, dest) == -1 && errno != EEXIST) {
 			mail_storage_set_critical(storage, "symlink(%s, %s) "
@@ -172,7 +185,7 @@ static Mailbox *maildir_open_mailbox(MailStorage *storage, const char *name,
 				     int readonly, int fast)
 {
 	struct stat st;
-	char path[1024];
+	char path[PATH_MAX];
 
 	mail_storage_clear_error(storage);
 
@@ -188,7 +201,12 @@ static Mailbox *maildir_open_mailbox(MailStorage *storage, const char *name,
 		return FALSE;
 	}
 
-	i_snprintf(path, sizeof(path), "%s/.%s", storage->dir, name);
+	if (str_ppath(path, sizeof(path), storage->dir, ".", name) < 0) {
+		mail_storage_set_critical(storage, "Mailbox name too long: %s",
+					  name);
+		return FALSE;
+	}
+
 	if (stat(path, &st) == 0) {
 		/* exists - make sure the required directories are also there */
 		(void)create_maildir(path, TRUE);
@@ -207,7 +225,7 @@ static Mailbox *maildir_open_mailbox(MailStorage *storage, const char *name,
 
 static int maildir_create_mailbox(MailStorage *storage, const char *name)
 {
-	char path[1024];
+	char path[PATH_MAX];
 
 	mail_storage_clear_error(storage);
 
@@ -217,7 +235,12 @@ static int maildir_create_mailbox(MailStorage *storage, const char *name)
 		return FALSE;
 	}
 
-	i_snprintf(path, sizeof(path), "%s/.%s", storage->dir, name);
+	if (str_ppath(path, sizeof(path), storage->dir, ".", name) < 0) {
+		mail_storage_set_critical(storage, "Mailbox name too long: %s",
+					  name);
+		return FALSE;
+	}
+
 	if (create_maildir(path, FALSE))
 		return TRUE;
 	else if (errno == EEXIST) {
@@ -233,7 +256,7 @@ static int maildir_create_mailbox(MailStorage *storage, const char *name)
 static int maildir_delete_mailbox(MailStorage *storage, const char *name)
 {
 	struct stat st;
-	char src[1024], dest[1024];
+	char src[PATH_MAX], dest[PATH_MAX];
 	int count;
 
 	mail_storage_clear_error(storage);
@@ -251,8 +274,17 @@ static int maildir_delete_mailbox(MailStorage *storage, const char *name)
 
 	/* rename the .maildir into ..maildir which marks it as being
 	   deleted. this way we never see partially deleted maildirs. */
-	i_snprintf(src, sizeof(src), "%s/.%s", storage->dir, name);
-	i_snprintf(dest, sizeof(dest), "%s/..%s", storage->dir, name);
+	if (str_ppath(src, sizeof(src), storage->dir, ".", name) < 0) {
+		mail_storage_set_critical(storage, "Mailbox name too long: %s",
+					  name);
+		return FALSE;
+	}
+
+	if (str_ppath(dest, sizeof(dest), storage->dir, "..", name) < 0) {
+		mail_storage_set_critical(storage, "Mailbox name too long: %s",
+					  name);
+		return FALSE;
+	}
 
 	if (stat(src, &st) != 0 && errno == ENOENT) {
 		mail_storage_set_error(storage, "Mailbox doesn't exist: %s",
@@ -290,13 +322,17 @@ static int maildir_delete_mailbox(MailStorage *storage, const char *name)
 static int move_inbox_data(MailStorage *storage, const char *newdir)
 {
 	const char **tmp;
-	char oldpath[1024], newpath[1024];
+	char oldpath[PATH_MAX], newpath[PATH_MAX];
 
 	/* newpath points to the destination folder directory, which contains
 	   symlinks to real INBOX directories. unlink() the symlinks and
 	   move the real cur/ directory here. */
 	for (tmp = maildirs; *tmp != NULL; tmp++) {
-		i_snprintf(newpath, sizeof(newpath), "%s/%s", newdir, *tmp);
+		if (str_path(newpath, sizeof(newpath), newdir, *tmp) < 0) {
+			mail_storage_set_critical(storage, "Path too long: %s",
+						  newdir);
+			return FALSE;
+		}
 
 		if (unlink(newpath) == -1 && errno != EEXIST) {
 			mail_storage_set_critical(storage,
@@ -306,8 +342,16 @@ static int move_inbox_data(MailStorage *storage, const char *newdir)
 		}
 	}
 
-	i_snprintf(oldpath, sizeof(oldpath), "%s/cur", storage->dir);
-	i_snprintf(newpath, sizeof(newpath), "%s/cur", newdir);
+	if (str_path(oldpath, sizeof(oldpath), storage->dir, "cur") < 0) {
+		mail_storage_set_critical(storage, "Path too long: %s",
+					  storage->dir);
+		return FALSE;
+	}
+	if (str_path(newpath, sizeof(newpath), newdir, "cur") < 0) {
+		mail_storage_set_critical(storage, "Path too long: %s", newdir);
+		return FALSE;
+	}
+
 	if (rename(oldpath, newpath) != 0) {
 		mail_storage_set_critical(storage, "rename(%s, %s) failed: %m",
 					  oldpath, newpath);
@@ -323,13 +367,22 @@ static void rename_subfolder(MailStorage *storage, const char *name,
 			     MailboxFlags flags __attr_unused__, void *context)
 {
 	RenameContext *ctx = context;
-	char oldpath[1024], newpath[1024];
+	char oldpath[PATH_MAX], newpath[PATH_MAX];
 
 	i_assert(ctx->oldnamelen <= strlen(name));
 
-	i_snprintf(oldpath, sizeof(oldpath), "%s/.%s", storage->dir, name);
-	i_snprintf(newpath, sizeof(newpath), "%s/.%s.%s",
-		   storage->dir, ctx->newname, name + ctx->oldnamelen);
+	if (str_ppath(oldpath, sizeof(oldpath), storage->dir, ".", name) < 0) {
+		mail_storage_set_critical(storage, "Mailbox name too long: %s",
+					  name);
+		return;
+	}
+
+	if (i_snprintf(newpath, sizeof(newpath), "%s/.%s.%s", storage->dir,
+		       ctx->newname, name + ctx->oldnamelen) < 0) {
+		mail_storage_set_critical(storage, "Mailbox name too long: %s",
+					  newpath);
+		return;
+	}
 
 	/* FIXME: it's possible to merge two folders if either one of them
 	   doesn't have existing root folder. We could check this but I'm not
@@ -350,7 +403,7 @@ static int maildir_rename_mailbox(MailStorage *storage, const char *oldname,
 				  const char *newname)
 {
 	RenameContext ctx;
-	char oldpath[1024], newpath[1024];
+	char oldpath[PATH_MAX], newpath[PATH_MAX];
 	int ret;
 
 	mail_storage_clear_error(storage);
@@ -368,8 +421,19 @@ static int maildir_rename_mailbox(MailStorage *storage, const char *oldname,
 
 	   NOTE: it's possible to rename a nonexisting folder which has
 	   subfolders. In that case we should ignore the rename() error. */
-	i_snprintf(oldpath, sizeof(oldpath), "%s/.%s", storage->dir, oldname);
-	i_snprintf(newpath, sizeof(newpath), "%s/.%s", storage->dir, newname);
+	if (str_ppath(oldpath, sizeof(oldpath),
+		      storage->dir, ".", oldname) < 0) {
+		mail_storage_set_critical(storage, "Mailbox name too long: %s",
+					  oldname);
+		return FALSE;
+	}
+
+	if (str_ppath(newpath, sizeof(newpath),
+		      storage->dir, ".", newname) < 0) {
+		mail_storage_set_critical(storage, "Mailbox name too long: %s",
+					  newname);
+		return FALSE;
+	}
 
 	ret = rename(oldpath, newpath);
 	if (ret == 0 || (errno == ENOENT && strcmp(oldname, "INBOX") != 0)) {
@@ -408,7 +472,7 @@ static int maildir_get_mailbox_name_status(MailStorage *storage,
 					   MailboxNameStatus *status)
 {
 	struct stat st;
-	char path[1024];
+	char path[PATH_MAX];
 
 	mail_storage_clear_error(storage);
 
@@ -418,8 +482,8 @@ static int maildir_get_mailbox_name_status(MailStorage *storage,
 		return TRUE;
 	}
 
-	i_snprintf(path, sizeof(path), "%s/.%s", storage->dir, name);
-	if (stat(path, &st) == 0) {
+	if (str_ppath(path, sizeof(path), storage->dir, ".", name) == 0 &&
+	    stat(path, &st) == 0) {
 		*status = MAILBOX_NAME_EXISTS;
 		return TRUE;
 	} else if (errno == ENOENT) {

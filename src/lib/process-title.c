@@ -52,10 +52,8 @@ static void linux_proctitle_init(char *argv[], char *envp[])
 	environ = p;
 
 	for (i = 0; envp[i] != NULL; i++) {
-		if ((environ[i] = malloc(strlen(envp[i]) + 1)) == NULL)
+		if ((environ[i] = strdup(envp[i])) == NULL)
 			i_panic("malloc() failed: %m");
-
-		strcpy(environ[i], envp[i]);
 	}
 	environ[i] = NULL;
 
@@ -63,14 +61,12 @@ static void linux_proctitle_init(char *argv[], char *envp[])
 	   Calculate the max. size for process name with by checking the
 	   address for last environment and it's length. */
 	process_title = argv[0];
-	process_title_len = (size_t) (envp[i-1] - argv[0]) +
-		strlen(envp[i-1]);
+	process_title_len = (size_t) (envp[i-1] - argv[0]) + strlen(envp[i-1]);
 }
 
 static void linux_proctitle_set(const char *title)
 {
-	strncpy(process_title, title, process_title_len);
-	process_title[process_title_len] = '\0';
+	strocpy(process_title, title, process_title_len);
 }
 
 #endif

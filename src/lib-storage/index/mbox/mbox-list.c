@@ -23,7 +23,7 @@ static int mbox_find_path(MailStorage *storage, ImapMatchGlob *glob,
 	struct dirent *d;
 	struct stat st;
 	const char *dir, *listpath;
-	char fulldir[1024], path[1024], fullpath[1024];
+	char fulldir[PATH_MAX], path[PATH_MAX], fullpath[PATH_MAX];
 	int failed, match;
 	size_t len;
 
@@ -32,8 +32,13 @@ static int mbox_find_path(MailStorage *storage, ImapMatchGlob *glob,
 	if (relative_dir == NULL)
 		dir = storage->dir;
 	else {
-		i_snprintf(fulldir, sizeof(fulldir), "%s/%s",
-			   storage->dir, relative_dir);
+		if (str_path(fulldir, sizeof(fulldir),
+			     storage->dir, relative_dir) < 0) {
+			mail_storage_set_critical(storage, "Path too long: %s",
+						  relative_dir);
+			return FALSE;
+		}
+
 		dir = fulldir;
 	}
 
@@ -70,8 +75,14 @@ static int mbox_find_path(MailStorage *storage, ImapMatchGlob *glob,
 		if (relative_dir == NULL)
 			listpath = fname;
 		else {
-			i_snprintf(path, sizeof(path), "%s/%s",
-				   relative_dir, fname);
+			if (str_path(path, sizeof(path),
+				     relative_dir, fname) < 0) {
+				mail_storage_set_critical(storage,
+					"Path too long: %s/%s",
+					relative_dir, fname);
+				failed = TRUE;
+				break;
+			}
 			listpath = path;
 		}
 
@@ -79,7 +90,14 @@ static int mbox_find_path(MailStorage *storage, ImapMatchGlob *glob,
 			continue;
 
 		/* see if it's a directory */
-		i_snprintf(fullpath, sizeof(fullpath), "%s/%s", dir, fname);
+		if (str_path(fullpath, sizeof(fullpath), dir, fname) < 0) {
+			mail_storage_set_critical(storage,
+						  "Path too long: %s/%s",
+						  dir, fname);
+			failed = TRUE;
+			break;
+		}
+
 		if (stat(fullpath, &st) != 0) {
 			if (errno == ENOENT)
 				continue; /* just deleted, ignore */
@@ -169,15 +187,15 @@ static int mbox_subs_func(MailStorage *storage, const char *name,
 	FindSubscribedContext *ctx = context;
 	MailboxFlags flags;
 	struct stat st;
-	char path[1024];
+	char path[PATH_MAX];
 
 	/* see if the mailbox exists, don't bother with the marked flags */
 	if (strcasecmp(name, "INBOX") == 0) {
 		/* inbox always exists */
 		flags = 0;
 	} else {
-		i_snprintf(path, sizeof(path), "%s/%s", storage->dir, name);
-		flags = stat(path, &st) == 0 && !S_ISDIR(st.st_mode) ?
+		flags = str_path(path, sizeof(path), storage->dir, name) == 0 &&
+			stat(path, &st) == 0 && !S_ISDIR(st.st_mode) ?
 			0 : MAILBOX_NOSELECT;
 	}
 

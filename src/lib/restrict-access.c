@@ -38,8 +38,8 @@ void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 	if (chroot_dir != NULL && *chroot_dir != '\0')
 		env_put(t_strconcat("RESTRICT_CHROOT=", chroot_dir, NULL));
 
-	env_put(t_strdup_printf("RESTRICT_SETUID=%ld", (long) uid));
-	env_put(t_strdup_printf("RESTRICT_SETGID=%ld", (long) gid));
+	env_put(t_strdup_printf("RESTRICT_SETUID=%s", dec2str(uid)));
+	env_put(t_strdup_printf("RESTRICT_SETGID=%s", dec2str(gid)));
 }
 
 void restrict_access_by_env(int disallow_root)
@@ -69,7 +69,7 @@ void restrict_access_by_env(int disallow_root)
 	gid = env == NULL ? 0 : (gid_t) atol(env);
 	if (gid != 0 && (gid != getgid() || gid != getegid())) {
 		if (setgid(gid) != 0)
-			i_fatal("setgid(%ld) failed: %m", (long) gid);
+			i_fatal("setgid(%s) failed: %m", dec2str(gid));
 
 		env = getenv("RESTRICT_USER");
 		if (env == NULL) {
@@ -77,8 +77,8 @@ void restrict_access_by_env(int disallow_root)
 			(void)setgroups(1, &gid);
 		} else {
 			if (initgroups(env, gid) != 0) {
-				i_fatal("initgroups(%s, %ld) failed: %m",
-					env, (long) gid);
+				i_fatal("initgroups(%s, %s) failed: %m",
+					env, dec2str(gid));
 			}
 		}
 	}
@@ -88,7 +88,7 @@ void restrict_access_by_env(int disallow_root)
 	uid = env == NULL ? 0 : (uid_t) atol(env);
 	if (uid != 0) {
 		if (setuid(uid) != 0)
-			i_fatal("setuid(%ld) failed: %m", (long) uid);
+			i_fatal("setuid(%s) failed: %m", dec2str(uid));
 	}
 
 	/* verify that we actually dropped the privileges */

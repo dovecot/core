@@ -768,7 +768,7 @@ static int search_messages(IndexMailbox *ibox, const char *charset,
         MailSearchArg *arg;
 	const ModifyLogExpunge *expunges;
 	unsigned int first_uid, last_uid, client_seq, expunges_before;
-	char num[MAX_INT_STRLEN+10];
+	const char *str;
 	int found, failed;
 
 	if (ibox->synced_messages_count == 0)
@@ -830,12 +830,13 @@ static int search_messages(IndexMailbox *ibox, const char *charset,
 
 			if (found) {
 				if (sort_ctx == NULL) {
-					size_t len;
+					t_push();
+					o_stream_send(output, " ", 1);
 
-					len = i_snprintf(num, sizeof(num),
-							 " %u", uid_result ?
-							 rec->uid : client_seq);
-					o_stream_send(output, num, len);
+					str = dec2str(uid_result ? rec->uid :
+						      client_seq);
+					o_stream_send_str(output, str);
+					t_pop();
 				} else {
 					mail_sort_input(sort_ctx, rec->uid);
 				}
@@ -866,7 +867,7 @@ int index_storage_search(Mailbox *box, const char *charset, MailSearchArg *args,
 
 	if (sorting == NULL) {
 		sort_ctx = NULL;
-		o_stream_send(output, "* SEARCH", 8);
+		o_stream_send_str(output, "* SEARCH");
 	} else {
 		memset(&index_sort_ctx, 0, sizeof(index_sort_ctx));
 		index_sort_ctx.ibox = ibox;
@@ -874,7 +875,7 @@ int index_storage_search(Mailbox *box, const char *charset, MailSearchArg *args,
 
 		sort_ctx = mail_sort_init(sort_unsorted, sorting,
 					  index_sort_funcs, &index_sort_ctx);
-		o_stream_send(output, "* SORT", 6);
+		o_stream_send_str(output, "* SORT");
 	}
 
 	failed = !search_messages(ibox, charset, args, sort_ctx,

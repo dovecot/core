@@ -78,7 +78,6 @@ static int write_from_line(MailStorage *storage, OStream *output,
 			   const char *mbox_path, time_t internal_date)
 {
 	const char *sender, *line, *name;
-	size_t len;
 
 	if (*my_hostdomain == '\0') {
 		struct hostent *hent;
@@ -92,17 +91,15 @@ static int write_from_line(MailStorage *storage, OStream *output,
 			name = my_hostname;
 		}
 
-		strncpy(my_hostdomain, name, 255);
-		my_hostdomain[255] = '\0';
+		strocpy(my_hostdomain, name, 256);
 	}
 
 	sender = t_strconcat(storage->user, "@", my_hostdomain, NULL);
 
 	/* save in local timezone, no matter what it was given with */
 	line = mbox_from_create(sender, internal_date);
-	len = strlen(line);
 
-	if (o_stream_send(output, line, len) < 0)
+	if (o_stream_send_str(output, line) < 0)
 		return write_error(storage, mbox_path);
 
 	return TRUE;
@@ -120,7 +117,7 @@ static int write_flags(MailStorage *storage, OStream *output,
 		return TRUE;
 
 	if (flags & MAIL_SEEN) {
-		if (o_stream_send(output, "Status: R\n", 10) < 0)
+		if (o_stream_send_str(output, "Status: R\n") < 0)
 			return write_error(storage, mbox_path);
 	}
 
@@ -132,12 +129,12 @@ static int write_flags(MailStorage *storage, OStream *output,
 				  (flags & MAIL_DELETED) ? "T" : "",
 				  "\n", NULL);
 
-		if (o_stream_send(output, str, strlen(str)) < 0)
+		if (o_stream_send_str(output, str) < 0)
 			return write_error(storage, mbox_path);
 	}
 
 	if (flags & MAIL_CUSTOM_FLAGS_MASK) {
-		if (o_stream_send(output, "X-Keywords:", 11) < 0)
+		if (o_stream_send_str(output, "X-Keywords:") < 0)
 			return write_error(storage, mbox_path);
 
 		field = 1 << MAIL_CUSTOM_FLAG_1_BIT;
@@ -146,8 +143,8 @@ static int write_flags(MailStorage *storage, OStream *output,
 				if (o_stream_send(output, " ", 1) < 0)
 					return write_error(storage, mbox_path);
 
-				if (o_stream_send(output, custom_flags[i],
-						  strlen(custom_flags[i])) < 0)
+				if (o_stream_send_str(output,
+						      custom_flags[i]) < 0)
 					return write_error(storage, mbox_path);
 			}
 		}

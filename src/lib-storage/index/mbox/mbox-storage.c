@@ -145,10 +145,11 @@ static int create_mbox_index_dirs(const char *mbox_path, int verify)
 
 static void verify_inbox(MailStorage *storage)
 {
-	char path[1024];
+	char path[PATH_MAX];
 	int fd;
 
-	i_snprintf(path, sizeof(path), "%s/inbox", storage->dir);
+	if (str_path(path, sizeof(path), storage->dir, "inbox") < 0)
+		return;
 
 	/* make sure inbox file itself exists */
 	fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0660);
@@ -191,7 +192,7 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 				  int readonly, int fast)
 {
 	struct stat st;
-	char path[1024];
+	char path[PATH_MAX];
 
 	mail_storage_clear_error(storage);
 
@@ -207,8 +208,8 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 		return FALSE;
 	}
 
-	i_snprintf(path, sizeof(path), "%s/%s", storage->dir, name);
-	if (stat(path, &st) == 0) {
+	if (str_path(path, sizeof(path), storage->dir, name) == 0 &&
+	    stat(path, &st) == 0) {
 		/* exists - make sure the required directories are also there */
 		(void)create_mbox_index_dirs(path, TRUE);
 
@@ -227,7 +228,7 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 static int mbox_create_mailbox(MailStorage *storage, const char *name)
 {
 	struct stat st;
-	char path[1024];
+	char path[PATH_MAX];
 	int fd;
 
 	mail_storage_clear_error(storage);
@@ -241,7 +242,12 @@ static int mbox_create_mailbox(MailStorage *storage, const char *name)
 	}
 
 	/* make sure it doesn't exist already */
-	i_snprintf(path, sizeof(path), "%s/%s", storage->dir, name);
+	if (str_path(path, sizeof(path), storage->dir, name) < 0) {
+		mail_storage_set_error(storage, "Mailbox name too long: %s",
+				       name);
+		return FALSE;
+	}
+
 	if (stat(path, &st) == 0) {
 		mail_storage_set_error(storage, "Mailbox already exists");
 		return FALSE;
@@ -272,7 +278,7 @@ static int mbox_create_mailbox(MailStorage *storage, const char *name)
 static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 {
 	const char *index_dir;
-	char path[1024];
+	char path[PATH_MAX];
 
 	mail_storage_clear_error(storage);
 
@@ -286,16 +292,22 @@ static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 		return FALSE;
 	}
 
+	if (str_path(path, sizeof(path), storage->dir, name) < 0) {
+		mail_storage_set_error(storage, "Mailbox name too long: %s",
+				       name);
+		return FALSE;
+	}
+
 	/* first unlink the mbox file */
-	i_snprintf(path, sizeof(path), "%s/%s", storage->dir, name);
 	if (unlink(path) == -1) {
 		if (errno == ENOENT) {
 			mail_storage_set_error(storage,
 					       "Mailbox doesn't exist: %s",
 					       name);
 		} else {
-			mail_storage_set_critical(storage, "Can't delete mbox "
-						  "file %s: %m", path);
+			mail_storage_set_critical(storage,
+						  "Can't delete mbox file "
+						  "%s: %m", path);
 		}
 		return FALSE;
 	}
@@ -314,7 +326,7 @@ static int mbox_rename_mailbox(MailStorage *storage, const char *oldname,
 			       const char *newname)
 {
 	const char *old_indexdir, *new_indexdir;
-	char oldpath[1024], newpath[1024];
+	char oldpath[PATH_MAX], newpath[PATH_MAX];
 
 	mail_storage_clear_error(storage);
 
@@ -327,14 +339,22 @@ static int mbox_rename_mailbox(MailStorage *storage, const char *oldname,
 	if (strcasecmp(oldname, "INBOX") == 0)
 		oldname = "inbox";
 
+	if (str_path(oldpath, sizeof(oldpath), storage->dir, oldname) < 0) {
+		mail_storage_set_error(storage, "Mailbox name too long: %s",
+				       oldname);
+		return FALSE;
+	}
+	if (str_path(newpath, sizeof(newpath), storage->dir, newname) < 0) {
+		mail_storage_set_error(storage, "Mailbox name too long: %s",
+				       newname);
+		return FALSE;
+	}
+
 	/* NOTE: renaming INBOX works just fine with us, it's simply created
 	   the next time it's needed. */
-	i_snprintf(oldpath, sizeof(oldpath), "%s/%s", storage->dir, oldname);
-	i_snprintf(newpath, sizeof(newpath), "%s/%s", storage->dir, newname);
-	if (link(oldpath, newpath) == 0) {
+	if (link(oldpath, newpath) == 0)
 		(void)unlink(oldpath);
-		/* ... */
-	} else if (errno == EEXIST) {
+	else if (errno == EEXIST) {
 		mail_storage_set_error(storage,
 				       "Target mailbox already exists");
 		return FALSE;
@@ -356,7 +376,7 @@ static int mbox_get_mailbox_name_status(MailStorage *storage, const char *name,
 					MailboxNameStatus *status)
 {
 	struct stat st;
-	char path[1024];
+	char path[PATH_MAX];
 
 	mail_storage_clear_error(storage);
 
@@ -368,7 +388,12 @@ static int mbox_get_mailbox_name_status(MailStorage *storage, const char *name,
 		return TRUE;
 	}
 
-	i_snprintf(path, sizeof(path), "%s/%s", storage->dir, name);
+	if (str_path(path, sizeof(path), storage->dir, name) < 0) {
+		mail_storage_set_error(storage, "Mailbox name too long: %s",
+				       name);
+		return FALSE;
+	}
+
 	if (stat(path, &st) == 0) {
 		*status = MAILBOX_NAME_EXISTS;
 		return TRUE;

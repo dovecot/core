@@ -85,25 +85,20 @@ static int vpopmail_verify_plain(const char *user, const char *password,
 		return FALSE;
 	}
 
-	/* make sure it's not giving too large values to us */
-	if (strlen(vpw->pw_dir) >= sizeof(reply->home)) {
-		i_panic("Home directory too large (%u > %u)",
-			strlen(vpw->pw_dir), sizeof(reply->home)-1);
-	}
-
-	if (strlen(vpw->pw_name) >= sizeof(reply->system_user)) {
+	if (strocpy(reply->system_user, vpw->pw_name,
+		    sizeof(reply->system_user)) < 0) {
 		i_panic("Username too large (%u > %u)",
 			strlen(vpw->pw_name), sizeof(reply->system_user)-1);
 	}
-
-	if (strlen(vpw->pw_name) >= sizeof(reply->virtual_user)) {
+	if (strocpy(reply->virtual_user, vpw->pw_name,
+		    sizeof(reply->virtual_user)) < 0) {
 		i_panic("Username too large (%u > %u)",
 			strlen(vpw->pw_name), sizeof(reply->virtual_user)-1);
 	}
-
-	strcpy(reply->system_user, vpw->pw_name);
-	strcpy(reply->virtual_user, vpw->pw_name);
-	strcpy(reply->home, vpw->pw_dir);
+	if (strocpy(reply->home, vpw->pw_dir, sizeof(reply->home)) < 0) {
+		i_panic("Home directory too large (%u > %u)",
+			strlen(vpw->pw_dir), sizeof(reply->home)-1);
+	}
 
 	return TRUE;
 }
