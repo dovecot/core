@@ -28,10 +28,19 @@
 
 static void *mmap_file(int fd, size_t *length, int access)
 {
-	*length = lseek(fd, 0, SEEK_END);
-	if ((off_t)*length == -1)
+	off_t size;
+
+	size = lseek(fd, 0, SEEK_END);
+	if (size == -1)
 		return MAP_FAILED;
 
+	if (size > INT_MAX) {
+		/* too large file to map into memory */
+		errno = EFBIG;
+		return MAP_FAILED;
+	}
+
+	*length = (size_t)size;
 	if (*length == 0)
 		return NULL;
 
