@@ -126,7 +126,7 @@ few processes handling multiple connections. The problem with sharing
 connections is that if a security hole is found, the attacker could hijack
 other peoples connections or steal their passwords if plaintext
 authentication was used (even with SSL/TLS). If you want to be fast,
-set login_process_per_user = no.
+set login_process_per_connection = no.
 
 Dovecot's memory usage is very small. Almost all memory usage you see with
 ps/top is from mmap()ed files, meaning that operating system can drop any
