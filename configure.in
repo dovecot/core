@@ -914,7 +914,7 @@ AC_CHECK_LIB(dl, dlopen, [
   have_modules=yes
   MODULE_LIBS="-export-dynamic -ldl"
 ], [
-  AC_CHECK_FUNC(dlopen,, [
+  AC_CHECK_FUNC(dlopen, [
     have_modules=yes
     MODULE_LIBS="-export-dynamic"
   ])
