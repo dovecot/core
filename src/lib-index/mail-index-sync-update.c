@@ -116,7 +116,8 @@ static int mail_index_grow(struct mail_index *index, unsigned int count)
 	/* when we grow fast, do it exponentially */
 	if (count < index->last_grow_count)
 		count = index->last_grow_count;
-	count = nearest_power(count);
+	if (count < MAIL_INDEX_MAX_POWER_GROW)
+		count = nearest_power(count);
 	index->last_grow_count = count;
 
 	size = map->hdr->header_size +

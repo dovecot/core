@@ -49,6 +49,7 @@ static int mail_index_check_header(struct mail_index *index,
 #endif
 	compat_data[1] = sizeof(uoff_t);
 	compat_data[2] = sizeof(time_t);
+	compat_data[3] = sizeof(keywords_mask_t);
 
 	if (hdr->major_version != MAIL_INDEX_MAJOR_VERSION) {
 		/* major version change - handle silently(?) */
@@ -233,7 +234,7 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 {
 	int i, ret;
 
-	for (i = 0; i < INDEX_ESTALE_RETRY_COUNT; i++) {
+	for (i = 0; i < MAIL_INDEX_ESTALE_RETRY_COUNT; i++) {
 		ret = mail_index_read_map(index, map);
 		if (ret != 0)
 			return ret;
@@ -359,6 +360,7 @@ void mail_index_header_init(struct mail_index_header *hdr)
 #endif
 	hdr->compat_data[1] = sizeof(uoff_t);
 	hdr->compat_data[2] = sizeof(time_t);
+	hdr->compat_data[3] = sizeof(keywords_mask_t);
 
 	hdr->indexid = now;
 

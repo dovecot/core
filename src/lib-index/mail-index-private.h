@@ -6,23 +6,13 @@
 
 struct mail_transaction_header;
 
-/* number of records to always keep allocated in index file,
-   either used or unused */
-#define INDEX_MIN_RECORDS_COUNT 64
-/* when empty space in index file gets full, grow the file n% larger */
-#define INDEX_GROW_PERCENTAGE 10
-/* ftruncate() the index file when only n% of it is in use */
-#define INDEX_TRUNCATE_PERCENTAGE 30
-/* don't truncate whole file anyway, keep n% of the empty space */
-#define INDEX_TRUNCATE_KEEP_PERCENTAGE 10
-/* Compress the file when deleted space reaches n% of total size */
-#define INDEX_COMPRESS_PERCENTAGE 50
-/* Compress the file when searching deleted records tree has to go this deep */
-#define INDEX_COMPRESS_DEPTH 10
+/* Index file is grown exponentially when we're adding less than this many
+   records. */
+#define MAIL_INDEX_MAX_POWER_GROW (1024*1024 / sizeof(struct mail_index_record))
 /* How many times to retry opening index files if read/fstat returns ESTALE.
    This happens with NFS when the file has been deleted (ie. index file was
    rewritten by another computer than us). */
-#define INDEX_ESTALE_RETRY_COUNT 10
+#define MAIL_INDEX_ESTALE_RETRY_COUNT 10
 
 #define MAIL_INDEX_MAP_IS_IN_MEMORY(map) \
 	((map)->buffer != NULL)

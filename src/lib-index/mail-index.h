@@ -10,7 +10,7 @@
 
 /* Number of keywords in mail_index_record. */
 #define INDEX_KEYWORDS_COUNT (3*8)
-#define INDEX_KEYWORDS_BYTE_COUNT ((INDEX_KEYWORDS_COUNT*7)/8)
+#define INDEX_KEYWORDS_BYTE_COUNT ((INDEX_KEYWORDS_COUNT+CHAR_BIT-1) / CHAR_BIT)
 
 enum mail_index_open_flags {
 	/* Create index if it doesn't exist */
