@@ -48,6 +48,7 @@ static uoff_t get_indexed_mbox_size(MailIndex *index)
 		} else if (strlen(location) != sizeof(size)*2 ||
 			   hex_to_binary(location,
 					 (unsigned char *) &size) <= 0) {
+			size = 0;
 			INDEX_MARK_CORRUPTED(index);
 			index_set_error(index, "Corrupted index file %s: "
 					"Invalid location field for record %u",
@@ -124,22 +125,20 @@ int mbox_index_sync(MailIndex *index)
 		return FALSE;
 	}
 
-	if (index->file_sync_stamp == st.st_mtime)
+	/* |3 is simple workaround for \n at end of file, see below */
+	filesize = st.st_size;
+	if (index->file_sync_stamp == st.st_mtime &&
+	    (index->mbox_size | 3) == (filesize | 3))
 		return TRUE;
 
-	filesize = st.st_size;
-	if (index->mbox_size == 0 && filesize != 0) {
-		index->mbox_size = get_indexed_mbox_size(index);
-
-		/* problem .. index->mbox_size points to data after the last
-		   message. that should be \n, \r\n, or end of file. modify
-		   filesize accordingly to allow any of the extra 0-2 bytes.
-		   Don't actually bother to open the file and verify it, it'd
-		   just slow things.. */
-		if (filesize == index->mbox_size+1 ||
-		    filesize == index->mbox_size+2)
-			filesize = index->mbox_size;
-	}
+	/* problem .. index->mbox_size points to data after the last message.
+	   that should be \n, \r\n, or end of file. modify filesize
+	   accordingly to allow any of the extra 0-2 bytes. Don't actually
+	   bother to open the file and verify it, it'd just slow things.. */
+	index->mbox_size = get_indexed_mbox_size(index);
+	if (filesize == index->mbox_size+1 ||
+	    filesize == index->mbox_size+2)
+		filesize = index->mbox_size;
 
 	if (index->file_sync_stamp == 0 && index->mbox_size == filesize) {
 		/* just opened the mailbox, and the file size is same as
