@@ -59,6 +59,7 @@ liblib_a_SOURCES = \
 	sendfile-util.c \
 	sha1.c \
 	str.c \
+	str-sanitize.c \
 	strescape.c \
 	strfuncs.c \
 	unlink-directory.c \
@@ -117,6 +118,7 @@ noinst_HEADERS = \
 	sendfile-util.h \
 	sha1.h \
 	str.h \
+	str-sanitize.h \
 	strescape.h \
 	strfuncs.h \
 	unlink-directory.h \
