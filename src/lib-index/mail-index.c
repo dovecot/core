@@ -462,7 +462,10 @@ static int mail_index_open_init(MailIndex *index, int update_recent,
 		index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
 	}
 
-	return TRUE;
+	/* finally reset the modify log marks, fsck or syncing might have
+	   deleted some messages, and since we're only just opening the
+	   index, there's no need to remember them */
+	return mail_modifylog_mark_synced(index->modifylog);
 }
 
 static int mail_index_open_file(MailIndex *index, const char *filename,
