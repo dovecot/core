@@ -45,6 +45,7 @@ liblib_a_SOURCES = \
 	network.c \
 	ostream.c \
 	ostream-file.c \
+	ostream-crlf.c \
 	primes.c \
 	printf-upper-bound.c \
 	process-title.c \
