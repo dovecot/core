@@ -26,23 +26,24 @@ enum {
 	MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS	= 0x80
 };
 
-typedef enum {
-	DATA_FIELD_LOCATION		= 0x00000001,
-	DATA_FIELD_ENVELOPE		= 0x00000002,
-	DATA_FIELD_BODY			= 0x00000004,
-	DATA_FIELD_BODYSTRUCTURE	= 0x00000008,
-	DATA_FIELD_MD5			= 0x00000010,
-	DATA_FIELD_MESSAGEPART		= 0x00000020,
+/* Use macros instead of enum so highest bit can be used without kludging */
+#define DATA_FIELD_LOCATION		0x00000001
+#define DATA_FIELD_ENVELOPE		0x00000002
+#define DATA_FIELD_BODY			0x00000004
+#define DATA_FIELD_BODYSTRUCTURE	0x00000008
+#define DATA_FIELD_MD5			0x00000010
+#define DATA_FIELD_MESSAGEPART		0x00000020
 
-	DATA_FIELD_LAST			= 0x00000040,
-	DATA_FIELD_MAX_BITS		= 6,
+#define DATA_FIELD_LAST			0x00000040
+#define DATA_FIELD_MAX_BITS		6
 
-	/* separate from above, but in same bitmask */
-	DATA_HDR_INTERNAL_DATE		= 0x80000000,
-	DATA_HDR_VIRTUAL_SIZE		= 0x40000000,
-	DATA_HDR_HEADER_SIZE		= 0x20000000,
-	DATA_HDR_BODY_SIZE		= 0x10000000
-} MailDataField;
+/* separate from above, but in same bitmask */
+#define DATA_HDR_INTERNAL_DATE		0x80000000
+#define DATA_HDR_VIRTUAL_SIZE		0x40000000
+#define DATA_HDR_HEADER_SIZE		0x20000000
+#define DATA_HDR_BODY_SIZE		0x10000000
+
+typedef unsigned int MailDataField;
 
 #define IS_BODYSTRUCTURE_FIELD(field) \
 	(((field) & (DATA_FIELD_BODY | DATA_FIELD_BODYSTRUCTURE | \
@@ -395,7 +396,7 @@ struct _MailIndex {
 	/* these fields are OR'ed to the fields in index header once we
 	   get around grabbing exclusive lock */
 	unsigned int set_flags;
-	unsigned int set_cache_fields;
+	MailDataField set_cache_fields;
 
 	unsigned int anon_mmap:1;
 	unsigned int opened:1;

@@ -296,7 +296,8 @@ static int mail_index_lock_remove(MailIndex *index)
 	if (old_lock_type == MAIL_LOCK_SHARED) {
 		/* releasing shared lock. we may need to update some
 		   flags in header. */
-		unsigned int old_flags, old_cache;
+		unsigned int old_flags;
+		MailDataField old_cache;
 
 		old_flags = index->header->flags;
 		old_cache = index->header->cache_fields;
