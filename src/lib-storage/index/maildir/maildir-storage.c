@@ -376,7 +376,7 @@ static int verify_inbox(struct index_storage *storage)
 			return -1;
 
 		/* create the .INBOX directory */
-		inbox = t_strconcat(storage->dir,
+		inbox = t_strconcat(storage->index_dir,
 				    "/"MAILDIR_FS_SEP_S"INBOX", NULL);
 		if (mkdir_verify(storage, inbox, TRUE) < 0)
 			return -1;
