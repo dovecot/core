@@ -40,7 +40,7 @@ struct maildir_uidlist {
 	struct hash_table *files;
 
 	unsigned int version;
-	unsigned int uid_validity, next_uid, last_read_uid;
+	unsigned int uid_validity, next_uid, prev_read_uid, last_seen_uid;
 	uint32_t first_recent_uid;
 
 	unsigned int initial_read:1;
@@ -164,7 +164,7 @@ maildir_uidlist_mark_recent(struct maildir_uidlist *uidlist, uint32_t uid)
 }
 
 static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
-				const char *line, uint32_t last_uid)
+				const char *line)
 {
         struct maildir_uidlist_rec *rec;
 	uint32_t uid, flags;
@@ -175,24 +175,25 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 		line++;
 	}
 
-	if (uid <= last_uid) {
-		/* we already have this */
-		return 1;
-	}
-
 	if (uid == 0 || *line != ' ') {
 		/* invalid file */
                 mail_storage_set_critical(uidlist->ibox->box.storage,
 			"Invalid data in file %s", uidlist->fname);
 		return 0;
 	}
-	if (uid <= uidlist->last_read_uid) {
+	if (uid <= uidlist->prev_read_uid) {
                 mail_storage_set_critical(uidlist->ibox->box.storage,
 			"UIDs not ordered in file %s (%u > %u)",
-			uidlist->fname, uid, uidlist->last_read_uid);
+			uidlist->fname, uid, uidlist->prev_read_uid);
 		return 0;
 	}
-	uidlist->last_read_uid = uid;
+	uidlist->prev_read_uid = uid;
+
+	if (uid <= uidlist->last_seen_uid) {
+		/* we already have this */
+		return 1;
+	}
+        uidlist->last_seen_uid = uid;
 
 	if (uid >= uidlist->next_uid) {
                 mail_storage_set_critical(uidlist->ibox->box.storage,
@@ -228,13 +229,10 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 {
 	struct mail_storage *storage = uidlist->ibox->box.storage;
-	const struct maildir_uidlist_rec *const *rec_p;
 	const char *line;
 	unsigned int uid_validity, next_uid;
 	struct istream *input;
 	struct stat st;
-	uint32_t last_uid;
-	size_t size;
 	int fd, ret;
 
 	if (uidlist->last_mtime != 0) {
@@ -277,9 +275,6 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 							    st.st_size/8));
 	}
 
-	rec_p = buffer_get_data(uidlist->record_buf, &size);
-	last_uid = size == 0 ? 0 : rec_p[(size / sizeof(*rec_p))-1]->uid;
-
 	uidlist->version = 0;
 
 	input = i_stream_create_file(fd, default_pool, 4096, TRUE);
@@ -303,10 +298,11 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 	} else {
 		uidlist->uid_validity = uid_validity;
 		uidlist->next_uid = next_uid;
+		uidlist->prev_read_uid = 0;
 
 		ret = 1;
 		while ((line = i_stream_read_next_line(input)) != NULL) {
-			if (!maildir_uidlist_next(uidlist, line, last_uid)) {
+			if (!maildir_uidlist_next(uidlist, line)) {
 				ret = 0;
 				break;
 			}
