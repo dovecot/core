@@ -151,14 +151,14 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 ssize_t fd_send(int handle __attr_unused__, int send_fd __attr_unused__,
 		const void *data __attr_unused__, size_t size __attr_unused__)
 {
-	errno = EINVAL;
+	errno = ENOSYS;
 	return -1;
 }
 
 ssize_t fd_read(int handle __attr_unused__, void *data __attr_unused__,
 		size_t size __attr_unused__, int *fd __attr_unused__)
 {
-	errno = EINVAL;
+	errno = ENOSYS;
 	return -1;
 }
 #endif
