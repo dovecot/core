@@ -290,8 +290,8 @@ static int search_sent(MailSearchArgType type, const char *search_value,
 	if (!imap_parse_date(search_value, &search_time))
 		return 0;
 
-	/* NOTE: RFC2060 doesn't specify if timezones should affect
-	   matching, so we ignore them. */
+	/* NOTE: Latest IMAP4rev1 draft specifies that timezone is ignored
+	   in searches. */
 	if (!rfc822_parse_date(sent_value, &sent_time, &timezone_offset))
 		return 0;
 
