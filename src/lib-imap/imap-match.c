@@ -135,8 +135,10 @@ match_sub(const struct imap_match_glob *glob, const char **data_p,
 				if (ret > 0)
 					break;
 
-				if (ret == IMAP_MATCH_CHILDREN)
-					best_ret = IMAP_MATCH_CHILDREN;
+				if (ret == IMAP_MATCH_CHILDREN ||
+				    (ret == IMAP_MATCH_PARENT &&
+				     best_ret == IMAP_MATCH_NO))
+					best_ret = ret;
 			}
 
 			if (*data == glob->sep_char)

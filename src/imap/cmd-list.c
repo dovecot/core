@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "strescape.h"
+#include "imap-match.h"
 #include "commands.h"
 
 struct list_node {
@@ -21,6 +22,9 @@ struct list_context {
 static const char *mailbox_flags2str(enum mailbox_flags flags)
 {
 	const char *str;
+
+	if (flags == MAILBOX_PLACEHOLDER)
+		flags = MAILBOX_NOSELECT;
 
 	str = t_strconcat((flags & MAILBOX_NOSELECT) ? " \\Noselect" : "",
 			  (flags & MAILBOX_NOINFERIORS) ? " \\NoInferiors" : "",
@@ -60,7 +64,7 @@ static struct list_node *list_node_get(pool_t pool, struct list_node **node,
 			/* not found, create it */
 			*node = p_new(pool, struct list_node, 1);
 			(*node)->name = p_strdup(pool, name);
-			(*node)->flags = MAILBOX_NOSELECT;
+			(*node)->flags = MAILBOX_PLACEHOLDER;
 		}
 
 		t_pop();
@@ -77,9 +81,11 @@ static struct list_node *list_node_get(pool_t pool, struct list_node **node,
 }
 
 static void list_send(struct client *client, struct list_node *node,
-		      const char *cmd, const char *path, const char *sep)
+		      const char *cmd, const char *path, const char *sep,
+		      struct imap_match_glob *glob)
 {
-	const char *name, *str;
+	const char *name, *send_name, *str;
+	enum imap_match_result match;
 
 	for (; node != NULL; node = node->next) {
 		t_push();
@@ -91,18 +97,61 @@ static void list_send(struct client *client, struct list_node *node,
 			name = "INBOX";
 		else
 			name = node->name;
+		send_name = name;
 
-		/* node->name should already be escaped */
-		str = t_strdup_printf("* %s (%s) \"%s\" \"%s\"", cmd,
-				      mailbox_flags2str(node->flags),
-				      sep, name);
-		client_send_line(client, str);
+		if (node->flags != MAILBOX_PLACEHOLDER)
+			match = IMAP_MATCH_YES;
+		else {
+			/* make sure the placeholder matches. */
+			const char *buf;
+
+			buf = str_unescape(t_strdup_noconst(name));
+			match = imap_match(glob, buf);
+			if (match == IMAP_MATCH_CHILDREN) {
+				send_name = t_strconcat(name, sep, NULL);
+				buf = str_unescape(t_strdup_noconst(send_name));
+				match = imap_match(glob, buf);
+			}
+		}
+
+		if (match == IMAP_MATCH_YES) {
+			/* node->name should already be escaped */
+			str = t_strdup_printf("* %s (%s) \"%s\" \"%s\"", cmd,
+					      mailbox_flags2str(node->flags),
+					      sep, send_name);
+			client_send_line(client, str);
+		}
 
 		if (node->children != NULL)
-			list_send(client, node->children, cmd, name, sep);
+			list_send(client, node->children, cmd, name, sep, glob);
 
 		t_pop();
 	}
+}
+
+static void list_and_sort(struct client *client,
+			  struct mailbox_list_context *ctx,
+			  const char *cmd, const char *sep, const char *mask)
+{
+	struct mailbox_list *list;
+	struct list_node *nodes, *node;
+	struct imap_match_glob *glob;
+	pool_t pool;
+
+	pool = pool_alloconly_create("list_mailboxes", 10240);
+	nodes = NULL;
+
+	while ((list = client->storage->list_mailbox_next(ctx)) != NULL) {
+		node = list_node_get(pool, &nodes, list->name,
+				     client->storage->hierarchy_sep);
+		node->flags |= list->flags;
+	}
+
+	glob = imap_match_init(data_stack_pool, mask, TRUE,
+			       client->storage->hierarchy_sep);
+	list_send(client, nodes, cmd, NULL, sep, glob);
+	imap_match_deinit(glob);
+	pool_unref(pool);
 }
 
 static void list_unsorted(struct client *client,
@@ -126,30 +175,6 @@ static void list_unsorted(struct client *client,
 	}
 }
 
-static void list_and_sort(struct client *client,
-			  struct mailbox_list_context *ctx,
-			  const char *cmd, const char *sep)
-{
-	struct mailbox_list *list;
-	struct list_node *nodes, *node;
-	pool_t pool;
-
-	pool = pool_alloconly_create("list_mailboxes", 10240);
-	nodes = NULL;
-
-	while ((list = client->storage->list_mailbox_next(ctx)) != NULL) {
-		node = list_node_get(pool, &nodes, list->name,
-				     client->storage->hierarchy_sep);
-
-		/* set the flags, this also overrides the
-		   NOSELECT flag set by list_node_get() */
-		node->flags = list->flags;
-	}
-
-	list_send(client, nodes, cmd, NULL, sep);
-	pool_unref(pool);
-}
-
 static int list_mailboxes(struct client *client, const char *mask,
 			  int subscribed, const char *sep)
 {
@@ -165,10 +190,10 @@ static int list_mailboxes(struct client *client, const char *mask,
 		return FALSE;
 
         cmd = subscribed ? "LSUB" : "LIST";
-	if (sorted || (client_workarounds & WORKAROUND_LIST_SORT) == 0)
+	if (sorted)
 		list_unsorted(client, ctx, cmd, sep);
 	else
-		list_and_sort(client, ctx, cmd, sep);
+		list_and_sort(client, ctx, cmd, sep, mask);
 
 	return client->storage->list_mailbox_deinit(ctx);
 }

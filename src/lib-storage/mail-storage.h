@@ -17,6 +17,7 @@ enum mailbox_flags {
 	MAILBOX_NOINFERIORS	= 0x08,
 	MAILBOX_MARKED		= 0x10,
 	MAILBOX_UNMARKED	= 0x20,
+	MAILBOX_PLACEHOLDER	= 0x40,
 
 	MAILBOX_READONLY	= 0x40
 };
@@ -92,8 +93,7 @@ enum mail_fetch_field {
 
 enum client_workarounds {
 	WORKAROUND_OE6_FETCH_NO_NEWMAIL	= 0x01,
-	WORKAROUND_LIST_SORT		= 0x02,
-	WORKAROUND_OUTLOOK_IDLE		= 0x04
+	WORKAROUND_OUTLOOK_IDLE		= 0x02
 };
 
 struct mail_full_flags {

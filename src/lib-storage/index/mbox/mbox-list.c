@@ -291,7 +291,7 @@ static struct mailbox_list *mbox_list_subs(struct mailbox_list_context *ctx)
 
 	if (match == IMAP_MATCH_PARENT) {
 		/* placeholder */
-		ctx->list.flags = MAILBOX_NOSELECT;
+		ctx->list.flags = MAILBOX_PLACEHOLDER;
 		while ((p = strrchr(name, '/')) != NULL) {
 			name = t_strdup_until(name, p);
 			if (imap_match(ctx->glob, name) > 0) {

@@ -152,7 +152,7 @@ static struct mailbox_list *maildir_list_subs(struct mailbox_list_context *ctx)
 
 	if (match == IMAP_MATCH_PARENT) {
 		/* placeholder */
-		ctx->list.flags = MAILBOX_NOSELECT;
+		ctx->list.flags = MAILBOX_PLACEHOLDER;
 		while ((p = strrchr(name, '.')) != NULL) {
 			name = t_strdup_until(name, p);
 			if (imap_match(ctx->glob, name) > 0) {
@@ -181,14 +181,15 @@ static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx)
 {
 	struct dirent *d;
 	struct stat st;
+	const char *fname, *p;
 	char path[PATH_MAX];
-	int ret;
+	enum imap_match_result match;
 
 	if (ctx->dirp == NULL)
 		return NULL;
 
 	while ((d = readdir(ctx->dirp)) != NULL) {
-		const char *fname = d->d_name;
+		fname = d->d_name;
 
 		if (fname[0] != '.')
 			continue;
@@ -200,10 +201,11 @@ static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx)
 		/* make sure the mask matches - dirs beginning with ".."
 		   should be deleted and we always want to check those. */
 		t_push();
-		ret = imap_match(ctx->glob,
-				 t_strconcat(ctx->prefix, fname+1, NULL));
+		match = imap_match(ctx->glob,
+				   t_strconcat(ctx->prefix, fname+1, NULL));
 		t_pop();
-		if (fname[1] == '.' || ret <= 0)
+		if (fname[1] != '.' && match != IMAP_MATCH_YES &&
+		    match != IMAP_MATCH_PARENT)
 			continue;
 
 		if (str_path(path, sizeof(path), ctx->dir, fname) < 0)
@@ -223,7 +225,8 @@ static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx)
 		if (!S_ISDIR(st.st_mode))
 			continue;
 
-		if (fname[1] == '.') {
+		fname++;
+		if (*fname == '.') {
 			/* this mailbox is in the middle of being deleted,
 			   or the process trying to delete it had died.
 
@@ -234,14 +237,26 @@ static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx)
 			continue;
 		}
 
-		if (strcasecmp(fname+1, "INBOX") == 0)
+		if (strcasecmp(fname, "INBOX") == 0)
 			continue; /* ignore inboxes */
+
+		if (match == IMAP_MATCH_PARENT) {
+			ctx->list.flags = MAILBOX_PLACEHOLDER;
+			while ((p = strrchr(fname, '.')) != NULL) {
+				fname = t_strdup_until(fname, p);
+				if (imap_match(ctx->glob, fname) > 0) {
+					ctx->list.name = fname;
+					return &ctx->list;
+				}
+			}
+			i_unreached();
+		}
 
 		p_clear(ctx->list_pool);
 		if ((ctx->flags & MAILBOX_LIST_NO_FLAGS) == 0)
 			ctx->list.flags = maildir_get_marked_flags(path);
 		ctx->list.name = p_strconcat(ctx->list_pool,
-					     ctx->prefix, fname+1, NULL);
+					     ctx->prefix, fname, NULL);
 		return &ctx->list;
 	}
 
