@@ -107,11 +107,11 @@ void passdb_init(void)
 		passdb = &passdb_ldap;
 #endif
 #ifdef PASSDB_PGSQL
-    if (strcasecmp(name, "pgsql") == 0)
-        passdb = &passdb_pgsql;
+	if (strcasecmp(name, "pgsql") == 0)
+		passdb = &passdb_pgsql;
 #endif
 #ifdef AUTH_MODULES
-	passdb_module = auth_module_open(name);
+	passdb_module = passdb != NULL ? NULL : auth_module_open(name);
 	if (passdb_module != NULL) {
 		passdb = auth_module_sym(passdb_module,
 					 t_strconcat("passdb_", name, NULL));
