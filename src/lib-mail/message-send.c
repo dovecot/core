@@ -2,12 +2,11 @@
 
 #include "lib.h"
 #include "iobuffer.h"
-#include "imap-message-send.h"
+#include "message-send.h"
 #include "message-size.h"
 
-int imap_message_send(IOBuffer *outbuf, IOBuffer *inbuf,
-		      MessageSize *msg_size, off_t virtual_skip,
-		      off_t max_virtual_size)
+int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
+		 off_t virtual_skip, off_t max_virtual_size)
 {
 	unsigned char *msg;
 	unsigned int i, size;

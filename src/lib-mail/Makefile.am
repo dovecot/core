@@ -6,6 +6,7 @@ INCLUDES = \
 libmail_a_SOURCES = \
 	message-parser.c \
 	message-content-parser.c \
+	message-send.c \
 	message-size.c \
 	rfc822-address.c \
 	rfc822-date.c \
@@ -14,6 +15,7 @@ libmail_a_SOURCES = \
 noinst_HEADERS = \
 	message-parser.h \
 	message-content-parser.h \
+	message-send.h \
 	message-size.h \
 	rfc822-address.h \
 	rfc822-date.h \

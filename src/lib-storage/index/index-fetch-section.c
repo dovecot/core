@@ -4,7 +4,7 @@
 #include "temp-string.h"
 #include "iobuffer.h"
 #include "rfc822-tokenize.h"
-#include "imap-message-send.h"
+#include "message-send.h"
 #include "index-storage.h"
 #include "index-fetch.h"
 
@@ -49,7 +49,7 @@ static int fetch_body(MailIndexRecord *rec, MailFetchBodyData *sect,
 	str = t_strdup_printf("{%lu}\r\n", (unsigned long) size.virtual_size);
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
 
-	(void)imap_message_send(ctx->outbuf, inbuf, &size, 0, sect->max_size);
+	(void)message_send(ctx->outbuf, inbuf, &size, 0, sect->max_size);
 	return TRUE;
 }
 
@@ -206,8 +206,8 @@ static void fetch_header_from(IOBuffer *inbuf, MessageSize *size,
 		str = t_strdup_printf("{%lu}\r\n",
 				      (unsigned long) size->virtual_size);
 		(void)io_buffer_send(ctx->outbuf, str, strlen(str));
-		(void)imap_message_send(ctx->outbuf, inbuf, size,
-					sect->skip, sect->max_size);
+		(void)message_send(ctx->outbuf, inbuf, size,
+				   sect->skip, sect->max_size);
 		return;
 	}
 
@@ -328,8 +328,8 @@ static int fetch_part_body(MessagePart *part, unsigned int uid,
 
 	/* FIXME: potential performance problem with big messages:
 	   FETCH BODY[1]<100000..1024>, hopefully no clients do this */
-	(void)imap_message_send(ctx->outbuf, inbuf, &part->body_size,
-				sect->skip, sect->max_size);
+	(void)message_send(ctx->outbuf, inbuf, &part->body_size,
+			   sect->skip, sect->max_size);
 	return TRUE;
 }
 
