@@ -112,15 +112,15 @@ static IPADDR *resolve_ip(const char *name)
 	IPADDR *ip;
 	int ret, ips_count;
 
-	if (set_imap_listen == NULL || *set_imap_listen == '\0')
+	if (name == NULL || *name == '\0')
 		return NULL;
 
 	ret = net_gethostbyname(name, &ip, &ips_count);
 	if (ret != 0)
-		i_fatal("Can't resolve address: %s", set_imap_listen);
+		i_fatal("Can't resolve address: %s", name);
 
 	if (ips_count < 1)
-		i_fatal("No IPs for address: %s", set_imap_listen);
+		i_fatal("No IPs for address: %s", name);
 
 	return ip;
 }
