@@ -153,6 +153,8 @@ static void main_deinit(void)
 	random_deinit();
 	pool_unref(namespace_pool);
 
+	str_free(capability_string);
+
 	closelog();
 }
 

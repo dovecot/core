@@ -130,6 +130,9 @@ void mail_transaction_log_close(struct mail_transaction_log *log)
 {
 	mail_transaction_log_views_close(log);
 
+	log->head->refcount--;
+	mail_transaction_logs_clean(log);
+
 	log->index->log = NULL;
 	i_free(log);
 }
@@ -222,6 +225,17 @@ mail_transaction_log_file_lock(struct mail_transaction_log_file *file,
 static void
 mail_transaction_log_file_close(struct mail_transaction_log_file *file)
 {
+	if (file->buffer != NULL)
+		buffer_free(file->buffer);
+
+	if (file->mmap_base != NULL) {
+		if (munmap(file->mmap_base, file->mmap_size) < 0) {
+			mail_index_file_set_syscall_error(file->log->index,
+							  file->filepath,
+							  "munmap()");
+		}
+	}
+
 	if (close(file->fd) < 0) {
 		mail_index_file_set_syscall_error(file->log->index,
 						  file->filepath, "close()");

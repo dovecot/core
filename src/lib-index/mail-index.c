@@ -30,6 +30,8 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 
 void mail_index_free(struct mail_index *index)
 {
+	mail_index_close(index);
+
 	i_free(index->error);
 	i_free(index->dir);
 	i_free(index->prefix);
@@ -564,6 +566,8 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 	if (index->opened)
 		return 0;
 
+	index->filepath = i_strconcat(index->dir, "/", index->prefix, NULL);
+
 	do {
 		index->shared_lock_count = 0;
 		index->excl_lock_count = 0;
@@ -580,8 +584,6 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 			(flags & MAIL_INDEX_OPEN_FLAG_FCNTL_LOCKS_DISABLE) != 0;
 		index->readonly = FALSE;
 
-		index->filepath = i_strconcat(index->dir, "/",
-					      index->prefix, NULL);
 		ret = mail_index_open_files(index, flags);
 		if (ret <= 0)
 			break;
