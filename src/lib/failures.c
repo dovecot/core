@@ -95,6 +95,7 @@ static void default_handler(const char *prefix, const char *format,
 	if (log_fd == NULL)
 		log_fd = stderr;
 
+	t_push();
 	if (recursed == 2) {
 		/* write without fixing format, that probably killed us
 		   last time. */
@@ -114,6 +115,8 @@ static void default_handler(const char *prefix, const char *format,
 	}
 
 	fputc('\n', log_fd);
+
+	t_pop();
 
 	errno = old_errno;
 	recursed--;
