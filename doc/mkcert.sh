@@ -11,11 +11,11 @@ CERTFILE=$SSLDIR/certs/imapd.pem
 KEYFILE=$SSLDIR/private/imapd.pem
 
 if [ ! -d $SSLDIR/certs ]; then
-  echo $SSLDIR/certs directory doesn't exist
+  echo "$SSLDIR/certs directory doesn't exist"
 fi
 
 if [ ! -d $SSLDIR/private ]; then
-  echo $SSLDIR/private directory doesn't exist
+  echo "$SSLDIR/private directory doesn't exist"
 fi
 
 if [ -f $CERTFILE ]; then
