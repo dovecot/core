@@ -282,8 +282,13 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 	sync = buffer_get_data(syncs_buf, &size);
 	size /= sizeof(*sync);
 
+	old_flags = ctx->mail.flags;
+
+	if ((ctx->mail.flags & MBOX_NONRECENT) == 0 &&
+	    !ctx->sync_ctx->ibox->keep_recent)
+		ctx->mail.flags |= MBOX_NONRECENT;
+
 	if (size != 0) {
-		old_flags = ctx->mail.flags;
 		memcpy(old_keywords, ctx->mail.keywords, sizeof(old_keywords));
 
 		for (i = 0; i < size; i++) {
@@ -299,22 +304,17 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 		ctx->mail.flags = (ctx->mail.flags & ~MAIL_RECENT) |
 			(old_flags & MAIL_RECENT);
 
-		if ((old_flags & STATUS_FLAGS_MASK) !=
-		    (ctx->mail.flags & STATUS_FLAGS_MASK))
-			mbox_sync_update_status(ctx);
 		if ((old_flags & XSTATUS_FLAGS_MASK) !=
 		    (ctx->mail.flags & XSTATUS_FLAGS_MASK))
 			mbox_sync_update_xstatus(ctx);
 		if (memcmp(old_keywords, ctx->mail.keywords,
 			   INDEX_KEYWORDS_BYTE_COUNT) != 0)
 			mbox_sync_update_xkeywords(ctx);
-	} else {
-		if ((ctx->mail.flags & MBOX_NONRECENT) == 0 &&
-		    !ctx->sync_ctx->ibox->keep_recent) {
-			ctx->mail.flags |= MBOX_NONRECENT;
-			mbox_sync_update_status(ctx);
-		}
 	}
+
+	if ((old_flags & STATUS_FLAGS_MASK) !=
+	    (ctx->mail.flags & STATUS_FLAGS_MASK))
+		mbox_sync_update_status(ctx);
 
 	mbox_sync_update_x_imap_base(ctx);
 	mbox_sync_update_x_uid(ctx);

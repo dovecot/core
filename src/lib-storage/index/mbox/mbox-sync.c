@@ -143,13 +143,12 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 					       mail_ctx->content_length);
 	i_assert(mail_ctx->mail.body_size < OFF_T_MAX);
 
-	/* save the offset permanently with recent flag state */
+	/* save the offset permanently */
 	mail_ctx->mail.from_offset = mail_ctx->from_offset;
 	if ((mail_ctx->mail.flags & MBOX_NONRECENT) == 0 && !mail_ctx->pseudo) {
 		if (!sync_ctx->ibox->keep_recent) {
 			/* need to add 'O' flag to Status-header */
 			mail_ctx->need_rewrite = TRUE;
-			mail_ctx->mail.flags |= MBOX_NONRECENT;
 		}
 		index_mailbox_set_recent(sync_ctx->ibox,
 					 mail_ctx->seq - mail_ctx->pseudo);
