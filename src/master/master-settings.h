@@ -1,7 +1,26 @@
 #ifndef __MASTER_SETTINGS_H
 #define __MASTER_SETTINGS_H
 
+enum mail_protocol {
+        MAIL_PROTOCOL_ANY,
+        MAIL_PROTOCOL_IMAP,
+        MAIL_PROTOCOL_POP3
+};
+
+struct server_settings {
+	struct server_settings *next;
+
+	const char *name;
+	struct settings *defaults;
+	struct settings *imap;
+	struct settings *pop3;
+	struct auth_settings *auths;
+};
+
 struct settings {
+	struct server_settings *server;
+	enum mail_protocol protocol;
+
 	/* common */
 	const char *base_dir;
 	const char *log_path;
@@ -10,10 +29,8 @@ struct settings {
 
 	/* general */
 	const char *protocols;
-	const char *imap_listen;
-	const char *imaps_listen;
-	const char *pop3_listen;
-	const char *pop3s_listen;
+	const char *listen;
+	const char *ssl_listen;
 
 	int ssl_disable;
 	const char *ssl_cert_file;
@@ -21,11 +38,20 @@ struct settings {
 	const char *ssl_parameters_file;
 	unsigned int ssl_parameters_regenerate;
 	int disable_plaintext_auth;
+	int verbose_ssl;
 
 	/* login */
 	const char *login_dir;
+	const char *login_executable;
+	const char *login_user;
+
+	int login_process_per_connection;
 	int login_chroot;
-	int verbose_ssl;
+
+	unsigned int login_process_size;
+	unsigned int login_processes_count;
+	unsigned int login_max_processes_count;
+	unsigned int login_max_logging_users;
 
 	/* mail */
 	const char *valid_chroot_dirs;
@@ -47,51 +73,30 @@ struct settings {
 	int mail_read_mmaped;
 	int maildir_copy_with_hardlinks;
 	int maildir_check_content_changes;
-	char *mbox_locks;
+	const char *mbox_locks;
 	int mbox_read_dotlock;
 	unsigned int mbox_lock_timeout;
 	unsigned int mbox_dotlock_change_timeout;
 	unsigned int umask;
 	int mail_drop_priv_before_exec;
 
-	/* imap */
-	const char *imap_executable;
-	unsigned int imap_process_size;
-	unsigned int imap_max_line_length;
-	int imap_use_modules;
-	const char *imap_modules;
+	const char *mail_executable;
+	unsigned int mail_process_size;
+	int mail_use_modules;
+	const char *mail_modules;
 
-	/* pop3 */
-	const char *pop3_executable;
-	unsigned int pop3_process_size;
-	int pop3_use_modules;
-	const char *pop3_modules;
+	/* imap */
+	unsigned int imap_max_line_length;
 
 	/* .. */
+	uid_t login_uid;
 	gid_t login_gid;
 
-	struct auth_settings *auths;
-	struct login_settings *logins;
-};
-
-struct login_settings {
-	struct login_settings *next;
-
-	const char *name;
-	const char *executable;
-	const char *user;
-
-	int process_per_connection;
-
-	unsigned int process_size;
-	unsigned int processes_count;
-	unsigned int max_processes_count;
-	unsigned int max_logging_users;
-
-	uid_t uid; /* gid must be always same with all login processes */
+	int listen_fd, ssl_listen_fd;
 };
 
 struct auth_settings {
+	struct server_settings *parent;
 	struct auth_settings *next;
 
 	const char *name;
@@ -112,9 +117,9 @@ struct auth_settings {
 	unsigned int process_size;
 };
 
-extern struct settings *set;
+extern struct server_settings *settings_root;
 
-void master_settings_read(const char *path);
+int master_settings_read(const char *path);
 
 void master_settings_init(void);
 void master_settings_deinit(void);

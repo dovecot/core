@@ -12,6 +12,7 @@
 #include "db-pgsql.h"
 
 #include <stddef.h>
+#include <stdlib.h>
 
 #define DEF(type, name) { type, #name, offsetof(struct pgsql_settings, name) }
 
@@ -142,7 +143,8 @@ struct pgsql_connection *db_pgsql_init(const char *config_path)
 
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_pgsql_settings;
-	settings_read(config_path, parse_setting, conn);
+	if (!settings_read(config_path, NULL, parse_setting, NULL, conn))
+		exit(FATAL_DEFAULT);
 
 	(void)pgsql_conn_open(conn);
 

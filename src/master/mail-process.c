@@ -9,6 +9,7 @@
 #include "restrict-process-size.h"
 #include "var-expand.h"
 #include "mail-process.h"
+#include "login-process.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -18,11 +19,18 @@
 
 static unsigned int mail_process_count = 0;
 
-static int validate_uid_gid(uid_t uid, gid_t gid, const char *user)
+static int validate_uid_gid(struct settings *set, uid_t uid, gid_t gid,
+			    const char *user)
 {
 	if (uid == 0) {
 		i_error("Logins with UID 0 not permitted (user %s)", user);
 		return FALSE;
+	}
+
+	if (set->login_uid == uid && geteuid() != uid) {
+		i_error("Can't log in using login processes UID %s (user %s) "
+			"(see login_user in config file).",
+			dec2str(uid), user);
 	}
 
 	if (uid < (uid_t)set->first_valid_uid ||
@@ -44,7 +52,7 @@ static int validate_uid_gid(uid_t uid, gid_t gid, const char *user)
 	return TRUE;
 }
 
-static int validate_chroot(const char *dir)
+static int validate_chroot(struct settings *set, const char *dir)
 {
 	const char *const *chroot_dirs;
 
@@ -95,30 +103,31 @@ static const char *expand_mail_env(const char *env, const char *user,
 	return str_c(str);
 }
 
-int create_mail_process(int socket, struct ip_addr *ip,
-			const char *executable, const char *module_dir,
-			unsigned int process_size, int process_type,
+int create_mail_process(struct login_group *group, int socket,
+			struct ip_addr *ip,
 			struct auth_master_reply *reply, const char *data)
 {
 	static const char *argv[] = { NULL, NULL, NULL };
+	struct settings *set = group->set;
 	const char *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
 	char title[1024];
 	pid_t pid;
 	int i, err;
 
+	// FIXME: per-group
 	if (mail_process_count == set->max_mail_processes) {
 		i_error("Maximum number of mail processes exceeded");
 		return FALSE;
 	}
 
-	if (!validate_uid_gid(reply->uid, reply->gid,
+	if (!validate_uid_gid(set, reply->uid, reply->gid,
 			      data + reply->virtual_user_idx))
 		return FALSE;
 
 	home_dir = data + reply->home_idx;
 	chroot_dir = data + reply->chroot_idx;
 
-	if (*chroot_dir != '\0' && !validate_chroot(chroot_dir)) {
+	if (*chroot_dir != '\0' && !validate_chroot(set, chroot_dir)) {
 		i_error("Invalid chroot directory: %s", chroot_dir);
 		return FALSE;
 	}
@@ -132,11 +141,11 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	if (pid != 0) {
 		/* master */
 		mail_process_count++;
-		PID_ADD_PROCESS_TYPE(pid, process_type);
+		PID_ADD_PROCESS_TYPE(pid, group->process_type);
 		return TRUE;
 	}
 
-	child_process_init_env();
+	child_process_init_env(set);
 
 	/* move the client socket into stdin and stdout fds */
 	fd_close_on_exec(socket, FALSE);
@@ -154,7 +163,7 @@ int create_mail_process(int socket, struct ip_addr *ip,
 				reply->uid, reply->gid, chroot_dir,
 				set->first_valid_gid, set->last_valid_gid);
 
-	restrict_process_size(process_size, (unsigned int)-1);
+	restrict_process_size(group->set->mail_process_size, (unsigned int)-1);
 
 	if (*home_dir != '\0') {
 		full_home_dir = *chroot_dir == '\0' ? home_dir :
@@ -200,8 +209,12 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	if (set->mbox_read_dotlock)
 		env_put("MBOX_READ_DOTLOCK=1");
 
-	if (module_dir != NULL && *module_dir != '\0')
-		env_put(t_strconcat("MODULE_DIR=", module_dir, NULL));
+	if (group->set->mail_use_modules &&
+	    group->set->mail_modules != NULL &&
+	    *group->set->mail_modules != '\0') {
+		env_put(t_strconcat("MODULE_DIR=",
+				    group->set->mail_modules, NULL));
+	}
 
 	/* user given environment - may be malicious. virtual_user comes from
 	   auth process, but don't trust that too much either. Some auth
@@ -236,16 +249,20 @@ int create_mail_process(int socket, struct ip_addr *ip,
 		restrict_access_by_env(TRUE);
 
 	/* hide the path, it's ugly */
-	argv[0] = strrchr(executable, '/');
-	if (argv[0] == NULL) argv[0] = executable; else argv[0]++;
+	argv[0] = strrchr(group->set->mail_executable, '/');
+	if (argv[0] == NULL)
+		argv[0] = group->set->mail_executable;
+	else
+		argv[0]++;
 
-	execv(executable, (char **) argv);
+	execv(group->set->mail_executable, (char **) argv);
 	err = errno;
 
 	for (i = 0; i < 3; i++)
 		(void)close(i);
 
-	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
+		       group->set->mail_executable);
 
 	/* not reached */
 	return FALSE;

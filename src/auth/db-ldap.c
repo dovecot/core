@@ -14,6 +14,7 @@
 #include "db-ldap.h"
 
 #include <stddef.h>
+#include <stdlib.h>
 
 /* Older versions may require calling ldap_result() twice */
 #if LDAP_VENDOR_VERSION <= 20112
@@ -335,7 +336,8 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_ldap_settings;
-	settings_read(config_path, parse_setting, conn);
+	if (!settings_read(config_path, NULL, parse_setting, NULL, conn))
+		exit(FATAL_DEFAULT);
 
 	if (conn->set.base == NULL)
 		i_fatal("LDAP: No base given");

@@ -17,25 +17,6 @@
 #include <unistd.h>
 #include <syslog.h>
 
-struct login_group {
-	struct login_group *next;
-
-	struct login_settings *set;
-
-	unsigned int processes;
-	unsigned int listening_processes;
-	unsigned int wanted_processes_count;
-
-	struct login_process *oldest_nonlisten_process;
-	struct login_process *newest_nonlisten_process;
-
-	const char *executable;
-	const char *module_dir;
-	unsigned int process_size;
-	int process_type;
-	int *listen_fd, *ssl_listen_fd;
-};
-
 struct login_process {
 	struct login_group *group;
 	struct login_process *prev_nonlisten, *next_nonlisten;
@@ -71,36 +52,14 @@ static void login_process_destroy(struct login_process *p);
 static void login_process_unref(struct login_process *p);
 static int login_process_init_group(struct login_process *p);
 
-static void login_group_create(struct login_settings *login_set)
+static void login_group_create(struct settings *set)
 {
 	struct login_group *group;
 
-	if (strstr(set->protocols, login_set->name) == NULL) {
-		/* not enabled */
-		return;
-	}
-
 	group = i_new(struct login_group, 1);
-	group->set = login_set;
-
-	if (strcmp(login_set->name, "imap") == 0) {
-		group->executable = set->imap_executable;
-		group->process_size = set->imap_process_size;
-		group->process_type = PROCESS_TYPE_IMAP;
-		group->listen_fd = &mail_fd[FD_IMAP];
-		group->ssl_listen_fd = &mail_fd[FD_IMAPS];
-		group->module_dir = !set->imap_use_modules ? NULL :
-                        set->imap_modules;
-	} else if (strcmp(login_set->name, "pop3") == 0) {
-		group->executable = set->pop3_executable;
-		group->process_size = set->pop3_process_size;
-		group->process_type = PROCESS_TYPE_POP3;
-		group->listen_fd = &mail_fd[FD_POP3];
-		group->ssl_listen_fd = &mail_fd[FD_POP3S];
-		group->module_dir = !set->pop3_use_modules ? NULL :
-                        set->pop3_modules;
-	} else
-		i_panic("Unknown login group name '%s'", login_set->name);
+	group->set = set;
+	group->process_type = set->protocol == MAIL_PROTOCOL_IMAP ?
+		PROCESS_TYPE_IMAP : PROCESS_TYPE_POP3;
 
 	group->next = login_groups;
 	login_groups = group;
@@ -123,11 +82,7 @@ void auth_master_callback(struct auth_master_reply *reply,
 		struct login_group *group = request->process->group;
 
 		master_reply.success =
-			create_mail_process(request->fd, &request->ip,
-					    group->executable,
-					    group->module_dir,
-					    group->process_size,
-					    group->process_type,
+			create_mail_process(group, request->fd, &request->ip,
 					    reply, (const char *) data);
 	}
 
@@ -168,18 +123,29 @@ static void login_process_mark_nonlistening(struct login_process *p)
 	}
 }
 
-static struct login_group *login_group_process_find(const char *name)
+static void login_process_groups_create(void)
+{
+	struct server_settings *server;
+
+	for (server = settings_root; server != NULL; server = server->next) {
+		if (server->imap != NULL)
+			login_group_create(server->imap);
+		if (server->pop3 != NULL)
+			login_group_create(server->pop3);
+	}
+}
+
+static struct login_group *
+login_group_process_find(const char *name, enum mail_protocol protocol)
 {
 	struct login_group *group;
-	struct login_settings *login;
 
-	if (login_groups == NULL) {
-		for (login = set->logins; login != NULL; login = login->next)
-			login_group_create(login);
-	}
+	if (login_groups == NULL)
+                login_process_groups_create();
 
 	for (group = login_groups; group != NULL; group = group->next) {
-		if (strcmp(group->set->name, name) == 0)
+		if (strcmp(group->set->server->name, name) == 0 &&
+		    group->set->protocol == protocol)
 			return group;
 	}
 
@@ -189,8 +155,9 @@ static struct login_group *login_group_process_find(const char *name)
 static int login_process_read_group(struct login_process *p)
 {
 	struct login_group *group;
-	const char *name;
+	const char *name, *proto;
 	char buf[256];
+	enum mail_protocol protocol;
 	unsigned int len;
 	ssize_t ret;
 
@@ -201,7 +168,7 @@ static int login_process_read_group(struct login_process *p)
 	else {
 		len = buf[0];
 		if (len >= sizeof(buf)) {
-			i_error("login: Process name length too large");
+			i_error("login: Server name length too large");
 			return FALSE;
 		}
 
@@ -211,12 +178,29 @@ static int login_process_read_group(struct login_process *p)
 	if (ret < 0)
 		i_error("login: read() failed: %m");
 	else if (len == 0 || (size_t)ret != len)
-		i_error("login: Process name wasn't sent");
+		i_error("login: Server name wasn't sent");
 	else {
 		name = t_strndup(buf, len);
-		group = login_group_process_find(name);
+		proto = strchr(buf, '/');
+		if (proto == NULL) {
+			i_error("login: Missing protocol from server name '%s'",
+				name);
+			return FALSE;
+		}
+		name = t_strdup_until(buf, proto++);
+
+		if (strcmp(proto, "imap") == 0)
+			protocol = MAIL_PROTOCOL_IMAP;
+		else if (strcmp(proto, "pop3") == 0)
+			protocol = MAIL_PROTOCOL_IMAP;
+		else {
+			i_error("login: Unknown protocol '%s'", proto);
+			return FALSE;
+		}
+
+		group = login_group_process_find(name, protocol);
 		if (group == NULL) {
-			i_error("login: Unknown process group '%s'", name);
+			i_error("login: Unknown server name '%s'", name);
 			return FALSE;
 		}
 
@@ -384,12 +368,13 @@ static void login_process_unref(struct login_process *p)
 
 static void login_process_init_env(struct login_group *group, pid_t pid)
 {
-	child_process_init_env();
+	struct settings *set = group->set;
+
+	child_process_init_env(set);
 
 	/* setup access environment - needs to be done after
 	   clean_child_process() since it clears environment */
-	restrict_access_set_env(group->set->user,
-				group->set->uid, set->login_gid,
+	restrict_access_set_env(set->login_user, set->login_uid, set->login_gid,
 				set->login_chroot ? set->login_dir : NULL,
 				0, 0);
 
@@ -398,7 +383,8 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 	if (!set->ssl_disable) {
 		env_put(t_strconcat("SSL_CERT_FILE=",
 				    set->ssl_cert_file, NULL));
-		env_put(t_strconcat("SSL_KEY_FILE=", set->ssl_key_file, NULL));
+		env_put(t_strconcat("SSL_KEY_FILE=",
+				    set->ssl_key_file, NULL));
 		env_put(t_strconcat("SSL_PARAM_FILE=",
 				    set->ssl_parameters_file, NULL));
 	}
@@ -410,12 +396,12 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 	if (set->verbose_ssl)
 		env_put("VERBOSE_SSL=1");
 
-	if (group->set->process_per_connection) {
+	if (set->login_process_per_connection) {
 		env_put("PROCESS_PER_CONNECTION=1");
 		env_put("MAX_LOGGING_USERS=1");
 	} else {
 		env_put(t_strdup_printf("MAX_LOGGING_USERS=%u",
-					group->set->max_logging_users));
+					set->login_max_logging_users));
 	}
 
 	env_put(t_strdup_printf("PROCESS_UID=%s", dec2str(pid)));
@@ -427,14 +413,14 @@ static pid_t create_login_process(struct login_group *group)
 	pid_t pid;
 	int fd[2];
 
-	if (group->set->process_per_connection &&
+	if (group->set->login_process_per_connection &&
 	    group->processes - group->listening_processes >=
-	    group->set->max_logging_users) {
+	    group->set->login_max_logging_users) {
 		if (group->oldest_nonlisten_process != NULL)
 			login_process_destroy(group->oldest_nonlisten_process);
 	}
 
-	if (group->set->uid == 0)
+	if (group->set->login_uid == 0)
 		i_fatal("Login process must not run as root");
 
 	/* create communication to process with a socket pair */
@@ -461,12 +447,12 @@ static pid_t create_login_process(struct login_group *group)
 	}
 
 	/* move the listen handle */
-	if (dup2(*group->listen_fd, LOGIN_LISTEN_FD) < 0)
+	if (dup2(group->set->listen_fd, LOGIN_LISTEN_FD) < 0)
 		i_fatal("login: dup2(listen_fd) failed: %m");
 	fd_close_on_exec(LOGIN_LISTEN_FD, FALSE);
 
 	/* move the SSL listen handle */
-	if (dup2(*group->ssl_listen_fd, LOGIN_SSL_LISTEN_FD) < 0)
+	if (dup2(group->set->ssl_listen_fd, LOGIN_SSL_LISTEN_FD) < 0)
 		i_fatal("login: dup2(ssl_listen_fd) failed: %m");
 	fd_close_on_exec(LOGIN_SSL_LISTEN_FD, FALSE);
 
@@ -480,26 +466,31 @@ static pid_t create_login_process(struct login_group *group)
 
 	login_process_init_env(group, getpid());
 
-	if (!set->login_chroot) {
+	if (!group->set->login_chroot) {
 		/* no chrooting, but still change to the directory */
-		if (chdir(set->login_dir) < 0)
-			i_fatal("chdir(%s) failed: %m", set->login_dir);
+		if (chdir(group->set->login_dir) < 0) {
+			i_fatal("chdir(%s) failed: %m",
+				group->set->login_dir);
+		}
 	}
 
-	restrict_process_size(group->set->process_size, (unsigned int)-1);
+	restrict_process_size(group->set->login_process_size, (unsigned int)-1);
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */
 	closelog();
 
 	/* hide the path, it's ugly */
-	argv[0] = strrchr(group->set->executable, '/');
-	if (argv[0] == NULL) argv[0] = group->set->executable; else argv[0]++;
+	argv[0] = strrchr(group->set->login_executable, '/');
+	if (argv[0] == NULL)
+		argv[0] = group->set->login_executable;
+	else
+		argv[0]++;
 
-	execv(group->set->executable, (char **) argv);
+	execv(group->set->login_executable, (char **) argv);
 
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
-		       group->set->executable);
+		       group->set->login_executable);
 	return -1;
 }
 
@@ -534,10 +525,11 @@ void login_processes_destroy_all(void)
 
 static void login_group_start_missings(struct login_group *group)
 {
-	if (!group->set->process_per_connection) {
+	if (!group->set->login_process_per_connection) {
 		/* create max. one process every second, that way if it keeps
 		   dying all the time we don't eat all cpu with fork()ing. */
-		if (group->listening_processes < group->set->processes_count)
+		if (group->listening_processes <
+		    group->set->login_processes_count)
 			(void)create_login_process(group);
 		return;
 	}
@@ -549,15 +541,20 @@ static void login_group_start_missings(struct login_group *group)
 	   double their amount (unless we've hit the high limit).
 	   Then for each second that didn't use all existing processes,
 	   drop the max. process count by one. */
-	if (group->wanted_processes_count < group->set->processes_count)
-		group->wanted_processes_count = group->set->processes_count;
-	else if (group->listening_processes == 0)
+	if (group->wanted_processes_count < group->set->login_processes_count) {
+		group->wanted_processes_count =
+			group->set->login_processes_count;
+	} else if (group->listening_processes == 0)
 		group->wanted_processes_count *= 2;
-	else if (group->wanted_processes_count > group->set->processes_count)
+	else if (group->wanted_processes_count >
+		 group->set->login_processes_count)
 		group->wanted_processes_count--;
 
-	if (group->wanted_processes_count > group->set->max_processes_count)
-		group->wanted_processes_count = group->set->max_processes_count;
+	if (group->wanted_processes_count >
+	    group->set->login_max_processes_count) {
+		group->wanted_processes_count =
+			group->set->login_max_processes_count;
+	}
 
 	while (group->listening_processes < group->wanted_processes_count)
 		(void)create_login_process(group);
@@ -567,12 +564,9 @@ static void
 login_processes_start_missing(void *context __attr_unused__)
 {
 	struct login_group *group;
-	struct login_settings *login;
 
-	if (login_groups == NULL) {
-		for (login = set->logins; login != NULL; login = login->next)
-			login_group_create(login);
-	}
+	if (login_groups == NULL)
+		login_process_groups_create();
 
 	for (group = login_groups; group != NULL; group = group->next)
 		login_group_start_missings(group);

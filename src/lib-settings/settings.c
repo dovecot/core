@@ -59,19 +59,32 @@ parse_setting_from_defs(pool_t pool, struct setting_def *defs, void *base,
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
-void settings_read(const char *path, settings_callback_t *callback,
-		   void *context)
+int settings_read(const char *path, const char *section,
+		  settings_callback_t *callback,
+		  settings_section_callback_t *sect_callback, void *context)
 {
 	struct istream *input;
-	const char *errormsg;
-	char *line, *key;
-	int fd, linenum;
+	const char *errormsg, *next_section;
+	char *line, *key, *name;
+	int fd, linenum, skip, sections, root_section;
 
 	fd = open(path, O_RDONLY);
-	if (fd < 0)
-		i_fatal("Can't open configuration file %s: %m", path);
+	if (fd < 0) {
+		i_error("Can't open configuration file %s: %m", path);
+		return FALSE;
+	}
 
-	linenum = 0;
+	t_push();
+
+	if (section == NULL) {
+		skip = 0;
+                next_section = NULL;
+	} else {
+		skip = 1;
+		next_section = t_strcut(section, '/');
+	}
+
+	linenum = 0; sections = 0; root_section = 0; errormsg = NULL;
 	input = i_stream_create_file(fd, default_pool, 2048, TRUE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		linenum++;
@@ -86,7 +99,9 @@ void settings_read(const char *path, settings_callback_t *callback,
 		if (*line == '#' || *line == '\0')
 			continue;
 
-		/* all lines must be in format "key = value" */
+		/* a) "key = value"
+		   b) section_type section_name {
+		   c) } */
 		key = line;
 		while (!IS_WHITE(*line) && *line != '\0')
 			line++;
@@ -95,21 +110,82 @@ void settings_read(const char *path, settings_callback_t *callback,
 			while (IS_WHITE(*line)) line++;
 		}
 
-		if (*line != '=') {
-			errormsg = "Missing value";
-		} else {
-			/* skip whitespace after '=' */
+		if (strcmp(key, "}") == 0 && *line == '\0') {
+			if (sections == 0)
+				errormsg = "Unexpected '}'";
+			else {
+				if (skip > 0)
+					skip--;
+				else {
+					sect_callback(NULL, NULL, context,
+						      &errormsg);
+					if (root_section == sections &&
+					    errormsg == NULL) {
+						/* we found the section,
+						   now quit */
+						break;
+					}
+				}
+				sections--;
+			}
+		} else if (*line == '=') {
 			*line++ = '\0';
 			while (IS_WHITE(*line)) line++;
 
-			errormsg = callback(key, line, context);
+			errormsg = skip ? NULL :
+				callback(key, line, context);
+		} else {
+			line[-1] = '\0';
+
+			name = line;
+			while (!IS_WHITE(*line) && *line != '\0')
+				line++;
+
+			if (*line != '\0') {
+				*line++ = '\0';
+				while (IS_WHITE(*line))
+					line++;
+			}
+
+			if (*line != '{' || strcspn(line+1, " \t") != 0)
+				errormsg = "Missing value";
+			else {
+				sections++;
+				if (next_section != NULL &&
+				    strcmp(next_section, name) == 0) {
+					section += strlen(next_section);
+					if (*section == '\0') {
+						skip = 0;
+						next_section = NULL;
+						root_section = sections;
+					} else {
+						i_assert(*section == '/');
+						section++;
+						next_section =
+							t_strcut(section, '/');
+					}
+				}
+
+				if (skip > 0)
+					skip++;
+				else {
+					skip = sect_callback == NULL ? 1 :
+						!sect_callback(key, name,
+							       context,
+							       &errormsg);
+				}
+			}
 		}
 
 		if (errormsg != NULL) {
-			i_fatal("Error in configuration file %s line %d: %s",
+			i_error("Error in configuration file %s line %d: %s",
 				path, linenum, errormsg);
+			break;
 		}
-	};
+	}
 
 	i_stream_unref(input);
+	t_pop();
+
+	return errormsg == NULL;
 }

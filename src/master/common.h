@@ -20,18 +20,9 @@ enum {
 	PROCESS_TYPE_MAX
 };
 
-enum {
-	FD_IMAP,
-	FD_IMAPS,
-	FD_POP3,
-	FD_POP3S,
-
-	FD_MAX
-};
-
 extern struct ioloop *ioloop;
 extern struct hash_table *pids;
-extern int null_fd, mail_fd[FD_MAX], inetd_login_fd;
+extern int null_fd, inetd_login_fd;
 
 #define IS_INETD() \
 	(inetd_login_fd != -1)
@@ -46,7 +37,7 @@ extern int null_fd, mail_fd[FD_MAX], inetd_login_fd;
 #define PID_REMOVE_PROCESS_TYPE(pid) \
 	hash_remove(pids, POINTER_CAST(pid))
 
-void child_process_init_env(void);
+void child_process_init_env(struct settings *set);
 
 /* misc */
 #define VALIDATE_STR(str) \

@@ -295,7 +295,7 @@ static pid_t create_auth_process(struct auth_process_group *group)
 	if (dup2(null_fd, 1) < 0)
 		i_fatal("login: dup2(1) failed: %m");
 
-	child_process_init_env();
+	child_process_init_env(group->set->parent->defaults);
 
 	/* move login communication handle to 3. do it last so we can be
 	   sure it's not closed afterwards. */
@@ -371,7 +371,8 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 	group->set = auth_set;
 
 	/* create socket for listening auth requests from login */
-	path = t_strconcat(set->login_dir, "/", auth_set->name, NULL);
+	path = t_strconcat(auth_set->parent->defaults->login_dir, "/",
+			   auth_set->name, NULL);
 	(void)unlink(path);
         (void)umask(0117); /* we want 0660 mode for the socket */
 
@@ -382,9 +383,10 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 	fd_close_on_exec(group->listen_fd, TRUE);
 
 	/* set correct permissions */
-	if (chown(path, geteuid(), set->login_gid) < 0) {
+	if (chown(path, geteuid(), auth_set->parent->defaults->login_gid) < 0) {
 		i_fatal("login: chown(%s, %s, %s) failed: %m",
-			path, dec2str(geteuid()), dec2str(set->login_gid));
+			path, dec2str(geteuid()),
+			dec2str(auth_set->parent->defaults->login_gid));
 	}
 
 	group->next = process_groups;
@@ -401,7 +403,8 @@ static void auth_process_group_destroy(struct auth_process_group *group)
                 group->processes = next;
 	}
 
-	(void)unlink(t_strconcat(set->login_dir, "/", group->set->name, NULL));
+	(void)unlink(t_strconcat(group->set->parent->defaults->login_dir, "/",
+				 group->set->name, NULL));
 
 	if (close(group->listen_fd) < 0)
 		i_error("close(auth group %s) failed: %m", group->set->name);
@@ -419,18 +422,28 @@ void auth_processes_destroy_all(void)
 	}
 }
 
+static void auth_process_groups_create(struct server_settings *server)
+{
+	struct auth_settings *auth_set;
+
+	while (server != NULL) {
+		auth_set = server->auths;
+		for (; auth_set != NULL; auth_set = auth_set->next)
+			auth_process_group_create(auth_set);
+
+                server = server->next;
+	}
+}
+
 static void
 auth_processes_start_missing(void *context __attr_unused__)
 {
-	struct auth_settings *auth_set;
 	struct auth_process_group *group;
 	unsigned int count;
 
 	if (process_groups == NULL) {
 		/* first time here, create the groups */
-		auth_set = set->auths;
-		for (; auth_set != NULL; auth_set = auth_set->next)
-                        auth_process_group_create(auth_set);
+		auth_process_groups_create(settings_root);
 	}
 
 	for (group = process_groups; group != NULL; group = group->next) {

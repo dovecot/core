@@ -1,11 +1,11 @@
 #ifndef __MAIL_PROCESS_H
 #define __MAIL_PROCESS_H
 
+struct login_group;
 struct auth_master_reply;
 
-int create_mail_process(int socket, struct ip_addr *ip,
-			const char *executable, const char *module_dir,
-			unsigned int process_size, int process_type,
+int create_mail_process(struct login_group *group, int socket,
+			struct ip_addr *ip,
 			struct auth_master_reply *reply, const char *data);
 
 void mail_process_destroyed(pid_t pid);

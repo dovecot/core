@@ -34,7 +34,7 @@ static struct timeout *to;
 
 struct ioloop *ioloop;
 struct hash_table *pids;
-int null_fd, mail_fd[FD_MAX], inetd_login_fd;
+int null_fd, inetd_login_fd;
 
 int validate_str(const char *str, size_t max_len)
 {
@@ -48,7 +48,7 @@ int validate_str(const char *str, size_t max_len)
 	return FALSE;
 }
 
-void child_process_init_env(void)
+void child_process_init_env(struct settings *set)
 {
 	/* remove all environment, we don't need them */
 	env_clean();
@@ -83,7 +83,8 @@ static void settings_reload(void)
         login_processes_destroy_all();
         auth_processes_destroy_all();
 
-	master_settings_read(configfile);
+	if (!master_settings_read(configfile))
+		i_warning("Invalid configuration, keeping old one");
 }
 
 static const char *get_exit_status_message(enum fatal_exit_status status)
@@ -218,57 +219,65 @@ static struct ip_addr *resolve_ip(const char *name, unsigned int *port)
 	return ip;
 }
 
-static void listen_protocols(void)
+static void listen_protocols(struct settings *set)
 {
-	struct ip_addr *imap_ip, *imaps_ip, *pop3_ip, *pop3s_ip, *ip;
+	struct ip_addr *normal_ip, *ssl_ip, *ip;
 	const char *const *proto;
-	unsigned int imap_port = 143;
-	unsigned int pop3_port = 110;
+	unsigned int normal_port, ssl_port, port;
+	int *fd;
+
+	normal_port = set->protocol == MAIL_PROTOCOL_IMAP ? 143 : 110;
 #ifdef HAVE_SSL
-	unsigned int imaps_port = 993;
-	unsigned int pop3s_port = 995;
+	ssl_port = set->protocol == MAIL_PROTOCOL_IMAP ? 993 : 995;
 #else
-	unsigned int imaps_port = 0;
-	unsigned int pop3s_port = 0;
+	ssl_port = 0;
 #endif
-	unsigned int port;
-	int *fd, i;
 
 	/* resolve */
-	imap_ip = resolve_ip(set->imap_listen, &imap_port);
-	imaps_ip = resolve_ip(set->imaps_listen, &imaps_port);
-	pop3_ip = resolve_ip(set->pop3_listen, &pop3_port);
-	pop3s_ip = resolve_ip(set->pop3s_listen, &pop3s_port);
+	normal_ip = resolve_ip(set->listen, &normal_port);
+	ssl_ip = resolve_ip(set->ssl_listen, &ssl_port);
 
-	if (imaps_ip == NULL && set->imaps_listen == NULL)
-		imaps_ip = imap_ip;
-	if (pop3s_ip == NULL && set->pop3s_listen == NULL)
-		pop3s_ip = pop3_ip;
+	if (ssl_ip == NULL && set->ssl_listen == NULL)
+		ssl_ip = normal_ip;
 
 	/* register wanted protocols */
 	for (proto = t_strsplit(set->protocols, " "); *proto != NULL; proto++) {
+		fd = NULL; ip = NULL; port = 0;
 		if (strcasecmp(*proto, "imap") == 0) {
-			fd = &mail_fd[FD_IMAP]; ip = imap_ip; port = imap_port;
+			if (set->protocol == MAIL_PROTOCOL_IMAP) {
+				fd = &set->listen_fd;
+				port = normal_port; ip = normal_ip;
+			}
 		} else if (strcasecmp(*proto, "imaps") == 0) {
-			fd = &mail_fd[FD_IMAPS]; ip = imaps_ip;
-			port = set->ssl_disable ? 0 : imaps_port;
+			if (set->protocol == MAIL_PROTOCOL_IMAP &&
+			    !set->ssl_disable) {
+				fd = &set->ssl_listen_fd;
+				port = ssl_port; ip = ssl_ip;
+			}
 		} else if (strcasecmp(*proto, "pop3") == 0) {
-			fd = &mail_fd[FD_POP3]; ip = pop3_ip; port = pop3_port;
+			if (set->protocol == MAIL_PROTOCOL_POP3) {
+				fd = &set->listen_fd;
+				port = normal_port; ip = normal_ip;
+			}
 		} else if (strcasecmp(*proto, "pop3s") == 0) {
-			fd = &mail_fd[FD_POP3S]; ip = pop3s_ip;
-			port = set->ssl_disable ? 0 : pop3s_port;
+			if (set->protocol == MAIL_PROTOCOL_POP3 &&
+			    !set->ssl_disable) {
+				fd = &set->ssl_listen_fd;
+				port = ssl_port; ip = ssl_ip;
+			}
 		} else {
 			i_fatal("Unknown protocol %s", *proto);
 		}
 
+		if (fd == NULL)
+			continue;
+
 		if (*fd != -1)
 			i_fatal("Protocol %s given more than once", *proto);
 
-		if (port == 0) {
-			*fd = dup(null_fd);
-			if (*fd == -1)
-				i_fatal("dup(null_fd) failed: %m");
-		} else {
+		if (port == 0)
+			*fd = null_fd;
+		else {
 			*fd = net_listen(ip, &port);
 			if (*fd == -1)
 				i_fatal("listen(%d) failed: %m", port);
@@ -277,19 +286,42 @@ static void listen_protocols(void)
 		fd_close_on_exec(*fd, TRUE);
 	}
 
-	for (i = 0; i < FD_MAX; i++) {
-		if (mail_fd[i] == -1) {
-			mail_fd[i] = dup(null_fd);
-			if (mail_fd[i] == -1)
-				i_fatal("dup(mail_fd[%d]) failed: %m", i);
-			fd_close_on_exec(mail_fd[i], TRUE);
-		}
+	if (set->listen_fd == -1)
+		set->listen_fd = null_fd;
+	if (set->ssl_listen_fd == -1)
+		set->ssl_listen_fd = null_fd;
+}
+
+static int have_stderr_set(struct settings *set)
+{
+	if (set->log_path != NULL &&
+	    strcmp(set->log_path, "/dev/stderr") == 0)
+		return TRUE;
+
+	if (set->info_log_path != NULL &&
+	    strcmp(set->info_log_path, "/dev/stderr") == 0)
+		return TRUE;
+
+	return FALSE;
+}
+
+static int have_stderr(struct server_settings *server)
+{
+	while (server != NULL) {
+		if (server->imap != NULL && have_stderr_set(server->imap))
+			return TRUE;
+		if (server->pop3 != NULL && have_stderr_set(server->pop3))
+			return TRUE;
+
+		server = server->next;
 	}
+
+	return FALSE;
 }
 
 static void open_fds(void)
 {
-	int i;
+	struct server_settings *server;
 
 	/* initialize fds. */
 	null_fd = open("/dev/null", O_RDONLY);
@@ -303,11 +335,15 @@ static void open_fds(void)
 		fd_close_on_exec(null_fd, TRUE);
 	}
 
-	for (i = 0; i < FD_MAX; i++)
-		mail_fd[i] = -1;
-
-	if (!IS_INETD())
-		listen_protocols();
+	if (!IS_INETD()) {
+		server = settings_root;
+		for (; server != NULL; server = server->next) {
+			if (server->imap != NULL)
+				listen_protocols(server->imap);
+			if (server->pop3 != NULL)
+				listen_protocols(server->pop3);
+		}
+	}
 
 	/* close stdin and stdout. close stderr unless we're logging
 	   into /dev/stderr. */
@@ -316,16 +352,13 @@ static void open_fds(void)
 	if (dup2(null_fd, 1) < 0)
 		i_fatal("dup2(1) failed: %m");
 
-	if ((set->log_path == NULL ||
-	     strcmp(set->log_path, "/dev/stderr") != 0) &&
-	    (set->info_log_path == NULL ||
-	     strcmp(set->info_log_path, "/dev/stderr") != 0)) {
+	if (!have_stderr(settings_root)) {
 		if (dup2(null_fd, 2) < 0)
 			i_fatal("dup2(2) failed: %m");
 	}
 }
 
-static void open_logfile(void)
+static void open_logfile(struct settings *set)
 {
 	if (set->log_path == NULL)
 		i_set_failure_syslog("dovecot", LOG_NDELAY, LOG_MAIL);
@@ -347,7 +380,7 @@ static void main_init(void)
 	/* deny file access from everyone else except owner */
         (void)umask(0077);
 
-	open_logfile();
+	open_logfile(settings_root->defaults);
 
 	lib_init_signals(sig_quit);
 
@@ -361,8 +394,6 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	int i;
-
         if (lib_signal_kill != 0)
 		i_warning("Killed with signal %d", lib_signal_kill);
 
@@ -378,18 +409,11 @@ static void main_deinit(void)
 	if (close(null_fd) < 0)
 		i_error("close(null_fd) failed: %m");
 
-	for (i = 0; i < FD_MAX; i++) {
-		if (mail_fd[i] != -1) {
-			if (close(mail_fd[i]) < 0)
-				i_error("close(mail_fd[%d]) failed: %m", i);
-		}
-	}
-
 	hash_destroy(pids);
 	closelog();
 }
 
-static void daemonize(void)
+static void daemonize(struct settings *set)
 {
 	pid_t pid;
 
@@ -448,14 +472,15 @@ int main(int argc, char *argv[])
 
 	/* read and verify settings before forking */
 	master_settings_init();
-	master_settings_read(configfile);
+	if (!master_settings_read(configfile))
+		exit(FATAL_DEFAULT);
 	open_fds();
 
 	/* we don't need any environment */
 	env_clean();
 
 	if (!foreground)
-		daemonize();
+		daemonize(settings_root->defaults);
 
 	ioloop = io_loop_create(system_pool);
 
