@@ -962,6 +962,7 @@ MailIndexRecord *mail_index_next(MailIndex *index, MailIndexRecord *rec)
 
 	i_assert(!index->dirty_mmap);
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
+	i_assert(rec >= (MailIndexRecord *) index->mmap_base);
 
 	if (rec == NULL)
 		return NULL;
@@ -1235,19 +1236,17 @@ static void update_first_hole_records(MailIndex *index)
 
 static int mail_index_truncate(MailIndex *index)
 {
-	if (msync(index->mmap_base, index->mmap_length, MS_SYNC) == -1) {
-		index_set_error(index, "msync() failed for %s: %m",
-				index->filepath);
-		return FALSE;
-	}
+	off_t file_size;
 
 	/* truncate index file */
-	if (ftruncate(index->fd,
-		      (off_t)index->header->first_hole_position) < 0) {
+	file_size = (off_t)index->header->first_hole_position;
+	if (ftruncate(index->fd, file_size) < 0) {
 		index_set_error(index, "ftruncate() failed for index file "
 				"%s: %m", index->filepath);
 		return FALSE;
 	}
+
+	index->mmap_length = (size_t)file_size;
 
 	/* update header */
 	index->header->first_hole_position = 0;
@@ -1259,10 +1258,6 @@ static int mail_index_truncate(MailIndex *index)
 		if (!mail_index_data_reset(index->data))
 			return FALSE;
 	}
-
-	index->dirty_mmap = TRUE;
-	if (!mmap_update(index))
-		return FALSE;
 
 	return TRUE;
 }
