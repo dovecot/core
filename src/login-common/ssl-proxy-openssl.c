@@ -26,7 +26,6 @@ struct ssl_proxy {
 
 	SSL *ssl;
 	struct ip_addr ip;
-	int handshaked;
 
 	int fd_ssl, fd_plain;
 	struct io *io_ssl_read, *io_ssl_write, *io_plain_read, *io_plain_write;
@@ -36,6 +35,9 @@ struct ssl_proxy {
 
 	unsigned char sslout_buf[1024];
 	unsigned int sslout_size;
+
+	unsigned int handshaked:1;
+	unsigned int destroyed:1;
 };
 
 static SSL_CTX *ssl_ctx;
@@ -45,7 +47,8 @@ static void plain_read(void *context);
 static void plain_write(void *context);
 static void ssl_write(struct ssl_proxy *proxy);
 static void ssl_step(void *context);
-static int ssl_proxy_destroy(struct ssl_proxy *proxy);
+static void ssl_proxy_destroy(struct ssl_proxy *proxy);
+static int ssl_proxy_unref(struct ssl_proxy *proxy);
 
 static void ssl_set_io(struct ssl_proxy *proxy, enum ssl_io_action action)
 {
@@ -103,7 +106,8 @@ static void plain_read(void *context)
 		return;
 	}
 
-	while (proxy->sslout_size < sizeof(proxy->sslout_buf)) {
+	while (proxy->sslout_size < sizeof(proxy->sslout_buf) &&
+	       !proxy->destroyed) {
 		ret = net_receive(proxy->fd_plain,
 				  proxy->sslout_buf + proxy->sslout_size,
 				  sizeof(proxy->sslout_buf) -
@@ -236,7 +240,8 @@ static void ssl_read(struct ssl_proxy *proxy)
 {
 	int ret;
 
-	while (proxy->plainout_size < sizeof(proxy->plainout_buf)) {
+	while (proxy->plainout_size < sizeof(proxy->plainout_buf) &&
+	       !proxy->destroyed) {
 		ret = SSL_read(proxy->ssl,
 			       proxy->plainout_buf + proxy->plainout_size,
 			       sizeof(proxy->plainout_buf) -
@@ -273,21 +278,24 @@ static void ssl_step(void *context)
 {
 	struct ssl_proxy *proxy = context;
 
-	if (!proxy->handshaked) {
+	proxy->refcount++;
+
+	if (!proxy->handshaked)
 		ssl_handshake(proxy);
-		if (!proxy->handshaked)
-			return;
+
+	if (proxy->handshaked) {
+		if (proxy->plainout_size == sizeof(proxy->plainout_buf))
+			ssl_set_io(proxy, SSL_REMOVE_INPUT);
+		else
+			ssl_read(proxy);
+
+		if (proxy->sslout_size == 0)
+			ssl_set_io(proxy, SSL_REMOVE_OUTPUT);
+		else
+			ssl_write(proxy);
 	}
 
-	if (proxy->plainout_size == sizeof(proxy->plainout_buf))
-		ssl_set_io(proxy, SSL_REMOVE_INPUT);
-	else
-		ssl_read(proxy);
-
-	if (proxy->sslout_size == 0)
-		ssl_set_io(proxy, SSL_REMOVE_OUTPUT);
-	else
-		ssl_write(proxy);
+	ssl_proxy_unref(proxy);
 }
 
 int ssl_proxy_new(int fd, struct ip_addr *ip)
@@ -331,7 +339,7 @@ int ssl_proxy_new(int fd, struct ip_addr *ip)
 
 	proxy->refcount++;
 	ssl_handshake(proxy);
-	if (!ssl_proxy_destroy(proxy)) {
+	if (!ssl_proxy_unref(proxy)) {
 		/* handshake failed. return the disconnected socket anyway
 		   so the caller doesn't try to use the old closed fd */
 		return sfd[1];
@@ -342,7 +350,7 @@ int ssl_proxy_new(int fd, struct ip_addr *ip)
 	return sfd[1];
 }
 
-static int ssl_proxy_destroy(struct ssl_proxy *proxy)
+static int ssl_proxy_unref(struct ssl_proxy *proxy)
 {
 	if (--proxy->refcount > 0)
 		return TRUE;
@@ -366,6 +374,14 @@ static int ssl_proxy_destroy(struct ssl_proxy *proxy)
 
 	main_unref();
 	return FALSE;
+}
+
+static void ssl_proxy_destroy(struct ssl_proxy *proxy)
+{
+	if (!proxy->destroyed) {
+		proxy->destroyed = TRUE;
+		ssl_proxy_unref(proxy);
+	}
 }
 
 void ssl_proxy_init(void)
@@ -407,7 +423,7 @@ void ssl_proxy_init(void)
 static void ssl_proxy_destroy_hash(void *key __attr_unused__, void *value,
 				   void *context __attr_unused__)
 {
-	ssl_proxy_destroy(value);
+	ssl_proxy_unref(value);
 }
 
 void ssl_proxy_deinit(void)
