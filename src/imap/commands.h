@@ -5,7 +5,26 @@
 #include "imap-parser.h"
 #include "commands-util.h"
 
-client_command_func_t *client_command_find(const char *name);
+struct command {
+	const char *name;
+	command_func_t *func;
+};
+
+/* Register command. Given name parameter must be permanently stored until
+   command is unregistered. */
+void command_register(const char *name, command_func_t *func);
+void command_unregister(const char *name);
+
+/* Register array of commands. */
+void command_register_array(const struct command *commands, size_t count);
+void command_unregister_array(const struct command *commands, size_t count);
+
+command_func_t *command_find(const char *name);
+
+void commands_init(void);
+void commands_deinit(void);
+
+/* IMAP4rev1 commands: */
 
 /* Non-Authenticated State */
 int cmd_authenticate(struct client *client);
@@ -37,12 +56,14 @@ int cmd_check(struct client *client);
 int cmd_close(struct client *client);
 int cmd_expunge(struct client *client);
 int cmd_search(struct client *client);
-int cmd_sort(struct client *client);
-int cmd_thread(struct client *client);
 int cmd_fetch(struct client *client);
 int cmd_store(struct client *client);
 int cmd_copy(struct client *client);
 int cmd_uid(struct client *client);
+
+/* IMAP extensions: */
+int cmd_sort(struct client *client);
+int cmd_thread(struct client *client);
 int cmd_unselect(struct client *client);
 int cmd_idle(struct client *client);
 

@@ -1,96 +1,149 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "buffer.h"
 #include "commands.h"
 
-client_command_func_t *client_command_find(const char *name)
+#include <stdlib.h>
+
+const struct command imap4rev1_commands[] = {
+	{ "AUTHENTICATE",	cmd_authenticate },
+	{ "CAPABILITY",		cmd_capability },
+	{ "LOGIN",		cmd_login },
+	{ "LOGOUT",		cmd_logout },
+	{ "NOOP",		cmd_noop },
+
+	{ "APPEND",		cmd_append },
+	{ "EXAMINE",		cmd_examine },
+	{ "CREATE",		cmd_create },
+	{ "DELETE",		cmd_delete },
+	{ "RENAME",		cmd_rename },
+	{ "LIST",		cmd_list },
+	{ "LSUB",		cmd_lsub },
+	{ "SELECT",		cmd_select },
+	{ "STATUS",		cmd_status },
+	{ "SUBSCRIBE",		cmd_subscribe },
+	{ "UNSUBSCRIBE",	cmd_unsubscribe },
+
+	{ "CHECK",		cmd_check },
+	{ "CLOSE",		cmd_close },
+	{ "COPY",		cmd_copy },
+	{ "EXPUNGE",		cmd_expunge },
+	{ "FETCH",		cmd_fetch },
+	{ "SEARCH",		cmd_search },
+	{ "STORE",		cmd_store },
+	{ "UID",		cmd_uid },
+	{ "UID COPY",		cmd_copy },
+	{ "UID FETCH",		cmd_fetch },
+	{ "UID SEARCH",		cmd_search },
+	{ "UID STORE",		cmd_store }
+};
+#define IMAP4REV1_COMMANDS_COUNT \
+	(sizeof(imap4rev1_commands) / sizeof(imap4rev1_commands[0]))
+
+const struct command imap_ext_commands[] = {
+	{ "IDLE",		cmd_idle },
+	{ "SORT",		cmd_sort },
+	{ "THREAD",		cmd_thread },
+	{ "UID SORT",		cmd_sort },
+	{ "UID THREAD",		cmd_thread },
+	{ "UNSELECT",		cmd_unselect }
+};
+#define IMAP_EXT_COMMANDS_COUNT \
+	(sizeof(imap_ext_commands) / sizeof(imap_ext_commands[0]))
+
+static buffer_t *cmdbuf;
+static int cmdbuf_unsorted;
+
+void command_register(const char *name, command_func_t *func)
 {
-	/* keep the command uppercased */
-	name = str_ucase(t_strdup_noconst(name));
+	struct command *cmd;
 
-	switch (*name) {
-	case 'A':
-		if (strcmp(name, "APPEND") == 0)
-			return cmd_append;
-		if (strcmp(name, "AUTHENTICATE") == 0)
-			return cmd_authenticate;
-		break;
-	case 'C':
-		if (strcmp(name, "CREATE") == 0)
-			return cmd_create;
-		if (strcmp(name, "COPY") == 0)
-			return cmd_copy;
-		if (strcmp(name, "CLOSE") == 0)
-			return cmd_close;
-		if (strcmp(name, "CHECK") == 0)
-			return cmd_check;
-		if (strcmp(name, "CAPABILITY") == 0)
-			return cmd_capability;
-		break;
-	case 'D':
-		if (strcmp(name, "DELETE") == 0)
-			return cmd_delete;
-		break;
-	case 'E':
-		if (strcmp(name, "EXPUNGE") == 0)
-			return cmd_expunge;
-		if (strcmp(name, "EXAMINE") == 0)
-			return cmd_examine;
-		break;
-	case 'F':
-		if (strcmp(name, "FETCH") == 0)
-			return cmd_fetch;
-		break;
-	case 'I':
-		if (strcmp(name, "IDLE") == 0)
-			return cmd_idle;
-		break;
-	case 'L':
-		if (strcmp(name, "LIST") == 0)
-			return cmd_list;
-		if (strcmp(name, "LSUB") == 0)
-			return cmd_lsub;
-		if (strcmp(name, "LOGOUT") == 0)
-			return cmd_logout;
-		if (strcmp(name, "LOGIN") == 0)
-			return cmd_login;
-		break;
-	case 'N':
-		if (strcmp(name, "NOOP") == 0)
-			return cmd_noop;
-		break;
-	case 'R':
-		if (strcmp(name, "RENAME") == 0)
-			return cmd_rename;
-		break;
-	case 'S':
-		if (strcmp(name, "STORE") == 0)
-			return cmd_store;
-		if (strcmp(name, "SEARCH") == 0)
-			return cmd_search;
-		if (strcmp(name, "SORT") == 0)
-			return cmd_sort;
-		if (strcmp(name, "SELECT") == 0)
-			return cmd_select;
-		if (strcmp(name, "STATUS") == 0)
-			return cmd_status;
-		if (strcmp(name, "SUBSCRIBE") == 0)
-			return cmd_subscribe;
-		break;
-	case 'T':
-		if (strcmp(name, "THREAD") == 0)
-			return cmd_thread;
-		break;
-	case 'U':
-		if (strcmp(name, "UID") == 0)
-			return cmd_uid;
-		if (strcmp(name, "UNSUBSCRIBE") == 0)
-			return cmd_unsubscribe;
-		if (strcmp(name, "UNSELECT") == 0)
-			return cmd_unselect;
+	cmd = buffer_append_space(cmdbuf, sizeof(*cmd));
+	cmd->name = name;
+	cmd->func = func;
 
-		break;
+	cmdbuf_unsorted = TRUE;
+}
+
+void command_unregister(const char *name)
+{
+	const struct command *cmd;
+	size_t i, size, count;
+
+	cmd = buffer_get_data(cmdbuf, &size);
+	count = size / sizeof(*cmd);
+
+	for (i = 0; i < count; i++) {
+		if (strcasecmp(cmd[i].name, name) == 0) {
+			buffer_delete(cmdbuf, i * sizeof(*cmd), sizeof(*cmd));
+			return;
+		}
 	}
 
-	return NULL;
+	i_error("Trying to unregister unknown command '%s'", name);
+}
+
+void command_register_array(const struct command *commands, size_t count)
+{
+	cmdbuf_unsorted = TRUE;
+	buffer_append(cmdbuf, commands, sizeof(*commands) * count);
+}
+
+void command_unregister_array(const struct command *commands, size_t count)
+{
+	while (count > 0) {
+		command_unregister(commands->name);
+		count--; commands++;
+	}
+}
+
+static int command_cmp(const void *p1, const void *p2)
+{
+        const struct command *c1 = p1, *c2 = p2;
+
+	return strcasecmp(c1->name, c2->name);
+}
+
+static int command_bsearch(const void *name, const void *cmd_p)
+{
+        const struct command *cmd = cmd_p;
+
+	return strcasecmp(name, cmd->name);
+}
+
+command_func_t *command_find(const char *name)
+{
+	const struct command *cmd;
+	void *base;
+	size_t size;
+
+	base = buffer_get_modifyable_data(cmdbuf, &size);
+	size /= sizeof(struct command);
+
+	if (cmdbuf_unsorted) {
+		qsort(base, size, sizeof(struct command), command_cmp);
+                cmdbuf_unsorted = FALSE;
+	}
+
+	cmd = bsearch(name, base, size, sizeof(struct command),
+		      command_bsearch);
+	return cmd == NULL ? NULL : cmd->func;
+}
+
+void commands_init(void)
+{
+	cmdbuf = buffer_create_dynamic(system_pool,
+				       sizeof(struct command) * 64, (size_t)-1);
+	cmdbuf_unsorted = FALSE;
+
+        command_register_array(imap4rev1_commands, IMAP4REV1_COMMANDS_COUNT);
+        command_register_array(imap_ext_commands, IMAP_EXT_COMMANDS_COUNT);
+}
+
+void commands_deinit(void)
+{
+        command_unregister_array(imap4rev1_commands, IMAP4REV1_COMMANDS_COUNT);
+        command_unregister_array(imap_ext_commands, IMAP_EXT_COMMANDS_COUNT);
+	buffer_free(cmdbuf);
 }

@@ -8,6 +8,7 @@
 #include "fd-close-on-exec.h"
 #include "process-title.h"
 #include "mail-storage.h"
+#include "commands.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -87,6 +88,7 @@ static void main_init(void)
 
         mail_storage_init();
 	mail_storage_register_all();
+	commands_init();
 	clients_init();
 
 	mail = getenv("MAIL");
@@ -143,6 +145,7 @@ static void main_deinit(void)
 		i_warning("Killed with signal %d", lib_signal_kill);
 
 	clients_deinit();
+	commands_deinit();
         mail_storage_deinit();
 
 	closelog();

@@ -292,7 +292,7 @@ static int client_handle_input(struct client *client)
 		/* command not given - cmd_func is already NULL. */
 	} else {
 		/* find the command function */
-		client->cmd_func = client_command_find(client->cmd_name);
+		client->cmd_func = command_find(client->cmd_name);
 	}
 
 	if (client->cmd_func == NULL) {

@@ -6,7 +6,7 @@ struct mail_storage;
 struct imap_parser;
 struct imap_arg;
 
-typedef int client_command_func_t(struct client *client);
+typedef int command_func_t(struct client *client);
 
 struct mailbox_custom_flags {
 	pool_t pool; /* will be p_clear()ed when changed */
@@ -32,7 +32,7 @@ struct client {
 	struct imap_parser *parser;
 	const char *cmd_tag; /* tag of command (allocated from parser pool), */
 	const char *cmd_name; /* command name (allocated from parser pool) */
-	client_command_func_t *cmd_func;
+	command_func_t *cmd_func;
 
 	struct timeout *idle_to;
 	unsigned int idle_expunge;
