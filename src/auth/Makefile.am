@@ -6,15 +6,12 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-DAUTH_MODULE_DIR=\""$(libdir)/dovecot/auth"\" \
-	$(AUTH_CFLAGS) \
-	$(VPOPMAIL_CFLAGS)
+	$(AUTH_CFLAGS)
 
 dovecot_auth_LDADD = \
 	../lib-settings/libsettings.a \
 	../lib/liblib.a \
-	$(PASSDB_LIBS) \
-	$(SASL_LIBS) \
-	$(VPOPMAIL_LIBS)
+	$(AUTH_LIBS)
 
 if AUTH_MODULES
 dovecot_auth_LDFLAGS = -export-dynamic

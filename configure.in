@@ -753,7 +753,7 @@ if test $want_pam = yes; then
 		])
 
 		if test "$have_pam" = "yes"; then
-			PASSDB_LIBS="$PASSDB_LIBS -lpam"
+			AUTH_LIBS="$AUTH_LIBS -lpam"
 			AC_DEFINE(PASSDB_PAM,, Build with PAM support)
 			passdb="$passdb pam"
 
@@ -768,7 +768,7 @@ fi
 if test $want_ldap = yes; then
 	AC_CHECK_LIB(ldap, ldap_init, [
 		AC_CHECK_HEADER(ldap.h, [
-			PASSDB_LIBS="$PASSDB_LIBS -lldap"
+			AUTH_LIBS="$AUTH_LIBS -lldap"
 
         		AC_DEFINE(USERDB_LDAP,, Build with LDAP support)
 		        AC_DEFINE(PASSDB_LDAP,, Build with LDAP support)
@@ -800,7 +800,7 @@ if test $want_pgsql = yes; then
 	AC_CHECK_LIB(pq, PQconnectdb, [
 		AC_CHECK_HEADER($PGSQL_INCLUDE/libpq-fe.h, [
 			AUTH_CFLAGS="$AUTH_CFLAGS -I$PGSQL_INCLUDE"
-			PASSDB_LIBS="$PASSDB_LIBS -L$PGSQL_LIBDIR -lpq"
+			AUTH_LIBS="$AUTH_LIBS -L$PGSQL_LIBDIR -lpq"
 			AC_DEFINE(USERDB_PGSQL,, Build with PostgreSQL support)
 			AC_DEFINE(PASSDB_PGSQL,, Build with PostgreSQL support)
 			userdb="$userdb pgsql"
@@ -817,8 +817,8 @@ if test $want_vpopmail = yes; then
 	AC_MSG_CHECKING([for vpopmail configuration at $vpop_libdeps])
 	if test -f $vpop_libdeps; then
 		need_crypt=yes
-		VPOPMAIL_CFLAGS="`cat $vpopmail_home/etc/inc_deps` $CFLAGS"
-		VPOPMAIL_LIBS="`cat $vpop_libdeps`"
+		AUTH_CFLAGS="$AUTH_CFLAGS `cat $vpopmail_home/etc/inc_deps` $CFLAGS"
+		AUTH_LIBS="$AUTH_LIBS `cat $vpop_libdeps`"
 		AC_DEFINE(USERDB_VPOPMAIL,, Build with vpopmail support)
 		AC_DEFINE(PASSDB_VPOPMAIL,, Build with vpopmail support)
 		userdb="$userdb vpopmail"
@@ -830,24 +830,19 @@ if test $want_vpopmail = yes; then
 	fi
 fi
 
-AC_SUBST(VPOPMAIL_CFLAGS)
-AC_SUBST(VPOPMAIL_LIBS)
-
 if test $want_cyrus_sasl2 = yes; then
 	AC_CHECK_LIB(sasl2, sasl_server_start, [
 		AC_CHECK_HEADER(sasl/sasl.h, [
 			AC_DEFINE(USE_CYRUS_SASL2,,
 				  Define if you want to use Cyrus SASL library)
-			SASL_LIBS="-lsasl2"
+			AUTH_LIBS="$AUTH_LIBS -lsasl2"
 		])
 	])
 fi
 
-AC_SUBST(SASL_LIBS)
-
 if test $need_crypt = yes; then
 	AC_CHECK_LIB(crypt, crypt, [
-		PASSDB_LIBS="$PASSDB_LIBS -lcrypt"
+		AUTH_LIBS="$AUTH_LIBS -lcrypt"
 	], [
 		AC_CHECK_FUNC(crypt,, [
 			AC_ERROR([crypt() wasn't found])
@@ -857,7 +852,7 @@ fi
 
 dnl * dynamic modules?
 AC_CHECK_LIB(dl, dlopen, [
-  PASSDB_LIBS="$PASSDB_LIBS -ldl"
+  AUTH_LIBS="$AUTH_LIBS -ldl"
   AC_DEFINE(AUTH_MODULES,, Define if you want to build with dynamic auth modules)
   auth_modules=yes
   userdb="$userdb (modules)"
@@ -867,7 +862,7 @@ AC_CHECK_LIB(dl, dlopen, [
 AM_CONDITIONAL(AUTH_MODULES, test "$auth_modules" = "yes")
 
 AC_SUBST(AUTH_CFLAGS)
-AC_SUBST(PASSDB_LIBS)
+AC_SUBST(AUTH_LIBS)
 
 dnl **
 dnl ** Index file compatibility flags
