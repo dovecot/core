@@ -27,8 +27,10 @@ int index_transaction_commit(struct mailbox_transaction_context *_t)
 	if (ret < 0)
 		mail_storage_set_index_error(t->ibox);
 
-	t->ibox->commit_log_file_seq = seq;
-	t->ibox->commit_log_file_offset = offset;
+	if (seq != 0) {
+		t->ibox->commit_log_file_seq = seq;
+		t->ibox->commit_log_file_offset = offset;
+	}
 
 	index_transaction_free(t);
 	return ret;

@@ -1104,8 +1104,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	if (t->updates == NULL && t->cache_updates == NULL &&
 	    t->expunges == NULL && t->appends == NULL) {
 		/* nothing to append */
-		*log_file_seq_r = log->head->hdr.file_seq;
-		*log_file_offset_r = log->head->hdr.used_size;
+		*log_file_seq_r = 0;
+		*log_file_offset_r = 0;
 		return 0;
 	}
 

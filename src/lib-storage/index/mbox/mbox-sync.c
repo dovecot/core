@@ -381,7 +381,7 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 	else {
 		if (mail_index_transaction_commit(t, &seq, &offset) < 0)
 			ret = -1;
-		else {
+		else if (seq != 0) {
 			ibox->commit_log_file_seq = seq;
 			ibox->commit_log_file_offset = offset;
 		}

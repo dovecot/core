@@ -99,7 +99,8 @@ void mail_transaction_log_views_close(struct mail_transaction_log *log);
 
 /* Write data to transaction log. This is atomic operation. Sequences in
    updates[] and expunges[] are relative to given view, they're modified
-   to real ones. */
+   to real ones. If nothing is written, log_file_seq_r and log_file_offset_r
+   will be set to 0. */
 int mail_transaction_log_append(struct mail_index_transaction *t,
 				uint32_t *log_file_seq_r,
 				uoff_t *log_file_offset_r);

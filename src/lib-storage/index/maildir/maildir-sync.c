@@ -628,7 +628,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 
 		if (mail_index_transaction_commit(trans, &seq, &offset) < 0)
 			mail_storage_set_index_error(ibox);
-		else {
+		else if (seq != 0) {
 			ibox->commit_log_file_seq = seq;
 			ibox->commit_log_file_offset = offset;
 		}
