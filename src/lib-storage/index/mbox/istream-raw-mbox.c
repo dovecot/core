@@ -101,11 +101,12 @@ static void handle_end_of_mail(struct raw_mbox_istream *rstream, size_t pos)
 	rstream->mail_size = rstream->istream.istream.v_offset + pos -
 		rstream->hdr_offset;
 
-	if (rstream->body_offset != (uoff_t)-1 &&
-	    rstream->hdr_offset + rstream->mail_size < rstream->body_offset) {
-		/* "headers\n\nFrom ..", the second \n belongs to next
+	if (rstream->hdr_offset + rstream->mail_size < rstream->body_offset) {
+		/* a) Header didn't have ending \n
+		   b) "headers\n\nFrom ..", the second \n belongs to next
 		   message which we didn't know at the time yet. */
-		i_assert(rstream->body_offset ==
+		i_assert(rstream->body_offset == (uoff_t)-1 ||
+			 rstream->body_offset ==
 			 rstream->hdr_offset + rstream->mail_size + 1);
 		rstream->body_offset =
 			rstream->hdr_offset + rstream->mail_size;
@@ -126,15 +127,8 @@ static ssize_t _read(struct _istream *stream)
 
 	i_assert(stream->istream.v_offset >= rstream->from_offset);
 
-	if (stream->istream.eof) {
-		if (rstream->body_offset == (uoff_t)-1) {
-			/* missing \n from headers */
-			rstream->body_offset =
-				stream->istream.v_offset +
-				(stream->pos - stream->skip);
-		}
+	if (stream->istream.eof)
 		return -1;
-	}
 
 	i_stream_seek(rstream->input, stream->istream.v_offset);
 
