@@ -265,8 +265,8 @@ static int client_handle_input(struct client *client)
 		/* command is being executed - continue it */
 		if (client->cmd_func(client)) {
 			/* command execution was finished */
-			_client_reset_command(client);
                         client->bad_counter = 0;
+			_client_reset_command(client);
 			return TRUE;
 		}
 		return FALSE;
@@ -313,8 +313,8 @@ static int client_handle_input(struct client *client)
 		client->input_skip_line = TRUE;
 		if (client->cmd_func(client)) {
 			/* command execution was finished */
-			_client_reset_command(client);
                         client->bad_counter = 0;
+			_client_reset_command(client);
 		} else {
 			/* unfinished */
 			return FALSE;
@@ -381,8 +381,8 @@ static void client_output(void *context)
 		o_stream_cork(client->output);
 		if (client->cmd_func(client)) {
 			/* command execution was finished */
-			_client_reset_command(client);
                         client->bad_counter = 0;
+			_client_reset_command(client);
 		}
 		o_stream_uncork(client->output);
 	}

@@ -54,8 +54,8 @@ static void idle_finish(struct cmd_idle_context *ctx, int done_ok)
 
 	o_stream_uncork(client->output);
 
-	_client_reset_command(client);
 	client->bad_counter = 0;
+	_client_reset_command(client);
 }
 
 static void idle_client_input(void *context)
