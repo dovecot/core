@@ -116,22 +116,23 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 		return 1;
 	}
 
-	/* see if the file we're locking is being modified */
-	if (stat(lock_info->path, &st) < 0) {
-		if (errno == ENOENT) {
-			/* file doesn't exist. treat it as if
-			   it hasn't changed */
-		} else {
-			i_error("stat(%s) failed: %m", lock_info->path);
-			return -1;
+	if (lock_info->last_change != now) {
+		if (stat(lock_info->path, &st) < 0) {
+			if (errno == ENOENT) {
+				/* file doesn't exist. treat it as if
+				   it hasn't changed */
+			} else {
+				i_error("stat(%s) failed: %m", lock_info->path);
+				return -1;
+			}
+		} else if (lock_info->last_size != st.st_size ||
+			   lock_info->last_ctime != st.st_ctime ||
+			   lock_info->last_mtime != st.st_mtime) {
+			lock_info->last_change = now;
+			lock_info->last_size = st.st_size;
+			lock_info->last_ctime = st.st_ctime;
+			lock_info->last_mtime = st.st_mtime;
 		}
-	} else if (lock_info->last_size != st.st_size ||
-                   lock_info->last_ctime != st.st_ctime ||
-		   lock_info->last_mtime != st.st_mtime) {
-		lock_info->last_change = now;
-		lock_info->last_size = st.st_size;
-		lock_info->last_ctime = st.st_ctime;
-		lock_info->last_mtime = st.st_mtime;
 	}
 
 	if (now > lock_info->last_change + (time_t)lock_info->stale_timeout) {
