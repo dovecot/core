@@ -61,7 +61,7 @@ static int mail_index_fsck_locked(struct mail_index *index,
 		if ((rec->flags & MAIL_DELETED) != 0)
 			hdr.deleted_messages_count++;
 
-		if ((rec->flags & MAIL_INDEX_MAIL_FLAG_NONRECENT) == 0 &&
+		if ((rec->flags & MAIL_RECENT) != 0 &&
 		    hdr.first_recent_uid_lowwater == 0)
 			hdr.first_recent_uid_lowwater = rec->uid;
 		if ((rec->flags & MAIL_SEEN) == 0 &&

@@ -24,12 +24,6 @@ struct mail_transaction_header;
    rewritten by another computer than us). */
 #define INDEX_ESTALE_RETRY_COUNT 10
 
-enum mail_index_mail_flags {
-	MAIL_INDEX_MAIL_FLAG_DIRTY = 0x80,
-	MAIL_INDEX_MAIL_FLAG_EXPUNGED = 0x40,
-	MAIL_INDEX_MAIL_FLAG_NONRECENT = MAIL_RECENT
-};
-
 #define MAIL_INDEX_MAP_IS_IN_MEMORY(map) \
 	((map)->buffer != NULL)
 
