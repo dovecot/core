@@ -15,7 +15,6 @@ struct auth_client_connection {
 
 	pool_t pool;
 	struct hash_table *auth_requests;
-	char *default_service;
 
 	unsigned int pid;
 	unsigned int connect_uid;

@@ -37,7 +37,6 @@ Server is an authentication server process.
 The connection starts by both client and server sending handshakes:
 
  C: "VERSION" TAB <major> TAB <minor>
- C: "SERVICE" TAB <service> (optional)
  C: "CPID" TAB <pid>
 
  S: "VERSION" TAB <major> TAB <minor>
@@ -63,10 +62,6 @@ SPID can be used by authentication client to tell master what server
 process handled the authentication.
 
 CUID is currently useful only for APOP authentication.
-
-SERVICE command can be used to specify default service name for
-authentication requests. If it's not set, each request must specify the
-service separately.
 
 DONE finishes the handshake from server. CPID finishes the handshake from
 client.

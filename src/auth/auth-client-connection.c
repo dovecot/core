@@ -153,14 +153,6 @@ auth_client_connection_lookup(struct auth_master_connection *master,
 }
 
 static int
-auth_client_input_service(struct auth_client_connection *conn, const char *args)
-{
-	if (conn->default_service == NULL)
-		conn->default_service = p_strdup(conn->pool, args);
-	return TRUE;
-}
-
-static int
 auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 {
         struct auth_client_connection *old;
@@ -267,8 +259,6 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 			valid_client_cert = TRUE;
 	}
 
-	if (request->service == NULL)
-		request->service = conn->default_service;
 	if (request->service == NULL) {
 		i_error("BUG: Authentication client %u "
 			"didn't specify service in request", conn->pid);
@@ -410,8 +400,6 @@ static void auth_client_input(void *context)
 			ret = auth_client_input_cont(conn, line + 5);
 		else if (strncmp(line, "CPID\t", 5) == 0)
 			ret = auth_client_input_cpid(conn, line + 5);
-		else if (strncmp(line, "SERVICE\t", 6) == 0)
-			ret = auth_client_input_service(conn, line + 6);
 		else {
 			/* ignore unknown command */
 			ret = TRUE;
