@@ -289,7 +289,8 @@ static int fetch_header_fields(struct istream *input, const char *section,
 static int fetch_header_from(struct imap_fetch_context *ctx,
 			     struct istream *input,
 			     const struct message_size *size,
-			     const struct imap_fetch_body_data *body)
+			     const struct imap_fetch_body_data *body,
+			     const char *header_section)
 {
 	struct fetch_header_field_context hdr_ctx;
 	const char *str;
@@ -298,7 +299,7 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 
 	/* HEADER, MIME, HEADER.FIELDS (list), HEADER.FIELDS.NOT (list) */
 
-	if (strcmp(body->section, "HEADER") == 0) {
+	if (strcmp(header_section, "HEADER") == 0) {
 		/* all headers */
 		str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
 				      ctx->prefix, size->virtual_size);
@@ -324,14 +325,14 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 	/* first pass, we need at least the size */
 	if (size->virtual_size > MAX_HEADER_BUFFER_SIZE &&
 	    body->max_size > MAX_HEADER_BUFFER_SIZE) {
-		if (!fetch_header_fields(input, body->section, &hdr_ctx))
+		if (!fetch_header_fields(input, header_section, &hdr_ctx))
 			failed = TRUE;
 
 		i_assert(hdr_ctx.dest_size <= size->virtual_size);
 	} else {
 		hdr_ctx.dest = t_str_new(size->virtual_size < 8192 ?
 					 size->virtual_size : 8192);
-		if (!fetch_header_fields(input, body->section, &hdr_ctx))
+		if (!fetch_header_fields(input, header_section, &hdr_ctx))
 			failed = TRUE;
 	}
 
@@ -351,7 +352,7 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 			i_stream_seek(input, start_offset);
 
 			if (!failed &&
-			    !fetch_header_fields(input, body->section,
+			    !fetch_header_fields(input, header_section,
 						 &hdr_ctx))
 				failed = TRUE;
 
@@ -377,7 +378,7 @@ static int fetch_header(struct imap_fetch_context *ctx, struct mail *mail,
 	if (stream == NULL)
 		return FALSE;
 
-	return fetch_header_from(ctx, stream, &hdr_size, body);
+	return fetch_header_from(ctx, stream, &hdr_size, body, body->section);
 }
 
 /* Find message_part for section (eg. 1.3.4) */
@@ -478,7 +479,8 @@ static int fetch_part(struct imap_fetch_context *ctx, struct mail *mail,
 	if (strncmp(section, "HEADER", 6) == 0 ||
 	    strcmp(section, "MIME") == 0) {
 		i_stream_seek(stream, part->physical_pos);
-		return fetch_header_from(ctx, stream, &part->header_size, body);
+		return fetch_header_from(ctx, stream, &part->header_size,
+					 body, section);
 	}
 
 	i_warning("BUG: Accepted invalid section from user: '%s'",
