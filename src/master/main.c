@@ -158,9 +158,7 @@ static void open_fds(void)
 	fd_close_on_exec(imap_fd, TRUE);
 
 #ifdef HAVE_SSL
-	imaps_fd = set_ssl_cert_file == NULL || *set_ssl_cert_file == '\0' ||
-		set_ssl_key_file == NULL || *set_ssl_key_file == '\0' ||
-		set_imaps_port == 0 ? dup(null_fd) :
+	imaps_fd = set_ssl_disable || set_imaps_port == 0 ? dup(null_fd) :
 		net_listen(imaps_ip, &set_imaps_port);
 #else
 	imaps_fd = dup(null_fd);
