@@ -25,6 +25,7 @@
 
 #include "lib.h"
 #include "alarm-hup.h"
+#include "hostpid.h"
 
 #include <stdlib.h>
 #include <time.h>
