@@ -13,7 +13,7 @@ AC_C_INLINE
 AC_ARG_PROGRAM
 AM_PROG_LIBTOOL
 
-AC_CHECK_HEADERS(string.h stdlib.h unistd.h dirent.h)
+AC_CHECK_HEADERS(string.h stdlib.h stdint.h unistd.h dirent.h)
 AC_CHECK_HEADERS(sys/uio.h iconv.h linux/mman.h)
 
 # check posix headers
@@ -164,6 +164,9 @@ AC_CHECK_FUNC(poll, [
 	AC_DEFINE(IOLOOP_SELECT)
 ])
 
+dnl * memory alignment
+AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align)
+
 dnl * gcc specific options
 if test "x$ac_cv_prog_gcc" = "xyes"; then
 	# -Wchar-subscripts -Wpointer-arith -Wcast-qual -Wcast-align -Wconversion -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
@@ -293,30 +296,28 @@ case "$typeof_ssize_t" in
     ;;
 esac
 
-if test x$ac_cv_sizeof_long_long != x0; then
-  AC_DEFINE(LARGEST_T_LONG_LONG)
-else
-  AC_DEFINE(LARGEST_T_LONG)
+AC_DEFUN(AC_CHECKTYPE2, [
+  AC_MSG_CHECKING([for $1])
+  AC_CACHE_VAL(i_cv_type_$1,
+  [AC_TRY_COMPILE([
+  #include <sys/types.h>
+  $2],
+  [$1 t;],
+  i_cv_type_$1=yes,
+  i_cv_type_$1=no,
+  )])
+  AC_MSG_RESULT($i_cv_type_$1)
+])
+
+AC_CHECKTYPE2(uintmax_t, [#include <stdint.h>])
+if test $i_cv_type_uintmax_t = yes; then
+  AC_DEFINE(HAVE_UINTMAX_T)
 fi
 
-dnl * memory alignment
-AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align)
-
-dnl * socklen_t - AC_CHECK_TYPE() would be _really_ useful if it only would
-dnl * accept header files where to find the typedef..
-AC_MSG_CHECKING([for socklen_t])
-AC_CACHE_VAL(i_cv_type_socklen_t,
-[AC_TRY_COMPILE([
-#include <sys/types.h>
-#include <sys/socket.h>],
-[socklen_t t;],
-i_cv_type_socklen_t=yes,
-i_cv_type_socklen_t=no,
-)])
-if test $i_cv_type_socklen_t = no; then
-	AC_DEFINE(socklen_t, int, Define to 'int' if <sys/socket.h> doesn't define.)
+AC_CHECKTYPE2(socklen_t, [#include <sys/socket.h>])
+if test $i_cv_type_socklen_t = yes; then
+  AC_DEFINE(HAVE_SOCKLEN_T)
 fi
-AC_MSG_RESULT($i_cv_type_socklen_t)
 
 dnl * do we have tm_gmtoff
 AC_MSG_CHECKING([for tm_gmtoff])

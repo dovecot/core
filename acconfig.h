@@ -63,9 +63,11 @@
 /* printf()-format for size_t, eg. "u" or "llu" */
 #undef PRIuSIZE_T
 
-/* What type should be used for largest_t */
-#undef LARGEST_T_LONG
-#undef LARGEST_T_LONG_LONG
+/* Define if you have uintmax_t (C99 type) */
+#undef HAVE_UINTMAX_T
+
+/* Define if you have socklen_t */
+#undef HAVE_SOCKLEN_T
 
 /* Define if you have Linux-compatible mremap() */
 #undef HAVE_LINUX_MREMAP

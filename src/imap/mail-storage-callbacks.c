@@ -34,7 +34,7 @@ static void notify_no(Mailbox *mailbox __attr_unused__,
 static void expunge(Mailbox *mailbox, unsigned int seq, void *context)
 {
 	Client *client = context;
-	char str[MAX_LARGEST_T_STRLEN+20];
+	char str[MAX_INT_STRLEN+20];
 
 	if (client->mailbox != mailbox)
 		return;
@@ -71,7 +71,7 @@ static void new_messages(Mailbox *mailbox, unsigned int messages_count,
 			 unsigned int recent_count, void *context)
 {
 	Client *client = context;
-	char str[MAX_LARGEST_T_STRLEN+20];
+	char str[MAX_INT_STRLEN+20];
 
 	if (client->mailbox != mailbox)
 		return;

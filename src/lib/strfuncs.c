@@ -883,7 +883,7 @@ const char *t_strjoin_replace(char *const args[], char separator,
 }
 
 static size_t dec2str_recurse(char *buffer, size_t pos, size_t size,
-			      largest_t number)
+			      uintmax_t number)
 {
 	if (number == 0)
 		return 0;
@@ -894,7 +894,7 @@ static size_t dec2str_recurse(char *buffer, size_t pos, size_t size,
 	return pos + 1;
 }
 
-void dec2str(char *buffer, size_t size, largest_t number)
+void dec2str(char *buffer, size_t size, uintmax_t number)
 {
 	size_t pos;
 

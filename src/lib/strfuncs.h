@@ -55,8 +55,8 @@ char * const *t_strsplit(const char *data, const char *separators);
 const char *t_strjoin_replace(char *const args[], char separator,
 			      int replacearg, const char *replacedata);
 
-#define MAX_LARGEST_T_STRLEN ((sizeof(largest_t) * CHAR_BIT + 2) / 3 + 1)
-void dec2str(char *buffer, size_t size, largest_t number);
+#define MAX_INT_STRLEN ((sizeof(uintmax_t) * CHAR_BIT + 2) / 3 + 1)
+void dec2str(char *buffer, size_t size, uintmax_t number);
 
 /* INTERNAL */
 const char *temp_strconcat(const char *str1, va_list args, size_t *ret_len);

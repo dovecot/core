@@ -758,7 +758,7 @@ static int search_messages(IndexMailbox *ibox, const char *charset,
         MailSearchArg *arg;
 	const ModifyLogExpunge *expunges;
 	unsigned int first_uid, last_uid, client_seq, expunges_before;
-	char num[MAX_LARGEST_T_STRLEN+10];
+	char num[MAX_INT_STRLEN+10];
 	int found, failed;
 
 	if (ibox->synced_messages_count == 0)

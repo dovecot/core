@@ -185,7 +185,7 @@ static int mbox_write_xstatus(MboxRewriteContext *ctx, const char *x_status)
 
 static int mbox_write_content_length(MboxRewriteContext *ctx)
 {
-	char str[MAX_LARGEST_T_STRLEN+30];
+	char str[MAX_INT_STRLEN+30];
 
 	i_snprintf(str, sizeof(str), "Content-Length: %"PRIuUOFF_T"\n",
 		   ctx->content_length);

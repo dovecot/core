@@ -17,12 +17,16 @@ typedef unsigned long long uoff_t;
 #  error uoff_t size not set
 #endif
 
-#if defined (LARGEST_T_LONG)
-typedef unsigned long largest_t;
-#elif defined (LARGEST_T_LONG_LONG)
-typedef unsigned long long largest_t;
-#else
-#  error largest_t size not set
+#ifndef HAVE_UINTMAX_T
+#  if SIZEOF_LONG_LONG > 0
+typedef unsigned long long uintmax_t;
+#  else
+typedef unsigned long uintmax_t;
+#  endif
+#endif
+
+#ifndef HAVE_SOCKLEN_T
+typedef int socklen_t;
 #endif
 
 /* memmove() */

@@ -13,6 +13,10 @@
 #include <errno.h> /* error checking is good */
 #include <sys/types.h> /* many other includes want this */
 
+#ifdef HAVE_STDINT_H
+#  include <stdint.h> /* C99 int types, we mostly need uintmax_t */
+#endif
+
 typedef struct _IOLoop *IOLoop;
 typedef struct _IO *IO;
 typedef struct _Timeout *Timeout;
