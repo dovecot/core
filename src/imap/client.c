@@ -164,7 +164,7 @@ int client_read_args(Client *client, unsigned int count, unsigned int flags,
 	int ret;
 
 	ret = imap_parser_read_args(client->parser, count, flags, args);
-	if ((unsigned int) ret == count) {
+	if (ret >= (int)count) {
 		/* all parameters read successfully */
 		return TRUE;
 	} else if (ret == -2) {
