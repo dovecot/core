@@ -567,6 +567,10 @@ static void mbox_skip_forward(struct istream *input, int header)
 						i_stream_skip(input, i);
 						return;
 					}
+
+					/* we may have trashed msg on the way,
+					   get it again */
+					msg = i_stream_get_data(input, &size);
 				}
 				break;
 			}
