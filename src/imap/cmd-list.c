@@ -79,7 +79,8 @@ static int parse_list_flags(struct client *client, struct imap_arg *args,
 static int
 list_namespace_mailboxes(struct client *client, struct imap_match_glob *glob,
 			 struct namespace *ns, struct mailbox_list_context *ctx,
-			 int match_inbox, enum mailbox_list_flags list_flags)
+			 int lsub, int match_inbox,
+			 enum mailbox_list_flags list_flags)
 {
 	struct mailbox_list *list;
 	const char *name;
@@ -118,7 +119,7 @@ list_namespace_mailboxes(struct client *client, struct imap_match_glob *glob,
 		}
 
 		str_truncate(str, 0);
-		str_printfa(str, "* LIST (%s) \"%s\" ",
+		str_printfa(str, "* %s (%s) \"%s\" ", lsub ? "LSUB" : "LIST",
 			    mailbox_flags2str(list->flags, list_flags),
 			    ns->sep_str);
 		imap_quote_append_string(str, name, FALSE);
@@ -153,7 +154,7 @@ static void skip_prefix(const char **prefix, const char **mask, int inbox)
 }
 
 static int list_mailboxes(struct client *client,
-			  const char *ref, const char *mask,
+			  const char *ref, const char *mask, int lsub,
 			  enum mailbox_list_flags list_flags)
 {
 	struct namespace *ns;
@@ -258,7 +259,7 @@ static int list_mailboxes(struct client *client,
 							     cur_ref, cur_mask,
 							     list_flags);
 			if (list_namespace_mailboxes(client, glob, ns, ctx,
-						     match_inbox,
+						     lsub, match_inbox,
 						     list_flags) < 0) {
 				client_send_storage_error(client, ns->storage);
 				t_pop();
@@ -323,7 +324,7 @@ int _cmd_list_full(struct client *client, int lsub)
 				"\" \"\"", NULL));
 		}
 	} else {
-		if (list_mailboxes(client, ref, mask, list_flags) < 0)
+		if (list_mailboxes(client, ref, mask, lsub, list_flags) < 0)
 			return TRUE;
 	}
 
