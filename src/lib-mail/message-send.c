@@ -5,19 +5,22 @@
 #include "message-send.h"
 #include "message-size.h"
 
+#define OUTPUT_BUFFER_SIZE 1024
+
 int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 		 off_t virtual_skip, off_t max_virtual_size)
 {
-	unsigned char *msg;
-	unsigned int i, size;
+	unsigned char *msg, *buf;
+	unsigned int i, size, pos;
 	int cr_skipped, add_cr;
+
+	if (msg_size->physical_size == 0 ||
+	    virtual_skip >= (off_t)msg_size->virtual_size)
+		return TRUE;
 
 	if (max_virtual_size == -1 ||
 	    max_virtual_size > (off_t)msg_size->virtual_size - virtual_skip)
 		max_virtual_size = msg_size->virtual_size - virtual_skip;
-
-	if (msg_size->physical_size == 0 || virtual_skip >= max_virtual_size)
-		return TRUE;
 
 	if (msg_size->physical_size == msg_size->virtual_size) {
 		/* no need to kludge with CRs, we can use sendfile() */
@@ -28,6 +31,10 @@ int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 	message_skip_virtual(inbuf, virtual_skip, NULL, &cr_skipped);
 
 	/* go through the message data and insert CRs where needed.  */
+	buf = io_buffer_get_space(outbuf, OUTPUT_BUFFER_SIZE);
+	i_assert(buf != NULL);
+
+	pos = 0;
 	while (io_buffer_read_data(inbuf, &msg, &size, 0) >= 0) {
 		add_cr = FALSE;
 		for (i = 0; i < size; i++) {
@@ -51,14 +58,29 @@ int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 			}
 		}
 
-		/* send the data read so far */
-		if (io_buffer_send(outbuf, msg, i) <= 0)
-			return FALSE;
-
-		if (add_cr) {
-			if (io_buffer_send(outbuf, "\r", 1) <= 0)
+		if (pos + i >= OUTPUT_BUFFER_SIZE) {
+			/* buffer is full, flush it */
+			if (io_buffer_send_buffer(outbuf, pos) <= 0)
 				return FALSE;
+			pos = 0;
 		}
+
+		if (i >= OUTPUT_BUFFER_SIZE) {
+			/* data larger than buffer, send it directly */
+			if (io_buffer_send(outbuf, msg, i) <= 0)
+				return FALSE;
+
+			i_assert(pos == 0);
+		} else {
+			/* put the data into buffer */
+			memcpy(buf + pos, msg, i);
+			pos += i;
+
+			i_assert(pos < OUTPUT_BUFFER_SIZE);
+		}
+
+		if (add_cr)
+			buf[pos++] = '\r';
 
 		/* see if we've reached the limit */
 		if (max_virtual_size == 0)
@@ -67,6 +89,9 @@ int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 		cr_skipped = TRUE;
 		io_buffer_skip(inbuf, i);
 	}
+
+	if (io_buffer_send_buffer(outbuf, pos) <= 0)
+		return FALSE;
 
 	return TRUE;
 }
