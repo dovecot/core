@@ -81,7 +81,6 @@ struct settings {
 
 	/* .. */
 	uid_t login_uid;
-	gid_t login_gid;
 
 	int listen_fd, ssl_listen_fd;
 };
@@ -106,6 +105,10 @@ struct auth_settings {
 
 	unsigned int count;
 	unsigned int process_size;
+
+	/* .. */
+	uid_t uid;
+	gid_t gid;
 };
 
 struct namespace_settings {
@@ -128,6 +131,8 @@ struct server_settings {
 	struct auth_settings *auths;
 	struct auth_settings auth_defaults;
         struct namespace_settings *namespaces;
+
+	gid_t login_gid;
 };
 
 extern struct server_settings *settings_root;

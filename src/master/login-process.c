@@ -374,7 +374,8 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 
 	/* setup access environment - needs to be done after
 	   clean_child_process() since it clears environment */
-	restrict_access_set_env(set->login_user, set->login_uid, set->login_gid,
+	restrict_access_set_env(set->login_user, set->login_uid,
+				set->server->login_gid,
 				set->login_chroot ? set->login_dir : NULL,
 				0, 0);
 

@@ -225,7 +225,6 @@ struct settings default_settings = {
 
 	/* .. */
 	MEMBER(login_uid) 0,
-	MEMBER(login_gid) 0,
 	MEMBER(listen_fd) -1,
 	MEMBER(ssl_listen_fd) -1
 };
@@ -273,11 +272,11 @@ static int get_login_uid(struct settings *set)
 		return FALSE;
 	}
 
-	if (set->login_gid == 0)
-		set->login_gid = pw->pw_gid;
-	else if (set->login_gid != pw->pw_gid) {
+	if (set->server->login_gid == 0)
+		set->server->login_gid = pw->pw_gid;
+	else if (set->server->login_gid != pw->pw_gid) {
 		i_error("All login process users must belong to same group "
-			"(%s vs %s)", dec2str(set->login_gid),
+			"(%s vs %s)", dec2str(set->server->login_gid),
 			dec2str(pw->pw_gid));
 		return FALSE;
 	}
@@ -288,6 +287,22 @@ static int get_login_uid(struct settings *set)
 
 static int auth_settings_verify(struct auth_settings *auth)
 {
+	struct passwd *pw;
+
+	if ((pw = getpwnam(auth->user)) == NULL) {
+		i_error("Auth user doesn't exist: %s", auth->user);
+		return FALSE;
+	}
+
+	if (auth->parent->defaults->login_uid == pw->pw_uid &&
+	    master_uid != pw->pw_uid) {
+		i_error("login_user %s (uid %s) must not be same as auth_user",
+			auth->user, dec2str(pw->pw_uid));
+		return FALSE;
+	}
+	auth->uid = pw->pw_uid;
+	auth->gid = pw->pw_gid;
+
 	if (access(auth->executable, X_OK) < 0) {
 		i_error("Can't use auth executable %s: %m", auth->executable);
 		return FALSE;
@@ -430,7 +445,8 @@ static int settings_verify(struct settings *set)
 		return FALSE;
 	}
 
-	if (safe_mkdir(set->login_dir, 0750, master_uid, set->login_gid) == 0) {
+	if (safe_mkdir(set->login_dir, 0750,
+		       master_uid, set->server->login_gid) == 0) {
 		i_warning("Corrected permissions for login directory %s",
 			  set->login_dir);
 	}

@@ -253,12 +253,8 @@ static void auth_process_destroy(struct auth_process *p)
 static pid_t create_auth_process(struct auth_process_group *group)
 {
 	static char *argv[] = { NULL, NULL };
-	struct passwd *pwd;
 	pid_t pid;
 	int fd[2], i;
-
-	if ((pwd = getpwnam(group->set->user)) == NULL)
-		i_fatal("Auth user doesn't exist: %s", group->set->user);
 
 	/* create communication to process with a socket pair */
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) == -1) {
@@ -308,8 +304,8 @@ static pid_t create_auth_process(struct auth_process_group *group)
 		fd_close_on_exec(i, FALSE);
 
 	/* setup access environment */
-	restrict_access_set_env(group->set->user, pwd->pw_uid, pwd->pw_gid,
-				group->set->chroot, 0, 0);
+	restrict_access_set_env(group->set->user, group->set->uid,
+				group->set->gid, group->set->chroot, 0, 0);
 
 	/* set other environment */
 	env_put(t_strconcat("AUTH_PROCESS=", dec2str(getpid()), NULL));
@@ -383,11 +379,10 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 	fd_close_on_exec(group->listen_fd, TRUE);
 
 	/* set correct permissions */
-	if (chown(path, master_uid,
-		  auth_set->parent->defaults->login_gid) < 0) {
+	if (chown(path, master_uid, auth_set->parent->login_gid) < 0) {
 		i_fatal("login: chown(%s, %s, %s) failed: %m",
 			path, dec2str(master_uid),
-			dec2str(auth_set->parent->defaults->login_gid));
+			dec2str(auth_set->parent->login_gid));
 	}
 
 	group->next = process_groups;
