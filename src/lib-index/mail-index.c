@@ -370,6 +370,9 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type,
 				return index_set_syscall_error(index,
 							"file_wait_lock()");
 			index->lock_type = MAIL_LOCK_EXCLUSIVE;
+
+			debug_mprotect(index->mmap_base,
+				       index->mmap_full_length, index);
 		}
 
 		/* check again, in case it was already fscked while we had
