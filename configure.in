@@ -802,7 +802,7 @@ for i in 1 2; do
     
     int main(void)
     {
-	    int fd[2], send_fd, recv_fd;
+	    int fd[2], send_fd, recv_fd, status;
 	    struct stat st, st2;
 	    char data;
     
