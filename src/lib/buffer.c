@@ -171,15 +171,9 @@ size_t buffer_write(buffer_t *_buf, size_t pos,
 	return data_size;
 }
 
-size_t buffer_append(buffer_t *_buf, const void *data, size_t data_size)
+size_t buffer_append(buffer_t *buf, const void *data, size_t data_size)
 {
-	struct real_buffer *buf = (struct real_buffer *)_buf;
-
-	if (!buffer_check_limits(buf, buf->used, &data_size, TRUE))
-		return 0;
-
-	memcpy(buf->w_buffer + buf->used, data, data_size);
-	return data_size;
+	return buffer_write(buf, buf->used, data, data_size);
 }
 
 size_t buffer_append_c(buffer_t *buf, unsigned char chr)
