@@ -705,11 +705,25 @@ static int
 mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 {
 	uint32_t seq1, seq2;
+	uoff_t file_size;
 
 	if (mail_index_lookup_uid_range(sync_ctx->sync_view, uid, (uint32_t)-1,
 					&seq1, &seq2) < 0) {
 		mail_storage_set_index_error(sync_ctx->ibox);
 		return -1;
+	}
+
+	if (seq1 == 0) {
+		/* doesn't exist anymore, seek to end of file */
+		file_size = i_stream_get_size(sync_ctx->ibox->mbox_file_stream);
+		if (istream_raw_mbox_seek(sync_ctx->ibox->mbox_stream,
+					  file_size) < 0) {
+			mail_storage_set_critical(sync_ctx->ibox->box.storage,
+				"Error seeking to end of mbox file %s",
+				sync_ctx->ibox->path);
+			return -1;
+		}
+		return 1;
 	}
 
 	return mbox_sync_seek_to_seq(sync_ctx, seq1);
