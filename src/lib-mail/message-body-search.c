@@ -298,11 +298,11 @@ static int message_search_body(struct part_search_context *ctx,
 						   sizeof(size_t) *
 						   ctx->body_ctx->key_len);
 
-	i_stream_skip(input, part->physical_pos +
-		      part->header_size.physical_size - input->v_offset);
-
-	input = i_stream_create_limit(default_pool, input, 0,
+	input = i_stream_create_limit(default_pool, input,
+				      part->physical_pos +
+				      part->header_size.physical_size,
 				      part->body_size.physical_size);
+	i_stream_seek(input, 0);
 
 	found = FALSE; pos = 0;
 	while (i_stream_read_data(input, &data, &data_size, pos) > 0) {
