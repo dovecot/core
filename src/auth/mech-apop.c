@@ -56,15 +56,15 @@ apop_credentials_callback(enum passdb_result result,
 	switch (result) {
 	case PASSDB_RESULT_OK:
 		if (verify_credentials(request, credentials))
-			mech_auth_success(auth_request, NULL, 0);
+			auth_request_success(auth_request, NULL, 0);
 		else
-			mech_auth_fail(auth_request);
+			auth_request_fail(auth_request);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		mech_auth_internal_failure(auth_request);
+		auth_request_internal_failure(auth_request);
 		break;
 	default:
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 		break;
 	}
 }
@@ -87,7 +87,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 			i_info("apop(%s): no initial respone",
 			       get_log_prefix(auth_request));
 		}
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 		return;
 	}
 
@@ -107,7 +107,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 			i_info("apop(%s): invalid challenge",
 			       get_log_prefix(auth_request));
 		}
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 		return;
 	}
 	request->challenge = p_strdup(request->pool, (const char *)data);
@@ -124,7 +124,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 			i_info("apop(%s): malformed data",
 			       get_log_prefix(auth_request));
 		}
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 		return;
 	}
 	tmp++;
@@ -135,7 +135,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 			i_info("apop(%s): %s",
 			       get_log_prefix(auth_request), error);
 		}
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 		return;
 	}
 

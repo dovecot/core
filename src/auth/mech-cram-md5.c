@@ -119,15 +119,15 @@ static void credentials_callback(enum passdb_result result,
 	switch (result) {
 	case PASSDB_RESULT_OK:
 		if (verify_credentials(request, credentials))
-			mech_auth_success(auth_request, NULL, 0);
+			auth_request_success(auth_request, NULL, 0);
 		else
-			mech_auth_fail(auth_request);
+			auth_request_fail(auth_request);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		mech_auth_internal_failure(auth_request);
+		auth_request_internal_failure(auth_request);
 		break;
 	default:
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 		break;
 	}
 }
@@ -160,7 +160,7 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 
 	if (verbose)
 		i_info("cram-md5(%s): %s", get_log_prefix(auth_request), error);
-	mech_auth_fail(auth_request);
+	auth_request_fail(auth_request);
 }
 
 static void

@@ -12,6 +12,7 @@
 #include "userdb.h"
 #include "passdb.h"
 #include "password-scheme.h"
+#include "auth-request.h"
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 
@@ -202,6 +203,7 @@ static void main_init(int nodaemon)
 
 	lib_init_signals(sig_quit);
 	mech_init();
+	auth_requests_init();
 
 	env = getenv("AUTH_PROCESS");
 	standalone = env == NULL;
@@ -267,6 +269,7 @@ static void main_deinit(void)
         password_schemes_deinit();
 	passdb_deinit();
 	userdb_deinit();
+	auth_requests_deinit();
 	mech_deinit();
 
 	random_deinit();

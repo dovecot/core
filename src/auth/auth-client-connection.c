@@ -11,7 +11,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "safe-memset.h"
-#include "mech.h"
+#include "auth-request.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 

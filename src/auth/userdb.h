@@ -1,7 +1,7 @@
 #ifndef __USERDB_H
 #define __USERDB_H
 
-#include "mech.h"
+#include "auth-request.h"
 
 struct user_data {
 	const char *virtual_user;

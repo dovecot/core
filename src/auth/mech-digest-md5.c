@@ -524,19 +524,21 @@ static void credentials_callback(enum passdb_result result,
 	switch (result) {
 	case PASSDB_RESULT_OK:
 		if (!verify_credentials(request, credentials)) {
-			mech_auth_fail(auth_request);
+			auth_request_fail(auth_request);
 			return;
 		}
 
 		request->authenticated = TRUE;
-		auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
-				       request->rspauth, strlen(request->rspauth));
+		auth_request->callback(auth_request,
+				       AUTH_CLIENT_RESULT_CONTINUE,
+				       request->rspauth,
+				       strlen(request->rspauth));
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		mech_auth_internal_failure(auth_request);
+		auth_request_internal_failure(auth_request);
 		break;
 	default:
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 		break;
 	}
 }
@@ -553,7 +555,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	if (request->authenticated) {
 		/* authentication is done, we were just waiting the last
 		   word from client */
-		mech_auth_success(auth_request, NULL, 0);
+		auth_request_success(auth_request, NULL, 0);
 		return;
 	}
 
@@ -583,7 +585,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 		       get_log_prefix(auth_request), error);
 	}
 
-	mech_auth_fail(auth_request);
+	auth_request_fail(auth_request);
 }
 
 static void

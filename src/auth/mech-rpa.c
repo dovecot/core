@@ -425,7 +425,7 @@ rpa_credentials_callback(enum passdb_result result,
 	switch (result) {
 	case PASSDB_RESULT_OK:
 		if (!verify_credentials(request, credentials))
-			mech_auth_fail(auth_request);
+			auth_request_fail(auth_request);
 		else {
 			token4 = mech_rpa_build_token4(request, &token4_size);
 			auth_request->callback(auth_request,
@@ -435,10 +435,10 @@ rpa_credentials_callback(enum passdb_result result,
 		}
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		mech_auth_internal_failure(auth_request);
+		auth_request_internal_failure(auth_request);
 		break;
 	default:
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 		break;
 	}
 }
@@ -458,7 +458,7 @@ mech_rpa_auth_phase1(struct auth_request *auth_request,
 			i_info("rpa(%s): invalid token 1, %s",
 			       get_log_prefix(auth_request), error);
 		}
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 		return;
 	}
 
@@ -490,7 +490,7 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 			i_info("rpa(%s): invalid token 3, %s",
 			       get_log_prefix(auth_request), error);
 		}
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 		return;
 	}
 
@@ -499,7 +499,7 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 			i_info("rpa(%s): %s",
 			       get_log_prefix(auth_request), error);
 		}
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 		return;
 	}
 
@@ -519,9 +519,9 @@ mech_rpa_auth_phase3(struct auth_request *auth_request,
 			i_info("rpa(%s): invalid token 5 or client rejects us",
 			       get_log_prefix(auth_request));
 		}
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 	} else {
-		mech_auth_success(auth_request, NULL, 0);
+		auth_request_success(auth_request, NULL, 0);
 	}
 }
 
@@ -546,7 +546,7 @@ mech_rpa_auth_continue(struct auth_request *auth_request,
 		mech_rpa_auth_phase3(auth_request, data, data_size);
 		break;
 	default:
-		mech_auth_fail(auth_request);
+		auth_request_fail(auth_request);
 		break;
 	}
 }

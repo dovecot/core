@@ -1,7 +1,6 @@
 #ifndef __MECH_H
 #define __MECH_H
 
-#include "network.h"
 #include "auth-client-interface.h"
 
 enum auth_client_result {
@@ -11,38 +10,12 @@ enum auth_client_result {
 };
 
 struct auth_request;
-struct auth_client_connection;
 
 typedef void mech_callback_t(struct auth_request *request,
 			     enum auth_client_result result,
 			     const void *reply, size_t reply_size);
 
-struct auth_request {
-	int refcount;
-
-	pool_t pool;
-	char *user;
-	const char *extra_fields;
-
-	struct mech_module *mech;
-	struct auth_client_connection *conn;
-
-	unsigned int id;
-	time_t created;
-
-	const char *service;
-	struct ip_addr local_ip, remote_ip;
-	mech_callback_t *callback;
-
-	unsigned int successful:1;
-	unsigned int internal_failure:1;
-	unsigned int accept_input:1;
-	unsigned int no_failure_delay:1;
-	unsigned int no_login:1;
-	unsigned int proxy:1;
-	unsigned int destroyed:1;
-	/* ... mechanism specific data ... */
-};
+#include "auth-request.h"
 
 struct mech_module {
 	const char *mech_name;
@@ -82,32 +55,7 @@ struct mech_module *mech_module_find(const char *name);
 
 const string_t *auth_mechanisms_get_list(void);
 
-void mech_auth_success(struct auth_request *request,
-		       const void *data, size_t data_size);
-void mech_auth_fail(struct auth_request *request);
-void mech_auth_internal_failure(struct auth_request *request);
-
 int mech_fix_username(char *username, const char **error_r);
-
-struct auth_request *auth_request_new(struct mech_module *mech);
-void auth_request_destroy(struct auth_request *request);
-void auth_request_ref(struct auth_request *request);
-int auth_request_unref(struct auth_request *request);
-
-struct auth_request_extra *
-auth_request_extra_begin(struct auth_request *request, const char *password);
-void auth_request_extra_next(struct auth_request_extra *extra,
-			     const char *name, const char *value);
-void auth_request_extra_finish(struct auth_request_extra *extra,
-			       const char *cache_key);
-
-const struct var_expand_table *
-auth_request_get_var_expand_table(const struct auth_request *auth_request,
-				  const char *(*escape_func)(const char *));
-
-const char *get_log_prefix(const struct auth_request *auth_request);
-
-void auth_failure_buf_flush(void);
 
 void mech_init(void);
 void mech_deinit(void);
