@@ -56,11 +56,10 @@ static void drop_privileges(void)
 	restrict_access_by_env(!IS_STANDALONE());
 }
 
-static void main_init(void)
+static int main_init(void)
 {
 	struct client *client;
 	struct mail_storage *storage;
-	struct mailbox *mailbox;
 	const char *mail;
 
 	lib_init_signals(sig_quit);
@@ -95,11 +94,8 @@ static void main_init(void)
 		}
 	}
 
-	mailbox = storage->open_mailbox(storage, "INBOX", FALSE, FALSE);
-	if (mailbox == NULL)
-		i_fatal("No INBOX for user");
-
-	client = client_create(0, 1, mailbox);
+	client = client_create(0, 1, storage);
+	return client != NULL;
 }
 
 static void main_deinit(void)
@@ -129,8 +125,8 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
         process_title_init(argv, envp);
 	ioloop = io_loop_create(system_pool);
 
-	main_init();
-        io_loop_run(ioloop);
+	if (main_init())
+		io_loop_run(ioloop);
 	main_deinit();
 
 	io_loop_destroy(ioloop);

@@ -103,7 +103,7 @@ static int init_mailbox(struct client *client)
 	return FALSE;
 }
 
-struct client *client_create(int hin, int hout, struct mailbox *mailbox)
+struct client *client_create(int hin, int hout, struct mail_storage *storage)
 {
 	struct client *client;
 
@@ -119,20 +119,23 @@ struct client *client_create(int hin, int hout, struct mailbox *mailbox)
 
 	client->io = io_add(hin, IO_READ, client_input, client);
         client->last_input = ioloop_time;
+	client->storage = storage;
 
-	client->storage = mailbox->storage;
-	client->mailbox = mailbox;
+	storage->set_callbacks(storage, &mail_storage_callbacks, client);
 
-	mailbox->storage->set_callbacks(mailbox->storage,
-					&mail_storage_callbacks, client);
-
-	i_assert(my_client == NULL);
-	my_client = client;
+	client->mailbox = storage->open_mailbox(storage, "INBOX", FALSE, FALSE);
+	if (client->mailbox == NULL) {
+		client_send_line(client, "-ERR No INBOX for user.");
+		return NULL;
+	}
 
 	if (!init_mailbox(client)) {
 		client_destroy(client);
-		client = NULL;
+		return NULL;
 	}
+
+	i_assert(my_client == NULL);
+	my_client = client;
 
 	return client;
 }

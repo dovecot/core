@@ -27,7 +27,7 @@ struct client {
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int hin, int hout, struct mailbox *mailbox);
+struct client *client_create(int hin, int hout, struct mail_storage *storage);
 void client_destroy(struct client *client);
 
 /* Disconnect client connection */
