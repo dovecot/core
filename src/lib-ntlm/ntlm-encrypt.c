@@ -4,7 +4,7 @@
  * Copyright (c) 2004 Andrey Panin <pazke@donpac.ru>
  *
  * This library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published 
+ * it under the terms of the GNU Lesser General Public License as published
  * by the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  */
@@ -107,6 +107,23 @@ ntlmssp_v1_response(const unsigned char *hash,
 	deshash(response + 16, des_hash + 14, challenge);
 
 	safe_memset(des_hash, 0, sizeof(des_hash));
+}
+
+void
+ntlmssp2_response(const unsigned char *hash,
+		  const unsigned char *server_challenge,
+		  const unsigned char *client_challenge,
+		  unsigned char response[NTLMSSP_RESPONSE_SIZE])
+{
+	struct md5_context ctx;
+	unsigned char session_hash[16];
+
+	md5_init(&ctx);
+	md5_update(&ctx, server_challenge, NTLMSSP_CHALLENGE_SIZE);
+	md5_update(&ctx, client_challenge, NTLMSSP_CHALLENGE_SIZE);
+	md5_final(&ctx, session_hash);
+
+	ntlmssp_v1_response(hash, session_hash, response);
 }
 
 void

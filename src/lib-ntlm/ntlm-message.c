@@ -119,6 +119,9 @@ static inline uint32_t ntlmssp_flags(uint32_t client_flags)
 			 NTLMSSP_NEGOTIATE_NTLM |
 			 NTLMSSP_NEGOTIATE_TARGET_INFO;
 
+	if (client_flags & NTLMSSP_NEGOTIATE_NTLM2)
+		flags |= NTLMSSP_NEGOTIATE_NTLM2;
+
 	if (client_flags & NTLMSSP_REQUEST_TARGET)
 		flags |= NTLMSSP_REQUEST_TARGET | NTLMSSP_TARGET_TYPE_SERVER;
 

@@ -25,6 +25,7 @@ struct ntlm_auth_request {
 	pool_t pool;
 
 	/* requested: */
+	int ntlm2_negotiated;
 	const unsigned char *challenge;
 
 	/* received: */
@@ -73,7 +74,7 @@ ntlm_credentials_callback(const char *credentials,
 	buffer_t *hash_buffer;
 	int ret;
 
-	if (credentials == NULL) {
+	if (credentials == NULL && !auth->ntlm2_negotiated) {
 		passdb->lookup_credentials(auth_request,
 					   PASSDB_CREDENTIALS_LANMAN,
 					   lm_credentials_callback);
@@ -105,8 +106,16 @@ ntlm_credentials_callback(const char *credentials,
 			     NTLMSSP_V2_RESPONSE_SIZE) == 0;
 	} else {
 		unsigned char ntlm_response[NTLMSSP_RESPONSE_SIZE];
+		const unsigned char *client_lm_response =
+			ntlmssp_buffer_data(auth->response, lm_response);
 
-		ntlmssp_v1_response(hash, auth->challenge, ntlm_response);
+		if (auth->ntlm2_negotiated)
+			ntlmssp2_response(hash, auth->challenge,
+					  client_lm_response,
+					  ntlm_response);
+		else 
+			ntlmssp_v1_response(hash, auth->challenge,
+					    ntlm_response);
 
 		ret = memcmp(ntlm_response, client_response,
 			     NTLMSSP_RESPONSE_SIZE) == 0;
@@ -145,6 +154,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 
 		message = ntlmssp_create_challenge(auth->pool, request,
 						   &message_size);
+		auth->ntlm2_negotiated = message->flags & NTLMSSP_NEGOTIATE_NTLM2;
 		auth->challenge = message->challenge;
 
 		mech_init_auth_client_reply(&reply);
