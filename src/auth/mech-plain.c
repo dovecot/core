@@ -42,10 +42,10 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 		}
 	}
 
-	if (authenid == NULL) {
+	if (count != 2) {
 		/* invalid input */
 		if (verbose) {
-			i_info("plain(%s): no username given",
+			i_info("plain(%s): invalid input",
 			       get_log_prefix(auth_request));
 		}
 		mech_auth_finish(auth_request, NULL, 0, FALSE);
