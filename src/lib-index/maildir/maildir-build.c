@@ -11,8 +11,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
-				   const char *fname)
+static int maildir_index_append_fd(MailIndex *index, int fd, const char *fname)
 {
 	MailIndexRecord *rec;
 	MailIndexUpdate *update;
@@ -21,7 +20,6 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 	const char *p;
 	int failed;
 
-	i_assert(path != NULL);
 	i_assert(fname != NULL);
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
@@ -96,7 +94,7 @@ int maildir_index_append_file(MailIndex *index, const char *dir,
 		return index_file_set_syscall_error(index, path, "open()");
 	}
 
-	ret = maildir_index_append_fd(index, fd, path, fname);
+	ret = maildir_index_append_fd(index, fd, fname);
 	if (close(fd) < 0)
 		return index_file_set_syscall_error(index, path, "close()");
 	return ret;
