@@ -219,7 +219,7 @@ static void imap_parser_save_arg(ImapParser *parser, const char *data,
 		}
 		break;
 	default:
-		i_assert(0);
+                i_unreached();
 	}
 
 	parser->cur_type = ARG_PARSE_NONE;
@@ -470,7 +470,7 @@ static int imap_parser_read_arg(ImapParser *parser)
 		imap_parser_read_literal_data(parser, data, data_size);
 		break;
 	default:
-		i_assert(0);
+                i_unreached();
 	}
 
 	return parser->cur_type == ARG_PARSE_NONE;

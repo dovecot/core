@@ -31,8 +31,7 @@ static int update_func(MailIndex *index, MailIndexRecord *rec,
 		flags = ctx->flags;
 		break;
 	default:
-		flags = 0;
-		i_assert(0);
+                i_unreached();
 	}
 
 	if (!index->update_flags(index, rec, idx_seq, flags, FALSE))

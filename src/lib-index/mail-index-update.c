@@ -256,7 +256,7 @@ static void update_field_full(MailIndexUpdate *update, MailDataField field,
 }
 
 static void update_header_field(MailIndexUpdate *update, MailDataField field,
-				const void *value, size_t size)
+				const void *value, size_t size __attr_unused__)
 {
 	switch (field) {
 	case DATA_HDR_INTERNAL_DATE:
@@ -276,7 +276,7 @@ static void update_header_field(MailIndexUpdate *update, MailDataField field,
 		update->data_hdr.body_size = *((uoff_t *) value);
 		break;
 	default:
-		i_assert(0);
+                i_unreached();
 	}
 
 	update->updated_fields |= field;

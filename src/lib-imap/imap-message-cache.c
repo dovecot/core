@@ -440,7 +440,7 @@ const char *imap_msgcache_get(ImapMessageCache *cache, ImapCacheField field)
 			cache_fields(cache, field);
 		return msg->cached_envelope;
 	default:
-		i_assert(0);
+                i_unreached();
 	}
 
 	return NULL;

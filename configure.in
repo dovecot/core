@@ -34,6 +34,12 @@ AC_ARG_ENABLE(debug,
 		AC_DEFINE(DEBUG)
 	fi)
 
+AC_ARG_ENABLE(asserts,
+[  --enable-asserts        Enable asserts (default)],
+	if test x$enableval = xno; then
+		AC_DEFINE(DISABLE_ASSERTS)
+	fi)
+
 AC_ARG_WITH(file-offset-size,
 [  --with-file-offset-size=BITS  Set size of file offsets. Usually 32 or 64.
                           (default: 64 if available)],

@@ -291,7 +291,7 @@ static int search_sent(MailSearchArgType type, const char *value,
 	case SEARCH_SENTSINCE:
 		return sent_time >= search_time;
 	default:
-		i_assert(0);
+                i_unreached();
 	}
 }
 

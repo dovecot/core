@@ -141,7 +141,7 @@ static int passwd_file_verify_plain(const char *user, const char *password,
 			return FALSE;
 		break;
 	default:
-		i_assert(0);
+                i_unreached();
 	}
 
 	/* found */

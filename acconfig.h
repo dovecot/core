@@ -1,6 +1,9 @@
 /* Build with extra debugging checks */
 #undef DEBUG
 
+/* Disable asserts */
+#undef DISABLE_ASSERTS
+
 /* Build with SSL/TLS support */
 #undef HAVE_SSL
 

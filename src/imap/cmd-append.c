@@ -56,7 +56,7 @@ static int validate_args(Client *client, const char **mailbox,
 		*internal_date = args[2].data.str;
 		break;
 	default:
-		i_assert(0);
+                i_unreached();
 	}
 
 	/* check that mailbox and message arguments are ok */

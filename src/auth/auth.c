@@ -75,7 +75,7 @@ void auth_init_request(AuthInitRequestData *request,
 		}
 	}
 
-	i_assert(0);
+	i_unreached();
 }
 
 void auth_continue_request(AuthContinuedRequestData *request,

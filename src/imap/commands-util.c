@@ -57,7 +57,7 @@ int client_verify_mailbox_name(Client *client, const char *mailbox,
 		client_send_tagline(client, "NO Mailbox exists.");
 		break;
 	default:
-		i_assert(0);
+                i_unreached();
 	}
 
 	return FALSE;

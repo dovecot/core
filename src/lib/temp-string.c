@@ -33,7 +33,9 @@ typedef struct {
 	size_t len;
 
 	size_t alloc_size;
+#ifndef DISABLE_ASSERTS
 	unsigned int data_stack_frame;
+#endif
 } RealTempString;
 
 TempString *t_string_new(size_t initial_size)
@@ -44,7 +46,9 @@ TempString *t_string_new(size_t initial_size)
 		initial_size = 64;
 
 	rstr = t_new(RealTempString, 1);
+#ifndef DISABLE_ASSERTS
 	rstr->data_stack_frame = data_stack_frame;
+#endif
 	rstr->alloc_size = initial_size;
 	rstr->str = t_malloc(rstr->alloc_size);
 	rstr->str[0] = '\0';
@@ -115,9 +119,8 @@ void t_string_printfa(TempString *tstr, const char *fmt, ...)
 
 void t_string_erase(TempString *tstr, size_t pos, size_t len)
 {
-	RealTempString *rstr = (RealTempString *) tstr;
-
-	i_assert(data_stack_frame == rstr->data_stack_frame);
+	i_assert(data_stack_frame ==
+		 ((RealTempString *) tstr)->data_stack_frame);
 	i_assert(pos < tstr->len && tstr->len - pos >= len);
 
 	memmove(tstr->str + pos + len, tstr->str + pos,
@@ -126,9 +129,8 @@ void t_string_erase(TempString *tstr, size_t pos, size_t len)
 
 void t_string_truncate(TempString *tstr, size_t len)
 {
-	RealTempString *rstr = (RealTempString *) tstr;
-
-	i_assert(data_stack_frame == rstr->data_stack_frame);
+	i_assert(data_stack_frame ==
+		 ((RealTempString *) tstr)->data_stack_frame);
 	i_assert(len <= tstr->len);
 
 	tstr->len = len;

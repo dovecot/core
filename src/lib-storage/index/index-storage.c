@@ -72,8 +72,7 @@ void index_storage_unref(MailIndex *index)
 		}
 	}
 
-	/* shouldn't get here */
-	i_assert(0);
+	i_unreached();
 }
 
 static MailDataField get_data_fields(const char *fields)

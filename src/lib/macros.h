@@ -113,10 +113,8 @@
 #endif
 
 /* Provide macros for error handling. */
-#ifdef DISABLE_CHECKS
+#ifdef DISABLE_ASSERTS
 #  define i_assert(expr)
-#  define return_if_fail(expr)
-#  define return_val_if_fail(expr,val)
 #elif defined (__GNUC__) && !defined (__STRICT_ANSI__)
 
 #define i_assert(expr)			STMT_START{			\
@@ -127,28 +125,6 @@
 		__PRETTY_FUNCTION__,					\
 		#expr);			}STMT_END
 
-#define return_if_fail(expr)		STMT_START{			\
-     if (!(expr))							\
-       {								\
-	 i_warning("file %s: line %d (%s): assertion `%s' failed.",	\
-		__FILE__,						\
-		__LINE__,						\
-		__PRETTY_FUNCTION__,					\
-		#expr);							\
-	 return;							\
-       };				}STMT_END
-
-#define return_val_if_fail(expr,val)	STMT_START{			\
-     if (!(expr))							\
-       {								\
-	 i_warning("file %s: line %d (%s): assertion `%s' failed.",	\
-		__FILE__,						\
-		__LINE__,						\
-		__PRETTY_FUNCTION__,					\
-		#expr);							\
-	 return val;							\
-       };				}STMT_END
-
 #else /* !__GNUC__ */
 
 #define i_assert(expr)			STMT_START{		\
@@ -158,26 +134,9 @@
 	      __LINE__,						\
 	      #expr);			}STMT_END
 
-#define return_if_fail(expr)		STMT_START{		\
-     if (!(expr))						\
-       {							\
-	 i_warning("file %s: line %d: assertion `%s' failed.",	\
-		__FILE__,					\
-		__LINE__,					\
-		#expr);						\
-	 return;						\
-       };				}STMT_END
-
-#define return_val_if_fail(expr, val)	STMT_START{		\
-     if (!(expr))						\
-       {							\
-	 i_warning("file %s: line %d: assertion `%s' failed.",	\
-		__FILE__,					\
-		__LINE__,					\
-		#expr);						\
-	 return val;						\
-       };				}STMT_END
-
 #endif
+
+#define i_unreached() \
+	i_panic("unreached")
 
 #endif
