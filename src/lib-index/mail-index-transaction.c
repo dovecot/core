@@ -41,6 +41,27 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	return t;
 }
 
+static void mail_keyword_transaction_free(struct mail_keyword_transaction *kt)
+{
+	struct mail_keyword_transaction **p;
+
+	for (p = &kt->keywords->kt; *p != NULL; p = &(*p)->next) {
+		if (*p == kt) {
+			*p = kt->next;
+			break;
+		}
+	}
+
+	if (*p == NULL) {
+		/* no transactions left, free mail_keywords */
+		i_assert(kt->keywords->kt == NULL);
+		i_free(kt->keywords);
+	}
+
+	if (kt->messages != NULL)
+		buffer_free(kt->messages);
+}
+
 static void mail_index_transaction_free(struct mail_index_transaction *t)
 {
 	buffer_t **recs;
@@ -60,13 +81,13 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 	}
 
 	if (t->keyword_updates != NULL) {
-		struct mail_index_keyword_transaction *kt;
+		struct mail_keyword_transaction *kt;
 
 		kt = buffer_get_modifyable_data(t->keyword_updates, &size);
 		size /= sizeof(*kt);
 
 		for (i = 0; i < size; i++)
-			pool_unref(kt[i].pool);
+			mail_keyword_transaction_free(&kt[i]);
 		buffer_free(t->keyword_updates);
 	}
 
@@ -154,7 +175,7 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 	}
 
 	if (t->keyword_updates != NULL) {
-		struct mail_index_keyword_transaction *kt;
+		struct mail_keyword_transaction *kt;
 
 		kt = buffer_get_modifyable_data(t->keyword_updates, &size);
 		size /= sizeof(*kt);
@@ -716,101 +737,142 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 	}
 }
 
-static int keywords_match(const struct mail_keywords *keywords,
-			  const char *const *list)
+static struct mail_keyword_transaction *
+mail_keyword_transaction_new(struct mail_index_transaction *t,
+			     struct mail_keywords *keywords)
 {
-	unsigned int i;
+	struct mail_keyword_transaction *kt;
 
-	for (i = 0; list[i] != NULL; i++) {
-		if (strcasecmp(keywords->keywords[i], list[i]) != 0)
-			return FALSE;
-	}
-	i_assert(i == keywords->count);
-	return TRUE;
-}
-
-static struct mail_index_keyword_transaction *
-mail_index_keyword_transaction_new(struct mail_index_transaction *t,
-				   const char *const sorted_keywords[],
-				   unsigned int count)
-{
-	struct mail_index_keyword_transaction *kt;
-	unsigned int i;
+	if (t->keyword_updates == NULL)
+                t->keyword_updates = buffer_create_dynamic(default_pool, 512);
 
 	kt = buffer_append_space_unsafe(t->keyword_updates, sizeof(*kt));
-	kt->pool = pool_alloconly_create("keywords", 128);
-	kt->keywords.count = count;
-	kt->keywords.keywords = p_new(kt->pool, const char *, count + 1);
-	kt->keywords.transaction = kt;
-	for (i = 0; i < count; i++) {
-		kt->keywords.keywords[i] =
-			p_strdup(kt->pool, sorted_keywords[i]);
-	}
+	kt->transaction = t;
+	kt->keywords = keywords;
 
+	kt->next = keywords->kt;
+	keywords->kt = kt;
 	return kt;
 }
 
-static struct mail_index_keyword_transaction *
-mail_index_keyword_transaction_clone(struct mail_index_transaction *t,
-				     struct mail_index_keyword_transaction *kt)
+static struct mail_keywords *
+mail_index_keywords_build(struct mail_index *index,
+			  const char *const keywords[], unsigned int count)
 {
-	struct mail_index_keyword_transaction *new_kt;
+	struct mail_keywords k;
+	const char **missing_keywords, *keyword;
+	buffer_t *keyword_buf;
+	unsigned int i, j, bitmask_offset, missing_count = 0;
+	size_t size;
+	uint8_t *b;
 
-	new_kt = buffer_append_space_unsafe(t->keyword_updates, sizeof(*kt));
-	new_kt->pool = pool_alloconly_create("keywords", 128);
-	new_kt->keywords = kt->keywords;
-	return new_kt;
+	if (count == 0)
+		return i_new(struct mail_keywords, 1);
+
+	/* @UNSAFE */
+	t_push();
+
+	missing_keywords = t_new(const char *, count + 1);
+	memset(&k, 0, sizeof(k));
+
+	/* keywords are sorted in index. look up the existing ones and add
+	   new ones. build a bitmap pointing to them. keywords are never
+	   removed from index's keyword list. */
+	bitmask_offset = sizeof(k) - sizeof(k.bitmask);
+	keyword_buf =
+		buffer_create_static_hard(default_pool,
+					  bitmask_offset + (count + 7) / 8);
+	for (i = 0; i < count; i++) {
+		for (j = 0; index->keywords[j] != NULL; j++) {
+			if (strcasecmp(keywords[i], index->keywords[j]) == 0)
+				break;
+		}
+
+		if (index->keywords[j] != NULL) {
+			if (keyword_buf->used == 0) {
+				/* first one */
+				k.start = j;
+				buffer_append(keyword_buf, &k, bitmask_offset);
+			}
+			b = buffer_get_space_unsafe(keyword_buf,
+						    bitmask_offset +
+						    (j - k.start) / 8, 1);
+			*b |= 1 << ((j - k.start) % 8);
+			k.end = j;
+			k.count++;
+		} else {
+			/* arrays are sorted, can't match anymore */
+			missing_keywords[missing_count++] = keywords[i];
+		}
+	}
+
+	if (missing_count > 0) {
+		/* add missing keywords. first drop the trailing NULL. */
+		size = index->keywords_buf->used - sizeof(const char *);
+		buffer_set_used_size(index->keywords_buf, size);
+
+		j = size / sizeof(const char *);
+		for (; *missing_keywords != NULL; missing_keywords++, j++) {
+			keyword = p_strdup(index->keywords_pool,
+					   *missing_keywords);
+			buffer_append(index->keywords_buf,
+				      &keyword, sizeof(keyword));
+
+			b = buffer_get_space_unsafe(keyword_buf,
+						    bitmask_offset +
+						    (j - k.start) / 8, 1);
+			*b |= 1 << ((j - k.start) % 8);
+			k.end = j;
+			k.count++;
+		}
+
+		buffer_append_zero(index->keywords_buf, sizeof(const char *));
+		index->keywords = index->keywords_buf->data;
+	}
+	buffer_write(keyword_buf, 0, &k, bitmask_offset);
+
+	t_pop();
+	return buffer_free_without_data(keyword_buf);
 }
 
 struct mail_keywords *
 mail_index_keywords_create(struct mail_index_transaction *t,
 			   const char *const keywords[])
 {
-        struct mail_index_keyword_transaction *kt;
-	const char **sorted_keywords;
-	unsigned int i, count;
-	size_t size;
+	struct mail_keywords *k;
+	const char *const null_keywords[] = { NULL };
 
-	count = strarray_length(keywords);
+	if (keywords == NULL)
+		keywords = null_keywords;
 
-	sorted_keywords = t_new(const char *, count + 1);
-	memcpy(sorted_keywords, keywords, count * sizeof(*sorted_keywords));
-	qsort(sorted_keywords, count, sizeof(*sorted_keywords), strcasecmp_p);
-
-	if (t->keyword_updates == NULL)
-                t->keyword_updates = buffer_create_dynamic(default_pool, 512);
-
-	kt = buffer_get_modifyable_data(t->keyword_updates, &size);
-	size /= sizeof(*kt);
-
-	/* try to use existing ones */
-	for (i = 0; i < size; i++) {
-		if (kt[i].keywords.count == count &&
-		    keywords_match(&kt[i].keywords, sorted_keywords))
-			return &kt[i].keywords;
-	}
-
-	kt = mail_index_keyword_transaction_new(t, sorted_keywords, count);
-	return &kt->keywords;
+	k = mail_index_keywords_build(t->view->index, keywords,
+				      strarray_length(keywords));
+	(void)mail_keyword_transaction_new(t, k);
+	return k;
 }
 
 void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 				enum modify_type modify_type,
-				const struct mail_keywords *keywords)
+				struct mail_keywords *keywords)
 {
-	struct mail_index_keyword_transaction *kt;
+	struct mail_keyword_transaction *kt;
 
-	kt = keywords->transaction;
-	while (kt->modify_type != modify_type && kt->messages != NULL) {
-		if (kt->next == NULL) {
-			kt = mail_index_keyword_transaction_clone(t, kt);
+	i_assert(seq > 0 &&
+		 (seq <= mail_index_view_get_messages_count(t->view) ||
+		  seq <= t->last_new_seq));
+	i_assert(keywords->count > 0 || modify_type == MODIFY_REPLACE);
+
+	for (kt = keywords->kt; kt != NULL; kt = kt->next) {
+		if (kt->transaction == t &&
+		    (kt->modify_type == modify_type || kt->messages == NULL))
 			break;
-		}
-		kt = kt->next;
 	}
 
+	if (kt == NULL)
+		kt = mail_keyword_transaction_new(t, keywords);
+
 	if (kt->messages == NULL) {
-		kt->messages = buffer_create_dynamic(kt->pool, 32);
+		kt->messages = buffer_create_dynamic(default_pool, 32);
 		kt->modify_type = modify_type;
 		buffer_append(kt->messages, &seq, sizeof(seq));
 		buffer_append(kt->messages, &seq, sizeof(seq));

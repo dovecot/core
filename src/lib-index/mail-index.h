@@ -292,7 +292,7 @@ mail_index_keywords_create(struct mail_index_transaction *t,
 /* Update keywords for given message. */
 void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 				enum modify_type modify_type,
-				const struct mail_keywords *keywords);
+				struct mail_keywords *keywords);
 
 /* Update field in header. */
 void mail_index_update_header(struct mail_index_transaction *t,

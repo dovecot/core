@@ -85,8 +85,8 @@ int cmd_store(struct client *client)
 		return TRUE;
 
 	t = mailbox_transaction_begin(box, silent);
-	keywords = keywords_list == NULL ? NULL :
-		mailbox_keywords_create(t, keywords_list);
+	keywords = keywords_list != NULL || modify_type == MODIFY_REPLACE ?
+		mailbox_keywords_create(t, keywords_list) : NULL;
 	search_ctx = mailbox_search_init(t, NULL, search_arg, NULL,
 					 MAIL_FETCH_FLAGS, NULL);
 

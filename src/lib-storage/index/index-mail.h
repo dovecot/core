@@ -144,7 +144,7 @@ const char *index_mail_get_special(struct mail *_mail,
 int index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 			    enum mail_flags flags);
 int index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
-			       const struct mail_keywords *keywords);
+			       struct mail_keywords *keywords);
 int index_mail_expunge(struct mail *mail);
 
 const char *index_mail_get_cached_string(struct index_mail *mail,

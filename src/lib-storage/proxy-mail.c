@@ -92,7 +92,7 @@ static int _update_flags(struct mail *mail, enum modify_type modify_type,
 }
 
 static int _update_keywords(struct mail *mail, enum modify_type modify_type,
-			    const struct mail_keywords *keywords)
+			    struct mail_keywords *keywords)
 {
 	struct proxy_mail *p = (struct proxy_mail *) mail;
 

@@ -58,7 +58,7 @@ void maildir_transaction_rollback(struct mailbox_transaction_context *t);
 
 struct mail_save_context *
 maildir_save_init(struct mailbox_transaction_context *_t,
-		  enum mail_flags flags, const struct mail_keywords *keywords,
+		  enum mail_flags flags, struct mail_keywords *keywords,
 		  time_t received_date, int timezone_offset,
 		  const char *from_envelope, struct istream *input,
 		  int want_mail);

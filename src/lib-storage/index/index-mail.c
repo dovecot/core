@@ -763,7 +763,7 @@ int index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 }
 
 int index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
-			       const struct mail_keywords *keywords)
+			       struct mail_keywords *keywords)
 {
 	struct index_mail *imail = (struct index_mail *)mail;
 

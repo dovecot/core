@@ -37,6 +37,10 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 
 	index->keywords_ext_id =
 		mail_index_ext_register(index, "keywords", 128, 2, 1);
+	index->keywords_pool = pool_alloconly_create("keywords", 512);
+	index->keywords_buf = buffer_create_dynamic(default_pool, 64);
+	buffer_append_zero(index->keywords_buf, sizeof(const char *));
+	index->keywords = index->keywords_buf->data;
 	return index;
 }
 
@@ -44,10 +48,12 @@ void mail_index_free(struct mail_index *index)
 {
 	mail_index_close(index);
 	pool_unref(index->extension_pool);
+	pool_unref(index->keywords_pool);
 
 	buffer_free(index->sync_handlers);
 	buffer_free(index->sync_lost_handlers);
 	buffer_free(index->expunge_handlers);
+	buffer_free(index->keywords_buf);
 
 	i_free(index->error);
 	i_free(index->dir);

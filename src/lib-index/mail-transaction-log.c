@@ -1191,34 +1191,53 @@ static int log_append_ext_rec_updates(struct mail_transaction_log_file *file,
 static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 				      struct mail_index_transaction *t)
 {
-	struct mail_index_keyword_transaction *kt;
-	struct mail_transaction_keyword_update *kt_hdr;
+	struct mail_index *index = t->view->index;
+	struct mail_keyword_transaction *kt;
+	struct mail_transaction_keyword_update kt_hdr;
 	buffer_t *buf;
-	size_t i, size;
-	unsigned int j;
+	size_t i, size, size_offset, name_offset;
+	unsigned int idx, last_idx, first_keyword;
 
 	buf = buffer_create_dynamic(pool_datastack_create(), 128);
 
 	kt = buffer_get_modifyable_data(t->keyword_updates, &size);
 	size /= sizeof(*kt);
 	for (i = 0; i < size; i++) {
-		if (kt[i].messages == NULL || kt[i].keywords.count == 0)
-			continue;
-
 		buffer_set_used_size(buf, 0);
-		kt_hdr = buffer_append_space_unsafe(buf, sizeof(*kt_hdr));
-		kt_hdr->keywords_count = kt[i].keywords.count;
-		kt_hdr->modify_type = kt[i].modify_type;
-		kt_hdr->name_size[0] = strlen(kt[i].keywords.keywords[0]);
 
-		for (j = 1; j < kt[i].keywords.count; j++) {
-			uint16_t name_size = strlen(kt[i].keywords.keywords[j]);
-			buffer_append(buf, &name_size, sizeof(name_size));
+		memset(&kt_hdr, 0, sizeof(kt_hdr));
+		kt_hdr.keywords_count = kt[i].keywords->count;
+		kt_hdr.modify_type = kt[i].modify_type;
+		buffer_append(buf, &kt_hdr,
+			      sizeof(kt_hdr) - sizeof(kt_hdr.name_size));
+
+		size_offset = buf->used;
+		name_offset = buf->used +
+			kt[i].keywords->count * sizeof(uint16_t);
+
+		idx = 0;
+		first_keyword = kt[i].keywords->start;
+		last_idx = kt[i].keywords->end - first_keyword;
+
+		for (; idx <= last_idx; idx++) {
+			uint16_t name_size;
+			const char *keyword;
+
+			if ((kt[i].keywords->bitmask[idx / 8] &
+			     (1 << (idx % 8))) == 0)
+				continue;
+
+			keyword = index->keywords[first_keyword + idx];
+
+			name_size = strlen(keyword);
+			buffer_write(buf, size_offset,
+				     &name_size, sizeof(name_size));
+			size_offset += sizeof(name_size);
+
+			buffer_write(buf, name_offset, keyword, name_size);
+			name_offset += name_size;
 		}
-		for (j = 0; j < kt[i].keywords.count; j++) {
-			const char *name = kt[i].keywords.keywords[j];
-			buffer_append(buf, name, strlen(name));
-		}
+
 		if ((buf->used % 4) != 0)
 			buffer_append_zero(buf, 4 - (buf->used % 4));
 		buffer_append_buf(buf, kt[i].messages, 0, (size_t)-1);

@@ -347,7 +347,7 @@ struct mail *mailbox_search_next(struct mail_search_context *ctx);
    require mailbox syncing, so don't set it unless you need it. */
 struct mail_save_context *
 mailbox_save_init(struct mailbox_transaction_context *t,
-		  enum mail_flags flags, const struct mail_keywords *keywords,
+		  enum mail_flags flags, struct mail_keywords *keywords,
 		  time_t received_date, int timezone_offset,
 		  const char *from_envelope, struct istream *input,
 		  int want_mail);
@@ -417,7 +417,7 @@ struct mail {
 			    enum mail_flags flags);
 	/* Update message keywords. */
 	int (*update_keywords)(struct mail *mail, enum modify_type modify_type,
-			       const struct mail_keywords *keywords);
+			       struct mail_keywords *keywords);
 
 	/* Expunge this message. Sequence numbers don't change until commit. */
 	int (*expunge)(struct mail *mail);

@@ -223,7 +223,7 @@ static void mbox_save_append_flag_headers(string_t *str, enum mail_flags flags)
 
 static void
 mbox_save_append_keyword_headers(struct mbox_save_context *ctx,
-				 const struct mail_keywords *keywords)
+				 struct mail_keywords *keywords)
 {
 	unsigned char space[MBOX_HEADER_PADDING+1 +
 			    sizeof("Content-Length: \n")-1 + MAX_INT_STRLEN];
@@ -301,7 +301,7 @@ static void save_header_callback(struct message_header_line *hdr,
 
 struct mail_save_context *
 mbox_save_init(struct mailbox_transaction_context *_t,
-	       enum mail_flags flags, const struct mail_keywords *keywords,
+	       enum mail_flags flags, struct mail_keywords *keywords,
 	       time_t received_date, int timezone_offset __attr_unused__,
 	       const char *from_envelope, struct istream *input, int want_mail)
 {

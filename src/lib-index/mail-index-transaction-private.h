@@ -3,15 +3,16 @@
 
 #include "mail-transaction-log.h"
 
-struct mail_index_keyword_transaction {
-	struct mail_keywords keywords;
-	pool_t pool;
-	enum modify_type modify_type;
-	buffer_t *messages;
-
+struct mail_keyword_transaction {
 	/* mail_keywords points to first mail_index_keyword_transaction.
-	   this points to next transaction using the same keywords */
-        struct mail_index_keyword_transaction *next;
+	   this points to next keyword transaction using the same keywords */
+	struct mail_keyword_transaction *next;
+
+	enum modify_type modify_type;
+	struct mail_index_transaction *transaction;
+
+	struct mail_keywords *keywords;
+	buffer_t *messages;
 };
 
 struct mail_index_transaction {
@@ -33,7 +34,7 @@ struct mail_index_transaction {
 	buffer_t *ext_rec_updates; /* buffer[] */
 	buffer_t *ext_resizes; /* struct mail_transaction_ext_intro[] */
 	buffer_t *ext_resets; /* uint32_t[] */
-	buffer_t *keyword_updates; /* struct mail_index_keyword_transaction[] */
+	buffer_t *keyword_updates; /* struct mail_keyword_transaction[] */
 
         struct mail_cache_transaction_ctx *cache_trans_ctx;
 

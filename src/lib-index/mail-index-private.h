@@ -61,9 +61,14 @@ struct mail_index_ext_header {
 };
 
 struct mail_keywords {
+	/* linked list of keyword transactions which use this structure.
+	   the list may contain pointers to different transactions. this
+	   structure should be freed when there are no more transactions. */
+	struct mail_keyword_transaction *kt;
+
+	unsigned int start, end;
 	unsigned int count;
-	const char **keywords;
-        struct mail_index_keyword_transaction *transaction;
+	uint8_t bitmask[4]; /* variable size */
 };
 
 struct mail_index_keyword_header {
@@ -135,6 +140,10 @@ struct mail_index {
 	   mmap_disable we may have synced more than index */
 	uint32_t sync_log_file_seq;
 	uoff_t sync_log_file_offset;
+
+	pool_t keywords_pool;
+	buffer_t *keywords_buf;
+	const char *const *keywords;
 
 	uint32_t keywords_ext_id;
 	unsigned int last_grow_count;
