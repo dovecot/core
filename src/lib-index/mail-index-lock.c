@@ -149,7 +149,7 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 			   unsigned int timeout_secs, int update_index,
 			   unsigned int *lock_id_r)
 {
-	int ret;
+	int ret, ret2;
 
 	i_assert(lock_type == F_RDLCK || lock_type == F_WRLCK);
 
@@ -166,8 +166,11 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	}
 
 	if (update_index && index->excl_lock_count == 0) {
-		if (mail_index_has_changed(index) < 0)
+		if ((ret2 = mail_index_has_changed(index)) < 0)
 			return -1;
+		if (ret > 0 && ret2 == 0)
+			return 1;
+		ret = 0;
 	}
 
 	if (ret > 0)
@@ -192,16 +195,36 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		return 1;
 	}
 
-	ret = file_wait_lock_full(index->fd, lock_type, timeout_secs,
-				  NULL, NULL);
-	if (ret <= 0) {
-		if (ret == 0 || errno == EDEADLK) {
-			/* deadlock equals to timeout */
-			return 0;
+	if (lock_type == F_RDLCK || !index->log_locked) {
+		ret = file_wait_lock_full(index->fd, lock_type, timeout_secs,
+					  NULL, NULL);
+		if (ret < 0) {
+			mail_index_set_syscall_error(index, "file_wait_lock()");
+			return -1;
 		}
-		mail_index_set_syscall_error(index, "file_wait_lock()");
-		return -1;
+	} else {
+		/* this is kind of kludgy. we wish to avoid deadlocks while
+		   trying to lock transaction log, but it can happen if our
+		   process is holding transaction log lock and waiting for
+		   index write lock, while the other process is holding index
+		   read lock and waiting for transaction log lock.
+
+		   we don't have a problem with grabbing read index lock
+		   because the only way for it to block is if it's
+		   write-locked, which isn't allowed unless transaction log
+		   is also locked.
+
+		   so, the workaround for this problem is that we simply try
+		   locking once. if it doesn't work, just rewrite the file.
+		   hopefully there won't be any other deadlocking issues. :) */
+		ret = file_try_lock(index->fd, lock_type);
+		if (ret < 0) {
+			mail_index_set_syscall_error(index, "file_try_lock()");
+			return -1;
+		}
 	}
+	if (ret == 0)
+		return 0;
 
 	if (index->lock_type == F_UNLCK)
 		index->lock_id += 2;
@@ -291,7 +314,7 @@ static int mail_index_lock_exclusive_copy(struct mail_index *index)
 
 	old_lock_type = index->lock_type;
 	index->lock_type = F_WRLCK;
-        index->excl_lock_count++;
+	index->excl_lock_count++;
 
 	if (mail_index_reopen(index, fd) < 0) {
 		i_assert(index->excl_lock_count == 1);
@@ -422,5 +445,10 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 
 int mail_index_is_locked(struct mail_index *index, unsigned int lock_id)
 {
-	return (index->lock_id ^ lock_id) <= 1;
+	if ((index->lock_id ^ lock_id) <= 1) {
+		i_assert(index->lock_type != F_UNLCK);
+		return TRUE;
+	}
+
+	return FALSE;
 }

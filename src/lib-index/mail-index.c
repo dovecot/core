@@ -574,6 +574,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 		index->shared_lock_count = 0;
 		index->excl_lock_count = 0;
 		index->lock_type = F_UNLCK;
+		index->lock_id = 2;
 
 		index->nodiskspace = FALSE;
 		index->index_lock_timeout = FALSE;

@@ -50,11 +50,6 @@ int mail_index_view_lock_head(struct mail_index_view *view, int update_index)
 {
 	unsigned int lock_id;
 
-	if (view->map != view->index->map) {
-		if (mail_index_view_map_protect(view) < 0)
-			return -1;
-	}
-
 	if (!mail_index_is_locked(view->index, view->lock_id)) {
 		if (mail_index_lock_shared(view->index, update_index,
 					   &view->lock_id) < 0)
@@ -76,6 +71,15 @@ int mail_index_view_lock_head(struct mail_index_view *view, int update_index)
 
 		mail_index_unlock(view->index, view->lock_id);
 		view->lock_id = lock_id;
+	}
+
+	i_assert(view->index->lock_type != F_UNLCK);
+
+	/* mail_index_lock_shared() may have reopened the file,
+	   so do this after it. */
+	if (view->map != view->index->map) {
+		if (mail_index_view_map_protect(view) < 0)
+			return -1;
 	}
 
 	return 0;
