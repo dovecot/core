@@ -36,6 +36,10 @@
    }
 */
 #if defined (DEBUG) && defined (__GNUC__)
+#  define ARRAY_TYPE_CHECKS
+#endif
+
+#ifdef ARRAY_TYPE_CHECKS
 #  define ARRAY_DEFINE(name, array_type) name; array_type *name ## __ ## type
 #  define ARRAY_CREATE(array, pool, array_type, init_count) STMT_START { \
 	array_type *_array_tmp = *(array ## __ ## type); _array_tmp = NULL; \
@@ -96,7 +100,7 @@ _array_append(array_t *array, const void *data, unsigned int count)
 {
 	buffer_append(array->buffer, data, count * array->element_size);
 }
-#ifndef DEBUG
+#ifndef ARRAY_TYPE_CHECKS
 #  define array_append _array_append
 #else
 #  define array_append(array, data, count) STMT_START { \
@@ -119,7 +123,7 @@ _array_insert(array_t *array, unsigned int idx,
 	buffer_insert(array->buffer, idx * array->element_size,
 		      data, count * array->element_size);
 }
-#ifndef DEBUG
+#ifndef ARRAY_TYPE_CHECKS
 #  define array_insert _array_insert
 #else
 #  define array_insert(array, idx, data, count) STMT_START { \
@@ -142,7 +146,7 @@ _array_get(const array_t *array, unsigned int *count_r)
 		*count_r = array->buffer->used / array->element_size;
 	return array->buffer->data;
 }
-#ifndef DEBUG
+#ifndef ARRAY_TYPE_CHECKS
 #  define array_get _array_get
 #else
 #  define array_get(array, count) \
@@ -155,7 +159,7 @@ _array_idx(const array_t *array, unsigned int idx)
 	i_assert(idx * array->element_size < array->buffer->used);
 	return CONST_PTR_OFFSET(array->buffer->data, idx * array->element_size);
 }
-#ifndef DEBUG
+#ifndef ARRAY_TYPE_CHECKS
 #  define array_idx _array_idx
 #else
 #  define array_idx(array, idx) \
@@ -169,7 +173,7 @@ _array_get_modifyable(array_t *array, unsigned int *count_r)
 		*count_r = array->buffer->used / array->element_size;
 	return buffer_get_modifyable_data(array->buffer, NULL);
 }
-#ifndef DEBUG
+#ifndef ARRAY_TYPE_CHECKS
 #  define array_get_modifyable _array_get_modifyable
 #else
 #  define array_get_modifyable(array, count) \
@@ -190,7 +194,7 @@ _array_modifyable_idx(array_t *array, unsigned int idx)
 	}
 	return buffer_get_space_unsafe(array->buffer, pos, array->element_size);
 }
-#ifndef DEBUG
+#ifndef ARRAY_TYPE_CHECKS
 #  define array_modifyable_idx _array_modifyable_idx
 #else
 #  define array_modifyable_idx(array, count) \
@@ -210,7 +214,7 @@ _array_idx_set(array_t *array, unsigned int idx, const void *data)
 	}
 	buffer_write(array->buffer, pos, data, array->element_size);
 }
-#ifndef DEBUG
+#ifndef ARRAY_TYPE_CHECKS
 #  define array_idx_set _array_idx_set
 #else
 #  define array_idx_set(array, idx, data) STMT_START { \
@@ -228,7 +232,7 @@ _array_modifyable_append(array_t *array)
 	memset(data, 0, array->element_size);
 	return data;
 }
-#ifndef DEBUG
+#ifndef ARRAY_TYPE_CHECKS
 #  define array_modifyable_append _array_modifyable_append
 #else
 #  define array_modifyable_append(array) \
@@ -250,7 +254,7 @@ _array_modifyable_insert(array_t *array, unsigned int idx)
 	memset(data, 0, array->element_size);
 	return data;
 }
-#ifndef DEBUG
+#ifndef ARRAY_TYPE_CHECKS
 #  define array_modifyable_insert _array_modifyable_insert
 #else
 #  define array_modifyable_insert(array, idx) \
