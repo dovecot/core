@@ -38,6 +38,7 @@ extern const char *process_names[];
 	hash_remove(pids, POINTER_CAST(pid))
 
 void child_process_init_env(void);
+void client_process_exec(const char *cmd, const char *title);
 
 /* misc */
 #define VALIDATE_STR(str) \

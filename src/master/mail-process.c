@@ -251,30 +251,6 @@ mail_process_set_environment(struct settings *set, const char *mail,
 	}
 }
 
-static void mail_process_exec_set(struct settings *set, const char *title)
-{
-	const char *executable, *p, *argv[4];
-	int i;
-
-	/* very simple argument splitting. */
-	i = 0;
-	argv[i++] = executable = t_strcut(set->mail_executable, ' ');
-	argv[i] = strchr(set->mail_executable, ' ');
-	if (argv[i] != NULL) {
-		argv[i]++;
-		i++;
-	}
-	if (title[0] != '\0')
-		argv[i++] = title;
-	argv[i] = NULL;
-
-	/* hide the path, it's ugly */
-	p = strrchr(argv[0], '/');
-	if (p != NULL) argv[0] = p+1;
-
-	execv(executable, (char **) argv);
-}
-
 void mail_process_exec(const char *protocol, const char *section)
 {
 	struct server_settings *server = settings_root;
@@ -303,7 +279,7 @@ void mail_process_exec(const char *protocol, const char *section)
 				     getenv("TCPREMOTEIP"), getpid());
 
 	mail_process_set_environment(set, getenv("MAIL"), var_expand_table);
-	mail_process_exec_set(set, "");
+        client_process_exec(set->mail_executable, "");
 
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
 		       set->mail_executable);
@@ -469,7 +445,7 @@ int create_mail_process(struct login_group *group, int socket,
 	if (set->mail_drop_priv_before_exec)
 		restrict_access_by_env(TRUE);
 
-	mail_process_exec_set(set, title);
+	client_process_exec(set->mail_executable, title);
 	err = errno;
 
 	for (i = 0; i < 3; i++)

@@ -72,6 +72,25 @@ void child_process_init_env(void)
 #endif
 }
 
+void client_process_exec(const char *cmd, const char *title)
+{
+	const char *executable, *p, **argv;
+
+	/* very simple argument splitting. */
+	if (*title == '\0')
+		argv = t_strsplit(cmd, " ");
+	else
+		argv = t_strsplit(t_strconcat(cmd, " ", title), " ");
+
+	executable = argv[0];
+
+	/* hide the path, it's ugly */
+	p = strrchr(argv[0], '/');
+	if (p != NULL) argv[0] = p+1;
+
+	execv(executable, (char **)argv);
+}
+
 static void sig_quit(int signo __attr_unused__)
 {
 	io_loop_stop(ioloop);

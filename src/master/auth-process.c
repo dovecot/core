@@ -349,7 +349,6 @@ static int connect_auth_socket(struct auth_process_group *group,
 
 static int create_auth_process(struct auth_process_group *group)
 {
-	static char *argv[] = { NULL, NULL };
 	struct auth_socket_settings *as;
 	const char *prefix, *str;
 	struct log_io *log;
@@ -468,15 +467,7 @@ static int create_auth_process(struct auth_process_group *group)
 	   any errors above will be logged */
 	closelog();
 
-	/* hide the path, it's ugly */
-	argv[0] = strrchr(group->set->executable, '/');
-	if (argv[0] == NULL)
-		argv[0] = i_strdup(group->set->executable);
-	else
-		argv[0]++;
-
-	execv(group->set->executable, argv);
-
+	client_process_exec(group->set->executable, "");
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
 		       group->set->executable);
 	return -1;

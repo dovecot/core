@@ -445,7 +445,6 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 
 static pid_t create_login_process(struct login_group *group)
 {
-	static const char *argv[] = { NULL, NULL };
 	struct log_io *log;
 	const char *prefix;
 	pid_t pid;
@@ -539,15 +538,7 @@ static pid_t create_login_process(struct login_group *group)
 	   any errors above will be logged */
 	closelog();
 
-	/* hide the path, it's ugly */
-	argv[0] = strrchr(group->set->login_executable, '/');
-	if (argv[0] == NULL)
-		argv[0] = group->set->login_executable;
-	else
-		argv[0]++;
-
-	execv(group->set->login_executable, (char **) argv);
-
+	client_process_exec(group->set->login_executable, "");
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
 		       group->set->login_executable);
 	return -1;

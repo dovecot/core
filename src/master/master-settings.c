@@ -385,8 +385,9 @@ static int auth_settings_verify(struct auth_settings *auth)
 	auth->uid = pw->pw_uid;
 	auth->gid = pw->pw_gid;
 
-	if (access(auth->executable, X_OK) < 0) {
-		i_error("Can't use auth executable %s: %m", auth->executable);
+	if (access(t_strcut(auth->executable, ' '), X_OK) < 0) {
+		i_error("Can't use auth executable %s: %m",
+			t_strcut(auth->executable, ' '));
 		return FALSE;
 	}
 
@@ -579,9 +580,9 @@ static int settings_verify(struct settings *set)
 		return FALSE;
 	}
 
-	if (access(set->login_executable, X_OK) < 0) {
+	if (access(t_strcut(set->login_executable, ' '), X_OK) < 0) {
 		i_error("Can't use login executable %s: %m",
-			set->login_executable);
+			t_strcut(set->login_executable, ' '));
 		return FALSE;
 	}
 
