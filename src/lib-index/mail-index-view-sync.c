@@ -10,6 +10,7 @@
 struct mail_index_view_sync_ctx {
 	struct mail_index_view *view;
 	enum mail_transaction_type trans_sync_mask;
+	struct mail_index_sync_map_ctx sync_map_ctx;
 	buffer_t *expunges;
 
 	const struct mail_transaction_header *hdr;
@@ -122,6 +123,9 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	ctx->trans_sync_mask = want_mask;
 	ctx->expunges = expunges;
 
+	ctx->sync_map_ctx.view = view;
+	ctx->sync_map_ctx.last_ext_id = (uint32_t)-1;
+
 	if ((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) != 0) {
 		view->new_map = view->index->map;
 		view->new_map->refcount++;
@@ -202,13 +206,7 @@ static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 	   see only updated information. */
 	if (ctx->sync_map_update &&
 	    (ctx->hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0) {
-		struct mail_index_sync_map_ctx sync_map_ctx;
-
-		memset(&sync_map_ctx, 0, sizeof(sync_map_ctx));
-		sync_map_ctx.view = view;
-		sync_map_ctx.last_ext_id = (uint32_t)-1;
-
-		if (mail_index_sync_record(&sync_map_ctx, ctx->hdr,
+		if (mail_index_sync_record(&ctx->sync_map_ctx, ctx->hdr,
 					   ctx->data) < 0)
 			return -1;
 	}
