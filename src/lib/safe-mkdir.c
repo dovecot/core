@@ -35,6 +35,8 @@ int safe_mkdir(const char *dir, mode_t mode, uid_t uid, gid_t gid)
 	if (!S_ISDIR(st.st_mode) || S_ISLNK(st.st_mode))
 		i_fatal("Not a directory %s", dir);
 
+	/* change the file owner first, since it's the only user one who
+	   can mess up with the file mode. */
 	if (st.st_uid != uid || st.st_gid != gid) {
 		if (fchown(fd, uid, gid) < 0)
 			i_fatal("fchown() failed for %s: %m", dir);
@@ -50,9 +52,7 @@ int safe_mkdir(const char *dir, mode_t mode, uid_t uid, gid_t gid)
 	if (close(fd) < 0)
 		i_fatal("close() failed for %s: %m", dir);
 
-	/* make sure we succeeded in everything. chown() and chmod()
-	   are racy: user owned 0777 file - change either and the user
-	   can still change it back. */
+	/* paranoia: make sure we succeeded in everything. */
 	if (lstat(dir, &st) < 0)
 		i_fatal("lstat() check failed for %s: %m", dir);
 
