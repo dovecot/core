@@ -6,6 +6,7 @@ typedef struct _MailHashRecord MailHashRecord;
 
 struct _MailHashHeader {
 	unsigned int indexid;
+	unsigned int updateid;
 	unsigned int used_records;
 };
 

@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "primes.h"
 #include "mmap-util.h"
 #include "write-full.h"
@@ -16,6 +17,10 @@
    Use only primes as hash file sizes. */
 #define MIN_HASH_SIZE 109
 
+/* Maximum record count for a hash file. */
+#define MAX_HASH_SIZE \
+	((INT_MAX - sizeof(MailHashHeader)) / 100)
+
 /* When rebuilding hash, make it 30% full */
 #define MIN_PERCENTAGE 30
 
@@ -25,11 +30,15 @@
 /* Force a rebuild when hash is 80% full */
 #define FORCED_REBUILD_PERCENTAGE 80
 
+/* our hashing function is simple - UID*2. The *2 is there because UIDs are
+   normally contiguous, so once the UIDs wrap around, we don't want to go
+   through lots of records just to find an empty spot */
 #define HASH_FUNC(uid) (uid * 2)
 
 struct _MailHash {
 	MailIndex *index;
 
+	unsigned int updateid;
 	unsigned int size;
 
 	int fd;
@@ -45,8 +54,14 @@ struct _MailHash {
 
 static int mmap_update(MailHash *hash)
 {
-	if (!hash->dirty_mmap)
-		return TRUE;
+	if (hash->fd == -1)
+		return FALSE;
+
+	if (!hash->dirty_mmap) {
+		/* see if someone else modified it */
+		if (hash->header->updateid == hash->updateid)
+			return TRUE;
+	}
 
 	if (hash->mmap_base != NULL)
 		(void)munmap(hash->mmap_base, hash->mmap_length);
@@ -67,13 +82,26 @@ static int mmap_update(MailHash *hash)
 		/* hash must be corrupted, rebuilding should have noticed
 		   if it was only partially written. */
 		hash->header = NULL;
-		index_set_error(hash->index, "Corrupted hash file %s: %m",
-				hash->filepath);
+		index_set_error(hash->index, "Corrupted hash file %s: "
+				"Invalid file size %lu", hash->filepath,
+				(unsigned long) hash->mmap_length);
 		return FALSE;
 	}
 
 	hash->dirty_mmap = FALSE;
 	hash->header = hash->mmap_base;
+
+	hash->updateid = hash->header->updateid;
+	hash->size = (hash->mmap_length - sizeof(MailHashHeader)) /
+		sizeof(MailHashRecord);
+
+	if (hash->size < MIN_HASH_SIZE || hash->size > MAX_HASH_SIZE) {
+		/* invalid size, probably corrupted. */
+		hash->header = NULL;
+		index_set_error(hash->index, "Corrupted hash file %s: "
+				"Invalid size %u", hash->filepath, hash->size);
+		return FALSE;
+	}
 	return TRUE;
 }
 
@@ -131,8 +159,6 @@ int mail_hash_open_or_create(MailIndex *index)
 		return mail_hash_lock_and_rebuild(hash);
 	}
 
-	hash->size = (hash->mmap_length - sizeof(MailHashHeader)) /
-		sizeof(MailHashRecord);
 	return TRUE;
 }
 
@@ -154,20 +180,30 @@ static int file_set_size(int fd, off_t size)
 {
 	char block[1024];
 	unsigned int i, full_blocks;
+	int ret, old_errno;
 	off_t pos;
 
 	/* try truncating it to the size we want. if this succeeds, the written
 	   area is full of zeros - exactly what we want. however, this may not
 	   work at all, in which case we fallback to write()ing the zeros. */
-	if (ftruncate(fd, size) != -1 && lseek(fd, 0, SEEK_END) == size)
+	ret = ftruncate(fd, size);
+	old_errno = errno;
+
+	pos = lseek(fd, 0, SEEK_END);
+	if (ret != -1 && pos == size)
 		return lseek(fd, 0, SEEK_SET) == 0;
 
-	/* skip the existing data in file */
-	pos = lseek(fd, 0, SEEK_END);
 	if (pos == -1)
 		return FALSE;
-	size -= pos;
+	if (pos > size) {
+		/* ftruncate() failed for some reason, even while we were
+		   trying to make the file smaller */
+		errno = old_errno;
+		return FALSE;
+	}
 
+	/* start growing the file */
+	size -= pos;
 	memset(block, 0, sizeof(block));
 
 	/* write in 1kb blocks */
@@ -193,6 +229,8 @@ static int hash_rebuild_to_file(MailIndex *index, int fd,
 	unsigned int i, count;
 	size_t mmap_length;
 	size_t new_size;
+
+	i_assert(hash_size < MAX_HASH_SIZE);
 
 	/* fill the file with zeros */
 	new_size = sizeof(MailHashHeader) + hash_size * sizeof(MailHashRecord);
@@ -234,6 +272,7 @@ static int hash_rebuild_to_file(MailIndex *index, int fd,
 	/* setup header */
 	hdr = mmap_base;
 	hdr->indexid = index->indexid;
+	hdr->updateid = ioloop_time;
 	hdr->used_records = count;
 
 	return munmap(mmap_base, mmap_length) == 0;
@@ -267,9 +306,21 @@ int mail_hash_rebuild(MailHash *hash)
 	index_header = hash->index->get_header(hash->index);
 
 	/* then figure out size for our hash */
-	hash_size = primes_closest(index_header->messages_count * 100 / MIN_PERCENTAGE);
+	hash_size = primes_closest(index_header->messages_count * 100 /
+				   MIN_PERCENTAGE);
 	if (hash_size < MIN_HASH_SIZE)
 		hash_size = MIN_HASH_SIZE;
+
+	if (hash_size < index_header->messages_count ||
+	    hash_size > MAX_HASH_SIZE) {
+		/* either our calculation overflowed, or we reached the
+		   max. value primes_closest() gave us. and there's more
+		   mails - very unlikely. */
+		index_set_error(hash->index, "Too many mails in mailbox (%u), "
+				"max. hash file size reached for %s",
+				index_header->messages_count, hash->filepath);
+		return FALSE;
+	}
 
 	/* create the hash in a new temp file */
 	fd = mail_index_create_temp_file(hash->index, &path);
@@ -304,7 +355,6 @@ int mail_hash_rebuild(MailHash *hash)
 	/* switch fds */
 	if (hash->fd != -1)
 		(void)close(hash->fd);
-	hash->size = hash_size;
 	hash->fd = fd;
 	hash->dirty_mmap = TRUE;
 	return TRUE;
@@ -318,13 +368,9 @@ off_t mail_hash_lookup_uid(MailHash *hash, unsigned int uid)
 	i_assert(uid > 0);
 	i_assert(hash->index->lock_type != MAIL_LOCK_UNLOCK);
 
-	if (hash->fd == -1 || !mmap_update(hash))
+	if (!mmap_update(hash))
 		return 0;
 
-	/* our hashing function is simple - UID*2. The *2 is there because
-	   UIDs are normally contiguous, so once the UIDs wrap around, we
-	   don't want to go through lots of records just to find an empty
-	   spot */
 	hashidx = HASH_FUNC(uid) % hash->size;
 	rec = (MailHashRecord *) ((char *) hash->mmap_base +
 				  sizeof(MailHashHeader));
@@ -389,7 +435,7 @@ void mail_hash_update(MailHash *hash, unsigned int uid, off_t pos)
 	i_assert(uid > 0);
 	i_assert(hash->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	if (hash->fd == -1 || !mmap_update(hash))
+	if (!mmap_update(hash))
 		return;
 
 	if (hash->header->used_records >
@@ -405,6 +451,7 @@ void mail_hash_update(MailHash *hash, unsigned int uid, off_t pos)
 		/* this should never happen, we had already checked that
 		   at least 1/5 of hash was empty. except, if the header
 		   contained invalid record count for some reason. rebuild.. */
+		i_error("Hash file was 100%% full, rebuilding");
 		mail_hash_rebuild(hash);
 
 		rec = hash_find_uid_or_free(hash, uid);
