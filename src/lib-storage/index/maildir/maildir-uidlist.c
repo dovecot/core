@@ -227,6 +227,7 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 	struct mail_storage *storage = uidlist->ibox->box.storage;
 	const struct maildir_uidlist_rec *const *rec_p;
 	const char *line;
+	unsigned int uid_validity, next_uid;
 	struct istream *input;
 	struct stat st;
 	uint32_t last_uid;
@@ -283,15 +284,23 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 	/* get header */
 	line = i_stream_read_next_line(input);
 	if (line == NULL || sscanf(line, "%u %u %u", &uidlist->version,
-				   &uidlist->uid_validity,
-				   &uidlist->next_uid) != 3 ||
+				   &uid_validity, &next_uid) != 3 ||
 	    uidlist->version < 1 || uidlist->version > 2) {
 		/* broken file */
                 mail_storage_set_critical(storage,
 			"Corrupted header in file %s (version = %u)",
 			uidlist->fname, uidlist->version);
 		ret = 0;
+	} else if (uid_validity == uidlist->uid_validity &&
+		   next_uid < uidlist->next_uid) {
+                mail_storage_set_critical(storage,
+			"%s: next_uid was lowered (%u -> %u)",
+			uidlist->fname, uidlist->next_uid, next_uid);
+		ret = 0;
 	} else {
+		uidlist->uid_validity = uid_validity;
+		uidlist->next_uid = next_uid;
+
 		ret = 1;
 		while ((line = i_stream_read_next_line(input)) != NULL) {
 			if (!maildir_uidlist_next(uidlist, line, last_uid)) {
@@ -522,15 +531,14 @@ static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
 					 FALSE) <= 0) {
 			mail_storage_set_critical(ibox->box.storage,
 				"file_dotlock_replace(%s) failed: %m", db_path);
+			(void)unlink(temp_path);
 			ret = -1;
 		}
+		uidlist->lock_fd = -1;
 	} else {
-		(void)close(uidlist->lock_fd);
+                maildir_uidlist_unlock(uidlist);
 	}
-        uidlist->lock_fd = -1;
 
-	if (ret < 0)
-		(void)unlink(temp_path);
 	return ret;
 }
 
@@ -581,6 +589,8 @@ maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, int partial)
 static int maildir_uidlist_sync_uidlist(struct maildir_uidlist_sync_ctx *ctx)
 {
 	int ret;
+
+	i_assert(!ctx->synced);
 
 	if (!ctx->uidlist->initial_read) {
 		/* first time reading the uidlist,
@@ -751,6 +761,8 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist *uidlist,
 	unsigned int dest;
 	size_t size;
 
+	i_assert(UIDLIST_IS_LOCKED(uidlist));
+
 	rec_p = buffer_get_modifyable_data(uidlist->record_buf, &size);
 	size /= sizeof(*rec_p);
 
@@ -782,7 +794,7 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 	struct maildir_uidlist_rec **rec_p;
 	size_t size;
 
-	/* buffer is unsorted, sort it by UID up to beginning of new messages */
+	/* buffer is unsorted, sort it by UID */
 	rec_p = buffer_get_modifyable_data(ctx->record_buf, &size);
 	size /= sizeof(*rec_p);
 	qsort(rec_p, size, sizeof(*rec_p), maildir_uid_cmp);
@@ -817,6 +829,7 @@ int maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 						    ctx->first_new_pos);
 		}
 	}
+
 	ctx->finished = TRUE;
 	ctx->uidlist->initial_sync = TRUE;
 	return !ctx->locked;
