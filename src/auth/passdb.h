@@ -67,9 +67,9 @@ void passdb_handle_credentials(enum passdb_result result,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request);
 
-void passdb_preinit(struct auth *auth, const char *data);
-void passdb_init(struct auth *auth);
-void passdb_deinit(struct auth *auth);
+void passdb_preinit(struct auth *auth, const char *driver, const char *args);
+void passdb_init(struct auth_passdb *passdb);
+void passdb_deinit(struct auth_passdb *passdb);
 
 #include "auth-request.h"
 

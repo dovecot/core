@@ -54,6 +54,8 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 	auth_request->refcount = 1;
 	auth_request->created = ioloop_time;
 	auth_request->auth = client->auth;
+	auth_request->passdb = client->auth->passdbs;
+	auth_request->userdb = client->auth->userdbs;
 
 	client->refcount++;
 	auth_request->context = client;
@@ -115,6 +117,15 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	/* verify plaintext password */
 	struct auth_request *auth_request;
 	const char *password;
+	unsigned int num;
+
+	num = atoi(t_strcut(args, '\t'));
+	args = strchr(args, '\t');
+	if (args == NULL) {
+		i_error("BUG: Auth worker server sent us invalid PASSV");
+		return;
+	}
+	args++;
 
 	password = t_strcut(args, '\t');
 	args = strchr(args, '\t');
@@ -124,8 +135,16 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	auth_request->mech_password =
 		p_strdup(auth_request->pool, password);
 
-	client->auth->passdb->verify_plain(auth_request, password,
-					   verify_plain_callback);
+	for (; num > 0; num++) {
+		auth_request->passdb = auth_request->passdb->next;
+		if (auth_request->passdb == NULL) {
+			i_error("BUG: PASSV had invalid passdb num");
+			return;
+		}
+	}
+
+	auth_request->passdb->passdb->verify_plain(auth_request, password,
+						   verify_plain_callback);
 }
 
 static void
@@ -162,16 +181,35 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	struct auth_request *auth_request;
 	const char *credentials_str;
         enum passdb_credentials credentials;
+	unsigned int num;
+
+	num = atoi(t_strcut(args, '\t'));
+	args = strchr(args, '\t');
+	if (args == NULL) {
+		i_error("BUG: Auth worker server sent us invalid PASSL");
+		return;
+	}
+	args++;
 
 	credentials_str = t_strcut(args, '\t');
 	args = strchr(args, '\t');
 	if (args != NULL) args++;
 
-        credentials = atoi(credentials_str);
+	credentials = atoi(credentials_str);
 
 	auth_request = worker_auth_request_new(client, id, args);
-	client->auth->passdb->lookup_credentials(auth_request, credentials,
-						 lookup_credentials_callback);
+
+	for (; num > 0; num++) {
+		auth_request->passdb = auth_request->passdb->next;
+		if (auth_request->passdb == NULL) {
+			i_error("BUG: PASSL had invalid passdb num");
+			return;
+		}
+	}
+
+	auth_request->passdb->passdb->
+		lookup_credentials(auth_request, credentials,
+				   lookup_credentials_callback);
 }
 
 static void
@@ -196,9 +234,24 @@ auth_worker_handle_user(struct auth_worker_client *client,
 {
 	/* lookup user */
 	struct auth_request *auth_request;
+	unsigned int num;
+
+	num = atoi(t_strcut(args, '\t'));
+	args = strchr(args, '\t');
+	if (args != NULL) args++;
 
 	auth_request = worker_auth_request_new(client, id, args);
-	client->auth->userdb->lookup(auth_request, lookup_user_callback);
+
+	for (; num > 0; num++) {
+		auth_request->userdb = auth_request->userdb->next;
+		if (auth_request->userdb == NULL) {
+			i_error("BUG: USER had invalid userdb num");
+			return;
+		}
+	}
+
+	auth_request->userdb->userdb->
+		lookup(auth_request, lookup_user_callback);
 }
 
 static int

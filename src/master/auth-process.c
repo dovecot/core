@@ -397,6 +397,8 @@ static int connect_auth_socket(struct auth_process_group *group,
 static void auth_set_environment(struct auth_settings *set)
 {
 	struct auth_socket_settings *as;
+	struct auth_passdb_settings *ap;
+	struct auth_userdb_settings *au;
 	const char *str;
 	int i;
 
@@ -410,8 +412,6 @@ static void auth_set_environment(struct auth_settings *set)
 	env_put(t_strconcat("MECHANISMS=", set->mechanisms, NULL));
 	env_put(t_strconcat("REALMS=", set->realms, NULL));
 	env_put(t_strconcat("DEFAULT_REALM=", set->default_realm, NULL));
-	env_put(t_strconcat("USERDB=", set->userdb, NULL));
-	env_put(t_strconcat("PASSDB=", set->passdb, NULL));
 	env_put(t_strconcat("USERNAME_CHARS=", set->username_chars, NULL));
 	env_put(t_strconcat("USERNAME_TRANSLATION=",
 			    set->username_translation, NULL));
@@ -419,6 +419,15 @@ static void auth_set_environment(struct auth_settings *set)
 			    set->anonymous_username, NULL));
 	env_put(t_strdup_printf("CACHE_SIZE=%u", set->cache_size));
 	env_put(t_strdup_printf("CACHE_TTL=%u", set->cache_ttl));
+
+	for (ap = set->passdbs, i = 1; ap != NULL; ap = ap->next, i++) {
+		env_put(t_strdup_printf("PASSDB_%u_DRIVER=%s", i, ap->driver));
+		env_put(t_strdup_printf("PASSDB_%u_ARGS=%s", i, ap->args));
+	}
+	for (au = set->userdbs, i = 1; au != NULL; au = au->next, i++) {
+		env_put(t_strdup_printf("USERDB_%u_DRIVER=%s", i, au->driver));
+		env_put(t_strdup_printf("USERDB_%u_ARGS=%s", i, au->args));
+	}
 
 	for (as = set->sockets, i = 1; as != NULL; as = as->next, i++) {
 		if (strcmp(as->type, "listen") != 0)

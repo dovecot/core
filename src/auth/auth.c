@@ -7,6 +7,7 @@
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
+#include "passdb-cache.h"
 #include "auth.h"
 #include "auth-request-handler.h"
 
@@ -15,23 +16,46 @@
 
 struct auth *auth_preinit(void)
 {
-        struct auth *auth;
-	const char *env;
+	struct auth *auth;
+	const char *driver, *args;
+	pool_t pool;
+	unsigned int i;
 
-	auth = i_new(struct auth, 1);
+	pool = pool_alloconly_create("auth", 1024);
+	auth = p_new(pool, struct auth, 1);
+	auth->pool = pool;
 
 	auth->verbose = getenv("VERBOSE") != NULL;
 	auth->verbose_debug = getenv("VERBOSE_DEBUG") != NULL;
 
-	env = getenv("PASSDB");
-	if (env == NULL)
-		i_fatal("PASSDB environment is unset");
-	passdb_preinit(auth, env);
+	t_push();
+	for (i = 1; ; i++) {
+		driver = getenv(t_strdup_printf("PASSDB_%u_DRIVER", i));
+		if (driver == NULL)
+			break;
 
-	env = getenv("USERDB");
-	if (env == NULL)
-		i_fatal("USERDB environment is unset");
-	userdb_preinit(auth, env);
+                args = getenv(t_strdup_printf("PASSDB_%u_ARGS", i));
+		passdb_preinit(auth, driver, args);
+
+	}
+	t_pop();
+
+	t_push();
+	for (i = 1; ; i++) {
+		driver = getenv(t_strdup_printf("USERDB_%u_DRIVER", i));
+		if (driver == NULL)
+			break;
+
+                args = getenv(t_strdup_printf("USERDB_%u_ARGS", i));
+		userdb_preinit(auth, driver, args);
+
+	}
+	t_pop();
+
+	if (auth->passdbs == NULL)
+		i_fatal("No password databases set");
+	if (auth->userdbs == NULL)
+		i_fatal("No user databases set");
 	return auth;
 }
 
@@ -51,7 +75,7 @@ static void auth_mech_register(struct auth *auth, struct mech_module *mech)
 {
 	struct mech_module_list *list;
 
-	list = i_new(struct mech_module_list, 1);
+	list = p_new(auth->pool, struct mech_module_list, 1);
 	list->module = *mech;
 
 	str_printfa(auth->mech_handshake, "MECH\t%s", mech->mech_name);
@@ -75,35 +99,62 @@ static void auth_mech_register(struct auth *auth, struct mech_module *mech)
 	auth->mech_modules = list;
 }
 
+static int auth_passdb_list_have_plain(struct auth *auth)
+{
+	struct auth_passdb *passdb;
+
+	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next) {
+		if (passdb->passdb->verify_plain != NULL)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static int auth_passdb_list_have_credentials(struct auth *auth)
+{
+	struct auth_passdb *passdb;
+
+	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next) {
+		if (passdb->passdb->lookup_credentials != NULL)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static void auth_mech_list_verify_passdb(struct auth *auth)
 {
 	struct mech_module_list *list;
 
 	for (list = auth->mech_modules; list != NULL; list = list->next) {
 		if (list->module.passdb_need_plain &&
-		    auth->passdb->verify_plain == NULL)
+		    !auth_passdb_list_have_plain(auth))
 			break;
 		if (list->module.passdb_need_credentials &&
-		    auth->passdb->lookup_credentials == NULL)
+                    !auth_passdb_list_have_credentials(auth))
 			break;
 	}
 
 	if (list != NULL) {
-		i_fatal("Passdb %s doesn't support %s method",
-			auth->passdb->name, list->module.mech_name);
+		i_fatal("%s mechanism can't be supported with given passdbs",
+			list->module.mech_name);
 	}
 }
 
 void auth_init(struct auth *auth)
 {
+	struct auth_passdb *passdb;
+	struct auth_userdb *userdb;
 	struct mech_module *mech;
 	const char *const *mechanisms;
 	const char *env;
 
-	passdb_init(auth);
-	userdb_init(auth);
+	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next)
+		passdb_init(passdb);
+	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
+		userdb_init(userdb);
+	passdb_cache_init();
 
-	auth->mech_handshake = str_new(default_pool, 512);
+	auth->mech_handshake = str_new(auth->pool, 512);
 
 	auth->anonymous_username = getenv("ANONYMOUS_USERNAME");
 	if (auth->anonymous_username != NULL &&
@@ -170,8 +221,14 @@ void auth_init(struct auth *auth)
 
 void auth_deinit(struct auth *auth)
 {
-	userdb_deinit(auth);
-	passdb_deinit(auth);
+	struct auth_passdb *passdb;
+	struct auth_userdb *userdb;
 
-	str_free(auth->mech_handshake);
+	passdb_cache_deinit();
+	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next)
+		passdb_deinit(passdb);
+	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
+		userdb_deinit(userdb);
+
+	pool_unref(auth->pool);
 }

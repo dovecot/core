@@ -12,19 +12,35 @@
 static enum passdb_result
 check_failure(struct auth_request *request, const char **reply)
 {
+	enum passdb_result ret;
+	const char *p;
+
 	/* OK / FAIL */
 	if (strncmp(*reply, "OK\t", 3) == 0) {
 		*reply += 3;
 		return PASSDB_RESULT_OK;
 	}
 
-	/* FAIL \t result */
-	if (strncmp(*reply, "FAIL\t", 5) != 0) {
+	/* FAIL \t result \t password */
+	if (strncmp(*reply, "FAIL\t", 5) == 0) {
+		*reply += 5;
+		ret = atoi(t_strcut(*reply, '\t'));
+
+		p = strchr(*reply, '\t');
+		if (p == NULL)
+			*reply += strlen(*reply);
+		else
+			*reply = p + 1;
+		if (ret != PASSDB_RESULT_OK)
+			return ret;
+
+		auth_request_log_error(request, "blocking",
+			"Received invalid FAIL result from worker: %d", ret);
+		return PASSDB_RESULT_INTERNAL_FAILURE;
+	} else {
 		auth_request_log_error(request, "blocking",
 			"Received unknown reply from worker: %s", *reply);
 		return PASSDB_RESULT_INTERNAL_FAILURE;
-	} else {
-		return atoi(*reply + 5);
 	}
 }
 
@@ -90,7 +106,7 @@ void passdb_blocking_verify_plain(struct auth_request *request)
 	i_assert(request->extra_fields == NULL);
 
 	str = t_str_new(64);
-	str_append(str, "PASSV\t");
+	str_printfa(str, "PASSV\t%u\t", request->passdb->num);
 	str_append(str, request->mech_password);
 	str_append_c(str, '\t');
 	auth_request_export(request, str);
@@ -123,7 +139,8 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 	i_assert(request->extra_fields == NULL);
 
 	str = t_str_new(64);
-	str_printfa(str, "PASSL\t%d\t", request->credentials);
+	str_printfa(str, "PASSL\t%u\t%d\t",
+		    request->passdb->num, request->credentials);
 	auth_request_export(request, str);
 
 	auth_worker_call(request, str_c(str), lookup_credentials_callback);

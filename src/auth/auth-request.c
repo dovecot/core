@@ -24,6 +24,8 @@ auth_request_new(struct auth *auth, struct mech_module *mech,
 
 	request = mech->auth_new();
 	request->state = AUTH_REQUEST_STATE_NEW;
+	request->passdb = auth->passdbs;
+	request->userdb = auth->userdbs;
 
 	request->refcount = 1;
 	request->created = ioloop_time;
@@ -107,7 +109,7 @@ void auth_request_continue(struct auth_request *request,
 static void auth_request_save_cache(struct auth_request *request,
 				    enum passdb_result result)
 {
-	struct passdb_module *passdb = request->auth->passdb;
+	struct passdb_module *passdb = request->passdb->passdb;
 	string_t *str;
 
 	if (passdb_cache == NULL)
@@ -163,7 +165,7 @@ void auth_request_verify_plain_callback(enum passdb_result result,
         auth_request_save_cache(request, result);
 
 	cache_key = passdb_cache == NULL ? NULL :
-		request->auth->passdb->cache_key;
+		request->passdb->passdb->cache_key;
 	if (result == PASSDB_RESULT_INTERNAL_FAILURE && cache_key != NULL) {
 		/* lookup failed. if we're looking here only because the
 		   request was expired in cache, fallback to using cached
@@ -190,6 +192,20 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 			    strlen(request->passdb_password));
 	}
 
+	if (result != PASSDB_RESULT_OK &&
+	    result != PASSDB_RESULT_INTERNAL_FAILURE &&
+	    request->passdb->next != NULL) {
+		/* try next passdb. */
+		if (request->extra_fields != NULL)
+			str_truncate(request->extra_fields, 0);
+
+                request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
+		request->passdb = request->passdb->next;
+		auth_request_verify_plain(request, request->mech_password,
+			request->private_callback.verify_plain);
+		return;
+	}
+
         safe_memset(request->mech_password, 0, strlen(request->mech_password));
 
 	request->private_callback.verify_plain(result, request);
@@ -199,13 +215,14 @@ void auth_request_verify_plain(struct auth_request *request,
 			       const char *password,
 			       verify_plain_callback_t *callback)
 {
-	struct passdb_module *passdb = request->auth->passdb;
+	struct passdb_module *passdb = request->passdb->passdb;
 	enum passdb_result result;
 	const char *cache_key;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	request->mech_password = p_strdup(request->pool, password);
+	if (request->mech_password == NULL)
+		request->mech_password = p_strdup(request->pool, password);
 	request->private_callback.verify_plain = callback;
 
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
@@ -244,7 +261,7 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 	}
 
 	cache_key = passdb_cache == NULL ? NULL :
-		request->auth->passdb->cache_key;
+		request->passdb->passdb->cache_key;
 	if (result == PASSDB_RESULT_INTERNAL_FAILURE && cache_key != NULL) {
 		/* lookup failed. if we're looking here only because the
 		   request was expired in cache, fallback to using cached
@@ -269,7 +286,7 @@ void auth_request_lookup_credentials(struct auth_request *request,
 				     enum passdb_credentials credentials,
 				     lookup_credentials_callback_t *callback)
 {
-	struct passdb_module *passdb = request->auth->passdb;
+	struct passdb_module *passdb = request->passdb->passdb;
 	const char *cache_key, *result, *scheme;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
@@ -299,15 +316,40 @@ void auth_request_lookup_credentials(struct auth_request *request,
 	}
 }
 
+void auth_request_userdb_callback(const char *result,
+				  struct auth_request *request)
+{
+	if (result == NULL && request->userdb->next != NULL) {
+		/* try next userdb. */
+		if (request->extra_fields != NULL)
+			str_truncate(request->extra_fields, 0);
+
+		request->userdb = request->userdb->next;
+		auth_request_lookup_user(request,
+					 request->private_callback.userdb);
+		return;
+	}
+
+	if (result == NULL && request->client_pid != 0) {
+		/* this was actual login attempt */
+		auth_request_log_error(request, "userdb",
+				       "user not found from userdb");
+	}
+
+        request->private_callback.userdb(result, request);
+}
+
 void auth_request_lookup_user(struct auth_request *request,
 			      userdb_callback_t *callback)
 {
-	struct userdb_module *userdb = request->auth->userdb;
+	struct userdb_module *userdb = request->userdb->userdb;
+
+	request->private_callback.userdb = callback;
 
 	if (userdb->blocking)
-		userdb_blocking_lookup(request, callback);
+		userdb_blocking_lookup(request);
 	else
-		userdb->lookup(request, callback);
+		userdb->lookup(request, auth_request_userdb_callback);
 }
 
 int auth_request_set_username(struct auth_request *request,

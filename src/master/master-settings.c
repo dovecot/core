@@ -17,6 +17,8 @@ enum settings_type {
 	SETTINGS_TYPE_SERVER,
 	SETTINGS_TYPE_AUTH,
 	SETTINGS_TYPE_AUTH_SOCKET,
+	SETTINGS_TYPE_AUTH_PASSDB,
+	SETTINGS_TYPE_AUTH_USERDB,
         SETTINGS_TYPE_NAMESPACE,
 	SETTINGS_TYPE_SOCKET
 };
@@ -29,6 +31,8 @@ struct settings_parse_ctx {
 	struct auth_settings *auth;
 	struct socket_settings *socket;
 	struct auth_socket_settings *auth_socket;
+	struct auth_passdb_settings *auth_passdb;
+	struct auth_userdb_settings *auth_userdb;
         struct namespace_settings *namespace;
 
 	int level;
@@ -139,8 +143,6 @@ static struct setting_def auth_setting_defs[] = {
 	DEF(SET_STR, mechanisms),
 	DEF(SET_STR, realms),
 	DEF(SET_STR, default_realm),
-	DEF(SET_STR, userdb),
-	DEF(SET_STR, passdb),
 	DEF(SET_INT, cache_size),
 	DEF(SET_INT, cache_ttl),
 	DEF(SET_STR, executable),
@@ -180,6 +182,28 @@ static struct setting_def socket_setting_defs[] = {
 
 static struct setting_def auth_socket_setting_defs[] = {
 	DEF(SET_STR, type),
+
+	{ 0, NULL, 0 }
+};
+
+#undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct auth_passdb_settings, name) }
+
+static struct setting_def auth_passdb_setting_defs[] = {
+	DEF(SET_STR, driver),
+	DEF(SET_STR, args),
+
+	{ 0, NULL, 0 }
+};
+
+#undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct auth_userdb_settings, name) }
+
+static struct setting_def auth_userdb_setting_defs[] = {
+	DEF(SET_STR, driver),
+	DEF(SET_STR, args),
 
 	{ 0, NULL, 0 }
 };
@@ -315,8 +339,6 @@ struct auth_settings default_auth_settings = {
 	MEMBER(mechanisms) "plain",
 	MEMBER(realms) NULL,
 	MEMBER(default_realm) NULL,
-	MEMBER(userdb) "passwd",
-	MEMBER(passdb) "pam",
 	MEMBER(cache_size) 0,
 	MEMBER(cache_ttl) 3600,
 	MEMBER(executable) PKG_LIBEXECDIR"/dovecot-auth",
@@ -337,6 +359,8 @@ struct auth_settings default_auth_settings = {
 	/* .. */
 	MEMBER(uid) 0,
 	MEMBER(gid) 0,
+	MEMBER(passdbs) NULL,
+	MEMBER(userdbs) NULL,
 	MEMBER(sockets) NULL
 };
 
@@ -646,6 +670,42 @@ parse_new_auth(struct server_settings *server, const char *name,
 	return auth_settings_new(server, name);
 }
 
+static struct auth_passdb_settings *
+auth_passdb_settings_new(struct auth_settings *auth, const char *type)
+{
+	struct auth_passdb_settings *as, **as_p;
+
+	as = p_new(settings_pool, struct auth_passdb_settings, 1);
+
+	as->parent = auth;
+	as->driver = str_lcase(p_strdup(settings_pool, type));
+
+	as_p = &auth->passdbs;
+	while (*as_p != NULL)
+		as_p = &(*as_p)->next;
+	*as_p = as;
+
+	return as;
+}
+
+static struct auth_userdb_settings *
+auth_userdb_settings_new(struct auth_settings *auth, const char *type)
+{
+	struct auth_userdb_settings *as, **as_p;
+
+	as = p_new(settings_pool, struct auth_userdb_settings, 1);
+
+	as->parent = auth;
+	as->driver = str_lcase(p_strdup(settings_pool, type));
+
+	as_p = &auth->userdbs;
+	while (*as_p != NULL)
+		as_p = &(*as_p)->next;
+	*as_p = as;
+
+	return as;
+}
+
 static struct auth_socket_settings *
 auth_socket_settings_new(struct auth_settings *auth, const char *type)
 {
@@ -775,6 +835,14 @@ static const char *parse_setting(const char *key, const char *value,
 		return parse_setting_from_defs(settings_pool,
 					       auth_socket_setting_defs,
 					       ctx->auth_socket, key, value);
+	case SETTINGS_TYPE_AUTH_PASSDB:
+		return parse_setting_from_defs(settings_pool,
+					       auth_passdb_setting_defs,
+					       ctx->auth_passdb, key, value);
+	case SETTINGS_TYPE_AUTH_USERDB:
+		return parse_setting_from_defs(settings_pool,
+					       auth_userdb_setting_defs,
+					       ctx->auth_userdb, key, value);
 	case SETTINGS_TYPE_NAMESPACE:
 		return parse_setting_from_defs(settings_pool,
 					       namespace_setting_defs,
@@ -904,6 +972,18 @@ static int parse_section(const char *type, const char *name, void *context,
 		ctx->auth_socket = parse_new_auth_socket(ctx->auth,
 							 name, errormsg);
 		return ctx->auth_socket != NULL;
+	}
+
+	if (ctx->type == SETTINGS_TYPE_AUTH && strcmp(type, "passdb") == 0) {
+		ctx->type = SETTINGS_TYPE_AUTH_PASSDB;
+		ctx->auth_passdb = auth_passdb_settings_new(ctx->auth, name);
+		return TRUE;
+	}
+
+	if (ctx->type == SETTINGS_TYPE_AUTH && strcmp(type, "userdb") == 0) {
+		ctx->type = SETTINGS_TYPE_AUTH_USERDB;
+		ctx->auth_userdb = auth_userdb_settings_new(ctx->auth, name);
+		return TRUE;
 	}
 
 	if (ctx->type == SETTINGS_TYPE_AUTH_SOCKET) {

@@ -1,19 +1,38 @@
 #ifndef __AUTH_H
 #define __AUTH_H
 
+struct auth_passdb {
+	struct auth *auth;
+	struct auth_passdb *next;
+
+	unsigned int num;
+	const char *args;
+	struct passdb_module *passdb;
+#ifdef HAVE_MODULES
+	struct auth_module *module;
+#endif
+};
+
+struct auth_userdb {
+	struct auth *auth;
+	struct auth_userdb *next;
+
+	unsigned int num;
+	const char *args;
+	struct userdb_module *userdb;
+#ifdef HAVE_MODULES
+	struct auth_module *module;
+#endif
+};
+
 struct auth {
+	pool_t pool;
+
 	struct mech_module_list *mech_modules;
 	buffer_t *mech_handshake;
 
-	struct passdb_module *passdb;
-	struct userdb_module *userdb;
-
-#ifdef HAVE_MODULES
-	struct auth_module *passdb_module;
-	struct auth_module *userdb_module;
-#endif
-
-	char *passdb_args, *userdb_args;
+	struct auth_passdb *passdbs;
+	struct auth_userdb *userdbs;
 
 	const char *const *auth_realms;
 	const char *default_realm;

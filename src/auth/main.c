@@ -271,6 +271,7 @@ static void main_deinit(void)
 		for (i = 0; i < size; i++)
 			auth_master_connection_destroy(master[i]);
 	}
+	buffer_free(masters_buf);
 
 	auth_request_handler_deinit();
 	auth_deinit(auth);

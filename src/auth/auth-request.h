@@ -28,6 +28,8 @@ struct auth_request {
 
 	struct mech_module *mech;
 	struct auth *auth;
+        struct auth_passdb *passdb;
+        struct auth_userdb *userdb;
 
 	unsigned int connect_uid;
 	unsigned int client_pid;
@@ -109,5 +111,7 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 void auth_request_lookup_credentials_callback(enum passdb_result result,
 					      const char *credentials,
 					      struct auth_request *request);
+void auth_request_userdb_callback(const char *result,
+				  struct auth_request *request);
 
 #endif

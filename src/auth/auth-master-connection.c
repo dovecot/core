@@ -228,7 +228,10 @@ static void auth_master_connection_close(struct auth_master_connection *conn)
 		i_error("close(): %m");
 	conn->fd = -1;
 
-	o_stream_close(conn->output);
+	i_stream_unref(conn->input);
+	conn->input = NULL;
+
+	o_stream_unref(conn->output);
 	conn->output = NULL;
 
 	if (conn->io != NULL) {

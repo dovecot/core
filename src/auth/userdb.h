@@ -24,9 +24,9 @@ struct userdb_module {
 uid_t userdb_parse_uid(struct auth_request *request, const char *str);
 gid_t userdb_parse_gid(struct auth_request *request, const char *str);
 
-void userdb_preinit(struct auth *auth, const char *data);
-void userdb_init(struct auth *auth);
-void userdb_deinit(struct auth *auth);
+void userdb_preinit(struct auth *auth, const char *driver, const char *args);
+void userdb_init(struct auth_userdb *passdb);
+void userdb_deinit(struct auth_userdb *passdb);
 
 #include "auth-request.h"
 

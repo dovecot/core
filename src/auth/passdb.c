@@ -5,7 +5,6 @@
 #include "password-scheme.h"
 #include "auth-worker-server.h"
 #include "passdb.h"
-#include "passdb-cache.h"
 
 #include <stdlib.h>
 
@@ -117,67 +116,65 @@ void passdb_handle_credentials(enum passdb_result result,
 	callback(PASSDB_RESULT_OK, password, auth_request);
 }
 
-void passdb_preinit(struct auth *auth, const char *data)
+void passdb_preinit(struct auth *auth, const char *driver, const char *args)
 {
 	struct passdb_module **p;
-	const char *name, *args;
-
-	args = strchr(data, ' ');
-	name = t_strcut(data, ' ');
+        struct auth_passdb *auth_passdb, **dest;
 
 	if (args == NULL) args = "";
-	while (*args == ' ' || *args == '\t')
-		args++;
 
-	auth->passdb_args = i_strdup(args);
+	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
+	auth_passdb->auth = auth;
+	auth_passdb->args = p_strdup(auth->pool, args);
+
+	for (dest = &auth->passdbs; *dest != NULL; dest = &(*dest)->next)
+		auth_passdb->num++;
+	*dest = auth_passdb;
 
 	for (p = passdbs; *p != NULL; p++) {
-		if (strcmp((*p)->name, name) == 0) {
-			auth->passdb = *p;
+		if (strcmp((*p)->name, driver) == 0) {
+			auth_passdb->passdb = *p;
 			break;
 		}
 	}
 	
 #ifdef HAVE_MODULES
-	auth->passdb_module = auth->passdb != NULL ? NULL :
-		auth_module_open(name);
-	if (auth->passdb_module != NULL) {
-		auth->passdb = auth_module_sym(auth->passdb_module,
-					       t_strconcat("passdb_", name,
-							   NULL));
+	if (auth_passdb->passdb == NULL)
+		auth_passdb->module = auth_module_open(driver);
+	if (auth_passdb->module != NULL) {
+		auth_passdb->passdb =
+			auth_module_sym(auth_passdb->module,
+					t_strconcat("passdb_", driver, NULL));
 	}
 #endif
 
-	if (auth->passdb == NULL)
-		i_fatal("Unknown passdb type '%s'", name);
+	if (auth_passdb->passdb == NULL)
+		i_fatal("Unknown passdb driver '%s'", driver);
 
-	if (auth->passdb->preinit != NULL)
-		auth->passdb->preinit(auth->passdb_args);
+	if (auth_passdb->passdb->preinit != NULL)
+		auth_passdb->passdb->preinit(auth_passdb->args);
 }
 
-void passdb_init(struct auth *auth)
+void passdb_init(struct auth_passdb *passdb)
 {
-	passdb_cache_init();
-	if (auth->passdb->init != NULL)
-		auth->passdb->init(auth->passdb_args);
+	if (passdb->passdb->init != NULL)
+		passdb->passdb->init(passdb->args);
 
-	i_assert(auth->passdb->default_pass_scheme != NULL ||
-		 auth->passdb->cache_key == NULL);
+	i_assert(passdb->passdb->default_pass_scheme != NULL ||
+		 passdb->passdb->cache_key == NULL);
 
-	if (auth->passdb->blocking && !worker) {
+	if (passdb->passdb->blocking && !worker) {
 		/* blocking passdb - we need an auth server */
 		auth_worker_server_init();
 	}
 }
 
-void passdb_deinit(struct auth *auth)
+void passdb_deinit(struct auth_passdb *passdb)
 {
-	if (auth->passdb->deinit != NULL)
-		auth->passdb->deinit();
+	if (passdb->passdb->deinit != NULL)
+		passdb->passdb->deinit();
 #ifdef HAVE_MODULES
-	if (auth->passdb_module != NULL)
-                auth_module_close(auth->passdb_module);
+	if (passdb->module != NULL)
+                auth_module_close(passdb->module);
 #endif
-	passdb_cache_deinit();
-	i_free(auth->passdb_args);
 }

@@ -13,15 +13,12 @@ static void user_callback(struct auth_request *request, const char *reply)
         request->private_callback.userdb(reply, request);
 }
 
-void userdb_blocking_lookup(struct auth_request *request,
-			    userdb_callback_t *callback)
+void userdb_blocking_lookup(struct auth_request *request)
 {
 	string_t *str;
 
-	request->private_callback.userdb = callback;
-
 	str = t_str_new(64);
-	str_append(str, "USER\t");
+	str_printfa(str, "USER\t%u\t", request->userdb->num);
 	auth_request_export(request, str);
 
 	auth_worker_call(request, str_c(str), user_callback);

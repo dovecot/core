@@ -125,6 +125,22 @@ struct auth_socket_settings {
         struct socket_settings client;
 };
 
+struct auth_passdb_settings {
+	struct auth_settings *parent;
+	struct auth_passdb_settings *next;
+
+	const char *driver;
+	const char *args;
+};
+
+struct auth_userdb_settings {
+	struct auth_settings *parent;
+	struct auth_userdb_settings *next;
+
+	const char *driver;
+	const char *args;
+};
+
 struct auth_settings {
 	struct server_settings *parent;
 	struct auth_settings *next;
@@ -133,8 +149,6 @@ struct auth_settings {
 	const char *mechanisms;
 	const char *realms;
 	const char *default_realm;
-	const char *userdb;
-	const char *passdb;
 	unsigned int cache_size;
 	unsigned int cache_ttl;
 	const char *executable;
@@ -154,6 +168,8 @@ struct auth_settings {
 	/* .. */
 	uid_t uid;
 	gid_t gid;
+        struct auth_passdb_settings *passdbs;
+        struct auth_userdb_settings *userdbs;
 	struct auth_socket_settings *sockets;
 };
 
