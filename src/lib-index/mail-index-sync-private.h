@@ -1,6 +1,8 @@
 #ifndef __MAIL_INDEX_SYNC_PRIVATE_H
 #define __MAIL_INDEX_SYNC_PRIVATE_H
 
+#include "mail-transaction-log.h"
+
 struct mail_index_sync_ctx {
 	struct mail_index *index;
 	struct mail_index_view *view;
@@ -61,11 +63,31 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			   const struct mail_transaction_header *hdr,
 			   const void *data);
 
+void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
+				 struct mail_index_map *map);
+
 void
 mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
 			    const struct mail_transaction_expunge *exp);
 void
 mail_index_sync_get_update(struct mail_index_sync_rec *rec,
 			   const struct mail_transaction_flag_update *update);
+
+void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx);
+void
+mail_index_sync_deinit_expunge_handlers(struct mail_index_sync_map_ctx *ctx);
+void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx);
+void mail_index_sync_deinit_handlers(struct mail_index_sync_map_ctx *ctx);
+
+int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
+			      const struct mail_transaction_ext_intro *u);
+int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
+			      const struct mail_transaction_ext_reset *u);
+int
+mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
+			       const struct mail_transaction_ext_hdr_update *u);
+int
+mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
+			       const struct mail_transaction_ext_rec_update *u);
 
 #endif
