@@ -6,7 +6,7 @@
 #define MAIL_INDEX_MAJOR_VERSION 6
 #define MAIL_INDEX_MINOR_VERSION 0
 
-#define MAIL_INDEX_HEADER_MIN_SIZE 124
+#define MAIL_INDEX_HEADER_MIN_SIZE 120
 
 /* Number of keywords in mail_index_record. */
 #define INDEX_KEYWORDS_COUNT (3*8)
@@ -103,8 +103,6 @@ struct mail_index_header {
 	uint64_t sync_size;
 	uint32_t sync_stamp;
 
-	uint32_t cache_file_seq;
-
 	/* daily first UIDs that have been added to index. */
 	uint32_t day_stamp;
 	uint32_t day_first_uid[8];
@@ -114,7 +112,6 @@ struct mail_index_record {
 	uint32_t uid;
 	uint8_t flags; /* mail_flags | mail_index_mail_flags */
 	keywords_mask_t keywords;
-	uint32_t cache_offset;
 };
 
 enum mail_index_sync_type {
@@ -136,6 +133,7 @@ struct mail_index_sync_rec {
 };
 
 struct mail_index;
+struct mail_index_map;
 struct mail_index_view;
 struct mail_index_transaction;
 struct mail_index_sync_ctx;
@@ -158,9 +156,11 @@ struct mail_cache *mail_index_get_cache(struct mail_index *index);
 
 /* View can be used to look into index. Sequence numbers inside view change
    only when you synchronize it. The view acquires required locks
-   automatically, but you'll have to drop them manually. Opening view
-   acquires a lock immediately. */
+   automatically, but you'll have to drop them manually. */
 struct mail_index_view *mail_index_view_open(struct mail_index *index);
+/* Open view to latest index locked. */
+int mail_index_view_open_locked(struct mail_index *index,
+				struct mail_index_view **view_r);
 void mail_index_view_close(struct mail_index_view *view);
 
 /* Returns the index for given view. */
@@ -255,6 +255,9 @@ int mail_index_get_header(struct mail_index_view *view,
    expunged but data was returned from some older index.  */
 int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
 		      const struct mail_index_record **rec_r);
+int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
+			   struct mail_index_map **map_r,
+			   const struct mail_index_record **rec_r);
 /* Returns the UID for given message. May be slightly faster than
    mail_index_lookup()->uid. */
 int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
@@ -318,19 +321,33 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 			   uint32_t hdr_size, uint16_t record_size,
 			   uint16_t record_align);
 
+/* Reset extension records and header. Any updates for this extension which
+   were issued before the writer had seen this reset are discarded. reset_id is
+   used to figure this out, so it must be different every time. */
+void mail_index_ext_reset(struct mail_index_transaction *t, uint32_t ext_id,
+			  uint32_t reset_id);
+
 /* Returns extension header. */
 int mail_index_get_header_ext(struct mail_index_view *view, uint32_t ext_id,
 			      const void **data_r, size_t *data_size_r);
+int mail_index_map_get_header_ext(struct mail_index_view *view,
+				  struct mail_index_map *map, uint32_t ext_id,
+				  const void **data_r, size_t *data_size_r);
 /* Returns the wanted extension record for given message. If it doesn't exist,
    *data_r is set to NULL. Return values are same as for mail_index_lookup(). */
 int mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
 			  uint32_t ext_id, const void **data_r);
+int mail_index_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
+			       uint32_t ext_id, struct mail_index_map **map_r,
+			       const void **data_r);
 /* Update extension header field. */
 void mail_index_update_header_ext(struct mail_index_transaction *t,
 				  uint32_t ext_id, size_t offset,
 				  const void *data, size_t size);
-/* Update extension record. */
+/* Update extension record. If old_data_r is non-NULL and the record extension
+   was already updated in this transaction, it's set to contain the data it's
+   now overwriting. */
 void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
-			   uint32_t ext_id, const void *data);
+			   uint32_t ext_id, const void *data, void *old_data);
 
 #endif

@@ -27,6 +27,8 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 
 	index->extension_pool = pool_alloconly_create("extension", 256);
 	index->extensions = buffer_create_dynamic(index->extension_pool, 64);
+        index->sync_handlers = buffer_create_dynamic(default_pool, 32);
+        index->expunge_handlers = buffer_create_dynamic(default_pool, 32);
 
 	index->mode = 0600;
 	index->gid = (gid_t)-1;
@@ -37,6 +39,9 @@ void mail_index_free(struct mail_index *index)
 {
 	mail_index_close(index);
 	pool_unref(index->extension_pool);
+
+	buffer_free(index->sync_handlers);
+	buffer_free(index->expunge_handlers);
 
 	i_free(index->error);
 	i_free(index->dir);
@@ -64,6 +69,9 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	extensions = buffer_get_data(index->extensions, &ext_count);
 	ext_count /= sizeof(*extensions);
 
+	i_assert(index->sync_handlers->used /
+		 sizeof(mail_index_sync_handler_t *) == ext_count);
+
 	/* see if it's already there */
 	for (i = 0; i < ext_count; i++) {
 		if (strcmp(extensions[i].name, name) == 0)
@@ -77,7 +85,24 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	ext.record_align = default_record_align;
 
 	buffer_append(index->extensions, &ext, sizeof(ext));
+	buffer_append_zero(index->sync_handlers,
+			   sizeof(mail_index_sync_handler_t *));
 	return ext_count;
+}
+
+void mail_index_register_expunge_handler(struct mail_index *index,
+					 uint32_t ext_id,
+					 mail_index_expunge_handler_t *cb)
+{
+	buffer_write(index->expunge_handlers, ext_id * sizeof(cb),
+		     &cb, sizeof(cb));
+}
+
+void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
+				      mail_index_sync_handler_t *cb)
+{
+	buffer_write(index->sync_handlers, ext_id * sizeof(cb),
+		     &cb, sizeof(cb));
 }
 
 static void mail_index_map_init_extbufs(struct mail_index_map *map,
@@ -125,7 +150,7 @@ mail_index_map_register_ext(struct mail_index *index,
 			    struct mail_index_map *map, const char *name,
 			    uint32_t hdr_offset, uint32_t hdr_size,
 			    uint32_t record_offset, uint32_t record_size,
-			    uint32_t record_align)
+			    uint32_t record_align, uint32_t reset_id)
 {
 	struct mail_index_ext *ext;
 	uint32_t idx, ext_id;
@@ -146,6 +171,7 @@ mail_index_map_register_ext(struct mail_index *index,
 	ext->record_offset = record_offset;
 	ext->record_size = record_size;
 	ext->record_align = record_align;
+	ext->reset_id = reset_id;
 
 	ext_id = mail_index_ext_register(index, name, hdr_size,
 					 record_size, record_align);
@@ -216,7 +242,8 @@ static int mail_index_read_extensions(struct mail_index *index,
 					    offset, ext_hdr->hdr_size,
 					    ext_hdr->record_offset,
 					    ext_hdr->record_size,
-					    ext_hdr->record_align);
+					    ext_hdr->record_align,
+					    ext_hdr->reset_id);
 		t_pop();
 
 		offset += MAIL_INDEX_HEADER_SIZE_ALIGN(ext_hdr->hdr_size);
@@ -577,7 +604,14 @@ int mail_index_map(struct mail_index *index, int force)
 		ret = mail_index_map_try_existing(index->map);
 		if (ret != 0)
 			return ret;
+
+		if (index->lock_type == F_WRLCK) {
+			/* we're syncing, don't break the mapping */
+			return 1;
+		}
 	}
+
+	i_assert(index->lock_type != F_WRLCK);
 
 	if (index->map != NULL && index->map->refcount > 1) {
 		/* this map is already used by some views and they may have

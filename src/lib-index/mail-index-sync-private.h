@@ -25,16 +25,31 @@ struct mail_index_sync_ctx {
 	unsigned int sync_dirty:1;
 };
 
+struct mail_index_expunge_handler {
+	mail_index_expunge_handler_t *handler;
+	void **context;
+	uint32_t record_offset;
+};
+
 struct mail_index_sync_map_ctx {
 	struct mail_index_view *view;
-	uint32_t last_ext_id;
+	uint32_t cur_ext_id;
 
-	unsigned int update_cache:1;
-	unsigned int cache_locked:1;
+	buffer_t *expunge_handlers; /* struct mail_index_expunge_handler[] */
+
+	buffer_t *extra_context_buf;
+	void **extra_context;
+
+	unsigned int sync_handlers_initialized:1;
+	unsigned int expunge_handlers_set:1;
+	unsigned int expunge_handlers_used:1;
+	unsigned int cur_ext_ignore:1;
 };
 
 extern struct mail_transaction_map_functions mail_index_map_sync_funcs;
 
+void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
+			      struct mail_index_view *view);
 int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 				 int sync_only_external);
 

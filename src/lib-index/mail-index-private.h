@@ -9,6 +9,7 @@
 #include "mail-index.h"
 
 struct mail_transaction_header;
+struct mail_index_sync_map_ctx;
 
 /* How many seconds to wait a lock for index file. */
 #define MAIL_INDEX_LOCK_SECS 120
@@ -27,11 +28,19 @@ struct mail_transaction_header;
 	((struct mail_index_record *) \
 		PTR_OFFSET((map)->records, (idx) * (map)->hdr->record_size))
 
+typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
+					 uint32_t seq, const void *data,
+					 void **context);
+typedef int mail_index_sync_handler_t(struct mail_index_sync_map_ctx *ctx,
+				      uint32_t seq, void *old_data,
+				      const void *new_data, void **context);
+
 #define MAIL_INDEX_HEADER_SIZE_ALIGN(size) \
 	(((size) + 7) & ~7)
 
 struct mail_index_ext {
 	const char *name;
+	uint32_t reset_id;
 	uint32_t hdr_offset;
 	uint32_t hdr_size;
 	uint16_t record_offset;
@@ -41,6 +50,7 @@ struct mail_index_ext {
 
 struct mail_index_ext_header {
 	uint32_t hdr_size;
+	uint32_t reset_id;
 	uint16_t record_offset;
 	uint16_t record_size;
 	uint16_t record_align;
@@ -87,6 +97,9 @@ struct mail_index {
 	pool_t extension_pool;
 	buffer_t *extensions; /* struct mail_index_ext[] */
 
+	buffer_t *expunge_handlers; /* mail_index_expunge_handler_t*[] */
+	buffer_t *sync_handlers; /* mail_index_sync_handler_t*[] */
+
 	char *filepath;
 	int fd;
 
@@ -113,6 +126,13 @@ struct mail_index {
 	unsigned int readonly:1;
 	unsigned int fsck:1;
 };
+
+/* Add/replace sync handler for specified extra record. */
+void mail_index_register_expunge_handler(struct mail_index *index,
+					 uint32_t ext_id,
+					 mail_index_expunge_handler_t *cb);
+void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
+				      mail_index_sync_handler_t *cb);
 
 int mail_index_write_base_header(struct mail_index *index,
 				 const struct mail_index_header *hdr);
@@ -151,21 +171,11 @@ mail_index_map_register_ext(struct mail_index *index,
 			    struct mail_index_map *map, const char *name,
 			    uint32_t hdr_offset, uint32_t hdr_size,
 			    uint32_t record_offset, uint32_t record_size,
-			    uint32_t record_align);
+			    uint32_t record_align, uint32_t reset_id);
 int mail_index_map_get_ext_idx(struct mail_index_map *map,
 			       uint32_t ext_id, uint32_t *idx_r);
-
-int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
-			   struct mail_index_map **map_r,
-			   const struct mail_index_record **rec_r);
-
-void mail_index_reset_cache(struct mail_index_transaction *t,
-			    uint32_t new_file_seq);
-void mail_index_update_cache(struct mail_index_transaction *t, uint32_t seq,
-			     uint32_t file_seq, uint32_t offset,
-			     uint32_t *old_offset_r);
-int mail_index_update_cache_lookup(struct mail_index_transaction *t,
-				   uint32_t seq, uint32_t *offset_r);
+const struct mail_index_ext *
+mail_index_view_get_ext(struct mail_index_view *view, uint32_t ext_id);
 
 int mail_index_fix_header(struct mail_index *index, struct mail_index_map *map,
 			  struct mail_index_header *hdr, const char **error_r);

@@ -94,6 +94,17 @@ mail_cache_compress_callback(struct mail_cache_view *view, uint32_t field,
 	return 1;
 }
 
+static uint32_t
+get_next_file_seq(struct mail_cache *cache, struct mail_index_view *view)
+{
+	const struct mail_index_ext *ext;
+	uint32_t file_seq;
+
+	ext = mail_index_view_get_ext(view, cache->ext_id);
+	file_seq = ext != NULL ? ext->reset_id + 1 : (uint32_t)ioloop_time;
+	return file_seq != 0 ? file_seq : 1;
+}
+
 static int
 mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 {
@@ -131,7 +142,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.version = MAIL_CACHE_VERSION;
 	hdr.indexid = idx_hdr->indexid;
-	hdr.file_seq = idx_hdr->cache_file_seq + 1;
+	hdr.file_seq = get_next_file_seq(cache, view);
 	o_stream_send(output, &hdr, sizeof(hdr));
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -139,7 +150,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	ctx.field_seen = buffer_create_dynamic(default_pool, 64);
 	ctx.field_seen_value = 0;
 
-	mail_index_reset_cache(t, hdr.file_seq);
+	mail_index_ext_reset(t, cache->ext_id, hdr.file_seq);
 
 	for (seq = 1; seq <= message_count; seq++) {
 		ctx.new_msg = seq >= first_new_seq;
@@ -161,12 +172,11 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 		if (cache_rec.size == sizeof(cache_rec))
 			continue;
 
-		mail_index_update_cache(t, seq, hdr.file_seq,
-					output->offset, &old_offset);
+		mail_index_update_ext(t, seq, cache->ext_id, &output->offset,
+				      &old_offset);
 
 		buffer_write(ctx.buffer, 0, &cache_rec, sizeof(cache_rec));
-		o_stream_send(output, buffer_get_data(ctx.buffer, NULL),
-			      cache_rec.size);
+		o_stream_send(output, ctx.buffer->data, cache_rec.size);
 	}
 
 	if (cache->fields_count != 0) {

@@ -52,6 +52,7 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 
 	i_assert(view->transaction == NULL);
 	view->transaction = ctx;
+	view->trans_view = mail_index_transaction_open_updated_view(t);
 
 	t->cache_trans_ctx = ctx;
 	return ctx;
@@ -436,9 +437,9 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 		   is updated to point to old cache record when index is being
 		   synced. */
 		for (; seq_idx < seq_limit; seq_idx++) {
-			mail_index_update_cache(ctx->trans, seq[seq_idx],
-						cache->hdr->file_seq,
-						write_offset, &old_offset);
+			mail_index_update_ext(ctx->trans, seq[seq_idx],
+					      cache->ext_id, &write_offset,
+					      &old_offset);
 			if (old_offset != 0) {
 				/* we added records for this message multiple
 				   times in this same uncommitted transaction.
@@ -687,12 +688,6 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	buffer_append(ctx->cache_data, data, data_size);
 	if ((data_size & 3) != 0)
                 buffer_append(ctx->cache_data, null4, 4 - (data_size & 3));
-}
-
-int mail_cache_transaction_lookup(struct mail_cache_transaction_ctx *ctx,
-				  uint32_t seq, uint32_t *offset_r)
-{
-	return mail_index_update_cache_lookup(ctx->trans, seq, offset_r);
 }
 
 static int mail_cache_link_unlocked(struct mail_cache *cache,

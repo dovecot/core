@@ -322,7 +322,7 @@ mbox_sync_update_from_offset(struct mbox_sync_context *sync_ctx,
 
 	offset = mail->from_offset;
 	mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
-			      sync_ctx->ibox->mbox_ext_idx, &offset);
+			      sync_ctx->ibox->mbox_ext_idx, &offset, NULL);
 	return 0;
 }
 
@@ -350,7 +350,7 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 		if (sync_ctx->ibox->md5hdr_ext_idx != 0) {
 			mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
 					      sync_ctx->ibox->md5hdr_ext_idx,
-					      mail_ctx->hdr_md5_sum);
+					      mail_ctx->hdr_md5_sum, NULL);
 		}
 
 		if (str_len(mail_ctx->uidl) > 0) {
@@ -493,7 +493,7 @@ static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 
 		offset = mails[idx].from_offset;
 		mail_index_update_ext(sync_ctx->t, mails[idx].idx_seq,
-				      ext_idx, &offset);
+				      ext_idx, &offset, NULL);
 	}
 }
 

@@ -45,23 +45,37 @@ mail_cache_get_record(struct mail_cache *cache, uint32_t offset)
 	return cache_rec;
 }
 
-static int mail_cache_lookup_offset(struct mail_cache_view *view, uint32_t seq,
-				    uint32_t *offset_r)
+static int
+mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
+			 uint32_t seq, uint32_t *offset_r)
 {
-	const struct mail_index_record *rec;
 	struct mail_index_map *map;
+	const struct mail_index_ext *ext;
+	const void *data;
+	uint32_t idx;
 	int i, ret;
 
-	for (i = 0; i < 2; i++) {
-		if (mail_index_lookup_full(view->view, seq, &map, &rec) < 0)
-			return -1;
+	if (mail_index_lookup_ext_full(view, seq, cache->ext_id,
+				       &map, &data) < 0)
+		return -1;
+	if (data == NULL)
+		return 0;
 
-		if (map->hdr->cache_file_seq == view->cache->hdr->file_seq) {
-			*offset_r = rec->cache_offset;
+	if (!mail_index_map_get_ext_idx(map, cache->ext_id, &idx)) {
+		/* no cache */
+		return 0;
+	}
+
+	ext = map->extensions->data;
+	ext += idx;
+
+	for (i = 0; i < 2; i++) {
+		if (cache->hdr->file_seq == ext->reset_id) {
+			*offset_r = *((const uint32_t *)data);
 			return 1;
 		}
 
-		if ((ret = mail_cache_reopen(view->cache)) <= 0)
+		if ((ret = mail_cache_reopen(cache)) <= 0)
 			return ret;
 	}
 
@@ -170,7 +184,8 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 	if (view->cached_offset_seq == seq)
 		offset = view->cached_offset;
 	else {
-		if ((ret = mail_cache_lookup_offset(view, seq, &offset)) <= 0)
+		if ((ret = mail_cache_lookup_offset(view->cache, view->view,
+						    seq, &offset)) <= 0)
 			return ret;
 
 		view->cached_offset_seq = seq;
@@ -191,7 +206,8 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 	}
 
 	if (ret > 0 && view->trans_seq1 <= seq && view->trans_seq2 >= seq &&
-	    mail_cache_transaction_lookup(view->transaction, seq, &offset)) {
+	    mail_cache_lookup_offset(view->cache, view->trans_view,
+				     seq, &offset)) {
 		buffer_set_used_size(view->offsets_buf, 0);
 		while (offset != 0 && ret > 0) {
 			if (buffer_find_offset(view->offsets_buf, offset)) {

@@ -21,9 +21,8 @@ struct mail_index_transaction {
 
 	buffer_t *ext_rec_updates; /* buffer[] */
 	buffer_t *ext_resizes; /* struct mail_transaction_ext_intro[] */
+	buffer_t *ext_resets; /* uint32_t[] */
 
-	uint32_t new_cache_file_seq, last_cache_file_seq;
-	buffer_t *cache_updates;
         struct mail_cache_transaction_ctx *cache_trans_ctx;
 
 	unsigned int hide_transaction:1;

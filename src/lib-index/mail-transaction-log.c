@@ -25,14 +25,6 @@
 
 #define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
 
-struct mail_transaction_add_ctx {
-	struct mail_transaction_log *log;
-	struct mail_index_view *view;
-
-	buffer_t *appends, *expunges;
-	buffer_t *flag_updates, *cache_updates;
-};
-
 static struct mail_transaction_log_file *
 mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
 					 const char *path);
@@ -921,55 +913,6 @@ static int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 	return ret;
 }
 
-static int mail_transaction_log_scan_pending(struct mail_transaction_log *log,
-					     struct mail_index_transaction *t)
-{
-	struct mail_transaction_log_view *sync_view;
-	const struct mail_transaction_header *hdr;
-	const void *data;
-	uint32_t max_cache_file_seq = 0;
-	int ret;
-
-	sync_view = mail_transaction_log_view_open(log);
-	ret = mail_transaction_log_view_set(sync_view, t->view->log_file_seq,
-					    t->view->log_file_offset,
-					    log->head->hdr.file_seq, (uoff_t)-1,
-					    MAIL_TRANSACTION_TYPE_MASK);
-	while ((ret = mail_transaction_log_view_next(sync_view,
-						     &hdr, &data, NULL)) == 1) {
-		switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
-		case MAIL_TRANSACTION_CACHE_RESET: {
-			const struct mail_transaction_cache_reset *reset = data;
-
-			max_cache_file_seq = reset->new_file_seq;
-			break;
-		}
-		}
-	}
-
-	/* make sure we're not writing cache_offsets to old cache file */
-	if (t->new_cache_file_seq == 0 && max_cache_file_seq != 0 &&
-	    max_cache_file_seq != t->last_cache_file_seq &&
-	    t->cache_updates != NULL) {
-		buffer_free(t->cache_updates);
-		t->cache_updates = NULL;
-
-		if (t->appends != NULL) {
-			struct mail_index_record *rec;
-			size_t i, size;
-
-			rec = buffer_get_modifyable_data(t->appends, &size);
-			size /= sizeof(*rec);
-
-			for (i = 0; i < size; i++)
-				rec[i].cache_offset = 0;
-		}
-	}
-
-	mail_transaction_log_view_close(sync_view);
-	return ret;
-}
-
 static int log_append_buffer(struct mail_transaction_log_file *file,
 			     const buffer_t *buf, const buffer_t *hdr_buf,
 			     enum mail_transaction_type type, int external)
@@ -1028,19 +971,6 @@ static int log_append_buffer(struct mail_transaction_log_file *file,
 	return 0;
 }
 
-static const buffer_t *get_cache_reset_buf(struct mail_index_transaction *t)
-{
-	struct mail_transaction_cache_reset u;
-	buffer_t *buf;
-
-	memset(&u, 0, sizeof(u));
-	u.new_file_seq = t->new_cache_file_seq;
-
-	buf = buffer_create_static_hard(pool_datastack_create(), sizeof(u));
-	buffer_append(buf, &u, sizeof(u));
-	return buf;
-}
-
 static const buffer_t *
 log_get_hdr_update_buffer(struct mail_index_transaction *t)
 {
@@ -1071,10 +1001,9 @@ log_get_hdr_update_buffer(struct mail_index_transaction *t)
 	return buf;
 }
 
-static int
-mail_transaction_log_append_ext_intro(struct mail_transaction_log_file *file,
-				      struct mail_index_transaction *t,
-				      uint32_t ext_id)
+static int log_append_ext_intro(struct mail_transaction_log_file *file,
+				struct mail_index_transaction *t,
+				uint32_t ext_id, uint32_t reset_id)
 {
 	const struct mail_index_ext *ext;
         struct mail_transaction_ext_intro *intro;
@@ -1117,6 +1046,19 @@ mail_transaction_log_append_ext_intro(struct mail_transaction_log_file *file,
 		intro->name_size = idx != (uint32_t)-1 ? 0 :
 			strlen(ext->name);
 	}
+	if (reset_id != 0) {
+		/* we're going to reset this extension in this transaction */
+		intro->reset_id = reset_id;
+	} else if (idx != (uint32_t)-1) {
+		/* use the existing reset_id */
+		const struct mail_index_ext *map_ext =
+			t->view->map->extensions->data;
+		map_ext += idx;
+
+		intro->reset_id = map_ext->reset_id;
+	} else {
+		/* new extension, reset_id defaults to 0 */
+	}
 	buffer_append(buf, ext->name, intro->name_size);
 
 	if ((buf->used % 4) != 0)
@@ -1131,15 +1073,18 @@ mail_transaction_log_append_ext_intros(struct mail_transaction_log_file *file,
 				       struct mail_index_transaction *t)
 {
         const struct mail_transaction_ext_intro *resize;
-	uint32_t ext_id, ext_count, update_count, resize_count;
-	buffer_t **update;
+	struct mail_transaction_ext_reset ext_reset;
+	uint32_t ext_id, ext_count, update_count, resize_count, reset_count;
+	const uint32_t *reset;
+	const buffer_t *const *update;
+	buffer_t *buf;
 	size_t size;
 
 	if (t->ext_rec_updates == NULL) {
 		update = NULL;
 		update_count = 0;
 	} else {
-		update = buffer_get_modifyable_data(t->ext_rec_updates, &size);
+		update = buffer_get_data(t->ext_rec_updates, &size);
 		update_count = size / sizeof(*update);
 	}
 
@@ -1147,21 +1092,85 @@ mail_transaction_log_append_ext_intros(struct mail_transaction_log_file *file,
 		resize = NULL;
 		resize_count = 0;
 	} else {
-		resize = buffer_get_modifyable_data(t->ext_resizes, &size);
+		resize = buffer_get_data(t->ext_resizes, &size);
 		resize_count = size / sizeof(*resize);
 	}
 
-	ext_count = I_MAX(update_count, resize_count);
+	if (t->ext_resets == NULL) {
+		reset = NULL;
+		reset_count = 0;
+	} else {
+		reset = buffer_get_data(t->ext_resets, &size);
+		reset_count = size / sizeof(*reset);
+	}
+
+	memset(&ext_reset, 0, sizeof(ext_reset));
+
+	buf = buffer_create_data(pool_datastack_create(),
+				 &ext_reset, sizeof(ext_reset));
+	buffer_set_used_size(buf, sizeof(ext_reset));
+	ext_count = I_MAX(I_MAX(update_count, resize_count), reset_count);
 
 	for (ext_id = 0; ext_id < ext_count; ext_id++) {
+		ext_reset.new_reset_id =
+			ext_id < reset_count && reset[ext_id] != 0 ?
+			reset[ext_id] : 0;
 		if ((ext_id < resize_count && resize[ext_id].name_size) ||
-		    (ext_id < update_count && update[ext_id] != NULL)) {
-			if (mail_transaction_log_append_ext_intro(file, t,
-								  ext_id) < 0)
+		    (ext_id < update_count && update[ext_id] != NULL) ||
+		    ext_reset.new_reset_id != 0) {
+			if (log_append_ext_intro(file, t, ext_id, 0) < 0)
+				return -1;
+		}
+		if (ext_reset.new_reset_id != 0) {
+			if (log_append_buffer(file, buf, NULL,
+					      MAIL_TRANSACTION_EXT_RESET,
+					      t->view->external) < 0)
 				return -1;
 		}
 	}
 
+	return 0;
+}
+
+static int log_append_ext_rec_updates(struct mail_transaction_log_file *file,
+				      struct mail_index_transaction *t,
+				      int external)
+{
+	buffer_t **updates;
+	const uint32_t *reset;
+	uint32_t ext_id, reset_id, reset_count;
+	size_t size;
+
+	if (t->ext_rec_updates == NULL) {
+		updates = NULL;
+		size = 0;
+	} else {
+		updates = buffer_get_modifyable_data(t->ext_rec_updates, &size);
+		size /= sizeof(*updates);
+	}
+
+	if (t->ext_resets == NULL) {
+		reset = NULL;
+		reset_count = 0;
+	} else {
+		reset = buffer_get_data(t->ext_resets, &size);
+		reset_count = size / sizeof(*reset);
+	}
+
+	for (ext_id = 0; ext_id < size; ext_id++) {
+		if (updates[ext_id] == NULL)
+			continue;
+
+		reset_id = ext_id < reset_count && reset[ext_id] != 0 ?
+			reset[ext_id] : 0;
+		if (log_append_ext_intro(file, t, ext_id, reset_id) < 0)
+			return -1;
+
+		if (log_append_buffer(file, updates[ext_id], NULL,
+				      MAIL_TRANSACTION_EXT_REC_UPDATE,
+				      external) < 0)
+			return -1;
+	}
 	return 0;
 }
 
@@ -1175,9 +1184,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	struct mail_transaction_log_file *file;
 	struct mail_index_header idx_hdr;
 	uoff_t append_offset;
-	buffer_t **updates;
-	unsigned int i, lock_id;
-	size_t size;
+	unsigned int lock_id;
 	int ret;
 
 	index = mail_index_view_get_index(view);
@@ -1232,23 +1239,6 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	file->first_append_size = 0;
 	append_offset = file->sync_offset;
 
-	if (t->cache_updates != NULL &&
-	    t->last_cache_file_seq < idx_hdr.cache_file_seq) {
-		/* cache_offsets point to old file, don't allow */
-		buffer_free(t->cache_updates);
-		t->cache_updates = NULL;
-	}
-
-	if (t->appends != NULL ||
-	    (t->cache_updates != NULL && t->new_cache_file_seq == 0) ||
-	    (t->ext_rec_updates != NULL && t->ext_rec_updates->used > 0)) {
-		if (mail_transaction_log_scan_pending(log, t) < 0) {
-			if (!log->index->log_locked)
-				mail_transaction_log_file_unlock(file);
-			return -1;
-		}
-	}
-
 	ret = 0;
 
 	/* send all extension introductions and resizes before appends
@@ -1265,37 +1255,9 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 					MAIL_TRANSACTION_FLAG_UPDATE,
 					view->external);
 	}
-	if (t->new_cache_file_seq != 0) {
-		ret = log_append_buffer(file, get_cache_reset_buf(t), NULL,
-					MAIL_TRANSACTION_CACHE_RESET,
-					view->external);
-	}
-	if (t->cache_updates != NULL && ret == 0) {
-		ret = log_append_buffer(file, t->cache_updates, NULL,
-					MAIL_TRANSACTION_CACHE_UPDATE,
-					view->external);
-	}
 
-	if (t->ext_rec_updates == NULL) {
-		updates = NULL;
-		size = 0;
-	} else {
-		updates = buffer_get_modifyable_data(t->ext_rec_updates, &size);
-		size /= sizeof(*updates);
-	}
-
-	for (i = 0; i < size && ret == 0; i++) {
-		if (updates[i] == NULL)
-			continue;
-
-		ret = mail_transaction_log_append_ext_intro(file, t, i);
-		if (ret < 0)
-			break;
-
-		ret = log_append_buffer(file, updates[i], NULL,
-					MAIL_TRANSACTION_EXT_REC_UPDATE,
-					view->external);
-	}
+	if (t->ext_rec_updates != NULL && ret == 0)
+		ret = log_append_ext_rec_updates(file, t, view->external);
 
 	if (t->expunges != NULL && ret == 0) {
 		ret = log_append_buffer(file, t->expunges, NULL,

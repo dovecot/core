@@ -11,6 +11,7 @@ libindex_a_SOURCES = \
 	mail-cache-fields.c \
 	mail-cache-lookup.c \
 	mail-cache-transaction.c \
+	mail-cache-sync-update.c \
         mail-index.c \
         mail-index-fsck.c \
         mail-index-lock.c \

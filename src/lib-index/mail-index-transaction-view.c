@@ -134,8 +134,10 @@ static int _tview_lookup_first(struct mail_index_view *view,
 	return 0;
 }
 
-static int _tview_lookup_ext(struct mail_index_view *view, uint32_t seq,
-			     uint32_t ext_id, const void **data_r)
+static int
+_tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
+		       uint32_t ext_id, struct mail_index_map **map_r,
+		       const void **data_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
@@ -143,27 +145,47 @@ static int _tview_lookup_ext(struct mail_index_view *view, uint32_t seq,
 	buffer_t *const *ext_bufs;
 	size_t size, pos;
 
-	if (seq < tview->t->first_new_seq)
-		return tview->parent->lookup_ext(view, seq, ext_id, data_r);
-
-	i_assert(seq <= tview->t->last_new_seq);
 	i_assert(ext_id < view->index->extensions->used / sizeof(*ext));
 
 	ext = view->index->extensions->data;
 	ext += ext_id;
 
-	ext_bufs = buffer_get_data(tview->t->ext_rec_updates, &size);
-	size /= sizeof(*ext_bufs);
+	if (tview->t->ext_rec_updates == NULL) {
+		ext_bufs = NULL;
+		size = 0;
+	} else {
+		ext_bufs = buffer_get_data(tview->t->ext_rec_updates, &size);
+		size /= sizeof(*ext_bufs);
+	}
 
+	*map_r = view->index->map;
 	if (size <= ext_id || ext_bufs[ext_id] == NULL ||
 	    !mail_index_seq_buffer_lookup(ext_bufs[ext_id], seq,
 					  ext->record_size, &pos)) {
+		/* not updated, return the existing value */
+		if (seq < tview->t->first_new_seq) {
+			return tview->parent->lookup_ext_full(view, seq, ext_id,
+							      map_r, data_r);
+		}
+
 		*data_r = NULL;
 		return 1;
 	}
 
 	*data_r = CONST_PTR_OFFSET(ext_bufs[ext_id]->data, pos);
 	return 1;
+}
+
+static int _tview_get_header_ext(struct mail_index_view *view,
+				 struct mail_index_map *map, uint32_t ext_id,
+				 const void **data_r, size_t *data_size_r)
+{
+	struct mail_index_view_transaction *tview =
+		(struct mail_index_view_transaction *)view;
+
+	/* FIXME: check updates */
+	return tview->parent->get_header_ext(view, map, ext_id,
+					     data_r, data_size_r);
 }
 
 static struct mail_index_view_methods view_methods = {
@@ -174,7 +196,8 @@ static struct mail_index_view_methods view_methods = {
 	_tview_lookup_uid,
 	_tview_lookup_uid_range,
 	_tview_lookup_first,
-	_tview_lookup_ext
+	_tview_lookup_ext_full,
+	_tview_get_header_ext
 };
 
 struct mail_index_view *

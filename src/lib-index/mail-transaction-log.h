@@ -16,8 +16,6 @@ enum mail_transaction_type {
 	MAIL_TRANSACTION_EXPUNGE		= 0x00000001,
 	MAIL_TRANSACTION_APPEND			= 0x00000002,
 	MAIL_TRANSACTION_FLAG_UPDATE		= 0x00000004,
-	MAIL_TRANSACTION_CACHE_RESET		= 0x00000008,
-	MAIL_TRANSACTION_CACHE_UPDATE		= 0x00000010,
 	MAIL_TRANSACTION_HEADER_UPDATE		= 0x00000020,
 	MAIL_TRANSACTION_EXT_INTRO		= 0x00000040,
 	MAIL_TRANSACTION_EXT_RESET		= 0x00000080,
@@ -53,15 +51,6 @@ struct mail_transaction_flag_update {
 	keywords_mask_t remove_keywords;
 };
 
-struct mail_transaction_cache_reset {
-	uint32_t new_file_seq;
-};
-
-struct mail_transaction_cache_update {
-	uint32_t uid;
-	uint32_t cache_offset;
-};
-
 struct mail_transaction_header_update {
 	uint16_t offset;
 	uint16_t size;
@@ -72,12 +61,17 @@ struct mail_transaction_ext_intro {
 	/* old extension: set ext_id. don't set name.
 	   new extension: ext_id = (uint32_t)-1. give name. */
 	uint32_t ext_id;
+	uint32_t reset_id;
 	uint32_t hdr_size;
 	uint16_t record_size;
 	uint16_t record_align;
 	uint16_t unused_padding;
 	uint16_t name_size;
 	/* unsigned char name[]; */
+};
+
+struct mail_transaction_ext_reset {
+	uint32_t new_reset_id;
 };
 
 /* these are set for the last ext_intro */

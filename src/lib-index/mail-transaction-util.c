@@ -13,13 +13,10 @@ const struct mail_transaction_type_map mail_transaction_type_map[] = {
 	  sizeof(struct mail_transaction_expunge) },
 	{ MAIL_TRANSACTION_FLAG_UPDATE, MAIL_INDEX_SYNC_TYPE_FLAGS,
 	  sizeof(struct mail_transaction_flag_update) },
-	{ MAIL_TRANSACTION_CACHE_RESET, 0,
-	  sizeof(struct mail_transaction_cache_reset) },
-	{ MAIL_TRANSACTION_CACHE_UPDATE, 0,
-	  sizeof(struct mail_transaction_cache_update) },
 	{ MAIL_TRANSACTION_HEADER_UPDATE, 0, 1 }, /* variable size, use 1 */
 	{ MAIL_TRANSACTION_EXT_INTRO, 0, 1 },
-	{ MAIL_TRANSACTION_EXT_RESET, 0, 0 },
+	{ MAIL_TRANSACTION_EXT_RESET, 0,
+	  sizeof(struct mail_transaction_ext_reset) },
 	{ MAIL_TRANSACTION_EXT_HDR_UPDATE, 0, 1 },
 	{ MAIL_TRANSACTION_EXT_REC_UPDATE, 0, 1 },
 	{ 0, 0, 0 }

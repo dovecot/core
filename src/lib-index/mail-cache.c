@@ -59,6 +59,9 @@ void mail_cache_file_close(struct mail_cache *cache)
 
 int mail_cache_reopen(struct mail_cache *cache)
 {
+	struct mail_index_view *view;
+	const struct mail_index_ext *ext;
+
 	if (MAIL_CACHE_IS_UNUSABLE(cache) && cache->need_compress) {
 		/* unusable, we're just waiting for compression */
 		return 0;
@@ -81,15 +84,19 @@ int mail_cache_reopen(struct mail_cache *cache)
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
 
-	if (cache->hdr->file_seq != cache->index->hdr->cache_file_seq) {
+	view = mail_index_view_open(cache->index);
+	ext = mail_index_view_get_ext(view, cache->ext_id);
+	if (ext == NULL || cache->hdr->file_seq != ext->reset_id) {
 		/* still different - maybe a race condition or maybe the
 		   file_seq really is corrupted. either way, this shouldn't
 		   happen often so we'll just mark cache to be compressed
 		   later which fixes this. */
 		cache->need_compress = TRUE;
+		mail_index_view_close(view);
 		return 0;
 	}
 
+	mail_index_view_close(view);
 	return 1;
 }
 
@@ -218,6 +225,13 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 		}
 	}
 
+	cache->ext_id =
+		mail_index_ext_register(index, "cache", 0,
+					sizeof(uint32_t), sizeof(uint32_t));
+	mail_index_register_expunge_handler(index, cache->ext_id,
+					    mail_cache_expunge_handler);
+	mail_index_register_sync_handler(index, cache->ext_id,
+					 mail_cache_sync_handler);
 	return cache;
 }
 
@@ -236,7 +250,8 @@ void mail_cache_free(struct mail_cache *cache)
 
 int mail_cache_lock(struct mail_cache *cache)
 {
-	unsigned int lock_id;
+	struct mail_index_view *view;
+	const struct mail_index_ext *ext;
 	int i, ret;
 
 	i_assert(!cache->locked);
@@ -244,13 +259,20 @@ int mail_cache_lock(struct mail_cache *cache)
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
 		return 0;
 
-	if (mail_index_lock_shared(cache->index, TRUE, &lock_id) < 0)
+	if (mail_index_view_open_locked(cache->index, &view) < 0)
 		return -1;
 
-	if (cache->hdr->file_seq != cache->index->hdr->cache_file_seq) {
+	ext = mail_index_view_get_ext(view, cache->ext_id);
+	if (ext == NULL) {
+		/* cache not used */
+		mail_index_view_close(view);
+		return 0;
+	}
+
+	if (cache->hdr->file_seq != ext->reset_id) {
 		/* we want the latest cache file */
 		if ((ret = mail_cache_reopen(cache)) <= 0) {
-			mail_index_unlock(cache->index, lock_id);
+			mail_index_view_close(view);
 			return ret;
 		}
 	}
@@ -265,7 +287,7 @@ int mail_cache_lock(struct mail_cache *cache)
 		}
 		cache->locked = TRUE;
 
-		if (cache->hdr->file_seq == cache->index->hdr->cache_file_seq) {
+		if (cache->hdr->file_seq == ext->reset_id) {
 			/* got it */
 			break;
 		}
@@ -280,7 +302,7 @@ int mail_cache_lock(struct mail_cache *cache)
 	if (ret > 0)
 		cache->hdr_copy = *cache->hdr;
 
-	mail_index_unlock(cache->index, lock_id);
+	mail_index_view_close(view);
 	return ret;
 }
 
@@ -348,6 +370,9 @@ void mail_cache_view_close(struct mail_cache_view *view)
 {
 	if (view->cache->field_header_write_pending)
                 (void)mail_cache_header_fields_update(view->cache);
+
+	if (view->trans_view != NULL)
+		mail_index_view_close(view->trans_view);
 
 	buffer_free(view->offsets_buf);
 	buffer_free(view->cached_exists_buf);

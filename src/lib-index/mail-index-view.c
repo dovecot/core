@@ -374,30 +374,53 @@ static int _view_lookup_first(struct mail_index_view *view,
 	return 0;
 }
 
-static int _view_lookup_ext(struct mail_index_view *view, uint32_t seq,
-			    uint32_t ext_id, const void **data_r)
+static int _view_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
+				 uint32_t ext_id, struct mail_index_map **map_r,
+				 const void **data_r)
 {
 	const struct mail_index_ext *ext;
 	const struct mail_index_record *rec;
-	struct mail_index_map *map;
 	uint32_t idx, offset;
 	int ret;
 
-	if ((ret = mail_index_lookup_full(view, seq, &map, &rec)) < 0)
+	if ((ret = mail_index_lookup_full(view, seq, map_r, &rec)) < 0)
 		return -1;
 
-	if (rec == NULL ||
-	    !mail_index_map_get_ext_idx(view->map, ext_id, &idx)) {
+	if (rec == NULL || !mail_index_map_get_ext_idx(*map_r, ext_id, &idx)) {
 		*data_r = NULL;
 		return ret;
 	}
 
-	ext = view->map->extensions->data;
+	ext = (*map_r)->extensions->data;
 	ext += idx;
 
 	offset = ext->record_offset;
 	*data_r = offset == 0 ? NULL : CONST_PTR_OFFSET(rec, offset);
 	return ret;
+}
+
+static int _view_get_header_ext(struct mail_index_view *view,
+				struct mail_index_map *map, uint32_t ext_id,
+				const void **data_r, size_t *data_size_r)
+{
+	const struct mail_index_ext *ext;
+
+	if (map != NULL) {
+		if (mail_index_view_lock(view) < 0)
+			return -1;
+	} else {
+		if (mail_index_view_lock_head(view, FALSE) < 0)
+			return -1;
+
+		map = view->index->map;
+	}
+
+	ext = map->extensions->data;
+	ext += ext_id;
+
+	*data_r = CONST_PTR_OFFSET(map->hdr, ext->hdr_offset);
+	*data_size_r = ext->hdr_size;
+	return 0;
 }
 
 void mail_index_view_close(struct mail_index_view *view)
@@ -454,7 +477,31 @@ int mail_index_lookup_first(struct mail_index_view *view, enum mail_flags flags,
 int mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
 			  uint32_t ext_id, const void **data_r)
 {
-	return view->methods.lookup_ext(view, seq, ext_id, data_r);
+	struct mail_index_map *map;
+
+	return view->methods.lookup_ext_full(view, seq, ext_id, &map, data_r);
+}
+
+int mail_index_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
+			       uint32_t ext_id, struct mail_index_map **map_r,
+			       const void **data_r)
+{
+	return view->methods.lookup_ext_full(view, seq, ext_id, map_r, data_r);
+}
+
+int mail_index_get_header_ext(struct mail_index_view *view, uint32_t ext_id,
+			      const void **data_r, size_t *data_size_r)
+{
+	return view->methods.get_header_ext(view, NULL, ext_id,
+					    data_r, data_size_r);
+}
+
+int mail_index_map_get_header_ext(struct mail_index_view *view,
+				  struct mail_index_map *map, uint32_t ext_id,
+				  const void **data_r, size_t *data_size_r)
+{
+	return view->methods.get_header_ext(view, map, ext_id,
+					    data_r, data_size_r);
 }
 
 static struct mail_index_view_methods view_methods = {
@@ -465,7 +512,8 @@ static struct mail_index_view_methods view_methods = {
 	_view_lookup_uid,
 	_view_lookup_uid_range,
 	_view_lookup_first,
-	_view_lookup_ext
+	_view_lookup_ext_full,
+	_view_get_header_ext
 };
 
 struct mail_index_view *mail_index_view_open(struct mail_index *index)
@@ -487,4 +535,36 @@ struct mail_index_view *mail_index_view_open(struct mail_index *index)
 		I_MIN(view->map->log_file_int_offset,
 		      view->map->log_file_ext_offset);
 	return view;
+}
+
+int mail_index_view_open_locked(struct mail_index *index,
+				struct mail_index_view **view_r)
+{
+	unsigned int lock_id;
+
+	if (mail_index_lock_shared(index, TRUE, &lock_id) < 0)
+		return -1;
+
+	*view_r = mail_index_view_open(index);
+	if (mail_index_view_lock_head(*view_r, FALSE) < 0) {
+		mail_index_view_close(*view_r);
+		mail_index_unlock(index, lock_id);
+		return -1;
+	}
+
+	mail_index_unlock(index, lock_id);
+	return 0;
+}
+
+const struct mail_index_ext *
+mail_index_view_get_ext(struct mail_index_view *view, uint32_t ext_id)
+{
+	const struct mail_index_ext *ext;
+	uint32_t idx;
+
+	if (!mail_index_map_get_ext_idx(view->map, ext_id, &idx))
+		return 0;
+
+	ext = view->map->extensions->data;
+	return &ext[idx];
 }

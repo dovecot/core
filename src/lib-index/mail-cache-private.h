@@ -115,6 +115,7 @@ struct mail_cache_field_private {
 
 struct mail_cache {
 	struct mail_index *index;
+	uint32_t ext_id;
 
 	char *filepath;
 	int fd;
@@ -142,7 +143,7 @@ struct mail_cache {
 
 struct mail_cache_view {
 	struct mail_cache *cache;
-	struct mail_index_view *view;
+	struct mail_index_view *view, *trans_view;
 
 	struct mail_cache_transaction_ctx *transaction;
 	uint32_t trans_seq1, trans_seq2;
@@ -183,9 +184,6 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx);
 void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx);
 
-int mail_cache_transaction_lookup(struct mail_cache_transaction_ctx *ctx,
-				  uint32_t seq, uint32_t *offset_r);
-
 int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size);
 void mail_cache_file_close(struct mail_cache *cache);
 int mail_cache_reopen(struct mail_cache *cache);
@@ -200,6 +198,12 @@ void mail_cache_decision_lookup(struct mail_cache_view *view, uint32_t seq,
 				uint32_t field);
 void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 			     uint32_t field);
+
+int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
+			       uint32_t seq, const void *data, void **context);
+int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
+			    uint32_t seq, void *old_data, const void *new_data,
+			    void **context);
 
 void mail_cache_set_syscall_error(struct mail_cache *cache,
 				  const char *function);
