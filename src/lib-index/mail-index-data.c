@@ -358,20 +358,16 @@ int mail_index_data_reset(struct mail_index_data *data)
 	memset(&hdr, 0, sizeof(struct mail_index_data_header));
 	hdr.indexid = data->index->indexid;
 	hdr.used_file_size = sizeof(struct mail_index_data_header);
+	memcpy(data->mmap_base, &hdr, sizeof(hdr));
 
-	if (data->anon_mmap) {
-		memcpy(data->mmap_base, &hdr, sizeof(hdr));
+	if (data->anon_mmap)
 		return TRUE;
-	}
+
+	if (msync(data->mmap_base, sizeof(hdr), MS_SYNC) < 0)
+		return index_data_set_syscall_error(data, "msync()");
 
 	if (file_set_size(data->fd, INDEX_DATA_INITIAL_SIZE) < 0)
 		return index_data_set_syscall_error(data, "file_set_size()");
-
-	if (lseek(data->fd, 0, SEEK_SET) < 0)
-		return index_data_set_syscall_error(data, "lseek()");
-
-	if (write_full(data->fd, &hdr, sizeof(hdr)) < 0)
-		return index_data_set_syscall_error(data, "write_full()");
 
 	data->modified = FALSE;
 	data->fsynced = FALSE;
