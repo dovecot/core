@@ -720,6 +720,17 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			continue;
 		}
 
+		if ((rec->flags & MAIL_RECENT) != 0) {
+			index_mailbox_set_recent(ibox, seq);
+			if (ibox->keep_recent) {
+				flags |= MAIL_RECENT;
+			} else {
+				mail_index_update_flags(trans, seq,
+							MODIFY_REMOVE,
+							MAIL_RECENT, keywords);
+			}
+		}
+
 		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
 			/* partial syncing */
 			continue;
