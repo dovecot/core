@@ -363,7 +363,7 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 			/* same file, still broken */
 		} else {
 			(void)file_dotlock_delete(path, LOG_NEW_DOTLOCK_SUFFIX,
-						  fd2);
+						  fd);
 			return fd2;
 		}
 
@@ -423,7 +423,7 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 	int ret;
 
 	if (fstat(fd, &st) < 0) {
-		mail_index_file_set_syscall_error(log->index, path, "stat()");
+		mail_index_file_set_syscall_error(log->index, path, "fstat()");
 		return NULL;
 	}
 
@@ -445,7 +445,7 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 			ret = -1;
 		else if (fstat(fd, &st) < 0) {
 			mail_index_file_set_syscall_error(log->index, path,
-							  "stat()");
+							  "fstat()");
 			(void)close(fd);
 			fd = -1;
 			ret = -1;
