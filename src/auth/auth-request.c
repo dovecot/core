@@ -420,6 +420,12 @@ void auth_request_set_field(struct auth_request *request,
 		return;
 	}
 
+	if (strcmp(name, "user") == 0) {
+		/* update username to be exactly as it's in database */
+		request->user = p_strdup(request->pool, value);
+		return;
+	}
+
 	if (strcmp(name, "nodelay") == 0) {
 		/* don't delay replying to client of the failure */
 		request->no_failure_delay = TRUE;

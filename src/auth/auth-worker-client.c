@@ -90,6 +90,8 @@ static void verify_plain_callback(enum passdb_result result,
 		str_printfa(str, "FAIL\t%d", result);
 	else {
 		str_append(str, "OK\t");
+		str_append(str, request->user);
+		str_append_c(str, '\t');
 		if (request->passdb_password != NULL)
 			str_append(str, request->passdb_password);
 		str_append_c(str, '\t');
@@ -153,7 +155,7 @@ lookup_credentials_callback(enum passdb_result result, const char *credentials,
 	if (result != PASSDB_RESULT_OK)
 		str_printfa(str, "FAIL\t%d", result);
 	else {
-		str_printfa(str, "OK\t{%s}%s\t",
+		str_printfa(str, "OK\t%s\t{%s}%s\t", request->user,
 			    passdb_credentials_to_str(request->credentials),
 			    credentials);
 		if (request->extra_fields != NULL)

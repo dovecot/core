@@ -88,6 +88,9 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	}
 #endif
 
+	/* make sure we're using the username exactly as it's in the database */
+	request->user = p_strdup(request->pool, vpw->pw_name);
+
 	callback(PASSDB_RESULT_OK, request);
 }
 

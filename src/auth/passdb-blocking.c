@@ -47,17 +47,22 @@ check_failure(struct auth_request *request, const char **reply)
 static int get_pass_reply(struct auth_request *request, const char *reply,
 			  const char **password_r, const char **scheme_r)
 {
-	const char *p;
+	const char *p, *p2;
 
+	/* user \t {scheme}password [\t extra] */
 	p = strchr(reply, '\t');
-	if (p == NULL) {
+	p2 = p == NULL ? NULL : strchr(p + 1, '\t');
+	if (p2 == NULL) {
 		*password_r = NULL;
 		*scheme_r = NULL;
 		return 0;
 	}
 
-	*password_r = t_strdup_until(reply, p);
-	reply = p + 1;
+	/* username may have changed, update it */
+	request->user = p_strdup_until(request->pool, reply, p);
+
+	*password_r = t_strdup_until(p + 1, p2);
+	reply = p2 + 1;
 
 	if (**password_r == '\0') {
 		*password_r = NULL;

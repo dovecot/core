@@ -26,6 +26,10 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 		return;
 	}
 
+	/* we use case-sensitive lookups. otherwise we'd have to update
+	   request->user to pu->user */
+	i_assert(strcmp(request->user, pu->user_realm) == 0);
+
 	crypted_pass = pu->password;
 	scheme = password_get_scheme(&crypted_pass);
 	if (scheme == NULL) scheme = "CRYPT";
