@@ -537,16 +537,17 @@ static int mail_index_open_file(MailIndex *index, const char *filename,
 			if (!mail_index_data_create(index))
 				break;
 		}
+
+		if (hdr.flags & MAIL_INDEX_FLAG_REBUILD) {
+			/* index is corrupted, rebuild */
+			if (!index->rebuild(index))
+				break;
+		}
+
 		if (!mail_hash_open_or_create(index))
 			break;
 		if (!mail_modifylog_open_or_create(index))
 			break;
-
-		if (hdr.flags & MAIL_INDEX_FLAG_REBUILD) {
-			/* index is corrupted, rebuild */
-			if (!mail_index_rebuild_all(index))
-				break;
-		}
 
 		if (hdr.flags & MAIL_INDEX_FLAG_FSCK) {
 			/* index needs fscking */
@@ -1167,7 +1168,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 	i_assert(rec->uid != 0);
 
-	if (seq != 0) {
+	if (seq != 0 && index->modifylog != NULL) {
 		if (!mail_modifylog_add_expunge(index->modifylog, seq,
 						rec->uid, external_change))
 			return FALSE;
@@ -1262,8 +1263,9 @@ int mail_index_update_flags(MailIndex *index, MailIndexRecord *rec,
         index_mark_flag_changes(index, rec, rec->msg_flags, flags);
 
 	rec->msg_flags = flags;
-	return mail_modifylog_add_flags(index->modifylog, seq,
-					rec->uid, external_change);
+	return index->modifylog == NULL ? TRUE :
+		mail_modifylog_add_flags(index->modifylog, seq,
+					 rec->uid, external_change);
 }
 
 int mail_index_append(MailIndex *index, MailIndexRecord **rec)

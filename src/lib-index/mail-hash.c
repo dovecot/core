@@ -147,6 +147,7 @@ static int mail_hash_lock_and_rebuild(MailHash *hash)
 int mail_hash_open_or_create(MailIndex *index)
 {
 	MailHash *hash;
+	int failed;
 
 	hash = mail_hash_new(index);
 
@@ -161,9 +162,19 @@ int mail_hash_open_or_create(MailIndex *index)
 	}
 
 	/* make sure the header looks fine */
-	if (!hash_verify_header(hash) ||
-	    hash->header->indexid != hash->index->indexid) {
-		/* just recreate it */
+	failed = TRUE;
+	if (hash_verify_header(hash)) {
+		if (hash->header->indexid == hash->index->indexid)
+			failed = FALSE;
+		else {
+			index_set_error(hash->index,
+					"IndexID mismatch for hash file %s",
+					hash->filepath);
+		}
+	}
+
+	if (failed) {
+		/* recreate it */
 		(void)munmap(hash->mmap_base, hash->mmap_length);
 		hash->mmap_base = NULL;
 		hash->dirty_mmap = TRUE;

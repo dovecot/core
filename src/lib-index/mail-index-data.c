@@ -92,7 +92,8 @@ int mail_index_data_open(MailIndex *index)
 	hdr = data->mmap_base;
 	if (hdr->indexid != index->indexid) {
 		INDEX_MARK_CORRUPTED(index);
-		index_set_error(index, "IndexID mismatch with file %s", path);
+		index_set_error(index, "IndexID mismatch for data file %s",
+				path);
 		mail_index_data_free(data);
 		return FALSE;
 	}
