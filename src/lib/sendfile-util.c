@@ -69,7 +69,7 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 
 	*offset += sbytes;
 
-	if (ret == 0 || (ret == 0 && errno == EAGAIN && sbytes > 0))
+	if (ret == 0 || (ret < 0 && errno == EAGAIN && sbytes > 0))
 		return (ssize_t)sbytes;
 	else {
 		if (errno == ENOTSOCK) {
