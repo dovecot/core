@@ -62,6 +62,7 @@ liblib_a_SOURCES = \
 	str-sanitize.c \
 	strescape.c \
 	strfuncs.c \
+	unix-socket-create.c \
 	unlink-directory.c \
 	unlink-lockfiles.c \
 	utc-offset.c \
@@ -121,6 +122,7 @@ noinst_HEADERS = \
 	str-sanitize.h \
 	strescape.h \
 	strfuncs.h \
+	unix-socket-create.h \
 	unlink-directory.h \
 	unlink-lockfiles.h \
 	utc-offset.h \
