@@ -43,7 +43,10 @@ void mail_storage_init(void)
 		return;
 
 	for (str = t_strsplit(env, " "); *str != NULL; str++) {
-                list = client_workaround_list;
+		if (*str == '\0')
+			continue;
+
+		list = client_workaround_list;
 		for (; list->name != NULL; list++) {
 			if (strcasecmp(*str, list->name) == 0)
 				client_workarounds |= list->num;
