@@ -242,7 +242,8 @@ static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx)
 			continue; /* ignore inboxes */
 
 		if (match == IMAP_MATCH_PARENT) {
-			ctx->list.flags = MAILBOX_NOSELECT | MAILBOX_CHILDREN;
+			ctx->list.flags =
+				MAILBOX_PLACEHOLDER | MAILBOX_CHILDREN;
 			while ((p = strrchr(fname, '.')) != NULL) {
 				fname = t_strdup_until(fname, p);
 				if (imap_match(ctx->glob, fname) > 0) {
