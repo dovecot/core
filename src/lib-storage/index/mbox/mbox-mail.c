@@ -7,6 +7,7 @@
 #include "mbox-file.h"
 #include "mbox-sync-private.h"
 #include "istream-raw-mbox.h"
+#include "istream-header-filter.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -121,8 +122,14 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 		// FIXME: need to hide the headers
 		raw_stream = mail->ibox->mbox_stream;
 		offset = istream_raw_mbox_get_header_offset(raw_stream);
-		data->stream = i_stream_create_limit(default_pool, raw_stream,
-						     offset, (uoff_t)-1);
+		raw_stream = i_stream_create_limit(default_pool, raw_stream,
+						   offset, (uoff_t)-1);
+		data->stream =
+			i_stream_create_header_filter(default_pool,
+						      raw_stream,
+						      mbox_hide_headers,
+						      mbox_hide_headers_count);
+		i_stream_unref(raw_stream);
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size);

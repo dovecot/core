@@ -19,6 +19,18 @@
 
 #define CREATE_MODE 0770 /* umask() should limit it more */
 
+/* NOTE: must be sorted for istream-header-filter. */
+const char *mbox_hide_headers[] = {
+	"Content-Length",
+	"Status",
+	"X-IMAP",
+	"X-IMAPbase",
+	"X-Keywords",
+	"X-Status",
+	"X-UID",
+};
+size_t mbox_hide_headers_count = 7;
+
 extern struct mail_storage mbox_storage;
 extern struct mailbox mbox_mailbox;
 

@@ -170,33 +170,8 @@ static int save_header_callback(const char *name, write_func_t *write_func,
 		return 1;
 	}
 
-	switch (*name) {
-	case 'C':
-	case 'c':
-		if (strcasecmp(name, "Content-Length") == 0)
-			return 0;
-		break;
-	case 'S':
-	case 's':
-		if (strcasecmp(name, "Status") == 0)
-			return 0;
-		break;
-	case 'X':
-	case 'x':
-		if (strcasecmp(name, "X-UID") == 0)
-			return 0;
-		if (strcasecmp(name, "X-Status") == 0)
-			return 0;
-		if (strcasecmp(name, "X-Keywords") == 0)
-			return 0;
-		if (strcasecmp(name, "X-IMAP") == 0)
-			return 0;
-		if (strcasecmp(name, "X-IMAPbase") == 0)
-			return 0;
-		break;
-	}
-
-	return 1;
+	return bsearch(name, mbox_hide_headers, mbox_hide_headers_count,
+		       sizeof(*mbox_hide_headers), bsearch_strcasecmp) == NULL;
 }
 
 static int mbox_save_init_sync(struct mbox_transaction_context *t)
