@@ -265,6 +265,7 @@ void mail_cache_free(struct mail_cache *cache)
 
 int mail_cache_lock(struct mail_cache *cache)
 {
+	unsigned int lock_id;
 	int i, ret;
 
 	i_assert(!cache->locked);
@@ -272,10 +273,15 @@ int mail_cache_lock(struct mail_cache *cache)
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
 		return 0;
 
+	if (mail_index_lock_shared(cache->index, TRUE, &lock_id) < 0)
+		return -1;
+
 	if (cache->hdr->file_seq != cache->index->hdr->cache_file_seq) {
 		/* we want the latest cache file */
-		if ((ret = mail_cache_reopen(cache)) <= 0)
+		if ((ret = mail_cache_reopen(cache)) <= 0) {
+			mail_index_unlock(cache->index, lock_id);
 			return ret;
+		}
 	}
 
 	for (i = 0; i < 3; i++) {
@@ -293,13 +299,14 @@ int mail_cache_lock(struct mail_cache *cache)
 		/* okay, so it was just compressed. try again. */
 		mail_cache_unlock(cache);
 		if ((ret = mail_cache_reopen(cache)) <= 0)
-			return ret;
+			break;
 		ret = 0;
 	}
 
 	if (ret > 0)
 		cache->hdr_copy = *cache->hdr;
 
+	mail_index_unlock(cache->index, lock_id);
 	return ret;
 }
 
