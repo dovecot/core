@@ -73,16 +73,6 @@ static int modifylog_set_corrupted(MailModifyLog *log, const char *fmt, ...)
 	return FALSE;
 }
 
-static int mail_modifylog_wait_lock(MailModifyLog *log)
-{
-	i_assert(!log->anon_mmap);
-
-	if (file_wait_lock(log->fd, F_RDLCK) < 1)
-                modifylog_set_syscall_error(log, "file_wait_lock()");
-
-	return TRUE;
-}
-
 /* returns 1 = yes, 0 = no, -1 = error */
 static int mail_modifylog_have_other_users(MailModifyLog *log)
 {
@@ -276,14 +266,24 @@ static int modifylog_open_and_init_file(MailModifyLog *log, const char *path)
 		return index_file_set_syscall_error(log->index, path, "open()");
 	}
 
-	ret = file_wait_lock(fd, F_WRLCK);
+	/* if we can't get the lock, we fail. it shouldn't happen. */
+	ret = file_try_lock(fd, F_WRLCK);
 	if (ret < 0) {
 		index_file_set_syscall_error(log->index, path,
 					     "file_wait_lock()");
+	} else if (ret == 0) {
+		index_set_error(log->index, "Couldn't get exclusive lock for "
+				"created modify log %s", path);
 	}
 
-	if (ret == 1 && mail_modifylog_init_fd(log, fd, path)) {
-		if (log->fd == -1 || modifylog_mark_full(log)) {
+	if (ret > 0 && mail_modifylog_init_fd(log, fd, path)) {
+		/* drop back to read lock */
+		if (file_wait_lock(fd, F_RDLCK) < 0) {
+			modifylog_set_syscall_error(log, "file_wait_lock()");
+			ret = -1;
+		}
+
+		if (ret > 0 && (log->fd == -1 || modifylog_mark_full(log))) {
 			mail_modifylog_close(log);
 
 			log->fd = fd;
@@ -320,7 +320,6 @@ int mail_modifylog_create(MailIndex *index)
 		path = t_strconcat(log->index->filepath, ".log", NULL);
 
 		if (!modifylog_open_and_init_file(log, path) ||
-		    !mail_modifylog_wait_lock(log) ||
 		    !mmap_update(log, TRUE)) {
 			/* fatal failure */
 			mail_modifylog_free(log);
@@ -346,6 +345,12 @@ static int mail_modifylog_open_and_verify(MailModifyLog *log, const char *path)
 			index_file_set_syscall_error(log->index, path,
 						     "open()");
 		}
+		return -1;
+	}
+
+	if (file_wait_lock(fd, F_RDLCK) < 0) {
+		modifylog_set_syscall_error(log, "file_wait_lock()");
+		(void)close(fd);
 		return -1;
 	}
 
@@ -428,7 +433,6 @@ int mail_modifylog_open_or_create(MailIndex *index)
 	log = mail_modifylog_new(index);
 
 	if (!mail_modifylog_find_or_create(log) ||
-	    !mail_modifylog_wait_lock(log) ||
 	    !mmap_update(log, TRUE)) {
 		/* fatal failure */
 		mail_modifylog_free(log);
