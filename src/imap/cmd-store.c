@@ -35,29 +35,6 @@ static int get_modify_type(struct client *client, const char *item,
 	return TRUE;
 }
 
-static int mail_send_flags(struct client *client, struct mail *mail)
-{
-	const struct mail_full_flags *flags;
-	string_t *str;
-
-	flags = mail->get_flags(mail);
-	if (flags == NULL)
-		return FALSE;
-
-	t_push();
-	str = t_str_new(128);
-	str_printfa(str, "* %u FETCH (FLAGS (", mail->seq);
-	imap_write_flags(str, flags);
-	if (client->cmd_uid)
-		str_printfa(str, ") UID %u)", mail->uid);
-	else
-		str_append(str, "))");
-	client_send_line(client, str_c(str));
-	t_pop();
-
-	return TRUE;
-}
-
 int cmd_store(struct client *client)
 {
 	struct imap_arg *args;
@@ -69,7 +46,7 @@ int cmd_store(struct client *client)
         struct mailbox_transaction_context *t;
 	struct mail *mail;
 	const char *messageset, *item;
-	int silent, modify, failed = FALSE;
+	int silent, failed;
 
 	if (!client_read_args(client, 0, 0, &args))
 		return FALSE;
@@ -106,34 +83,14 @@ int cmd_store(struct client *client)
 		return TRUE;
 
 	t = mailbox_transaction_begin(box, silent);
-	if (!mailbox_is_readonly(box))
-		modify = TRUE;
-	else {
-		/* flag changes will fail, notify client about them */
-		modify = FALSE;
-	}
+	search_ctx = mailbox_search_init(t, NULL, search_arg, NULL,
+					 MAIL_FETCH_FLAGS, NULL);
 
-	search_ctx = failed ? NULL :
-		mailbox_search_init(t, NULL, search_arg, NULL,
-				    MAIL_FETCH_FLAGS, NULL);
-
-	if (search_ctx == NULL)
-		failed = TRUE;
-	else {
-		failed = FALSE;
-		while ((mail = mailbox_search_next(search_ctx)) != NULL) {
-			if (modify) {
-				if (mail->update_flags(mail, &flags,
-						       modify_type) < 0) {
-					failed = TRUE;
-					break;
-				}
-			} else {
-				if (!mail_send_flags(client, mail)) {
-					failed = TRUE;
-					break;
-				}
-			}
+	failed = FALSE;
+	while ((mail = mailbox_search_next(search_ctx)) != NULL) {
+		if (mail->update_flags(mail, &flags, modify_type) < 0) {
+			failed = TRUE;
+			break;
 		}
 	}
 
