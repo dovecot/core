@@ -174,7 +174,31 @@ static int mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
 	return 0;
 }
 
-static int mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
+static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
+{
+	struct mail_transaction_flag_update update;
+	const struct mail_index_record *rec;
+	uint32_t seq, messages_count;
+
+	memset(&update, 0, sizeof(update));
+
+	messages_count = mail_index_view_get_message_count(ctx->view);
+	for (seq = 1; seq <= messages_count; seq++) {
+		if (mail_index_lookup(ctx->view, seq, &rec) < 0)
+			return -1;
+
+		if ((rec->flags & MAIL_RECENT) == 0)
+			continue;
+
+		update.uid1 = update.uid2 = rec->uid;
+		mail_index_sync_sort_flags(ctx->updates_buf,
+					   &update, sizeof(update));
+	}
+	return 0;
+}
+
+static int
+mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx, int sync_recent)
 {
 	size_t size;
 	int ret;
@@ -182,6 +206,11 @@ static int mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 	if (ctx->view->map->hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) {
 		/* show dirty flags as flag updates */
 		if (mail_index_sync_add_dirty_updates(ctx) < 0)
+			return -1;
+	}
+
+	if (sync_recent) {
+		if (mail_index_sync_add_recent_updates(ctx) < 0)
 			return -1;
 	}
 
@@ -200,9 +229,12 @@ static int mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 	return ret;
 }
 
-static int mail_index_need_lock(struct mail_index *index,
+static int mail_index_need_lock(struct mail_index *index, int sync_recent,
 				uint32_t log_file_seq, uoff_t log_file_offset)
 {
+	if (sync_recent && index->hdr->recent_messages_count > 0)
+		return 1;
+
 	if (index->hdr->log_file_seq > log_file_seq ||
 	     (index->hdr->log_file_seq == log_file_seq &&
 	      index->hdr->log_file_offset >= log_file_offset)) {
@@ -216,7 +248,8 @@ static int mail_index_need_lock(struct mail_index *index,
 int mail_index_sync_begin(struct mail_index *index,
                           struct mail_index_sync_ctx **ctx_r,
 			  struct mail_index_view **view_r,
-			  uint32_t log_file_seq, uoff_t log_file_offset)
+			  uint32_t log_file_seq, uoff_t log_file_offset,
+			  int sync_recent)
 {
 	struct mail_index_sync_ctx *ctx;
 	uint32_t seq;
@@ -237,7 +270,8 @@ int mail_index_sync_begin(struct mail_index *index,
 		return -1;
 	}
 
-	if (!mail_index_need_lock(index, log_file_seq, log_file_offset)) {
+	if (!mail_index_need_lock(index, sync_recent,
+				  log_file_seq, log_file_offset)) {
 		mail_index_unlock(index, lock_id);
 		mail_transaction_log_sync_unlock(index->log);
 		return 0;
@@ -265,7 +299,7 @@ int mail_index_sync_begin(struct mail_index *index,
 						  1024, (size_t)-1);
 	ctx->updates_buf = buffer_create_dynamic(default_pool,
 						 1024, (size_t)-1);
-	if (mail_index_sync_read_and_sort(ctx) < 0) {
+	if (mail_index_sync_read_and_sort(ctx, sync_recent) < 0) {
                 mail_index_sync_end(ctx);
 		return -1;
 	}

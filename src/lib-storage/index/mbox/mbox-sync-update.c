@@ -143,8 +143,6 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 
 	if (ctx->hdr_pos[MBOX_HDR_STATUS] == (size_t)-1 &&
 	    (ctx->mail.flags & STATUS_FLAGS_MASK) != 0) {
-		if (!ctx->sync_ctx->ibox->keep_recent)
-                        ctx->mail.flags |= MBOX_NONRECENT;
 		str_append(ctx->header, "Status: ");
 		ctx->hdr_pos[MBOX_HDR_STATUS] = str_len(ctx->header);
 		status_flags_append(ctx, mbox_status_flags);
@@ -291,6 +289,11 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 			mail_index_sync_flags_apply(&sync[i], &ctx->mail.flags,
 						    ctx->mail.keywords);
 		}
+
+		/* keep our old recent flag. especially because we use it
+		   negatively as non-recent */
+		ctx->mail.flags = (ctx->mail.flags & ~MAIL_RECENT) |
+			(old_flags & MAIL_RECENT);
 
 		if ((old_flags & STATUS_FLAGS_MASK) !=
 		    (ctx->mail.flags & STATUS_FLAGS_MASK))

@@ -218,7 +218,8 @@ static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 }
 
 #define FLAG_UPDATE_IS_INTERNAL(u, empty) \
-	(((u)->add_flags | (u)->remove_flags) == MAIL_INDEX_MAIL_FLAG_DIRTY && \
+	((((u)->add_flags | (u)->remove_flags) & \
+	  ~(MAIL_INDEX_MAIL_FLAG_DIRTY | MAIL_RECENT)) == 0 && \
 	 memcmp((u)->add_keywords, empty, INDEX_KEYWORDS_BYTE_COUNT) == 0 && \
 	 memcmp((u)->add_keywords, empty, INDEX_KEYWORDS_BYTE_COUNT) == 0)
 
