@@ -93,10 +93,18 @@ IOBuffer *io_buffer_create_mmap(int fd, Pool pool, unsigned int block_size,
 		buf->start_offset = buf->size = 0;
 	}
 
+	if (start_offset > stop_offset)
+		start_offset = stop_offset;
+
+	if (size > (uoff_t) (stop_offset-start_offset)) {
+		i_warning("Trying to create IOBuffer with size %"UOFF_T_FORMAT
+			  " but we have only %"UOFF_T_FORMAT" bytes available "
+			  "in file", size, stop_offset-start_offset);
+		size = stop_offset-start_offset;
+	}
+
 	buf->start_offset = start_offset;
-	buf->size = size > 0 ? size :
-		start_offset > stop_offset ? 0 :
-		stop_offset - start_offset;
+	buf->size = size > 0 ? size : stop_offset - start_offset;
 
 	buf->skip = buf->pos = buf->start_offset;
 	return buf;
