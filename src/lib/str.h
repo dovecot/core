@@ -4,6 +4,7 @@
 string_t *str_new(pool_t pool, size_t initial_size);
 string_t *t_str_new(size_t initial_size);
 void str_free(string_t *str);
+char *str_free_without_data(string_t *str);
 
 const char *str_c(string_t *str);
 const unsigned char *str_data(const string_t *str);
