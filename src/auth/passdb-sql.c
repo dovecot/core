@@ -105,6 +105,7 @@ static void sql_query_callback(struct sql_result *result, void *context)
 			password, scheme,
 			sql_request->callback.lookup_credentials,
 			auth_request);
+		i_free(sql_request);
 		return;
 	}
 
@@ -112,6 +113,7 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	if (password == NULL) {
 		sql_request->callback.verify_plain(PASSDB_RESULT_USER_UNKNOWN,
 						   auth_request);
+		i_free(sql_request);
 		return;
 	}
 
@@ -129,6 +131,7 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	sql_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
 					     PASSDB_RESULT_PASSWORD_MISMATCH,
 					     auth_request);
+	i_free(sql_request);
 }
 
 static void sql_lookup_pass(struct passdb_sql_request *sql_request)
