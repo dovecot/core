@@ -17,7 +17,9 @@ dovecotpw_LDADD = \
 	../auth/libpassword.a \
 	../lib-ntlm/libntlm.a \
 	../lib/liblib.a \
-	$(AUTH_LIBS)
+	$(AUTH_LIBS) \
+	$(RAND_LIBS) \
+	$(MODULE_LIBS)
 
 dovecotpw_SOURCES = \
 	dovecotpw.c
