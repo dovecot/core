@@ -236,7 +236,7 @@ mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
 		return -1;
 
 	if (ctx->reserved_space_offset + ctx->reserved_space ==
-	    hdr->used_file_size) {
+	    hdr->used_file_size && ctx->reserved_space > 0) {
 		/* we can simply grow it */
 		ctx->reserved_space = block_size;
 
