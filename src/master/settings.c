@@ -129,9 +129,14 @@ static void auth_settings_verify(void)
 	AuthConfig *auth;
 
 	for (auth = auth_processes_config; auth != NULL; auth = auth->next) {
-		if (access(set_imap_executable, X_OK) == -1) {
+		if (access(auth->executable, X_OK) < 0) {
 			i_fatal("Can't use auth executable %s: %m",
 				auth->executable);
+		}
+		if (auth->chroot != NULL && *auth->chroot != '\0' &&
+		    access(auth->chroot, X_OK) < 0) {
+			i_fatal("Can't access auth chroot directory %s: %m",
+				auth->chroot);
 		}
 	}
 }
@@ -140,12 +145,12 @@ static void settings_verify(void)
 {
 	get_login_uid();
 
-	if (access(set_login_executable, X_OK) == -1) {
+	if (access(set_login_executable, X_OK) < 0) {
 		i_fatal("Can't use login executable %s: %m",
 			set_login_executable);
 	}
 
-	if (access(set_imap_executable, X_OK) == -1) {
+	if (access(set_imap_executable, X_OK) < 0) {
 		i_fatal("Can't use imap executable %s: %m",
 			set_imap_executable);
 	}
@@ -153,7 +158,7 @@ static void settings_verify(void)
 	/* since it's under /var/run by default, it may have been deleted */
 	if (mkdir(set_login_dir, 0700) == 0)
 		(void)chown(set_login_dir, set_login_uid, set_login_gid);
-	if (access(set_login_dir, X_OK) == -1)
+	if (access(set_login_dir, X_OK) < 0)
 		i_fatal("Can't access login directory %s: %m", set_login_dir);
 
 	if (set_login_processes_count < 1)
@@ -302,7 +307,7 @@ void settings_read(const char *path)
         settings_initialize();
 
 	fd = open(path, O_RDONLY);
-	if (fd == -1)
+	if (fd < 0)
 		i_fatal("Can't open configuration file %s: %m", path);
 
 	linenum = 0;
