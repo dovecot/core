@@ -841,6 +841,15 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 							  "mmap()");
 			return -1;
 		}
+
+		if (file->mmap_size > mmap_get_page_size()) {
+			if (madvise(file->mmap_base, file->mmap_size,
+				    MADV_SEQUENTIAL) < 0) {
+				mail_index_file_set_syscall_error(index,
+					file->filepath, "madvise()");
+			}
+		}
+
 		file->buffer = buffer_create_const_data(default_pool,
 							file->mmap_base,
 							file->mmap_size);
