@@ -19,10 +19,10 @@ int _cmd_select_full(struct client_command_context *cmd, int readonly)
 	if (client->mailbox != NULL) {
 		box = client->mailbox;
 		client->mailbox = NULL;
-		if (mailbox_close(box) < 0) {
-			client_send_untagged_storage_error(client,
-				mailbox_get_storage(box));
-		}
+
+                storage = mailbox_get_storage(box);
+		if (mailbox_close(box) < 0)
+			client_send_untagged_storage_error(client, storage);
 	}
 
 	storage = client_find_storage(cmd, &mailbox);
