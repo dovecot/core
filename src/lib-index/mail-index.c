@@ -502,27 +502,35 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 	}
 
 	/* we need to walk through the index to get to wanted position */
-	if (seq > index->last_lookup_seq && index->last_lookup != NULL) {
+
+	/* some mails are deleted, jump after the first known hole
+	   and start counting non-deleted messages.. */
+	rec_seq = INDEX_POSITION_INDEX(hdr->first_hole_position+1) + 1;
+	rec += rec_seq-1 + hdr->first_hole_records;
+
+	if (seq > index->last_lookup_seq && index->last_lookup_seq > rec_seq) {
 		/* we want to lookup data after last lookup -
 		   this helps us some */
 		rec = index->last_lookup;
 		rec_seq = index->last_lookup_seq;
-	} else {
-		/* some mails are deleted, jump after the first known hole
-		   and start counting non-deleted messages.. */
-		rec_seq = INDEX_POSITION_INDEX(hdr->first_hole_position+1) + 1;
-		rec += rec_seq-1 + hdr->first_hole_records;
 	}
+
+	i_assert(rec->uid != 0);
 
 	while (rec_seq < seq && rec <= last_rec) {
+		rec++;
+
 		if (rec->uid != 0)
 			rec_seq++;
-		rec++;
 	}
 
-	index->last_lookup = rec;
-	index->last_lookup_seq = rec_seq;
-	return rec_seq == seq ? rec : NULL;
+	if (rec_seq != seq)
+		return NULL;
+	else {
+		index->last_lookup = rec;
+		index->last_lookup_seq = rec_seq;
+		return rec;
+	}
 }
 
 MailIndexRecord *mail_index_next(MailIndex *index, MailIndexRecord *rec)
