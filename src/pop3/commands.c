@@ -268,6 +268,7 @@ static void fetch(struct client *client, unsigned int msgnum,
 	struct mail *mail;
 	struct istream *stream;
 
+	memset(&seqset, 0, sizeof(seqset));
 	seqset.seq1 = seqset.seq2 = msgnum+1;
 
 	memset(&search_arg, 0, sizeof(search_arg));
