@@ -36,7 +36,6 @@ message_header_search_init(Pool pool, const char *key, const char *charset,
 			   int *unknown_charset)
 {
 	HeaderSearchContext *ctx;
-	Buffer *keybuf;
 	size_t key_len;
 	const char *p;
 
@@ -44,9 +43,8 @@ message_header_search_init(Pool pool, const char *key, const char *charset,
 	ctx->pool = pool;
 
 	/* get the key uppercased */
-	keybuf = buffer_create_const_data(data_stack_pool, key, strlen(key));
 	key = charset_to_ucase_utf8_string(charset, unknown_charset,
-					   keybuf, &key_len);
+					   key, strlen(key), &key_len);
 
 	if (key == NULL) {
 		/* invalid key */
@@ -86,7 +84,6 @@ void message_header_search_free(HeaderSearchContext *ctx)
 static void search_with_charset(const unsigned char *data, size_t size,
 				const char *charset, HeaderSearchContext *ctx)
 {
-	Buffer *buf;
 	const char *utf8_data;
 	size_t utf8_size;
 
@@ -100,9 +97,8 @@ static void search_with_charset(const unsigned char *data, size_t size,
 		charset = ctx->key_charset;
 	}
 
-	buf = buffer_create_const_data(data_stack_pool, data, size);
 	utf8_data = charset_to_ucase_utf8_string(charset, NULL,
-						 buf, &utf8_size);
+						 data, size, &utf8_size);
 
 	if (utf8_data == NULL) {
 		/* unknown character set, or invalid data */

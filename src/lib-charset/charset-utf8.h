@@ -18,20 +18,22 @@ void charset_to_utf8_end(CharsetTranslation *t);
 
 void charset_to_utf8_reset(CharsetTranslation *t);
 
-/* Translate src to UTF-8. If src_pos is non-NULL, it's updated to first
-   non-translated character in src. */
+/* Translate src to UTF-8. If src_size is updated to contain the number of
+   characters actually translated from src. */
 CharsetResult
 charset_to_ucase_utf8(CharsetTranslation *t,
-		      const Buffer *src, size_t *src_pos, Buffer *dest);
+		      const unsigned char *src, size_t *src_size, Buffer *dest);
 
 /* Simple wrapper for above functions. If utf8_size is non-NULL, it's set
    to same as strlen(returned data). */
 const char *
 charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
-			     const Buffer *data, size_t *utf8_size);
+			     const unsigned char *data, size_t size,
+			     size_t *utf8_size_r);
 
 void _charset_utf8_ucase(const unsigned char *src, size_t src_size,
 			 Buffer *dest, size_t destpos);
-const char *_charset_utf8_ucase_strdup(const Buffer *data, size_t *utf8_size);
+const char *_charset_utf8_ucase_strdup(const unsigned char *data, size_t size,
+				       size_t *utf8_size_r);
 
 #endif

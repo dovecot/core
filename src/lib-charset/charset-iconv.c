@@ -69,7 +69,7 @@ void charset_to_utf8_reset(CharsetTranslation *t)
 
 CharsetResult
 charset_to_ucase_utf8(CharsetTranslation *t,
-		      const Buffer *src, size_t *src_pos, Buffer *dest)
+		      const unsigned char *src, size_t *src_size, Buffer *dest)
 {
 	ICONV_CONST char *ic_srcbuf;
 	char *ic_destbuf;
@@ -81,18 +81,15 @@ charset_to_ucase_utf8(CharsetTranslation *t,
 
 	if (t->cd == NULL) {
 		/* no translation needed - just copy it to outbuf uppercased */
-		size = buffer_get_used_size(src);
-		if (size > destleft)
-			size = destleft;
-		_charset_utf8_ucase(buffer_get_data(src, NULL),
-				    size, dest, destpos);
-		if (src_pos != NULL)
-			*src_pos = size;
+		if (*src_size > destleft)
+			*src_size = destleft;
+		_charset_utf8_ucase(src, *src_size, dest, destpos);
 		return CHARSET_RET_OK;
 	}
 
 	size = destleft;
-	ic_srcbuf = (ICONV_CONST char *) buffer_get_data(src, &srcleft);
+	srcleft = *src_size;
+	ic_srcbuf = (ICONV_CONST char *) src;
 	ic_destbuf = buffer_append_space(dest, destleft);
 
 	if (iconv(t->cd, &ic_srcbuf, &srcleft,
@@ -111,9 +108,7 @@ charset_to_ucase_utf8(CharsetTranslation *t,
 	/* give back the memory we didn't use */
 	buffer_set_used_size(dest, buffer_get_used_size(dest) - destleft);
 
-	if (src_pos != NULL)
-		*src_pos = buffer_get_used_size(src) - srcleft;
-
+	*src_size -= srcleft;
 	_charset_utf8_ucase((unsigned char *) ic_destbuf - size, size,
 			    dest, destpos);
 	return ret;
@@ -121,7 +116,8 @@ charset_to_ucase_utf8(CharsetTranslation *t,
 
 const char *
 charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
-			     const Buffer *data, size_t *utf8_size)
+			     const unsigned char *data, size_t size,
+			     size_t *utf8_size_r)
 {
 	iconv_t cd;
 	ICONV_CONST char *inbuf;
@@ -134,7 +130,7 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 	    strcasecmp(charset, "UTF8") == 0) {
 		if (unknown_charset != NULL)
 			*unknown_charset = FALSE;
-		return _charset_utf8_ucase_strdup(data, utf8_size);
+		return _charset_utf8_ucase_strdup(data, size, utf8_size_r);
 	}
 
 	cd = iconv_open("UTF-8", charset);
@@ -147,7 +143,8 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 	if (unknown_charset != NULL)
 		*unknown_charset = FALSE;
 
-	inbuf = (ICONV_CONST char *) buffer_get_data(data, &inleft);;
+	inbuf = (ICONV_CONST char *) data;
+	inleft = size;
 
 	outsize = outleft = inleft * 2;
 	outbuf = outpos = t_buffer_get(outsize + 1);
@@ -168,8 +165,8 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 		outpos = outbuf + pos;
 	}
 
-	if (utf8_size != NULL)
-		*utf8_size = (size_t) (outpos - outbuf);
+	if (utf8_size_r != NULL)
+		*utf8_size_r = (size_t) (outpos - outbuf);
 	*outpos++ = '\0';
 	t_buffer_alloc((size_t) (outpos - outbuf));
 

@@ -201,16 +201,17 @@ static int message_search_decoded_block(PartSearchContext *ctx, Buffer *block)
 /* returns 1 = found, 0 = not found, -1 = error in input data */
 static int message_search_body_block(PartSearchContext *ctx, Buffer *block)
 {
-	Buffer *inbuf, *outbuf;
+	const unsigned char *inbuf;
+	Buffer *outbuf;
         CharsetResult result;
-	size_t block_pos, inbuf_pos, inbuf_left, ret;
+	size_t block_pos, inbuf_size, inbuf_left, ret;
 
 	outbuf = buffer_create_static(data_stack_pool, DECODE_BLOCK_SIZE);
 	for (block_pos = 0; block_pos < buffer_get_used_size(block); ) {
 		if (buffer_get_used_size(ctx->decode_buf) == 0) {
 			/* we can use the buffer directly without copying */
-			inbuf = block;
-			inbuf_pos = block_pos;
+			inbuf = buffer_get_data(block, &inbuf_size);
+			inbuf += block_pos; inbuf_size -= block_pos;
 			block_pos += buffer_get_used_size(block);
 		} else {
 			/* some characters already in buffer, ie. last
@@ -219,14 +220,14 @@ static int message_search_body_block(PartSearchContext *ctx, Buffer *block)
 						       block, block_pos,
 						       (size_t)-1);
 
-			inbuf = ctx->decode_buf;
-			inbuf_pos = 0;
+			inbuf = buffer_get_data(ctx->decode_buf, &inbuf_size);
 		}
 
 		buffer_set_used_size(outbuf, 0);
+		inbuf_left = inbuf_size;
 		result = charset_to_ucase_utf8(ctx->translation,
-					       inbuf, &inbuf_pos, outbuf);
-		inbuf_left = buffer_get_used_size(inbuf) - inbuf_pos;
+					       inbuf, &inbuf_size, outbuf);
+		inbuf_left -= inbuf_size;
 
 		switch (result) {
 		case CHARSET_RET_OUTPUT_FULL:
@@ -239,8 +240,8 @@ static int message_search_body_block(PartSearchContext *ctx, Buffer *block)
 			break;
 		case CHARSET_RET_INCOMPLETE_INPUT:
 			/* save the partial sequence to buffer */
-			ret = buffer_copy(ctx->decode_buf, 0,
-					  inbuf, inbuf_pos, inbuf_left);
+			ret = buffer_write(ctx->decode_buf, 0,
+					   inbuf + inbuf_size, inbuf_left);
 			i_assert(ret == inbuf_left);
 
 			buffer_set_used_size(ctx->decode_buf, ret);
@@ -347,15 +348,13 @@ static int message_body_search_init(BodySearchContext *ctx, const char *key,
 				    const char *charset, int *unknown_charset,
 				    int search_header)
 {
-	Buffer *keybuf;
 	size_t key_len;
 
 	memset(ctx, 0, sizeof(BodySearchContext));
 
 	/* get the key uppercased */
-        keybuf = buffer_create_const_data(data_stack_pool, key, strlen(key));
 	key = charset_to_ucase_utf8_string(charset, unknown_charset,
-					   keybuf, &key_len);
+					   key, strlen(key), &key_len);
 	if (key == NULL)
 		return FALSE;
 
