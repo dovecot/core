@@ -75,10 +75,10 @@ static void parse_attr(struct auth_request *auth_request,
 		user->system_user = t_strdup(value);
 		break;
 	case ATTR_UID_NUMBER:
-		user->uid = atoi(value);
+		user->uid = userdb_parse_uid(auth_request, value);
 		break;
 	case ATTR_GID_NUMBER:
-		user->gid = atoi(value);
+		user->gid = userdb_parse_gid(auth_request, value);
 		break;
 
 	case ATTR_COUNT:

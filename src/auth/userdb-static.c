@@ -56,18 +56,26 @@ static void static_init(const char *args)
 	static_mail_template = NULL;
 
 	for (tmp = t_strsplit_spaces(args, " "); *tmp != NULL; tmp++) {
-		if (strncasecmp(*tmp, "uid=", 4) == 0)
-			static_uid = atoi(*tmp + 4);
-		else if (strncasecmp(*tmp, "gid=", 4) == 0)
-			static_gid = atoi(*tmp + 4);
-		else if (strncasecmp(*tmp, "home=", 5) == 0) {
+		if (strncasecmp(*tmp, "uid=", 4) == 0) {
+			static_uid = userdb_parse_uid(NULL, *tmp + 4);
+			if (static_uid == (uid_t)-1) {
+				i_fatal("static userdb: Invalid uid: %s",
+					*tmp + 4);
+			}
+		} else if (strncasecmp(*tmp, "gid=", 4) == 0) {
+			static_gid = userdb_parse_gid(NULL, *tmp + 4);
+			if (static_gid == (gid_t)-1) {
+				i_fatal("static userdb: Invalid gid: %s",
+					*tmp + 4);
+			}
+		} else if (strncasecmp(*tmp, "home=", 5) == 0) {
 			i_free(static_home_template);
 			static_home_template = i_strdup(*tmp + 5);
 		} else if (strncasecmp(*tmp, "mail=", 5) == 0) {
 			i_free(static_mail_template);
 			static_mail_template = i_strdup(*tmp + 5);
 		} else {
-			i_fatal("Invalid static userdb option: '%s'", *tmp);
+			i_fatal("static userdb: Invalid option: '%s'", *tmp);
 		}
 	}
 

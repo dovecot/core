@@ -35,6 +35,9 @@ extern struct userdb_module userdb_vpopmail;
 extern struct userdb_module userdb_ldap;
 extern struct userdb_module userdb_sql;
 
+uid_t userdb_parse_uid(struct auth_request *request, const char *str);
+gid_t userdb_parse_gid(struct auth_request *request, const char *str);
+
 void userdb_preinit(void);
 void userdb_init(void);
 void userdb_deinit(void);

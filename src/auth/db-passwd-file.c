@@ -27,8 +27,8 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	const char *p;
 
 	if (hash_lookup(pw->users, username) != NULL) {
-		i_error("User %s already exists in password file %s",
-			username, pw->path);
+		i_error("passwd-file %s: User %s exists more than once",
+			pw->path, username);
 		return;
 	}
 
@@ -54,8 +54,9 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 			pu->password = p_strconcat(pw->pool, "{DIGEST-MD5}",
 						   pass, NULL);
 			if (strlen(pu->password) != 32 + 12) {
-				i_error("User %s has invalid password in "
-					"file %s", username, pw->path);
+				i_error("passwd-file %s: User %s "
+					"has invalid password",
+					pw->path, username);
 				return;
 			}
 		} else {
@@ -65,20 +66,20 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	}
 
 	if (*args != NULL) {
-		pu->uid = atoi(*args);
-		if (pu->uid == 0) {
-			i_error("User %s has UID 0 in password file %s",
-				username, pw->path);
+		pu->uid = userdb_parse_uid(NULL, *args);
+		if (pu->uid == 0 || pu->uid == (uid_t)-1) {
+			i_error("passwd-file %s: User %s has invalid UID %s",
+				pw->path, username, *args);
 			return;
 		}
 		args++;
 	}
 
 	if (*args != NULL) {
-		pu->gid = atoi(*args);
-		if (pu->gid == 0) {
-			i_error("User %s has GID 0 in password file %s",
-				username, pw->path);
+		pu->gid = userdb_parse_gid(NULL, *args);
+		if (pu->gid == 0 || pu->gid == (gid_t)-1) {
+			i_error("passwd-file %s: User %s has invalid GID %s",
+				pw->path, username, *args);
 			return;
 		}
 		args++;
@@ -131,10 +132,10 @@ static void passwd_file_open(struct passwd_file *pw)
 
 	fd = open(pw->path, O_RDONLY);
 	if (fd == -1)
-		i_fatal("Can't open passwd-file %s: %m", pw->path);
+		i_fatal("passwd-file %s: Can't open file: %m", pw->path);
 
 	if (fstat(fd, &st) != 0)
-		i_fatal("fstat() failed for passwd-file %s: %m", pw->path);
+		i_fatal("passwd-file %s: fstat() failed: %m", pw->path);
 
 	pw->fd = fd;
 	pw->stamp = st.st_mtime;
@@ -165,7 +166,7 @@ static void passwd_file_close(struct passwd_file *pw)
 {
 	if (pw->fd != -1) {
 		if (close(pw->fd) < 0)
-			i_error("close(passwd_file) failed: %m");
+			i_error("passwd-file %s: close() failed: %m", pw->path);
 		pw->fd = -1;
 	}
 
@@ -184,7 +185,7 @@ static void passwd_file_sync(struct passwd_file *pw)
 	struct stat st;
 
 	if (stat(pw->path, &st) < 0)
-		i_fatal("stat() failed for %s: %m", pw->path);
+		i_fatal("passwd-file %s: stat() failed: %m", pw->path);
 
 	if (st.st_mtime != pw->stamp) {
 		passwd_file_close(pw);

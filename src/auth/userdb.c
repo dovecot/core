@@ -5,6 +5,8 @@
 #include "userdb.h"
 
 #include <stdlib.h>
+#include <pwd.h>
+#include <grp.h>
 
 #ifdef HAVE_MODULES
 static struct auth_module *userdb_module = NULL;
@@ -34,6 +36,42 @@ struct userdb_module *userdbs[] = {
 
 struct userdb_module *userdb;
 static char *userdb_args;
+
+uid_t userdb_parse_uid(struct auth_request *request, const char *str)
+{
+	struct passwd *pw;
+
+	if (*str >= '0' && *str <= '9')
+		return (uid_t)strtoul(str, NULL, 10);
+
+	pw = getpwnam(str);
+	if (pw == NULL) {
+		if (request != NULL) {
+			i_error("userdb(%s): Invalid UID field '%s'",
+				get_log_prefix(request), str);
+		}
+		return (uid_t)-1;
+	}
+	return pw->pw_uid;
+}
+
+gid_t userdb_parse_gid(struct auth_request *request, const char *str)
+{
+	struct group *gr;
+
+	if (*str >= '0' && *str <= '9')
+		return (gid_t)strtoul(str, NULL, 10);
+
+	gr = getgrnam(str);
+	if (gr == NULL) {
+		if (request != NULL) {
+			i_error("userdb(%s): Invalid GID field '%s'",
+				get_log_prefix(request), str);
+		}
+		return (gid_t)-1;
+	}
+	return gr->gr_gid;
+}
 
 void userdb_preinit(void)
 {

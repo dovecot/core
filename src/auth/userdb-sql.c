@@ -64,9 +64,13 @@ static void sql_query_callback(struct sql_result *result, void *context)
 			sql_result_find_field_value(result, "system_user");
 		user.home = sql_result_find_field_value(result, "home");
 		user.mail = sql_result_find_field_value(result, "mail");
-		user.uid = (uid_t)strtoul(uid, NULL, 10);
-		user.gid = (gid_t)strtoul(gid, NULL, 10);
-		sql_request->callback(&user, sql_request->context);
+
+		user.uid = userdb_parse_uid(auth_request, uid);
+		user.gid = userdb_parse_gid(auth_request, uid);
+		if (user.uid == (uid_t)-1 || user.gid == (gid_t)-1)
+			sql_request->callback(NULL, sql_request->context);
+		else
+			sql_request->callback(&user, sql_request->context);
 	}
 	i_free(sql_request);
 }
