@@ -88,7 +88,7 @@ struct hash_table *hash_create(pool_t table_pool, pool_t node_pool,
 {
 	struct hash_table *table;
 
-	table = p_new(node_pool, struct hash_table, 1);
+	table = p_new(table_pool, struct hash_table, 1);
         table->table_pool = table_pool;
         table->node_pool = node_pool;
 	table->size = I_MAX(primes_closest(initial_size),
@@ -146,13 +146,19 @@ void hash_destroy(struct hash_table *table)
 
 	p_free(table->table_pool, table->nodes);
 	p_free(table->table_pool, table->collisions);
-	p_free(table->node_pool, table);
+	p_free(table->table_pool, table);
 }
 
-void hash_clear(struct hash_table *table)
+void hash_clear(struct hash_table *table, int free_collisions)
 {
 	if (!table->node_pool->alloconly_pool)
 		hash_destroy_collision_nodes(table);
+
+	if (free_collisions) {
+		if (!table->node_pool->alloconly_pool)
+			destroy_collision(table, table->free_cnodes);
+                table->free_cnodes = NULL;
+	}
 
 	memset(table->nodes, 0, sizeof(struct hash_node) * table->size);
 	memset(table->collisions, 0,

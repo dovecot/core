@@ -18,7 +18,11 @@ struct hash_table *hash_create(pool_t table_pool, pool_t node_pool,
 			       size_t initial_size, HashFunc hash_func,
 			       HashCompareFunc key_compare_func);
 void hash_destroy(struct hash_table *table);
-void hash_clear(struct hash_table *table);
+
+/* Remove all nodes from hash table. If free_collisions is TRUE, the
+   memory allocated from node_pool is freed, or discarded with
+   alloconly pools. */
+void hash_clear(struct hash_table *table, int free_collisions);
 
 void *hash_lookup(struct hash_table *table, const void *key);
 int hash_lookup_full(struct hash_table *table, const void *lookup_key,
