@@ -99,7 +99,7 @@ static const char *ssl_last_error(void)
 
 void random_fill(void *buf, size_t size)
 {
-	if (RAND_pseudo_bytes(buf, size) != 1)
+	if (RAND_bytes(buf, size) != 1)
 		i_fatal("RAND_pseudo_bytes() failed: %s", ssl_last_error());
 }
 
