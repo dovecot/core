@@ -27,6 +27,8 @@
 #include "lib.h"
 #include "process-title.h"
 
+#include <stdlib.h>
+
 /* NOTE: This really is a horrible hack, I don't recommend using it for
    anything else than debugging. */
 /*#define LINUX_PROCTITLE_HACK*/
