@@ -74,8 +74,6 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			      uint32_t min_file_seq, uoff_t min_file_offset,
 			      uint32_t max_file_seq, uoff_t max_file_offset,
 			      enum mail_transaction_type type_mask);
-/* Unset view, freeing all it's used resources. */
-void mail_transaction_log_view_unset(struct mail_transaction_log_view *view);
 
 /* Read next transaction record from current position. The position is updated.
    Returns -1 if error, 0 if we're at end of the view, 1 if ok. */

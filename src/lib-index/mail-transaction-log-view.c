@@ -16,8 +16,8 @@ struct mail_transaction_log_view {
 	enum mail_transaction_type type_mask;
 	struct mail_transaction_header tmp_hdr;
 
-        struct mail_transaction_log_file *file;
-	uoff_t file_offset;
+        struct mail_transaction_log_file *cur, *head, *tail;
+	uoff_t cur_offset;
 
 	uint32_t prev_file_seq;
 	uoff_t prev_file_offset;
@@ -34,6 +34,9 @@ mail_transaction_log_view_open(struct mail_transaction_log *log)
 	view->log = log;
 	view->broken = TRUE;
 
+	view->head = view->tail = view->log->head;
+	view->head->refcount++;
+
 	view->next = log->views;
 	log->views = view;
 	return view;
@@ -42,6 +45,7 @@ mail_transaction_log_view_open(struct mail_transaction_log *log)
 void mail_transaction_log_view_close(struct mail_transaction_log_view *view)
 {
 	struct mail_transaction_log_view **p;
+	struct mail_transaction_log_file *file;
 
 	for (p = &view->log->views; *p != NULL; p = &(*p)->next) {
 		if (*p == view) {
@@ -50,7 +54,11 @@ void mail_transaction_log_view_close(struct mail_transaction_log_view *view)
 		}
 	}
 
-	mail_transaction_log_view_unset(view);
+	for (file = view->tail; file != view->head; file = file->next)
+		file->refcount--;
+	view->head->refcount--;
+
+	mail_transaction_logs_clean(view->log);
 	i_free(view);
 }
 
@@ -75,7 +83,6 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	uoff_t end_offset;
 	int ret;
 
-	i_assert(view->broken);
 	i_assert(min_file_seq <= max_file_seq);
 
 	if (view->log == NULL)
@@ -140,17 +147,27 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 
 	i_assert(max_file_offset <= file->hdr.used_size);
 
-	/* we have it all, refcount the files */
-	for (file = first, seq = min_file_seq; seq <= max_file_seq; seq++) {
-		file->refcount++;
-		file = file->next;
+	/* we have all of them. update refcounts. */
+	if (view->tail->hdr.file_seq < first->hdr.file_seq) {
+		/* unref old files */
+		for (file = view->tail; file != first; file = file->next)
+			file->refcount--;
+		view->tail = first;
+	} else {
+		/* we shouldn't go backwards in log */
+		i_assert(first == view->tail);
 	}
+
+	/* reference all new files */
+	for (file = view->head->next; file != NULL; file = file->next)
+		file->refcount++;
+	view->head = view->log->head;
 
 	view->prev_file_seq = 0;
 	view->prev_file_offset = 0;
 
-	view->file = first;
-	view->file_offset = min_file_offset;
+	view->cur = first;
+	view->cur_offset = min_file_offset;
 
 	view->min_file_seq = min_file_seq;
 	view->min_file_offset = min_file_offset;
@@ -159,24 +176,6 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	view->type_mask = type_mask;
 	view->broken = FALSE;
 	return 0;
-}
-
-void mail_transaction_log_view_unset(struct mail_transaction_log_view *view)
-{
-	struct mail_transaction_log_file *file;
-
-	if (view->broken)
-		return;
-
-	view->broken = TRUE;
-	for (file = view->log->tail; file != NULL; file = file->next) {
-		if (file->hdr.file_seq > view->max_file_seq)
-			break;
-		if (file->hdr.file_seq >= view->min_file_seq)
-			file->refcount--;
-	}
-
-	mail_transaction_logs_clean(view->log);
 }
 
 void
@@ -193,9 +192,6 @@ mail_transaction_log_view_set_corrupted(struct mail_transaction_log_view *view,
 					const char *fmt, ...)
 {
 	va_list va;
-
-	if (!view->broken)
-		mail_transaction_log_view_unset(view);
 
 	view->broken = TRUE;
 
@@ -225,42 +221,42 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 	size_t file_size;
 
 	for (;;) {
-		file = view->file;
+		file = view->cur;
 
 		view->prev_file_seq = file->hdr.file_seq;
-		view->prev_file_offset = view->file_offset;
+		view->prev_file_offset = view->cur_offset;
 
-		if (view->file_offset != file->hdr.used_size)
+		if (view->cur_offset != file->hdr.used_size)
 			break;
 
-		view->file = file->next;
-		view->file_offset = sizeof(struct mail_transaction_log_header);
+		view->cur = file->next;
+		view->cur_offset = sizeof(struct mail_transaction_log_header);
 
-		if (view->file == NULL)
+		if (view->cur == NULL)
 			return 0;
 	}
 
 	data = buffer_get_data(file->buffer, &file_size);
 	file_size += file->buffer_offset;
 
-	if (view->file_offset + sizeof(*hdr) > file_size) {
+	if (view->cur_offset + sizeof(*hdr) > file_size) {
 		mail_transaction_log_file_set_corrupted(file,
 			"offset points outside file "
 			"(%"PRIuUOFF_T" + %"PRIuSIZE_T" > %"PRIuSIZE_T")",
-			view->file_offset, sizeof(*hdr), file_size);
+			view->cur_offset, sizeof(*hdr), file_size);
 		return -1;
 	}
 
-	hdr = CONST_PTR_OFFSET(data, view->file_offset - file->buffer_offset);
-	view->file_offset += sizeof(*hdr);
+	hdr = CONST_PTR_OFFSET(data, view->cur_offset - file->buffer_offset);
+	view->cur_offset += sizeof(*hdr);
 
-	if (file_size - view->file_offset < hdr->size) {
+	if (file_size - view->cur_offset < hdr->size) {
 		mail_transaction_log_file_set_corrupted(file,
 			"record size too large (type=0x%x, offset=%"PRIuUOFF_T
 			", size=%u, end=%"PRIuSIZE_T")",
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
-			view->file_offset, hdr->size, file_size);
-                view->file_offset = file_size;
+			view->cur_offset, hdr->size, file_size);
+                view->cur_offset = file_size;
 		return -1;
 	}
 
@@ -271,7 +267,7 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 		mail_transaction_log_file_set_corrupted(file,
 			"unknown record type 0x%x",
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK);
-                view->file_offset = file->hdr.used_size;
+                view->cur_offset = file->hdr.used_size;
 		return -1;
 	}
 
@@ -294,14 +290,14 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 			"record size wrong (type 0x%x, %u %% %u != 0)",
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
 			hdr->size, record_size);
-                view->file_offset = file->hdr.used_size;
+                view->cur_offset = file->hdr.used_size;
 		return -1;
 	}
 
 	*hdr_r = hdr;
-	*data_r = CONST_PTR_OFFSET(data, view->file_offset -
+	*data_r = CONST_PTR_OFFSET(data, view->cur_offset -
 				   file->buffer_offset);
-	view->file_offset += hdr->size;
+	view->cur_offset += hdr->size;
 	return 1;
 }
 

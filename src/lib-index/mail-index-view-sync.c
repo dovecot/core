@@ -68,7 +68,6 @@ view_sync_get_expunges(struct mail_index_view *view, buffer_t **expunges_r)
 		buffer_set_used_size(*expunges_r, 0);
 	}
 
-	mail_transaction_log_view_unset(view->log_view);
 	return ret;
 }
 
@@ -323,7 +322,12 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 	if ((ctx->sync_mask & MAIL_INDEX_SYNC_TYPE_APPEND) != 0)
 		view->messages_count = view->map->records_count;
 
-        mail_transaction_log_view_unset(view->log_view);
+	(void)mail_transaction_log_view_set(view->log_view,
+					    view->log_file_seq,
+					    view->log_file_offset,
+					    view->log_file_seq,
+					    view->log_file_offset,
+					    MAIL_TRANSACTION_TYPE_MASK);
 
 	if (ctx->expunges != NULL)
 		buffer_free(ctx->expunges);

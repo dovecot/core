@@ -326,7 +326,6 @@ int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 
 	if (ret == 0) {
 		hdr = ctx->index->hdr;
-		mail_transaction_log_view_unset(ctx->view->log_view);
 		if (mail_transaction_log_view_set(ctx->view->log_view,
 				hdr->log_file_seq, hdr->log_file_offset,
 				seq, offset, MAIL_TRANSACTION_TYPE_MASK) < 0)
@@ -336,7 +335,6 @@ int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 	if (ret == 0) {
 		mail_index_sync_read_and_sort(ctx, TRUE);
 
-		mail_transaction_log_view_unset(ctx->view->log_view);
 		if (mail_transaction_log_view_set(ctx->view->log_view,
 				hdr->log_file_seq, hdr->log_file_offset,
 				seq, offset, MAIL_TRANSACTION_TYPE_MASK) < 0)
