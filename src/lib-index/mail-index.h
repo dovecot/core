@@ -370,7 +370,7 @@ struct mail_index {
 	char *dir; /* directory where to place the index files */
 	char *filepath; /* index file path */
 	char *mailbox_path; /* file/directory for mailbox location */
-	char *custom_flags_dir; /* destination for .customflags file */
+	char *control_dir; /* destination for control files */
 	enum mail_data_field default_cache_fields, never_cache_fields;
 	unsigned int indexid;
 	unsigned int sync_id;

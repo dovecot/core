@@ -170,9 +170,9 @@ void mail_index_close(struct mail_index *index)
                 index->custom_flags = NULL;
 	}
 
-	if (index->custom_flags_dir != NULL) {
-		i_free(index->custom_flags_dir);
-                index->custom_flags_dir = NULL;
+	if (index->control_dir != NULL) {
+		i_free(index->control_dir);
+                index->control_dir = NULL;
 	}
 
 	if (index->error != NULL) {

@@ -205,7 +205,9 @@ const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags)
 	return str_c(flags_str);
 }
 
-struct mail_index *maildir_index_alloc(const char *dir, const char *maildir)
+struct mail_index *
+maildir_index_alloc(const char *maildir, const char *index_dir,
+		    const char *control_dir)
 {
 	struct mail_index *index;
 
@@ -216,7 +218,8 @@ struct mail_index *maildir_index_alloc(const char *dir, const char *maildir)
 
 	index->maildir_lock_fd = -1;
 	index->mailbox_path = i_strdup(maildir);
-	mail_index_init(index, dir);
+	index->control_dir = i_strdup(control_dir);
+	mail_index_init(index, index_dir);
 	return index;
 }
 

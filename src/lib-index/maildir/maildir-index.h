@@ -8,7 +8,9 @@
 /* ":2,DFRST" - leave the 2 extra for other clients' additions */
 #define MAILDIR_LOCATION_EXTRA_SPACE 10
 
-struct mail_index *maildir_index_alloc(const char *dir, const char *maildir);
+struct mail_index *
+maildir_index_alloc(const char *maildir, const char *index_dir,
+		    const char *control_dir);
 
 /* Return new filename base to save into tmp/ */
 const char *maildir_generate_tmp_filename(const struct timeval *tv);

@@ -358,8 +358,7 @@ static struct mailbox *mbox_open(struct mail_storage *storage, const char *name,
 
 	index = index_storage_lookup_ref(index_dir);
 	if (index == NULL) {
-		index = mbox_index_alloc(index_dir, path);
-		index->custom_flags_dir = i_strdup(index_dir);
+		index = mbox_index_alloc(path, index_dir, index_dir);
 		index_storage_add(index);
 	}
 
@@ -724,7 +723,7 @@ struct mail_storage mbox_storage = {
 	NULL,
 	NULL,
 	NULL,
-	NULL, NULL,
+	NULL, NULL, NULL,
 
 	0
 };

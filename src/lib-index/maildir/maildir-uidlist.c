@@ -25,7 +25,7 @@ int maildir_uidlist_try_lock(struct mail_index *index)
 
 	i_assert(!INDEX_IS_UIDLIST_LOCKED(index));
 
-	path = t_strconcat(index->mailbox_path,
+	path = t_strconcat(index->control_dir,
 			   "/" MAILDIR_UIDLIST_NAME ".lock", NULL);
 	for (i = 0; i < 2; i++) {
 		fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0644);
@@ -70,7 +70,7 @@ void maildir_uidlist_unlock(struct mail_index *index)
 	if (!INDEX_IS_UIDLIST_LOCKED(index))
 		return;
 
-	path = t_strconcat(index->mailbox_path,
+	path = t_strconcat(index->control_dir,
 			   "/" MAILDIR_UIDLIST_NAME ".lock", NULL);
 	if (unlink(path) < 0 && errno != ENOENT)
 		index_file_set_syscall_error(index, path, "unlink()");
@@ -87,7 +87,7 @@ struct maildir_uidlist *maildir_uidlist_open(struct mail_index *index)
 	unsigned int version;
 	int fd;
 
-	path = t_strconcat(index->mailbox_path, "/" MAILDIR_UIDLIST_NAME, NULL);
+	path = t_strconcat(index->control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno != ENOENT)
@@ -243,7 +243,7 @@ int maildir_uidlist_rewrite(struct mail_index *index, time_t *mtime)
 			return FALSE;
 	}
 
-	temp_path = t_strconcat(index->mailbox_path,
+	temp_path = t_strconcat(index->control_dir,
 				"/" MAILDIR_UIDLIST_NAME ".lock", NULL);
 
 	failed = !maildir_uidlist_rewrite_fd(index, temp_path, mtime);
@@ -254,7 +254,7 @@ int maildir_uidlist_rewrite(struct mail_index *index, time_t *mtime)
         index->maildir_lock_fd = -1;
 
 	if (!failed) {
-		db_path = t_strconcat(index->mailbox_path,
+		db_path = t_strconcat(index->control_dir,
 				      "/" MAILDIR_UIDLIST_NAME, NULL);
 
 		if (rename(temp_path, db_path) < 0) {

@@ -201,6 +201,7 @@ struct mail_storage {
 	char *dir; /* root directory */
 	char *inbox_file; /* INBOX file for mbox */
 	char *index_dir;
+	char *control_dir;
 
 	char *user; /* name of user accessing the storage */
 	char *error;

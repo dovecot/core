@@ -238,7 +238,7 @@ int mail_custom_flags_open_or_create(struct mail_index *index)
 	const char *path;
 	int fd;
 
-	path = t_strconcat(index->custom_flags_dir, "/",
+	path = t_strconcat(index->control_dir, "/",
 			   CUSTOM_FLAGS_FILE_NAME, NULL);
 	if (path == NULL)
 		fd = -1;

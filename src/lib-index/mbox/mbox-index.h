@@ -52,7 +52,9 @@ int mbox_mail_get_location(struct mail_index *index,
 			   struct mail_index_record *rec,
 			   uoff_t *offset, uoff_t *hdr_size, uoff_t *body_size);
 
-struct mail_index *mbox_index_alloc(const char *dir, const char *mbox_path);
+struct mail_index *
+mbox_index_alloc(const char *mbox_path, const char *index_dir,
+		 const char *control_dir);
 int mbox_index_rebuild(struct mail_index *index);
 int mbox_index_sync(struct mail_index *index,
 		    enum mail_lock_type lock_type, int *changes);

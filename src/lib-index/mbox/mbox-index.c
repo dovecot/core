@@ -744,7 +744,9 @@ int mbox_mail_get_location(struct mail_index *index,
 	return TRUE;
 }
 
-struct mail_index *mbox_index_alloc(const char *dir, const char *mbox_path)
+struct mail_index *
+mbox_index_alloc(const char *mbox_path, const char *index_dir,
+		 const char *control_dir)
 {
 	struct mail_index *index;
 
@@ -758,7 +760,8 @@ struct mail_index *mbox_index_alloc(const char *dir, const char *mbox_path)
 	index->mailbox_readonly = access(mbox_path, W_OK) < 0;
 
 	index->mailbox_path = i_strdup(mbox_path);
-	mail_index_init(index, dir);
+	index->control_dir = i_strdup(control_dir);
+	mail_index_init(index, index_dir);
 	return index;
 }
 
