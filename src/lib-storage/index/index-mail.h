@@ -1,6 +1,10 @@
 #ifndef __INDEX_MAIL_H
 #define __INDEX_MAIL_H
 
+#include "message-size.h"
+
+struct message_header_line;
+
 struct cached_header {
 	struct cached_header *next;
 
@@ -40,6 +44,7 @@ struct index_mail {
 
 	pool_t pool;
 	struct index_mailbox *ibox;
+	unsigned int expunge_counter;
 	buffer_t *header_buf;
 
 	enum mail_fetch_field wanted_fields;

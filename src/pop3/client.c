@@ -63,7 +63,7 @@ static int init_mailbox(struct client *client)
 	for (i = 0; i < 2; i++) {
 		ctx = client->mailbox->fetch_init(client->mailbox,
 						  MAIL_FETCH_SIZE,
-						  NULL, messageset, FALSE);
+						  messageset, FALSE);
 		if (ctx == NULL) {
 			client_send_storage_error(client);
 			return FALSE;

@@ -17,7 +17,6 @@ struct index_mailbox {
 
 	/* expunge messages marked as deleted, requires index to be
 	   exclusively locked */
-	int (*expunge_locked)(struct index_mailbox *ibox, int notify);
 	void (*mail_init)(struct index_mail *mail);
 
 	struct mail_index *index;
@@ -36,6 +35,7 @@ struct index_mailbox {
 	enum mail_lock_notify_type last_notify_type;
 
 	unsigned int sent_diskspace_warning:1;
+	unsigned int sent_readonly_flags_warning:1;
 };
 
 int mail_storage_set_index_error(struct index_mailbox *ibox);
@@ -69,14 +69,6 @@ int index_mailbox_fix_custom_flags(struct index_mailbox *ibox,
 
 unsigned int index_storage_get_recent_count(struct mail_index *index);
 
-int index_expunge_seek_first(struct index_mailbox *ibox, unsigned int *seq,
-			     struct mail_index_record **rec);
-int index_expunge_mails(struct index_mailbox *ibox,
-			struct mail_index_record *first_rec,
-			struct mail_index_record *last_rec,
-			unsigned int first_seq, unsigned int last_seq,
-			int notify);
-
 void index_mailbox_check_add(struct index_mailbox *ibox, const char *path);
 void index_mailbox_check_remove_all(struct index_mailbox *ibox);
 
@@ -84,7 +76,6 @@ void index_mailbox_check_remove_all(struct index_mailbox *ibox);
 void index_storage_set_callbacks(struct mail_storage *storage,
 				 struct mail_storage_callbacks *callbacks,
 				 void *context);
-int index_storage_expunge(struct mailbox *box, int notify);
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status);

@@ -20,7 +20,13 @@ mbox_list_mailbox_init(struct mail_storage *storage, const char *mask,
 int mbox_list_mailbox_deinit(struct mailbox_list_context *ctx);
 struct mailbox_list *mbox_list_mailbox_next(struct mailbox_list_context *ctx);
 
-int mbox_expunge_locked(struct index_mailbox *ibox, int notify);
+struct mail_expunge_context *
+mbox_storage_expunge_init(struct mailbox *box,
+			  enum mail_fetch_field wanted_fields, int expunge_all);
+int mbox_storage_expunge_deinit(struct mail_expunge_context *ctx);
+struct mail *mbox_storage_expunge_fetch_next(struct mail_expunge_context *ctx);
+int mbox_storage_expunge(struct mail *mail, struct mail_expunge_context *ctx,
+			 unsigned int *seq_r, int notify);
 
 int mbox_is_valid_mask(const char *mask);
 

@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "commands.h"
+#include "imap-expunge.h"
 
 int cmd_close(struct client *client)
 {
@@ -13,7 +14,7 @@ int cmd_close(struct client *client)
 	client->mailbox = NULL;
 
 	if (!mailbox->readonly) {
-		if (!mailbox->expunge(mailbox, FALSE))
+		if (!imap_expunge(mailbox, FALSE))
 			client_send_untagged_storage_error(client);
 	}
 

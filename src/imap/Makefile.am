@@ -61,6 +61,7 @@ imap_SOURCES = \
 	client.c \
 	commands.c \
 	commands-util.c \
+	imap-expunge.c \
 	imap-fetch.c \
 	imap-fetch-body-section.c \
 	imap-search.c \
@@ -76,6 +77,7 @@ noinst_HEADERS = \
 	commands.h \
 	commands-util.h \
 	common.h \
+	imap-expunge.h \
 	imap-fetch.h \
 	imap-search.h \
 	imap-sort.h \

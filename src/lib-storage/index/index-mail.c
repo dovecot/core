@@ -12,6 +12,7 @@
 #include "mail-index-util.h"
 #include "mail-custom-flags.h"
 #include "index-storage.h"
+#include "index-expunge.h"
 #include "index-mail.h"
 
 #include <ctype.h>
@@ -650,7 +651,8 @@ static struct mail index_mail = {
 	get_stream,
 	get_special,
 	index_storage_update_flags,
-	index_storage_copy
+	index_storage_copy,
+	index_storage_expunge
 };
 
 void index_mail_init(struct index_mailbox *ibox, struct index_mail *mail,
@@ -664,6 +666,7 @@ void index_mail_init(struct index_mailbox *ibox, struct index_mail *mail,
 	mail->ibox = ibox;
 	mail->wanted_fields = wanted_fields;
 	mail->wanted_headers = wanted_headers;
+	mail->expunge_counter = ibox->index->expunge_counter;
 
 	if (ibox->mail_init != NULL)
 		ibox->mail_init(mail);
@@ -674,6 +677,8 @@ int index_mail_next(struct index_mail *mail, struct mail_index_record *rec,
 {
 	struct index_mail_data *data = &mail->data;
 	int ret, open_mail, parse_header, envelope_headers;
+
+	i_assert(mail->expunge_counter == mail->ibox->index->expunge_counter);
 
 	t_push();
 

@@ -15,6 +15,10 @@ int index_storage_update_flags(struct mail *mail,
 	enum mail_flags modify_flags, new_flags;
 
 	if (mail->box->readonly) {
+		if (ibox->sent_readonly_flags_warning)
+			return TRUE;
+                ibox->sent_readonly_flags_warning = TRUE;
+
 		storage->callbacks->
 			notify_no(&ibox->box,
 				  "Mailbox is read-only, ignoring flag changes",

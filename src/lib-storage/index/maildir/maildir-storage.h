@@ -23,7 +23,15 @@ int maildir_list_mailbox_deinit(struct mailbox_list_context *ctx);
 struct mailbox_list *
 maildir_list_mailbox_next(struct mailbox_list_context *ctx);
 
-int maildir_expunge_locked(struct index_mailbox *ibox, int notify);
+struct mail_expunge_context *
+maildir_storage_expunge_init(struct mailbox *box,
+			     enum mail_fetch_field wanted_fields,
+			     int expunge_all);
+int maildir_storage_expunge_deinit(struct mail_expunge_context *ctx);
+struct mail *
+maildir_storage_expunge_fetch_next(struct mail_expunge_context *ctx);
+int maildir_storage_expunge(struct mail *mail, struct mail_expunge_context *ctx,
+			    unsigned int *seq_r, int notify);
 
 const char *maildir_get_path(struct mail_storage *storage, const char *name);
 

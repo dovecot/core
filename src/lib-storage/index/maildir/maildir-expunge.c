@@ -1,67 +1,83 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
+#include "index-expunge.h"
 #include "maildir-index.h"
 #include "maildir-storage.h"
 
-int maildir_expunge_locked(struct index_mailbox *ibox, int notify)
+struct maildir_expunge_context {
+	struct mail_expunge_context *ctx;
+	int sent_access_warning;
+};
+
+struct mail_expunge_context *
+maildir_storage_expunge_init(struct mailbox *box,
+			     enum mail_fetch_field wanted_fields,
+			     int expunge_all)
 {
-	struct mail_index_record *rec, *first_rec, *last_rec;
-	unsigned int seq, first_seq, last_seq;
-	int ret, no_permission = FALSE;
+	struct maildir_expunge_context *ctx;
+        struct mail_expunge_context *mctx;
 
-	if (!index_expunge_seek_first(ibox, &seq, &rec))
-		return FALSE;
+	mctx = index_storage_expunge_init(box, wanted_fields, expunge_all);
+	if (mctx == NULL)
+		return NULL;
 
-	first_rec = last_rec = NULL;
-	first_seq = last_seq = 0;
-	while (rec != NULL) {
-		if ((rec->msg_flags & MAIL_DELETED) == 0)
-			ret = FALSE;
-		else {
-			t_push();
-			ret = maildir_expunge_mail(ibox->index, rec);
-			t_pop();
+	ctx = i_new(struct maildir_expunge_context, 1);
+	ctx->ctx = mctx;
+	return (struct mail_expunge_context *) ctx;
+}
 
-			if (!ret) {
-				if (errno != EACCES)
-					return FALSE;
-				no_permission = TRUE;
-			} else {
-				if (first_rec == NULL) {
-					first_rec = rec;
-					first_seq = seq;
-				}
-				last_rec = rec;
-				last_seq = seq;
-			}
-		}
+int maildir_storage_expunge_deinit(struct mail_expunge_context *_ctx)
+{
+	struct maildir_expunge_context *ctx =
+		(struct maildir_expunge_context *) _ctx;
+	struct mail_expunge_context *mctx;
 
-		if (!ret && first_rec != NULL) {
-			if (!index_expunge_mails(ibox, first_rec, last_rec,
-						 first_seq, last_seq, notify))
-				return FALSE;
-			first_rec = NULL;
+	mctx = ctx->ctx;
+	i_free(ctx);
+	return index_storage_expunge_deinit(mctx);
+}
 
-			seq = first_seq;
-			rec = ibox->index->lookup(ibox->index, seq);
-		} else {
-			seq++;
-			rec = ibox->index->next(ibox->index, rec);
-		}
+struct mail *
+maildir_storage_expunge_fetch_next(struct mail_expunge_context *_ctx)
+{
+	struct maildir_expunge_context *ctx =
+		(struct maildir_expunge_context *) _ctx;
+
+	return index_storage_expunge_fetch_next(ctx->ctx);
+}
+
+int maildir_storage_expunge(struct mail *mail,
+			    struct mail_expunge_context *_ctx,
+			    unsigned int *seq_r, int notify)
+{
+	struct maildir_expunge_context *ctx =
+		(struct maildir_expunge_context *) _ctx;
+	struct index_mail *imail = (struct index_mail *) mail;
+	int ret;
+
+	if (mail->box->readonly) {
+		/* send warning */
+		return index_storage_expunge(mail, ctx->ctx, seq_r, notify);
 	}
 
-	if (first_rec != NULL) {
-		if (!index_expunge_mails(ibox, first_rec, last_rec,
-					 first_seq, last_seq, notify))
+	t_push();
+	ret = maildir_expunge_mail(imail->ibox->index, imail->data.rec);
+	t_pop();
+
+	if (!ret) {
+		if (errno != EACCES)
 			return FALSE;
-	}
 
-	if (no_permission) {
-		ibox->box.storage->callbacks->notify_no(&ibox->box,
+		if (ctx->sent_access_warning)
+			return TRUE;
+                ctx->sent_access_warning = TRUE;
+
+		mail->box->storage->callbacks->notify_no(mail->box,
 			"We didn't have permission to expunge all the mails",
-			ibox->box.storage->callback_context);
+			mail->box->storage->callback_context);
+		return TRUE;
 	}
 
-	return TRUE;
+	return index_storage_expunge(mail, ctx->ctx, seq_r, notify);
 }

@@ -139,63 +139,44 @@ static int cmd_noop(struct client *client, const char *args __attr_unused__)
 	return TRUE;
 }
 
-static int cmd_quit(struct client *client, const char *args __attr_unused__)
+static int expunge_mails(struct client *client, struct mailbox *box)
 {
-	unsigned int first, last, msgnum, max, i, j;
-	struct mail_full_flags flags;
-	string_t *set;
+	struct mail_expunge_context *ctx;
+	struct mail *mail;
+	unsigned int i, j;
+	int failed = FALSE;
 
-	if (!client->deleted) {
-		client_send_line(client, "+OK Logging out.");
-		client_disconnect(client);
-		return TRUE;
-	}
+	/* NOTE: if there's any external expunges, they'll get synced here.
+	   Currently we update only the deleted_bitmask[] so we don't end up
+	   expunging wrong messages, but message_sizes[] isn't updated. */
+	ctx = box->expunge_init(box, 0, TRUE);
+	if (ctx == NULL)
+		return FALSE;
 
-	set = t_str_new(1024);
-	first = last = 0; msgnum = 1;
-	max = MSGS_BITMASK_SIZE(client);
-	for (i = 0; i < max; i++) {
-		if (client->deleted_bitmask[i] == 0) {
-                        msgnum += CHAR_BIT;
-			continue;
-		}
-
-		for (j = 0; j < CHAR_BIT; j++, msgnum++) {
-			if ((client->deleted_bitmask[i] & (1 << j)) == 0)
-				continue;
-
-			if (last == msgnum-1 && last != 0)
-				last++;
-			else {
-				if (first != 0) {
-					if (first == last)
-						str_printfa(set, ",%u", first);
-					else {
-						str_printfa(set, ",%u:%u",
-							    first, last);
-					}
-				}
-				first = last = msgnum;
+	i = j = 0;
+	while ((mail = box->expunge_fetch_next(ctx)) != NULL) {
+		if ((client->deleted_bitmask[i] & (1 << j)) != 0) {
+			if (!mail->expunge(mail, ctx, NULL, FALSE)) {
+				failed = TRUE;
+				break;
 			}
 		}
+		if (++j == CHAR_BIT) {
+			j = 0; i++;
+		}
 	}
 
-	if (first != 0) {
-		if (first == last)
-			str_printfa(set, ",%u", first);
-		else
-			str_printfa(set, ",%u:%u", first, last);
-	}
+	if (!box->expunge_deinit(ctx))
+		return FALSE;
 
-	memset(&flags, 0, sizeof(flags));
-	flags.flags = MAIL_DELETED;
+	return !failed;
+}
 
-	if (str_len(set) == 0)
+static int cmd_quit(struct client *client, const char *args __attr_unused__)
+{
+	if (!client->deleted)
 		client_send_line(client, "+OK Logging out.");
-	else if (client->mailbox->update_flags(client->mailbox, str_c(set)+1,
-					       FALSE, &flags, MODIFY_ADD,
-					       FALSE, NULL) &&
-		 client->mailbox->expunge(client->mailbox, FALSE))
+	else if (expunge_mails(client, client->mailbox))
 		client_send_line(client, "+OK Logging out, messages deleted.");
 	else
 		client_send_storage_error(client);
@@ -281,8 +262,7 @@ static void fetch(struct client *client, unsigned int msgnum,
 	ctx = client->mailbox->fetch_init(client->mailbox,
 					  MAIL_FETCH_STREAM_HEADER |
 					  MAIL_FETCH_STREAM_BODY,
-					  NULL, dec2str(msgnum+1),
-					  FALSE);
+					  dec2str(msgnum+1), FALSE);
 	if (ctx == NULL) {
 		client_send_storage_error(client);
 		return;
@@ -366,7 +346,7 @@ static void list_uids(struct client *client, unsigned int message)
 		t_strdup_printf("%u", message);
 
 	ctx = client->mailbox->fetch_init(client->mailbox, 0,
-					  NULL, messageset, FALSE);
+					  messageset, FALSE);
 	if (ctx == NULL) {
 		client_send_storage_error(client);
 		return;

@@ -385,6 +385,8 @@ struct mail_index {
 
         /* updated whenever exclusive lock is set/unset */
 	unsigned int excl_lock_counter;
+	/* updated whenever expunge() is called */
+	unsigned int expunge_counter;
 
 	int mbox_fd;
 	struct istream *mbox_stream;
@@ -454,11 +456,11 @@ struct mail_index {
    members.. */
 #define MAIL_INDEX_PRIVATE_FILL \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, { 0, 0, 0 }, 0, 0, \
+	0, 0, 0, 0, 0, 0, { 0, 0, 0 }, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0
 #endif
 
 /* defaults - same as above but prefixed with mail_index_. */

@@ -319,6 +319,11 @@ static const char *mbox_get_path(struct mail_storage *storage, const char *name)
 	return t_strconcat(storage->dir, "/", name, NULL);
 }
 
+static void mbox_mail_init(struct index_mail *mail)
+{
+	mail->mail.expunge = mbox_storage_expunge;
+}
+
 static struct mailbox *mbox_open(struct mail_storage *storage, const char *name,
 				 enum mailbox_open_flags flags)
 {
@@ -349,7 +354,7 @@ static struct mailbox *mbox_open(struct mail_storage *storage, const char *name,
 	ibox = index_storage_mailbox_init(storage, &mbox_mailbox, index,
 					  name, flags);
 	if (ibox != NULL)
-		ibox->expunge_locked = mbox_expunge_locked;
+		ibox->mail_init = mbox_mail_init;
 	return (struct mailbox *) ibox;
 }
 
@@ -780,7 +785,6 @@ struct mailbox mbox_mailbox = {
 	index_storage_get_status,
 	index_storage_sync,
 	mbox_storage_auto_sync,
-	index_storage_expunge,
 	index_storage_fetch_init,
 	index_storage_fetch_deinit,
 	index_storage_fetch_next,
@@ -795,6 +799,9 @@ struct mailbox mbox_mailbox = {
 	mbox_storage_save_next,
 	index_storage_copy_init,
 	index_storage_copy_deinit,
+	mbox_storage_expunge_init,
+	mbox_storage_expunge_deinit,
+	mbox_storage_expunge_fetch_next,
 	mail_storage_is_inconsistency_error,
 
 	FALSE,

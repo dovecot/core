@@ -235,10 +235,10 @@ struct mailbox {
 
 	/* Explicitly lock the mailbox. If not used, all the methods below
 	   use the minimum locking requirements. This allows you to for
-	   example use the expunge() and update_flags() methods in
-	   struct mail. The mailbox stays locked until you unlock it.
-	   Note that if you call a method which wants more locks than you've
-	   given here, the call will fail (to avoid deadlocks). */
+	   example use the update_flags() method in struct mail. The mailbox
+	   stays locked until you unlock it. Note that if you call a method
+	   which wants more locks than you've given here, the call will fail
+	   (to avoid deadlocks). */
 	int (*lock)(struct mailbox *box, enum mailbox_lock_type lock_type);
 
 	/* Gets the mailbox status information. */
@@ -252,10 +252,6 @@ struct mailbox {
 	   called with sync_type = MAILBOX_SYNC_NONE */
 	void (*auto_sync)(struct mailbox *box, enum mailbox_sync_type sync_type,
 			  unsigned int min_newmail_notify_interval);
-
-	/* Expunge all mails with \Deleted flag. If notify is TRUE, call
-	   expunge callbacks. Also always does full syncing. */
-	int (*expunge)(struct mailbox *box, int notify);
 
 	/* Initialize new fetch request. wanted_fields isn't required, but it
 	   can be used for optimizations. update_flags must be set to TRUE, if
@@ -324,10 +320,21 @@ struct mailbox {
 
 	/* Initialize copying operation to this mailbox. The actual copying
 	   can be done by fetching or searching mails and calling mail's
-	   expunge() method. */
+	   copy() method. */
 	struct mail_copy_context *(*copy_init)(struct mailbox *box);
 	/* Finish copying. */
 	int (*copy_deinit)(struct mail_copy_context *ctx, int rollback);
+
+	/* Initialize expunging operation to this mailbox. If expunge_all
+	   is TRUE, all messages are returned rather than just deleted. */
+	struct mail_expunge_context *
+		(*expunge_init)(struct mailbox *box,
+				enum mail_fetch_field wanted_fields,
+				int expunge_all);
+	/* Finish expunging. */
+	int (*expunge_deinit)(struct mail_expunge_context *ctx);
+	/* Fetch next mail. */
+	struct mail *(*expunge_fetch_next)(struct mail_expunge_context *ctx);
 
 	/* Returns TRUE if mailbox is now in inconsistent state, meaning that
 	   the message IDs etc. may have changed - only way to recover this
@@ -393,6 +400,21 @@ struct mail {
 
 	/* Copy this message to another mailbox. */
 	int (*copy)(struct mail *mail, struct mail_copy_context *ctx);
+
+	/* Expunge this message. Note that the actual message may or may not
+	   be really expunged until expunge_deinit() is called. In any case,
+	   after this call you must not try to access this mail, or any other
+	   mail you've previously fetched.
+
+	   Since you can't be sure when the message is really expunged, you
+	   can't be sure what it's sequence number is from client's point of
+	   view. seq_r is set to that sequence number.
+
+	   This call is allowed only for mails fetched with
+	   expunge_fetch_next(). Otherwise the sequence number updates would
+	   get too tricky. */
+	int (*expunge)(struct mail *mail, struct mail_expunge_context *ctx,
+		       unsigned int *seq_r, int notify);
 };
 
 struct mailbox_list {

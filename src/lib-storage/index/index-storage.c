@@ -288,7 +288,7 @@ int index_storage_lock(struct index_mailbox *ibox,
 		if (ibox->lock_type != MAILBOX_LOCK_UNLOCK)
 			return TRUE;
 	} else {
-		if (ibox->index->lock_type == MAIL_LOCK_EXCLUSIVE)
+		if (ibox->lock_type == MAIL_LOCK_EXCLUSIVE)
 			return TRUE;
 	}
 

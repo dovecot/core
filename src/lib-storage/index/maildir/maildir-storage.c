@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
 #include "home-expand.h"
@@ -322,6 +322,7 @@ static int verify_inbox(struct mail_storage *storage)
 static void maildir_mail_init(struct index_mail *mail)
 {
 	mail->mail.copy = maildir_storage_copy;
+	mail->mail.expunge = maildir_storage_expunge;
 }
 
 static struct mailbox *
@@ -344,10 +345,8 @@ maildir_open(struct mail_storage *storage, const char *name,
 
 	ibox = index_storage_mailbox_init(storage, &maildir_mailbox,
 					  index, name, flags);
-	if (ibox != NULL) {
-		ibox->expunge_locked = maildir_expunge_locked;
+	if (ibox != NULL)
 		ibox->mail_init = maildir_mail_init;
-	}
 	return (struct mailbox *) ibox;
 }
 
@@ -770,7 +769,6 @@ struct mailbox maildir_mailbox = {
 	index_storage_get_status,
 	index_storage_sync,
 	maildir_storage_auto_sync,
-	index_storage_expunge,
 	index_storage_fetch_init,
 	index_storage_fetch_deinit,
 	index_storage_fetch_next,
@@ -785,6 +783,9 @@ struct mailbox maildir_mailbox = {
 	maildir_storage_save_next,
 	maildir_storage_copy_init,
 	maildir_storage_copy_deinit,
+	maildir_storage_expunge_init,
+	maildir_storage_expunge_deinit,
+	maildir_storage_expunge_fetch_next,
 	mail_storage_is_inconsistency_error,
 
 	FALSE,

@@ -657,29 +657,6 @@ void mail_index_mark_flag_changes(struct mail_index *index,
 	}
 }
 
-#if 0
-static int mail_index_truncate_hole(struct mail_index *index)
-{
-	index->header->used_file_size = sizeof(struct mail_index_header) +
-		(uoff_t)index->header->first_hole_index *
-		sizeof(struct mail_index_record);
-	index->header->first_hole_index = 0;
-	index->header->first_hole_records = 0;
-
-	index->mmap_used_length = index->header->used_file_size;
-	if (!mail_index_truncate(index))
-		return FALSE;
-
-	if (index->header->messages_count == 0) {
-		/* all mail was deleted, truncate data file */
-		if (!mail_index_data_reset(index->data))
-			return FALSE;
-	}
-
-	return TRUE;
-}
-#endif
-
 #define INDEX_NEED_COMPRESS(records, hdr) \
 	((records) > INDEX_MIN_RECORDS_COUNT && \
 	 (records) * (100-INDEX_COMPRESS_PERCENTAGE) / 100 > \
@@ -697,6 +674,8 @@ int mail_index_expunge(struct mail_index *index,
 	i_assert(first_seq != 0);
 	i_assert(first_seq <= last_seq);
 
+	index->expunge_counter++;
+
 	first_uid = first_rec->uid;
 	last_uid = last_rec->uid;
 
@@ -708,6 +687,12 @@ int mail_index_expunge(struct mail_index *index,
 						 first_seq, last_seq,
 						 first_uid, last_uid,
 						 external_change))
+			return FALSE;
+	}
+
+	if (index->header->messages_count == 0) {
+		/* all mail was deleted, truncate data file */
+		if (!mail_index_data_reset(index->data))
 			return FALSE;
 	}
 
