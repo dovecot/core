@@ -145,8 +145,11 @@ struct mail_storage {
 					const char *name,
 					int readonly, int fast);
 
-	/* name is allowed to contain multiple new hierarchy levels. */
-	int (*create_mailbox)(struct mail_storage *storage, const char *name);
+	/* name is allowed to contain multiple new hierarchy levels.
+	   If only_hierarchy is TRUE, the mailbox itself isn't created, just
+	   the hiearchy structure (if needed). */
+	int (*create_mailbox)(struct mail_storage *storage, const char *name,
+			      int only_hierarchy);
 
 	/* Only the specified mailbox is deleted, ie. folders under the
 	   specified mailbox must not be deleted. */

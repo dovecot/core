@@ -408,7 +408,8 @@ mbox_open_mailbox(struct mail_storage *storage,
 	}
 }
 
-static int mbox_create_mailbox(struct mail_storage *storage, const char *name)
+static int mbox_create_mailbox(struct mail_storage *storage, const char *name,
+			       int only_hierarchy)
 {
 	const char *path, *p;
 	struct stat st;
@@ -444,13 +445,18 @@ static int mbox_create_mailbox(struct mail_storage *storage, const char *name)
 	}
 
 	/* create the hierarchy if needed */
-	p = strrchr(path, '/');
+	p = only_hierarchy ? path + strlen(path) : strrchr(path, '/');
 	if (p != NULL) {
 		if (mkdir_parents(t_strdup_until(path, p)) < 0) {
 			mail_storage_set_critical(storage,
 				"mkdir_parents() failed for mbox path %s: %m",
 				path);
 			return FALSE;
+		}
+
+		if (only_hierarchy) {
+			/* wanted to create only the directory */
+			return TRUE;
 		}
 	}
 

@@ -6,26 +6,29 @@
 int cmd_create(struct client *client)
 {
 	const char *mailbox;
-	int ignore;
+	int only_hiearchy;
+	size_t len;
 
 	/* <mailbox> */
 	if (!client_read_string_args(client, 1, &mailbox))
 		return FALSE;
 
-	ignore = mailbox[strlen(mailbox)-1] == client->storage->hierarchy_sep;
-	if (ignore) {
+	len = strlen(mailbox);
+	if (mailbox[len-1] != client->storage->hierarchy_sep)
+		only_hiearchy = FALSE;
+	else {
 		/* name ends with hierarchy separator - client is just
 		   informing us that it wants to create a mailbox under
-		   this name. we don't need that information, but verify
-		   that the mailbox name is valid */
-		mailbox = t_strndup(mailbox, strlen(mailbox)-1);
+		   this name. */
+                only_hiearchy = TRUE;
+		mailbox = t_strndup(mailbox, len-1);
 	}
 
-	if (!client_verify_mailbox_name(client, mailbox, FALSE, !ignore))
+	if (!client_verify_mailbox_name(client, mailbox, FALSE, TRUE))
 		return TRUE;
 
-	if (!ignore &&
-	    !client->storage->create_mailbox(client->storage, mailbox)) {
+	if (!client->storage->create_mailbox(client->storage, mailbox,
+					     only_hiearchy)) {
 		client_send_storage_error(client);
 		return TRUE;
 	}
