@@ -26,11 +26,20 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 	msg_end = msg + size;
 
 	/* skip sender */
-	while (*msg != ' ' && msg < msg_end) msg++;
-	while (*msg == ' ' && msg < msg_end) msg++;
+	while (msg < msg_end && *msg != ' ') {
+		if (*msg == '\r' || *msg == '\n')
+			return (time_t)-1;
+		msg++;
+	}
+	while (msg < msg_end && *msg == ' ') msg++;
 
-	/* next 24 chars are the date in asctime() format,
-	   eg. "Thu Nov 29 22:33:52 2001" */
+	/* next 24 chars should be in the date in asctime() format,
+	   eg. "Thu Nov 29 22:33:52 2001"
+
+	   Some some also include timezone:
+
+	   "Thu Nov 29 22:33:52 EEST 2001"
+	*/
 	if (msg+24 > msg_end)
 		return (time_t)-1;
 
@@ -88,10 +97,25 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 	tm.tm_sec = (msg[0]-'0') * 10 + (msg[1]-'0');
 	msg += 3;
 
+	/* optional timezone */
+	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
+	    !i_isdigit(msg[2]) || !i_isdigit(msg[3])) {
+		/* skip to next space */
+		while (msg < msg_end && *msg != ' ') {
+			if (*msg == '\r' || *msg == '\n')
+				return (time_t)-1;
+			msg++;
+		}
+		if (msg+5 > msg_end)
+			return (time_t)-1;
+		msg++;
+	}
+
 	/* year */
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
 	    !i_isdigit(msg[2]) || !i_isdigit(msg[3]))
 		return (time_t)-1;
+
 	tm.tm_year = (msg[0]-'0') * 1000 + (msg[1]-'0') * 100 +
 		(msg[2]-'0') * 10 + (msg[3]-'0') - 1900;
 
