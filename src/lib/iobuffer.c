@@ -27,13 +27,10 @@
 #include "ioloop.h"
 #include "iobuffer.h"
 #include "mmap-util.h"
+#include "sendfile-util.h"
 #include "network.h"
 
 #include <unistd.h>
-
-#ifdef HAVE_SYS_SENDFILE_H
-#  include <sys/sendfile.h>
-#endif
 
 static unsigned int mmap_pagesize = 0;
 static unsigned int mmap_pagemask = 0;
@@ -454,18 +451,14 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
         return 1;
 }
 
-#ifdef HAVE_SYS_SENDFILE_H
 static void block_loop_sendfile(IOBufferBlockContext *ctx)
 {
-	off_t offset;
 	int ret;
 
 	i_assert(ctx->inbuf->offset < OFF_T_MAX);
 
-	offset = (off_t)ctx->inbuf->offset;
-	ret = sendfile(ctx->outbuf->fd, ctx->inbuf->fd, &offset, ctx->size);
-	ctx->inbuf->offset = (uoff_t)offset;
-
+	ret = safe_sendfile(ctx->outbuf->fd, ctx->inbuf->fd,
+			    &ctx->inbuf->offset, ctx->size);
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN)
 			ctx->outbuf->closed = TRUE;
@@ -481,7 +474,6 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 			      unsigned int size)
 {
         IOBufferBlockContext ctx;
-	off_t offset;
 	int ret;
 
 	i_assert(inbuf->offset < OFF_T_MAX);
@@ -489,10 +481,7 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 	io_buffer_send_flush(outbuf);
 
 	/* first try if we can do it with a single sendfile() call */
-	offset = (off_t)inbuf->offset;
-	ret = sendfile(outbuf->fd, inbuf->fd, &offset, size);
-	inbuf->offset = (uoff_t)offset;
-
+	ret = safe_sendfile(outbuf->fd, inbuf->fd, &inbuf->offset, size);
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN)
 			return -1;
@@ -517,7 +506,6 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 	}
 	return ret;
 }
-#endif
 
 static void block_loop_copy(IOBufferBlockContext *ctx)
 {
@@ -551,14 +539,13 @@ int io_buffer_send_buf(IOBuffer *outbuf, IOBuffer *inbuf, unsigned int size)
 
 	i_assert(size < INT_MAX);
 
-#ifdef HAVE_SYS_SENDFILE_H
 	ret = io_buffer_sendfile(outbuf, inbuf, size);
 	if (ret >= 0 || errno != EINVAL)
 		return ret;
 
-	/* sendfile() not supported with fd, fallback to
+	/* sendfile() not supported (with this fd), fallback to
 	   regular sending */
-#endif
+
 	/* see if we can do it at one go */
 	ret = io_buffer_read_data(inbuf, &in_data, &in_size, 0);
 	if (ret == -1)
