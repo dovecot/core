@@ -50,6 +50,9 @@ struct message_header_line {
 	const unsigned char *full_value;
 	size_t full_value_len;
 
+	const unsigned char *middle;
+	size_t middle_len;
+
 	uoff_t name_offset, full_value_offset;
 
 	unsigned int continues:1; /* multiline header, continues in next line */

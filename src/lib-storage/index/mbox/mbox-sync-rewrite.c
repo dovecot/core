@@ -267,7 +267,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff,
 		return 1;
 	}
 
-	if (move_diff != 0 || ctx->no_partial_rewrite) {
+	if (move_diff != 0) {
 		/* forget about partial write optimizations */
 		ctx->header_first_change = 0;
 		ctx->header_last_change = 0;

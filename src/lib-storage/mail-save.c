@@ -109,7 +109,8 @@ static int save_headers(struct istream *input, struct ostream *output,
 			if (!hdr->continued) {
 				(void)o_stream_send(output, hdr->name,
 						    hdr->name_len);
-				(void)o_stream_send(output, ": ", 2);
+				(void)o_stream_send(output, hdr->middle,
+						    hdr->middle_len);
 			}
 			(void)o_stream_send(output, hdr->value, hdr->value_len);
 			if (!hdr->no_newline)

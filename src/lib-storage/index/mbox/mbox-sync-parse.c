@@ -388,21 +388,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 		if (!hdr->continued) {
 			line_start_pos = str_len(ctx->header);
 			str_append(ctx->header, hdr->name);
-			str_append(ctx->header, ": ");
-
-			if (ctx->header_first_change == (size_t)-1 &&
-			    hdr->full_value_offset - hdr->name_offset !=
-			    str_len(ctx->header) - line_start_pos) {
-				/* whitespaces around ':' are non-standard.
-				   either there's whitespace before ':' or none
-				   after. if we're going to rewrite this
-				   message, we can't do it partially from here
-				   after as offsets won't match. this shouldn't
-				   happen pretty much ever, so don't try to
-				   optimize this - just rewrite the whole
-				   thing. */
-				ctx->no_partial_rewrite = TRUE;
-			}
+			str_append_n(ctx->header, hdr->middle, hdr->middle_len);
 		}
 
 		func = header_func_find(hdr->name);

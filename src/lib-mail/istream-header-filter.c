@@ -143,7 +143,8 @@ read_and_hide_headers(struct istream *input, int filter,
 		} else if (dest != NULL) {
 			if (!hdr->continued) {
 				buffer_append(dest, hdr->name, hdr->name_len);
-				buffer_append(dest, ": ", 2);
+				buffer_append(dest, hdr->middle,
+					      hdr->middle_len);
 			}
 			buffer_append(dest, hdr->value, hdr->value_len);
 			buffer_append(dest, "\r\n", 2);

@@ -69,7 +69,6 @@ struct mbox_sync_mail_context {
 
 	unsigned int have_eoh:1;
 	unsigned int need_rewrite:1;
-	unsigned int no_partial_rewrite:1;
 	unsigned int seen_imapbase:1;
 	unsigned int pseudo:1;
 	unsigned int updated:1;

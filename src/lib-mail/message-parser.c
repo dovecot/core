@@ -832,9 +832,12 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 		line->eoh = TRUE;
 		line->name_len = line->value_len = line->full_value_len = 0;
 		line->name = ""; line->value = line->full_value = NULL;
+		line->middle = NULL; line->middle_len = 0;
 	} else if (line->continued) {
 		line->value = msg;
 		line->value_len = size;
+		line->middle = NULL;
+		line->middle_len = 0;
 	} else if (colon_pos == UINT_MAX) {
 		/* missing ':', assume the whole line is name */
 		line->value = NULL;
@@ -844,6 +847,9 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 		str_append_n(ctx->name, msg, size);
 		line->name = str_c(ctx->name);
 		line->name_len = str_len(ctx->name);
+
+		line->middle = NULL;
+		line->middle_len = 0;
 	} else {
 		size_t pos;
 
@@ -879,6 +885,9 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 		/* get name, skip LWSP before ':' */
 		while (colon_pos > 0 && IS_LWSP(msg[colon_pos-1]))
 			colon_pos--;
+
+		line->middle = msg + colon_pos;
+		line->middle_len = (size_t)(line->value - line->middle);
 
 		str_truncate(ctx->name, 0);
 		str_append_n(ctx->name, msg, colon_pos);

@@ -302,7 +302,8 @@ static int fetch_header_fields(struct istream *input, const char *section,
 		if (!hdr->continued) {
 			if (!fetch_header_append(ctx, hdr->name, hdr->name_len))
 				break;
-			if (!fetch_header_append(ctx, ": ", 2))
+			if (!fetch_header_append(ctx, hdr->middle,
+						 hdr->middle_len))
 				break;
 		}
 		if (!fetch_header_append(ctx, hdr->value, hdr->value_len))

@@ -285,7 +285,7 @@ int index_mail_parse_header(struct message_part *part,
 		data->parse_line.start_pos = str_len(mail->header_data);
 		data->parse_line.line_num = data->parse_line_num;
 		str_append(mail->header_data, hdr->name);
-		str_append(mail->header_data, ": ");
+		str_append_n(mail->header_data, hdr->middle, hdr->middle_len);
 
 		if (first_hdr) {
 			/* save the offset to first header */
