@@ -27,6 +27,9 @@ static int mail_index_open_init(struct mail_index *index,
 
 	hdr = index->header;
 
+	index->maildir_have_new =
+		(hdr->flags & MAIL_INDEX_FLAG_MAILDIR_NEW) != 0;
+
 	/* update \Recent message counters */
 	if ((flags & MAIL_INDEX_OPEN_FLAG_UPDATE_RECENT) != 0 &&
 	    hdr->last_nonrecent_uid != hdr->next_uid-1) {

@@ -436,7 +436,7 @@ static void uidlist_hash_get_filenames(void *key, void *value, void *context)
 	struct maildir_hash_rec *hash_rec = value;
 
 	if (ACTION(hash_rec) == MAILDIR_FILE_ACTION_NEW)
-		buffer_append(buf, (const void *) &key, sizeof(key));
+		buffer_append(buf, (const void *) &key, sizeof(const char *));
 }
 
 static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
@@ -637,8 +637,8 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 	buf = buffer_create_static_hard(ctx->pool,
 					ctx->new_count * sizeof(const char *));
 	hash_foreach(ctx->files, uidlist_hash_get_filenames, buf);
-	i_assert(buffer_get_used_size(buf) / sizeof(const char *) <=
-		 ctx->new_count);
+	i_assert(buffer_get_used_size(buf) ==
+		 ctx->new_count * sizeof(const char *));
 
 	new_files = buffer_get_modifyable_data(buf, NULL);
 	qsort(new_files, ctx->new_count, sizeof(const char *),
@@ -669,7 +669,8 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 	return TRUE;
 }
 
-static int maildir_full_sync_init(struct maildir_sync_context *ctx)
+static int maildir_full_sync_init(struct maildir_sync_context *ctx,
+				  int only_new)
 {
 	struct mail_index *index = ctx->index;
 	struct mail_index_record *rec;
@@ -697,6 +698,7 @@ static int maildir_full_sync_init(struct maildir_sync_context *ctx)
 	ctx->files = hash_create(default_pool, ctx->pool,
 				 index->header->messages_count * 2,
 				 maildir_hash, maildir_cmp);
+	ctx->new_count = 0;
 
 	have_new = FALSE;
 
@@ -709,20 +711,23 @@ static int maildir_full_sync_init(struct maildir_sync_context *ctx)
 		if ((rec->index_flags & INDEX_MAIL_FLAG_MAILDIR_NEW) != 0)
 			have_new = TRUE;
 
-		hash_rec = p_new(ctx->pool, struct maildir_hash_rec, 1);
-		hash_rec->rec = rec;
-		hash_rec->action = MAILDIR_FILE_ACTION_EXPUNGE;
+		if (!only_new ||
+		    (rec->index_flags & INDEX_MAIL_FLAG_MAILDIR_NEW) != 0) {
+			hash_rec = p_new(ctx->pool, struct maildir_hash_rec, 1);
+			hash_rec->rec = rec;
+			hash_rec->action = MAILDIR_FILE_ACTION_EXPUNGE;
 
-		if (hash_lookup(ctx->files, fname) != NULL) {
-			index_set_corrupted(index, "Duplicated message %s",
-					    fname);
-			return FALSE;
+			if (hash_lookup(ctx->files, fname) != NULL) {
+				index_set_corrupted(index,
+					"Duplicated message %s", fname);
+				return FALSE;
+			}
+
+			/* WARNING: index must not be modified as long as
+			   these hash keys exist. Modifying might change the
+			   mmap base address. */
+			hash_insert(ctx->files, (void *) fname, hash_rec);
 		}
-
-		/* WARNING: index must not be modified as long as these
-		   hash keys exist. Modifying might change the mmap base
-		   address. */
-		hash_insert(ctx->files, (void *) fname, hash_rec);
 
 		rec = index->next(index, rec);
 	}
@@ -892,6 +897,7 @@ static int maildir_full_sync_dirs(struct maildir_sync_context *ctx)
 		if (!maildir_full_sync_dir(ctx, ctx->new_dir, TRUE,
 					   ctx->new_dirp, ctx->new_dent))
 			return FALSE;
+                ctx->new_dent = NULL;
 	}
 
 	dirp = opendir(ctx->cur_dir);
@@ -911,6 +917,25 @@ static int maildir_full_sync_dirs(struct maildir_sync_context *ctx)
 	return !failed;
 }
 
+static int maildir_sync_new_dir_full(struct maildir_sync_context *ctx)
+{
+	if (!ctx->index->set_lock(ctx->index, MAIL_LOCK_EXCLUSIVE))
+		return FALSE;
+
+	if (!maildir_full_sync_init(ctx, TRUE))
+		return FALSE;
+
+	if (!maildir_full_sync_dir(ctx, ctx->new_dir, TRUE,
+				   ctx->new_dirp, ctx->new_dent))
+		return FALSE;
+	ctx->new_dent = NULL;
+
+	if (!maildir_full_sync_finish(ctx))
+		return FALSE;
+
+	return TRUE;
+}
+
 static int maildir_sync_new_dir(struct maildir_sync_context *ctx,
 				int move_to_cur, int append_index)
 {
@@ -919,6 +944,14 @@ static int maildir_sync_new_dir(struct maildir_sync_context *ctx,
 	const char *final_dir;
 
 	if (append_index) {
+		if (ctx->index->maildir_have_new) {
+			/* some of the mails in new/ are already indexed.
+			   we'll have to do a full sync.
+			   FIXME: or not really, just full sync for mails
+			   in new/ */
+			return maildir_sync_new_dir_full(ctx);
+		}
+
 		if (!ctx->index->set_lock(ctx->index, MAIL_LOCK_EXCLUSIVE))
 			return FALSE;
 
@@ -988,8 +1021,6 @@ static int maildir_sync_new_dir(struct maildir_sync_context *ctx,
 		}
 
 		if (append_index) {
-			/* FIXME: it may be already indexed if it couldn't
-			   be moved to cur! */
 			if (!move_to_cur)
 				ctx->index->maildir_have_new = TRUE;
 
@@ -1026,7 +1057,7 @@ static int maildir_sync_cur_dir(struct maildir_sync_context *ctx)
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	if (!maildir_full_sync_init(ctx) ||
+	if (!maildir_full_sync_init(ctx, FALSE) ||
 	    !maildir_full_sync_dirs(ctx) ||
 	    !maildir_full_sync_finish(ctx))
 		return FALSE;
@@ -1097,6 +1128,13 @@ static int maildir_index_sync_context(struct maildir_sync_context *ctx,
 
 		if (!maildir_uidlist_rewrite(index, &index->last_uidlist_mtime))
 			return FALSE;
+	}
+
+	if (index->lock_type == MAIL_LOCK_EXCLUSIVE) {
+		if (index->maildir_have_new)
+			index->header->flags |= MAIL_INDEX_FLAG_MAILDIR_NEW;
+		else
+			index->header->flags &= ~MAIL_INDEX_FLAG_MAILDIR_NEW;
 	}
 
 	if (cur_mtime < ioloop_time - MAILDIR_SYNC_SECS)
@@ -1190,7 +1228,7 @@ static int maildir_index_sync_context_readonly(struct maildir_sync_context *ctx)
 	   directly. but don't rely on it. */
 	(void)index->try_lock(index, MAIL_LOCK_EXCLUSIVE);
 
-	if (!maildir_full_sync_init(ctx) ||
+	if (!maildir_full_sync_init(ctx, FALSE) ||
 	    !maildir_full_sync_dirs(ctx) ||
 	    !maildir_full_sync_finish_readonly(ctx))
 		return FALSE;
