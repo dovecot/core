@@ -31,6 +31,12 @@ get_sort_program(struct client *client, struct imap_arg *args)
 	buffer_t *buf;
 	int i;
 
+	if (args->type == IMAP_ARG_EOL) {
+		/* empyty list */
+		client_send_command_error(client, "Empty sort program.");
+		return NULL;
+	}
+
 	buf = buffer_create_dynamic(data_stack_pool,
 				    32 * sizeof(enum mail_sort_type),
 				    (size_t)-1);
