@@ -342,6 +342,11 @@ void i_set_failure_file(const char *path, const char *prefix)
 	if (log_info_fd != NULL && log_info_fd != stderr)
 		(void)fclose(log_info_fd);
 	log_info_fd = log_fd;
+
+	i_set_panic_handler(NULL);
+	i_set_fatal_handler(NULL);
+	i_set_error_handler(NULL);
+	i_set_warning_handler(NULL);
 }
 
 static int internal_handler(char log_type, const char *format, va_list args)
