@@ -296,10 +296,12 @@ static void fetch_callback(struct client *client)
 			}
 		}
 
-		if (o_stream_send(client->output, data, i) < 0)
-			break;
-		ctx->last = data[i-1];
-		i_stream_skip(ctx->stream, i);
+		if (i > 0) {
+			if (o_stream_send(client->output, data, i) < 0)
+				break;
+			ctx->last = data[i-1];
+			i_stream_skip(ctx->stream, i);
+		}
 
 		if (o_stream_get_buffer_used_size(client->output) > 0) {
 			/* continue later */
