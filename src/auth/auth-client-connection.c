@@ -275,9 +275,11 @@ static void auth_request_hash_timeout_check(void *key __attr_unused__,
 static void request_timeout(void *context __attr_unused__)
 {
         struct auth_master_connection *master = context;
-	struct auth_client_connection *conn;
+	struct auth_client_connection *conn, *next;
 
-	for (conn = master->clients; conn != NULL; conn = conn->next) {
+	for (conn = master->clients; conn != NULL; conn = next) {
+		next = conn->next;
+
 		conn->refcount++;
 		hash_foreach(conn->auth_requests,
 			     auth_request_hash_timeout_check, conn);
