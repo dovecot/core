@@ -183,8 +183,10 @@ int message_part_serialize_update_header(void *data, size_t size,
 	spart->header_lines = hdr_size->lines;
 
 	if (pos_diff != 0) {
-		/* have to update all positions */
-		count = size / sizeof(SerializedMessagePart);
+		/* have to update all positions, but skip the first one */
+		count = (size / sizeof(SerializedMessagePart))-1;
+		spart++;
+
 		for (i = 0; i < count; i++, spart++) {
 			if (spart->physical_pos < first_pos ||
 			    spart->physical_pos >= OFF_T_MAX) {
