@@ -103,7 +103,8 @@ static void parse_content_type(const unsigned char *value, size_t value_len,
 
 	if (strcasecmp(str, "message/rfc822") == 0)
 		parser_ctx->part->flags |= MESSAGE_PART_FLAG_MESSAGE_RFC822;
-	else if (strncasecmp(str, "text/", 5) == 0)
+	else if (strncasecmp(str, "text", 4) == 0 &&
+		 (str[4] == '/' || str[4] == '\0'))
 		parser_ctx->part->flags |= MESSAGE_PART_FLAG_TEXT;
 	else if (strncasecmp(str, "multipart/", 10) == 0) {
 		parser_ctx->part->flags |= MESSAGE_PART_FLAG_MULTIPART;
