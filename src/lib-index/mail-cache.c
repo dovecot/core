@@ -512,7 +512,7 @@ int mail_cache_need_reset(struct mail_cache *cache, uint32_t *new_file_seq_r)
 {
 	if (cache->hdr->file_seq != cache->index->hdr->cache_file_seq) {
 		if (mail_cache_lock(cache, TRUE) == 0) {
-			*new_file_seq_r = cache->index->hdr->cache_file_seq;
+			*new_file_seq_r = cache->hdr->file_seq;
 			return TRUE;
 		}
 	}

@@ -1043,8 +1043,9 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	index = mail_index_view_get_index(view);
 	log = index->log;
 
-	if (t->updates == NULL && t->cache_updates == NULL &&
-	    t->expunges == NULL && t->appends == NULL && !t->hdr_changed) {
+	if (t->updates == NULL && t->new_cache_file_seq == 0 &&
+	    t->cache_updates == NULL && t->expunges == NULL &&
+	    t->appends == NULL && !t->hdr_changed) {
 		/* nothing to append */
 		*log_file_seq_r = 0;
 		*log_file_offset_r = 0;
