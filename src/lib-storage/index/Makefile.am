@@ -24,5 +24,6 @@ libstorage_index_a_SOURCES = \
 	index-update-flags.c
 
 noinst_HEADERS = \
+	index-mail.h \
 	index-messageset.h \
 	index-storage.h
