@@ -6,9 +6,15 @@ extern pool_t default_pool;
 /* For easy allocation of memory from default memory pool. */
 #define i_new(type, count) \
         ((type *) i_malloc(sizeof(type) * (count)))
+
 void *i_malloc(size_t size);
-void i_free(void *mem);
 void *i_realloc(void *mem, size_t old_size, size_t new_size);
+
+#define i_free(mem) \
+	STMT_START { \
+          p_free(default_pool, mem); \
+          (mem) = NULL; \
+	} STMT_END
 
 /* string functions */
 char *i_strdup(const char *str);
