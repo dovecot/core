@@ -423,7 +423,7 @@ void login_processes_init(void)
         wanted_processes_count = 0;
 	oldest_nonlisten_process = newest_nonlisten_process = NULL;
 
-	processes = hash_create(default_pool, 128, NULL, NULL);
+	processes = hash_create(default_pool, default_pool, 128, NULL, NULL);
 	to = timeout_add(1000, login_processes_start_missing, NULL);
 }
 

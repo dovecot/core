@@ -80,7 +80,8 @@ static struct auth_connection *auth_connection_new(const char *path)
 					   FALSE);
 	conn->output = o_stream_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
 					    IO_PRIORITY_DEFAULT, FALSE);
-	conn->requests = hash_create(default_pool, 100, NULL, NULL);
+	conn->requests = hash_create(default_pool, default_pool, 100,
+				     NULL, NULL);
 
 	conn->next = auth_connections;
 	auth_connections = conn;
@@ -300,6 +301,10 @@ int auth_init_request(enum auth_mech mech, AuthCallback callback,
 	request->mech = mech;
 	request->conn = conn;
 	request->id = ++request_id_counter;
+	if (request->id == 0) {
+		/* wrapped - ID 0 not allowed */
+		request->id = ++request_id_counter;
+	}
 	request->callback = callback;
 	request->context = context;
 

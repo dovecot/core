@@ -67,7 +67,7 @@ struct node {
 
 struct mail_thread_context {
 	pool_t pool;
-	pool_t str_pool; /* for node->msgid and root_info->base_subject */
+	pool_t temp_pool;
 
 	struct hash_table *msgid_hash;
 	struct hash_table *subject_hash;
@@ -94,12 +94,11 @@ mail_thread_init(enum mail_thread_type type, struct ostream *output,
 
 	ctx = p_new(pool, struct mail_thread_context, 1);
 	ctx->pool = pool;
-	ctx->str_pool =
-		pool_alloconly_create("mail_thread_context strings",
-				      sizeof(struct node) *
-				      APPROX_MSG_COUNT * APPROX_MSGID_SIZE);
-	ctx->msgid_hash = hash_create(default_pool,
-				      APPROX_MSGID_SIZE*2, str_hash,
+	ctx->temp_pool = pool_alloconly_create("mail_thread_context temp",
+					       APPROX_MSG_COUNT *
+					       APPROX_MSGID_SIZE);
+	ctx->msgid_hash = hash_create(default_pool, ctx->temp_pool,
+				      APPROX_MSG_COUNT*2, str_hash,
 				      (HashCompareFunc)strcmp);
 	ctx->callbacks = callbacks;
 	ctx->callback_context = callback_context;
@@ -113,7 +112,8 @@ static void mail_thread_deinit(struct mail_thread_context *ctx)
 		hash_destroy(ctx->msgid_hash);
 	if (ctx->subject_hash != NULL)
 		hash_destroy(ctx->subject_hash);
-	pool_unref(ctx->str_pool);
+
+	pool_unref(ctx->temp_pool);
 	pool_unref(ctx->pool);
 }
 
@@ -132,7 +132,7 @@ static struct node *create_node(struct mail_thread_context *ctx,
 	struct node *node;
 
 	node = p_new(ctx->pool, struct node, 1);
-	node->u.msgid = p_strdup(ctx->str_pool, msgid);
+	node->u.msgid = p_strdup(ctx->temp_pool, msgid);
 
 	hash_insert(ctx->msgid_hash, node->u.msgid, node);
 	return node;
@@ -558,7 +558,7 @@ static void add_base_subject(struct mail_thread_context *ctx,
 		return;
 
 	if (!hash_lookup_full(ctx->subject_hash, subject, &key, &value)) {
-		hash_subject = p_strdup(ctx->str_pool, subject);
+		hash_subject = p_strdup(ctx->temp_pool, subject);
 		hash_insert(ctx->subject_hash, hash_subject, node);
 	} else {
 		hash_subject = key;
@@ -582,9 +582,8 @@ static void gather_base_subjects(struct mail_thread_context *ctx)
 
 	cb = ctx->callbacks;
 	ctx->subject_hash =
-		hash_create(default_pool, ctx->root_count * 2, str_hash,
-			    (HashCompareFunc)strcmp);
-
+		hash_create(default_pool, ctx->temp_pool, ctx->root_count * 2,
+			    str_hash, (HashCompareFunc)strcmp);
 	for (node = ctx->root_nodes; node != NULL; node = node->next) {
 		if (!NODE_IS_DUMMY(node))
 			id = node->id;
@@ -834,17 +833,19 @@ void mail_thread_finish(struct mail_thread_context *ctx)
 {
 	struct node *node;
 
-	/* drop the memory allocated for message-IDs, reuse their memory
-	   for base subjects */
-	p_clear(ctx->str_pool);
-
 	/* (2) save root nodes and drop the msgids */
 	hash_foreach(ctx->msgid_hash, save_root_cb, ctx);
+
+	/* drop the memory allocated for message-IDs and msgid_hash,
+	   reuse their memory for base subjects */
 	hash_destroy(ctx->msgid_hash);
 	ctx->msgid_hash = NULL;
 
+	p_clear(ctx->temp_pool);
+
 	if (ctx->root_nodes == NULL) {
 		/* no messages */
+		mail_thread_deinit(ctx);
 		return;
 	}
 

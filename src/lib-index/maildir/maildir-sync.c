@@ -213,9 +213,9 @@ static int maildir_index_sync_dir(struct mail_index *index, const char *dir)
 		return index_file_set_syscall_error(index, dir, "opendir()");
 
 	count = index->header->messages_count + 16;
-	pool = pool_alloconly_create("Maildir sync", nearest_power(count*30));
-	files = hash_create(pool, index->header->messages_count*2, str_hash,
-			    (HashCompareFunc) strcmp);
+	pool = pool_alloconly_create("Maildir sync", count*20);
+	files = hash_create(default_pool, pool, index->header->messages_count*2,
+			    str_hash, (HashCompareFunc) strcmp);
 
 	while ((d = readdir(dirp)) != NULL) {
 		if (d->d_name[0] == '.')

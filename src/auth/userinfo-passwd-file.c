@@ -350,7 +350,8 @@ static struct passwd_file *passwd_file_parse(const char *path)
 	pw->path = p_strdup(pool, path);
 	pw->stamp = st.st_mtime;
 	pw->fd = fd;
-	pw->users = hash_create(pool, 100, str_hash, (HashCompareFunc) strcmp);
+	pw->users = hash_create(default_pool, pool, 100,
+				str_hash, (HashCompareFunc) strcmp);
 
 	passwd_file_parse_file(pw);
 	return pw;

@@ -246,7 +246,7 @@ static void main_init(void)
 
 	lib_init_signals(sig_quit);
 
-	pids = hash_create(default_pool, 128, NULL, NULL);
+	pids = hash_create(default_pool, default_pool, 128, NULL, NULL);
 	to = timeout_add(100, timeout_handler, NULL);
 
 	ssl_init();

@@ -155,7 +155,8 @@ void cookies_init(void)
 	oldest_cookie = NULL;
 	next_cookie = &oldest_cookie;
 
-	cookies = hash_create(default_pool, 100, cookie_hash, cookie_cmp);
+	cookies = hash_create(default_pool, default_pool, 100,
+			      cookie_hash, cookie_cmp);
 	to = timeout_add(10000, cookie_timeout, NULL);
 }
 
