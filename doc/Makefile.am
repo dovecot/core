@@ -7,7 +7,8 @@ doc_DATA = \
 	index.txt \
 	mail-storages.txt \
 	multiaccess.txt \
-	nfs.txt
+	nfs.txt \
+	securecoding.txt
 
 EXTRA_DIST = \
 	mkcert.sh \
