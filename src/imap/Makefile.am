@@ -16,8 +16,10 @@ imap_LDADD = \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \
 	../lib-charset/libcharset.a \
-	../lib/liblib.a \
+	../lib/liblib.a
 	$(LIBICONV)
+
+imap_DEPENDENCIES = $(imap_LDADD)
 
 cmds = \
 	cmd-append.c \

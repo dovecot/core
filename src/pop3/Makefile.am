@@ -19,6 +19,8 @@ pop3_LDADD = \
 	../lib/liblib.a \
 	$(LIBICONV)
 
+pop3_DEPENDENCIES = $(pop3_LDADD)
+
 pop3_SOURCES = \
 	client.c \
 	commands.c \
