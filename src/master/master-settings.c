@@ -207,7 +207,11 @@ struct settings default_settings = {
 	MEMBER(listen) "*",
 	MEMBER(ssl_listen) NULL,
 
+#ifdef HAVE_SSL
 	MEMBER(ssl_disable) FALSE,
+#else
+	MEMBER(ssl_disable) TRUE,
+#endif
 	MEMBER(ssl_ca_file) NULL,
 	MEMBER(ssl_cert_file) SSLDIR"/certs/dovecot.pem",
 	MEMBER(ssl_key_file) SSLDIR"/private/dovecot.pem",
