@@ -28,36 +28,42 @@ AC_ARG_ENABLE(ipv6,
 	fi,
 	want_ipv6=no)
 
-AC_ARG_ENABLE(passwd,
-[  --disable-passwd        Disable /etc/passwd support],
-	if test x$enableval = xno; then
+AC_ARG_WITH(file-offset-size,
+[  --with-file-offset-size=BITS  Set size of file offsets. Usually 32 or 64.
+                          (default: 64 if available) ],
+	preferred_off_t_bits=$withval,
+	preferred_off_t_bits=64)
+
+AC_ARG_WITH(passwd,
+[  --with-passwd           Enable /etc/passwd support (default)],
+	if test x$withval = xno; then
 		want_passwd=no
 	else
 		want_passwd=yes
 	fi,
 	want_passwd=yes)
 
-AC_ARG_ENABLE(passwd-file,
-[  --disable-passwd-file   Disable passwd-like file support],
-	if test x$enableval = xno; then
+AC_ARG_WITH(passwd-file,
+[  --with-passwd-file      Build with passwd-like file support (default)],
+	if test x$withval = xno; then
 		want_passwd_file=no
 	else
 		want_passwd_file=yes
 	fi,
 	want_passwd_file=yes)
 
-AC_ARG_ENABLE(shadow,
-[  --disable-shadow        Disable shadow password support],
-	if test x$enableval = xno; then
+AC_ARG_WITH(shadow,
+[  --with-shadow           Build with shadow password support (default)],
+	if test x$withval = xno; then
 		want_shadow=no
 	else
 		want_shadow=yes
 	fi,
 	want_shadow=yes)
 
-AC_ARG_ENABLE(pam,
-[  --disable-pam           Disable PAM support],
-	if test x$enableval = xno; then
+AC_ARG_WITH(pam,
+[  --with-pam              Build with PAM support (default)],
+	if test x$withval = xno; then
 		want_pam=no
 	else
 		want_pam=yes
@@ -127,7 +133,6 @@ case "$host_os" in
 esac
 
 dnl * off_t checks, try to make it 64bit
-preferred_off_t_bits=64
 AC_DEFINE_UNQUOTED(_FILE_OFFSET_BITS, $preferred_off_t_bits)
 
 AC_CHECK_SIZEOF(int)
