@@ -206,10 +206,10 @@ AC_TRY_RUN([
   sizeof_off_t=`cat conftestval`
   rm -f conftestval
 ], [
-  sizeof_off_t=0
   AC_ERROR([Unsupported off_t size])
 ])
 AC_MSG_RESULT($sizeof_off_t)
+offt_bits=`expr 8 \* $sizeof_off_t`
 
 if test x$sizeof_off_t = x$ac_cv_sizeof_long; then
   # try to use unsigned long always first
@@ -529,6 +529,7 @@ stamp.h)
 
 echo
 echo "Install prefix ............. : $prefix"
+echo "File offsets ............... : ${offt_bits}bit"
 echo "Building with auth modules . :$auths"
 echo "Building with SSL support .. : $have_ssl"
 echo "Building with IPv6 support . : $want_ipv6"
