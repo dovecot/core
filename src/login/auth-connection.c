@@ -34,7 +34,7 @@ struct _AuthConnection {
 
 AuthMethod available_auth_methods;
 
-static int auth_connects_failed;
+static int auth_reconnect;
 static int request_id_counter;
 static AuthConnection *auth_connections;
 static Timeout to;
@@ -62,7 +62,7 @@ static AuthConnection *auth_connection_new(const char *path)
 	fd = net_connect_unix(path);
 	if (fd == -1) {
 		i_error("Can't connect to imap-auth at %s: %m", path);
-                auth_connects_failed = TRUE;
+                auth_reconnect = TRUE;
 		return NULL;
 	}
 
@@ -145,6 +145,7 @@ static AuthConnection *auth_connection_get(AuthMethod method, size_t size,
 		else {
 			*error = "Authentication server isn't connected, "
 				"try again later..";
+			auth_reconnect = TRUE;
 		}
 	} else {
 		*error = "Authentication servers are busy, wait..";
@@ -210,6 +211,7 @@ static void auth_input(void *context, int fd __attr_unused__,
 		return;
 	case -1:
 		/* disconnected */
+                auth_reconnect = TRUE;
 		auth_connection_destroy(conn);
 		return;
 	case -2:
@@ -266,7 +268,7 @@ int auth_init_request(AuthMethod method, AuthCallback callback,
 	AuthRequest *request;
 	AuthInitRequestData request_data;
 
-	if (auth_connects_failed)
+	if (auth_reconnect)
 		auth_connect_missing();
 
 	conn = auth_connection_get(method, sizeof(AuthInitRequestData), error);
@@ -317,7 +319,7 @@ static void auth_connect_missing(void)
 	struct dirent *dp;
 	struct stat st;
 
-	auth_connects_failed = TRUE;
+	auth_reconnect = TRUE;
 
 	/* we're chrooted into */
 	dirp = opendir(".");
@@ -338,7 +340,7 @@ static void auth_connect_missing(void)
 
 		if (stat(dp->d_name, &st) == 0 && S_ISSOCK(st.st_mode)) {
 			if (auth_connection_new(dp->d_name) != NULL)
-				auth_connects_failed = FALSE;
+				auth_reconnect = FALSE;
 		}
 	}
 
@@ -348,7 +350,7 @@ static void auth_connect_missing(void)
 static void auth_connect_missing_timeout(void *context __attr_unused__,
 					 Timeout timeout __attr_unused__)
 {
-	if (auth_connects_failed)
+	if (auth_reconnect)
                 auth_connect_missing();
 }
 
@@ -356,7 +358,7 @@ void auth_connection_init(void)
 {
 	auth_connections = NULL;
 	request_id_counter = 0;
-        auth_connects_failed = FALSE;
+        auth_reconnect = FALSE;
 
 	auth_connect_missing();
 	to = timeout_add(1000, auth_connect_missing_timeout, NULL);
