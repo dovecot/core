@@ -787,6 +787,7 @@ int mail_cache_compress(struct mail_cache *cache)
 
 	/* headers could have changed, reread them */
 	memset(cache->split_offsets, 0, sizeof(cache->split_offsets));
+	memset(cache->split_headers, 0, sizeof(cache->split_headers));
 
 	if (ret) {
 		cache->index->header->flags &=
@@ -1363,7 +1364,7 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 {
 	struct mail_cache *cache = ctx->cache;
 	uint32_t offset, update_offset, size;
-	const char *header_str;
+	const char *header_str, *prev_str;
 
 	i_assert(*headers != NULL);
 	i_assert(idx < MAIL_CACHE_HEADERS_COUNT);
@@ -1373,9 +1374,13 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 	t_push();
 
 	header_str = write_header_string(headers, &size);
-	i_assert(idx == 0 ||
-		 strcmp(mail_cache_get_header_fields_str(cache, idx-1),
-			header_str) != 0);
+	if (idx != 0) {
+		prev_str = mail_cache_get_header_fields_str(cache, idx-1);
+		if (prev_str == NULL)
+			return FALSE;
+
+		i_assert(strcmp(header_str, prev_str) != 0);
+	}
 
 	offset = mail_cache_append_space(ctx, size + sizeof(uint32_t));
 	if (offset != 0) {
