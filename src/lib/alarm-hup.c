@@ -102,6 +102,9 @@ void alarm_hup_deinit(void)
 	alarm(0);
 
 #ifdef HAVE_SIGACTION
+	if (sigemptyset(&act.sa_mask) < 0)
+		i_fatal("sigemptyset(): %m");
+	act.sa_flags = 0;
 	act.sa_handler = SIG_DFL;
 	while (sigaction(SIGALRM, &act, NULL) < 0) {
 		if (errno != EINTR)
