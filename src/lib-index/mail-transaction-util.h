@@ -15,6 +15,8 @@ struct mail_transaction_map_functions {
 			   void *context);
 	int (*cache_update)(const struct mail_transaction_cache_update *u,
 			    void *context);
+	int (*header_update)(const struct mail_transaction_header_update *u,
+			     void *context);
 };
 
 const struct mail_transaction_type_map *

@@ -57,6 +57,7 @@
 #include "mbox-lock.h"
 #include "mbox-sync-private.h"
 
+#include <stddef.h>
 #include <sys/stat.h>
 
 static int mbox_sync_grow_file(struct mbox_sync_context *sync_ctx,
@@ -378,17 +379,6 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 		}
 	}
 
-	if (ret < 0)
-		mail_index_transaction_rollback(t);
-	else {
-		if (mail_index_transaction_commit(t, &seq, &offset) < 0)
-			ret = -1;
-		else if (seq != 0) {
-			ibox->commit_log_file_seq = seq;
-			ibox->commit_log_file_offset = offset;
-		}
-	}
-
 	if (ret == 0) {
 		if (fstat(ibox->mbox_fd, &st) < 0) {
 			mbox_set_syscall_error(ibox, "fstat()");
@@ -400,9 +390,36 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 		st.st_size = 0;
 	}
 
+	if (mail_index_get_header(sync_view, &hdr) < 0)
+		ret = -1;
+	if ((uint32_t)st.st_mtime != hdr->sync_stamp) {
+		uint32_t sync_stamp = st.st_mtime;
+
+		mail_index_update_header(t,
+			offsetof(struct mail_index_header, sync_stamp),
+			&sync_stamp, sizeof(sync_stamp));
+	}
+	if ((uint64_t)st.st_mtime != hdr->sync_size) {
+		uint64_t sync_size = st.st_size;
+
+		mail_index_update_header(t,
+			offsetof(struct mail_index_header, sync_size),
+			&sync_size, sizeof(sync_size));
+	}
+
+	if (ret < 0)
+		mail_index_transaction_rollback(t);
+	else {
+		if (mail_index_transaction_commit(t, &seq, &offset) < 0)
+			ret = -1;
+		else if (seq != 0) {
+			ibox->commit_log_file_seq = seq;
+			ibox->commit_log_file_offset = offset;
+		}
+	}
+
 	if (ret != -2) {
-		if (mail_index_sync_end(index_sync_ctx,
-					st.st_mtime, st.st_size) < 0)
+		if (mail_index_sync_end(index_sync_ctx) < 0)
 			ret = -1;
 	}
 
@@ -463,7 +480,7 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 			}
 		}
 	} else {
-		(void)mail_index_sync_end(index_sync_ctx, 0, 0);
+		(void)mail_index_sync_end(index_sync_ctx);
 		ret = -1;
 	}
 

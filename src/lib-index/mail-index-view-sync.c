@@ -10,7 +10,6 @@
 struct mail_index_view_sync_ctx {
 	struct mail_index_view *view;
 	enum mail_index_sync_type sync_mask;
-	struct mail_index_map *sync_map;
 	buffer_t *expunges;
 
 	const struct mail_transaction_header *hdr;
@@ -79,6 +78,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 {
 	const struct mail_index_header *hdr;
 	struct mail_index_view_sync_ctx *ctx;
+	struct mail_index_map *map;
 	enum mail_transaction_type mask;
 	buffer_t *expunges = NULL;
 
@@ -115,14 +115,20 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	ctx->expunges = expunges;
 
 	if ((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) != 0) {
-		ctx->sync_map = view->index->map;
-		ctx->sync_map->refcount++;
+		view->new_map = view->index->map;
+		view->new_map->refcount++;
+
+		/* keep the old mapping without expunges until we're
+		   fully synced */
 	} else {
 		/* we need a private copy of the map if we don't want to
 		   sync expunges */
-		if (MAIL_INDEX_MAP_IS_IN_MEMORY(view->map))
+		if (view->map != view->index->map)
 			ctx->sync_map_update = TRUE;
-		ctx->sync_map = mail_index_map_to_memory(view->map);
+
+		map = mail_index_map_to_memory(view->map);
+		mail_index_unmap(view->index, view->map);
+		view->map = map;
 	}
 
 	view->syncing = TRUE;
@@ -153,112 +159,6 @@ static int view_is_transaction_synced(struct mail_index_view *view,
 	return 0;
 }
 
-static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
-{
-        struct mail_index_view_sync_ctx *ctx = context;
-	struct mail_index_map *map = ctx->sync_map;
-	uint32_t idx, count, seq1, seq2;
-	int ret;
-
-	ret = mail_index_lookup_uid_range(ctx->view, e->uid1, e->uid2,
-					  &seq1, &seq2);
-	i_assert(ret == 0);
-
-	if (seq1 == 0)
-		return 1;
-
-	for (idx = seq1-1; idx < seq2; idx++) {
-		mail_index_header_update_counts(&map->hdr_copy,
-						map->records[idx].flags, 0);
-	}
-
-	count = seq2 - seq1 + 1;
-	buffer_delete(map->buffer,
-		      (seq1-1) * sizeof(struct mail_index_record),
-		      count * sizeof(struct mail_index_record));
-	map->records = buffer_get_modifyable_data(map->buffer, NULL);
-
-	map->records_count -= count;
-	map->hdr_copy.messages_count -= count;
-	return 1;
-}
-
-static int sync_append(const struct mail_index_record *rec, void *context)
-{
-        struct mail_index_view_sync_ctx *ctx = context;
-	struct mail_index_map *map = ctx->sync_map;
-
-	buffer_append(map->buffer, rec, sizeof(*rec));
-	map->records = buffer_get_modifyable_data(map->buffer, NULL);
-
-	map->records_count++;
-	map->hdr_copy.messages_count++;
-	map->hdr_copy.next_uid = rec->uid+1;
-
-	mail_index_header_update_counts(&map->hdr_copy, 0, rec->flags);
-	mail_index_header_update_lowwaters(&map->hdr_copy, rec);
-	return 1;
-}
-
-static int sync_flag_update(const struct mail_transaction_flag_update *u,
-			    void *context)
-{
-        struct mail_index_view_sync_ctx *ctx = context;
-	struct mail_index_map *map = ctx->sync_map;
-	struct mail_index_record *rec;
-	uint32_t i, idx, seq1, seq2;
-	uint8_t old_flags;
-	int ret;
-
-	ret = mail_index_lookup_uid_range(ctx->view, u->uid1, u->uid2,
-					  &seq1, &seq2);
-	i_assert(ret == 0);
-
-	if (seq1 == 0)
-		return 1;
-
-	for (idx = seq1-1; idx < seq2; idx++) {
-		rec = &map->records[idx];
-
-		old_flags = rec->flags;
-		rec->flags = (rec->flags & ~u->remove_flags) | u->add_flags;
-		for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
-			rec->keywords[i] = u->add_keywords[i] |
-				(rec->keywords[i] & ~u->remove_keywords[i]);
-		}
-
-		mail_index_header_update_counts(&map->hdr_copy, old_flags,
-						rec->flags);
-		mail_index_header_update_lowwaters(&map->hdr_copy, rec);
-	}
-	return 1;
-}
-
-static int sync_cache_update(const struct mail_transaction_cache_update *u,
-			     void *context)
-{
-        struct mail_index_view_sync_ctx *ctx = context;
-	uint32_t seq;
-	int ret;
-
-	ret = mail_index_lookup_uid_range(ctx->view, u->uid, u->uid,
-					  &seq, &seq);
-	i_assert(ret == 0);
-
-	if (seq != 0)
-		ctx->sync_map->records[seq-1].cache_offset = u->cache_offset;
-	return 1;
-}
-
-static int mail_index_view_sync_map(struct mail_index_view_sync_ctx *ctx)
-{
-	static struct mail_transaction_map_functions map_funcs = {
-		sync_expunge, sync_append, sync_flag_update, sync_cache_update
-	};
-
-	return mail_transaction_map(ctx->hdr, ctx->data, &map_funcs, ctx);
-}
-
 static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 					   uint32_t *seq_r, uoff_t *offset_r)
 {
@@ -285,8 +185,13 @@ static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 	if (view_is_transaction_synced(view, *seq_r, *offset_r))
 		return 0;
 
-	if (ctx->sync_map_update) {
-		if (mail_index_view_sync_map(ctx) < 0)
+	/* expunges have to be synced afterwards so that caller can still get
+	   information of the messages. otherwise caller most likely wants to
+	   see only updated information. */
+	if (ctx->sync_map_update &&
+	    (ctx->hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0) {
+		if (mail_transaction_map(ctx->hdr, ctx->data,
+					 &mail_index_map_sync_funcs, view) < 0)
 			return -1;
 	}
 
@@ -408,9 +313,12 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 		view->inconsistent = TRUE;
 	}
 
-	mail_index_unmap(view->index, view->map);
-	view->map = ctx->sync_map;
-	view->map_protected = FALSE;
+	if (view->new_map != NULL) {
+		mail_index_unmap(view->index, view->map);
+		view->map = view->new_map;
+		view->new_map = NULL;
+		view->map_protected = FALSE;
+	}
 
 	if ((ctx->sync_mask & MAIL_INDEX_SYNC_TYPE_APPEND) != 0)
 		view->messages_count = view->map->records_count;

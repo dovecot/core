@@ -407,6 +407,7 @@ maildir_open(struct index_storage *storage, const char *name,
 {
 	struct index_mailbox *ibox;
 	struct mail_index *index;
+	const struct mail_index_header *hdr;
 	const char *path, *index_dir, *control_dir;
 	struct stat st;
 
@@ -421,12 +422,17 @@ maildir_open(struct index_storage *storage, const char *name,
 	if (ibox == NULL)
 		return NULL;
 
+	if (mail_index_get_header(ibox->view, &hdr) < 0) {
+		index_storage_mailbox_free(&ibox->box);
+		return NULL;
+	}
+
 	ibox->path = i_strdup(path);
 	ibox->control_dir = i_strdup(control_dir);
 
 	ibox->get_recent_count = maildir_get_recent_count;
 	ibox->mail_interface = &maildir_mail;
-	ibox->uidlist = maildir_uidlist_init(ibox);
+	ibox->uidlist = maildir_uidlist_init(ibox, hdr->uid_validity);
 
 	/* for shared mailboxes get the create mode from the
 	   permissions of dovecot-shared file */

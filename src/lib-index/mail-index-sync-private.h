@@ -22,13 +22,12 @@ struct mail_index_sync_ctx {
 	unsigned int sync_appends:1;
 };
 
-int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
-				 uint32_t sync_stamp, uint64_t sync_size);
+extern struct mail_transaction_map_functions mail_index_map_sync_funcs;
 
-void mail_index_header_update_counts(struct mail_index_header *hdr,
-				     uint8_t old_flags, uint8_t new_flags);
-void mail_index_header_update_lowwaters(struct mail_index_header *hdr,
-					const struct mail_index_record *rec);
+int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx);
+
+void mail_index_sync_expunge(struct mail_index_view *view,
+			     const struct mail_transaction_expunge *e);
 
 void
 mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,

@@ -960,6 +960,36 @@ log_append_buffer(struct mail_transaction_log_file *file, const buffer_t *buf,
 	return 0;
 }
 
+static const buffer_t *
+log_get_hdr_update_buffer(struct mail_index_transaction *t)
+{
+	buffer_t *buf;
+	struct mail_transaction_header_update u;
+	uint16_t offset;
+	int state = 0;
+
+	memset(&u, 0, sizeof(u));
+
+	buf = buffer_create_dynamic(pool_datastack_create(), 256, (size_t)-1);
+	for (offset = 0; offset <= sizeof(t->hdr_change); offset++) {
+		if (offset < sizeof(t->hdr_change) && t->hdr_mask[offset]) {
+			if (state == 0) {
+				u.offset = offset;
+				state++;
+			}
+		} else {
+			if (state > 0) {
+				u.size = offset - u.offset;
+				buffer_append(buf, &u, sizeof(uint16_t)*2);
+				buffer_append(buf, t->hdr_change + u.offset,
+					      u.size);
+				state = 0;
+			}
+		}
+	}
+	return buf;
+}
+
 int mail_transaction_log_append(struct mail_index_transaction *t,
 				uint32_t *log_file_seq_r,
 				uoff_t *log_file_offset_r)
@@ -976,7 +1006,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	log = index->log;
 
 	if (t->updates == NULL && t->cache_updates == NULL &&
-	    t->expunges == NULL && t->appends == NULL) {
+	    t->expunges == NULL && t->appends == NULL && !t->hdr_changed) {
 		/* nothing to append */
 		*log_file_seq_r = 0;
 		*log_file_offset_r = 0;
@@ -1034,6 +1064,11 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	if (t->expunges != NULL && ret == 0) {
 		ret = log_append_buffer(file, t->expunges,
 					MAIL_TRANSACTION_EXPUNGE,
+					view->external);
+	}
+	if (t->hdr_changed && ret == 0) {
+		ret = log_append_buffer(file, log_get_hdr_update_buffer(t),
+					MAIL_TRANSACTION_HEADER_UPDATE,
 					view->external);
 	}
 

@@ -179,6 +179,7 @@
 #include "maildir-uidlist.h"
 
 #include <stdio.h>
+#include <stddef.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
@@ -357,7 +358,7 @@ int maildir_sync_last_commit(struct index_mailbox *ibox)
 		}
 		if (mail_index_transaction_commit(ctx.trans, &seq, &offset) < 0)
 			ret = -1;
-		if (mail_index_sync_end(ctx.sync_ctx, 0, 0) < 0)
+		if (mail_index_sync_end(ctx.sync_ctx) < 0)
 			ret = -1;
 	}
 
@@ -575,7 +576,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 	const char *filename;
 	enum mail_flags flags;
 	keywords_mask_t keywords;
-	uint32_t sync_stamp;
+	uint32_t uid_validity, next_uid;
 	int ret;
 
 	memset(&sync_ctx, 0, sizeof(sync_ctx));
@@ -590,6 +591,18 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 
 	ret = mail_index_get_header(view, &hdr);
 	i_assert(ret == 0); /* view is locked, can't happen */
+
+	uid_validity = maildir_uidlist_get_uid_validity(ibox->uidlist);
+	if (uid_validity != hdr->uid_validity && hdr->next_uid != 1) {
+		/* uidvalidity changed and mailbox isn't being initialized,
+		   index must be rebuilt */
+		mail_storage_set_critical(ibox->box.storage,
+			"Maildir sync: UIDVALIDITY changed (%u -> %u)",
+			hdr->uid_validity, uid_validity);
+		mail_index_mark_corrupted(ibox->index);
+		(void)mail_index_sync_end(sync_ctx.sync_ctx);
+		return -1;
+	}
 
 	trans = mail_index_transaction_begin(view, FALSE);
 	sync_ctx.trans = trans;
@@ -633,7 +646,6 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		}
 
 		if (mail_index_lookup(view, seq, &rec) < 0) {
-			mail_storage_set_index_error(ibox);
 			ret = -1;
 			break;
 		}
@@ -717,6 +729,27 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		}
 	}
 
+	if (ibox->dirty_cur_time == 0) {
+		uint32_t sync_stamp = ibox->last_cur_mtime;
+
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, sync_stamp),
+			&sync_stamp, sizeof(sync_stamp));
+	}
+
+	if (uid_validity != hdr->uid_validity) {
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, uid_validity),
+			&uid_validity, sizeof(uid_validity));
+	}
+
+	next_uid = maildir_uidlist_get_next_uid(ibox->uidlist);
+	if (next_uid != 0 && hdr->next_uid != next_uid) {
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, next_uid),
+			&next_uid, sizeof(next_uid));
+	}
+
 	if (ret < 0)
 		mail_index_transaction_rollback(trans);
 	else {
@@ -724,15 +757,14 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		uoff_t offset;
 
 		if (mail_index_transaction_commit(trans, &seq, &offset) < 0)
-			mail_storage_set_index_error(ibox);
+			ret = -1;
 		else if (seq != 0) {
 			ibox->commit_log_file_seq = seq;
 			ibox->commit_log_file_offset = offset;
 		}
 	}
 
-	sync_stamp = ibox->dirty_cur_time != 0 ? 0 : ibox->last_cur_mtime;
-	if (mail_index_sync_end(sync_ctx.sync_ctx, sync_stamp, 0) < 0)
+	if (mail_index_sync_end(sync_ctx.sync_ctx) < 0)
 		ret = -1;
 
 	if (ret == 0) {

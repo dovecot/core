@@ -51,6 +51,8 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 			if (sc->update_flags == NULL)
 				break;
 
+			/* FIXME: hide the flag updates for expunged messages */
+
 			if (mail_index_lookup_uid_range(ibox->view,
 							sync.uid1, sync.uid2,
 							&seq1, &seq2) < 0) {
@@ -61,7 +63,6 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 			if (seq1 == 0)
 				break;
 
-			/* FIXME: hide the flag updates for expunged messages */
 			for (seq = seq1; seq <= seq2; seq++) {
 				if (mail_index_lookup(ibox->view,
 						      seq, &rec) < 0) {

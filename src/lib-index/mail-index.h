@@ -197,10 +197,8 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec);
 /* Returns 1 if there's more to sync, 0 if not. */
 int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
-/* End synchronization by unlocking the index and closing the view.
-   sync_stamp/sync_size in header is updated to given values. */
-int mail_index_sync_end(struct mail_index_sync_ctx *ctx,
-			uint32_t sync_stamp, uint64_t sync_size);
+/* End synchronization by unlocking the index and closing the view. */
+int mail_index_sync_end(struct mail_index_sync_ctx *ctx);
 
 /* Mark index file corrupted. Invalidates all views. */
 void mail_index_mark_corrupted(struct mail_index *index);
@@ -254,6 +252,9 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq);
 void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum modify_type modify_type,
 			     enum mail_flags flags, keywords_mask_t keywords);
+/* Update field in header. */
+void mail_index_update_header(struct mail_index_transaction *t,
+			      size_t offset, const void *data, size_t size);
 
 /* Returns the last error code. */
 enum mail_index_error mail_index_get_last_error(struct mail_index *index);

@@ -426,3 +426,16 @@ void mail_index_update_cache(struct mail_index_transaction *t,
 	buffer_insert(t->updates, idx * sizeof(update),
 		      &update, sizeof(update));
 }
+
+void mail_index_update_header(struct mail_index_transaction *t,
+			      size_t offset, const void *data, size_t size)
+{
+	i_assert(offset < sizeof(t->hdr_change));
+	i_assert(size <= sizeof(t->hdr_change) - offset);
+
+	t->hdr_changed = TRUE;
+
+	memcpy(t->hdr_change + offset, data, size);
+	for (; size > 0; size--)
+		t->hdr_mask[offset++] = 1;
+}

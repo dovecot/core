@@ -14,7 +14,6 @@ struct mail_transaction_log_view {
 	uoff_t min_file_offset, max_file_offset;
 
 	enum mail_transaction_type type_mask;
-	buffer_t *expunges_buf;
 	struct mail_transaction_header tmp_hdr;
 
         struct mail_transaction_log_file *file;
@@ -34,8 +33,6 @@ mail_transaction_log_view_open(struct mail_transaction_log *log)
 	view = i_new(struct mail_transaction_log_view, 1);
 	view->log = log;
 	view->broken = TRUE;
-	view->expunges_buf =
-		buffer_create_dynamic(default_pool, 512, (size_t)-1);
 
 	view->next = log->views;
 	log->views = view;
@@ -54,7 +51,6 @@ void mail_transaction_log_view_close(struct mail_transaction_log_view *view)
 	}
 
 	mail_transaction_log_view_unset(view);
-	buffer_free(view->expunges_buf);
 	i_free(view);
 }
 
@@ -149,8 +145,6 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		file->refcount++;
 		file = file->next;
 	}
-
-	buffer_set_used_size(view->expunges_buf, 0);
 
 	view->prev_file_seq = 0;
 	view->prev_file_offset = 0;

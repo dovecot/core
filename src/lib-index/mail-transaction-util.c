@@ -22,6 +22,7 @@ const struct mail_transaction_type_map mail_transaction_type_map[] = {
 	  sizeof(struct mail_transaction_flag_update) },
 	{ MAIL_TRANSACTION_CACHE_UPDATE, 0,
 	  sizeof(struct mail_transaction_cache_update) },
+	{ MAIL_TRANSACTION_HEADER_UPDATE, 0, 1 }, /* variable size, use 1 */
 	{ 0, 0, 0 }
 };
 
@@ -112,6 +113,23 @@ int mail_transaction_map(const struct mail_transaction_header *hdr,
 			ret = map->cache_update(rec, context);
 			if (ret <= 0)
 				break;
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_HEADER_UPDATE: {
+		const struct mail_transaction_header_update *rec;
+		unsigned int i;
+
+		if (map->header_update == NULL)
+			break;
+
+		for (i = 0; i < hdr->size; ) {
+			rec = CONST_PTR_OFFSET(data, i);
+			ret = map->header_update(rec, context);
+			if (ret <= 0)
+				break;
+
+			i += sizeof(uint16_t)*2 + rec->size;
 		}
 		break;
 	}

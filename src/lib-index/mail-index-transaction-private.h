@@ -13,8 +13,12 @@ struct mail_index_transaction {
         struct mail_transaction_flag_update last_update;
 	enum modify_type last_update_modify_type;
 
+	unsigned char hdr_change[sizeof(struct mail_index_header)];
+	unsigned char hdr_mask[sizeof(struct mail_index_header)];
+
 	buffer_t *cache_updates;
 	unsigned int hide_transaction:1;
+	unsigned int hdr_changed:1;
 };
 
 #endif

@@ -126,6 +126,7 @@ int mail_index_map_lock_mprotect(struct mail_index *index,
 	int prot;
 
 	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
+		i_assert(map->mmap_size != 0);
 		prot = lock_type == F_UNLCK ? PROT_NONE :
 			lock_type == F_WRLCK ? (PROT_READ|PROT_WRITE) :
 			PROT_READ;

@@ -275,7 +275,10 @@ int mail_index_map(struct mail_index *index, int force)
 	int ret;
 
 	map = index->map;
-	if (map != NULL && MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
+	if (map == NULL) {
+		map = i_new(struct mail_index_map, 1);
+		map->refcount = 1;
+	} else if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
 		if (map->write_to_disk) {
 			/* we have modified this mapping and it's waiting to
 			   be written to disk once we drop exclusive lock.
@@ -283,7 +286,7 @@ int mail_index_map(struct mail_index *index, int force)
 			return 1;
 		}
 		/* FIXME: we need to re-read header */
-	} else if (map != NULL) {
+	} else if (map->mmap_base != NULL) {
 		/* see if re-mmaping is needed (file has grown) */
 		hdr = map->mmap_base;
                 used_size = hdr->header_size +
@@ -296,9 +299,6 @@ int mail_index_map(struct mail_index *index, int force)
 		if (munmap(map->mmap_base, map->mmap_size) < 0)
 			mail_index_set_syscall_error(index, "munmap()");
 		map->mmap_base = NULL;
-	} else {
-		map = i_new(struct mail_index_map, 1);
-		map->refcount = 1;
 	}
 
 	index->hdr = NULL;

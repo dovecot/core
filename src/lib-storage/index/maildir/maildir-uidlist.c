@@ -109,7 +109,8 @@ void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
 	uidlist->lock_fd = -1;
 }
 
-struct maildir_uidlist *maildir_uidlist_init(struct index_mailbox *ibox)
+struct maildir_uidlist *
+maildir_uidlist_init(struct index_mailbox *ibox, uint32_t uid_validity)
 {
 	struct maildir_uidlist *uidlist;
 
@@ -123,7 +124,7 @@ struct maildir_uidlist *maildir_uidlist_init(struct index_mailbox *ibox)
 	uidlist->files = hash_create(default_pool, default_pool, 4096,
 				     maildir_hash, maildir_cmp);
 
-	uidlist->uid_validity = ioloop_time;
+	uidlist->uid_validity = uid_validity;
 	uidlist->next_uid = 1;
 
 	return uidlist;
@@ -414,6 +415,16 @@ uint32_t maildir_uidlist_get_recent_count(struct maildir_uidlist *uidlist)
 			count++;
 	}
 	return count;
+}
+
+uint32_t maildir_uidlist_get_uid_validity(struct maildir_uidlist *uidlist)
+{
+	return uidlist->uid_validity;
+}
+
+uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist)
+{
+	return !uidlist->initial_read ? 0 : uidlist->next_uid;
 }
 
 static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist,
