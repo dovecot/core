@@ -126,10 +126,12 @@ void auth_cache_clear(struct auth_cache *cache)
 
 const char *auth_cache_lookup(struct auth_cache *cache,
 			      const struct auth_request *request,
-			      const char *key)
+			      const char *key, int *expired_r)
 {
 	string_t *str;
 	struct cache_node *node;
+
+	*expired_r = FALSE;
 
 	if (cache->hup_count != lib_signal_hup_count) {
 		/* SIGHUP received - clear cache */
@@ -147,15 +149,14 @@ const char *auth_cache_lookup(struct auth_cache *cache,
 		return NULL;
 
 	if (node->created < time(NULL) - (time_t)cache->ttl_secs) {
-		/* TTL expired, destroy */
-		auth_cache_node_destroy(cache, node);
-		return NULL;
-	}
-
-	/* move to head */
-	if (node != cache->head) {
-		auth_cache_node_unlink(cache, node);
-		auth_cache_node_link_head(cache, node);
+		/* TTL expired */
+		*expired_r = TRUE;
+	} else {
+		/* move to head */
+		if (node != cache->head) {
+			auth_cache_node_unlink(cache, node);
+			auth_cache_node_link_head(cache, node);
+		}
 	}
 
 	return node->data + strlen(node->data) + 1;

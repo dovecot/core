@@ -34,7 +34,7 @@ static void list_save(struct auth_request *request, const char *const *list)
 
 int passdb_cache_verify_plain(struct auth_request *request, const char *key,
 			      const char *password,
-			      enum passdb_result *result_r)
+			      enum passdb_result *result_r, int *expired_r)
 {
 	const char *value, *cached_pw, *scheme, *const *list;
 	int ret;
@@ -43,7 +43,7 @@ int passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		return FALSE;
 
 	/* value = password \t ... */
-	value = auth_cache_lookup(passdb_cache, request, key);
+	value = auth_cache_lookup(passdb_cache, request, key, expired_r);
 	if (value == NULL)
 		return FALSE;
 
@@ -76,14 +76,14 @@ int passdb_cache_verify_plain(struct auth_request *request, const char *key,
 
 int passdb_cache_lookup_credentials(struct auth_request *request,
 				    const char *key, const char **result_r,
-				    const char **scheme_r)
+				    const char **scheme_r, int *expired_r)
 {
 	const char *value, *const *list;
 
 	if (passdb_cache == NULL)
 		return FALSE;
 
-	value = auth_cache_lookup(passdb_cache, request, key);
+	value = auth_cache_lookup(passdb_cache, request, key, expired_r);
 	if (value == NULL)
 		return FALSE;
 
