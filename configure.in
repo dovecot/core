@@ -109,6 +109,15 @@ AC_CHECK_FUNC(inet_addr, [], [
 	])
 ])
 
+AC_CHECK_FUNC(fdatasync, [
+	AC_DEFINE([HAVE_FDATASYNC])
+], [
+	AC_CHECK_LIB(rt, fdatasync, [
+		AC_DEFINE([HAVE_FDATASYNC])
+		LIBS="$LIBS -lrt"
+	])
+])
+
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock inet_aton sigaction getpagesize madvise setreuid)
 AC_CHECK_FUNCS(strcasecmp stricmp vsnprintf memmove vsyslog writev)

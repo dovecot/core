@@ -62,6 +62,10 @@ void my_vsyslog(int priority, const char *format, va_list args);
 int my_getpagesize(void);
 #endif
 
+#ifndef HAVE_FDATASYNC
+#  define fdatasync fsync
+#endif
+
 #ifndef HAVE_STRUCT_IOVEC
 struct iovec {
 	void *iov_base;

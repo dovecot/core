@@ -52,3 +52,6 @@
 
 /* Define if you have Linux-compatible mremap() */
 #undef HAVE_LINUX_MREMAP
+
+/* Define if you have fdatasync() */
+#undef HAVE_FDATASYNC
