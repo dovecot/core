@@ -22,13 +22,10 @@ const char *const *imap_fetch_get_body_fields(const char *fields)
 	if (*fields == '(')
 		fields++;
 
-	field_list = t_strsplit_spaces(fields, " )");
+	field_list = t_strsplit_spaces(t_strcut(fields, ')'), " ");
 
 	/* array ends at ")" element */
 	for (field = dest = field_list; *field != NULL; field++) {
-		if (strcmp(*field, ")") == 0)
-			break;
-
 		*dest = *field;
 		dest++;
 	}
