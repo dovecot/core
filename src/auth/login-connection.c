@@ -195,6 +195,14 @@ struct login_connection *login_connection_create(int fd)
 	return conn;
 }
 
+static void auth_request_hash_destroy(void *key __attr_unused__, void *value,
+				      void *context __attr_unused__)
+{
+	struct auth_request *auth_request = value;
+
+	auth_request->auth_free(auth_request);
+}
+
 void login_connection_destroy(struct login_connection *conn)
 {
 	struct login_connection **pos;
@@ -209,7 +217,7 @@ void login_connection_destroy(struct login_connection *conn)
 		}
 	}
 
-	//FIXME: hash_foreach(conn->auth_requests, auth_request_hash_destroy, NULL);
+	hash_foreach(conn->auth_requests, auth_request_hash_destroy, NULL);
 	hash_destroy(conn->auth_requests);
 
 	i_stream_unref(conn->input);
