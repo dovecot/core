@@ -37,7 +37,6 @@ int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 		if (mech[i].advertise &&
 		    (client->secured || !mech[i].plaintext)) {
 			str_append_c(str, ' ');
-			str_append(str, "AUTH=");
 			str_append(str, mech[i].name);
 		}
 	}
