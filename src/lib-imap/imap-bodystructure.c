@@ -44,16 +44,14 @@ static void parse_content_type(const unsigned char *value, size_t value_len,
 			break;
 	}
 
-	if (i == value_len) {
-		data->content_type =
-                        imap_quote_value(data->pool, value, value_len);
-	} else {
-		data->content_type =
-                        imap_quote_value(data->pool, value, i);
+	if (i == value_len)
+		data->content_type = imap_quote(data->pool, value, value_len);
+	else {
+		data->content_type = imap_quote(data->pool, value, i);
 
 		i++;
 		data->content_subtype =
-                        imap_quote_value(data->pool, value+i, value_len-i);
+			imap_quote(data->pool, value+i, value_len-i);
 	}
 }
 
@@ -67,13 +65,9 @@ static void parse_save_params_list(const unsigned char *name, size_t name_len,
 	if (str_len(data->str) != 0)
 		str_append_c(data->str, ' ');
 
-	str_append_c(data->str, '"');
-	str_append_n(data->str, name, name_len);
-	str_append(data->str, "\" ");
-
-	str_append_c(data->str, '"');
-	str_append_n(data->str, value, value_len);
-	str_append_c(data->str, '"');
+	imap_quote_append(data->str, name, name_len);
+	str_append_c(data->str, ' ');
+	imap_quote_append(data->str, value, value_len);
 }
 
 static void parse_content_transfer_encoding(const unsigned char *value,
@@ -82,7 +76,7 @@ static void parse_content_transfer_encoding(const unsigned char *value,
         struct message_part_body_data *data = context;
 
 	data->content_transfer_encoding =
-		imap_quote_value(data->pool, value, value_len);
+		imap_quote(data->pool, value, value_len);
 }
 
 static void parse_content_disposition(const unsigned char *value,
@@ -90,8 +84,7 @@ static void parse_content_disposition(const unsigned char *value,
 {
         struct message_part_body_data *data = context;
 
-	data->content_disposition =
-		imap_quote_value(data->pool, value, value_len);
+	data->content_disposition = imap_quote(data->pool, value, value_len);
 }
 
 static void parse_content_language(const unsigned char *value, size_t value_len,
@@ -178,7 +171,7 @@ static void parse_header(struct message_part *part,
 		if (memcasecmp(name, "Content-ID", 10) == 0 &&
 		    part_data->content_id == NULL) {
 			part_data->content_id =
-				imap_quote_value(pool, value, value_len);
+				imap_quote(pool, value, value_len);
 		}
 		break;
 
@@ -186,7 +179,7 @@ static void parse_header(struct message_part *part,
 		if (memcasecmp(name, "Content-MD5", 11) == 0 &&
 		    part_data->content_md5 == NULL) {
 			part_data->content_md5 =
-				imap_quote_value(pool, value, value_len);
+				imap_quote(pool, value, value_len);
 		}
 		break;
 
@@ -212,7 +205,7 @@ static void parse_header(struct message_part *part,
 		if (memcasecmp(name, "Content-Description", 19) == 0 &&
 		    part_data->content_description == NULL) {
 			part_data->content_description =
-				imap_quote_value(pool, value, value_len);
+				imap_quote(pool, value, value_len);
 		}
 		if (memcasecmp(name, "Content-Disposition", 19) == 0 &&
 		    part_data->content_disposition_params == NULL) {
@@ -468,29 +461,45 @@ const char *imap_part_get_bodystructure(pool_t pool, struct message_part **part,
 	return str_c(str);
 }
 
+static int str_append_imap_arg(string_t *str, const struct imap_arg *arg)
+{
+	switch (arg->type) {
+	case IMAP_ARG_NIL:
+		str_append(str, "NIL");
+		break;
+	case IMAP_ARG_ATOM:
+		str_append(str, IMAP_ARG_STR(arg));
+		break;
+	case IMAP_ARG_STRING:
+		str_append_c(str, '"');
+		str_append(str, IMAP_ARG_STR(arg));
+		str_append_c(str, '"');
+		break;
+	case IMAP_ARG_LITERAL: {
+		const char *argstr = IMAP_ARG_STR(arg);
+
+		str_printfa(str, "{%"PRIuSIZE_T"}", strlen(argstr));
+		str_append(str, argstr);
+		break;
+	}
+	default:
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 static int imap_write_list(const struct imap_arg *args, string_t *str)
 {
 	/* don't do any typechecking, just write it out */
 	str_append_c(str, '(');
 	while (args->type != IMAP_ARG_EOL) {
-		switch (args->type) {
-		case IMAP_ARG_NIL:
-			str_append(str, "NIL");
-			break;
-		case IMAP_ARG_ATOM:
-			str_append(str, IMAP_ARG_STR(args));
-			break;
-		case IMAP_ARG_STRING:
-			str_append_c(str, '"');
-			str_append(str, IMAP_ARG_STR(args));
-			str_append_c(str, '"');
-			break;
-		case IMAP_ARG_LIST:
+		if (!str_append_imap_arg(str, args)) {
+			if (args->type != IMAP_ARG_LIST)
+				return FALSE;
+
 			if (!imap_write_list(IMAP_ARG_LIST(args)->args, str))
 				return FALSE;
-			break;
-		default:
-			return FALSE;
 		}
 		args++;
 
@@ -522,23 +531,24 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 
 	if (multipart) {
 		/* next is subtype of Content-Type. rest is skipped. */
-		if (args->type != IMAP_ARG_STRING)
-			return FALSE;
-
-		str_printfa(str, " \"%s\"", IMAP_ARG_STR(args));
-		return TRUE;
+		str_append_c(str, ' ');
+		return str_append_imap_arg(str, args);
 	}
 
 	/* "content type" "subtype" */
-	if (args[0].type != IMAP_ARG_STRING || args[1].type != IMAP_ARG_STRING)
+	if (args[0].type == IMAP_ARG_NIL || args[1].type == IMAP_ARG_NIL)
+		return FALSE;
+
+	if (!str_append_imap_arg(str, &args[0]))
+		return FALSE;
+	str_append_c(str, ' ');
+	if (!str_append_imap_arg(str, &args[1]))
 		return FALSE;
 
 	text = strcasecmp(IMAP_ARG_STR(&args[0]), "text") == 0;
 	message_rfc822 = strcasecmp(IMAP_ARG_STR(&args[0]), "message") == 0 &&
 		strcasecmp(IMAP_ARG_STR(&args[1]), "rfc822") == 0;
 
-	str_printfa(str, "\"%s\" \"%s\"", IMAP_ARG_STR(&args[0]),
-		    IMAP_ARG_STR(&args[1]));
 	args += 2;
 
 	/* ("content type param key" "value" ...) | NIL */
@@ -550,9 +560,11 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 			    subargs[1].type != IMAP_ARG_STRING)
 				return FALSE;
 
-			str_printfa(str, "\"%s\" \"%s\"",
-				    IMAP_ARG_STR(&subargs[0]),
-				    IMAP_ARG_STR(&subargs[1]));
+			if (!str_append_imap_arg(str, &subargs[0]))
+				return FALSE;
+			str_append_c(str, ' ');
+			if (!str_append_imap_arg(str, &subargs[1]))
+				return FALSE;
 
 			subargs += 2;
 			if (subargs->type == IMAP_ARG_EOL)
@@ -569,16 +581,10 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 
 	/* "content id" "content description" "transfer encoding" size */
 	for (i = 0; i < 4; i++, args++) {
-		if (args->type == IMAP_ARG_NIL) {
-			str_append(str, " NIL");
-		} else if (args->type == IMAP_ARG_ATOM) {
-			str_append_c(str, ' ');
-			str_append(str, IMAP_ARG_STR(args));
-		} else if (args->type == IMAP_ARG_STRING) {
-			str_printfa(str, " \"%s\"", IMAP_ARG_STR(args));
-		} else {
+		str_append_c(str, ' ');
+
+		if (!str_append_imap_arg(str, args))
 			return FALSE;
-		}
 	}
 
 	if (text) {
@@ -631,8 +637,8 @@ const char *imap_body_parse_from_bodystructure(const char *bodystructure)
 	(void)i_stream_read(input);
 
 	parser = imap_parser_create(input, NULL, 0, (size_t)-1);
-	ret = imap_parser_read_args(parser, 0, IMAP_PARSE_FLAG_NO_UNESCAPE,
-				    &args);
+	ret = imap_parser_read_args(parser, 0, IMAP_PARSE_FLAG_NO_UNESCAPE |
+				    IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
 
 	if (ret <= 0 || !imap_parse_bodystructure_args(args, str))
 		value = NULL;

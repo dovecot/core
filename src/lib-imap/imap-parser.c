@@ -230,16 +230,19 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 		}
 		break;
 	case ARG_PARSE_LITERAL_DATA:
-		if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0) {
-			/* simply save the string */
-			arg->type = IMAP_ARG_STRING;
-			arg->_data.str = p_strndup(parser->pool, data, size);
-		} else {
+		if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) != 0) {
 			/* save literal size */
 			arg->type = parser->literal_nonsync ?
 				IMAP_ARG_LITERAL_SIZE_NONSYNC :
 				IMAP_ARG_LITERAL_SIZE;
 			arg->_data.literal_size = parser->literal_size;
+		} else if ((parser->flags &
+			    IMAP_PARSE_FLAG_LITERAL_TYPE) != 0) {
+			arg->type = IMAP_ARG_LITERAL;
+			arg->_data.str = p_strndup(parser->pool, data, size);
+		} else {
+			arg->type = IMAP_ARG_STRING;
+			arg->_data.str = p_strndup(parser->pool, data, size);
 		}
 		break;
 	default:

@@ -9,15 +9,20 @@ enum imap_parser_flags {
 	IMAP_PARSE_FLAG_LITERAL_SIZE	= 0x01,
 	/* Don't remove '\' chars from string arguments */
 	IMAP_PARSE_FLAG_NO_UNESCAPE	= 0x02,
+	/* Return literals as IMAP_ARG_LITERAL instead of IMAP_ARG_STRING */
+	IMAP_PARSE_FLAG_LITERAL_TYPE	= 0x04
 };
 
 enum imap_arg_type {
 	IMAP_ARG_NIL = 0,
 	IMAP_ARG_ATOM,
 	IMAP_ARG_STRING,
+	IMAP_ARG_LIST,
+
+	/* literals are returned as IMAP_ARG_STRING by default */
+	IMAP_ARG_LITERAL,
 	IMAP_ARG_LITERAL_SIZE,
 	IMAP_ARG_LITERAL_SIZE_NONSYNC,
-	IMAP_ARG_LIST,
 
 	IMAP_ARG_EOL /* end of argument list */
 };
@@ -37,7 +42,8 @@ struct imap_arg {
 
 #define IMAP_ARG_STR(arg) \
 	((arg)->type == IMAP_ARG_NIL ? NULL : \
-	 (arg)->type == IMAP_ARG_ATOM || (arg)->type == IMAP_ARG_STRING ? \
+	 (arg)->type == IMAP_ARG_ATOM || (arg)->type == IMAP_ARG_STRING || \
+	 (arg)->type == IMAP_ARG_LITERAL ? \
 	 (arg)->_data.str : _imap_arg_str_error(arg))
 
 #define IMAP_ARG_LITERAL_SIZE(arg) \

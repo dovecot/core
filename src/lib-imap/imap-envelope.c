@@ -54,7 +54,7 @@ void imap_envelope_parse_header(pool_t pool,
 			d->from = message_address_parse(pool, value,
 							value_len, 0);
 		} else if (memcasecmp(name, "Date", 4) == 0 && d->date == NULL)
-			d->date = imap_quote_value(pool, value, value_len);
+			d->date = imap_quote(pool, value, value_len);
 		break;
 	case 6:
 		if (memcasecmp(name, "Sender", 6) == 0 && d->sender == NULL) {
@@ -64,7 +64,7 @@ void imap_envelope_parse_header(pool_t pool,
 		break;
 	case 7:
 		if (memcasecmp(name, "Subject", 7) == 0 && d->subject == NULL)
-			d->subject = imap_quote_value(pool, value, value_len);
+			d->subject = imap_quote(pool, value, value_len);
 		break;
 	case 8:
 		if (memcasecmp(name, "Reply-To", 8) == 0 &&
@@ -75,17 +75,13 @@ void imap_envelope_parse_header(pool_t pool,
 		break;
 	case 10:
 		if (memcasecmp(name, "Message-Id", 10) == 0 &&
-		    d->message_id == NULL) {
-			d->message_id =
-				imap_quote_value(pool, value, value_len);
-		}
+		    d->message_id == NULL)
+			d->message_id = imap_quote(pool, value, value_len);
 		break;
 	case 11:
 		if (memcasecmp(name, "In-Reply-To", 11) == 0 &&
-		    d->in_reply_to == NULL) {
-			d->in_reply_to =
-				imap_quote_value(pool, value, value_len);
-		}
+		    d->in_reply_to == NULL)
+			d->in_reply_to = imap_quote(pool, value, value_len);
 		break;
 	}
 
