@@ -189,7 +189,8 @@ void client_send_storage_error(struct client *client)
 	const char *error;
 
 	error = client->storage->get_last_error(client->storage, NULL);
-	client_send_line(client, "-ERR %s", error);
+	client_send_line(client, "-ERR %s", error != NULL ? error :
+			 "BUG: Unknown error");
 }
 
 static void client_input(void *context)
