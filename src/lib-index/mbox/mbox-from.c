@@ -123,12 +123,12 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 	msg += 4;
 
 	tm.tm_isdst = -1;
-	if ((msg[0] == '-' || msg[0] == '+') &&
-	    i_isdigit(msg[1]) && i_isdigit(msg[2]) &&
-	    i_isdigit(msg[3]) && i_isdigit(msg[4])) {
-		timezone = (msg[1]-'0') * 1000 + (msg[2]-'0') * 100 +
-			(msg[3]-'0') * 10 +(msg[4]-'0');
-		if (msg[0] == '-') timezone = -timezone;
+	if (msg[0] == ' ' && (msg[1] == '-' || msg[1] == '+') &&
+	    i_isdigit(msg[2]) && i_isdigit(msg[3]) &&
+	    i_isdigit(msg[4]) && i_isdigit(msg[5])) {
+		timezone = (msg[2]-'0') * 1000 + (msg[3]-'0') * 100 +
+			(msg[4]-'0') * 10 +(msg[5]-'0');
+		if (msg[1] == '-') timezone = -timezone;
 
 		t = utc_mktime(&tm);
 		if (t == (time_t)-1)
