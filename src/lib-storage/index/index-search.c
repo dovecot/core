@@ -654,8 +654,6 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 
 		search_arg_match_data(inbuf, args, search_text_body);
 	}
-
-	i_buffer_unref(inbuf);
 	return TRUE;
 }
 
