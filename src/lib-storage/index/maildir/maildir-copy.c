@@ -31,12 +31,13 @@ static int maildir_hardlink_file(struct mail_index *index,
 				 const char **fname, const char *new_path)
 {
 	const char *path;
+	int new_dir;
 
-	*fname = maildir_get_location(index, rec);
+	*fname = maildir_get_location(index, rec, &new_dir);
 	if (*fname == NULL)
 		return -1;
 
-	if ((rec->index_flags & INDEX_MAIL_FLAG_MAILDIR_NEW) != 0) {
+	if (new_dir) {
 		/* probably in new/ dir */
 		path = t_strconcat(index->mailbox_path, "/new/", *fname, NULL);
 		if (link(path, new_path) == 0)

@@ -9,8 +9,8 @@
 #include "unlink-lockfiles.h"
 #include "write-full.h"
 #include "mail-index.h"
-#include "mail-index-data.h"
 #include "mail-index-util.h"
+#include "mail-cache.h"
 #include "mail-modifylog.h"
 #include "mail-custom-flags.h"
 
@@ -29,7 +29,7 @@ static int mail_index_open_init(struct mail_index *index,
 	index->maildir_have_new =
 		(hdr->flags & MAIL_INDEX_FLAG_MAILDIR_NEW) != 0;
 
-	if ((hdr->flags & MAIL_INDEX_FLAG_DIRTY_MESSAGES) != 0)
+	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES) != 0)
 		index->next_dirty_flush = ioloop_time;
 
 	/* update \Recent message counters */
@@ -52,7 +52,7 @@ static int mail_index_open_init(struct mail_index *index,
 
 	if (hdr->next_uid >= MAX_ALLOWED_UID - 1000) {
 		/* UID values are getting too high, rebuild index */
-		index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
+		index->set_flags |= MAIL_INDEX_HDR_FLAG_REBUILD;
 	}
 
 	if (index->lock_type == MAIL_LOCK_EXCLUSIVE) {
@@ -71,34 +71,16 @@ static int index_open_and_fix(struct mail_index *index,
 {
 	int rebuilt;
 
-	/* open/create the index files */
-	if ((flags & _MAIL_INDEX_OPEN_FLAG_CREATING) == 0) {
-		if (!mail_index_data_open(index)) {
-			if ((index->set_flags & MAIL_INDEX_FLAG_REBUILD) == 0)
-				return FALSE;
-
-			/* data file is corrupted, need to rebuild index */
-			flags |= _MAIL_INDEX_OPEN_FLAG_CREATING;
-			index->set_flags = 0;
-			index->inconsistent = FALSE;
-		}
-	}
-
-	if ((flags & _MAIL_INDEX_OPEN_FLAG_CREATING) != 0) {
-		if (!mail_index_set_lock(index, MAIL_LOCK_EXCLUSIVE))
-			return FALSE;
-		if (!mail_index_data_create(index))
-			return FALSE;
-	}
-
-	/* custom flags file needs to be open before
-	   rebuilding index */
-	if (!mail_custom_flags_open_or_create(index))
+	if (!mail_cache_open_or_create(index))
 		return FALSE;
 
-	if ((flags & _MAIL_INDEX_OPEN_FLAG_CREATING) != 0 ||
-	    (index->header->flags & MAIL_INDEX_FLAG_REBUILD) != 0) {
+	if ((index->header->flags & MAIL_INDEX_HDR_FLAG_REBUILD) != 0 ||
+	    (index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD) != 0) {
+
 		if (!index->rebuild(index))
+			return FALSE;
+
+		if ((index->header->flags & MAIL_INDEX_HDR_FLAG_REBUILD) != 0)
 			return FALSE;
 
 		/* no inconsistency problems since we're still opening
@@ -109,6 +91,10 @@ static int index_open_and_fix(struct mail_index *index,
 		rebuilt = FALSE;
 	}
 
+	/* custom flags file needs to be open before rebuilding index */
+	if (!mail_custom_flags_open_or_create(index))
+		return FALSE;
+
 	if ((flags & _MAIL_INDEX_OPEN_FLAG_CREATING) == 0) {
 		if (!mail_modifylog_open_or_create(index))
 			return FALSE;
@@ -117,7 +103,7 @@ static int index_open_and_fix(struct mail_index *index,
 			return FALSE;
 	}
 
-	if (index->header->flags & MAIL_INDEX_FLAG_FSCK) {
+	if (index->header->flags & MAIL_INDEX_HDR_FLAG_FSCK) {
 		/* index needs fscking */
 		if (!index->fsck(index))
 			return FALSE;
@@ -130,8 +116,6 @@ static int index_open_and_fix(struct mail_index *index,
 					  MAIL_LOCK_SHARED, NULL) &&
 		    !index->nodiskspace)
 			return FALSE;
-
-		index->inconsistent = FALSE;
 	}
 
 	/* we never want to keep shared lock if syncing happens to set it.
@@ -143,23 +127,15 @@ static int index_open_and_fix(struct mail_index *index,
 	}
 
 	if ((flags & MAIL_INDEX_OPEN_FLAG_FAST) == 0) {
-		if (index->header->flags & MAIL_INDEX_FLAG_COMPRESS) {
+		if (index->header->flags & MAIL_INDEX_HDR_FLAG_COMPRESS) {
 			/* remove deleted blocks from index file */
 			if (!mail_index_compress(index))
 				return FALSE;
 		}
 
-		if (index->header->flags & MAIL_INDEX_FLAG_CACHE_FIELDS) {
-			/* need to update cached fields */
-			if (!mail_index_update_cache(index))
-				return FALSE;
-		}
-
-		if (index->header->flags & MAIL_INDEX_FLAG_COMPRESS_DATA) {
-			/* remove unused space from index data file.
-			   keep after cache updates which may move data
-			   and create unused space */
-			if (!mail_index_compress_data(index))
+		if (index->header->flags & MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE) {
+			/* remove unused space from index data file. */
+			if (!mail_cache_compress(index->cache))
 				return FALSE;
 		}
 	}
@@ -189,16 +165,6 @@ static int mail_index_read_header(struct mail_index *index,
 	return 1;
 }
 
-static int mail_index_is_compatible(const struct mail_index_header *hdr)
-{
-	return hdr->compat_data[0] == MAIL_INDEX_VERSION &&
-		hdr->compat_data[1] == MAIL_INDEX_COMPAT_FLAGS &&
-		hdr->compat_data[2] == sizeof(unsigned int) &&
-		hdr->compat_data[3] == sizeof(time_t) &&
-		hdr->compat_data[4] == sizeof(uoff_t) &&
-		hdr->compat_data[5] == INDEX_ALIGN_SIZE;
-}
-
 static int mail_index_init_file(struct mail_index *index,
 				const struct mail_index_header *hdr)
 {
@@ -224,27 +190,20 @@ static int mail_index_init_file(struct mail_index *index,
 	return TRUE;
 }
 
-void mail_index_init_header(struct mail_index *index,
-			    struct mail_index_header *hdr)
+void mail_index_init_header(struct mail_index_header *hdr)
 {
+	i_assert(sizeof(struct mail_index_header) < 256);
+
 	memset(hdr, 0, sizeof(*hdr));
-	hdr->compat_data[0] = MAIL_INDEX_VERSION;
-	hdr->compat_data[1] = MAIL_INDEX_COMPAT_FLAGS;
-	hdr->compat_data[2] = sizeof(unsigned int);
-	hdr->compat_data[3] = sizeof(time_t);
-	hdr->compat_data[4] = sizeof(uoff_t);
-	hdr->compat_data[5] = INDEX_ALIGN_SIZE;
+	hdr->major_version = MAIL_INDEX_MAJOR_VERSION;
+	hdr->minor_version = MAIL_INDEX_MINOR_VERSION;
+	hdr->header_size = (uint8_t)sizeof(struct mail_index_header);
+
 	hdr->indexid = ioloop_time;
 
 	/* mark the index requiring rebuild - rebuild() removes this flag
 	   when it succeeds */
-	hdr->flags = MAIL_INDEX_FLAG_REBUILD;
-
-	if (!index->anon_mmap) {
-		/* set the fields we always want to cache,
-		   but not if we're building into memory */
-		hdr->cache_fields |= index->default_cache_fields;
-	}
+	hdr->flags = MAIL_INDEX_HDR_FLAG_REBUILD;
 
 	hdr->used_file_size = sizeof(struct mail_index_header);
 	hdr->uid_validity = ioloop_time;
@@ -282,14 +241,15 @@ static int mail_index_create_memory(struct mail_index *index,
 
 	flags |= _MAIL_INDEX_OPEN_FLAG_CREATING;
 
-	index->mmap_full_length = INDEX_FILE_MIN_SIZE;
+	index->header_size = sizeof(struct mail_index_header);
+	index->mmap_full_length = INDEX_FILE_MIN_SIZE(index);
 	index->mmap_base = mmap_anon(index->mmap_full_length);
 	if (index->mmap_base == MAP_FAILED) {
 		index->mmap_base = NULL;
 		return index_set_error(index, "mmap_anon() failed: %m");
 	}
 
-	mail_index_init_header(index, index->mmap_base);
+	mail_index_init_header(index->mmap_base);
 	index->header = index->mmap_base;
 	index->mmap_used_length = index->header->used_file_size;
 
@@ -332,8 +292,8 @@ static int mail_index_open_index(struct mail_index *index,
 	if ((ret = mail_index_read_header(index, &hdr)) < 0)
 		return FALSE;
 
-	if (ret == 0 || !mail_index_is_compatible(&hdr) ||
-	    (hdr.flags & MAIL_INDEX_FLAG_REBUILD) != 0) {
+	if (ret == 0 || hdr.major_version != MAIL_INDEX_MAJOR_VERSION ||
+	    (hdr.flags & MAIL_INDEX_HDR_FLAG_REBUILD) != 0) {
 		if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0)
 			return FALSE;
 
@@ -347,7 +307,7 @@ static int mail_index_open_index(struct mail_index *index,
 			return mail_index_open_index(index, flags);
 		}
 
-		mail_index_init_header(index, &hdr);
+		mail_index_init_header(&hdr);
 		if (!mail_index_init_file(index, &hdr))
 			return FALSE;
 	}
@@ -367,7 +327,7 @@ static int mail_index_open_index(struct mail_index *index,
 	}
 
 	if (!index_open_and_fix(index, flags)) {
-		if ((index->set_flags & MAIL_INDEX_FLAG_REBUILD) == 0 ||
+		if ((index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD) == 0 ||
 		    (flags & _MAIL_INDEX_OPEN_FLAG_CREATING) != 0)
 			return FALSE;
 

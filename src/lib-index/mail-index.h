@@ -1,11 +1,13 @@
 #ifndef __MAIL_INDEX_H
 #define __MAIL_INDEX_H
 
+#include "byteorder.h"
 #include "file-dotlock.h"
 #include "message-parser.h"
 #include "imap-util.h"
 
-#define MAIL_INDEX_VERSION 3
+#define MAIL_INDEX_MAJOR_VERSION 3
+#define MAIL_INDEX_MINOR_VERSION 0
 
 #define INDEX_FILE_PREFIX ".imap.index"
 
@@ -31,57 +33,34 @@ enum mail_index_header_flag {
 	/* Rebuild flag is set while index is being rebuilt or when
 	   some error is noticed in the index file. If this flag is set,
 	   the index shouldn't be used before rebuilding it. */
-	MAIL_INDEX_FLAG_REBUILD			= 0x0001,
-	MAIL_INDEX_FLAG_FSCK			= 0x0002,
-	MAIL_INDEX_FLAG_CACHE_FIELDS		= 0x0004,
-	MAIL_INDEX_FLAG_COMPRESS		= 0x0008,
-	MAIL_INDEX_FLAG_COMPRESS_DATA		= 0x0010,
-	MAIL_INDEX_FLAG_DIRTY_MESSAGES		= 0x0040,
-	MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS	= 0x0080,
-	MAIL_INDEX_FLAG_MAILDIR_NEW		= 0x0100
+	MAIL_INDEX_HDR_FLAG_FSCK		= NBO32_BIT0,
+	MAIL_INDEX_HDR_FLAG_REBUILD		= NBO32_BIT1,
+	MAIL_INDEX_HDR_FLAG_COMPRESS		= NBO32_BIT2,
+	MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE	= NBO32_BIT3,
+	MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES	= NBO32_BIT4,
+	MAIL_INDEX_HDR_FLAG_DIRTY_CUSTOMFLAGS	= NBO32_BIT5,
+	MAIL_INDEX_HDR_FLAG_MAILDIR_NEW		= NBO32_BIT6
 };
 
-enum mail_data_field {
-	DATA_FIELD_LOCATION		= 0x00000001,
-	DATA_FIELD_ENVELOPE		= 0x00000002,
-	DATA_FIELD_BODY			= 0x00000004,
-	DATA_FIELD_BODYSTRUCTURE	= 0x00000008,
-	DATA_FIELD_MD5			= 0x00000010,
-	DATA_FIELD_MESSAGEPART		= 0x00000020,
-
-	DATA_FIELD_LAST			= 0x00000040,
-	DATA_FIELD_MAX_BITS		= 6,
-
-	/* separate from above, but in same bitmask */
-	DATA_HDR_INTERNAL_DATE		= 0x40000000,
-	DATA_HDR_VIRTUAL_SIZE		= 0x20000000,
-	DATA_HDR_HEADER_SIZE		= 0x10000000,
-	DATA_HDR_BODY_SIZE		= 0x08000000
-};
-
-#define IS_BODYSTRUCTURE_FIELD(field) \
-	(((field) & (DATA_FIELD_BODY | DATA_FIELD_BODYSTRUCTURE | \
-		     DATA_FIELD_MESSAGEPART)) != 0)
-
-enum mail_index_mail_flag {
+enum mail_index_record_flag {
 	/* If binary flags are set, it's not checked whether mail is
 	   missing CRs. So this flag may be set as an optimization for
 	   regular non-binary mails as well if it's known that it contains
 	   valid CR+LF line breaks. */
-	INDEX_MAIL_FLAG_BINARY_HEADER	= 0x0001,
-	INDEX_MAIL_FLAG_BINARY_BODY	= 0x0002,
+	MAIL_INDEX_FLAG_BINARY_HEADER	= NBO32_BIT0,
+	MAIL_INDEX_FLAG_BINARY_BODY	= NBO32_BIT1,
 
 	/* Mail flags have been changed in index, but not written into
 	   actual mailbox yet. */
-	INDEX_MAIL_FLAG_DIRTY		= 0x0004,
+	MAIL_INDEX_FLAG_DIRTY		= NBO32_BIT2,
 
 	/* Maildir: Mail file is in new/ dir instead of cur/ */
-	INDEX_MAIL_FLAG_MAILDIR_NEW	= 0x0008,
+	MAIL_INDEX_FLAG_MAILDIR_NEW	= NBO32_BIT3,
 
 	/* Mail header or body is known to contain NUL characters. */
-	INDEX_MAIL_FLAG_HAS_NULS	= 0x0010,
+	MAIL_INDEX_FLAG_HAS_NULS	= NBO32_BIT4,
 	/* Mail header or body is known to not contain NUL characters. */
-	INDEX_MAIL_FLAG_HAS_NO_NULS	= 0x0020
+	MAIL_INDEX_FLAG_HAS_NO_NULS	= NBO32_BIT5
 };
 
 enum mail_lock_type {
@@ -122,74 +101,40 @@ typedef void mail_lock_notify_callback_t(enum mail_lock_notify_type notify_type,
 					 unsigned int secs_left, void *context);
 
 struct mail_index_header {
-	unsigned char compat_data[8];
-	/* 0 = version
-	   1 = flags,
-	   2 = sizeof(unsigned int),
-	   3 = sizeof(time_t),
-	   4 = sizeof(uoff_t),
-	   5 = INDEX_ALIGN_SIZE */
+	/* major version is increased only when you can't have backwards
+	   compatibility. minor version is increased when header size is
+	   increased to contain new non-critical fields. */
+	uint8_t major_version;
+	uint8_t minor_version;
+	uint8_t header_size;
+	uint8_t reserved;
 
-	unsigned int indexid;
-	unsigned int sync_id; /* re-mmap() when changed, required only
-	                         if file size is changed */
+	uint32_t indexid;
 
-	unsigned int flags;
-	unsigned int cache_fields;
+	uint32_t used_file_size;
+	uint32_t sync_id; /* re-mmap() when changed, required only
+	                     if file size is shrinked */
 
-	uoff_t used_file_size;
+	uint32_t flags;
 
-	unsigned int uid_validity;
-	unsigned int next_uid;
+	uint32_t uid_validity;
+	uint32_t next_uid;
 
-	unsigned int messages_count;
-	unsigned int seen_messages_count;
-	unsigned int deleted_messages_count;
-	unsigned int last_nonrecent_uid;
+	uint32_t messages_count;
+	uint32_t seen_messages_count;
+	uint32_t deleted_messages_count;
+	uint32_t last_nonrecent_uid;
 
 	/* these UIDs may not exist and may not even be unseen */
-	unsigned int first_unseen_uid_lowwater;
-	unsigned int first_deleted_uid_lowwater;
-};
-
-struct mail_index_data_header {
-	unsigned int indexid;
-	unsigned int reserved; /* for alignment mostly */
-
-	uoff_t used_file_size;
-	uoff_t deleted_space;
+	uint32_t first_unseen_uid_lowwater;
+	uint32_t first_deleted_uid_lowwater;
 };
 
 struct mail_index_record {
-	unsigned int uid;
-	unsigned int msg_flags;
-	unsigned int data_position; /* first bit must be 0 */
-
-	unsigned int index_flags; /* enum mail_index_mail_flag */
-	unsigned int data_fields; /* enum mail_data_field */
+	uint32_t uid;
+	uint32_t msg_flags;
+	uint32_t data_offset;
 };
-
-struct mail_index_data_record_header {
-	unsigned int data_size; /* including this header */
-
-	time_t internal_date;
-	uoff_t virtual_size;
-
-	uoff_t header_size;
-	uoff_t body_size;
-};
-
-struct mail_index_data_record {
-	unsigned int field; /* enum mail_data_field */
-	unsigned int full_field_size;
-	char data[INDEX_ALIGN_SIZE]; /* variable size */
-};
-
-#define SIZEOF_MAIL_INDEX_DATA \
-	(sizeof(struct mail_index_data_record) - INDEX_ALIGN_SIZE)
-
-#define DATA_RECORD_SIZE(rec) \
-        (SIZEOF_MAIL_INDEX_DATA + (rec)->full_field_size)
 
 struct mail_index {
 	/* Note that opening same index twice in the same process is a bad
@@ -274,34 +219,16 @@ struct mail_index {
 						      unsigned int last_uid,
 						      unsigned int *seq_r);
 
-	/* Find field from specified record, or NULL if it's not in index.
-	   Makes sure that the field ends with \0. */
-	const char *(*lookup_field)(struct mail_index *index,
-				    struct mail_index_record *rec,
-				    enum mail_data_field field);
-
-	/* Find field from specified record, or NULL if it's not in index. */
-	const void *(*lookup_field_raw)(struct mail_index *index,
-					struct mail_index_record *rec,
-					enum mail_data_field field,
-					size_t *size);
-
-	/* Mark the fields to be cached later. If any of them is already
-	   set in hdr->cache_fields, mark the caching to happen next time
-	   index is opened. */
-	void (*cache_fields_later)(struct mail_index *index,
-				   enum mail_data_field field);
-
 	/* Open mail file and return it as mmap()ed IStream. If we fail,
 	   we return NULL and set deleted = TRUE if failure was because the
-	   mail was just deleted (ie. not an error). internal_date is set
+	   mail was just deleted (ie. not an error). received_date is set
 	   if it's non-NULL. */
 	struct istream *(*open_mail)(struct mail_index *index,
 				     struct mail_index_record *rec,
-				     time_t *internal_date, int *deleted);
+				     time_t *received_date, int *deleted);
 
-	/* Returns internal date of message, or (time_t)-1 if error occured. */
-	time_t (*get_internal_date)(struct mail_index *index,
+	/* Returns received date of message, or (time_t)-1 if error occured. */
+	time_t (*get_received_date)(struct mail_index *index,
 				    struct mail_index_record *rec);
 
 	/* Expunge mails from index. Modifylog is also updated. The
@@ -327,41 +254,8 @@ struct mail_index {
 			    int external_change);
 
 	/* Append a new record to index. The index must be exclusively
-	   locked before calling this function. rec->uid is updated in
-	   append_end(). */
-	struct mail_index_record *(*append_begin)(struct mail_index *index);
-	int (*append_end)(struct mail_index *index,
-			  struct mail_index_record *rec);
-	void (*append_abort)(struct mail_index *index,
-			     struct mail_index_record *rec);
-
-	/* Updating fields happens by calling update_begin(), one or more
-	   update_field()s and finally update_end() which does the actual
-	   updating. The index must be exclusively locked all this time.
-	   update_begin() and update_field() functions cannot fail.
-
-	   The extra_space parameter for update_field() specifies the amount
-	   of extra empty space we should leave after the value, so that if
-	   the field grows in future it could be expanded without copying it
-	   to end of file. When the field already exists, the extra_space
-	   is ignored.
-
-	   The files may not actually be updated until after you've unlocked
-	   the file. */
-	struct mail_index_update *
-		(*update_begin)(struct mail_index *index,
-				struct mail_index_record *rec);
-	int (*update_end)(struct mail_index_update *update);
-	void (*update_abort)(struct mail_index_update *update);
-
-	void (*update_field)(struct mail_index_update *update,
-			     enum mail_data_field field,
-			     const char *value, size_t extra_space);
-	/* Just remember that full_field_size will be INDEX_ALIGNed, so
-	   it may differer from the given size parameter. */
-	void (*update_field_raw)(struct mail_index_update *update,
-				 enum mail_data_field field,
-				 const void *value, size_t size);
+	   locked before calling this function. */
+	struct mail_index_record *(*append)(struct mail_index *index);
 
 	/* Returns the last error code. */
 	enum mail_index_error (*get_last_error)(struct mail_index *index);
@@ -371,7 +265,7 @@ struct mail_index {
 	const char *(*get_last_error_text)(struct mail_index *index);
 
 /* private: */
-	struct mail_index_data *data;
+	struct mail_cache *cache;
 	struct mail_modify_log *modifylog;
 	struct mail_custom_flags *custom_flags;
 
@@ -379,7 +273,6 @@ struct mail_index {
 	char *filepath; /* index file path */
 	char *mailbox_path; /* file/directory for mailbox location */
 	char *control_dir; /* destination for control files */
-	enum mail_data_field default_cache_fields, never_cache_fields;
 	unsigned int indexid;
 	unsigned int sync_id;
 
@@ -418,6 +311,7 @@ struct mail_index {
 	size_t mmap_full_length;
 
 	struct mail_index_header *header;
+	size_t header_size;
 
         enum mail_lock_type lock_type;
 	time_t file_sync_stamp;
@@ -429,7 +323,7 @@ struct mail_index {
 	/* these fields are OR'ed to the fields in index header once we
 	   get around grabbing exclusive lock */
 	unsigned int set_flags;
-	enum mail_data_field set_cache_fields;
+	unsigned int cache_later_locks;
 
 	unsigned int anon_mmap:1;
 	unsigned int mmap_invalidate:1;
@@ -444,6 +338,7 @@ struct mail_index {
 	unsigned int mailbox_lock_timeout:1;
 	unsigned int maildir_keep_new:1;
 	unsigned int maildir_have_new:1;
+	unsigned int maildir_synced_once:1;
 };
 
 #ifdef DEV_T_STRUCT
@@ -456,7 +351,7 @@ struct mail_index {
    members.. */
 #define MAIL_INDEX_PRIVATE_FILL \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, { 0, 0, 0 }, 0, \
+	0, 0, 0, 0, { 0, 0, 0 }, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
@@ -481,15 +376,6 @@ struct mail_index_record *mail_index_next(struct mail_index *index,
 struct mail_index_record *
 mail_index_lookup_uid_range(struct mail_index *index, unsigned int first_uid,
 			    unsigned int last_uid, unsigned int *seq_r);
-const char *mail_index_lookup_field(struct mail_index *index,
-				    struct mail_index_record *rec,
-				    enum mail_data_field field);
-const void *mail_index_lookup_field_raw(struct mail_index *index,
-					struct mail_index_record *rec,
-					enum mail_data_field field,
-					size_t *size);
-void mail_index_cache_fields_later(struct mail_index *index,
-				   enum mail_data_field field);
 int mail_index_expunge(struct mail_index *index,
 		       struct mail_index_record *first_rec,
 		       struct mail_index_record *last_rec,
@@ -499,46 +385,22 @@ int mail_index_update_flags(struct mail_index *index,
 			    struct mail_index_record *rec,
 			    unsigned int seq, enum mail_flags flags,
 			    int external_change);
-struct mail_index_record *mail_index_append_begin(struct mail_index *index);
-int mail_index_append_end(struct mail_index *index,
-			  struct mail_index_record *rec);
-void mail_index_append_abort(struct mail_index *index,
-			     struct mail_index_record *rec);
-struct mail_index_update *
-mail_index_update_begin(struct mail_index *index,
-			struct mail_index_record *rec);
-int mail_index_update_end(struct mail_index_update *update);
-void mail_index_update_abort(struct mail_index_update *update);
-void mail_index_update_field(struct mail_index_update *update,
-			     enum mail_data_field field,
-			     const char *value, size_t extra_space);
-void mail_index_update_field_raw(struct mail_index_update *update,
-				 enum mail_data_field field,
-				 const void *value, size_t size);
-time_t mail_get_internal_date(struct mail_index *index,
-			      struct mail_index_record *rec);
+struct mail_index_record *mail_index_append(struct mail_index *index);
 enum mail_index_error mail_index_get_last_error(struct mail_index *index);
 const char *mail_index_get_last_error_text(struct mail_index *index);
 
 /* INTERNAL: */
 void mail_index_init(struct mail_index *index, const char *dir);
 int mail_index_mmap_update(struct mail_index *index);
-void mail_index_init_header(struct mail_index *index,
-			    struct mail_index_header *hdr);
+void mail_index_init_header(struct mail_index_header *hdr);
 void mail_index_close(struct mail_index *index);
 int mail_index_fmdatasync(struct mail_index *index, size_t size);
 void mail_index_mark_flag_changes(struct mail_index *index,
 				  struct mail_index_record *rec,
 				  enum mail_flags old_flags,
 				  enum mail_flags new_flags);
-void mail_index_update_headers(struct mail_index_update *update,
-			       struct istream *input,
-                               enum mail_data_field cache_fields,
-			       message_header_callback_t *header_cb,
-			       void *context);
-int mail_index_update_cache(struct mail_index *index);
+int mail_index_rebuild(struct mail_index *index);
 int mail_index_compress(struct mail_index *index);
-int mail_index_compress_data(struct mail_index *index);
 int mail_index_truncate(struct mail_index *index);
 int mail_index_expunge_record_range(struct mail_index *index,
 				    struct mail_index_record *first_rec,
@@ -577,7 +439,7 @@ int mail_index_expunge_record_range(struct mail_index *index,
 /* record for given index */
 #define INDEX_RECORD_AT(index, idx) \
 	((struct mail_index_record *) \
-	 ((char *) index->mmap_base + sizeof(struct mail_index_header)) + (idx))
+	 ((char *) index->mmap_base + (index)->header_size) + (idx))
 
 /* returns the next record after last one */
 #define INDEX_END_RECORD(index) \
@@ -585,26 +447,28 @@ int mail_index_expunge_record_range(struct mail_index *index,
 	 ((char *) (index)->mmap_base + (index)->mmap_used_length))
 
 /* index number for uoff_t position */
-#define INDEX_POSITION_INDEX(pos) \
-	(((pos) - sizeof(struct mail_index_header)) / \
+#define INDEX_POSITION_INDEX(index, pos) \
+	(((pos) - (index)->header_size) / \
 	 sizeof(struct mail_index_record))
 
 /* index number for given record */
 #define INDEX_RECORD_INDEX(index, ptr) \
-	INDEX_POSITION_INDEX(INDEX_FILE_POSITION(index, ptr))
+	INDEX_POSITION_INDEX(index, INDEX_FILE_POSITION(index, ptr))
 
 /* mark the index corrupted */
 #define INDEX_MARK_CORRUPTED(index) \
-	STMT_START { (index)->set_flags |= MAIL_INDEX_FLAG_REBUILD; } STMT_END
+	STMT_START { \
+		(index)->set_flags |= MAIL_INDEX_HDR_FLAG_REBUILD; \
+	} STMT_END
 
 /* get number of records in mmaped index */
 #define MAIL_INDEX_RECORD_COUNT(index) \
-	((index->mmap_used_length - sizeof(struct mail_index_header)) / \
+	((index->mmap_used_length - (index)->header_size) / \
 	 sizeof(struct mail_index_record))
 
 /* minimum size for index file */
-#define INDEX_FILE_MIN_SIZE \
-	(sizeof(struct mail_index_header) + \
+#define INDEX_FILE_MIN_SIZE(index) \
+	((index)->header_size + \
 	 INDEX_MIN_RECORDS_COUNT * sizeof(struct mail_index_record))
 
 /* enum mail_lock_type to fcntl() lock type */

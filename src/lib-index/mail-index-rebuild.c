@@ -1,25 +1,22 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
-#include "maildir-index.h"
-#include "mail-index-data.h"
+#include "mail-index.h"
 #include "mail-index-util.h"
+#include "mail-cache.h"
 
-#include <unistd.h>
-#include <sys/stat.h>
 #include <sys/mman.h>
 
-int maildir_index_rebuild(struct mail_index *index)
+int mail_index_rebuild(struct mail_index *index)
 {
 	if (!mail_index_set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	/* reset the header */
-	mail_index_init_header(index, index->header);
-	index->mmap_used_length = index->header->used_file_size;
+	index->set_flags &= ~MAIL_INDEX_HDR_FLAG_REBUILD;
 
-	/* require these fields */
-	index->header->cache_fields |= DATA_FIELD_LOCATION;
+	/* reset the header */
+	mail_index_init_header(index->header);
+	index->mmap_used_length = index->header->used_file_size;
 
 	/* update indexid, which also means that our state has completely
 	   changed */
@@ -28,13 +25,11 @@ int maildir_index_rebuild(struct mail_index *index)
 	index->rebuilding = TRUE;
 
 	if (!index->anon_mmap) {
-		if (msync(index->mmap_base,
-			  sizeof(struct mail_index_header), MS_SYNC) < 0)
+		if (msync(index->mmap_base, index->header_size, MS_SYNC) < 0)
 			return index_set_syscall_error(index, "msync()");
 	}
 
-	/* reset data file */
-	if (!mail_index_data_reset(index->data))
+	if (!mail_cache_truncate(index->cache))
 		return FALSE;
 
 	/* read the mails by syncing */
@@ -42,7 +37,11 @@ int maildir_index_rebuild(struct mail_index *index)
 		return FALSE;
 
 	/* rebuild is complete - remove the flag */
-	index->header->flags &= ~(MAIL_INDEX_FLAG_REBUILD|MAIL_INDEX_FLAG_FSCK);
+	index->header->flags &= ~(MAIL_INDEX_HDR_FLAG_REBUILD |
+				  MAIL_INDEX_HDR_FLAG_FSCK);
+	index->header->flags |= index->set_flags;
+	index->set_flags = 0;
+
 	index->rebuilding = FALSE;
 	return TRUE;
 }

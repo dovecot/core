@@ -7,19 +7,21 @@
 #include "md5.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
+#include "mail-cache.h"
 
 static int mbox_index_append_next(struct mail_index *index,
+                                  struct mail_index_record *rec,
+				  struct mail_cache_transaction_ctx *trans_ctx,
 				  struct istream *input)
 {
-	struct mail_index_record *rec;
-	struct mail_index_update *update;
         struct mbox_header_context ctx;
-	time_t internal_date;
+	enum mail_index_record_flag index_flags;
+	time_t received_date;
 	uoff_t abs_start_offset, eoh_offset;
 	const unsigned char *data;
 	unsigned char md5_digest[16];
 	size_t size, pos;
-	int ret, dirty;
+	int dirty;
 
 	/* get the From-line */
 	pos = 0;
@@ -40,14 +42,14 @@ static int mbox_index_append_next(struct mail_index *index,
 		index_set_error(index, "Error indexing mbox file %s: "
 				"From-line not found where expected",
 				index->mailbox_path);
-		index->set_flags |= MAIL_INDEX_FLAG_FSCK;
+		index->set_flags |= MAIL_INDEX_HDR_FLAG_FSCK;
 		return -1;
 	}
 
 	/* parse the From-line */
-	internal_date = mbox_from_parse_date(data + 5, size - 5);
-	if (internal_date == (time_t)-1)
-		internal_date = ioloop_time;
+	received_date = mbox_from_parse_date(data + 5, size - 5);
+	if (received_date == (time_t)-1)
+		received_date = ioloop_time;
 
 	i_stream_skip(input, pos+1);
 	abs_start_offset = input->start_offset + input->v_offset;
@@ -57,19 +59,16 @@ static int mbox_index_append_next(struct mail_index *index,
 	mbox_skip_header(input);
 	eoh_offset = input->v_offset;
 
-	/* add message to index */
-	rec = index->append_begin(index);
-	if (rec == NULL)
+	index_flags = 0;
+
+	if (!mail_cache_add(trans_ctx, rec, MAIL_CACHE_RECEIVED_DATE,
+			    &received_date, sizeof(received_date)))
 		return -1;
 
-	update = index->update_begin(index, rec);
-
-	index->update_field_raw(update, DATA_HDR_INTERNAL_DATE,
-				&internal_date, sizeof(internal_date));
-
-	/* location = offset to beginning of headers in message */
-	index->update_field_raw(update, DATA_FIELD_LOCATION,
-				&abs_start_offset, sizeof(uoff_t));
+	/* location offset = beginning of headers in message */
+	if (!mail_cache_add(trans_ctx, rec, MAIL_CACHE_LOCATION_OFFSET,
+			    &abs_start_offset, sizeof(abs_start_offset)))
+		return -1;
 
 	/* parse the header and cache wanted fields. get the message flags
 	   from Status and X-Status fields. temporarily limit the stream length
@@ -84,12 +83,12 @@ static int mbox_index_append_next(struct mail_index *index,
 	i_stream_seek(input, abs_start_offset - input->start_offset);
 
 	i_stream_set_read_limit(input, eoh_offset);
-	mail_index_update_headers(update, input, 0, mbox_header_cb, &ctx);
+	//FIXME:mail_index_update_headers(update, input, 0, mbox_header_cb, &ctx);
 
 	i_stream_seek(input, input->v_limit);
 	i_stream_set_read_limit(input, 0);
 
-	ret = 1;
+	dirty = ctx.content_length_broken;
 	if (index->header->messages_count == 0 &&
 	    ctx.uid_validity != index->header->uid_validity) {
 		/* UID validity is different */
@@ -103,66 +102,53 @@ static int mbox_index_append_next(struct mail_index *index,
 			/* we have to write it to mbox */
 			if (index->mbox_lock_type != MAIL_LOCK_EXCLUSIVE) {
 				/* try again */
-				ret = 0;
-			} else {
-				index->header->flags |=
-					MAIL_INDEX_FLAG_DIRTY_MESSAGES;
-				rec->index_flags |= INDEX_MAIL_FLAG_DIRTY;
+				return 0;
 			}
+
+			dirty = TRUE;
 		}
 	}
 
 	if (ctx.uid >= index->header->next_uid) {
 		/* X-UID header looks ok */
-		if (ret != 0)
-			index->header->next_uid = ctx.uid;
-		dirty = ctx.content_length_broken;
+		index->header->next_uid = ctx.uid;
 	} else if (!index->mailbox_readonly) {
 		/* Write X-UID for it */
 		dirty = TRUE;
 	} else {
 		/* save MD5 */
 		md5_final(&ctx.md5, md5_digest);
-		index->update_field_raw(update, DATA_FIELD_MD5,
-					md5_digest, sizeof(md5_digest));
-		dirty = FALSE;
+
+		if (!mail_cache_add(trans_ctx, rec, MAIL_CACHE_MD5,
+				    md5_digest, sizeof(md5_digest)))
+			return -1;
 	}
 
 	if (dirty && !index->mailbox_readonly) {
 		if (index->mbox_lock_type != MAIL_LOCK_EXCLUSIVE) {
 			/* try again */
-			ret = 0;
-		} else {
-			index->header->flags |= MAIL_INDEX_FLAG_DIRTY_MESSAGES;
-			rec->index_flags |= INDEX_MAIL_FLAG_DIRTY;
+			return 0;
 		}
+
+		index->header->flags |= MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES;
+		index_flags |= MAIL_INDEX_FLAG_DIRTY;
 	}
 
-	if (ret <= 0) {
-		index->update_abort(update);
-		index->append_abort(index, rec);
-	} else {
-		if (!index->update_end(update)) {
-			index->append_abort(index, rec);
-			ret = -1;
-		} else {
-			/* save message flags */
-			rec->msg_flags = ctx.flags;
-			mail_index_mark_flag_changes(index, rec, 0,
-						     rec->msg_flags);
-			ret = 1;
+	/* save message flags */
+	rec->msg_flags = ctx.flags;
+	mail_index_mark_flag_changes(index, rec, 0, rec->msg_flags);
 
-			if (!index->append_end(index, rec))
-				ret = -1;
-		}
-	}
+	if (!mail_cache_add(trans_ctx, rec, MAIL_CACHE_INDEX_FLAGS,
+			    &index_flags, sizeof(index_flags)))
+		return -1;
 
-	mbox_header_free_context(&ctx);
-	return ret;
+	return 1;
 }
 
-int mbox_index_append(struct mail_index *index, struct istream *input)
+int mbox_index_append_stream(struct mail_index *index, struct istream *input)
 {
+	struct mail_cache_transaction_ctx *trans_ctx;
+	struct mail_index_record *rec;
 	uoff_t offset;
 	int ret;
 
@@ -172,6 +158,9 @@ int mbox_index_append(struct mail_index *index, struct istream *input)
 	}
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
+		return FALSE;
+
+	if (mail_cache_transaction_begin(index->cache, TRUE, &trans_ctx) <= 0)
 		return FALSE;
 
 	do {
@@ -185,8 +174,9 @@ int mbox_index_append(struct mail_index *index, struct istream *input)
 						"LF not found where expected",
 						index->mailbox_path);
 
-				index->set_flags |= MAIL_INDEX_FLAG_FSCK;
-				return FALSE;
+				index->set_flags |= MAIL_INDEX_HDR_FLAG_FSCK;
+				ret = -1;
+				break;
 			}
 		}
 
@@ -195,8 +185,15 @@ int mbox_index_append(struct mail_index *index, struct istream *input)
 			break;
 		}
 
+		/* add message to index */
+		rec = index->append(index);
+		if (rec == NULL) {
+			ret = -1;
+			break;
+		}
+
 		t_push();
-		ret = mbox_index_append_next(index, input);
+		ret = mbox_index_append_next(index, rec, trans_ctx, input);
 		t_pop();
 
 		if (ret == 0) {
@@ -206,10 +203,18 @@ int mbox_index_append(struct mail_index *index, struct istream *input)
 		}
 	} while (ret > 0);
 
-	if (index->mbox_lock_type == MAIL_LOCK_EXCLUSIVE) {
+	if (ret >= 0 && index->mbox_lock_type == MAIL_LOCK_EXCLUSIVE) {
 		/* Write missing X-IMAPbase and new/changed X-UID headers */
-		return mbox_index_rewrite(index);
+		if (!mbox_index_rewrite(index))
+			ret = -1;
 	}
+
+	if (ret >= 0) {
+		if (!mail_cache_transaction_commit(trans_ctx))
+			ret = -1;
+	}
+	if (!mail_cache_transaction_end(trans_ctx))
+		ret = -1;
 
 	return ret >= 0;
 }

@@ -11,6 +11,7 @@
 #include "mbox-lock.h"
 #include "mail-index-util.h"
 #include "mail-custom-flags.h"
+#include "mail-cache.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,18 +39,25 @@ struct mbox_rewrite_context {
 };
 
 /* Remove dirty flag from all messages */
-static void reset_dirty_flags(struct mail_index *index)
+static int reset_dirty_flags(struct mail_index *index)
 {
 	struct mail_index_record *rec;
+	enum mail_index_record_flag index_flags;
 
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
-		rec->index_flags &= ~INDEX_MAIL_FLAG_DIRTY;
+		index_flags = mail_cache_get_index_flags(index->cache, rec);
+		if ((index_flags & MAIL_INDEX_FLAG_DIRTY) != 0) {
+			if (!mail_cache_update_index_flags(index->cache, rec, index_flags))
+				return FALSE;
+		}
+
 		rec = index->next(index, rec);
 	}
 
-	index->header->flags &= ~(MAIL_INDEX_FLAG_DIRTY_MESSAGES |
-				  MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS);
+	index->header->flags &= ~(MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES |
+				  MAIL_INDEX_HDR_FLAG_DIRTY_CUSTOMFLAGS);
+	return TRUE;
 }
 
 static int mbox_write(struct mail_index *index, struct istream *input,
@@ -553,7 +561,8 @@ static int dirty_flush(struct mail_index *index, uoff_t dirty_offset,
 }
 
 #define INDEX_DIRTY_FLAGS \
-        (MAIL_INDEX_FLAG_DIRTY_MESSAGES | MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS)
+	(MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES | \
+	 MAIL_INDEX_HDR_FLAG_DIRTY_CUSTOMFLAGS)
 
 int mbox_index_rewrite(struct mail_index *index)
 {
@@ -567,7 +576,7 @@ int mbox_index_rewrite(struct mail_index *index)
 	uoff_t offset, hdr_size, body_size, dirty_offset, wanted_offset;
 	const char *path;
 	unsigned int seq;
-	int tmp_fd, failed, dirty_found, rewrite, no_locking;
+	int tmp_fd, failed, dirty, dirty_found, rewrite, no_locking;
 
 	i_assert(!index->mailbox_readonly);
 	i_assert(index->lock_type == MAIL_LOCK_UNLOCK ||
@@ -633,7 +642,7 @@ int mbox_index_rewrite(struct mail_index *index)
 		return !failed;
 	}
 
-	if (index->header->flags & MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS) {
+	if (index->header->flags & MAIL_INDEX_HDR_FLAG_DIRTY_CUSTOMFLAGS) {
 		/* need to update X-IMAPbase in first message */
 		dirty_found = TRUE;
 	} else {
@@ -649,7 +658,14 @@ int mbox_index_rewrite(struct mail_index *index)
 	failed = FALSE; seq = 1;
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
-		if (dirty_found || (rec->index_flags & INDEX_MAIL_FLAG_DIRTY)) {
+		if (dirty_found)
+			dirty = FALSE;
+		else {
+			dirty = (mail_cache_get_index_flags(index->cache, rec) &
+				 MAIL_INDEX_FLAG_DIRTY) != 0;
+		}
+
+		if (dirty_found || dirty) {
 			/* get offset to beginning of mail headers */
 			if (!mbox_mail_get_location(index, rec, &offset,
 						    &hdr_size, &body_size)) {
@@ -659,30 +675,27 @@ int mbox_index_rewrite(struct mail_index *index)
 			}
 
 			if (offset < input->v_offset) {
-				index_set_corrupted(index,
-						    "Invalid message offset");
+				mail_cache_set_corrupted(index->cache,
+					"Invalid message offset");
 				failed = TRUE;
 				break;
 			}
 
 			if (offset + hdr_size + body_size > input->v_size) {
-				index_set_corrupted(index,
-						    "Invalid message size");
+				mail_cache_set_corrupted(index->cache,
+					"Invalid message size");
 				failed = TRUE;
 				break;
 			}
-		}
 
-		if (!dirty_found &&
-		    (rec->index_flags & INDEX_MAIL_FLAG_DIRTY)) {
-			/* first dirty message */
-			dirty_found = TRUE;
-			dirty_offset = offset;
+			if (!dirty_found) {
+				/* first dirty message */
+				dirty_found = TRUE;
+				dirty_offset = offset;
 
-			i_stream_seek(input, dirty_offset);
-		}
+				i_stream_seek(input, dirty_offset);
+			}
 
-		if (dirty_found) {
 			/* write the From-line */
 			if (!mbox_write(index, input, output, offset)) {
 				failed = TRUE;
@@ -748,8 +761,10 @@ int mbox_index_rewrite(struct mail_index *index)
 		}
 	}
 
-	if (!failed)
-		reset_dirty_flags(index);
+	if (!failed) {
+		if (!reset_dirty_flags(index))
+			failed = TRUE;
+	}
 
 	i_stream_unref(input);
 	o_stream_unref(output);

@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "buffer.h"
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
@@ -11,6 +12,31 @@
 #include "imap-fetch.h"
 
 #include <unistd.h>
+
+const char *const *imap_fetch_get_body_fields(const char *fields)
+{
+	const char **field_list, **field, **dest;
+
+	while (*fields == ' ')
+		fields++;
+	if (*fields == '(')
+		fields++;
+
+	field_list = t_strsplit(fields, " )");
+
+	/* array ends at ")" element */
+	for (field = dest = field_list; *field != NULL; field++) {
+		if (strcmp(*field, ")") == 0)
+			break;
+		if (**field != '\0') {
+			*dest = *field;
+			dest++;
+		}
+	}
+	*dest = NULL;
+
+	return field_list;
+}
 
 static void fetch_uid(struct imap_fetch_context *ctx, struct mail *mail)
 {
@@ -265,6 +291,10 @@ int imap_fetch(struct client *client,
 	struct mailbox *box = client->mailbox;
 	struct imap_fetch_context ctx;
 	struct mail *mail;
+	struct imap_fetch_body_data *body;
+	const char *null = NULL;
+	const char *const *wanted_headers, *const *arr;
+	buffer_t *buffer;
 	int all_found;
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -277,9 +307,7 @@ int imap_fetch(struct client *client,
 
 	if (!box->is_readonly(box)) {
 		/* If we have any BODY[..] sections, \Seen flag is added for
-		   all messages */
-		struct imap_fetch_body_data *body;
-
+		   all messages. */
 		for (body = bodies; body != NULL; body = body->next) {
 			if (!body->peek) {
 				ctx.update_seen = TRUE;
@@ -291,12 +319,34 @@ int imap_fetch(struct client *client,
 			ctx.update_seen = TRUE;
 	}
 
+	/* If we have only BODY[HEADER.FIELDS (...)] fetches, get them
+	   separately rather than parsing the full header so mail storage
+	   can try to cache them. */
+	ctx.body_fetch_from_cache = TRUE;
+	buffer = buffer_create_dynamic(data_stack_pool, 64, (size_t)-1);
+	for (body = bodies; body != NULL; body = body->next) {
+		if (strncmp(body->section, "HEADER.FIELDS ", 14) != 0) {
+                        ctx.body_fetch_from_cache = FALSE;
+			break;
+		}
+
+		arr = imap_fetch_get_body_fields(body->section + 14);
+		while (*arr != NULL) {
+			buffer_append(buffer, arr, sizeof(*arr));
+			arr++;
+		}
+	}
+	buffer_append(buffer, &null, sizeof(null));
+	wanted_headers = !ctx.body_fetch_from_cache ? NULL :
+		buffer_get_data(buffer, NULL);
+
 	if (ctx.update_seen) {
 		if (!box->lock(box, MAILBOX_LOCK_FLAGS | MAILBOX_LOCK_READ))
 			return -1;
 	}
 
-	ctx.fetch_ctx = box->fetch_init(box, fetch_data, messageset, uidset);
+	ctx.fetch_ctx = box->fetch_init(box, fetch_data, wanted_headers,
+					messageset, uidset);
 	if (ctx.fetch_ctx == NULL)
 		ctx.failed = TRUE;
 	else {

@@ -261,7 +261,7 @@ static void fetch(struct client *client, unsigned int msgnum,
 
 	ctx = client->mailbox->fetch_init(client->mailbox,
 					  MAIL_FETCH_STREAM_HEADER |
-					  MAIL_FETCH_STREAM_BODY,
+					  MAIL_FETCH_STREAM_BODY, NULL,
 					  dec2str(msgnum+1), FALSE);
 	if (ctx == NULL) {
 		client_send_storage_error(client);
@@ -345,7 +345,7 @@ static void list_uids(struct client *client, unsigned int message)
 		t_strdup_printf("1:%u", client->messages_count) :
 		t_strdup_printf("%u", message);
 
-	ctx = client->mailbox->fetch_init(client->mailbox, 0,
+	ctx = client->mailbox->fetch_init(client->mailbox, 0, NULL,
 					  messageset, FALSE);
 	if (ctx == NULL) {
 		client_send_storage_error(client);

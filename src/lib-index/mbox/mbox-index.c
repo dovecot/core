@@ -6,8 +6,8 @@
 #include "mbox-index.h"
 #include "mbox-lock.h"
 #include "mail-index-util.h"
-#include "mail-index-data.h"
 #include "mail-custom-flags.h"
+#include "mail-cache.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -136,10 +136,6 @@ void mbox_header_init_context(struct mbox_header_context *ctx,
 	ctx->input = input;
 	ctx->custom_flags = mail_custom_flags_list_get(index->custom_flags);
 	ctx->content_length = (uoff_t)-1;
-}
-
-void mbox_header_free_context(struct mbox_header_context *ctx __attr_unused__)
-{
 }
 
 static enum mail_flags
@@ -694,52 +690,36 @@ int mbox_mail_get_location(struct mail_index *index,
 			   struct mail_index_record *rec,
 			   uoff_t *offset, uoff_t *hdr_size, uoff_t *body_size)
 {
-	struct mail_index_data_record_header *data_hdr;
-	const uoff_t *location;
-	size_t size;
-
 	if (offset != NULL) {
-		location = index->lookup_field_raw(index, rec,
-						   DATA_FIELD_LOCATION, &size);
-		if (location == NULL) {
-			index_data_set_corrupted(index->data,
+		if (!mail_cache_copy_fixed_field(index->cache, rec,
+						 MAIL_CACHE_LOCATION_OFFSET,
+						 offset, sizeof(*offset))) {
+			mail_cache_set_corrupted(index->cache,
 				"Missing location field for record %u",
 				rec->uid);
 			return FALSE;
-		} else if (size != sizeof(uoff_t) || *location > OFF_T_MAX) {
-			index_data_set_corrupted(index->data,
-				"Invalid location field for record %u",
-				rec->uid);
-			return FALSE;
 		}
-
-		*offset = *location;
 	}
 
-	if (hdr_size != NULL || body_size != NULL) {
-		data_hdr = mail_index_data_lookup_header(index->data, rec);
-		if (data_hdr == NULL) {
-			index_set_corrupted(index,
-				"Missing data header for record %u", rec->uid);
-			return FALSE;
-		}
-
-		if ((rec->data_fields & DATA_HDR_HEADER_SIZE) == 0) {
-			index_set_corrupted(index,
+	if (hdr_size != NULL) {
+		if (!mail_cache_copy_fixed_field(index->cache, rec,
+						 MAIL_CACHE_HEADER_SIZE,
+						 hdr_size, sizeof(*hdr_size))) {
+			mail_cache_set_corrupted(index->cache,
 				"Missing header size for record %u", rec->uid);
 			return FALSE;
 		}
+	}
 
-		if ((rec->data_fields & DATA_HDR_BODY_SIZE) == 0) {
-			index_set_corrupted(index,
+	if (body_size != NULL) {
+		if (!mail_cache_copy_fixed_field(index->cache, rec,
+						 MAIL_CACHE_BODY_SIZE,
+						 body_size,
+						 sizeof(*body_size))) {
+			mail_cache_set_corrupted(index->cache,
 				"Missing body size for record %u", rec->uid);
 			return FALSE;
 		}
-
-		if (hdr_size != NULL)
-			*hdr_size = data_hdr->header_size;
-		if (body_size != NULL)
-			*body_size = data_hdr->body_size;
 	}
 
 	return TRUE;
@@ -805,8 +785,8 @@ static int mbox_index_expunge(struct mail_index *index,
 	if (first_seq == 1) {
 		/* Our message containing X-IMAPbase was deleted.
 		   Get it back there. */
-		index->header->flags |= MAIL_INDEX_FLAG_DIRTY_MESSAGES |
-			MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS;
+		index->header->flags |= MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES |
+			MAIL_INDEX_HDR_FLAG_DIRTY_CUSTOMFLAGS;
 	}
 	return TRUE;
 }
@@ -816,26 +796,51 @@ static int mbox_index_update_flags(struct mail_index *index,
 				   unsigned int seq, enum mail_flags flags,
 				   int external_change)
 {
+        enum mail_index_record_flag index_flags;
+
 	if (!mail_index_update_flags(index, rec, seq, flags, external_change))
 		return FALSE;
 
 	if (!external_change) {
-		rec->index_flags |= INDEX_MAIL_FLAG_DIRTY;
-		index->header->flags |= MAIL_INDEX_FLAG_DIRTY_MESSAGES;
+		index_flags = mail_cache_get_index_flags(index->cache, rec);
+		if ((index_flags & MAIL_INDEX_FLAG_DIRTY) == 0) {
+			if (mail_cache_lock(index->cache, FALSE) <= 0)
+				return FALSE;
+			mail_cache_unlock_later(index->cache);
+
+			index_flags |= MAIL_INDEX_FLAG_DIRTY;
+			mail_cache_update_index_flags(index->cache, rec,
+						      index_flags);
+
+			index->header->flags |=
+				MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES;
+		}
 	}
 	return TRUE;
 }
 
-static int mbox_index_append_end(struct mail_index *index,
-				 struct mail_index_record *rec)
+static struct mail_index_record *mbox_index_append(struct mail_index *index)
 {
-	if (!mail_index_append_end(index, rec))
-		return FALSE;
-
 	/* update last_uid in X-IMAPbase */
-	index->header->flags |= MAIL_INDEX_FLAG_DIRTY_MESSAGES |
-		MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS;
-	return TRUE;
+	index->header->flags |= MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES |
+		MAIL_INDEX_HDR_FLAG_DIRTY_CUSTOMFLAGS;
+
+	return mail_index_append(index);
+}
+
+static time_t mbox_get_received_date(struct mail_index *index,
+				     struct mail_index_record *rec)
+{
+	time_t date;
+
+	if (mail_cache_copy_fixed_field(index->cache, rec,
+					MAIL_CACHE_RECEIVED_DATE,
+					&date, sizeof(date)))
+		return date;
+
+	mail_cache_set_corrupted(index->cache,
+		"Missing internal date for record %u", rec->uid);
+	return (time_t)-1;
 }
 
 struct mail_index mbox_index = {
@@ -844,28 +849,18 @@ struct mail_index mbox_index = {
 	mbox_index_set_lock,
 	mbox_index_try_lock,
         mail_index_set_lock_notify_callback,
-	mbox_index_rebuild,
+	mail_index_rebuild,
 	mail_index_fsck,
 	mbox_index_sync,
 	mail_index_get_header,
 	mail_index_lookup,
 	mail_index_next,
         mail_index_lookup_uid_range,
-	mail_index_lookup_field,
-	mail_index_lookup_field_raw,
-	mail_index_cache_fields_later,
 	mbox_open_mail,
-	mail_get_internal_date,
+	mbox_get_received_date,
 	mbox_index_expunge,
 	mbox_index_update_flags,
-	mail_index_append_begin,
-	mbox_index_append_end,
-	mail_index_append_abort,
-	mail_index_update_begin,
-	mail_index_update_end,
-	mail_index_update_abort,
-	mail_index_update_field,
-	mail_index_update_field_raw,
+	mbox_index_append,
 	mail_index_get_last_error,
 	mail_index_get_last_error_text,
 

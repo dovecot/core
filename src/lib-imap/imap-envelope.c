@@ -19,6 +19,12 @@ struct message_part_envelope_data {
 	char *in_reply_to, *message_id;
 };
 
+const char *imap_envelope_headers[] = {
+	"Date", "Subject", "From", "Sender", "Reply-To",
+	"To", "Cc", "Bcc", "In-Reply-To", "Message-ID",
+	NULL
+};
+
 int imap_envelope_get_field(const char *name, enum imap_envelope_field *ret)
 {
 	*ret = (enum imap_envelope_field)-1;

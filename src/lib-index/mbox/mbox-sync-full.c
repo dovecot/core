@@ -8,10 +8,13 @@
 #include "mbox-index.h"
 #include "mbox-lock.h"
 #include "mail-index-util.h"
+#include "mail-cache.h"
 
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+
+#if 0
 
 static void skip_line(struct istream *input)
 {
@@ -34,21 +37,25 @@ static int verify_header(struct mail_index *index,
 			 struct mail_index_record *rec,
 			 unsigned int uid, unsigned char current_digest[16])
 {
-	const unsigned char *old_digest;
+	const void *old_digest;
 	size_t size;
 
-	/* MD5 sums must match */
-	old_digest = index->lookup_field_raw(index, rec, DATA_FIELD_MD5, &size);
-	if (old_digest == NULL)
+	if (uid != 0) {
+		/* X-UID header - no need to check more */
 		return uid == rec->uid;
+	}
 
-	return size >= 16 && memcmp(old_digest, current_digest, 16) == 0 &&
-		(uid == 0 || uid == rec->uid);
+	/* check if MD5 sums match */
+	if (!mail_cache_lookup_field(index->cache, rec, MAIL_CACHE_MD5,
+				     &old_digest, &size))
+		return FALSE;
+
+	return memcmp(old_digest, current_digest, 16) == 0;
 }
 
 static int mail_update_header_size(struct mail_index *index,
 				   struct mail_index_record *rec,
-				   struct mail_index_update *update,
+				   struct mail_cache_transaction_ctx *ctx,
 				   struct message_size *hdr_size)
 {
 	const void *part_data;
@@ -105,14 +112,14 @@ static int mbox_check_uidvalidity(struct mail_index *index,
 	if (uid_validity == index->header->uid_validity)
 		return TRUE;
 
-	index->header->flags |= MAIL_INDEX_FLAG_DIRTY_MESSAGES |
-		MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS;
+	index->header->flags |= MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES |
+		MAIL_INDEX_HDR_FLAG_DIRTY_CUSTOMFLAGS;
 
 	if (uid_validity == 0) {
 		/* X-IMAPbase header isn't written yet */
 	} else {
 		/* UID validity has changed - rebuild whole index */
-		index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
+		index->set_flags |= MAIL_INDEX_HDR_FLAG_REBUILD;
 		return FALSE;
 	}
 
@@ -386,4 +393,10 @@ int mbox_sync_full(struct mail_index *index)
 	}
 
 	return !failed;
+}
+#endif
+
+int mbox_sync_full(struct mail_index *index)
+{
+	// FIXME
 }

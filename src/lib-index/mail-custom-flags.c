@@ -534,7 +534,7 @@ static int get_flag_index(struct mail_custom_flags *mcf, const char *flag,
 	if (!custom_flags_add(mcf, first_empty, flag))
 		return -1;
 
-	mcf->index->set_flags |= MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS;
+	mcf->index->set_flags |= MAIL_INDEX_HDR_FLAG_DIRTY_CUSTOMFLAGS;
 
 	mcf->custom_flags[first_empty] = i_strdup(flag);
 	return first_empty;

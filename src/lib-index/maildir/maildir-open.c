@@ -3,8 +3,8 @@
 #include "lib.h"
 #include "istream.h"
 #include "maildir-index.h"
-#include "mail-index-data.h"
 #include "mail-index-util.h"
+#include "mail-cache.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -15,13 +15,13 @@ static int maildir_open_mail_file(struct mail_index *index,
 				  const char **fname, int *deleted)
 {
 	const char *path;
-	int fd = -1;
+	int new_dir, fd = -1;
 
-	*fname = maildir_get_location(index, rec);
+	*fname = maildir_get_location(index, rec, &new_dir);
 	if (*fname == NULL)
 		return -1;
 
-	if ((rec->index_flags & INDEX_MAIL_FLAG_MAILDIR_NEW) != 0) {
+	if (new_dir) {
 		/* probably in new/ dir */
 		path = t_strconcat(index->mailbox_path, "/new/", *fname, NULL);
 		fd = open(path, O_RDONLY);
@@ -50,7 +50,7 @@ static int maildir_open_mail_file(struct mail_index *index,
 
 struct istream *maildir_open_mail(struct mail_index *index,
 				  struct mail_index_record *rec,
-				  time_t *internal_date, int *deleted)
+				  time_t *received_date, int *deleted)
 {
 	struct stat st;
 	const char *fname;
@@ -84,13 +84,9 @@ struct istream *maildir_open_mail(struct mail_index *index,
 			return NULL;
 	}
 
-	if (internal_date != NULL) {
-		*internal_date = mail_get_internal_date(index, rec);
-
-		if (*internal_date == (time_t)-1) {
-			if (fstat(fd, &st) == 0)
-				*internal_date = st.st_mtime;
-		}
+	if (received_date != NULL) {
+		if (fstat(fd, &st) == 0)
+			*received_date = st.st_mtime;
 	}
 
 	if (index->mail_read_mmaped) {

@@ -3,8 +3,8 @@
 #include "lib.h"
 #include "write-full.h"
 #include "mail-index.h"
-#include "mail-index-data.h"
 #include "mail-index-util.h"
+#include "mail-cache.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -15,7 +15,8 @@ int mail_index_truncate(struct mail_index *index)
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	if (index->mmap_full_length <= INDEX_FILE_MIN_SIZE || index->anon_mmap)
+	if (index->mmap_full_length <= INDEX_FILE_MIN_SIZE(index) ||
+	    index->anon_mmap)
 		return TRUE;
 
 	/* really truncate the file only when it's almost empty */
@@ -29,11 +30,11 @@ int mail_index_truncate(struct mail_index *index)
 
 		/* keep the size record-aligned */
 		index->mmap_full_length -= (index->mmap_full_length -
-					    sizeof(struct mail_index_header)) %
+					    index->header_size) %
 			sizeof(struct mail_index_record);
 
-		if (index->mmap_full_length < INDEX_FILE_MIN_SIZE)
-                        index->mmap_full_length = INDEX_FILE_MIN_SIZE;
+		if (index->mmap_full_length < INDEX_FILE_MIN_SIZE(index))
+                        index->mmap_full_length = INDEX_FILE_MIN_SIZE(index);
 
 		if (ftruncate(index->fd, (off_t)index->mmap_full_length) < 0)
 			return index_set_syscall_error(index, "ftruncate()");
@@ -44,6 +45,7 @@ int mail_index_truncate(struct mail_index *index)
 	return TRUE;
 }
 
+#if 0
 static int mail_index_copy_data(struct mail_index *index,
 				int fd, const char *path)
 {
@@ -69,7 +71,7 @@ static int mail_index_copy_data(struct mail_index *index,
 	/* now we'll begin the actual moving. keep rebuild-flag on
 	   while doing it. */
 	index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
-	if (!mail_index_fmdatasync(index, sizeof(struct mail_index_header)))
+	if (!mail_index_fmdatasync(index, index->header_size))
 		return FALSE;
 
 	offset = sizeof(data_hdr);
@@ -182,3 +184,4 @@ int mail_index_compress_data(struct mail_index *index)
 
 	return mail_index_data_open(index);
 }
+#endif

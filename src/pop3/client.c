@@ -62,7 +62,7 @@ static int init_mailbox(struct client *client)
 	messageset = t_strdup_printf("1:%u", client->messages_count);
 	for (i = 0; i < 2; i++) {
 		ctx = client->mailbox->fetch_init(client->mailbox,
-						  MAIL_FETCH_SIZE,
+						  MAIL_FETCH_SIZE, NULL,
 						  messageset, FALSE);
 		if (ctx == NULL) {
 			client_send_storage_error(client);

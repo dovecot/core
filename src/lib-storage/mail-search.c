@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "mail-search.h"
 
 void mail_search_args_reset(struct mail_search_arg *args)
@@ -93,9 +94,11 @@ int mail_search_args_foreach(struct mail_search_arg *args,
 	return result;
 }
 
-static void search_arg_analyze(struct mail_search_arg *arg, int *have_headers,
-			       int *have_body, int *have_text)
+static void
+search_arg_analyze(struct mail_search_arg *arg, buffer_t *headers,
+		   int *have_headers, int *have_body, int *have_text)
 {
+	static const char *date_hdr = "Date";
 	struct mail_search_arg *subarg;
 
 	if (arg->result != -1)
@@ -107,8 +110,9 @@ static void search_arg_analyze(struct mail_search_arg *arg, int *have_headers,
 		subarg = arg->value.subargs;
 		while (subarg != NULL) {
 			if (subarg->result == -1) {
-				search_arg_analyze(subarg, have_headers,
-						   have_body, have_text);
+				search_arg_analyze(subarg, headers,
+						   have_headers, have_body,
+						   have_text);
 			}
 
 			subarg = subarg->next;
@@ -117,14 +121,13 @@ static void search_arg_analyze(struct mail_search_arg *arg, int *have_headers,
 	case SEARCH_SENTBEFORE:
 	case SEARCH_SENTON:
 	case SEARCH_SENTSINCE:
-	case SEARCH_FROM:
-	case SEARCH_TO:
-	case SEARCH_CC:
-	case SEARCH_BCC:
-	case SEARCH_SUBJECT:
-	case SEARCH_IN_REPLY_TO:
-	case SEARCH_MESSAGE_ID:
+		*have_headers = TRUE;
+		buffer_append(headers, &date_hdr, sizeof(const char *));
+		break;
 	case SEARCH_HEADER:
+	case SEARCH_HEADER_ADDRESS:
+		buffer_append(headers, &arg->hdr_field_name,
+			      sizeof(const char *));
 		*have_headers = TRUE;
 		break;
 	case SEARCH_BODY:
@@ -138,12 +141,25 @@ static void search_arg_analyze(struct mail_search_arg *arg, int *have_headers,
 	}
 }
 
-void mail_search_args_analyze(struct mail_search_arg *args, int *have_headers,
-			      int *have_body, int *have_text)
+const char *const *
+mail_search_args_analyze(struct mail_search_arg *args,
+			 int *have_headers, int *have_body)
 {
-	*have_headers = *have_body = *have_text = FALSE;
+	const char *null = NULL;
+	buffer_t *headers;
+	int have_text;
 
-	for (; args != NULL; args = args->next)
-		search_arg_analyze(args, have_headers, have_body, have_text);
+	*have_headers = *have_body = have_text = FALSE;
+
+	headers = buffer_create_dynamic(data_stack_pool, 128, (size_t)-1);
+	for (; args != NULL; args = args->next) {
+		search_arg_analyze(args, headers, have_headers,
+				   have_body, &have_text);
+	}
+
+	if (!have_headers || have_text)
+		return NULL;
+
+	buffer_append(headers, &null, sizeof(const char *));
+	return buffer_get_data(headers, NULL);
 }
-

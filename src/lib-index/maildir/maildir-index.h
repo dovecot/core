@@ -1,12 +1,10 @@
 #ifndef __MAILDIR_INDEX_H
 #define __MAILDIR_INDEX_H
 
-#include <sys/time.h>
-#include <dirent.h>
-#include "mail-index.h"
+struct mail_cache_transaction_ctx;
 
-/* ":2,DFRST" - leave the 2 extra for other clients' additions */
-#define MAILDIR_LOCATION_EXTRA_SPACE 10
+#include <sys/time.h>
+#include "mail-index.h"
 
 /* How often to try to flush dirty flags. */
 #define MAILDIR_DIRTY_FLUSH_TIMEOUT (60*5)
@@ -21,20 +19,22 @@ int maildir_create_tmp(struct mail_index *index, const char *dir,
 		       const char **path);
 
 const char *maildir_get_location(struct mail_index *index,
-				 struct mail_index_record *rec);
+				 struct mail_index_record *rec, int *new_dir);
 enum mail_flags maildir_filename_get_flags(const char *fname,
 					   enum mail_flags default_flags);
 const char *maildir_filename_set_flags(const char *fname,
 				       enum mail_flags flags);
+void maildir_index_update_filename(struct mail_index *index, unsigned int uid,
+				   const char *fname, int new_dir);
 
-int maildir_index_rebuild(struct mail_index *index);
 int maildir_index_sync_readonly(struct mail_index *index,
 				const char *fname, int *found);
 int maildir_index_sync(struct mail_index *index, int minimal_sync,
 		       enum mail_lock_type lock_type, int *changes);
 
-int maildir_index_append_file(struct mail_index *index, const char *dir,
-			      const char *fname, int new_dir);
+int maildir_index_append_file(struct mail_cache_transaction_ctx **trans_ctx,
+			      struct mail_index *index, const char *fname,
+			      int new_dir);
 int maildir_index_update_flags(struct mail_index *index,
 			       struct mail_index_record *rec, unsigned int seq,
 			       enum mail_flags flags, int external_change);
@@ -42,7 +42,7 @@ int maildir_try_flush_dirty_flags(struct mail_index *index, int force);
 
 struct istream *maildir_open_mail(struct mail_index *index,
 				  struct mail_index_record *rec,
-				  time_t *internal_date, int *deleted);
+				  time_t *received_date, int *deleted);
 
 int maildir_expunge_mail(struct mail_index *index,
 			 struct mail_index_record *rec);

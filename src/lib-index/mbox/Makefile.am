@@ -12,7 +12,6 @@ libindex_mbox_a_SOURCES = \
 	mbox-index.c \
 	mbox-lock.c \
 	mbox-open.c \
-	mbox-rebuild.c \
 	mbox-rewrite.c \
 	mbox-sync.c \
 	mbox-sync-full.c

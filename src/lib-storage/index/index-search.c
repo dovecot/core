@@ -8,7 +8,6 @@
 #include "message-body-search.h"
 #include "message-header-search.h"
 #include "imap-date.h"
-#include "imap-envelope.h"
 #include "index-storage.h"
 #include "index-messageset.h"
 #include "index-mail.h"
@@ -216,16 +215,17 @@ static int search_arg_match_cached(struct mail_search_context *ctx,
 				   enum mail_search_arg_type type,
 				   const char *value)
 {
-	time_t internal_date, search_time;
+	time_t date, search_time;
 	uoff_t virtual_size, search_size;
+	int timezone_offset;
 
 	switch (type) {
 	/* internal dates */
 	case SEARCH_BEFORE:
 	case SEARCH_ON:
 	case SEARCH_SINCE:
-		internal_date = ctx->mail->get_received_date(ctx->mail);
-		if (internal_date == (time_t)-1)
+		date = ctx->mail->get_received_date(ctx->mail);
+		if (date == (time_t)-1)
 			return -1;
 
 		if (!imap_parse_date(value, &search_time))
@@ -233,12 +233,39 @@ static int search_arg_match_cached(struct mail_search_context *ctx,
 
 		switch (type) {
 		case SEARCH_BEFORE:
-			return internal_date < search_time;
+			return date < search_time;
 		case SEARCH_ON:
-			return internal_date >= search_time &&
-				internal_date < search_time + 3600*24;
+			return date >= search_time &&
+				date < search_time + 3600*24;
 		case SEARCH_SINCE:
-			return internal_date >= search_time;
+			return date >= search_time;
+		default:
+			/* unreachable */
+			break;
+		}
+
+	/* sent dates */
+	case SEARCH_SENTBEFORE:
+	case SEARCH_SENTON:
+	case SEARCH_SENTSINCE:
+		/* NOTE: RFC-3501 specifies that timezone is ignored
+		   in searches. date is returned as UTC, so change it. */
+		date = ctx->mail->get_date(ctx->mail, &timezone_offset);
+		if (date == (time_t)-1)
+			return -1;
+		date += timezone_offset * 60;
+
+		if (!imap_parse_date(value, &search_time))
+			return 0;
+
+		switch (type) {
+		case SEARCH_SENTBEFORE:
+			return date < search_time;
+		case SEARCH_SENTON:
+			return date >= search_time &&
+				date < search_time + 3600*24;
+		case SEARCH_SENTSINCE:
+			return date >= search_time;
 		default:
 			/* unreachable */
 			break;
@@ -339,120 +366,6 @@ search_header_context(struct mail_search_context *ctx,
 	return arg->context;
 }
 
-/* Returns >0 = matched, 0 = not matched, -1 = unknown */
-static int search_arg_match_envelope(struct mail_search_context *ctx,
-				     struct mail_search_arg *arg)
-{
-	struct mail_index *index = ctx->ibox->index;
-	enum imap_envelope_field env_field;
-        struct header_search_context *hdr_search_ctx;
-	const char *envelope, *field;
-	int ret;
-
-	switch (arg->type) {
-	case SEARCH_SENTBEFORE:
-	case SEARCH_SENTON:
-	case SEARCH_SENTSINCE:
-                env_field = IMAP_ENVELOPE_DATE;
-		break;
-
-	case SEARCH_FROM:
-                env_field = IMAP_ENVELOPE_FROM;
-		break;
-	case SEARCH_TO:
-                env_field = IMAP_ENVELOPE_TO;
-		break;
-	case SEARCH_CC:
-                env_field = IMAP_ENVELOPE_CC;
-		break;
-	case SEARCH_BCC:
-                env_field = IMAP_ENVELOPE_BCC;
-		break;
-	case SEARCH_SUBJECT:
-                env_field = IMAP_ENVELOPE_SUBJECT;
-		break;
-
-	case SEARCH_IN_REPLY_TO:
-                env_field = IMAP_ENVELOPE_IN_REPLY_TO;
-		break;
-	case SEARCH_MESSAGE_ID:
-                env_field = IMAP_ENVELOPE_MESSAGE_ID;
-		break;
-	default:
-		return -1;
-	}
-
-	t_push();
-
-	/* get field from hopefully cached envelope */
-	envelope = index->lookup_field(index, ctx->imail.data.rec,
-				       DATA_FIELD_ENVELOPE);
-	if (envelope != NULL) {
-		ret = imap_envelope_parse(envelope, env_field,
-					  IMAP_ENVELOPE_RESULT_TYPE_STRING,
-					  &field) ? 1 : -1;
-	} else {
-		index->cache_fields_later(index, DATA_FIELD_ENVELOPE);
-		field = NULL;
-		ret = -1;
-	}
-
-	if (ret != -1) {
-		switch (arg->type) {
-		case SEARCH_SENTBEFORE:
-		case SEARCH_SENTON:
-		case SEARCH_SENTSINCE:
-			ret = search_sent(arg->type, arg->value.str,
-					  (const unsigned char *) field,
-					  (size_t)-1);
-			break;
-		default:
-			if (arg->value.str[0] == '\0') {
-				/* we're just testing existence of the field.
-				   assume it matches with non-NIL values. */
-				ret = field != NULL ? 1 : 0;
-				break;
-			}
-
-			if (field == NULL) {
-				/* doesn't exist */
-				ret = 0;
-				break;
-			}
-
-			hdr_search_ctx = search_header_context(ctx, arg);
-			if (hdr_search_ctx == NULL) {
-				ret = 0;
-				break;
-			}
-
-			ret = message_header_search(
-						(const unsigned char *) field,
-						strlen(field),
-						hdr_search_ctx) ? 1 : 0;
-		}
-	}
-	t_pop();
-	return ret;
-}
-
-static void search_envelope_arg(struct mail_search_arg *arg, void *context)
-{
-	struct mail_search_context *ctx = context;
-
-	switch (search_arg_match_envelope(ctx, arg)) {
-	case -1:
-		/* unknown */
-		break;
-	case 0:
-		ARG_SET_RESULT(arg, 0);
-		break;
-	default:
-		ARG_SET_RESULT(arg, 1);
-		break;
-	}
-}
-
 static void search_header_arg(struct mail_search_arg *arg, void *context)
 {
 	struct search_header_context *ctx = context;
@@ -477,35 +390,8 @@ static void search_header_arg(struct mail_search_arg *arg, void *context)
 		}
 		return;
 
-	case SEARCH_FROM:
-		if (strcasecmp(ctx->hdr->name, "From") != 0)
-			return;
-		break;
-	case SEARCH_TO:
-		if (strcasecmp(ctx->hdr->name, "To") != 0)
-			return;
-		break;
-	case SEARCH_CC:
-		if (strcasecmp(ctx->hdr->name, "Cc") != 0)
-			return;
-		break;
-	case SEARCH_BCC:
-		if (strcasecmp(ctx->hdr->name, "Bcc") != 0)
-			return;
-		break;
-	case SEARCH_SUBJECT:
-		if (strcasecmp(ctx->hdr->name, "Subject") != 0)
-			return;
-		break;
-	case SEARCH_IN_REPLY_TO:
-		if (strcasecmp(ctx->hdr->name, "In-Reply-To") != 0)
-			return;
-		break;
-	case SEARCH_MESSAGE_ID:
-		if (strcasecmp(ctx->hdr->name, "Message-ID") != 0)
-			return;
-		break;
 	case SEARCH_HEADER:
+	case SEARCH_HEADER_ADDRESS:
 		ctx->custom_header = TRUE;
 
 		if (strcasecmp(ctx->hdr->name, arg->hdr_field_name) != 0)
@@ -532,8 +418,7 @@ static void search_header_arg(struct mail_search_arg *arg, void *context)
 		hdr_search_ctx = search_header_context(ctx->index_context, arg);
 		if (hdr_search_ctx == NULL)
 			ret = 0;
-		else if (arg->type == SEARCH_FROM || arg->type == SEARCH_TO ||
-			 arg->type == SEARCH_CC || arg->type == SEARCH_BCC) {
+		else if (arg->type == SEARCH_HEADER_ADDRESS) {
 			/* we have to match against normalized address */
 			struct message_address *addr;
 			string_t *str;
@@ -574,14 +459,8 @@ static void search_header_unmatch(struct mail_search_arg *arg,
 			ARG_SET_RESULT(arg, 0);
 		}
 		break;
-	case SEARCH_FROM:
-	case SEARCH_TO:
-	case SEARCH_CC:
-	case SEARCH_BCC:
-	case SEARCH_SUBJECT:
 	case SEARCH_HEADER:
-	case SEARCH_IN_REPLY_TO:
-	case SEARCH_MESSAGE_ID:
+	case SEARCH_HEADER_ADDRESS:
 		ARG_SET_RESULT(arg, 0);
 		break;
 	default:
@@ -605,15 +484,7 @@ static void search_header(struct message_part *part,
 
 	index_mail_parse_header(part, hdr, ctx->index_context->mail);
 
-	if (ctx->custom_header ||
-	    strcasecmp(hdr->name, "Date") == 0 ||
-	    strcasecmp(hdr->name, "From") == 0 ||
-	    strcasecmp(hdr->name, "To") == 0 ||
-	    strcasecmp(hdr->name, "Cc") == 0 ||
-	    strcasecmp(hdr->name, "Bcc") == 0 ||
-	    strcasecmp(hdr->name, "Subject") == 0 ||
-	    strcasecmp(hdr->name, "In-Reply-To") == 0 ||
-	    strcasecmp(hdr->name, "Message-ID") == 0) {
+	if (ctx->custom_header || strcasecmp(hdr->name, "Date") == 0) {
 		ctx->hdr = hdr;
 
 		ctx->custom_header = FALSE;
@@ -649,17 +520,23 @@ static int search_arg_match_text(struct mail_search_arg *args,
 				 struct mail_search_context *ctx)
 {
 	struct istream *input;
-	int have_headers, have_body, have_text;
+	const char *const *headers;
+	int have_headers, have_body;
 
 	/* first check what we need to use */
-	mail_search_args_analyze(args, &have_headers, &have_body, &have_text);
-	if (!have_headers && !have_body && !have_text)
+	headers = mail_search_args_analyze(args, &have_headers, &have_body);
+	if (!have_headers && !have_body)
 		return TRUE;
 
-	if (have_headers || have_text) {
+	if (have_headers) {
 		struct search_header_context hdr_ctx;
 
-		input = ctx->mail->get_stream(ctx->mail, NULL, NULL);
+		if (have_body)
+			headers = NULL;
+
+		input = headers == NULL ?
+			ctx->mail->get_stream(ctx->mail, NULL, NULL) :
+			ctx->mail->get_headers(ctx->mail, headers);
 		if (input == NULL)
 			return FALSE;
 
@@ -668,7 +545,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 		hdr_ctx.custom_header = TRUE;
 		hdr_ctx.args = args;
 
-		index_mail_init_parse_header(&ctx->imail);
+		index_mail_parse_header_init(&ctx->imail, headers);
 		message_parse_header(NULL, input, NULL,
 				     search_header, &hdr_ctx);
 	} else {
@@ -681,7 +558,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 		i_stream_seek(input, hdr_size.physical_size);
 	}
 
-	if (have_text || have_body) {
+	if (have_body) {
 		struct search_body_context body_ctx;
 
 		memset(&body_ctx, 0, sizeof(body_ctx));
@@ -967,6 +844,11 @@ int index_storage_search_deinit(struct mail_search_context *ctx)
 			ret = FALSE;
 	}
 
+	if (ctx->ibox->fetch_mail.pool != NULL)
+		index_mail_deinit(&ctx->ibox->fetch_mail);
+	if (ctx->imail.pool != NULL)
+		index_mail_deinit(&ctx->imail);
+
 	if (!index_storage_lock(ctx->ibox, MAIL_LOCK_UNLOCK))
 		ret = FALSE;
 
@@ -978,18 +860,42 @@ int index_storage_search_deinit(struct mail_search_context *ctx)
 	if (ctx->hdr_pool != NULL)
 		pool_unref(ctx->hdr_pool);
 
-	if (ctx->ibox->fetch_mail.pool != NULL)
-		index_mail_deinit(&ctx->ibox->fetch_mail);
-        index_mail_deinit(&ctx->imail);
 	i_free(ctx);
 	return ret;
+}
+
+static int search_match_next(struct mail_search_context *ctx)
+{
+        struct mail_search_arg *arg;
+	int ret;
+
+	/* check the index matches first */
+	mail_search_args_reset(ctx->args);
+	ret = mail_search_args_foreach(ctx->args, search_index_arg, ctx);
+	if (ret >= 0)
+		return ret > 0;
+
+	/* next search only from cached arguments */
+	ret = mail_search_args_foreach(ctx->args, search_cached_arg, ctx);
+	if (ret >= 0)
+		return ret > 0;
+
+	/* open the mail file and check the rest */
+	if (!search_arg_match_text(ctx->args, ctx))
+		return FALSE;
+
+	for (arg = ctx->args; arg != NULL; arg = arg->next) {
+		if (arg->result != 1)
+			return FALSE;
+	}
+
+	return TRUE;
 }
 
 struct mail *index_storage_search_next(struct mail_search_context *ctx)
 {
 	const struct messageset_mail *msgset_mail;
-        struct mail_search_arg *arg;
-	int found, ret;
+	int ret;
 
 	if (ctx->msgset_ctx == NULL) {
 		/* initialization failed or didn't found any messages */
@@ -998,47 +904,35 @@ struct mail *index_storage_search_next(struct mail_search_context *ctx)
 
 	do {
 		msgset_mail = index_messageset_next(ctx->msgset_ctx);
-		if (msgset_mail == NULL)
-			return NULL;
+		if (msgset_mail == NULL) {
+			ret = -1;
+			break;
+		}
 
 		ctx->mail->seq = msgset_mail->client_seq;
 		ctx->mail->uid = msgset_mail->rec->uid;
+
 		ret = index_mail_next(&ctx->imail, msgset_mail->rec,
-				      msgset_mail->idx_seq);
-
-		if (ret < 0)
-			return NULL;
-
-		if (ret == 0)
-			found = FALSE;
-		else {
-			mail_search_args_reset(ctx->args);
-
-			t_push();
-
-			mail_search_args_foreach(ctx->args, search_index_arg,
-						 ctx);
-			mail_search_args_foreach(ctx->args, search_cached_arg,
-						 ctx);
-			mail_search_args_foreach(ctx->args, search_envelope_arg,
-						 ctx);
-			found = search_arg_match_text(ctx->args, ctx);
-
-			t_pop();
-
-			if (ctx->error != NULL)
-				return NULL;
+				      msgset_mail->idx_seq, TRUE);
+		if (ret <= 0) {
+			if (ret < 0)
+				break;
+			continue;
 		}
 
-		if (found) {
-			for (arg = ctx->args; arg != NULL; arg = arg->next) {
-				if (arg->result != 1) {
-					found = FALSE;
-					break;
-				}
-			}
-		}
-	} while (!found);
+		t_push();
+		ret = search_match_next(ctx);
+		t_pop();
+
+		if (ctx->error != NULL)
+			ret = -1;
+	} while (ret == 0);
+
+	if (ret < 0) {
+		/* error or last record */
+		index_mail_deinit(&ctx->imail);
+		return NULL;
+	}
 
 	return ctx->mail;
 }

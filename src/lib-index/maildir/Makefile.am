@@ -12,7 +12,6 @@ libindex_maildir_a_SOURCES = \
 	maildir-clean.c \
 	maildir-expunge.c \
 	maildir-open.c \
-	maildir-rebuild.c \
 	maildir-sync.c \
 	maildir-uidlist.c \
 	maildir-update-flags.c

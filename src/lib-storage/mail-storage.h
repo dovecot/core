@@ -267,6 +267,7 @@ struct mailbox {
 	struct mail_fetch_context *
 		(*fetch_init)(struct mailbox *box,
 			      enum mail_fetch_field wanted_fields,
+			      const char *const *wanted_headers,
 			      const char *messageset, int uidset);
 	/* Deinitialize fetch request. all_found is set to TRUE if all of the
 	   fetched messages were found (ie. not just deleted). */
@@ -377,6 +378,10 @@ struct mail {
 
 	/* Get value for single header field */
 	const char *(*get_header)(struct mail *mail, const char *field);
+	/* Returns partial headers which contain _at least_ the given fields,
+	   but it may contain others as well. */
+	struct istream *(*get_headers)(struct mail *mail,
+				       const char *const minimum_fields[]);
 
 	/* Returns the parsed address for given header field. */
 	const struct message_address *(*get_address)(struct mail *mail,

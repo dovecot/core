@@ -33,7 +33,7 @@ struct imap_fetch_context {
 	int update_seen;
 	struct mail_full_flags seen_flag;
 
-	int first, failed;
+	int first, failed, body_fetch_from_cache;
 };
 
 int imap_fetch(struct client *client,
@@ -45,5 +45,7 @@ int imap_fetch(struct client *client,
 int imap_fetch_body_section(struct imap_fetch_context *ctx,
 			    const struct imap_fetch_body_data *body,
 			    struct mail *mail);
+
+const char *const *imap_fetch_get_body_fields(const char *fields);
 
 #endif

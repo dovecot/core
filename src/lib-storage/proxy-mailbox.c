@@ -56,11 +56,13 @@ static void _auto_sync(struct mailbox *box, enum mailbox_sync_type sync_type,
 
 static struct mail_fetch_context *
 _fetch_init(struct mailbox *box, enum mail_fetch_field wanted_fields,
+	    const char *const *wanted_headers,
 	    const char *messageset, int uidset)
 {
 	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
 
-	return p->box->fetch_init(p->box, wanted_fields, messageset, uidset);
+	return p->box->fetch_init(p->box, wanted_fields, wanted_headers,
+				  messageset, uidset);
 }
 
 static struct mail *_fetch_uid(struct mailbox *box, unsigned int uid,

@@ -70,7 +70,10 @@ static int check_section(struct client *client, const char *section,
 	}
 
 	if (strncmp(section, "HEADER", 6) == 0) {
-		*fetch_data |= MAIL_FETCH_STREAM_HEADER;
+		/* exact header matches could be cached */
+		if (strncmp(section, "HEADER.FIELDS ", 14) != 0)
+			*fetch_data |= MAIL_FETCH_STREAM_HEADER;
+
 		if (check_header_section(section+6))
 			return TRUE;
 	} else if (*section >= '0' && *section <= '9') {

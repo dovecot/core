@@ -141,7 +141,8 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
 			if (!mbox_lock_and_sync_full(index, data_lock_type))
 				return FALSE;
 
-			if ((index->set_flags & MAIL_INDEX_FLAG_REBUILD) != 0) {
+			if ((index->set_flags &
+			     MAIL_INDEX_HDR_FLAG_REBUILD) != 0) {
 				/* uidvalidity probably changed, rebuild */
 				if (!index->rebuild(index))
 					return FALSE;

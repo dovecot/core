@@ -12,8 +12,9 @@ static int maildir_expunge_mail_file(struct mail_index *index,
 				     const char **fname)
 {
 	const char *path;
+	int new_dir;
 
-	*fname = maildir_get_location(index, rec);
+	*fname = maildir_get_location(index, rec, &new_dir);
 	if (*fname == NULL)
 		return -1;
 
@@ -23,7 +24,7 @@ static int maildir_expunge_mail_file(struct mail_index *index,
 	if (index->next_dirty_flush != 0)
 		index->next_dirty_flush = ioloop_time;
 
-	if ((rec->index_flags & INDEX_MAIL_FLAG_MAILDIR_NEW) != 0) {
+	if (new_dir) {
 		/* probably in new/ dir */
 		path = t_strconcat(index->mailbox_path, "/new/", *fname, NULL);
 		if (unlink(path) == 0)

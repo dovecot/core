@@ -23,6 +23,7 @@ struct mail_fetch_context {
 struct mail_fetch_context *
 index_storage_fetch_init(struct mailbox *box,
 			 enum mail_fetch_field wanted_fields,
+			 const char *const *wanted_headers,
 			 const char *messageset, int uidset)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
@@ -41,7 +42,7 @@ index_storage_fetch_init(struct mailbox *box,
 	ctx->ibox = ibox;
 	ctx->index = ibox->index;
 
-	index_mail_init(ibox, &ctx->mail, wanted_fields, NULL);
+	index_mail_init(ibox, &ctx->mail, wanted_fields, wanted_headers);
 	ctx->msgset_ctx = index_messageset_init(ibox, messageset, uidset, TRUE);
 	return ctx;
 }
@@ -55,12 +56,14 @@ int index_storage_fetch_deinit(struct mail_fetch_context *ctx, int *all_found)
 	if (all_found != NULL)
 		*all_found = ret > 0;
 
+	if (ctx->ibox->fetch_mail.pool != NULL)
+		index_mail_deinit(&ctx->ibox->fetch_mail);
+	if (ctx->mail.pool != NULL)
+		index_mail_deinit(&ctx->mail);
+
 	if (!index_storage_lock(ctx->ibox, ctx->old_lock))
 		ret = -1;
 
-	if (ctx->ibox->fetch_mail.pool != NULL)
-		index_mail_deinit(&ctx->ibox->fetch_mail);
-	index_mail_deinit(&ctx->mail);
 	i_free(ctx);
 	return ret >= 0;
 }
@@ -72,17 +75,25 @@ struct mail *index_storage_fetch_next(struct mail_fetch_context *ctx)
 
 	do {
 		msgset_mail = index_messageset_next(ctx->msgset_ctx);
-		if (msgset_mail == NULL)
-			return NULL;
+		if (msgset_mail == NULL) {
+			ret = -1;
+			break;
+		}
 
 		ctx->mail.mail.seq = msgset_mail->client_seq;
 		ctx->mail.mail.uid = msgset_mail->rec->uid;
 
 		ret = index_mail_next(&ctx->mail, msgset_mail->rec,
-				      msgset_mail->idx_seq);
+				      msgset_mail->idx_seq, FALSE);
 	} while (ret == 0);
 
-	return ret < 0 ? NULL : &ctx->mail.mail;
+	if (ret < 0) {
+		/* error or last record */
+		index_mail_deinit(&ctx->mail);
+		return NULL;
+	}
+
+	return &ctx->mail.mail;
 }
 
 static struct mail *
@@ -93,7 +104,7 @@ fetch_record(struct index_mailbox *ibox, struct mail_index_record *rec,
 		index_mail_deinit(&ibox->fetch_mail);
 
 	index_mail_init(ibox, &ibox->fetch_mail, wanted_fields, NULL);
-	if (index_mail_next(&ibox->fetch_mail, rec, idx_seq) <= 0)
+	if (index_mail_next(&ibox->fetch_mail, rec, idx_seq, FALSE) <= 0)
 		return NULL;
 
 	return &ibox->fetch_mail.mail;

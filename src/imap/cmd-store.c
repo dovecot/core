@@ -96,9 +96,16 @@ int cmd_store(struct client *client)
 	/* and update the flags */
 	box = client->mailbox;
 
-	failed = !box->lock(box, MAILBOX_LOCK_FLAGS | MAILBOX_LOCK_READ);
+	if (!box->is_readonly(box)) {
+		/* read-only, don't every try to get write locking */
+		failed = FALSE;
+	} else {
+		failed = !box->lock(box, MAILBOX_LOCK_FLAGS |
+				    MAILBOX_LOCK_READ);
+	}
+
 	fetch_ctx = failed ? NULL :
-		box->fetch_init(box, MAIL_FETCH_FLAGS,
+		box->fetch_init(box, MAIL_FETCH_FLAGS, NULL,
 				messageset, client->cmd_uid);
 	if (fetch_ctx == NULL)
 		failed = TRUE;

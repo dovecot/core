@@ -149,20 +149,28 @@ void index_storage_destroy_unrefed(void)
 	destroy_unrefed(TRUE);
 }
 
-static enum mail_data_field get_data_fields(const char *fields)
+static enum mail_cache_field get_cache_fields(const char *fields)
 {
+	static enum mail_cache_field field_masks[] = {
+		MAIL_CACHE_SENT_DATE,
+		MAIL_CACHE_RECEIVED_DATE,
+		MAIL_CACHE_VIRTUAL_FULL_SIZE,
+		MAIL_CACHE_BODY,
+		MAIL_CACHE_BODYSTRUCTURE,
+		MAIL_CACHE_MESSAGEPART,
+	};
 	static const char *field_names[] = {
-		"Location",
-		"Envelope",
-		"Body",
-		"Bodystructure",
-		"MD5",
-		"MessagePart",
+		"sent_date",
+		"received_date",
+		"virtual_size",
+		"body",
+		"bodystructure",
+		"messagepart",
 		NULL
 	};
 
 	const char *const *arr;
-	enum mail_data_field ret;
+	enum mail_cache_field ret;
 	int i;
 
 	if (fields == NULL || *fields == '\0')
@@ -175,7 +183,7 @@ static enum mail_data_field get_data_fields(const char *fields)
 
 		for (i = 0; field_names[i] != NULL; i++) {
 			if (strcasecmp(field_names[i], *arr) == 0) {
-				ret |= 1 << i;
+				ret |= field_masks[i];
 				break;
 			}
 		}
@@ -188,28 +196,28 @@ static enum mail_data_field get_data_fields(const char *fields)
 	return ret;
 }
 
-static enum mail_data_field get_default_cache_fields(void)
+static enum mail_cache_field get_default_cache_fields(void)
 {
-	static enum mail_data_field ret = 0;
+	static enum mail_cache_field ret = 0;
 	static int ret_set = FALSE;
 
 	if (ret_set)
 		return ret;
 
-	ret = get_data_fields(getenv("MAIL_CACHE_FIELDS"));
+	ret = get_cache_fields(getenv("MAIL_CACHE_FIELDS"));
 	ret_set = TRUE;
 	return ret;
 }
 
-static enum mail_data_field get_never_cache_fields(void)
+static enum mail_cache_field get_never_cache_fields(void)
 {
-	static enum mail_data_field ret = 0;
+	static enum mail_cache_field ret = 0;
 	static int ret_set = FALSE;
 
 	if (ret_set)
 		return ret;
 
-	ret = get_data_fields(getenv("MAIL_NEVER_CACHE_FIELDS"));
+	ret = get_cache_fields(getenv("MAIL_NEVER_CACHE_FIELDS"));
 	ret_set = TRUE;
 	return ret;
 }
@@ -282,9 +290,16 @@ void index_storage_init_lock_notify(struct index_mailbox *ibox)
 int index_storage_lock(struct index_mailbox *ibox,
 		       enum mail_lock_type lock_type)
 {
-	int ret;
+	int ret = TRUE;
 
 	if (lock_type == MAIL_LOCK_UNLOCK) {
+		if (ibox->trans_ctx != NULL) {
+			if (!mail_cache_transaction_commit(ibox->trans_ctx))
+				ret = FALSE;
+			if (!mail_cache_transaction_end(ibox->trans_ctx))
+				ret = FALSE;
+			ibox->trans_ctx = NULL;
+		}
 		if (ibox->lock_type != MAILBOX_LOCK_UNLOCK)
 			return TRUE;
 	} else {
@@ -295,7 +310,8 @@ int index_storage_lock(struct index_mailbox *ibox,
 	/* we have to set/reset this every time, because the same index
 	   may be used by multiple IndexMailboxes. */
         index_storage_init_lock_notify(ibox);
-	ret = ibox->index->set_lock(ibox->index, lock_type);
+	if (!ibox->index->set_lock(ibox->index, lock_type))
+		ret = FALSE;
 	ibox->index->set_lock_notify_callback(ibox->index, NULL, NULL);
 
 	if (!ret)
@@ -337,13 +353,12 @@ index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
 
 		if (!index->opened) {
 			/* open the index first */
-			index->default_cache_fields =
-				get_default_cache_fields();
-			index->never_cache_fields =
-				get_never_cache_fields();
-
 			if (!index->open(index, index_flags))
 				break;
+
+			mail_cache_set_defaults(index->cache,
+						get_default_cache_fields(),
+						get_never_cache_fields());
 
 			if (INDEX_IS_IN_MEMORY(index) &&
 			    storage->index_dir != NULL) {

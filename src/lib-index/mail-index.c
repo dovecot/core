@@ -6,8 +6,8 @@
 #include "file-set-size.h"
 #include "mmap-util.h"
 #include "mail-index.h"
-#include "mail-index-data.h"
 #include "mail-index-util.h"
+#include "mail-cache.h"
 #include "mail-modifylog.h"
 #include "mail-custom-flags.h"
 
@@ -27,7 +27,12 @@ static int mmap_verify(struct mail_index *index)
 		return FALSE;
 	}
 
-	extra = (index->mmap_full_length - sizeof(struct mail_index_header)) %
+	/* keep the header set even if we fail, so we can update the flags */
+	hdr = index->mmap_base;
+	index->header = hdr;
+	index->header_size = hdr->header_size;
+
+	extra = (index->mmap_full_length - index->header_size) %
 		sizeof(struct mail_index_record);
 
 	if (extra != 0) {
@@ -39,25 +44,20 @@ static int mmap_verify(struct mail_index *index)
 		(void)ftruncate(index->fd, (off_t)index->mmap_full_length);
 	}
 
-	/* keep the header set even if we fail, so we can update the flags */
-	hdr = index->mmap_base;
-	index->header = hdr;
-
 	if (hdr->used_file_size > index->mmap_full_length) {
 		index_set_corrupted(index,
 				    "used_file_size larger than real file size "
-				    "(%"PRIuUOFF_T" vs %"PRIuSIZE_T")",
+				    "(%u vs %"PRIuSIZE_T")",
 				    hdr->used_file_size,
 				    index->mmap_full_length);
 		return FALSE;
 	}
 
-	if (hdr->used_file_size < sizeof(struct mail_index_header) ||
-	    (hdr->used_file_size - sizeof(struct mail_index_header)) %
+	if (hdr->used_file_size < index->header_size ||
+	    (hdr->used_file_size - index->header_size) %
 	    sizeof(struct mail_index_record) != 0) {
 		index_set_corrupted(index, "Invalid used_file_size in header "
-				    "(%"PRIuUOFF_T")",
-				    hdr->used_file_size);
+				    "(%u)", hdr->used_file_size);
 		return FALSE;
 	}
 
@@ -139,13 +139,11 @@ void mail_index_close(struct mail_index *index)
 				 PROT_READ|PROT_WRITE);
 #endif
 			index->header->flags |= index->set_flags;
-			(void)msync(index->mmap_base,
-				    sizeof(struct mail_index_header), MS_SYNC);
+			(void)msync(index->mmap_base, index->header_size,
+				    MS_SYNC);
 		}
 		index->set_flags = 0;
 	}
-
-	index->set_cache_fields = 0;
 
 	index->opened = FALSE;
 	index->inconsistent = FALSE;
@@ -174,9 +172,9 @@ void mail_index_close(struct mail_index *index)
 	}
 	index->mmap_base = NULL;
 
-	if (index->data != NULL) {
-                mail_index_data_free(index->data);
-		index->data = NULL;
+	if (index->cache != NULL) {
+                mail_cache_free(index->cache);
+		index->cache = NULL;
 	}
 
 	if (index->modifylog != NULL) {
@@ -205,9 +203,6 @@ static int mail_index_sync_file(struct mail_index *index)
 
 	for (i = 0; i < sizeof(fsync_fds)/sizeof(fsync_fds[0]); i++)
 		fsync_fds[i] = -1;
-
-	if (!mail_index_data_sync_file(index->data, &fsync_fds[0]))
-		return FALSE;
 
 	if (msync(index->mmap_base, index->mmap_used_length, MS_SYNC) < 0)
 		return index_set_syscall_error(index, "msync()");
@@ -261,11 +256,6 @@ static void mail_index_update_header_changes(struct mail_index *index)
 		index->header->flags |= index->set_flags;
 		index->set_flags = 0;
 	}
-
-	if (index->set_cache_fields != 0) {
-		index->header->cache_fields = index->set_cache_fields;
-		index->set_cache_fields = 0;
-	}
 }
 
 static int mail_index_write_header_changes(struct mail_index *index)
@@ -285,8 +275,7 @@ static int mail_index_write_header_changes(struct mail_index *index)
 	mail_index_update_header_changes(index);
 
 	if (!index->anon_mmap) {
-		if (msync(index->mmap_base,
-			  sizeof(struct mail_index_header), MS_SYNC) < 0) {
+		if (msync(index->mmap_base, index->header_size, MS_SYNC) < 0) {
 			index_set_syscall_error(index, "msync()");
 			failed = TRUE;
 		}
@@ -305,6 +294,13 @@ static int mail_index_write_header_changes(struct mail_index *index)
 static int mail_index_lock_remove(struct mail_index *index)
 {
 	enum mail_lock_type old_lock_type;
+	int ret = TRUE;
+
+	while (index->cache_later_locks > 0) {
+		if (!mail_cache_unlock(index->cache))
+			ret = FALSE;
+		index->cache_later_locks--;
+	}
 
 	if (!mail_index_wait_lock(index, F_UNLCK))
 		return FALSE;
@@ -316,18 +312,15 @@ static int mail_index_lock_remove(struct mail_index *index)
 		/* releasing shared lock. we may need to update some
 		   flags in header. */
 		unsigned int old_flags;
-		enum mail_data_field old_cache;
 
 		old_flags = index->header->flags;
-		old_cache = index->header->cache_fields;
 
-		if ((old_flags | index->set_flags) != old_flags ||
-		    (old_cache | index->set_cache_fields) != old_cache)
+		if ((old_flags | index->set_flags) != old_flags)
 			return mail_index_write_header_changes(index);
 	}
 
         debug_mprotect(index->mmap_base, index->mmap_full_length, index);
-	return TRUE;
+	return ret;
 }
 
 static int mail_index_lock_change(struct mail_index *index,
@@ -335,9 +328,13 @@ static int mail_index_lock_change(struct mail_index *index,
 {
 	int ret, fd_lock_type;
 
-	/* shared -> exclusive isn't allowed without try_lock */
+	/* shared -> exclusive can deadlock */
 	i_assert(try_lock || lock_type != MAIL_LOCK_EXCLUSIVE ||
 		 index->lock_type != MAIL_LOCK_SHARED);
+
+	/* locking index when cache is locked can deadlock */
+	i_assert(try_lock || index->lock_type == MAIL_LOCK_EXCLUSIVE ||
+		 !mail_cache_is_locked(index->cache));
 
 	if (index->inconsistent) {
 		/* index is in inconsistent state and nothing else than
@@ -379,7 +376,7 @@ static int mail_index_lock_change(struct mail_index *index,
 		return FALSE;
 	}
 
-	if (index->header->flags & MAIL_INDEX_FLAG_FSCK) {
+	if (index->header->flags & MAIL_INDEX_HDR_FLAG_FSCK) {
 		/* someone just partially updated the index, need to fsck it */
 		if (lock_type == MAIL_LOCK_SHARED) {
 			/* we need exclusive lock so fsck()'s set_lock() won't
@@ -397,7 +394,7 @@ static int mail_index_lock_change(struct mail_index *index,
 
 		/* check again, in case it was already fscked while we had
 		   it unlocked for a while */
-		if (index->header->flags & MAIL_INDEX_FLAG_FSCK) {
+		if (index->header->flags & MAIL_INDEX_HDR_FLAG_FSCK) {
 			if (!index->fsck(index))
 				return FALSE;
 		}
@@ -413,9 +410,8 @@ static int mail_index_lock_change(struct mail_index *index,
 		   when the lock is released, the FSCK flag will also be
 		   removed. */
 		index->excl_lock_counter++;
-		index->header->flags |= MAIL_INDEX_FLAG_FSCK;
-		if (!mail_index_fmdatasync(index,
-					   sizeof(struct mail_index_header))) {
+		index->header->flags |= MAIL_INDEX_HDR_FLAG_FSCK;
+		if (!mail_index_fmdatasync(index, index->header_size)) {
 			(void)index->set_lock(index, MAIL_LOCK_UNLOCK);
 			return FALSE;
 		}
@@ -452,15 +448,14 @@ static int mail_index_lock_full(struct mail_index *index,
 			mail_modifylog_notify_lock_drop(index->modifylog);
 
 		/* dropping exclusive lock (either unlock or to shared) */
-		keep_fsck = (index->set_flags & MAIL_INDEX_FLAG_FSCK) != 0;
+		keep_fsck = (index->set_flags & MAIL_INDEX_HDR_FLAG_FSCK) != 0;
 		mail_index_update_header_changes(index);
 
 		/* remove the FSCK flag only after successful fsync() */
 		if (mail_index_sync_file(index) && !keep_fsck) {
-			index->header->flags &= ~MAIL_INDEX_FLAG_FSCK;
+			index->header->flags &= ~MAIL_INDEX_HDR_FLAG_FSCK;
 			if (!index->anon_mmap &&
-			    msync(index->mmap_base,
-				  sizeof(struct mail_index_header),
+			    msync(index->mmap_base, index->header_size,
 				  MS_SYNC) < 0) {
 				/* we only failed to remove the fsck flag,
 				   so this isn't fatal. */
@@ -500,115 +495,6 @@ struct mail_index_header *mail_index_get_header(struct mail_index *index)
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
 	return index->header;
-}
-
-const char *mail_index_lookup_field(struct mail_index *index,
-				    struct mail_index_record *rec,
-				    enum mail_data_field field)
-{
-	struct mail_index_data_record *datarec;
-
-	datarec = (rec->data_fields & field) == 0 ? NULL :
-		mail_index_data_lookup(index->data, rec, field);
-	if (datarec == NULL)
-		return NULL;
-
-	if (!mail_index_data_record_verify(index->data, datarec)) {
-		/* index is corrupted, it will be rebuilt */
-		return NULL;
-	}
-
-	return datarec->data;
-}
-
-const void *mail_index_lookup_field_raw(struct mail_index *index,
-					struct mail_index_record *rec,
-					enum mail_data_field field,
-					size_t *size)
-{
-	struct mail_index_data_record_header *datahdr;
-	struct mail_index_data_record *datarec;
-
-	if ((rec->data_fields & field) == 0) {
-		*size = 0;
-		return NULL;
-	}
-
-	if (field < DATA_FIELD_LAST) {
-		/* read data field */
-		datarec = mail_index_data_lookup(index->data, rec, field);
-		if (datarec == NULL) {
-			*size = 0;
-			return NULL;
-		}
-
-		*size = datarec->full_field_size;
-		return datarec->data;
-	}
-
-	/* read header field */
-	datahdr = mail_index_data_lookup_header(index->data, rec);
-	if (datahdr == NULL) {
-		*size = 0;
-		return NULL;
-	}
-
-	switch (field) {
-	case DATA_HDR_INTERNAL_DATE:
-		*size = sizeof(datahdr->internal_date);
-		return &datahdr->internal_date;
-	case DATA_HDR_VIRTUAL_SIZE:
-		*size = sizeof(datahdr->virtual_size);
-		return &datahdr->virtual_size;
-	case DATA_HDR_HEADER_SIZE:
-		*size = sizeof(datahdr->header_size);
-		return &datahdr->header_size;
-	case DATA_HDR_BODY_SIZE:
-		*size = sizeof(datahdr->body_size);
-		return &datahdr->body_size;
-	default:
-		*size = 0;
-		return NULL;
-	}
-}
-
-void mail_index_cache_fields_later(struct mail_index *index,
-				   enum mail_data_field field)
-{
-	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
-
-	field &= ~index->never_cache_fields;
-
-	/* first check if the field even could be in the file */
-	if ((index->set_cache_fields & field) != field) {
-		if ((index->header->cache_fields & field) == 0) {
-			/* no, but make sure the future records will have it.
-			   we don't immediately mark the index to cache this
-			   field for old messages as some clients never ask
-			   the info again */
-			index->set_cache_fields |= field;
-		} else {
-			/* this is at least the second time it's being asked,
-			   make sure it'll be cached soon. */
-			index->set_flags |= MAIL_INDEX_FLAG_CACHE_FIELDS;
-		}
-	}
-}
-
-time_t mail_get_internal_date(struct mail_index *index,
-			      struct mail_index_record *rec)
-{
-	const time_t *date;
-	size_t size;
-
-	date = index->lookup_field_raw(index, rec,
-				       DATA_HDR_INTERNAL_DATE, &size);
-	if (date == NULL)
-		return (time_t)-1;
-	else {
-		i_assert(size == sizeof(*date));
-		return *date;
-	}
 }
 
 void mail_index_mark_flag_changes(struct mail_index *index,
@@ -691,8 +577,8 @@ int mail_index_expunge(struct mail_index *index,
 	}
 
 	if (index->header->messages_count == 0) {
-		/* all mail was deleted, truncate data file */
-		if (!mail_index_data_reset(index->data))
+		/* all mail was deleted, truncate cache file */
+		if (!mail_cache_truncate(index->cache))
 			return FALSE;
 	}
 
@@ -759,11 +645,18 @@ static int mail_index_grow(struct mail_index *index)
 	return TRUE;
 }
 
-struct mail_index_record *mail_index_append_begin(struct mail_index *index)
+struct mail_index_record *mail_index_append(struct mail_index *index)
 {
 	struct mail_index_record *rec;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
+
+	if (index->header->next_uid == MAX_ALLOWED_UID) {
+		index->set_flags |= MAIL_INDEX_HDR_FLAG_REBUILD;
+		index_set_error(index, "Reached maximum UID in mailbox %s, "
+				"rebuilding index", index->filepath);
+		return NULL;
+	}
 
 	if (index->mmap_used_length == index->mmap_full_length) {
 		if (!mail_index_grow(index))
@@ -774,48 +667,17 @@ struct mail_index_record *mail_index_append_begin(struct mail_index *index)
 	i_assert(index->mmap_used_length + sizeof(struct mail_index_record) <=
 		 index->mmap_full_length);
 
+	index->header->messages_count++;
+
 	rec = (struct mail_index_record *) ((char *) index->mmap_base +
 					    index->mmap_used_length);
-	memset(rec, 0, sizeof(struct mail_index_record));
+	rec->uid = index->header->next_uid++;
+	rec->msg_flags = 0;
 
-	index->header->used_file_size += sizeof(struct mail_index_record);
-	index->mmap_used_length += sizeof(struct mail_index_record);
+	index->header->used_file_size += sizeof(*rec);
+	index->mmap_used_length += sizeof(*rec);
 
 	return rec;
-}
-
-int mail_index_append_end(struct mail_index *index,
-			  struct mail_index_record *rec)
-{
-	i_assert(rec->uid == 0);
-
-	if (index->header->next_uid == MAX_ALLOWED_UID) {
-		index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
-		index_set_error(index, "Reached maximum UID in mailbox %s, "
-				"rebuilding index", index->filepath);
-		return FALSE;
-	}
-
-	index->header->messages_count++;
-	rec->uid = index->header->next_uid++;
-
-	return TRUE;
-}
-
-void mail_index_append_abort(struct mail_index *index,
-			     struct mail_index_record *rec)
-{
-	i_assert(rec->uid == 0);
-
-	if (INDEX_FILE_POSITION(index, rec) ==
-	    index->header->used_file_size - sizeof(*rec)) {
-		/* we can just rollback */
-		index->header->used_file_size -= sizeof(*rec);
-		index->mmap_used_length -= sizeof(*rec);
-	} else {
-		/* mark it deleted */
-		(void)mail_index_expunge_record_range(index, rec, rec);
-	}
 }
 
 enum mail_index_error mail_index_get_last_error(struct mail_index *index)

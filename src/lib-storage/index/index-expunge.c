@@ -34,7 +34,7 @@ static int index_expunge_seek_first(struct index_mailbox *ibox,
 				hdr->first_deleted_uid_lowwater);
 
 			/* fsck should be enough to fix it */
-			ibox->index->set_flags |= MAIL_INDEX_FLAG_FSCK;
+			ibox->index->set_flags |= MAIL_INDEX_HDR_FLAG_FSCK;
 			return FALSE;
 		}
 	} else {
@@ -144,7 +144,7 @@ struct mail *index_storage_expunge_fetch_next(struct mail_expunge_context *ctx)
 	ctx->mail.mail.seq = ctx->seq;
 	ctx->mail.mail.uid = ctx->rec->uid;
 
-	if (!index_mail_next(&ctx->mail, ctx->rec, ctx->seq)) {
+	if (index_mail_next(&ctx->mail, ctx->rec, ctx->seq, FALSE) < 0) {
 		ctx->failed = TRUE;
 		return NULL;
 	}

@@ -21,6 +21,7 @@ struct index_mailbox {
 
 	struct mail_index *index;
         enum mailbox_lock_type lock_type;
+	struct mail_cache_transaction_ctx *trans_ctx;
 
 	struct timeout *autosync_to;
         struct index_autosync_file *autosync_files;
@@ -90,6 +91,7 @@ int index_storage_sync(struct mailbox *box, enum mail_sync_flags flags);
 struct mail_fetch_context *
 index_storage_fetch_init(struct mailbox *box,
 			 enum mail_fetch_field wanted_fields,
+			 const char *const *wanted_headers,
 			 const char *messageset, int uidset);
 int index_storage_fetch_deinit(struct mail_fetch_context *ctx, int *all_found);
 struct mail *index_storage_fetch_next(struct mail_fetch_context *ctx);

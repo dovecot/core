@@ -46,7 +46,6 @@ int mail_index_fsck(struct mail_index *index)
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
-	/* Expunge tree can get easily corrupted, compress it away first. */
 	if (!mail_index_compress(index))
 		return FALSE;
 

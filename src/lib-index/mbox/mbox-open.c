@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "istream.h"
 #include "mbox-index.h"
-#include "mail-index-data.h"
 #include "mail-index-util.h"
 
 #include <stdlib.h>
@@ -12,7 +11,7 @@
 
 struct istream *mbox_open_mail(struct mail_index *index,
 			       struct mail_index_record *rec,
-			       time_t *internal_date, int *deleted)
+			       time_t *received_date, int *deleted)
 {
 	struct istream *input;
 	uoff_t offset, hdr_size, body_size;
@@ -32,8 +31,8 @@ struct istream *mbox_open_mail(struct mail_index *index,
 	if (input == NULL)
 		return NULL;
 
-	if (internal_date != NULL)
-		*internal_date = mail_get_internal_date(index, rec);
+	if (received_date != NULL)
+		*received_date = index->get_received_date(index, rec);
 
 	i_assert(index->mbox_sync_counter == index->mbox_lock_counter);
 

@@ -20,6 +20,9 @@
 #define MAX_HEADER_BUFFER_SIZE (32*1024)
 
 struct fetch_header_field_context {
+        struct imap_fetch_context *fetch_ctx;
+	struct mail *mail;
+
 	buffer_t *dest;
 	struct ostream *output;
 	uoff_t dest_size;
@@ -114,26 +117,6 @@ static int fetch_body(struct imap_fetch_context *ctx,
 		partial.pos.virtual_size += ret;
 	}
 	return ret >= 0;
-}
-
-static const char **get_fields_array(const char *fields)
-{
-	const char **field_list, **field;
-
-	while (*fields == ' ')
-		fields++;
-	if (*fields == '(')
-		fields++;
-
-	field_list = t_strsplit(fields, " )");
-
-	/* array ends at ")" element */
-	for (field = field_list; *field != NULL; field++) {
-		if (strcmp(*field, ")") == 0)
-			*field = NULL;
-	}
-
-	return field_list;
 }
 
 static int header_match(const char *const *fields,
@@ -252,10 +235,16 @@ static int fetch_header_fields(struct istream *input, const char *section,
 	struct message_header_line *hdr;
 
 	if (strncmp(section, "HEADER.FIELDS ", 14) == 0) {
-		ctx->fields = get_fields_array(section + 14);
+		ctx->fields = imap_fetch_get_body_fields(section + 14);
 		ctx->match_func = header_match;
+
+		if (ctx->fetch_ctx->body_fetch_from_cache) {
+			input = ctx->mail->get_headers(ctx->mail, ctx->fields);
+			if (input == NULL)
+				return FALSE;
+		}
 	} else if (strncmp(section, "HEADER.FIELDS.NOT ", 18) == 0) {
-		ctx->fields = get_fields_array(section + 18);
+		ctx->fields = imap_fetch_get_body_fields(section + 18);
 		ctx->match_func = header_match_not;
 	} else if (strcmp(section, "MIME") == 0) {
 		/* Mime-Version + Content-* fields */
@@ -329,18 +318,21 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 	   the size first and then send the data directly to output stream. */
 
 	memset(&hdr_ctx, 0, sizeof(hdr_ctx));
+	hdr_ctx.mail = mail;
+	hdr_ctx.fetch_ctx = ctx;
 	hdr_ctx.skip = body->skip;
 	hdr_ctx.max_size = body->max_size;
 	hdr_ctx.fix_nuls = !mail->has_no_nuls;
 
 	failed = FALSE;
-	start_offset = input->v_offset;
+	start_offset = input == NULL ? 0 : input->v_offset;
 
 	t_push();
 
 	/* first pass, we need at least the size */
 	if (size->virtual_size > MAX_HEADER_BUFFER_SIZE &&
-	    body->max_size > MAX_HEADER_BUFFER_SIZE) {
+	    body->max_size > MAX_HEADER_BUFFER_SIZE &&
+	    !ctx->body_fetch_from_cache) {
 		if (!fetch_header_fields(input, header_section, &hdr_ctx))
 			failed = TRUE;
 
@@ -392,9 +384,13 @@ static int fetch_header(struct imap_fetch_context *ctx, struct mail *mail,
 	struct istream *stream;
 	struct message_size hdr_size;
 
-	stream = mail->get_stream(mail, &hdr_size, NULL);
-	if (stream == NULL)
-		return FALSE;
+	if (ctx->body_fetch_from_cache)
+		stream = NULL;
+	else {
+		stream = mail->get_stream(mail, &hdr_size, NULL);
+		if (stream == NULL)
+			return FALSE;
+	}
 
 	return fetch_header_from(ctx, stream, &hdr_size,
 				 mail, body, body->section);

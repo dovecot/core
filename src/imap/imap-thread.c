@@ -103,7 +103,7 @@ int imap_thread(struct client *client, const char *charset,
 		struct mail_search_arg *args, enum mail_thread_type type)
 {
 	static const char *wanted_headers[] = {
-		"message-id", "in-reply-to", "references",
+		"message-id", "in-reply-to", "references", "subject",
 		NULL
 	};
 	struct thread_context *ctx;

@@ -186,8 +186,8 @@
 #include "str.h"
 #include "maildir-index.h"
 #include "maildir-uidlist.h"
-#include "mail-index-data.h"
 #include "mail-index-util.h"
+#include "mail-cache.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -202,7 +202,6 @@
 enum maildir_file_action {
 	MAILDIR_FILE_ACTION_EXPUNGE,
         MAILDIR_FILE_ACTION_UPDATE_FLAGS,
-	MAILDIR_FILE_ACTION_UPDATE_CONTENT,
 	MAILDIR_FILE_ACTION_NEW,
 	MAILDIR_FILE_ACTION_NONE,
 
@@ -236,6 +235,7 @@ struct maildir_sync_context {
 	struct dirent *new_dent;
 
 	struct maildir_uidlist *uidlist;
+        struct mail_cache_transaction_ctx *trans_ctx;
 	unsigned int readonly_check:1;
 	unsigned int flag_updates:1;
 	unsigned int uidlist_rewrite:1;
@@ -274,41 +274,6 @@ static int maildir_cmp(const void *p1, const void *p2)
 	    (*s2 == '\0' || *s2 == ':'))
 		return 0;
 	return *s1 - *s2;
-}
-
-static void maildir_update_filename_memory(struct mail_index *index,
-					   const char *fname)
-{
-	char *new_fname;
-
-	if (index->new_filename_pool == NULL) {
-		index->new_filename_pool =
-			pool_alloconly_create("Maildir fname", 10240);
-	}
-	if (index->new_filenames == NULL) {
-		index->new_filenames =
-			hash_create(system_pool, index->new_filename_pool, 0,
-				    maildir_hash, maildir_cmp);
-	}
-
-	new_fname = p_strdup(index->new_filename_pool, fname);
-	hash_insert(index->new_filenames, new_fname, new_fname);
-}
-
-static int maildir_update_filename(struct maildir_sync_context *ctx,
-				   struct mail_index_record *rec,
-				   const char *new_fname)
-{
-	struct mail_index_update *update;
-
-	if (ctx->index->lock_type != MAIL_LOCK_EXCLUSIVE) {
-		maildir_update_filename_memory(ctx->index, new_fname);
-		return TRUE;
-	}
-
-	update = ctx->index->update_begin(ctx->index, rec);
-	ctx->index->update_field(update, DATA_FIELD_LOCATION, new_fname, 0);
-	return ctx->index->update_end(update);
 }
 
 static int maildir_update_flags(struct maildir_sync_context *ctx,
@@ -373,11 +338,6 @@ static int maildir_sync_open_uidlist(struct maildir_sync_context *ctx)
 			return FALSE;
 		}
 
-		if (!index->rebuilding) {
-			index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
-			return FALSE;
-		}
-
 		index->header->uid_validity = ctx->uidlist->uid_validity;
 		i_assert(index->header->next_uid == 1);
 	}
@@ -391,47 +351,6 @@ static int maildir_sync_open_uidlist(struct maildir_sync_context *ctx)
 	}
 
 	return TRUE;
-}
-
-static int is_file_content_changed(struct mail_index *index,
-				   struct mail_index_record *rec,
-				   const char *dir, const char *fname)
-{
-#define DATA_HDR_SIZE (DATA_HDR_HEADER_SIZE | DATA_HDR_BODY_SIZE)
-	struct mail_index_data_record_header *data_hdr;
-	struct stat st;
-	const char *path;
-
-	if ((rec->data_fields & DATA_HDR_INTERNAL_DATE) == 0 &&
-	    (rec->data_fields & DATA_HDR_SIZE) != DATA_HDR_SIZE) {
-		/* nothing in cache, we can't know if it's changed */
-		return FALSE;
-	}
-
-	t_push();
-	path = t_strdup_printf("%s/%s", dir, fname);
-
-	if (stat(path, &st) < 0) {
-		if (errno != ENOENT)
-			index_file_set_syscall_error(index, path, "stat()");
-		t_pop();
-		return FALSE;
-	}
-	t_pop();
-
-	data_hdr = mail_index_data_lookup_header(index->data, rec);
-	if (data_hdr == NULL)
-		return FALSE;
-
-	if ((rec->data_fields & DATA_HDR_INTERNAL_DATE) != 0 &&
-	    st.st_mtime != data_hdr->internal_date)
-		return TRUE;
-
-	if ((rec->data_fields & DATA_HDR_SIZE) == DATA_HDR_SIZE &&
-	    (uoff_t)st.st_size != data_hdr->body_size + data_hdr->header_size)
-		return TRUE;
-
-	return FALSE;
 }
 
 static void uidlist_hash_get_filenames(void *key, void *value, void *context)
@@ -464,6 +383,53 @@ static int maildir_time_cmp(const void *p1, const void *p2)
 	return t1 < t2 ? -1 : t1 > t2 ? 1 : 0;
 }
 
+static int maildir_full_sync_finish_new_mails(struct maildir_sync_context *ctx)
+{
+	const char *dir, **new_files;
+	buffer_t *buf;
+	unsigned int i;
+	int new_dir;
+
+	ctx->uidlist_rewrite = TRUE;
+
+	/* then there's the completely new mails. sort them by the filename
+	   so we should get them to same order as they were created. */
+	buf = buffer_create_static_hard(ctx->pool,
+					ctx->new_count * sizeof(const char *));
+	hash_foreach(ctx->files, uidlist_hash_get_filenames, buf);
+	i_assert(buffer_get_used_size(buf) ==
+		 ctx->new_count * sizeof(const char *));
+
+	new_files = buffer_get_modifyable_data(buf, NULL);
+	qsort(new_files, ctx->new_count, sizeof(const char *),
+	      maildir_time_cmp);
+
+	if (!ctx->index->maildir_keep_new) {
+		dir = ctx->cur_dir;
+		new_dir = FALSE;
+	} else {
+		/* this is actually slightly wrong, because we don't really
+		   know if some of the new messages are in cur/ already.
+		   we could know that by saving it into buffer, but that'd
+		   require extra memory. luckily it doesn't really matter if
+		   we say it's in new/, but it's actually in cur/. we have
+		   to deal with such case anyway since another client might
+		   have just moved it. */
+		dir = ctx->new_dir;
+		new_dir = TRUE;
+		ctx->index->maildir_have_new = TRUE;
+	}
+
+	for (i = 0; i < ctx->new_count; i++) {
+		if (!maildir_index_append_file(&ctx->trans_ctx, ctx->index,
+					       new_files[i], new_dir))
+			return FALSE;
+	}
+	ctx->new_count = 0;
+
+	return TRUE;
+}
+
 static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 {
 	struct mail_index *index = ctx->index;
@@ -472,11 +438,10 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 	struct maildir_hash_rec *hash_rec;
 	struct maildir_uidlist_rec uid_rec;
         enum maildir_file_action action;
-	const char *fname, **new_files, *dir;
+	const char *fname, *dir;
 	void *orig_key, *orig_value;
-	unsigned int seq, first_seq, last_seq, uid, last_uid, i, new_flag;
+	unsigned int seq, first_seq, last_seq, uid, last_uid, new_flag;
 	int new_dir, skip_next;
-	buffer_t *buf;
 
 	if (ctx->new_count > 0) {
 		/* new mails, either they're already in uidlist or we have
@@ -512,7 +477,7 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 				return FALSE;
 		}
 
-		fname = maildir_get_location(index, rec);
+		fname = maildir_get_location(index, rec, NULL);
 		if (fname == NULL)
 			return FALSE;
 
@@ -536,20 +501,16 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 		    (ACTION(hash_rec) == MAILDIR_FILE_ACTION_UPDATE_FLAGS ||
 		     ACTION(hash_rec) == MAILDIR_FILE_ACTION_NONE)) {
 			/* it's UID has changed. shouldn't happen. */
-			i_warning("UID changed for %s/%s: %u -> %u",
-				  index->mailbox_path, fname, uid, uid_rec.uid);
-			hash_rec->action = MAILDIR_FILE_ACTION_UPDATE_CONTENT |
-				(hash_rec->action & MAILDIR_FILE_FLAGS);
+			index_set_corrupted(index,
+					    "UID changed for %s/%s: %u -> %u",
+					    index->mailbox_path, fname,
+					    uid, uid_rec.uid);
+			return FALSE;
 		}
 
 		action = hash_rec != NULL ?
 			ACTION(hash_rec) : MAILDIR_FILE_ACTION_NONE;
 		switch (action) {
-		case MAILDIR_FILE_ACTION_UPDATE_CONTENT:
-			hash_rec->action = MAILDIR_FILE_ACTION_NEW |
-				(hash_rec->action & MAILDIR_FILE_FLAGS);
-			ctx->new_count++;
-			/* fall through */
 		case MAILDIR_FILE_ACTION_EXPUNGE:
 			if (first_rec == NULL) {
 				first_rec = rec;
@@ -559,8 +520,10 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 			last_seq = seq;
 			break;
 		case MAILDIR_FILE_ACTION_UPDATE_FLAGS:
-			if (!maildir_update_filename(ctx, rec, orig_key))
-				return FALSE;
+			new_dir = (hash_rec->action &
+				   MAILDIR_FILE_FLAG_NEWDIR) != 0;
+			maildir_index_update_filename(index, rec->uid,
+						      orig_key, new_dir);
 			if (!maildir_update_flags(ctx, rec, seq, fname))
 				return FALSE;
 			/* fall through */
@@ -651,8 +614,8 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 				ctx->index->maildir_have_new = TRUE;
 			dir = new_flag != 0 ? ctx->new_dir : ctx->cur_dir;
 
-			if (!maildir_index_append_file(index, dir, orig_key,
-						       new_flag != 0))
+			if (!maildir_index_append_file(&ctx->trans_ctx, index,
+						       orig_key, new_flag != 0))
 				return FALSE;
 		}
 
@@ -677,48 +640,13 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 		index->last_uidlist_mtime = st.st_mtime;
 	}
 
-	if (ctx->new_count == 0 || !INDEX_IS_UIDLIST_LOCKED(index)) {
-		/* all done (or can't do it since we don't have lock) */
-		return TRUE;
-	}
+	if (ctx->new_count > 0 && INDEX_IS_UIDLIST_LOCKED(index))
+                maildir_full_sync_finish_new_mails(ctx);
 
-	ctx->uidlist_rewrite = TRUE;
-
-	/* then there's the completely new mails. sort them by the filename
-	   so we should get them to same order as they were created. */
-	buf = buffer_create_static_hard(ctx->pool,
-					ctx->new_count * sizeof(const char *));
-	hash_foreach(ctx->files, uidlist_hash_get_filenames, buf);
-	i_assert(buffer_get_used_size(buf) ==
-		 ctx->new_count * sizeof(const char *));
-
-	new_files = buffer_get_modifyable_data(buf, NULL);
-	qsort(new_files, ctx->new_count, sizeof(const char *),
-	      maildir_time_cmp);
-
-	if (!index->maildir_keep_new) {
-		dir = ctx->cur_dir;
-		new_dir = FALSE;
-	} else {
-		/* this is actually slightly wrong, because we don't really
-		   know if some of the new messages are in cur/ already.
-		   we could know that by saving it into buffer, but that'd
-		   require extra memory. luckily it doesn't really matter if
-		   we say it's in new/, but it's actually in cur/. we have
-		   to deal with such case anyway since another client might
-		   have just moved it. */
-		dir = ctx->new_dir;
-		new_dir = TRUE;
-		ctx->index->maildir_have_new = TRUE;
-	}
-
-	for (i = 0; i < ctx->new_count; i++) {
-		if (!maildir_index_append_file(index, dir,
-					       new_files[i], new_dir))
-			return FALSE;
-	}
-
-	ctx->new_count = 0;
+	/* all done (or can't do it since we don't have lock) */
+	ctx->index->maildir_synced_once = TRUE;
+	if (ctx->trans_ctx != NULL)
+		mail_cache_transaction_commit(ctx->trans_ctx);
 	return TRUE;
 }
 
@@ -730,12 +658,12 @@ static int maildir_full_sync_init(struct maildir_sync_context *ctx,
 	struct maildir_hash_rec *hash_rec;
 	const char *fname;
 	size_t size;
-	int have_new;
+	int new_dir, have_new;
 
-	/* FIXME: kludge. we want to have pointers to data file, so we must
-	   make sure that it's base address doesn't change. this call makes
-	   sure it's fully mmaped in memory even when we begin */
-	if (mail_index_data_get_mmaped(index->data, &size) == NULL)
+	/* kludge. we want to have pointers to data file, so we must make sure
+	   that it's base address doesn't change. this call makes sure it's
+	   fully mmaped in memory even when we begin */
+	if (mail_cache_get_mmaped(index->cache, &size) == NULL)
 		return FALSE;
 
 	if (index->header->messages_count >= INT_MAX/32) {
@@ -743,6 +671,19 @@ static int maildir_full_sync_init(struct maildir_sync_context *ctx,
 				    index->header->messages_count);
 		return FALSE;
 	}
+
+	/* we're resyncing everything, so reset the filename hash */
+	if (index->new_filenames != NULL) {
+		hash_destroy(index->new_filenames);
+		index->new_filenames = NULL;
+	}
+
+	if (index->new_filename_pool != NULL)
+		p_clear(index->new_filename_pool);
+
+	/* reset synced-flag too, just in case something fails and we don't
+	   have up-to-date new_filenames */
+	ctx->index->maildir_synced_once = FALSE;
 
 	/* read current messages in index into hash */
 	size = nearest_power(index->header->messages_count *
@@ -757,15 +698,14 @@ static int maildir_full_sync_init(struct maildir_sync_context *ctx,
 
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
-		fname = maildir_get_location(index, rec);
+		fname = maildir_get_location(index, rec, &new_dir);
 		if (fname == NULL)
 			return FALSE;
 
-		if ((rec->index_flags & INDEX_MAIL_FLAG_MAILDIR_NEW) != 0)
+		if (new_dir)
 			have_new = TRUE;
 
-		if (!only_new ||
-		    (rec->index_flags & INDEX_MAIL_FLAG_MAILDIR_NEW) != 0) {
+		if (!only_new || new_dir) {
 			hash_rec = p_new(ctx->pool, struct maildir_hash_rec, 1);
 			hash_rec->rec = rec;
 			hash_rec->action = MAILDIR_FILE_ACTION_EXPUNGE;
@@ -841,19 +781,13 @@ static void uidlist_hash_fix_allocs(void *key, void *value, void *context)
 }
 
 static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
-				 const char *dir, int new_dir,
-				 DIR *dirp, struct dirent *d)
+				 int new_dir, DIR *dirp, struct dirent *d)
 {
 	struct maildir_hash_rec *hash_rec;
 	void *orig_key, *orig_value;
-	int check_content_changes, newflag;
+	int newflag;
 
 	newflag = new_dir ? MAILDIR_FILE_FLAG_NEWDIR : 0;
-
-	/* Do we want to check changes in file contents? This slows down
-	   things as we need to do extra stat() for all files. */
-	check_content_changes = !ctx->readonly_check &&
-		getenv("MAILDIR_CHECK_CONTENT_CHANGES") != NULL;
 
 	do {
 		if (d->d_name[0] == '.')
@@ -889,25 +823,7 @@ static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
 			continue;
 		}
 
-		if (!new_dir && (hash_rec->rec->index_flags &
-				 INDEX_MAIL_FLAG_MAILDIR_NEW) != 0 &&
-		    ctx->index->lock_type == MAIL_LOCK_EXCLUSIVE) {
-			/* mail was indexed in new/ but it has been
-			   moved to cur/ later */
-			hash_rec->rec->index_flags &=
-				~INDEX_MAIL_FLAG_MAILDIR_NEW;
-		}
-
-		if (check_content_changes &&
-		    is_file_content_changed(ctx->index, hash_rec->rec,
-					    dir, d->d_name)) {
-			/* file content changed, treat it as new message */
-			hash_rec->action =
-				MAILDIR_FILE_ACTION_UPDATE_CONTENT | newflag;
-
-			hash_insert(ctx->files, p_strdup(ctx->pool, d->d_name),
-				    hash_rec);
-		} else if (strcmp(orig_key, d->d_name) != 0) {
+		if (strcmp(orig_key, d->d_name) != 0) {
 			hash_rec->action =
 				MAILDIR_FILE_ACTION_UPDATE_FLAGS | newflag;
 
@@ -969,8 +885,8 @@ static int maildir_full_sync_dirs(struct maildir_sync_context *ctx)
 	}
 
 	if (ctx->new_dent != NULL) {
-		if (!maildir_full_sync_dir(ctx, ctx->new_dir, TRUE,
-					   ctx->new_dirp, ctx->new_dent))
+		if (!maildir_full_sync_dir(ctx, TRUE, ctx->new_dirp,
+					   ctx->new_dent))
 			return FALSE;
                 ctx->new_dent = NULL;
 	}
@@ -981,8 +897,7 @@ static int maildir_full_sync_dirs(struct maildir_sync_context *ctx)
 						    "opendir()");
 	}
 
-	failed = !maildir_full_sync_dir(ctx, ctx->cur_dir, FALSE,
-					dirp, readdir(dirp));
+	failed = !maildir_full_sync_dir(ctx, FALSE, dirp, readdir(dirp));
 
 	if (closedir(dirp) < 0) {
 		return index_file_set_syscall_error(ctx->index, ctx->cur_dir,
@@ -1000,8 +915,7 @@ static int maildir_sync_new_dir_full(struct maildir_sync_context *ctx)
 	if (!maildir_full_sync_init(ctx, TRUE))
 		return FALSE;
 
-	if (!maildir_full_sync_dir(ctx, ctx->new_dir, TRUE,
-				   ctx->new_dirp, ctx->new_dent))
+	if (!maildir_full_sync_dir(ctx, TRUE, ctx->new_dirp, ctx->new_dent))
 		return FALSE;
 	ctx->new_dent = NULL;
 
@@ -1098,8 +1012,8 @@ static int maildir_sync_new_dir(struct maildir_sync_context *ctx,
 				ctx->index->maildir_have_new = TRUE;
 
 			t_push();
-			if (!maildir_index_append_file(ctx->index, final_dir,
-						       d->d_name,
+			if (!maildir_index_append_file(&ctx->trans_ctx,
+						       ctx->index, d->d_name,
 						       !move_to_cur)) {
 				t_pop();
 				return FALSE;
@@ -1244,13 +1158,16 @@ static int maildir_full_sync_finish_readonly(struct maildir_sync_context *ctx)
 	void *orig_key, *orig_value;
 	const char *fname;
 	unsigned int seq;
+	int new_dir;
 
-	if (index->lock_type != MAIL_LOCK_EXCLUSIVE || !ctx->flag_updates)
+	if (!ctx->flag_updates) {
+		ctx->index->maildir_synced_once = TRUE;
 		return TRUE;
+	}
 
 	rec = index->lookup(index, 1); seq = 1;
 	while (rec != NULL) {
-		fname = maildir_get_location(index, rec);
+		fname = maildir_get_location(index, rec, NULL);
 		if (fname == NULL)
 			return FALSE;
 
@@ -1261,15 +1178,21 @@ static int maildir_full_sync_finish_readonly(struct maildir_sync_context *ctx)
 
 		if (hash_rec != NULL &&
 		    ACTION(hash_rec) == MAILDIR_FILE_ACTION_UPDATE_FLAGS) {
-			if (!maildir_update_filename(ctx, rec, orig_key))
-				return FALSE;
-			if (!maildir_update_flags(ctx, rec, seq, fname))
-				return FALSE;
+			new_dir = (hash_rec->action &
+				   MAILDIR_FILE_FLAG_NEWDIR) != 0;
+			maildir_index_update_filename(index, rec->uid,
+						      orig_key, new_dir);
+
+			if (index->lock_type == MAIL_LOCK_EXCLUSIVE) {
+				if (!maildir_update_flags(ctx, rec, seq, fname))
+					return FALSE;
+			}
 		}
 
 		rec = index->next(index, rec); seq++;
 	}
 
+	ctx->index->maildir_synced_once = TRUE;
 	return TRUE;
 }
 
@@ -1281,13 +1204,19 @@ static int maildir_index_sync_context_readonly(struct maildir_sync_context *ctx)
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
-	if (stat(ctx->cur_dir, &st) < 0) {
-		index_file_set_syscall_error(index, ctx->cur_dir, "stat()");
-		return FALSE;
-	}
+	if (!index->maildir_synced_once) {
+		/* we haven't synced yet in this session. do it */
+		cur_changed = TRUE;
+	} else {
+		if (stat(ctx->cur_dir, &st) < 0) {
+			index_file_set_syscall_error(index, ctx->cur_dir,
+						     "stat()");
+			return FALSE;
+		}
 
-	cur_changed = st.st_mtime != index->file_sync_stamp ||
-		index->maildir_cur_dirty != 0;
+		cur_changed = st.st_mtime != index->file_sync_stamp ||
+			index->maildir_cur_dirty != 0;
+	}
 
 	if (!cur_changed) {
 		if (!index->maildir_have_new) {
@@ -1325,6 +1254,9 @@ static int maildir_index_sync_context_readonly(struct maildir_sync_context *ctx)
 
 static void maildir_index_sync_deinit(struct maildir_sync_context *ctx)
 {
+	// FIXME: remove new flags from cache if needed
+	if (ctx->trans_ctx != NULL)
+                mail_cache_transaction_end(ctx->trans_ctx);
 	if (ctx->uidlist != NULL)
 		maildir_uidlist_close(ctx->uidlist);
 	if (ctx->files != NULL)
@@ -1347,14 +1279,6 @@ maildir_sync_context_new(struct mail_index *index)
 {
         struct maildir_sync_context *ctx;
 
-	if (index->new_filenames != NULL) {
-		hash_destroy(index->new_filenames);
-		index->new_filenames = NULL;
-	}
-
-	if (index->new_filename_pool != NULL)
-		p_clear(index->new_filename_pool);
-
 	ctx = t_new(struct maildir_sync_context, 1);
 	ctx->index = index;
 	ctx->new_dir = t_strconcat(index->mailbox_path, "/new", NULL);
@@ -1374,7 +1298,7 @@ int maildir_index_sync_readonly(struct mail_index *index,
 
 	ret = maildir_index_sync_context_readonly(ctx);
 
-	if (!ret)
+	if (!ret || ctx->files == NULL)
 		*found = FALSE;
 	else {
 		hash_rec = hash_lookup(ctx->files, fname);

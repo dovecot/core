@@ -32,20 +32,12 @@ enum mail_search_arg_type {
 	SEARCH_LARGER,
 
 	/* headers */
-	SEARCH_FROM,
-	SEARCH_TO,
-	SEARCH_CC,
-	SEARCH_BCC,
-	SEARCH_SUBJECT,
 	SEARCH_HEADER,
+	SEARCH_HEADER_ADDRESS,
 
 	/* body */
 	SEARCH_BODY,
-	SEARCH_TEXT,
-
-	/* our shortcuts for headers */
-        SEARCH_IN_REPLY_TO,
-        SEARCH_MESSAGE_ID
+	SEARCH_TEXT
 };
 
 struct mail_search_arg {
@@ -58,7 +50,7 @@ struct mail_search_arg {
 	} value;
 
         void *context;
-	const char *hdr_field_name; /* for SEARCH_HEADER */
+	const char *hdr_field_name; /* for SEARCH_HEADER* */
 	unsigned int not:1;
 
 	int result; /* -1 = unknown, 0 = unmatched, 1 = matched */
@@ -82,9 +74,11 @@ int mail_search_args_foreach(struct mail_search_arg *args,
 			     mail_search_foreach_callback_t callback,
 			     void *context);
 
-/* Fills have_headers, have_body and have_text based on if such search
-   argument exists that needs to be checked. */
-void mail_search_args_analyze(struct mail_search_arg *args, int *have_headers,
-			      int *have_body, int *have_text);
+/* Fills have_headers and have_body based on if such search argument exists
+   that needs to be checked. Returns the headers that we're searching for, or
+   NULL if we're searching for TEXT. */
+const char *const *
+mail_search_args_analyze(struct mail_search_arg *args,
+			 int *have_headers, int *have_body);
 
 #endif

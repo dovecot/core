@@ -21,20 +21,26 @@ search_arg_new(pool_t pool, enum mail_search_arg_type type)
 	return arg;
 }
 
-#define ARG_NEW(type, value) \
-	arg_new(data, args, next_sarg, type, value)
+#define ARG_NEW(type) \
+	arg_new(data, args, next_sarg, type, TRUE, NULL)
+
+#define ARG_NEW_FLAG(type) \
+	arg_new(data, args, next_sarg, type, FALSE, NULL)
+
+#define ARG_NEW_HEADER(type, hdr_name) \
+	arg_new(data, args, next_sarg, type, TRUE, hdr_name)
 
 static int arg_new(struct search_build_data *data, struct imap_arg **args,
 		   struct mail_search_arg **next_sarg,
-		   enum mail_search_arg_type type, int value)
+		   enum mail_search_arg_type type, int have_value,
+		   const char *hdr_name)
 {
 	struct mail_search_arg *sarg;
 
 	*next_sarg = sarg = search_arg_new(data->pool, type);
-	if (value == 0)
+	if (!have_value)
 		return TRUE;
 
-	/* first arg */
 	if ((*args)->type == IMAP_ARG_EOL) {
 		data->error = "Missing parameter for argument";
 		return FALSE;
@@ -49,23 +55,8 @@ static int arg_new(struct search_build_data *data, struct imap_arg **args,
 	sarg->value.str = str_ucase(IMAP_ARG_STR(*args));
 	*args += 1;
 
-	/* second arg */
-	if (value == 2) {
-		if ((*args)->type == IMAP_ARG_EOL) {
-			data->error = "Missing parameter for argument";
-			return FALSE;
-		}
-
-		if ((*args)->type != IMAP_ARG_ATOM &&
-		    (*args)->type != IMAP_ARG_STRING) {
-			data->error = "Invalid parameter for argument";
-			return FALSE;
-		}
-
-                sarg->hdr_field_name = sarg->value.str;
-		sarg->value.str = str_ucase(IMAP_ARG_STR(*args));
-		*args += 1;
-	}
+	if (hdr_name != NULL)
+                sarg->hdr_field_name = hdr_name;
 
 	return TRUE;
 }
@@ -122,40 +113,40 @@ static int search_arg_build(struct search_build_data *data,
 	switch (*str) {
 	case 'A':
 		if (strcmp(str, "ANSWERED") == 0)
-			return ARG_NEW(SEARCH_ANSWERED, 0);
+			return ARG_NEW_FLAG(SEARCH_ANSWERED);
 		else if (strcmp(str, "ALL") == 0)
-			return ARG_NEW(SEARCH_ALL, 0);
+			return ARG_NEW_FLAG(SEARCH_ALL);
 		break;
 	case 'B':
 		if (strcmp(str, "BODY") == 0) {
 			/* <string> */
-			return ARG_NEW(SEARCH_BODY, 1);
+			return ARG_NEW(SEARCH_BODY);
 		} else if (strcmp(str, "BEFORE") == 0) {
 			/* <date> */
-			return ARG_NEW(SEARCH_BEFORE, 1);
+			return ARG_NEW(SEARCH_BEFORE);
 		} else if (strcmp(str, "BCC") == 0) {
 			/* <string> */
-			return ARG_NEW(SEARCH_BCC, 1);
+			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, str);
 		}
 		break;
 	case 'C':
 		if (strcmp(str, "CC") == 0) {
 			/* <string> */
-			return ARG_NEW(SEARCH_CC, 1);
+			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, str);
 		}
 		break;
 	case 'D':
 		if (strcmp(str, "DELETED") == 0)
-			return ARG_NEW(SEARCH_DELETED, 0);
+			return ARG_NEW_FLAG(SEARCH_DELETED);
 		else if (strcmp(str, "DRAFT") == 0)
-			return ARG_NEW(SEARCH_DRAFT, 0);
+			return ARG_NEW_FLAG(SEARCH_DRAFT);
 		break;
 	case 'F':
 		if (strcmp(str, "FLAGGED") == 0)
-			return ARG_NEW(SEARCH_FLAGGED, 0);
+			return ARG_NEW_FLAG(SEARCH_FLAGGED);
 		else if (strcmp(str, "FROM") == 0) {
 			/* <string> */
-			return ARG_NEW(SEARCH_FROM, 1);
+			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, str);
 		}
 		break;
 	case 'H':
@@ -174,43 +165,20 @@ static int search_arg_build(struct search_build_data *data,
 			}
 
 			key = str_ucase(IMAP_ARG_STR(*args));
-
-			if (strcmp(key, "FROM") == 0) {
-				*args += 1;
-				return ARG_NEW(SEARCH_FROM, 1);
-			} else if (strcmp(key, "TO") == 0) {
-				*args += 1;
-				return ARG_NEW(SEARCH_TO, 1);
-			} else if (strcmp(key, "CC") == 0) {
-				*args += 1;
-				return ARG_NEW(SEARCH_CC, 1);
-			} else if (strcmp(key, "BCC") == 0) {
-				*args += 1;
-				return ARG_NEW(SEARCH_BCC, 1);
-			} else if (strcmp(key, "SUBJECT") == 0) {
-				*args += 1;
-				return ARG_NEW(SEARCH_SUBJECT, 1);
-			} else if (strcmp(key, "IN-REPLY-TO") == 0) {
-				*args += 1;
-				return ARG_NEW(SEARCH_IN_REPLY_TO, 1);
-			} else if (strcmp(key, "MESSAGE-ID") == 0) {
-				*args += 1;
-				return ARG_NEW(SEARCH_MESSAGE_ID, 1);
-			} else {
-				return ARG_NEW(SEARCH_HEADER, 2);
-			}
+			*args += 1;
+			return ARG_NEW_HEADER(SEARCH_HEADER, key);
 		}
 		break;
 	case 'K':
 		if (strcmp(str, "KEYWORD") == 0) {
 			/* <flag> */
-			return ARG_NEW(SEARCH_KEYWORD, 1);
+			return ARG_NEW(SEARCH_KEYWORD);
 		}
 		break;
 	case 'L':
 		if (strcmp(str, "LARGER") == 0) {
 			/* <n> */
-			return ARG_NEW(SEARCH_LARGER, 1);
+			return ARG_NEW(SEARCH_LARGER);
 		}
 		break;
 	case 'N':
@@ -260,10 +228,10 @@ static int search_arg_build(struct search_build_data *data,
 			return TRUE;
 		} if (strcmp(str, "ON") == 0) {
 			/* <date> */
-			return ARG_NEW(SEARCH_ON, 1);
+			return ARG_NEW(SEARCH_ON);
 		} if (strcmp(str, "OLD") == 0) {
 			/* OLD == NOT RECENT */
-			if (!ARG_NEW(SEARCH_RECENT, 0))
+			if (!ARG_NEW_FLAG(SEARCH_RECENT))
 				return FALSE;
 
 			(*next_sarg)->not = TRUE;
@@ -272,71 +240,71 @@ static int search_arg_build(struct search_build_data *data,
 		break;
 	case 'R':
 		if (strcmp(str, "RECENT") == 0)
-			return ARG_NEW(SEARCH_RECENT, 0);
+			return ARG_NEW_FLAG(SEARCH_RECENT);
 		break;
 	case 'S':
 		if (strcmp(str, "SEEN") == 0)
-			return ARG_NEW(SEARCH_SEEN, 0);
+			return ARG_NEW_FLAG(SEARCH_SEEN);
 		else if (strcmp(str, "SUBJECT") == 0) {
 			/* <string> */
-			return ARG_NEW(SEARCH_SUBJECT, 1);
+			return ARG_NEW_HEADER(SEARCH_HEADER, str);
 		} else if (strcmp(str, "SENTBEFORE") == 0) {
 			/* <date> */
-			return ARG_NEW(SEARCH_SENTBEFORE, 1);
+			return ARG_NEW(SEARCH_SENTBEFORE);
 		} else if (strcmp(str, "SENTON") == 0) {
 			/* <date> */
-			return ARG_NEW(SEARCH_SENTON, 1);
+			return ARG_NEW(SEARCH_SENTON);
 		} else if (strcmp(str, "SENTSINCE") == 0) {
 			/* <date> */
-			return ARG_NEW(SEARCH_SENTSINCE, 1);
+			return ARG_NEW(SEARCH_SENTSINCE);
 		} else if (strcmp(str, "SINCE") == 0) {
 			/* <date> */
-			return ARG_NEW(SEARCH_SINCE, 1);
+			return ARG_NEW(SEARCH_SINCE);
 		} else if (strcmp(str, "SMALLER") == 0) {
 			/* <n> */
-			return ARG_NEW(SEARCH_SMALLER, 1);
+			return ARG_NEW(SEARCH_SMALLER);
 		}
 		break;
 	case 'T':
 		if (strcmp(str, "TEXT") == 0) {
 			/* <string> */
-			return ARG_NEW(SEARCH_TEXT, 1);
+			return ARG_NEW(SEARCH_TEXT);
 		} else if (strcmp(str, "TO") == 0) {
 			/* <string> */
-			return ARG_NEW(SEARCH_TO, 1);
+			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, str);
 		}
 		break;
 	case 'U':
 		if (strcmp(str, "UID") == 0) {
 			/* <message set> */
-			return ARG_NEW(SEARCH_UID, 1);
+			return ARG_NEW(SEARCH_UID);
 		} else if (strcmp(str, "UNANSWERED") == 0) {
-			if (!ARG_NEW(SEARCH_ANSWERED, 0))
+			if (!ARG_NEW_FLAG(SEARCH_ANSWERED))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
 		} else if (strcmp(str, "UNDELETED") == 0) {
-			if (!ARG_NEW(SEARCH_DELETED, 0))
+			if (!ARG_NEW_FLAG(SEARCH_DELETED))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
 		} else if (strcmp(str, "UNDRAFT") == 0) {
-			if (!ARG_NEW(SEARCH_DRAFT, 0))
+			if (!ARG_NEW_FLAG(SEARCH_DRAFT))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
 		} else if (strcmp(str, "UNFLAGGED") == 0) {
-			if (!ARG_NEW(SEARCH_FLAGGED, 0))
+			if (!ARG_NEW_FLAG(SEARCH_FLAGGED))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
 		} else if (strcmp(str, "UNKEYWORD") == 0) {
-			if (!ARG_NEW(SEARCH_KEYWORD, 0))
+			if (!ARG_NEW_FLAG(SEARCH_KEYWORD))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
 		} else if (strcmp(str, "UNSEEN") == 0) {
-			if (!ARG_NEW(SEARCH_SEEN, 0))
+			if (!ARG_NEW_FLAG(SEARCH_SEEN))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
@@ -345,7 +313,7 @@ static int search_arg_build(struct search_build_data *data,
 	default:
 		if (*str == '*' || (*str >= '0' && *str <= '9')) {
 			/* <message-set> */
-			if (!ARG_NEW(SEARCH_SET, 0))
+			if (!ARG_NEW_FLAG(SEARCH_SET))
 				return FALSE;
 
 			(*next_sarg)->value.str = str;

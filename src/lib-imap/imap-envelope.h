@@ -26,6 +26,8 @@ enum imap_envelope_result_type {
 
 struct message_part_envelope_data;
 
+extern const char *imap_envelope_headers[];
+
 int imap_envelope_get_field(const char *name, enum imap_envelope_field *ret);
 
 /* Update envelope data based from given header field */
