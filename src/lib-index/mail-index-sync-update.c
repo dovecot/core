@@ -211,12 +211,8 @@ static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 {
 	size_t size;
 
-	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
-		(void)buffer_append_space_unsafe(map->buffer,
-			count * sizeof(struct mail_index_record));
-		map->records = buffer_get_modifyable_data(map->buffer, NULL);
+	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map))
 		return 0;
-	}
 
 	i_assert(map == index->map);
 
