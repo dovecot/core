@@ -80,6 +80,10 @@ static int index_open_and_fix(struct mail_index *index,
 	if (!mail_cache_open_or_create(index))
 		return FALSE;
 
+	/* custom flags file needs to be open before rebuilding index */
+	if (!mail_custom_flags_open_or_create(index))
+		return FALSE;
+
 	if ((index->header->flags & MAIL_INDEX_HDR_FLAG_REBUILD) != 0 ||
 	    (index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD) != 0) {
 
@@ -96,10 +100,6 @@ static int index_open_and_fix(struct mail_index *index,
 	} else {
 		rebuilt = FALSE;
 	}
-
-	/* custom flags file needs to be open before rebuilding index */
-	if (!mail_custom_flags_open_or_create(index))
-		return FALSE;
 
 	if ((flags & _MAIL_INDEX_OPEN_FLAG_CREATING) == 0) {
 		if (!mail_modifylog_open_or_create(index))

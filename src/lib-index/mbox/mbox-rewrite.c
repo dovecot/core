@@ -44,6 +44,10 @@ static int reset_dirty_flags(struct mail_index *index)
 	struct mail_index_record *rec;
 	enum mail_index_record_flag index_flags;
 
+	if (mail_cache_lock(index->cache, FALSE) <= 0)
+		return FALSE;
+	mail_cache_unlock_later(index->cache);
+
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
 		index_flags = mail_cache_get_index_flags(index->cache, rec);
