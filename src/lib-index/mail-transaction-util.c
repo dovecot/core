@@ -142,6 +142,9 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 
 	cur_seq = prev_seq = 1; expunges_before = 0;
 	for (i = 0; src != src_end; src++) {
+		/* src[] must be sorted. */
+		i_assert(src+1 == src_end || src->seq1 < src[1].seq1);
+
 		for (; i < dest_count; i++) {
 			count = dest[i].seq1 - prev_seq;
 			if (cur_seq + count > src->seq1)
@@ -165,7 +168,7 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 			count = dest[i].seq2 - dest[i].seq1 + 1;
 			expunges_before += count;
 			new_exp.seq2 += count;
-			new_exp.seq2 = dest[i].uid2;
+			new_exp.uid2 = dest[i].uid2;
 			i++;
 		}
 
@@ -192,7 +195,7 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 
 			dest = buffer_get_modifyable_data(expunges_buf, NULL);
 			dest_count -= i - first;
-			i = first + 1;
+			i = first;
 		}
 	}
 }
