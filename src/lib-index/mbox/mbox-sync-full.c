@@ -253,7 +253,7 @@ static int mbox_sync_from_stream(struct mail_index *index,
 		if (!match_next_record(index, rec, &seq, input, &rec, &dirty))
 			return FALSE;
 
-		if (rec == NULL && seq <= index->header->messages_count) {
+		if (rec == NULL) {
 			/* Get back to line before From */
 			i_stream_seek(input, from_offset);
 		}
