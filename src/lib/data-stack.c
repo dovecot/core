@@ -140,7 +140,11 @@ unsigned int t_pop(void)
 	/* update the current block */
 	current_block = current_frame_block->block[frame_pos];
 	current_block->left = current_frame_block->block_space_used[frame_pos];
-
+#ifdef DEBUG
+	memset(STACK_BLOCK_DATA(current_block) +
+	       (current_block->size - current_block->left), 0xde,
+	       current_block->left);
+#endif
 	if (current_block->next != NULL) {
 		/* free unused blocks */
 		free_blocks(current_block->next);
