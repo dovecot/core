@@ -55,6 +55,11 @@ int maildir_file_do(struct index_mailbox *ibox, uint32_t uid,
 		ret = maildir_file_do_try(ibox, uid, func, context);
 	}
 
+	if (i == 10) {
+		mail_storage_set_critical(ibox->box.storage,
+			"maildir_file_do(%s) racing", ibox->path);
+	}
+
 	return ret == -2 ? 0 : ret;
 }
 
