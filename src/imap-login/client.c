@@ -469,11 +469,12 @@ void client_destroy(struct imap_client *client, const char *reason)
 	if (client->proxy_user != NULL) {
 		safe_memset(client->proxy_password, 0,
 			    strlen(client->proxy_password));
-		i_free(client->proxy_user);
 		i_free(client->proxy_password);
-		client->proxy_user = NULL;
 		client->proxy_password = NULL;
 	}
+
+	i_free(client->proxy_user);
+	client->proxy_user = NULL;
 
 	if (client->proxy != NULL) {
 		login_proxy_free(client->proxy);
