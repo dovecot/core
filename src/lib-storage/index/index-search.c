@@ -750,17 +750,17 @@ static int search_get_sequid(struct index_mailbox *ibox,
 		} else if (args->type == SEARCH_SET) {
 			if (!seq_update(args->value.str, first_seq, last_seq,
 					ibox->synced_messages_count)) {
-				mail_storage_set_error(ibox->box.storage,
-						       "Invalid messageset: %s",
-						       args->value.str);
+				mail_storage_set_syntax_error(ibox->box.storage,
+					"Invalid messageset: %s",
+					args->value.str);
 				return FALSE;
 			}
 		} else if (args->type == SEARCH_UID) {
 			if (!seq_update(args->value.str, first_uid, last_uid,
 					ibox->index->header->next_uid-1)) {
-				mail_storage_set_error(ibox->box.storage,
-						       "Invalid messageset: %s",
-						       args->value.str);
+				mail_storage_set_syntax_error(ibox->box.storage,
+					"Invalid messageset: %s",
+					args->value.str);
 				return FALSE;
 			}
 		} else if (args->type == SEARCH_ALL) {
@@ -835,8 +835,8 @@ static int client_seq_to_uid(struct index_mailbox *ibox,
 	unsigned int expunges_before;
 
 	if (seq > ibox->synced_messages_count) {
-		mail_storage_set_error(ibox->box.storage,
-				       "Sequence out of range: %u", seq);
+		mail_storage_set_syntax_error(ibox->box.storage,
+					      "Sequence out of range: %u", seq);
 		return FALSE;
 	}
 
