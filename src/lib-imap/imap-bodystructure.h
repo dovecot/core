@@ -4,8 +4,6 @@
 struct message_part;
 struct message_header_line;
 
-struct imap_bodystructure_parse_ctx;
-
 /* Parse a single header. Note that this modifies part->context. */
 void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 				     struct message_header_line *hdr);
