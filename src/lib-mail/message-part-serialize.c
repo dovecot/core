@@ -64,7 +64,6 @@ _message_part_serialize(struct message_part *part, buffer_t *dest)
 		spart->body_virtual_size = part->body_size.virtual_size;
 		spart->body_lines = part->body_size.lines;
 
-		spart->children_count = 0;
 		spart->flags = part->flags;
 
 		if (part->children != NULL) {
