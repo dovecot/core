@@ -168,7 +168,7 @@ static MemBlock *mem_block_alloc(size_t min_size)
 	if (block == NULL) {
 		i_panic("mem_block_alloc(): "
 			"Out of memory when allocating %"PRIuSIZE_T" bytes",
-			SIZEOF_MEMBLOCK + alloc_size);
+			alloc_size + SIZEOF_MEMBLOCK);
 	}
 	block->size = alloc_size;
 	block->next = NULL;
