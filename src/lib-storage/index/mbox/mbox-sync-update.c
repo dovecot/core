@@ -284,10 +284,6 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 
 	old_flags = ctx->mail.flags;
 
-	if ((ctx->mail.flags & MBOX_NONRECENT) == 0 &&
-	    !ctx->sync_ctx->ibox->keep_recent)
-		ctx->mail.flags |= MBOX_NONRECENT;
-
 	if (size != 0) {
 		memcpy(old_keywords, ctx->mail.keywords, sizeof(old_keywords));
 
@@ -311,6 +307,9 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 			   INDEX_KEYWORDS_BYTE_COUNT) != 0)
 			mbox_sync_update_xkeywords(ctx);
 	}
+
+	if (!ctx->sync_ctx->ibox->keep_recent)
+		ctx->mail.flags |= MBOX_NONRECENT;
 
 	if ((old_flags & STATUS_FLAGS_MASK) !=
 	    (ctx->mail.flags & STATUS_FLAGS_MASK))
