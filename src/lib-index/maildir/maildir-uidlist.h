@@ -11,8 +11,6 @@ struct maildir_uidlist {
 	char *fname;
 	struct istream *input;
 
-	time_t cur_stamp;
-
 	unsigned int uid_validity, next_uid, last_read_uid;
 };
 
