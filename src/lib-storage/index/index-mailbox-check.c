@@ -41,8 +41,10 @@ static void check_timeout(void *context)
 	notify = ibox->notify_pending;
 	for (file = ibox->notify_files; file != NULL; file = file->next) {
 		if (stat(file->path, &st) == 0 &&
-		    file->last_stamp != st.st_mtime)
+		    file->last_stamp != st.st_mtime) {
 			file->last_stamp = st.st_mtime;
+			notify = TRUE;
+		}
 	}
 
 	if (notify) {
