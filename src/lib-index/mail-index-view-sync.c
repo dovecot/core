@@ -190,8 +190,14 @@ static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 	   see only updated information. */
 	if (ctx->sync_map_update &&
 	    (ctx->hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0) {
+		struct mail_index_sync_map_ctx sync_map_ctx;
+
+		memset(&sync_map_ctx, 0, sizeof(sync_map_ctx));
+		sync_map_ctx.view = view;
+
 		if (mail_transaction_map(view->index, ctx->hdr, ctx->data,
-					 &mail_index_map_sync_funcs, view) < 0)
+					 &mail_index_map_sync_funcs,
+					 &sync_map_ctx) < 0)
 			return -1;
 	}
 

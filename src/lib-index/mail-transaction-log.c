@@ -970,7 +970,8 @@ static int mail_transaction_log_scan_pending(struct mail_transaction_log *log,
 
 	/* make sure we're not writing cache_offsets to old cache file */
 	if (t->new_cache_file_seq == 0 && max_cache_file_seq != 0 &&
-	    max_cache_file_seq != t->last_cache_file_seq) {
+	    max_cache_file_seq != t->last_cache_file_seq &&
+	    t->cache_updates != NULL) {
 		buffer_free(t->cache_updates);
 		t->cache_updates = NULL;
 	}
@@ -1103,8 +1104,10 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 
 	if (mail_index_lock_shared(log->index, TRUE, &lock_id) < 0) {
-		if (!log->index->log_locked)
-			(void)mail_transaction_log_file_lock(file, F_UNLCK);
+		if (!log->index->log_locked) {
+			(void)mail_transaction_log_file_lock(log->head,
+							     F_UNLCK);
+		}
 		return -1;
 	}
 	idx_hdr = *log->index->hdr;

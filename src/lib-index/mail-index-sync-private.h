@@ -22,6 +22,12 @@ struct mail_index_sync_ctx {
 	unsigned int lock_id;
 
 	unsigned int sync_appends:1;
+};
+
+struct mail_index_sync_map_ctx {
+	struct mail_index_view *view;
+
+	unsigned int update_cache:1;
 	unsigned int cache_locked:1;
 };
 

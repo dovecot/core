@@ -57,22 +57,25 @@ mail_index_header_update_lowwaters(struct mail_index_header *hdr,
 		hdr->first_deleted_uid_lowwater = rec->uid;
 }
 
-static void mail_index_sync_cache_expunge(struct mail_index_sync_ctx *sync_ctx,
+static void mail_index_sync_cache_expunge(struct mail_index_sync_map_ctx *ctx,
 					  uoff_t cache_offset)
 {
-	if (!sync_ctx->cache_locked) {
-		if (mail_cache_lock(sync_ctx->view->index->cache) <= 0)
+	if (!ctx->update_cache)
+		return;
+
+	if (!ctx->cache_locked) {
+		if (mail_cache_lock(ctx->view->index->cache) <= 0)
 			return;
-		sync_ctx->cache_locked = TRUE;
+		ctx->cache_locked = TRUE;
 	}
 
-	(void)mail_cache_delete(sync_ctx->index->cache, cache_offset);
+	(void)mail_cache_delete(ctx->view->index->cache, cache_offset);
 }
 
 static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 {
-        struct mail_index_sync_ctx *sync_ctx = context;
-	struct mail_index_view *view = sync_ctx->view;
+        struct mail_index_sync_map_ctx *ctx = context;
+	struct mail_index_view *view = ctx->view;
 	struct mail_index_map *map = view->map;
 	struct mail_index_header *hdr = &map->hdr_copy;
 	struct mail_index_record *rec;
@@ -91,10 +94,8 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
                 rec = MAIL_INDEX_MAP_IDX(map, seq-1);
 		mail_index_header_update_counts(hdr, rec->flags, 0);
 		
-		if (rec->cache_offset != 0) {
-			mail_index_sync_cache_expunge(sync_ctx,
-						      rec->cache_offset);
-		}
+		if (rec->cache_offset != 0)
+			mail_index_sync_cache_expunge(ctx, rec->cache_offset);
 	}
 
 	/* @UNSAFE */
@@ -117,8 +118,8 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 static int sync_append(const struct mail_transaction_append_header *hdr,
 		       const struct mail_index_record *rec, void *context)
 {
-        struct mail_index_sync_ctx *sync_ctx = context;
-	struct mail_index_view *view = sync_ctx->view;
+        struct mail_index_sync_map_ctx *ctx = context;
+	struct mail_index_view *view = ctx->view;
 	struct mail_index_map *map = view->map;
 	void *dest;
 
@@ -159,8 +160,8 @@ static int sync_append(const struct mail_transaction_append_header *hdr,
 static int sync_flag_update(const struct mail_transaction_flag_update *u,
 			    void *context)
 {
-        struct mail_index_sync_ctx *sync_ctx = context;
-	struct mail_index_view *view = sync_ctx->view;
+        struct mail_index_sync_map_ctx *ctx = context;
+	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
 	struct mail_index_header *hdr;
 	uint8_t flag_mask, old_flags;
@@ -209,8 +210,8 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 static int sync_cache_reset(const struct mail_transaction_cache_reset *u,
 			    void *context)
 {
-        struct mail_index_sync_ctx *sync_ctx = context;
-	struct mail_index_view *view = sync_ctx->view;
+        struct mail_index_sync_map_ctx *ctx = context;
+	struct mail_index_view *view = ctx->view;
 	uint32_t i;
 
 	view->map->hdr_copy.cache_file_seq = u->new_file_seq;
@@ -223,8 +224,8 @@ static int sync_cache_reset(const struct mail_transaction_cache_reset *u,
 static int sync_cache_update(const struct mail_transaction_cache_update *u,
 			     void *context)
 {
-        struct mail_index_sync_ctx *sync_ctx = context;
-	struct mail_index_view *view = sync_ctx->view;
+        struct mail_index_sync_map_ctx *ctx = context;
+	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
 	uint32_t seq;
 	int ret;
@@ -239,12 +240,12 @@ static int sync_cache_update(const struct mail_transaction_cache_update *u,
 	}
 
 	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
-	if (rec->cache_offset != 0) {
+	if (rec->cache_offset != 0 && ctx->update_cache) {
 		/* we'll need to link the old and new cache records */
-		if (!sync_ctx->cache_locked) {
+		if (!ctx->cache_locked) {
 			if (mail_cache_lock(view->index->cache) <= 0)
 				return -1;
-			sync_ctx->cache_locked = TRUE;
+			ctx->cache_locked = TRUE;
 		}
 
 		if (mail_cache_link(view->index->cache,
@@ -258,10 +259,10 @@ static int sync_cache_update(const struct mail_transaction_cache_update *u,
 static int sync_header_update(const struct mail_transaction_header_update *u,
 			      void *context)
 {
-        struct mail_index_sync_ctx *sync_ctx = context;
+        struct mail_index_sync_map_ctx *ctx = context;
 	void *data;
 
-	data = PTR_OFFSET(&sync_ctx->view->map->hdr_copy, u->offset);
+	data = PTR_OFFSET(&ctx->view->map->hdr_copy, u->offset);
 	memcpy(data, u->data, u->size);
 	return 1;
 }
@@ -271,8 +272,8 @@ sync_extra_rec_update(const struct mail_transaction_extra_rec_header *hdr,
 		      const struct mail_transaction_extra_rec_update *u,
 		      void *context)
 {
-        struct mail_index_sync_ctx *sync_ctx = context;
-	struct mail_index_view *view = sync_ctx->view;
+        struct mail_index_sync_map_ctx *ctx = context;
+	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
 	uint32_t seq;
 	uint16_t offset, size;
@@ -392,12 +393,17 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	struct mail_index *index = sync_ctx->index;
 	struct mail_index_view *view = sync_ctx->view;
 	struct mail_index_map *map;
+        struct mail_index_sync_map_ctx sync_map_ctx;
 	const struct mail_transaction_header *hdr;
 	const void *data;
 	unsigned int count, old_lock_id;
 	uint32_t seq, i, first_append_uid;
 	uoff_t offset;
 	int ret, had_dirty, skipped;
+
+	memset(&sync_map_ctx, 0, sizeof(sync_map_ctx));
+	sync_map_ctx.view = view;
+        sync_map_ctx.update_cache = TRUE;
 
 	/* we'll have to update view->lock_id to avoid mail_index_view_lock()
 	   trying to update the file later. */
@@ -463,15 +469,15 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 
 		if (mail_transaction_map(index, hdr, data,
 					 &mail_index_map_sync_funcs,
-					 sync_ctx) < 0) {
+					 &sync_map_ctx) < 0) {
 			ret = -1;
 			break;
 		}
 	}
 
-	if (sync_ctx->cache_locked) {
+	if (sync_map_ctx.cache_locked) {
 		mail_cache_unlock(index->cache);
-		sync_ctx->cache_locked = FALSE;
+		sync_map_ctx.cache_locked = FALSE;
 	}
 
 	if (ret < 0) {
