@@ -18,7 +18,10 @@
    You should have received a copy of the GNU Lesser General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
+*/
+
+/* NOTE: currently this code doesn't do any bounds checkings. I'm not sure
+   if I should even bother, the code would just get uglier and slower. */
 
 #include "lib.h"
 #include "mail-index.h"
@@ -60,14 +63,6 @@ rb_alloc(MailTree *tree)
         MailTreeNode *node = tree->node_base;
 	unsigned int x;
 
-	if (tree->header->unused_root != RBNULL) {
-		/* use the nodes in the middle of the file */
-		x = tree->header->unused_root;
-		tree->header->unused_root = node[x].up;
-		return x;
-	}
-
-	/* use nodes at the end of file */
 	if (tree->mmap_used_length == tree->mmap_full_length) {
 		if (!_mail_tree_grow(tree))
 			return RBNULL;
@@ -77,20 +72,65 @@ rb_alloc(MailTree *tree)
 	i_assert(tree->mmap_used_length + sizeof(MailTreeNode) <=
 		 tree->mmap_full_length);
 
+	x = (tree->mmap_used_length - sizeof(MailTreeHeader)) /
+		sizeof(MailTreeNode);
+
 	tree->header->used_file_size += sizeof(MailTreeNode);
 	tree->mmap_used_length += sizeof(MailTreeNode);
 
-	return (tree->mmap_used_length - sizeof(MailTreeHeader)) /
-		sizeof(MailTreeNode) - 1;
+	memset(&node[x], 0, sizeof(MailTreeNode));
+	return x;
+}
+
+static void
+rb_move(MailTree *tree, unsigned int src, unsigned int dest)
+{
+	MailTreeNode *node = tree->node_base;
+
+	/* update parent */
+	if (node[src].up != RBNULL) {
+		if (node[node[src].up].left == src)
+			node[node[src].up].left = dest;
+		else if (node[node[src].up].right == src)
+			node[node[src].up].right = dest;
+	}
+
+	/* update children */
+	if (node[src].left != RBNULL)
+		node[node[src].left].up = dest;
+	if (node[src].right != RBNULL)
+		node[node[src].right].up = dest;
+
+	/* update root */
+	if (tree->header->root == src)
+		tree->header->root = dest;
+
+	memcpy(&node[dest], &node[src], sizeof(MailTreeNode));
+	memset(&node[src], 0, sizeof(MailTreeNode));
 }
 
 static void
 rb_free(MailTree *tree, unsigned int x)
 {
-        MailTreeNode *node = tree->node_base;
+	unsigned int last;
 
-	node[x].up = tree->header->unused_root;
-	tree->header->unused_root = x;
+	i_assert(tree->mmap_used_length >=
+		 sizeof(MailTreeHeader) + sizeof(MailTreeNode));
+
+	/* get index to last used record */
+	last = (tree->mmap_used_length - sizeof(MailTreeHeader)) /
+		sizeof(MailTreeNode) - 1;
+
+	if (last != x) {
+		/* move it over the one we want free'd */
+		rb_move(tree, last, x);
+	}
+
+	/* mark the moved node unused */
+	tree->mmap_used_length -= sizeof(MailTreeNode);
+	tree->header->used_file_size -= sizeof(MailTreeNode);
+
+	_mail_tree_truncate(tree);
 }
 
 /*

@@ -11,8 +11,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#define MAIL_TREE_INITIAL_SIZE \
-	(sizeof(MailTreeHeader) + sizeof(MailTreeNode) * 64)
+#define MAIL_TREE_MIN_SIZE \
+	(sizeof(MailTreeHeader) + \
+	 INDEX_MIN_RECORDS_COUNT * sizeof(MailTreeNode))
 
 static int tree_set_syscall_error(MailTree *tree, const char *function)
 {
@@ -46,8 +47,14 @@ int _mail_tree_set_corrupted(MailTree *tree, const char *fmt, ...)
 int _mail_tree_mmap_update(MailTree *tree, int forced)
 {
 	if (!forced && tree->header != NULL &&
-	    tree->mmap_full_length >= tree->header->used_file_size) {
+	    tree->sync_id == tree->header->sync_id) {
+		/* make sure file size hasn't changed */
 		tree->mmap_used_length = tree->header->used_file_size;
+		if (tree->mmap_used_length > tree->mmap_full_length) {
+			i_panic("Tree file size was grown without "
+				"updating sync_id");
+		}
+
 		return TRUE;
 	}
 
@@ -56,7 +63,7 @@ int _mail_tree_mmap_update(MailTree *tree, int forced)
 	if (tree->mmap_base != NULL) {
 		/* make sure we're synced before munmap() */
 		if (tree->modified &&
-		    msync(tree->mmap_base, tree->mmap_used_length, MS_SYNC) < 0)
+		    msync(tree->mmap_base, tree->mmap_highwater, MS_SYNC) < 0)
 			return tree_set_syscall_error(tree, "msync()");
 		tree->modified = FALSE;
 
@@ -121,7 +128,9 @@ static int mmap_verify(MailTree *tree)
 	tree->header = tree->mmap_base;
 	tree->node_base = (MailTreeNode *) ((char *) tree->mmap_base +
 					    sizeof(MailTreeHeader));
+	tree->sync_id = hdr->sync_id;
 	tree->mmap_used_length = hdr->used_file_size;
+	tree->mmap_highwater = tree->mmap_used_length;
 	return TRUE;
 }
 
@@ -254,7 +263,7 @@ static int mail_tree_init(MailTree *tree)
 		return tree_set_syscall_error(tree, "write_full()");
 	}
 
-	if (file_set_size(tree->fd, MAIL_TREE_INITIAL_SIZE) < 0) {
+	if (file_set_size(tree->fd, MAIL_TREE_MIN_SIZE) < 0) {
 		if (errno == ENOSPC)
 			tree->index->nodiskspace = TRUE;
 
@@ -302,11 +311,13 @@ int mail_tree_sync_file(MailTree *tree, int *fsync_fd)
 
 	i_assert(tree->mmap_base != NULL);
 
-	if (msync(tree->mmap_base, tree->mmap_used_length, MS_SYNC) < 0)
+	if (msync(tree->mmap_base, tree->mmap_highwater, MS_SYNC) < 0)
 		return tree_set_syscall_error(tree, "msync()");
 
-	*fsync_fd = tree->fd;
+	tree->mmap_highwater = tree->mmap_used_length;
 	tree->modified = FALSE;
+
+	*fsync_fd = tree->fd;
 	return TRUE;
 }
 
@@ -344,8 +355,47 @@ int _mail_tree_grow(MailTree *tree)
 		return tree_set_syscall_error(tree, "file_set_size()");
 	}
 
+	/* file size changed, let others know about it too by changing
+	   sync_id in header. */
+	tree->header->sync_id++;
+	tree->modified = TRUE;
+
 	if (!_mail_tree_mmap_update(tree, TRUE) || !mmap_verify(tree))
 		return FALSE;
 
 	return TRUE;
+}
+
+void _mail_tree_truncate(MailTree *tree)
+{
+	/* pretty much copy&pasted from mail_index_compress() */
+	uoff_t empty_space, truncate_threshold;
+
+	i_assert(tree->index->lock_type == MAIL_LOCK_EXCLUSIVE);
+
+	if (tree->mmap_full_length <= MAIL_TREE_MIN_SIZE)
+		return;
+
+	empty_space = tree->mmap_full_length - tree->mmap_used_length;
+
+	truncate_threshold =
+		tree->mmap_full_length / 100 * INDEX_TRUNCATE_PERCENTAGE;
+
+	if (empty_space > truncate_threshold) {
+		tree->mmap_full_length = tree->mmap_used_length +
+			(empty_space * INDEX_TRUNCATE_KEEP_PERCENTAGE / 100);
+
+		/* keep the size record-aligned */
+		tree->mmap_full_length -=
+			(tree->mmap_full_length - sizeof(MailTreeHeader)) %
+			sizeof(MailTreeNode);
+
+		if (tree->mmap_full_length < MAIL_TREE_MIN_SIZE)
+			tree->mmap_full_length = MAIL_TREE_MIN_SIZE;
+
+		if (ftruncate(tree->fd, (off_t)tree->mmap_full_length) < 0)
+			tree_set_syscall_error(tree, "ftruncate()");
+
+		tree->header->sync_id++;
+	}
 }

@@ -16,20 +16,22 @@ struct _MailTree {
 	MailTreeNode *node_base;
 	size_t mmap_used_length;
 	size_t mmap_full_length;
+	size_t mmap_highwater; /* for msync()ing */
 
         MailTreeHeader *header;
+	unsigned int sync_id;
+
 	unsigned int anon_mmap:1;
 	unsigned int modified:1;
 };
 
 struct _MailTreeHeader {
 	unsigned int indexid;
+	unsigned int sync_id;
+
+	uoff_t used_file_size;
 
 	unsigned int root;
-	unsigned int unused_root;
-
-	unsigned int alignment;
-	uoff_t used_file_size;
 };
 
 struct _MailTreeNode {
@@ -74,5 +76,6 @@ void mail_tree_delete(MailTree *tree, unsigned int uid);
 int _mail_tree_set_corrupted(MailTree *tree, const char *fmt, ...);
 int _mail_tree_mmap_update(MailTree *tree, int forced);
 int _mail_tree_grow(MailTree *tree);
+void _mail_tree_truncate(MailTree *tree);
 
 #endif
