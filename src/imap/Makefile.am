@@ -1,4 +1,6 @@
-pkglib_PROGRAMS = imap
+pkglibexecdir = $(libexecdir)/dovecot
+
+pkglibexec_PROGRAMS = imap
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
@@ -51,7 +53,7 @@ imap_SOURCES = \
 	client.c \
 	commands.c \
 	commands-util.c \
-	mailbox-sync.c \
+	mail-storage-callbacks.c \
 	main.c \
 	rawlog.c
 

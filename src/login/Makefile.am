@@ -1,4 +1,6 @@
-pkglib_PROGRAMS = imap-login
+pkglibexecdir = $(libexecdir)/dovecot
+
+pkglibexec_PROGRAMS = imap-login
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib
