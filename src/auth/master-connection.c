@@ -60,8 +60,8 @@ fill_reply(const struct user_data *user, size_t *reply_size)
 		reply->chroot_idx = reply_add(buf, NULL);
 	} else {
 		/* wu-ftpd like <chroot>/./<home> */
-		reply->home_idx = reply_add(buf, t_strdup_until(user->home, p));
-		reply->chroot_idx = reply_add(buf, p + 3);
+		reply->chroot_idx = reply_add(buf, t_strdup_until(user->home, p));
+		reply->home_idx = reply_add(buf, p + 3);
 	}
 
 	*reply_size = buffer_get_used_size(buf);

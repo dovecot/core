@@ -121,7 +121,7 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	home_dir = data + reply->home_idx;
 	chroot_dir = data + reply->chroot_idx;
 
-	if (*chroot_dir != '\0' && validate_chroot(chroot_dir)) {
+	if (*chroot_dir != '\0' && !validate_chroot(chroot_dir)) {
 		i_error("Invalid chroot directory: %s", chroot_dir);
 		return FALSE;
 	}
