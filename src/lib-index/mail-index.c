@@ -1036,6 +1036,20 @@ static void index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 	}
 }
 
+static int mail_index_truncate(MailIndex *index)
+{
+	/* update header */
+	index->header->first_hole_position = 0;
+	index->header->first_hole_records = 0;
+
+	/* truncate index file */
+	if (ftruncate(index->fd, sizeof(MailIndexHeader)) < 0)
+		return FALSE;
+
+	/* truncate data file */
+	return mail_index_data_reset(index->data);
+}
+
 int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		       unsigned int seq, int external_change)
 {
@@ -1101,8 +1115,14 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	hdr->messages_count--;
 	index_mark_flag_changes(index, rec, rec->msg_flags, 0);
 
-	/* update deleted_space in data file */
-	(void)mail_index_data_add_deleted_space(index->data, rec->data_size);
+	if (hdr->messages_count == 0) {
+		/* all messages are deleted, truncate the index files */
+		(void)mail_index_truncate(index);
+	} else {
+		/* update deleted_space in data file */
+		(void)mail_index_data_add_deleted_space(index->data,
+							rec->data_size);
+	}
 
 	return TRUE;
 }
