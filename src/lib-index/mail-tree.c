@@ -269,7 +269,6 @@ static int mail_tree_init(MailTree *tree)
 int mail_tree_rebuild(MailTree *tree)
 {
 	MailIndexRecord *rec;
-	uoff_t offset;
 
 	if (!tree->index->set_lock(tree->index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
@@ -283,8 +282,8 @@ int mail_tree_rebuild(MailTree *tree)
 
 	rec = tree->index->lookup(tree->index, 1);
 	while (rec != NULL) {
-		offset = INDEX_FILE_POSITION(tree->index, rec);
-		if (!mail_tree_insert(tree, rec->uid, offset)) {
+		if (!mail_tree_insert(tree, rec->uid,
+				      INDEX_RECORD_INDEX(tree->index, rec))) {
 			tree->index->header->flags |=
 				MAIL_INDEX_FLAG_REBUILD_TREE;
 			return FALSE;
