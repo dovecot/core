@@ -91,6 +91,9 @@ void index_mailbox_check_remove_all(struct index_mailbox *ibox)
 	struct index_autosync_file *file;
 	struct index_autosync_io *aio;
 
+	/* reset notify stamp */
+	ibox->sync_last_notify = 0;
+
 	while (ibox->autosync_files != NULL) {
 		file = ibox->autosync_files;
 		ibox->autosync_files = file->next;
