@@ -293,7 +293,8 @@ int mbox_index_rewrite(MailIndex *index)
 
 	out_fd = mail_index_create_temp_file(index, &path);
 	if (out_fd == -1) {
-		(void)close(in_fd);
+		if (close(in_fd) < 0)
+			mbox_set_syscall_error(index, "close()");
 		io_buffer_destroy(inbuf);
 		return FALSE;
 	}
@@ -362,9 +363,12 @@ int mbox_index_rewrite(MailIndex *index)
 		}
 	}
 
-	(void)close(out_fd);
-	(void)close(in_fd);
 	(void)unlink(path);
+
+	if (close(out_fd) < 0)
+		index_file_set_syscall_error(index, path, "close()");
+	if (close(in_fd) < 0)
+		mbox_set_syscall_error(index, "close()");
 	io_buffer_destroy(outbuf);
 	io_buffer_destroy(inbuf);
 	return failed;

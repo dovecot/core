@@ -285,10 +285,8 @@ int mbox_index_fsck(MailIndex *index)
 	/* open the mbox file. we don't really need to open it read-write,
 	   but fcntl() locking requires it. */
 	fd = open(index->mbox_path, O_RDWR);
-	if (fd == -1) {
-		mbox_set_syscall_error(index, "open()");
-		return FALSE;
-	}
+	if (fd == -1)
+		return mbox_set_syscall_error(index, "open()");
 
 	inbuf = io_buffer_create_mmap(fd, default_pool,
 				      MAIL_MMAP_BLOCK_SIZE, 0);
@@ -302,7 +300,9 @@ int mbox_index_fsck(MailIndex *index)
 		(void)mbox_unlock(index, index->mbox_path, fd);
 	}
 
-	(void)close(fd);
+	if (close(fd) < 0)
+		mbox_set_syscall_error(index, "close()");
+
 	io_buffer_destroy(inbuf);
 
 	if (failed)

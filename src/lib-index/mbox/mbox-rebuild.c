@@ -51,7 +51,8 @@ int mbox_index_rebuild(MailIndex *index)
 
 	/* lock the mailbox so we can be sure no-one interrupts us. */
 	if (!mbox_lock(index, index->mbox_path, fd)) {
-		(void)close(fd);
+		if (close(fd) < 0)
+			mbox_set_syscall_error(index, "close()");
 		return FALSE;
 	}
 
@@ -61,14 +62,14 @@ int mbox_index_rebuild(MailIndex *index)
 	failed = !mbox_index_append(index, inbuf);
 
 	(void)mbox_unlock(index, index->mbox_path, fd);
-	(void)close(fd);
+	if (close(fd) < 0) mbox_set_syscall_error(index, "close()");
 	io_buffer_destroy(inbuf);
 
 	if (failed)
 		return FALSE;
 
 	/* update sync stamp */
-	if (stat(index->mbox_path, &st) == -1)
+	if (stat(index->mbox_path, &st) < 0)
 		return mbox_set_syscall_error(index, "fstat()");
 
 	index->file_sync_stamp = st.st_mtime;

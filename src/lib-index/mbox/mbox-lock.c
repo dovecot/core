@@ -33,8 +33,7 @@
 static int mbox_lock_flock(MailIndex *index, const char *path, int fd, int set)
 {
 	if (flock(fd, set ? LOCK_EX : LOCK_UN) == -1) {
-		index_set_error(index, "flock() mbox lock failed for file "
-				"%s: %m", path);
+		index_file_set_syscall_error(index, path, "flock()");
 		return FALSE;
 	}
 
@@ -54,8 +53,7 @@ static int mbox_lock_fcntl(MailIndex *index, const char *path, int fd, int set)
 
 	while (fcntl(fd, F_SETLKW, &fl) == -1) {
 		if (errno != EINTR) {
-			index_set_error(index, "fcntl() mbox lock "
-					"failed for file %s: %m", path);
+			index_file_set_syscall_error(index, path, "fcntl()");
 			return FALSE;
 		}
 	}
@@ -75,9 +73,7 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path, int set)
 		if (unlink(path) == 0 || errno == ENOENT)
 			return TRUE;
 
-		index_set_error(index, "unlink() failed for dotlock file "
-				"%s: %m", path);
-		return FALSE;
+		return index_file_set_syscall_error(index, path, "unlink()");
 	}
 
 	/* don't bother with the temp files as we'd just leave them lying
@@ -89,13 +85,11 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path, int set)
 
 		if (stat(path, &st) == 0) {
 			/* lock exists, see if it's too old */
-			if (now > st.st_ctime + STALE_LOCK_TIMEOUT) {
-				if (unlink(path) == -1 && errno != ENOENT) {
-					index_set_error(index, "unlink() failed"
-							" for dotlock file "
-							"%s: %m", path);
-					break;
-				}
+			if (now > st.st_ctime + STALE_LOCK_TIMEOUT && 
+			    unlink(path) < 0 && errno != ENOENT) {
+				index_file_set_syscall_error(index, path,
+							     "unlink()");
+				break;
 			}
 
 			usleep(LOCK_RANDOM_USLEEP_TIME);
@@ -103,15 +97,17 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path, int set)
 		}
 
 		fd = open(path, O_WRONLY | O_EXCL | O_CREAT, 0);
-		if (fd >= 0) {
+		if (fd != -1) {
 			/* got it */
-			(void)close(fd);
+			if (close(fd) < 0) {
+				index_file_set_syscall_error(index, path,
+							     "close()");
+			}
 			return TRUE;
 		}
 
 		if (errno != EEXIST) {
-			index_set_error(index, "Can't create dotlock file "
-					"%s: %m", path);
+			index_file_set_syscall_error(index, path, "open()");
 			return FALSE;
 		}
 	} while (now < max_wait_time);

@@ -1,13 +1,17 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "iobuffer.h"
 #include "mail-index.h"
+
+#include <unistd.h>
 
 static int cache_record(MailIndex *index, MailIndexRecord *rec,
 			MailField cache_fields)
 {
 	MailIndexUpdate *update;
 	IOBuffer *inbuf;
+	int failed;
 
 	inbuf = index->open_mail(index, rec);
 	if (inbuf == NULL)
@@ -17,7 +21,12 @@ static int cache_record(MailIndex *index, MailIndexRecord *rec,
 
 	update = index->update_begin(index, rec);
 	mail_index_update_headers(update, inbuf, cache_fields, NULL, NULL);
-	return index->update_end(update);
+	failed = !index->update_end(update);
+
+	(void)close(inbuf->fd);
+	io_buffer_destroy(inbuf);
+
+	return !failed;
 }
 
 int mail_index_update_cache(MailIndex *index)
