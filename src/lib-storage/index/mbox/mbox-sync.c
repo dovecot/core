@@ -704,7 +704,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 
 	messages_count = mail_index_view_get_message_count(sync_ctx->sync_view);
 
-	if (min_message_count != 0) {
+	if (!mail_index_sync_have_more(sync_ctx->index_sync_ctx)) {
 		ret = mbox_sync_seek_to_seq(sync_ctx, partial ?
 					    messages_count : 0);
 	} else {
@@ -1131,6 +1131,9 @@ int mbox_sync(struct index_mailbox *ibox, enum mbox_sync_flags flags)
 	unsigned int lock_id = 0;
 	int ret, changed;
 
+	if (!ibox->mbox_do_dirty_syncs)
+		flags |= MBOX_SYNC_UNDIRTY;
+
 	if ((flags & MBOX_SYNC_LOCK_READING) != 0) {
 		if (mbox_lock(ibox, F_RDLCK, &lock_id) <= 0)
 			return -1;
@@ -1329,10 +1332,6 @@ mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
 	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
 		ibox->sync_last_check = ioloop_time;
-
-		if ((flags & MAILBOX_SYNC_FLAG_FULL) != 0 ||
-		    !ibox->mbox_do_dirty_syncs)
-			mbox_sync_flags |= MBOX_SYNC_UNDIRTY;
 
 		ret = mbox_sync(ibox, mbox_sync_flags);
 	}
