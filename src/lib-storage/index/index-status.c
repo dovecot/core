@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "mail-custom-flags.h"
 #include "index-storage.h"
 
 static unsigned int get_recent_count(MailIndex *index)
@@ -80,15 +81,16 @@ static unsigned int get_first_unseen_seq(MailIndex *index)
 }
 
 static void
-get_custom_flags(FlagsFile *ff, const char *result[MAIL_CUSTOM_FLAGS_COUNT])
+get_custom_flags(MailCustomFlags *mcf,
+		 const char *result[MAIL_CUSTOM_FLAGS_COUNT])
 {
 	const char **flags;
 	int i;
 
-	flags = flags_file_list_get(ff);
+	flags = mail_custom_flags_list_get(mcf);
 	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++)
 		result[i] = t_strdup(flags[i]);
-	flags_file_list_unref(ff);
+	mail_custom_flags_list_unref(mcf);
 }
 
 int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
@@ -117,8 +119,10 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 	if (items & STATUS_RECENT)
 		status->recent = get_recent_count(ibox->index);
 
-	if (items & STATUS_CUSTOM_FLAGS)
-		get_custom_flags(ibox->flagsfile, status->custom_flags);
+	if (items & STATUS_CUSTOM_FLAGS) {
+		get_custom_flags(ibox->index->custom_flags,
+				 status->custom_flags);
+	}
 
 	/* STATUS sends EXISTS, so we've synced it */
 	ibox->synced_messages_count = hdr->messages_count;

@@ -11,6 +11,7 @@
 #include "mail-hash.h"
 #include "mail-lockdir.h"
 #include "mail-modifylog.h"
+#include "mail-custom-flags.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -111,6 +112,11 @@ void mail_index_close(MailIndex *index)
 	if (index->modifylog != NULL) {
                 mail_modifylog_free(index->modifylog);
 		index->modifylog = NULL;
+	}
+
+	if (index->custom_flags != NULL) {
+		mail_custom_flags_free(index->custom_flags);
+                index->custom_flags = NULL;
 	}
 
 	if (index->error != NULL) {
@@ -552,6 +558,8 @@ static int mail_index_open_file(MailIndex *index, const char *filename,
 		if (!mail_hash_open_or_create(index))
 			break;
 		if (!mail_modifylog_open_or_create(index))
+			break;
+		if (!mail_custom_flags_open_or_create(index))
 			break;
 
 		if (hdr.flags & MAIL_INDEX_FLAG_FSCK) {

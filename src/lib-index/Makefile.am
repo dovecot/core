@@ -8,6 +8,7 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib-imap
 
 libstorage_index_a_SOURCES = \
+	mail-custom-flags.c \
 	mail-hash.c \
         mail-index.c \
         mail-index-compress.c \
@@ -20,6 +21,7 @@ libstorage_index_a_SOURCES = \
 	mail-modifylog.c
 
 noinst_HEADERS = \
+	mail-custom-flags.h \
 	mail-hash.h \
 	mail-index.h \
         mail-index-data.h \

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "index-storage.h"
 #include "mail-modifylog.h"
+#include "mail-custom-flags.h"
 
 int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 		       MailExpungeFunc expunge_func,
@@ -33,7 +34,7 @@ int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 	if (log == NULL)
 		failed = TRUE;
 
-	custom_flags = flags_file_list_get(ibox->flagsfile);
+	custom_flags = mail_custom_flags_list_get(ibox->index->custom_flags);
 	for (; count > 0; count--, log++) {
 		switch (log->type) {
 		case RECORD_TYPE_EXPUNGE:
@@ -59,7 +60,7 @@ int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 			break;
 		}
 	}
-	flags_file_list_unref(ibox->flagsfile);
+	mail_custom_flags_list_unref(ibox->index->custom_flags);
 
 	/* mark synced */
 	failed = !mail_modifylog_mark_synced(ibox->index->modifylog);

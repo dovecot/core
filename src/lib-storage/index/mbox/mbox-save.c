@@ -57,7 +57,7 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 	}
 
 	if (!index_mailbox_fix_custom_flags(ibox, &flags, custom_flags))
-		return mail_storage_set_index_error(ibox);
+		return FALSE;
 
 	/* append the data into mbox file */
 	fd = open(ibox->index->mbox_path, O_RDWR | O_CREAT);

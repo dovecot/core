@@ -71,7 +71,7 @@ int maildir_storage_save(Mailbox *box, MailFlags flags,
 	}
 
 	if (!index_mailbox_fix_custom_flags(ibox, &flags, custom_flags))
-		return mail_storage_set_index_error(ibox);
+		return FALSE;
 
 	t_push();
 

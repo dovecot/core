@@ -4,7 +4,6 @@
 #include "mail-storage.h"
 #include "mail-index.h"
 #include "imap-message-cache.h"
-#include "flags-file/flags-file.h"
 
 typedef struct _IndexMailbox IndexMailbox;
 
@@ -17,7 +16,6 @@ struct _IndexMailbox {
 			      MailExpungeFunc expunge_func, void *context);
 
 	MailIndex *index;
-	FlagsFile *flagsfile;
 	ImapMessageCache *cache;
 	unsigned int synced_messages_count;
 };
@@ -32,7 +30,7 @@ void index_storage_close(Mailbox *box);
 int mail_storage_set_index_error(IndexMailbox *ibox);
 
 int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
-				   const char *custom_flags[]);
+                                   const char *custom_flags[]);
 
 int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
 			     MailIndexRecord **rec);

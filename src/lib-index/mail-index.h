@@ -80,6 +80,7 @@ typedef struct _MailIndex MailIndex;
 typedef struct _MailIndexData MailIndexData;
 typedef struct _MailHash MailHash;
 typedef struct _MailModifyLog MailModifyLog;
+typedef struct _MailCustomFlags MailCustomFlags;
 
 typedef struct _MailIndexHeader MailIndexHeader;
 typedef struct _MailIndexDataHeader MailIndexDataHeader;
@@ -296,6 +297,7 @@ struct _MailIndex {
 	MailIndexData *data;
 	MailHash *hash;
 	MailModifyLog *modifylog;
+	MailCustomFlags *custom_flags;
 
 	char *dir; /* directory where to place the index files */
 	char *filepath; /* index file path */
@@ -338,7 +340,7 @@ struct _MailIndex {
 #define MAIL_INDEX_PRIVATE_FILL \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0, 0
 
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent);

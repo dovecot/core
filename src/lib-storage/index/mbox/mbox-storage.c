@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "unlink-directory.h"
 #include "subscription-file/subscription-file.h"
+#include "mail-custom-flags.h"
 #include "mbox-index.h"
 #include "mbox-storage.h"
 
@@ -365,14 +366,15 @@ static int mbox_get_mailbox_name_status(MailStorage *storage, const char *name,
 static void mbox_storage_close(Mailbox *box)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
+	const char **list;
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
 		mail_storage_set_index_error(ibox);
 	else {
 		/* update flags by rewrite mbox file */
-		mbox_index_rewrite(ibox->index,
-				   flags_file_list_get(ibox->flagsfile));
-		flags_file_list_unref(ibox->flagsfile);
+                list = mail_custom_flags_list_get(ibox->index->custom_flags);
+		mbox_index_rewrite(ibox->index, list);
+		mail_custom_flags_list_unref(ibox->index->custom_flags);
 
 		(void)ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK);
 	}

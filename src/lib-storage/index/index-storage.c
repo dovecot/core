@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "mail-index.h"
 #include "mail-index-util.h"
+#include "mail-custom-flags.h"
 #include "index-storage.h"
 
 IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
@@ -10,22 +11,12 @@ IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 				 int readonly)
 {
 	IndexMailbox *ibox;
-	FlagsFile *flagsfile;
-	const char *path;
 
 	i_assert(name != NULL);
 
 	/* open the index first */
 	if (!index->open_or_create(index, !readonly)) {
 		mail_storage_set_internal_error(storage);
-		index->free(index);
-		return NULL;
-	}
-
-	/* then flags file */
-	path = t_strconcat(index->dir, "/", FLAGS_FILE_NAME, NULL);
-	flagsfile = flags_file_open_or_create(storage, path);
-	if (flagsfile == NULL) {
 		index->free(index);
 		return NULL;
 	}
@@ -38,7 +29,6 @@ IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 	ibox->box.readonly = readonly;
 
 	ibox->index = index;
-	ibox->flagsfile = flagsfile;
 	ibox->cache = imap_msgcache_alloc(&index_msgcache_iface);
 
 	return ibox;
@@ -48,7 +38,6 @@ void index_storage_close(Mailbox *box)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 
-	flags_file_destroy(ibox->flagsfile);
 	imap_msgcache_free(ibox->cache);
 	ibox->index->free(ibox->index);
 	i_free(box->name);
@@ -64,26 +53,21 @@ int mail_storage_set_index_error(IndexMailbox *ibox)
 	return FALSE;
 }
 
-static MailFlags get_used_flags(void *context)
-{
-        IndexMailbox *ibox = context;
-	MailIndexRecord *rec;
-	MailFlags used_flags;
-
-	used_flags = 0;
-
-	rec = ibox->index->lookup(ibox->index, 1);
-	while (rec != NULL) {
-		used_flags |= rec->msg_flags;
-		rec = ibox->index->next(ibox->index, rec);
-	}
-
-	return used_flags;
-}
-
 int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
-				   const char *custom_flags[])
+                                   const char *custom_flags[])
 {
-	return flags_file_fix_custom_flags(ibox->flagsfile, flags,
-					   custom_flags, get_used_flags, ibox);
+	int ret;
+
+	ret = mail_custom_flags_fix_list(ibox->index->custom_flags,
+					 flags, custom_flags);
+	switch (ret) {
+	case 1:
+		return TRUE;
+	case 0:
+		mail_storage_set_error(ibox->box.storage, "Maximum number of "
+				       "different custom flags exceeded");
+		return FALSE;
+	default:
+		return mail_storage_set_index_error(ibox);
+	}
 }

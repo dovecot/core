@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "iobuffer.h"
 #include "temp-string.h"
+#include "mail-custom-flags.h"
 #include "index-storage.h"
 #include "index-fetch.h"
 #include "index-messageset.h"
@@ -285,7 +286,8 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 	ctx.box = box;
 	ctx.cache = ibox->cache;
 	ctx.index = ibox->index;
-	ctx.custom_flags = flags_file_list_get(ibox->flagsfile);
+	ctx.custom_flags =
+		mail_custom_flags_list_get(ibox->index->custom_flags);
 
 	ctx.fetch_data = fetch_data;
 	ctx.outbuf = outbuf;
@@ -304,7 +306,7 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 				       fetch_data->uidset,
 				       index_fetch_mail, &ctx);
 
-        flags_file_list_unref(ibox->flagsfile);
+        mail_custom_flags_list_unref(ibox->index->custom_flags);
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);

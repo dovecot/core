@@ -3,11 +3,12 @@
 #include "lib.h"
 #include "index-storage.h"
 #include "index-messageset.h"
+#include "mail-custom-flags.h"
 
 typedef struct {
 	Mailbox *box;
+	MailCustomFlags *custom_flags;
 	MailFlags flags;
-	FlagsFile *flagsfile;
 	ModifyType modify_type;
 	MailFlagUpdateFunc func;
 	void *context;
@@ -42,9 +43,9 @@ static int update_func(MailIndex *index, MailIndexRecord *rec,
 
 	if (ctx->func != NULL) {
 		ctx->func(ctx->box, seq, rec->uid, flags,
-			  flags_file_list_get(ctx->flagsfile),
+			  mail_custom_flags_list_get(ctx->custom_flags),
 			  ctx->context);
-		flags_file_list_unref(ctx->flagsfile);
+		mail_custom_flags_list_unref(ctx->custom_flags);
 	}
 	return TRUE;
 }
@@ -65,14 +66,14 @@ int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
 	}
 
 	if (!index_mailbox_fix_custom_flags(ibox, &flags, custom_flags))
-		return mail_storage_set_index_error((IndexMailbox *) box);
+		return FALSE;
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
 		return mail_storage_set_index_error(ibox);
 
 	ctx.box = box;
 	ctx.flags = flags & ~MAIL_RECENT; /* \Recent can't be changed */
-	ctx.flagsfile = ibox->flagsfile;
+	ctx.custom_flags = ibox->index->custom_flags;
 	ctx.modify_type = modify_type;
 	ctx.func = func;
 	ctx.context = context;

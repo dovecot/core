@@ -1,4 +1,4 @@
-SUBDIRS = index subscription-file flags-file
+SUBDIRS = index subscription-file
 
 noinst_LIBRARIES = libstorage.a
 

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "iobuffer.h"
+#include "mail-custom-flags.h"
 #include "index-storage.h"
 #include "index-messageset.h"
 
@@ -48,13 +49,13 @@ int index_storage_copy(Mailbox *box, Mailbox *destbox,
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(ibox);
 
-	cd.custom_flags = flags_file_list_get(ibox->flagsfile);
+	cd.custom_flags = mail_custom_flags_list_get(ibox->index->custom_flags);
 	cd.dest = destbox;
 
 	failed = index_messageset_foreach(ibox, messageset, uidset,
 					  copy_func, &cd) <= 0;
 
-	flags_file_list_unref(ibox->flagsfile);
+	mail_custom_flags_list_unref(ibox->index->custom_flags);
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);
