@@ -245,7 +245,7 @@ int imap_fetch_deinit(struct imap_fetch_context *ctx)
 
 	if (!ctx->line_finished) {
 		if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0)
-			return -1;
+			ctx->failed = TRUE;
 	}
 
 	if (ctx->cur_input != NULL) {
