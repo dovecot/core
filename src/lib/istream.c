@@ -154,8 +154,10 @@ char *i_stream_next_line(struct istream *stream)
 
         i_assert(stream != NULL);
 
-	if (_stream->skip >= _stream->pos)
+	if (_stream->skip >= _stream->pos) {
+		stream->stream_errno = 0;
 		return NULL;
+	}
 
 	if (_stream->w_buffer == NULL) {
 		i_error("i_stream_next_line() called for unmodifyable stream");
