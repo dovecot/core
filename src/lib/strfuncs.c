@@ -119,9 +119,7 @@ size_t printf_string_upper_bound(const char *format, va_list args)
                   /* beware of positional parameters
                    */
                 case '$':
-                  i_warning (GNUC_PRETTY_FUNCTION
-                             "(): unable to handle positional parameters (%%n$)");
-                  len += 1024; /* try adding some safety padding */
+                  i_panic("unable to handle positional parameters (%%n$)");
                   break;
 
                   /* parse flags
@@ -286,8 +284,7 @@ size_t printf_string_upper_bound(const char *format, va_list args)
                   /*          n   .   dddddddddddddddddddddddd   E   +-  eeee */
                   conv_len += 1 + 1 + I_MAX (24, spec.precision) + 1 + 1 + 4;
                   if (spec.mod_extra_long)
-                    i_warning (GNUC_PRETTY_FUNCTION
-                               "(): unable to handle long double, collecting double only");
+                    i_panic("unable to handle long double");
 #ifdef HAVE_LONG_DOUBLE
 #error need to implement special handling for long double
 #endif
@@ -328,11 +325,7 @@ size_t printf_string_upper_bound(const char *format, va_list args)
                     conv_len += strlen (v_string);
                   conv_done = TRUE;
                   if (spec.mod_long)
-                    {
-                      i_warning (GNUC_PRETTY_FUNCTION
-                                 "(): unable to handle wide char strings");
-                      len += 1024; /* try adding some safety padding */
-                    }
+                    i_panic("unable to handle wide char strings");
                   break;
                 case 'P': /* do we actually need this? */
                   /* fall through */
@@ -360,9 +353,7 @@ size_t printf_string_upper_bound(const char *format, va_list args)
                   conv_len += format - spec_start;
                   break;
                 default:
-                  i_warning (GNUC_PRETTY_FUNCTION
-                             "(): unable to handle `%c' while parsing format",
-                             c);
+                  i_panic("unable to handle `%c' while parsing format", c);
                   break;
                 }
               conv_done |= conv_len > 0;
