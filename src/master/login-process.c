@@ -31,6 +31,7 @@ struct login_group {
 
 	const char *executable;
 	unsigned int process_size;
+	int process_type;
 	int *listen_fd, *ssl_listen_fd;
 };
 
@@ -84,11 +85,13 @@ static void login_group_create(struct login_settings *login_set)
 	if (strcmp(login_set->name, "imap") == 0) {
 		group->executable = set->imap_executable;
 		group->process_size = set->imap_process_size;
+		group->process_type = PROCESS_TYPE_IMAP;
 		group->listen_fd = &mail_fd[FD_IMAP];
 		group->ssl_listen_fd = &mail_fd[FD_IMAPS];
 	} else if (strcmp(login_set->name, "pop3") == 0) {
 		group->executable = set->pop3_executable;
 		group->process_size = set->pop3_process_size;
+		group->process_type = PROCESS_TYPE_POP3;
 		group->listen_fd = &mail_fd[FD_POP3];
 		group->ssl_listen_fd = &mail_fd[FD_POP3S];
 	} else
@@ -118,7 +121,8 @@ void auth_master_callback(struct auth_master_reply *reply,
 			create_mail_process(request->fd, &request->ip,
 					    group->executable,
 					    group->process_size,
-					    reply, (const char *) data);
+					    group->process_type, reply,
+					    (const char *) data);
 	}
 
 	/* reply to login */

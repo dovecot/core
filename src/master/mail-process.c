@@ -101,7 +101,8 @@ static const char *expand_mail_env(const char *env, const char *user,
 
 int create_mail_process(int socket, struct ip_addr *ip,
 			const char *executable, unsigned int process_size,
-			struct auth_master_reply *reply, const char *data)
+			int process_type, struct auth_master_reply *reply,
+			const char *data)
 {
 	static const char *argv[] = { NULL, NULL, NULL };
 	const char *host, *mail;
@@ -129,7 +130,7 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	if (pid != 0) {
 		/* master */
 		mail_process_count++;
-		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_MAIL);
+		PID_ADD_PROCESS_TYPE(pid, process_type);
 		return TRUE;
 	}
 

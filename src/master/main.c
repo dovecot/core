@@ -25,6 +25,7 @@ const char *process_names[PROCESS_TYPE_MAX] = {
 	"auth",
 	"login",
 	"imap",
+	"pop3",
 	"ssl-param"
 };
 
@@ -122,7 +123,8 @@ static void timeout_handler(void *context __attr_unused__)
 		process_type = PID_GET_PROCESS_TYPE(pid);
 		PID_REMOVE_PROCESS_TYPE(pid);
 
-		if (process_type == PROCESS_TYPE_MAIL)
+		if (process_type == PROCESS_TYPE_IMAP ||
+		    process_type == PROCESS_TYPE_POP3)
 			mail_process_destroyed(pid);
 		if (process_type == PROCESS_TYPE_SSL_PARAM)
 			ssl_parameter_process_destroyed(pid);
