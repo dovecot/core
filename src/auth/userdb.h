@@ -28,6 +28,7 @@ struct userdb_module {
 
 extern struct userdb_module *userdb;
 
+extern struct userdb_module userdb_passdb;
 extern struct userdb_module userdb_static;
 extern struct userdb_module userdb_passwd;
 extern struct userdb_module userdb_passwd_file;

@@ -19,6 +19,9 @@ struct userdb_module *userdbs[] = {
 #ifdef USERDB_PASSWD_FILE
 	&userdb_passwd_file,
 #endif
+#ifdef USERDB_PASSDB
+	&userdb_passdb,
+#endif
 #ifdef USERDB_STATIC
 	&userdb_static,
 #endif

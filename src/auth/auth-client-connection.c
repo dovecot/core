@@ -52,11 +52,33 @@ static void auth_client_send(struct auth_client_connection *conn,
 	t_pop();
 }
 
+static const char *get_client_extra_fields(struct auth_request *request)
+{
+	const char **fields;
+	unsigned int src, dest;
+
+	if (request->extra_fields == NULL)
+		return NULL;
+
+	/* we only wish to remove all fields prefixed with "userdb_" */
+	if (strstr(request->extra_fields, "userdb_") == NULL)
+		return request->extra_fields;
+
+	fields = t_strsplit(request->extra_fields, "\t");
+	for (src = dest = 0; fields[src] != NULL; src++) {
+		if (strncmp(fields[src], "userdb_", 7) == 0)
+			fields[dest++] = fields[src];
+	}
+	fields[dest] = NULL;
+	return t_strarray_join(fields, "\t");
+}
+
 static void auth_callback(struct auth_request *request,
 			  enum auth_client_result result,
 			  const void *reply, size_t reply_size)
 {
 	string_t *str = NULL;
+	const char *fields;
 	ssize_t ret;
 
 	t_push();
@@ -75,22 +97,28 @@ static void auth_callback(struct auth_request *request,
 			str_append(str, "\tresp=");
 			base64_encode(reply, reply_size, str);
 		}
-		if (request->extra_fields) {
+		t_push();
+		fields = get_client_extra_fields(request);
+		if (fields != NULL) {
 			str_append_c(str, '\t');
-			str_append(str, request->extra_fields);
+			str_append(str, fields);
 		}
+		t_pop();
 		break;
 	case AUTH_CLIENT_RESULT_FAILURE:
 		str = t_str_new(128);
 		str_printfa(str, "FAIL\t%u", request->id);
 		if (request->user != NULL)
 			str_printfa(str, "\tuser=%s", request->user);
-		if (request->extra_fields) {
-			str_append_c(str, '\t');
-			str_append(str, request->extra_fields);
-		}
 		if (request->internal_failure)
 			str_append(str, "\ttemp");
+		t_push();
+		fields = get_client_extra_fields(request);
+		if (fields != NULL) {
+			str_append_c(str, '\t');
+			str_append(str, fields);
+		}
+		t_pop();
 		break;
 	}
 

@@ -62,6 +62,7 @@ dovecot_auth_SOURCES = \
 	passdb-sql.c \
 	userdb.c \
 	userdb-ldap.c \
+	userdb-passdb.c \
 	userdb-passwd.c \
 	userdb-passwd-file.c \
 	userdb-static.c \

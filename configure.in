@@ -138,6 +138,15 @@ AC_ARG_WITH(static-userdb,
 	fi,
 	want_static_userdb=yes)
 
+AC_ARG_WITH(passdb-userdb,
+[  --with-passdb-userdb    Build with passdb userdb support (default)],
+	if test x$withval = xno; then
+		want_passdb_userdb=no
+	else
+		want_passdb_userdb=yes
+	fi,
+	want_passdb_userdb=yes)
+
 AC_ARG_WITH(pgsql,
 [  --with-pgsql            Build with PostgreSQL support],
 	if test x$withval = xno; then
@@ -997,6 +1006,11 @@ if test $want_static_userdb = yes; then
 	need_crypt=yes
         AC_DEFINE(USERDB_STATIC,, Build with static userdb support)
 	userdb="$userdb static"
+fi
+
+if test $want_passdb_userdb = yes; then
+        AC_DEFINE(USERDB_PASSDB,, Build with passdb userdb support)
+	userdb="$userdb passdb"
 fi
 
 if test $want_passwd = yes; then
