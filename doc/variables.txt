@@ -11,8 +11,8 @@ The variables are:
  %n - user part in user@domain, same as %u if there's no domain
  %d - domain part in user@domain, empty if user there's no domain
  %h - home directory
- %p - protocol (IMAP or POP3)
- %P - PID of the current process (login or imap/pop3 process)
+ %s - service (IMAP or POP3)
+ %p - PID of the current process (login or imap/pop3 process)
  %l - local IP address
  %r - remote IP address
 

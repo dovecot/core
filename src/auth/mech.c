@@ -200,11 +200,11 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 		{ 'u', NULL },
 		{ 'n', NULL },
 		{ 'd', NULL },
-		{ 'p', NULL },
+		{ 's', NULL },
 		{ 'h', NULL },
 		{ 'l', NULL },
 		{ 'r', NULL },
-		{ 'P', NULL },
+		{ 'p', NULL },
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
