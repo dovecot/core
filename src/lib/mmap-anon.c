@@ -49,7 +49,7 @@
 #define MMAP_SIGNATURE 0xdeadbeef
 
 #define PAGE_ALIGN(size) \
-	(((size) + page_size) & ~(page_size-1))
+	(((size) + page_size) & ~(size_t)(page_size-1))
 
 struct movable_header {
 	unsigned int signature;

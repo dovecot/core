@@ -114,7 +114,7 @@ static size_t get_max_align_size(size_t base, size_t extra, size_t *max_extra)
 	extra = MEM_ALIGN(extra);
 	if (extra > *max_extra) {
 		/* partial */
-		extra = *max_extra & ~(MEM_ALIGN_SIZE-1);
+		extra = *max_extra & ~(size_t)(MEM_ALIGN_SIZE-1);
 		i_assert(extra <= *max_extra);
 	}
 
