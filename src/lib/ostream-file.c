@@ -41,7 +41,7 @@
 #define O_STREAM_MIN_SIZE 4096
 
 #define IS_STREAM_EMPTY(fstream) \
-	(!(fstream)->full && (fstream)->head == (fstream)->tail)
+	((fstream)->head == (fstream)->tail && !(fstream)->full)
 
 #define MAX_SSIZE_T(size) \
 	((size) < SSIZE_T_MAX ? (size_t)(size) : SSIZE_T_MAX)
@@ -333,11 +333,11 @@ static int _have_space(struct _ostream *stream, size_t size)
 	struct file_ostream *fstream = (struct file_ostream *) stream;
 	size_t unused;
 
-	if (fstream->max_buffer_size == 0)
-		return 1;
-
 	unused = get_unused_space(fstream);
 	if (size <= unused)
+		return 1;
+
+	if (fstream->max_buffer_size == 0)
 		return 1;
 
 	unused += (fstream->max_buffer_size - fstream->buffer_size);
@@ -472,9 +472,6 @@ static ssize_t _send(struct _ostream *stream, const void *data, size_t size)
 	ssize_t ret;
 
 	i_assert(size <= SSIZE_T_MAX);
-
-	if (stream->ostream.closed)
-		return -1;
 
 	stream->ostream.stream_errno = 0;
 
