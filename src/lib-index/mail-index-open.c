@@ -242,9 +242,6 @@ static int index_open_and_fix(MailIndex *index, int update_recent, int fast)
 	if (!mail_index_open_init(index, update_recent))
 		return FALSE;
 
-	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
-		return FALSE;
-
 	return TRUE;
 }
 
@@ -252,7 +249,7 @@ static int mail_index_open_file(MailIndex *index, const char *path,
 				int update_recent, int fast)
 {
         MailIndexHeader hdr;
-	int fd;
+	int fd, failed;
 
 	/* the index file should already be checked that it exists and
 	   we're compatible with it. */
@@ -285,7 +282,12 @@ static int mail_index_open_file(MailIndex *index, const char *path,
 	index->filepath = i_strdup(path);
 	index->indexid = hdr.indexid;
 
-	if (!index_open_and_fix(index, update_recent, fast)) {
+	failed = !index_open_and_fix(index, update_recent, fast);
+
+	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
+		failed = TRUE;
+
+	if (failed) {
 		mail_index_close(index);
 		return FALSE;
 	}
@@ -462,6 +464,8 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 
 		return TRUE;
 	} while (0);
+
+	(void)index->set_lock(index, MAIL_LOCK_UNLOCK);
 
 	mail_index_close(index);
 	return FALSE;

@@ -418,7 +418,8 @@ int mail_index_lock_full(MailIndex *index, MailLockType lock_type,
 	}
 
 	if (index->lock_type == MAIL_LOCK_EXCLUSIVE) {
-		mail_modifylog_notify_lock_drop(index->modifylog);
+		if (index->modifylog != NULL)
+			mail_modifylog_notify_lock_drop(index->modifylog);
 
 		/* dropping exclusive lock (either unlock or to shared) */
 		keep_fsck = (index->set_flags & MAIL_INDEX_FLAG_FSCK) != 0;
