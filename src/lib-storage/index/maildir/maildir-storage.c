@@ -27,6 +27,8 @@ extern struct mailbox maildir_mailbox;
 
 static const char *maildirs[] = { "cur", "new", "tmp", NULL  };
 
+static int verify_inbox(struct index_storage *storage);
+
 static struct mail_storage *
 maildir_create(const char *data, const char *user,
 	       const char *namespace, char hierarchy_sep)
@@ -104,6 +106,8 @@ maildir_create(const char *data, const char *user,
 	storage->user = i_strdup(user);
 	storage->callbacks = i_new(struct mail_storage_callbacks, 1);
 	index_storage_init(storage);
+
+	(void)verify_inbox(storage);
 	return &storage->storage;
 }
 
