@@ -70,8 +70,10 @@ static int mail_index_foreach(MailIndex *index,
 			break;
 
 		t_push();
-		if (!func(index, rec, seq, context))
+		if (!func(index, rec, seq, context)) {
+			t_pop();
 			return 0;
+		}
 		t_pop();
 
 		rec = index->next(index, rec);
@@ -237,8 +239,10 @@ static int mail_index_uid_foreach(MailIndex *index,
 		i_assert(*expunges != rec->uid);
 
 		t_push();
-		if (!func(index, rec, seq, context))
+		if (!func(index, rec, seq, context)) {
+			t_pop();
 			return 0;
+		}
 		t_pop();
 
 		seq++;
