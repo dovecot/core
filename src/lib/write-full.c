@@ -31,7 +31,7 @@ int write_full(int fd, const void *data, size_t size)
 {
 	ssize_t ret;
 
-	do {
+	while (size > 0) {
 		ret = write(fd, data, size < INT_MAX ? size : INT_MAX);
 		if (ret < 0)
 			return -1;
@@ -43,7 +43,7 @@ int write_full(int fd, const void *data, size_t size)
 			return -1;
 		}
 		size -= ret;
-	} while (size > 0);
+	}
 
 	return 0;
 }
