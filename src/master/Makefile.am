@@ -7,14 +7,16 @@ INCLUDES = \
 	-DPKG_LIBDIR=\""$(pkglibdir)"\"
 
 imap_master_LDADD = \
-	../lib/liblib.a
+	../lib/liblib.a \
+	$(SSL_LIBS)
 
 imap_master_SOURCES = \
 	auth-process.c \
 	imap-process.c \
 	login-process.c \
 	main.c \
-	settings.c
+	settings.c \
+	ssl-init.c
 
 noinst_HEADERS = \
 	auth-process.h \

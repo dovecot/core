@@ -7,6 +7,7 @@
 
 #include "auth-process.h"
 #include "login-process.h"
+#include "ssl-init.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,7 +21,8 @@ const char *process_names[PROCESS_TYPE_MAX] = {
 	"unknown",
 	"auth",
 	"login",
-	"imap"
+	"imap",
+	"ssl-param"
 };
 
 static IOLoop ioloop;
@@ -89,16 +91,20 @@ static void children_check_timeout(void *context __attr_unused__,
 
 		if (process_type == PROCESS_TYPE_IMAP)
 			imap_process_destroyed(pid);
+		if (process_type == PROCESS_TYPE_SSL_PARAM)
+			ssl_parameter_process_destroyed(pid);
 
 		/* write errors to syslog */
 		process_type_name = process_names[process_type];
 		if (WIFEXITED(status)) {
 			status = WEXITSTATUS(status);
 			if (status != 0) {
+				login_process_abormal_exit(pid);
 				i_error("child %d (%s) returned error %d",
 					(int)pid, process_type_name, status);
 			}
 		} else if (WIFSIGNALED(status)) {
+			login_process_abormal_exit(pid);
 			i_error("child %d (%s) killed with signal %d",
 				(int)pid, process_type_name, WTERMSIG(status));
 		}
@@ -182,6 +188,7 @@ static void main_init(void)
 	pids = hash_create(default_pool, 128, NULL, NULL);
 	to_children = timeout_add(100, children_check_timeout, NULL);
 
+	ssl_init();
 	auth_processes_init();
 	login_processes_init();
 }
@@ -193,6 +200,7 @@ static void main_deinit(void)
 
 	login_processes_deinit();
 	auth_processes_deinit();
+	ssl_deinit();
 
 	timeout_remove(to_children);
 

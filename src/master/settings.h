@@ -13,6 +13,8 @@ extern char *set_imaps_listen;
 
 extern char *set_ssl_cert_file;
 extern char *set_ssl_key_file;
+extern char *set_ssl_parameters_file;
+extern unsigned int set_ssl_parameters_regenerate;
 extern int set_disable_plaintext_auth;
 
 /* login */
@@ -21,7 +23,8 @@ extern char *set_login_user;
 extern char *set_login_dir;
 extern int set_login_chroot;
 extern int set_login_process_per_connection;
-extern unsigned int set_login_processes_count, set_login_max_processes_count;
+extern unsigned int set_login_processes_count;
+extern unsigned int set_login_max_processes_count;
 extern unsigned int set_max_logging_users;
 
 extern uid_t set_login_uid;

@@ -9,13 +9,17 @@ int ssl_initialized = FALSE;
 
 #ifdef HAVE_SSL
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <gcrypt.h>
 #include <gnutls/gnutls.h>
 
 typedef struct {
 	int refcount;
 
-	GNUTLS_STATE state;
+	gnutls_session session;
 	int fd_ssl, fd_plain;
 	IO io_ssl, io_plain;
 	int io_ssl_dir;
@@ -26,21 +30,23 @@ typedef struct {
 	size_t send_left_ssl, send_left_plain;
 } SSLProxy;
 
-#define DH_BITS 1024
-
 const int protocol_priority[] =
 	{ GNUTLS_TLS1, GNUTLS_SSL3, 0 };
 const int kx_priority[] =
-	{ GNUTLS_KX_RSA, GNUTLS_KX_DHE_RSA, 0 };
+	{ GNUTLS_KX_DHE_DSS, GNUTLS_KX_RSA, GNUTLS_KX_DHE_RSA, 0 };
 const int cipher_priority[] =
-	{ GNUTLS_CIPHER_RIJNDAEL_CBC, GNUTLS_CIPHER_3DES_CBC, 0 };
+	{ GNUTLS_CIPHER_RIJNDAEL_CBC, GNUTLS_CIPHER_3DES_CBC,
+	  GNUTLS_CIPHER_ARCFOUR_128, GNUTLS_CIPHER_ARCFOUR_40, 0 };
 const int comp_priority[] =
-	{ GNUTLS_COMP_ZLIB, GNUTLS_COMP_NULL, 0 };
+	{ GNUTLS_COMP_LZO, GNUTLS_COMP_ZLIB, GNUTLS_COMP_NULL, 0 };
 const int mac_priority[] =
 	{ GNUTLS_MAC_SHA, GNUTLS_MAC_MD5, 0 };
+const int cert_type_priority[] =
+	{ GNUTLS_CRT_X509, 0 };
 
-static GNUTLS_CERTIFICATE_SERVER_CREDENTIALS x509_cred;
-static GNUTLS_DH_PARAMS dh_params;
+static gnutls_certificate_credentials x509_cred;
+static gnutls_dh_params dh_params;
+static gnutls_rsa_params rsa_params;
 
 static void ssl_input(void *context, int handle, IO io);
 static void plain_input(void *context, int handle, IO io);
@@ -48,7 +54,7 @@ static int ssl_proxy_destroy(SSLProxy *proxy);
 
 static const char *get_alert_text(SSLProxy *proxy)
 {
-	return gnutls_alert_get_name(gnutls_alert_get(proxy->state));
+	return gnutls_alert_get_name(gnutls_alert_get(proxy->session));
 }
 
 static int handle_ssl_error(SSLProxy *proxy, int error)
@@ -69,6 +75,8 @@ static int handle_ssl_error(SSLProxy *proxy, int error)
 		i_warning("Error reading from SSL client: %s",
 			  gnutls_strerror(error));
 	}
+
+        gnutls_alert_send_appropriate(proxy->session, error);
 	ssl_proxy_destroy(proxy);
 	return -1;
 }
@@ -77,7 +85,7 @@ static int proxy_recv_ssl(SSLProxy *proxy, void *data, size_t size)
 {
 	int rcvd;
 
-	rcvd = gnutls_record_recv(proxy->state, data, size);
+	rcvd = gnutls_record_recv(proxy->session, data, size);
 	if (rcvd > 0)
 		return rcvd;
 
@@ -96,7 +104,7 @@ static int proxy_send_ssl(SSLProxy *proxy, const void *data, size_t size)
 {
 	int sent;
 
-	sent = gnutls_record_send(proxy->state, data, size);
+	sent = gnutls_record_send(proxy->session, data, size);
 	if (sent >= 0)
 		return sent;
 
@@ -114,7 +122,7 @@ static int ssl_proxy_destroy(SSLProxy *proxy)
 	if (--proxy->refcount > 0)
 		return TRUE;
 
-	gnutls_deinit(proxy->state);
+	gnutls_deinit(proxy->session);
 
 	(void)net_disconnect(proxy->fd_ssl);
 	(void)net_disconnect(proxy->fd_plain);
@@ -215,7 +223,7 @@ static void plain_input(void *context, int fd __attr_unused__,
 	rcvd = net_receive(proxy->fd_plain, buf, sizeof(buf));
 	if (rcvd < 0) {
 		/* disconnected */
-		gnutls_bye(proxy->state, 1);
+		gnutls_bye(proxy->session, 1);
 		ssl_proxy_destroy(proxy);
 		return;
 	}
@@ -238,7 +246,7 @@ static void ssl_handshake(void *context, int fd __attr_unused__,
 	SSLProxy *proxy = context;
 	int ret, dir;
 
-        ret = gnutls_handshake(proxy->state);
+        ret = gnutls_handshake(proxy->session);
 	if (ret >= 0) {
 		/* handshake done, now we can start reading */
 		if (proxy->io_ssl != NULL)
@@ -255,7 +263,7 @@ static void ssl_handshake(void *context, int fd __attr_unused__,
 		return;
 
 	/* i/o interrupted */
-	dir = gnutls_handshake_get_direction(proxy->state) == 0 ?
+	dir = gnutls_handshake_get_direction(proxy->session) == 0 ?
 		IO_READ : IO_WRITE;
 	if (proxy->io_ssl_dir != dir) {
 		if (proxy->io_ssl != NULL)
@@ -266,41 +274,38 @@ static void ssl_handshake(void *context, int fd __attr_unused__,
 	}
 }
 
-static GNUTLS_STATE initialize_state(void)
+static gnutls_session initialize_state(void)
 {
-	GNUTLS_STATE state;
+	gnutls_session session;
 
-	gnutls_init(&state, GNUTLS_SERVER);
+	gnutls_init(&session, GNUTLS_SERVER);
 
-	gnutls_protocol_set_priority(state, protocol_priority);
-	gnutls_cipher_set_priority(state, cipher_priority);
-	gnutls_compression_set_priority(state, comp_priority);
-	gnutls_kx_set_priority(state, kx_priority);
-	gnutls_mac_set_priority(state, mac_priority);
+	gnutls_protocol_set_priority(session, protocol_priority);
+	gnutls_cipher_set_priority(session, cipher_priority);
+	gnutls_compression_set_priority(session, comp_priority);
+	gnutls_kx_set_priority(session, kx_priority);
+	gnutls_mac_set_priority(session, mac_priority);
+	gnutls_cert_type_set_priority(session, cert_type_priority);
 
-	gnutls_cred_set(state, GNUTLS_CRD_CERTIFICATE, x509_cred);
-
-	/*gnutls_certificate_server_set_request(state, GNUTLS_CERT_REQUEST);*/
-
-	gnutls_dh_set_prime_bits(state, DH_BITS);
-	return state;
+	gnutls_cred_set(session, GNUTLS_CRD_CERTIFICATE, x509_cred);
+	return session;
 }
 
 int ssl_proxy_new(int fd)
 {
         SSLProxy *proxy;
-	GNUTLS_STATE state;
+	gnutls_session session;
 	int sfd[2];
 
 	if (!ssl_initialized)
 		return -1;
 
-	state = initialize_state();
-	gnutls_transport_set_ptr(state, fd);
+	session = initialize_state();
+	gnutls_transport_set_ptr(session, fd);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sfd) == -1) {
 		i_error("socketpair() failed: %m");
-		gnutls_deinit(state);
+		gnutls_deinit(session);
 		return -1;
 	}
 
@@ -309,7 +314,7 @@ int ssl_proxy_new(int fd)
 
 	proxy = i_new(SSLProxy, 1);
 	proxy->refcount = 1;
-	proxy->state = state;
+	proxy->session = session;
 	proxy->fd_ssl = fd;
 	proxy->fd_plain = sfd[0];
 
@@ -322,45 +327,153 @@ int ssl_proxy_new(int fd)
 	return sfd[1];
 }
 
-static void generate_dh_primes(void)
+static void read_next_field(int fd, gnutls_datum *datum,
+			    const char *fname, const char *field_name)
 {
-	gnutls_datum prime, generator;
-	int ret;
+        ssize_t ret;
 
-	/* Generate Diffie Hellman parameters - for use with DHE
-	   kx algorithms. These should be discarded and regenerated
-	   once a day, once a week or once a month. Depends on the
-	   security requirements. */
+	/* get size */
+	ret = read(fd, &datum->size, sizeof(datum->size));
+	if (ret < 0)
+		i_fatal("read() failed for %s: %m", fname);
+
+	if (ret != sizeof(datum->size)) {
+		(void)unlink(fname);
+		i_fatal("Corrupted SSL parameter file %s: File too small",
+			fname);
+	}
+
+	if (datum->size > 10240) {
+		(void)unlink(fname);
+		i_fatal("Corrupted SSL parameter file %s: "
+			"Field '%s' too large (%u)",
+			fname, field_name, datum->size);
+	}
+
+	/* read the actual data */
+	datum->data = t_malloc(datum->size);
+	ret = read(fd, datum->data, datum->size);
+	if (ret < 0)
+		i_fatal("read() failed for %s: %m", fname);
+
+	if ((size_t)ret != datum->size) {
+		(void)unlink(fname);
+		i_fatal("Corrupted SSL parameter file %s: "
+			"Field '%s' not fully in file (%u < %u)",
+			fname, field_name, datum->size - ret, datum->size);
+	}
+}
+
+static void read_dh_parameters(int fd, const char *fname)
+{
+	gnutls_datum dbits, prime, generator;
+	int ret, bits;
+
 	if ((ret = gnutls_dh_params_init(&dh_params)) < 0) {
 		i_fatal("gnutls_dh_params_init() failed: %s",
 			gnutls_strerror(ret));
 	}
 
-	ret = gnutls_dh_params_generate(&prime, &generator, DH_BITS);
-	if (ret < 0) {
-		i_fatal("gnutls_dh_params_generate() failed: %s",
+	/* read until bits field is 0 */
+	for (;;) {
+		read_next_field(fd, &dbits, fname, "DH bits");
+
+		if (dbits.size != sizeof(int)) {
+			(void)unlink(fname);
+			i_fatal("Corrupted SSL parameter file %s: "
+				"Field 'DH bits' has invalid size %u",
+				fname, dbits.size);
+		}
+
+		bits = *((int *) dbits.data);
+		if (bits == 0)
+			break;
+
+		read_next_field(fd, &prime, fname, "DH prime");
+		read_next_field(fd, &generator, fname, "DH generator");
+
+		ret = gnutls_dh_params_set(dh_params, prime, generator, bits);
+		if (ret < 0) {
+			i_fatal("gnutls_dh_params_set() failed: %s",
+				gnutls_strerror(ret));
+		}
+	}
+}
+
+static void read_rsa_parameters(int fd, const char *fname)
+{
+	gnutls_datum m, e, d, p, q, u;
+	int ret;
+
+	read_next_field(fd, &m, fname, "RSA m");
+	read_next_field(fd, &e, fname, "RSA e");
+	read_next_field(fd, &d, fname, "RSA d");
+	read_next_field(fd, &p, fname, "RSA p");
+	read_next_field(fd, &q, fname, "RSA q");
+	read_next_field(fd, &u, fname, "RSA u");
+
+	if ((ret = gnutls_rsa_params_init(&rsa_params)) < 0) {
+		i_fatal("gnutls_rsa_params_init() failed: %s",
 			gnutls_strerror(ret));
 	}
 
-	ret = gnutls_dh_params_set(dh_params, prime, generator, DH_BITS);
+	/* only 512bit is allowed */
+	ret = gnutls_rsa_params_set(rsa_params, m, e, d, p, q, u, 512);
 	if (ret < 0) {
-		i_fatal("gnutls_dh_params_set() failed: %s",
+		i_fatal("gnutls_rsa_params_set() failed: %s",
 			gnutls_strerror(ret));
 	}
+}
 
-	free(prime.data);
-	free(generator.data);
+static void read_parameters(const char *fname)
+{
+	int fd;
+
+	/* we'll wait until parameter file exists */
+	for (;;) {
+		fd = open(fname, O_RDONLY);
+		if (fd != -1)
+			break;
+
+		if (errno != ENOENT)
+			i_fatal("Can't open SSL parameter file %s: %m", fname);
+
+		sleep(1);
+	}
+
+	read_dh_parameters(fd, fname);
+	read_rsa_parameters(fd, fname);
+
+	(void)close(fd);
+}
+
+static void gcrypt_log_handler(void *context __attr_unused__, int level,
+			       const char *fmt, va_list args)
+{
+	char *buf;
+
+	t_push();
+
+	buf = t_malloc(printf_string_upper_bound(fmt, args));
+	vsprintf(buf, fmt, args);
+
+	if (level == GCRY_LOG_FATAL)
+		i_error("gcrypt fatal: %s", buf);
+
+	t_pop();
 }
 
 void ssl_proxy_init(void)
 {
-	const char *certfile, *keyfile;
+	const char *certfile, *keyfile, *paramfile;
+	char buf[4];
 	int ret;
 
 	certfile = getenv("SSL_CERT_FILE");
 	keyfile = getenv("SSL_KEY_FILE");
+	paramfile = getenv("SSL_PARAM_FILE");
 
-	if (certfile == NULL || keyfile == NULL) {
+	if (certfile == NULL || keyfile == NULL || paramfile == NULL) {
 		/* SSL support is disabled */
 		return;
 	}
@@ -369,6 +482,13 @@ void ssl_proxy_init(void)
 		i_fatal("gnu_tls_global_init() failed: %s",
 			gnutls_strerror(ret));
 	}
+
+	/* gcrypt initialization - set log handler and make sure randomizer
+	   opens /dev/urandom now instead of after we've chrooted */
+	gcry_set_log_handler(gcrypt_log_handler, NULL);
+	gcry_randomize(buf, sizeof(buf), GCRY_STRONG_RANDOM);
+
+	read_parameters(paramfile);
 
 	if ((ret = gnutls_certificate_allocate_cred(&x509_cred)) < 0) {
 		i_fatal("gnutls_certificate_allocate_cred() failed: %s",
@@ -382,8 +502,12 @@ void ssl_proxy_init(void)
 			certfile, keyfile, gnutls_strerror(ret));
 	}
 
-	generate_dh_primes();
-	gnutls_certificate_set_dh_params(x509_cred, dh_params);
+        ret = gnutls_certificate_set_dh_params(x509_cred, dh_params);
+	if (ret < 0)
+		i_fatal("Can't set DH parameters: %s", gnutls_strerror(ret));
+	ret = gnutls_certificate_set_rsa_params(x509_cred, rsa_params);
+	if (ret < 0)
+		i_fatal("Can't set RSA parameters: %s", gnutls_strerror(ret));
 
 	ssl_initialized = TRUE;
 }

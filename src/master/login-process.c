@@ -312,6 +312,11 @@ static pid_t create_login_process(void)
 					    set_ssl_key_file, NULL));
 	}
 
+	if (set_ssl_parameters_file != NULL) {
+		putenv((char *) t_strconcat("SSL_PARAM_FILE=",
+					    set_ssl_parameters_file, NULL));
+	}
+
 	if (set_disable_plaintext_auth)
 		putenv("DISABLE_PLAINTEXT_AUTH=1");
 
@@ -331,6 +336,13 @@ static pid_t create_login_process(void)
 
 	i_fatal("execv(%s) failed: %m", argv[0]);
 	return -1;
+}
+
+void login_process_abormal_exit(pid_t pid __attr_unused__)
+{
+	/* don't start raising the process count if they're dying all
+	   the time */
+	wanted_processes_count = 0;
 }
 
 static void login_hash_cleanup(void *key __attr_unused__, void *value,

@@ -32,6 +32,9 @@ static Setting settings[] = {
 	{ "imaps_listen",	SET_STR, &set_imaps_listen },
 	{ "ssl_cert_file",	SET_STR, &set_ssl_cert_file },
 	{ "ssl_key_file",	SET_STR, &set_ssl_key_file },
+	{ "ssl_parameters_file",SET_STR, &set_ssl_parameters_file },
+	{ "ssl_parameters_regenerate",
+				SET_INT, &set_ssl_parameters_regenerate },
 	{ "disable_plaintext_auth",
 				SET_BOOL,&set_disable_plaintext_auth },
 
@@ -82,12 +85,14 @@ char *set_imaps_listen = NULL;
 
 char *set_ssl_cert_file = "/etc/ssl/certs/imapd.pem";
 char *set_ssl_key_file = "/etc/ssl/private/imapd.pem";
+char *set_ssl_parameters_file = PKG_RUNDIR"/ssl-parameters.dat";
+unsigned int set_ssl_parameters_regenerate = 24;
 int set_disable_plaintext_auth = FALSE;
 
 /* login */
 char *set_login_executable = PKG_LIBDIR "/imap-login";
 char *set_login_user = "imapd";
-char *set_login_dir = PKG_RUNDIR;
+char *set_login_dir = PKG_RUNDIR"/login";
 
 int set_login_chroot = TRUE;
 int set_login_process_per_connection = TRUE;
@@ -174,7 +179,9 @@ static void settings_verify(void)
 			set_imap_executable);
 	}
 
-	/* since it's under /var/run by default, it may have been deleted */
+	/* since they're under /var/run by default, they may have been
+	   deleted */
+	(void)mkdir(PKG_RUNDIR, 0700);
 	if (mkdir(set_login_dir, 0700) == 0)
 		(void)chown(set_login_dir, set_login_uid, set_login_gid);
 	if (access(set_login_dir, X_OK) < 0)
