@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "hostpid.h"
 #include "unlink-directory.h"
 #include "imap-match.h"
 #include "subscription-file/subscription-file.h"
@@ -15,20 +16,12 @@ typedef struct {
 	void *context;
 } FindSubscribedContext;
 
-static MailboxFlags maildir_get_marked_flags(const char *dir)
+static MailboxFlags
+maildir_get_marked_flags_from(const char *dir, time_t index_stamp)
 {
 	struct stat st;
 	char path[1024];
-	time_t index_stamp, cur_stamp;
-
-	i_snprintf(path, sizeof(path), "%s/" INDEX_FILE_PREFIX, dir);
-	if (stat(path, &st) == -1) {
-		/* index file wasn't found. it might be with another name,
-		   but finding it would be too slow. */
-		return 0;
-	}
-
-	index_stamp = st.st_mtime;
+	time_t cur_stamp;
 
 	i_snprintf(path, sizeof(path), "%s/cur", dir);
 	if (stat(path, &st) == -1) {
@@ -49,6 +42,33 @@ static MailboxFlags maildir_get_marked_flags(const char *dir)
 	}
 
 	return st.st_mtime <= cur_stamp ? MAILBOX_UNMARKED : MAILBOX_MARKED;
+}
+
+static MailboxFlags
+maildir_get_marked_flags(MailStorage *storage, const char *dir)
+{
+	const char *path;
+	struct stat st;
+
+	hostpid_init();
+
+	/* first try to use .imap.index-hostname */
+	path = t_strconcat(dir, "/" INDEX_FILE_PREFIX "-", my_hostname, NULL);
+	if (stat(path, &st) == -1 && errno == ENOENT) {
+		/* fallback to .imap.index */
+		path = t_strconcat(dir, "/" INDEX_FILE_PREFIX, NULL);
+	}
+
+	if (stat(path, &st) == -1) {
+		/* error, or index simply isn't created yet */
+		if (errno != ENOENT) {
+			mail_storage_set_critical(storage,
+						  "stat(%s) failed: %m", path);
+		}
+		return 0;
+	}
+
+	return maildir_get_marked_flags_from(dir, st.st_mtime);
 }
 
 int maildir_find_mailboxes(MailStorage *storage, const char *mask,
@@ -115,7 +135,10 @@ int maildir_find_mailboxes(MailStorage *storage, const char *mask,
 			continue;
 		}
 
-                flags = maildir_get_marked_flags(path);
+		if (strcasecmp(fname+1, "INBOX") == 0)
+			found_inbox = TRUE;
+
+                flags = maildir_get_marked_flags(storage, path);
 		func(storage, fname+1, flags, context);
 	}
 
@@ -140,7 +163,7 @@ static int maildir_subs_func(MailStorage *storage, const char *name,
 	i_snprintf(path, sizeof(path), "%s/.%s", storage->dir, name);
 
 	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
-		flags = maildir_get_marked_flags(path);
+		flags = maildir_get_marked_flags(storage, path);
 	else
 		flags = MAILBOX_NOSELECT;
 

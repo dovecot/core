@@ -119,6 +119,8 @@ create_imap_process(int socket, const char *user, uid_t uid, gid_t gid,
 		putenv("COPY_WITH_HARDLINKS=1");
 	if (set_maildir_check_content_changes)
 		putenv("CHECK_CONTENT_CHANGES=1");
+	if (set_overwrite_incompatible_index)
+		putenv("OVERWRITE_INCOMPATIBLE_INDEX=1");
 	if (umask(set_umask) != set_umask)
 		i_fatal("Invalid umask: %o", set_umask);
 

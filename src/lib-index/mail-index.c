@@ -16,8 +16,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <dirent.h>
 #include <utime.h>
+
+static const char *index_file_prefixes[] = { "data", "hash", "log", NULL };
 
 static int mmap_update(MailIndex *index)
 {
@@ -363,7 +364,28 @@ int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
 	return TRUE;
 }
 
-static int read_and_verify_header(int fd, MailIndexHeader *hdr)
+static int delete_index(const char *path)
+{
+	char tmp[1024];
+	int i;
+
+	/* main index */
+	if (unlink(path) < 0)
+		return FALSE;
+
+	for (i = 0; index_file_prefixes[i] != NULL; i++) {
+		i_snprintf(tmp, sizeof(tmp), "%s.%s",
+			   path, index_file_prefixes[i]);
+		if (unlink(tmp) < 0)
+			return FALSE;
+		i++;
+	}
+
+	return TRUE;
+}
+
+static int read_and_verify_header(int fd, MailIndexHeader *hdr,
+				  int check_version)
 {
 	/* read the header */
 	if (lseek(fd, 0, SEEK_SET) != 0)
@@ -373,25 +395,37 @@ static int read_and_verify_header(int fd, MailIndexHeader *hdr)
 		return FALSE;
 
 	/* check the compatibility */
-	return hdr->compat_data[0] == MAIL_INDEX_VERSION &&
-		hdr->compat_data[1] == MAIL_INDEX_COMPAT_FLAGS &&
+	return hdr->compat_data[1] == MAIL_INDEX_COMPAT_FLAGS &&
 		hdr->compat_data[2] == sizeof(unsigned int) &&
 		hdr->compat_data[3] == sizeof(time_t) &&
 		hdr->compat_data[4] == sizeof(uoff_t) &&
-		hdr->compat_data[5] == MEM_ALIGN_SIZE;
+		hdr->compat_data[5] == MEM_ALIGN_SIZE &&
+		(!check_version || hdr->compat_data[0] == MAIL_INDEX_VERSION);
 }
 
-/* Returns TRUE if we're compatible with given index file */
-static int mail_is_compatible_index(const char *path)
+/* Returns TRUE if we're compatible with given index file. May delete the
+   file if it's from older version. */
+static int mail_check_compatible_index(MailIndex *index, const char *path)
 {
         MailIndexHeader hdr;
 	int fd, compatible;
 
 	fd = open(path, O_RDONLY);
-	if (fd == -1)
+	if (fd == -1) {
+		if (errno != ENOENT)
+			index_set_error(index, "Can't open index %s: %m", path);
 		return FALSE;
+	}
 
-	compatible = read_and_verify_header(fd, &hdr);
+	compatible = read_and_verify_header(fd, &hdr, FALSE);
+	if (hdr.compat_data[0] != MAIL_INDEX_VERSION) {
+		/* version mismatch */
+		compatible = FALSE;
+		if (hdr.compat_data[0] < MAIL_INDEX_VERSION) {
+			/* of older version, we don't need it anymore */
+			(void)delete_index(path);
+		}
+	}
 
 	(void)close(fd);
 	return compatible;
@@ -400,41 +434,24 @@ static int mail_is_compatible_index(const char *path)
 /* Returns a file name of compatible index */
 static const char *mail_find_index(MailIndex *index)
 {
-	DIR *dir;
-	struct dirent *d;
 	const char *name;
 	char path[1024];
-	unsigned int len;
 
-	/* first try the primary name */
-	i_snprintf(path, sizeof(path), "%s/" INDEX_FILE_PREFIX, index->dir);
-	if (mail_is_compatible_index(path))
-		return INDEX_FILE_PREFIX;
+	hostpid_init();
 
-	dir = opendir(index->dir);
-	if (dir == NULL) {
-		/* path doesn't exist */
-		index_set_error(index, "Can't open dir %s: %m",
-				index->dir);
-		return NULL;
-	}
+	/* first try .imap.index-<hostname> */
+	name = t_strconcat(INDEX_FILE_PREFIX "-", my_hostname, NULL);
+	i_snprintf(path, sizeof(path), "%s/%s", index->dir, name);
+	if (mail_check_compatible_index(index, path))
+		return name;
 
-	len = strlen(INDEX_FILE_PREFIX);
-	name = NULL;
-	while ((d = readdir(dir)) != NULL) {
-		if (strncmp(d->d_name, INDEX_FILE_PREFIX, len) == 0) {
-			/* index found, check if we're compatible */
-			i_snprintf(path, sizeof(path), "%s/%s",
-				   index->dir, d->d_name);
-			if (mail_is_compatible_index(path)) {
-				name = t_strdup(d->d_name);
-				break;
-			}
-		}
-	}
+	/* then try the generic .imap.index */
+	name = INDEX_FILE_PREFIX;
+	i_snprintf(path, sizeof(path), "%s/%s", index->dir, name);
+	if (mail_check_compatible_index(index, path))
+		return name;
 
-	(void)closedir(dir);
-	return name;
+	return NULL;
 }
 
 static int mail_index_open_init(MailIndex *index, int update_recent,
@@ -491,7 +508,7 @@ static int mail_index_open_file(MailIndex *index, const char *filename,
 	}
 
 	/* check the compatibility anyway just to be sure */
-	if (!read_and_verify_header(fd, &hdr)) {
+	if (!read_and_verify_header(fd, &hdr, TRUE)) {
 		index_set_error(index, "Non-compatible index file %s", path);
 		return FALSE;
 	}
@@ -647,12 +664,17 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 			return FALSE;
 		}
 
-		/* fallback to index.hostname - we require each system to
-		   have a different hostname so it's safe to override
-		   previous index as well */
-		hostpid_init();
-		i_snprintf(index_path + len, sizeof(index_path)-len,
-			   "-%s", my_hostname);
+		if (getenv("OVERWRITE_INCOMPATIBLE_INDEX") != NULL) {
+			/* don't try to support different architectures,
+			   just overwrite the index if it's already there. */
+		} else {
+			/* fallback to .imap.index-hostname - we require each
+			   system to have a different hostname so it's safe to
+			   override previous index as well */
+			hostpid_init();
+			i_snprintf(index_path + len, sizeof(index_path)-len,
+				   "-%s", my_hostname);
+		}
 
 		if (rename(path, index_path) == -1) {
 			index_set_error(index, "rename(%s, %s) failed: %m",

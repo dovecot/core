@@ -35,6 +35,7 @@ extern unsigned int set_first_valid_gid, set_last_valid_gid;
 
 extern int set_maildir_copy_with_hardlinks;
 extern int set_maildir_check_content_changes;
+extern int set_overwrite_incompatible_index;
 extern unsigned int set_umask;
 
 /* auth */

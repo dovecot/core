@@ -52,6 +52,8 @@ static Setting settings[] = {
 				SET_BOOL,&set_maildir_copy_with_hardlinks },
 	{ "maildir_check_content_changes",
 				SET_BOOL,&set_maildir_check_content_changes },
+	{ "overwrite_incompatible_index",
+				SET_BOOL,&set_overwrite_incompatible_index },
 	{ "umask",		SET_INT, &set_umask },
 
 	{ NULL, 0, NULL }
@@ -92,6 +94,7 @@ unsigned int set_first_valid_gid = 1, set_last_valid_gid = 0;
 
 int set_maildir_copy_with_hardlinks = FALSE;
 int set_maildir_check_content_changes = FALSE;
+int set_overwrite_incompatible_index = FALSE;
 unsigned int set_umask = 0077;
 
 /* auth */
