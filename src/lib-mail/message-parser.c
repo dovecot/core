@@ -383,10 +383,13 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 						end_pos--;
 					name_len = end_pos - line_start + 1;
 
-					/* get length of value field */
+					/* get length of value field. skip
+					   only the initial LWSP after ':'.
+					   some fields may want to keep
+					   the extra spaces.. */
 					colon_pos++;
-					while (colon_pos < i &&
-					       IS_LWSP(msg[colon_pos]))
+					if (colon_pos < i &&
+					    IS_LWSP(msg[colon_pos]))
 						colon_pos++;
 					value_len = i - colon_pos;
 					if (msg[i-1] == '\r') value_len--;
