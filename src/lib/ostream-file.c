@@ -3,7 +3,6 @@
 /* @UNSAFE: whole file */
 
 #include "lib.h"
-#include "alarm-hup.h"
 #include "ioloop.h"
 #include "write-full.h"
 #include "network.h"
@@ -39,10 +38,6 @@ struct file_ostream {
 	size_t buffer_size, max_buffer_size, optimal_block_size;
 	size_t head, tail; /* first unsent/unused byte */
 
-	int timeout_msecs;
-	void (*timeout_cb)(void *);
-	void *timeout_context;
-
 	unsigned int full:1; /* if head == tail, is buffer empty or full? */
 	unsigned int file:1;
 	unsigned int corked:1;
@@ -50,6 +45,8 @@ struct file_ostream {
 	unsigned int no_sendfile:1;
 	unsigned int autoclose_fd:1;
 };
+
+static void stream_send_io(void *context);
 
 static void stream_closed(struct file_ostream *fstream)
 {
@@ -69,7 +66,7 @@ static void stream_closed(struct file_ostream *fstream)
 
 static void _close(struct _iostream *stream)
 {
-	struct file_ostream *fstream = (struct file_ostream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *)stream;
 
 	/* flush output before really closing it */
 	o_stream_flush(&fstream->ostream.ostream);
@@ -79,63 +76,16 @@ static void _close(struct _iostream *stream)
 
 static void _destroy(struct _iostream *stream)
 {
-	struct file_ostream *fstream = (struct file_ostream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *)stream;
 
 	p_free(fstream->ostream.iostream.pool, fstream->buffer);
 }
 
 static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 {
-	struct file_ostream *fstream = (struct file_ostream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *)stream;
 
 	fstream->max_buffer_size = max_size;
-}
-
-static void _set_blocking(struct _iostream *stream, int timeout_msecs,
-			  void (*timeout_cb)(void *), void *context)
-{
-	struct file_ostream *fstream = (struct file_ostream *) stream;
-
-	fstream->timeout_msecs = timeout_msecs;
-	fstream->timeout_cb = timeout_cb;
-	fstream->timeout_context = context;
-
-	if (!fstream->file)
-		net_set_nonblock(fstream->fd, timeout_msecs == 0);
-
-	if (timeout_msecs != 0)
-		alarm_hup_init();
-}
-
-static void _cork(struct _ostream *stream)
-{
-	struct file_ostream *fstream = (struct file_ostream *) stream;
-
-	if (!fstream->corked) {
-		if (!fstream->no_socket_cork) {
-			if (net_set_cork(fstream->fd, TRUE) < 0)
-				fstream->no_socket_cork = TRUE;
-		}
-		fstream->corked = TRUE;
-	}
-}
-
-static void update_iovec(struct iovec *iov, unsigned int iov_size, size_t size)
-{
-	while (size > 0) {
-		i_assert(iov_size > 0);
-
-		if ((size_t)iov->iov_len <= size) {
-			size -= iov->iov_len;
-			iov->iov_base = NULL;
-			iov->iov_len = 0;
-		} else {
-			iov->iov_base = (void *)((char *)iov->iov_base + size);
-			iov->iov_len -= size;
-			size = 0;
-		}
-		iov++; iov_size--;
-	}
 }
 
 static void update_buffer(struct file_ostream *fstream, size_t size)
@@ -175,22 +125,15 @@ static void update_buffer(struct file_ostream *fstream, size_t size)
 }
 
 /* NOTE: modifies iov */
-static ssize_t
-o_stream_writev(struct file_ostream *fstream, struct iovec *iov, int iov_size)
+static ssize_t o_stream_writev(struct file_ostream *fstream,
+			       const struct const_iovec *iov, int iov_size)
 {
 	ssize_t ret;
-
-	while (iov->iov_len == 0 && iov_size > 0) {
-		iov++;
-		iov_size--;
-	}
-
-	i_assert(iov_size > 0);
 
 	if (iov_size == 1)
 		ret = write(fstream->fd, iov->iov_base, iov->iov_len);
 	else
-		ret = writev(fstream->fd, iov, iov_size);
+		ret = writev(fstream->fd, (const struct iovec *)iov, iov_size);
 
 	if (ret < 0) {
 		if (errno == EAGAIN || errno == EINTR)
@@ -200,107 +143,81 @@ o_stream_writev(struct file_ostream *fstream, struct iovec *iov, int iov_size)
 		return -1;
 	}
 
-	update_iovec(iov, iov_size, ret);
-	update_buffer(fstream, ret);
-
 	return ret;
 }
 
 /* returns how much of vector was used */
 static int o_stream_fill_iovec(struct file_ostream *fstream,
-			       struct iovec iov[2])
+			       struct const_iovec iov[2])
 {
 	if (IS_STREAM_EMPTY(fstream))
 		return 0;
 
 	if (fstream->head < fstream->tail) {
-		iov[0].iov_base = (void *)(fstream->buffer + fstream->head);
+		iov[0].iov_base = fstream->buffer + fstream->head;
 		iov[0].iov_len = fstream->tail - fstream->head;
 		return 1;
 	} else {
-		iov[0].iov_base = (void *)(fstream->buffer + fstream->head);
+		iov[0].iov_base = fstream->buffer + fstream->head;
 		iov[0].iov_len = fstream->buffer_size - fstream->head;
 		if (fstream->tail == 0)
 			return 1;
 		else {
-			iov[1].iov_base = (void *)fstream->buffer;
+			iov[1].iov_base = fstream->buffer;
 			iov[1].iov_len = fstream->tail;
 			return 2;
 		}
 	}
 }
 
-static int o_stream_send_blocking(struct file_ostream *fstream,
-				  const void *data, size_t size)
-{
-	time_t timeout_time;
-	struct iovec iov[3];
-	int iov_len, first;
-
-	iov_len = o_stream_fill_iovec(fstream, iov);
-	if (size > 0) {
-		iov[iov_len].iov_base = (void *) data;
-		iov[iov_len].iov_len = size;
-		iov_len++;
-	}
-
-	first = TRUE;
-
-	timeout_time = GET_TIMEOUT_TIME(fstream);
-	while (iov[iov_len-1].iov_len != 0) {
-		if (first)
-			first = FALSE;
-		else if (timeout_time > 0 && time(NULL) > timeout_time) {
-			/* timeouted */
-			if (fstream->timeout_cb != NULL)
-				fstream->timeout_cb(fstream->timeout_context);
-			fstream->ostream.ostream.stream_errno = EAGAIN;
-			return -1;
-		}
-
-		if (o_stream_writev(fstream, iov, iov_len) < 0)
-			return -1;
-	}
-
-        return 1;
-}
-
 static int buffer_flush(struct file_ostream *fstream)
 {
-	struct iovec iov[2];
+	struct const_iovec iov[2];
 	int iov_len;
+	ssize_t ret;
 
-	if (!IS_STREAM_EMPTY(fstream)) {
-		iov_len = o_stream_fill_iovec(fstream, iov);
-		if (o_stream_writev(fstream, iov, iov_len) < 0)
+	iov_len = o_stream_fill_iovec(fstream, iov);
+	if (iov_len > 0) {
+		ret = o_stream_writev(fstream, iov, iov_len);
+		if (ret < 0)
 			return -1;
 
-		if (!IS_STREAM_EMPTY(fstream)) {
-			if (o_stream_send_blocking(fstream, NULL, 0) < 0)
-				return -1;
-		}
+		update_buffer(fstream, ret);
 	}
 
-	return 1;
+	return IS_STREAM_EMPTY(fstream) ? 1 : 0;
+}
+
+static void _cork(struct _ostream *stream, int set)
+{
+	struct file_ostream *fstream = (struct file_ostream *)stream;
+
+	if (fstream->corked != set) {
+		if (!fstream->no_socket_cork) {
+			if (net_set_cork(fstream->fd, set) < 0)
+				fstream->no_socket_cork = TRUE;
+		}
+		fstream->corked = set;
+
+		if (set && fstream->io != NULL) {
+			io_remove(fstream->io);
+			fstream->io = NULL;
+		} else if (!set && fstream->io == NULL) {
+			if (fstream->file)
+				buffer_flush(fstream);
+			else {
+				fstream->io = io_add(fstream->fd, IO_WRITE,
+						     stream_send_io, fstream);
+			}
+		}
+	}
 }
 
 static int _flush(struct _ostream *stream)
 {
 	struct file_ostream *fstream = (struct file_ostream *) stream;
-	int ret;
 
-	ret = buffer_flush(fstream);
-
-	if (fstream->corked) {
-		/* remove cork */
-		if (!fstream->no_socket_cork) {
-			if (net_set_cork(fstream->fd, FALSE) < 0)
-				i_error("net_set_cork() failed: %m");
-		}
-		fstream->corked = FALSE;
-	}
-
-	return ret;
+	return buffer_flush(fstream);
 }
 
 static size_t get_unused_space(struct file_ostream *fstream)
@@ -317,25 +234,16 @@ static size_t get_unused_space(struct file_ostream *fstream)
 	}
 }
 
-static int _have_space(struct _ostream *stream, size_t size)
+static size_t _get_used_size(struct _ostream *stream)
 {
-	struct file_ostream *fstream = (struct file_ostream *) stream;
-	size_t unused;
+	struct file_ostream *fstream = (struct file_ostream *)stream;
 
-	unused = get_unused_space(fstream);
-	if (size <= unused)
-		return 1;
-
-	if (fstream->max_buffer_size == 0)
-		return 1;
-
-	unused += (fstream->max_buffer_size - fstream->buffer_size);
-	return size <= unused ? 1 : 0;
+	return fstream->buffer_size - get_unused_space(fstream);
 }
 
 static int _seek(struct _ostream *stream, uoff_t offset)
 {
-	struct file_ostream *fstream = (struct file_ostream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *)stream;
 	off_t ret;
 
 	if (offset > OFF_T_MAX) {
@@ -367,17 +275,16 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 	size_t size, head_size;
 
 	size = nearest_power(fstream->buffer_size + bytes);
-	if (fstream->max_buffer_size != 0) {
-		if (size > fstream->max_buffer_size) {
-			/* limit the size */
-			size = fstream->max_buffer_size;
-		} else if (fstream->corked) {
-			/* use the largest possible buffer with corking */
-			size = fstream->max_buffer_size;
-		}
+	if (size > fstream->max_buffer_size) {
+		/* limit the size */
+		size = fstream->max_buffer_size;
+	} else if (fstream->corked) {
+		/* use optimal buffer size with corking */
+		size = I_MIN(fstream->optimal_block_size,
+			     fstream->max_buffer_size);
 	}
 
-	if (size == fstream->buffer_size)
+	if (size <= fstream->buffer_size)
 		return;
 
 	fstream->buffer = p_realloc(fstream->ostream.iostream.pool,
@@ -405,18 +312,18 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 static void stream_send_io(void *context)
 {
 	struct file_ostream *fstream = context;
-	struct iovec iov[2];
-	int iov_len;
 
-	iov_len = o_stream_fill_iovec(fstream, iov);
+	if (fstream->ostream.callback != NULL)
+		fstream->ostream.callback(fstream->ostream.context);
+	else {
+		if (_flush(&fstream->ostream) <= 0)
+			return;
+	}
 
-	if (iov_len == 0 || o_stream_writev(fstream, iov, iov_len) < 0 ||
-	    iov[iov_len-1].iov_len == 0) {
-		/* error / all sent */
-		if (fstream->io != NULL) {
-			io_remove(fstream->io);
-			fstream->io = NULL;
-		}
+	if (IS_STREAM_EMPTY(fstream) && fstream->io != NULL) {
+		/* all sent */
+		io_remove(fstream->io);
+		fstream->io = NULL;
 	}
 }
 
@@ -455,48 +362,64 @@ static size_t o_stream_add(struct file_ostream *fstream,
 				     fstream);
 	}
 
-	i_assert(!STREAM_IS_BLOCKING(fstream) || sent == size);
 	return sent;
 }
 
-static ssize_t _send(struct _ostream *stream, const void *data, size_t size)
+static ssize_t _sendv(struct _ostream *stream, const struct const_iovec *iov,
+		      size_t iov_count)
 {
-	struct file_ostream *fstream = (struct file_ostream *) stream;
-	struct iovec iov;
+	struct file_ostream *fstream = (struct file_ostream *)stream;
+	size_t i, size, added, optimal_size;
 	ssize_t ret = 0;
-
-	i_assert(size <= SSIZE_T_MAX);
 
 	stream->ostream.stream_errno = 0;
 
-	/* never try sending immediately if fd is blocking,
-	   so we don't need to deal with timeout issues here */
-	if (IS_STREAM_EMPTY(fstream) && !STREAM_IS_BLOCKING(fstream) &&
-	    (!fstream->corked || !_have_space(stream, size))) {
-		iov.iov_base = (void *) data;
-		iov.iov_len = size;
+	for (i = 0, size = 0; i < iov_count; i++)
+		size += iov[i].iov_len;
 
-		ret = o_stream_writev(fstream, &iov, 1);
-		if (ret > 0)
-			stream->ostream.offset += ret;
-
-		if (ret < 0 || (size_t)ret == size)
-			return ret;
-
-		data = (const char *) data + ret;
-		size -= ret;
-	}
-
-	if (!_have_space(stream, size) && STREAM_IS_BLOCKING(fstream)) {
-		/* send it blocking */
-		if (o_stream_send_blocking(fstream, data, size) < 0)
+	if (size > get_unused_space(fstream)) {
+		if (_flush(stream) < 0)
 			return -1;
-		ret += (ssize_t)size;
-	} else {
-		/* buffer it, at least partly */
-		ret += (ssize_t)o_stream_add(fstream, data, size);
 	}
 
+	optimal_size = I_MIN(fstream->optimal_block_size,
+			     fstream->max_buffer_size);
+	if (IS_STREAM_EMPTY(fstream) &&
+	    (!fstream->corked || size >= optimal_size)) {
+		/* send immediately */
+		ret = o_stream_writev(fstream, iov, iov_count);
+		if (ret < 0)
+			return -1;
+
+		size = ret;
+		while (size > 0 && size >= iov[0].iov_len) {
+			size -= iov[0].iov_len;
+			iov++;
+			iov_count--;
+		}
+
+		if (iov_count > 0) {
+			added = o_stream_add(fstream,
+					CONST_PTR_OFFSET(iov[0].iov_base, size),
+					iov[0].iov_len - size);
+			if (added != iov[0].iov_len - size) {
+				/* buffer full */
+				stream->ostream.offset += added;
+				return added;
+			}
+
+			iov++;
+			iov_count--;
+		}
+	}
+
+	/* buffer it, at least partly */
+	for (i = 0; i < iov_count; i++) {
+		added = o_stream_add(fstream, iov[i].iov_base, iov[i].iov_len);
+		ret += added;
+		if (added != iov[i].iov_len)
+			break;
+	}
 	stream->ostream.offset += ret;
 	return ret;
 }
@@ -505,64 +428,35 @@ static off_t io_stream_sendfile(struct _ostream *outstream,
 				struct istream *instream,
 				int in_fd, uoff_t in_size)
 {
-	struct file_ostream *foutstream = (struct file_ostream *) outstream;
-	time_t timeout_time;
+	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	uoff_t start_offset;
 	uoff_t offset, send_size, v_offset;
 	ssize_t ret;
-	int first;
-
-	/* set timeout time before hflushing existing buffer which may block */
-	timeout_time = GET_TIMEOUT_TIME(foutstream);
-        start_offset = instream->v_offset;
 
 	/* flush out any data in buffer */
-	if (buffer_flush(foutstream) < 0)
-		return -1;
+	if ((ret = buffer_flush(foutstream)) <= 0)
+		return ret;
 
-	v_offset = instream->v_offset;
-
-	first = TRUE;
+        start_offset = v_offset = instream->v_offset;
 	do {
-		if (first)
-			first = FALSE;
-		else if (timeout_time > 0 && time(NULL) > timeout_time) {
-			/* timeouted */
-			if (foutstream->timeout_cb != NULL) {
-				foutstream->timeout_cb(
-					foutstream->timeout_context);
-			}
-			outstream->ostream.stream_errno = EAGAIN;
-			ret = -1;
-			break;
-		}
-
 		offset = instream->real_stream->abs_start_offset + v_offset;
 		send_size = in_size - v_offset;
 
 		ret = safe_sendfile(foutstream->fd, in_fd, &offset,
 				    MAX_SSIZE_T(send_size));
 		if (ret <= 0) {
-			if (ret == 0) {
-				/* EOF */
+			if (ret == 0 || errno == EINTR || errno == EAGAIN) {
+				ret = 0;
 				break;
 			}
 
-			if (errno != EINTR && errno != EAGAIN) {
-				outstream->ostream.stream_errno = errno;
-				if (errno != EINVAL) {
-					/* close only if error wasn't because
-					   sendfile() isn't supported */
-					stream_closed(foutstream);
-				}
-				break;
+			outstream->ostream.stream_errno = errno;
+			if (errno != EINVAL) {
+				/* close only if error wasn't because
+				   sendfile() isn't supported */
+				stream_closed(foutstream);
 			}
-
-			ret = 0;
-			if (!STREAM_IS_BLOCKING(foutstream)) {
-				/* don't block */
-				break;
-			}
+			break;
 		}
 
 		v_offset += ret;
@@ -576,17 +470,15 @@ static off_t io_stream_sendfile(struct _ostream *outstream,
 static off_t io_stream_copy(struct _ostream *outstream,
 			    struct istream *instream, uoff_t in_size)
 {
-	struct file_ostream *foutstream = (struct file_ostream *) outstream;
-	time_t timeout_time;
+	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	uoff_t start_offset;
-	struct iovec iov[3];
+	struct const_iovec iov[3];
 	int iov_len;
 	const unsigned char *data;
 	size_t size, skip_size, block_size;
 	ssize_t ret;
 	int pos;
 
-	timeout_time = GET_TIMEOUT_TIME(foutstream);
 	iov_len = o_stream_fill_iovec(foutstream, iov);
 
         skip_size = 0;
@@ -609,17 +501,12 @@ static off_t io_stream_copy(struct _ostream *outstream,
 		iov[pos].iov_len = size;
 
 		ret = o_stream_writev(foutstream, iov, iov_len);
- 		if (ret < 0) {
-			/* error */
+		if (ret < 0)
 			return -1;
-		}
-
-		if (ret == 0 && !STREAM_IS_BLOCKING(foutstream)) {
-			/* don't block */
-			break;
-		}
 
 		if (skip_size > 0) {
+			update_buffer(foutstream, ret);
+
 			if ((size_t)ret < skip_size) {
 				skip_size -= ret;
 				ret = 0;
@@ -629,27 +516,12 @@ static off_t io_stream_copy(struct _ostream *outstream,
 			}
 		}
 		outstream->ostream.offset += ret;
+		i_stream_skip(instream, ret);
 
-		if (timeout_time > 0 && time(NULL) > timeout_time) {
-			/* timeouted */
-			if (foutstream->timeout_cb != NULL) {
-				foutstream->timeout_cb(
-					foutstream->timeout_context);
-			}
-			outstream->ostream.stream_errno = EAGAIN;
-			return -1;
-		}
+		if ((size_t)ret != iov[pos].iov_len)
+			break;
 
-		i_stream_skip(instream, size - iov[pos].iov_len);
-		iov_len--;
-
-		/* if we already sent the iov[0] and iov[1], we
-		   can just remove them from future calls */
-		while (iov_len > 0 && iov[0].iov_len == 0) {
-			iov[0] = iov[1];
-			if (iov_len > 1) iov[1] = iov[2];
-			iov_len--;
-		}
+		iov_len = 0;
 	}
 
 	return (off_t) (instream->v_offset - start_offset);
@@ -658,16 +530,13 @@ static off_t io_stream_copy(struct _ostream *outstream,
 static off_t io_stream_copy_backwards(struct _ostream *outstream,
 				      struct istream *instream, uoff_t in_size)
 {
-	struct file_ostream *foutstream = (struct file_ostream *) outstream;
-	time_t timeout_time;
+	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	uoff_t in_start_offset, in_offset, in_limit, out_offset;
 	const unsigned char *data;
 	size_t buffer_size, size, read_size;
 	ssize_t ret;
 
 	i_assert(IS_STREAM_EMPTY(foutstream));
-
-	timeout_time = GET_TIMEOUT_TIME(foutstream);
 
 	/* figure out optimal buffer size */
 	buffer_size = instream->real_stream->buffer_size;
@@ -705,7 +574,7 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 				size = read_size;
 				if (instream->mmaped) {
 					/* we'll have to write it through
-					   buffer of the file gets corrupted */
+					   buffer or the file gets corrupted */
 					i_assert(size <=
 						 foutstream->buffer_size);
 					memcpy(foutstream->buffer, data, size);
@@ -726,19 +595,9 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 			return -1;
 
 		ret = write_full(foutstream->fd, data, size);
- 		if (ret < 0) {
+		if (ret < 0) {
 			/* error */
 			outstream->ostream.stream_errno = errno;
-			return -1;
-		}
-
-		if (timeout_time > 0 && time(NULL) > timeout_time) {
-			/* timeouted */
-			if (foutstream->timeout_cb != NULL) {
-				foutstream->timeout_cb(
-					foutstream->timeout_context);
-			}
-			outstream->ostream.stream_errno = EAGAIN;
 			return -1;
 		}
 	}
@@ -748,7 +607,7 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 
 static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 {
-	struct file_ostream *foutstream = (struct file_ostream *) outstream;
+	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	uoff_t in_size;
 	off_t ret;
 	int in_fd, overlapping;
@@ -814,13 +673,12 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 	fstream->ostream.iostream.close = _close;
 	fstream->ostream.iostream.destroy = _destroy;
 	fstream->ostream.iostream.set_max_buffer_size = _set_max_buffer_size;
-	fstream->ostream.iostream.set_blocking = _set_blocking;
 
 	fstream->ostream.cork = _cork;
 	fstream->ostream.flush = _flush;
-	fstream->ostream.have_space = _have_space;
+	fstream->ostream.get_used_size = _get_used_size;
 	fstream->ostream.seek = _seek;
-	fstream->ostream.send = _send;
+	fstream->ostream.sendv = _sendv;
 	fstream->ostream.send_istream = _send_istream;
 
 	ostream = _o_stream_create(&fstream->ostream, pool);
@@ -842,8 +700,6 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 			if (S_ISREG(st.st_mode)) {
 				fstream->no_socket_cork = TRUE;
 				fstream->file = TRUE;
-
-				o_stream_set_blocking(ostream, -1, 0, NULL);
 			}
 		}
 #ifndef HAVE_LINUX_SENDFILE

@@ -849,8 +849,8 @@ static int send_nodes(struct thread_context *ctx,
 	while (node != NULL) {
 		if (str_len(str) + MAX_INT_STRLEN*2 + 3 >= OUTPUT_BUF_SIZE) {
 			/* string getting full, flush it */
-			if (!o_stream_send(ctx->output,
-					   str_data(str), str_len(str)))
+			if (o_stream_send(ctx->output,
+					  str_data(str), str_len(str)) < 0)
 				return FALSE;
 			str_truncate(str, 0);
 		}
@@ -886,8 +886,8 @@ static void send_roots(struct thread_context *ctx)
 
 		if (str_len(str) + MAX_INT_STRLEN*2 + 3 >= OUTPUT_BUF_SIZE) {
 			/* string getting full, flush it */
-			if (!o_stream_send(ctx->output,
-					   str_data(str), str_len(str)))
+			if (o_stream_send(ctx->output,
+					  str_data(str), str_len(str)) < 0)
 				return;
 			str_truncate(str, 0);
 		}

@@ -3,7 +3,6 @@
 /* @UNSAFE: whole file */
 
 #include "lib.h"
-#include "alarm-hup.h"
 #include "istream-internal.h"
 #include "network.h"
 
@@ -13,18 +12,11 @@
 
 #define I_STREAM_MIN_SIZE 4096
 
-#define STREAM_IS_BLOCKING(fstream) \
-	((fstream)->timeout_msecs != 0)
-
 struct file_istream {
 	struct _istream istream;
 
 	size_t max_buffer_size;
 	uoff_t skip_left;
-
-	int timeout_msecs;
-	void (*timeout_cb)(void *);
-	void *timeout_context;
 
 	unsigned int file:1;
 	unsigned int autoclose_fd:1;
@@ -54,21 +46,6 @@ static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 	struct file_istream *fstream = (struct file_istream *) stream;
 
 	fstream->max_buffer_size = max_size;
-}
-
-static void _set_blocking(struct _iostream *stream, int timeout_msecs,
-			  void (*timeout_cb)(void *), void *context)
-{
-	struct file_istream *fstream = (struct file_istream *) stream;
-
-	fstream->timeout_msecs = timeout_msecs;
-	fstream->timeout_cb = timeout_cb;
-	fstream->timeout_context = context;
-
-	net_set_nonblock(fstream->istream.fd, timeout_msecs == 0);
-
-	if (timeout_msecs != 0)
-		alarm_hup_init();
 }
 
 static void i_stream_grow_buffer(struct _istream *stream, size_t bytes)
@@ -105,7 +82,6 @@ static void i_stream_compress(struct _istream *stream)
 static ssize_t _read(struct _istream *stream)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
-	time_t timeout_time;
 	size_t size;
 	ssize_t ret;
 
@@ -129,64 +105,52 @@ static ssize_t _read(struct _istream *stream)
 	}
 
 	size = stream->buffer_size - stream->pos;
-	timeout_time = GET_TIMEOUT_TIME(fstream);
 
 	ret = -1;
-	do {
-		if (ret == 0 && timeout_time > 0 && time(NULL) > timeout_time) {
-			/* timeouted */
-			if (fstream->timeout_cb != NULL)
-				fstream->timeout_cb(fstream->timeout_context);
-			stream->istream.stream_errno = EAGAIN;
+
+	if (fstream->file) {
+		ret = pread(stream->fd, stream->w_buffer + stream->pos, size,
+			    stream->istream.v_offset +
+			    (stream->pos - stream->skip));
+	} else {
+		ret = read(stream->fd, stream->w_buffer + stream->pos, size);
+	}
+	if (ret == 0) {
+		/* EOF */
+		if (!fstream->file)
+			stream->istream.disconnected = TRUE;
+		return -1;
+	}
+
+	if (ret < 0) {
+		if (errno == ECONNRESET || errno == ETIMEDOUT) {
+			/* treat as disconnection */
+			stream->istream.disconnected = TRUE;
 			return -1;
 		}
 
-		if (fstream->file) {
-			ret = pread(stream->fd,
-				    stream->w_buffer + stream->pos, size,
-				    stream->istream.v_offset +
-				    (stream->pos - stream->skip));
+		if (errno == EINTR || errno == EAGAIN)
+			ret = 0;
+		else {
+			stream->istream.stream_errno = errno;
+			return -1;
+		}
+	}
+
+	if (ret > 0 && fstream->skip_left > 0) {
+		i_assert(!fstream->file);
+		i_assert(stream->skip == stream->pos);
+
+		if (fstream->skip_left >= (size_t)ret) {
+			fstream->skip_left -= ret;
+			ret = 0;
 		} else {
-			ret = read(stream->fd,
-				   stream->w_buffer + stream->pos, size);
+			ret -= fstream->skip_left;
+			stream->pos += fstream->skip_left;
+			stream->skip += fstream->skip_left;
+			fstream->skip_left = 0;
 		}
-		if (ret == 0) {
-			/* EOF */
-			if (!fstream->file)
-				stream->istream.disconnected = TRUE;
-			return -1;
-		}
-
-		if (ret < 0) {
-			if (errno == ECONNRESET || errno == ETIMEDOUT) {
-				/* treat as disconnection */
-				stream->istream.disconnected = TRUE;
-				return -1;
-			}
-
-			if (errno == EINTR || errno == EAGAIN)
-				ret = 0;
-			else {
-				stream->istream.stream_errno = errno;
-				return -1;
-			}
-		}
-
-		if (ret > 0 && fstream->skip_left > 0) {
-			i_assert(!fstream->file);
-			i_assert(stream->skip == stream->pos);
-
-			if (fstream->skip_left >= (size_t)ret) {
-				fstream->skip_left -= ret;
-				ret = 0;
-			} else {
-				ret -= fstream->skip_left;
-				stream->pos += fstream->skip_left;
-				stream->skip += fstream->skip_left;
-				fstream->skip_left = 0;
-			}
-		}
-	} while (ret == 0 && STREAM_IS_BLOCKING(fstream));
+	}
 
 	stream->pos += ret;
 	return ret;
@@ -233,7 +197,6 @@ struct istream *i_stream_create_file(int fd, pool_t pool,
 	fstream->istream.iostream.close = _close;
 	fstream->istream.iostream.destroy = _destroy;
 	fstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
-	fstream->istream.iostream.set_blocking = _set_blocking;
 
 	fstream->istream.read = _read;
 	fstream->istream.seek = _seek;

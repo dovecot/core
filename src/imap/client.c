@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2004 Timo Sirainen */
 
 #include "common.h"
 #include "ioloop.h"
@@ -10,60 +10,36 @@
 
 #include <stdlib.h>
 
-/* If we can't send a buffer in a minute, disconnect the client */
-#define CLIENT_OUTPUT_TIMEOUT (60*1000)
-
-/* If we don't soon receive expected data from client while processing
-   a command, disconnect the client */
-#define CLIENT_CMDINPUT_TIMEOUT CLIENT_OUTPUT_TIMEOUT
-
-/* Disconnect client when it sends too many bad commands in a row */
-#define CLIENT_MAX_BAD_COMMANDS 20
-
 extern struct mail_storage_callbacks mail_storage_callbacks;
 
 static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
-static void client_output_timeout(void *context)
-{
-	struct client *client = context;
-
-	i_stream_close(client->input);
-	o_stream_close(client->output);
-}
-
-static void client_input_timeout(void *context)
-{
-	struct client *client = context;
-
-	client_disconnect_with_error(client,
-		"Disconnected for inactivity while waiting for command data.");
-}
+static void client_input(void *context);
+static void client_output(void *context);
 
 struct client *client_create(int hin, int hout, struct namespace *namespaces)
 {
 	struct client *client;
 
+	/* always use nonblocking I/O */
+	net_set_nonblock(hin, TRUE);
+	net_set_nonblock(hout, TRUE);
+
 	client = i_new(struct client, 1);
 	client->input = i_stream_create_file(hin, default_pool,
 					     imap_max_line_length, FALSE);
-	client->output = o_stream_create_file(hout, default_pool, 4096, FALSE);
+	client->output = o_stream_create_file(hout, default_pool,
+					      (size_t)-1, FALSE);
 
-	/* set timeout for reading expected data (eg. APPEND). This is
-	   different from the actual idle time. */
-	i_stream_set_blocking(client->input, CLIENT_CMDINPUT_TIMEOUT,
-			      client_input_timeout, client);
+	o_stream_set_flush_callback(client->output, client_output, client);
 
-	/* set timeout for sending data */
-	o_stream_set_blocking(client->output, CLIENT_OUTPUT_TIMEOUT,
-			      client_output_timeout, client);
-
-	client->io = io_add(hin, IO_READ, _client_input, client);
+	client->io = io_add(hin, IO_READ, client_input, client);
 	client->parser = imap_parser_create(client->input, client->output,
 					    imap_max_line_length);
         client->last_input = ioloop_time;
 
+	client->cmd_pool = pool_alloconly_create("command pool", 8192);
 	client->keywords.pool = pool_alloconly_create("mailbox_keywords", 512);
 	client->namespaces = namespaces;
 
@@ -83,14 +59,13 @@ struct client *client_create(int hin, int hout, struct namespace *namespaces)
 
 void client_destroy(struct client *client)
 {
-	o_stream_flush(client->output);
-
 	if (client->mailbox != NULL)
 		mailbox_close(client->mailbox);
 	namespace_deinit(client->namespaces);
 
 	imap_parser_destroy(client->parser);
-	io_remove(client->io);
+	if (client->io != NULL)
+		io_remove(client->io);
 
 	if (client->idle_to != NULL)
 		timeout_remove(client->idle_to);
@@ -99,6 +74,7 @@ void client_destroy(struct client *client)
 	o_stream_unref(client->output);
 
 	pool_unref(client->keywords.pool);
+	pool_unref(client->cmd_pool);
 	i_free(client);
 
 	/* quit the program */
@@ -108,7 +84,7 @@ void client_destroy(struct client *client)
 
 void client_disconnect(struct client *client)
 {
-	o_stream_flush(client->output);
+	(void)o_stream_flush(client->output);
 
 	i_stream_close(client->input);
 	o_stream_close(client->output);
@@ -168,7 +144,6 @@ void client_send_command_error(struct client *client, const char *msg)
 				    cmd, ": ", msg, NULL);
 	}
 
-	client->cmd_error = TRUE;
 	client_send_tagline(client, error);
 
 	if (++client->bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
@@ -234,12 +209,22 @@ int client_read_string_args(struct client *client, unsigned int count, ...)
 
 void _client_reset_command(struct client *client)
 {
+	/* reset input idle time because command output might have taken a
+	   long time and we don't want to disconnect client immediately then */
+	client->last_input = ioloop_time;
+
+	client->command_pending = FALSE;
+	if (client->io == NULL) {
+		client->io = io_add(i_stream_get_fd(client->input),
+				    IO_READ, client_input, client);
+	}
+
 	client->cmd_tag = NULL;
 	client->cmd_name = NULL;
 	client->cmd_func = NULL;
-	client->cmd_error = FALSE;
 	client->cmd_uid = FALSE;
 
+	p_clear(client->cmd_pool);
         imap_parser_reset(client->parser);
 }
 
@@ -268,8 +253,7 @@ static int client_handle_input(struct client *client)
 {
         if (client->cmd_func != NULL) {
 		/* command is being executed - continue it */
-		client->input_skip_line = TRUE;
-		if (client->cmd_func(client) || client->cmd_error) {
+		if (client->cmd_func(client)) {
 			/* command execution was finished */
 			_client_reset_command(client);
                         client->bad_counter = 0;
@@ -293,12 +277,14 @@ static int client_handle_input(struct client *client)
                 client->cmd_tag = imap_parser_read_word(client->parser);
 		if (client->cmd_tag == NULL)
 			return FALSE; /* need more data */
+		client->cmd_tag = p_strdup(client->cmd_pool, client->cmd_tag);
 	}
 
 	if (client->cmd_name == NULL) {
-                client->cmd_name = imap_parser_read_word(client->parser);
+		client->cmd_name = imap_parser_read_word(client->parser);
 		if (client->cmd_name == NULL)
 			return FALSE; /* need more data */
+		client->cmd_name = p_strdup(client->cmd_pool, client->cmd_name);
 	}
 
 	if (client->cmd_name == '\0') {
@@ -315,7 +301,7 @@ static int client_handle_input(struct client *client)
 		_client_reset_command(client);
 	} else {
 		client->input_skip_line = TRUE;
-		if (client->cmd_func(client) || client->cmd_error) {
+		if (client->cmd_func(client)) {
 			/* command execution was finished */
 			_client_reset_command(client);
                         client->bad_counter = 0;
@@ -328,9 +314,15 @@ static int client_handle_input(struct client *client)
 	return TRUE;
 }
 
-void _client_input(void *context)
+static void client_input(void *context)
 {
 	struct client *client = context;
+
+	if (client->command_pending) {
+		/* already processing one command. wait. */
+		io_remove(client->io);
+		client->io = NULL;
+	}
 
 	client->last_input = ioloop_time;
 
@@ -353,20 +345,56 @@ void _client_input(void *context)
 	o_stream_cork(client->output);
 	while (client_handle_input(client))
 		;
-	o_stream_flush(client->output);
+	o_stream_uncork(client->output);
 
 	if (client->output->closed)
 		client_destroy(client);
 }
 
+static void client_output(void *context)
+{
+	struct client *client = context;
+	int ret;
+
+	if ((ret = o_stream_flush(client->output)) < 0) {
+		client_destroy(client);
+		return;
+	}
+
+	client->last_output = ioloop_time;
+
+	if (client->command_pending) {
+		o_stream_cork(client->output);
+		if (client->cmd_func(client)) {
+			/* command execution was finished */
+			_client_reset_command(client);
+                        client->bad_counter = 0;
+		}
+		o_stream_uncork(client->output);
+	}
+}
+
 static void idle_timeout(void *context __attr_unused__)
 {
+	time_t idle_time;
+
 	if (my_client == NULL)
 		return;
 
-	if (ioloop_time - my_client->last_input >= CLIENT_IDLE_TIMEOUT) {
-		client_send_line(my_client,
-				 "* BYE Disconnected for inactivity.");
+	idle_time = ioloop_time -
+		I_MAX(my_client->last_input, my_client->last_output);
+
+	if (my_client->command_pending &&
+	    o_stream_get_buffer_used_size(my_client->output) > 0 &&
+	    idle_time >= CLIENT_OUTPUT_TIMEOUT) {
+		/* client isn't reading our output */
+		client_destroy(my_client);
+	} else if (idle_time >= CLIENT_IDLE_TIMEOUT) {
+		/* client isn't sending us anything */
+		if (!my_client->command_pending) {
+			client_send_line(my_client,
+					 "* BYE Disconnected for inactivity.");
+		}
 		client_destroy(my_client);
 	}
 }

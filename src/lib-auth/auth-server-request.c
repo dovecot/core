@@ -75,7 +75,7 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 	struct auth_client_request_new auth_request;
 	buffer_t *buf;
 	size_t size;
-	int ret;
+	ssize_t ret;
 
 	memset(&auth_request, 0, sizeof(auth_request));
 	auth_request.type = AUTH_CLIENT_REQUEST_NEW;
@@ -136,15 +136,19 @@ static void auth_server_send_continue(struct auth_server_connection *conn,
 				      const unsigned char *data, size_t size)
 {
 	struct auth_client_request_continue auth_request;
+        struct const_iovec iov[2];
 
 	/* send continued request to auth */
 	auth_request.type = AUTH_CLIENT_REQUEST_CONTINUE;
 	auth_request.id = request->id;
 	auth_request.data_size = size;
 
-	if (o_stream_send(conn->output, &auth_request,
-			  sizeof(auth_request)) < 0 ||
-	    o_stream_send(conn->output, data, size) < 0) {
+	iov[0].iov_base = &auth_request;
+	iov[0].iov_len = sizeof(auth_request);
+	iov[1].iov_base = data;
+	iov[1].iov_len = size;
+
+	if (o_stream_sendv(conn->output, iov, 2) < 0) {
 		errno = conn->output->stream_errno;
 		i_warning("Error sending continue request to auth server: %m");
 		auth_server_connection_destroy(conn, TRUE);

@@ -1,7 +1,6 @@
 /* Copyright (c) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
-#include "alarm-hup.h"
 #include "file-lock.h"
 
 #include <time.h>
@@ -24,13 +23,13 @@ int file_wait_lock_full(int fd, int lock_type, unsigned int timeout,
 {
 	struct flock fl;
 	time_t timeout_time, now;
+	unsigned int next_alarm;
 
 	if (timeout == 0)
 		timeout_time = 0;
 	else {
-		alarm_hup_init();
 		timeout_time = time(NULL) + timeout;
-		alarm(timeout);
+		alarm(I_MIN(timeout, 5));
 	}
 
 	fl.l_type = lock_type;
@@ -39,21 +38,32 @@ int file_wait_lock_full(int fd, int lock_type, unsigned int timeout,
 	fl.l_len = 0;
 
 	while (fcntl(fd, timeout != 0 ? F_SETLKW : F_SETLK, &fl) < 0) {
-		if (timeout == 0 && (errno == EACCES || errno == EAGAIN))
+		if (timeout == 0 && (errno == EACCES || errno == EAGAIN)) {
+			alarm(0);
 			return 0;
+		}
 
-		if (errno != EINTR)
+		if (errno != EINTR) {
+			alarm(0);
 			return -1;
+		}
 
 		now = time(NULL);
 		if (timeout != 0 && now >= timeout_time) {
 			errno = EAGAIN;
+			alarm(0);
 			return 0;
 		}
+
+		next_alarm = (timeout_time - now) % 5;
+		if (next_alarm == 0)
+			next_alarm = 5;
+		alarm(next_alarm);
 
 		if (callback != NULL)
 			callback(timeout_time - now, context);
 	}
 
+	alarm(0);
 	return 1;
 }

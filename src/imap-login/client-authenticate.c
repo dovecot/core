@@ -53,7 +53,6 @@ static void client_auth_abort(struct imap_client *client, const char *msg)
 	client_send_tagline(client, msg != NULL ?
 			    t_strconcat("NO ", msg, NULL) :
 			    "NO Authentication failed.");
-	o_stream_flush(client->output);
 
 	/* get back to normal client input */
 	if (client->common.io != NULL)
@@ -86,6 +85,9 @@ static void client_send_auth_data(struct imap_client *client,
 				  const unsigned char *data, size_t size)
 {
 	buffer_t *buf;
+	const void *buf_data;
+	size_t buf_size;
+	ssize_t ret;
 
 	t_push();
 
@@ -95,9 +97,11 @@ static void client_send_auth_data(struct imap_client *client,
 	base64_encode(data, size, buf);
 	buffer_append(buf, "\r\n", 2);
 
-	o_stream_send(client->output, buffer_get_data(buf, NULL),
-		      buffer_get_used_size(buf));
-	o_stream_flush(client->output);
+	buf_data = buffer_get_data(buf, &buf_size);
+	if ((ret = o_stream_send(client->output, buf_data, buf_size) < 0))
+		client_destroy(client, "Disconnected");
+	else if ((size_t)ret != buf_size)
+		client_destroy(client, "Transmit buffer full");
 
 	t_pop();
 }
@@ -315,6 +319,8 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 	info.remote_ip = client->common.ip;
 
 	client_ref(client);
+	o_stream_uncork(client->output);
+
 	client->common.auth_request =
 		auth_client_request_new(auth_client, NULL, &info,
 					authenticate_callback, client, &error);

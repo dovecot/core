@@ -31,6 +31,7 @@ struct master_userdb_request {
 	unsigned int tag;
 };
 
+static void master_output(void *context);
 static void auth_master_connection_close(struct auth_master_connection *conn);
 static int auth_master_connection_unref(struct auth_master_connection *conn);
 
@@ -94,23 +95,20 @@ static void master_send_reply(struct auth_master_connection *conn,
 	ssize_t ret;
 
 	reply->tag = tag;
-	for (;;) {
-		ret = o_stream_send(conn->output, reply, reply_size);
-		if (ret < 0) {
-			/* master died, kill ourself too */
-			auth_master_connection_close(conn);
-			break;
-		}
 
-		if ((size_t)ret == reply_size)
-			break;
+	ret = o_stream_send(conn->output, reply, reply_size);
+	if (ret < 0) {
+		/* master died, kill ourself too */
+		auth_master_connection_close(conn);
+		return;
+	}
+	i_assert((size_t)ret == reply_size);
 
-		/* buffer full, we have to block */
-		i_warning("Master transmit buffer full, blocking..");
-		if (o_stream_flush(conn->output) < 0) {
-			/* transmit error, probably master died */
-			auth_master_connection_close(conn);
-			break;
+	if (o_stream_get_buffer_used_size(conn->output) >= MAX_OUTBUF_SIZE) {
+		/* buffer full, stop accepting more input */
+		if (conn->io != NULL) {
+			io_remove(conn->io);
+			conn->io = NULL;
 		}
 	}
 }
@@ -191,6 +189,23 @@ static void master_input(void *context)
 	}
 }
 
+static void master_output(void *context)
+{
+	struct auth_master_connection *conn = context;
+	int ret;
+
+	if ((ret = o_stream_flush(conn->output)) < 0) {
+		/* transmit error, probably master died */
+		auth_master_connection_close(conn);
+		return;
+	}
+
+	if (o_stream_get_buffer_used_size(conn->output) <= MAX_OUTBUF_SIZE/2) {
+		/* allow input again */
+		conn->io = io_add(conn->fd, IO_READ, master_input, conn);
+	}
+}
+
 static void master_get_handshake_reply(struct auth_master_connection *master)
 {
 	struct mech_module_list *list;
@@ -242,7 +257,8 @@ auth_master_connection_set_fd(struct auth_master_connection *conn, int fd)
 		io_remove(conn->io);
 
 	conn->output = o_stream_create_file(fd, default_pool,
-					    MAX_OUTBUF_SIZE, FALSE);
+					    (size_t)-1, FALSE);
+	o_stream_set_flush_callback(conn->output, master_output, conn);
 	conn->io = io_add(fd, IO_READ, master_input, conn);
 
 	conn->fd = fd;
@@ -269,12 +285,13 @@ void auth_master_connection_send_handshake(struct auth_master_connection *conn)
 {
 	struct auth_master_handshake_reply reply;
 
-	/* just a note to master that we're ok. if we die before,
-	   master should shutdown itself. */
+	/* just a note to master that we're ok. if we die before, it means
+	   we're broken and a simple restart most likely won't help. */
 	if (conn->output != NULL) {
 		memset(&reply, 0, sizeof(reply));
 		reply.server_pid = conn->pid;
-		o_stream_send(conn->output, &reply, sizeof(reply));
+		if (o_stream_send(conn->output, &reply, sizeof(reply)) < 0)
+                        auth_master_connection_close(conn);
 	}
 }
 
@@ -290,8 +307,10 @@ static void auth_master_connection_close(struct auth_master_connection *conn)
 	o_stream_close(conn->output);
 	conn->output = NULL;
 
-	io_remove(conn->io);
-	conn->io = NULL;
+	if (conn->io != NULL) {
+		io_remove(conn->io);
+		conn->io = NULL;
+	}
 }
 
 void auth_master_connection_destroy(struct auth_master_connection *conn)

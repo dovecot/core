@@ -26,8 +26,7 @@ static void idle_finish(struct client *client, int done_ok)
 	}
 
 	io_remove(client->io);
-	client->io = io_add(i_stream_get_fd(client->input),
-			    IO_READ, _client_input, client);
+	client->io = NULL;
 
 	if (client->mailbox != NULL)
 		mailbox_notify_changes(client->mailbox, 0, NULL, NULL);
@@ -38,7 +37,7 @@ static void idle_finish(struct client *client, int done_ok)
 	else
 		client_send_tagline(client, "BAD Expected DONE.");
 
-	o_stream_flush(client->output);
+	o_stream_uncork(client->output);
 
 	_client_reset_command(client);
 	client->bad_counter = 0;

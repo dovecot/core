@@ -223,14 +223,6 @@ void index_storage_lock_notify(struct index_mailbox *ibox,
 	const char *str;
 	time_t now;
 
-	if ((secs_left % 15) != 0) {
-		/* update alarm() so that we get back here around the same
-		   time we want the next notify. also try to use somewhat
-		   rounded times. this affects only fcntl() locking, dotlock
-		   and flock() calls should be calling us constantly */
-		alarm(secs_left%15);
-	}
-
 	/* if notify type changes, print the message immediately */
 	now = time(NULL);
 	if (ibox->last_notify_type == MAILBOX_LOCK_NOTIFY_NONE ||

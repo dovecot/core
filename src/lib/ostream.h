@@ -1,6 +1,8 @@
 #ifndef __OSTREAM_H
 #define __OSTREAM_H
 
+#include "ioloop.h"
+
 struct ostream {
 	uoff_t offset;
 
@@ -24,30 +26,29 @@ void o_stream_unref(struct ostream *stream);
 /* Mark the stream closed. Nothing will be sent after this call. */
 void o_stream_close(struct ostream *stream);
 
+/* Set IO_WRITE callback. Default will just try to flush the output. */
+void o_stream_set_flush_callback(struct ostream *stream,
+				 io_callback_t *callback, void *context);
 /* Change the maximum size for stream's output buffer to grow. */
 void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size);
-/* Stream is made to be flushed out whenever it gets full (assumes max_size
-   is already set), ie. writes will never be partial. Also makes any blocking
-   writes to fail after specified timeout, calling timeout_cb if it's
-   set. This call changes non-blocking state of file descriptor. */
-void o_stream_set_blocking(struct ostream *stream, int timeout_msecs,
-			   void (*timeout_cb)(void *), void *context);
 
 /* Delays sending as far as possible, writing only full buffers. Also sets
-   TCP_CORK on if supported. o_stream_flush() removes the cork. */
+   TCP_CORK on if supported. */
 void o_stream_cork(struct ostream *stream);
+void o_stream_uncork(struct ostream *stream);
 /* Flush the output stream, blocks until everything is sent.
    Returns 1 if ok, -1 if error. */
 int o_stream_flush(struct ostream *stream);
-/* Returns 1 if specified amount of data currently fits into stream's output
-   buffer, 0 if not. */
-int o_stream_have_space(struct ostream *stream, size_t size);
+/* Returns number of bytes currently in buffer. */
+size_t o_stream_get_buffer_used_size(struct ostream *stream);
 
 /* Seek to specified position from beginning of file. This works only for
    files. Returns 1 if successful, -1 if error. */
 int o_stream_seek(struct ostream *stream, uoff_t offset);
-/* Returns number of bytes sent or buffered, or -1 if disconnected */
+/* Returns number of bytes sent, -1 = error */
 ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size);
+ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
+		       size_t iov_count);
 ssize_t o_stream_send_str(struct ostream *stream, const char *str);
 /* Send data from input stream. Returns number of bytes sent, or -1 if error.
    Note that this function may block if either instream or outstream is

@@ -31,15 +31,6 @@ static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 	i_stream_set_max_buffer_size(lstream->input, max_size);
 }
 
-static void _set_blocking(struct _iostream *stream, int timeout_msecs,
-			  void (*timeout_cb)(void *), void *context)
-{
-	struct limit_istream *lstream = (struct limit_istream *) stream;
-
-	i_stream_set_blocking(lstream->input, timeout_msecs,
-			      timeout_cb, context);
-}
-
 static ssize_t _read(struct _istream *stream)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
@@ -118,7 +109,6 @@ struct istream *i_stream_create_limit(pool_t pool, struct istream *input,
 	lstream->istream.iostream.close = _close;
 	lstream->istream.iostream.destroy = _destroy;
 	lstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
-	lstream->istream.iostream.set_blocking = _set_blocking;
 
 	lstream->istream.read = _read;
 	lstream->istream.seek = _seek;

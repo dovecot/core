@@ -320,10 +320,8 @@ int index_mail_parse_headers(struct index_mail *mail,
 {
 	struct index_mail_data *data = &mail->data;
 
-	if (data->stream == NULL) {
-		if (mail->mail.get_stream(&mail->mail, NULL, NULL) == NULL)
-			return FALSE;
-	}
+	if (mail->mail.get_stream(&mail->mail, NULL, NULL) == NULL)
+		return FALSE;
 
 	index_mail_parse_header_init(mail, headers);
 
@@ -508,7 +506,7 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 }
 
 static void header_cache_callback(struct message_header_line *hdr,
-				  int matched __attr_unused__, void *context)
+				  int *matched __attr_unused__, void *context)
 {
 	struct index_mail *mail = context;
 
@@ -534,10 +532,8 @@ index_mail_get_headers(struct mail *_mail,
 	/* not in cache / error */
 	p_free(mail->pool, dest);
 
-	if (mail->data.stream == NULL) {
-		if (mail->mail.get_stream(&mail->mail, NULL, NULL) == NULL)
-			return FALSE;
-	}
+	if (mail->mail.get_stream(&mail->mail, NULL, NULL) == NULL)
+		return FALSE;
 
 	if (mail->data.filter_stream != NULL)
 		i_stream_unref(mail->data.filter_stream);
@@ -549,13 +545,6 @@ index_mail_get_headers(struct mail *_mail,
 					      headers->name, headers->count,
 					      header_cache_callback, mail);
 	return mail->data.filter_stream;
-}
-
-static int strcasecmp_p(const void *p1, const void *p2)
-{
-	const char *const *s1 = p1, *const *s2 = p2;
-
-	return strcasecmp(*s1, *s2);
 }
 
 struct mailbox_header_lookup_ctx *

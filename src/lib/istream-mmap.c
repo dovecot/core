@@ -68,14 +68,6 @@ static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 	}
 }
 
-static void _set_blocking(struct _iostream *stream __attr_unused__,
-			  int timeout_msecs __attr_unused__,
-			  void (*timeout_cb)(void *) __attr_unused__,
-			  void *context __attr_unused__)
-{
-	/* we never block */
-}
-
 static ssize_t _read(struct _istream *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
@@ -140,6 +132,7 @@ static ssize_t _read(struct _istream *stream)
 	}
 
 	stream->pos = stream->buffer_size;
+	i_assert(stream->pos - stream->skip != 0);
 	return stream->pos - stream->skip;
 }
 
@@ -201,7 +194,6 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 	mstream->istream.iostream.close = _close;
 	mstream->istream.iostream.destroy = _destroy;
 	mstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
-	mstream->istream.iostream.set_blocking = _set_blocking;
 
 	mstream->istream.read = _read;
 	mstream->istream.seek = _seek;

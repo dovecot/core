@@ -37,12 +37,6 @@ void i_stream_close(struct istream *stream);
 /* Change the maximum size for stream's input buffer to grow. Useful only
    for buffered streams (currently only file). */
 void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size);
-/* Makes reads blocking until at least one byte is read. timeout_cb is
-   called if nothing is read in specified time. Setting timeout_msecs to 0
-   makes it non-blocking. This call changes non-blocking state of file
-   descriptor. */
-void i_stream_set_blocking(struct istream *stream, int timeout_msecs,
-			   void (*timeout_cb)(void *), void *context);
 
 /* Returns number of bytes read if read was ok, -1 if EOF or error, -2 if the
    input buffer is full. */

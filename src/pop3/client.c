@@ -5,6 +5,7 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "str.h"
 #include "mail-storage.h"
 #include "commands.h"
 #include "mail-search.h"
@@ -14,7 +15,11 @@
 /* max. length of input command line (spec says 512) */
 #define MAX_INBUF_SIZE 2048
 
-/* If we can't send a buffer in a minute, disconnect the client */
+/* Stop reading input when output buffer has this many bytes. Once the buffer
+   size has dropped to half of it, start reading input again. */
+#define OUTBUF_THROTTLE_SIZE 4096
+
+/* If we can't send anything for a minute, disconnect the client */
 #define CLIENT_OUTPUT_TIMEOUT (60*1000)
 
 /* Disconnect client when it sends too many bad commands in a row */
@@ -29,14 +34,7 @@ static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
 static void client_input(void *context);
-
-static void client_output_timeout(void *context)
-{
-	struct client *client = context;
-
-	i_stream_close(client->input);
-	o_stream_close(client->output);
-}
+static void client_output(void *context);
 
 static int sync_mailbox(struct mailbox *box)
 {
@@ -131,14 +129,16 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 	struct client *client;
         enum mailbox_open_flags flags;
 
+	/* always use nonblocking I/O */
+	net_set_nonblock(hin, TRUE);
+	net_set_nonblock(hout, TRUE);
+
 	client = i_new(struct client, 1);
 	client->input = i_stream_create_file(hin, default_pool,
 					     MAX_INBUF_SIZE, FALSE);
-	client->output = o_stream_create_file(hout, default_pool, 4096, FALSE);
-
-	/* set timeout for sending data */
-	o_stream_set_blocking(client->output, CLIENT_OUTPUT_TIMEOUT,
-			      client_output_timeout, client);
+	client->output = o_stream_create_file(hout, default_pool,
+					      (size_t)-1, FALSE);
+	o_stream_set_flush_callback(client->output, client_output, client);
 
 	client->io = io_add(hin, IO_READ, client_input, client);
         client->last_input = ioloop_time;
@@ -171,8 +171,6 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 
 void client_destroy(struct client *client)
 {
-	o_stream_flush(client->output);
-
 	if (client->mailbox != NULL)
 		mailbox_close(client->mailbox);
 	mail_storage_destroy(client->storage);
@@ -180,7 +178,8 @@ void client_destroy(struct client *client)
 	i_free(client->message_sizes);
 	i_free(client->deleted_bitmask);
 
-	io_remove(client->io);
+	if (client->io != NULL)
+		io_remove(client->io);
 
 	i_stream_unref(client->input);
 	o_stream_unref(client->output);
@@ -194,25 +193,52 @@ void client_destroy(struct client *client)
 
 void client_disconnect(struct client *client)
 {
-	o_stream_flush(client->output);
+	(void)o_stream_flush(client->output);
 
 	i_stream_close(client->input);
 	o_stream_close(client->output);
 }
 
-void client_send_line(struct client *client, const char *fmt, ...)
+int client_send_line(struct client *client, const char *fmt, ...)
 {
 	va_list va;
+	string_t *str;
+	ssize_t ret;
 
 	if (client->output->closed)
-		return;
+		return -1;
 
 	t_push();
 	va_start(va, fmt);
-	(void)o_stream_send_str(client->output, t_strdup_vprintf(fmt, va));
-	(void)o_stream_send(client->output, "\r\n", 2);
+
+	str = t_str_new(256);
+	str_vprintfa(str, fmt, va);
+	str_append(str, "\r\n");
+
+	ret = o_stream_send(client->output, str_data(str), str_len(str));
+	if (ret < 0)
+		client_destroy(client);
+	else {
+		i_assert((size_t)ret == str_len(str));
+
+		if (o_stream_get_buffer_used_size(client->output) <
+		    OUTBUF_THROTTLE_SIZE) {
+			ret = 1;
+			client->last_output = ioloop_time;
+		} else {
+			ret = 0;
+			if (client->io != NULL) {
+				/* no more input until client has read
+				   our output */
+				io_remove(client->io);
+				client->io = NULL;
+			}
+		}
+	}
+
 	va_end(va);
 	t_pop();
+	return (int)ret;
 }
 
 void client_send_storage_error(struct client *client)
@@ -237,6 +263,16 @@ static void client_input(void *context)
 	struct client *client = context;
 	char *line, *args;
 
+	if (client->cmd != NULL) {
+		/* we're still processing a command. wait until it's
+		   finished. */
+		io_remove(client->io);
+		client->io = NULL;
+		client->waiting_input = TRUE;
+		return;
+	}
+
+	client->waiting_input = FALSE;
 	client->last_input = ioloop_time;
 
 	switch (i_stream_read(client->input)) {
@@ -260,17 +296,44 @@ static void client_input(void *context)
 		else
 			*args++ = '\0';
 
-		if (client_command_execute(client, line, args))
+		if (client_command_execute(client, line, args)) {
 			client->bad_counter = 0;
-		else if (++client->bad_counter > CLIENT_MAX_BAD_COMMANDS) {
+			if (client->cmd != NULL) {
+				client->waiting_input = TRUE;
+				break;
+			}
+		} else if (++client->bad_counter > CLIENT_MAX_BAD_COMMANDS) {
 			client_send_line(client, "-ERR Too many bad commands.");
 			client_disconnect(client);
 		}
 	}
-	o_stream_flush(client->output);
+	o_stream_uncork(client->output);
 
 	if (client->output->closed)
 		client_destroy(client);
+}
+
+static void client_output(void *context)
+{
+	struct client *client = context;
+	int ret;
+
+	if ((ret = o_stream_flush(client->output)) < 0) {
+		client_destroy(client);
+		return;
+	}
+
+	client->last_output = ioloop_time;
+
+	if (o_stream_get_buffer_used_size(client->output) <
+	    OUTBUF_THROTTLE_SIZE/2 && client->io == NULL &&
+	    client->cmd == NULL) {
+		/* enable input again */
+		client->io = io_add(i_stream_get_fd(client->input), IO_READ,
+				    client_input, client);
+		if (client->waiting_input)
+			client_input(client);
+	}
 }
 
 static void idle_timeout(void *context __attr_unused__)
@@ -278,10 +341,18 @@ static void idle_timeout(void *context __attr_unused__)
 	if (my_client == NULL)
 		return;
 
-	if (ioloop_time - my_client->last_input >= CLIENT_IDLE_TIMEOUT) {
-		client_send_line(my_client,
-				 "-ERR Disconnected for inactivity.");
-		client_destroy(my_client);
+	if (my_client->cmd != NULL) {
+		if (ioloop_time - my_client->last_output >=
+		    CLIENT_OUTPUT_TIMEOUT &&
+		    my_client->last_input < my_client->last_output)
+			client_destroy(my_client);
+	} else {
+		if (ioloop_time - my_client->last_input >=
+		    CLIENT_IDLE_TIMEOUT) {
+			client_send_line(my_client,
+					 "-ERR Disconnected for inactivity.");
+			client_destroy(my_client);
+		}
 	}
 }
 

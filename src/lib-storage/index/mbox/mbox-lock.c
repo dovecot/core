@@ -347,6 +347,7 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 {
 	struct flock fl;
 	time_t now;
+	unsigned int next_alarm;
 	int wait_type;
 
 	if (mbox_file_open_latest(ctx, lock_type) < 0)
@@ -361,23 +362,40 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 	fl.l_start = 0;
 	fl.l_len = 0;
 
-        wait_type = max_wait_time == 0 ? F_SETLK : F_SETLKW;
+	if (max_wait_time == 0)
+		wait_type = F_SETLK;
+	else {
+		wait_type = F_SETLKW;
+		alarm(I_MIN(max_wait_time, 5));
+	}
+
 	while (fcntl(ctx->ibox->mbox_fd, wait_type, &fl) < 0) {
 		if (errno != EINTR) {
 			if (errno != EAGAIN && errno != EACCES)
 				mbox_set_syscall_error(ctx->ibox, "fcntl()");
+			alarm(0);
 			return -1;
 		}
 
 		now = time(NULL);
-		if (max_wait_time != 0 && now >= max_wait_time)
+		if (max_wait_time != 0 && now >= max_wait_time) {
+			alarm(0);
 			return 0;
+		}
+
+		/* notify locks once every 5 seconds.
+		   try to use rounded values. */
+		next_alarm = (max_wait_time - now) % 5;
+		if (next_alarm == 0)
+			next_alarm = 5;
+		alarm(next_alarm);
 
 		index_storage_lock_notify(ctx->ibox,
 					  MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
 					  max_wait_time - now);
 	}
 
+	alarm(0);
 	return 1;
 }
 

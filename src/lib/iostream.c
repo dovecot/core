@@ -40,9 +40,3 @@ void _io_stream_set_max_buffer_size(struct _iostream *stream, size_t max_size)
 {
 	stream->set_max_buffer_size(stream, max_size);
 }
-
-void _io_stream_set_blocking(struct _iostream *stream, int timeout_msecs,
-			     void (*timeout_cb)(void *), void *context)
-{
-	stream->set_blocking(stream, timeout_msecs, timeout_cb, context);
-}

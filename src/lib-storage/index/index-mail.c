@@ -236,12 +236,12 @@ time_t index_mail_get_date(struct mail *_mail, int *timezone)
 	return data->sent_date.time;
 }
 
-static int get_msgpart_sizes(struct index_mail *mail)
+static int get_cached_msgpart_sizes(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
 
 	if (data->parts == NULL)
-		(void)index_mail_get_parts(&mail->mail);
+		data->parts = get_cached_parts(mail);
 
 	if (data->parts != NULL) {
 		data->hdr_size = data->parts->header_size;
@@ -268,12 +268,15 @@ uoff_t index_mail_get_size(struct mail *_mail)
 	if (data->size != (uoff_t)-1)
 		return data->size;
 
-	if (get_msgpart_sizes(mail))
+	if (get_cached_msgpart_sizes(mail))
 		return data->size;
 
 	if (_mail->get_stream(_mail, &hdr_size, &body_size) == NULL)
 		return (uoff_t)-1;
 
+	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
+		       cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx,
+		       &data->size, sizeof(data->size));
 	return data->size;
 }
 
@@ -373,7 +376,7 @@ struct istream *index_mail_init_stream(struct index_mail *_mail,
 	struct index_mail_data *data = &mail->data;
 
 	if (hdr_size != NULL || body_size != NULL)
-		(void)get_msgpart_sizes(mail);
+		(void)get_cached_msgpart_sizes(mail);
 
 	if (hdr_size != NULL) {
 		if (!data->hdr_size_set) {

@@ -7,6 +7,15 @@
 /* Disconnect client after idling this many seconds */
 #define CLIENT_IDLE_TIMEOUT (60*30)
 
+/* If we can't send anything to client for this long, disconnect the client */
+#define CLIENT_OUTPUT_TIMEOUT (5*60)
+
+/* Stop buffering more data into output stream after this many bytes */
+#define CLIENT_OUTPUT_OPTIMAL_SIZE 2048
+
+/* Disconnect client when it sends too many bad commands in a row */
+#define CLIENT_MAX_BAD_COMMANDS 20
+
 /* RFC-2683 recommends at least 8000 bytes. Some clients however don't
    break large message sets to multiple commands, so we're pretty liberal
    by default. */

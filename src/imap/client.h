@@ -27,18 +27,20 @@ struct client {
 	unsigned int select_counter; /* increased when mailbox is changed */
 	uint32_t messages_count, recent_count;
 
-	time_t last_input;
+	time_t last_input, last_output;
 	unsigned int bad_counter;
 
 	struct imap_parser *parser;
-	const char *cmd_tag; /* tag of command (allocated from parser pool), */
-	const char *cmd_name; /* command name (allocated from parser pool) */
+	pool_t cmd_pool;
+	const char *cmd_tag;
+	const char *cmd_name;
 	command_func_t *cmd_func;
+	void *cmd_context;
 
 	struct timeout *idle_to;
 	unsigned int idle_expunge;
 
-	unsigned int cmd_error:1;
+	unsigned int command_pending:1;
 	unsigned int cmd_uid:1; /* used UID command */
 	unsigned int rawlog:1;
 	unsigned int input_skip_line:1; /* skip all the data until we've
@@ -73,7 +75,6 @@ int client_read_string_args(struct client *client, unsigned int count, ...);
 void clients_init(void);
 void clients_deinit(void);
 
-void _client_input(void *context);
 void _client_reset_command(struct client *client);
 
 #endif

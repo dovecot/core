@@ -1,7 +1,6 @@
 noinst_LIBRARIES = liblib.a
 
 liblib_a_SOURCES = \
-	alarm-hup.c \
 	base64.c \
 	buffer.c \
 	byteorder.c \
@@ -68,7 +67,6 @@ liblib_a_SOURCES = \
 	write-full.c
 
 noinst_HEADERS = \
-	alarm-hup.h \
 	base64.h \
 	buffer.h \
 	byteorder.h \

@@ -16,13 +16,6 @@ static void _set_max_buffer_size(struct _iostream *stream __attr_unused__,
 {
 }
 
-static void _set_blocking(struct _iostream *stream __attr_unused__,
-			  int timeout_msecs __attr_unused__,
-			  void (*timeout_cb)(void *) __attr_unused__,
-			  void *context __attr_unused__)
-{
-}
-
 static ssize_t _read(struct _istream *stream __attr_unused__)
 {
 	return -1;
@@ -51,7 +44,6 @@ struct istream *i_stream_create_from_data(pool_t pool, const void *data,
 	stream->iostream.close = _close;
 	stream->iostream.destroy = _destroy;
 	stream->iostream.set_max_buffer_size = _set_max_buffer_size;
-	stream->iostream.set_blocking = _set_blocking;
 
 	stream->read = _read;
 	stream->seek = _seek;

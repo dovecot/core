@@ -16,8 +16,13 @@
 #include "hostpid.h"
 #include "imem.h"
 
-/* max. length of input command line (spec says 512) */
-#define MAX_INBUF_SIZE 2048
+/* max. length of input command line (spec says 512), or max reply length in
+   SASL authentication */
+#define MAX_INBUF_SIZE 4096
+
+/* max. size of output buffer. if it gets full, the client is disconnected.
+   SASL authentication gives the largest output. */
+#define MAX_OUTBUF_SIZE 4096
 
 /* Disconnect client after idling this many seconds */
 #define CLIENT_LOGIN_IDLE_TIMEOUT 60
@@ -54,14 +59,54 @@ static void client_set_title(struct pop3_client *client)
 
 static void client_open_streams(struct pop3_client *client, int fd)
 {
-	client->input = i_stream_create_file(fd, default_pool, 8192, FALSE);
-	client->output = o_stream_create_file(fd, default_pool, 1024, FALSE);
+	client->input = i_stream_create_file(fd, default_pool,
+					     MAX_INBUF_SIZE, FALSE);
+	client->output = o_stream_create_file(fd, default_pool,
+					      MAX_OUTBUF_SIZE, FALSE);
+}
+
+static void client_start_tls(struct pop3_client *client)
+{
+	int fd_ssl;
+
+	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip,
+			       &client->common.proxy);
+	if (fd_ssl == -1) {
+		client_send_line(client, "-ERR TLS initialization failed.");
+		client_destroy(client, "TLS initialization failed.");
+		return;
+	}
+
+	client->tls = TRUE;
+	client->secured = TRUE;
+	client_set_title(client);
+
+	client->common.fd = fd_ssl;
+
+	i_stream_unref(client->input);
+	o_stream_unref(client->output);
+
+	client_open_streams(client, fd_ssl);
+	client->common.io = io_add(client->common.fd, IO_READ,
+				   client_input, client);
+}
+
+static void client_output_starttls(void *context)
+{
+	struct pop3_client *client = context;
+	int ret;
+
+	if ((ret = o_stream_flush(client->output)) < 0) {
+		client_destroy(client, "Disconnected");
+		return;
+	}
+
+	if (ret > 0)
+		client_start_tls(client);
 }
 
 static int cmd_stls(struct pop3_client *client)
 {
-	int fd_ssl;
-
 	if (client->tls) {
 		client_send_line(client, "-ERR TLS is already active.");
 		return TRUE;
@@ -72,36 +117,21 @@ static int cmd_stls(struct pop3_client *client)
 		return TRUE;
 	}
 
-	client_send_line(client, "+OK Begin TLS negotiation now.");
-	o_stream_flush(client->output);
-
-	/* must be removed before ssl_proxy_new(), since it may
-	   io_add() the same fd. */
+	/* remove input handler, SSL proxy gives us a new fd. we also have to
+	   remove it in case we have to wait for buffer to be flushed */
 	if (client->common.io != NULL) {
 		io_remove(client->common.io);
 		client->common.io = NULL;
 	}
 
-	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip,
-			       &client->common.proxy);
-	if (fd_ssl != -1) {
-		client->tls = TRUE;
-		client->secured = TRUE;
-                client_set_title(client);
-
-		client->common.fd = fd_ssl;
-
-		i_stream_unref(client->input);
-		o_stream_unref(client->output);
-
-		client_open_streams(client, fd_ssl);
-		client->common.io = io_add(client->common.fd, IO_READ,
-					   client_input, client);
+	client_send_line(client, "+OK Begin TLS negotiation now.");
+	if (o_stream_get_buffer_used_size(client->output) != 0) {
+		/* the buffer has to be flushed */
+		o_stream_set_flush_callback(client->output,
+					    client_output_starttls, client);
 	} else {
-		client_send_line(client, "-ERR TLS initialization failed.");
-		client_destroy(client, "TLS initialization failed.");
+		client_start_tls(client);
 	}
-
 	return TRUE;
 }
 
@@ -184,7 +214,7 @@ void client_input(void *context)
 	}
 
 	if (client_unref(client))
-		o_stream_flush(client->output);
+		o_stream_uncork(client->output);
 }
 
 static void client_destroy_oldest(void)
@@ -347,8 +377,18 @@ int client_unref(struct pop3_client *client)
 
 void client_send_line(struct pop3_client *client, const char *line)
 {
-	o_stream_send_str(client->output, line);
-	o_stream_send(client->output, "\r\n", 2);
+	struct const_iovec iov[2];
+	ssize_t ret;
+
+	iov[0].iov_base = line;
+	iov[0].iov_len = strlen(line);
+	iov[1].iov_base = "\r\n";
+	iov[1].iov_len = 2;
+
+	if ((ret = o_stream_sendv(client->output, iov, 2)) < 0)
+		client_destroy(client, "Disconnected");
+	else if ((size_t)ret != iov[0].iov_len + iov[1].iov_len)
+		client_destroy(client, "Transmit buffer full");
 }
 
 void client_syslog(struct pop3_client *client, const char *text)

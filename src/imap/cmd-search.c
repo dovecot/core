@@ -58,7 +58,6 @@ int cmd_search(struct client *client)
 	struct mail_search_arg *sargs;
 	struct imap_arg *args;
 	int args_count;
-	pool_t pool;
 	const char *error, *charset;
 
 	args_count = imap_parser_read_args(client->parser, 0, 0, &args);
@@ -91,9 +90,7 @@ int cmd_search(struct client *client)
 		charset = NULL;
 	}
 
-	pool = pool_alloconly_create("mail_search_args", 2048);
-
-	sargs = imap_search_args_build(pool, client->mailbox, args, &error);
+	sargs = imap_search_args_build(client->cmd_pool, client->mailbox, args, &error);
 	if (sargs == NULL) {
 		/* error in search arguments */
 		client_send_tagline(client, t_strconcat("NO ", error, NULL));
@@ -108,6 +105,5 @@ int cmd_search(struct client *client)
 					  mailbox_get_storage(client->mailbox));
 	}
 
-	pool_unref(pool);
 	return TRUE;
 }

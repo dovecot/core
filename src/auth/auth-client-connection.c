@@ -25,22 +25,19 @@ static void request_callback(struct auth_client_request_reply *reply,
 			     const void *data,
 			     struct auth_client_connection *conn)
 {
+	struct const_iovec iov[2];
 	ssize_t ret;
 
-	ret = o_stream_send(conn->output, reply, sizeof(*reply));
-	if ((size_t)ret == sizeof(*reply)) {
-		if (reply->data_size == 0) {
-			/* all sent */
-			auth_client_connection_unref(conn);
-			return;
-		}
+	iov[0].iov_base = reply;
+	iov[0].iov_len = sizeof(*reply);
+	iov[1].iov_base = data;
+	iov[2].iov_len = reply->data_size;
 
-		ret = o_stream_send(conn->output, data, reply->data_size);
-		if ((size_t)ret == reply->data_size) {
-			/* all sent */
-			auth_client_connection_unref(conn);
-			return;
-		}
+	ret = o_stream_sendv(conn->output, iov, 2);
+	if (ret == (ssize_t)(iov[0].iov_len + iov[1].iov_len)) {
+		/* all sent */
+		auth_client_connection_unref(conn);
+		return;
 	}
 
 	if (ret >= 0) {
@@ -188,6 +185,7 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
 	static unsigned int connect_uid_counter = 0;
 	struct auth_client_connection *conn;
 	struct auth_client_handshake_reply handshake_reply;
+	struct const_iovec iov[2];
 
 	pool_t pool;
 
@@ -214,10 +212,12 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
 	handshake_reply = *master->handshake_reply;
 	handshake_reply.connect_uid = conn->connect_uid;
 
-	if (o_stream_send(conn->output, &handshake_reply,
-			  sizeof(handshake_reply)) < 0 ||
-	    o_stream_send(conn->output, master->handshake_reply + 1,
-			  handshake_reply.data_size) < 0) {
+	iov[0].iov_base = &handshake_reply;
+	iov[0].iov_len = sizeof(handshake_reply);
+	iov[1].iov_base = master->handshake_reply + 1;
+	iov[2].iov_len = handshake_reply.data_size;
+
+	if (o_stream_sendv(conn->output, iov, 2) < 0) {
 		auth_client_connection_destroy(conn);
 		conn = NULL;
 	}

@@ -194,7 +194,7 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 	}
 	conn->input = i_stream_create_file(fd, default_pool, MAX_INBUF_SIZE,
 					   FALSE);
-	conn->output = o_stream_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
+	conn->output = o_stream_create_file(fd, default_pool, (size_t)-1,
 					    FALSE);
 	conn->requests = hash_create(default_pool, pool, 100, NULL, NULL);
 

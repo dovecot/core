@@ -47,8 +47,7 @@ maildir_read_into_tmp(struct index_mailbox *ibox, const char *dir,
 	i_assert(fname != NULL);
 	fname++;
 
-	output = o_stream_create_file(fd, pool_datastack_create(), 4096, FALSE);
-	o_stream_set_blocking(output, 60000, NULL, NULL);
+	output = o_stream_create_file(fd, pool_datastack_create(), 0, FALSE);
 
 	crlf = getenv("MAIL_SAVE_CRLF") != NULL;
 	if (mail_storage_save(ibox->box.storage, path, input, output,

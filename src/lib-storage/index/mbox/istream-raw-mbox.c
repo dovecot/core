@@ -40,15 +40,6 @@ static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 	i_stream_set_max_buffer_size(rstream->input, max_size);
 }
 
-static void _set_blocking(struct _iostream *stream, int timeout_msecs,
-			  void (*timeout_cb)(void *), void *context)
-{
-	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
-
-	i_stream_set_blocking(rstream->input, timeout_msecs,
-			      timeout_cb, context);
-}
-
 static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 {
 	const unsigned char *buf, *p;
@@ -298,7 +289,6 @@ struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input)
 	rstream->istream.iostream.close = _close;
 	rstream->istream.iostream.destroy = _destroy;
 	rstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
-	rstream->istream.iostream.set_blocking = _set_blocking;
 
 	rstream->istream.read = _read;
 	rstream->istream.seek = _seek;

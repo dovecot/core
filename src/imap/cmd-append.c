@@ -121,19 +121,16 @@ int cmd_append(struct client *client)
 
 			/* need more data */
 			ret = i_stream_read(client->input);
-			if (ret == -2) {
-				client_send_command_error(client,
-							  "Too long argument.");
-				break;
-			}
 			if (ret < 0) {
-				/* disconnected */
-				client->cmd_error = TRUE;
+				if (ret == -2) {
+					client_send_command_error(client,
+						"Too long argument.");
+				}
 				break;
 			}
 		}
 
-		if (client->cmd_error)
+		if (ret < 0)
 			break;
 
 		if (args->type == IMAP_ARG_EOL) {

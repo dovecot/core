@@ -56,6 +56,7 @@ const char *t_str_ucase(const char *str);
 int null_strcmp(const char *s1, const char *s2);
 int memcasecmp(const void *p1, const void *p2, size_t size);
 int bsearch_strcasecmp(const void *p1, const void *p2);
+int strcasecmp_p(const void *p1, const void *p2);
 
 /* seprators is an array of separator characters, not a separator string. */
 const char **t_strsplit(const char *data, const char *separators);

@@ -1,7 +1,6 @@
 /* Copyright (c) 2001-2003 Timo Sirainen */
 
 #include "lib.h"
-#include "alarm-hup.h"
 #include "hostpid.h"
 
 #include <stdlib.h>
@@ -29,8 +28,6 @@ void lib_init(void)
 
 void lib_deinit(void)
 {
-	alarm_hup_deinit(); /* doesn't harm even if init is never called */
-
         imem_deinit();
 	data_stack_deinit();
         failures_deinit();

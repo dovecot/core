@@ -176,7 +176,7 @@ static void main_init(void)
 		client_send_line(client, t_strconcat(getenv("IMAPLOGINTAG"),
 						     " OK Logged in.", NULL));
 	}
-        o_stream_flush(client->output);
+        o_stream_uncork(client->output);
 }
 
 static void main_deinit(void)

@@ -15,10 +15,13 @@
 #include "auth-client.h"
 #include "ssl-proxy.h"
 
-/* max. size of one parameter in line */
-#define MAX_INBUF_SIZE 512
+/* max. size of one parameter in line, or max reply length in SASL
+   authentication */
+#define MAX_INBUF_SIZE 4096
 
-#define MAX_OUTBUF_SIZE 1024
+/* max. size of output buffer. if it gets full, the client is disconnected.
+   SASL authentication gives the largest output. */
+#define MAX_OUTBUF_SIZE 4096
 
 /* maximum length for IMAP command line. */
 #define MAX_IMAP_LINE 8192
@@ -100,10 +103,51 @@ static int cmd_capability(struct imap_client *client)
 	return TRUE;
 }
 
-static int cmd_starttls(struct imap_client *client)
+static void client_start_tls(struct imap_client *client)
 {
 	int fd_ssl;
 
+	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip,
+			       &client->common.proxy);
+	if (fd_ssl == -1) {
+		client_send_line(client, "* BYE TLS initialization failed.");
+		client_destroy(client, "TLS initialization failed.");
+		return;
+	}
+
+	client->tls = TRUE;
+	client->secured = TRUE;
+	client_set_title(client);
+
+	client->common.fd = fd_ssl;
+	i_stream_unref(client->input);
+	o_stream_unref(client->output);
+	imap_parser_destroy(client->parser);
+
+	/* CRLF is lost from buffer when streams are reopened. */
+	client->skip_line = FALSE;
+
+	client_open_streams(client, fd_ssl);
+	client->common.io = io_add(client->common.fd, IO_READ,
+				   client_input, client);
+}
+
+static void client_output_starttls(void *context)
+{
+	struct imap_client *client = context;
+	int ret;
+
+	if ((ret = o_stream_flush(client->output)) < 0) {
+		client_destroy(client, "Disconnected");
+		return;
+	}
+
+	if (ret > 0)
+		client_start_tls(client);
+}
+
+static int cmd_starttls(struct imap_client *client)
+{
 	if (client->tls) {
 		client_send_tagline(client, "BAD TLS is already active.");
 		return TRUE;
@@ -114,40 +158,21 @@ static int cmd_starttls(struct imap_client *client)
 		return TRUE;
 	}
 
-	client_send_tagline(client, "OK Begin TLS negotiation now.");
-	o_stream_flush(client->output);
-
-	/* must be removed before ssl_proxy_new(), since it may
-	   io_add() the same fd. */
+	/* remove input handler, SSL proxy gives us a new fd. we also have to
+	   remove it in case we have to wait for buffer to be flushed */
 	if (client->common.io != NULL) {
 		io_remove(client->common.io);
 		client->common.io = NULL;
 	}
 
-	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip,
-			       &client->common.proxy);
-	if (fd_ssl != -1) {
-		client->tls = TRUE;
-		client->secured = TRUE;
-                client_set_title(client);
-
-		/* we skipped it already, so don't ignore next command */
-		client->skip_line = FALSE;
-
-		client->common.fd = fd_ssl;
-
-		i_stream_unref(client->input);
-		o_stream_unref(client->output);
-		imap_parser_destroy(client->parser);
-
-		client_open_streams(client, fd_ssl);
-		client->common.io = io_add(client->common.fd, IO_READ,
-					   client_input, client);
+	client_send_tagline(client, "OK Begin TLS negotiation now.");
+	if (o_stream_get_buffer_used_size(client->output) != 0) {
+		/* the buffer has to be flushed */
+		o_stream_set_flush_callback(client->output,
+					    client_output_starttls, client);
 	} else {
-		client_send_line(client, "* BYE TLS initialization failed.");
-		client_destroy(client, "TLS initialization failed.");
+		client_start_tls(client);
 	}
-
 	return TRUE;
 }
 
@@ -292,22 +317,21 @@ void client_input(void *context)
 	if (!client_read(client))
 		return;
 
+	client_ref(client);
+
 	if (!auth_client_is_connected(auth_client)) {
 		/* we're not yet connected to auth process -
 		   don't allow any commands */
 		client_send_line(client,
 			"* OK Waiting for authentication process to respond..");
 		client->input_blocked = TRUE;
-		return;
+	} else {
+		o_stream_cork(client->output);
+		while (client_handle_input(client)) ;
+		o_stream_uncork(client->output);
 	}
 
-	client_ref(client);
-
-	o_stream_cork(client->output);
-	while (client_handle_input(client)) ;
-
-	if (client_unref(client))
-		o_stream_flush(client->output);
+	client_unref(client);
 }
 
 static void client_destroy_oldest(void)
@@ -452,8 +476,18 @@ int client_unref(struct imap_client *client)
 
 void client_send_line(struct imap_client *client, const char *line)
 {
-	o_stream_send_str(client->output, line);
-	o_stream_send(client->output, "\r\n", 2);
+	struct const_iovec iov[2];
+	ssize_t ret;
+
+	iov[0].iov_base = line;
+	iov[0].iov_len = strlen(line);
+	iov[1].iov_base = "\r\n";
+	iov[1].iov_len = 2;
+
+	if ((ret = o_stream_sendv(client->output, iov, 2)) < 0)
+		client_destroy(client, "Disconnected");
+	else if ((size_t)ret != iov[0].iov_len + iov[1].iov_len)
+		client_destroy(client, "Transmit buffer full");
 }
 
 void client_send_tagline(struct imap_client *client, const char *line)

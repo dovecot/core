@@ -64,7 +64,7 @@ imap_SOURCES = \
 	commands-util.c \
 	imap-expunge.c \
 	imap-fetch.c \
-	imap-fetch-body-section.c \
+	imap-fetch-body.c \
 	imap-messageset.c \
 	imap-search.c \
 	imap-sort.c \

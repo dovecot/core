@@ -292,8 +292,7 @@ int mbox_save(struct mailbox_transaction_context *_t,
 			return -1;
 
 		ctx->output = o_stream_create_file(ibox->mbox_fd, default_pool,
-						   4096, FALSE);
-		o_stream_set_blocking(ctx->output, 60000, NULL, NULL);
+						   0, FALSE);
 	}
 
 	if (!ctx->synced && mail_r != NULL) {

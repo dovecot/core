@@ -111,23 +111,48 @@ static int cmd_dele(struct client *client, const char *args)
 	return TRUE;
 }
 
+struct cmd_list_context {
+	unsigned int msgnum;
+};
+
+static void cmd_list_callback(struct client *client)
+{
+	struct cmd_list_context *ctx = client->cmd_context;
+	int ret;
+
+	for (; ctx->msgnum != client->messages_count; ctx->msgnum++) {
+		if (client->deleted) {
+			if (client->deleted_bitmask[ctx->msgnum / CHAR_BIT] &
+			    (1 << (ctx->msgnum % CHAR_BIT)))
+				continue;
+		}
+		ret = client_send_line(client, "%u %"PRIuUOFF_T,
+				       ctx->msgnum+1,
+				       client->message_sizes[ctx->msgnum]);
+		if (ret < 0)
+			break;
+		if (ret == 0)
+			return;
+	}
+
+	client_send_line(client, ".");
+
+	i_free(ctx);
+	client->cmd = NULL;
+}
+
 static int cmd_list(struct client *client, const char *args)
 {
-	unsigned int i;
+        struct cmd_list_context *ctx;
 
 	if (*args == '\0') {
+		ctx = i_new(struct cmd_list_context, 1);
 		client_send_line(client, "+OK %u messages:",
 				 client->messages_count - client->deleted_count);
-		for (i = 0; i < client->messages_count; i++) {
-			if (client->deleted) {
-				if (client->deleted_bitmask[i / CHAR_BIT] &
-				    (1 << (i % CHAR_BIT)))
-					continue;
-			}
-			client_send_line(client, "%u %"PRIuUOFF_T,
-					 i+1, client->message_sizes[i]);
-		}
-		client_send_line(client, ".");
+
+		client->cmd = cmd_list_callback;
+		client->cmd_context = ctx;
+		cmd_list_callback(client);
 	} else {
 		unsigned int msgnum;
 
@@ -198,127 +223,149 @@ static int cmd_quit(struct client *client, const char *args __attr_unused__)
 	return TRUE;
 }
 
-static void stream_send_escaped(struct ostream *output, struct istream *input,
-				uoff_t body_lines)
+struct fetch_context {
+        struct mailbox_transaction_context *t;
+	struct mail_search_context *search_ctx;
+	struct istream *stream;
+	uoff_t body_lines;
+
+	struct mail_search_arg search_arg;
+        struct mail_search_seqset seqset;
+
+	unsigned char last;
+	int cr_skipped, in_body;
+};
+
+static void fetch_deinit(struct fetch_context *ctx)
 {
+	(void)mailbox_search_deinit(ctx->search_ctx);
+	(void)mailbox_transaction_commit(ctx->t);
+	i_free(ctx);
+}
+
+static void fetch_callback(struct client *client)
+{
+	struct fetch_context *ctx = client->cmd_context;
 	const unsigned char *data;
-	unsigned char last, add;
+	unsigned char add;
 	size_t i, size;
-	int cr_skipped, in_header;
+	ssize_t ret;
 
-	if (body_lines != (uoff_t)-1)
-		body_lines++; /* internally we count the empty line too */
+	o_stream_set_max_buffer_size(client->output, 0);
 
-	cr_skipped = FALSE; in_header = TRUE; last = '\0';
-	while ((body_lines > 0 || in_header) &&
-	       i_stream_read_data(input, &data, &size, 0) > 0) {
+	while ((ctx->body_lines > 0 || !ctx->in_body) &&
+	       i_stream_read_data(ctx->stream, &data, &size, 0) > 0) {
+		if (size > 4096)
+			size = 4096;
+
 		add = '\0';
 		for (i = 0; i < size; i++) {
-			if (in_header && (data[i] == '\r' || data[i] == '\n')) {
-				if (i == 0 && (last == '\0' || last == '\n'))
-					in_header = FALSE;
+			if ((data[i] == '\r' || data[i] == '\n') &&
+			    !ctx->in_body) {
+				if (i == 0 && (ctx->last == '\0' ||
+					       ctx->last == '\n'))
+					ctx->in_body = TRUE;
 				else if (i > 0 && data[i-1] == '\n')
-					in_header = FALSE;
+					ctx->in_body = TRUE;
 			}
 
 			if (data[i] == '\n') {
-				if ((i == 0 && last != '\r') ||
+				if ((i == 0 && ctx->last != '\r') ||
 				    (i > 0 && data[i-1] != '\r')) {
 					/* missing CR */
 					add = '\r';
 					break;
 				}
 
-				if (!in_header) {
-					if (--body_lines == 0) {
+				if (ctx->in_body) {
+					if (--ctx->body_lines == 0) {
 						i++;
 						break;
 					}
 				}
 			} else if (data[i] == '.' &&
-				   ((i == 0 && last == '\n') ||
+				   ((i == 0 && ctx->last == '\n') ||
 				    (i > 0 && data[i-1] == '\n'))) {
 				/* escape the dot */
 				add = '.';
-				i++;
 				break;
 			} else if (data[i] == '\0' &&
 				   (client_workarounds &
 				    WORKAROUND_OUTLOOK_NO_NULS) != 0) {
-				add = '\x80';
+				add = 0x80;
 				break;
 			}
 		}
 
-		if (o_stream_send(output, data, i) < 0)
-			return;
+		if ((ret = o_stream_send(client->output, data, i)) < 0)
+			break;
+		if (ret > 0)
+			ctx->last = data[ret-1];
+		i_stream_skip(ctx->stream, ret);
 
-		if (add != '\0') {
-			if (o_stream_send(output, &add, 1) < 0)
-				return;
-			last = add;
-			if (client_workarounds & WORKAROUND_OUTLOOK_NO_NULS) {
-				if (i < size && data[i] == '\0')
-					i++;
-			}
-		} else {
-			last = data[i-1];
+		if ((size_t)ret != i) {
+			/* continue later */
+			return;
 		}
 
-		i_stream_skip(input, i);
+		if (add != '\0') {
+			if ((ret = o_stream_send(client->output, &add, 1)) < 0)
+				break;
+			if (ret == 0)
+				return;
+
+			ctx->last = add;
+			if (add == 0x80)
+				i_stream_skip(ctx->stream, 1);
+		}
+	}
+	o_stream_set_max_buffer_size(client->output, (size_t)-1);
+
+	if (ctx->last != '\n') {
+		/* didn't end with CRLF */
+		(void)o_stream_send(client->output, "\r\n", 2);
 	}
 
-	if (last != '\n') {
-		/* didn't end with CRLF */
-		(void)o_stream_send(output, "\r\n", 2);
-	}
+	client_send_line(client, ".");
+	fetch_deinit(ctx);
+	client->cmd = NULL;
 }
 
-static void fetch(struct client *client, unsigned int msgnum,
-		  uoff_t body_lines)
+static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 {
-	struct mail_search_arg search_arg;
-        struct mail_search_seqset seqset;
-        struct mailbox_transaction_context *t;
-	struct mail_search_context *ctx;
+        struct fetch_context *ctx;
 	struct mail *mail;
-	struct istream *stream;
 
-	memset(&seqset, 0, sizeof(seqset));
-	seqset.seq1 = seqset.seq2 = msgnum+1;
+	ctx = i_new(struct fetch_context, 1);
 
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_SEQSET;
-	search_arg.value.seqset = &seqset;
+	ctx->seqset.seq1 = ctx->seqset.seq2 = msgnum+1;
+	ctx->search_arg.type = SEARCH_SEQSET;
+	ctx->search_arg.value.seqset = &ctx->seqset;
 
-	t = mailbox_transaction_begin(client->mailbox, FALSE);
-	ctx = mailbox_search_init(t, NULL, &search_arg, NULL,
-				  MAIL_FETCH_STREAM_HEADER |
-				  MAIL_FETCH_STREAM_BODY, NULL);
-	if (ctx == NULL) {
-		mailbox_transaction_rollback(t);
-		client_send_storage_error(client);
+	ctx->t = mailbox_transaction_begin(client->mailbox, FALSE);
+	ctx->search_ctx = mailbox_search_init(ctx->t, NULL, &ctx->search_arg,
+					      NULL, MAIL_FETCH_STREAM_HEADER |
+					      MAIL_FETCH_STREAM_BODY, NULL);
+	mail = mailbox_search_next(ctx->search_ctx);
+	ctx->stream = mail == NULL ? NULL : mail->get_stream(mail, NULL, NULL);
+	if (ctx->stream == NULL) {
+		client_send_line(client, "-ERR Message not found.");
+		fetch_deinit(ctx);
 		return;
 	}
 
-	mail = mailbox_search_next(ctx);
-	stream = mail == NULL ? NULL : mail->get_stream(mail, NULL, NULL);
-	if (stream == NULL)
-		client_send_line(client, "-ERR Message not found.");
-	else {
-		if (body_lines == (uoff_t)-1) {
-			client_send_line(client, "+OK %"PRIuUOFF_T" octets",
-					 client->message_sizes[msgnum]);
-		} else {
-			client_send_line(client, "+OK");
-		}
-
-		stream_send_escaped(client->output, stream, body_lines);
-		client_send_line(client, ".");
+	ctx->body_lines = body_lines;
+	if (body_lines == (uoff_t)-1) {
+		client_send_line(client, "+OK %"PRIuUOFF_T" octets",
+				 client->message_sizes[msgnum]);
+	} else {
+		client_send_line(client, "+OK");
+		ctx->body_lines++; /* internally we count the empty line too */
 	}
 
-	(void)mailbox_search_deinit(ctx);
-	(void)mailbox_transaction_commit(t);
+	client->cmd = fetch_callback;
+	client->cmd_context = ctx;
+	fetch_callback(client);
 }
 
 static int cmd_retr(struct client *client, const char *args)
@@ -368,37 +415,22 @@ static int cmd_top(struct client *client, const char *args)
 	return TRUE;
 }
 
-static void list_uids(struct client *client, unsigned int message)
-{
+struct cmd_uidl_context {
+        struct mailbox_transaction_context *t;
+	struct mail_search_context *search_ctx;
+	unsigned int message;
+
 	struct mail_search_arg search_arg;
 	struct mail_search_seqset seqset;
-        struct mailbox_transaction_context *t;
-	struct mail_search_context *ctx;
+};
+
+static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
+{
 	struct mail *mail;
 	const char *uid_str;
-	int found = FALSE;
+	int ret, found = FALSE;
 
-	if (client->messages_count == 0 && message == 0)
-		return;
-
-	memset(&search_arg, 0, sizeof(search_arg));
-	if (message == 0)
-		search_arg.type = SEARCH_ALL;
-	else {
-		seqset.seq1 = seqset.seq2 = message;
-		search_arg.type = SEARCH_SEQSET;
-		search_arg.value.seqset = &seqset;
-	}
-
-	t = mailbox_transaction_begin(client->mailbox, FALSE);
-	ctx = mailbox_search_init(t, NULL, &search_arg, NULL, 0, NULL);
-	if (ctx == NULL) {
-		mailbox_transaction_rollback(t);
-		client_send_storage_error(client);
-		return;
-	}
-
-	while ((mail = mailbox_search_next(ctx)) != NULL) {
+	while ((mail = mailbox_search_next(ctx->search_ctx)) != NULL) {
 		if (client->deleted) {
 			uint32_t idx = mail->seq - 1;
 			if (client->deleted_bitmask[idx / CHAR_BIT] &
@@ -407,31 +439,81 @@ static void list_uids(struct client *client, unsigned int message)
 		}
 
 		uid_str = mail->get_special(mail, MAIL_FETCH_UID_STRING);
-		client_send_line(client, message == 0 ? "%u %s" : "+OK %u %s",
-				 mail->seq, uid_str);
 		found = TRUE;
+
+		ret = client_send_line(client, ctx->message == 0 ?
+				       "%u %s" : "+OK %u %s",
+				       mail->seq, uid_str);
+		if (ret < 0)
+			break;
+		if (ret == 0 && ctx->message == 0) {
+			/* output is being buffered, continue when there's
+			   more space */
+			return 0;
+		}
 	}
 
-	(void)mailbox_search_deinit(ctx);
-	(void)mailbox_transaction_commit(t);
+	/* finished */
+	(void)mailbox_search_deinit(ctx->search_ctx);
+	(void)mailbox_transaction_commit(ctx->t);
 
-	if (!found && message != 0)
-		client_send_line(client, "-ERR Message not found.");
+	client->cmd = NULL;
+
+	if (ctx->message == 0)
+		client_send_line(client, ".");
+	i_free(ctx);
+	return found;
+}
+
+static void cmd_uidl_callback(struct client *client)
+{
+	struct cmd_uidl_context *ctx = client->cmd_context;
+
+        (void)list_uids_iter(client, ctx);
+}
+
+static struct cmd_uidl_context *
+cmd_uidl_init(struct client *client, unsigned int message)
+{
+        struct cmd_uidl_context *ctx;
+
+	ctx = i_new(struct cmd_uidl_context, 1);
+
+	if (message == 0)
+		ctx->search_arg.type = SEARCH_ALL;
+	else {
+		ctx->seqset.seq1 = ctx->seqset.seq2 = message;
+		ctx->search_arg.type = SEARCH_SEQSET;
+		ctx->search_arg.value.seqset = &ctx->seqset;
+	}
+
+	ctx->t = mailbox_transaction_begin(client->mailbox, FALSE);
+	ctx->search_ctx = mailbox_search_init(ctx->t, NULL, &ctx->search_arg,
+					      NULL, 0, NULL);
+	if (message == 0) {
+		client->cmd = cmd_uidl_callback;
+		client->cmd_context = ctx;
+	}
+	return ctx;
 }
 
 static int cmd_uidl(struct client *client, const char *args)
 {
+        struct cmd_uidl_context *ctx;
+
 	if (*args == '\0') {
 		client_send_line(client, "+OK");
-		list_uids(client, 0);
-		client_send_line(client, ".");
+		ctx = cmd_uidl_init(client, 0);
+		list_uids_iter(client, ctx);
 	} else {
 		unsigned int msgnum;
 
 		if (get_msgnum(client, args, &msgnum) == NULL)
 			return FALSE;
 
-		list_uids(client, msgnum+1);
+		ctx = cmd_uidl_init(client, msgnum+1);
+		if (list_uids_iter(client, ctx))
+			client_send_line(client, "-ERR Message not found.");
 	}
 
 	return TRUE;

@@ -1,7 +1,10 @@
 #ifndef __CLIENT_H
 #define __CLIENT_H
 
+struct client;
 struct mail_storage;
+
+typedef void command_func_t(struct client *client);
 
 struct client {
 	int socket;
@@ -9,10 +12,13 @@ struct client {
 	struct istream *input;
 	struct ostream *output;
 
+	command_func_t *cmd;
+	void *cmd_context;
+
 	struct mail_storage *storage;
 	struct mailbox *mailbox;
 
-	time_t last_input;
+	time_t last_input, last_output;
 	unsigned int bad_counter;
 
 	unsigned int messages_count;
@@ -24,6 +30,7 @@ struct client {
 	unsigned char *deleted_bitmask;
 
 	unsigned int deleted:1;
+	unsigned int waiting_input:1;
 };
 
 /* Create new client with specified input/output handles. socket specifies
@@ -35,7 +42,7 @@ void client_destroy(struct client *client);
 void client_disconnect(struct client *client);
 
 /* Send a line of data to client */
-void client_send_line(struct client *client, const char *fmt, ...)
+int client_send_line(struct client *client, const char *fmt, ...)
 	__attr_format__(2, 3);
 void client_send_storage_error(struct client *client);
 

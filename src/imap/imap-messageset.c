@@ -28,7 +28,8 @@ static uint32_t get_next_number(const char **str)
 	return num;
 }
 
-struct mail_search_seqset *imap_messageset_parse(const char *messageset)
+struct mail_search_seqset *
+imap_messageset_parse(pool_t pool, const char *messageset)
 {
         struct mail_search_seqset *ret, **next;
 	uint32_t seq1, seq2;
@@ -75,7 +76,7 @@ struct mail_search_seqset *imap_messageset_parse(const char *messageset)
 			seq2 = temp;
 		}
 
-		*next = t_new(struct mail_search_seqset, 1);
+		*next = p_new(pool, struct mail_search_seqset, 1);
 		(*next)->seq1 = seq1;
 		(*next)->seq2 = seq2;
 		next = &(*next)->next;

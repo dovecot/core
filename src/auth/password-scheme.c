@@ -64,7 +64,7 @@ const char *password_get_scheme(const char **password)
 			/* stop at next '$' */
 			p = strchr(p+1, '$');
 			if (p != NULL)
-				*password = t_strdup_until(*password, p);
+				*password = t_strdup_until(*password + 3, p);
 			return "MD5";
 		}
 	}

@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2004 Timo Sirainen */
 
 #include "common.h"
 #include "buffer.h"
@@ -12,419 +12,445 @@
 #include "imap-fetch.h"
 #include "imap-util.h"
 
-#include <unistd.h>
+#include <stdlib.h>
 
-const char *const *imap_fetch_get_body_fields(const char *fields)
+const struct imap_fetch_handler default_handlers[7];
+static buffer_t *fetch_handlers = NULL;
+
+static int imap_fetch_handler_cmp(const void *p1, const void *p2)
 {
-	const char **field_list, **field, **dest;
+        const struct imap_fetch_handler *h1 = p1, *h2 = p2;
 
-	while (*fields == ' ')
-		fields++;
-	if (*fields == '(')
-		fields++;
-
-	field_list = t_strsplit_spaces(t_strcut(fields, ')'), " ");
-
-	/* array ends at ")" element */
-	for (field = dest = field_list; *field != NULL; field++) {
-		*dest = *field;
-		dest++;
-	}
-	*dest = NULL;
-
-	return field_list;
+	return strcmp(h1->name, h2->name);
 }
 
-static void fetch_uid(struct imap_fetch_context *ctx, struct mail *mail)
+void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
+				  size_t count)
 {
-	str_printfa(ctx->str, "UID %u ", mail->uid);
+	void *data;
+	size_t size;
+
+	if (fetch_handlers == NULL) {
+		fetch_handlers = buffer_create_dynamic(default_pool,
+						       128, (size_t)-1);
+	}
+	buffer_append(fetch_handlers, handlers, sizeof(*handlers) * count);
+
+	data = buffer_get_modifyable_data(fetch_handlers, &size);
+	qsort(data, size / sizeof(*handlers), sizeof(*handlers),
+	      imap_fetch_handler_cmp);
 }
 
-static int fetch_flags(struct imap_fetch_context *ctx, struct mail *mail,
-		       const struct mail_full_flags *flags)
+static int imap_fetch_handler_bsearch(const void *name_p, const void *handler_p)
 {
-	struct mail_full_flags full_flags;
+	const char *name = name_p;
+        const struct imap_fetch_handler *h = handler_p;
+	int i;
 
-	if (flags == NULL) {
-		flags = mail->get_flags(mail);
-		if (flags == NULL)
-			return FALSE;
-	}
-
-	if (ctx->update_seen) {
-		/* \Seen change isn't shown by get_flags() yet */
-		full_flags = *flags;
-		full_flags.flags |= MAIL_SEEN;
-		flags = &full_flags;
+	for (i = 0; h->name[i] != '\0'; i++) {
+		if (h->name[i] != name[i]) {
+			if (name[i] < 'A' || name[i] >= 'Z')
+				return -1;
+			return name[i] - h->name[i];
+		}
 	}
 
-	str_append(ctx->str, "FLAGS (");
-	imap_write_flags(ctx->str, flags);
-	str_append(ctx->str, ") ");
-	return TRUE;
+	return name[i] < 'A' || name[i] >= 'Z' ? 0 : -1;
 }
 
-static int fetch_internaldate(struct imap_fetch_context *ctx, struct mail *mail)
+int imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *arg)
 {
-	time_t time;
+	const struct imap_fetch_handler *handler;
 
-	time = mail->get_received_date(mail);
-	if (time == (time_t)-1)
-		return FALSE;
+	handler = bsearch(arg, fetch_handlers->data,
+			  fetch_handlers->used /
+			  sizeof(struct imap_fetch_handler),
+                          sizeof(struct imap_fetch_handler),
+			  imap_fetch_handler_bsearch);
+	if (handler == NULL)
+		i_panic("Called unknown handler: %s", arg);
 
-	str_printfa(ctx->str, "INTERNALDATE \"%s\" ", imap_to_datetime(time));
-	return TRUE;
+	return handler->init(ctx, arg);
 }
 
-static int fetch_rfc822_size(struct imap_fetch_context *ctx, struct mail *mail)
+struct imap_fetch_context *imap_fetch_init(struct client *client)
 {
-	uoff_t size;
+	struct imap_fetch_context *ctx;
 
-	size = mail->get_size(mail);
-	if (size == (uoff_t)-1)
-		return FALSE;
+	if (fetch_handlers == NULL) {
+		imap_fetch_handlers_register(default_handlers,
+					     sizeof(default_handlers) /
+					     sizeof(default_handlers[0]));
+	}
 
-	str_printfa(ctx->str, "RFC822.SIZE %"PRIuUOFF_T" ", size);
-	return TRUE;
+	ctx = p_new(client->cmd_pool, struct imap_fetch_context, 1);
+	ctx->client = client;
+	ctx->box = client->mailbox;
+
+	ctx->cur_str = str_new(default_pool, 8192);
+	ctx->seen_flag.flags = MAIL_SEEN;
+	ctx->all_headers_buf =
+		buffer_create_dynamic(client->cmd_pool, 128, (size_t)-1);
+	ctx->handlers =
+		buffer_create_dynamic(client->cmd_pool, 128, (size_t)-1);
+	return ctx;
 }
 
-static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail)
+void imap_fetch_add_handler(struct imap_fetch_context *ctx,
+			    imap_fetch_handler_t *handler, void *context)
+{
+	const struct imap_fetch_context_handler *handlers;
+	struct imap_fetch_context_handler h;
+	size_t i, size;
+
+	if (context == NULL) {
+		/* don't allow duplicate handlers */
+		handlers = buffer_get_data(ctx->handlers, &size);
+		size /= sizeof(*handlers);
+
+		for (i = 0; i < size; i++) {
+			if (handlers[i].handler == handler &&
+			    handlers[i].context == NULL)
+				return;
+		}
+	}
+
+	memset(&h, 0, sizeof(h));
+	h.handler = handler;
+	h.context = context;
+
+	buffer_append(ctx->handlers, &h, sizeof(h));
+}
+
+void imap_fetch_begin(struct imap_fetch_context *ctx,
+		      struct mail_search_arg *search_arg)
+{
+	const void *null = NULL;
+	const void *data;
+
+	if (ctx->flags_update_seen) {
+		if (mailbox_is_readonly(ctx->box))
+			ctx->flags_update_seen = FALSE;
+		else if (!ctx->flags_have_handler) {
+			ctx->flags_show_only_seen_changes = TRUE;
+			(void)imap_fetch_init_handler(ctx, "FLAGS");
+		}
+	}
+
+	if (buffer_get_used_size(ctx->all_headers_buf) != 0 &&
+	    ((ctx->fetch_data & (MAIL_FETCH_STREAM_HEADER |
+				 MAIL_FETCH_STREAM_BODY)) == 0)) {
+		buffer_append(ctx->all_headers_buf, &null, sizeof(null));
+
+		data = buffer_get_data(ctx->all_headers_buf, NULL);
+		ctx->all_headers_ctx =
+			mailbox_header_lookup_init(ctx->box, data);
+	}
+
+	ctx->trans = mailbox_transaction_begin(ctx->box, TRUE);
+	ctx->select_counter = ctx->client->select_counter;
+	ctx->search_ctx =
+		mailbox_search_init(ctx->trans, NULL, search_arg, NULL,
+				    ctx->fetch_data, ctx->all_headers_ctx);
+}
+
+int imap_fetch(struct imap_fetch_context *ctx)
+{
+	const struct imap_fetch_context_handler *handlers;
+	size_t size;
+	int ret;
+
+	if (ctx->cont_handler != NULL) {
+		if ((ret = ctx->cont_handler(ctx)) <= 0) {
+			if (ret < 0)
+				ctx->failed = TRUE;
+			return ret;
+		}
+
+		ctx->cont_handler = NULL;
+		ctx->cur_offset = 0;
+	}
+
+	handlers = buffer_get_data(ctx->handlers, &size);
+	size /= sizeof(*handlers);
+
+	for (;;) {
+		if (o_stream_get_buffer_used_size(ctx->client->output) >=
+		    CLIENT_OUTPUT_OPTIMAL_SIZE) {
+			ret = o_stream_flush(ctx->client->output);
+			if (ret <= 0)
+				return ret;
+		}
+
+		if (ctx->cur_mail == NULL) {
+			if (ctx->cur_input != NULL) {
+				i_stream_unref(ctx->cur_input);
+                                ctx->cur_input = NULL;
+			}
+
+			ctx->cur_mail = mailbox_search_next(ctx->search_ctx);
+			if (ctx->cur_mail == NULL)
+				break;
+
+			str_printfa(ctx->cur_str, "* %u FETCH (",
+				    ctx->cur_mail->seq);
+			if (o_stream_send(ctx->client->output,
+					  str_data(ctx->cur_str),
+					  str_len(ctx->cur_str)) < 0) {
+				ctx->failed = TRUE;
+				return -1;
+			}
+
+			str_truncate(ctx->cur_str, 0);
+			str_append_c(ctx->cur_str, ' ');
+			ctx->first = TRUE;
+		}
+
+		for (; ctx->cur_handler < size; ctx->cur_handler++) {
+			t_push();
+			ret = handlers[ctx->cur_handler].
+				handler(ctx, ctx->cur_mail,
+					handlers[ctx->cur_handler].context);
+			t_pop();
+
+			if (ret <= 0) {
+				if (ret < 0)
+					ctx->failed = TRUE;
+				else
+					i_assert(ctx->cont_handler != NULL);
+				return ret;
+			}
+
+			ctx->cont_handler = NULL;
+			ctx->cur_offset = 0;
+		}
+
+		if (str_len(ctx->cur_str) > 1) {
+			if (o_stream_send(ctx->client->output,
+					  str_data(ctx->cur_str) + ctx->first,
+					  str_len(ctx->cur_str) - 1 -
+					  ctx->first) < 0) {
+				ctx->failed = TRUE;
+				return -1;
+			}
+			str_truncate(ctx->cur_str, 0);
+		}
+
+		if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0) {
+			ctx->failed = TRUE;
+			return -1;
+		}
+
+		ctx->cur_mail = NULL;
+		ctx->cur_handler = 0;
+	}
+
+	return 1;
+}
+
+int imap_fetch_deinit(struct imap_fetch_context *ctx)
+{
+	str_free(ctx->cur_str);
+
+	if (ctx->cur_input != NULL) {
+		i_stream_unref(ctx->cur_input);
+		ctx->cur_input = NULL;
+	}
+
+	if (ctx->search_ctx != NULL) {
+		if (mailbox_search_deinit(ctx->search_ctx) < 0)
+			ctx->failed = TRUE;
+	}
+	if (ctx->all_headers_ctx != NULL)
+		mailbox_header_lookup_deinit(ctx->all_headers_ctx);
+
+	if (ctx->trans != NULL) {
+		if (ctx->failed)
+			mailbox_transaction_rollback(ctx->trans);
+		else {
+			if (mailbox_transaction_commit(ctx->trans) < 0)
+				ctx->failed = TRUE;
+		}
+	}
+	return ctx->failed ? -1 : 0;
+}
+
+static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
+		      void *context __attr_unused__)
 {
 	const char *body;
 
 	body = mail->get_special(mail, MAIL_FETCH_IMAP_BODY);
 	if (body == NULL)
-		return FALSE;
+		return -1;
 
-	if (ctx->first) {
-		if (o_stream_send_str(ctx->output, "BODY (") < 0)
-			return FALSE;
+	if (ctx->first)
 		ctx->first = FALSE;
-	} else {
-		if (o_stream_send_str(ctx->output, " BODY (") < 0)
-			return FALSE;
+	else {
+		if (o_stream_send(ctx->client->output, " ", 1) < 0)
+			return -1;
 	}
 
-	if (o_stream_send_str(ctx->output, body) < 0)
-		return FALSE;
+	if (o_stream_send(ctx->client->output, "BODY (", 6) < 0 ||
+	    o_stream_send_str(ctx->client->output, body) < 0 ||
+	    o_stream_send(ctx->client->output, ")", 1) < 0)
+		return -1;
+	return 1;
+}
 
-	if (o_stream_send(ctx->output, ")", 1) < 0)
-		return FALSE;
-	return TRUE;
+static int fetch_body_init(struct imap_fetch_context *ctx, const char *arg)
+{
+	if (arg[4] == '\0') {
+		ctx->fetch_data |= MAIL_FETCH_IMAP_BODY;
+		imap_fetch_add_handler(ctx, fetch_body, NULL);
+		return TRUE;
+	}
+	return fetch_body_section_init(ctx, arg);
 }
 
 static int fetch_bodystructure(struct imap_fetch_context *ctx,
-			       struct mail *mail)
+			       struct mail *mail, void *context __attr_unused__)
 {
 	const char *bodystructure;
 
 	bodystructure = mail->get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE);
 	if (bodystructure == NULL)
-		return FALSE;
+		return -1;
 
-	if (ctx->first) {
-		if (o_stream_send_str(ctx->output, "BODYSTRUCTURE (") < 0)
-			return FALSE;
+	if (ctx->first)
 		ctx->first = FALSE;
-	} else {
-		if (o_stream_send_str(ctx->output, " BODYSTRUCTURE (") < 0)
-			return FALSE;
+	else {
+		if (o_stream_send(ctx->client->output, " ", 1) < 0)
+			return -1;
 	}
 
-	if (o_stream_send_str(ctx->output, bodystructure) < 0)
-		return FALSE;
+	if (o_stream_send(ctx->client->output, "BODYSTRUCTURE (", 15) < 0 ||
+	    o_stream_send_str(ctx->client->output, bodystructure) < 0 ||
+	    o_stream_send(ctx->client->output, ")", 1) < 0)
+		return -1;
 
-	if (o_stream_send(ctx->output, ")", 1) < 0)
-		return FALSE;
+	return 1;
+}
+
+static int fetch_bodystructure_init(struct imap_fetch_context *ctx,
+				    const char *arg __attr_unused__)
+{
+	ctx->fetch_data |= MAIL_FETCH_IMAP_BODYSTRUCTURE;
+	imap_fetch_add_handler(ctx, fetch_bodystructure, NULL);
 	return TRUE;
 }
 
-static int fetch_envelope(struct imap_fetch_context *ctx, struct mail *mail)
+static int fetch_envelope(struct imap_fetch_context *ctx, struct mail *mail,
+			  void *context __attr_unused__)
 {
 	const char *envelope;
 
 	envelope = mail->get_special(mail, MAIL_FETCH_IMAP_ENVELOPE);
 	if (envelope == NULL)
-		return FALSE;
+		return -1;
 
-	if (ctx->first) {
-		if (o_stream_send_str(ctx->output, "ENVELOPE (") < 0)
-			return FALSE;
+	if (ctx->first)
 		ctx->first = FALSE;
-	} else {
-		if (o_stream_send_str(ctx->output, " ENVELOPE (") < 0)
-			return FALSE;
+	else {
+		if (o_stream_send(ctx->client->output, " ", 1) < 0)
+			return -1;
 	}
 
-	if (o_stream_send_str(ctx->output, envelope) < 0)
-		return FALSE;
+	if (o_stream_send(ctx->client->output, "ENVELOPE (", 10) < 0 ||
+	    o_stream_send_str(ctx->client->output, envelope) < 0 ||
+	    o_stream_send(ctx->client->output, ")", 1) < 0)
+		return -1;
+	return 1;
+}
 
-	if (o_stream_send(ctx->output, ")", 1) < 0)
-		return FALSE;
+static int fetch_envelope_init(struct imap_fetch_context *ctx,
+			       const char *arg __attr_unused__)
+{
+	ctx->fetch_data |= MAIL_FETCH_IMAP_ENVELOPE;
+	imap_fetch_add_handler(ctx, fetch_envelope, NULL);
 	return TRUE;
 }
 
-static int fetch_send_rfc822(struct imap_fetch_context *ctx, struct mail *mail)
-{
-	struct message_size hdr_size, body_size;
-	struct istream *stream;
-	const char *str;
-
-	stream = mail->get_stream(mail, &hdr_size, &body_size);
-	if (stream == NULL)
-		return FALSE;
-
-	message_size_add(&body_size, &hdr_size);
-
-	str = t_strdup_printf(" RFC822 {%"PRIuUOFF_T"}\r\n",
-			      body_size.virtual_size);
-	if (ctx->first) {
-		str++; ctx->first = FALSE;
-	}
-	if (o_stream_send_str(ctx->output, str) < 0)
-		return FALSE;
-
-	return message_send(ctx->output, stream, &body_size,
-			    0, body_size.virtual_size, NULL,
-			    !mail->has_no_nuls) >= 0;
-}
-
-static int fetch_send_rfc822_header(struct imap_fetch_context *ctx,
-				    struct mail *mail)
-{
-	struct message_size hdr_size;
-	struct istream *stream;
-	const char *str;
-
-	stream = mail->get_stream(mail, &hdr_size, NULL);
-	if (stream == NULL)
-		return FALSE;
-
-	str = t_strdup_printf(" RFC822.HEADER {%"PRIuUOFF_T"}\r\n",
-			      hdr_size.virtual_size);
-	if (ctx->first) {
-		str++; ctx->first = FALSE;
-	}
-	if (o_stream_send_str(ctx->output, str) < 0)
-		return FALSE;
-
-	return message_send(ctx->output, stream, &hdr_size,
-			    0, hdr_size.virtual_size, NULL,
-			    !mail->has_no_nuls) >= 0;
-}
-
-static int fetch_send_rfc822_text(struct imap_fetch_context *ctx,
-				  struct mail *mail)
-{
-	struct message_size hdr_size, body_size;
-	struct istream *stream;
-	const char *str;
-
-	stream = mail->get_stream(mail, &hdr_size, &body_size);
-	if (stream == NULL)
-		return FALSE;
-
-	str = t_strdup_printf(" RFC822.TEXT {%"PRIuUOFF_T"}\r\n",
-			      body_size.virtual_size);
-	if (ctx->first) {
-		str++; ctx->first = FALSE;
-	}
-	if (o_stream_send_str(ctx->output, str) < 0)
-		return FALSE;
-
-	i_stream_seek(stream, hdr_size.physical_size);
-	return message_send(ctx->output, stream, &body_size,
-			    0, body_size.virtual_size, NULL,
-			    !mail->has_no_nuls) >= 0;
-}
-
-static int fetch_mail(struct imap_fetch_context *ctx, struct mail *mail)
+static int fetch_flags(struct imap_fetch_context *ctx, struct mail *mail,
+		       void *context __attr_unused__)
 {
 	const struct mail_full_flags *flags;
-	struct imap_fetch_body_data *body;
-	size_t len, orig_len;
-	int failed, data_written, seen_updated = FALSE;
+	struct mail_full_flags full_flags;
 
-	if (!ctx->update_seen)
-		flags = NULL;
-	else {
-		flags = mail->get_flags(mail);
-		if (flags == NULL)
-			return FALSE;
+	flags = mail->get_flags(mail);
+	if (flags == NULL)
+		return -1;
 
-		if ((flags->flags & MAIL_SEEN) == 0) {
-			if (mail->update_flags(mail, &ctx->seen_flag,
-					       MODIFY_ADD) < 0)
-				return FALSE;
-			seen_updated = TRUE;
-		}
+	if (ctx->flags_update_seen && (flags->flags & MAIL_SEEN) == 0) {
+		/* Add \Seen flag */
+		full_flags = *flags;
+		full_flags.flags |= MAIL_SEEN;
+		flags = &full_flags;
+
+		if (mail->update_flags(mail, &ctx->seen_flag, MODIFY_ADD) < 0)
+			return -1;
+	} else if (ctx->flags_show_only_seen_changes) {
+		return 1;
 	}
 
-	t_push();
-
-	str_truncate(ctx->str, 0);
-	str_printfa(ctx->str, "* %u FETCH (", mail->seq);
-	orig_len = str_len(ctx->str);
-
-	failed = TRUE;
-	data_written = FALSE;
-	do {
-		/* write the data into temp string */
-		if (ctx->imap_data & IMAP_FETCH_UID)
-			fetch_uid(ctx, mail);
-		if ((ctx->fetch_data & MAIL_FETCH_FLAGS) || seen_updated)
-			if (!fetch_flags(ctx, mail, flags))
-				break;
-		if (ctx->fetch_data & MAIL_FETCH_RECEIVED_DATE)
-			if (!fetch_internaldate(ctx, mail))
-				break;
-		if (ctx->fetch_data & MAIL_FETCH_SIZE)
-			if (!fetch_rfc822_size(ctx, mail))
-				break;
-
-		/* send the data written into temp string */
-		len = str_len(ctx->str);
-		ctx->first = len == orig_len;
-
-		if (!ctx->first)
-			str_truncate(ctx->str, --len);
-		if (o_stream_send(ctx->output, str_data(ctx->str), len) < 0)
-			break;
-
-		data_written = TRUE;
-
-		/* medium size data .. seems to be faster without
-		 putting through string */
-		if (ctx->fetch_data & MAIL_FETCH_IMAP_BODY)
-			if (!fetch_body(ctx, mail))
-				break;
-		if (ctx->fetch_data & MAIL_FETCH_IMAP_BODYSTRUCTURE)
-			if (!fetch_bodystructure(ctx, mail))
-				break;
-		if (ctx->fetch_data & MAIL_FETCH_IMAP_ENVELOPE)
-			if(!fetch_envelope(ctx, mail))
-				break;
-
-		/* large data */
-		if (ctx->imap_data & IMAP_FETCH_RFC822)
-			if (!fetch_send_rfc822(ctx, mail))
-				break;
-		if (ctx->imap_data & IMAP_FETCH_RFC822_HEADER)
-			if (!fetch_send_rfc822_header(ctx, mail))
-				break;
-		if (ctx->imap_data & IMAP_FETCH_RFC822_TEXT)
-			if (!fetch_send_rfc822_text(ctx, mail))
-				break;
-
-		failed = FALSE;
-
-		for (body = ctx->bodies; body != NULL; body = body->next) {
-			if (!imap_fetch_body_section(ctx, body, mail)) {
-				failed = TRUE;
-				break;
-			}
-		}
-	} while (0);
-
-	if (data_written) {
-		if (o_stream_send(ctx->output, ")\r\n", 3) < 0)
-			failed = TRUE;
-	}
-
-	t_pop();
-	return !failed;
+	str_append(ctx->cur_str, "FLAGS (");
+	imap_write_flags(ctx->cur_str, flags);
+	str_append(ctx->cur_str, ") ");
+	return 1;
 }
 
-int imap_fetch(struct client *client,
-	       enum mail_fetch_field fetch_data,
-	       enum imap_fetch_field imap_data,
-	       struct imap_fetch_body_data *bodies,
-	       struct mail_search_arg *search_args)
+static int fetch_flags_init(struct imap_fetch_context *ctx,
+			    const char *arg __attr_unused__)
 {
-	struct mailbox *box = client->mailbox;
-	struct imap_fetch_context ctx;
-	struct mailbox_transaction_context *t;
-	struct mail *mail;
-	struct imap_fetch_body_data *body;
-	const char *null = NULL;
-	const char *const *arr;
-	buffer_t *buffer;
-
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.fetch_data = fetch_data;
-	ctx.imap_data = imap_data;
-	ctx.bodies = bodies;
-	ctx.output = client->output;
-	ctx.select_counter = client->select_counter;
-	ctx.seen_flag.flags = MAIL_SEEN;
-
-	if (!mailbox_is_readonly(box)) {
-		/* If we have any BODY[..] sections, \Seen flag is added for
-		   all messages. */
-		for (body = bodies; body != NULL; body = body->next) {
-			if (!body->peek) {
-				ctx.update_seen = TRUE;
-				break;
-			}
-		}
-
-		if (imap_data & (IMAP_FETCH_RFC822|IMAP_FETCH_RFC822_TEXT))
-			ctx.update_seen = TRUE;
-	}
-
-	/* If we have only BODY[HEADER.FIELDS (...)] fetches, get them
-	   separately rather than parsing the full header so mail storage
-	   can try to cache them. */
-	ctx.body_fetch_from_cache = (imap_data & (IMAP_FETCH_RFC822 |
-						  IMAP_FETCH_RFC822_HEADER |
-						  IMAP_FETCH_RFC822_TEXT)) == 0;
-	if (ctx.body_fetch_from_cache) {
-		buffer = buffer_create_dynamic(pool_datastack_create(),
-					       64, (size_t)-1);
-		for (body = bodies; body != NULL; body = body->next) {
-			if (strncmp(body->section, "HEADER.FIELDS ", 14) != 0) {
-				ctx.body_fetch_from_cache = FALSE;
-				break;
-			}
-
-			arr = imap_fetch_get_body_fields(body->section + 14);
-			while (*arr != NULL) {
-				buffer_append(buffer, arr, sizeof(*arr));
-				arr++;
-			}
-		}
-		buffer_append(buffer, &null, sizeof(null));
-		ctx.headers_ctx = !ctx.body_fetch_from_cache ? NULL :
-			mailbox_header_lookup_init(box, buffer_get_data(buffer,
-									NULL));
-	}
-
-	t = mailbox_transaction_begin(box, TRUE);
-	ctx.search_ctx = mailbox_search_init(t, NULL, search_args, NULL,
-					     fetch_data, ctx.headers_ctx);
-	if (ctx.search_ctx == NULL)
-		ctx.failed = TRUE;
-	else {
-		ctx.str = str_new(default_pool, 8192);
-		while ((mail = mailbox_search_next(ctx.search_ctx)) != NULL) {
-			if (!fetch_mail(&ctx, mail)) {
-				ctx.failed = TRUE;
-				break;
-			}
-		}
-		str_free(ctx.str);
-
-		if (mailbox_search_deinit(ctx.search_ctx) < 0)
-			ctx.failed = TRUE;
-	}
-	if (ctx.headers_ctx != NULL)
-		mailbox_header_lookup_deinit(ctx.headers_ctx);
-
-	if (ctx.failed)
-		mailbox_transaction_rollback(t);
-	else {
-		if (mailbox_transaction_commit(t) < 0)
-			ctx.failed = TRUE;
-	}
-	return ctx.failed ? -1 : 0;
+	ctx->flags_have_handler = TRUE;
+	ctx->fetch_data |= MAIL_FETCH_FLAGS;
+	imap_fetch_add_handler(ctx, fetch_flags, NULL);
+	return TRUE;
 }
+
+static int fetch_internaldate(struct imap_fetch_context *ctx, struct mail *mail,
+			      void *context __attr_unused__)
+{
+	time_t time;
+
+	time = mail->get_received_date(mail);
+	if (time == (time_t)-1)
+		return -1;
+
+	str_printfa(ctx->cur_str, "INTERNALDATE \"%s\" ",
+		    imap_to_datetime(time));
+	return 1;
+}
+
+
+static int fetch_internaldate_init(struct imap_fetch_context *ctx,
+				   const char *arg __attr_unused__)
+{
+	ctx->fetch_data |= MAIL_FETCH_RECEIVED_DATE;
+	imap_fetch_add_handler(ctx, fetch_internaldate, NULL);
+	return TRUE;
+}
+
+static int fetch_uid(struct imap_fetch_context *ctx, struct mail *mail,
+		     void *context __attr_unused__)
+{
+	str_printfa(ctx->cur_str, "UID %u ", mail->uid);
+	return 1;
+}
+
+static int fetch_uid_init(struct imap_fetch_context *ctx __attr_unused__,
+			  const char *arg __attr_unused__)
+{
+	imap_fetch_add_handler(ctx, fetch_uid, NULL);
+	return TRUE;
+}
+
+const struct imap_fetch_handler default_handlers[7] = {
+	{ "BODY", fetch_body_init },
+	{ "BODYSTRUCTURE", fetch_bodystructure_init },
+	{ "ENVELOPE", fetch_envelope_init },
+	{ "FLAGS", fetch_flags_init },
+	{ "INTERNALDATE", fetch_internaldate_init },
+	{ "RFC822", fetch_rfc822_init },
+	{ "UID", fetch_uid_init }
+};

@@ -32,13 +32,6 @@ void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size)
 				       max_size);
 }
 
-void i_stream_set_blocking(struct istream *stream, int timeout_msecs,
-			   void (*timeout_cb)(void *), void *context)
-{
-	_io_stream_set_blocking(&stream->real_stream->iostream, timeout_msecs,
-				timeout_cb, context);
-}
-
 ssize_t i_stream_read(struct istream *stream)
 {
 	struct _istream *_stream = stream->real_stream;

@@ -41,16 +41,6 @@ static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 	i_stream_set_max_buffer_size(mstream->input, max_size);
 }
 
-static void _set_blocking(struct _iostream *stream, int timeout_msecs,
-			  void (*timeout_cb)(void *), void *context)
-{
-	struct header_filter_istream *mstream =
-		(struct header_filter_istream *)stream;
-
-	i_stream_set_blocking(mstream->input, timeout_msecs,
-			      timeout_cb, context);
-}
-
 static ssize_t _read(struct _istream *stream)
 {
 	struct header_filter_istream *mstream =
@@ -136,7 +126,7 @@ read_and_hide_headers(struct istream *input, int filter,
 		matched = bsearch(hdr->name, headers, headers_count,
 				  sizeof(*headers), bsearch_strcasecmp) != NULL;
 		if (callback != NULL)
-			callback(hdr, matched, context);
+			callback(hdr, &matched, context);
 
 		if (matched == filter) {
 			/* ignore */
@@ -188,7 +178,6 @@ i_stream_create_header_filter(pool_t pool, struct istream *input, int filter,
 	mstream->istream.iostream.close = _close;
 	mstream->istream.iostream.destroy = _destroy;
 	mstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
-	mstream->istream.iostream.set_blocking = _set_blocking;
 
 	mstream->istream.read = _read;
 	mstream->istream.seek = _seek;
