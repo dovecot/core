@@ -7,6 +7,8 @@
 #include "file-set-size.h"
 #include "mail-cache-private.h"
 
+#include <sys/stat.h>
+
 struct mail_cache_copy_context {
 	int new_msg;
 	buffer_t *buffer, *field_seen;
@@ -234,6 +236,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 
 int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 {
+        mode_t old_mask;
 	int fd, ret, locked;
 
 	if ((ret = mail_cache_lock(cache)) < 0)
@@ -250,13 +253,22 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 	i_warning("Compressing cache file %s", cache->filepath);
 #endif
 
+	old_mask = umask(cache->index->mode ^ 0666);
 	fd = file_dotlock_open(cache->filepath, NULL, NULL,
 			       MAIL_CACHE_LOCK_TIMEOUT,
 			       MAIL_CACHE_LOCK_CHANGE_TIMEOUT,
 			       MAIL_CACHE_LOCK_IMMEDIATE_TIMEOUT, NULL, NULL);
+	umask(old_mask);
+
 	if (fd == -1) {
 		mail_cache_set_syscall_error(cache, "file_dotlock_open()");
 		if (locked) mail_cache_unlock(cache);
+		return -1;
+	}
+
+	if (cache->index->gid != (gid_t)-1 &&
+	    fchown(fd, (uid_t)-1, cache->index->gid) < 0) {
+		mail_cache_set_syscall_error(cache, "fchown()");
 		return -1;
 	}
 

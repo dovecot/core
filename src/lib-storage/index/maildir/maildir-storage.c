@@ -358,12 +358,19 @@ maildir_open(struct index_storage *storage, const char *name,
 	struct mail_index *index;
 	const char *path, *index_dir, *control_dir;
 	struct stat st;
+	int shared;
 
 	path = maildir_get_path(storage, name);
 	index_dir = maildir_get_index_path(storage, name);
 	control_dir = maildir_get_control_path(storage, name);
 
 	index = index_storage_alloc(index_dir, path, MAILDIR_INDEX_PREFIX);
+
+	/* for shared mailboxes get the create mode from the
+	   permissions of dovecot-shared file. */
+	shared = stat(t_strconcat(path, "/dovecot-shared", NULL), &st) == 0;
+	if (shared)
+		mail_index_set_permissions(index, st.st_mode & 0666, st.st_gid);
 
 	ibox = index_storage_mailbox_init(storage, &maildir_mailbox,
 					  index, name, flags);
@@ -377,16 +384,13 @@ maildir_open(struct index_storage *storage, const char *name,
 	ibox->uidlist = maildir_uidlist_init(ibox);
 	ibox->is_recent = maildir_is_recent;
 
-	/* for shared mailboxes get the create mode from the
-	   permissions of dovecot-shared file */
-	if (stat(t_strconcat(path, "/dovecot-shared", NULL), &st) < 0)
+	if (!shared)
 		ibox->mail_create_mode = 0600;
 	else {
 		ibox->mail_create_mode = st.st_mode & 0666;
 		ibox->private_flags_mask = MAIL_SEEN;
-		mail_index_set_permissions(ibox->index, st.st_mode & 0666,
-					   st.st_gid);
 	}
+
 
 	return &ibox->box;
 }

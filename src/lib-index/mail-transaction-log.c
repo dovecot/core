@@ -392,17 +392,27 @@ static int
 mail_transaction_log_file_create(struct mail_transaction_log *log,
 				 const char *path, dev_t dev, ino_t ino)
 {
+        mode_t old_mask;
 	int fd, fd2;
 
 	/* With dotlocking we might already have path.lock created, so this
 	   filename has to be different. */
+	old_mask = umask(log->index->mode ^ 0666);
 	fd = file_dotlock_open(path, NULL, LOG_NEW_DOTLOCK_SUFFIX,
 			       LOG_DOTLOCK_TIMEOUT,
 			       LOG_DOTLOCK_STALE_TIMEOUT,
 			       LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT, NULL, NULL);
+	umask(old_mask);
+
 	if (fd == -1) {
 		mail_index_file_set_syscall_error(log->index, path,
 						  "file_dotlock_open()");
+		return -1;
+	}
+
+	if (log->index->gid != (gid_t)-1 &&
+	    fchown(fd, (uid_t)-1, log->index->gid) < 0) {
+		mail_index_file_set_syscall_error(log->index, path, "fchown()");
 		return -1;
 	}
 

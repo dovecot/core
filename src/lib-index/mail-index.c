@@ -853,16 +853,18 @@ int mail_index_write_base_header(struct mail_index *index,
 
 int mail_index_create_tmp_file(struct mail_index *index, const char **path_r)
 {
+        mode_t old_mask;
 	const char *path;
 	int fd;
 
 	path = *path_r = t_strconcat(index->filepath, ".tmp", NULL);
+	old_mask = umask(0);
 	fd = open(path, O_RDWR|O_CREAT|O_TRUNC, index->mode);
+	umask(old_mask);
 	if (fd == -1)
 		return mail_index_file_set_syscall_error(index, path, "open()");
 
-	if (index->gid != (gid_t)-1 &&
-	    fchown(index->fd, (uid_t)-1, index->gid) < 0) {
+	if (index->gid != (gid_t)-1 && fchown(fd, (uid_t)-1, index->gid) < 0) {
 		mail_index_file_set_syscall_error(index, path, "fchown()");
 		return -1;
 	}
