@@ -23,8 +23,21 @@ static int shadow_verify_plain(const char *user, const char *password,
 	int result;
 
 	spw = getspnam(user);
-	if (spw == NULL || !IS_VALID_PASSWD(spw->sp_pwdp))
+	if (spw == NULL) {
+		if (errno != 0)
+			i_error("getspnam(%s) failed: %m", user);
+		else if (verbose)
+			i_info("shadow(%s): unknown user", user);
 		return FALSE;
+	}
+
+	if (!IS_VALID_PASSWD(spw->sp_pwdp)) {
+		if (verbose) {
+			i_info("shadow(%s): invalid password field '%s'",
+			       user, spw->sp_pwdp);
+		}
+		return FALSE;
+	}
 
 	/* check if the password is valid */
 	result = strcmp(mycrypt(password, spw->sp_pwdp), spw->sp_pwdp) == 0;
@@ -32,13 +45,18 @@ static int shadow_verify_plain(const char *user, const char *password,
 	/* clear the passwords from memory */
 	safe_memset(spw->sp_pwdp, 0, strlen(spw->sp_pwdp));
 
-	if (!result)
+	if (!result) {
+		if (verbose)
+			i_info("shadow(%s): password mismatch", user);
 		return FALSE;
+	}
 
 	/* password ok, save the user info */
 	pw = getpwnam(user);
-	if (pw == NULL)
+	if (pw == NULL) {
+		i_error("shadow(%s): getpwnam() failed: %m", user);
 		return FALSE;
+	}
 
         passwd_fill_cookie_reply(pw, reply);
 	return TRUE;

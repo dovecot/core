@@ -8,5 +8,6 @@
 #define LOGIN_LISTEN_FD 3
 
 extern struct ioloop *ioloop;
+extern int verbose;
 
 #endif

@@ -195,8 +195,14 @@ static int verify_auth(struct auth_data *auth)
 
 		if (i == 0) {
 			/* verify response */
-			if (memcmp(response_hex, auth->response, 32) != 0)
+			if (memcmp(response_hex, auth->response, 32) != 0) {
+				if (verbose) {
+					i_info("digest-md5(%s): "
+					       "password mismatch",
+					       auth->username);
+				}
 				return FALSE;
+			}
 		} else {
 			auth->rspauth = p_strconcat(auth->pool, "rspauth=",
 						    response_hex, NULL);
@@ -506,7 +512,7 @@ static int parse_digest_response(struct auth_data *auth, const char *data,
 		auth->qop_value = p_strdup(auth->pool, "auth");
 
 	if (!failed && !verify_auth(auth)) {
-		*error = "Authentication failed";
+		*error = NULL;
 		failed = TRUE;
 	}
 
@@ -556,6 +562,11 @@ auth_digest_md5_continue(struct cookie_data *cookie,
 		auth->authenticated = TRUE;
 		return;
 	}
+
+	if (error == NULL)
+                error = "Authentication failed";
+	else if (verbose)
+		i_info("digest-md5: %s", error);
 
 	/* failed */
 	reply.result = AUTH_RESULT_FAILURE;

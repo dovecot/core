@@ -71,7 +71,7 @@ struct auth_config {
 	char *user;
 	char *chroot;
 
-	int use_cyrus_sasl;
+	int use_cyrus_sasl, verbose;
 
 	unsigned int count;
 	unsigned int process_size;

@@ -14,8 +14,6 @@
 #include <vpopmail.h>
 #include <vauth.h>
 
-#define I_DEBUG(x) /* i_warning x */
-
 /* Limit user and domain to 80 chars each (+1 for \0). I wouldn't recommend
    raising this limit at least much, vpopmail is full of potential buffer
    overflows. */
@@ -36,7 +34,8 @@ static int vpopmail_verify_plain(const char *user, const char *password,
 
 	if (parse_email(t_strdup_noconst(user), vpop_user, vpop_domain,
 			sizeof(vpop_user)-1) < 0) {
-		I_DEBUG(("vpopmail: parse_email(%s) failed", user));
+		if (verbose)
+			i_info("vpopmail(%s): parse_email() failed", user);
 		return FALSE;
 	}
 
@@ -44,19 +43,25 @@ static int vpopmail_verify_plain(const char *user, const char *password,
 	   struct vqpasswd isn't really gid at all but just some flags... */
 	if (vget_assign(vpop_domain, NULL, 0,
 			&reply->uid, &reply->gid) == NULL) {
-		I_DEBUG(("vpopmail: vget_assign(%s) failed", vpop_domain));
+		if (verbose) {
+			i_info("vpopmail(%s): vget_assign(%s) failed",
+			       user, vpop_domain);
+		}
 		return FALSE;
 	}
 
 	vpw = vauth_getpw(vpop_user, vpop_domain);
 	if (vpw != NULL && (vpw->pw_dir == NULL || vpw->pw_dir[0] == '\0')) {
 		/* user's homedir doesn't exist yet, create it */
-		I_DEBUG(("vpopmail: pw_dir isn't set, creating"));
+		if (verbose) {
+			i_info("vpopmail(%s): pw_dir isn't set, creating",
+			       user);
+		}
 
 		if (make_user_dir(vpop_user, vpop_domain,
 				  reply->uid, reply->gid) == NULL) {
-			i_error("vpopmail: make_user_dir(%s, %s) failed",
-				vpop_user, vpop_domain);
+			i_error("vpopmail(%s): make_user_dir(%s, %s) failed",
+				user, vpop_user, vpop_domain);
 			return FALSE;
 		}
 
@@ -64,14 +69,16 @@ static int vpopmail_verify_plain(const char *user, const char *password,
 	}
 
 	if (vpw == NULL) {
-		I_DEBUG(("vpopmail: vauth_getpw(%s, %s) failed",
-		       vpop_user, vpop_domain));
+		if (verbose) {
+			i_info("vpopmail(%s): vauth_getpw(%s, %s) failed",
+			       user, vpop_user, vpop_domain);
+		}
 		return FALSE;
 	}
 
 	if (vpw->pw_gid & NO_IMAP) {
-		I_DEBUG(("vpopmail: IMAP disabled for %s@%s",
-		       vpop_user, vpop_domain));
+		if (verbose)
+			i_info("vpopmail(%s): IMAP disabled", user);
 		return FALSE;
 	}
 
@@ -80,8 +87,8 @@ static int vpopmail_verify_plain(const char *user, const char *password,
 	safe_memset(vpw->pw_passwd, 0, strlen(vpw->pw_passwd));
 
 	if (!result) {
-		I_DEBUG(("vpopmail: password mismatch for user %s@%s",
-		       vpop_user, vpop_domain));
+		if (verbose)
+			i_info("vpopmail(%s): password mismatch", user);
 		return FALSE;
 	}
 

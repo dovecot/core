@@ -17,6 +17,8 @@
 #include <syslog.h>
 
 struct ioloop *ioloop;
+int verbose = FALSE;
+
 static struct io *io_listen;
 
 static void sig_quit(int signo __attr_unused__)
@@ -68,6 +70,8 @@ static void drop_privileges(void)
 static void main_init(void)
 {
 	lib_init_signals(sig_quit);
+
+	verbose = getenv("VERBOSE") != NULL;
 
 	auth_init();
 	cookies_init();

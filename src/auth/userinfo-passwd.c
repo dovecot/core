@@ -37,8 +37,21 @@ static int passwd_verify_plain(const char *user, const char *password,
 	int result;
 
 	pw = getpwnam(user);
-	if (pw == NULL || !IS_VALID_PASSWD(pw->pw_passwd))
+	if (pw == NULL) {
+		if (errno != 0)
+			i_error("getpwnam(%s) failed: %m", user);
+		else if (verbose)
+			i_info("passwd(%s): unknown user", user);
 		return FALSE;
+	}
+
+	if (!IS_VALID_PASSWD(pw->pw_passwd)) {
+		if (verbose) {
+			i_info("passwd(%s): invalid password field '%s'",
+			       user, pw->pw_passwd);
+		}
+		return FALSE;
+	}
 
 	/* check if the password is valid */
 	result = strcmp(mycrypt(password, pw->pw_passwd), pw->pw_passwd) == 0;
@@ -46,8 +59,11 @@ static int passwd_verify_plain(const char *user, const char *password,
 	/* clear the passwords from memory */
 	safe_memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
 
-	if (!result)
+	if (!result) {
+		if (verbose)
+			i_info("passwd(%s): password mismatch", user);
 		return FALSE;
+	}
 
 	/* password ok, save the user info */
         passwd_fill_cookie_reply(pw, reply);

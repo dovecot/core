@@ -67,8 +67,11 @@ static int get_reply_data(struct passwd_user *pu,
 				  strlen(pu->realm) - 1);
 
 		pw = getpwnam(user);
-		if (pw == NULL)
+		if (pw == NULL) {
+			i_error("passwd-file(%s): missing info and "
+				"not found with getpwnam()", user);
 			return FALSE;
+		}
 
 		passwd_fill_cookie_reply(pw, reply);
 	}
@@ -115,21 +118,35 @@ static int passwd_file_verify_plain(const char *user, const char *password,
 
 	/* find it from all realms */
 	pu = hash_lookup(passwd_file->users, user);
-	if (pu == NULL)
+	if (pu == NULL) {
+		if (verbose)
+			i_info("passwd-file(%s): unknown user", user);
 		return FALSE;
+	}
 
 	/* verify that password matches */
 	switch (pu->password_type) {
 	case PASSWORD_DES:
-		if (strcmp(mycrypt(password, pu->password), pu->password) != 0)
+		if (strcmp(mycrypt(password, pu->password),
+			   pu->password) != 0) {
+			if (verbose) {
+				i_info("passwd-file(%s): DES password mismatch",
+				       user);
+			}
 			return FALSE;
+		}
 		break;
 	case PASSWORD_MD5:
 		md5_get_digest(password, strlen(password), digest);
 		str = binary_to_hex(digest, sizeof(digest));
 
-		if (strcmp(str, pu->password) != 0)
+		if (strcmp(str, pu->password) != 0) {
+			if (verbose) {
+				i_info("passwd-file(%s): MD5 password mismatch",
+				       user);
+			}
 			return FALSE;
+		}
 		break;
 	case PASSWORD_DIGEST_MD5:
 		/* user:realm:passwd */
@@ -140,8 +157,13 @@ static int passwd_file_verify_plain(const char *user, const char *password,
 		md5_get_digest(str, strlen(str), digest);
 		str = binary_to_hex(digest, sizeof(digest));
 
-		if (strcmp(str, pu->password) != 0)
+		if (strcmp(str, pu->password) != 0) {
+			if (verbose) {
+				i_info("passwd-file(%s): "
+				       "DIGEST-MD5 password mismatch", user);
+			}
 			return FALSE;
+		}
 		break;
 	default:
                 i_unreached();
@@ -167,16 +189,22 @@ static int passwd_file_lookup_digest_md5(const char *user, const char *realm,
 		t_strconcat(user, ":", realm, NULL);
 
 	pu = hash_lookup(passwd_file->users, id);
-	if (pu == NULL)
+	if (pu == NULL) {
+		if (verbose)
+			i_info("passwd-file(%s): unknown user", user);
 		return FALSE;
+	}
 
 	/* found */
 	i_assert(strlen(pu->password) == 32);
 
 	buf = buffer_create_data(data_stack_pool, digest, 16);
-	if (!hex_to_binary(pu->password, buf))
+	if (!hex_to_binary(pu->password, buf)) {
+		if (verbose)
+			i_info("passwd-file(%s): invalid password field", user);
 		return FALSE;
-	
+	}
+
 	return get_reply_data(pu, reply);
 }
 

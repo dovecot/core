@@ -417,6 +417,9 @@ static const char *parse_auth(const char *key, const char *value)
 	if (strcmp(key, "auth_cyrus_sasl") == 0)
 		return get_bool(value, &auth->use_cyrus_sasl);
 
+	if (strcmp(key, "auth_verbose") == 0)
+		return get_bool(value, &auth->verbose);
+
 	if (strcmp(key, "auth_count") == 0) {
 		int num;
 

@@ -278,6 +278,8 @@ static pid_t create_auth_process(struct auth_config *config)
 
 	if (config->use_cyrus_sasl)
 		env_put("USE_CYRUS_SASL=1");
+	if (config->verbose)
+		env_put("VERBOSE=1");
 
 	restrict_process_size(config->process_size);
 

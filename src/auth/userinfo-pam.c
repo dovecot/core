@@ -148,25 +148,45 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	return PAM_SUCCESS;
 }
 
-static int pam_auth(pam_handle_t *pamh)
+static int pam_auth(pam_handle_t *pamh, const char *user)
 {
 	char *item;
 	int status;
 
-	if ((status = pam_authenticate(pamh, 0)) != PAM_SUCCESS)
+	if ((status = pam_authenticate(pamh, 0)) != PAM_SUCCESS) {
+		if (verbose) {
+			i_info("PAM: pam_authenticate(%s) failed: %s",
+			       user, pam_strerror(pamh, status));
+		}
 		return status;
+	}
 
 #ifdef HAVE_PAM_SETCRED
-	if ((status = pam_setcred(pamh, PAM_ESTABLISH_CRED)) != PAM_SUCCESS)
+	if ((status = pam_setcred(pamh, PAM_ESTABLISH_CRED)) != PAM_SUCCESS) {
+		if (verbose) {
+			i_info("PAM: pam_setcred(%s) failed: %s",
+			       user, pam_strerror(pamh, status));
+		}
 		return status;
+	}
 #endif
 
-	if ((status = pam_acct_mgmt(pamh, 0)) != PAM_SUCCESS)
+	if ((status = pam_acct_mgmt(pamh, 0)) != PAM_SUCCESS) {
+		if (verbose) {
+			i_info("PAM: pam_acct_mgmt(%s) failed: %s",
+			       user, pam_strerror(pamh, status));
+		}
 		return status;
+	}
 
 	status = pam_get_item(pamh, PAM_USER, (linux_const void **)&item);
-	if (status != PAM_SUCCESS)
+	if (status != PAM_SUCCESS) {
+		if (verbose) {
+			i_info("PAM: pam_get_item(%s) failed: %s",
+			       user, pam_strerror(pamh, status));
+		}
 		return status;
+	}
 
 	return PAM_SUCCESS;
 }
@@ -187,12 +207,18 @@ static int pam_verify_plain(const char *user, const char *password,
 	userpass.pass = password;
 
 	status = pam_start(service_name, user, &conv, &pamh);
-	if (status != PAM_SUCCESS)
+	if (status != PAM_SUCCESS) {
+		if (verbose) {
+			i_info("PAM: pam_start(%s) failed: %s",
+			       user, pam_strerror(pamh, status));
+		}
 		return FALSE;
+	}
 
-	status = pam_auth(pamh);
+	status = pam_auth(pamh, user);
 	if ((status2 = pam_end(pamh, status)) != PAM_SUCCESS) {
-		i_error("pam_end() failed: %s", pam_strerror(pamh, status2));
+		i_error("pam_end(%s) failed: %s",
+			user, pam_strerror(pamh, status2));
 		return FALSE;
 	}
 
@@ -201,8 +227,10 @@ static int pam_verify_plain(const char *user, const char *password,
 
 	/* password ok, save the user info */
 	pw = getpwnam(user);
-	if (pw == NULL)
+	if (pw == NULL) {
+		i_error("PAM: getpwnam(%s) failed: %m", user);
 		return FALSE;
+	}
 
 	safe_memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
 	passwd_fill_cookie_reply(pw, reply);
