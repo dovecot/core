@@ -36,10 +36,11 @@ RFCs conformed
  2822       - Internet Message Format (updated rfc822)
  2045..2049 - Multipurpose Internet Mail Extensions (MIME)
 
- 2060       - IMAP4rev1
+ 3501       - IMAP4rev1
  2180       - IMAP4 Multi-Accessed Mailbox Practice
  2683       - IMAP4 Implementation Recommendations
  1939       - Post Office Protocol - Version 3
+ 2449       - POP3 Extension Mechanism
 
  2595       - Using TLS with IMAP, POP3 and ACAP
  2831       - Using Digest Authentication as a SASL Mechanism (DIGEST-MD5)
@@ -47,7 +48,10 @@ RFCs conformed
 
  2088       - IMAP4 non-synchronizing literals (LITERAL+)
  2177       - IMAP4 IDLE command
+ 2342       - IMAP4 Namespace
  3348       - IMAP4 Child Mailbox Extension
+ 3502       - IMAP4 MULTIAPPEND Extension
+ 3691       - IMAP4 UNSELECT command
 
 Contact info
 ------------
