@@ -196,6 +196,10 @@ static int update_by_append(MailIndexUpdate *update)
 	if (fpos == 0)
 		return FALSE;
 
+	/* the old data is discarded */
+	(void)mail_index_data_add_deleted_space(update->index->data,
+						update->rec->data_size);
+
 	/* update index file position - it's mmap()ed so it'll be written
 	   into disk when index is unlocked. */
 	update->rec->data_position = fpos;
