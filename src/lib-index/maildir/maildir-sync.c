@@ -249,7 +249,9 @@ static int maildir_index_sync_dir(MailIndex *index, const char *dir)
 	return !failed;
 }
 
-int maildir_index_sync(MailIndex *index, MailLockType lock_type, int *changes)
+int maildir_index_sync(MailIndex *index,
+		       MailLockType data_lock_type __attr_unused__,
+		       int *changes)
 {
 	struct stat sti, std;
 	struct utimbuf ut;
@@ -330,5 +332,5 @@ int maildir_index_sync(MailIndex *index, MailLockType lock_type, int *changes)
 			return index_set_syscall_error(index, "utime()");
 	}
 
-	return index->set_lock(index, lock_type);
+	return TRUE;
 }
