@@ -178,7 +178,7 @@ static void mbox_sync_header_remove_space(struct mbox_sync_mail_context *ctx,
 
 	*size = 0;
 
-	if (ctx->mail.space < data_size - last_line_pos) {
+	if (ctx->mail.space < (off_t)(data_size - last_line_pos)) {
 		ctx->mail.space = data_size - last_line_pos;
 		ctx->mail.offset = ctx->hdr_offset + last_line_pos;
 	}
@@ -236,12 +236,12 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff,
 			/* good, we removed enough. */
 			i_assert(new_hdr_size == old_hdr_size);
 		} else if (move_diff < 0 &&
-			   new_hdr_size - old_hdr_size <= -move_diff) {
+			   new_hdr_size - old_hdr_size <= (uoff_t)-move_diff) {
 			/* moving backwards - we can use the extra space from
 			   it, just update expunged_space accordingly */
 			i_assert(ctx->mail.space == 0);
 			i_assert(ctx->sync_ctx->expunged_space >=
-				 new_hdr_size - old_hdr_size);
+				 (off_t)(new_hdr_size - old_hdr_size));
 			ctx->sync_ctx->expunged_space -=
 				new_hdr_size - old_hdr_size;
 		} else {
@@ -351,7 +351,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	old_hdr_size = mail_ctx.body_offset - mail_ctx.hdr_offset;
 	need_space = str_len(mail_ctx.header) - mail_ctx.mail.space -
 		old_hdr_size;
-	i_assert(need_space == -mails[idx].space);
+	i_assert(need_space == (uoff_t)-mails[idx].space);
 	i_assert(space_diff >= need_space);
 
 	if (space_diff - need_space < (uoff_t)mail_ctx.mail.space) {
