@@ -135,19 +135,6 @@ static void get_login_uid(void)
 	set_login_gid = pw->pw_gid;
 }
 
-static void settings_initialize(void)
-{
-	Setting *set;
-
-	/* strdup() all default settings */
-	for (set = settings; set->name != NULL; set++) {
-		if (set->type == SET_STR) {
-			char **str = set->ptr;
-			*str = i_strdup(*str);
-		}
-	}
-}
-
 static void auth_settings_verify(void)
 {
 	AuthConfig *auth;
@@ -216,6 +203,19 @@ static AuthConfig *auth_config_new(const char *name)
 	auth->next = auth_processes_config;
         auth_processes_config = auth;
 	return auth;
+}
+
+static void auth_config_free(AuthConfig *auth)
+{
+	i_free(auth->name);
+	i_free(auth->methods);
+	i_free(auth->realms);
+	i_free(auth->userinfo);
+	i_free(auth->userinfo_args);
+	i_free(auth->executable);
+	i_free(auth->user);
+	i_free(auth->chroot);
+	i_free(auth);
 }
 
 static const char *parse_new_auth(const char *name)
@@ -328,6 +328,16 @@ static const char *parse_setting(const char *key, const char *value)
 	return t_strconcat("Unknown setting: ", key, NULL);
 }
 
+static void settings_free(void)
+{
+	while (auth_processes_config != NULL) {
+		AuthConfig *auth = auth_processes_config;
+
+		auth_processes_config = auth->next;
+                auth_config_free(auth);
+	}
+}
+
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
 void settings_read(const char *path)
@@ -337,7 +347,7 @@ void settings_read(const char *path)
 	char *line, *key, *p;
 	int fd, linenum;
 
-        settings_initialize();
+	settings_free();
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0)
@@ -396,4 +406,17 @@ void settings_read(const char *path)
 	i_buffer_unref(inbuf);
 
         settings_verify();
+}
+
+void settings_init(void)
+{
+	Setting *set;
+
+	/* strdup() all default settings */
+	for (set = settings; set->name != NULL; set++) {
+		if (set->type == SET_STR) {
+			char **str = set->ptr;
+			*str = i_strdup(*str);
+		}
+	}
 }

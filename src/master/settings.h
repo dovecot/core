@@ -69,4 +69,6 @@ extern AuthConfig *auth_processes_config;
 
 void settings_read(const char *path);
 
+void settings_init(void);
+
 #endif

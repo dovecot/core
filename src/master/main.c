@@ -25,8 +25,9 @@ const char *process_names[PROCESS_TYPE_MAX] = {
 	"ssl-param"
 };
 
+static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
 static IOLoop ioloop;
-static Timeout to_children;
+static Timeout to;
 
 HashTable *pids;
 int null_fd, imap_fd, imaps_fd;
@@ -77,12 +78,28 @@ static void sig_quit(int signo __attr_unused__)
 	io_loop_stop(ioloop);
 }
 
-static void children_check_timeout(void *context __attr_unused__,
-				   Timeout timeout __attr_unused__)
+static void settings_reload(void)
+{
+	i_warning("SIGHUP received - reloading configuration");
+
+	settings_read(configfile);
+
+	/* restart auth and login processes */
+        login_processes_destroy_all();
+        auth_processes_destroy_all();
+}
+
+static void timeout_handler(void *context __attr_unused__,
+			    Timeout timeout __attr_unused__)
 {
 	const char *process_type_name;
 	pid_t pid;
 	int status, process_type;
+
+	if (lib_signal_hup != 0) {
+		settings_reload();
+		lib_signal_hup = 0;
+	}
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		/* get the type and remove from hash */
@@ -148,9 +165,8 @@ static void open_fds(void)
 
 	imap_fd = set_imap_port == 0 ? dup(null_fd) :
 		net_listen(imap_ip, &set_imap_port);
-	if (imap_fd == -1) {
+	if (imap_fd == -1)
 		i_fatal("listen(%d) failed: %m", set_imap_port);
-	}
 
 #ifdef HAVE_SSL
 	imaps_fd = set_ssl_cert_file == NULL || *set_ssl_cert_file == '\0' ||
@@ -160,9 +176,8 @@ static void open_fds(void)
 #else
 	imaps_fd = dup(null_fd);
 #endif
-	if (imaps_fd == -1) {
+	if (imaps_fd == -1)
 		i_fatal("listen(%d) failed: %m", set_imaps_port);
-	}
 }
 
 static void main_init(void)
@@ -186,7 +201,7 @@ static void main_init(void)
 	}
 
 	pids = hash_create(default_pool, 128, NULL, NULL);
-	to_children = timeout_add(100, children_check_timeout, NULL);
+	to = timeout_add(100, timeout_handler, NULL);
 
 	ssl_init();
 	auth_processes_init();
@@ -202,7 +217,7 @@ static void main_deinit(void)
 	auth_processes_deinit();
 	ssl_deinit();
 
-	timeout_remove(to_children);
+	timeout_remove(to);
 
 	(void)close(null_fd);
 	(void)close(imap_fd);
@@ -234,7 +249,6 @@ static void print_help(void)
 int main(int argc, char *argv[])
 {
 	/* parse arguments */
-	const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
 	int foreground = FALSE;
 	int i;
 
@@ -256,6 +270,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* read and verify settings before forking */
+	settings_init();
 	settings_read(configfile);
 	open_fds();
 

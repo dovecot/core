@@ -358,6 +358,20 @@ void login_processes_cleanup(void)
 	hash_foreach(processes, login_hash_cleanup, NULL);
 }
 
+static void login_hash_destroy(void *key __attr_unused__, void *value,
+			       void *context __attr_unused__)
+{
+	login_process_destroy(value);
+}
+
+void login_processes_destroy_all(void)
+{
+	hash_foreach(processes, login_hash_destroy, NULL);
+
+	/* don't double their amount when restarting */
+	wanted_processes_count = 0;
+}
+
 static void login_processes_start_missing(void *context __attr_unused__,
 					  Timeout timeout __attr_unused__)
 {
@@ -400,16 +414,10 @@ void login_processes_init(void)
 	to = timeout_add(1000, login_processes_start_missing, NULL);
 }
 
-static void login_hash_destroy(void *key __attr_unused__, void *value,
-			       void *context __attr_unused__)
-{
-	login_process_destroy(value);
-}
-
 void login_processes_deinit(void)
 {
 	timeout_remove(to);
 
-	hash_foreach(processes, login_hash_destroy, NULL);
+        login_processes_destroy_all();
 	hash_destroy(processes);
 }

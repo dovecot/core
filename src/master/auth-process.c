@@ -297,6 +297,17 @@ void auth_processes_cleanup(void)
 		(void)close(p->fd);
 }
 
+void auth_processes_destroy_all(void)
+{
+	AuthProcess *next;
+
+	while (processes != NULL) {
+		next = processes->next;
+		auth_process_destroy(processes);
+                processes = next;
+	}
+}
+
 static void auth_processes_start_missing(void *context __attr_unused__,
 					 Timeout timeout __attr_unused__)
 {
@@ -319,13 +330,6 @@ void auth_processes_init(void)
 
 void auth_processes_deinit(void)
 {
-	AuthProcess *next;
-
 	timeout_remove(to);
-
-	while (processes != NULL) {
-		next = processes->next;
-		auth_process_destroy(processes);
-                processes = next;
-	}
+	auth_processes_destroy_all();
 }

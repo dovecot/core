@@ -17,6 +17,7 @@ void auth_process_request(AuthProcess *process, int id,
 
 /* Close any fds used by auth processes */
 void auth_processes_cleanup(void);
+void auth_processes_destroy_all(void);
 
 void auth_processes_init(void);
 void auth_processes_deinit(void);
