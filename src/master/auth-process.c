@@ -274,6 +274,7 @@ static pid_t create_auth_process(struct auth_process_group *group)
 
 	if (pid != 0) {
 		/* master */
+		net_set_nonblock(fd[0], TRUE);
 		fd_close_on_exec(fd[0], TRUE);
 		auth_process_new(pid, fd[0], group);
 		(void)close(fd[1]);
@@ -292,7 +293,7 @@ static pid_t create_auth_process(struct auth_process_group *group)
 	if (dup2(null_fd, 1) < 0)
 		i_fatal("login: dup2(1) failed: %m");
 
-	clean_child_process();
+	child_process_init_env();
 
 	/* move login communication handle to 3. do it last so we can be
 	   sure it's not closed afterwards. */
@@ -304,8 +305,7 @@ static pid_t create_auth_process(struct auth_process_group *group)
 	for (i = 0; i <= 3; i++)
 		fd_close_on_exec(i, FALSE);
 
-	/* setup access environment - needs to be done after
-	   clean_child_process() since it clears environment */
+	/* setup access environment */
 	restrict_access_set_env(group->set->user, pwd->pw_uid, pwd->pw_gid,
 				group->set->chroot);
 

@@ -16,7 +16,10 @@ void master_notify_finished(void);
 /* Close connection to master process */
 void master_close(void);
 
-void master_init(void);
+/* inetd: Connect to existing master process, or create new one. */
+int master_connect(void);
+
+void master_init(int fd);
 void master_deinit(void);
 
 #endif

@@ -23,7 +23,7 @@ unsigned int login_process_uid;
 static struct ioloop *ioloop;
 static struct io *io_listen, *io_ssl_listen;
 static int main_refcount;
-static int closing_down;
+static int is_inetd, closing_down;
 
 void main_ref(void)
 {
@@ -99,7 +99,6 @@ static void login_accept(void *context __attr_unused__)
 
 static void login_accept_ssl(void *context __attr_unused__)
 {
-	struct client *client;
 	struct ip_addr ip;
 	int fd, fd_ssl;
 
@@ -124,7 +123,7 @@ static void login_accept_ssl(void *context __attr_unused__)
 	if (fd_ssl == -1)
 		net_disconnect(fd);
 	else
-		client = client_create(fd_ssl, &ip, TRUE);
+		(void)client_create(fd_ssl, &ip, TRUE);
 }
 
 static void open_logfile(const char *name)
@@ -185,25 +184,29 @@ static void main_init(void)
 
 	io_listen = io_ssl_listen = NULL;
 
-	if (net_getsockname(LOGIN_LISTEN_FD, NULL, NULL) == 0) {
-		io_listen = io_add(LOGIN_LISTEN_FD, IO_READ,
-				   login_accept, NULL);
-	}
-
-	if (net_getsockname(LOGIN_SSL_LISTEN_FD, NULL, NULL) == 0) {
-		if (!ssl_initialized) {
-			/* this shouldn't happen, master should have
-			   disabled the ssl socket.. */
-			i_fatal("BUG: SSL initialization parameters not given "
-				"while they should have been");
+	if (!is_inetd) {
+		if (net_getsockname(LOGIN_LISTEN_FD, NULL, NULL) == 0) {
+			io_listen = io_add(LOGIN_LISTEN_FD, IO_READ,
+					   login_accept, NULL);
 		}
 
-		io_ssl_listen = io_add(LOGIN_SSL_LISTEN_FD, IO_READ,
-				       login_accept_ssl, NULL);
-	}
+		if (net_getsockname(LOGIN_SSL_LISTEN_FD, NULL, NULL) == 0) {
+			if (!ssl_initialized) {
+				/* this shouldn't happen, master should have
+				   disabled the ssl socket.. */
+				i_fatal("BUG: SSL initialization parameters "
+					"not given while they should have "
+					"been");
+			}
 
-	/* initialize master last - it sends the "we're ok" notification */
-	master_init();
+			io_ssl_listen = io_add(LOGIN_SSL_LISTEN_FD, IO_READ,
+					       login_accept_ssl, NULL);
+		}
+
+		/* initialize master last - it sends the "we're ok"
+		   notification */
+		master_init(LOGIN_MASTER_SOCKET_FD);
+	}
 }
 
 static void main_deinit(void)
@@ -226,13 +229,24 @@ static void main_deinit(void)
 int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
 	const char *name;
+	struct ip_addr ip;
+	int fd = -1, master_fd = -1;
+
+	is_inetd = getenv("DOVECOT_MASTER") == NULL;
 
 #ifdef DEBUG
-        fd_debug_verify_leaks(4, 1024);
+	if (!is_inetd)
+		fd_debug_verify_leaks(4, 1024);
 #endif
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
+
+	if (is_inetd) {
+		/* running from inetd. create master process before
+		   dropping privileges */
+		master_fd = master_connect();
+	}
 
 	name = strrchr(argv[0], '/');
 	drop_privileges(name == NULL ? argv[0] : name+1);
@@ -240,9 +254,29 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	process_title_init(argv, envp);
 	ioloop = io_loop_create(system_pool);
 
-	main_init();
-        io_loop_run(ioloop);
-	main_deinit();
+	if (is_inetd) {
+		master_init(master_fd);
+
+		if (net_getsockname(1, &ip, NULL) < 0) {
+			i_fatal("%s can be started only through dovecot "
+				"master process, inetd or equilevant", argv[0]);
+		}
+
+		if (argc < 2 || strcmp(argv[1], "--ssl") != 0)
+			fd = 1;
+		else
+			fd = ssl_proxy_new(fd, &ip);
+	}
+
+	if (fd != -1 || !is_inetd) {
+		main_init();
+
+		if (fd != -1)
+			(void)client_create(fd, &ip, TRUE);
+
+		io_loop_run(ioloop);
+		main_deinit();
+	}
 
 	io_loop_destroy(ioloop);
 	lib_deinit();

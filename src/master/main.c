@@ -33,7 +33,7 @@ static struct timeout *to;
 
 struct ioloop *ioloop;
 struct hash_table *pids;
-int null_fd, mail_fd[FD_MAX];
+int null_fd, mail_fd[FD_MAX], inetd_login_fd;
 
 int validate_str(const char *str, size_t max_len)
 {
@@ -47,7 +47,7 @@ int validate_str(const char *str, size_t max_len)
 	return FALSE;
 }
 
-void clean_child_process(void)
+void child_process_init_env(void)
 {
 	/* remove all environment, we don't need them */
 	env_clean();
@@ -216,7 +216,7 @@ static struct ip_addr *resolve_ip(const char *name, unsigned int *port)
 	return ip;
 }
 
-static void open_fds(void)
+static void listen_protocols(void)
 {
 	struct ip_addr *imap_ip, *imaps_ip, *pop3_ip, *pop3s_ip, *ip;
 	const char *const *proto;
@@ -242,15 +242,6 @@ static void open_fds(void)
 		imaps_ip = imap_ip;
 	if (pop3s_ip == NULL && set->pop3s_listen == NULL)
 		pop3s_ip = pop3_ip;
-
-	/* initialize fds */
-	null_fd = open("/dev/null", O_RDONLY);
-	if (null_fd == -1)
-		i_fatal("Can't open /dev/null: %m");
-	fd_close_on_exec(null_fd, TRUE);
-
-	for (i = 0; i < FD_MAX; i++)
-		mail_fd[i] = -1;
 
 	/* register wanted protocols */
 	for (proto = t_strsplit(set->protocols, " "); *proto != NULL; proto++) {
@@ -286,6 +277,29 @@ static void open_fds(void)
 			fd_close_on_exec(mail_fd[i], TRUE);
 		}
 	}
+}
+
+static void open_fds(void)
+{
+	int i;
+
+	/* initialize fds. */
+	null_fd = open("/dev/null", O_RDONLY);
+	if (null_fd == -1)
+		i_fatal("Can't open /dev/null: %m");
+	fd_close_on_exec(null_fd, TRUE);
+
+	/* make sure all fds between 0..3 are used. */
+	while (null_fd < 4) {
+		null_fd = dup(null_fd);
+		fd_close_on_exec(null_fd, TRUE);
+	}
+
+	for (i = 0; i < FD_MAX; i++)
+		mail_fd[i] = -1;
+
+	if (!IS_INETD())
+		listen_protocols();
 
 	/* close stdin and stdout. close stderr unless we're logging
 	   into /dev/stderr. */
@@ -299,7 +313,7 @@ static void open_fds(void)
 	    (set->info_log_path == NULL ||
 	     strcmp(set->info_log_path, "/dev/stderr") != 0)) {
 		if (dup2(null_fd, 2) < 0)
-			i_fatal("dup(0) failed: %m");
+			i_fatal("dup2(2) failed: %m");
 	}
 }
 
@@ -357,8 +371,10 @@ static void main_deinit(void)
 		i_error("close(null_fd) failed: %m");
 
 	for (i = 0; i < FD_MAX; i++) {
-		if (close(mail_fd[i]) < 0)
-			i_error("close(mail_fd[%d]) failed: %m", i);
+		if (mail_fd[i] != -1) {
+			if (close(mail_fd[i]) < 0)
+				i_error("close(mail_fd[%d]) failed: %m", i);
+		}
 	}
 
 	hash_destroy(pids);
@@ -393,6 +409,7 @@ int main(int argc, char *argv[])
 
 	lib_init();
 
+        inetd_login_fd = -1;
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-F") == 0) {
 			/* foreground */
@@ -402,6 +419,13 @@ int main(int argc, char *argv[])
 			i++;
 			if (i == argc) i_fatal("Missing config file argument");
 			configfile = argv[i];
+		} else if (strcmp(argv[i], "--inetd") == 0) {
+			/* starting through inetd. */
+			inetd_login_fd = dup(0);
+			if (inetd_login_fd == -1)
+				i_fatal("dup(0) failed: %m");
+			fd_close_on_exec(inetd_login_fd, TRUE);
+			foreground = TRUE;
 		} else if (strcmp(argv[i], "--version") == 0) {
 			printf("%s\n", VERSION);
 			return 0;
@@ -415,6 +439,9 @@ int main(int argc, char *argv[])
 	master_settings_init();
 	master_settings_read(configfile);
 	open_fds();
+
+	/* we don't need any environment */
+	env_clean();
 
 	if (!foreground)
 		daemonize();

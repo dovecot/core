@@ -5,11 +5,14 @@
 #include "ioloop.h"
 #include "network.h"
 #include "fdpass.h"
+#include "istream.h"
+#include "env-util.h"
 #include "master.h"
 #include "client-common.h"
 
 #include <unistd.h>
 
+static int master_fd;
 static struct io *io_master;
 static struct hash_table *master_requests;
 
@@ -42,8 +45,7 @@ void master_request_imap(struct client *client, master_callback_t *callback,
 	req.auth_id = auth_id;
 	req.ip = client->ip;
 
-	if (fd_send(LOGIN_MASTER_SOCKET_FD,
-		    client->fd, &req, sizeof(req)) != sizeof(req))
+	if (fd_send(master_fd, client->fd, &req, sizeof(req)) != sizeof(req))
 		i_fatal("fd_send(%d) failed: %m", client->fd);
 
 	client->master_callback = callback;
@@ -60,8 +62,7 @@ void master_notify_finished(void)
 	memset(&req, 0, sizeof(req));
 
 	/* sending -1 as fd does the notification */
-	if (fd_send(LOGIN_MASTER_SOCKET_FD,
-		    -1, &req, sizeof(req)) != sizeof(req))
+	if (fd_send(master_fd, -1, &req, sizeof(req)) != sizeof(req))
 		i_fatal("fd_send(-1) failed: %m");
 }
 
@@ -70,8 +71,9 @@ void master_close(void)
 	if (io_master == NULL)
 		return;
 
-	if (close(LOGIN_MASTER_SOCKET_FD) < 0)
+	if (close(master_fd) < 0)
 		i_fatal("close(master) failed: %m");
+	master_fd = -1;
 
 	io_remove(io_master);
 	io_master = NULL;
@@ -83,11 +85,94 @@ void master_close(void)
 	clients_destroy_all();
 }
 
+static void master_exec(int fd)
+{
+	char *argv[] = { "dovecot", "--inetd", NULL };
+
+	switch (fork()) {
+	case -1:
+		i_fatal("fork() failed: %m");
+	case 0:
+		if (dup2(fd, 0) < 0)
+			i_fatal("master_exec: dup2(%d, 0) failed: %m", fd);
+		(void)close(fd);
+
+		if (setsid() < 0)
+			i_fatal("setsid() failed: %m");
+
+		execv(SBINDIR"/dovecot", argv);
+		i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
+			       SBINDIR"/dovecot");
+	default:
+		(void)close(fd);
+	}
+}
+
+static void master_read_env(int fd)
+{
+	struct istream *input;
+	const char *line;
+
+	env_clean();
+
+	/* read environment variable lines until empty line comes */
+	input = i_stream_create_file(fd, default_pool, 8192, FALSE);
+	do {
+		switch (i_stream_read(input)) {
+		case -1:
+			i_fatal("EOF while reading environment from master");
+		case -2:
+			i_fatal("Too large environment line from master");
+		}
+
+		while ((line = i_stream_next_line(input)) != NULL &&
+		       *line != '\0')
+			env_put(line);
+	} while (line == NULL);
+
+	i_stream_unref(input);
+}
+
+int master_connect(void)
+{
+	const char *path = PKG_RUNDIR"/master";
+	int i, fd = -1;
+
+	for (i = 0; i < 5 && fd == -1; i++) {
+		fd = net_connect_unix(path);
+		if (fd != -1)
+			break;
+
+		if (errno == ECONNREFUSED) {
+			if (unlink(path) < 0)
+				i_error("unlink(%s) failed: %m", path);
+		} else if (errno != ENOENT) {
+			i_fatal("Can't connect to master UNIX socket %s: %m",
+				path);
+		}
+
+		/* need to create it */
+		fd = net_listen_unix(path);
+		if (fd != -1) {
+			master_exec(fd);
+			fd = -1;
+		} else if (errno != EADDRINUSE) {
+			i_fatal("Can't create master UNIX socket %s: %m", path);
+		}
+	}
+
+	if (fd == -1)
+		i_fatal("Couldn't use/create UNIX socket %s", path);
+
+	master_read_env(fd);
+	return fd;
+}
+
 static void master_input(void *context __attr_unused__)
 {
 	int ret;
 
-	ret = net_receive(LOGIN_MASTER_SOCKET_FD, master_buf + master_pos,
+	ret = net_receive(master_fd, master_buf + master_pos,
 			  sizeof(master_buf) - master_pos);
 	if (ret < 0) {
 		/* master died, kill all clients logging in */
@@ -104,19 +189,20 @@ static void master_input(void *context __attr_unused__)
 	master_pos = 0;
 }
 
-void master_init(void)
+void master_init(int fd)
 {
 	main_ref();
 
+	master_fd = fd;
 	master_requests = hash_create(default_pool, default_pool,
 				      0, NULL, NULL);
 
         master_pos = 0;
-	io_master = io_add(LOGIN_MASTER_SOCKET_FD, IO_READ, master_input, NULL);
+	io_master = io_add(master_fd, IO_READ, master_input, NULL);
 
 	/* just a note to master that we're ok. if we die before,
 	   master should shutdown itself. */
-        master_notify_finished();
+	master_notify_finished();
 }
 
 void master_deinit(void)

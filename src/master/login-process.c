@@ -58,8 +58,9 @@ struct login_auth_request {
 	struct ip_addr ip;
 };
 
-static unsigned int auth_id_counter;
+static unsigned int auth_id_counter, login_pid_counter;
 static struct timeout *to;
+static struct io *io_listen;
 
 static struct hash_table *processes;
 static struct login_group *login_groups;
@@ -220,7 +221,8 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 {
 	struct login_process *p;
 
-	PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_LOGIN);
+	i_assert(pid != 0);
+	i_assert(group != NULL);
 
 	p = i_new(struct login_process, 1);
 	p->group = group;
@@ -233,7 +235,9 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 					 sizeof(struct master_login_reply)*10,
 					 IO_PRIORITY_DEFAULT, FALSE);
 
+	PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_LOGIN);
 	hash_insert(processes, POINTER_CAST(pid), p);
+
 	p->group->processes++;
 	p->group->listening_processes++;
 	return p;
@@ -276,7 +280,8 @@ static void login_process_destroy(struct login_process *p)
 		login_process_remove_from_lists(p);
 
 	p->group->processes--;
-	hash_remove(processes, POINTER_CAST(p->pid));
+	if (p->pid != 0)
+		hash_remove(processes, POINTER_CAST(p->pid));
 
 	login_process_unref(p);
 }
@@ -288,6 +293,44 @@ static void login_process_unref(struct login_process *p)
 
 	o_stream_unref(p->output);
 	i_free(p);
+}
+
+static void login_process_init_env(struct login_group *group, pid_t pid)
+{
+	child_process_init_env();
+
+	/* setup access environment - needs to be done after
+	   clean_child_process() since it clears environment */
+	restrict_access_set_env(group->set->user,
+				group->set->uid, set->login_gid,
+				set->login_chroot ? set->login_dir : NULL);
+
+	env_put("DOVECOT_MASTER=1");
+
+	if (!set->ssl_disable) {
+		env_put(t_strconcat("SSL_CERT_FILE=",
+				    set->ssl_cert_file, NULL));
+		env_put(t_strconcat("SSL_KEY_FILE=", set->ssl_key_file, NULL));
+		env_put(t_strconcat("SSL_PARAM_FILE=",
+				    set->ssl_parameters_file, NULL));
+	}
+
+	if (set->disable_plaintext_auth)
+		env_put("DISABLE_PLAINTEXT_AUTH=1");
+	if (set->verbose_proctitle)
+		env_put("VERBOSE_PROCTITLE=1");
+	if (set->verbose_ssl)
+		env_put("VERBOSE_SSL=1");
+
+	if (group->set->process_per_connection) {
+		env_put("PROCESS_PER_CONNECTION=1");
+		env_put("MAX_LOGGING_USERS=1");
+	} else {
+		env_put(t_strdup_printf("MAX_LOGGING_USERS=%u",
+					group->set->max_logging_users));
+	}
+
+	env_put(t_strdup_printf("PROCESS_UID=%s", dec2str(pid)));
 }
 
 static pid_t create_login_process(struct login_group *group)
@@ -322,16 +365,12 @@ static pid_t create_login_process(struct login_group *group)
 
 	if (pid != 0) {
 		/* master */
+		net_set_nonblock(fd[0], TRUE);
 		fd_close_on_exec(fd[0], TRUE);
-		login_process_new(group, pid, fd[0]);
+		(void)login_process_new(group, pid, fd[0]);
 		(void)close(fd[1]);
 		return pid;
 	}
-
-	/* move communication handle */
-	if (dup2(fd[1], LOGIN_MASTER_SOCKET_FD) < 0)
-		i_fatal("login: dup2(master) failed: %m");
-	fd_close_on_exec(LOGIN_MASTER_SOCKET_FD, FALSE);
 
 	/* move the listen handle */
 	if (dup2(*group->listen_fd, LOGIN_LISTEN_FD) < 0)
@@ -339,58 +378,25 @@ static pid_t create_login_process(struct login_group *group)
 	fd_close_on_exec(LOGIN_LISTEN_FD, FALSE);
 
 	/* move the SSL listen handle */
-	if (!set->ssl_disable) {
-		if (dup2(*group->ssl_listen_fd, LOGIN_SSL_LISTEN_FD) < 0)
-			i_fatal("login: dup2(ssl_listen_fd) failed: %m");
-	} else {
-		if (dup2(null_fd, LOGIN_SSL_LISTEN_FD) < 0)
-			i_fatal("login: dup2(ssl_listen_fd) failed: %m");
-	}
+	if (dup2(*group->ssl_listen_fd, LOGIN_SSL_LISTEN_FD) < 0)
+		i_fatal("login: dup2(ssl_listen_fd) failed: %m");
 	fd_close_on_exec(LOGIN_SSL_LISTEN_FD, FALSE);
 
-	/* listen_fds are closed by clean_child_process() */
+	/* move communication handle */
+	if (dup2(fd[1], LOGIN_MASTER_SOCKET_FD) < 0)
+		i_fatal("login: dup2(master) failed: %m");
+	fd_close_on_exec(LOGIN_MASTER_SOCKET_FD, FALSE);
 
 	(void)close(fd[0]);
 	(void)close(fd[1]);
 
-	clean_child_process();
-
-	/* setup access environment - needs to be done after
-	   clean_child_process() since it clears environment */
-	restrict_access_set_env(group->set->user,
-				group->set->uid, set->login_gid,
-				set->login_chroot ? set->login_dir : NULL);
+	login_process_init_env(group, getpid());
 
 	if (!set->login_chroot) {
 		/* no chrooting, but still change to the directory */
 		if (chdir(set->login_dir) < 0)
 			i_fatal("chdir(%s) failed: %m", set->login_dir);
 	}
-
-	if (!set->ssl_disable) {
-		env_put(t_strconcat("SSL_CERT_FILE=",
-				    set->ssl_cert_file, NULL));
-		env_put(t_strconcat("SSL_KEY_FILE=", set->ssl_key_file, NULL));
-		env_put(t_strconcat("SSL_PARAM_FILE=",
-				    set->ssl_parameters_file, NULL));
-	}
-
-	if (set->disable_plaintext_auth)
-		env_put("DISABLE_PLAINTEXT_AUTH=1");
-	if (set->verbose_proctitle)
-		env_put("VERBOSE_PROCTITLE=1");
-	if (set->verbose_ssl)
-		env_put("VERBOSE_SSL=1");
-
-	if (group->set->process_per_connection) {
-		env_put("PROCESS_PER_CONNECTION=1");
-		env_put("MAX_LOGGING_USERS=1");
-	} else {
-		env_put(t_strdup_printf("MAX_LOGGING_USERS=%u",
-					group->set->max_logging_users));
-	}
-
-	env_put(t_strdup_printf("PROCESS_UID=%s", dec2str(getpid())));
 
 	restrict_process_size(group->set->process_size, 0);
 
@@ -483,18 +489,82 @@ login_processes_start_missing(void *context __attr_unused__)
 		login_group_start_missings(group);
 }
 
+static int login_process_send_env(struct login_process *p)
+{
+	extern char **environ;
+	char **env;
+	size_t len;
+	int ret = 0;
+
+	/* this will clear our environment. luckily we don't need it. */
+	login_process_init_env(p->group, p->pid);
+
+	for (env = environ; *env != NULL; env++) {
+		len = strlen(*env);
+
+		if (o_stream_send(p->output, *env, len) != (ssize_t)len ||
+		    o_stream_send(p->output, "\n", 1) != 1) {
+			ret = -1;
+			break;
+		}
+	}
+
+	if (ret == 0 && o_stream_send(p->output, "\n", 1) != 1)
+		ret = -1;
+
+	env_clean();
+	return ret;
+}
+
+static void inetd_login_accept(void *context __attr_unused__)
+{
+        struct login_process *p;
+	int fd;
+
+	fd = net_accept(inetd_login_fd, NULL, NULL);
+	if (fd < 0) {
+		if (fd < -1)
+			i_fatal("accept(inetd_login_fd) failed: %m");
+	} else {
+		net_set_nonblock(fd, TRUE);
+		fd_close_on_exec(fd, TRUE);
+
+		p = login_process_new(login_groups, ++login_pid_counter, fd);
+		p->initialized = TRUE;;
+
+		if (login_process_send_env(p) < 0) {
+			i_warning("Couldn't send environment to login process");
+			login_process_destroy(p);
+		}
+	}
+}
+
 void login_processes_init(void)
 {
-        auth_id_counter = 0;
+	auth_id_counter = 0;
+        login_pid_counter = 0;
 	login_groups = NULL;
 
 	processes = hash_create(default_pool, default_pool, 128, NULL, NULL);
-	to = timeout_add(1000, login_processes_start_missing, NULL);
+	if (!IS_INETD()) {
+		to = timeout_add(1000, login_processes_start_missing, NULL);
+		io_listen = NULL;
+	} else {
+		/* use the first login group for everyone */
+		login_group_create(set->logins);
+
+		to = NULL;
+		io_listen = io_add(inetd_login_fd, IO_READ,
+				   inetd_login_accept, NULL);
+	}
 }
 
 void login_processes_deinit(void)
 {
-	timeout_remove(to);
+	if (to != NULL)
+		timeout_remove(to);
+	if (io_listen != NULL)
+		io_remove(io_listen);
 
         login_processes_destroy_all();
 	hash_destroy(processes);

@@ -30,7 +30,10 @@ enum {
 
 extern struct ioloop *ioloop;
 extern struct hash_table *pids;
-extern int null_fd, mail_fd[FD_MAX];
+extern int null_fd, mail_fd[FD_MAX], inetd_login_fd;
+
+#define IS_INETD() \
+	(inetd_login_fd != -1)
 
 /* processes */
 #define PID_GET_PROCESS_TYPE(pid) \
@@ -42,7 +45,7 @@ extern int null_fd, mail_fd[FD_MAX];
 #define PID_REMOVE_PROCESS_TYPE(pid) \
 	hash_remove(pids, POINTER_CAST(pid))
 
-void clean_child_process(void);
+void child_process_init_env(void);
 
 /* misc */
 #define VALIDATE_STR(str) \

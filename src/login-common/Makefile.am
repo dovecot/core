@@ -1,7 +1,9 @@
 noinst_LIBRARIES = liblogin-common.a
 
 INCLUDES = \
-	-I$(top_srcdir)/src/lib
+	-I$(top_srcdir)/src/lib \
+	-DPKG_RUNDIR=\""$(localstatedir)/run/$(PACKAGE)"\" \
+	-DSBINDIR=\""$(sbindir)"\"
 
 liblogin_common_a_SOURCES = \
 	auth-common.c \

@@ -132,7 +132,7 @@ int create_mail_process(int socket, struct ip_addr *ip,
 		return TRUE;
 	}
 
-	clean_child_process();
+	child_process_init_env();
 
 	/* move the client socket into stdin and stdout fds */
 	fd_close_on_exec(socket, FALSE);
