@@ -548,6 +548,7 @@ static off_t io_stream_copy(struct _ostream *outstream,
 		if ((size_t)ret != iov[pos].iov_len)
 			break;
 
+		i_assert(skip_size == 0);
 		iov_len = 0;
 	}
 
