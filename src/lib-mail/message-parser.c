@@ -333,7 +333,7 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 			/* EOF, but we may still have something in buffer.
 			   this is needed only when there's no message body */
 			msg = io_buffer_get_data(inbuf, &size);
-			if (size == 0)
+			if (size == startpos)
 				break;
 		}
 
