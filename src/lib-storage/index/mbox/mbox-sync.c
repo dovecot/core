@@ -915,7 +915,7 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 	sync_ctx->base_uid_validity = 0;
 	sync_ctx->base_uid_last = 0;
 
-	sync_ctx->next_uid = 1;
+	sync_ctx->next_uid = sync_ctx->hdr->next_uid;
 	sync_ctx->prev_msg_uid = 0;
 	sync_ctx->seq = sync_ctx->idx_seq = 0;
 
