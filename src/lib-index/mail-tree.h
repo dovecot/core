@@ -38,7 +38,8 @@ struct _MailTreeNode {
 	unsigned int up;
 
 	/* number of child nodes + 1, used to figure out message
-	   sequence numbers */
+	   sequence numbers. also highest bit specifies if the node is
+	   red or black */
 	unsigned int node_count;
 
 	unsigned int key;
