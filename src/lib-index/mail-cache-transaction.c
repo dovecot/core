@@ -16,6 +16,8 @@ struct mail_cache_transaction_ctx {
 	struct mail_cache_view *view;
 	struct mail_index_transaction *trans;
 
+	uint32_t cache_file_seq;
+
 	buffer_t *cache_data, *cache_data_seq;
 	uint32_t prev_seq;
 	size_t prev_pos;
@@ -55,6 +57,25 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 	return ctx;
 }
 
+static void mail_cache_transaction_reset(struct mail_cache_transaction_ctx *ctx)
+{
+	ctx->cache_file_seq = ctx->cache->hdr->file_seq;
+
+	if (ctx->cache_data)
+		buffer_set_used_size(ctx->cache_data, 0);
+	if (ctx->cache_data_seq)
+		buffer_set_used_size(ctx->cache_data_seq, 0);
+	ctx->prev_seq = 0;
+	ctx->prev_pos = 0;
+
+	buffer_set_used_size(ctx->reservations, 0);
+	ctx->reserved_space_offset = 0;
+	ctx->reserved_space = 0;
+	ctx->last_grow_size = 0;
+
+	ctx->changes = FALSE;
+}
+
 static void mail_cache_transaction_free(struct mail_cache_transaction_ctx *ctx)
 {
 	ctx->view->transaction = NULL;
@@ -66,6 +87,18 @@ static void mail_cache_transaction_free(struct mail_cache_transaction_ctx *ctx)
 		buffer_free(ctx->cache_data_seq);
 	buffer_free(ctx->reservations);
 	i_free(ctx);
+}
+
+static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
+{
+	int ret;
+
+	if ((ret = mail_cache_lock(ctx->cache)) <= 0)
+		return ret;
+
+	if (ctx->cache_file_seq != ctx->cache->hdr->file_seq)
+		mail_cache_transaction_reset(ctx);
+	return 1;
 }
 
 static int mail_cache_grow_file(struct mail_cache *cache, size_t size)
@@ -263,7 +296,7 @@ mail_cache_transaction_free_space(struct mail_cache_transaction_ctx *ctx)
 		return;
 
 	if (!locked) {
-		if (mail_cache_lock(ctx->cache) <= 0)
+		if (mail_cache_transaction_lock(ctx) <= 0)
 			return;
 	}
 
@@ -289,7 +322,7 @@ mail_cache_transaction_get_space(struct mail_cache_transaction_ctx *ctx,
 
 	if (min_size > ctx->reserved_space) {
 		if (!locked) {
-			if (mail_cache_lock(ctx->cache) <= 0)
+			if (mail_cache_transaction_lock(ctx) <= 0)
 				return -1;
 		}
 		ret = mail_cache_transaction_reserve_more(ctx, max_size,
@@ -455,7 +488,7 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 		return 0;
 	}
 
-	if (mail_cache_lock(cache) <= 0) {
+	if (mail_cache_transaction_lock(ctx) <= 0) {
 		mail_cache_transaction_rollback(ctx);
 		return -1;
 	}
@@ -489,7 +522,7 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 
 	if ((ctx->reserved_space > 0 || size > 0) &&
 	    !MAIL_CACHE_IS_UNUSABLE(cache)) {
-		if (mail_cache_lock(cache) > 0) {
+		if (mail_cache_transaction_lock(ctx) > 0) {
 			mail_cache_transaction_free_space(ctx);
 
 			if (size > 0) {
@@ -521,7 +554,7 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	uint32_t offset, hdr_offset;
 	int ret = 0;
 
-	if (mail_cache_lock(cache) <= 0)
+	if (mail_cache_transaction_lock(ctx) <= 0)
 		return -1;
 
 	/* re-read header to make sure we don't lose any fields. */
