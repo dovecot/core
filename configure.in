@@ -14,7 +14,7 @@ AC_ARG_PROGRAM
 AM_PROG_LIBTOOL
 
 AC_CHECK_HEADERS(string.h stdlib.h unistd.h dirent.h)
-AC_CHECK_HEADERS(sys/sendfile.h linux/mman.h)
+AC_CHECK_HEADERS(sys/uio.h sys/sendfile.h linux/mman.h)
 
 # check posix headers
 AC_CHECK_HEADERS(sys/time.h)
@@ -106,7 +106,7 @@ AC_CHECK_FUNC(inet_addr, [], [
 
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock inet_aton sigaction getpagesize madvise setreuid)
-AC_CHECK_FUNCS(strcasecmp stricmp vsnprintf memmove vsyslog)
+AC_CHECK_FUNCS(strcasecmp stricmp vsnprintf memmove vsyslog writev)
 
 dnl * poll/select?
 
@@ -251,6 +251,22 @@ if test $i_cv_field_tm_gmtoff = yes; then
 	AC_DEFINE(HAVE_TM_GMTOFF)
 fi
 AC_MSG_RESULT($i_cv_field_tm_gmtoff)
+
+dnl * do we have struct iovec
+AC_MSG_CHECKING([for struct iovec])
+AC_CACHE_VAL(i_cv_struct_iovec,
+AC_TRY_COMPILE([
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>],
+[struct iovec *iovec;],
+i_cv_struct_iovec=yes,
+i_cv_struct_iovec=no)])
+
+if test $i_cv_struct_iovec = yes; then
+	AC_DEFINE(HAVE_STRUCT_IOVEC)
+fi
+AC_MSG_RESULT($i_cv_struct_iovec)
 
 dnl * linux compatible mremap()
 AC_MSG_CHECKING([linux compatible mremap()])

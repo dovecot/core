@@ -7,6 +7,9 @@
 /* Define if you have struct tm->tm_gmtoff */
 #undef HAVE_TM_GMTOFF
 
+/* Define if you have struct iovec */
+#undef HAVE_STRUCT_IOVEC
+
 #undef USERINFO_PASSWD
 #undef USERINFO_PASSWD_FILE
 #undef USERINFO_SHADOW
