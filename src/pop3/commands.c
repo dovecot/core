@@ -246,6 +246,7 @@ static void stream_send_escaped(struct ostream *output, struct istream *input,
 				   (client_workarounds &
 				    WORKAROUND_OUTLOOK_NO_NULS) != 0) {
 				add = '\x80';
+				break;
 			}
 		}
 
