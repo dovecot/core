@@ -10,6 +10,6 @@ const char *str_escape(const char *str);
 void str_append_unescaped(string_t *dest, const void *src, size_t src_size);
 
 /* remove all '\' characters */
-void str_unescape(char *str);
+char *str_unescape(char *str);
 
 #endif
