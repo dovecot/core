@@ -28,7 +28,7 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 
 	crypted_pass = pu->password;
 	scheme = password_get_scheme(&crypted_pass);
-	if (scheme == NULL) scheme = "DES";
+	if (scheme == NULL) scheme = "CRYPT";
 
 	ret = password_verify(password, crypted_pass, scheme,
 			      request->user);
