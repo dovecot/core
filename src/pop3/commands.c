@@ -1,6 +1,8 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "istream.h"
+#include "ostream.h"
 #include "str.h"
 #include "message-size.h"
 #include "mail-storage.h"
@@ -153,10 +155,14 @@ static void cmd_quit(struct client *client, const char *args __attr_unused__)
 			if (last == msgnum-1 && last != 0)
 				last++;
 			else {
-				if (first == last)
-					str_printfa(set, ",%u", first);
-				else
-					str_printfa(set, ",%u:%u", first, last);
+				if (first != 0) {
+					if (first == last)
+						str_printfa(set, ",%u", first);
+					else {
+						str_printfa(set, ",%u:%u",
+							    first, last);
+					}
+				}
 				first = last = msgnum;
 			}
 		}
@@ -169,9 +175,12 @@ static void cmd_quit(struct client *client, const char *args __attr_unused__)
 			str_printfa(set, ",%u:%u", first, last);
 	}
 
+	memset(&flags, 0, sizeof(flags));
+	flags.flags = MAIL_DELETED;
+
 	if (str_len(set) == 0)
 		client_send_line(client, "+OK Logging out.");
-	else if (client->mailbox->update_flags(client->mailbox, str_c(set),
+	else if (client->mailbox->update_flags(client->mailbox, str_c(set)+1,
 					       FALSE, &flags, MODIFY_ADD,
 					       FALSE, NULL) &&
 		 client->mailbox->expunge(client->mailbox, FALSE))
@@ -180,6 +189,56 @@ static void cmd_quit(struct client *client, const char *args __attr_unused__)
 		client_send_storage_error(client);
 
 	client_disconnect(client);
+}
+
+static void stream_send_escaped(struct ostream *output, struct istream *input,
+				uoff_t max_lines)
+{
+	const unsigned char *data;
+	unsigned char last, add;
+	size_t i, size;
+	int cr_skipped;
+
+	cr_skipped = FALSE; last = '\0';
+	while (max_lines > 0 &&
+	       i_stream_read_data(input, &data, &size, 0) > 0) {
+		add = '\0';
+		for (i = 0; i < size; i++) {
+			if (data[i] == '\n') {
+				if ((i == 0 && last != '\r') ||
+				    (i > 0 && data[i-1] != '\r')) {
+					/* missing CR */
+					add = '\r';
+					break;
+				}
+
+				if (--max_lines == 0) {
+					i++;
+					break;
+				}
+			} else if (data[i] == '.' &&
+				   ((i == 0 && last == '\n') ||
+				    (i > 0 && data[i-1] == '\n'))) {
+				/* escape the dot */
+				add = '.';
+				i++;
+				break;
+			}
+		}
+
+		if (o_stream_send(output, data, i) < 0)
+			return;
+
+		if (add != '\0') {
+			if (o_stream_send(output, &add, 1) < 0)
+				return;
+			last = add;
+		} else {
+			last = data[i-1];
+		}
+
+		i_stream_skip(input, i);
+	}
 }
 
 static void fetch(struct client *client, unsigned int msgnum, uoff_t max_lines)
@@ -211,8 +270,7 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t max_lines)
 			client_send_line(client, "+OK");
 		}
 
-		// FIXME: "." lines needs to be escaped
-		// FIXME: and send only max_lines
+		stream_send_escaped(client->output, stream, max_lines);
 		client_send_line(client, ".");
 	}
 
@@ -248,9 +306,11 @@ static void cmd_top(struct client *client, const char *args)
 	unsigned int msgnum;
 	uoff_t max_lines;
 
-	if (get_msgnum(client, args, &msgnum) != NULL &&
-	    get_size(client, args, &max_lines))
-		fetch(client, msgnum, max_lines);
+	args = get_msgnum(client, args, &msgnum);
+	if (args != NULL) {
+		if (get_size(client, args, &max_lines) != NULL)
+			fetch(client, msgnum, max_lines);
+	}
 }
 
 static void list_uids(struct client *client, unsigned int message)
