@@ -68,7 +68,8 @@ static const char *expand_mail_env(const char *env, const char *user,
 				   const char *home)
 {
 	TempString *str;
-	const char *p;
+	const char *p, *var;
+	unsigned int width;
 
 	str = t_string_new(256);
 
@@ -89,13 +90,45 @@ static const char *expand_mail_env(const char *env, const char *user,
 		env++;
 	}
 
-	/* expand $U if found */
+	/* expand %vars */
 	for (; *env != '\0'; env++) {
-		if (*env == '$' && env[1] == 'U') {
-			t_string_append(str, user);
-			env++;
-		} else {
+		if (*env != '%')
 			t_string_append_c(str, *env);
+		else {
+			width = 0;
+			while (env[1] >= '0' && env[1] <= '9') {
+				width = width*10 + (env[1] - '0');
+				env++;
+			}
+
+			switch (env[1]) {
+			case '%':
+				var = "%";
+				break;
+			case 'u':
+				var = user;
+				break;
+			case 'h':
+				var = home;
+				break;
+			case 'n':
+				var = t_strcut(user, '@');
+				break;
+			case 'd':
+				var = strchr(user, '@');
+				if (var != NULL) var++;
+				break;
+			default:
+				var = NULL;
+				break;
+			}
+
+			if (var != NULL) {
+				if (width == 0)
+					t_string_append(str, var);
+				else
+					t_string_append_n(str, var, width);
+			}
 		}
 	}
 
