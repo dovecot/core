@@ -31,7 +31,7 @@ typedef struct _TempString TempString;
 
 #include "strfuncs.h"
 
-unsigned int nearest_power(unsigned int num);
+size_t nearest_power(size_t num);
 
 void lib_init(void);
 void lib_deinit(void);

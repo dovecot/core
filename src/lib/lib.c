@@ -28,11 +28,11 @@
 #include <stdlib.h>
 #include <time.h>
 
-unsigned int nearest_power(unsigned int num)
+size_t nearest_power(size_t num)
 {
 	unsigned int n = 1;
 
-	i_assert(num <= (unsigned int) (1 << (BITS_IN_UINT-1)));
+	i_assert(num <= (unsigned int) (1 << (BITS_IN_SIZE_T-1)));
 
 	while (n < num) n <<= 1;
 	return n;
