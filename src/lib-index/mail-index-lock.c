@@ -87,9 +87,8 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		ret = 0;
 	}
 
-	if (ret > 0) {
+	if (ret > 0)
 		return 1;
-	}
 
 	if (index->fcntl_locks_disable) {
 		/* FIXME: exclusive locking will rewrite the index file every
@@ -328,6 +327,7 @@ static void mail_index_excl_unlock_finish(struct mail_index *index)
 							  index->copy_lock_path,
 							  "file_try_lock()");
 		}
+		i_assert(index->lock_type == F_WRLCK);
 		index->lock_type = F_RDLCK;
                 (void)mail_index_lock_mprotect(index, F_RDLCK);
 	}
