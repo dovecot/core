@@ -46,8 +46,8 @@ struct vqpasswd *vpopmail_lookup_vqp(const char *user,
 
 #ifdef USERDB_VPOPMAIL
 
-static void vpopmail_lookup(const char *user, userdb_callback_t *callback,
-			    void *context)
+static void vpopmail_lookup(struct auth_request *auth_request,
+			    userdb_callback_t *callback, void *context)
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
@@ -56,7 +56,7 @@ static void vpopmail_lookup(const char *user, userdb_callback_t *callback,
 	gid_t gid;
 	pool_t pool;
 
-	vpw = vpopmail_lookup_vqp(user, vpop_user, vpop_domain);
+	vpw = vpopmail_lookup_vqp(auth_request->user, vpop_user, vpop_domain);
 	if (vpw == NULL) {
 		callback(NULL, context);
 		return;
@@ -67,7 +67,7 @@ static void vpopmail_lookup(const char *user, userdb_callback_t *callback,
 	if (vget_assign(vpop_domain, NULL, 0, &uid, &gid) == NULL) {
 		if (verbose) {
 			i_info("vpopmail(%s): vget_assign(%s) failed",
-			       user, vpop_domain);
+			       auth_request->user, vpop_domain);
 		}
 		callback(NULL, context);
 		return;
@@ -77,12 +77,12 @@ static void vpopmail_lookup(const char *user, userdb_callback_t *callback,
 		/* user's homedir doesn't exist yet, create it */
 		if (verbose) {
 			i_info("vpopmail(%s): pw_dir isn't set, creating",
-			       user);
+			       auth_request->user);
 		}
 
 		if (make_user_dir(vpop_user, vpop_domain, uid, gid) == NULL) {
 			i_error("vpopmail(%s): make_user_dir(%s, %s) failed",
-				user, vpop_user, vpop_domain);
+				auth_request->user, vpop_user, vpop_domain);
 			callback(NULL, context);
 			return;
 		}

@@ -4,7 +4,7 @@
 struct login_group {
 	struct login_group *next;
 
-	int process_type;
+	enum process_type process_type;
 	struct settings *set;
 
 	unsigned int processes;

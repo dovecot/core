@@ -50,6 +50,8 @@ int str_ppath(char *dest, size_t dstsize, const char *dir,
 
 char *str_ucase(char *str);
 char *str_lcase(char *str);
+const char *t_str_lcase(const char *str);
+const char *t_str_ucase(const char *str);
 
 int null_strcmp(const char *s1, const char *s2);
 int memcasecmp(const void *p1, const void *p2, size_t size);

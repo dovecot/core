@@ -141,16 +141,18 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 			     struct ldap_request *ldap_request)
 {
 	struct ldap_connection *conn = passdb_ldap_conn->conn;
-	const char *user, *filter;
+	const char *filter;
 	string_t *str;
 
-	user = ldap_escape(auth_request->user);
 	if (conn->set.pass_filter == NULL) {
 		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
-			passdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER], user);
+			passdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER],
+			ldap_escape(auth_request->user));
 	} else {
 		str = t_str_new(512);
-		var_expand(str, conn->set.pass_filter, user, NULL);
+		var_expand(str, conn->set.pass_filter,
+			   auth_request_get_var_expand_table(auth_request,
+							     ldap_escape));
 		filter = str_c(str);
 	}
 

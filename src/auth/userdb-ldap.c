@@ -149,21 +149,23 @@ static void handle_request(struct ldap_connection *conn,
 	t_pop();
 }
 
-static void userdb_ldap_lookup(const char *user, userdb_callback_t *callback,
-			       void *context)
+static void userdb_ldap_lookup(struct auth_request *auth_request,
+			       userdb_callback_t *callback, void *context)
 {
 	struct ldap_connection *conn = userdb_ldap_conn->conn;
 	struct userdb_ldap_request *request;
 	const char *filter;
 	string_t *str;
 
-	user = ldap_escape(user);
 	if (conn->set.user_filter == NULL) {
 		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
-			userdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER], user);
+			userdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER],
+			ldap_escape(auth_request->user));
 	} else {
 		str = t_str_new(512);
-		var_expand(str, conn->set.user_filter, user, NULL);
+		var_expand(str, conn->set.user_filter,
+			   auth_request_get_var_expand_table(auth_request,
+							     ldap_escape));
 		filter = str_c(str);
 	}
 

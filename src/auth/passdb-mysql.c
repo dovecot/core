@@ -108,7 +108,8 @@ static void mysql_lookup_pass(struct auth_request *auth_request,
 
 	str = t_str_new(512);
 	var_expand(str, conn->set.password_query,
-		   str_escape(auth_request->user), NULL);
+		   auth_request_get_var_expand_table(auth_request,
+						     str_escape));
 	query = str_c(str);
 
 	mysql_request->callback = mysql_handle_request;

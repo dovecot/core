@@ -81,6 +81,7 @@ void mail_index_sync_expunge(struct mail_index_view *view,
 
 	map->records_count -= count;
 	hdr->messages_count -= count;
+	view->messages_count -= count;
 
 	if (map->buffer != NULL) {
 		buffer_set_used_size(map->buffer, map->records_count);
@@ -123,6 +124,7 @@ static int sync_append(const struct mail_index_record *rec, void *context)
 	map->records[map->records_count++] = *rec;
 	map->hdr_copy.messages_count++;
 	map->hdr_copy.next_uid = rec->uid+1;
+	view->messages_count++;
 
 	mail_index_header_update_counts(&map->hdr_copy, 0, rec->flags);
 	mail_index_header_update_lowwaters(&map->hdr_copy, rec);

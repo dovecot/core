@@ -75,6 +75,10 @@ mech_cyrus_sasl_new(struct auth_client_connection *conn,
 void auth_request_ref(struct auth_request *request);
 int auth_request_unref(struct auth_request *request);
 
+const struct var_expand_table *
+auth_request_get_var_expand_table(const struct auth_request *auth_request,
+				  const char *(*escape_func)(const char *));
+
 void mech_init(void);
 void mech_deinit(void);
 

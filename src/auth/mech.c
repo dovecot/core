@@ -5,6 +5,7 @@
 #include "buffer.h"
 #include "hash.h"
 #include "mech.h"
+#include "var-expand.h"
 #include "auth-client-connection.h"
 
 #include <stdlib.h>
@@ -223,6 +224,48 @@ int auth_request_unref(struct auth_request *request)
 
 	request->auth_free(request);
 	return FALSE;
+}
+
+static const char *escape_none(const char *str)
+{
+	return str;
+}
+
+const struct var_expand_table *
+auth_request_get_var_expand_table(const struct auth_request *auth_request,
+				  const char *(*escape_func)(const char *))
+{
+	static struct var_expand_table static_tab[] = {
+		{ 'u', NULL },
+		{ 'n', NULL },
+		{ 'd', NULL },
+		{ 'p', NULL },
+		{ '\0', NULL }
+	};
+	struct var_expand_table *tab;
+
+	if (escape_func == NULL)
+		escape_func = escape_none;
+
+	tab = t_malloc(sizeof(static_tab));
+	memcpy(tab, static_tab, sizeof(static_tab));
+
+	tab[0].value = escape_func(auth_request->user);
+	tab[1].value = escape_func(t_strcut(auth_request->user, '@'));
+	tab[2].value = strchr(auth_request->user, '@');
+	if (tab[2].value != NULL)
+		tab[2].value = escape_func(tab[2].value+1);
+
+	switch (auth_request->protocol) {
+	case AUTH_PROTOCOL_IMAP:
+		tab[3].value = "IMAP";
+		break;
+	case AUTH_PROTOCOL_POP3:
+		tab[3].value = "POP3";
+		break;
+	}
+
+	return tab;
 }
 
 extern struct mech_module mech_plain;

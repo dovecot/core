@@ -16,8 +16,8 @@ static uid_t static_uid;
 static gid_t static_gid;
 static char *static_home_template;
 
-static void static_lookup(const char *user, userdb_callback_t *callback,
-			  void *context)
+static void static_lookup(struct auth_request *auth_request,
+			  userdb_callback_t *callback, void *context)
 {
 	struct user_data data;
 	string_t *str;
@@ -26,10 +26,11 @@ static void static_lookup(const char *user, userdb_callback_t *callback,
 	data.uid = static_uid;
 	data.gid = static_gid;
 
-	data.virtual_user = data.system_user = user;
+	data.virtual_user = data.system_user = auth_request->user;
 
 	str = t_str_new(256);
-	var_expand(str, static_home_template, user, NULL);
+	var_expand(str, static_home_template,
+		   auth_request_get_var_expand_table(auth_request, NULL));
 	data.home = str_c(str);
 
 	callback(&data, context);

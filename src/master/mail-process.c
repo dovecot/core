@@ -74,8 +74,35 @@ static int validate_chroot(struct settings *set, const char *dir)
 	return FALSE;
 }
 
-static const char *expand_mail_env(const char *env, const char *user,
-				   const char *home)
+static const struct var_expand_table *
+get_var_expand_table(const char *user, const char *home,
+		     enum process_type process_type)
+{
+	static struct var_expand_table static_tab[] = {
+		{ 'u', NULL },
+		{ 'n', NULL },
+		{ 'd', NULL },
+		{ 'p', NULL },
+		{ 'h', NULL },
+		{ '\0', NULL }
+	};
+	struct var_expand_table *tab;
+
+	tab = t_malloc(sizeof(static_tab));
+	memcpy(tab, static_tab, sizeof(static_tab));
+
+	tab[0].value = user;
+	tab[1].value = t_strcut(user, '@');
+	tab[2].value = strchr(user, '@');
+	if (tab[2].value != NULL) tab[2].value++;
+	tab[3].value = str_ucase(t_strdup_noconst(process_names[process_type]));
+	tab[4].value = home;
+
+	return tab;
+}
+
+static const char *
+expand_mail_env(const char *env, const struct var_expand_table *table)
 {
 	string_t *str;
 	const char *p;
@@ -95,18 +122,17 @@ static const char *expand_mail_env(const char *env, const char *user,
 
 	if (env[0] == '~' && env[1] == '/') {
 		/* expand home */
-		str_append(str, home);
-		env++;
+		env = t_strconcat("%h", env+1, NULL);
 	}
 
 	/* expand %vars */
-        var_expand(str, env, user, home);
+	var_expand(str, env, table);
 	return str_c(str);
 }
 
-static void env_put_namespace(struct namespace_settings *ns,
-			      const char *default_location,
-			      const char *user, const char *home)
+static void
+env_put_namespace(struct namespace_settings *ns, const char *default_location,
+		  const struct var_expand_table *table)
 {
 	const char *location;
 	unsigned int i;
@@ -120,7 +146,7 @@ static void env_put_namespace(struct namespace_settings *ns,
 
 		location = ns->location != NULL ? ns->location :
 			default_location;
-		location = expand_mail_env(location, user, home);
+		location = expand_mail_env(location, table);
 		env_put(t_strdup_printf("NAMESPACE_%u=%s", i, location));
 
 		if (ns->separator != NULL) {
@@ -135,7 +161,7 @@ static void env_put_namespace(struct namespace_settings *ns,
 			/* expand variables, eg. ~%u/ can be useful */
 			str = t_str_new(256);
 			str_printfa(str, "NAMESPACE_%u_PREFIX=", i);
-			var_expand(str, ns->prefix, user, home);
+			var_expand(str, ns->prefix, table);
 			env_put(str_c(str));
 		}
 		if (ns->inbox)
@@ -151,6 +177,7 @@ int create_mail_process(struct login_group *group, int socket,
 			struct auth_master_reply *reply, const char *data)
 {
 	struct settings *set = group->set;
+	const struct var_expand_table *var_expand_table;
 	const char *argv[4];
 	const char *addr, *mail, *user, *chroot_dir, *home_dir, *full_home_dir;
 	const char *executable, *p, *prefix;
@@ -317,12 +344,16 @@ int create_mail_process(struct login_group *group, int socket,
 	   mechanism might allow leaving extra data there. */
 	mail = data + reply->mail_idx;
 	user = data + reply->virtual_user_idx;
+
+	var_expand_table =
+		get_var_expand_table(user, home_dir, group->process_type);
+
 	if (*mail == '\0' && set->default_mail_env != NULL)
-		mail = expand_mail_env(set->default_mail_env, user, home_dir);
+		mail = expand_mail_env(set->default_mail_env, var_expand_table);
 
 	if (set->server->namespaces != NULL) {
 		env_put_namespace(set->server->namespaces,
-				  mail, user, home_dir);
+				  mail, var_expand_table);
 	}
 
 	env_put(t_strconcat("MAIL=", mail, NULL));

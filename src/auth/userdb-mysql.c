@@ -114,8 +114,8 @@ static void mysql_handle_request(struct mysql_connection *conn __attr_unused__,
 	}
 }
 
-static void userdb_mysql_lookup(const char *user, userdb_callback_t *callback,
-				void *context)
+static void userdb_mysql_lookup(struct auth_request *auth_request,
+				userdb_callback_t *callback, void *context)
 {
 	struct mysql_connection *conn = userdb_mysql_conn->conn;
 	struct userdb_mysql_request *request;
@@ -123,14 +123,17 @@ static void userdb_mysql_lookup(const char *user, userdb_callback_t *callback,
 	string_t *str;
 
 	str = t_str_new(512);
-	var_expand(str, conn->set.user_query, str_escape(user), NULL);
+	var_expand(str, conn->set.user_query,
+		   auth_request_get_var_expand_table(auth_request,
+						     str_escape));
 	query = str_c(str);
 
-	request = i_malloc(sizeof(struct userdb_mysql_request) + strlen(user));
+	request = i_malloc(sizeof(struct userdb_mysql_request) +
+			   strlen(auth_request->user));
 	request->request.callback = mysql_handle_request;
 	request->request.context = context;
 	request->userdb_callback = callback;
-	strcpy(request->username, user);
+	strcpy(request->username, auth_request->user);
 
 	db_mysql_query(conn, query, &request->request);
 }

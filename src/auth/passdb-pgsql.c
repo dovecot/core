@@ -105,7 +105,8 @@ static void pgsql_lookup_pass(struct auth_request *auth_request,
 
 	str = t_str_new(512);
 	var_expand(str, conn->set.password_query,
-		   db_pgsql_escape(auth_request->user), NULL);
+		   auth_request_get_var_expand_table(auth_request,
+						     db_pgsql_escape));
 	query = str_c(str);
 
 	pgsql_request->callback = pgsql_handle_request;

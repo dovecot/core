@@ -84,8 +84,8 @@ static void pgsql_handle_request(struct pgsql_connection *conn __attr_unused__,
 	}
 }
 
-static void userdb_pgsql_lookup(const char *user, userdb_callback_t *callback,
-				void *context)
+static void userdb_pgsql_lookup(struct auth_request *auth_request,
+				userdb_callback_t *callback, void *context)
 {
 	struct pgsql_connection *conn = userdb_pgsql_conn->conn;
 	struct userdb_pgsql_request *request;
@@ -93,14 +93,17 @@ static void userdb_pgsql_lookup(const char *user, userdb_callback_t *callback,
 	string_t *str;
 
 	str = t_str_new(512);
-	var_expand(str, conn->set.user_query, db_pgsql_escape(user), NULL);
+	var_expand(str, conn->set.user_query,
+		   auth_request_get_var_expand_table(auth_request,
+						     db_pgsql_escape));
 	query = str_c(str);
 
-	request = i_malloc(sizeof(struct userdb_pgsql_request) + strlen(user));
+	request = i_malloc(sizeof(struct userdb_pgsql_request) +
+			   strlen(auth_request->user));
 	request->request.callback = pgsql_handle_request;
 	request->request.context = context;
 	request->userdb_callback = callback;
-	strcpy(request->username, user);
+	strcpy(request->username, auth_request->user);
 
 	db_pgsql_query(conn, query, &request->request);
 }

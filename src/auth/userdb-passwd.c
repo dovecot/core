@@ -10,16 +10,16 @@
 
 #include <pwd.h>
 
-static void passwd_lookup(const char *user, userdb_callback_t *callback,
-			  void *context)
+static void passwd_lookup(struct auth_request *auth_request,
+			  userdb_callback_t *callback, void *context)
 {
 	struct user_data data;
 	struct passwd *pw;
 
-	pw = getpwnam(user);
+	pw = getpwnam(auth_request->user);
 	if (pw == NULL) {
 		if (verbose)
-			i_info("passwd(%s): unknown user", user);
+			i_info("passwd(%s): unknown user", auth_request->user);
 		callback(NULL, context);
 		return;
 	}

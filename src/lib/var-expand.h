@@ -1,13 +1,14 @@
 #ifndef __VAR_EXPAND_H
 #define __VAR_EXPAND_H
 
-/* Expand % variables in str:
+struct var_expand_table {
+	char key;
+	const char *value;
+};
 
-    %u user or user@domain
-    %h home
-    %n user
-    %d domain */
+/* Expand % variables in src and append the string in dest.
+   table must end with key = 0. */
 void var_expand(string_t *dest, const char *str,
-		const char *user, const char *home);
+		const struct var_expand_table *table);
 
 #endif

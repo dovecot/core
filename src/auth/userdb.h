@@ -1,6 +1,8 @@
 #ifndef __USERDB_H
 #define __USERDB_H
 
+#include "mech.h"
+
 struct user_data {
 	const char *virtual_user;
 	const char *home;
@@ -17,8 +19,8 @@ struct userdb_module {
 	void (*init)(const char *args);
 	void (*deinit)(void);
 
-	void (*lookup)(const char *user, userdb_callback_t *callback,
-		       void *context);
+	void (*lookup)(struct auth_request *auth_request,
+		       userdb_callback_t *callback, void *context);
 };
 
 extern struct userdb_module *userdb;

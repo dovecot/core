@@ -433,6 +433,16 @@ char *str_lcase(char *str)
         return str;
 }
 
+const char *t_str_lcase(const char *str)
+{
+	return str_lcase(t_strdup_noconst(str));
+}
+
+const char *t_str_ucase(const char *str)
+{
+	return str_ucase(t_strdup_noconst(str));
+}
+
 int null_strcmp(const char *s1, const char *s2)
 {
 	if (s1 == NULL)

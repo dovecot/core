@@ -149,7 +149,7 @@ static void master_handle_request(struct auth_master_connection *conn,
 		master_request->tag = request->tag;
 
 		conn->refcount++;
-		userdb->lookup(auth_request->user, userdb_callback,
+		userdb->lookup(auth_request, userdb_callback,
 			       master_request);
 
 		/* the auth request is finished, we don't need it anymore */

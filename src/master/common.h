@@ -9,7 +9,7 @@ struct ip_addr;
 
 #include "../auth/auth-master-interface.h"
 
-enum {
+enum process_type {
 	PROCESS_TYPE_UNKNOWN,
 	PROCESS_TYPE_AUTH,
 	PROCESS_TYPE_LOGIN,
