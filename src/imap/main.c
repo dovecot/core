@@ -5,6 +5,7 @@
 #include "lib-signals.h"
 #include "rawlog.h"
 #include "restrict-access.h"
+#include "fd-close-on-exec.h"
 
 #include <stdlib.h>
 #include <syslog.h>
@@ -104,6 +105,9 @@ static void main_deinit(void)
 
 int main(int argc, char *argv[])
 {
+#ifdef DEBUG
+        fd_debug_verify_leaks(3, 1024);
+#endif
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();

@@ -5,6 +5,7 @@
 #include "lib-signals.h"
 #include "network.h"
 #include "env-util.h"
+#include "fd-close-on-exec.h"
 
 #include "auth-process.h"
 #include "login-process.h"
@@ -55,14 +56,6 @@ void clean_child_process(void)
 		env_put(t_strconcat("IMAP_LOGFILE=", set_log_path, NULL));
 	if (set_log_timestamp != NULL)
 		env_put(t_strconcat("IMAP_LOGSTAMP=", set_log_timestamp, NULL));
-
-	(void)close(null_fd);
-	(void)close(imap_fd);
-	(void)close(imaps_fd);
-
-	/* close fds for auth/login processes */
-	login_processes_cleanup();
-        auth_processes_cleanup();
 
 	closelog();
 }
@@ -156,11 +149,13 @@ static void open_fds(void)
 	null_fd = open("/dev/null", O_RDONLY);
 	if (null_fd == -1)
 		i_fatal("Can't open /dev/null: %m");
+	fd_close_on_exec(null_fd, TRUE);
 
 	imap_fd = set_imap_port == 0 ? dup(null_fd) :
 		net_listen(imap_ip, &set_imap_port);
 	if (imap_fd == -1)
 		i_fatal("listen(%d) failed: %m", set_imap_port);
+	fd_close_on_exec(imap_fd, TRUE);
 
 #ifdef HAVE_SSL
 	imaps_fd = set_ssl_cert_file == NULL || *set_ssl_cert_file == '\0' ||
@@ -172,6 +167,7 @@ static void open_fds(void)
 #endif
 	if (imaps_fd == -1)
 		i_fatal("listen(%d) failed: %m", set_imaps_port);
+	fd_close_on_exec(imaps_fd, TRUE);
 }
 
 static void main_init(void)

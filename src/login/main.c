@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "lib-signals.h"
 #include "restrict-access.h"
+#include "fd-close-on-exec.h"
 #include "auth-connection.h"
 #include "master.h"
 #include "client.h"
@@ -192,6 +193,9 @@ static void main_deinit(void)
 
 int main(int argc __attr_unused__, char *argv[] __attr_unused__)
 {
+#ifdef DEBUG
+        fd_debug_verify_leaks(3, 1024);
+#endif
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();

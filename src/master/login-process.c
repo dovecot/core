@@ -5,6 +5,7 @@
 #include "network.h"
 #include "obuffer.h"
 #include "fdpass.h"
+#include "fd-close-on-exec.h"
 #include "env-util.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
@@ -266,6 +267,7 @@ static pid_t create_login_process(void)
 
 	if (pid != 0) {
 		/* master */
+		fd_close_on_exec(fd[0], TRUE);
 		login_process_new(pid, fd[0]);
 		(void)close(fd[1]);
 		return pid;
@@ -274,14 +276,17 @@ static pid_t create_login_process(void)
 	/* move communication handle */
 	if (dup2(fd[1], LOGIN_MASTER_SOCKET_FD) < 0)
 		i_fatal("login: dup2() failed: %m");
+	fd_close_on_exec(LOGIN_MASTER_SOCKET_FD, FALSE);
 
 	/* move the listen handle */
 	if (dup2(imap_fd, LOGIN_IMAP_LISTEN_FD) < 0)
 		i_fatal("login: dup2() failed: %m");
+	fd_close_on_exec(LOGIN_IMAP_LISTEN_FD, FALSE);
 
 	/* move the SSL listen handle */
 	if (dup2(imaps_fd, LOGIN_IMAPS_LISTEN_FD) < 0)
 		i_fatal("login: dup2() failed: %m");
+	fd_close_on_exec(LOGIN_IMAPS_LISTEN_FD, FALSE);
 
 	/* imap_fd and imaps_fd are closed by clean_child_process() */
 
@@ -338,19 +343,6 @@ void login_process_abormal_exit(pid_t pid __attr_unused__)
 	/* don't start raising the process count if they're dying all
 	   the time */
 	wanted_processes_count = 0;
-}
-
-static void login_hash_cleanup(void *key __attr_unused__, void *value,
-			       void *context __attr_unused__)
-{
-	LoginProcess *p = value;
-
-	(void)close(p->fd);
-}
-
-void login_processes_cleanup(void)
-{
-	hash_foreach(processes, login_hash_cleanup, NULL);
 }
 
 static void login_hash_destroy(void *key __attr_unused__, void *value,

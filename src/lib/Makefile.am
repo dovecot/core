@@ -7,6 +7,7 @@ liblib_a_SOURCES = \
 	data-stack.c \
 	env-util.c \
 	failures.c \
+	fd-close-on-exec.c \
 	fdpass.c \
 	file-lock.c \
 	file-set-size.c \
@@ -54,6 +55,7 @@ noinst_HEADERS = \
 	data-stack.h \
 	env-util.h \
 	failures.h \
+	fd-close-on-exec.h \
 	fdpass.h \
 	file-lock.h \
 	file-set-size.h \

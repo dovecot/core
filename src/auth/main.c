@@ -5,6 +5,7 @@
 #include "network.h"
 #include "lib-signals.h"
 #include "restrict-access.h"
+#include "fd-close-on-exec.h"
 #include "randgen.h"
 #include "auth.h"
 #include "cookie.h"
@@ -93,6 +94,9 @@ static void main_deinit(void)
 
 int main(int argc __attr_unused__, char *argv[] __attr_unused__)
 {
+#ifdef DEBUG
+        fd_debug_verify_leaks(4, 1024);
+#endif
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();

@@ -3,6 +3,7 @@
 #include "common.h"
 #include "ioloop.h"
 #include "env-util.h"
+#include "fd-close-on-exec.h"
 #include "network.h"
 #include "obuffer.h"
 #include "restrict-access.h"
@@ -171,13 +172,12 @@ static pid_t create_auth_process(AuthConfig *config)
 	const char *path;
 	struct passwd *pwd;
 	pid_t pid;
-	int fd[2], listen_fd;
+	int fd[2], listen_fd, i;
 
 	if ((pwd = getpwnam(config->user)) == NULL)
 		i_fatal("Auth user doesn't exist: %s", config->user);
 
-	/* create communication to process with a socket pair
-	   FIXME: pipe() would work as well, would it be better? */
+	/* create communication to process with a socket pair */
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) == -1) {
 		i_error("socketpair() failed: %m");
 		return -1;
@@ -193,6 +193,7 @@ static pid_t create_auth_process(AuthConfig *config)
 
 	if (pid != 0) {
 		/* master */
+		fd_close_on_exec(fd[0], TRUE);
 		auth_process_new(pid, fd[0], config->name);
 		(void)close(fd[1]);
 		return pid;
@@ -234,6 +235,9 @@ static pid_t create_auth_process(AuthConfig *config)
 			i_fatal("login: dup2() failed: %m");
 		(void)close(listen_fd);
 	}
+
+	for (i = 0; i <= 2; i++)
+		fd_close_on_exec(i, FALSE);
 
 	/* setup access environment - needs to be done after
 	   clean_child_process() since it clears environment */
@@ -298,14 +302,6 @@ static int auth_process_get_count(const char *name)
 	}
 
 	return count;
-}
-
-void auth_processes_cleanup(void)
-{
-	AuthProcess *p;
-
-	for (p = processes; p != NULL; p = p->next)
-		(void)close(p->fd);
 }
 
 void auth_processes_destroy_all(void)
