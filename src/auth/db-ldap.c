@@ -27,6 +27,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, dn),
 	DEF(SET_STR, dnpass),
 	DEF(SET_STR, deref),
+	DEF(SET_STR, scope),
 	DEF(SET_STR, base),
 	DEF(SET_STR, attrs),
 	DEF(SET_STR, filter)
@@ -37,6 +38,7 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(dn) NULL,
 	MEMBER(dnpass) NULL,
 	MEMBER(deref) "never",
+	MEMBER(scope) "subtree",
 	MEMBER(base) NULL,
 	MEMBER(attrs) NULL,
 	MEMBER(filter) NULL
@@ -56,6 +58,18 @@ static int deref2str(const char *str)
 		return LDAP_DEREF_ALWAYS;
 
 	i_fatal("LDAP: Unknown deref option '%s'", str);
+}
+
+static int scope2str(const char *str)
+{
+	if (strcasecmp(str, "base") == 0)
+		return LDAP_SCOPE_BASE;
+	if (strcasecmp(str, "onelevel") == 0)
+		return LDAP_SCOPE_ONELEVEL;
+	if (strcasecmp(str, "subtree") == 0)
+		return LDAP_SCOPE_SUBTREE;
+
+	i_fatal("LDAP: Unknown scope option '%s'", str);
 }
 
 static const char *get_ldap_error(struct ldap_connection *conn)
@@ -251,14 +265,11 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 	conn->set = default_ldap_settings;
 	settings_read(config_path, parse_setting, conn);
 
-	/*if (conn->set.dnuser == NULL)
-		i_fatal("LDAP: No user given");
-	if (conn->set.dnpass == NULL)
-		i_fatal("LDAP: No password given");*/
 	if (conn->set.base == NULL)
 		i_fatal("LDAP: No base given");
 
         conn->set.ldap_deref = deref2str(conn->set.deref);
+        conn->set.ldap_scope = scope2str(conn->set.scope);
 
 	(void)ldap_conn_open(conn);
 	return conn;

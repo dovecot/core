@@ -7,7 +7,10 @@
 	((pass)[0] != '\0' && (pass)[0] != '*' && (pass)[0] != '!')
 
 enum passdb_credentials {
+	_PASSDB_CREDENTIALS_INTERNAL = -1,
+
 	PASSDB_CREDENTIALS_PLAINTEXT,
+	PASSDB_CREDENTIALS_CRYPT,
 	PASSDB_CREDENTIALS_DIGEST_MD5
 };
 
@@ -49,6 +52,7 @@ extern struct passdb_module passdb_shadow;
 extern struct passdb_module passdb_passwd_file;
 extern struct passdb_module passdb_pam;
 extern struct passdb_module passdb_vpopmail;
+extern struct passdb_module passdb_ldap;
 
 void passdb_init(void);
 void passdb_deinit(void);

@@ -6,6 +6,8 @@
 #ifdef USERDB_LDAP
 
 #include "common.h"
+#include "str.h"
+#include "var-expand.h"
 #include "db-ldap.h"
 #include "userdb.h"
 
@@ -98,6 +100,7 @@ static void handle_request(struct ldap_connection *conn,
 	entry = ldap_first_entry(conn->ld, res);
 	if (entry == NULL) {
 		i_error("LDAP: ldap_first_entry failed()");
+		urequest->userdb_callback(NULL, request->context);
 		return;
 	}
 
@@ -115,9 +118,10 @@ static void handle_request(struct ldap_connection *conn,
 		attr = ldap_next_attribute(conn->ld, entry, ber);
 	}
 
-	if (user.virtual_user == NULL)
+	if (user.virtual_user == NULL) {
 		i_error("LDAP: No username in reply");
-	else {
+		urequest->userdb_callback(NULL, request->context);
+	} else {
 		if (ldap_next_entry(conn->ld, entry) != NULL) {
 			i_error("LDAP: Multiple replies found for user %s",
 				user.virtual_user);
@@ -135,6 +139,7 @@ static void userdb_ldap_lookup(const char *user, const char *realm,
 	struct ldap_connection *conn = userdb_ldap_conn->conn;
 	struct userdb_ldap_request *request;
 	const char *filter;
+	string_t *str;
 
 	if (realm != NULL)
 		user = t_strconcat(user, "@", realm, NULL);
@@ -143,8 +148,9 @@ static void userdb_ldap_lookup(const char *user, const char *realm,
 		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
 			userdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER], user);
 	} else {
-		filter = t_strdup_printf("(&%s(%s=%s))", conn->set.filter,
-			userdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER], user);
+		str = t_str_new(512);
+		var_expand(str, conn->set.filter, user, NULL);
+		filter = str_c(str);
 	}
 
 	request = i_new(struct userdb_ldap_request, 1);
@@ -152,7 +158,7 @@ static void userdb_ldap_lookup(const char *user, const char *realm,
 	request->request.context = context;
 	request->userdb_callback = callback;
 
-	db_ldap_search(conn, conn->set.base, LDAP_SCOPE_SUBTREE,
+	db_ldap_search(conn, conn->set.base, conn->set.ldap_scope,
 		       filter, userdb_ldap_conn->attr_names,
 		       &request->request);
 }

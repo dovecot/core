@@ -15,11 +15,12 @@ struct ldap_settings {
 	const char *dn;
 	const char *dnpass;
 	const char *deref;
+	const char *scope;
 	const char *base;
 	const char *attrs;
 	const char *filter;
 
-	int ldap_deref;
+	int ldap_deref, ldap_scope;
 };
 
 struct ldap_connection {

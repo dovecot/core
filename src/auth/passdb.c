@@ -11,8 +11,12 @@ struct passdb_module *passdb;
 const char *passdb_credentials_to_str(enum passdb_credentials credentials)
 {
 	switch (credentials) {
+	case _PASSDB_CREDENTIALS_INTERNAL:
+		break;
 	case PASSDB_CREDENTIALS_PLAINTEXT:
 		return "plaintext";
+	case PASSDB_CREDENTIALS_CRYPT:
+		return "crypt";
 	case PASSDB_CREDENTIALS_DIGEST_MD5:
 		return "digest-md5";
 	}
@@ -52,6 +56,10 @@ void passdb_init(void)
 #ifdef PASSDB_VPOPMAIL
 	if (strcasecmp(name, "vpopmail") == 0)
 		passdb = &passdb_vpopmail;
+#endif
+#ifdef USERDB_LDAP
+	if (strcasecmp(name, "ldap") == 0)
+		passdb = &passdb_ldap;
 #endif
 
 	if (passdb == NULL)
