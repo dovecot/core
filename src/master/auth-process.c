@@ -196,6 +196,9 @@ static pid_t create_auth_process(AuthConfig *config)
 		return pid;
 	}
 
+	/* close unwanted fds before we start dup2()ing them */
+	clean_child_process();
+
 	/* create socket for listening auth requests from imap-login */
 	path = t_strconcat(set_login_dir, "/", config->name, NULL);
 	(void)unlink(path);
@@ -211,9 +214,15 @@ static pid_t create_auth_process(AuthConfig *config)
 	if (dup2(fd[1], 0) < 0)
 		i_fatal("login: dup2() failed: %m");
 
+	(void)close(fd[0]);
+	(void)close(fd[1]);
+
 	/* move login communication handle to 3 */
-	if (dup2(listen_fd, 3) < 0)
-		i_fatal("login: dup2() failed: %m");
+	if (listen_fd != 3) {
+		if (dup2(listen_fd, 3) < 0)
+			i_fatal("login: dup2() failed: %m");
+		(void)close(listen_fd);
+	}
 
 	/* set /dev/null handle into 1 and 2, so if something is printed into
 	   stdout/stderr it can't go anywhere where it could cause harm */
@@ -222,12 +231,6 @@ static pid_t create_auth_process(AuthConfig *config)
 	if (dup2(null_fd, 2) < 0)
 		i_fatal("login: dup2() failed: %m");
 
-	(void)close(listen_fd);
-
-	(void)close(fd[0]);
-	(void)close(fd[1]);
-
-	clean_child_process();
 
 	/* setup access environment - needs to be done after
 	   clean_child_process() since it clears environment */
