@@ -794,17 +794,29 @@ if test $want_pgsql = yes; then
 	done
 
 	old_LIBS=$LIBS
-	LIBS="$LIBS -L$PGSQL_LIBDIR"
+	if test "$PGSQL_LIBDIR" != ""; then
+		LIBS="$LIBS -L$PGSQL_LIBDIR"
+	fi
 
 	AC_CHECK_LIB(pq, PQconnectdb, [
-		AC_CHECK_HEADER($PGSQL_INCLUDE/libpq-fe.h, [
-			AUTH_CFLAGS="$AUTH_CFLAGS -I$PGSQL_INCLUDE"
-			AUTH_LIBS="$AUTH_LIBS -L$PGSQL_LIBDIR -lpq"
+		old_CPPFLAGS=$CPPFLAGS
+		if test "$PGSQL_INCLUDE" != ""; then
+			CPPFLAGS="$CPPFLAGS -I $PGSQL_INCLUDE"
+		fi
+		AC_CHECK_HEADER(libpq-fe.h, [
+			if test "$PGSQL_INCLUDE" != ""; then
+				AUTH_CFLAGS="$AUTH_CFLAGS -I$PGSQL_INCLUDE"
+			fi
+			if test "$PGSQL_LIBDIR" != ""; then
+				AUTH_LIBS="$AUTH_LIBS -L$PGSQL_LIBDIR"
+			fi
+			AUTH_LIBS="$AUTH_LIBS -lpq"
 			AC_DEFINE(USERDB_PGSQL,, Build with PostgreSQL support)
 			AC_DEFINE(PASSDB_PGSQL,, Build with PostgreSQL support)
 			userdb="$userdb pgsql"
 			passdb="$passdb pgsql"
 		])
+		CPPFLAGS=$old_CPPFLAGS
 	])
 	LIBS=$old_LIBS
 fi
