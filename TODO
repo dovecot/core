@@ -1,6 +1,6 @@
- - auth: all password checking code should be in one place
+ - workaround: outlook-idle
+ - maildir: change it to use '/' as hierarchy separator
  - update auth.txt about userdb/passdb
- - fix code so that it works well with --disable-asserts
 
  - we need permanent storage for UIDs. with mbox use X-UID like UW-IMAP,
    with maildir a) file:2,flags,Uuid b) file,U=uid:2,flags. uid validity
@@ -8,10 +8,10 @@
    by the client moving it from new/ to cur/
 
  - DELETE/RENAME: when someone else had the mailbox open, we should
-   disconnect it (when stat() fails with ENOENT while syncing). Also deleting
-   selected mailbox begins giving internal error messages.
+   disconnect it (when stat() fails with ENOENT while syncing).
 
  - .customflags needs nfs-safe locking and it shouldn't be stored with indexes
+   (a bit problematic with maildir INBOX)
 
  - bugs
     - maildir: if mail file isn't found, it may be because it was renamed
@@ -50,20 +50,36 @@
       at some point start causing syscall failures which will fill up logs.
     - fsck should check binary tree
 
+ - mbox
+    - Optimize rewrites by using empty spaces after X-Keywords
+    - Move data within file instead of writing it to temp file. We can now do
+      moving easily with o_stream_send_istream().
+    - if a file isn't valid mbox and it's tried to be opened, say it in one
+      line in error log, not 6..
+    - When expunging the first message we could move the X-IMAPbase header
+      to next message to avoid full rewriting later.
+    - We shouldn't send X-IMAPbase, Status, X-Status, X-Keywords, X-UID, etc.
+      headers to client - they may change and clients must see messages as
+      immutable. Create istream-filter and use it.
+    - two adjacent From-lines breaks us. not too easy to fix though.
+    - Handle UW imapd's "DON'T DELETE THIS MESSAGE" message.
+
  - checks:
    - if we have entries in modifylog with UID 10..11, 9..12, 8..13 etc.
      do they work correctly?
    - make sure SELECT rebuilds index properly when next_uid is near 32bit value
    - make sure connection limits work
    - check that both header and envelope address writer produce same output
+   - check if some asserts should be changed into if/i_panic code, so that
+     disabling asserts would be possible
 
  - enhancements:
     - option to disable SORT, SEARCH and other memory/cpu-intensive features.
-      defaults and per-user by imap-auth.
+      defaults and per-user by dovecot-auth.
     - optionally don't fail if index is locked, but build it in memory
     - when fetching body/envelope/etc we could try to cache it immediately if
       we can get lock with try_lock.
-    - optionally use only in-memory indexes
+    - optionally use only in-memory indexes (MAIL=:INDEX=memory)
     - maildir could support also the dirty-flag in messages. files would be
       renamed "whenever there's time" (that'd require the indexer program, or
       forking and doing it in background)
@@ -123,23 +139,6 @@
        eg. allowing max. 20 hierarchies.
 
 index:
- - mbox:
-     - if a file isn't valid mbox and it's tried to be opened, say it in one
-       line in error log, not 6..
-     - empty lines at beginning of file still aren't ignored
-     - UW-IMAPd writes empty spaces after X-Keywords which it uses so that
-       it doesn't have to rewrite the whole file if status flags changed
-       in the beginning of it. We could do that too.
-     - When expunging the first message we could move the X-IMAPbase header
-       to next message to avoid full rewriting later.
-     - We shouldn't send X-IMAPbase, Status, X-Status, X-Keywords, X-UID, etc.
-       headers to client - they may change and clients must see messages as
-       immutable.
-     - COPY 1 copies X-IMAPbase header too which isn't good idea. save() could
-       actually strip this (and X-UID) while also fixing From-lines etc.
-     - we need either From-line escaping or writing Content-Length when saving
-       mails.
-     - two adjacent From-lines breaks us. not too easy to fix though.
  - we could try compressing same from/to/subject fields into a single
    location in data file. requires larger changes..
  - read-only support for mailboxes where we don't have write-access
@@ -188,9 +187,6 @@ lib-storage:
        do. like: SEARCH X-PRINT-MATCHES TEXT "hello" -> * SEARCH 1 "He said:
        Hello world!" 2 "Hello, I'm ...". This would be especially useful with
        the above attachment scanning.
- - RENAME INBOX isn't atomic with Maildir. And in general, RENAME can't
-   move mails between different storages. Maybe support doing also using
-   COPY + delete once COPY is atomic?
  - we should probably do some light checking that appended mails actually
    look like valid rfc822 mails..
  - we could send flag changes after all commands by making expunge/flags sync
@@ -216,9 +212,9 @@ general:
 auth / login:
  - kchuid, SRP, anonymous SASL
  - Digest-MD5: support integrity protection, and maybe crypting. Do it
-   through imap-login like SSL is done?
+   through login process like SSL is done?
  - for invalid user/pass, wait for a while before giving a reply to user
- - imap-auth should limit how fast authentication requests are allowed from
+ - dovecot-auth should limit how fast authentication requests are allowed from
    login processes. especially if there's one login/connection the speed
    should be something like once/sec. also limit how fast to accept new
    connections.
