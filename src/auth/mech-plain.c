@@ -31,7 +31,7 @@ mech_plain_auth_continue(struct login_connection *conn,
 	for (i = 0; i < request->data_size; i++) {
 		if (data[i] == '\0') {
 			if (++count == 1)
-				authenid = data + i+1;
+				authenid = (const char *) data + i+1;
 			else {
 				i++;
 				len = request->data_size - i;

@@ -512,7 +512,8 @@ get_address(struct mail *_mail, const char *field)
 	if (str == NULL)
 		return NULL;
 
-	return message_address_parse(mail->pool, str, (size_t)-1, 1);
+	return message_address_parse(mail->pool, (const unsigned char *) str,
+				     (size_t)-1, 1);
 }
 
 static const char *get_first_mailbox(struct mail *_mail, const char *field)
@@ -541,7 +542,8 @@ static const char *get_first_mailbox(struct mail *_mail, const char *field)
 		if (str == NULL)
 			return NULL;
 
-		addr = message_address_parse(mail->pool, str,
+		addr = message_address_parse(mail->pool,
+					     (const unsigned char *) str,
 					     (size_t)-1, 1);
 		if (addr != NULL)
 			ret = addr->mailbox;

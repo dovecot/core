@@ -38,7 +38,7 @@ static int write_error(struct mail_save_context *ctx)
 	return FALSE;
 }
 
-static int mbox_seek_to_end(struct mail_save_context *ctx, off_t *offset)
+static int mbox_seek_to_end(struct mail_save_context *ctx, uoff_t *offset)
 {
 	struct stat st;
 	char ch;
@@ -52,7 +52,7 @@ static int mbox_seek_to_end(struct mail_save_context *ctx, off_t *offset)
 		return FALSE;
 	}
 
-	*offset = st.st_size;
+	*offset = (uoff_t)st.st_size;
 	if (st.st_size == 0)
 		return TRUE;
 

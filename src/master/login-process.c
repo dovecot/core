@@ -61,9 +61,9 @@ void auth_master_callback(struct auth_master_reply *reply,
 	if (reply == NULL || !reply->success)
 		master_reply.success = FALSE;
 	else {
-		master_reply.success = create_imap_process(request->fd,
-							   &request->ip,
-							   reply, data);
+		master_reply.success =
+			create_imap_process(request->fd, &request->ip, reply,
+					    (const char *) data);
 	}
 
 	/* reply to login */

@@ -99,8 +99,7 @@ static const char *expand_mail_env(const char *env, const char *user,
 }
 
 int create_imap_process(int socket, struct ip_addr *ip,
-			struct auth_master_reply *reply,
-			const unsigned char *data)
+			struct auth_master_reply *reply, const char *data)
 {
 	static char *argv[] = { NULL, NULL, NULL };
 	const char *host, *mail;
