@@ -310,6 +310,11 @@ int t_try_realloc(void *mem, size_t size)
 	return FALSE;
 }
 
+size_t t_get_bytes_available(void)
+{
+	return current_block->left;
+}
+
 void *t_buffer_get(size_t size)
 {
 	void *ret;

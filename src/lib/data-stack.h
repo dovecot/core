@@ -60,6 +60,10 @@ void *t_malloc0(size_t size);
    for last allocated memory in current stack frame. */
 int t_try_realloc(void *mem, size_t size);
 
+/* Returns the number of bytes available in data stack without allocating
+   more memory. */
+size_t t_get_bytes_available(void);
+
 #define t_new(type, count) \
 	((type *) t_malloc0(sizeof(type) * (count)))
 
