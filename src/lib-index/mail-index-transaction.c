@@ -835,7 +835,6 @@ mail_index_keywords_create(struct mail_index_transaction *t,
 	struct mail_keywords *k;
 	const char **missing_keywords, *keyword;
 	unsigned int count, i, j, k_pos = 0, missing_count = 0;
-	size_t size;
 
 	if (keywords == NULL) {
 		k = i_new(struct mail_keywords, 1);
@@ -868,21 +867,20 @@ mail_index_keywords_create(struct mail_index_transaction *t,
 
 	if (missing_count > 0) {
 		/* add missing keywords. first drop the trailing NULL. */
-		size = index->keywords_buf->used - sizeof(const char *);
-		buffer_set_used_size(index->keywords_buf, size);
+		array_delete(&index->keywords_arr,
+			     array_count(&index->keywords_arr) - 1, 1);
 
-		j = size / sizeof(const char *);
+		j = array_count(&index->keywords_arr);
 		for (; *missing_keywords != NULL; missing_keywords++, j++) {
 			keyword = p_strdup(index->keywords_pool,
 					   *missing_keywords);
-			buffer_append(index->keywords_buf,
-				      &keyword, sizeof(keyword));
+			array_append(&index->keywords_arr, &keyword, 1);
 
 			k->idx[k_pos++] = j;
 		}
 
-		buffer_append_zero(index->keywords_buf, sizeof(const char *));
-		index->keywords = index->keywords_buf->data;
+		(void)array_modifyable_append(&index->keywords_arr);
+		index->keywords = array_idx(&index->keywords_arr, 0);
 	}
 	i_assert(k_pos == count);
 

@@ -139,7 +139,7 @@ struct mail_index {
 	uoff_t sync_log_file_offset;
 
 	pool_t keywords_pool;
-	buffer_t *keywords_buf;
+	array_t ARRAY_DEFINE(keywords_arr, const char *);
 	const char *const *keywords;
 
 	uint32_t keywords_ext_id;

@@ -291,7 +291,7 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 				   enum modify_type modify_type,
 				   enum mail_flags flags);
 
-/* Return a list of all existing keywords, or NULL if there is none. */
+/* Return a NULL-terminated list of all existing keywords. */
 const char *const *mail_index_get_keywords(struct mail_index *index);
 /* Create a keyword list structure. It's freed automatically at the end of
    the transaction. */
@@ -317,6 +317,11 @@ const char *mail_index_get_error_message(struct mail_index *index);
 /* Reset the error message. */
 void mail_index_reset_error(struct mail_index *index);
 
+/* Return a pointer to NULL-terminated list of keywords which are referenced
+   in mail_index_sync_rec->keyword_idx. Note tat the pointer may change after
+   calling mail_index_keywords_create(). */
+const char *const *const *
+mail_index_sync_get_keywords(struct mail_index_sync_ctx *ctx);
 /* Apply changes in MAIL_INDEX_SYNC_TYPE_FLAGS typed sync records to given
    flags variables. */
 void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
