@@ -71,6 +71,11 @@ static void login_group_create(struct login_settings *login_set)
 {
 	struct login_group *group;
 
+	if (strstr(set->protocols, login_set->name) == NULL) {
+		/* not enabled */
+		return;
+	}
+
 	group = i_new(struct login_group, 1);
 	group->set = login_set;
 
