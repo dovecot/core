@@ -33,6 +33,7 @@ noinst_HEADERS = \
 	common.h \
 	cookie.h \
 	login-connection.h \
+	master.h \
 	mycrypt.h \
 	userinfo.h \
 	userinfo-passwd.h
