@@ -108,6 +108,7 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 	if (seq1 == 0)
 		return 1;
 
+	/* don't call expunge handlers if we're syncing view */
 	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW &&
 	    !ctx->expunge_handlers_set)
 		mail_index_sync_init_expunge_handlers(ctx);
@@ -119,7 +120,6 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 						   &expunge_handlers_count);
 		expunge_handlers_count /= sizeof(*expunge_handlers);
 	} else {
-		/* syncing view - don't call expunge handlers */
 		expunge_handlers = NULL;
 		expunge_handlers_count = 0;
 	}
