@@ -307,12 +307,13 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 			file->filepath);
 		return 0;
 	}
-	if (file->hdr.indexid != file->log->index->indexid &&
-	    file->log->index->indexid != 0) {
-		/* either index was just recreated, or transaction has wrong
-		   indexid. we don't know here which one is the case, so we'll
-		   just fail. If index->indexid == 0, we're rebuilding it and
-		   we just want to lock the transaction log. */
+	if (file->hdr.indexid != file->log->index->indexid) {
+		if (file->log->index->fd == -1) {
+			/* creating index file, silently rebuild
+			   transaction log as well */
+			return 0;
+		}
+
 		mail_index_set_error(file->log->index,
 			"Transaction log file %s: invalid indexid (%u != %u)",
 			file->filepath, file->hdr.indexid,

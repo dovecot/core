@@ -73,7 +73,6 @@ struct mail_index {
 	unsigned int fsck:1;
 };
 
-void mail_index_header_init(struct mail_index_header *hdr);
 int mail_index_write_header(struct mail_index *index,
 			    const struct mail_index_header *hdr);
 

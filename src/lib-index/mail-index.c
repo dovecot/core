@@ -425,28 +425,6 @@ mail_index_try_open(struct mail_index *index, unsigned int *lock_id_r)
 	return ret;
 }
 
-void mail_index_header_init(struct mail_index_header *hdr)
-{
-	time_t now = time(NULL);
-
-	memset(hdr, 0, sizeof(*hdr));
-
-	hdr->major_version = MAIL_INDEX_MAJOR_VERSION;
-	hdr->minor_version = MAIL_INDEX_MINOR_VERSION;
-	hdr->header_size = sizeof(*hdr);
-
-#ifndef WORDS_BIGENDIAN
-	hdr->compat_data[0] = MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
-#endif
-	hdr->compat_data[1] = sizeof(uoff_t);
-	hdr->compat_data[2] = sizeof(time_t);
-	hdr->compat_data[3] = sizeof(keywords_mask_t);
-
-	hdr->indexid = now;
-
-	hdr->next_uid = 1;
-}
-
 int mail_index_write_header(struct mail_index *index,
 			    const struct mail_index_header *hdr)
 {
@@ -543,6 +521,28 @@ static int mail_index_create(struct mail_index *index,
 
 	mail_transaction_log_sync_unlock(index->log);
 	return 1;
+}
+
+static void mail_index_header_init(struct mail_index_header *hdr)
+{
+	time_t now = time(NULL);
+
+	memset(hdr, 0, sizeof(*hdr));
+
+	hdr->major_version = MAIL_INDEX_MAJOR_VERSION;
+	hdr->minor_version = MAIL_INDEX_MINOR_VERSION;
+	hdr->header_size = sizeof(*hdr);
+
+#ifndef WORDS_BIGENDIAN
+	hdr->compat_data[0] = MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
+#endif
+	hdr->compat_data[1] = sizeof(uoff_t);
+	hdr->compat_data[2] = sizeof(time_t);
+	hdr->compat_data[3] = sizeof(keywords_mask_t);
+
+	hdr->indexid = now;
+
+	hdr->next_uid = 1;
 }
 
 static int mail_index_open_files(struct mail_index *index,
