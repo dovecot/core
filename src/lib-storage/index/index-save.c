@@ -89,6 +89,9 @@ int index_storage_save(MailStorage *storage, const char *path,
 			if (errno == 0) {
 				mail_storage_set_error(storage,
 					"Client disconnected");
+			} else if (errno == EAGAIN) {
+				mail_storage_set_error(storage,
+					"Timeout while waiting for input");
 			} else {
 				mail_storage_set_critical(storage,
 					"Error reading mail from client: %m");
