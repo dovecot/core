@@ -806,7 +806,7 @@ static int search_limit_by_flags(struct index_mailbox *ibox,
 				return FALSE;
 
 			/* UNDELETED with all deleted? */
-			if (!args->not &&
+			if (args->not &&
 			    hdr->deleted_messages_count == hdr->messages_count)
 				return FALSE;
 
