@@ -65,8 +65,14 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 
 	if (ret == 0 || (ret == 0 && errno == EAGAIN && sbytes > 0))
 		return (ssize_t)sbytes;
-	else
+	else {
+		if (errno == ENOTSOCK) {
+			/* out_fd wasn't a socket. behave as if sendfile()
+			   wasn't supported at all. */
+			errno = EINVAL;
+		}
 		return -1;
+	}
 }
 
 #elif defined (HAVE_SOLARIS_SENDFILEV)
