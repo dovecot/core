@@ -127,4 +127,7 @@ void mail_storage_set_critical(struct mail_storage *storage,
 			       const char *fmt, ...) __attr_format__(2, 3);
 void mail_storage_set_internal_error(struct mail_storage *storage);
 
+const char *mail_storage_class_get_last_error(struct mail_storage *storage,
+					      int *syntax_error_r);
+
 #endif

@@ -854,7 +854,7 @@ struct mail_storage mbox_storage = {
 	mbox_mailbox_list_deinit,
 	mbox_set_subscribed,
 	mbox_get_mailbox_name_status,
-	mail_storage_get_last_error,
+	index_storage_get_last_error,
 
 	NULL,
 	0

@@ -159,10 +159,11 @@ void index_mailbox_check_remove_all(struct index_mailbox *ibox);
 
 int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
 
-/* mailbox methods: */
 void index_storage_set_callbacks(struct mail_storage *storage,
 				 struct mail_storage_callbacks *callbacks,
 				 void *context);
+const char *index_storage_get_last_error(struct mail_storage *storage,
+					 int *syntax_error_r);
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status);

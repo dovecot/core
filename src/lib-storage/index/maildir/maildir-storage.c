@@ -842,7 +842,7 @@ struct mail_storage maildir_storage = {
 	maildir_mailbox_list_deinit,
 	maildir_set_subscribed,
 	maildir_get_mailbox_name_status,
-	mail_storage_get_last_error,
+	index_storage_get_last_error,
 
 	NULL,
 	0

@@ -325,8 +325,7 @@ int mail_storage_get_mailbox_name_status(struct mail_storage *storage,
 const char *mail_storage_get_last_error(struct mail_storage *storage,
 					int *syntax_error_r)
 {
-	*syntax_error_r = storage->syntax_error;
-	return storage->error;
+	return storage->get_last_error(storage, syntax_error_r);
 }
 
 struct mailbox *mailbox_open(struct mail_storage *storage,

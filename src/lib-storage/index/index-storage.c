@@ -407,6 +407,13 @@ void index_storage_set_callbacks(struct mail_storage *_storage,
 	storage->callback_context = context;
 }
 
+const char *index_storage_get_last_error(struct mail_storage *storage,
+					 int *syntax_error_r)
+{
+	*syntax_error_r = storage->syntax_error;
+	return storage->error;
+}
+
 int mail_storage_set_index_error(struct index_mailbox *ibox)
 {
 	switch (mail_index_get_last_error(ibox->index)) {
