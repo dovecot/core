@@ -58,12 +58,21 @@ static void drop_privileges(void)
 {
 	unsigned int seed;
 
+	verbose = getenv("VERBOSE") != NULL;
+	verbose_debug = getenv("VERBOSE_DEBUG") != NULL;
+
 	open_logfile();
 
 	/* Open /dev/urandom before chrooting */
 	random_init();
 	random_fill(&seed, sizeof(seed));
 	srand(seed);
+
+	/* Initialize databases so their configuration files can be readable
+	   only by root. Also load all modules here. */
+	userdb_init();
+	passdb_init();
+        password_schemes_init();
 
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(FALSE);
@@ -190,14 +199,7 @@ static void main_init(int nodaemon)
 	unsigned int pid;
 
 	lib_init_signals(sig_quit);
-
-	verbose = getenv("VERBOSE") != NULL;
-	verbose_debug = getenv("VERBOSE_DEBUG") != NULL;
-
 	mech_init();
-	userdb_init();
-	passdb_init();
-        password_schemes_init();
 
 	masters_buf = buffer_create_dynamic(default_pool, 64, (size_t)-1);
 
