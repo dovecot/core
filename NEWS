@@ -1,3 +1,29 @@
+v0.97 2002-08-29  Timo Sirainen <tss@iki.fi>
+
+	+ Large mails are handled in 256kB blocks, so mail size no longer
+	  has hardly any effect on memory usage
+	+ 64bit file offsets are used if supported by system. This means
+	  Dovecot is fully capable of handling >2G mails in those systems.
+	  With 32bit offsets >2G mails may not behave too well, but should
+	  not crash either.
+	+ I fixed lots of potential integer overflows. This should make us
+	  fully crash-free no matter what happens (index file corruption
+	  mostly). I didn't verify everything too carefully yet, so more
+	  auditing is still needed before we fully reach that goal.
+	+ Implemented several missing tasks / optimizations to index handling.
+	  It should now stay fast after longer usage periods.
+	+ New configuration file options: log_path, log_timestamp, imaps_listen
+	+ "Critical errors" are now hidden from users, ie. any error message
+	  that is not a direct reply to user error is written into log file
+	  and user gets only "Internal error [timestamp]".
+	+ Nonblocking SSL handshaking
+	+ Lots of code cleanups
+	- Lots of mbox fixes, it seems to be somewhat reliable now
+	- Year in Date-field was parsed wrong
+	- Appending mail to mbox didn't work right
+	- Always verify that mailbox names are valid (especially they shouldn't
+	  contain "../")
+
 v0.96 2002-08-08  Timo Sirainen <tss@iki.fi>
 
 	* Changed to LGPL v2.1 license

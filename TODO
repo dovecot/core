@@ -1,10 +1,9 @@
+
 test:
  - make sure mmap()s work properly with NFS
- - make sure first_hole_records is updated properly
  - make sure locking is done properly when opening/switching modifylog 
  - make sure index->header->flags are updated at correct times
  - make sure SELECT rebuilds index properly when next_uid is near 32bit value
- - make sure io_buffer_send() handles huge inputs properly
  - make sure rfc822_parse_date() works properly
  - make sure imap_match functions work properly
  - make sure connection limits work
@@ -25,10 +24,14 @@ index:
        yet. this way we don't need to read the messages fully just to find out
        that.
  - mbox:
-     - BUG: adding new mail after indexes are created doesn't work
      - update Status and X-Status headers when flags are changed.
        how? probably by just writing a new mbox file at close time.
      - EXPUNGE doesn't delete the mail from the mbox file
+     - if a file isn't valid mbox and it's tried to be opened, say it in one
+       line in error log, not 6..
+     - if we read-locked mbox file when we're accessing it, we could get it
+       pretty reliable.. do other MUAs do that? if yes, drop the dotlock
+       and only support flock() or fcntl() locking.
  - there's some race condition issues when opening mailboxes..
  - set_lock() is ugly and horrible and should really be done something.
    does the syncing really need to be there? maybe put it into separate
@@ -64,6 +67,8 @@ lib-storage:
  - we should probably do some light checking that appended mails actually
    look like valid rfc822 mails..
  - SEARCH CHARSET support, iconv()?
+ - SEARCH could optionally support scanning inside file attachments and use
+   plugins to extract text out of them (word, excel, pdf, etc. etc.)
  - RENAME INBOX isn't atomic with Maildir. And in general, RENAME can't
    be moved to another storage. Maybe support doing also using COPY + delete
    once COPY is atomic?
@@ -125,6 +130,7 @@ cleanups / checks:
  - HIGH: Make sure messages of size INT_MAX..UINT_MAX (and more) work
    correctly. virtual_size can also overflow making it less than physical_size
  - verify memory alignment is valid when reading from index files
+ - create env_put() and env_clean()
 
 optional optimizations:
  - provide some helper binary to save new mail into mailboxes with CR+LF
