@@ -339,6 +339,8 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 	const unsigned char *p, *start, *end;
 	size_t i, size, hdr_size;
 	unsigned int field_idx;
+	uint8_t one = 1;
+	buffer_t *buf;
 	int ret;
 
 	if (fields_count == 0)
@@ -351,8 +353,8 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 	ctx.fields = t_new(unsigned int, fields_count);
 	ctx.fields_count = fields_count;
 
-	ctx.max_field = 1;
-	ctx.fields_found = t_buffer_get(ctx.max_field);
+	ctx.max_field = 0;
+	buf = buffer_create_dynamic(pool_datastack_create(), 32, (size_t)-1);
 	for (i = 0; i < fields_count; i++) {
 		i_assert(fields[i] < cache->fields_count);
 		field_idx = cache->field_file_map[fields[i]];
@@ -362,17 +364,13 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 			return 0;
 		}
 
-		if (field_idx > ctx.max_field) {
-			ctx.fields_found = t_buffer_reget(ctx.fields_found,
-							  field_idx + 1);
-			memset(ctx.fields_found + ctx.max_field + 1, 0,
-			       field_idx - ctx.max_field - 1);
+		if (field_idx > ctx.max_field)
 			ctx.max_field = field_idx;
-		}
-		ctx.fields_found[field_idx] = 1;
+
+		buffer_write(buf, field_idx, &one, 1);
                 ctx.fields[i] = field_idx;
 	}
-        t_buffer_alloc(ctx.max_field + 1);
+	ctx.fields_found = buffer_get_modifyable_data(buf, NULL);
 
 	ctx.data = buffer_create_dynamic(pool_datastack_create(),
 					 256, (size_t)-1);
