@@ -69,6 +69,7 @@ struct file_ostream {
 	void *timeout_context;
 
 	unsigned int full:1; /* if head == tail, is buffer empty or full? */
+	unsigned int file:1;
 	unsigned int corked:1;
 	unsigned int no_socket_cork:1;
 	unsigned int no_sendfile:1;
@@ -124,7 +125,8 @@ static void _set_blocking(struct _iostream *stream, int timeout_msecs,
 	fstream->timeout_cb = timeout_cb;
 	fstream->timeout_context = context;
 
-	net_set_nonblock(fstream->fd, timeout_msecs == 0);
+	if (!fstream->file)
+		net_set_nonblock(fstream->fd, timeout_msecs == 0);
 
 	if (timeout_msecs != 0)
 		alarm_hup_init();
@@ -472,7 +474,8 @@ static size_t o_stream_add(struct file_ostream *fstream,
 			fstream->full = TRUE;
 	}
 
-	if (sent != 0 && fstream->io == NULL && !fstream->corked) {
+	if (sent != 0 && fstream->io == NULL &&
+	    !fstream->corked && !fstream->file) {
 		fstream->io = io_add_priority(fstream->fd, fstream->priority,
 					      IO_WRITE, stream_send_io,
 					      fstream);
@@ -534,7 +537,7 @@ static off_t io_stream_sendfile(struct _ostream *outstream,
 	ssize_t ret;
 	int first;
 
-	/* set timeout time before flushing existing buffer which may block */
+	/* set timeout time before hflushing existing buffer which may block */
 	timeout_time = GET_TIMEOUT_TIME(foutstream);
         start_offset = instream->v_offset;
 
@@ -883,6 +886,9 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 		fstream->no_sendfile = TRUE;
 #endif
 		fstream->no_socket_cork = FALSE;
+		fstream->file = TRUE;
+
+		o_stream_set_blocking(ostream, 60000, 0, NULL);
 	} else {
 		if (net_getsockname(fd, NULL, NULL) < 0) {
 			fstream->no_sendfile = TRUE;
