@@ -139,11 +139,18 @@ static void list_send(struct list_send_context *ctx, struct list_node *node,
 
 			buf = str_unescape(t_strdup_noconst(name));
 			match = imap_match(ctx->glob, buf);
-			if (match == IMAP_MATCH_CHILDREN) {
+			/* FIXME: IMAP spec says this should be done, but
+			   a) this is broken, we shouldn't give \NoSelect for
+			      this folder if it actually works.
+			   b) at least mozilla's subscriptions list breaks if
+			      this is sent
+			   c) cyrus and courier doesn't do this either..
+
+			   if (match == IMAP_MATCH_CHILDREN) {
 				send_name = t_strconcat(name, ctx->sep, NULL);
 				buf = str_unescape(t_strdup_noconst(send_name));
 				match = imap_match(ctx->glob, buf);
-			}
+			}*/
 		}
 
 		if (match == IMAP_MATCH_YES) {
