@@ -16,7 +16,7 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 	void *sc_context;
 	enum mail_index_sync_type sync_mask;
 	uint32_t seq, seq1, seq2;
-	uint32_t messages_count, new_messages_count, recent_count;
+	uint32_t messages_count, last_messages_count, recent_count;
 	int ret;
 
 	sync_mask = MAIL_INDEX_SYNC_MASK_ALL;
@@ -27,6 +27,12 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
                 mail_storage_set_index_error(ibox);
 		return -1;
 	}
+
+	if (!ibox->last_recent_count_initialized) {
+                ibox->last_recent_count_initialized = TRUE;
+		ibox->last_recent_count = ibox->get_recent_count(ibox);
+	}
+	last_messages_count = mail_index_view_get_message_count(ibox->view);
 
 	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0) {
 		expunges_count = 0;
@@ -80,17 +86,17 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 	if (ret < 0)
 		mail_storage_set_index_error(ibox);
 
-	messages_count = new_messages_count =
-		mail_index_view_get_message_count(ibox->view);
-
 	if (sc->expunge != NULL) {
+		/* expunges[] is a sorted array of sequences. it's easiest for
+		   us to print them from end to beginning. */
+		messages_count = mail_index_view_get_message_count(ibox->view);
 		for (i = expunges_count*2; i > 0; i -= 2) {
 			seq = expunges[i-1];
 			if (seq > messages_count)
 				seq = messages_count;
 			for (; seq >= expunges[i-2]; seq--) {
 				sc->expunge(&ibox->box, seq, sc_context);
-				new_messages_count--;
+				last_messages_count--;
 			}
 		}
 	}
@@ -98,10 +104,18 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 	mail_index_view_sync_end(ctx);
 
 	messages_count = mail_index_view_get_message_count(ibox->view);
-	if (messages_count != new_messages_count) {
+	if (messages_count != last_messages_count) {
+		sc->message_count_changed(&ibox->box, messages_count,
+					  sc_context);
 		recent_count = ibox->get_recent_count(ibox);
-		sc->new_messages(&ibox->box, messages_count, recent_count,
-				 sc_context);
+	} else if (expunges_count != 0)
+		recent_count = ibox->get_recent_count(ibox);
+	else
+		recent_count = ibox->last_recent_count;
+
+	if (recent_count != ibox->last_recent_count) {
+		ibox->last_recent_count = recent_count;
+		sc->recent_count_changed(&ibox->box, recent_count, sc_context);
 	}
 
 	mail_index_view_unlock(ibox->view);

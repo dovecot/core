@@ -62,6 +62,7 @@ struct index_mailbox {
 	struct mail *mail_interface;
 
 	uint32_t (*get_recent_count)(struct index_mailbox *ibox);
+	unsigned int last_recent_count;
 
 	struct timeout *autosync_to;
 	struct index_autosync_file *autosync_files;
@@ -104,6 +105,7 @@ struct index_mailbox {
 	unsigned int sent_readonly_flags_warning:1;
 	unsigned int autosync_pending:1;
 	unsigned int mail_read_mmaped:1;
+	unsigned int last_recent_count_initialized:1;
 };
 
 struct index_transaction_context {

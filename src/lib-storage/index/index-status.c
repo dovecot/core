@@ -55,8 +55,10 @@ int index_storage_get_status(struct mailbox *box,
 		}
 	}
 
-	if ((items & STATUS_RECENT) != 0)
-		status->recent = ibox->get_recent_count(ibox);
+	if ((items & STATUS_RECENT) != 0) {
+		i_assert(ibox->last_recent_count_initialized);
+		status->recent = ibox->last_recent_count;
+	}
 
 	/*FIXME:if (items & STATUS_KEYWORDS)
 		get_keywords(ibox, status);*/

@@ -61,8 +61,8 @@ static void update_flags(struct mailbox *mailbox, unsigned int seq,
 	t_pop();
 }
 
-static void new_messages(struct mailbox *mailbox, unsigned int messages_count,
-			 unsigned int recent_count, void *context)
+static void message_count_changed(struct mailbox *mailbox, unsigned int count,
+				  void *context)
 {
 	struct client *client = context;
 	char str[MAX_INT_STRLEN+20];
@@ -70,10 +70,20 @@ static void new_messages(struct mailbox *mailbox, unsigned int messages_count,
 	if (client->mailbox != mailbox)
 		return;
 
-	i_snprintf(str, sizeof(str), "* %u EXISTS", messages_count);
+	i_snprintf(str, sizeof(str), "* %u EXISTS", count);
 	client_send_line(client, str);
+}
 
-	i_snprintf(str, sizeof(str), "* %u RECENT", recent_count);
+static void recent_count_changed(struct mailbox *mailbox, unsigned int count,
+				 void *context)
+{
+	struct client *client = context;
+	char str[MAX_INT_STRLEN+20];
+
+	if (client->mailbox != mailbox)
+		return;
+
+	i_snprintf(str, sizeof(str), "* %u RECENT", count);
 	client_send_line(client, str);
 }
 
@@ -95,6 +105,7 @@ struct mail_storage_callbacks mail_storage_callbacks = {
 	notify_no,
 	expunge,
 	update_flags,
-	new_messages,
+	message_count_changed,
+	recent_count_changed,
 	new_keywords
 };

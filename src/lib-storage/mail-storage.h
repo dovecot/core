@@ -151,15 +151,16 @@ struct mail_storage_callbacks {
 			     const struct mail_full_flags *flags,
 			     void *context);
 
-	/* EXISTS, RECENT */
-	void (*new_messages)(struct mailbox *mailbox,
-			     unsigned int messages_count,
-			     unsigned int recent_count, void *context);
+	/* EXISTS */
+	void (*message_count_changed)(struct mailbox *mailbox,
+				      unsigned int count, void *context);
+	/* RECENT */
+	void (*recent_count_changed)(struct mailbox *mailbox,
+				     unsigned int count, void *context);
 	/* FLAGS, PERMANENTFLAGS */
 	void (*new_keywords)(struct mailbox *mailbox,
 			     const char *keywords[],
-			     unsigned int keywords_count,
-			     void *context);
+			     unsigned int keywords_count, void *context);
 
 };
 
