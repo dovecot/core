@@ -1,7 +1,10 @@
-Everything is LGPLv2.1 (see COPYING.LGPL) unless otherwise mentioned at the
-beginning of the file. Almost everything in src/lib/ is with MIT license.
+Everything in src/lib/ is under MIT license (see COPYING.MIT) unless
+otherwise mentioned at the beginning of the file.
 
-The exceptions are:
+Everything else is LGPLv2.1 (see COPYING.LGPL) unless otherwise mentioned
+at the beginning of the file.
+
+Current exceptions are:
 
 src/lib/
   - md5.c : Public Domain

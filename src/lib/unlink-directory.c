@@ -1,26 +1,33 @@
+/* Copyright (c) 2002-2003 Timo Sirainen */
+
 /*
- unlink-directory.c : Safely unlink directory with everything under it.
+   There's a bit tricky race condition with recursive deletion.
+   Suppose this happens:
 
-    Copyright (c) 2002-2003 Timo Sirainen
+   lstat(dir, ..) -> OK, it's a directory
+   // attacker deletes dir, replaces it with symlink to /
+   opendir(dir) -> it actually opens /
 
-    Permission is hereby granted, free of charge, to any person obtaining
-    a copy of this software and associated documentation files (the
-    "Software"), to deal in the Software without restriction, including
-    without limitation the rights to use, copy, modify, merge, publish,
-    distribute, sublicense, and/or sell copies of the Software, and to
-    permit persons to whom the Software is furnished to do so, subject to
-    the following conditions:
+   Most portable solution is to lstat() the dir, chdir() there, then check
+   that "." points to same device/inode as we originally lstat()ed. This
+   assumes that the device has usable inodes, most should except for some NFS
+   implementations.
 
-    The above copyright notice and this permission notice shall be
-    included in all copies or substantial portions of the Software.
+   Filesystems may also reassign a deleted inode to another file
+   immediately after it's deleted. That in theory makes it possible to exploit
+   this race to delete the new directory. However, the new inode is quite
+   unlikely to be any important directory, and attacker is quite unlikely to
+   find out which directory even got the inode. Maybe with some setuid program
+   or daemon interaction something could come out of it though.
 
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   Another less portable solution is to fchdir(open(dir, O_NOFOLLOW)).
+   This should be completely safe.
+
+   The actual file deletion also has to be done relative to current
+   directory, to make sure that the whole directory structure isn't replaced
+   with another one while we're deleting it. Going back to parent directory
+   isn't too easy either - safest (and easiest) way again is to open() the
+   directory and fchdir() back there.
 */
 
 #define _GNU_SOURCE /* for O_NOFOLLOW with Linux */
@@ -46,36 +53,6 @@ static int unlink_directory_r(const char *dir)
 	struct dirent *d;
 	struct stat st;
         int dir_fd, old_errno;
-
-	/* There's a bit tricky race condition with recursive deletion.
-	   Suppose this happens:
-
-	   lstat(dir, ..) -> OK, it's a directory
-	   // attacker deletes dir, replaces it with symlink to /
-	   opendir(dir) -> it actually opens /
-
-	   Most portable solution is to lstat() the dir, chdir() there, then
-	   check that "." points to same device/inode as we originally
-	   lstat()ed. This assumes that the device has usable inodes, most
-	   should except for some NFS implementations.
-
-	   Filesystems may also reassign a deleted inode to another file
-	   immediately after it's deleted. That in theory makes it possible to
-	   exploit this race to delete the new directory. However, the new
-	   inode is quite unlikely to be any important directory, and attacker
-	   is quite unlikely to find out which directory even got the inode.
-	   Maybe with some setuid program or daemon interaction something could
-	   come out of it though.
-
-	   Another less portable solution is to fchdir(open(dir, O_NOFOLLOW)).
-	   This should be completely safe.
-
-	   The actual file deletion also has to be done relative to current
-	   directory, to make sure that the whole directory structure isn't
-	   replaced with another one while we're deleting it. Going back to
-	   parent directory isn't too easy either - safest (and easiest) way
-	   again is to open() the directory and fchdir() back there.
-	*/
 
 #ifdef O_NOFOLLOW
 	dir_fd = open(dir, O_RDONLY | O_NOFOLLOW);

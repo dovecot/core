@@ -116,6 +116,9 @@ time_t utc_mktime(struct tm *tm)
 	** Calculate the number of magnitude bits in a time_t
 	** (this works regardless of whether time_t is
 	** signed or unsigned, though lint complains if unsigned).
+	**
+	** We check TIME_T_MAX_BITS beforehand since gmtime() may fail
+	** with large 64bit values in some systems.
 	*/
 	for (bits = 0, t = 1; t > 0 && bits < TIME_T_MAX_BITS-1; bits++)
 		t <<= 1;
