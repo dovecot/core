@@ -88,7 +88,7 @@ static int mail_modifylog_have_other_users(MailModifyLog *log)
 		return -1;
 
 	/* revert back to shared lock */
-	switch (mail_modifylog_try_lock(log, F_WRLCK)) {
+	switch (mail_modifylog_try_lock(log, F_RDLCK)) {
 	case 0:
 		/* shouldn't happen */
 		index_set_error(log->index, "fcntl(F_WRLCK -> F_RDLCK) "
