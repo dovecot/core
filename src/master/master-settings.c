@@ -79,6 +79,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_INT, last_valid_uid),
 	DEF(SET_INT, first_valid_gid),
 	DEF(SET_INT, last_valid_gid),
+	DEF(SET_STR, mail_extra_groups),
 
 	DEF(SET_STR, default_mail_env),
 	DEF(SET_STR, mail_cache_fields),
@@ -210,6 +211,7 @@ struct settings default_settings = {
 	MEMBER(last_valid_uid) 0,
 	MEMBER(first_valid_gid) 1,
 	MEMBER(last_valid_gid) 0,
+	MEMBER(mail_extra_groups) NULL,
 
 	MEMBER(default_mail_env) NULL,
 	MEMBER(mail_cache_fields) "MessagePart",

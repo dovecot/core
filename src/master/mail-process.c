@@ -268,7 +268,8 @@ int create_mail_process(struct login_group *group, int socket,
 	   (paranoia about filling up environment without noticing) */
 	restrict_access_set_env(data + reply->system_user_idx,
 				reply->uid, reply->gid, chroot_dir,
-				set->first_valid_gid, set->last_valid_gid);
+				set->first_valid_gid, set->last_valid_gid,
+				set->mail_extra_groups);
 
 	restrict_process_size(group->set->mail_process_size, (unsigned int)-1);
 

@@ -17,7 +17,8 @@
 
 void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 			     const char *chroot_dir,
-			     gid_t first_valid_gid, gid_t last_valid_gid)
+			     gid_t first_valid_gid, gid_t last_valid_gid,
+			     const char *extra_groups)
 {
 	if (user != NULL && *user != '\0')
 		env_put(t_strconcat("RESTRICT_USER=", user, NULL));
@@ -26,6 +27,10 @@ void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 
 	env_put(t_strdup_printf("RESTRICT_SETUID=%s", dec2str(uid)));
 	env_put(t_strdup_printf("RESTRICT_SETGID=%s", dec2str(gid)));
+	if (extra_groups != NULL && *extra_groups != '\0') {
+		env_put(t_strconcat("RESTRICT_SETEXTRAGROUPS=",
+				    extra_groups, NULL));
+	}
 
 	if (first_valid_gid != 0) {
 		env_put(t_strdup_printf("RESTRICT_GID_FIRST=%s",
@@ -37,20 +42,11 @@ void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 	}
 }
 
-static void drop_restricted_groups(void)
+static gid_t *get_groups_list(int *gid_count_r)
 {
 	/* @UNSAFE */
-	const char *env;
-	gid_t *gid_list, first_valid_gid, last_valid_gid;
-	int ret, i, gid_count;
-
-	env = getenv("RESTRICT_GID_FIRST");
-	first_valid_gid = env == NULL ? 0 : (gid_t)atol(env);
-	env = getenv("RESTRICT_GID_LAST");
-	last_valid_gid = env == NULL ? 0 : (gid_t)atol(env);
-
-	if (first_valid_gid == 0 && last_valid_gid == 0)
-		return;
+	gid_t *gid_list;
+	int ret, gid_count;
 
 	gid_count = NGROUPS_MAX;
 	gid_list = t_buffer_get(sizeof(gid_t) * gid_count);
@@ -62,19 +58,79 @@ static void drop_restricted_groups(void)
 		gid_count *= 2;
 		gid_list = t_buffer_reget(gid_list, sizeof(gid_t) * gid_count);
 	}
+	t_buffer_alloc(sizeof(gid_t) * ret);
 
-	gid_count = 0;
-	for (i = 0; i < ret; i++) {
+	*gid_count_r = ret;
+	return gid_list;
+}
+
+static void drop_restricted_groups(void)
+{
+	/* @UNSAFE */
+	const char *env;
+	gid_t *gid_list, first_valid_gid, last_valid_gid;
+	int i, used, gid_count;
+
+	env = getenv("RESTRICT_GID_FIRST");
+	first_valid_gid = env == NULL ? 0 : (gid_t)atol(env);
+	env = getenv("RESTRICT_GID_LAST");
+	last_valid_gid = env == NULL ? 0 : (gid_t)atol(env);
+
+	if (first_valid_gid == 0 && last_valid_gid == 0)
+		return;
+
+	t_push();
+	gid_list = get_groups_list(&gid_count);
+
+	for (i = 0, used = 0; i < gid_count; i++) {
 		if (gid_list[i] >= first_valid_gid &&
 		    (last_valid_gid == 0 || gid_list[i] <= last_valid_gid))
-			gid_list[gid_count++] = gid_list[i];
+			gid_list[used++] = gid_list[i];
 	}
 
-	if (ret != gid_count) {
-		/* it did contain 0, remove it */
+	if (used != gid_count) {
+		/* it did contain restricted groups, remove it */
 		if (setgroups(gid_count, gid_list) < 0)
 			i_fatal("setgroups() failed: %m");
 	}
+	t_pop();
+}
+
+static gid_t get_group_id(const char *name)
+{
+	struct group *group;
+
+	if (is_numeric(name, '\0'))
+		return (gid_t)atol(name);
+
+	group = getgrnam(name);
+	if (group == NULL)
+		i_fatal("unknown group name in extra_groups: %s", name);
+	return group->gr_gid;
+}
+
+static void grant_extra_groups(const char *groups)
+{
+	const char *const *tmp;
+	gid_t *gid_list;
+	int gid_count;
+
+	t_push();
+	tmp = t_strsplit(groups, ", ");
+	gid_list = get_groups_list(&gid_count);
+	for (; *tmp != NULL; tmp++) {
+		if (**tmp == '\0')
+			continue;
+
+		if (!t_try_realloc(gid_list, (gid_count+1) * sizeof(gid_t)))
+			i_panic("won't happen");
+		gid_list[gid_count++] = get_group_id(*tmp);
+	}
+
+	if (setgroups(gid_count, gid_list) < 0)
+		i_fatal("setgroups() failed: %m");
+
+	t_pop();
 }
 
 void restrict_access_by_env(int disallow_root)
@@ -109,9 +165,14 @@ void restrict_access_by_env(int disallow_root)
 		}
 	}
 
+	/* grant additional groups to process */
+	env = getenv("RESTRICT_SETEXTRAGROUPS");
+	if (env != NULL && *env != '\0')
+		grant_extra_groups(env);
+
 	/* chrooting */
 	env = getenv("RESTRICT_CHROOT");
-	if (env != NULL) {
+	if (env != NULL && *env != '\0') {
 		/* kludge: localtime() must be called before chroot(),
 		   or the timezone isn't known */
 		time_t t = 0;
@@ -142,4 +203,13 @@ void restrict_access_by_env(int disallow_root)
 		if (getgid() == 0 || getegid() == 0 || setgid(0) == 0)
 			i_fatal("We couldn't drop root group privileges");
 	}
+
+	/* clear the environment, so we don't fail if we get back here */
+	env_put("RESTRICT_USER=");
+	env_put("RESTRICT_CHROOT=");
+	env_put("RESTRICT_SETUID=");
+	env_put("RESTRICT_SETGID=");
+	env_put("RESTRICT_SETEXTRAGROUPS=");
+	env_put("RESTRICT_GID_FIRST=");
+	env_put("RESTRICT_GID_LAST=");
 }

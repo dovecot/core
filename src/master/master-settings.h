@@ -54,6 +54,7 @@ struct settings {
 
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;
+	const char *mail_extra_groups;
 
 	const char *default_mail_env;
 	const char *mail_cache_fields;
