@@ -37,7 +37,8 @@ mail_cache_get_record(struct mail_cache *cache, uint32_t offset)
 		cache_rec = CACHE_RECORD(cache, offset);
 	}
 
-	if (offset + cache_rec->size > cache->mmap_length) {
+	if (cache_rec->size > cache->mmap_length ||
+	    offset + cache_rec->size > cache->mmap_length) {
 		mail_cache_set_corrupted(cache, "record points outside file");
 		return NULL;
 	}
@@ -124,9 +125,9 @@ mail_cache_foreach_rec(struct mail_cache_view *view, uint32_t *offset,
 		}
 
 		next_pos = pos + ((data_size + 3) & ~3);
-		if (next_pos > cache_rec->size) {
+		if (data_size > cache_rec->size || next_pos > cache_rec->size) {
 			mail_cache_set_corrupted(cache,
-				"Record continues outside it's allocated size");
+				"record continues outside it's allocated size");
 			return -1;
 		}
 
@@ -142,10 +143,26 @@ mail_cache_foreach_rec(struct mail_cache_view *view, uint32_t *offset,
 	return 1;
 }
 
+static int buffer_find_offset(const buffer_t *buffer, uint32_t offset)
+{
+	const uint32_t *offsets;
+	size_t i, size;
+
+	offsets = buffer_get_data(buffer, &size);
+	size /= sizeof(*offsets);
+
+	for (i = 0; i < size; i++) {
+		if (offsets[i] == offset)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
                        mail_cache_foreach_callback_t *callback, void *context)
 {
 	uint32_t offset;
+	buffer_t *offsets;
 	int ret;
 
         if (MAIL_CACHE_IS_UNUSABLE(view->cache))
@@ -161,23 +178,40 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 		view->cached_offset = offset;
 	}
 
-	while (offset != 0) {
+	t_push();
+	offsets = buffer_create_dynamic(pool_datastack_create(),
+					128, (size_t)-1);
+	ret = 1;
+	while (offset != 0 && ret > 0) {
+		if (buffer_find_offset(offsets, offset)) {
+			mail_cache_set_corrupted(view->cache,
+						 "record list is circular");
+			ret = -1;
+			break;
+		}
+		buffer_append(offsets, &offset, sizeof(offset));
 		ret = mail_cache_foreach_rec(view, &offset,
 					     callback, context);
-		if (ret <= 0)
-			return ret;
 	}
 
-	if (view->trans_seq1 <= seq && view->trans_seq2 >= seq &&
+	if (ret > 0 && view->trans_seq1 <= seq && view->trans_seq2 >= seq &&
 	    mail_cache_transaction_lookup(view->transaction, seq, &offset)) {
-		while (offset != 0) {
+		buffer_set_used_size(offsets, 0);
+		while (offset != 0 && ret > 0) {
+			if (buffer_find_offset(offsets, offset)) {
+				mail_cache_set_corrupted(view->cache,
+					"record list is circular");
+				ret = -1;
+				break;
+			}
+			buffer_append(offsets, &offset, sizeof(offset));
 			ret = mail_cache_foreach_rec(view, &offset,
 						     callback, context);
-			if (ret <= 0)
-				return ret;
 		}
 	}
-	return 1;
+	t_pop();
+
+	return ret;
 }
 
 static int
