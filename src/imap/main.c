@@ -32,7 +32,7 @@ static void open_logfile(void)
 
 	user = getenv("USER");
 	if (user == NULL) {
-		if (!IS_STANDALONE())
+		if (IS_STANDALONE())
 			user = getlogin();
 		if (user == NULL)
 			user = "??";
@@ -76,7 +76,7 @@ static void main_init(void)
 
 	user = getenv("USER");
 	if (user == NULL) {
-		if (!IS_STANDALONE())
+		if (IS_STANDALONE())
 			user = getlogin();
 		if (user == NULL)
 			i_fatal("USER environment missing");
