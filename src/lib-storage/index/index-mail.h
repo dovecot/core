@@ -96,9 +96,11 @@ struct index_mail {
 	struct index_header_lookup_ctx *wanted_headers;
 
 	/* per-mail variables, here for performance reasons: */
+	uint32_t header_seq;
 	string_t *header_data;
 	buffer_t *header_lines;
 	buffer_t *header_match;
+	buffer_t *header_offsets;
 	uint8_t header_match_value;
 };
 

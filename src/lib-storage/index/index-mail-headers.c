@@ -61,6 +61,9 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 		       match_idx < match_size) {
 			if (match[match_idx] == mail->header_match_value) {
 				/* this header doesn't exist. remember that. */
+				buffer_write(mail->header_offsets,
+					     match_idx * sizeof(null),
+					     &null, sizeof(null));
 				mail_cache_add(mail->trans->cache_trans,
 					       mail->data.seq, match_idx,
 					       NULL, 0);
@@ -120,6 +123,7 @@ void index_mail_parse_header_init(struct index_mail *mail,
 		(struct index_header_lookup_ctx *)_headers;
 	size_t i;
 
+	mail->header_seq = mail->data.seq;
 	if (mail->header_data == NULL) {
 		mail->header_data =
 			buffer_create_dynamic(default_pool, 4096, (size_t)-1);
@@ -127,16 +131,20 @@ void index_mail_parse_header_init(struct index_mail *mail,
 			buffer_create_dynamic(default_pool, 256, (size_t)-1);
 		mail->header_match =
 			buffer_create_dynamic(default_pool, 64, (size_t)-1);
+		mail->header_offsets =
+			buffer_create_dynamic(default_pool, 256, (size_t)-1);
 	} else {
 		buffer_set_used_size(mail->header_data, 0);
 		buffer_set_used_size(mail->header_lines, 0);
+		buffer_set_used_size(mail->header_offsets, 0);
 	}
 
-	if (++mail->header_match_value == 0) {
+        mail->header_match_value += 2;
+	if (mail->header_match_value == 0) {
 		/* wrapped, we'll have to clear the buffer */
 		memset(buffer_get_modifyable_data(mail->header_match, NULL), 0,
 		       buffer_get_size(mail->header_match));
-		mail->header_match_value++;
+		mail->header_match_value = 2;
 	}
 
 	if (headers != NULL) {
@@ -175,7 +183,7 @@ int index_mail_parse_header(struct message_part *part,
 	enum mail_cache_decision_type decision;
 	const char *cache_field_name;
 	unsigned int field_idx;
-	int timezone;
+	int timezone, first_hdr = FALSE;
 
         data->parse_line_num++;
 
@@ -257,14 +265,19 @@ int index_mail_parse_header(struct message_part *part,
 	}
 
 	if (!data->parse_line.cache) {
-		const uint8_t *match;
+		uint8_t *match;
 		size_t size;
 
-		match = buffer_get_data(mail->header_match, &size);
+		match = buffer_get_modifyable_data(mail->header_match, &size);
 		if (field_idx >= size ||
-		    match[field_idx] != mail->header_match_value) {
+		    (match[field_idx] & ~1) != mail->header_match_value) {
 			/* we don't need to do anything with this header */
 			return TRUE;
+		}
+		if (match[field_idx] == mail->header_match_value) {
+			/* first header */
+			first_hdr = TRUE;
+			match[field_idx]++;
 		}
 	}
 
@@ -273,6 +286,14 @@ int index_mail_parse_header(struct message_part *part,
 		data->parse_line.line_num = data->parse_line_num;
 		str_append(mail->header_data, hdr->name);
 		str_append(mail->header_data, ": ");
+
+		if (first_hdr) {
+			/* save the offset to first header */
+			uint32_t pos = str_len(mail->header_data);
+			buffer_write(mail->header_offsets,
+				     field_idx * sizeof(pos),
+				     &pos, sizeof(pos));
+		}
 	}
 	str_append_n(mail->header_data, hdr->value, hdr->value_len);
 	if (!hdr->no_newline)
@@ -377,6 +398,57 @@ get_header_field_idx(struct index_mailbox *ibox, const char *field)
 	return field_idx;
 }
 
+static size_t get_header_size(buffer_t *buffer, size_t pos)
+{
+	const unsigned char *data;
+	size_t i, size;
+
+	data = buffer_get_data(buffer, &size);
+	i_assert(pos <= size);
+
+	for (i = pos; i < size; i++) {
+		if (data[i] == '\n') {
+			if (i+1 == size ||
+			    (data[i+1] != ' ' && data[i+1] != '\t'))
+				return i - pos;
+		}
+	}
+	return size - pos;
+}
+
+static int index_mail_header_is_parsed(struct index_mail *mail,
+				       unsigned int field_idx)
+{
+	const uint8_t *match;
+	size_t size;
+
+	match = buffer_get_data(mail->header_match, &size);
+	if (field_idx >= size)
+		return -1;
+
+	if (match[field_idx] == mail->header_match_value)
+		return 0;
+	else if (match[field_idx] == mail->header_match_value + 1)
+		return 1;
+	return -1;
+}
+
+static const char *
+index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
+{
+	const unsigned char *data;
+	const uint32_t *offsets;
+	size_t size;
+
+	offsets = buffer_get_data(mail->header_offsets, &size);
+	i_assert(field_idx * sizeof(*offsets) >= size &&
+		 offsets[field_idx] != 0);
+
+	data = buffer_get_data(mail->header_data, &size);
+        size = get_header_size(mail->header_data, offsets[field_idx]);
+	return p_strndup(mail->pool, data + offsets[field_idx], size);
+}
+
 const char *index_mail_get_header(struct mail *_mail, const char *field)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
@@ -385,7 +457,7 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 	const unsigned char *data;
 	unsigned int field_idx;
 	string_t *dest;
-	size_t i, len, value_pos;
+	size_t i, len;
 	int ret;
 
 	field_idx = get_header_field_idx(mail->ibox, field);
@@ -393,21 +465,30 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 	dest = str_new(mail->pool, 128);
 	if (mail_cache_lookup_headers(mail->trans->cache_view, dest,
 				      mail->data.seq, &field_idx, 1) <= 0) {
-		/* not in cache / error */
+		/* not in cache / error - first see if it's already parsed */
+		p_free(mail->pool, dest);
+		if (mail->header_seq == mail->data.seq) {
+			ret = index_mail_header_is_parsed(mail, field_idx);
+			if (ret != -1) {
+				return ret == 0 ? NULL :
+					index_mail_get_parsed_header(mail,
+								     field_idx);
+			}
+		}
+
+		/* parse */
 		headers[0] = field; headers[1] = NULL;
 		headers_ctx = mailbox_header_lookup_init(&mail->ibox->box,
 							 headers);
 		ret = index_mail_parse_headers(mail, headers_ctx);
 		mailbox_header_lookup_deinit(headers_ctx);
-
 		if (ret < 0)
 			return NULL;
 
-		ret = mail_cache_lookup_headers(mail->trans->cache_view, dest,
-						mail->data.seq, &field_idx, 1);
-		i_assert(ret != 0);
-		if (ret < 0)
-			return NULL;
+		ret = index_mail_header_is_parsed(mail, field_idx);
+		i_assert(ret != -1);
+		return ret == 0 ? NULL :
+			index_mail_get_parsed_header(mail, field_idx);
 	}
 
 	/* cached. skip "header name: " in dest. */
@@ -419,20 +500,11 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 			break;
 		}
 	}
-	value_pos = i;
 
 	/* return only the first field in case there's multiple. */
-	for (; i < len; i++) {
-		if (data[i] == '\n') {
-			if (i+1 == len ||
-			    (data[i+1] != ' ' && data[i+1] != '\t')) {
-				buffer_set_used_size(dest, i);
-				break;
-			}
-		}
-	}
-
-	return str_c(dest) + value_pos;
+        len = get_header_size(dest, i);
+	buffer_set_used_size(dest, i + len);
+	return str_c(dest) + i;
 }
 
 static void header_cache_callback(struct message_header_line *hdr,

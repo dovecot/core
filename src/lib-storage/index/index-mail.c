@@ -671,6 +671,8 @@ void index_mail_deinit(struct index_mail *mail)
 		buffer_free(mail->header_lines);
 	if (mail->header_match != NULL)
 		buffer_free(mail->header_match);
+	if (mail->header_offsets != NULL)
+		buffer_free(mail->header_offsets);
 
 	pool_unref(mail->pool);
 	memset(mail, 0, sizeof(*mail));
