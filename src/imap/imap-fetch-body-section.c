@@ -84,9 +84,7 @@ static int fetch_body(struct imap_fetch_context *ctx,
 	if (stream == NULL)
 		return FALSE;
 
-	if (!fetch_header)
-		i_stream_seek(stream, hdr_size.physical_size);
-	else
+	if (fetch_header)
 		message_size_add(&body_size, &hdr_size);
 
 	str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
@@ -95,7 +93,9 @@ static int fetch_body(struct imap_fetch_context *ctx,
 		return FALSE;
 
 	skip_cr = seek_partial(ctx->select_counter, mail->uid,
-			       &partial, stream, 0, body->skip);
+			       &partial, stream,
+			       fetch_header ? 0 : hdr_size.physical_size,
+			       body->skip);
 	ret = message_send(ctx->output, stream, &body_size,
 			   skip_cr, body->max_size);
 	if (ret > 0) {
