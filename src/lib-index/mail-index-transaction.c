@@ -602,7 +602,7 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 					      size);
 	} else {
 		/* added before this or on top of this */
-		mail_index_insert_flag_update(t, u, 0, t->last_update_idx);
+		mail_index_insert_flag_update(t, u, 0, t->last_update_idx + 1);
 	}
 }
 
