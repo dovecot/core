@@ -107,6 +107,9 @@ int cmd_store(struct client *client)
 		}
 	}
 
+	if (keywords != NULL)
+		mailbox_keywords_free(t, keywords);
+
 	if (mailbox_search_deinit(search_ctx) < 0)
 		failed = TRUE;
 

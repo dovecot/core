@@ -298,6 +298,8 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context *t);
 struct mail_keywords *
 mailbox_keywords_create(struct mailbox_transaction_context *t,
 			const char *const keywords[]);
+void mailbox_keywords_free(struct mailbox_transaction_context *t,
+			   struct mail_keywords *keywords);
 
 /* Simplified fetching for a single sequence. */
 struct mail *mailbox_fetch(struct mailbox_transaction_context *t, uint32_t seq,

@@ -60,14 +60,11 @@ struct mail_index_ext_header {
 };
 
 struct mail_keywords {
-	/* linked list of keyword transactions which use this structure.
-	   the list may contain pointers to different transactions. this
-	   structure should be freed when there are no more transactions. */
-	struct mail_keyword_transaction *kt;
-
-	unsigned int start, end;
+	struct mail_index *index;
 	unsigned int count;
-	uint8_t bitmask[4]; /* variable size */
+
+        /* variable sized list of keyword indexes */
+	uint32_t idx[1];
 };
 
 struct mail_index_keyword_header {

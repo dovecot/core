@@ -272,6 +272,9 @@ static int cmd_append_continue_parsing(struct client *client)
 					  internal_date, timezone_offset, NULL,
 					  ctx->input, FALSE);
 
+	if (keywords != NULL)
+		mailbox_keywords_free(ctx->t, keywords);
+
 	client->command_pending = TRUE;
 	client->cmd_func = cmd_append_continue_message;
 	return cmd_append_continue_message(client);

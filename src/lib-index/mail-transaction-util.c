@@ -20,6 +20,7 @@ const struct mail_transaction_type_map mail_transaction_type_map[] = {
 	{ MAIL_TRANSACTION_EXT_HDR_UPDATE, 0, 1 },
 	{ MAIL_TRANSACTION_EXT_REC_UPDATE, 0, 1 },
 	{ MAIL_TRANSACTION_KEYWORD_UPDATE, MAIL_INDEX_SYNC_TYPE_KEYWORDS, 1 },
+	{ MAIL_TRANSACTION_KEYWORD_RESET, 0, 1 },
 	{ 0, 0, 0 }
 };
 

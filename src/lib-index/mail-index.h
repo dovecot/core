@@ -293,6 +293,8 @@ const char *const *mail_index_get_keywords(struct mail_index *index);
 struct mail_keywords *
 mail_index_keywords_create(struct mail_index_transaction *t,
 			   const char *const keywords[]);
+/* Free the keywords. */
+void mail_index_keywords_free(struct mail_keywords *keywords);
 /* Update keywords for given message. */
 void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 				enum modify_type modify_type,

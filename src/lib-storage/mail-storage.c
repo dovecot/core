@@ -355,6 +355,12 @@ mailbox_keywords_create(struct mailbox_transaction_context *t,
 	return t->box->keywords_create(t, keywords);
 }
 
+void mailbox_keywords_free(struct mailbox_transaction_context *t,
+			   struct mail_keywords *keywords)
+{
+	t->box->keywords_free(t, keywords);
+}
+
 struct mail *mailbox_fetch(struct mailbox_transaction_context *t, uint32_t seq,
 			   enum mail_fetch_field wanted_fields)
 {

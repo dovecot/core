@@ -94,5 +94,9 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 			     const struct mail_transaction_header *hdr,
 			     const struct mail_transaction_keyword_update *rec);
+int
+mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
+			       const struct mail_transaction_header *hdr,
+			       const struct mail_transaction_keyword_reset *r);
 
 #endif

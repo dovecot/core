@@ -40,28 +40,6 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	return t;
 }
 
-static void mail_keyword_transaction_free(struct mail_keyword_transaction *kt)
-{
-	struct mail_keyword_transaction **p;
-
-	for (p = &kt->keywords->kt; *p != NULL; p = &(*p)->next) {
-		if (*p == kt) {
-			*p = kt->next;
-			break;
-		}
-	}
-
-	if (*p == NULL) {
-		/* no transactions left, free mail_keywords */
-		i_assert(kt->keywords->kt == NULL);
-		i_free(kt->keywords);
-	}
-
-	if (kt->messages != NULL)
-		buffer_free(kt->messages);
-	i_free(kt);
-}
-
 static void mail_index_transaction_free(struct mail_index_transaction *t)
 {
 	buffer_t **recs;
@@ -79,15 +57,19 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 	}
 
 	if (t->keyword_updates != NULL) {
-		struct mail_keyword_transaction **kt;
+		buffer_t **buf;
 
-		kt = buffer_get_modifyable_data(t->keyword_updates, &size);
-		size /= sizeof(*kt);
+		buf = buffer_get_modifyable_data(t->keyword_updates, &size);
+		size /= sizeof(*buf);
 
-		for (i = 0; i < size; i++)
-			mail_keyword_transaction_free(kt[i]);
+		for (i = 0; i < size; i++) {
+			if (buf[i] != NULL)
+				buffer_free(buf[i]);
+		}
 		buffer_free(t->keyword_updates);
 	}
+	if (t->keyword_resets != NULL)
+		buffer_free(t->keyword_resets);
 
 	if (t->appends != NULL)
 		buffer_free(t->appends);
@@ -176,16 +158,16 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 	}
 
 	if (t->keyword_updates != NULL) {
-		struct mail_keyword_transaction **kt;
+		buffer_t **buf;
 
-		kt = buffer_get_modifyable_data(t->keyword_updates, &size);
-		size /= sizeof(*kt);
+		buf = buffer_get_modifyable_data(t->keyword_updates, &size);
+		size /= sizeof(*buf);
 
 		for (i = 0; i < size; i++) {
-			if (kt[i]->messages == NULL)
+			if (buf[i] == NULL)
 				continue;
 
-			mail_index_buffer_convert_to_uids(t, kt[i]->messages,
+			mail_index_buffer_convert_to_uids(t, buf[i],
 				sizeof(uint32_t) * 2, TRUE);
 		}
 	}
@@ -299,11 +281,22 @@ struct seq_range {
 	uint32_t seq1, seq2;
 };
 
-static void mail_index_update_seq_range_buffer(buffer_t *buffer, uint32_t seq)
+static void
+mail_index_seq_range_buffer_add(buffer_t **buffer_p, size_t initial_size,
+				uint32_t seq)
 {
-        struct seq_range *data, value;
+	buffer_t *buffer;
+	struct seq_range *data, value;
 	unsigned int idx, left_idx, right_idx;
 	size_t size;
+
+	if (*buffer_p == NULL) {
+		*buffer_p = buffer_create_dynamic(default_pool, initial_size);
+		buffer_append(*buffer_p, &seq, sizeof(seq));
+		buffer_append(*buffer_p, &seq, sizeof(seq));
+		return;
+	}
+	buffer = *buffer_p;
 
 	value.seq1 = value.seq2 = seq;
 
@@ -339,7 +332,7 @@ static void mail_index_update_seq_range_buffer(buffer_t *buffer, uint32_t seq)
 
 		if (data[idx].seq1 <= seq) {
 			if (data[idx].seq2 >= seq) {
-				/* it's already expunged */
+				/* it's already in the range */
 				return;
 			}
 			left_idx = idx+1;
@@ -378,6 +371,75 @@ static void mail_index_update_seq_range_buffer(buffer_t *buffer, uint32_t seq)
 	}
 }
 
+static void mail_index_seq_range_buffer_remove(buffer_t *buffer, uint32_t seq)
+{
+	struct seq_range *data, value;
+	unsigned int idx, left_idx, right_idx;
+	size_t size;
+
+	if (buffer == NULL)
+		return;
+
+	data = buffer_get_modifyable_data(buffer, &size);
+	size /= sizeof(*data);
+	i_assert(size > 0);
+
+	/* quick checks */
+	if (seq > data[size-1].seq2 || seq < data[0].seq1) {
+		/* outside the range */
+		return;
+	}
+	if (data[size-1].seq2 == seq) {
+		/* shrink last range */
+		data[size-1].seq2--;
+		return;
+	}
+	if (data[0].seq1 == seq) {
+		/* shrink up first range */
+		data[0].seq1++;
+		return;
+	}
+
+	/* somewhere in the middle, array is sorted so find it with
+	   binary search */
+	idx = 0; left_idx = 0; right_idx = size;
+	while (left_idx < right_idx) {
+		idx = (left_idx + right_idx) / 2;
+
+		if (data[idx].seq1 > seq)
+			right_idx = idx;
+		else if (data[idx].seq2 < seq)
+			left_idx = idx+1;
+		else {
+			/* found it */
+			if (data[idx].seq1 == seq) {
+				if (data[idx].seq1 == data[idx].seq2) {
+					/* a single sequence range.
+					   remove it entirely */
+					buffer_delete(buffer,
+						      idx * sizeof(*data),
+						      sizeof(*data));
+				} else {
+					/* shrink the range */
+					data[idx].seq1++;
+				}
+			} else if (data[idx].seq2 == seq) {
+				/* shrink the range */
+				data[idx].seq2--;
+			} else {
+				/* split the sequence range */
+				value.seq1 = seq + 1;
+				value.seq2 = data[idx].seq2;
+				data[idx].seq2 = seq - 1;
+
+				buffer_insert(buffer, idx * sizeof(*data),
+					      &value, sizeof(value));
+			}
+			break;
+		}
+	}
+}
+
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 {
 	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(t->view));
@@ -385,14 +447,7 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 	t->log_updates = TRUE;
 
 	/* expunges is a sorted array of {seq1, seq2, ..}, .. */
-	if (t->expunges == NULL) {
-		t->expunges = buffer_create_dynamic(default_pool, 1024);
-		buffer_append(t->expunges, &seq, sizeof(seq));
-		buffer_append(t->expunges, &seq, sizeof(seq));
-		return;
-	}
-
-	mail_index_update_seq_range_buffer(t->expunges, seq);
+	mail_index_seq_range_buffer_add(&t->expunges, 512, seq);
 }
 
 static void
@@ -651,9 +706,9 @@ int mail_index_seq_buffer_lookup(buffer_t *buffer, uint32_t seq,
 	return FALSE;
 }
 
-static int mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
-					const void *record, size_t record_size,
-					void *old_record)
+static int mail_index_seq_buffer_add(buffer_t **buffer, uint32_t seq,
+				     const void *record, size_t record_size,
+				     void *old_record)
 {
 	void *p;
 	size_t pos;
@@ -804,86 +859,48 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 				      sizeof(buffer_t *));
 
 	/* @UNSAFE */
-	if (!mail_index_update_seq_buffer(buf, seq, data, record_size,
-					  old_data_r)) {
+	if (!mail_index_seq_buffer_add(buf, seq, data, record_size,
+				       old_data_r)) {
 		if (old_data_r != NULL)
 			memset(old_data_r, 0, record_size);
 	}
 }
 
-static struct mail_keyword_transaction *
-mail_keyword_transaction_new(struct mail_index_transaction *t,
-			     struct mail_keywords *keywords)
+struct mail_keywords *
+mail_index_keywords_create(struct mail_index_transaction *t,
+			   const char *const keywords[])
 {
-	struct mail_keyword_transaction *kt;
-
-	if (t->keyword_updates == NULL)
-                t->keyword_updates = buffer_create_dynamic(default_pool, 512);
-
-	kt = i_new(struct mail_keyword_transaction, 1);
-	kt->transaction = t;
-	kt->keywords = keywords;
-
-	kt->next = keywords->kt;
-	keywords->kt = kt;
-
-	buffer_append(t->keyword_updates, &kt, sizeof(kt));
-	return kt;
-}
-
-static struct mail_keywords *
-mail_index_keywords_build(struct mail_index *index,
-			  const char *const keywords[], unsigned int count)
-{
-	struct mail_keywords k;
-	const char **missing_keywords, *keyword;
-	buffer_t *keyword_buf;
-	unsigned int i, j, bitmask_offset, missing_count = 0;
-	size_t size;
-	uint8_t *b;
-
-	if (count == 0)
-		return i_new(struct mail_keywords, 1);
-
 	/* @UNSAFE */
+	struct mail_index *index = t->view->index;
+	struct mail_keywords *k;
+	const char **missing_keywords, *keyword;
+	unsigned int count, i, j, k_pos = 0, missing_count = 0;
+	size_t size;
+
+	if (keywords == NULL)
+		return i_new(struct mail_keywords, 1);
+	count = strarray_length(keywords);
+
+	k = i_malloc(sizeof(struct mail_keywords) +
+		     (sizeof(k->idx) * (count-1)));
+	k->index = t->view->index;
+	k->count = count;
+
 	t_push();
-
 	missing_keywords = t_new(const char *, count + 1);
-	memset(&k, 0, sizeof(k));
 
-	/* keywords are sorted in index. look up the existing ones and add
-	   new ones. build a bitmap pointing to them. keywords are never
-	   removed from index's keyword list. */
-	bitmask_offset = sizeof(k) - sizeof(k.bitmask);
-	keyword_buf = buffer_create_dynamic(default_pool, bitmask_offset +
-					    (count + 7) / 8 + 8);
+	/* look up the keywords from index. they're never removed from there
+	   so we can permanently store indexes to them. */
 	for (i = 0; i < count; i++) {
 		for (j = 0; index->keywords[j] != NULL; j++) {
 			if (strcasecmp(keywords[i], index->keywords[j]) == 0)
 				break;
 		}
 
-		if (index->keywords[j] != NULL) {
-			if (keyword_buf->used == 0) {
-				/* first one */
-				k.start = j;
-			} else if (j < k.start) {
-				buffer_copy(keyword_buf,
-					    bitmask_offset + k.start - j,
-					    keyword_buf, bitmask_offset,
-					    (size_t)-1);
-				k.start = j;
-			}
-			b = buffer_get_space_unsafe(keyword_buf,
-						    bitmask_offset +
-						    (j - k.start) / 8, 1);
-			*b |= 1 << ((j - k.start) % 8);
-			k.end = j;
-			k.count++;
-		} else {
-			/* arrays are sorted, can't match anymore */
+		if (index->keywords[j] != NULL)
+			k->idx[k_pos++] = j;
+		else
 			missing_keywords[missing_count++] = keywords[i];
-		}
 	}
 
 	if (missing_count > 0) {
@@ -898,67 +915,90 @@ mail_index_keywords_build(struct mail_index *index,
 			buffer_append(index->keywords_buf,
 				      &keyword, sizeof(keyword));
 
-			b = buffer_get_space_unsafe(keyword_buf,
-						    bitmask_offset +
-						    (j - k.start) / 8, 1);
-			*b |= 1 << ((j - k.start) % 8);
-			k.end = j;
-			k.count++;
+			k->idx[k_pos++] = j;
 		}
 
 		buffer_append_zero(index->keywords_buf, sizeof(const char *));
 		index->keywords = index->keywords_buf->data;
 	}
-	buffer_write(keyword_buf, 0, &k, bitmask_offset);
+	i_assert(k_pos == count);
 
 	t_pop();
-	return buffer_free_without_data(keyword_buf);
+	return k;
 }
 
-struct mail_keywords *
-mail_index_keywords_create(struct mail_index_transaction *t,
-			   const char *const keywords[])
+void mail_index_keywords_free(struct mail_keywords *keywords)
 {
-	struct mail_keywords *k;
-	const char *const null_keywords[] = { NULL };
-
-	if (keywords == NULL)
-		keywords = null_keywords;
-
-	k = mail_index_keywords_build(t->view->index, keywords,
-				      strarray_length(keywords));
-	(void)mail_keyword_transaction_new(t, k);
-	return k;
+	i_free(keywords);
 }
 
 void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 				enum modify_type modify_type,
 				struct mail_keywords *keywords)
 {
-	struct mail_keyword_transaction *kt;
+	buffer_t **buf;
+	unsigned int i;
+	size_t pos;
 
 	i_assert(seq > 0 &&
 		 (seq <= mail_index_view_get_messages_count(t->view) ||
 		  seq <= t->last_new_seq));
 	i_assert(keywords->count > 0 || modify_type == MODIFY_REPLACE);
-	i_assert(keywords->kt->transaction->view->index == t->view->index);
+	i_assert(keywords->index == t->view->index);
 
-	for (kt = keywords->kt; kt != NULL; kt = kt->next) {
-		if (kt->transaction == t &&
-		    (kt->modify_type == modify_type || kt->messages == NULL))
-			break;
+	/* keyword_updates is an array of
+	   { buffer_t *add_seq; buffer_t *remove_seq; }
+	   which is why there's the multiplication by 2.
+
+	   If t->keyword_resets is set for the sequence, there's no need to
+	   update remove_seq as it will remove all keywords. */
+
+	if (t->keyword_updates == NULL) {
+		uint32_t max_idx = keywords->idx[keywords->count-1];
+
+		t->keyword_updates =
+			buffer_create_dynamic(default_pool,
+					      max_idx * 2 * sizeof(buffer_t *));
 	}
 
-	if (kt == NULL)
-		kt = mail_keyword_transaction_new(t, keywords);
+	switch (modify_type) {
+	case MODIFY_ADD:
+		for (i = 0; i < keywords->count; i++) {
+			pos = keywords->idx[i] * 2 * sizeof(buffer_t *);
+			buf = buffer_get_space_unsafe(t->keyword_updates, pos,
+						      sizeof(buffer_t *));
+			mail_index_seq_range_buffer_add(buf, 64, seq);
 
-	if (kt->messages == NULL) {
-		kt->messages = buffer_create_dynamic(default_pool, 32);
-		kt->modify_type = modify_type;
-		buffer_append(kt->messages, &seq, sizeof(seq));
-		buffer_append(kt->messages, &seq, sizeof(seq));
-	} else {
-		mail_index_update_seq_range_buffer(kt->messages, seq);
+			buf = buffer_get_space_unsafe(t->keyword_updates,
+						      pos + sizeof(buffer_t *),
+						      sizeof(buffer_t *));
+			mail_index_seq_range_buffer_remove(*buf, seq);
+		}
+		break;
+	case MODIFY_REMOVE:
+		for (i = 0; i < keywords->count; i++) {
+			pos = keywords->idx[i] * 2 * sizeof(buffer_t *);
+			buf = buffer_get_space_unsafe(t->keyword_updates, pos,
+						      sizeof(buffer_t *));
+			mail_index_seq_range_buffer_remove(*buf, seq);
+
+			buf = buffer_get_space_unsafe(t->keyword_updates,
+						      pos + sizeof(buffer_t *),
+						      sizeof(buffer_t *));
+			mail_index_seq_range_buffer_add(buf, 64, seq);
+		}
+		break;
+	case MODIFY_REPLACE:
+		for (i = 0; i < keywords->count; i++) {
+			pos = keywords->idx[i] * 2 * sizeof(buffer_t *);
+			buf = buffer_get_space_unsafe(t->keyword_updates, pos,
+						      sizeof(buffer_t *));
+			mail_index_seq_range_buffer_add(buf, 64, seq);
+		}
+
+		mail_index_seq_range_buffer_add(&t->keyword_resets, 64, seq);
+		break;
 	}
+
 	t->log_updates = TRUE;
 }

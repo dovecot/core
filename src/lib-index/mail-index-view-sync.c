@@ -285,18 +285,10 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 	}
 	case MAIL_TRANSACTION_KEYWORD_UPDATE: {
 		const struct mail_transaction_keyword_update *update = data;
-		const unsigned char *p;
 		const uint32_t *uids;
-		uint32_t i;
 
 		if (ctx->data_offset == 0) {
-			p = (const unsigned char *)
-				(update->name_size + update->keywords_count);
-
-			for (i = 0; i < update->keywords_count; i++)
-				p += update->name_size[i];
-
-			ctx->data_offset = p - (const unsigned char *)update;
+			ctx->data_offset = sizeof(*update) + update->name_size;
 			if ((ctx->data_offset % 4) != 0)
 				ctx->data_offset += 4 - (ctx->data_offset % 4);
 		}

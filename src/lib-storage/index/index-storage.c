@@ -425,3 +425,9 @@ index_keywords_create(struct mailbox_transaction_context *_t,
 
 	return mail_index_keywords_create(t->trans, keywords);
 }
+
+void index_keywords_free(struct mailbox_transaction_context *t __attr_unused__,
+			 struct mail_keywords *keywords)
+{
+	return mail_index_keywords_free(keywords);
+}

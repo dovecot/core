@@ -25,6 +25,8 @@ int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	ctx = mailbox_save_init(t, mail->get_flags(mail), keywords,
 				mail->get_received_date(mail),
 				0, from_envelope, input, dest_mail_r != NULL);
+	if (keywords != NULL)
+		mailbox_keywords_free(t, keywords);
 
 	while (i_stream_read(input) != -1) {
 		if (mailbox_save_continue(ctx) < 0)

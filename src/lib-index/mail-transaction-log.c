@@ -1198,58 +1198,30 @@ static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 				      struct mail_index_transaction *t)
 {
 	struct mail_index *index = t->view->index;
-	struct mail_keyword_transaction **kt;
 	struct mail_transaction_keyword_update kt_hdr;
-	buffer_t *buf;
-	size_t i, size, size_offset, name_offset;
-	unsigned int idx, last_idx, first_keyword;
+	buffer_t *hdr_buf, **buf;
+	size_t i, size;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	hdr_buf = buffer_create_dynamic(pool_datastack_create(), 64);
 
-	kt = buffer_get_modifyable_data(t->keyword_updates, &size);
-	size /= sizeof(*kt);
+	buf = buffer_get_modifyable_data(t->keyword_updates, &size);
+	size /= sizeof(*buf);
 	for (i = 0; i < size; i++) {
-		buffer_set_used_size(buf, 0);
+		if (buf[i] == NULL)
+			continue;
+
+		buffer_set_used_size(hdr_buf, 0);
 
 		memset(&kt_hdr, 0, sizeof(kt_hdr));
-		kt_hdr.keywords_count = kt[i]->keywords->count;
-		kt_hdr.modify_type = kt[i]->modify_type;
-		buffer_append(buf, &kt_hdr,
-			      sizeof(kt_hdr) - sizeof(kt_hdr.name_size));
+		kt_hdr.modify_type = (i & 1) == 0 ? MODIFY_ADD : MODIFY_REMOVE;
+		kt_hdr.name_size = strlen(index->keywords[i / 2]);
+		buffer_append(hdr_buf, &kt_hdr, sizeof(kt_hdr));
+		buffer_append(hdr_buf, index->keywords[i / 2],
+			      kt_hdr.name_size);
+		if ((hdr_buf->used % 4) != 0)
+			buffer_append_zero(hdr_buf, 4 - (hdr_buf->used % 4));
 
-		size_offset = buf->used;
-		name_offset = buf->used +
-			kt[i]->keywords->count * sizeof(uint16_t);
-
-		idx = 0;
-		first_keyword = kt[i]->keywords->start;
-		last_idx = kt[i]->keywords->end - first_keyword;
-
-		for (; idx <= last_idx; idx++) {
-			uint16_t name_size;
-			const char *keyword;
-
-			if ((kt[i]->keywords->bitmask[idx / 8] &
-			     (1 << (idx % 8))) == 0)
-				continue;
-
-			i_assert(first_keyword + idx <
-				 index->keywords_buf->used / sizeof(keyword));
-			keyword = index->keywords[first_keyword + idx];
-
-			name_size = strlen(keyword);
-			buffer_write(buf, size_offset,
-				     &name_size, sizeof(name_size));
-			size_offset += sizeof(name_size);
-
-			buffer_write(buf, name_offset, keyword, name_size);
-			name_offset += name_size;
-		}
-
-		if ((buf->used % 4) != 0)
-			buffer_append_zero(buf, 4 - (buf->used % 4));
-
-		if (log_append_buffer(file, kt[i]->messages, buf, 
+		if (log_append_buffer(file, buf[i], hdr_buf,
 				      MAIL_TRANSACTION_KEYWORD_UPDATE,
 				      t->external) < 0)
 			return -1;
@@ -1342,6 +1314,12 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	if (t->ext_rec_updates != NULL && ret == 0)
 		ret = log_append_ext_rec_updates(file, t);
 
+	/* keyword resets before updates */
+	if (t->keyword_resets != NULL && ret == 0) {
+		ret = log_append_buffer(file, t->keyword_resets, NULL,
+					MAIL_TRANSACTION_KEYWORD_RESET,
+					t->external);
+	}
 	if (t->keyword_updates != NULL && ret == 0)
 		ret = log_append_keyword_updates(file, t);
 

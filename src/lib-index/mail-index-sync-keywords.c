@@ -6,56 +6,11 @@
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log.h"
 
-static const char *const *
-keywords_get_from_header(const struct mail_transaction_keyword_update *rec,
-			 size_t size, const uint32_t **uid_r)
+static int
+keyword_lookup(struct mail_index_sync_map_ctx *ctx,
+	       const char *keyword_name, unsigned int *idx_r)
 {
-	buffer_t *buf;
-	const unsigned char *p, *end;
-	const char *name;
-	uint32_t i, diff;
-
-	if (size / sizeof(rec->name_size) < rec->keywords_count) {
-		/* keyword_count is badly broken */
-		return NULL;
-	}
-
-	buf = buffer_create_static_hard(pool_datastack_create(),
-					(rec->keywords_count + 1) *
-					sizeof(const char *));
-	p = (const unsigned char *)(rec->name_size + rec->keywords_count);
-	end = CONST_PTR_OFFSET(rec, size);
-
-	if (p >= end)
-		return NULL;
-
-	for (i = 0; i < rec->keywords_count; i++) {
-		if (p + rec->name_size[i] >= end)
-			return NULL;
-
-		name = t_strndup(p, rec->name_size[i]);
-		buffer_append(buf, &name, sizeof(name));
-		p += rec->name_size[i];
-	}
-
-	diff = (p - (const unsigned char *)rec) % 4;
-	if (diff != 0)
-		p += 4 - diff;
-
-	*uid_r = (const uint32_t *)p;
-
-	name = NULL;
-	buffer_append(buf, &name, sizeof(name));
-	return buf->data;
-}
-
-static int keywords_get_missing(struct mail_index_sync_map_ctx *ctx,
-				const char *const *keywords,
-                                const char *const **missing_r)
-{
-	struct mail_index_map *map = ctx->view->index->map;
-	const char *name;
-	buffer_t *missing_buf;
+	struct mail_index_map *map = ctx->view->map;
 	unsigned int i;
 
 	if (!ctx->keywords_read) {
@@ -64,23 +19,14 @@ static int keywords_get_missing(struct mail_index_sync_map_ctx *ctx,
 		ctx->keywords_read = TRUE;
 	}
 
-        missing_buf = buffer_create_dynamic(pool_datastack_create(), 64);
-	for (; *keywords != NULL; keywords++) {
-		for (i = 0; i < map->keywords_count; i++) {
-			if (strcmp(map->keywords[i], *keywords) == 0)
-				break;
+	for (i = 0; i < map->keywords_count; i++) {
+		if (strcmp(map->keywords[i], keyword_name) == 0) {
+			*idx_r = i;
+			return 1;
 		}
-		if (i == map->keywords_count)
-			buffer_append(missing_buf, keywords, sizeof(*keywords));
 	}
 
-	if (missing_buf->used == 0)
-		*missing_r = NULL;
-	else {
-		name = NULL;
-		buffer_append(missing_buf, &name, sizeof(name));
-		*missing_r = missing_buf->data;
-	}
+	*idx_r = (unsigned int)-1;
 	return 0;
 }
 
@@ -155,43 +101,35 @@ static int keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 }
 
 static int
-keywords_update_header(struct mail_index_sync_map_ctx *ctx,
-		       const char *const *keywords)
+keywords_header_add(struct mail_index_sync_map_ctx *ctx,
+		    const char *keyword_name, unsigned int *keyword_idx_r)
 {
 	struct mail_index_map *map = ctx->view->map;
         const struct mail_index_ext *ext = NULL;
 	struct mail_index_keyword_header *kw_hdr;
 	struct mail_index_keyword_header_rec kw_rec;
 	uint32_t ext_id;
-	const char *const *missing = keywords;
 	buffer_t *buf = NULL;
-	size_t rec_offset, name_offset, name_offset_root;
+	size_t keyword_len, rec_offset, name_offset, name_offset_root;
 	unsigned int keywords_count;
-	int ret = 0;
+	int ret;
 
 	ext_id = mail_index_map_lookup_ext(map, "keywords");
 	if (ext_id != (uint32_t)-1) {
-		/* make sure all keywords exist in the header */
+		/* update existing header */
 		ext = map->extensions->data;
 		ext += ext_id;
 
-		ret = keywords_get_missing(ctx, keywords, &missing);
-		if (ret == 0 && missing != NULL) {
-			/* update existing header */
-			buf = keywords_get_header_buf(map, ext,
-						      strarray_length(missing),
-						      &keywords_count,
-						      &rec_offset,
-						      &name_offset_root,
-						      &name_offset);
-		}
+		buf = keywords_get_header_buf(map, ext, 1, &keywords_count,
+					      &rec_offset, &name_offset_root,
+					      &name_offset);
 	}
 
 	if (buf == NULL) {
 		/* create new / replace broken header */
 		buf = buffer_create_dynamic(pool_datastack_create(), 512);
 		kw_hdr = buffer_append_space_unsafe(buf, sizeof(*kw_hdr));
-		kw_hdr->keywords_count = strarray_length(missing);
+		kw_hdr->keywords_count = 1;
 
                 keywords_count = kw_hdr->keywords_count;
 		rec_offset = buf->used;
@@ -200,23 +138,17 @@ keywords_update_header(struct mail_index_sync_map_ctx *ctx,
 		name_offset = 0;
 	}
 
-	if (missing == NULL)
-		return 1;
-
-	/* missing some keywords - add them */
+	/* add the keyword */
 	memset(&kw_rec, 0, sizeof(kw_rec));
 	kw_rec.name_offset = name_offset;
 
-	for (; *missing != NULL; missing++) {
-		size_t len = strlen(*missing) + 1;
+	keyword_len = strlen(keyword_name);
+	buffer_write(buf, rec_offset, &kw_rec, sizeof(kw_rec));
+	buffer_write(buf, name_offset_root, keyword_name, keyword_len);
 
-		buffer_write(buf, rec_offset, &kw_rec, sizeof(kw_rec));
-		buffer_write(buf, name_offset_root, *missing, len);
-
-		rec_offset += sizeof(kw_rec);
-		kw_rec.name_offset += len;
-		name_offset_root += len;
-	}
+	rec_offset += sizeof(kw_rec);
+	kw_rec.name_offset += keyword_len;
+	name_offset_root += keyword_len;
 
 	if ((buf->used % 4) != 0)
 		buffer_append_zero(buf, 4 - (buf->used % 4));
@@ -249,43 +181,24 @@ keywords_update_header(struct mail_index_sync_map_ctx *ctx,
 		    buf, 0, buf->used);
 	map->hdr_base = map->hdr_copy_buf->data;
 
+	*keyword_idx_r = keywords_count - 1;
         ctx->keywords_read = FALSE;
 	return 1;
-}
-
-static const unsigned char *
-keywords_make_mask(struct mail_index_map *map, const struct mail_index_ext *ext,
-		   const char *const *keywords)
-{
-	const char *const *n;
-	unsigned char *mask;
-	unsigned int i;
-
-	mask = t_malloc0(ext->record_size);
-
-	for (i = 0; i < map->keywords_count; i++) {
-		for (n = keywords; *n != NULL; n++) {
-			if (strcmp(map->keywords[i], *n) == 0) {
-				mask[i / CHAR_BIT] |= 1 << (i % CHAR_BIT);
-				break;
-			}
-		}
-	}
-
-	return mask;
 }
 
 static int
 keywords_update_records(struct mail_index_view *view,
 			const struct mail_index_ext *ext,
-			const unsigned char *mask,
+			unsigned int keyword_idx,
 			enum modify_type type,
 			uint32_t uid1, uint32_t uid2)
 {
 	struct mail_index_record *rec;
-	unsigned char *data;
+	unsigned char *data, data_mask;
+	unsigned int data_offset;
 	uint32_t seq1, seq2;
-	unsigned int i;
+
+	i_assert(keyword_idx != (unsigned int)-1);
 
 	if (mail_index_lookup_uid_range(view, uid1, uid2, &seq1, &seq2) < 0)
 		return -1;
@@ -293,25 +206,30 @@ keywords_update_records(struct mail_index_view *view,
 	if (seq1 == 0)
 		return 1;
 
-	for (; seq1 <= seq2; seq1++) {
-		rec = MAIL_INDEX_MAP_IDX(view->map, seq1-1);
-		data = PTR_OFFSET(rec, ext->record_offset);
+	data_offset = keyword_idx / CHAR_BIT;
+	data_mask = 1 << (keyword_idx % CHAR_BIT);
 
-		switch (type) {
-		case MODIFY_ADD:
-			for (i = 0; i < ext->record_size; i++)
-				data[i] |= mask[i];
-			break;
-		case MODIFY_REMOVE:
-		for (i = 0; i < ext->record_size; i++)
-			data[i] &= ~mask[i];
-		break;
-		case MODIFY_REPLACE:
-			memcpy(data, mask, ext->record_size);
-			break;
-		default:
-			i_unreached();
+	i_assert(data_offset < ext->record_size);
+	data_offset += ext->record_offset;
+
+	switch (type) {
+	case MODIFY_ADD:
+		for (seq1--; seq1 < seq2; seq1++) {
+			rec = MAIL_INDEX_MAP_IDX(view->map, seq1);
+			data = PTR_OFFSET(rec, data_offset);
+			*data |= data_mask;
 		}
+		break;
+	case MODIFY_REMOVE:
+		data_mask = ~data_mask;
+		for (seq1--; seq1 < seq2; seq1++) {
+			rec = MAIL_INDEX_MAP_IDX(view->map, seq1);
+			data = PTR_OFFSET(rec, data_offset);
+			*data &= data_mask;
+		}
+		break;
+	default:
+		i_unreached();
 	}
 	return 1;
 }
@@ -320,28 +238,37 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 			     const struct mail_transaction_header *hdr,
 			     const struct mail_transaction_keyword_update *rec)
 {
-	const uint32_t *uid, *end;
-	const char *const *keywords;
+	const char *keyword_name;
 	const struct mail_index_ext *ext;
-	const unsigned char *mask;
-	uint32_t ext_id;
+	const uint32_t *uid, *end;
+	uint32_t seqset_offset, ext_id;
+	unsigned int keyword_idx;
 	int ret;
 
-	keywords = keywords_get_from_header(rec, hdr->size, &uid);
-	if (keywords == NULL) {
+	seqset_offset = sizeof(*rec) + rec->name_size;
+	if ((seqset_offset % 4) != 0)
+		seqset_offset += 4 - (seqset_offset % 4);
+
+	if (seqset_offset > hdr->size) {
 		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
 			"Keyword header ended unexpectedly");
 		return -1;
 	}
+
+	uid = CONST_PTR_OFFSET(rec, seqset_offset);
 	end = CONST_PTR_OFFSET(rec, hdr->size);
 
-	if (*keywords == NULL && rec->modify_type != MODIFY_REPLACE) {
-		/* adding/removing empty keywords list - do nothing */
-		return 1;
+	if (uid == end) {
+		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+			"Keyword sequence list empty");
+		return -1;
 	}
 
-	if (rec->modify_type != MODIFY_REMOVE) {
-		ret = keywords_update_header(ctx, keywords);
+	keyword_name = t_strndup(rec + 1, rec->name_size);
+	if (keyword_lookup(ctx, keyword_name, &keyword_idx) < 0)
+		return -1;
+	if (keyword_idx == (unsigned int)-1) {
+		ret = keywords_header_add(ctx, keyword_name, &keyword_idx);
 		if (ret <= 0)
 			return ret;
 	}
@@ -358,8 +285,7 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 
 	if (ext->record_size == 0) {
 		/* nothing to do */
-		i_assert(*keywords == NULL);
-		i_assert(rec->modify_type == MODIFY_REPLACE);
+		i_assert(rec->modify_type == MODIFY_REMOVE);
 		return 1;
 	}
 
@@ -370,8 +296,6 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 		ctx->keywords_read = TRUE;
 	}
 
-	mask = keywords_make_mask(ctx->view->map, ext, keywords);
-
 	while (uid+2 <= end) {
 		if (uid[0] > uid[1] || uid[0] == 0) {
 			mail_transaction_log_view_set_corrupted(
@@ -380,7 +304,7 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 			return -1;
 		}
 
-		ret = keywords_update_records(ctx->view, ext, mask,
+		ret = keywords_update_records(ctx->view, ext, keyword_idx,
 					      rec->modify_type,
 					      uid[0], uid[1]);
 		if (ret <= 0)
@@ -389,5 +313,43 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 		uid += 2;
 	}
 
+	return 1;
+}
+
+
+int
+mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
+			       const struct mail_transaction_header *hdr,
+			       const struct mail_transaction_keyword_reset *r)
+{
+	struct mail_index_map *map = ctx->view->map;
+	struct mail_index_record *rec;
+	const struct mail_index_ext *ext;
+	const struct mail_transaction_keyword_reset *end;
+	uint32_t ext_id, seq1, seq2;
+
+	ext_id = mail_index_map_lookup_ext(map, "keywords");
+	if (ext_id == (uint32_t)-1) {
+		/* nothing to do */
+		return 1;
+	}
+
+	ext = map->extensions->data;
+	ext += ext_id;
+
+	end = CONST_PTR_OFFSET(r, hdr->size);
+	for (; r != end; r++) {
+		if (mail_index_lookup_uid_range(ctx->view, r->uid1, r->uid2,
+						&seq1, &seq2) < 0)
+			return -1;
+		if (seq1 == 0)
+			continue;
+
+		for (seq1--; seq1 < seq2; seq1++) {
+			rec = MAIL_INDEX_MAP_IDX(map, seq1);
+			memset(PTR_OFFSET(rec, ext->record_offset),
+			       0, ext->record_size);
+		}
+	}
 	return 1;
 }

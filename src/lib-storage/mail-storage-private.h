@@ -86,6 +86,8 @@ struct mailbox {
 	struct mail_keywords *
 		(*keywords_create)(struct mailbox_transaction_context *t,
 				   const char *const keywords[]);
+	void (*keywords_free)(struct mailbox_transaction_context *t,
+			      struct mail_keywords *keywords);
 
 	struct mail *(*fetch)(struct mailbox_transaction_context *t,
 			      uint32_t seq,

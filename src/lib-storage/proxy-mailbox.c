@@ -127,6 +127,16 @@ _keywords_create(struct mailbox_transaction_context *t,
 	return pbox->box->keywords_create(pt->ctx, keywords);
 }
 
+static void _keywords_free(struct mailbox_transaction_context *t,
+			   struct mail_keywords *keywords)
+{
+	struct proxy_mailbox_transaction_context *pt =
+		(struct proxy_mailbox_transaction_context *)t;
+	struct proxy_mailbox *pbox = (struct proxy_mailbox *)t->box;
+
+	pbox->box->keywords_free(pt->ctx, keywords);
+}
+
 static struct mail_save_context *
 _save_init(struct mailbox_transaction_context *t,
 	   enum mail_flags flags, struct mail_keywords *keywords,
@@ -190,6 +200,7 @@ void proxy_mailbox_init(struct proxy_mailbox *proxy, struct mailbox *box)
 	pb->transaction_rollback = _transaction_rollback;
 
 	pb->keywords_create = _keywords_create;
+	pb->keywords_free = _keywords_free;
 
 	pb->save_init = _save_init;
 	pb->save_continue = box->save_continue;

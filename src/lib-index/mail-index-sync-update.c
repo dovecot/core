@@ -499,6 +499,12 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		ret = mail_index_sync_keywords(ctx, hdr, rec);
 		break;
 	}
+	case MAIL_TRANSACTION_KEYWORD_RESET: {
+		const struct mail_transaction_keyword_reset *rec = data;
+
+		ret = mail_index_sync_keywords_reset(ctx, hdr, rec);
+		break;
+	}
 	default:
 		i_unreached();
 	}
