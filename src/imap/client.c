@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "network.h"
 #include "iobuffer.h"
 #include "commands.h"
 
@@ -11,6 +12,10 @@
 
 /* If we can't send a buffer in a minute, disconnect the client */
 #define CLIENT_OUTPUT_TIMEOUT (60*1000)
+
+/* If we don't soon receive expected data from client while processing
+   a command, disconnect the client */
+#define CLIENT_CMDINPUT_TIMEOUT CLIENT_OUTPUT_TIMEOUT
 
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 20
@@ -23,9 +28,22 @@ static Timeout to_idle;
 
 static void client_input(Client *client);
 
-static void client_send_timeout(Client *client)
+static void client_output_timeout(void *context,
+				  Timeout timeout __attr_unused__)
 {
+	Client *client = context;
+
 	io_buffer_close(client->inbuf);
+	io_buffer_close(client->outbuf);
+}
+
+static void client_input_timeout(void *context,
+				 Timeout timeout __attr_unused__)
+{
+	Client *client = context;
+
+	client_send_line(my_client, "* BYE Disconnected for inactivity "
+			 "while waiting for command data.");
 	io_buffer_close(client->outbuf);
 }
 
@@ -39,9 +57,18 @@ Client *client_create(int hin, int hout, int socket, MailStorage *storage)
 					 MAX_INBUF_SIZE);
 	client->outbuf = io_buffer_create(hout, default_pool, 0, 0);
 
-	io_buffer_set_send_blocking(client->outbuf, 4096,
-				    CLIENT_OUTPUT_TIMEOUT,
-				    (TimeoutFunc) client_send_timeout, client);
+	/* always use nonblocking I/O */
+	net_set_nonblock(hin, TRUE);
+	net_set_nonblock(hout, TRUE);
+
+	/* set timeout for sending data */
+	io_buffer_set_blocking(client->outbuf, 4096, CLIENT_OUTPUT_TIMEOUT,
+			       client_output_timeout, client);
+
+	/* set timeout for reading expected data (eg. APPEND). This is
+	   different from the actual idle time. */
+	io_buffer_set_blocking(client->inbuf, 0, CLIENT_CMDINPUT_TIMEOUT,
+			       client_input_timeout, client);
 
 	client->inbuf->file = !socket;
 	client->outbuf->file = !socket;

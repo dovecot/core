@@ -32,6 +32,18 @@
 
 #include <unistd.h>
 
+typedef struct {
+	IOLoop ioloop;
+	IOBuffer *outbuf;
+
+	const char *data;
+	unsigned int size;
+	IOBuffer *inbuf;
+
+	int timeout;
+	int last_block;
+} IOBufferBlockContext;
+
 static unsigned int mmap_pagesize = 0;
 static unsigned int mmap_pagemask = 0;
 
@@ -183,18 +195,17 @@ void io_buffer_set_max_size(IOBuffer *buf, unsigned int max_size)
 	buf->max_buffer_size = max_size;
 }
 
-void io_buffer_set_send_blocking(IOBuffer *buf, unsigned int max_size,
-				 int timeout_msecs, TimeoutFunc timeout_func,
-				 void *context)
+void io_buffer_set_blocking(IOBuffer *buf, unsigned int max_size,
+			    int timeout_msecs, TimeoutFunc timeout_func,
+			    void *context)
 {
-	i_assert(!buf->receive);
-
-	buf->transmit = TRUE;
 	buf->timeout_msecs = timeout_msecs;
 	buf->timeout_func = timeout_func;
 	buf->timeout_context = context;
 	buf->blocking = max_size > 0;
-	buf->max_buffer_size = max_size;
+
+	if (max_size != 0)
+		buf->max_buffer_size = max_size;
 }
 
 static int my_write(int fd, const void *buf, unsigned int size)
@@ -263,18 +274,6 @@ static int buf_send(IOBuffer *buf)
         return TRUE;
 }
 
-typedef struct {
-	IOLoop ioloop;
-	IOBuffer *outbuf;
-
-	const char *data;
-	unsigned int size;
-	IOBuffer *inbuf;
-
-	int timeout;
-	int last_block;
-} IOBufferBlockContext;
-
 static void block_loop_send(IOBufferBlockContext *ctx)
 {
 	int ret;
@@ -301,6 +300,8 @@ static void block_loop_send(IOBufferBlockContext *ctx)
 		io_loop_stop(ctx->ioloop);
 }
 
+/* this can be called with both io_buffer_ioloop() or
+   io_buffer_read_blocking() */
 static void block_loop_timeout(void *context, Timeout timeout __attr_unused__)
 {
 	IOBufferBlockContext *ctx = context;
@@ -660,6 +661,11 @@ static int io_buffer_read_mmaped(IOBuffer *buf, unsigned int size)
 	return buf->buffer_size;
 }
 
+int io_buffer_read(IOBuffer *buf)
+{
+        return io_buffer_read_max(buf, UINT_MAX);
+}
+
 int io_buffer_read_max(IOBuffer *buf, unsigned int size)
 {
 	int ret;
@@ -714,9 +720,58 @@ int io_buffer_read_max(IOBuffer *buf, unsigned int size)
         return ret;
 }
 
-int io_buffer_read(IOBuffer *buf)
+static void io_read_data(void *context, int fd __attr_unused__,
+			 IO io __attr_unused__)
 {
-        return io_buffer_read_max(buf, UINT_MAX);
+	IOBufferBlockContext *ctx = context;
+
+	if (io_buffer_read_max(ctx->inbuf, ctx->size) != 0) {
+		/* got data / error */
+		io_loop_stop(ctx->ioloop);
+	}
+}
+
+int io_buffer_read_blocking(IOBuffer *buf, unsigned int size)
+{
+        IOBufferBlockContext ctx;
+	Timeout to;
+	int ret;
+
+	/* first check if we can get some data */
+	ret = io_buffer_read_max(buf, size);
+	if (ret != 0)
+		return ret;
+
+	/* blocking now */
+
+	/* create a new I/O loop */
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.ioloop = io_loop_create();
+	ctx.inbuf = buf;
+	ctx.size = size;
+
+	buf->io = io_add(buf->fd, IO_READ, io_read_data, &ctx);
+	to = buf->timeout_msecs <= 0 ? NULL :
+		timeout_add(buf->timeout_msecs, block_loop_timeout, &ctx);
+
+	io_loop_run(ctx.ioloop);
+
+	if (buf->io != NULL) {
+		io_remove(buf->io);
+		buf->io = NULL;
+	}
+
+	if (to != NULL) {
+		if (ctx.timeout && buf->timeout_func != NULL) {
+			/* call user-given timeout function */
+			buf->timeout_func(buf->timeout_context, to);
+		}
+		timeout_remove(to);
+	}
+
+	io_loop_destroy(ctx.ioloop);
+
+	return buf->pos > buf->skip ? 1 : -1;
 }
 
 void io_buffer_skip(IOBuffer *buf, uoff_t size)

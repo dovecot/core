@@ -70,13 +70,22 @@ void io_buffer_reset(IOBuffer *buf);
 IOBuffer *io_buffer_set_pool(IOBuffer *buf, Pool pool);
 /* Change the maximum size for buffer to grow. */
 void io_buffer_set_max_size(IOBuffer *buf, unsigned int max_size);
-/* Change output buffer's blocking state. When buffer reaches max_size,
-   it will block until all the data has been sent or timeout has been
-   reached. Setting max_size to 0 disables this (default). Setting
-   timeout_msecs to 0 may block infinitely. */
-void io_buffer_set_send_blocking(IOBuffer *buf, unsigned int max_size,
-				 int timeout_msecs, TimeoutFunc timeout_func,
-				 void *context);
+/* Change buffer's blocking state. The blocking state in fd itself isn't
+   changed, and it's not needed to be blocking. This affects two things:
+
+   When buffer reaches max_size, it will block until all the data has been
+   sent or timeout has been reached. Setting max_size to 0 disables this
+   (default). Setting timeout_msecs to 0 may block infinitely, or until
+   socket is closed.
+
+   Sets the timeout for io_buffer_read_blocking(). If max_size is non-zero,
+   it acts the same as io_buffer_set_max_size().
+
+   timeout_func is called with both cases when timeout occurs.
+*/
+void io_buffer_set_blocking(IOBuffer *buf, unsigned int max_size,
+			    int timeout_msecs, TimeoutFunc timeout_func,
+			    void *context);
 
 /* Set TCP_CORK on if supported, ie. don't send out partial frames.
    io_buffer_send_flush() removes the cork. */
@@ -103,6 +112,11 @@ void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 int io_buffer_read(IOBuffer *buf);
 /* Like io_buffer_read(), but don't read more than specified size. */
 int io_buffer_read_max(IOBuffer *buf, unsigned int size);
+/* Blocking read, doesn't return until at least one byte is read, or until
+   socket is disconnected or timeout has occured. Note that the fd must be
+   nonblocking, or the timeout doesn't work. If you don't want limit size,
+   set it to (unsigned int)-1. Returns 1 if data was found, -1 if error. */
+int io_buffer_read_blocking(IOBuffer *buf, unsigned int size);
 /* Skip forward a number of bytes */
 void io_buffer_skip(IOBuffer *buf, uoff_t size);
 /* Seek to specified position from beginning of file. This works only for
