@@ -129,8 +129,8 @@ AC_ARG_WITH(ssldir,
 
 dnl * gcc specific options
 if test "x$ac_cv_prog_gcc" = "xyes"; then
-	# -Wcast-qual -Wconversion -Wstrict-prototypes
-	CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wcast-align -Wpointer-arith -Wchar-subscripts"
+	# -Wcast-qual -Wcast-align -Wconversion -Wstrict-prototypes
+	CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts"
 fi
 
 dnl **
