@@ -13,8 +13,7 @@ libstorage_index_maildir_a_SOURCES = \
 	maildir-open.c \
 	maildir-rebuild.c \
 	maildir-sync.c \
-	maildir-uidlist.c \
-	maildir-update.c
+	maildir-uidlist.c
 
 noinst_HEADERS = \
 	maildir-index.h \

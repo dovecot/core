@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "istream.h"
 #include "str.h"
 #include "maildir-index.h"
 #include "mail-index-data.h"
@@ -11,6 +12,27 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <sys/stat.h>
+
+static int maildir_record_update(struct mail_index *index,
+				 struct mail_index_update *update, int fd)
+{
+	struct istream *input;
+        enum mail_data_field cache_fields;
+
+	if (index->mail_read_mmaped) {
+		input = i_stream_create_mmap(fd, system_pool,
+					     MAIL_MMAP_BLOCK_SIZE, 0, 0, FALSE);
+	} else {
+		input = i_stream_create_file(fd, system_pool,
+					     MAIL_READ_BLOCK_SIZE, FALSE);
+	}
+
+	cache_fields = index->header->cache_fields & ~DATA_FIELD_LOCATION;
+	mail_index_update_headers(update, input, cache_fields, NULL, NULL);
+
+	i_stream_unref(input);
+	return TRUE;
+}
 
 static int maildir_index_append_fd(struct mail_index *index,
 				   int fd, const char *fname)
@@ -83,8 +105,10 @@ int maildir_index_append_file(struct mail_index *index, const char *dir,
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
-	i_assert(dir != NULL);
-	i_assert(fname != NULL);
+	if ((index->header->cache_fields & ~DATA_FIELD_LOCATION) == 0) {
+		/* nothing cached, don't bother opening the file */
+		return maildir_index_append_fd(index, -1, fname);
+	}
 
 	path = t_strconcat(dir, "/", fname, NULL);
 	fd = open(path, O_RDONLY);
