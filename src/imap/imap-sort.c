@@ -247,11 +247,11 @@ int imap_sort(struct client_command_context *cmd, const char *charset,
 	while (mailbox_search_next(ctx->search_ctx, mail) > 0)
 		mail_sort_input(ctx, mail);
 
-	mail_free(mail);
-	mail_free(ctx->other_mail);
-
 	mail_sort_flush(ctx);
 	ret = mailbox_search_deinit(ctx->search_ctx);
+
+	mail_free(mail);
+	mail_free(ctx->other_mail);
 
 	if (mailbox_transaction_commit(ctx->t, 0) < 0)
 		ret = -1;
