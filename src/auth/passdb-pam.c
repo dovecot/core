@@ -13,11 +13,17 @@
 #ifdef PASSDB_PAM
 
 #include "common.h"
+#include "buffer.h"
+#include "ioloop.h"
 #include "passdb.h"
 #include "mycrypt.h"
 #include "safe-memset.h"
 
 #include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
 #ifdef HAVE_SECURITY_PAM_APPL_H
 #  include <security/pam_appl.h>
 #elif defined(HAVE_PAM_PAM_APPL_H)
@@ -53,12 +59,21 @@ typedef linux_const void *pam_item_t;
 #  define USERPASS_USER_FIXED		3
 #endif
 
+struct pam_auth_request {
+	int fd;
+	struct io *io;
+
+	struct auth_request *request;
+        verify_plain_callback_t *callback;
+};
+
 struct pam_userpass {
 	const char *user;
 	const char *pass;
 };
 
 static char *service_name;
+static struct timeout *to_wait;
 
 static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	struct pam_response **resp, void *appdata_ptr)
@@ -151,43 +166,37 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	return PAM_SUCCESS;
 }
 
-static int pam_auth(pam_handle_t *pamh, const char *user)
+static int pam_auth(pam_handle_t *pamh, const char *user, const char **error)
 {
 	char *item;
 	int status;
 
+	*error = NULL;
+
 	if ((status = pam_authenticate(pamh, 0)) != PAM_SUCCESS) {
-		if (verbose) {
-			i_info("PAM: pam_authenticate(%s) failed: %s",
-			       user, pam_strerror(pamh, status));
-		}
+		*error = t_strdup_printf("pam_authenticate(%s) failed: %s",
+					 user, pam_strerror(pamh, status));
 		return status;
 	}
 
 #ifdef HAVE_PAM_SETCRED
 	if ((status = pam_setcred(pamh, PAM_ESTABLISH_CRED)) != PAM_SUCCESS) {
-		if (verbose) {
-			i_info("PAM: pam_setcred(%s) failed: %s",
-			       user, pam_strerror(pamh, status));
-		}
+		*error = t_strdup_printf("pam_setcred(%s) failed: %s",
+					 user, pam_strerror(pamh, status));
 		return status;
 	}
 #endif
 
 	if ((status = pam_acct_mgmt(pamh, 0)) != PAM_SUCCESS) {
-		if (verbose) {
-			i_info("PAM: pam_acct_mgmt(%s) failed: %s",
-			       user, pam_strerror(pamh, status));
-		}
+		*error = t_strdup_printf("pam_acct_mgmt(%s) failed: %s",
+					 user, pam_strerror(pamh, status));
 		return status;
 	}
 
 	status = pam_get_item(pamh, PAM_USER, (linux_const void **)&item);
 	if (status != PAM_SUCCESS) {
-		if (verbose) {
-			i_info("PAM: pam_get_item(%s) failed: %s",
-			       user, pam_strerror(pamh, status));
-		}
+		*error = t_strdup_printf("pam_get_item(%s) failed: %s",
+					 user, pam_strerror(pamh, status));
 		return status;
 	}
 
@@ -195,50 +204,176 @@ static int pam_auth(pam_handle_t *pamh, const char *user)
 }
 
 static void
-pam_verify_plain(struct auth_request *request, const char *password,
-		 verify_plain_callback_t *callback)
+pam_verify_plain_child(const char *user, const char *password, int fd)
 {
 	pam_handle_t *pamh;
 	struct pam_userpass userpass;
 	struct pam_conv conv;
+	enum passdb_result result;
 	int status, status2;
+	const char *str;
+	char buf_data[512];
+	buffer_t *buf;
 
 	conv.conv = pam_userpass_conv;
 	conv.appdata_ptr = &userpass;
 
-	userpass.user = request->user;
+	userpass.user = user;
 	userpass.pass = password;
 
-	status = pam_start(service_name, request->user, &conv, &pamh);
+	status = pam_start(service_name, user, &conv, &pamh);
 	if (status != PAM_SUCCESS) {
-		if (verbose) {
-			i_info("PAM: pam_start(%s) failed: %s",
-			       request->user, pam_strerror(pamh, status));
+		result = PASSDB_RESULT_INTERNAL_FAILURE;
+		str = t_strdup_printf("pam_start(%s) failed: %s",
+				      user, pam_strerror(pamh, status));
+	} else {
+		status = pam_auth(pamh, user, &str);
+		if ((status2 = pam_end(pamh, status)) == PAM_SUCCESS) {
+			/* FIXME: check for PASSDB_RESULT_UNKNOWN_USER
+			   somehow? */
+			if (!verbose)
+				str = NULL;
+			result = status == PAM_SUCCESS ? PASSDB_RESULT_OK :
+				PASSDB_RESULT_PASSWORD_MISMATCH;
+		} else {
+			result = PASSDB_RESULT_INTERNAL_FAILURE;
+			str = t_strdup_printf("pam_end(%s) failed: %s", user,
+					      pam_strerror(pamh, status2));
 		}
+	}
+
+	buf = buffer_create_data(data_stack_pool, buf_data, sizeof(buf_data));
+	buffer_append(buf, &result, sizeof(result));
+
+	if (str != NULL) {
+		/* may truncate the error. tough luck. */
+		buffer_append(buf, str, strlen(str));
+	}
+
+	write(fd, buf_data, buffer_get_used_size(buf));
+}
+
+static void pam_child_input(void *context)
+{
+	struct pam_auth_request *request = context;
+	enum passdb_result result;
+	char buf[513];
+	ssize_t ret;
+
+	/* POSIX guarantees that writing 512 bytes or less to pipes is atomic.
+	   We rely on that. */
+	ret = read(request->fd, buf, sizeof(buf)-1);
+	if (ret < 0) {
+		i_error("PAM: read() from child process failed: %m");
+		result = PASSDB_RESULT_INTERNAL_FAILURE;
+	} else if (ret == 0) {
+		/* it died */
+		i_error("PAM: Child process died");
+		result = PASSDB_RESULT_INTERNAL_FAILURE;
+	} else if ((size_t)ret < sizeof(result)) {
+		i_error("PAM: Child process returned only %d bytes", ret);
+		result = PASSDB_RESULT_INTERNAL_FAILURE;
+	} else {
+		result = *((enum passdb_result *) buf);
+
+		if ((size_t)ret > sizeof(result)) {
+			/* error message included */
+			buf[ret] = '\0';
+
+			if (result == PASSDB_RESULT_INTERNAL_FAILURE)
+				i_error("PAM: %s", buf + sizeof(result));
+			else
+				i_info("PAM: %s", buf + sizeof(result));
+		}
+	}
+
+	request->callback(result, request->request);
+
+	if (close(request->fd) < 0)
+		i_error("PAM: close(child input) failed: %m");
+	io_remove(request->io);
+	i_free(request);
+}
+
+static void wait_timeout(void *context __attr_unused__)
+{
+	int status;
+	pid_t pid;
+
+	/* FIXME: if we ever do some other kind of forking, this needs fixing */
+	pid = waitpid(-1, &status, WNOHANG);
+	if (pid == 0)
+		return;
+
+	if (pid == -1) {
+		if (errno == ECHILD) {
+			timeout_remove(to_wait);
+			to_wait = NULL;
+		} else if (errno != EINTR)
+			i_error("waitpid() failed: %m");
+		return;
+	}
+
+	if (WIFSIGNALED(status)) {
+		i_error("PAM: Child %s died with signal %d",
+			dec2str(pid), WTERMSIG(status));
+	}
+}
+
+static void
+pam_verify_plain(struct auth_request *request, const char *password,
+		 verify_plain_callback_t *callback)
+{
+        struct pam_auth_request *pam_auth_request;
+	int fd[2];
+	pid_t pid;
+
+	if (pipe(fd) < 0) {
+		i_error("PAM: pipe() failed: %m");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		return;
 	}
 
-	status = pam_auth(pamh, request->user);
-	if ((status2 = pam_end(pamh, status)) != PAM_SUCCESS) {
-		i_error("pam_end(%s) failed: %s",
-			request->user, pam_strerror(pamh, status2));
+	pid = fork();
+	if (pid == -1) {
+		i_error("PAM: fork() failed: %m");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
+		(void)close(fd[0]);
+		(void)close(fd[1]);
 		return;
 	}
 
-	/* FIXME: check for PASSDB_RESULT_UNKNOWN_USER somehow */
-	callback(status == PAM_SUCCESS ? PASSDB_RESULT_OK :
-		 PASSDB_RESULT_PASSWORD_MISMATCH, request);
+	if (pid == 0) {
+		(void)close(fd[0]);
+		pam_verify_plain_child(request->user, password, fd[1]);
+		_exit(0);
+	}
+
+	if (close(fd[1]) < 0)
+		i_error("PAM: close(fd[1]) failed: %m");
+
+	pam_auth_request = i_new(struct pam_auth_request, 1);
+	pam_auth_request->fd = fd[0];
+	pam_auth_request->request = request;
+	pam_auth_request->callback = callback;
+
+	pam_auth_request->io =
+		io_add(fd[0], IO_READ, pam_child_input, pam_auth_request);
+
+	if (to_wait == NULL)
+		to_wait = timeout_add(1000, wait_timeout, NULL);
 }
 
 static void pam_init(const char *args)
 {
 	service_name = i_strdup(*args != '\0' ? args : "imap");
+	to_wait = NULL;
 }
 
 static void pam_deinit(void)
 {
+	if (to_wait != NULL)
+		timeout_remove(to_wait);
 	i_free(service_name);
 }
 
