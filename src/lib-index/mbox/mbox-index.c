@@ -71,13 +71,14 @@ IBuffer *mbox_get_inbuf(MailIndex *index, uoff_t offset, MailLockType lock_type)
 	}
 
 	if (index->mbox_inbuf == NULL) {
-		if (index->mail_read_mmaped) {
+		/* FIXME: breaks expunge */
+		/*if (index->mail_read_mmaped) {*/
 			index->mbox_inbuf =
 				i_buffer_create_mmap(index->mbox_fd,
 						     default_pool,
 						     MAIL_MMAP_BLOCK_SIZE,
 						     0, 0, FALSE);
-		} else {
+		/*} else {
 			if (lseek(index->mbox_fd, 0, SEEK_SET) < 0) {
 				mbox_set_syscall_error(index, "lseek()");
 				return NULL;
@@ -88,7 +89,7 @@ IBuffer *mbox_get_inbuf(MailIndex *index, uoff_t offset, MailLockType lock_type)
 						     default_pool,
 						     MAIL_READ_BLOCK_SIZE,
 						     FALSE);
-		}
+		}*/
 	}
 
 	i_buffer_set_read_limit(index->mbox_inbuf, 0);
