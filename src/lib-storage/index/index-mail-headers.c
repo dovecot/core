@@ -415,6 +415,8 @@ static void cached_headers_clear_values(struct index_mail *mail)
 static int parse_cached_headers(struct index_mail *mail, int idx)
 {
 	struct index_mail_data *data = &mail->data;
+	struct message_header_parser_ctx *hdr_ctx;
+	struct message_header_line *hdr;
 	struct istream *istream;
 	const char *str, *const *idx_headers;
 
@@ -452,9 +454,6 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 	}
 
 	index_mail_parse_header_init(mail, idx_headers);
-
-	struct message_header_parser_ctx *hdr_ctx;
-	struct message_header_line *hdr;
 
 	hdr_ctx = message_parse_header_init(istream, NULL);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
