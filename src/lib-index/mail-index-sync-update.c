@@ -297,13 +297,17 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	struct mail_index_map *map;
 	const struct mail_transaction_header *hdr;
 	const void *data;
-	unsigned int count;
+	unsigned int count, old_lock_id;
 	uint32_t seq, i;
 	uoff_t offset;
 	int ret, had_dirty, skipped;
 
+	/* we'll have to update view->lock_id to avoid mail_index_view_lock()
+	   trying to update the file later. */
+	old_lock_id = view->lock_id;
 	if (mail_index_lock_exclusive(index, &view->lock_id) < 0)
 		return -1;
+	mail_index_unlock(index, old_lock_id);
 
 	/* NOTE: locking may change index->map so make sure assignment
 	   after locking */
@@ -343,8 +347,10 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 
 		if ((hdr->type & MAIL_TRANSACTION_APPEND) != 0) {
 			count = hdr->size / index->record_size;
-			if (mail_index_grow(index, view->map, count) < 0)
-				return -1;
+			if (mail_index_grow(index, view->map, count) < 0) {
+				ret = -1;
+				break;
+			}
 		}
 
 		if (mail_transaction_map(index, hdr, data,
@@ -355,8 +361,11 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 		}
 	}
 
-	if (ret < 0)
+	if (ret < 0) {
+		/*  */
+		mail_index_view_unlock(view);
 		return -1;
+	}
 
 	i_assert(map->records_count == map->hdr->messages_count);
 	i_assert(view->messages_count == map->hdr->messages_count);

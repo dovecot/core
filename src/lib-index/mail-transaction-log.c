@@ -201,6 +201,9 @@ mail_transaction_log_file_lock(struct mail_transaction_log_file *file,
 {
 	int ret;
 
+	if (lock_type == file->lock_type)
+		return 0;
+
 	if (lock_type == F_UNLCK) {
 		i_assert(file->lock_type != F_UNLCK);
 	} else {
