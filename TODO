@@ -109,6 +109,8 @@ general:
          - sort, thread: are these really useful for clients? do any actually
 	   use them? i'd think most clients want to know all the messages
 	   anyway and can do the sorting/threading themselves.
+	   well, squirrelmail seems to want sorting.. guess they could be
+	   useful when clients don't want all messages..
          - http://www.imc.org/ids.html
  - sieve? (rfc3028)
  - rfc2231 continuation support
