@@ -666,7 +666,7 @@ void index_mail_init(struct index_mailbox *ibox, struct index_mail *mail,
 int index_mail_next(struct index_mail *mail, struct mail_index_record *rec)
 {
 	struct index_mail_data *data = &mail->data;
-	int ret, open_mail, parse_header;
+	int ret, open_mail, parse_header, envelope_headers;
 
 	t_push();
 
@@ -705,8 +705,7 @@ int index_mail_next(struct index_mail *mail, struct mail_index_record *rec)
 	if ((mail->wanted_fields & MAIL_FETCH_MESSAGE_PARTS) &&
 	    data->parts == NULL)
 		parse_header = TRUE;
-	else if ((mail->wanted_fields & (MAIL_FETCH_DATE |
-					 MAIL_FETCH_IMAP_ENVELOPE)) &&
+	else if ((mail->wanted_fields & MAIL_FETCH_IMAP_ENVELOPE) &&
 		 data->envelope == NULL)
 		parse_header = TRUE;
 	else if ((mail->wanted_fields & MAIL_FETCH_IMAP_BODYSTRUCTURE) &&
@@ -728,10 +727,10 @@ int index_mail_next(struct index_mail *mail, struct mail_index_record *rec)
 	else if ((mail->wanted_fields & MAIL_FETCH_SIZE) && data->size == 0)
 		open_mail = TRUE;
 
+	envelope_headers = FALSE;
 	if (!parse_header && mail->wanted_headers != NULL) {
 		const char *const *tmp;
 		enum imap_envelope_field env_field;
-		int envelope_headers = FALSE;
 
 		for (tmp = mail->wanted_headers; *tmp != NULL; tmp++) {
 			if (imap_envelope_get_field(*tmp, &env_field))
@@ -742,14 +741,17 @@ int index_mail_next(struct index_mail *mail, struct mail_index_record *rec)
 				break;
 			}
 		}
+	}
 
-		if (!parse_header && envelope_headers &&
-		    data->envelope == NULL) {
-			data->envelope =
-				get_cached_field(mail, DATA_FIELD_ENVELOPE);
-			if (data->envelope == NULL)
-				parse_header = TRUE;
-		}
+	if (!parse_header && (mail->wanted_fields & MAIL_FETCH_DATE))
+		envelope_headers = TRUE;
+
+	if (!parse_header && envelope_headers &&
+	    data->envelope == NULL) {
+		data->envelope =
+			get_cached_field(mail, DATA_FIELD_ENVELOPE);
+		if (data->envelope == NULL)
+			parse_header = TRUE;
 	}
 
 	if (open_mail || parse_header) {
