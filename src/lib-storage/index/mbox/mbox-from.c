@@ -1,5 +1,20 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
+/*
+  Known formats to the VALID macro are:
+ 		From user Wed Dec  2 05:53 1992
+  BSD		From user Wed Dec  2 05:53:22 1992
+  SysV		From user Wed Dec  2 05:53 PST 1992
+  rn		From user Wed Dec  2 05:53:22 PST 1992
+ 		From user Wed Dec  2 05:53 -0700 1992
+  emacs	From user Wed Dec  2 05:53:22 -0700 1992
+ 		From user Wed Dec  2 05:53 1992 PST
+ 		From user Wed Dec  2 05:53:22 1992 PST
+ 		From user Wed Dec  2 05:53 1992 -0700
+  Solaris	From user Wed Dec  2 05:53:22 1992 -0700
+
+  */
+
 #include "lib.h"
 #include "str.h"
 #include "utc-mktime.h"
@@ -22,7 +37,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 {
 	const unsigned char *msg_start, *sender_end, *msg_end;
 	struct tm tm;
-	int i, timezone;
+	int i, timezone = 0, seen_timezone = FALSE;
 	time_t t;
 
 	*time_r = (time_t)-1;
@@ -44,9 +59,9 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	/* next 24 chars should be in the date in asctime() format, eg.
 	   "Thu Nov 29 22:33:52 2001 +0300"
 
-	   Some also include named timezone, which we ignore:
-
-	   "Thu Nov 29 22:33:52 EEST 2001"
+	   - Some put the timezone before the year
+	   - Some use a named timezone before or after year, which we ignore
+	   - Some don't include seconds
 	*/
 	if (msg+24 > msg_end)
 		return -1;
@@ -94,16 +109,23 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	msg += 3;
 
 	/* minute */
-	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ':')
+	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]))
 		return -1;
 	tm.tm_min = (msg[0]-'0') * 10 + (msg[1]-'0');
-	msg += 3;
+	msg += 2;
 
-	/* second */
-	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
-		return -1;
-	tm.tm_sec = (msg[0]-'0') * 10 + (msg[1]-'0');
-	msg += 3;
+	/* optional second */
+	if (msg[0] == ':') {
+		msg++;
+		if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
+			return -1;
+		tm.tm_sec = (msg[0]-'0') * 10 + (msg[1]-'0');
+		msg += 3;
+	} else {
+		if (msg[0] != ' ')
+			return -1;
+		msg++;
+	}
 
 	/* optional named timezone */
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
@@ -117,6 +139,15 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 		if (msg+5 > msg_end)
 			return -1;
 		msg++;
+	} else if ((msg[0] == '-' || msg[0] == '+') &&
+		   i_isdigit(msg[1]) && i_isdigit(msg[2]) &&
+		   i_isdigit(msg[3]) && i_isdigit(msg[4]) && msg[5] == ' ') {
+		/* numeric timezone, use it */
+                seen_timezone = TRUE;
+		timezone = (msg[1]-'0') * 1000 + (msg[2]-'0') * 100 +
+			(msg[3]-'0') * 10 +(msg[4]-'0');
+		if (msg[0] == '-') timezone = -timezone;
+		msg += 6;
 	}
 
 	/* year */
@@ -129,13 +160,17 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	msg += 4;
 
 	tm.tm_isdst = -1;
-	if (msg[0] == ' ' && (msg[1] == '-' || msg[1] == '+') &&
+	if (!seen_timezone &&
+	    msg[0] == ' ' && (msg[1] == '-' || msg[1] == '+') &&
 	    i_isdigit(msg[2]) && i_isdigit(msg[3]) &&
 	    i_isdigit(msg[4]) && i_isdigit(msg[5])) {
+		seen_timezone = TRUE;
 		timezone = (msg[2]-'0') * 1000 + (msg[3]-'0') * 100 +
 			(msg[4]-'0') * 10 +(msg[5]-'0');
 		if (msg[1] == '-') timezone = -timezone;
+	}
 
+	if (seen_timezone) {
 		t = utc_mktime(&tm);
 		if (t == (time_t)-1)
 			return -1;
