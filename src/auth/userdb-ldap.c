@@ -37,12 +37,14 @@ struct userdb_ldap_connection {
 
 struct userdb_ldap_request {
 	struct ldap_request request;
+        struct auth_request *auth_request;
         userdb_callback_t *userdb_callback;
 };
 
 static struct userdb_ldap_connection *userdb_ldap_conn;
 
-static void parse_attr(struct userdb_ldap_connection *conn,
+static void parse_attr(struct auth_request *auth_request,
+		       struct userdb_ldap_connection *conn,
 		       struct user_data *user,
 		       const char *attr, const char *value)
 {
@@ -54,7 +56,8 @@ static void parse_attr(struct userdb_ldap_connection *conn,
 	}
 
 	if (i == ATTR_COUNT) {
-		i_error("LDAP: Unknown attribute '%s'", attr);
+		i_error("ldap(%s): Unknown attribute '%s'",
+			get_log_prefix(auth_request), attr);
 		return;
 	}
 
@@ -88,6 +91,7 @@ static void handle_request(struct ldap_connection *conn,
 {
 	struct userdb_ldap_request *urequest =
 		(struct userdb_ldap_request *) request;
+	struct auth_request *auth_request = urequest->auth_request;
 	struct user_data user;
 	LDAPMessage *entry;
 	BerElement *ber;
@@ -96,16 +100,18 @@ static void handle_request(struct ldap_connection *conn,
 
 	ret = ldap_result2error(conn->ld, res, 0);
 	if (ret != LDAP_SUCCESS) {
-		i_error("LDAP: ldap_search() failed: %s",
-			ldap_err2string(ret));
+		i_error("ldap(%s): ldap_search() failed: %s",
+			get_log_prefix(auth_request), ldap_err2string(ret));
 		urequest->userdb_callback(NULL, request->context);
 		return;
 	}
 
 	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);
 	if (entry == NULL) {
-		if (res != NULL)
-			i_error("LDAP: Authenticated user not found");
+		if (res != NULL) {
+			i_error("ldap(%s): Authenticated user not found",
+				get_log_prefix(auth_request));
+		}
 		urequest->userdb_callback(NULL, request->context);
 		return;
 	}
@@ -119,8 +125,10 @@ static void handle_request(struct ldap_connection *conn,
 	attr = ldap_first_attribute(conn->ld, entry, &ber);
 	while (attr != NULL) {
 		vals = ldap_get_values(conn->ld, entry, attr);
-		if (vals != NULL && vals[0] != NULL && vals[1] == NULL)
-			parse_attr(userdb_ldap_conn, &user, attr, vals[0]);
+		if (vals != NULL && vals[0] != NULL && vals[1] == NULL) {
+			parse_attr(auth_request, userdb_ldap_conn,
+				   &user, attr, vals[0]);
+		}
 		ldap_value_free(vals);
 		ldap_memfree(attr);
 
@@ -128,16 +136,17 @@ static void handle_request(struct ldap_connection *conn,
 	}
 
 	if (user.virtual_user == NULL)
-		i_error("LDAP: No username in reply");
+		i_error("ldap(%s): No username in reply",
+			get_log_prefix(auth_request));
 	else if (user.uid == (uid_t)-1) {
 		i_error("ldap(%s): uidNumber not set and no default given in "
-			"user_global_uid", user.virtual_user);
+			"user_global_uid", get_log_prefix(auth_request));
 	} else if (user.gid == (gid_t)-1) {
 		i_error("ldap(%s): gidNumber not set and no default given in "
-			"user_global_gid", user.virtual_user);
+			"user_global_gid", get_log_prefix(auth_request));
 	} else if (ldap_next_entry(conn->ld, entry) != NULL) {
 		i_error("ldap(%s): Multiple replies found for user",
-			user.virtual_user);
+			get_log_prefix(auth_request));
 	} else {
 		urequest->userdb_callback(&user, request->context);
 		t_pop();
@@ -172,6 +181,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	request = i_new(struct userdb_ldap_request, 1);
 	request->request.callback = handle_request;
 	request->request.context = context;
+	request->auth_request = auth_request;
 	request->userdb_callback = callback;
 
 	if (verbose_debug) {
