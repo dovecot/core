@@ -294,9 +294,9 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 
 			/* FIXME: this may actually happen if file size is
 			   shrinked.. */
-			i_assert(msg->hdr_size->physical_size <
+			i_assert(msg->hdr_size->physical_size <=
 				 cache->open_inbuf->size);
-			i_assert(msg->hdr_size->virtual_size <
+			i_assert(msg->hdr_size->virtual_size <=
 				 cache->open_virtual_size);
 
 			msg->body_size->lines = 0;
