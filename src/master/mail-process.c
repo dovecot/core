@@ -156,7 +156,7 @@ int create_mail_process(struct login_group *group, int socket,
 	home_dir = data + reply->home_idx;
 	chroot_dir = data + reply->chroot_idx;
 
-	if (*chroot_dir == '\0')
+	if (*chroot_dir == '\0' && set->mail_chroot != NULL)
 		chroot_dir = set->mail_chroot;
 
 	if (*chroot_dir != '\0' && !validate_chroot(set, chroot_dir)) {
