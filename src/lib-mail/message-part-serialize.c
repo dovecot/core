@@ -240,26 +240,12 @@ static int message_part_deserialize_part(struct deserialize_context *ctx,
 	return TRUE;
 }
 
-static void
-message_parts_update_physical_pos(struct message_part *parent, off_t diff)
-{
-	struct message_part *part;
-
-	for (part = parent->children; part != NULL; part = part->next) {
-		part->physical_pos += diff;
-		if (part->children != NULL)
-			message_parts_update_physical_pos(part, diff);
-	}
-}
-
 struct message_part *
 message_part_deserialize(pool_t pool, const void *data, size_t size,
-			 const struct message_size *new_hdr_size,
 			 const char **error_r)
 {
 	struct deserialize_context ctx;
         struct message_part *part;
-	off_t diff;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool;
@@ -274,21 +260,6 @@ message_part_deserialize(pool_t pool, const void *data, size_t size,
 	if (ctx.data != ctx.end) {
 		*error_r = "Too much data";
 		return NULL;
-	}
-
-	if (new_hdr_size != NULL) {
-		if (new_hdr_size->virtual_size !=
-		    part->header_size.virtual_size) {
-			part->header_size.virtual_size =
-				new_hdr_size->virtual_size;
-		}
-		if (new_hdr_size->physical_size !=
-		    part->header_size.physical_size) {
-			diff = new_hdr_size->physical_size -
-				part->header_size.physical_size;
-                        part->header_size.physical_size += diff;
-			message_parts_update_physical_pos(part, diff);
-		}
 	}
 
 	return part;

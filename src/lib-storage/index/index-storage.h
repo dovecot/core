@@ -101,7 +101,6 @@ struct index_mailbox {
 	unsigned int notify_pending:1;
 	unsigned int mail_read_mmaped:1;
 	unsigned int syncing_commit:1;
-	unsigned int unreliable_headers:1;
 	unsigned int mbox_sync_dirty:1;
 	unsigned int mbox_do_dirty_syncs:1;
 };
