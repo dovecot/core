@@ -164,7 +164,7 @@ struct mysql_connection *db_mysql_init(const char *config_path)
 
 	if (conn->set.db == NULL)
 		i_fatal("MYSQL: db variable isn't set in config file");
-	if (conn->set.user == NULL)
+	if (conn->set.db_user == NULL)
 		i_fatal("MYSQL: db_user variable isn't set in config file");
 
 	(void)mysql_conn_open(conn);
