@@ -42,6 +42,7 @@ struct search_index_context {
 
 	/* for threading: */
 	const char *message_id, *in_reply_to, *references;
+	time_t sent_date;
 };
 
 struct search_header_context {
@@ -539,6 +540,7 @@ static void search_header(struct message_part *part __attr_unused__,
 			  void *context)
 {
 	struct search_header_context *ctx = context;
+	int timezone_offset;
 
 	if (ctx->threading) {
 		struct search_index_context *ictx = ctx->index_context;
@@ -551,6 +553,16 @@ static void search_header(struct message_part *part __attr_unused__,
 		else if (name_len == 10 &&
 			 memcasecmp(name, "References", 10) == 0)
 			ictx->references = t_strndup(value, value_len);
+		else if (name_len == 4 && memcasecmp(name, "Date", 4) == 0) {
+			t_push();
+			if (!message_date_parse(t_strndup(value, value_len),
+						&ictx->sent_date,
+						&timezone_offset))
+				ictx->sent_date = 0;
+			else
+				ictx->sent_date -= timezone_offset*60;
+			t_pop();
+		}
 	}
 
 	if ((ctx->custom_header && name_len > 0) ||
@@ -892,7 +904,8 @@ static int search_messages(struct index_mailbox *ibox, const char *charset,
 					mail_thread_input(thread_ctx, rec->uid,
 							  ctx.message_id,
 							  ctx.in_reply_to,
-							  ctx.references);
+							  ctx.references,
+							  ctx.sent_date);
 				} else {
 					o_stream_send(output, " ", 1);
 

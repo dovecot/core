@@ -15,7 +15,7 @@ mail_thread_init(enum mail_thread_type type, struct ostream *output,
    in mail_thread_callbacks parameters. */
 void mail_thread_input(struct mail_thread_context *ctx, unsigned int id,
 		       const char *message_id, const char *in_reply_to,
-		       const char *references);
+		       const char *references, time_t sent_date);
 
 void mail_thread_finish(struct mail_thread_context *ctx);
 

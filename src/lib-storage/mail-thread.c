@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 /*
- * Merge sort code in sort_child_nodes() is copyright 2001 Simon Tatham.
+ * Merge sort code in sort_nodes() is copyright 2001 Simon Tatham.
  * 
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -47,33 +47,33 @@
 
 #define NODE_IS_DUMMY(node) ((node)->id == 0 || (node)->id == UINT_MAX)
 
+struct root_info {
+	char *base_subject;
+	unsigned int reply:1;
+	unsigned int sorted:1;
+};
+
 struct node {
 	struct node *parent, *first_child, *next;
 
-	char *msgid;
 	unsigned int id;
-};
-
-struct root_data {
-	struct node *node;
-
 	time_t sent_date;
-	unsigned int sort_id;
 
-	const char *base_subject;
-	unsigned int reply:1;
+	union {
+		char *msgid;
+		struct root_info *info;
+	} u;
 };
 
 struct mail_thread_context {
 	pool_t pool;
-	pool_t str_pool; /* for node->msgid and root_data->base_subject */
+	pool_t str_pool; /* for node->msgid and root_info->base_subject */
 
 	struct hash_table *msgid_hash;
 	struct hash_table *subject_hash;
 
 	struct node *root_nodes;
-	struct root_data *root_data; /* [root_count] */
-	size_t root_count;
+	size_t root_count; /* not exact after prune_dummy_messages() */
 
 	const struct mail_sort_callbacks *callbacks;
 	void *callback_context;
@@ -123,6 +123,7 @@ static void add_root(struct mail_thread_context *ctx, struct node *node)
 
 	node->next = ctx->root_nodes;
 	ctx->root_nodes = node;
+	ctx->root_count++;
 }
 
 static struct node *create_node(struct mail_thread_context *ctx,
@@ -131,30 +132,33 @@ static struct node *create_node(struct mail_thread_context *ctx,
 	struct node *node;
 
 	node = p_new(ctx->pool, struct node, 1);
-	node->msgid = p_strdup(ctx->str_pool, msgid);
+	node->u.msgid = p_strdup(ctx->str_pool, msgid);
 
-	hash_insert(ctx->msgid_hash, node->msgid, node);
+	hash_insert(ctx->msgid_hash, node->u.msgid, node);
 	return node;
 }
 
-static struct node *create_invalid_node(struct mail_thread_context *ctx,
-					unsigned int id)
+static struct node *create_id_node(struct mail_thread_context *ctx,
+				   unsigned int id, time_t sent_date)
 {
 	struct node *node;
 
 	node = p_new(ctx->pool, struct node, 1);
 	node->id = id;
+	node->sent_date = sent_date;
 	return node;
 }
 
-static void update_message_id(struct mail_thread_context *ctx,
-			      const char *msgid, unsigned int id)
+static struct node *update_message(struct mail_thread_context *ctx,
+				   const char *msgid, time_t sent_date,
+				   unsigned int id)
 {
 	struct node *node;
 
 	if (msgid == NULL) {
-		add_root(ctx, create_invalid_node(ctx, id));
-		return;
+		node = create_id_node(ctx, id, sent_date);
+		add_root(ctx, node);
+		return node;
 	}
 
 	node = hash_lookup(ctx->msgid_hash, msgid);
@@ -162,7 +166,8 @@ static void update_message_id(struct mail_thread_context *ctx,
 		/* first time we see this message */
 		node = create_node(ctx, msgid);
 		node->id = id;
-		return;
+		node->sent_date = sent_date;
+		return node;
 	}
 
 	if (node->id == 0) {
@@ -172,12 +177,16 @@ static void update_message_id(struct mail_thread_context *ctx,
 		/* duplicate -> invalidate all of them.
 		   the message-id stays and acts like a dummy node. */
 		if (node->id != UINT_MAX) {
-			add_root(ctx, create_invalid_node(ctx, node->id));
+			add_root(ctx, create_id_node(ctx, node->id,
+						     node->sent_date));
 			node->id = UINT_MAX;
 		}
 
-		add_root(ctx, create_invalid_node(ctx, id));
+		node = create_id_node(ctx, id, sent_date);
+		add_root(ctx, node);
 	}
+
+	return node;
 }
 
 static int get_untokenized_msgid(const char **msgid_p, string_t *msgid)
@@ -229,13 +238,13 @@ static const char *get_msgid(const char **msgid_p)
 		/* check it through quickly to see if it's already normalized */
 		p = msgid; found_at = FALSE;
 		for (;; p++) {
-			if ((unsigned char)*p >= '0') /* matches most */
+			if ((unsigned char)*p >= 'A') /* matches most */
 				continue;
 
 			if (*p == '@')
 				found_at = TRUE;
-			if (*p == '>' || *p == '"' || *p == '(' ||
-			    *p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')
+			if (*p == '>' || *p == '"' || *p == '(' || *p == ' ' ||
+			    *p == '\t' || *p == '\r' || *p == '\n')
 				break;
 
 			if (*p == '\0') {
@@ -247,7 +256,7 @@ static const char *get_msgid(const char **msgid_p)
 		if (*p == '>') {
 			*msgid_p = p+1;
 			if (found_at)
-				return t_strdup_until(msgid, p-1);
+				return t_strdup_until(msgid, p);
 		} else {
 			/* ok, do it the slow way */
 			*msgid_p = msgid;
@@ -355,7 +364,7 @@ static int link_references(struct mail_thread_context *ctx,
 
 	if (msgid != NULL) {
 		/* link the last message to us */
-		link_message(ctx, msgid, parent_id, TRUE);
+		link_message(ctx, parent_id, msgid, TRUE);
 	}
 
 	return TRUE;
@@ -363,28 +372,26 @@ static int link_references(struct mail_thread_context *ctx,
 
 void mail_thread_input(struct mail_thread_context *ctx, unsigned int id,
 		       const char *message_id, const char *in_reply_to,
-		       const char *references)
+		       const char *references, time_t sent_date)
 {
 	/* (1) link message ids */
 	const char *msgid, *refid;
+	struct node *node;
 
 	i_assert(id > 0 && id < UINT_MAX);
 
 	/* get our message ID */
 	msgid = get_msgid(&message_id);
-	update_message_id(ctx, msgid, id);
+	node = update_message(ctx, msgid, sent_date, id);
 
 	/* link references */
 	if (!link_references(ctx, msgid, references) && msgid != NULL) {
 		refid = get_msgid(&in_reply_to);
 		if (refid != NULL)
-			link_message(ctx, msgid, refid, TRUE);
+			link_message(ctx, refid, msgid, TRUE);
 		else {
 			/* no references, make sure it's not linked */
-			struct node *node;
-
-			node = hash_lookup(ctx->msgid_hash, msgid);
-			if (node != NULL)
+			if (node != NULL && node->parent != NULL)
 				unlink_child(node);
 		}
 	}
@@ -446,32 +453,31 @@ static void prune_dummy_messages(struct node **node_p)
 	}
 }
 
-static int node_cmp(struct mail_thread_context *ctx,
-		    struct node *a, struct node *b)
+static int node_cmp(struct node *a, struct node *b)
 {
 	time_t date_a, date_b;
+	unsigned int id_a, id_b;
 
-	t_push();
-	date_a = ctx->callbacks->input_time(MAIL_SORT_DATE,
-					    a->id, ctx->callback_context);
-	date_b = ctx->callbacks->input_time(MAIL_SORT_DATE,
-					    b->id, ctx->callback_context);
-	ctx->callbacks->input_reset(ctx->callback_context);
-	t_pop();
+	date_a = a->id != 0 ? a->sent_date : a->first_child->sent_date;
+	date_b = b->id != 0 ? b->sent_date : b->first_child->sent_date;
 
-	if (date_a == date_b || date_a == 0 || date_b == 0)
-		return a->id < b->id ? -1 : 1;
-	else
+	if (date_a != date_b && date_a != 0 && date_b != 0)
 		return date_a < date_b ? -1 : 1;
+
+	id_a = a->id != 0 ? a->id : a->first_child->id;
+	id_b = b->id != 0 ? b->id : b->first_child->id;
+	return id_a < id_b ? -1 : 1;
 }
 
-static struct node *
-sort_nodes(struct mail_thread_context *ctx, struct node *list)
+static struct node *sort_nodes(struct node *list)
 {
 	struct node *p, *q, *e, *tail;
 	size_t insize, nmerges, psize, qsize, i;
 
 	i_assert(list != NULL);
+
+	if (list->next == NULL)
+		return list; /* just one node */
 
 	insize = 1;
 
@@ -507,7 +513,7 @@ sort_nodes(struct mail_thread_context *ctx, struct node *list)
 				} else if (qsize == 0 || !q) {
 					/* q is empty; e must come from p. */
 					e = p; p = p->next; psize--;
-				} else if (node_cmp(ctx, p, q) <= 0) {
+				} else if (node_cmp(p, q) <= 0) {
 					/* First element of p is lower
 					   (or same); e must come from p. */
 					e = p; p = p->next; psize--;
@@ -543,9 +549,9 @@ sort_nodes(struct mail_thread_context *ctx, struct node *list)
 }
 
 static void add_base_subject(struct mail_thread_context *ctx,
-			     const char *subject, struct root_data *root)
+			     const char *subject, struct node *node)
 {
-	struct root_data *hash_root;
+	struct node *hash_node;
 	char *hash_subject;
 	void *key, *value;
 	int is_reply_or_forward;
@@ -560,108 +566,111 @@ static void add_base_subject(struct mail_thread_context *ctx,
 
 	if (!hash_lookup_full(ctx->subject_hash, subject, &key, &value)) {
 		hash_subject = p_strdup(ctx->str_pool, subject);
-		hash_root = root;
-		hash_insert(ctx->subject_hash, hash_subject, root);
+		hash_insert(ctx->subject_hash, hash_subject, node);
 	} else {
 		hash_subject = key;
-		hash_root = value;
+		hash_node = value;
 
-		if (!NODE_IS_DUMMY(hash_root->node) &&
-		    (NODE_IS_DUMMY(root->node) ||
-		     (hash_root->reply && !is_reply_or_forward)))
-			hash_update(ctx->subject_hash, hash_subject, root);
+		if (!NODE_IS_DUMMY(hash_node) &&
+		    (NODE_IS_DUMMY(node) ||
+		     (hash_node->u.info->reply && !is_reply_or_forward)))
+			hash_update(ctx->subject_hash, hash_subject, node);
 	}
 
-	root->base_subject = hash_subject;
-	root->reply = is_reply_or_forward;
+	node->u.info->base_subject = hash_subject;
+	node->u.info->reply = is_reply_or_forward;
 }
 
-static void gather_root_data(struct mail_thread_context *ctx)
+static void gather_base_subjects(struct mail_thread_context *ctx)
 {
 	const struct mail_sort_callbacks *cb;
 	struct node *node;
-	size_t i, count;
 	unsigned int id;
 
-	/* get the number of root nodes */
-	for (count = 0, node = ctx->root_nodes; node != NULL; node = node->next)
-		count++;
-	ctx->root_count = count;
-
-	ctx->root_data = p_new(ctx->pool, struct root_data, ctx->root_count);
 	cb = ctx->callbacks;
-
 	ctx->subject_hash =
 		hash_create(default_pool, ctx->root_count * 2, str_hash,
 			    (HashCompareFunc)strcmp);
 
-	node = ctx->root_nodes;
-	for (i = 0; i < ctx->root_count; i++, node = node->next) {
-		ctx->root_data[i].node = node;
-
+	for (node = ctx->root_nodes; node != NULL; node = node->next) {
 		if (!NODE_IS_DUMMY(node))
 			id = node->id;
 		else {
 			/* sort children, use the first one's id */
-			node->first_child = sort_nodes(ctx, node->first_child);
+			node->first_child = sort_nodes(node->first_child);
 			id = node->first_child->id;
+
+			node->u.info->sorted = TRUE;
 		}
 
 		t_push();
 
-		ctx->root_data[i].sort_id = id;
-		ctx->root_data[i].sent_date =
-			cb->input_time(MAIL_SORT_DATE, id,
-				       ctx->callback_context);
-
 		add_base_subject(ctx, cb->input_str(MAIL_SORT_SUBJECT, id,
 						    ctx->callback_context),
-				 &ctx->root_data[i]);
+				 node);
 
 		cb->input_reset(ctx->callback_context);
 		t_pop();
 	}
+}
 
-	i_assert(node == NULL);
+static void reset_children_parent(struct node *parent)
+{
+	struct node *node;
+
+	for (node = parent->first_child; node != NULL; node = node->next)
+		node->parent = parent;
 }
 
 static void merge_subject_threads(struct mail_thread_context *ctx)
 {
-        struct root_data *root, *hash_root;
-	size_t i;
+	struct node **node_p, *node, *hash_node;
+	char *base_subject;
 
-	for (i = 0; i < ctx->root_count; i++) {
-		root = &ctx->root_data[i];
+	for (node_p = &ctx->root_nodes; *node_p != NULL; ) {
+		node = *node_p;
+
+		if (node->u.info == NULL) {
+			/* deleted node */
+			*node_p = node->next;
+			continue;
+		}
 
 		/* (ii) If the thread subject is empty, skip this message. */
-		if (root->base_subject == NULL)
+		base_subject = node->u.info->base_subject;
+		if (base_subject == NULL) {
+			node_p = &node->next;
 			continue;
+		}
 
 		/* (iii) Lookup the message associated with this thread
 		   subject in the subject table. */
-		hash_root = hash_lookup(ctx->subject_hash, root->base_subject);
-		i_assert(hash_root != NULL);
+		hash_node = hash_lookup(ctx->subject_hash, base_subject);
+		i_assert(hash_node != NULL);
 
 		/* (iv) If the message in the subject table is the current
 		   message, skip this message. */
-		if (hash_root == root)
+		if (hash_node == node) {
+			node_p = &node->next;
 			continue;
+		}
 
 		/* Otherwise, merge the current message with the one in the
 		   subject table using the following rules: */
 
-		if (NODE_IS_DUMMY(root->node) &&
-		    NODE_IS_DUMMY(hash_root->node)) {
+		if (NODE_IS_DUMMY(node) &&
+		    NODE_IS_DUMMY(hash_node)) {
 			/* If both messages are dummies, append the current
 			   message's children to the children of the message in
 			   the subject table (the children of both messages
 			   become siblings), and then delete the current
 			   message. */
-			find_last_child(hash_root->node)->next =
-				root->node->first_child;
-			root->node = NULL;
-		} else if (NODE_IS_DUMMY(hash_root->node) ||
-			   (root->reply && !hash_root->reply)) {
+			find_last_child(hash_node)->next = node->first_child;
+
+			*node_p = node->next;
+			hash_node->u.info->sorted = FALSE;
+		} else if (NODE_IS_DUMMY(hash_node) ||
+			   (node->u.info->reply && !hash_node->u.info->reply)) {
 			/* If the message in the subject table is a dummy
 			   and the current message is not, make the current
 			   message a child of the message in the subject table
@@ -671,42 +680,88 @@ static void merge_subject_threads(struct mail_thread_context *ctx)
 			   the message in the subject table is not, make the
 			   current message a child of the message in the
 			   subject table (a sibling of its children). */
-			root->node->parent = hash_root->node;
-			root->node->next = hash_root->node->first_child;
-			hash_root->node->first_child = root->node;
-			root->node = NULL;
+			*node_p = node->next;
+
+			node->parent = hash_node;
+			node->next = hash_node->first_child;
+			hash_node->first_child = node;
+
+			hash_node->u.info->sorted = FALSE;
 		} else {
 			/* Otherwise, create a new dummy message and make both
 			   the current message and the message in the subject
 			   table children of the dummy.  Then replace the
 			   message in the subject table with the dummy
 			   message. */
-			struct node *node;
 
-			node = p_new(ctx->pool, struct node, 1);
-			node->first_child = root->node;
+			/* create new nodes for the children - reusing
+			   existing ones have problems since the other one
+			   might have been handled already and we'd introduce
+			   loops..
 
-			root->node->next = hash_root->node;
-			root->node->parent = node;
+			   current node will be destroyed, hash_node will be
+			   the dummy so we don't need to update hash */
+			struct node *node1, *node2;
 
-			hash_root->node->next = NULL;
-			hash_root->node->parent = node;
+			node1 = p_new(ctx->pool, struct node, 1);
+			node2 = p_new(ctx->pool, struct node, 1);
 
-			hash_root->node = node;
-			hash_root->reply = FALSE;
-			root->node = NULL;
+			memcpy(node1, node, sizeof(struct node));
+			memcpy(node2, hash_node, sizeof(struct node));
+
+			node1->parent = hash_node;
+			node2->parent = hash_node;
+			node1->next = node2;
+			node2->next = NULL;
+
+			reset_children_parent(node1);
+			reset_children_parent(node2);
+
+			hash_node->id = 0;
+			hash_node->first_child = node1;
+			hash_node->u.info->reply = FALSE;
+			hash_node->u.info->sorted = FALSE;
+
+			node->first_child = NULL;
+			node->u.info = NULL;
+			*node_p = node->next;
 		}
 	}
+}
+
+static void sort_root_nodes(struct mail_thread_context *ctx)
+{
+	struct node *node;
+
+	/* sort the children first, they're needed to sort dummy root nodes */
+	for (node = ctx->root_nodes; node != NULL; node = node->next) {
+		if (node->u.info == NULL)
+			continue;
+
+		if (NODE_IS_DUMMY(node) && !node->u.info->sorted &&
+		    node->first_child != NULL)
+			node->first_child = sort_nodes(node->first_child);
+	}
+
+	ctx->root_nodes = sort_nodes(ctx->root_nodes);
 }
 
 static int send_nodes(struct mail_thread_context *ctx,
 		      string_t *str, struct node *node)
 {
-	/* sort the siblings first */
-	node = sort_nodes(ctx, node);
+	if (node->next == NULL && node->parent != NULL) {
+		/* no siblings - special case to avoid extra paranthesis */
+		if (node->first_child == NULL)
+			str_printfa(str, "%u", node->id);
+		else {
+			str_printfa(str, "%u ", node->id);
+			send_nodes(ctx, str, sort_nodes(node->first_child));
+		}
+		return TRUE;
+	}
 
 	while (node != NULL) {
-		if (str_len(str) + MAX_INT_STRLEN + 3 >= OUTPUT_BUF_SIZE) {
+		if (str_len(str) + MAX_INT_STRLEN*2 + 3 >= OUTPUT_BUF_SIZE) {
 			/* string getting full, flush it */
 			if (!o_stream_send(ctx->output,
 					   str_data(str), str_len(str)))
@@ -718,7 +773,7 @@ static int send_nodes(struct mail_thread_context *ctx,
 			str_printfa(str, "(%u)", node->id);
 		else {
 			str_printfa(str, "(%u ", node->id);
-			send_nodes(ctx, str, node->first_child);
+			send_nodes(ctx, str, sort_nodes(node->first_child));
 			str_append_c(str, ')');
 		}
 
@@ -729,20 +784,20 @@ static int send_nodes(struct mail_thread_context *ctx,
 
 static void send_roots(struct mail_thread_context *ctx)
 {
-	struct root_data *root;
+	struct node *node;
 	string_t *str;
-	size_t i;
 
 	str = t_str_new(OUTPUT_BUF_SIZE);
 	str_append_c(str, ' ');
 
-	for (i = 0; i < ctx->root_count; i++) {
-		root = &ctx->root_data[i];
+	/* sort root nodes again, they have been modified since the last time */
+	sort_root_nodes(ctx);
 
-		if (root->node == NULL)
+	for (node = ctx->root_nodes; node != NULL; node = node->next) {
+		if (node->u.info == NULL)
 			continue;
 
-		if (str_len(str) + MAX_INT_STRLEN + 3 >= OUTPUT_BUF_SIZE) {
+		if (str_len(str) + MAX_INT_STRLEN*2 + 3 >= OUTPUT_BUF_SIZE) {
 			/* string getting full, flush it */
 			if (!o_stream_send(ctx->output,
 					   str_data(str), str_len(str)))
@@ -751,14 +806,19 @@ static void send_roots(struct mail_thread_context *ctx)
 		}
 
 		str_append_c(str, '(');
-		if (!NODE_IS_DUMMY(root->node))
-			str_printfa(str, "%u", root->node->id);
+		if (!NODE_IS_DUMMY(node))
+			str_printfa(str, "%u", node->id);
 
-		if (root->node->first_child != NULL) {
-			if (!NODE_IS_DUMMY(root->node))
+		if (node->first_child != NULL) {
+			if (!NODE_IS_DUMMY(node))
 				str_append_c(str, ' ');
 
-			if (!send_nodes(ctx, str, root->node->first_child))
+			if (!node->u.info->sorted) {
+				node->first_child =
+					sort_nodes(node->first_child);
+			}
+
+			if (!send_nodes(ctx, str, node->first_child))
 				return;
 		}
 
@@ -766,19 +826,6 @@ static void send_roots(struct mail_thread_context *ctx)
 	}
 
 	(void)o_stream_send(ctx->output, str_data(str), str_len(str));
-}
-
-static int root_data_cmp(const void *p1, const void *p2)
-{
-	const struct root_data *d1 = p1;
-	const struct root_data *d2 = p2;
-
-	if (d1->sent_date == d2->sent_date ||
-	    d1->sent_date == 0 || d2->sent_date == 0)
-		return d1->sort_id < d2->sort_id ? -1 :
-			d1->sort_id > d2->sort_id ? 1 : 0;
-	else
-		return d1->sent_date < d2->sent_date ? -1 : 1;
 }
 
 static void save_root_cb(void *key __attr_unused__, void *value, void *context)
@@ -792,37 +839,38 @@ static void save_root_cb(void *key __attr_unused__, void *value, void *context)
 
 void mail_thread_finish(struct mail_thread_context *ctx)
 {
-	if (ctx->root_nodes == NULL) {
-		/* no messages */
-		return;
-	}
-
-	/* (2) save root nodes and drop the msgid_hash */
-	hash_foreach(ctx->msgid_hash, save_root_cb, ctx);
-	hash_destroy(ctx->msgid_hash);
-	ctx->msgid_hash = NULL;
+	struct node *node;
 
 	/* drop the memory allocated for message-IDs, reuse their memory
 	   for base subjects */
 	p_clear(ctx->str_pool);
 
+	/* (2) save root nodes and drop the msgids */
+	hash_foreach(ctx->msgid_hash, save_root_cb, ctx);
+	hash_destroy(ctx->msgid_hash);
+	ctx->msgid_hash = NULL;
+
+	if (ctx->root_nodes == NULL) {
+		/* no messages */
+		return;
+	}
+
 	/* (3) */
 	prune_dummy_messages(&ctx->root_nodes);
 
-	/* get the message dates and subjects here and save them to an array.
-	   this probably gets us better caching than fetching them separately.
-	   for dummy nodes sort their children as required by (4).
-	   subjects are stored into hash as required by (5.B). */
-	gather_root_data(ctx);
+	/* initialize the node->u.info for all root nodes */
+	for (node = ctx->root_nodes; node != NULL; node = node->next)
+		node->u.info = p_new(ctx->pool, struct root_info, 1);
+
+	/* (4) */
+	sort_root_nodes(ctx);
+
+	/* (5) Gather together messages under the root that have the same
+	   base subject text. */
+	gather_base_subjects(ctx);
 
 	/* (5.C) Merge threads with the same thread subject. */
 	merge_subject_threads(ctx);
-
-	/* (4) sort roots. doing it before subject merging would break
-	   subject_hash, and I can't see how doing it later would change
-	   anything */
-	qsort(ctx->root_data, ctx->root_count,
-	      sizeof(struct root_data), root_data_cmp);
 
 	/* (6) Sort and send replies */
 	t_push();
