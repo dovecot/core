@@ -189,6 +189,12 @@ static void update_available_auth_mechs(void)
 static void auth_handle_handshake(struct auth_connection *conn,
 				  struct auth_login_handshake_output *handshake)
 {
+	if (handshake->pid == 0) {
+		i_error("BUG: Auth process said it's PID 0");
+		auth_connection_destroy(conn);
+		return;
+	}
+
 	conn->pid = handshake->pid;
 	conn->available_auth_mechs = handshake->auth_mechanisms;
 	conn->handshake_received = TRUE;

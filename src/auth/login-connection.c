@@ -284,13 +284,18 @@ static void request_timeout(void *context __attr_unused__)
 void login_connections_init(void)
 {
 	const char *env;
+	unsigned int pid;
 
 	env = getenv("AUTH_PROCESS");
 	if (env == NULL)
 		i_fatal("AUTH_PROCESS environment is unset");
 
+	pid = atoi(env);
+	if (pid == 0)
+		i_fatal("AUTH_PROCESS can't be 0");
+
 	memset(&handshake_output, 0, sizeof(handshake_output));
-	handshake_output.pid = atoi(env);
+	handshake_output.pid = pid;
 	handshake_output.auth_mechanisms = auth_mechanisms;
 
 	connections = NULL;

@@ -34,6 +34,8 @@ void master_request_imap(struct client *client, master_callback_t *callback,
 {
 	struct master_login_request req;
 
+	i_assert(auth_pid != 0);
+
 	memset(&req, 0, sizeof(req));
 	req.tag = client->fd;
 	req.auth_pid = auth_pid;
