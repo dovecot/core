@@ -180,8 +180,12 @@ static int maildir_create_mailbox(MailStorage *storage, const char *name)
 
 	mail_storage_clear_error(storage);
 
-	if (strcasecmp(name, "INBOX") == 0)
-		name = "INBOX";
+	if (strncasecmp(name, "INBOX", 5) == 0 &&
+	    (name[5] == '\0' || name[5] == storage->hierarchy_sep)) {
+		/* use same case with all INBOX folders or we'll get
+		   into trouble */
+		name = t_strconcat("INBOX", name+5, NULL);
+	}
 
 	if (!maildir_is_valid_name(storage, name)) {
 		mail_storage_set_error(storage, "Invalid mailbox name");
