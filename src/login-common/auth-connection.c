@@ -25,6 +25,7 @@ static int auth_reconnect;
 static unsigned int request_id_counter;
 static struct auth_connection *auth_connections;
 static struct timeout *to;
+static unsigned int auth_waiting_handshake_count;
 
 static void auth_connection_destroy(struct auth_connection *conn);
 static void auth_connection_unref(struct auth_connection *conn);
@@ -76,6 +77,7 @@ static struct auth_connection *auth_connection_new(const char *path)
 	auth_connections = conn;
 
 	/* send our handshake */
+        auth_waiting_handshake_count++;
 	memset(&handshake, 0, sizeof(handshake));
 	handshake.pid = login_process_uid;
 	if (o_stream_send(conn->output, &handshake, sizeof(handshake)) < 0) {
@@ -116,6 +118,8 @@ static void auth_connection_destroy(struct auth_connection *conn)
 			break;
 		}
 	}
+
+        auth_waiting_handshake_count--;
 
 	if (close(conn->fd) < 0)
 		i_error("close(auth) failed: %m");
@@ -195,6 +199,7 @@ static void auth_handle_handshake(struct auth_connection *conn,
 	conn->available_auth_mechs = handshake->auth_mechanisms;
 	conn->handshake_received = TRUE;
 
+	auth_waiting_handshake_count--;
 	update_available_auth_mechs();
 }
 
@@ -359,6 +364,11 @@ void auth_request_unref(struct auth_request *request)
 	auth_connection_unref(request->conn);
 }
 
+int auth_is_connected(void)
+{
+	return !auth_reconnect && auth_waiting_handshake_count == 0;
+}
+
 static void auth_connect_missing(void)
 {
 	DIR *dirp;
@@ -404,7 +414,8 @@ void auth_connection_init(void)
 {
 	auth_connections = NULL;
 	request_id_counter = 0;
-        auth_reconnect = FALSE;
+	auth_reconnect = FALSE;
+        auth_waiting_handshake_count = 0;
 
 	auth_connect_missing();
 	to = timeout_add(1000, auth_connect_missing_timeout, NULL);

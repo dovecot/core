@@ -76,6 +76,13 @@ static void login_accept(void *context __attr_unused__)
 	struct ip_addr ip;
 	int fd;
 
+	if (!auth_is_connected()) {
+		/* we're not yet connected to auth process -
+		   don't accept client connections. FIXME: eats CPU if
+		   none of the other login processes accept it either.. */
+		return;
+	}
+
 	fd = net_accept(LOGIN_LISTEN_FD, &ip, NULL);
 	if (fd < 0) {
 		if (fd < -1)
@@ -94,6 +101,13 @@ static void login_accept_ssl(void *context __attr_unused__)
 	struct client *client;
 	struct ip_addr ip;
 	int fd, fd_ssl;
+
+	if (!auth_is_connected()) {
+		/* we're not yet connected to auth process -
+		   don't accept client connections. FIXME: eats CPU if
+		   none of the other login processes accept it either.. */
+		return;
+	}
 
 	fd = net_accept(LOGIN_SSL_LISTEN_FD, &ip, NULL);
 	if (fd < 0) {

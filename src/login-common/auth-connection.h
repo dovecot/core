@@ -55,6 +55,8 @@ void auth_abort_request(struct auth_request *request);
 void auth_request_ref(struct auth_request *request);
 void auth_request_unref(struct auth_request *request);
 
+int auth_is_connected(void);
+
 void auth_connection_init(void);
 void auth_connection_deinit(void);
 
