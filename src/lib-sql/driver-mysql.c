@@ -1,6 +1,7 @@
 /* Copyright (C) 2003-2004 Timo Sirainen, Alex Howansky */
 
 #include "lib.h"
+#include "buffer.h"
 #include "sql-api-private.h"
 
 #ifdef HAVE_MYSQL
@@ -9,23 +10,46 @@
 #include <mysql.h>
 #include <errmsg.h>
 
+/* Minimum delay between reconnecting to same server */
+#define CONNECT_MIN_DELAY 1
+/* Maximum time to avoiding reconnecting to same server */
+#define CONNECT_MAX_DELAY (60*30)
+/* If no servers are connected but a query is requested, try reconnecting to
+   next server which has been disconnected longer than this (with a single
+   server setup this is really the "max delay" and the CONNECT_MAX_DELAY
+   is never used). */
+#define CONNECT_RESET_DELAY 15
+
 struct mysql_db {
 	struct sql_db api;
 
 	pool_t pool;
-	const char *host, *user, *password, *dbname, *unix_socket;
+	const char *user, *password, *dbname, *unix_socket;
 	const char *ssl_cert, *ssl_key, *ssl_ca, *ssl_ca_path, *ssl_cipher;
 	unsigned int port, client_flags;
+
+	buffer_t *connections; /* struct mysql_connection[] */
+	unsigned int next_query_connection;
+};
+
+struct mysql_connection {
+	struct mysql_db *db;
+
 	MYSQL *mysql;
+	const char *host;
+
+	unsigned int connect_delay;
+	unsigned int connect_failure_count;
 
 	time_t last_connect;
-
 	unsigned int connected:1;
-	unsigned int ssl:1;
+	unsigned int ssl_set:1;
 };
 
 struct mysql_result {
 	struct sql_result api;
+	struct mysql_connection *conn;
+
 	MYSQL_RES *result;
         MYSQL_ROW row;
 
@@ -36,40 +60,100 @@ struct mysql_result {
 extern struct sql_result driver_mysql_result;
 extern struct sql_result driver_mysql_error_result;
 
-static int driver_mysql_connect(struct mysql_db *db)
+static int driver_mysql_connect(struct mysql_connection *conn)
 {
+	struct mysql_db *db = conn->db;
 	const char *unix_socket, *host;
 	time_t now;
 
-	if (db->connected)
+	if (conn->connected)
 		return TRUE;
 
 	/* don't try reconnecting more than once a second */
 	now = time(NULL);
-	if (db->last_connect == now)
+	if (conn->last_connect + (time_t)conn->connect_delay > now)
 		return FALSE;
-	db->last_connect = now;
+	conn->last_connect = now;
 
-	if (*db->host == '/') {
-		unix_socket = db->host;
+	if (*conn->host == '/') {
+		unix_socket = conn->host;
 		host = NULL;
 	} else {
 		unix_socket = NULL;
-		host = db->host;
+		host = conn->host;
 	}
 
-	if (mysql_real_connect(db->mysql, host, db->user, db->password,
+	if (!conn->ssl_set && (db->ssl_ca != NULL || db->ssl_ca_path != NULL)) {
+#ifdef HAVE_MYSQL_SSL
+		mysql_ssl_set(conn->mysql, db->ssl_key, db->ssl_cert,
+			      db->ssl_ca, db->ssl_ca_path
+#ifdef HAVE_MYSQL_SSL_CIPHER
+			      , db->ssl_cipher
+#endif
+			     );
+		conn->ssl_set = TRUE;
+#else
+		i_fatal("mysql: SSL support not compiled in "
+			"(remove ssl_ca and ssl_ca_path settings)");
+#endif
+	}
+
+	if (mysql_real_connect(conn->mysql, host, db->user, db->password,
 			       db->dbname, db->port, unix_socket,
 			       db->client_flags) == NULL) {
-		i_error("mysql: Connect failed to %s: %s",
-			db->dbname, mysql_error(db->mysql));
+		if (conn->connect_failure_count > 0) {
+			/* increase delay between reconnections to this
+			   server */
+			conn->connect_delay *= 5;
+			if (conn->connect_delay > CONNECT_MAX_DELAY)
+				conn->connect_delay = CONNECT_MAX_DELAY;
+		}
+		conn->connect_failure_count++;
+
+		i_error("mysql: Connect failed to %s (%s): %s - "
+			"waiting for %u seconds before retry",
+			host, db->dbname, mysql_error(conn->mysql),
+			conn->connect_delay);
 		return FALSE;
 	} else {
-		i_info("mysql: Connected to %s%s", db->dbname,
-		       db->ssl ? " using SSL" : "");
-		db->connected = TRUE;
+		i_info("mysql: Connected to %s%s (%s)", host,
+		       conn->ssl_set ? " using SSL" : "", db->dbname);
+
+		conn->connect_failure_count = 0;
+		conn->connect_delay = CONNECT_MIN_DELAY;
+		conn->connected = TRUE;
 		return TRUE;
 	}
+}
+
+static void driver_mysql_connect_all(struct mysql_db *db)
+{
+	struct mysql_connection *conn;
+	size_t i, size;
+
+	conn = buffer_get_modifyable_data(db->connections, &size);
+	size /= sizeof(*conn);
+	for (i = 0; i < size; i++)
+		(void)driver_mysql_connect(&conn[i]);
+}
+
+static void driver_mysql_connection_add(struct mysql_db *db, const char *host)
+{
+	struct mysql_connection *conn;
+
+	conn = buffer_append_space_unsafe(db->connections, sizeof(*conn));
+	conn->db = db;
+	conn->host = p_strdup(db->pool, host);
+	conn->mysql = mysql_init(NULL);
+	if (conn->mysql == NULL)
+		i_fatal("mysql_init() failed");
+
+	conn->connect_delay = CONNECT_MIN_DELAY;
+}
+
+static void driver_mysql_connection_free(struct mysql_connection *conn)
+{
+	mysql_close(conn->mysql);
 }
 
 static void driver_mysql_parse_connect_string(struct mysql_db *db,
@@ -92,8 +176,9 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 		value++;
 
 		field = NULL;
-		if (strcmp(name, "host") == 0 || strcmp(name, "hostaddr") == 0)
-			field = &db->host;
+		if (strcmp(name, "host") == 0 ||
+		    strcmp(name, "hostaddr") == 0)
+			driver_mysql_connection_add(db, value);
 		else if (strcmp(name, "user") == 0)
 			field = &db->user;
 		else if (strcmp(name, "password") == 0)
@@ -121,6 +206,9 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 			*field = p_strdup(db->pool, value);
 	}
 	t_pop();
+
+	if (db->connections->used == 0)
+		i_fatal("mysql: No hosts given in connect string");
 }
 
 static struct sql_db *driver_mysql_init(const char *connect_string)
@@ -133,54 +221,47 @@ static struct sql_db *driver_mysql_init(const char *connect_string)
 	db = p_new(pool, struct mysql_db, 1);
 	db->pool = pool;
 	db->api = driver_mysql_db;
-	db->mysql = mysql_init(NULL);
-	if (db->mysql == NULL)
-		i_fatal("mysql_init() failed");
+	db->connections =
+		buffer_create_dynamic(pool,
+				      sizeof(struct mysql_connection) * 6);
 
 	driver_mysql_parse_connect_string(db, connect_string);
-	if (db->ssl_ca != NULL || db->ssl_ca_path != NULL) {
-#ifdef HAVE_MYSQL_SSL
-		mysql_ssl_set(db->mysql, db->ssl_key, db->ssl_cert,
-			      db->ssl_ca, db->ssl_ca_path
-#ifdef HAVE_MYSQL_SSL_CIPHER
-			      , db->ssl_cipher
-#endif
-			     );
-		db->ssl = TRUE;
-#else
-		i_fatal("mysql: SSL support not compiled in "
-			"(remove ssl_ca and ssl_ca_path settings)");
-#endif
-	}
-	(void)driver_mysql_connect(db);
+	driver_mysql_connect_all(db);
 	return &db->api;
 }
 
 static void driver_mysql_deinit(struct sql_db *_db)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
+	struct mysql_connection *conn;
+	size_t i, size;
 
-	mysql_close(db->mysql);
+	conn = buffer_get_modifyable_data(db->connections, &size);
+	size /= sizeof(*conn);
+	for (i = 0; i < size; i++)
+		(void)driver_mysql_connection_free(&conn[i]);
+
 	pool_unref(db->pool);
 }
 
-static int driver_mysql_do_query(struct mysql_db *db, const char *query)
+static int driver_mysql_connection_do_query(struct mysql_connection *conn,
+					    const char *query)
 {
 	int i;
 
 	for (i = 0; i < 2; i++) {
-		if (!driver_mysql_connect(db))
+		if (!driver_mysql_connect(conn))
 			return 0;
 
-		if (mysql_query(db->mysql, query) == 0)
+		if (mysql_query(conn->mysql, query) == 0)
 			return 1;
 
 		/* failed */
-		switch (mysql_errno(db->mysql)) {
+		switch (mysql_errno(conn->mysql)) {
 		case CR_SERVER_GONE_ERROR:
 		case CR_SERVER_LOST:
 			/* connection lost - try immediate reconnect */
-			db->connected = FALSE;
+			conn->connected = FALSE;
 			break;
 		default:
 			return -1;
@@ -191,21 +272,65 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query)
 	return 0;
 }
 
+static int driver_mysql_do_query(struct mysql_db *db, const char *query,
+				 struct mysql_connection **conn_r)
+{
+	struct mysql_connection *conn;
+	size_t size;
+	int reset, ret;
+	unsigned int i, start;
+
+	conn = buffer_get_modifyable_data(db->connections, &size);
+	size /= sizeof(*conn);
+
+	/* go through the connections in round robin. if the connection
+	   isn't available, try next one that is. */
+	start = db->next_query_connection % size;
+	db->next_query_connection++;
+
+	for (reset = 0;; reset++) {
+		i = start;
+		do {
+			ret = driver_mysql_connection_do_query(&conn[i], query);
+			if (ret != 0) {
+				/* success / failure */
+				*conn_r = &conn[i];
+				return ret;
+			}
+
+			/* not connected, try next one */
+			i = (i + 1) % size;
+		} while (i != start);
+
+		if (reset)
+			break;
+
+		/* none are connected. connect_delays may have gotten too high,
+		   reset all of them to see if some are still alive. */
+		i_error("resetting delay");
+		for (i = 0; i < size; i++)
+			conn[i].connect_delay = CONNECT_RESET_DELAY;
+	}
+
+	return 0;
+}
+
 static void driver_mysql_exec(struct sql_db *_db, const char *query)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
+	struct mysql_connection *conn;
 
-	(void)driver_mysql_do_query(db, query);
+	(void)driver_mysql_do_query(db, query, &conn);
 }
 
 static void driver_mysql_query(struct sql_db *_db, const char *query,
 			       sql_query_callback_t *callback, void *context)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
-	struct sql_result error_result;
+	struct mysql_connection *conn;
 	struct mysql_result result;
 
-	switch (driver_mysql_do_query(db, query)) {
+	switch (driver_mysql_do_query(db, query, &conn)) {
 	case 0:
 		/* not connected */
 		callback(&sql_not_connected_result, context);
@@ -215,7 +340,9 @@ static void driver_mysql_query(struct sql_db *_db, const char *query,
 		/* query ok */
 		memset(&result, 0, sizeof(result));
 		result.api = driver_mysql_result;
-		result.result = mysql_store_result(db->mysql);
+		result.api.db = _db;
+		result.conn = conn;
+		result.result = mysql_store_result(conn->mysql);
 		if (result.result == NULL)
 			break;
 
@@ -228,21 +355,22 @@ static void driver_mysql_query(struct sql_db *_db, const char *query,
 	}
 
 	/* error */
-	error_result = driver_mysql_error_result;
-	error_result.db = _db;
-	callback(&error_result, context);
+	memset(&result, 0, sizeof(result));
+	result.api = driver_mysql_error_result;
+	result.api.db = _db;
+	result.conn = conn;
+	callback(&result.api, context);
 }
 
 static int driver_mysql_result_next_row(struct sql_result *_result)
 {
 	struct mysql_result *result = (struct mysql_result *)_result;
-	struct mysql_db *db = (struct mysql_db *)_result->db;
 
 	result->row = mysql_fetch_row(result->result);
 	if (result->row != NULL)
 		return 1;
 
-        return mysql_errno(db->mysql) ? -1 : 0;
+	return mysql_errno(result->conn->mysql) ? -1 : 0;
 }
 
 static void driver_mysql_result_fetch_fields(struct mysql_result *result)
@@ -316,11 +444,11 @@ driver_mysql_result_get_values(struct sql_result *_result)
 	return (const char *const *)result->row;
 }
 
-static const char *driver_mysql_result_get_error(struct sql_result *result)
+static const char *driver_mysql_result_get_error(struct sql_result *_result)
 {
-	struct mysql_db *db = (struct mysql_db *)result->db;
+	struct mysql_result *result = (struct mysql_result *)_result;
 
-	return mysql_error(db->mysql);
+	return mysql_error(result->conn->mysql);
 }
 
 struct sql_db driver_mysql_db = {
