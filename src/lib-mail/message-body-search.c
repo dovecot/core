@@ -109,8 +109,7 @@ static int message_search_header(struct part_search_context *ctx,
 
 	hdr_search_ctx = message_header_search_init(pool_datastack_create(),
 						    ctx->body_ctx->key,
-						    ctx->body_ctx->charset,
-						    NULL);
+						    "UTF-8", NULL);
 	if (hdr_search_ctx == NULL) {
 		/* Invalid key. */
 		return FALSE;
