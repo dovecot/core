@@ -25,15 +25,19 @@ struct _Rfc822TokenizeContext {
 #define PARSE_ERROR() \
 	STMT_START { \
 	if (ctx->error_func != NULL && \
-	    !ctx->error_func(data, i, '\0', ctx->error_context)) \
-		return FALSE; \
+	    !ctx->error_func(data, i, '\0', ctx->error_context)) { \
+		ctx->token = TOKEN_LAST; \
+		return TOKEN_LAST; \
+	} \
 	} STMT_END
 
 #define PARSE_ERROR_MISSING(c) \
 	STMT_START { \
 	if (ctx->error_func != NULL && \
-	    !ctx->error_func(data, i, c, ctx->error_context)) \
-		return FALSE; \
+	    !ctx->error_func(data, i, c, ctx->error_context)) { \
+		ctx->token = TOKEN_LAST; \
+		return TOKEN_LAST; \
+	} \
 	} STMT_END
 
 
@@ -72,14 +76,14 @@ void rfc822_tokenize_dot_token(Rfc822TokenizeContext *ctx, int set)
 	ctx->dot_token = set;
 }
 
-int rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
+Rfc822Token rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
 {
 	int token, level, last_atom;
 	const char *data;
 	size_t i, size;
 
 	if (ctx->token == TOKEN_LAST)
-		return FALSE;
+		return TOKEN_LAST;
 
 	data = ctx->data;
 	size = ctx->size;
@@ -259,11 +263,11 @@ int rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
 
 	if (ctx->token == TOKEN_LAST && ctx->in_bracket &&
 	    ctx->error_func != NULL) {
-		if (!ctx->error_func(data, i, '>', ctx->error_context))
-			return FALSE;
+		if (ctx->error_func(data, i, '>', ctx->error_context))
+			ctx->token = TOKEN_LAST;
 	}
 
-	return TRUE;
+	return ctx->token;
 }
 
 Rfc822Token rfc822_tokenize_get(const Rfc822TokenizeContext *ctx)
@@ -280,9 +284,9 @@ const char *rfc822_tokenize_get_value(const Rfc822TokenizeContext *ctx,
 	return ctx->data + ctx->token_pos;
 }
 
-int rfc822_tokenize_get_string(Rfc822TokenizeContext *ctx,
-			       String *str, String *comments,
-			       const Rfc822Token *stop_tokens)
+void rfc822_tokenize_get_string(Rfc822TokenizeContext *ctx,
+				String *str, String *comments,
+				const Rfc822Token *stop_tokens)
 {
 	Rfc822Token token;
 	const char *value;
@@ -290,14 +294,10 @@ int rfc822_tokenize_get_string(Rfc822TokenizeContext *ctx,
 	int i, token_str, last_str;
 
 	last_str = FALSE;
-	while (rfc822_tokenize_next(ctx)) {
-		token = rfc822_tokenize_get(ctx);
-		if (token == TOKEN_LAST)
-			return TRUE;
-
+	while ((token = rfc822_tokenize_next(ctx)) != TOKEN_LAST) {
 		for (i = 0; stop_tokens[i] != TOKEN_LAST; i++)
 			if (token == stop_tokens[i])
-				return TRUE;
+				return;
 
 		if (token == TOKEN_COMMENT) {
 			/* handle comment specially */
@@ -341,6 +341,4 @@ int rfc822_tokenize_get_string(Rfc822TokenizeContext *ctx,
 
 		last_str = token_str;
 	}
-
-	return FALSE;
 }

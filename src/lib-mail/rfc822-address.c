@@ -82,8 +82,8 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 		} else {
 			len = 0;
 		}
-		(void)rfc822_tokenize_get_string(ctx, next_phrase, comment,
-						 stop_tokens);
+		rfc822_tokenize_get_string(ctx, next_phrase, comment,
+					   stop_tokens);
 
 		if (next_phrase == name && len > 0 && len == str_len(name)) {
 			/* nothing appeneded, remove the space */
@@ -152,18 +152,18 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 			}
 
 			/* mailbox */
-			(void)rfc822_tokenize_get_string(ctx,
-				mailbox, NULL, stop_tokens_addr_mailbox);
+			rfc822_tokenize_get_string(ctx, mailbox, NULL,
+						   stop_tokens_addr_mailbox);
 
 			if (rfc822_tokenize_get(ctx) == '@' &&
 			    str_len(mailbox) == 0) {
 				/* route is given */
-				(void)rfc822_tokenize_get_string(ctx,
+				rfc822_tokenize_get_string(ctx,
 					route, NULL, stop_tokens_addr_route);
 
 				if (rfc822_tokenize_get(ctx) == ':') {
 					/* mailbox comes next */
-					(void)rfc822_tokenize_get_string(ctx,
+					rfc822_tokenize_get_string(ctx,
 						mailbox, NULL,
 						stop_tokens_addr_mailbox);
 				}
@@ -171,7 +171,7 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 
 			if (rfc822_tokenize_get(ctx) == '@') {
 				/* domain */
-				(void)rfc822_tokenize_get_string(ctx,
+				rfc822_tokenize_get_string(ctx,
 					domain, NULL, stop_tokens_addr_domain);
 			}
 

@@ -110,11 +110,7 @@ static void parse_content_language(const char *value, size_t value_len,
 	str = t_str_new(256);
 
 	quoted = FALSE;
-	while (rfc822_tokenize_next(ctx)) {
-		token = rfc822_tokenize_get(ctx);
-		if (token == TOKEN_LAST)
-			break;
-
+	while ((token = rfc822_tokenize_next(ctx)) != TOKEN_LAST) {
 		if (token == ',') {
 			/* list separator */
 			if (quoted) {

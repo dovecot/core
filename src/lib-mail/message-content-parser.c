@@ -24,7 +24,7 @@ void message_content_parse_header(const char *data, size_t size,
 	str = t_str_new(256);
 
         /* first ';' separates the parameters */
-	(void)rfc822_tokenize_get_string(ctx, str, NULL, stop_tokens);
+	rfc822_tokenize_get_string(ctx, str, NULL, stop_tokens);
 
 	if (func != NULL)
 		func(str_c(str), str_len(str), context);
@@ -33,21 +33,17 @@ void message_content_parse_header(const char *data, size_t size,
 
 	if (param_func != NULL && rfc822_tokenize_get(ctx) == ';') {
 		/* parse the parameters */
-		while (rfc822_tokenize_next(ctx)) {
-			token = rfc822_tokenize_get(ctx);
-
+		while ((token = rfc822_tokenize_next(ctx)) != TOKEN_LAST) {
 			/* <token> "=" <token> | <quoted-string> */
 			if (token != TOKEN_ATOM)
 				continue;
 
 			key = rfc822_tokenize_get_value(ctx, &key_len);
 
-			(void)rfc822_tokenize_next(ctx);
-			if (rfc822_tokenize_get(ctx) != '=')
+			if (rfc822_tokenize_next(ctx) != '=')
 				continue;
 
-			(void)rfc822_tokenize_next(ctx);
-			token = rfc822_tokenize_get(ctx);
+			token = rfc822_tokenize_next(ctx);
 			if (token != TOKEN_ATOM && token != TOKEN_QSTRING)
 				continue;
 

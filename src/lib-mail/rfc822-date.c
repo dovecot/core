@@ -91,9 +91,7 @@ static Rfc822Token next_token(Rfc822TokenizeContext *ctx,
 {
 	Rfc822Token token;
 
-	(void)rfc822_tokenize_next(ctx);
-
-	token = rfc822_tokenize_get(ctx);
+	token = rfc822_tokenize_next(ctx);
 	if (token == 'A')
 		*value = rfc822_tokenize_get_value(ctx, value_len);
 	return token;
