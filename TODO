@@ -12,8 +12,9 @@
     - SEARCH FROM/TO/CC/BCC now generates the field from ENVELOPE which it
       uses for matching. This however gives different results than when
       matching from headers.
-    - Outlook Express sometimes says "message not found" when trying to open
-      one, why?
+    - SIGHUP didn't update imap_listen. this is a bit annoying to fix though,
+      since new listen() may fail for a few times because auth processes may
+      not die immediately..
 
  - reliability fixes:
     - if we deleted mail from index but didn't write modify log, other
@@ -24,6 +25,11 @@
     - if imap process notices that both modify logs are getting full because
       it's client isn't syncing, the client should be disconnected
     - what happens if .customflags can't be locked while opening index?
+    - we don't handle out of memory conditions too well, malloc failing kills
+      the process which is good enough (and likely never happens), but mmap()
+      failures aren't handled too well. Rather should be handled in similiar
+      way to locking failures, so that at least we don't try to rebuild the
+      index because of it.
 
  - checks:
    - if we have entries in modifylog with UID 10..11, 9..12, 8..13 etc.
@@ -52,6 +58,12 @@
       just write to temp file and rename()? optionally at least, so it
       works with NFS.
     - OpenSSL: support generated DH parameters
+    - multiline headers can cause our memory usage to go up. that should be
+      fixed somehow. try to change things to be able to handle one line at a
+      time? Well, other IMAP servers have same problem - post 1.0 problem.
+    - check with strace what dovecot does when evolution checks new mail,
+      it's quite a lot. some things probably wouldn't need to be done
+      (mkdirs/symlinking inbox) and other things could be cached in memory.
 
  - lib-charset:
      - utf8_toupper() is a must. and a bit difficult if we want to do it right.
@@ -160,11 +172,7 @@ general:
  - sieve (rfc3028)
  - rfc2231 continuation support
 
- - ulimit / setrlimit() should be set somewhere for imap process. and maybe
-   also separate limits for data stack and mem pools
  - create indexer binary
- - imap-login leaks I/O descriptors when killed, that's because the SSL
-   fds are destroyed lazily.. should we bother fixing..?
  - logins are always sent now using syslog(), we'd need to have i_info()
    or something so they could also be written to log files.. also make it
    possible to log into different log than errors.
@@ -190,6 +198,9 @@ auth / login:
    login processes. especially if there's one login/connection the speed
    should be something like once/sec. also limit how fast to accept new
    connections.
+ - could the random cookie be replaced with definite knowledge of the login
+   process? either we should get the PID of the login process somehow
+   (SCM_CREDENTIALS?), or the connecting should go through master process.
 
 cleanups / checks:
  - grep for FIXME
