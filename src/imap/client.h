@@ -39,6 +39,7 @@ struct client {
 
 	unsigned int command_pending:1;
 	unsigned int input_pending:1;
+	unsigned int output_pending:1;
 	unsigned int cmd_uid:1; /* used UID command */
 	unsigned int cmd_param_error:1;
 	unsigned int rawlog:1;

@@ -162,6 +162,7 @@ static int cmd_idle_continue(struct client *client)
                 idle_callback(client->mailbox, client);
 	}
 
+        client->output_pending = FALSE;
 	return FALSE;
 }
 

@@ -392,8 +392,14 @@ static int client_output(void *context)
 
 	/* continue processing command */
 	o_stream_cork(client->output);
+	client->output_pending = TRUE;
 	finished = client->cmd_func(client) || client->cmd_param_error;
 	o_stream_uncork(client->output);
+
+	/* a bit kludgy. normally we would want to get back here, but IDLE
+	   is a special case which has command pending but without necessarily
+	   anything to write. */
+	ret = finished || !client->output_pending;
 
 	if (finished) {
 		/* command execution was finished */
@@ -403,7 +409,7 @@ static int client_output(void *context)
 		if (client->input_pending)
 			_client_input(client);
 	}
-	return finished;
+	return ret;
 }
 
 static void idle_timeout(void *context __attr_unused__)
