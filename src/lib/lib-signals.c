@@ -67,10 +67,14 @@ void lib_init_signals(void (*sig_quit_handler) (int))
 	   isn't ignored, or your handler doesn't kill the program,
 	   sigaction() should be used. */
 #ifdef HAVE_SIGACTION
-	sigemptyset(&act.sa_mask);
+	if (sigemptyset(&act.sa_mask) < 0)
+		i_fatal("sigemptyset(): %m");
 	act.sa_flags = 0;
 	act.sa_handler = sig_hup;
-	sigaction(SIGHUP, &act, NULL);
+	while (sigaction(SIGHUP, &act, NULL) < 0) {
+		if (errno != EINTR)
+			i_fatal("sigaction(): %m");
+	}
 #else
         signal(SIGHUP, sig_hup);
 #endif

@@ -413,7 +413,7 @@ static int mail_modifylog_open_and_verify(ModifyLogFile *file)
 		return -1;
 	}
 
-	if (file_wait_lock(fd, F_RDLCK) < 0) {
+	if (file_wait_lock(fd, F_RDLCK, DEFAULT_LOCK_TIMEOUT) <= 0) {
 		modifylog_set_syscall_error(file, "file_wait_lock()");
 		(void)close(fd);
 		return -1;

@@ -254,7 +254,7 @@ static int mail_index_open_file(MailIndex *index, const char *path,
 		return index_file_set_syscall_error(index, path, "open()");
 
 	/* if index is being created, we'll wait here until it's finished */
-	if (file_wait_lock(fd, F_RDLCK) < 0) {
+	if (file_wait_lock(fd, F_RDLCK, DEFAULT_LOCK_TIMEOUT) <= 0) {
 		index_file_set_syscall_error(index, path, "file_wait_lock()");
 		(void)close(fd);
 		return FALSE;
@@ -267,7 +267,7 @@ static int mail_index_open_file(MailIndex *index, const char *path,
 		return FALSE;
 	}
 
-	if (file_wait_lock(fd, F_UNLCK) < 0) {
+	if (file_wait_lock(fd, F_UNLCK, 0) <= 0) {
 		index_file_set_syscall_error(index, path, "file_wait_lock()");
 		(void)close(fd);
 		return FALSE;
@@ -305,7 +305,7 @@ static int mail_index_init_new_file(MailIndex *index, MailIndexHeader *hdr,
 		return FALSE;
 	}
 
-	if (file_wait_lock(fd, F_WRLCK) < 0) {
+	if (file_wait_lock(fd, F_WRLCK, DEFAULT_LOCK_TIMEOUT) <= 0) {
 		index_file_set_syscall_error(index, path, "file_wait_lock()");
 		return FALSE;
 	}

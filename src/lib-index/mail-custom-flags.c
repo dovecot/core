@@ -195,7 +195,7 @@ static int lock_file(MailCustomFlags *mcf, int type)
 	if (mcf->lock_type == type)
 		return TRUE;
 
-	if (file_wait_lock(mcf->fd, type) < 0)
+	if (file_wait_lock(mcf->fd, type, DEFAULT_LOCK_TIMEOUT) <= 0)
 		return index_cf_set_syscall_error(mcf, "file_wait_lock()");
 
 	mcf->lock_type = type;

@@ -275,7 +275,7 @@ static int mail_index_write_header_changes(MailIndex *index)
 
 	/* use our own locking here so we don't mess up with any other
 	   index states, like inconsistency. */
-	if (file_wait_lock(index->fd, F_WRLCK) < 0)
+	if (file_wait_lock(index->fd, F_WRLCK, DEFAULT_LOCK_TIMEOUT) <= 0)
 		return index_set_syscall_error(index, "file_wait_lock()");
 
 	mail_index_update_header_changes(index);
@@ -284,7 +284,7 @@ static int mail_index_write_header_changes(MailIndex *index)
 	if (failed)
 		index_set_syscall_error(index, "msync()");
 
-	if (file_wait_lock(index->fd, F_UNLCK) < 0)
+	if (file_wait_lock(index->fd, F_UNLCK, 0) <= 0)
 		return index_set_syscall_error(index, "file_wait_lock()");
 
 	return !failed;
@@ -294,7 +294,7 @@ static int mail_index_lock_remove(MailIndex *index)
 {
 	MailLockType old_lock_type;
 
-	if (file_wait_lock(index->fd, F_UNLCK) < 0)
+	if (file_wait_lock(index->fd, F_UNLCK, 0) <= 0)
 		return index_set_syscall_error(index, "file_wait_lock()");
 
 	old_lock_type = index->lock_type;
@@ -328,7 +328,8 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type)
 		return FALSE;
 	}
 
-	if (file_wait_lock(index->fd, MAIL_LOCK_TO_FLOCK(lock_type)) < 0)
+	if (file_wait_lock(index->fd, MAIL_LOCK_TO_FLOCK(lock_type),
+			   DEFAULT_LOCK_TIMEOUT) <= 0)
 		return index_set_syscall_error(index, "file_wait_lock()");
 	index->lock_type = lock_type;
 
@@ -355,7 +356,8 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type)
 			if (!mail_index_lock_remove(index))
 				return FALSE;
 
-			if (file_wait_lock(index->fd, MAIL_LOCK_EXCLUSIVE) < 0)
+			if (file_wait_lock(index->fd, MAIL_LOCK_EXCLUSIVE,
+					   DEFAULT_LOCK_TIMEOUT) <= 0)
 				return index_set_syscall_error(index,
 							"file_wait_lock()");
 			index->lock_type = MAIL_LOCK_EXCLUSIVE;

@@ -26,6 +26,19 @@
 #include "lib.h"
 #include "file-lock.h"
 
+#include <signal.h>
+
+static int got_alarm = FALSE;
+
+static void sig_alarm(int signo __attr_unused__)
+{
+	got_alarm = TRUE;
+
+	/* we need fcntl() to stop with EINTR */
+	if (raise(SIGHUP) < 0)
+		i_fatal("kill(): %m");
+}
+
 static int file_lock(int fd, int wait_lock, int lock_type)
 {
 	struct flock fl;
@@ -41,6 +54,11 @@ static int file_lock(int fd, int wait_lock, int lock_type)
 
 		if (errno != EINTR)
 			return -1;
+
+		if (got_alarm) {
+			errno = EAGAIN;
+			return 0;
+		}
 	}
 
 	return 1;
@@ -48,10 +66,56 @@ static int file_lock(int fd, int wait_lock, int lock_type)
 
 int file_try_lock(int fd, int lock_type)
 {
+        got_alarm = FALSE;
 	return file_lock(fd, FALSE, lock_type);
 }
 
-int file_wait_lock(int fd, int lock_type)
+int file_wait_lock(int fd, int lock_type, unsigned int timeout __attr_unused__)
 {
-	return file_lock(fd, TRUE, lock_type);
+#ifdef HAVE_SIGACTION
+	struct sigaction act;
+#endif
+	int ret;
+
+	got_alarm = FALSE;
+
+	if (timeout > 0 && lock_type != F_UNLCK) {
+#ifdef HAVE_SIGACTION
+		if (sigemptyset(&act.sa_mask) < 0)
+			i_fatal("sigemptyset(): %m");
+		act.sa_flags = 0;
+		act.sa_handler = sig_alarm;
+
+		while (sigaction(SIGALRM, &act, NULL) < 0) {
+			if (errno != EINTR)
+				i_fatal("sigaction(): %m");
+		}
+#else
+		/* at least Linux blocks raise(SIGHUP) inside SIGALRM
+		   handler if it's added with signal().. sigaction() should
+		   be pretty much everywhere though, so this code is pretty
+		   useless. */
+#warning file_wait_lock() timeouting may not work
+		signal(SIGALRM, sig_alarm);
+#endif
+
+		alarm(timeout);
+	}
+
+	ret = file_lock(fd, TRUE, lock_type);
+
+	if (timeout > 0 && lock_type != F_UNLCK) {
+		alarm(0);
+
+#ifdef HAVE_SIGACTION
+		act.sa_handler = SIG_DFL;
+		while (sigaction(SIGALRM, &act, NULL) < 0) {
+			if (errno != EINTR)
+				i_fatal("sigaction(): %m");
+		}
+#else
+		signal(SIGALRM, SIG_IGN);
+#endif
+	}
+	return ret;
 }
