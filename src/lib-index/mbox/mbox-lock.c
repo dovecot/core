@@ -15,20 +15,19 @@
 #  include <sys/file.h>
 #endif
 
-#ifdef HAVE_FLOCK
-#  define USE_FLOCK
-#endif
-
 /* 0.1 .. 0.2msec */
 #define LOCK_RANDOM_USLEEP_TIME (100000 + (unsigned int)rand() % 100000)
 
+/* assume stale dotlock if mbox file hasn't changed for 5 seconds */
+#define MAX_UNCHANGED_LOCK_WAIT 5
+
 /* abort trying to get lock after 30 seconds */
-#define MAX_LOCK_WAIT_SECONDS 30
+#define MAX_LOCK_WAIT 30
 
 /* remove lock after 10 mins */
 #define STALE_LOCK_TIMEOUT (60*10)
 
-#ifdef USE_FLOCK
+#ifdef HAVE_FLOCK
 static int mbox_lock_flock(MailIndex *index, int lock_type)
 {
 	if (lock_type == F_WRLCK)
@@ -44,8 +43,7 @@ static int mbox_lock_flock(MailIndex *index, int lock_type)
 
 	return TRUE;
 }
-
-#else
+#endif
 
 static int mbox_lock_fcntl(MailIndex *index, int lock_type)
 {
@@ -66,12 +64,12 @@ static int mbox_lock_fcntl(MailIndex *index, int lock_type)
 
 	return TRUE;
 }
-#endif
 
 static int mbox_lock_dotlock(MailIndex *index, const char *path, int set)
 {
 	struct stat st;
-	time_t now, max_wait_time;
+	time_t now, max_wait_time, last_change, last_mtime;
+	off_t last_size;
 	int fd;
 
 	path = t_strconcat(path, ".lock", NULL);
@@ -85,17 +83,43 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path, int set)
 	/* don't bother with the temp files as we'd just leave them lying
 	   around. besides, postfix also relies on O_EXCL working so we
 	   might as well. */
-	max_wait_time = time(NULL) + MAX_LOCK_WAIT_SECONDS;
+	max_wait_time = time(NULL) + MAX_LOCK_WAIT;
+	last_change = time(NULL); last_size = 0; last_mtime = 0;
 	do {
 		now = time(NULL);
 
 		if (stat(path, &st) == 0) {
 			/* lock exists, see if it's too old */
-			if (now > st.st_ctime + STALE_LOCK_TIMEOUT && 
-			    unlink(path) < 0 && errno != ENOENT) {
-				index_file_set_syscall_error(index, path,
-							     "unlink()");
+			if (now > st.st_ctime + STALE_LOCK_TIMEOUT) {
+				if (unlink(path) < 0 && errno != ENOENT) {
+					index_file_set_syscall_error(
+						index, path, "unlink()");
+					break;
+				}
+				continue;
+			}
+
+			/* see if there's been any changes in mbox */
+			if (stat(index->mbox_path, &st) < 0) {
+				mbox_set_syscall_error(index, "stat()");
 				break;
+			}
+
+			if (last_size != st.st_size ||
+			    last_mtime != st.st_mtime) {
+				last_change = now;
+				last_size = st.st_size;
+				last_mtime = st.st_mtime;
+			}
+
+			if (now > last_change + MAX_UNCHANGED_LOCK_WAIT) {
+				/* no changes for a while, assume stale lock */
+				if (unlink(path) < 0 && errno != ENOENT) {
+					index_file_set_syscall_error(
+						index, path, "unlink()");
+					break;
+				}
+				continue;
 			}
 
 			usleep(LOCK_RANDOM_USLEEP_TIME);
@@ -130,23 +154,23 @@ static int mbox_lock(MailIndex *index, int exclusive)
 	if (++index->mbox_locks > 1)
 		return TRUE;
 
+        index->mbox_lock_type = exclusive ? F_WRLCK : F_RDLCK;
+	if (!mbox_lock_fcntl(index, index->mbox_lock_type)) {
+		(void)mbox_lock_dotlock(index, index->mbox_path, FALSE);
+		return FALSE;
+	}
+#ifdef HAVE_FLOCK
+	if (!mbox_lock_flock(index, index->mbox_lock_type)) {
+		(void)mbox_lock_dotlock(index, index->mbox_path, FALSE);
+		return FALSE;
+	}
+#endif
+
 	if (exclusive) {
 		if (!mbox_lock_dotlock(index, index->mbox_path, TRUE))
 			return FALSE;
 	}
 
-        index->mbox_lock_type = exclusive ? F_WRLCK : F_RDLCK;
-#ifdef USE_FLOCK
-	if (!mbox_lock_flock(index, index->mbox_lock_type)) {
-		(void)mbox_lock_dotlock(index, index->mbox_path, FALSE);
-		return FALSE;
-	}
-#else
-	if (!mbox_lock_fcntl(index, index->mbox_lock_type)) {
-		(void)mbox_lock_dotlock(index, index->mbox_path, FALSE);
-		return FALSE;
-	}
-#endif
 
 	return TRUE;
 }
@@ -173,15 +197,17 @@ int mbox_unlock(MailIndex *index)
 		return TRUE;
 
 	failed = FALSE;
-#ifdef USE_FLOCK
+#ifdef HAVE_FLOCK
 	if (!mbox_lock_flock(index, F_UNLCK))
 		failed = TRUE;
-#else
+#endif
 	if (!mbox_lock_fcntl(index, F_UNLCK))
 		failed = TRUE;
-#endif
-	if (!mbox_lock_dotlock(index, index->mbox_path, FALSE))
-		failed = TRUE;
+
+	if (index->mbox_lock_type == F_WRLCK) {
+		if (!mbox_lock_dotlock(index, index->mbox_path, FALSE))
+			failed = TRUE;
+	}
 
 	return !failed;
 }
