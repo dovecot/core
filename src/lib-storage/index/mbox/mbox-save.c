@@ -148,16 +148,20 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		      time_t internal_date, IOBuffer *data, uoff_t data_size)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
-	off_t pos;
+	MailFlags real_flags;
 	const char *mbox_path;
 	int fd, failed;
+	off_t pos;
 
 	if (box->readonly) {
 		mail_storage_set_error(box->storage, "Mailbox is read-only");
 		return FALSE;
 	}
 
-	if (!index_mailbox_fix_custom_flags(ibox, &flags, custom_flags))
+	/* we don't need the real flags, easier to keep using our own.
+	   they need to be checked/added though. */
+	real_flags = flags;
+	if (!index_mailbox_fix_custom_flags(ibox, &real_flags, custom_flags))
 		return FALSE;
 
 	/* append the data into mbox file */
