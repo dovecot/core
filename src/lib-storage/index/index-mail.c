@@ -759,12 +759,12 @@ void index_mail_free(struct mail *_mail)
 
 	if (mail->header_data != NULL)
 		buffer_free(mail->header_data);
-	if (mail->header_lines != NULL)
-		buffer_free(mail->header_lines);
-	if (mail->header_match != NULL)
-		buffer_free(mail->header_match);
-	if (mail->header_offsets != NULL)
-		buffer_free(mail->header_offsets);
+	if (array_is_created(&mail->header_lines))
+		array_free(&mail->header_lines);
+	if (array_is_created(&mail->header_match))
+		array_free(&mail->header_match);
+	if (array_is_created(&mail->header_offsets))
+		array_free(&mail->header_offsets);
 
 	pool_unref(mail->data_pool);
 	pool_unref(mail->mail.pool);
