@@ -372,8 +372,11 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 					    &idx_flags, idx_keywords);
 
 		if ((idx_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
-			/* flags are dirty, ignore whatever was in the file */
+			/* flags are dirty, ignore whatever was in the file.
+			   but remove recent flag if needed. */
 			mbox_flags = idx_flags;
+			if (!sync_ctx->ibox->keep_recent)
+				mbox_flags &= ~MAIL_RECENT;
 		} else {
 			mbox_flags = (rec->flags & ~MAIL_FLAGS_MASK) |
 				(mail->flags & MAIL_FLAGS_MASK);
