@@ -19,7 +19,7 @@
 #define LOCK_RANDOM_USLEEP_TIME (100000 + (unsigned int)rand() % 100000)
 
 /* lock methods to use in wanted order */
-#define DEFAULT_LOCK_METHODS "dotlock fcntl flock"
+#define DEFAULT_LOCK_METHODS "dotlock fcntl"
 /* lock timeout */
 #define DEFAULT_LOCK_TIMEOUT 300
 /* assume stale dotlock if mbox file hasn't changed for n seconds */
