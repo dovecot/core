@@ -34,8 +34,10 @@ struct vqpasswd *vpopmail_lookup_vqp(const char *user,
 
 	vpw = vauth_getpw(vpop_user, vpop_domain);
 	if (vpw == NULL) {
-		if (verbose)
-			i_info("vpopmail(%s): unknown user", user);
+		if (verbose) {
+			i_info("vpopmail(%s): unknown user (%s@%s)",
+			       user, vpop_user, vpop_domain);
+		}
 		return NULL;
 	}
 
