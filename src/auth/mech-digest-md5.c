@@ -578,16 +578,22 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 							 realm, NULL);
 		}
 
-		passdb->lookup_credentials(&auth->auth_request,
-					   PASSDB_CREDENTIALS_DIGEST_MD5,
-					   credentials_callback);
-		return TRUE;
+		if (mech_is_valid_username(auth_request->user)) {
+			passdb->lookup_credentials(&auth->auth_request,
+						PASSDB_CREDENTIALS_DIGEST_MD5,
+						credentials_callback);
+			return TRUE;
+		}
+
+		error = "invalid username";
 	}
 
 	if (error == NULL)
                 error = "Authentication failed";
-	else if (verbose)
-		i_info("digest-md5: %s", error);
+	else if (verbose) {
+		i_info("digest-md5(%s): %s",
+		       auth->username == NULL ? "" : auth->username, error);
+	}
 
 	/* failed */
 	reply.result = AUTH_LOGIN_RESULT_FAILURE;

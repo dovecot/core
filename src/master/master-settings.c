@@ -207,6 +207,27 @@ struct login_settings default_login_settings = {
 	MEMBER(uid) 0 /* generated */
 };
 
+struct auth_settings default_auth_settings = {
+	MEMBER(next) NULL,
+
+	MEMBER(name) NULL,
+	MEMBER(mechanisms) "plain",
+	MEMBER(realms) NULL,
+	MEMBER(default_realm) NULL,
+	MEMBER(userdb) "passwd",
+	MEMBER(passdb) "pam",
+	MEMBER(executable) PKG_LIBEXECDIR"/dovecot-auth",
+	MEMBER(user) "root",
+	MEMBER(chroot) NULL,
+	MEMBER(username_chars) "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890.-_@",
+
+	MEMBER(use_cyrus_sasl) FALSE,
+	MEMBER(verbose) FALSE,
+
+	MEMBER(count) 1,
+	MEMBER(process_size) 256
+};
+
 static pool_t settings_pool;
 struct settings *set = NULL;
 
@@ -402,10 +423,10 @@ static void auth_settings_new(struct settings *set, const char *name)
 	struct auth_settings *auth;
 
 	auth = p_new(settings_pool, struct auth_settings, 1);
+
+	/* copy defaults */
+	*auth = default_auth_settings;
 	auth->name = p_strdup(settings_pool, name);
-	auth->executable = p_strdup(settings_pool,
-				    PKG_LIBEXECDIR"/dovecot-auth");
-	auth->count = 1;
 
 	auth->next = set->auths;
         set->auths = auth;

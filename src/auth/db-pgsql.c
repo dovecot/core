@@ -19,7 +19,6 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, connect),
 	DEF(SET_STR, password_query),
 	DEF(SET_STR, user_query),
-	DEF(SET_STR, allowed_chars),
 	DEF(SET_STR, default_pass_scheme)
 };
 
@@ -27,7 +26,6 @@ struct pgsql_settings default_pgsql_settings = {
 	MEMBER(connect) "dbname=virtual user=virtual",
 	MEMBER(password_query) "SELECT password FROM users WHERE userid = '%u'",
 	MEMBER(user_query) "SELECT home, uid, gid FROM users WHERE userid = '%u'",
-	MEMBER(allowed_chars) "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890.-@",
 	MEMBER(default_pass_scheme) "PLAIN-MD5"
 };
 
@@ -35,19 +33,6 @@ static struct pgsql_connection *pgsql_connections = NULL;
 
 static int pgsql_conn_open(struct pgsql_connection *conn);
 static void pgsql_conn_close(struct pgsql_connection *conn);
-
-int db_pgsql_is_valid_username(struct pgsql_connection *conn,
-			       const char *username)
-{
-	const char *p;
-
-	for (p = username; *p != '\0'; p++) {
-		if (strchr(conn->set.allowed_chars, *p) == NULL)
-			return FALSE;
-	}
-
-	return TRUE;
-}
 
 void db_pgsql_query(struct pgsql_connection *conn, const char *query,
 		    struct pgsql_request *request)

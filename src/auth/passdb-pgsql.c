@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "str.h"
+#include "strescape.h"
 #include "var-expand.h"
 #include "password-scheme.h"
 #include "db-pgsql.h"
@@ -103,21 +104,14 @@ static void pgsql_lookup_pass(struct auth_request *auth_request,
 	string_t *str;
 
 	str = t_str_new(512);
-	var_expand(str, conn->set.password_query, auth_request->user, NULL);
+	var_expand(str, conn->set.password_query,
+		   str_escape(auth_request->user), NULL);
 	query = str_c(str);
 
 	pgsql_request->callback = pgsql_handle_request;
 	pgsql_request->context = auth_request;
 
-	if (db_pgsql_is_valid_username(conn, auth_request->user))
-		db_pgsql_query(conn, query, pgsql_request);
-	else {
-		if (verbose) {
-			i_error("pgsql(%s): Invalid username",
-				auth_request->user);
-		}
-		pgsql_handle_request(conn, pgsql_request, NULL);
-	}
+	db_pgsql_query(conn, query, pgsql_request);
 }
 
 static void

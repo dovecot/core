@@ -316,6 +316,7 @@ static pid_t create_auth_process(struct auth_process_group *group)
 	env_put(t_strconcat("DEFAULT_REALM=", group->set->default_realm, NULL));
 	env_put(t_strconcat("USERDB=", group->set->userdb, NULL));
 	env_put(t_strconcat("PASSDB=", group->set->passdb, NULL));
+	env_put(t_strconcat("USERNAME_CHARS=", group->set->username_chars, NULL));
 
 	if (group->set->use_cyrus_sasl)
 		env_put("USE_CYRUS_SASL=1");

@@ -38,6 +38,7 @@ struct mech_module {
 extern enum auth_mech auth_mechanisms;
 extern const char *const *auth_realms;
 extern const char *default_realm;
+extern char username_chars[256];
 
 void mech_register_module(struct mech_module *module);
 void mech_unregister_module(struct mech_module *module);
@@ -58,6 +59,8 @@ void *mech_auth_success(struct auth_login_reply *reply,
 			const void *data, size_t data_size);
 void mech_auth_finish(struct auth_request *auth_request,
 		      const void *data, size_t data_size, int success);
+
+int mech_is_valid_username(const char *username);
 
 void mech_cyrus_sasl_init_lib(void);
 struct auth_request *mech_cyrus_sasl_new(struct login_connection *conn,

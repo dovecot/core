@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "str.h"
+#include "strescape.h"
 #include "var-expand.h"
 #include "db-pgsql.h"
 #include "userdb.h"
@@ -84,7 +85,7 @@ static void userdb_pgsql_lookup(const char *user, userdb_callback_t *callback,
 	string_t *str;
 
 	str = t_str_new(512);
-	var_expand(str, conn->set.user_query, user, NULL);
+	var_expand(str, conn->set.user_query, str_escape(user), NULL);
 	query = str_c(str);
 
 	request = i_new(struct userdb_pgsql_request, 1);
@@ -92,13 +93,7 @@ static void userdb_pgsql_lookup(const char *user, userdb_callback_t *callback,
 	request->request.context = context;
 	request->userdb_callback = callback;
 
-	if (db_pgsql_is_valid_username(conn, user))
-		db_pgsql_query(conn, query, &request->request);
-	else {
-		if (verbose)
-			i_info("pgsql(%s): Invalid username", user);
-		pgsql_handle_request(conn, &request->request, NULL);
-	}
+	db_pgsql_query(conn, query, &request->request);
 }
 
 static void userdb_pgsql_init(const char *args)

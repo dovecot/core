@@ -18,6 +18,7 @@ struct mech_module_list {
 enum auth_mech auth_mechanisms;
 const char *const *auth_realms;
 const char *default_realm;
+char username_chars[256];
 
 static int set_use_cyrus_sasl;
 static struct mech_module_list *mech_modules;
@@ -186,6 +187,18 @@ void mech_auth_finish(struct auth_request *auth_request,
 	}
 }
 
+int mech_is_valid_username(const char *username)
+{
+	const unsigned char *p;
+
+	for (p = (const unsigned char *)username; *p != '\0'; p++) {
+		if (username_chars[*p & 0xff] == 0)
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
 extern struct mech_module mech_plain;
 extern struct mech_module mech_digest_md5;
 
@@ -233,6 +246,16 @@ void mech_init(void)
 	default_realm = getenv("DEFAULT_REALM");
 	if (default_realm != NULL && *default_realm == '\0')
 		default_realm = NULL;
+
+	env = getenv("USERNAME_CHARS");
+	if (env == NULL || *env == '\0') {
+		/* all chars are allowed */
+		memset(username_chars, 0xff, sizeof(username_chars));
+	} else {
+		memset(username_chars, 0, sizeof(username_chars));
+		for (; *env != '\0'; env++)
+			username_chars[((unsigned char)*env) & 0xff] = 0xff;
+	}
 
 	set_use_cyrus_sasl = getenv("USE_CYRUS_SASL") != NULL;
 

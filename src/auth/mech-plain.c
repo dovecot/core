@@ -44,6 +44,8 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 
 	if (authenid == NULL) {
 		/* invalid input */
+		if (verbose)
+			i_info("mech-plain: no username given");
 		mech_auth_finish(auth_request, NULL, 0, FALSE);
 	} else {
 		/* split and save user/realm */
@@ -56,7 +58,17 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 						      authenid);
 		}
 
-		passdb->verify_plain(auth_request, pass, verify_callback);
+		if (!mech_is_valid_username(auth_request->user)) {
+			/* invalid username */
+			if (verbose) {
+				i_info("mech-plain(%s): invalid username",
+				       auth_request->user);
+			}
+			mech_auth_finish(auth_request, NULL, 0, FALSE);
+		} else {
+			passdb->verify_plain(auth_request, pass,
+					     verify_callback);
+		}
 
 		/* make sure it's cleared */
 		safe_memset(pass, 0, strlen(pass));

@@ -37,9 +37,6 @@ struct pgsql_request {
 	void *context;
 };
 
-int db_pgsql_is_valid_username(struct pgsql_connection *conn,
-			       const char *username);
-
 void db_pgsql_query(struct pgsql_connection *conn, const char *query,
 		    struct pgsql_request *request);
 

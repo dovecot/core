@@ -266,27 +266,31 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *value,
 	}
 }
 
+#define IS_LDAP_ESCAPED_CHAR(c) \
+	((c) == '*' || (c) == '(' || (c) == ')' || (c) == '\\')
+
 const char *ldap_escape(const char *str)
 {
-	string_t *s;
 	const char *p;
+	string_t *ret;
 
 	for (p = str; *p != '\0'; p++) {
-		if (strchr("*()\\", *p) != NULL)
+		if (IS_LDAP_ESCAPED_CHAR(*p))
 			break;
 	}
 
 	if (*p == '\0')
 		return str;
 
-	s = t_str_new(64);
-	str_append_n(s, str, (size_t) (p-str));
+	ret = t_str_new((size_t) (p - str) + 64);
+	str_append_n(ret, str, (size_t) (p - str));
+
 	for (; *p != '\0'; p++) {
-		if (strchr("*()\\", *p) != NULL)
-			str_append_c(s, '\\');
-		str_append_c(s, *p);
+		if (IS_LDAP_ESCAPED_CHAR(*p))
+			str_append_c(ret, '\\');
+		str_append_c(ret, *p);
 	}
-	return str_c(s);
+	return str_c(ret);
 }
 
 static const char *parse_setting(const char *key, const char *value,

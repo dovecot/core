@@ -98,6 +98,7 @@ struct auth_settings {
 	const char *executable;
 	const char *user;
 	const char *chroot;
+	const char *username_chars;
 
 	int use_cyrus_sasl, verbose;
 
