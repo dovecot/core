@@ -1,8 +1,6 @@
 #ifndef __AUTH_CLIENT_CONNECTION_H
 #define __AUTH_CLIENT_CONNECTION_H
 
-#include "auth-client-interface.h"
-
 struct auth_client_connection {
 	struct auth_client_connection *next;
 
@@ -16,6 +14,7 @@ struct auth_client_connection {
 
 	pool_t pool;
 	struct hash_table *auth_requests;
+	char *default_protocol;
 
 	unsigned int pid;
 	unsigned int connect_uid;

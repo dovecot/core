@@ -13,7 +13,7 @@ struct user_data {
 	gid_t gid;
 };
 
-typedef void userdb_callback_t(struct user_data *user, void *context);
+typedef void userdb_callback_t(const struct user_data *user, void *context);
 
 struct userdb_module {
 	void (*preinit)(const char *args);

@@ -14,13 +14,13 @@
 #include <stdlib.h>
 
 struct mech_module_list *mech_modules;
+buffer_t *mech_handshake;
+
 const char *const *auth_realms;
 const char *default_realm;
 const char *anonymous_username;
 char username_chars[256], username_translation[256];
 int ssl_require_client_cert;
-
-static struct auth_client_request_reply failure_reply;
 
 static buffer_t *auth_failures_buf;
 static struct timeout *to_auth_failures;
@@ -31,6 +31,23 @@ void mech_register_module(struct mech_module *module)
 
 	list = i_new(struct mech_module_list, 1);
 	list->module = *module;
+
+	str_printfa(mech_handshake, "MECH\t%s", module->mech_name);
+	if ((module->flags & MECH_SEC_PRIVATE) != 0)
+		str_append(mech_handshake, "\tprivate");
+	if ((module->flags & MECH_SEC_ANONYMOUS) != 0)
+		str_append(mech_handshake, "\tanonymous");
+	if ((module->flags & MECH_SEC_PLAINTEXT) != 0)
+		str_append(mech_handshake, "\tplaintext");
+	if ((module->flags & MECH_SEC_DICTIONARY) != 0)
+		str_append(mech_handshake, "\tdictionary");
+	if ((module->flags & MECH_SEC_ACTIVE) != 0)
+		str_append(mech_handshake, "\tactive");
+	if ((module->flags & MECH_SEC_FORWARD_SECRECY) != 0)
+		str_append(mech_handshake, "\tforward-secrecy");
+	if ((module->flags & MECH_SEC_MUTUAL_AUTH) != 0)
+		str_append(mech_handshake, "\tmutual-auth");
+	str_append_c(mech_handshake, '\n');
 
 	list->next = mech_modules;
 	mech_modules = list;
@@ -62,7 +79,7 @@ const string_t *auth_mechanisms_get_list(void)
 	return str;
 }
 
-static struct mech_module *mech_module_find(const char *name)
+struct mech_module *mech_module_find(const char *name)
 {
 	struct mech_module_list *list;
 
@@ -73,183 +90,48 @@ static struct mech_module *mech_module_find(const char *name)
 	return NULL;
 }
 
-void mech_request_new(struct auth_client_connection *conn,
-		      struct auth_client_request_new *request,
-		      const unsigned char *data,
-		      mech_callback_t *callback)
+struct auth_request *auth_request_new(struct mech_module *mech)
 {
-        struct mech_module *mech;
-	struct auth_request *auth_request;
-	size_t ip_size = 1;
+	struct auth_request *request;
 
-	if (request->ip_family == AF_INET)
-		ip_size = 4;
-	else if (request->ip_family != 0)
-		ip_size = sizeof(auth_request->local_ip.ip);
-	else
-		ip_size = 0;
+	request = mech->auth_new();
+	if (request == NULL)
+		return NULL;
 
-	/* make sure data is NUL-terminated */
-	if (request->data_size <= ip_size*2 || request->initial_resp_idx == 0 ||
-	    request->mech_idx >= request->data_size ||
-	    request->protocol_idx >= request->data_size ||
-	    request->initial_resp_idx > request->data_size ||
-	    data[request->initial_resp_idx-1] != '\0') {
-		i_error("BUG: Auth client %u sent corrupted request",
-			conn->pid);
-		failure_reply.id = request->id;
-		callback(&failure_reply, NULL, conn);
-		return;
-	}
-
-	mech = mech_module_find((const char *)data + request->mech_idx);
-	if (mech == NULL) {
-		/* unsupported mechanism */
-		i_error("BUG: Auth client %u requested unsupported "
-			"auth mechanism %s", conn->pid,
-			(const char *)data + request->mech_idx);
-		failure_reply.id = request->id;
-		callback(&failure_reply, NULL, conn);
-		return;
-	}
-
-	auth_request = mech->auth_new();
-	if (auth_request == NULL)
-		return;
-
-	auth_request->created = ioloop_time;
-	auth_request->conn = conn;
-	auth_request->id = request->id;
-	auth_request->protocol =
-		p_strdup(auth_request->pool,
-			 (const char *)data + request->protocol_idx);
-
-	if (request->ip_family != 0) {
-		auth_request->local_ip.family = request->ip_family;
-		auth_request->remote_ip.family = request->ip_family;
-
-		memcpy(&auth_request->local_ip.ip, data, ip_size);
-		memcpy(&auth_request->remote_ip.ip, data + ip_size, ip_size);
-	}
-
-	if (ssl_require_client_cert &&
-	    (request->flags & AUTH_CLIENT_FLAG_SSL_VALID_CLIENT_CERT) == 0) {
-		/* we fail without valid certificate */
-		if (verbose) {
-			i_info("ssl-cert-check(%s): "
-			       "Client didn't present valid SSL certificate",
-			       get_log_prefix(auth_request));
-		}
-		auth_request_unref(auth_request);
-
-		failure_reply.id = request->id;
-		callback(&failure_reply, NULL, conn);
-		return;
-	}
-
-	hash_insert(conn->auth_requests, POINTER_CAST(request->id),
-		    auth_request);
-
-	if (!auth_request->auth_initial(auth_request, request, data, callback))
-		mech_request_free(auth_request, request->id);
+	request->mech = mech;
+	request->created = ioloop_time;
+	return request;
 }
 
-void mech_request_continue(struct auth_client_connection *conn,
-			   struct auth_client_request_continue *request,
-			   const unsigned char *data,
-			   mech_callback_t *callback)
+void auth_request_destroy(struct auth_request *request)
 {
-	struct auth_request *auth_request;
-
-	auth_request = hash_lookup(conn->auth_requests,
-				   POINTER_CAST(request->id));
-	if (auth_request == NULL) {
-		/* timeouted */
-		failure_reply.id = request->id;
-		callback(&failure_reply, NULL, conn);
-	} else {
-		if (!auth_request->auth_continue(auth_request,
-						 data, request->data_size,
-						 callback))
-			mech_request_free(auth_request, request->id);
+	if (request->conn != NULL) {
+		hash_remove(request->conn->auth_requests,
+			    POINTER_CAST(request->id));
 	}
+	auth_request_unref(request);
 }
 
-void mech_request_free(struct auth_request *auth_request, unsigned int id)
-{
-	if (auth_request->conn != NULL) {
-		hash_remove(auth_request->conn->auth_requests,
-			    POINTER_CAST(id));
-	}
-	auth_request_unref(auth_request);
-}
-
-void mech_init_auth_client_reply(struct auth_client_request_reply *reply)
-{
-	memset(reply, 0, sizeof(*reply));
-
-	reply->username_idx = (uint32_t)-1;
-	reply->reply_idx = (uint32_t)-1;
-}
-
-void *mech_auth_success(struct auth_client_request_reply *reply,
-			struct auth_request *auth_request,
-			const void *data, size_t data_size)
-{
-	buffer_t *buf;
-
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
-
-	reply->username_idx = 0;
-	buffer_append(buf, auth_request->user, strlen(auth_request->user)+1);
-
-	if (data_size == 0)
-		reply->reply_idx = (uint32_t)-1;
-	else {
-		reply->reply_idx = buffer_get_used_size(buf);
-		buffer_append(buf, data, data_size);
-	}
-
-	reply->result = AUTH_CLIENT_RESULT_SUCCESS;
-	reply->data_size = buffer_get_used_size(buf);
-	return buffer_get_modifyable_data(buf, NULL);
-}
-
-void mech_auth_finish(struct auth_request *auth_request,
+void mech_auth_finish(struct auth_request *request,
 		      const void *data, size_t data_size, int success)
 {
-	struct auth_client_request_reply reply;
-	void *reply_data;
-	int free_request;
-
 	if (!success) {
 		/* failure. don't announce it immediately to avoid
 		   a) timing attacks, b) flooding */
-		buffer_append(auth_failures_buf,
-			      &auth_request, sizeof(auth_request));
+		buffer_append(auth_failures_buf, &request, sizeof(request));
 		return;
 	}
 
-	memset(&reply, 0, sizeof(reply));
-	reply.id = auth_request->id;
-	reply.result = AUTH_CLIENT_RESULT_SUCCESS;
-
-	if (auth_request->conn == NULL) {
-		/* client is already gone */
-		free_request = TRUE;
-	} else {
-		/* get this before callback because it can destroy connection */
-		free_request = AUTH_MASTER_IS_DUMMY(auth_request->conn->master);
-
-		reply_data = mech_auth_success(&reply, auth_request,
-					       data, data_size);
-		auth_request->callback(&reply, reply_data, auth_request->conn);
+	if (request->conn != NULL) {
+		request->callback(request, AUTH_CLIENT_RESULT_SUCCESS,
+				  data, data_size);
 	}
 
-	if (free_request) {
+	if (request->conn == NULL ||
+	    AUTH_MASTER_IS_DUMMY(request->conn->master)) {
 		/* we don't have master process, the request is no longer
 		   needed */
-		mech_request_free(auth_request, auth_request->id);
+		auth_request_destroy(request);
 	}
 }
 
@@ -285,7 +167,7 @@ int auth_request_unref(struct auth_request *request)
 	if (--request->refcount > 0)
 		return TRUE;
 
-	request->auth_free(request);
+	request->mech->auth_free(request);
 	return FALSE;
 }
 
@@ -358,22 +240,18 @@ const char *get_log_prefix(const struct auth_request *auth_request)
 void auth_failure_buf_flush(void)
 {
 	struct auth_request **auth_request;
-	struct auth_client_request_reply reply;
 	size_t i, size;
 
 	auth_request = buffer_get_modifyable_data(auth_failures_buf, &size);
 	size /= sizeof(*auth_request);
 
-	memset(&reply, 0, sizeof(reply));
-	reply.result = AUTH_CLIENT_RESULT_FAILURE;
-
 	for (i = 0; i < size; i++) {
-		reply.id = auth_request[i]->id;
 		if (auth_request[i]->conn != NULL) {
-			auth_request[i]->callback(&reply, NULL,
-						  auth_request[i]->conn);
+			auth_request[i]->callback(auth_request[i],
+						  AUTH_CLIENT_RESULT_FAILURE,
+						  NULL, 0);
 		}
-		mech_request_free(auth_request[i], reply.id);
+		auth_request_destroy(auth_request[i]);
 	}
 	buffer_set_used_size(auth_failures_buf, 0);
 }
@@ -397,10 +275,8 @@ void mech_init(void)
 	const char *const *mechanisms;
 	const char *env;
 
-        mech_modules = NULL;
-
-	memset(&failure_reply, 0, sizeof(failure_reply));
-	failure_reply.result = AUTH_CLIENT_RESULT_FAILURE;
+	mech_modules = NULL;
+	mech_handshake = str_new(default_pool, 512);
 
 	anonymous_username = getenv("ANONYMOUS_USERNAME");
 	if (anonymous_username != NULL && *anonymous_username == '\0')
@@ -493,4 +369,6 @@ void mech_deinit(void)
 	mech_unregister_module(&mech_ntlm);
 	mech_unregister_module(&mech_rpa);
 	mech_unregister_module(&mech_anonymous);
+
+	str_free(mech_handshake);
 }

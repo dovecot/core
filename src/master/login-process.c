@@ -71,14 +71,14 @@ static void login_group_destroy(struct login_group *group)
 	i_free(group);
 }
 
-void auth_master_callback(struct auth_master_reply *reply,
-			  const unsigned char *data, void *context)
+void auth_master_callback(const char *user, const char *const *args,
+			  void *context)
 {
 	struct login_auth_request *request = context;
 	struct master_login_reply master_reply;
 	ssize_t ret;
 
-	if (reply == NULL || !reply->success)
+	if (user == NULL)
 		master_reply.success = FALSE;
 	else {
 		struct login_group *group = request->process->group;
@@ -87,8 +87,7 @@ void auth_master_callback(struct auth_master_reply *reply,
 		master_reply.success =
 			create_mail_process(group, request->fd,
 					    &request->local_ip,
-					    &request->remote_ip,
-					    reply, (const char *) data);
+					    &request->remote_ip, user, args);
 		t_pop();
 	}
 

@@ -7,10 +7,14 @@
 struct auth_client;
 struct auth_request;
 
+enum auth_request_flags {
+	AUTH_REQUEST_FLAG_SECURED		= 0x01,
+	AUTH_REQUEST_FLAG_VALID_CLIENT_CERT	= 0x02,
+};
+
 struct auth_mech_desc {
 	char *name;
-	unsigned int plaintext:1;
-	unsigned int advertise:1;
+        enum mech_security_flags flags;
 };
 
 struct auth_connect_id {
@@ -21,18 +25,16 @@ struct auth_connect_id {
 struct auth_request_info {
 	const char *mech;
 	const char *protocol;
-	enum auth_client_request_new_flags flags;
+	enum auth_request_flags flags;
 
 	struct ip_addr local_ip, remote_ip;
 
-	const unsigned char *initial_resp_data;
-	size_t initial_resp_size;
+	const char *initial_resp_base64;
 };
 
-/* reply is NULL if auth connection died */
-typedef void auth_request_callback_t(struct auth_request *request,
-				     struct auth_client_request_reply *reply,
-				     const unsigned char *data, void *context);
+typedef void auth_request_callback_t(struct auth_request *request, int status,
+				     const char *data_base64,
+				     const char *const *args, void *context);
 
 typedef void auth_connect_notify_callback_t(struct auth_client *client,
 					    int connected, void *context);
@@ -69,7 +71,7 @@ auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 /* Continue authentication. Call when
    reply->result == AUTH_CLIENT_REQUEST_CONTINUE */
 void auth_client_request_continue(struct auth_request *request,
-				  const unsigned char *data, size_t data_size);
+				  const char *data_base64);
 
 /* Abort ongoing authentication request. */
 void auth_client_request_abort(struct auth_request *request);

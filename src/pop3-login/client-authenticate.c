@@ -30,10 +30,10 @@ int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 		/* a) transport is secured
 		   b) auth mechanism isn't plaintext
 		   c) we allow insecure authentication
-		        - but don't advertise AUTH=PLAIN, as RFC 2595 requires
 		*/
-		if (mech[i].advertise &&
-		    (client->secured || !mech[i].plaintext)) {
+		if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
+		    (client->secured || disable_plaintext_auth ||
+		     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0)) {
 			str_append_c(str, ' ');
 			str_append(str, mech[i].name);
 		}
@@ -50,9 +50,7 @@ int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 static void client_auth_input(void *context)
 {
 	struct pop3_client *client = context;
-	buffer_t *buf;
 	char *line;
-	size_t linelen, bufsize;
 
 	if (!client_read(client))
 		return;
@@ -68,25 +66,15 @@ static void client_auth_input(void *context)
 		return;
 	}
 
-	linelen = strlen(line);
-	buf = buffer_create_static_hard(pool_datastack_create(), linelen);
-
-	if (base64_decode(line, linelen, NULL, buf) < 0) {
-		/* failed */
-		sasl_server_auth_cancel(&client->common, "Invalid base64 data");
-	} else if (client->common.auth_request == NULL) {
+	if (client->common.auth_request == NULL) {
 		sasl_server_auth_cancel(&client->common,
 					"Don't send unrequested data");
 	} else {
-		auth_client_request_continue(client->common.auth_request,
-					     buf->data, buf->used);
+		auth_client_request_continue(client->common.auth_request, line);
 	}
 
 	/* clear sensitive data */
-	safe_memset(line, 0, linelen);
-
-	bufsize = buffer_get_used_size(buf);
-	safe_memset(buffer_free_without_data(buf), 0, bufsize);
+	safe_memset(line, 0, strlen(line));
 }
 
 static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
@@ -112,7 +100,8 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		}
 
 		/* get back to normal client input. */
-		io_remove(client->io);
+		if (client->io != NULL)
+			io_remove(client->io);
 		client->io = io_add(client->common.fd, IO_READ,
 				    client_input, client);
 		break;
@@ -149,8 +138,6 @@ int cmd_auth(struct pop3_client *client, const char *args)
 {
 	const struct auth_mech_desc *mech;
 	const char *mech_name, *p;
-	string_t *buf;
-	size_t argslen;
 
 	if (*args == '\0') {
 		/* Old-style SASL discovery, used by MS Outlook */
@@ -158,9 +145,10 @@ int cmd_auth(struct pop3_client *client, const char *args)
 		client_send_line(client, "+OK");
 		mech = auth_client_get_available_mechs(auth_client, &count);
 		for (i = 0; i < count; i++) {
-			if (mech[i].advertise) {
+			if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
+			    (client->secured || disable_plaintext_auth ||
+			     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0))
 		 		client_send_line(client, mech[i].name);
-			}
 		}
  		client_send_line(client, ".");
  		return TRUE;
@@ -176,18 +164,9 @@ int cmd_auth(struct pop3_client *client, const char *args)
 		args = p+1;
 	}
 
-	argslen = strlen(args);
-	buf = buffer_create_static_hard(pool_datastack_create(), argslen);
-
-	if (base64_decode(args, argslen, NULL, buf) < 0) {
-		/* failed */
-		client_send_line(client, "-ERR Invalid base64 data.");
-		return TRUE;
-	}
-
 	client_ref(client);
 	sasl_server_auth_begin(&client->common, "POP3", mech_name,
-			       buf->data, buf->used, sasl_callback);
+			       args, sasl_callback);
 	if (!client->common.authenticating)
 		return TRUE;
 
@@ -220,7 +199,7 @@ int cmd_user(struct pop3_client *client, const char *args)
 
 int cmd_pass(struct pop3_client *client, const char *args)
 {
-	string_t *plain_login;
+	string_t *plain_login, *base64;
 
 	if (client->last_user == NULL) {
 		client_send_line(client, "-ERR No username given.");
@@ -234,10 +213,13 @@ int cmd_pass(struct pop3_client *client, const char *args)
 	str_append_c(plain_login, '\0');
 	str_append(plain_login, args);
 
+	base64 = buffer_create_dynamic(pool_datastack_create(),
+        			MAX_BASE64_ENCODED_SIZE(plain_login->used));
+	base64_encode(plain_login->data, plain_login->used, base64);
+
 	client_ref(client);
 	sasl_server_auth_begin(&client->common, "POP3", "PLAIN",
-			       plain_login->data, plain_login->used,
-			       sasl_callback);
+			       str_c(base64), sasl_callback);
 	if (!client->common.authenticating)
 		return TRUE;
 
@@ -251,7 +233,7 @@ int cmd_pass(struct pop3_client *client, const char *args)
 
 int cmd_apop(struct pop3_client *client, const char *args)
 {
-	buffer_t *apop_data;
+	buffer_t *apop_data, *base64;
 	const char *p;
 
 	if (client->apop_challenge == NULL) {
@@ -291,9 +273,13 @@ int cmd_apop(struct pop3_client *client, const char *args)
 		return TRUE;
 	}
 
+	base64 = buffer_create_dynamic(pool_datastack_create(),
+        			MAX_BASE64_ENCODED_SIZE(apop_data->used));
+	base64_encode(apop_data->data, apop_data->used, base64);
+
 	client_ref(client);
 	sasl_server_auth_begin(&client->common, "POP3", "APOP",
-			       apop_data->data, apop_data->used, sasl_callback);
+			       str_c(base64), sasl_callback);
 	if (!client->common.authenticating)
 		return TRUE;
 

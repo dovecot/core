@@ -71,7 +71,6 @@ noinst_HEADERS = \
 	auth-client-connection.h \
 	auth-client-interface.h \
 	auth-master-connection.h \
-	auth-master-interface.h \
 	auth-module.h \
 	db-ldap.h \
 	db-mysql.h \

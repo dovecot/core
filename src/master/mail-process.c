@@ -312,15 +312,18 @@ void mail_process_exec(const char *protocol, const char *section)
 int create_mail_process(struct login_group *group, int socket,
 			const struct ip_addr *local_ip,
 			const struct ip_addr *remote_ip,
-			struct auth_master_reply *reply, const char *data)
+			const char *user, const char *const *args)
 {
 	struct settings *set = group->set;
 	const struct var_expand_table *var_expand_table;
-	const char *addr, *mail, *user, *chroot_dir, *home_dir, *full_home_dir;
+	const char *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
+	const char *system_user;
 	char title[1024];
 	struct log_io *log;
 	string_t *str;
 	pid_t pid;
+	uid_t uid;
+	gid_t gid;
 	int i, err, ret, log_fd;
 
 	// FIXME: per-group
@@ -329,14 +332,25 @@ int create_mail_process(struct login_group *group, int socket,
 		return FALSE;
 	}
 
-	if (!validate_uid_gid(set, reply->uid, reply->gid,
-			      data + reply->virtual_user_idx))
-		return FALSE;
+	mail = home_dir = chroot_dir = system_user = "";
+	uid = gid = 0;
+	for (; *args != NULL; args++) {
+		if (strncmp(*args, "home=", 5) == 0)
+			home_dir = *args + 5;
+		else if (strncmp(*args, "mail=", 5) == 0)
+			mail = *args + 5;
+		else if (strncmp(*args, "chroot=", 7) == 0)
+			chroot_dir = *args + 7;
+		else if (strncmp(*args, "system_user=", 12) == 0)
+			system_user = *args + 12;
+		else if (strncmp(*args, "uid=", 4) == 0)
+			uid = (uid_t)strtoul(*args + 4, NULL, 10);
+		else if (strncmp(*args, "gid=", 4) == 0)
+			gid = (gid_t)strtoul(*args + 4, NULL, 10);
+	}
 
-	user = data + reply->virtual_user_idx;
-	mail = data + reply->mail_idx;
-	home_dir = data + reply->home_idx;
-	chroot_dir = data + reply->chroot_idx;
+	if (!validate_uid_gid(set, uid, gid, user))
+		return FALSE;
 
 	if (*chroot_dir == '\0' && set->mail_chroot != NULL)
 		chroot_dir = set->mail_chroot;
@@ -395,8 +409,7 @@ int create_mail_process(struct login_group *group, int socket,
 
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
-	restrict_access_set_env(data + reply->system_user_idx,
-				reply->uid, reply->gid, chroot_dir,
+	restrict_access_set_env(system_user, uid, gid, chroot_dir,
 				set->first_valid_gid, set->last_valid_gid,
 				set->mail_extra_groups);
 
@@ -410,10 +423,10 @@ int create_mail_process(struct login_group *group, int socket,
 		/* NOTE: if home directory is NFS-mounted, we might not
 		   have access to it as root. Change the effective UID
 		   temporarily to make it work. */
-		if (reply->uid != master_uid && seteuid(reply->uid) < 0)
-			i_fatal("seteuid(%s) failed: %m", dec2str(reply->uid));
+		if (uid != master_uid && seteuid(uid) < 0)
+			i_fatal("seteuid(%s) failed: %m", dec2str(uid));
 		ret = chdir(full_home_dir);
-		if (reply->uid != master_uid && seteuid(master_uid) < 0)
+		if (uid != master_uid && seteuid(master_uid) < 0)
 			i_fatal("seteuid(%s) failed: %m", dec2str(master_uid));
 
 		/* If user's home directory doesn't exist and we're not
@@ -421,7 +434,7 @@ int create_mail_process(struct login_group *group, int socket,
 		   could be stored elsewhere. */
 		if (ret < 0 && (errno != ENOENT || *chroot_dir != '\0')) {
 			i_fatal("chdir(%s) failed with uid %s: %m",
-				full_home_dir, dec2str(reply->uid));
+				full_home_dir, dec2str(uid));
 		}
 	}
 	if (ret < 0) {
@@ -435,7 +448,7 @@ int create_mail_process(struct login_group *group, int socket,
 
 	env_put("LOGGED_IN=1");
 	env_put(t_strconcat("HOME=", home_dir, NULL));
-	env_put(t_strconcat("USER=", data + reply->virtual_user_idx, NULL));
+	env_put(t_strconcat("USER=", user, NULL));
 
 	addr = net_ip2addr(remote_ip);
 	env_put(t_strconcat("IP=", addr, NULL));
@@ -446,8 +459,7 @@ int create_mail_process(struct login_group *group, int socket,
 		if (addr == NULL)
 			addr = "??";
 
-		i_snprintf(title, sizeof(title), "[%s %s]",
-			   data + reply->virtual_user_idx, addr);
+		i_snprintf(title, sizeof(title), "[%s %s]", user, addr);
 	}
 
 	/* make sure we don't leak syslog fd, but do it last so that

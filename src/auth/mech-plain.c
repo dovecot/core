@@ -11,8 +11,8 @@ static void verify_callback(enum passdb_result result,
 	mech_auth_finish(request, NULL, 0, result == PASSDB_RESULT_OK);
 }
 
-static int
-mech_plain_auth_continue(struct auth_request *auth_request,
+static void
+mech_plain_auth_continue(struct auth_request *request,
 			 const unsigned char *data, size_t data_size,
 			 mech_callback_t *callback)
 {
@@ -20,7 +20,7 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 	char *pass;
 	size_t i, count, len;
 
-	auth_request->callback = callback;
+	request->callback = callback;
 
 	/* authorization ID \0 authentication ID \0 pass.
 	   we'll ignore authorization ID for now. */
@@ -46,93 +46,74 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 		/* invalid input */
 		if (verbose) {
 			i_info("plain(%s): invalid input",
-			       get_log_prefix(auth_request));
+			       get_log_prefix(request));
 		}
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
+		mech_auth_finish(request, NULL, 0, FALSE);
 	} else {
 		/* split and save user/realm */
 		if (strchr(authenid, '@') == NULL && default_realm != NULL) {
-			auth_request->user = p_strconcat(auth_request->pool,
-							 authenid, "@",
-							 default_realm, NULL);
+			request->user = p_strconcat(request->pool,
+						    authenid, "@",
+						    default_realm, NULL);
 		} else {
-			auth_request->user = p_strdup(auth_request->pool,
-						      authenid);
+			request->user = p_strdup(request->pool, authenid);
 		}
 
-		if (!mech_fix_username(auth_request->user, &error)) {
+		if (!mech_fix_username(request->user, &error)) {
 			/* invalid username */
 			if (verbose) {
 				i_info("plain(%s): %s",
-				       get_log_prefix(auth_request), error);
+				       get_log_prefix(request), error);
 			}
-			mech_auth_finish(auth_request, NULL, 0, FALSE);
+			mech_auth_finish(request, NULL, 0, FALSE);
 		} else {
-			passdb->verify_plain(auth_request, pass,
-					     verify_callback);
+			passdb->verify_plain(request, pass, verify_callback);
 		}
 
 		/* make sure it's cleared */
 		safe_memset(pass, 0, strlen(pass));
 	}
-	return TRUE;
-}
-
-static int
-mech_plain_auth_initial(struct auth_request *auth_request,
-			struct auth_client_request_new *request,
-			const unsigned char *data,
-			mech_callback_t *callback)
-{
-	struct auth_client_request_reply reply;
-	size_t data_size;
-
-	if (AUTH_CLIENT_REQUEST_HAVE_INITIAL_RESPONSE(request)) {
-		data += request->initial_resp_idx;
-		data_size = request->data_size - request->initial_resp_idx;
-
-		return auth_request->auth_continue(auth_request, data,
-						   data_size, callback);
-	}
-
-	/* initialize reply */
-	memset(&reply, 0, sizeof(reply));
-	reply.id = request->id;
-	reply.result = AUTH_CLIENT_RESULT_CONTINUE;
-
-	callback(&reply, NULL, auth_request->conn);
-	return TRUE;
 }
 
 static void
-mech_plain_auth_free(struct auth_request *auth_request)
+mech_plain_auth_initial(struct auth_request *request,
+			const unsigned char *data, size_t data_size,
+			mech_callback_t *callback)
 {
-	pool_unref(auth_request->pool);
+	if (data_size == 0)
+		callback(request, AUTH_CLIENT_RESULT_CONTINUE, NULL, 0);
+	else
+		mech_plain_auth_continue(request, data, data_size, callback);
+}
+
+static void
+mech_plain_auth_free(struct auth_request *request)
+{
+	pool_unref(request->pool);
 }
 
 static struct auth_request *mech_plain_auth_new(void)
 {
-        struct auth_request *auth_request;
+        struct auth_request *request;
 	pool_t pool;
 
 	pool = pool_alloconly_create("plain_auth_request", 256);
-	auth_request = p_new(pool, struct auth_request, 1);
-	auth_request->refcount = 1;
-	auth_request->pool = pool;
-	auth_request->auth_initial = mech_plain_auth_initial;
-	auth_request->auth_continue = mech_plain_auth_continue;
-        auth_request->auth_free = mech_plain_auth_free;
-	return auth_request;
+	request = p_new(pool, struct auth_request, 1);
+	request->refcount = 1;
+	request->pool = pool;
+	return request;
 }
 
 struct mech_module mech_plain = {
 	"PLAIN",
 
-	MEMBER(plaintext) TRUE,
-	MEMBER(advertise) FALSE,
+	MEMBER(flags) MECH_SEC_PLAINTEXT,
 
 	MEMBER(passdb_need_plain) TRUE,
 	MEMBER(passdb_need_credentials) FALSE,
 
-	mech_plain_auth_new
+	mech_plain_auth_new,
+	mech_plain_auth_initial,
+	mech_plain_auth_continue,
+        mech_plain_auth_free
 };

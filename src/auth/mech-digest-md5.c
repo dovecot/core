@@ -52,7 +52,7 @@ struct digest_auth_request {
 	char *rspauth;
 };
 
-static string_t *get_digest_challenge(struct digest_auth_request *auth)
+static string_t *get_digest_challenge(struct digest_auth_request *request)
 {
 	buffer_t *buf;
 	string_t *str;
@@ -79,7 +79,7 @@ static string_t *get_digest_challenge(struct digest_auth_request *auth)
 
 	base64_encode(nonce, sizeof(nonce), buf);
 	buffer_append_c(buf, '\0');
-	auth->nonce = p_strdup(auth->pool, buffer_get_data(buf, NULL));
+	request->nonce = p_strdup(request->pool, buffer_get_data(buf, NULL));
 	t_pop();
 
 	str = t_str_new(256);
@@ -89,11 +89,11 @@ static string_t *get_digest_challenge(struct digest_auth_request *auth)
 		str_append_c(str, ',');
 	}
 
-	str_printfa(str, "nonce=\"%s\",", auth->nonce);
+	str_printfa(str, "nonce=\"%s\",", request->nonce);
 
 	str_append(str, "qop=\""); first_qop = TRUE;
 	for (i = 0; i < QOP_COUNT; i++) {
-		if (auth->qop & (1 << i)) {
+		if (request->qop & (1 << i)) {
 			if (first_qop)
 				first_qop = FALSE;
 			else
@@ -108,7 +108,7 @@ static string_t *get_digest_challenge(struct digest_auth_request *auth)
 	return str;
 }
 
-static int verify_credentials(struct digest_auth_request *auth,
+static int verify_credentials(struct digest_auth_request *request,
 			      const char *credentials)
 {
 	struct md5_context ctx;
@@ -151,9 +151,9 @@ static int verify_credentials(struct digest_auth_request *auth,
 	md5_init(&ctx);
 	md5_update(&ctx, digest, 16);
 	md5_update(&ctx, ":", 1);
-	md5_update(&ctx, auth->nonce, strlen(auth->nonce));
+	md5_update(&ctx, request->nonce, strlen(request->nonce));
 	md5_update(&ctx, ":", 1);
-	md5_update(&ctx, auth->cnonce, strlen(auth->cnonce));
+	md5_update(&ctx, request->cnonce, strlen(request->cnonce));
 	md5_final(&ctx, digest);
 	a1_hex = binary_to_hex(digest, 16);
 
@@ -167,11 +167,12 @@ static int verify_credentials(struct digest_auth_request *auth,
 		else
 			md5_update(&ctx, ":", 1);
 
-		if (auth->digest_uri != NULL) {
-			md5_update(&ctx, auth->digest_uri,
-				   strlen(auth->digest_uri));
+		if (request->digest_uri != NULL) {
+			md5_update(&ctx, request->digest_uri,
+				   strlen(request->digest_uri));
 		}
-		if (auth->qop == QOP_AUTH_INT || auth->qop == QOP_AUTH_CONF) {
+		if (request->qop == QOP_AUTH_INT ||
+		    request->qop == QOP_AUTH_CONF) {
 			md5_update(&ctx, ":00000000000000000000000000000000",
 				   33);
 		}
@@ -182,13 +183,15 @@ static int verify_credentials(struct digest_auth_request *auth,
 		md5_init(&ctx);
 		md5_update(&ctx, a1_hex, 32);
 		md5_update(&ctx, ":", 1);
-		md5_update(&ctx, auth->nonce, strlen(auth->nonce));
+		md5_update(&ctx, request->nonce, strlen(request->nonce));
 		md5_update(&ctx, ":", 1);
-		md5_update(&ctx, auth->nonce_count, strlen(auth->nonce_count));
+		md5_update(&ctx, request->nonce_count,
+			   strlen(request->nonce_count));
 		md5_update(&ctx, ":", 1);
-		md5_update(&ctx, auth->cnonce, strlen(auth->cnonce));
+		md5_update(&ctx, request->cnonce, strlen(request->cnonce));
 		md5_update(&ctx, ":", 1);
-		md5_update(&ctx, auth->qop_value, strlen(auth->qop_value));
+		md5_update(&ctx, request->qop_value,
+			   strlen(request->qop_value));
 		md5_update(&ctx, ":", 1);
 		md5_update(&ctx, a2_hex, 32);
 		md5_final(&ctx, digest);
@@ -196,10 +199,10 @@ static int verify_credentials(struct digest_auth_request *auth,
 
 		if (i == 0) {
 			/* verify response */
-			if (memcmp(response_hex, auth->response, 32) != 0) {
+			if (memcmp(response_hex, request->response, 32) != 0) {
 				if (verbose) {
 					struct auth_request *auth_request =
-						&auth->auth_request;
+						&request->auth_request;
 					i_info("digest-md5(%s): "
 					       "password mismatch",
 					       get_log_prefix(auth_request));
@@ -207,8 +210,9 @@ static int verify_credentials(struct digest_auth_request *auth,
 				return FALSE;
 			}
 		} else {
-			auth->rspauth = p_strconcat(auth->pool, "rspauth=",
-						    response_hex, NULL);
+			request->rspauth =
+				p_strconcat(request->pool, "rspauth=",
+					    response_hex, NULL);
 		}
 	}
 
@@ -283,7 +287,7 @@ static int parse_next(char **data, char **key, char **value)
 	return TRUE;
 }
 
-static int auth_handle_response(struct digest_auth_request *auth,
+static int auth_handle_response(struct digest_auth_request *request,
 				char *key, char *value, const char **error)
 {
 	int i;
@@ -295,13 +299,13 @@ static int auth_handle_response(struct digest_auth_request *auth,
 			*error = "Invalid realm";
 			return FALSE;
 		}
-		if (auth->realm == NULL && *value != '\0')
-			auth->realm = p_strdup(auth->pool, value);
+		if (request->realm == NULL && *value != '\0')
+			request->realm = p_strdup(request->pool, value);
 		return TRUE;
 	}
 
 	if (strcmp(key, "username") == 0) {
-		if (auth->username != NULL) {
+		if (request->username != NULL) {
 			*error = "username must not exist more than once";
 			return FALSE;
 		}
@@ -311,23 +315,23 @@ static int auth_handle_response(struct digest_auth_request *auth,
 			return FALSE;
 		}
 
-		auth->username = p_strdup(auth->pool, value);
+		request->username = p_strdup(request->pool, value);
 		return TRUE;
 	}
 
 	if (strcmp(key, "nonce") == 0) {
 		/* nonce must be same */
-		if (strcmp(value, auth->nonce) != 0) {
+		if (strcmp(value, request->nonce) != 0) {
 			*error = "Invalid nonce";
 			return FALSE;
 		}
 
-		auth->nonce_found = TRUE;
+		request->nonce_found = TRUE;
 		return TRUE;
 	}
 
 	if (strcmp(key, "cnonce") == 0) {
-		if (auth->cnonce != NULL) {
+		if (request->cnonce != NULL) {
 			*error = "cnonce must not exist more than once";
 			return FALSE;
 		}
@@ -337,12 +341,12 @@ static int auth_handle_response(struct digest_auth_request *auth,
 			return FALSE;
 		}
 
-		auth->cnonce = p_strdup(auth->pool, value);
+		request->cnonce = p_strdup(request->pool, value);
 		return TRUE;
 	}
 
 	if (strcmp(key, "nonce-count") == 0) {
-		if (auth->nonce_count != NULL) {
+		if (request->nonce_count != NULL) {
 			*error = "nonce-count must not exist more than once";
 			return FALSE;
 		}
@@ -352,7 +356,7 @@ static int auth_handle_response(struct digest_auth_request *auth,
 			return FALSE;
 		}
 
-		auth->nonce_count = p_strdup(auth->pool, value);
+		request->nonce_count = p_strdup(request->pool, value);
 		return TRUE;
 	}
 
@@ -367,13 +371,13 @@ static int auth_handle_response(struct digest_auth_request *auth,
 			return FALSE;
 		}
 
-		auth->qop &= (1 << i);
-		if (auth->qop == 0) {
+		request->qop &= (1 << i);
+		if (request->qop == 0) {
 			*error = "Nonallowed QoP requested";
 			return FALSE;
 		} 
 
-		auth->qop_value = p_strdup(auth->pool, value);
+		request->qop_value = p_strdup(request->pool, value);
 		return TRUE;
 	}
 
@@ -390,18 +394,18 @@ static int auth_handle_response(struct digest_auth_request *auth,
 		   But isn't the realm enough already? That'd be just extra
 		   configuration.. Maybe optionally list valid hosts in
 		   config file? */
-		auth->digest_uri = p_strdup(auth->pool, value);
+		request->digest_uri = p_strdup(request->pool, value);
 		return TRUE;
 	}
 
 	if (strcmp(key, "maxbuf") == 0) {
-		if (auth->maxbuf != 0) {
+		if (request->maxbuf != 0) {
 			*error = "maxbuf must not exist more than once";
 			return FALSE;
 		}
 
-		auth->maxbuf = strtoul(value, NULL, 10);
-		if (auth->maxbuf == 0) {
+		request->maxbuf = strtoul(value, NULL, 10);
+		if (request->maxbuf == 0) {
 			*error = "Invalid maxbuf value";
 			return FALSE;
 		}
@@ -423,7 +427,7 @@ static int auth_handle_response(struct digest_auth_request *auth,
 			return FALSE;
 		}
 
-		memcpy(auth->response, value, 32);
+		memcpy(request->response, value, 32);
 		return TRUE;
 	}
 
@@ -441,7 +445,7 @@ static int auth_handle_response(struct digest_auth_request *auth,
 	return TRUE;
 }
 
-static int parse_digest_response(struct digest_auth_request *auth,
+static int parse_digest_response(struct digest_auth_request *request,
 				 const unsigned char *data, size_t size,
 				 const char **error)
 {
@@ -471,7 +475,7 @@ static int parse_digest_response(struct digest_auth_request *auth,
 	copy = t_strdup_noconst(t_strndup(data, size));
 	while (*copy != '\0') {
 		if (parse_next(&copy, &key, &value)) {
-			if (!auth_handle_response(auth, key, value, error)) {
+			if (!auth_handle_response(request, key, value, error)) {
 				failed = TRUE;
 				break;
 			}
@@ -482,22 +486,22 @@ static int parse_digest_response(struct digest_auth_request *auth,
 	}
 
 	if (!failed) {
-		if (!auth->nonce_found) {
+		if (!request->nonce_found) {
 			*error = "Missing nonce parameter";
 			failed = TRUE;
-		} else if (auth->cnonce == NULL) {
+		} else if (request->cnonce == NULL) {
 			*error = "Missing cnonce parameter";
 			failed = TRUE;
-		} else if (auth->username == NULL) {
+		} else if (request->username == NULL) {
 			*error = "Missing username parameter";
 			failed = TRUE;
 		}
 	}
 
-	if (auth->nonce_count == NULL)
-		auth->nonce_count = p_strdup(auth->pool, "00000001");
-	if (auth->qop_value == NULL)
-		auth->qop_value = p_strdup(auth->pool, "auth");
+	if (request->nonce_count == NULL)
+		request->nonce_count = p_strdup(request->pool, "00000001");
+	if (request->qop_value == NULL)
+		request->qop_value = p_strdup(request->pool, "auth");
 
 	t_pop();
 
@@ -505,148 +509,118 @@ static int parse_digest_response(struct digest_auth_request *auth,
 }
 
 static void credentials_callback(const char *result,
-				 struct auth_request *request)
+				 struct auth_request *auth_request)
 {
-	struct digest_auth_request *auth =
-		(struct digest_auth_request *) request;
-	struct auth_client_request_reply reply;
+	struct digest_auth_request *request =
+		(struct digest_auth_request *)auth_request;
 
-	if (!verify_credentials(auth, result)) {
-		mech_auth_finish(request, NULL, 0, FALSE);
+	if (!verify_credentials(request, result)) {
+		mech_auth_finish(auth_request, NULL, 0, FALSE);
 		return;
 	}
 
-	mech_init_auth_client_reply(&reply);
-	reply.id = request->id;
-	reply.result = AUTH_CLIENT_RESULT_CONTINUE;
-	reply.data_size = strlen(auth->rspauth);
-	auth->authenticated = TRUE;
-
-	request->callback(&reply, auth->rspauth, request->conn);
+	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
+			       request->rspauth, strlen(request->rspauth));
 }
 
-static int
+static void
 mech_digest_md5_auth_continue(struct auth_request *auth_request,
 			      const unsigned char *data, size_t data_size,
 			      mech_callback_t *callback)
 {
-	struct digest_auth_request *auth =
+	struct digest_auth_request *request =
 		(struct digest_auth_request *)auth_request;
-	struct auth_client_request_reply reply;
 	const char *error, *realm;
 
-	/* initialize reply */
-	mech_init_auth_client_reply(&reply);
-	reply.id = auth_request->id;
-
-	if (auth->authenticated) {
+	if (request->authenticated) {
 		/* authentication is done, we were just waiting the last
 		   word from client */
 		mech_auth_finish(auth_request, NULL, 0, TRUE);
-		return TRUE;
+		return;
 	}
 
-	if (parse_digest_response(auth, data, data_size, &error)) {
+	if (parse_digest_response(request, data, data_size, &error)) {
 		auth_request->callback = callback;
 
-		realm = auth->realm != NULL ? auth->realm : default_realm;
+		realm = request->realm != NULL ? request->realm : default_realm;
 		if (realm == NULL) {
 			auth_request->user = p_strdup(auth_request->pool,
-						      auth->username);
+						      request->username);
 		} else {
 			auth_request->user = p_strconcat(auth_request->pool,
-							 auth->username, "@",
+							 request->username, "@",
 							 realm, NULL);
 		}
 
 		if (mech_fix_username(auth_request->user, &error)) {
-			passdb->lookup_credentials(&auth->auth_request,
+			passdb->lookup_credentials(auth_request,
 						PASSDB_CREDENTIALS_DIGEST_MD5,
 						credentials_callback);
-			return TRUE;
+			return;
 		}
 	}
 
-	if (error == NULL)
-                error = "Authentication failed";
-	else if (verbose) {
+	if (verbose && error != NULL) {
 		i_info("digest-md5(%s): %s",
 		       get_log_prefix(auth_request), error);
 	}
 
-	/* failed */
-	reply.result = AUTH_CLIENT_RESULT_FAILURE;
-	reply.data_size = strlen(error)+1;
-	callback(&reply, error, auth_request->conn);
-	return FALSE;
+	mech_auth_finish(auth_request, NULL, 0, FALSE);
 }
 
-static int
+static void
 mech_digest_md5_auth_initial(struct auth_request *auth_request,
-			     struct auth_client_request_new *request,
-			     const unsigned char *data __attr_unused__,
+			     const unsigned char *data, size_t data_size,
 			     mech_callback_t *callback)
 {
-	struct digest_auth_request *auth =
+	struct digest_auth_request *request =
 		(struct digest_auth_request *)auth_request;
-	struct auth_client_request_reply reply;
 	string_t *challenge;
-	size_t data_size;
 
-	if (AUTH_CLIENT_REQUEST_HAVE_INITIAL_RESPONSE(request)) {
+	if (data_size > 0) {
 		/* FIXME: support subsequent authentication? */
-		data += request->initial_resp_idx;
-		data_size = request->data_size - request->initial_resp_idx;
-
-		return auth_request->auth_continue(auth_request, data,
-						   data_size, callback);
+		mech_digest_md5_auth_continue(auth_request, data, data_size,
+					      callback);
+		return;
 	}
 
-	/* initialize reply */
-	mech_init_auth_client_reply(&reply);
-	reply.id = request->id;
-	reply.result = AUTH_CLIENT_RESULT_CONTINUE;
-
-	/* send the initial challenge */
-	reply.reply_idx = 0;
-	challenge = get_digest_challenge(auth);
-	reply.data_size = str_len(challenge);
-	callback(&reply, str_data(challenge), auth_request->conn);
-	return TRUE;
+	challenge = get_digest_challenge(request);
+	callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
+		 str_data(challenge), str_len(challenge));
 }
 
-static void mech_digest_md5_auth_free(struct auth_request *auth_request)
+static void mech_digest_md5_auth_free(struct auth_request *request)
 {
-	pool_unref(auth_request->pool);
+	pool_unref(request->pool);
 }
 
 static struct auth_request *
 mech_digest_md5_auth_new(void)
 {
-	struct digest_auth_request *auth;
+	struct digest_auth_request *request;
 	pool_t pool;
 
 	pool = pool_alloconly_create("digest_md5_auth_request", 2048);
-	auth = p_new(pool, struct digest_auth_request, 1);
-	auth->pool = pool;
+	request = p_new(pool, struct digest_auth_request, 1);
+	request->pool = pool;
 
-	auth->auth_request.refcount = 1;
-	auth->auth_request.pool = pool;
-	auth->auth_request.auth_initial = mech_digest_md5_auth_initial;
-	auth->auth_request.auth_continue = mech_digest_md5_auth_continue;
-	auth->auth_request.auth_free = mech_digest_md5_auth_free;
-	auth->qop = QOP_AUTH;
-	return &auth->auth_request;
+	request->auth_request.refcount = 1;
+	request->auth_request.pool = pool;
+	request->qop = QOP_AUTH;
+	return &request->auth_request;
 }
 
 struct mech_module mech_digest_md5 = {
 	"DIGEST-MD5",
 
-	MEMBER(plaintext) FALSE,
-	MEMBER(advertise) TRUE,
+	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE |
+		MECH_SEC_MUTUAL_AUTH,
 
 	MEMBER(passdb_need_plain) FALSE,
 	MEMBER(passdb_need_credentials) TRUE,
 
-	mech_digest_md5_auth_new
+	mech_digest_md5_auth_new,
+	mech_digest_md5_auth_initial,
+	mech_digest_md5_auth_continue,
+        mech_digest_md5_auth_free
 };

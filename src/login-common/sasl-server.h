@@ -14,8 +14,7 @@ typedef void sasl_server_callback_t(struct client *client,
 
 void sasl_server_auth_begin(struct client *client,
 			    const char *protocol, const char *mech_name,
-			    const unsigned char *initial_resp,
-			    size_t initial_resp_size,
+			    const char *initial_resp_base64,
 			    sasl_server_callback_t *callback);
 void sasl_server_auth_cancel(struct client *client, const char *reason);
 

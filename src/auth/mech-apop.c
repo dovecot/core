@@ -35,7 +35,7 @@ static void
 apop_credentials_callback(const char *credentials,
 			  struct auth_request *auth_request)
 {
-	struct apop_auth_request *auth =
+	struct apop_auth_request *request =
 		(struct apop_auth_request *)auth_request;
 	unsigned char digest[16];
 	struct md5_context ctx;
@@ -43,41 +43,41 @@ apop_credentials_callback(const char *credentials,
 
 	if (credentials != NULL) {
 		md5_init(&ctx);
-		md5_update(&ctx, auth->challenge, strlen(auth->challenge));
+		md5_update(&ctx, request->challenge,
+			   strlen(request->challenge));
 		md5_update(&ctx, credentials, strlen(credentials));
 		md5_final(&ctx, digest);
 
-		ret = memcmp(digest, auth->digest, 16) == 0;
+		ret = memcmp(digest, request->digest, 16) == 0;
 	}
 
 	mech_auth_finish(auth_request, NULL, 0, ret);
 }
 
-static int
+static void
 mech_apop_auth_initial(struct auth_request *auth_request,
-		       struct auth_client_request_new *request,
-		       const unsigned char *data,
+		       const unsigned char *data, size_t data_size,
 		       mech_callback_t *callback)
 {
-	struct apop_auth_request *auth =
+	struct apop_auth_request *request =
 		(struct apop_auth_request *)auth_request;
 	const unsigned char *tmp, *end, *username = NULL;
 	const char *str, *error;
 
 	auth_request->callback = callback;
 
-	if (!AUTH_CLIENT_REQUEST_HAVE_INITIAL_RESPONSE(request)) {
+	if (data_size == 0) {
 		/* Should never happen */
 		if (verbose) {
 			i_info("apop(%s): no initial respone",
 			       get_log_prefix(auth_request));
 		}
 		mech_auth_finish(auth_request, NULL, 0, FALSE);
-		return TRUE;
+		return;
 	}
 
-	tmp = data = data + request->initial_resp_idx;
-	end = data + request->data_size - request->initial_resp_idx;
+	tmp = data;
+	end = data + data_size;
 
 	while (tmp != end && *tmp != '\0')
 		tmp++;
@@ -93,9 +93,9 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 			       get_log_prefix(auth_request));
 		}
 		mech_auth_finish(auth_request, NULL, 0, FALSE);
-		return TRUE;
+		return;
 	}
-	auth->challenge = p_strdup(auth->pool, (const char *)data);
+	request->challenge = p_strdup(request->pool, (const char *)data);
 
 	if (tmp != end) {
 		username = ++tmp;
@@ -110,58 +110,55 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 			       get_log_prefix(auth_request));
 		}
 		mech_auth_finish(auth_request, NULL, 0, FALSE);
-		return TRUE;
+		return;
 	}
 	tmp++;
 
-	auth_request->user = p_strdup(auth->pool, (const char *)username);
+	auth_request->user = p_strdup(request->pool, (const char *)username);
 	if (!mech_fix_username(auth_request->user, &error)) {
 		if (verbose) {
 			i_info("apop(%s): %s",
 			       get_log_prefix(auth_request), error);
 		}
 		mech_auth_finish(auth_request, NULL, 0, FALSE);
-		return TRUE;
+		return;
 	}
 
-	memcpy(auth->digest, tmp, sizeof(auth->digest));
+	memcpy(request->digest, tmp, sizeof(request->digest));
 
 	passdb->lookup_credentials(auth_request, PASSDB_CREDENTIALS_PLAINTEXT,
 				   apop_credentials_callback);
-	return TRUE;
 }
 
-static void mech_apop_auth_free(struct auth_request *auth_request)
+static void mech_apop_auth_free(struct auth_request *request)
 {
-	pool_unref(auth_request->pool);
+	pool_unref(request->pool);
 }
 
 static struct auth_request *mech_apop_auth_new(void)
 {
-	struct apop_auth_request *auth;
+	struct apop_auth_request *request;
 	pool_t pool;
 
 	pool = pool_alloconly_create("apop_auth_request", 256);
-	auth = p_new(pool, struct apop_auth_request, 1);
-	auth->pool = pool;
+	request = p_new(pool, struct apop_auth_request, 1);
+	request->pool = pool;
 
-	auth->auth_request.refcount = 1;
-	auth->auth_request.pool = pool;
-	auth->auth_request.auth_initial = mech_apop_auth_initial;
-	auth->auth_request.auth_continue = NULL;
-	auth->auth_request.auth_free = mech_apop_auth_free;
-
-	return &auth->auth_request;
+	request->auth_request.refcount = 1;
+	request->auth_request.pool = pool;
+	return &request->auth_request;
 }
 
 const struct mech_module mech_apop = {
 	"APOP",
 
-	MEMBER(plaintext) FALSE,
-	MEMBER(advertise) FALSE,
+	MEMBER(flags) MECH_SEC_PRIVATE | MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
 
 	MEMBER(passdb_need_plain) FALSE,
 	MEMBER(passdb_need_credentials) TRUE,
 
 	mech_apop_auth_new,
+	mech_apop_auth_initial,
+	NULL,
+        mech_apop_auth_free
 };

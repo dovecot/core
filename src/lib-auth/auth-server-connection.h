@@ -40,14 +40,13 @@ struct auth_server_connection {
 	unsigned int server_pid;
 	unsigned int connect_uid;
 
+	buffer_t *auth_mechs_buf;
 	const struct auth_mech_desc *available_auth_mechs;
 	unsigned int available_auth_mechs_count;
-        struct auth_client_request_reply reply;
 
         struct hash_table *requests;
 
 	unsigned int handshake_received:1;
-	unsigned int reply_received:1;
 	unsigned int has_plain_mech:1;
 };
 

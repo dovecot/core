@@ -26,10 +26,10 @@ const char *client_authenticate_get_capabilities(int secured)
 		/* a) transport is secured
 		   b) auth mechanism isn't plaintext
 		   c) we allow insecure authentication
-		        - but don't advertise AUTH=PLAIN, as RFC 2595 requires
 		*/
-		if (mech[i].advertise &&
-		    (secured || !mech[i].plaintext)) {
+		if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
+		    (secured || !disable_plaintext_auth ||
+		     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0)) {
 			str_append_c(str, ' ');
 			str_append(str, "AUTH=");
 			str_append(str, mech[i].name);
@@ -42,9 +42,7 @@ const char *client_authenticate_get_capabilities(int secured)
 static void client_auth_input(void *context)
 {
 	struct imap_client *client = context;
-	buffer_t *buf;
 	char *line;
-	size_t linelen, bufsize;
 
 	if (!client_read(client))
 		return;
@@ -67,25 +65,15 @@ static void client_auth_input(void *context)
 		return;
 	}
 
-	linelen = strlen(line);
-	buf = buffer_create_static_hard(pool_datastack_create(), linelen);
-
-	if (base64_decode(line, linelen, NULL, buf) < 0) {
-		/* failed */
-		sasl_server_auth_cancel(&client->common, "Invalid base64 data");
-	} else if (client->common.auth_request == NULL) {
+	if (client->common.auth_request == NULL) {
 		sasl_server_auth_cancel(&client->common,
 					"Don't send unrequested data");
 	} else {
-		auth_client_request_continue(client->common.auth_request,
-					     buf->data, buf->used);
+		auth_client_request_continue(client->common.auth_request, line);
 	}
 
 	/* clear sensitive data */
-	safe_memset(line, 0, linelen);
-
-	bufsize = buffer_get_used_size(buf);
-	safe_memset(buffer_free_without_data(buf), 0, bufsize);
+	safe_memset(line, 0, strlen(line));
 }
 
 static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
@@ -162,7 +150,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 		return FALSE;
 
 	client_ref(client);
-	sasl_server_auth_begin(&client->common, "IMAP", mech_name, NULL, 0,
+	sasl_server_auth_begin(&client->common, "IMAP", mech_name, NULL,
 			       sasl_callback);
 	if (!client->common.authenticating)
 		return 1;
@@ -178,7 +166,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 int cmd_login(struct imap_client *client, struct imap_arg *args)
 {
 	const char *user, *pass;
-	string_t *plain_login;
+	string_t *plain_login, *base64;
 
 	/* two arguments: username and password */
 	if (args[0].type != IMAP_ARG_ATOM && args[0].type != IMAP_ARG_STRING)
@@ -212,10 +200,13 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	buffer_append_c(plain_login, '\0');
 	buffer_append(plain_login, pass, strlen(pass));
 
+	base64 = buffer_create_dynamic(pool_datastack_create(),
+        			MAX_BASE64_ENCODED_SIZE(plain_login->used));
+	base64_encode(plain_login->data, plain_login->used, base64);
+
 	client_ref(client);
 	sasl_server_auth_begin(&client->common, "IMAP", "PLAIN",
-			       plain_login->data, plain_login->used,
-			       sasl_callback);
+			       str_c(base64), sasl_callback);
 	if (!client->common.authenticating)
 		return 1;
 

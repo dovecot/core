@@ -42,11 +42,11 @@ static const char *get_cram_challenge(void)
 		buf[i] = (buf[i] % 10) + '0';
 	buf[sizeof(buf)-1] = '\0';
 
-	return t_strdup_printf("<%s.%s@%s>", (const char *) buf,
+	return t_strdup_printf("<%s.%s@%s>", (const char *)buf,
 			       dec2str(ioloop_time), my_hostname);
 }
 
-static int verify_credentials(struct cram_auth_request *auth,
+static int verify_credentials(struct cram_auth_request *request,
 			      const char *credentials)
 {
 	
@@ -66,15 +66,15 @@ static int verify_credentials(struct cram_auth_request *auth,
 		return FALSE;
 
 	hmac_md5_set_cram_context(&ctx, context_digest);
-	hmac_md5_update(&ctx, auth->challenge, strlen(auth->challenge));
+	hmac_md5_update(&ctx, request->challenge, strlen(request->challenge));
 	hmac_md5_final(&ctx, digest);
 
 	response_hex = binary_to_hex(digest, 16);
 
-	if (memcmp(response_hex, auth->response, 32) != 0) {
+	if (memcmp(response_hex, request->response, 32) != 0) {
 		if (verbose) {
 			i_info("cram-md5(%s): password mismatch",
-			       get_log_prefix(&auth->auth_request));
+			       get_log_prefix(&request->auth_request));
 		}
 		return FALSE;
 	}
@@ -82,7 +82,7 @@ static int verify_credentials(struct cram_auth_request *auth,
 	return TRUE;
 }
 
-static int parse_cram_response(struct cram_auth_request *auth,
+static int parse_cram_response(struct cram_auth_request *request,
 			       const unsigned char *data, size_t size,
 			       const char **error_r)
 {
@@ -102,126 +102,106 @@ static int parse_cram_response(struct cram_auth_request *auth,
 		return FALSE;
 	}
 
-	auth->username = p_strndup(auth->pool, data, space);
+	request->username = p_strndup(request->pool, data, space);
 	space++;
-	auth->response = p_strndup(auth->pool, data + space, size - space);
+	request->response =
+		p_strndup(request->pool, data + space, size - space);
 	return TRUE;
 }
 
 static void credentials_callback(const char *result,
-				 struct auth_request *request)
+				 struct auth_request *auth_request)
 {
-	struct cram_auth_request *auth =
-		(struct cram_auth_request *) request;
+	struct cram_auth_request *request =
+		(struct cram_auth_request *)auth_request;
 
-	if (verify_credentials(auth, result))
-		mech_auth_finish(request, NULL, 0, TRUE);
+	if (verify_credentials(request, result))
+		mech_auth_finish(auth_request, NULL, 0, TRUE);
 	else {
 		if (verbose) {
 			i_info("cram-md5(%s): authentication failed",
-			       get_log_prefix(&auth->auth_request));
+			       get_log_prefix(auth_request));
 		}
-		mech_auth_finish(request, NULL, 0, FALSE);
+		mech_auth_finish(auth_request, NULL, 0, FALSE);
 	}
 }
 
-static int
+static void
 mech_cram_md5_auth_continue(struct auth_request *auth_request,
 			    const unsigned char *data, size_t data_size,
 			    mech_callback_t *callback)
 {
-	struct cram_auth_request *auth =
+	struct cram_auth_request *request =
 		(struct cram_auth_request *)auth_request;
 	const char *error;
 
-	if (parse_cram_response(auth, data, data_size, &error)) {
+	if (parse_cram_response(request, data, data_size, &error)) {
 		auth_request->callback = callback;
 
 		auth_request->user =
-			p_strdup(auth_request->pool, auth->username);
+			p_strdup(auth_request->pool, request->username);
 
 		if (mech_fix_username(auth_request->user, &error)) {
-			passdb->lookup_credentials(&auth->auth_request,
+			passdb->lookup_credentials(auth_request,
 						   PASSDB_CREDENTIALS_CRAM_MD5,
 						   credentials_callback);
-			return TRUE;
+			return;
 		}
 	}
 
 	if (error == NULL)
 		error = "authentication failed";
 
-	if (verbose) {
-		i_info("cram-md5(%s): %s",
-                       get_log_prefix(&auth->auth_request), error);
-	}
+	if (verbose)
+		i_info("cram-md5(%s): %s", get_log_prefix(auth_request), error);
 
 	/* failed */
 	mech_auth_finish(auth_request, NULL, 0, FALSE);
-	return FALSE;
 }
 
-static int
+static void
 mech_cram_md5_auth_initial(struct auth_request *auth_request,
-			   struct auth_client_request_new *request,
 			   const unsigned char *data __attr_unused__,
+			   size_t data_size __attr_unused__,
 			   mech_callback_t *callback)
 {
-	struct cram_auth_request *auth =
+	struct cram_auth_request *request =
 		(struct cram_auth_request *)auth_request;
 
-	struct auth_client_request_reply reply;
-
-	if (AUTH_CLIENT_REQUEST_HAVE_INITIAL_RESPONSE(request)) {
-		/* No initial response in CRAM-MD5 */
-		return FALSE;
-	}
-
-	auth->challenge = p_strdup(auth->pool, get_cram_challenge());
-
-	/* initialize reply */
-	mech_init_auth_client_reply(&reply);
-	reply.id = request->id;
-	reply.result = AUTH_CLIENT_RESULT_CONTINUE;
-
-	/* send the initial challenge */
-	reply.reply_idx = 0;
-	reply.data_size = strlen(auth->challenge);
-	callback(&reply, auth->challenge, auth_request->conn);
-	return TRUE;
+	request->challenge = p_strdup(request->pool, get_cram_challenge());
+	callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
+		 request->challenge, strlen(request->challenge));
 }
 
-static void mech_cram_md5_auth_free(struct auth_request *auth_request)
+static void mech_cram_md5_auth_free(struct auth_request *request)
 {
-	pool_unref(auth_request->pool);
+	pool_unref(request->pool);
 }
 
 static struct auth_request *mech_cram_md5_auth_new(void)
 {
-	struct cram_auth_request *auth;
+	struct cram_auth_request *request;
 	pool_t pool;
 
 	pool = pool_alloconly_create("cram_md5_auth_request", 2048);
-	auth = p_new(pool, struct cram_auth_request, 1);
-	auth->pool = pool;
+	request = p_new(pool, struct cram_auth_request, 1);
+	request->pool = pool;
 
-	auth->auth_request.refcount = 1;
-	auth->auth_request.pool = pool;
-	auth->auth_request.auth_initial = mech_cram_md5_auth_initial;
-	auth->auth_request.auth_continue = mech_cram_md5_auth_continue;
-	auth->auth_request.auth_free = mech_cram_md5_auth_free;
-
-	return &auth->auth_request;
+	request->auth_request.refcount = 1;
+	request->auth_request.pool = pool;
+	return &request->auth_request;
 }
 
 struct mech_module mech_cram_md5 = {
 	"CRAM-MD5",
 
-	MEMBER(plaintext) FALSE,
-	MEMBER(advertise) TRUE,
+	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
 
 	MEMBER(passdb_need_plain) FALSE,
 	MEMBER(passdb_need_credentials) TRUE,
 
-	mech_cram_md5_auth_new
+	mech_cram_md5_auth_new,
+	mech_cram_md5_auth_initial,
+	mech_cram_md5_auth_continue,
+        mech_cram_md5_auth_free
 };

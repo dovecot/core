@@ -1,8 +1,8 @@
 #ifndef __AUTH_PROCESS_H
 #define __AUTH_PROCESS_H
 
-void auth_master_callback(struct auth_master_reply *reply,
-			  const unsigned char *data, void *context);
+void auth_master_callback(const char *user, const char *const *args,
+			  void *context);
 
 /* Find process for given id */
 struct auth_process *auth_process_find(unsigned int pid);

@@ -7,6 +7,7 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "str.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "auth-process.h"
@@ -18,8 +19,8 @@
 #include <syslog.h>
 #include <sys/stat.h>
 
-#define MAX_INBUF_SIZE \
-	(sizeof(struct auth_master_reply) + AUTH_MASTER_MAX_REPLY_DATA_SIZE)
+#define MAX_INBUF_SIZE 8192
+#define MAX_OUTBUF_SIZE 65536
 
 struct auth_process_group {
 	struct auth_process_group *next;
@@ -41,8 +42,6 @@ struct auth_process {
 	struct istream *input;
 	struct ostream *output;
 
-	struct auth_master_reply auth_reply;
-
 	struct hash_table *requests;
 
 	unsigned int external:1;
@@ -56,64 +55,19 @@ static struct auth_process_group *process_groups;
 
 static void auth_process_destroy(struct auth_process *p);
 
-static int handle_reply(struct auth_process *process,
-			struct auth_master_reply *reply,
-			const unsigned char *data)
-{
-	size_t nul_pos;
-	void *context;
-
-	context = hash_lookup(process->requests, POINTER_CAST(reply->tag));
-	if (context == NULL) {
-		i_error("Auth process %s sent unrequested reply with tag %u",
-			dec2str(process->pid), reply->tag);
-		return TRUE;
-	}
-
-	/* make sure the reply looks OK */
-	if (reply->data_size == 0) {
-		nul_pos = 0;
-		data = (const unsigned char *) "";
-	} else {
-		nul_pos = reply->data_size-1;
-	}
-
-	if (data[nul_pos] != '\0') {
-		i_error("Auth process %s sent invalid reply",
-			dec2str(process->pid));
-		return FALSE;
-	}
-
-	/* fix the request so that all the values point to \0 terminated
-	   strings */
-	if (reply->system_user_idx >= reply->data_size)
-		reply->system_user_idx = nul_pos;
-	if (reply->virtual_user_idx >= reply->data_size)
-		reply->virtual_user_idx = nul_pos;
-	if (reply->home_idx >= reply->data_size)
-		reply->home_idx = nul_pos;
-	if (reply->chroot_idx >= reply->data_size)
-		reply->chroot_idx = nul_pos;
-	if (reply->mail_idx >= reply->data_size)
-		reply->mail_idx = nul_pos;
-
-	auth_master_callback(reply, data, context);
-	hash_remove(process->requests, POINTER_CAST(reply->tag));
-	return TRUE;
-}
-
 void auth_process_request(struct auth_process *process, unsigned int login_pid,
 			  unsigned int login_id, void *context)
 {
-	struct auth_master_request req;
+	string_t *str;
 	ssize_t ret;
 
-	req.tag = ++auth_tag;
-	req.id = login_id;
-	req.client_pid = login_pid;
+	t_push();
+	str = t_str_new(256);
+	str_printfa(str, "REQUEST\t%u\t%u\t%u\n",
+		    ++auth_tag, login_pid, login_id);
 
-	ret = o_stream_send(process->output, &req, sizeof(req));
-	if ((size_t)ret != sizeof(req)) {
+	ret = o_stream_send(process->output, str_data(str), str_len(str));
+	if (ret != (ssize_t)str_len(str)) {
 		if (ret >= 0) {
 			/* FIXME: well .. I'm not sure if it'd be better to
 			   just block here. I don't think this condition should
@@ -125,76 +79,147 @@ void auth_process_request(struct auth_process *process, unsigned int login_pid,
 				  "killing..", dec2str(process->pid));
 		}
 		auth_process_destroy(process);
-		return;
+	} else {
+		hash_insert(process->requests, POINTER_CAST(auth_tag), context);
+	}
+	t_pop();
+}
+
+static int
+auth_process_input_user(struct auth_process *process, const char *args)
+{
+	void *context;
+	const char *const *list;
+	unsigned int id;
+
+	/* <id> <userid> [..] */
+
+	list = t_strsplit(args, "\t");
+	if (list[0] == NULL || list[1] == NULL) {
+		i_error("BUG: Auth process %s sent corrupted USER line",
+			dec2str(process->pid));
+		return FALSE;
+	}
+	id = (unsigned int)strtoul(list[0], NULL, 10);
+
+	context = hash_lookup(process->requests, POINTER_CAST(id));
+	if (context == NULL) {
+		i_error("BUG: Auth process %s sent unrequested reply with ID "
+			"%u", dec2str(process->pid), id);
+		return FALSE;
 	}
 
-	hash_insert(process->requests, POINTER_CAST(req.tag), context);
+	auth_master_callback(list[1], list + 2, context);
+	hash_remove(process->requests, POINTER_CAST(id));
+	return TRUE;
+}
+
+static int
+auth_process_input_notfound(struct auth_process *process, const char *args)
+{
+	void *context;
+	unsigned int id;
+
+	id = (unsigned int)strtoul(args, NULL, 10);
+
+	context = hash_lookup(process->requests, POINTER_CAST(id));
+	if (context == NULL) {
+		i_error("BUG: Auth process %s sent unrequested reply with ID "
+			"%u", dec2str(process->pid), id);
+		return FALSE;
+	}
+
+	auth_master_callback(NULL, NULL, context);
+	hash_remove(process->requests, POINTER_CAST(id));
+	return TRUE;
+}
+
+static int
+auth_process_input_spid(struct auth_process *process, const char *args)
+{
+	unsigned int pid;
+
+	if (process->initialized) {
+		i_error("BUG: Authentication server re-handshaking");
+		return FALSE;
+	}
+
+	pid = (unsigned int)strtoul(args, NULL, 10);
+	if (pid == 0) {
+		i_error("BUG: Authentication server said it's PID 0");
+		return FALSE;
+	}
+
+	process->pid = pid;
+	process->initialized = TRUE;
+	return TRUE;
+}
+
+static int
+auth_process_input_fail(struct auth_process *process, const char *args)
+{
+	void *context;
+ 	const char *error;
+	unsigned int id;
+
+	error = strchr(args, '\t');
+	if (error != NULL)
+		error++;
+
+	id = (unsigned int)strtoul(args, NULL, 10);
+
+	context = hash_lookup(process->requests, POINTER_CAST(id));
+	if (context == NULL) {
+		i_error("BUG: Auth process %s sent unrequested reply with ID "
+			"%u", dec2str(process->pid), id);
+		return FALSE;
+	}
+
+	auth_master_callback(NULL, NULL, context);
+	hash_remove(process->requests, POINTER_CAST(id));
+	return TRUE;
 }
 
 static void auth_process_input(void *context)
 {
-	struct auth_process *p = context;
-	const unsigned char *data;
-	size_t size;
+	struct auth_process *process = context;
+	const char *line;
+	int ret;
 
-	switch (i_stream_read(p->input)) {
+	switch (i_stream_read(process->input)) {
 	case 0:
 		return;
 	case -1:
 		/* disconnected */
-		auth_process_destroy(p);
+		auth_process_destroy(process);
 		return;
 	case -2:
 		/* buffer full */
 		i_error("BUG: Auth process %s sent us more than %d "
-			"bytes of data", dec2str(p->pid), (int)MAX_INBUF_SIZE);
-		auth_process_destroy(p);
+			"bytes of data", dec2str(process->pid),
+			(int)MAX_INBUF_SIZE);
+		auth_process_destroy(process);
 		return;
 	}
 
-	if (!p->initialized) {
-		struct auth_master_handshake_reply rec;
+	while ((line = i_stream_next_line(process->input)) != NULL) {
+		t_push();
+		if (strncmp(line, "USER\t", 5) == 0)
+			ret = auth_process_input_user(process, line + 5);
+		else if (strncmp(line, "NOTFOUND\t", 9) == 0)
+			ret = auth_process_input_notfound(process, line + 9);
+		else if (strncmp(line, "FAIL\t", 5) == 0)
+			ret = auth_process_input_fail(process, line + 5);
+		else if (strncmp(line, "SPID\t", 5) == 0)
+			ret = auth_process_input_spid(process, line + 5);
+		else
+			ret = TRUE;
 
-		data = i_stream_get_data(p->input, &size);
-		if (size < sizeof(rec))
-			return;
-
-		memcpy(&rec, data, sizeof(rec));
-		i_stream_skip(p->input, sizeof(rec));
-
-		if (rec.server_pid == 0) {
-			i_fatal("Auth process sent invalid initialization "
-				"notification");
-		}
-
-		p->pid = rec.server_pid;
-		p->initialized = TRUE;
-	}
-
-	for (;;) {
-		if (!p->in_auth_reply) {
-			data = i_stream_get_data(p->input, &size);
-			if (size < sizeof(p->auth_reply))
-				break;
-
-			p->in_auth_reply = TRUE;
-			memcpy(&p->auth_reply, data, sizeof(p->auth_reply));
-
-			i_stream_skip(p->input, sizeof(p->auth_reply));
-		}
-
-		data = i_stream_get_data(p->input, &size);
-		if (size < p->auth_reply.data_size)
-			break;
-
-		/* reply is now read */
-		if (!handle_reply(p, &p->auth_reply, data)) {
-			auth_process_destroy(p);
+		if (!ret) {
+			auth_process_destroy(process);
 			break;
 		}
-
-		p->in_auth_reply = FALSE;
-		i_stream_skip(p->input, p->auth_reply.data_size);
+		t_pop();
 	}
 }
 
@@ -213,8 +238,7 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 	p->io = io_add(fd, IO_READ, auth_process_input, p);
 	p->input = i_stream_create_file(fd, default_pool,
 					MAX_INBUF_SIZE, FALSE);
-	p->output = o_stream_create_file(fd, default_pool,
-					 sizeof(struct auth_master_request)*100,
+	p->output = o_stream_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
 					 FALSE);
 	p->requests = hash_create(default_pool, default_pool, 0, NULL, NULL);
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2003 Timo Sirainen */
+/* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
 #include "buffer.h"
@@ -12,13 +12,7 @@
 #include "auth-server-request.h"
 
 #include <unistd.h>
-
-/* Maximum size for an auth reply. 50kB should be more than enough. */
-#define MAX_INBUF_SIZE (1024*50)
-
-#define MAX_OUTBUF_SIZE \
-	(sizeof(struct auth_client_request_continue) + \
-	 AUTH_CLIENT_MAX_REQUEST_DATA_SIZE)
+#include <stdlib.h>
 
 static void auth_server_connection_unref(struct auth_server_connection *conn);
 
@@ -40,54 +34,81 @@ static void update_available_auth_mechs(struct auth_server_connection *conn)
 	}
 }
 
-static void auth_handle_handshake(struct auth_server_connection *conn,
-				  struct auth_client_handshake_reply *handshake,
-				  const unsigned char *data)
+static int
+auth_client_input_mech(struct auth_server_connection *conn, const char *args)
 {
-	struct auth_client_handshake_mech_desc handshake_mech_desc;
+	const char *const *list;
 	struct auth_mech_desc mech_desc;
-	buffer_t *buf;
-	unsigned int i;
 
-	if (handshake->data_size == 0 || data[handshake->data_size-1] != '\0' ||
-	    handshake->mech_count * sizeof(handshake_mech_desc) >=
-	    handshake->data_size)  {
-		i_error("BUG: Auth server sent corrupted handshake");
-		auth_server_connection_destroy(conn, FALSE);
-		return;
+	if (conn->handshake_received) {
+		i_error("BUG: Authentication server already sent handshake");
+		return FALSE;
 	}
 
-	buf = buffer_create_dynamic(conn->pool, sizeof(mech_desc) *
-				    handshake->mech_count);
-	for (i = 0; i < handshake->mech_count; i++) {
-		memcpy(&handshake_mech_desc,
-		       data + sizeof(handshake_mech_desc) * i,
-		       sizeof(handshake_mech_desc));
-
-		if (handshake_mech_desc.name_idx >= handshake->data_size) {
-			i_error("BUG: Auth server sent corrupted handshake");
-			auth_server_connection_destroy(conn, FALSE);
-			return;
-		}
-
-		mech_desc.name = p_strdup(conn->pool, (const char *)data +
-					  handshake_mech_desc.name_idx);
-		mech_desc.plaintext = handshake_mech_desc.plaintext;
-		mech_desc.advertise = handshake_mech_desc.advertise;
-		buffer_append(buf, &mech_desc, sizeof(mech_desc));
-
-		if (strcmp(mech_desc.name, "PLAIN") == 0)
-			conn->has_plain_mech = TRUE;
+	list = t_strsplit(args, "\t");
+	if (list[0] == NULL) {
+		i_error("BUG: Authentication server sent broken MECH line");
+		return FALSE;
 	}
 
-	conn->server_pid = handshake->server_pid;
-	conn->connect_uid = handshake->connect_uid;
+	memset(&mech_desc, 0, sizeof(mech_desc));
+	mech_desc.name = p_strdup(conn->pool, list[0]);
+
+	if (strcmp(mech_desc.name, "PLAIN") == 0)
+		conn->has_plain_mech = TRUE;
+
+	for (list++; *list != NULL; list++) {
+		if (strcmp(*list, "private") == 0)
+			mech_desc.flags |= MECH_SEC_PRIVATE;
+		else if (strcmp(*list, "anonymous") == 0)
+			mech_desc.flags |= MECH_SEC_ANONYMOUS;
+		else if (strcmp(*list, "plaintext") == 0)
+			mech_desc.flags |= MECH_SEC_PLAINTEXT;
+		else if (strcmp(*list, "dictionary") == 0)
+			mech_desc.flags |= MECH_SEC_DICTIONARY;
+		else if (strcmp(*list, "active") == 0)
+			mech_desc.flags |= MECH_SEC_ACTIVE;
+		else if (strcmp(*list, "forward-secrecy") == 0)
+			mech_desc.flags |= MECH_SEC_FORWARD_SECRECY;
+		else if (strcmp(*list, "mutual-auth") == 0)
+			mech_desc.flags |= MECH_SEC_MUTUAL_AUTH;
+	}
+	buffer_append(conn->auth_mechs_buf, &mech_desc, sizeof(mech_desc));
+	return TRUE;
+}
+
+static int
+auth_client_input_spid(struct auth_server_connection *conn, const char *args)
+{
+	if (conn->handshake_received) {
+		i_error("BUG: Authentication server already sent handshake");
+		return FALSE;
+	}
+
+	conn->server_pid = (unsigned int)strtoul(args, NULL, 10);
+	return TRUE;
+}
+
+static int
+auth_client_input_cuid(struct auth_server_connection *conn, const char *args)
+{
+	if (conn->handshake_received) {
+		i_error("BUG: Authentication server already sent handshake");
+		return FALSE;
+	}
+
+	conn->connect_uid = (unsigned int)strtoul(args, NULL, 10);
+	return TRUE;
+}
+
+static int auth_client_input_done(struct auth_server_connection *conn)
+{
+	conn->available_auth_mechs = conn->auth_mechs_buf->data;
 	conn->available_auth_mechs_count =
-		buffer_get_used_size(buf) / sizeof(mech_desc);
-	conn->available_auth_mechs = buffer_free_without_data(buf);
-	conn->handshake_received = TRUE;
+		conn->auth_mechs_buf->used / sizeof(struct auth_mech_desc);
 
-        conn->client->conn_waiting_handshake_count--;
+	conn->handshake_received = TRUE;
+	conn->client->conn_waiting_handshake_count--;
 	update_available_auth_mechs(conn);
 
 	if (conn->client->connect_notify_callback != NULL &&
@@ -95,14 +116,14 @@ static void auth_handle_handshake(struct auth_server_connection *conn,
 		conn->client->connect_notify_callback(conn->client, TRUE,
 				conn->client->connect_notify_context);
 	}
+	return TRUE;
 }
 
 static void auth_client_input(void *context)
 {
 	struct auth_server_connection *conn = context;
-	struct auth_client_handshake_reply handshake;
-	const unsigned char *data;
-	size_t size;
+	const char *line;
+	int ret;
 
 	switch (i_stream_read(conn->input)) {
 	case 0:
@@ -114,50 +135,37 @@ static void auth_client_input(void *context)
 	case -2:
 		/* buffer full - can't happen unless auth is buggy */
 		i_error("BUG: Auth server sent us more than %d bytes of data",
-			MAX_INBUF_SIZE);
+			AUTH_CLIENT_MAX_LINE_LENGTH);
 		auth_server_connection_destroy(conn, FALSE);
 		return;
 	}
 
-	if (!conn->handshake_received) {
-		data = i_stream_get_data(conn->input, &size);
-		if (size < sizeof(handshake))
-			return;
-
-		memcpy(&handshake, data, sizeof(handshake));
-		if (size < sizeof(handshake) + handshake.data_size)
-			return;
-
-		conn->refcount++;
-		auth_handle_handshake(conn, &handshake,
-				      data + sizeof(handshake));
-		i_stream_skip(conn->input, sizeof(handshake) +
-			      handshake.data_size);
-		auth_server_connection_unref(conn);
-		return;
-	}
-
-	if (!conn->reply_received) {
-		data = i_stream_get_data(conn->input, &size);
-		if (size < sizeof(conn->reply))
-			return;
-
-		memcpy(&conn->reply, data, sizeof(conn->reply));
-		i_stream_skip(conn->input, sizeof(conn->reply));
-		conn->reply_received = TRUE;
-	}
-
-	data = i_stream_get_data(conn->input, &size);
-	if (size < conn->reply.data_size)
-		return;
-
-	/* we've got a full reply */
 	conn->refcount++;
-	conn->reply_received = FALSE;
+	while ((line = i_stream_next_line(conn->input)) != NULL) {
+		if (strncmp(line, "OK\t", 3) == 0)
+			ret = auth_client_input_ok(conn, line + 3);
+		else if (strncmp(line, "CONT\t", 5) == 0)
+			ret = auth_client_input_cont(conn, line + 5);
+        	else if (strncmp(line, "FAIL\t", 5) == 0)
+			ret = auth_client_input_fail(conn, line + 5);
+		else if (strncmp(line, "MECH\t", 5) == 0)
+			ret = auth_client_input_mech(conn, line + 5);
+		else if (strncmp(line, "SPID\t", 5) == 0)
+			ret = auth_client_input_spid(conn, line + 5);
+		else if (strncmp(line, "CUID\t", 5) == 0)
+			ret = auth_client_input_cuid(conn, line + 5);
+		else if (strcmp(line, "DONE") == 0)
+			ret = auth_client_input_done(conn);
+		else {
+			/* ignore unknown command */
+			ret = TRUE;
+		}
 
-	auth_server_request_handle_reply(conn, &conn->reply, data);
-	i_stream_skip(conn->input, conn->reply.data_size);
-
+		if (!ret) {
+			auth_server_connection_destroy(conn, FALSE);
+			break;
+		}
+	}
 	auth_server_connection_unref(conn);
 }
 
@@ -165,7 +173,6 @@ struct auth_server_connection *
 auth_server_connection_new(struct auth_client *client, const char *path)
 {
 	struct auth_server_connection *conn;
-	struct auth_client_handshake_request handshake;
 	pool_t pool;
 	int fd;
 
@@ -192,21 +199,19 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 		conn->ext_input_io =
 			client->ext_input_add(fd, auth_client_input, conn);
 	}
-	conn->input = i_stream_create_file(fd, default_pool, MAX_INBUF_SIZE,
-					   FALSE);
+	conn->input = i_stream_create_file(fd, default_pool,
+					   AUTH_CLIENT_MAX_LINE_LENGTH, FALSE);
 	conn->output = o_stream_create_file(fd, default_pool, (size_t)-1,
 					    FALSE);
 	conn->requests = hash_create(default_pool, pool, 100, NULL, NULL);
+	conn->auth_mechs_buf = buffer_create_dynamic(default_pool, 256);
 
 	conn->next = client->connections;
 	client->connections = conn;
 
-	/* send our handshake */
-	memset(&handshake, 0, sizeof(handshake));
-	handshake.client_pid = client->pid;
-
         client->conn_waiting_handshake_count++;
-	if (o_stream_send(conn->output, &handshake, sizeof(handshake)) < 0) {
+	if (o_stream_send_str(conn->output,
+			      t_strdup_printf("CPID\t%u\n", client->pid)) < 0) {
 		errno = conn->output->stream_errno;
 		i_warning("Error sending handshake to auth server: %m");
 		auth_server_connection_destroy(conn, TRUE);
@@ -252,7 +257,7 @@ void auth_server_connection_destroy(struct auth_server_connection *conn,
 	conn->fd = -1;
 
 	auth_server_requests_remove_all(conn);
-        auth_server_connection_unref(conn);
+	auth_server_connection_unref(conn);
 
 	if (reconnect)
 		auth_client_connect_missing_servers(client);
@@ -270,6 +275,7 @@ static void auth_server_connection_unref(struct auth_server_connection *conn)
 	i_assert(conn->refcount == 0);
 
 	hash_destroy(conn->requests);
+	buffer_free(conn->auth_mechs_buf);
 
 	i_stream_unref(conn->input);
 	o_stream_unref(conn->output);

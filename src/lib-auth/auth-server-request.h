@@ -1,9 +1,11 @@
 #ifndef __AUTH_SERVER_REQUEST_H
 #define __AUTH_SERVER_REQUEST_H
 
-void auth_server_request_handle_reply(struct auth_server_connection *conn,
-				      struct auth_client_request_reply *reply,
-				      const unsigned char *data);
+int auth_client_input_ok(struct auth_server_connection *conn, const char *args);
+int auth_client_input_cont(struct auth_server_connection *conn,
+			   const char *args);
+int auth_client_input_fail(struct auth_server_connection *conn,
+			   const char *args);
 
 void auth_server_requests_remove_all(struct auth_server_connection *conn);
 

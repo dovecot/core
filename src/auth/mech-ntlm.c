@@ -36,7 +36,7 @@ static void
 lm_credentials_callback(const char *credentials,
 			struct auth_request *auth_request)
 {
-	struct ntlm_auth_request *auth =
+	struct ntlm_auth_request *request =
 		(struct ntlm_auth_request *)auth_request;
 	const unsigned char *client_response;
 	unsigned char lm_response[LM_RESPONSE_SIZE];
@@ -53,9 +53,9 @@ lm_credentials_callback(const char *credentials,
 					 hash, sizeof(hash));
 	hex_to_binary(credentials, hash_buffer);
 
-	client_response = ntlmssp_buffer_data(auth->response, lm_response);
+	client_response = ntlmssp_buffer_data(request->response, lm_response);
 
-	ntlmssp_v1_response(hash, auth->challenge, lm_response);
+	ntlmssp_v1_response(hash, request->challenge, lm_response);
 
 	ret = memcmp(lm_response, client_response, LM_RESPONSE_SIZE) == 0;
 
@@ -66,7 +66,7 @@ static void
 ntlm_credentials_callback(const char *credentials,
 			  struct auth_request *auth_request)
 {
-	struct ntlm_auth_request *auth =
+	struct ntlm_auth_request *request =
 		(struct ntlm_auth_request *)auth_request;
 	const unsigned char *client_response;
 	unsigned char hash[NTLMSSP_HASH_SIZE];
@@ -74,7 +74,7 @@ ntlm_credentials_callback(const char *credentials,
 	buffer_t *hash_buffer;
 	int ret;
 
-	if (credentials == NULL && !auth->ntlm2_negotiated) {
+	if (credentials == NULL && !request->ntlm2_negotiated) {
 		passdb->lookup_credentials(auth_request,
 					   PASSDB_CREDENTIALS_LANMAN,
 					   lm_credentials_callback);
@@ -85,8 +85,9 @@ ntlm_credentials_callback(const char *credentials,
 					 hash, sizeof(hash));
 	hex_to_binary(credentials, hash_buffer);
 
-	response_length = ntlmssp_buffer_length(auth->response, ntlm_response);
-	client_response = ntlmssp_buffer_data(auth->response, ntlm_response);
+	response_length =
+		ntlmssp_buffer_length(request->response, ntlm_response);
+	client_response = ntlmssp_buffer_data(request->response, ntlm_response);
 
 	if (response_length > NTLMSSP_RESPONSE_SIZE) {
 		unsigned char ntlm_v2_response[NTLMSSP_V2_RESPONSE_SIZE];
@@ -98,7 +99,7 @@ ntlm_credentials_callback(const char *credentials,
 		 * as a standalone server, not as NT domain member.
 		 */
 		ntlmssp_v2_response(auth_request->user, NULL,
-				    hash, auth->challenge, blob,
+				    hash, request->challenge, blob,
 				    response_length - NTLMSSP_V2_RESPONSE_SIZE,
 				    ntlm_v2_response);
 
@@ -107,14 +108,14 @@ ntlm_credentials_callback(const char *credentials,
 	} else {
 		unsigned char ntlm_response[NTLMSSP_RESPONSE_SIZE];
 		const unsigned char *client_lm_response =
-			ntlmssp_buffer_data(auth->response, lm_response);
+			ntlmssp_buffer_data(request->response, lm_response);
 
-		if (auth->ntlm2_negotiated)
-			ntlmssp2_response(hash, auth->challenge,
+		if (request->ntlm2_negotiated)
+			ntlmssp2_response(hash, request->challenge,
 					  client_lm_response,
 					  ntlm_response);
 		else 
-			ntlmssp_v1_response(hash, auth->challenge,
+			ntlmssp_v1_response(hash, request->challenge,
 					    ntlm_response);
 
 		ret = memcmp(ntlm_response, client_response,
@@ -124,47 +125,42 @@ ntlm_credentials_callback(const char *credentials,
 	mech_auth_finish(auth_request, NULL, 0, ret);
 }
 
-static int
+static void
 mech_ntlm_auth_continue(struct auth_request *auth_request,
 			const unsigned char *data, size_t data_size,
 			mech_callback_t *callback)
 {
-	struct ntlm_auth_request *auth =
+	struct ntlm_auth_request *request =
 		(struct ntlm_auth_request *)auth_request;
-	struct auth_client_request_reply reply;
 	const char *error;
 
 	auth_request->callback = callback;
 
-	if (!auth->challenge) {
-		const struct ntlmssp_request *request =
+	if (!request->challenge) {
+		const struct ntlmssp_request *ntlm_request =
 			(struct ntlmssp_request *)data;
 		const struct ntlmssp_challenge *message;
 		size_t message_size;
 
-		if (!ntlmssp_check_request(request, data_size, &error)) {
+		if (!ntlmssp_check_request(ntlm_request, data_size, &error)) {
 			if (verbose) {
 				i_info("ntlm(%s): invalid NTLM request, %s",
 				       get_log_prefix(auth_request),
 				       error);
 			}
 			mech_auth_finish(auth_request, NULL, 0, FALSE);
-			return TRUE;
+			return;
 		}
 
-		message = ntlmssp_create_challenge(auth->pool, request,
+		message = ntlmssp_create_challenge(request->pool, ntlm_request,
 						   &message_size);
-		auth->ntlm2_negotiated =
+		request->ntlm2_negotiated =
 			read_le32(&message->flags) & NTLMSSP_NEGOTIATE_NTLM2;
-		auth->challenge = message->challenge;
+		request->challenge = message->challenge;
 
-		mech_init_auth_client_reply(&reply);
-		reply.id = auth_request->id;
-		reply.result = AUTH_CLIENT_RESULT_CONTINUE;
-
-		reply.reply_idx = 0;
-		reply.data_size = message_size;
-		callback(&reply, message, auth_request->conn);
+		auth_request->callback(auth_request,
+				       AUTH_CLIENT_RESULT_CONTINUE,
+				       message, message_size);
 	} else {
 		const struct ntlmssp_response *response =
 			(struct ntlmssp_response *)data;
@@ -177,14 +173,14 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 				       error);
 			}
 			mech_auth_finish(auth_request, NULL, 0, FALSE);
-			return TRUE;
+			return;
 		}
 
-		auth->response = p_malloc(auth->pool, data_size);
-		memcpy(auth->response, response, data_size);
+		request->response = p_malloc(request->pool, data_size);
+		memcpy(request->response, response, data_size);
 
 		username = p_strdup(auth_request->pool,
-				    ntlmssp_t_str(auth->response, user));
+				    ntlmssp_t_str(request->response, user));
 
 		if (!mech_fix_username(username, &error)) {
 			if (verbose) {
@@ -192,70 +188,55 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 				       get_log_prefix(auth_request), error);
 			}
 			mech_auth_finish(auth_request, NULL, 0, FALSE);
-			return TRUE;
+			return;
 		}
 
 		auth_request->user = username;
-
 		passdb->lookup_credentials(auth_request,
 					   PASSDB_CREDENTIALS_NTLM,
 					   ntlm_credentials_callback);
 	}
-
-	return TRUE;
-}
-
-static int
-mech_ntlm_auth_initial(struct auth_request *auth_request,
-		       struct auth_client_request_new *request,
-		       const unsigned char *data __attr_unused__,
-		       mech_callback_t *callback)
-{
-	struct auth_client_request_reply reply;
-
-	mech_init_auth_client_reply(&reply);
-	reply.id = request->id;
-	reply.result = AUTH_CLIENT_RESULT_CONTINUE;
-
-	reply.reply_idx = 0;
-	reply.data_size = 0;
-	callback(&reply, "", auth_request->conn);
-
-	return TRUE;
 }
 
 static void
-mech_ntlm_auth_free(struct auth_request *auth_request)
+mech_ntlm_auth_initial(struct auth_request *auth_request,
+		       const unsigned char *data __attr_unused__,
+		       size_t data_size __attr_unused__,
+		       mech_callback_t *callback)
 {
-	pool_unref(auth_request->pool);
+	callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE, NULL, 0);
+}
+
+static void
+mech_ntlm_auth_free(struct auth_request *request)
+{
+	pool_unref(request->pool);
 }
 
 static struct auth_request *mech_ntlm_auth_new(void)
 {
-	struct ntlm_auth_request *auth;
+	struct ntlm_auth_request *request;
 	pool_t pool;
 
 	pool = pool_alloconly_create("ntlm_auth_request", 256);
-	auth = p_new(pool, struct ntlm_auth_request, 1);
-	auth->pool = pool;
+	request = p_new(pool, struct ntlm_auth_request, 1);
+	request->pool = pool;
 
-	auth->auth_request.refcount = 1;
-	auth->auth_request.pool = pool;
-	auth->auth_request.auth_initial = mech_ntlm_auth_initial;
-	auth->auth_request.auth_continue = mech_ntlm_auth_continue;
-	auth->auth_request.auth_free = mech_ntlm_auth_free;
-
-	return &auth->auth_request;
+	request->auth_request.refcount = 1;
+	request->auth_request.pool = pool;
+	return &request->auth_request;
 }
 
 const struct mech_module mech_ntlm = {
 	"NTLM",
 
-	MEMBER(plaintext) FALSE,
-	MEMBER(advertise) TRUE,
+	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
 
 	MEMBER(passdb_need_plain) FALSE,
 	MEMBER(passdb_need_credentials) TRUE,
 
 	mech_ntlm_auth_new,
+	mech_ntlm_auth_initial,
+	mech_ntlm_auth_continue,
+	mech_ntlm_auth_free
 };

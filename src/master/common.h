@@ -7,8 +7,6 @@ struct ip_addr;
 #include "hash.h"
 #include "master-settings.h"
 
-#include "../auth/auth-master-interface.h"
-
 enum process_type {
 	PROCESS_TYPE_UNKNOWN,
 	PROCESS_TYPE_AUTH,
