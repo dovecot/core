@@ -48,7 +48,7 @@ static int lm_verify_credentials(struct ntlm_auth_request *request,
 
 	if (response_length < LM_RESPONSE_SIZE) {
                 auth_request_log_error(&request->auth_request, "ntlm",
-			"passdb credentials' length is too small");
+			"LM response length is too small");
 		return FALSE;
 	}
 
@@ -108,8 +108,11 @@ static int ntlm_verify_credentials(struct ntlm_auth_request *request,
 
 	hash_buffer = buffer_create_data(auth_request->pool,
 					 hash, sizeof(hash));
-	hex_to_binary(credentials, hash_buffer);
-
+	if (hex_to_binary(credentials, hash_buffer) < 0) {
+                auth_request_log_error(&request->auth_request, "ntlm",
+				       "passdb credentials are not in hex");
+		return 0;
+	}
 
 	if (response_length > NTLMSSP_RESPONSE_SIZE) {
 		unsigned char ntlm_v2_response[NTLMSSP_V2_RESPONSE_SIZE];
