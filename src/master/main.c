@@ -8,6 +8,7 @@
 #include "auth-process.h"
 #include "login-process.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -211,6 +212,11 @@ static void daemonize(void)
 		_exit(0);
 }
 
+static void print_help(void)
+{
+	printf("Usage: imap-master [-F] [-c <config file>]\n");
+}
+
 int main(int argc, char *argv[])
 {
 	/* parse arguments */
@@ -230,6 +236,7 @@ int main(int argc, char *argv[])
 			if (i == argc) i_fatal("Missing config file argument");
 			configfile = argv[i];
 		} else {
+			print_help();
 			i_fatal("Unknown argument: %s", argv[1]);
 		}
 	}
