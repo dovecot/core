@@ -53,8 +53,8 @@ struct imap_parser {
 	p_realloc((parser)->pool, old_list, \
 		  sizeof(struct imap_arg_list) + \
 		  (old_list == NULL ? 0 : \
-		   sizeof(struct imap_arg) * (old_list)->alloc), \
-		  sizeof(struct imap_arg) * (new_size))
+		   sizeof(struct imap_arg_list) * (old_list)->alloc), \
+		  sizeof(struct imap_arg_list) * (new_size))
 
 static void imap_args_realloc(struct imap_parser *parser, size_t size)
 {
