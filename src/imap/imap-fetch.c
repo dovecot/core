@@ -226,8 +226,8 @@ int imap_fetch(struct imap_fetch_context *ctx)
 					  str_len(ctx->cur_str) - 1 -
 					  ctx->first) < 0)
 				return -1;
-			str_truncate(ctx->cur_str, 0);
 		}
+		str_truncate(ctx->cur_str, 0);
 
 		ctx->line_finished = TRUE;
 		if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0)
