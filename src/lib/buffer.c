@@ -27,14 +27,11 @@
 #include "buffer.h"
 
 struct _Buffer {
-	/* public for String: */
-	const unsigned char *r_buffer;
-	size_t used;
-
-	/* private: */
 	Pool pool;
+
+	const unsigned char *r_buffer;
 	unsigned char *w_buffer;
-	size_t alloc, max_alloc, limit, start_pos;
+	size_t used, alloc, max_alloc, limit, start_pos;
 
 	unsigned int alloced:1;
 	unsigned int readonly:1;
