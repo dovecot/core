@@ -5,10 +5,10 @@
    exists. If it doesn't exist but would be a valid mailbox name, the
    error message is prefixed with [TRYCREATE].
 
-   If should_exist is FALSE, this function returns TRUE if the mailbox
-   name is valid and doesn't exist. */
+   If should_exist is FALSE, the should_not_exist specifies if we should
+   return TRUE or FALSE if mailbox doesn't exist. */
 int client_verify_mailbox_name(Client *client, const char *mailbox,
-			       int should_exist);
+			       int should_exist, int should_not_exist);
 
 /* Returns TRUE if mailbox is selected. If not, sends "No mailbox selected"
    error message to client. */

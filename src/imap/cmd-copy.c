@@ -12,11 +12,11 @@ int cmd_copy(Client *client)
 	if (!client_read_string_args(client, 2, &messageset, &mailbox))
 		return FALSE;
 
-	if (!client_verify_mailbox_name(client, mailbox, TRUE))
+	if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
 		return TRUE;
 
 	/* open the destination mailbox */
-	if (!client_verify_mailbox_name(client, mailbox, TRUE))
+	if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
 		return TRUE;
 
 	destbox = client->storage->open_mailbox(client->storage,

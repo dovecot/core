@@ -11,7 +11,7 @@ int cmd_create(Client *client)
 	if (!client_read_string_args(client, 1, &mailbox))
 		return FALSE;
 
-	if (!client_verify_mailbox_name(client, mailbox, FALSE))
+	if (!client_verify_mailbox_name(client, mailbox, FALSE, TRUE))
 		return TRUE;
 
 	if (mailbox[strlen(mailbox)-1] == client->storage->hierarchy_sep) {

@@ -5,7 +5,7 @@
 #include "imap-util.h"
 
 int client_verify_mailbox_name(Client *client, const char *mailbox,
-			       int should_exist)
+			       int should_exist, int should_not_exist)
 {
 	MailboxNameStatus mailbox_status;
 	const char *p;
@@ -50,7 +50,7 @@ int client_verify_mailbox_name(Client *client, const char *mailbox,
 		break;
 
 	case MAILBOX_NAME_EXISTS:
-		if (should_exist)
+		if (should_exist || !should_not_exist)
 			return TRUE;
 
 		client_send_tagline(client, "NO Mailbox exists.");

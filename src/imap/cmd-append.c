@@ -109,7 +109,7 @@ int cmd_append(Client *client)
 		box = client->mailbox;
 	} else {
 		/* open the mailbox */
-		if (!client_verify_mailbox_name(client, mailbox, TRUE))
+		if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
 			return TRUE;
 
 		box = client->storage->open_mailbox(client->storage,

@@ -11,7 +11,7 @@ int cmd_rename(Client *client)
 	if (!client_read_string_args(client, 2, &oldname, &newname))
 		return FALSE;
 
-	if (!client_verify_mailbox_name(client, newname, FALSE))
+	if (!client_verify_mailbox_name(client, newname, FALSE, TRUE))
 		return TRUE;
 
 	if (client->storage->rename_mailbox(client->storage,
