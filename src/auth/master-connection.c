@@ -101,8 +101,7 @@ static void userdb_callback(struct user_data *user, void *context)
 	}
 }
 
-static void master_handle_request(struct auth_master_request *request,
-				  int fd __attr_unused__)
+static void master_handle_request(struct auth_master_request *request)
 {
 	struct login_connection *login_conn;
 	struct auth_request *auth_request;
@@ -138,8 +137,7 @@ static void master_input(void *context __attr_unused__)
 		return;
 
 	/* reply is now read */
-	master_handle_request((struct auth_master_request *) master_buf,
-			      MASTER_SOCKET_FD);
+	master_handle_request((struct auth_master_request *) master_buf);
 	master_pos = 0;
 }
 
