@@ -5,7 +5,7 @@ pkglibexec_PROGRAMS = dovecot-auth
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
-	-DAUTH_MODULE_DIR=\""$(libdir)/dovecot/auth"\" \
+	-DAUTH_MODULE_DIR=\""$(moduledir)/auth"\" \
 	$(AUTH_CFLAGS)
 
 dovecot_auth_LDADD = \

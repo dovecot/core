@@ -86,7 +86,7 @@ static int main_init(void)
 	clients_init();
 
 	modules = getenv("MODULE_DIR") == NULL ? NULL :
-		module_dir_load(getenv("MODULE_DIR"));
+		module_dir_load(getenv("MODULE_DIR"), TRUE);
 
 	mail = getenv("MAIL");
 	if (mail == NULL) {

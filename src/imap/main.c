@@ -111,7 +111,7 @@ static void main_init(void)
 	commands_init();
 
 	modules = getenv("MODULE_DIR") == NULL ? NULL :
-		module_dir_load(getenv("MODULE_DIR"));
+		module_dir_load(getenv("MODULE_DIR"), TRUE);
 
 	str = getenv("IMAP_MAX_LINE_LENGTH");
 	imap_max_line_length = str != NULL ?

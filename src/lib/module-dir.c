@@ -17,28 +17,40 @@
 #  define RTLD_NOW 0
 #endif
 
-static void *get_symbol(const char *path, void *handle, const char *symbol)
+void *module_get_symbol(struct module *module, const char *symbol)
 {
 	const char *error;
 	void *ret;
 
 	/* get our init func */
-	ret = dlsym(handle, symbol);
+	ret = dlsym(module->handle, symbol);
 
 	error = dlerror();
 	if (error != NULL) {
-		i_error("module %s: dlsym(%s) failed: %s", path, symbol, error);
+		i_error("module %s: dlsym(%s) failed: %s",
+			module->path, symbol, error);
 		ret = NULL;
 	}
 
 	return ret;
 }
 
-static struct module *module_load(const char *path, const char *name)
+static void module_free(struct module *module)
+{
+	if (module->deinit != NULL)
+		module->deinit();
+	if (dlclose(module->handle) != 0)
+		i_error("dlclose(%s) failed: %m", module->path);
+	i_free(module->path);
+	i_free(module->name);
+	i_free(module);
+}
+
+static struct module *
+module_load(const char *path, const char *name, int require_init_funcs)
 {
 	void *handle;
 	void (*init)(void);
-	void (*deinit)(void);
 	struct module *module;
 
 	handle = dlopen(path, RTLD_GLOBAL | RTLD_NOW);
@@ -47,27 +59,29 @@ static struct module *module_load(const char *path, const char *name)
 		return NULL;
 	}
 
-	/* get our init func */
-	init = (void (*)()) get_symbol(path, handle,
-				       t_strconcat(name, "_init", NULL));
-	deinit = init == NULL ? NULL :
-		(void (*)()) get_symbol(path, handle,
-					t_strconcat(name, "_deinit", NULL));
+	module = i_new(struct module, 1);
+	module->path = i_strdup(path);
+	module->name = i_strdup(name);
+	module->handle = handle;
 
-	if (init == NULL || deinit == NULL) {
-		(void)dlclose(handle);
+	/* get our init func */
+	init = (void (*)())
+		module_get_symbol(module, t_strconcat(name, "_init", NULL));
+	module->deinit = init == NULL ? NULL : (void (*)())
+		module_get_symbol(module, t_strconcat(name, "_deinit", NULL));
+
+	if ((init == NULL || module->deinit == NULL) && require_init_funcs) {
+		module->deinit = NULL;
+		module_free(module);
 		return NULL;
 	}
 
-	init();
-
-	module = i_new(struct module, 1);
-	module->handle = handle;
-	module->deinit = deinit;
+	if (init != NULL)
+		init();
 	return module;
 }
 
-struct module *module_dir_load(const char *dir)
+struct module *module_dir_load(const char *dir, int require_init_funcs)
 {
 	DIR *dirp;
 	struct dirent *d;
@@ -97,7 +111,7 @@ struct module *module_dir_load(const char *dir)
 		t_push();
 		name = t_strdup_until(d->d_name, p);
 		path = t_strconcat(dir, "/", d->d_name, NULL);
-		module = module_load(path, name);
+		module = module_load(path, name, require_init_funcs);
 		t_pop();
 
 		if (module != NULL) {
@@ -118,10 +132,7 @@ void module_dir_unload(struct module *modules)
 
 	while (modules != NULL) {
 		next = modules->next;
-		modules->deinit();
-		if (dlclose(modules->handle) != 0)
-			i_error("dlclose() failed: %m");
-		i_free(modules);
+		module_free(modules);
 		modules = next;
 	}
 }

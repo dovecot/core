@@ -11,6 +11,7 @@
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
+#include "password-scheme.h"
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 
@@ -93,6 +94,7 @@ static void main_init(void)
 	mech_init();
 	userdb_init();
 	passdb_init();
+        password_schemes_init();
 
 	masters_buf = buffer_create_dynamic(default_pool, 64, (size_t)-1);
 
@@ -161,6 +163,7 @@ static void main_deinit(void)
 		auth_master_connection_free(master[i]);
 	}
 
+        password_schemes_deinit();
 	passdb_deinit();
 	userdb_deinit();
 	mech_deinit();
