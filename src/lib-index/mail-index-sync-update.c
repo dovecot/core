@@ -785,9 +785,8 @@ sync_ext_rec_update(const struct mail_transaction_ext_rec_update *u,
 	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
 	old_data = PTR_OFFSET(rec, ext->record_offset);
 
-	/* @UNSAFE */
 	sync_handlers = view->index->sync_handlers->data;
-	sync_handlers += ctx->cur_ext_id;
+	sync_handlers += ext->index_idx;
 
 	/* call sync handlers only when we're syncing index (not view) */
 	if ((sync_handlers->type & ctx->type) != 0) {
@@ -797,6 +796,7 @@ sync_ext_rec_update(const struct mail_transaction_ext_rec_update *u,
 			return ret;
 	}
 
+	/* @UNSAFE */
 	memcpy(old_data, u + 1, ext->record_size);
 	return 1;
 }

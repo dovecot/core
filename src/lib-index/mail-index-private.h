@@ -40,6 +40,7 @@ typedef int mail_index_sync_handler_t(struct mail_index_sync_map_ctx *ctx,
 
 struct mail_index_ext {
 	const char *name;
+	uint32_t index_idx; /* index ext_id */
 	uint32_t reset_id;
 	uint32_t hdr_offset;
 	uint32_t hdr_size;

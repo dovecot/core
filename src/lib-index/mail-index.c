@@ -81,6 +81,7 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 
 	memset(&ext, 0, sizeof(ext));
 	ext.name = p_strdup(index->extension_pool, name);
+	ext.index_idx = ext_count;
 	ext.hdr_size = default_hdr_size;
 	ext.record_size = default_record_size;
 	ext.record_align = default_record_align;
@@ -181,6 +182,8 @@ mail_index_map_register_ext(struct mail_index *index,
 
 	ext_id = mail_index_ext_register(index, name, hdr_size,
 					 record_size, record_align);
+	ext->index_idx = ext_id;
+
 	while (map->ext_id_map->used < ext_id * sizeof(uint32_t))
 		buffer_append(map->ext_id_map, &empty_id, sizeof(empty_id));
 	buffer_write(map->ext_id_map, ext_id * sizeof(uint32_t),
