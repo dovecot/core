@@ -44,10 +44,10 @@ static void parse_content_type(const Rfc822Token *tokens,
 			break;
 	}
 
-	value = rfc822_tokens_get_value_quoted(tokens, i, FALSE);
+	value = rfc822_tokens_get_value_quoted(tokens, i);
 	data->content_type = p_strdup(data->pool, value);
 
-	value = rfc822_tokens_get_value_quoted(tokens+i+1, count-i-1, FALSE);
+	value = rfc822_tokens_get_value_quoted(tokens+i+1, count-i-1);
 	data->content_subtype = p_strdup(data->pool, value);
 }
 
@@ -65,7 +65,7 @@ static void parse_save_params_list(const Rfc822Token *name,
 	t_string_append_n(data->str, name->ptr, name->len);
 	t_string_append(data->str, "\" ");
 
-        str = rfc822_tokens_get_value_quoted(value, value_count, FALSE);
+        str = rfc822_tokens_get_value_quoted(value, value_count);
 	t_string_append(data->str, str);
 }
 
@@ -75,7 +75,7 @@ static void parse_content_transfer_encoding(const Rfc822Token *tokens,
         MessagePartBodyData *data = context;
 	const char *value;
 
-	value = rfc822_tokens_get_value_quoted(tokens, count, FALSE);
+	value = rfc822_tokens_get_value_quoted(tokens, count);
 	data->content_transfer_encoding = p_strdup(data->pool, value);
 }
 
@@ -85,7 +85,7 @@ static void parse_content_disposition(const Rfc822Token *tokens,
         MessagePartBodyData *data = context;
 	const char *value;
 
-	value = rfc822_tokens_get_value_quoted(tokens, count, FALSE);
+	value = rfc822_tokens_get_value_quoted(tokens, count);
 	data->content_disposition = p_strdup(data->pool, value);
 }
 
@@ -98,7 +98,7 @@ static void parse_content_language(const Rfc822Token *tokens,
 	if (count <= 0)
 		return;
 
-	value = rfc822_tokens_get_value_quoted(tokens, count, FALSE);
+	value = rfc822_tokens_get_value_quoted(tokens, count);
 	data->content_language = p_strdup(data->pool, value);
 
 	/* FIXME: a,b,c -> "a" "b" "c" */

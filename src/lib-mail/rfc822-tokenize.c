@@ -185,11 +185,11 @@ const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 	return first_token;
 }
 
-const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count,
-				    int space_separators)
+const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count)
 {
 	char *buf;
 	unsigned int i, len, buf_size;
+	int last_atom;
 
 	if (count <= 0)
 		return "";
@@ -197,7 +197,7 @@ const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count,
 	buf_size = 256;
 	buf = t_buffer_get(buf_size);
 
-	len = 0;
+	len = 0; last_atom = FALSE;
 	for (; count > 0; count--, tokens++) {
 		if (tokens->token == '(')
 			continue; /* skip comments */
@@ -207,9 +207,6 @@ const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count,
 			buf_size = nearest_power(buf_size + tokens->len + 3);
 			buf = t_buffer_reget(buf, buf_size);
 		}
-
-		if (space_separators && len > 0)
-			buf[len++] = ' ';
 
 		switch (tokens->token) {
 		case '"':
@@ -229,6 +226,9 @@ const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count,
 				buf[len++] = ']';
 			break;
 		case 'A':
+			if (last_atom)
+				buf[len++] = ' ';
+
 			memcpy(buf+len, tokens->ptr, tokens->len);
 			len += tokens->len;
 			break;
@@ -237,6 +237,8 @@ const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count,
 			buf[len++] = (char) tokens->token;
 			break;
 		}
+
+		last_atom = tokens->token == 'A';
 	}
 
 	buf[len++] = '\0';
@@ -245,17 +247,18 @@ const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count,
 }
 
 const char *rfc822_tokens_get_value_quoted(const Rfc822Token *tokens,
-					   int count, int space_separators)
+					   int count)
 {
 	char *buf;
 	unsigned int len, buf_size;
+	int last_atom;
 
 	if (count <= 0)
 		return "\"\"";
 
 	buf_size = 256;
 	buf = t_buffer_get(buf_size);
-	buf[0] = '"'; len = 1;
+	buf[0] = '"'; len = 1; last_atom = FALSE;
 
 	for (; count > 0; count--, tokens++) {
 		if (tokens->token == '(')
@@ -266,9 +269,6 @@ const char *rfc822_tokens_get_value_quoted(const Rfc822Token *tokens,
 			buf_size = nearest_power(buf_size + tokens->len + 3);
 			buf = t_buffer_reget(buf, buf_size);
 		}
-
-		if (space_separators && len > 0)
-			buf[len++] = ' ';
 
 		switch (tokens->token) {
 		case '"':
@@ -283,6 +283,9 @@ const char *rfc822_tokens_get_value_quoted(const Rfc822Token *tokens,
 				buf[len++] = ']';
 			break;
 		case 'A':
+			if (last_atom)
+				buf[len++] = ' ';
+
 			memcpy(buf+len, tokens->ptr, tokens->len);
 			len += tokens->len;
 			break;
@@ -291,6 +294,8 @@ const char *rfc822_tokens_get_value_quoted(const Rfc822Token *tokens,
 			buf[len++] = (char) tokens->token;
 			break;
 		}
+
+		last_atom = tokens->token == 'A';
 	}
 
 	buf[len++] = '"';

@@ -48,11 +48,11 @@ const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 				   Rfc822TokenizeErrorFunc error_func,
 				   void *context);
 
-/* Returns the tokens as a string. */
-const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count,
-				    int space_separators);
+/* Returns the tokens as a string. Tokens are merged together, except
+   spaces are added between atoms. */
+const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count);
 /* Returns the tokens as a "string". */
 const char *rfc822_tokens_get_value_quoted(const Rfc822Token *tokens,
-					   int count, int space_separators);
+					   int count);
 
 #endif

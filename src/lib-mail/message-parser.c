@@ -74,7 +74,7 @@ static void parse_content_type(const Rfc822Token *tokens, int count,
 	if (parse_ctx->last_content_type != NULL)
 		return;
 
-	str = rfc822_tokens_get_value(tokens, count, FALSE);
+	str = rfc822_tokens_get_value(tokens, count);
 	parse_ctx->last_content_type = p_strdup(parse_ctx->pool, str);
 
 	if (strcasecmp(str, "message/rfc822") == 0)
@@ -103,7 +103,7 @@ static void parse_content_type_param(const Rfc822Token *name,
 		return;
 
 	if (parse_ctx->last_boundary == NULL) {
-		str = rfc822_tokens_get_value(value, value_count, FALSE);
+		str = rfc822_tokens_get_value(value, value_count);
 		parse_ctx->last_boundary = p_strdup(parse_ctx->pool, str);
 	}
 }

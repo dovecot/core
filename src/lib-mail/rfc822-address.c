@@ -52,7 +52,7 @@ static void read_until_get(const Rfc822Token **tokens, const char *stop_tokens,
 
 	count = read_until(*tokens, stop_tokens, comment);
 	if (count > 0) {
-		value = rfc822_tokens_get_value(*tokens, count, FALSE);
+		value = rfc822_tokens_get_value(*tokens, count);
 		t_string_append(phrase, value);
 
 		*tokens += count;
@@ -65,7 +65,7 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 	TempString *mailbox, *domain, *route, *name, *comment, *next_phrase;
 	const Rfc822Token *tokens;
 	const char *list, *value;
-	int ingroup, stop, count, spaces;
+	int ingroup, stop, count;
 
 	if (str == NULL || *str == '\0')
 		return NULL;
@@ -96,13 +96,14 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 	while (!stop) {
 		count = read_until(tokens, list, comment);
 		if (count > 0) {
-			/* put spaces around tokens if we're parsing name */
-			spaces = tokens[count].token == '<' ||
-				next_phrase == name;
-			if (spaces && next_phrase->len > 0)
+			if ((tokens[count].token == '<' ||
+			     next_phrase == name) && next_phrase->len > 0) {
+				/* continuing previously started name,
+				   separate it from us with space */
 				t_string_append_c(next_phrase, ' ');
+			}
 
-			value = rfc822_tokens_get_value(tokens, count, spaces);
+			value = rfc822_tokens_get_value(tokens, count);
 			t_string_append(next_phrase, value);
 			tokens += count;
 		}
