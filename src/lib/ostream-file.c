@@ -220,7 +220,6 @@ o_stream_writev(struct file_ostream *fstream, struct iovec *iov, int iov_size)
 
 	update_iovec(iov, iov_size, ret);
 	update_buffer(fstream, ret);
-	fstream->ostream.ostream.offset += ret;
 
 	return ret;
 }
@@ -362,6 +361,9 @@ static int _seek(struct _ostream *stream, uoff_t offset)
 		return -1;
 	}
 
+	if (buffer_flush(fstream) < 0)
+		return -1;
+
 	ret = lseek(fstream->fd, (off_t)offset, SEEK_SET);
 	if (ret < 0) {
 		stream->ostream.stream_errno = errno;
@@ -501,11 +503,14 @@ static ssize_t _send(struct _ostream *stream, const void *data, size_t size)
 		/* send it blocking */
 		if (o_stream_send_blocking(fstream, data, size) < 0)
 			return -1;
-		return (ssize_t)size;
+		ret = (ssize_t)size;
 	} else {
 		/* buffer it, at least partly */
-		return (ssize_t)o_stream_add(fstream, data, size);
+		ret = (ssize_t)o_stream_add(fstream, data, size);
 	}
+
+	stream->ostream.offset += ret;
+	return ret;
 }
 
 static off_t io_stream_sendfile(struct _ostream *outstream,
@@ -619,6 +624,7 @@ static off_t io_stream_copy(struct _ostream *outstream,
 			/* error */
 			return -1;
 		}
+		outstream->ostream.offset += ret;
 
 		if (ret == 0 && !STREAM_IS_BLOCKING(foutstream)) {
 			/* don't block */
@@ -801,6 +807,8 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 		     int priority, int autoclose_fd)
 {
 	struct file_ostream *fstream;
+	struct ostream *ostream;
+	off_t offset;
 
 	fstream = p_new(pool, struct file_ostream, 1);
 	fstream->fd = fd;
@@ -820,5 +828,10 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 	fstream->ostream.send = _send;
 	fstream->ostream.send_istream = _send_istream;
 
-	return _o_stream_create(&fstream->ostream, pool);
+	ostream = _o_stream_create(&fstream->ostream, pool);
+
+	offset = lseek(fd, 0, SEEK_CUR);
+	if (offset >= 0)
+		ostream->offset = offset;
+	return ostream;
 }
