@@ -119,6 +119,7 @@ static int remove_blob(const char **datap)
 	if (*data != '[')
 		return FALSE;
 
+	data++;
 	while (*data != '\0' && *data != '[' && *data != ']')
 		data++;
 
