@@ -181,7 +181,7 @@ static int maildir_index_sync_dir(MailIndex *index, const char *dir)
 	HashTable *files;
 	DIR *dirp;
 	struct dirent *d;
-	const char *key, *value, *p;
+	char *key, *value, *p;
 	unsigned int count;
 	int failed, check_content_changes;
 

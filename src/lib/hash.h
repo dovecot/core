@@ -30,8 +30,8 @@ int hash_lookup_full(HashTable *table, const void *lookup_key,
 
 /* Insert/update node in hash table. The difference is that hash_insert()
    replaces the key in table to given one, while hash_update() doesnt. */
-void hash_insert(HashTable *table, const void *key, const void *value);
-void hash_update(HashTable *table, const void *key, const void *value);
+void hash_insert(HashTable *table, void *key, void *value);
+void hash_update(HashTable *table, void *key, void *value);
 
 void hash_remove(HashTable *table, const void *key);
 unsigned int hash_size(HashTable *table);

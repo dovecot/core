@@ -66,14 +66,13 @@ static unsigned int direct_hash(const void *p)
 	return POINTER_CAST_TO(p, unsigned int);
 }
 
-static HashNode *hash_node_create(Pool pool, const void *key,
-				  const void *value)
+static HashNode *hash_node_create(Pool pool, void *key, void *value)
 {
 	HashNode *node;
 
         node = p_new(pool, HashNode, 1);
-	node->key = (void *) key;
-	node->value = (void *) value;
+	node->key = key;
+	node->value = value;
 
 	return node;
 }
@@ -189,8 +188,8 @@ int hash_lookup_full(HashTable *table, const void *lookup_key,
 	return TRUE;
 }
 
-static void hash_insert_full(HashTable *table, const void *key,
-			     const void *value, int replace_key)
+static void hash_insert_full(HashTable *table, void *key, void *value,
+			     int replace_key)
 {
 	HashNode **node;
 
@@ -205,20 +204,20 @@ static void hash_insert_full(HashTable *table, const void *key,
 			hash_resize(table);
 	} else {
 		if (replace_key || (*node)->destroyed) {
-			(*node)->key = (void *) key;
+			(*node)->key = key;
 			(*node)->destroyed = FALSE;
 		}
 
-		(*node)->value = (void *) value;
+		(*node)->value = value;
 	}
 }
 
-void hash_insert(HashTable *table, const void *key, const void *value)
+void hash_insert(HashTable *table, void *key, void *value)
 {
 	hash_insert_full(table, key, value, TRUE);
 }
 
-void hash_update(HashTable *table, const void *key, const void *value)
+void hash_update(HashTable *table, void *key, void *value)
 {
 	hash_insert_full(table, key, value, FALSE);
 }
