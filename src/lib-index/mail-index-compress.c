@@ -5,6 +5,7 @@
 #include "mail-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
+#include "mail-hash.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -41,6 +42,8 @@ int mail_index_compress(MailIndex *index)
 	while (rec < end_rec) {
 		if (rec->uid != 0) {
 			memcpy(hole_rec, rec, sizeof(MailIndexRecord));
+			mail_hash_update(index->hash, rec->uid,
+					 INDEX_FILE_POSITION(index, hole_rec));
 			hole_rec++;
 		}
 		rec++;
@@ -88,7 +91,7 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 		return FALSE;
 	}
 
-	/* no we'll begin the actual moving. keep rebuild-flag on
+	/* now we'll begin the actual moving. keep rebuild-flag on
 	   while doing it. */
 	index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
 	if (!mail_index_fmsync(index, sizeof(MailIndexHeader)))
