@@ -191,16 +191,17 @@ mail_cache_transaction_add_reservation(struct mail_cache_transaction_ctx *ctx)
 
 static int
 mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
-				    size_t size, int commit)
+				    size_t block_size, int commit)
 {
 	struct mail_cache *cache = ctx->cache;
 	struct mail_cache_header *hdr = &cache->hdr_copy;
 	struct mail_cache_hole_header hole;
 	uint32_t *buf;
+	size_t size;
 
 	i_assert(cache->locked);
 
-	if (mail_cache_unlink_hole(cache, size, &hole)) {
+	if (mail_cache_unlink_hole(cache, block_size, &hole)) {
 		/* found a large enough hole. */
 		ctx->reserved_space_offset = hole.next_offset;
 		ctx->reserved_space = hole.size;
@@ -213,49 +214,46 @@ mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
 		return -1;
 	}
 
-	if ((uoff_t)hdr->used_file_size + size > (uint32_t)-1) {
+	if ((uint32_t)-1 - hdr->used_file_size < block_size) {
 		mail_index_set_error(cache->index, "Cache file too large: %s",
 				     cache->filepath);
 		return -1;
 	}
 
-	if (!commit) {
+	if (!commit && block_size < MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE) {
 		/* allocate some more space than we need */
-		size_t new_size = (size + ctx->last_grow_size) * 2;
-		if ((uoff_t)hdr->used_file_size + new_size > (uint32_t)-1)
-			new_size = (uint32_t)-1;
-		if (new_size > MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE) {
-			new_size = size > MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE ?
-				size : MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE;
+		size_t new_block_size = (block_size + ctx->last_grow_size) * 2;
+		if (new_block_size > MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE)
+			new_block_size = MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE;
+
+		if ((uint32_t)-1 - hdr->used_file_size >= new_block_size) {
+			block_size = new_block_size;
+			ctx->last_grow_size = new_block_size;
 		}
-		ctx->last_grow_size = new_size;
 	}
 
-	if (mail_cache_grow_file(ctx->cache, size) < 0)
+	if (mail_cache_grow_file(ctx->cache, block_size) < 0)
 		return -1;
 
 	if (ctx->reserved_space_offset + ctx->reserved_space ==
 	    hdr->used_file_size) {
 		/* we can simply grow it */
-		ctx->reserved_space = size - ctx->reserved_space;
+		ctx->reserved_space = block_size;
 
 		/* grow reservation. it's probably the last one in the buffer,
 		   but it's not guarateed because we might have used holes
 		   as well */
 		buf = buffer_get_modifyable_data(ctx->reservations, &size);
 		size /= sizeof(uint32_t);
-		i_assert(size >= 2);
 
 		do {
+			i_assert(size >= 2);
 			size -= 2;
-			if (buf[size] == ctx->reserved_space_offset) {
-				buf[size+1] = ctx->reserved_space;
-				break;
-			}
-		} while (size >= 2);
+		} while (buf[size] != ctx->reserved_space_offset);
+		buf[size+1] = ctx->reserved_space;
 	} else {
 		ctx->reserved_space_offset = hdr->used_file_size;
-		ctx->reserved_space = size;
+		ctx->reserved_space = block_size;
 		mail_cache_transaction_add_reservation(ctx);
 	}
 
@@ -319,13 +317,14 @@ mail_cache_transaction_free_space(struct mail_cache_transaction_ctx *ctx)
 		mail_cache_unlock(ctx->cache);
 }
 
-static uint32_t
+static int
 mail_cache_transaction_get_space(struct mail_cache_transaction_ctx *ctx,
 				 size_t min_size, size_t max_size,
-				 size_t *available_space_r, int commit)
+				 uint32_t *offset_r, size_t *available_space_r,
+				 int commit)
 {
 	int locked = ctx->cache->locked;
-	uint32_t offset;
+	uint32_t cache_file_seq;
 	size_t size;
 	int ret;
 
@@ -333,9 +332,11 @@ mail_cache_transaction_get_space(struct mail_cache_transaction_ctx *ctx,
 	i_assert((max_size & 3) == 0);
 
 	if (min_size > ctx->reserved_space) {
+		/* not enough preallocated space in transaction, get more */
+		cache_file_seq = ctx->cache_file_seq;
 		if (!locked) {
-			if (mail_cache_transaction_lock(ctx) <= 0)
-				return 0;
+			if ((ret = mail_cache_transaction_lock(ctx)) <= 0)
+				return ret;
 		}
 		ret = mail_cache_transaction_reserve_more(ctx, max_size,
 							  commit);
@@ -343,14 +344,19 @@ mail_cache_transaction_get_space(struct mail_cache_transaction_ctx *ctx,
 			mail_cache_unlock(ctx->cache);
 
 		if (ret < 0)
+			return -1;
+
+		if (cache_file_seq != ctx->cache_file_seq) {
+			/* cache file reopened - need to abort */
 			return 0;
+		}
 
 		size = max_size;
 	} else {
 		size = I_MIN(max_size, ctx->reserved_space);
 	}
 
-	offset = ctx->reserved_space_offset;
+	*offset_r = ctx->reserved_space_offset;
 	ctx->reserved_space_offset += size;
 	ctx->reserved_space -= size;
 	if (available_space_r != NULL)
@@ -363,14 +369,16 @@ mail_cache_transaction_get_space(struct mail_cache_transaction_ctx *ctx,
 		mail_cache_transaction_free_space(ctx);
 	}
 
-	return offset;
+	i_assert(size >= min_size);
+	return 1;
 }
 
-static uint32_t
+static int
 mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 				    const struct mail_cache_record *rec,
 				    const uint32_t *seq, uint32_t *seq_idx,
-				    uint32_t seq_limit, uint32_t write_offset)
+				    uint32_t seq_limit, uint32_t write_offset,
+				    uint32_t *size_r)
 {
 	struct mail_cache *cache = ctx->cache;
 	uint32_t i, old_offset, orig_write_offset;
@@ -412,7 +420,8 @@ mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 	}
 
 	*seq_idx = i;
-	return write_offset - orig_write_offset;
+	*size_r = write_offset - orig_write_offset;
+	return 0;
 }
 
 static int
@@ -421,9 +430,9 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache *cache = ctx->cache;
 	const struct mail_cache_record *rec, *tmp_rec;
 	const uint32_t *seq;
-	uint32_t write_offset, rec_pos, cache_file_seq, seq_idx;
+	uint32_t write_offset, write_size, rec_pos, seq_idx;
 	size_t size, max_size, seq_limit, seq_count;
-	int commit;
+	int ret, commit;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
 		return -1;
@@ -450,19 +459,12 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	for (seq_idx = 0, rec_pos = 0; rec_pos < ctx->prev_pos;) {
 		max_size = ctx->prev_pos - rec_pos;
 
-		cache_file_seq = ctx->cache_file_seq;
-		write_offset = mail_cache_transaction_get_space(ctx, rec->size,
-								max_size,
-								&max_size,
-								commit);
-		if (cache_file_seq != ctx->cache_file_seq) {
-			/* cache file reopened - need to abort */
-			return 0;
-		}
-
-		if (write_offset == 0) {
-			/* nothing to write / error */
-			return ctx->prev_pos == 0 ? 0 : -1;
+		ret = mail_cache_transaction_get_space(ctx, rec->size,
+						       max_size, &write_offset,
+						       &max_size, commit);
+		if (ret <= 0) {
+			/* nothing to write / error / cache file reopened */
+			return ret;
 		}
 
 		if (rec_pos + max_size < ctx->prev_pos) {
@@ -486,11 +488,14 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 			return -1;
 		}
 
-		size = mail_cache_transaction_update_index(ctx, rec, seq,
-							   &seq_idx, seq_limit,
-							   write_offset);
-		rec_pos += size;
-		rec = CONST_PTR_OFFSET(rec, size);
+		if (mail_cache_transaction_update_index(ctx, rec, seq,
+							&seq_idx, seq_limit,
+							write_offset,
+							&write_size) < 0)
+			return -1;
+
+		rec_pos += write_size;
+		rec = CONST_PTR_OFFSET(rec, write_size);
 	}
 
 	/* drop the written data from buffer */
@@ -630,8 +635,8 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	mail_cache_header_fields_get(cache, buffer);
 	data = buffer_get_data(buffer, &size);
 
-	offset = mail_cache_transaction_get_space(ctx, size, size, &size, TRUE);
-	if (offset == 0)
+	if (mail_cache_transaction_get_space(ctx, size, size,
+					     &offset, &size, TRUE) <= 0)
 		ret = -1;
 	else if (pwrite_full(cache->fd, data, size, offset) < 0) {
 		mail_cache_set_syscall_error(cache, "pwrite_full()");
