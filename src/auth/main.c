@@ -288,7 +288,7 @@ static void main_deinit(void)
 
 int main(int argc __attr_unused__, char *argv[])
 {
-	int foreground;
+	int foreground = FALSE;
 
 #ifdef DEBUG
 	if (getenv("GDB") == NULL)
