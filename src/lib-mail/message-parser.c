@@ -350,7 +350,8 @@ message_find_boundary(struct istream *input,
 			if (msg[i] != '\n')
 				continue;
 
-			if (i >= line_start+2 && msg[line_start] == '-' &&
+			if (line_start != (size_t)-1 &&
+			    i >= line_start+2 && msg[line_start] == '-' &&
 			    msg[line_start+1] == '-') {
 				/* possible boundary */
 				boundary = boundary_find(boundaries,
@@ -372,21 +373,26 @@ message_find_boundary(struct istream *input,
 		if (boundary != NULL)
 			break;
 
-		if (i - line_start > 128 &&
-		    msg[line_start] == '-' && msg[line_start+1] == '-') {
+		if (line_start == (size_t)-1) {
+			/* continued long line, continue skipping over it */
+		} else if (i - line_start > 128) {
 			/* long partial line, see if it's a boundary.
 			   RFC-2046 says that the boundaries must be
 			   70 chars without "--" or less. We allow
 			   a bit larger.. */
-			boundary = boundary_find(boundaries,
-						 msg + line_start + 2,
-						 i - line_start - 2);
-			if (boundary != NULL)
-				break;
+			if (msg[line_start] == '-' &&
+			    msg[line_start+1] == '-') {
+				boundary = boundary_find(boundaries,
+							 msg + line_start + 2,
+							 i - line_start - 2);
+				if (boundary != NULL)
+					break;
+			}
 
 			/* nope, we can skip over the line, just
 			   leave the last char since it may be \r */
 			i--;
+			line_start = (size_t)-1;
 		} else {
 			/* leave the last line to buffer, it may be
 			   boundary */
@@ -403,7 +409,8 @@ message_find_boundary(struct istream *input,
 		startpos = size - i;
 	}
 
-	if (boundary == NULL && line_start+2 <= size &&
+	if (boundary == NULL &&
+	    line_start != (size_t)-1 && line_start+2 <= size &&
 	    msg[line_start] == '-' && msg[line_start+1] == '-') {
 		/* possible boundary without line feed at end */
 		boundary = boundary_find(boundaries,
@@ -412,6 +419,7 @@ message_find_boundary(struct istream *input,
 	}
 
 	if (boundary != NULL) {
+		i_assert(line_start != (size_t)-1);
 		if (skip_over) {
 			/* leave the pointer right after the boundary */
 			line_start += 2 + boundary->len;
