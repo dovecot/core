@@ -153,9 +153,9 @@ lookup_credentials_callback(enum passdb_result result, const char *credentials,
 	if (result != PASSDB_RESULT_OK)
 		str_printfa(str, "FAIL\t%d", result);
 	else {
-		str_append(str, "OK\t");
-		str_append(str, credentials);
-		str_append_c(str, '\t');
+		str_printfa(str, "OK\t{%s}%s\t",
+			    passdb_credentials_to_str(request->credentials),
+			    credentials);
 		if (request->extra_fields != NULL)
 			str_append_str(str, request->extra_fields);
 	}

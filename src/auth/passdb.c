@@ -49,7 +49,7 @@ struct passdb_module *passdbs[] = {
 	NULL
 };
 
-static const char *
+const char *
 passdb_credentials_to_str(enum passdb_credentials credentials)
 {
 	switch (credentials) {
