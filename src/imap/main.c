@@ -174,10 +174,6 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	lib_init();
 	drop_privileges();
 
-	{int i;
-	for (i = 0; i < 30; i++)
-		i_warning("%d", i);}
-
         process_title_init(argv, envp);
 	ioloop = io_loop_create(system_pool);
 
