@@ -539,8 +539,12 @@ int index_mail_parse_headers(struct index_mail *mail)
 				return FALSE;
 		}
 
-		data->header_save = TRUE;
-		data->header_save_idx = idx;
+		/* it's possible that we're parsing headers without wanting
+		   to save any of them */
+		if (buffer_get_used_size(data->headers) != 0) {
+			data->header_save = TRUE;
+			data->header_save_idx = idx;
+		}
 	}
 
 	data->bodystructure_header_parse = data->bodystructure_header_want;
