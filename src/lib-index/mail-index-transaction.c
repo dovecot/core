@@ -34,7 +34,7 @@ mail_index_transaction_begin(struct mail_index_view *view, int hide)
 static void mail_index_transaction_free(struct mail_index_transaction *t)
 {
 	buffer_t **recs;
-	unsigned int i, size;
+	size_t i, size;
 
 	mail_index_view_transaction_unref(t->view);
 
@@ -112,7 +112,7 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 	struct mail_index *index = t->view->index;
         const struct mail_index_extra_record_info *einfos;
 	buffer_t **updates;
-	unsigned int i, size;
+	size_t i, size;
 
 	if (mail_index_view_lock(t->view) < 0)
 		return -1;

@@ -809,7 +809,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		}
 	}
 
-	if (file->mmap_base != NULL && st.st_size == file->mmap_size &&
+	if (file->mmap_base != NULL && (uoff_t)st.st_size == file->mmap_size &&
 	    file->buffer_offset <= start_offset) {
 		/* it's all mmaped already */
 		i_assert(end_offset == (uoff_t)-1);
