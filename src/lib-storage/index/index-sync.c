@@ -67,18 +67,18 @@ int index_storage_sync_index_if_possible(IndexMailbox *ibox, int sync_size)
 
 int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted)
 {
-	const ModifyLogRecord *log;
+	const ModifyLogRecord *log1, *log2, *log, *first_flag_log;
 	MailIndexRecord *rec;
 	MailFlags flags;
         MailboxSyncCallbacks *sc;
 	void *sc_context;
 	const char **custom_flags;
-	unsigned int count, seq, seq_count, i, messages;
+	unsigned int count1, count2, total_count, seq, seq_count, i, messages;
 	unsigned int first_flag_change, first_flag_messages_count;
 
 	/* show the log */
-	log = mail_modifylog_get_nonsynced(ibox->index->modifylog, &count);
-	if (log == NULL)
+	if (!mail_modifylog_get_nonsynced(ibox->index->modifylog,
+					  &log1, &count1, &log2, &count2))
 		return mail_storage_set_index_error(ibox);
 
 	sc = &ibox->sync_callbacks;
@@ -86,28 +86,35 @@ int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted)
 
 	/* first show expunges. this makes it easier to deal with sequence
 	   numbers. */
+	total_count = count1 + count2;
 	messages = ibox->synced_messages_count;
-	first_flag_change = count;
+	first_flag_change = total_count;
+	first_flag_log = NULL;
         first_flag_messages_count = 0;
-	for (i = 0; i < count; i++) {
-		if (log[i].seq1 > messages) {
+
+	for (i = 0, log = log1; i < total_count; i++, log++) {
+		if (i == count1)
+			log = log2;
+
+		if (log->seq1 > messages) {
 			/* client doesn't know about this message yet */
 			continue;
 		}
 
-		switch (log[i].type) {
+		switch (log->type) {
 		case RECORD_TYPE_EXPUNGE:
-			seq_count = (log[i].seq2 - log[i].seq1) + 1;
+			seq_count = (log->seq2 - log->seq1) + 1;
 			messages -= seq_count;
 
 			for (; seq_count > 0; seq_count--) {
-				sc->expunge(&ibox->box, log[i].seq1,
+				sc->expunge(&ibox->box, log->seq1,
 					    sc_context);
 			}
 			break;
 		case RECORD_TYPE_FLAGS_CHANGED:
-			if (first_flag_change == count) {
+			if (first_flag_change == total_count) {
 				first_flag_change = i;
+				first_flag_log = log;
 				first_flag_messages_count = messages;
 			}
 			break;
@@ -120,21 +127,26 @@ int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted)
 	/* now show the flags */
 	messages = first_flag_messages_count;
 	custom_flags = mail_custom_flags_list_get(ibox->index->custom_flags);
-	for (i = first_flag_change; i < count; i++) {
-		if (log[i].seq1 > messages) {
+
+	log = first_flag_log;
+	for (i = first_flag_change; i < total_count; i++, log++) {
+		if (i == count1)
+			log = log2;
+
+		if (log->seq1 > messages) {
 			/* client doesn't know about this message yet */
 			continue;
 		}
 
-		switch (log[i].type) {
+		switch (log->type) {
 		case RECORD_TYPE_EXPUNGE:
-			messages -= (log[i].seq2 - log[i].seq1) + 1;
+			messages -= (log->seq2 - log->seq1) + 1;
 			break;
 		case RECORD_TYPE_FLAGS_CHANGED:
 			rec = ibox->index->lookup_uid_range(ibox->index,
-							    log[i].uid1,
-							    log[i].uid2, &seq);
-			while (rec != NULL && rec->uid <= log[i].uid2) {
+							    log->uid1,
+							    log->uid2, &seq);
+			while (rec != NULL && rec->uid <= log->uid2) {
 				flags = rec->msg_flags;
 				if (rec->uid >= ibox->index->first_recent_uid)
 					flags |= MAIL_RECENT;

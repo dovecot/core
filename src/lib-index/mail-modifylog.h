@@ -28,7 +28,7 @@ struct _ModifyLogRecord {
 
 /* for mail_modifylog_*_get_expunges() */
 struct _ModifyLogExpunge {
-	unsigned int uid1, uid2;
+	unsigned int uid1, uid2; /* NOTE: may be outside wanted range */
 	unsigned int seq_count;
 };
 
@@ -52,9 +52,13 @@ int mail_modifylog_sync_file(MailModifyLog *log);
 /* Must be called when exclusive lock is dropped from index. */
 void mail_modifylog_notify_lock_drop(MailModifyLog *log);
 
-/* Returns the nonsynced log entries. count is set to number of log records. */
-ModifyLogRecord *mail_modifylog_get_nonsynced(MailModifyLog *log,
-					      unsigned int *count);
+/* Updates arr and count parameters to list nonsynced log entries.
+   Returns TRUE if successful. */
+int mail_modifylog_get_nonsynced(MailModifyLog *log,
+				 const ModifyLogRecord **arr1,
+				 unsigned int *count1,
+				 const ModifyLogRecord **arr2,
+				 unsigned int *count2);
 
 /* Marks the modify log as being synced with in-memory state. */
 int mail_modifylog_mark_synced(MailModifyLog *log);
@@ -63,16 +67,26 @@ int mail_modifylog_mark_synced(MailModifyLog *log);
    expunged messages before the range. Returns 0,0 terminated list of
    expunged UIDs, or NULL if error occured.
 
-   Note that the first and last returned records may contain more than the
-   wanted sequences, and expunges_before doesn't include those unwanted
-   expunges in the first record. */
+   Note that returned UID range may not be exact for first returned
+   expunge record. For example fetching range 9:10 may return
+   expunges_before=8, {uid1=1, uid2=9, seq_count=1} if only message 10
+   exists.
+
+   Also the last expunge record's both uid and seq_count ranges may go
+   past last_seq */
 const ModifyLogExpunge *
 mail_modifylog_seq_get_expunges(MailModifyLog *log,
 				unsigned int first_seq,
 				unsigned int last_seq,
 				unsigned int *expunges_before);
 
-/* Like above, but for given UID range. */
+/* Like above, but for given UID range. expunges_before is treated a bit
+   differently however. It specifies the number of messages deleted before
+   the first returned expunge-record, which may partially be before our
+   wanted range. For example fetching range 9:10 may return
+   expunges_before=0, {uid1=1, uid2=9, seq_count=9} if only message 10
+   exists. This is because we have no idea how many messages there are
+   between UIDs since they're not guaranteed to be contiguous. */
 const ModifyLogExpunge *
 mail_modifylog_uid_get_expunges(MailModifyLog *log,
 				unsigned int first_uid,

@@ -46,6 +46,9 @@ static int mail_index_foreach(MailIndex *index,
 	   can be used to calculate the current real sequence position */
 	expunges = mail_modifylog_seq_get_expunges(index->modifylog, seq, seq2,
 						   &expunges_before);
+	if (expunges == NULL)
+		return -1;
+
 	i_assert(expunges_before < seq);
 	expunges_found = expunges->uid1 != 0;
 
@@ -196,6 +199,9 @@ static int mail_index_uid_foreach(MailIndex *index,
 	/* get list of expunged messages in our range. */
 	expunges = mail_modifylog_uid_get_expunges(index->modifylog, uid, uid2,
 						   &expunges_before);
+	if (expunges == NULL)
+		return -1;
+
 	expunges_found = expunges->uid1 != 0;
 
 	rec = index->lookup_uid_range(index, uid, uid2, &idx_seq);
