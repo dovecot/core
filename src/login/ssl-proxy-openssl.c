@@ -159,8 +159,7 @@ static void ssl_handle_error(SSLProxy *proxy, int err, const char *func)
 		break;
 	case SSL_ERROR_SYSCALL:
 		/* eat up the error queue */
-		if (err != 0)
-			i_warning("%s failed: %s", func, ssl_last_error());
+		/*i_warning("%s failed: %s", func, ssl_last_error());*/
 		ssl_proxy_destroy(proxy);
 		break;
 	case SSL_ERROR_ZERO_RETURN:
@@ -168,7 +167,7 @@ static void ssl_handle_error(SSLProxy *proxy, int err, const char *func)
 		ssl_proxy_destroy(proxy);
 		break;
 	case SSL_ERROR_SSL:
-		i_warning("%s failed: %s", func, ssl_last_error());
+		/*i_warning("%s failed: %s", func, ssl_last_error());*/
 		ssl_proxy_destroy(proxy);
 		break;
 	default:
