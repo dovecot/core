@@ -223,8 +223,12 @@ void timeout_destroy(struct ioloop *ioloop, struct timeout *timeout)
 int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
 			  struct timeval *tv_now)
 {
-	if (timeout == NULL)
+	if (timeout == NULL) {
+		/* no timeouts. give it INT_MAX msecs. */
+		tv->tv_sec = INT_MAX / 1000;
+		tv->tv_usec = 0;
 		return INT_MAX;
+	}
 
 	if (tv_now == NULL) {
 		if (gettimeofday(tv, NULL) < 0)
