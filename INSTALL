@@ -102,7 +102,8 @@ them for auth modules which require external libraries (eg. LDAP and
 vpopmail). There's no standard way to build them as modules currently, but
 something like this should work:
 
-gcc -shared -fPIC -DUSERDB_LDAP -DPASSDB_LDAP -I../.. -I../lib -I../lib-settings \
+gcc -shared -fPIC -DUSERDB_LDAP -DPASSDB_LDAP \
+-I../.. -I../lib -I../lib-settings \
 db-ldap.c userdb-ldap.c passdb-ldap.c -o ldap.so \
 ../lib-settings/libsettings.a -lldap
 
