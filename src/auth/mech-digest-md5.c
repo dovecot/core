@@ -14,8 +14,6 @@
 
 #include <stdlib.h>
 
-#define SERVICE_TYPE "imap"
-
 /* Linear whitespace */
 #define IS_LWS(c) ((c) == ' ' || (c) == '\t')
 
@@ -400,11 +398,6 @@ static int auth_handle_response(struct digest_auth_request *auth,
 
 		if (uri[0] == NULL || uri[1] == NULL) {
 			*error = "Invalid digest-uri";
-			return FALSE;
-		}
-
-		if (strcasecmp(trim(uri[0]), SERVICE_TYPE) != 0) {
-			*error = "Unexpected service type in digest-uri";
 			return FALSE;
 		}
 
