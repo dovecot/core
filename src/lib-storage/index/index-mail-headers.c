@@ -506,9 +506,12 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 }
 
 static void header_cache_callback(struct message_header_line *hdr,
-				  int *matched __attr_unused__, void *context)
+				  int *matched, void *context)
 {
 	struct index_mail *mail = context;
+
+	if (hdr != NULL && hdr->eoh)
+		*matched = FALSE;
 
 	(void)index_mail_parse_header(NULL, hdr, mail);
 }
@@ -540,7 +543,9 @@ index_mail_get_headers(struct mail *_mail,
 
 	index_mail_parse_header_init(mail, _headers);
 	mail->data.filter_stream =
-		i_stream_create_header_filter(mail->data.stream, FALSE, TRUE,
+		i_stream_create_header_filter(mail->data.stream,
+					      HEADER_FILTER_INCLUDE |
+					      HEADER_FILTER_HIDE_BODY,
 					      headers->name, headers->count,
 					      header_cache_callback, mail);
 	return mail->data.filter_stream;

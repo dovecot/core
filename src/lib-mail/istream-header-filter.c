@@ -28,8 +28,9 @@ struct header_filter_istream {
 	unsigned int cur_line, parsed_lines;
 
 	unsigned int header_read:1;
-	unsigned int filter:1;
+	unsigned int exclude:1;
 	unsigned int crlf:1;
+	unsigned int hide_body:1;
 };
 
 static void _close(struct _iostream *stream __attr_unused__)
@@ -88,18 +89,21 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		mstream->cur_line++;
 
 		if (hdr->eoh) {
+			matched = TRUE;
 			if (!mstream->header_read &&
 			    mstream->callback != NULL) {
-				matched = TRUE;
 				mstream->callback(hdr, &matched,
 						  mstream->context);
 			}
+
+			if (!matched)
+				continue;
 
 			if (mstream->crlf)
 				buffer_append(mstream->hdr_buf, "\r\n", 2);
 			else
 				buffer_append_c(mstream->hdr_buf, '\n');
-			break;
+			continue;
 		}
 
 		matched = bsearch(hdr->name, mstream->headers,
@@ -112,7 +116,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			mstream->callback(hdr, &matched, mstream->context);
 		}
 
-		if (matched == mstream->filter) {
+		if (matched == mstream->exclude) {
 			/* ignore */
 		} else {
 			if (!hdr->continued) {
@@ -193,6 +197,11 @@ static ssize_t _read(struct _istream *stream)
 			return ret;
 	}
 
+	if (mstream->hide_body) {
+		stream->istream.eof = TRUE;
+		return -1;
+	}
+
 	if (mstream->input->v_offset - mstream->header_size.physical_size !=
 	    stream->istream.v_offset - mstream->header_size.virtual_size) {
 		i_stream_seek(mstream->input, stream->istream.v_offset -
@@ -250,13 +259,16 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 }
 
 struct istream *
-i_stream_create_header_filter(struct istream *input, int filter, int crlf,
+i_stream_create_header_filter(struct istream *input,
+                              enum header_filter_flags flags,
 			      const char *const *headers, size_t headers_count,
 			      header_filter_callback *callback, void *context)
 {
 	struct header_filter_istream *mstream;
 	pool_t pool;
 	size_t i;
+
+	i_assert((flags & (HEADER_FILTER_INCLUDE|HEADER_FILTER_EXCLUDE)) != 0);
 
 	pool = pool_alloconly_create("header filter stream", 1024);
 	mstream = p_new(pool, struct header_filter_istream, 1);
@@ -273,8 +285,9 @@ i_stream_create_header_filter(struct istream *input, int filter, int crlf,
 
 	mstream->callback = callback;
 	mstream->context = context;
-	mstream->filter = filter;
-	mstream->crlf = crlf;
+	mstream->exclude = (flags & HEADER_FILTER_EXCLUDE) != 0;
+	mstream->crlf = (flags & HEADER_FILTER_NO_CR) == 0;
+	mstream->hide_body = (flags & HEADER_FILTER_HIDE_BODY) != 0;
 
 	mstream->istream.iostream.close = _close;
 	mstream->istream.iostream.destroy = _destroy;
