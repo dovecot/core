@@ -383,7 +383,7 @@ int file_lock_dotlock(const char *path, const char *temp_prefix, int checkonly,
 }
 
 static int dotlock_delete(const char *path, const char *lock_suffix,
-			  const struct dotlock *dotlock)
+			  const struct dotlock *dotlock, int check_mtime)
 {
 	const char *lock_path;
         struct stat st;
@@ -407,7 +407,7 @@ static int dotlock_delete(const char *path, const char *lock_suffix,
 		return 0;
 	}
 
-	if (dotlock->mtime != st.st_mtime) {
+	if (dotlock->mtime != st.st_mtime && check_mtime) {
 		i_warning("Our dotlock file %s was modified (%s vs %s), "
 			  "assuming it wasn't overridden", lock_path,
 			  dec2str(dotlock->mtime), dec2str(st.st_mtime));
@@ -428,7 +428,7 @@ static int dotlock_delete(const char *path, const char *lock_suffix,
 
 int file_unlock_dotlock(const char *path, const struct dotlock *dotlock)
 {
-	return dotlock_delete(path, DEFAULT_LOCK_SUFFIX, dotlock);
+	return dotlock_delete(path, DEFAULT_LOCK_SUFFIX, dotlock, TRUE);
 }
 
 int file_dotlock_open(const char *path,
@@ -527,5 +527,5 @@ int file_dotlock_delete(const char *path, const char *lock_suffix, int fd)
 	dotlock.ino = st.st_ino;
 	dotlock.mtime = st.st_mtime;
 
-	return dotlock_delete(path, lock_suffix, &dotlock);
+	return dotlock_delete(path, lock_suffix, &dotlock, FALSE);
 }
