@@ -199,9 +199,9 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 int mail_cache_delete(struct mail_cache *cache, uint32_t offset);
 
 void mail_cache_decision_lookup(struct mail_cache_view *view, uint32_t seq,
-				uint32_t field);
+				unsigned int field);
 void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
-			     uint32_t field);
+			     unsigned int field);
 
 int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			       uint32_t seq, const void *data, void **context);
