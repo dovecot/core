@@ -1249,6 +1249,10 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	   there's no hash yet */
 	if (index->hash != NULL)
 		mail_hash_update(index->hash, rec->uid, 0);
+	else {
+		/* make sure it also gets updated */
+		index->flags |= MAIL_INDEX_FLAG_REBUILD_HASH;
+	}
 
 	/* setting UID to 0 is enough for deleting the mail from index */
 	rec->uid = 0;
