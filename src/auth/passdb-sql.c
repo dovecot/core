@@ -82,7 +82,8 @@ static void sql_query_callback(struct sql_result *result, void *context)
 			"Password query must return a field named 'password'");
 	} else {
 		password = t_strdup(sql_result_get_field_value(result, idx));
-                result_save_extra_fields(result, sql_request, auth_request);
+		result_save_extra_fields(result, sql_request, auth_request);
+		passdb_result = PASSDB_RESULT_OK;
 	}
 
 	if (ret > 0) {
