@@ -7,10 +7,10 @@ struct ioloop {
         struct ioloop *prev;
 
 	pool_t pool;
-	int highest_fd;
 
 	struct io *ios;
 	struct io *notifys, *event_io;
+	struct io *next_io;
 	struct timeout *timeouts; /* sorted by next_run */
 
         struct ioloop_handler_data *handler_data;
@@ -19,12 +19,10 @@ struct ioloop {
 };
 
 struct io {
-	struct io *next;
+	struct io *prev, *next;
 
 	int fd;
 	enum io_condition condition;
-
-	unsigned int destroyed:1;
 
 	io_callback_t *callback;
         void *context;
@@ -47,8 +45,6 @@ int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
 			  struct timeval *tv_now);
 void io_loop_handle_timeouts(struct ioloop *ioloop);
 
-/* call only when io->destroyed is TRUE */
-void io_destroy(struct ioloop *ioloop, struct io **io_p);
 /* call only when timeout->destroyed is TRUE */
 void timeout_destroy(struct ioloop *ioloop, struct timeout **timeout_p);
 

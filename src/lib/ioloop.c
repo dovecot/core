@@ -18,7 +18,7 @@ static struct ioloop *current_ioloop = NULL;
 struct io *io_add(int fd, enum io_condition condition,
 		  io_callback_t *callback, void *context)
 {
-	struct io *io, **io_p;
+	struct io *io;
 
 	i_assert(fd >= 0);
 	i_assert(callback != NULL);
@@ -38,18 +38,16 @@ struct io *io_add(int fd, enum io_condition condition,
 	io_loop_handle_add(current_ioloop, io);
 
 	/* have to append it, or io_destroy() breaks */
-        io_p = &current_ioloop->ios;
-	while (*io_p != NULL)
-		io_p = &(*io_p)->next;
-	*io_p = io;
+	io->next = current_ioloop->ios;
+	current_ioloop->ios = io;
+
+	if (io->next != NULL)
+		io->next->prev = io;
 	return io;
 }
 
 void io_remove(struct io *io)
 {
-	i_assert(io != NULL);
-	i_assert(io->fd >= 0);
-
 	if ((io->condition & IO_NOTIFY_MASK) != 0) {
 		io_loop_notify_remove(current_ioloop, io);
 		return;
@@ -58,18 +56,17 @@ void io_remove(struct io *io)
 	/* notify the real I/O handler */
 	io_loop_handle_remove(current_ioloop, io);
 
-	io->destroyed = TRUE;
+	if (current_ioloop->next_io == io)
+                current_ioloop->next_io = io->next;
 
-	io->fd = -1;
-}
+	if (io->prev == NULL)
+		current_ioloop->ios = io->next;
+	else
+		io->prev->next = io->next;
+	if (io->next != NULL)
+		io->next->prev = io->prev;
 
-void io_destroy(struct ioloop *ioloop, struct io **io_p)
-{
-	struct io *io = *io_p;
-
-	/* remove from list */
-	*io_p = io->next;
-	p_free(ioloop->pool, io);
+	p_free(current_ioloop->pool, io);
 }
 
 static void timeout_list_insert(struct ioloop *ioloop, struct timeout *timeout)
@@ -264,19 +261,15 @@ void io_loop_destroy(struct ioloop *ioloop)
 	while (ioloop->ios != NULL) {
 		struct io *io = ioloop->ios;
 
-		if (!io->destroyed) {
-			i_warning("I/O leak: %p (%d)",
-				  (void *) io->callback, io->fd);
-			io_remove(io);
-		}
-		io_destroy(ioloop, &ioloop->ios);
+		i_warning("I/O leak: %p (%d)", (void *)io->callback, io->fd);
+		io_remove(io);
 	}
 
 	while (ioloop->timeouts != NULL) {
 		struct timeout *to = ioloop->timeouts;
 
 		if (!to->destroyed) {
-			i_warning("Timeout leak: %p", (void *) to->callback);
+			i_warning("Timeout leak: %p", (void *)to->callback);
 			timeout_remove(to);
 		}
                 timeout_destroy(ioloop, &ioloop->timeouts);

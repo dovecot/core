@@ -132,7 +132,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	struct ioloop_handler_data *data = ioloop->handler_data;
         struct pollfd *pollfd;
         struct timeval tv;
-	struct io *io, **io_p;
+	struct io *io;
 	unsigned int t_id;
 	int msecs, ret, call;
 
@@ -151,17 +151,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		return;
 	}
 
-	io_p = &ioloop->ios;
-	for (io = ioloop->ios; io != NULL && ret > 0; io = *io_p) {
-		if (io->destroyed) {
-			/* we were destroyed, and io->fd points to
-			   -1 now, so we can't know if there was any
-			   revents left. */
-			io_destroy(ioloop, io_p);
-			continue;
-		}
-
-		i_assert(io->fd >= 0);
+	for (io = ioloop->ios; io != NULL && ret > 0; io = ioloop->next_io) {
+		ioloop->next_io = io->next;
 
 		pollfd = &data->fds[data->fd_index[io->fd]];
 		if (pollfd->revents != 0) {
@@ -193,15 +184,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
 				io->callback(io->context);
 				if (t_pop() != t_id)
 					i_panic("Leaked a t_pop() call!");
-
-				if (io->destroyed) {
-					io_destroy(ioloop, io_p);
-					continue;
-				}
 			}
 		}
-
-		io_p = &io->next;
 	}
 }
 
