@@ -1,3 +1,9 @@
+v0.98.1 2002-09-24  Timo Sirainen <tss@iki.fi>
+
+	+ Faster and safer mbox rewriting when flags are updated
+	- Didn't save messages larger then 8192 bytes
+	- Several mbox breakages
+
 v0.98 2002-09-23  Timo Sirainen <tss@iki.fi>
 
 	+ mbox support is finally working. There's still some reliability

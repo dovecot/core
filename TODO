@@ -36,10 +36,6 @@ index:
        problems are:
          - we don't have a single open mbox fd, we open it multiple times
 	 - switching to exclusive lock may deadlock
-	 - because mbox-rewrite rename()s the file, the old file gets lost.
-	   if mailer only checks the fd lock, the new mails disappear..
-	   i guess the only way to fix this is to set dotlock before opening
-	   the mbox file.
      - maybe support Content-Length for figuring out size of text? at least
        mutt doesn't prefix "From " in outbox.. If we verify that both
        Content-Length and Lines match correctly, there's quite a little chance
@@ -48,9 +44,6 @@ index:
        and now that we verify the From-line better, is this even needed?
      - rewriting could try to preserve the locations of fields it changes
        instead of writing them all to end..
-     - mbox-rewrite rename()s the file, which breaks if the original was a
-       symlink. but how do we fix this? we may not have write-access to the
-       directory where it points to, so we'd need to manually copy it..
      - empty lines at beginning of file still aren't ignored
  - read-only support for mailboxes where we don't have write-access? Maybe,
    but don't try to use their indexes since that's way too problematic, and
@@ -62,11 +55,8 @@ index:
  - if .customflags is removed and Maildir files have custom flags, add
    "unknown1" "unknown2" etc. flags to .customflags file for each found flag
  - debug: index could be read-only mmaped when it's not locked. 
- - if message text is modified (or indexes are corrupted), this may happen:
-    Panic: file imap-bodystructure.c: line 179 (part_parse_headers):
-           assertion failed: (part->physical_pos >= inbuf->offset)
- - when index is being rebuilt, it always complains about hash/modifylog having
-   wrong indexid..
+ - when index is being rebuilt, it always complains about hash/modifylog
+   having wrong indexid..
 
 lib-storage:
  - support multiple mailbox formats and locations for one user. that would
@@ -99,8 +89,6 @@ lib-storage:
  - maybe limit the length of custom flags? we don't really have a problem
    with them, but with mbox a long X-IMAPbase could break something.. Maybe
    configurable, default to 50 chars?
- - "APPEND invalid data {5}" - says "+ OK" and after that says it's invalid.
-   that "+ OK" shouldn't be sent by imap-parser if LITERAL_SIZE is used..
  - SEARCH should use imap-msgcache, especially for size checking
 
 general:
