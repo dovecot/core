@@ -355,11 +355,11 @@ struct _MailIndex {
 
 	char *dir; /* directory where to place the index files */
 	char *filepath; /* index file path */
+	char *mailbox_path; /* file/directory for mailbox location */
 	MailDataField default_cache_fields, never_cache_fields;
 	unsigned int indexid;
 	unsigned int sync_id;
 
-	char *mbox_path; /* mbox-specific path to the actual mbox file */
 	int mbox_fd;
 	IStream *mbox_stream;
 	MailLockType mbox_lock_type;

@@ -205,7 +205,7 @@ static int mbox_sync_from_stream(MailIndex *index, IStream *input)
 	if (i_stream_read_data(input, &data, &size, 5) > 0 &&
 	    strncmp((const char *) data, "From ", 5) != 0) {
 		index_set_error(index, "File isn't in mbox format: %s",
-				index->mbox_path);
+				index->mailbox_path);
 		return FALSE;
 	}
 
@@ -232,7 +232,7 @@ static int mbox_sync_from_stream(MailIndex *index, IStream *input)
 				index_set_error(index,
 						"Error syncing mbox file %s: "
 						"LF not found where expected",
-						index->mbox_path);
+						index->mailbox_path);
 				return FALSE;
 			}
 		}

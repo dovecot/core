@@ -14,7 +14,7 @@ static int expunge_msg(IndexMailbox *ibox, MailIndexRecord *rec)
 					  DATA_FIELD_LOCATION);
 	if (fname != NULL) {
 		if (str_ppath(path, sizeof(path),
-			      ibox->index->dir, "cur/", fname) < 0) {
+			      ibox->index->mailbox_path, "cur/", fname) < 0) {
 			mail_storage_set_critical(ibox->box.storage,
 						  "Filename too long: %s",
 						  fname);

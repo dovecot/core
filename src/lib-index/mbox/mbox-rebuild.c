@@ -56,7 +56,7 @@ int mbox_index_rebuild(MailIndex *index)
 		return FALSE;
 
 	/* update sync stamp */
-	if (stat(index->mbox_path, &st) < 0)
+	if (stat(index->mailbox_path, &st) < 0)
 		return mbox_set_syscall_error(index, "fstat()");
 
 	index->file_sync_stamp = st.st_mtime;

@@ -284,7 +284,7 @@ int maildir_index_sync(MailIndex *index,
 	/* cur/ and new/ directories can have new mail - sync the cur/ first
 	   so it'll be a bit bit faster since we haven't yet added the new
 	   mail. */
-        cur_dir = t_strconcat(index->dir, "/cur", NULL);
+        cur_dir = t_strconcat(index->mailbox_path, "/cur", NULL);
 	if (stat(cur_dir, &std) < 0)
 		return index_file_set_syscall_error(index, cur_dir, "stat()");
 
@@ -295,7 +295,7 @@ int maildir_index_sync(MailIndex *index,
 	}
 
 	/* move mail from new/ to cur/ */
-	new_dir = t_strconcat(index->dir, "/new", NULL);
+	new_dir = t_strconcat(index->mailbox_path, "/new", NULL);
 	if (stat(new_dir, &std) < 0)
 		return index_file_set_syscall_error(index, new_dir, "stat()");
 

@@ -29,6 +29,31 @@ the folder directories.
 MAIL environment for mbox is: <root folder>|<INBOX path>[:INBOX=<path>].
 For example ~/Mail:INBOX=/var/mail/username.
 
+indexes
+-------
+
+It's possible to specify different location for index files. This could be
+wanted if mailboxes are accessed via remote filesystem (eg. NFS). Indexes
+are mmap()ed and fcntl() locked, so they may not work too well with NFS, or
+at least they'll work a bit slowly.
+
+Indexes don't contain anything really important in them, so it doesn't
+matter if they're lost or are out of sync. Dovecot just rebuilds or
+refreshes them. This would allow creating a cluster where each computer
+keeps the indexes locally while accessing the actual mailboxes via NFS. To
+avoid unnecessarily rebuilding indexes all the time, the users should be
+redirected to their primary server whenever possible.
+
+Currently the only annoying thing with recreating indexes is that the
+message UIDs will change, which may cause more traffic to clients, and
+depending on client software may cause loss of some message-specific
+settings. This will be fixed later by storing the UIDs permanently to
+mailboxes.
+
+Adding :INDEX=<dir> to MAIL environment overrides the default location. The
+given directory must exist.
+
+
 Detecting what to use
 ---------------------
 

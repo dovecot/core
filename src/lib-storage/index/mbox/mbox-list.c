@@ -110,7 +110,9 @@ static int mbox_find_path(MailStorage *storage, ImapMatchGlob *glob,
 
 		if (S_ISDIR(st.st_mode)) {
 			/* subdirectory, scan it too */
+			t_push();
 			func(storage, listpath, MAILBOX_NOSELECT, context);
+			t_pop();
 
 			if (!mbox_find_path(storage, glob, func,
 					    context, listpath)) {
@@ -119,7 +121,9 @@ static int mbox_find_path(MailStorage *storage, ImapMatchGlob *glob,
 			}
 		} else if (match > 0 &&
 			   strcmp(fullpath, storage->inbox_file) != 0) {
+			t_push();
 			func(storage, listpath, MAILBOX_NOINFERIORS, context);
+			t_pop();
 		}
 	}
 

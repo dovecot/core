@@ -39,7 +39,7 @@ int unlink_directory(const char *dir)
 
 	dirp = opendir(dir);
 	if (dirp == NULL)
-		return FALSE;
+		return errno == ENOENT;
 
 	while ((d = readdir(dirp)) != NULL) {
 		if (d->d_name[0] == '.' &&
@@ -69,7 +69,7 @@ int unlink_directory(const char *dir)
 
 	(void)closedir(dirp);
 
-	if (rmdir(dir) == -1)
+	if (rmdir(dir) == -1 && errno != ENOENT)
 		return FALSE;
 	return TRUE;
 }

@@ -133,15 +133,17 @@ const char *maildir_filename_set_flags(const char *fname, MailFlags flags)
 	return flags_str->str;
 }
 
-MailIndex *maildir_index_alloc(const char *dir)
+MailIndex *maildir_index_alloc(const char *dir, const char *maildir)
 {
 	MailIndex *index;
 
 	i_assert(dir != NULL);
+	i_assert(maildir != NULL);
 
 	index = i_new(MailIndex, 1);
 	memcpy(index, &maildir_index, sizeof(MailIndex));
 
+	index->mailbox_path = i_strdup(maildir);
 	mail_index_init(index, dir);
 	return index;
 }
@@ -150,6 +152,7 @@ static void maildir_index_free(MailIndex *index)
 {
 	mail_index_close(index);
 	i_free(index->dir);
+	i_free(index->mailbox_path);
 	i_free(index);
 }
 
@@ -199,8 +202,10 @@ static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 	new_fname = maildir_filename_set_flags(old_fname, flags);
 
 	if (strcmp(old_fname, new_fname) != 0) {
-		old_path = t_strconcat(index->dir, "/cur/", old_fname, NULL);
-		new_path = t_strconcat(index->dir, "/cur/", new_fname, NULL);
+		old_path = t_strconcat(index->mailbox_path,
+				       "/cur/", old_fname, NULL);
+		new_path = t_strconcat(index->mailbox_path,
+				       "/cur/", new_fname, NULL);
 
 		/* minor problem: new_path is overwritten if it exists.. */
 		if (rename(old_path, new_path) < 0) {

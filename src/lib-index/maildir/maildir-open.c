@@ -32,7 +32,7 @@ IStream *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
 		return NULL;
 	}
 
-	path = t_strconcat(index->dir, "/cur/", fname, NULL);
+	path = t_strconcat(index->mailbox_path, "/cur/", fname, NULL);
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT) {

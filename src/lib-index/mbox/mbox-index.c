@@ -24,7 +24,7 @@ int mbox_set_syscall_error(MailIndex *index, const char *function)
 	i_assert(function != NULL);
 
 	index_set_error(index, "%s failed with mbox file %s: %m",
-			function, index->mbox_path);
+			function, index->mailbox_path);
 	return FALSE;
 }
 
@@ -35,7 +35,7 @@ int mbox_file_open(MailIndex *index)
 
 	i_assert(index->mbox_fd == -1);
 
-	fd = open(index->mbox_path, O_RDWR);
+	fd = open(index->mailbox_path, O_RDWR);
 	if (fd == -1) {
 		mbox_set_syscall_error(index, "open()");
 		return FALSE;
@@ -727,7 +727,7 @@ MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path)
 	index->mbox_fd = -1;
 	index->mbox_sync_counter = (unsigned int)-1;
 
-	index->mbox_path = i_strdup(mbox_path);
+	index->mailbox_path = i_strdup(mbox_path);
 	mail_index_init(index, dir);
 	return index;
 }
@@ -736,8 +736,8 @@ static void mbox_index_free(MailIndex *index)
 {
         mbox_file_close_fd(index);
 	mail_index_close(index);
-	i_free(index->mbox_path);
 	i_free(index->dir);
+	i_free(index->mailbox_path);
 	i_free(index);
 }
 

@@ -38,7 +38,7 @@ static int mbox_index_append_next(MailIndex *index, IStream *input)
 		   b) not a From-line */
 		index_set_error(index, "Error indexing mbox file %s: "
 				"From-line not found where expected",
-				index->mbox_path);
+				index->mailbox_path);
 		index->set_flags |= MAIL_INDEX_FLAG_FSCK;
 		return FALSE;
 	}
@@ -130,7 +130,7 @@ int mbox_index_append(MailIndex *index, IStream *input)
 				index_set_error(index,
 						"Error indexing mbox file %s: "
 						"LF not found where expected",
-						index->mbox_path);
+						index->mailbox_path);
 
 				index->set_flags |= MAIL_INDEX_FLAG_FSCK;
 				return FALSE;

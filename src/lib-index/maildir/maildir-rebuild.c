@@ -39,12 +39,12 @@ int maildir_index_rebuild(MailIndex *index)
 		return FALSE;
 
 	/* rebuild cur/ directory */
-	cur_dir = t_strconcat(index->dir, "/cur", NULL);
+	cur_dir = t_strconcat(index->mailbox_path, "/cur", NULL);
 	if (!maildir_index_build_dir(index, cur_dir, NULL))
 		return FALSE;
 
 	/* also see if there's new mail */
-	new_dir = t_strconcat(index->dir, "/new", NULL);
+	new_dir = t_strconcat(index->mailbox_path, "/new", NULL);
 	if (!maildir_index_build_dir(index, new_dir, cur_dir))
 		return FALSE;
 

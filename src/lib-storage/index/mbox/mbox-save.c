@@ -183,7 +183,7 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		return FALSE;
 
 	index = ibox->index;
-	mbox_path = index->mbox_path;
+	mbox_path = index->mailbox_path;
 	if (!mbox_seek_to_end(box->storage, index->mbox_fd, mbox_path, &pos))
 		failed = TRUE;
 	else {

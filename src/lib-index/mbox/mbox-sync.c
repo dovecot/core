@@ -93,14 +93,14 @@ int mbox_index_sync(MailIndex *index, MailLockType data_lock_type,
 	}
 
 	count = 0;
-	while (stat(index->mbox_path, &st) < 0) {
+	while (stat(index->mailbox_path, &st) < 0) {
 		if (errno != ENOENT || ++count == 3)
 			return mbox_set_syscall_error(index, "stat()");
 
 		/* mbox was deleted by someone - happens with some MUAs
 		   when all mail is expunged. easiest way to deal with this
 		   is to recreate the file. */
-		fd = open(index->mbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
+		fd = open(index->mailbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
 		if (fd != -1)
 			(void)close(fd);
 		else if (errno != EEXIST)

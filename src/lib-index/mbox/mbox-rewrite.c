@@ -61,13 +61,13 @@ static int mbox_write(MailIndex *index, IStream *input, OStream *output,
 	i_stream_set_read_limit(input, end_offset);
 	if (o_stream_send_istream(output, input) < 0) {
 		index_set_error(index, "Error rewriting mbox file %s: %s",
-				index->mbox_path,
+				index->mailbox_path,
 				strerror(output->stream_errno));
 		failed = TRUE;
 	} else if (input->v_offset < end_offset) {
 		/* fsck should have noticed it.. */
 		index_set_error(index, "Error rewriting mbox file %s: "
-				"Unexpected end of file", index->mbox_path);
+				"Unexpected end of file", index->mailbox_path);
 		failed = TRUE;
 	} else {
 		failed = FALSE;
@@ -315,7 +315,7 @@ static int mbox_write_header(MailIndex *index,
 	if (input->v_offset >= end_offset) {
 		/* fsck should have noticed it.. */
 		index_set_error(index, "Error rewriting mbox file %s: "
-				"Unexpected end of file", index->mbox_path);
+				"Unexpected end of file", index->mailbox_path);
 		return FALSE;
 	}
 
@@ -539,7 +539,7 @@ int mbox_index_rewrite(MailIndex *index)
 
 	if (!dirty_found) {
 		index_set_error(index, "Expected dirty messages not found "
-				"from mbox file %s", index->mbox_path);
+				"from mbox file %s", index->mailbox_path);
 		failed = TRUE;
 	}
 

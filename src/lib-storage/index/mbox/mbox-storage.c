@@ -72,10 +72,10 @@ static const char *get_root_dir(void)
 static MailStorage *mbox_create(const char *data, const char *user)
 {
 	MailStorage *storage;
-	const char *root_dir, *inbox_file, *p;
+	const char *root_dir, *inbox_file, *index_dir, *p;
 	struct stat st;
 
-	root_dir = inbox_file = NULL;
+	root_dir = inbox_file = index_dir = NULL;
 
 	if (data == NULL || *data == '\0') {
 		/* we'll need to figure out the mail location ourself.
@@ -83,8 +83,8 @@ static MailStorage *mbox_create(const char *data, const char *user)
 		   either $HOME/mail or $HOME/Mail */
 		root_dir = get_root_dir();
 	} else {
-		/* <root folder> | <INBOX path> [:INBOX=<path>]
-		   [:<reserved for future>] */
+		/* <root folder> | <INBOX path>
+		   [:INBOX=<path>] [:INDEX=<dir>] */
 		p = strchr(data, ':');
 		if (p == NULL) {
 			if (stat(data, &st) == 0 && S_ISDIR(st.st_mode))
@@ -95,8 +95,14 @@ static MailStorage *mbox_create(const char *data, const char *user)
 			}
 		} else {
 			root_dir = t_strdup_until(data, p);
-			if (strncmp(p+1, "INBOX=", 6) == 0)
-				inbox_file = t_strcut(p+7, ':');
+			do {
+				p++;
+				if (strncmp(p, "INBOX=", 6) == 0)
+					inbox_file = t_strcut(p+6, ':');
+				else if (strncmp(p, "INDEX=", 6) == 0)
+					index_dir = t_strcut(p+6, ':');
+				p = strchr(p, ':');
+			} while (p != NULL);
 		}
 	}
 
@@ -105,12 +111,15 @@ static MailStorage *mbox_create(const char *data, const char *user)
 
 	if (inbox_file == NULL)
 		inbox_file = t_strconcat(root_dir, "/inbox", NULL);
+	if (index_dir == NULL)
+		index_dir = root_dir;
 
 	storage = i_new(MailStorage, 1);
 	memcpy(storage, &mbox_storage, sizeof(MailStorage));
 
 	storage->dir = i_strdup(root_dir);
 	storage->inbox_file = i_strdup(inbox_file);
+	storage->index_dir = i_strdup(index_dir);
 	storage->user = i_strdup(user);
 	storage->callbacks = i_new(MailStorageCallbacks, 1);
 	return storage;
@@ -118,9 +127,12 @@ static MailStorage *mbox_create(const char *data, const char *user)
 
 static void mbox_free(MailStorage *storage)
 {
-	i_free(storage->callbacks);
 	i_free(storage->dir);
+	i_free(storage->inbox_file);
+	i_free(storage->index_dir);
 	i_free(storage->user);
+	i_free(storage->error);
+	i_free(storage->callbacks);
 	i_free(storage);
 }
 
@@ -149,24 +161,25 @@ static int mbox_is_valid_name(MailStorage *storage, const char *name)
 		mbox_is_valid_mask(name);
 }
 
-static const char *mbox_get_index_dir(const char *mbox_path)
+static const char *mbox_get_index_dir(MailStorage *storage, const char *name)
 {
-	const char *p, *rootpath;
+	const char *p;
 
-	p = strrchr(mbox_path, '/');
+	p = strrchr(name, '/');
 	if (p == NULL)
-		return t_strconcat(".imap/", mbox_path, NULL);
+		return t_strconcat(storage->index_dir, "/.imap/", name, NULL);
 	else {
-		rootpath = t_strdup_until(mbox_path, p);
-		return t_strconcat(rootpath, "/.imap/", p+1, NULL);
+		return t_strconcat(storage->index_dir, t_strdup_until(name, p),
+				   "/.imap/", p+1, NULL);
 	}
 }
 
-static int create_mbox_index_dirs(const char *mbox_path, int verify)
+static int create_mbox_index_dirs(MailStorage *storage, const char *name,
+				  int verify)
 {
 	const char *index_dir, *imap_dir;
 
-	index_dir = mbox_get_index_dir(mbox_path);
+	index_dir = mbox_get_index_dir(storage, name);
 	imap_dir = t_strdup_until(index_dir, strstr(index_dir, ".imap/") + 5);
 
 	if (mkdir(imap_dir, CREATE_MODE) == -1 && errno != EEXIST)
@@ -179,7 +192,6 @@ static int create_mbox_index_dirs(const char *mbox_path, int verify)
 
 static void verify_inbox(MailStorage *storage)
 {
-	const char *index_dir;
 	int fd;
 
 	/* make sure inbox file itself exists */
@@ -188,8 +200,7 @@ static void verify_inbox(MailStorage *storage)
 		(void)close(fd);
 
 	/* make sure the index directories exist */
-	index_dir = t_strconcat(storage->dir, "/INBOX", NULL);
-	(void)create_mbox_index_dirs(index_dir, TRUE);
+	(void)create_mbox_index_dirs(storage, "INBOX", TRUE);
 }
 
 static const char *mbox_get_path(MailStorage *storage, const char *name)
@@ -212,14 +223,13 @@ static Mailbox *mbox_open(MailStorage *storage, const char *name,
 		   path = "<inbox_file>/INBOX"
 		   index_dir = "/mail/.imap/INBOX" */
 		path = storage->inbox_file;
-		index_dir = mbox_get_index_dir(t_strconcat(storage->dir,
-							   "/INBOX", NULL));
+		index_dir = mbox_get_index_dir(storage, "/INBOX");
 	} else {
 		/* name = "foo/bar"
 		   path = "/mail/foo/bar"
 		   index_dir = "/mail/foo/.imap/bar" */
 		path = mbox_get_path(storage, name);
-		index_dir = mbox_get_index_dir(path);
+		index_dir = mbox_get_index_dir(storage, name);
 	}
 
 	index = index_storage_lookup_ref(index_dir);
@@ -232,7 +242,7 @@ static Mailbox *mbox_open(MailStorage *storage, const char *name,
 				  name, readonly, fast);
 	if (ibox != NULL) {
 		ibox->expunge_locked = mbox_expunge_locked;
-		index_mailbox_check_add(ibox, index->mbox_path);
+		index_mailbox_check_add(ibox, index->mailbox_path);
 	}
 	return (Mailbox *) ibox;
 }
@@ -260,7 +270,7 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 	path = mbox_get_path(storage, name);
 	if (stat(path, &st) == 0) {
 		/* exists - make sure the required directories are also there */
-		(void)create_mbox_index_dirs(path, TRUE);
+		(void)create_mbox_index_dirs(storage, name, TRUE);
 
 		return mbox_open(storage, name, readonly, fast);
 	} else if (errno == ENOENT) {
@@ -351,7 +361,7 @@ static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 	}
 
 	/* next delete the index directory */
-	index_dir = mbox_get_index_dir(path);
+	index_dir = mbox_get_index_dir(storage, name);
 	if (!unlink_directory(index_dir) && errno != ENOENT) {
 		mail_storage_set_critical(storage, "unlink_directory(%s) "
 					  "failed: %m", index_dir);
@@ -394,8 +404,8 @@ static int mbox_rename_mailbox(MailStorage *storage, const char *oldname,
 	}
 
 	/* we need to rename the index directory as well */
-	old_indexdir = mbox_get_index_dir(oldpath);
-	new_indexdir = mbox_get_index_dir(newpath);
+	old_indexdir = mbox_get_index_dir(storage, oldname);
+	new_indexdir = mbox_get_index_dir(storage, newname);
 	(void)rename(old_indexdir, new_indexdir);
 
 	return TRUE;
@@ -464,6 +474,7 @@ MailStorage mbox_storage = {
 	mbox_get_mailbox_name_status,
 	mail_storage_get_last_error,
 
+	NULL,
 	NULL,
 	NULL,
 	NULL,

@@ -6,7 +6,7 @@
 /* ":2,DFRST" - leave the 2 extra for other clients' additions */
 #define MAILDIR_LOCATION_EXTRA_SPACE 10
 
-MailIndex *maildir_index_alloc(const char *dir);
+MailIndex *maildir_index_alloc(const char *dir, const char *maildir);
 
 MailFlags maildir_filename_get_flags(const char *fname,
 				     MailFlags default_flags);

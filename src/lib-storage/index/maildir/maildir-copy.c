@@ -32,7 +32,8 @@ static int copy_hard_func(MailIndex *index, MailIndexRecord *rec,
 
 	/* link the file */
 	fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
-	if (str_ppath(src, sizeof(src), index->dir, "cur/", fname) < 0) {
+	if (str_ppath(src, sizeof(src),
+		      index->mailbox_path, "cur/", fname) < 0) {
 		mail_storage_set_critical(ctx->storage, "Filename too long: %s",
 					  fname);
 		return FALSE;
@@ -41,7 +42,7 @@ static int copy_hard_func(MailIndex *index, MailIndexRecord *rec,
 	fname = maildir_filename_set_flags(maildir_generate_tmp_filename(),
 					   flags);
 	if (str_ppath(dest, sizeof(dest),
-		      ctx->dest->index->dir, "new/", fname) < 0) {
+		      ctx->dest->index->mailbox_path, "new/", fname) < 0) {
 		mail_storage_set_critical(ctx->storage, "Filename too long: %s",
 					  fname);
 		return FALSE;

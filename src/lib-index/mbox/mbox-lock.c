@@ -87,7 +87,7 @@ static int mbox_lock_flock(MailIndex *index, MailLockType lock_type,
 			index->mailbox_lock_timeout = TRUE;
 			index_set_error(index, "Timeout while waiting for "
 					"release of flock() lock for mbox file "
-					"%s", index->mbox_path);
+					"%s", index->mailbox_path);
 			return FALSE;
 		}
 
@@ -127,7 +127,7 @@ static int mbox_lock_fcntl(MailIndex *index, MailLockType lock_type,
 			index->mailbox_lock_timeout = TRUE;
 			index_set_error(index, "Timeout while waiting for "
 					"release of fcntl() lock for mbox file "
-					"%s", index->mbox_path);
+					"%s", index->mailbox_path);
 			return FALSE;
 		}
 
@@ -163,7 +163,7 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path,
 
 		if (stat(path, &st) == 0) {
 			/* see if there's been any changes in mbox */
-			if (stat(index->mbox_path, &st) < 0) {
+			if (stat(index->mailbox_path, &st) < 0) {
 				mbox_set_syscall_error(index, "stat()");
 				break;
 			}
@@ -332,14 +332,15 @@ int mbox_lock(MailIndex *index, MailLockType lock_type)
 
 	/* make .lock file first to protect overwriting the file */
 	if (use_dotlock && index->mbox_dotlock_ino == 0) {
-		if (!mbox_lock_dotlock(index, index->mbox_path, max_wait_time,
+		if (!mbox_lock_dotlock(index, index->mailbox_path,
+				       max_wait_time,
 				       lock_type == MAIL_LOCK_SHARED &&
 				       !use_read_dotlock))
 			return FALSE;
 	}
 
 	/* now we need to have the file itself locked. open it if needed. */
-	if (stat(index->mbox_path, &st) < 0)
+	if (stat(index->mailbox_path, &st) < 0)
 		return mbox_set_syscall_error(index, "stat()");
 
 	if (st.st_dev != index->mbox_dev || st.st_ino != index->mbox_ino)
@@ -382,7 +383,7 @@ int mbox_unlock(MailIndex *index)
 	}
 
 	if (index->mbox_dotlock_ino != 0) {
-		if (!mbox_unlock_dotlock(index, index->mbox_path))
+		if (!mbox_unlock_dotlock(index, index->mailbox_path))
 			failed = TRUE;
 	}
 
