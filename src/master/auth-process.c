@@ -328,12 +328,12 @@ static void auth_process_destroy(struct auth_process *p)
 static void
 socket_settings_env_put(const char *env_base, struct socket_settings *set)
 {
-	if (env_base == NULL)
+	if (set->path == NULL)
 		return;
 
-	env_put(t_strdup_printf("%s_PATH=%s", env_base, set->path));
+	env_put(t_strdup_printf("%s=%s", env_base, set->path));
 	if (set->mode != 0)
-		env_put(t_strdup_printf("%s_MODE=%u", env_base, set->mode));
+		env_put(t_strdup_printf("%s_MODE=%o", env_base, set->mode));
 	if (set->user != NULL)
 		env_put(t_strdup_printf("%s_USER=%s", env_base, set->user));
 	if (set->group != NULL)

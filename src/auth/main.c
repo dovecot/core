@@ -54,30 +54,6 @@ static void open_logfile(void)
 	i_set_failure_timestamp_format(getenv("LOGSTAMP"));
 }
 
-static void drop_privileges(void)
-{
-	unsigned int seed;
-
-	verbose = getenv("VERBOSE") != NULL;
-	verbose_debug = getenv("VERBOSE_DEBUG") != NULL;
-
-	open_logfile();
-
-	/* Open /dev/urandom before chrooting */
-	random_init();
-	random_fill(&seed, sizeof(seed));
-	srand(seed);
-
-	/* Initialize databases so their configuration files can be readable
-	   only by root. Also load all modules here. */
-	userdb_preinit();
-	passdb_preinit();
-        password_schemes_init();
-
-	/* Password lookups etc. may require roots, allow it. */
-	restrict_access_by_env(FALSE);
-}
-
 static uid_t get_uid(const char *user)
 {
 	struct passwd *pw;
@@ -191,6 +167,33 @@ static void add_extra_listeners(void)
 	}
 }
 
+static void drop_privileges(void)
+{
+	unsigned int seed;
+
+	verbose = getenv("VERBOSE") != NULL;
+	verbose_debug = getenv("VERBOSE_DEBUG") != NULL;
+
+	open_logfile();
+
+	/* Open /dev/urandom before chrooting */
+	random_init();
+	random_fill(&seed, sizeof(seed));
+	srand(seed);
+
+	/* Initialize databases so their configuration files can be readable
+	   only by root. Also load all modules here. */
+	userdb_preinit();
+	passdb_preinit();
+        password_schemes_init();
+
+	masters_buf = buffer_create_dynamic(default_pool, 64);
+	add_extra_listeners();
+
+	/* Password lookups etc. may require roots, allow it. */
+	restrict_access_by_env(FALSE);
+}
+
 static void main_init(int nodaemon)
 {
 	struct auth_master_connection *master, **master_p;
@@ -203,8 +206,6 @@ static void main_init(int nodaemon)
 
 	lib_init_signals(sig_quit);
 	mech_init();
-
-	masters_buf = buffer_create_dynamic(default_pool, 64);
 
 	env = getenv("AUTH_PROCESS");
 	standalone = env == NULL;
@@ -244,8 +245,6 @@ static void main_init(int nodaemon)
 		auth_client_connections_init(master);
 		buffer_append(masters_buf, &master, sizeof(master));
 	}
-
-	add_extra_listeners();
 
 	/* everything initialized, notify masters that all is well */
 	master_p = buffer_get_modifyable_data(masters_buf, &size);
@@ -288,9 +287,9 @@ int main(int argc, char *argv[])
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
-	drop_privileges();
-
 	ioloop = io_loop_create(system_pool);
+
+	drop_privileges();
 
 	main_init(argc > 1 && strcmp(argv[1], "-F") == 0);
         io_loop_run(ioloop);
