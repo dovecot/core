@@ -106,7 +106,7 @@ static int mail_index_has_changed(struct mail_index *index)
 			return -1;
 
 		/* lost it? recreate */
-		(void)mail_index_reset(index);
+		(void)mail_index_mark_corrupted(index);
 		return -1;
 	}
 

@@ -130,6 +130,6 @@ int mail_index_fsck(struct mail_index *index)
 				     index->filepath, error);
 	}
 	if (ret == 0)
-		mail_index_reset(index);
+		mail_index_mark_corrupted(index);
 	return ret;
 }

@@ -36,6 +36,7 @@ static int mail_index_mark_corrupted(struct mail_index *index)
 
 int mail_index_reset(struct mail_index *index)
 {
+	struct mail_transaction_log *log;
 	struct mail_index_header hdr;
 	uint32_t file_seq;
 	uoff_t file_offset;
@@ -48,19 +49,23 @@ int mail_index_reset(struct mail_index *index)
 	if (mail_index_mark_corrupted(index) < 0)
 		return -1;
 
-	log_locked = index->log_locked;
+	/*log_locked = index->log_locked;
 	if (log_locked)
                 mail_transaction_log_sync_unlock(index->log);
-        mail_index_close(index);
 
-	if (mail_index_open(index, MAIL_INDEX_OPEN_FLAG_CREATE) < 0)
+	log = index->log;
+	mail_index_close(index);
+	index->log = log;
+
+	if (mail_index_open(index, MAIL_INDEX_OPEN_FLAG_CREATE |
+			    MAIL_INDEX_OPEN_FLAG_REOPEN) < 0)
 		return -1;
 
 	if (log_locked) {
 		if (mail_transaction_log_sync_lock(index->log,
 						   &file_seq, &file_offset) < 0)
 			return -1;
-	}
+	}*/
 
 	return 0;
 }

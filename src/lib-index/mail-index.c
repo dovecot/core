@@ -655,6 +655,34 @@ void mail_index_set_inconsistent(struct mail_index *index)
 	index->indexid = 0;
 }
 
+int mail_index_mark_corrupted(struct mail_index *index)
+{
+	struct mail_index_header hdr;
+
+	if (index->readonly)
+		return 0;
+
+	/* make sure we can write the header */
+	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(index->map)) {
+		if (mprotect(index->map->mmap_base, sizeof(hdr),
+			     PROT_READ | PROT_WRITE) < 0) {
+			mail_index_set_syscall_error(index, "mprotect()");
+			return -1;
+		}
+	}
+
+	hdr = *index->hdr;
+	hdr.flags |= MAIL_INDEX_HDR_FLAG_CORRUPTED;
+	if (mail_index_write_header(index, &hdr) < 0)
+		return -1;
+
+	if (fsync(index->fd) < 0)
+		return mail_index_set_syscall_error(index, "fsync()");
+
+	mail_index_set_inconsistent(index);
+	return 0;
+}
+
 int mail_index_set_syscall_error(struct mail_index *index,
 				 const char *function)
 {
