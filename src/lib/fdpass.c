@@ -37,7 +37,7 @@
 #  define _XOPEN_SOURCE /* for IRIX */
 #endif
 
-#ifndef _AIX
+#if !defined(_AIX) && !defined(_XOPEN_SOURCE_EXTENDED)
 #  define _XOPEN_SOURCE_EXTENDED /* for Tru64, breaks AIX */
 #endif
 
