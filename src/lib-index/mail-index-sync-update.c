@@ -464,7 +464,12 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 				ret = -1;
 				break;
 			}
-			map = index->map;
+			if (map != index->map) {
+				map = index->map;
+				mail_index_unmap(view->index, view->map);
+				view->map = map;
+				view->map->refcount++;
+			}
 		}
 
 		if (mail_transaction_map(index, hdr, data,
