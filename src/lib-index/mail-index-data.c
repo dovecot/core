@@ -430,7 +430,7 @@ static int mail_index_data_grow(MailIndexData *data, size_t size)
 	if (pos < (int)sizeof(MailIndexDataHeader))
 		return index_data_set_corrupted(data, "Header is missing");
 
-	if (file_set_size(data->fd, new_fsize) < 0) {
+	if (file_set_size(data->fd, (off_t)new_fsize) < 0) {
 		if (errno == ENOSPC)
 			data->index->nodiskspace = TRUE;
 		return index_data_set_syscall_error(data, "file_set_size()");

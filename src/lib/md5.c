@@ -48,7 +48,7 @@
  */
 #if defined(__i386__) || defined(__vax__)
 #define SET(n) \
-	(*(MD5_u32plus *)&ptr[(n) * 4])
+	(*(const MD5_u32plus *)&ptr[(n) * 4])
 #define GET(n) \
 	SET(n)
 #else
@@ -205,7 +205,7 @@ void md5_update(MD5Context *ctx, const void *data, size_t size)
 		}
 
 		memcpy(&ctx->buffer[used], data, free);
-		data = (unsigned char *) data + free;
+		data = (const unsigned char *) data + free;
 		size -= free;
 		body(ctx, ctx->buffer, 64);
 	}

@@ -24,6 +24,7 @@
 */
 
 #include "lib.h"
+#include "write-full.h"
 
 #include <unistd.h>
 

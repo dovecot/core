@@ -390,9 +390,10 @@ void message_parse_header(MessagePart *part, IBuffer *inbuf,
 
 					/* and finally call the function */
 					func(part,
-					     (char*) msg + line_start, name_len,
-					     (char*) msg + colon_pos, value_len,
-					     context);
+					     (const char *) msg + line_start,
+					     name_len,
+					     (const char *) msg + colon_pos,
+					     value_len, context);
 				}
 
 				colon_pos = UINT_MAX;

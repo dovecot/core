@@ -503,8 +503,9 @@ int mail_custom_flags_fix_list(MailCustomFlags *mcf, MailFlags *flags,
 			       const char *custom_flags[], unsigned int count)
 {
 	MailFlags oldflags, flag;
-	unsigned int i;
-	int idx;
+	int i, idx;
+
+	i_assert(count < 32);
 
 	if ((*flags & MAIL_CUSTOM_FLAGS_MASK) == 0)
 		return 1;
@@ -516,7 +517,7 @@ int mail_custom_flags_fix_list(MailCustomFlags *mcf, MailFlags *flags,
 	*flags &= MAIL_SYSTEM_FLAGS_MASK;
 
 	flag = MAIL_CUSTOM_FLAG_1;
-	for (i = 0; i < count; i++, flag <<= 1) {
+	for (i = 0; i < (int)count; i++, flag <<= 1) {
 		if ((oldflags & flag) && custom_flags[i] != NULL) {
 			i_assert(*custom_flags[i] != '\0');
 

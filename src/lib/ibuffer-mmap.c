@@ -35,7 +35,7 @@ typedef struct {
 
 	int fd;
 	void *mmap_base;
-	uoff_t mmap_offset;
+	off_t mmap_offset;
 	size_t mmap_block_size;
 
 	unsigned int autoclose_fd:1;
@@ -179,8 +179,8 @@ static void _seek(_IBuffer *buf, uoff_t v_offset)
 
 	abs_offset = buf->ibuffer.start_offset + v_offset;
 	if (buf->buffer_size != 0 &&
-	    mbuf->mmap_offset <= abs_offset &&
-	    mbuf->mmap_offset + buf->buffer_size > abs_offset) {
+	    (uoff_t)mbuf->mmap_offset <= abs_offset &&
+	    (uoff_t)mbuf->mmap_offset + buf->buffer_size > abs_offset) {
 		/* already mmaped */
 		buf->skip = buf->pos = abs_offset - mbuf->mmap_offset;
 	} else {

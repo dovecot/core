@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "utc-offset.h"
 #include "utc-mktime.h"
+#include "imap-date.h"
 
 #include <ctype.h>
 
@@ -139,7 +140,7 @@ int imap_parse_datetime(const char *str, time_t *time, int *timezone_offset)
 	return TRUE;
 }
 
-const char *imap_to_datetime_internal(struct tm *tm, int timezone_offset)
+static const char *imap_to_datetime_internal(struct tm *tm, int timezone_offset)
 {
 	int negative;
 

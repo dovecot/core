@@ -292,7 +292,7 @@ static int buffer_flush(FileOBuffer *fbuf)
 	return 1;
 }
 
-int _flush(_OBuffer *buf)
+static int _flush(_OBuffer *buf)
 {
 	FileOBuffer *fbuf = (FileOBuffer *) buf;
 	int ret;

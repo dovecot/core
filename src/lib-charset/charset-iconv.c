@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "charset-utf8.h"
 
 #ifdef HAVE_ICONV_H
 

@@ -171,7 +171,7 @@ char *i_buffer_next_line(IBuffer *buf)
 				_buf->w_buffer[i-1] = '\0';
 			else
 				_buf->w_buffer[i] = '\0';
-			ret_buf = (char *) _buf->buffer + _buf->skip;
+			ret_buf = (char *) _buf->w_buffer + _buf->skip;
 
 			i++;
 			buf->v_offset += i - _buf->skip;

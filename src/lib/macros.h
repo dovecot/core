@@ -38,7 +38,7 @@
 #define POINTER_CAST(i) \
 	((void *) ((char *) NULL + (i)))
 #define POINTER_CAST_TO(p, type) \
-	((type) ((char *) (p) - (char *) NULL))
+	((type) ((const char *) (p) - (const char *) NULL))
 
 /* Define VA_COPY() to do the right thing for copying va_list variables. */
 #ifndef VA_COPY

@@ -820,9 +820,9 @@ int mail_modifylog_add_flags(MailModifyLog *log, unsigned int seq,
 	return TRUE;
 }
 
-void mail_modifylog_get_nonsynced_file(ModifyLogFile *file,
-				       const ModifyLogRecord **arr,
-				       unsigned int *count)
+static void mail_modifylog_get_nonsynced_file(ModifyLogFile *file,
+					      const ModifyLogRecord **arr,
+					      unsigned int *count)
 {
 	ModifyLogRecord *end_rec;
 

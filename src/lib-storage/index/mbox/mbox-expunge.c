@@ -138,7 +138,7 @@ int mbox_expunge_locked(IndexMailbox *ibox, int notify)
 		(void)o_buffer_send_ibuffer(outbuf, inbuf);
 	}
 
-	if (ftruncate(ibox->index->mbox_fd, outbuf->offset) < 0) {
+	if (ftruncate(ibox->index->mbox_fd, (off_t)outbuf->offset) < 0) {
 		mail_storage_set_error(ibox->box.storage, "ftruncate() failed "
 				       "for mbox file %s: %m",
 				       ibox->index->mbox_path);

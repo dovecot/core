@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "temp-string.h"
+#include "imap-quote.h"
 
 #define IS_BREAK_CHAR(c) \
 	((c) == ' ' || (c) == '\t' || \

@@ -102,7 +102,7 @@ static void get_data_block_sizes(MailIndexUpdate *update,
 	}
 }
 
-size_t get_max_align_size(size_t base, size_t extra, size_t *max_extra)
+static size_t get_max_align_size(size_t base, size_t extra, size_t *max_extra)
 {
 	size_t size;
 
@@ -335,19 +335,19 @@ static void update_header_field(MailIndexUpdate *update, MailDataField field,
 	switch (field) {
 	case DATA_HDR_INTERNAL_DATE:
 		i_assert(size == sizeof(time_t));
-		update->data_hdr.internal_date = *((time_t *) value);
+		update->data_hdr.internal_date = *((const time_t *) value);
 		break;
 	case DATA_HDR_VIRTUAL_SIZE:
 		i_assert(size == sizeof(uoff_t));
-		update->data_hdr.virtual_size = *((uoff_t *) value);
+		update->data_hdr.virtual_size = *((const uoff_t *) value);
 		break;
 	case DATA_HDR_HEADER_SIZE:
 		i_assert(size == sizeof(uoff_t));
-		update->data_hdr.header_size = *((uoff_t *) value);
+		update->data_hdr.header_size = *((const uoff_t *) value);
 		break;
 	case DATA_HDR_BODY_SIZE:
 		i_assert(size == sizeof(uoff_t));
-		update->data_hdr.body_size = *((uoff_t *) value);
+		update->data_hdr.body_size = *((const uoff_t *) value);
 		break;
 	default:
                 i_unreached();
