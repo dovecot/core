@@ -276,5 +276,7 @@ void message_address_write(string_t *str, const struct message_address *addr)
 			str_append(str, addr->domain);
 			str_append_c(str, '>');
 		}
+
+		addr = addr->next;
 	}
 }
