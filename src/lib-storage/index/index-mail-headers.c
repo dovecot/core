@@ -321,7 +321,7 @@ int index_mail_parse_headers(struct index_mail *mail,
 	struct index_mail_data *data = &mail->data;
 
 	if (mail->mail.get_stream(&mail->mail, NULL, NULL) == NULL)
-		return FALSE;
+		return -1;
 
 	index_mail_parse_header_init(mail, headers);
 
@@ -340,7 +340,7 @@ int index_mail_parse_headers(struct index_mail *mail,
 	data->hdr_size_set = TRUE;
 	data->parse_header = FALSE;
 
-	return TRUE;
+	return 0;
 }
 
 static void
@@ -525,6 +525,12 @@ index_mail_get_headers(struct mail *_mail,
 		(struct index_header_lookup_ctx *)_headers;
 	string_t *dest;
 
+	if (mail->data.save_bodystructure_header) {
+		/* we have to parse the header. */
+		if (index_mail_parse_headers(mail, _headers) < 0)
+			return NULL;
+	}
+
 	dest = str_new(mail->pool, 256);
 	if (mail_cache_lookup_headers(mail->trans->cache_view, dest,
 				      mail->data.seq, headers->idx,
@@ -536,7 +542,7 @@ index_mail_get_headers(struct mail *_mail,
 	p_free(mail->pool, dest);
 
 	if (mail->mail.get_stream(&mail->mail, NULL, NULL) == NULL)
-		return FALSE;
+		return NULL;
 
 	if (mail->data.filter_stream != NULL)
 		i_stream_unref(mail->data.filter_stream);
