@@ -301,22 +301,20 @@ static void wait_timeout(void *context __attr_unused__)
 	pid_t pid;
 
 	/* FIXME: if we ever do some other kind of forking, this needs fixing */
-	pid = waitpid(-1, &status, WNOHANG);
-	if (pid == 0)
-		return;
+	while ((pid = waitpid(-1, &status, WNOHANG)) != 0) {
+		if (pid == -1) {
+			if (errno == ECHILD) {
+				timeout_remove(to_wait);
+				to_wait = NULL;
+			} else if (errno != EINTR)
+				i_error("waitpid() failed: %m");
+			return;
+		}
 
-	if (pid == -1) {
-		if (errno == ECHILD) {
-			timeout_remove(to_wait);
-			to_wait = NULL;
-		} else if (errno != EINTR)
-			i_error("waitpid() failed: %m");
-		return;
-	}
-
-	if (WIFSIGNALED(status)) {
-		i_error("PAM: Child %s died with signal %d",
-			dec2str(pid), WTERMSIG(status));
+		if (WIFSIGNALED(status)) {
+			i_error("PAM: Child %s died with signal %d",
+				dec2str(pid), WTERMSIG(status));
+		}
 	}
 }
 
