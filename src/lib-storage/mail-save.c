@@ -167,7 +167,6 @@ int mail_storage_save(struct mail_storage *storage, const char *path,
 			errno = input->stream_errno;
 			if (errno == 0) {
 				/* EOF */
-				i_warning("%lld vs %lld\n", input->v_offset, input->v_limit);
 				if (input->v_offset != input->v_limit &&
 				    input->v_limit != 0) {
 					/* too early */
