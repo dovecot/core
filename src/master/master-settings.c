@@ -547,21 +547,23 @@ static int settings_verify(struct settings *set)
 			  set->base_dir);
 	}
 
-	/* wipe out contents of login directory, if it exists.
-	   except if we're using external authentication - then we would
-	   otherwise wipe existing auth sockets */
 	if (!settings_have_connect_sockets(set)) {
+		/* we are not using external authentication, so make sure the
+		   login directory exists with correct permissions and it's
+		   empty. with external auth we wouldn't want to delete
+		   existing sockets or break the permissions required by the
+		   auth server. */
 		if (unlink_directory(set->login_dir, FALSE) < 0) {
 			i_error("unlink_directory() failed for %s: %m",
 				set->login_dir);
 			return FALSE;
 		}
-	}
 
-	if (safe_mkdir(set->login_dir, 0750,
-		       master_uid, set->server->login_gid) == 0) {
-		i_warning("Corrected permissions for login directory %s",
-			  set->login_dir);
+		if (safe_mkdir(set->login_dir, 0750,
+			       master_uid, set->server->login_gid) == 0) {
+			i_warning("Corrected permissions for login directory "
+				  "%s", set->login_dir);
+		}
 	}
 
 	if (set->max_mail_processes < 1) {
