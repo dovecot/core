@@ -195,9 +195,9 @@ mail_index_header_update_lowwaters(struct mail_index_header *hdr,
 		hdr->first_deleted_uid_lowwater = rec->uid;
 }
 
-static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
+static int sync_expunge(const struct mail_transaction_expunge *e,
+			struct mail_index_sync_map_ctx *ctx)
 {
-        struct mail_index_sync_map_ctx *ctx = context;
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_map *map = view->map;
 	struct mail_index_record *rec;
@@ -277,9 +277,9 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 	return 1;
 }
 
-static int sync_append(const struct mail_index_record *rec, void *context)
+static int sync_append(const struct mail_index_record *rec,
+		       struct mail_index_sync_map_ctx *ctx)
 {
-        struct mail_index_sync_map_ctx *ctx = context;
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_map *map = view->map;
 	void *dest;
@@ -320,9 +320,8 @@ static int sync_append(const struct mail_index_record *rec, void *context)
 }
 
 static int sync_flag_update(const struct mail_transaction_flag_update *u,
-			    void *context)
+			    struct mail_index_sync_map_ctx *ctx)
 {
-        struct mail_index_sync_map_ctx *ctx = context;
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_header *hdr;
 	struct mail_index_record *rec;
@@ -377,9 +376,8 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 }
 
 static int sync_header_update(const struct mail_transaction_header_update *u,
-			      void *context)
+			      struct mail_index_sync_map_ctx *ctx)
 {
-	struct mail_index_sync_map_ctx *ctx = context;
 	struct mail_index_map *map = ctx->view->map;
 
 	if (u->offset >= map->hdr.base_header_size ||
@@ -599,9 +597,8 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 }
 
 static int sync_ext_intro(const struct mail_transaction_ext_intro *u,
-			  void *context)
+			  struct mail_index_sync_map_ctx *ctx)
 {
-	struct mail_index_sync_map_ctx *ctx = context;
 	struct mail_index_map *map = ctx->view->map;
 	struct mail_index_ext_header ext_hdr;
 	const struct mail_index_ext *ext;
@@ -705,9 +702,8 @@ static int sync_ext_intro(const struct mail_transaction_ext_intro *u,
 }
 
 static int sync_ext_reset(const struct mail_transaction_ext_reset *u,
-			  void *context)
+			  struct mail_index_sync_map_ctx *ctx)
 {
-        struct mail_index_sync_map_ctx *ctx = context;
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_map *map = view->map;
 	struct mail_index_ext_header *ext_hdr;
@@ -744,9 +740,8 @@ static int sync_ext_reset(const struct mail_transaction_ext_reset *u,
 }
 
 static int sync_ext_hdr_update(const struct mail_transaction_ext_hdr_update *u,
-			       void *context)
+			       struct mail_index_sync_map_ctx *ctx)
 {
-        struct mail_index_sync_map_ctx *ctx = context;
 	struct mail_index_map *map = ctx->view->map;
         const struct mail_index_ext *ext;
 
@@ -769,9 +764,8 @@ static int sync_ext_hdr_update(const struct mail_transaction_ext_hdr_update *u,
 
 static int
 sync_ext_rec_update(const struct mail_transaction_ext_rec_update *u,
-		    void *context)
+		    struct mail_index_sync_map_ctx *ctx)
 {
-        struct mail_index_sync_map_ctx *ctx = context;
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
         const struct mail_index_sync_handler *sync_handlers;
