@@ -114,6 +114,7 @@ static ssize_t _read(_IBuffer *buf)
 	if (buf->ibuffer.start_offset + buf->ibuffer.v_limit <=
 	    (uoff_t)mbuf->mmap_offset + buf->pos) {
 		/* end of file */
+		buf->ibuffer.buf_errno = 0;
 		return -1;
 	}
 
