@@ -58,7 +58,6 @@ static void append_user_reply(string_t *str, const struct user_data *user)
 {
 	const char *p;
 
-	str_append(str, user->virtual_user);
 	str_printfa(str, "%s\tuid=%s\tgid=%s", user->virtual_user,
 		    dec2str(user->uid), dec2str(user->gid));
 

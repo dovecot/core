@@ -68,7 +68,7 @@ static void auth_callback(struct auth_request *request,
 		break;
 	case AUTH_CLIENT_RESULT_SUCCESS:
 		str = t_str_new(128 + MAX_BASE64_ENCODED_SIZE(reply_size));
-		str_printfa(str, "OK\t%u\t%s", request->id, request->user);
+		str_printfa(str, "OK\t%u\tuser=%s", request->id, request->user);
 		if (reply_size > 0) {
 			str_append(str, "\tresp=");
 			base64_encode(reply, reply_size, str);
