@@ -544,7 +544,7 @@ static void auth_digest_md5_continue(CookieData *cookie,
 
 	/* failed */
 	reply.result = AUTH_RESULT_FAILURE;
-	callback(&reply, error, context);
+	callback(&reply, (const unsigned char *) error, context);
 	cookie_remove(cookie->cookie);
 }
 

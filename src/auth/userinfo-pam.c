@@ -7,8 +7,10 @@
    modified versions are marked as such.  There's absolutely no warranty.
 */
 
+#ifndef _XOPEN_SOURCE_EXTENDED
+#  define _XOPEN_SOURCE_EXTENDED
+#endif
 #define _XOPEN_SOURCE 4
-#define _XOPEN_SOURCE_EXTENDED
 #define _XPG4_2
 
 #include "common.h"
@@ -24,8 +26,11 @@
 
 #include <security/pam_appl.h>
 
-#if defined(__sun__) && !defined(LINUX_PAM)
-#  define linux_const			/* Sun's PAM doesn't use const here */
+#if !defined(_SECURITY_PAM_APPL_H) && !defined(LINUX_PAM)
+/* Sun's PAM doesn't use const. we use a bit dirty hack to check it.
+   Originally it was just __sun__ check, but HP/UX also uses Sun's PAM
+   so I thought this might work better. */
+#  define linux_const
 #else
 #  define linux_const			const
 #endif
@@ -168,7 +173,7 @@ static int pam_verify_plain(const char *user, const char *password,
 		return FALSE;
 	}
 
-	status = pam_get_item(pamh, PAM_USER, (pam_item_t *)&item);
+	status = pam_get_item(pamh, PAM_USER, (linux_const void **)&item);
 	if (status != PAM_SUCCESS) {
 		if (status == PAM_ABORT)
 			i_fatal("pam_get_item() requested abort");

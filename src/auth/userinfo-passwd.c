@@ -5,8 +5,10 @@
    Copyright (C) 2002 Timo Sirainen
 */
 
+#ifndef _XOPEN_SOURCE_EXTENDED
+#  define _XOPEN_SOURCE_EXTENDED
+#endif
 #define _XOPEN_SOURCE 4
-#define _XOPEN_SOURCE_EXTENDED
 #define _XPG4_2
 
 #include "common.h"

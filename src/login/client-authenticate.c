@@ -180,7 +180,7 @@ static void login_callback(AuthRequest *request, int auth_process,
 int cmd_login(Client *client, const char *user, const char *pass)
 {
 	const char *error;
-	char *p;
+	unsigned char *p;
 	size_t len, user_len, pass_len;
 
 	if (!client->tls && disable_plaintext_auth) {
