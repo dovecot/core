@@ -994,6 +994,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 
 		i_assert(file_size >= sync_ctx->expunged_space + trailer_size);
 		offset = file_size - sync_ctx->expunged_space - trailer_size;
+		i_assert(offset == 0 || offset > 31);
 
 		if (mbox_move(sync_ctx, offset,
 			      offset + sync_ctx->expunged_space,
