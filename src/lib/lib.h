@@ -8,6 +8,9 @@
 
 /* default system includes - keep these at minimum.. */
 #include <string.h> /* strcmp() etc. */
+#ifdef HAVE_STRINGS_H
+#  include <strings.h> /* strcasecmp() etc. */
+#endif
 #include <stdarg.h> /* va_list is used everywhere */
 #include <limits.h> /* INT_MAX, etc. */
 #include <errno.h> /* error checking is good */

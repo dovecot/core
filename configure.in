@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 1.0-test6)
+AM_INIT_AUTOMAKE(dovecot, 1.0-test7)
 
 AM_MAINTAINER_MODE
 
@@ -14,7 +14,7 @@ AC_ARG_PROGRAM
 AM_PROG_LIBTOOL
 AM_ICONV
 
-AC_CHECK_HEADERS(string.h stdlib.h stdint.h unistd.h dirent.h)
+AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h)
 AC_CHECK_HEADERS(sys/uio.h sys/sysmacros.h sys/resource.h linux/mman.h)
 AC_CHECK_HEADERS(sys/select.h)
 
@@ -262,13 +262,20 @@ AC_TRY_COMPILE([
   AC_DEFINE(IOLOOP_NOTIFY_NONE,, No special notify support)
 ])
 
+dnl * GLIBC?
+AC_TRY_COMPILE([
+  #include <stdlib.h>
+  #ifdef __GLIBC__
+    we have glibc
+  #endif
+],,, [
+  AC_DEFINE(PREAD_WRAPPERS,, Define if pread/pwrite needs _XOPEN_SOURCE 500)
+])
+
 dnl * OS specific options
 case "$host_os" in
 	hpux*)
 		CFLAGS="$CFLAGS -D_XOPEN_SOURCE_EXTENDED"
-		;;
-	linux*)
-		AC_DEFINE(PREAD_WRAPPERS,, Define if pread/pwrite needs _XOPEN_SOURCE 500)
 		;;
 	*)
 		;;
