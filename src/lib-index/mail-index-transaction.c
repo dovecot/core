@@ -411,7 +411,7 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 
 	/* find the first update with either overlapping range,
 	   or the update which will come after our insert */
-	idx = size;
+	idx = left_idx;
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
 
