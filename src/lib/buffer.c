@@ -194,28 +194,12 @@ size_t buffer_insert(buffer_t *_buf, size_t pos,
 		     const void *data, size_t data_size)
 {
 	struct real_buffer *buf = (struct real_buffer *)_buf;
-	size_t move_size, size;
+	size_t size;
 
 	if (pos >= buf->used)
 		return buffer_write(_buf, pos, data, data_size);
 
-	/* move_size == number of bytes we have to move forward to make space */
-	move_size = buf->used - pos;
-
-	/* size == number of bytes we want to modify after pos */
-	if (data_size < (size_t)-1 - move_size)
-		size = data_size + move_size;
-	else
-		size = (size_t)-1;
-
-	if (!buffer_check_limits(buf, pos, &size, TRUE))
-		return 0;
-
-	i_assert(size >= move_size);
-	size -= move_size;
-	/* size == number of bytes we actually inserted. data_size usually. */
-
-	memmove(buf->w_buffer + pos + size, buf->w_buffer + pos, move_size);
+	size = buffer_copy(_buf, pos + data_size, _buf, pos, (size_t)-1);
 	memcpy(buf->w_buffer + pos, data, size);
 	return size;
 }
@@ -258,6 +242,19 @@ size_t buffer_write_zero(buffer_t *_buf, size_t pos, size_t data_size)
 size_t buffer_append_zero(buffer_t *buf, size_t data_size)
 {
 	return buffer_write_zero(buf, buf->used, data_size);
+}
+
+size_t buffer_insert_zero(buffer_t *_buf, size_t pos, size_t data_size)
+{
+	struct real_buffer *buf = (struct real_buffer *)_buf;
+	size_t size;
+
+	if (pos >= buf->used)
+		return buffer_write_zero(_buf, pos, data_size);
+
+	size = buffer_copy(_buf, pos + data_size, _buf, pos, (size_t)-1);
+	memset(buf->w_buffer + pos, 0, size);
+	return size;
 }
 
 size_t buffer_copy(buffer_t *_dest, size_t dest_pos,
