@@ -317,6 +317,8 @@ static pid_t create_login_process(void)
 
 	if (set_disable_plaintext_auth)
 		env_put("DISABLE_PLAINTEXT_AUTH=1");
+	if (set_verbose_proctitle)
+		env_put("VERBOSE_PROCTITLE=1");
 
 	if (set_login_process_per_connection) {
 		env_put("PROCESS_PER_CONNECTION=1");
