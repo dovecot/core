@@ -94,7 +94,7 @@ index_storage_alloc(const char *index_dir, const char *mailbox_path,
 		rec = *list;
 
 		if ((index_dir != NULL && st.st_ino == rec->index_dir_ino &&
-		     st.st_dev == rec->index_dir_dev) ||
+		     CMP_DEV_T(st.st_dev, rec->index_dir_dev)) ||
 		    (index_dir == NULL && st.st_ino == 0 &&
 		     strcmp(mailbox_path, rec->mailbox_path) == 0)) {
 			rec->refcount++;

@@ -360,7 +360,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 		if ((ret = fstat(fd2, &st)) < 0) {
 			mail_index_file_set_syscall_error(index, path,
 							  "fstat()");
-		} else if (st.st_dev == dev && st.st_ino == ino) {
+		} else if (st.st_ino == ino && CMP_DEV_T(st.st_dev, dev)) {
 			/* same file, still broken */
 		} else {
 			(void)file_dotlock_delete(path, LOG_NEW_DOTLOCK_SUFFIX,
@@ -626,7 +626,7 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 
 	if (log->head != NULL &&
 	    log->head->st_ino == st.st_ino &&
-	    log->head->st_dev == st.st_dev) {
+	    CMP_DEV_T(log->head->st_dev, st.st_dev)) {
 		/* same file */
 		ret = mail_transaction_log_file_read_hdr(log->head, &st);
 		if (ret == 0 && log->head->lock_type == F_WRLCK) {
