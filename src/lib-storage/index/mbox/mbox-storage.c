@@ -389,6 +389,10 @@ static int verify_inbox(struct index_storage *storage)
 	fd = open(storage->inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
 	if (fd != -1)
 		(void)close(fd);
+	else if (errno != EEXIST) {
+		mail_storage_set_critical(storage,
+			"open(%s, O_CREAT) failed: %m", storage->inbox_file);
+	}
 
 	/* make sure the index directories exist */
 	if (create_mbox_index_dirs(storage, "INBOX") < 0)
