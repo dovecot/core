@@ -199,6 +199,13 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 		value = value*10 + (hdr->full_value[i] - '0');
 	}
 
+	for (; i < hdr->full_value_len; i++) {
+		if (!IS_LWSP_LF(hdr->full_value[i])) {
+			/* broken value */
+			return FALSE;
+		}
+	}
+
 	if (value >= ctx->sync_ctx->next_uid) {
 		/* next_uid broken - fix it */
 		ctx->sync_ctx->next_uid = value+1;
