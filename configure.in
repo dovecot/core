@@ -610,6 +610,8 @@ AC_TRY_RUN([
       perror("open()");
       return 1;
     }
+    unlink("conftest.mmap");
+
     write(f, "1", 2);
     mem = mmap(NULL, 2, PROT_READ|PROT_WRITE, MAP_SHARED, f, 0);
     if (mem == MAP_FAILED) {
