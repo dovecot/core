@@ -15,7 +15,11 @@
 #include "userinfo-passwd.h"
 
 #include <stdlib.h>
-#include <security/pam_appl.h>
+#ifdef HAVE_SECURITY_PAM_APPL_H
+#  include <security/pam_appl.h>
+#elif defined(HAVE_PAM_PAM_APPL_H)
+#  include <pam/pam_appl.h>
+#endif
 
 #if !defined(_SECURITY_PAM_APPL_H) && !defined(LINUX_PAM)
 /* Sun's PAM doesn't use const. we use a bit dirty hack to check it.

@@ -30,8 +30,11 @@
 #undef USERINFO_PAM
 #undef USERINFO_VPOPMAIL
 
+/* PAM stuff */
 #undef AUTH_PAM_USERPASS
 #undef HAVE_PAM_SETCRED
+#undef HAVE_SECURITY_PAM_APPL_H
+#undef HAVE_PAM_PAM_APPL_H
 
 /* How to implement I/O loop */
 #undef IOLOOP_SELECT
