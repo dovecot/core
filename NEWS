@@ -1,0 +1,39 @@
+v0.96 2002-08-08  Timo Sirainen <tss@iki.fi>
+
+	* Changed to LGPL v2.1 license
+
+	+ STARTTLS support and optional disabling of plaintext authentication
+	  (LOGINDISABLED capability)
+	+ Support for custom message flags, each folder can have 26 different.
+	+ New configuration file options: imap_listen, max_logging_users,
+	  max_imap_processes
+	+ You can specify config file location to imap-master with -c <path>
+	+ All IMAP processes can now write to specified log file instead of
+	  syslog. Either do this by setting IMAP_LOGFILE environment, or
+	  give -l <path> parameter to imap-master.
+	+ Some cleanups to remove warnings with BSDs
+	+ Changed all %s .. strerror(errno) -> %m
+	+ Rewritten memory pool code
+	- imap-master didn't close all the fds for executed processes
+	- iobuffer code was buggy and caused the connection to terminate
+	  sometimes
+	- make install overwrote the existing dovecot.conf file, so it's now
+	  named as dovecot-example.conf
+
+v0.95 2002-07-31  Timo Sirainen <tss@iki.fi>
+
+	+ Initial SSL support using GNU TLS, tested with v0.5.1.
+	  TLS support is still missing.
+	+ Digest-MD5 authentication method
+	+ passwd-file authentication backend
+	+ Code cleanups
+	- Found several bugs from mempool and ioloop code, now we should
+	  be stable? :)
+	- A few corrections for long header field handling
+
+v0.94 2002-07-29  Timo Sirainen <tss@iki.fi>
+
+	* Supports running completely non-root now. imap-auth however is a
+	  bit problematic as we don't support passwd-file yet.
+	- Memory alignment fixes mostly
+	- Other misc. bugfixes
