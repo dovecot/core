@@ -434,6 +434,12 @@ static int mail_index_lock_full(struct mail_index *index,
 	if (index->lock_type == lock_type)
 		return TRUE;
 
+	if (index->lock_type == MAIL_LOCK_EXCLUSIVE) {
+		index->excl_lock_counter++;
+		if (index->modifylog != NULL)
+			mail_modifylog_notify_lock_drop(index->modifylog);
+	}
+
 	if (index->anon_mmap) {
 		/* anonymous mmaps are private and don't need any locking */
 #ifdef DEBUG
@@ -449,10 +455,6 @@ static int mail_index_lock_full(struct mail_index *index,
 	}
 
 	if (index->lock_type == MAIL_LOCK_EXCLUSIVE) {
-		index->excl_lock_counter++;
-		if (index->modifylog != NULL)
-			mail_modifylog_notify_lock_drop(index->modifylog);
-
 		/* dropping exclusive lock (either unlock or to shared) */
 		keep_fsck = (index->set_flags & MAIL_INDEX_HDR_FLAG_FSCK) != 0;
 		mail_index_update_header_changes(index);
@@ -465,8 +467,7 @@ static int mail_index_lock_full(struct mail_index *index,
 		/* remove the FSCK flag only after successful fsync() */
 		if (mail_index_sync_file(index) && !keep_fsck) {
 			index->header->flags &= ~MAIL_INDEX_HDR_FLAG_FSCK;
-			if (!index->anon_mmap &&
-			    msync(index->mmap_base, index->header_size,
+			if (msync(index->mmap_base, index->header_size,
 				  MS_SYNC) < 0) {
 				/* we only failed to remove the fsck flag,
 				   so this isn't fatal. */
