@@ -11,8 +11,10 @@ int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
 	i_assert(ibox->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
 	hdr = ibox->index->get_header(ibox->index);
-	if (hdr->deleted_messages_count == 0)
-		return FALSE;
+	if (hdr->deleted_messages_count == 0) {
+		/* no deleted messages */
+		return TRUE;
+	}
 
 	/* find mails with DELETED flag and expunge them */
 	if (hdr->first_deleted_uid_lowwater > 1) {
