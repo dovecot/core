@@ -7,7 +7,6 @@ test:
  - make sure io_buffer_send() handles huge inputs properly
  - make sure rfc822_parse_date() works properly
  - make sure imap_match functions work properly
- - try imap_message_send() / io_buffer_send_file()
  - make sure connection limits work
 
 index:
@@ -80,7 +79,6 @@ general:
 	   use them? i'd think most clients want to know all the messages
 	   anyway and can do the sorting/threading themselves.
          - http://www.imc.org/ids.html
- - check if t_push()/t_pop() should be added somewhere
  - rfc-2231 continuation support
  - "UID FETCH|SEARCH|STORE *" doesn't work if latest message was deleted.
    should we bother to fix this? I doubt there's a client that would use this.
@@ -89,14 +87,6 @@ general:
    once COPY is atomic?
 
  - go through .temp files and delete them
- - grep for FIXME
- - cache keeps the last message mmap()ed .. is there some case when it's not
-   a good idea? like the file changes in the background? cache should be
-   updated then. yes, especially with mbox support. the mmap should be
-   removed after unlocking. also, it shouldn't depend on mmap() anyway as
-   it's not possible to use it with eg. SQL storage.. except if we make
-   mmap()ing it optional, just give it some function which in some way
-   generates const char *msg + size_t.
  - if auth process died and login couldn't immediately reconnect to it, it's
    left until next user connects. however the connection needs to read the
    init data before it can be used, so the user gets "NO Unknown
@@ -113,24 +103,26 @@ general:
    should be something like once/sec.
  - support executing each login in it's own process, so if an exploit is ever
    found from it, the attacker can't see other users' passwords
- - Make sure messages of size INT_MAX..UINT_MAX (and more) work correctly
-   virtual_size can also overflow making it less than physical_size
- - allocating readwrite pools now just uses system_pool .. so pool_unref()
-   can't free memory used by it .. what to do about it? at least count the
-   malloc/free calls and make complain if at the exit they don't match
  - put IMAP_LOGFILE into config file. and the timestamp format.
  - SIGHUPing master should reload the configuration
  - Something's wrong with expunging mails from maildir ..
- - io_buffer_fd_ref() .. unref() and destroy() would close if refcount = 0?
-   annoying those close(inbuf->fd)s with open_mail()..
  - PAM: support some options so /etc/passwd-lookup isn't needed. uid=x, gid=y,
    mailroot=/var/mail. maildirs should be then created when needed
  - check for "../" folder names with mbox
+
+cleanups / checks:
+ - grep for FIXME
+ - check if t_push()/t_pop() should be added somewhere
  - check that (off_t) castings are safe
  - IOBuffer is a bit confusing and weird. especially the offset-parameter
    works strangely.. And maybe split it into IBuffer and OBuffer?
- - optimize message_send() by using a buffer. most mails don't have long
-   lines and without a buffer it creates tons of write() calls.
+ - io_buffer_fd_ref() .. unref() and destroy() would close if refcount = 0?
+   annoying those close(inbuf->fd)s with open_mail()..
+ - allocating readwrite pools now just uses system_pool .. so pool_unref()
+   can't free memory used by it .. what to do about it? at least count the
+   malloc/free calls and make complain if at the exit they don't match
+ - Make sure messages of size INT_MAX..UINT_MAX (and more) work correctly
+   virtual_size can also overflow making it less than physical_size
 
 optional optimizations:
  - provide some helper binary to save new mail into mailboxes with CR+LF
