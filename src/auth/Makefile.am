@@ -6,6 +6,7 @@ pkglibexec_PROGRAMS = dovecot-auth checkpassword-reply
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-ntlm \
 	-DAUTH_MODULE_DIR=\""$(moduledir)/auth"\" \
@@ -24,6 +25,7 @@ dovecot_auth_LDADD = \
 	libpassword.a \
 	../lib-settings/libsettings.a \
 	../lib-ntlm/libntlm.a \
+	../lib-sql/libsql.a \
 	../lib/liblib.a \
 	$(AUTH_LIBS) \
 	$(RAND_LIBS) \
@@ -34,8 +36,7 @@ dovecot_auth_SOURCES = \
 	auth-master-connection.c \
 	auth-module.c \
 	db-ldap.c \
-	db-mysql.c \
-	db-pgsql.c \
+	db-sql.c \
 	db-passwd-file.c \
 	main.c \
 	mech.c \
@@ -56,16 +57,14 @@ dovecot_auth_SOURCES = \
 	passdb-checkpassword.c \
 	passdb-shadow.c \
 	passdb-vpopmail.c \
-	passdb-mysql.c \
-	passdb-pgsql.c \
+	passdb-sql.c \
 	userdb.c \
 	userdb-ldap.c \
 	userdb-passwd.c \
 	userdb-passwd-file.c \
 	userdb-static.c \
 	userdb-vpopmail.c \
-	userdb-mysql.c \
-	userdb-pgsql.c
+	userdb-sql.c
 
 noinst_HEADERS = \
 	auth-client-connection.h \
@@ -73,8 +72,7 @@ noinst_HEADERS = \
 	auth-master-connection.h \
 	auth-module.h \
 	db-ldap.h \
-	db-mysql.h \
-	db-pgsql.h \
+	db-sql.h \
 	db-passwd-file.h \
 	common.h \
 	mech.h \

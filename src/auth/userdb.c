@@ -52,13 +52,9 @@ void userdb_preinit(void)
 	if (strcasecmp(name, "ldap") == 0)
 		userdb = &userdb_ldap;
 #endif
-#ifdef USERDB_PGSQL
-	if (strcasecmp(name, "pgsql") == 0)
-		userdb = &userdb_pgsql;
-#endif
-#ifdef USERDB_MYSQL
-	if (strcasecmp(name, "mysql") == 0)
-		userdb = &userdb_mysql;
+#ifdef USERDB_SQL
+	if (strcasecmp(name, "sql") == 0)
+		userdb = &userdb_sql;
 #endif
 #ifdef HAVE_MODULES
 	userdb_module = userdb != NULL ? NULL : auth_module_open(name);

@@ -30,6 +30,7 @@ struct auth_listener {
 struct master_userdb_request {
 	struct auth_master_connection *conn;
 	unsigned int id;
+	struct auth_request *auth_request;
 };
 
 static void master_output(void *context);
@@ -93,6 +94,7 @@ static void userdb_callback(const struct user_data *user, void *context)
 			master_send(master_request->conn, "%s", str_c(str));
 		}
 	}
+	auth_request_destroy(master_request->auth_request);
 	i_free(master_request);
 }
 
@@ -131,12 +133,10 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 		master_request = i_new(struct master_userdb_request, 1);
 		master_request->conn = conn;
 		master_request->id = id;
+		master_request->auth_request = request;
 
 		conn->refcount++;
 		userdb->lookup(request, userdb_callback, master_request);
-
-		/* the auth request is finished, we don't need it anymore */
-		auth_request_destroy(request);
 	}
 	return TRUE;
 }

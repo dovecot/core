@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 1.0-test46)
+AM_INIT_AUTOMAKE(dovecot, 1.0-test48)
 
 AM_MAINTAINER_MODE
 
@@ -1117,14 +1117,14 @@ if test $want_pgsql = yes; then
 		fi
 		AC_CHECK_HEADER(libpq-fe.h, [
 			if test "$PGSQL_INCLUDE" != ""; then
-				AUTH_CFLAGS="$AUTH_CFLAGS -I$PGSQL_INCLUDE"
+				SQL_CFLAGS="$SQL_CFLAGS -I$PGSQL_INCLUDE"
 			fi
 			if test "$PGSQL_LIBDIR" != ""; then
-				AUTH_LIBS="$AUTH_LIBS -L$PGSQL_LIBDIR"
+				SQL_LIBS="$SQL_LIBS -L$PGSQL_LIBDIR"
 			fi
-			AUTH_LIBS="$AUTH_LIBS -lpq"
-			AC_DEFINE(USERDB_PGSQL,, Build with PostgreSQL support)
-			AC_DEFINE(PASSDB_PGSQL,, Build with PostgreSQL support)
+			SQL_LIBS="$SQL_LIBS -lpq"
+			AC_DEFINE(HAVE_PGSQL,, Build with PostgreSQL support)
+			have_sql=yes
 			userdb="$userdb pgsql"
 			passdb="$passdb pgsql"
 		])
@@ -1170,12 +1170,12 @@ if test $want_mysql = yes; then
 		fi
 		AC_CHECK_HEADER(mysql.h, [
 			if test "$MYSQL_INCLUDE" != ""; then
-				AUTH_CFLAGS="$AUTH_CFLAGS -I$MYSQL_INCLUDE"
+				SQL_CFLAGS="$SQL_CFLAGS -I$MYSQL_INCLUDE"
 			fi
 			if test "$MYSQL_LIBDIR" != ""; then
-				AUTH_LIBS="$AUTH_LIBS -L$MYSQL_LIBDIR"
+				SQL_LIBS="$SQL_LIBS -L$MYSQL_LIBDIR"
 			fi
-			AUTH_LIBS="$AUTH_LIBS $mysql_lib"
+			SQL_LIBS="$SQL_LIBS $mysql_lib"
 
 			AC_CHECK_LIB(mysqlclient, mysql_ssl_set, [
 				AC_DEFINE(HAVE_MYSQL_SSL,, Define if your MySQL library has SSL functions)
@@ -1194,8 +1194,8 @@ if test $want_mysql = yes; then
 				])
 			])
 			
-			AC_DEFINE(USERDB_MYSQL,, Build with MySQL support)
-			AC_DEFINE(PASSDB_MYSQL,, Build with MySQL support)
+			AC_DEFINE(HAVE_MYSQL,, Build with MySQL support)
+			have_sql=yes
 			userdb="$userdb mysql"
 			passdb="$passdb mysql"
 		])
@@ -1203,6 +1203,12 @@ if test $want_mysql = yes; then
 	fi
 
 	LIBS=$old_LIBS
+fi
+
+if test "$have_sql" = yes; then
+	AC_DEFINE(PASSDB_SQL,, Build with SQL support)
+	AC_DEFINE(USERDB_SQL,, Build with SQL support)
+	AUTH_LIBS="$AUTH_LIBS $SQL_LIBS"
 fi
 
 if test $want_vpopmail = yes; then
@@ -1257,6 +1263,8 @@ fi
 
 AC_SUBST(AUTH_CFLAGS)
 AC_SUBST(AUTH_LIBS)
+AC_SUBST(SQL_CFLAGS)
+AC_SUBST(SQL_LIBS)
 
 dnl **
 dnl ** Index file compatibility flags
@@ -1328,6 +1336,7 @@ Makefile
 doc/Makefile
 src/Makefile
 src/lib/Makefile
+src/lib-sql/Makefile
 src/lib-auth/Makefile
 src/lib-charset/Makefile
 src/lib-imap/Makefile

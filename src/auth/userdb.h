@@ -31,8 +31,7 @@ extern struct userdb_module userdb_passwd;
 extern struct userdb_module userdb_passwd_file;
 extern struct userdb_module userdb_vpopmail;
 extern struct userdb_module userdb_ldap;
-extern struct userdb_module userdb_pgsql;
-extern struct userdb_module userdb_mysql;
+extern struct userdb_module userdb_sql;
 
 void userdb_preinit(void);
 void userdb_init(void);

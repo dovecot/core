@@ -150,13 +150,9 @@ void passdb_preinit(void)
 	if (strcasecmp(name, "ldap") == 0)
 		passdb = &passdb_ldap;
 #endif
-#ifdef PASSDB_PGSQL
-	if (strcasecmp(name, "pgsql") == 0)
-		passdb = &passdb_pgsql;
-#endif
-#ifdef PASSDB_MYSQL
-	if (strcasecmp(name, "mysql") == 0)
-		passdb = &passdb_mysql;
+#ifdef PASSDB_SQL
+	if (strcasecmp(name, "sql") == 0)
+		passdb = &passdb_sql;
 #endif
 #ifdef HAVE_MODULES
 	passdb_module = passdb != NULL ? NULL : auth_module_open(name);
