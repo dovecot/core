@@ -783,9 +783,8 @@ if test $want_pgsql = yes; then
 	for i in /usr /usr/local /usr/local/pgsql; do
 		for j in include include/pgsql include/postgres include/postgresql ""; do
 			if test -r "$i/$j/libpq-fe.h"; then
-			PGSQL_INC_BASE=$i
-			PGSQL_INCLUDE=$i/$j
-		fi
+				PGSQL_INCLUDE=$i/$j
+			fi
 		done
 		for j in lib lib/pgsql lib/postgres lib/postgresql ""; do
 			if test -f "$i/$j/libpq.so" || test -f "$i/$j/libpq.a"; then
