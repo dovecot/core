@@ -6,6 +6,7 @@
 int cmd_logout(struct client *client)
 {
 	client_send_line(client, "* BYE Logging out");
+	o_stream_uncork(client->output);
 
 	if (client->mailbox != NULL) {
 		/* this could be done at client_disconnect() as well,
