@@ -22,10 +22,13 @@
 */
 
 #include "lib.h"
+#include "network.h"
 #include "fd-close-on-exec.h"
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/un.h>
 
 void fd_close_on_exec(int fd, int set)
 {
@@ -42,9 +45,47 @@ void fd_close_on_exec(int fd, int set)
 
 void fd_debug_verify_leaks(int first_fd, int last_fd)
 {
+	struct ip_addr addr;
+	unsigned int port;
+	struct stat st;
+
 	while (first_fd < last_fd) {
-		if (fcntl(first_fd, F_GETFD, 0) != -1 || errno != EBADF)
-			i_panic("Leaked file descriptor: %d", first_fd);
+		if (fcntl(first_fd, F_GETFD, 0) != -1 || errno != EBADF) {
+			int old_errno = errno;
+
+			if (net_getsockname(first_fd, &addr, &port) == 0) {
+				if (addr.family == AF_UNIX) {
+					struct sockaddr_un sa;
+					socklen_t socklen = sizeof(sa);
+
+					if (getsockname(first_fd,
+							(struct sockaddr *) &sa,
+							&socklen) < 0)
+						sa.sun_path[0] = '\0';
+
+					i_panic("Leaked UNIX socket fd %d: %s",
+						first_fd, sa.sun_path);
+				}
+
+				i_panic("Leaked socket fd %d: %s:%u",
+					first_fd, net_ip2host(&addr), port);
+			}
+
+			if (fstat(first_fd, &st) == 0) {
+#ifdef HAVE_SYS_SYSMACROS_H
+				i_panic("Leaked file fd %d: dev %u.%u inode %s",
+					first_fd, major(st.st_dev),
+					minor(st.st_dev), dec2str(st.st_ino));
+#else
+				i_panic("Leaked file fd %d: dev %s inode %s",
+					first_fd, dec2str(st.st_dev),
+					dec2str(st.st_ino));
+#endif
+			}
+
+			i_panic("Leaked unknown fd %d (errno = %s)",
+				first_fd, strerror(old_errno));
+		}
 		first_fd++;
 	}
 }
