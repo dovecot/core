@@ -6,13 +6,14 @@
 int cmd_create(struct client *client)
 {
 	struct mail_storage *storage;
-	const char *mailbox;
+	const char *mailbox, *full_mailbox;
 	int directory;
 	size_t len;
 
 	/* <mailbox> */
 	if (!client_read_string_args(client, 1, &mailbox))
 		return FALSE;
+	full_mailbox = mailbox;
 
 	storage = client_find_storage(client, &mailbox);
 	if (storage == NULL)
@@ -29,7 +30,7 @@ int cmd_create(struct client *client)
 		mailbox = t_strndup(mailbox, len-1);
 	}
 
-	if (!client_verify_mailbox_name(client, mailbox, FALSE, TRUE))
+	if (!client_verify_mailbox_name(client, full_mailbox, FALSE, TRUE))
 		return TRUE;
 
 	if (mail_storage_mailbox_create(storage, mailbox, directory) < 0)
