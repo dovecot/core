@@ -126,7 +126,7 @@ int mail_index_get_virtual_size(MailIndex *index, MailIndexRecord *rec,
 	part_data = index->lookup_field_raw(index, rec,
 					    FIELD_TYPE_MESSAGEPART, &size);
 	if (part_data == NULL)
-		index->cache_fields_later(index, rec, FIELD_TYPE_MESSAGEPART);
+		index->cache_fields_later(index, FIELD_TYPE_MESSAGEPART);
 	else {
 		/* get sizes from preparsed message structure */
 		if (!message_part_deserialize_size(part_data, size,

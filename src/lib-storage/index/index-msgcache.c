@@ -67,10 +67,8 @@ static const char *index_msgcache_get_cached_field(ImapCacheField field,
 	}
 
 	ret = ctx->index->lookup_field(ctx->index, ctx->rec, index_field);
-	if (ret == NULL) {
-		ctx->index->cache_fields_later(ctx->index, ctx->rec,
-					       index_field);
-	}
+	if (ret == NULL)
+		ctx->index->cache_fields_later(ctx->index, index_field);
 	return ret;
 }
 
@@ -85,7 +83,7 @@ static MessagePart *index_msgcache_get_cached_parts(Pool pool, void *context)
 						 FIELD_TYPE_MESSAGEPART,
 						 &part_size);
 	if (part_data == NULL) {
-		ctx->index->cache_fields_later(ctx->index, ctx->rec,
+		ctx->index->cache_fields_later(ctx->index,
 					       FIELD_TYPE_MESSAGEPART);
 		return NULL;
 	}

@@ -602,13 +602,12 @@ const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
 	return datarec->data;
 }
 
-void mail_index_cache_fields_later(MailIndex *index, MailIndexRecord *rec,
-				   MailField field)
+void mail_index_cache_fields_later(MailIndex *index, MailField field)
 {
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
 	/* first check if the field even could be in the file */
-	if ((rec->cached_fields & field) != field) {
+	if ((index->set_cache_fields & field) != field) {
 		if ((index->header->cache_fields & field) == 0) {
 			/* no, but make sure the future records will have it.
 			   we don't immediately mark the index to cache this

@@ -291,7 +291,7 @@ static int search_arg_match_cached(MailIndex *index, MailIndexRecord *rec,
 	if (envelope != NULL)
 		field = imap_envelope_parse(envelope, env_field);
 	else {
-		index->cache_fields_later(index, rec, FIELD_TYPE_ENVELOPE);
+		index->cache_fields_later(index, FIELD_TYPE_ENVELOPE);
 		field = NULL;
 	}
 
