@@ -72,16 +72,11 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 	}
 
 	if (!failed) {
-		if (lseek(fd, (off_t)offset, SEEK_SET) == (off_t)offset) {
-			/* everything ok */
-			return io_buffer_create_mmap(fd, default_pool,
-						     MAIL_MMAP_BLOCK_SIZE,
-						     stop_offset - offset);
+		if (lseek(fd, (off_t)offset, SEEK_SET) < 0) {
+			index_set_error(index, "lseek() failed with mbox file "
+					"%s: %m", index->mbox_path);
+			failed = TRUE;
 		}
-
-
-		index_set_error(index, "lseek() failed with mbox file %s: %m",
-				index->mbox_path);
 	} else {
 		/* file has been updated, rescan it */
 		index->set_flags |= MAIL_INDEX_FLAG_FSCK;
@@ -90,6 +85,12 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 				"unexpectedly, fscking", index->mbox_path);
 	}
 
-	(void)close(fd);
-	return NULL;
+	if (failed) {
+		(void)close(fd);
+		return NULL;
+	} else {
+		return io_buffer_create_mmap(fd, default_pool,
+					     MAIL_MMAP_BLOCK_SIZE,
+					     stop_offset - offset);
+	}
 }
