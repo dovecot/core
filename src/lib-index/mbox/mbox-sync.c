@@ -78,6 +78,11 @@ int mbox_index_sync(MailIndex *index, MailLockType data_lock_type,
 	if (changes != NULL)
 		*changes = FALSE;
 
+	if (index->mbox_sync_counter == index->mbox_lock_counter) {
+		/* we've already synced in this locking session */
+		return TRUE;
+	}
+
 	if (index->fd == -1) {
 		/* anon-mmaped */
 		index_mtime = index->file_sync_stamp;
