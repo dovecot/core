@@ -130,6 +130,10 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 			       client_pid, client_id);
 		}
 		master_send(conn, "NOTFOUND\t%u", id);
+	} else if (!request->successful) {
+		i_error("Master requested unfinished authentication request "
+			"%u.%u", client_pid, client_id);
+		master_send(conn, "NOTFOUND\t%u", id);
 	} else {
 		master_request = i_new(struct master_userdb_request, 1);
 		master_request->conn = conn;

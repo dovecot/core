@@ -34,6 +34,7 @@ struct auth_request {
 	struct ip_addr local_ip, remote_ip;
 	mech_callback_t *callback;
 
+	unsigned int successful:1;
 	unsigned int accept_input:1;
 	unsigned int no_failure_delay:1;
 	unsigned int no_login:1;

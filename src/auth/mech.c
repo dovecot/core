@@ -158,6 +158,7 @@ void mech_auth_finish(struct auth_request *request,
 		return;
 	}
 
+	request->successful = TRUE;
 	if (request->conn != NULL) {
 		request->callback(request, AUTH_CLIENT_RESULT_SUCCESS,
 				  data, data_size);
