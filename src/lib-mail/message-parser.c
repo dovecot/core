@@ -54,6 +54,12 @@ static MessagePart *message_part_append(Pool pool, MessagePart *parent)
 	part = p_new(pool, MessagePart, 1);
 	part->parent = parent;
 
+	/* set child position */
+	part->physical_pos =
+		parent->physical_pos +
+		parent->body_size.physical_size +
+		parent->header_size.physical_size;
+
 	list = &part->parent->children;
 	while (*list != NULL)
 		list = &(*list)->next;
@@ -158,12 +164,6 @@ static MessagePart *message_parse_multipart(IOBuffer *inbuf,
 	while (next_part == parent_part) {
 		/* new child */
 		part = message_part_append(parse_ctx->pool, parent_part);
-
-		/* set child position */
-		part->physical_pos =
-			parent_part->physical_pos +
-			parent_part->body_size.physical_size +
-			parent_part->header_size.physical_size;
 
                 parse_ctx->part = part;
 		next_part = message_parse_part(inbuf, parse_ctx);
