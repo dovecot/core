@@ -17,17 +17,16 @@ static void fetch_uid(struct imap_fetch_context *ctx, struct mail *mail)
 	str_printfa(ctx->str, "UID %u ", mail->uid);
 }
 
-static int fetch_flags(struct imap_fetch_context *ctx, struct mail *mail)
+static int fetch_flags(struct imap_fetch_context *ctx, struct mail *mail,
+		       const struct mail_full_flags *flags)
 {
-	const struct mail_full_flags *flags;
+	if (flags == NULL) {
+		flags = mail->get_flags(mail);
+		if (flags == NULL)
+			return FALSE;
+	}
 
-	flags = mail->get_flags(mail);
-	if (flags == NULL)
-		return FALSE;
-
-	str_printfa(ctx->str, "FLAGS (%s) ",
-		    imap_write_flags(flags->flags, flags->custom_flags,
-				     flags->custom_flags_count));
+	str_printfa(ctx->str, "FLAGS (%s) ", imap_write_flags(flags));
 	return TRUE;
 }
 
@@ -165,9 +164,27 @@ static int fetch_send_rfc822_text(struct imap_fetch_context *ctx,
 
 static int fetch_mail(struct imap_fetch_context *ctx, struct mail *mail)
 {
+	const struct mail_full_flags *flags;
 	struct imap_fetch_body_data *body;
 	size_t len, orig_len;
-	int failed, data_written;
+	int failed, data_written, seen_updated = FALSE;
+
+	if (!ctx->update_seen)
+		flags = NULL;
+	else {
+		flags = mail->get_flags(mail);
+		if (flags == NULL)
+			return FALSE;
+
+		if ((flags->flags & MAIL_SEEN) == 0) {
+			if (!mail->update_flags(mail, &ctx->seen_flag,
+						MODIFY_ADD))
+				return FALSE;
+
+			flags = NULL; /* \Seen won't update automatically */
+			seen_updated = TRUE;
+		}
+	}
 
 	t_push();
 
@@ -181,8 +198,8 @@ static int fetch_mail(struct imap_fetch_context *ctx, struct mail *mail)
 		/* write the data into temp string */
 		if (ctx->imap_data & IMAP_FETCH_UID)
 			fetch_uid(ctx, mail);
-		if ((ctx->fetch_data & MAIL_FETCH_FLAGS) || mail->seen_updated)
-			if (!fetch_flags(ctx, mail))
+		if ((ctx->fetch_data & MAIL_FETCH_FLAGS) || seen_updated)
+			if (!fetch_flags(ctx, mail, flags))
 				break;
 		if (ctx->fetch_data & MAIL_FETCH_RECEIVED_DATE)
 			if (!fetch_internaldate(ctx, mail))
@@ -247,7 +264,15 @@ int imap_fetch(struct client *client,
 {
 	struct imap_fetch_context ctx;
 	struct mail *mail;
-	int all_found, update_seen = FALSE;
+	int all_found;
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.fetch_data = fetch_data;
+	ctx.imap_data = imap_data;
+	ctx.bodies = bodies;
+	ctx.output = client->output;
+	ctx.select_counter = client->select_counter;
+	ctx.seen_flag.flags = MAIL_SEEN;
 
 	if (!client->mailbox->readonly) {
 		/* If we have any BODY[..] sections, \Seen flag is added for
@@ -256,24 +281,17 @@ int imap_fetch(struct client *client,
 
 		for (body = bodies; body != NULL; body = body->next) {
 			if (!body->peek) {
-				update_seen = TRUE;
+				ctx.update_seen = TRUE;
 				break;
 			}
 		}
 
 		if (imap_data & (IMAP_FETCH_RFC822|IMAP_FETCH_RFC822_TEXT))
-			update_seen = TRUE;
+			ctx.update_seen = TRUE;
 	}
 
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.fetch_data = fetch_data;
-	ctx.imap_data = imap_data;
-	ctx.bodies = bodies;
-	ctx.output = client->output;
-	ctx.select_counter = client->select_counter;
-
 	ctx.fetch_ctx = client->mailbox->
-		fetch_init(client->mailbox, fetch_data, &update_seen,
+		fetch_init(client->mailbox, fetch_data, ctx.update_seen,
 			   messageset, uidset);
 	if (ctx.fetch_ctx == NULL)
 		return -1;

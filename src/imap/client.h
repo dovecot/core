@@ -39,7 +39,6 @@ struct client {
 
 	unsigned int cmd_error:1;
 	unsigned int cmd_uid:1; /* used UID command */
-	unsigned int sync_flags_send_uid:1;
 	unsigned int rawlog:1;
 	unsigned int input_skip_line:1; /* skip all the data until we've
 					   found a new line */

@@ -12,7 +12,7 @@ static int fetch_and_copy(struct mail_copy_context *copy_ctx,
 	int failed = FALSE;
 
 	fetch_ctx = box->fetch_init(box, MAIL_FETCH_STREAM_HEADER |
-				    MAIL_FETCH_STREAM_BODY, NULL,
+				    MAIL_FETCH_STREAM_BODY, FALSE,
 				    messageset, uidset);
 	if (fetch_ctx == NULL)
 		return FALSE;

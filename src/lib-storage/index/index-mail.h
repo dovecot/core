@@ -22,6 +22,8 @@ struct index_mail_data {
         struct message_part_envelope_data *envelope_data;
 
 	struct mail_index_record *rec;
+	unsigned int idx_seq;
+
 	struct istream *stream;
         struct message_size hdr_size, body_size;
 
@@ -47,7 +49,8 @@ struct index_mail {
 void index_mail_init(struct index_mailbox *ibox, struct index_mail *mail,
 		     enum mail_fetch_field wanted_fields,
 		     const char *const wanted_headers[]);
-int index_mail_next(struct index_mail *mail, struct mail_index_record *rec);
+int index_mail_next(struct index_mail *mail, struct mail_index_record *rec,
+		    unsigned int idx_seq);
 void index_mail_deinit(struct index_mail *mail);
 
 void index_mail_init_parse_header(struct index_mail *mail);

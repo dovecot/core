@@ -745,7 +745,6 @@ struct mailbox maildir_mailbox = {
 	index_storage_sync,
 	maildir_storage_auto_sync,
 	index_storage_expunge,
-	index_storage_update_flags,
 	index_storage_fetch_init,
 	index_storage_fetch_deinit,
 	index_storage_fetch_next,

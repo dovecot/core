@@ -99,10 +99,9 @@ int index_storage_sync_modifylog(struct index_mailbox *ibox, int hide_deleted)
 {
 	const struct modify_log_record *log1, *log2, *log, *first_flag_log;
 	struct mail_index_record *rec;
-	enum mail_flags flags;
+	struct mail_full_flags flags;
         struct mail_storage_callbacks *sc;
 	void *sc_context;
-	const char **custom_flags;
 	unsigned int count1, count2, total_count, seq, seq_count, i, messages;
 	unsigned int first_flag_change, first_flag_messages_count;
 
@@ -159,7 +158,9 @@ int index_storage_sync_modifylog(struct index_mailbox *ibox, int hide_deleted)
 
 	/* now show the flags */
 	messages = first_flag_messages_count;
-	custom_flags = mail_custom_flags_list_get(ibox->index->custom_flags);
+	flags.custom_flags =
+		mail_custom_flags_list_get(ibox->index->custom_flags);
+	flags.custom_flags_count = MAIL_CUSTOM_FLAGS_COUNT;
 
 	if (sc->update_flags == NULL) {
 		/* don't bother going through, we're not printing them anyway */
@@ -185,19 +186,17 @@ int index_storage_sync_modifylog(struct index_mailbox *ibox, int hide_deleted)
 							    log->uid1,
 							    log->uid2, &seq);
 			while (rec != NULL && rec->uid <= log->uid2) {
-				flags = rec->msg_flags;
+				flags.flags = rec->msg_flags;
 				if (rec->uid >= ibox->index->first_recent_uid)
-					flags |= MAIL_RECENT;
+					flags.flags |= MAIL_RECENT;
 
 				/* \Deleted-hiding is useful when syncing just
 				   before doing EXPUNGE. */
-				if ((flags & MAIL_DELETED) == 0 ||
+				if ((flags.flags & MAIL_DELETED) == 0 ||
 				    !hide_deleted) {
-					sc->update_flags(
-						&ibox->box, seq, rec->uid,
-						flags, custom_flags,
-						MAIL_CUSTOM_FLAGS_COUNT,
-						sc_context);
+					sc->update_flags(&ibox->box, seq,
+							 rec->uid, &flags,
+							 sc_context);
 				}
 
                                 seq++;

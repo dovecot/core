@@ -109,13 +109,6 @@ enum client_workarounds {
 	WORKAROUND_OUTLOOK_IDLE		= 0x02
 };
 
-struct mail_full_flags {
-	enum mail_flags flags;
-
-	const char **custom_flags;
-	unsigned int custom_flags_count;
-};
-
 struct mail_storage;
 struct mail_storage_callbacks;
 struct mailbox_list;
@@ -248,22 +241,13 @@ struct mailbox {
 	   expunge callbacks. Also always does full syncing. */
 	int (*expunge)(struct mailbox *box, int notify);
 
-	/* Update mail flags, calling update_flags callbacks. */
-	int (*update_flags)(struct mailbox *box,
-			    const char *messageset, int uidset,
-			    const struct mail_full_flags *flags,
-			    enum modify_type modify_type, int notify,
-			    int *all_found);
-
 	/* Initialize new fetch request. wanted_fields isn't required, but it
-	   can be used for optimizations. If *update_seen is TRUE, \Seen flag
-	   is set for all fetched mails. *update_seen may be changed back to
-	   FALSE if all mails are already seen, or if it's not possible to
-	   change the flag (eg. read-only mailbox). */
+	   can be used for optimizations. update_flags must be set to TRUE, if
+	   you want to call mail->update_flags() */
 	struct mail_fetch_context *
 		(*fetch_init)(struct mailbox *box,
 			      enum mail_fetch_field wanted_fields,
-			      int *update_seen,
+			      int update_flags,
 			      const char *messageset, int uidset);
 	/* Deinitialize fetch request. all_found is set to TRUE if all of the
 	   fetched messages were found (ie. not just deleted). */
@@ -350,7 +334,6 @@ struct mail {
 	unsigned int seq;
 	unsigned int uid;
 
-	unsigned int seen_updated:1; /* if update_seen was TRUE */
 	unsigned int has_nuls:1; /* message data is known to contain NULs */
 	unsigned int has_no_nuls:1; /* -''- known to not contain NULs */
 
@@ -387,6 +370,11 @@ struct mail {
 	/* Get the any of the "special" fields. */
 	const char *(*get_special)(struct mail *mail,
 				   enum mail_fetch_field field);
+
+	/* Update message flags. */
+	int (*update_flags)(struct mail *mail,
+			    const struct mail_full_flags *flags,
+			    enum modify_type modify_type);
 
 	/* Copy this mail to another mailbox. */
 	int (*copy)(struct mail *mail, struct mail_copy_context *ctx);
@@ -428,10 +416,10 @@ struct mail_storage_callbacks {
 	void (*expunge)(struct mailbox *mailbox, unsigned int seq,
 			void *context);
 	/* FETCH FLAGS */
-	void (*update_flags)(struct mailbox *mailbox, unsigned int seq,
-			     unsigned int uid, enum mail_flags flags,
-			     const char *custom_flags[],
-			     unsigned int custom_flags_count, void *context);
+	void (*update_flags)(struct mailbox *mailbox,
+			     unsigned int seq, unsigned int uid,
+			     const struct mail_full_flags *flags,
+			     void *context);
 
 	/* EXISTS, RECENT */
 	void (*new_messages)(struct mailbox *mailbox,

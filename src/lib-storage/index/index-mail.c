@@ -637,7 +637,7 @@ static const char *get_special(struct mail *_mail, enum mail_fetch_field field)
 }
 
 static struct mail index_mail = {
-	0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0,
 
 	get_flags,
 	get_parts,
@@ -649,6 +649,7 @@ static struct mail index_mail = {
 	get_first_mailbox,
 	get_stream,
 	get_special,
+	index_storage_update_flags,
 	index_storage_copy
 };
 
@@ -668,7 +669,8 @@ void index_mail_init(struct index_mailbox *ibox, struct index_mail *mail,
 		ibox->mail_init(mail);
 }
 
-int index_mail_next(struct index_mail *mail, struct mail_index_record *rec)
+int index_mail_next(struct index_mail *mail, struct mail_index_record *rec,
+		    unsigned int idx_seq)
 {
 	struct index_mail_data *data = &mail->data;
 	int ret, open_mail, parse_header, envelope_headers;
@@ -688,6 +690,7 @@ int index_mail_next(struct index_mail *mail, struct mail_index_record *rec)
 		(rec->index_flags & INDEX_MAIL_FLAG_HAS_NO_NULS) != 0;
 
 	data->rec = rec;
+	data->idx_seq = idx_seq;
 	data->size = (uoff_t)-1;
 	data->received_date = data->sent_time = (time_t)-1;
 

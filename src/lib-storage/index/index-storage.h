@@ -88,14 +88,10 @@ int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status);
 int index_storage_sync(struct mailbox *box, enum mail_sync_flags flags);
-int index_storage_update_flags(struct mailbox *box, const char *messageset,
-			       int uidset, const struct mail_full_flags *flags,
-			       enum modify_type modify_type, int notify,
-			       int *all_found);
 
 struct mail_fetch_context *
 index_storage_fetch_init(struct mailbox *box,
-			 enum mail_fetch_field wanted_fields, int *update_seen,
+			 enum mail_fetch_field wanted_fields, int update_flags,
 			 const char *messageset, int uidset);
 int index_storage_fetch_deinit(struct mail_fetch_context *ctx, int *all_found);
 struct mail *index_storage_fetch_next(struct mail_fetch_context *ctx);
@@ -119,5 +115,9 @@ struct mail *index_storage_search_next(struct mail_search_context *ctx);
 struct mail_copy_context *index_storage_copy_init(struct mailbox *box);
 int index_storage_copy_deinit(struct mail_copy_context *ctx, int rollback);
 int index_storage_copy(struct mail *mail, struct mail_copy_context *ctx);
+
+int index_storage_update_flags(struct mail *mail,
+			       const struct mail_full_flags *flags,
+			       enum modify_type modify_type);
 
 #endif

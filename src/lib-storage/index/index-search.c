@@ -1003,7 +1003,8 @@ struct mail *index_storage_search_next(struct mail_search_context *ctx)
 
 		ctx->mail->seq = msgset_mail->client_seq;
 		ctx->mail->uid = msgset_mail->rec->uid;
-		ret = index_mail_next(&ctx->imail, msgset_mail->rec);
+		ret = index_mail_next(&ctx->imail, msgset_mail->rec,
+				      msgset_mail->idx_seq);
 
 		if (ret < 0)
 			return NULL;

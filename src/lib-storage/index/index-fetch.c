@@ -17,13 +17,12 @@ struct mail_fetch_context {
 	struct messageset_context *msgset_ctx;
 	struct index_mail mail;
 
-	int update_seen;
 	enum mail_lock_type old_lock;
 };
 
 struct mail_fetch_context *
 index_storage_fetch_init(struct mailbox *box,
-			 enum mail_fetch_field wanted_fields, int *update_seen,
+			 enum mail_fetch_field wanted_fields, int update_flags,
 			 const char *messageset, int uidset)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
@@ -33,11 +32,8 @@ index_storage_fetch_init(struct mailbox *box,
 	ctx = i_new(struct mail_fetch_context, 1);
 	ctx->old_lock = ibox->index->lock_type;
 
-	if (box->readonly && update_seen != NULL)
-		*update_seen = FALSE;
-
 	/* need exclusive lock to update the \Seen flags */
-	if (update_seen != NULL && *update_seen) {
+	if (update_flags && !box->readonly) {
 		if (!index_storage_lock(ibox, MAIL_LOCK_EXCLUSIVE))
 			return NULL;
 	}
@@ -48,19 +44,8 @@ index_storage_fetch_init(struct mailbox *box,
 					 MAIL_LOCK_SHARED))
 		return NULL;
 
-	if (update_seen != NULL && *update_seen &&
-	    ibox->index->header->messages_count ==
-	    ibox->index->header->seen_messages_count &&
-	    ctx->old_lock != MAIL_LOCK_EXCLUSIVE) {
-		/* if all messages are already seen, there's no point in
-		   keeping exclusive lock */
-		*update_seen = FALSE;
-		(void)index_storage_lock(ibox, MAIL_LOCK_SHARED);
-	}
-
 	ctx->ibox = ibox;
 	ctx->index = ibox->index;
-	ctx->update_seen = update_seen != NULL && *update_seen;
 
 	index_mail_init(ibox, &ctx->mail, wanted_fields, NULL);
 	ctx->msgset_ctx = index_messageset_init(ibox, messageset, uidset, TRUE);
@@ -89,7 +74,6 @@ int index_storage_fetch_deinit(struct mail_fetch_context *ctx, int *all_found)
 struct mail *index_storage_fetch_next(struct mail_fetch_context *ctx)
 {
 	const struct messageset_mail *msgset_mail;
-	struct mail_index_record *rec;
 	int ret;
 
 	do {
@@ -97,20 +81,11 @@ struct mail *index_storage_fetch_next(struct mail_fetch_context *ctx)
 		if (msgset_mail == NULL)
 			return NULL;
 
-		rec = msgset_mail->rec;
-		ctx->mail.mail.seen_updated = FALSE;
-		if (ctx->update_seen && (rec->msg_flags & MAIL_SEEN) == 0) {
-			if (ctx->index->update_flags(ctx->index, rec,
-						     msgset_mail->idx_seq,
-						     rec->msg_flags | MAIL_SEEN,
-						     FALSE))
-				ctx->mail.mail.seen_updated = TRUE;
-		}
-
 		ctx->mail.mail.seq = msgset_mail->client_seq;
-		ctx->mail.mail.uid = rec->uid;
+		ctx->mail.mail.uid = msgset_mail->rec->uid;
 
-		ret = index_mail_next(&ctx->mail, rec);
+		ret = index_mail_next(&ctx->mail, msgset_mail->rec,
+				      msgset_mail->idx_seq);
 	} while (ret == 0);
 
 	return ret < 0 ? NULL : &ctx->mail.mail;
@@ -118,13 +93,13 @@ struct mail *index_storage_fetch_next(struct mail_fetch_context *ctx)
 
 static struct mail *
 fetch_record(struct index_mailbox *ibox, struct mail_index_record *rec,
-	     enum mail_fetch_field wanted_fields)
+	     unsigned int idx_seq, enum mail_fetch_field wanted_fields)
 {
 	if (ibox->fetch_mail.pool != NULL)
 		index_mail_deinit(&ibox->fetch_mail);
 
 	index_mail_init(ibox, &ibox->fetch_mail, wanted_fields, NULL);
-	if (index_mail_next(&ibox->fetch_mail, rec) <= 0)
+	if (index_mail_next(&ibox->fetch_mail, rec, idx_seq) <= 0)
 		return NULL;
 
 	return &ibox->fetch_mail.mail;
@@ -134,15 +109,16 @@ struct mail *index_storage_fetch_uid(struct mailbox *box, unsigned int uid,
 				     enum mail_fetch_field wanted_fields)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
-        struct mail_index_record *rec;
+	struct mail_index_record *rec;
+	unsigned int seq;
 
 	i_assert(ibox->index->lock_type != MAIL_LOCK_UNLOCK);
 
-	rec = ibox->index->lookup_uid_range(ibox->index, uid, uid, NULL);
+	rec = ibox->index->lookup_uid_range(ibox->index, uid, uid, &seq);
 	if (rec == NULL)
 		return NULL;
 
-	return fetch_record(ibox, rec, wanted_fields);
+	return fetch_record(ibox, rec, seq, wanted_fields);
 }
 
 struct mail *index_storage_fetch_seq(struct mailbox *box, unsigned int seq,
@@ -158,9 +134,10 @@ struct mail *index_storage_fetch_seq(struct mailbox *box, unsigned int seq,
 					    &expunges_before) == NULL)
 		return NULL;
 
-	rec = ibox->index->lookup(ibox->index, seq - expunges_before);
+	seq -= expunges_before;
+	rec = ibox->index->lookup(ibox->index, seq);
 	if (rec == NULL)
 		return NULL;
 
-	return fetch_record(ibox, rec, wanted_fields);
+	return fetch_record(ibox, rec, seq, wanted_fields);
 }

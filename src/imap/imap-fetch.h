@@ -30,6 +30,9 @@ struct imap_fetch_context {
 	const char *prefix;
 	unsigned int select_counter;
 
+	int update_seen;
+	struct mail_full_flags seen_flag;
+
 	int first, failed;
 };
 

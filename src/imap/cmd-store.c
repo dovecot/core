@@ -32,13 +32,37 @@ static int get_modify_type(struct client *client, const char *item,
 	return TRUE;
 }
 
+static int mail_send_flags(struct client *client, struct mail *mail)
+{
+	const struct mail_full_flags *flags;
+	const char *str;
+
+	flags = mail->get_flags(mail);
+	if (flags == NULL)
+		return FALSE;
+
+	t_push();
+	str = imap_write_flags(flags);
+	str = t_strdup_printf(client->cmd_uid ?
+			      "* %u FETCH (FLAGS (%s) UID %u)" :
+			      "* %u FETCH (FLAGS (%s))",
+			      mail->seq, str, mail->uid);
+	client_send_line(client, str);
+	t_pop();
+
+	return TRUE;
+}
+
 int cmd_store(struct client *client)
 {
 	struct imap_arg *args;
 	struct mail_full_flags flags;
 	enum modify_type modify_type;
+	struct mailbox *box;
+	struct mail_fetch_context *fetch_ctx;
+	struct mail *mail;
 	const char *messageset, *item;
-	int silent, all_found;
+	int silent, all_found, failed;
 
 	if (!client_read_args(client, 0, 0, &args))
 		return FALSE;
@@ -70,10 +94,32 @@ int cmd_store(struct client *client)
 	}
 
 	/* and update the flags */
-	client->sync_flags_send_uid = client->cmd_uid;
-	if (client->mailbox->update_flags(client->mailbox, messageset,
-					  client->cmd_uid, &flags,
-					  modify_type, !silent, &all_found)) {
+	box = client->mailbox;
+	fetch_ctx = box->fetch_init(box, MAIL_FETCH_FLAGS, TRUE,
+				    messageset, client->cmd_uid);
+	if (fetch_ctx == NULL)
+		failed = TRUE;
+	else {
+		failed = FALSE;
+		while ((mail = box->fetch_next(fetch_ctx)) != NULL) {
+			if (!mail->update_flags(mail, &flags, modify_type)) {
+				failed = TRUE;
+				break;
+			}
+
+			if (!silent) {
+				if (!mail_send_flags(client, mail)) {
+					failed = TRUE;
+					break;
+				}
+			}
+		}
+	}
+
+	if (!box->fetch_deinit(fetch_ctx, &all_found))
+		failed = TRUE;
+
+	if (!failed) {
 		if (client->cmd_uid)
 			client_sync_full_fast(client);
 		else
@@ -84,6 +130,5 @@ int cmd_store(struct client *client)
 		client_send_storage_error(client);
 	}
 
-	client->sync_flags_send_uid = FALSE;
 	return TRUE;
 }

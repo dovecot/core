@@ -46,9 +46,8 @@ static void expunge(struct mailbox *mailbox, unsigned int seq, void *context)
 }
 
 static void update_flags(struct mailbox *mailbox,
-			 unsigned int seq, unsigned int uid,
-			 enum mail_flags flags, const char *custom_flags[],
-			 unsigned int custom_flags_count, void *context)
+			 unsigned int seq, unsigned int uid __attr_unused__,
+			 const struct mail_full_flags *flags, void *context)
 {
 	struct client *client = context;
 	const char *str;
@@ -57,15 +56,8 @@ static void update_flags(struct mailbox *mailbox,
 		return;
 
 	t_push();
-	str = imap_write_flags(flags, custom_flags, custom_flags_count);
-
-	if (client->sync_flags_send_uid) {
-		str = t_strdup_printf("* %u FETCH (FLAGS (%s) UID %u)",
-				      seq, str, uid);
-	} else {
-		str = t_strdup_printf("* %u FETCH (FLAGS (%s))", seq, str);
-	}
-
+	str = imap_write_flags(flags);
+	str = t_strdup_printf("* %u FETCH (FLAGS (%s))", seq, str);
 	client_send_line(client, str);
 	t_pop();
 }
