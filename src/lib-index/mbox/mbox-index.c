@@ -113,10 +113,11 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 int mbox_skip_crlf(IOBuffer *inbuf)
 {
 	unsigned char *data;
-	unsigned int size;
+	unsigned int size, pos;
 
-	while (io_buffer_read_data(inbuf, &data, &size, 1) >= 0) {
-		if (size > 0) {
+	pos = 0;
+	while (io_buffer_read_data(inbuf, &data, &size, pos) >= 0) {
+		if (size > 0 && pos == 0) {
 			if (data[0] == '\n') {
 				io_buffer_skip(inbuf, 1);
 				return TRUE;
@@ -124,13 +125,14 @@ int mbox_skip_crlf(IOBuffer *inbuf)
 			if (data[0] != '\r')
 				return FALSE;
 
-			if (size > 1) {
-				if (data[1] != '\n')
-					return FALSE;
+			pos++;
+		}
+		if (size > 1 && pos == 1) {
+			if (data[1] != '\n')
+				return FALSE;
 
-				io_buffer_skip(inbuf, 2);
-				return TRUE;
-			}
+			io_buffer_skip(inbuf, 2);
+			return TRUE;
 		}
 	}
 
