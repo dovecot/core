@@ -113,13 +113,9 @@ int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
 
 void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
 {
-	const char *path;
-
 	if (!UIDLIST_IS_LOCKED(uidlist))
 		return;
 
-	path = t_strconcat(uidlist->ibox->control_dir,
-			   "/" MAILDIR_UIDLIST_NAME, NULL);
 	(void)file_dotlock_delete(&uidlist->dotlock);
 	uidlist->lock_fd = -1;
 }
