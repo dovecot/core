@@ -853,20 +853,26 @@ int mail_modifylog_get_nonsynced(MailModifyLog *log,
 	return TRUE;
 }
 
-static void mail_modifylog_try_truncate(ModifyLogFile *file)
+static int mail_modifylog_try_truncate(ModifyLogFile *file)
 {
 	if (modifylog_have_other_users(file->log, TRUE) != 0)
-		return;
+		return FALSE;
 
+	file->header->sync_id = 0;
 	file->header->used_file_size = sizeof(ModifyLogHeader);
 
 	if (msync(file->mmap_base, sizeof(ModifyLogHeader), MS_SYNC) < 0) {
 		modifylog_set_syscall_error(file, "msync()");
-		return;
+		return FALSE;
 	}
+
+	file->synced_id = 0;
+	file->synced_position = sizeof(ModifyLogHeader);
 
 	if (file_set_size(file->fd, MODIFY_LOG_INITIAL_SIZE) < 0)
 		modifylog_set_syscall_error(file, "file_set_size()");
+
+	return TRUE;
 }
 
 /* switches to active modify log, updating our sync mark to end of it */
@@ -874,7 +880,7 @@ static int mail_modifylog_switch_file(MailModifyLog *log)
 {
 	ModifyLogFile *file;
 
-	mail_modifylog_try_truncate(log->tail);
+	(void)mail_modifylog_try_truncate(log->tail);
 
 	file = log->tail == &log->file1 ? &log->file2 : &log->file1;
 	if (file->fd == -1) {
@@ -897,6 +903,12 @@ static int mail_modifylog_try_switch_file(MailModifyLog *log)
 
 	if (log->head->anon_mmap)
 		return TRUE;
+
+	if (mail_modifylog_try_truncate(log->tail)) {
+		/* no need to switch, we're the only user and we just
+		   truncated it  */
+		return TRUE;
+	}
 
 	file = log->head == &log->file1 ? &log->file2 : &log->file1;
 	if (modifylog_reuse_or_create_file(file) != 1) {
