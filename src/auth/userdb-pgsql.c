@@ -69,7 +69,6 @@ static void pgsql_handle_request(struct pgsql_connection *conn __attr_unused__,
 	struct userdb_pgsql_request *urequest =
 		(struct userdb_pgsql_request *) request;
 	struct user_data user;
-	const char *str;
 
 	if (res != NULL && is_result_valid(res)) {
 		memset(&user, 0, sizeof(user));
@@ -79,8 +78,6 @@ static void pgsql_handle_request(struct pgsql_connection *conn __attr_unused__,
 		user.mail = pg_get_str(res, "mail");
 		user.uid = atoi(PQgetvalue(res, 0, PQfnumber(res, "uid")));
 		user.gid = atoi(PQgetvalue(res, 0, PQfnumber(res, "gid")));
-		str = pg_get_str(res, "chroot");
-		user.chroot = str != NULL && (*str == 'Y' || *str == 'y');
 		urequest->userdb_callback(&user, request->context);
 	} else {
 		urequest->userdb_callback(NULL, request->context);

@@ -24,7 +24,6 @@ enum ldap_user_attr {
 	ATTR_SYSTEM_USER,
 	ATTR_UID_NUMBER,
 	ATTR_GID_NUMBER,
-	ATTR_CHROOT,
 
 	ATTR_COUNT
 };
@@ -77,9 +76,6 @@ static void parse_attr(struct userdb_ldap_connection *conn,
 		break;
 	case ATTR_GID_NUMBER:
 		user->gid = atoi(value);
-		break;
-	case ATTR_CHROOT:
-		user->chroot = value[0] == 'Y' || value[0] == 'y';
 		break;
 
 	case ATTR_COUNT:

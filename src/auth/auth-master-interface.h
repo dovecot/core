@@ -14,7 +14,6 @@ struct auth_master_reply {
 	unsigned int tag;
 
 	unsigned int success:1;
-	unsigned int chroot:1; /* chroot to home directory */
 
 	uid_t uid;
 	gid_t gid;
@@ -24,7 +23,7 @@ struct auth_master_reply {
 	   Ignore if it points outside data_size. */
 	size_t system_user_idx;
 	size_t virtual_user_idx;
-	size_t home_idx, mail_idx;
+	size_t home_idx, mail_idx, chroot_idx;
 
 	size_t data_size;
 	/* unsigned char data[]; */

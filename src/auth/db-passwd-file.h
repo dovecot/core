@@ -12,8 +12,6 @@ struct passwd_user {
 	char *mail;
 
 	char *password;
-
-	unsigned int chroot:1;
 };
 
 struct passwd_file {

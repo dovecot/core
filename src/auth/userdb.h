@@ -9,8 +9,6 @@ struct user_data {
 	const char *system_user;
 	uid_t uid;
 	gid_t gid;
-
-	int chroot; /* chroot to home directory */
 };
 
 typedef void userdb_callback_t(struct user_data *user, void *context);

@@ -100,8 +100,7 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 
 	/* flags */
 	if (*args != NULL) {
-		if (strstr(*args, "chroot") != NULL)
-			pu->chroot = TRUE;
+		/* no flags currently */
 		args++;
 	}
 

@@ -31,8 +31,6 @@ static void passwd_file_lookup(const char *user, userdb_callback_t *callback,
 	data.home = pu->home;
 	data.mail = pu->mail;
 
-	data.chroot = pu->chroot;
-
 	callback(&data, context);
 }
 

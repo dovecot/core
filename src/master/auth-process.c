@@ -90,6 +90,8 @@ static int handle_reply(struct auth_process *process,
 		reply->virtual_user_idx = nul_pos;
 	if (reply->home_idx >= reply->data_size)
 		reply->home_idx = nul_pos;
+	if (reply->chroot_idx >= reply->data_size)
+		reply->chroot_idx = nul_pos;
 	if (reply->mail_idx >= reply->data_size)
 		reply->mail_idx = nul_pos;
 

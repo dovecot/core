@@ -53,6 +53,10 @@ Realms (or virtual domains) are supported by appending the "@realm" after
 the user name. This behaviour works with all authentication mechanisms and
 databases.
 
+Home directory can be prefixed with "<chroot>/./" in which case <chroot>
+directory will be chrooted into. The actual home directory follows the
+"/./". For example "/chroot/./home/user".
+
 
 passwd
 ------
@@ -62,7 +66,6 @@ nowadays so it doesn't usually work as password database. BSDs are an
 exception to this, they still set the password field even with shadow
 passwords.
 
-As an extension, if home directory ends with "/./", it will be chrooted to.
 
 shadow
 ------

@@ -39,6 +39,7 @@ fill_reply(const struct user_data *user, size_t *reply_size)
 {
 	struct auth_master_reply *reply;
 	buffer_t *buf;
+	char *p;
 
 	buf = buffer_create_dynamic(data_stack_pool,
 				    sizeof(*reply) + 256, (size_t)-1);
@@ -46,14 +47,22 @@ fill_reply(const struct user_data *user, size_t *reply_size)
 
 	reply->success = TRUE;
 
-	reply->chroot = user->chroot;
 	reply->uid = user->uid;
 	reply->gid = user->gid;
 
 	reply->system_user_idx = reply_add(buf, user->system_user);
 	reply->virtual_user_idx = reply_add(buf, user->virtual_user);
-	reply->home_idx = reply_add(buf, user->home);
 	reply->mail_idx = reply_add(buf, user->mail);
+
+	p = strstr(user->home, "/./");
+	if (p == NULL) {
+		reply->home_idx = reply_add(buf, user->home);
+		reply->chroot_idx = reply_add(buf, NULL);
+	} else {
+		/* wu-ftpd like <chroot>/./<home> */
+		reply->home_idx = reply_add(buf, t_strdup_until(user->home, p));
+		reply->chroot_idx = reply_add(buf, p + 3);
+	}
 
 	*reply_size = buffer_get_used_size(buf);
 	reply->data_size = *reply_size - sizeof(*reply);

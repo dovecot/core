@@ -105,7 +105,7 @@ int create_mail_process(int socket, struct ip_addr *ip,
 			const char *data)
 {
 	static const char *argv[] = { NULL, NULL, NULL };
-	const char *host, *mail, *home_dir;
+	const char *host, *mail, *chroot_dir, *home_dir, *full_home_dir;
 	char title[1024];
 	pid_t pid;
 	int i, err;
@@ -118,8 +118,11 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	if (!validate_uid_gid(reply->uid, reply->gid))
 		return FALSE;
 
-	if (reply->chroot && !validate_chroot(data + reply->home_idx)) {
-		i_error("Invalid chroot directory: %s", data + reply->home_idx);
+	home_dir = data + reply->home_idx;
+	chroot_dir = data + reply->chroot_idx;
+
+	if (*chroot_dir != '\0' && validate_chroot(chroot_dir)) {
+		i_error("Invalid chroot directory: %s", chroot_dir);
 		return FALSE;
 	}
 
@@ -151,15 +154,15 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
 	restrict_access_set_env(data + reply->system_user_idx,
-				reply->uid, reply->gid,
-				reply->chroot ? data + reply->home_idx : NULL);
+				reply->uid, reply->gid, chroot_dir);
 
 	restrict_process_size(process_size, (unsigned int)-1);
 
-	home_dir = data + reply->home_idx;
 	if (*home_dir != '\0') {
-		if (chdir(home_dir) < 0)
-			i_fatal("chdir(%s) failed: %m", home_dir);
+		full_home_dir = *chroot_dir == '\0' ? home_dir :
+			t_strconcat(chroot_dir, "/", home_dir, NULL);
+		if (chdir(full_home_dir) < 0)
+			i_fatal("chdir(%s) failed: %m", full_home_dir);
 	}
 
 	env_put("LOGGED_IN=1");
@@ -204,7 +207,7 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	if (*mail == '\0' && set->default_mail_env != NULL) {
 		mail = expand_mail_env(set->default_mail_env,
 				       data + reply->virtual_user_idx,
-				       data + reply->home_idx);
+				       home_dir);
 	}
 
 	env_put(t_strconcat("MAIL=", mail, NULL));
