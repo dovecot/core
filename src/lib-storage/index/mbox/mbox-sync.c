@@ -1065,8 +1065,8 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
 	ret = mail_index_get_header(sync_view, &sync_ctx.hdr);
 	i_assert(ret == 0);
 
-	lock_type = mail_index_sync_have_more(index_sync_ctx) ?
-		F_WRLCK : F_RDLCK;
+	lock_type = mail_index_sync_have_more(index_sync_ctx) &&
+		!ibox->mbox_readonly ? F_WRLCK : F_RDLCK;
 	if (lock_type == F_WRLCK && lock) {
 		(void)mbox_unlock(ibox, lock_id);
 		lock_id = 0;
