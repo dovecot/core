@@ -17,7 +17,10 @@ static unsigned int get_first_unseen_seq(MailIndex *index)
 	}
 
 	lowwater_uid = hdr->first_unseen_uid_lowwater;
-	if (lowwater_uid != 0) {
+	if (lowwater_uid == hdr->next_uid) {
+		/* no unseen messages */
+		rec = NULL;
+	} else if (lowwater_uid != 0) {
 		/* begin scanning from the low water mark */
 		rec = index->lookup_uid_range(index, lowwater_uid,
 					      hdr->next_uid - 1, &seq);
