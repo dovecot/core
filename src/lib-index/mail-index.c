@@ -944,8 +944,8 @@ int mail_index_write_base_header(struct mail_index *index,
 			return -1;
 		}
 
+		index->map->hdr = *hdr;
 		buffer_write(index->map->hdr_copy_buf, 0, hdr, hdr_size);
-		i_assert(index->hdr == index->map->hdr_copy_buf->data);
 	}
 
 	return 0;
