@@ -107,6 +107,7 @@ void mail_cache_decision_lookup(struct mail_cache_view *view, uint32_t seq,
 		      generating the local cache for the first time, we'll
 		      drop back to TEMP within few months. */
 		cache->fields[field].field.decision = MAIL_CACHE_DECISION_YES;
+		cache->fields[field].decision_dirty = TRUE;
 		cache->field_header_write_pending = TRUE;
 	} else {
 		cache->fields[field].uid_highwater = uid;
@@ -132,6 +133,7 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 
 	/* field used the first time */
 	cache->fields[field].field.decision = MAIL_CACHE_DECISION_TEMP;
+	cache->fields[field].decision_dirty = TRUE;
 	cache->field_header_write_pending = TRUE;
 
 	if (mail_index_lookup_uid(view->view, seq, &uid) == 0)
