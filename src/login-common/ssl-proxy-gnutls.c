@@ -3,6 +3,7 @@
 #include "common.h"
 #include "ioloop.h"
 #include "network.h"
+#include "hash.h"
 #include "ssl-proxy.h"
 
 #ifdef HAVE_GNUTLS
@@ -42,6 +43,7 @@ const int mac_priority[] =
 const int cert_type_priority[] =
 	{ GNUTLS_CRT_X509, 0 };
 
+static struct hash_table *ssl_proxies;
 static gnutls_certificate_credentials x509_cred;
 static gnutls_dh_params dh_params;
 static gnutls_rsa_params rsa_params;
@@ -121,6 +123,8 @@ static int ssl_proxy_destroy(struct ssl_proxy *proxy)
 {
 	if (--proxy->refcount > 0)
 		return TRUE;
+
+	hash_remove(ssl_proxies, proxy);
 
 	gnutls_deinit(proxy->session);
 
@@ -322,6 +326,7 @@ int ssl_proxy_new(int fd)
 	}
 
         main_ref();
+	hash_insert(ssl_proxies, proxy, proxy);
 	return sfd[1];
 }
 
@@ -501,15 +506,26 @@ void ssl_proxy_init(void)
 	if (ret < 0)
 		i_fatal("Can't set RSA parameters: %s", gnutls_strerror(ret));
 
+        ssl_proxies = hash_create(default_pool, default_pool, 0, NULL, NULL);
 	ssl_initialized = TRUE;
+}
+
+static void ssl_proxy_destroy_hash(void *key __attr_unused__, void *value,
+				   void *context __attr_unused__)
+{
+	ssl_proxy_destroy(value);
 }
 
 void ssl_proxy_deinit(void)
 {
-	if (ssl_initialized) {
-		gnutls_certificate_free_cred(x509_cred);
-		gnutls_global_deinit();
-	}
+	if (!ssl_initialized)
+		return;
+
+	hash_foreach(ssl_proxies, ssl_proxy_destroy_hash, NULL);
+	hash_destroy(ssl_proxies);
+
+	gnutls_certificate_free_cred(x509_cred);
+	gnutls_global_deinit();
 }
 
 #endif
