@@ -134,6 +134,7 @@ void mbox_header_init_context(struct mbox_header_context *ctx,
 	ctx->index = index;
 	ctx->input = input;
 	ctx->custom_flags = mail_custom_flags_list_get(index->custom_flags);
+	ctx->content_length = (uoff_t)-1;
 }
 
 void mbox_header_free_context(struct mbox_header_context *ctx __attr_unused__)
@@ -265,9 +266,9 @@ void mbox_header_cb(struct message_part *part __attr_unused__,
 		i_stream_set_read_limit(ctx->input, 0);
 
 		end_offset = start_offset + ctx->content_length;
-		if (ctx->content_length == 0 ||
+		if (ctx->content_length == (uoff_t)-1 ||
 		    !mbox_verify_end_of_body(ctx->input, end_offset)) {
-			if (ctx->content_length != 0)
+			if (ctx->content_length != (uoff_t)-1)
 				i_stream_seek(ctx->input, start_offset);
 			mbox_skip_message(ctx->input);
 			end_offset = ctx->input->v_offset;
