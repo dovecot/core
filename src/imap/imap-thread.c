@@ -147,7 +147,8 @@ int imap_thread(struct client *client, const char *charset,
 	o_stream_send_str(client->output, "\r\n");
 
 	ret = mailbox_search_deinit(ctx->search_ctx);
-	mailbox_transaction_rollback(ctx->t);
+	if (mailbox_transaction_commit(ctx->t) < 0)
+		ret = -1;
         mail_thread_deinit(ctx);
 	return ret;
 }

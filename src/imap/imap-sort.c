@@ -250,7 +250,8 @@ int imap_sort(struct client *client, const char *charset,
 	mail_sort_flush(ctx);
 	ret = mailbox_search_deinit(ctx->search_ctx);
 
-	mailbox_transaction_rollback(ctx->t);
+	if (mailbox_transaction_commit(ctx->t) < 0)
+		ret = -1;
 
 	if (ctx->written || ret == 0) {
 		str_append(ctx->str, "\r\n");
