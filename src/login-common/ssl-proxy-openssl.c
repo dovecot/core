@@ -395,10 +395,10 @@ void ssl_proxy_deinit(void)
 	if (!ssl_initialized)
 		return;
 
-	SSL_CTX_free(ssl_ctx);
-
 	hash_foreach(ssl_proxies, ssl_proxy_destroy_hash, NULL);
 	hash_destroy(ssl_proxies);
+
+	SSL_CTX_free(ssl_ctx);
 }
 
 #endif
