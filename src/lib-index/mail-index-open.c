@@ -557,7 +557,7 @@ int mail_index_open_or_create(struct mail_index *index,
 
 	mail_index_cleanup_temp_files(index->dir);
 
-	if (mail_index_open(index, update_recent, fast))
+	if (index->open(index, update_recent, fast))
 	        return TRUE;
 
 	if (index->index_lock_timeout || index->mailbox_lock_timeout)
@@ -570,7 +570,7 @@ int mail_index_open_or_create(struct mail_index *index,
 		return FALSE;
 
 	failed = FALSE;
-	if (mail_index_open(index, update_recent, fast))
+	if (index->open(index, update_recent, fast))
 		dir_unlocked = FALSE;
 	else if (!index->index_lock_timeout && !index->mailbox_lock_timeout) {
 		if (!mail_index_create(index, &dir_unlocked, update_recent))

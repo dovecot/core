@@ -29,4 +29,6 @@ struct istream *maildir_open_mail(struct mail_index *index,
 int maildir_record_update(struct mail_index *index,
 			  struct mail_index_update *update, int fd);
 
+void maildir_clean_tmp(const char *dir);
+
 #endif
