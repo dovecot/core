@@ -718,8 +718,18 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 			return -1;
 		}
 
-		if (file->sync_offset - file->buffer_offset + hdr_size > size)
+		if (file->sync_offset - file->buffer_offset + hdr_size > size) {
+			/* record goes outside the file we've seen. or if
+			   we're accessing the log file via unlocked mmaped
+			   memory, it may be just that the memory was updated
+			   after we checked the file size. */
+			if (file->locked || file->mmap_base == NULL) {
+				mail_transaction_log_file_set_corrupted(file,
+					"hdr.size too large (%u)", hdr_size);
+				return -1;
+			}
 			break;
+		}
 		file->sync_offset += hdr_size;
 	}
 	return 0;
