@@ -189,7 +189,6 @@ void client_send_storage_error(struct client *client)
 	const char *error;
 
 	if (client->mailbox->is_inconsistency_error(client->mailbox)) {
-		/* we can't do forced CLOSE, so have to disconnect */
 		client_send_line(client, "-ERR Mailbox is in inconsistent "
 				 "state, please relogin.");
 		client_disconnect(client);
