@@ -23,6 +23,7 @@
 #define LOG_DOTLOCK_STALE_TIMEOUT 0
 #define LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT 300
 
+#define MAIL_TRANSACTION_LOG_PREFIX ".log"
 #define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
 
 static struct mail_transaction_log_file *
@@ -289,6 +290,7 @@ mail_transaction_log_file_close(struct mail_transaction_log_file *file)
 static int
 mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file)
 {
+        struct mail_transaction_log_file *f;
 	int ret;
 
 	ret = pread_full(file->fd, &file->hdr, sizeof(file->hdr), 0);
@@ -342,6 +344,20 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file)
 			file->hdr.indexid, file->log->index->indexid);
 		return 0;
 	}
+
+	/* make sure we already don't have a file with the same sequence
+	   opened. it shouldn't happen unless the old log file was
+	   corrupted. */
+	for (f = file->log->tail; f != NULL; f = f->next) {
+		if (f->hdr.file_seq >= file->hdr.file_seq) {
+			mail_transaction_log_file_set_corrupted(file,
+				"invalid new transaction log sequence "
+				"(%u >= %u)",
+				f->hdr.file_seq, file->hdr.file_seq);
+			return 0;
+		}
+	}
+
 	return 1;
 }
 
@@ -391,6 +407,11 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 	if (index->fd != -1) {
 		if (mail_index_lock_shared(index, TRUE, &lock_id) < 0)
 			return -1;
+		if (mail_index_map(index, FALSE) <= 0) {
+			mail_index_unlock(index, lock_id);
+			return -1;
+		}
+
 		hdr.prev_file_seq = index->hdr->log_file_seq;
 		hdr.prev_file_offset = index->hdr->log_file_int_offset;
 	}
@@ -522,16 +543,9 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 		file->sync_offset = file->hdr.hdr_size;
 	}
 
-	for (p = &log->tail; *p != NULL; p = &(*p)->next) {
-		if ((*p)->hdr.file_seq >= file->hdr.file_seq) {
-			/* log replaced with file having same sequence as
-			   previous one. shouldn't happen unless previous
-			   log file was corrupted.. */
-			file->next = (*p)->next;
-			(*p)->next = NULL;
-			break;
-		}
-	}
+	/* append to end of list. */
+	for (p = &log->tail; *p != NULL; p = &(*p)->next)
+		i_assert((*p)->hdr.file_seq < file->hdr.file_seq);
 	*p = file;
 
 	return file;
@@ -683,6 +697,9 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 
 	data = buffer_get_data(file->buffer, &size);
 
+	if (file->sync_offset < file->buffer_offset)
+		file->sync_offset = file->buffer_offset;
+
 	while (file->sync_offset - file->buffer_offset + sizeof(*hdr) <= size) {
 		hdr = CONST_PTR_OFFSET(data, file->sync_offset -
 				       file->buffer_offset);
@@ -822,12 +839,16 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 			return 1;
 	}
 
-	if (file->mmap_base != NULL || use_mmap) {
-		if (fstat(file->fd, &st) < 0) {
-			mail_index_file_set_syscall_error(index, file->filepath,
-							  "fstat()");
-			return -1;
-		}
+	if (fstat(file->fd, &st) < 0) {
+		mail_index_file_set_syscall_error(index, file->filepath,
+						  "fstat()");
+		return -1;
+	}
+	if (start_offset > (uoff_t)st.st_size) {
+		mail_transaction_log_file_set_corrupted(file,
+			"start_offset (%"PRIuUOFF_T") > file size "
+			"(%"PRIuUOFF_T")", start_offset, (uoff_t)st.st_size);
+		return -1;
 	}
 
 	if (file->mmap_base != NULL && (uoff_t)st.st_size == file->mmap_size &&

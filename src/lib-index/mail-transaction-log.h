@@ -5,10 +5,6 @@
 #define MAIL_TRANSACTION_LOG_MINOR_VERSION 0
 #define MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE 24
 
-#define MAIL_TRANSACTION_LOG_PREFIX ".log"
-#define MAIL_TRANSACTION_LOG_ROTATE_SIZE (1024*128)
-#define MAIL_TRANSACTION_LOG_ROTATE_TIME (60*5)
-
 struct mail_transaction_log_header {
 	uint8_t major_version;
 	uint8_t minor_version;

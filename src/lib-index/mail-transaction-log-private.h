@@ -4,6 +4,9 @@
 #include "file-dotlock.h"
 #include "mail-transaction-log.h"
 
+#define MAIL_TRANSACTION_LOG_ROTATE_SIZE (1024*128)
+#define MAIL_TRANSACTION_LOG_ROTATE_TIME (60*5)
+
 struct mail_transaction_log_file {
 	struct mail_transaction_log *log;
         struct mail_transaction_log_file *next;

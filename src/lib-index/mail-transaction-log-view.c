@@ -213,6 +213,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	view->type_mask = type_mask;
 	view->broken = FALSE;
 
+	i_assert(view->cur_offset <= view->cur->sync_offset);
 	i_assert(view->cur->hdr.file_seq == min_file_seq);
 	return 0;
 }
@@ -264,25 +265,30 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	if (view->cur == NULL)
 		return 0;
 
+	/* prev_file_offset should point to beginning of previous log record.
+	   when we reach EOF, it should be left there, not to beginning of the
+	   next file. */
 	view->prev_file_seq = view->cur->hdr.file_seq;
 	view->prev_file_offset = view->cur_offset;
 
-	for (;;) {
-		file = view->cur;
-		if (file == NULL)
+	if (view->cur->hdr.file_seq == view->max_file_seq) {
+		/* last file */
+		if (view->cur_offset == view->max_file_offset ||
+		    view->cur_offset == view->cur->sync_offset) {
+			/* we're all finished */
+			view->cur = NULL;
+			return 0;
+		}
+	} else if (view->cur_offset == view->cur->sync_offset) {
+		/* end of file, go to next one */
+		view->cur = view->cur->next;
+		if (view->cur == NULL)
 			return 0;
 
-		if (view->cur_offset != file->sync_offset)
-			break;
-
-		view->cur = file->next;
-		view->cur_offset = file->hdr.hdr_size;
+		view->cur_offset = view->cur->hdr.hdr_size;
+		return log_view_get_next(view, hdr_r, data_r);
 	}
-
-	if (file->hdr.file_seq > view->max_file_seq ||
-	    (view->cur_offset >= view->max_file_offset &&
-	     file->hdr.file_seq == view->max_file_seq))
-		return 0;
+	file = view->cur;
 
 	data = buffer_get_data(file->buffer, &file_size);
 	file_size += file->buffer_offset;
