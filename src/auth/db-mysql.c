@@ -3,8 +3,7 @@
 #include "config.h"
 #undef HAVE_CONFIG_H
 
-//#if defined(PASSDB_MYSQL) || defined(USERDB_MYSQL)
-#if 1
+#if defined(PASSDB_MYSQL) || defined(USERDB_MYSQL)
 #include "common.h"
 #include "network.h"
 #include "str.h"
