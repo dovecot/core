@@ -524,6 +524,7 @@ cmd_uidl_init(struct client *client, unsigned int message)
 	if (message == 0)
 		ctx->search_arg.type = SEARCH_ALL;
 	else {
+		ctx->message = message;
 		ctx->seqset.seq1 = ctx->seqset.seq2 = message;
 		ctx->search_arg.type = SEARCH_SEQSET;
 		ctx->search_arg.value.seqset = &ctx->seqset;
@@ -554,7 +555,7 @@ static int cmd_uidl(struct client *client, const char *args)
 			return FALSE;
 
 		ctx = cmd_uidl_init(client, msgnum+1);
-		if (list_uids_iter(client, ctx))
+		if (!list_uids_iter(client, ctx))
 			client_send_line(client, "-ERR Message not found.");
 	}
 
