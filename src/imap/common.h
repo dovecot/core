@@ -16,4 +16,6 @@
 extern struct ioloop *ioloop;
 extern unsigned int max_custom_flag_length, mailbox_check_interval;
 
+extern string_t *capability_string;
+
 #endif

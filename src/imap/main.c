@@ -3,6 +3,7 @@
 #include "common.h"
 #include "ioloop.h"
 #include "ostream.h"
+#include "str.h"
 #include "lib-signals.h"
 #include "rawlog.h"
 #include "restrict-access.h"
@@ -24,6 +25,8 @@ unsigned int max_custom_flag_length, mailbox_check_interval;
 
 static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
+
+string_t *capability_string;
 
 static void sig_quit(int signo __attr_unused__)
 {
@@ -85,6 +88,9 @@ static void main_init(void)
 		if (user == NULL)
 			i_fatal("USER environment missing");
 	}
+
+	capability_string = str_new(default_pool, sizeof(CAPABILITY_STRING)+32);
+	str_append(capability_string, CAPABILITY_STRING);
 
 	hin = 0; hout = 1;
 	rawlog_open(&hin, &hout);
