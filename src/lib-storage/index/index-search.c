@@ -297,7 +297,7 @@ static int search_sent(enum mail_search_arg_type type, const char *search_value,
 	if (!message_date_parse(sent_value, sent_value_len,
 				&sent_time, &timezone_offset))
 		return 0;
-	sent_time -= timezone_offset * 60;
+	sent_time += timezone_offset * 60;
 
 	switch (type) {
 	case SEARCH_SENTBEFORE:

@@ -208,7 +208,7 @@ static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
 	if (*time == (time_t)-1)
 		return FALSE;
 
-	*time += *timezone_offset * 60;
+	*time -= *timezone_offset * 60;
 
 	return TRUE;
 }
