@@ -123,26 +123,13 @@ static void get_cached_sent_date(struct index_mail *mail,
 	}
 }
 
-int index_mail_cache_transaction_begin(struct index_mail *mail)
+void index_mail_cache_transaction_begin(struct index_mail *mail)
 {
-	if (mail->trans->cache_trans != NULL)
-		return TRUE;
-
-	if (mail->trans->cache_trans_failed) {
-		/* don't try more than once */
-		return FALSE;
+	if (mail->trans->cache_trans == NULL) {
+		mail->trans->cache_trans =
+			mail_cache_get_transaction(mail->trans->cache_view,
+						   mail->trans->trans);
 	}
-
-	if (mail_cache_transaction_begin(mail->trans->cache_view, TRUE,
-					 mail->trans->trans,
-					 &mail->trans->cache_trans) <= 0) {
-                mail->trans->cache_trans_failed = TRUE;
-		return FALSE;
-	}
-
-	mail->data.cached_fields =
-		mail_cache_get_fields(mail->trans->cache_view, mail->data.seq);
-	return TRUE;
 }
 
 static int index_mail_cache_can_add(struct index_mail *mail,
@@ -153,8 +140,7 @@ static int index_mail_cache_can_add(struct index_mail *mail,
 
 	// FIXME: check if we really want to cache this
 
-	if (!index_mail_cache_transaction_begin(mail))
-		return FALSE;
+	index_mail_cache_transaction_begin(mail);
 
 	/* cached_fields may have changed, recheck */
 	if ((mail->data.cached_fields & field) != 0)
@@ -169,9 +155,8 @@ void index_mail_cache_add(struct index_mail *mail, enum mail_cache_field field,
         if (!index_mail_cache_can_add(mail, field))
 		return;
 
-	if (mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-			   field, data, size) < 0)
-		mail_cache_transaction_rollback(mail->trans->cache_trans);
+	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
+		       field, data, size);
 
 	mail->data.cached_fields |= field;
 }
@@ -359,8 +344,7 @@ static void index_mail_parse_body(struct index_mail *mail)
 		mail->mail.has_no_nuls = TRUE;
 	}
 
-	if (!index_mail_cache_transaction_begin(mail))
-		return;
+	index_mail_cache_transaction_begin(mail);
 
 	/* update cache_flags */
 	cache_flags = mail_cache_get_record_flags(mail->trans->cache_view,

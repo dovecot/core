@@ -9,6 +9,9 @@
 /* Never compress the file if it's smaller than this */
 #define COMPRESS_MIN_SIZE (1024*50)
 
+/* Don't bother remembering holes smaller than this */
+#define MAIL_CACHE_MIN_HOLE_SIZE 1024
+
 /* Compress the file when deleted space reaches n% of total size */
 #define COMPRESS_PERCENTAGE 20
 
@@ -55,6 +58,7 @@ struct mail_cache_header {
 
 	uint32_t continued_record_count;
 
+	uint32_t hole_offset;
 	uint32_t used_file_size;
 	uint32_t deleted_space;
 
@@ -70,6 +74,17 @@ struct mail_cache_record {
 	uint32_t size; /* full record size, including this header */
 };
 
+struct mail_cache_hole_header {
+	uint32_t next_offset; /* 0 if no holes left */
+	uint32_t size; /* including this header */
+
+	/* make sure we notice if we're treating hole as mail_cache_record.
+	   magic is a large number so if it's treated as size field, it'll
+	   point outside the file */
+#define MAIL_CACHE_HOLE_HEADER_MAGIC 0xffeedeff
+	uint32_t magic;
+};
+
 struct mail_cache {
 	struct mail_index *index;
 
@@ -79,7 +94,8 @@ struct mail_cache {
 	void *mmap_base;
 	size_t mmap_length;
 
-	struct mail_cache_header *hdr;
+	const struct mail_cache_header *hdr;
+	struct mail_cache_header hdr_copy;
 
 	pool_t split_header_pool;
 	uint32_t split_offsets[MAIL_CACHE_HEADERS_COUNT];
@@ -90,10 +106,9 @@ struct mail_cache {
 
 	uint32_t field_usage_uid_highwater[32];
 
-        struct mail_cache_transaction_ctx *trans_ctx;
-	unsigned int locks;
-
+	unsigned int locked:1;
 	unsigned int need_compress:1;
+	unsigned int hdr_modified:1;
 };
 
 struct mail_cache_view {
@@ -110,6 +125,11 @@ uint32_t mail_cache_uint32_to_offset(uint32_t offset);
 uint32_t mail_cache_offset_to_uint32(uint32_t offset);
 unsigned int mail_cache_field_index(enum mail_cache_field field);
 
+/* Explicitly lock the cache file. Returns -1 if error, 1 if ok, 0 if we
+   couldn't lock */
+int mail_cache_lock(struct mail_cache *cache);
+void mail_cache_unlock(struct mail_cache *cache);
+
 const char *
 mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx);
 const char *const *
@@ -118,22 +138,21 @@ mail_cache_split_header(struct mail_cache *cache, const char *header);
 struct mail_cache_record *
 mail_cache_get_record(struct mail_cache *cache, uint32_t offset);
 
-int mail_cache_lookup_offset(struct mail_cache_view *view, uint32_t seq,
-			     uint32_t *offset, int skip_expunged);
 struct mail_cache_record *
-mail_cache_lookup(struct mail_cache_view *view, uint32_t seq,
-		  enum mail_cache_field fields);
+mail_cache_lookup(struct mail_cache_view *view, uint32_t seq);
 
-int
-mail_cache_transaction_autocommit(struct mail_cache_view *view,
-				  uint32_t seq, enum mail_cache_field fields);
+int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx);
+void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx);
 
 int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size);
 void mail_cache_file_close(struct mail_cache *cache);
 int mail_cache_reopen(struct mail_cache *cache);
 
+/* Update new_offset's prev_offset field to old_offset. */
 int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 		    uint32_t new_offset);
+/* Mark record in given offset to be deleted. */
+int mail_cache_delete(struct mail_cache *cache, uint32_t offset);
 
 void mail_cache_handle_decisions(struct mail_cache_view *view, uint32_t seq,
 				 enum mail_cache_field field);

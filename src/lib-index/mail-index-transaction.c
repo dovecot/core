@@ -8,6 +8,7 @@
 #include "buffer.h"
 #include "mail-index-view-private.h"
 #include "mail-transaction-log.h"
+#include "mail-cache-private.h"
 #include "mail-index-transaction-private.h"
 
 #include <stddef.h>
@@ -124,8 +125,13 @@ int mail_index_transaction_commit(struct mail_index_transaction *t,
 	int ret;
 
 	if (mail_index_view_is_inconsistent(t->view)) {
-		mail_index_transaction_unref(t);
+		mail_index_transaction_rollback(t);
 		return -1;
+	}
+
+	if (t->cache_trans_ctx != NULL) {
+		mail_cache_transaction_commit(t->cache_trans_ctx);
+                t->cache_trans_ctx = NULL;
 	}
 
 	if (t->last_update.uid1 != 0)
@@ -144,6 +150,10 @@ int mail_index_transaction_commit(struct mail_index_transaction *t,
 
 void mail_index_transaction_rollback(struct mail_index_transaction *t)
 {
+	if (t->cache_trans_ctx != NULL) {
+		mail_cache_transaction_rollback(t->cache_trans_ctx);
+                t->cache_trans_ctx = NULL;
+	}
         mail_index_transaction_unref(t);
 }
 
@@ -499,8 +509,9 @@ static void mail_index_transaction_add_last(struct mail_index_transaction *t)
 		      &update, sizeof(update));
 }
 
-static void mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
-					 const void *record, size_t record_size)
+static int mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
+					const void *record, size_t record_size,
+					void *old_record)
 {
 	unsigned int idx, left_idx, right_idx;
 	void *data;
@@ -530,8 +541,12 @@ static void mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
 				right_idx = idx;
 			else {
 				/* already there, update */
+				if (old_record != NULL) {
+					memcpy(old_record, seq_p+1,
+					       record_size);
+				}
 				memcpy(seq_p+1, record, record_size);
-				return;
+				return TRUE;
 			}
 		}
 	}
@@ -545,6 +560,7 @@ static void mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
 
 	*seq_p = seq;
 	memcpy(seq_p+1, record, record_size);
+	return FALSE;
 }
 
 void mail_index_reset_cache(struct mail_index_transaction *t,
@@ -554,17 +570,21 @@ void mail_index_reset_cache(struct mail_index_transaction *t,
 }
 
 void mail_index_update_cache(struct mail_index_transaction *t,
-			     uint32_t seq, uint32_t offset)
+			     uint32_t seq, uint32_t offset,
+			     uint32_t *old_offset_r)
 {
 	struct mail_index_record *rec;
 
 	if (seq >= t->first_new_seq) {
 		/* just appended message, modify it directly */
 		rec = mail_index_transaction_lookup(t, seq);
+		*old_offset_r = rec->cache_offset;
 		rec->cache_offset = offset;
 	} else {
-		mail_index_update_seq_buffer(&t->cache_updates, seq,
-					     &offset, sizeof(offset));
+		if (!mail_index_update_seq_buffer(&t->cache_updates, seq,
+						  &offset, sizeof(offset),
+						  old_offset_r))
+			*old_offset_r = 0;
 	}
 }
 
@@ -585,7 +605,7 @@ void mail_index_update_extra_rec(struct mail_index_transaction *t,
 		       data, index->extra_records[data_id].size);
 	} else {
 		mail_index_update_seq_buffer(&t->extra_rec_updates[data_id],
-			seq, data, index->extra_records[data_id].size);
+			seq, data, index->extra_records[data_id].size, NULL);
 	}
 }
 

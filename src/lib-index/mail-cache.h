@@ -83,30 +83,14 @@ int mail_cache_need_compress(struct mail_cache *cache);
 /* Compress cache file. */
 int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view);
 
-/* Explicitly lock the cache file. Returns -1 if error, 1 if ok, 0 if we
-   couldn't lock */
-int mail_cache_lock(struct mail_cache *cache, int nonblock);
-void mail_cache_unlock(struct mail_cache *cache);
-
-/* Returns TRUE if cache file is locked. */
-int mail_cache_is_locked(struct mail_cache *cache);
-
 struct mail_cache_view *
 mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview);
 void mail_cache_view_close(struct mail_cache_view *view);
 
-/* Begin transaction. Cache transaction may be committed or rollbacked multiple
-   times. It will finish when index transaction is committed or rollbacked.
-   The transaction might also be partially committed automatically, so this
-   is kind of fake transaction, it's only purpose being optimizing writes.
-   Returns same as mail_cache_lock(). */
-int mail_cache_transaction_begin(struct mail_cache_view *view, int nonblock,
-				 struct mail_index_transaction *t,
-				 struct mail_cache_transaction_ctx **ctx_r);
-int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx);
-void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx);
-
-void mail_cache_transaction_end(struct mail_cache_transaction_ctx *ctx);
+/* Get index transaction specific cache transaction. */
+struct mail_cache_transaction_ctx *
+mail_cache_get_transaction(struct mail_cache_view *view,
+			   struct mail_index_transaction *t);
 
 /* Return NULL-terminated list of headers for given index, or NULL if
    header index isn't used. */
@@ -117,14 +101,10 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 				 unsigned int idx, const char *const headers[]);
 
 /* Add new field to given record. Updates are not allowed. Fixed size fields
-   must be exactly the expected size and they're converted to network byte
-   order in disk. */
-int mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
-		   enum mail_cache_field field,
-		   const void *data, size_t data_size);
-
-/* Mark the given record deleted. */
-int mail_cache_delete(struct mail_cache_transaction_ctx *ctx, uint32_t seq);
+   must be exactly the expected size. */
+void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
+		    enum mail_cache_field field,
+		    const void *data, size_t data_size);
 
 /* Return all fields that are currently cached for record. */
 enum mail_cache_field

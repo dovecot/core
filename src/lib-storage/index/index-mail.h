@@ -79,7 +79,7 @@ int index_mail_parse_header(struct message_part *part,
 			    struct message_header_line *hdr,
 			    struct index_mail *mail);
 
-int index_mail_cache_transaction_begin(struct index_mail *mail);
+void index_mail_cache_transaction_begin(struct index_mail *mail);
 void index_mail_cache_add(struct index_mail *mail, enum mail_cache_field field,
 			  const void *data, size_t size);
 

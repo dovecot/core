@@ -154,7 +154,7 @@ int mail_cache_reopen(struct mail_cache *cache)
 
 static int mmap_verify_header(struct mail_cache *cache)
 {
-	struct mail_cache_header *hdr;
+	const struct mail_cache_header *hdr;
 
 	/* check that the header is still ok */
 	if (cache->mmap_length < sizeof(struct mail_cache_header)) {
@@ -174,13 +174,8 @@ static int mmap_verify_header(struct mail_cache *cache)
 		return FALSE;
 	}
 
-	if (cache->trans_ctx != NULL) {
-		/* we've updated used_file_size, do nothing */
-		return TRUE;
-	}
-
 	/* only check the header if we're locked */
-	if (cache->locks == 0)
+	if (cache->locked)
 		return TRUE;
 
 	if (hdr->used_file_size < sizeof(struct mail_cache_header)) {
@@ -211,15 +206,6 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 	}
 
 	if (cache->mmap_base != NULL) {
-		if (cache->locks != 0) {
-			/* in the middle of transaction - write the changes */
-			if (msync(cache->mmap_base, cache->mmap_length,
-				  MS_SYNC) < 0) {
-				mail_cache_set_syscall_error(cache, "msync()");
-				return -1;
-			}
-		}
-
 		if (munmap(cache->mmap_base, cache->mmap_length) < 0)
 			mail_cache_set_syscall_error(cache, "munmap()");
 	} else {
@@ -234,7 +220,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 	cache->hdr = NULL;
 	cache->mmap_length = 0;
 
-	cache->mmap_base = mmap_rw_file(cache->fd, &cache->mmap_length);
+	cache->mmap_base = mmap_ro_file(cache->fd, &cache->mmap_length);
 	if (cache->mmap_base == MAP_FAILED) {
 		cache->mmap_base = NULL;
 		mail_cache_set_syscall_error(cache, "mmap()");
@@ -290,8 +276,6 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 
 void mail_cache_free(struct mail_cache *cache)
 {
-	i_assert(cache->trans_ctx == NULL);
-
 	mail_cache_file_close(cache);
 
 	pool_unref(cache->split_header_pool);
@@ -307,12 +291,11 @@ void mail_cache_set_defaults(struct mail_cache *cache,
 	cache->never_cache_fields = never_cache_fields;
 }
 
-int mail_cache_lock(struct mail_cache *cache, int nonblock)
+int mail_cache_lock(struct mail_cache *cache)
 {
 	int i, ret;
 
-	if (cache->locks != 0)
-		return 1;
+	i_assert(!cache->locked);
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
 		return 0;
@@ -324,26 +307,14 @@ int mail_cache_lock(struct mail_cache *cache, int nonblock)
 	}
 
 	for (i = 0; i < 3; i++) {
-		if (nonblock) {
-			ret = file_try_lock(cache->fd, F_WRLCK);
-			if (ret < 0) {
-				mail_cache_set_syscall_error(cache,
-							     "file_try_lock()");
-			}
-		} else {
-			ret = file_wait_lock(cache->fd, F_WRLCK);
-			if (ret <= 0) {
-				mail_cache_set_syscall_error(cache,
-					"file_wait_lock()");
-			}
-		}
-
-		if (ret <= 0)
+		if ((ret = file_wait_lock(cache->fd, F_WRLCK)) <= 0) {
+			mail_cache_set_syscall_error(cache, "file_wait_lock()");
 			break;
+		}
+		cache->locked = TRUE;
 
 		if (cache->hdr->file_seq == cache->index->hdr->cache_file_seq) {
 			/* got it */
-			cache->locks++;
 			break;
 		}
 
@@ -353,21 +324,50 @@ int mail_cache_lock(struct mail_cache *cache, int nonblock)
 			return ret;
 		ret = 0;
 	}
+
+	if (ret > 0)
+		cache->hdr_copy = *cache->hdr;
+
 	return ret;
+}
+
+static void mail_cache_update_need_compress(struct mail_cache *cache)
+{
+	const struct mail_cache_header *hdr = cache->hdr;
+	unsigned int cont_percentage;
+	uoff_t max_del_space;
+
+        cont_percentage = hdr->continued_record_count * 100 /
+		cache->index->map->records_count;
+	if (cont_percentage >= COMPRESS_CONTINUED_PERCENTAGE &&
+	    hdr->used_file_size >= COMPRESS_MIN_SIZE) {
+		/* too many continued rows, compress */
+		cache->need_compress = TRUE;
+	}
+
+	/* see if we've reached the max. deleted space in file */
+	max_del_space = hdr->used_file_size / 100 * COMPRESS_PERCENTAGE;
+	if (hdr->deleted_space >= max_del_space &&
+	    hdr->used_file_size >= COMPRESS_MIN_SIZE)
+		cache->need_compress = TRUE;
 }
 
 void mail_cache_unlock(struct mail_cache *cache)
 {
-	if (--cache->locks > 0)
-		return;
+	i_assert(cache->locked);
+
+	cache->locked = FALSE;
+
+	if (cache->hdr_modified) {
+		cache->hdr_modified = FALSE;
+		if (pwrite_full(cache->fd, &cache->hdr_copy,
+				sizeof(cache->hdr_copy), 0) < 0)
+			mail_cache_set_syscall_error(cache, "pwrite_full()");
+                mail_cache_update_need_compress(cache);
+	}
 
 	if (file_wait_lock(cache->fd, F_UNLCK) <= 0)
 		mail_cache_set_syscall_error(cache, "file_wait_lock(F_UNLCK)");
-}
-
-int mail_cache_is_locked(struct mail_cache *cache)
-{
-	return cache->locks > 0;
 }
 
 struct mail_cache_view *

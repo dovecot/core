@@ -10,7 +10,7 @@ const char *
 mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx)
 {
 	uint32_t offset, data_size;
-	unsigned char *buf;
+	const unsigned char *buf;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
 		return NULL;
@@ -147,19 +147,16 @@ mail_cache_get_record(struct mail_cache *cache, uint32_t offset)
 	return cache_rec;
 }
 
-int mail_cache_lookup_offset(struct mail_cache_view *view, uint32_t seq,
-			     uint32_t *offset_r, int skip_expunged)
+static int mail_cache_lookup_offset(struct mail_cache_view *view, uint32_t seq,
+				    uint32_t *offset_r)
 {
 	const struct mail_index_record *rec;
 	struct mail_index_map *map;
 	int i, ret;
 
 	for (i = 0; i < 2; i++) {
-		ret = mail_index_lookup_full(view->view, seq, &map, &rec);
-		if (ret < 0)
+		if (mail_index_lookup_full(view->view, seq, &map, &rec) < 0)
 			return -1;
-		if (ret == 0 && skip_expunged)
-			return 0;
 
 		if (map->hdr->cache_file_seq == view->cache->hdr->file_seq) {
 			*offset_r = rec->cache_offset;
@@ -174,18 +171,16 @@ int mail_cache_lookup_offset(struct mail_cache_view *view, uint32_t seq,
 }
 
 struct mail_cache_record *
-mail_cache_lookup(struct mail_cache_view *view, uint32_t seq,
-		  enum mail_cache_field fields)
+mail_cache_lookup(struct mail_cache_view *view, uint32_t seq)
 {
 	uint32_t offset;
 
-	if (mail_cache_transaction_autocommit(view, seq, fields) < 0)
+	// FIXME: check transactions too
+
+        if (MAIL_CACHE_IS_UNUSABLE(view->cache))
 		return NULL;
 
-	if (MAIL_CACHE_IS_UNUSABLE(view->cache))
-		return NULL;
-
-	if (mail_cache_lookup_offset(view, seq, &offset, FALSE) <= 0)
+	if (mail_cache_lookup_offset(view, seq, &offset) <= 0)
 		return NULL;
 
 	return mail_cache_get_record(view->cache, offset);
@@ -197,7 +192,7 @@ mail_cache_get_fields(struct mail_cache_view *view, uint32_t seq)
 	struct mail_cache_record *cache_rec;
         enum mail_cache_field fields = 0;
 
-	cache_rec = mail_cache_lookup(view, seq, 0);
+	cache_rec = mail_cache_lookup(view, seq);
 	while (cache_rec != NULL) {
 		fields |= cache_rec->fields;
 		cache_rec = mail_cache_get_record(view->cache,
@@ -271,7 +266,7 @@ int mail_cache_lookup_field(struct mail_cache_view *view, uint32_t seq,
 
 	mail_cache_handle_decisions(view, seq, field);
 
-	cache_rec = mail_cache_lookup(view, seq, field);
+	cache_rec = mail_cache_lookup(view, seq);
 	while (cache_rec != NULL) {
 		if ((cache_rec->fields & field) != 0) {
 			return cache_get_field(view->cache, cache_rec, field,

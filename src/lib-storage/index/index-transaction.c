@@ -15,9 +15,6 @@ void index_transaction_init(struct index_transaction_context *t,
 
 static void index_transaction_free(struct index_transaction_context *t)
 {
-	if (t->cache_trans != NULL)
-		mail_cache_transaction_end(t->cache_trans);
-
 	mail_cache_view_close(t->cache_view);
 	mail_index_view_close(t->trans_view);
 	mail_index_view_unlock(t->ibox->view);
@@ -34,9 +31,6 @@ int index_transaction_commit(struct mailbox_transaction_context *_t)
 	uint32_t seq;
 	uoff_t offset;
 	int ret;
-
-	if (t->cache_trans != NULL)
-		(void)mail_cache_transaction_commit(t->cache_trans);
 
 	ret = mail_index_transaction_commit(t->trans, &seq, &offset);
 	if (ret < 0)

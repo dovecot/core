@@ -57,6 +57,18 @@ mail_index_header_update_lowwaters(struct mail_index_header *hdr,
 		hdr->first_deleted_uid_lowwater = rec->uid;
 }
 
+static void mail_index_sync_cache_expunge(struct mail_index_sync_ctx *sync_ctx,
+					  uoff_t cache_offset)
+{
+	if (!sync_ctx->cache_locked) {
+		if (mail_cache_lock(sync_ctx->view->index->cache) <= 0)
+			return;
+		sync_ctx->cache_locked = TRUE;
+	}
+
+	(void)mail_cache_delete(sync_ctx->index->cache, cache_offset);
+}
+
 static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 {
         struct mail_index_sync_ctx *sync_ctx = context;
@@ -78,6 +90,11 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 	for (seq = seq1; seq <= seq2; seq++) {
                 rec = MAIL_INDEX_MAP_IDX(map, seq-1);
 		mail_index_header_update_counts(hdr, rec->flags, 0);
+		
+		if (rec->cache_offset != 0) {
+			mail_index_sync_cache_expunge(sync_ctx,
+						      rec->cache_offset);
+		}
 	}
 
 	/* @UNSAFE */
@@ -225,7 +242,7 @@ static int sync_cache_update(const struct mail_transaction_cache_update *u,
 	if (rec->cache_offset != 0) {
 		/* we'll need to link the old and new cache records */
 		if (!sync_ctx->cache_locked) {
-			if (mail_cache_lock(view->index->cache, FALSE) <= 0)
+			if (mail_cache_lock(view->index->cache) <= 0)
 				return -1;
 			sync_ctx->cache_locked = TRUE;
 		}
