@@ -52,6 +52,9 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 			     file->filepath, t_strdup_vprintf(fmt, va));
 	t_pop();
 	va_end(va);
+
+	/* this may have happened because of broken index. make sure it's ok. */
+	(void)mail_index_fsck(file->log->index);
 }
 
 static int
