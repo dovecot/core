@@ -9,6 +9,7 @@ privileges. Communication between processes is trusted as little as
 possible. Processes running as root are kept as simple as possible even if
 it means minor performance hits.
 
+
 imap-master
 -----------
 
@@ -19,6 +20,7 @@ the allowed UID range can also be limited.
 It's also possible to configure everything to be run under a single UID.
 This is useful only if you wish to use imap somewhere you don't have root
 access.
+
 
 imap-login
 ----------
@@ -47,6 +49,7 @@ security flaw would allow the attacker to see all the other user
 connections connecting to it, possibly hijacking them or stealing their
 passwords if plaintext authentication was used.
 
+
 imap-auth
 ---------
 
@@ -74,7 +77,7 @@ imap-login and imap-master to authenticate users.
     a) Receives authentication request with given protocol
         - Initialize the request in protocol-specific manner
 	- If failed, send a failure-reply to client
-	- Otherwise send a secret cookie (randomized data) to client
+	- Otherwise send a cookie to client
     b) Receives continued authentication request for given cookie
         - Verifies that the cookie is valid, replying if not
         - Handle the data in protocol-specific manner
@@ -84,6 +87,10 @@ imap-login and imap-master to authenticate users.
     c) Receives a request to receive data associated to cookie
         - Verifies that the cookie is valid, replying if not
 	- Reply with the data
+
+Cookies are associated to a specific imap-login process, so one process
+cannot steal another one's authentication request by pretending to be it.
+
 
 imap
 ----
@@ -96,18 +103,20 @@ Maildir and mbox formats use a few index files to look up data fast, the
 actual mail files aren't opened unless they're really needed. The index
 files are accessed using shared memory maps and locked using fcntl().
 
-Using shared memory maps creates a security problem if the file isn't
-trusted. It might well be possible to create a buffer overflow in some
-function by modifying the file as while it's being used. Currently this
-should not be a problem as we require write access to the files ourself, so
-attacker shouldn't be able to get any extra privileges by exploiting the
-imap process. However, once support for shared readonly mailboxes are
-implemented, we need to switch into using private memory maps for them and
-to make sure that truncating files abruptly won't create any problems.
+Using memory maps creates a security problem if the file isn't trusted. It
+might well be possible to create a buffer overflow in some function by
+modifying the file as while it's being used. Currently this should not be a
+problem as we require write access to the files ourself, so attacker
+shouldn't be able to get any extra privileges by exploiting the imap
+process.
 
-Other than the shared memory mapping problem, the index files are not
-trusted to contain valid data. Everything in them validated before being
-used.
+Other than the memory mapping problem, index files are not trusted to
+contain valid data. Everything in them is validated before being used.
+
+Supporting shared mailboxes will be a small problem. We probably shouldn't
+even try to support using non-trusted index files but rather create trusted
+indexes separately for each user. If however the users don't have direct
+access to the indexes files, they could optionally be shared.
 
 
 indexer

@@ -1,162 +1,122 @@
-imap index files
+IMAP Index Files
 ----------------
 
 Designed to be NFS-safe and accessible from multiple computers, even with
 different architecture. Should support pretty much any mail format, at
 least maildir and mbox can be implemented with it.
 
+The data in the files are stored using native byte order and type sizes.
+They're saved into index file's "compatibility" fields. No attempt is made
+to deal with incompatible index files, they're either overwritten or
+new files are created.
 
-Index file
-----------
+Index file names begin with ".imap.index" or ".imap.index-<hostname>". The
+first form is used by default, the second when first is found to be
+incompatible. If the second is also incompatible, it's simply overwritten.
+This should allow us to be NFS-safe in an environment with multiple
+different computer architectures.
 
-.imap.index: ID => data lookups
-
-header:
-	unsigned char compat_data[4];
-	/* 0 = flags,
-	   1 = sizeof(unsigned int),
-	   2 = sizeof(time_t),
-	   3 = sizeof(off_t) */
-
-	unsigned int version;
-	unsigned int indexid;
-
-	unsigned int flags;
-	unsigned int cache_fields;
-
-	off_t first_hole_position;
-	off_t first_hole_records;
-
-	unsigned int uid_validity;
-	unsigned int first_uid;
-	unsigned int next_uid;
-
-	unsigned int messages_count;
-	unsigned int last_nonrecent_uid;
-	unsigned int first_unseen_seq;
-
-	unsigned int reserved_for_future_usage[5];
-
-Version is always currently always 1, anything else will be considered
-invalid. The compat_data[] is just for making sure the index isn't tried to
-be accessed by incompatible computers. If they don't match, either another
-index is created or everything is aborted.
-
-All index files must begin with name ".imap.index", which is also the first
-file name tried. If it can't be used, all the files beginning with 
-".imap.index" are checked. If compatible index isn't found,
-".imap.index-<hostname>" is created as the index.
-
-File name of all the other files related to the index (data, hash, modify
-log) begin with the index's name and have ".data", ".hash" etc. appended to
-it. Also, all the files must have the same value in indexid field as the
-index or they'll be treated as being corrupted.
-
-first_hole_position and first_hole_size specify the first deleted block in
-this index file. This allows us to quickly do sequence => UID lookup even
-if some messages are already deleted. The deleted blocks should be
-compressed whenever there's time, to keep index lookups fast. 
-
-cache_fields contains the bitmask of fields that should be indexed, it can
-be updated at any time, so some earlier messages may not have indexed
-everything that newer messages have. This field can be used to quickly
-check if it's even possible to find some field from index.
-
-data:
-	unsigned int uid;
-	unsigned int msg_flags; /* MailFlags | IndexMailFlags */
-	time_t internal_date;
-	time_t sent_date;
-
-	off_t data_position;
-	unsigned int data_size;
-
-	unsigned int cached_fields;
-	unsigned int headers_size;
-
-cached_fields is a bitmask of indexed fields in data file.
+Indexes are bound to each others by "indexid" field in headers. If they
+don't match, the file is assumed to be corrupted and will be rebuilt.
 
 
-Index data file
----------------
-
-.imap.index.data: variable length sized data
-
-header:
-	unsigned int indexid
-
-data:
-	unsigned int field; /* MailField */
-	unsigned int full_field_size;
-	char data[]; /* variable size */
-	...
-
-Fields are ordered by the field type, beginning with lowest. The fields are
-always \0 terminated which determines their real length, the
-full_field_size only marks how much space is entirely allocated for the
-field. This may differ from the real size if we've allocated some extra
-space for a field which may grow (eg. flags in maildir filename).
-
-
-Hash File
+Main File
 ---------
 
-.imap.index.hash: UID => index lookups
+.imap.index: Fixed size data
 
-header:
-	unsigned int indexid;
-	unsigned int flags;
-	unsigned int used_records;
+This is the main index file. It's kept as small as possible so scanning
+through it is quite fast operation.
 
-data:
-	unsigned int uid;
-	off_t position;
+Index is usually accessed by getting pointer to first record in wanted
+range, after that it's just accessed by jumping forward. There may be
+deleted records (UID field 0) which are skipped.
 
-File is treated as a hash map. The hash function is UID*2 % size, where
-size is (filesize - sizeof(header)) / sizeof(data). If the position is
-already taken, the value is placed into next available position. When
-looking up the hash, lookup can't be aborted until first free slot is
-found. Free slots are identified by having UID 0.
+first_hole_position and first_hole_size fields in header specify the first
+deleted block in the index file. If we wish to access a message with a
+sequence number before the deleted block, we can do it with a simple array
+lookup.
 
+The deleted blocks are compressed when INDEX_COMPRESS_PERCENTAGE of the
+file consists of deleted space, 50% by default. Also the indexer process
+should try to compress the files when there's extra time, to keep the
+sequence lookups faster.
 
-Locking
--------
-
-File locking is done using fcntl(), so currently there's no support for NFS
-servers that don't support it. File based locking would be possible, but I
-haven't bothered to do it at least yet.
-
-There's also directory lock which is done by creating a
-.dirlock.<hostname>.<pid> file and once linking it to .dirlock succeeds,
-the process owns the lock.
-
-There's of course the problem that some process may die and leave the file
-locked. So, if the first lock try fails, the invalid locks are looked up
-and deleted. For locks in the same host, the pids are checked to be valid.
-For other hosts there's a timeout of 30 minutes. The locks shouldn't be
-hold more than a few seconds at maximum, so the 30 mins is probably a bit
-too much, but it's there only to be sure that small clock differences
-between hosts don't break things.
+cache_fields field in header contains the bitmask of fields that should be
+saved into index when indexing new messages. It may change at any time, and
+the old messages won't (immediately) be updated to reflect the change.
 
 
-Modify log file
+Data File
+---------
+
+.imap.index.data: Variable length data
+
+Contains the non-critical fields for messages. Each message has a fixed
+size "data header" and zero or more variable width fields. It's possible to
+add, remove and modify fields, but if doing so would exceed the allocated
+space, the whole data block is copied to the end of file.
+
+Only the total amount of deleted space is remembered, ie. empty blocks in
+the middle of file aren't reused. The deleted blocks are compressed when
+COMPRESS_PERCENTAGE of the file consists of deleted space, 20% by default.
+
+This file is actually a very dummy database, and will likely later be
+replaced with something smarter (Berkeley DB?). Currently it should be good
+enough since there's not much need to insert or update fields, but ANNOTATE
+extensions will something better. Although ANNOTATE would require permanent
+storage, which index really isn't..
+
+One nice TODO idea would be simple compression. Mailboxes contain a lot of
+identical mail addresses and subjects, we could simply save one instance of
+them.
+
+
+Tree File
+---------
+
+.imap.index.tree: UID and sequence lookups
+
+This is a red-black binary in tree file, used to find message record
+positions in main index file. TODO: I should rather have used B+tree or
+similiar..
+
+
+Modify Log File
 ---------------
 
-.imap.index.access: mailbox access counter
+.imap.index.log: External change log
 
-Everyone who are accessing the mailbox must mark themselves known, so when
-someone is updating the mailbox, it should append to log file the expunges
-and mail flag updates it did. Using the log file other imap processes can
-quickly notify clients about the changes.
+Communication between two IMAP servers accessing the same mailbox is
+usually non-existent. If a change occurs, they both have to go through the
+mailbox to see what changed and notify client about it.
 
-Besides using it to notify clients, it's also used to map client given
-message sequence numbers to real sequence numbers. They're different when
-client hasn't yet been notified of the latest expunges in the mailbox.
+Dovecot uses modify log file to log changes made to index files, currently
+message flag changes and expunges. This way only one of the Dovecot
+processes has to scan the mailbox, other processes simply check from the
+log file what changes occured.
 
-The access counter is implemented using hard links - there's the one base
-.imap.index.access file that all processes link to
-.imap.index.access.<hostname>.<pid> files. Invalid links are checked and
-deleted the same way as directory locks above.
+All external changes that Dovecot notices (eg. another MUA expunging mails)
+are also saved into log file. They can quickly be found from there when
+client is ready to be notified of them.
+
+Message sequence handling is also a bit annoying with IMAP. Each client can
+have slightly different sequences, since clients cannot be immediately
+informed about expunged messages. The easiest way to deal with this is to
+simply allocate an seq_array[] for each client which contains pointers to
+messages or message UIDs. This is probably how all other IMAP servers
+implement it.
+
+Dovecot doesn't allocate such array, it simply looks up from the log file
+what the differences are between index sequences and client sequences. It's
+almost always none. This was a bit tricky to implement, but it seems to be
+working fine now.
+
+If there's only one Dovecot accessing the mailbox, there's no need to write
+to log file. To find out if this is the case, we use fcntl() locking
+tricks. Each Dovecot process locks the modify log in shared mode, checking
+if we're the only one is then as simple as trying to lock it exclusively.
+It's safe because only the main index file is used for real locking.
 
 
 External changes
@@ -164,7 +124,7 @@ External changes
 
 (Maildir-specific)
 
-External changes are noticed when index file's timestamp is different than
+External changes are checked when index file's timestamp is different than
 the maildir's timestamp. When modifying the index file, it's timestamp
 should be set to maildir directory's timestamp when it was last in a known
 synced state.
@@ -178,3 +138,12 @@ new/ directory where it's always noticed. It's only the cur/ directory that
 may not always be exactly synced if someone else has been messing up with
 it. And if someone else has done that, she most likely has also seen the
 mail using that other mail client.
+
+
+Locking
+-------
+
+File locking is done using fcntl(), so currently there's no support for NFS
+servers that don't support it. There probably isn't even need to, indexes
+could just be saved into local disk even if mailboxes are accessed through
+NFS.
