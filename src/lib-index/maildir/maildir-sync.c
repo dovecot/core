@@ -16,12 +16,11 @@
 
 static int maildir_index_sync_file(MailIndex *index, MailIndexRecord *rec,
 				   unsigned int seq, const char *fname,
-				   const char *path,
-				   int fname_changed, int file_changed)
+				   const char *path, int fname_changed)
 {
 	MailIndexUpdate *update;
 	MailFlags flags;
-	int fd, failed;
+	int failed;
 
 	i_assert(fname != NULL);
 	i_assert(path != NULL);
@@ -34,21 +33,6 @@ static int maildir_index_sync_file(MailIndex *index, MailIndexRecord *rec,
 
 	if (fname_changed)
 		index->update_field(update, DATA_FIELD_LOCATION, fname, 0);
-	if (file_changed) {
-		/* file itself changed - reload the header */
-		fd = open(path, O_RDONLY);
-		if (fd == -1) {
-			index_file_set_syscall_error(index, path, "open()");
-			failed = TRUE;
-		} else {
-			if (!maildir_record_update(index, update, fd))
-				failed = TRUE;
-			if (close(fd) < 0) {
-				index_file_set_syscall_error(index, path,
-							     "close()");
-			}
-		}
-	}
 
 	if (!index->update_end(update))
 		failed = TRUE;
@@ -73,7 +57,7 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 	const char *fname, *base_fname, *value;
 	char path[PATH_MAX];
 	unsigned int seq;
-	int fname_changed, file_changed;
+	int fname_changed;
 
 	i_assert(dir != NULL);
 
@@ -114,9 +98,7 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 			return FALSE;
 		}
 
-		if (!check_content_changes)
-			file_changed = FALSE;
-		else {
+		if (check_content_changes) {
 			if (stat(path, &st) < 0) {
 				index_file_set_syscall_error(index, path,
 							     "stat()");
@@ -125,17 +107,27 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 
 			data_hdr = mail_index_data_lookup_header(index->data,
 								 rec);
-			file_changed = data_hdr != NULL &&
-				(uoff_t)st.st_size !=
-				data_hdr->body_size + data_hdr->header_size;
+			if (data_hdr != NULL &&
+			    (st.st_mtime != data_hdr->internal_date ||
+			     (uoff_t)st.st_size !=
+			     data_hdr->body_size + data_hdr->header_size)) {
+				/* file changed. IMAP doesn't allow that, so
+				   we have to treat it as a new message. */
+				if (!index->set_lock(index,
+						     MAIL_LOCK_EXCLUSIVE))
+					return FALSE;
+
+				if (!index->expunge(index, rec, seq, TRUE))
+					return FALSE;
+				continue;
+			}
 		}
 
 		/* changed - update */
 		fname_changed = strcmp(value, fname) != 0;
-		if (fname_changed || file_changed) {
+		if (fname_changed) {
 			if (!maildir_index_sync_file(index, rec, seq, value,
-						     path, fname_changed,
-						     file_changed))
+						     path, fname_changed))
 				return FALSE;
 		}
 
