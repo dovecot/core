@@ -15,8 +15,8 @@ enum mail_flags {
 struct mail_full_flags {
 	enum mail_flags flags;
 
-	const char **custom_flags;
-	unsigned int custom_flags_count;
+	const char **keywords;
+	unsigned int keywords_count;
 };
 
 enum modify_type {

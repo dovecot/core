@@ -11,11 +11,11 @@ static int _is_readonly(struct mailbox *box)
 	return p->box->is_readonly(p->box);
 }
 
-static int _allow_new_custom_flags(struct mailbox *box)
+static int _allow_new_keywords(struct mailbox *box)
 {
 	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
 
-	return p->box->allow_new_custom_flags(p->box);
+	return p->box->allow_new_keywords(p->box);
 }
 
 static int _close(struct mailbox *box)
@@ -111,7 +111,7 @@ void proxy_mailbox_init(struct proxy_mailbox *proxy, struct mailbox *box)
 	pb->storage = box->storage;
 
 	pb->is_readonly = _is_readonly;
-	pb->allow_new_custom_flags = _allow_new_custom_flags;
+	pb->allow_new_keywords = _allow_new_keywords;
 	pb->close = _close;
 	pb->get_status = _get_status;
 	pb->sync = _sync;

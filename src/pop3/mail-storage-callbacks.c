@@ -66,10 +66,10 @@ static void new_messages(struct mailbox *mailbox __attr_unused__,
 {
 }
 
-static void new_custom_flags(struct mailbox *mailbox __attr_unused__,
-			     const char *custom_flags[] __attr_unused__,
-			     unsigned int custom_flags_count __attr_unused__,
-			     void *context __attr_unused__)
+static void new_keywords(struct mailbox *mailbox __attr_unused__,
+			 const char *keywords[] __attr_unused__,
+			 unsigned int keywords_count __attr_unused__,
+			 void *context __attr_unused__)
 {
 }
 
@@ -80,5 +80,5 @@ struct mail_storage_callbacks mail_storage_callbacks = {
 	expunge,
 	update_flags,
 	new_messages,
-	new_custom_flags
+	new_keywords
 };

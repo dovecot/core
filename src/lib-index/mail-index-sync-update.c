@@ -63,16 +63,16 @@ static void mail_index_sync_update_flags(struct mail_index_update_ctx *ctx,
 {
 	struct mail_index_record *rec, *end;
 	uint8_t flag_mask, old_flags;
-	custom_flags_mask_t custom_mask;
-	int i, update_custom;
+	keywords_mask_t keyword_mask;
+	int i, update_keywords;
 
-	update_custom = FALSE;
-	for (i = 0; i < INDEX_CUSTOM_FLAGS_BYTE_COUNT; i++) {
-		if (syncrec->add_custom_flags[i] != 0)
-			update_custom = TRUE;
-		if (syncrec->remove_custom_flags[i] != 0)
-			update_custom = TRUE;
-		custom_mask[i] = ~syncrec->remove_custom_flags[i];
+	update_keywords = FALSE;
+	for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
+		if (syncrec->add_keywords[i] != 0)
+			update_keywords = TRUE;
+		if (syncrec->remove_keywords[i] != 0)
+			update_keywords = TRUE;
+		keyword_mask[i] = ~syncrec->remove_keywords[i];
 	}
 
 	flag_mask = ~syncrec->remove_flags;
@@ -81,11 +81,11 @@ static void mail_index_sync_update_flags(struct mail_index_update_ctx *ctx,
 	for (; rec != end; rec++) {
 		old_flags = rec->flags;
 		rec->flags = (rec->flags & flag_mask) | syncrec->add_flags;
-		if (update_custom) {
-			for (i = 0; i < INDEX_CUSTOM_FLAGS_BYTE_COUNT; i++) {
-				rec->custom_flags[i] =
-					(rec->custom_flags[i]&custom_mask[i]) |
-					syncrec->add_custom_flags[i];
+		if (update_keywords) {
+			for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
+				rec->keywords[i] =
+					(rec->keywords[i] & keyword_mask[i]) |
+					syncrec->add_keywords[i];
 			}
 		}
 

@@ -8,17 +8,17 @@
 	 STATUS_UIDVALIDITY | STATUS_UNSEEN | STATUS_FIRST_UNSEEN_SEQ)
 
 /*static void
-get_custom_flags(struct mail_custom_flags *mcf, struct mailbox_status *status)
+get_keywords(struct mail_keywords *mcf, struct mailbox_status *status)
 {
 	const char **flags;
 	unsigned int i;
 
-	status->custom_flags_count = MAIL_CUSTOM_FLAGS_COUNT;
-	status->custom_flags = t_new(const char *, MAIL_CUSTOM_FLAGS_COUNT);
+	status->keywords_count = MAIL_KEYWORDS_COUNT;
+	status->keywords = t_new(const char *, MAIL_KEYWORDS_COUNT);
 
-	flags = mail_custom_flags_list_get(mcf);
-	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++)
-		status->custom_flags[i] = t_strdup(flags[i]);
+	flags = mail_keywords_list_get(mcf);
+	for (i = 0; i < MAIL_KEYWORDS_COUNT; i++)
+		status->keywords[i] = t_strdup(flags[i]);
 }*/
 
 int index_storage_get_status(struct mailbox *box,
@@ -58,8 +58,8 @@ int index_storage_get_status(struct mailbox *box,
 	if ((items & STATUS_RECENT) != 0)
 		status->recent = ibox->get_recent_count(ibox);
 
-	/*FIXME:if (items & STATUS_CUSTOM_FLAGS)
-		get_custom_flags(ibox, status);*/
+	/*FIXME:if (items & STATUS_KEYWORDS)
+		get_keywords(ibox, status);*/
 
 	mail_index_view_unlock(ibox->view);
 	return 0;

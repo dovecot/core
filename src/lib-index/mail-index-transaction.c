@@ -248,39 +248,37 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 static void mail_index_record_modify_flags(struct mail_index_record *rec,
 					   enum modify_type modify_type,
 					   enum mail_flags flags,
-					   custom_flags_mask_t custom_flags)
+					   keywords_mask_t keywords)
 {
 	int i;
 
 	switch (modify_type) {
 	case MODIFY_REPLACE:
 		rec->flags = flags;
-		memcpy(rec->custom_flags, custom_flags,
-		       INDEX_CUSTOM_FLAGS_BYTE_COUNT);
+		memcpy(rec->keywords, keywords, INDEX_KEYWORDS_BYTE_COUNT);
 		break;
 	case MODIFY_ADD:
 		rec->flags |= flags;
-		for (i = 0; i < INDEX_CUSTOM_FLAGS_BYTE_COUNT; i++)
-			rec->custom_flags[i] |= custom_flags[i];
+		for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++)
+			rec->keywords[i] |= keywords[i];
 		break;
 	case MODIFY_REMOVE:
 		rec->flags &= ~flags;
-		for (i = 0; i < INDEX_CUSTOM_FLAGS_BYTE_COUNT; i++)
-			rec->custom_flags[i] &= ~custom_flags[i];
+		for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++)
+			rec->keywords[i] &= ~keywords[i];
 		break;
 	}
 }
 
-#define IS_COMPATIBLE_UPDATE(t, modify_type, flags, custom_flags) \
+#define IS_COMPATIBLE_UPDATE(t, modify_type, flags, keywords) \
 	((t)->last_update_modify_type == (modify_type) && \
 	 (t)->last_update.add_flags == (flags) && \
-	 memcmp((t)->last_update.add_custom_flags, custom_flags, \
-	        INDEX_CUSTOM_FLAGS_BYTE_COUNT) == 0)
+	 memcmp((t)->last_update.add_keywords, keywords, \
+	        INDEX_KEYWORDS_BYTE_COUNT) == 0)
 
 void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum modify_type modify_type,
-			     enum mail_flags flags,
-			     custom_flags_mask_t custom_flags)
+			     enum mail_flags flags, keywords_mask_t keywords)
 {
 	struct mail_index_record *rec;
 	size_t pos;
@@ -292,7 +290,7 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 		pos = (seq - t->first_new_seq) * sizeof(*rec);
 		rec = buffer_get_space_unsafe(t->appends, pos, sizeof(*rec));
 		mail_index_record_modify_flags(rec, modify_type,
-					       flags, custom_flags);
+					       flags, keywords);
 		return;
 	}
 
@@ -303,13 +301,13 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 	   transaction (eg. 1:10 +seen, 1:10 +deleted) */
 	if (t->last_update.seq2 == seq-1) {
 		if (t->last_update.seq1 != 0 &&
-		    IS_COMPATIBLE_UPDATE(t, modify_type, flags, custom_flags)) {
+		    IS_COMPATIBLE_UPDATE(t, modify_type, flags, keywords)) {
 			t->last_update.seq2 = seq;
 			return;
 		}
 	} else if (t->last_update.seq1 == seq+1) {
 		if (t->last_update.seq1 != 0 &&
-		    IS_COMPATIBLE_UPDATE(t, modify_type, flags, custom_flags)) {
+		    IS_COMPATIBLE_UPDATE(t, modify_type, flags, keywords)) {
 			t->last_update.seq1 = seq;
 			return;
 		}
@@ -321,8 +319,8 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 	t->last_update_modify_type = modify_type;
 	t->last_update.seq1 = t->last_update.seq2 = seq;
 	t->last_update.add_flags = flags;
-	memcpy(t->last_update.add_custom_flags, custom_flags,
-	       INDEX_CUSTOM_FLAGS_BYTE_COUNT);
+	memcpy(t->last_update.add_keywords, keywords,
+	       INDEX_KEYWORDS_BYTE_COUNT);
 }
 
 static void
@@ -337,10 +335,8 @@ mail_index_transaction_get_last(struct mail_index_transaction *t,
 		/* remove_flags = ~add_flags */
 		update->remove_flags =
 			~update->add_flags & MAIL_INDEX_FLAGS_MASK;
-		for (i = 0; i < INDEX_CUSTOM_FLAGS_BYTE_COUNT; i++) {
-			update->remove_custom_flags[i] =
-				~update->add_custom_flags[i];
-		}
+		for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++)
+			update->remove_keywords[i] = ~update->add_keywords[i];
 		break;
 	case MODIFY_ADD:
 		/* already in add_flags */
@@ -348,11 +344,10 @@ mail_index_transaction_get_last(struct mail_index_transaction *t,
 	case MODIFY_REMOVE:
 		/* add_flags -> remove_flags */
 		update->remove_flags = update->add_flags;
-		memcpy(&update->remove_custom_flags, &update->add_custom_flags,
-		       INDEX_CUSTOM_FLAGS_BYTE_COUNT);
+		memcpy(&update->remove_keywords, &update->add_keywords,
+		       INDEX_KEYWORDS_BYTE_COUNT);
 		update->add_flags = 0;
-		memset(&update->add_custom_flags, 0,
-		       INDEX_CUSTOM_FLAGS_BYTE_COUNT);
+		memset(&update->add_keywords, 0, INDEX_KEYWORDS_BYTE_COUNT);
 		break;
 	}
 }

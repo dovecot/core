@@ -8,9 +8,9 @@
 
 #define MAIL_INDEX_HEADER_MIN_SIZE 68
 
-/* Number of custom flags in mail_index_record. */
-#define INDEX_CUSTOM_FLAGS_COUNT (3*8)
-#define INDEX_CUSTOM_FLAGS_BYTE_COUNT ((INDEX_CUSTOM_FLAGS_COUNT*7)/8)
+/* Number of keywords in mail_index_record. */
+#define INDEX_KEYWORDS_COUNT (3*8)
+#define INDEX_KEYWORDS_BYTE_COUNT ((INDEX_KEYWORDS_COUNT*7)/8)
 
 enum mail_index_open_flags {
 	/* Create index if it doesn't exist */
@@ -54,7 +54,7 @@ enum mail_index_error {
 #define MAIL_INDEX_FLAGS_MASK \
 	(MAIL_ANSWERED | MAIL_FLAGGED | MAIL_DELETED | MAIL_SEEN | MAIL_DRAFT)
 
-typedef unsigned char custom_flags_mask_t[INDEX_CUSTOM_FLAGS_BYTE_COUNT];
+typedef unsigned char keywords_mask_t[INDEX_KEYWORDS_BYTE_COUNT];
 
 struct mail_index_header {
 	/* major version is increased only when you can't have backwards
@@ -97,7 +97,7 @@ struct mail_index_header {
 struct mail_index_record {
 	uint32_t uid;
 	uint8_t flags; /* mail_flags | mail_index_mail_flags */
-	custom_flags_mask_t custom_flags;
+	keywords_mask_t keywords;
 	uint32_t cache_offset;
 };
 
@@ -114,9 +114,9 @@ struct mail_index_sync_rec {
 
 	/* MAIL_INDEX_SYNC_TYPE_FLAGS: */
 	uint8_t add_flags;
-	custom_flags_mask_t add_custom_flags;
+	keywords_mask_t add_keywords;
 	uint8_t remove_flags;
-	custom_flags_mask_t remove_custom_flags;
+	keywords_mask_t remove_keywords;
 
 	/* MAIL_INDEX_SYNC_TYPE_APPEND: */
         const struct mail_index_record *appends;
@@ -255,8 +255,7 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq);
 /* Update flags in index. */
 void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum modify_type modify_type,
-			     enum mail_flags flags,
-			     custom_flags_mask_t custom_flags);
+			     enum mail_flags flags, keywords_mask_t keywords);
 
 /* Returns the last error code. */
 enum mail_index_error mail_index_get_last_error(struct mail_index *index);
@@ -272,7 +271,6 @@ int mail_index_is_in_memory(struct mail_index *index);
 /* Apply changes in MAIL_INDEX_SYNC_TYPE_FLAGS typed sync records to given
    flags variables. */
 void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
-				 uint8_t *flags,
-				 custom_flags_mask_t custom_flags);
+				 uint8_t *flags, keywords_mask_t keywords);
 
 #endif

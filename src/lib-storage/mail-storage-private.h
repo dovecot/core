@@ -59,7 +59,7 @@ struct mailbox {
 	struct mail_storage *storage;
 
 	int (*is_readonly)(struct mailbox *box);
-	int (*allow_new_custom_flags)(struct mailbox *box);
+	int (*allow_new_keywords)(struct mailbox *box);
 
 	int (*close)(struct mailbox *box);
 

@@ -64,8 +64,7 @@ struct client *client_create(int hin, int hout, struct namespace *namespaces)
 					    imap_max_line_length);
         client->last_input = ioloop_time;
 
-	client->mailbox_flags.pool =
-		pool_alloconly_create("mailbox_custom_flags", 512);
+	client->keywords.pool = pool_alloconly_create("mailbox_keywords", 512);
 	client->namespaces = namespaces;
 
 	while (namespaces != NULL) {
@@ -99,7 +98,7 @@ void client_destroy(struct client *client)
 	i_stream_unref(client->input);
 	o_stream_unref(client->output);
 
-	pool_unref(client->mailbox_flags.pool);
+	pool_unref(client->keywords.pool);
 	i_free(client);
 
 	/* quit the program */

@@ -12,10 +12,10 @@
    by default. */
 #define DEFAULT_IMAP_MAX_LINE_LENGTH 65536
 
-#define DEFAULT_MAX_CUSTOM_FLAG_LENGTH 50
+#define DEFAULT_MAX_KEYWORD_LENGTH 50
 
 extern struct ioloop *ioloop;
-extern unsigned int max_custom_flag_length, mailbox_check_interval;
+extern unsigned int max_keyword_length, mailbox_check_interval;
 extern unsigned int imap_max_line_length;
 
 extern string_t *capability_string;

@@ -216,11 +216,11 @@ mail_index_sync_get_update(struct mail_index_sync_rec *rec,
 	rec->seq2 = update->seq2;
 
 	rec->add_flags = update->add_flags;
-	memcpy(rec->add_custom_flags, update->add_custom_flags,
-	       sizeof(rec->add_custom_flags));
+	memcpy(rec->add_keywords, update->add_keywords,
+	       sizeof(rec->add_keywords));
 	rec->remove_flags = update->remove_flags;
-	memcpy(rec->remove_custom_flags, update->remove_custom_flags,
-	       sizeof(rec->remove_custom_flags));
+	memcpy(rec->remove_keywords, update->remove_keywords,
+	       sizeof(rec->remove_keywords));
 }
 
 static int mail_index_sync_rec_check(struct mail_index_view *view,
@@ -461,17 +461,15 @@ int mail_index_sync_end(struct mail_index_sync_ctx *ctx,
 }
 
 void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
-				 uint8_t *flags,
-				 custom_flags_mask_t custom_flags)
+				 uint8_t *flags, keywords_mask_t keywords)
 {
 	int i;
 
 	i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
 
 	*flags = (*flags & ~sync_rec->remove_flags) | sync_rec->add_flags;
-	for (i = 0; i < INDEX_CUSTOM_FLAGS_BYTE_COUNT; i++) {
-		custom_flags[i] =
-			(custom_flags[i] & ~sync_rec->remove_custom_flags[i]) |
-			sync_rec->add_custom_flags[i];
+	for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
+		keywords[i] = (keywords[i] & ~sync_rec->remove_keywords[i]) |
+			sync_rec->add_keywords[i];
 	}
 }

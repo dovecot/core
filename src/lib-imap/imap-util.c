@@ -11,8 +11,6 @@ const char *imap_write_flags(const struct mail_full_flags *flags)
 	const char *sysflags;
 	unsigned int i;
 
-	i_assert(flags->custom_flags_count <= MAIL_CUSTOM_FLAGS_COUNT);
-
 	if (flags == 0)
 		return "";
 
@@ -28,33 +26,17 @@ const char *imap_write_flags(const struct mail_full_flags *flags)
 	if (*sysflags != '\0')
 		sysflags++;
 
-	if (flags->custom_flags_count == 0)
+	if (flags->keywords_count == 0)
 		return sysflags;
 
-	/* we have custom flags too */
+	/* we have keywords too */
 	str = t_str_new(256);
 	str_append(str, sysflags);
 
-#if 1
-	for (i = 0; i < flags->custom_flags_count; i++) {
+	for (i = 0; i < flags->keywords_count; i++) {
 		if (str_len(str) > 0)
 			str_append_c(str, ' ');
-		str_append(str, flags->custom_flags[i]);
+		str_append(str, flags->keywords[i]);
 	}
-#else // FIXME
-	if ((flags->flags & MAIL_CUSTOM_FLAGS_MASK) == 0)
-		return sysflags;
-
-	for (i = 0; i < flags->custom_flags_count; i++) {
-		if (flags->flags & (1 << (i + MAIL_CUSTOM_FLAG_1_BIT))) {
-			name = flags->custom_flags[i];
-			if (name != NULL && *name != '\0') {
-				if (str_len(str) > 0)
-					str_append_c(str, ' ');
-				str_append(str, name);
-			}
-		}
-	}
-#endif
 	return str_c(str);
 }

@@ -36,23 +36,23 @@ int _cmd_select_full(struct client *client, int readonly)
 
 	if (mailbox_get_status(box, STATUS_MESSAGES | STATUS_RECENT |
 			       STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
-			       STATUS_UIDNEXT | STATUS_CUSTOM_FLAGS,
+			       STATUS_UIDNEXT | STATUS_KEYWORDS,
 			       &status) < 0) {
 		client_send_storage_error(client, storage);
 		mailbox_close(box);
 		return TRUE;
 	}
 
-	client_save_custom_flags(&client->mailbox_flags, status.custom_flags,
-				 status.custom_flags_count);
+	client_save_keywords(&client->keywords,
+			     status.keywords, status.keywords_count);
 
 	/* set client's mailbox only after getting status to make sure
 	   we're not sending any expunge/exists replies too early to client */
 	client->mailbox = box;
 	client->select_counter++;
 
-	client_send_mailbox_flags(client, box, status.custom_flags,
-				  status.custom_flags_count);
+	client_send_mailbox_flags(client, box, status.keywords,
+				  status.keywords_count);
 
 	client_send_line(client,
 		t_strdup_printf("* %u EXISTS", status.messages));

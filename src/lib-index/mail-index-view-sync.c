@@ -181,11 +181,9 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 
 		old_flags = rec->flags;
 		rec->flags = (rec->flags & ~u->remove_flags) | u->add_flags;
-		for (i = 0; i < INDEX_CUSTOM_FLAGS_BYTE_COUNT; i++) {
-			rec->custom_flags[i] =
-				(rec->custom_flags[i] &
-				 ~u->remove_custom_flags[i]) |
-				u->add_custom_flags[i];
+		for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
+			rec->keywords[i] = u->add_keywords[i] |
+				(rec->keywords[i] & ~u->remove_keywords[i]);
 		}
 
 		mail_index_header_update_counts(&map->hdr_copy, old_flags,

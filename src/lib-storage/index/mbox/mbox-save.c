@@ -144,23 +144,23 @@ static const char *get_system_flags(enum mail_flags flags)
 	return str_c(str);
 }
 
-static const char *get_custom_flags(const struct mail_full_flags *flags)
+static const char *get_keywords(const struct mail_full_flags *flags)
 {
 	string_t *str;
 	unsigned int field;
 	unsigned int i;
 
-	if ((flags->flags & MAIL_CUSTOM_FLAGS_MASK) == 0)
+	if ((flags->flags & MAIL_KEYWORDS_MASK) == 0)
 		return "";
 
 	str = t_str_new(256);
-	field = 1 << MAIL_CUSTOM_FLAG_1_BIT;
-	for (i = 0; i < flags->custom_flags_count; i++) {
-		const char *custom_flag = flags->custom_flags[i];
+	field = 1 << MAIL_KEYWORD_1_BIT;
+	for (i = 0; i < flags->keywords_count; i++) {
+		const char *keyword = flags->keywords[i];
 
-		if ((flags->flags & field) && custom_flag != NULL) {
+		if ((flags->flags & field) && keyword != NULL) {
 			str_append_c(str, ' ');
-			str_append(str, custom_flag);
+			str_append(str, keyword);
 		}
 
 		field <<= 1;
@@ -192,9 +192,9 @@ static int save_header_callback(const char *name, write_func_t *write_func,
 		}
 		ctx->content_length_offset = ctx->output->offset;
 
-		/* calculate how much space custom flags and content-length
+		/* calculate how much space keywords and content-length
 		   value needs, then write that amount of spaces. */
-		space = strlen(get_custom_flags(ctx->flags));
+		space = strlen(get_keywords(ctx->flags));
 		space += sizeof("X-Keywords: ");
 		space += MBOX_HEADER_EXTRA_SPACE + MAX_INT_STRLEN + 1;
 
@@ -258,8 +258,8 @@ static int mbox_fix_header(struct mail_save_context *ctx)
 	if (o_stream_send_str(ctx->output, str) < 0)
 		return write_error(ctx);
 
-	/* write custom flags into X-Keywords */
-	str = get_custom_flags(ctx->flags);
+	/* write keywords into X-Keywords */
+	str = get_keywords(ctx->flags);
 	if (o_stream_send_str(ctx->output, str) < 0)
 		return write_error(ctx);
 
@@ -281,9 +281,9 @@ int mbox_storage_save_next(struct mail_save_context *ctx,
 	   they need to be checked/added though. */
 	ctx->flags = flags;
 	real_flags = flags->flags;
-	if (!index_mailbox_fix_custom_flags(ctx->ibox, &real_flags,
-					    flags->custom_flags,
-					    flags->custom_flags_count))
+	if (!index_mailbox_fix_keywords(ctx->ibox, &real_flags,
+					flags->keywords,
+					flags->keywords_count))
 		return FALSE;
 
 	t_push();

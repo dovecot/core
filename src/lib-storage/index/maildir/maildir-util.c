@@ -54,13 +54,13 @@ int maildir_file_do(struct index_mailbox *ibox, uint32_t uid,
 }
 
 int maildir_filename_get_flags(const char *fname, enum mail_flags *flags_r,
-			       custom_flags_mask_t custom_flags_r)
+			       keywords_mask_t keywords_r)
 {
 	const char *info;
 	unsigned int num;
 
 	*flags_r = 0;
-	memset(custom_flags_r, 0, INDEX_CUSTOM_FLAGS_BYTE_COUNT);
+	memset(keywords_r, 0, INDEX_KEYWORDS_BYTE_COUNT);
 
 	info = strchr(fname, ':');
 	if (info == NULL || info[1] != '2' || info[2] != ',')
@@ -85,10 +85,9 @@ int maildir_filename_get_flags(const char *fname, enum mail_flags *flags_r,
 			break;
 		default:
 			if (*info >= 'a' && *info <= 'z') {
-				/* custom flag */
+				/* keyword */
 				num = (*info - 'a');
-				custom_flags_r[num / CHAR_BIT] |=
-					num % CHAR_BIT;
+				keywords_r[num / CHAR_BIT] |= num % CHAR_BIT;
 				break;
 			}
 
@@ -101,20 +100,20 @@ int maildir_filename_get_flags(const char *fname, enum mail_flags *flags_r,
 }
 
 const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
-				       custom_flags_mask_t custom_flags)
+				       keywords_mask_t keywords)
 {
 	string_t *flags_str;
 	const char *info, *oldflags;
 	int i, nextflag;
 
-	if (custom_flags != NULL) {
-		/* see if any custom flags are given */
-		for (i = 0; i < INDEX_CUSTOM_FLAGS_BYTE_COUNT; i++) {
-			if (custom_flags[i] != 0)
+	if (keywords != NULL) {
+		/* see if any keywords are given */
+		for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
+			if (keywords[i] != 0)
 				break;
 		}
-		if (i == INDEX_CUSTOM_FLAGS_BYTE_COUNT)
-			custom_flags = NULL;
+		if (i == INDEX_KEYWORDS_BYTE_COUNT)
+			keywords = NULL;
 	}
 
 	/* remove the old :info from file name, and get the old flags */
@@ -166,13 +165,13 @@ const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
 			flags &= ~MAIL_DELETED;
 		}
 
-		if (custom_flags != NULL && nextflag > 'a') {
-			for (i = 0; i < INDEX_CUSTOM_FLAGS_COUNT; i++) {
-				if ((custom_flags[i / CHAR_BIT] &
+		if (keywords != NULL && nextflag > 'a') {
+			for (i = 0; i < INDEX_KEYWORDS_COUNT; i++) {
+				if ((keywords[i / CHAR_BIT] &
 				     (1 << (i % CHAR_BIT))) != 0)
 					str_append_c(flags_str, 'a' + i);
 			}
-			custom_flags = NULL;
+			keywords = NULL;
 		}
 
 		if (*oldflags == '\0' || *oldflags == ',')

@@ -7,8 +7,8 @@ struct fetch_context {
 	struct imap_message_cache *cache;
 	struct mail_index *index;
 
-	const char **custom_flags;
-	unsigned int custom_flags_count;
+	const char **keywords;
+	unsigned int keywords_count;
 
 	//struct mail_fetch_data *fetch_data;
 	struct ostream *output;

@@ -42,17 +42,16 @@ void client_send_untagged_storage_error(struct client *client,
 /* Parse flags. Returns TRUE if successful, if not sends an error message to
    client. */
 int client_parse_mail_flags(struct client *client, struct imap_arg *args,
-                            const struct mailbox_custom_flags *old_flags,
+                            const struct mailbox_keywords *old_keywords,
 			    struct mail_full_flags *flags);
 
 /* Send FLAGS + PERMANENTFLAGS to client. */
 void client_send_mailbox_flags(struct client *client, struct mailbox *box,
-			       const char *custom_flags[],
-			       unsigned int custom_flags_count);
+			       const char *keywords[],
+			       unsigned int keywords_count);
 
-/* Copy custom flags into dest. dest must have been initialized. */
-void client_save_custom_flags(struct mailbox_custom_flags *dest,
-			      const char *custom_flags[],
-			      unsigned int custom_flags_count);
+/* Copy keywords into dest. dest must have been initialized. */
+void client_save_keywords(struct mailbox_keywords *dest,
+			  const char *keywords[], unsigned int keywords_count);
 
 #endif

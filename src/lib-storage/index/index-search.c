@@ -83,23 +83,23 @@ static int search_keyword(struct mail_index *index,
 			  const struct mail_index_record *rec,
 			  const char *value)
 {
-	const char **custom_flags;
+	const char **keywords;
 	int i;
 
-	for (i = 0; i < INDEX_CUSTOM_FLAGS_BYTE_COUNT; i++) {
-		if (rec->custom_flags[i] != 0)
+	for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
+		if (rec->keywords[i] != 0)
 			break;
 	}
 
-	if (i == INDEX_CUSTOM_FLAGS_BYTE_COUNT)
-		return FALSE; /* no custom flags set */
+	if (i == INDEX_KEYWORDS_BYTE_COUNT)
+		return FALSE; /* no keywords set */
 
-	/*FIXME:custom_flags = mail_custom_flags_list_get(index->custom_flags);
-	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
-		if (custom_flags[i] != NULL &&
-		    strcasecmp(custom_flags[i], value) == 0) {
+	/*FIXME:keywords = mail_keywords_list_get(index->keywords);
+	for (i = 0; i < MAIL_KEYWORDS_COUNT; i++) {
+		if (keywords[i] != NULL &&
+		    strcasecmp(keywords[i], value) == 0) {
 			return rec->msg_flags &
-				(1 << (MAIL_CUSTOM_FLAG_1_BIT+i));
+				(1 << (MAIL_KEYWORD_1_BIT+i));
 		}
 	}*/
 

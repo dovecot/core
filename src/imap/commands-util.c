@@ -1,6 +1,7 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "common.h"
+#include "buffer.h"
 #include "str.h"
 #include "commands-util.h"
 #include "imap-util.h"
@@ -182,24 +183,24 @@ void client_send_untagged_storage_error(struct client *client,
 			 t_strconcat(syntax ? "* BAD " : "* NO ", error, NULL));
 }
 
-static int is_valid_custom_flag(struct client *client,
-                                const struct mailbox_custom_flags *old_flags,
-				const char *flag)
+static int is_valid_keyword(struct client *client,
+			    const struct mailbox_keywords *old_keywords,
+			    const char *keyword)
 {
 	size_t i;
 
 	/* if it already exists, skip validity checks */
-	for (i = 0; i < old_flags->custom_flags_count; i++) {
-		if (old_flags->custom_flags[i] != NULL &&
-		    strcasecmp(old_flags->custom_flags[i], flag) == 0)
+	for (i = 0; i < old_keywords->keywords_count; i++) {
+		if (old_keywords->keywords[i] != NULL &&
+		    strcasecmp(old_keywords->keywords[i], keyword) == 0)
 			return TRUE;
 	}
 
-	if (strlen(flag) > max_custom_flag_length) {
+	if (strlen(keyword) > max_keyword_length) {
 		client_send_tagline(client,
-			t_strdup_printf("BAD Invalid flag name '%s': "
+			t_strdup_printf("BAD Invalid keyword name '%s': "
 					"Maximum length is %u characters",
-					flag, max_custom_flag_length));
+					keyword, max_keyword_length));
 		return FALSE;
 	}
 
@@ -207,19 +208,18 @@ static int is_valid_custom_flag(struct client *client,
 }
 
 int client_parse_mail_flags(struct client *client, struct imap_arg *args,
-                            const struct mailbox_custom_flags *old_flags,
+                            const struct mailbox_keywords *old_keywords,
 			    struct mail_full_flags *flags)
 {
-	/* @UNSAFE */
+	const char *const *keywords;
 	char *atom;
-	size_t max_flags, flag_pos, i;
-
-	max_flags = MAIL_CUSTOM_FLAGS_COUNT;
+	buffer_t *buffer;
+	size_t size, i;
 
 	memset(flags, 0, sizeof(*flags));
-	flags->custom_flags = t_new(const char *, max_flags);
+	buffer = buffer_create_dynamic(pool_datastack_create(),
+				       256, (size_t)-1);
 
-	flag_pos = 0;
 	while (args->type != IMAP_ARG_EOL) {
 		if (args->type != IMAP_ARG_ATOM) {
 			client_send_command_error(client,
@@ -248,57 +248,50 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 				return FALSE;
 			}
 		} else {
-			/* custom flag - first make sure it's not a duplicate */
-			for (i = 0; i < flag_pos; i++) {
-				if (strcasecmp(flags->custom_flags[i],
-					       atom) == 0)
+			/* keyword - first make sure it's not a duplicate */
+			keywords = buffer_get_data(buffer, &size);
+			size /= sizeof(const char *);
+			for (i = 0; i < size; i++) {
+				if (strcasecmp(keywords[i], atom) == 0)
 					break;
 			}
 
-			if (i == max_flags) {
-				client_send_tagline(client,
-					"Maximum number of different custom "
-					"flags exceeded");
-				return FALSE;
-			}
-
-			if (i == flag_pos) {
-				if (!is_valid_custom_flag(client, old_flags,
-							  atom))
+			if (i == size) {
+				if (!is_valid_keyword(client, old_keywords,
+						      atom))
 					return FALSE;
-				flags->flags |= 1 << (flag_pos +
-						      MAIL_CUSTOM_FLAG_1_BIT);
-				flags->custom_flags[flag_pos++] = atom;
+				buffer_append(buffer, &atom, sizeof(atom));
 			}
 		}
 
 		args++;
 	}
 
-	flags->custom_flags_count = flag_pos;
+	flags->keywords = buffer_get_modifyable_data(buffer, &size);
+	flags->keywords_count = size / sizeof(const char *);
 	return TRUE;
 }
 
-static const char *get_custom_flags_string(const char *custom_flags[],
-					   unsigned int custom_flags_count)
+static const char *
+get_keywords_string(const char *keywords[], unsigned int keywords_count)
 {
 	string_t *str;
 	unsigned int i;
 
-	/* first see if there even is custom flags */
-	for (i = 0; i < custom_flags_count; i++) {
-		if (custom_flags[i] != NULL)
+	/* first see if there even is keywords */
+	for (i = 0; i < keywords_count; i++) {
+		if (keywords[i] != NULL)
 			break;
 	}
 
-	if (i == custom_flags_count)
+	if (i == keywords_count)
 		return "";
 
 	str = t_str_new(256);
-	for (; i < custom_flags_count; i++) {
-		if (custom_flags[i] != NULL) {
+	for (; i < keywords_count; i++) {
+		if (keywords[i] != NULL) {
 			str_append_c(str, ' ');
-			str_append(str, custom_flags[i]);
+			str_append(str, keywords[i]);
 		}
 	}
 	return str_c(str);
@@ -307,12 +300,12 @@ static const char *get_custom_flags_string(const char *custom_flags[],
 #define SYSTEM_FLAGS "\\Answered \\Flagged \\Deleted \\Seen \\Draft"
 
 void client_send_mailbox_flags(struct client *client, struct mailbox *box,
-			       const char *custom_flags[],
-			       unsigned int custom_flags_count)
+			       const char *keywords[],
+			       unsigned int keywords_count)
 {
 	const char *str;
 
-	str = get_custom_flags_string(custom_flags, custom_flags_count);
+	str = get_keywords_string(keywords, keywords_count);
 	client_send_line(client,
 		t_strconcat("* FLAGS ("SYSTEM_FLAGS, str, ")", NULL));
 
@@ -322,29 +315,27 @@ void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 	} else {
 		client_send_line(client,
 			t_strconcat("* OK [PERMANENTFLAGS ("SYSTEM_FLAGS, str,
-				    mailbox_allow_new_custom_flags(box) ?
+				    mailbox_allow_new_keywords(box) ?
 				    " \\*" : "", ")] Flags permitted.", NULL));
 	}
 }
 
-void client_save_custom_flags(struct mailbox_custom_flags *dest,
-			      const char *custom_flags[],
-			      unsigned int custom_flags_count)
+void client_save_keywords(struct mailbox_keywords *dest,
+			  const char *keywords[], unsigned int keywords_count)
 {
 	unsigned int i;
 
 	p_clear(dest->pool);
 
-	if (custom_flags_count == 0) {
-		dest->custom_flags = NULL;
-		dest->custom_flags_count = 0;
+	if (keywords_count == 0) {
+		dest->keywords = NULL;
+		dest->keywords_count = 0;
 		return;
 	}
 
-	dest->custom_flags =
-		p_new(dest->pool, char *, custom_flags_count);
-	dest->custom_flags_count = custom_flags_count;
+	dest->keywords = p_new(dest->pool, char *, keywords_count);
+	dest->keywords_count = keywords_count;
 
-	for (i = 0; i < custom_flags_count; i++)
-		dest->custom_flags[i] = p_strdup(dest->pool, custom_flags[i]);
+	for (i = 0; i < keywords_count; i++)
+		dest->keywords[i] = p_strdup(dest->pool, keywords[i]);
 }

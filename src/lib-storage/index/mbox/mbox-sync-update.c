@@ -15,7 +15,7 @@ static void status_flags_append(struct mbox_sync_mail_context *ctx,
 	}
 }
 static void keywords_append(struct mbox_sync_mail_context *ctx,
-			    custom_flags_mask_t custom_flags)
+			    keywords_mask_t keywords)
 {
 	// FIXME
 }
@@ -33,7 +33,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		str_printfa(ctx->header, "X-IMAPbase: %u %u",
 			    ctx->sync_ctx->hdr->uid_validity,
 			    ctx->sync_ctx->next_uid);
-		//FIXME:keywords_append(ctx, all_custom_flags);
+		//FIXME:keywords_append(ctx, all_keywords);
 		str_append_c(ctx->header, '\n');
 	}
 
@@ -60,8 +60,8 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 	}
 
 	have_keywords = FALSE;
-	for (i = 0; i < INDEX_CUSTOM_FLAGS_BYTE_COUNT; i++) {
-		if (ctx->mail->custom_flags[i] != 0) {
+	for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
+		if (ctx->mail->keywords[i] != 0) {
 			have_keywords = TRUE;
 			break;
 		}
@@ -70,7 +70,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == (size_t)-1 && have_keywords) {
 		ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] = str_len(ctx->header);
 		str_append(ctx->header, "X-Keywords: ");
-		keywords_append(ctx, ctx->mail->custom_flags);
+		keywords_append(ctx, ctx->mail->keywords);
 		str_append_c(ctx->header, '\n');
 	}
 
@@ -113,15 +113,14 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 			     struct mail_index_sync_rec *update)
 {
 	uint8_t old_flags;
-	custom_flags_mask_t old_custom_flags;
+	keywords_mask_t old_keywords;
 
 	if (update != NULL) {
 		old_flags = ctx->mail->flags;
-		memcpy(old_custom_flags, ctx->mail->custom_flags,
-		       sizeof(old_custom_flags));
+		memcpy(old_keywords, ctx->mail->keywords, sizeof(old_keywords));
 
 		mail_index_sync_flags_apply(update, &ctx->mail->flags,
-					    ctx->mail->custom_flags);
+					    ctx->mail->keywords);
 
 		if ((old_flags & STATUS_FLAGS_MASK) !=
 		    (ctx->mail->flags & STATUS_FLAGS_MASK))
@@ -129,8 +128,8 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 		if ((old_flags & XSTATUS_FLAGS_MASK) !=
 		    (ctx->mail->flags & XSTATUS_FLAGS_MASK))
 			mbox_sync_update_xstatus(ctx);
-		if (memcmp(old_custom_flags, ctx->mail->custom_flags,
-			   sizeof(old_custom_flags)) != 0)
+		if (memcmp(old_keywords, ctx->mail->keywords,
+			   sizeof(old_keywords)) != 0)
 			mbox_sync_update_xkeywords(ctx);
 	}
 

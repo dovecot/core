@@ -355,9 +355,9 @@ int mailbox_is_readonly(struct mailbox *box)
 	return box->is_readonly(box);
 }
 
-int mailbox_allow_new_custom_flags(struct mailbox *box)
+int mailbox_allow_new_keywords(struct mailbox *box)
 {
-	return box->allow_new_custom_flags(box);
+	return box->allow_new_keywords(box);
 }
 
 int mailbox_get_status(struct mailbox *box,

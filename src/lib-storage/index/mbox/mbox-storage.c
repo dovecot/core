@@ -5,7 +5,7 @@
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
 #include "subscription-file/subscription-file.h"
-#include "mail-custom-flags.h"
+#include "mail-keywords.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
 #include "mbox-storage.h"
@@ -852,7 +852,7 @@ struct mailbox mbox_mailbox = {
 	NULL, /* storage */
 
 	index_storage_is_readonly,
-        index_storage_allow_new_custom_flags,
+        index_storage_allow_new_keywords,
 	mbox_storage_close,
 	mbox_storage_lock,
 	index_storage_get_status,

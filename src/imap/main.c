@@ -22,7 +22,7 @@
         (getenv("LOGGED_IN") == NULL && getenv("IMAPLOGINTAG") == NULL)
 
 struct ioloop *ioloop;
-unsigned int max_custom_flag_length, mailbox_check_interval;
+unsigned int max_keyword_length, mailbox_check_interval;
 unsigned int imap_max_line_length;
 
 static struct module *modules;
@@ -114,9 +114,9 @@ static void main_init(void)
 		DEFAULT_IMAP_MAX_LINE_LENGTH;
 
 	str = getenv("MAIL_MAX_FLAG_LENGTH");
-	max_custom_flag_length = str != NULL ?
+	max_keyword_length = str != NULL ?
 		(unsigned int)strtoul(str, NULL, 10) :
-		DEFAULT_MAX_CUSTOM_FLAG_LENGTH;
+		DEFAULT_MAX_KEYWORD_LENGTH;
 
 	str = getenv("MAILBOX_CHECK_INTERVAL");
 	mailbox_check_interval = str == NULL ? 0 :

@@ -48,9 +48,9 @@ struct mail_transaction_cache_update {
 struct mail_transaction_flag_update {
 	uint32_t seq1, seq2;
 	uint8_t add_flags;
-	custom_flags_mask_t add_custom_flags;
+	keywords_mask_t add_keywords;
 	uint8_t remove_flags;
-	custom_flags_mask_t remove_custom_flags;
+	keywords_mask_t remove_keywords;
 };
 
 struct mail_transaction_log *

@@ -77,20 +77,16 @@ static void new_messages(struct mailbox *mailbox, unsigned int messages_count,
 	client_send_line(client, str);
 }
 
-static void new_custom_flags(struct mailbox *mailbox,
-			     const char *custom_flags[],
-			     unsigned int custom_flags_count, void *context)
+static void new_keywords(struct mailbox *mailbox, const char *keywords[],
+			 unsigned int keywords_count, void *context)
 {
 	struct client *client = context;
 
 	if (client->mailbox != mailbox)
 		return;
 
-	client_save_custom_flags(&client->mailbox_flags, custom_flags,
-				 custom_flags_count);
-
-	client_send_mailbox_flags(client, mailbox, custom_flags,
-				  custom_flags_count);
+	client_save_keywords(&client->keywords, keywords, keywords_count);
+	client_send_mailbox_flags(client, mailbox, keywords, keywords_count);
 }
 
 struct mail_storage_callbacks mail_storage_callbacks = {
@@ -100,5 +96,5 @@ struct mail_storage_callbacks mail_storage_callbacks = {
 	expunge,
 	update_flags,
 	new_messages,
-	new_custom_flags
+	new_keywords
 };

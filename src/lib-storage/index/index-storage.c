@@ -383,7 +383,7 @@ int index_storage_is_readonly(struct mailbox *box)
 	return ibox->readonly;
 }
 
-int index_storage_allow_new_custom_flags(struct mailbox *box)
+int index_storage_allow_new_keywords(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
@@ -426,22 +426,21 @@ int mail_storage_set_index_error(struct index_mailbox *ibox)
 	return FALSE;
 }
 
-int index_mailbox_fix_custom_flags(struct index_mailbox *ibox,
-				   enum mail_flags *flags,
-				   const char *custom_flags[],
-				   unsigned int custom_flags_count)
+int index_mailbox_fix_keywords(struct index_mailbox *ibox,
+			       enum mail_flags *flags,
+			       const char *keywords[],
+			       unsigned int keywords_count)
 {
 	/*FIXME:int ret;
 
-	ret = mail_custom_flags_fix_list(ibox->index,
-					 flags, custom_flags,
-					 custom_flags_count);
+	ret = mail_keywords_fix_list(ibox->index, flags, keywords,
+				     keywords_count);
 	switch (ret) {
 	case 1:
 		return TRUE;
 	case 0:
 		mail_storage_set_error(ibox->box.storage,
-			"Maximum number of different custom flags exceeded");
+			"Maximum number of different keywords exceeded");
 		return FALSE;
 	default:
 		return mail_storage_set_index_error(ibox);

@@ -67,9 +67,9 @@ const char *maildir_get_path(struct index_storage *storage, const char *name);
 int maildir_sync_last_commit(struct index_mailbox *ibox);
 
 int maildir_filename_get_flags(const char *fname, enum mail_flags *flags_r,
-			       custom_flags_mask_t custom_flags_r);
+			       keywords_mask_t keywords_r);
 const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
-				       custom_flags_mask_t custom_flags);
+				       keywords_mask_t keywords);
 
 unsigned int maildir_hash(const void *p);
 int maildir_cmp(const void *p1, const void *p2);

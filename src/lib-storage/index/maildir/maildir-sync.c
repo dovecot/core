@@ -226,14 +226,14 @@ static int maildir_sync_flags(struct index_mailbox *ibox, const char *path,
 	const char *newpath;
 	enum mail_flags flags;
 	uint8_t flags8;
-        custom_flags_mask_t custom_flags;
+        keywords_mask_t keywords;
 
-	(void)maildir_filename_get_flags(path, &flags, custom_flags);
+	(void)maildir_filename_get_flags(path, &flags, keywords);
 
 	flags8 = flags;
-	mail_index_sync_flags_apply(&ctx->sync_rec, &flags8, custom_flags);
+	mail_index_sync_flags_apply(&ctx->sync_rec, &flags8, keywords);
 
-	newpath = maildir_filename_set_flags(path, flags8, custom_flags);
+	newpath = maildir_filename_set_flags(path, flags8, keywords);
 	if (rename(path, newpath) == 0) {
 		ibox->dirty_cur_time = ioloop_time;
 		return 1;
@@ -505,7 +505,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
         enum maildir_uidlist_rec_flag uflags;
 	const char *filename;
 	enum mail_flags flags;
-	custom_flags_mask_t custom_flags;
+	keywords_mask_t keywords;
 	uint32_t sync_stamp;
 	int ret;
 
@@ -527,7 +527,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 	seq = 0;
 	iter = maildir_uidlist_iter_init(ibox->uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &uflags, &filename)) {
-		maildir_filename_get_flags(filename, &flags, custom_flags);
+		maildir_filename_get_flags(filename, &flags, keywords);
 
 	__again:
 		seq++;
@@ -539,7 +539,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		if (seq > hdr->messages_count) {
 			mail_index_append(trans, uid, &seq);
 			mail_index_update_flags(trans, seq, MODIFY_REPLACE,
-						flags, custom_flags);
+						flags, keywords);
 			continue;
 		}
 
@@ -572,12 +572,12 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			continue;
 		}
 
-		maildir_filename_get_flags(filename, &flags, custom_flags);
+		maildir_filename_get_flags(filename, &flags, keywords);
 		if ((uint8_t)flags != (rec->flags & MAIL_FLAGS_MASK) ||
-		    memcmp(custom_flags, rec->custom_flags,
-			   INDEX_CUSTOM_FLAGS_BYTE_COUNT) != 0) {
+		    memcmp(keywords, rec->keywords,
+			   INDEX_KEYWORDS_BYTE_COUNT) != 0) {
 			mail_index_update_flags(trans, seq, MODIFY_REPLACE,
-						flags, custom_flags);
+						flags, keywords);
 		}
 	}
 	maildir_uidlist_iter_deinit(iter);

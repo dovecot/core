@@ -845,7 +845,7 @@ struct mailbox maildir_mailbox = {
 	NULL, /* storage */
 
 	index_storage_is_readonly,
-        index_storage_allow_new_custom_flags,
+        index_storage_allow_new_keywords,
 	maildir_storage_close,
 	index_storage_get_status,
 	maildir_storage_sync,

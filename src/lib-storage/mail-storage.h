@@ -36,7 +36,7 @@ enum mailbox_status_items {
 	STATUS_UIDVALIDITY	= 0x08,
 	STATUS_UNSEEN		= 0x10,
 	STATUS_FIRST_UNSEEN_SEQ	= 0x20,
-	STATUS_CUSTOM_FLAGS	= 0x40
+	STATUS_KEYWORDS		= 0x40
 };
 
 enum mailbox_name_status {
@@ -128,8 +128,8 @@ struct mailbox_status {
 	unsigned int diskspace_full:1;
 
 	/* may be allocated from data stack */
-	unsigned int custom_flags_count;
-	const char **custom_flags;
+	unsigned int keywords_count;
+	const char **keywords;
 };
 
 struct mail_storage_callbacks {
@@ -155,10 +155,10 @@ struct mail_storage_callbacks {
 			     unsigned int messages_count,
 			     unsigned int recent_count, void *context);
 	/* FLAGS, PERMANENTFLAGS */
-	void (*new_custom_flags)(struct mailbox *mailbox,
-				 const char *custom_flags[],
-				 unsigned int custom_flags_count,
-				 void *context);
+	void (*new_keywords)(struct mailbox *mailbox,
+			     const char *keywords[],
+			     unsigned int keywords_count,
+			     void *context);
 
 };
 
@@ -271,8 +271,8 @@ const char *mailbox_get_name(struct mailbox *box);
 /* Returns TRUE if mailbox is read-only. */
 int mailbox_is_readonly(struct mailbox *box);
 
-/* Returns TRUE if mailbox currently supports adding custom flags. */
-int mailbox_allow_new_custom_flags(struct mailbox *box);
+/* Returns TRUE if mailbox currently supports adding keywords. */
+int mailbox_allow_new_keywords(struct mailbox *box);
 
 /* Gets the mailbox status information. */
 int mailbox_get_status(struct mailbox *box,

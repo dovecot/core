@@ -52,7 +52,7 @@ int cmd_append(struct client *client)
 	struct imap_parser *save_parser;
 	struct imap_arg *args;
 	struct imap_arg_list *flags_list;
-        struct mailbox_custom_flags old_flags;
+        struct mailbox_keywords old_flags;
 	struct mail_full_flags flags;
 	struct istream *input;
 	time_t internal_date;
@@ -78,15 +78,15 @@ int cmd_append(struct client *client)
 		return TRUE;
 	}
 
-	if (mailbox_get_status(box, STATUS_CUSTOM_FLAGS, &status) < 0) {
+	if (mailbox_get_status(box, STATUS_KEYWORDS, &status) < 0) {
 		client_send_storage_error(client, storage);
 		mailbox_close(box);
 		return TRUE;
 	}
 	memset(&old_flags, 0, sizeof(old_flags));
         old_flags.pool = pool_datastack_create();
-	client_save_custom_flags(&old_flags, status.custom_flags,
-				 status.custom_flags_count);
+	client_save_keywords(&old_flags, status.keywords,
+			     status.keywords_count);
 
 	t = mailbox_transaction_begin(box, FALSE);
 

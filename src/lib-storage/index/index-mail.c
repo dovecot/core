@@ -170,9 +170,9 @@ const struct mail_full_flags *index_mail_get_flags(struct mail *_mail)
 	struct index_mail_data *data = &mail->data;
 
 	data->flags.flags = data->rec->flags;
-	/*FIXME:data->flags.custom_flags =
-		mail_custom_flags_list_get(mail->ibox->index->custom_flags);
-	data->flags.custom_flags_count = MAIL_CUSTOM_FLAGS_COUNT;*/
+	/*FIXME:data->flags.keywords =
+		mail_keywords_list_get(mail->ibox->index->keywords);
+	data->flags.keywords_count = MAIL_KEYWORDS_COUNT;*/
 
 	return &data->flags;
 }
@@ -624,24 +624,24 @@ int index_mail_update_flags(struct mail *mail,
 {
 	struct index_mail *imail = (struct index_mail *)mail;
 	enum mail_flags modify_flags;
-	custom_flags_mask_t custom_flags;
+	keywords_mask_t keywords;
 
 	/* \Recent can't be changed */
 	modify_flags = flags->flags & ~MAIL_RECENT;
 
-	/*if (!index_mailbox_fix_custom_flags(ibox, &modify_flags,
-					    flags->custom_flags,
-					    flags->custom_flags_count))
+	/*if (!index_mailbox_fix_keywords(ibox, &modify_flags,
+					    flags->keywords,
+					    flags->keywords_count))
 		return FALSE;*/
 
-	memset(custom_flags, 0, sizeof(custom_flags));
+	memset(keywords, 0, sizeof(keywords));
 	mail_index_update_flags(imail->trans->trans, mail->seq, modify_type,
-				flags->flags, custom_flags);
+				flags->flags, keywords);
 
-	/*if (mail_custom_flags_has_changes(ibox->index->custom_flags)) {
-		storage->callbacks->new_custom_flags(&ibox->box,
-			mail_custom_flags_list_get(ibox->index->custom_flags),
-			MAIL_CUSTOM_FLAGS_COUNT, storage->callback_context);
+	/*if (mail_keywords_has_changes(ibox->index->keywords)) {
+		storage->callbacks->new_keywords(&ibox->box,
+			mail_keywords_list_get(ibox->index->keywords),
+			MAIL_KEYWORDS_COUNT, storage->callback_context);
 	}*/
 
 	return 0;

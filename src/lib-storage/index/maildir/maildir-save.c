@@ -137,9 +137,9 @@ int maildir_save(struct mailbox_transaction_context *_t,
 	ctx = t->save_ctx;
 
 	mail_flags = flags->flags;
-	/*FIXME:if (!index_mailbox_fix_custom_flags(ibox, &mail_flags,
-					    flags->custom_flags,
-					    flags->custom_flags_count))
+	/*FIXME:if (!index_mailbox_fix_keywords(ibox, &mail_flags,
+					    flags->keywords,
+					    flags->keywords_count))
 		return FALSE;*/
 
 	t_push();

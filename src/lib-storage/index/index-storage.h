@@ -117,13 +117,13 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 void index_storage_mailbox_free(struct mailbox *box);
 
 int index_storage_is_readonly(struct mailbox *box);
-int index_storage_allow_new_custom_flags(struct mailbox *box);
+int index_storage_allow_new_keywords(struct mailbox *box);
 int index_storage_is_inconsistent(struct mailbox *box);
 
-int index_mailbox_fix_custom_flags(struct index_mailbox *ibox,
-				   enum mail_flags *flags,
-				   const char *custom_flags[],
-				   unsigned int custom_flags_count);
+int index_mailbox_fix_keywords(struct index_mailbox *ibox,
+			       enum mail_flags *flags,
+			       const char *keywords[],
+			       unsigned int keywords_count);
 
 unsigned int index_storage_get_recent_count(struct mail_index_view *view);
 

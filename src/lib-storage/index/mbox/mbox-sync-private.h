@@ -28,7 +28,7 @@ extern struct mbox_flag_type mbox_xstatus_flags[];
 struct mbox_mail {
 	uint32_t uid;
 	uint8_t flags;
-	custom_flags_mask_t custom_flags;
+	keywords_mask_t keywords;
 
 	uoff_t space_offset; /* if space is negative, points to beginning */
 	off_t space;

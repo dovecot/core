@@ -89,11 +89,11 @@ int cmd_store(struct client *client)
 	if (args[2].type == IMAP_ARG_LIST) {
 		if (!client_parse_mail_flags(client,
 					     IMAP_ARG_LIST(&args[2])->args,
-					     &client->mailbox_flags, &flags))
+					     &client->keywords, &flags))
 			return TRUE;
 	} else {
 		if (!client_parse_mail_flags(client, args+2,
-					     &client->mailbox_flags, &flags))
+					     &client->keywords, &flags))
 			return TRUE;
 	}
 
