@@ -216,8 +216,10 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	env_put(t_strconcat("MAIL=", mail, NULL));
 	env_put(t_strconcat("USER=", data + reply->virtual_user_idx, NULL));
 
+	host = net_ip2host(ip);
+	env_put(t_strconcat("IP=", host, NULL));
+
 	if (set->verbose_proctitle) {
-		host = net_ip2host(ip);
 		if (host == NULL)
 			host = "??";
 
