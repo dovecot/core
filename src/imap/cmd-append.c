@@ -197,6 +197,7 @@ int cmd_append(struct client *client)
 
 		count++;
 	}
+        imap_parser_destroy(save_parser);
 
 	if (!box->save_deinit(ctx, failed)) {
 		failed = TRUE;
