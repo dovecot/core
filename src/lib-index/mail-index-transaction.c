@@ -595,7 +595,7 @@ void mail_index_update_cache(struct mail_index_transaction *t, uint32_t seq,
 {
 	struct mail_index_record *rec;
 
-	if (file_seq > t->last_cache_file_seq) {
+	if (file_seq != t->last_cache_file_seq) {
 		mail_index_transaction_reset_cache_updates(t);
                 t->last_cache_file_seq = file_seq;
 	}
@@ -621,6 +621,14 @@ int mail_index_update_cache_lookup(struct mail_index_transaction *t,
 
 	if (t->cache_updates == NULL)
 		return FALSE;
+
+	if (MAIL_CACHE_IS_UNUSABLE(t->view->index->cache) ||
+	    t->view->index->cache->hdr->file_seq != t->last_cache_file_seq) {
+		/* cache file was recreated, our offsets don't work anymore */
+		mail_index_transaction_reset_cache_updates(t);
+		t->last_cache_file_seq = 0;
+		return FALSE;
+	}
 
 	if (!mail_index_seq_buffer_lookup(t->cache_updates, seq,
 					  sizeof(*offset_r), &pos))
