@@ -84,17 +84,9 @@ enum mail_fetch_field {
 };
 
 enum mailbox_sync_flags {
-	/* Normally syncing checks if mailbox has changed, if yes it reads it
-	   but doesn't necessarily write our internal state back to mailbox.
-
-	   Fast syncing doesn't necessarily even check if mailbox has changed.
-
-	   Full syncing makes sure our internal state is fully synced with the
-	   mailbox. */
 	MAILBOX_SYNC_FLAG_FAST		= 0x01,
-	MAILBOX_SYNC_FLAG_FULL		= 0x02,
-	MAILBOX_SYNC_FLAG_NO_EXPUNGES	= 0x04,
-	MAILBOX_SYNC_AUTO_STOP		= 0x08
+	MAILBOX_SYNC_FLAG_NO_EXPUNGES	= 0x02,
+	MAILBOX_SYNC_AUTO_STOP		= 0x04
 };
 
 enum mailbox_sync_type {
