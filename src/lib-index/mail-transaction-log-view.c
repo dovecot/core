@@ -176,7 +176,7 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 	const struct mail_transaction_type_map *type_rec;
 	const void *data;
 	unsigned int record_size;
-	size_t size;
+	size_t file_size;
 
 	view->prev_file_seq = file->hdr.file_seq;
 	view->prev_file_offset = view->file_offset;
@@ -187,24 +187,27 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 		return 0;
 	}
 
-	data = buffer_get_data(file->buffer, &size);
-	if (view->file_offset + sizeof(*hdr) > file->hdr.used_size) {
+	data = buffer_get_data(file->buffer, &file_size);
+	file_size += file->buffer_offset;
+
+	if (view->file_offset + sizeof(*hdr) > file_size) {
 		mail_transaction_log_file_set_corrupted(file,
-			"offset points outside file (%u + %"PRIuSIZE_T" > %u)",
-			view->file_offset, sizeof(*hdr), size);
+			"offset points outside file "
+			"(%"PRIuUOFF_T" + %"PRIuSIZE_T" > %"PRIuSIZE_T")",
+			view->file_offset, sizeof(*hdr), file_size);
 		return -1;
 	}
 
 	hdr = CONST_PTR_OFFSET(data, view->file_offset - file->buffer_offset);
 	view->file_offset += sizeof(*hdr);
 
-	if (file->hdr.used_size - view->file_offset < hdr->size) {
+	if (file_size - view->file_offset < hdr->size) {
 		mail_transaction_log_file_set_corrupted(file,
-			"record size too large "
-			"(type=0x%x, offset=%u, size=%u, end=%u)",
+			"record size too large (type=0x%x, offset=%"PRIuUOFF_T
+			", size=%u, end=%"PRIuSIZE_T")",
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
-			view->file_offset, hdr->size, file->hdr.used_size);
-                view->file_offset = file->hdr.used_size;
+			view->file_offset, hdr->size, file_size);
+                view->file_offset = file_size;
 		return -1;
 	}
 

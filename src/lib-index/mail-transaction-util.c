@@ -152,8 +152,9 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 			prev_seq = dest[i].seq2+1;
 		}
 
-		new_exp.seq1 = src->seq1 + expunges_before;
-		new_exp.seq2 = src->seq2 + expunges_before;
+		new_exp = *src;
+		new_exp.seq1 += expunges_before;
+		new_exp.seq2 += expunges_before;
 
 		/* if src[] is in format {1,2}{1,2} rather than {1,2}{3,4}:
 		   expunges_before += new_exp.seq2 - new_exp.seq1 + 1;*/
@@ -164,12 +165,14 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 			count = dest[i].seq2 - dest[i].seq1 + 1;
 			expunges_before += count;
 			new_exp.seq2 += count;
+			new_exp.seq2 = dest[i].uid2;
 			i++;
 		}
 
 		if (first > 0 && new_exp.seq1 == dest[first-1].seq2+1) {
 			/* continue previous record */
 			dest[first-1].seq2 = new_exp.seq2;
+			dest[first-1].uid2 = new_exp.uid2;
 		} else if (i == first) {
 			buffer_insert(expunges_buf, i * sizeof(new_exp),
 				      &new_exp, sizeof(new_exp));
@@ -179,8 +182,7 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 			dest_count++;
 		} else {
 			/* use next record */
-			dest[first].seq1 = new_exp.seq1;
-			dest[first].seq2 = new_exp.seq2;
+			dest[first] = new_exp;
 			first++;
 		}
 

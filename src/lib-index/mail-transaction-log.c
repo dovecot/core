@@ -237,7 +237,8 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 	if (ret < 0) {
 		// FIXME: handle ESTALE
 		mail_index_file_set_syscall_error(file->log->index,
-						  file->filepath, "pread()");
+						  file->filepath,
+						  "pread_full()");
 		return -1;
 	}
 	if (ret == 0) {
@@ -577,7 +578,7 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 		file->buffer_offset = offset;
 
 		data = buffer_get_space_unsafe(file->buffer, 0, size);
-		ret = pread(file->fd, data, size, offset);
+		ret = pread_full(file->fd, data, size, offset);
 		if (ret < 0 && errno == ESTALE) {
 			/* log file was deleted in NFS server, fail silently */
 			ret = 0;
@@ -599,6 +600,7 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 			return 1;
 		}
 	}
+	offset = file->buffer_offset + size;
 
 	size = file->hdr.used_size - file->buffer_offset - size;
 	if (size == 0)
@@ -606,7 +608,7 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 
 	data = buffer_append_space_unsafe(file->buffer, size);
 
-	ret = pread(file->fd, data, size, offset);
+	ret = pread_full(file->fd, data, size, offset);
 	if (ret < 0 && errno == ESTALE) {
 		/* log file was deleted in NFS server, fail silently */
 		ret = 0;
@@ -647,7 +649,8 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		return -1;
 	}
 
-	if (st.st_size == file->hdr.used_size && end_offset == (uoff_t)-1) {
+	if (st.st_size == file->hdr.used_size &&
+	    file->buffer_offset <= start_offset && end_offset == (uoff_t)-1) {
 		/* we've seen the whole file.. do we have all of it mapped? */
 		size = buffer_get_used_size(file->buffer);
 		if (file->buffer_offset + size == file->hdr.used_size)
@@ -689,15 +692,20 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	if (!use_mmap) {
 		ret = mail_transaction_log_file_read(file, start_offset);
 		if (ret <= 0) {
+			if (ret < 0) {
+				mail_index_file_set_syscall_error(index,
+					file->filepath, "pread_full()");
+ 			} else {
+				mail_transaction_log_file_set_corrupted(file,
+					"Unexpected EOF");
+			}
+
 			/* make sure we don't leave ourself in
 			   inconsistent state */
 			if (file->buffer != NULL) {
 				buffer_free(file->buffer);
 				file->buffer = NULL;
 			}
-			file->buffer_size = 0;
-		} else {
-			file->buffer_size = buffer_get_used_size(file->buffer);
 		}
 		return ret;
 	}
@@ -713,7 +721,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	}
 	file->buffer = buffer_create_const_data(default_pool, file->mmap_base,
 						file->mmap_size);
-	file->buffer_size = buffer_get_used_size(file->buffer);
+	file->buffer_offset = 0;
 	return 1;
 }
 

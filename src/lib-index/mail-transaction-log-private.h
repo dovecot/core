@@ -20,7 +20,6 @@ struct mail_transaction_log_file {
 
 	buffer_t *buffer;
 	uoff_t buffer_offset;
-	size_t buffer_size;
 	void *mmap_base;
 	size_t mmap_size;
 
