@@ -197,6 +197,19 @@ const unsigned char *i_buffer_get_data(IBuffer *buf, size_t *size)
         return _buf->buffer + _buf->skip;
 }
 
+unsigned char *i_buffer_get_modifyable_data(IBuffer *buf, size_t *size)
+{
+	_IBuffer *_buf = buf->real_buffer;
+
+	if (_buf->skip >= _buf->pos || _buf->w_buffer == NULL) {
+		*size = 0;
+		return NULL;
+	}
+
+        *size = _buf->pos - _buf->skip;
+        return _buf->w_buffer + _buf->skip;
+}
+
 int i_buffer_read_data(IBuffer *buf, const unsigned char **data,
 		       size_t *size, size_t threshold)
 {

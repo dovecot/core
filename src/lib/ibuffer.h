@@ -62,6 +62,9 @@ char *i_buffer_next_line(IBuffer *buf);
 /* Returns pointer to beginning of data in buffer, or NULL if there's
    no data. */
 const unsigned char *i_buffer_get_data(IBuffer *buf, size_t *size);
+/* Like i_buffer_get_data(), but returns non-const data. If modifying isn't
+   allowed to buffer, returns NULL. */
+unsigned char *i_buffer_get_modifyable_data(IBuffer *buf, size_t *size);
 /* Like i_buffer_get_data(), but read it when needed. Returns 1 if more
    than threshold bytes were stored into buffer, 0 if less, -1 if error or
    EOF with no bytes in buffer or -2 if buffer is full. */
