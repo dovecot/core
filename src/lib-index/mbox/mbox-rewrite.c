@@ -53,6 +53,7 @@ static int mbox_write(MailIndex *index, IBuffer *inbuf, OBuffer *outbuf,
 		      uoff_t end_offset)
 {
 	uoff_t old_limit;
+	int failed;
 
 	i_assert(inbuf->v_offset <= end_offset);
 
@@ -61,16 +62,18 @@ static int mbox_write(MailIndex *index, IBuffer *inbuf, OBuffer *outbuf,
 	if (o_buffer_send_ibuffer(outbuf, inbuf) < 0) {
 		index_set_error(index, "Error rewriting mbox file %s: %s",
 				index->mbox_path, strerror(outbuf->buf_errno));
+		failed = TRUE;
 	} else if (inbuf->v_offset < end_offset) {
 		/* fsck should have noticed it.. */
 		index_set_error(index, "Error rewriting mbox file %s: "
 				"Unexpected end of file", index->mbox_path);
+		failed = TRUE;
 	} else {
-		return TRUE;
+		failed = FALSE;
 	}
 
 	i_buffer_set_read_limit(inbuf, old_limit);
-	return FALSE;
+	return !failed;
 }
 
 static int mbox_write_ximapbase(MboxRewriteContext *ctx)
@@ -526,8 +529,11 @@ int mbox_index_rewrite(MailIndex *index)
 		failed = TRUE;
 	}
 
-	/* always end with a \n */
-	(void)o_buffer_send(outbuf, "\n", 1);
+	if (!failed) {
+		/* always end with a \n */
+		(void)o_buffer_send(outbuf, "\n", 1);
+	}
+
 	if (outbuf->closed) {
 		errno = outbuf->buf_errno;
 		mbox_set_syscall_error(index, "write()");
