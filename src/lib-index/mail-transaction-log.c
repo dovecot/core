@@ -874,6 +874,7 @@ static int mail_transaction_log_fix_appends(struct mail_transaction_log *log,
 	struct mail_transaction_log_view *sync_view;
 	const struct mail_index_record *old, *old_end;
 	struct mail_index_record *appends, *end, *rec, *dest;
+        const struct mail_transaction_append_header *append_hdr;
 	const struct mail_transaction_header *hdr;
 	const void *data;
 	size_t size;
@@ -883,7 +884,7 @@ static int mail_transaction_log_fix_appends(struct mail_transaction_log *log,
 	if (t->appends == NULL)
 		return 0;
 
-	record_size = log->index->record_size;
+	record_size = t->append_record_size;
 	appends = buffer_get_modifyable_data(t->appends, &size);
 	end = PTR_OFFSET(appends, size);
 
@@ -905,8 +906,10 @@ static int mail_transaction_log_fix_appends(struct mail_transaction_log *log,
 		    MAIL_TRANSACTION_APPEND)
 			continue;
 
-		old = data;
-		old_end = CONST_PTR_OFFSET(old, hdr->size);
+                append_hdr = data;
+
+		old = CONST_PTR_OFFSET(data, sizeof(*append_hdr));
+		old_end = CONST_PTR_OFFSET(data, hdr->size);
 		while (old != old_end) {
 			/* appends are sorted */
 			for (rec = appends; rec != end; ) {
@@ -919,7 +922,7 @@ static int mail_transaction_log_fix_appends(struct mail_transaction_log *log,
 				}
 				rec = PTR_OFFSET(rec, record_size);
 			}
-                        old = CONST_PTR_OFFSET(old, record_size);
+                        old = CONST_PTR_OFFSET(old, append_hdr->record_size);
 		}
 	}
 
@@ -1097,7 +1100,15 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 
 	ret = 0;
 	if (t->appends != NULL) {
-		ret = log_append_buffer(file, t->appends, NULL,
+		struct mail_transaction_append_header hdr;
+
+		memset(&hdr, 0, sizeof(hdr));
+		hdr.record_size = t->append_record_size;
+
+		hdr_buf = buffer_create_data(pool_datastack_create(),
+					     &hdr, sizeof(hdr));
+		buffer_set_used_size(hdr_buf, sizeof(hdr));
+		ret = log_append_buffer(file, t->appends, hdr_buf,
 					MAIL_TRANSACTION_APPEND,
 					view->external);
 	}

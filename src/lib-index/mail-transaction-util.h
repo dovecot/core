@@ -10,7 +10,8 @@ extern const struct mail_transaction_type_map mail_transaction_type_map[];
 
 struct mail_transaction_map_functions {
 	int (*expunge)(const struct mail_transaction_expunge *e, void *context);
-	int (*append)(const struct mail_index_record *rec, void *context);
+	int (*append)(const struct mail_transaction_append_header *hdr,
+		      const struct mail_index_record *rec, void *context);
 	int (*flag_update)(const struct mail_transaction_flag_update *u,
 			   void *context);
 	int (*cache_reset)(const struct mail_transaction_cache_reset *u,

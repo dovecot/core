@@ -130,7 +130,7 @@ static int _tview_lookup_first(struct mail_index_view *view,
 			*seq_r = seq;
 			break;
 		}
-		rec = CONST_PTR_OFFSET(rec, view->index->record_size);
+		rec = CONST_PTR_OFFSET(rec, view->index->max_record_size);
 	}
 
 	return 0;

@@ -80,10 +80,22 @@ static void mail_index_sync_sort_transaction(struct mail_index_sync_ctx *ctx)
 			mail_index_sync_sort_flags(ctx);
 		}
 		break;
-	case MAIL_TRANSACTION_APPEND:
-		buffer_append(ctx->appends_buf, ctx->data, ctx->hdr->size);
+	case MAIL_TRANSACTION_APPEND: {
+		const struct mail_transaction_append_header *hdr = ctx->data;
+		const struct mail_index_record *rec = ctx->data;
+
+		if (ctx->append_uid_first == 0 ||
+		    rec->uid < ctx->append_uid_first)
+			ctx->append_uid_first = rec->uid;
+
+		rec = CONST_PTR_OFFSET(ctx->data,
+				       ctx->hdr->size - hdr->record_size);
+		if (rec->uid > ctx->append_uid_last)
+			ctx->append_uid_last = rec->uid;
+
                 ctx->sync_appends = TRUE;
 		break;
+	}
 	}
 }
 
@@ -171,8 +183,6 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx->expunges_buf = buffer_create_dynamic(default_pool,
 						  1024, (size_t)-1);
 	ctx->updates_buf = buffer_create_dynamic(default_pool,
-						 1024, (size_t)-1);
-	ctx->appends_buf = buffer_create_dynamic(default_pool,
 						 1024, (size_t)-1);
 	if (mail_index_sync_read_and_sort(ctx) < 0) {
                 mail_index_sync_end(ctx);
@@ -304,12 +314,8 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	if (ctx->sync_appends) {
 		ctx->sync_appends = FALSE;
 		sync_rec->type = MAIL_INDEX_SYNC_TYPE_APPEND;
-		sync_rec->appends = buffer_get_data(ctx->appends_buf,
-						    &sync_rec->appends_count);
-		sync_rec->appends_count /= ctx->index->record_size;
-		sync_rec->uid1 = sync_rec->appends[0].uid;
-		sync_rec->uid2 =
-			sync_rec->appends[sync_rec->appends_count-1].uid;
+		sync_rec->uid1 = ctx->append_uid_first;
+		sync_rec->uid2 = ctx->append_uid_last;
 		return 1;
 	}
 
@@ -355,8 +361,6 @@ int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 		buffer_free(ctx->expunges_buf);
 	if (ctx->updates_buf != NULL)
 		buffer_free(ctx->updates_buf);
-	if (ctx->appends_buf != NULL)
-		buffer_free(ctx->appends_buf);
 	i_free(ctx);
 	return ret;
 }

@@ -22,9 +22,15 @@ struct mail_transaction_header;
 #define MAIL_INDEX_MAP_IS_IN_MEMORY(map) \
 	((map)->buffer != NULL)
 
-#define MAIL_INDEX_MAP_IDX(index, map, idx) \
+#define MAIL_INDEX_MAP_IDX(map, idx) \
 	((struct mail_index_record *) \
-		PTR_OFFSET((map)->records, (idx) * (index)->record_size))
+		PTR_OFFSET((map)->records, (idx) * (map)->hdr->record_size))
+
+struct mail_index_extra_record_info {
+	const char *name;
+	uint16_t offset;
+	uint16_t size;
+};
 
 struct mail_index_map {
 	int refcount;
@@ -32,6 +38,9 @@ struct mail_index_map {
 	const struct mail_index_header *hdr;
 	void *records; /* struct mail_index_record[] */
 	unsigned int records_count;
+
+	struct mail_index_extra_record_info *
+		extra_record_map[MAIL_INDEX_MAX_EXTRA_RECORDS];
 
 	void *mmap_base;
 	size_t mmap_size, mmap_used_size;
@@ -44,12 +53,6 @@ struct mail_index_map {
 	struct mail_index_header hdr_copy;
 
 	unsigned int write_to_disk:1;
-};
-
-struct mail_index_extra_record_info {
-	const char *name;
-	uint16_t offset;
-	uint16_t size;
 };
 
 struct mail_index {
@@ -65,8 +68,7 @@ struct mail_index {
 	buffer_t *extra_records_buf;
 	const struct mail_index_extra_record_info *extra_records;
 	unsigned int extra_records_count;
-
-	unsigned int record_size;
+	unsigned int max_record_size;
 
 	char *filepath;
 	int fd;
@@ -95,8 +97,8 @@ struct mail_index {
 	unsigned int fsck:1;
 };
 
-int mail_index_write_header(struct mail_index *index,
-			    const struct mail_index_header *hdr);
+int mail_index_write_base_header(struct mail_index *index,
+				 const struct mail_index_header *hdr);
 
 int mail_index_reopen(struct mail_index *index, int fd);
 int mail_index_create_tmp_file(struct mail_index *index, const char **path_r);
@@ -122,7 +124,7 @@ int mail_index_map(struct mail_index *index, int force);
 /* Unreference given mapping and unmap it if it's dropped to zero. */
 void mail_index_unmap(struct mail_index *index, struct mail_index_map *map);
 struct mail_index_map *
-mail_index_map_to_memory(struct mail_index *index, struct mail_index_map *map);
+mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size);
 
 int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
 			   struct mail_index_map **map_r,

@@ -8,6 +8,7 @@ struct mail_index_transaction {
 
         buffer_t *appends;
 	uint32_t first_new_seq, last_new_seq;
+	unsigned int append_record_size;
 
 	buffer_t *expunges;
 

@@ -75,7 +75,7 @@ static int mail_index_fsck_locked(struct mail_index *index,
 			hdr.first_deleted_uid_lowwater = rec->uid;
 
 		last_uid = rec->uid;
-		rec = CONST_PTR_OFFSET(rec, index->record_size);
+		rec = CONST_PTR_OFFSET(rec, hdr.record_size);
 	}
 
 	if (hdr.next_uid <= last_uid) {
@@ -100,7 +100,7 @@ static int mail_index_fsck_locked(struct mail_index *index,
         CHECK(first_unseen_uid_lowwater, <);
         CHECK(first_deleted_uid_lowwater, <);
 
-	if (mail_index_write_header(index, &hdr) < 0)
+	if (mail_index_write_base_header(index, &hdr) < 0)
 		return -1;
 
 	return 1;

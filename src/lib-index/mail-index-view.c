@@ -178,7 +178,7 @@ static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 	if (mail_index_view_lock(view) < 0)
 		return -1;
 
-	rec = MAIL_INDEX_MAP_IDX(view->index, view->map, seq-1);
+	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
 	if (view->map == view->index->map) {
 		*map_r = view->map;
 		*rec_r = rec;
@@ -203,7 +203,7 @@ static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 	do {
 		// FIXME: we could be skipping more by uid diff
 		seq--;
-		n_rec = MAIL_INDEX_MAP_IDX(view->index, map, seq);
+		n_rec = MAIL_INDEX_MAP_IDX(map, seq);
 		if (n_rec->uid <= uid)
 			break;
 	} while (seq > 0);
@@ -225,7 +225,7 @@ static int _view_lookup_uid(struct mail_index_view *view, uint32_t seq,
 	if (mail_index_view_lock(view) < 0)
 		return -1;
 
-	*uid_r = MAIL_INDEX_MAP_IDX(view->index, view->map, seq-1)->uid;
+	*uid_r = MAIL_INDEX_MAP_IDX(view->map, seq-1)->uid;
 	return 0;
 }
 
@@ -239,7 +239,7 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 	i_assert(view->messages_count <= view->map->records_count);
 
 	rec_base = view->map->records;
-	record_size = view->index->record_size;
+	record_size = view->map->hdr->record_size;
 
 	idx = left_idx = *left_idx_p;
 	right_idx = view->messages_count;
@@ -301,8 +301,7 @@ static int _view_lookup_uid_range(struct mail_index_view *view,
 	left_idx = 0;
 	*first_seq_r = mail_index_bsearch_uid(view, first_uid, &left_idx, 1);
 	if (*first_seq_r == 0 ||
-	    MAIL_INDEX_MAP_IDX(view->index, view->map, *first_seq_r-1)->uid >
-	    last_uid) {
+	    MAIL_INDEX_MAP_IDX(view->map, *first_seq_r-1)->uid > last_uid) {
 		*first_seq_r = 0;
 		*last_seq_r = 0;
 		return 0;
@@ -351,7 +350,7 @@ static int _view_lookup_first(struct mail_index_view *view,
 	}
 
 	for (; seq <= view->messages_count; seq++) {
-		rec = MAIL_INDEX_MAP_IDX(view->index, view->map, seq-1);
+		rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
 		if ((rec->flags & flags_mask) == (uint8_t)flags) {
 			*seq_r = seq;
 			break;

@@ -60,23 +60,23 @@ int mail_transaction_map(struct mail_index *index,
 			 struct mail_transaction_map_functions *map,
 			 void *context)
 {
-
 	int ret = 0;
 
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_APPEND: {
+                const struct mail_transaction_append_header *append_hdr = data;
 		const struct mail_index_record *rec, *end;
-		uint32_t record_size = index->record_size;
 
 		if (map->append == NULL)
 			break;
 
+		rec = CONST_PTR_OFFSET(data, sizeof(*append_hdr));
 		end = CONST_PTR_OFFSET(data, hdr->size);
-		for (rec = data; rec != end; ) {
-			ret = map->append(rec, context);
+		while (rec != end) {
+			ret = map->append(append_hdr, rec, context);
 			if (ret <= 0)
 				break;
-			rec = CONST_PTR_OFFSET(rec, record_size);
+			rec = CONST_PTR_OFFSET(rec, append_hdr->record_size);
 		}
 		break;
 	}

@@ -70,12 +70,10 @@ mail_index_buffer_convert_to_uids(struct mail_index_view *view,
 		seq = (uint32_t *)&data[i];
 		i_assert(seq[0] <= view->map->records_count);
 
-		seq[0] = MAIL_INDEX_MAP_IDX(view->index, view->map,
-					    seq[0]-1)->uid;
+		seq[0] = MAIL_INDEX_MAP_IDX(view->map, seq[0]-1)->uid;
 		if (range) {
 			i_assert(seq[1] <= view->map->records_count);
-			seq[1] = MAIL_INDEX_MAP_IDX(view->index, view->map,
-						    seq[1]-1)->uid;
+			seq[1] = MAIL_INDEX_MAP_IDX(view->map, seq[1]-1)->uid;
 		}
 	}
 }
@@ -139,6 +137,40 @@ void mail_index_transaction_rollback(struct mail_index_transaction *t)
         mail_index_transaction_free(t);
 }
 
+static void
+mail_index_transaction_update_append_size(struct mail_index_transaction *t)
+{
+	buffer_t *new_buf;
+	unsigned int new_record_size;
+	const void *src;
+	void *dest;
+	size_t i, size;
+
+	new_record_size = t->view->index->max_record_size;
+	if (t->append_record_size == new_record_size)
+		return;
+
+	i_assert(t->append_record_size < new_record_size);
+
+	if (t->append_record_size != 0) {
+		/* resize the records in buffer */
+		src = buffer_get_data(t->appends, &size);
+		size /= t->append_record_size;
+
+		new_buf = buffer_create_dynamic(default_pool,
+						size * new_record_size,
+						(size_t)-1);
+		for (i = 0; i < size; i++) {
+			dest = buffer_append_space_unsafe(new_buf,
+							  new_record_size);
+			memcpy(dest, src, t->append_record_size);
+			src = CONST_PTR_OFFSET(src, t->append_record_size);
+		}
+	}
+
+	t->append_record_size = new_record_size;
+}
+
 struct mail_index_record *
 mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq)
 {
@@ -146,9 +178,10 @@ mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq)
 
 	i_assert(seq >= t->first_new_seq && seq <= t->last_new_seq);
 
-	pos = (seq - t->first_new_seq) * t->view->index->record_size;
-	return buffer_get_space_unsafe(t->appends, pos,
-				       t->view->index->record_size);
+	mail_index_transaction_update_append_size(t);
+
+	pos = (seq - t->first_new_seq) * t->append_record_size;
+	return buffer_get_space_unsafe(t->appends, pos, t->append_record_size);
 }
 
 void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
@@ -159,7 +192,9 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 	if (t->appends == NULL) {
 		t->appends = buffer_create_dynamic(default_pool,
 						   4096, (size_t)-1);
+		t->append_record_size = t->view->index->max_record_size;
 	}
+	mail_index_transaction_update_append_size(t);
 
 	/* sequence number is visible only inside given view,
 	   so let it generate it */
@@ -168,9 +203,8 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 	else
 		*seq_r = t->last_new_seq = t->first_new_seq;
 
-	rec = buffer_append_space_unsafe(t->appends,
-					 t->view->index->record_size);
-	memset(rec, 0, t->view->index->record_size);
+	rec = buffer_append_space_unsafe(t->appends, t->append_record_size);
+	memset(rec, 0, t->append_record_size);
 	rec->uid = uid;
 }
 

@@ -31,7 +31,7 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->extra_records_buf =
 		buffer_create_dynamic(index->extra_records_pool,
 				      64, (size_t)-1);
-	index->record_size = sizeof(struct mail_index_record);
+	index->max_record_size = sizeof(struct mail_index_record);
 
 	index->mode = 0600;
 	index->gid = (gid_t)-1;
@@ -66,7 +66,7 @@ uint32_t mail_index_register_record_extra(struct mail_index *index,
 
 	i_assert(size % 4 == 0);
 	i_assert(!index->opened);
-	i_assert(index->record_size + size <= 65535);
+	i_assert(index->max_record_size + size <= 65535);
 
 	if (index->extra_records_count >= MAIL_INDEX_MAX_EXTRA_RECORDS) {
 		i_panic("Maximum extra record count reached, "
@@ -78,14 +78,14 @@ uint32_t mail_index_register_record_extra(struct mail_index *index,
 	memset(&info, 0, sizeof(info));
 	info.name = p_strdup(index->extra_records_pool, name);
 	info.size = size;
-	info.offset = index->record_size;
+	info.offset = index->max_record_size;
 
 	buffer_append(index->extra_records_buf, &info, sizeof(info));
 	index->extra_records =
 		buffer_get_data(index->extra_records_buf, &buf_size);
 	index->extra_records_count = buf_size / sizeof(info);
 
-	index->record_size += size;
+	index->max_record_size += size;
 	return index->extra_records_count-1;
 }
 
@@ -132,11 +132,11 @@ static int mail_index_check_header(struct mail_index *index,
 		return -1;
 	}
 
-	if (hdr->record_size != index->record_size) {
+	if (hdr->record_size < sizeof(struct mail_index_record)) {
 		mail_index_set_error(index, "Corrupted index file %s: "
-				     "record_size mismatch: %d != %d",
+				     "record_size too small: %u < %"PRIuSIZE_T,
 				     index->filepath, hdr->record_size,
-				     (int)index->record_size);
+				     sizeof(struct mail_index_record));
 		return -1;
 	}
 
@@ -227,11 +227,11 @@ static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 	hdr = map->mmap_base;
 	map->hdr = hdr;
 	map->mmap_used_size = hdr->header_size +
-		hdr->messages_count * index->record_size;
+		hdr->messages_count * hdr->record_size;
 
 	if (map->mmap_used_size > map->mmap_size) {
 		records_count = (map->mmap_size - hdr->header_size) /
-			index->record_size;
+			hdr->record_size;
 		mail_index_set_error(index, "Corrupted index file %s: "
 				     "messages_count too large (%u > %u)",
 				     index->filepath, hdr->messages_count,
@@ -271,7 +271,7 @@ static int mail_index_read_map(struct mail_index *index,
 			pos += ret;
 	}
 	if (ret >= 0 && pos >= MAIL_INDEX_HEADER_MIN_SIZE) {
-		records_size = hdr.messages_count * index->record_size;
+		records_size = hdr.messages_count * hdr.record_size;
 
 		if (map->buffer == NULL) {
 			map->buffer = buffer_create_dynamic(default_pool,
@@ -367,7 +367,7 @@ int mail_index_map(struct mail_index *index, int force)
 			return -1;
 
 		used_size = hdr->header_size +
-			hdr->messages_count * index->record_size;
+			hdr->messages_count * hdr->record_size;
 		if (map->mmap_size >= used_size && !force) {
 			map->records_count = hdr->messages_count;
 			return 1;
@@ -410,27 +410,41 @@ int mail_index_map(struct mail_index *index, int force)
 }
 
 struct mail_index_map *
-mail_index_map_to_memory(struct mail_index *index, struct mail_index_map *map)
+mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size)
 {
 	struct mail_index_map *mem_map;
-	size_t size;
+	void *src, *dest;
+	size_t size, copy_size;
+	unsigned int i;
 
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
 		map->refcount++;
 		return map;
 	}
 
-        size = map->records_count * index->record_size;
+        size = map->records_count * new_record_size;
 
 	mem_map = i_new(struct mail_index_map, 1);
 	mem_map->refcount = 1;
 	mem_map->buffer = buffer_create_dynamic(default_pool, size, (size_t)-1);
-	buffer_append(mem_map->buffer, map->records, size);
+	if (map->hdr->record_size == new_record_size)
+		buffer_append(mem_map->buffer, map->records, size);
+	else {
+		copy_size = I_MIN(map->hdr->record_size, new_record_size);
+		src = map->records;
+		for (i = 0; i < map->records_count; i++) {
+			dest = buffer_append_space_unsafe(mem_map->buffer,
+							  new_record_size);
+			memcpy(dest, src, copy_size);
+			src = PTR_OFFSET(src, map->hdr->record_size);
+		}
+	}
 
 	mem_map->records = buffer_get_modifyable_data(mem_map->buffer, NULL);
 	mem_map->records_count = map->records_count;
 
 	mem_map->hdr_copy = *map->hdr;
+	mem_map->hdr_copy.record_size = new_record_size;
 	mem_map->hdr = &mem_map->hdr_copy;
 	return mem_map;
 }
@@ -497,15 +511,19 @@ mail_index_try_open(struct mail_index *index, unsigned int *lock_id_r)
 	return ret;
 }
 
-int mail_index_write_header(struct mail_index *index,
-			    const struct mail_index_header *hdr)
+int mail_index_write_base_header(struct mail_index *index,
+				 const struct mail_index_header *hdr)
 {
+	size_t hdr_size;
+
+	hdr_size = I_MIN(sizeof(*hdr), hdr->base_header_size);
+
 	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(index->map)) {
-		memcpy(index->map->mmap_base, hdr, sizeof(*hdr));
-		if (msync(index->map->mmap_base, sizeof(*hdr), MS_SYNC) < 0)
+		memcpy(index->map->mmap_base, hdr, hdr_size);
+		if (msync(index->map->mmap_base, hdr_size, MS_SYNC) < 0)
 			return mail_index_set_syscall_error(index, "msync()");
 	} else {
-		if (pwrite_full(index->fd, hdr, sizeof(*hdr), 0) < 0) {
+		if (pwrite_full(index->fd, hdr, hdr_size, 0) < 0) {
 			mail_index_set_syscall_error(index, "pwrite_full()");
 			return -1;
 		}
@@ -602,7 +620,7 @@ static void mail_index_header_init(struct mail_index *index,
 	hdr->minor_version = MAIL_INDEX_MINOR_VERSION;
 	hdr->base_header_size = sizeof(*hdr);
 	hdr->header_size = sizeof(*hdr);
-	hdr->record_size = index->record_size;
+	hdr->record_size = index->max_record_size;
 	hdr->keywords_mask_size = sizeof(keywords_mask_t);
 
 #ifndef WORDS_BIGENDIAN
@@ -890,7 +908,7 @@ void mail_index_mark_corrupted(struct mail_index *index)
 
 	hdr = *index->hdr;
 	hdr.flags |= MAIL_INDEX_HDR_FLAG_CORRUPTED;
-	if (mail_index_write_header(index, &hdr) == 0) {
+	if (mail_index_write_base_header(index, &hdr) == 0) {
 		if (fsync(index->fd) < 0)
 			mail_index_set_syscall_error(index, "fsync()");
 	}

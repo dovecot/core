@@ -5,11 +5,13 @@ struct mail_index_sync_ctx {
 	struct mail_index *index;
 	struct mail_index_view *view;
 
-	buffer_t *expunges_buf, *updates_buf, *appends_buf;
+	buffer_t *expunges_buf, *updates_buf;
 
 	const struct mail_transaction_expunge *expunges;
 	const struct mail_transaction_flag_update *updates;
 	size_t expunges_count, updates_count;
+
+	uint32_t append_uid_first, append_uid_last;
 
 	const struct mail_transaction_header *hdr;
 	const void *data;

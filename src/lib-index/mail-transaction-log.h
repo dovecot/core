@@ -75,6 +75,10 @@ struct mail_transaction_extra_rec_update {
 	unsigned char data[1]; /* variable size */
 };
 
+struct mail_transaction_append_header {
+	uint32_t record_size;
+};
+
 struct mail_transaction_log *
 mail_transaction_log_open_or_create(struct mail_index *index);
 void mail_transaction_log_close(struct mail_transaction_log *log);

@@ -123,10 +123,6 @@ struct mail_index_sync_rec {
 	keywords_mask_t add_keywords;
 	uint8_t remove_flags;
 	keywords_mask_t remove_keywords;
-
-	/* MAIL_INDEX_SYNC_TYPE_APPEND: */
-	const struct mail_index_record *appends;
-	size_t appends_count;
 };
 
 struct mail_index;
