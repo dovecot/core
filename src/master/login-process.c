@@ -379,6 +379,8 @@ static pid_t create_login_process(struct login_group *group)
 		env_put("DISABLE_PLAINTEXT_AUTH=1");
 	if (set->verbose_proctitle)
 		env_put("VERBOSE_PROCTITLE=1");
+	if (set->verbose_ssl)
+		env_put("VERBOSE_SSL=1");
 
 	if (group->set->process_per_connection) {
 		env_put("PROCESS_PER_CONNECTION=1");
