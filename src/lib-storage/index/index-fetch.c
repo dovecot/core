@@ -100,6 +100,7 @@ static void index_fetch_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 	str = t_strdup_printf(" RFC822 {%lu}\r\n",
 			      (unsigned long) (hdr_size.virtual_size +
 					       body_size.virtual_size));
+	if (ctx->first) str++; else ctx->first = FALSE;
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
 
 	body_size.physical_size += hdr_size.physical_size;
@@ -121,6 +122,7 @@ static void index_fetch_rfc822_header(MailIndexRecord *rec, FetchContext *ctx)
 
 	str = t_strdup_printf(" RFC822.HEADER {%lu}\r\n",
 			      (unsigned long) hdr_size.virtual_size);
+	if (ctx->first) str++; else ctx->first = FALSE;
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
 	(void)message_send(ctx->outbuf, inbuf, &hdr_size, 0, (uoff_t)-1);
 }
@@ -139,6 +141,7 @@ static void index_fetch_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 
 	str = t_strdup_printf(" RFC822.TEXT {%lu}\r\n",
 			      (unsigned long) body_size.virtual_size);
+	if (ctx->first) str++; else ctx->first = FALSE;
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
 	(void)message_send(ctx->outbuf, inbuf, &body_size, 0, (uoff_t)-1);
 }
@@ -238,6 +241,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 		(void)io_buffer_send(ctx->outbuf, ctx->str->str+1,
 				     ctx->str->len-1);
 	}
+	ctx->first = ctx->str->len == 0;
 
 	/* large data */
 	if (ctx->fetch_data->rfc822)

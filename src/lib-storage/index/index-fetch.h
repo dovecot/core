@@ -11,6 +11,7 @@ typedef struct {
 	IOBuffer *outbuf;
 	TempString *str;
 	int update_seen;
+	int first;
 } FetchContext;
 
 ImapCacheField index_fetch_body_get_cache(const char *section);

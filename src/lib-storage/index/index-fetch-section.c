@@ -375,6 +375,8 @@ void index_fetch_body_section(MailIndexRecord *rec,
 		t_strdup_printf(" BODY[%s] ", sect->section) :
 		t_strdup_printf(" BODY[%s]<%lu> ", sect->section,
 				(unsigned long) sect->skip);
+	if (ctx->first) str++; else ctx->first = FALSE;
+
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
 
 	if (*sect->section == '\0') {
