@@ -238,7 +238,7 @@ static void *pool_alloconly_realloc_min(Pool pool, void *mem, size_t size)
 
 	if (size > old_size) {
                 /* clear new data */
-		memset(mem + old_size, 0, size - old_size);
+		memset((char *) mem + old_size, 0, size - old_size);
 	}
 
         return mem;
