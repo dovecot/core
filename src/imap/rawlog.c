@@ -5,6 +5,7 @@
 #ifdef BUILD_RAWLOG
 
 #include "ioloop.h"
+#include "network.h"
 #include "rawlog.h"
 #include "write-full.h"
 
@@ -23,6 +24,7 @@ static void copy(int in, int out, int log)
 	char buf[1024];
 	ssize_t r_ret, s_ret;
 
+	net_set_nonblock(in, TRUE);
 	r_ret = read(in, buf, sizeof(buf));
 	if (r_ret <= 0) {
 		if (r_ret < 0)
@@ -36,6 +38,7 @@ static void copy(int in, int out, int log)
 	if (write_full(log, buf, r_ret) < 0)
 		i_fatal("Can't write to log file: %m");
 
+	net_set_nonblock(out, FALSE);
 	do {
 		s_ret = write(out, buf, r_ret);
 		if (s_ret <= 0) {
