@@ -559,7 +559,8 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 				   is updated? shouldn't really happen.. */
 				mail_storage_set_critical(ibox->box.storage,
 					"Maildir sync: UID < next_uid "
-					"(%u < %u)", uid, hdr->next_uid);
+					"(%u < %u, file = %s)",
+					uid, hdr->next_uid, filename);
 				mail_index_mark_corrupted(ibox->index);
 				ret = -1;
 				break;
@@ -678,9 +679,10 @@ static int maildir_sync_context(struct maildir_sync_context *ctx)
 	}
 
 	/* finish uidlist syncing, but keep it still locked */
-        maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
-	if (maildir_sync_index(ctx) < 0)
-		return -1;
+	if (maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx)) {
+		if (maildir_sync_index(ctx) < 0)
+			return -1;
+	}
 
 	ret = maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
         ctx->uidlist_sync_ctx = NULL;

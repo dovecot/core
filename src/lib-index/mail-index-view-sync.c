@@ -353,6 +353,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 
 	mail_index_unmap(view->index, view->map);
 	view->map = ctx->sync_map;
+	view->map_protected = FALSE;
 
         mail_transaction_log_view_unset(view->log_view);
 

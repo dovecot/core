@@ -37,7 +37,8 @@ int maildir_uidlist_sync_next_pre(struct maildir_uidlist_sync_ctx *ctx,
 int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			      const char *filename,
 			      enum maildir_uidlist_rec_flag flags);
-void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx);
+/* Returns 1 = ok, 0 = uidlist is locked, don't try syncing any further */
+int maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx);
 int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx);
 
 /* List all maildir files. */
