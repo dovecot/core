@@ -8,7 +8,6 @@
 #include "ostream.h"
 #include "safe-memset.h"
 #include "str.h"
-#include "imap-parser.h"
 #include "auth-connection.h"
 #include "../auth/auth-mech-desc.h"
 #include "client.h"

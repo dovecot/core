@@ -115,6 +115,7 @@ static int client_command_execute(struct pop3_client *client, const char *cmd,
 	if (strcmp(cmd, "QUIT") == 0)
 		return cmd_quit(client);
 
+	client_send_line(client, "-ERR Unknown command.");
 	return FALSE;
 }
 
