@@ -14,7 +14,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 			void *context)
 {
 	struct pop3_client *client = context;
-	string_t *auth, *str;
+	string_t *str;
 	const char *line;
 
 	if (input == NULL) {
@@ -48,7 +48,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 
 	if (client->proxy_user != NULL) {
 		/* this is a banner */
-		if (strncmp(line, "+OK ", 4) != 0) {
+		if (strncmp(line, "+OK", 3) != 0) {
 			i_error("pop3-proxy(%s): "
 				"Remote returned invalid banner: %s",
 				client->common.virtual_user, line);
@@ -56,39 +56,44 @@ static void proxy_input(struct istream *input, struct ostream *output,
 			return;
 		}
 
-		/* send AUTH command */
-		auth = t_str_new(128);
-		str_append_c(auth, '\0');
-		str_append(auth, client->proxy_user);
-		str_append_c(auth, '\0');
-		str_append(auth, client->proxy_password);
-
+		/* send USER command */
 		str = t_str_new(128);
-		str_append(str, "AUTH PLAIN ");
-		base64_encode(str_data(auth), str_len(auth), str);
+		str_append(str, "USER ");
+		str_append(str, client->proxy_user);
 		str_append(str, "\r\n");
 		(void)o_stream_send(output, str_data(str), str_len(str));
 
-		safe_memset(client->proxy_password, 0,
-			    strlen(client->proxy_password));
 		i_free(client->proxy_user);
-		i_free(client->proxy_password);
 		client->proxy_user = NULL;
-		client->proxy_password = NULL;
-	} else if (strncmp(line, "+OK ", 4) == 0) {
-		/* Login successful. Send this line to client. */
-		(void)o_stream_send_str(client->output, line);
-		(void)o_stream_send(client->output, "\r\n", 2);
+	} else if (strncmp(line, "+OK", 3) == 0) {
+		if (client->proxy_password != NULL) {
+			/* USER successful, send PASS */
+			str = t_str_new(128);
+			str_append(str, "PASS ");
+			str_append(str, client->proxy_password);
+			str_append(str, "\r\n");
+			(void)o_stream_send(output, str_data(str),
+					    str_len(str));
 
-		login_proxy_detach(client->proxy, client->input,
-				   client->output);
+			safe_memset(client->proxy_password, 0,
+				    strlen(client->proxy_password));
+			i_free(client->proxy_password);
+			client->proxy_password = NULL;
+		} else {
+			/* Login successful. Send this line to client. */
+			(void)o_stream_send_str(client->output, line);
+			(void)o_stream_send(client->output, "\r\n", 2);
 
-		client->proxy = NULL;
-		client->input = NULL;
-		client->output = NULL;
-		client->common.fd = -1;
-		client_destroy(client, t_strconcat(
-			"Proxy: ", client->common.virtual_user, NULL));
+			login_proxy_detach(client->proxy, client->input,
+					   client->output);
+
+			client->proxy = NULL;
+			client->input = NULL;
+			client->output = NULL;
+			client->common.fd = -1;
+			client_destroy(client, t_strconcat(
+				"Proxy: ", client->common.virtual_user, NULL));
+		}
 	} else {
 		/* Login failed. Send our own failure reply so client can't
 		   figure out if user exists or not just by looking at the
