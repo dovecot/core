@@ -171,7 +171,6 @@ int mail_index_messageset_foreach(MailIndex *index, const char *messageset,
 
 static int mail_index_uid_foreach(MailIndex *index,
 				  unsigned int uid, unsigned int uid2,
-				  unsigned int max_sequence,
 				  MsgsetForeachFunc func, void *context,
 				  const char **error)
 {
@@ -206,7 +205,7 @@ static int mail_index_uid_foreach(MailIndex *index,
 		return 2;
 
 	seq = index->get_sequence(index, rec);
-	while (rec != NULL && rec->uid <= uid2 && seq <= max_sequence) {
+	while (rec != NULL && rec->uid <= uid2) {
 		uid = rec->uid;
 		while (*expunges != 0 && *expunges < rec->uid) {
 			expunges++;
@@ -298,7 +297,6 @@ int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 			/* too large .. ignore silently */
 		} else {
 			ret = mail_index_uid_foreach(index, uid, uid2,
-						     messages_count,
 						     func, context, error);
 			if (ret <= 0)
 				return ret;
