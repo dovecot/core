@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "hash.h"
+#include "file-cache.h"
 #include "write-full.h"
 #include "mail-cache-private.h"
 
@@ -111,7 +112,7 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 				   sizeof(*field_hdr) + CACHE_HDR_PREFETCH) < 0)
 			return -1;
 
-		field_hdr = CONST_PTR_OFFSET(cache->mmap_base, offset);
+		field_hdr = CONST_PTR_OFFSET(cache->data, offset);
 		next_offset =
 			mail_index_offset_to_uint32(field_hdr->next_offset);
 	}
@@ -138,7 +139,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		return 0;
 	}
 
-	field_hdr = CONST_PTR_OFFSET(cache->mmap_base, offset);
+	field_hdr = CONST_PTR_OFFSET(cache->data, offset);
 	if (offset + field_hdr->size > cache->mmap_length) {
 		mail_cache_set_corrupted(cache,
 					 "field header points outside file");
@@ -157,7 +158,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		if (mail_cache_map(cache, offset, field_hdr->size) < 0)
 			return -1;
 	}
-	field_hdr = CONST_PTR_OFFSET(cache->mmap_base, offset);
+	field_hdr = CONST_PTR_OFFSET(cache->data, offset);
 
 	cache->file_field_map =
 		i_realloc(cache->file_field_map,
@@ -267,6 +268,7 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 	int locked = cache->locked;
 	buffer_t *buffer;
 	uint32_t i, offset;
+	size_t size;
 	int ret = 0;
 
 	if (!locked) {
@@ -286,15 +288,18 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 	copy_to_buf(cache, buffer,
 		    offsetof(struct mail_cache_field_private, last_used),
 		    sizeof(uint32_t));
-	ret = pwrite_full(cache->fd, buffer_get_data(buffer, NULL),
+	size = buffer->used;
+
+	ret = pwrite_full(cache->fd, buffer->data,
 			  sizeof(uint32_t) * cache->file_fields_count,
 			  offset + MAIL_CACHE_FIELD_LAST_USED());
 	if (ret == 0) {
 		buffer_set_used_size(buffer, 0);
 		copy_to_buf_byte(cache, buffer,
 				 offsetof(struct mail_cache_field, decision));
+		size += buffer->used;
 
-		ret = pwrite_full(cache->fd, buffer_get_data(buffer, NULL),
+		ret = pwrite_full(cache->fd, buffer->data,
 			sizeof(uint8_t) * cache->file_fields_count, offset +
 			MAIL_CACHE_FIELD_DECISION(cache->file_fields_count));
 
@@ -305,8 +310,11 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 	}
 	t_pop();
 
-	if (ret == 0)
+	if (ret == 0) {
 		cache->field_header_write_pending = FALSE;
+		if (cache->file_cache != NULL)
+			file_cache_invalidate(cache->file_cache, offset, size);
+	}
 
 	if (!locked)
 		mail_cache_unlock(cache);

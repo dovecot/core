@@ -9,10 +9,10 @@
 
 #define CACHE_PREFETCH 1024
 
-struct mail_cache_record *
+const struct mail_cache_record *
 mail_cache_get_record(struct mail_cache *cache, uint32_t offset)
 {
-	struct mail_cache_record *cache_rec;
+	const struct mail_cache_record *cache_rec;
 
 	if (offset == 0)
 		return NULL;
@@ -401,10 +401,9 @@ headers_find_callback(struct mail_cache_view *view, uint32_t field,
 	}
 	lines_count = i;
 
-	/* FIXME: this relies on mmap() too heavily */
 	hdr_data_rec = t_new(struct header_lookup_data_rec, 1);
 	hdr_data_rec->offset = (const char *)&lines[lines_count+1] -
-		(const char *)view->cache->mmap_base;
+		(const char *)view->cache->data;
 	hdr_data_rec->data_size = (uint32_t)data_size;
 
 	for (i = 0; i < lines_count; i++) {
@@ -487,8 +486,7 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 
 	/* then start filling dest buffer from the headers */
 	for (i = 0; i < size; i++) {
-		start = CONST_PTR_OFFSET(cache->mmap_base,
-					 data[i].data->offset);
+		start = CONST_PTR_OFFSET(cache->data, data[i].data->offset);
 		end = start + data[i].data->data_size;
 
 		for (p = start; p != end; p++) {

@@ -1,6 +1,7 @@
 /* Copyright (C) 2004 Timo Sirainen */
 
 #include "lib.h"
+#include "file-cache.h"
 #include "mail-cache-private.h"
 #include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
@@ -96,6 +97,7 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			    void **context)
 {
 	struct mail_index_view *view = sync_ctx->view;
+	struct mail_cache *cache = view->index->cache;
 	struct mail_cache_sync_context *ctx = *context;
 	const uint32_t *old_cache_offset = old_data;
 	const uint32_t *new_cache_offset = new_data;
@@ -108,11 +110,16 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 		return 1;
 	}
 
+	if (cache->file_cache != NULL) {
+		file_cache_invalidate(cache->file_cache, *new_cache_offset,
+				      (size_t)-1);
+	}
+
 	if (*old_cache_offset == 0)
 		return 1;
 
 	/* we'll need to link the old and new cache records */
-	ret = mail_cache_handler_init(&ctx, view->index->cache);
+	ret = mail_cache_handler_init(&ctx, cache);
 	*context = ctx;
 	if (ret <= 0)
 		return ret < 0 ? -1 : 1;
@@ -120,13 +127,12 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 	if (!get_cache_file_seq(view, &cache_file_seq))
 		return 1;
 
-	if (cache_file_seq != view->index->cache->hdr->file_seq) {
+	if (cache_file_seq != cache->hdr->file_seq) {
 		/* cache has been compressed, don't modify it */
 		return 1;
 	}
 
-	if (mail_cache_link(view->index->cache,
-			    *old_cache_offset, *new_cache_offset) < 0)
+	if (mail_cache_link(cache, *old_cache_offset, *new_cache_offset) < 0)
 		return -1;
 
 	return 1;

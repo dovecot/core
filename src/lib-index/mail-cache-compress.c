@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "ostream.h"
+#include "file-cache.h"
 #include "file-set-size.h"
 #include "mail-cache-private.h"
 
@@ -275,6 +276,9 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 		} else {
 			mail_cache_file_close(cache);
 			cache->fd = fd;
+
+			if (cache->file_cache != NULL)
+				file_cache_set_fd(cache->file_cache, cache->fd);
 
 			if (mail_cache_map(cache, 0, 0) < 0)
 				ret = -1;

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "hash.h"
+#include "file-cache.h"
 #include "mmap-util.h"
 #include "write-full.h"
 #include "mail-cache-private.h"
@@ -46,7 +47,11 @@ void mail_cache_file_close(struct mail_cache *cache)
 			mail_cache_set_syscall_error(cache, "munmap()");
 	}
 
+	if (cache->file_cache != NULL)
+		file_cache_set_fd(cache->file_cache, -1);
+
 	cache->mmap_base = NULL;
+	cache->data = NULL;
 	cache->hdr = NULL;
 	cache->mmap_length = 0;
 
@@ -78,6 +83,9 @@ int mail_cache_reopen(struct mail_cache *cache)
 		return -1;
 	}
 
+	if (cache->file_cache != NULL)
+		file_cache_set_fd(cache->file_cache, cache->fd);
+
 	if (mail_cache_map(cache, 0, 0) < 0)
 		return -1;
 
@@ -100,16 +108,15 @@ int mail_cache_reopen(struct mail_cache *cache)
 	return 1;
 }
 
-static int mmap_verify_header(struct mail_cache *cache)
+static int mail_cache_verify_header(struct mail_cache *cache)
 {
-	const struct mail_cache_header *hdr;
+	const struct mail_cache_header *hdr = cache->data;
 
 	/* check that the header is still ok */
 	if (cache->mmap_length < sizeof(struct mail_cache_header)) {
 		mail_cache_set_corrupted(cache, "File too small");
 		return FALSE;
 	}
-	cache->hdr = hdr = cache->mmap_base;
 
 	if (cache->hdr->version != MAIL_CACHE_VERSION) {
 		/* version changed - upgrade silently */
@@ -135,7 +142,8 @@ static int mmap_verify_header(struct mail_cache *cache)
 		return FALSE;
 	}
 
-	if (hdr->used_file_size > cache->mmap_length) {
+	if (cache->mmap_base != NULL &&
+	    hdr->used_file_size > cache->mmap_length) {
 		mail_cache_set_corrupted(cache, "used_file_size too large");
 		return FALSE;
 	}
@@ -144,8 +152,32 @@ static int mmap_verify_header(struct mail_cache *cache)
 
 int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 {
+	ssize_t ret;
+
 	if (size == 0)
 		size = sizeof(struct mail_cache_header);
+
+	if (cache->file_cache != NULL) {
+		cache->data = NULL;
+		cache->hdr = NULL;
+
+		ret = file_cache_read(cache->file_cache, offset, size);
+		if (ret < 0) {
+			// FIXME: ESTALE
+			mail_cache_set_syscall_error(cache, "read()");
+			return -1;
+		}
+
+		cache->data = file_cache_get_map(cache->file_cache,
+						 &cache->mmap_length);
+		cache->hdr = cache->data;
+
+		if (offset == 0 && !mail_cache_verify_header(cache)) {
+			cache->need_compress = TRUE;
+			return -1;
+		}
+		return 0;
+	}
 
 	if (offset < cache->mmap_length &&
 	    size <= cache->mmap_length - offset) {
@@ -171,11 +203,14 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 	cache->mmap_base = mmap_ro_file(cache->fd, &cache->mmap_length);
 	if (cache->mmap_base == MAP_FAILED) {
 		cache->mmap_base = NULL;
+		cache->data = NULL;
 		mail_cache_set_syscall_error(cache, "mmap()");
 		return -1;
 	}
+	cache->data = cache->mmap_base;
+	cache->hdr = cache->mmap_base;
 
-	if (!mmap_verify_header(cache)) {
+	if (!mail_cache_verify_header(cache)) {
 		cache->need_compress = TRUE;
 		return -1;
 	}
@@ -188,6 +223,9 @@ static int mail_cache_open_and_verify(struct mail_cache *cache)
 	cache->filepath = i_strconcat(cache->index->filepath,
 				      MAIL_CACHE_FILE_PREFIX, NULL);
 
+	if (cache->index->mmap_disable || cache->index->mmap_no_write)
+		cache->file_cache = file_cache_new(-1);
+
 	cache->fd = open(cache->filepath, O_RDWR);
 	if (cache->fd == -1) {
 		if (errno == ENOENT) {
@@ -198,6 +236,9 @@ static int mail_cache_open_and_verify(struct mail_cache *cache)
 		mail_cache_set_syscall_error(cache, "open()");
 		return -1;
 	}
+
+	if (cache->file_cache != NULL)
+		file_cache_set_fd(cache->file_cache, cache->fd);
 
 	if (mail_cache_map(cache, 0, sizeof(struct mail_cache_header)) < 0)
 		return -1;
@@ -217,12 +258,10 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 		hash_create(default_pool, cache->field_pool, 0,
 			    strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 
-	if (!index->mmap_disable && !index->mmap_no_write) {
-		if (mail_cache_open_and_verify(cache) < 0) {
-			/* failed for some reason - doesn't really matter,
-			   it's disabled for now. */
-			mail_cache_file_close(cache);
-		}
+	if (mail_cache_open_and_verify(cache) < 0) {
+		/* failed for some reason - doesn't really matter,
+		   it's disabled for now. */
+		mail_cache_file_close(cache);
 	}
 
 	cache->ext_id =
@@ -237,6 +276,11 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 
 void mail_cache_free(struct mail_cache *cache)
 {
+	if (cache->file_cache != NULL) {
+		file_cache_free(cache->file_cache);
+		cache->file_cache = NULL;
+	}
+
 	mail_cache_file_close(cache);
 
 	hash_destroy(cache->field_name_hash);
@@ -299,8 +343,12 @@ int mail_cache_lock(struct mail_cache *cache)
 		ret = 0;
 	}
 
-	if (ret > 0)
+	if (ret > 0) {
+		/* make sure our header is up to date */
+		if (mail_cache_map(cache, 0, 0) < 0)
+			ret = -1;
 		cache->hdr_copy = *cache->hdr;
+	}
 
 	mail_index_view_close(view);
 	return ret;
@@ -342,7 +390,11 @@ void mail_cache_unlock(struct mail_cache *cache)
 		if (pwrite_full(cache->fd, &cache->hdr_copy,
 				sizeof(cache->hdr_copy), 0) < 0)
 			mail_cache_set_syscall_error(cache, "pwrite_full()");
-                mail_cache_update_need_compress(cache);
+		if (cache->file_cache != NULL) {
+			file_cache_invalidate(cache->file_cache, 0,
+					      sizeof(cache->hdr_copy));
+		}
+		mail_cache_update_need_compress(cache);
 	}
 
 	if (mail_index_lock_fd(cache->index, cache->fd, F_UNLCK, 0) <= 0) {

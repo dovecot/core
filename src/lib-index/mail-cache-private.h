@@ -33,7 +33,8 @@
 #define MAIL_CACHE_LOCK_IMMEDIATE_TIMEOUT (5*60)
 
 #define CACHE_RECORD(cache, offset) \
-	((struct mail_cache_record *) ((char *) (cache)->mmap_base + offset))
+	((const struct mail_cache_record *) \
+	 ((const char *) (cache)->data + offset))
 
 #define MAIL_CACHE_IS_UNUSABLE(cache) \
 	((cache)->hdr == NULL)
@@ -121,7 +122,9 @@ struct mail_cache {
 	int fd;
 
 	void *mmap_base;
+	const void *data;
 	size_t mmap_length;
+	struct file_cache *file_cache;
 
 	const struct mail_cache_header *hdr;
 	struct mail_cache_header hdr_copy;
@@ -175,7 +178,7 @@ void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest);
 int mail_cache_header_fields_get_next_offset(struct mail_cache *cache,
 					     uint32_t *offset_r);
 
-struct mail_cache_record *
+const struct mail_cache_record *
 mail_cache_get_record(struct mail_cache *cache, uint32_t offset);
 
 int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
