@@ -6,17 +6,19 @@
 #include <stdio.h>
 #include <signal.h>
 
-int lib_signal_hup, lib_signal_kill;
+int lib_signal_kill;
+unsigned int lib_signal_hup_count;
+
 static void (*quit_handler) (int);
 
-static void sig_hup(int signo)
+static void sig_hup(int signo __attr_unused__)
 {
 #ifndef HAVE_SIGACTION
 	/* some systems may have changed the signal handler to default one */
         signal(SIGHUP, sig_hup);
 #endif
 
-	lib_signal_hup = signo;
+        lib_signal_hup_count++;
 }
 
 static void sig_quit(int signo)
@@ -36,7 +38,7 @@ void lib_init_signals(void (*sig_quit_handler) (int))
 #endif
 
         lib_signal_kill = 0;
-	lib_signal_hup = 0;
+	lib_signal_hup_count = 0;
 	quit_handler = sig_quit_handler;
 
 	/* signal() behaviour is a bit inconsistent between systems
