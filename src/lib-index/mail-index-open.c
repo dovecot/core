@@ -286,8 +286,10 @@ static int mail_index_create_memory(struct mail_index *index,
 
 	index->mmap_full_length = INDEX_FILE_MIN_SIZE;
 	index->mmap_base = mmap_anon(index->mmap_full_length);
-	if (index->mmap_base == MAP_FAILED)
+	if (index->mmap_base == MAP_FAILED) {
+		index->mmap_base = NULL;
 		return index_set_error(index, "mmap_anon() failed: %m");
+	}
 
 	mail_index_init_header(index, index->mmap_base);
 	index->header = index->mmap_base;
@@ -332,7 +334,8 @@ static int mail_index_open_index(struct mail_index *index,
 	if ((ret = mail_index_read_header(index, &hdr)) < 0)
 		return FALSE;
 
-	if (ret == 0 || !mail_index_is_compatible(&hdr)) {
+	if (ret == 0 || !mail_index_is_compatible(&hdr) ||
+	    (hdr.flags & MAIL_INDEX_FLAG_REBUILD) != 0) {
 		if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0)
 			return FALSE;
 

@@ -120,7 +120,19 @@ int mail_index_mmap_update(struct mail_index *index)
 
 void mail_index_close(struct mail_index *index)
 {
-	index->set_flags = 0;
+	if (index->set_flags != 0) {
+		if (index->header != NULL) {
+#ifdef DEBUG
+			mprotect(index->mmap_base, index->mmap_used_length,
+				 PROT_READ|PROT_WRITE);
+#endif
+			index->header->flags |= index->set_flags;
+			(void)msync(index->mmap_base,
+				    sizeof(struct mail_index_header), MS_SYNC);
+		}
+		index->set_flags = 0;
+	}
+
 	index->set_cache_fields = 0;
 
 	index->opened = FALSE;
@@ -168,11 +180,6 @@ void mail_index_close(struct mail_index *index)
 	if (index->custom_flags != NULL) {
 		mail_custom_flags_free(index->custom_flags);
                 index->custom_flags = NULL;
-	}
-
-	if (index->control_dir != NULL) {
-		i_free(index->control_dir);
-                index->control_dir = NULL;
 	}
 
 	if (index->error != NULL) {

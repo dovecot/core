@@ -771,6 +771,7 @@ static void mbox_index_free(struct mail_index *index)
 	mail_index_close(index);
 	i_free(index->dir);
 	i_free(index->mailbox_path);
+	i_free(index->control_dir);
 	i_free(index);
 }
 
