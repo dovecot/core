@@ -104,6 +104,10 @@ static int anon_mmap_fixed(void *address, size_t length)
 
 	i_assert(address != NULL);
 
+	i_warning("%p %u", address, length);
+	errno = ENOMEM;
+	return -1;
+
 	base = mmap(address, length, PROT_READ | PROT_WRITE,
 		    MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, zero_fd, 0);
 
@@ -233,7 +237,7 @@ static void *mremap_move(struct movable_header *hdr, size_t new_size)
 	char *p;
 	size_t block_size, old_size;
 
-	new_base = mmap_anon(new_size - header_size);
+	new_base = mmap_anon(new_size);
 	if (new_base == MAP_FAILED)
 		return MAP_FAILED;
 
@@ -242,16 +246,20 @@ static void *mremap_move(struct movable_header *hdr, size_t new_size)
 	old_size = hdr->size;
 	block_size = 1024*1024;
 
-	p = (char *) (hdr + header_size + hdr->size);
+	p = (char *) hdr + header_size + hdr->size;
 	do {
 		if (block_size > old_size)
 			block_size = old_size;
 		p -= block_size;
+		old_size -= block_size;
 
-		memcpy((char *) new_base + (p - (char *) hdr), p, block_size);
+		memcpy((char *) new_base + old_size, p, block_size);
 		if (munmap((void *) p, block_size) < 0)
 			i_panic("munmap() failed: %m");
-	} while (p != (char *) hdr);
+	} while (old_size != 0);
+
+	if (munmap((void *) hdr, header_size) < 0)
+		i_panic("munmap() failed: %m");
 
 	return new_base;
 }
