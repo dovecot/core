@@ -8,7 +8,7 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 		       size_t value_len)
 {
 	size_t i, linefeeds = 0;
-	int last_lwsp = FALSE, literal = FALSE, modify = FALSE;
+	int last_lwsp = TRUE, literal = FALSE, modify = FALSE;
 
 	if (value == NULL) {
 		str_append(str, "NIL");
@@ -54,7 +54,7 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 	if (!modify)
 		str_append_n(str, value, value_len);
 	else {
-		last_lwsp = FALSE;
+		last_lwsp = TRUE;
 		for (i = 0; i < value_len; i++) {
 			switch (value[i]) {
 			case 0:
