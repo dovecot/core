@@ -80,6 +80,10 @@ static ssize_t _read(struct _istream *stream)
 
 static void _seek(struct _istream *stream, uoff_t v_offset)
 {
+	struct limit_istream *lstream = (struct limit_istream *) stream;
+
+	i_assert(v_offset <= lstream->v_size);
+
 	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
