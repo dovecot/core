@@ -185,6 +185,9 @@ static MessagePart *message_parse_multipart(IStream *input,
 	return next_part;
 }
 
+#define MUTEX_FLAGS \
+	(MESSAGE_PART_FLAG_MESSAGE_RFC822 | MESSAGE_PART_FLAG_MULTIPART)
+
 static MessagePart *message_parse_part(IStream *input,
 				       MessageParseContext *parse_ctx)
 {
@@ -194,6 +197,8 @@ static MessagePart *message_parse_part(IStream *input,
 	message_parse_header(parse_ctx->part, input,
 			     &parse_ctx->part->header_size,
 			     parse_header_field, parse_ctx);
+
+	i_assert((parse_ctx->part->flags & MUTEX_FLAGS) != MUTEX_FLAGS);
 
 	/* update message position/size */
 	hdr_size = parse_ctx->part->header_size.physical_size;
