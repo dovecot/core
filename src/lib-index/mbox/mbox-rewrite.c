@@ -424,7 +424,9 @@ int mbox_index_rewrite(MailIndex *index)
 	tmp_fd = -1; inbuf = NULL;
 	failed = TRUE; rewrite = FALSE;
 	do {
-		/* make sync() lock the file to prevent race conditions */
+		if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
+			break;
+
 		if (!index->sync_and_lock(index, MAIL_LOCK_EXCLUSIVE, NULL))
 			break;
 
@@ -475,6 +477,13 @@ int mbox_index_rewrite(MailIndex *index)
 			if (!mbox_mail_get_location(index, rec, &offset,
 						    &hdr_size, &body_size)) {
 				/* fsck should have fixed it */
+				failed = TRUE;
+				break;
+			}
+
+			if (offset < inbuf->v_offset) {
+				index_set_corrupted(index,
+						    "Invalid message offset");
 				failed = TRUE;
 				break;
 			}

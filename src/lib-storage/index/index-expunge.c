@@ -70,13 +70,17 @@ int index_storage_expunge(Mailbox *box, int notify)
 		return FALSE;
 	}
 
+	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
+		return mail_storage_set_index_error(ibox);
+
 	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	/* modifylog must be marked synced before expunging anything new */
-	failed = !index_storage_sync_modifylog(ibox, TRUE);
-
-	if (!failed)
+	/* modifylog must be marked synced before expunging
+	   anything new */
+	if (!index_storage_sync_modifylog(ibox, TRUE))
+		failed = TRUE;
+	else
 		failed = !ibox->expunge_locked(ibox, notify);
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))

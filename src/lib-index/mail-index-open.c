@@ -214,8 +214,16 @@ static int index_open_and_fix(MailIndex *index, int update_recent, int fast)
 
 	/* sync ourself - before updating cache and compression which
 	   may happen because of this. */
-	if (!index->sync_and_lock(index, MAIL_LOCK_EXCLUSIVE, NULL))
+	if (!index->sync_and_lock(index, MAIL_LOCK_SHARED, NULL))
 		return FALSE;
+
+	/* we never want to keep shared lock if syncing happens to set it.
+	   either exclusive or nothing (NOTE: drop it directly, not through
+	   index->set_lock() so mbox lock won't be affected). */
+	if (index->lock_type == MAIL_LOCK_SHARED) {
+		if (!mail_index_set_lock(index, MAIL_LOCK_UNLOCK))
+			return FALSE;
+	}
 
 	if (!fast && (index->header->flags & MAIL_INDEX_FLAG_CACHE_FIELDS)) {
 		/* need to update cached fields */

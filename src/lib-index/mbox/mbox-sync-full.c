@@ -266,11 +266,7 @@ int mbox_sync_full(MailIndex *index)
 	IBuffer *inbuf;
 	int failed;
 
-	if (index->lock_type == MAIL_LOCK_SHARED)
-		(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
-
-	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
-		return FALSE;
+	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
 	inbuf = mbox_get_inbuf(index, 0, MAIL_LOCK_SHARED);
 	if (inbuf == NULL)

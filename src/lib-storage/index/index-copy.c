@@ -53,8 +53,8 @@ int index_storage_copy(Mailbox *box, Mailbox *destbox,
 		strcmp(destbox->name, box->name) == 0 ?
 		MAIL_LOCK_EXCLUSIVE : MAIL_LOCK_SHARED;
 
-	if (!ibox->index->sync_and_lock(ibox->index, lock_type, NULL))
-		return mail_storage_set_index_error(ibox);
+	if (!index_storage_sync_and_lock(ibox, TRUE, lock_type))
+		return FALSE;
 
 	ctx.custom_flags =
 		mail_custom_flags_list_get(ibox->index->custom_flags);

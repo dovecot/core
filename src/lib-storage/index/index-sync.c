@@ -28,19 +28,14 @@ static void index_storage_sync_size(IndexMailbox *ibox)
 }
 
 int index_storage_sync_and_lock(IndexMailbox *ibox, int sync_size,
-				MailLockType lock_type)
+				MailLockType data_lock_type)
 {
 	MailIndex *index = ibox->index;
-	int unlock, changes;
+	int changes, set_shared_lock;
 
-	if (lock_type != MAIL_LOCK_UNLOCK)
-		unlock = FALSE;
-	else {
-		unlock = TRUE;
-		lock_type = MAIL_LOCK_SHARED;
-	}
+        set_shared_lock = ibox->index->lock_type != MAIL_LOCK_EXCLUSIVE;
 
-	if (index->sync_and_lock(index, lock_type, &changes)) {
+	if (index->sync_and_lock(index, data_lock_type, &changes)) {
 		/* reset every time it has worked */
 		ibox->sent_diskspace_warning = FALSE;
 	} else {
@@ -60,12 +55,18 @@ int index_storage_sync_and_lock(IndexMailbox *ibox, int sync_size,
 		index_reset_error(index);
 	}
 
-	/* notify about changes in mailbox size. */
-	if (!changes) {
-		if (unlock)
+	if (set_shared_lock) {
+		/* just make sure we are locked, and that we drop our
+		   exclusive lock if it wasn't wanted originally */
+		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED)) {
 			(void)index->set_lock(index, MAIL_LOCK_UNLOCK);
-		return TRUE; /* no changes - must be no new mail either */
+			return FALSE;
+		}
 	}
+
+	/* notify about changes in mailbox size. */
+	if (!changes)
+		return TRUE; /* no changes - must be no new mail either */
 
 	if (sync_size)
 		index_storage_sync_size(ibox);
@@ -77,9 +78,6 @@ int index_storage_sync_and_lock(IndexMailbox *ibox, int sync_size,
                 	mail_custom_flags_list_get(index->custom_flags),
 			MAIL_CUSTOM_FLAGS_COUNT, ibox->sync_context);
 	}
-
-	if (unlock)
-		(void)index->set_lock(index, MAIL_LOCK_UNLOCK);
 
 	return TRUE;
 }
@@ -208,7 +206,7 @@ int index_storage_sync(Mailbox *box, int sync_expunges)
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	int failed;
 
-	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_SHARED))
+	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_UNLOCK))
 		return FALSE;
 
 	if (!sync_expunges) {
@@ -218,9 +216,7 @@ int index_storage_sync(Mailbox *box, int sync_expunges)
 		failed = !index_storage_sync_modifylog(ibox, FALSE);
 	}
 
-	/* check size only if we're locked (== at least something changed) */
-	if (ibox->index->lock_type != MAIL_LOCK_UNLOCK)
-		index_storage_sync_size(ibox);
+	index_storage_sync_size(ibox);
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);

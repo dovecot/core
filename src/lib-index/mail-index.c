@@ -339,7 +339,7 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type,
 	debug_mprotect(index->mmap_base, index->mmap_full_length, index);
 
 	if (!mail_index_mmap_update(index)) {
-		(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
+		(void)index->set_lock(index, MAIL_LOCK_UNLOCK);
 		return FALSE;
 	}
 
@@ -377,7 +377,7 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type,
 
 		if (lock_type == MAIL_LOCK_SHARED) {
 			/* drop exclusive lock */
-			return mail_index_set_lock(index, lock_type);
+			return index->set_lock(index, lock_type);
 		}
 	}
 
@@ -387,7 +387,7 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type,
 		   removed. */
 		index->header->flags |= MAIL_INDEX_FLAG_FSCK;
 		if (!mail_index_fmdatasync(index, sizeof(MailIndexHeader))) {
-			(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
+			(void)index->set_lock(index, MAIL_LOCK_UNLOCK);
 			return FALSE;
 		}
 	}

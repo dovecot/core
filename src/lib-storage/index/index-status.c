@@ -75,7 +75,7 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 
 	/* if we're doing STATUS for selected mailbox, we have to sync it
 	   first or STATUS reply may give different data */
-	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_SHARED))
+	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_UNLOCK))
 		return FALSE;
 
 	if (!index_storage_sync_modifylog(ibox, FALSE)) {

@@ -362,21 +362,21 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 	}
 
 	/* need exclusive lock to update the \Seen flags */
-	if (!index_storage_sync_and_lock(ibox, TRUE, ctx.update_seen ?
-					 MAIL_LOCK_EXCLUSIVE :
-					 MAIL_LOCK_SHARED))
+	if (ctx.update_seen) {
+		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
+			return mail_storage_set_index_error(ibox);
+	}
+
+	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_SHARED))
 		return FALSE;
 
-	if (ctx.update_seen) {
+	if (ctx.update_seen &&
+	    ibox->index->header->messages_count ==
+	    ibox->index->header->seen_messages_count) {
 		/* if all messages are already seen, there's no point in
 		   keeping exclusive lock */
-		if (ibox->index->header->messages_count ==
-		    ibox->index->header->seen_messages_count) {
-			ctx.update_seen = FALSE;
-
-			(void)ibox->index->set_lock(ibox->index,
-						    MAIL_LOCK_SHARED);
-		}
+		ctx.update_seen = FALSE;
+		(void)ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED);
 	}
 
 	ctx.box = box;

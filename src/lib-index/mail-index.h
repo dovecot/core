@@ -200,11 +200,11 @@ struct _MailIndex {
 	int (*fsck)(MailIndex *index);
 
 	/* Synchronize the index with the mailbox. Index must not have shared
-	   lock when calling this function. The lock_type specifies what
-	   locking state the index will be left, also locking mailbox file
-	   if needed. If changes is non-NULL, it's set to TRUE if any changes
-	   were noticed. */
-	int (*sync_and_lock)(MailIndex *index, MailLockType lock_type,
+	   lock when calling this function. The data_lock_type specifies what
+	   lock should be set to data file (mbox file). This function may
+	   leave the index in ANY locking state. If changes is non-NULL, it's
+	   set to TRUE if any changes were noticed. */
+	int (*sync_and_lock)(MailIndex *index, MailLockType data_lock_type,
 			     int *changes);
 
 	/* Returns the index header (never fails). The index needs to be
