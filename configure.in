@@ -910,13 +910,13 @@ fi
 
 dnl * dynamic modules?
 have_modules=no
-AC_CHECK_LIB(dl, dlopen, [
+AC_CHECK_FUNC(dlopen, [
   have_modules=yes
-  MODULE_LIBS="-export-dynamic -ldl"
+  MODULE_LIBS="-export-dynamic"
 ], [
-  AC_CHECK_FUNC(dlopen, [
+  AC_CHECK_LIB(dl, dlopen, [
     have_modules=yes
-    MODULE_LIBS="-export-dynamic"
+    MODULE_LIBS="-export-dynamic -ldl"
   ])
 ])
 
