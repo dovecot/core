@@ -378,8 +378,13 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 		return -1;
 
 	while ((ret = log_view_get_next(view, &hdr, &data)) > 0) {
-		if ((view->type_mask & hdr->type) != 0)
-			break;
+		if ((view->type_mask & hdr->type) != 0) {
+			/* looks like this is within our mask, but expunge
+			   protection may mess up the check. */
+			if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0 ||
+			    (view->type_mask & MAIL_TRANSACTION_EXPUNGE) != 0)
+				break;
+		}
 
 		/* we don't want this record */
 		if (skipped_r != NULL)
