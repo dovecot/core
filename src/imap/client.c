@@ -107,6 +107,8 @@ void client_destroy(Client *client)
 
 void client_disconnect(Client *client)
 {
+	io_buffer_send_flush(client->outbuf);
+
 	io_buffer_close(client->inbuf);
 	io_buffer_close(client->outbuf);
 }

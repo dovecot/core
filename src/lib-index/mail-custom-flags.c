@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "file-lock.h"
 #include "mmap-util.h"
 #include "write-full.h"
 #include "imap-util.h"
@@ -182,22 +183,12 @@ static int custom_flags_check_sync(MailCustomFlags *mcf)
 
 static int lock_file(MailCustomFlags *mcf, int type)
 {
-	struct flock fl;
-
 	if (mcf->lock_type == type)
 		return TRUE;
 
-	/* lock whole file */
-	fl.l_type = type;
-	fl.l_whence = SEEK_SET;
-	fl.l_start = 0;
-	fl.l_len = 0;
-
-	while (fcntl(mcf->fd, F_SETLKW, &fl) == -1) {
-		if (errno != EINTR) {
-			index_cf_set_syscall_error(mcf, "fcntl(F_SETLKW)");
-			return FALSE;
-		}
+	if (file_wait_lock(mcf->fd, type) < 0) {
+		index_cf_set_syscall_error(mcf, "file_wait_lock()");
+		return FALSE;
 	}
 
 	mcf->lock_type = type;

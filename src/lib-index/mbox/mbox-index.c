@@ -10,12 +10,13 @@
 
 static MailIndex mbox_index;
 
-void mbox_set_syscall_error(MailIndex *index, const char *function)
+int mbox_set_syscall_error(MailIndex *index, const char *function)
 {
 	i_assert(function != NULL);
 
 	index_set_error(index, "%s failed with mbox file %s: %m",
 			function, index->mbox_path);
+	return FALSE;
 }
 
 void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index)
@@ -390,6 +391,7 @@ static MailIndex mbox_index = {
 	mail_index_update_field,
 	mail_index_update_field_raw,
 	mail_index_get_last_error,
+	mail_index_is_diskspace_error,
 	mail_index_is_inconsistency_error,
 
 	MAIL_INDEX_PRIVATE_FILL

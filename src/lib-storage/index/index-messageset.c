@@ -246,18 +246,18 @@ static int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
 	*error = NULL;
-	if (messages_count == 0) {
-		/* no messages in mailbox */
-		return 1;
-	}
 
 	all_found = TRUE;
 	input = uidset;
 	while (*input != '\0') {
 		if (*input == '*') {
 			/* last message */
-			rec = index->lookup(index, messages_count);
-			uid = rec == NULL ? 0 : rec->uid;
+			if (messages_count == 0)
+				uid = 0;
+			else {
+				rec = index->lookup(index, messages_count);
+				uid = rec == NULL ? 0 : rec->uid;
+			}
 			input++;
 		} else {
 			uid = get_next_number(&input);
@@ -283,6 +283,12 @@ static int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 				}
 			} else {
 				uid2 = index->header->next_uid-1;
+				if (uid2 < uid) {
+					/* allow requesting "n:*" where n is
+					   larger than the actual (synced)
+					   messages count */
+					uid2 = uid;
+				}
 				input++;
 			}
 		}

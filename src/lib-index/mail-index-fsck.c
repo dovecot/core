@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mail-index.h"
+#include "mail-index-util.h"
 
 int mail_index_fsck(MailIndex *index)
 {
@@ -32,7 +33,7 @@ int mail_index_fsck(MailIndex *index)
 	rec = (MailIndexRecord *) ((char *) index->mmap_base +
 				   sizeof(MailIndexHeader));
 	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				       index->mmap_length);
+				       index->mmap_used_length);
 
 	max_uid = 0;
 	for (; rec < end_rec; rec++) {
@@ -52,9 +53,9 @@ int mail_index_fsck(MailIndex *index)
 		}
 
 		if (rec->uid < max_uid) {
-			i_error("fsck %s: UIDs are not ordered (%u < %u)",
-				index->filepath, rec->uid, max_uid);
-			return mail_index_rebuild_all(index);
+			index_set_corrupted(index, "UIDs are not ordered "
+					    "(%u < %u)", rec->uid, max_uid);
+			return FALSE;
 		}
 		max_uid = rec->uid;
 

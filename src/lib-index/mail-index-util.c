@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-void index_set_error(MailIndex *index, const char *fmt, ...)
+int index_set_error(MailIndex *index, const char *fmt, ...)
 {
 	va_list va;
 
@@ -26,9 +26,11 @@ void index_set_error(MailIndex *index, const char *fmt, ...)
 
 		i_error("%s", index->error);
 	}
+
+	return FALSE;
 }
 
-void index_set_corrupted(MailIndex *index, const char *fmt, ...)
+int index_set_corrupted(MailIndex *index, const char *fmt, ...)
 {
 	va_list va;
 
@@ -41,14 +43,29 @@ void index_set_corrupted(MailIndex *index, const char *fmt, ...)
 			index->filepath, t_strdup_vprintf(fmt, va));
 	t_pop();
 	va_end(va);
+
+	return FALSE;
 }
 
-void index_set_syscall_error(MailIndex *index, const char *function)
+int index_set_syscall_error(MailIndex *index, const char *function)
 {
 	i_assert(function != NULL);
 
 	index_set_error(index, "%s failed with index file %s: %m",
 			function, index->filepath);
+	return FALSE;
+}
+
+int index_file_set_syscall_error(MailIndex *index, const char *filepath,
+				 const char *function)
+{
+	i_assert(filepath != NULL);
+	i_assert(function != NULL);
+
+	index_set_error(index, "%s failed with file %s: %m",
+			function, filepath);
+
+	return FALSE;
 }
 
 void index_reset_error(MailIndex *index)
@@ -57,6 +74,8 @@ void index_reset_error(MailIndex *index)
 		i_free(index->error);
 		index->error = NULL;
 	}
+
+	index->nodiskspace = FALSE;
 }
 
 int mail_index_create_temp_file(MailIndex *index, const char **path)

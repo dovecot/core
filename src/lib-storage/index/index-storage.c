@@ -48,7 +48,11 @@ int mail_storage_set_index_error(IndexMailbox *ibox)
 {
 	ibox->box.inconsistent =
 		ibox->index->is_inconsistency_error(ibox->index);
-	mail_storage_set_internal_error(ibox->box.storage);
+
+	if (ibox->index->is_diskspace_error(ibox->index))
+		mail_storage_set_error(ibox->box.storage, "Out of disk space");
+	else
+		mail_storage_set_internal_error(ibox->box.storage);
 	index_reset_error(ibox->index);
 	return FALSE;
 }

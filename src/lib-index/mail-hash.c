@@ -68,9 +68,8 @@ static int mmap_update_real(MailHash *hash)
 	if (hash->mmap_base == MAP_FAILED) {
 		hash->mmap_base = NULL;
 		hash->header = NULL;
-		index_set_error(hash->index,
-				"hash: mmap() failed with file %s: %m",
-				hash->filepath);
+		index_file_set_syscall_error(hash->index, hash->filepath,
+					     "mmap()");
 		return FALSE;
 	}
 
@@ -121,6 +120,19 @@ static int mmap_update(MailHash *hash)
 
 	return mmap_update_real(hash) && hash_verify_header(hash);
 
+}
+
+static void hash_munmap(MailHash *hash)
+{
+	if (hash->mmap_base != NULL) {
+		if (!hash->anon_mmap)
+			(void)munmap(hash->mmap_base, hash->mmap_length);
+		else {
+			(void)munmap_anon(hash->mmap_base, hash->mmap_length);
+			hash->anon_mmap = FALSE;
+		}
+		hash->mmap_base = NULL;
+	}
 }
 
 static MailHash *mail_hash_new(MailIndex *index)
@@ -175,8 +187,7 @@ int mail_hash_open_or_create(MailIndex *index)
 
 	if (failed) {
 		/* recreate it */
-		(void)munmap(hash->mmap_base, hash->mmap_length);
-		hash->mmap_base = NULL;
+		hash_munmap(hash);
 		hash->dirty_mmap = TRUE;
 
 		return mail_hash_rebuild(hash);
@@ -189,10 +200,7 @@ void mail_hash_free(MailHash *hash)
 {
 	hash->index->hash = NULL;
 
-	if (hash->mmap_base != NULL) {
-		(void)munmap(hash->mmap_base, hash->mmap_length);
-		hash->mmap_base = NULL;
-	}
+	hash_munmap(hash);
 
 	if (hash->fd != -1)
 		(void)close(hash->fd);
@@ -210,8 +218,8 @@ int mail_hash_sync_file(MailHash *hash)
 	    msync(hash->mmap_base, hash->mmap_length, MS_SYNC) == 0)
 		return TRUE;
 	else {
-		index_set_error(hash->index, "msync() failed for %s: %m",
-				hash->filepath);
+		index_file_set_syscall_error(hash->index, hash->filepath,
+					     "msync()");
 		return FALSE;
 	}
 }
@@ -256,6 +264,7 @@ static int hash_rebuild_to_file(MailIndex *index, int fd, const char *path,
 {
 	void *mmap_base;
 	size_t mmap_length, new_size;
+	int failed;
 
 	i_assert(hash_size < MAX_HASH_SIZE);
 
@@ -263,39 +272,36 @@ static int hash_rebuild_to_file(MailIndex *index, int fd, const char *path,
 
 	/* fill the file with zeros */
 	if (file_set_size(fd, (off_t)new_size) < 0) {
-		index_set_error(index, "Failed to fill temp hash to "
-				"size %"PRIuSIZE_T": %m", new_size);
+		index_file_set_syscall_error(index, path, "file_set_size()");
 		return FALSE;
 	}
 
 	/* now, mmap() it */
 	mmap_base = mmap_rw_file(fd, &mmap_length);
-	if (mmap_base == MAP_FAILED) {
-		index_set_error(index,
-				"mmap()ing temp hash failed: %m");
-		return FALSE;
-	}
+	if (mmap_base == MAP_FAILED)
+		return index_file_set_syscall_error(index, path, "mmap()");
 	i_assert(mmap_length == new_size);
 
 	hash_build(index, mmap_base, hash_size);
 
+	failed = FALSE;
 	if (msync(mmap_base, mmap_length, MS_SYNC) < 0) {
-		index_set_error(index, "msync() failed for temp hash %s: %m",
-				path);
-		(void)munmap(mmap_base, mmap_length);
-		return FALSE;
+		index_file_set_syscall_error(index, path, "msync()");
+		failed = TRUE;
 	}
-
-	(void)munmap(mmap_base, mmap_length);
 
 	/* we don't want to leave partially written hash around */
-	if (fsync(fd) < 0) {
-		index_set_error(index, "fsync() failed with temp hash %s: %m",
-				path);
-		return FALSE;
+	if (!failed && fsync(fd) < 0) {
+		index_file_set_syscall_error(index, path, "fsync()");
+		failed = TRUE;
 	}
 
-	return TRUE;
+	if (munmap(mmap_base, mmap_length) < 0) {
+		index_file_set_syscall_error(index, path, "munmap()");
+		failed = TRUE;
+	}
+
+	return !failed;
 }
 
 int mail_hash_rebuild(MailHash *hash)
@@ -333,8 +339,8 @@ int mail_hash_rebuild(MailHash *hash)
 					       path, hash_size);
 
 		if (!failed && rename(path, hash->filepath) < 0) {
-			index_set_error(hash->index, "rename(%s, %s) failed: %m",
-					path, hash->filepath);
+			index_set_error(hash->index, "rename(%s, %s) failed: "
+					"%m", path, hash->filepath);
 			failed = TRUE;
 		}
 
@@ -356,11 +362,10 @@ int mail_hash_rebuild(MailHash *hash)
 		if (errno != ENOSPC)
 			return FALSE;
 
-		if (hash->mmap_base != NULL)
-			(void)munmap(hash->mmap_base, hash->mmap_length);
+		hash_munmap(hash);
 
 		hash->mmap_length = HASH_FILE_SIZE(hash_size);
-		hash->mmap_base = mmap_anonymous(hash->mmap_length);
+		hash->mmap_base = mmap_anon(hash->mmap_length);
 		hash_build(hash->index, hash->mmap_base, hash_size);
 
 		/* make sure it doesn't exist anymore */
@@ -457,7 +462,8 @@ void mail_hash_update(MailHash *hash, unsigned int uid, uoff_t pos)
 	if (hash->header->used_records >
 	    hash->size * FORCED_REBUILD_PERCENTAGE / 100) {
 		/* we really need a rebuild. */
-		mail_hash_rebuild(hash);
+		if (!mail_hash_rebuild(hash))
+			return;
 	}
 
 	/* place the hash into first free record after wanted position */
@@ -468,7 +474,8 @@ void mail_hash_update(MailHash *hash, unsigned int uid, uoff_t pos)
 		   at least 1/5 of hash was empty. except, if the header
 		   contained invalid record count for some reason. rebuild.. */
 		i_error("Hash file was 100%% full, rebuilding");
-		mail_hash_rebuild(hash);
+		if (!mail_hash_rebuild(hash))
+			return;
 
 		rec = hash_find_uid_or_free(hash, uid);
 		i_assert(rec != NULL);

@@ -14,47 +14,53 @@
 
 #include <unistd.h>
 
-static void index_fetch_body(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_body(MailIndexRecord *rec, FetchContext *ctx)
 {
 	const char *body;
 
 	body = imap_msgcache_get(ctx->cache, IMAP_CACHE_BODY);
-	if (body != NULL)
-		t_string_printfa(ctx->str, " BODY %s", body);
-	else {
+	if (body != NULL) {
+		t_string_printfa(ctx->str, "BODY %s ", body);
+		return TRUE;
+	} else {
 		i_error("Couldn't generate BODY for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
+		return FALSE;
 	}
 }
 
-static void index_fetch_bodystructure(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_bodystructure(MailIndexRecord *rec, FetchContext *ctx)
 {
 	const char *bodystructure;
 
 	bodystructure = imap_msgcache_get(ctx->cache, IMAP_CACHE_BODYSTRUCTURE);
 	if (bodystructure != NULL) {
-		t_string_printfa(ctx->str, " BODYSTRUCTURE %s",
+		t_string_printfa(ctx->str, "BODYSTRUCTURE %s ",
 				 bodystructure);
+		return TRUE;
 	} else {
 		i_error("Couldn't generate BODYSTRUCTURE for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
+		return FALSE;
 	}
 }
 
-static void index_fetch_envelope(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_envelope(MailIndexRecord *rec, FetchContext *ctx)
 {
 	const char *envelope;
 
 	envelope = imap_msgcache_get(ctx->cache, IMAP_CACHE_ENVELOPE);
-	if (envelope != NULL)
-		t_string_printfa(ctx->str, " ENVELOPE (%s)", envelope);
-	else {
+	if (envelope != NULL) {
+		t_string_printfa(ctx->str, "ENVELOPE (%s) ", envelope);
+		return TRUE;
+	} else {
 		i_error("Couldn't generate ENVELOPE for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
+		return FALSE;
 	}
 }
 
-static void index_fetch_rfc822_size(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_rfc822_size(MailIndexRecord *rec, FetchContext *ctx)
 {
 	MessageSize hdr_size, body_size;
 
@@ -62,11 +68,12 @@ static void index_fetch_rfc822_size(MailIndexRecord *rec, FetchContext *ctx)
 				      &hdr_size, &body_size)) {
 		i_error("Couldn't get RFC822.SIZE for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
-		return;
+		return FALSE;
 	}
 
-	t_string_printfa(ctx->str, " RFC822.SIZE %"PRIuUOFF_T,
+	t_string_printfa(ctx->str, "RFC822.SIZE %"PRIuUOFF_T" ",
 			 hdr_size.virtual_size + body_size.virtual_size);
+	return TRUE;
 }
 
 static void index_fetch_flags(MailIndexRecord *rec, FetchContext *ctx)
@@ -79,22 +86,22 @@ static void index_fetch_flags(MailIndexRecord *rec, FetchContext *ctx)
 	if (ctx->update_seen)
 		flags |= MAIL_SEEN;
 
-	t_string_printfa(ctx->str, " FLAGS (%s)",
+	t_string_printfa(ctx->str, "FLAGS (%s) ",
 			 imap_write_flags(flags, ctx->custom_flags));
 }
 
 static void index_fetch_internaldate(MailIndexRecord *rec, FetchContext *ctx)
 {
-	t_string_printfa(ctx->str, " INTERNALDATE \"%s\"",
-                         imap_to_datetime(rec->internal_date));
+	t_string_printfa(ctx->str, "INTERNALDATE \"%s\" ",
+			 imap_to_datetime(rec->internal_date));
 }
 
 static void index_fetch_uid(MailIndexRecord *rec, FetchContext *ctx)
 {
-	t_string_printfa(ctx->str, " UID %u", rec->uid);
+	t_string_printfa(ctx->str, "UID %u ", rec->uid);
 }
 
-static void index_fetch_rfc822(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_send_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 {
 	MessageSize hdr_size, body_size;
 	IOBuffer *inbuf;
@@ -104,20 +111,24 @@ static void index_fetch_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 				      &hdr_size, &body_size)) {
 		i_error("Couldn't get RFC822 for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
-		return;
+		return FALSE;
 	}
 
 	str = t_strdup_printf(" RFC822 {%"PRIuUOFF_T"}\r\n",
 			      hdr_size.virtual_size + body_size.virtual_size);
-	if (ctx->first) str++; else ctx->first = FALSE;
-	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
+	if (ctx->first) {
+		str++; ctx->first = FALSE;
+	}
+	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+		return FALSE;
 
 	body_size.physical_size += hdr_size.physical_size;
 	body_size.virtual_size += hdr_size.virtual_size;
-	(void)message_send(ctx->outbuf, inbuf, &body_size, 0, (uoff_t)-1);
+	return message_send(ctx->outbuf, inbuf, &body_size, 0, (uoff_t)-1);
 }
 
-static void index_fetch_rfc822_header(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_send_rfc822_header(MailIndexRecord *rec,
+					  FetchContext *ctx)
 {
 	MessageSize hdr_size;
 	IOBuffer *inbuf;
@@ -126,17 +137,21 @@ static void index_fetch_rfc822_header(MailIndexRecord *rec, FetchContext *ctx)
 	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, &hdr_size, NULL)) {
 		i_error("Couldn't get RFC822.HEADER for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
-		return;
+		return FALSE;
 	}
 
 	str = t_strdup_printf(" RFC822.HEADER {%"PRIuUOFF_T"}\r\n",
 			      hdr_size.virtual_size);
-	if (ctx->first) str++; else ctx->first = FALSE;
-	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
-	(void)message_send(ctx->outbuf, inbuf, &hdr_size, 0, (uoff_t)-1);
+	if (ctx->first) {
+		str++; ctx->first = FALSE;
+	}
+	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+		return FALSE;
+
+	return message_send(ctx->outbuf, inbuf, &hdr_size, 0, (uoff_t)-1);
 }
 
-static void index_fetch_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_send_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 {
 	MessageSize body_size;
 	IOBuffer *inbuf;
@@ -145,14 +160,18 @@ static void index_fetch_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, NULL, &body_size)) {
 		i_error("Couldn't get RFC822.TEXT for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
-		return;
+		return FALSE;
 	}
 
 	str = t_strdup_printf(" RFC822.TEXT {%"PRIuUOFF_T"}\r\n",
 			      body_size.virtual_size);
-	if (ctx->first) str++; else ctx->first = FALSE;
-	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
-	(void)message_send(ctx->outbuf, inbuf, &body_size, 0, (uoff_t)-1);
+	if (ctx->first) {
+		str++; ctx->first = FALSE;
+	}
+	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+		return FALSE;
+
+	return message_send(ctx->outbuf, inbuf, &body_size, 0, (uoff_t)-1);
 }
 
 static ImapCacheField index_get_cache(MailFetchData *fetch_data)
@@ -218,57 +237,85 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 {
 	FetchContext *ctx = context;
 	MailFetchBodyData *sect;
+	unsigned int orig_len;
+	int failed, data_written;
 
 	ctx->str = t_string_new(2048);
 
 	t_string_printfa(ctx->str, "* %u FETCH (", seq);
-	(void)io_buffer_send(ctx->outbuf, ctx->str->str, ctx->str->len);
-	t_string_truncate(ctx->str, 0);
+	orig_len = ctx->str->len;
 
 	/* first see what we need to do. this way we don't first do some
 	   light parsing and later notice that we need to do heavier parsing
 	   anyway */
 	index_msgcache_open(ctx, rec);
 
-	if (ctx->fetch_data->uid)
-		index_fetch_uid(rec, ctx);
-	if (ctx->fetch_data->flags)
-		index_fetch_flags(rec, ctx);
-	if (ctx->fetch_data->internaldate)
-		index_fetch_internaldate(rec, ctx);
+	failed = TRUE;
+	data_written = FALSE;
+	do {
+		/* these can't fail */
+		if (ctx->fetch_data->uid)
+			index_fetch_uid(rec, ctx);
+		if (ctx->fetch_data->flags)
+			index_fetch_flags(rec, ctx);
+		if (ctx->fetch_data->internaldate)
+			index_fetch_internaldate(rec, ctx);
 
-	if (ctx->fetch_data->body)
-		index_fetch_body(rec, ctx);
-	if (ctx->fetch_data->bodystructure)
-		index_fetch_bodystructure(rec, ctx);
-	if (ctx->fetch_data->envelope)
-		index_fetch_envelope(rec, ctx);
-	if (ctx->fetch_data->rfc822_size)
-		index_fetch_rfc822_size(rec, ctx);
+		/* rest can */
+		if (ctx->fetch_data->body)
+			if (!index_fetch_body(rec, ctx))
+				break;
+		if (ctx->fetch_data->bodystructure)
+			if (!index_fetch_bodystructure(rec, ctx))
+				break;
+		if (ctx->fetch_data->envelope)
+			if (!index_fetch_envelope(rec, ctx))
+				break;
+		if (ctx->fetch_data->rfc822_size)
+			if (!index_fetch_rfc822_size(rec, ctx))
+				break;
 
-	/* send the data written into temp string, skipping the initial space */
-	if (ctx->str->len > 0) {
-		(void)io_buffer_send(ctx->outbuf, ctx->str->str+1,
-				     ctx->str->len-1);
+		/* send the data written into temp string,
+		   not including the trailing zero */
+		ctx->first = ctx->str->len == orig_len;
+		if (ctx->str->len > 0) {
+			if (!ctx->first)
+				ctx->str->len--;
+
+			if (io_buffer_send(ctx->outbuf, ctx->str->str,
+					   ctx->str->len) < 0)
+				break;
+		}
+
+		data_written = TRUE;
+
+		/* large data */
+		if (ctx->fetch_data->rfc822)
+			if (!index_fetch_send_rfc822(rec, ctx))
+				break;
+		if (ctx->fetch_data->rfc822_text)
+			if (!index_fetch_send_rfc822_text(rec, ctx))
+				break;
+		if (ctx->fetch_data->rfc822_header)
+			if (!index_fetch_send_rfc822_header(rec, ctx))
+				break;
+
+		sect = ctx->fetch_data->body_sections;
+		for (; sect != NULL; sect = sect->next) {
+			if (!index_fetch_body_section(rec, seq, sect, ctx))
+				break;
+		}
+
+		failed = FALSE;
+	} while (0);
+
+	if (data_written) {
+		if (io_buffer_send(ctx->outbuf, ")\r\n", 3) < 0)
+			failed = TRUE;
 	}
-	ctx->first = ctx->str->len == 0;
-
-	/* large data */
-	if (ctx->fetch_data->rfc822)
-		index_fetch_rfc822(rec, ctx);
-	if (ctx->fetch_data->rfc822_text)
-		index_fetch_rfc822_text(rec, ctx);
-	if (ctx->fetch_data->rfc822_header)
-		index_fetch_rfc822_header(rec, ctx);
-
-	sect = ctx->fetch_data->body_sections;
-	for (; sect != NULL; sect = sect->next)
-		index_fetch_body_section(rec, seq, sect, ctx);
-
-	(void)io_buffer_send(ctx->outbuf, ")\r\n", 3);
 
 	imap_msgcache_close(ctx->cache);
-	return TRUE;
+	return !failed;
 }
 
 int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
@@ -278,6 +325,9 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 	FetchContext ctx;
 	MailFetchBodyData *sect;
 	int ret;
+
+	if (!ibox->index->sync(ibox->index))
+		return mail_storage_set_index_error(ibox);
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(ibox);

@@ -17,7 +17,7 @@ int mbox_index_rebuild(MailIndex *index)
 {
 	IOBuffer *inbuf;
 	struct stat st;
-	int fd;
+	int fd, failed;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
@@ -30,20 +30,18 @@ int mbox_index_rebuild(MailIndex *index)
 	/* we require MD5 to be cached */
 	index->header->cache_fields |= FIELD_TYPE_MD5;
 
-	/* update indexid */
+	/* update indexid, which also means that our state has completely
+	   changed */
 	index->indexid = index->header->indexid;
+	index->inconsistent = TRUE;
 
-	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) < 0) {
-		index_set_syscall_error(index, "msync()");
-		return FALSE;
-	}
+	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) < 0)
+		return index_set_syscall_error(index, "msync()");
 
 	/* truncate the file first, so it won't contain
 	   any invalid data even if we crash */
-	if (ftruncate(index->fd, sizeof(MailIndexHeader)) < 0) {
-		index_set_syscall_error(index, "ftruncate()");
-		return FALSE;
-	}
+	if (ftruncate(index->fd, sizeof(MailIndexHeader)) < 0)
+		return index_set_syscall_error(index, "ftruncate()");
 
 	/* reset data file */
 	if (!mail_index_data_reset(index->data))
@@ -52,10 +50,8 @@ int mbox_index_rebuild(MailIndex *index)
 	/* open the mbox file. we don't really need to open it read-write,
 	   but fcntl() locking requires it. */
 	fd = open(index->mbox_path, O_RDWR);
-	if (fd == -1) {
-		mbox_set_syscall_error(index, "open()");
-		return FALSE;
-	}
+	if (fd == -1)
+		return mbox_set_syscall_error(index, "open()");
 
 	/* lock the mailbox so we can be sure no-one interrupts us. */
 	if (!mbox_lock(index, index->mbox_path, fd)) {
@@ -65,21 +61,18 @@ int mbox_index_rebuild(MailIndex *index)
 
 	inbuf = io_buffer_create_mmap(fd, default_pool,
 				      MAIL_MMAP_BLOCK_SIZE, 0);
-	if (!mbox_index_append(index, inbuf)) {
-		(void)mbox_unlock(index, index->mbox_path, fd);
-		(void)close(fd);
-		return FALSE;
-	}
+	failed = !mbox_index_append(index, inbuf);
 
 	(void)mbox_unlock(index, index->mbox_path, fd);
 	(void)close(fd);
 	io_buffer_destroy(inbuf);
 
-	/* update sync stamp */
-	if (stat(index->mbox_path, &st) == -1) {
-		mbox_set_syscall_error(index, "fstat()");
+	if (failed)
 		return FALSE;
-	}
+
+	/* update sync stamp */
+	if (stat(index->mbox_path, &st) == -1)
+		return mbox_set_syscall_error(index, "fstat()");
 
 	index->file_sync_stamp = st.st_mtime;
 

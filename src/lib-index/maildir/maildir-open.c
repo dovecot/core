@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "iobuffer.h"
 #include "maildir-index.h"
+#include "mail-index-data.h"
 #include "mail-index-util.h"
 
 #include <unistd.h>
@@ -13,10 +14,16 @@ IOBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec)
 	const char *fname, *path;
 	int fd;
 
+	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
+
+	/* check for inconsistency here, to avoid extra error messages */
+	if (index->inconsistent)
+		return NULL;
+
 	fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
 	if (fname == NULL) {
-		index_data_set_corrupted(index, "Missing location field for "
-					 "record %u", rec->uid);
+		index_data_set_corrupted(index->data, "Missing location field "
+					 "for record %u", rec->uid);
 		return NULL;
 	}
 

@@ -15,6 +15,7 @@ liblib_a_SOURCES = \
 	compat.c \
 	failures.c \
 	fdpass.c \
+	file-lock.c \
 	file-set-size.c \
 	gmtoff.c \
 	hash.c \
@@ -30,6 +31,7 @@ liblib_a_SOURCES = \
 	mempool.c \
 	mempool-alloconly.c \
 	mempool-system.c \
+	mmap-anon.c \
 	mmap-util.c \
 	network.c \
 	primes.c \
@@ -48,6 +50,7 @@ noinst_HEADERS = \
 	compat.h \
 	failures.h \
 	fdpass.h \
+	file-lock.h \
 	file-set-size.h \
 	gmtoff.h \
 	hash.h \

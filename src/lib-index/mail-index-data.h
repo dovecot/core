@@ -10,10 +10,6 @@ void mail_index_data_free(MailIndexData *data);
 /* Truncate the data file and update it's indexid */
 int mail_index_data_reset(MailIndexData *data);
 
-/* Needs to be called whenever new messages are added. File must never
-   be shrinked while it's open. */
-void mail_index_data_new_data_notify(MailIndexData *data);
-
 /* Append new data at the end of the file. Returns the position in file
    where the data begins, or 0 if error occured. */
 uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
@@ -45,6 +41,6 @@ void *mail_index_data_get_mmaped(MailIndexData *data, size_t *size);
 
 /* "Error in index data file %s: ...". Also marks the index file as
    corrupted. */
-void index_data_set_corrupted(MailIndexData *data, const char *fmt, ...);
+int index_data_set_corrupted(MailIndexData *data, const char *fmt, ...);
 
 #endif

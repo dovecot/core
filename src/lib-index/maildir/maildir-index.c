@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "maildir-index.h"
+#include "mail-index-data.h"
 #include "mail-index-util.h"
 
 #include <stdio.h>
@@ -166,8 +167,8 @@ static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 	/* we need to update the flags in the file name */
 	old_fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
 	if (old_fname == NULL) {
-		index_data_set_corrupted(index, "Missing location field for "
-					 "record %u", rec->uid);
+		index_data_set_corrupted(index->data, "Missing location field "
+					 "for record %u", rec->uid);
 		return FALSE;
 	}
 
@@ -179,6 +180,9 @@ static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 
 		/* minor problem: new_path is overwritten if it exists.. */
 		if (rename(old_path, new_path) == -1) {
+			if (errno == ENOSPC)
+				index->nodiskspace = TRUE;
+
 			index_set_error(index, "maildir flags update: "
 					"rename(%s, %s) failed: %m",
 					old_path, new_path);
@@ -222,6 +226,7 @@ static MailIndex maildir_index = {
 	mail_index_update_field,
 	mail_index_update_field_raw,
 	mail_index_get_last_error,
+	mail_index_is_diskspace_error,
 	mail_index_is_inconsistency_error,
 
 	MAIL_INDEX_PRIVATE_FILL

@@ -38,16 +38,15 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 	i_assert(fname != NULL);
 
 	/* check that file size is somewhat reasonable */
-	if (fstat(fd, &st) == -1) {
-		index_set_error(index, "fstat() failed for file %s: %m", path);
-		return FALSE;
-	}
+	if (fstat(fd, &st) < 0)
+		return index_file_set_syscall_error(index, path, "fstat()");
 
 	if (st.st_size < 10) {
 		/* This cannot be a mail file - delete it */
 		index_set_error(index, "Invalid size %"PRIuUOFF_T
 				" with mail in %s - deleted", st.st_size, path);
-		(void)unlink(path);
+		if (unlink(path) < 0)
+			index_file_set_syscall_error(index, path, "unlink()");
 		return TRUE;
 	}
 
@@ -98,12 +97,12 @@ int maildir_index_append_file(MailIndex *index, const char *dir,
 		if (errno == EEXIST)
 			return TRUE;
 
-		index_set_error(index, "Error opening mail file %s: %m", path);
-		return FALSE;
+		return index_file_set_syscall_error(index, path, "open()");
 	}
 
 	ret = maildir_index_append_fd(index, fd, path, fname);
-	(void)close(fd);
+	if (close(fd) < 0)
+		return index_file_set_syscall_error(index, path, "close()");
 	return ret;
 }
 
@@ -118,14 +117,12 @@ int maildir_index_build_dir(MailIndex *index, const char *source_dir,
 	int failed;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
-
 	i_assert(source_dir != NULL);
 
 	dirp = opendir(source_dir);
 	if (dirp == NULL) {
-		index_set_error(index, "opendir() failed for dir %s: %m",
-				source_dir);
-		return FALSE;
+		return index_file_set_syscall_error(index, source_dir,
+						    "opendir()");
 	}
 
 	final_dir = dest_dir != NULL ? dest_dir : source_dir;
@@ -153,7 +150,7 @@ int maildir_index_build_dir(MailIndex *index, const char *source_dir,
 			/* race condition here - ignore it as the chance of it
 			   happening is pretty much zero */
 
-			if (rename(sourcepath, destpath) == -1) {
+			if (rename(sourcepath, destpath) < 0) {
 				index_set_error(index, "maildir build: "
 						"rename(%s, %s) failed: %m",
 						sourcepath, destpath);
@@ -168,6 +165,7 @@ int maildir_index_build_dir(MailIndex *index, const char *source_dir,
 		t_pop();
 	}
 
-	(void)closedir(dirp);
+	if (closedir(dirp) < 0)
+		index_file_set_syscall_error(index, source_dir, "closedir()");
 	return !failed;
 }

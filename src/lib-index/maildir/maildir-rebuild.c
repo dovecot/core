@@ -23,18 +23,13 @@ int maildir_index_rebuild(MailIndex *index)
 	/* reset the header */
 	mail_index_init_header(index->header);
 
-	/* update indexid */
+	/* update indexid, which also means that our state has completely
+	   changed */
 	index->indexid = index->header->indexid;
+	index->inconsistent = TRUE;
 
-	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) == -1)
+	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) < 0)
 		return FALSE;
-
-	/* truncate the file first, so it won't contain
-	   any invalid data even if we crash */
-	if (ftruncate(index->fd, sizeof(MailIndexHeader)) == -1) {
-		index_set_syscall_error(index, "ftruncate()");
-		return FALSE;
-	}
 
 	/* reset data file */
 	if (!mail_index_data_reset(index->data))
@@ -51,11 +46,8 @@ int maildir_index_rebuild(MailIndex *index)
 		return FALSE;
 
 	/* update sync stamp */
-	if (stat(cur_dir, &st) == -1) {
-		index_set_error(index, "stat() failed for maildir %s: %m",
-				cur_dir);
-		return FALSE;
-	}
+	if (stat(cur_dir, &st) < 0)
+		return index_file_set_syscall_error(index, cur_dir, "stat()");
 
 	index->file_sync_stamp = st.st_mtime;
 

@@ -283,16 +283,16 @@ int mbox_index_rewrite(MailIndex *index)
 		return FALSE;
 
 	in_fd = open(index->mbox_path, O_RDWR);
-	if (in_fd == -1) {
-		mbox_set_syscall_error(index, "open()");
-		return FALSE;
-	}
+	if (in_fd == -1)
+		return mbox_set_syscall_error(index, "open()");
+
 	inbuf = io_buffer_create_mmap(in_fd, default_pool,
 				      MAIL_MMAP_BLOCK_SIZE, 0);
 
 	out_fd = mail_index_create_temp_file(index, &path);
 	if (out_fd == -1) {
 		(void)close(in_fd);
+		io_buffer_destroy(inbuf);
 		return FALSE;
 	}
 	outbuf = io_buffer_create_file(out_fd, default_pool, 8192);

@@ -18,6 +18,10 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
+	/* check for inconsistency here, to avoid extra error messages */
+	if (index->inconsistent)
+		return NULL;
+
 	if (!mbox_mail_get_start_offset(index, rec, &offset))
 		return NULL;
 

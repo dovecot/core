@@ -38,13 +38,15 @@ static int maildir_index_sync_file(MailIndex *index,
 		/* file itself changed - reload the header */
 		fd = open(path, O_RDONLY);
 		if (fd == -1) {
-			index_set_error(index, "open() failed for file %s: %m",
-					path);
+			index_file_set_syscall_error(index, path, "open()");
 			failed = TRUE;
 		} else {
 			if (!maildir_record_update(update, fd, path))
 				failed = TRUE;
-			(void)close(fd);
+			if (close(fd) < 0) {
+				index_file_set_syscall_error(index, path,
+							     "close()");
+			}
 		}
 	}
 
@@ -108,9 +110,9 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 		if (!check_content_changes)
 			file_changed = FALSE;
 		else {
-			if (stat(str, &st) == -1) {
-				index_set_error(index, "stat() failed for "
-						"file %s: %m", str);
+			if (stat(str, &st) < 0) {
+				index_file_set_syscall_error(index, str,
+							     "stat()");
 				return FALSE;
 			}
 
@@ -192,11 +194,8 @@ static int maildir_index_sync_dir(MailIndex *index, const char *dir)
 	   from hash, so finally the hash should contain only the new
 	   files which will be added then. */
 	dirp = opendir(dir);
-	if (dirp == NULL) {
-		index_set_error(index, "opendir() failed for dir %s: %m",
-				dir);
-		return FALSE;
-	}
+	if (dirp == NULL)
+		return index_file_set_syscall_error(index, dir, "opendir()");
 
 	count = index->header->messages_count + 16;
 	pool = pool_create("Maildir sync", nearest_power(count*30), FALSE);
@@ -216,7 +215,9 @@ static int maildir_index_sync_dir(MailIndex *index, const char *dir)
 		key = p == NULL ? value : p_strdup_until(pool, d->d_name, p);
 		hash_insert(files, key, value);
 	}
-	(void)closedir(dirp);
+
+	if (closedir(dirp) < 0)
+		index_file_set_syscall_error(index, dir, "closedir()");
 
 	/* Do we want to check changes in file contents? This slows down
 	   things as we need to do extra stat() for all files. */
@@ -244,20 +245,15 @@ int maildir_index_sync(MailIndex *index)
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
-	if (fstat(index->fd, &sti) == -1) {
-		index_set_syscall_error(index, "fstat()");
-		return FALSE;
-	}
+	if (fstat(index->fd, &sti) < 0)
+		return index_set_syscall_error(index, "fstat()");
 
 	/* cur/ and new/ directories can have new mail - sync the cur/ first
 	   so it'll be a bit bit faster since we haven't yet added the new
 	   mail. */
         cur_dir = t_strconcat(index->dir, "/cur", NULL);
-	if (stat(cur_dir, &std) == -1) {
-		index_set_error(index, "stat() failed for maildir %s: %m",
-				cur_dir);
-		return FALSE;
-	}
+	if (stat(cur_dir, &std) < 0)
+		return index_file_set_syscall_error(index, cur_dir, "stat()");
 
 	if (std.st_mtime != sti.st_mtime) {
 		if (!maildir_index_sync_dir(index, cur_dir))
@@ -266,11 +262,8 @@ int maildir_index_sync(MailIndex *index)
 
 	/* move mail from new/ to cur/ */
 	new_dir = t_strconcat(index->dir, "/new", NULL);
-	if (stat(new_dir, &std) == -1) {
-		index_set_error(index, "stat() failed for maildir "
-				"%s: %m", new_dir);
-		return FALSE;
-	}
+	if (stat(new_dir, &std) < 0)
+		return index_file_set_syscall_error(index, new_dir, "stat()");
 
 	if (std.st_mtime != sti.st_mtime) {
 		if (!maildir_index_build_dir(index, new_dir, cur_dir))
@@ -280,15 +273,13 @@ int maildir_index_sync(MailIndex *index)
 		   make sure if someone adds new mail it the new/ dir's
 		   timestamp isn't set to same as cur/ directory's. */
 		ut.actime = ut.modtime = ioloop_time-60;
-		if (utime(cur_dir, &ut) == -1) {
-			index_set_error(index, "utime() failed for %s: %m",
-					cur_dir);
-			return FALSE;
+		if (utime(cur_dir, &ut) < 0) {
+			return index_file_set_syscall_error(index, cur_dir,
+							    "utime()");
 		}
-		if (utime(new_dir, &ut) == -1) {
-			index_set_error(index, "utime() failed for %s: %m",
-					new_dir);
-			return FALSE;
+		if (utime(new_dir, &ut) < 0) {
+			return index_file_set_syscall_error(index, new_dir,
+							    "utime()");
 		}
 
 		/* it's possible that new mail came in just after we
@@ -301,11 +292,8 @@ int maildir_index_sync(MailIndex *index)
 	}
 
 	/* update sync stamp */
-	if (stat(cur_dir, &std) == -1) {
-		index_set_error(index, "stat() failed for maildir %s: %m",
-				cur_dir);
-		return FALSE;
-	}
+	if (stat(cur_dir, &std) < 0)
+		return index_file_set_syscall_error(index, cur_dir, "stat()");
 	index->file_sync_stamp = std.st_mtime;
 
 	if (index->lock_type == MAIL_LOCK_UNLOCK) {
@@ -313,11 +301,8 @@ int maildir_index_sync(MailIndex *index)
 		   ourself to get it changed */
 		ut.actime = ioloop_time;
 		ut.modtime = index->file_sync_stamp;
-		if (utime(index->filepath, &ut) == -1) {
-			index_set_error(index, "utime() failed for %s: %m",
-					index->filepath);
-			return FALSE;
-		}
+		if (utime(index->filepath, &ut) < 0)
+			return index_set_syscall_error(index, "utime()");
 	}
 
 	return TRUE;

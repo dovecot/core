@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "file-lock.h"
 #include "mmap-util.h"
 #include "write-full.h"
 #include "mail-index.h"
@@ -34,6 +35,8 @@ struct _MailModifyLog {
 	unsigned int second_log:1;
 };
 
+static const unsigned int no_expunges[] = { 0 };
+
 static void modifylog_set_syscall_error(MailModifyLog *log,
 					const char *function)
 {
@@ -53,40 +56,22 @@ static void modifylog_set_corrupted(MailModifyLog *log)
 	(void)unlink(log->filepath);
 }
 
-static int file_lock(int fd, int wait_lock, int lock_type)
-{
-	struct flock fl;
-
-	fl.l_type = lock_type;
-	fl.l_whence = SEEK_SET;
-	fl.l_start = 0;
-	fl.l_len = 0;
-
-	if (fcntl(fd, wait_lock ? F_SETLKW : F_SETLK, &fl) == -1) {
-		if (errno == EACCES || errno == EAGAIN)
-			return 0;
-		return -1;
-	}
-
-	return 1;
-}
-
 /* Returns 1 = ok, 0 = failed to get the lock, -1 = error */
 static int mail_modifylog_try_lock(MailModifyLog *log, int lock_type)
 {
 	int ret;
 
-	ret = file_lock(log->fd, FALSE, lock_type);
+	ret = file_try_lock(log->fd, lock_type);
 	if (ret == -1)
-                modifylog_set_syscall_error(log, "fcntl(F_SETLK)");
+                modifylog_set_syscall_error(log, "file_try_lock()");
 
 	return ret;
 }
 
 static int mail_modifylog_wait_lock(MailModifyLog *log)
 {
-	if (file_lock(log->fd, TRUE, F_RDLCK) < 1)
-                modifylog_set_syscall_error(log, "fcntl(F_SETLKW)");
+	if (file_wait_lock(log->fd, F_RDLCK) < 1)
+                modifylog_set_syscall_error(log, "file_wait_lock()");
 
 	return TRUE;
 }
@@ -105,7 +90,7 @@ static int mail_modifylog_have_other_users(MailModifyLog *log)
 	switch (mail_modifylog_try_lock(log, F_RDLCK)) {
 	case 0:
 		/* shouldn't happen */
-		index_set_error(log->index, "fcntl(F_WRLCK -> F_RDLCK) "
+		index_set_error(log->index, "file_lock(F_WRLCK -> F_RDLCK) "
 				"failed with file %s", log->filepath);
 		/* fall through */
 	case -1:
@@ -221,7 +206,7 @@ static int mail_modifylog_open_and_init_file(MailModifyLog *log,
 		return FALSE;
 	}
 
-	ret = file_lock(fd, FALSE, F_WRLCK);
+	ret = file_wait_lock(fd, F_WRLCK);
 	if (ret == -1) {
 		index_set_error(log->index, "Error locking modify log "
 				"file %s: %m", path);
@@ -569,9 +554,7 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 
 	if (rec >= end_rec) {
 		/* none found */
-		expunges = t_malloc(sizeof(unsigned int));
-		*expunges = 0;
-		return expunges;
+		return no_expunges;
 	}
 
 	/* allocate memory for the returned array. the file size - synced
@@ -651,9 +634,7 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 
 	if (rec >= end_rec) {
 		/* none found */
-		expunges = t_malloc(sizeof(unsigned int));
-		*expunges = 0;
-		return expunges;
+		return no_expunges;
 	}
 
 	/* allocate memory for the returned array. the file size - synced

@@ -10,17 +10,48 @@
 #include <stdio.h>
 #include <unistd.h>
 
+int mail_index_truncate(MailIndex *index)
+{
+	uoff_t empty_space, truncate_threshold;
+
+	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
+
+	if (index->mmap_full_length <= INDEX_FILE_MIN_SIZE)
+		return TRUE;
+	    
+	/* really truncate the file only when it's almost empty */
+	empty_space = index->mmap_full_length - index->mmap_used_length;
+	truncate_threshold =
+		index->mmap_full_length / 100 * INDEX_TRUNCATE_PERCENTAGE;
+
+	if (empty_space > truncate_threshold) {
+		index->mmap_full_length = index->mmap_used_length +
+			(empty_space * INDEX_TRUNCATE_KEEP_PERCENTAGE / 100);
+
+		/* keep the size record-aligned */
+		index->mmap_full_length =
+			(index->mmap_full_length - sizeof(MailIndexHeader)) %
+			sizeof(MailIndexRecord);
+
+		if (ftruncate(index->fd, (off_t)index->mmap_full_length) < 0)
+			return index_set_syscall_error(index, "ftruncate()");
+
+		index->header->sync_id++;
+	}
+
+	return TRUE;
+}
+
 int mail_index_compress(MailIndex *index)
 {
 	MailIndexRecord *rec, *hole_rec, *end_rec;
-	size_t fsize;
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
 	if (index->header->first_hole_position == 0) {
 		/* we don't need to compress after all. shouldn't happen.. */
-		index->header->flags &= ~MAIL_INDEX_FLAG_CACHE_FIELDS;
+		index->header->flags &= ~MAIL_INDEX_FLAG_COMPRESS;
 		return TRUE;
 	}
 
@@ -35,7 +66,7 @@ int mail_index_compress(MailIndex *index)
 
 	/* first actually compress the data */
 	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				       index->mmap_length);
+				       index->mmap_used_length);
 	hole_rec = (MailIndexRecord *) ((char *) index->mmap_base +
 					index->header->first_hole_position);
 	rec = hole_rec + index->header->first_hole_records;
@@ -50,24 +81,20 @@ int mail_index_compress(MailIndex *index)
 	}
 
 	/* truncate the file to get rid of the extra records */
-	fsize = (size_t) ((char *) hole_rec - (char *) index->mmap_base);
-	if (ftruncate(index->fd, (off_t)fsize) == -1) {
-		index_set_syscall_error(index, "ftruncate()");
+	index->mmap_used_length = (size_t) ((char *) hole_rec -
+					    (char *) index->mmap_base);
+	if (!mail_index_truncate(index))
 		return FALSE;
-	}
 
 	/* update headers */
 	index->header->first_hole_position = 0;
 	index->header->first_hole_records = 0;
 
-	index->header->sync_id++;
-	index->dirty_mmap = TRUE;
-
 	/* make sure the whole file is synced before removing rebuild-flag */
-	if (!mail_index_fmsync(index, fsize))
+	if (!mail_index_fmsync(index, index->mmap_used_length))
 		return FALSE;
 
-	index->header->flags &= ~(MAIL_INDEX_FLAG_CACHE_FIELDS |
+	index->header->flags &= ~(MAIL_INDEX_FLAG_COMPRESS |
 				  MAIL_INDEX_FLAG_REBUILD);
 	return TRUE;
 }
@@ -88,6 +115,9 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 	memset(&data_hdr, 0, sizeof(data_hdr));
 	data_hdr.indexid = index->indexid;
 	if (write_full(fd, &data_hdr, sizeof(data_hdr)) < 0) {
+		if (errno == ENOSPC)
+			index->nodiskspace = TRUE;
+
 		index_set_error(index, "Error writing to temp index data "
 				"%s: %m", path);
 		return FALSE;
@@ -110,6 +140,9 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 
 		if (write_full(fd, mmap_data + rec->data_position,
 			       rec->data_size) < 0) {
+			if (errno == ENOSPC)
+				index->nodiskspace = TRUE;
+
 			index_set_error(index, "Error writing to temp index "
 					"data %s: %m", path);
 			return FALSE;
@@ -127,7 +160,10 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 int mail_index_compress_data(MailIndex *index)
 {
 	const char *temppath, *datapath;
-	int fd;
+	int fd, failed;
+
+	if (index->anon_mmap)
+		return TRUE;
 
 	/* write the data into temporary file updating the offsets in index
 	   while doing it. if we fail (especially if out of disk space/quota)
@@ -136,32 +172,45 @@ int mail_index_compress_data(MailIndex *index)
 		return FALSE;
 
 	fd = mail_index_create_temp_file(index, &temppath);
-	if (fd == -1)
-		return FALSE;
-
-	if (!mail_index_copy_data(index, fd, temppath)) {
-		(void)close(fd);
-		(void)unlink(temppath);
+	if (fd == -1) {
+		if (errno == ENOSPC)
+			index->nodiskspace = TRUE;
 		return FALSE;
 	}
 
-	/* now, close the old data file and rename the temp file into
-	   new data file */
-	mail_index_data_free(index->data);
-	(void)close(fd);
+	failed = !mail_index_copy_data(index, fd, temppath);
 
-	datapath = t_strconcat(index->filepath, DATA_FILE_PREFIX, NULL);
-	if (rename(temppath, datapath) < 0) {
-		index_set_error(index, "rename(%s, %s) failed: %m",
-				temppath, datapath);
+	if (close(fd) < 0)
+		index_file_set_syscall_error(index, temppath, "close()");
+
+	if (!failed) {
+		/* now, rename the temp file to new data file */
+		mail_index_data_free(index->data);
+
+		datapath = t_strconcat(index->filepath, DATA_FILE_PREFIX, NULL);
+		if (rename(temppath, datapath) < 0) {
+			if (errno == ENOSPC)
+				index->nodiskspace = TRUE;
+
+			index_set_error(index, "rename(%s, %s) failed: %m",
+					temppath, datapath);
+			failed = TRUE;
+		}
+	}
+
+	if (failed) {
+		if (unlink(temppath) < 0) {
+			index_file_set_syscall_error(index, temppath,
+						     "unlink()");
+		}
 		return FALSE;
 	}
 
 	/* make sure the whole file is synced before removing rebuild-flag */
-	if (!mail_index_fmsync(index, index->mmap_length))
+	if (!mail_index_fmsync(index, index->mmap_used_length))
 		return FALSE;
 
-	index->header->flags &= ~(MAIL_INDEX_FLAG_CACHE_FIELDS |
+	index->header->flags &= ~(MAIL_INDEX_FLAG_COMPRESS_DATA |
 				  MAIL_INDEX_FLAG_REBUILD);
 
 	return mail_index_data_open(index);

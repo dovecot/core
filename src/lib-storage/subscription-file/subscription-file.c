@@ -3,6 +3,7 @@
 /* ugly code here - text files are annoying to manage */
 
 #include "lib.h"
+#include "file-lock.h"
 #include "mmap-util.h"
 #include "write-full.h"
 #include "imap-match.h"
@@ -13,24 +14,6 @@
 #include <fcntl.h>
 
 #define SUBSCRIPTION_FILE_NAME ".subscriptions"
-
-static int lock_file(int fd, int type)
-{
-	struct flock fl;
-
-	/* lock whole file */
-	fl.l_type = type;
-	fl.l_whence = SEEK_SET;
-	fl.l_start = 0;
-	fl.l_len = 0;
-
-	while (fcntl(fd, F_SETLKW, &fl) == -1) {
-		if (errno != EINTR)
-			return FALSE;
-	}
-
-	return TRUE;
-}
 
 static int subscription_open(MailStorage *storage, int update,
 			     const char **path, void **mmap_base,
@@ -51,9 +34,10 @@ static int subscription_open(MailStorage *storage, int update,
 		return -1;
 	}
 
-	if (!lock_file(fd, update ? F_WRLCK : F_RDLCK)) {
-		mail_storage_set_critical(storage, "fcntl() failed for "
-					  "subscription file %s: %m", *path);
+	if (!file_wait_lock(fd, update ? F_WRLCK : F_RDLCK)) {
+		mail_storage_set_critical(storage, "file_wait_lock() failed "
+					  "for subscription file %s: %m",
+					  *path);
 		(void)close(fd);
 		return -1;
 	}
@@ -171,11 +155,7 @@ int subsfile_set_subscribed(MailStorage *storage, const char *name, int set)
 		failed = TRUE;
 	}
 
-	if (close(fd) == -1) {
-		mail_storage_set_critical(storage, "close() failed for "
-					  "subscription file %s: %m", path);
-		failed = TRUE;
-	}
+	(void)close(fd);
 	return !failed;
 }
 

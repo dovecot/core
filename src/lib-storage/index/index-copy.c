@@ -46,6 +46,9 @@ int index_storage_copy(Mailbox *box, Mailbox *destbox,
 		return FALSE;
 	}
 
+	if (!ibox->index->sync(ibox->index))
+		return mail_storage_set_index_error(ibox);
+
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(ibox);
 

@@ -107,6 +107,8 @@ struct _MailIndexHeader {
 	unsigned int flags;
 	unsigned int cache_fields;
 
+	uoff_t used_file_size;
+
 	uoff_t first_hole_position;
 	unsigned int first_hole_records;
 
@@ -127,6 +129,7 @@ struct _MailIndexDataHeader {
 	unsigned int indexid;
 	unsigned int reserved; /* for alignment mostly */
 
+	uoff_t used_file_size;
 	uoff_t deleted_space;
 };
 
@@ -189,9 +192,9 @@ struct _MailIndex {
 
 	/* Rebuild the whole index. Note that this changes the indexid
 	   so all the other files must also be rebuilt after this call.
-	   Index MUST NOT have shared lock, exclusive lock or no lock at all
-	   is fine. Note that this function may leave the index exclusively
-	   locked. */
+	   Index MUST NOT have shared lock, but exclusive lock or no lock at
+	   all is fine. Note that this function may leave the index
+	   exclusively locked, and always sets index->inconsistent = TRUE. */
 	int (*rebuild)(MailIndex *index);
 
 	/* Verify that the index is valid. If anything invalid is found,
@@ -290,6 +293,10 @@ struct _MailIndex {
 	/* Returns last error message */
 	const char *(*get_last_error)(MailIndex *index);
 
+	/* Returns TRUE if last error was because we ran out of available
+	   disk space. */
+	int (*is_diskspace_error)(MailIndex *index);
+
 	/* Returns TRUE if index is now in inconsistent state with the
 	   previous known state, meaning that the message IDs etc. may
 	   have changed - only way to recover this would be to fully close
@@ -316,7 +323,8 @@ struct _MailIndex {
 	char *error; /* last error message */
 
 	void *mmap_base;
-	size_t mmap_length;
+	size_t mmap_used_length;
+	size_t mmap_full_length;
 
         MailLockType lock_type;
 
@@ -333,10 +341,10 @@ struct _MailIndex {
 	unsigned int set_flags;
 	unsigned int set_cache_fields;
 
+	unsigned int anon_mmap:1;
 	unsigned int opened:1;
-	unsigned int updating:1;
 	unsigned int inconsistent:1;
-	unsigned int dirty_mmap:1;
+	unsigned int nodiskspace:1;
 };
 
 /* needed to remove annoying warnings about not initializing all struct
@@ -344,7 +352,7 @@ struct _MailIndex {
 #define MAIL_INDEX_PRIVATE_FILL \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0, 0, 0
 
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent);
@@ -378,13 +386,12 @@ void mail_index_update_field(MailIndexUpdate *update, MailField field,
 void mail_index_update_field_raw(MailIndexUpdate *update, MailField field,
 				 const void *value, size_t size);
 const char *mail_index_get_last_error(MailIndex *index);
+int mail_index_is_diskspace_error(MailIndex *index);
 int mail_index_is_inconsistency_error(MailIndex *index);
 
 /* INTERNAL: */
 void mail_index_init_header(MailIndexHeader *hdr);
 void mail_index_close(MailIndex *index);
-int mail_index_rebuild_all(MailIndex *index);
-int mail_index_sync_file(MailIndex *index);
 int mail_index_fmsync(MailIndex *index, size_t size);
 int mail_index_verify_hole_range(MailIndex *index);
 void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
@@ -395,10 +402,20 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 int mail_index_update_cache(MailIndex *index);
 int mail_index_compress(MailIndex *index);
 int mail_index_compress_data(MailIndex *index);
+int mail_index_truncate(MailIndex *index);
 
 /* Max. mmap()ed size for a message */
-//FIXME:#define MAIL_MMAP_BLOCK_SIZE (1024*256)
-#define MAIL_MMAP_BLOCK_SIZE (1024*8) // FIXME: for debugging
+#define MAIL_MMAP_BLOCK_SIZE (1024*256)
+
+/* number of records to always keep allocated in index file,
+   either used or unused */
+#define INDEX_MIN_RECORDS_COUNT 64
+/* when empty space in index file gets full, grow the file n% larger */
+#define INDEX_GROW_PERCENTAGE 10
+/* ftruncate() the index file when only n% of it is in use */
+#define INDEX_TRUNCATE_PERCENTAGE 30
+/* don't truncate whole file anyway, keep n% of the empty space */
+#define INDEX_TRUNCATE_KEEP_PERCENTAGE 10
 
 /* uoff_t to index file for given record */
 #define INDEX_FILE_POSITION(index, ptr) \
@@ -414,7 +431,12 @@ int mail_index_compress_data(MailIndex *index);
 
 /* get number of records in mmaped index */
 #define MAIL_INDEX_RECORD_COUNT(index) \
-	((index->mmap_length - sizeof(MailIndexHeader)) / \
+	((index->mmap_used_length - sizeof(MailIndexHeader)) / \
 	 sizeof(MailIndexRecord))
+
+/* minimum size for index file */
+#define INDEX_FILE_MIN_SIZE \
+	(sizeof(MailIndexHeader) + \
+	 INDEX_MIN_RECORDS_COUNT * sizeof(MailIndexRecord))
 
 #endif

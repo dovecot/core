@@ -14,6 +14,7 @@ libstorage_index_a_SOURCES = \
         mail-index-compress.c \
         mail-index-fsck.c \
         mail-index-data.c \
+        mail-index-open.c \
         mail-index-update.c \
         mail-index-update-cache.c \
         mail-index-util.c \

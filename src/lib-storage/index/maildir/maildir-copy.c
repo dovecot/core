@@ -20,6 +20,9 @@ static int copy_hard_func(MailIndex *index, MailIndexRecord *rec,
 	const char *fname;
 	char src[1024], dest[1024];
 
+	/* FIXME: this is buggy */
+	if (1) return FALSE;
+
 	/* link the file */
 	fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
 	i_snprintf(src, sizeof(src), "%s/cur/%s", index->dir, fname);
@@ -43,6 +46,9 @@ static int maildir_copy_with_hardlinks(IndexMailbox *src,
 {
 	CopyHardContext ctx;
 	int ret;
+
+	if (!src->index->sync(src->index))
+		return mail_storage_set_index_error(src);
 
 	if (!src->index->set_lock(src->index, MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(src);

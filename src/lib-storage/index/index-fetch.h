@@ -15,7 +15,7 @@ typedef struct {
 } FetchContext;
 
 ImapCacheField index_fetch_body_get_cache(const char *section);
-void index_fetch_body_section(MailIndexRecord *rec, unsigned int seq,
-			      MailFetchBodyData *sect, FetchContext *data);
+int index_fetch_body_section(MailIndexRecord *rec, unsigned int seq,
+			     MailFetchBodyData *sect, FetchContext *data);
 
 #endif

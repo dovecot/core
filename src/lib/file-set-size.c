@@ -25,6 +25,7 @@
 
 #include "lib.h"
 #include "write-full.h"
+#include "file-set-size.h"
 
 #include <unistd.h>
 
@@ -36,15 +37,18 @@ int file_set_size(int fd, off_t size)
 
 	i_assert(size >= 0);
 
+	/* FIXME: this may not be good idea, since mmap()ing and writing
+	   to it creates fragmentation. */
+
 	/* try truncating it to the size we want. if this succeeds, the written
 	   area is full of zeros - exactly what we want. however, this may not
 	   work at all, in which case we fallback to write()ing the zeros. */
-	ret = ftruncate(fd, size);
+	ret = -1;/*ftruncate(fd, size)*/;
 	old_errno = errno;
 
 	pos = lseek(fd, 0, SEEK_END);
 	if (ret != -1 && pos == size)
-		return lseek(fd, 0, SEEK_SET) < 0 ? -1 : 0;
+		return 0;
 
 	if (pos < 0)
 		return -1;
@@ -55,8 +59,9 @@ int file_set_size(int fd, off_t size)
 		return -1;
 	}
 
-	/* start growing the file */
 	size -= pos;
+
+	/* start growing the file */
 	memset(block, 0, sizeof(block));
 
 	while ((uoff_t)size > sizeof(block)) {

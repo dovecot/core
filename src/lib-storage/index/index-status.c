@@ -101,6 +101,9 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 
 	memset(status, 0, sizeof(MailboxStatus));
 
+	if (!ibox->index->sync(ibox->index))
+		return mail_storage_set_index_error(ibox);
+
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(ibox);
 

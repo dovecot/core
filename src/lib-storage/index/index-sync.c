@@ -25,6 +25,9 @@ int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 
 	*messages = 0;
 
+	if (!ibox->index->sync(ibox->index))
+		return mail_storage_set_index_error(ibox);
+
 	if (!ibox->index->set_lock(ibox->index, expunge ?
 				   MAIL_LOCK_EXCLUSIVE : MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(ibox);
