@@ -143,6 +143,7 @@ static struct setting_def auth_setting_defs[] = {
 
 	DEF(SET_BOOL, use_cyrus_sasl),
 	DEF(SET_BOOL, verbose),
+	DEF(SET_BOOL, debug),
 	DEF(SET_BOOL, ssl_require_client_cert),
 
 	DEF(SET_INT, count),
@@ -305,6 +306,7 @@ struct auth_settings default_auth_settings = {
 
 	MEMBER(use_cyrus_sasl) FALSE,
 	MEMBER(verbose) FALSE,
+	MEMBER(debug) FALSE,
 	MEMBER(ssl_require_client_cert) FALSE,
 
 	MEMBER(count) 1,

@@ -399,6 +399,8 @@ static int create_auth_process(struct auth_process_group *group)
 		env_put("USE_CYRUS_SASL=1");
 	if (group->set->verbose)
 		env_put("VERBOSE=1");
+	if (group->set->debug)
+		env_put("VERBOSE_DEBUG=1");
 	if (group->set->ssl_require_client_cert)
 		env_put("SSL_REQUIRE_CLIENT_CERT=1");
 
