@@ -239,6 +239,8 @@ struct maildir_sync_context {
 	unsigned int readonly_check:1;
 	unsigned int flag_updates:1;
 	unsigned int uidlist_rewrite:1;
+	unsigned int new_mails_new:1;
+	unsigned int new_mails_cur:1;
 };
 
 static int maildir_sync_cur_dir(struct maildir_sync_context *ctx);
@@ -668,6 +670,7 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 			return FALSE;
 	}
 
+	ctx->new_count = 0;
 	return TRUE;
 }
 
@@ -825,6 +828,11 @@ static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
 			/* new message */
 			if (ctx->readonly_check)
 				continue;
+
+			if (new_dir)
+				ctx->new_mails_new = TRUE;
+			else
+				ctx->new_mails_cur = TRUE;
 
 			ctx->new_count++;
 			hash_rec->action = MAILDIR_FILE_ACTION_NEW | newflag;
@@ -1137,7 +1145,9 @@ static int maildir_index_sync_context(struct maildir_sync_context *ctx,
 		/* this will set maildir_cur_dirty. it may actually be
 		   different from cur/'s mtime if we're unlucky, but that
 		   doesn't really matter and it's not worth the extra stat() */
-		cur_mtime = time(NULL);
+		if (ctx->new_dent == NULL &&
+		    (ctx->new_count == 0 || !ctx->new_mails_new))
+			cur_mtime = time(NULL);
 	}
 
 	if (ctx->uidlist_rewrite) {
@@ -1154,13 +1164,22 @@ static int maildir_index_sync_context(struct maildir_sync_context *ctx,
 			index->header->flags &= ~MAIL_INDEX_FLAG_MAILDIR_NEW;
 	}
 
-	if (cur_mtime < ioloop_time - MAILDIR_SYNC_SECS)
-		index->maildir_cur_dirty = 0;
-	else
-		index->maildir_cur_dirty = cur_mtime;
+	if (index->maildir_cur_dirty == 0 ||
+	    index->maildir_cur_dirty < ioloop_time - MAILDIR_SYNC_SECS) {
+		if (cur_mtime >= ioloop_time - MAILDIR_SYNC_SECS)
+			index->maildir_cur_dirty = cur_mtime;
+		else if (ctx->new_count == 0 || !ctx->new_mails_cur)
+			index->maildir_cur_dirty = 0;
+		else {
+			/* uidlist is locked, wait for a while before
+			   trying again */
+			index->maildir_cur_dirty = ioloop_time;
+		}
+	}
 
 	index->file_sync_stamp = cur_mtime;
-	if (ctx->new_dent == NULL)
+	if (ctx->new_dent == NULL &&
+	    (ctx->new_count == 0 || !ctx->new_mails_new))
 		index->last_new_mtime = new_mtime;
 
 	return TRUE;
