@@ -4,7 +4,8 @@
 
 #ifndef HAVE_ICONV_H
 
-const char *charset_to_ucase_utf8(const unsigned char *data, size_t *size,
+const char *charset_to_ucase_utf8(const unsigned char *data,
+				  size_t *size __attr_unused__,
 				  const char *charset, int *unknown_charset)
 {
 	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0)
