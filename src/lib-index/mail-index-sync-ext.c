@@ -318,6 +318,18 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 		ext_hdr->record_align = ext->record_align;
 	}
 
+	if (new_size != old_size) {
+		/* move all hdr_offset of all extensions after this one */
+		size_t i, count = map->extensions->used / sizeof(*ext);
+
+		ext -= ext_id;
+		for (i = ext_id + 1; i < count; i++) {
+			i_assert(ext[i].hdr_offset > ext[i-1].hdr_offset);
+			ext[i].hdr_offset +=
+				(ssize_t)new_size - (ssize_t)old_size;
+		}
+	}
+
 	if (old_record_size != u->record_size) {
 		map = sync_ext_reorder(map, ext_id, old_record_size);
 		mail_index_sync_replace_map(ctx, map);
