@@ -113,7 +113,7 @@ static void main_init(void)
 		(unsigned int)strtoul(str, NULL, 10) :
 		DEFAULT_IMAP_MAX_LINE_LENGTH;
 
-	str = getenv("MAIL_MAX_FLAG_LENGTH");
+	str = getenv("MAIL_MAX_KEYWORD_LENGTH");
 	max_keyword_length = str != NULL ?
 		(unsigned int)strtoul(str, NULL, 10) :
 		DEFAULT_MAX_KEYWORD_LENGTH;

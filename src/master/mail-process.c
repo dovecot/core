@@ -252,8 +252,8 @@ int create_mail_process(struct login_group *group, int socket,
 				set->mailbox_idle_check_interval));
 	env_put(t_strconcat("CLIENT_WORKAROUNDS=",
 			    set->client_workarounds, NULL));
-	env_put(t_strdup_printf("MAIL_MAX_FLAG_LENGTH=%u",
-				set->mail_max_flag_length));
+	env_put(t_strdup_printf("MAIL_MAX_KEYWORD_LENGTH=%u",
+				set->mail_max_keyword_length));
 	env_put(t_strdup_printf("IMAP_MAX_LINE_LENGTH=%u",
 				set->imap_max_line_length));
 
