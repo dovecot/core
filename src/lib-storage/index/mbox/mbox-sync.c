@@ -491,14 +491,15 @@ static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 	idx = 0;
 	idx_seq = sync_ctx->need_space_idx_seq;
 	if (idx_seq == 0) {
+		/* pseudo-header, skip it */
 		idx++; idx_seq++;
 	}
 
-	for (; idx < size; idx++, idx_seq++, mails++) {
-		if (mails->uid == 0)
+	for (; idx < size; idx++, idx_seq++) {
+		if (mails[idx].uid == 0)
 			continue;
 
-		offset = mails->from_offset;
+		offset = mails[idx].from_offset;
 		mail_index_update_extra_rec(sync_ctx->t, idx_seq, extra_idx,
 					    &offset);
 	}
@@ -567,7 +568,8 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 	if (ret == 0 && sync_ctx->need_space_seq == 0) {
 		/* first mail with no space to write it */
 		sync_ctx->need_space_seq = sync_ctx->seq;
-		sync_ctx->need_space_idx_seq = sync_ctx->idx_seq;
+		sync_ctx->need_space_idx_seq =
+			mail_ctx->pseudo ? 0 : sync_ctx->idx_seq;
 		sync_ctx->space_diff = 0;
 
 		if (sync_ctx->expunged_space > 0) {
