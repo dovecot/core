@@ -38,7 +38,7 @@ int file_unlock_dotlock(const char *path, const struct dotlock *dotlock);
 
 /* Use dotlock as the new content for file. This provides read safety without
    locks, but not very good for large files. Returns fd for lock file.
-   If dotlock is stale, returns -1 and errno = EAGAIN. */
+   If locking timed out, returns -1 and errno = EAGAIN. */
 int file_dotlock_open(const char *path, const char *temp_prefix,
 		      unsigned int timeout, unsigned int stale_timeout,
 		      int (*callback)(unsigned int secs_left, int stale,
