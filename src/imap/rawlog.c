@@ -15,14 +15,30 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 
+#define TIMESTAMP_WAIT_TIME 5
+#define TIMESTAMP_FORMAT " * OK [RAWLOG TIMESTAMP] %Y-%m-%d %H:%M:%S\n"
+
 static IOLoop ioloop;
 static int client_in, client_out, imap_in, imap_out;
 static int log_in, log_out;
 
+static time_t last_write = 0;
+static int last_lf = TRUE;
+
 static void copy(int in, int out, int log)
 {
+	struct tm *tm;
 	char buf[1024];
 	ssize_t r_ret, s_ret;
+
+	if (last_lf && ioloop_time - last_write > TIMESTAMP_WAIT_TIME) {
+		tm = localtime(&ioloop_time);
+
+		if (strftime(buf, sizeof(buf), TIMESTAMP_FORMAT, tm) <= 0)
+			i_fatal("strftime() failed");
+		if (write_full(log, buf, strlen(buf)) < 0)
+			i_fatal("Can't write to log file: %m");
+	}
 
 	net_set_nonblock(in, TRUE);
 	r_ret = read(in, buf, sizeof(buf));
@@ -35,6 +51,7 @@ static void copy(int in, int out, int log)
 		return;
 	}
 
+	last_lf = buf[r_ret-1] == '\n';
 	if (write_full(log, buf, r_ret) < 0)
 		i_fatal("Can't write to log file: %m");
 
@@ -51,6 +68,8 @@ static void copy(int in, int out, int log)
 		}
 		r_ret -= s_ret;
 	} while (r_ret > 0);
+
+	last_write = time(NULL);
 }
 
 static void imap_input(void *context __attr_unused__, int fd __attr_unused__,
