@@ -180,7 +180,7 @@ int cmd_login(Client *client, const char *user, const char *pass)
 	char *p;
 	unsigned int len, user_len, pass_len;
 
-	if (disable_plaintext_auth) {
+	if (!client->tls && disable_plaintext_auth) {
 		client_send_tagline(client,
 				    "NO Plaintext authentication disabled.");
 		return TRUE;
@@ -276,7 +276,7 @@ int cmd_authenticate(Client *client, const char *method_name)
 		return TRUE;
 	}
 
-	if (method->plaintext && disable_plaintext_auth) {
+	if (!client->tls && method->plaintext && disable_plaintext_auth) {
 		client_send_tagline(client,
 				    "NO Plaintext authentication disabled.");
 		return TRUE;
