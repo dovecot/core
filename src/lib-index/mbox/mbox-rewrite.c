@@ -415,7 +415,8 @@ int mbox_index_rewrite(MailIndex *index)
 	if (!index->set_lock(index, MAIL_LOCK_SHARED))
 		return FALSE;
 
-        rewrite = (index->header->flags & INDEX_DIRTY_FLAGS);
+	rewrite = (index->header->flags & INDEX_DIRTY_FLAGS) &&
+		index->header->messages_count > 0;
 
 	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
 		return FALSE;
