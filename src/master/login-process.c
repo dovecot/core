@@ -127,6 +127,11 @@ static void login_process_input(void *context, int fd __attr_unused__,
 			i_error("login: fd_read() failed: %m");
 		}
 
+		if (client_fd != -1) {
+			if (close(client_fd) < 0)
+				i_error("close(imap client) failed: %m");
+		}
+
 		login_process_destroy(p);
 		return;
 	}
@@ -147,6 +152,8 @@ static void login_process_input(void *context, int fd __attr_unused__,
 	   it's not trying to exploit us */
 	if (!VALIDATE_STR(req.login_tag)) {
 		i_error("login: Received corrupted data");
+		if (close(client_fd) < 0)
+			i_error("close(imap client) failed: %m");
 		login_process_destroy(p);
 		return;
 	}
