@@ -10,7 +10,7 @@
 int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 		 off_t virtual_skip, off_t max_virtual_size)
 {
-	unsigned char *msg, *buf;
+	unsigned char *msg, buf[OUTPUT_BUFFER_SIZE];
 	unsigned int i, size, pos;
 	int cr_skipped, add_cr;
 
@@ -31,9 +31,6 @@ int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 	message_skip_virtual(inbuf, virtual_skip, NULL, &cr_skipped);
 
 	/* go through the message data and insert CRs where needed.  */
-	buf = io_buffer_get_space(outbuf, OUTPUT_BUFFER_SIZE);
-	i_assert(buf != NULL);
-
 	pos = 0;
 	while (io_buffer_read_data(inbuf, &msg, &size, 0) >= 0) {
 		add_cr = FALSE;
@@ -60,7 +57,7 @@ int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 
 		if (pos + i >= OUTPUT_BUFFER_SIZE) {
 			/* buffer is full, flush it */
-			if (io_buffer_send_buffer(outbuf, pos) <= 0)
+			if (io_buffer_send(outbuf, buf, pos) <= 0)
 				return FALSE;
 			pos = 0;
 		}
@@ -90,7 +87,7 @@ int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 		io_buffer_skip(inbuf, i);
 	}
 
-	if (io_buffer_send_buffer(outbuf, pos) <= 0)
+	if (io_buffer_send(outbuf, buf, pos) <= 0)
 		return FALSE;
 
 	return TRUE;
