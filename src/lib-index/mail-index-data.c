@@ -242,7 +242,7 @@ int mail_index_data_create(MailIndex *index)
 		fd = -1;
 	} else {
 		fd = mail_index_create_temp_file(index, &temppath);
-		if (fd != -1) {
+		if (fd == -1) {
 			if (errno == ENOSPC)
 				index->nodiskspace = TRUE;
 			return FALSE;
@@ -274,6 +274,11 @@ int mail_index_data_create(MailIndex *index)
 
 	data->index = index;
 	data->fd = fd;
+
+	if (!mmap_update(data, 0, sizeof(MailIndexDataHeader))) {
+		mail_index_data_free(data);
+		return FALSE;
+	}
 
 	index->data = data;
 	return TRUE;
