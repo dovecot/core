@@ -179,84 +179,119 @@ case "$host_os" in
 		;;
 esac
 
-dnl * off_t checks, try to make it 64bit
-AC_DEFINE_UNQUOTED(_FILE_OFFSET_BITS, $preferred_off_t_bits)
-
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
 AC_CHECK_SIZEOF(void *)
 AC_CHECK_SIZEOF(long long)
 
-dnl * older autoconfs don't include sys/types.h, so do it manually
-AC_MSG_CHECKING([size of ssize_t])
-AC_TRY_RUN([
-  #include <stdio.h>
-  #include <sys/types.h>
-  int main() {
-    FILE *f=fopen("conftestval", "w");
-    if (!f) exit(1);
-    fprintf(f, "%d\n", sizeof(ssize_t));
-    exit(0);
-  }
-], [
-  sizeof_ssize_t=`cat conftestval`
-  rm -f conftestval
-], [
-  sizeof_ssize_t=0
-  AC_ERROR([Unsupported ssize_t size])
+AC_DEFUN(AC_TYPEOF, [
+  dnl * first check if we can get the size with redefining typedefs
+
+  order="$2"
+  if test "$2" = ""; then
+    order="int long long-long"
+  fi
+
+  result=""
+  visible="unknown"
+
+  AC_MSG_CHECKING([type of $1])
+  for type in $order; do
+    type="`echo $type|sed 's/-/ /g'`"
+    AC_TRY_COMPILE([
+      #include <sys/types.h>
+      typedef $type $1;
+    ],, [
+      if test "$result" != ""; then
+        dnl * compiler allows redefining to anything
+        result=""
+	visible="unknown"
+        break
+      fi
+      result="$type"
+      visible="$type"
+    ])
+  done
+
+  if test "$result" = ""; then
+    dnl * check with sizes
+
+    dnl * older autoconfs don't include sys/types.h, so do it manually
+    AC_TRY_RUN([
+      #include <stdio.h>
+      #include <sys/types.h>
+      int main() {
+	FILE *f=fopen("conftestval", "w");
+	if (!f) exit(1);
+	fprintf(f, "%d\n", sizeof($1));
+	exit(0);
+      }
+    ], [
+      size=`cat conftestval`
+      rm -f conftestval
+
+      for type in $order; do
+        actype="ac_cv_sizeof_`echo $type|sed 's/-/_/g'`"
+        if test "$size" = "`eval \"echo \\$$actype\"`"; then
+	  result="`echo $type|sed 's/-/ /g'`"
+	  visible="`expr $size \* 8`bit (using $result)"
+	  break
+	fi
+      done
+      if test "$result" = ""; then
+        visible="`expr $size \* 8`bit (unknown type)"
+      fi
+    ])
+  fi
+
+  typeof_$1=$result
+  AC_MSG_RESULT($visible)
 ])
-AC_MSG_RESULT($sizeof_ssize_t)
 
-AC_MSG_CHECKING([size of off_t])
-AC_TRY_RUN([
-  #include <stdio.h>
-  #include <sys/types.h>
-  int main() {
-    FILE *f=fopen("conftestval", "w");
-    if (!f) exit(1);
-    fprintf(f, "%d\n", sizeof(off_t));
-    exit(0);
-  }
-], [
-  sizeof_off_t=`cat conftestval`
-  rm -f conftestval
-], [
-  AC_ERROR([Unsupported off_t size])
-])
-AC_MSG_RESULT($sizeof_off_t)
-offt_bits=`expr 8 \* $sizeof_off_t`
+dnl * off_t checks, try to make it 64bit
+AC_DEFINE_UNQUOTED(_FILE_OFFSET_BITS, $preferred_off_t_bits)
 
-if test x$sizeof_off_t = x$ac_cv_sizeof_long; then
-  # try to use unsigned long always first
-  AC_DEFINE_UNQUOTED(OFF_T_MAX, LONG_MAX)
-  AC_DEFINE_UNQUOTED(PRIuUOFF_T, "lu")
-  AC_DEFINE(UOFF_T_LONG)
-elif test x$sizeof_off_t = x$ac_cv_sizeof_int; then
-  # next try int
-  AC_DEFINE_UNQUOTED(OFF_T_MAX, INT_MAX)
-  AC_DEFINE_UNQUOTED(PRIuUOFF_T, "u")
-  AC_DEFINE(UOFF_T_INT)
-elif test x$sizeof_off_t = x$ac_cv_sizeof_long_long; then
-  # and finally long long
-  AC_DEFINE_UNQUOTED(OFF_T_MAX, LLONG_MAX)
-  AC_DEFINE_UNQUOTED(PRIuUOFF_T, "llu")
-  AC_DEFINE(UOFF_T_LONG_LONG)
-else
-  AC_ERROR([Couldn't find integer type for off_t])
-fi
+AC_TYPEOF(off_t, long int long-long)
+case "$typeof_off_t" in
+  int)
+    AC_DEFINE_UNQUOTED(OFF_T_MAX, LONG_MAX)
+    AC_DEFINE_UNQUOTED(PRIuUOFF_T, "lu")
+    AC_DEFINE(UOFF_T_LONG)
+    offt_bits=`expr 8 \* $ac_cv_sizeof_int`
+    ;;
+  long)
+    AC_DEFINE_UNQUOTED(OFF_T_MAX, INT_MAX)
+    AC_DEFINE_UNQUOTED(PRIuUOFF_T, "u")
+    AC_DEFINE(UOFF_T_INT)
+    offt_bits=`expr 8 \* $ac_cv_sizeof_long`
+    ;;
+  "long long")
+    AC_DEFINE_UNQUOTED(OFF_T_MAX, LLONG_MAX)
+    AC_DEFINE_UNQUOTED(PRIuUOFF_T, "llu")
+    AC_DEFINE(UOFF_T_LONG_LONG)
+    offt_bits=`expr 8 \* $ac_cv_sizeof_long_long`
+    ;;
+  *)
+    AC_ERROR([Unsupported off_t type])
+    ;;
+esac
 
-if test x$sizeof_ssize_t = x$ac_cv_sizeof_int; then
-  AC_DEFINE_UNQUOTED(SSIZE_T_MAX, INT_MAX)
-  AC_DEFINE_UNQUOTED(PRIuSIZE_T, "u")
-elif test x$sizeof_ssize_t = x$ac_cv_sizeof_long; then
-  AC_DEFINE_UNQUOTED(SSIZE_T_MAX, LONG_MAX)
-  AC_DEFINE_UNQUOTED(PRIuSIZE_T, "lu")
-elif test x$sizeof_ssize_t = x$ac_cv_sizeof_long_long; then
-  AC_DEFINE_UNQUOTED(SSIZE_T_MAX, LLONG_MAX)
-  AC_DEFINE_UNQUOTED(PRIuSIZE_T, "llu")
-else
-  AC_ERROR([Couldn't find integer type for ssize_t])
-fi
+AC_TYPEOF(ssize_t)
+case "$typeof_ssize_t" in
+  long)
+    AC_DEFINE_UNQUOTED(SSIZE_T_MAX, LONG_MAX)
+    AC_DEFINE_UNQUOTED(PRIuSIZE_T, "lu")
+    ;;
+  "long long")
+    AC_DEFINE_UNQUOTED(SSIZE_T_MAX, LLONG_MAX)
+    AC_DEFINE_UNQUOTED(PRIuSIZE_T, "llu")
+    ;;
+  *)
+    dnl older systems didn't have ssize_t, default to int
+    AC_DEFINE_UNQUOTED(SSIZE_T_MAX, INT_MAX)
+    AC_DEFINE_UNQUOTED(PRIuSIZE_T, "u")
+    ;;
+esac
 
 if test x$ac_cv_sizeof_long_long != x0; then
   AC_DEFINE(LARGEST_T_LONG_LONG)
