@@ -602,15 +602,36 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		}
 
 		if (rec->uid > uid) {
-			/* new UID in the middle of the mailbox -
-			   shouldn't happen */
-			mail_storage_set_critical(ibox->box.storage,
-				"Maildir sync: UID inserted in the middle "
-				"of mailbox (%u > %u, file = %s)",
-				rec->uid, uid, filename);
-			mail_index_mark_corrupted(ibox->index);
-			ret = -1;
-			break;
+			/* most likely a race condition: we read the
+			   maildir, then someone else expunged messages and
+			   committed changes to index. so, this message
+			   shouldn't actually exist. check to be sure.
+
+			   FIXME: we could avoid this stat() and just mark
+			   this check in the uidlist and check it at next
+			   sync.. */
+			struct stat st;
+			const char *str;
+
+			t_push();
+			str = t_strdup_printf("%s/%s",
+				(uflags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) ?
+				ctx->new_dir : ctx->cur_dir, filename);
+			if (stat(str, &st) == 0) {
+				t_pop();
+				mail_storage_set_critical(ibox->box.storage,
+					"Maildir sync: UID inserted in the "
+					"middle of mailbox "
+					"(%u > %u, file = %s)",
+					rec->uid, uid, filename);
+				mail_index_mark_corrupted(ibox->index);
+				ret = -1;
+				break;
+			}
+			t_pop();
+
+			seq--;
+			continue;
 		}
 
 		if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
