@@ -65,9 +65,7 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 			/* and check that we end with either EOF or to
 			   beginning of next message */
 			ret = read(fd, buf, 7);
-			if (ret == 0)
-				failed = FALSE; /* end of file */
-			else if (ret >= 6) {
+			if (ret >= 6) {
 				/* "[\r]\nFrom " expected */
 				if (buf[0] != '\r')
 					p = buf;
@@ -77,6 +75,17 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 				}
 				if (ret >= 6 && strncmp(p, "\nFrom ", 6) == 0)
 					failed = FALSE;
+			} else {
+				p = buf;
+				if (ret > 0 && *p == '\r') {
+					p++;
+					ret--;
+				}
+				if (ret > 0 && *p == '\n')
+					ret--;
+
+				if (ret == 0)
+					failed = FALSE; /* end of file */
 			}
 		}
 	}
