@@ -135,9 +135,10 @@ int create_mail_process(struct login_group *group, int socket,
 			struct ip_addr *ip,
 			struct auth_master_reply *reply, const char *data)
 {
-	static const char *argv[] = { NULL, NULL, NULL };
+	const char *argv[4];
 	struct settings *set = group->set;
 	const char *addr, *mail, *user, *chroot_dir, *home_dir, *full_home_dir;
+	const char *executable, *p;
 	char title[1024];
 	pid_t pid;
 	int i, err, ret;
@@ -285,13 +286,14 @@ int create_mail_process(struct login_group *group, int socket,
 	addr = net_ip2addr(ip);
 	env_put(t_strconcat("IP=", addr, NULL));
 
-	if (set->verbose_proctitle) {
+	if (!set->verbose_proctitle)
+		title[0] = '\0';
+	else {
 		if (addr == NULL)
 			addr = "??";
 
 		i_snprintf(title, sizeof(title), "[%s %s]",
 			   data + reply->virtual_user_idx, addr);
-		argv[1] = title;
 	}
 
 	/* make sure we don't leak syslog fd, but do it last so that
@@ -301,14 +303,23 @@ int create_mail_process(struct login_group *group, int socket,
 	if (set->mail_drop_priv_before_exec)
 		restrict_access_by_env(TRUE);
 
-	/* hide the path, it's ugly */
-	argv[0] = strrchr(group->set->mail_executable, '/');
-	if (argv[0] == NULL)
-		argv[0] = group->set->mail_executable;
-	else
-		argv[0]++;
+	/* very simple argument splitting. */
+	i = 0;
+	argv[i++] = executable = t_strcut(group->set->mail_executable, ' ');
+	argv[i] = strchr(group->set->mail_executable, ' ');
+	if (argv[i] != NULL) {
+		argv[i]++;
+		i++;
+	}
+	if (title[0] != '\0')
+		argv[i++] = title;
+	argv[i] = NULL;
 
-	execv(group->set->mail_executable, (char **) argv);
+	/* hide the path, it's ugly */
+	p = strrchr(argv[0], '/');
+	if (p != NULL) argv[0] = p+1;
+
+	execv(executable, (char **) argv);
 	err = errno;
 
 	for (i = 0; i < 3; i++)

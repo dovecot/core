@@ -359,9 +359,9 @@ static int settings_verify(struct settings *set)
 	if (!get_login_uid(set))
 		return FALSE;
 
-	if (access(set->mail_executable, X_OK) < 0) {
+	if (access(t_strcut(set->mail_executable, ' '), X_OK) < 0) {
 		i_error("Can't use mail executable %s: %m",
-			set->mail_executable);
+			t_strcut(set->mail_executable, ' '));
 		return FALSE;
 	}
 
