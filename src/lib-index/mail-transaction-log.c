@@ -1076,10 +1076,11 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	struct mail_index *index;
 	struct mail_transaction_log *log;
 	struct mail_transaction_log_file *file;
+	struct mail_index_header idx_hdr;
 	size_t offset;
 	uoff_t append_offset;
 	buffer_t *hdr_buf;
-	unsigned int i;
+	unsigned int i, lock_id;
 	int ret;
 
 	index = mail_index_view_get_index(view);
@@ -1101,23 +1102,21 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 			return -1;
 	}
 
+	if (mail_index_lock_shared(log->index, TRUE, &lock_id) < 0) {
+		if (!log->index->log_locked)
+			(void)mail_transaction_log_file_lock(file, F_UNLCK);
+		return -1;
+	}
+	idx_hdr = *log->index->hdr;
+	mail_index_unlock(log->index, lock_id);
+
 	if (log->head->hdr.used_size > MAIL_TRANSACTION_LOG_ROTATE_SIZE &&
 	    log->head->last_mtime <
 	    ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_MIN_TIME) {
 		/* we might want to rotate, but check first that head file
 		   sequence matches the one in index header, ie. we have
 		   everything synced in index. */
-		unsigned int lock_id;
-		uint32_t seq;
-
-		if (mail_index_lock_shared(log->index, TRUE, &lock_id) == 0) {
-			seq = index->hdr->log_file_seq;
-			mail_index_unlock(log->index, lock_id);
-		} else {
-			seq = 0;
-		}
-
-		if (log->head->hdr.file_seq == seq) {
+		if (log->head->hdr.file_seq == idx_hdr.log_file_seq) {
 			if (mail_transaction_log_rotate(log, F_WRLCK) < 0) {
 				/* that didn't work. well, try to continue
 				   anyway */
@@ -1127,6 +1126,13 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 
 	file = log->head;
 	append_offset = file->hdr.used_size;
+
+	if (t->cache_updates != NULL &&
+	    t->last_cache_file_seq < idx_hdr.cache_file_seq) {
+		/* cache_offsets point to old file, don't allow */
+		buffer_free(t->cache_updates);
+		t->cache_updates = NULL;
+	}
 
 	if (t->appends != NULL ||
 	    (t->cache_updates != NULL && t->new_cache_file_seq == 0)) {
