@@ -946,9 +946,7 @@ static int maildir_sync_new_dir(struct maildir_sync_context *ctx,
 	if (append_index) {
 		if (ctx->index->maildir_have_new) {
 			/* some of the mails in new/ are already indexed.
-			   we'll have to do a full sync.
-			   FIXME: or not really, just full sync for mails
-			   in new/ */
+			   we'll have to do a full sync. */
 			return maildir_sync_new_dir_full(ctx);
 		}
 
