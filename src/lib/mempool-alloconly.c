@@ -66,11 +66,28 @@ typedef struct {
 } PoolAlloc;
 #define SIZEOF_POOLALLOC (sizeof(PoolAlloc)-MEM_ALIGN_SIZE)
 
-static struct Pool static_alloconly_pool;
+static void pool_alloconly_ref(Pool pool);
+static void pool_alloconly_unref(Pool pool);
+static void *pool_alloconly_malloc(Pool pool, size_t size);
+static void pool_alloconly_free(Pool pool, void *mem);
+static void *pool_alloconly_realloc(Pool pool, void *mem, size_t size);
+static void *pool_alloconly_realloc_min(Pool pool, void *mem, size_t size);
 static void pool_alloconly_clear(Pool pool);
 
 static void block_alloc(AlloconlyPool *pool, size_t size);
-static void *pool_alloconly_realloc_min(Pool pool, void *mem, size_t size);
+
+static struct Pool static_alloconly_pool = {
+	pool_alloconly_ref,
+	pool_alloconly_unref,
+
+	pool_alloconly_malloc,
+	pool_alloconly_free,
+
+	pool_alloconly_realloc,
+	pool_alloconly_realloc_min,
+
+	pool_alloconly_clear
+};
 
 Pool pool_alloconly_create(const char *name, size_t size)
 {
@@ -241,16 +258,3 @@ static void pool_alloconly_clear(Pool pool)
 
 	apool->last_alloc_size = 0;
 }
-
-static struct Pool static_alloconly_pool = {
-	pool_alloconly_ref,
-	pool_alloconly_unref,
-
-	pool_alloconly_malloc,
-	pool_alloconly_free,
-
-	pool_alloconly_realloc,
-	pool_alloconly_realloc_min,
-
-	pool_alloconly_clear
-};

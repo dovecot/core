@@ -38,7 +38,26 @@ typedef struct {
 	/* void data[]; */
 } PoolAlloc;
 
-static struct Pool static_system_pool;
+static void pool_system_ref(Pool pool);
+static void pool_system_unref(Pool pool);
+static void *pool_system_malloc(Pool pool, size_t size);
+static void pool_system_free(Pool pool, void *mem);
+static void *pool_system_realloc(Pool pool, void *mem, size_t size);
+static void *pool_system_realloc_min(Pool pool, void *mem, size_t size);
+static void pool_system_clear(Pool pool);
+
+static struct Pool static_system_pool = {
+	pool_system_ref,
+	pool_system_unref,
+
+	pool_system_malloc,
+	pool_system_free,
+
+	pool_system_realloc,
+	pool_system_realloc_min,
+
+	pool_system_clear
+};
 
 Pool system_pool = &static_system_pool;
 
@@ -125,16 +144,3 @@ static void pool_system_clear(Pool pool __attr_unused__)
 {
 	i_panic("pool_system_clear() must not be called");
 }
-
-static struct Pool static_system_pool = {
-	pool_system_ref,
-	pool_system_unref,
-
-	pool_system_malloc,
-	pool_system_free,
-
-	pool_system_realloc,
-	pool_system_realloc_min,
-
-	pool_system_clear
-};
