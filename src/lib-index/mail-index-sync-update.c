@@ -122,18 +122,20 @@ static void mail_index_sync_deinit_handlers(struct mail_index_sync_map_ctx *ctx)
 {
 	const struct mail_index_sync_handler *sync_handlers;
 	const struct mail_index_ext *ext;
-	size_t i, size;
+	size_t i, synch_size, size;
 
 	if (ctx->extra_context == NULL)
 		return;
 
-	sync_handlers = buffer_get_data(ctx->view->index->sync_handlers, &size);
-	size /= sizeof(*sync_handlers);
+	sync_handlers = buffer_get_data(ctx->view->index->sync_handlers,
+					&synch_size);
+	synch_size /= sizeof(*sync_handlers);
 
-	i_assert(size <= ctx->extra_context_buf->used / sizeof(void *));
+	i_assert(synch_size <= ctx->extra_context_buf->used / sizeof(void *));
 
-	ext = ctx->view->map->extensions->data;
-	i_assert(ctx->view->map->extensions->used / sizeof(*ext) == size);
+	ext = buffer_get_data(ctx->view->map->extensions, &size);
+	size /= sizeof(*ext);
+	i_assert(size <= synch_size);
 
 	/* sync_handlers[] is ordered by index->extensions while
 	   extra_context is ordered by map->extensions. */
