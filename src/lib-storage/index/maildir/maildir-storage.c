@@ -98,10 +98,23 @@ static int maildir_autodetect(const char *data)
 		S_ISDIR(st.st_mode);
 }
 
-static int maildir_is_valid_name(struct mail_storage *storage, const char *name)
+static int maildir_is_valid_create_name(struct mail_storage *storage,
+					const char *name)
 {
 	if (name[0] == '\0' || name[strlen(name)-1] == storage->hierarchy_sep ||
 	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
+		return FALSE;
+
+	if (full_filesystem_access)
+		return TRUE;
+
+	return *name != '~' &&
+		strchr(name, '/') == NULL && strchr(name, '\\') == NULL;
+}
+
+static int maildir_is_valid_existing_name(const char *name)
+{
+	if (name[0] == '\0' || name[0] == '.')
 		return FALSE;
 
 	if (full_filesystem_access)
@@ -259,7 +272,7 @@ maildir_open_mailbox(struct mail_storage *storage,
 		return maildir_open(storage, "INBOX", readonly, fast);
 	}
 
-	if (!maildir_is_valid_name(storage, name)) {
+	if (!maildir_is_valid_existing_name(name)) {
 		mail_storage_set_error(storage, "Invalid mailbox name");
 		return FALSE;
 	}
@@ -292,7 +305,7 @@ static int maildir_create_mailbox(struct mail_storage *storage,
 	mail_storage_clear_error(storage);
 
 	name = inbox_fix_case(storage, name);
-	if (!maildir_is_valid_name(storage, name)) {
+	if (!maildir_is_valid_create_name(storage, name)) {
 		mail_storage_set_error(storage, "Invalid mailbox name");
 		return FALSE;
 	}
@@ -325,7 +338,7 @@ static int maildir_delete_mailbox(struct mail_storage *storage,
 		return FALSE;
 	}
 
-	if (!maildir_is_valid_name(storage, name)) {
+	if (!maildir_is_valid_existing_name(name)) {
 		mail_storage_set_error(storage, "Invalid mailbox name");
 		return FALSE;
 	}
@@ -463,8 +476,8 @@ static int maildir_rename_mailbox(struct mail_storage *storage,
 	mail_storage_clear_error(storage);
 
 	oldname = inbox_fix_case(storage, oldname);
-	if (!maildir_is_valid_name(storage, oldname) ||
-	    !maildir_is_valid_name(storage, newname)) {
+	if (!maildir_is_valid_existing_name(oldname) ||
+	    !maildir_is_valid_create_name(storage, newname)) {
 		mail_storage_set_error(storage, "Invalid mailbox name");
 		return FALSE;
 	}
@@ -519,7 +532,7 @@ static int maildir_get_mailbox_name_status(struct mail_storage *storage,
 	mail_storage_clear_error(storage);
 
 	name = inbox_fix_case(storage, name);
-	if (!maildir_is_valid_name(storage, name)) {
+	if (!maildir_is_valid_existing_name(name)) {
 		*status = MAILBOX_NAME_INVALID;
 		return TRUE;
 	}
@@ -528,7 +541,14 @@ static int maildir_get_mailbox_name_status(struct mail_storage *storage,
 	if (stat(path, &st) == 0) {
 		*status = MAILBOX_NAME_EXISTS;
 		return TRUE;
-	} else if (errno == ENOENT) {
+	}
+
+	if (!maildir_is_valid_create_name(storage, name)) {
+		*status = MAILBOX_NAME_INVALID;
+		return TRUE;
+	}
+
+	if (errno == ENOENT) {
 		*status = MAILBOX_NAME_VALID;
 		return TRUE;
 	} else {
