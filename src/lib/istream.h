@@ -65,7 +65,8 @@ unsigned char *i_stream_get_modifyable_data(struct istream *stream,
 					    size_t *size);
 /* Like i_stream_get_data(), but read more when needed. Returns 1 if more
    than threshold bytes are available, 0 if less, -1 if error or EOF with no
-   bytes available, or -2 if stream's input buffer is full. */
+   bytes read that weren't already in buffer, or -2 if stream's input buffer
+   is full. */
 int i_stream_read_data(struct istream *stream, const unsigned char **data,
 		       size_t *size, size_t threshold);
 

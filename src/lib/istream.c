@@ -188,7 +188,7 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data,
 
 	*data = i_stream_get_data(stream, size);
 	return ret == -2 ? -2 :
-		(read_more ? 0 : -1);
+		(read_more || ret == 0 ? 0 : -1);
 }
 
 struct istream *_i_stream_create(struct _istream *_stream, pool_t pool, int fd,
