@@ -663,14 +663,8 @@ uoff_t mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 
 		if (node[x].key > last_uid)
 			x = RBNULL;
-
-		if (x != RBNULL) {
-			/* FIXME: this is the safest way, but slowest
-			   to get the seq right.. */
-			return mail_tree_lookup_uid_range(tree, seq_r,
-							  node[x].key,
-							  node[x].key);
-		}
+		else
+			*seq_r = seq+1;
 	}
 
 	return x == RBNULL ? 0 : node[x].value;
