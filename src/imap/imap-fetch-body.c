@@ -366,6 +366,7 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 {
 	struct message_size msg_size;
 	struct istream *input;
+	uoff_t old_offset;
 
 	/* MIME, HEADER.FIELDS (list), HEADER.FIELDS.NOT (list) */
 
@@ -398,8 +399,9 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 	ctx->cur_input = input;
 	ctx->update_partial = FALSE;
 
+	old_offset = ctx->cur_input->v_offset;
 	message_get_header_size(ctx->cur_input, &msg_size, NULL);
-	i_stream_seek(ctx->cur_input, 0);
+	i_stream_seek(ctx->cur_input, old_offset);
 
 	if (!ctx->cur_have_eoh &&
 	    (client_workarounds & WORKAROUND_NETSCAPE_EOH) != 0) {
@@ -432,6 +434,7 @@ static int fetch_body_header_fields(struct imap_fetch_context *ctx,
 {
 	const struct imap_fetch_body_data *body = context;
 	struct message_size size;
+	uoff_t old_offset;
 
 	ctx->cur_input = mail->get_headers(mail, body->header_ctx);
 	if (ctx->cur_input == NULL)
@@ -440,8 +443,9 @@ static int fetch_body_header_fields(struct imap_fetch_context *ctx,
 	i_stream_ref(ctx->cur_input);
 	ctx->update_partial = FALSE;
 
+	old_offset = ctx->cur_input->v_offset;
 	message_get_body_size(ctx->cur_input, &size, NULL);
-	i_stream_seek(ctx->cur_input, 0);
+	i_stream_seek(ctx->cur_input, old_offset);
 
 	/* FIXME: We'll just always add the end of headers line now.
 	   ideally mail-storage would have a way to tell us if it exists. */
@@ -537,6 +541,7 @@ static int fetch_body_mime(struct imap_fetch_context *ctx, struct mail *mail,
 
 	if (strcmp(section, "HEADER") == 0) {
 		/* all headers */
+		i_stream_seek(ctx->cur_input, part->physical_pos);
 		return fetch_data(ctx, body, &part->header_size);
 	}
 
