@@ -3,7 +3,8 @@
 #include "lib.h"
 #include "sql-api-private.h"
 
-struct sql_db *sql_init(const char *db_driver, const char *connect_string)
+struct sql_db *sql_init(const char *db_driver,
+			const char *connect_string __attr_unused__)
 {
 #ifdef HAVE_PGSQL
 	if (strcmp(db_driver, "pgsql") == 0)
