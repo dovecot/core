@@ -66,6 +66,8 @@ static void
 auth_cache_node_link_head(struct auth_cache *cache, struct cache_node *node)
 {
 	node->prev = cache->head;
+	node->next = NULL;
+
 	cache->head = node;
 	if (node->prev != NULL)
 		node->prev->next = node;
