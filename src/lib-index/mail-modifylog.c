@@ -364,7 +364,7 @@ static int mail_modifylog_open_and_verify(MailModifyLog *log, const char *path)
 		(void)unlink(path);
 	}
 
-	if (ret != -1 && hdr.indexid != log->index->indexid) {
+	if (ret > 0 && hdr.indexid != log->index->indexid) {
 		index_set_error(log->index, "IndexID mismatch for modify log "
 				"file %s", path);
 		ret = -1;
@@ -373,12 +373,12 @@ static int mail_modifylog_open_and_verify(MailModifyLog *log, const char *path)
 		(void)unlink(path);
 	}
 
-	if (ret != -1 && hdr.sync_id == SYNC_ID_FULL) {
+	if (ret > 0 && hdr.sync_id == SYNC_ID_FULL) {
 		/* full */
 		ret = 0;
 	}
 
-	if (ret == 1) {
+	if (ret > 0) {
 		log->fd = fd;
 		log->filepath = i_strdup(path);
 	} else {
