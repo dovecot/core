@@ -1,13 +1,28 @@
-/* Copyright (c) 2002-2003 Timo Sirainen */
+/*
+ compat.c : Compatibility functions for OSes not having them
 
-#include "config.h"
-#undef HAVE_CONFIG_H
+    Copyright (c) 2002 Timo Sirainen
 
-#ifdef PREAD_WRAPPERS
-#  define _XOPEN_SOURCE 500 /* Linux */
-#endif
+    Permission is hereby granted, free of charge, to any person obtaining
+    a copy of this software and associated documentation files (the
+    "Software"), to deal in the Software without restriction, including
+    without limitation the rights to use, copy, modify, merge, publish,
+    distribute, sublicense, and/or sell copies of the Software, and to
+    permit persons to whom the Software is furnished to do so, subject to
+    the following conditions:
 
-#define IN_COMPAT_C
+    The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
 #include "lib.h"
 
 #include <stdio.h>
@@ -108,6 +123,11 @@ ssize_t my_writev(int fd, const struct iovec *iov, int iov_len)
 ssize_t my_pread(int fd, void *buf, size_t count, off_t offset)
 {
 	ssize_t ret;
+	off_t old_offset;
+
+	old_offset = lseek(fd, 0, SEEK_CUR);
+	if (old_offset == -1)
+		return -1;
 
 	if (lseek(fd, offset, SEEK_SET) < 0)
 		return -1;
@@ -116,7 +136,7 @@ ssize_t my_pread(int fd, void *buf, size_t count, off_t offset)
 	if (ret < 0)
 		return -1;
 
-	if (lseek(fd, offset, SEEK_SET) < 0)
+	if (lseek(fd, old_offset, SEEK_SET) < 0)
 		return -1;
 	return ret;
 }
@@ -124,6 +144,11 @@ ssize_t my_pread(int fd, void *buf, size_t count, off_t offset)
 ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset)
 {
 	ssize_t ret;
+	off_t old_offset;
+
+	old_offset = lseek(fd, 0, SEEK_CUR);
+	if (old_offset == -1)
+		return -1;
 
 	if (lseek(fd, offset, SEEK_SET) < 0)
 		return -1;
@@ -132,7 +157,7 @@ ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset)
 	if (ret < 0)
 		return -1;
 
-	if (lseek(fd, offset, SEEK_SET) < 0)
+	if (lseek(fd, old_offset, SEEK_SET) < 0)
 		return -1;
 	return ret;
 }
