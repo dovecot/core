@@ -200,6 +200,7 @@ int maildir_save_finish(struct mail_save_context *_ctx, struct mail **mail_r)
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 	struct utimbuf buf;
 	const char *path;
+	int output_errno;
 
 	if (ctx->failed && ctx->fd == -1) {
 		/* tmp file creation failed */
@@ -221,6 +222,7 @@ int maildir_save_finish(struct mail_save_context *_ctx, struct mail **mail_r)
 		}
 	}
 
+	output_errno = ctx->output->stream_errno;
 	o_stream_unref(ctx->output);
 	ctx->output = NULL;
 
@@ -245,7 +247,7 @@ int maildir_save_finish(struct mail_save_context *_ctx, struct mail **mail_r)
 				"unlink(%s) failed: %m", path);
 		}
 
-		errno = ctx->output->stream_errno;
+		errno = output_errno;
 		if (ENOSPACE(errno)) {
 			mail_storage_set_error(ctx->ibox->box.storage,
 					       "Not enough disk space");
