@@ -208,7 +208,6 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 			struct mail_index_sync_ctx *index_sync_ctx,
 			struct mail_index_view *sync_view)
 {
-	/* FIXME: expunging + mbox_sync_rewrite() is broken within same sync */
 	struct mbox_sync_context sync_ctx;
 	struct mbox_sync_mail_context mail_ctx;
 	struct mail_index_sync_rec sync_rec;
@@ -301,10 +300,14 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 
 			if (sync_expunge) {
 				ret = 1;
-				sync_ctx.expunged_space +=
+				mail_ctx.mail.offset = mail_ctx.from_offset;
+				mail_ctx.mail.space =
 					mail_ctx.body_offset -
 					mail_ctx.from_offset +
 					mail_ctx.mail.body_size;
+				mail_ctx.mail.body_size = 0;
+
+				sync_ctx.expunged_space += mail_ctx.mail.space;
 			} else {
 				move_diff = need_space_seq != 0 ? 0 :
 					-sync_ctx.expunged_space;
@@ -336,6 +339,21 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 				/* first mail with no space to write it */
 				need_space_seq = seq;
 				space_diff = 0;
+
+				if (sync_ctx.expunged_space > 0) {
+					/* create dummy message to describe
+					   the expunged data */
+					struct mbox_sync_mail mail;
+
+					memset(&mail, 0, sizeof(mail));
+					mail.offset = mail_ctx.from_offset -
+						sync_ctx.expunged_space;
+					mail.space = sync_ctx.expunged_space;
+
+					need_space_seq--;
+					buffer_append(mails, &mail,
+						      sizeof(mail));
+				}
 			}
 		}
 
@@ -426,12 +444,27 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 		}
 
 		if (need_space_seq != 0) {
+			if (sync_expunge)
+				mail_ctx.mail.uid = 0;
+
 			buffer_append(mails, &mail_ctx.mail,
 				      sizeof(mail_ctx.mail));
 
 			space_diff += mail_ctx.mail.space;
-			if (space_diff + sync_ctx.expunged_space >= 0) {
+			if (space_diff >= 0) {
 				/* we have enough space now */
+				extra_space = MBOX_HEADER_EXTRA_SPACE *
+					(seq - need_space_seq + 1);
+				if (sync_expunge &&
+				    (size_t)space_diff > extra_space) {
+					/* don't waste too much on extra
+					   spacing */
+					sync_ctx.expunged_space =
+						space_diff - extra_space;
+					space_diff = extra_space;
+				} else {
+					sync_ctx.expunged_space = 0;
+				}
 				if (mbox_sync_rewrite(&sync_ctx, mails,
 						      need_space_seq, seq,
 						      space_diff) < 0) {
@@ -466,8 +499,8 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 		else if (mbox_sync_try_rewrite(&mail_ctx, 0) < 0)
 			ret = -1;
 		else if (seq != need_space_seq) {
-			buffer_set_used_size(mails,
-					     (seq-1) * sizeof(mail_ctx.mail));
+			buffer_set_used_size(mails, (seq-need_space_seq) *
+					     sizeof(mail_ctx.mail));
 			buffer_append(mails, &mail_ctx.mail,
 				      sizeof(mail_ctx.mail));
 
@@ -505,13 +538,11 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 	}
 
 	if (ret >= 0) {
-		/* only syncs left should be just appends which weren't synced
-		   yet. we'll just ignore them, as we've overwritten those
-		   above. */
-		while ((ret = mail_index_sync_next(index_sync_ctx,
-						   &sync_rec)) > 0) {
-			i_assert(sync_rec.type == MAIL_INDEX_SYNC_TYPE_APPEND);
-		}
+		/* only syncs left should be just appends (and their updates)
+		   which weren't synced yet for some reason (crash). we'll just
+		   ignore them, as we've overwritten them above. */
+		while (mail_index_sync_next(index_sync_ctx, &sync_rec) > 0)
+			;
 	}
 
 	if (ret == 0) {
