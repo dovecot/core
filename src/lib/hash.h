@@ -2,10 +2,10 @@
 #define __HASH_H
 
 /* Returns hash code. */
-typedef unsigned int (*hash_callback_t)(const void *p);
+typedef unsigned int hash_callback_t(const void *p);
 /* Returns 0 if the pointers are equal. */
-typedef int (*hash_cmp_callback_t)(const void *p1, const void *p2);
-typedef void (*hash_foreach_callback_t)(void *key, void *value, void *context);
+typedef int hash_cmp_callback_t(const void *p1, const void *p2);
+typedef void hash_foreach_callback_t(void *key, void *value, void *context);
 
 /* Create a new hash table. If initial_size is 0, the default value is used.
    If hash_cb or key_compare_cb is NULL, direct hashing/comparing is used.
@@ -15,7 +15,7 @@ typedef void (*hash_foreach_callback_t)(void *key, void *value, void *context);
    be free'd before hash_destroy() is called. */
 struct hash_table *
 hash_create(pool_t table_pool, pool_t node_pool, size_t initial_size,
-	    hash_callback_t hash_cb, hash_cmp_callback_t key_compare_cb);
+	    hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb);
 void hash_destroy(struct hash_table *table);
 
 /* Remove all nodes from hash table. If free_collisions is TRUE, the
@@ -39,7 +39,7 @@ size_t hash_size(struct hash_table *table);
    call hash_*() functions inside your function, but if you add any
    new nodes, they may or may not be called for in this foreach loop. */
 void hash_foreach(struct hash_table *table,
-		  hash_foreach_callback_t callback, void *context);
+		  hash_foreach_callback_t *callback, void *context);
 /* Stop the active hash_foreach() loop */
 void hash_foreach_stop(void);
 

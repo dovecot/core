@@ -131,7 +131,7 @@ int imap_thread(struct client *client, const char *charset,
 					       APPROX_MSGID_SIZE);
 	ctx->msgid_hash = hash_create(default_pool, ctx->temp_pool,
 				      APPROX_MSG_COUNT*2, str_hash,
-				      (hash_cmp_callback_t)strcmp);
+				      (hash_cmp_callback_t *)strcmp);
 
 	ctx->id_is_uid = client->cmd_uid;
 	while ((mail = client->mailbox->search_next(ctx->search_ctx)) != NULL)
@@ -652,7 +652,7 @@ static void gather_base_subjects(struct thread_context *ctx)
 
 	ctx->subject_hash =
 		hash_create(default_pool, ctx->temp_pool, ctx->root_count * 2,
-			    str_hash, (hash_cmp_callback_t)strcmp);
+			    str_hash, (hash_cmp_callback_t *)strcmp);
 
 	node = ctx->root_node.first_child;
 	for (; node != NULL; node = node->next) {

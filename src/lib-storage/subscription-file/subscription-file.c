@@ -170,7 +170,7 @@ int subsfile_set_subscribed(struct mail_storage *storage,
 }
 
 int subsfile_foreach(struct mail_storage *storage, const char *mask,
-		     subsfile_foreach_callback_t callback, void *context)
+		     subsfile_foreach_callback_t *callback, void *context)
 {
         struct imap_match_glob *glob;
 	const char *path, *start, *end, *p, *line;

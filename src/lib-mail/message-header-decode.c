@@ -46,7 +46,7 @@ static int split_encoded(const unsigned char *data, size_t *size_p,
 
 static int
 message_header_decode_encoded(const unsigned char *data, size_t *size,
-			      message_header_decode_callback_t callback,
+			      message_header_decode_callback_t *callback,
 			      void *context)
 {
 	const unsigned char *text;
@@ -84,7 +84,7 @@ message_header_decode_encoded(const unsigned char *data, size_t *size,
 }
 
 void message_header_decode(const unsigned char *data, size_t size,
-			   message_header_decode_callback_t callback,
+			   message_header_decode_callback_t *callback,
 			   void *context)
 {
 	size_t pos, start_pos, subsize;

@@ -373,7 +373,7 @@ struct header_update_context {
 	pool_t envelope_pool;
 	struct message_part_envelope_data *envelope;
 
-	message_header_callback_t header_cb;
+	message_header_callback_t *header_cb;
 	void *context;
 };
 
@@ -406,7 +406,7 @@ static void update_header_cb(struct message_part *part,
 void mail_index_update_headers(struct mail_index_update *update,
 			       struct istream *input,
                                enum mail_data_field cache_fields,
-			       message_header_callback_t header_cb,
+			       message_header_callback_t *header_cb,
 			       void *context)
 {
 	struct header_update_context ctx;

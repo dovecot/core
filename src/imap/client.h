@@ -6,7 +6,7 @@
 
 struct client;
 
-typedef int (*client_command_func_t)(struct client *client);
+typedef int client_command_func_t(struct client *client);
 
 struct client {
 	int socket;
@@ -24,7 +24,7 @@ struct client {
 	struct imap_parser *parser;
 	const char *cmd_tag; /* tag of command (allocated from parser pool), */
 	const char *cmd_name; /* command name (allocated from parser pool) */
-	client_command_func_t cmd_func;
+	client_command_func_t *cmd_func;
 
 	unsigned int cmd_error:1;
 	unsigned int cmd_uid:1; /* used UID command */

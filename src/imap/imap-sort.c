@@ -162,7 +162,7 @@ init_sort_elements(struct sort_context *ctx,
 		ctx->str_pool = pool_alloconly_create("sort str", 8192);
 		ctx->string_table = hash_create(default_pool, ctx->str_pool,
 						0, str_hash,
-						(hash_cmp_callback_t)strcmp);
+						(hash_cmp_callback_t *)strcmp);
 	}
 
 	return fields;

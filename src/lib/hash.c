@@ -47,8 +47,8 @@ struct hash_table {
 	struct hash_node *nodes;
 	struct hash_node *free_nodes;
 
-	hash_callback_t hash_cb;
-	hash_cmp_callback_t key_compare_cb;
+	hash_callback_t *hash_cb;
+	hash_cmp_callback_t *key_compare_cb;
 };
 
 static int hash_resize(struct hash_table *table, int grow);
@@ -68,7 +68,7 @@ static unsigned int direct_hash(const void *p)
 
 struct hash_table *
 hash_create(pool_t table_pool, pool_t node_pool, size_t initial_size,
-	    hash_callback_t hash_cb, hash_cmp_callback_t key_compare_cb)
+	    hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb)
 {
 	struct hash_table *table;
 
@@ -342,7 +342,7 @@ size_t hash_size(struct hash_table *table)
 	return table->nodes_count;
 }
 
-void hash_foreach(struct hash_table *table, hash_foreach_callback_t callback,
+void hash_foreach(struct hash_table *table, hash_foreach_callback_t *callback,
 		  void *context)
 {
 	struct hash_node *node;

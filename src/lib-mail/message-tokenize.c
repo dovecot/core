@@ -9,7 +9,7 @@ struct message_tokenizer {
 	const unsigned char *data;
 	size_t size;
 
-	message_tokenize_error_callback_t error_cb;
+	message_tokenize_error_callback_t *error_cb;
 	void *error_context;
 
 	int token;
@@ -43,7 +43,7 @@ struct message_tokenizer {
 
 struct message_tokenizer *
 message_tokenize_init(const unsigned char *data, size_t size,
-		      message_tokenize_error_callback_t error_cb,
+		      message_tokenize_error_callback_t *error_cb,
 		      void *error_context)
 {
 	struct message_tokenizer *tok;

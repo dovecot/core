@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 
 struct find_subscribed_context {
-	mailbox_list_callback_t callback;
+	mailbox_list_callback_t *callback;
 	void *context;
 };
 

@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-client_command_func_t client_command_find(const char *name)
+client_command_func_t *client_command_find(const char *name)
 {
 	/* keep the command uppercased */
 	name = str_ucase(t_strdup_noconst(name));

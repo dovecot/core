@@ -14,8 +14,8 @@ enum fatal_exit_status {
 
 #define DEFAULT_FAILURE_STAMP_FORMAT "%b %d %H:%M:%S "
 
-typedef void (*failure_callback_t)(const char *, va_list);
-typedef void (*fatal_failure_callback_t)(int status, const char *, va_list);
+typedef void failure_callback_t(const char *, va_list);
+typedef void fatal_failure_callback_t(int status, const char *, va_list);
 
 void i_panic(const char *format, ...) __attr_format__(1, 2) __attr_noreturn__;
 void i_fatal(const char *format, ...) __attr_format__(1, 2) __attr_noreturn__;
@@ -27,11 +27,11 @@ void i_fatal_status(int status, const char *format, ...)
 	__attr_format__(2, 3) __attr_noreturn__;
 
 /* Change failure handlers. Make sure they don't modify errno. */
-void i_set_panic_handler(failure_callback_t callback __attr_noreturn__);
-void i_set_fatal_handler(fatal_failure_callback_t callback __attr_noreturn__);
-void i_set_error_handler(failure_callback_t callback);
-void i_set_warning_handler(failure_callback_t callback);
-void i_set_info_handler(failure_callback_t callback);
+void i_set_panic_handler(failure_callback_t *callback __attr_noreturn__);
+void i_set_fatal_handler(fatal_failure_callback_t *callback __attr_noreturn__);
+void i_set_error_handler(failure_callback_t *callback);
+void i_set_warning_handler(failure_callback_t *callback);
+void i_set_info_handler(failure_callback_t *callback);
 
 /* Send failures to syslog() */
 void i_syslog_panic_handler(const char *fmt, va_list args) __attr_noreturn__;

@@ -44,13 +44,13 @@ static void default_warning_handler(const char *format, va_list args);
 static void default_info_handler(const char *format, va_list args);
 
 /* Initialize working defaults */
-static failure_callback_t panic_handler __attr_noreturn__ =
+static failure_callback_t *panic_handler __attr_noreturn__ =
 	default_panic_handler;
-static fatal_failure_callback_t fatal_handler __attr_noreturn__ =
+static fatal_failure_callback_t *fatal_handler __attr_noreturn__ =
 	default_fatal_handler;
-static failure_callback_t error_handler = default_error_handler;
-static failure_callback_t warning_handler = default_warning_handler;
-static failure_callback_t info_handler = default_info_handler;
+static failure_callback_t *error_handler = default_error_handler;
+static failure_callback_t *warning_handler = default_warning_handler;
+static failure_callback_t *info_handler = default_info_handler;
 
 static FILE *log_fd = NULL, *log_info_fd = NULL;
 static char *log_prefix = NULL, *log_stamp_format = NULL;
@@ -243,35 +243,35 @@ void i_info(const char *format, ...)
 	va_end(args);
 }
 
-void i_set_panic_handler(failure_callback_t callback __attr_noreturn__)
+void i_set_panic_handler(failure_callback_t *callback __attr_noreturn__)
 {
 	if (callback == NULL)
 		callback = default_panic_handler;
         panic_handler = callback;
 }
 
-void i_set_fatal_handler(fatal_failure_callback_t callback __attr_noreturn__)
+void i_set_fatal_handler(fatal_failure_callback_t *callback __attr_noreturn__)
 {
 	if (callback == NULL)
 		callback = default_fatal_handler;
         fatal_handler = callback;
 }
 
-void i_set_error_handler(failure_callback_t callback)
+void i_set_error_handler(failure_callback_t *callback)
 {
 	if (callback == NULL)
 		callback = default_error_handler;
         error_handler = callback;
 }
 
-void i_set_warning_handler(failure_callback_t callback)
+void i_set_warning_handler(failure_callback_t *callback)
 {
 	if (callback == NULL)
 		callback = default_warning_handler;
         warning_handler = callback;
 }
 
-void i_set_info_handler(failure_callback_t callback)
+void i_set_info_handler(failure_callback_t *callback)
 {
 	if (callback == NULL)
 		callback = default_info_handler;

@@ -29,17 +29,16 @@ struct message_tokenizer;
 
    missing_char == '\0': unexpected character at str[pos]
    missing_char != '\0': missing character */
-typedef int (*message_tokenize_error_callback_t)(const unsigned char *str,
-						 size_t pos,
-						 char missing_char,
-						 void *context);
+typedef int message_tokenize_error_callback_t(const unsigned char *str,
+					      size_t pos, char missing_char,
+					      void *context);
 
 /* Initialize message tokenizer. data is parsed until \0 is found, or size
    bytes has been parsed, so it's possible to give (size_t)-1 as size
    if the string is \0 terminated. */
 struct message_tokenizer *
 message_tokenize_init(const unsigned char *data, size_t size,
-		      message_tokenize_error_callback_t error_cb,
+		      message_tokenize_error_callback_t *error_cb,
 		      void *error_context);
 void message_tokenize_deinit(struct message_tokenizer *tok);
 

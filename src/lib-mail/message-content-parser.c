@@ -6,8 +6,8 @@
 #include "message-content-parser.h"
 
 void message_content_parse_header(const unsigned char *data, size_t size,
-				  parse_content_callback_t callback,
-				  parse_content_param_callback_t param_cb,
+				  parse_content_callback_t *callback,
+				  parse_content_param_callback_t *param_cb,
 				  void *context)
 {
 	static const enum message_token stop_tokens[] = { ';', TOKEN_LAST };

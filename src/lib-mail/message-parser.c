@@ -23,7 +23,7 @@ struct parser_context {
 	char *last_content_type;
 	struct message_boundary *boundaries;
 
-	message_header_callback_t callback;
+	message_header_callback_t *callback;
 	void *context;
 };
 
@@ -253,7 +253,7 @@ message_parse_part(struct istream *input, struct parser_context *parser_ctx)
 }
 
 struct message_part *message_parse(pool_t pool, struct istream *input,
-				   message_header_callback_t callback,
+				   message_header_callback_t *callback,
 				   void *context)
 {
 	struct message_part *part;
@@ -315,7 +315,7 @@ static void message_skip_line(struct istream *input,
 
 void message_parse_header(struct message_part *part, struct istream *input,
 			  struct message_size *hdr_size,
-			  message_header_callback_t callback, void *context)
+			  message_header_callback_t *callback, void *context)
 {
 	const unsigned char *msg;
 	size_t i, size, parse_size, startpos, missing_cr_count;

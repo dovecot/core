@@ -93,10 +93,9 @@ struct mail_search_arg;
 struct fetch_context;
 struct search_context;
 
-typedef void (*mailbox_list_callback_t)(struct mail_storage *storage,
-					const char *name,
-					enum mailbox_flags flags,
-					void *context);
+typedef void mailbox_list_callback_t(struct mail_storage *storage,
+				     const char *name, enum mailbox_flags flags,
+				     void *context);
 
 /* All methods returning int return either TRUE or FALSE. */
 struct mail_storage {
@@ -150,7 +149,7 @@ struct mail_storage {
 	/* Execute specified function for all mailboxes matching given
 	   mask. The mask is in RFC2060 LIST format. */
 	int (*find_mailboxes)(struct mail_storage *storage, const char *mask,
-			      mailbox_list_callback_t callback, void *context);
+			      mailbox_list_callback_t *callback, void *context);
 
 	/* Subscribe/unsubscribe mailbox. There should be no error when
 	   subscribing to already subscribed mailbox. Subscribing to
@@ -160,7 +159,8 @@ struct mail_storage {
 
 	/* Exactly like find_mailboxes(), but list only subscribed mailboxes. */
 	int (*find_subscribed)(struct mail_storage *storage, const char *mask,
-			       mailbox_list_callback_t callback, void *context);
+			       mailbox_list_callback_t *callback,
+			       void *context);
 
 	/* Returns mailbox name status */
 	int (*get_mailbox_name_status)(struct mail_storage *storage,

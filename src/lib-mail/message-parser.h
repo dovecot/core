@@ -33,16 +33,16 @@ struct message_part {
 
 /* NOTE: name and value aren't \0-terminated. Also called once at end of
    headers with name_len = value_len = 0. */
-typedef void (*message_header_callback_t)(struct message_part *part,
-					  const unsigned char *name,
-					  size_t name_len,
-					  const unsigned char *value,
-					  size_t value_len,
-					  void *context);
+typedef void message_header_callback_t(struct message_part *part,
+				       const unsigned char *name,
+				       size_t name_len,
+				       const unsigned char *value,
+				       size_t value_len,
+				       void *context);
 
 /* callback is called for each field in message header. */
 struct message_part *message_parse(pool_t pool, struct istream *input,
-				   message_header_callback_t callback,
+				   message_header_callback_t *callback,
 				   void *context);
 
 /* Call callback for each field in message header. Fills the hdr_size.
@@ -52,6 +52,6 @@ struct message_part *message_parse(pool_t pool, struct istream *input,
    body. */
 void message_parse_header(struct message_part *part, struct istream *input,
 			  struct message_size *hdr_size,
-			  message_header_callback_t callback, void *context);
+			  message_header_callback_t *callback, void *context);
 
 #endif
