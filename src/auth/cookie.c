@@ -134,8 +134,6 @@ static void cookie_timeout(void *context __attr_unused__,
 
 void cookies_init(void)
 {
-	random_init();
-
 	oldest_cookie = NULL;
 	next_cookie = &oldest_cookie;
 
@@ -150,5 +148,4 @@ void cookies_deinit(void)
 	hash_destroy(cookies);
 
 	timeout_remove(to);
-	random_deinit();
 }

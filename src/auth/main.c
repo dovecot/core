@@ -5,6 +5,7 @@
 #include "network.h"
 #include "lib-signals.h"
 #include "restrict-access.h"
+#include "randgen.h"
 #include "auth.h"
 #include "cookie.h"
 #include "login-connection.h"
@@ -56,6 +57,9 @@ static void main_init(void)
 		i_set_failure_timestamp_format(getenv("IMAP_LOGSTAMP"));
 	}
 
+	/* open /dev/urandom before chrooting */
+	random_init();
+
 	restrict_access_by_env();
 
 	auth_init();
@@ -79,6 +83,8 @@ static void main_deinit(void)
 	login_connections_deinit();
 	cookies_deinit();
 	auth_deinit();
+
+	random_deinit();
 
 	closelog();
 }
