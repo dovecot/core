@@ -10,6 +10,9 @@ struct mail_index_view {
 	unsigned int indexid;
 	struct mail_index_map *map;
 
+	struct mail_index_header tmp_hdr_copy;
+	uint32_t messages_count; /* last synced one, map may be different */
+
 	uint32_t log_file_seq;
 	uoff_t log_file_offset;
         buffer_t *log_syncs;
