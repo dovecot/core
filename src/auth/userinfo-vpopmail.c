@@ -13,7 +13,7 @@
 #include <vpopmail.h>
 #include <vauth.h>
 
-/* #define I_DEBUG(x) i_warning x */
+#define I_DEBUG(x) /* i_warning x */
 
 /* Limit user and domain to 80 chars each (+1 for \0). I wouldn't recommend
    raising this limit at least much, vpopmail is full of potential buffer
