@@ -139,12 +139,14 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		uint32_t old_records_count = view->map->records_count;
 
 		if (view->map != view->index->map) {
-			ctx->sync_map_update = TRUE;
+			i_assert(view->map->records_count >=
+				 view->hdr.messages_count);
                         view->map->records_count = view->hdr.messages_count;
+			ctx->sync_map_update = TRUE;
 		}
 
-		map = mail_index_map_to_memory(view->map,
-					       view->map->hdr.record_size);
+		map = mail_index_map_clone(view->map,
+					   view->map->hdr.record_size);
 		view->map->records_count = old_records_count;
 		mail_index_unmap(view->index, view->map);
 		view->map = map;

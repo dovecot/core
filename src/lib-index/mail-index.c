@@ -723,8 +723,8 @@ int mail_index_map(struct mail_index *index, int force)
 		} else {
 			/* create a copy of the mapping instead so we don't
 			   have to re-read it */
-			map = mail_index_map_to_memory(index->map,
-						index->map->hdr.record_size);
+			map = mail_index_map_clone(index->map,
+						   index->map->hdr.record_size);
 		}
 		index->map->refcount--;
 		index->map = NULL;
@@ -772,7 +772,7 @@ int mail_index_map(struct mail_index *index, int force)
 }
 
 struct mail_index_map *
-mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size)
+mail_index_map_clone(struct mail_index_map *map, uint32_t new_record_size)
 {
 	struct mail_index_map *mem_map;
 	struct mail_index_header *hdr;
@@ -780,12 +780,6 @@ mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size)
 	void *src, *dest;
 	size_t size, copy_size;
 	unsigned int i, count;
-
-	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map) &&
-	    map->hdr.record_size == new_record_size) {
-		map->refcount++;
-		return map;
-	}
 
         size = map->records_count * new_record_size;
 

@@ -16,6 +16,10 @@ static void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 					struct mail_index_map *map)
 {
         struct mail_index_view *view = ctx->view;
+
+	/* if map still exists after this, it's only in views. */
+	view->map->write_to_disk = FALSE;
+
 	mail_index_unmap(view->index, view->map);
 	view->map = map;
 	view->map->refcount++;
@@ -198,13 +202,13 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 		return -1;
 	}
 
-	if (!view->map->write_to_disk) {
+	if (!view->map->write_to_disk || view->map->refcount != 1) {
 		/* expunges have to be atomic. so we'll have to copy
 		   the mapping, do the changes there and then finally
 		   replace the whole index file. to avoid extra disk
 		   I/O we copy the index into memory rather than to
 		   temporary file */
-		map = mail_index_map_to_memory(map, map->hdr.record_size);
+		map = mail_index_map_clone(map, map->hdr.record_size);
 		mail_index_sync_replace_map(ctx, map);
 	}
 	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));
@@ -480,7 +484,7 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 	/* create a new mapping without records. a bit kludgy. */
 	old_records_count = map->records_count;
 	map->records_count = 0;
-	new_map = mail_index_map_to_memory(map, offset);
+	new_map = mail_index_map_clone(map, offset);
 	map->records_count = old_records_count;
 
 	if (old_size > ext[ext_id].record_size) {
