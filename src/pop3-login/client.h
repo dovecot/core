@@ -12,6 +12,7 @@ struct pop3_client {
 	time_t created;
 	int refcount;
 
+	struct io *io;
 	struct istream *input;
 	struct ostream *output;
 
@@ -33,8 +34,6 @@ struct pop3_client {
 void client_destroy(struct pop3_client *client, const char *reason);
 
 void client_send_line(struct pop3_client *client, const char *line);
-void client_syslog(struct pop3_client *client, const char *format, ...)
-	__attr_format__(2, 3);
 
 int client_read(struct pop3_client *client);
 void client_input(void *context);

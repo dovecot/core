@@ -7,15 +7,15 @@ INCLUDES = \
 	-DSBINDIR=\""$(sbindir)"\"
 
 liblogin_common_a_SOURCES = \
-	auth-common.c \
+	client-common.c \
 	main.c \
 	master.c \
+	sasl-server.c \
 	ssl-proxy.c \
 	ssl-proxy-gnutls.c \
 	ssl-proxy-openssl.c
 
 noinst_HEADERS = \
-	auth-common.h \
 	client-common.h \
 	common.h \
 	master.h \

@@ -11,6 +11,7 @@ struct imap_client {
 	time_t created;
 	int refcount;
 
+	struct io *io;
 	struct istream *input;
 	struct ostream *output;
 	struct imap_parser *parser;
@@ -20,12 +21,9 @@ struct imap_client {
 
 	const char *cmd_tag, *cmd_name;
 
-	unsigned int tls:1;
-	unsigned int secured:1;
 	unsigned int cmd_finished:1;
 	unsigned int skip_line:1;
 	unsigned int input_blocked:1;
-	unsigned int authenticating:1;
 	unsigned int destroyed:1;
 };
 
@@ -33,8 +31,6 @@ void client_destroy(struct imap_client *client, const char *reason);
 
 void client_send_line(struct imap_client *client, const char *line);
 void client_send_tagline(struct imap_client *client, const char *line);
-void client_syslog(struct imap_client *client, const char *format, ...)
-	__attr_format__(2, 3);
 
 int client_read(struct imap_client *client);
 void client_input(void *context);

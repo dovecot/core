@@ -13,14 +13,8 @@
 #include "auth-client.h"
 #include "../pop3/capability.h"
 #include "ssl-proxy.h"
-#include "master.h"
-#include "auth-common.h"
 #include "client.h"
 #include "client-authenticate.h"
-#include "ssl-proxy.h"
-
-/* Used only for string sanitization while verbose_auth is set. */
-#define MAX_MECH_NAME 64
 
 int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 {
@@ -53,212 +47,6 @@ int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 	return TRUE;
 }
 
-static void client_auth_abort(struct pop3_client *client, const char *msg)
-{
-	client->authenticating = FALSE;
-
-	if (client->common.auth_request != NULL) {
-		auth_client_request_abort(client->common.auth_request);
-		client->common.auth_request = NULL;
-	}
-
-	if (msg != NULL && verbose_auth)
-		client_syslog(client, "Authentication failed: %s", msg);
-
-	client_send_line(client, msg != NULL ? t_strconcat("-ERR ", msg, NULL) :
-			 "-ERR Authentication failed.");
-
-	/* get back to normal client input */
-	if (client->common.io != NULL)
-		io_remove(client->common.io);
-	client->common.io = client->common.fd == -1 ? NULL :
-		io_add(client->common.fd, IO_READ, client_input, client);
-
-	client_unref(client);
-}
-
-static void master_callback(struct client *_client, int success)
-{
-	struct pop3_client *client = (struct pop3_client *) _client;
-	const char *reason = NULL;
-
-	if (success) {
-		reason = t_strconcat("Login: ", client->common.virtual_user,
-				     NULL);
-	} else {
-		reason = t_strconcat("Internal login failure: ",
-				     client->common.virtual_user, NULL);
-		client_send_line(client, "* BYE Internal login failure. "
-				 "Error report written to server log.");
-	}
-
-	client_destroy(client, reason);
-}
-
-static void client_send_auth_data(struct pop3_client *client,
-				  const unsigned char *data, size_t size)
-{
-	buffer_t *buf;
-	const void *buf_data;
-	size_t buf_size;
-	ssize_t ret;
-
-	t_push();
-
-	buf = buffer_create_dynamic(pool_datastack_create(), size*2);
-	buffer_append(buf, "+ ", 2);
-	base64_encode(data, size, buf);
-	buffer_append(buf, "\r\n", 2);
-
-	buf_data = buffer_get_data(buf, &buf_size);
-	if ((ret = o_stream_send(client->output, buf_data, buf_size)) < 0)
-		client_destroy(client, "Disconnected");
-	else if ((size_t)ret != buf_size)
-		client_destroy(client, "Transmit buffer full");
-
-	t_pop();
-}
-
-static void login_callback(struct auth_request *request,
-			   struct auth_client_request_reply *reply,
-			   const unsigned char *data, void *context)
-{
-	struct pop3_client *client = context;
-	const char *error;
-
-	switch (auth_callback(request, reply, data, &client->common,
-			      master_callback, &error)) {
-	case -1:
-	case 0:
-		/* login failed */
-		client_auth_abort(client, error);
-		break;
-
-	default:
-		/* success, we should be able to log in. if we fail, just
-		   disconnect the client. */
-                client->authenticating = FALSE;
-		client_send_line(client, "+OK Logged in.");
-		client_unref(client);
-	}
-}
-
-static enum auth_client_request_new_flags
-client_get_auth_flags(struct pop3_client *client)
-{
-        enum auth_client_request_new_flags auth_flags = 0;
-
-	if (client->common.proxy != NULL &&
-	    ssl_proxy_has_valid_client_cert(client->common.proxy))
-		auth_flags |= AUTH_CLIENT_FLAG_SSL_VALID_CLIENT_CERT;
-	if (client->tls)
-		auth_flags |= AUTH_CLIENT_FLAG_SSL_ENABLED;
-	return auth_flags;
-}
-
-int cmd_user(struct pop3_client *client, const char *args)
-{
-	if (!client->secured && disable_plaintext_auth) {
-		if (verbose_auth) {
-			client_syslog(client, "Login failed: "
-				      "Plaintext authentication disabled");
-		}
-		client_send_line(client,
-				 "-ERR Plaintext authentication disabled.");
-		return TRUE;
-	}
-
-	i_free(client->last_user);
-	client->last_user = i_strdup(args);
-
-	client_send_line(client, "+OK");
-	return TRUE;
-}
-
-int cmd_pass(struct pop3_client *client, const char *args)
-{
-	const char *error;
-	struct auth_request_info info;
-	string_t *plain_login;
-
-	if (client->last_user == NULL) {
-		client_send_line(client, "-ERR No username given.");
-		return TRUE;
-	}
-
-	/* authorization ID \0 authentication ID \0 pass */
-	plain_login = t_str_new(128);
-	str_append_c(plain_login, '\0');
-	str_append(plain_login, client->last_user);
-	str_append_c(plain_login, '\0');
-	str_append(plain_login, args);
-
-	memset(&info, 0, sizeof(info));
-	info.mech = "PLAIN";
-	info.protocol = "POP3";
-	info.flags = client_get_auth_flags(client);
-	info.local_ip = client->common.local_ip;
-	info.remote_ip = client->common.ip;
-	info.initial_resp_data = str_data(plain_login);
-	info.initial_resp_size = str_len(plain_login);
-
-	client_ref(client);
-
-	client->common.auth_request =
-		auth_client_request_new(auth_client, NULL, &info,
-					login_callback, client, &error);
-	if (client->common.auth_request == NULL) {
-		if (verbose_auth)
-			client_syslog(client, "Login failed: %s", error);
-		client_send_line(client,
-			t_strconcat("-ERR Login failed: ", error, NULL));
-		client_unref(client);
-		return TRUE;
-	}
-
-	/* don't read any input from client until login is finished */
-	if (client->common.io != NULL) {
-		io_remove(client->common.io);
-		client->common.io = NULL;
-	}
-
-	client->authenticating = TRUE;
-	return TRUE;
-}
-
-static void authenticate_callback(struct auth_request *request,
-				  struct auth_client_request_reply *reply,
-				  const unsigned char *data, void *context)
-{
-	struct pop3_client *client = context;
-	const char *error;
-
-	if (!client->authenticating) {
-		/* client aborted */
-		i_assert(reply == NULL);
-		return;
-	}
-
-	switch (auth_callback(request, reply, data, &client->common,
-			      master_callback, &error)) {
-	case -1:
-		/* login failed */
-		client_auth_abort(client, error);
-		break;
-
-	case 0:
-		client_send_auth_data(client, data, reply->data_size);
-		break;
-
-	default:
-		/* success, we should be able to log in. if we fail, just
-		   disconnect the client. */
-                client->authenticating = FALSE;
-		client_send_line(client, "+OK Logged in.");
-		client_unref(client);
-	}
-}
-
 static void client_auth_input(void *context)
 {
 	struct pop3_client *client = context;
@@ -275,7 +63,8 @@ static void client_auth_input(void *context)
 		return;
 
 	if (strcmp(line, "*") == 0) {
-		client_auth_abort(client, "Authentication aborted");
+		sasl_server_auth_cancel(&client->common,
+					"Authentication aborted");
 		return;
 	}
 
@@ -284,13 +73,13 @@ static void client_auth_input(void *context)
 
 	if (base64_decode(line, linelen, NULL, buf) < 0) {
 		/* failed */
-		client_auth_abort(client, "Invalid base64 data");
+		sasl_server_auth_cancel(&client->common, "Invalid base64 data");
 	} else if (client->common.auth_request == NULL) {
-		client_auth_abort(client, "Don't send unrequested data");
+		sasl_server_auth_cancel(&client->common,
+					"Don't send unrequested data");
 	} else {
 		auth_client_request_continue(client->common.auth_request,
-					     buffer_get_data(buf, NULL),
-					     buffer_get_used_size(buf));
+					     buf->data, buf->used);
 	}
 
 	/* clear sensitive data */
@@ -300,11 +89,66 @@ static void client_auth_input(void *context)
 	safe_memset(buffer_free_without_data(buf), 0, bufsize);
 }
 
+static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
+			  const char *data)
+{
+	struct pop3_client *client = (struct pop3_client *)_client;
+	struct const_iovec iov[3];
+	size_t data_len;
+	ssize_t ret;
+
+	switch (reply) {
+	case SASL_SERVER_REPLY_SUCCESS:
+		client_send_line(client, "+OK Logged in.");
+		client_destroy(client, t_strconcat(
+			"Login: ", client->common.virtual_user, NULL));
+		break;
+	case SASL_SERVER_REPLY_AUTH_FAILED:
+		if (data == NULL)
+			client_send_line(client, "-ERR Authentication failed");
+		else {
+			client_send_line(client, t_strconcat(
+				"-ERR Authentication failed: ", data, NULL));
+		}
+
+		/* get back to normal client input. */
+		io_remove(client->io);
+		client->io = io_add(client->common.fd, IO_READ,
+				    client_input, client);
+		break;
+	case SASL_SERVER_REPLY_MASTER_FAILED:
+		client_destroy(client, t_strconcat("Internal login failure: ",
+						   client->common.virtual_user,
+						   NULL));
+		break;
+	case SASL_SERVER_REPLY_CONTINUE:
+		data_len = strlen(data);
+		iov[0].iov_base = "+ ";
+		iov[0].iov_len = 2;
+		iov[1].iov_base = data;
+		iov[1].iov_len = data_len;
+		iov[2].iov_base = "\r\n";
+		iov[2].iov_len = 2;
+
+		ret = o_stream_sendv(client->output, iov, 3);
+		if (ret < 0)
+			client_destroy(client, "Disconnected");
+		else if ((size_t)ret != 2 + data_len + 2)
+			client_destroy(client, "Transmit buffer full");
+		else {
+			/* continue */
+			return;
+		}
+		break;
+	}
+
+	client_unref(client);
+}
+
 int cmd_auth(struct pop3_client *client, const char *args)
 {
-	struct auth_request_info info;
 	const struct auth_mech_desc *mech;
-	const char *mech_name, *error, *p;
+	const char *mech_name, *p;
 	string_t *buf;
 	size_t argslen;
 
@@ -332,29 +176,6 @@ int cmd_auth(struct pop3_client *client, const char *args)
 		args = p+1;
 	}
 
-	mech = auth_client_find_mech(auth_client, mech_name);
-	if (mech == NULL) {
-		if (verbose_auth) {
-			client_syslog(client, "Authenticate %s failed: "
-				      "Unsupported mechanism",
-				      str_sanitize(mech_name, MAX_MECH_NAME));
-		}
-		client_send_line(client,
-				 "-ERR Unsupported authentication mechanism.");
-		return TRUE;
-	}
-
-	if (!client->secured && mech->plaintext && disable_plaintext_auth) {
-		if (verbose_auth) {
-			client_syslog(client, "Authenticate %s failed: "
-				      "Plaintext authentication disabled",
-				      str_sanitize(mech_name, MAX_MECH_NAME));
-		}
-		client_send_line(client,
-				 "-ERR Plaintext authentication disabled.");
-		return TRUE;
-	}
-
 	argslen = strlen(args);
 	buf = buffer_create_static_hard(pool_datastack_create(), argslen);
 
@@ -364,49 +185,80 @@ int cmd_auth(struct pop3_client *client, const char *args)
 		return TRUE;
 	}
 
-	memset(&info, 0, sizeof(info));
-	info.mech = mech->name;
-	info.protocol = "POP3";
-	info.flags = client_get_auth_flags(client);
-	info.local_ip = client->common.local_ip;
-	info.remote_ip = client->common.ip;
-	info.initial_resp_data = str_data(buf);
-	info.initial_resp_size = str_len(buf);
-
 	client_ref(client);
-	client->common.auth_request =
-		auth_client_request_new(auth_client, NULL, &info,
-					authenticate_callback, client, &error);
-	if (client->common.auth_request != NULL) {
-		/* following input data will go to authentication */
-		if (client->common.io != NULL)
-			io_remove(client->common.io);
-		client->common.io = io_add(client->common.fd, IO_READ,
-					   client_auth_input, client);
-                client->authenticating = TRUE;
-	} else {
+	sasl_server_auth_begin(&client->common, "POP3", mech_name,
+			       buf->data, buf->used, sasl_callback);
+	if (!client->common.authenticating)
+		return TRUE;
+
+	/* following input data will go to authentication */
+	if (client->io != NULL)
+		io_remove(client->io);
+	client->io = io_add(client->common.fd, IO_READ,
+			    client_auth_input, client);
+	return TRUE;
+}
+
+int cmd_user(struct pop3_client *client, const char *args)
+{
+	if (!client->secured && disable_plaintext_auth) {
 		if (verbose_auth) {
-			client_syslog(client, "Authenticate %s failed: %s",
-				      str_sanitize(mech_name, MAX_MECH_NAME),
-				      error);
+			client_syslog(&client->common, "Login failed: "
+				      "Plaintext authentication disabled");
 		}
-		client_send_line(client, t_strconcat(
-			"-ERR Authentication failed: ", error, NULL));
-		client_unref(client);
+		client_send_line(client,
+				 "-ERR Plaintext authentication disabled.");
+		return TRUE;
 	}
 
+	i_free(client->last_user);
+	client->last_user = i_strdup(args);
+
+	client_send_line(client, "+OK");
+	return TRUE;
+}
+
+int cmd_pass(struct pop3_client *client, const char *args)
+{
+	string_t *plain_login;
+
+	if (client->last_user == NULL) {
+		client_send_line(client, "-ERR No username given.");
+		return TRUE;
+	}
+
+	/* authorization ID \0 authentication ID \0 pass */
+	plain_login = t_str_new(128);
+	str_append_c(plain_login, '\0');
+	str_append(plain_login, client->last_user);
+	str_append_c(plain_login, '\0');
+	str_append(plain_login, args);
+
+	client_ref(client);
+	sasl_server_auth_begin(&client->common, "POP3", "PLAIN",
+			       plain_login->data, plain_login->used,
+			       sasl_callback);
+	if (!client->common.authenticating)
+		return TRUE;
+
+	/* don't read any input from client until login is finished */
+	if (client->io != NULL) {
+		io_remove(client->io);
+		client->io = NULL;
+	}
 	return TRUE;
 }
 
 int cmd_apop(struct pop3_client *client, const char *args)
 {
-	struct auth_request_info info;
-	const char *error, *p;
 	buffer_t *apop_data;
+	const char *p;
 
 	if (client->apop_challenge == NULL) {
-		if (verbose_auth)
-			client_syslog(client, "APOP failed: APOP not enabled");
+		if (verbose_auth) {
+			client_syslog(&client->common,
+				      "APOP failed: APOP not enabled");
+		}
 	        client_send_line(client, "-ERR APOP not enabled.");
 		return TRUE;
 	}
@@ -415,8 +267,8 @@ int cmd_apop(struct pop3_client *client, const char *args)
 	p = strchr(args, ' ');
 	if (p == NULL || strlen(p+1) != 32) {
 		if (verbose_auth) {
-			client_syslog(client, "APOP failed: "
-				      "Invalid parameters");
+			client_syslog(&client->common,
+				      "APOP failed: Invalid parameters");
 		}
 	        client_send_line(client, "-ERR Invalid parameters.");
 		return TRUE;
@@ -431,7 +283,7 @@ int cmd_apop(struct pop3_client *client, const char *args)
 
 	if (hex_to_binary(p+1, apop_data) < 0) {
 		if (verbose_auth) {
-			client_syslog(client, "APOP failed: "
+			client_syslog(&client->common, "APOP failed: "
 				      "Invalid characters in MD5 response");
 		}
 		client_send_line(client,
@@ -439,41 +291,16 @@ int cmd_apop(struct pop3_client *client, const char *args)
 		return TRUE;
 	}
 
-	memset(&info, 0, sizeof(info));
-	info.mech = "APOP";
-	info.protocol = "POP3";
-	info.flags = client_get_auth_flags(client);
-	info.local_ip = client->common.local_ip;
-	info.remote_ip = client->common.ip;
-	info.initial_resp_data =
-		buffer_get_data(apop_data, &info.initial_resp_size);
-
 	client_ref(client);
-	o_stream_uncork(client->output);
+	sasl_server_auth_begin(&client->common, "POP3", "APOP",
+			       apop_data->data, apop_data->used, sasl_callback);
+	if (!client->common.authenticating)
+		return TRUE;
 
-	client->common.auth_request =
-		auth_client_request_new(auth_client, &client->auth_id, &info,
-					login_callback, client, &error);
-
-	if (client->common.auth_request != NULL) {
-		/* don't read any input from client until login is finished */
-		if (client->common.io != NULL) {
-			io_remove(client->common.io);
-			client->common.io = NULL;
-		}
-                client->authenticating = TRUE;
-	} else if (error == NULL) {
-		/* the auth connection was lost. we have no choice
-		   but to fail the APOP logins completely since the
-		   challenge is auth connection-specific. disconnect. */
-		client_destroy(client, "APOP auth connection lost");
-		client_unref(client);
-	} else {
-		if (verbose_auth) 
-			client_syslog(client, "APOP failed: %s", error);
-		client_send_line(client,
-			t_strconcat("-ERR Login failed: ", error, NULL));
-		client_unref(client);
+	/* don't read any input from client until login is finished */
+	if (client->io != NULL) {
+		io_remove(client->io);
+		client->io = NULL;
 	}
 	return TRUE;
 }

@@ -56,8 +56,8 @@ static void client_set_title(struct imap_client *client)
 	if (addr == NULL)
 		addr = "??";
 
-	process_title_set(t_strdup_printf(client->tls ? "[%s TLS]" : "[%s]",
-					  addr));
+	process_title_set(t_strdup_printf(client->common.tls ?
+					  "[%s TLS]" : "[%s]", addr));
 }
 
 static void client_open_streams(struct imap_client *client, int fd)
@@ -93,10 +93,11 @@ static const char *get_capability(struct imap_client *client)
 {
 	const char *auths;
 
-	auths = client_authenticate_get_capabilities(client->secured);
+	auths = client_authenticate_get_capabilities(client->common.secured);
 	return t_strconcat(CAPABILITY_STRING,
-			   (ssl_initialized && !client->tls) ? " STARTTLS" : "",
-			   disable_plaintext_auth && !client->secured ?
+			   (ssl_initialized && !client->common.tls) ?
+			   " STARTTLS" : "",
+			   disable_plaintext_auth && !client->common.secured ?
 			   " LOGINDISABLED" : "", auths, NULL);
 }
 
@@ -120,8 +121,8 @@ static void client_start_tls(struct imap_client *client)
 		return;
 	}
 
-	client->tls = TRUE;
-	client->secured = TRUE;
+	client->common.tls = TRUE;
+	client->common.secured = TRUE;
 	client_set_title(client);
 
 	client->common.fd = fd_ssl;
@@ -133,8 +134,7 @@ static void client_start_tls(struct imap_client *client)
 	client->skip_line = FALSE;
 
 	client_open_streams(client, fd_ssl);
-	client->common.io = io_add(client->common.fd, IO_READ,
-				   client_input, client);
+	client->io = io_add(client->common.fd, IO_READ, client_input, client);
 }
 
 static void client_output_starttls(void *context)
@@ -153,7 +153,7 @@ static void client_output_starttls(void *context)
 
 static int cmd_starttls(struct imap_client *client)
 {
-	if (client->tls) {
+	if (client->common.tls) {
 		client_send_tagline(client, "BAD TLS is already active.");
 		return TRUE;
 	}
@@ -165,9 +165,9 @@ static int cmd_starttls(struct imap_client *client)
 
 	/* remove input handler, SSL proxy gives us a new fd. we also have to
 	   remove it in case we have to wait for buffer to be flushed */
-	if (client->common.io != NULL) {
-		io_remove(client->common.io);
-		client->common.io = NULL;
+	if (client->io != NULL) {
+		io_remove(client->io);
+		client->io = NULL;
 	}
 
 	client_send_tagline(client, "OK Begin TLS negotiation now.");
@@ -212,17 +212,16 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 	if (strcmp(cmd, "LOGOUT") == 0)
 		return cmd_logout(client);
 
-	return FALSE;
+	return -1;
 }
 
 static int client_handle_input(struct imap_client *client)
 {
 	struct imap_arg *args;
 	const char *msg;
-	int fatal;
+	int ret, fatal;
 
-	if (client->authenticating)
-		return FALSE; /* wait until authentication is finished */
+	i_assert(!client->common.authenticating);
 
 	if (client->cmd_finished) {
 		/* clear the previous command from memory. don't do this
@@ -276,8 +275,13 @@ static int client_handle_input(struct imap_client *client)
 	}
 	client->skip_line = TRUE;
 
-	if (*client->cmd_tag == '\0' ||
-	    !client_command_execute(client, client->cmd_name, args)) {
+	if (*client->cmd_tag == '\0')
+		ret = -1;
+	else
+		ret = client_command_execute(client, client->cmd_name, args);
+
+	client->cmd_finished = TRUE;
+	if (ret < 0) {
 		if (*client->cmd_tag == '\0')
 			client->cmd_tag = "*";
 		if (++client->bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
@@ -286,13 +290,12 @@ static int client_handle_input(struct imap_client *client)
 			client_destroy(client, "Disconnected: "
 				       "Too many invalid commands");
 			return FALSE;
-		} 
+		}  
 		client_send_tagline(client,
 			"BAD Error in IMAP command received by server.");
 	}
 
-	client->cmd_finished = TRUE;
-	return TRUE;
+	return ret != 0;
 }
 
 int client_read(struct imap_client *client)
@@ -397,10 +400,10 @@ struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 	client = i_new(struct imap_client, 1);
 	client->created = ioloop_time;
 	client->refcount = 1;
-	client->tls = ssl;
+	client->common.tls = ssl;
 
         addr = net_ip2addr(ip);
-	client->secured = ssl ||
+	client->common.secured = ssl ||
 		(IPADDR_IS_V4(ip) && strncmp(addr, "127.", 4) == 0) ||
 		(IPADDR_IS_V6(ip) && strcmp(addr, "::1") == 0);
 
@@ -409,7 +412,7 @@ struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 	client->common.fd = fd;
 
 	client_open_streams(client, fd);
-	client->common.io = io_add(fd, IO_READ, client_input, client);
+	client->io = io_add(fd, IO_READ, client_input, client);
 
 	client->last_input = ioloop_time;
 	hash_insert(clients, client, client);
@@ -434,7 +437,7 @@ void client_destroy(struct imap_client *client, const char *reason)
 	client->destroyed = TRUE;
 
 	if (reason != NULL)
-		client_syslog(client, "%s", reason);
+		client_syslog(&client->common, "%s", reason);
 
 	hash_remove(clients, client);
 
@@ -449,9 +452,9 @@ void client_destroy(struct imap_client *client, const char *reason)
 	if (client->common.master_tag != 0)
 		master_request_abort(&client->common);
 
-	if (client->common.io != NULL) {
-		io_remove(client->common.io);
-		client->common.io = NULL;
+	if (client->io != NULL) {
+		io_remove(client->io);
+		client->io = NULL;
 	}
 
 	if (client->common.fd != -1) {
@@ -505,22 +508,6 @@ void client_send_line(struct imap_client *client, const char *line)
 void client_send_tagline(struct imap_client *client, const char *line)
 {
 	client_send_line(client, t_strconcat(client->cmd_tag, " ", line, NULL));
-}
-
-void client_syslog(struct imap_client *client, const char *format, ...)
-{
-	const char *addr;
-	va_list args;
-
-	addr = net_ip2addr(&client->common.ip);
-	if (addr == NULL)
-		addr = "??";
-
-	t_push();
-	va_start(args, format);
-	i_info("%s [%s]", t_strdup_vprintf(format, args), addr);
-	va_end(args);
-	t_pop();
 }
 
 static void client_check_idle(struct imap_client *client)

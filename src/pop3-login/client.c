@@ -88,8 +88,7 @@ static void client_start_tls(struct pop3_client *client)
 	o_stream_unref(client->output);
 
 	client_open_streams(client, fd_ssl);
-	client->common.io = io_add(client->common.fd, IO_READ,
-				   client_input, client);
+	client->io = io_add(client->common.fd, IO_READ, client_input, client);
 }
 
 static void client_output_starttls(void *context)
@@ -120,9 +119,9 @@ static int cmd_stls(struct pop3_client *client)
 
 	/* remove input handler, SSL proxy gives us a new fd. we also have to
 	   remove it in case we have to wait for buffer to be flushed */
-	if (client->common.io != NULL) {
-		io_remove(client->common.io);
-		client->common.io = NULL;
+	if (client->io != NULL) {
+		io_remove(client->io);
+		client->io = NULL;
 	}
 
 	client_send_line(client, "+OK Begin TLS negotiation now.");
@@ -282,8 +281,7 @@ static char *get_apop_challenge(struct pop3_client *client)
 
 static void client_auth_ready(struct pop3_client *client)
 {
-	client->common.io =
-		io_add(client->common.fd, IO_READ, client_input, client);
+	client->io = io_add(client->common.fd, IO_READ, client_input, client);
 
 	client->apop_challenge = get_apop_challenge(client);
 	client_send_line(client, t_strconcat("+OK ", greeting,
@@ -340,7 +338,7 @@ void client_destroy(struct pop3_client *client, const char *reason)
 	client->destroyed = TRUE;
 
 	if (reason != NULL)
-		client_syslog(client, "%s", reason);
+		client_syslog(&client->common, "%s", reason);
 
 	hash_remove(clients, client);
 
@@ -355,9 +353,9 @@ void client_destroy(struct pop3_client *client, const char *reason)
 	if (client->common.master_tag != 0)
 		master_request_abort(&client->common);
 
-	if (client->common.io != NULL) {
-		io_remove(client->common.io);
-		client->common.io = NULL;
+	if (client->io != NULL) {
+		io_remove(client->io);
+		client->io = NULL;
 	}
 
 	net_disconnect(client->common.fd);
@@ -403,22 +401,6 @@ void client_send_line(struct pop3_client *client, const char *line)
 		client_destroy(client, "Disconnected");
 	else if ((size_t)ret != iov[0].iov_len + iov[1].iov_len)
 		client_destroy(client, "Transmit buffer full");
-}
-
-void client_syslog(struct pop3_client *client, const char *format, ...)
-{
-	const char *addr;
-	va_list args;
-
-	addr = net_ip2addr(&client->common.ip);
-	if (addr == NULL)
-		addr = "??";
-
-	t_push();
-	va_start(args, format);
-	i_info("%s [%s]", t_strdup_vprintf(format, args), addr);
-	va_end(args);
-	t_pop();
 }
 
 static void client_check_idle(struct pop3_client *client)
