@@ -293,16 +293,19 @@ static void settings_verify(struct settings *set)
 		}
 	}
 
-	if (set->log_path != NULL) {
+	if (set->log_path != NULL && access(set->log_path, W_OK) < 0) {
 		dir = get_directory(set->log_path);
 		if (access(dir, W_OK) < 0)
-			i_fatal("Can't access log directory %s: %m", dir);
+			i_fatal("Can't write to log directory %s: %m", dir);
 	}
 
-	if (set->info_log_path != NULL) {
+	if (set->info_log_path != NULL &&
+	    access(set->info_log_path, W_OK) < 0) {
 		dir = get_directory(set->info_log_path);
-		if (access(dir, W_OK) < 0)
-			i_fatal("Can't access info log directory %s: %m", dir);
+		if (access(dir, W_OK) < 0) {
+			i_fatal("Can't write to info log directory %s: %m",
+				dir);
+		}
 	}
 
 #ifdef HAVE_SSL
