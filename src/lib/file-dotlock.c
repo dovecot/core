@@ -143,7 +143,7 @@ static int try_create_lock(const char *lock_path, struct dotlock *dotlock_r)
 	struct stat st;
 	int fd;
 
-	fd = open(lock_path, O_WRONLY | O_EXCL | O_CREAT, 0);
+	fd = open(lock_path, O_WRONLY | O_EXCL | O_CREAT, 0644);
 	if (fd == -1)
 		return -1;
 
@@ -180,8 +180,8 @@ static int try_create_lock(const char *lock_path, struct dotlock *dotlock_r)
 
 int file_lock_dotlock(const char *path, int checkonly,
 		      unsigned int timeout, unsigned int stale_timeout,
-		      void (*callback)(unsigned int secs_left, int stale,
-				       void *context),
+		      int (*callback)(unsigned int secs_left, int stale,
+				      void *context),
 		      void *context, struct dotlock *dotlock_r)
 {
 	const char *lock_path;
@@ -230,10 +230,15 @@ int file_lock_dotlock(const char *path, int checkonly,
 
 				if (change_secs >= stale_notify_threshold &&
 				    change_secs <= wait_left) {
-					callback(stale_timeout - change_secs,
-						 TRUE, context);
+					if (!callback(stale_timeout -
+						      change_secs,
+						      TRUE, context)) {
+						/* we don't want to override */
+						lock_info.last_change = now;
+					}
 				} else {
-					callback(wait_left, FALSE, context);
+					(void)callback(wait_left, FALSE,
+						       context);
 				}
 			}
 

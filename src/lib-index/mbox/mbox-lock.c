@@ -25,6 +25,12 @@
 /* assume stale dotlock if mbox file hasn't changed for n seconds */
 #define DEFAULT_DOTLOCK_CHANGE_TIMEOUT 30
 
+struct dotlock_context {
+	struct mail_index *index;
+        enum mail_lock_type lock_type;
+	int last_stale;
+};
+
 static int lock_settings_initialized = FALSE;
 static int use_dotlock, use_fcntl_lock, use_flock, fcntl_before_flock;
 static int use_read_dotlock, lock_timeout, dotlock_change_timeout;
@@ -82,8 +88,11 @@ static int mbox_lock_flock(struct mail_index *index,
 			return FALSE;
 		}
 
+		if (max_wait_time == 0)
+			return FALSE;
+
 		now = time(NULL);
-		if (max_wait_time != 0 && now >= max_wait_time) {
+		if (now >= max_wait_time) {
 			index->mailbox_lock_timeout = TRUE;
 			index_set_error(index, "Timeout while waiting for "
 					"release of flock() lock for mbox file "
@@ -110,15 +119,18 @@ static int mbox_lock_fcntl(struct mail_index *index,
 {
 	struct flock fl;
 	time_t now;
+	int wait_type;
 
 	fl.l_type = MAIL_LOCK_TO_FLOCK(lock_type);
 	fl.l_whence = SEEK_SET;
 	fl.l_start = 0;
 	fl.l_len = 0;
 
-	while (fcntl(index->mbox_fd, F_SETLKW, &fl) == -1) {
+        wait_type = max_wait_time == 0 ? F_SETLK : F_SETLKW;
+	while (fcntl(index->mbox_fd, wait_type, &fl) < 0) {
 		if (errno != EINTR) {
-			mbox_set_syscall_error(index, "fcntl()");
+			if (errno != EAGAIN && errno != EACCES)
+				mbox_set_syscall_error(index, "fcntl()");
 			return FALSE;
 		}
 
@@ -137,44 +149,82 @@ static int mbox_lock_fcntl(struct mail_index *index,
 					      index->lock_notify_context);
 		}
 	}
-
 	return TRUE;
 }
 
-static int mbox_file_locks(struct mail_index *index, time_t max_wait_time)
+static int mbox_file_locks(struct mail_index *index,
+			   enum mail_lock_type lock_type, time_t max_wait_time)
 {
+	struct stat st;
+
+	/* now we need to have the file itself locked. open it if needed. */
+	if (stat(index->mailbox_path, &st) < 0)
+		return mbox_set_syscall_error(index, "stat()");
+
+	if (st.st_dev != index->mbox_dev || st.st_ino != index->mbox_ino)
+		mbox_file_close_fd(index);
+
+	if (index->mbox_fd == -1) {
+		if (!mbox_file_open(index)) {
+			(void)mbox_unlock(index);
+			return FALSE;
+		}
+	}
+
 	if (use_fcntl_lock && fcntl_before_flock) {
-		if (!mbox_lock_fcntl(index, index->mbox_lock_type,
-				     max_wait_time))
+		if (!mbox_lock_fcntl(index, lock_type, max_wait_time))
 			return FALSE;
 	}
 #ifdef HAVE_FLOCK
 	if (use_flock) {
-		if (!mbox_lock_flock(index, index->mbox_lock_type,
-				     max_wait_time))
+		if (!mbox_lock_flock(index, lock_type, max_wait_time))
 			return FALSE;
 	}
 #endif
 	if (use_fcntl_lock && !fcntl_before_flock) {
-		if (!mbox_lock_fcntl(index, index->mbox_lock_type,
-				     max_wait_time))
+		if (!mbox_lock_fcntl(index, lock_type, max_wait_time))
 			return FALSE;
 	}
 	return TRUE;
 }
 
-static void dotlock_callback(unsigned int secs_left, int stale, void *context)
+static int mbox_file_unlock(struct mail_index *index)
 {
-	struct mail_index *index = context;
+	int failed = FALSE;
 
-	index->lock_notify_cb(stale ? MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE :
-			      MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
-			      secs_left, index->lock_notify_context);
+#ifdef HAVE_FLOCK
+	if (use_flock && !mbox_lock_flock(index, MAIL_LOCK_UNLOCK, 0))
+		failed = TRUE;
+#endif
+	if (use_fcntl_lock &&
+	    !mbox_lock_fcntl(index, MAIL_LOCK_UNLOCK, 0))
+		failed = TRUE;
+
+	return !failed;
+}
+
+static int dotlock_callback(unsigned int secs_left, int stale, void *context)
+{
+	struct dotlock_context *ctx = context;
+
+	if (stale && !ctx->last_stale) {
+		if (!mbox_file_locks(ctx->index, ctx->lock_type, 0)) {
+			/* we couldn't get fcntl/flock - it's really locked */
+			ctx->last_stale = TRUE;
+			return FALSE;
+		}
+		(void)mbox_file_unlock(ctx->index);
+	}
+	ctx->last_stale = stale;
+
+	ctx->index->lock_notify_cb(stale ? MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE :
+				   MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
+				   secs_left, ctx->index->lock_notify_context);
+	return TRUE;
 }
 
 int mbox_lock(struct mail_index *index, enum mail_lock_type lock_type)
 {
-	struct stat st;
 	time_t max_wait_time;
 	int ret;
 
@@ -197,11 +247,17 @@ int mbox_lock(struct mail_index *index, enum mail_lock_type lock_type)
 
 	/* make .lock file first to protect overwriting the file */
 	if (use_dotlock && index->mbox_dotlock.ino == 0) {
+		struct dotlock_context ctx;
+
+		ctx.index = index;
+		ctx.lock_type = lock_type;
+		ctx.last_stale = -1;
+
 		ret = file_lock_dotlock(index->mailbox_path,
 					lock_type == MAIL_LOCK_SHARED &&
 					!use_read_dotlock, lock_timeout,
 					dotlock_change_timeout,
-					dotlock_callback, index,
+					dotlock_callback, &ctx,
 					&index->mbox_dotlock);
 
 		if (ret < 0) {
@@ -217,22 +273,8 @@ int mbox_lock(struct mail_index *index, enum mail_lock_type lock_type)
 		}
 	}
 
-	/* now we need to have the file itself locked. open it if needed. */
-	if (stat(index->mailbox_path, &st) < 0)
-		return mbox_set_syscall_error(index, "stat()");
-
-	if (st.st_dev != index->mbox_dev || st.st_ino != index->mbox_ino)
-		mbox_file_close_fd(index);
-
-	if (index->mbox_fd == -1) {
-		if (!mbox_file_open(index)) {
-			(void)mbox_unlock(index);
-			return FALSE;
-		}
-	}
-
 	index->mbox_lock_type = lock_type;
-	if (!mbox_file_locks(index, max_wait_time)) {
+	if (!mbox_file_locks(index, index->mbox_lock_type, max_wait_time)) {
 		(void)mbox_unlock(index);
 		return FALSE;
 	}
@@ -251,12 +293,7 @@ int mbox_unlock(struct mail_index *index)
 
 	failed = FALSE;
 	if (index->mbox_fd != -1) {
-#ifdef HAVE_FLOCK
-		if (use_flock && !mbox_lock_flock(index, MAIL_LOCK_UNLOCK, 0))
-			failed = TRUE;
-#endif
-		if (use_fcntl_lock &&
-		    !mbox_lock_fcntl(index, MAIL_LOCK_UNLOCK, 0))
+		if (!mbox_file_unlock(index))
 			failed = TRUE;
 	}
 

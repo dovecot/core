@@ -17,11 +17,15 @@ struct dotlock {
    still locked, override the lock file.
 
    If checkonly is TRUE, we don't actually create the lock file, only make
-   sure that it doesn't exist. This is racy, so you shouldn't rely on it. */
+   sure that it doesn't exist. This is racy, so you shouldn't rely on it.
+
+   callback is called once in a while. stale is set to TRUE if stale lock is
+   detected and will be overridden in secs_left. If callback returns FALSE
+   then, the lock will not be overridden. */
 int file_lock_dotlock(const char *path, int checkonly,
 		      unsigned int timeout, unsigned int stale_timeout,
-		      void (*callback)(unsigned int secs_left, int stale,
-				       void *context),
+		      int (*callback)(unsigned int secs_left, int stale,
+				      void *context),
 		      void *context, struct dotlock *dotlock_r);
 
 /* Delete the dotlock file. Returns 1 if successful, 0 if the file was already
