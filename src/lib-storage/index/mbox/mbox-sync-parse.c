@@ -33,6 +33,32 @@ struct header_func {
 		    struct message_header_line *hdr);
 };
 
+static void parse_trailing_whitespace(struct mbox_sync_mail_context *ctx,
+				      struct message_header_line *hdr)
+{
+	size_t i, space = 0;
+
+	/* the value may contain newlines. we can't count whitespace before
+	   and after it as a single contiguous whitespace block, as that may
+	   get us into situation where removing whitespace goes eg.
+	   " \n \n" -> " \n\n" which would then be treated as end of headers.
+
+	   that could probably be avoided by being careful, but as newlines
+	   should never be there (we don't generate them), it's not worth the
+	   trouble. */
+
+	for (i = hdr->full_value_len; i > 0; i--) {
+		if (!IS_LWSP(hdr->full_value[i-1]))
+			break;
+		space++;
+	}
+
+	if (space > ctx->mail.space) {
+		ctx->mail.offset = hdr->full_value_offset + i;
+		ctx->mail.space = space;
+	}
+}
+
 static enum mail_flags mbox_flag_find(struct mbox_flag_type *flags, char chr)
 {
 	int i;
@@ -121,6 +147,7 @@ static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 
 	// FIXME: save keywords
 
+        parse_trailing_whitespace(ctx, hdr);
 	return TRUE;
 }
 
@@ -130,7 +157,8 @@ static int parse_x_imap(struct mbox_sync_mail_context *ctx,
 	if (!parse_x_imap_base(ctx, hdr))
 		return FALSE;
 
-	/* this is the UW-IMAP style "FOLDER INTERNAL DATA" message. skip it. */
+	/* this is the c-client style "FOLDER INTERNAL DATA" message.
+	   skip it. */
 	ctx->pseudo = TRUE;
 	return TRUE;
 }
@@ -138,22 +166,10 @@ static int parse_x_imap(struct mbox_sync_mail_context *ctx,
 static int parse_x_keywords(struct mbox_sync_mail_context *ctx,
 			    struct message_header_line *hdr)
 {
-	size_t i, space = 0;
-
-	for (i = hdr->full_value_len; i > 0; i--) {
-		if (!IS_LWSP_LF(hdr->full_value[i-1]))
-			break;
-		space++;
-	}
-
-	if (space > ctx->mail.space) {
-		ctx->mail.offset = hdr->full_value_offset + i;
-		ctx->mail.space = space;
-	}
-
 	// FIXME: parse them
 
 	ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] = str_len(ctx->header);
+	parse_trailing_whitespace(ctx, hdr);
 	return TRUE;
 }
 
@@ -161,7 +177,7 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 		       struct message_header_line *hdr)
 {
 	uint32_t value = 0;
-	size_t i, space_pos, extra_space = 0;
+	size_t i;
 
 	if (ctx->mail.uid != 0) {
 		/* duplicate */
@@ -174,15 +190,6 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 		value = value*10 + (hdr->full_value[i] - '0');
 	}
 
-	space_pos = i;
-	for (; i < hdr->full_value_len; i++) {
-		if (!IS_LWSP_LF(hdr->full_value[i])) {
-			/* broken value */
-			return FALSE;
-		}
-		extra_space++;
-	}
-
 	if (value >= ctx->sync_ctx->next_uid) {
 		/* next_uid broken - fix it */
 		ctx->sync_ctx->next_uid = value+1;
@@ -192,17 +199,20 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 		/* broken - UIDs must be growing */
 		return FALSE;
 	}
-	ctx->sync_ctx->prev_msg_uid = value;
-
-	ctx->hdr_pos[MBOX_HDR_X_UID] = str_len(ctx->header);
 
 	ctx->mail.uid = value;
-	if (extra_space != 0 && ctx->mail.space == 0) {
-		/* set it only if X-Keywords hasn't been seen. spaces in X-UID
-		   should be removed when writing X-Keywords. */
-		ctx->mail.offset = hdr->full_value_offset + space_pos;
-		ctx->mail.space = extra_space;
+	ctx->sync_ctx->prev_msg_uid = value;
+
+	if (ctx->sync_ctx->dest_first_mail && !ctx->seen_imapbase) {
+		/* everything was good, except we can't have X-UID before
+		   X-IMAPbase header (to keep c-client compatibility). keep
+		   the UID, but when we're rewriting this makes sure the
+		   X-UID is appended after X-IMAPbase. */
+		return FALSE;
 	}
+
+	ctx->hdr_pos[MBOX_HDR_X_UID] = str_len(ctx->header);
+	parse_trailing_whitespace(ctx, hdr);
 	return TRUE;
 }
 
@@ -279,7 +289,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	str_truncate(ctx->header, 0);
 
         line_start_pos = 0;
-	hdr_ctx = message_parse_header_init(input, NULL);
+	hdr_ctx = message_parse_header_init(input, NULL, FALSE);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
 		if (hdr->eoh) {
 			ctx->have_eoh = TRUE;
@@ -290,6 +300,18 @@ void mbox_sync_parse_next_mail(struct istream *input,
 			line_start_pos = str_len(ctx->header);
 			str_append(ctx->header, hdr->name);
 			str_append(ctx->header, ": ");
+		}
+
+		if (ctx->header_first_change == (size_t)-1 &&
+		    hdr->full_value_offset != str_len(ctx->header)) {
+			/* whitespaces around ':' are non-standard. either
+			   there's whitespace before ':' or none after.
+			   if we're going to rewrite this message, we can't
+			   do it partially from here after as offsets won't
+			   match. this shouldn't happen pretty much ever, so
+			   don't try to optimize this - just rewrite the whole
+			   thing. */
+			ctx->no_partial_rewrite = TRUE;
 		}
 
 		func = header_func_find(hdr->name);
@@ -318,7 +340,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	message_parse_header_deinit(hdr_ctx);
 
 	if ((ctx->seq == 1 && sync_ctx->base_uid_validity == 0) ||
-	    (ctx->seq > 1 && sync_ctx->first_uid == 0)) {
+	    (ctx->seq > 1 && sync_ctx->dest_first_mail)) {
 		/* missing X-IMAPbase */
 		ctx->need_rewrite = TRUE;
 	}

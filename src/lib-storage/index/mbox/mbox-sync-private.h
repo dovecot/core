@@ -31,9 +31,19 @@ struct mbox_sync_mail {
 	keywords_mask_t keywords;
 
 	uoff_t from_offset;
-	uoff_t offset; /* if space <= 0, points to beginning */
-	off_t space;
 	uoff_t body_size;
+
+	/* following variables have a bit overloaded functionality:
+
+	   a) space <= 0 : offset points to beginning of headers. space is the
+	      amount of space missing that is required to be able to rewrite
+	      the headers
+	   b) space > 0 : offset points to beginning of whitespace that can
+	      be removed. space is the amount of data that can be removed from
+	      there. note that the message may contain more whitespace
+	      elsewhere. */
+	uoff_t offset;
+	off_t space;
 };
 
 struct mbox_sync_mail_context {
@@ -52,6 +62,7 @@ struct mbox_sync_mail_context {
 
 	unsigned int have_eoh:1;
 	unsigned int need_rewrite:1;
+	unsigned int no_partial_rewrite:1;
 	unsigned int seen_imapbase:1;
 	unsigned int pseudo:1;
 	unsigned int updated:1;
@@ -78,9 +89,11 @@ struct mbox_sync_context {
 	buffer_t *mails, *syncs;
 	struct mail_index_sync_rec sync_rec;
 
-	uint32_t prev_msg_uid, next_uid, first_uid;
+	uint32_t prev_msg_uid, next_uid;
 	uint32_t seq, idx_seq, need_space_seq;
 	off_t expunged_space, space_diff;
+
+	unsigned int dest_first_mail:1;
 };
 
 int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock);

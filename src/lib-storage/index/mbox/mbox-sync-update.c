@@ -19,28 +19,30 @@ static void status_flags_append(struct mbox_sync_mail_context *ctx,
 static void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 				  size_t pos, size_t need, size_t have)
 {
+	ssize_t diff = (ssize_t)need - (ssize_t)have;
 	int i;
 
-	if (need == have) {
+	if (diff == 0) {
 		if (ctx->header_last_change < pos + have ||
 		    ctx->header_last_change == (size_t)-1)
 			ctx->header_last_change = pos + have;
 	} else {
+		/* FIXME: if (diff < ctx->space && pos < ctx->offset) then
+		   move the data only up to space offset and give/take the
+		   space from there. update header_last_change accordingly. */
 		ctx->header_last_change = (size_t)-1;
 		for (i = 0; i < MBOX_HDR_COUNT; i++) {
 			if (ctx->hdr_pos[i] > pos &&
 			    ctx->hdr_pos[i] != (size_t)-1)
-				ctx->hdr_pos[i] += need - have;
+				ctx->hdr_pos[i] += diff;
 		}
 
-		if (need < have) {
-			str_delete(ctx->header, pos, have-need);
-			ctx->mail.space += have - need;
-		} else {
+		if (diff < 0)
+			str_delete(ctx->header, pos, -diff);
+		else {
 			ctx->header_last_change = (size_t)-1;
-			buffer_copy(ctx->header, pos + (need-have),
+			buffer_copy(ctx->header, pos + diff,
 				    ctx->header, pos, (size_t)-1);
-			ctx->mail.space -= need - have;
 		}
 	}
 }
@@ -111,7 +113,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		str_append_c(ctx->header, '\n');
 	}
 
-	if (ctx->mail.uid == ctx->sync_ctx->first_uid &&
+	if (ctx->sync_ctx->dest_first_mail &&
 	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1) {
 		if (ctx->sync_ctx->base_uid_validity == 0) {
 			ctx->sync_ctx->base_uid_validity =
@@ -174,16 +176,6 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		if (ctx->header_first_change == (size_t)-1)
 			ctx->header_first_change = new_hdr_size;
 		ctx->header_last_change = (size_t)-1;
-		ctx->mail.space -= str_len(ctx->header) - new_hdr_size;
-		if (ctx->mail.space > 0) {
-			/* we should rewrite this header, so offset
-			   must be broken if it's used anymore. */
-			ctx->mail.offset = (uoff_t)-1;
-		} else {
-			/* we don't have enough space for this header, change
-			   offset to point back to beginning of headers */
-			ctx->mail.offset = ctx->hdr_offset;
-		}
 	}
 
 	if (ctx->have_eoh)
@@ -216,7 +208,7 @@ static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 	const char *p, *hdr;
 	size_t pos;
 
-	if (ctx->mail.uid != ctx->sync_ctx->first_uid ||
+	if (ctx->sync_ctx->dest_first_mail ||
 	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1 ||
 	    ctx->sync_ctx->update_base_uid_last == 0 ||
 	    ctx->sync_ctx->update_base_uid_last < ctx->sync_ctx->base_uid_last)

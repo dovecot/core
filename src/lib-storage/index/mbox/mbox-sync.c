@@ -188,7 +188,7 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	mail_ctx->mail.offset =
 		istream_raw_mbox_get_header_offset(sync_ctx->input);
 
-	if (mail_ctx->seq > 1 && sync_ctx->first_uid == mail_ctx->mail.uid) {
+	if (mail_ctx->seq > 1 && sync_ctx->dest_first_mail) {
 		/* First message was expunged and this is the next one.
 		   Skip \n header */
 		mail_ctx->from_offset++;
@@ -489,7 +489,7 @@ static int mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 		mail_ctx->mail.body_size;
 	mail_ctx->mail.body_size = 0;
 
-	if (mail_ctx->sync_ctx->seq == 1) {
+	if (mail_ctx->sync_ctx->dest_first_mail) {
 		/* expunging first message, fix space to contain next
 		   message's \n header too since it will be removed. */
 		mail_ctx->mail.space++;
@@ -504,9 +504,6 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
 	off_t move_diff;
 	int ret;
-
-	if (sync_ctx->first_uid == 0)
-		sync_ctx->first_uid = mail_ctx->mail.uid;
 
 	if (sync_ctx->ibox->mbox_readonly)
 		return 0;
@@ -627,6 +624,7 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 
         /* set to -1, since they're always increased later */
 	sync_ctx->seq = sync_ctx->idx_seq = seq-1;
+	sync_ctx->dest_first_mail = sync_ctx->seq == 0;
 	if (istream_raw_mbox_seek(sync_ctx->input, offset) < 0) {
 		mail_storage_set_critical(sync_ctx->ibox->box.storage,
 			"Cached message offset %s is invalid for mbox file %s",
@@ -654,31 +652,31 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				"Mailbox isn't a valid mbox file");
 			return -1;
 		}
+		sync_ctx->dest_first_mail = TRUE;
 	} else {
 		/* we sync only what we need to. jump to first record that
 		   needs updating */
 		const struct mail_index_sync_rec *sync_rec;
+		size_t size;
 
-		if (buffer_get_used_size(sync_ctx->syncs) == 0) {
+		if (buffer_get_used_size(sync_ctx->syncs) == 0 &&
+		    sync_ctx->sync_rec.uid1 == 0) {
 			if (mbox_sync_read_index_syncs(sync_ctx, 1,
 						       &expunged) < 0)
 				return -1;
 
-			if (buffer_get_used_size(sync_ctx->syncs) == 0) {
+			if (buffer_get_used_size(sync_ctx->syncs) == 0 &&
+			    sync_ctx->sync_rec.uid1 == 0) {
 				/* nothing to do */
 				return 0;
 			}
 		}
 
-		sync_rec = buffer_get_data(sync_ctx->syncs, NULL);
+		sync_rec = buffer_get_data(sync_ctx->syncs, &size);
+		if (size == 0)
+			sync_rec = &sync_ctx->sync_rec;
 		if (mbox_sync_seek_to_uid(sync_ctx, sync_rec->uid1) < 0)
 			return -1;
-
-		if (sync_ctx->seq > 0) {
-			if (mail_index_lookup_uid(sync_ctx->sync_view, 1,
-						  &sync_ctx->first_uid) < 0)
-				return -1;
-		}
 	}
 
 	while ((ret = mbox_sync_read_next_mail(sync_ctx, mail_ctx)) > 0) {
@@ -688,9 +686,10 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		if (mbox_sync_read_index_syncs(sync_ctx, uid, &expunged) < 0)
 			return -1;
 
-		if (!expunged)
+		if (!expunged) {
 			ret = mbox_sync_handle_header(mail_ctx);
-		else {
+			sync_ctx->dest_first_mail = FALSE;
+		} else {
 			mail_ctx->mail.uid = 0;
 			ret = mbox_sync_handle_expunge(mail_ctx);
 		}
@@ -880,7 +879,7 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 	sync_ctx->base_uid_last = 0;
 
 	sync_ctx->next_uid = 1;
-	sync_ctx->prev_msg_uid = sync_ctx->first_uid = 0;
+	sync_ctx->prev_msg_uid = 0;
 	sync_ctx->seq = sync_ctx->idx_seq = 0;
 }
 
