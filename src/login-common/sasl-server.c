@@ -101,7 +101,7 @@ static void authenticate_callback(struct auth_request *request, int status,
 
 		client->authenticating = FALSE;
 		client->sasl_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
-				      (const char *)data_base64, args);
+				      NULL, args);
 		break;
 	}
 }
