@@ -173,6 +173,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	var_expand(str, conn->set.base, vars);
 	base = t_strdup(str_c(str));
 
+	str_truncate(str, 0);
 	var_expand(str, conn->set.user_filter, vars);
 	filter = str_c(str);
 
@@ -184,7 +185,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 
 	auth_request_log_debug(auth_request, "ldap",
 			       "base=%s scope=%s filter=%s fields=%s",
-			       conn->set.base, conn->set.scope, filter,
+			       base, conn->set.scope, filter,
 			       t_strarray_join(attr_names, ","));
 
 	db_ldap_search(conn, base, conn->set.ldap_scope,
