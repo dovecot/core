@@ -442,7 +442,7 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips, int *ips_count)
 	for (ai = origai; ai != NULL; ai = ai->ai_next, count++) {
 		so = (union sockaddr_union *) ai->ai_addr;
 
-		sin_get_ip(so, ips[count]);
+		sin_get_ip(so, &(*ips)[count]);
 	}
 	freeaddrinfo(origai);
 #else
@@ -607,7 +607,7 @@ int net_hosterror_notfound(int error)
 }
 
 /* Get name of TCP service */
-char *net_getservbyport(unsigned short port)
+const char *net_getservbyport(unsigned short port)
 {
 	struct servent *entry;
 

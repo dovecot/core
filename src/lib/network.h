@@ -49,9 +49,6 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 int net_connect_unix(const char *path);
 /* Disconnect socket */
 void net_disconnect(int fd);
-/* Try to let the other side close the connection, if it still isn't
-   disconnected after certain amount of time, close it ourself */
-void net_disconnect_later(int fd);
 
 /* Set socket blocking/nonblocking */
 void net_set_nonblock(int fd, int nonblock);
@@ -101,7 +98,7 @@ int net_addr2ip(const char *addr, struct ip_addr *ip);
 int net_geterror(int fd);
 
 /* Get name of TCP service */
-char *net_getservbyport(unsigned short port);
+const char *net_getservbyport(unsigned short port);
 
 int is_ipv4_address(const char *addr);
 int is_ipv6_address(const char *addr);
