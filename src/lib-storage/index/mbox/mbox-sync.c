@@ -1159,6 +1159,13 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit,
 		}
 	}
 
+	if (ret == 0 && ibox->mbox_lock_type == F_WRLCK) {
+		if (fsync(ibox->mbox_fd) < 0) {
+			mbox_set_syscall_error(ibox, "fsync()");
+			ret = -1;
+		}
+	}
+
 	if (sync_ctx.lock_id != 0 && ibox->mbox_lock_type != F_RDLCK) {
 		/* drop to read lock */
 		unsigned int lock_id = 0;
