@@ -333,6 +333,11 @@ void auth_continue_request(struct auth_request *request,
 		auth_connection_destroy(request->conn);
 }
 
+void auth_abort_request(struct auth_request *request)
+{
+        request_destroy(request);
+}
+
 static void auth_connect_missing(void)
 {
 	DIR *dirp;

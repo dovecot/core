@@ -58,7 +58,10 @@ static struct auth_mech_desc *auth_mech_find(const char *name)
 
 static void client_auth_abort(struct client *client, const char *msg)
 {
-	client->auth_request = NULL;
+	if (client->auth_request != NULL) {
+		auth_abort_request(client->auth_request);
+		client->auth_request = NULL;
+	}
 
 	client_send_tagline(client, msg != NULL ? msg :
 			    "NO Authentication failed.");
@@ -138,6 +141,8 @@ static int auth_callback(struct auth_request *request,
 
 	case AUTH_RESULT_FAILURE:
 		/* see if we have error message */
+		client->auth_request = NULL;
+
 		if (reply_data_size > 0 &&
 		    reply_data[reply_data_size-1] == '\0') {
 			client_auth_abort(client, t_strconcat(
@@ -149,6 +154,8 @@ static int auth_callback(struct auth_request *request,
 		}
 		return FALSE;
 	default:
+		client->auth_request = NULL;
+
 		client_auth_abort(client, t_strconcat(
 			"NO Authentication failed: ", reply_data, NULL));
 		return FALSE;

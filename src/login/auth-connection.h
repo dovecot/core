@@ -31,6 +31,8 @@ int auth_init_request(enum auth_mech mech, AuthCallback callback,
 void auth_continue_request(struct auth_request *request,
 			   const unsigned char *data, size_t data_size);
 
+void auth_abort_request(struct auth_request *request);
+
 void auth_connection_init(void);
 void auth_connection_deinit(void);
 
