@@ -1,3 +1,17 @@
+v0.98 2002-09-23  Timo Sirainen <tss@iki.fi>
+
+	+ mbox support is finally working. There's still some reliability
+	  fixes left but overall it should be quite usable.
+	+ vpopmail authentication support
+	+ We should be able to deal with "out of diskspace/quota" conditions
+	  properly, by keeping the indexes in memory and allowing user to
+	  delete mails to get more space.
+	+ Several speed enhancements
+	+ New configuration file option: overwrite_incompatible_index to force
+	  using ".imap.index" file, overwriting it if it isn't compatible
+	- Handle invalid message headers reliably
+	- Tons of bugfixes and code cleanups everywhere
+
 v0.97 2002-08-29  Timo Sirainen <tss@iki.fi>
 
 	+ Large mails are handled in 256kB blocks, so mail size no longer

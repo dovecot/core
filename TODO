@@ -51,6 +51,7 @@ index:
      - mbox-rewrite rename()s the file, which breaks if the original was a
        symlink. but how do we fix this? we may not have write-access to the
        directory where it points to, so we'd need to manually copy it..
+     - empty lines at beginning of file still aren't ignored
  - read-only support for mailboxes where we don't have write-access? Maybe,
    but don't try to use their indexes since that's way too problematic, and
    probably even impossible since we can't lock it.
@@ -64,6 +65,8 @@ index:
  - if message text is modified (or indexes are corrupted), this may happen:
     Panic: file imap-bodystructure.c: line 179 (part_parse_headers):
            assertion failed: (part->physical_pos >= inbuf->offset)
+ - when index is being rebuilt, it always complains about hash/modifylog having
+   wrong indexid..
 
 lib-storage:
  - support multiple mailbox formats and locations for one user. that would
