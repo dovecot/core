@@ -185,6 +185,7 @@ mail_index_map_register_ext(struct mail_index *index,
 	} else {
 		idx = map->extensions->used / sizeof(*ext);
 	}
+	i_assert(mail_index_map_lookup_ext(map, name) == (uint32_t)-1);
 
 	ext = buffer_append_space_unsafe(map->extensions, sizeof(*ext));
 	memset(ext, 0, sizeof(*ext));
@@ -259,6 +260,7 @@ static int mail_index_read_extensions(struct mail_index *index,
 				index->filepath);
 			return -1;
 		}
+
 		offset += sizeof(*ext_hdr);
 		name_offset = offset;
 		offset += ext_hdr->name_size + get_align(ext_hdr->name_size);
@@ -266,6 +268,15 @@ static int mail_index_read_extensions(struct mail_index *index,
 		t_push();
 		name = t_strndup(CONST_PTR_OFFSET(map->hdr_base, name_offset),
 				 ext_hdr->name_size);
+
+		if (mail_index_map_lookup_ext(map, name) != (uint32_t)-1) {
+			mail_index_set_error(index, "Corrupted index file %s: "
+				"Duplicate header extension %s",
+				index->filepath, name);
+			t_pop();
+			return -1;
+		}
+
 		mail_index_map_register_ext(index, map, name,
 					    offset, ext_hdr->hdr_size,
 					    ext_hdr->record_offset,
