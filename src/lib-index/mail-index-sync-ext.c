@@ -17,6 +17,9 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 	size_t handlers_count, id_map_size, size;
 	uint32_t idx_ext_id, map_ext_id;
 
+	if (ctx->view->map->extensions == NULL)
+		return;
+
 	handlers = buffer_get_data(ctx->view->index->expunge_handlers,
 				   &handlers_count);
 	handlers_count /= sizeof(*handlers);
