@@ -80,8 +80,8 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 	struct mail_index_map *map = view->map;
 	struct mail_index_record *rec;
 	uint32_t count, seq, seq1, seq2;
-        struct mail_index_expunge_handler *expunge_handlers, *eh;
-	size_t i, expunge_handlers_count;
+        const struct mail_index_expunge_handler *expunge_handlers, *eh;
+	unsigned int i, expunge_handlers_count;
 
 	if (e->uid1 > e->uid2 || e->uid1 == 0) {
 		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
@@ -114,11 +114,9 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 		mail_index_sync_init_expunge_handlers(ctx);
 
 	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW &&
-	    ctx->expunge_handlers != NULL) {
-		expunge_handlers =
-			buffer_get_modifyable_data(ctx->expunge_handlers,
-						   &expunge_handlers_count);
-		expunge_handlers_count /= sizeof(*expunge_handlers);
+	    array_is_created(&ctx->expunge_handlers)) {
+		expunge_handlers = array_get(&ctx->expunge_handlers,
+					     &expunge_handlers_count);
 	} else {
 		expunge_handlers = NULL;
 		expunge_handlers_count = 0;
@@ -479,8 +477,8 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			break;
 		}
 
-		ext = ctx->view->map->extensions->data;
-		record_size = sizeof(*rec) + ext[ctx->cur_ext_id].record_size;
+		ext = array_idx(&ctx->view->map->extensions, ctx->cur_ext_id);
+		record_size = sizeof(*rec) + ext->record_size;
 
 		rec = data;
 		end = CONST_PTR_OFFSET(data, hdr->size);

@@ -155,7 +155,8 @@ struct mail_cache_view {
 	struct mail_cache_transaction_ctx *transaction;
 	uint32_t trans_seq1, trans_seq2;
 
-	buffer_t *offsets_buf; /* temporary buffer, just to avoid mallocs */
+	/* temporary array, just to avoid mallocs. */
+	array_t ARRAY_DEFINE(tmp_offsets, uint32_t);
 
 	/* if cached_exists_buf[field] == cached_exists_value, it's cached.
 	   this allows us to avoid constantly clearing the whole buffer.

@@ -181,7 +181,6 @@ static int
 mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 			      int *seen_external_r)
 {
-	size_t size;
 	int ret;
 
 	*seen_external_r = FALSE;
@@ -207,17 +206,17 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 			mail_index_sync_add_transaction(ctx);
 	}
 
-	if (ctx->trans->expunges == NULL)
+	if (!array_is_created(&ctx->trans->expunges))
 		ctx->expunges_count = 0;
 	else {
-		ctx->expunges = buffer_get_data(ctx->trans->expunges, &size);
-		ctx->expunges_count = size / sizeof(*ctx->expunges);
+		ctx->expunges = array_get(&ctx->trans->expunges,
+					  &ctx->expunges_count);
 	}
-	if (ctx->trans->updates == NULL)
+	if (!array_is_created(&ctx->trans->updates))
 		ctx->updates_count = 0;
 	else {
-		ctx->updates = buffer_get_data(ctx->trans->updates, &size);
-		ctx->updates_count = size / sizeof(*ctx->updates);
+		ctx->updates = array_get(&ctx->trans->updates,
+					 &ctx->updates_count);
 	}
 	return ret;
 }

@@ -7,23 +7,22 @@ struct mail_index_transaction {
 	int refcount;
 	struct mail_index_view *view;
 
-        buffer_t *appends;
+        array_t ARRAY_DEFINE(appends, struct mail_index_record);
 	uint32_t first_new_seq, last_new_seq;
 
-	buffer_t *expunges;
-
-	buffer_t *updates;
+	array_t ARRAY_DEFINE(expunges, struct mail_transaction_expunge);
+	array_t ARRAY_DEFINE(updates, struct mail_transaction_flag_update);
 	size_t last_update_idx;
 
 	unsigned char hdr_change[sizeof(struct mail_index_header)];
 	unsigned char hdr_mask[sizeof(struct mail_index_header)];
 
-	buffer_t *ext_rec_updates; /* buffer_t*[] */
-	buffer_t *ext_resizes; /* struct mail_transaction_ext_intro[] */
-	buffer_t *ext_resets; /* uint32_t[] */
+	array_t ARRAY_DEFINE(ext_rec_updates, array_t);
+	array_t ARRAY_DEFINE(ext_resizes, struct mail_transaction_ext_intro);
+	array_t ARRAY_DEFINE(ext_resets, uint32_t);
 
-	buffer_t *keyword_updates; /* buffer_t*[] */
-	buffer_t *keyword_resets; /* buffer_t*[] */
+	array_t ARRAY_DEFINE(keyword_updates, array_t);
+	array_t ARRAY_DEFINE(keyword_resets, struct seq_range);
 
         struct mail_cache_transaction_ctx *cache_trans_ctx;
 
@@ -40,7 +39,7 @@ mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq);
 void mail_index_transaction_ref(struct mail_index_transaction *t);
 void mail_index_transaction_unref(struct mail_index_transaction *t);
 
-int mail_index_seq_buffer_lookup(buffer_t *buffer, uint32_t seq,
-				 size_t record_size, size_t *pos_r);
+int mail_index_seq_array_lookup(const array_t *buffer, uint32_t seq,
+				unsigned int *idx_r);
 
 #endif

@@ -104,6 +104,7 @@ static int _tview_lookup_first(struct mail_index_view *view,
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
 	const struct mail_index_record *rec;
+	unsigned int append_count;
 	uint32_t seq, message_count;
 
 	if (tview->parent->lookup_first(view, flags, flags_mask, seq_r) < 0)
@@ -112,9 +113,11 @@ static int _tview_lookup_first(struct mail_index_view *view,
 	if (*seq_r != 0)
 		return 0;
 
-	rec = buffer_get_data(tview->t->appends, NULL);
+	rec = array_get(&tview->t->appends, &append_count);
 	seq = tview->t->first_new_seq;
 	message_count = tview->t->last_new_seq;
+	i_assert(append_count == message_count - seq + 1);
+
 	for (; seq <= message_count; seq++, rec++) {
 		if ((rec->flags & flags_mask) == (uint8_t)flags) {
 			*seq_r = seq;
@@ -133,37 +136,36 @@ _tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
         const struct mail_index_ext *ext;
-	buffer_t *const *ext_bufs;
-	size_t size, pos;
+	const array_t *ext_buf;
+	ARRAY_ARG_SET_TYPE(ext_buf, void *);
+	const void *data;
+	unsigned int idx;
 
-	i_assert(ext_id < view->index->extensions->used / sizeof(*ext));
-
-	ext = view->index->extensions->data;
-	ext += ext_id;
-
-	if (tview->t->ext_rec_updates == NULL) {
-		ext_bufs = NULL;
-		size = 0;
-	} else {
-		ext_bufs = buffer_get_data(tview->t->ext_rec_updates, &size);
-		size /= sizeof(*ext_bufs);
-	}
+	i_assert(ext_id < array_count(&view->index->extensions));
 
 	*map_r = view->index->map;
-	if (size <= ext_id || ext_bufs[ext_id] == NULL ||
-	    !mail_index_seq_buffer_lookup(ext_bufs[ext_id], seq,
-					  ext->record_size, &pos)) {
-		/* not updated, return the existing value */
-		if (seq < tview->t->first_new_seq) {
-			return tview->parent->lookup_ext_full(view, seq, ext_id,
-							      map_r, data_r);
-		}
 
-		*data_r = NULL;
-		return 1;
+	ext = array_idx(&view->index->extensions, ext_id);
+	if (array_is_created(&tview->t->ext_rec_updates) &&
+	    ext_id < array_count(&tview->t->ext_rec_updates)) {
+		/* there are some ext updates in transaction.
+		   see if there's any for this sequence. */
+		ext_buf = array_idx(&tview->t->ext_rec_updates, ext_id);
+		if (array_is_created(ext_buf) &&
+		    mail_index_seq_array_lookup(ext_buf, seq, &idx)) {
+			data = array_idx(ext_buf, idx);
+			*data_r = CONST_PTR_OFFSET(data, sizeof(uint32_t));
+			return 1;
+		}
 	}
 
-	*data_r = CONST_PTR_OFFSET(ext_bufs[ext_id]->data, pos + sizeof(seq));
+	/* not updated, return the existing value */
+	if (seq < tview->t->first_new_seq) {
+		return tview->parent->lookup_ext_full(view, seq, ext_id,
+						      map_r, data_r);
+	}
+
+	*data_r = NULL;
 	return 1;
 }
 

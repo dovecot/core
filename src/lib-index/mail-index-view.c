@@ -387,10 +387,9 @@ static int _view_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 		return ret;
 	}
 
-	ext = (*map_r)->extensions->data;
-	ext += idx;
-
+	ext = array_idx(&(*map_r)->extensions, idx);
 	offset = ext->record_offset;
+
 	*data_r = offset == 0 ? NULL : CONST_PTR_OFFSET(rec, offset);
 	return ret;
 }
@@ -418,9 +417,7 @@ static int _view_get_header_ext(struct mail_index_view *view,
 		return 0;
 	}
 
-	ext = map->extensions->data;
-	ext += idx;
-
+	ext = array_idx(&map->extensions, idx);
 	*data_r = CONST_PTR_OFFSET(map->hdr_base, ext->hdr_offset);
 	*data_size_r = ext->hdr_size;
 	return 0;
@@ -484,9 +481,7 @@ int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 		return ret;
 	}
 
-	ext = map->extensions->data;
-	ext += idx;
-
+	ext = array_idx(&map->extensions, idx);
 	for (i = 0, idx = 0; i < ext->record_size; i++) {
 		if (((const char *)data)[i] == 0)
 			continue;
@@ -606,12 +601,10 @@ struct mail_index_view *mail_index_view_open(struct mail_index *index)
 const struct mail_index_ext *
 mail_index_view_get_ext(struct mail_index_view *view, uint32_t ext_id)
 {
-	const struct mail_index_ext *ext;
 	uint32_t idx;
 
 	if (!mail_index_map_get_ext_idx(view->map, ext_id, &idx))
 		return 0;
 
-	ext = view->map->extensions->data;
-	return &ext[idx];
+	return array_idx(&view->map->extensions, idx);
 }

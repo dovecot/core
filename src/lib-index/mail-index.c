@@ -27,10 +27,15 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->fd = -1;
 
 	index->extension_pool = pool_alloconly_create("extension", 256);
-	index->extensions = buffer_create_dynamic(index->extension_pool, 64);
-        index->sync_handlers = buffer_create_dynamic(default_pool, 64);
-        index->sync_lost_handlers = buffer_create_dynamic(default_pool, 64);
-        index->expunge_handlers = buffer_create_dynamic(default_pool, 32);
+	ARRAY_CREATE(&index->extensions, index->extension_pool,
+		     struct mail_index_ext, 5);
+
+	ARRAY_CREATE(&index->expunge_handlers, default_pool,
+		     mail_index_expunge_handler_t *, 4);
+	ARRAY_CREATE(&index->sync_handlers, default_pool,
+		     struct mail_index_sync_handler, 4);
+	ARRAY_CREATE(&index->sync_lost_handlers, default_pool,
+		     mail_index_sync_lost_handler_t *, 4);
 
 	index->mode = 0600;
 	index->gid = (gid_t)-1;
@@ -50,9 +55,9 @@ void mail_index_free(struct mail_index *index)
 	pool_unref(index->extension_pool);
 	pool_unref(index->keywords_pool);
 
-	buffer_free(index->sync_handlers);
-	buffer_free(index->sync_lost_handlers);
-	buffer_free(index->expunge_handlers);
+	array_free(&index->sync_handlers);
+	array_free(&index->sync_lost_handlers);
+	array_free(&index->expunge_handlers);
 	buffer_free(index->keywords_buf);
 
 	i_free(index->error);
@@ -75,14 +80,11 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 {
         const struct mail_index_ext *extensions;
 	struct mail_index_ext ext;
-	size_t ext_count;
-	unsigned int i;
+	unsigned int i, ext_count;
 
-	extensions = buffer_get_data(index->extensions, &ext_count);
-	ext_count /= sizeof(*extensions);
+	extensions = array_get(&index->extensions, &ext_count);
 
-	i_assert(index->sync_handlers->used /
-		 sizeof(struct mail_index_sync_handler) == ext_count);
+	i_assert(array_count(&index->sync_handlers) == ext_count);
 
 	/* see if it's already there */
 	for (i = 0; i < ext_count; i++) {
@@ -97,9 +99,8 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	ext.record_size = default_record_size;
 	ext.record_align = default_record_align;
 
-	buffer_append(index->extensions, &ext, sizeof(ext));
-	buffer_append_zero(index->sync_handlers,
-			   sizeof(struct mail_index_sync_handler));
+	array_append(&index->extensions, &ext, 1);
+	(void)array_modifyable_append(&index->sync_handlers);
 	return ext_count;
 }
 
@@ -107,37 +108,34 @@ void mail_index_register_expunge_handler(struct mail_index *index,
 					 uint32_t ext_id,
 					 mail_index_expunge_handler_t *cb)
 {
-	buffer_write(index->expunge_handlers, ext_id * sizeof(cb),
-		     &cb, sizeof(cb));
+	array_idx_set(&index->expunge_handlers, ext_id, &cb);
 }
 
 void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
 				      mail_index_sync_handler_t *cb,
 				      enum mail_index_sync_handler_type type)
 {
-	struct mail_index_sync_handler h;
+	struct mail_index_sync_handler *h;
 
-	memset(&h, 0, sizeof(h));
-	h.callback = cb;
-	h.type = type;
-	buffer_write(index->sync_handlers, ext_id * sizeof(h), &h, sizeof(h));
+	h = array_modifyable_idx(&index->sync_handlers, ext_id);
+	h->callback = cb;
+	h->type = type;
 }
 
 void mail_index_register_sync_lost_handler(struct mail_index *index,
 					   mail_index_sync_lost_handler_t *cb)
 {
-	buffer_append(index->sync_lost_handlers, &cb, sizeof(cb));
+	array_append(&index->sync_lost_handlers, &cb, 1);
 }
 
 static void mail_index_map_init_extbufs(struct mail_index_map *map,
 					unsigned int initial_count)
 {
-	size_t ext_size, ext_id_map_size, size;
+	size_t size;
 
-	ext_size = initial_count * sizeof(struct mail_index_ext);
-	ext_id_map_size = initial_count * sizeof(uint32_t);
 	if (map->extension_pool == NULL) {
-		size = ext_size + ext_id_map_size +
+		size = initial_count * sizeof(struct mail_index_ext) +
+                        initial_count * sizeof(uint32_t) +
 			(initial_count * 20); /* for names */
 		map->extension_pool =
 			pool_alloconly_create("extensions",
@@ -146,22 +144,21 @@ static void mail_index_map_init_extbufs(struct mail_index_map *map,
 		p_clear(map->extension_pool);
 	}
 
-	map->extensions = buffer_create_dynamic(map->extension_pool, ext_size);
-	map->ext_id_map =
-		buffer_create_dynamic(map->extension_pool, ext_id_map_size);
+	ARRAY_CREATE(&map->extensions, map->extension_pool,
+		     struct mail_index_ext, initial_count);
+	ARRAY_CREATE(&map->ext_id_map, map->extension_pool,
+		     uint32_t, initial_count);
 }
 
 uint32_t mail_index_map_lookup_ext(struct mail_index_map *map, const char *name)
 {
 	const struct mail_index_ext *extensions;
-	size_t i, size;
+	unsigned int i, size;
 
-	if (map->extensions == NULL)
+	if (!array_is_created(&map->extensions))
 		return (uint32_t)-1;
 
-	extensions = buffer_get_data(map->extensions, &size);
-	size /= sizeof(*extensions);
-
+	extensions = array_get(&map->extensions, &size);
 	for (i = 0; i < size; i++) {
 		if (strcmp(extensions[i].name, name) == 0)
 			return i;
@@ -177,17 +174,17 @@ mail_index_map_register_ext(struct mail_index *index,
 			    uint32_t record_align, uint32_t reset_id)
 {
 	struct mail_index_ext *ext;
-	uint32_t idx, ext_id, empty_id = (uint32_t)-1;
+	uint32_t idx, empty_idx = (uint32_t)-1;
 
-	if (map->extensions == NULL) {
+	if (!array_is_created(&map->extensions)) {
                 mail_index_map_init_extbufs(map, 5);
 		idx = 0;
 	} else {
-		idx = map->extensions->used / sizeof(*ext);
+		idx = array_count(&map->extensions);
 	}
 	i_assert(mail_index_map_lookup_ext(map, name) == (uint32_t)-1);
 
-	ext = buffer_append_space_unsafe(map->extensions, sizeof(*ext));
+	ext = array_modifyable_append(&map->extensions);
 	memset(ext, 0, sizeof(*ext));
 
 	ext->name = p_strdup(map->extension_pool, name);
@@ -198,14 +195,12 @@ mail_index_map_register_ext(struct mail_index *index,
 	ext->record_align = record_align;
 	ext->reset_id = reset_id;
 
-	ext_id = mail_index_ext_register(index, name, hdr_size,
-					 record_size, record_align);
-	ext->index_idx = ext_id;
+	ext->index_idx = mail_index_ext_register(index, name, hdr_size,
+						 record_size, record_align);
 
-	while (map->ext_id_map->used < ext_id * sizeof(uint32_t))
-		buffer_append(map->ext_id_map, &empty_id, sizeof(empty_id));
-	buffer_write(map->ext_id_map, ext_id * sizeof(uint32_t),
-		     &idx, sizeof(idx));
+	while (array_count(&map->ext_id_map) < ext->index_idx)
+		array_append(&map->ext_id_map, &empty_idx, 1);
+	array_idx_set(&map->ext_id_map, ext->index_idx, &idx);
 	return idx;
 }
 
@@ -240,12 +235,12 @@ static int mail_index_read_extensions(struct mail_index *index,
 		return 1;
 	}
 
-	old_count = index->extensions->used / sizeof(struct mail_index_ext);
+	old_count = array_count(&index->extensions);
 	mail_index_map_init_extbufs(map, old_count + 5);
 
 	ext_id = (uint32_t)-1;
 	for (i = 0; i < old_count; i++)
-		buffer_append(map->ext_id_map, &ext_id, sizeof(ext_id));
+		array_append(&map->ext_id_map, &ext_id, 1);
 
 	while (offset < map->hdr.header_size) {
 		ext_hdr = CONST_PTR_OFFSET(map->hdr_base, offset);
@@ -307,8 +302,7 @@ int mail_index_map_read_keywords(struct mail_index *index,
 		return 0;
 	}
 
-	ext = map->extensions->data;
-	ext += ext_id;
+	ext = array_idx(&map->extensions, ext_id);
 
 	kw_hdr = CONST_PTR_OFFSET(map->hdr_base, ext->hdr_offset);
 	kw_rec = (const void *)(kw_hdr + 1);
@@ -761,8 +755,7 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 					  int sync_to_index)
 {
 	mail_index_sync_lost_handler_t *const *handlers;
-	size_t size;
-	unsigned int i;
+	unsigned int i, count;
 	int ret, retry;
 
 	if (index->log_locked) {
@@ -785,10 +778,8 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 	}
 
 	/* notify all "sync lost" handlers */
-	handlers = buffer_get_data(index->sync_lost_handlers, &size);
-	size /= sizeof(*handlers);
-
-	for (i = 0; i < size; i++)
+	handlers = array_get(&index->sync_lost_handlers, &count);
+	for (i = 0; i < count; i++)
 		(*handlers[i])(index);
 
 	for (i = 0; i < MAIL_INDEX_ESTALE_RETRY_COUNT; i++) {
@@ -979,18 +970,15 @@ mail_index_map_clone(struct mail_index_map *map, uint32_t new_record_size)
 	mem_map->hdr_base = hdr;
 
 	/* copy extensions */
-	if (map->ext_id_map != NULL) {
-		count = map->ext_id_map->used / sizeof(uint32_t);
+	if (array_is_created(&map->ext_id_map)) {
+		count = array_count(&map->ext_id_map);
 		mail_index_map_init_extbufs(mem_map, count + 2);
 
-		buffer_append_buf(mem_map->extensions, map->extensions,
-				  0, (size_t)-1);
-		buffer_append_buf(mem_map->ext_id_map, map->ext_id_map,
-				  0, (size_t)-1);
+		array_append_array(&mem_map->extensions, &map->extensions);
+		array_append_array(&mem_map->ext_id_map, &map->ext_id_map);
 
 		/* fix the name pointers to use our own pool */
-		extensions = buffer_get_modifyable_data(mem_map->extensions,
-							NULL);
+		extensions = array_get_modifyable(&mem_map->extensions, &count);
 		for (i = 0; i < count; i++) {
 			extensions[i].name = p_strdup(mem_map->extension_pool,
 						      extensions[i].name);
@@ -1003,14 +991,14 @@ mail_index_map_clone(struct mail_index_map *map, uint32_t new_record_size)
 int mail_index_map_get_ext_idx(struct mail_index_map *map,
 			       uint32_t ext_id, uint32_t *idx_r)
 {
-	const uint32_t *id_map;
+	const uint32_t *id;
 
-	if (map->ext_id_map == NULL ||
-	    map->ext_id_map->used / sizeof(*id_map) <= ext_id)
+	if (!array_is_created(&map->ext_id_map) ||
+	    ext_id >= array_count(&map->ext_id_map))
 		return 0;
 
-	id_map = map->ext_id_map->data;
-	*idx_r = id_map[ext_id];
+	id = array_idx(&map->ext_id_map, ext_id);
+	*idx_r = *id;
 	return *idx_r != (uint32_t)-1;
 }
 

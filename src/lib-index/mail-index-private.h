@@ -87,8 +87,8 @@ struct mail_index_map {
 	unsigned int records_count;
 
 	pool_t extension_pool;
-	buffer_t *extensions; /* struct mail_index_ext[] */
-	buffer_t *ext_id_map; /* uint32_t[] (index -> file) */
+	array_t ARRAY_DEFINE(extensions, struct mail_index_ext);
+	array_t ARRAY_DEFINE(ext_id_map, uint32_t); /* index -> file */
 
 	void *mmap_base;
 	size_t mmap_size, mmap_used_size;
@@ -113,11 +113,12 @@ struct mail_index {
 	gid_t gid;
 
 	pool_t extension_pool;
-	buffer_t *extensions; /* struct mail_index_ext[] */
+	array_t ARRAY_DEFINE(extensions, struct mail_index_ext);
 
-	buffer_t *expunge_handlers; /* mail_index_expunge_handler_t*[] */
-	buffer_t *sync_handlers; /* mail_index_sync_handler_t*[] */
-	buffer_t *sync_lost_handlers; /* mail_index_sync_lost_handler_t*[] */
+	array_t ARRAY_DEFINE(expunge_handlers, mail_index_expunge_handler_t *);
+	array_t ARRAY_DEFINE(sync_handlers, struct mail_index_sync_handler);
+	array_t ARRAY_DEFINE(sync_lost_handlers,
+			     mail_index_sync_lost_handler_t *);
 
 	char *filepath;
 	int fd;

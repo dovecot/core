@@ -10,7 +10,7 @@ struct mail_index_sync_ctx {
 
 	const struct mail_transaction_expunge *expunges;
 	const struct mail_transaction_flag_update *updates;
-	size_t expunges_count, updates_count;
+	unsigned int expunges_count, updates_count;
 
 	uint32_t append_uid_first, append_uid_last;
 
@@ -37,10 +37,10 @@ struct mail_index_sync_map_ctx {
 	struct mail_index_view *view;
 	uint32_t cur_ext_id;
 
-	buffer_t *expunge_handlers; /* struct mail_index_expunge_handler[] */
+	array_t ARRAY_DEFINE(expunge_handlers,
+			     struct mail_index_expunge_handler);
 
-	buffer_t *extra_context_buf;
-	void **extra_context;
+	array_t ARRAY_DEFINE(extra_contexts, void *);
 
         enum mail_index_sync_handler_type type;
 

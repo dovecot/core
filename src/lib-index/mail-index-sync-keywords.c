@@ -117,9 +117,7 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 	ext_id = mail_index_map_lookup_ext(map, "keywords");
 	if (ext_id != (uint32_t)-1) {
 		/* update existing header */
-		ext = map->extensions->data;
-		ext += ext_id;
-
+		ext = array_idx(&map->extensions, ext_id);
 		buf = keywords_get_header_buf(map, ext, 1, &keywords_count,
 					      &rec_offset, &name_offset_root,
 					      &name_offset);
@@ -171,8 +169,7 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 			ext_id = mail_index_map_lookup_ext(map, "keywords");
 			i_assert(ext_id != (uint32_t)-1);
 		}
-		ext = map->extensions->data;
-		ext += ext_id;
+		ext = array_idx(&map->extensions, ext_id);
 
 		i_assert(ext->hdr_size == buf->used);
 	}
@@ -280,9 +277,7 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 		return 1;
 	}
 
-	ext = ctx->view->map->extensions->data;
-	ext += ext_id;
-
+	ext = array_idx(&ctx->view->map->extensions, ext_id);
 	if (ext->record_size == 0) {
 		/* nothing to do */
 		i_assert(rec->modify_type == MODIFY_REMOVE);
@@ -334,9 +329,7 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 		return 1;
 	}
 
-	ext = map->extensions->data;
-	ext += ext_id;
-
+	ext = array_idx(&map->extensions, ext_id);
 	end = CONST_PTR_OFFSET(r, hdr->size);
 	for (; r != end; r++) {
 		if (mail_index_lookup_uid_range(ctx->view, r->uid1, r->uid2,

@@ -69,8 +69,7 @@ mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 		return 0;
 	}
 
-	ext = map->extensions->data;
-	ext += idx;
+	ext = array_idx(&map->extensions, idx);
 
 	for (i = 0; i < 2; i++) {
 		if (cache->hdr->file_seq == ext->reset_id) {
@@ -163,15 +162,13 @@ mail_cache_foreach_rec(struct mail_cache_view *view, uint32_t *offset,
 	return 1;
 }
 
-static int buffer_find_offset(const buffer_t *buffer, uint32_t offset)
+static int find_offset(struct mail_cache_view *view, uint32_t offset)
 {
 	const uint32_t *offsets;
-	size_t i, size;
+	unsigned int i, count;
 
-	offsets = buffer_get_data(buffer, &size);
-	size /= sizeof(*offsets);
-
-	for (i = 0; i < size; i++) {
+	offsets = array_get(&view->tmp_offsets, &count);
+	for (i = 0; i < count; i++) {
 		if (offsets[i] == offset)
 			return TRUE;
 	}
@@ -199,14 +196,14 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 	}
 
 	ret = 1;
-	buffer_set_used_size(view->offsets_buf, 0);
+	array_clear(&view->tmp_offsets);
 	while (offset != 0 && ret > 0) {
-		if (buffer_find_offset(view->offsets_buf, offset)) {
+		if (find_offset(view, offset)) {
 			mail_cache_set_corrupted(view->cache,
 						 "record list is circular");
 			return -1;
 		}
-		buffer_append(view->offsets_buf, &offset, sizeof(offset));
+		array_append(&view->tmp_offsets, &offset, 1);
 		ret = mail_cache_foreach_rec(view, &offset,
 					     callback, context);
 	}
@@ -214,15 +211,14 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 	if (ret > 0 && view->trans_seq1 <= seq && view->trans_seq2 >= seq &&
 	    mail_cache_lookup_offset(view->cache, view->trans_view,
 				     seq, &offset)) {
-		buffer_set_used_size(view->offsets_buf, 0);
+		array_clear(&view->tmp_offsets);
 		while (offset != 0 && ret > 0) {
-			if (buffer_find_offset(view->offsets_buf, offset)) {
+			if (find_offset(view, offset)) {
 				mail_cache_set_corrupted(view->cache,
 					"record list is circular");
 				return -1;
 			}
-			buffer_append(view->offsets_buf,
-				      &offset, sizeof(offset));
+			array_append(&view->tmp_offsets, &offset, 1);
 			ret = mail_cache_foreach_rec(view, &offset,
 						     callback, context);
 		}

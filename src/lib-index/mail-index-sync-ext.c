@@ -10,46 +10,48 @@
 
 void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 {
-	const mail_index_expunge_handler_t *const *handlers;
+	mail_index_expunge_handler_t *const *handlers;
         const struct mail_index_ext *extensions;
 	const uint32_t *id_map;
+	void **contexts;
 	struct mail_index_expunge_handler eh;
-	size_t handlers_count, id_map_size, size;
+	unsigned int count, ext_count, id_map_count;
+	unsigned int handlers_count, context_count;
 	uint32_t idx_ext_id, map_ext_id;
 
-	if (ctx->view->map->extensions == NULL)
+	if (!array_is_created(&ctx->view->map->extensions))
 		return;
 
-	handlers = buffer_get_data(ctx->view->index->expunge_handlers,
-				   &handlers_count);
-	handlers_count /= sizeof(*handlers);
+	handlers = array_get(&ctx->view->index->expunge_handlers,
+			     &handlers_count);
 
 	if (handlers_count == 0)
 		return;
 
 	/* set expunge handlers */
 	memset(&eh, 0, sizeof(eh));
-	if (ctx->expunge_handlers != NULL)
-		buffer_set_used_size(ctx->expunge_handlers, 0);
+	if (array_is_created(&ctx->expunge_handlers))
+		array_clear(&ctx->expunge_handlers);
 	else {
-		ctx->expunge_handlers =
-			buffer_create_dynamic(default_pool, 256);
+		ARRAY_CREATE(&ctx->expunge_handlers, default_pool,
+			     struct mail_index_expunge_handler, 64);
 	}
 
-	extensions = ctx->view->map->extensions->data;
-	id_map = buffer_get_data(ctx->view->map->ext_id_map, &id_map_size);
-	id_map_size /= sizeof(*id_map);
+	extensions = array_get(&ctx->view->map->extensions, &ext_count);
+	id_map = array_get(&ctx->view->map->ext_id_map, &id_map_count);
+	contexts = array_get_modifyable(&ctx->extra_contexts, &context_count);
 
-	size = I_MIN(handlers_count, id_map_size);
-	for (idx_ext_id = 0; idx_ext_id < size; idx_ext_id++) {
+	count = I_MIN(handlers_count, id_map_count);
+	for (idx_ext_id = 0; idx_ext_id < count; idx_ext_id++) {
 		map_ext_id = id_map[idx_ext_id];
 		if (handlers[idx_ext_id] == NULL || map_ext_id == (uint32_t)-1)
 			continue;
 
+		i_assert(map_ext_id < context_count);
 		eh.handler = handlers[idx_ext_id];
-		eh.context = &ctx->extra_context[map_ext_id];
+		eh.context = &contexts[map_ext_id];
 		eh.record_offset = extensions[map_ext_id].record_offset;
-		buffer_append(ctx->expunge_handlers, &eh, sizeof(eh));
+		array_append(&ctx->expunge_handlers, &eh, 1);
 	}
 	ctx->expunge_handlers_set = TRUE;
 	ctx->expunge_handlers_used = TRUE;
@@ -59,42 +61,40 @@ void
 mail_index_sync_deinit_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 {
 	const struct mail_index_expunge_handler *eh;
-	size_t i, size;
+	unsigned int i, count;
 
-	if (ctx->expunge_handlers == NULL)
+	if (!array_is_created(&ctx->expunge_handlers))
 		return;
 
-	eh = buffer_get_data(ctx->expunge_handlers, &size);
-	size /= sizeof(*eh);
-
-	for (i = 0; i < size; i++) {
+	eh = array_get(&ctx->expunge_handlers, &count);
+	for (i = 0; i < count; i++) {
 		if (eh->context != NULL)
 			eh[i].handler(ctx, 0, NULL, eh->context);
 	}
 
-	buffer_free(ctx->expunge_handlers);
+	array_free(&ctx->expunge_handlers);
 }
 
 void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx)
 {
-	size_t size;
+	unsigned int count;
 
-	if (ctx->view->map->extensions == NULL)
+	if (!array_is_created(&ctx->view->map->extensions))
 		return;
 
 	/* set space for extra contexts */
-	size = sizeof(void *) * (ctx->view->index->extensions->used /
-				 sizeof(struct mail_index_ext));
-	if (ctx->extra_context_buf == NULL) {
-		ctx->extra_context_buf =
-			buffer_create_dynamic(default_pool, size);
-	} else {
-		buffer_set_used_size(ctx->extra_context_buf, 0);
-	}
-	buffer_append_zero(ctx->extra_context_buf, size);
-	ctx->extra_context =
-		buffer_get_modifyable_data(ctx->extra_context_buf, NULL);
+	count = array_count(&ctx->view->index->extensions);
+	i_assert(count > 0);
 
+	if (array_is_created(&ctx->extra_contexts))
+		array_clear(&ctx->extra_contexts);
+	else {
+		ARRAY_CREATE(&ctx->extra_contexts, default_pool,
+			     void *, count);
+	}
+
+	/* fill the context array with NULLs */
+	(void)array_modifyable_idx(&ctx->extra_contexts, count - 1);
 	ctx->expunge_handlers_set = FALSE;
 }
 
@@ -102,32 +102,33 @@ void mail_index_sync_deinit_handlers(struct mail_index_sync_map_ctx *ctx)
 {
 	const struct mail_index_sync_handler *sync_handlers;
 	const struct mail_index_ext *ext;
-	size_t i, synch_size, size;
+	void **extra_contexts;
+	unsigned int i, count, synch_count, context_count;
 
-	if (ctx->extra_context == NULL)
+	if (!array_is_created(&ctx->extra_contexts))
 		return;
 
-	sync_handlers = buffer_get_data(ctx->view->index->sync_handlers,
-					&synch_size);
-	synch_size /= sizeof(*sync_handlers);
+	sync_handlers =
+		array_get(&ctx->view->index->sync_handlers, &synch_count);
 
-	i_assert(synch_size <= ctx->extra_context_buf->used / sizeof(void *));
-
-	ext = buffer_get_data(ctx->view->map->extensions, &size);
-	size /= sizeof(*ext);
-	i_assert(size <= synch_size);
+	ext = array_get(&ctx->view->map->extensions, &count);
+	i_assert(count <= synch_count);
 
 	/* sync_handlers[] is ordered by index->extensions while
-	   extra_context is ordered by map->extensions. */
-	for (i = 0; i < size; i++) {
-		if (ctx->extra_context[i] != NULL) {
+	   extra_contexts[] is ordered by map->extensions. */
+	extra_contexts =
+		array_get_modifyable(&ctx->extra_contexts, &context_count);
+	i_assert(count <= context_count);
+
+	for (i = 0; i < count; i++) {
+		if (extra_contexts[i] != NULL) {
 			sync_handlers[ext[i].index_idx].
 				callback(ctx, 0, NULL, NULL,
-					 &ctx->extra_context[i]);
+					 &extra_contexts[i]);
 		}
 	}
 
-	buffer_free(ctx->extra_context_buf);
+	array_free(&ctx->extra_contexts);
 }
 
 static struct mail_index_ext_header *
@@ -164,22 +165,21 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 	struct mail_index_ext_header *ext_hdr;
 	uint16_t *old_offsets, min_align;
 	uint32_t offset, old_records_count, rec_idx;
+	unsigned int i, count;
 	const void *src;
-	size_t i, size;
 
 	t_push();
-	ext = buffer_get_modifyable_data(map->extensions, &size);
-	size /= sizeof(*ext);
+	ext = array_get_modifyable(&map->extensions, &count);
 
 	/* @UNSAFE */
-	old_offsets = t_new(uint16_t, size);
-	sorted = t_new(struct mail_index_ext *, size);
-	for (i = 0; i < size; i++) {
+	old_offsets = t_new(uint16_t, count);
+	sorted = t_new(struct mail_index_ext *, count);
+	for (i = 0; i < count; i++) {
 		old_offsets[i] = ext[i].record_offset;
 		ext[i].record_offset = 0;
 		sorted[i] = &ext[i];
 	}
-	qsort(sorted, size, sizeof(struct mail_index_ext *),
+	qsort(sorted, count, sizeof(struct mail_index_ext *),
 	      mail_index_ext_align_cmp);
 
 	/* we simply try to use the extensions with largest alignment
@@ -188,7 +188,7 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 	offset = sizeof(struct mail_index_record);
 	for (;;) {
 		min_align = (uint16_t)-1;
-		for (i = 0; i < size; i++) {
+		for (i = 0; i < count; i++) {
 			if (sorted[i]->record_offset == 0) {
 				if ((offset % sorted[i]->record_align) == 0)
 					break;
@@ -196,7 +196,7 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 					min_align = sorted[i]->record_align;
 			}
 		}
-		if (i == size) {
+		if (i == count) {
 			if (min_align == (uint16_t)-1) {
 				/* all done */
 				break;
@@ -234,7 +234,7 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 	for (rec_idx = 0; rec_idx < old_records_count; rec_idx++) {
 		buffer_write(new_map->buffer, offset, src,
 			     sizeof(struct mail_index_record));
-		for (i = 0; i < size; i++) {
+		for (i = 0; i < count; i++) {
 			buffer_write(new_map->buffer,
 				     offset + ext[i].record_offset,
 				     CONST_PTR_OFFSET(src, old_offsets[i]),
@@ -259,7 +259,7 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 	i_assert(new_map->records_count == new_map->hdr.messages_count);
 
 	/* update record offsets in headers */
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < count; i++) {
                 ext_hdr = get_ext_header(new_map, &ext[i]);
 		ext_hdr->record_offset = ext[i].record_offset;
 	}
@@ -278,8 +278,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 	uint32_t old_size, new_size, old_record_size;
 	int modified = FALSE;
 
-	ext = buffer_get_modifyable_data(map->extensions, NULL);
-	ext += ext_id;
+	ext = array_modifyable_idx(&map->extensions, ext_id);
 
 	old_size = MAIL_INDEX_HEADER_SIZE_ALIGN(ext->hdr_size);
 	new_size = MAIL_INDEX_HEADER_SIZE_ALIGN(u->hdr_size);
@@ -320,7 +319,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 
 	if (new_size != old_size) {
 		/* move all hdr_offset of all extensions after this one */
-		size_t i, count = map->extensions->used / sizeof(*ext);
+		unsigned i, count = array_count(&map->extensions);
 
 		ext -= ext_id;
 		for (i = ext_id + 1; i < count; i++) {
@@ -347,8 +346,8 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	uint32_t ext_id, hdr_offset;
 
 	if (u->ext_id != (uint32_t)-1 &&
-	    (map->extensions == NULL ||
-	     u->ext_id >= map->extensions->used / sizeof(*ext))) {
+	    (!array_is_created(&map->extensions) ||
+	     u->ext_id >= array_count(&map->extensions))) {
 		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
 			"Extension introduction for unknown id %u", u->ext_id);
 		return -1;
@@ -371,8 +370,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 
 	if (ext_id != (uint32_t)-1) {
 		/* exists already */
-		ext = map->extensions->data;
-		ext += ext_id;
+		ext = array_idx(&map->extensions, ext_id);
 
 		if (u->reset_id == ext->reset_id) {
 			/* check if we need to resize anything */
@@ -406,8 +404,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 					     u->record_size, u->record_align,
 					     u->reset_id);
 
-	ext = map->extensions->data;
-	ext += ext_id;
+	ext = array_idx(&map->extensions, ext_id);
 
 	/* <ext_hdr> <name> [padding] [header data] */
 	memset(&ext_hdr, 0, sizeof(ext_hdr));
@@ -460,8 +457,7 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 	if (ctx->cur_ext_ignore)
 		return 1;
 
-	ext = buffer_get_modifyable_data(map->extensions, NULL);
-	ext += ctx->cur_ext_id;
+	ext = array_modifyable_idx(&map->extensions, ctx->cur_ext_id);
 	ext->reset_id = u->new_reset_id;
 
 	memset(buffer_get_space_unsafe(map->hdr_copy_buf, ext->hdr_offset,
@@ -495,9 +491,7 @@ mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
 	if (ctx->cur_ext_ignore)
 		return 1;
 
-	ext = map->extensions->data;
-	ext += ctx->cur_ext_id;
-
+	ext = array_idx(&map->extensions, ctx->cur_ext_id);
 	buffer_write(map->hdr_copy_buf, ext->hdr_offset + u->offset,
 		     u + 1, u->size);
 	map->hdr_base = map->hdr_copy_buf->data;
@@ -525,19 +519,20 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 	if (seq == 0)
 		return 1;
 
-	ext = view->map->extensions->data;
-	ext += ctx->cur_ext_id;
+	ext = array_idx(&view->map->extensions, ctx->cur_ext_id);
 
 	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
 	old_data = PTR_OFFSET(rec, ext->record_offset);
 
-	sync_handlers = view->index->sync_handlers->data;
-	sync_handlers += ext->index_idx;
+	sync_handlers = array_idx(&view->index->sync_handlers, ext->index_idx);
 
 	/* call sync handlers only when we're syncing index (not view) */
 	if ((sync_handlers->type & ctx->type) != 0) {
+		void **extra_context =
+			array_modifyable_idx(&ctx->extra_contexts,
+					     ctx->cur_ext_id);
 		ret = sync_handlers->callback(ctx, seq, old_data, u + 1,
-					&ctx->extra_context[ctx->cur_ext_id]);
+					      extra_context);
 		if (ret <= 0)
 			return ret;
 	}
