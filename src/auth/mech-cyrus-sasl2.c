@@ -30,8 +30,7 @@ static const char *auth_mech_to_str(enum auth_mech mech)
 }
 
 static int
-cyrus_sasl_auth_continue(struct login_connection *conn,
-			 struct auth_request *auth_request,
+cyrus_sasl_auth_continue(struct auth_request *auth_request,
 			 struct auth_login_request_continue *request,
 			 const unsigned char *data, mech_callback_t *callback)
 {
@@ -63,7 +62,7 @@ cyrus_sasl_auth_continue(struct login_connection *conn,
 		reply.result = AUTH_LOGIN_RESULT_FAILURE;
 	}
 
-	callback(&reply, serverout, conn);
+	callback(&reply, serverout, auth_request->conn);
 	return reply.result != AUTH_LOGIN_RESULT_FAILURE;
 }
 
