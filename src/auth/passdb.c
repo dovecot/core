@@ -62,7 +62,7 @@ void passdb_init(void)
 	if (strcasecmp(name, "vpopmail") == 0)
 		passdb = &passdb_vpopmail;
 #endif
-#ifdef USERDB_LDAP
+#ifdef PASSDB_LDAP
 	if (strcasecmp(name, "ldap") == 0)
 		passdb = &passdb_ldap;
 #endif
