@@ -109,11 +109,11 @@ static ssize_t _read(struct _istream *stream)
 			i_error("io_stream_read_mmaped(): munmap() failed: %m");
 	}
 
-	top = stream->abs_start_offset + mstream->v_size - mstream->mmap_offset;
+	top = mstream->v_size - mstream->mmap_offset;
 	stream->buffer_size = I_MIN(top, mstream->mmap_block_size);
 
 	i_assert((uoff_t)mstream->mmap_offset + stream->buffer_size <=
-		 stream->abs_start_offset + mstream->v_size);
+		 mstream->v_size);
 
 	mstream->mmap_base = mmap(NULL, stream->buffer_size,
 				  PROT_READ, MAP_PRIVATE,
@@ -142,18 +142,16 @@ static ssize_t _read(struct _istream *stream)
 static void _seek(struct _istream *stream, uoff_t v_offset)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
-	uoff_t abs_offset;
 
-	abs_offset = stream->abs_start_offset + v_offset;
 	if (stream->buffer_size != 0 &&
-	    (uoff_t)mstream->mmap_offset <= abs_offset &&
-	    (uoff_t)mstream->mmap_offset + stream->buffer_size > abs_offset) {
+	    (uoff_t)mstream->mmap_offset <= v_offset &&
+	    (uoff_t)mstream->mmap_offset + stream->buffer_size > v_offset) {
 		/* already mmaped */
-		stream->skip = stream->pos = abs_offset - mstream->mmap_offset;
+		stream->skip = stream->pos = v_offset - mstream->mmap_offset;
 	} else {
 		/* force reading next time */
 		i_stream_munmap(mstream);
-		stream->skip = stream->pos = abs_offset;
+		stream->skip = stream->pos = v_offset;
 	}
 
 	stream->istream.v_offset = v_offset;

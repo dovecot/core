@@ -144,7 +144,6 @@ static ssize_t _read(struct _istream *stream)
 		if (fstream->file) {
 			ret = pread(stream->fd,
 				    stream->w_buffer + stream->pos, size,
-				    stream->abs_start_offset +
 				    stream->istream.v_offset +
 				    (stream->pos - stream->skip));
 		} else {
