@@ -306,6 +306,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 		modified = TRUE;
 
 	if (modified) {
+		i_assert((map->hdr_copy_buf->used % sizeof(uint64_t)) == 0);
 		map->hdr_base = map->hdr_copy_buf->data;
 		map->hdr.header_size = map->hdr_copy_buf->used;
 
@@ -412,6 +413,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		MAIL_INDEX_HEADER_SIZE_ALIGN(ext->hdr_size));
 	i_assert(hdr_buf->used ==
 		 hdr_offset + MAIL_INDEX_HEADER_SIZE_ALIGN(ext->hdr_size));
+	i_assert((hdr_buf->used % sizeof(uint64_t)) == 0);
 
 	map->hdr.header_size = hdr_buf->used;
 	map->hdr_base = map->hdr_copy_buf->data;

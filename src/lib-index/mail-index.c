@@ -1162,6 +1162,8 @@ static void mail_index_header_init(struct mail_index_header *hdr)
 {
 	time_t now = time(NULL);
 
+	i_assert((sizeof(*hdr) % sizeof(uint64_t)) == 0);
+
 	memset(hdr, 0, sizeof(*hdr));
 
 	hdr->major_version = MAIL_INDEX_MAJOR_VERSION;
