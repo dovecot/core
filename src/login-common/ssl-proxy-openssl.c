@@ -106,6 +106,8 @@ static void plain_read(void *context)
 		return;
 	}
 
+	proxy->refcount++;
+
 	while (proxy->sslout_size < sizeof(proxy->sslout_buf) &&
 	       !proxy->destroyed) {
 		ret = net_receive(proxy->fd_plain,
@@ -121,12 +123,16 @@ static void plain_read(void *context)
 			ssl_write(proxy);
 		}
 	}
+
+	ssl_proxy_unref(proxy);
 }
 
 static void plain_write(void *context)
 {
 	struct ssl_proxy *proxy = context;
 	ssize_t ret;
+
+	proxy->refcount++;
 
 	ret = net_transmit(proxy->fd_plain, proxy->plainout_buf,
 			   proxy->plainout_size);
@@ -153,6 +159,7 @@ static void plain_write(void *context)
 		ssl_set_io(proxy, SSL_ADD_INPUT);
 	}
 
+	ssl_proxy_unref(proxy);
 }
 
 static const char *ssl_last_error(void)
@@ -354,6 +361,7 @@ static int ssl_proxy_unref(struct ssl_proxy *proxy)
 {
 	if (--proxy->refcount > 0)
 		return TRUE;
+	i_assert(proxy->refcount == 0);
 
 	hash_remove(ssl_proxies, proxy);
 
