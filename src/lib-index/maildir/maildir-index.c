@@ -19,7 +19,7 @@ MailFlags maildir_filename_get_flags(const char *fname, MailFlags default_flags)
 		return default_flags;
 
 	flags = 0;
-	for (info += 3; *info != '\0'; info++) {
+	for (info += 3; *info != '\0' && *info != ','; info++) {
 		switch (*info) {
 		case 'R': /* replied */
 			flags |= MAIL_ANSWERED;
@@ -83,7 +83,7 @@ const char *maildir_filename_set_flags(const char *fname, MailFlags flags)
 		       (*oldflags >= 'a' && *oldflags <= 'z'))
 			oldflags++;
 
-		nextflag = *oldflags == '\0' ? 256 :
+		nextflag = *oldflags == '\0' || *oldflags == ',' ? 256 :
 			(unsigned char) *oldflags;
 
 		if ((flags & MAIL_DRAFT) && nextflag > 'D') {
@@ -115,10 +115,16 @@ const char *maildir_filename_set_flags(const char *fname, MailFlags flags)
 			flags &= ~MAIL_CUSTOM_FLAGS_MASK;
 		}
 
-		if (*oldflags == '\0')
+		if (*oldflags == '\0' || *oldflags == ',')
 			break;
 
 		*p++ = *oldflags++;
+	}
+
+	if (*oldflags == ',') {
+		/* another flagset, we don't know about these, just keep them */
+		while (*oldflags != '\0')
+			*p++ = *oldflags++;
 	}
 
 	*p = '\0';
