@@ -8,22 +8,63 @@
 #include "auth-server-request.h"
 
 struct auth_request {
-        enum auth_mech mech;
         struct auth_server_connection *conn;
+
+	enum auth_mech mech;
+        enum auth_protocol protocol;
 
 	unsigned int id;
 
 	auth_request_callback_t *callback;
 	void *context;
 
+        struct auth_server_connection *next_conn;
+	unsigned char *plaintext_data; /* for resending to other servers */
+        size_t plaintext_data_size;
+
 	unsigned int init_sent:1;
+	unsigned int retrying:1;
 };
+
+static int auth_server_send_new_request(struct auth_server_connection *conn,
+					struct auth_request *request)
+{
+	struct auth_client_request_new auth_request;
+
+	auth_request.type = AUTH_CLIENT_REQUEST_NEW;
+	auth_request.id = request->id;
+	auth_request.protocol = request->protocol;
+	auth_request.mech = request->mech;
+
+	if (o_stream_send(conn->output, &auth_request,
+			  sizeof(auth_request)) < 0) {
+		errno = conn->output->stream_errno;
+		i_warning("Error sending request to auth server: %m");
+		auth_server_connection_destroy(conn, TRUE);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+static struct auth_server_connection *
+get_next_plain_server(struct auth_server_connection *conn)
+{
+	conn = conn->next;
+	while (conn != NULL) {
+		if ((conn->available_auth_mechs & AUTH_MECH_PLAIN) != 0)
+			return conn;
+		conn = conn->next;
+	}
+	return NULL;
+}
 
 void auth_server_request_handle_reply(struct auth_server_connection *conn,
 				      struct auth_client_request_reply *reply,
 				      const unsigned char *data)
 {
 	struct auth_request *request;
+        struct auth_server_connection *next;
 
 	request = hash_lookup(conn->requests, POINTER_CAST(reply->id));
 	if (request == NULL) {
@@ -32,10 +73,49 @@ void auth_server_request_handle_reply(struct auth_server_connection *conn,
 		return;
 	}
 
+	switch (reply->result) {
+	case AUTH_CLIENT_RESULT_SUCCESS:
+		if (conn == request->conn)
+			request->next_conn = NULL;
+		else {
+			i_assert(request->next_conn == conn);
+			request->conn = request->next_conn;
+			request->next_conn = NULL;
+		}
+		break;
+	case AUTH_CLIENT_RESULT_FAILURE:
+		if (request->plaintext_data == NULL)
+			break;
+
+		next = get_next_plain_server(conn);
+		if (next == NULL)
+			break;
+
+		hash_remove(conn->requests, POINTER_CAST(request->id));
+		hash_insert(next->requests, POINTER_CAST(request->id), request);
+
+		if (conn == request->conn)
+			request->conn = request->next_conn;
+
+		request->next_conn = next;
+		request->retrying = TRUE;
+
+		auth_server_send_new_request(next, request);
+		return;
+	case AUTH_CLIENT_RESULT_CONTINUE:
+		if (!request->retrying)
+			break;
+
+		auth_client_request_continue(request, request->plaintext_data,
+					     request->plaintext_data_size);
+		return;
+	}
+
 	request->callback(request, reply, data, request->context);
 
 	if (reply->result != AUTH_CLIENT_RESULT_CONTINUE) {
 		hash_remove(conn->requests, POINTER_CAST(request->id));
+		i_free(request->plaintext_data);
 		i_free(request);
 	}
 }
@@ -62,15 +142,15 @@ auth_client_request_new(struct auth_client *client,
 {
 	struct auth_server_connection *conn;
 	struct auth_request *request;
-	struct auth_client_request_new auth_request;
 
 	conn = auth_server_connection_find_mech(client, mech, error_r);
 	if (conn == NULL)
 		return NULL;
 
 	request = i_new(struct auth_request, 1);
-	request->mech = mech;
 	request->conn = conn;
+	request->mech = mech;
+	request->protocol = protocol;
 	request->id = ++client->request_id_counter;
 	if (request->id == 0) {
 		/* wrapped - ID 0 not allowed */
@@ -81,17 +161,8 @@ auth_client_request_new(struct auth_client *client,
 
 	hash_insert(conn->requests, POINTER_CAST(request->id), request);
 
-	/* send request to auth */
-	auth_request.type = AUTH_CLIENT_REQUEST_NEW;
-	auth_request.id = request->id;
-	auth_request.protocol = protocol;
-	auth_request.mech = request->mech;
-	if (o_stream_send(request->conn->output, &auth_request,
-			  sizeof(auth_request)) < 0) {
-		errno = request->conn->output->stream_errno;
-		i_warning("Error sending request to auth server: %m");
-		auth_server_connection_destroy(request->conn, TRUE);
-	}
+	if (!auth_server_send_new_request(conn, request))
+		request = NULL;
 	return request;
 }
 
@@ -99,6 +170,23 @@ void auth_client_request_continue(struct auth_request *request,
 				  const unsigned char *data, size_t data_size)
 {
 	struct auth_client_request_continue auth_request;
+
+	if (request->mech == AUTH_MECH_PLAIN &&
+	    request->plaintext_data == NULL) {
+		request->next_conn = get_next_plain_server(request->conn);
+		if (request->next_conn != NULL) {
+			/* plaintext authentication - save the data so we can
+			   try it for the next */
+			request->plaintext_data = i_malloc(data_size);
+			memcpy(request->plaintext_data, data, data_size);
+			request->plaintext_data_size = data_size;
+
+			hash_insert(request->next_conn->requests,
+				    POINTER_CAST(request->id), request);
+			auth_server_send_new_request(request->next_conn,
+						     request);
+		}
+	}
 
 	/* send continued request to auth */
 	auth_request.type = AUTH_CLIENT_REQUEST_CONTINUE;
@@ -118,8 +206,11 @@ void auth_client_request_abort(struct auth_request *request)
 {
 	void *id = POINTER_CAST(request->id);
 
-	if (hash_lookup(request->conn->requests, id) != NULL)
-		hash_remove(request->conn->requests, id);
+	hash_remove(request->conn->requests, id);
+	if (request->next_conn != NULL)
+		hash_remove(request->next_conn->requests, id);
+
+	i_free(request->plaintext_data);
 	i_free(request);
 }
 
