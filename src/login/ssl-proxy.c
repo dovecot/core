@@ -105,7 +105,8 @@ static int ssl_proxy_destroy(SSLProxy *proxy)
 
 	if (proxy->io_ssl != NULL)
 		io_remove(proxy->io_ssl);
-	io_remove(proxy->io_plain);
+	if (proxy->io_plain != NULL)
+		io_remove(proxy->io_plain);
 
 	i_free(proxy);
 	return FALSE;
