@@ -331,7 +331,8 @@ static int create_index_dir(struct mail_storage *storage, const char *name)
 
 	if (strcmp(storage->index_dir, storage->dir) == 0 ||
 	    (strcmp(name, "INBOX") == 0 &&
-	     strcmp(storage->index_dir, storage->inbox_file) == 0))
+	     (storage->inbox_file == NULL ||
+	      strcmp(storage->index_dir, storage->inbox_file) == 0)))
 		return TRUE;
 
 	dir = t_strconcat(storage->index_dir, "/"MAILDIR_FS_SEP_S, name, NULL);
