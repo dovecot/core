@@ -171,112 +171,163 @@ static int mail_cache_lookup_offset(struct mail_cache_view *view, uint32_t seq,
 	return 0;
 }
 
-struct mail_cache_record *
-mail_cache_lookup(struct mail_cache_view *view, uint32_t seq)
+int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
+		       int (*callback)(struct mail_cache_view *view,
+				       enum mail_cache_field field,
+				       const void *data, size_t data_size,
+				       void *context), void *context)
 {
-	uint32_t offset;
-
-	// FIXME: check transactions too
+	const struct mail_cache_record *cache_rec;
+	size_t pos, next_pos, max_size, data_size;
+	uint32_t offset, field;
+	int ret;
 
         if (MAIL_CACHE_IS_UNUSABLE(view->cache))
-		return NULL;
+		return 0;
 
-	if (mail_cache_lookup_offset(view, seq, &offset) <= 0)
-		return NULL;
+	if ((ret = mail_cache_lookup_offset(view, seq, &offset)) <= 0)
+		return ret;
 
-	return mail_cache_get_record(view->cache, offset);
-}
-
-enum mail_cache_field
-mail_cache_get_fields(struct mail_cache_view *view, uint32_t seq)
-{
-	struct mail_cache_record *cache_rec;
-        enum mail_cache_field fields = 0;
-
-	cache_rec = mail_cache_lookup(view, seq);
+	cache_rec = mail_cache_get_record(view->cache, offset);
 	while (cache_rec != NULL) {
-		fields |= cache_rec->fields;
+		max_size = cache_rec->size;
+		if (max_size < sizeof(*cache_rec) + sizeof(uint32_t)*2) {
+			mail_cache_set_corrupted(view->cache,
+				"record has invalid size");
+			return -1;
+		}
+		max_size -= sizeof(uint32_t);
+
+		for (pos = sizeof(*cache_rec); pos < max_size; ) {
+			field = *((const uint32_t *)
+				  CONST_PTR_OFFSET(cache_rec, pos));
+			pos += sizeof(uint32_t);
+
+			data_size = mail_cache_field_sizes[field];
+			if (data_size == (unsigned int)-1) {
+				data_size = *((const uint32_t *)
+					      CONST_PTR_OFFSET(cache_rec, pos));
+				pos += sizeof(uint32_t);
+			}
+
+			next_pos = pos + ((data_size + 3) & ~3);
+			if (next_pos > cache_rec->size) {
+				mail_cache_set_corrupted(view->cache,
+					"Record continues outside it's "
+					"allocated size");
+				return -1;
+			}
+
+			ret = callback(view, field,
+				       CONST_PTR_OFFSET(cache_rec, pos),
+				       data_size, context);
+			if (ret <= 0)
+				return ret;
+
+			pos = next_pos;
+		}
 		cache_rec = mail_cache_get_record(view->cache,
 						  cache_rec->prev_offset);
 	}
 
-	return fields;
+	if (view->transaction != NULL) {
+		// FIXME: update
+	}
+	return 1;
 }
 
-static int cache_get_field(struct mail_cache *cache,
-			   const struct mail_cache_record *cache_rec,
-			   enum mail_cache_field field, buffer_t *dest_buf)
+static int mail_cache_seq_callback(struct mail_cache_view *view,
+				   enum mail_cache_field field,
+				   const void *data __attr_unused__,
+				   size_t data_size __attr_unused__,
+				   void *context __attr_unused__)
 {
-	unsigned int mask;
-	uint32_t data_size;
-	size_t offset, prev_offset;
-	int i;
+	view->cached_exists[field] = TRUE;
+	return 1;
+}
 
-	offset = sizeof(*cache_rec);
+static int mail_cache_seq(struct mail_cache_view *view, uint32_t seq)
+{
+	int ret;
 
-	for (i = 0, mask = 1; i < 31; i++, mask <<= 1) {
-		if ((cache_rec->fields & mask) == 0)
-			continue;
+	view->cached_exists_seq = seq;
+	memset(view->cached_exists, 0, sizeof(view->cached_exists));
 
-		/* all records are at least 32bit. we have to check this
-		   before getting data_size. */
-		if (offset + sizeof(uint32_t) > cache_rec->size) {
-			mail_cache_set_corrupted(cache,
-				"Record continues outside it's allocated size");
-			return FALSE;
-		}
+	ret = mail_cache_foreach(view, seq, mail_cache_seq_callback, NULL);
+	return ret < 0 ? -1 : 0;
+}
 
-		if ((mask & MAIL_CACHE_FIXED_MASK) != 0)
-			data_size = mail_cache_field_sizes[i];
-		else {
-			memcpy(&data_size, CONST_PTR_OFFSET(cache_rec, offset),
-			       sizeof(data_size));
-			offset += sizeof(data_size);
-		}
+int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
+			    enum mail_cache_field field)
+{
+	i_assert(field < MAIL_CACHE_FIELD_COUNT);
 
-		prev_offset = offset + ((data_size + 3) & ~3);
-		if (prev_offset > cache_rec->size) {
-			mail_cache_set_corrupted(cache,
-				"Record continues outside it's allocated size");
-			return FALSE;
-		}
+        if (MAIL_CACHE_IS_UNUSABLE(view->cache))
+		return 0;
 
-		if (field == mask) {
-			if (data_size == 0) {
-				mail_cache_set_corrupted(cache,
-							 "Field size is 0");
-				return FALSE;
-			}
-			buffer_append(dest_buf,
-				      CONST_PTR_OFFSET(cache_rec, offset),
-				      data_size);
-			return TRUE;
-		}
-		offset = prev_offset;
+	if (view->cached_exists_seq != seq) {
+		if (mail_cache_seq(view, seq) < 0)
+			return -1;
 	}
+	return view->cached_exists[field];
+}
 
-	i_unreached();
-	return FALSE;
+enum mail_cache_decision_type
+mail_cache_field_get_decision(struct mail_cache *cache,
+			      enum mail_cache_field field)
+{
+	i_assert(field < MAIL_CACHE_FIELD_COUNT);
+
+        if (MAIL_CACHE_IS_UNUSABLE(cache))
+		return cache->default_field_usage_decision_type[field];
+
+	return cache->hdr->field_usage_decision_type[field];
+}
+
+struct mail_cache_lookup_context {
+	buffer_t *dest_buf;
+	enum mail_cache_field field;
+};
+
+static int
+mail_cache_lookup_callback(struct mail_cache_view *view __attr_unused__,
+			   enum mail_cache_field field,
+			   const void *data, size_t data_size, void *context)
+{
+        struct mail_cache_lookup_context *ctx = context;
+
+	if (ctx->field != field)
+		return 1;
+
+	buffer_append(ctx->dest_buf, data, data_size);
+	return 0;
 }
 
 int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 			    uint32_t seq, enum mail_cache_field field)
 {
-	struct mail_cache_record *cache_rec;
+        struct mail_cache_lookup_context ctx;
 
-	mail_cache_handle_decisions(view, seq, field);
+	i_assert(field < MAIL_CACHE_FIELD_COUNT);
 
-	cache_rec = mail_cache_lookup(view, seq);
-	while (cache_rec != NULL) {
-		if ((cache_rec->fields & field) != 0) {
-			return cache_get_field(view->cache, cache_rec, field,
-					       dest_buf);
-		}
-		cache_rec = mail_cache_get_record(view->cache,
-						  cache_rec->prev_offset);
+        if (MAIL_CACHE_IS_UNUSABLE(view->cache))
+		return 0;
+
+	mail_cache_decision_lookup(view, seq, field);
+
+	if (view->cached_exists_seq != seq) {
+		if (mail_cache_seq(view, seq) < 0)
+			return -1;
 	}
 
-	return FALSE;
+	if (!view->cached_exists[field])
+		return 0;
+
+	/* should exist. find it. */
+	ctx.field = field;
+	ctx.dest_buf = dest_buf;
+	return mail_cache_foreach(view, seq, mail_cache_lookup_callback,
+				  &ctx) == 0;
 }
 
 int mail_cache_lookup_string_field(struct mail_cache_view *view, string_t *dest,
@@ -284,21 +335,24 @@ int mail_cache_lookup_string_field(struct mail_cache_view *view, string_t *dest,
 {
 	size_t old_size, new_size;
 
-	i_assert((field & MAIL_CACHE_STRING_MASK) != 0);
+	i_assert(field < MAIL_CACHE_FIELD_COUNT);
+
+        if (MAIL_CACHE_IS_UNUSABLE(view->cache))
+		return 0;
 
 	old_size = str_len(dest);
 	if (!mail_cache_lookup_field(view, dest, seq, field))
-		return FALSE;
+		return 0;
 
 	new_size = str_len(dest);
 	if (old_size == new_size ||
 	    str_data(dest)[new_size-1] != '\0') {
 		mail_cache_set_corrupted(view->cache,
 			"String field %x doesn't end with NUL", field);
-		return FALSE;
+		return -1;
 	}
 	str_truncate(dest, new_size-1);
-	return TRUE;
+	return 1;
 }
 
 enum mail_cache_record_flag

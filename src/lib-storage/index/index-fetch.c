@@ -10,23 +10,13 @@ index_storage_fetch(struct mailbox_transaction_context *_t, uint32_t seq,
 {
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
-        const struct mail_index_record *rec;
-
-	if (mail_index_lookup(t->trans_view, seq, &rec) < 0) {
-		mail_storage_set_index_error(t->ibox);
-		return NULL;
-	}
-
-	if (rec == NULL)
-		return NULL;
 
 	if (t->fetch_mail.pool != NULL)
 		index_mail_deinit(&t->fetch_mail);
 
 	index_mail_init(t, &t->fetch_mail, wanted_fields, NULL);
-	if (index_mail_next(&t->fetch_mail, rec, seq, FALSE) <= 0)
+	if (index_mail_next(&t->fetch_mail, seq) < 0)
 		return NULL;
-
 	return &t->fetch_mail.mail;
 }
 

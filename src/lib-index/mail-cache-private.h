@@ -35,18 +35,6 @@
 #define MAIL_CACHE_IS_UNUSABLE(cache) \
 	((cache)->hdr == NULL)
 
-enum mail_cache_decision_type {
-	/* Not needed currently */
-	MAIL_CACHE_DECISION_NO		= 0x00,
-	/* Needed only for new mails. Drop when compressing. */
-	MAIL_CACHE_DECISION_TEMP	= 0x01,
-	/* Needed. */
-	MAIL_CACHE_DECISION_YES		= 0x02,
-
-	/* This decision has been forced manually, don't change it. */
-	MAIL_CACHE_DECISION_FORCED	= 0x80
-};
-
 struct mail_cache_header {
 	/* version is increased only when you can't have backwards
 	   compatibility. */
@@ -69,9 +57,9 @@ struct mail_cache_header {
 };
 
 struct mail_cache_record {
-	uint32_t fields; /* enum mail_cache_field */
 	uint32_t prev_offset;
 	uint32_t size; /* full record size, including this header */
+	/* array of { uint32_t field; [ uint32_t size; ] { .. } } */
 };
 
 struct mail_cache_hole_header {
@@ -101,9 +89,7 @@ struct mail_cache {
 	uint32_t split_offsets[MAIL_CACHE_HEADERS_COUNT];
 	const char *const *split_headers[MAIL_CACHE_HEADERS_COUNT];
 
-	enum mail_cache_field default_cache_fields;
-	enum mail_cache_field never_cache_fields;
-
+	uint8_t default_field_usage_decision_type[32];
 	uint32_t field_usage_uid_highwater[32];
 
 	unsigned int locked:1;
@@ -115,7 +101,9 @@ struct mail_cache_view {
 	struct mail_cache *cache;
 	struct mail_index_view *view;
 
-	unsigned int broken:1;
+	struct mail_cache_transaction_ctx *transaction;
+	char cached_exists[32];
+	uint32_t cached_exists_seq;
 };
 
 extern unsigned int mail_cache_field_sizes[32];
@@ -123,7 +111,6 @@ extern enum mail_cache_field mail_cache_header_fields[MAIL_CACHE_HEADERS_COUNT];
 
 uint32_t mail_cache_uint32_to_offset(uint32_t offset);
 uint32_t mail_cache_offset_to_uint32(uint32_t offset);
-unsigned int mail_cache_field_index(enum mail_cache_field field);
 
 /* Explicitly lock the cache file. Returns -1 if error, 1 if ok, 0 if we
    couldn't lock */
@@ -138,8 +125,11 @@ mail_cache_split_header(struct mail_cache *cache, const char *header);
 struct mail_cache_record *
 mail_cache_get_record(struct mail_cache *cache, uint32_t offset);
 
-struct mail_cache_record *
-mail_cache_lookup(struct mail_cache_view *view, uint32_t seq);
+int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
+		       int (*callback)(struct mail_cache_view *view,
+				       enum mail_cache_field field,
+				       const void *data, size_t data_size,
+				       void *context), void *context);
 
 int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx);
 void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx);
@@ -154,8 +144,10 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 /* Mark record in given offset to be deleted. */
 int mail_cache_delete(struct mail_cache *cache, uint32_t offset);
 
-void mail_cache_handle_decisions(struct mail_cache_view *view, uint32_t seq,
-				 enum mail_cache_field field);
+void mail_cache_decision_lookup(struct mail_cache_view *view, uint32_t seq,
+				enum mail_cache_field field);
+void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
+			     enum mail_cache_field field);
 
 void mail_cache_set_syscall_error(struct mail_cache *cache,
 				  const char *function);

@@ -344,11 +344,7 @@ int mbox_save(struct mailbox_transaction_context *_t,
 	t_pop();
 
 	if (mail_r != NULL) {
-		const struct mail_index_record *rec;
-
-		if (mail_index_lookup(t->ictx.trans_view, seq, &rec) < 0)
-			return -1;
-		if (index_mail_next(&ctx->mail, rec, seq, FALSE) <= 0)
+		if (index_mail_next(&ctx->mail, seq) < 0)
 			return -1;
 		*mail_r = &ctx->mail.mail;
 	}

@@ -11,6 +11,18 @@ struct mail_cache;
 struct mail_cache_view;
 struct mail_cache_transaction_ctx;
 
+enum mail_cache_decision_type {
+	/* Not needed currently */
+	MAIL_CACHE_DECISION_NO		= 0x00,
+	/* Needed only for new mails. Drop when compressing. */
+	MAIL_CACHE_DECISION_TEMP	= 0x01,
+	/* Needed. */
+	MAIL_CACHE_DECISION_YES		= 0x02,
+
+	/* This decision has been forced manually, don't change it. */
+	MAIL_CACHE_DECISION_FORCED	= 0x80
+};
+
 enum mail_cache_record_flag {
 	/* If binary flags are set, it's not checked whether mail is
 	   missing CRs. So this flag may be set as an optimization for
@@ -28,40 +40,23 @@ enum mail_cache_record_flag {
 /* when modifying, remember to update mail_cache_field_sizes[] too */
 enum mail_cache_field {
 	/* fixed size fields */
-	MAIL_CACHE_INDEX_FLAGS		= 0x00000001,
-	MAIL_CACHE_SENT_DATE		= 0x00000002,
-	MAIL_CACHE_RECEIVED_DATE	= 0x00000004,
-	MAIL_CACHE_VIRTUAL_FULL_SIZE	= 0x00000008,
+	MAIL_CACHE_INDEX_FLAGS = 0,
+	MAIL_CACHE_SENT_DATE,
+	MAIL_CACHE_RECEIVED_DATE,
+	MAIL_CACHE_VIRTUAL_FULL_SIZE,
 
 	/* variable sized field */
-	MAIL_CACHE_HEADERS1		= 0x40000000,
-	MAIL_CACHE_HEADERS2		= 0x20000000,
-	MAIL_CACHE_HEADERS3		= 0x10000000,
-	MAIL_CACHE_HEADERS4		= 0x08000000,
-	MAIL_CACHE_LOCATION		= 0x04000000,
-	MAIL_CACHE_BODY			= 0x02000000,
-	MAIL_CACHE_BODYSTRUCTURE	= 0x01000000,
-	MAIL_CACHE_ENVELOPE		= 0x00800000,
-	MAIL_CACHE_MESSAGEPART		= 0x00400000,
-	MAIL_CACHE_UID_STRING		= 0x00200000,
+	MAIL_CACHE_HEADERS1,
+	MAIL_CACHE_HEADERS2,
+	MAIL_CACHE_HEADERS3,
+	MAIL_CACHE_HEADERS4,
+	MAIL_CACHE_BODY,
+	MAIL_CACHE_BODYSTRUCTURE,
+	MAIL_CACHE_ENVELOPE,
+	MAIL_CACHE_MESSAGEPART,
+	MAIL_CACHE_UID_STRING,
 
-	MAIL_CACHE_FIXED_MASK		= MAIL_CACHE_INDEX_FLAGS |
-					  MAIL_CACHE_SENT_DATE |
-					  MAIL_CACHE_RECEIVED_DATE |
-					  MAIL_CACHE_VIRTUAL_FULL_SIZE,
-	MAIL_CACHE_HEADERS_MASK		= MAIL_CACHE_HEADERS1 |
-					  MAIL_CACHE_HEADERS2 |
-					  MAIL_CACHE_HEADERS3 |
-					  MAIL_CACHE_HEADERS4,
-	MAIL_CACHE_STRING_MASK		= MAIL_CACHE_HEADERS_MASK |
-					  MAIL_CACHE_LOCATION |
-					  MAIL_CACHE_BODY |
-					  MAIL_CACHE_BODYSTRUCTURE |
-					  MAIL_CACHE_ENVELOPE |
-					  MAIL_CACHE_UID_STRING,
-	MAIL_CACHE_BODYSTRUCTURE_MASK	= MAIL_CACHE_BODY |
-					  MAIL_CACHE_BODYSTRUCTURE |
-                                          MAIL_CACHE_MESSAGEPART
+	MAIL_CACHE_FIELD_COUNT
 };
 
 struct mail_sent_date {
@@ -75,8 +70,7 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index);
 void mail_cache_free(struct mail_cache *cache);
 
 void mail_cache_set_defaults(struct mail_cache *cache,
-			     enum mail_cache_field default_cache_fields,
-			     enum mail_cache_field never_cache_fields);
+			     const enum mail_cache_decision_type dec[32]);
 
 /* Returns TRUE if cache should be compressed. */
 int mail_cache_need_compress(struct mail_cache *cache);
@@ -106,9 +100,13 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		    enum mail_cache_field field,
 		    const void *data, size_t data_size);
 
-/* Return all fields that are currently cached for record. */
-enum mail_cache_field
-mail_cache_get_fields(struct mail_cache_view *view, uint32_t seq);
+/* Retursn TRUE if field exists. */
+int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
+			    enum mail_cache_field field);
+/* Returns current caching decision for given field. */
+enum mail_cache_decision_type
+mail_cache_field_get_decision(struct mail_cache *cache,
+			      enum mail_cache_field field);
 
 /* Set data_r and size_r to point to wanted field in cache file.
    Returns TRUE if field was found. If field contains multiple fields,
@@ -119,10 +117,6 @@ int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 /* Return string field. */
 int mail_cache_lookup_string_field(struct mail_cache_view *view, string_t *dest,
 				   uint32_t seq, enum mail_cache_field field);
-
-/* Mark given field as missing, ie. it should be cached when possible. */
-void mail_cache_mark_missing(struct mail_cache_view *view, uint32_t uid,
-			     enum mail_cache_field field);
 
 /* Return record flags. */
 enum mail_cache_record_flag

@@ -15,9 +15,9 @@ unsigned int mail_cache_field_sizes[32] = {
 	sizeof(time_t),
 	sizeof(uoff_t),
 
-	0, 0, 0, 0, 0, 0, 0, 0,
-
 	/* variable sized */
+	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,
+	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,
 	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,
 	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,
 	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,
@@ -58,17 +58,6 @@ uint32_t mail_cache_offset_to_uint32(uint32_t offset)
 		(((uint32_t)buf[2] & 0x7f) << 9) |
 		(((uint32_t)buf[1] & 0x7f) << 16) |
 		(((uint32_t)buf[0] & 0x7f) << 23);
-}
-
-unsigned int mail_cache_field_index(enum mail_cache_field field)
-{
-	unsigned int i, num;
-
-	for (i = 0, num = 1; i < 32; i++, num <<= 1) {
-		if (field == num)
-			return i;
-	}
-	i_unreached();
 }
 
 void mail_cache_set_syscall_error(struct mail_cache *cache,
@@ -284,11 +273,10 @@ void mail_cache_free(struct mail_cache *cache)
 }
 
 void mail_cache_set_defaults(struct mail_cache *cache,
-			     enum mail_cache_field default_cache_fields,
-			     enum mail_cache_field never_cache_fields)
+			     const enum mail_cache_decision_type dec[32])
 {
-	cache->default_cache_fields = default_cache_fields;
-	cache->never_cache_fields = never_cache_fields;
+	memcpy(cache->default_field_usage_decision_type, dec,
+	       sizeof(cache->default_field_usage_decision_type));
 }
 
 int mail_cache_lock(struct mail_cache *cache)

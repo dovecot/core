@@ -36,9 +36,6 @@ struct message_part_body_data {
 	unsigned int charset_found:1;
 };
 
-static void part_write_bodystructure(struct message_part *part,
-				     string_t *str, int extended);
-
 static void parse_content_type(const unsigned char *value, size_t value_len,
 			       void *context)
 {
@@ -294,7 +291,7 @@ static void part_write_body_multipart(struct message_part *part,
 	}
 
 	if (part->children != NULL)
-		part_write_bodystructure(part->children, str, extended);
+		imap_bodystructure_write(part->children, str, extended);
 	else {
 		/* no parts in multipart message,
 		   that's not allowed. write a single
@@ -416,7 +413,7 @@ static void part_write_body(struct message_part *part,
 		imap_envelope_write_part_data(env_data, str);
 		str_append(str, ") ");
 
-		part_write_bodystructure(part->children, str, extended);
+		imap_bodystructure_write(part->children, str, extended);
 		str_printfa(str, " %u", part->body_size.lines);
 	}
 
@@ -459,35 +456,25 @@ static void part_write_body(struct message_part *part,
 	}
 }
 
-static void part_write_bodystructure(struct message_part *part,
-				     string_t *str, int extended)
+void imap_bodystructure_write(struct message_part *part,
+			      string_t *dest, int extended)
 {
 	i_assert(part->parent != NULL || part->next == NULL);
 
 	while (part != NULL) {
 		if (part->parent != NULL)
-			str_append_c(str, '(');
+			str_append_c(dest, '(');
 
 		if (part->flags & MESSAGE_PART_FLAG_MULTIPART)
-			part_write_body_multipart(part, str, extended);
+			part_write_body_multipart(part, dest, extended);
 		else
-			part_write_body(part, str, extended);
+			part_write_body(part, dest, extended);
 
 		if (part->parent != NULL)
-			str_append_c(str, ')');
+			str_append_c(dest, ')');
 
 		part = part->next;
 	}
-}
-
-const char *imap_bodystructure_parse_finish(struct message_part *root,
-					    int extended)
-{
-	string_t *str;
-
-	str = t_str_new(2048);
-	part_write_bodystructure(root, str, extended);
-	return str_c(str);
 }
 
 static int str_append_imap_arg(string_t *str, const struct imap_arg *arg)
@@ -645,35 +632,27 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 	return TRUE;
 }
 
-const char *imap_body_parse_from_bodystructure(const char *bodystructure)
+int imap_body_parse_from_bodystructure(const char *bodystructure,
+				       string_t *dest)
 {
 	struct istream *input;
 	struct imap_parser *parser;
 	struct imap_arg *args;
-	string_t *str;
-	const char *value;
-	size_t len;
 	int ret;
 
-	len = strlen(bodystructure);
-	str = t_str_new(len);
-
 	input = i_stream_create_from_data(pool_datastack_create(),
-					  bodystructure, len);
+					  bodystructure, strlen(bodystructure));
 	(void)i_stream_read(input);
 
 	parser = imap_parser_create(input, NULL, (size_t)-1);
 	ret = imap_parser_finish_line(parser, 0, IMAP_PARSE_FLAG_NO_UNESCAPE |
 				      IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
-	if (ret <= 0 || !imap_parse_bodystructure_args(args, str))
-		value = NULL;
-	else
-		value = str_c(str);
+	ret = ret > 0 && imap_parse_bodystructure_args(args, dest);
 
-	if (value == NULL)
+	if (!ret)
 		i_error("Error parsing IMAP bodystructure: %s", bodystructure);
 
 	imap_parser_destroy(parser);
 	i_stream_unref(input);
-	return value;
+	return ret;
 }

@@ -28,7 +28,7 @@ struct mail_cache_transaction_ctx {
 	uint32_t last_grow_size;
 
 	uint32_t first_seq, last_seq;
-	enum mail_cache_field fields;
+	enum mail_cache_field fields[32];
 
 	unsigned int changes:1;
 };
@@ -55,12 +55,17 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 	ctx->reservations =
 		buffer_create_dynamic(system_pool, 256, (size_t)-1);
 
+	i_assert(view->transaction == NULL);
+	view->transaction = ctx;
+
 	t->cache_trans_ctx = ctx;
 	return ctx;
 }
 
 static void mail_cache_transaction_free(struct mail_cache_transaction_ctx *ctx)
 {
+	ctx->view->transaction = NULL;
+
 	buffer_free(ctx->cache_data);
 	buffer_free(ctx->cache_data_seq);
 	buffer_free(ctx->reservations);
@@ -317,7 +322,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache *cache = ctx->cache;
 	const struct mail_cache_record *rec, *tmp_rec;
 	const uint32_t *seq;
-	uint32_t write_offset, old_offset, rec_offset;
+	uint32_t write_offset, old_offset, rec_pos;
 	size_t size, max_size, seq_idx, seq_limit, seq_count;
 	int commit;
 
@@ -332,9 +337,10 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 
 	seq = buffer_get_data(ctx->cache_data_seq, &seq_count);
 	seq_count /= sizeof(*seq);
+	seq_limit = 0;
 
-	for (seq_idx = 0, rec_offset = 0; rec_offset < ctx->prev_pos;) {
-		max_size = ctx->prev_pos - rec_offset;
+	for (seq_idx = 0, rec_pos = 0; rec_pos < ctx->prev_pos;) {
+		max_size = ctx->prev_pos - rec_pos;
 		write_offset = mail_cache_transaction_get_space(ctx, rec->size,
 								max_size,
 								&max_size,
@@ -344,7 +350,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 			return ctx->prev_pos == 0 ? 0 : -1;
 		}
 
-		if (max_size < ctx->prev_pos) {
+		if (rec_pos + max_size < ctx->prev_pos) {
 			/* see how much we can really write there */
 			tmp_rec = rec;
 			for (size = 0; size + tmp_rec->size <= max_size; ) {
@@ -383,7 +389,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 			}
 
 			write_offset += rec->size;
-			rec_offset += rec->size;
+			rec_pos += rec->size;
 			rec = CONST_PTR_OFFSET(rec, rec->size);
 		}
 	}
@@ -391,7 +397,10 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	/* drop the written data from buffer */
 	buffer_copy(ctx->cache_data, 0,
 		    ctx->cache_data, ctx->prev_pos, (size_t)-1);
-	buffer_set_used_size(ctx->cache_data, size - ctx->prev_pos);
+	buffer_set_used_size(ctx->cache_data,
+			     buffer_get_used_size(ctx->cache_data) -
+			     ctx->prev_pos);
+	ctx->prev_pos = 0;
 
 	buffer_set_used_size(ctx->cache_data_seq, 0);
 	return 0;
@@ -409,6 +418,7 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 		data = buffer_get_modifyable_data(ctx->cache_data, &size);
 		rec = PTR_OFFSET(data, ctx->prev_pos);
 		rec->size = size - ctx->prev_pos;
+		i_assert(rec->size != 0);
 
 		buffer_append(ctx->cache_data_seq, &ctx->prev_seq,
 			      sizeof(ctx->prev_seq));
@@ -588,62 +598,23 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 	return offset > 0;
 }
 
-static size_t
-mail_cache_transaction_get_insert_pos(struct mail_cache_transaction_ctx *ctx,
-				      enum mail_cache_field field)
-{
-	const struct mail_cache_record *cache_rec;
-	const void *data;
-	unsigned int mask;
-	uint32_t data_size;
-	size_t pos;
-	int i;
-
-	data = buffer_get_data(ctx->cache_data, NULL);
-	cache_rec = CONST_PTR_OFFSET(data, ctx->prev_pos);
-
-	pos = ctx->prev_pos + sizeof(*cache_rec);
-	for (i = 0, mask = 1; i < 31; i++, mask <<= 1) {
-		if ((field & mask) != 0)
-			return pos;
-
-		if ((cache_rec->fields & mask) != 0) {
-			if ((mask & MAIL_CACHE_FIXED_MASK) != 0)
-				data_size = mail_cache_field_sizes[i];
-			else {
-				memcpy(&data_size, CONST_PTR_OFFSET(data, pos),
-				       sizeof(data_size));
-				pos += sizeof(data_size);
-			}
-			pos += (data_size + 3) & ~3;
-		}
-	}
-
-	i_unreached();
-	return pos;
-}
-
 void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		    enum mail_cache_field field,
 		    const void *data, size_t data_size)
 {
-	struct mail_cache_record *cache_rec;
-	unsigned char *buf;
-	size_t full_size, pos;
-	uint32_t data_size32;
-	unsigned int field_idx;
+	uint32_t fixed_size, data_size32;
+	size_t full_size;
 
+	i_assert(field < MAIL_CACHE_FIELD_COUNT);
 	i_assert(data_size > 0);
 	i_assert(data_size < (uint32_t)-1);
 
-	data_size32 = (uint32_t)data_size;
+	mail_cache_decision_add(ctx->view, seq, field);
 
-	if ((field & MAIL_CACHE_FIXED_MASK) != 0) {
-		field_idx = mail_cache_field_index(field);
-		i_assert(mail_cache_field_sizes[field_idx] == data_size);
-	} else if ((field & MAIL_CACHE_STRING_MASK) != 0) {
-		i_assert(((char *) data)[data_size-1] == '\0');
-	}
+	fixed_size = mail_cache_field_sizes[field];
+	i_assert(fixed_size == (unsigned int)-1 || fixed_size == data_size);
+
+	data_size32 = (uint32_t)data_size;
 
 	if (ctx->prev_seq != seq) {
 		mail_cache_transaction_switch_seq(ctx);
@@ -655,11 +626,12 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 			ctx->first_seq = seq;
 		if (seq > ctx->last_seq)
 			ctx->last_seq = seq;
-		ctx->fields |= field;
+		ctx->view->cached_exists[field] = TRUE;
+		ctx->fields[field] = TRUE;
 	}
 
 	full_size = (data_size + 3) & ~3;
-	if ((field & MAIL_CACHE_FIXED_MASK) == 0)
+	if (fixed_size == (unsigned int)-1)
 		full_size += sizeof(data_size32);
 
 	if (buffer_get_used_size(ctx->cache_data) + full_size >
@@ -669,24 +641,15 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 			return;
 	}
 
-	/* fields must be ordered. find where to insert it. */
-	pos = mail_cache_transaction_get_insert_pos(ctx, field);
-	buffer_copy(ctx->cache_data, pos + full_size,
-		    ctx->cache_data, pos, (size_t)-1);
-
-	cache_rec = buffer_get_space_unsafe(ctx->cache_data, ctx->prev_pos,
-					    sizeof(*cache_rec));
-	cache_rec->fields |= field;
-
-	/* @UNSAFE */
-	buf = buffer_get_space_unsafe(ctx->cache_data, pos, full_size);
-	if ((field & MAIL_CACHE_FIXED_MASK) == 0) {
-		memcpy(buf, &data_size32, sizeof(data_size32));
-		buf += sizeof(data_size32);
+	buffer_append(ctx->cache_data, &field, sizeof(field));
+	if (fixed_size == (unsigned int)-1) {
+		buffer_append(ctx->cache_data, &data_size32,
+			      sizeof(data_size32));
 	}
-	memcpy(buf, data, data_size); buf += data_size;
+
+	buffer_append(ctx->cache_data, data, data_size);
 	if ((data_size & 3) != 0)
-		memset(buf, 0, 4 - (data_size & 3));
+                buffer_append(ctx->cache_data, null4, 4 - (data_size & 3));
 }
 
 int mail_cache_update_record_flags(struct mail_cache_view *view, uint32_t seq,

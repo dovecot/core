@@ -20,6 +20,9 @@ static int mbox_mail_seek(struct index_mail *mail)
 	uint64_t offset;
 	int ret;
 
+	if (mail->data.deleted)
+		return 0;
+
 	if (ibox->mbox_lock_type == F_UNLCK) {
 		if (mbox_sync(ibox, FALSE, FALSE, TRUE) < 0)
 			return -1;
@@ -36,7 +39,9 @@ static int mbox_mail_seek(struct index_mail *mail)
 	if (ret <= 0) {
 		if (ret < 0)
 			mail_storage_set_index_error(ibox);
-		return -1;
+		else
+			mail->data.deleted = TRUE;
+		return ret;
 	}
 
 	offset = *((const uint64_t *)data);
@@ -47,7 +52,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 		mail_index_mark_corrupted(ibox->index);
 		return -1;
 	}
-	return 0;
+	return 1;
 }
 
 static const struct mail_full_flags *mbox_mail_get_flags(struct mail *_mail)
@@ -74,7 +79,7 @@ static time_t mbox_mail_get_received_date(struct mail *_mail)
 	if (data->received_date != (time_t)-1)
 		return data->received_date;
 
-	if (mbox_mail_seek(mail) < 0)
+	if (mbox_mail_seek(mail) <= 0)
 		return (time_t)-1;
 	data->received_date =
 		istream_raw_mbox_get_received_time(mail->ibox->mbox_stream);
@@ -84,9 +89,9 @@ static time_t mbox_mail_get_received_date(struct mail *_mail)
 		data->received_date = 0;
 	}
 
-	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE,
-			     &data->received_date,
-			     sizeof(data->received_date));
+	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
+		       MAIL_CACHE_RECEIVED_DATE,
+		       &data->received_date, sizeof(data->received_date));
 	return data->received_date;
 }
 
@@ -96,7 +101,7 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 	struct index_mail *mail = (struct index_mail *)_mail;
 
 	if (field == MAIL_FETCH_FROM_ENVELOPE) {
-		if (mbox_mail_seek(mail) < 0)
+		if (mbox_mail_seek(mail) <= 0)
 			return NULL;
 
 		return istream_raw_mbox_get_sender(mail->ibox->mbox_stream);
@@ -116,10 +121,9 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 	uoff_t offset;
 
 	if (data->stream == NULL) {
-		if (mbox_mail_seek(mail) < 0)
+		if (mbox_mail_seek(mail) <= 0)
 			return NULL;
 
-		// FIXME: need to hide the headers
 		raw_stream = mail->ibox->mbox_stream;
 		offset = istream_raw_mbox_get_header_offset(raw_stream);
 		raw_stream = i_stream_create_limit(default_pool, raw_stream,

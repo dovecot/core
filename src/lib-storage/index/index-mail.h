@@ -12,7 +12,6 @@ struct index_mail_data {
 	time_t date, received_date;
 	uoff_t size;
 
-	enum mail_cache_field cached_fields;
 	struct mail_sent_date sent_date;
 
 	buffer_t *headers;
@@ -46,6 +45,7 @@ struct index_mail_data {
 	unsigned int header_data_cached_partial:1;
 	unsigned int header_fully_parsed:1;
 	unsigned int header_save:1;
+	unsigned int open_mail:1;
 };
 
 struct index_mail {
@@ -68,9 +68,7 @@ void index_mail_init(struct index_transaction_context *t,
 		     struct index_mail *mail,
 		     enum mail_fetch_field wanted_fields,
 		     const char *const wanted_headers[]);
-int index_mail_next(struct index_mail *mail,
-		    const struct mail_index_record *rec,
-		    uint32_t seq, int delay_open);
+int index_mail_next(struct index_mail *mail, uint32_t seq);
 void index_mail_deinit(struct index_mail *mail);
 
 void index_mail_parse_header_init(struct index_mail *mail,
@@ -80,9 +78,6 @@ int index_mail_parse_header(struct message_part *part,
 			    struct index_mail *mail);
 
 void index_mail_cache_transaction_begin(struct index_mail *mail);
-void index_mail_cache_add(struct index_mail *mail, enum mail_cache_field field,
-			  const void *data, size_t size);
-
 int index_mail_parse_headers(struct index_mail *mail);
 
 void index_mail_headers_init(struct index_mail *mail);

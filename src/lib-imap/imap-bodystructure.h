@@ -8,10 +8,11 @@ struct message_header_line;
 void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 				     struct message_header_line *hdr);
 
-const char *imap_bodystructure_parse_finish(struct message_part *root,
-					    int extended);
+void imap_bodystructure_write(struct message_part *part,
+			      string_t *dest, int extended);
 
 /* Return BODY part from BODYSTRUCTURE */
-const char *imap_body_parse_from_bodystructure(const char *bodystructure);
+int imap_body_parse_from_bodystructure(const char *bodystructure,
+				       string_t *dest);
 
 #endif

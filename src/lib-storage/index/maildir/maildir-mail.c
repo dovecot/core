@@ -87,6 +87,11 @@ static time_t maildir_mail_get_received_date(struct mail *_mail)
 	if (data->received_date != (time_t)-1)
 		return data->received_date;
 
+	if (data->open_mail && data->stream == NULL) {
+		/* we're going to open the mail anyway */
+		(void)_mail->get_stream(_mail, NULL, NULL);
+	}
+
 	if (data->stream != NULL) {
 		fd = i_stream_get_fd(data->stream);
 		i_assert(fd != -1);
@@ -103,8 +108,9 @@ static time_t maildir_mail_get_received_date(struct mail *_mail)
 	}
 
 	data->received_date = st.st_mtime;
-	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE,
-			     &data->received_date, sizeof(data->received_date));
+	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
+		       MAIL_CACHE_RECEIVED_DATE,
+		       &data->received_date, sizeof(data->received_date));
 	return data->received_date;
 }
 
@@ -141,9 +147,9 @@ static uoff_t maildir_mail_get_size(struct mail *_mail)
 		}
 
 		if (*p == ':' || *p == ',' || *p == '\0') {
-			index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
-					     &virtual_size,
-					     sizeof(virtual_size));
+			mail_cache_add(mail->trans->cache_trans, mail->data.seq,
+				       MAIL_CACHE_VIRTUAL_FULL_SIZE,
+				       &virtual_size, sizeof(virtual_size));
 			return virtual_size;
 		}
 	}
@@ -162,8 +168,10 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 	if (data->stream == NULL) {
 		data->stream = maildir_open_mail(mail->ibox, mail->mail.uid,
 						 &deleted);
-		if (data->stream == NULL)
+		if (data->stream == NULL) {
+			data->deleted = deleted;
 			return NULL;
+		}
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size);

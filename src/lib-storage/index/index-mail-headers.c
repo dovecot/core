@@ -191,8 +191,9 @@ static int mail_find_wanted_headers(struct index_mail *mail,
 		return -1;
 
 	for (; idx < MAIL_CACHE_HEADERS_COUNT; idx++) {
-		if ((mail->data.cached_fields &
-		     mail_cache_header_fields[idx]) != 0)
+		if (mail_cache_field_exists(mail->trans->cache_view,
+					    mail->data.seq,
+					    mail_cache_header_fields[idx]) > 0)
 			return idx;
 	}
 
@@ -320,9 +321,9 @@ int index_mail_parse_header(struct message_part *part,
 			data->save_sent_date = FALSE;
 		}
 		if (data->sent_date.time != (time_t)-1) {
-			index_mail_cache_add(mail, MAIL_CACHE_SENT_DATE,
-					     &data->sent_date,
-					     sizeof(data->sent_date));
+                        mail_cache_add(mail->trans->cache_trans, data->seq,
+				       MAIL_CACHE_SENT_DATE, &data->sent_date,
+				       sizeof(data->sent_date));
 		}
 
 		cached_headers_mark_fully_saved(mail);
@@ -387,8 +388,11 @@ static void index_mail_parse_header_cb(struct message_part *part,
 
 static int index_mail_can_cache_headers(struct index_mail *mail)
 {
-	if ((mail->data.cached_fields &
-	     mail_cache_header_fields[MAIL_CACHE_HEADERS_COUNT-1]) != 0)
+	enum mail_cache_field field;
+
+	field = mail_cache_header_fields[MAIL_CACHE_HEADERS_COUNT-1];
+	if (mail_cache_field_exists(mail->trans->cache_view, mail->data.seq,
+				    field) != 0)
 		return FALSE; /* all headers used */
 
 	/* FIXME: add some smart checks here. we don't necessarily want to
@@ -493,9 +497,6 @@ int index_mail_parse_headers(struct index_mail *mail)
 	if (mail->data.header_data == NULL)
 		mail->data.header_data = str_new(mail->pool, 4096);
 
-	/* can_cache_headers() locks the cache file. it must be done before
-	   we can expect cached headers to stay the same. it's not a good idea
-	   to cache some headers twice because of race conditions.. */
 	if (!data->header_fully_parsed && index_mail_can_cache_headers(mail)) {
 		if (data->header_data_cached_partial) {
 			/* too difficult to handle efficiently, trash it */
@@ -722,8 +723,10 @@ void index_mail_headers_init_next(struct index_mail *mail)
 	if (idx != -2) {
 		if (idx >= 0) {
 			for (; idx < MAIL_CACHE_HEADERS_COUNT; idx++) {
-				if ((data->cached_fields &
-				     mail_cache_header_fields[idx]) != 0)
+				if (mail_cache_field_exists(
+					mail->trans->cache_view,
+					data->seq,
+					mail_cache_header_fields[idx]) > 0)
 					break;
 			}
 		}

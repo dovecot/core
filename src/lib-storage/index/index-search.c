@@ -810,20 +810,14 @@ static int search_match_next(struct index_search_context *ctx)
 struct mail *index_storage_search_next(struct mail_search_context *_ctx)
 {
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
-	const struct mail_index_record *rec;
 	int ret;
 
 	ret = 0;
 	while (ctx->seq1 <= ctx->seq2) {
-		if (mail_index_lookup(ctx->view, ctx->seq1, &rec) < 0) {
+		if (index_mail_next(&ctx->imail, ctx->seq1++) < 0) {
 			ctx->failed = TRUE;
-			mail_storage_set_index_error(ctx->ibox);
 			return NULL;
 		}
-
-		ret = index_mail_next(&ctx->imail, rec, ctx->seq1++, TRUE);
-		if (ret < 0)
-			break;
 
 		t_push();
 		ret = search_match_next(ctx);

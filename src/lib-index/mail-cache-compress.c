@@ -8,98 +8,76 @@
 
 static unsigned char null4[4] = { 0, 0, 0, 0 };
 
-static const struct mail_cache_record *
-mail_cache_compress_record(struct mail_cache_view *view, uint32_t seq,
-			   enum mail_cache_field orig_cached_fields,
-			   int header_idx, uint32_t *size_r)
+struct mail_cache_copy_context {
+	int new_msg;
+	char field_seen[32], keep_fields[32], temp_fields[32];
+	buffer_t *buffer, *header;
+};
+
+static int
+mail_cache_compress_callback(struct mail_cache_view *view __attr_unused__,
+			     enum mail_cache_field field,
+			     const void *data, size_t data_size, void *context)
 {
-	enum mail_cache_field cached_fields, field;
-	struct mail_cache_record cache_rec;
-	buffer_t *buffer;
-	pool_t pool;
-	const void *data;
-	size_t size, pos;
-	uint32_t *p, size32 = 0;
+        struct mail_cache_copy_context *ctx = context;
+	uint32_t size32;
 	int i;
 
-	memset(&cache_rec, 0, sizeof(cache_rec));
-	pool = pool_datastack_create();
-	buffer = buffer_create_dynamic(pool, 4096, (size_t)-1);
-
-	cached_fields = orig_cached_fields & ~MAIL_CACHE_HEADERS_MASK;
-	buffer_append(buffer, &cache_rec, sizeof(cache_rec));
-	for (i = 0, field = 1; i < 31; i++, field <<= 1) {
-		if ((cached_fields & field) == 0)
-			continue;
-
-		pos = buffer_get_used_size(buffer);
-		if ((field & MAIL_CACHE_FIXED_MASK) == 0)
-			buffer_append(buffer, &size32, sizeof(size32));
-
-		if (!mail_cache_lookup_field(view, buffer, seq, field)) {
-			cached_fields &= ~field;
-			buffer_set_used_size(buffer, pos);
-			continue;
-		}
-
-		if ((field & MAIL_CACHE_FIXED_MASK) == 0) {
-			p = buffer_get_space_unsafe(buffer, pos,
-						    sizeof(uint32_t));
-			*p = (uint32_t)size;
-		}
-
-		if ((size & 3) != 0)
-			buffer_append(buffer, null4, 4 - (size & 3));
+	if (ctx->new_msg) {
+		if (!ctx->temp_fields[field])
+			return 1;
+	} else {
+		if (!ctx->keep_fields[field])
+			return 1;
 	}
 
-	/* now merge all the headers if we have them all */
-	if ((orig_cached_fields & mail_cache_header_fields[header_idx]) != 0) {
-		size32 = 0;
-		pos = buffer_get_used_size(buffer);
-		buffer_append(buffer, &size32, sizeof(size32));
+	if (ctx->field_seen[field]) {
+		/* drop duplicates */
+		return 1;
+	}
+	ctx->field_seen[field] = TRUE;
 
-		for (i = 0; i <= header_idx; i++) {
-			field = mail_cache_header_fields[i];
-			if (mail_cache_lookup_field(view, buffer, seq, field)) {
-				/* remove terminating \0 */
-				buffer_set_used_size(buffer,
-					buffer_get_used_size(buffer)-1);
+	for (i = 0; i < MAIL_CACHE_HEADERS_COUNT; i++) {
+		if (mail_cache_header_fields[i] == field) {
+			/* it's header - save it into header field */
+			size32 = buffer_get_used_size(ctx->header);
+			if (size32 > 0) {
+				/* remove old terminating \0 */
+				buffer_set_used_size(ctx->header, size32-1);
 			}
+			buffer_append(ctx->header, data, data_size);
+			return 1;
 		}
-		buffer_append(buffer, null4, 1);
-
-		size32 = buffer_get_used_size(buffer) - pos;
-		if ((size32 & 3) != 0)
-			buffer_append(buffer, null4, 4 - (size32 & 3));
-		buffer_write(buffer, pos, &size32, sizeof(size32));
-
-		cached_fields |= MAIL_CACHE_HEADERS1;
 	}
 
-	cache_rec.fields = cached_fields;
-	cache_rec.size = buffer_get_used_size(buffer);
-	buffer_write(buffer, 0, &cache_rec, sizeof(cache_rec));
+	buffer_append(ctx->buffer, &field, sizeof(field));
 
-	data = buffer_get_data(buffer, &size);
-	*size_r = size;
-	return data;
+	if (mail_cache_field_sizes[field] == (unsigned int)-1) {
+		size32 = (uint32_t)data_size;
+		buffer_append(ctx->buffer, &size32, sizeof(size32));
+	}
+
+	buffer_append(ctx->buffer, data, data_size);
+	if ((data_size & 3) != 0)
+		buffer_append(ctx->buffer, null4, 4 - (data_size & 3));
+	return 1;
 }
 
 static int
 mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 {
+        struct mail_cache_copy_context ctx;
 	struct mail_cache_view *cache_view;
 	struct mail_index_transaction *t;
 	const struct mail_index_header *idx_hdr;
-	const struct mail_cache_record *cache_rec;
 	struct mail_cache_header hdr;
+	struct mail_cache_record cache_rec;
+        enum mail_cache_field field;
 	struct ostream *output;
-	enum mail_cache_field keep_fields, temp_fields;
-	enum mail_cache_field cached_fields, new_fields;
 	const char *str;
-	uint32_t size, size32, message_count, seq, first_new_seq;
+	uint32_t size32, message_count, seq, first_new_seq, old_offset;
 	uoff_t offset;
-	int i, header_idx, ret;
+	int i, ret, header_idx;
 
 	/* get sequence of first message which doesn't need it's temp fields
 	   removed. */
@@ -133,15 +111,23 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 		memcpy(hdr.field_usage_last_used,
 		       cache->hdr->field_usage_last_used,
 		       sizeof(hdr.field_usage_last_used));
+	} else {
+		memcpy(hdr.field_usage_decision_type,
+		       cache->default_field_usage_decision_type,
+		       sizeof(hdr.field_usage_decision_type));
+	}
 
-		keep_fields = temp_fields = 0;
-		for (i = 0; i < 32; i++) {
-			if (cache->hdr->field_usage_decision_type[i] &
-			    MAIL_CACHE_DECISION_YES)
-				keep_fields |= 1 << i;
-			else if (cache->hdr->field_usage_decision_type[i] &
-				 MAIL_CACHE_DECISION_TEMP)
-				temp_fields |= 1 << i;
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.buffer = buffer_create_dynamic(default_pool, 4096, (size_t)-1);
+	ctx.header = buffer_create_dynamic(default_pool, 4096, (size_t)-1);
+
+	for (i = 0; i < 32; i++) {
+		if (hdr.field_usage_decision_type[i] & MAIL_CACHE_DECISION_YES)
+			ctx.keep_fields[i] = TRUE;
+		else if (hdr.field_usage_decision_type[i] &
+			 MAIL_CACHE_DECISION_TEMP) {
+			ctx.temp_fields[i] = TRUE;
+			ctx.keep_fields[i] = TRUE;
 		}
 	}
 
@@ -173,45 +159,42 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 
 	ret = 0;
 	for (seq = 1; seq <= message_count; seq++) {
-		cache_rec = mail_cache_lookup(cache_view, seq);
-		if (cache_rec == NULL)
+		ctx.new_msg = seq >= first_new_seq;
+		buffer_set_used_size(ctx.buffer, 0);
+		buffer_set_used_size(ctx.header, 0);
+		memset(ctx.field_seen, 0, sizeof(ctx.field_seen));
+
+		memset(&cache_rec, 0, sizeof(cache_rec));
+		buffer_append(ctx.buffer, &cache_rec, sizeof(cache_rec));
+
+		mail_cache_foreach(cache_view, seq,
+				   mail_cache_compress_callback, &ctx);
+
+		size32 = buffer_get_used_size(ctx.header);
+		if (size32 > 0 && ctx.field_seen[header_idx]) {
+			field = MAIL_CACHE_HEADERS1;
+			buffer_append(ctx.buffer, &field, sizeof(field));
+			buffer_append(ctx.buffer, &size32, sizeof(size32));
+			buffer_append(ctx.buffer,
+				      buffer_get_data(ctx.header, NULL),
+				      size32);
+			if ((size32 & 3) != 0) {
+				buffer_append(ctx.buffer, null4,
+					      4 - (size32 & 3));
+			}
+		}
+
+		if (buffer_get_used_size(ctx.buffer) == sizeof(cache_rec))
 			continue;
 
-		cached_fields = mail_cache_get_fields(cache_view, seq);
-                new_fields = cached_fields & keep_fields;
-		if ((cached_fields & temp_fields) != 0 &&
-		    seq >= first_new_seq) {
-			/* new message, keep temp fields */
-			new_fields |= cached_fields & temp_fields;
-		}
-
-		if (keep_fields == cached_fields &&
-		    cache_rec->prev_offset == 0) {
-			/* just one unmodified block, save it */
-			mail_index_update_cache(t, seq, hdr.file_seq,
-						output->offset, NULL);
-			o_stream_send(output, cache_rec, cache_rec->size);
-
-			if ((cache_rec->size & 3) != 0) {
-				o_stream_send(output, null4,
-					      4 - (cache_rec->size & 3));
-			}
-		} else {
-			/* a) dropping fields
-			   b) multiple blocks, sort them into buffer */
-			mail_index_update_cache(t, seq, hdr.file_seq,
-						output->offset, NULL);
-
-			t_push();
-			cache_rec = mail_cache_compress_record(cache_view, seq,
-							       keep_fields,
-							       header_idx,
-							       &size);
-			o_stream_send(output, cache_rec, size);
-			t_pop();
-		}
+		mail_index_update_cache(t, seq, hdr.file_seq,
+					output->offset, &old_offset);
+		o_stream_send(output, buffer_get_data(ctx.buffer, NULL),
+			      buffer_get_used_size(ctx.buffer));
 	}
 	hdr.used_file_size = output->offset;
+	buffer_free(ctx.buffer);
+	buffer_free(ctx.header);
 
 	o_stream_seek(output, 0);
 	o_stream_send(output, &hdr, sizeof(hdr));
@@ -263,7 +246,7 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 		return -1;
 	}
 
-	// FIXME: check that cache file was just recreated
+	// FIXME: check that cache file wasn't just recreated
 
 	ret = 0;
 	if (mail_cache_copy(cache, view, fd) < 0) {
