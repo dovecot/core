@@ -114,6 +114,11 @@ int mail_index_fsck(struct mail_index *index)
 	uoff_t file_offset;
 	int ret, lock_log;
 
+	if (index->sync_update) {
+		/* we're modifying index, don't do anything */
+		return 1;
+	}
+
         lock_log = !index->log_locked;
 	if (lock_log) {
 		if (mail_transaction_log_sync_lock(index->log, &file_seq,

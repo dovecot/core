@@ -1108,6 +1108,9 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	if (had_dirty)
 		map->hdr.flags &= ~MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
+	/* make sure we don't go doing fsck while modifying the index */
+	index->sync_update = TRUE;
+
 	first_append_uid = 0;
 	check_ext_offsets = TRUE;
 	while ((ret = mail_transaction_log_view_next(view->log_view, &thdr,
@@ -1162,6 +1165,8 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	}
 	map = view->map;
         mail_index_sync_map_deinit(&sync_map_ctx);
+
+	index->sync_update = FALSE;
 
 	if (ret < 0) {
 		mail_index_view_unlock(view);

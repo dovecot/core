@@ -657,8 +657,10 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 
 	if ((*map)->hdr.indexid != 0) {
 		/* sync this as a view from transaction log. */
+		index->sync_update = TRUE;
 		ret = mail_index_sync_from_transactions(index, map,
 							sync_to_index);
+		index->sync_update = FALSE;
 		if (ret != 0)
 			return ret;
 

@@ -127,6 +127,7 @@ struct mail_index {
 	unsigned int mmap_no_write:1;
 	unsigned int readonly:1;
 	unsigned int fsck:1;
+	unsigned int sync_update:1;
 };
 
 enum mail_index_sync_handler_type {
