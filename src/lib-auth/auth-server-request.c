@@ -191,8 +191,9 @@ int auth_client_input_cont(struct auth_server_connection *conn,
 	if (request->retrying) {
 		auth_server_send_continue(conn, request,
 					  request->plaintext_data);
+	} else {
+		request->callback(request, 0, data, NULL, request->context);
 	}
-	request->callback(request, 0, data, NULL, request->context);
 	return TRUE;
 }
 
