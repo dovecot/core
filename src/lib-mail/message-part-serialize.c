@@ -33,9 +33,10 @@ typedef struct {
 	unsigned int flags;
 } SerializedMessagePart;
 
-void message_part_serialize(MessagePart *part, Buffer *dest)
+static unsigned int _message_part_serialize(MessagePart *part, Buffer *dest)
 {
 	SerializedMessagePart *spart;
+	unsigned int count = 0;
 
 	while (part != NULL) {
 		/* create serialized part */
@@ -56,10 +57,21 @@ void message_part_serialize(MessagePart *part, Buffer *dest)
 		spart->children_count = 0;
 		spart->flags = part->flags;
 
-		if (part->children != NULL)
-			message_part_serialize(part->children, dest);
+		if (part->children != NULL) {
+			spart->children_count =
+				_message_part_serialize(part->children, dest);
+		}
+
+		count++;
 		part = part->next;
 	}
+
+	return count;
+}
+
+void message_part_serialize(MessagePart *part, Buffer *dest)
+{
+	_message_part_serialize(part, dest);
 }
 
 static MessagePart *
