@@ -146,7 +146,8 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 		}
 	}
 
-	if (!ctx->inbox_found && ctx->ns->inbox && ctx->match_inbox) {
+	if (!ctx->inbox_found && ctx->ns->inbox && ctx->match_inbox &&
+	    (ctx->list_flags & MAILBOX_LIST_SUBSCRIBED) == 0) {
 		/* INBOX always exists */
 		str_truncate(str, 0);
 		str_printfa(str, "* LIST (\\Unmarked) \"%s\" \"INBOX\"",
