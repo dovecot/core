@@ -517,8 +517,10 @@ static int mbox_unlock_files(struct mbox_lock_context *ctx)
 	if (mbox_lock_list(ctx, F_UNLCK, 0, 0) < 0)
 		ret = -1;
 
-	/* make sure we don't keep mmap() between locks */
-	mbox_file_close_stream(ctx->ibox);
+	if (ctx->ibox->mail_read_mmaped) {
+		/* make sure we don't keep mmap() between locks */
+		mbox_file_close_stream(ctx->ibox);
+	}
 
 	ctx->ibox->mbox_lock_id += 2;
 	ctx->ibox->mbox_lock_type = F_UNLCK;
