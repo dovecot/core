@@ -564,6 +564,35 @@ struct message_part *message_parse(pool_t pool, struct istream *input,
 	return part;
 }
 
+static void part_parse_headers(struct message_part *part, struct istream *input,
+			       uoff_t start_offset,
+			       message_header_callback_t *callback,
+			       void *context)
+{
+	while (part != NULL) {
+		/* note that we want to parse the header of all
+		   the message parts, multiparts too. */
+		i_assert(part->physical_pos >= input->v_offset - start_offset);
+		i_stream_skip(input, part->physical_pos -
+			      (input->v_offset - start_offset));
+
+		message_parse_header(part, input, NULL, callback, context);
+		if (part->children != NULL) {
+			part_parse_headers(part->children, input,
+					   start_offset, callback, context);
+		}
+
+		part = part->next;
+	}
+}
+
+void message_parse_from_parts(struct message_part *part, struct istream *input,
+			      message_header_callback_t *callback,
+			      void *context)
+{
+	part_parse_headers(part, input, input->v_offset, callback, context);
+}
+
 void message_parse_header(struct message_part *part, struct istream *input,
 			  struct message_size *hdr_size,
 			  message_header_callback_t *callback, void *context)

@@ -65,6 +65,9 @@ typedef void message_header_callback_t(struct message_part *part,
 struct message_part *message_parse(pool_t pool, struct istream *input,
 				   message_header_callback_t *callback,
 				   void *context);
+void message_parse_from_parts(struct message_part *part, struct istream *input,
+			      message_header_callback_t *callback,
+			      void *context);
 void message_parse_header(struct message_part *part, struct istream *input,
 			  struct message_size *hdr_size,
 			  message_header_callback_t *callback, void *context);

@@ -20,7 +20,7 @@
 
 struct message_part_body_data {
 	pool_t pool;
-	string_t *str;
+	string_t *str; /* temporary */
 	char *content_type, *content_subtype;
 	char *content_type_params;
 	char *content_transfer_encoding;
@@ -34,6 +34,12 @@ struct message_part_body_data {
 	struct message_part_envelope_data *envelope;
 
 	unsigned int charset_found:1;
+};
+
+struct imap_bodystructure_parse_ctx {
+	pool_t pool;
+	int extended;
+        struct message_part *root;
 };
 
 static void part_write_bodystructure(struct message_part *part,
@@ -235,10 +241,9 @@ static void parse_content_header(struct message_part_body_data *d,
 	}
 }
 
-static void parse_header(struct message_part *part,
-                         struct message_header_line *hdr, void *context)
+void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
+				     struct message_header_line *hdr)
 {
-	pool_t pool = context;
 	struct message_part_body_data *part_data;
 	struct message_part_envelope_data *envelope;
 	int parent_rfc822;
@@ -282,26 +287,6 @@ static void parse_header(struct message_part *part,
 		imap_envelope_parse_header(pool, &part_data->envelope, hdr);
 	}
 	t_pop();
-}
-
-static void part_parse_headers(struct message_part *part, struct istream *input,
-			       uoff_t start_offset, pool_t pool)
-{
-	while (part != NULL) {
-		/* note that we want to parse the header of all
-		   the message parts, multiparts too. */
-		i_assert(part->physical_pos >= input->v_offset - start_offset);
-		i_stream_skip(input, part->physical_pos -
-			      (input->v_offset - start_offset));
-
-		message_parse_header(part, input, NULL, parse_header, pool);
-		if (part->children != NULL) {
-			part_parse_headers(part->children, input,
-					   start_offset, pool);
-		}
-
-		part = part->next;
-	}
 }
 
 static void part_write_body_multipart(struct message_part *part,
@@ -501,21 +486,13 @@ static void part_write_bodystructure(struct message_part *part,
 	}
 }
 
-const char *imap_part_get_bodystructure(pool_t pool, struct message_part **part,
-					struct istream *input, int extended)
+const char *imap_bodystructure_parse_finish(struct message_part *root,
+					    int extended)
 {
 	string_t *str;
-	uoff_t start_offset;
-
-	if (*part == NULL)
-		*part = message_parse(pool, input, parse_header, pool);
-	else {
-		start_offset = input->v_offset;
-		part_parse_headers(*part, input, start_offset, pool);
-	}
 
 	str = t_str_new(2048);
-	part_write_bodystructure(*part, str, extended);
+	part_write_bodystructure(root, str, extended);
 	return str_c(str);
 }
 

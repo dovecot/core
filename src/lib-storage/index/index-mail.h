@@ -23,7 +23,7 @@ struct index_mail_data {
 
 	struct message_part *parts;
 	const char *envelope, *body, *bodystructure;
-        struct message_part_envelope_data *envelope_data;
+	struct message_part_envelope_data *envelope_data;
 
 	struct mail_index_record *rec;
 	unsigned int idx_seq;
@@ -32,6 +32,9 @@ struct index_mail_data {
         struct message_size hdr_size, body_size;
 
 	unsigned int parse_header:1;
+	unsigned int bodystructure_header_want:1;
+	unsigned int bodystructure_header_parse:1;
+	unsigned int bodystructure_header_parsed:1;
 	unsigned int save_envelope:1;
 	unsigned int save_sent_date:1;
 	unsigned int hdr_size_set:1;
@@ -73,7 +76,7 @@ void index_mail_cache_add(struct index_mail *mail, enum mail_cache_field field,
 			  const void *data, size_t size);
 
 int index_mail_open_stream(struct index_mail *mail, uoff_t position);
-int index_mail_parse_headers(struct index_mail *mail);
+int index_mail_parse_headers(struct index_mail *mail, int get_parts);
 
 void index_mail_headers_init(struct index_mail *mail);
 void index_mail_headers_init_next(struct index_mail *mail);

@@ -210,13 +210,28 @@ static const struct mail_full_flags *get_flags(struct mail *_mail)
 	return &data->flags;
 }
 
+static void cache_parts(struct index_mail *mail)
+{
+	buffer_t *buffer;
+	const void *buf_data;
+	size_t buf_size;
+
+	if (!index_mail_cache_can_add(mail, MAIL_CACHE_MESSAGEPART))
+		return;
+
+	t_push();
+	buffer = buffer_create_dynamic(data_stack_pool, 1024, (size_t)-1);
+	message_part_serialize(mail->data.parts, buffer);
+
+	buf_data = buffer_get_data(buffer, &buf_size);
+	index_mail_cache_add(mail, MAIL_CACHE_MESSAGEPART, buf_data, buf_size);
+	t_pop();
+}
+
 static const struct message_part *get_parts(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
-	buffer_t *buffer;
-	const void *buf_data;
-	size_t buf_size;
 
 	if (data->parts != NULL)
 		return data->parts;
@@ -227,32 +242,10 @@ static const struct message_part *get_parts(struct mail *_mail)
 			return data->parts;
 	}
 
-	if (!index_mail_open_stream(mail, 0))
+	if (!index_mail_parse_headers(mail, TRUE))
 		return NULL;
 
-	data->parts = message_parse(mail->pool, data->stream,
-				    index_mail_parse_header, mail);
-
-	/* we know the NULs now, update them */
-	if ((data->parts->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0) {
-		_mail->has_nuls = TRUE;
-		_mail->has_no_nuls = FALSE;
-	} else {
-		_mail->has_nuls = FALSE;
-		_mail->has_no_nuls = TRUE;
-	}
-
-	if (index_mail_cache_can_add(mail, MAIL_CACHE_MESSAGEPART)) {
-		t_push();
-		buffer = buffer_create_dynamic(data_stack_pool,
-					       1024, (size_t)-1);
-		message_part_serialize(data->parts, buffer);
-
-		buf_data = buffer_get_data(buffer, &buf_size);
-		index_mail_cache_add(mail, MAIL_CACHE_MESSAGEPART,
-				     buf_data, buf_size);
-		t_pop();
-	}
+        cache_parts(mail);
 	return data->parts;
 }
 
@@ -398,7 +391,7 @@ static uoff_t get_size(struct mail *_mail)
 	if (!get_msgpart_sizes(mail)) {
 		/* this gives us header size for free */
 		if (data->parse_header)
-			index_mail_parse_headers(mail);
+			index_mail_parse_headers(mail, FALSE);
 	}
 
 	hdr_size = data->hdr_size_set ?
@@ -534,16 +527,15 @@ static const char *get_special(struct mail *_mail, enum mail_fetch_field field)
 			return data->body;
 		}
 
-		if (!index_mail_open_stream(mail, 0))
-			return NULL;
-
-		if (data->parts == NULL)
-			data->parts = get_cached_parts(mail);
+		if (!data->bodystructure_header_parsed) {
+			data->bodystructure_header_want = TRUE;
+			if (!index_mail_parse_headers(mail, FALSE))
+				return NULL;
+		}
 
 		t_push();
-		str = p_strdup(mail->pool, imap_part_get_bodystructure(
-				mail->pool, &data->parts, data->stream,
-				field == MAIL_FETCH_IMAP_BODYSTRUCTURE));
+                str = p_strdup(mail->pool, imap_bodystructure_parse_finish(
+			data->parts, field == MAIL_FETCH_IMAP_BODYSTRUCTURE));
 		t_pop();
 
 		/* should never fail */
@@ -552,6 +544,12 @@ static const char *get_special(struct mail *_mail, enum mail_fetch_field field)
 		cache_field = field == MAIL_FETCH_IMAP_BODYSTRUCTURE ?
 			MAIL_CACHE_BODYSTRUCTURE : MAIL_CACHE_BODY;
 		index_mail_cache_add(mail, cache_field, str, strlen(str)+1);
+
+		if (data->parts->children != NULL) {
+			/* cache the message parts only if this is a
+			   multipart message. it's pretty useless otherwise. */
+			cache_parts(mail);
+		}
 
 		if (field == MAIL_FETCH_IMAP_BODYSTRUCTURE)
 			data->bodystructure = str;
@@ -671,12 +669,14 @@ int index_mail_next(struct index_mail *mail, struct mail_index_record *rec,
 			data->parts = get_cached_parts(mail);
 		open_mail = TRUE;
 		data->parse_header = data->parts == NULL;
+                data->bodystructure_header_want = TRUE;
 	} else if ((mail->wanted_fields & MAIL_FETCH_IMAP_BODY) &&
 		   data->body == NULL && data->bodystructure == NULL) {
 		if (data->parts == NULL)
 			data->parts = get_cached_parts(mail);
 		open_mail = TRUE;
 		data->parse_header = data->parts == NULL;
+                data->bodystructure_header_want = TRUE;
 	} else if (mail->wanted_fields & (MAIL_FETCH_STREAM_HEADER |
 					  MAIL_FETCH_STREAM_BODY))
 		open_mail = TRUE;

@@ -40,6 +40,7 @@
 #include "str.h"
 #include "message-date.h"
 #include "imap-envelope.h"
+#include "imap-bodystructure.h"
 #include "index-storage.h"
 #include "index-mail.h"
 
@@ -258,12 +259,18 @@ void index_mail_parse_header_init(struct index_mail *mail,
 	}
 }
 
-void index_mail_parse_header(struct message_part *part __attr_unused__,
+void index_mail_parse_header(struct message_part *part,
 			     struct message_header_line *hdr, void *context)
 {
 	struct index_mail *mail = context;
 	struct index_mail_data *data = &mail->data;
 	struct cached_header *cached_hdr;
+
+	if (data->bodystructure_header_parse)
+		imap_bodystructure_parse_header(mail->pool, part, hdr);
+
+	if (part != NULL && part->parent != NULL)
+		return;
 
 	if (data->save_envelope) {
 		imap_envelope_parse_header(mail->pool,
@@ -413,7 +420,7 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 	return TRUE;
 }
 
-int index_mail_parse_headers(struct index_mail *mail)
+int index_mail_parse_headers(struct index_mail *mail, int get_parts)
 {
 	struct mail_cache *cache = mail->ibox->index->cache;
 	struct index_mail_data *data = &mail->data;
@@ -481,9 +488,42 @@ int index_mail_parse_headers(struct index_mail *mail)
 		data->header_save_idx = idx;
 	}
 
+	data->bodystructure_header_parse = data->bodystructure_header_want;
 	index_mail_parse_header_init(mail, NULL);
-	message_parse_header(NULL, data->stream, &data->hdr_size,
-			     index_mail_parse_header, mail);
+
+	if ((mail->wanted_fields & MAIL_FETCH_MESSAGE_PARTS) != 0)
+		get_parts = TRUE;
+	if (data->parts != NULL)
+		get_parts = FALSE;
+
+	if (!data->bodystructure_header_want && !get_parts) {
+		message_parse_header(data->parts, data->stream, &data->hdr_size,
+				     index_mail_parse_header, mail);
+	} else if (data->parts == NULL) {
+		data->parts = message_parse(mail->pool, data->stream,
+					    index_mail_parse_header, mail);
+	} else {
+		message_parse_from_parts(data->parts, data->stream,
+					 index_mail_parse_header, mail);
+	}
+
+	if (data->bodystructure_header_want) {
+		data->bodystructure_header_want = FALSE;
+		data->bodystructure_header_parse = FALSE;
+		data->bodystructure_header_parsed = TRUE;
+	}
+
+	if (get_parts) {
+		/* we know the NULs now, update them */
+		if ((data->parts->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0) {
+			mail->mail.has_nuls = TRUE;
+			mail->mail.has_no_nuls = FALSE;
+		} else {
+			mail->mail.has_nuls = FALSE;
+			mail->mail.has_no_nuls = TRUE;
+		}
+	}
+
 	data->parse_header = FALSE;
 	data->hdr_size_set = TRUE;
 	data->header_fully_parsed = TRUE;
@@ -514,7 +554,7 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 		}
 
 		if (idx < 0) {
-			index_mail_parse_headers(mail);
+			index_mail_parse_headers(mail, FALSE);
 
 			/* might have been moved in memory, get it again */
 			hdr = cached_header_find(mail, field, NULL);
@@ -567,7 +607,7 @@ struct istream *index_mail_get_headers(struct mail *_mail,
 		}
 
 		if (!all_saved)
-			index_mail_parse_headers(mail);
+			index_mail_parse_headers(mail, FALSE);
 	}
 
 	return i_stream_create_from_data(mail->pool,
