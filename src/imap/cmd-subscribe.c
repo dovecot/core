@@ -19,7 +19,7 @@ int _cmd_subscribe_full(struct client *client, int subscribe)
 	if (storage == NULL)
 		return FALSE;
 
-	if (mail_storage_set_subscribed(storage, mailbox, subscribe) == 0)
+	if (mail_storage_set_subscribed(storage, mailbox, subscribe) < 0)
 		client_send_storage_error(client, storage);
 	else {
 		client_send_tagline(client, subscribe ?

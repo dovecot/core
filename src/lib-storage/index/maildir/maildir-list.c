@@ -227,7 +227,7 @@ static int maildir_fill_subscribed(struct maildir_list_context *ctx,
 		}
 	}
 
-	return subsfile_list_deinit(subsfile_ctx);
+	return subsfile_list_deinit(subsfile_ctx) == 0;
 
 }
 
