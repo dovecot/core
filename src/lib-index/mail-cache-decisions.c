@@ -93,7 +93,7 @@ void mail_cache_decision_lookup(struct mail_cache_view *view, uint32_t seq,
 
 	if (ioloop_time - cache->fields[field].last_used > 3600*24) {
 		/* update last_used about once a day */
-		cache->fields[field].last_used = ioloop_time;
+		cache->fields[field].last_used = (uint32_t)ioloop_time;
 		cache->field_header_write_pending = TRUE;
 	}
 

@@ -108,7 +108,7 @@ struct mail_cache_field_private {
 	struct mail_cache_field field;
 
 	uint32_t uid_highwater;
-	time_t last_used;
+	uint32_t last_used;
 
 	unsigned int decision_dirty:1;
 };

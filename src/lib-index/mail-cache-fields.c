@@ -215,10 +215,8 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		cache->file_field_map[i] = field.idx;
 
 		/* update last_used if it's newer than ours */
-		if ((time_t)last_used[i] > cache->fields[field.idx].last_used) {
-			cache->fields[field.idx].last_used =
-				(time_t)last_used[i];
-		}
+		if (last_used[i] > cache->fields[field.idx].last_used)
+			cache->fields[field.idx].last_used = last_used[i];
 
                 names = p + 1;
 	}
@@ -241,6 +239,28 @@ static void copy_to_buf(struct mail_cache *cache, buffer_t *dest,
 			continue;
 		data = CONST_PTR_OFFSET(&cache->fields[i], offset);
 		buffer_append(dest, data, size);
+	}
+}
+
+static void copy_to_buf_byte(struct mail_cache *cache, buffer_t *dest,
+			     size_t offset)
+{
+	const int *data;
+	unsigned int i, field;
+	uint8_t byte;
+
+	for (i = 0; i < cache->file_fields_count; i++) {
+		field = cache->file_field_map[i];
+                data = CONST_PTR_OFFSET(&cache->fields[field], offset);
+		byte = (uint8_t)*data;
+		buffer_append(dest, &byte, 1);
+	}
+	for (i = 0; i < cache->fields_count; i++) {
+		if (cache->field_file_map[i] != (uint32_t)-1)
+			continue;
+		data = CONST_PTR_OFFSET(&cache->fields[i], offset);
+		byte = (uint8_t)*data;
+		buffer_append(dest, &byte, 1);
 	}
 }
 
@@ -274,9 +294,8 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 			  offset + MAIL_CACHE_FIELD_LAST_USED());
 	if (ret == 0) {
 		buffer_set_used_size(buffer, 0);
-		copy_to_buf(cache, buffer,
-			    offsetof(struct mail_cache_field, decision),
-			    sizeof(uint8_t));
+		copy_to_buf_byte(cache, buffer,
+				 offsetof(struct mail_cache_field, decision));
 
 		ret = pwrite_full(cache->fd, buffer_get_data(buffer, NULL),
 			sizeof(uint8_t) * cache->file_fields_count, offset +
@@ -314,10 +333,9 @@ void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest)
 		    sizeof(uint32_t));
 	copy_to_buf(cache, dest, offsetof(struct mail_cache_field, field_size),
 		    sizeof(uint32_t));
-	copy_to_buf(cache, dest, offsetof(struct mail_cache_field, type),
-		    sizeof(uint8_t));
-	copy_to_buf(cache, dest, offsetof(struct mail_cache_field, decision),
-		    sizeof(uint8_t));
+	copy_to_buf_byte(cache, dest, offsetof(struct mail_cache_field, type));
+	copy_to_buf_byte(cache, dest,
+			 offsetof(struct mail_cache_field, decision));
 
 	i_assert(buffer_get_used_size(dest) == sizeof(hdr) +
 		 (sizeof(uint32_t)*2 + 2) * hdr.fields_count);
