@@ -159,7 +159,7 @@ static int messageset_parse_next(struct messageset_context *ctx)
 	}
 
 	if (ctx->num1 > ctx->num2) {
-		/* swap, as specified by latest IMAP4rev1 draft */
+		/* swap, as specified by RFC-3501 */
 		unsigned int temp = ctx->num1;
 		ctx->num1 = ctx->num2;
 		ctx->num2 = temp;

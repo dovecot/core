@@ -97,8 +97,7 @@ static int msgset_contains(const char *set, unsigned int match_num,
 					return FALSE;
 
 				if (num > num2) {
-					/* swap, as specified by latest
-					   IMAP4rev1 draft */
+					/* swap, as specified by RFC-3501 */
 					unsigned int temp = num;
 					num = num2;
 					num2 = temp;
@@ -293,7 +292,7 @@ static int search_sent(enum mail_search_arg_type type, const char *search_value,
 	if (!imap_parse_date(search_value, &search_time))
 		return 0;
 
-	/* NOTE: Latest IMAP4rev1 draft specifies that timezone is ignored
+	/* NOTE: RFC-3501 specifies that timezone is ignored
 	   in searches. sent_time is returned as UTC, so change it. */
 	if (!message_date_parse(sent_value, sent_value_len,
 				&sent_time, &timezone_offset))
