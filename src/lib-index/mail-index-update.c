@@ -242,9 +242,15 @@ static void update_by_replace_block(MailIndexUpdate *update, size_t extra_size)
    space to do it */
 static void update_by_replace_fields(MailIndexUpdate *update)
 {
+	MailIndexDataRecordHeader *data_hdr;
 	MailIndexDataRecord *rec;
 	size_t field_size;
 	int index;
+
+	/* update header */
+	data_hdr = mail_index_data_lookup_header(update->index->data,
+						 update->rec);
+	memcpy(data_hdr, &update->data_hdr, sizeof(*data_hdr));
 
 	rec = mail_index_data_lookup(update->index->data, update->rec, 0);
 	while (rec != NULL) {
