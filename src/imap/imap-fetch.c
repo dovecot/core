@@ -164,11 +164,8 @@ int imap_fetch(struct imap_fetch_context *ctx)
 	int ret;
 
 	if (ctx->cont_handler != NULL) {
-		if ((ret = ctx->cont_handler(ctx)) <= 0) {
-			if (ret < 0)
-				ctx->failed = TRUE;
+		if ((ret = ctx->cont_handler(ctx)) <= 0)
 			return ret;
-		}
 
 		ctx->cont_handler = NULL;
 		ctx->cur_offset = 0;
@@ -200,10 +197,8 @@ int imap_fetch(struct imap_fetch_context *ctx)
 				    ctx->cur_mail->seq);
 			if (o_stream_send(ctx->client->output,
 					  str_data(ctx->cur_str),
-					  str_len(ctx->cur_str)) < 0) {
-				ctx->failed = TRUE;
+					  str_len(ctx->cur_str)) < 0)
 				return -1;
-			}
 
 			str_truncate(ctx->cur_str, 0);
 			str_append_c(ctx->cur_str, ' ');
@@ -218,10 +213,7 @@ int imap_fetch(struct imap_fetch_context *ctx)
 			t_pop();
 
 			if (ret <= 0) {
-				if (ret < 0)
-					ctx->failed = TRUE;
-				else
-					i_assert(ctx->cont_handler != NULL);
+				i_assert(ret < 0 || ctx->cont_handler != NULL);
 				return ret;
 			}
 
@@ -233,17 +225,13 @@ int imap_fetch(struct imap_fetch_context *ctx)
 			if (o_stream_send(ctx->client->output,
 					  str_data(ctx->cur_str) + ctx->first,
 					  str_len(ctx->cur_str) - 1 -
-					  ctx->first) < 0) {
-				ctx->failed = TRUE;
+					  ctx->first) < 0)
 				return -1;
-			}
 			str_truncate(ctx->cur_str, 0);
 		}
 
-		if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0) {
-			ctx->failed = TRUE;
+		if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0)
 			return -1;
-		}
 
 		ctx->cur_mail = NULL;
 		ctx->cur_handler = 0;

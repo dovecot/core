@@ -85,7 +85,9 @@ static int cmd_fetch_finish(struct client *client, int failed)
 			client_send_storage_error(client, storage);
 		}
 		return TRUE;
-	} if ((client_workarounds & WORKAROUND_OE6_FETCH_NO_NEWMAIL) != 0) {
+	}
+
+	if ((client_workarounds & WORKAROUND_OE6_FETCH_NO_NEWMAIL) != 0) {
 		client_send_tagline(client, ok_message);
 		return TRUE;
 	} else {
@@ -104,6 +106,9 @@ static int cmd_fetch_continue(struct client *client)
 		/* unfinished */
 		return FALSE;
 	}
+	if (ret < 0)
+		ctx->failed = TRUE;
+
 	if (imap_fetch_deinit(ctx) < 0)
 		ret = -1;
 	return cmd_fetch_finish(client, ret < 0);
@@ -151,6 +156,8 @@ int cmd_fetch(struct client *client)
 		client->cmd_context = ctx;
 		return FALSE;
 	}
+	if (ret < 0)
+		ctx->failed = TRUE;
 	if (imap_fetch_deinit(ctx) < 0)
 		ret = -1;
 	return cmd_fetch_finish(client, ret < 0);

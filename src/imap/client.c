@@ -378,9 +378,9 @@ void _client_input(void *context)
 static void client_output(void *context)
 {
 	struct client *client = context;
-	int ret, finished;
+	int finished;
 
-	if ((ret = o_stream_flush(client->output)) < 0) {
+	if (o_stream_flush(client->output) < 0) {
 		client_destroy(client);
 		return;
 	}
