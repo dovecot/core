@@ -20,6 +20,7 @@ dovecot_auth_SOURCES = \
 	auth-master-connection.c \
 	auth-module.c \
 	db-ldap.c \
+	db-mysql.c \
 	db-pgsql.c \
 	db-passwd-file.c \
 	main.c \
@@ -38,6 +39,7 @@ dovecot_auth_SOURCES = \
 	passdb-pam.c \
 	passdb-shadow.c \
 	passdb-vpopmail.c \
+	passdb-mysql.c \
 	passdb-pgsql.c \
 	password-scheme.c \
 	password-scheme-md5crypt.c \
@@ -48,6 +50,7 @@ dovecot_auth_SOURCES = \
 	userdb-passwd-file.c \
 	userdb-static.c \
 	userdb-vpopmail.c \
+	userdb-mysql.c \
 	userdb-pgsql.c
 
 noinst_HEADERS = \
@@ -58,6 +61,7 @@ noinst_HEADERS = \
 	auth-mech-desc.h \
 	auth-module.h \
 	db-ldap.h \
+	db-mysql.h \
 	db-pgsql.h \
 	db-passwd-file.h \
 	common.h \

@@ -49,6 +49,10 @@ void userdb_init(void)
 	if (strcasecmp(name, "pgsql") == 0)
 		userdb = &userdb_pgsql;
 #endif
+#ifdef USERDB_MYSQL
+	if (strcasecmp(name, "mysql") == 0)
+		userdb = &userdb_mysql;
+#endif
 #ifdef HAVE_MODULES
 	userdb_module = userdb != NULL ? NULL : auth_module_open(name);
 	if (userdb_module != NULL) {

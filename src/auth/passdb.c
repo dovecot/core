@@ -116,6 +116,10 @@ void passdb_init(void)
 	if (strcasecmp(name, "pgsql") == 0)
 		passdb = &passdb_pgsql;
 #endif
+#ifdef PASSDB_MYSQL
+	if (strcasecmp(name, "mysql") == 0)
+		passdb = &passdb_mysql;
+#endif
 #ifdef HAVE_MODULES
 	passdb_module = passdb != NULL ? NULL : auth_module_open(name);
 	if (passdb_module != NULL) {

@@ -14,5 +14,6 @@ EXTRA_DIST = \
 	mkcert.sh \
 	dovecot-openssl.cnf \
 	dovecot-ldap.conf \
+	dovecot-mysql.conf \
 	dovecot-pgsql.conf \
 	$(doc_DATA)

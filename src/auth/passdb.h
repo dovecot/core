@@ -60,6 +60,7 @@ extern struct passdb_module passdb_pam;
 extern struct passdb_module passdb_vpopmail;
 extern struct passdb_module passdb_ldap;
 extern struct passdb_module passdb_pgsql;
+extern struct passdb_module passdb_mysql;
 
 void passdb_init(void);
 void passdb_deinit(void);

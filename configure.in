@@ -134,6 +134,15 @@ AC_ARG_WITH(pgsql,
 	fi,
 	want_pgsql=no)
 
+AC_ARG_WITH(mysql,
+[  --with-mysql            Build with MySQL support],
+	if test x$withval = xno; then
+		want_mysql=no
+	else
+		want_mysql=yes
+	fi,
+	want_mysql=no)
+
 AC_ARG_WITH(cyrus-sasl2,
 [  --with-cyrus-sasl2      Build with Cyrus SASL 2 library support],
 	if test x$withval = xno; then
@@ -1014,6 +1023,25 @@ if test $want_pgsql = yes; then
 		CPPFLAGS=$old_CPPFLAGS
 	])
 	LIBS=$old_LIBS
+fi
+
+if test $want_mysql = yes; then
+	AC_CHECK_LIB(mysqlclient, mysql_init, [
+		AC_CHECK_HEADER(mysql.h,, [
+			AC_CHECK_HEADER(mysql/mysql.h, [
+				AUTH_CFLAGS="$AUTH_CFLAGS -DHAVE_MYSQL_MYSQL_H"
+			], want_mysql = no)
+		])
+	], want_mysql = no)
+
+	if test $want_mysql = yes; then
+		AUTH_LIBS="$AUTH_LIBS -lmysqlclient"
+
+        	AC_DEFINE(USERDB_MYSQL,, Build with MySQL support)
+		AC_DEFINE(PASSDB_MYSQL,, Build with MySQL support)
+		userdb="$userdb mysql"
+		passdb="$passdb mysql"
+	fi
 fi
 
 if test $want_vpopmail = yes; then

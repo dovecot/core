@@ -6,6 +6,8 @@ Damian Ivereigh <damian@cisco.com> (src/lib-index/mail-tree-redblack.c)
 
 Alex Howansky <alex@wankwood.com> (src/auth/*-pgsql.c)
 
+Matthew Reimer <mreimer@vpop.net> (src/auth/*-mysql.c)
+
 This product includes software developed by Computing Services
 at Carnegie Mellon University (http://www.cmu.edu/computing/).
 (src/lib/base64.c, src/lib/mkgmtime.c)
