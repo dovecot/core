@@ -302,17 +302,11 @@ static pid_t create_login_process(void)
 		}
 	}
 
-	if (set_ssl_cert_file != NULL) {
+	if (!set_ssl_disable) {
 		putenv((char *) t_strconcat("SSL_CERT_FILE=",
 					    set_ssl_cert_file, NULL));
-	}
-
-	if (set_ssl_key_file != NULL) {
 		putenv((char *) t_strconcat("SSL_KEY_FILE=",
 					    set_ssl_key_file, NULL));
-	}
-
-	if (set_ssl_parameters_file != NULL) {
 		putenv((char *) t_strconcat("SSL_PARAM_FILE=",
 					    set_ssl_parameters_file, NULL));
 	}

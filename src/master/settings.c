@@ -30,6 +30,7 @@ static Setting settings[] = {
 	{ "imaps_port",		SET_INT, &set_imaps_port },
 	{ "imap_listen",	SET_STR, &set_imap_listen },
 	{ "imaps_listen",	SET_STR, &set_imaps_listen },
+	{ "ssl_disable",	SET_BOOL,&set_ssl_disable, },
 	{ "ssl_cert_file",	SET_STR, &set_ssl_cert_file },
 	{ "ssl_key_file",	SET_STR, &set_ssl_key_file },
 	{ "ssl_parameters_file",SET_STR, &set_ssl_parameters_file },
@@ -89,6 +90,7 @@ unsigned int set_imaps_port = 993;
 char *set_imap_listen = NULL;
 char *set_imaps_listen = NULL;
 
+int set_ssl_disable = FALSE;
 char *set_ssl_cert_file = SSLDIR"/certs/imapd.pem";
 char *set_ssl_key_file = SSLDIR"/private/imapd.pem";
 char *set_ssl_parameters_file = PKG_RUNDIR"/ssl-parameters.dat";

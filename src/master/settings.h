@@ -11,6 +11,7 @@ extern unsigned int set_imaps_port;
 extern char *set_imap_listen;
 extern char *set_imaps_listen;
 
+extern int set_ssl_disable;
 extern char *set_ssl_cert_file;
 extern char *set_ssl_key_file;
 extern char *set_ssl_parameters_file;
