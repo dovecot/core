@@ -583,9 +583,8 @@ static void ioloop_copy(IOLoopWriteContext *ctx)
 	ctx->iov[pos].iov_base = (void *) data;
 	ctx->iov[pos].iov_len = size;
 
-	if (o_buffer_writev(ctx->fbuf, ctx->iov, ctx->iov_len) < 0 ||
-	    ctx->iov[ctx->iov_len-1].iov_len == 0) {
-		/* error / all sent */
+	if (o_buffer_writev(ctx->fbuf, ctx->iov, ctx->iov_len) < 0) {
+		/* error */
 		io_loop_stop(ctx->ioloop);
 	}
 
@@ -594,6 +593,11 @@ static void ioloop_copy(IOLoopWriteContext *ctx)
 	do {
 		ctx->iov_len--;
 	} while (ctx->iov_len > 0 && ctx->iov[ctx->iov_len-1].iov_len == 0);
+
+	if (ctx->iov_len == 0) {
+		/* all sent */
+		io_loop_stop(ctx->ioloop);
+	}
 }
 
 static off_t o_buffer_sendfile(_OBuffer *outbuf, IBuffer *inbuf)
