@@ -4,6 +4,7 @@ liblib_a_SOURCES = \
 	alarm-hup.c \
 	base64.c \
 	buffer.c \
+	byteorder.c \
 	compat.c \
 	data-stack.c \
 	env-util.c \
@@ -62,6 +63,7 @@ noinst_HEADERS = \
 	alarm-hup.h \
 	base64.h \
 	buffer.h \
+	byteorder.h \
 	compat.h \
 	data-stack.h \
 	env-util.h \
