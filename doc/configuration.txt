@@ -103,7 +103,7 @@ Dovecot's memory usage is very small. Almost all memory usage you see with
 ps/top is from mmap()ed files, meaning that operating system can drop any
 of those memory pages at any time without needing to swap them. With
 Linux/x86 Dovecot usually takes about 48kB of non-mmaped memory plus ~4kB
-per cached mail, max. 16 by default, totaling to 112kB.
+per cached mail, max. 16 by default, totaling around to 112kB.
 
 
 Rootless Dovecot
@@ -112,7 +112,7 @@ Rootless Dovecot
 It's possible to make Dovecot run under one uid, not requiring root
 privileges at any point. This shouldn't be thought of as any security
 feature, but instead just as a way for non-admins to run imap server from
-their favourite mail computer.
+their favourite mail server.
 
 If you do think of this as a good way to achieve security, ask yourself
 which is worse:
@@ -126,7 +126,7 @@ chrooted to your own mailbox).
 b) zero possibility to get root privileges through Dovecot, small
 possibility to get into system as mail user, possibly even without logging
 in, and being able to read everyone's mail (and finally getting roots by
-exploiting some local just released vulnerability, unless you bothered to
+exploiting some local just discovered vulnerability, unless you bothered to
 set up special chroot environment).
 
 Anyway, doing it is easy. configure --prefix=$HOME, make install, change

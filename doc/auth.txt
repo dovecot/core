@@ -20,6 +20,36 @@ Currently supported backends:
 Digest-MD5 works only with passwd-file. More mechanisms and backends can be
 easily added later.
 
+
+passwd
+------
+
+This is the most standard way to authenticate. However with shadow
+passwords some systems (Linux) don't work with this backend. At least BSDs
+still support this backend correctly.
+
+
+shadow
+------
+
+Authenticate from /etc/shadow. Works at least with Linux and Solaris.
+
+
+pam
+---
+
+PAM is the preferred authentication system nowadays with Linux. PAM handles
+only password checking, for getting the user information Dovecot still
+requires the user to exist in /etc/passwd. This requirement may be removed
+later.
+
+Here's an example /etc/pam.d/imap configuration file which uses
+/etc/imap.passwd:
+
+auth     required     pam_pwdfile.so pwdfile /etc/imap.passwd
+account  required     pam_unix.so
+
+
 passwd-file
 -----------
 
