@@ -55,8 +55,10 @@ static int cmd_starttls(Client *client)
 
 	/* must be removed before ssl_proxy_new(), since it may
 	   io_add() the same fd. */
-	io_remove(client->io);
-	client->io = NULL;
+	if (client->io != NULL) {
+		io_remove(client->io);
+		client->io = NULL;
+	}
 
 	fd_ssl = ssl_proxy_new(client->fd);
 	if (fd_ssl != -1) {

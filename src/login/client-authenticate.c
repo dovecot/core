@@ -209,8 +209,10 @@ int cmd_login(Client *client, const char *user, const char *pass)
 	if (auth_init_request(AUTH_METHOD_PLAIN,
 			      login_callback, client, &error)) {
 		/* don't read any input from client until login is finished */
-		io_remove(client->io);
-		client->io = NULL;
+		if (client->io != NULL) {
+			io_remove(client->io);
+			client->io = NULL;
+		}
 		return TRUE;
 	} else {
 		client_send_tagline(client, t_strconcat(
@@ -296,7 +298,8 @@ int cmd_authenticate(Client *client, const char *method_name)
 	if (auth_init_request(method->method, authenticate_callback,
 			      client, &error)) {
 		/* following input data will go to authentication */
-		io_remove(client->io);
+		if (client->io != NULL)
+			io_remove(client->io);
 		client->io = io_add(client->fd, IO_READ,
 				    client_auth_input, client);
 	} else {
