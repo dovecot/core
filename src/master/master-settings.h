@@ -15,6 +15,7 @@ struct server_settings {
 	struct settings *imap;
 	struct settings *pop3;
 	struct auth_settings *auths;
+        struct namespace_settings *namespaces;
 };
 
 struct settings {
@@ -116,6 +117,16 @@ struct auth_settings {
 
 	unsigned int count;
 	unsigned int process_size;
+};
+
+struct namespace_settings {
+	struct server_settings *parent;
+	struct namespace_settings *next;
+
+	const char *type;
+	const char *separator;
+	const char *prefix;
+	const char *location;
 };
 
 extern struct server_settings *settings_root;

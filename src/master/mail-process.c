@@ -103,13 +103,41 @@ static const char *expand_mail_env(const char *env, const char *user,
 	return str_c(str);
 }
 
+static void env_put_namespace(struct namespace_settings *ns,
+			      const char *user, const char *home)
+{
+	const char *location;
+	unsigned int i;
+
+	for (i = 1; ns != NULL; i++, ns = ns->next) {
+		t_push();
+
+		location = expand_mail_env(ns->location, user, home);
+		env_put(t_strdup_printf("NAMESPACE_%u=%s", i, location));
+
+		if (ns->separator != NULL) {
+			env_put(t_strdup_printf("NAMESPACE_%u_SEP=%s",
+						i, ns->separator));
+		}
+		if (ns->type != NULL) {
+			env_put(t_strdup_printf("NAMESPACE_%u_TYPE=%s",
+						i, ns->type));
+		}
+		if (ns->prefix != NULL) {
+			env_put(t_strdup_printf("NAMESPACE_%u_PREFIX=%s",
+						i, ns->prefix));
+		}
+		t_pop();
+	}
+}
+
 int create_mail_process(struct login_group *group, int socket,
 			struct ip_addr *ip,
 			struct auth_master_reply *reply, const char *data)
 {
 	static const char *argv[] = { NULL, NULL, NULL };
 	struct settings *set = group->set;
-	const char *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
+	const char *addr, *mail, *user, *chroot_dir, *home_dir, *full_home_dir;
 	char title[1024];
 	pid_t pid;
 	int i, err, ret;
@@ -237,11 +265,12 @@ int create_mail_process(struct login_group *group, int socket,
 	   auth process, but don't trust that too much either. Some auth
 	   mechanism might allow leaving extra data there. */
 	mail = data + reply->mail_idx;
-	if (*mail == '\0' && set->default_mail_env != NULL) {
-		mail = expand_mail_env(set->default_mail_env,
-				       data + reply->virtual_user_idx,
-				       home_dir);
-	}
+	user = data + reply->virtual_user_idx;
+	if (*mail == '\0' && set->default_mail_env != NULL)
+		mail = expand_mail_env(set->default_mail_env, user, home_dir);
+
+	if (set->server->namespaces != NULL)
+		env_put_namespace(set->server->namespaces, user, home_dir);
 
 	env_put(t_strconcat("MAIL=", mail, NULL));
 	env_put(t_strconcat("USER=", data + reply->virtual_user_idx, NULL));

@@ -15,7 +15,8 @@
 enum settings_type {
 	SETTINGS_TYPE_ROOT,
 	SETTINGS_TYPE_SERVER,
-	SETTINGS_TYPE_AUTH
+	SETTINGS_TYPE_AUTH,
+        SETTINGS_TYPE_NAMESPACE
 };
 
 struct settings_parse_ctx {
@@ -24,6 +25,7 @@ struct settings_parse_ctx {
 
 	struct server_settings *root, *server;
 	struct auth_settings *auth;
+        struct namespace_settings *namespace;
 
 	int level;
 };
@@ -126,6 +128,19 @@ static struct setting_def auth_setting_defs[] = {
 
 	DEF(SET_INT, count),
 	DEF(SET_INT, process_size),
+
+	{ 0, NULL, 0 }
+};
+
+#undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct namespace_settings, name) }
+
+static struct setting_def namespace_setting_defs[] = {
+	DEF(SET_STR, type),
+	DEF(SET_STR, separator),
+	DEF(SET_STR, prefix),
+	DEF(SET_STR, location),
 
 	{ 0, NULL, 0 }
 };
@@ -284,6 +299,27 @@ static int auth_settings_verify(struct auth_settings *auth)
 			auth->chroot);
 		return FALSE;
 	}
+	return TRUE;
+}
+
+static int namespace_settings_verify(struct namespace_settings *ns)
+{
+	const char *name;
+
+	name = ns->prefix != NULL ? ns->prefix : "";
+	if (ns->location == NULL) {
+		i_error("Namespace '%s': Missing location", name);
+		return FALSE;
+	}
+
+	if (ns->separator != NULL &&
+	    ns->separator[0] != '\0' && ns->separator[1] != '\0') {
+		i_error("Namespace '%s': "
+			"Hierarchy separator must be only one character long",
+			name);
+		return FALSE;
+	}
+
 	return TRUE;
 }
 
@@ -508,6 +544,38 @@ parse_new_auth(struct server_settings *server, const char *name,
 	return auth_settings_new(server, name);
 }
 
+static struct namespace_settings *
+namespace_settings_new(struct server_settings *server, const char *type)
+{
+	struct namespace_settings *ns, **ns_p;
+
+	ns = p_new(settings_pool, struct namespace_settings, 1);
+
+	ns->parent = server;
+	ns->type = str_lcase(p_strdup(settings_pool, type));
+
+	ns_p = &server->namespaces;
+	while (*ns_p != NULL)
+		ns_p = &(*ns_p)->next;
+	*ns_p = ns;
+
+	return ns;
+}
+
+static struct namespace_settings *
+parse_new_namespace(struct server_settings *server, const char *name,
+		    const char **errormsg)
+{
+	if (strcasecmp(name, "private") != 0 &&
+	    strcasecmp(name, "shared") != 0 &&
+	    strcasecmp(name, "public") != 0) {
+		*errormsg = "Unknown namespace type";
+		return NULL;
+	}
+
+	return namespace_settings_new(server, name);
+}
+
 static const char *parse_setting(const char *key, const char *value,
 				 void *context)
 {
@@ -566,7 +634,11 @@ static const char *parse_setting(const char *key, const char *value,
 		return error;
 	case SETTINGS_TYPE_AUTH:
 		return parse_setting_from_defs(settings_pool, auth_setting_defs,
-					       ctx->auth, key + 5, value);
+					       ctx->auth, key, value);
+	case SETTINGS_TYPE_NAMESPACE:
+		return parse_setting_from_defs(settings_pool,
+					       namespace_setting_defs,
+					       ctx->namespace, key, value);
 	}
 
 	i_unreached();
@@ -587,10 +659,12 @@ create_new_server(const char *name,
 	*server->imap = *imap_defaults;
 	*server->pop3 = *pop3_defaults;
 
+	server->imap->server = server;
 	server->imap->protocol = MAIL_PROTOCOL_IMAP;
 	server->imap->login_executable = PKG_LIBEXECDIR"/imap-login";
 	server->imap->mail_executable = PKG_LIBEXECDIR"/imap";
 
+	server->pop3->server = server;
 	server->pop3->protocol = MAIL_PROTOCOL_POP3;
 	server->pop3->login_executable = PKG_LIBEXECDIR"/pop3-login";
 	server->pop3->mail_executable = PKG_LIBEXECDIR"/pop3";
@@ -614,6 +688,7 @@ static int parse_section(const char *type, const char *name, void *context,
 			ctx->parent_type = SETTINGS_TYPE_ROOT;
 			ctx->server = ctx->root;
 			ctx->auth = NULL;
+			ctx->namespace = NULL;
 		}
 		return TRUE;
 	}
@@ -669,6 +744,19 @@ static int parse_section(const char *type, const char *name, void *context,
 		return ctx->auth != NULL;
 	}
 
+	if (strcmp(type, "namespace") == 0) {
+		if (ctx->type != SETTINGS_TYPE_ROOT &&
+		    ctx->type != SETTINGS_TYPE_SERVER) {
+			*errormsg = "Namespace section not allowed here";
+			return FALSE;
+		}
+
+		ctx->type = SETTINGS_TYPE_NAMESPACE;
+		ctx->namespace = parse_new_namespace(ctx->server, name,
+						     errormsg);
+		return ctx->namespace != NULL;
+	}
+
 	*errormsg = "Unknown section type";
 	return FALSE;
 }
@@ -678,6 +766,7 @@ int master_settings_read(const char *path)
 	struct settings_parse_ctx ctx;
 	struct server_settings *server, *prev;
 	struct auth_settings *auth;
+	struct namespace_settings *ns;
 	pool_t temp;
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -730,6 +819,11 @@ int master_settings_read(const char *path)
                         auth = server->auths;
 			for (; auth != NULL; auth = auth->next) {
 				if (!auth_settings_verify(auth))
+					return FALSE;
+			}
+                        ns = server->namespaces;
+			for (; ns != NULL; ns = ns->next) {
+				if (!namespace_settings_verify(ns))
 					return FALSE;
 			}
 			prev = server;
