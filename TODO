@@ -1,4 +1,52 @@
- - lock_method=dotlock, mmap_disable=no crashes in cache locking
+ - message header search: we should ignore LWSP between two MIME blocks
+ - if indexes exist but dovecot-uidlist doesn't, it's not tried to be recreated
+ - maildir: copy is broken?
+ - copy doesn't print error message if source is expunged
+
+ - keywords:
+    - add some limits to how many there can be
+       - don't return \* in PERMANENTFLAGS when we're full
+    - send FLAGS/PERMANENTFLAGS untagged replies when they change
+    - sync to mbox/maildir
+    - remove unused keywords?
+ - support specifying hex/base64 encoding in password scheme. for example
+   {plain-md5.base64}
+ - happens too often: mail-transaction-log-view.c: line 138 (mail_transaction_log_view_set): assertion failed: (min_file_seq != max_file_seq || min_file_offset <= max_file_offset)
+ - login_process_per_connection=no + auth_count > 1
+    - dovecot-auth gives timeout errors
+    - failed requests are sent to all auth processes
+ - mbox file offsets still aren't 64bit aligned for some reason..
+line 493 (mbox_lock): assertion failed: (lock_type == F_RDLCK || ibox->mbox_lock_type != F_RDLCK)
+#5  0x0806faa3 in mbox_lock (ibox=0x80d89b8, lock_type=1, lock_id_r=0xbea6b434) at mbox-lock.c:493
+#6  0x08075439 in mbox_sync (ibox=0x80d89b8, flags=MBOX_SYNC_REWRITE) at mbox-sync.c:1286
+#7  0x0806d38b in mbox_storage_close (box=0x80d89b8) at mbox-storage.c:793
+#8  0x0809666e in mailbox_close (box=0x80d89b8) at mail-storage.c:296
+#9  0x080587b6 in client_destroy (client=0x80cefe0) at client.c:69
+#10 0x080591c3 in client_output (context=0x80cefe0) at client.c:386
+#11 0x080b0086 in stream_send_io (context=0x80cf0a8) at ostream-file.c:339
+
+mail-index-transaction.c: line 467 (mail_index_transaction_add_last): 
+assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
+
+ - flag merging code is too complex in index syncing. it should be moved into
+   mbox/maildir syncing where they're combined
+ - index_removal_timeout gets leaked in some conditions. how?
+ - non-mmaped cache: last block in file isn't cached. is invalidating still
+   not enough? if cache_offset is updated after our view is synced, we see the
+   new offset but not it's invalidation? -> don't re-read index file, sync it
+   as a view.
+
+ - login_process_per_connection = no -> log throtting is beginning to be a
+   problem! make it per-file setting and disable in this case.
+ - rename foo foo.xyz -> infinite loop possible?
+ - pipe() failed: Too many open files - fine, but don't log it 1000 times
+   a second
+ - inetd startup doesn't work anymore
+ - auth protocol: make sure values can't have tabs/lfs
+ - auth cache: cache userdb data too.
+ - passdb extra data: if name starts with userdb_, user it for userdb.
+   add "passdb" userdb if passdb handles that.
+ - auth: remove system_user and allow returning multiple gids instead.
  - transaction log: when replacing log with a same sequence, we remove it from
    log's file list, but we don't do anything to existing log views. this can
    crash later in mail_transaction_log_view_set() because 'first' is from log
@@ -29,9 +77,8 @@
  - we can mail_cache_add() same header multiple times..
  - configurable syslog prefix
  - SIGHUP restarts auth processes .. but does it wait until they've finished
-   with all requests?
+   with all requests? no.
  - SIGHUP rather shouldn't restart listening sockets if they didn't change..
- - dovecot-auth + ldap leaks?
  - subscriptions file should contain namespace prefixes. at least optionally.
    there's the subscriptions = yes setting now for namespaces.. do it so that
    if prefix = "" has subscriptions, it contains prefixes. otherwise not.
@@ -40,6 +87,7 @@
  - mbox: syncing existing indexes takes 4x longer than creating new one, why?
 
  - caching
+     - size.physical isn't cached
      - force bits should be used only for nonregistered fields
      - change envelope parsing not to use get_headers() so imap.envelope can
        actually be cached without all the headers..
@@ -76,8 +124,6 @@
 
  - open("/var/run/dovecot//ssl-parameters.dat", O_RDONLY|O_LARGEFILE) =-1 ENOENT
     ^ loops forever
-
- - don't return \* in PERMANENTFLAGS when we're full
 
  - support read-only logins. user could with alternative password get only
    read-access to mails so mails could be read relatively safely with
@@ -230,9 +276,6 @@
 
  - cleanups:
     - check if t_push()/t_pop() should be added somewhere
-    - try to fix @UNSAFE code to use buffer API instead
-	- subscription-file.c, custom_flags
-	- [io]stream-file.c?
     - grep for FIXME
 
  - auth / login:
