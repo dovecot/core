@@ -26,12 +26,9 @@ struct istream *maildir_open_mail(struct mail_index *index,
 	if (index->inconsistent)
 		return NULL;
 
-	fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
-	if (fname == NULL) {
-		index_data_set_corrupted(index->data,
-			"Missing location field for record %u", rec->uid);
+	fname = maildir_get_location(index, rec);
+	if (fname == NULL)
 		return NULL;
-	}
 
 	path = t_strconcat(index->mailbox_path, "/cur/", fname, NULL);
 	fd = open(path, O_RDONLY);

@@ -65,13 +65,9 @@ static int maildir_index_sync_files(struct mail_index *index, const char *dir,
 
 	rec = index->lookup(index, 1);
 	for (seq = 1; rec != NULL; rec = index->next(index, rec)) {
-		fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
-		if (fname == NULL) {
-			index_data_set_corrupted(index->data,
-				"Missing location field for record %u",
-				rec->uid);
+		fname = maildir_get_location(index, rec);
+		if (fname == NULL)
 			return FALSE;
-		}
 
 		t_push();
 

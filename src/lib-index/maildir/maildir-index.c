@@ -18,6 +18,19 @@ static int maildir_index_open(struct mail_index *index,
 	return mail_index_open(index, flags);
 }
 
+const char *maildir_get_location(struct mail_index *index,
+				 struct mail_index_record *rec)
+{
+	const char *fname;
+
+	fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
+	if (fname == NULL) {
+		index_data_set_corrupted(index->data,
+			"Missing location field for record %u", rec->uid);
+	}
+	return fname;
+}
+
 enum mail_flags maildir_filename_get_flags(const char *fname,
 					   enum mail_flags default_flags)
 {
@@ -176,12 +189,9 @@ static time_t maildir_get_internal_date(struct mail_index *index,
 		return date;
 
 	/* stat() gives it */
-	fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
-	if (fname == NULL) {
-		index_data_set_corrupted(index->data,
-			"Missing location field for record %u", rec->uid);
+	fname = maildir_get_location(index, rec);
+	if (fname == NULL)
 		return (time_t)-1;
-	}
 
 	if (stat(fname, &st) < 0) {
 		index_file_set_syscall_error(index, fname, "stat()");
@@ -201,12 +211,9 @@ static int maildir_index_update_flags(struct mail_index *index,
 	const char *old_path, *new_path;
 
 	/* we need to update the flags in the file name */
-	old_fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
-	if (old_fname == NULL) {
-		index_data_set_corrupted(index->data,
-			"Missing location field for record %u", rec->uid);
+	old_fname = maildir_get_location(index, rec);
+	if (old_fname == NULL)
 		return FALSE;
-	}
 
 	new_fname = maildir_filename_set_flags(old_fname, flags);
 

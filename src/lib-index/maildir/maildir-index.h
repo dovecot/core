@@ -8,6 +8,8 @@
 
 struct mail_index *maildir_index_alloc(const char *dir, const char *maildir);
 
+const char *maildir_get_location(struct mail_index *index,
+				 struct mail_index_record *rec);
 enum mail_flags maildir_filename_get_flags(const char *fname,
 					   enum mail_flags default_flags);
 const char *maildir_filename_set_flags(const char *fname,
