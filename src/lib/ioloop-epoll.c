@@ -57,6 +57,8 @@ void io_loop_handler_init(struct ioloop *ioloop)
 	data->fd_index = p_new(ioloop->pool, struct io_list *, data->idx_size);
 
 	data->epfd = epoll_create(INITIAL_EPOLL_EVENTS);
+	if (data->epfd < 0)
+		i_panic("epoll_create(): %m");
 }
 
 void io_loop_handler_deinit(struct ioloop *ioloop)
