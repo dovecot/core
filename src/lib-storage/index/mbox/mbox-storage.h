@@ -3,6 +3,8 @@
 
 /* Padding to leave in X-Keywords header when rewriting mbox */
 #define MBOX_HEADER_PADDING 50
+/* Don't write Content-Length header unless it's value is larger than this. */
+#define MBOX_MIN_CONTENT_LENGTH_SIZE 1024
 
 #define SUBSCRIPTION_FILE_NAME ".subscriptions"
 #define MBOX_INDEX_PREFIX "dovecot.index"

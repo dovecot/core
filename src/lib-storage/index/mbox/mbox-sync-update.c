@@ -1,9 +1,12 @@
+/* Copyright (C) 2004 Timo Sirainen */
+
 #include "lib.h"
 #include "ioloop.h"
 #include "buffer.h"
 #include "str.h"
 #include "message-parser.h"
 #include "index-storage.h"
+#include "mbox-storage.h"
 #include "mbox-sync-private.h"
 
 static void status_flags_append(struct mbox_sync_mail_context *ctx,
@@ -172,7 +175,8 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		str_append_c(ctx->header, '\n');
 	}
 
-	if (ctx->content_length == (uoff_t)-1) {
+	if (ctx->content_length == (uoff_t)-1 &&
+	    ctx->mail.body_size >= MBOX_MIN_CONTENT_LENGTH_SIZE) {
 		str_printfa(ctx->header, "Content-Length: %"PRIuUOFF_T"\n",
 			    ctx->mail.body_size);
 	}
