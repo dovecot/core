@@ -18,20 +18,21 @@ struct index_mailbox_sync_context {
 void index_mailbox_set_recent(struct index_mailbox *ibox, uint32_t seq)
 {
 	unsigned char *p;
-	static char flag;
+	size_t dest_idx;
 
 	if (ibox->recent_flags_start_seq == 0) {
 		ibox->recent_flags =
 			buffer_create_dynamic(default_pool, 128, (size_t)-1);
 		ibox->recent_flags_start_seq = seq;
 	} else if (seq < ibox->recent_flags_start_seq) {
-		buffer_copy(ibox->recent_flags,
-			    ibox->recent_flags_start_seq - seq,
+		dest_idx = ibox->recent_flags_start_seq - seq;
+		buffer_copy(ibox->recent_flags, dest_idx,
 			    ibox->recent_flags, 0, (size_t)-1);
+		memset(buffer_get_modifyable_data(ibox->recent_flags, NULL),
+		       0, dest_idx);
 		ibox->recent_flags_start_seq = seq;
 	}
 
-	flag = TRUE;
 	p = buffer_get_space_unsafe(ibox->recent_flags,
 				    seq - ibox->recent_flags_start_seq, 1);
 	if (*p == 0) {
