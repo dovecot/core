@@ -52,6 +52,8 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(user_global_gid) 0
 };
 
+static struct ldap_connection *ldap_connections = NULL;
+
 static int ldap_conn_open(struct ldap_connection *conn);
 
 static int deref2str(const char *str)
@@ -258,10 +260,29 @@ static const char *parse_setting(const char *key, const char *value,
 				       &conn->set, key, value);
 }
 
+static struct ldap_connection *ldap_conn_find(const char *config_path)
+{
+	struct ldap_connection *conn;
+
+	for (conn = ldap_connections; conn != NULL; conn = conn->next) {
+		if (strcmp(conn->config_path, config_path) == 0)
+			return conn;
+	}
+
+	return NULL;
+}
+
 struct ldap_connection *db_ldap_init(const char *config_path)
 {
 	struct ldap_connection *conn;
 	pool_t pool;
+
+	/* see if it already exists */
+	conn = ldap_conn_find(config_path);
+	if (conn != NULL) {
+		conn->refcount++;
+		return conn;
+	}
 
 	pool = pool_alloconly_create("ldap_connection", 1024);
 	conn = p_new(pool, struct ldap_connection, 1);
@@ -270,6 +291,7 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 	conn->refcount = 1;
 	conn->requests = hash_create(default_pool, pool, 0, NULL, NULL);
 
+	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_ldap_settings;
 	settings_read(config_path, parse_setting, conn);
 
@@ -280,6 +302,9 @@ struct ldap_connection *db_ldap_init(const char *config_path)
         conn->set.ldap_scope = scope2str(conn->set.scope);
 
 	(void)ldap_conn_open(conn);
+
+	conn->next = ldap_connections;
+        ldap_connections = conn;
 	return conn;
 }
 

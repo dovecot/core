@@ -29,6 +29,8 @@ struct ldap_settings {
 };
 
 struct ldap_connection {
+	struct ldap_connection *next;
+
 	pool_t pool;
 	int refcount;
 
