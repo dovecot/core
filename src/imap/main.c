@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "ioloop.h"
+#include "ostream.h"
 #include "lib-signals.h"
 #include "rawlog.h"
 #include "restrict-access.h"
@@ -131,6 +132,7 @@ static void main_init(void)
 
 	client = client_create(hin, hout, storage);
 
+        o_stream_cork(client->output);
 	if (IS_STANDALONE()) {
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY "CAPABILITY_STRING"] "
@@ -140,6 +142,7 @@ static void main_init(void)
 		client_send_line(client, t_strconcat(getenv("IMAPLOGINTAG"),
 						     " OK Logged in.", NULL));
 	}
+        o_stream_flush(client->output);
 }
 
 static void main_deinit(void)
