@@ -1,16 +1,6 @@
 #ifndef __STRFUNC_H
 #define __STRFUNC_H
 
-/* max. size for %d and %ld */
-#define MAX_INT_STRLEN ((sizeof(int) * CHAR_BIT + 2) / 3 + 1)
-#define MAX_LONG_STRLEN ((sizeof(long) * CHAR_BIT + 2) / 3 + 1)
-
-/* `str' should be type char[MAX_INT_STRLEN] or char[MAX_LONG_STRLEN] */
-#define itoa(str, num) \
-	i_snprintf(str, sizeof(str), "%d", num)
-#define ltoa(str, num) \
-	i_snprintf(str, sizeof(str), "%ld", num)
-
 #define is_empty_str(str) \
         ((str) == NULL || (str)[0] == '\0')
 
@@ -63,6 +53,9 @@ char * const *t_strsplit(const char *data, const char *separators);
 	t_strjoin_replace(args, separator, -1, NULL)
 const char *t_strjoin_replace(char *const args[], char separator,
 			      int replacearg, const char *replacedata);
+
+#define MAX_LARGEST_T_STRLEN ((sizeof(largest_t) * CHAR_BIT + 2) / 3 + 1)
+void dec2str(char *buffer, size_t size, largest_t number);
 
 /* INTERNAL */
 const char *temp_strconcat(const char *str1, va_list args,

@@ -923,3 +923,33 @@ const char *t_strjoin_replace(char *const args[], char separator,
         t_buffer_alloc(full_len);
         return data;
 }
+
+static size_t dec2str_recurse(char *buffer, size_t pos, size_t size,
+			      largest_t number)
+{
+	if (number == 0)
+		return 0;
+
+	pos = dec2str_recurse(buffer, pos, size-1, number / 10);
+	if (pos < size)
+		buffer[pos] = '0' + (number % 10);
+	return pos + 1;
+}
+
+void dec2str(char *buffer, size_t size, largest_t number)
+{
+	size_t pos;
+
+	if (size == 0)
+		return;
+
+	pos = dec2str_recurse(buffer, 0, size, number);
+
+	if (pos == 0 && size > 1) {
+		/* we wrote nothing, because number is 0 */
+		buffer[0] = '0';
+		pos++;
+	}
+
+	buffer[pos < size ? pos : size-1] = '\0';
+}

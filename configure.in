@@ -153,6 +153,12 @@ else
   AC_ERROR([Couldn't find integer type for off_t])
 fi
 
+if test x$ac_cv_sizeof_long_long != x0; then
+  AC_DEFINE(LARGEST_T_LONG_LONG)
+else
+  AC_DEFINE(LARGEST_T_LONG)
+fi
+
 dnl * memory alignment, needed with non-x86 systems and should speed up
 dnl * x86 systems too. Use 8 with everyone to make sure 64bit lookups
 dnl * work. Currently it should also be safe to set to 4 if off_t == 32bit.

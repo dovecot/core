@@ -33,7 +33,7 @@ const char *my_pid = NULL;
 
 void hostpid_init(void)
 {
-	static char hostname[256], pid[100];
+	static char hostname[256], pid[MAX_LARGEST_T_STRLEN];
 
 	if (my_hostname == NULL) {
 		hostname[sizeof(hostname)-1] = '\0';
@@ -44,7 +44,7 @@ void hostpid_init(void)
 	}
 
 	if (my_pid == NULL) {
-		i_snprintf(pid, sizeof(pid), "%lu", (unsigned long) getpid());
+		dec2str(pid, sizeof(pid), getpid());
 		my_pid = pid;
 	}
 }

@@ -35,3 +35,7 @@
 #undef UOFF_T_INT
 #undef UOFF_T_LONG
 #undef UOFF_T_LONG_LONG
+
+/* What type should be used for largest_t */
+#undef LARGEST_T_LONG
+#undef LARGEST_T_LONG_LONG

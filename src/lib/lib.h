@@ -21,16 +21,6 @@ typedef struct _IPADDR IPADDR;
 typedef struct _IOBuffer IOBuffer;
 typedef struct _TempString TempString;
 
-#if defined (UOFF_T_INT)
-typedef unsigned int uoff_t;
-#elif defined (UOFF_T_LONG)
-typedef unsigned long uoff_t;
-#elif defined (UOFF_T_LONG_LONG)
-typedef unsigned long long uoff_t;
-#else
-#  error uoff_t size not set
-#endif
-
 #include "compat.h"
 #include "macros.h"
 #include "failures.h"

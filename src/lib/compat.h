@@ -7,6 +7,24 @@
 #  define LLONG_MAX 9223372036854775807LL
 #endif
 
+#if defined (UOFF_T_INT)
+typedef unsigned int uoff_t;
+#elif defined (UOFF_T_LONG)
+typedef unsigned long uoff_t;
+#elif defined (UOFF_T_LONG_LONG)
+typedef unsigned long long uoff_t;
+#else
+#  error uoff_t size not set
+#endif
+
+#if defined (LARGEST_T_LONG)
+typedef unsigned long largest_t;
+#elif defined (LARGEST_T_LONG_LONG)
+typedef unsigned long long largest_t;
+#else
+#  error largest_t size not set
+#endif
+
 /* memmove() */
 #ifndef HAVE_MEMMOVE
 #  define memmove my_memmove
