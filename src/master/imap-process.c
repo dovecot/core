@@ -123,7 +123,10 @@ static const char *expand_mail_env(const char *env, const char *user,
 				break;
 			}
 
-			if (var != NULL) {
+			if (var == NULL)
+				str_append_c(str, '%');
+			else {
+				env++;
 				if (width == 0)
 					str_append(str, var);
 				else
@@ -131,6 +134,7 @@ static const char *expand_mail_env(const char *env, const char *user,
 			}
 		}
 	}
+
 
 	return str_c(str);
 }
@@ -218,7 +222,7 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip,
 	/* user given environment - may be malicious. virtual_user comes from
 	   auth process, but don't trust that too much either. Some auth
 	   mechanism might allow leaving extra data there. */
-	if (mail == NULL && set_default_mail_env != NULL) {
+	if ((mail == NULL || *mail == '\0') && set_default_mail_env != NULL) {
 		mail = expand_mail_env(set_default_mail_env,
 				       virtual_user, home);
 		env_put(t_strconcat("MAIL=", mail, NULL));
