@@ -13,7 +13,7 @@ static void auth_plain_continue(struct cookie_data *cookie,
 {
 	struct auth_cookie_reply_data *cookie_reply = cookie->context;
 	struct auth_reply_data reply;
-	const char *user;
+	const char *authid, *authenid;
 	char *pass;
 	size_t i, count, len;
 
@@ -23,27 +23,29 @@ static void auth_plain_continue(struct cookie_data *cookie,
 	reply.result = AUTH_RESULT_FAILURE;
 	memcpy(reply.cookie, cookie->cookie, AUTH_COOKIE_SIZE);
 
-	/* data should contain user\0...\0pass */
-	user = (const char *) data;
-	pass = NULL;
+	/* authorization ID \0 authentication ID \0 pass.
+	   we'll ignore authorization ID for now. */
+	authid = (const char *) data;
+	authenid = NULL; pass = NULL;
+
 	count = 0;
 	for (i = 0; i < request->data_size; i++) {
-		if (data[i] == '\0' && ++count == 2) {
-			i++;
-			if (i == request->data_size)
-				pass = "";
+		if (data[i] == '\0') {
+			if (++count == 1)
+				authenid = data + i+1;
 			else {
+				i++;
 				len = request->data_size - i;
 				pass = t_malloc(len+1);
-                                memcpy(pass, (const char *) data + i, len);
-                                pass[len] = '\0';
+				memcpy(pass, data + i, len);
+				pass[len] = '\0';
+				break;
 			}
-			break;
 		}
 	}
 
 	if (pass != NULL) {
-		if (userinfo->verify_plain(user, pass, cookie_reply)) {
+		if (userinfo->verify_plain(authenid, pass, cookie_reply)) {
 			cookie_reply->success = TRUE;
 			reply.result = AUTH_RESULT_SUCCESS;
 

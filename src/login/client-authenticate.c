@@ -208,9 +208,8 @@ int cmd_login(struct client *client, struct imap_arg *args)
 		return TRUE;
 	}
 
-	/* code it into user\0user\0password */
+	/* authorization ID \0 authentication ID \0 pass */
 	buffer_set_used_size(client->plain_login, 0);
-	buffer_append(client->plain_login, user, strlen(user));
 	buffer_append_c(client->plain_login, '\0');
 	buffer_append(client->plain_login, user, strlen(user));
 	buffer_append_c(client->plain_login, '\0');
