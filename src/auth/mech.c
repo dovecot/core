@@ -194,8 +194,8 @@ void mech_init_auth_client_reply(struct auth_client_request_reply *reply)
 {
 	memset(reply, 0, sizeof(*reply));
 
-	reply->username_idx = (size_t)-1;
-	reply->reply_idx = (size_t)-1;
+	reply->username_idx = (uint32_t)-1;
+	reply->reply_idx = (uint32_t)-1;
 }
 
 void *mech_auth_success(struct auth_client_request_reply *reply,
@@ -210,7 +210,7 @@ void *mech_auth_success(struct auth_client_request_reply *reply,
 	buffer_append(buf, auth_request->user, strlen(auth_request->user)+1);
 
 	if (data_size == 0)
-		reply->reply_idx = (size_t)-1;
+		reply->reply_idx = (uint32_t)-1;
 	else {
 		reply->reply_idx = buffer_get_used_size(buf);
 		buffer_append(buf, data, data_size);
