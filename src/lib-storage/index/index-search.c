@@ -693,6 +693,59 @@ static void search_get_sequid(IndexMailbox *ibox, MailSearchArg *args,
 	}
 }
 
+static int search_limit_by_flags(IndexMailbox *ibox, MailSearchArg *args,
+				 unsigned int *first_uid,
+				 unsigned int *last_uid)
+{
+	MailIndexHeader *hdr;
+	unsigned int uid;
+
+	hdr = ibox->index->header;
+	for (; args != NULL; args = args->next) {
+		if (args->type == SEARCH_SEEN) {
+			/* SEEN with 0 seen? */
+			if (!args->not && hdr->seen_messages_count == 0)
+				return FALSE;
+
+			/* UNSEEN with all seen? */
+			if (args->not &&
+			    hdr->seen_messages_count == hdr->messages_count)
+				return FALSE;
+
+			/* UNSEEN with lowwater limiting */
+			uid = hdr->first_unseen_uid_lowwater;
+			if (args->not && *first_uid < uid)
+				*first_uid = uid;
+		}
+
+		if (args->type == SEARCH_DELETED) {
+			/* DELETED with 0 deleted? */
+			if (!args->not && hdr->deleted_messages_count == 0)
+				return FALSE;
+
+			/* UNDELETED with all deleted? */
+			if (!args->not &&
+			    hdr->deleted_messages_count == hdr->messages_count)
+				return FALSE;
+
+			/* DELETED with lowwater limiting */
+			uid = hdr->first_deleted_uid_lowwater;
+			if (!args->not && *first_uid < uid)
+				*first_uid = uid;
+		}
+
+		if (args->type == SEARCH_RECENT) {
+			uid = ibox->index->first_recent_uid;
+			if (!args->not && *first_uid < uid)
+				*first_uid = ibox->index->first_recent_uid;
+			else if (args->not && *last_uid >= uid)
+				*last_uid = uid-1;
+		}
+	}
+
+	return *first_uid <= *last_uid;
+}
+
 static unsigned int client_seq_to_uid(MailIndex *index, unsigned int seq)
 {
 	MailIndexRecord *rec;
@@ -744,6 +797,10 @@ static int search_get_uid_range(IndexMailbox *ibox, MailSearchArg *args,
 		*first_uid = 1;
 	if (*last_uid == 0)
 		*last_uid = ibox->index->header->next_uid-1;
+
+	/* UNSEEN and DELETED in root search level may limit the range */
+	if (!search_limit_by_flags(ibox, args, first_uid, last_uid))
+		return FALSE;
 
 	i_assert(*first_uid <= *last_uid);
 	return TRUE;
