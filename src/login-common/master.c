@@ -34,9 +34,8 @@ static void request_handle(struct master_login_reply *reply)
 	client->master_tag = 0;
 	client->master_callback = NULL;
 
-	hash_remove(master_requests, POINTER_CAST(reply->tag));
-
 	master_callback(client, reply->success);
+	hash_remove(master_requests, POINTER_CAST(reply->tag));
 	/* NOTE: client may be destroyed now */
 }
 
