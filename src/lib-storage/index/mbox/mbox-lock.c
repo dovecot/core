@@ -455,6 +455,13 @@ static int mbox_update_locking(struct index_mailbox *ibox, int lock_type)
 	if (!lock_settings_initialized)
                 mbox_init_lock_settings();
 
+	if (ibox->mbox_fd == -1 && ibox->mbox_file_stream != NULL) {
+		/* read-only mbox stream. no need to lock. */
+		i_assert(ibox->mbox_readonly);
+		ibox->mbox_lock_type = lock_type;
+		return TRUE;
+	}
+
 	max_wait_time = time(NULL) + lock_timeout;
 
 	memset(&ctx, 0, sizeof(ctx));

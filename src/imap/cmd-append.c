@@ -360,7 +360,7 @@ get_mailbox(struct client_command_context *cmd, const char *name)
 	    mailbox_equals(cmd->client->mailbox, storage, name))
 		return cmd->client->mailbox;
 
-	box = mailbox_open(storage, name, MAILBOX_OPEN_FAST |
+	box = mailbox_open(storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT);
 	if (box == NULL) {
 		client_send_storage_error(cmd, storage);

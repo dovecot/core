@@ -29,7 +29,7 @@ int _cmd_select_full(struct client_command_context *cmd, int readonly)
 	if (storage == NULL)
 		return TRUE;
 
-	box = mailbox_open(storage, mailbox, !readonly ? 0 :
+	box = mailbox_open(storage, mailbox, NULL, !readonly ? 0 :
 			   (MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT));
 	if (box == NULL) {
 		client_send_storage_error(cmd, storage);

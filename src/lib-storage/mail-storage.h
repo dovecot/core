@@ -13,10 +13,15 @@ enum mail_storage_flags {
 };
 
 enum mailbox_open_flags {
+	/* Mailbox must not be modified even if asked */
 	MAILBOX_OPEN_READONLY		= 0x01,
+	/* Any extra time consuming operations shouldn't be performed
+	   (eg. when opening mailbox just for STATUS). */
 	MAILBOX_OPEN_FAST		= 0x02,
+	/* Don't reset MAIL_RECENT flags when syncing */
 	MAILBOX_OPEN_KEEP_RECENT	= 0x04,
-	MAILBOX_OPEN_KEEP_HEADER_MD5	= 0x04
+	/* Remember message headers' MD5 sum */
+	MAILBOX_OPEN_KEEP_HEADER_MD5	= 0x08
 };
 
 enum mailbox_list_flags {
@@ -266,15 +271,15 @@ int mail_storage_get_mailbox_name_status(struct mail_storage *storage,
 const char *mail_storage_get_last_error(struct mail_storage *storage,
 					int *syntax_error_r);
 
-/* Open a mailbox. If readonly is TRUE, mailbox must not be
-   modified in any way even when it's asked. If fast is TRUE,
-   any extra time consuming operations shouldn't be performed
-   (eg. when opening mailbox just for STATUS).
+/* Open a mailbox. If input stream is given, mailbox is opened read-only
+   using it as a backend. If storage doesn't support stream backends and its
+   tried to be used, NULL is returned.
 
    Note that append and copy may open the selected mailbox again
    with possibly different readonly-state. */
-struct mailbox *mailbox_open(struct mail_storage *storage,
-			     const char *name, enum mailbox_open_flags flags);
+struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
+			     struct istream *input,
+			     enum mailbox_open_flags flags);
 /* Close the box. Returns FALSE if some cleanup errors occured, but
    the mailbox was closed anyway. */
 int mailbox_close(struct mailbox *box);

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "istream.h"
 #include "home-expand.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
@@ -478,6 +479,43 @@ static int mbox_mail_is_recent(struct index_mailbox *ibox __attr_unused__,
 	return FALSE;
 }
 
+static struct index_mailbox *
+mbox_alloc(struct index_storage *storage, struct mail_index *index,
+	   const char *name, enum mailbox_open_flags flags)
+{
+	struct index_mailbox *ibox;
+	pool_t pool;
+
+	pool = pool_alloconly_create("mailbox", 256);
+	ibox = p_new(pool, struct index_mailbox, 1);
+	ibox->box = mbox_mailbox;
+	ibox->box.pool = pool;
+	ibox->storage = storage;
+
+	if (index_storage_mailbox_init(ibox, index, name, flags) < 0) {
+		/* the memory is already freed here, no need to deinit */
+		return NULL;
+	}
+
+	ibox->mbox_fd = -1;
+	ibox->mbox_lock_type = F_UNLCK;
+	ibox->mbox_ext_idx =
+		mail_index_ext_register(index, "mbox", 0,
+					sizeof(uint64_t), sizeof(uint64_t));
+
+	ibox->is_recent = mbox_mail_is_recent;
+	ibox->mail_vfuncs = &mbox_mail_vfuncs;
+        ibox->mbox_very_dirty_syncs = getenv("MBOX_VERY_DIRTY_SYNCS") != NULL;
+	ibox->mbox_do_dirty_syncs = ibox->mbox_very_dirty_syncs ||
+		getenv("MBOX_DIRTY_SYNCS") != NULL;
+
+	ibox->md5hdr_ext_idx =
+		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
+	if ((flags & MAILBOX_OPEN_KEEP_HEADER_MD5) != 0)
+		ibox->mbox_save_md5 = TRUE;
+	return ibox;
+}
+
 static struct mailbox *
 mbox_open(struct index_storage *storage, const char *name,
 	  enum mailbox_open_flags flags)
@@ -485,8 +523,6 @@ mbox_open(struct index_storage *storage, const char *name,
 	struct index_mailbox *ibox;
 	struct mail_index *index;
 	const char *path, *index_dir;
-	uint32_t mbox_ext_idx;
-	pool_t pool;
 
 	if (strcmp(name, "INBOX") == 0) {
 		/* name = "INBOX"
@@ -503,36 +539,11 @@ mbox_open(struct index_storage *storage, const char *name,
 	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
-	mbox_ext_idx = mail_index_ext_register(index, "mbox", 0,
-					       sizeof(uint64_t),
-					       sizeof(uint64_t));
-
-	pool = pool_alloconly_create("mailbox", 256);
-	ibox = p_new(pool, struct index_mailbox, 1);
-	ibox->box = mbox_mailbox;
-	ibox->box.pool = pool;
-	ibox->storage = storage;
-
-	if (index_storage_mailbox_init(ibox, index, name, flags) < 0) {
-		/* the memory was already freed */
+	ibox = mbox_alloc(storage, index, name, flags);
+	if (ibox == NULL)
 		return NULL;
-	}
 
-	ibox->path = p_strdup(pool, path);
-	ibox->mbox_fd = -1;
-	ibox->mbox_lock_type = F_UNLCK;
-	ibox->mbox_ext_idx = mbox_ext_idx;
-
-	ibox->is_recent = mbox_mail_is_recent;
-	ibox->mail_vfuncs = &mbox_mail_vfuncs;
-        ibox->mbox_very_dirty_syncs = getenv("MBOX_VERY_DIRTY_SYNCS") != NULL;
-	ibox->mbox_do_dirty_syncs = ibox->mbox_very_dirty_syncs ||
-		getenv("MBOX_DIRTY_SYNCS") != NULL;
-
-	ibox->md5hdr_ext_idx =
-		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
-	if ((flags & MAILBOX_OPEN_KEEP_HEADER_MD5) != 0)
-		ibox->mbox_save_md5 = TRUE;
+	ibox->path = p_strdup(ibox->box.pool, path);
 
 	if (access(path, R_OK|W_OK) < 0) {
 		if (errno < EACCES)
@@ -547,14 +558,39 @@ mbox_open(struct index_storage *storage, const char *name,
 }
 
 static struct mailbox *
-mbox_mailbox_open(struct mail_storage *_storage,
-		  const char *name, enum mailbox_open_flags flags)
+mbox_mailbox_open_stream(struct index_storage *storage, const char *name,
+			 struct istream *input, enum mailbox_open_flags flags)
+{
+	struct mail_index *index;
+	struct index_mailbox *ibox;
+
+	flags |= MAILBOX_OPEN_READONLY;
+
+	index = mail_index_alloc(NULL, NULL);
+	ibox = mbox_alloc(storage, index, name, flags);
+	if (ibox == NULL)
+		return NULL;
+
+	i_stream_ref(input);
+	ibox->mbox_file_stream = input;
+	ibox->mbox_readonly = TRUE;
+
+	ibox->path = "(read-only mbox stream)";
+	return &ibox->box;
+}
+
+static struct mailbox *
+mbox_mailbox_open(struct mail_storage *_storage, const char *name,
+		  struct istream *input, enum mailbox_open_flags flags)
 {
 	struct index_storage *storage = (struct index_storage *)_storage;
 	const char *path;
 	struct stat st;
 
 	mail_storage_clear_error(_storage);
+
+	if (input != NULL)
+		return mbox_mailbox_open_stream(storage, name, input, flags);
 
 	if (strcmp(name, "INBOX") == 0) {
 		/* make sure INBOX exists */
@@ -916,7 +952,11 @@ static int mbox_storage_close(struct mailbox *box)
 	}
 
         mbox_file_close(ibox);
-        index_storage_mailbox_free(box);
+	if (ibox->mbox_file_stream != NULL) {
+		i_stream_unref(ibox->mbox_file_stream);
+                ibox->mbox_file_stream = NULL;
+	}
+	index_storage_mailbox_free(box);
 	return ret;
 }
 

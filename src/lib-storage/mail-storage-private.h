@@ -20,6 +20,7 @@ struct mail_storage_vfuncs {
 
 	struct mailbox *(*mailbox_open)(struct mail_storage *storage,
 					const char *name,
+					struct istream *input,
 					enum mailbox_open_flags flags);
 
 	int (*mailbox_create)(struct mail_storage *storage, const char *name,

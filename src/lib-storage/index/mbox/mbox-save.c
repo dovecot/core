@@ -251,6 +251,12 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 	struct index_mailbox *ibox = ctx->ibox;
 	int ret;
 
+	if (ctx->ibox->mbox_readonly || ctx->ibox->readonly) {
+		mail_storage_set_error(&ctx->ibox->storage->storage,
+				       "Read-only mbox");
+		return -1;
+	}
+
 	if (ctx->append_offset == (uoff_t)-1) {
 		/* first appended mail in this transaction */
 		if (ibox->mbox_lock_type != F_WRLCK) {

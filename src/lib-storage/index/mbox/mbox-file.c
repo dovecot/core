@@ -16,6 +16,12 @@ int mbox_file_open(struct index_mailbox *ibox)
 
 	i_assert(ibox->mbox_fd == -1);
 
+	if (ibox->mbox_file_stream != NULL) {
+		/* read-only mbox stream */
+		i_assert(ibox->mbox_readonly);
+		return 0;
+	}
+
 	fd = open(ibox->path, ibox->mbox_readonly ? O_RDONLY : O_RDWR);
 	if (fd == -1 && errno == EACCES && !ibox->mbox_readonly) {
                 ibox->mbox_readonly = TRUE;
@@ -56,7 +62,15 @@ int mbox_file_open_stream(struct index_mailbox *ibox)
 	if (ibox->mbox_stream != NULL)
 		return 0;
 
-	i_assert(ibox->mbox_file_stream == NULL);
+	if (ibox->mbox_file_stream != NULL) {
+		/* read-only mbox stream */
+		i_assert(ibox->mbox_fd == -1 && ibox->mbox_readonly);
+
+		ibox->mbox_stream =
+			i_stream_create_raw_mbox(default_pool,
+						 ibox->mbox_file_stream);
+		return 0;
+	}
 
 	if (ibox->mbox_fd == -1) {
 		if (mbox_file_open(ibox) < 0)
@@ -85,12 +99,19 @@ int mbox_file_open_stream(struct index_mailbox *ibox)
 void mbox_file_close_stream(struct index_mailbox *ibox)
 {
 	if (ibox->mbox_stream != NULL) {
-		i_stream_close(ibox->mbox_file_stream);
-		i_stream_unref(ibox->mbox_file_stream);
-		ibox->mbox_file_stream = NULL;
-
 		i_stream_unref(ibox->mbox_stream);
 		ibox->mbox_stream = NULL;
+	}
+
+	if (ibox->mbox_file_stream != NULL) {
+		if (ibox->mbox_fd == -1) {
+			/* read-only mbox stream */
+			i_assert(ibox->mbox_readonly);
+		} else {
+			i_stream_close(ibox->mbox_file_stream);
+			i_stream_unref(ibox->mbox_file_stream);
+			ibox->mbox_file_stream = NULL;
+		}
 	}
 }
 

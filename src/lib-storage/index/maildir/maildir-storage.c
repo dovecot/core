@@ -446,14 +446,20 @@ maildir_open(struct index_storage *storage, const char *name,
 }
 
 static struct mailbox *
-maildir_mailbox_open(struct mail_storage *_storage,
-		     const char *name, enum mailbox_open_flags flags)
+maildir_mailbox_open(struct mail_storage *_storage, const char *name,
+		     struct istream *input, enum mailbox_open_flags flags)
 {
 	struct index_storage *storage = (struct index_storage *)_storage;
 	const char *path;
 	struct stat st;
 
 	mail_storage_clear_error(_storage);
+
+	if (input != NULL) {
+		mail_storage_set_critical(_storage,
+			"Maildir doesn't support streamed mailboxes");
+		return NULL;
+	}
 
 	if (strcmp(name, "INBOX") == 0) {
 		if (verify_inbox(storage) < 0)

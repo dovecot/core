@@ -74,7 +74,8 @@ int cmd_copy(struct client_command_context *cmd)
 	if (mailbox_equals(client->mailbox, storage, mailbox))
 		destbox = client->mailbox;
 	else {
-		destbox = mailbox_open(storage, mailbox, MAILBOX_OPEN_FAST |
+		destbox = mailbox_open(storage, mailbox, NULL,
+				       MAILBOX_OPEN_FAST |
 				       MAILBOX_OPEN_KEEP_RECENT);
 		if (destbox == NULL) {
 			client_send_storage_error(cmd, storage);

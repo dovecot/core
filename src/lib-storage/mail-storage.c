@@ -288,10 +288,11 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 	return storage->v.get_last_error(storage, syntax_error_r);
 }
 
-struct mailbox *mailbox_open(struct mail_storage *storage,
-			     const char *name, enum mailbox_open_flags flags)
+struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
+			     struct istream *input,
+			     enum mailbox_open_flags flags)
 {
-	return storage->v.mailbox_open(storage, name, flags);
+	return storage->v.mailbox_open(storage, name, input, flags);
 }
 
 int mailbox_close(struct mailbox *box)

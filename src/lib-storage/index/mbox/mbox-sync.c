@@ -1257,17 +1257,28 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 int mbox_sync_has_changed(struct index_mailbox *ibox, int leave_dirty)
 {
 	const struct mail_index_header *hdr;
-	struct stat st;
+	const struct stat *st;
+	struct stat statbuf;
+
+	if (ibox->mbox_file_stream != NULL && ibox->mbox_fd == -1) {
+		/* read-only stream */
+		st = i_stream_stat(ibox->mbox_file_stream);
+		if (st == NULL) {
+			mbox_set_syscall_error(ibox, "i_stream_stat()");
+			return -1;
+		}
+	} else {
+		if (stat(ibox->path, &statbuf) < 0) {
+			mbox_set_syscall_error(ibox, "stat()");
+			return -1;
+		}
+		st = &statbuf;
+	}
 
 	hdr = mail_index_get_header(ibox->view);
 
-	if (stat(ibox->path, &st) < 0) {
-		mbox_set_syscall_error(ibox, "stat()");
-		return -1;
-	}
-
-	if ((uint32_t)st.st_mtime == hdr->sync_stamp &&
-	    (uint64_t)st.st_size == hdr->sync_size) {
+	if ((uint32_t)st->st_mtime == hdr->sync_stamp &&
+	    (uint64_t)st->st_size == hdr->sync_size) {
 		/* fully synced */
 		ibox->mbox_sync_dirty = FALSE;
 		return 0;
@@ -1276,8 +1287,8 @@ int mbox_sync_has_changed(struct index_mailbox *ibox, int leave_dirty)
 	if (!ibox->mbox_sync_dirty || !leave_dirty)
 		return 1;
 
-	return st.st_mtime != ibox->mbox_dirty_stamp ||
-		st.st_size != ibox->mbox_dirty_size;
+	return st->st_mtime != ibox->mbox_dirty_stamp ||
+		st->st_size != ibox->mbox_dirty_size;
 }
 
 static int mbox_sync_update_imap_base(struct mbox_sync_context *sync_ctx)
