@@ -99,15 +99,33 @@ ssize_t my_writev(int fd, const struct iovec *iov, int iov_len)
 #ifndef HAVE_PWRITE
 ssize_t my_pread(int fd, void *buf, size_t count, off_t offset)
 {
+	ssize_t ret;
+
 	if (lseek(fd, offset, SEEK_SET) < 0)
 		return -1;
-	return read(fd, buf, count);
+
+	ret = read(fd, buf, count);
+	if (ret < 0)
+		return -1;
+
+	if (lseek(fd, offset, SEEK_SET) < 0)
+		return -1;
+	return ret;
 }
 
 ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset)
 {
+	ssize_t ret;
+
 	if (lseek(fd, offset, SEEK_SET) < 0)
 		return -1;
-	return write(fd, buf, count);
+
+	ret = write(fd, buf, count);
+	if (ret < 0)
+		return -1;
+
+	if (lseek(fd, offset, SEEK_SET) < 0)
+		return -1;
+	return ret;
 }
 #endif
