@@ -113,6 +113,11 @@ ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset);
 int my_seteuid(uid_t euid);
 #endif
 
+#ifndef HAVE_SETEGID
+#  define setegid my_setegid
+int my_setegid(gid_t egid);
+#endif
+
 #ifndef HAVE_LIBGEN_H
 #  define basename my_basename
 char *my_basename(char *path);

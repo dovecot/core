@@ -174,6 +174,18 @@ int my_seteuid(uid_t euid)
 }
 #endif
 
+#ifndef HAVE_SETEGID
+int my_setegid(gid_t egid)
+{
+#ifdef HAVE_SETRESGID
+	/* HP-UX at least doesn't have setegid() but has setresgid() */
+	return setresgid(-1, egid, -1);
+#else
+#  error Missing setegid functionality
+#endif
+}
+#endif
+
 #ifndef HAVE_LIBGEN_H
 char *my_basename(char *path)
 {
