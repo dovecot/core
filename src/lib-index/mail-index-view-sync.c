@@ -277,6 +277,8 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 
 			if (ctx->data_offset == ctx->hdr->size)
 				return 0;
+
+			update = CONST_PTR_OFFSET(data, ctx->data_offset);
 		}
                 mail_index_sync_get_update(rec, update);
 		break;
