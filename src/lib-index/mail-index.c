@@ -371,6 +371,19 @@ static void mail_index_unmap_forced(struct mail_index *index,
 	mail_index_unmap(index, map);
 }
 
+static void mail_index_map_copy_hdr(struct mail_index_map *map,
+				    const struct mail_index_header *hdr)
+{
+	if (hdr->base_header_size < sizeof(map->hdr)) {
+		/* header smaller than ours, make a copy so our newer headers
+		   won't have garbage in them */
+		memset(&map->hdr, 0, sizeof(map->hdr));
+		memcpy(&map->hdr, hdr, hdr->base_header_size);
+	} else {
+		map->hdr = *hdr;
+	}
+}
+
 static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 {
 	const struct mail_index_header *hdr;
@@ -421,14 +434,7 @@ static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 		return 0;
 	}
 
-	if (hdr->base_header_size < sizeof(map->hdr)) {
-		/* header smaller than ours, make a copy so our newer headers
-		   won't have garbage in them */
-		memset(&map->hdr, 0, sizeof(map->hdr));
-		memcpy(&map->hdr, hdr, hdr->base_header_size);
-	} else {
-		map->hdr = *hdr;
-	}
+	mail_index_map_copy_hdr(map, hdr);
 
 	map->hdr_base = map->mmap_base;
 	map->records = PTR_OFFSET(map->mmap_base, map->hdr.header_size);
@@ -531,12 +537,7 @@ static int mail_index_read_map(struct mail_index *index,
 	map->records = data;
 	map->records_count = hdr.messages_count;
 
-	if (hdr.base_header_size >= sizeof(map->hdr))
-		map->hdr = hdr;
-	else {
-		memset(&map->hdr, 0, sizeof(map->hdr));
-		memcpy(&map->hdr, &hdr, hdr.base_header_size);
-	}
+	mail_index_map_copy_hdr(map, &hdr);
 	map->hdr_base = map->hdr_copy_buf->data;
 
 	index->sync_log_file_seq = hdr.log_file_seq;
@@ -698,6 +699,7 @@ static int mail_index_map_try_existing(struct mail_index_map *map)
 	used_size = hdr->header_size + hdr->messages_count * hdr->record_size;
 	if (map->mmap_size >= used_size && map->hdr_base == hdr) {
 		map->records_count = hdr->messages_count;
+		mail_index_map_copy_hdr(map, hdr);
 		return 1;
 	}
 	return 0;
