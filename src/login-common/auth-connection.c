@@ -119,7 +119,8 @@ static void auth_connection_destroy(struct auth_connection *conn)
 		}
 	}
 
-        auth_waiting_handshake_count--;
+	if (!conn->handshake_received)
+		auth_waiting_handshake_count--;
 
 	if (close(conn->fd) < 0)
 		i_error("close(auth) failed: %m");
