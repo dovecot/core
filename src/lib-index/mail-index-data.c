@@ -133,6 +133,9 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 	}
 
 	if (size != 0) {
+		debug_mprotect(data->mmap_base, data->mmap_full_length,
+			       data->index);
+
 		if (pos + size <= data->mmap_used_length)
 			return TRUE;
 
@@ -444,6 +447,9 @@ uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
 	i_assert((size & (MEM_ALIGN_SIZE-1)) == 0);
 	i_assert(data->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
+	if (!mmap_update(data, 0, sizeof(MailIndexDataHeader)))
+		return 0;
+
 	if (size > data->mmap_full_length ||
 	    data->mmap_full_length - size < data->header->used_file_size) {
 		if (!mail_index_data_grow(data, size))
@@ -473,6 +479,11 @@ int mail_index_data_delete(MailIndexData *data, MailIndexRecord *index_rec)
 
 	/* just mark it deleted. */
 	data->header->deleted_space += rec_hdr->data_size;
+
+	/* clear the record data. not really needed, but better not to keep
+	   deleted information lying around.. */
+	memset((char *) rec_hdr + sizeof(MailIndexDataRecordHeader), 0,
+	       rec_hdr->data_size - sizeof(MailIndexDataRecordHeader));
 
 	/* see if we've reached the max. deleted space in file */
 	if (data->header->used_file_size >= COMPRESS_MIN_SIZE &&
