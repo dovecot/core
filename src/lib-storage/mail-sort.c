@@ -401,6 +401,7 @@ void mail_sort_input(struct mail_sort_context *ctx, unsigned int id)
 
 	i_assert(pos == ctx->sort_element_size);
 
+	ctx->callbacks->input_reset(ctx->func_context);
 	t_pop();
 }
 
