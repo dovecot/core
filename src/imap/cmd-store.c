@@ -101,6 +101,8 @@ int cmd_store(struct client *client)
 	if (box->is_readonly(box)) {
 		/* read-only, don't every try to get write locking */
 		failed = FALSE;
+		/* flag changes will fail, notify client about them */
+		silent = FALSE;
 	} else {
 		failed = !box->lock(box, MAILBOX_LOCK_FLAGS |
 				    MAILBOX_LOCK_READ);
