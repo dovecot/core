@@ -403,7 +403,7 @@ static uoff_t get_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
-	uoff_t hdr_size, body_size;
+	uoff_t hdr_size, body_size, hdr_phys_size;
 
 	if (data->size != (uoff_t)-1)
 		return data->size;
@@ -442,10 +442,12 @@ static uoff_t get_size(struct mail *_mail)
 	}
 
 	/* have to parse, slow.. */
-	if (!open_stream(mail, hdr_size != (uoff_t)-1 ? hdr_size : 0))
+	hdr_phys_size = hdr_size != (uoff_t)-1 && data->hdr_size_set ?
+		data->hdr_size.physical_size : (uoff_t)-1;
+	if (!open_stream(mail, hdr_phys_size != (uoff_t)-1 ? hdr_phys_size : 0))
 		return (uoff_t)-1;
 
-	if (hdr_size == (uoff_t)-1) {
+	if (hdr_phys_size == (uoff_t)-1) {
 		message_get_header_size(data->stream, &data->hdr_size);
 		hdr_size = data->hdr_size.virtual_size;
 		data->hdr_size_set = TRUE;
