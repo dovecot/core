@@ -196,7 +196,7 @@ static struct ip_addr *resolve_ip(const char *name, unsigned int *port)
 		return ip;
 	}
 
-	if (strcmp(name, "[::]") == 0) {
+	if (strcmp(name, "::") == 0) {
 		/* IPv6 any */
 		ip = t_new(struct ip_addr, 1);
 		net_get_ip_any6(ip);
