@@ -145,6 +145,23 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 	return index_mail_get_virtual_size(_mail);
 }
 
+static const char *
+maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	enum maildir_uidlist_rec_flag flags;
+	const char *fname, *end;
+
+	if (field == MAIL_FETCH_UIDL_FILE_NAME) {
+	    	fname = maildir_uidlist_lookup(mail->ibox->uidlist,
+					       mail->mail.uid, &flags);
+		end = strchr(fname, ':');
+		return end == NULL ? fname : t_strdup_until(fname, end);
+	}
+
+	return index_mail_get_special(_mail, field);
+}
+							
 static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
@@ -223,7 +240,7 @@ struct mail maildir_mail = {
 	index_mail_get_header,
 	index_mail_get_headers,
 	maildir_mail_get_stream,
-	index_mail_get_special,
+	maildir_mail_get_special,
 	index_mail_update_flags,
 	index_mail_expunge
 };

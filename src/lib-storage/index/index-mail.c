@@ -580,6 +580,7 @@ const char *index_mail_get_special(struct mail *_mail,
 			index_mail_headers_get_envelope(mail);
 		return data->envelope;
 	case MAIL_FETCH_FROM_ENVELOPE:
+	case MAIL_FETCH_UIDL_FILE_NAME:
 		return NULL;
 	case MAIL_FETCH_HEADER_MD5:
 		if (mail_index_lookup_ext(mail->trans->trans_view, data->seq,

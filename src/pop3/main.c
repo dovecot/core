@@ -87,6 +87,9 @@ static enum uidl_keys parse_uidl_keymask(const char *format)
 			case 'm':
 				mask |= UIDL_MD5;
 				break;
+			case 'f':
+				mask |= UIDL_FILE_NAME;
+				break;
 			}
 		}
 	}

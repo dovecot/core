@@ -483,6 +483,7 @@ static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		{ 'v', NULL },
 		{ 'u', NULL },
 		{ 'm', NULL },
+		{ 'f', NULL },
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
@@ -511,6 +512,11 @@ static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		if ((uidl_keymask & UIDL_MD5) != 0) {
 			tab[2].value =
 				mail->get_special(mail, MAIL_FETCH_HEADER_MD5);
+		}
+		if ((uidl_keymask & UIDL_FILE_NAME) != 0) {
+			tab[3].value =
+				mail->get_special(mail,
+						  MAIL_FETCH_UIDL_FILE_NAME);
 		}
 
 		str_truncate(str, 0);
