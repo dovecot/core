@@ -156,6 +156,11 @@ int mail_transaction_map(struct mail_index_map *map,
 			break;
 
 		for (i = 0; i < hdr->size; ) {
+			if (i + sizeof(*rec) > hdr->size) {
+				/* should be just extra padding */
+				break;
+			}
+
 			rec = CONST_PTR_OFFSET(data, i);
 			ret = func_map->extra_intro(rec, context);
 			if (ret <= 0)
