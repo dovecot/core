@@ -47,6 +47,7 @@ cmds = \
 	cmd-status.c \
 	cmd-store.c \
 	cmd-subscribe.c \
+	cmd-thread.c \
 	cmd-uid.c \
 	cmd-unsubscribe.c
 

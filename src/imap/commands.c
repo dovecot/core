@@ -73,6 +73,10 @@ ClientCommandFunc client_command_find(const char *name)
 		if (strcmp(name, "SUBSCRIBE") == 0)
 			return cmd_subscribe;
 		break;
+	case 'T':
+		if (strcmp(name, "THREAD") == 0)
+			return cmd_thread;
+		break;
 	case 'U':
 		if (strcmp(name, "UID") == 0)
 			return cmd_uid;

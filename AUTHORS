@@ -21,3 +21,5 @@ Havoc Pennington   <hp@pobox.com>
 Manish Singh       <yosh@gimp.org>
 Owen Taylor        <otaylor@gtk.org>
 Sebastian Wilhelmi <wilhelmi@ira.uka.de>
+
+Simon Tatham (src/lib-storage/mail-thread.c merge sorting)

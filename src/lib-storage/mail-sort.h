@@ -6,7 +6,7 @@
 /* Maximum size for sort program, 2x for reverse + END */
 #define MAX_SORT_PROGRAM_SIZE (2*7 + 1)
 
-struct mail_sort_funcs {
+struct mail_sort_callbacks {
 	/* arrival, date */
 	time_t (*input_time)(enum mail_sort_type type, unsigned int id,
 			     void *context);
@@ -33,11 +33,11 @@ struct mail_sort_funcs {
    is known, the less memory is used. */
 struct mail_sort_context *
 mail_sort_init(const enum mail_sort_type *input, enum mail_sort_type *output,
-	       struct mail_sort_funcs funcs, void *context);
+	       const struct mail_sort_callbacks *callbacks, void *context);
 void mail_sort_deinit(struct mail_sort_context *ctx);
 
 /* id is either UID or sequence number of message, whichever is preferred
-   in MailSortFuncs parameters. */
+   in mail_sort_callbacks parameters. */
 void mail_sort_input(struct mail_sort_context *ctx, unsigned int id);
 
 #endif

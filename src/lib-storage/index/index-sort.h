@@ -14,6 +14,6 @@ struct index_sort_context {
 	unsigned int cached:1;
 };
 
-extern struct mail_sort_funcs index_sort_funcs;
+extern struct mail_sort_callbacks index_sort_callbacks;
 
 #endif

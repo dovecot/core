@@ -33,6 +33,11 @@ int cmd_uid(struct client *client)
 		else if (strcasecmp(cmd, "SORT") == 0)
 			client->cmd_func = cmd_sort;
 		break;
+	case 't':
+	case 'T':
+		if (strcasecmp(cmd, "THREAD") == 0)
+			client->cmd_func = cmd_thread;
+		break;
 	}
 
 	if (client->cmd_func != NULL) {

@@ -103,11 +103,12 @@ int cmd_sort(struct client *client)
 	if (args->type != IMAP_ARG_ATOM && args->type != IMAP_ARG_STRING) {
 		client_send_command_error(client,
 					  "Invalid charset argument.");
+		return TRUE;
 	}
 	charset = IMAP_ARG_STR(args);
 	args++;
 
-	pool = pool_alloconly_create("MailSortArgs", 2048);
+	pool = pool_alloconly_create("mail_search_args", 2048);
 
 	sargs = mail_search_args_build(pool, args, &error);
 	if (sargs == NULL) {
@@ -115,7 +116,7 @@ int cmd_sort(struct client *client)
 		client_send_tagline(client, t_strconcat("NO ", error, NULL));
 	} else {
 		if (client->mailbox->search(client->mailbox, charset,
-					    sargs, sorting,
+					    sargs, sorting, MAIL_THREAD_NONE,
 					    client->output, client->cmd_uid)) {
 			/* NOTE: syncing is allowed when returning UIDs */
 			if (client->cmd_uid)

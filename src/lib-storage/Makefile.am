@@ -4,14 +4,17 @@ noinst_LIBRARIES = libstorage.a
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap
 
 libstorage_a_SOURCES = \
 	mail-search.c \
 	mail-sort.c \
-	mail-storage.c
+	mail-storage.c \
+	mail-thread.c
 
 noinst_HEADERS = \
 	mail-search.h \
 	mail-sort.h \
-	mail-storage.h
+	mail-storage.h \
+	mail-thread.h

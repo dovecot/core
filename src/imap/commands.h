@@ -37,6 +37,7 @@ int cmd_close(struct client *client);
 int cmd_expunge(struct client *client);
 int cmd_search(struct client *client);
 int cmd_sort(struct client *client);
+int cmd_thread(struct client *client);
 int cmd_fetch(struct client *client);
 int cmd_store(struct client *client);
 int cmd_copy(struct client *client);

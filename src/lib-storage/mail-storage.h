@@ -51,6 +51,12 @@ enum mail_sort_type {
 	MAIL_SORT_END		= 0x0000 /* ends sort program */
 };
 
+enum mail_thread_type {
+	MAIL_THREAD_NONE,
+	MAIL_THREAD_ORDEREDSUBJECT,
+	MAIL_THREAD_REFERENCES
+};
+
 struct mail_storage;
 struct mail_storage_callbacks;
 struct mailbox_status;
@@ -191,6 +197,7 @@ struct mailbox {
 	int (*search)(struct mailbox *box, const char *charset,
 		      struct mail_search_arg *args,
 		      enum mail_sort_type *sorting,
+		      enum mail_thread_type threading,
 		      struct ostream *output, int uid_result);
 
 	/* Save a new mail into mailbox. timezone_offset specifies the

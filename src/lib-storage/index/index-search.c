@@ -16,6 +16,7 @@
 #include "mail-modifylog.h"
 #include "mail-custom-flags.h"
 #include "mail-search.h"
+#include "mail-thread.h"
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -33,18 +34,25 @@ struct search_index_context {
 	struct index_mailbox *ibox;
 	struct mail_index_record *rec;
 	unsigned int client_seq;
-	int cached;
 	const char *charset;
 	const char *error;
+
+	unsigned int cached:1;
+	unsigned int threading:1;
+
+	/* for threading: */
+	const char *message_id, *in_reply_to, *references;
 };
 
 struct search_header_context {
         struct search_index_context *index_context;
 	struct mail_search_arg *args;
-	int custom_header;
 
 	const unsigned char *name, *value;
 	size_t name_len, value_len;
+
+	unsigned int custom_header:1;
+	unsigned int threading:1;
 };
 
 struct search_body_context {
@@ -532,7 +540,20 @@ static void search_header(struct message_part *part __attr_unused__,
 {
 	struct search_header_context *ctx = context;
 
-	if ((name_len > 0 && ctx->custom_header) ||
+	if (ctx->threading) {
+		struct search_index_context *ictx = ctx->index_context;
+
+		if (name_len == 10 && memcasecmp(name, "Message-ID", 10) == 0)
+			ictx->message_id = t_strndup(value, value_len);
+		else if (name_len == 11 &&
+			 memcasecmp(name, "In-Reply-To", 11) == 0)
+			ictx->in_reply_to = t_strndup(value, value_len);
+		else if (name_len == 10 &&
+			 memcasecmp(name, "References", 10) == 0)
+			ictx->references = t_strndup(value, value_len);
+	}
+
+	if ((ctx->custom_header && name_len > 0) ||
 	    (name_len == 4 && memcasecmp(name, "Date", 4) == 0) ||
 	    (name_len == 4 && memcasecmp(name, "From", 4) == 0) ||
 	    (name_len == 2 && memcasecmp(name, "To", 2) == 0) ||
@@ -581,6 +602,8 @@ static int search_arg_match_text(struct mail_search_arg *args,
 
 	/* first check what we need to use */
 	mail_search_args_analyze(args, &have_headers, &have_body, &have_text);
+	if (ctx->threading)
+		have_headers = TRUE;
 	if (!have_headers && !have_body && !have_text)
 		return TRUE;
 
@@ -594,6 +617,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 		hdr_ctx.index_context = ctx;
 		hdr_ctx.custom_header = TRUE;
 		hdr_ctx.args = args;
+		hdr_ctx.threading = ctx->threading;
 
 		message_parse_header(NULL, input, NULL,
 				     search_header, &hdr_ctx);
@@ -788,6 +812,7 @@ static int search_get_uid_range(struct index_mailbox *ibox,
 static int search_messages(struct index_mailbox *ibox, const char *charset,
 			   struct mail_search_arg *args,
 			   struct mail_sort_context *sort_ctx,
+			   struct mail_thread_context *thread_ctx,
 			   struct ostream *output, int uid_result)
 {
 	struct search_index_context ctx;
@@ -818,6 +843,7 @@ static int search_messages(struct index_mailbox *ibox, const char *charset,
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.ibox = ibox;
 	ctx.charset = charset;
+	ctx.threading = thread_ctx != NULL;
 
 	for (; rec != NULL && rec->uid <= last_uid; client_seq++) {
 		while (expunges->uid1 != 0 && expunges->uid1 < rec->uid) {
@@ -833,18 +859,22 @@ static int search_messages(struct index_mailbox *ibox, const char *charset,
 		ctx.client_seq = client_seq;
 		ctx.cached = FALSE;
 
+		ctx.message_id = ctx.in_reply_to = ctx.references = NULL;
+
 		mail_search_args_reset(args);
 
 		t_push();
+
 		mail_search_args_foreach(args, search_index_arg, &ctx);
 		mail_search_args_foreach(args, search_cached_arg, &ctx);
 		mail_search_args_foreach(args, search_envelope_arg, &ctx);
 		failed = !search_arg_match_text(args, &ctx);
                 imap_msgcache_close(ibox->cache);
-		t_pop();
 
-		if (ctx.error != NULL)
+		if (ctx.error != NULL) {
+			t_pop();
 			break;
+		}
 
 		if (!failed) {
 			found = TRUE;
@@ -856,19 +886,23 @@ static int search_messages(struct index_mailbox *ibox, const char *charset,
 			}
 
 			if (found) {
-				if (sort_ctx == NULL) {
-					t_push();
+				if (sort_ctx != NULL)
+					mail_sort_input(sort_ctx, rec->uid);
+				else if (thread_ctx != NULL) {
+					mail_thread_input(thread_ctx, rec->uid,
+							  ctx.message_id,
+							  ctx.in_reply_to,
+							  ctx.references);
+				} else {
 					o_stream_send(output, " ", 1);
 
 					str = dec2str(uid_result ? rec->uid :
 						      client_seq);
 					o_stream_send_str(output, str);
-					t_pop();
-				} else {
-					mail_sort_input(sort_ctx, rec->uid);
 				}
 			}
 		}
+		t_pop();
 
 		rec = ibox->index->next(ibox->index, rec);
 	}
@@ -884,33 +918,49 @@ static int search_messages(struct index_mailbox *ibox, const char *charset,
 int index_storage_search(struct mailbox *box, const char *charset,
 			 struct mail_search_arg *args,
 			 enum mail_sort_type *sorting,
+                         enum mail_thread_type threading,
 			 struct ostream *output, int uid_result)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 	struct mail_sort_context *sort_ctx;
+	struct mail_thread_context *thread_ctx;
 	struct index_sort_context index_sort_ctx;
 	int failed;
 
 	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_SHARED))
 		return FALSE;
 
-	if (sorting == NULL) {
-		sort_ctx = NULL;
-		o_stream_send_str(output, "* SEARCH");
-	} else {
+	if (sorting != NULL) {
 		memset(&index_sort_ctx, 0, sizeof(index_sort_ctx));
 		index_sort_ctx.ibox = ibox;
 		index_sort_ctx.output = output;
 
+		thread_ctx = NULL;
 		sort_ctx = mail_sort_init(sort_unsorted, sorting,
-					  index_sort_funcs, &index_sort_ctx);
+					  &index_sort_callbacks,
+					  &index_sort_ctx);
 		o_stream_send_str(output, "* SORT");
+	} else if (threading != MAIL_THREAD_NONE) {
+		memset(&index_sort_ctx, 0, sizeof(index_sort_ctx));
+		index_sort_ctx.ibox = ibox;
+
+		sort_ctx = NULL;
+		thread_ctx = mail_thread_init(threading, output,
+					      &index_sort_callbacks,
+					      &index_sort_ctx);
+		o_stream_send_str(output, "* THREAD");
+	} else {
+		sort_ctx = NULL;
+		thread_ctx = NULL;
+		o_stream_send_str(output, "* SEARCH");
 	}
 
-	failed = !search_messages(ibox, charset, args, sort_ctx,
+	failed = !search_messages(ibox, charset, args, sort_ctx, thread_ctx,
 				  output, uid_result);
 	if (sort_ctx != NULL)
 		mail_sort_deinit(sort_ctx);
+	if (thread_ctx != NULL)
+		mail_thread_finish(thread_ctx);
 
 	o_stream_send(output, "\r\n", 2);
 

@@ -1,5 +1,8 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
+/* Implementated against draft-ietf-imapext-sort-10 and
+   draft-ietf-imapext-thread-12 */
+
 #include "lib.h"
 #include "buffer.h"
 #include "charset-utf8.h"
@@ -79,7 +82,7 @@ static void pack_whitespace(buffer_t *buf)
 	buffer_set_used_size(buf, (size_t) (dest - data)+1);
 }
 
-static void remove_subj_trailers(buffer_t *buf)
+static void remove_subj_trailers(buffer_t *buf, int *is_reply_or_forward)
 {
 	const char *data;
 	size_t orig_size, size;
@@ -93,10 +96,14 @@ static void remove_subj_trailers(buffer_t *buf)
 	for (size = orig_size-2; size > 0; ) {
 		if (data[size] == ' ')
 			size--;
-		else if (size >= 5 && memcmp(data + size - 5, "(fwd)", 5) == 0)
+		else if (size >= 5 &&
+			 memcmp(data + size - 5, "(fwd)", 5) == 0) {
+			if (is_reply_or_forward != NULL)
+				*is_reply_or_forward = TRUE;
 			size -= 5;
-		else
+		} else {
 			break;
+		}
 	}
 
 	if (size != orig_size-2) {
@@ -126,7 +133,7 @@ static int remove_blob(const char **datap)
 	return TRUE;
 }
 
-static int remove_subj_leader(buffer_t *buf)
+static int remove_subj_leader(buffer_t *buf, int *is_reply_or_forward)
 {
 	const char *data, *orig_data;
 	int ret = FALSE;
@@ -173,6 +180,8 @@ static int remove_subj_leader(buffer_t *buf)
 	data++;
 	buffer_set_start_pos(buf, buffer_get_start_pos(buf) +
 			     (size_t) (data - orig_data));
+	if (is_reply_or_forward != NULL)
+		*is_reply_or_forward = TRUE;
 	return TRUE;
 }
 
@@ -190,7 +199,7 @@ static int remove_blob_when_nonempty(buffer_t *buf)
 	return FALSE;
 }
 
-static int remove_subj_fwd_hdr(buffer_t *buf)
+static int remove_subj_fwd_hdr(buffer_t *buf, int *is_reply_or_forward)
 {
 	const char *data;
 	size_t size;
@@ -206,6 +215,9 @@ static int remove_subj_fwd_hdr(buffer_t *buf)
 	if (data[size-2] != ']')
 		return FALSE;
 
+	if (is_reply_or_forward != NULL)
+		*is_reply_or_forward = TRUE;
+
 	buffer_set_used_size(buf, size-2);
 	buffer_append_c(buf, '\0');
 
@@ -213,11 +225,15 @@ static int remove_subj_fwd_hdr(buffer_t *buf)
 	return TRUE;
 }
 
-const char *imap_get_base_subject_cased(pool_t pool, const char *subject)
+const char *imap_get_base_subject_cased(pool_t pool, const char *subject,
+					int *is_reply_or_forward)
 {
 	buffer_t *buf;
 	size_t subject_len;
 	int found;
+
+	if (is_reply_or_forward != NULL)
+		*is_reply_or_forward = FALSE;
 
 	subject_len = strlen(subject);
 	buf = buffer_create_dynamic(pool, subject_len, (size_t)-1);
@@ -235,12 +251,12 @@ const char *imap_get_base_subject_cased(pool_t pool, const char *subject)
 		/* (2) Remove all trailing text of the subject that matches
 		   the subj-trailer ABNF, repeat until no more matches are
 		   possible. */
-		remove_subj_trailers(buf);
+		remove_subj_trailers(buf, is_reply_or_forward);
 
 		do {
 			/* (3) Remove all prefix text of the subject that
 			   matches the subj-leader ABNF. */
-			found = remove_subj_leader(buf);
+			found = remove_subj_leader(buf, is_reply_or_forward);
 
 			/* (4) If there is prefix text of the subject that
 			   matches the subj-blob ABNF, and removing that prefix
@@ -254,7 +270,7 @@ const char *imap_get_base_subject_cased(pool_t pool, const char *subject)
 		/* (6) If the resulting text begins with the subj-fwd-hdr ABNF
 		   and ends with the subj-fwd-trl ABNF, remove the
 		   subj-fwd-hdr and subj-fwd-trl and repeat from step (2). */
-	} while (remove_subj_fwd_hdr(buf));
+	} while (remove_subj_fwd_hdr(buf, is_reply_or_forward));
 
 	/* (7) The resulting text is the "base subject" used in the
 	   SORT. */

@@ -14,7 +14,7 @@ struct mail_sort_context {
 	enum mail_sort_type output[MAX_SORT_PROGRAM_SIZE];
 	enum mail_sort_type common_mask;
 
-	struct mail_sort_funcs funcs;
+	const struct mail_sort_callbacks *callbacks;
 	void *func_context;
 
 	buffer_t *sort_buffer;
@@ -76,7 +76,7 @@ mail_sort_get_common_mask(const enum mail_sort_type *input,
 
 struct mail_sort_context *
 mail_sort_init(const enum mail_sort_type *input, enum mail_sort_type *output,
-	       struct mail_sort_funcs funcs, void *context)
+	       const struct mail_sort_callbacks *callbacks, void *context)
 {
 	struct mail_sort_context *ctx;
 	enum mail_sort_type norm_input[MAX_SORT_PROGRAM_SIZE];
@@ -110,7 +110,7 @@ mail_sort_init(const enum mail_sort_type *input, enum mail_sort_type *output,
 						 (size_t)-1);
 
 	ctx->temp_pool = pool_alloconly_create("Sort", 8192);
-	ctx->funcs = funcs;
+	ctx->callbacks = callbacks;
 	ctx->func_context = context;
 	return ctx;
 }
@@ -151,8 +151,8 @@ static int subject_cmp(pool_t pool, const char *s1, const char *s2)
 		return 1;
 
 	p_clear(pool);
-	ret = strcmp(imap_get_base_subject_cased(pool, s1),
-		     imap_get_base_subject_cased(pool, s2));
+	ret = strcmp(imap_get_base_subject_cased(pool, s1, NULL),
+		     imap_get_base_subject_cased(pool, s2, NULL));
 	return ret;
 }
 
@@ -165,8 +165,8 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 	int changed = FALSE;
 
 	if (ctx->common_mask & MAIL_SORT_ARRIVAL) {
-		t = ctx->funcs.input_time(MAIL_SORT_ARRIVAL, id,
-					  ctx->func_context);
+		t = ctx->callbacks->input_time(MAIL_SORT_ARRIVAL, id,
+					       ctx->func_context);
 		if (t != ctx->last_arrival) {
 			ctx->last_arrival = t;
 			changed = TRUE;
@@ -174,8 +174,8 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 	}
 
 	if (ctx->common_mask & MAIL_SORT_CC) {
-		str = ctx->funcs.input_str(MAIL_SORT_CC, id,
-					   ctx->func_context);
+		str = ctx->callbacks->input_str(MAIL_SORT_CC, id,
+						ctx->func_context);
 		if (addr_strcmp(str, ctx->last_cc) != 0) {
 			i_free(ctx->last_cc);
 			ctx->last_cc = i_strdup(str);
@@ -184,8 +184,8 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 	}
 
 	if (ctx->common_mask & MAIL_SORT_DATE) {
-		t = ctx->funcs.input_time(MAIL_SORT_DATE, id,
-					  ctx->func_context);
+		t = ctx->callbacks->input_time(MAIL_SORT_DATE, id,
+					       ctx->func_context);
 		if (t != ctx->last_date) {
 			ctx->last_date = t;
 			changed = TRUE;
@@ -193,8 +193,8 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 	}
 
 	if (ctx->common_mask & MAIL_SORT_FROM) {
-		str = ctx->funcs.input_str(MAIL_SORT_FROM, id,
-					   ctx->func_context);
+		str = ctx->callbacks->input_str(MAIL_SORT_FROM, id,
+						ctx->func_context);
 		if (addr_strcmp(str, ctx->last_from) != 0) {
 			i_free(ctx->last_from);
 			ctx->last_from = i_strdup(str);
@@ -203,8 +203,8 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 	}
 
 	if (ctx->common_mask & MAIL_SORT_SIZE) {
-		size = ctx->funcs.input_time(MAIL_SORT_SIZE, id,
-					     ctx->func_context);
+		size = ctx->callbacks->input_time(MAIL_SORT_SIZE, id,
+						  ctx->func_context);
 		if (size != ctx->last_size) {
 			ctx->last_size = size;
 			changed = TRUE;
@@ -212,8 +212,8 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 	}
 
 	if (ctx->common_mask & MAIL_SORT_SUBJECT) {
-		str = ctx->funcs.input_str(MAIL_SORT_SUBJECT, id,
-					   ctx->func_context);
+		str = ctx->callbacks->input_str(MAIL_SORT_SUBJECT, id,
+						ctx->func_context);
 		if (subject_cmp(ctx->temp_pool, str, ctx->last_subject) != 0) {
 			i_free(ctx->last_subject);
 			ctx->last_subject = i_strdup(str);
@@ -222,8 +222,8 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 	}
 
 	if (ctx->common_mask & MAIL_SORT_TO) {
-		str = ctx->funcs.input_str(MAIL_SORT_TO, id,
-					   ctx->func_context);
+		str = ctx->callbacks->input_str(MAIL_SORT_TO, id,
+						ctx->func_context);
 		if (addr_strcmp(str, ctx->last_to) != 0) {
 			i_free(ctx->last_to);
 			ctx->last_to = i_strdup(str);
@@ -249,10 +249,14 @@ static int mail_sort_qsort_func(const void *p1, const void *p2)
 {
 	const unsigned int *i1 = p1;
 	const unsigned int *i2 = p2;
-	enum mail_sort_type *output = mail_sort_qsort_context->output;
-        struct mail_sort_funcs *funcs = &mail_sort_qsort_context->funcs;
-	void *ctx = mail_sort_qsort_context->func_context;
+	enum mail_sort_type *output;
+        const struct mail_sort_callbacks *cb;
+	void *ctx;
 	int ret, reverse = FALSE;
+
+	output = mail_sort_qsort_context->output;
+	cb = mail_sort_qsort_context->callbacks;
+	ctx = mail_sort_qsort_context->func_context;
 
 	t_push();
 
@@ -268,16 +272,16 @@ static int mail_sort_qsort_func(const void *p1, const void *p2)
 		case MAIL_SORT_DATE: {
 			time_t r1, r2;
 
-			r1 = funcs->input_time(*output, *i1, ctx);
-			r2 = funcs->input_time(*output, *i2, ctx);
+			r1 = cb->input_time(*output, *i1, ctx);
+			r2 = cb->input_time(*output, *i2, ctx);
 			ret = r1 < r2 ? -1 : r1 > r2 ? 1 : 0;
 			break;
 		}
 		case MAIL_SORT_SIZE: {
 			uoff_t r1, r2;
 
-			r1 = funcs->input_uofft(*output, *i1, ctx);
-			r2 = funcs->input_uofft(*output, *i2, ctx);
+			r1 = cb->input_uofft(*output, *i1, ctx);
+			r2 = cb->input_uofft(*output, *i2, ctx);
 			ret = r1 < r2 ? -1 : r1 > r2 ? 1 : 0;
 			break;
 		}
@@ -286,15 +290,15 @@ static int mail_sort_qsort_func(const void *p1, const void *p2)
 		case MAIL_SORT_TO: {
 			const char *a1, *a2;
 
-			a1 = funcs->input_mailbox(*output, *i1, ctx);
-			a2 = funcs->input_mailbox(*output, *i2, ctx);
+			a1 = cb->input_mailbox(*output, *i1, ctx);
+			a2 = cb->input_mailbox(*output, *i2, ctx);
 			ret = addr_strcmp(a1, a2);
 			break;
 		}
 		case MAIL_SORT_SUBJECT:
 			ret = subject_cmp(mail_sort_qsort_context->temp_pool,
-					  funcs->input_str(*output, *i1, ctx),
-					  funcs->input_str(*output, *i2, ctx));
+					  cb->input_str(*output, *i1, ctx),
+					  cb->input_str(*output, *i2, ctx));
 			break;
 		default:
 			i_unreached();
@@ -310,7 +314,7 @@ static int mail_sort_qsort_func(const void *p1, const void *p2)
 		reverse = FALSE;
 	}
 
-	funcs->input_reset(ctx);
+	cb->input_reset(ctx);
 
 	t_pop();
 
@@ -328,6 +332,6 @@ static void mail_sort_flush(struct mail_sort_context *ctx)
 	count = buffer_get_used_size(ctx->sort_buffer) / sizeof(unsigned int);
 	qsort(arr, count, sizeof(unsigned int), mail_sort_qsort_func);
 
-	ctx->funcs.output(arr, count, ctx->func_context);
+	ctx->callbacks->output(arr, count, ctx->func_context);
 	buffer_set_used_size(ctx->sort_buffer, 0);
 }

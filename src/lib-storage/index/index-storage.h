@@ -92,6 +92,7 @@ int index_storage_fetch(struct mailbox *box, struct mail_fetch_data *fetch_data,
 int index_storage_search(struct mailbox *box, const char *charset,
 			 struct mail_search_arg *args,
 			 enum mail_sort_type *sorting,
+                         enum mail_thread_type threading,
 			 struct ostream *output, int uid_result);
 
 #endif

@@ -12,9 +12,12 @@
 static struct imap_message_cache *
 search_open_cache(struct index_sort_context *ctx, unsigned int uid)
 {
+	i_assert(uid != 0);
+
 	if (ctx->last_uid != uid) {
 		ctx->cached = FALSE;
 		ctx->last_uid = uid;
+
 		ctx->rec = ctx->ibox->index->lookup_uid_range(ctx->ibox->index,
 							      uid, uid, NULL);
 		if (ctx->rec == NULL) {
@@ -156,6 +159,7 @@ static void _output(unsigned int *data, size_t count, void *context)
 	struct index_sort_context *ctx = context;
 	size_t i;
 
+	/* FIXME: works only with UIDs! */
 	for (i = 0; i < count; i++) {
 		t_push();
 		o_stream_send(ctx->output, " ", 1);
@@ -164,7 +168,7 @@ static void _output(unsigned int *data, size_t count, void *context)
 	}
 }
 
-struct mail_sort_funcs index_sort_funcs = {
+struct mail_sort_callbacks index_sort_callbacks = {
 	_input_time,
 	_input_uofft,
 	_input_mailbox,
