@@ -401,8 +401,15 @@ static void o_buffer_grow(FileOBuffer *fbuf, size_t bytes)
 	size_t size, head_size;
 
 	size = nearest_power(fbuf->buffer_size + bytes);
-	if (fbuf->max_buffer_size > 0 && size > fbuf->max_buffer_size)
-		size = fbuf->max_buffer_size;
+	if (fbuf->max_buffer_size != 0) {
+		if (size > fbuf->max_buffer_size) {
+			/* limit the size */
+			size = fbuf->max_buffer_size;
+		} else if (fbuf->corked) {
+			/* use the largest possible buffer with corking */
+			size = fbuf->max_buffer_size;
+		}
+	}
 
 	if (size == fbuf->buffer_size)
 		return;
