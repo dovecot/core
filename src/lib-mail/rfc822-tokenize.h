@@ -38,7 +38,7 @@ struct _Rfc822Token {
 
    missing_char == '\0': unexpected character at str[pos]
    missing_char != '\0': missing character */
-typedef int (*Rfc822TokenizeErrorFunc)(const char *str, int pos,
+typedef int (*Rfc822TokenizeErrorFunc)(const char *str, size_t pos,
 				       char missing_char, void *context);
 
 /* Tokenize the string. Returns NULL if string is empty. Memory for

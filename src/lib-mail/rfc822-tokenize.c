@@ -8,14 +8,14 @@
 #define PARSE_ERROR() \
 	STMT_START { \
 	if (error_func != NULL && \
-	    !error_func(str, (int) (p-str), '\0', context)) \
+	    !error_func(str, (size_t) (p-str), '\0', context)) \
 		return NULL; \
 	} STMT_END
 
 #define PARSE_ERROR_MISSING(c) \
 	STMT_START { \
 	if (error_func != NULL && \
-	    !error_func(str, (int) (p-str), c, context)) \
+	    !error_func(str, (size_t) (p-str), c, context)) \
 		return NULL; \
 	} STMT_END
 
@@ -92,7 +92,7 @@ const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 			if (level > 0)
 				PARSE_ERROR_MISSING(')');
 
-			token->len = (int) (p - token->ptr);
+			token->len = (size_t) (p - token->ptr);
 			break;
 
 		case '[':
@@ -109,7 +109,7 @@ const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 					PARSE_ERROR();
 				}
 			}
-			token->len = (int) (p - token->ptr);
+			token->len = (size_t) (p - token->ptr);
 
 			if (*p == '\0')
 				PARSE_ERROR_MISSING(']');
@@ -124,7 +124,7 @@ const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 				if (*p == '\\' && p[1] != '\0')
 					p++;
 			}
-			token->len = (int) (p - token->ptr);
+			token->len = (size_t) (p - token->ptr);
 
 			if (*p == '\0')
 				PARSE_ERROR_MISSING('"');
@@ -173,7 +173,7 @@ const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 	}
 
 	if (in_bracket && error_func != NULL) {
-		if (!error_func(str, (int) (p-str), '>', context))
+		if (!error_func(str, (size_t) (p-str), '>', context))
 			return NULL;
 	}
 
