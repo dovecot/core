@@ -55,6 +55,7 @@ static int init_mailbox(struct client *client)
 	}
 
 	client->messages_count = status.messages;
+	client->deleted_size = 0;
 	client->uidvalidity = status.uidvalidity;
 
 	if (client->messages_count == 0)
@@ -76,6 +77,7 @@ static int init_mailbox(struct client *client)
 		}
 
 		client->total_size = 0;
+		client->deleted_size = 0;
 		failed = FALSE;
 		while ((mail = mailbox_search_next(ctx)) != NULL) {
 			uoff_t size = mail->get_size(mail);

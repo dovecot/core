@@ -105,6 +105,8 @@ static int cmd_dele(struct client *client, const char *args)
 	}
 
 	client->deleted_bitmask[msgnum / CHAR_BIT] |= 1 << (msgnum % CHAR_BIT);
+	client->deleted_count++;
+	client->deleted_size += client->message_sizes[msgnum];
 	client_send_line(client, "+OK Marked to be deleted.");
 	return TRUE;
 }
@@ -115,8 +117,13 @@ static int cmd_list(struct client *client, const char *args)
 
 	if (*args == '\0') {
 		client_send_line(client, "+OK %u messages:",
-				 client->messages_count);
+				 client->messages_count - client->deleted_count);
 		for (i = 0; i < client->messages_count; i++) {
+			if (client->deleted) {
+				if (client->deleted_bitmask[i / CHAR_BIT] &
+				    (1 << (i % CHAR_BIT)))
+					continue;
+			}
 			client_send_line(client, "%u %"PRIuUOFF_T,
 					 i+1, client->message_sizes[i]);
 		}
@@ -321,6 +328,8 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 	if (client->deleted) {
 		client->deleted = FALSE;
 		memset(client->deleted_bitmask, 0, MSGS_BITMASK_SIZE(client));
+		client->deleted_count = 0;
+		client->deleted_size = 0;
 	}
 
 	client_send_line(client, "+OK");
@@ -330,7 +339,8 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 static int cmd_stat(struct client *client, const char *args __attr_unused__)
 {
 	client_send_line(client, "+OK %u %"PRIuUOFF_T, client->
-			 messages_count, client->total_size);
+			 messages_count - client->deleted_count,
+			 client->total_size - client->deleted_size);
 	return TRUE;
 }
 
@@ -379,6 +389,13 @@ static void list_uids(struct client *client, unsigned int message)
 	}
 
 	while ((mail = mailbox_search_next(ctx)) != NULL) {
+		if (client->deleted) {
+			uint32_t idx = mail->seq - 1;
+			if (client->deleted_bitmask[idx / CHAR_BIT] &
+			    (1 << (idx % CHAR_BIT)))
+				continue;
+		}
+
 		client_send_line(client, message == 0 ?
 				 "%u %u.%u" : "+OK %u %u.%u",
 				 mail->seq, client->uidvalidity, mail->uid);

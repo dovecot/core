@@ -16,9 +16,11 @@ struct client {
 	unsigned int bad_counter;
 
 	unsigned int messages_count;
+	unsigned int deleted_count;
 	unsigned int uidvalidity;
 	uoff_t *message_sizes;
 	uoff_t total_size;
+	uoff_t deleted_size;
 
 	unsigned char *deleted_bitmask;
 
