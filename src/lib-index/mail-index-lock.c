@@ -74,18 +74,21 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	}
 
 	if (update_index && index->excl_lock_count == 0) {
+		i_assert(index->lock_type != F_WRLCK);
 		if ((ret2 = mail_index_refresh(index)) < 0)
 			return -1;
 		if (ret > 0 && ret2 == 0) {
-			if (mail_index_lock_mprotect(index, lock_type) < 0)
+			if (mail_index_lock_mprotect(index,
+						     index->lock_type) < 0)
 				return -1;
 			return 1;
 		}
 		ret = 0;
 	}
 
-	if (ret > 0)
+	if (ret > 0) {
 		return 1;
+	}
 
 	if (index->fcntl_locks_disable) {
 		/* FIXME: exclusive locking will rewrite the index file every
@@ -319,6 +322,7 @@ static void mail_index_excl_unlock_finish(struct mail_index *index)
 
 	if (index->shared_lock_count > 0 && !index->fcntl_locks_disable) {
 		/* leave ourself shared locked. */
+		index->lock_type = F_RDLCK;
 		if (file_try_lock(index->fd, F_RDLCK) <= 0) {
 			mail_index_file_set_syscall_error(index,
 							  index->copy_lock_path,
