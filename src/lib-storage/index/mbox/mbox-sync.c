@@ -629,17 +629,17 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		needed_space = mail_ctx->mail.space - sync_ctx->space_diff;
 		if ((uoff_t)sync_ctx->space_diff > needed_space + extra_space) {
 			/* don't waste too much on padding */
-			sync_ctx->expunged_space = mail_ctx->mail.space -
-				(needed_space + extra_space);
-			sync_ctx->space_diff = needed_space + extra_space;
+			move_diff = needed_space + extra_space;
+			sync_ctx->expunged_space =
+				mail_ctx->mail.space - move_diff;
 		} else {
-			extra_space = sync_ctx->space_diff;
+			move_diff = mail_ctx->mail.space;
+			extra_space = sync_ctx->space_diff - needed_space;
 		}
 		last_seq = sync_ctx->seq - 1;
 		buffer_set_used_size(sync_ctx->mails, sync_ctx->mails->used -
 				     sizeof(mail_ctx->mail));
 		end_offset = mail_ctx->mail.from_offset;
-		move_diff = sync_ctx->space_diff;
 	} else {
 		/* this message gave enough space from headers. rewriting stops
 		   at the end of this message's headers. */
