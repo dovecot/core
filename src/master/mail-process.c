@@ -175,8 +175,7 @@ int create_mail_process(int socket, struct ip_addr *ip,
 		env_put("OVERWRITE_INCOMPATIBLE_INDEX=1");
 	if (set->mail_full_filesystem_access)
 		env_put("FULL_FILESYSTEM_ACCESS=1");
-	if (umask(set->umask) != set->umask)
-		i_fatal("Invalid umask: %o", set->umask);
+	(void)umask(set->umask);
 
 	env_put(t_strconcat("MBOX_LOCKS=", set->mbox_locks, NULL));
 	env_put(t_strdup_printf("MBOX_LOCK_TIMEOUT=%u",
