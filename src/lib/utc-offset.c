@@ -1,6 +1,4 @@
 /*
- compat.c : Compatibility functions for OSes not having them
-
     Copyright (c) 2002 Timo Sirainen
 
     Permission is hereby granted, free of charge, to any person obtaining
