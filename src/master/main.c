@@ -327,7 +327,7 @@ static void listen_protocols(struct settings *set, int retry)
 			*fd = null_fd;
 		else {
 			for (i = 0; i < 10; i++) {
-				*fd = net_listen(ip, &port);
+				*fd = net_listen(ip, &port, 8);
 				if (*fd != -1 || errno != EADDRINUSE || !retry)
 					break;
 

@@ -79,7 +79,7 @@ static gid_t get_gid(const char *group)
 	return gr->gr_gid;
 }
 
-static int create_unix_listener(const char *env)
+static int create_unix_listener(const char *env, int backlog)
 {
 	const char *path, *mode, *user, *group;
 	mode_t old_umask;
@@ -103,7 +103,7 @@ static int create_unix_listener(const char *env)
 
 	old_umask = umask(mask);
 	for (i = 0; i < 5; i++) {
-		fd = net_listen_unix(path);
+		fd = net_listen_unix(path, backlog);
 		if (fd != -1)
 			break;
 
@@ -149,9 +149,9 @@ static void add_extra_listeners(void)
 		}
 
 		str = t_strdup_printf("AUTH_%u", i);
-		client_fd = create_unix_listener(str);
+		client_fd = create_unix_listener(str, 16);
 		str = t_strdup_printf("AUTH_%u_MASTER", i);
-		master_fd = create_unix_listener(str);
+		master_fd = create_unix_listener(str, 1);
 
 		master = auth_master_connection_create(auth, -1);
 		if (master_fd != -1) {

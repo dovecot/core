@@ -371,7 +371,7 @@ static int auth_process_socket_create(struct auth_settings *auth_set, pid_t pid)
 	(void)unlink(path);
 
 	old_umask = umask(0117); /* we want 0660 mode for the socket */
-	fd = net_listen_unix(path);
+	fd = net_listen_unix(path, 16);
 	umask(old_umask);
 
 	if (fd < 0)

@@ -175,7 +175,7 @@ int master_connect(const char *group_name)
 		}
 
 		/* need to create it */
-		fd = net_listen_unix(path);
+		fd = net_listen_unix(path, 16);
 		if (fd != -1) {
 			master_exec(fd);
 			fd = -1;

@@ -9,8 +9,6 @@
 #include <sys/un.h>
 #include <netinet/tcp.h>
 
-#define LISTEN_BACKLOG 8
-
 union sockaddr_union {
 	struct sockaddr sa;
 	struct sockaddr_in sin;
@@ -241,7 +239,7 @@ void net_get_ip_any6(struct ip_addr *ip)
 
 /* Listen for connections on a socket. if `my_ip' is NULL, listen in any
    address. */
-int net_listen(const struct ip_addr *my_ip, unsigned int *port)
+int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 {
 	union sockaddr_union so;
 	int ret, fd, opt = 1;
@@ -281,7 +279,7 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port)
 			*port = sin_get_port(&so);
 
 			/* start listening */
-			if (listen(fd, LISTEN_BACKLOG) >= 0)
+			if (listen(fd, backlog) >= 0)
                                 return fd;
 		}
 
@@ -292,7 +290,7 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port)
 	return -1;
 }
 
-int net_listen_unix(const char *path)
+int net_listen_unix(const char *path, int backlog)
 {
 	struct sockaddr_un sa;
 	int fd;
@@ -313,7 +311,7 @@ int net_listen_unix(const char *path)
 	/* bind */
 	if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) == 0) {
 		/* start listening */
-		if (listen(fd, LISTEN_BACKLOG) == 0)
+		if (listen(fd, backlog) == 0)
 			return fd;
 	}
 
