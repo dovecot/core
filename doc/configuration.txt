@@ -130,5 +130,5 @@ exploiting some local just released vulnerability, unless you bothered to
 set up special chroot environment).
 
 Anyway, doing it is easy. configure --prefix=$HOME, make install, change
-login_user and auth_user in dovecot.conf to your user id and use
-passwd-file authentication.
+login_user and auth_user in dovecot.conf to your user id, disable all
+chrooting and use passwd-file authentication.
