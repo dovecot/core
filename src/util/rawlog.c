@@ -40,9 +40,9 @@ static void copy(int in, int out, int log)
 	}
 
 	net_set_nonblock(in, TRUE);
-	do {
-		r_ret = net_receive(in, buf, sizeof(buf));
-	} while (r_ret == 0);
+	r_ret = net_receive(in, buf, sizeof(buf));
+	if (r_ret == 0)
+		return;
 
 	if (r_ret < 0) {
 		if (r_ret == -1)
