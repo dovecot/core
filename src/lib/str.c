@@ -123,7 +123,10 @@ void str_vprintfa(String *str, const char *fmt, va_list args)
 {
 	char *buf;
 	int ret;
+	va_list args2;
 	size_t len, append_len;
+
+	VA_COPY(args2, args);
 
 	len = buffer_get_used_size(str);
 
@@ -133,10 +136,10 @@ void str_vprintfa(String *str, const char *fmt, va_list args)
 	buf = buffer_append_space(str, append_len);
 
 #ifdef HAVE_VSNPRINTF
-	ret = vsnprintf(buf, append_len, fmt, args);
+	ret = vsnprintf(buf, append_len, fmt, args2);
 	i_assert(ret >= 0 && (size_t)ret <= append_len);
 #else
-	ret = vsprintf(buf, fmt, args);
+	ret = vsprintf(buf, fmt, args2);
 	i_assert(ret >= 0);
 #endif
 

@@ -40,7 +40,8 @@
 #define POINTER_CAST_TO(p, type) \
 	((type) ((const char *) (p) - (const char *) NULL))
 
-/* Define VA_COPY() to do the right thing for copying va_list variables. */
+/* Define VA_COPY() to do the right thing for copying va_list variables.
+   config.h may have already defined VA_COPY as va_copy or __va_copy. */
 #ifndef VA_COPY
 #  if defined (__GNUC__) && defined (__PPC__) && (defined (_CALL_SYSV) || defined (_WIN32))
 #    define VA_COPY(ap1, ap2) (*(ap1) = *(ap2))

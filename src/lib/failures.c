@@ -83,6 +83,7 @@ static void default_handler(const char *prefix, FILE *f,
 			    const char *format, va_list args)
 {
 	static int recursed = 0;
+	va_list args2;
 	int old_errno = errno;
 
 	if (recursed == 2) {
@@ -100,6 +101,8 @@ static void default_handler(const char *prefix, FILE *f,
 			log_fd = stderr;
 	}
 
+	VA_COPY(args2, args);
+
 	t_push();
 	if (recursed == 2) {
 		/* write without fixing format, that probably killed us
@@ -107,7 +110,7 @@ static void default_handler(const char *prefix, FILE *f,
 
 		/* make sure there's no %n in there */
                 (void)printf_string_upper_bound(format, args);
-		vfprintf(f, format, args);
+		vfprintf(f, format, args2);
 		fputs(" - recursed!", f);
 	} else {
 		write_prefix(f);
@@ -116,7 +119,7 @@ static void default_handler(const char *prefix, FILE *f,
 		format = printf_string_fix_format(format);
 		/* make sure there's no %n in there */
                 (void)printf_string_upper_bound(format, args);
-		vfprintf(f, format, args);
+		vfprintf(f, format, args2);
 	}
 
 	fputc('\n', f);
@@ -270,6 +273,8 @@ void i_set_info_handler(FailureFunc func)
 
 static void syslog_handler(int level, const char *format, va_list args)
 {
+	va_list args2;
+
 	static int recursed = 0;
 
 	if (recursed != 0)
@@ -278,9 +283,10 @@ static void syslog_handler(int level, const char *format, va_list args)
 	recursed++;
 
 	/* make sure there's no %n in there */
+	VA_COPY(args2, args);
 	(void)printf_string_upper_bound(format, args);
 
-	vsyslog(level, format, args);
+	vsyslog(level, format, args2);
 	recursed--;
 }
 

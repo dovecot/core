@@ -97,7 +97,7 @@ int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 #ifndef HAVE_VSNPRINTF
 	char *buf;
 #endif
-	va_list args;
+	va_list args, args2;
 	ssize_t len;
 	int ret;
 
@@ -106,18 +106,21 @@ int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 	t_push();
 
 	va_start(args, format);
+	VA_COPY(args2, args);
+
 	format = printf_string_fix_format(format);
 	len = printf_string_upper_bound(format, args);
-	va_end(args);
 
 	i_assert(len >= 0);
 
 #ifdef HAVE_VSNPRINTF
-	len = vsnprintf(dest, max_chars, format, args);
+	len = vsnprintf(dest, max_chars, format, args2);
 #else
 	buf = t_buffer_get(len);
-	len = vsprintf(buf, format, args);
+	len = vsprintf(buf, format, args2);
 #endif
+	va_end(args);
+
 	if (len < 0) {
 		/* some error occured */
 		len = 0;
@@ -213,6 +216,7 @@ char *p_strdup_printf(Pool pool, const char *format, ...)
 char *p_strdup_vprintf(Pool pool, const char *format, va_list args)
 {
 	char *ret;
+	va_list args2;
 	size_t len;
 
 	i_assert(format != NULL);
@@ -220,15 +224,17 @@ char *p_strdup_vprintf(Pool pool, const char *format, va_list args)
 	if (pool != data_stack_pool)
 		t_push();
 
+	VA_COPY(args2, args);
+
 	format = printf_string_fix_format(format);
 
 	len = printf_string_upper_bound(format, args);
         ret = p_malloc(pool, len);
 
 #ifdef HAVE_VSNPRINTF
-	vsnprintf(ret, len, format, args);
+	vsnprintf(ret, len, format, args2);
 #else
-	vsprintf(ret, format, args);
+	vsprintf(ret, format, args2);
 #endif
 	if (pool != data_stack_pool)
 		t_pop();
