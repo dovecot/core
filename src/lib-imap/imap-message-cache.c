@@ -33,6 +33,9 @@ struct _CachedMessage {
 	MessageSize *body_size;
 	MessageSize *partial_size;
 
+	time_t internal_date;
+	uoff_t full_virtual_size;
+
 	char *cached_body;
 	char *cached_bodystructure;
 	char *cached_envelope;
@@ -107,6 +110,8 @@ static CachedMessage *cache_new(ImapMessageCache *cache, unsigned int uid)
 	msg = p_new(pool, CachedMessage, 1);
 	msg->pool = pool;
 	msg->uid = uid;
+	msg->internal_date = (time_t)-1;
+	msg->full_virtual_size = (uoff_t)-1;
 
 	msg->next = cache->messages;
 	cache->messages = msg;
@@ -268,10 +273,17 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 		failed = value == NULL;
 	}
 
+	if ((fields & IMAP_CACHE_VIRTUAL_SIZE) &&
+	    msg->full_virtual_size == (uoff_t)-1) {
+		fields |= IMAP_CACHE_MESSAGE_HDR_SIZE |
+			IMAP_CACHE_MESSAGE_BODY_SIZE;
+	}
+
 	if ((fields & IMAP_CACHE_MESSAGE_BODY_SIZE) && msg->body_size == NULL) {
 		/* we don't have body size. and since we're already going
 		   to scan the whole message body, we might as well build
-		   the MessagePart. */
+		   the MessagePart. FIXME: this slows down things when it's
+		   not needed, do we really want to? */
                 fields |= IMAP_CACHE_MESSAGE_PART;
 	}
 
@@ -316,6 +328,12 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 		if (msg->part != NULL) {
 			/* easy, get it from root part */
 			*msg->hdr_size = msg->part->header_size;
+
+			if (msg->body_size == NULL) {
+				msg->body_size = p_new(msg->pool,
+						       MessageSize, 1);
+				*msg->body_size = msg->part->body_size;
+			}
 		} else {
 			/* need to do some light parsing */
 			if (imap_msgcache_get_inbuf(cache, 0)) {
@@ -327,10 +345,29 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 		}
 	}
 
+	if ((fields & IMAP_CACHE_VIRTUAL_SIZE) &&
+	    msg->full_virtual_size == (uoff_t)-1) {
+		if (msg->hdr_size == NULL || msg->body_size == NULL)
+			failed = TRUE;
+		else {
+			msg->full_virtual_size = msg->hdr_size->virtual_size +
+                                msg->body_size->virtual_size;
+		}
+	}
+
 	if (fields & IMAP_CACHE_MESSAGE_OPEN) {
 		/* this isn't needed for anything else than pre-opening the
 		   mail and seeing if it fails. */
 		failed = !imap_msgcache_get_inbuf(cache, 0);
+	}
+
+	if ((fields & IMAP_CACHE_INTERNALDATE) &&
+	    msg->internal_date == (time_t)-1) {
+		/* keep this last, since we may get it when mail file is
+		   opened. */
+		msg->internal_date =
+			cache->iface->get_internal_date(cache->context);
+		failed = msg->internal_date == (time_t)-1;
 	}
 
 	t_pop();
@@ -339,8 +376,8 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 
 int imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
 		       ImapCacheField fields,
-		       uoff_t virtual_header_size, uoff_t virtual_body_size,
-		       void *context)
+		       uoff_t vp_header_size, uoff_t vp_body_size,
+		       uoff_t full_virtual_size, void *context)
 {
 	CachedMessage *msg;
 
@@ -352,19 +389,21 @@ int imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
 		cache->context = context;
 	}
 
-	if (virtual_header_size != 0 && msg->hdr_size == NULL) {
+	if (vp_header_size != (uoff_t)-1 && msg->hdr_size == NULL) {
 		/* physical size == virtual size */
 		msg->hdr_size = p_new(msg->pool, MessageSize, 1);
 		msg->hdr_size->physical_size = msg->hdr_size->virtual_size =
-			virtual_header_size;
+			vp_header_size;
 	}
 
-	if (virtual_body_size != 0 && msg->body_size == NULL) {
+	if (vp_body_size != (uoff_t)-1 && msg->body_size == NULL) {
 		/* physical size == virtual size */
 		msg->body_size = p_new(msg->pool, MessageSize, 1);
 		msg->body_size->physical_size = msg->body_size->virtual_size =
-			virtual_body_size;
+			vp_body_size;
 	}
+
+	msg->full_virtual_size = full_virtual_size;
 
 	return cache_fields(cache, fields);
 }
@@ -409,11 +448,23 @@ const char *imap_msgcache_get(ImapMessageCache *cache, ImapCacheField field)
 
 MessagePart *imap_msgcache_get_parts(ImapMessageCache *cache)
 {
-	i_assert(cache->open_msg != NULL);
-
 	if (cache->open_msg->part == NULL)
 		cache_fields(cache, IMAP_CACHE_MESSAGE_PART);
 	return cache->open_msg->part;
+}
+
+uoff_t imap_msgcache_get_virtual_size(ImapMessageCache *cache)
+{
+	if (cache->open_msg->full_virtual_size == (uoff_t)-1)
+		cache_fields(cache, IMAP_CACHE_VIRTUAL_SIZE);
+	return cache->open_msg->full_virtual_size;
+}
+
+time_t imap_msgcache_get_internal_date(ImapMessageCache *cache)
+{
+	if (cache->open_msg->internal_date == (time_t)-1)
+		cache_fields(cache, IMAP_CACHE_INTERNALDATE);
+	return cache->open_msg->internal_date;
 }
 
 int imap_msgcache_get_rfc822(ImapMessageCache *cache, IBuffer **inbuf,
@@ -491,6 +542,7 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 	*cr_skipped = FALSE;
 
 	msg = cache->open_msg;
+
 	if (msg->hdr_size == NULL) {
 		cache_fields(cache, IMAP_CACHE_MESSAGE_HDR_SIZE);
 		if (msg->hdr_size == NULL)
