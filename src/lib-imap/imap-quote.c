@@ -7,7 +7,7 @@
 void imap_quote_append(string_t *str, const unsigned char *value,
 		       size_t value_len)
 {
-	size_t i, linefeeds = 0;
+	size_t i, extra = 0;
 	int last_lwsp = TRUE, literal = FALSE, modify = FALSE;
 
 	if (value == NULL) {
@@ -23,23 +23,27 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 		case 0:
 			/* it's converted to 8bit char */
 			literal = TRUE;
-		case '\t':
 			modify = TRUE;
+			last_lwsp = FALSE;
 			break;
 		case ' ':
-			if (last_lwsp)
+		case '\t':
+			if (last_lwsp) {
 				modify = TRUE;
+				extra++;
+			}
 			last_lwsp = TRUE;
 			break;
 		case 13:
 		case 10:
-			linefeeds++;
+			extra++;
 			modify = TRUE;
 			break;
 		default:
 			if ((value[i] & 0x80) != 0 ||
 			    value[i] == '"' || value[i] == '\\')
 				literal = TRUE;
+			last_lwsp = FALSE;
 		}
 	}
 
@@ -48,7 +52,7 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 		str_append_c(str, '"');
 	} else {
 		/* return as literal */
-		str_printfa(str, "{%"PRIuSIZE_T"}\r\n", value_len - linefeeds);
+		str_printfa(str, "{%"PRIuSIZE_T"}\r\n", value_len - extra);
 	}
 
 	if (!modify)
