@@ -429,7 +429,8 @@ static int mbox_write_header(struct mail_index *index,
 		   and make sure header parser won't pass it. */
 		offset = input->v_offset;
 		mbox_skip_header(input);
-		hdr_input = i_stream_create_limit(default_pool, input, offset,
+		i_stream_seek(input, offset);
+		hdr_input = i_stream_create_limit(default_pool, input, 0,
 						  input->v_offset);
 	} 
 
