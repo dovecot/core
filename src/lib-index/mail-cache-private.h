@@ -27,6 +27,18 @@
 #define CACHE_RECORD(cache, offset) \
 	((struct mail_cache_record *) ((char *) (cache)->mmap_base + offset))
 
+enum mail_cache_decision_type {
+	/* Not needed currently */
+	MAIL_CACHE_DECISION_NO		= 0x00,
+	/* Needed only for new mails. Drop when compressing. */
+	MAIL_CACHE_DECISION_TEMP	= 0x01,
+	/* Needed. */
+	MAIL_CACHE_DECISION_YES		= 0x02,
+
+	/* This decision has been forced manually, don't change it. */
+	MAIL_CACHE_DECISION_FORCED	= 0x80
+};
+
 struct mail_cache_header {
 	uint32_t indexid;
 	uint32_t file_seq;
@@ -36,10 +48,8 @@ struct mail_cache_header {
 	uint32_t used_file_size;
 	uint32_t deleted_space;
 
-	uint32_t used_fields; /* enum mail_cache_field */
-
-	uint32_t field_usage_start; /* time_t */
-	uint32_t field_usage_counts[32];
+	uint32_t field_usage_last_used[32]; /* time_t */
+	uint8_t field_usage_decision_type[32];
 
 	uint32_t header_offsets[MAIL_CACHE_HEADERS_COUNT];
 };
@@ -68,10 +78,13 @@ struct mail_cache {
 	enum mail_cache_field default_cache_fields;
 	enum mail_cache_field never_cache_fields;
 
+	uint32_t field_usage_uid_highwater[32];
+
         struct mail_cache_transaction_ctx *trans_ctx;
 	unsigned int locks;
 
 	unsigned int mmap_refresh:1;
+	unsigned int need_compress:1;
 	unsigned int silent:1;
 	unsigned int disabled:1;
 };
@@ -88,6 +101,7 @@ extern enum mail_cache_field mail_cache_header_fields[MAIL_CACHE_HEADERS_COUNT];
 
 uint32_t mail_cache_uint32_to_offset(uint32_t offset);
 uint32_t mail_cache_offset_to_uint32(uint32_t offset);
+unsigned int mail_cache_field_index(enum mail_cache_field field);
 
 const char *
 mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx);
@@ -111,6 +125,10 @@ mail_cache_transaction_autocommit(struct mail_cache_view *view,
 
 int mail_cache_mmap_update(struct mail_cache *cache,
 			   size_t offset, size_t size);
+void mail_cache_file_close(struct mail_cache *cache);
+
+void mail_cache_handle_decisions(struct mail_cache_view *view, uint32_t seq,
+				 enum mail_cache_field field);
 
 void mail_cache_set_syscall_error(struct mail_cache *cache,
 				  const char *function);

@@ -6,7 +6,7 @@
 #define MAIL_INDEX_MAJOR_VERSION 4
 #define MAIL_INDEX_MINOR_VERSION 0
 
-#define MAIL_INDEX_HEADER_MIN_SIZE 88
+#define MAIL_INDEX_HEADER_MIN_SIZE 120
 
 /* Number of keywords in mail_index_record. */
 #define INDEX_KEYWORDS_COUNT (3*8)
@@ -93,11 +93,15 @@ struct mail_index_header {
 	uint32_t log_file_seq;
 	uint32_t log_file_offset;
 
-	uint64_t sync_size;
 	uint32_t sync_stamp;
+	uint64_t sync_size;
 
 	uint32_t cache_file_seq;
 	uint32_t extra_records_hdr_offset;
+
+	/* daily first UIDs that have been added to index. */
+	uint32_t day_stamp;
+	uint32_t day_first_uid[8];
 };
 
 struct mail_index_record {

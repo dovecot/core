@@ -332,8 +332,8 @@ int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 {
 	const struct mail_index_header *hdr;
-	uint32_t seq;
-	uoff_t offset;
+	uint32_t seq, seq2;
+	uoff_t offset, offset2;
 	int ret = 0;
 
 	if (mail_transaction_log_view_is_corrupted(ctx->view->log_view))
@@ -348,8 +348,24 @@ int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 				hdr->log_file_seq, hdr->log_file_offset,
 				seq, offset, MAIL_TRANSACTION_TYPE_MASK) < 0)
 			ret = -1;
-		if (mail_index_sync_update_index(ctx) < 0)
+		else if (mail_index_sync_update_index(ctx) < 0)
 			ret = -1;
+	}
+
+	if (ret == 0 && mail_cache_need_compress(ctx->index->cache)) {
+		if (mail_cache_compress(ctx->index->cache, ctx->view) < 0)
+			ret = -1;
+		else {
+			/* cache_offsets have changed, sync them */
+			mail_transaction_log_get_head(ctx->index->log,
+						      &seq2, &offset2);
+			if (mail_transaction_log_view_set(ctx->view->log_view,
+					seq, offset, seq2, offset2,
+					MAIL_TRANSACTION_TYPE_MASK) < 0)
+				ret = -1;
+			else if (mail_index_sync_update_index(ctx) < 0)
+				ret = -1;
+		}
 	}
 
 	mail_index_unlock(ctx->index, ctx->lock_id);

@@ -1,7 +1,6 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
-#include "buffer.h"
 #include "byteorder.h"
 #include "file-lock.h"
 #include "file-set-size.h"
@@ -9,7 +8,6 @@
 #include "write-full.h"
 #include "mail-cache-private.h"
 
-#include <stddef.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -67,6 +65,17 @@ uint32_t mail_cache_offset_to_uint32(uint32_t offset)
 		(((uint32_t)buf[0] & 0x7f) << 23);
 }
 
+unsigned int mail_cache_field_index(enum mail_cache_field field)
+{
+	unsigned int i, num;
+
+	for (i = 0, num = 1; i < 32; i++, num <<= 1) {
+		if (field == num)
+			return i;
+	}
+	i_unreached();
+}
+
 void mail_cache_set_syscall_error(struct mail_cache *cache,
 				  const char *function)
 {
@@ -99,7 +108,7 @@ void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 	va_end(va);
 }
 
-static void mail_cache_file_close(struct mail_cache *cache)
+void mail_cache_file_close(struct mail_cache *cache)
 {
 	if (cache->mmap_base != NULL) {
 		if (munmap(cache->mmap_base, cache->mmap_length) < 0)
@@ -538,10 +547,4 @@ mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview)
 void mail_cache_view_close(struct mail_cache_view *view)
 {
 	i_free(view);
-}
-
-void mail_cache_mark_missing(struct mail_cache_view *view,
-			     enum mail_cache_field fields)
-{
-	// FIXME
 }

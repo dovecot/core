@@ -23,7 +23,7 @@ static struct message_part *get_cached_parts(struct index_mail *mail)
 	size_t part_size;
 
 	if ((mail->data.cached_fields & MAIL_CACHE_MESSAGEPART) == 0) {
-		mail_cache_mark_missing(mail->trans->cache_view,
+		mail_cache_mark_missing(mail->trans->cache_view, mail->data.seq,
 					MAIL_CACHE_MESSAGEPART);
 		return NULL;
 	}
@@ -61,7 +61,8 @@ char *index_mail_get_cached_string(struct index_mail *mail,
 	const char *ret;
 
 	if ((mail->data.cached_fields & field) == 0) {
-		mail_cache_mark_missing(mail->trans->cache_view, field);
+		mail_cache_mark_missing(mail->trans->cache_view,
+					mail->data.seq, field);
 		return NULL;
 	}
 
@@ -78,7 +79,8 @@ uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
 	if (!mail_cache_copy_fixed_field(mail->trans->cache_view,
 					 mail->data.seq, field,
 					 &uoff, sizeof(uoff))) {
-		mail_cache_mark_missing(mail->trans->cache_view, field);
+		mail_cache_mark_missing(mail->trans->cache_view,
+					mail->data.seq, field);
 		uoff = (uoff_t)-1;
 	}
 
@@ -98,7 +100,7 @@ time_t index_mail_get_cached_received_date(struct index_mail *mail)
 					 mail->data.seq,
 					 MAIL_CACHE_RECEIVED_DATE,
 					 &t, sizeof(t))) {
-		mail_cache_mark_missing(mail->trans->cache_view,
+		mail_cache_mark_missing(mail->trans->cache_view, mail->data.seq,
 					MAIL_CACHE_RECEIVED_DATE);
 		t = (time_t)-1;
 	}
@@ -113,7 +115,7 @@ static void get_cached_sent_date(struct index_mail *mail,
 					 mail->data.seq,
 					 MAIL_CACHE_SENT_DATE,
 					 sent_date, sizeof(*sent_date))) {
-		mail_cache_mark_missing(mail->trans->cache_view,
+		mail_cache_mark_missing(mail->trans->cache_view, mail->data.seq,
 					MAIL_CACHE_SENT_DATE);
 
 		sent_date->time = (time_t)-1;

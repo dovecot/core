@@ -28,9 +28,9 @@ enum mail_cache_record_flag {
 enum mail_cache_field {
 	/* fixed size fields */
 	MAIL_CACHE_INDEX_FLAGS		= 0x00000001,
-	MAIL_CACHE_SENT_DATE		= 0x00000008,
-	MAIL_CACHE_RECEIVED_DATE	= 0x00000010,
-	MAIL_CACHE_VIRTUAL_FULL_SIZE	= 0x00000020,
+	MAIL_CACHE_SENT_DATE		= 0x00000002,
+	MAIL_CACHE_RECEIVED_DATE	= 0x00000004,
+	MAIL_CACHE_VIRTUAL_FULL_SIZE	= 0x00000008,
 
 	/* variable sized field */
 	MAIL_CACHE_HEADERS1		= 0x40000000,
@@ -77,8 +77,10 @@ void mail_cache_set_defaults(struct mail_cache *cache,
 			     enum mail_cache_field default_cache_fields,
 			     enum mail_cache_field never_cache_fields);
 
+/* Returns TRUE if cache should be compressed. */
+int mail_cache_need_compress(struct mail_cache *cache);
 /* Compress cache file. */
-int mail_cache_compress(struct mail_cache *cache);
+int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view);
 
 /* Reset the cache file, clearing all data. */
 int mail_cache_reset(struct mail_cache *cache);
@@ -153,9 +155,9 @@ int mail_cache_copy_fixed_field(struct mail_cache_view *view, uint32_t seq,
 				enum mail_cache_field field,
 				void *buffer, size_t buffer_size);
 
-/* Mark given fields as missing, ie. they should be cached when possible. */
-void mail_cache_mark_missing(struct mail_cache_view *view,
-			     enum mail_cache_field fields);
+/* Mark given field as missing, ie. it should be cached when possible. */
+void mail_cache_mark_missing(struct mail_cache_view *view, uint32_t uid,
+			     enum mail_cache_field field);
 
 /* Return record flags. */
 enum mail_cache_record_flag

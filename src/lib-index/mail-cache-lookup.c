@@ -210,7 +210,7 @@ mail_cache_get_fields(struct mail_cache_view *view, uint32_t seq)
 static int cache_get_field(struct mail_cache *cache,
 			   struct mail_cache_record *cache_rec,
 			   enum mail_cache_field field,
-			   void **data_r, size_t *size_r)
+			   const void **data_r, size_t *size_r)
 {
 	unsigned char *buf;
 	unsigned int mask;
@@ -266,11 +266,13 @@ static int cache_get_field(struct mail_cache *cache,
 	return FALSE;
 }
 
-static int cache_lookup_field(struct mail_cache_view *view, uint32_t seq,
-			      enum mail_cache_field field,
-			      void **data_r, size_t *size_r)
+int mail_cache_lookup_field(struct mail_cache_view *view, uint32_t seq,
+			    enum mail_cache_field field,
+			    const void **data_r, size_t *size_r)
 {
 	struct mail_cache_record *cache_rec;
+
+	mail_cache_handle_decisions(view, seq, field);
 
 	cache_rec = mail_cache_lookup(view, seq, field);
 	while (cache_rec != NULL) {
@@ -282,19 +284,6 @@ static int cache_lookup_field(struct mail_cache_view *view, uint32_t seq,
 	}
 
 	return FALSE;
-}
-
-int mail_cache_lookup_field(struct mail_cache_view *view, uint32_t seq,
-			    enum mail_cache_field field,
-			    const void **data_r, size_t *size_r)
-{
-	void *data;
-
-	if (!cache_lookup_field(view, seq, field, &data, size_r))
-		return FALSE;
-
-	*data_r = data;
-	return TRUE;
 }
 
 const char *

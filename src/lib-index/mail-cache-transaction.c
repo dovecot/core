@@ -145,7 +145,7 @@ static int commit_all_changes(struct mail_cache_transaction_ctx *ctx)
 	    COMPRESS_CONTINUED_PERCENTAGE &&
 	    ctx->used_file_size >= COMPRESS_MIN_SIZE) {
 		/* too many continued rows, compress */
-		//FIXME:cache->index->set_flags |= MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE;
+		cache->need_compress = TRUE;
 	}
 
 	cache->hdr->continued_record_count = uint32_to_nbo(cont);
@@ -302,8 +302,7 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 
 	if (ctx->next_unused_header_lowwater == MAIL_CACHE_HEADERS_COUNT) {
 		/* they're all used - compress the cache to get more */
-		/* FIXME: ctx->cache->index->set_flags |=
-			MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE;*/
+		ctx->cache->need_compress = TRUE;
 	}
 
 	mail_cache_transaction_flush(ctx);
@@ -548,9 +547,8 @@ int mail_cache_delete(struct mail_cache_transaction_ctx *ctx, uint32_t seq)
 	/* see if we've reached the max. deleted space in file */
 	max_del_space = ctx->used_file_size / 100 * COMPRESS_PERCENTAGE;
 	if (deleted_space >= max_del_space &&
-	    ctx->used_file_size >= COMPRESS_MIN_SIZE) {
-		//FIXME:cache->index->set_flags |= MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE;
-	}
+	    ctx->used_file_size >= COMPRESS_MIN_SIZE)
+		cache->need_compress = TRUE;
 
 	cache->hdr->deleted_space = uint32_to_nbo(deleted_space);
 	return 0;

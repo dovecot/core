@@ -1,6 +1,7 @@
 /* Copyright (C) 2004 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "buffer.h"
 #include "file-set-size.h"
 #include "mmap-util.h"
@@ -8,6 +9,8 @@
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log.h"
 #include "mail-transaction-util.h"
+
+#include <time.h>
 
 static void
 mail_index_header_update_counts(struct mail_index_header *hdr,
@@ -306,6 +309,43 @@ static void mail_index_sync_replace_map(struct mail_index_view *view,
 	map->write_to_disk = TRUE;
 }
 
+static void
+mail_index_update_day_headers(struct mail_index_header *hdr, uint32_t uid)
+{
+	const int max_days =
+		sizeof(hdr->day_first_uid) / sizeof(hdr->day_first_uid[0]);
+	struct tm tm;
+	time_t stamp;
+	int i, days;
+
+	/* get beginning of today */
+	tm = *localtime(&ioloop_time);
+	tm.tm_hour = 0;
+	tm.tm_min = 0;
+	tm.tm_sec = 0;
+	stamp = mktime(&tm);
+	if (stamp == (time_t)-1)
+		i_panic("mktime(today) failed");
+
+	if ((time_t)hdr->day_stamp >= stamp)
+		return;
+
+	/* get number of days since last message */
+	days = (stamp - hdr->day_stamp) / (3600*24);
+	if (days > max_days)
+		days = max_days;
+
+	/* @UNSAFE: move days forward and fill the missing days with old
+	   day_first_uid[0]. */
+	memcpy(hdr->day_first_uid + days,
+	       hdr->day_first_uid, max_days - days);
+	for (i = 1; i < days; i++)
+		hdr->day_first_uid[i] = hdr->day_first_uid[0];
+
+	hdr->day_stamp = stamp;
+	hdr->day_first_uid[0] = uid;
+}
+
 int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 {
 	struct mail_index *index = sync_ctx->index;
@@ -314,7 +354,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	const struct mail_transaction_header *hdr;
 	const void *data;
 	unsigned int count, old_lock_id;
-	uint32_t seq, i;
+	uint32_t seq, i, first_append_uid;
 	uoff_t offset;
 	int ret, had_dirty, skipped;
 
@@ -338,6 +378,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	view->map = map;
 	view->map->refcount++;
 
+        first_append_uid = 0;
 	had_dirty = (map->hdr_copy.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0;
 	if (had_dirty)
 		map->hdr_copy.flags &= ~MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
@@ -358,6 +399,11 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 
 		if ((hdr->type & MAIL_TRANSACTION_APPEND) != 0) {
                         const struct mail_transaction_append_header *append_hdr;
+			const struct mail_index_record *rec;
+
+			rec = CONST_PTR_OFFSET(data, sizeof(*append_hdr));
+			if (first_append_uid == 0)
+				first_append_uid = rec->uid;
 
 			append_hdr = data;
 			if (append_hdr->record_size > map->hdr->record_size) {
@@ -367,7 +413,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 				mail_index_sync_replace_map(view, map);
 			}
 			count = (hdr->size - sizeof(*append_hdr)) /
-				 append_hdr->record_size;
+				append_hdr->record_size;
 			if (mail_index_grow(index, view->map, count) < 0) {
 				ret = -1;
 				break;
@@ -383,7 +429,6 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	}
 
 	if (ret < 0) {
-		/*  */
 		mail_index_view_unlock(view);
 		return -1;
 	}
@@ -395,6 +440,9 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 
 	map->hdr_copy.log_file_seq = seq;
 	map->hdr_copy.log_file_offset = offset;
+
+	if (first_append_uid != 0)
+		mail_index_update_day_headers(&map->hdr_copy, first_append_uid);
 
 	if ((map->hdr_copy.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) == 0 &&
 	    had_dirty) {
