@@ -33,11 +33,21 @@ struct serialized_message_part {
 	unsigned int flags;
 };
 
+struct deserialize_context {
+	pool_t pool;
+
+	const struct serialized_message_part *spart;
+	unsigned int sparts_left;
+
+	uoff_t pos;
+	const char *error;
+};
+
 static unsigned int
 _message_part_serialize(struct message_part *part, buffer_t *dest)
 {
 	struct serialized_message_part *spart;
-	unsigned int count = 1;
+	unsigned int count = 0;
 
 	while (part != NULL) {
 		/* create serialized part */
@@ -74,39 +84,87 @@ void message_part_serialize(struct message_part *part, buffer_t *dest)
 	_message_part_serialize(part, dest);
 }
 
-static struct message_part *
-message_part_deserialize_part(pool_t pool, struct message_part *parent,
-			      const struct serialized_message_part **spart_pos,
-			      size_t *count, unsigned int child_count)
+static int message_part_deserialize_part(struct deserialize_context *ctx,
+					 struct message_part *parent,
+					 unsigned int child_count,
+                                         struct message_part **part_r)
 {
         const struct serialized_message_part *spart;
 	struct message_part *part, *first_part, **next_part;
-	unsigned int i;
+	uoff_t pos;
 
 	first_part = NULL;
 	next_part = NULL;
-	for (i = 0; i < child_count && *count > 0; i++) {
-		spart = *spart_pos;
-		(*spart_pos)++;
-		(*count)--;
+	while (child_count > 0) {
+		child_count--;
+		if (ctx->sparts_left == 0) {
+			ctx->error = "Not enough data for all parts";
+			return FALSE;
+		}
 
-		part = p_new(pool, struct message_part, 1);
+		spart = ctx->spart;
+		ctx->spart++;
+		ctx->sparts_left--;
+
+		part = p_new(ctx->pool, struct message_part, 1);
 		part->physical_pos = spart->physical_pos;
+
+		if (part->physical_pos < ctx->pos) {
+			ctx->error = "physical_pos less than expected";
+			return FALSE;
+		}
 
 		part->header_size.physical_size = spart->header_physical_size;
 		part->header_size.virtual_size = spart->header_virtual_size;
 		part->header_size.lines = spart->header_lines;
 
+		if (spart->header_virtual_size < spart->header_physical_size) {
+			ctx->error = "header_virtual_size too small";
+			return FALSE;
+		}
+
 		part->body_size.physical_size = spart->body_physical_size;
 		part->body_size.virtual_size = spart->body_virtual_size;
 		part->body_size.lines = spart->body_lines;
 
-		part->flags = spart->flags;
+		if (spart->body_virtual_size < spart->body_physical_size) {
+			ctx->error = "body_virtual_size too small";
+			return FALSE;
+		}
 
+		part->flags = spart->flags;
 		part->parent = parent;
-		part->children = message_part_deserialize_part(pool, part,
-							spart_pos, count,
-							spart->children_count);
+
+		/* our children must be after our physical_pos and the last
+		   child must be within our size. */
+		ctx->pos = part->physical_pos;
+		pos = part->physical_pos + spart->header_physical_size +
+			spart->body_physical_size;
+
+		if (!message_part_deserialize_part(ctx, part,
+						   spart->children_count,
+						   &part->children))
+			return FALSE;
+
+		if (ctx->pos > pos) {
+			ctx->error = "child part location exceeds our size";
+			return FALSE;
+		}
+		ctx->pos = pos; /* save it for above check for parent */
+
+		if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
+			/* Only one child is possible */
+			if (part->children == NULL) {
+				ctx->error =
+					"message/rfc822 part has no children";
+				return FALSE;
+			}
+			if (part->children->next != NULL) {
+				ctx->error = "message/rfc822 part "
+					"has multiple children";
+				return FALSE;
+			}
+		}
 
 		if (first_part == NULL)
 			first_part = part;
@@ -115,26 +173,49 @@ message_part_deserialize_part(pool_t pool, struct message_part *parent,
 		next_part = &part->next;
 	}
 
-	return first_part;
+	*part_r = first_part;
+	return TRUE;
 }
 
 struct message_part *message_part_deserialize(pool_t pool, const void *data,
-					      size_t size)
+					      size_t size, const char **error)
 {
-        const struct serialized_message_part *spart;
-	size_t count;
+	struct deserialize_context ctx;
+        struct message_part *part;
 
 	/* make sure it looks valid */
-	if (size < sizeof(struct serialized_message_part))
+	if (size < sizeof(struct serialized_message_part)) {
+		*error = "Not enough data for root";
 		return NULL;
+	}
 
-	spart = data;
-	count = size / sizeof(struct serialized_message_part);
-	if (count > UINT_MAX)
+	if ((size % sizeof(struct serialized_message_part)) != 0) {
+		*error = "Incorrect data size";
 		return NULL;
+	}
 
-	return message_part_deserialize_part(pool, NULL, &spart, &count,
-					     (unsigned int)count);
+	if (size / sizeof(struct serialized_message_part) > UINT_MAX) {
+		*error = "Insane amount of data";
+		return NULL;
+	}
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.pool = pool;
+	ctx.spart = data;
+	ctx.sparts_left =
+		(unsigned int) (size / sizeof(struct serialized_message_part));
+
+	if (!message_part_deserialize_part(&ctx, NULL, 1, &part)) {
+		*error = ctx.error;
+		return NULL;
+	}
+
+	if (ctx.sparts_left > 0) {
+		*error = "Too much data";
+		return NULL;
+	}
+
+	return part;
 }
 
 int message_part_serialize_update_header(void *data, size_t size,

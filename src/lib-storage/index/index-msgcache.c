@@ -139,6 +139,7 @@ index_msgcache_get_cached_parts(pool_t pool, void *context)
 	struct index_msgcache_context *ctx = context;
 	struct message_part *part;
 	const void *part_data;
+	const char *error;
 	size_t part_size;
 
 	part_data = ctx->index->lookup_field_raw(ctx->index, ctx->rec,
@@ -150,10 +151,10 @@ index_msgcache_get_cached_parts(pool_t pool, void *context)
 		return NULL;
 	}
 
-	part = message_part_deserialize(pool, part_data, part_size);
+	part = message_part_deserialize(pool, part_data, part_size, &error);
 	if (part == NULL) {
 		index_set_corrupted(ctx->index,
-				    "Corrupted cached message_part data");
+			"Corrupted cached message_part data (%s)", error);
 		return NULL;
 	}
 

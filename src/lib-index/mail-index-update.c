@@ -413,7 +413,7 @@ void mail_index_update_headers(struct mail_index_update *update,
 	struct message_size hdr_size, body_size;
 	pool_t pool;
 	buffer_t *buf;
-	const char *value;
+	const char *value, *error;
 	size_t size;
 	uoff_t start_offset;
 
@@ -439,11 +439,13 @@ void mail_index_update_headers(struct mail_index_update *update,
 		if (value == NULL)
 			part = NULL;
 		else {
-			part = message_part_deserialize(pool, value, size);
+			part = message_part_deserialize(pool, value, size,
+							&error);
 			if (part == NULL) {
 				/* corrupted, rebuild it */
 				index_set_corrupted(update->index,
-					"Corrupted cached MessagePart data");
+					"Corrupted cached MessagePart data "
+					"(%s)", error);
 			}
 		}
 

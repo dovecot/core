@@ -7,9 +7,10 @@ struct message_size;
 /* Serialize message part. */
 void message_part_serialize(struct message_part *part, buffer_t *dest);
 
-/* Generate struct message_part from serialized data. */
+/* Generate struct message_part from serialized data. Returns NULL and sets
+   error if any problems are detected. */
 struct message_part *message_part_deserialize(pool_t pool, const void *data,
-					      size_t size);
+					      size_t size, const char **error);
 
 /* Update header size in serialized struct message_part. */
 int message_part_serialize_update_header(void *data, size_t size,
