@@ -156,10 +156,12 @@ static void maildir_index_hash_append_file(void *key __attr_unused__,
 {
 	HashAppendContext *ctx = context;
 
+	t_push();
 	if (!maildir_index_append_file(ctx->index, ctx->dir, value)) {
 		ctx->failed = TRUE;
                 hash_foreach_stop();
 	}
+	t_pop();
 }
 
 static int maildir_index_append_files(MailIndex *index, const char *dir,

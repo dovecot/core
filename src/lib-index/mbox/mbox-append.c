@@ -112,6 +112,8 @@ static int mbox_index_append_next(MailIndex *index, IStream *input)
 
 int mbox_index_append(MailIndex *index, IStream *input)
 {
+	int ret;
+
 	if (input->v_offset == input->v_size) {
 		/* no new data */
 		return TRUE;
@@ -138,7 +140,11 @@ int mbox_index_append(MailIndex *index, IStream *input)
 		if (input->v_offset == input->v_size)
 			break;
 
-		if (!mbox_index_append_next(index, input))
+		t_push();
+		ret = mbox_index_append_next(index, input);
+		t_pop();
+
+		if (!ret)
 			return FALSE;
 	}
 
