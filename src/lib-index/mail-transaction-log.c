@@ -128,7 +128,7 @@ mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 	if (file->locked)
 		return 0;
 
-	if (file->log->index->lock_type == MAIL_INDEX_LOCK_DOTLOCK)
+	if (file->log->index->lock_method == MAIL_INDEX_LOCK_DOTLOCK)
 		return mail_transaction_log_file_dotlock(file);
 
 	ret = mail_index_lock_fd(file->log->index, file->fd, F_WRLCK,

@@ -170,7 +170,7 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	if (ret > 0)
 		return 1;
 
-	if (index->lock_type == MAIL_INDEX_LOCK_DOTLOCK) {
+	if (index->lock_method == MAIL_INDEX_LOCK_DOTLOCK) {
 		/* FIXME: exclusive locking will rewrite the index file every
 		   time. shouldn't really be needed.. reading doesn't require
 		   locks then, though */
