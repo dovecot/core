@@ -18,7 +18,7 @@ struct index_mail_data {
 
 	struct cached_header *headers;
 	struct message_part *parts;
-	char *envelope, *body, *bodystructure;
+	const char *envelope, *body, *bodystructure;
         struct message_part_envelope_data *envelope_data;
 
 	struct mail_index_record *rec;

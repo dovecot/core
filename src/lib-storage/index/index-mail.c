@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
+#include "str.h"
 #include "message-address.h"
 #include "message-date.h"
 #include "message-part-serialize.h"
@@ -202,6 +203,15 @@ void index_mail_parse_header(struct message_part *part __attr_unused__,
 	if (data->save_envelope) {
 		imap_envelope_parse_header(mail->pool, &data->envelope_data,
 					   name, name_len, value, value_len);
+
+		if (name_len == 0) {
+			/* finalize the envelope */
+			string_t *str;
+
+			str = str_new(mail->pool, 256);
+			imap_envelope_write_part_data(data->envelope_data, str);
+                        data->envelope = str_c(str);
+		}
 	}
 
 	if (name_len == 4 && data->save_sent_time &&
