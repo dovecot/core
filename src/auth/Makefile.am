@@ -11,7 +11,8 @@ INCLUDES = \
 dovecot_auth_LDADD = \
 	../lib-settings/libsettings.a \
 	../lib/liblib.a \
-	$(AUTH_LIBS)
+	$(AUTH_LIBS) \
+	$(RAND_LIBS)
 
 if AUTH_MODULES
 dovecot_auth_LDFLAGS = -export-dynamic

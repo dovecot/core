@@ -24,9 +24,11 @@
 */
 
 #include "lib.h"
-#include "fd-close-on-exec.h"
 #include "randgen.h"
 
+#ifdef HAVE_URANDOM
+
+#include "fd-close-on-exec.h"
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -74,3 +76,45 @@ void random_deinit(void)
 	(void)close(urandom_fd);
 	urandom_fd = -1;
 }
+
+#elif defined(HAVE_OPENSSL_RAND_H)
+#include <openssl/rand.h>
+#include <openssl/err.h>
+
+static const char *ssl_last_error(void)
+{
+	unsigned long err;
+	char *buf;
+	size_t err_size = 256;
+
+	err = ERR_get_error();
+	if (err == 0)
+		return strerror(errno);
+
+	buf = t_malloc(err_size);
+	buf[err_size-1] = '\0';
+	ERR_error_string_n(err, buf, err_size-1);
+	return buf;
+}
+
+void random_fill(void *buf, size_t size)
+{
+	if (RAND_pseudo_bytes(buf, size) != 1)
+		i_fatal("RAND_pseudo_bytes() failed: %s", ssl_last_error());
+}
+
+void random_init(void) {}
+void random_deinit(void) {}
+
+#else
+#  warning Random generator disabled
+
+void random_fill(void *buf, size_t size)
+{
+	i_fatal("random_fill(): No random source");
+}
+
+void random_init(void) {}
+void random_deinit(void) {}
+
+#endif

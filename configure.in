@@ -464,6 +464,22 @@ if test $i_cv_type_socklen_t = yes; then
   AC_DEFINE(HAVE_SOCKLEN_T,, Define to 'int' if you don't have socklen_t)
 fi
 
+dnl * find random source
+AC_MSG_CHECKING([for /dev/urandom])
+if test -e /dev/urandom; then
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_DEV_URANDOM,, Define if you have /dev/urandom)
+  have_random_source=yes
+else
+  AC_MSG_RESULT(no)
+
+  AC_CHECK_HEADER(openssl/rand.h, [
+    AC_DEFINE(HAVE_OPENSSL_RAND_H,, Define if you have openssl/rand.h)
+    RAND_LIBS=-lcrypto
+  ])
+fi
+AC_SUBST(RAND_LIBS)
+
 dnl * do we have tm_gmtoff
 AC_MSG_CHECKING([for tm_gmtoff])
 AC_CACHE_VAL(i_cv_field_tm_gmtoff,
