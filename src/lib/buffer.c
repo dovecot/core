@@ -27,11 +27,14 @@
 #include "buffer.h"
 
 struct _Buffer {
-	Pool pool;
-
+	/* public for String: */
 	const unsigned char *r_buffer;
+	size_t used;
+
+	/* private: */
+	Pool pool;
 	unsigned char *w_buffer;
-	size_t used, alloc, max_alloc, limit, start_pos;
+	size_t alloc, max_alloc, limit, start_pos;
 
 	unsigned int alloced:1;
 	unsigned int readonly:1;
@@ -72,7 +75,7 @@ static int buffer_check_read(const Buffer *buf, size_t *pos, size_t *data_size)
 static int buffer_check_write(Buffer *buf, size_t *pos, size_t *data_size,
 			      int accept_partial)
 {
-	size_t max_size, new_size;
+	size_t max_size, new_size, alloc_size;
 
 	if (buf->readonly)
 		return FALSE;
@@ -94,24 +97,29 @@ static int buffer_check_write(Buffer *buf, size_t *pos, size_t *data_size,
 
 	/* see if we need to grow the buffer */
 	if (new_size > buf->alloc) {
-		if (new_size > buf->limit) {
+		alloc_size = nearest_power(new_size);
+		if (alloc_size > buf->limit) {
 			if (buf->hard) {
 				i_panic("Buffer full (%"PRIuSIZE_T" > "
-					"%"PRIuSIZE_T")", new_size, buf->limit);
+					"%"PRIuSIZE_T")",
+					alloc_size, buf->limit);
 			}
 
 			if (!accept_partial)
 				return FALSE;
 
-			new_size = buf->limit;
-			if (*pos >= new_size)
+			alloc_size = buf->limit;
+			if (*pos >= alloc_size)
 				return FALSE;
 
-			*data_size = new_size - *pos;
+			*data_size = alloc_size - *pos;
 		}
 
-		if (new_size != buf->alloc)
-			buffer_alloc(buf, new_size);
+		if (new_size > alloc_size)
+			new_size = alloc_size;
+
+		if (alloc_size != buf->alloc)
+			buffer_alloc(buf, alloc_size);
 	}
 
 	if (new_size > buf->used)
