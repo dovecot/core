@@ -98,6 +98,26 @@ static const char *get_root_dir(void)
 	return NULL;
 }
 
+static const char *get_inbox_file(const char *root_dir, int only_root)
+{
+	const char *user, *path;
+
+	if (!only_root) {
+		user = getenv("USER");
+		if (user != NULL) {
+			path = t_strconcat("/var/mail/", user, NULL);
+			if (access(path, R_OK|W_OK) == 0)
+				return path;
+
+			path = t_strconcat("/var/spool/mail/", user, NULL);
+			if (access(path, R_OK|W_OK) == 0)
+				return path;
+		}
+	}
+
+	return t_strconcat(root_dir, "/inbox", NULL);
+}
+
 static const char *create_root_dir(void)
 {
 	const char *home, *path;
@@ -123,10 +143,12 @@ static struct mail_storage *mbox_create(const char *data, const char *user)
 	struct mail_storage *storage;
 	const char *root_dir, *inbox_file, *index_dir, *p;
 	struct stat st;
+	int autodetect;
 
 	root_dir = inbox_file = index_dir = NULL;
 
-	if (data == NULL || *data == '\0') {
+	autodetect = data == NULL || *data == '\0';
+	if (autodetect) {
 		/* we'll need to figure out the mail location ourself.
 		   it's root dir if we've already chroot()ed, otherwise
 		   either $HOME/mail or $HOME/Mail */
@@ -167,7 +189,7 @@ static struct mail_storage *mbox_create(const char *data, const char *user)
 	}
 
 	if (inbox_file == NULL)
-		inbox_file = t_strconcat(root_dir, "/inbox", NULL);
+		inbox_file = get_inbox_file(root_dir, !autodetect);
 	if (index_dir == NULL)
 		index_dir = root_dir;
 
