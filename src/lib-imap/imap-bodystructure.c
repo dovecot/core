@@ -179,7 +179,7 @@ static void parse_header(MessagePart *part,
 						   parse_save_params_list,
 						   part_data);
 		part_data->content_type_params =
-			p_strdup(pool, str_c(part_data->str));
+			p_strdup_empty(pool, str_c(part_data->str));
 	} else if (strcasecmp(name, "Content-Transfer-Encoding") == 0 &&
 		   part_data->content_transfer_encoding == NULL) {
 		(void)message_content_parse_header(t_strndup(value, value_len),
@@ -201,7 +201,7 @@ static void parse_header(MessagePart *part,
 						   parse_save_params_list,
 						   part_data);
 		part_data->content_disposition_params =
-			p_strdup(pool, str_c(part_data->str));
+			p_strdup_empty(pool, str_c(part_data->str));
 	} else if (strcasecmp(name, "Content-Language") == 0) {
 		(void)message_content_parse_header(t_strndup(value, value_len),
 						   parse_content_language, NULL,
@@ -283,8 +283,12 @@ static void part_write_body_multipart(MessagePart *part, String *str,
 	else {
 		str_append_c(str, '(');
 		str_append(str, data->content_disposition);
-		if (data->content_disposition_params != NULL) {
-			str_append(str, " (");
+		str_append_c(str, ' ');
+
+		if (data->content_disposition_params == NULL)
+			str_append(str, "NIL");
+		else {
+			str_append_c(str, '(');
 			str_append(str, data->content_disposition_params);
 			str_append_c(str, ')');
 		}
@@ -374,13 +378,17 @@ static void part_write_body(MessagePart *part, String *str, int extended)
 	else {
 		str_append_c(str, '(');
 		str_append(str, data->content_disposition);
-		str_append_c(str, ')');
+		str_append_c(str, ' ');
 
-		if (data->content_disposition_params != NULL) {
-			str_append(str, " (");
+		if (data->content_disposition_params == NULL)
+			str_append(str, "NIL");
+		else {
+			str_append_c(str, '(');
 			str_append(str, data->content_disposition_params);
 			str_append_c(str, ')');
 		}
+
+		str_append_c(str, ')');
 	}
 
 	str_append_c(str, ' ');
@@ -438,7 +446,7 @@ const char *imap_part_get_bodystructure(Pool pool, MessagePart **part,
 	return part_get_bodystructure(*part, extended);
 }
 
-static int imap_write_list(ImapArg *args, String *str)
+static int imap_write_list(const ImapArg *args, String *str)
 {
 	/* don't do any typechecking, just write it out */
 	str_append_c(str, '(');
@@ -471,7 +479,7 @@ static int imap_write_list(ImapArg *args, String *str)
 	return TRUE;
 }
 
-static int imap_parse_bodystructure_args(ImapArg *args, String *str)
+static int imap_parse_bodystructure_args(const ImapArg *args, String *str)
 {
 	ImapArg *subargs;
 	int i, multipart, text, message_rfc822;
