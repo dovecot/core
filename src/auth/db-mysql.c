@@ -97,21 +97,19 @@ static int mysql_conn_open(struct mysql_connection *conn)
 			i_error("MySQL: mysql_init failed");
 			return FALSE;
 		}
+	}
 
-		if (!mysql_real_connect(conn->mysql, conn->set.db_host,
-					conn->set.db_user, conn->set.db_passwd,
-					conn->set.db,
-					conn->set.db_port,
-					conn->set.db_unix_socket,
-					conn->set.db_client_flags)) {
-			i_error("MySQL: Can't connect to database %s: %s",
-				conn->set.db, mysql_error(conn->mysql));
-			conn->connected = FALSE;
-			conn->mysql = NULL;
-		} else {
-			conn->connected = TRUE;
-			i_info("MySQL: connected to %s", conn->set.db_host);
-		}
+	if (mysql_real_connect(conn->mysql, conn->set.db_host,
+			       conn->set.db_user, conn->set.db_passwd,
+			       conn->set.db,
+			       conn->set.db_port,
+			       conn->set.db_unix_socket,
+			       conn->set.db_client_flags) == NULL) {
+		i_error("MySQL: Can't connect to database %s: %s",
+			conn->set.db, mysql_error(conn->mysql));
+	} else {
+		conn->connected = TRUE;
+		i_info("MySQL: connected to %s", conn->set.db_host);
 	}
 	
 	return conn->connected;
