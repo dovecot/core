@@ -195,7 +195,7 @@ struct settings default_settings = {
 	MEMBER(login_process_per_connection) TRUE,
 	MEMBER(login_chroot) TRUE,
 
-	MEMBER(login_process_size) 16,
+	MEMBER(login_process_size) 32,
 	MEMBER(login_processes_count) 3,
 	MEMBER(login_max_processes_count) 128,
 	MEMBER(login_max_logging_users) 256,
