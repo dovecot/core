@@ -271,6 +271,9 @@ mail_cache_free_space(struct mail_cache *cache, uint32_t offset, uint32_t size)
 
 	i_assert(cache->locked);
 
+	if (MAIL_CACHE_IS_UNUSABLE(cache))
+		return;
+
 	if (offset + size == cache->hdr_copy.used_file_size) {
 		/* we can just set used_file_size back */
 		cache->hdr_modified = TRUE;
