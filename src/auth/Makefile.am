@@ -42,6 +42,7 @@ noinst_HEADERS = \
 	auth-login-interface.h \
 	auth-master-interface.h \
 	auth-mech-desc.h \
+	db-ldap.h \
 	db-passwd-file.h \
 	common.h \
 	login-connection.h \
