@@ -96,7 +96,7 @@ static void update_buffer(struct file_ostream *fstream, size_t size)
 {
 	size_t used;
 
-	if (IS_STREAM_EMPTY(fstream))
+	if (IS_STREAM_EMPTY(fstream) || size == 0)
 		return;
 
 	if (fstream->head < fstream->tail) {
