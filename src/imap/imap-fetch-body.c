@@ -210,7 +210,7 @@ static int fetch_stream_send(struct imap_fetch_context *ctx)
 {
 	off_t ret;
 
-	o_stream_set_max_buffer_size(ctx->client->output, 0);
+	o_stream_set_max_buffer_size(ctx->client->output, 4096);
 	ret = imap_fetch_send(ctx->client->output, ctx->cur_input,
 			      ctx->skip_cr, ctx->cur_size - ctx->cur_offset,
 			      ctx->cur_append_eoh, &ctx->skip_cr);
