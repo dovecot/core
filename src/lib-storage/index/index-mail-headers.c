@@ -458,7 +458,7 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 
 	index_mail_parse_header_init(mail, idx_headers);
 
-	hdr_ctx = message_parse_header_init(istream, NULL);
+	hdr_ctx = message_parse_header_init(istream, NULL, TRUE);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
 		if (!index_mail_parse_header(NULL, hdr, mail))
 			break;

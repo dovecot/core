@@ -96,7 +96,7 @@ static int save_headers(struct istream *input, struct ostream *output,
 	struct message_header_line *hdr;
 	int ret = 0;
 
-	hdr_ctx = message_parse_header_init(input, NULL);
+	hdr_ctx = message_parse_header_init(input, NULL, FALSE);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
 		ret = header_callback(hdr->name, write_func, context);
 		if (ret <= 0) {

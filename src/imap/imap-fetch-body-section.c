@@ -291,7 +291,7 @@ static int fetch_header_fields(struct istream *input, const char *section,
 
 	ctx->dest_size = 0;
 
-	hdr_ctx = message_parse_header_init(input, NULL);
+	hdr_ctx = message_parse_header_init(input, NULL, FALSE);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
 		/* see if we want this field. */
 		if (!ctx->match_func(ctx->fields, hdr->name, hdr->name_len))

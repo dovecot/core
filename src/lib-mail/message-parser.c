@@ -41,6 +41,7 @@ struct message_header_parser_ctx {
 	buffer_t *value_buf;
 	size_t skip;
 
+	int skip_initial_lwsp;
 	int has_nuls;
 };
 
@@ -214,7 +215,7 @@ static void message_parse_part_header(struct message_parser_ctx *parser_ctx)
 	struct message_header_line *hdr;
 
 	hdr_ctx = message_parse_header_init(parser_ctx->input,
-					    &part->header_size);
+					    &part->header_size, TRUE);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
 		/* call the user-defined header parser */
 		if (parser_ctx->callback != NULL)
@@ -634,7 +635,7 @@ void message_parse_header(struct message_part *part, struct istream *input,
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
 
-	hdr_ctx = message_parse_header_init(input, hdr_size);
+	hdr_ctx = message_parse_header_init(input, hdr_size, TRUE);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL)
 		callback(part, hdr, context);
 	message_parse_header_deinit(hdr_ctx);
@@ -644,7 +645,8 @@ void message_parse_header(struct message_part *part, struct istream *input,
 }
 
 struct message_header_parser_ctx *
-message_parse_header_init(struct istream *input, struct message_size *hdr_size)
+message_parse_header_init(struct istream *input, struct message_size *hdr_size,
+			  int skip_initial_lwsp)
 {
 	struct message_header_parser_ctx *ctx;
 
@@ -652,6 +654,7 @@ message_parse_header_init(struct istream *input, struct message_size *hdr_size)
 	ctx->input = input;
 	ctx->hdr_size = hdr_size;
 	ctx->name = str_new(default_pool, 128);
+	ctx->skip_initial_lwsp = skip_initial_lwsp;
 
 	if (hdr_size != NULL)
 		memset(hdr_size, 0, sizeof(*hdr_size));
@@ -776,7 +779,6 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 				if (msg[i] <= ':') {
 					if (msg[i] == ':') {
 						colon_pos = i;
-						// FIXME: correct?
 						line->full_value_offset =
 							ctx->input->v_offset +
 							i + 1;
@@ -843,27 +845,36 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 		line->name = str_c(ctx->name);
 		line->name_len = str_len(ctx->name);
 	} else {
-		/* get value. skip all LWSP after ':'. Note that RFC2822
-		   doesn't say we should, but history behind it..
+		size_t pos;
 
-		   Exception to this is if the value consists only of LWSP,
-		   then skip only the one LWSP after ':'. */
 		line->value = msg + colon_pos+1;
 		line->value_len = size - colon_pos - 1;
-		while (line->value_len > 0 && IS_LWSP(line->value[0])) {
-			line->value++;
-			line->value_len--;
+		if (ctx->skip_initial_lwsp) {
+			/* get value. skip all LWSP after ':'. Note that
+			   RFC2822 doesn't say we should, but history behind
+			   it..
+
+			   Exception to this is if the value consists only of
+			   LWSP, then skip only the one LWSP after ':'. */
+			for (pos = 0; pos < line->value_len; pos++) {
+				if (!IS_LWSP(line->value[0]))
+					break;
+			}
+
+			if (pos == line->value_len) {
+				/* everything was LWSP */
+				if (line->value_len > 0 &&
+				    IS_LWSP(line->value[0]))
+					pos = 1;
+			}
+		} else {
+			pos = line->value_len > 0 &&
+				IS_LWSP(line->value[0]) ? 1 : 0;
 		}
 
-		if (line->value_len == 0) {
-			/* everything was LWSP */
-			line->value = msg + colon_pos+1;
-			line->value_len = size - colon_pos - 1;
-			if (line->value_len > 0 && IS_LWSP(line->value[0])) {
-				line->value++;
-				line->value_len--;
-			}
-		}
+		line->value += pos;
+		line->value_len -= pos;
+		line->full_value_offset += pos;
 
 		/* get name, skip LWSP before ':' */
 		while (colon_pos > 0 && IS_LWSP(msg[colon_pos-1]))

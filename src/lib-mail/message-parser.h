@@ -47,7 +47,7 @@ struct message_header_line {
 	const unsigned char *value;
 	size_t value_len;
 
-	const unsigned char *full_value; // FIXME: should contain \n too
+	const unsigned char *full_value;
 	size_t full_value_len;
 
 	uoff_t name_offset, full_value_offset;
@@ -96,8 +96,13 @@ void message_parser_parse_body(struct message_parser_ctx *ctx,
 			       message_body_callback_t *body_callback,
 			       void *context);
 
+/* skip_initial_lwsp controls if we should skip LWSP after "header: ".
+   Note that there may not be the single whitespace after "header:", and that
+   "header : " is also possible. These two conditions can't be determined from
+   struct message_header_line. */
 struct message_header_parser_ctx *
-message_parse_header_init(struct istream *input, struct message_size *hdr_size);
+message_parse_header_init(struct istream *input, struct message_size *hdr_size,
+			 int skip_initial_lwsp);
 void message_parse_header_deinit(struct message_header_parser_ctx *ctx);
 
 /* Read and return next header line. */
