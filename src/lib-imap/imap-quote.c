@@ -19,12 +19,13 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 		if (value[i] == 13 || value[i] == 10)
                         linefeeds++;
 
-		if ((value[i] & 0x80) != 0)
+		if ((value[i] & 0x80) != 0 ||
+		    value[i] == '"' || value[i] == '\\')
 			literal = TRUE;
 	}
 
 	if (!literal) {
-		/* no 8bit chars, return as "string" */
+		/* no 8bit chars or imapspecials, return as "string" */
 		str_append_c(str, '"');
 	} else {
 		/* return as literal */
