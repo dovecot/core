@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 0.99.10)
+AM_INIT_AUTOMAKE(dovecot, 0.99.11-test4)
 
 AM_MAINTAINER_MODE
 
@@ -535,6 +535,41 @@ if test $i_cv_field_tm_gmtoff = yes; then
 	AC_DEFINE(HAVE_TM_GMTOFF,, Define if you have struct tm->tm_gmtoff)
 fi
 AC_MSG_RESULT($i_cv_field_tm_gmtoff)
+
+dnl * how large time_t values does gmtime() accept?
+AC_MSG_CHECKING([how large time_t values gmtime() accepts])
+AC_TRY_RUN([
+  #include <stdio.h>
+  #include <time.h>
+  int main() {
+    FILE *f;
+    int bits;
+    time_t t;
+
+    for (bits = 1, t = 1; t > 0; ++bits, t <<= 1) {
+      if (gmtime(&t) == NULL) {
+        bits--;
+	break;
+      }
+    }
+    f = fopen("conftest.temp", "w");
+    if (f == NULL) {
+      perror("fopen()");
+      return 1;
+    }
+    fprintf(f, "%d", bits);
+    fclose(f);
+    return 0;
+  }
+], [
+  max_bits=`cat conftest.temp`
+  rm -f conftest.temp
+  AC_MSG_RESULT($max_bits)
+], [
+  AC_MSG_RESULT([check failed, assuming 31])
+  max_bits=31
+])
+AC_DEFINE_UNQUOTED(TIME_T_MAX_BITS, $max_bits, max. time_t bits gmtime() can handle)
 
 dnl * do we have struct iovec
 AC_MSG_CHECKING([for struct iovec])

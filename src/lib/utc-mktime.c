@@ -84,6 +84,7 @@
 **	would still be very reasonable).
 */
 
+#include "lib.h"
 #include "utc-mktime.h"
 
 static int tmcomp(register const struct tm * const atmp,
@@ -116,8 +117,9 @@ time_t utc_mktime(struct tm *tm)
 	** (this works regardless of whether time_t is
 	** signed or unsigned, though lint complains if unsigned).
 	*/
-	for (bits = 0, t = 1; t > 0; ++bits, t <<= 1)
-		;
+	for (bits = 0, t = 1; t > 0 && bits < TIME_T_MAX_BITS-1; bits++)
+		t <<= 1;
+
 	/*
 	** If time_t is signed, then 0 is the median value,
 	** if time_t is unsigned, then 1 << bits is median.
