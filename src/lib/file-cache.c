@@ -49,7 +49,12 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 	unsigned char *bits, *dest;
 	ssize_t ret;
 
-	i_assert(size < INT_MAX);
+	if (size > SSIZE_T_MAX) {
+		/* make sure our calculations won't overflow. most likely
+		   we'll be reading less data, but allow it anyway so caller
+		   doesn't have to deal with any extra checks. */
+		size = SSIZE_T_MAX;
+	}
 
 	if (offset + size > cache->mmap_length &&
 	    offset + size - cache->mmap_length > 1024*1024) {
