@@ -366,7 +366,11 @@ int _cmd_list_full(struct client_command_context *cmd, int lsub)
 	}
 
 	if (*mask == '\0' && !lsub) {
-		/* special request to return the hierarchy delimiter */
+		/* special request to return the hierarchy delimiter and
+		   mailbox root name. Mailbox root name is somewhat strange
+		   concept which probably no other client uses than Pine.
+		   Just try our best to emulate UW-IMAP behavior and hopefully
+		   we're fine. */
 		ns = namespace_find(client->namespaces, &ref);
 		if (ns == NULL) {
 			const char *empty = "";
@@ -374,9 +378,29 @@ int _cmd_list_full(struct client_command_context *cmd, int lsub)
 		}
 
 		if (ns != NULL) {
-			client_send_line(client, t_strconcat(
-				"* LIST (\\Noselect) \"", ns->sep_str,
-				"\" \"\"", NULL));
+			string_t *str = t_str_new(64);
+
+			str_printfa(str, "* LIST (\\Noselect) \"%s\" ",
+				    ns->sep_str);
+			if (*ns->prefix != '\0' && !ns->hidden) {
+				/* public namespace, use it as the root name */
+				imap_quote_append_string(str, ns->prefix,
+							 FALSE);
+			} else {
+				/* private namespace, or empty namespace
+				   prefix. use the mailbox name's first part
+				   as the root. */
+				const char *p = strchr(ref, ns->sep);
+
+				if (p == NULL)
+					str_append(str, "\"\"");
+				else {
+					imap_quote_append_string(str,
+						t_strdup_until(ref, p + 1),
+						FALSE);
+				}
+			}
+			client_send_line(client, str_c(str));
 		}
 		client_send_tagline(cmd, "OK List completed.");
 	} else {
