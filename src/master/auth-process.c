@@ -309,7 +309,7 @@ static pid_t create_auth_process(struct auth_process_group *group)
 
 	/* setup access environment */
 	restrict_access_set_env(group->set->user, pwd->pw_uid, pwd->pw_gid,
-				group->set->chroot);
+				group->set->chroot, 0, 0);
 
 	/* set other environment */
 	env_put(t_strconcat("AUTH_PROCESS=", dec2str(getpid()), NULL));

@@ -25,11 +25,6 @@ static int validate_uid_gid(uid_t uid, gid_t gid)
 		return FALSE;
 	}
 
-	if (uid != 0 && gid == 0) {
-		i_error("mail process isn't allowed to be in group 0");
-		return FALSE;
-	}
-
 	if (uid < (uid_t)set->first_valid_uid ||
 	    (set->last_valid_uid != 0 && uid > (uid_t)set->last_valid_uid)) {
 		i_error("mail process isn't allowed to use UID %s "
@@ -40,8 +35,9 @@ static int validate_uid_gid(uid_t uid, gid_t gid)
 
 	if (gid < (gid_t)set->first_valid_gid ||
 	    (set->last_valid_gid != 0 && gid > (gid_t)set->last_valid_gid)) {
-		i_error("mail process isn't allowed to use "
-			"GID %s (UID is %s)", dec2str(gid), dec2str(uid));
+		i_error("mail process isn't allowed to use primary group ID %s "
+			"with UID %s (see first_valid_gid in config file).",
+			dec2str(gid), dec2str(uid));
 		return FALSE;
 	}
 
@@ -154,7 +150,8 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
 	restrict_access_set_env(data + reply->system_user_idx,
-				reply->uid, reply->gid, chroot_dir);
+				reply->uid, reply->gid, chroot_dir,
+				set->first_valid_gid, set->last_valid_gid);
 
 	restrict_process_size(process_size, (unsigned int)-1);
 

@@ -390,7 +390,8 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 	   clean_child_process() since it clears environment */
 	restrict_access_set_env(group->set->user,
 				group->set->uid, set->login_gid,
-				set->login_chroot ? set->login_dir : NULL);
+				set->login_chroot ? set->login_dir : NULL,
+				0, 0);
 
 	env_put("DOVECOT_MASTER=1");
 
