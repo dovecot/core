@@ -362,7 +362,7 @@ static void open_logfile(struct settings *set)
 
 	i_set_failure_timestamp_format(set->log_timestamp);
 
-	i_info("Dovecot starting up");
+	i_info("Dovecot v"VERSION" starting up");
 }
 
 static void main_init(void)
