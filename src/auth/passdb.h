@@ -52,6 +52,7 @@ void passdb_handle_credentials(enum passdb_credentials credentials,
 extern struct passdb_module *passdb;
 
 extern struct passdb_module passdb_passwd;
+extern struct passdb_module passdb_bsdauth;
 extern struct passdb_module passdb_shadow;
 extern struct passdb_module passdb_passwd_file;
 extern struct passdb_module passdb_pam;

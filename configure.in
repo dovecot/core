@@ -89,6 +89,15 @@ AC_ARG_WITH(pam,
 	fi,
 	want_pam=yes)
 
+AC_ARG_WITH(bsdauth,
+[  --with-bsdauth          Build with BSD authentication support (default)],
+	if test x$withval = xno; then
+		want_bsdauth=no
+	else
+		want_bsdauth=yes
+	fi,
+	want_bsdauth=yes)
+
 AC_ARG_WITH(ldap,
 [  --with-ldap             Build with LDAP support],
 	if test x$withval = xno; then
@@ -935,6 +944,13 @@ if test $want_pam = yes; then
 					  Define if you have pam_setcred())
 			])
 		fi
+	])
+fi
+
+if test $want_bsdauth = yes; then
+	AC_CHECK_FUNC(auth_userokay, [
+		AC_DEFINE(PASSDB_BSDAUTH,, Build with BSD authentication support)
+		passdb="$passdb bsdauth"
 	])
 fi
 

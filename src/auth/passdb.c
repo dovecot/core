@@ -86,6 +86,10 @@ void passdb_init(void)
 	if (strcasecmp(name, "passwd") == 0)
 		passdb = &passdb_passwd;
 #endif
+#ifdef PASSDB_BSDAUTH
+	if (strcasecmp(name, "bsdauth") == 0)
+		passdb = &passdb_bsdauth;
+#endif
 #ifdef PASSDB_PASSWD_FILE
 	if (strcasecmp(name, "passwd-file") == 0)
 		passdb = &passdb_passwd_file;

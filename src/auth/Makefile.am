@@ -31,6 +31,7 @@ dovecot_auth_SOURCES = \
 	mech-digest-md5.c \
 	mycrypt.c \
 	passdb.c \
+	passdb-bsdauth.c \
 	passdb-ldap.c \
 	passdb-passwd.c \
 	passdb-passwd-file.c \
