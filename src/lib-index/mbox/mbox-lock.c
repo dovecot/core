@@ -185,7 +185,8 @@ static int mbox_lock_dotlock(struct mail_index *index, const char *path,
 				continue;
 			}
 
-			if (last_notify != now) {
+			if (last_notify != now &&
+			    index->lock_notify_func != NULL) {
 				last_notify = now;
 				if (now > last_change + stale_notify) {
 					secs_left = now - last_change +
