@@ -468,7 +468,7 @@ static void search_text_set_unmatched(MailSearchArg *arg,
 		ARG_SET_RESULT(arg, -1);
 }
 
-static void search_arg_match_data(IOBuffer *inbuf, unsigned int max_size,
+static void search_arg_match_data(IOBuffer *inbuf, uoff_t max_size,
 				  MailSearchArg *args,
 				  MailSearchForeachFunc search_func)
 {
@@ -481,8 +481,11 @@ static void search_arg_match_data(IOBuffer *inbuf, unsigned int max_size,
 
 	/* do this in blocks: read data, compare it for all search words, skip
 	   for block size - (strlen(largest_searchword)-1) and continue. */
-	while (max_size > 0 &&
-	       (ret = io_buffer_read_max(inbuf, max_size)) > 0) {
+	while (max_size > 0) {
+		size = max_size < SSIZE_T_MAX ? max_size : SSIZE_T_MAX;
+		if ((ret = io_buffer_read_max(inbuf, size)) < 0)
+			break;
+
 		ctx.msg = io_buffer_get_data(inbuf, &size);
 		if (size > 0) {
 			ctx.size = max_size < size ? max_size : size;
@@ -543,7 +546,8 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 			io_buffer_skip(inbuf, rec->header_size);
 		}
 
-		search_arg_match_data(inbuf, UINT_MAX, args, search_text_body);
+		search_arg_match_data(inbuf, rec->body_size, args,
+				      search_text_body);
 
 		/* set the rest as unmatched */
 		mail_search_args_foreach(args, search_text_set_unmatched, NULL);
