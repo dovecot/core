@@ -160,7 +160,7 @@ const void *file_cache_get_map(struct file_cache *cache, size_t *size_r)
 	return cache->mmap_base;
 }
 
-void file_cache_invalidate(struct file_cache *cache, uoff_t offset, size_t size)
+void file_cache_invalidate(struct file_cache *cache, uoff_t offset, uoff_t size)
 {
 	size_t page_size = mmap_get_page_size();
 	unsigned char *bits, mask;

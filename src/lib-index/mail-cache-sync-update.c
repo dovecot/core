@@ -120,7 +120,7 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 
 	if (cache->file_cache != NULL) {
 		file_cache_invalidate(cache->file_cache, *new_cache_offset,
-				      (size_t)-1);
+				      (uoff_t)-1);
 	}
 
 	if (*old_cache_offset == 0 ||

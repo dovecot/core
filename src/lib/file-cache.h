@@ -21,6 +21,6 @@ const void *file_cache_get_map(struct file_cache *cache, size_t *size_r);
 /* Invalidate cached memory area. It will be read again next time it's tried
    to be accessed. */
 void file_cache_invalidate(struct file_cache *cache,
-			   uoff_t offset, size_t size);
+			   uoff_t offset, uoff_t size);
 
 #endif
