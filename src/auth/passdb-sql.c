@@ -46,12 +46,15 @@ static void result_save_extra_fields(struct sql_result *result,
 		name = sql_result_get_field_name(result, i);
 		value = sql_result_get_field_value(result, i);
 
+		if (value == NULL)
+			continue;
+
 		if (strcmp(name, "password") == 0)
 			continue;
 
 		if (strcmp(name, "nodelay") == 0) {
 			/* don't delay replying to client of the failure */
-			auth_request->no_failure_delay = *value == 'Y';
+			auth_request->no_failure_delay = TRUE;
 			continue;
 		}
 
@@ -59,28 +62,23 @@ static void result_save_extra_fields(struct sql_result *result,
 			str = str_new(auth_request->pool, 64);
 
 		if (strcmp(name, "nologin") == 0) {
-			if (*value == 'Y') {
-				/* user can't actually login - don't keep this
-				   reply for master */
-				auth_request->no_login = TRUE;
-				if (str_len(str) > 0)
-					str_append_c(str, '\t');
-				str_append(str, name);
-			}
+			/* user can't actually login - don't keep this
+			   reply for master */
+			auth_request->no_login = TRUE;
+			if (str_len(str) > 0)
+				str_append_c(str, '\t');
+			str_append(str, name);
 		} else if (strcmp(name, "proxy") == 0) {
-			if (*value == 'Y') {
-				/* we're proxying authentication for this
-				   user. send password back if using plaintext
-				   authentication. */
-				auth_request->proxy = TRUE;
-				if (str_len(str) > 0)
-					str_append_c(str, '\t');
-				str_append(str, name);
+			/* we're proxying authentication for this user. send
+			   password back if using plaintext authentication. */
+			auth_request->proxy = TRUE;
+			if (str_len(str) > 0)
+				str_append_c(str, '\t');
+			str_append(str, name);
 
-				if (*sql_request->password != '\0') {
-					str_printfa(str, "\tpass=%s",
-						    sql_request->password);
-				}
+			if (*sql_request->password != '\0') {
+				str_printfa(str, "\tpass=%s",
+					    sql_request->password);
 			}
 		} else {
 			if (str_len(str) > 0)
