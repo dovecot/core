@@ -478,7 +478,8 @@ int imap_parser_read_args(ImapParser *parser, unsigned int count,
 {
 	parser->flags = flags;
 
-	while (count == 0 || parser->root_list->size < count) {
+	while (count == 0 || parser->root_list->size < count ||
+	       parser->cur_list != parser->root_list) {
 		if (!imap_parser_read_arg(parser))
 			break;
 	}
