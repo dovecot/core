@@ -200,7 +200,7 @@ size_t buffer_insert(buffer_t *_buf, size_t pos,
 		return buffer_write(_buf, pos, data, data_size);
 
 	size = buffer_copy(_buf, pos + data_size, _buf, pos, (size_t)-1);
-	memcpy(buf->w_buffer + pos, data, size);
+	memcpy(buf->w_buffer + pos, data, data_size);
 	return size;
 }
 
@@ -253,7 +253,7 @@ size_t buffer_insert_zero(buffer_t *_buf, size_t pos, size_t data_size)
 		return buffer_write_zero(_buf, pos, data_size);
 
 	size = buffer_copy(_buf, pos + data_size, _buf, pos, (size_t)-1);
-	memset(buf->w_buffer + pos, 0, size);
+	memset(buf->w_buffer + pos, 0, data_size);
 	return size;
 }
 
