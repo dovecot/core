@@ -42,8 +42,8 @@ MailSortContext *mail_sort_init(const MailSortType *input, MailSortType *output,
 				MailSortFuncs funcs, void *context);
 void mail_sort_deinit(MailSortContext *ctx);
 
-/* id is either UID or sequence number of message, depending which one we
-   want to send user. */
+/* id is either UID or sequence number of message, whichever is preferred
+   in MailSortFuncs parameters. */
 void mail_sort_input(MailSortContext *ctx, unsigned int id);
 
 #endif

@@ -8,7 +8,7 @@
 
 struct _MailSortContext {
 	MailSortType output[MAX_SORT_PROGRAM_SIZE];
-	MailSortType output_mask, common_mask;
+	MailSortType common_mask;
 
 	MailSortFuncs funcs;
 	void *func_context;
@@ -56,14 +56,15 @@ mail_sort_normalize(const MailSortType *input,
 }
 
 static MailSortType
-mail_sort_get_common_mask(const MailSortType *input, const MailSortType *output)
+mail_sort_get_common_mask(const MailSortType *input,
+			  const MailSortType **output)
 {
 	MailSortType mask = 0;
 
-	while (*input == *output && *input != MAIL_SORT_END) {
+	while (*input == **output && *input != MAIL_SORT_END) {
 		if (*input != MAIL_SORT_REVERSE)
 			mask |= *input;
-		input++; output++;
+		input++; (*output)++;
 	}
 
 	return mask;
@@ -74,12 +75,22 @@ MailSortContext *mail_sort_init(const MailSortType *input, MailSortType *output,
 {
 	MailSortContext *ctx;
 	MailSortType norm_input[MAX_SORT_PROGRAM_SIZE];
+	MailSortType norm_output[MAX_SORT_PROGRAM_SIZE];
+	int i;
 
 	ctx = i_new(MailSortContext, 1);
 
 	mail_sort_normalize(input, norm_input);
-	ctx->output_mask = mail_sort_normalize(output, ctx->output);
-        ctx->common_mask = mail_sort_get_common_mask(norm_input, ctx->output);
+	mail_sort_normalize(output, norm_output);
+
+	/* remove the common part from output, we already know input is sorted
+	   that much so we don't have to worry about it. */
+	output = norm_output;
+        ctx->common_mask = mail_sort_get_common_mask(norm_input, &output);
+
+	for (i = 0; output[i] != MAIL_SORT_END; i++)
+		ctx->output[i] = output[i];
+	ctx->output[i] = MAIL_SORT_END;
 
 	ctx->sort_buffer_alloc = 128;
 	ctx->sort_buffer = i_new(unsigned int, ctx->sort_buffer_alloc);
