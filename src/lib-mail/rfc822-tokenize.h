@@ -4,7 +4,7 @@
 typedef struct _Rfc822Token Rfc822Token;
 
 #define IS_TOKEN_STRING(token) \
-	((token) == 'A' || (token) == '"' || (token) == '(' || (token) == '['))
+	((token) == 'A' || (token) == '"' || (token) == '(' || (token) == '[')
 
 #define IS_LWSP(c) \
 	((c) == ' ' || (c) == '\t')
