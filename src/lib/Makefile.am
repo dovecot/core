@@ -30,6 +30,7 @@ liblib_a_SOURCES = \
 	ioloop-notify-dn.c \
 	ioloop-poll.c \
 	ioloop-select.c \
+	ioloop-epoll.c \
 	lib.c \
 	lib-signals.c \
 	md4.c \

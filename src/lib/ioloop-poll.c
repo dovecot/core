@@ -141,7 +141,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 
 	ret = poll(data->fds, data->fds_pos, msecs);
 	if (ret < 0 && errno != EINTR)
-		i_warning("poll() : %m");
+		i_fatal("poll(): %m");
 
 	/* execute timeout handlers */
         io_loop_handle_timeouts(ioloop);

@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 1.0-test38)
+AM_INIT_AUTOMAKE(dovecot, 1.0-test40)
 
 AM_MAINTAINER_MODE
 
@@ -51,6 +51,11 @@ AC_ARG_WITH(mem-align,
 [  --with-mem-align=BYTES  Set the memory alignment (default: 8)],
 	mem_align=$withval,
 	mem_align=8)
+
+AC_ARG_WITH(ioloop,
+[  --with-ioloop=IOLOOP    Specify the I/O loop method to use],
+	ioloop=$withval,
+	ioloop=)
 
 AC_ARG_WITH(passwd,
 [  --with-passwd           Build with /etc/passwd support (default)],
@@ -263,13 +268,32 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsnprintf vsyslog writev pread \
 	       setrlimit setproctitle)
 
-dnl * poll/select?
+dnl * I/O loop function
+have_ioloop=no
 
-AC_CHECK_FUNC(poll, [
-	AC_DEFINE(IOLOOP_POLL,, Implement I/O loop with poll())
-], [
-	AC_DEFINE(IOLOOP_SELECT,, Implement I/O loop with select())
-])
+dnl we currently don't use epoll automatically because it fails at runtime
+dnl if we're not running 2.6 kernel
+if test "$ioloop" = "epoll"; then
+  AC_CHECK_FUNC(epoll_create, [
+    AC_DEFINE(IOLOOP_EPOLL,, Implement I/O loop with Linux 2.6 epoll())
+    have_ioloop=yes
+  ], [
+    ioloop=""
+  ])
+fi
+
+if test "$ioloop" = "" || test "$ioloop" = "poll"; then
+  AC_CHECK_FUNC(poll, [
+    AC_DEFINE(IOLOOP_POLL,, Implement I/O loop with poll())
+    ioloop=poll
+    have_ioloop=yes
+  ])
+fi
+
+if test "$have_ioloop" = "no"; then
+  AC_DEFINE(IOLOOP_SELECT,, Implement I/O loop with select())
+  ioloop="select"
+fi
 
 dnl * dnotify?
 AC_TRY_COMPILE([
@@ -1371,6 +1395,7 @@ echo "}" >> $file
 echo
 echo "Install prefix ...................... : $prefix"
 echo "File offsets ........................ : ${offt_bits}bit"
+echo "I/O loop method ..................... : $ioloop"
 echo "Building with SSL support ........... : $have_ssl"
 echo "Building with IPv6 support .......... : $want_ipv6"
 echo "Building with pop3 server ........... : $want_pop3d"
