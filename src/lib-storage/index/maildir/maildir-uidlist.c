@@ -570,9 +570,11 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
 {
 	int ret;
 
-	if (ctx->failed)
+	if (ctx->failed) {
+		if (UIDLIST_IS_LOCKED(ctx->uidlist))
+			maildir_uidlist_unlock(ctx->uidlist);
 		ret = -1;
-	else {
+	} else {
 		maildir_uidlist_swap(ctx);
 		if (!ctx->new_files)
 			ret = 0;
