@@ -296,7 +296,7 @@ int mbox_index_rewrite(MailIndex *index)
 		return FALSE;
 	}
 
-	if (!mbox_lock(index, index->mbox_path, in_fd, FALSE)) {
+	if (!mbox_lock(index, index->mbox_path, in_fd, TRUE)) {
 		if (close(in_fd) < 0)
 			mbox_set_syscall_error(index, "close()");
 		if (close(out_fd) < 0)
