@@ -153,3 +153,63 @@ MessagePart *message_part_deserialize(Pool pool, const void *data,
 	count = size / sizeof(SerializedMessagePart);
 	return message_part_deserialize_part(pool, NULL, &spart, &count, count);
 }
+
+int message_part_serialize_update_header(void *data, unsigned int size,
+					 MessageSize *hdr_size)
+{
+	SerializedMessagePart *spart = data;
+	uoff_t first_pos;
+	off_t pos_diff;
+	unsigned int i, count;
+
+	/* make sure it looks valid */
+	if (size == 0 || (size % sizeof(SerializedMessagePart)) != 0)
+		return FALSE;
+
+	if (hdr_size->physical_size >= OFF_T_MAX ||
+	    spart->physical_pos >= OFF_T_MAX ||
+	    spart->header_physical_size >= OFF_T_MAX)
+		return FALSE;
+
+	spart->header_physical_size = hdr_size->physical_size;
+	spart->header_virtual_size = hdr_size->virtual_size;
+	spart->header_lines = hdr_size->lines;
+
+	first_pos = spart->physical_pos;
+	pos_diff = (off_t)hdr_size->physical_size - spart->header_physical_size;
+
+	if (pos_diff != 0) {
+		/* have to update all positions */
+		count = size / sizeof(SerializedMessagePart);
+		for (i = 0; i < count; i++, spart++) {
+			if (spart->physical_pos < first_pos ||
+			    spart->physical_pos >= OFF_T_MAX) {
+				/* invalid offset, might cause overflow */
+				return FALSE;
+			}
+			spart->physical_pos += pos_diff;
+		}
+	}
+	return TRUE;
+}
+
+int message_part_deserialize_size(const void *data, unsigned int size,
+				  MessageSize *hdr_size,
+				  MessageSize *body_size)
+{
+        const SerializedMessagePart *spart = data;
+
+	/* make sure it looks valid */
+	if (size == 0 || (size % sizeof(SerializedMessagePart)) != 0)
+		return FALSE;
+
+	hdr_size->physical_size = spart->header_physical_size;
+	hdr_size->virtual_size = spart->header_virtual_size;
+	hdr_size->lines = spart->header_lines;
+
+	body_size->physical_size = spart->body_physical_size;
+	body_size->virtual_size = spart->body_virtual_size;
+	body_size->lines = spart->body_lines;
+
+	return TRUE;
+}
