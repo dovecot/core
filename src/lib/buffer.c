@@ -281,3 +281,11 @@ size_t buffer_get_size(const buffer_t *_buf)
 
 	return buf->alloc;
 }
+
+int buffer_cmp(const buffer_t *buf1, const buffer_t *buf2)
+{
+	if (buf1->used != buf2->used)
+		return FALSE;
+
+	return memcmp(buf1->data, buf2->data, buf1->used) == 0;
+}
