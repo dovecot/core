@@ -267,6 +267,15 @@ int mail_index_lookup_uid_range(struct mail_index_view *view,
 	if (mail_index_view_lock(view) < 0)
 		return -1;
 
+	if (last_uid >= view->map->hdr->next_uid) {
+		last_uid = view->map->hdr->next_uid-1;
+		if (first_uid > last_uid) {
+			*first_seq_r = 0;
+			*last_seq_r = 0;
+			return 0;
+		}
+	}
+
 	left_idx = 0;
 	*first_seq_r = mail_index_bsearch_uid(view, first_uid, &left_idx, 1);
 	if (*first_seq_r == 0 ||
@@ -279,9 +288,6 @@ int mail_index_lookup_uid_range(struct mail_index_view *view,
 		*last_seq_r = *first_seq_r;
 		return 0;
 	}
-
-	if (last_uid >= view->map->hdr->next_uid)
-		last_uid = view->map->hdr->next_uid-1;
 
 	/* optimization - binary lookup only from right side: */
 	*last_seq_r = mail_index_bsearch_uid(view, last_uid, &left_idx, -1);
