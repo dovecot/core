@@ -37,6 +37,8 @@ struct pgsql_request {
 	void *context;
 };
 
+const char *db_pgsql_escape(const char *str);
+
 void db_pgsql_query(struct pgsql_connection *conn, const char *query,
 		    struct pgsql_request *request);
 

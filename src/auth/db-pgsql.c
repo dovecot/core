@@ -35,6 +35,17 @@ static struct pgsql_connection *pgsql_connections = NULL;
 static int pgsql_conn_open(struct pgsql_connection *conn);
 static void pgsql_conn_close(struct pgsql_connection *conn);
 
+const char *db_pgsql_escape(const char *str)
+{
+	char *esc_str;
+	size_t len = strlen(str);
+
+	/* @UNSAFE */
+	esc_str = t_malloc(len*2+1);
+	PQescapeString(esc_str, str, len);
+	return esc_str;
+}
+
 void db_pgsql_query(struct pgsql_connection *conn, const char *query,
 		    struct pgsql_request *request)
 {

@@ -93,7 +93,7 @@ static void userdb_pgsql_lookup(const char *user, userdb_callback_t *callback,
 	string_t *str;
 
 	str = t_str_new(512);
-	var_expand(str, conn->set.user_query, str_escape(user), NULL);
+	var_expand(str, conn->set.user_query, db_pgsql_escape(user), NULL);
 	query = str_c(str);
 
 	request = i_malloc(sizeof(struct userdb_pgsql_request) + strlen(user));
