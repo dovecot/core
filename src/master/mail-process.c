@@ -27,7 +27,7 @@ static int validate_uid_gid(struct settings *set, uid_t uid, gid_t gid,
 		return FALSE;
 	}
 
-	if (set->login_uid == uid && geteuid() != uid) {
+	if (set->login_uid == uid && master_uid != uid) {
 		i_error("Can't log in using login processes UID %s (user %s) "
 			"(see login_user in config file).",
 			dec2str(uid), user);
@@ -112,7 +112,7 @@ int create_mail_process(struct login_group *group, int socket,
 	const char *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
 	char title[1024];
 	pid_t pid;
-	int i, err;
+	int i, err, ret;
 
 	// FIXME: per-group
 	if (mail_process_count == set->max_mail_processes) {
@@ -169,9 +169,22 @@ int create_mail_process(struct login_group *group, int socket,
 		full_home_dir = *chroot_dir == '\0' ? home_dir :
 			t_strconcat(chroot_dir, "/", home_dir, NULL);
 		/* NOTE: if home directory is NFS-mounted, we might not
-		   have access to it as root. Ignore such errors. */
-		if (chdir(full_home_dir) < 0 && errno != EACCES)
-			i_fatal("chdir(%s) failed: %m", full_home_dir);
+		   have access to it as root. Change the effective UID
+		   temporarily to make it work. */
+		if (reply->uid != master_uid && seteuid(reply->uid) < 0)
+			i_fatal("seteuid(%s) failed: %m", dec2str(reply->uid));
+		ret = chdir(full_home_dir);
+		if (reply->uid != master_uid && seteuid(master_uid) < 0)
+			i_fatal("seteuid(%s) failed: %m", dec2str(master_uid));
+		if (ret < 0) {
+			i_fatal("chdir(%s) failed with uid %s: %m",
+				full_home_dir, dec2str(reply->uid));
+		}
+	} else {
+		/* We still have to change to some directory where we have
+		   rx-access. /tmp should exist everywhere. */
+		if (chdir("/tmp") < 0)
+			i_fatal("chdir(/tmp) failed: %m");
 	}
 
 	env_put("LOGGED_IN=1");
@@ -263,6 +276,7 @@ int create_mail_process(struct login_group *group, int socket,
 	for (i = 0; i < 3; i++)
 		(void)close(i);
 
+	errno = err;
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
 		       group->set->mail_executable);
 

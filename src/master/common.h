@@ -23,6 +23,7 @@ enum {
 extern struct ioloop *ioloop;
 extern struct hash_table *pids;
 extern int null_fd, inetd_login_fd;
+extern uid_t master_uid;
 
 #define IS_INETD() \
 	(inetd_login_fd != -1)

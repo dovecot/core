@@ -377,7 +377,7 @@ static int settings_verify(struct settings *set)
 
 	/* since they're under /var/run by default, they may have been
 	   deleted. */
-	if (safe_mkdir(set->base_dir, 0700, geteuid(), getegid()) == 0) {
+	if (safe_mkdir(set->base_dir, 0700, master_uid, getegid()) == 0) {
 		i_warning("Corrected permissions for base directory %s",
 			  PKG_RUNDIR);
 	}
@@ -388,7 +388,7 @@ static int settings_verify(struct settings *set)
 		return FALSE;
 	}
 
-	if (safe_mkdir(set->login_dir, 0750, geteuid(), set->login_gid) == 0) {
+	if (safe_mkdir(set->login_dir, 0750, master_uid, set->login_gid) == 0) {
 		i_warning("Corrected permissions for login directory %s",
 			  set->login_dir);
 	}

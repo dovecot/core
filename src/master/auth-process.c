@@ -383,9 +383,10 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 	fd_close_on_exec(group->listen_fd, TRUE);
 
 	/* set correct permissions */
-	if (chown(path, geteuid(), auth_set->parent->defaults->login_gid) < 0) {
+	if (chown(path, master_uid,
+		  auth_set->parent->defaults->login_gid) < 0) {
 		i_fatal("login: chown(%s, %s, %s) failed: %m",
-			path, dec2str(geteuid()),
+			path, dec2str(master_uid),
 			dec2str(auth_set->parent->defaults->login_gid));
 	}
 

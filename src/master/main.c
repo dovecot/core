@@ -35,6 +35,7 @@ static struct timeout *to;
 struct ioloop *ioloop;
 struct hash_table *pids;
 int null_fd, inetd_login_fd;
+uid_t master_uid;
 
 int validate_str(const char *str, size_t max_len)
 {
@@ -444,6 +445,7 @@ int main(int argc, char *argv[])
 
 	lib_init();
 
+	master_uid = geteuid();
         inetd_login_fd = -1;
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-F") == 0) {

@@ -86,7 +86,7 @@ static int check_parameters_file_set(struct settings *set)
 	regen_time = st.st_mtime +
 		(time_t)(set->ssl_parameters_regenerate*3600);
 	if (regen_time < ioloop_time || (st.st_mode & 077) != 0 ||
-	    st.st_uid != geteuid() || st.st_gid != getegid()) {
+	    st.st_uid != master_uid || st.st_gid != getegid()) {
 		start_generate_process(set);
 		return FALSE;
 	}
