@@ -293,12 +293,15 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
 
-		if (data[idx].uid1 < seq)
+		if (data[idx].uid1 <= seq) {
+			if (data[idx].uid2 >= seq) {
+				/* it's already expunged */
+				return;
+			}
 			left_idx = idx+1;
-		else if (data[idx].uid1 > seq)
+		} else {
 			right_idx = idx;
-		else
-			break;
+		}
 	}
 
 	if (data[idx].uid2 < seq)
@@ -306,11 +309,7 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 
         /* idx == size couldn't happen because we already handle it above */
 	i_assert(idx < size && data[idx].uid1 >= seq);
-
-	if (data[idx].uid1 <= seq && data[idx].uid2 >= seq) {
-		/* already expunged */
-		return;
-	}
+	i_assert(data[idx].uid1 > seq || data[idx].uid2 < seq);
 
 	if (data[idx].uid1 == seq+1) {
 		data[idx].uid1 = seq;
