@@ -105,6 +105,9 @@ static void pool_alloconly_destroy(struct alloconly_pool *apool)
 	pool_alloconly_clear(&apool->pool);
 
 	/* destroy the last block */
+#ifdef DEBUG
+	memset(apool->block, 0xde, SIZEOF_POOLBLOCK + apool->block->size);
+#endif
 	free(apool->block);
 	free(apool);
 }
@@ -242,6 +245,10 @@ static void pool_alloconly_clear(pool_t pool)
 		block = apool->block;
 		apool->block = block->prev;
 
+#ifdef DEBUG
+		memset(apool->block, 0xde,
+		       SIZEOF_POOLBLOCK + apool->block->size);
+#endif
 		free(block);
 	}
 
