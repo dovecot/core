@@ -462,10 +462,15 @@ static int mail_index_open_init(MailIndex *index, int update_recent,
 		index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
 	}
 
-	/* finally reset the modify log marks, fsck or syncing might have
-	   deleted some messages, and since we're only just opening the
-	   index, there's no need to remember them */
-	return mail_modifylog_mark_synced(index->modifylog);
+	if (index->lock_type == MAIL_LOCK_EXCLUSIVE) {
+		/* finally reset the modify log marks, fsck or syncing might
+		   have deleted some messages, and since we're only just
+		   opening the index, there's no need to remember them */
+		if (!mail_modifylog_mark_synced(index->modifylog))
+			return FALSE;
+	}
+
+	return TRUE;
 }
 
 static int mail_index_open_file(MailIndex *index, const char *filename,
