@@ -11,6 +11,14 @@ int cmd_logout(struct client *client)
 		/* this could be done at client_disconnect() as well,
 		   but eg. mbox rewrite takes a while so the waiting is
 		   better to happen before "OK" message. */
+		if (imap_sync_nonselected(client->mailbox,
+					  MAILBOX_SYNC_FLAG_FULL) < 0) {
+			client_send_storage_error(client,
+				mailbox_get_storage(client->mailbox));
+			mailbox_close(client->mailbox);
+			return TRUE;
+		}
+
 		mailbox_close(client->mailbox);
 		client->mailbox = NULL;
 	}
