@@ -47,7 +47,6 @@ struct index_mailbox {
 	struct mail_cache *cache;
 	struct mail *mail_interface;
 
-	void (*mail_deinit)(struct index_mail *mail);
 	int (*is_recent)(struct index_mailbox *ibox, uint32_t uid);
 
 	struct timeout *notify_to;
