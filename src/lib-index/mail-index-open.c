@@ -202,6 +202,11 @@ static int index_open_and_fix(MailIndex *index, MailIndexHeader *hdr,
 			return FALSE;
 	}
 
+	/* sync before updating cached fields so it won't print
+	   warnings if mails were deleted */
+	if (!index->sync(index))
+		return FALSE;
+
 	if (hdr->flags & MAIL_INDEX_FLAG_CACHE_FIELDS) {
 		/* need to update cached fields */
 		if (!mail_index_update_cache(index))
@@ -215,9 +220,6 @@ static int index_open_and_fix(MailIndex *index, MailIndexHeader *hdr,
 		if (!mail_index_compress_data(index))
 			return FALSE;
 	}
-
-	if (!index->sync(index))
-		return FALSE;
 
 	if (!mail_index_open_init(index, hdr, update_recent))
 		return FALSE;
