@@ -200,7 +200,7 @@ static int index_open_and_fix(MailIndex *index, int update_recent, int fast)
 			return FALSE;
 	}
 
-	if (fast && (index->header->flags & MAIL_INDEX_FLAG_COMPRESS)) {
+	if (!fast && (index->header->flags & MAIL_INDEX_FLAG_COMPRESS)) {
 		/* remove deleted blocks from index file */
 		if (!mail_index_compress(index))
 			return FALSE;
@@ -216,13 +216,13 @@ static int index_open_and_fix(MailIndex *index, int update_recent, int fast)
 	if (!index->sync(index))
 		return FALSE;
 
-	if (fast && (index->header->flags & MAIL_INDEX_FLAG_CACHE_FIELDS)) {
+	if (!fast && (index->header->flags & MAIL_INDEX_FLAG_CACHE_FIELDS)) {
 		/* need to update cached fields */
 		if (!mail_index_update_cache(index))
 			return FALSE;
 	}
 
-	if (fast && (index->header->flags & MAIL_INDEX_FLAG_COMPRESS_DATA)) {
+	if (!fast && (index->header->flags & MAIL_INDEX_FLAG_COMPRESS_DATA)) {
 		/* remove unused space from index data file.
 		   keep after cache_fields which may move data
 		   and create unused space.. */
