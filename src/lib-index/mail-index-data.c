@@ -358,7 +358,7 @@ int mail_index_data_mark_deleted(MailIndexData *data)
 		return TRUE;
 
 	data->header->indexid = 0;
-	if (msync(data->mmap_base, 0, sizeof(MailIndexDataHeader)) < 0)
+	if (msync(data->mmap_base, sizeof(MailIndexDataHeader), MS_SYNC) < 0)
 		return index_data_set_syscall_error(data, "msync()");
 
 	return TRUE;
