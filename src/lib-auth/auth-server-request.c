@@ -11,7 +11,7 @@ struct auth_request {
         struct auth_server_connection *conn;
 
 	enum auth_mech mech;
-	enum auth_protocol protocol;
+	char protocol[AUTH_CLIENT_PROTOCOL_BUF_SIZE];
 	enum auth_client_request_new_flags flags;
 
 	unsigned int id;
@@ -34,7 +34,8 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 
 	auth_request.type = AUTH_CLIENT_REQUEST_NEW;
 	auth_request.id = request->id;
-	auth_request.protocol = request->protocol;
+	strocpy(auth_request.protocol, request->protocol,
+		sizeof(auth_request.protocol));
 	auth_request.mech = request->mech;
 	auth_request.flags = request->flags;
 
@@ -178,7 +179,7 @@ void auth_server_requests_remove_all(struct auth_server_connection *conn)
 
 struct auth_request *
 auth_client_request_new(struct auth_client *client,
-			enum auth_mech mech, enum auth_protocol protocol,
+			enum auth_mech mech, const char *protocol,
 			enum auth_client_request_new_flags flags,
 			auth_request_callback_t *callback, void *context,
 			const char **error_r)
@@ -193,7 +194,7 @@ auth_client_request_new(struct auth_client *client,
 	request = i_new(struct auth_request, 1);
 	request->conn = conn;
 	request->mech = mech;
-	request->protocol = protocol;
+	strocpy(request->protocol, protocol, sizeof(request->protocol));
 	request->flags = flags;
 	request->id = ++client->request_id_counter;
 	if (request->id == 0) {

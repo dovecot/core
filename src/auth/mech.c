@@ -110,7 +110,8 @@ void mech_request_new(struct auth_client_connection *conn,
 		auth_request->created = ioloop_time;
 		auth_request->conn = conn;
 		auth_request->id = request->id;
-		auth_request->protocol = request->protocol;
+		strocpy(auth_request->protocol, request->protocol,
+			sizeof(auth_request->protocol));
 
 		hash_insert(conn->auth_requests, POINTER_CAST(request->id),
 			    auth_request);
@@ -260,16 +261,7 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	tab[2].value = strchr(auth_request->user, '@');
 	if (tab[2].value != NULL)
 		tab[2].value = escape_func(tab[2].value+1);
-
-	switch (auth_request->protocol) {
-	case AUTH_PROTOCOL_IMAP:
-		tab[3].value = "IMAP";
-		break;
-	case AUTH_PROTOCOL_POP3:
-		tab[3].value = "POP3";
-		break;
-	}
-
+	tab[3].value = auth_request->protocol;
 	return tab;
 }
 

@@ -4,6 +4,9 @@
 /* max. size for auth_client_request_continue.data[] */
 #define AUTH_CLIENT_MAX_REQUEST_DATA_SIZE 4096
 
+/* sizeof(struct auth_client_request_new->protocol) */
+#define AUTH_CLIENT_PROTOCOL_BUF_SIZE 12
+
 /* Client process must finish with single authentication requests in this time,
    or the whole connection will be killed. */
 #define AUTH_REQUEST_TIMEOUT 120
@@ -15,11 +18,6 @@ enum auth_mech {
 	AUTH_MECH_CRAM_MD5	= 0x08,
 
 	AUTH_MECH_COUNT
-};
-
-enum auth_protocol {
-	AUTH_PROTOCOL_IMAP	= 0x01,
-	AUTH_PROTOCOL_POP3	= 0x02
 };
 
 enum auth_client_request_new_flags {
@@ -54,8 +52,8 @@ struct auth_client_request_new {
 	unsigned int id; /* unique ID for the request */
 
 	enum auth_mech mech;
-	enum auth_protocol protocol;
-        enum auth_client_request_new_flags flags;
+	enum auth_client_request_new_flags flags;
+	char protocol[AUTH_CLIENT_PROTOCOL_BUF_SIZE];
 };
 
 /* Continue authentication request */

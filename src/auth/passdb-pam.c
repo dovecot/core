@@ -330,14 +330,7 @@ pam_verify_plain(struct auth_request *request, const char *password,
 	int fd[2];
 	pid_t pid;
 
-	service = service_name != NULL ? service_name :
-		request->protocol == AUTH_PROTOCOL_IMAP ? "imap" :
-		request->protocol == AUTH_PROTOCOL_POP3 ? "pop3" : NULL;
-	if (service == NULL) {
-		i_error("Unknown protocol %d in auth request",
-			request->protocol);
-	}
-
+	service = service_name != NULL ? service_name : request->protocol;
 	if (pipe(fd) < 0) {
 		i_error("PAM: pipe() failed: %m");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);

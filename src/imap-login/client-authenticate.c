@@ -207,8 +207,7 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	client_ref(client);
 
 	client->common.auth_request =
-		auth_client_request_new(auth_client, AUTH_MECH_PLAIN,
-					AUTH_PROTOCOL_IMAP,
+		auth_client_request_new(auth_client, AUTH_MECH_PLAIN, "IMAP",
 					client_get_auth_flags(client),
 					login_callback, client, &error);
 	if (client->common.auth_request == NULL) {
@@ -336,8 +335,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 
 	client_ref(client);
 	client->common.auth_request =
-		auth_client_request_new(auth_client, mech->mech,
-					AUTH_PROTOCOL_IMAP,
+		auth_client_request_new(auth_client, mech->mech, "IMAP",
 					client_get_auth_flags(client),
 					authenticate_callback,
 					client, &error);

@@ -19,7 +19,7 @@ struct auth_request {
 	unsigned int id;
 	time_t created;
 
-	enum auth_protocol protocol;
+	char protocol[AUTH_CLIENT_PROTOCOL_BUF_SIZE];
 	mech_callback_t *callback;
 
 	int (*auth_continue)(struct auth_request *auth_request,

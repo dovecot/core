@@ -30,14 +30,12 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	}
 
 	if (((vpw->pw_gid & NO_IMAP) != 0 &&
-	     request->protocol == AUTH_PROTOCOL_IMAP) ||
+	     strcmp(request->protocol, "IMAP") == 0) ||
 	    ((vpw->pw_gid & NO_POP) != 0 &&
-	     request->protocol == AUTH_PROTOCOL_POP3)) {
+	     strcmp(request->protocol, "POP3") == 0)) {
 		if (verbose) {
 			i_info("vpopmail(%s@%s): %s disabled",
-			       vpop_user, vpop_domain,
-			       request->protocol == AUTH_PROTOCOL_IMAP ?
-			       "IMAP" : "POP3");
+			       vpop_user, vpop_domain, request->protocol);
 		}
 		callback(PASSDB_RESULT_USER_DISABLED, request);
 		return;

@@ -206,8 +206,7 @@ int cmd_pass(struct pop3_client *client, const char *args)
 
 	client_ref(client);
 	client->common.auth_request =
-		auth_client_request_new(auth_client, AUTH_MECH_PLAIN,
-					AUTH_PROTOCOL_POP3,
+		auth_client_request_new(auth_client, AUTH_MECH_PLAIN, "POP3",
                                         client_get_auth_flags(client),
 					login_callback, client, &error);
 	if (client->common.auth_request != NULL) {
@@ -316,8 +315,7 @@ int cmd_auth(struct pop3_client *client, const char *args)
 
 	client_ref(client);
 	client->common.auth_request =
-		auth_client_request_new(auth_client, mech->mech,
-					AUTH_PROTOCOL_POP3,
+		auth_client_request_new(auth_client, mech->mech, "POP3",
                                         client_get_auth_flags(client),
 					authenticate_callback, client, &error);
 	if (client->common.auth_request != NULL) {
