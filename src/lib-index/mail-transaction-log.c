@@ -477,7 +477,8 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 		return NULL;
 	}
 
-	if (file->hdr.file_seq == log->index->map->log_file_seq &&
+	if (log->index->map != NULL &&
+	    file->hdr.file_seq == log->index->map->log_file_seq &&
 	    log->index->map->log_file_offset != 0) {
 		/* we can get a valid log offset from index file. initialize
 		   sync_offset from it so we don't have to read the whole log
