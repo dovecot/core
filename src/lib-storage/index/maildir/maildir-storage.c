@@ -255,8 +255,9 @@ static int move_inbox_data(MailStorage *storage, const char *newdir)
 		i_snprintf(newpath, sizeof(newpath), "%s/%s", newdir, *tmp);
 
 		if (unlink(newpath) == -1 && errno != EEXIST) {
-			mail_storage_set_error(storage, "unlink(%s) failed: "
-					       "%m", newpath);
+			mail_storage_set_critical(storage,
+						  "unlink(%s) failed: %m",
+						  newpath);
 			return FALSE;
 		}
 	}

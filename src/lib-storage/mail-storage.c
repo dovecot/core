@@ -1,9 +1,14 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "mail-storage.h"
 
+#include <time.h>
 #include <ctype.h>
+
+/* Message to show to users when critical error occurs */
+#define CRITICAL_MSG "Internal error [%Y-%m-%d %H:%M:%S]"
 
 typedef struct _MailStorageList MailStorageList;
 
@@ -138,20 +143,34 @@ void mail_storage_set_error(MailStorage *storage, const char *fmt, ...)
 	}
 }
 
+void mail_storage_set_internal_error(MailStorage *storage)
+{
+	struct tm *tm;
+	char *str;
+
+	tm = localtime(&ioloop_time);
+	str = t_buffer_get(256);
+
+	storage->error = strftime(str, 256, CRITICAL_MSG, tm) > 0 ?
+		i_strdup(str) : i_strdup("Internal error");
+}
+
 void mail_storage_set_critical(MailStorage *storage, const char *fmt, ...)
 {
 	va_list va;
 
 	i_free(storage->error);
-
 	if (fmt == NULL)
 		storage->error = NULL;
 	else {
 		va_start(va, fmt);
-		storage->error = i_strdup_vprintf(fmt, va);
+		i_error("%s", t_strdup_vprintf(fmt, va));
 		va_end(va);
 
-		i_error("%s", storage->error);
+		/* critical errors may contain sensitive data, so let user
+		   see only "Internal error" with a timestamp to make it
+		   easier to look from log files the actual error message. */
+		mail_storage_set_internal_error(storage);
 	}
 }
 

@@ -29,8 +29,8 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 	/* append the data into mbox file */
 	fd = open(ibox->index->mbox_path, O_RDWR | O_CREAT);
 	if (fd == -1) {
-		mail_storage_set_error(box->storage, "Can't open mbox file "
-				       "%s: %m", ibox->index->mbox_path);
+		mail_storage_set_critical(box->storage, "Can't open mbox file "
+					  "%s: %m", ibox->index->mbox_path);
 		return FALSE;
 	}
 
@@ -43,8 +43,9 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 
 	pos = lseek(fd, 0, SEEK_END);
 	if (pos == -1) {
-		mail_storage_set_error(box->storage, "lseek() failed for mbox "
-				       "file %s: %m", ibox->index->mbox_path);
+		mail_storage_set_critical(box->storage,
+					  "lseek() failed for mbox file %s: %m",
+					  ibox->index->mbox_path);
 		failed = TRUE;
 	}
 

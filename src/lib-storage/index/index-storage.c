@@ -10,17 +10,13 @@ IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 {
 	IndexMailbox *ibox;
 	FlagsFile *flagsfile;
-	const char *path, *error;
+	const char *path;
 
 	i_assert(name != NULL);
 
 	/* open the index first */
 	if (!index->open_or_create(index, !readonly)) {
-		error = index->get_last_error(index);
-		if (error == NULL)
-			error = "(maildir_open)";
-		mail_storage_set_error(storage, "%s", error);
-
+		mail_storage_set_internal_error(storage);
 		index->free(index);
 		return NULL;
 	}
@@ -60,15 +56,9 @@ void index_storage_close(Mailbox *box)
 
 int mail_storage_set_index_error(IndexMailbox *ibox)
 {
-	const char *error;
-
-	error = ibox->index->get_last_error(ibox->index);
-	if (error == NULL)
-		error = "(no error message)";
-
 	ibox->box.inconsistent =
 		ibox->index->is_inconsistency_error(ibox->index);
-	mail_storage_set_error(ibox->box.storage, "%s", error);
+	mail_storage_set_internal_error(ibox->box.storage);
 	return FALSE;
 }
 

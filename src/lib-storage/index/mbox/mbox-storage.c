@@ -245,8 +245,8 @@ static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 			mail_storage_set_error(storage,
 					       "Mailbox doesn't exist.");
 		} else {
-			mail_storage_set_error(storage, "Can't delete mbox "
-					       "file %s: %m", path);
+			mail_storage_set_critical(storage, "Can't delete mbox "
+						  "file %s: %m", path);
 		}
 		return FALSE;
 	}

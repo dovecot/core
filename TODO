@@ -104,7 +104,7 @@ general:
  - ulimit / setrlimit() should be set somewhere
  - create indexer binary
  - SEARCH CHARSET support, iconv()?
- - Fix the blocking SSL handshake
+ - Fix the blocking SSL handshake (req. gnutls 0.5.2)
  - SRP authentication support?
  - Digest-MD5: support integrity protection, and maybe crypting. Do it
    through imap-login like SSL is done?
@@ -113,13 +113,8 @@ general:
    should be something like once/sec.
  - support executing each login in it's own process, so if an exploit is ever
    found from it, the attacker can't see other users' passwords
- - the error messages given in command replies can sometimes be quite
-   specific, eg. rename(/full/path, /full/new/path) failed: xxx. These
-   probably shouldn't be shown to user, instead just print some "internal
-   error" with a timestamp and the real error would be written into syslog.
-   all errors from lib-index should be done this, and maybe some/all
-   lib-storage errors as well (there's separate error vs. critical)
- - Make sure messages of size INT_MAX..UINT_MAX work correctly
+ - Make sure messages of size INT_MAX..UINT_MAX (and more) work correctly
+   virtual_size can also overflow making it less than physical_size
  - allocating readwrite pools now just uses system_pool .. so pool_unref()
    can't free memory used by it .. what to do about it? at least count the
    malloc/free calls and make complain if at the exit they don't match
@@ -134,7 +129,7 @@ general:
  - check that (off_t) castings are safe
  - IOBuffer is a bit confusing and weird. especially the offset-parameter
    works strangely.. And maybe split it into IBuffer and OBuffer?
- - optimize imap_message_send() by using a buffer. most mails don't have long
+ - optimize message_send() by using a buffer. most mails don't have long
    lines and without a buffer it creates tons of write() calls.
 
 optional optimizations:
