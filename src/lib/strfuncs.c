@@ -238,38 +238,37 @@ char *p_strdup_vprintf(Pool pool, const char *format, va_list args)
 const char *_vstrconcat(const char *str1, va_list args, size_t *ret_len)
 {
 	const char *str;
-        char *temp;
-	size_t full_len, len, bufsize;
+        char *temp, *temp_end, *p;
+	size_t bufsize, pos;
 
 	if (str1 == NULL)
 		return NULL;
 
-        /* put str1 to buffer */
-        len = strlen(str1);
-	bufsize = len <= STRCONCAT_BUFSIZE ? STRCONCAT_BUFSIZE :
-		nearest_power(len+1);
-        temp = t_buffer_get(bufsize);
+	str = str1;
+	bufsize = STRCONCAT_BUFSIZE;
+	temp = t_buffer_get(bufsize);
 
-	memcpy(temp, str1, len);
-	full_len = len;
+	pos = 0;
+	do {
+		temp_end = temp + bufsize - 1; /* leave 1 for \0 */
 
-        /* put rest of the strings to buffer */
-	while ((str = va_arg(args, char *)) != NULL) {
-		len = strlen(str);
-		if (len == 0)
-			continue;
+		p = temp + pos;
+		while (*str != '\0' && p != temp_end)
+			*p++ = *str++;
+		pos = (size_t)(p - temp);
 
-		if (bufsize < full_len+len+1) {
-			bufsize = nearest_power(bufsize+len+1);
+		if (p == temp_end) {
+			/* need more memory */
+			bufsize = nearest_power(bufsize+1);
 			temp = t_buffer_reget(temp, bufsize);
+		} else {
+			/* next string */
+			str = va_arg(args, const char *);
 		}
+	} while (str != NULL);
 
-                memcpy(temp+full_len, str, len);
-		full_len += len;
-	}
-
-	temp[full_len] = '\0';
-        *ret_len = full_len+1;
+	temp[pos] = '\0';
+        *ret_len = pos+1;
         return temp;
 }
 
