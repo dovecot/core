@@ -207,6 +207,7 @@ int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			    uint32_t seq, void *old_data, const void *new_data,
 			    void **context);
+void mail_cache_sync_lost_handler(struct mail_index *index);
 
 void mail_cache_set_syscall_error(struct mail_cache *cache,
 				  const char *function);

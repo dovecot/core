@@ -29,6 +29,7 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->extension_pool = pool_alloconly_create("extension", 256);
 	index->extensions = buffer_create_dynamic(index->extension_pool, 64);
         index->sync_handlers = buffer_create_dynamic(default_pool, 64);
+        index->sync_lost_handlers = buffer_create_dynamic(default_pool, 64);
         index->expunge_handlers = buffer_create_dynamic(default_pool, 32);
 
 	index->mode = 0600;
@@ -42,6 +43,7 @@ void mail_index_free(struct mail_index *index)
 	pool_unref(index->extension_pool);
 
 	buffer_free(index->sync_handlers);
+	buffer_free(index->sync_lost_handlers);
 	buffer_free(index->expunge_handlers);
 
 	i_free(index->error);
@@ -110,6 +112,12 @@ void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
 	h.callback = cb;
 	h.type = type;
 	buffer_write(index->sync_handlers, ext_id * sizeof(h), &h, sizeof(h));
+}
+
+void mail_index_register_sync_lost_handler(struct mail_index *index,
+					   mail_index_sync_lost_handler_t *cb)
+{
+	buffer_append(index->sync_lost_handlers, &cb, sizeof(cb));
 }
 
 static void mail_index_map_init_extbufs(struct mail_index_map *map,
@@ -642,7 +650,10 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 					  struct mail_index_map **map,
 					  int sync_to_index)
 {
-	int i, ret, retry;
+	mail_index_sync_lost_handler_t *const *handlers;
+	size_t size;
+	unsigned int i;
+	int ret, retry;
 
 	if ((*map)->hdr.indexid != 0) {
 		/* sync this as a view from transaction log. */
@@ -652,9 +663,14 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 			return ret;
 
 		/* transaction log lost/broken, fallback to re-reading it */
-		/* FIXME: file cache need to be reset (except not really with
-		   sync_to_index if we were just rewinding..) */
 	}
+
+	/* notify all "sync lost" handlers */
+	handlers = buffer_get_data(index->sync_lost_handlers, &size);
+	size /= sizeof(*handlers);
+
+	for (i = 0; i < size; i++)
+		(*handlers[i])(index);
 
 	for (i = 0; i < MAIL_INDEX_ESTALE_RETRY_COUNT; i++) {
 		ret = mail_index_read_map(index, *map, &retry);

@@ -274,6 +274,10 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
                                          MAIL_INDEX_SYNC_HANDLER_INDEX |
 					 (cache->file_cache == NULL ? 0 :
 					  MAIL_INDEX_SYNC_HANDLER_VIEW));
+	if (cache->file_cache != NULL) {
+		mail_index_register_sync_lost_handler(index,
+			mail_cache_sync_lost_handler);
+	}
 	return cache;
 }
 
