@@ -1,3 +1,9 @@
+v0.98.3 2002-10-01  Timo Sirainen <tss@iki.fi>
+
+	* Sorry, just noticed a very stupid bug which caused evolution 1.2
+	  beta to crash. I always thought it was just evolution's fault :)
+	- Several fields in BODY / BODYSTRUCTURE replies weren't quoted
+
 v0.98.2 2002-09-30  Timo Sirainen <tss@iki.fi>
 
 	+ --with-file-offset-size=32 can now be used to select 32bit file

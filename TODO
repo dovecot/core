@@ -131,7 +131,8 @@ general:
    or something so they could also be written to log files.. also make it
    possible to log into different log than errors.
  - should we bother checking if there's invalid 8bit headers in
-   BODY/BODYSTRUCTURE output and converting them to quoted printable?
+   BODY/BODYSTRUCTURE output and converting them to quoted printable? well,
+   several of them are now but not all..
  - update docs/index.txt
  - support Maildir++ quota
  - maybe give more untagged NO/ALERT replies? like when mailbox is in
