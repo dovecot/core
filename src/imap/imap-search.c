@@ -99,7 +99,7 @@ static int arg_new(struct search_build_data *data, struct imap_arg **args,
 		return FALSE;
 	}
 
-	sarg->value.str = str_ucase(p_strdup(data->pool, IMAP_ARG_STR(*args)));
+	sarg->value.str = p_strdup(data->pool, IMAP_ARG_STR(*args));
 	*args += 1;
 
 	if (hdr_name != NULL)
