@@ -600,6 +600,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	struct mail_index_transaction *trans;
 	const struct mail_index_header *hdr;
 	const struct mail_index_record *rec;
+	pool_t keyword_pool;
 	uint32_t seq, uid;
         enum maildir_uidlist_rec_flag uflags;
 	const char *filename;
@@ -625,11 +626,13 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	trans = mail_index_transaction_begin(view, FALSE, TRUE);
 	sync_ctx->trans = trans;
 
+	keyword_pool = pool_alloconly_create("maildir keywords", 128);
+
 	seq = 0;
 	iter = maildir_uidlist_iter_init(ibox->uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &uflags, &filename)) {
-		// FIXME: t_push..
-		maildir_filename_get_flags(filename, pool_datastack_create(),
+		p_clear(keyword_pool);
+		maildir_filename_get_flags(filename, keyword_pool,
 					   &flags, &keywords);
 
 		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 &&
@@ -767,6 +770,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 		// FIXME: update keywords
 	}
 	maildir_uidlist_iter_deinit(iter);
+	pool_unref(keyword_pool);
 
 	if (!partial) {
 		/* expunge the rest */
