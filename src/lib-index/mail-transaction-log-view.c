@@ -349,8 +349,9 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 		const uint32_t *data_id = data;
 		uint32_t max_data_id;
 
-		max_data_id = view->log->index->map->extra_infos->used /
-			sizeof(struct mail_index_extra_record_info);
+		max_data_id = view->log->index->map->extra_infos == NULL ? 0 :
+			(view->log->index->map->extra_infos->used /
+			 sizeof(struct mail_index_extra_record_info));
 		if (view->max_extra_data_id > max_data_id)
 			max_data_id = view->max_extra_data_id;
 
