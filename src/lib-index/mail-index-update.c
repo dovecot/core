@@ -36,7 +36,7 @@ MailIndexUpdate *mail_index_update_begin(MailIndex *index, MailIndexRecord *rec)
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	pool = pool_alloconly_create("MailIndexUpdate", 1024);
+	pool = pool_alloconly_create("MailIndexUpdate", 4096);
 
 	update = p_new(pool, MailIndexUpdate, 1);
 	update->pool = pool;
