@@ -498,7 +498,6 @@ AC_TRY_COMPILE([
 ])
 
 dnl * Solaris compatible sendfilev()
-AC_MSG_CHECKING([Solaris compatible sendfilev()])
 AC_CHECK_LIB(sendfile, sendfilev, [
   LIBS="$LIBS -lsendfile"
   AC_DEFINE(HAVE_SOLARIS_SENDFILEV,, Define if you have Solaris-compatible sendfilev())
