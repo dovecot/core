@@ -66,7 +66,7 @@ static const char *get_digest_challenge(AuthData *auth)
 	/*
 	   realm="hostname" (multiple allowed)
 	   nonce="randomized data, at least 64bit"
-	   qop-options="auth,auth-int,auth-conf"
+	   qop="auth,auth-int,auth-conf"
 	   maxbuf=number (with auth-int, auth-conf, defaults to 64k)
 	   charset="utf-8" (iso-8859-1 if it doesn't exist)
 	   algorithm="md5-sess"
@@ -103,7 +103,7 @@ static const char *get_digest_challenge(AuthData *auth)
 
 	return t_strconcat(str_c(realms),
 			   "nonce=\"", auth->nonce, "\",",
-			   "qop-options=\"", str_c(qoplist), "\",",
+			   "qop=\"", str_c(qoplist), "\",",
 			   "charset=\"utf-8\",",
 			   "algorithm=\"md5-sess\"",
 			   NULL);
