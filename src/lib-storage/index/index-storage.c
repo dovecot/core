@@ -38,8 +38,10 @@ static struct index_list *indexes = NULL;
 static struct timeout *to_index = NULL;
 static int index_storage_refcount = 0;
 
-void index_storage_init(struct index_storage *storage __attr_unused__)
+void index_storage_init(struct index_storage *storage,
+			enum mail_storage_flags flags)
 {
+	storage->storage.flags = flags;
 	index_storage_refcount++;
 }
 

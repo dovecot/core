@@ -214,6 +214,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("MAILDIR_STAT_DIRS=1");
 	if (set->maildir_copy_with_hardlinks)
 		env_put("MAILDIR_COPY_WITH_HARDLINKS=1");
+	if (set->mail_debug)
+		env_put("DEBUG=1");
 	if (set->mail_full_filesystem_access)
 		env_put("FULL_FILESYSTEM_ACCESS=1");
 	if (set->pop3_no_flag_updates)

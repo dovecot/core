@@ -5,6 +5,13 @@ struct message_size;
 
 #include "mail-types.h"
 
+enum mail_storage_flags {
+	/* Print debugging information while initializing the storage */
+	MAIL_STORAGE_FLAG_DEBUG			= 0x01,
+	/* Allow full filesystem access with absolute or relative paths. */
+	MAIL_STORAGE_FLAG_FULL_FS_ACCESS	= 0x02
+};
+
 enum mailbox_open_flags {
 	MAILBOX_OPEN_READONLY		= 0x01,
 	MAILBOX_OPEN_FAST		= 0x02,
@@ -156,8 +163,6 @@ struct mail_storage_callbacks {
 
 typedef void mailbox_notify_callback_t(struct mailbox *box, void *context);
 
-extern int full_filesystem_access;
-
 void mail_storage_init(void);
 void mail_storage_deinit(void);
 
@@ -176,12 +181,15 @@ void mail_storage_class_unregister(struct mail_storage *storage_class);
    If namespace is non-NULL, all mailbox names are expected to begin with it.
    hierarchy_sep overrides the default separator if it's not '\0'. */
 struct mail_storage *
-mail_storage_create(const char *name, const char *data, const char *user);
+mail_storage_create(const char *name, const char *data, const char *user,
+		    enum mail_storage_flags flags);
 void mail_storage_destroy(struct mail_storage *storage);
 
-struct mail_storage *mail_storage_create_default(const char *user);
 struct mail_storage *
-mail_storage_create_with_data(const char *data, const char *user);
+mail_storage_create_default(const char *user, enum mail_storage_flags flags);
+struct mail_storage *
+mail_storage_create_with_data(const char *data, const char *user,
+			      enum mail_storage_flags flags);
 
 char mail_storage_get_hierarchy_sep(struct mail_storage *storage);
 

@@ -63,8 +63,8 @@ static const char *mask_get_dir(const char *mask)
 static const char *
 mbox_get_path(struct index_storage *storage, const char *name)
 {
-	if (!full_filesystem_access || name == NULL ||
-	    (*name != '/' && *name != '~' && *name != '\0'))
+	if ((storage->storage.flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) == 0 ||
+	    name == NULL || (*name != '/' && *name != '~' && *name != '\0'))
 		return t_strconcat(storage->dir, "/", name, NULL);
 	else
 		return home_expand(name);
@@ -116,8 +116,8 @@ mbox_mailbox_list_init(struct mail_storage *storage,
 	mail_storage_clear_error(storage);
 
 	/* check that we're not trying to do any "../../" lists */
-	if (!mbox_is_valid_mask(ref) ||
-	    !mbox_is_valid_mask(mask)) {
+	if (!mbox_is_valid_mask(storage, ref) ||
+	    !mbox_is_valid_mask(storage, mask)) {
 		mail_storage_set_error(storage, "Invalid mask");
 		return &ctx->mailbox_ctx;
 	}

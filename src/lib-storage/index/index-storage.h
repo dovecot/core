@@ -132,7 +132,8 @@ index_storage_alloc(const char *index_dir, const char *mailbox_path,
 void index_storage_unref(struct mail_index *index);
 void index_storage_destroy_unrefed(void);
 
-void index_storage_init(struct index_storage *storage);
+void index_storage_init(struct index_storage *storage,
+			enum mail_storage_flags flags);
 void index_storage_deinit(struct index_storage *storage);
 
 struct index_mailbox *

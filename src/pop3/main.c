@@ -141,6 +141,7 @@ static void drop_privileges(void)
 
 static int main_init(void)
 {
+        enum mail_storage_flags flags;
 	struct mail_storage *storage;
 	const char *mail;
 
@@ -172,7 +173,13 @@ static int main_init(void)
 		uidl_format = "%v.%u";
 	uidl_keymask = parse_uidl_keymask(uidl_format);
 
-	storage = mail_storage_create_with_data(mail, getenv("USER"));
+	flags = 0;
+	if (getenv("FULL_FILESYSTEM_ACCESS") != NULL)
+		flags |= MAIL_STORAGE_FLAG_FULL_FS_ACCESS;
+	if (getenv("DEBUG") != NULL)
+		flags |= MAIL_STORAGE_FLAG_DEBUG;
+
+	storage = mail_storage_create_with_data(mail, getenv("USER"), flags);
 	if (storage == NULL) {
 		/* failed */
 		if (mail != NULL && *mail != '\0')

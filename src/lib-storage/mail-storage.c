@@ -19,11 +19,9 @@ struct mail_storage_list {
 };
 
 static struct mail_storage_list *storages = NULL;
-int full_filesystem_access = FALSE;
 
 void mail_storage_init(void)
 {
-        full_filesystem_access = getenv("FULL_FILESYSTEM_ACCESS") != NULL;
 }
 
 void mail_storage_deinit(void)
@@ -69,7 +67,8 @@ void mail_storage_class_unregister(struct mail_storage *storage_class)
 }
 
 struct mail_storage *
-mail_storage_create(const char *name, const char *data, const char *user)
+mail_storage_create(const char *name, const char *data, const char *user,
+		    enum mail_storage_flags flags)
 {
 	struct mail_storage_list *list;
 
@@ -77,20 +76,20 @@ mail_storage_create(const char *name, const char *data, const char *user)
 
 	for (list = storages; list != NULL; list = list->next) {
 		if (strcasecmp(list->storage->name, name) == 0)
-			return list->storage->create(data, user);
+			return list->storage->create(data, user, flags);
 	}
 
 	return NULL;
 }
 
 struct mail_storage *
-mail_storage_create_default(const char *user)
+mail_storage_create_default(const char *user, enum mail_storage_flags flags)
 {
 	struct mail_storage_list *list;
 	struct mail_storage *storage;
 
 	for (list = storages; list != NULL; list = list->next) {
-		storage = list->storage->create(NULL, user);
+		storage = list->storage->create(NULL, user, flags);
 		if (storage != NULL)
 			return storage;
 	}
@@ -98,12 +97,13 @@ mail_storage_create_default(const char *user)
 	return NULL;
 }
 
-static struct mail_storage *mail_storage_autodetect(const char *data)
+static struct mail_storage *
+mail_storage_autodetect(const char *data, enum mail_storage_flags flags)
 {
 	struct mail_storage_list *list;
 
 	for (list = storages; list != NULL; list = list->next) {
-		if (list->storage->autodetect(data))
+		if (list->storage->autodetect(data, flags))
 			return list->storage;
 	}
 
@@ -111,13 +111,14 @@ static struct mail_storage *mail_storage_autodetect(const char *data)
 }
 
 struct mail_storage *
-mail_storage_create_with_data(const char *data, const char *user)
+mail_storage_create_with_data(const char *data, const char *user,
+			      enum mail_storage_flags flags)
 {
 	struct mail_storage *storage;
 	const char *p, *name;
 
 	if (data == NULL || *data == '\0')
-		return mail_storage_create_default(user);
+		return mail_storage_create_default(user, flags);
 
 	/* check if we're in the form of mailformat:data
 	   (eg. maildir:Maildir) */
@@ -126,11 +127,11 @@ mail_storage_create_with_data(const char *data, const char *user)
 
 	if (*p == ':') {
 		name = t_strdup_until(data, p);
-		storage = mail_storage_create(name, p+1, user);
+		storage = mail_storage_create(name, p+1, user, flags);
 	} else {
-		storage = mail_storage_autodetect(data);
+		storage = mail_storage_autodetect(data, flags);
 		if (storage != NULL)
-			storage = storage->create(data, user);
+			storage = storage->create(data, user, flags);
 	}
 
 	return storage;

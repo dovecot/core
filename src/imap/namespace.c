@@ -27,7 +27,7 @@ static void namespace_init_storage(struct namespace *ns)
 
 static struct namespace *
 namespace_add_env(pool_t pool, const char *data, unsigned int num,
-		  const char *user)
+		  const char *user, enum mail_storage_flags flags)
 {
         struct namespace *ns;
         const char *sep, *type, *prefix;
@@ -55,11 +55,20 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	if (prefix == NULL)
 		prefix = "";
 
+	if ((flags & MAIL_STORAGE_FLAG_DEBUG) != 0) {
+		i_info("Namespace: type=%s, prefix=%s, sep=%s, "
+		       "inbox=%s, hidden=%s, subscriptions=%s",
+		       type == NULL ? "" : type, prefix, sep == NULL ? "" : sep,
+		       inbox ? "yes" : "no",
+		       hidden ? "yes" : "no",
+		       subscriptions ? "yes" : "no");
+	}
+
 	ns->prefix = p_strdup(pool, prefix);
 	ns->inbox = inbox;
 	ns->hidden = hidden;
 	ns->subscriptions = subscriptions;
-	ns->storage = mail_storage_create_with_data(data, user);
+	ns->storage = mail_storage_create_with_data(data, user, flags);
 	if (ns->storage == NULL) {
 		i_fatal("Failed to create storage for '%s' with data: %s",
 			ns->prefix, data);
@@ -74,8 +83,15 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 struct namespace *namespace_init(pool_t pool, const char *user)
 {
 	struct namespace *namespaces, *ns, **ns_p;
+        enum mail_storage_flags flags;
 	const char *mail, *data;
 	unsigned int i;
+
+	flags = 0;
+	if (getenv("FULL_FILESYSTEM_ACCESS") != NULL)
+		flags |= MAIL_STORAGE_FLAG_FULL_FS_ACCESS;
+	if (getenv("DEBUG") != NULL)
+		flags |= MAIL_STORAGE_FLAG_DEBUG;
 
         namespaces = NULL; ns_p = &namespaces;
 
@@ -89,7 +105,7 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 			break;
 
 		t_push();
-		*ns_p = namespace_add_env(pool, data, i, user);
+		*ns_p = namespace_add_env(pool, data, i, user, flags);
 		t_pop();
 
 		ns_p = &(*ns_p)->next;
@@ -108,7 +124,7 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 	}
 
 	ns = p_new(pool, struct namespace, 1);
-	ns->storage = mail_storage_create_with_data(mail, user);
+	ns->storage = mail_storage_create_with_data(mail, user, flags);
 	if (ns->storage == NULL) {
 		if (mail != NULL && *mail != '\0')
 			i_fatal("Failed to create storage with data: %s", mail);

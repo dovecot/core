@@ -59,79 +59,166 @@ static int mbox_handle_errors(struct index_storage *istorage)
 	return TRUE;
 }
 
-static int mbox_autodetect(const char *data)
+static int mbox_is_file(const char *path, const char *name, int debug)
 {
-	const char *path;
 	struct stat st;
 
-	data = t_strcut(data, ':');
+	if (stat(path, &st) < 0) {
+		if (debug) {
+			i_info("mbox autodetect: %s: stat(%s) failed: %m",
+			       name, path);
+		}
+		return FALSE;
+	}
+	if (S_ISDIR(st.st_mode)) {
+		if (debug) {
+			i_info("mbox autodetect: %s: is a directory (%s)",
+			       name, path);
+		}
+		return FALSE;
+	}
+	if (access(path, R_OK|W_OK) < 0) {
+		if (debug) {
+			i_info("mbox autodetect: %s: no R/W access (%s)",
+			       name, path);
+		}
+		return FALSE;
+	}
 
-	/* Is it INBOX file? */
-	if (*data != '\0' && stat(data, &st) == 0 && !S_ISDIR(st.st_mode) &&
-	    access(data, R_OK|W_OK) == 0)
+	if (debug)
+		i_info("mbox autodetect: %s: yes (%s)", name, path);
+	return TRUE;
+}
+
+static int mbox_is_dir(const char *path, const char *name, int debug)
+{
+	struct stat st;
+
+	if (stat(path, &st) < 0) {
+		if (debug) {
+			i_info("mbox autodetect: %s: stat(%s) failed: %m",
+			       name, path);
+		}
+		return FALSE;
+	}
+	if (!S_ISDIR(st.st_mode)) {
+		if (debug) {
+			i_info("mbox autodetect: %s: is not a directory (%s)",
+			       name, path);
+		}
+		return FALSE;
+	}
+	if (access(path, R_OK|W_OK|X_OK) < 0) {
+		if (debug) {
+			i_info("mbox autodetect: %s: no R/W/X access (%s)",
+			       name, path);
+		}
+		return FALSE;
+	}
+
+	if (debug)
+		i_info("mbox autodetect: %s: yes (%s)", name, path);
+	return TRUE;
+}
+
+static int mbox_autodetect(const char *data, enum mail_storage_flags flags)
+{
+	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	const char *path;
+
+	path = t_strcut(data, ':');
+
+	if (debug) {
+		if (strchr(data, ':') != NULL) {
+			i_info("mbox autodetect: data=%s, splitting ':' -> %s",
+			       data, path);
+		} else {
+			i_info("mbox autodetect: data=%s", data);
+		}
+	}
+
+	if (*path != '\0' && mbox_is_file(path, "INBOX file", debug))
 		return TRUE;
 
-	/* or directory for IMAP folders? */
-	path = t_strconcat(data, "/.imap", NULL);
-	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode) &&
-	    access(path, R_OK|W_OK|X_OK) == 0)
+	if (mbox_is_dir(t_strconcat(path, "/.imap", NULL), "has .imap/", debug))
 		return TRUE;
-
-	path = t_strconcat(data, "/inbox", NULL);
-	if (stat(path, &st) == 0 && !S_ISDIR(st.st_mode) &&
-	    access(path, R_OK|W_OK) == 0)
+	if (mbox_is_file(t_strconcat(path, "/inbox", NULL), "has inbox", debug))
 		return TRUE;
-
-	path = t_strconcat(data, "/mbox", NULL);
-	if (stat(path, &st) == 0 && !S_ISDIR(st.st_mode) &&
-	    access(path, R_OK|W_OK) == 0)
+	if (mbox_is_file(t_strconcat(path, "/mbox", NULL), "has mbox", debug))
 		return TRUE;
 
 	return FALSE;
 }
 
-static const char *get_root_dir(void)
+static const char *get_root_dir(enum mail_storage_flags flags)
 {
 	const char *home, *path;
-
-	if (mbox_autodetect(""))
-		return "/";
+	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 
 	home = getenv("HOME");
 	if (home != NULL) {
 		path = t_strconcat(home, "/mail", NULL);
-		if (access(path, R_OK|W_OK|X_OK) == 0)
+		if (access(path, R_OK|W_OK|X_OK) == 0) {
+			if (debug)
+				i_info("mbox: root exists (%s)", path);
 			return path;
+		}
+		if (debug)
+			i_info("mbox: root: access(%s, rwx) failed: %m", path);
 
 		path = t_strconcat(home, "/Mail", NULL);
-		if (access(path, R_OK|W_OK|X_OK) == 0)
+		if (access(path, R_OK|W_OK|X_OK) == 0) {
+			if (debug)
+				i_info("mbox: root exists (%s)", path);
 			return path;
+		}
+		if (debug)
+			i_info("mbox: root: access(%s, rwx) failed: %m", path);
 	}
+
+	if (debug)
+		i_info("mbox: checking if we are chrooted:");
+	if (mbox_autodetect("", flags))
+		return "/";
+
+	if (debug)
+		i_info("mbox: root directory not found");
 
 	return NULL;
 }
 
-static const char *get_inbox_file(const char *root_dir, int only_root)
+static const char *
+get_inbox_file(const char *root_dir, int only_root, int debug)
 {
 	const char *user, *path;
 
-	if (!only_root) {
-		user = getenv("USER");
-		if (user != NULL) {
-			path = t_strconcat("/var/mail/", user, NULL);
-			if (access(path, R_OK|W_OK) == 0)
-				return path;
-
-			path = t_strconcat("/var/spool/mail/", user, NULL);
-			if (access(path, R_OK|W_OK) == 0)
-				return path;
+	if (!only_root && (user = getenv("USER")) != NULL) {
+		path = t_strconcat("/var/mail/", user, NULL);
+		if (access(path, R_OK|W_OK) == 0) {
+			if (debug)
+				i_info("mbox: INBOX exists (%s)", path);
+			return path;
 		}
+		if (debug)
+			i_info("mbox: INBOX: access(%s, rw) failed: %m", path);
+
+		path = t_strconcat("/var/spool/mail/", user, NULL);
+		if (access(path, R_OK|W_OK) == 0) {
+			if (debug)
+				i_info("mbox: INBOX exists (%s)", path);
+			return path;
+		}
+		if (debug)
+			i_info("mbox: INBOX: access(%s, rw) failed: %m", path);
 	}
 
-	return t_strconcat(root_dir, "/inbox", NULL);
+	path = t_strconcat(root_dir, "/inbox", NULL);
+	if (debug)
+		i_info("mbox: INBOX defaulted to %s", path);
+	return path;
 }
 
-static const char *create_root_dir(void)
+static const char *create_root_dir(int debug)
 {
 	const char *home, *path;
 
@@ -148,11 +235,15 @@ static const char *create_root_dir(void)
 		return NULL;
 	}
 
+	if (debug)
+		i_info("mbox: root directory created: %s", path);
 	return path;
 }
 
-static struct mail_storage *mbox_create(const char *data, const char *user)
+static struct mail_storage *
+mbox_create(const char *data, const char *user, enum mail_storage_flags flags)
 {
+	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	struct index_storage *storage;
 	const char *root_dir, *inbox_file, *index_dir, *p;
 	struct stat st;
@@ -165,21 +256,23 @@ static struct mail_storage *mbox_create(const char *data, const char *user)
 		/* we'll need to figure out the mail location ourself.
 		   it's root dir if we've already chroot()ed, otherwise
 		   either $HOME/mail or $HOME/Mail */
-		root_dir = get_root_dir();
+		root_dir = get_root_dir(flags);
 	} else {
 		/* <root folder> | <INBOX path>
 		   [:INBOX=<path>] [:INDEX=<dir>] */
+		if (debug)
+			i_info("mbox: data=%s", data);
 		p = strchr(data, ':');
 		if (p == NULL) {
 			if (stat(data, &st) < 0) {
-				i_error("Invalid mbox file %s: %m", data);
+				i_error("Invalid mbox path %s: %m", data);
 				return NULL;
 			}
 
 			if (S_ISDIR(st.st_mode))
 				root_dir = data;
 			else {
-				root_dir = get_root_dir();
+				root_dir = get_root_dir(flags);
 				inbox_file = data;
 			}
 		} else {
@@ -196,7 +289,7 @@ static struct mail_storage *mbox_create(const char *data, const char *user)
 	}
 
 	if (root_dir == NULL) {
-		root_dir = create_root_dir();
+		root_dir = create_root_dir(debug);
 		if (root_dir == NULL)
 			return NULL;
 	} else {
@@ -214,12 +307,18 @@ static struct mail_storage *mbox_create(const char *data, const char *user)
 	}
 
 	if (inbox_file == NULL)
-		inbox_file = get_inbox_file(root_dir, !autodetect);
+		inbox_file = get_inbox_file(root_dir, !autodetect, debug);
 
 	if (index_dir == NULL)
 		index_dir = root_dir;
 	else if (strcmp(index_dir, "MEMORY") == 0)
 		index_dir = NULL;
+
+	if (debug) {
+		i_info("mbox: root=%s, index=%s, inbox=%s",
+		       root_dir, index_dir == NULL ? "" : index_dir,
+		       inbox_file == NULL ? "" : inbox_file);
+	}
 
 	storage = i_new(struct index_storage, 1);
 	storage->storage = mbox_storage;
@@ -229,7 +328,7 @@ static struct mail_storage *mbox_create(const char *data, const char *user)
 	storage->index_dir = i_strdup(home_expand(index_dir));
 	storage->user = i_strdup(user);
 	storage->callbacks = i_new(struct mail_storage_callbacks, 1);
-	index_storage_init(storage);
+	index_storage_init(storage, flags);
 	return &storage->storage;
 }
 
@@ -247,12 +346,12 @@ static void mbox_free(struct mail_storage *_storage)
 	i_free(storage);
 }
 
-int mbox_is_valid_mask(const char *mask)
+int mbox_is_valid_mask(struct mail_storage *storage, const char *mask)
 {
 	const char *p;
 	int newdir;
 
-	if (full_filesystem_access)
+	if ((storage->flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0)
 		return TRUE;
 
 	/* make sure it's not absolute path */
@@ -270,7 +369,8 @@ int mbox_is_valid_mask(const char *mask)
 	return TRUE;
 }
 
-static int mbox_is_valid_create_name(const char *name)
+static int mbox_is_valid_create_name(struct mail_storage *storage,
+				     const char *name)
 {
 	size_t len;
 
@@ -279,10 +379,11 @@ static int mbox_is_valid_create_name(const char *name)
 	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
 		return FALSE;
 
-	return mbox_is_valid_mask(name);
+	return mbox_is_valid_mask(storage, name);
 }
 
-static int mbox_is_valid_existing_name(const char *name)
+static int mbox_is_valid_existing_name(struct mail_storage *storage,
+				       const char *name)
 {
 	size_t len;
 
@@ -290,7 +391,7 @@ static int mbox_is_valid_existing_name(const char *name)
 	if (name[0] == '\0' || name[len-1] == '/')
 		return FALSE;
 
-	return mbox_is_valid_mask(name);
+	return mbox_is_valid_mask(storage, name);
 }
 
 static const char *mbox_get_index_dir(struct index_storage *storage,
@@ -301,7 +402,8 @@ static const char *mbox_get_index_dir(struct index_storage *storage,
 	if (storage->index_dir == NULL)
 		return NULL;
 
-	if (full_filesystem_access && (*name == '/' || *name == '~')) {
+	if ((storage->storage.flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
+	    (*name == '/' || *name == '~')) {
 		name = home_expand(name);
 		p = strrchr(name, '/');
 		return t_strconcat(t_strdup_until(name, p),
@@ -361,7 +463,8 @@ mbox_get_path(struct index_storage *storage, const char *name)
 {
 	if (strcmp(name, "INBOX") == 0)
 		return storage->inbox_path;
-	if (full_filesystem_access && (*name == '/' || *name == '~'))
+	if ((storage->storage.flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
+	    (*name == '/' || *name == '~'))
 		return home_expand(name);
 	return t_strconcat(storage->dir, "/", name, NULL);
 }
@@ -449,7 +552,7 @@ mbox_mailbox_open(struct mail_storage *_storage,
 		return mbox_open(storage, "INBOX", flags);
 	}
 
-	if (!mbox_is_valid_existing_name(name)) {
+	if (!mbox_is_valid_existing_name(_storage, name)) {
 		mail_storage_set_error(_storage, "Invalid mailbox name");
 		return NULL;
 	}
@@ -490,7 +593,7 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 
 	mail_storage_clear_error(_storage);
 
-	if (!mbox_is_valid_create_name(name)) {
+	if (!mbox_is_valid_create_name(_storage, name)) {
 		mail_storage_set_error(_storage, "Invalid mailbox name");
 		return -1;
 	}
@@ -573,7 +676,7 @@ static int mbox_mailbox_delete(struct mail_storage *_storage, const char *name)
 		return -1;
 	}
 
-	if (!mbox_is_valid_existing_name(name)) {
+	if (!mbox_is_valid_existing_name(_storage, name)) {
 		mail_storage_set_error(_storage, "Invalid mailbox name");
 		return -1;
 	}
@@ -660,8 +763,8 @@ static int mbox_mailbox_rename(struct mail_storage *_storage,
 
 	mail_storage_clear_error(_storage);
 
-	if (!mbox_is_valid_existing_name(oldname) ||
-	    !mbox_is_valid_create_name(newname)) {
+	if (!mbox_is_valid_existing_name(_storage, oldname) ||
+	    !mbox_is_valid_create_name(_storage, newname)) {
 		mail_storage_set_error(_storage, "Invalid mailbox name");
 		return -1;
 	}
@@ -757,7 +860,7 @@ static int mbox_get_mailbox_name_status(struct mail_storage *_storage,
 
 	mail_storage_clear_error(_storage);
 
-	if (!mbox_is_valid_existing_name(name)) {
+	if (!mbox_is_valid_existing_name(_storage, name)) {
 		*status = MAILBOX_NAME_INVALID;
 		return 0;
 	}
@@ -768,7 +871,7 @@ static int mbox_get_mailbox_name_status(struct mail_storage *_storage,
 		return 0;
 	}
 
-	if (!mbox_is_valid_create_name(name)) {
+	if (!mbox_is_valid_create_name(_storage, name)) {
 		*status = MAILBOX_NAME_INVALID;
 		return 0;
 	}
@@ -843,6 +946,7 @@ struct mail_storage mbox_storage = {
 	index_storage_get_last_error,
 
 	NULL,
+	0,
 	0
 };
 

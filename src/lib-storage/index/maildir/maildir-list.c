@@ -288,7 +288,8 @@ maildir_mailbox_list_init(struct mail_storage *storage,
 	if ((flags & MAILBOX_LIST_SUBSCRIBED) != 0) {
 		if (!maildir_fill_subscribed(ctx, glob))
 			return &ctx->mailbox_ctx;
-	} else if (full_filesystem_access && (p = strrchr(mask, '/')) != NULL) {
+	} else if ((storage->flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
+		   (p = strrchr(mask, '/')) != NULL) {
 		dir = t_strdup_until(mask, p);
 		ctx->prefix = p_strdup_until(pool, mask, p+1);
 

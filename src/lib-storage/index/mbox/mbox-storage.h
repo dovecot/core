@@ -53,6 +53,6 @@ void mbox_save_cancel(struct mail_save_context *ctx);
 int mbox_transaction_save_commit(struct mbox_save_context *ctx);
 void mbox_transaction_save_rollback(struct mbox_save_context *ctx);
 
-int mbox_is_valid_mask(const char *mask);
+int mbox_is_valid_mask(struct mail_storage *storage, const char *mask);
 
 #endif

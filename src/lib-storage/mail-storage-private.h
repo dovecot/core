@@ -7,10 +7,11 @@ struct mail_storage {
 	char *name;
 	char hierarchy_sep;
 
-	struct mail_storage *(*create)(const char *data, const char *user);
+	struct mail_storage *(*create)(const char *data, const char *user,
+				       enum mail_storage_flags flags);
 	void (*destroy)(struct mail_storage *storage);
 
-	int (*autodetect)(const char *data);
+	int (*autodetect)(const char *data, enum mail_storage_flags flags);
 
 	void (*set_callbacks)(struct mail_storage *storage,
 			      struct mail_storage_callbacks *callbacks,
@@ -46,6 +47,7 @@ struct mail_storage {
 
 /* private: */
 	char *error;
+	enum mail_storage_flags flags;
 
 	unsigned int syntax_error:1; /* Give a BAD reply instead of NO */
 };
