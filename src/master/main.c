@@ -214,6 +214,8 @@ static void daemonize(void)
 
 	if (pid != 0)
 		_exit(0);
+
+	setsid();
 }
 
 static void print_help(void)
