@@ -139,12 +139,6 @@ AC_ARG_WITH(cyrus-sasl2,
 	fi,
 	want_cyrus_sasl2=no)
 
-AC_ARG_WITH(rawlog,
-[  --with-rawlog           Build support for logging user traffic],
-	if test x$withval = xyes; then
-		AC_DEFINE(BUILD_RAWLOG,, Build with rawlogging feature)
-	fi)
-
 AC_ARG_WITH(ssl,
 [  --with-ssl=[gnutls|openssl] Build with GNUTLS (default) or OpenSSL],
 	if test x$withval = xno; then
@@ -1122,6 +1116,7 @@ src/login-common/Makefile
 src/master/Makefile
 src/pop3/Makefile
 src/pop3-login/Makefile
+src/util/Makefile
 stamp.h
 dovecot.spec)
 

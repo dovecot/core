@@ -70,8 +70,7 @@ imap_SOURCES = \
 	imap-thread.c \
 	mail-storage-callbacks.c \
 	main.c \
-	namespace.c \
-	rawlog.c
+	namespace.c
 
 
 noinst_HEADERS = \
@@ -84,5 +83,4 @@ noinst_HEADERS = \
 	imap-search.h \
 	imap-sort.h \
 	imap-thread.h \
-	namespace.h \
-	rawlog.h
+	namespace.h

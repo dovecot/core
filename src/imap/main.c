@@ -5,7 +5,6 @@
 #include "ostream.h"
 #include "str.h"
 #include "lib-signals.h"
-#include "rawlog.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
 #include "process-title.h"
@@ -88,7 +87,6 @@ static void main_init(void)
 {
 	struct client *client;
 	const char *user, *str;
-	int hin, hout;
 
 	lib_init_signals(sig_quit);
 
@@ -102,9 +100,6 @@ static void main_init(void)
 
 	capability_string = str_new(default_pool, sizeof(CAPABILITY_STRING)+32);
 	str_append(capability_string, CAPABILITY_STRING);
-
-	hin = 0; hout = 1;
-	rawlog_open(&hin, &hout);
 
         mail_storage_init();
 	mail_storage_register_all();
@@ -132,7 +127,7 @@ static void main_init(void)
 		MAILBOX_OPEN_MMAP_INVALIDATE : 0;
 
 	namespace_pool = pool_alloconly_create("namespaces", 1024);
-	client = client_create(hin, hout, namespace_init(namespace_pool, user));
+	client = client_create(0, 1, namespace_init(namespace_pool, user));
 
         o_stream_cork(client->output);
 	if (IS_STANDALONE()) {

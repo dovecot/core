@@ -1,9 +1,6 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
-#include "rawlog.h"
-
-#ifdef BUILD_RAWLOG
 
 #include "ioloop.h"
 #include "network.h"
@@ -86,7 +83,7 @@ static void client_input(void *context __attr_unused__)
 	copy(client_in, imap_out, log_in);
 }
 
-void rawlog_open(int *hin, int *hout)
+static void rawlog_open(void)
 {
 	struct io *io_imap, *io_client;
 	const char *home, *path, *fname;
@@ -145,9 +142,11 @@ void rawlog_open(int *hin, int *hout)
 	if (pid > 0) {
 		/* parent */
 		close(log_in); close(log_out);
-		close(*hin); close(*hout);
 		close(sfd[0]);
-		*hin = *hout = sfd[1];
+		if (dup2(sfd[1], 0) < 0)
+			i_fatal("dup2(sfd, 0)");
+		if (dup2(sfd[1], 1) < 0)
+			i_fatal("dup2(sfd, 1)");
 		return;
 	}
 	close(sfd[1]);
@@ -156,8 +155,8 @@ void rawlog_open(int *hin, int *hout)
 					  dec2str(parent_pid)));
 
 	/* child */
-	client_in = *hin;
-	client_out = *hout;
+	client_in = 0;
+	client_out = 1;
 	imap_in = sfd[0];
 	imap_out = sfd[0];
 
@@ -175,8 +174,28 @@ void rawlog_open(int *hin, int *hout)
 	exit(0);
 }
 
-#else
-void rawlog_open(int *hin __attr_unused__, int *hout __attr_unused__)
+int main(int argc, char *argv[], char *envp[])
 {
+	char *executable, *p;
+
+	lib_init();
+        process_title_init(argv, envp);
+
+	if (argc < 2)
+		i_fatal("Usage: rawlog <binary> <arguments>");
+
+	rawlog_open();
+
+	argv++;
+	executable = argv[0];
+
+	/* hide path, it's ugly */
+	p = strrchr(argv[0], '/');
+	if (p != NULL) argv[0] = p+1;
+	execv(executable, argv);
+
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
+
+	/* not reached */
+	return FATAL_EXEC;
 }
-#endif
