@@ -768,9 +768,6 @@ static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
 			hash_rec = p_new(ctx->pool, struct maildir_hash_rec, 1);
 		} else {
 			hash_rec = orig_value;
-			if (strncmp(d->d_name, "1053604786.28152_4.red.int.bppiac.hu", 36) == 0) {
-				i_warning("got: %s", d->d_name);
-			}
 			if (ACTION(hash_rec) != MAILDIR_FILE_ACTION_EXPUNGE) {
 				if (!maildir_fix_duplicate(ctx->index,
 							   d->d_name, new_dir))
