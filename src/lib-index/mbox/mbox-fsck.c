@@ -73,13 +73,24 @@ match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
 			} else {
 				/* read forward a bit */
 				if (io_buffer_read_data(inbuf, &data,
-							&size, 6) <= 0 ||
-				    size < 7)
+							&size, 6) <= 0)
 					break;
 
-				if (data[0] == '\r')
-					data++;
-				if (strncmp(data, "\nFrom ", 6) != 0)
+				/* either there should be the next From-line,
+				   or [\r]\n at end of file */
+				if (size > 0 && data[0] == '\r') {
+					data++; size--;
+				}
+				if (size > 0) {
+					if (data[0] != '\n')
+						break;
+
+					data++; size--;
+				}
+
+				if (size > 0 &&
+				    (size < 5 ||
+				     strncmp(data, "From ", 5) != 0))
 					break;
 			}
 
