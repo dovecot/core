@@ -34,6 +34,7 @@
 
 #ifndef HAVE_LINUX_MREMAP
 
+#include <stdlib.h>
 #include <sys/mman.h>
 
 /* MMAP_BASE_MOVE may be negative as well */
@@ -58,18 +59,28 @@ struct movable_header {
 static int page_size = 0;
 static int header_size = 0;
 static void *movable_mmap_base = NULL;
-static void *mmap_top_limit = NULL;
+static void *mmap_top_limit, *mmap_heap_bottom, *mmap_heap_top;
 
 static void movable_mmap_init(void)
 {
+	ssize_t abs_base_move;
 	char x;
+
+	abs_base_move = MMAP_BASE_MOVE;
+	if (abs_base_move < 0)
+                abs_base_move = -abs_base_move;
 
 	page_size = getpagesize();
 	header_size = page_size;
 
 	/* keep our allocations far below stack. assumes the stack is
 	   growing down. */
-	mmap_top_limit = &x - (1024*1024*256);
+	mmap_top_limit = &x - abs_base_move*2;
+
+	/* keep our allocations far from heap */
+	mmap_heap_bottom = malloc(1);
+	mmap_heap_top = (char *) mmap_heap_bottom + abs_base_move*2;
+	free(mmap_heap_bottom);
 }
 
 static int anon_mmap_fixed(void *address, size_t length)
@@ -149,6 +160,12 @@ void *mmap_anon(size_t length)
 		if ((char *) movable_mmap_base + length >=
 		    (char *) mmap_top_limit) {
 			/* too high, stack could grow over it */
+			continue;
+		}
+
+		if ((char *) movable_mmap_base >= (char *) mmap_heap_bottom &&
+		    (char *) movable_mmap_base < (char *) mmap_heap_top) {
+			/* too near heap */
 			continue;
 		}
 
