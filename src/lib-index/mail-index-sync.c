@@ -6,6 +6,7 @@
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log.h"
 #include "mail-transaction-util.h"
+#include "mail-cache.h"
 
 #include <stdlib.h>
 

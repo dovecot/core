@@ -175,7 +175,11 @@ mail_cache_lookup(struct mail_cache_view *view, uint32_t seq,
 	if (view->cache->disabled)
 		return NULL;
 
-	/* FIXME: check cache_offset in transaction */
+	if (seq > mail_index_view_get_message_count(view->view)) {
+		/* it's being appended in some transaction */
+		return NULL;
+	}
+
 	if (mail_index_lookup_full(view->view, seq, &map, &rec) < 0)
 		return NULL;
 
