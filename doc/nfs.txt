@@ -1,12 +1,10 @@
- - In general, we should be NFS-safe.
+Indexe files aren't really NFS safe, and they likely won't be made. You can
+access the actual mailboxes via NFS, but place the indexes into local hard
+disk (see mail-storage.txt).
 
- - NFS server must support fcntl() locking currently. It's possible to
-   add file-based locking code, but I haven't bothered.
-
- - Modifylog uses fcntl() for figuring out when to delete the log file, and
-   assumes that changing file locking between F_RDLCK / F_WRLCK is atomic
-   (not sure if this is the case with all operating systems, I hope so).
-   This anyway could be more difficult to change not to use fcntl().
+ - .customflags and .subscriptions files require fcntl() locking currently.
+   Many NFS servers don't support it, at least without a separate lockd
+   daemon. I'll add optional support for .lock files later.
 
  - gethostname() must return different name for each IMAP server accessing
    a user's mailboxes
@@ -16,3 +14,19 @@
       new mail to get temporarily lost until more mail arrives.
     - One hour is enough to create a problem when two imap servers try to
       open the same mailbox at the same time.
+
+If you _really_ wish to try using indexes via NFS:
+
+ - Indexes are shared mmap()ed and we rely on noticing changes made by others.
+   If your OS doesn't perform some magical mmap() updates (likely won't),
+   you'll need to modify the code so that each index update will update
+   sync_id in the header, and each time when index is accessed, the sync_id
+   should be read(). If it has changed, the file has to be re-mmap()ed.
+
+ - Indexes require fcntl() locking. .lock files would be pretty slow, but
+   possible.
+
+ - Modifylog uses fcntl() for figuring out when to delete the log file, and
+   assumes that changing file locking between F_RDLCK / F_WRLCK is atomic
+   (not sure if this is the case with all operating systems, I hope so).
+   This anyway would be more difficult to change not to use fcntl().
