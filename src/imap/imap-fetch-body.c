@@ -791,6 +791,14 @@ int fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 
 		if (*p == '.') {
 			p++;
+			if (*p == '-' && (client_workarounds &
+					  WORKAROUND_TB_NEGATIVE_FETCH) != 0) {
+				/* Thunderbird messed up some calculations
+				   and wants to read the message past it's
+				   end. The fetch returns empty result anyway,
+				   so just ignore '-'. */
+				p++;
+			}
 			if (!read_uoff_t(&p, &body->max_size) ||
 			    body->max_size > OFF_T_MAX) {
 				/* wrapped */
