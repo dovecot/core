@@ -50,7 +50,7 @@ message_header_decode_encoded(const unsigned char *data, size_t *size,
 {
 	const unsigned char *text;
 	const char *charset, *encoding;
-	Buffer *decodebuf;
+	buffer_t *decodebuf;
 	size_t text_size;
 	int ret;
 

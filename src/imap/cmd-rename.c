@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_rename(Client *client)
+int cmd_rename(struct client *client)
 {
 	const char *oldname, *newname;
 

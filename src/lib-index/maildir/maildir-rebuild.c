@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-int maildir_index_rebuild(MailIndex *index)
+int maildir_index_rebuild(struct mail_index *index)
 {
 	struct stat st;
 	const char *cur_dir, *new_dir;
@@ -31,7 +31,8 @@ int maildir_index_rebuild(MailIndex *index)
 	index->indexid = index->header->indexid;
 	index->inconsistent = TRUE;
 
-	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) < 0)
+	if (msync(index->mmap_base,
+		  sizeof(struct mail_index_header), MS_SYNC) < 0)
 		return FALSE;
 
 	/* reset data file */

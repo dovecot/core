@@ -12,13 +12,14 @@ const char *printf_string_fix_format(const char *fmt) __attr_format_arg__(1);
 int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 	__attr_format__(3, 4);
 
-char *p_strdup(Pool pool, const char *str);
-char *p_strdup_empty(Pool pool, const char *str); /* return NULL if str = "" */
-char *p_strdup_until(Pool pool, const void *start, const void *end); /* *end isn't included */
-char *p_strndup(Pool pool, const void *str, size_t max_chars);
-char *p_strdup_printf(Pool pool, const char *format, ...) __attr_format__(2, 3);
-char *p_strdup_vprintf(Pool pool, const char *format, va_list args);
-char *p_strconcat(Pool pool, const char *str1, ...); /* NULL terminated */
+char *p_strdup(pool_t pool, const char *str);
+char *p_strdup_empty(pool_t pool, const char *str); /* return NULL if str = "" */
+char *p_strdup_until(pool_t pool, const void *start, const void *end); /* *end isn't included */
+char *p_strndup(pool_t pool, const void *str, size_t max_chars);
+char *p_strdup_printf(pool_t pool, const char *format, ...)
+	__attr_format__(2, 3);
+char *p_strdup_vprintf(pool_t pool, const char *format, va_list args);
+char *p_strconcat(pool_t pool, const char *str1, ...); /* NULL terminated */
 
 /* same with temporary memory allocations: */
 const char *t_strdup(const char *str);

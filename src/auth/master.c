@@ -7,21 +7,21 @@
 #include "cookie.h"
 #include "master.h"
 
-#define MAX_OUTBUF_SIZE (10 * sizeof(AuthCookieReplyData))
+#define MAX_OUTBUF_SIZE (10 * sizeof(struct auth_cookie_reply_data))
 
-static AuthCookieReplyData failure_reply;
+static struct auth_cookie_reply_data failure_reply;
 
-static OStream *output;
-static IO io_master;
+static struct ostream *output;
+static struct io *io_master;
 
 static unsigned int master_pos;
-static char master_buf[sizeof(AuthCookieRequestData)];
+static char master_buf[sizeof(struct auth_cookie_request_data)];
 
-static void master_handle_request(AuthCookieRequestData *request,
+static void master_handle_request(struct auth_cookie_request_data *request,
 				  int fd __attr_unused__)
 {
-	CookieData *cookie;
-        AuthCookieReplyData *reply, temp_reply;
+	struct cookie_data *cookie;
+        struct auth_cookie_reply_data *reply, temp_reply;
 
 	cookie = cookie_lookup_and_remove(request->login_pid, request->cookie);
 	if (cookie == NULL)
@@ -35,7 +35,7 @@ static void master_handle_request(AuthCookieRequestData *request,
 	}
 
 	reply->id = request->id;
-	switch (o_stream_send(output, reply, sizeof(AuthCookieReplyData))) {
+	switch (o_stream_send(output, reply, sizeof(*reply))) {
 	case -2:
 		i_fatal("Master transmit buffer full, aborting");
 	case -1:
@@ -46,7 +46,7 @@ static void master_handle_request(AuthCookieRequestData *request,
 }
 
 static void master_input(void *context __attr_unused__, int fd,
-			 IO io __attr_unused__)
+			 struct io *io __attr_unused__)
 {
 	int ret;
 
@@ -63,7 +63,8 @@ static void master_input(void *context __attr_unused__, int fd,
 		return;
 
 	/* reply is now read */
-	master_handle_request((AuthCookieRequestData *) master_buf, fd);
+	master_handle_request((struct auth_cookie_request_data *) master_buf,
+			      fd);
 	master_pos = 0;
 }
 

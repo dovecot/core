@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_logout(Client *client)
+int cmd_logout(struct client *client)
 {
 	client_send_line(client, "* BYE Logging out");
 

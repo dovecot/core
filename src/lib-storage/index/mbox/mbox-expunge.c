@@ -10,8 +10,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
-			unsigned int seq, IStream *input, OStream *output,
+static int expunge_real(struct index_mailbox *ibox,
+			struct mail_index_record *rec, unsigned int seq,
+			struct istream *input, struct ostream *output,
 			int notify)
 {
 	uoff_t offset, hdr_size, body_size;
@@ -101,11 +102,11 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 	return o_stream_send_istream(output, input) >= 0;
 }
 
-int mbox_expunge_locked(IndexMailbox *ibox, int notify)
+int mbox_expunge_locked(struct index_mailbox *ibox, int notify)
 {
-	MailIndexRecord *rec;
-	IStream *input;
-	OStream *output;
+	struct mail_index_record *rec;
+	struct istream *input;
+	struct ostream *output;
 	unsigned int seq;
 	int failed;
 
@@ -118,7 +119,7 @@ int mbox_expunge_locked(IndexMailbox *ibox, int notify)
 	}
 
 	/* mbox must be already opened, synced and locked at this point.
-	   we just want the IStream. */
+	   we just want the istream. */
 	input = mbox_get_stream(ibox->index, 0, MAIL_LOCK_EXCLUSIVE);
 	if (input == NULL)
 		return FALSE;

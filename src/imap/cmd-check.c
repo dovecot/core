@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_check(Client *client)
+int cmd_check(struct client *client)
 {
 	if (!client_verify_open_mailbox(client))
 		return TRUE;

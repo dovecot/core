@@ -11,76 +11,76 @@
 #define AUTH_MAX_HOME_LEN		256
 #define AUTH_MAX_MAIL_LEN		256
 
-typedef enum {
+enum auth_request_type {
 	AUTH_REQUEST_NONE, /* must not be requested */
 	AUTH_REQUEST_INIT,
         AUTH_REQUEST_CONTINUE
-} AuthRequestType;
+};
 
-typedef enum {
+enum auth_result {
 	AUTH_RESULT_INTERNAL_FAILURE, /* never sent by imap-auth */
 
 	AUTH_RESULT_CONTINUE,
 	AUTH_RESULT_SUCCESS,
 	AUTH_RESULT_FAILURE
-} AuthResult;
+};
 
-typedef enum {
+enum auth_method {
 	AUTH_METHOD_PLAIN	= 0x01,
 	AUTH_METHOD_DIGEST_MD5	= 0x02,
 
 	AUTH_METHODS_COUNT	= 2
-} AuthMethod;
+};
 
 /* Initialization reply, sent after client is connected */
-typedef struct {
+struct auth_init_data {
 	unsigned int auth_process; /* unique auth process identifier */
-	AuthMethod auth_methods; /* valid authentication methods */
-} AuthInitData;
+	enum auth_method auth_methods; /* valid authentication methods */
+};
 
 /* Initialization handshake from client. */
-typedef struct {
+struct client_auth_init_data {
 	unsigned int pid; /* unique identifier for client process */
-} ClientAuthInitData;
+};
 
 /* New authentication request */
-typedef struct {
-	AuthRequestType type; /* AUTH_REQUEST_INIT */
+struct auth_init_request_data {
+	enum auth_request_type type; /* AUTH_REQUEST_INIT */
 
-	AuthMethod method;
+	enum auth_method method;
 	unsigned int id; /* AuthReplyData.id will contain this value */
-} AuthInitRequestData;
+};
 
 /* Continued authentication request */
-typedef struct {
-	AuthRequestType type; /* AUTH_REQUEST_CONTINUE */
+struct auth_continued_request_data {
+	enum auth_request_type type; /* AUTH_REQUEST_CONTINUE */
 
 	unsigned char cookie[AUTH_COOKIE_SIZE];
 	unsigned int id; /* AuthReplyData.id will contain this value */
 
 	size_t data_size;
 	/* unsigned char data[]; */
-} AuthContinuedRequestData;
+};
 
 /* Reply to authentication */
-typedef struct {
+struct auth_reply_data {
 	unsigned int id;
 	unsigned char cookie[AUTH_COOKIE_SIZE];
-	AuthResult result;
+	enum auth_result result;
 
 	size_t data_size;
 	/* unsigned char data[]; */
-} AuthReplyData;
+};
 
 /* Request data associated to cookie */
-typedef struct {
+struct auth_cookie_request_data {
 	unsigned int id;
 	unsigned int login_pid;
 	unsigned char cookie[AUTH_COOKIE_SIZE];
-} AuthCookieRequestData;
+};
 
 /* Reply to cookie request */
-typedef struct {
+struct auth_cookie_reply_data {
 	unsigned int id;
 	int success; /* FALSE if cookie wasn't found */
 
@@ -93,6 +93,6 @@ typedef struct {
 	char mail[AUTH_MAX_MAIL_LEN];
 
 	int chroot; /* chroot to home directory */
-} AuthCookieReplyData;
+};
 
 #endif

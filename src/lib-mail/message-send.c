@@ -3,10 +3,12 @@
 #include "lib.h"
 #include "istream.h"
 #include "ostream.h"
+#include "message-parser.h"
 #include "message-send.h"
 #include "message-size.h"
 
-int message_send(OStream *output, IStream *input, MessageSize *msg_size,
+int message_send(struct ostream *output, struct istream *input,
+		 struct message_size *msg_size,
 		 uoff_t virtual_skip, uoff_t max_virtual_size)
 {
 	const unsigned char *msg;

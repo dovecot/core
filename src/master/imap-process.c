@@ -67,7 +67,7 @@ static int validate_chroot(const char *dir)
 static const char *expand_mail_env(const char *env, const char *user,
 				   const char *home)
 {
-	String *str;
+	string_t *str;
 	const char *p, *var;
 	unsigned int width;
 
@@ -139,12 +139,11 @@ static const char *expand_mail_env(const char *env, const char *user,
 	return str_c(str);
 }
 
-MasterReplyResult create_imap_process(int socket, IPADDR *ip,
-				      const char *system_user,
-				      const char *virtual_user,
-				      uid_t uid, gid_t gid, const char *home,
-				      int chroot, const char *mail,
-				      const char *login_tag)
+enum master_reply_result
+create_imap_process(int socket, struct ip_addr *ip,
+		    const char *system_user, const char *virtual_user,
+		    uid_t uid, gid_t gid, const char *home, int chroot,
+		    const char *mail, const char *login_tag)
 {
 	static char *argv[] = { NULL, NULL, NULL };
 	const char *host;

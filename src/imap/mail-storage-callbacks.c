@@ -5,35 +5,36 @@
 #include "imap-util.h"
 #include "commands-util.h"
 
-static void alert_no_diskspace(Mailbox *mailbox __attr_unused__, void *context)
+static void alert_no_diskspace(struct mailbox *mailbox __attr_unused__,
+			       void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 
 	client_send_line(client, "* NO [ALERT] "
 			 "Disk space is full, delete some messages.");
 }
 
-static void notify_ok(Mailbox *mailbox __attr_unused__,
+static void notify_ok(struct mailbox *mailbox __attr_unused__,
 		      const char *text, void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 
 	client_send_line(client, t_strconcat("* OK ", text, NULL));
 	o_stream_flush(client->output);
 }
 
-static void notify_no(Mailbox *mailbox __attr_unused__,
+static void notify_no(struct mailbox *mailbox __attr_unused__,
 		      const char *text, void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 
 	client_send_line(client, t_strconcat("* NO ", text, NULL));
 	o_stream_flush(client->output);
 }
 
-static void expunge(Mailbox *mailbox, unsigned int seq, void *context)
+static void expunge(struct mailbox *mailbox, unsigned int seq, void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 	char str[MAX_INT_STRLEN+20];
 
 	if (client->mailbox != mailbox)
@@ -43,11 +44,12 @@ static void expunge(Mailbox *mailbox, unsigned int seq, void *context)
 	client_send_line(client, str);
 }
 
-static void update_flags(Mailbox *mailbox, unsigned int seq, unsigned int uid,
-			 MailFlags flags, const char *custom_flags[],
+static void update_flags(struct mailbox *mailbox,
+			 unsigned int seq, unsigned int uid,
+			 enum mail_flags flags, const char *custom_flags[],
 			 unsigned int custom_flags_count, void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 	const char *str;
 
 	if (client->mailbox != mailbox)
@@ -67,10 +69,10 @@ static void update_flags(Mailbox *mailbox, unsigned int seq, unsigned int uid,
 	t_pop();
 }
 
-static void new_messages(Mailbox *mailbox, unsigned int messages_count,
+static void new_messages(struct mailbox *mailbox, unsigned int messages_count,
 			 unsigned int recent_count, void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 	char str[MAX_INT_STRLEN+20];
 
 	if (client->mailbox != mailbox)
@@ -83,10 +85,11 @@ static void new_messages(Mailbox *mailbox, unsigned int messages_count,
 	client_send_line(client, str);
 }
 
-static void new_custom_flags(Mailbox *mailbox, const char *custom_flags[],
+static void new_custom_flags(struct mailbox *mailbox,
+			     const char *custom_flags[],
 			     unsigned int custom_flags_count, void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 
 	if (client->mailbox != mailbox)
 		return;
@@ -95,7 +98,7 @@ static void new_custom_flags(Mailbox *mailbox, const char *custom_flags[],
 				  custom_flags_count);
 }
 
-MailStorageCallbacks mail_storage_callbacks = {
+struct mail_storage_callbacks mail_storage_callbacks = {
 	alert_no_diskspace,
 	notify_ok,
 	notify_no,

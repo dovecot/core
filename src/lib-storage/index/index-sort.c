@@ -2,15 +2,15 @@
 
 #include "lib.h"
 #include "ostream.h"
-#include "rfc822-date.h"
+#include "message-date.h"
 #include "imap-envelope.h"
 #include "imap-message-cache.h"
 #include "mail-index.h"
 #include "index-storage.h"
 #include "index-sort.h"
 
-static ImapMessageCache *search_open_cache(IndexSortContext *ctx,
-					   unsigned int uid)
+static struct imap_message_cache *
+search_open_cache(struct index_sort_context *ctx, unsigned int uid)
 {
 	if (ctx->last_uid != uid) {
 		ctx->cached = FALSE;
@@ -33,10 +33,11 @@ static ImapMessageCache *search_open_cache(IndexSortContext *ctx,
 	return ctx->ibox->cache;
 }
 
-static uoff_t _input_uofft(MailSortType type, unsigned int id, void *context)
+static uoff_t _input_uofft(enum mail_sort_type type,
+			   unsigned int id, void *context)
 {
-	IndexSortContext *ctx = context;
-        ImapMessageCache *cache;
+	struct index_sort_context *ctx = context;
+        struct imap_message_cache *cache;
 
 	if (type != MAIL_SORT_SIZE) {
 		i_unreached();
@@ -47,11 +48,11 @@ static uoff_t _input_uofft(MailSortType type, unsigned int id, void *context)
 	return cache == NULL ? 0 : imap_msgcache_get_virtual_size(cache);
 }
 
-static const char *_input_mailbox(MailSortType type, unsigned int id,
+static const char *_input_mailbox(enum mail_sort_type type, unsigned int id,
 				  void *context)
 {
-	IndexSortContext *ctx = context;
-	ImapEnvelopeField env_field;
+	struct index_sort_context *ctx = context;
+	enum imap_envelope_field env_field;
 	const char *envelope, *str;
 
 	switch (type) {
@@ -76,16 +77,17 @@ static const char *_input_mailbox(MailSortType type, unsigned int id,
 		return NULL;
 
 	if (!imap_envelope_parse(envelope, env_field,
-				 IMAP_ENVELOPE_RESULT_FIRST_MAILBOX, &str))
+				 IMAP_ENVELOPE_RESULT_TYPE_FIRST_MAILBOX, &str))
 		return NULL;
 
 	return str;
 }
 
-static const char *_input_str(MailSortType type, unsigned int id, void *context)
+static const char *_input_str(enum mail_sort_type type,
+			      unsigned int id, void *context)
 {
-	IndexSortContext *ctx = context;
-	ImapEnvelopeField env_field;
+	struct index_sort_context *ctx = context;
+	enum imap_envelope_field env_field;
 	const char *envelope, *str;
 
 	switch (type) {
@@ -107,16 +109,17 @@ static const char *_input_str(MailSortType type, unsigned int id, void *context)
 		return NULL;
 
 	if (!imap_envelope_parse(envelope, env_field,
-				 IMAP_ENVELOPE_RESULT_STRING, &str))
+				 IMAP_ENVELOPE_RESULT_TYPE_STRING, &str))
 		return NULL;
 
 	return str;
 }
 
-static time_t _input_time(MailSortType type, unsigned int id, void *context)
+static time_t _input_time(enum mail_sort_type type,
+			  unsigned int id, void *context)
 {
-	IndexSortContext *ctx = context;
-        ImapMessageCache *cache;
+	struct index_sort_context *ctx = context;
+        struct imap_message_cache *cache;
 	const char *str;
 	time_t time;
 	int timezone_offset;
@@ -131,7 +134,7 @@ static time_t _input_time(MailSortType type, unsigned int id, void *context)
 		if (str == NULL)
 			return 0;
 
-		if (!rfc822_parse_date(str, &time, &timezone_offset))
+		if (!message_date_parse(str, &time, &timezone_offset))
 			return 0;
 
 		return time - timezone_offset*60;
@@ -143,14 +146,14 @@ static time_t _input_time(MailSortType type, unsigned int id, void *context)
 
 static void _input_reset(void *context)
 {
-	IndexSortContext *ctx = context;
+	struct index_sort_context *ctx = context;
 
 	ctx->cached = FALSE;
 }
 
 static void _output(unsigned int *data, size_t count, void *context)
 {
-	IndexSortContext *ctx = context;
+	struct index_sort_context *ctx = context;
 	size_t i;
 
 	for (i = 0; i < count; i++) {
@@ -161,7 +164,7 @@ static void _output(unsigned int *data, size_t count, void *context)
 	}
 }
 
-MailSortFuncs index_sort_funcs = {
+struct mail_sort_funcs index_sort_funcs = {
 	_input_time,
 	_input_uofft,
 	_input_mailbox,

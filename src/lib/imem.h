@@ -1,7 +1,7 @@
 #ifndef __IMEM_H
 #define __IMEM_H
 
-extern Pool default_pool;
+extern pool_t default_pool;
 
 /* For easy allocation of memory from default memory pool. */
 #define i_new(type, count) \

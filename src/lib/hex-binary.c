@@ -48,7 +48,7 @@ const char *binary_to_hex(const unsigned char *data, size_t size)
 	return buf;
 }
 
-int hex_to_binary(const char *data, Buffer *dest)
+int hex_to_binary(const char *data, buffer_t *dest)
 {
 	int value;
 

@@ -5,10 +5,11 @@
 #include "commands.h"
 
 /* Returns status items, or -1 if error */
-static MailboxStatusItems get_status_items(Client *client, ImapArg *args)
+static enum mailbox_status_items
+get_status_items(struct client *client, struct imap_arg *args)
 {
 	const char *item;
-	MailboxStatusItems items;
+	enum mailbox_status_items items;
 
 	items = 0;
 	for (; args->type != IMAP_ARG_EOL; args++) {
@@ -49,10 +50,11 @@ static int mailbox_name_equals(const char *box1, const char *box2)
 	return strcasecmp(box1, "INBOX") == 0 && strcasecmp(box2, "INBOX") == 0;
 }
 
-static int get_mailbox_status(Client *client, const char *mailbox,
-			      MailboxStatusItems items, MailboxStatus *status)
+static int get_mailbox_status(struct client *client, const char *mailbox,
+			      enum mailbox_status_items items,
+			      struct mailbox_status *status)
 {
-	Mailbox *box;
+	struct mailbox *box;
 	int failed;
 
 	if (client->mailbox != NULL &&
@@ -75,13 +77,13 @@ static int get_mailbox_status(Client *client, const char *mailbox,
 	return !failed;
 }
 
-int cmd_status(Client *client)
+int cmd_status(struct client *client)
 {
-	ImapArg *args;
-	MailboxStatus status;
-	MailboxStatusItems items;
+	struct imap_arg *args;
+	struct mailbox_status status;
+	enum mailbox_status_items items;
 	const char *mailbox;
-	String *str;
+	string_t *str;
 
 	/* <mailbox> <status items> */
 	if (!client_read_args(client, 2, 0, &args))
@@ -95,7 +97,7 @@ int cmd_status(Client *client)
 
 	/* get the items client wants */
 	items = get_status_items(client, IMAP_ARG_LIST(&args[1])->args);
-	if (items == (MailboxStatusItems)-1) {
+	if (items == (enum mailbox_status_items)-1) {
 		/* error */
 		return TRUE;
 	}

@@ -3,8 +3,8 @@
 #include "lib.h"
 #include "utc-offset.h"
 #include "utc-mktime.h"
-#include "rfc822-date.h"
-#include "rfc822-tokenize.h"
+#include "message-tokenize.h"
+#include "message-date.h"
 
 #include <ctype.h>
 
@@ -86,22 +86,23 @@ static int parse_timezone(const unsigned char *str, size_t len)
 	return 0;
 }
 
-static Rfc822Token next_token(Rfc822TokenizeContext *ctx,
-			      const unsigned char **value, size_t *value_len)
+static enum message_token next_token(struct message_tokenizer *ctx,
+				     const unsigned char **value,
+				     size_t *value_len)
 {
-	Rfc822Token token;
+	enum message_token token;
 
-	token = rfc822_tokenize_next(ctx);
+	token = message_tokenize_next(ctx);
 	if (token == 'A')
-		*value = rfc822_tokenize_get_value(ctx, value_len);
+		*value = message_tokenize_get_value(ctx, value_len);
 	return token;
 }
 
-static int rfc822_parse_date_tokens(Rfc822TokenizeContext *ctx, time_t *time,
-				    int *timezone_offset)
+static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
+				  int *timezone_offset)
 {
 	struct tm tm;
-	Rfc822Token token;
+	enum message_token token;
 	const unsigned char *value;
 	size_t i, len;
 
@@ -206,23 +207,23 @@ static int rfc822_parse_date_tokens(Rfc822TokenizeContext *ctx, time_t *time,
 	return TRUE;
 }
 
-int rfc822_parse_date(const char *data, time_t *time, int *timezone_offset)
+int message_date_parse(const char *data, time_t *time, int *timezone_offset)
 {
-	Rfc822TokenizeContext *ctx;
+	struct message_tokenizer *ctx;
 	int ret;
 
 	if (data == NULL || *data == '\0')
 		return FALSE;
 
-	ctx = rfc822_tokenize_init((const unsigned char *) data, (size_t)-1,
-				   NULL, NULL);
-	ret = rfc822_parse_date_tokens(ctx, time, timezone_offset);
-	rfc822_tokenize_deinit(ctx);
+	ctx = message_tokenize_init((const unsigned char *) data, (size_t)-1,
+				    NULL, NULL);
+	ret = mail_date_parse_tokens(ctx, time, timezone_offset);
+	message_tokenize_deinit(ctx);
 
 	return ret;
 }
 
-const char *rfc822_to_date(time_t time)
+const char *message_date_create(time_t time)
 {
 	struct tm *tm;
 	int offset, negative;

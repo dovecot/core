@@ -36,7 +36,7 @@
 #  define INITIAL_POLL_FDS 128
 #endif
 
-struct _IOLoopHandlerData {
+struct ioloop_handler_data {
 	unsigned int fds_size, fds_pos;
 	struct pollfd *fds;
 
@@ -44,12 +44,12 @@ struct _IOLoopHandlerData {
 	int *fd_index;
 };
 
-void io_loop_handler_init(IOLoop ioloop)
+void io_loop_handler_init(struct ioloop *ioloop)
 {
-	IOLoopHandlerData *data;
+	struct ioloop_handler_data *data;
 
 	ioloop->handler_data = data =
-		p_new(ioloop->pool, IOLoopHandlerData, 1);
+		p_new(ioloop->pool, struct ioloop_handler_data, 1);
 	data->fds_size = INITIAL_POLL_FDS;
 	data->fds = p_new(ioloop->pool, struct pollfd, data->fds_size);
 
@@ -58,7 +58,7 @@ void io_loop_handler_init(IOLoop ioloop)
         memset(data->fd_index, 0xff, sizeof(int) * data->idx_size);
 }
 
-void io_loop_handler_deinit(IOLoop ioloop)
+void io_loop_handler_deinit(struct ioloop *ioloop)
 {
         p_free(ioloop->pool, ioloop->handler_data->fds);
         p_free(ioloop->pool, ioloop->handler_data->fd_index);
@@ -68,12 +68,11 @@ void io_loop_handler_deinit(IOLoop ioloop)
 #define IO_POLL_INPUT (POLLIN|POLLPRI|POLLERR|POLLHUP|POLLNVAL)
 #define IO_POLL_OUTPUT (POLLOUT|POLLERR|POLLHUP|POLLNVAL)
 
-void io_loop_handle_add(IOLoop ioloop, int fd, int condition)
+void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition)
 {
-	IOLoopHandlerData *data;
+	struct ioloop_handler_data *data = ioloop->handler_data;
 	int index, old_size;
 
-        data = ioloop->handler_data;
 	if ((unsigned int) fd >= data->idx_size) {
                 /* grow the fd -> index array */
 		old_size = data->idx_size;
@@ -111,12 +110,11 @@ void io_loop_handle_add(IOLoop ioloop, int fd, int condition)
 		data->fds[index].events |= IO_POLL_OUTPUT;
 }
 
-void io_loop_handle_remove(IOLoop ioloop, int fd, int condition)
+void io_loop_handle_remove(struct ioloop *ioloop, int fd, int condition)
 {
-	IOLoopHandlerData *data;
+	struct ioloop_handler_data *data = ioloop->handler_data;
 	int index;
 
-        data = ioloop->handler_data;
 	index = data->fd_index[fd];
 	i_assert(index >= 0 && (unsigned int) index < data->fds_size);
 
@@ -137,16 +135,14 @@ void io_loop_handle_remove(IOLoop ioloop, int fd, int condition)
 	}
 }
 
-void io_loop_handler_run(IOLoop ioloop)
+void io_loop_handler_run(struct ioloop *ioloop)
 {
-	IOLoopHandlerData *data;
+	struct ioloop_handler_data *data = ioloop->handler_data;
         struct pollfd *pollfd;
         struct timeval tv;
-	IO io, next;
+	struct io *io, *next;
 	unsigned int t_id;
 	int msecs, ret;
-
-        data = ioloop->handler_data;
 
         /* get the time left for next timeout task */
 	msecs = io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);

@@ -21,13 +21,13 @@
 #define COMPRESS_PERCENTAGE 20
 
 /* Initial size for the file */
-#define INDEX_DATA_INITIAL_SIZE (sizeof(MailIndexDataHeader) + 10240)
+#define INDEX_DATA_INITIAL_SIZE (sizeof(struct mail_index_data_header) + 10240)
 
 /* When more space is needed, grow the file n% larger than the previous size */
 #define INDEX_DATA_GROW_PERCENTAGE 10
 
-struct _MailIndexData {
-	MailIndex *index;
+struct mail_index_data {
+	struct mail_index *index;
 
 	int fd;
 	char *filepath;
@@ -36,7 +36,7 @@ struct _MailIndexData {
 	size_t mmap_full_length;
 	size_t mmap_used_length;
 
-	MailIndexDataHeader *header;
+	struct mail_index_data_header *header;
 
 	unsigned int anon_mmap:1;
 	unsigned int dirty_mmap:1;
@@ -44,7 +44,7 @@ struct _MailIndexData {
 	unsigned int fsynced:1;
 };
 
-int index_data_set_corrupted(MailIndexData *data, const char *fmt, ...)
+int index_data_set_corrupted(struct mail_index_data *data, const char *fmt, ...)
 {
 	va_list va;
 
@@ -61,7 +61,7 @@ int index_data_set_corrupted(MailIndexData *data, const char *fmt, ...)
 	return FALSE;
 }
 
-static int index_data_set_syscall_error(MailIndexData *data,
+static int index_data_set_syscall_error(struct mail_index_data *data,
 					const char *function)
 {
 	i_assert(function != NULL);
@@ -71,7 +71,7 @@ static int index_data_set_syscall_error(MailIndexData *data,
 	return FALSE;
 }
 
-static void mail_index_data_file_close(MailIndexData *data)
+static void mail_index_data_file_close(struct mail_index_data *data)
 {
 	if (data->anon_mmap) {
 		if (munmap_anon(data->mmap_base, data->mmap_full_length) < 0)
@@ -91,7 +91,7 @@ static void mail_index_data_file_close(MailIndexData *data)
 	}
 }
 
-static int data_file_reopen(MailIndexData *data)
+static int data_file_reopen(struct mail_index_data *data)
 {
 	int fd;
 
@@ -107,9 +107,9 @@ static int data_file_reopen(MailIndexData *data)
 	return TRUE;
 }
 
-static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
+static int mmap_update(struct mail_index_data *data, uoff_t pos, size_t size)
 {
-	MailIndexDataHeader *hdr;
+	struct mail_index_data_header *hdr;
 
 	if (data->header != NULL &&
 	    data->header->indexid != data->index->indexid) {
@@ -170,12 +170,12 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 		return index_data_set_syscall_error(data, "mmap()");
 	}
 
-	if (data->mmap_full_length < sizeof(MailIndexDataHeader))
+	if (data->mmap_full_length < sizeof(struct mail_index_data_header))
 		return index_data_set_corrupted(data, "File too small");
 
 	hdr = data->mmap_base;
 
-	if (hdr->used_file_size < sizeof(MailIndexDataHeader)) {
+	if (hdr->used_file_size < sizeof(struct mail_index_data_header)) {
 		index_data_set_corrupted(data, "used_file_size too small ("
 					 "%"PRIuUOFF_T")", hdr->used_file_size);
 		return FALSE;
@@ -195,9 +195,9 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 	return TRUE;
 }
 
-int mail_index_data_open(MailIndex *index)
+int mail_index_data_open(struct mail_index *index)
 {
-	MailIndexData *data;
+	struct mail_index_data *data;
 	const char *path;
 	int fd;
 
@@ -211,14 +211,14 @@ int mail_index_data_open(MailIndex *index)
 		return index_file_set_syscall_error(index, path, "open()");
 	}
 
-	data = i_new(MailIndexData, 1);
+	data = i_new(struct mail_index_data, 1);
 	data->index = index;
 	data->fd = fd;
 	data->filepath = i_strdup(path);
 
 	index->data = data;
 
-	if (!mmap_update(data, 0, sizeof(MailIndexDataHeader))) {
+	if (!mmap_update(data, 0, sizeof(struct mail_index_data_header))) {
 		mail_index_data_free(data);
 		return FALSE;
 	}
@@ -235,12 +235,13 @@ int mail_index_data_open(MailIndex *index)
 	return TRUE;
 }
 
-static const char *init_data_file(MailIndex *index, MailIndexDataHeader *hdr,
+static const char *init_data_file(struct mail_index *index,
+				  struct mail_index_data_header *hdr,
 				  int fd, const char *temppath)
 {
 	const char *realpath;
 
-	if (write_full(fd, hdr, sizeof(MailIndexDataHeader)) < 0) {
+	if (write_full(fd, hdr, sizeof(*hdr)) < 0) {
 		index_file_set_syscall_error(index, temppath, "write_full()");
 		return NULL;
 	}
@@ -263,16 +264,16 @@ static const char *init_data_file(MailIndex *index, MailIndexDataHeader *hdr,
 	return realpath;
 }
 
-int mail_index_data_create(MailIndex *index)
+int mail_index_data_create(struct mail_index *index)
 {
-        MailIndexDataHeader hdr;
-	MailIndexData *data;
+        struct mail_index_data_header hdr;
+	struct mail_index_data *data;
 	const char *temppath, *realpath;
 	int fd;
 
-	memset(&hdr, 0, sizeof(MailIndexDataHeader));
+	memset(&hdr, 0, sizeof(struct mail_index_data_header));
 	hdr.indexid = index->indexid;
-	hdr.used_file_size = sizeof(MailIndexDataHeader);
+	hdr.used_file_size = sizeof(struct mail_index_data_header);
 
 	realpath = NULL;
 
@@ -300,13 +301,13 @@ int mail_index_data_create(MailIndex *index)
 		}
 	}
 
-	data = i_new(MailIndexData, 1);
+	data = i_new(struct mail_index_data, 1);
 
 	if (fd == -1) {
 		data->mmap_full_length = INDEX_DATA_INITIAL_SIZE;
 		data->mmap_base = mmap_anon(data->mmap_full_length);
 
-		memcpy(data->mmap_base, &hdr, sizeof(MailIndexDataHeader));
+		memcpy(data->mmap_base, &hdr, sizeof(hdr));
 		data->header = data->mmap_base;
 		data->mmap_used_length = data->header->used_file_size;
 
@@ -319,7 +320,7 @@ int mail_index_data_create(MailIndex *index)
 	data->index = index;
 	data->fd = fd;
 
-	if (!mmap_update(data, 0, sizeof(MailIndexDataHeader))) {
+	if (!mmap_update(data, 0, sizeof(struct mail_index_data_header))) {
 		mail_index_data_free(data);
 		return FALSE;
 	}
@@ -328,7 +329,7 @@ int mail_index_data_create(MailIndex *index)
 	return TRUE;
 }
 
-void mail_index_data_free(MailIndexData *data)
+void mail_index_data_free(struct mail_index_data *data)
 {
 	data->index->data = NULL;
 
@@ -338,16 +339,16 @@ void mail_index_data_free(MailIndexData *data)
 	i_free(data);
 }
 
-int mail_index_data_reset(MailIndexData *data)
+int mail_index_data_reset(struct mail_index_data *data)
 {
-	MailIndexDataHeader hdr;
+	struct mail_index_data_header hdr;
 
-	memset(&hdr, 0, sizeof(MailIndexDataHeader));
+	memset(&hdr, 0, sizeof(struct mail_index_data_header));
 	hdr.indexid = data->index->indexid;
-	hdr.used_file_size = sizeof(MailIndexDataHeader);
+	hdr.used_file_size = sizeof(struct mail_index_data_header);
 
 	if (data->anon_mmap) {
-		memcpy(data->mmap_base, &hdr, sizeof(MailIndexDataHeader));
+		memcpy(data->mmap_base, &hdr, sizeof(hdr));
 		return TRUE;
 	}
 
@@ -360,7 +361,7 @@ int mail_index_data_reset(MailIndexData *data)
 	if (lseek(data->fd, 0, SEEK_SET) < 0)
 		return index_data_set_syscall_error(data, "lseek()");
 
-	if (write_full(data->fd, &hdr, sizeof(MailIndexDataHeader)) < 0) {
+	if (write_full(data->fd, &hdr, sizeof(hdr)) < 0) {
 		if (errno == ENOSPC)
 			data->index->nodiskspace = TRUE;
 		return index_data_set_syscall_error(data, "write_full()");
@@ -371,25 +372,26 @@ int mail_index_data_reset(MailIndexData *data)
 	return mmap_update(data, 0, 0);
 }
 
-int mail_index_data_mark_file_deleted(MailIndexData *data)
+int mail_index_data_mark_file_deleted(struct mail_index_data *data)
 {
 	if (data->anon_mmap)
 		return TRUE;
 
 	data->header->indexid = 0;
-	if (msync(data->mmap_base, sizeof(MailIndexDataHeader), MS_SYNC) < 0)
+	if (msync(data->mmap_base,
+		  sizeof(struct mail_index_data_header), MS_SYNC) < 0)
 		return index_data_set_syscall_error(data, "msync()");
 
 	data->fsynced = FALSE;
 	return TRUE;
 }
 
-void mail_index_data_mark_modified(MailIndexData *data)
+void mail_index_data_mark_modified(struct mail_index_data *data)
 {
 	data->modified = TRUE;
 }
 
-static int mail_index_data_grow(MailIndexData *data, size_t size)
+static int mail_index_data_grow(struct mail_index_data *data, size_t size)
 {
 	void *base;
 	uoff_t new_fsize;
@@ -427,7 +429,7 @@ static int mail_index_data_grow(MailIndexData *data, size_t size)
 		return TRUE;
 	}
 
-	if (pos < (int)sizeof(MailIndexDataHeader))
+	if (pos < (off_t)sizeof(struct mail_index_data_header))
 		return index_data_set_corrupted(data, "Header is missing");
 
 	if (file_set_size(data->fd, (off_t)new_fsize) < 0) {
@@ -439,7 +441,7 @@ static int mail_index_data_grow(MailIndexData *data, size_t size)
 	return mmap_update(data, 0, 0);
 }
 
-uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
+uoff_t mail_index_data_append(struct mail_index_data *data, const void *buffer,
 			      size_t size)
 {
 	uoff_t offset;
@@ -447,7 +449,7 @@ uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
 	i_assert((size & (MEM_ALIGN_SIZE-1)) == 0);
 	i_assert(data->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	if (!mmap_update(data, 0, sizeof(MailIndexDataHeader)))
+	if (!mmap_update(data, 0, sizeof(struct mail_index_data_header)))
 		return 0;
 
 	if (size > data->mmap_full_length ||
@@ -466,9 +468,10 @@ uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
 	return offset;
 }
 
-int mail_index_data_delete(MailIndexData *data, MailIndexRecord *index_rec)
+int mail_index_data_delete(struct mail_index_data *data,
+			   struct mail_index_record *index_rec)
 {
-        MailIndexDataRecordHeader *rec_hdr;
+        struct mail_index_data_record_header *rec_hdr;
 	uoff_t max_del_space;
 
 	i_assert(data->index->lock_type == MAIL_LOCK_EXCLUSIVE);
@@ -482,8 +485,8 @@ int mail_index_data_delete(MailIndexData *data, MailIndexRecord *index_rec)
 
 	/* clear the record data. not really needed, but better not to keep
 	   deleted information lying around.. */
-	memset((char *) rec_hdr + sizeof(MailIndexDataRecordHeader), 0,
-	       rec_hdr->data_size - sizeof(MailIndexDataRecordHeader));
+	memset((char *) rec_hdr + sizeof(*rec_hdr), 0,
+	       rec_hdr->data_size - sizeof(*rec_hdr));
 
 	/* see if we've reached the max. deleted space in file */
 	if (data->header->used_file_size >= COMPRESS_MIN_SIZE &&
@@ -498,7 +501,7 @@ int mail_index_data_delete(MailIndexData *data, MailIndexRecord *index_rec)
 	return TRUE;
 }
 
-int mail_index_data_sync_file(MailIndexData *data, int *fsync_fd)
+int mail_index_data_sync_file(struct mail_index_data *data, int *fsync_fd)
 {
 	*fsync_fd = -1;
 
@@ -520,8 +523,9 @@ int mail_index_data_sync_file(MailIndexData *data, int *fsync_fd)
 	return TRUE;
 }
 
-MailIndexDataRecordHeader *
-mail_index_data_lookup_header(MailIndexData *data, MailIndexRecord *index_rec)
+struct mail_index_data_record_header *
+mail_index_data_lookup_header(struct mail_index_data *data,
+			      struct mail_index_record *index_rec)
 {
 	uoff_t pos;
 
@@ -531,14 +535,17 @@ mail_index_data_lookup_header(MailIndexData *data, MailIndexRecord *index_rec)
 		return NULL;
 	}
 
-	if (!mmap_update(data, pos, sizeof(MailIndexDataRecordHeader)))
+	if (!mmap_update(data, pos,
+			 sizeof(struct mail_index_data_record_header)))
 		return NULL;
 
-	if (pos + sizeof(MailIndexDataRecordHeader) > data->mmap_used_length) {
+	if (pos + sizeof(struct mail_index_data_record_header) >
+	    data->mmap_used_length) {
 		index_data_set_corrupted(data,
 			"Data position of record %u points outside file "
 			"(%"PRIuUOFF_T" + %"PRIuSIZE_T" > %"PRIuSIZE_T")",
-			index_rec->uid, pos, sizeof(MailIndexDataRecordHeader),
+			index_rec->uid, pos,
+			sizeof(struct mail_index_data_record_header),
 			data->mmap_used_length);
 		return NULL;
 	}
@@ -550,15 +557,17 @@ mail_index_data_lookup_header(MailIndexData *data, MailIndexRecord *index_rec)
 		return NULL;
 	}
 
-	return (MailIndexDataRecordHeader *) ((char *) data->mmap_base + pos);
+	return (struct mail_index_data_record_header *)
+		((char *) data->mmap_base + pos);
 }
 
-MailIndexDataRecord *
-mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
-		       MailDataField field)
+struct mail_index_data_record *
+mail_index_data_lookup(struct mail_index_data *data,
+		       struct mail_index_record *index_rec,
+		       enum mail_data_field field)
 {
-        MailIndexDataRecordHeader *rec_hdr;
-	MailIndexDataRecord *rec;
+        struct mail_index_data_record_header *rec_hdr;
+	struct mail_index_data_record *rec;
 	uoff_t pos, max_pos;
 
 	index_reset_error(data->index);
@@ -588,12 +597,13 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 		return NULL;
 	}
 
-	pos += sizeof(MailIndexDataRecordHeader);
+	pos += sizeof(struct mail_index_data_record_header);
 	do {
-		rec = (MailIndexDataRecord *) ((char *) data->mmap_base + pos);
+		rec = (struct mail_index_data_record *)
+			((char *) data->mmap_base + pos);
 
 		if (rec->full_field_size > max_pos ||
-		    pos + sizeof(MailIndexDataRecord) > max_pos ||
+		    pos + sizeof(struct mail_index_data_record) > max_pos ||
 		    pos + DATA_RECORD_SIZE(rec) > max_pos) {
 			index_data_set_corrupted(data,
 				"Field %d size points outside file "
@@ -626,11 +636,12 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 	return NULL;
 }
 
-MailIndexDataRecord *
-mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
-		     MailIndexDataRecord *rec)
+struct mail_index_data_record *
+mail_index_data_next(struct mail_index_data *data,
+		     struct mail_index_record *index_rec,
+		     struct mail_index_data_record *rec)
 {
-        MailIndexDataRecordHeader *rec_hdr;
+        struct mail_index_data_record_header *rec_hdr;
 	uoff_t pos, end_pos, max_pos;
 
 	index_reset_error(data->index);
@@ -638,8 +649,8 @@ mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
 	if (rec == NULL)
 		return NULL;
 
-	rec_hdr = (MailIndexDataRecordHeader *) ((char *) data->mmap_base +
-						 index_rec->data_position);
+	rec_hdr = (struct mail_index_data_record_header *)
+		((char *) data->mmap_base + index_rec->data_position);
 
 	/* get position to next record */
 	pos = DATA_FILE_POSITION(data, rec) + DATA_RECORD_SIZE(rec);
@@ -649,7 +660,8 @@ mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
 	if (pos >= max_pos)
 		return NULL;
 
-	rec = (MailIndexDataRecord *) ((char *) data->mmap_base + pos);
+	rec = (struct mail_index_data_record *)
+		((char *) data->mmap_base + pos);
 	end_pos = pos + DATA_RECORD_SIZE(rec);
 	if (end_pos < pos || end_pos > max_pos) {
 		index_data_set_corrupted(data, "Field size points outside file "
@@ -661,7 +673,8 @@ mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
 	return rec;
 }
 
-int mail_index_data_record_verify(MailIndexData *data, MailIndexDataRecord *rec)
+int mail_index_data_record_verify(struct mail_index_data *data,
+				  struct mail_index_data_record *rec)
 {
 	int i;
 
@@ -687,7 +700,7 @@ int mail_index_data_record_verify(MailIndexData *data, MailIndexDataRecord *rec)
 	return FALSE;
 }
 
-void *mail_index_data_get_mmaped(MailIndexData *data, size_t *size)
+void *mail_index_data_get_mmaped(struct mail_index_data *data, size_t *size)
 {
 	if (!mmap_update(data, 0, 0))
 		return NULL;

@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
-#include "rfc822-tokenize.h"
+#include "message-tokenize.h"
 #include "message-content-parser.h"
 
 void message_content_parse_header(const unsigned char *data, size_t size,
@@ -10,48 +10,48 @@ void message_content_parse_header(const unsigned char *data, size_t size,
 				  ParseContentParamFunc param_func,
 				  void *context)
 {
-	static const Rfc822Token stop_tokens[] = { ';', TOKEN_LAST };
-	Rfc822TokenizeContext *ctx;
-	Rfc822Token token;
-	String *str;
+	static const enum message_token stop_tokens[] = { ';', TOKEN_LAST };
+	struct message_tokenizer *tok;
+	enum message_token token;
+	string_t *str;
 	const unsigned char *key, *value;
 	size_t key_len, value_len;
 
-	ctx = rfc822_tokenize_init(data, size, NULL, NULL);
-        rfc822_tokenize_dot_token(ctx, FALSE);
+	tok = message_tokenize_init(data, size, NULL, NULL);
+        message_tokenize_dot_token(tok, FALSE);
 
 	t_push();
 	str = t_str_new(256);
 
         /* first ';' separates the parameters */
-	rfc822_tokenize_get_string(ctx, str, NULL, stop_tokens);
+	message_tokenize_get_string(tok, str, NULL, stop_tokens);
 
 	if (func != NULL)
 		func(str_data(str), str_len(str), context);
 
 	t_pop();
 
-	if (param_func != NULL && rfc822_tokenize_get(ctx) == ';') {
+	if (param_func != NULL && message_tokenize_get(tok) == ';') {
 		/* parse the parameters */
-		while ((token = rfc822_tokenize_next(ctx)) != TOKEN_LAST) {
+		while ((token = message_tokenize_next(tok)) != TOKEN_LAST) {
 			/* <token> "=" <token> | <quoted-string> */
 			if (token != TOKEN_ATOM)
 				continue;
 
-			key = rfc822_tokenize_get_value(ctx, &key_len);
+			key = message_tokenize_get_value(tok, &key_len);
 
-			if (rfc822_tokenize_next(ctx) != '=')
+			if (message_tokenize_next(tok) != '=')
 				continue;
 
-			token = rfc822_tokenize_next(ctx);
+			token = message_tokenize_next(tok);
 			if (token != TOKEN_ATOM && token != TOKEN_QSTRING)
 				continue;
 
-			value = rfc822_tokenize_get_value(ctx, &value_len);
+			value = message_tokenize_get_value(tok, &value_len);
 			param_func(key, key_len, value, value_len,
 				   token == TOKEN_QSTRING, context);
 		}
 	}
 
-	rfc822_tokenize_deinit(ctx);
+	message_tokenize_deinit(tok);
 }

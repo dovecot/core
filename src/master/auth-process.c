@@ -16,42 +16,40 @@
 #include <syslog.h>
 #include <sys/stat.h>
 
-typedef struct _WaitingRequest WaitingRequest;
-
-struct _AuthProcess {
-	AuthProcess *next;
+struct auth_process {
+	struct auth_process *next;
 
 	char *name;
 	pid_t pid;
 	int fd;
-	IO io;
-	OStream *output;
+	struct io *io;
+	struct ostream *output;
 
 	unsigned int reply_pos;
-	char reply_buf[sizeof(AuthCookieReplyData)];
+	char reply_buf[sizeof(struct auth_cookie_reply_data)];
 
-	WaitingRequest *requests, **next_request;
+	struct waiting_request *requests, **next_request;
 };
 
-struct _WaitingRequest {
-        WaitingRequest *next;
+struct waiting_request {
+        struct waiting_request *next;
 	unsigned int id;
 
 	AuthCallback callback;
 	void *context;
 };
 
-static Timeout to;
-static AuthProcess *processes;
+static struct timeout *to;
+static struct auth_process *processes;
 
-static void auth_process_destroy(AuthProcess *p);
+static void auth_process_destroy(struct auth_process *p);
 
-static void push_request(AuthProcess *process, unsigned int id,
+static void push_request(struct auth_process *process, unsigned int id,
 			 AuthCallback callback, void *context)
 {
-	WaitingRequest *req;
+	struct waiting_request *req;
 
-	req = i_new(WaitingRequest, 1);
+	req = i_new(struct waiting_request, 1);
 	req->id = id;
 	req->callback = callback;
 	req->context = context;
@@ -60,9 +58,10 @@ static void push_request(AuthProcess *process, unsigned int id,
 	process->next_request = &req->next;
 }
 
-static void pop_request(AuthProcess *process, AuthCookieReplyData *reply)
+static void pop_request(struct auth_process *process,
+			struct auth_cookie_reply_data *reply)
 {
-	WaitingRequest *req;
+	struct waiting_request *req;
 
 	req = process->requests;
 	if (req == NULL) {
@@ -96,9 +95,10 @@ static void pop_request(AuthProcess *process, AuthCookieReplyData *reply)
 	i_free(req);
 }
 
-static void auth_process_input(void *context, int fd, IO io __attr_unused__)
+static void auth_process_input(void *context, int fd,
+			       struct io *io __attr_unused__)
 {
-	AuthProcess *p = context;
+	struct auth_process *p = context;
 	int ret;
 
 	ret = net_receive(fd, p->reply_buf + p->reply_pos,
@@ -114,24 +114,25 @@ static void auth_process_input(void *context, int fd, IO io __attr_unused__)
 		return;
 
 	/* reply is now read */
-	pop_request(p, (AuthCookieReplyData *) p->reply_buf);
+	pop_request(p, (struct auth_cookie_reply_data *) p->reply_buf);
 	p->reply_pos = 0;
 }
 
-static AuthProcess *auth_process_new(pid_t pid, int fd, const char *name)
+static struct auth_process *
+auth_process_new(pid_t pid, int fd, const char *name)
 {
-	AuthProcess *p;
+	struct auth_process *p;
 
 	PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_AUTH);
 
-	p = i_new(AuthProcess, 1);
+	p = i_new(struct auth_process, 1);
 	p->name = i_strdup(name);
 	p->pid = pid;
 	p->fd = fd;
 	p->io = io_add(fd, IO_READ, auth_process_input, p);
 	p->output = o_stream_create_file(fd, default_pool,
-					 sizeof(AuthCookieRequestData)*100,
-					 IO_PRIORITY_DEFAULT, FALSE);
+				sizeof(struct auth_cookie_request_data)*100,
+				IO_PRIORITY_DEFAULT, FALSE);
 
 	p->next_request = &p->requests;
 
@@ -140,10 +141,10 @@ static AuthProcess *auth_process_new(pid_t pid, int fd, const char *name)
 	return p;
 }
 
-static void auth_process_destroy(AuthProcess *p)
+static void auth_process_destroy(struct auth_process *p)
 {
-	AuthProcess **pos;
-	WaitingRequest *next;
+	struct auth_process **pos;
+	struct waiting_request *next;
 
 	for (pos = &processes; *pos != NULL; pos = &(*pos)->next) {
 		if (*pos == p) {
@@ -169,7 +170,7 @@ static void auth_process_destroy(AuthProcess *p)
 	i_free(p);
 }
 
-static pid_t create_auth_process(AuthConfig *config)
+static pid_t create_auth_process(struct auth_config *config)
 {
 	static char *argv[] = { NULL, NULL };
 	const char *path;
@@ -275,9 +276,9 @@ static pid_t create_auth_process(AuthConfig *config)
 	return -1;
 }
 
-AuthProcess *auth_process_find(unsigned int id)
+struct auth_process *auth_process_find(unsigned int id)
 {
-	AuthProcess *p;
+	struct auth_process *p;
 
 	for (p = processes; p != NULL; p = p->next) {
 		if ((unsigned int)p->pid == id)
@@ -288,11 +289,11 @@ AuthProcess *auth_process_find(unsigned int id)
 }
 
 void auth_process_request(unsigned int login_pid,
-			  AuthProcess *process, unsigned int id,
+			  struct auth_process *process, unsigned int id,
 			  unsigned char cookie[AUTH_COOKIE_SIZE],
 			  AuthCallback callback, void *context)
 {
-	AuthCookieRequestData req;
+	struct auth_cookie_request_data req;
 
 	req.id = id;
 	req.login_pid = login_pid;
@@ -306,7 +307,7 @@ void auth_process_request(unsigned int login_pid,
 
 static unsigned int auth_process_get_count(const char *name)
 {
-	AuthProcess *p;
+	struct auth_process *p;
 	unsigned int count = 0;
 
 	for (p = processes; p != NULL; p = p->next) {
@@ -319,7 +320,7 @@ static unsigned int auth_process_get_count(const char *name)
 
 void auth_processes_destroy_all(void)
 {
-	AuthProcess *next;
+	struct auth_process *next;
 
 	while (processes != NULL) {
 		next = processes->next;
@@ -328,10 +329,11 @@ void auth_processes_destroy_all(void)
 	}
 }
 
-static void auth_processes_start_missing(void *context __attr_unused__,
-					 Timeout timeout __attr_unused__)
+static void
+auth_processes_start_missing(void *context __attr_unused__,
+			     struct timeout *timeout __attr_unused__)
 {
-	AuthConfig *config;
+	struct auth_config *config;
 	unsigned int count;
 
         config = auth_processes_config;

@@ -15,8 +15,8 @@
 
 #define SUBSCRIPTION_FILE_NAME ".subscriptions"
 
-static int subsfile_set_syscall_error(MailStorage *storage, const char *path,
-				      const char *function)
+static int subsfile_set_syscall_error(struct mail_storage *storage,
+				      const char *path, const char *function)
 {
 	i_assert(function != NULL);
 
@@ -26,7 +26,7 @@ static int subsfile_set_syscall_error(MailStorage *storage, const char *path,
 	return FALSE;
 }
 
-static int subscription_open(MailStorage *storage, int update,
+static int subscription_open(struct mail_storage *storage, int update,
 			     const char **path, void **mmap_base,
 			     size_t *mmap_length)
 {
@@ -66,8 +66,9 @@ static int subscription_open(MailStorage *storage, int update,
 	return fd;
 }
 
-static int subscription_append(MailStorage *storage, int fd, const char *name,
-			       size_t len, int prefix_lf, const char *path)
+static int subscription_append(struct mail_storage *storage, int fd,
+			       const char *name, size_t len, int prefix_lf,
+			       const char *path)
 {
 	char *buf;
 
@@ -95,7 +96,8 @@ static int subscription_append(MailStorage *storage, int fd, const char *name,
 	return TRUE;
 }
 
-int subsfile_set_subscribed(MailStorage *storage, const char *name, int set)
+int subsfile_set_subscribed(struct mail_storage *storage,
+			    const char *name, int set)
 {
 	void *mmap_base;
 	size_t mmap_length;
@@ -167,10 +169,10 @@ int subsfile_set_subscribed(MailStorage *storage, const char *name, int set)
 	return !failed;
 }
 
-int subsfile_foreach(MailStorage *storage, const char *mask,
+int subsfile_foreach(struct mail_storage *storage, const char *mask,
 		     SubsFileForeachFunc func, void *context)
 {
-        ImapMatchGlob *glob;
+        struct imap_match_glob *glob;
 	const char *path, *start, *end, *p, *line;
 	void *mmap_base;
 	size_t mmap_length;

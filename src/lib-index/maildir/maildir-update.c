@@ -4,10 +4,11 @@
 #include "istream.h"
 #include "maildir-index.h"
 
-int maildir_record_update(MailIndex *index, MailIndexUpdate *update, int fd)
+int maildir_record_update(struct mail_index *index,
+			  struct mail_index_update *update, int fd)
 {
-	IStream *input;
-        MailDataField cache_fields;
+	struct istream *input;
+        enum mail_data_field cache_fields;
 
 	/* don't even bother opening the file if we're not going to do
 	   anything */

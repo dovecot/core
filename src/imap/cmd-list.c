@@ -5,23 +5,21 @@
 #include "commands.h"
 #include "imap-match.h"
 
-typedef struct _ListNode ListNode;
-
-struct _ListNode {
-	ListNode *next;
-	ListNode *children;
+struct list_node {
+	struct list_node *next;
+	struct list_node *children;
 
 	char *name; /* escaped */
-	MailboxFlags flags;
+	enum mailbox_flags flags;
 };
 
-typedef struct {
-	Pool pool;
-	ListNode *nodes;
-	MailStorage *storage;
-} ListContext;
+struct list_context {
+	pool_t pool;
+	struct list_node *nodes;
+	struct mail_storage *storage;
+};
 
-static const char *mailbox_flags2str(MailboxFlags flags)
+static const char *mailbox_flags2str(enum mailbox_flags flags)
 {
 	const char *str;
 
@@ -34,8 +32,8 @@ static const char *mailbox_flags2str(MailboxFlags flags)
 	return *str == '\0' ? "" : str+1;
 }
 
-static ListNode *list_node_get(Pool pool, ListNode **node,
-			       const char *path, char separator)
+static struct list_node *list_node_get(pool_t pool, struct list_node **node,
+				       const char *path, char separator)
 {
 	const char *name, *parent;
 
@@ -61,7 +59,7 @@ static ListNode *list_node_get(Pool pool, ListNode **node,
 
 		if (*node == NULL) {
 			/* not found, create it */
-			*node = p_new(pool, ListNode, 1);
+			*node = p_new(pool, struct list_node, 1);
 			(*node)->name = p_strdup(pool, name);
 			(*node)->flags = MAILBOX_NOSELECT;
 		}
@@ -79,11 +77,11 @@ static ListNode *list_node_get(Pool pool, ListNode **node,
 	return *node;
 }
 
-static void list_func(MailStorage *storage __attr_unused__, const char *name,
-		      MailboxFlags flags, void *context)
+static void list_func(struct mail_storage *storage __attr_unused__,
+		      const char *name, enum mailbox_flags flags, void *context)
 {
-	ListContext *ctx = context;
-	ListNode *node;
+	struct list_context *ctx = context;
+	struct list_node *node;
 
 	node = list_node_get(ctx->pool, &ctx->nodes, name,
 			     ctx->storage->hierarchy_sep);
@@ -93,8 +91,9 @@ static void list_func(MailStorage *storage __attr_unused__, const char *name,
 	node->flags = flags;
 }
 
-static void list_send(Client *client, ListNode *node, const char *cmd,
-		      const char *path, const char *sep, ImapMatchGlob *glob)
+static void list_send(struct client *client, struct list_node *node,
+		      const char *cmd, const char *path, const char *sep,
+		      struct imap_match_glob *glob)
 {
 	const char *name, *str;
 
@@ -124,9 +123,9 @@ static void list_send(Client *client, ListNode *node, const char *cmd,
 	}
 }
 
-int _cmd_list_full(Client *client, int subscribed)
+int _cmd_list_full(struct client *client, int subscribed)
 {
-	ListContext ctx;
+	struct list_context ctx;
 	const char *ref, *pattern;
 	char sep_chr, sep[3];
 	int failed;
@@ -167,7 +166,7 @@ int _cmd_list_full(Client *client, int subscribed)
 			}
 		}
 
-		ctx.pool = pool_alloconly_create("ListContext", 10240);
+		ctx.pool = pool_alloconly_create("list_context", 10240);
 		ctx.nodes = NULL;
 		ctx.storage = client->storage;
 
@@ -199,7 +198,7 @@ int _cmd_list_full(Client *client, int subscribed)
 	return TRUE;
 }
 
-int cmd_list(Client *client)
+int cmd_list(struct client *client)
 {
 	return _cmd_list_full(client, FALSE);
 }

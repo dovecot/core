@@ -10,20 +10,18 @@
 /* Message to show to users when critical error occurs */
 #define CRITICAL_MSG "Internal error [%Y-%m-%d %H:%M:%S]"
 
-typedef struct _MailStorageList MailStorageList;
-
-struct _MailStorageList {
-	MailStorageList *next;
-	MailStorage *storage;
+struct mail_storage_list {
+	struct mail_storage_list *next;
+	struct mail_storage *storage;
 };
 
-static MailStorageList *storages = NULL;
+static struct mail_storage_list *storages = NULL;
 
-void mail_storage_class_register(MailStorage *storage_class)
+void mail_storage_class_register(struct mail_storage *storage_class)
 {
-	MailStorageList *list, **pos;
+	struct mail_storage_list *list, **pos;
 
-	list = i_new(MailStorageList, 1);
+	list = i_new(struct mail_storage_list, 1);
 	list->storage = storage_class;
 
 	/* append it after the list, so the autodetection order is correct */
@@ -33,9 +31,9 @@ void mail_storage_class_register(MailStorage *storage_class)
 	*pos = list;
 }
 
-void mail_storage_class_unregister(MailStorage *storage_class)
+void mail_storage_class_unregister(struct mail_storage *storage_class)
 {
-	MailStorageList **list, *next;
+	struct mail_storage_list **list, *next;
 
 	for (list = &storages; *list != NULL; list = &(*list)->next) {
 		if ((*list)->storage == storage_class) {
@@ -49,10 +47,10 @@ void mail_storage_class_unregister(MailStorage *storage_class)
 	}
 }
 
-MailStorage *mail_storage_create(const char *name, const char *data,
-				 const char *user)
+struct mail_storage *mail_storage_create(const char *name, const char *data,
+					 const char *user)
 {
-	MailStorageList *list;
+	struct mail_storage_list *list;
 
 	i_assert(name != NULL);
 
@@ -64,10 +62,10 @@ MailStorage *mail_storage_create(const char *name, const char *data,
 	return NULL;
 }
 
-MailStorage *mail_storage_create_default(const char *user)
+struct mail_storage *mail_storage_create_default(const char *user)
 {
-	MailStorageList *list;
-	MailStorage *storage;
+	struct mail_storage_list *list;
+	struct mail_storage *storage;
 
 	for (list = storages; list != NULL; list = list->next) {
 		storage = list->storage->create(NULL, user);
@@ -78,9 +76,9 @@ MailStorage *mail_storage_create_default(const char *user)
 	return NULL;
 }
 
-static MailStorage *mail_storage_autodetect(const char *data)
+static struct mail_storage *mail_storage_autodetect(const char *data)
 {
-	MailStorageList *list;
+	struct mail_storage_list *list;
 
 	for (list = storages; list != NULL; list = list->next) {
 		if (list->storage->autodetect(data))
@@ -90,9 +88,10 @@ static MailStorage *mail_storage_autodetect(const char *data)
 	return NULL;
 }
 
-MailStorage *mail_storage_create_with_data(const char *data, const char *user)
+struct mail_storage *mail_storage_create_with_data(const char *data,
+						   const char *user)
 {
-	MailStorage *storage;
+	struct mail_storage *storage;
 	const char *p, *name;
 
 	if (data == NULL || *data == '\0')
@@ -115,7 +114,7 @@ MailStorage *mail_storage_create_with_data(const char *data, const char *user)
 	return storage;
 }
 
-void mail_storage_destroy(MailStorage *storage)
+void mail_storage_destroy(struct mail_storage *storage)
 {
 	i_assert(storage != NULL);
 
@@ -123,7 +122,7 @@ void mail_storage_destroy(MailStorage *storage)
 	i_free(storage);
 }
 
-void mail_storage_clear_error(MailStorage *storage)
+void mail_storage_clear_error(struct mail_storage *storage)
 {
 	i_free(storage->error);
 	storage->error = NULL;
@@ -131,7 +130,7 @@ void mail_storage_clear_error(MailStorage *storage)
 	storage->syntax_error = FALSE;
 }
 
-void mail_storage_set_error(MailStorage *storage, const char *fmt, ...)
+void mail_storage_set_error(struct mail_storage *storage, const char *fmt, ...)
 {
 	va_list va;
 
@@ -147,7 +146,8 @@ void mail_storage_set_error(MailStorage *storage, const char *fmt, ...)
 	}
 }
 
-void mail_storage_set_syntax_error(MailStorage *storage, const char *fmt, ...)
+void mail_storage_set_syntax_error(struct mail_storage *storage,
+				   const char *fmt, ...)
 {
 	va_list va;
 
@@ -163,7 +163,7 @@ void mail_storage_set_syntax_error(MailStorage *storage, const char *fmt, ...)
 	}
 }
 
-void mail_storage_set_internal_error(MailStorage *storage)
+void mail_storage_set_internal_error(struct mail_storage *storage)
 {
 	struct tm *tm;
 	char str[256];
@@ -175,7 +175,8 @@ void mail_storage_set_internal_error(MailStorage *storage)
 	storage->syntax_error = FALSE;
 }
 
-void mail_storage_set_critical(MailStorage *storage, const char *fmt, ...)
+void mail_storage_set_critical(struct mail_storage *storage,
+			       const char *fmt, ...)
 {
 	va_list va;
 
@@ -194,14 +195,15 @@ void mail_storage_set_critical(MailStorage *storage, const char *fmt, ...)
 	}
 }
 
-const char *mail_storage_get_last_error(MailStorage *storage, int *syntax)
+const char *mail_storage_get_last_error(struct mail_storage *storage,
+					int *syntax)
 {
 	if (syntax != NULL)
 		*syntax = storage->syntax_error;
 	return storage->error;
 }
 
-int mail_storage_is_inconsistency_error(Mailbox *box)
+int mail_storage_is_inconsistency_error(struct mailbox *box)
 {
 	return box->inconsistent;
 }

@@ -3,10 +3,10 @@
 #include "lib.h"
 #include "index-storage.h"
 
-int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
-			     MailIndexRecord **rec)
+int index_expunge_seek_first(struct index_mailbox *ibox, unsigned int *seq,
+			     struct mail_index_record **rec)
 {
-	MailIndexHeader *hdr;
+	struct mail_index_header *hdr;
 
 	i_assert(ibox->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
@@ -43,7 +43,8 @@ int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
 	return TRUE;
 }
 
-int index_expunge_mail(IndexMailbox *ibox, MailIndexRecord *rec,
+int index_expunge_mail(struct index_mailbox *ibox,
+		       struct mail_index_record *rec,
 		       unsigned int seq, int notify)
 {
 	if (!ibox->index->expunge(ibox->index, rec, seq, FALSE))
@@ -51,7 +52,7 @@ int index_expunge_mail(IndexMailbox *ibox, MailIndexRecord *rec,
 
 	if (seq <= ibox->synced_messages_count) {
 		if (notify) {
-			MailStorage *storage = ibox->box.storage;
+			struct mail_storage *storage = ibox->box.storage;
 			storage->callbacks->expunge(&ibox->box, seq,
 						    storage->callback_context);
 		}
@@ -61,9 +62,9 @@ int index_expunge_mail(IndexMailbox *ibox, MailIndexRecord *rec,
 	return TRUE;
 }
 
-int index_storage_expunge(Mailbox *box, int notify)
+int index_storage_expunge(struct mailbox *box, int notify)
 {
-	IndexMailbox *ibox = (IndexMailbox *) box;
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
 	int failed;
 
 	if (box->readonly) {

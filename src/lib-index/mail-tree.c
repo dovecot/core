@@ -12,10 +12,10 @@
 #include <fcntl.h>
 
 #define MAIL_TREE_MIN_SIZE \
-	(sizeof(MailTreeHeader) + \
-	 INDEX_MIN_RECORDS_COUNT * sizeof(MailTreeNode))
+	(sizeof(struct mail_tree_header) + \
+	 INDEX_MIN_RECORDS_COUNT * sizeof(struct mail_tree_node))
 
-static int tree_set_syscall_error(MailTree *tree, const char *function)
+static int tree_set_syscall_error(struct mail_tree *tree, const char *function)
 {
 	i_assert(function != NULL);
 
@@ -24,7 +24,7 @@ static int tree_set_syscall_error(MailTree *tree, const char *function)
 	return FALSE;
 }
 
-int _mail_tree_set_corrupted(MailTree *tree, const char *fmt, ...)
+int _mail_tree_set_corrupted(struct mail_tree *tree, const char *fmt, ...)
 {
 	va_list va;
 
@@ -44,7 +44,7 @@ int _mail_tree_set_corrupted(MailTree *tree, const char *fmt, ...)
 	return FALSE;
 }
 
-static int mmap_update(MailTree *tree)
+static int mmap_update(struct mail_tree *tree)
 {
 	i_assert(!tree->anon_mmap);
 
@@ -73,21 +73,21 @@ static int mmap_update(MailTree *tree)
 	return TRUE;
 }
 
-static int mmap_verify(MailTree *tree)
+static int mmap_verify(struct mail_tree *tree)
 {
-	MailTreeHeader *hdr;
+	struct mail_tree_header *hdr;
 	unsigned int extra;
 
 	if (tree->mmap_full_length <
-	    sizeof(MailTreeHeader) + sizeof(MailTreeNode)) {
+	    sizeof(struct mail_tree_header) + sizeof(struct mail_tree_node)) {
 		index_set_error(tree->index, "Too small binary tree file %s",
 				tree->filepath);
 		(void)unlink(tree->filepath);
 		return FALSE;
 	}
 
-	extra = (tree->mmap_full_length - sizeof(MailTreeHeader)) %
-		sizeof(MailTreeNode);
+	extra = (tree->mmap_full_length - sizeof(struct mail_tree_header)) %
+		sizeof(struct mail_tree_node);
 
 	if (extra != 0) {
 		/* partial write or corrupted -
@@ -106,8 +106,8 @@ static int mmap_verify(MailTree *tree)
 		return FALSE;
 	}
 
-	if ((hdr->used_file_size - sizeof(MailTreeHeader)) %
-	    sizeof(MailTreeNode) != 0) {
+	if ((hdr->used_file_size - sizeof(struct mail_tree_header)) %
+	    sizeof(struct mail_tree_node) != 0) {
 		_mail_tree_set_corrupted(tree,
 			"Invalid used_file_size in header (%"PRIuUOFF_T")",
 			hdr->used_file_size);
@@ -115,15 +115,15 @@ static int mmap_verify(MailTree *tree)
 	}
 
 	tree->header = tree->mmap_base;
-	tree->node_base = (MailTreeNode *) ((char *) tree->mmap_base +
-					    sizeof(MailTreeHeader));
+	tree->node_base = (struct mail_tree_node *)
+		((char *) tree->mmap_base + sizeof(struct mail_tree_header));
 	tree->sync_id = hdr->sync_id;
 	tree->mmap_used_length = hdr->used_file_size;
 	tree->mmap_highwater = tree->mmap_used_length;
 	return TRUE;
 }
 
-int _mail_tree_mmap_update(MailTree *tree, int forced)
+int _mail_tree_mmap_update(struct mail_tree *tree, int forced)
 {
 	debug_mprotect(tree->mmap_base, tree->mmap_full_length,
 		       tree->index);
@@ -143,9 +143,9 @@ int _mail_tree_mmap_update(MailTree *tree, int forced)
 	return mmap_update(tree) && mmap_verify(tree);
 }
 
-static MailTree *mail_tree_open(MailIndex *index)
+static struct mail_tree *mail_tree_open(struct mail_index *index)
 {
-	MailTree *tree;
+	struct mail_tree *tree;
 	const char *path;
 	int fd;
 
@@ -159,7 +159,7 @@ static MailTree *mail_tree_open(MailIndex *index)
 		return NULL;
 	}
 
-	tree = i_new(MailTree, 1);
+	tree = i_new(struct mail_tree, 1);
 	tree->fd = fd;
 	tree->index = index;
 	tree->filepath = i_strdup(path);
@@ -168,11 +168,11 @@ static MailTree *mail_tree_open(MailIndex *index)
 	return tree;
 }
 
-static MailTree *mail_tree_create_anon(MailIndex *index)
+static struct mail_tree *mail_tree_create_anon(struct mail_index *index)
 {
-	MailTree *tree;
+	struct mail_tree *tree;
 
-	tree = i_new(MailTree, 1);
+	tree = i_new(struct mail_tree, 1);
 	tree->anon_mmap = TRUE;
 	tree->fd = -1;
 	tree->index = index;
@@ -182,9 +182,9 @@ static MailTree *mail_tree_create_anon(MailIndex *index)
 	return tree;
 }
 
-int mail_tree_create(MailIndex *index)
+int mail_tree_create(struct mail_index *index)
 {
-	MailTree *tree;
+	struct mail_tree *tree;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
@@ -201,7 +201,7 @@ int mail_tree_create(MailIndex *index)
 	return TRUE;
 }
 
-static int mail_tree_open_init(MailTree *tree)
+static int mail_tree_open_init(struct mail_tree *tree)
 {
 	if (!mmap_update(tree))
 		return FALSE;
@@ -227,9 +227,9 @@ static int mail_tree_open_init(MailTree *tree)
 	return TRUE;
 }
 
-int mail_tree_open_or_create(MailIndex *index)
+int mail_tree_open_or_create(struct mail_index *index)
 {
-	MailTree *tree;
+	struct mail_tree *tree;
 
 	tree = mail_tree_open(index);
 	if (tree == NULL)
@@ -254,7 +254,7 @@ int mail_tree_open_or_create(MailIndex *index)
 	return TRUE;
 }
 
-static void mail_tree_close(MailTree *tree)
+static void mail_tree_close(struct mail_tree *tree)
 {
 	if (tree->anon_mmap) {
 		if (munmap_anon(tree->mmap_base, tree->mmap_full_length) < 0)
@@ -277,7 +277,7 @@ static void mail_tree_close(MailTree *tree)
 	i_free(tree->filepath);
 }
 
-void mail_tree_free(MailTree *tree)
+void mail_tree_free(struct mail_tree *tree)
 {
 	tree->index->tree = NULL;
 
@@ -285,19 +285,20 @@ void mail_tree_free(MailTree *tree)
 	i_free(tree);
 }
 
-static int mail_tree_init(MailTree *tree)
+static int mail_tree_init(struct mail_tree *tree)
 {
-        MailTreeHeader hdr;
+        struct mail_tree_header hdr;
 
 	/* first node is always used, and is the RBNULL node */
-	memset(&hdr, 0, sizeof(MailTreeHeader));
+	memset(&hdr, 0, sizeof(struct mail_tree_header));
 	hdr.indexid = tree->index->indexid;
-	hdr.used_file_size = sizeof(MailTreeHeader) + sizeof(MailTreeNode);
+	hdr.used_file_size = sizeof(struct mail_tree_header) +
+		sizeof(struct mail_tree_node);
 
 	if (tree->anon_mmap) {
 		tree->mmap_full_length = MAIL_TREE_MIN_SIZE;
 		tree->mmap_base = mmap_anon(tree->mmap_full_length);
-		memcpy(tree->mmap_base, &hdr, sizeof(MailTreeHeader));
+		memcpy(tree->mmap_base, &hdr, sizeof(struct mail_tree_header));
 		return mmap_verify(tree);
 	}
 
@@ -321,9 +322,9 @@ static int mail_tree_init(MailTree *tree)
 	return TRUE;
 }
 
-int mail_tree_rebuild(MailTree *tree)
+int mail_tree_rebuild(struct mail_tree *tree)
 {
-	MailIndexRecord *rec;
+	struct mail_index_record *rec;
 
 	if (!tree->index->set_lock(tree->index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
@@ -349,7 +350,7 @@ int mail_tree_rebuild(MailTree *tree)
 	return TRUE;
 }
 
-int mail_tree_sync_file(MailTree *tree, int *fsync_fd)
+int mail_tree_sync_file(struct mail_tree *tree, int *fsync_fd)
 {
 	*fsync_fd = -1;
 
@@ -368,7 +369,7 @@ int mail_tree_sync_file(MailTree *tree, int *fsync_fd)
 	return TRUE;
 }
 
-int _mail_tree_grow(MailTree *tree)
+int _mail_tree_grow(struct mail_tree *tree)
 {
 	uoff_t new_fsize;
 	unsigned int grow_count;
@@ -380,7 +381,7 @@ int _mail_tree_grow(MailTree *tree)
 		grow_count = 16;
 
 	new_fsize = (uoff_t)tree->mmap_full_length +
-		(grow_count * sizeof(MailTreeNode));
+		(grow_count * sizeof(struct mail_tree_node));
 	i_assert(new_fsize < OFF_T_MAX);
 
 	if (tree->anon_mmap) {
@@ -413,7 +414,7 @@ int _mail_tree_grow(MailTree *tree)
 	return TRUE;
 }
 
-void _mail_tree_truncate(MailTree *tree)
+void _mail_tree_truncate(struct mail_tree *tree)
 {
 	/* pretty much copy&pasted from mail_index_compress() */
 	uoff_t empty_space, truncate_threshold;
@@ -433,9 +434,9 @@ void _mail_tree_truncate(MailTree *tree)
 			(empty_space * INDEX_TRUNCATE_KEEP_PERCENTAGE / 100);
 
 		/* keep the size record-aligned */
-		tree->mmap_full_length -=
-			(tree->mmap_full_length - sizeof(MailTreeHeader)) %
-			sizeof(MailTreeNode);
+		tree->mmap_full_length -= (tree->mmap_full_length -
+					   sizeof(struct mail_tree_header)) %
+			sizeof(struct mail_tree_node);
 
 		if (tree->mmap_full_length < MAIL_TREE_MIN_SIZE)
 			tree->mmap_full_length = MAIL_TREE_MIN_SIZE;

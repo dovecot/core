@@ -18,23 +18,23 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-typedef struct {
-	Pool pool;
+struct passwd_file {
+	pool_t pool;
 
 	char *path;
 	time_t stamp;
 	int fd;
 
-	HashTable *users;
-} PasswdFile;
+	struct hash_table *users;
+};
 
-typedef enum {
+enum password_type {
 	PASSWORD_DES,
 	PASSWORD_MD5,
 	PASSWORD_DIGEST_MD5
-} PasswordType;
+};
 
-typedef struct {
+struct passwd_user {
 	char *user_realm; /* user:realm */
 	const char *realm; /* NULL or points to user_realm */
 	char *password;
@@ -44,15 +44,16 @@ typedef struct {
 	uid_t uid;
 	gid_t gid;
 
-	PasswordType password_type;
+	enum password_type password_type;
 	unsigned int chroot:1;
-} PasswdUser;
+};
 
-static PasswdFile *passwd_file;
+static struct passwd_file *passwd_file;
 
 static void passwd_file_sync(void);
 
-static int get_reply_data(PasswdUser *pu, AuthCookieReplyData *reply)
+static int get_reply_data(struct passwd_user *pu,
+			  struct auth_cookie_reply_data *reply)
 {
 	const char *user;
 	struct passwd *pw;
@@ -104,9 +105,9 @@ static int get_reply_data(PasswdUser *pu, AuthCookieReplyData *reply)
 }
 
 static int passwd_file_verify_plain(const char *user, const char *password,
-				    AuthCookieReplyData *reply)
+				    struct auth_cookie_reply_data *reply)
 {
-	PasswdUser *pu;
+	struct passwd_user *pu;
 	const char *const *tmp;
 	unsigned char digest[16];
 	const char *str;
@@ -162,11 +163,11 @@ static int passwd_file_verify_plain(const char *user, const char *password,
 
 static int passwd_file_lookup_digest_md5(const char *user, const char *realm,
 					 unsigned char digest[16],
-					 AuthCookieReplyData *reply)
+					 struct auth_cookie_reply_data *reply)
 {
 	const char *id;
-	PasswdUser *pu;
-	Buffer *buf;
+	struct passwd_user *pu;
+	buffer_t *buf;
 
 	passwd_file_sync();
 
@@ -189,11 +190,11 @@ static int passwd_file_lookup_digest_md5(const char *user, const char *realm,
 	return get_reply_data(pu, reply);
 }
 
-static void passwd_file_add(PasswdFile *pw, const char *username,
+static void passwd_file_add(struct passwd_file *pw, const char *username,
 			    const char *pass, const char *const *args)
 {
 	/* args = uid, gid, user info, home dir, shell, realm, mail, chroot */
-	PasswdUser *pu;
+	struct passwd_user *pu;
 	const char *p;
 
 	if (strlen(username) >= AUTH_MAX_USER_LEN) {
@@ -202,7 +203,7 @@ static void passwd_file_add(PasswdFile *pw, const char *username,
 		return;
 	}
 
-	pu = p_new(pw->pool, PasswdUser, 1);
+	pu = p_new(pw->pool, struct passwd_user, 1);
 
 	p = strchr(pass, '[');
 	if (p == NULL) {
@@ -309,9 +310,9 @@ static void passwd_file_add(PasswdFile *pw, const char *username,
 	hash_insert(pw->users, pu->user_realm, pu);
 }
 
-static void passwd_file_parse_file(PasswdFile *pw)
+static void passwd_file_parse_file(struct passwd_file *pw)
 {
-	IStream *input;
+	struct istream *input;
 	const char *const *args;
 	const char *line;
 
@@ -338,10 +339,10 @@ static void passwd_file_parse_file(PasswdFile *pw)
 	i_stream_unref(input);
 }
 
-static PasswdFile *passwd_file_parse(const char *path)
+static struct passwd_file *passwd_file_parse(const char *path)
 {
-	PasswdFile *pw;
-	Pool pool;
+	struct passwd_file *pw;
+	pool_t pool;
 	struct stat st;
 	int fd;
 
@@ -353,8 +354,8 @@ static PasswdFile *passwd_file_parse(const char *path)
 	if (fstat(fd, &st) != 0)
 		i_fatal("fstat() failed for passwd-file %s: %m", path);
 
-	pool = pool_alloconly_create("PasswdFile", 10240);
-	pw = p_new(pool, PasswdFile, 1);
+	pool = pool_alloconly_create("passwd_file", 10240);
+	pw = p_new(pool, struct passwd_file, 1);
 	pw->pool = pool;
 	pw->path = p_strdup(pool, path);
 	pw->stamp = st.st_mtime;
@@ -365,7 +366,7 @@ static PasswdFile *passwd_file_parse(const char *path)
 	return pw;
 }
 
-static void passwd_file_free(PasswdFile *pw)
+static void passwd_file_free(struct passwd_file *pw)
 {
 	pool_unref(pw->pool);
 }
@@ -395,7 +396,7 @@ static void passwd_file_sync(void)
 	}
 }
 
-UserInfoModule userinfo_passwd_file = {
+struct user_info_module userinfo_passwd_file = {
 	passwd_file_init,
 	passwd_file_deinit,
 

@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-int mail_index_truncate(MailIndex *index)
+int mail_index_truncate(struct mail_index *index)
 {
 	uoff_t empty_space, truncate_threshold;
 
@@ -29,9 +29,9 @@ int mail_index_truncate(MailIndex *index)
 			(empty_space * INDEX_TRUNCATE_KEEP_PERCENTAGE / 100);
 
 		/* keep the size record-aligned */
-		index->mmap_full_length -=
-			(index->mmap_full_length - sizeof(MailIndexHeader)) %
-			sizeof(MailIndexRecord);
+		index->mmap_full_length -= (index->mmap_full_length -
+					    sizeof(struct mail_index_header)) %
+			sizeof(struct mail_index_record);
 
 		if (index->mmap_full_length < INDEX_FILE_MIN_SIZE)
                         index->mmap_full_length = INDEX_FILE_MIN_SIZE;
@@ -45,9 +45,9 @@ int mail_index_truncate(MailIndex *index)
 	return TRUE;
 }
 
-int mail_index_compress(MailIndex *index)
+int mail_index_compress(struct mail_index *index)
 {
-	MailIndexRecord *rec, *hole_rec, *end_rec;
+	struct mail_index_record *rec, *hole_rec, *end_rec;
 	unsigned int idx;
 	int tree_fd;
 
@@ -66,19 +66,16 @@ int mail_index_compress(MailIndex *index)
 	/* if we get interrupted, the whole index is probably corrupted.
 	   so keep rebuild-flag on while doing this */
 	index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
-	if (!mail_index_fmdatasync(index, sizeof(MailIndexHeader)))
+	if (!mail_index_fmdatasync(index, sizeof(struct mail_index_header)))
 		return FALSE;
 
 	/* first actually compress the data */
-	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				       index->mmap_used_length);
-	hole_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-					sizeof(MailIndexHeader)) +
-		index->header->first_hole_index;
+	hole_rec = INDEX_RECORD_AT(index, index->header->first_hole_index);
+	end_rec = INDEX_END_RECORD(index);
 	rec = hole_rec + index->header->first_hole_records;
 	while (rec < end_rec) {
 		if (rec->uid != 0) {
-			memcpy(hole_rec, rec, sizeof(MailIndexRecord));
+			memcpy(hole_rec, rec, sizeof(struct mail_index_record));
 			idx = INDEX_RECORD_INDEX(index, hole_rec);
 			if (!mail_tree_update(index->tree, rec->uid, idx))
 				return FALSE;
@@ -117,11 +114,12 @@ int mail_index_compress(MailIndex *index)
 	return TRUE;
 }
 
-static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
+static int mail_index_copy_data(struct mail_index *index,
+				int fd, const char *path)
 {
-	MailIndexDataHeader data_hdr;
-	MailIndexDataRecordHeader *rec_hdr;
-	MailIndexRecord *rec;
+	struct mail_index_data_header data_hdr;
+	struct mail_index_data_record_header *rec_hdr;
+	struct mail_index_record *rec;
 	unsigned char *mmap_data;
 	size_t mmap_data_size;
 	uoff_t offset;
@@ -144,20 +142,19 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 	/* now we'll begin the actual moving. keep rebuild-flag on
 	   while doing it. */
 	index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
-	if (!mail_index_fmdatasync(index, sizeof(MailIndexHeader)))
+	if (!mail_index_fmdatasync(index, sizeof(struct mail_index_header)))
 		return FALSE;
 
 	offset = sizeof(data_hdr);
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
-		if (rec->data_position +
-		    sizeof(MailIndexDataRecordHeader) > mmap_data_size) {
+		if (rec->data_position + sizeof(*rec_hdr) > mmap_data_size) {
 			index_set_corrupted(index,
 				"data_position points outside file");
 			return FALSE;
 		}
 
-		rec_hdr = (MailIndexDataRecordHeader *)
+		rec_hdr = (struct mail_index_data_record_header *)
 			(mmap_data + rec->data_position);
 		if (rec->data_position + rec_hdr->data_size > mmap_data_size) {
 			index_set_corrupted(index,
@@ -195,7 +192,7 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 	return TRUE;
 }
 
-int mail_index_compress_data(MailIndex *index)
+int mail_index_compress_data(struct mail_index *index)
 {
 	const char *temppath, *datapath;
 	int fd, failed;

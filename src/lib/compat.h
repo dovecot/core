@@ -23,6 +23,12 @@ typedef unsigned long long uintmax_t;
 #  else
 typedef unsigned long uintmax_t;
 #  endif
+
+#  if SIZEOF_INT >= 4
+typedef unsigned int uint_fast32_t;
+#  else
+typedef unsigned long uint_fast32_t;
+#  endif
 #endif
 
 #ifndef HAVE_SOCKLEN_T

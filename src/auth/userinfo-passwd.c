@@ -10,7 +10,8 @@
 
 #include "userinfo-passwd.h"
 
-void passwd_fill_cookie_reply(struct passwd *pw, AuthCookieReplyData *reply)
+void passwd_fill_cookie_reply(struct passwd *pw,
+			      struct auth_cookie_reply_data *reply)
 {
 	reply->uid = pw->pw_uid;
 	reply->gid = pw->pw_gid;
@@ -30,7 +31,7 @@ void passwd_fill_cookie_reply(struct passwd *pw, AuthCookieReplyData *reply)
 #include "mycrypt.h"
 
 static int passwd_verify_plain(const char *user, const char *password,
-			       AuthCookieReplyData *reply)
+			       struct auth_cookie_reply_data *reply)
 {
 	struct passwd *pw;
 	int result;
@@ -58,7 +59,7 @@ static void passwd_deinit(void)
 	endpwent();
 }
 
-UserInfoModule userinfo_passwd = {
+struct user_info_module userinfo_passwd = {
 	NULL,
 	passwd_deinit,
 

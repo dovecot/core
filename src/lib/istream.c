@@ -26,44 +26,44 @@
 #include "lib.h"
 #include "istream-internal.h"
 
-void i_stream_ref(IStream *stream)
+void i_stream_ref(struct istream *stream)
 {
 	_io_stream_ref(stream->real_stream);
 }
 
-void i_stream_unref(IStream *stream)
+void i_stream_unref(struct istream *stream)
 {
 	_io_stream_unref(stream->real_stream);
 }
 
-int i_stream_get_fd(IStream *stream)
+int i_stream_get_fd(struct istream *stream)
 {
-	_IStream *_stream = stream->real_stream;
+	struct _istream *_stream = stream->real_stream;
 
 	return _stream->fd;
 }
 
-void i_stream_close(IStream *stream)
+void i_stream_close(struct istream *stream)
 {
 	_io_stream_close(stream->real_stream);
 	stream->closed = TRUE;
 }
 
-void i_stream_set_max_buffer_size(IStream *stream, size_t max_size)
+void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size)
 {
 	_io_stream_set_max_buffer_size(stream->real_stream, max_size);
 }
 
-void i_stream_set_blocking(IStream *stream, int timeout_msecs,
+void i_stream_set_blocking(struct istream *stream, int timeout_msecs,
 			   void (*timeout_func)(void *), void *context)
 {
 	_io_stream_set_blocking(stream->real_stream, timeout_msecs,
 				timeout_func, context);
 }
 
-void i_stream_set_start_offset(IStream *stream, uoff_t offset)
+void i_stream_set_start_offset(struct istream *stream, uoff_t offset)
 {
-	_IStream *_stream = stream->real_stream;
+	struct _istream *_stream = stream->real_stream;
 	off_t diff;
 
 	i_assert(stream->v_size == 0 ||
@@ -84,9 +84,9 @@ void i_stream_set_start_offset(IStream *stream, uoff_t offset)
 	_stream->skip = _stream->pos = _stream->cr_lookup_pos = 0;
 }
 
-void i_stream_set_read_limit(IStream *stream, uoff_t v_offset)
+void i_stream_set_read_limit(struct istream *stream, uoff_t v_offset)
 {
-	_IStream *_stream = stream->real_stream;
+	struct _istream *_stream = stream->real_stream;
 	uoff_t max_pos;
 
 	i_assert(stream->v_size == 0 || v_offset <= stream->v_size);
@@ -103,9 +103,9 @@ void i_stream_set_read_limit(IStream *stream, uoff_t v_offset)
 	}
 }
 
-ssize_t i_stream_read(IStream *stream)
+ssize_t i_stream_read(struct istream *stream)
 {
-	_IStream *_stream = stream->real_stream;
+	struct _istream *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return -1;
@@ -113,9 +113,9 @@ ssize_t i_stream_read(IStream *stream)
 	return _stream->read(_stream);
 }
 
-void i_stream_skip(IStream *stream, uoff_t count)
+void i_stream_skip(struct istream *stream, uoff_t count)
 {
-	_IStream *_stream = stream->real_stream;
+	struct _istream *_stream = stream->real_stream;
 	size_t data_size;
 
 	i_assert(stream->v_size == 0 ||
@@ -139,9 +139,9 @@ void i_stream_skip(IStream *stream, uoff_t count)
 	_stream->skip_count(_stream, count);
 }
 
-void i_stream_seek(IStream *stream, uoff_t v_offset)
+void i_stream_seek(struct istream *stream, uoff_t v_offset)
 {
-	_IStream *_stream = stream->real_stream;
+	struct _istream *_stream = stream->real_stream;
 
 	i_assert(v_offset <= stream->v_size);
 
@@ -151,9 +151,9 @@ void i_stream_seek(IStream *stream, uoff_t v_offset)
 	_stream->seek(_stream, v_offset);
 }
 
-char *i_stream_next_line(IStream *stream)
+char *i_stream_next_line(struct istream *stream)
 {
-	_IStream *_stream = stream->real_stream;
+	struct _istream *_stream = stream->real_stream;
 	char *ret_buf;
         size_t i;
 
@@ -189,9 +189,9 @@ char *i_stream_next_line(IStream *stream)
         return ret_buf;
 }
 
-const unsigned char *i_stream_get_data(IStream *stream, size_t *size)
+const unsigned char *i_stream_get_data(struct istream *stream, size_t *size)
 {
-	_IStream *_stream = stream->real_stream;
+	struct _istream *_stream = stream->real_stream;
 
 	if (_stream->skip >= _stream->pos) {
 		*size = 0;
@@ -202,9 +202,10 @@ const unsigned char *i_stream_get_data(IStream *stream, size_t *size)
         return _stream->buffer + _stream->skip;
 }
 
-unsigned char *i_stream_get_modifyable_data(IStream *stream, size_t *size)
+unsigned char *i_stream_get_modifyable_data(struct istream *stream,
+					    size_t *size)
 {
-	_IStream *_stream = stream->real_stream;
+	struct _istream *_stream = stream->real_stream;
 
 	if (_stream->skip >= _stream->pos || _stream->w_buffer == NULL) {
 		*size = 0;
@@ -215,10 +216,10 @@ unsigned char *i_stream_get_modifyable_data(IStream *stream, size_t *size)
         return _stream->w_buffer + _stream->skip;
 }
 
-int i_stream_read_data(IStream *stream, const unsigned char **data,
+int i_stream_read_data(struct istream *stream, const unsigned char **data,
 		       size_t *size, size_t threshold)
 {
-	_IStream *_stream = stream->real_stream;
+	struct _istream *_stream = stream->real_stream;
 	ssize_t ret = 0;
 
 	while (_stream->pos - _stream->skip <= threshold) {
@@ -234,8 +235,8 @@ int i_stream_read_data(IStream *stream, const unsigned char **data,
 		*size > 0 ? 0 : -1;
 }
 
-IStream *_i_stream_create(_IStream *_stream, Pool pool, int fd,
-			  uoff_t start_offset, uoff_t v_size)
+struct istream *_i_stream_create(struct _istream *_stream, pool_t pool, int fd,
+				 uoff_t start_offset, uoff_t v_size)
 {
 	_stream->fd = fd;
 	_stream->istream.start_offset = start_offset;

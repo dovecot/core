@@ -10,12 +10,13 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-typedef struct {
+struct find_subscribed_context {
 	MailboxFunc func;
 	void *context;
-} FindSubscribedContext;
+};
 
-static int mbox_find_path(MailStorage *storage, ImapMatchGlob *glob,
+static int mbox_find_path(struct mail_storage *storage,
+			  struct imap_match_glob *glob,
 			  MailboxFunc func, void *context,
 			  const char *relative_dir)
 {
@@ -146,10 +147,10 @@ static const char *mask_get_dir(const char *mask)
 	return last_dir != NULL ? t_strdup_until(mask, last_dir) : NULL;
 }
 
-int mbox_find_mailboxes(MailStorage *storage, const char *mask,
+int mbox_find_mailboxes(struct mail_storage *storage, const char *mask,
 			MailboxFunc func, void *context)
 {
-	ImapMatchGlob *glob;
+	struct imap_match_glob *glob;
 	const char *relative_dir;
 
 	/* check that we're not trying to do any "../../" lists */
@@ -176,11 +177,11 @@ int mbox_find_mailboxes(MailStorage *storage, const char *mask,
 	return TRUE;
 }
 
-static int mbox_subs_func(MailStorage *storage, const char *name,
+static int mbox_subs_func(struct mail_storage *storage, const char *name,
 			  void *context)
 {
-	FindSubscribedContext *ctx = context;
-	MailboxFlags flags;
+	struct find_subscribed_context *ctx = context;
+	enum mailbox_flags flags;
 	struct stat st;
 	char path[PATH_MAX];
 
@@ -198,10 +199,10 @@ static int mbox_subs_func(MailStorage *storage, const char *name,
 	return TRUE;
 }
 
-int mbox_find_subscribed(MailStorage *storage, const char *mask,
+int mbox_find_subscribed(struct mail_storage *storage, const char *mask,
 			 MailboxFunc func, void *context)
 {
-	FindSubscribedContext ctx;
+	struct find_subscribed_context ctx;
 
 	ctx.func = func;
 	ctx.context = context;

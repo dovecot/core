@@ -63,8 +63,8 @@ static void mbox_init_lock_settings(void)
 }
 
 #ifdef HAVE_FLOCK
-static int mbox_lock_flock(MailIndex *index, MailLockType lock_type,
-			   time_t max_wait_time)
+static int mbox_lock_flock(struct mail_index *index,
+			   enum mail_lock_type lock_type, time_t max_wait_time)
 {
 	time_t now, last_notify;
 
@@ -105,8 +105,8 @@ static int mbox_lock_flock(MailIndex *index, MailLockType lock_type,
 }
 #endif
 
-static int mbox_lock_fcntl(MailIndex *index, MailLockType lock_type,
-			   time_t max_wait_time)
+static int mbox_lock_fcntl(struct mail_index *index,
+			   enum mail_lock_type lock_type, time_t max_wait_time)
 {
 	struct flock fl;
 	time_t now;
@@ -141,7 +141,7 @@ static int mbox_lock_fcntl(MailIndex *index, MailLockType lock_type,
 	return TRUE;
 }
 
-static int mbox_lock_dotlock(MailIndex *index, const char *path,
+static int mbox_lock_dotlock(struct mail_index *index, const char *path,
 			     time_t max_wait_time, int checkonly)
 {
 	struct stat st;
@@ -250,7 +250,7 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path,
 	return FALSE;
 }
 
-static int mbox_unlock_dotlock(MailIndex *index, const char *path)
+static int mbox_unlock_dotlock(struct mail_index *index, const char *path)
 {
 	struct stat st;
 	dev_t old_dev;
@@ -286,7 +286,7 @@ static int mbox_unlock_dotlock(MailIndex *index, const char *path)
 	return TRUE;
 }
 
-static int mbox_file_locks(MailIndex *index, time_t max_wait_time)
+static int mbox_file_locks(struct mail_index *index, time_t max_wait_time)
 {
 	if (use_fcntl_lock && fcntl_before_flock) {
 		if (!mbox_lock_fcntl(index, index->mbox_lock_type,
@@ -308,7 +308,7 @@ static int mbox_file_locks(MailIndex *index, time_t max_wait_time)
 	return TRUE;
 }
 
-int mbox_lock(MailIndex *index, MailLockType lock_type)
+int mbox_lock(struct mail_index *index, enum mail_lock_type lock_type)
 {
 	struct stat st;
 	time_t max_wait_time;
@@ -362,7 +362,7 @@ int mbox_lock(MailIndex *index, MailLockType lock_type)
 	return TRUE;
 }
 
-int mbox_unlock(MailIndex *index)
+int mbox_unlock(struct mail_index *index)
 {
 	int failed;
 

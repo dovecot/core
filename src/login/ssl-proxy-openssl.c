@@ -13,17 +13,17 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-typedef enum {
+enum ssl_state {
 	SSL_STATE_HANDSHAKE,
 	SSL_STATE_READ,
 	SSL_STATE_WRITE
-} SSLState;
+};
 
-typedef struct {
+struct ssl_proxy {
 	int refcount;
 
 	SSL *ssl;
-        SSLState state;
+        enum ssl_state state;
 
 	int fd_ssl, fd_plain;
 	IO io_ssl, io_plain_read, io_plain_write;
@@ -34,17 +34,17 @@ typedef struct {
 
 	unsigned char sslout_buf[1024];
 	unsigned int sslout_pos, sslout_size;
-} SSLProxy;
+};
 
 static SSL_CTX *ssl_ctx;
 
-static void plain_read(SSLProxy *proxy);
-static void plain_write(SSLProxy *proxy);
+static void plain_read(struct ssl_proxy *proxy);
+static void plain_write(struct ssl_proxy *proxy);
 
-static int ssl_proxy_destroy(SSLProxy *proxy);
-static void ssl_set_direction(SSLProxy *proxy, int dir);
+static int ssl_proxy_destroy(struct ssl_proxy *proxy);
+static void ssl_set_direction(struct ssl_proxy *proxy, int dir);
 
-static void plain_block_input(SSLProxy *proxy, int block)
+static void plain_block_input(struct ssl_proxy *proxy, int block)
 {
 	if (block) {
 		if (proxy->io_plain_read != NULL) {
@@ -60,7 +60,7 @@ static void plain_block_input(SSLProxy *proxy, int block)
 	}
 }
 
-static void ssl_block(SSLProxy *proxy, int block)
+static void ssl_block(struct ssl_proxy *proxy, int block)
 {
 	i_assert(proxy->state == SSL_STATE_READ);
 
@@ -77,7 +77,7 @@ static void ssl_block(SSLProxy *proxy, int block)
 	}
 }
 
-static void plain_read(SSLProxy *proxy)
+static void plain_read(struct ssl_proxy *proxy)
 {
 	ssize_t ret;
 
@@ -98,7 +98,7 @@ static void plain_read(SSLProxy *proxy)
 	}
 }
 
-static void plain_write(SSLProxy *proxy)
+static void plain_write(struct ssl_proxy *proxy)
 {
 	ssize_t ret;
 
@@ -147,7 +147,7 @@ static const char *ssl_last_error(void)
 	return buf;
 }
 
-static void ssl_handle_error(SSLProxy *proxy, int err, const char *func)
+static void ssl_handle_error(struct ssl_proxy *proxy, int err, const char *func)
 {
 	err = SSL_get_error(proxy->ssl, err);
 
@@ -179,7 +179,7 @@ static void ssl_handle_error(SSLProxy *proxy, int err, const char *func)
 	}
 }
 
-static void ssl_handshake_step(SSLProxy *proxy)
+static void ssl_handshake_step(struct ssl_proxy *proxy)
 {
 	int ret;
 
@@ -194,7 +194,7 @@ static void ssl_handshake_step(SSLProxy *proxy)
 	}
 }
 
-static void ssl_read_step(SSLProxy *proxy)
+static void ssl_read_step(struct ssl_proxy *proxy)
 {
 	int ret;
 
@@ -215,7 +215,7 @@ static void ssl_read_step(SSLProxy *proxy)
 	}
 }
 
-static void ssl_write_step(SSLProxy *proxy)
+static void ssl_write_step(struct ssl_proxy *proxy)
 {
 	int ret;
 
@@ -244,7 +244,7 @@ static void ssl_write_step(SSLProxy *proxy)
 static void ssl_step(void *context, int fd __attr_unused__,
 		     IO io __attr_unused__)
 {
-        SSLProxy *proxy = context;
+        struct ssl_proxy *proxy = context;
 
 	switch (proxy->state) {
 	case SSL_STATE_HANDSHAKE:
@@ -259,7 +259,7 @@ static void ssl_step(void *context, int fd __attr_unused__,
 	}
 }
 
-static void ssl_set_direction(SSLProxy *proxy, int dir)
+static void ssl_set_direction(struct ssl_proxy *proxy, int dir)
 {
 	i_assert(proxy->io_ssl_dir != -2);
 
@@ -273,7 +273,7 @@ static void ssl_set_direction(SSLProxy *proxy, int dir)
 
 int ssl_proxy_new(int fd)
 {
-	SSLProxy *proxy;
+	struct ssl_proxy *proxy;
 	SSL *ssl;
 	int sfd[2];
 
@@ -301,7 +301,7 @@ int ssl_proxy_new(int fd)
 	net_set_nonblock(sfd[0], TRUE);
 	net_set_nonblock(sfd[1], TRUE);
 
-	proxy = i_new(SSLProxy, 1);
+	proxy = i_new(struct ssl_proxy, 1);
 	proxy->refcount = 1;
 	proxy->ssl = ssl;
 	proxy->fd_ssl = fd;
@@ -319,7 +319,7 @@ int ssl_proxy_new(int fd)
 	return sfd[1];
 }
 
-static int ssl_proxy_destroy(SSLProxy *proxy)
+static int ssl_proxy_destroy(struct ssl_proxy *proxy)
 {
 	if (--proxy->refcount > 0)
 		return TRUE;

@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_capability(Client *client)
+int cmd_capability(struct client *client)
 {
 	client_send_line(client, "* CAPABILITY " CAPABILITY_STRING);
 

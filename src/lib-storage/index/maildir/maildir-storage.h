@@ -3,19 +3,19 @@
 
 #include "index-storage.h"
 
-int maildir_storage_copy(Mailbox *box, Mailbox *destbox,
+int maildir_storage_copy(struct mailbox *box, struct mailbox *destbox,
 			 const char *messageset, int uidset);
-int maildir_storage_save(Mailbox *box, MailFlags flags,
+int maildir_storage_save(struct mailbox *box, enum mail_flags flags,
 			 const char *custom_flags[],
 			 time_t internal_date, int timezone_offset,
-			 IStream *data, uoff_t data_size);
+			 struct istream *data, uoff_t data_size);
 
-int maildir_find_mailboxes(MailStorage *storage, const char *mask,
+int maildir_find_mailboxes(struct mail_storage *storage, const char *mask,
 			   MailboxFunc func, void *context);
-int maildir_find_subscribed(MailStorage *storage, const char *mask,
+int maildir_find_subscribed(struct mail_storage *storage, const char *mask,
 			    MailboxFunc func, void *context);
 
-int maildir_expunge_locked(IndexMailbox *ibox, int notify);
+int maildir_expunge_locked(struct index_mailbox *ibox, int notify);
 
 /* Return new filename base to save into tmp/ */
 const char *maildir_generate_tmp_filename(void);

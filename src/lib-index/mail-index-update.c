@@ -4,7 +4,7 @@
 #include "buffer.h"
 #include "istream.h"
 #include "ioloop.h"
-#include "rfc822-date.h"
+#include "message-date.h"
 #include "message-parser.h"
 #include "message-part-serialize.h"
 #include "message-size.h"
@@ -14,12 +14,12 @@
 #include "mail-index-data.h"
 #include "mail-index-util.h"
 
-struct _MailIndexUpdate {
-	Pool pool;
+struct mail_index_update {
+	pool_t pool;
 
-	MailIndex *index;
-	MailIndexRecord *rec;
-	MailIndexDataRecordHeader data_hdr;
+	struct mail_index *index;
+	struct mail_index_record *rec;
+	struct mail_index_data_record_header data_hdr;
 
 	unsigned int updated_fields;
 	void *fields[DATA_FIELD_MAX_BITS];
@@ -27,17 +27,18 @@ struct _MailIndexUpdate {
 	size_t field_extra_sizes[DATA_FIELD_MAX_BITS];
 };
 
-MailIndexUpdate *mail_index_update_begin(MailIndex *index, MailIndexRecord *rec)
+struct mail_index_update *
+mail_index_update_begin(struct mail_index *index, struct mail_index_record *rec)
 {
-	Pool pool;
-	MailIndexUpdate *update;
-	MailIndexDataRecordHeader *data_hdr;
+	pool_t pool;
+	struct mail_index_update *update;
+	struct mail_index_data_record_header *data_hdr;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	pool = pool_alloconly_create("MailIndexUpdate", 4096);
+	pool = pool_alloconly_create("mail_index_update", 4096);
 
-	update = p_new(pool, MailIndexUpdate, 1);
+	update = p_new(pool, struct mail_index_update, 1);
 	update->pool = pool;
 	update->index = index;
 	update->rec = rec;
@@ -48,7 +49,7 @@ MailIndexUpdate *mail_index_update_begin(MailIndex *index, MailIndexRecord *rec)
 	return update;
 }
 
-static int mail_field_get_index(MailDataField field)
+static int mail_field_get_index(enum mail_data_field field)
 {
 	unsigned int i, mask;
 
@@ -60,16 +61,16 @@ static int mail_field_get_index(MailDataField field)
 	return -1;
 }
 
-static void get_data_block_sizes(MailIndexUpdate *update,
+static void get_data_block_sizes(struct mail_index_update *update,
 				 size_t *min_size, size_t *max_size,
 				 int *no_grown_fields)
 {
-	MailIndexDataRecord *rec;
-	MailDataField field;
+	struct mail_index_data_record *rec;
+	enum mail_data_field field;
 	unsigned int field_min_size;
 	int i, field_exists;
 
-	*min_size = *max_size = sizeof(MailIndexDataRecordHeader);
+	*min_size = *max_size = sizeof(struct mail_index_data_record_header);
 	*no_grown_fields = TRUE;
 
 	rec = mail_index_data_lookup(update->index->data, update->rec, 0);
@@ -124,13 +125,13 @@ static size_t get_max_align_size(size_t base, size_t extra, size_t *max_extra)
 
 /* extra_size is the amount of data in data_size which can be used for
    field_extra_sizes */
-static void *create_data_block(MailIndexUpdate *update, size_t data_size,
-			       size_t extra_size)
+static void *create_data_block(struct mail_index_update *update,
+			       size_t data_size, size_t extra_size)
 {
-        MailIndexDataRecordHeader *dest_hdr;
-        MailIndexDataRecord *rec, *destrec;
-	MailDataField field;
-	Buffer *buf;
+        struct mail_index_data_record_header *dest_hdr;
+        struct mail_index_data_record *rec, *destrec;
+	enum mail_data_field field;
+	buffer_t *buf;
 	const void *src;
 	size_t src_size;
 	size_t full_field_size;
@@ -184,8 +185,8 @@ static void *create_data_block(MailIndexUpdate *update, size_t data_size,
 
 /* Append all the data at the end of the data file and update 
    the index's data position */
-static int update_by_append(MailIndexUpdate *update, size_t data_size,
-			    size_t extra_size)
+static int update_by_append(struct mail_index_update *update,
+			    size_t data_size, size_t extra_size)
 {
 	void *mem;
 	uoff_t fpos;
@@ -207,9 +208,10 @@ static int update_by_append(MailIndexUpdate *update, size_t data_size,
 }
 
 /* Replace the whole block - assumes there's enough space to do it */
-static void update_by_replace_block(MailIndexUpdate *update, size_t extra_size)
+static void update_by_replace_block(struct mail_index_update *update,
+				    size_t extra_size)
 {
-	MailIndexDataRecordHeader *data_hdr;
+	struct mail_index_data_record_header *data_hdr;
 	size_t data_size;
 	void *mem;
 
@@ -231,10 +233,10 @@ static void update_by_replace_block(MailIndexUpdate *update, size_t extra_size)
 
 /* Replace the modified fields in the file - assumes there's enough
    space to do it */
-static void update_by_replace_fields(MailIndexUpdate *update)
+static void update_by_replace_fields(struct mail_index_update *update)
 {
-	MailIndexDataRecordHeader *data_hdr;
-	MailIndexDataRecord *rec;
+	struct mail_index_data_record_header *data_hdr;
+	struct mail_index_data_record *rec;
 	size_t field_size;
 	int index;
 
@@ -267,9 +269,9 @@ static void update_by_replace_fields(MailIndexUpdate *update)
         mail_index_data_mark_modified(update->index->data);
 }
 
-int mail_index_update_end(MailIndexUpdate *update)
+int mail_index_update_end(struct mail_index_update *update)
 {
-	MailIndexDataRecordHeader *data_hdr;
+	struct mail_index_data_record_header *data_hdr;
 	size_t min_size, max_size, extra_size;
 	int no_grown_fields, failed = FALSE;
 
@@ -304,7 +306,8 @@ int mail_index_update_end(MailIndexUpdate *update)
 	return !failed;
 }
 
-static void update_field_full(MailIndexUpdate *update, MailDataField field,
+static void update_field_full(struct mail_index_update *update,
+			      enum mail_data_field field,
 			      const void *value, size_t size,
 			      size_t extra_space)
 {
@@ -320,7 +323,8 @@ static void update_field_full(MailIndexUpdate *update, MailDataField field,
 	memcpy(update->fields[index], value, size);
 }
 
-static void update_header_field(MailIndexUpdate *update, MailDataField field,
+static void update_header_field(struct mail_index_update *update,
+				enum mail_data_field field,
 				const void *value, size_t size __attr_unused__)
 {
 	switch (field) {
@@ -347,13 +351,15 @@ static void update_header_field(MailIndexUpdate *update, MailDataField field,
 	update->updated_fields |= field;
 }
 
-void mail_index_update_field(MailIndexUpdate *update, MailDataField field,
+void mail_index_update_field(struct mail_index_update *update,
+			     enum mail_data_field field,
 			     const char *value, size_t extra_space)
 {
 	update_field_full(update, field, value, strlen(value) + 1, extra_space);
 }
 
-void mail_index_update_field_raw(MailIndexUpdate *update, MailDataField field,
+void mail_index_update_field_raw(struct mail_index_update *update,
+				 enum mail_data_field field,
 				 const void *value, size_t size)
 {
 	if (field >= DATA_FIELD_LAST)
@@ -362,21 +368,21 @@ void mail_index_update_field_raw(MailIndexUpdate *update, MailDataField field,
 		update_field_full(update, field, value, size, 0);
 }
 
-typedef struct {
-	MailIndexUpdate *update;
-	Pool envelope_pool;
-	MessagePartEnvelopeData *envelope;
+struct header_update_context {
+	struct mail_index_update *update;
+	pool_t envelope_pool;
+	struct message_part_envelope_data *envelope;
 
 	MessageHeaderFunc header_func;
 	void *context;
-} HeaderUpdateContext;
+};
 
-static void update_header_func(MessagePart *part,
+static void update_header_func(struct message_part *part,
 			       const unsigned char *name, size_t name_len,
 			       const unsigned char *value, size_t value_len,
 			       void *context)
 {
-	HeaderUpdateContext *ctx = context;
+	struct header_update_context *ctx = context;
 
 	if (part != NULL && part->parent != NULL)
 		return;
@@ -397,15 +403,16 @@ static void update_header_func(MessagePart *part,
 	}
 }
 
-void mail_index_update_headers(MailIndexUpdate *update, IStream *input,
-                               MailDataField cache_fields,
+void mail_index_update_headers(struct mail_index_update *update,
+			       struct istream *input,
+                               enum mail_data_field cache_fields,
 			       MessageHeaderFunc header_func, void *context)
 {
-	HeaderUpdateContext ctx;
-	MessagePart *part;
-	MessageSize hdr_size, body_size;
-	Pool pool;
-	Buffer *buf;
+	struct header_update_context ctx;
+	struct message_part *part;
+	struct message_size hdr_size, body_size;
+	pool_t pool;
+	buffer_t *buf;
 	const char *value;
 	size_t size;
 	uoff_t start_offset;

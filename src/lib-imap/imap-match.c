@@ -9,7 +9,7 @@
 
 #include <ctype.h>
 
-struct _ImapMatchGlob {
+struct imap_match_glob {
 	int inboxcase;
 	const char *inboxcase_end;
 
@@ -21,14 +21,15 @@ struct _ImapMatchGlob {
 static const char inbox[] = "INBOX";
 #define INBOXLEN (sizeof(inbox) - 1)
 
-ImapMatchGlob *imap_match_init(const char *mask, int inboxcase, char separator)
+struct imap_match_glob *imap_match_init(const char *mask, int inboxcase,
+					char separator)
 {
-	ImapMatchGlob *glob;
+	struct imap_match_glob *glob;
 	const char *p, *inboxp;
 	char *dst;
 
 	/* +1 from struct */
-	glob = t_malloc(sizeof(ImapMatchGlob) + strlen(mask));
+	glob = t_malloc(sizeof(struct imap_match_glob) + strlen(mask));
 	glob->sep_char = separator;
 
 	/* @UNSAFE: compress the mask */
@@ -85,7 +86,7 @@ ImapMatchGlob *imap_match_init(const char *mask, int inboxcase, char separator)
 	return glob;
 }
 
-static inline int cmp_chr(const ImapMatchGlob *glob,
+static inline int cmp_chr(const struct imap_match_glob *glob,
 			  const char *data, char maskchr)
 {
 	return *data == maskchr ||
@@ -93,7 +94,7 @@ static inline int cmp_chr(const ImapMatchGlob *glob,
 		 i_toupper(*data) == i_toupper(maskchr));
 }
 
-static int match_sub(const ImapMatchGlob *glob, const char **data_p,
+static int match_sub(const struct imap_match_glob *glob, const char **data_p,
 		     const char **mask_p)
 {
 	const char *mask, *data;
@@ -149,7 +150,7 @@ static int match_sub(const ImapMatchGlob *glob, const char **data_p,
 	return 1;
 }
 
-int imap_match(ImapMatchGlob *glob, const char *data)
+int imap_match(struct imap_match_glob *glob, const char *data)
 {
 	const char *mask;
 	int ret;

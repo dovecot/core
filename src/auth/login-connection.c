@@ -13,33 +13,34 @@
 #include <syslog.h>
 
 #define MAX_INBUF_SIZE \
-	(sizeof(AuthContinuedRequestData) + AUTH_MAX_REQUEST_DATA_SIZE)
+	(sizeof(struct auth_continued_request_data) + \
+	 AUTH_MAX_REQUEST_DATA_SIZE)
 #define MAX_OUTBUF_SIZE \
-	(10 * (sizeof(AuthReplyData) + AUTH_MAX_REPLY_DATA_SIZE))
+	(10 * (sizeof(struct auth_reply_data) + AUTH_MAX_REPLY_DATA_SIZE))
 
-struct _LoginConnection {
-	LoginConnection *next;
+struct login_connection {
+	struct login_connection *next;
 
 	int fd;
-	IO io;
-	IStream *input;
-	OStream *output;
+	struct io *io;
+	struct istream *input;
+	struct ostream *output;
 
 	unsigned int pid;
-	AuthRequestType type;
+	enum auth_request_type type;
 };
 
-static AuthInitData auth_init_data;
-static LoginConnection *connections;
+static struct auth_init_data auth_init_data;
+static struct login_connection *connections;
 
-static void request_callback(AuthReplyData *reply, const unsigned char *data,
-			     void *context)
+static void request_callback(struct auth_reply_data *reply,
+			     const unsigned char *data, void *context)
 {
-	LoginConnection *conn = context;
+	struct login_connection *conn = context;
 
 	i_assert(reply->data_size <= AUTH_MAX_REPLY_DATA_SIZE);
 
-	if (o_stream_send(conn->output, reply, sizeof(AuthReplyData)) < 0)
+	if (o_stream_send(conn->output, reply, sizeof(*reply)) < 0)
 		login_connection_destroy(conn);
 	else if (reply->data_size > 0) {
 		if (o_stream_send(conn->output, data, reply->data_size) < 0)
@@ -47,9 +48,9 @@ static void request_callback(AuthReplyData *reply, const unsigned char *data,
 	}
 }
 
-static LoginConnection *login_find_pid(unsigned int pid)
+static struct login_connection *login_find_pid(unsigned int pid)
 {
-	LoginConnection *conn;
+	struct login_connection *conn;
 
 	for (conn = connections; conn != NULL; conn = conn->next) {
 		if (conn->pid == pid)
@@ -59,14 +60,14 @@ static LoginConnection *login_find_pid(unsigned int pid)
 	return NULL;
 }
 
-static void login_input_handshake(LoginConnection *conn)
+static void login_input_handshake(struct login_connection *conn)
 {
-        ClientAuthInitData rec;
+        struct client_auth_init_data rec;
         unsigned char *data;
 	size_t size;
 
 	data = i_stream_get_modifyable_data(conn->input, &size);
-	if (size < sizeof(ClientAuthInitData))
+	if (size < sizeof(struct client_auth_init_data))
 		return;
 
 	/* Don't just cast because of alignment issues. */
@@ -86,24 +87,24 @@ static void login_input_handshake(LoginConnection *conn)
 	}
 }
 
-static void login_input_request(LoginConnection *conn)
+static void login_input_request(struct login_connection *conn)
 {
         unsigned char *data;
 	size_t size;
 
 	data = i_stream_get_modifyable_data(conn->input, &size);
-	if (size < sizeof(AuthRequestType))
+	if (size < sizeof(enum auth_request_type))
 		return;
 
 	/* note that we can't directly cast the received data pointer into
 	   structures, as it may not be aligned properly. */
 	if (conn->type == AUTH_REQUEST_NONE) {
 		/* get the request type */
-		memcpy(&conn->type, data, sizeof(AuthRequestType));
+		memcpy(&conn->type, data, sizeof(enum auth_request_type));
 	}
 
 	if (conn->type == AUTH_REQUEST_INIT) {
-		AuthInitRequestData request;
+		struct auth_init_request_data request;
 
 		if (size < sizeof(request))
 			return;
@@ -115,7 +116,7 @@ static void login_input_request(LoginConnection *conn)
 		auth_init_request(conn->pid, &request, request_callback, conn);
 		conn->type = AUTH_REQUEST_NONE;
 	} else if (conn->type == AUTH_REQUEST_CONTINUE) {
-                AuthContinuedRequestData request;
+                struct auth_continued_request_data request;
 
 		if (size < sizeof(request))
 			return;
@@ -143,9 +144,9 @@ static void login_input_request(LoginConnection *conn)
 }
 
 static void login_input(void *context, int fd __attr_unused__,
-			IO io __attr_unused__)
+			struct io *io __attr_unused__)
 {
-	LoginConnection *conn  = context;
+	struct login_connection *conn  = context;
 
 	switch (i_stream_read(conn->input)) {
 	case 0:
@@ -168,11 +169,11 @@ static void login_input(void *context, int fd __attr_unused__,
 		login_input_request(conn);
 }
 
-LoginConnection *login_connection_create(int fd)
+struct login_connection *login_connection_create(int fd)
 {
-	LoginConnection *conn;
+	struct login_connection *conn;
 
-	conn = i_new(LoginConnection, 1);
+	conn = i_new(struct login_connection, 1);
 
 	conn->fd = fd;
 	conn->input = i_stream_create_file(fd, default_pool, MAX_INBUF_SIZE,
@@ -194,9 +195,9 @@ LoginConnection *login_connection_create(int fd)
 	return conn;
 }
 
-void login_connection_destroy(LoginConnection *conn)
+void login_connection_destroy(struct login_connection *conn)
 {
-	LoginConnection **pos;
+	struct login_connection **pos;
 
 	for (pos = &connections; *pos != NULL; pos = &(*pos)->next) {
 		if (*pos == conn) {
@@ -232,7 +233,7 @@ void login_connections_init(void)
 
 void login_connections_deinit(void)
 {
-	LoginConnection *next;
+	struct login_connection *next;
 
 	while (connections != NULL) {
 		next = connections->next;

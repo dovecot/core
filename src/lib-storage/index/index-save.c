@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-static int write_with_crlf(OStream *output, const unsigned char *data,
+static int write_with_crlf(struct ostream *output, const unsigned char *data,
 			   size_t size)
 {
 	size_t i, start;
@@ -40,7 +40,7 @@ static int write_with_crlf(OStream *output, const unsigned char *data,
 	return size;
 }
 
-static int write_with_lf(OStream *output, const unsigned char *data,
+static int write_with_lf(struct ostream *output, const unsigned char *data,
 			 size_t size)
 {
 	size_t i, start;
@@ -70,10 +70,11 @@ static int write_with_lf(OStream *output, const unsigned char *data,
 	return size;
 }
 
-int index_storage_save(MailStorage *storage, const char *path,
-		       IStream *input, OStream *output, uoff_t data_size)
+int index_storage_save(struct mail_storage *storage, const char *path,
+		       struct istream *input, struct ostream *output,
+		       uoff_t data_size)
 {
-	int (*write_func)(OStream *, const unsigned char *, size_t);
+	int (*write_func)(struct ostream *, const unsigned char *, size_t);
 	const unsigned char *data;
 	size_t size;
 	ssize_t ret;

@@ -16,8 +16,8 @@
 #include <stdlib.h>
 #include <syslog.h>
 
-IOLoop ioloop;
-static IO io_listen;
+struct ioloop *ioloop;
+static struct io *io_listen;
 
 static void sig_quit(int signo __attr_unused__)
 {
@@ -25,7 +25,7 @@ static void sig_quit(int signo __attr_unused__)
 }
 
 static void auth_accept(void *context __attr_unused__, int listen_fd,
-			IO io __attr_unused__)
+			struct io *io __attr_unused__)
 {
 	int fd;
 

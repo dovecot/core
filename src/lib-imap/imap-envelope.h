@@ -1,9 +1,7 @@
 #ifndef __IMAP_ENVELOPE_H
 #define __IMAP_ENVELOPE_H
 
-typedef struct _MessagePartEnvelopeData MessagePartEnvelopeData;
-
-typedef enum {
+enum imap_envelope_field {
 	/* NOTE: in the same order as listed in ENVELOPE */
 	IMAP_ENVELOPE_DATE = 0,
 	IMAP_ENVELOPE_SUBJECT,
@@ -17,27 +15,32 @@ typedef enum {
 	IMAP_ENVELOPE_MESSAGE_ID,
 
 	IMAP_ENVELOPE_FIELDS
-} ImapEnvelopeField;
+};
 
-typedef enum {
-	IMAP_ENVELOPE_RESULT_STRING,
-	IMAP_ENVELOPE_RESULT_FIRST_MAILBOX
-} ImapEnvelopeResult;
+enum imap_envelope_result_type {
+	IMAP_ENVELOPE_RESULT_TYPE_STRING,
+	IMAP_ENVELOPE_RESULT_TYPE_FIRST_MAILBOX
+};
+
+struct message_part_envelope_data;
 
 /* Update envelope data based from given header field */
-void imap_envelope_parse_header(Pool pool, MessagePartEnvelopeData **data,
+void imap_envelope_parse_header(pool_t pool,
+				struct message_part_envelope_data **data,
 				const unsigned char *name, size_t name_len,
 				const unsigned char *value, size_t value_len);
 
 /* Write envelope to given string */
-void imap_envelope_write_part_data(MessagePartEnvelopeData *data,
-				   String *str);
+void imap_envelope_write_part_data(struct message_part_envelope_data *data,
+				   string_t *str);
 /* Return envelope. */
-const char *imap_envelope_get_part_data(MessagePartEnvelopeData *data);
+const char *
+imap_envelope_get_part_data(struct message_part_envelope_data *data);
 
 /* Parse envelope and store specified field to result. NIL is stored as NULL.
    Returns TRUE if successful. */
-int imap_envelope_parse(const char *envelope, ImapEnvelopeField field,
-			ImapEnvelopeResult result_type, const char **result);
+int imap_envelope_parse(const char *envelope, enum imap_envelope_field field,
+			enum imap_envelope_result_type result_type,
+			const char **result);
 
 #endif

@@ -11,10 +11,10 @@
    to them, mbox/maildir currently allow paths only up to PATH_MAX. */
 #define MAILBOX_MAX_NAME_LEN 512
 
-int client_verify_mailbox_name(Client *client, const char *mailbox,
+int client_verify_mailbox_name(struct client *client, const char *mailbox,
 			       int should_exist, int should_not_exist)
 {
-	MailboxNameStatus mailbox_status;
+	enum mailbox_name_status mailbox_status;
 	const char *p;
 	char sep;
 
@@ -80,7 +80,7 @@ int client_verify_mailbox_name(Client *client, const char *mailbox,
 	return FALSE;
 }
 
-int client_verify_open_mailbox(Client *client)
+int client_verify_open_mailbox(struct client *client)
 {
 	if (client->mailbox != NULL)
 		return TRUE;
@@ -90,19 +90,19 @@ int client_verify_open_mailbox(Client *client)
 	}
 }
 
-void client_sync_full(Client *client)
+void client_sync_full(struct client *client)
 {
 	if (client->mailbox != NULL)
 		(void)client->mailbox->sync(client->mailbox, TRUE);
 }
 
-void client_sync_without_expunges(Client *client)
+void client_sync_without_expunges(struct client *client)
 {
 	if (client->mailbox != NULL)
 		(void)client->mailbox->sync(client->mailbox, FALSE);
 }
 
-void client_send_storage_error(Client *client)
+void client_send_storage_error(struct client *client)
 {
 	const char *error;
 	int syntax;
@@ -121,8 +121,8 @@ void client_send_storage_error(Client *client)
 						error, NULL));
 }
 
-int client_parse_mail_flags(Client *client, ImapArg *args, size_t args_count,
-			    MailFlags *flags,
+int client_parse_mail_flags(struct client *client, struct imap_arg *args,
+			    size_t args_count, enum mail_flags *flags,
 			    const char *custflags[MAIL_CUSTOM_FLAGS_COUNT])
 {
 	char *atom;
@@ -155,7 +155,8 @@ int client_parse_mail_flags(Client *client, ImapArg *args, size_t args_count,
 				*flags |= MAIL_DRAFT;
 			else {
 				client_send_tagline(client, t_strconcat(
-					"BAD Invalid system flag ", atom, NULL));
+					"BAD Invalid system flag ",
+					atom, NULL));
 				return FALSE;
 			}
 		} else {
@@ -186,7 +187,7 @@ int client_parse_mail_flags(Client *client, ImapArg *args, size_t args_count,
 static const char *get_custom_flags_string(const char *custom_flags[],
 					   unsigned int custom_flags_count)
 {
-	String *str;
+	string_t *str;
 	unsigned int i;
 
 	/* first see if there even is custom flags */
@@ -210,7 +211,7 @@ static const char *get_custom_flags_string(const char *custom_flags[],
 
 #define SYSTEM_FLAGS "\\Answered \\Flagged \\Deleted \\Seen \\Draft"
 
-void client_send_mailbox_flags(Client *client, Mailbox *box,
+void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 			       const char *custom_flags[],
 			       unsigned int custom_flags_count)
 {

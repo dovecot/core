@@ -4,23 +4,23 @@
 #include "imap-parser.h"
 #include "mail-storage.h"
 
-typedef struct _Client Client;
+struct client;
 
-typedef int (*ClientCommandFunc) (Client *client);
+typedef int (*ClientCommandFunc) (struct client *client);
 
-struct _Client {
+struct client {
 	int socket;
-	IO io;
-	IStream *input;
-	OStream *output;
+	struct io *io;
+	struct istream *input;
+	struct ostream *output;
 
-	MailStorage *storage;
-	Mailbox *mailbox;
+	struct mail_storage *storage;
+	struct mailbox *mailbox;
 
 	time_t last_input;
 	unsigned int bad_counter;
 
-	ImapParser *parser;
+	struct imap_parser *parser;
 	const char *cmd_tag; /* tag of command (allocated from parser pool), */
 	const char *cmd_name; /* command name (allocated from parser pool) */
 	ClientCommandFunc cmd_func;
@@ -35,27 +35,27 @@ struct _Client {
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-Client *client_create(int hin, int hout, MailStorage *storage);
-void client_destroy(Client *client);
+struct client *client_create(int hin, int hout, struct mail_storage *storage);
+void client_destroy(struct client *client);
 
 /* Disconnect client connection */
-void client_disconnect(Client *client);
+void client_disconnect(struct client *client);
 
 /* Send a line of data to client */
-void client_send_line(Client *client, const char *data);
+void client_send_line(struct client *client, const char *data);
 /* Send line of data to client, prefixed with client->tag */
-void client_send_tagline(Client *client, const char *data);
+void client_send_tagline(struct client *client, const char *data);
 
 /* Send BAD command error to client. msg can be NULL. */
-void client_send_command_error(Client *client, const char *msg);
+void client_send_command_error(struct client *client, const char *msg);
 
 /* Read a number of arguments. Returns TRUE if everything was read or
    FALSE if either needs more data or error occured. */
-int client_read_args(Client *client, unsigned int count, unsigned int flags,
-		     ImapArg **args);
+int client_read_args(struct client *client, unsigned int count,
+		     unsigned int flags, struct imap_arg **args);
 /* Reads a number of string arguments. ... is a list of pointers where to
    store the arguments. */
-int client_read_string_args(Client *client, unsigned int count, ...);
+int client_read_string_args(struct client *client, unsigned int count, ...);
 
 void clients_init(void);
 void clients_deinit(void);

@@ -13,23 +13,23 @@
 #include "client-authenticate.h"
 #include "master.h"
 
-typedef struct {
+struct auth_method_desc {
 	int method;
 	const char *name;
 	int plaintext;
-} AuthMethodDesc;
+};
 
-static AuthMethod auth_methods = 0;
+static enum auth_method auth_methods = 0;
 static char *auth_methods_capability = NULL;
 
-static AuthMethodDesc auth_method_desc[AUTH_METHODS_COUNT] = {
+static struct auth_method_desc auth_method_desc[AUTH_METHODS_COUNT] = {
 	{ AUTH_METHOD_PLAIN,		NULL,		TRUE },
 	{ AUTH_METHOD_DIGEST_MD5,	"DIGEST-MD5",	FALSE }
 };
 
 const char *client_authenticate_get_capabilities(void)
 {
-	String *str;
+	string_t *str;
 	int i;
 
 	if (auth_methods == available_auth_methods)
@@ -53,7 +53,7 @@ const char *client_authenticate_get_capabilities(void)
 	return auth_methods_capability;
 }
 
-static AuthMethodDesc *auth_method_find(const char *name)
+static struct auth_method_desc *auth_method_find(const char *name)
 {
 	int i;
 
@@ -66,7 +66,7 @@ static AuthMethodDesc *auth_method_find(const char *name)
 	return NULL;
 }
 
-static void client_auth_abort(Client *client, const char *msg)
+static void client_auth_abort(struct client *client, const char *msg)
 {
 	client->auth_request = NULL;
 
@@ -83,9 +83,9 @@ static void client_auth_abort(Client *client, const char *msg)
 	client_unref(client);
 }
 
-static void master_callback(MasterReplyResult result, void *context)
+static void master_callback(enum master_reply_result result, void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 
 	switch (result) {
 	case MASTER_RESULT_SUCCESS:
@@ -101,10 +101,10 @@ static void master_callback(MasterReplyResult result, void *context)
 	}
 }
 
-static void client_send_auth_data(Client *client, const unsigned char *data,
-				  size_t size)
+static void client_send_auth_data(struct client *client,
+				  const unsigned char *data, size_t size)
 {
-	Buffer *buf;
+	buffer_t *buf;
 
 	t_push();
 
@@ -120,11 +120,12 @@ static void client_send_auth_data(Client *client, const unsigned char *data,
 	t_pop();
 }
 
-static int auth_callback(AuthRequest *request, unsigned int auth_process,
-			 AuthResult result, const unsigned char *reply_data,
+static int auth_callback(struct auth_request *request,
+			 unsigned int auth_process, enum auth_result result,
+			 const unsigned char *reply_data,
 			 size_t reply_data_size, void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 
 	switch (result) {
 	case AUTH_RESULT_CONTINUE:
@@ -164,11 +165,12 @@ static int auth_callback(AuthRequest *request, unsigned int auth_process,
 	}
 }
 
-static void login_callback(AuthRequest *request, unsigned int auth_process,
-			   AuthResult result, const unsigned char *reply_data,
+static void login_callback(struct auth_request *request,
+			   unsigned int auth_process, enum auth_result result,
+			   const unsigned char *reply_data,
 			   size_t reply_data_size, void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 	const void *ptr;
 	size_t size;
 
@@ -181,7 +183,7 @@ static void login_callback(AuthRequest *request, unsigned int auth_process,
 	}
 }
 
-int cmd_login(Client *client, const char *user, const char *pass)
+int cmd_login(struct client *client, const char *user, const char *pass)
 {
 	const char *error;
 
@@ -216,12 +218,13 @@ int cmd_login(Client *client, const char *user, const char *pass)
 	}
 }
 
-static void authenticate_callback(AuthRequest *request,
-				  unsigned int auth_process, AuthResult result,
+static void authenticate_callback(struct auth_request *request,
+				  unsigned int auth_process,
+				  enum auth_result result,
 				  const unsigned char *reply_data,
 				  size_t reply_data_size, void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 
 	if (auth_callback(request, auth_process, result,
 			  reply_data, reply_data_size, context))
@@ -229,10 +232,10 @@ static void authenticate_callback(AuthRequest *request,
 }
 
 static void client_auth_input(void *context, int fd __attr_unused__,
-			      IO io __attr_unused__)
+			      struct io *io __attr_unused__)
 {
-	Client *client = context;
-	Buffer *buf;
+	struct client *client = context;
+	buffer_t *buf;
 	char *line;
 	size_t linelen, bufsize;
 
@@ -270,9 +273,9 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 	safe_memset(buffer_free_without_data(buf), 0, bufsize);
 }
 
-int cmd_authenticate(Client *client, const char *method_name)
+int cmd_authenticate(struct client *client, const char *method_name)
 {
-	AuthMethodDesc *method;
+	struct auth_method_desc *method;
 	const char *error;
 
 	if (*method_name == '\0')

@@ -3,16 +3,17 @@
 #include "lib.h"
 #include "mail-search.h"
 
-typedef struct {
-	Pool pool;
+struct search_build_data {
+	pool_t pool;
 	const char *error;
-} SearchBuildData;
+};
 
-static MailSearchArg *search_arg_new(Pool pool, MailSearchArgType type)
+static struct mail_search_arg *
+search_arg_new(pool_t pool, enum mail_search_arg_type type)
 {
-	MailSearchArg *arg;
+	struct mail_search_arg *arg;
 
-	arg = p_new(pool, MailSearchArg, 1);
+	arg = p_new(pool, struct mail_search_arg, 1);
 	arg->type = type;
 
 	return arg;
@@ -21,10 +22,11 @@ static MailSearchArg *search_arg_new(Pool pool, MailSearchArgType type)
 #define ARG_NEW(type, value) \
 	arg_new(data, args, next_sarg, type, value)
 
-static int arg_new(SearchBuildData *data, ImapArg **args,
-		   MailSearchArg **next_sarg, MailSearchArgType type, int value)
+static int arg_new(struct search_build_data *data, struct imap_arg **args,
+		   struct mail_search_arg **next_sarg,
+		   enum mail_search_arg_type type, int value)
 {
-	MailSearchArg *sarg;
+	struct mail_search_arg *sarg;
 
 	*next_sarg = sarg = search_arg_new(data->pool, type);
 	if (value == 0)
@@ -66,11 +68,12 @@ static int arg_new(SearchBuildData *data, ImapArg **args,
 	return TRUE;
 }
 
-static int search_arg_build(SearchBuildData *data, ImapArg **args,
-			    MailSearchArg **next_sarg)
+static int search_arg_build(struct search_build_data *data,
+			    struct imap_arg **args,
+			    struct mail_search_arg **next_sarg)
 {
-	MailSearchArg **subargs;
-	ImapArg *arg;
+	struct mail_search_arg **subargs;
+	struct imap_arg *arg;
 	char *str;
 
 	if ((*args)->type == IMAP_ARG_EOL) {
@@ -87,7 +90,7 @@ static int search_arg_build(SearchBuildData *data, ImapArg **args,
 	}
 
 	if (arg->type == IMAP_ARG_LIST) {
-		ImapArg *listargs = IMAP_ARG_LIST(arg)->args;
+		struct imap_arg *listargs = IMAP_ARG_LIST(arg)->args;
 
 		*next_sarg = search_arg_new(data->pool, SEARCH_SUB);
 		subargs = &(*next_sarg)->value.subargs;
@@ -348,11 +351,11 @@ static int search_arg_build(SearchBuildData *data, ImapArg **args,
 	return FALSE;
 }
 
-MailSearchArg *mail_search_args_build(Pool pool, ImapArg *args,
-				      const char **error)
+struct mail_search_arg *
+mail_search_args_build(pool_t pool, struct imap_arg *args, const char **error)
 {
-        SearchBuildData data;
-	MailSearchArg *first_sarg, **sargs;
+        struct search_build_data data;
+	struct mail_search_arg *first_sarg, **sargs;
 
 	data.pool = pool;
 	data.error = NULL;
@@ -371,7 +374,7 @@ MailSearchArg *mail_search_args_build(Pool pool, ImapArg *args,
 	return first_sarg;
 }
 
-void mail_search_args_reset(MailSearchArg *args)
+void mail_search_args_reset(struct mail_search_arg *args)
 {
 	while (args != NULL) {
 		if (args->type == SEARCH_OR || args->type == SEARCH_SUB)
@@ -382,10 +385,10 @@ void mail_search_args_reset(MailSearchArg *args)
 	}
 }
 
-static void search_arg_foreach(MailSearchArg *arg, MailSearchForeachFunc func,
-			       void *context)
+static void search_arg_foreach(struct mail_search_arg *arg,
+			       MailSearchForeachFunc func, void *context)
 {
-	MailSearchArg *subarg;
+	struct mail_search_arg *subarg;
 
 	if (arg->result != 0)
 		return;
@@ -438,8 +441,8 @@ static void search_arg_foreach(MailSearchArg *arg, MailSearchForeachFunc func,
 	}
 }
 
-int mail_search_args_foreach(MailSearchArg *args, MailSearchForeachFunc func,
-			     void *context)
+int mail_search_args_foreach(struct mail_search_arg *args,
+			     MailSearchForeachFunc func, void *context)
 {
 	int result;
 
@@ -459,10 +462,10 @@ int mail_search_args_foreach(MailSearchArg *args, MailSearchForeachFunc func,
 	return result;
 }
 
-static void search_arg_analyze(MailSearchArg *arg, int *have_headers,
+static void search_arg_analyze(struct mail_search_arg *arg, int *have_headers,
 			       int *have_body, int *have_text)
 {
-	MailSearchArg *subarg;
+	struct mail_search_arg *subarg;
 
 	if (arg->result != 0)
 		return;
@@ -504,7 +507,7 @@ static void search_arg_analyze(MailSearchArg *arg, int *have_headers,
 	}
 }
 
-void mail_search_args_analyze(MailSearchArg *args, int *have_headers,
+void mail_search_args_analyze(struct mail_search_arg *args, int *have_headers,
 			      int *have_body, int *have_text)
 {
 	*have_headers = *have_body = *have_text = FALSE;

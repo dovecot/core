@@ -22,7 +22,7 @@ const char *maildir_generate_tmp_filename(void)
 			       my_pid, create_count++, my_hostname);
 }
 
-static int maildir_create_tmp(MailStorage *storage, const char *dir,
+static int maildir_create_tmp(struct mail_storage *storage, const char *dir,
 			      const char **fname)
 {
 	const char *path;
@@ -47,11 +47,12 @@ static int maildir_create_tmp(MailStorage *storage, const char *dir,
 	return fd;
 }
 
-static const char *maildir_read_into_tmp(MailStorage *storage, const char *dir,
-					 IStream *input, uoff_t data_size)
+static const char *
+maildir_read_into_tmp(struct mail_storage *storage, const char *dir,
+		      struct istream *input, uoff_t data_size)
 {
 	const char *fname, *path;
-	OStream *output;
+	struct ostream *output;
 	int fd;
 
 	fd = maildir_create_tmp(storage, dir, &fname);
@@ -77,12 +78,12 @@ static const char *maildir_read_into_tmp(MailStorage *storage, const char *dir,
 	return fname;
 }
 
-int maildir_storage_save(Mailbox *box, MailFlags flags,
+int maildir_storage_save(struct mailbox *box, enum mail_flags flags,
 			 const char *custom_flags[], time_t internal_date,
 			 int timezone_offset __attr_unused__,
-			 IStream *data, uoff_t data_size)
+			 struct istream *data, uoff_t data_size)
 {
-        IndexMailbox *ibox = (IndexMailbox *) box;
+        struct index_mailbox *ibox = (struct index_mailbox *) box;
         struct utimbuf buf;
 	const char *tmpdir, *fname, *tmp_path, *new_path;
 	int failed;

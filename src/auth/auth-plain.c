@@ -6,13 +6,13 @@
 #include "cookie.h"
 #include "userinfo.h"
 
-static void auth_plain_continue(CookieData *cookie,
-				AuthContinuedRequestData *request,
+static void auth_plain_continue(struct cookie_data *cookie,
+				struct auth_continued_request_data *request,
 				const unsigned char *data,
 				AuthCallback callback, void *context)
 {
-	AuthCookieReplyData *cookie_reply = cookie->context;
-	AuthReplyData reply;
+	struct auth_cookie_reply_data *cookie_reply = cookie->context;
+	struct auth_reply_data reply;
 	const char *user;
 	char *pass;
 	size_t i, count, len;
@@ -62,37 +62,38 @@ static void auth_plain_continue(CookieData *cookie,
 	}
 }
 
-static int auth_plain_fill_reply(CookieData *cookie, AuthCookieReplyData *reply)
+static int auth_plain_fill_reply(struct cookie_data *cookie,
+				 struct auth_cookie_reply_data *reply)
 {
-	AuthCookieReplyData *cookie_reply;
+	struct auth_cookie_reply_data *cookie_reply;
 
 	cookie_reply = cookie->context;
 	if (!cookie_reply->success)
 		return FALSE;
 
-	memcpy(reply, cookie_reply, sizeof(AuthCookieReplyData));
+	memcpy(reply, cookie_reply, sizeof(struct auth_cookie_reply_data));
 	return TRUE;
 }
 
-static void auth_plain_free(CookieData *cookie)
+static void auth_plain_free(struct cookie_data *cookie)
 {
 	i_free(cookie->context);
 	i_free(cookie);
 }
 
 static void auth_plain_init(unsigned int login_pid,
-			    AuthInitRequestData *request,
+			    struct auth_init_request_data *request,
 			    AuthCallback callback, void *context)
 {
-	CookieData *cookie;
-	AuthReplyData reply;
+	struct cookie_data *cookie;
+	struct auth_reply_data reply;
 
-	cookie = i_new(CookieData, 1);
+	cookie = i_new(struct cookie_data, 1);
 	cookie->login_pid = login_pid;
 	cookie->auth_fill_reply = auth_plain_fill_reply;
 	cookie->auth_continue = auth_plain_continue;
 	cookie->free = auth_plain_free;
-	cookie->context = i_new(AuthCookieReplyData, 1);
+	cookie->context = i_new(struct auth_cookie_reply_data, 1);
 
 	cookie_add(cookie);
 
@@ -105,7 +106,7 @@ static void auth_plain_init(unsigned int login_pid,
 	callback(&reply, NULL, context);
 }
 
-AuthModule auth_plain = {
+struct auth_module auth_plain = {
 	AUTH_METHOD_PLAIN,
 	auth_plain_init
 };

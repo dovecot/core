@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-static void skip_line(IStream *input)
+static void skip_line(struct istream *input)
 {
 	const unsigned char *msg;
 	size_t i, size;
@@ -29,7 +29,8 @@ static void skip_line(IStream *input)
 	}
 }
 
-static int verify_header_md5sum(MailIndex *index, MailIndexRecord *rec,
+static int verify_header_md5sum(struct mail_index *index,
+				struct mail_index_record *rec,
 				unsigned char current_digest[16])
 {
 	const unsigned char *old_digest;
@@ -41,9 +42,10 @@ static int verify_header_md5sum(MailIndex *index, MailIndexRecord *rec,
                 memcmp(old_digest, current_digest, 16) == 0;
 }
 
-static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
-				   MailIndexUpdate *update,
-				   MessageSize *hdr_size)
+static int mail_update_header_size(struct mail_index *index,
+				   struct mail_index_record *rec,
+				   struct mail_index_update *update,
+				   struct message_size *hdr_size)
 {
 	const void *part_data;
 	void *part_data_copy;
@@ -89,13 +91,14 @@ static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-static int match_next_record(MailIndex *index, MailIndexRecord *rec,
-			     unsigned int seq, IStream *input,
-			     MailIndexRecord **next_rec, int *dirty)
+static int match_next_record(struct mail_index *index,
+			     struct mail_index_record *rec,
+			     unsigned int seq, struct istream *input,
+			     struct mail_index_record **next_rec, int *dirty)
 {
-        MailIndexUpdate *update;
-	MessageSize hdr_parsed_size;
-	MboxHeaderContext ctx;
+        struct mail_index_update *update;
+	struct message_size hdr_parsed_size;
+	struct mbox_header_context ctx;
 	uoff_t header_offset, body_offset, offset;
 	uoff_t hdr_size, body_size;
 	unsigned char current_digest[16];
@@ -189,9 +192,10 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-static int mbox_sync_from_stream(MailIndex *index, IStream *input)
+static int mbox_sync_from_stream(struct mail_index *index,
+				 struct istream *input)
 {
-	MailIndexRecord *rec;
+	struct mail_index_record *rec;
 	uoff_t from_offset;
 	const unsigned char *data;
 	size_t size;
@@ -271,9 +275,9 @@ static int mbox_sync_from_stream(MailIndex *index, IStream *input)
 		return mbox_index_append(index, input);
 }
 
-int mbox_sync_full(MailIndex *index)
+int mbox_sync_full(struct mail_index *index)
 {
-	IStream *input;
+	struct istream *input;
 	int failed;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);

@@ -6,11 +6,11 @@
 
 #include <unistd.h>
 
-static int cache_record(MailIndex *index, MailIndexRecord *rec,
-			MailDataField cache_fields)
+static int cache_record(struct mail_index *index, struct mail_index_record *rec,
+			enum mail_data_field cache_fields)
 {
-	MailIndexUpdate *update;
-	IStream *input;
+	struct mail_index_update *update;
+	struct istream *input;
 	time_t internal_date;
 	int failed, deleted;
 
@@ -30,10 +30,10 @@ static int cache_record(MailIndex *index, MailIndexRecord *rec,
 	return !failed;
 }
 
-int mail_index_update_cache(MailIndex *index)
+int mail_index_update_cache(struct mail_index *index)
 {
-	MailIndexRecord *rec;
-	MailDataField cache_fields;
+	struct mail_index_record *rec;
+	enum mail_data_field cache_fields;
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
@@ -42,7 +42,8 @@ int mail_index_update_cache(MailIndex *index)
 
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
-		if ((rec->data_fields & cache_fields) != cache_fields) {
+		if (((enum mail_data_field)rec->data_fields & cache_fields) !=
+		    cache_fields) {
 			t_push();
 			if (!cache_record(index, rec, cache_fields)) {
 				t_pop();

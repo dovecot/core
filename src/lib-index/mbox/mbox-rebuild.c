@@ -12,9 +12,9 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-int mbox_index_rebuild(MailIndex *index)
+int mbox_index_rebuild(struct mail_index *index)
 {
-	IStream *input;
+	struct istream *input;
 	struct stat st;
 	int failed;
 
@@ -36,7 +36,8 @@ int mbox_index_rebuild(MailIndex *index)
 	index->indexid = index->header->indexid;
 	index->inconsistent = TRUE;
 
-	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) < 0)
+	if (msync(index->mmap_base,
+		  sizeof(struct mail_index_header), MS_SYNC) < 0)
 		return index_set_syscall_error(index, "msync()");
 
 	/* reset data file */

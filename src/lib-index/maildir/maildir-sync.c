@@ -14,12 +14,13 @@
 #include <utime.h>
 #include <sys/stat.h>
 
-static int maildir_index_sync_file(MailIndex *index, MailIndexRecord *rec,
+static int maildir_index_sync_file(struct mail_index *index,
+				   struct mail_index_record *rec,
 				   unsigned int seq, const char *fname,
 				   const char *path, int fname_changed)
 {
-	MailIndexUpdate *update;
-	MailFlags flags;
+	struct mail_index_update *update;
+	enum mail_flags flags;
 	int failed;
 
 	i_assert(fname != NULL);
@@ -48,11 +49,12 @@ static int maildir_index_sync_file(MailIndex *index, MailIndexRecord *rec,
 	return !failed;
 }
 
-static int maildir_index_sync_files(MailIndex *index, const char *dir,
-				    HashTable *files, int check_content_changes)
+static int maildir_index_sync_files(struct mail_index *index, const char *dir,
+				    struct hash_table *files,
+				    int check_content_changes)
 {
-	MailIndexRecord *rec;
-	MailIndexDataRecordHeader *data_hdr;
+	struct mail_index_record *rec;
+	struct mail_index_data_record_header *data_hdr;
 	struct stat st;
 	const char *fname, *base_fname, *value;
 	char path[PATH_MAX];
@@ -144,16 +146,16 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 	return TRUE;
 }
 
-typedef struct {
-	MailIndex *index;
+struct hash_append_context {
+	struct mail_index *index;
 	const char *dir;
 	int failed;
-} HashAppendContext;
+};
 
 static void maildir_index_hash_append_file(void *key __attr_unused__,
 					   void *value, void *context)
 {
-	HashAppendContext *ctx = context;
+	struct hash_append_context *ctx = context;
 
 	t_push();
 	if (!maildir_index_append_file(ctx->index, ctx->dir, value)) {
@@ -163,10 +165,10 @@ static void maildir_index_hash_append_file(void *key __attr_unused__,
 	t_pop();
 }
 
-static int maildir_index_append_files(MailIndex *index, const char *dir,
-				      HashTable *files)
+static int maildir_index_append_files(struct mail_index *index, const char *dir,
+				      struct hash_table *files)
 {
-	HashAppendContext ctx;
+	struct hash_append_context ctx;
 
 	ctx.failed = FALSE;
 	ctx.index = index;
@@ -176,10 +178,10 @@ static int maildir_index_append_files(MailIndex *index, const char *dir,
 	return !ctx.failed;
 }
 
-static int maildir_index_sync_dir(MailIndex *index, const char *dir)
+static int maildir_index_sync_dir(struct mail_index *index, const char *dir)
 {
-	Pool pool;
-	HashTable *files;
+	pool_t pool;
+	struct hash_table *files;
 	DIR *dirp;
 	struct dirent *d;
 	char *key, *value, *p;
@@ -250,8 +252,8 @@ static int maildir_index_sync_dir(MailIndex *index, const char *dir)
 	return !failed;
 }
 
-int maildir_index_sync(MailIndex *index,
-		       MailLockType data_lock_type __attr_unused__,
+int maildir_index_sync(struct mail_index *index,
+		       enum mail_lock_type data_lock_type __attr_unused__,
 		       int *changes)
 {
 	struct stat sti, std;

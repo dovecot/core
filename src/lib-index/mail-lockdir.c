@@ -51,8 +51,8 @@ static int mail_index_cleanup_dir_locks(const char *dir)
 	return FALSE;
 }
 
-static int mail_index_unlock_dir(MailIndex *index, const char *private_path,
-				 const char *lockpath)
+static int mail_index_unlock_dir(struct mail_index *index,
+				 const char *private_path, const char *lockpath)
 {
 	struct stat st, lockst;
 
@@ -92,7 +92,8 @@ static int mail_index_unlock_dir(MailIndex *index, const char *private_path,
 	return TRUE;
 }
 
-int mail_index_lock_dir(MailIndex *index, MailLockType lock_type)
+int mail_index_lock_dir(struct mail_index *index,
+			enum mail_lock_type lock_type)
 {
 	struct stat st;
 	const char *private_path, *lockpath;

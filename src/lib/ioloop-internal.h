@@ -5,24 +5,22 @@
 
 #include <sys/time.h>
 
-typedef struct _IOLoopHandlerData IOLoopHandlerData;
+struct ioloop {
+        struct ioloop *prev;
 
-struct _IOLoop {
-        struct _IOLoop *prev;
-
-	Pool pool;
+	pool_t pool;
 	int highest_fd;
 
-	IO ios; /* sorted by priority */
-	Timeout timeouts; /* sorted by next_run */
+	struct io *ios; /* sorted by priority */
+	struct timeout *timeouts; /* sorted by next_run */
 
-        IOLoopHandlerData *handler_data;
+        struct ioloop_handler_data *handler_data;
 
 	unsigned int running:1;
 };
 
-struct _IO {
-	IO prev, next;
+struct io {
+	struct io *prev, *next;
 
 	int fd;
         int priority;
@@ -35,8 +33,8 @@ struct _IO {
         void *context;
 };
 
-struct _Timeout {
-	Timeout next;
+struct timeout {
+	struct timeout *next;
 
 	struct timeval next_run;
         int msecs;
@@ -47,20 +45,20 @@ struct _Timeout {
         void *context;
 };
 
-int io_loop_get_wait_time(Timeout timeout, struct timeval *tv,
+int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
 			  struct timeval *tv_now);
-void io_loop_handle_timeouts(IOLoop ioloop);
+void io_loop_handle_timeouts(struct ioloop *ioloop);
 
 /* call only when io->destroyed is TRUE */
-void io_destroy(IOLoop ioloop, IO io);
+void io_destroy(struct ioloop *ioloop, struct io *io);
 /* call only when timeout->destroyed is TRUE */
-void timeout_destroy(IOLoop ioloop, Timeout timeout);
+void timeout_destroy(struct ioloop *ioloop, struct timeout *timeout);
 
 /* I/O handler calls */
-void io_loop_handle_add(IOLoop ioloop, int fd, int condition);
-void io_loop_handle_remove(IOLoop ioloop, int fd, int condition);
+void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition);
+void io_loop_handle_remove(struct ioloop *ioloop, int fd, int condition);
 
-void io_loop_handler_init(IOLoop ioloop);
-void io_loop_handler_deinit(IOLoop ioloop);
+void io_loop_handler_init(struct ioloop *ioloop);
+void io_loop_handler_deinit(struct ioloop *ioloop);
 
 #endif

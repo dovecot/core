@@ -25,7 +25,7 @@
 
 #include "lib.h"
 
-Pool default_pool;
+pool_t default_pool;
 
 void *i_malloc(size_t size)
 {

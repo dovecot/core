@@ -108,7 +108,7 @@ static void vpopmail_deinit(void)
 	vclose();
 }
 
-UserInfoModule userinfo_vpopmail = {
+struct user_info_module userinfo_vpopmail = {
 	NULL,
 	vpopmail_deinit,
 

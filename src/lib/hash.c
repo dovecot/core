@@ -35,28 +35,28 @@
 #define HASH_TABLE_MIN_SIZE 11
 #define HASH_TABLE_MAX_SIZE 13845163
 
-typedef struct _HashNode {
+struct hash_node {
 	void *key;
 	void *value;
 
 	int destroyed;
-	struct _HashNode *next;
-} HashNode;
+	struct hash_node *next;
+};
 
-struct _HashTable {
-	Pool pool;
+struct hash_table {
+	pool_t pool;
 
 	unsigned int size;
 	unsigned int nodes_count, nodes_destroyed;
 	int frozen;
-	HashNode **nodes;
+	struct hash_node **nodes;
 
 	HashFunc hash_func;
 	HashCompareFunc key_compare_func;
 };
 
-static void hash_cleanup(HashTable *table);
-static int hash_resize(HashTable *table);
+static void hash_cleanup(struct hash_table *table);
+static int hash_resize(struct hash_table *table);
 
 static int foreach_stop;
 
@@ -66,20 +66,20 @@ static unsigned int direct_hash(const void *p)
 	return POINTER_CAST_TO(p, unsigned int);
 }
 
-static HashNode *hash_node_create(Pool pool, void *key, void *value)
+static struct hash_node *hash_node_create(pool_t pool, void *key, void *value)
 {
-	HashNode *node;
+	struct hash_node *node;
 
-        node = p_new(pool, HashNode, 1);
+        node = p_new(pool, struct hash_node, 1);
 	node->key = key;
 	node->value = value;
 
 	return node;
 }
 
-static void hash_nodes_destroy(HashTable *table, HashNode *node)
+static void hash_nodes_destroy(struct hash_table *table, struct hash_node *node)
 {
-	HashNode *next;
+	struct hash_node *next;
 
 	while (node != NULL) {
 		next = node->next;
@@ -88,14 +88,15 @@ static void hash_nodes_destroy(HashTable *table, HashNode *node)
 	}
 }
 
-HashTable *hash_create(Pool pool, unsigned int initial_size,
-		       HashFunc hash_func, HashCompareFunc key_compare_func)
+struct hash_table *hash_create(pool_t pool, unsigned int initial_size,
+			       HashFunc hash_func,
+			       HashCompareFunc key_compare_func)
 {
-	HashTable *table;
+	struct hash_table *table;
 
         i_assert(pool != NULL);
 
-	table = p_new(pool, HashTable, 1);
+	table = p_new(pool, struct hash_table, 1);
         table->pool = pool;
 	table->size = CLAMP(primes_closest(initial_size),
 			    HASH_TABLE_MIN_SIZE,
@@ -103,12 +104,12 @@ HashTable *hash_create(Pool pool, unsigned int initial_size,
 
 	table->hash_func = hash_func != NULL ? hash_func : direct_hash;
 	table->key_compare_func = key_compare_func;
-	table->nodes = p_new(pool, HashNode *, table->size);
+	table->nodes = p_new(pool, struct hash_node *, table->size);
 
 	return table;
 }
 
-void hash_destroy(HashTable *table)
+void hash_destroy(struct hash_table *table)
 {
 	unsigned int i;
 
@@ -122,7 +123,7 @@ void hash_destroy(HashTable *table)
 	p_free(table->pool, table);
 }
 
-void hash_clear(HashTable *table)
+void hash_clear(struct hash_table *table)
 {
 	unsigned int i;
 
@@ -134,10 +135,10 @@ void hash_clear(HashTable *table)
 	}
 }
 
-static inline HashNode **
-hash_lookup_node(HashTable *table, const void *key)
+static inline struct hash_node **
+hash_lookup_node(struct hash_table *table, const void *key)
 {
-	HashNode **node;
+	struct hash_node **node;
 
 	node = &table->nodes[table->hash_func(key) % table->size];
 
@@ -160,9 +161,9 @@ hash_lookup_node(HashTable *table, const void *key)
 	return node;
 }
 
-void *hash_lookup(HashTable *table, const void *key)
+void *hash_lookup(struct hash_table *table, const void *key)
 {
-	HashNode *node;
+	struct hash_node *node;
 
 	i_assert(table != NULL);
 
@@ -170,10 +171,10 @@ void *hash_lookup(HashTable *table, const void *key)
 	return node != NULL && !node->destroyed ? node->value : NULL;
 }
 
-int hash_lookup_full(HashTable *table, const void *lookup_key,
+int hash_lookup_full(struct hash_table *table, const void *lookup_key,
 		     void **orig_key, void **value)
 {
-	HashNode *node;
+	struct hash_node *node;
 
 	i_assert(table != NULL);
 
@@ -188,10 +189,10 @@ int hash_lookup_full(HashTable *table, const void *lookup_key,
 	return TRUE;
 }
 
-static void hash_insert_full(HashTable *table, void *key, void *value,
+static void hash_insert_full(struct hash_table *table, void *key, void *value,
 			     int replace_key)
 {
-	HashNode **node;
+	struct hash_node **node;
 
 	i_assert(table != NULL);
 
@@ -212,19 +213,19 @@ static void hash_insert_full(HashTable *table, void *key, void *value,
 	}
 }
 
-void hash_insert(HashTable *table, void *key, void *value)
+void hash_insert(struct hash_table *table, void *key, void *value)
 {
 	hash_insert_full(table, key, value, TRUE);
 }
 
-void hash_update(HashTable *table, void *key, void *value)
+void hash_update(struct hash_table *table, void *key, void *value)
 {
 	hash_insert_full(table, key, value, FALSE);
 }
 
-void hash_remove(HashTable *table, const void *key)
+void hash_remove(struct hash_table *table, const void *key)
 {
-	HashNode **node, *old_node;
+	struct hash_node **node, *old_node;
 
 	i_assert(table != NULL);
 
@@ -245,14 +246,14 @@ void hash_remove(HashTable *table, const void *key)
 	}
 }
 
-void hash_freeze(HashTable *table)
+void hash_freeze(struct hash_table *table)
 {
 	i_assert(table != NULL);
 
 	table->frozen++;
 }
 
-void hash_thaw(HashTable *table)
+void hash_thaw(struct hash_table *table)
 {
 	i_assert(table != NULL);
 	i_assert(table->frozen > 0);
@@ -261,9 +262,9 @@ void hash_thaw(HashTable *table)
                 hash_cleanup(table);
 }
 
-void hash_foreach(HashTable *table, HashForeachFunc func, void *context)
+void hash_foreach(struct hash_table *table, HashForeachFunc func, void *context)
 {
-	HashNode *node;
+	struct hash_node *node;
 	unsigned int i;
 
 	i_assert(table != NULL);
@@ -294,17 +295,17 @@ void hash_foreach_stop(void)
 }
 
 /* Returns the number of elements contained in the hash table. */
-unsigned int hash_size(HashTable *table)
+unsigned int hash_size(struct hash_table *table)
 {
 	i_assert(table != NULL);
 
 	return table->nodes_count;
 }
 
-static int hash_resize(HashTable *table)
+static int hash_resize(struct hash_table *table)
 {
         HashFunc hash_func;
-	HashNode *node, *next, **new_nodes;
+	struct hash_node *node, *next, **new_nodes;
 	float nodes_per_list;
 	unsigned int hash_val, new_size, i;
 
@@ -317,7 +318,7 @@ static int hash_resize(HashTable *table)
 			 HASH_TABLE_MIN_SIZE,
 			 HASH_TABLE_MAX_SIZE);
 
-	new_nodes = p_new(table->pool, HashNode *, new_size);
+	new_nodes = p_new(table->pool, struct hash_node *, new_size);
 
         hash_func = table->hash_func;
 	for (i = 0; i < table->size; i++) {
@@ -342,9 +343,9 @@ static int hash_resize(HashTable *table)
         return TRUE;
 }
 
-static void hash_cleanup(HashTable *table)
+static void hash_cleanup(struct hash_table *table)
 {
-	HashNode **node, **next, *old_node;
+	struct hash_node **node, **next, *old_node;
         unsigned int i;
 
 	if (hash_resize(table))

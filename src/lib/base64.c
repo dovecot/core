@@ -46,7 +46,7 @@
 static const char basis_64[] =
    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-int base64_encode(const unsigned char *src, size_t src_size, Buffer *dest)
+int base64_encode(const unsigned char *src, size_t src_size, buffer_t *dest)
 {
 	size_t src_pos;
 	int c1, c2, c3;
@@ -108,7 +108,7 @@ static const char index_64[256] = {
 };
 
 int base64_decode(const unsigned char *src, size_t src_size,
-		  size_t *src_pos_r, Buffer *dest)
+		  size_t *src_pos_r, buffer_t *dest)
 {
 	size_t src_pos;
 	unsigned char buf[4];

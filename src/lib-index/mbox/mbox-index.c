@@ -16,9 +16,9 @@
 /* Don't try reading more custom flags than this. */
 #define MAX_CUSTOM_FLAGS 1024
 
-extern MailIndex mbox_index;
+extern struct mail_index mbox_index;
 
-int mbox_set_syscall_error(MailIndex *index, const char *function)
+int mbox_set_syscall_error(struct mail_index *index, const char *function)
 {
 	i_assert(function != NULL);
 
@@ -27,7 +27,7 @@ int mbox_set_syscall_error(MailIndex *index, const char *function)
 	return FALSE;
 }
 
-int mbox_file_open(MailIndex *index)
+int mbox_file_open(struct mail_index *index)
 {
 	struct stat st;
 	int fd;
@@ -52,8 +52,8 @@ int mbox_file_open(MailIndex *index)
 	return TRUE;
 }
 
-IStream *mbox_get_stream(MailIndex *index, uoff_t offset,
-			 MailLockType lock_type)
+struct istream *mbox_get_stream(struct mail_index *index, uoff_t offset,
+				enum mail_lock_type lock_type)
 {
 	i_assert(offset < OFF_T_MAX);
 
@@ -104,7 +104,7 @@ IStream *mbox_get_stream(MailIndex *index, uoff_t offset,
 	return index->mbox_stream;
 }
 
-void mbox_file_close_stream(MailIndex *index)
+void mbox_file_close_stream(struct mail_index *index)
 {
 	if (index->mbox_stream != NULL) {
 		i_stream_close(index->mbox_stream);
@@ -113,7 +113,7 @@ void mbox_file_close_stream(MailIndex *index)
 	}
 }
 
-void mbox_file_close_fd(MailIndex *index)
+void mbox_file_close_fd(struct mail_index *index)
 {
 	mbox_file_close_stream(index);
 
@@ -124,10 +124,11 @@ void mbox_file_close_fd(MailIndex *index)
 	}
 }
 
-void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index,
-			      IStream *input)
+void mbox_header_init_context(struct mbox_header_context *ctx,
+			      struct mail_index *index,
+			      struct istream *input)
 {
-	memset(ctx, 0, sizeof(MboxHeaderContext));
+	memset(ctx, 0, sizeof(struct mbox_header_context));
 	md5_init(&ctx->md5);
 
 	ctx->index = index;
@@ -135,13 +136,14 @@ void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index,
 	ctx->custom_flags = mail_custom_flags_list_get(index->custom_flags);
 }
 
-void mbox_header_free_context(MboxHeaderContext *ctx __attr_unused__)
+void mbox_header_free_context(struct mbox_header_context *ctx __attr_unused__)
 {
 }
 
-static MailFlags mbox_get_status_flags(const unsigned char *value, size_t len)
+static enum mail_flags
+mbox_get_status_flags(const unsigned char *value, size_t len)
 {
-	MailFlags flags;
+	enum mail_flags flags;
 	size_t i;
 
 	flags = 0;
@@ -172,17 +174,17 @@ static void mbox_update_custom_flags(const unsigned char *value __attr_unused__,
 				     size_t len __attr_unused__,
 				     int index, void *context)
 {
-	MailFlags *flags = context;
+	enum mail_flags *flags = context;
 
 	if (index >= 0)
 		*flags |= 1 << (index + MAIL_CUSTOM_FLAG_1_BIT);
 }
 
-static MailFlags
+static enum mail_flags
 mbox_get_keyword_flags(const unsigned char *value, size_t len,
 		       const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT])
 {
-	MailFlags flags;
+	enum mail_flags flags;
 
 	flags = 0;
 	mbox_keywords_parse(value, len, custom_flags,
@@ -191,12 +193,12 @@ mbox_get_keyword_flags(const unsigned char *value, size_t len,
 }
 
 static int mbox_parse_imapbase(const unsigned char *value, size_t len,
-			       MboxHeaderContext *ctx)
+			       struct mbox_header_context *ctx)
 {
 	const char **flag;
-	Buffer *buf;
+	buffer_t *buf;
 	size_t pos, start;
-	MailFlags flags;
+	enum mail_flags flags;
 	unsigned int count;
 	int ret, spaces;
 
@@ -246,12 +248,12 @@ static int mbox_parse_imapbase(const unsigned char *value, size_t len,
 	return ret > 0;
 }
 
-void mbox_header_func(MessagePart *part __attr_unused__,
+void mbox_header_func(struct message_part *part __attr_unused__,
 		      const unsigned char *name, size_t name_len,
 		      const unsigned char *value, size_t value_len,
 		      void *context)
 {
-	MboxHeaderContext *ctx = context;
+	struct mbox_header_context *ctx = context;
 	uoff_t start_offset, end_offset;
 	size_t i;
 	int fixed = FALSE;
@@ -425,7 +427,7 @@ void mbox_keywords_parse(const unsigned char *value, size_t len,
 	}
 }
 
-int mbox_skip_crlf(IStream *input)
+int mbox_skip_crlf(struct istream *input)
 {
 	const unsigned char *data;
 	size_t size, pos;
@@ -456,7 +458,7 @@ int mbox_skip_crlf(IStream *input)
 	return TRUE;
 }
 
-void mbox_skip_empty_lines(IStream *input)
+void mbox_skip_empty_lines(struct istream *input)
 {
 	const unsigned char *data;
 	size_t i, size;
@@ -475,7 +477,7 @@ void mbox_skip_empty_lines(IStream *input)
 	}
 }
 
-static int mbox_is_valid_from(IStream *input, size_t startpos)
+static int mbox_is_valid_from(struct istream *input, size_t startpos)
 {
 	const unsigned char *msg;
 	size_t i, size;
@@ -495,7 +497,7 @@ static int mbox_is_valid_from(IStream *input, size_t startpos)
 	return FALSE;
 }
 
-static void mbox_skip_forward(IStream *input, int header)
+static void mbox_skip_forward(struct istream *input, int header)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos, eoh;
@@ -614,17 +616,17 @@ static void mbox_skip_forward(IStream *input, int header)
 	i_stream_skip(input, startpos);
 }
 
-void mbox_skip_header(IStream *input)
+void mbox_skip_header(struct istream *input)
 {
 	mbox_skip_forward(input, TRUE);
 }
 
-void mbox_skip_message(IStream *input)
+void mbox_skip_message(struct istream *input)
 {
 	mbox_skip_forward(input, FALSE);
 }
 
-int mbox_verify_end_of_body(IStream *input, uoff_t end_offset)
+int mbox_verify_end_of_body(struct istream *input, uoff_t end_offset)
 {
 	const unsigned char *data;
 	size_t size;
@@ -662,10 +664,11 @@ int mbox_verify_end_of_body(IStream *input, uoff_t end_offset)
 		(size >= 5 && strncmp((const char *) data, "From ", 5) == 0);
 }
 
-int mbox_mail_get_location(MailIndex *index, MailIndexRecord *rec,
+int mbox_mail_get_location(struct mail_index *index,
+			   struct mail_index_record *rec,
 			   uoff_t *offset, uoff_t *hdr_size, uoff_t *body_size)
 {
-	MailIndexDataRecordHeader *data_hdr;
+	struct mail_index_data_record_header *data_hdr;
 	const uoff_t *location;
 	size_t size;
 
@@ -716,14 +719,14 @@ int mbox_mail_get_location(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path)
+struct mail_index *mbox_index_alloc(const char *dir, const char *mbox_path)
 {
-	MailIndex *index;
+	struct mail_index *index;
 
 	i_assert(dir != NULL);
 
-	index = i_new(MailIndex, 1);
-	memcpy(index, &mbox_index, sizeof(MailIndex));
+	index = i_new(struct mail_index, 1);
+	memcpy(index, &mbox_index, sizeof(struct mail_index));
 
 	index->mbox_fd = -1;
 	index->mbox_sync_counter = (unsigned int)-1;
@@ -733,7 +736,7 @@ MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path)
 	return index;
 }
 
-static void mbox_index_free(MailIndex *index)
+static void mbox_index_free(struct mail_index *index)
 {
         mbox_file_close_fd(index);
 	mail_index_close(index);
@@ -742,21 +745,24 @@ static void mbox_index_free(MailIndex *index)
 	i_free(index);
 }
 
-static int mbox_index_set_lock(MailIndex *index, MailLockType lock_type)
+static int mbox_index_set_lock(struct mail_index *index,
+			       enum mail_lock_type lock_type)
 {
 	if (lock_type == MAIL_LOCK_UNLOCK)
 		(void)mbox_unlock(index);
 	return mail_index_set_lock(index, lock_type);
 }
 
-static int mbox_index_try_lock(MailIndex *index, MailLockType lock_type)
+static int mbox_index_try_lock(struct mail_index *index,
+			       enum mail_lock_type lock_type)
 {
 	if (lock_type == MAIL_LOCK_UNLOCK)
 		(void)mbox_unlock(index);
 	return mail_index_try_lock(index, lock_type);
 }
 
-static int mbox_index_expunge(MailIndex *index, MailIndexRecord *rec,
+static int mbox_index_expunge(struct mail_index *index,
+			      struct mail_index_record *rec,
 			      unsigned int seq, int external_change)
 {
 	if (!mail_index_expunge(index, rec, seq, external_change))
@@ -771,8 +777,9 @@ static int mbox_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-static int mbox_index_update_flags(MailIndex *index, MailIndexRecord *rec,
-				   unsigned int seq, MailFlags flags,
+static int mbox_index_update_flags(struct mail_index *index,
+				   struct mail_index_record *rec,
+				   unsigned int seq, enum mail_flags flags,
 				   int external_change)
 {
 	if (!mail_index_update_flags(index, rec, seq, flags, external_change))
@@ -785,7 +792,7 @@ static int mbox_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-MailIndex mbox_index = {
+struct mail_index mbox_index = {
 	mail_index_open,
 	mail_index_open_or_create,
 	mbox_index_free,

@@ -6,12 +6,12 @@
 #include "mail-search.h"
 #include "mail-sort.h"
 
-typedef struct {
-	MailSortType type;
+struct sort_name {
+	enum mail_sort_type type;
 	const char *name;
-} SortName;
+};
 
-static SortName sort_names[] = {
+static struct sort_name sort_names[] = {
 	{ MAIL_SORT_ARRIVAL,	"arrival" },
 	{ MAIL_SORT_CC,		"cc" },
 	{ MAIL_SORT_DATE,	"date" },
@@ -24,13 +24,15 @@ static SortName sort_names[] = {
 	{ MAIL_SORT_END,	NULL }
 };
 
-static MailSortType *get_sort_program(Client *client, ImapArg *args)
+static enum mail_sort_type *
+get_sort_program(struct client *client, struct imap_arg *args)
 {
-	MailSortType type;
-	Buffer *buf;
+	enum mail_sort_type type;
+	buffer_t *buf;
 	int i;
 
-	buf = buffer_create_dynamic(data_stack_pool, 32 * sizeof(MailSortType),
+	buf = buffer_create_dynamic(data_stack_pool,
+				    32 * sizeof(enum mail_sort_type),
 				    (size_t)-1);
 
 	while (args->type == IMAP_ARG_ATOM || args->type == IMAP_ARG_STRING) {
@@ -47,7 +49,8 @@ static MailSortType *get_sort_program(Client *client, ImapArg *args)
 			return NULL;
 		}
 
-		buffer_append(buf, &sort_names[i].type, sizeof(MailSortType));
+		buffer_append(buf, &sort_names[i].type,
+			      sizeof(enum mail_sort_type));
 		args++;
 	}
 
@@ -63,13 +66,13 @@ static MailSortType *get_sort_program(Client *client, ImapArg *args)
 	return buffer_free_without_data(buf);
 }
 
-int cmd_sort(Client *client)
+int cmd_sort(struct client *client)
 {
-	MailSearchArg *sargs;
-	MailSortType *sorting;
-	ImapArg *args;
+	struct mail_search_arg *sargs;
+	enum mail_sort_type *sorting;
+	struct imap_arg *args;
 	int args_count;
-	Pool pool;
+	pool_t pool;
 	const char *error, *charset;
 
 	args_count = imap_parser_read_args(client->parser, 0, 0, &args);

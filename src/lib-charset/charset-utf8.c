@@ -7,7 +7,7 @@
 #include <ctype.h>
 
 void _charset_utf8_ucase(const unsigned char *src, size_t src_size,
-			 Buffer *dest, size_t destpos)
+			 buffer_t *dest, size_t destpos)
 {
 	char *destbuf;
 	size_t i;
@@ -20,7 +20,7 @@ void _charset_utf8_ucase(const unsigned char *src, size_t src_size,
 const char *_charset_utf8_ucase_strdup(const unsigned char *data, size_t size,
 				       size_t *utf8_size_r)
 {
-	Buffer *dest;
+	buffer_t *dest;
 
 	dest = buffer_create_dynamic(data_stack_pool, size, (size_t)-1);
 	_charset_utf8_ucase(data, size, dest, 0);
@@ -39,10 +39,10 @@ struct _CharsetTranslation {
 	int dummy;
 };
 
-static CharsetTranslation ascii_translation, utf8_translation;
+static struct charset_translation ascii_translation, utf8_translation;
 
-CharsetTranslation *charset_to_utf8_begin(const char *charset,
-					  int *unknown_charset)
+struct charset_translation *charset_to_utf8_begin(const char *charset,
+						  int *unknown_charset)
 {
 	if (unknown_charset != NULL)
 		*unknown_charset = FALSE;
@@ -61,17 +61,18 @@ CharsetTranslation *charset_to_utf8_begin(const char *charset,
 	return NULL;
 }
 
-void charset_to_utf8_end(CharsetTranslation *t __attr_unused__)
+void charset_to_utf8_end(struct charset_translation *t __attr_unused__)
 {
 }
 
-void charset_to_utf8_reset(CharsetTranslation *t __attr_unused__)
+void charset_to_utf8_reset(struct charset_translation *t __attr_unused__)
 {
 }
 
-CharsetResult
-charset_to_ucase_utf8(CharsetTranslation *t __attr_unused__,
-		      const unsigned char *src, size_t *src_size, Buffer *dest)
+enum charset_result
+charset_to_ucase_utf8(struct charset_translation *t __attr_unused__,
+		      const unsigned char *src, size_t *src_size,
+		      buffer_t *dest)
 {
 	size_t destpos, destleft;
 

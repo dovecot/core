@@ -27,7 +27,8 @@
 #define I_MAX(a, b)  (((a) > (b)) ? (a) : (b))
 
 #undef CLAMP
-#define CLAMP(x, low, high)  (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
+#define CLAMP(x, low, high) \
+	(((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
 #undef NVL
 #define NVL(str, nullstr) ((str) != NULL ? (str) : (nullstr))
@@ -43,7 +44,8 @@
 /* Define VA_COPY() to do the right thing for copying va_list variables.
    config.h may have already defined VA_COPY as va_copy or __va_copy. */
 #ifndef VA_COPY
-#  if defined (__GNUC__) && defined (__PPC__) && (defined (_CALL_SYSV) || defined (_WIN32))
+#  if defined (__GNUC__) && defined (__PPC__) && \
+      (defined (_CALL_SYSV) || defined (_WIN32))
 #    define VA_COPY(ap1, ap2) (*(ap1) = *(ap2))
 #  elif defined (VA_COPY_AS_ARRAY)
 #    define VA_COPY(ap1, ap2) i_memmove ((ap1), (ap2), sizeof (va_list))

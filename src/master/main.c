@@ -28,10 +28,10 @@ const char *process_names[PROCESS_TYPE_MAX] = {
 };
 
 static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
-static IOLoop ioloop;
-static Timeout to;
+static struct ioloop *ioloop;
+static struct timeout *to;
 
-HashTable *pids;
+struct hash_table *pids;
 int null_fd, imap_fd, imaps_fd;
 
 int validate_str(const char *str, size_t max_len)
@@ -82,7 +82,7 @@ static void settings_reload(void)
         auth_processes_destroy_all();
 }
 
-static const char *get_exit_status_message(FatalExitStatus status)
+static const char *get_exit_status_message(enum fatal_exit_status status)
 {
 	switch (status) {
 	case FATAL_LOGOPEN:
@@ -104,7 +104,7 @@ static const char *get_exit_status_message(FatalExitStatus status)
 }
 
 static void timeout_handler(void *context __attr_unused__,
-			    Timeout timeout __attr_unused__)
+			    struct timeout *timeout __attr_unused__)
 {
 	const char *process_type_name, *msg;
 	pid_t pid;
@@ -150,9 +150,9 @@ static void timeout_handler(void *context __attr_unused__,
 		i_warning("waitpid() failed: %m");
 }
 
-static IPADDR *resolve_ip(const char *name)
+static struct ip_addr *resolve_ip(const char *name)
 {
-	IPADDR *ip;
+	struct ip_addr *ip;
 	int ret, ips_count;
 
 	if (name == NULL)
@@ -160,14 +160,14 @@ static IPADDR *resolve_ip(const char *name)
 
 	if (strcmp(name, "*") == 0) {
 		/* IPv4 any */
-		ip = t_new(IPADDR, 1);
+		ip = t_new(struct ip_addr, 1);
 		net_get_ip_any4(ip);
 		return ip;
 	}
 
 	if (strcmp(name, "::") == 0) {
 		/* IPv6 any */
-		ip = t_new(IPADDR, 1);
+		ip = t_new(struct ip_addr, 1);
 		net_get_ip_any6(ip);
 		return ip;
 	}
@@ -187,7 +187,7 @@ static IPADDR *resolve_ip(const char *name)
 
 static void open_fds(void)
 {
-	IPADDR *imap_ip, *imaps_ip;
+	struct ip_addr *imap_ip, *imaps_ip;
 
 	imap_ip = resolve_ip(set_imap_listen);
 	imaps_ip = resolve_ip(set_imaps_listen);

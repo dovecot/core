@@ -11,10 +11,11 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-static int maildir_index_append_fd(MailIndex *index, int fd, const char *fname)
+static int maildir_index_append_fd(struct mail_index *index,
+				   int fd, const char *fname)
 {
-	MailIndexRecord *rec;
-	MailIndexUpdate *update;
+	struct mail_index_record *rec;
+	struct mail_index_update *update;
 	struct stat st;
 	uoff_t virtual_size;
 	const char *p;
@@ -71,7 +72,7 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *fname)
 	return index->append_end(index, rec);
 }
 
-int maildir_index_append_file(MailIndex *index, const char *dir,
+int maildir_index_append_file(struct mail_index *index, const char *dir,
 			      const char *fname)
 {
 	const char *path;
@@ -100,7 +101,7 @@ int maildir_index_append_file(MailIndex *index, const char *dir,
 	return ret;
 }
 
-int maildir_index_build_dir(MailIndex *index, const char *source_dir,
+int maildir_index_build_dir(struct mail_index *index, const char *source_dir,
 			    const char *dest_dir)
 {
 	DIR *dirp;

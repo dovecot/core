@@ -1,27 +1,27 @@
 #ifndef __STR_H
 #define __STR_H
 
-String *str_new(Pool pool, size_t initial_size);
-String *t_str_new(size_t initial_size);
+string_t *str_new(pool_t pool, size_t initial_size);
+string_t *t_str_new(size_t initial_size);
 
-const char *str_c(String *str);
-const unsigned char *str_data(const String *str);
-char *str_c_modifyable(String *str);
-size_t str_len(const String *str);
+const char *str_c(string_t *str);
+const unsigned char *str_data(const string_t *str);
+char *str_c_modifyable(string_t *str);
+size_t str_len(const string_t *str);
 
 /* Append string/character */
-void str_append(String *str, const char *cstr);
-void str_append_n(String *str, const void *cstr, size_t max_len);
-void str_append_c(String *str, char chr);
-void str_append_str(String *dest, const String *src);
+void str_append(string_t *str, const char *cstr);
+void str_append_n(string_t *str, const void *cstr, size_t max_len);
+void str_append_c(string_t *str, char chr);
+void str_append_str(string_t *dest, const string_t *src);
 
 /* Append printf()-like data */
-void str_printfa(String *str, const char *fmt, ...)
+void str_printfa(string_t *str, const char *fmt, ...)
 	__attr_format__(2, 3);
-void str_vprintfa(String *str, const char *fmt, va_list args);
+void str_vprintfa(string_t *str, const char *fmt, va_list args);
 
 /* Delete/truncate */
-void str_delete(String *str, size_t pos, size_t len);
-void str_truncate(String *str, size_t len);
+void str_delete(string_t *str, size_t pos, size_t len);
+void str_truncate(string_t *str, size_t len);
 
 #endif

@@ -16,8 +16,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-typedef struct {
-	OStream *output;
+struct mbox_rewrite_context {
+	struct ostream *output;
 	int failed;
 
 	uoff_t content_length;
@@ -33,12 +33,12 @@ typedef struct {
 	unsigned int status_found:1;
 	unsigned int xstatus_found:1;
 	unsigned int content_length_found:1;
-} MboxRewriteContext;
+};
 
 /* Remove dirty flag from all messages */
-static void reset_dirty_flags(MailIndex *index)
+static void reset_dirty_flags(struct mail_index *index)
 {
-	MailIndexRecord *rec;
+	struct mail_index_record *rec;
 
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
@@ -50,8 +50,8 @@ static void reset_dirty_flags(MailIndex *index)
 				  MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS);
 }
 
-static int mbox_write(MailIndex *index, IStream *input, OStream *output,
-		      uoff_t end_offset)
+static int mbox_write(struct mail_index *index, struct istream *input,
+		      struct ostream *output, uoff_t end_offset)
 {
 	uoff_t old_limit;
 	int failed;
@@ -78,7 +78,7 @@ static int mbox_write(MailIndex *index, IStream *input, OStream *output,
 	return !failed;
 }
 
-static int mbox_write_ximapbase(MboxRewriteContext *ctx)
+static int mbox_write_ximapbase(struct mbox_rewrite_context *ctx)
 {
 	const char *str;
 	int i;
@@ -105,7 +105,8 @@ static int mbox_write_ximapbase(MboxRewriteContext *ctx)
 	return TRUE;
 }
 
-static int mbox_write_xkeywords(MboxRewriteContext *ctx, const char *x_keywords)
+static int mbox_write_xkeywords(struct mbox_rewrite_context *ctx,
+				const char *x_keywords)
 {
 	unsigned int field;
 	int i;
@@ -144,7 +145,8 @@ static int mbox_write_xkeywords(MboxRewriteContext *ctx, const char *x_keywords)
 	return TRUE;
 }
 
-static int mbox_write_status(MboxRewriteContext *ctx, const char *status)
+static int mbox_write_status(struct mbox_rewrite_context *ctx,
+			     const char *status)
 {
 	const char *str;
 
@@ -160,7 +162,8 @@ static int mbox_write_status(MboxRewriteContext *ctx, const char *status)
 	return TRUE;
 }
 
-static int mbox_write_xstatus(MboxRewriteContext *ctx, const char *x_status)
+static int mbox_write_xstatus(struct mbox_rewrite_context *ctx,
+			      const char *x_status)
 {
 	const char *str;
 
@@ -184,7 +187,7 @@ static int mbox_write_xstatus(MboxRewriteContext *ctx, const char *x_status)
 	return TRUE;
 }
 
-static int mbox_write_content_length(MboxRewriteContext *ctx)
+static int mbox_write_content_length(struct mbox_rewrite_context *ctx)
 {
 	char str[MAX_INT_STRLEN+30];
 
@@ -219,7 +222,7 @@ static const char *strip_chars(const unsigned char *value, size_t value_len,
 static void update_stripped_custom_flags(const unsigned char *value, size_t len,
 					 int index, void *context)
 {
-	String *str = context;
+	string_t *str = context;
 
 	if (index < 0) {
 		/* not found, keep it */
@@ -230,9 +233,9 @@ static void update_stripped_custom_flags(const unsigned char *value, size_t len,
 }
 
 static const char *strip_custom_flags(const unsigned char *value, size_t len,
-				      MboxRewriteContext *ctx)
+				      struct mbox_rewrite_context *ctx)
 {
-	String *str;
+	string_t *str;
 
 	str = t_str_new(len+1);
 	mbox_keywords_parse(value, len, ctx->custom_flags,
@@ -240,12 +243,12 @@ static const char *strip_custom_flags(const unsigned char *value, size_t len,
 	return str_len(str) == 0 ? NULL : str_c(str);
 }
 
-static void header_func(MessagePart *part __attr_unused__,
+static void header_func(struct message_part *part __attr_unused__,
 			const unsigned char *name, size_t name_len,
 			const unsigned char *value, size_t value_len,
 			void *context)
 {
-	MboxRewriteContext *ctx = context;
+	struct mbox_rewrite_context *ctx = context;
 	const char *str;
 	char *end;
 
@@ -296,9 +299,10 @@ static void header_func(MessagePart *part __attr_unused__,
 		ctx->failed = TRUE;
 }
 
-static int mbox_write_header(MailIndex *index,
-			     MailIndexRecord *rec, unsigned int seq,
-			     IStream *input, OStream *output, uoff_t end_offset,
+static int mbox_write_header(struct mail_index *index,
+			     struct mail_index_record *rec, unsigned int seq,
+			     struct istream *input, struct ostream *output,
+			     uoff_t end_offset,
 			     uoff_t hdr_size, uoff_t body_size)
 {
 	/* We need to update fields that define message flags. Standard fields
@@ -312,8 +316,8 @@ static int mbox_write_header(MailIndex *index,
 	   validity is always kept different from our internal UID validity.
 	   Last used UID is also not updated, and set to 0 initially.
 	*/
-	MboxRewriteContext ctx;
-	MessageSize hdr_parsed_size;
+	struct mbox_rewrite_context ctx;
+	struct message_size hdr_parsed_size;
 
 	if (input->v_offset >= end_offset) {
 		/* fsck should have noticed it.. */
@@ -364,8 +368,8 @@ static int mbox_write_header(MailIndex *index,
 
 static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
 {
-	IStream *input;
-	OStream *output;
+	struct istream *input;
+	struct ostream *output;
 	int ret;
 
 	i_assert(out_offset <= OFF_T_MAX);
@@ -399,15 +403,15 @@ static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
 #define INDEX_DIRTY_FLAGS \
         (MAIL_INDEX_FLAG_DIRTY_MESSAGES | MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS)
 
-int mbox_index_rewrite(MailIndex *index)
+int mbox_index_rewrite(struct mail_index *index)
 {
 	/* Write messages beginning from the first dirty one to temp file,
 	   then copy it over the mbox file. This may create data loss if
 	   interrupted (see below). This rewriting relies quite a lot on
 	   valid header/body sizes which fsck() should have ensured. */
-	MailIndexRecord *rec;
-	IStream *input;
-	OStream *output;
+	struct mail_index_record *rec;
+	struct istream *input;
+	struct ostream *output;
 	uoff_t offset, hdr_size, body_size, dirty_offset;
 	const char *path;
 	unsigned int seq;

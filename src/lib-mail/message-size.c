@@ -5,12 +5,12 @@
 #include "message-parser.h"
 #include "message-size.h"
 
-void message_get_header_size(IStream *input, MessageSize *hdr)
+void message_get_header_size(struct istream *input, struct message_size *hdr)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos, missing_cr_count;
 
-	memset(hdr, 0, sizeof(MessageSize));
+	memset(hdr, 0, sizeof(struct message_size));
 
 	missing_cr_count = 0; startpos = 0;
 	while (i_stream_read_data(input, &msg, &size, startpos) > 0) {
@@ -55,14 +55,14 @@ void message_get_header_size(IStream *input, MessageSize *hdr)
 	i_assert(hdr->virtual_size >= hdr->physical_size);
 }
 
-void message_get_body_size(IStream *input, MessageSize *body,
+void message_get_body_size(struct istream *input, struct message_size *body,
 			   uoff_t max_virtual_size, int *last_cr)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos, missing_cr_count;
 	int cr;
 
-	memset(body, 0, sizeof(MessageSize));
+	memset(body, 0, sizeof(struct message_size));
 
 	cr = 0;
 	missing_cr_count = 0; startpos = 0;
@@ -110,8 +110,8 @@ void message_get_body_size(IStream *input, MessageSize *body,
 		*last_cr = cr;
 }
 
-void message_skip_virtual(IStream *input, uoff_t virtual_skip,
-			  MessageSize *msg_size, int *cr_skipped)
+void message_skip_virtual(struct istream *input, uoff_t virtual_skip,
+			  struct message_size *msg_size, int *cr_skipped)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos;
@@ -168,7 +168,8 @@ void message_skip_virtual(IStream *input, uoff_t virtual_skip,
 	}
 }
 
-void message_size_add(MessageSize *dest, const MessageSize *src)
+void message_size_add(struct message_size *dest,
+		      const struct message_size *src)
 {
 	dest->virtual_size += src->virtual_size;
 	dest->physical_size += src->physical_size;

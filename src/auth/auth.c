@@ -6,38 +6,36 @@
 
 #include <stdlib.h>
 
-typedef struct _AuthModuleList AuthModuleList;
+struct auth_module_list {
+	struct auth_module_list *next;
 
-struct _AuthModuleList {
-	AuthModuleList *next;
-
-	AuthModule module;
+	struct auth_module module;
 };
 
-AuthMethod auth_methods;
+enum auth_method auth_methods;
 const char *const *auth_realms;
 
-static AuthModuleList *auth_modules;
-static AuthReplyData failure_reply;
+static struct auth_module_list *auth_modules;
+static struct auth_reply_data failure_reply;
 
-void auth_register_module(AuthModule *module)
+void auth_register_module(struct auth_module *module)
 {
-	AuthModuleList *list;
+	struct auth_module_list *list;
 
 	i_assert((auth_methods & module->method) == 0);
 
 	auth_methods |= module->method;
 
-	list = i_new(AuthModuleList, 1);
-	memcpy(&list->module, module, sizeof(AuthModule));
+	list = i_new(struct auth_module_list, 1);
+	memcpy(&list->module, module, sizeof(struct auth_module));
 
 	list->next = auth_modules;
 	auth_modules = list;
 }
 
-void auth_unregister_module(AuthModule *module)
+void auth_unregister_module(struct auth_module *module)
 {
-	AuthModuleList **pos, *list;
+	struct auth_module_list **pos, *list;
 
 	if ((auth_methods & module->method) == 0)
 		return; /* not registered */
@@ -55,10 +53,10 @@ void auth_unregister_module(AuthModule *module)
 }
 
 void auth_init_request(unsigned int login_pid,
-		       AuthInitRequestData *request,
+		       struct auth_init_request_data *request,
 		       AuthCallback callback, void *context)
 {
-	AuthModuleList *list;
+	struct auth_module_list *list;
 
 	if ((auth_methods & request->method) == 0) {
 		/* unsupported method */
@@ -81,11 +79,11 @@ void auth_init_request(unsigned int login_pid,
 }
 
 void auth_continue_request(unsigned int login_pid,
-			   AuthContinuedRequestData *request,
+			   struct auth_continued_request_data *request,
 			   const unsigned char *data,
 			   AuthCallback callback, void *context)
 {
-	CookieData *cookie_data;
+	struct cookie_data *cookie_data;
 
 	cookie_data = cookie_lookup(request->cookie);
 	if (cookie_data == NULL) {
@@ -100,8 +98,8 @@ void auth_continue_request(unsigned int login_pid,
 	}
 }
 
-extern AuthModule auth_plain;
-extern AuthModule auth_digest_md5;
+extern struct auth_module auth_plain;
+extern struct auth_module auth_digest_md5;
 
 void auth_init(void)
 {

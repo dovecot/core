@@ -10,8 +10,9 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-IStream *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
-			   time_t *internal_date, int *deleted)
+struct istream *maildir_open_mail(struct mail_index *index,
+				  struct mail_index_record *rec,
+				  time_t *internal_date, int *deleted)
 {
 	struct stat st;
 	const char *fname, *path;

@@ -26,48 +26,49 @@
 #include "lib.h"
 #include "istream-internal.h"
 
-static void _close(_IOStream *stream __attr_unused__)
+static void _close(struct _iostream *stream __attr_unused__)
 {
 }
 
-static void _destroy(_IOStream *stream __attr_unused__)
+static void _destroy(struct _iostream *stream __attr_unused__)
 {
 }
 
-static void _set_max_buffer_size(_IOStream *stream __attr_unused__,
+static void _set_max_buffer_size(struct _iostream *stream __attr_unused__,
 				 size_t max_size __attr_unused__)
 {
 }
 
-static void _set_blocking(_IOStream *stream __attr_unused__,
+static void _set_blocking(struct _iostream *stream __attr_unused__,
 			  int timeout_msecs __attr_unused__,
 			  void (*timeout_func)(void *) __attr_unused__,
 			  void *context __attr_unused__)
 {
 }
 
-static ssize_t _read(_IStream *stream)
+static ssize_t _read(struct _istream *stream)
 {
 	return stream->pos - stream->skip;
 }
 
-static void _seek(_IStream *stream, uoff_t v_offset)
+static void _seek(struct _istream *stream, uoff_t v_offset)
 {
 	stream->skip = v_offset;
 	stream->istream.v_offset = v_offset;
 }
 
-static void _skip(_IStream *stream, uoff_t count)
+static void _skip(struct _istream *stream, uoff_t count)
 {
 	stream->skip += count;
 	stream->istream.v_offset += count;
 }
 
-IStream *i_stream_create_from_data(Pool pool, const void *data, size_t size)
+struct istream *i_stream_create_from_data(pool_t pool, const void *data,
+					  size_t size)
 {
-	_IStream *stream;
+	struct _istream *stream;
 
-	stream = p_new(pool, _IStream, 1);
+	stream = p_new(pool, struct _istream, 1);
 	stream->buffer = data;
 	stream->pos = size;
 

@@ -14,7 +14,8 @@
 
 #include <unistd.h>
 
-static int index_fetch_internaldate(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_internaldate(struct mail_index_record *rec,
+				    struct fetch_context *ctx)
 {
 	time_t date;
 
@@ -31,7 +32,8 @@ static int index_fetch_internaldate(MailIndexRecord *rec, FetchContext *ctx)
 	}
 }
 
-static int index_fetch_body(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_body(struct mail_index_record *rec,
+			    struct fetch_context *ctx)
 {
 	const char *body;
 
@@ -47,7 +49,8 @@ static int index_fetch_body(MailIndexRecord *rec, FetchContext *ctx)
 	}
 }
 
-static int index_fetch_bodystructure(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_bodystructure(struct mail_index_record *rec,
+				     struct fetch_context *ctx)
 {
 	const char *bodystructure;
 
@@ -63,7 +66,8 @@ static int index_fetch_bodystructure(MailIndexRecord *rec, FetchContext *ctx)
 	}
 }
 
-static int index_fetch_envelope(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_envelope(struct mail_index_record *rec,
+				struct fetch_context *ctx)
 {
 	const char *envelope;
 
@@ -79,7 +83,8 @@ static int index_fetch_envelope(MailIndexRecord *rec, FetchContext *ctx)
 	}
 }
 
-static int index_fetch_rfc822_size(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_rfc822_size(struct mail_index_record *rec,
+				   struct fetch_context *ctx)
 {
 	uoff_t size;
 
@@ -95,9 +100,10 @@ static int index_fetch_rfc822_size(MailIndexRecord *rec, FetchContext *ctx)
 	return TRUE;
 }
 
-static void index_fetch_flags(MailIndexRecord *rec, FetchContext *ctx)
+static void index_fetch_flags(struct mail_index_record *rec,
+			      struct fetch_context *ctx)
 {
-	MailFlags flags;
+	enum mail_flags flags;
 
 	flags = rec->msg_flags;
 	if (rec->uid >= ctx->index->first_recent_uid)
@@ -110,15 +116,17 @@ static void index_fetch_flags(MailIndexRecord *rec, FetchContext *ctx)
 				     ctx->custom_flags_count));
 }
 
-static void index_fetch_uid(MailIndexRecord *rec, FetchContext *ctx)
+static void index_fetch_uid(struct mail_index_record *rec,
+			    struct fetch_context *ctx)
 {
 	str_printfa(ctx->str, "UID %u ", rec->uid);
 }
 
-static int index_fetch_send_rfc822(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_send_rfc822(struct mail_index_record *rec,
+				   struct fetch_context *ctx)
 {
-	MessageSize hdr_size, body_size;
-	IStream *input;
+	struct message_size hdr_size, body_size;
+	struct istream *input;
 	const char *str;
 
 	if (!imap_msgcache_get_rfc822(ctx->cache, &input,
@@ -142,11 +150,11 @@ static int index_fetch_send_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 	return message_send(ctx->output, input, &body_size, 0, (uoff_t)-1);
 }
 
-static int index_fetch_send_rfc822_header(MailIndexRecord *rec,
-					  FetchContext *ctx)
+static int index_fetch_send_rfc822_header(struct mail_index_record *rec,
+					  struct fetch_context *ctx)
 {
-	MessageSize hdr_size;
-	IStream *input;
+	struct message_size hdr_size;
+	struct istream *input;
 	const char *str;
 
 	if (!imap_msgcache_get_rfc822(ctx->cache, &input, &hdr_size, NULL)) {
@@ -167,10 +175,11 @@ static int index_fetch_send_rfc822_header(MailIndexRecord *rec,
 	return message_send(ctx->output, input, &hdr_size, 0, (uoff_t)-1);
 }
 
-static int index_fetch_send_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
+static int index_fetch_send_rfc822_text(struct mail_index_record *rec,
+					struct fetch_context *ctx)
 {
-	MessageSize body_size;
-	IStream *input;
+	struct message_size body_size;
+	struct istream *input;
 	const char *str;
 
 	if (!imap_msgcache_get_rfc822(ctx->cache, &input, NULL, &body_size)) {
@@ -191,10 +200,10 @@ static int index_fetch_send_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 	return message_send(ctx->output, input, &body_size, 0, (uoff_t)-1);
 }
 
-static ImapCacheField index_get_cache(MailFetchData *fetch_data)
+static enum imap_cache_field index_get_cache(struct mail_fetch_data *fetch_data)
 {
-	MailFetchBodyData *sect;
-	ImapCacheField field;
+	struct mail_fetch_body_data *sect;
+	enum imap_cache_field field;
 
 	field = 0;
 	if (fetch_data->body)
@@ -224,9 +233,10 @@ static ImapCacheField index_get_cache(MailFetchData *fetch_data)
 	return field;
 }
 
-static int fetch_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
+static int fetch_msgcache_open(struct fetch_context *ctx,
+			       struct mail_index_record *rec)
 {
-	ImapCacheField fields;
+	enum imap_cache_field fields;
 
 	fields = index_get_cache(ctx->fetch_data);
 	if (fields == 0)
@@ -235,14 +245,13 @@ static int fetch_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
 	return index_msgcache_open(ctx->cache, ctx->index, rec, fields);
 }
 
-static int index_fetch_mail(MailIndex *index __attr_unused__,
-			    MailIndexRecord *rec,
-			    unsigned int client_seq,
-			    unsigned int idx_seq,
+static int index_fetch_mail(struct mail_index *index __attr_unused__,
+			    struct mail_index_record *rec,
+			    unsigned int client_seq, unsigned int idx_seq,
 			    void *context)
 {
-	FetchContext *ctx = context;
-	MailFetchBodyData *sect;
+	struct fetch_context *ctx = context;
+	struct mail_fetch_body_data *sect;
 	size_t len, orig_len;
 	int failed, data_written, fetch_flags;
 
@@ -339,12 +348,12 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 	return !failed;
 }
 
-int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
-			OStream *output, int *all_found)
+int index_storage_fetch(struct mailbox *box, struct mail_fetch_data *fetch_data,
+			struct ostream *output, int *all_found)
 {
-	IndexMailbox *ibox = (IndexMailbox *) box;
-	FetchContext ctx;
-	MailFetchBodyData *sect;
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+	struct fetch_context ctx;
+	struct mail_fetch_body_data *sect;
 	int ret;
 
 	memset(&ctx, 0, sizeof(ctx));

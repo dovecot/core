@@ -3,9 +3,9 @@
 #include "lib.h"
 #include "istream.h"
 #include "str.h"
-#include "rfc822-tokenize.h"
 #include "message-parser.h"
 #include "message-content-parser.h"
+#include "message-tokenize.h"
 #include "imap-parser.h"
 #include "imap-quote.h"
 #include "imap-envelope.h"
@@ -14,9 +14,9 @@
 #define EMPTY_BODYSTRUCTURE \
         "(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0)"
 
-typedef struct {
-	Pool pool;
-	String *str;
+struct message_part_body_data {
+	pool_t pool;
+	string_t *str;
 	char *content_type, *content_subtype;
 	char *content_type_params;
 	char *content_transfer_encoding;
@@ -27,16 +27,16 @@ typedef struct {
 	char *content_md5;
 	char *content_language;
 
-	MessagePartEnvelopeData *envelope;
-} MessagePartBodyData;
+	struct message_part_envelope_data *envelope;
+};
 
-static void part_write_bodystructure(MessagePart *part, String *str,
-				     int extended);
+static void part_write_bodystructure(struct message_part *part,
+				     string_t *str, int extended);
 
 static void parse_content_type(const unsigned char *value, size_t value_len,
 			       void *context)
 {
-        MessagePartBodyData *data = context;
+        struct message_part_body_data *data = context;
 	size_t i;
 
 	for (i = 0; i < value_len; i++) {
@@ -62,7 +62,7 @@ static void parse_save_params_list(const unsigned char *name, size_t name_len,
 				   int value_quoted __attr_unused__,
 				   void *context)
 {
-        MessagePartBodyData *data = context;
+        struct message_part_body_data *data = context;
 
 	if (str_len(data->str) != 0)
 		str_append_c(data->str, ' ');
@@ -79,7 +79,7 @@ static void parse_save_params_list(const unsigned char *name, size_t name_len,
 static void parse_content_transfer_encoding(const unsigned char *value,
 					    size_t value_len, void *context)
 {
-        MessagePartBodyData *data = context;
+        struct message_part_body_data *data = context;
 
 	data->content_transfer_encoding =
 		imap_quote_value(data->pool, value, value_len);
@@ -88,29 +88,29 @@ static void parse_content_transfer_encoding(const unsigned char *value,
 static void parse_content_disposition(const unsigned char *value,
 				      size_t value_len, void *context)
 {
-        MessagePartBodyData *data = context;
+        struct message_part_body_data *data = context;
 
 	data->content_disposition =
 		imap_quote_value(data->pool, value, value_len);
 }
 
 static void parse_content_language(const unsigned char *value, size_t value_len,
-				   MessagePartBodyData *data)
+				   struct message_part_body_data *data)
 {
-	Rfc822TokenizeContext *ctx;
-        Rfc822Token token;
-	String *str;
+	struct message_tokenizer *tok;
+        enum message_token token;
+	string_t *str;
 	int quoted;
 
 	/* Content-Language: en-US, az-arabic (comments allowed) */
 
-	ctx = rfc822_tokenize_init(value, value_len, NULL, NULL);
+	tok = message_tokenize_init(value, value_len, NULL, NULL);
 
 	t_push();
 	str = t_str_new(256);
 
 	quoted = FALSE;
-	while ((token = rfc822_tokenize_next(ctx)) != TOKEN_LAST) {
+	while ((token = message_tokenize_next(tok)) != TOKEN_LAST) {
 		if (token == ',') {
 			/* list separator */
 			if (quoted) {
@@ -131,8 +131,8 @@ static void parse_content_language(const unsigned char *value, size_t value_len,
 			if (!IS_TOKEN_STRING(token))
 				str_append_c(str, token);
 			else {
-				value = rfc822_tokenize_get_value(ctx,
-								  &value_len);
+				value = message_tokenize_get_value(tok,
+								   &value_len);
 				str_append_n(str, value, value_len);
 			}
 		}
@@ -145,16 +145,16 @@ static void parse_content_language(const unsigned char *value, size_t value_len,
 
 	t_pop();
 
-	rfc822_tokenize_deinit(ctx);
+	message_tokenize_deinit(tok);
 }
 
-static void parse_header(MessagePart *part,
+static void parse_header(struct message_part *part,
 			 const unsigned char *name, size_t name_len,
 			 const unsigned char *value, size_t value_len,
 			 void *context)
 {
-	Pool pool = context;
-	MessagePartBodyData *part_data;
+	pool_t pool = context;
+	struct message_part_body_data *part_data;
 	int parent_rfc822;
 
 	parent_rfc822 = part->parent != NULL &&
@@ -166,7 +166,7 @@ static void parse_header(MessagePart *part,
 	if (part->context == NULL) {
 		/* initialize message part data */
 		part->context = part_data =
-			p_new(pool, MessagePartBodyData, 1);
+			p_new(pool, struct message_part_body_data, 1);
 		part_data->pool = pool;
 	}
 	part_data = part->context;
@@ -245,8 +245,8 @@ static void parse_header(MessagePart *part,
 	t_pop();
 }
 
-static void part_parse_headers(MessagePart *part, IStream *input,
-			       uoff_t start_offset, Pool pool)
+static void part_parse_headers(struct message_part *part, struct istream *input,
+			       uoff_t start_offset, pool_t pool)
 {
 	while (part != NULL) {
 		/* note that we want to parse the header of all
@@ -266,14 +266,14 @@ static void part_parse_headers(MessagePart *part, IStream *input,
 	}
 }
 
-static void part_write_body_multipart(MessagePart *part, String *str,
-				      int extended)
+static void part_write_body_multipart(struct message_part *part,
+				      string_t *str, int extended)
 {
-	MessagePartBodyData *data = part->context;
+	struct message_part_body_data *data = part->context;
 
 	if (data == NULL) {
 		/* there was no content headers, use an empty structure */
-		data = t_new(MessagePartBodyData, 1);
+		data = t_new(struct message_part_body_data, 1);
 	}
 
 	if (part->children != NULL)
@@ -332,13 +332,14 @@ static void part_write_body_multipart(MessagePart *part, String *str,
 	}
 }
 
-static void part_write_body(MessagePart *part, String *str, int extended)
+static void part_write_body(struct message_part *part,
+			    string_t *str, int extended)
 {
-	MessagePartBodyData *data = part->context;
+	struct message_part_body_data *data = part->context;
 
 	if (data == NULL) {
 		/* there was no content headers, use an empty structure */
-		data = t_new(MessagePartBodyData, 1);
+		data = t_new(struct message_part_body_data, 1);
 	}
 
 	/* "content type" "subtype" */
@@ -367,7 +368,7 @@ static void part_write_body(MessagePart *part, String *str, int extended)
 		str_printfa(str, " %u", part->body_size.lines);
 	} else if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
 		/* message/rfc822 contains envelope + body + line count */
-		MessagePartBodyData *child_data;
+		struct message_part_body_data *child_data;
 
 		i_assert(part->children != NULL);
 		i_assert(part->children->next == NULL);
@@ -428,8 +429,8 @@ static void part_write_body(MessagePart *part, String *str, int extended)
 	}
 }
 
-static void part_write_bodystructure(MessagePart *part, String *str,
-				     int extended)
+static void part_write_bodystructure(struct message_part *part,
+				     string_t *str, int extended)
 {
 	i_assert(part->parent != NULL || part->next == NULL);
 
@@ -449,17 +450,18 @@ static void part_write_bodystructure(MessagePart *part, String *str,
 	}
 }
 
-static const char *part_get_bodystructure(MessagePart *part, int extended)
+static const char *part_get_bodystructure(struct message_part *part,
+					  int extended)
 {
-	String *str;
+	string_t *str;
 
 	str = t_str_new(2048);
 	part_write_bodystructure(part, str, extended);
 	return str_c(str);
 }
 
-const char *imap_part_get_bodystructure(Pool pool, MessagePart **part,
-					IStream *input, int extended)
+const char *imap_part_get_bodystructure(pool_t pool, struct message_part **part,
+					struct istream *input, int extended)
 {
 	uoff_t start_offset;
 
@@ -473,7 +475,7 @@ const char *imap_part_get_bodystructure(Pool pool, MessagePart **part,
 	return part_get_bodystructure(*part, extended);
 }
 
-static int imap_write_list(const ImapArg *args, String *str)
+static int imap_write_list(const struct imap_arg *args, string_t *str)
 {
 	/* don't do any typechecking, just write it out */
 	str_append_c(str, '(');
@@ -506,10 +508,11 @@ static int imap_write_list(const ImapArg *args, String *str)
 	return TRUE;
 }
 
-static int imap_parse_bodystructure_args(const ImapArg *args, String *str)
+static int imap_parse_bodystructure_args(const struct imap_arg *args,
+					 string_t *str)
 {
-	ImapArg *subargs;
-	ImapArgList *list;
+	struct imap_arg *subargs;
+	struct imap_arg_list *list;
 	int i, multipart, text, message_rfc822;
 
 	multipart = FALSE;
@@ -620,10 +623,10 @@ static int imap_parse_bodystructure_args(const ImapArg *args, String *str)
 
 const char *imap_body_parse_from_bodystructure(const char *bodystructure)
 {
-	IStream *input;
-	ImapParser *parser;
-	ImapArg *args;
-	String *str;
+	struct istream *input;
+	struct imap_parser *parser;
+	struct imap_arg *args;
+	string_t *str;
 	const char *value;
 	size_t len;
 	int ret;

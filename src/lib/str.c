@@ -28,17 +28,17 @@
 
 #include <stdio.h>
 
-String *str_new(Pool pool, size_t initial_size)
+string_t *str_new(pool_t pool, size_t initial_size)
 {
 	return buffer_create_dynamic(pool, initial_size, (size_t)-1);
 }
 
-String *t_str_new(size_t initial_size)
+string_t *t_str_new(size_t initial_size)
 {
 	return str_new(data_stack_pool, initial_size);
 }
 
-static int str_add_nul(String *str)
+static int str_add_nul(string_t *str)
 {
 	size_t len;
 
@@ -59,7 +59,7 @@ static int str_add_nul(String *str)
 	return TRUE;
 }
 
-const char *str_c(String *str)
+const char *str_c(string_t *str)
 {
 	if (!str_add_nul(str))
 		return "";
@@ -67,12 +67,12 @@ const char *str_c(String *str)
 	return buffer_get_data(str, NULL);
 }
 
-const unsigned char *str_data(const String *str)
+const unsigned char *str_data(const string_t *str)
 {
 	return buffer_get_data(str, NULL);
 }
 
-char *str_c_modifyable(String *str)
+char *str_c_modifyable(string_t *str)
 {
 	if (!str_add_nul(str))
 		return NULL;
@@ -80,17 +80,17 @@ char *str_c_modifyable(String *str)
 	return buffer_get_modifyable_data(str, NULL);
 }
 
-size_t str_len(const String *str)
+size_t str_len(const string_t *str)
 {
 	return buffer_get_used_size(str);
 }
 
-void str_append(String *str, const char *cstr)
+void str_append(string_t *str, const char *cstr)
 {
 	buffer_append(str, cstr, strlen(cstr));
 }
 
-void str_append_n(String *str, const void *cstr, size_t max_len)
+void str_append_n(string_t *str, const void *cstr, size_t max_len)
 {
 	size_t len;
 
@@ -101,12 +101,12 @@ void str_append_n(String *str, const void *cstr, size_t max_len)
 	buffer_append(str, cstr, len);
 }
 
-void str_append_c(String *str, char chr)
+void str_append_c(string_t *str, char chr)
 {
 	buffer_append_c(str, chr);
 }
 
-void str_append_str(String *dest, const String *src)
+void str_append_str(string_t *dest, const string_t *src)
 {
 	const char *cstr;
 	size_t len;
@@ -115,7 +115,7 @@ void str_append_str(String *dest, const String *src)
 	buffer_append(dest, cstr, len);
 }
 
-void str_printfa(String *str, const char *fmt, ...)
+void str_printfa(string_t *str, const char *fmt, ...)
 {
 	va_list args;
 
@@ -124,7 +124,7 @@ void str_printfa(String *str, const char *fmt, ...)
 	va_end(args);
 }
 
-void str_vprintfa(String *str, const char *fmt, va_list args)
+void str_vprintfa(string_t *str, const char *fmt, va_list args)
 {
 	char *buf;
 	int ret;
@@ -153,12 +153,12 @@ void str_vprintfa(String *str, const char *fmt, va_list args)
 	buffer_set_used_size(str, len);
 }
 
-void str_delete(String *str, size_t pos, size_t len)
+void str_delete(string_t *str, size_t pos, size_t len)
 {
 	buffer_delete(str, pos, len);
 }
 
-void str_truncate(String *str, size_t len)
+void str_truncate(string_t *str, size_t len)
 {
 	buffer_set_used_size(str, len);
 }

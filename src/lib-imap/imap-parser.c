@@ -11,29 +11,29 @@
 
 #define LIST_ALLOC_SIZE 7
 
-typedef enum {
+enum arg_parse_type {
 	ARG_PARSE_NONE = 0,
 	ARG_PARSE_ATOM,
 	ARG_PARSE_STRING,
 	ARG_PARSE_LITERAL,
 	ARG_PARSE_LITERAL_DATA
-} ArgParseType;
+};
 
-struct _ImapParser {
+struct imap_parser {
 	/* permanent */
-	Pool pool;
-	IStream *input;
-	OStream *output;
+	pool_t pool;
+	struct istream *input;
+	struct ostream *output;
 	size_t max_literal_size, max_elements;
-        ImapParserFlags flags;
+        enum imap_parser_flags flags;
 
 	/* reset by imap_parser_reset(): */
-        ImapArgList *root_list;
-        ImapArgList *cur_list;
-	ImapArg *list_arg;
+        struct imap_arg_list *root_list;
+        struct imap_arg_list *cur_list;
+	struct imap_arg *list_arg;
 	size_t element_count;
 
-	ArgParseType cur_type;
+	enum arg_parse_type cur_type;
 	size_t cur_pos; /* parser position in input buffer */
 
 	int str_first_escape; /* ARG_PARSE_STRING: index to first '\' */
@@ -48,10 +48,12 @@ struct _ImapParser {
 
 #define LIST_REALLOC(parser, old_list, size) \
 	p_realloc((parser)->pool, old_list, \
-		  sizeof(ImapArgList) + sizeof(ImapArg) * ((size)-1))
+		  sizeof(struct imap_arg_list) + \
+		  sizeof(struct imap_arg) * ((size)-1))
 
-static void imap_args_realloc(ImapParser *parser, size_t size)
+static void imap_args_realloc(struct imap_parser *parser, size_t size)
 {
+	/* @UNSAFE */
 	parser->cur_list = LIST_REALLOC(parser, parser->cur_list, size);
 	parser->cur_list->alloc = size;
 
@@ -61,12 +63,13 @@ static void imap_args_realloc(ImapParser *parser, size_t size)
 		parser->list_arg->_data.list = parser->cur_list;
 }
 
-ImapParser *imap_parser_create(IStream *input, OStream *output,
-			       size_t max_literal_size, size_t max_elements)
+struct imap_parser *
+imap_parser_create(struct istream *input, struct ostream *output,
+		   size_t max_literal_size, size_t max_elements)
 {
-	ImapParser *parser;
+	struct imap_parser *parser;
 
-	parser = i_new(ImapParser, 1);
+	parser = i_new(struct imap_parser, 1);
         parser->pool = pool_alloconly_create("IMAP parser", 8192);
 	parser->input = input;
 	parser->output = output;
@@ -77,13 +80,13 @@ ImapParser *imap_parser_create(IStream *input, OStream *output,
 	return parser;
 }
 
-void imap_parser_destroy(ImapParser *parser)
+void imap_parser_destroy(struct imap_parser *parser)
 {
 	pool_unref(parser->pool);
 	i_free(parser);
 }
 
-void imap_parser_reset(ImapParser *parser)
+void imap_parser_reset(struct imap_parser *parser)
 {
 	p_clear(parser->pool);
 
@@ -107,13 +110,13 @@ void imap_parser_reset(ImapParser *parser)
 	imap_args_realloc(parser, LIST_ALLOC_SIZE);
 }
 
-const char *imap_parser_get_error(ImapParser *parser)
+const char *imap_parser_get_error(struct imap_parser *parser)
 {
 	return parser->error;
 }
 
 /* skip over everything parsed so far, plus the following whitespace */
-static int imap_parser_skip_to_next(ImapParser *parser,
+static int imap_parser_skip_to_next(struct imap_parser *parser,
 				    const unsigned char **data,
 				    size_t *data_size)
 {
@@ -132,9 +135,9 @@ static int imap_parser_skip_to_next(ImapParser *parser,
 	return *data_size > 0;
 }
 
-static ImapArg *imap_arg_create(ImapParser *parser)
+static struct imap_arg *imap_arg_create(struct imap_parser *parser)
 {
-	ImapArg *arg;
+	struct imap_arg *arg;
 
 	i_assert(parser->cur_list != NULL);
 
@@ -150,7 +153,7 @@ static ImapArg *imap_arg_create(ImapParser *parser)
 	return arg;
 }
 
-static void imap_parser_open_list(ImapParser *parser)
+static void imap_parser_open_list(struct imap_parser *parser)
 {
 	parser->list_arg = imap_arg_create(parser);
 
@@ -163,9 +166,9 @@ static void imap_parser_open_list(ImapParser *parser)
 	parser->cur_type = ARG_PARSE_NONE;
 }
 
-static int imap_parser_close_list(ImapParser *parser)
+static int imap_parser_close_list(struct imap_parser *parser)
 {
-	ImapArg *arg;
+	struct imap_arg *arg;
 
 	if (parser->list_arg == NULL) {
 		/* we're not inside list */
@@ -188,10 +191,10 @@ static int imap_parser_close_list(ImapParser *parser)
 	return TRUE;
 }
 
-static void imap_parser_save_arg(ImapParser *parser, const unsigned char *data,
-				 size_t size)
+static void imap_parser_save_arg(struct imap_parser *parser,
+				 const unsigned char *data, size_t size)
 {
-	ImapArg *arg;
+	struct imap_arg *arg;
 
 	arg = imap_arg_create(parser);
 
@@ -239,8 +242,8 @@ static void imap_parser_save_arg(ImapParser *parser, const unsigned char *data,
 	parser->cur_type = ARG_PARSE_NONE;
 }
 
-static int imap_parser_read_atom(ImapParser *parser, const unsigned char *data,
-				 size_t data_size)
+static int imap_parser_read_atom(struct imap_parser *parser,
+				 const unsigned char *data, size_t data_size)
 {
 	size_t i;
 
@@ -276,7 +279,7 @@ static int imap_parser_read_atom(ImapParser *parser, const unsigned char *data,
 	return parser->cur_type == ARG_PARSE_NONE;
 }
 
-static int imap_parser_read_string(ImapParser *parser,
+static int imap_parser_read_string(struct imap_parser *parser,
 				   const unsigned char *data, size_t data_size)
 {
 	size_t i;
@@ -318,7 +321,7 @@ static int imap_parser_read_string(ImapParser *parser,
 	return parser->cur_type == ARG_PARSE_NONE;
 }
 
-static int imap_parser_literal_end(ImapParser *parser)
+static int imap_parser_literal_end(struct imap_parser *parser)
 {
 	if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0) {
 		if (parser->literal_size > parser->max_literal_size) {
@@ -340,7 +343,7 @@ static int imap_parser_literal_end(ImapParser *parser)
 	return TRUE;
 }
 
-static int imap_parser_read_literal(ImapParser *parser,
+static int imap_parser_read_literal(struct imap_parser *parser,
 				    const unsigned char *data,
 				    size_t data_size)
 {
@@ -372,7 +375,7 @@ static int imap_parser_read_literal(ImapParser *parser,
 	return FALSE;
 }
 
-static int imap_parser_read_literal_data(ImapParser *parser,
+static int imap_parser_read_literal_data(struct imap_parser *parser,
 					 const unsigned char *data,
 					 size_t data_size)
 {
@@ -420,7 +423,7 @@ static int imap_parser_read_literal_data(ImapParser *parser,
 
 /* Returns TRUE if argument was fully processed. Also returns TRUE if
    an argument inside a list was processed. */
-static int imap_parser_read_arg(ImapParser *parser)
+static int imap_parser_read_arg(struct imap_parser *parser)
 {
 	const unsigned char *data;
 	size_t data_size;
@@ -507,8 +510,8 @@ static int imap_parser_read_arg(ImapParser *parser)
         ((parser)->cur_type != ARG_PARSE_NONE || \
 	 (parser)->cur_list != parser->root_list)
 
-int imap_parser_read_args(ImapParser *parser, unsigned int count,
-			  ImapParserFlags flags, ImapArg **args)
+int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
+			  enum imap_parser_flags flags, struct imap_arg **args)
 {
 	parser->flags = flags;
 
@@ -551,7 +554,7 @@ int imap_parser_read_args(ImapParser *parser, unsigned int count,
 	}
 }
 
-const char *imap_parser_read_word(ImapParser *parser)
+const char *imap_parser_read_word(struct imap_parser *parser)
 {
 	const unsigned char *data;
 	size_t i, data_size;
@@ -571,7 +574,7 @@ const char *imap_parser_read_word(ImapParser *parser)
 	}
 }
 
-const char *imap_parser_read_line(ImapParser *parser)
+const char *imap_parser_read_line(struct imap_parser *parser)
 {
 	const unsigned char *data;
 	size_t i, data_size;
@@ -591,7 +594,7 @@ const char *imap_parser_read_line(ImapParser *parser)
 	}
 }
 
-const char *imap_arg_string(ImapArg *arg)
+const char *imap_arg_string(struct imap_arg *arg)
 {
 	switch (arg->type) {
 	case IMAP_ARG_NIL:
@@ -606,20 +609,20 @@ const char *imap_arg_string(ImapArg *arg)
 	}
 }
 
-char *_imap_arg_str_error(const ImapArg *arg)
+char *_imap_arg_str_error(const struct imap_arg *arg)
 {
-	i_panic("Tried to access ImapArg type %d as string", arg->type);
+	i_panic("Tried to access imap_arg type %d as string", arg->type);
 	return NULL;
 }
 
-uoff_t _imap_arg_literal_size_error(const ImapArg *arg)
+uoff_t _imap_arg_literal_size_error(const struct imap_arg *arg)
 {
-	i_panic("Tried to access ImapArg type %d as literal size", arg->type);
+	i_panic("Tried to access imap_arg type %d as literal size", arg->type);
 	return 0;
 }
 
-ImapArgList *_imap_arg_list_error(const ImapArg *arg)
+struct imap_arg_list *_imap_arg_list_error(const struct imap_arg *arg)
 {
-	i_panic("Tried to access ImapArg type %d as list", arg->type);
+	i_panic("Tried to access imap_arg type %d as list", arg->type);
 	return NULL;
 }

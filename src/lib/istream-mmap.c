@@ -30,8 +30,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-typedef struct {
-	_IStream istream;
+struct mmap_istream {
+	struct _istream istream;
 
 	int fd;
 	void *mmap_base;
@@ -39,29 +39,29 @@ typedef struct {
 	size_t mmap_block_size;
 
 	unsigned int autoclose_fd:1;
-} MmapIStream;
+};
 
 static size_t mmap_pagesize = 0;
 static size_t mmap_pagemask = 0;
 
-static void _close(_IOStream *stream)
+static void _close(struct _iostream *stream)
 {
-	MmapIStream *mstream = (MmapIStream *) stream;
+	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
 	if (mstream->autoclose_fd && mstream->fd != -1) {
 		if (close(mstream->fd) < 0)
-			i_error("MmapIStream.close() failed: %m");
+			i_error("mmap_istream.close() failed: %m");
 		mstream->fd = -1;
 	}
 }
 
-static void i_stream_munmap(MmapIStream *mstream)
+static void i_stream_munmap(struct mmap_istream *mstream)
 {
-	_IStream *_stream = &mstream->istream;
+	struct _istream *_stream = &mstream->istream;
 
 	if (_stream->buffer != NULL) {
 		if (munmap(mstream->mmap_base, _stream->buffer_size) < 0)
-			i_error("MmapIStream.munmap() failed: %m");
+			i_error("mmap_istream.munmap() failed: %m");
 		mstream->mmap_base = NULL;
 		_stream->buffer = NULL;
 		_stream->buffer_size = 0;
@@ -69,21 +69,21 @@ static void i_stream_munmap(MmapIStream *mstream)
 	}
 }
 
-static void _destroy(_IOStream *stream)
+static void _destroy(struct _iostream *stream)
 {
-	MmapIStream *mstream = (MmapIStream *) stream;
+	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
 	i_stream_munmap(mstream);
 }
 
-static void _set_max_buffer_size(_IOStream *stream, size_t max_size)
+static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 {
-	MmapIStream *mstream = (MmapIStream *) stream;
+	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
 	mstream->mmap_block_size = max_size;
 }
 
-static void _set_blocking(_IOStream *stream __attr_unused__,
+static void _set_blocking(struct _iostream *stream __attr_unused__,
 			  int timeout_msecs __attr_unused__,
 			  void (*timeout_func)(void *) __attr_unused__,
 			  void *context __attr_unused__)
@@ -91,9 +91,9 @@ static void _set_blocking(_IOStream *stream __attr_unused__,
 	/* we never block */
 }
 
-static ssize_t io_stream_set_mmaped_pos(_IStream *stream)
+static ssize_t io_stream_set_mmaped_pos(struct _istream *stream)
 {
-	MmapIStream *mstream = (MmapIStream *) stream;
+	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
 	i_assert((uoff_t)mstream->mmap_offset <=
 		 stream->istream.start_offset + stream->istream.v_limit);
@@ -106,9 +106,9 @@ static ssize_t io_stream_set_mmaped_pos(_IStream *stream)
 	return stream->pos - stream->skip;
 }
 
-static ssize_t _read(_IStream *stream)
+static ssize_t _read(struct _istream *stream)
 {
-	MmapIStream *mstream = (MmapIStream *) stream;
+	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 	size_t aligned_skip, limit_size;
 
 	if (stream->istream.start_offset + stream->istream.v_limit <=
@@ -148,16 +148,16 @@ static ssize_t _read(_IStream *stream)
 	mstream->mmap_base = mmap(NULL, stream->buffer_size,
 				  PROT_READ, MAP_PRIVATE,
 				  mstream->fd, mstream->mmap_offset);
-	stream->buffer = mstream->mmap_base;
 	if (mstream->mmap_base == MAP_FAILED) {
 		stream->istream.stream_errno = errno;
 		mstream->mmap_base = NULL;
 		stream->buffer = NULL;
 		stream->buffer_size = 0;
 		stream->skip = stream->pos = 0;
-		i_error("MmapIStream.mmap() failed: %m");
+		i_error("mmap_istream.mmap() failed: %m");
 		return -1;
 	}
+	stream->buffer = mstream->mmap_base;
 
 	/* madvise() only if non-limited mmap()ed buffer area larger than
 	   page size */
@@ -167,16 +167,17 @@ static ssize_t _read(_IStream *stream)
 		if (limit_size > stream->buffer_size)
 			limit_size = stream->buffer_size;
 
-		if (madvise(mstream->mmap_base, limit_size, MADV_SEQUENTIAL) < 0)
-			i_error("MmapIStream.madvise(): %m");
+		if (madvise(mstream->mmap_base, limit_size,
+			    MADV_SEQUENTIAL) < 0)
+			i_error("mmap_istream.madvise(): %m");
 	}
 
 	return io_stream_set_mmaped_pos(stream);
 }
 
-static void _seek(_IStream *stream, uoff_t v_offset)
+static void _seek(struct _istream *stream, uoff_t v_offset)
 {
-	MmapIStream *mstream = (MmapIStream *) stream;
+	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 	uoff_t abs_offset;
 
 	abs_offset = stream->istream.start_offset + v_offset;
@@ -194,16 +195,16 @@ static void _seek(_IStream *stream, uoff_t v_offset)
 	stream->istream.v_offset = v_offset;
 }
 
-static void _skip(_IStream *stream, uoff_t count)
+static void _skip(struct _istream *stream, uoff_t count)
 {
 	_seek(stream, stream->istream.v_offset + count);
 }
 
-IStream *i_stream_create_mmap(int fd, Pool pool, size_t block_size,
-			      uoff_t start_offset, uoff_t v_size,
-			      int autoclose_fd)
+struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
+				     uoff_t start_offset, uoff_t v_size,
+				     int autoclose_fd)
 {
-	MmapIStream *mstream;
+	struct mmap_istream *mstream;
 	struct stat st;
 
 	if (mmap_pagesize == 0) {
@@ -223,7 +224,7 @@ IStream *i_stream_create_mmap(int fd, Pool pool, size_t block_size,
 		}
 	}
 
-	mstream = p_new(pool, MmapIStream, 1);
+	mstream = p_new(pool, struct mmap_istream, 1);
 	mstream->fd = fd;
 	mstream->mmap_block_size = block_size;
 	mstream->autoclose_fd = autoclose_fd;
@@ -237,5 +238,6 @@ IStream *i_stream_create_mmap(int fd, Pool pool, size_t block_size,
 	mstream->istream.skip_count = _skip;
 	mstream->istream.seek = _seek;
 
-	return _i_stream_create(&mstream->istream, pool, fd, start_offset, v_size);
+	return _i_stream_create(&mstream->istream, pool, fd,
+				start_offset, v_size);
 }

@@ -16,7 +16,7 @@
 #include <shadow.h>
 
 static int shadow_verify_plain(const char *user, const char *password,
-			       AuthCookieReplyData *reply)
+			       struct auth_cookie_reply_data *reply)
 {
 	struct passwd *pw;
 	struct spwd *spw;
@@ -50,7 +50,7 @@ static void shadow_deinit(void)
         endspent();
 }
 
-UserInfoModule userinfo_shadow = {
+struct user_info_module userinfo_shadow = {
 	NULL,
 	shadow_deinit,
 

@@ -18,7 +18,7 @@ enum {
 	PROCESS_TYPE_MAX
 };
 
-extern HashTable *pids;
+extern struct hash_table *pids;
 extern int null_fd, imap_fd, imaps_fd;
 
 /* processes */
@@ -33,12 +33,11 @@ extern int null_fd, imap_fd, imaps_fd;
 
 void clean_child_process(void);
 
-MasterReplyResult create_imap_process(int socket, IPADDR *ip,
-				      const char *system_user,
-				      const char *virtual_user,
-				      uid_t uid, gid_t gid, const char *home,
-				      int chroot, const char *mail,
-				      const char *login_tag);
+enum master_reply_result
+create_imap_process(int socket, struct ip_addr *ip,
+		    const char *system_user, const char *virtual_user,
+		    uid_t uid, gid_t gid, const char *home, int chroot,
+		    const char *mail, const char *login_tag);
 void imap_process_destroyed(pid_t pid);
 
 /* misc */

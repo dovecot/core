@@ -16,7 +16,7 @@
 
 static char my_hostdomain[256] = "";
 
-static int write_error(MailStorage *storage, const char *mbox_path)
+static int write_error(struct mail_storage *storage, const char *mbox_path)
 {
 	if (errno == ENOSPC)
 		mail_storage_set_error(storage, "Not enough disk space");
@@ -28,7 +28,7 @@ static int write_error(MailStorage *storage, const char *mbox_path)
 	return FALSE;
 }
 
-static int mbox_seek_to_end(MailStorage *storage, int fd,
+static int mbox_seek_to_end(struct mail_storage *storage, int fd,
 			    const char *mbox_path, off_t *pos)
 {
 	struct stat st;
@@ -65,7 +65,7 @@ static int mbox_seek_to_end(MailStorage *storage, int fd,
 	return TRUE;
 }
 
-static int mbox_append_lf(MailStorage *storage, OStream *output,
+static int mbox_append_lf(struct mail_storage *storage, struct ostream *output,
 			  const char *mbox_path)
 {
 	if (o_stream_send(output, "\n", 1) < 0)
@@ -74,7 +74,7 @@ static int mbox_append_lf(MailStorage *storage, OStream *output,
 	return TRUE;
 }
 
-static int write_from_line(MailStorage *storage, OStream *output,
+static int write_from_line(struct mail_storage *storage, struct ostream *output,
 			   const char *mbox_path, time_t internal_date)
 {
 	const char *sender, *line, *name;
@@ -105,9 +105,9 @@ static int write_from_line(MailStorage *storage, OStream *output,
 	return TRUE;
 }
 
-static int write_flags(MailStorage *storage, OStream *output,
+static int write_flags(struct mail_storage *storage, struct ostream *output,
 		       const char *mbox_path,
-		       MailFlags flags, const char *custom_flags[])
+		       enum mail_flags flags, const char *custom_flags[])
 {
 	const char *str;
 	unsigned int field;
@@ -156,15 +156,16 @@ static int write_flags(MailStorage *storage, OStream *output,
 	return TRUE;
 }
 
-int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
-		      time_t internal_date, int timezone_offset __attr_unused__,
-		      IStream *data, uoff_t data_size)
+int mbox_storage_save(struct mailbox *box, enum mail_flags flags,
+		      const char *custom_flags[], time_t internal_date,
+		      int timezone_offset __attr_unused__,
+		      struct istream *data, uoff_t data_size)
 {
-	IndexMailbox *ibox = (IndexMailbox *) box;
-	MailIndex *index;
-	MailFlags real_flags;
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+	struct mail_index *index;
+	enum mail_flags real_flags;
 	const char *mbox_path;
-	OStream *output;
+	struct ostream *output;
 	int failed;
 	off_t pos;
 

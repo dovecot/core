@@ -3,10 +3,10 @@
 #include "common.h"
 #include "commands.h"
 
-int _cmd_select_full(Client *client, int readonly)
+int _cmd_select_full(struct client *client, int readonly)
 {
-	Mailbox *box;
-	MailboxStatus status;
+	struct mailbox *box;
+	struct mailbox_status status;
 	const char *mailbox;
 
 	/* <mailbox> */
@@ -71,7 +71,7 @@ int _cmd_select_full(Client *client, int readonly)
 	return TRUE;
 }
 
-int cmd_select(Client *client)
+int cmd_select(struct client *client)
 {
 	return _cmd_select_full(client, FALSE);
 }

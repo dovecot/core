@@ -19,7 +19,7 @@
 #define TIMESTAMP_WAIT_TIME 5
 #define TIMESTAMP_FORMAT " * OK [RAWLOG TIMESTAMP] %Y-%m-%d %H:%M:%S\n"
 
-static IOLoop ioloop;
+static ioloop *ioloop;
 static int client_in, client_out, imap_in, imap_out;
 static int log_in, log_out;
 
@@ -90,7 +90,7 @@ static void client_input(void *context __attr_unused__, int fd __attr_unused__,
 
 void rawlog_open(int *hin, int *hout)
 {
-	IO io_imap, io_client;
+	struct io *io_imap, *io_client;
 	const char *home, *path, *fname;
 	char timestamp[50];
 	struct tm *tm;

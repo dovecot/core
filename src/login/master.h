@@ -3,12 +3,13 @@
 
 #include "../master/master-interface.h"
 
-typedef void (*MasterCallback)(MasterReplyResult result, void *context);
+typedef void (*MasterCallback)(enum master_reply_result result, void *context);
 
 /* Request IMAP process for given cookie. */
 void master_request_imap(int fd, unsigned int auth_process,
 			 const char *login_tag,
-			 unsigned char cookie[AUTH_COOKIE_SIZE], IPADDR *ip,
+			 unsigned char cookie[AUTH_COOKIE_SIZE],
+			 struct ip_addr *ip,
 			 MasterCallback callback, void *context);
 
 /* Notify master that we're not listening for new connections anymore. */

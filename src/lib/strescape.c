@@ -51,7 +51,7 @@ const char *str_escape(const char *str)
 	return ret;
 }
 
-void str_append_unescaped(String *dest, const void *src, size_t src_size)
+void str_append_unescaped(string_t *dest, const void *src, size_t src_size)
 {
 	const unsigned char *src_c = src;
 	size_t start = 0, i = 0;

@@ -1,28 +1,27 @@
 #ifndef __CHARSET_UTF8_H
 #define __CHARSET_UTF8_H
 
-typedef enum {
+enum charset_result {
 	CHARSET_RET_OK = 1,
 	CHARSET_RET_OUTPUT_FULL = 0,
 	CHARSET_RET_INCOMPLETE_INPUT = -1,
 	CHARSET_RET_INVALID_INPUT = -2
-} CharsetResult;
-
-typedef struct _CharsetTranslation CharsetTranslation;
+};
 
 /* Begin translation to UTF-8. */
-CharsetTranslation *charset_to_utf8_begin(const char *charset,
-					  int *unknown_charset);
+struct charset_translation *charset_to_utf8_begin(const char *charset,
+						  int *unknown_charset);
 
-void charset_to_utf8_end(CharsetTranslation *t);
+void charset_to_utf8_end(struct charset_translation *t);
 
-void charset_to_utf8_reset(CharsetTranslation *t);
+void charset_to_utf8_reset(struct charset_translation *t);
 
 /* Translate src to UTF-8. If src_size is updated to contain the number of
    characters actually translated from src. */
-CharsetResult
-charset_to_ucase_utf8(CharsetTranslation *t,
-		      const unsigned char *src, size_t *src_size, Buffer *dest);
+enum charset_result
+charset_to_ucase_utf8(struct charset_translation *t,
+		      const unsigned char *src, size_t *src_size,
+		      buffer_t *dest);
 
 /* Simple wrappers for above functions. If utf8_size is non-NULL, it's set
    to same as strlen(returned data). */
@@ -36,7 +35,7 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 			     size_t *utf8_size_r);
 
 void _charset_utf8_ucase(const unsigned char *src, size_t src_size,
-			 Buffer *dest, size_t destpos);
+			 buffer_t *dest, size_t destpos);
 const char *_charset_utf8_ucase_strdup(const unsigned char *data, size_t size,
 				       size_t *utf8_size_r);
 

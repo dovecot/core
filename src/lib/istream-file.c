@@ -39,8 +39,8 @@
 #define STREAM_IS_BLOCKING(fstream) \
 	((fstream)->timeout_msecs != 0)
 
-typedef struct {
-	_IStream istream;
+struct file_istream {
+	struct _istream istream;
 
 	size_t max_buffer_size;
 	uoff_t skip_left;
@@ -51,38 +51,38 @@ typedef struct {
 
 	unsigned int file:1;
 	unsigned int autoclose_fd:1;
-} FileIStream;
+};
 
-static void _close(_IOStream *stream)
+static void _close(struct _iostream *stream)
 {
-	FileIStream *fstream = (FileIStream *) stream;
-	_IStream *_stream = (_IStream *) stream;
+	struct file_istream *fstream = (struct file_istream *) stream;
+	struct _istream *_stream = (struct _istream *) stream;
 
 	if (fstream->autoclose_fd && _stream->fd != -1) {
 		if (close(_stream->fd) < 0)
-			i_error("FileIStream.close() failed: %m");
+			i_error("file_istream.close() failed: %m");
 		_stream->fd = -1;
 	}
 }
 
-static void _destroy(_IOStream *stream)
+static void _destroy(struct _iostream *stream)
 {
-	_IStream *_stream = (_IStream *) stream;
+	struct _istream *_stream = (struct _istream *) stream;
 
 	p_free(_stream->iostream.pool, _stream->w_buffer);
 }
 
-static void _set_max_buffer_size(_IOStream *stream, size_t max_size)
+static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 {
-	FileIStream *fstream = (FileIStream *) stream;
+	struct file_istream *fstream = (struct file_istream *) stream;
 
 	fstream->max_buffer_size = max_size;
 }
 
-static void _set_blocking(_IOStream *stream, int timeout_msecs,
+static void _set_blocking(struct _iostream *stream, int timeout_msecs,
 			  void (*timeout_func)(void *), void *context)
 {
-	FileIStream *fstream = (FileIStream *) stream;
+	struct file_istream *fstream = (struct file_istream *) stream;
 
 	fstream->timeout_msecs = timeout_msecs;
 	fstream->timeout_func = timeout_func;
@@ -94,9 +94,9 @@ static void _set_blocking(_IOStream *stream, int timeout_msecs,
 		alarm_hup_init();
 }
 
-static void i_stream_grow_buffer(_IStream *stream, size_t bytes)
+static void i_stream_grow_buffer(struct _istream *stream, size_t bytes)
 {
-	FileIStream *fstream = (FileIStream *) stream;
+	struct file_istream *fstream = (struct file_istream *) stream;
 
 	stream->buffer_size = stream->pos + bytes;
 	stream->buffer_size =
@@ -112,7 +112,7 @@ static void i_stream_grow_buffer(_IStream *stream, size_t bytes)
 			  stream->buffer_size);
 }
 
-static void i_stream_compress(_IStream *stream)
+static void i_stream_compress(struct _istream *stream)
 {
 	memmove(stream->w_buffer, stream->w_buffer + stream->skip,
 		stream->pos - stream->skip);
@@ -126,9 +126,9 @@ static void i_stream_compress(_IStream *stream)
 	stream->skip = 0;
 }
 
-static ssize_t _read(_IStream *stream)
+static ssize_t _read(struct _istream *stream)
 {
-	FileIStream *fstream = (FileIStream *) stream;
+	struct file_istream *fstream = (struct file_istream *) stream;
 	time_t timeout_time;
 	uoff_t read_limit;
 	size_t size;
@@ -232,18 +232,18 @@ static ssize_t _read(_IStream *stream)
 	return ret;
 }
 
-static void _skip(_IStream *stream, uoff_t count)
+static void _skip(struct _istream *stream, uoff_t count)
 {
-	FileIStream *fstream = (FileIStream *) stream;
+	struct file_istream *fstream = (struct file_istream *) stream;
 
 	fstream->skip_left += count - (stream->pos - stream->skip);
 	stream->skip = stream->pos = 0;
 	stream->istream.v_offset += count;
 }
 
-static void _seek(_IStream *stream, uoff_t v_offset)
+static void _seek(struct _istream *stream, uoff_t v_offset)
 {
-	FileIStream *fstream = (FileIStream *) stream;
+	struct file_istream *fstream = (struct file_istream *) stream;
 	uoff_t real_offset;
 	off_t ret;
 
@@ -272,13 +272,13 @@ static void _seek(_IStream *stream, uoff_t v_offset)
 	}
 }
 
-IStream *i_stream_create_file(int fd, Pool pool, size_t max_buffer_size,
-			      int autoclose_fd)
+struct istream *i_stream_create_file(int fd, pool_t pool,
+				     size_t max_buffer_size, int autoclose_fd)
 {
-	FileIStream *fstream;
+	struct file_istream *fstream;
 	struct stat st;
 
-	fstream = p_new(pool, FileIStream, 1);
+	fstream = p_new(pool, struct file_istream, 1);
 	fstream->max_buffer_size = max_buffer_size;
 	fstream->autoclose_fd = autoclose_fd;
 

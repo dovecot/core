@@ -11,19 +11,19 @@
 #include <fcntl.h>
 #include <pwd.h>
 
-typedef enum {
+enum setting_type {
 	SET_STR,
 	SET_INT,
 	SET_BOOL
-} SettingType;
+};
 
-typedef struct {
+struct setting {
 	const char *name;
-	SettingType type;
+	enum setting_type type;
 	void *ptr;
-} Setting;
+};
 
-static Setting settings[] = {
+static struct setting settings[] = {
 	{ "base_dir",		SET_STR, &set_base_dir },
 	{ "log_path",		SET_STR, &set_log_path },
 	{ "info_log_path",	SET_STR, &set_info_log_path },
@@ -146,7 +146,7 @@ int set_overwrite_incompatible_index = FALSE;
 unsigned int set_umask = 0077;
 
 /* auth */
-AuthConfig *auth_processes_config = NULL;
+struct auth_config *auth_processes_config = NULL;
 
 static void fix_base_path(char **str)
 {
@@ -172,7 +172,7 @@ static void get_login_uid(void)
 
 static void auth_settings_verify(void)
 {
-	AuthConfig *auth;
+	struct auth_config *auth;
 
 	for (auth = auth_processes_config; auth != NULL; auth = auth->next) {
 		if (access(auth->executable, X_OK) < 0) {
@@ -311,11 +311,11 @@ static void settings_verify(void)
 	auth_settings_verify();
 }
 
-static AuthConfig *auth_config_new(const char *name)
+static struct auth_config *auth_config_new(const char *name)
 {
-	AuthConfig *auth;
+	struct auth_config *auth;
 
-	auth = i_new(AuthConfig, 1);
+	auth = i_new(struct auth_config, 1);
 	auth->name = i_strdup(name);
 	auth->executable = i_strdup(PKG_LIBEXECDIR"/imap-auth");
 	auth->count = 1;
@@ -325,7 +325,7 @@ static AuthConfig *auth_config_new(const char *name)
 	return auth;
 }
 
-static void auth_config_free(AuthConfig *auth)
+static void auth_config_free(struct auth_config *auth)
 {
 	i_free(auth->name);
 	i_free(auth->methods);
@@ -340,7 +340,7 @@ static void auth_config_free(AuthConfig *auth)
 
 static const char *parse_new_auth(const char *name)
 {
-	AuthConfig *auth;
+	struct auth_config *auth;
 
 	if (strchr(name, '/') != NULL)
 		return "Authentication process name must not contain '/'";
@@ -358,7 +358,7 @@ static const char *parse_new_auth(const char *name)
 
 static const char *parse_auth(const char *key, const char *value)
 {
-	AuthConfig *auth = auth_processes_config;
+	struct auth_config *auth = auth_processes_config;
 	const char *p;
 	char **ptr;
 
@@ -423,7 +423,7 @@ static const char *parse_auth(const char *key, const char *value)
 
 static const char *parse_setting(const char *key, const char *value)
 {
-	Setting *set;
+	struct setting *set;
 
 	if (strcmp(key, "auth") == 0)
 		return parse_new_auth(value);
@@ -464,7 +464,7 @@ static const char *parse_setting(const char *key, const char *value)
 static void settings_free(void)
 {
 	while (auth_processes_config != NULL) {
-		AuthConfig *auth = auth_processes_config;
+		struct auth_config *auth = auth_processes_config;
 
 		auth_processes_config = auth->next;
                 auth_config_free(auth);
@@ -475,7 +475,7 @@ static void settings_free(void)
 
 void settings_read(const char *path)
 {
-	IStream *input;
+	struct istream *input;
 	const char *errormsg;
 	char *line, *key, *p;
 	int fd, linenum;
@@ -545,7 +545,7 @@ void settings_read(const char *path)
 
 void settings_init(void)
 {
-	Setting *set;
+	struct setting *set;
 
 	/* strdup() all default settings */
 	for (set = settings; set->name != NULL; set++) {

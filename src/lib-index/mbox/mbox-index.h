@@ -4,33 +4,34 @@
 #include "md5.h"
 #include "mail-index.h"
 
-typedef struct {
-	MailIndex *index;
-	MailFlags flags;
+struct mbox_header_context {
+	struct mail_index *index;
+	enum mail_flags flags;
 	const char **custom_flags;
-	MD5Context md5;
+	struct md5_context md5;
 	int received;
 
-	IStream *input;
+	struct istream *input;
 	uoff_t content_length;
 	int set_read_limit;
-} MboxHeaderContext;
+};
 
-int mbox_set_syscall_error(MailIndex *index, const char *function);
+int mbox_set_syscall_error(struct mail_index *index, const char *function);
 
 /* Make sure the mbox is opened. If reopen is TRUE, the file is closed first,
    which is useful when you want to be sure you're not accessing a deleted
    mbox file. */
-int mbox_file_open(MailIndex *index);
-IStream *mbox_get_stream(MailIndex *index, uoff_t offset,
-			 MailLockType lock_type);
-void mbox_file_close_stream(MailIndex *index);
-void mbox_file_close_fd(MailIndex *index);
+int mbox_file_open(struct mail_index *index);
+struct istream *mbox_get_stream(struct mail_index *index, uoff_t offset,
+				enum mail_lock_type lock_type);
+void mbox_file_close_stream(struct mail_index *index);
+void mbox_file_close_fd(struct mail_index *index);
 
-void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index,
-			      IStream *input);
-void mbox_header_free_context(MboxHeaderContext *ctx);
-void mbox_header_func(MessagePart *part __attr_unused__,
+void mbox_header_init_context(struct mbox_header_context *ctx,
+			      struct mail_index *index,
+			      struct istream *input);
+void mbox_header_free_context(struct mbox_header_context *ctx);
+void mbox_header_func(struct message_part *part __attr_unused__,
 		      const unsigned char *name, size_t name_len,
 		      const unsigned char *value, size_t value_len,
 		      void *context);
@@ -39,26 +40,29 @@ void mbox_keywords_parse(const unsigned char *value, size_t len,
 			 void (*func)(const unsigned char *, size_t,
 				      int, void *),
 			 void *context);
-int mbox_skip_crlf(IStream *input);
-void mbox_skip_empty_lines(IStream *input);
-void mbox_skip_header(IStream *input);
-void mbox_skip_message(IStream *input);
-int mbox_verify_end_of_body(IStream *input, uoff_t end_offset);
-int mbox_mail_get_location(MailIndex *index, MailIndexRecord *rec,
+int mbox_skip_crlf(struct istream *input);
+void mbox_skip_empty_lines(struct istream *input);
+void mbox_skip_header(struct istream *input);
+void mbox_skip_message(struct istream *input);
+int mbox_verify_end_of_body(struct istream *input, uoff_t end_offset);
+int mbox_mail_get_location(struct mail_index *index,
+			   struct mail_index_record *rec,
 			   uoff_t *offset, uoff_t *hdr_size, uoff_t *body_size);
 
-MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path);
-int mbox_index_rebuild(MailIndex *index);
-int mbox_index_sync(MailIndex *index, MailLockType lock_type, int *changes);
-int mbox_sync_full(MailIndex *index);
-IStream *mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
-			time_t *internal_date, int *deleted);
+struct mail_index *mbox_index_alloc(const char *dir, const char *mbox_path);
+int mbox_index_rebuild(struct mail_index *index);
+int mbox_index_sync(struct mail_index *index,
+		    enum mail_lock_type lock_type, int *changes);
+int mbox_sync_full(struct mail_index *index);
+struct istream *mbox_open_mail(struct mail_index *index,
+			       struct mail_index_record *rec,
+			       time_t *internal_date, int *deleted);
 
-int mbox_index_append(MailIndex *index, IStream *input);
+int mbox_index_append(struct mail_index *index, struct istream *input);
 
 time_t mbox_from_parse_date(const unsigned char *msg, size_t size);
 const char *mbox_from_create(const char *sender, time_t time);
 
-int mbox_index_rewrite(MailIndex *index);
+int mbox_index_rewrite(struct mail_index *index);
 
 #endif

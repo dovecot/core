@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_noop(Client *client)
+int cmd_noop(struct client *client)
 {
 	client_sync_full(client);
 	client_send_tagline(client, "OK NOOP completed.");

@@ -20,8 +20,8 @@
 #define COUNTER_SIZE 4
 #define HEADER_SIZE (COUNTER_SIZE + 1) /* 0000\n */
 
-struct _MailCustomFlags {
-	MailIndex *index;
+struct mail_custom_flags {
+	struct mail_index *index;
 	char *filepath;
 	int fd;
 	int lock_type;
@@ -37,9 +37,9 @@ struct _MailCustomFlags {
 	unsigned int changed:1;
 };
 
-static int lock_file(MailCustomFlags *mcf, int type);
+static int lock_file(struct mail_custom_flags *mcf, int type);
 
-static int index_cf_set_syscall_error(MailCustomFlags *mcf,
+static int index_cf_set_syscall_error(struct mail_custom_flags *mcf,
 				      const char *function)
 {
 	i_assert(function != NULL);
@@ -49,7 +49,7 @@ static int index_cf_set_syscall_error(MailCustomFlags *mcf,
 	return FALSE;
 }
 
-static int update_mmap(MailCustomFlags *mcf)
+static int update_mmap(struct mail_custom_flags *mcf)
 {
 	if (mcf->mmap_base != NULL) {
 		if (munmap(mcf->mmap_base, mcf->mmap_length) < 0)
@@ -66,7 +66,7 @@ static int update_mmap(MailCustomFlags *mcf)
 	return TRUE;
 }
 
-static int custom_flags_init(MailCustomFlags *mcf)
+static int custom_flags_init(struct mail_custom_flags *mcf)
 {
 	static char buf[HEADER_SIZE] = "0000\n";
 	int failed;
@@ -102,7 +102,7 @@ static int custom_flags_init(MailCustomFlags *mcf)
 	return !failed;
 }
 
-static void custom_flags_sync(MailCustomFlags *mcf)
+static void custom_flags_sync(struct mail_custom_flags *mcf)
 {
 	char *data, *data_end, *line;
 	unsigned int num;
@@ -165,7 +165,7 @@ static void custom_flags_sync(MailCustomFlags *mcf)
 	}
 }
 
-static int custom_flags_check_sync(MailCustomFlags *mcf)
+static int custom_flags_check_sync(struct mail_custom_flags *mcf)
 {
 	if (mcf->noupdate)
 		return TRUE;
@@ -195,7 +195,7 @@ static int custom_flags_check_sync(MailCustomFlags *mcf)
 	return TRUE;
 }
 
-static int lock_file(MailCustomFlags *mcf, int type)
+static int lock_file(struct mail_custom_flags *mcf, int type)
 {
 	if (mcf->lock_type == type)
 		return TRUE;
@@ -224,9 +224,9 @@ static int lock_file(MailCustomFlags *mcf, int type)
 	return TRUE;
 }
 
-int mail_custom_flags_open_or_create(MailIndex *index)
+int mail_custom_flags_open_or_create(struct mail_index *index)
 {
-	MailCustomFlags *mcf;
+	struct mail_custom_flags *mcf;
 	const char *path;
 	int fd;
 
@@ -239,7 +239,7 @@ int mail_custom_flags_open_or_create(MailIndex *index)
 		return index_file_set_syscall_error(index, path, "open()");
 	}
 
-	mcf = i_new(MailCustomFlags, 1);
+	mcf = i_new(struct mail_custom_flags, 1);
 	mcf->index = index;
 	mcf->filepath = i_strdup(path);
 	mcf->fd = fd;
@@ -267,7 +267,7 @@ int mail_custom_flags_open_or_create(MailIndex *index)
 	return TRUE;
 }
 
-void mail_custom_flags_free(MailCustomFlags *mcf)
+void mail_custom_flags_free(struct mail_custom_flags *mcf)
 {
 	int i;
 
@@ -286,7 +286,7 @@ void mail_custom_flags_free(MailCustomFlags *mcf)
 	i_free(mcf);
 }
 
-static int custom_flags_update_counter(MailCustomFlags *mcf)
+static int custom_flags_update_counter(struct mail_custom_flags *mcf)
 {
 	int i;
 
@@ -315,7 +315,8 @@ static int custom_flags_update_counter(MailCustomFlags *mcf)
 	return TRUE;
 }
 
-static int custom_flags_add(MailCustomFlags *mcf, int idx, const char *name)
+static int custom_flags_add(struct mail_custom_flags *mcf,
+			    int idx, const char *name)
 {
 	const char *buf;
 	size_t len;
@@ -357,7 +358,7 @@ static int custom_flags_add(MailCustomFlags *mcf, int idx, const char *name)
 	return TRUE;
 }
 
-static int custom_flags_remove(MailCustomFlags *mcf, unsigned int idx)
+static int custom_flags_remove(struct mail_custom_flags *mcf, unsigned int idx)
 {
 	char *data, *data_end, *line;
 	unsigned int num;
@@ -405,7 +406,7 @@ static int custom_flags_remove(MailCustomFlags *mcf, unsigned int idx)
 	return FALSE;
 }
 
-static int find_first_unused_flag(MailCustomFlags *mcf)
+static int find_first_unused_flag(struct mail_custom_flags *mcf)
 {
 	int i;
 
@@ -417,8 +418,8 @@ static int find_first_unused_flag(MailCustomFlags *mcf)
 	return -1;
 }
 
-static void remove_unused_custom_flags(MailCustomFlags *mcf,
-				       MailFlags used_flags)
+static void remove_unused_custom_flags(struct mail_custom_flags *mcf,
+				       enum mail_flags used_flags)
 {
 	unsigned int i;
 
@@ -432,10 +433,10 @@ static void remove_unused_custom_flags(MailCustomFlags *mcf,
 	}
 }
 
-static MailFlags get_used_flags(MailCustomFlags *mcf)
+static enum mail_flags get_used_flags(struct mail_custom_flags *mcf)
 {
-	MailIndexRecord *rec;
-	MailFlags used_flags;
+	struct mail_index_record *rec;
+	enum mail_flags used_flags;
 
 	used_flags = 0;
 
@@ -448,7 +449,7 @@ static MailFlags get_used_flags(MailCustomFlags *mcf)
 	return used_flags;
 }
 
-static int get_flag_index(MailCustomFlags *mcf, const char *flag,
+static int get_flag_index(struct mail_custom_flags *mcf, const char *flag,
 			  int index_hint)
 {
 	int i, first_empty;
@@ -505,10 +506,11 @@ static int get_flag_index(MailCustomFlags *mcf, const char *flag,
 	return first_empty;
 }
 
-int mail_custom_flags_fix_list(MailCustomFlags *mcf, MailFlags *flags,
+int mail_custom_flags_fix_list(struct mail_custom_flags *mcf,
+			       enum mail_flags *flags,
 			       const char *custom_flags[], unsigned int count)
 {
-	MailFlags oldflags, flag;
+	enum mail_flags oldflags, flag;
 	int i, idx;
 
 	i_assert(count < 32);
@@ -542,12 +544,12 @@ int mail_custom_flags_fix_list(MailCustomFlags *mcf, MailFlags *flags,
 	return 1;
 }
 
-const char **mail_custom_flags_list_get(MailCustomFlags *mcf)
+const char **mail_custom_flags_list_get(struct mail_custom_flags *mcf)
 {
 	return (const char **) mcf->custom_flags;
 }
 
-int mail_custom_flags_has_changes(MailCustomFlags *mcf)
+int mail_custom_flags_has_changes(struct mail_custom_flags *mcf)
 {
 	if (!mcf->changed)
 		return FALSE;

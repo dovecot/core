@@ -46,14 +46,14 @@ static int delete_index(const char *path)
 	return TRUE;
 }
 
-static int read_and_verify_header(int fd, MailIndexHeader *hdr,
+static int read_and_verify_header(int fd, struct mail_index_header *hdr,
 				  int check_version)
 {
 	/* read the header */
 	if (lseek(fd, 0, SEEK_SET) != 0)
 		return FALSE;
 
-	if (read(fd, hdr, sizeof(MailIndexHeader)) != sizeof(MailIndexHeader))
+	if (read(fd, hdr, sizeof(*hdr)) != sizeof(*hdr))
 		return FALSE;
 
 	/* check the compatibility */
@@ -67,9 +67,10 @@ static int read_and_verify_header(int fd, MailIndexHeader *hdr,
 
 /* Returns TRUE if we're compatible with given index file. May delete the
    file if it's from older version. */
-static int mail_check_compatible_index(MailIndex *index, const char *path)
+static int mail_check_compatible_index(struct mail_index *index,
+				       const char *path)
 {
-        MailIndexHeader hdr;
+        struct mail_index_header hdr;
 	int fd, compatible;
 
 	fd = open(path, O_RDONLY);
@@ -94,7 +95,7 @@ static int mail_check_compatible_index(MailIndex *index, const char *path)
 }
 
 /* Returns a file name of compatible index */
-static const char *mail_find_index(MailIndex *index)
+static const char *mail_find_index(struct mail_index *index)
 {
 	const char *name;
 	char path[PATH_MAX];
@@ -116,9 +117,9 @@ static const char *mail_find_index(MailIndex *index)
 	return NULL;
 }
 
-static int mail_index_open_init(MailIndex *index, int update_recent)
+static int mail_index_open_init(struct mail_index *index, int update_recent)
 {
-	MailIndexHeader *hdr;
+	struct mail_index_header *hdr;
 
 	hdr = index->header;
 
@@ -155,7 +156,8 @@ static int mail_index_open_init(MailIndex *index, int update_recent)
 	return TRUE;
 }
 
-static int index_open_and_fix(MailIndex *index, int update_recent, int fast)
+static int index_open_and_fix(struct mail_index *index,
+			      int update_recent, int fast)
 {
 	int rebuild;
 
@@ -247,7 +249,8 @@ static int index_open_and_fix(MailIndex *index, int update_recent, int fast)
 	return TRUE;
 }
 
-static int mail_index_verify_header(MailIndex *index, MailIndexHeader *hdr)
+static int mail_index_verify_header(struct mail_index *index,
+				    struct mail_index_header *hdr)
 {
 	/* if index is being created, we'll wait here until it's finished */
 	if (!mail_index_wait_lock(index, F_RDLCK))
@@ -267,10 +270,10 @@ static int mail_index_verify_header(MailIndex *index, MailIndexHeader *hdr)
 	return TRUE;
 }
 
-static int mail_index_open_file(MailIndex *index, const char *path,
+static int mail_index_open_file(struct mail_index *index, const char *path,
 				int update_recent, int fast)
 {
-        MailIndexHeader hdr;
+        struct mail_index_header hdr;
 
 	/* the index file should already be checked that it exists and
 	   we're compatible with it. */
@@ -301,7 +304,8 @@ static int mail_index_open_file(MailIndex *index, const char *path,
 	return TRUE;
 }
 
-static int mail_index_init_new_file(MailIndex *index, MailIndexHeader *hdr,
+static int mail_index_init_new_file(struct mail_index *index,
+				    struct mail_index_header *hdr,
 				    const char *temp_path)
 {
 	const char *index_path;
@@ -310,14 +314,14 @@ static int mail_index_init_new_file(MailIndex *index, MailIndexHeader *hdr,
 	/* set the index's path temporarily */
 	index->filepath = t_strdup_noconst(temp_path);
 
-	if (write_full(index->fd, hdr, sizeof(MailIndexHeader)) < 0) {
+	if (write_full(index->fd, hdr, sizeof(struct mail_index_header)) < 0) {
 		index_set_syscall_error(index, "write_full()");
 		index->filepath = NULL;
 		return FALSE;
 	}
 
-	fsize = sizeof(MailIndexHeader) +
-		INDEX_MIN_RECORDS_COUNT * sizeof(MailIndexRecord);
+	fsize = sizeof(struct mail_index_header) +
+		INDEX_MIN_RECORDS_COUNT * sizeof(struct mail_index_record);
 	if (file_set_size(index->fd, fsize) < 0) {
 		index_set_syscall_error(index, "file_set_size()");
 		index->filepath = NULL;
@@ -371,10 +375,10 @@ static int mail_index_init_new_file(MailIndex *index, MailIndexHeader *hdr,
 	return TRUE;
 }
 
-static int mail_index_create(MailIndex *index, int *dir_unlocked,
+static int mail_index_create(struct mail_index *index, int *dir_unlocked,
 			     int update_recent)
 {
-	MailIndexHeader hdr;
+	struct mail_index_header hdr;
 	const char *path;
 	int nodiskspace;
 
@@ -477,9 +481,10 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 	return FALSE;
 }
 
-void mail_index_init_header(MailIndex *index, MailIndexHeader *hdr)
+void mail_index_init_header(struct mail_index *index,
+			    struct mail_index_header *hdr)
 {
-	memset(hdr, 0, sizeof(MailIndexHeader));
+	memset(hdr, 0, sizeof(struct mail_index_header));
 	hdr->compat_data[0] = MAIL_INDEX_VERSION;
 	hdr->compat_data[1] = MAIL_INDEX_COMPAT_FLAGS;
 	hdr->compat_data[2] = sizeof(unsigned int);
@@ -495,7 +500,7 @@ void mail_index_init_header(MailIndex *index, MailIndexHeader *hdr)
 	/* set the fields we always want to cache */
 	hdr->cache_fields |= index->default_cache_fields;
 
-	hdr->used_file_size = sizeof(MailIndexHeader);
+	hdr->used_file_size = sizeof(struct mail_index_header);
 	hdr->uid_validity = ioloop_time;
 	hdr->next_uid = 1;
 }
@@ -506,7 +511,7 @@ static void mail_index_cleanup_temp_files(const char *dir)
 			 "temp.", time(NULL) - TEMP_FILE_TIMEOUT);
 }
 
-void mail_index_init(MailIndex *index, const char *dir)
+void mail_index_init(struct mail_index *index, const char *dir)
 {
 	size_t len;
 
@@ -520,7 +525,7 @@ void mail_index_init(MailIndex *index, const char *dir)
 	index->mail_read_mmaped = getenv("MAIL_READ_MMAPED") != NULL;
 }
 
-int mail_index_open(MailIndex *index, int update_recent, int fast)
+int mail_index_open(struct mail_index *index, int update_recent, int fast)
 {
 	const char *name, *path;
 
@@ -543,7 +548,8 @@ int mail_index_open(MailIndex *index, int update_recent, int fast)
 	return TRUE;
 }
 
-int mail_index_open_or_create(MailIndex *index, int update_recent, int fast)
+int mail_index_open_or_create(struct mail_index *index,
+			      int update_recent, int fast)
 {
 	int failed, dir_unlocked;
 

@@ -12,7 +12,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-static Timeout to;
+static struct timeout *to;
 static int generating;
 
 static void generate_parameters_file(const char *fname)

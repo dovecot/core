@@ -14,19 +14,19 @@
 #include <gcrypt.h>
 #include <gnutls/gnutls.h>
 
-typedef struct {
+struct ssl_proxy {
 	int refcount;
 
 	gnutls_session session;
 	int fd_ssl, fd_plain;
-	IO io_ssl, io_plain;
+	struct io *io_ssl, *io_plain;
 	int io_ssl_dir;
 
 	unsigned char outbuf_plain[1024];
 	unsigned int outbuf_pos_plain;
 
 	size_t send_left_ssl, send_left_plain;
-} SSLProxy;
+};
 
 const int protocol_priority[] =
 	{ GNUTLS_TLS1, GNUTLS_SSL3, 0 };
@@ -46,16 +46,16 @@ static gnutls_certificate_credentials x509_cred;
 static gnutls_dh_params dh_params;
 static gnutls_rsa_params rsa_params;
 
-static void ssl_input(void *context, int handle, IO io);
-static void plain_input(void *context, int handle, IO io);
-static int ssl_proxy_destroy(SSLProxy *proxy);
+static void ssl_input(void *context, int handle, struct io *io);
+static void plain_input(void *context, int handle, struct io *io);
+static int ssl_proxy_destroy(struct ssl_proxy *proxy);
 
-static const char *get_alert_text(SSLProxy *proxy)
+static const char *get_alert_text(struct ssl_proxy *proxy)
 {
 	return gnutls_alert_get_name(gnutls_alert_get(proxy->session));
 }
 
-static int handle_ssl_error(SSLProxy *proxy, int error)
+static int handle_ssl_error(struct ssl_proxy *proxy, int error)
 {
 	if (!gnutls_error_is_fatal(error)) {
 		if (error == GNUTLS_E_WARNING_ALERT_RECEIVED) {
@@ -79,7 +79,7 @@ static int handle_ssl_error(SSLProxy *proxy, int error)
 	return -1;
 }
 
-static int proxy_recv_ssl(SSLProxy *proxy, void *data, size_t size)
+static int proxy_recv_ssl(struct ssl_proxy *proxy, void *data, size_t size)
 {
 	int rcvd;
 
@@ -98,7 +98,8 @@ static int proxy_recv_ssl(SSLProxy *proxy, void *data, size_t size)
 	return handle_ssl_error(proxy, rcvd);
 }
 
-static int proxy_send_ssl(SSLProxy *proxy, const void *data, size_t size)
+static int proxy_send_ssl(struct ssl_proxy *proxy,
+			  const void *data, size_t size)
 {
 	int sent;
 
@@ -107,7 +108,8 @@ static int proxy_send_ssl(SSLProxy *proxy, const void *data, size_t size)
 		return sent;
 
 	if (sent == GNUTLS_E_PUSH_ERROR || sent == GNUTLS_E_INVALID_SESSION) {
-		/* don't warn about errors related to unexpected disconnection */
+		/* don't warn about errors related to unexpected
+		   disconnection */
 		ssl_proxy_destroy(proxy);
 		return -1;
 	}
@@ -115,7 +117,7 @@ static int proxy_send_ssl(SSLProxy *proxy, const void *data, size_t size)
 	return handle_ssl_error(proxy, sent);
 }
 
-static int ssl_proxy_destroy(SSLProxy *proxy)
+static int ssl_proxy_destroy(struct ssl_proxy *proxy)
 {
 	if (--proxy->refcount > 0)
 		return TRUE;
@@ -137,9 +139,9 @@ static int ssl_proxy_destroy(SSLProxy *proxy)
 }
 
 static void ssl_output(void *context, int fd __attr_unused__,
-		       IO io __attr_unused__)
+		       struct io *io __attr_unused__)
 {
-        SSLProxy *proxy = context;
+        struct ssl_proxy *proxy = context;
 	int sent;
 
 	sent = net_transmit(proxy->fd_plain,
@@ -163,9 +165,9 @@ static void ssl_output(void *context, int fd __attr_unused__,
 }
 
 static void ssl_input(void *context, int fd __attr_unused__,
-		      IO io __attr_unused__)
+		      struct io *io __attr_unused__)
 {
-        SSLProxy *proxy = context;
+        struct ssl_proxy *proxy = context;
 	int rcvd, sent;
 
 	rcvd = proxy_recv_ssl(proxy, proxy->outbuf_plain,
@@ -193,9 +195,9 @@ static void ssl_input(void *context, int fd __attr_unused__,
 }
 
 static void plain_output(void *context, int fd __attr_unused__,
-			 IO io __attr_unused__)
+			 struct io *io __attr_unused__)
 {
-	SSLProxy *proxy = context;
+	struct ssl_proxy *proxy = context;
 	int sent;
 
 	sent = proxy_send_ssl(proxy, NULL, proxy->send_left_ssl);
@@ -212,9 +214,9 @@ static void plain_output(void *context, int fd __attr_unused__,
 }
 
 static void plain_input(void *context, int fd __attr_unused__,
-			IO io __attr_unused__)
+			struct io *io __attr_unused__)
 {
-	SSLProxy *proxy = context;
+	struct ssl_proxy *proxy = context;
 	char buf[1024];
 	ssize_t rcvd, sent;
 
@@ -239,9 +241,9 @@ static void plain_input(void *context, int fd __attr_unused__,
 }
 
 static void ssl_handshake(void *context, int fd __attr_unused__,
-			  IO io __attr_unused__)
+			  struct io *io __attr_unused__)
 {
-	SSLProxy *proxy = context;
+	struct ssl_proxy *proxy = context;
 	int ret, dir;
 
         ret = gnutls_handshake(proxy->session);
@@ -291,7 +293,7 @@ static gnutls_session initialize_state(void)
 
 int ssl_proxy_new(int fd)
 {
-        SSLProxy *proxy;
+        struct ssl_proxy *proxy;
 	gnutls_session session;
 	int sfd[2];
 
@@ -310,7 +312,7 @@ int ssl_proxy_new(int fd)
 	net_set_nonblock(sfd[0], TRUE);
 	net_set_nonblock(sfd[1], TRUE);
 
-	proxy = i_new(SSLProxy, 1);
+	proxy = i_new(struct ssl_proxy, 1);
 	proxy->refcount = 1;
 	proxy->session = session;
 	proxy->fd_ssl = fd;

@@ -3,25 +3,23 @@
 
 /* This file is private to IStream and OStream implementation */
 
-typedef struct _IOStream _IOStream;
-
-struct _IOStream {
-	Pool pool;
+struct _iostream {
+	pool_t pool;
 	int refcount;
 
-	void (*close)(_IOStream *stream);
-	void (*destroy)(_IOStream *stream);
-	void (*set_max_buffer_size)(_IOStream *stream, size_t max_size);
-	void (*set_blocking)(_IOStream *stream, int timeout_msecs,
+	void (*close)(struct _iostream *stream);
+	void (*destroy)(struct _iostream *stream);
+	void (*set_max_buffer_size)(struct _iostream *stream, size_t max_size);
+	void (*set_blocking)(struct _iostream *stream, int timeout_msecs,
 			     void (*timeout_func)(void *), void *context);
 };
 
-void _io_stream_init(Pool pool, _IOStream *stream);
-void _io_stream_ref(_IOStream *stream);
-void _io_stream_unref(_IOStream *stream);
-void _io_stream_close(_IOStream *stream);
-void _io_stream_set_max_buffer_size(_IOStream *stream, size_t max_size);
-void _io_stream_set_blocking(_IOStream *stream, int timeout_msecs,
+void _io_stream_init(pool_t pool, struct _iostream *stream);
+void _io_stream_ref(struct _iostream *stream);
+void _io_stream_unref(struct _iostream *stream);
+void _io_stream_close(struct _iostream *stream);
+void _io_stream_set_max_buffer_size(struct _iostream *stream, size_t max_size);
+void _io_stream_set_blocking(struct _iostream *stream, int timeout_msecs,
 			     void (*timeout_func)(void *), void *context);
 
 #define GET_TIMEOUT_TIME(fstream) \

@@ -7,6 +7,6 @@
 #define MASTER_SOCKET_FD 0
 #define LOGIN_LISTEN_FD 3
 
-extern IOLoop ioloop;
+extern struct ioloop *ioloop;
 
 #endif

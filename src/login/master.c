@@ -9,28 +9,26 @@
 
 #include <unistd.h>
 
-typedef struct _WaitingRequest WaitingRequest;
-
-struct _WaitingRequest {
-	WaitingRequest *next;
+struct waiting_request {
+	struct waiting_request *next;
 
 	unsigned int id;
 	MasterCallback callback;
 	void *context;
 };
 
-static IO io_master;
-static WaitingRequest *requests, **next_request;
+static struct io *io_master;
+static struct waiting_request *requests, **next_request;
 
 static unsigned int master_pos;
-static char master_buf[sizeof(MasterReply)];
+static char master_buf[sizeof(struct master_reply)];
 
 static void push_request(unsigned int id, MasterCallback callback,
 			 void *context)
 {
-	WaitingRequest *req;
+	struct waiting_request *req;
 
-	req = i_new(WaitingRequest, 1);
+	req = i_new(struct waiting_request, 1);
 	req->id = id;
 	req->callback = callback;
 	req->context = context;
@@ -39,9 +37,9 @@ static void push_request(unsigned int id, MasterCallback callback,
 	next_request = &req->next;
 }
 
-static void pop_request(MasterReply *reply)
+static void pop_request(struct master_reply *reply)
 {
-	WaitingRequest *req;
+	struct waiting_request *req;
 
 	req = requests;
 	if (req == NULL) {
@@ -66,17 +64,18 @@ static void pop_request(MasterReply *reply)
 
 void master_request_imap(int fd, unsigned int auth_process,
 			 const char *login_tag,
-			 unsigned char cookie[AUTH_COOKIE_SIZE], IPADDR *ip,
+			 unsigned char cookie[AUTH_COOKIE_SIZE],
+			 struct ip_addr *ip,
 			 MasterCallback callback, void *context)
 {
-	MasterRequest req;
+	struct master_request req;
 
 	i_assert(fd > 1);
 
 	memset(&req, 0, sizeof(req));
 	req.id = fd;
 	req.auth_process = auth_process;
-	memcpy(&req.ip, ip, sizeof(IPADDR));
+	memcpy(&req.ip, ip, sizeof(struct ip_addr));
 	memcpy(req.cookie, cookie, AUTH_COOKIE_SIZE);
 
 	if (strocpy(req.login_tag, login_tag, sizeof(req.login_tag)) < 0)
@@ -91,7 +90,7 @@ void master_request_imap(int fd, unsigned int auth_process,
 
 void master_notify_finished(void)
 {
-	MasterRequest req;
+	struct master_request req;
 
 	if (io_master == NULL)
 		return;
@@ -122,7 +121,7 @@ void master_close(void)
 }
 
 static void master_input(void *context __attr_unused__, int fd,
-			 IO io __attr_unused__)
+			 struct io *io __attr_unused__)
 {
 	int ret;
 
@@ -139,7 +138,7 @@ static void master_input(void *context __attr_unused__, int fd,
 		return;
 
 	/* reply is now read */
-	pop_request((MasterReply *) master_buf);
+	pop_request((struct master_reply *) master_buf);
 	master_pos = 0;
 }
 
@@ -156,7 +155,7 @@ void master_init(void)
 
 void master_deinit(void)
 {
-	WaitingRequest *next;
+	struct waiting_request *next;
 
 	while (requests != NULL) {
 		next = requests->next;

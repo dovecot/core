@@ -4,11 +4,7 @@
 #define IS_LWSP(c) \
 	((c) == ' ' || (c) == '\t')
 
-typedef struct _MessagePart MessagePart;
-typedef struct _MessagePosition MessagePosition;
-typedef struct _MessageSize MessageSize;
-
-typedef enum {
+enum message_part_flags {
 	MESSAGE_PART_FLAG_MULTIPART		= 0x01,
 	MESSAGE_PART_FLAG_MULTIPART_DIGEST	= 0x02,
 	MESSAGE_PART_FLAG_MESSAGE_RFC822	= 0x04,
@@ -18,45 +14,45 @@ typedef enum {
 
 	/* content-transfer-encoding: binary */
 	MESSAGE_PART_FLAG_BINARY		= 0x10
-} MessagePartFlags;
+};
 
-struct _MessageSize {
+struct message_size {
 	uoff_t physical_size;
 	uoff_t virtual_size;
 	unsigned int lines;
 };
 
-struct _MessagePart {
-	MessagePart *parent;
-	MessagePart *next;
-	MessagePart *children;
+struct message_part {
+	struct message_part *parent;
+	struct message_part *next;
+	struct message_part *children;
 
 	uoff_t physical_pos; /* absolute position from beginning of message */
-	MessageSize header_size;
-	MessageSize body_size;
+	struct message_size header_size;
+	struct message_size body_size;
 
-	MessagePartFlags flags;
+	enum message_part_flags flags;
 	void *context;
 };
 
 /* NOTE: name and value aren't \0-terminated. Also called once at end of
    headers with name_len = value_len = 0. */
-typedef void (*MessageHeaderFunc)(MessagePart *part,
+typedef void (*MessageHeaderFunc)(struct message_part *part,
 				  const unsigned char *name, size_t name_len,
 				  const unsigned char *value, size_t value_len,
 				  void *context);
 
 /* func is called for each field in message header. */
-MessagePart *message_parse(Pool pool, IStream *input,
-			   MessageHeaderFunc func, void *context);
+struct message_part *message_parse(pool_t pool, struct istream *input,
+				   MessageHeaderFunc func, void *context);
 
 /* Call func for each field in message header. Fills the hdr_size.
    part can be NULL, just make sure your header function works with it.
    This function doesn't use data stack so your header function may save
    values to it. When finished, input will point to beginning of message
    body. */
-void message_parse_header(MessagePart *part, IStream *input,
-			  MessageSize *hdr_size,
+void message_parse_header(struct message_part *part, struct istream *input,
+			  struct message_size *hdr_size,
 			  MessageHeaderFunc func, void *context);
 
 #endif

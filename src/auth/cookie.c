@@ -12,19 +12,17 @@
 /* 30 seconds should be more than enough */
 #define COOKIE_TIMEOUT 30
 
-typedef struct _CookieList CookieList;
-
-struct _CookieList {
-	CookieList *next;
+struct cookie_list {
+	struct cookie_list *next;
 	time_t created;
 
-	CookieData *data;
+	struct cookie_data *data;
 };
 
-static HashTable *cookies;
-static CookieList *oldest_cookie, **next_cookie;
+static struct hash_table *cookies;
+static struct cookie_list *oldest_cookie, **next_cookie;
 
-static Timeout to;
+static struct timeout *to;
 
 /* a char* hash function from ASU -- from glib */
 static unsigned int cookie_hash(const void *p)
@@ -57,16 +55,16 @@ static int cookie_cmp(const void *p1, const void *p2)
 	return 0;
 }
 
-void cookie_add(CookieData *data)
+void cookie_add(struct cookie_data *data)
 {
-	CookieList *list;
+	struct cookie_list *list;
 
 	do {
 		random_fill(data->cookie, AUTH_COOKIE_SIZE);
 	} while (hash_lookup(cookies, data->cookie));
 
 	/* add to linked list */
-	list = i_new(CookieList, 1);
+	list = i_new(struct cookie_list, 1);
 	list->created = ioloop_time;
 	list->data = data;
 
@@ -80,7 +78,7 @@ void cookie_add(CookieData *data)
 static void cookie_destroy(unsigned char cookie[AUTH_COOKIE_SIZE],
 			   int free_data)
 {
-	CookieList **pos, *list;
+	struct cookie_list **pos, *list;
 
 	hash_remove(cookies, cookie);
 
@@ -103,7 +101,7 @@ static void cookie_destroy(unsigned char cookie[AUTH_COOKIE_SIZE],
 	i_free(list);
 }
 
-CookieData *cookie_lookup(unsigned char cookie[AUTH_COOKIE_SIZE])
+struct cookie_data *cookie_lookup(unsigned char cookie[AUTH_COOKIE_SIZE])
 {
 	return hash_lookup(cookies, cookie);
 }
@@ -113,10 +111,11 @@ void cookie_remove(unsigned char cookie[AUTH_COOKIE_SIZE])
 	cookie_destroy(cookie, TRUE);
 }
 
-CookieData *cookie_lookup_and_remove(unsigned int login_pid,
-				     unsigned char cookie[AUTH_COOKIE_SIZE])
+struct cookie_data *
+cookie_lookup_and_remove(unsigned int login_pid,
+			 unsigned char cookie[AUTH_COOKIE_SIZE])
 {
-	CookieData *data;
+	struct cookie_data *data;
 
 	data = hash_lookup(cookies, cookie);
 	if (data != NULL) {
@@ -130,7 +129,7 @@ CookieData *cookie_lookup_and_remove(unsigned int login_pid,
 
 void cookies_remove_login_pid(unsigned int login_pid)
 {
-	CookieList *list, *next;
+	struct cookie_list *list, *next;
 
 	/* FIXME: slow */
 	for (list = oldest_cookie; list != NULL; list = next) {
@@ -142,7 +141,7 @@ void cookies_remove_login_pid(unsigned int login_pid)
 }
 
 static void cookie_timeout(void *context __attr_unused__,
-			   Timeout timeout __attr_unused__)
+			   struct timeout *timeout __attr_unused__)
 {
 	time_t remove_time;
 

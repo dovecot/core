@@ -3,7 +3,7 @@
 
 /* Translates binary data into base64. The src must not point to dest buffer.
    Returns 1 if all ok, 0 if dest buffer got full. */
-int base64_encode(const unsigned char *src, size_t src_size, Buffer *dest);
+int base64_encode(const unsigned char *src, size_t src_size, buffer_t *dest);
 
 /* Translates base64 data into binary and appends it to dest buffer. dest may
    point to same buffer as src. Returns 1 if all ok, 0 if dest buffer got full
@@ -14,7 +14,7 @@ int base64_encode(const unsigned char *src, size_t src_size, Buffer *dest);
    If src_pos is non-NULL, it's updated to first non-translated character in
    src. */
 int base64_decode(const unsigned char *src, size_t src_size,
-		  size_t *src_pos_r, Buffer *dest);
+		  size_t *src_pos_r, buffer_t *dest);
 
 /* max. buffer size required for base64_encode() */
 #define MAX_BASE64_ENCODED_SIZE(size) \

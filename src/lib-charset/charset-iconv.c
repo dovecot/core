@@ -15,15 +15,15 @@
 #  define ICONV_CONST
 #endif
 
-struct _CharsetTranslation {
+struct charset_translation {
 	iconv_t cd;
 	int ascii;
 };
 
-CharsetTranslation *charset_to_utf8_begin(const char *charset,
-					  int *unknown_charset)
+struct charset_translation *charset_to_utf8_begin(const char *charset,
+						  int *unknown_charset)
 {
-	CharsetTranslation *t;
+	struct charset_translation *t;
 	iconv_t cd;
 	int ascii;
 
@@ -48,33 +48,34 @@ CharsetTranslation *charset_to_utf8_begin(const char *charset,
 		}
 	}
 
-	t = i_new(CharsetTranslation, 1);
+	t = i_new(struct charset_translation, 1);
 	t->cd = cd;
 	t->ascii = ascii;
 	return t;
 }
 
-void charset_to_utf8_end(CharsetTranslation *t)
+void charset_to_utf8_end(struct charset_translation *t)
 {
 	if (t->cd != NULL)
 		iconv_close(t->cd);
 	i_free(t);
 }
 
-void charset_to_utf8_reset(CharsetTranslation *t)
+void charset_to_utf8_reset(struct charset_translation *t)
 {
 	if (t->cd != NULL)
 		(void)iconv(t->cd, NULL, NULL, NULL, NULL);
 }
 
-CharsetResult
-charset_to_ucase_utf8(CharsetTranslation *t,
-		      const unsigned char *src, size_t *src_size, Buffer *dest)
+enum charset_result
+charset_to_ucase_utf8(struct charset_translation *t,
+		      const unsigned char *src, size_t *src_size,
+		      buffer_t *dest)
 {
 	ICONV_CONST char *ic_srcbuf;
 	char *ic_destbuf;
 	size_t srcleft, destpos, destleft, size;
-        CharsetResult ret;
+        enum charset_result ret;
 
 	destpos = buffer_get_used_size(dest);
 	destleft = buffer_get_size(dest) - destpos;

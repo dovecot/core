@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_uid(Client *client)
+int cmd_uid(struct client *client)
 {
 	const char *cmd;
 

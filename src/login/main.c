@@ -19,8 +19,8 @@ int disable_plaintext_auth, process_per_connection, verbose_proctitle;
 unsigned int max_logging_users;
 unsigned int login_process_uid;
 
-static IOLoop ioloop;
-static IO io_imap, io_imaps;
+static struct ioloop *ioloop;
+static struct io *io_imap, *io_imaps;
 static int main_refcount;
 static int closing_down;
 
@@ -72,9 +72,9 @@ static void sig_quit(int signo __attr_unused__)
 }
 
 static void login_accept(void *context __attr_unused__, int listen_fd,
-			 IO io __attr_unused__)
+			 struct io *io __attr_unused__)
 {
-	IPADDR ip;
+	struct ip_addr ip;
 	int fd;
 
 	fd = net_accept(listen_fd, &ip, NULL);
@@ -91,10 +91,10 @@ static void login_accept(void *context __attr_unused__, int listen_fd,
 }
 
 static void login_accept_ssl(void *context __attr_unused__, int listen_fd,
-			     IO io __attr_unused__)
+			     struct io *io __attr_unused__)
 {
-	Client *client;
-	IPADDR addr;
+	struct client *client;
+	struct ip_addr addr;
 	int fd, fd_ssl;
 
 	fd = net_accept(listen_fd, &addr, NULL);

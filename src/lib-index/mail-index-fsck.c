@@ -10,9 +10,9 @@
 			  index->filepath, old_hdr->field, new_hdr->field);
 
 
-static void print_differences(MailIndex *index,
-			      MailIndexHeader *old_hdr,
-			      MailIndexHeader *new_hdr)
+static void print_differences(struct mail_index *index,
+			      struct mail_index_header *old_hdr,
+			      struct mail_index_header *new_hdr)
 {
 	if (old_hdr->first_hole_index != new_hdr->first_hole_index) {
 		i_warning("fsck %s: first_hole_position %u != %u",
@@ -46,13 +46,12 @@ static void print_differences(MailIndex *index,
 	}
 }
 
-int mail_index_fsck(MailIndex *index)
+int mail_index_fsck(struct mail_index *index)
 {
 	/* we verify only the fields in the header. other problems will be
 	   noticed and fixed while reading the messages. */
-	MailIndexHeader old_hdr;
-	MailIndexHeader *hdr;
-	MailIndexRecord *rec, *end_rec;
+	struct mail_index_header old_hdr, *hdr;
+	struct mail_index_record *rec, *end_rec;
 	unsigned int max_uid, pos;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
@@ -61,7 +60,7 @@ int mail_index_fsck(MailIndex *index)
 		return FALSE;
 
 	hdr = index->header;
-	memcpy(&old_hdr, hdr, sizeof(MailIndexHeader));
+	memcpy(&old_hdr, hdr, sizeof(struct mail_index_header));
 
 	hdr->first_hole_index = 0;
 	hdr->first_hole_records = 0;
@@ -73,10 +72,8 @@ int mail_index_fsck(MailIndex *index)
 	hdr->first_unseen_uid_lowwater = 0;
 	hdr->first_deleted_uid_lowwater = 0;
 
-	rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				   sizeof(MailIndexHeader));
-	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				       index->mmap_used_length);
+	rec = INDEX_RECORD_AT(index, 0);
+	end_rec = INDEX_END_RECORD(index);
 
 	max_uid = 0;
 	for (; rec < end_rec; rec++) {

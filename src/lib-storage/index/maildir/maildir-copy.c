@@ -9,19 +9,20 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-typedef struct {
-	MailStorage *storage;
-	IndexMailbox *dest;
+struct copy_hard_context {
+	struct mail_storage *storage;
+	struct index_mailbox *dest;
 	int error;
 	const char **custom_flags;
-} CopyHardContext;
+};
 
-static int copy_hard_func(MailIndex *index, MailIndexRecord *rec,
+static int copy_hard_func(struct mail_index *index,
+			  struct mail_index_record *rec,
 			  unsigned int client_seq __attr_unused__,
 			  unsigned int idx_seq __attr_unused__, void *context)
 {
-	CopyHardContext *ctx = context;
-	MailFlags flags;
+	struct copy_hard_context *ctx = context;
+	enum mail_flags flags;
 	const char *fname;
 	char src[PATH_MAX], dest[PATH_MAX];
 
@@ -60,11 +61,11 @@ static int copy_hard_func(MailIndex *index, MailIndexRecord *rec,
 	}
 }
 
-static int maildir_copy_with_hardlinks(IndexMailbox *src,
-				       IndexMailbox *dest,
+static int maildir_copy_with_hardlinks(struct index_mailbox *src,
+				       struct index_mailbox *dest,
 				       const char *messageset, int uidset)
 {
-	CopyHardContext ctx;
+	struct copy_hard_context ctx;
 	int ret;
 
 	if (!index_storage_sync_and_lock(src, TRUE, MAIL_LOCK_SHARED))
@@ -83,10 +84,10 @@ static int maildir_copy_with_hardlinks(IndexMailbox *src,
 	return ctx.error ? -1 : ret;
 }
 
-int maildir_storage_copy(Mailbox *box, Mailbox *destbox,
+int maildir_storage_copy(struct mailbox *box, struct mailbox *destbox,
 			 const char *messageset, int uidset)
 {
-	IndexMailbox *ibox = (IndexMailbox *) box;
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
 	if (destbox->readonly) {
 		mail_storage_set_error(box->storage,
@@ -99,7 +100,7 @@ int maildir_storage_copy(Mailbox *box, Mailbox *destbox,
 		/* both source and destination mailbox are in maildirs and
 		   copy_with_hardlinks option is on, do it */
 		switch (maildir_copy_with_hardlinks(ibox,
-			(IndexMailbox *) destbox, messageset, uidset)) {
+			(struct index_mailbox *) destbox, messageset, uidset)) {
 		case 1:
 			return TRUE;
 		case 0:

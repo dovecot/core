@@ -17,16 +17,6 @@
 #  include <stdint.h> /* C99 int types, we mostly need uintmax_t */
 #endif
 
-typedef struct _IOLoop *IOLoop;
-typedef struct _IO *IO;
-typedef struct _Timeout *Timeout;
-
-typedef struct _IPADDR IPADDR;
-typedef struct _IStream IStream;
-typedef struct _OStream OStream;
-typedef struct _Buffer Buffer;
-typedef struct _Buffer String;
-
 #include "compat.h"
 #include "macros.h"
 #include "failures.h"
@@ -36,6 +26,12 @@ typedef struct _Buffer String;
 #include "imem.h"
 
 #include "strfuncs.h"
+
+typedef struct buffer buffer_t;
+typedef struct buffer string_t;
+
+struct istream;
+struct ostream;
 
 size_t nearest_power(size_t num);
 

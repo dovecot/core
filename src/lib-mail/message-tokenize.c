@@ -3,13 +3,13 @@
 #include "lib.h"
 #include "str.h"
 #include "strescape.h"
-#include "rfc822-tokenize.h"
+#include "message-tokenize.h"
 
-struct _Rfc822TokenizeContext {
+struct message_tokenizer {
 	const unsigned char *data;
 	size_t size;
 
-	Rfc822TokenizeErrorFunc error_func;
+	MessageTokenizeErrorFunc error_func;
 	void *error_context;
 
 	int token;
@@ -24,74 +24,74 @@ struct _Rfc822TokenizeContext {
 
 #define PARSE_ERROR() \
 	STMT_START { \
-	if (ctx->error_func != NULL && \
-	    !ctx->error_func(data, i, '\0', ctx->error_context)) { \
-		ctx->token = TOKEN_LAST; \
+	if (tok->error_func != NULL && \
+	    !tok->error_func(data, i, '\0', tok->error_context)) { \
+		tok->token = TOKEN_LAST; \
 		return TOKEN_LAST; \
 	} \
 	} STMT_END
 
 #define PARSE_ERROR_MISSING(c) \
 	STMT_START { \
-	if (ctx->error_func != NULL && \
-	    !ctx->error_func(data, i, c, ctx->error_context)) { \
-		ctx->token = TOKEN_LAST; \
+	if (tok->error_func != NULL && \
+	    !tok->error_func(data, i, c, tok->error_context)) { \
+		tok->token = TOKEN_LAST; \
 		return TOKEN_LAST; \
 	} \
 	} STMT_END
 
 
-Rfc822TokenizeContext *
-rfc822_tokenize_init(const unsigned char *data, size_t size,
-		     Rfc822TokenizeErrorFunc error_func, void *error_context)
+struct message_tokenizer *
+message_tokenize_init(const unsigned char *data, size_t size,
+		      MessageTokenizeErrorFunc error_func, void *error_context)
 {
-	Rfc822TokenizeContext *ctx;
+	struct message_tokenizer *tok;
 
-	ctx = i_new(Rfc822TokenizeContext, 1);
-	ctx->data = data;
-	ctx->size = size;
+	tok = i_new(struct message_tokenizer, 1);
+	tok->data = data;
+	tok->size = size;
 
-	ctx->error_func = error_func;
-	ctx->error_context = error_context;
+	tok->error_func = error_func;
+	tok->error_context = error_context;
 
-	ctx->skip_comments = TRUE;
-	ctx->dot_token = TRUE;
+	tok->skip_comments = TRUE;
+	tok->dot_token = TRUE;
 
-	ctx->token = -1;
-	return ctx;
+	tok->token = -1;
+	return tok;
 }
 
-void rfc822_tokenize_deinit(Rfc822TokenizeContext *ctx)
+void message_tokenize_deinit(struct message_tokenizer *tok)
 {
-	i_free(ctx);
+	i_free(tok);
 }
 
-void rfc822_tokenize_skip_comments(Rfc822TokenizeContext *ctx, int set)
+void message_tokenize_skip_comments(struct message_tokenizer *tok, int set)
 {
-	ctx->skip_comments = set;
+	tok->skip_comments = set;
 }
 
-void rfc822_tokenize_dot_token(Rfc822TokenizeContext *ctx, int set)
+void message_tokenize_dot_token(struct message_tokenizer *tok, int set)
 {
-	ctx->dot_token = set;
+	tok->dot_token = set;
 }
 
-Rfc822Token rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
+enum message_token message_tokenize_next(struct message_tokenizer *tok)
 {
 	int token, level, last_atom;
 	const unsigned char *data;
 	size_t i, size;
 
-	if (ctx->token == TOKEN_LAST)
+	if (tok->token == TOKEN_LAST)
 		return TOKEN_LAST;
 
-	data = ctx->data;
-	size = ctx->size;
+	data = tok->data;
+	size = tok->size;
 
-	ctx->token = TOKEN_LAST;
+	tok->token = TOKEN_LAST;
 
 	last_atom = FALSE;
-	for (i = ctx->parse_pos; i < size && data[i] != '\0'; i++) {
+	for (i = tok->parse_pos; i < size && data[i] != '\0'; i++) {
 		token = -1;
 		switch (data[i]) {
 		case ' ':
@@ -107,7 +107,7 @@ Rfc822Token rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
 				break;
 
 			token = '(';
-			ctx->token_pos = ++i;
+			tok->token_pos = ++i;
 
 			level = 1;
 			for (; i < size && data[i] != '\0'; i++) {
@@ -125,7 +125,7 @@ Rfc822Token rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
 			if (level > 0)
 				PARSE_ERROR_MISSING(')');
 
-			ctx->token_len = (size_t) (i - ctx->token_pos);
+			tok->token_len = (size_t) (i - tok->token_pos);
 			break;
 
 		case '[':
@@ -134,7 +134,7 @@ Rfc822Token rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
 				break;
 
 			token = '[';
-			ctx->token_pos = ++i;
+			tok->token_pos = ++i;
 
 			while (i < size && data[i] != '\0' && data[i] != ']') {
 				if (data[i] == '\\' &&
@@ -152,7 +152,7 @@ Rfc822Token rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
 			if (i == size || data[i] == '\0')
 				PARSE_ERROR_MISSING(']');
 
-			ctx->token_len = (size_t) (i - ctx->token_pos);
+			tok->token_len = (size_t) (i - tok->token_pos);
 			break;
 
 		case '"':
@@ -161,7 +161,7 @@ Rfc822Token rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
 				break;
 
 			token = '"';
-			ctx->token_pos = ++i;
+			tok->token_pos = ++i;
 
 			while (i < size && data[i] != '\0' && data[i] != '"') {
 				if (data[i] == '\\' &&
@@ -173,32 +173,32 @@ Rfc822Token rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
 			if (i == size || data[i] == '\0')
 				PARSE_ERROR_MISSING('"');
 
-			ctx->token_len = (size_t) (i - ctx->token_pos);
+			tok->token_len = (size_t) (i - tok->token_pos);
 			break;
 
 		case '<':
 			if (last_atom)
 				break;
 
-			if (ctx->in_bracket) {
+			if (tok->in_bracket) {
 				/* '<' cannot be nested */
 				PARSE_ERROR();
 			}
 
 			token = '<';
-			ctx->in_bracket = TRUE;
+			tok->in_bracket = TRUE;
 			break;
 		case '>':
 			if (last_atom)
 				break;
 
-			if (!ctx->in_bracket) {
+			if (!tok->in_bracket) {
 				/* missing '<' */
                                 PARSE_ERROR();
 			}
 
 			token = '>';
-			ctx->in_bracket = FALSE;
+			tok->in_bracket = FALSE;
 			break;
 
 		case ')':
@@ -217,16 +217,16 @@ Rfc822Token rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
 		case '/':
 		case '?':
 		case '=':
-			token = ctx->data[i];
-			if (token != '.' || ctx->dot_token)
+			token = tok->data[i];
+			if (token != '.' || tok->dot_token)
 				break;
 			/* fall through */
 		default:
 			/* atom */
 			token = 'A';
 			if (!last_atom) {
-				ctx->token = token;
-				ctx->token_pos = i;
+				tok->token = token;
+				tok->token_pos = i;
 				last_atom = TRUE;
 			}
 			break;
@@ -235,20 +235,20 @@ Rfc822Token rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
 		if (last_atom) {
 			if (token != 'A') {
 				/* end of atom */
-				ctx->token_len = (size_t) (i - ctx->token_pos);
+				tok->token_len = (size_t) (i - tok->token_pos);
 				last_atom = FALSE;
 				break;
 			}
 		} else {
 			if (token != -1) {
-				ctx->token = token;
-				if (i < ctx->size && data[i] != '\0')
+				tok->token = token;
+				if (i < tok->size && data[i] != '\0')
 					i++;
 				break;
 			}
 		}
 
-		if (i == ctx->size || data[i] == '\0') {
+		if (i == tok->size || data[i] == '\0') {
 			/* unexpected eol */
 			break;
 		}
@@ -256,45 +256,45 @@ Rfc822Token rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
 
 	if (last_atom) {
 		/* end of atom */
-		ctx->token_len = (size_t) (i - ctx->token_pos);
+		tok->token_len = (size_t) (i - tok->token_pos);
 	}
 
-	ctx->parse_pos = i;
+	tok->parse_pos = i;
 
-	if (ctx->token == TOKEN_LAST && ctx->in_bracket &&
-	    ctx->error_func != NULL) {
-		if (ctx->error_func(data, i, '>', ctx->error_context))
-			ctx->token = TOKEN_LAST;
+	if (tok->token == TOKEN_LAST && tok->in_bracket &&
+	    tok->error_func != NULL) {
+		if (tok->error_func(data, i, '>', tok->error_context))
+			tok->token = TOKEN_LAST;
 	}
 
-	return ctx->token;
+	return tok->token;
 }
 
-Rfc822Token rfc822_tokenize_get(const Rfc822TokenizeContext *ctx)
+enum message_token message_tokenize_get(const struct message_tokenizer *tok)
 {
-	return ctx->token;
+	return tok->token;
 }
 
 const unsigned char *
-rfc822_tokenize_get_value(const Rfc822TokenizeContext *ctx, size_t *len)
+message_tokenize_get_value(const struct message_tokenizer *tok, size_t *len)
 {
-	i_assert(IS_TOKEN_STRING(ctx->token));
+	i_assert(IS_TOKEN_STRING(tok->token));
 
-	*len = ctx->token_len;
-	return ctx->data + ctx->token_pos;
+	*len = tok->token_len;
+	return tok->data + tok->token_pos;
 }
 
-void rfc822_tokenize_get_string(Rfc822TokenizeContext *ctx,
-				String *str, String *comments,
-				const Rfc822Token *stop_tokens)
+void message_tokenize_get_string(struct message_tokenizer *tok,
+				 string_t *str, string_t *comments,
+				 const enum message_token *stop_tokens)
 {
-	Rfc822Token token;
+	enum message_token token;
 	const unsigned char *value;
 	size_t len;
 	int i, token_str, last_str;
 
 	last_str = FALSE;
-	while ((token = rfc822_tokenize_next(ctx)) != TOKEN_LAST) {
+	while ((token = message_tokenize_next(tok)) != TOKEN_LAST) {
 		for (i = 0; stop_tokens[i] != TOKEN_LAST; i++)
 			if (token == stop_tokens[i])
 				return;
@@ -305,7 +305,7 @@ void rfc822_tokenize_get_string(Rfc822TokenizeContext *ctx,
 				if (str_len(comments) > 0)
 					str_append_c(comments, ' ');
 
-				value = rfc822_tokenize_get_value(ctx, &len);
+				value = message_tokenize_get_value(tok, &len);
 				str_append_unescaped(comments, value, len);
 			}
 			continue;
@@ -323,7 +323,7 @@ void rfc822_tokenize_get_string(Rfc822TokenizeContext *ctx,
 			if (last_str)
 				str_append_c(str, ' ');
 
-			value = rfc822_tokenize_get_value(ctx, &len);
+			value = message_tokenize_get_value(tok, &len);
 			str_append_unescaped(str, value, len);
 		} else {
 			if (last_str)
@@ -332,7 +332,7 @@ void rfc822_tokenize_get_string(Rfc822TokenizeContext *ctx,
 			if (token == TOKEN_DLITERAL)
 				str_append_c(str, '[');
 
-			value = rfc822_tokenize_get_value(ctx, &len);
+			value = message_tokenize_get_value(tok, &len);
 			str_append_n(str, value, len);
 
 			if (token == TOKEN_DLITERAL)

@@ -9,32 +9,32 @@
    zeroed, it will cost only a few CPU cycles and may well save some debug
    time. */
 
-typedef struct Pool *Pool;
+typedef struct pool *pool_t;
 
-struct Pool {
-	void (*ref)(Pool pool);
-	void (*unref)(Pool pool);
+struct pool {
+	void (*ref)(pool_t pool);
+	void (*unref)(pool_t pool);
 
-	void *(*malloc)(Pool pool, size_t size);
-	void (*free)(Pool pool, void *mem);
+	void *(*malloc)(pool_t pool, size_t size);
+	void (*free)(pool_t pool, void *mem);
 
 	/* reallocate the `mem' to be exactly `size' */
-	void *(*realloc)(Pool pool, void *mem, size_t size);
+	void *(*realloc)(pool_t pool, void *mem, size_t size);
 
 	/* Frees all the memory in pool. NOTE: system_pool doesn't support
 	   this and crashes if it's used */
-	void (*clear)(Pool pool);
+	void (*clear)(pool_t pool);
 };
 
 /* system_pool uses calloc() + realloc() + free() */
-extern Pool system_pool;
+extern pool_t system_pool;
 
 /* memory allocated from data_stack is valid only until next t_pop() call. */
-extern Pool data_stack_pool;
+extern pool_t data_stack_pool;
 
 /* Create a new alloc-only pool. Note that `size' specifies the initial
    malloc()ed block size, part of it is used internally. */
-Pool pool_alloconly_create(const char *name, size_t size);
+pool_t pool_alloconly_create(const char *name, size_t size);
 
 /* Pools should be used through these macros: */
 #define pool_ref(pool) (pool)->ref(pool)

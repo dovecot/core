@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-static void client_send_untagged_storage_error(Client *client)
+static void client_send_untagged_storage_error(struct client *client)
 {
 	const char *error;
 	int syntax;
@@ -13,7 +13,7 @@ static void client_send_untagged_storage_error(Client *client)
 			 t_strconcat(syntax ? "* BAD " : "* NO ", error, NULL));
 }
 
-int cmd_close(Client *client)
+int cmd_close(struct client *client)
 {
 	if (!client_verify_open_mailbox(client))
 		return TRUE;

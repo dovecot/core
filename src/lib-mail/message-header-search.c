@@ -11,14 +11,14 @@
 
 #include <ctype.h>
 
-struct _HeaderSearchContext {
-	Pool pool;
+struct header_search_context {
+	pool_t pool;
 
 	unsigned char *key;
 	size_t key_len;
 	char *key_charset;
 
-	Buffer *match_buf;
+	buffer_t *match_buf;
 
 	unsigned int found:1;
 	unsigned int last_newline:1;
@@ -28,17 +28,17 @@ struct _HeaderSearchContext {
 };
 
 static void search_loop(const unsigned char *data, size_t size,
-			HeaderSearchContext *ctx);
+			struct header_search_context *ctx);
 
-HeaderSearchContext *
-message_header_search_init(Pool pool, const char *key, const char *charset,
+struct header_search_context *
+message_header_search_init(pool_t pool, const char *key, const char *charset,
 			   int *unknown_charset)
 {
-	HeaderSearchContext *ctx;
+	struct header_search_context *ctx;
 	size_t key_len;
 	const unsigned char *p;
 
-	ctx = p_new(pool, HeaderSearchContext, 1);
+	ctx = p_new(pool, struct header_search_context, 1);
 	ctx->pool = pool;
 
 	/* get the key uppercased */
@@ -70,9 +70,9 @@ message_header_search_init(Pool pool, const char *key, const char *charset,
 	return ctx;
 }
 
-void message_header_search_free(HeaderSearchContext *ctx)
+void message_header_search_free(struct header_search_context *ctx)
 {
-	Pool pool;
+	pool_t pool;
 
 	buffer_free(ctx->match_buf);
 
@@ -83,7 +83,8 @@ void message_header_search_free(HeaderSearchContext *ctx)
 }
 
 static void search_with_charset(const unsigned char *data, size_t size,
-				const char *charset, HeaderSearchContext *ctx)
+				const char *charset,
+				struct header_search_context *ctx)
 {
 	const char *utf8_data;
 	size_t utf8_size;
@@ -111,7 +112,7 @@ static void search_with_charset(const unsigned char *data, size_t size,
 }
 
 static void search_loop(const unsigned char *data, size_t size,
-			HeaderSearchContext *ctx)
+			struct header_search_context *ctx)
 {
 	size_t pos, *matches, match_count, value;
 	ssize_t i;
@@ -186,7 +187,7 @@ static void search_loop(const unsigned char *data, size_t size,
 static int search_block(const unsigned char *data, size_t size,
 			const char *charset, void *context)
 {
-	HeaderSearchContext *ctx = context;
+	struct header_search_context *ctx = context;
 
 	t_push();
 	if (charset != NULL) {
@@ -201,14 +202,14 @@ static int search_block(const unsigned char *data, size_t size,
 }
 
 int message_header_search(const unsigned char *header_block, size_t size,
-			  HeaderSearchContext *ctx)
+			  struct header_search_context *ctx)
 {
 	if (!ctx->found)
 		message_header_decode(header_block, size, search_block, ctx);
 	return ctx->found;
 }
 
-void message_header_search_reset(HeaderSearchContext *ctx)
+void message_header_search_reset(struct header_search_context *ctx)
 {
 	buffer_set_used_size(ctx->match_buf, 0);
 	ctx->found = FALSE;

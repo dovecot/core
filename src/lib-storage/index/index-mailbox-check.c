@@ -9,9 +9,10 @@
 
 static int check_interval = -1;
 
-static void check_timeout(void *context, Timeout timeout __attr_unused__)
+static void check_timeout(void *context,
+			  struct timeout *timeout __attr_unused__)
 {
-	IndexMailbox *ibox = context;
+	struct index_mailbox *ibox = context;
 	struct stat st;
 
 	if (ioloop_time - ibox->last_check < check_interval)
@@ -25,7 +26,7 @@ static void check_timeout(void *context, Timeout timeout __attr_unused__)
 	}
 }
 
-void index_mailbox_check_add(IndexMailbox *ibox, const char *path)
+void index_mailbox_check_add(struct index_mailbox *ibox, const char *path)
 {
 	const char *str;
 	struct stat st;
@@ -45,7 +46,7 @@ void index_mailbox_check_add(IndexMailbox *ibox, const char *path)
 	ibox->check_to = timeout_add(1000, check_timeout, ibox);
 }
 
-void index_mailbox_check_remove(IndexMailbox *ibox)
+void index_mailbox_check_remove(struct index_mailbox *ibox)
 {
 	if (ibox->check_to != NULL)
 		timeout_remove(ibox->check_to);

@@ -13,22 +13,20 @@
 
 #define LOCK_NOTIFY_INTERVAL 30
 
-typedef struct _IndexList IndexList;
+struct index_list {
+	struct index_list *next;
 
-struct _IndexList {
-	IndexList *next;
-
-	MailIndex *index;
+	struct mail_index *index;
 	int refcount;
 };
 
-static IndexList *indexes = NULL;
+static struct index_list *indexes = NULL;
 
-void index_storage_add(MailIndex *index)
+void index_storage_add(struct mail_index *index)
 {
-	IndexList *list;
+	struct index_list *list;
 
-	list = i_new(IndexList, 1);
+	list = i_new(struct index_list, 1);
 	list->refcount = 1;
 	list->index = index;
 
@@ -36,9 +34,9 @@ void index_storage_add(MailIndex *index)
 	indexes = list;
 }
 
-MailIndex *index_storage_lookup_ref(const char *path)
+struct mail_index *index_storage_lookup_ref(const char *path)
 {
-	IndexList *list;
+	struct index_list *list;
 	struct stat st1, st2;
 
 	if (stat(path, &st1) < 0)
@@ -58,9 +56,9 @@ MailIndex *index_storage_lookup_ref(const char *path)
 	return NULL;
 }
 
-void index_storage_unref(MailIndex *index)
+void index_storage_unref(struct mail_index *index)
 {
-	IndexList **list, *rec;
+	struct index_list **list, *rec;
 
 	for (list = &indexes; *list != NULL; list = &(*list)->next) {
 		rec = *list;
@@ -78,7 +76,7 @@ void index_storage_unref(MailIndex *index)
 	i_unreached();
 }
 
-static MailDataField get_data_fields(const char *fields)
+static enum mail_data_field get_data_fields(const char *fields)
 {
 	static const char *field_names[] = {
 		"Location",
@@ -91,7 +89,7 @@ static MailDataField get_data_fields(const char *fields)
 	};
 
 	const char *const *arr;
-	MailDataField ret;
+	enum mail_data_field ret;
 	int i;
 
 	if (fields == NULL || *fields == '\0')
@@ -117,9 +115,9 @@ static MailDataField get_data_fields(const char *fields)
 	return ret;
 }
 
-static MailDataField get_default_cache_fields(void)
+static enum mail_data_field get_default_cache_fields(void)
 {
-	static MailDataField ret = 0;
+	static enum mail_data_field ret = 0;
 	static int ret_set = FALSE;
 
 	if (ret_set)
@@ -130,9 +128,9 @@ static MailDataField get_default_cache_fields(void)
 	return ret;
 }
 
-static MailDataField get_never_cache_fields(void)
+static enum mail_data_field get_never_cache_fields(void)
 {
-	static MailDataField ret = 0;
+	static enum mail_data_field ret = 0;
 	static int ret_set = FALSE;
 
 	if (ret_set)
@@ -143,11 +141,11 @@ static MailDataField get_never_cache_fields(void)
 	return ret;
 }
 
-static void lock_notify(MailLockNotifyType notify_type,
+static void lock_notify(enum mail_lock_notify_type notify_type,
 			unsigned int secs_left, void *context)
 {
-	IndexMailbox *ibox = context;
-	MailStorage *storage = ibox->box.storage;
+	struct index_mailbox *ibox = context;
+	struct mail_storage *storage = ibox->box.storage;
 	const char *str;
 	time_t now;
 
@@ -187,7 +185,8 @@ static void lock_notify(MailLockNotifyType notify_type,
 	}
 }
 
-int index_storage_lock(IndexMailbox *ibox, MailLockType lock_type)
+int index_storage_lock(struct index_mailbox *ibox,
+		       enum mail_lock_type lock_type)
 {
 	int ret;
 
@@ -205,16 +204,17 @@ int index_storage_lock(IndexMailbox *ibox, MailLockType lock_type)
 	return TRUE;
 }
 
-IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
-				 MailIndex *index, const char *name,
-				 int readonly, int fast)
+struct index_mailbox *
+index_storage_init(struct mail_storage *storage, struct mailbox *box,
+		   struct mail_index *index, const char *name,
+		   int readonly, int fast)
 {
-	IndexMailbox *ibox;
+	struct index_mailbox *ibox;
 
 	i_assert(name != NULL);
 
 	do {
-		ibox = i_new(IndexMailbox, 1);
+		ibox = i_new(struct index_mailbox, 1);
 		ibox->box = *box;
 
 		ibox->box.storage = storage;
@@ -257,9 +257,9 @@ IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 	return NULL;
 }
 
-int index_storage_close(Mailbox *box)
+int index_storage_close(struct mailbox *box)
 {
-	IndexMailbox *ibox = (IndexMailbox *) box;
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
 	index_mailbox_check_remove(ibox);
 	imap_msgcache_free(ibox->cache);
@@ -272,15 +272,16 @@ int index_storage_close(Mailbox *box)
 	return TRUE;
 }
 
-void index_storage_set_callbacks(MailStorage *storage,
-				 MailStorageCallbacks *callbacks,
+void index_storage_set_callbacks(struct mail_storage *storage,
+				 struct mail_storage_callbacks *callbacks,
 				 void *context)
 {
-	memcpy(storage->callbacks, callbacks, sizeof(MailStorageCallbacks));
+	memcpy(storage->callbacks, callbacks,
+	       sizeof(struct mail_storage_callbacks));
 	storage->callback_context = context;
 }
 
-int mail_storage_set_index_error(IndexMailbox *ibox)
+int mail_storage_set_index_error(struct index_mailbox *ibox)
 {
 	switch (ibox->index->get_last_error(ibox->index)) {
 	case MAIL_INDEX_ERROR_NONE:
@@ -309,7 +310,8 @@ int mail_storage_set_index_error(IndexMailbox *ibox)
 	return FALSE;
 }
 
-int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
+int index_mailbox_fix_custom_flags(struct index_mailbox *ibox,
+				   enum mail_flags *flags,
                                    const char *custom_flags[])
 {
 	int ret;
@@ -329,10 +331,10 @@ int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
 	}
 }
 
-unsigned int index_storage_get_recent_count(MailIndex *index)
+unsigned int index_storage_get_recent_count(struct mail_index *index)
 {
-	MailIndexHeader *hdr;
-	MailIndexRecord *rec;
+	struct mail_index_header *hdr;
+	struct mail_index_record *rec;
 	unsigned int seq;
 
 	hdr = mail_index_get_header(index);

@@ -17,7 +17,7 @@
 */
 
 /* struct is 8 byte aligned */
-typedef struct {
+struct serialized_message_part {
 	uoff_t physical_pos;
   
 	uoff_t header_physical_size;
@@ -31,18 +31,18 @@ typedef struct {
 
 	unsigned int children_count;
 	unsigned int flags;
-} SerializedMessagePart;
+};
 
-static unsigned int _message_part_serialize(MessagePart *part, Buffer *dest)
+static unsigned int
+_message_part_serialize(struct message_part *part, buffer_t *dest)
 {
-	SerializedMessagePart *spart;
+	struct serialized_message_part *spart;
 	unsigned int count = 1;
 
 	while (part != NULL) {
 		/* create serialized part */
-		spart = buffer_append_space(dest,
-					    sizeof(SerializedMessagePart));
-		memset(spart, 0, sizeof(SerializedMessagePart));
+		spart = buffer_append_space(dest, sizeof(*spart));
+		memset(spart, 0, sizeof(*spart));
 
 		spart->physical_pos = part->physical_pos;
 
@@ -69,18 +69,18 @@ static unsigned int _message_part_serialize(MessagePart *part, Buffer *dest)
 	return count;
 }
 
-void message_part_serialize(MessagePart *part, Buffer *dest)
+void message_part_serialize(struct message_part *part, buffer_t *dest)
 {
 	_message_part_serialize(part, dest);
 }
 
-static MessagePart *
-message_part_deserialize_part(Pool pool, MessagePart *parent,
-			      const SerializedMessagePart **spart_pos,
+static struct message_part *
+message_part_deserialize_part(pool_t pool, struct message_part *parent,
+			      const struct serialized_message_part **spart_pos,
 			      size_t *count, unsigned int child_count)
 {
-        const SerializedMessagePart *spart;
-	MessagePart *part, *first_part, **next_part;
+        const struct serialized_message_part *spart;
+	struct message_part *part, *first_part, **next_part;
 	unsigned int i;
 
 	first_part = NULL;
@@ -90,7 +90,7 @@ message_part_deserialize_part(Pool pool, MessagePart *parent,
 		(*spart_pos)++;
 		(*count)--;
 
-		part = p_new(pool, MessagePart, 1);
+		part = p_new(pool, struct message_part, 1);
 		part->physical_pos = spart->physical_pos;
 
 		part->header_size.physical_size = spart->header_physical_size;
@@ -118,18 +118,18 @@ message_part_deserialize_part(Pool pool, MessagePart *parent,
 	return first_part;
 }
 
-MessagePart *message_part_deserialize(Pool pool, const void *data,
-				      size_t size)
+struct message_part *message_part_deserialize(pool_t pool, const void *data,
+					      size_t size)
 {
-        const SerializedMessagePart *spart;
+        const struct serialized_message_part *spart;
 	size_t count;
 
 	/* make sure it looks valid */
-	if (size < sizeof(SerializedMessagePart))
+	if (size < sizeof(struct serialized_message_part))
 		return NULL;
 
 	spart = data;
-	count = size / sizeof(SerializedMessagePart);
+	count = size / sizeof(struct serialized_message_part);
 	if (count > UINT_MAX)
 		return NULL;
 
@@ -138,15 +138,15 @@ MessagePart *message_part_deserialize(Pool pool, const void *data,
 }
 
 int message_part_serialize_update_header(void *data, size_t size,
-					 MessageSize *hdr_size)
+					 struct message_size *hdr_size)
 {
-	SerializedMessagePart *spart = data;
+	struct serialized_message_part *spart = data;
 	uoff_t first_pos;
 	off_t pos_diff;
 	size_t i, count;
 
 	/* make sure it looks valid */
-	if (size < sizeof(SerializedMessagePart))
+	if (size < sizeof(struct serialized_message_part))
 		return FALSE;
 
 	if (hdr_size->physical_size >= OFF_T_MAX ||
@@ -163,7 +163,7 @@ int message_part_serialize_update_header(void *data, size_t size,
 
 	if (pos_diff != 0) {
 		/* have to update all positions, but skip the first one */
-		count = (size / sizeof(SerializedMessagePart))-1;
+		count = (size / sizeof(struct serialized_message_part))-1;
 		spart++;
 
 		for (i = 0; i < count; i++, spart++) {
@@ -179,13 +179,13 @@ int message_part_serialize_update_header(void *data, size_t size,
 }
 
 int message_part_deserialize_size(const void *data, size_t size,
-				  MessageSize *hdr_size,
-				  MessageSize *body_size)
+				  struct message_size *hdr_size,
+				  struct message_size *body_size)
 {
-        const SerializedMessagePart *spart = data;
+        const struct serialized_message_part *spart = data;
 
 	/* make sure it looks valid */
-	if (size < sizeof(SerializedMessagePart))
+	if (size < sizeof(struct serialized_message_part))
 		return FALSE;
 
 	hdr_size->physical_size = spart->header_physical_size;

@@ -16,28 +16,28 @@
 #endif
 
 /* Set the current error message */
-int index_set_error(MailIndex *index, const char *fmt, ...)
+int index_set_error(struct mail_index *index, const char *fmt, ...)
 	__attr_format__(2, 3);
 
 /* "Error in index file %s: ...". Also marks the index file as corrupted. */
-int index_set_corrupted(MailIndex *index, const char *fmt, ...)
+int index_set_corrupted(struct mail_index *index, const char *fmt, ...)
 	__attr_format__(2, 3);
 
 /* "%s failed with index file %s: %m" */
-int index_set_syscall_error(MailIndex *index, const char *function);
+int index_set_syscall_error(struct mail_index *index, const char *function);
 
 /* "%s failed with file %s: %m" */
-int index_file_set_syscall_error(MailIndex *index, const char *filepath,
+int index_file_set_syscall_error(struct mail_index *index, const char *filepath,
 				 const char *function);
 
 /* Reset the current error */
-void index_reset_error(MailIndex *index);
+void index_reset_error(struct mail_index *index);
 
 /* Create temporary file into index's directory. Returns opened file handle
    and sets *path to the full path of the created file.  */
-int mail_index_create_temp_file(MailIndex *index, const char **path);
+int mail_index_create_temp_file(struct mail_index *index, const char **path);
 
 /* Wrapper to file_set_lock(), also calling index's lock notify callback. */
-int mail_index_wait_lock(MailIndex *index, int lock_type);
+int mail_index_wait_lock(struct mail_index *index, int lock_type);
 
 #endif

@@ -11,15 +11,15 @@
 #include <ctype.h>
 #include <unistd.h>
 
-typedef struct {
-	String *dest;
-	OStream *output;
+struct fetch_header_field_context {
+	string_t *dest;
+	struct ostream *output;
 	uoff_t dest_size;
 
 	uoff_t skip, max_size;
 	const char *const *fields;
 	int (*match_func) (const char *const *, const unsigned char *, size_t);
-} FetchHeaderFieldContext;
+};
 
 /* For FETCH[HEADER.FIELDS*] we need to modify the header data before sending
    it. We can either save it in memory and then send it, or we can parse it
@@ -30,7 +30,7 @@ typedef struct {
 
 #define UNSIGNED_CRLF (const unsigned char *) "\r\n"
 
-ImapCacheField index_fetch_body_get_cache(const char *section)
+enum imap_cache_field index_fetch_body_get_cache(const char *section)
 {
 	if (*section >= '0' && *section <= '9')
 		return IMAP_CACHE_MESSAGE_PART | IMAP_CACHE_MESSAGE_OPEN;
@@ -50,11 +50,13 @@ ImapCacheField index_fetch_body_get_cache(const char *section)
 }
 
 /* fetch BODY[] or BODY[TEXT] */
-static int fetch_body(MailIndexRecord *rec, MailFetchBodyData *sect,
-		      FetchContext *ctx, const char *prefix, int fetch_header)
+static int fetch_body(struct mail_index_record *rec,
+		      struct mail_fetch_body_data *sect,
+		      struct fetch_context *ctx,
+		      const char *prefix, int fetch_header)
 {
-	MessageSize size;
-	IStream *input;
+	struct message_size size;
+	struct istream *input;
 	const char *str;
 	int cr_skipped;
 
@@ -151,7 +153,7 @@ static int header_match_mime(const char *const *fields __attr_unused__,
 	return FALSE;
 }
 
-static int fetch_header_append(FetchHeaderFieldContext *ctx,
+static int fetch_header_append(struct fetch_header_field_context *ctx,
 			       const unsigned char *str, size_t size)
 {
 	if (ctx->skip > 0) {
@@ -181,13 +183,13 @@ static int fetch_header_append(FetchHeaderFieldContext *ctx,
 	return ctx->dest_size < ctx->max_size;
 }
 
-static void fetch_header_field(MessagePart *part __attr_unused__,
+static void fetch_header_field(struct message_part *part __attr_unused__,
 			       const unsigned char *name, size_t name_len,
 			       const unsigned char *value __attr_unused__,
 			       size_t value_len __attr_unused__,
 			       void *context)
 {
-	FetchHeaderFieldContext *ctx = context;
+	struct fetch_header_field_context *ctx = context;
 	const unsigned char *field_start, *field_end, *cr, *p;
 
 	/* see if we want this field. */
@@ -225,8 +227,8 @@ static void fetch_header_field(MessagePart *part __attr_unused__,
 	(void)fetch_header_append(ctx, UNSIGNED_CRLF, 2);
 }
 
-static int fetch_header_fields(IStream *input, const char *section,
-			       FetchHeaderFieldContext *ctx)
+static int fetch_header_fields(struct istream *input, const char *section,
+			       struct fetch_header_field_context *ctx)
 {
 	if (strncasecmp(section, "HEADER.FIELDS ", 14) == 0) {
 		ctx->fields = get_fields_array(section + 14);
@@ -257,11 +259,12 @@ static int fetch_header_fields(IStream *input, const char *section,
 }
 
 /* fetch wanted headers from given data */
-static int fetch_header_from(IStream *input, OStream *output,
-			     const char *prefix, MessageSize *size,
-			     const char *section, MailFetchBodyData *sect)
+static int fetch_header_from(struct istream *input, struct ostream *output,
+			     const char *prefix, struct message_size *size,
+			     const char *section,
+			     struct mail_fetch_body_data *sect)
 {
-	FetchHeaderFieldContext ctx;
+	struct fetch_header_field_context ctx;
 	const char *str;
 	uoff_t start_offset;
 	int failed;
@@ -337,11 +340,11 @@ static int fetch_header_from(IStream *input, OStream *output,
 }
 
 /* fetch BODY[HEADER...] */
-static int fetch_header(MailFetchBodyData *sect, FetchContext *ctx,
-			const char *prefix)
+static int fetch_header(struct mail_fetch_body_data *sect,
+			struct fetch_context *ctx, const char *prefix)
 {
-	MessageSize hdr_size;
-	IStream *input;
+	struct message_size hdr_size;
+	struct istream *input;
 
 	if (!imap_msgcache_get_rfc822(ctx->cache, &input, &hdr_size, NULL))
 		return FALSE;
@@ -350,11 +353,12 @@ static int fetch_header(MailFetchBodyData *sect, FetchContext *ctx,
 				 sect->section, sect);
 }
 
-/* Find MessagePart for section (eg. 1.3.4) */
-static MessagePart *part_find(MailFetchBodyData *sect, FetchContext *ctx,
-			      const char **section)
+/* Find message_part for section (eg. 1.3.4) */
+static struct message_part *
+part_find(struct mail_fetch_body_data *sect, struct fetch_context *ctx,
+	  const char **section)
 {
-	MessagePart *part;
+	struct message_part *part;
 	const char *path;
 	unsigned int num;
 
@@ -397,10 +401,11 @@ static MessagePart *part_find(MailFetchBodyData *sect, FetchContext *ctx,
 }
 
 /* fetch BODY[1.2] or BODY[1.2.TEXT] */
-static int fetch_part_body(MessagePart *part, MailFetchBodyData *sect,
-			   FetchContext *ctx, const char *prefix)
+static int fetch_part_body(struct message_part *part,
+			   struct mail_fetch_body_data *sect,
+			   struct fetch_context *ctx, const char *prefix)
 {
-	IStream *input;
+	struct istream *input;
 	const char *str;
 	uoff_t skip_pos;
 
@@ -423,11 +428,11 @@ static int fetch_part_body(MessagePart *part, MailFetchBodyData *sect,
 }
 
 /* fetch BODY[1.2.MIME|HEADER...] */
-static int fetch_part_header(MessagePart *part, const char *section,
-			     MailFetchBodyData *sect, FetchContext *ctx,
-			     const char *prefix)
+static int fetch_part_header(struct message_part *part, const char *section,
+			     struct mail_fetch_body_data *sect,
+			     struct fetch_context *ctx, const char *prefix)
 {
-	IStream *input;
+	struct istream *input;
 
 	if (!imap_msgcache_get_data(ctx->cache, &input))
 		return FALSE;
@@ -437,10 +442,10 @@ static int fetch_part_header(MessagePart *part, const char *section,
 				 section, sect);
 }
 
-static int fetch_part(MailFetchBodyData *sect, FetchContext *ctx,
-		      const char *prefix)
+static int fetch_part(struct mail_fetch_body_data *sect,
+		      struct fetch_context *ctx, const char *prefix)
 {
-	MessagePart *part;
+	struct message_part *part;
 	const char *section;
 
 	part = part_find(sect, ctx, &section);
@@ -458,8 +463,9 @@ static int fetch_part(MailFetchBodyData *sect, FetchContext *ctx,
 	return FALSE;
 }
 
-int index_fetch_body_section(MailIndexRecord *rec, MailFetchBodyData *sect,
-			     FetchContext *ctx)
+int index_fetch_body_section(struct mail_index_record *rec,
+			     struct mail_fetch_body_data *sect,
+			     struct fetch_context *ctx)
 {
 	const char *prefix;
 

@@ -12,11 +12,12 @@
 /* Returns -1 = error, 0 = need more data, 1 = successful. flags and
    internal_date may be NULL as a result, but mailbox and msg_size are always
    set when successful. */
-static int validate_args(Client *client, const char **mailbox,
-			 ImapArgList **flags, const char **internal_date,
+static int validate_args(struct client *client, const char **mailbox,
+			 struct imap_arg_list **flags,
+			 const char **internal_date,
 			 uoff_t *msg_size, unsigned int count)
 {
-	ImapArg *args;
+	struct imap_arg *args;
 
 	i_assert(count >= 2 && count <= 4);
 
@@ -71,11 +72,11 @@ static int validate_args(Client *client, const char **mailbox,
 	return 1;
 }
 
-int cmd_append(Client *client)
+int cmd_append(struct client *client)
 {
-	ImapArgList *flags_list;
-	Mailbox *box;
-	MailFlags flags;
+	struct imap_arg_list *flags_list;
+	struct mailbox *box;
+	enum mail_flags flags;
 	time_t internal_date;
 	const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT];
 	const char *mailbox, *internal_date_str;

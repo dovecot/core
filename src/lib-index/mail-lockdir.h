@@ -2,6 +2,7 @@
 #define __MAIL_LOCKDIR_H
 
 /* Exclusively lock whole directory where index is located. */
-int mail_index_lock_dir(MailIndex *index, MailLockType lock_type);
+int mail_index_lock_dir(struct mail_index *index,
+			enum mail_lock_type lock_type);
 
 #endif

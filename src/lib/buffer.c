@@ -26,8 +26,8 @@
 #include "lib.h"
 #include "buffer.h"
 
-struct _Buffer {
-	Pool pool;
+struct buffer {
+	pool_t pool;
 
 	const unsigned char *r_buffer;
 	unsigned char *w_buffer;
@@ -45,7 +45,7 @@ struct _Buffer {
 	unsigned int hard:1;
 };
 
-static void buffer_alloc(Buffer *buf, size_t size)
+static void buffer_alloc(buffer_t *buf, size_t size)
 {
 	i_assert(buf->w_buffer == NULL || buf->alloced);
 
@@ -63,7 +63,8 @@ static void buffer_alloc(Buffer *buf, size_t size)
 	buf->alloced = TRUE;
 }
 
-static int buffer_check_read(const Buffer *buf, size_t *pos, size_t *data_size)
+static int buffer_check_read(const buffer_t *buf,
+			     size_t *pos, size_t *data_size)
 {
 	size_t used_size, max_size;
 
@@ -78,8 +79,8 @@ static int buffer_check_read(const Buffer *buf, size_t *pos, size_t *data_size)
 	return TRUE;
 }
 
-static int buffer_check_write(Buffer *buf, size_t *pos, size_t *data_size,
-			      int accept_partial)
+static int buffer_check_write(buffer_t *buf, size_t *pos,
+			      size_t *data_size, int accept_partial)
 {
 	size_t max_size, new_size, alloc_size;
 
@@ -132,42 +133,42 @@ static int buffer_check_write(Buffer *buf, size_t *pos, size_t *data_size,
 	return TRUE;
 }
 
-Buffer *buffer_create_static(Pool pool, size_t size)
+buffer_t *buffer_create_static(pool_t pool, size_t size)
 {
-	Buffer *buf;
+	buffer_t *buf;
 
-	buf = p_new(pool, Buffer, 1);
+	buf = p_new(pool, buffer_t, 1);
 	buf->pool = pool;
 	buf->max_alloc = buf->limit = size;
 	buffer_alloc(buf, size);
 	return buf;
 }
 
-Buffer *buffer_create_static_hard(Pool pool, size_t size)
+buffer_t *buffer_create_static_hard(pool_t pool, size_t size)
 {
-	Buffer *buf;
+	buffer_t *buf;
 
 	buf = buffer_create_static(pool, size);
 	buf->hard = TRUE;
 	return buf;
 }
 
-Buffer *buffer_create_data(Pool pool, void *data, size_t size)
+buffer_t *buffer_create_data(pool_t pool, void *data, size_t size)
 {
-	Buffer *buf;
+	buffer_t *buf;
 
-	buf = p_new(pool, Buffer, 1);
+	buf = p_new(pool, buffer_t, 1);
 	buf->pool = pool;
 	buf->alloc = buf->max_alloc = buf->limit = size;
 	buf->r_buffer = buf->w_buffer = data;
 	return buf;
 }
 
-Buffer *buffer_create_const_data(Pool pool, const void *data, size_t size)
+buffer_t *buffer_create_const_data(pool_t pool, const void *data, size_t size)
 {
-	Buffer *buf;
+	buffer_t *buf;
 
-	buf = p_new(pool, Buffer, 1);
+	buf = p_new(pool, buffer_t, 1);
 	buf->pool = pool;
 	buf->used = buf->alloc = buf->max_alloc = buf->limit = size;
 	buf->r_buffer = data;
@@ -175,25 +176,25 @@ Buffer *buffer_create_const_data(Pool pool, const void *data, size_t size)
 	return buf;
 }
 
-Buffer *buffer_create_dynamic(Pool pool, size_t init_size, size_t max_size)
+buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size, size_t max_size)
 {
-	Buffer *buf;
+	buffer_t *buf;
 
-	buf = p_new(pool, Buffer, 1);
+	buf = p_new(pool, buffer_t, 1);
 	buf->pool = pool;
 	buf->max_alloc = buf->limit = max_size;
 	buffer_alloc(buf, init_size);
 	return buf;
 }
 
-void buffer_free(Buffer *buf)
+void buffer_free(buffer_t *buf)
 {
 	if (buf->alloced)
 		p_free(buf->pool, buf->w_buffer);
 	p_free(buf->pool, buf);
 }
 
-void *buffer_free_without_data(Buffer *buf)
+void *buffer_free_without_data(buffer_t *buf)
 {
 	void *data;
 
@@ -202,7 +203,7 @@ void *buffer_free_without_data(Buffer *buf)
 	return data;
 }
 
-size_t buffer_write(Buffer *buf, size_t pos,
+size_t buffer_write(buffer_t *buf, size_t pos,
 		    const void *data, size_t data_size)
 {
 	if (!buffer_check_write(buf, &pos, &data_size, TRUE))
@@ -212,12 +213,12 @@ size_t buffer_write(Buffer *buf, size_t pos,
 	return data_size;
 }
 
-size_t buffer_append(Buffer *buf, const void *data, size_t data_size)
+size_t buffer_append(buffer_t *buf, const void *data, size_t data_size)
 {
 	return buffer_write(buf, buf->used - buf->start_pos, data, data_size);
 }
 
-size_t buffer_append_c(Buffer *buf, char chr)
+size_t buffer_append_c(buffer_t *buf, char chr)
 {
 	size_t pos, data_size = 1;
 
@@ -230,7 +231,7 @@ size_t buffer_append_c(Buffer *buf, char chr)
 	return data_size;
 }
 
-size_t buffer_insert(Buffer *buf, size_t pos,
+size_t buffer_insert(buffer_t *buf, size_t pos,
 		     const void *data, size_t data_size)
 {
 	size_t move_size, size;
@@ -259,7 +260,7 @@ size_t buffer_insert(Buffer *buf, size_t pos,
 	return size;
 }
 
-size_t buffer_delete(Buffer *buf, size_t pos, size_t size)
+size_t buffer_delete(buffer_t *buf, size_t pos, size_t size)
 {
 	size_t end_size;
 
@@ -286,8 +287,8 @@ size_t buffer_delete(Buffer *buf, size_t pos, size_t size)
 	return size;
 }
 
-size_t buffer_copy(Buffer *dest, size_t dest_pos,
-		   const Buffer *src, size_t src_pos, size_t copy_size)
+size_t buffer_copy(buffer_t *dest, size_t dest_pos,
+		   const buffer_t *src, size_t src_pos, size_t copy_size)
 {
 	if (!buffer_check_read(src, &src_pos, &copy_size))
 		return 0;
@@ -305,14 +306,14 @@ size_t buffer_copy(Buffer *dest, size_t dest_pos,
 	return copy_size;
 }
 
-size_t buffer_append_buf(Buffer *dest, const Buffer *src,
+size_t buffer_append_buf(buffer_t *dest, const buffer_t *src,
 			 size_t src_pos, size_t copy_size)
 {
 	return buffer_copy(dest, dest->used - dest->start_pos,
 			   src, src_pos, copy_size);
 }
 
-void *buffer_get_space(Buffer *buf, size_t pos, size_t size)
+void *buffer_get_space(buffer_t *buf, size_t pos, size_t size)
 {
 	if (!buffer_check_write(buf, &pos, &size, FALSE))
 		return NULL;
@@ -320,38 +321,38 @@ void *buffer_get_space(Buffer *buf, size_t pos, size_t size)
 	return buf->w_buffer + pos;
 }
 
-void *buffer_append_space(Buffer *buf, size_t size)
+void *buffer_append_space(buffer_t *buf, size_t size)
 {
 	return buffer_get_space(buf, buf->used - buf->start_pos, size);
 }
 
-const void *buffer_get_data(const Buffer *buf, size_t *used_size)
+const void *buffer_get_data(const buffer_t *buf, size_t *used_size)
 {
 	if (used_size != NULL)
 		*used_size = I_MIN(buf->used, buf->limit) - buf->start_pos;
 	return buf->r_buffer + buf->start_pos;
 }
 
-void *buffer_get_modifyable_data(const Buffer *buf, size_t *used_size)
+void *buffer_get_modifyable_data(const buffer_t *buf, size_t *used_size)
 {
 	if (used_size != NULL)
 		*used_size = I_MIN(buf->used, buf->limit) - buf->start_pos;
 	return buf->w_buffer + buf->start_pos;
 }
 
-void buffer_set_used_size(Buffer *buf, size_t used_size)
+void buffer_set_used_size(buffer_t *buf, size_t used_size)
 {
 	i_assert(used_size <= I_MIN(buf->alloc, buf->limit) - buf->start_pos);
 
 	buf->used = used_size + buf->start_pos;
 }
 
-size_t buffer_get_used_size(const Buffer *buf)
+size_t buffer_get_used_size(const buffer_t *buf)
 {
 	return I_MIN(buf->used, buf->limit) - buf->start_pos;
 }
 
-size_t buffer_set_start_pos(Buffer *buf, size_t abs_pos)
+size_t buffer_set_start_pos(buffer_t *buf, size_t abs_pos)
 {
 	size_t old = buf->start_pos;
 
@@ -361,12 +362,12 @@ size_t buffer_set_start_pos(Buffer *buf, size_t abs_pos)
 	return old;
 }
 
-size_t buffer_get_start_pos(const Buffer *buf)
+size_t buffer_get_start_pos(const buffer_t *buf)
 {
 	return buf->start_pos;
 }
 
-size_t buffer_set_limit(Buffer *buf, size_t limit)
+size_t buffer_set_limit(buffer_t *buf, size_t limit)
 {
 	size_t old = buf->limit;
 
@@ -379,12 +380,12 @@ size_t buffer_set_limit(Buffer *buf, size_t limit)
 	return old - buf->start_pos;
 }
 
-size_t buffer_get_limit(const Buffer *buf)
+size_t buffer_get_limit(const buffer_t *buf)
 {
 	return buf->limit - buf->start_pos;
 }
 
-size_t buffer_get_size(const Buffer *buf)
+size_t buffer_get_size(const buffer_t *buf)
 {
 	return buf->alloc - buf->start_pos;
 }
@@ -393,7 +394,7 @@ size_t buffer_get_size(const Buffer *buf)
 /* gcc buffer.c -o testbuffer liblib.a -Wall -DHAVE_CONFIG_H -DBUFFER_TEST -g */
 int main(void)
 {
-	Buffer *buf;
+	buffer_t *buf;
 	char data[12], *bufdata;
 	size_t bufsize;
 

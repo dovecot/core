@@ -10,9 +10,9 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-static uoff_t get_indexed_mbox_size(MailIndex *index)
+static uoff_t get_indexed_mbox_size(struct mail_index *index)
 {
-	MailIndexRecord *rec;
+	struct mail_index_record *rec;
 	uoff_t offset, hdr_size, body_size;
 
 	if (index->lock_type == MAIL_LOCK_UNLOCK) {
@@ -41,10 +41,10 @@ static uoff_t get_indexed_mbox_size(MailIndex *index)
 	return offset + 1; /* +1 for trailing \n */
 }
 
-static int mbox_lock_and_sync_full(MailIndex *index,
-				   MailLockType data_lock_type)
+static int mbox_lock_and_sync_full(struct mail_index *index,
+				   enum mail_lock_type data_lock_type)
 {
-        MailLockType lock_type;
+        enum mail_lock_type lock_type;
 
 	/* syncing needs exclusive index lock and shared
 	   mbox lock, but if we'd want exclusive mbox lock
@@ -65,8 +65,8 @@ static int mbox_lock_and_sync_full(MailIndex *index,
 	return mbox_sync_full(index);
 }
 
-int mbox_index_sync(MailIndex *index, MailLockType data_lock_type,
-		    int *changes)
+int mbox_index_sync(struct mail_index *index,
+		    enum mail_lock_type data_lock_type, int *changes)
 {
 	struct stat st;
 	time_t index_mtime;

@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_expunge(Client *client)
+int cmd_expunge(struct client *client)
 {
 	if (!client_verify_open_mailbox(client))
 		return TRUE;

@@ -5,7 +5,7 @@
 
 #include <stdlib.h>
 
-UserInfoModule *userinfo;
+struct user_info_module *userinfo;
 
 void userinfo_init(void)
 {

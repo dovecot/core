@@ -7,9 +7,9 @@
 #include "mail-modifylog.h"
 #include "mail-custom-flags.h"
 
-static void index_storage_sync_size(IndexMailbox *ibox)
+static void index_storage_sync_size(struct index_mailbox *ibox)
 {
-	MailStorage *storage = ibox->box.storage;
+	struct mail_storage *storage = ibox->box.storage;
 	unsigned int messages, recent;
 
 	if (storage->callbacks->new_messages == NULL)
@@ -29,11 +29,11 @@ static void index_storage_sync_size(IndexMailbox *ibox)
 	}
 }
 
-int index_storage_sync_and_lock(IndexMailbox *ibox, int sync_size,
-				MailLockType data_lock_type)
+int index_storage_sync_and_lock(struct index_mailbox *ibox, int sync_size,
+				enum mail_lock_type data_lock_type)
 {
-	MailStorage *storage = ibox->box.storage;
-	MailIndex *index = ibox->index;
+	struct mail_storage *storage = ibox->box.storage;
+	struct mail_index *index = ibox->index;
 	int changes, set_shared_lock;
 
         set_shared_lock = ibox->index->lock_type != MAIL_LOCK_EXCLUSIVE;
@@ -86,12 +86,12 @@ int index_storage_sync_and_lock(IndexMailbox *ibox, int sync_size,
 	return TRUE;
 }
 
-int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted)
+int index_storage_sync_modifylog(struct index_mailbox *ibox, int hide_deleted)
 {
-	const ModifyLogRecord *log1, *log2, *log, *first_flag_log;
-	MailIndexRecord *rec;
-	MailFlags flags;
-        MailStorageCallbacks *sc;
+	const struct modify_log_record *log1, *log2, *log, *first_flag_log;
+	struct mail_index_record *rec;
+	enum mail_flags flags;
+        struct mail_storage_callbacks *sc;
 	void *sc_context;
 	const char **custom_flags;
 	unsigned int count1, count2, total_count, seq, seq_count, i, messages;
@@ -205,9 +205,9 @@ int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted)
 	return TRUE;
 }
 
-int index_storage_sync(Mailbox *box, int sync_expunges)
+int index_storage_sync(struct mailbox *box, int sync_expunges)
 {
-	IndexMailbox *ibox = (IndexMailbox *) box;
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
 	int ret;
 
 	ibox->last_check = ioloop_time;

@@ -4,16 +4,16 @@
 #include "mail-storage.h"
 #include "mail-sort.h"
 
-typedef struct {
-	IndexMailbox *ibox;
-	OStream *output;
+struct index_sort_context {
+	struct index_mailbox *ibox;
+	struct ostream *output;
 
 	unsigned int last_uid;
-	MailIndexRecord *rec;
+	struct mail_index_record *rec;
 
 	unsigned int cached:1;
-} IndexSortContext;
+};
 
-extern MailSortFuncs index_sort_funcs;
+extern struct mail_sort_funcs index_sort_funcs;
 
 #endif

@@ -4,6 +4,6 @@
 #include "lib.h"
 #include "client.h"
 
-extern IOLoop ioloop;
+extern struct ioloop *ioloop;
 
 #endif

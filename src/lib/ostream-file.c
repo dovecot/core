@@ -46,12 +46,12 @@
 #define MAX_SSIZE_T(size) \
 	((size) < SSIZE_T_MAX ? (size_t)(size) : SSIZE_T_MAX)
 
-typedef struct {
-	_OStream ostream;
+struct file_ostream {
+	struct _ostream ostream;
 
 	int fd;
 	int priority;
-	IO io;
+	struct io *io;
 
 	unsigned char *buffer; /* ring-buffer */
 	size_t buffer_size, max_buffer_size;
@@ -65,13 +65,13 @@ typedef struct {
 	unsigned int corked:1;
 	unsigned int no_socket_cork:1;
 	unsigned int autoclose_fd:1;
-} FileOStream;
+};
 
-static void stream_closed(FileOStream *fstream)
+static void stream_closed(struct file_ostream *fstream)
 {
 	if (fstream->autoclose_fd && fstream->fd != -1) {
 		if (close(fstream->fd) < 0)
-			i_error("FileOStream.close() failed: %m");
+			i_error("file_ostream.close() failed: %m");
 		fstream->fd = -1;
 	}
 
@@ -83,9 +83,9 @@ static void stream_closed(FileOStream *fstream)
 	fstream->ostream.ostream.closed = TRUE;
 }
 
-static void _close(_IOStream *stream)
+static void _close(struct _iostream *stream)
 {
-	FileOStream *fstream = (FileOStream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *) stream;
 
 	/* flush output before really closing it */
 	o_stream_flush(&fstream->ostream.ostream);
@@ -93,24 +93,24 @@ static void _close(_IOStream *stream)
 	stream_closed(fstream);
 }
 
-static void _destroy(_IOStream *stream)
+static void _destroy(struct _iostream *stream)
 {
-	FileOStream *fstream = (FileOStream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *) stream;
 
 	p_free(fstream->ostream.iostream.pool, fstream->buffer);
 }
 
-static void _set_max_buffer_size(_IOStream *stream, size_t max_size)
+static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 {
-	FileOStream *fstream = (FileOStream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *) stream;
 
 	fstream->max_buffer_size = max_size;
 }
 
-static void _set_blocking(_IOStream *stream, int timeout_msecs,
+static void _set_blocking(struct _iostream *stream, int timeout_msecs,
 			  void (*timeout_func)(void *), void *context)
 {
-	FileOStream *fstream = (FileOStream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *) stream;
 
 	fstream->timeout_msecs = timeout_msecs;
 	fstream->timeout_func = timeout_func;
@@ -122,9 +122,9 @@ static void _set_blocking(_IOStream *stream, int timeout_msecs,
 		alarm_hup_init();
 }
 
-static void _cork(_OStream *stream)
+static void _cork(struct _ostream *stream)
 {
-	FileOStream *fstream = (FileOStream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *) stream;
 
 	if (!fstream->corked) {
 		if (!fstream->no_socket_cork) {
@@ -153,7 +153,7 @@ static void update_iovec(struct iovec *iov, unsigned int iov_size, size_t size)
 	}
 }
 
-static void update_buffer(FileOStream *fstream, size_t size)
+static void update_buffer(struct file_ostream *fstream, size_t size)
 {
 	size_t used;
 
@@ -191,7 +191,7 @@ static void update_buffer(FileOStream *fstream, size_t size)
 
 /* NOTE: modifies iov */
 static ssize_t
-o_stream_writev(FileOStream *fstream, struct iovec *iov, int iov_size)
+o_stream_writev(struct file_ostream *fstream, struct iovec *iov, int iov_size)
 {
 	ssize_t ret;
 
@@ -218,7 +218,8 @@ o_stream_writev(FileOStream *fstream, struct iovec *iov, int iov_size)
 }
 
 /* returns how much of vector was used */
-static int o_stream_fill_iovec(FileOStream *fstream, struct iovec iov[2])
+static int o_stream_fill_iovec(struct file_ostream *fstream,
+			       struct iovec iov[2])
 {
 	if (IS_STREAM_EMPTY(fstream))
 		return 0;
@@ -240,8 +241,8 @@ static int o_stream_fill_iovec(FileOStream *fstream, struct iovec iov[2])
 	}
 }
 
-static int o_stream_send_blocking(FileOStream *fstream, const void *data,
-				  size_t size)
+static int o_stream_send_blocking(struct file_ostream *fstream,
+				  const void *data, size_t size)
 {
 	time_t timeout_time;
 	struct iovec iov[3];
@@ -275,7 +276,7 @@ static int o_stream_send_blocking(FileOStream *fstream, const void *data,
         return 1;
 }
 
-static int buffer_flush(FileOStream *fstream)
+static int buffer_flush(struct file_ostream *fstream)
 {
 	struct iovec iov[2];
 	int iov_len;
@@ -294,9 +295,9 @@ static int buffer_flush(FileOStream *fstream)
 	return 1;
 }
 
-static int _flush(_OStream *stream)
+static int _flush(struct _ostream *stream)
 {
-	FileOStream *fstream = (FileOStream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *) stream;
 	int ret;
 
 	ret = buffer_flush(fstream);
@@ -313,7 +314,7 @@ static int _flush(_OStream *stream)
 	return ret;
 }
 
-static size_t get_unused_space(FileOStream *fstream)
+static size_t get_unused_space(struct file_ostream *fstream)
 {
 	if (fstream->head > fstream->tail) {
 		/* XXXT...HXXX */
@@ -327,9 +328,9 @@ static size_t get_unused_space(FileOStream *fstream)
 	}
 }
 
-static int _have_space(_OStream *stream, size_t size)
+static int _have_space(struct _ostream *stream, size_t size)
 {
-	FileOStream *fstream = (FileOStream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *) stream;
 	size_t unused;
 
 	if (fstream->max_buffer_size == 0)
@@ -343,9 +344,9 @@ static int _have_space(_OStream *stream, size_t size)
 	return size <= unused ? 1 : 0;
 }
 
-static int _seek(_OStream *stream, uoff_t offset)
+static int _seek(struct _ostream *stream, uoff_t offset)
 {
-	FileOStream *fstream = (FileOStream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *) stream;
 	off_t ret;
 
 	if (offset > OFF_T_MAX) {
@@ -369,7 +370,7 @@ static int _seek(_OStream *stream, uoff_t offset)
 	return 1;
 }
 
-static void o_stream_grow_buffer(FileOStream *fstream, size_t bytes)
+static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 {
 	size_t size, head_size;
 
@@ -409,9 +410,9 @@ static void o_stream_grow_buffer(FileOStream *fstream, size_t bytes)
 }
 
 static void stream_send_io(void *context, int fd __attr_unused__,
-			   IO io __attr_unused__)
+			   struct io *io __attr_unused__)
 {
-	FileOStream *fstream = context;
+	struct file_ostream *fstream = context;
 	struct iovec iov[2];
 	int iov_len;
 
@@ -425,7 +426,8 @@ static void stream_send_io(void *context, int fd __attr_unused__,
 	}
 }
 
-static size_t o_stream_add(FileOStream *fstream, const void *data, size_t size)
+static size_t o_stream_add(struct file_ostream *fstream,
+			   const void *data, size_t size)
 {
 	size_t unused, sent;
 	int i;
@@ -463,9 +465,9 @@ static size_t o_stream_add(FileOStream *fstream, const void *data, size_t size)
 	return sent;
 }
 
-static ssize_t _send(_OStream *stream, const void *data, size_t size)
+static ssize_t _send(struct _ostream *stream, const void *data, size_t size)
 {
-	FileOStream *fstream = (FileOStream *) stream;
+	struct file_ostream *fstream = (struct file_ostream *) stream;
 	struct iovec iov;
 	ssize_t ret;
 
@@ -501,9 +503,10 @@ static ssize_t _send(_OStream *stream, const void *data, size_t size)
 	}
 }
 
-static off_t io_stream_sendfile(_OStream *outstream, IStream *instream)
+static off_t io_stream_sendfile(struct _ostream *outstream,
+				struct istream *instream)
 {
-	FileOStream *foutstream = (FileOStream *) outstream;
+	struct file_ostream *foutstream = (struct file_ostream *) outstream;
 	time_t timeout_time;
 	uoff_t start_offset;
 	uoff_t offset, send_size;
@@ -573,9 +576,10 @@ static off_t io_stream_sendfile(_OStream *outstream, IStream *instream)
 	return (off_t) (instream->v_offset - start_offset);
 }
 
-static off_t io_stream_copy(_OStream *outstream, IStream *instream)
+static off_t io_stream_copy(struct _ostream *outstream,
+			    struct istream *instream)
 {
-	FileOStream *foutstream = (FileOStream *) outstream;
+	struct file_ostream *foutstream = (struct file_ostream *) outstream;
 	time_t timeout_time;
 	uoff_t start_offset;
 	struct iovec iov[3];
@@ -638,7 +642,7 @@ static off_t io_stream_copy(_OStream *outstream, IStream *instream)
 	return (off_t) (instream->v_offset - start_offset);
 }
 
-static off_t _send_istream(_OStream *outstream, IStream *instream)
+static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 {
 	off_t ret;
 
@@ -659,12 +663,13 @@ static off_t _send_istream(_OStream *outstream, IStream *instream)
 	return io_stream_copy(outstream, instream);
 }
 
-OStream *o_stream_create_file(int fd, Pool pool, size_t max_buffer_size,
-			      int priority, int autoclose_fd)
+struct ostream *
+o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
+		     int priority, int autoclose_fd)
 {
-	FileOStream *fstream;
+	struct file_ostream *fstream;
 
-	fstream = p_new(pool, FileOStream, 1);
+	fstream = p_new(pool, struct file_ostream, 1);
 	fstream->fd = fd;
 	fstream->priority = priority;
 	fstream->max_buffer_size = max_buffer_size;

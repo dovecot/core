@@ -14,7 +14,7 @@
 #define IS_STANDALONE() \
         (getenv("LOGIN_TAG") == NULL)
 
-IOLoop ioloop;
+struct ioloop *ioloop;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 
 static void sig_quit(int signo __attr_unused__)
@@ -58,8 +58,8 @@ static void drop_privileges(void)
 
 static void main_init(void)
 {
-	Client *client;
-	MailStorage *storage;
+	struct client *client;
+	struct mail_storage *storage;
 	const char *mail;
 	int hin, hout;
 

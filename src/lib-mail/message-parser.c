@@ -7,36 +7,41 @@
 #include "message-parser.h"
 #include "message-size.h"
 
-typedef struct _MessageBoundary {
-	struct _MessageBoundary *next;
+struct message_boundary {
+	struct message_boundary *next;
 
-	MessagePart *part;
+	struct message_part *part;
 	const char *boundary;
 	size_t len;
-} MessageBoundary;
+};
 
-typedef struct {
-	Pool pool;
-	MessagePart *part;
+struct parser_context {
+	pool_t pool;
+	struct message_part *part;
 
 	char *last_boundary;
 	char *last_content_type;
-	MessageBoundary *boundaries;
+	struct message_boundary *boundaries;
 
 	MessageHeaderFunc func;
 	void *context;
-} MessageParseContext;
+};
 
-static MessagePart *message_parse_part(IStream *input,
-				       MessageParseContext *parse_ctx);
-static MessagePart *message_parse_body(IStream *input,
-				       MessageBoundary *boundaries,
-				       MessageSize *body_size);
-static MessagePart *message_skip_boundary(IStream *input,
-					  MessageBoundary *boundaries,
-					  MessageSize *boundary_size);
+static struct message_part *
+message_parse_part(struct istream *input,
+		   struct parser_context *parser_ctx);
 
-static void message_size_add_part(MessageSize *dest, MessagePart *part)
+static struct message_part *
+message_parse_body(struct istream *input, struct message_boundary *boundaries,
+		   struct message_size *body_size);
+
+static struct message_part *
+message_skip_boundary(struct istream *input,
+		      struct message_boundary *boundaries,
+		      struct message_size *boundary_size);
+
+static void message_size_add_part(struct message_size *dest,
+				  struct message_part *part)
 {
 	dest->physical_size +=
 		part->header_size.physical_size +
@@ -47,11 +52,12 @@ static void message_size_add_part(MessageSize *dest, MessagePart *part)
 	dest->lines += part->header_size.lines + part->body_size.lines;
 }
 
-static MessagePart *message_part_append(Pool pool, MessagePart *parent)
+static struct message_part *
+message_part_append(pool_t pool, struct message_part *parent)
 {
-	MessagePart *part, **list;
+	struct message_part *part, **list;
 
-	part = p_new(pool, MessagePart, 1);
+	part = p_new(pool, struct message_part, 1);
 	part->parent = parent;
 
 	/* set child position */
@@ -71,24 +77,24 @@ static MessagePart *message_part_append(Pool pool, MessagePart *parent)
 static void parse_content_type(const unsigned char *value, size_t value_len,
 			       void *context)
 {
-	MessageParseContext *parse_ctx = context;
+	struct parser_context *parser_ctx = context;
 	const char *str;
 
-	if (parse_ctx->last_content_type != NULL || value_len == 0)
+	if (parser_ctx->last_content_type != NULL || value_len == 0)
 		return;
 
-	str = parse_ctx->last_content_type =
-		p_strndup(parse_ctx->pool, value, value_len);
+	str = parser_ctx->last_content_type =
+		p_strndup(parser_ctx->pool, value, value_len);
 
 	if (strcasecmp(str, "message/rfc822") == 0)
-		parse_ctx->part->flags |= MESSAGE_PART_FLAG_MESSAGE_RFC822;
+		parser_ctx->part->flags |= MESSAGE_PART_FLAG_MESSAGE_RFC822;
 	else if (strncasecmp(str, "text/", 5) == 0)
-		parse_ctx->part->flags |= MESSAGE_PART_FLAG_TEXT;
+		parser_ctx->part->flags |= MESSAGE_PART_FLAG_TEXT;
 	else if (strncasecmp(str, "multipart/", 10) == 0) {
-		parse_ctx->part->flags |= MESSAGE_PART_FLAG_MULTIPART;
+		parser_ctx->part->flags |= MESSAGE_PART_FLAG_MULTIPART;
 
 		if (strcasecmp(str+10, "digest") == 0) {
-			parse_ctx->part->flags |=
+			parser_ctx->part->flags |=
 				MESSAGE_PART_FLAG_MULTIPART_DIGEST;
 		}
 	}
@@ -99,31 +105,31 @@ parse_content_type_param(const unsigned char *name, size_t name_len,
 			 const unsigned char *value, size_t value_len,
 			 int value_quoted, void *context)
 {
-	MessageParseContext *parse_ctx = context;
+	struct parser_context *parser_ctx = context;
 
-	if ((parse_ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
+	if ((parser_ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
 	    name_len != 8 || memcasecmp(name, "boundary", 8) != 0)
 		return;
 
-	if (parse_ctx->last_boundary == NULL) {
-		parse_ctx->last_boundary =
-			p_strndup(parse_ctx->pool, value, value_len);
+	if (parser_ctx->last_boundary == NULL) {
+		parser_ctx->last_boundary =
+			p_strndup(parser_ctx->pool, value, value_len);
 		if (value_quoted)
-			str_unescape(parse_ctx->last_boundary);
+			str_unescape(parser_ctx->last_boundary);
 	}
 }
 
-static void parse_header_field(MessagePart *part,
+static void parse_header_field(struct message_part *part,
 			       const unsigned char *name, size_t name_len,
 			       const unsigned char *value, size_t value_len,
 			       void *context)
 {
-	MessageParseContext *parse_ctx = context;
+	struct parser_context *parser_ctx = context;
 
 	/* call the user-defined header parser */
-	if (parse_ctx->func != NULL) {
-		parse_ctx->func(part, name, name_len, value, value_len,
-				parse_ctx->context);
+	if (parser_ctx->func != NULL) {
+		parser_ctx->func(part, name, name_len, value, value_len,
+				 parser_ctx->context);
 	}
 
 	if (name_len == 12 && memcasecmp(name, "Content-Type", 12) == 0) {
@@ -131,41 +137,42 @@ static void parse_header_field(MessagePart *part,
 		message_content_parse_header(value, value_len,
 					     parse_content_type,
 					     parse_content_type_param,
-					     parse_ctx);
+					     parser_ctx);
 	}
 }
 
-static MessagePart *message_parse_multipart(IStream *input,
-					    MessageParseContext *parse_ctx)
+static struct message_part *
+message_parse_multipart(struct istream *input,
+			struct parser_context *parser_ctx)
 {
-	MessagePart *parent_part, *next_part, *part;
-	MessageBoundary *b;
+	struct message_part *parent_part, *next_part, *part;
+	struct message_boundary *b;
 
 	/* multipart message. add new boundary */
-	b = t_new(MessageBoundary, 1);
-	b->part = parse_ctx->part;
-	b->boundary = parse_ctx->last_boundary;
+	b = t_new(struct message_boundary, 1);
+	b->part = parser_ctx->part;
+	b->boundary = parser_ctx->last_boundary;
 	b->len = strlen(b->boundary);
 
-	b->next = parse_ctx->boundaries;
-	parse_ctx->boundaries = b;
+	b->next = parser_ctx->boundaries;
+	parser_ctx->boundaries = b;
 
 	/* reset fields */
-	parse_ctx->last_boundary = NULL;
-	parse_ctx->last_content_type = NULL;
+	parser_ctx->last_boundary = NULL;
+	parser_ctx->last_content_type = NULL;
 
 	/* skip the data before the first boundary */
-	parent_part = parse_ctx->part;
-	next_part = message_skip_boundary(input, parse_ctx->boundaries,
+	parent_part = parser_ctx->part;
+	next_part = message_skip_boundary(input, parser_ctx->boundaries,
 					  &parent_part->body_size);
 
 	/* now, parse the parts */
 	while (next_part == parent_part) {
 		/* new child */
-		part = message_part_append(parse_ctx->pool, parent_part);
+		part = message_part_append(parser_ctx->pool, parent_part);
 
-                parse_ctx->part = part;
-		next_part = message_parse_part(input, parse_ctx);
+                parser_ctx->part = part;
+		next_part = message_parse_part(input, parser_ctx);
 
 		/* update our size */
 		message_size_add_part(&parent_part->body_size, part);
@@ -174,95 +181,96 @@ static MessagePart *message_parse_multipart(IStream *input,
 			break;
 
 		/* skip the boundary */
-		next_part = message_skip_boundary(input, parse_ctx->boundaries,
+		next_part = message_skip_boundary(input, parser_ctx->boundaries,
 						  &parent_part->body_size);
 	}
 
 	/* remove boundary */
-	i_assert(parse_ctx->boundaries == b);
-	parse_ctx->boundaries = b->next;
+	i_assert(parser_ctx->boundaries == b);
+	parser_ctx->boundaries = b->next;
 	return next_part;
 }
 
 #define MUTEX_FLAGS \
 	(MESSAGE_PART_FLAG_MESSAGE_RFC822 | MESSAGE_PART_FLAG_MULTIPART)
 
-static MessagePart *message_parse_part(IStream *input,
-				       MessageParseContext *parse_ctx)
+static struct message_part *
+message_parse_part(struct istream *input, struct parser_context *parser_ctx)
 {
-	MessagePart *next_part, *part;
+	struct message_part *next_part, *part;
 	uoff_t hdr_size;
 
-	message_parse_header(parse_ctx->part, input,
-			     &parse_ctx->part->header_size,
-			     parse_header_field, parse_ctx);
+	message_parse_header(parser_ctx->part, input,
+			     &parser_ctx->part->header_size,
+			     parse_header_field, parser_ctx);
 
-	i_assert((parse_ctx->part->flags & MUTEX_FLAGS) != MUTEX_FLAGS);
+	i_assert((parser_ctx->part->flags & MUTEX_FLAGS) != MUTEX_FLAGS);
 
 	/* update message position/size */
-	hdr_size = parse_ctx->part->header_size.physical_size;
+	hdr_size = parser_ctx->part->header_size.physical_size;
 
-	if (parse_ctx->last_boundary != NULL)
-		return message_parse_multipart(input, parse_ctx);
+	if (parser_ctx->last_boundary != NULL)
+		return message_parse_multipart(input, parser_ctx);
 
-	if (parse_ctx->last_content_type == NULL) {
-		if (parse_ctx->part->parent != NULL &&
-		    (parse_ctx->part->parent->flags &
+	if (parser_ctx->last_content_type == NULL) {
+		if (parser_ctx->part->parent != NULL &&
+		    (parser_ctx->part->parent->flags &
 		     MESSAGE_PART_FLAG_MULTIPART_DIGEST)) {
 			/* when there's no content-type specified and we're
 			   below multipart/digest, the assume message/rfc822
 			   content-type */
-			parse_ctx->part->flags |=
+			parser_ctx->part->flags |=
 				MESSAGE_PART_FLAG_MESSAGE_RFC822;
 		} else {
 			/* otherwise we default to text/plain */
-			parse_ctx->part->flags |= MESSAGE_PART_FLAG_TEXT;
+			parser_ctx->part->flags |= MESSAGE_PART_FLAG_TEXT;
 		}
 	}
 
-	parse_ctx->last_boundary = NULL;
-        parse_ctx->last_content_type = NULL;
+	parser_ctx->last_boundary = NULL;
+        parser_ctx->last_content_type = NULL;
 
-	if (parse_ctx->part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
+	if (parser_ctx->part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
 		/* message/rfc822 part - the message body begins with
 		   headers again, this works pretty much the same as
 		   a single multipart/mixed item */
-		part = message_part_append(parse_ctx->pool, parse_ctx->part);
+		part = message_part_append(parser_ctx->pool, parser_ctx->part);
 
-		parse_ctx->part = part;
-		next_part = message_parse_part(input, parse_ctx);
-		parse_ctx->part = part->parent;
+		parser_ctx->part = part;
+		next_part = message_parse_part(input, parser_ctx);
+		parser_ctx->part = part->parent;
 
 		/* our body size is the size of header+body in message/rfc822 */
 		message_size_add_part(&part->parent->body_size, part);
 	} else {
 		/* normal message, read until the next boundary */
-		part = parse_ctx->part;
-		next_part = message_parse_body(input, parse_ctx->boundaries,
+		part = parser_ctx->part;
+		next_part = message_parse_body(input, parser_ctx->boundaries,
 					       &part->body_size);
 	}
 
 	return next_part;
 }
 
-MessagePart *message_parse(Pool pool, IStream *input,
-			   MessageHeaderFunc func, void *context)
+struct message_part *message_parse(pool_t pool, struct istream *input,
+				   MessageHeaderFunc func, void *context)
 {
-	MessagePart *part;
-	MessageParseContext parse_ctx;
+	struct message_part *part;
+	struct parser_context parser_ctx;
 
-	memset(&parse_ctx, 0, sizeof(parse_ctx));
-	parse_ctx.pool = pool;
-	parse_ctx.func = func;
-	parse_ctx.context = context;
-	parse_ctx.part = part = p_new(pool, MessagePart, 1);
+	memset(&parser_ctx, 0, sizeof(parser_ctx));
+	parser_ctx.pool = pool;
+	parser_ctx.func = func;
+	parser_ctx.context = context;
+	parser_ctx.part = part = p_new(pool, struct message_part, 1);
 
-	message_parse_part(input, &parse_ctx);
+	message_parse_part(input, &parser_ctx);
 	return part;
 }
 
 /* skip over to next line increasing message size */
-static void message_skip_line(IStream *input, MessageSize *msg_size)
+static void message_skip_line(struct istream *input,
+			      struct message_size *msg_size)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos;
@@ -304,8 +312,8 @@ static void message_skip_line(IStream *input, MessageSize *msg_size)
 	}
 }
 
-void message_parse_header(MessagePart *part, IStream *input,
-			  MessageSize *hdr_size,
+void message_parse_header(struct message_part *part, struct istream *input,
+			  struct message_size *hdr_size,
 			  MessageHeaderFunc func, void *context)
 {
 	const unsigned char *msg;
@@ -314,7 +322,7 @@ void message_parse_header(MessagePart *part, IStream *input,
 	int ret;
 
 	if (hdr_size != NULL)
-		memset(hdr_size, 0, sizeof(MessageSize));
+		memset(hdr_size, 0, sizeof(struct message_size));
 
 	missing_cr_count = startpos = line_start = 0;
 	colon_pos = UINT_MAX;
@@ -433,8 +441,9 @@ void message_parse_header(MessagePart *part, IStream *input,
 	}
 }
 
-static MessageBoundary *boundary_find(MessageBoundary *boundaries,
-				      const unsigned char *msg, size_t len)
+static struct message_boundary *
+boundary_find(struct message_boundary *boundaries,
+	      const unsigned char *msg, size_t len)
 {
 	while (boundaries != NULL) {
 		if (boundaries->len <= len &&
@@ -450,11 +459,12 @@ static MessageBoundary *boundary_find(MessageBoundary *boundaries,
 /* read until next boundary is found. if skip_over = FALSE, stop at the
    [\r]\n before the boundary, otherwise leave it right after the known
    boundary so the ending "--" can be checked. */
-static MessageBoundary *
-message_find_boundary(IStream *input, MessageBoundary *boundaries,
-		      MessageSize *msg_size, int skip_over)
+static struct message_boundary *
+message_find_boundary(struct istream *input,
+		      struct message_boundary *boundaries,
+		      struct message_size *msg_size, int skip_over)
 {
-	MessageBoundary *boundary;
+	struct message_boundary *boundary;
 	const unsigned char *msg;
 	size_t i, size, startpos, line_start, missing_cr_count;
 
@@ -544,11 +554,11 @@ message_find_boundary(IStream *input, MessageBoundary *boundaries,
 	return boundary;
 }
 
-static MessagePart *message_parse_body(IStream *input,
-				       MessageBoundary *boundaries,
-				       MessageSize *body_size)
+static struct message_part *
+message_parse_body(struct istream *input, struct message_boundary *boundaries,
+		   struct message_size *body_size)
 {
-	MessageBoundary *boundary;
+	struct message_boundary *boundary;
 
 	if (boundaries == NULL) {
 		message_get_body_size(input, body_size, (uoff_t)-1, NULL);
@@ -562,11 +572,12 @@ static MessagePart *message_parse_body(IStream *input,
 
 /* skip data until next boundary is found. if it's end boundary,
    skip the footer as well. */
-static MessagePart *message_skip_boundary(IStream *input,
-					  MessageBoundary *boundaries,
-					  MessageSize *boundary_size)
+static struct message_part *
+message_skip_boundary(struct istream *input,
+		      struct message_boundary *boundaries,
+		      struct message_size *boundary_size)
 {
-	MessageBoundary *boundary;
+	struct message_boundary *boundary;
 	const unsigned char *msg;
 	size_t size;
 	int end_boundary;

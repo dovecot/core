@@ -16,46 +16,46 @@
 #include <unistd.h>
 #include <syslog.h>
 
-typedef struct _LoginProcess LoginProcess;
-
-struct _LoginProcess {
-	LoginProcess *prev_nonlisten, *next_nonlisten;
+struct login_process {
+	struct login_process *prev_nonlisten, *next_nonlisten;
 	int refcount;
 
 	pid_t pid;
 	int fd;
-	IO io;
-	OStream *output;
+	struct io *io;
+	struct ostream *output;
 	unsigned int listening:1;
 	unsigned int destroyed:1;
 };
 
-typedef struct {
-	LoginProcess *process;
+struct login_auth_request {
+	struct login_process *process;
 	unsigned int login_id;
 	unsigned int auth_id;
 	int fd;
 
-	IPADDR ip;
+	struct ip_addr ip;
 	char login_tag[LOGIN_TAG_SIZE];
-} LoginAuthRequest;
+};
 
 static unsigned int auth_id_counter;
-static Timeout to;
+static struct timeout *to;
 
-static HashTable *processes;
-static LoginProcess *oldest_nonlisten_process, *newest_nonlisten_process;
+static struct hash_table *processes;
+static struct login_process *oldest_nonlisten_process;
+static struct login_process *newest_nonlisten_process;
 static unsigned int listening_processes;
 static unsigned int wanted_processes_count;
 
-static void login_process_destroy(LoginProcess *p);
-static void login_process_unref(LoginProcess *p);
+static void login_process_destroy(struct login_process *p);
+static void login_process_unref(struct login_process *p);
 
-static void auth_callback(AuthCookieReplyData *cookie_reply, void *context)
+static void auth_callback(struct auth_cookie_reply_data *cookie_reply,
+			  void *context)
 {
-	LoginAuthRequest *request = context;
-        LoginProcess *process;
-	MasterReply reply;
+	struct login_auth_request *request = context;
+        struct login_process *process;
+	struct master_reply reply;
 
 	if (cookie_reply == NULL || !cookie_reply->success)
 		reply.result = MASTER_RESULT_FAILURE;
@@ -85,7 +85,7 @@ static void auth_callback(AuthCookieReplyData *cookie_reply, void *context)
 	i_free(request);
 }
 
-static void login_process_mark_nonlistening(LoginProcess *p)
+static void login_process_mark_nonlistening(struct login_process *p)
 {
 	if (!p->listening) {
 		i_error("login: received another \"not listening\" "
@@ -107,12 +107,12 @@ static void login_process_mark_nonlistening(LoginProcess *p)
 }
 
 static void login_process_input(void *context, int fd __attr_unused__,
-				IO io __attr_unused__)
+				struct io *io __attr_unused__)
 {
-	LoginProcess *p = context;
-	AuthProcess *auth_process;
-	LoginAuthRequest *authreq;
-	MasterRequest req;
+	struct login_process *p = context;
+	struct auth_process *auth_process;
+	struct login_auth_request *authreq;
+	struct master_request req;
 	int client_fd, ret;
 
 	ret = fd_read(p->fd, &req, sizeof(req), &client_fd);
@@ -146,13 +146,13 @@ static void login_process_input(void *context, int fd __attr_unused__,
 	}
 
 	/* ask the cookie from the auth process */
-	authreq = i_new(LoginAuthRequest, 1);
+	authreq = i_new(struct login_auth_request, 1);
 	p->refcount++;
 	authreq->process = p;
 	authreq->login_id = req.id;
 	authreq->auth_id = ++auth_id_counter;
 	authreq->fd = client_fd;
-	memcpy(&authreq->ip, &req.ip, sizeof(IPADDR));
+	memcpy(&authreq->ip, &req.ip, sizeof(struct ip_addr));
 	if (strocpy(authreq->login_tag, req.login_tag,
 		    sizeof(authreq->login_tag)) < 0)
 		i_panic("login_tag overflow");
@@ -168,20 +168,20 @@ static void login_process_input(void *context, int fd __attr_unused__,
 	}
 }
 
-static LoginProcess *login_process_new(pid_t pid, int fd)
+static struct login_process *login_process_new(pid_t pid, int fd)
 {
-	LoginProcess *p;
+	struct login_process *p;
 
 	PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_LOGIN);
 
-	p = i_new(LoginProcess, 1);
+	p = i_new(struct login_process, 1);
 	p->refcount = 1;
 	p->pid = pid;
 	p->fd = fd;
 	p->listening = TRUE;
 	p->io = io_add(fd, IO_READ, login_process_input, p);
 	p->output = o_stream_create_file(fd, default_pool,
-					 sizeof(MasterReply)*10,
+					 sizeof(struct master_reply)*10,
 					 IO_PRIORITY_DEFAULT, FALSE);
 
 	hash_insert(processes, POINTER_CAST(pid), p);
@@ -189,7 +189,7 @@ static LoginProcess *login_process_new(pid_t pid, int fd)
 	return p;
 }
 
-static void login_process_remove_from_lists(LoginProcess *p)
+static void login_process_remove_from_lists(struct login_process *p)
 {
 	if (p == oldest_nonlisten_process)
 		oldest_nonlisten_process = p->next_nonlisten;
@@ -204,7 +204,7 @@ static void login_process_remove_from_lists(LoginProcess *p)
 	p->next_nonlisten = p->prev_nonlisten = NULL;
 }
 
-static void login_process_destroy(LoginProcess *p)
+static void login_process_destroy(struct login_process *p)
 {
 	if (p->destroyed)
 		return;
@@ -226,7 +226,7 @@ static void login_process_destroy(LoginProcess *p)
 	login_process_unref(p);
 }
 
-static void login_process_unref(LoginProcess *p)
+static void login_process_unref(struct login_process *p)
 {
 	if (--p->refcount > 0)
 		return;
@@ -369,8 +369,9 @@ void login_processes_destroy_all(void)
 	wanted_processes_count = 0;
 }
 
-static void login_processes_start_missing(void *context __attr_unused__,
-					  Timeout timeout __attr_unused__)
+static void
+login_processes_start_missing(void *context __attr_unused__,
+			      struct timeout *timeout __attr_unused__)
 {
 	if (!set_login_process_per_connection) {
 		/* create max. one process every second, that way if it keeps

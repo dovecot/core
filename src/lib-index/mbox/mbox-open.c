@@ -10,10 +10,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-IStream *mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
-			time_t *internal_date, int *deleted)
+struct istream *mbox_open_mail(struct mail_index *index,
+			       struct mail_index_record *rec,
+			       time_t *internal_date, int *deleted)
 {
-	IStream *input;
+	struct istream *input;
 	uoff_t offset, hdr_size, body_size;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);

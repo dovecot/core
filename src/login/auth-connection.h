@@ -1,17 +1,18 @@
 #ifndef __AUTH_CONNECTION_H
 #define __AUTH_CONNECTION_H
 
-typedef struct _AuthConnection AuthConnection;
+struct auth_request;
 
 /* If result == AUTH_RESULT_INTERNAL_FAILURE, request may be NULL and
    reply_data_size contains the error message. */
-typedef void (*AuthCallback)(AuthRequest *request, unsigned int auth_process,
-			     AuthResult result, const unsigned char *reply_data,
+typedef void (*AuthCallback)(struct auth_request *request,
+			     unsigned int auth_process, enum auth_result result,
+			     const unsigned char *reply_data,
 			     size_t reply_data_size, void *context);
 
-struct _AuthRequest {
-        AuthMethod method;
-        AuthConnection *conn;
+struct auth_request {
+        enum auth_method method;
+        struct auth_connection *conn;
 
 	unsigned int id;
 	unsigned char cookie[AUTH_COOKIE_SIZE];
@@ -22,13 +23,13 @@ struct _AuthRequest {
 	unsigned int init_sent:1;
 };
 
-extern AuthMethod available_auth_methods;
+extern enum auth_method available_auth_methods;
 
-int auth_init_request(AuthMethod method, AuthCallback callback,
+int auth_init_request(enum auth_method method, AuthCallback callback,
 		      void *context, const char **error);
 
-void auth_continue_request(AuthRequest *request, const unsigned char *data,
-			   size_t data_size);
+void auth_continue_request(struct auth_request *request,
+			   const unsigned char *data, size_t data_size);
 
 void auth_connection_init(void);
 void auth_connection_deinit(void);

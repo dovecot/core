@@ -24,15 +24,15 @@ static int read_uoff_t(char **p, uoff_t *value)
 }
 
 /* BODY[] and BODY.PEEK[] items. item points to next character after '[' */
-static int parse_body_section(Client *client, const char *item,
-			      MailFetchData *data, int peek)
+static int parse_body_section(struct client *client, const char *item,
+			      struct mail_fetch_data *data, int peek)
 {
-	MailFetchBodyData *body;
+	struct mail_fetch_body_data *body;
 	uoff_t num;
 	const char *section;
 	char *p;
 
-	body = t_new(MailFetchBodyData, 1);
+	body = t_new(struct mail_fetch_body_data, 1);
 	body->peek = peek;
 
 	p = t_strdup_noconst(item);
@@ -95,7 +95,8 @@ static int parse_body_section(Client *client, const char *item,
 	return TRUE;
 }
 
-static int parse_arg(Client *client, ImapArg *arg, MailFetchData *data)
+static int parse_arg(struct client *client, struct imap_arg *arg,
+		     struct mail_fetch_data *data)
 {
 	char *item;
 
@@ -221,10 +222,10 @@ static int parse_arg(Client *client, ImapArg *arg, MailFetchData *data)
 	return TRUE;
 }
 
-int cmd_fetch(Client *client)
+int cmd_fetch(struct client *client)
 {
-	ImapArg *args, *listargs;
-	MailFetchData data;
+	struct imap_arg *args, *listargs;
+	struct mail_fetch_data data;
 	const char *messageset;
 	int all_found;
 
@@ -242,7 +243,7 @@ int cmd_fetch(Client *client)
 	}
 
 	/* parse items argument */
-	memset(&data, 0, sizeof(MailFetchData));
+	memset(&data, 0, sizeof(struct mail_fetch_data));
 	if (args[1].type == IMAP_ARG_ATOM) {
 		if (!parse_arg(client, &args[1], &data))
 			return TRUE;

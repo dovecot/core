@@ -5,10 +5,10 @@
 #include "mail-index-util.h"
 #include "index-storage.h"
 
-static unsigned int get_first_unseen_seq(MailIndex *index)
+static unsigned int get_first_unseen_seq(struct mail_index *index)
 {
-	MailIndexHeader *hdr;
-	MailIndexRecord *rec;
+	struct mail_index_header *hdr;
+	struct mail_index_record *rec;
 	unsigned int seq, lowwater_uid;
 
 	hdr = mail_index_get_header(index);
@@ -56,7 +56,7 @@ static unsigned int get_first_unseen_seq(MailIndex *index)
 }
 
 static void
-get_custom_flags(MailCustomFlags *mcf, MailboxStatus *status)
+get_custom_flags(struct mail_custom_flags *mcf, struct mailbox_status *status)
 {
 	const char **flags;
 	unsigned int i;
@@ -69,13 +69,14 @@ get_custom_flags(MailCustomFlags *mcf, MailboxStatus *status)
 		status->custom_flags[i] = t_strdup(flags[i]);
 }
 
-int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
-			     MailboxStatus *status)
+int index_storage_get_status(struct mailbox *box,
+			     enum mailbox_status_items items,
+			     struct mailbox_status *status)
 {
-	IndexMailbox *ibox = (IndexMailbox *) box;
-	MailIndexHeader *hdr;
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+	struct mail_index_header *hdr;
 
-	memset(status, 0, sizeof(MailboxStatus));
+	memset(status, 0, sizeof(struct mailbox_status));
 
 	/* if we're doing STATUS for selected mailbox, we have to sync it
 	   first or STATUS reply may give different data */

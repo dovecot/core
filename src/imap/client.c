@@ -29,16 +29,16 @@
 /* Disconnect client after idling this many seconds */
 #define CLIENT_IDLE_TIMEOUT (60*30)
 
-extern MailStorageCallbacks mail_storage_callbacks;
+extern struct mail_storage_callbacks mail_storage_callbacks;
 
-static Client *my_client; /* we don't need more than one currently */
-static Timeout to_idle;
+static struct client *my_client; /* we don't need more than one currently */
+static struct timeout *to_idle;
 
-static void client_input(Client *client);
+static void client_input(struct client *client);
 
 static void client_output_timeout(void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 
 	i_stream_close(client->input);
 	o_stream_close(client->output);
@@ -46,18 +46,18 @@ static void client_output_timeout(void *context)
 
 static void client_input_timeout(void *context)
 {
-	Client *client = context;
+	struct client *client = context;
 
 	client_send_line(my_client, "* BYE Disconnected for inactivity "
 			 "while waiting for command data.");
 	o_stream_close(client->output);
 }
 
-Client *client_create(int hin, int hout, MailStorage *storage)
+struct client *client_create(int hin, int hout, struct mail_storage *storage)
 {
-	Client *client;
+	struct client *client;
 
-	client = i_new(Client, 1);
+	client = i_new(struct client, 1);
 	client->input = i_stream_create_file(hin, default_pool,
 					     MAX_INBUF_SIZE, FALSE);
 	client->output = o_stream_create_file(hout, default_pool, 4096,
@@ -86,7 +86,7 @@ Client *client_create(int hin, int hout, MailStorage *storage)
 	return client;
 }
 
-void client_destroy(Client *client)
+void client_destroy(struct client *client)
 {
 	o_stream_flush(client->output);
 
@@ -107,7 +107,7 @@ void client_destroy(Client *client)
 	io_loop_stop(ioloop);
 }
 
-void client_disconnect(Client *client)
+void client_disconnect(struct client *client)
 {
 	o_stream_flush(client->output);
 
@@ -115,7 +115,7 @@ void client_disconnect(Client *client)
 	o_stream_close(client->output);
 }
 
-void client_send_line(Client *client, const char *data)
+void client_send_line(struct client *client, const char *data)
 {
 	if (client->output->closed)
 		return;
@@ -124,7 +124,7 @@ void client_send_line(Client *client, const char *data)
 	(void)o_stream_send(client->output, "\r\n", 2);
 }
 
-void client_send_tagline(Client *client, const char *data)
+void client_send_tagline(struct client *client, const char *data)
 {
 	const char *tag = client->cmd_tag;
 
@@ -140,7 +140,7 @@ void client_send_tagline(Client *client, const char *data)
 	(void)o_stream_send(client->output, "\r\n", 2);
 }
 
-void client_send_command_error(Client *client, const char *msg)
+void client_send_command_error(struct client *client, const char *msg)
 {
 	const char *error;
 
@@ -158,8 +158,8 @@ void client_send_command_error(Client *client, const char *msg)
 	}
 }
 
-int client_read_args(Client *client, unsigned int count, unsigned int flags,
-		     ImapArg **args)
+int client_read_args(struct client *client, unsigned int count,
+		     unsigned int flags, struct imap_arg **args)
 {
 	int ret;
 
@@ -178,9 +178,9 @@ int client_read_args(Client *client, unsigned int count, unsigned int flags,
 	}
 }
 
-int client_read_string_args(Client *client, unsigned int count, ...)
+int client_read_string_args(struct client *client, unsigned int count, ...)
 {
-	ImapArg *imap_args;
+	struct imap_arg *imap_args;
 	va_list va;
 	const char *str;
 	unsigned int i;
@@ -207,7 +207,7 @@ int client_read_string_args(Client *client, unsigned int count, ...)
 	return TRUE;
 }
 
-static void client_reset_command(Client *client)
+static void client_reset_command(struct client *client)
 {
 	client->cmd_tag = NULL;
 	client->cmd_name = NULL;
@@ -218,7 +218,7 @@ static void client_reset_command(Client *client)
         imap_parser_reset(client->parser);
 }
 
-static void client_command_finished(Client *client)
+static void client_command_finished(struct client *client)
 {
 	client->input_skip_line = TRUE;
         client_reset_command(client);
@@ -226,7 +226,7 @@ static void client_command_finished(Client *client)
 
 /* Skip incoming data until newline is found,
    returns TRUE if newline was found. */
-static int client_skip_line(Client *client)
+static int client_skip_line(struct client *client)
 {
 	const unsigned char *data;
 	size_t i, data_size;
@@ -244,7 +244,7 @@ static int client_skip_line(Client *client)
 	return !client->input_skip_line;
 }
 
-static int client_handle_input(Client *client)
+static int client_handle_input(struct client *client)
 {
         if (client->cmd_func != NULL) {
 		/* command is being executed - continue it */
@@ -301,7 +301,7 @@ static int client_handle_input(Client *client)
 	return TRUE;
 }
 
-static void client_input(Client *client)
+static void client_input(struct client *client)
 {
 	client->last_input = ioloop_time;
 
@@ -331,7 +331,7 @@ static void client_input(Client *client)
 }
 
 static void idle_timeout(void *context __attr_unused__,
-			 Timeout timeout __attr_unused__)
+			 struct timeout *timeout __attr_unused__)
 {
 	if (my_client == NULL)
 		return;

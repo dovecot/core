@@ -16,20 +16,20 @@
 #include <fcntl.h>
 #include <utime.h>
 
-static int mmap_verify(MailIndex *index)
+static int mmap_verify(struct mail_index *index)
 {
-	MailIndexHeader *hdr;
+	struct mail_index_header *hdr;
 	unsigned int extra;
 
 	index->mmap_used_length = 0;
 
-	if (index->mmap_full_length < sizeof(MailIndexHeader)) {
+	if (index->mmap_full_length < sizeof(struct mail_index_header)) {
                 index_set_corrupted(index, "File too small");
 		return FALSE;
 	}
 
-	extra = (index->mmap_full_length - sizeof(MailIndexHeader)) %
-		sizeof(MailIndexRecord);
+	extra = (index->mmap_full_length - sizeof(struct mail_index_header)) %
+		sizeof(struct mail_index_record);
 
 	if (extra != 0) {
 		/* partial write or corrupted -
@@ -53,8 +53,8 @@ static int mmap_verify(MailIndex *index)
 		return FALSE;
 	}
 
-	if ((hdr->used_file_size - sizeof(MailIndexHeader)) %
-	    sizeof(MailIndexRecord) != 0) {
+	if ((hdr->used_file_size - sizeof(struct mail_index_header)) %
+	    sizeof(struct mail_index_record) != 0) {
 		index_set_corrupted(index, "Invalid used_file_size in header "
 				    "(%"PRIuUOFF_T")",
 				    hdr->used_file_size);
@@ -80,13 +80,13 @@ static int mmap_verify(MailIndex *index)
 	return TRUE;
 }
 
-int mail_index_mmap_update(MailIndex *index)
+int mail_index_mmap_update(struct mail_index *index)
 {
 	if (index->anon_mmap)
 		return mmap_verify(index);
 
 	if (index->mmap_base != NULL) {
-		index->header = (MailIndexHeader *) index->mmap_base;
+		index->header = (struct mail_index_header *) index->mmap_base;
 
 		/* make sure file size hasn't changed */
 		if (index->header->sync_id == index->sync_id) {
@@ -117,7 +117,7 @@ int mail_index_mmap_update(MailIndex *index)
 	return mmap_verify(index);
 }
 
-void mail_index_close(MailIndex *index)
+void mail_index_close(struct mail_index *index)
 {
 	index->set_flags = 0;
 	index->set_cache_fields = 0;
@@ -175,7 +175,7 @@ void mail_index_close(MailIndex *index)
 	}
 }
 
-static int mail_index_sync_file(MailIndex *index)
+static int mail_index_sync_file(struct mail_index *index)
 {
 	unsigned int i;
 	int failed, fsync_fds[3];
@@ -215,7 +215,7 @@ static int mail_index_sync_file(MailIndex *index)
 	return !failed;
 }
 
-static void mail_index_update_timestamp(MailIndex *index)
+static void mail_index_update_timestamp(struct mail_index *index)
 {
 	struct utimbuf ut;
 
@@ -226,7 +226,7 @@ static void mail_index_update_timestamp(MailIndex *index)
 		index_set_syscall_error(index, "utime()");
 }
 
-int mail_index_fmdatasync(MailIndex *index, size_t size)
+int mail_index_fmdatasync(struct mail_index *index, size_t size)
 {
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
@@ -240,7 +240,7 @@ int mail_index_fmdatasync(MailIndex *index, size_t size)
 	return TRUE;
 }
 
-static void mail_index_update_header_changes(MailIndex *index)
+static void mail_index_update_header_changes(struct mail_index *index)
 {
 	if (index->set_flags != 0) {
 		index->header->flags |= index->set_flags;
@@ -253,7 +253,7 @@ static void mail_index_update_header_changes(MailIndex *index)
 	}
 }
 
-static int mail_index_write_header_changes(MailIndex *index)
+static int mail_index_write_header_changes(struct mail_index *index)
 {
 	int failed;
 
@@ -269,7 +269,8 @@ static int mail_index_write_header_changes(MailIndex *index)
 
 	mail_index_update_header_changes(index);
 
-	failed = msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) < 0;
+	failed = msync(index->mmap_base,
+		       sizeof(struct mail_index_header), MS_SYNC) < 0;
 	if (failed)
 		index_set_syscall_error(index, "msync()");
 
@@ -283,9 +284,9 @@ static int mail_index_write_header_changes(MailIndex *index)
 	return !failed;
 }
 
-static int mail_index_lock_remove(MailIndex *index)
+static int mail_index_lock_remove(struct mail_index *index)
 {
-	MailLockType old_lock_type;
+	enum mail_lock_type old_lock_type;
 
 	if (!mail_index_wait_lock(index, F_UNLCK))
 		return FALSE;
@@ -297,7 +298,7 @@ static int mail_index_lock_remove(MailIndex *index)
 		/* releasing shared lock. we may need to update some
 		   flags in header. */
 		unsigned int old_flags;
-		MailDataField old_cache;
+		enum mail_data_field old_cache;
 
 		old_flags = index->header->flags;
 		old_cache = index->header->cache_fields;
@@ -311,8 +312,8 @@ static int mail_index_lock_remove(MailIndex *index)
 	return TRUE;
 }
 
-static int mail_index_lock_change(MailIndex *index, MailLockType lock_type,
-				  int try_lock)
+static int mail_index_lock_change(struct mail_index *index,
+				  enum mail_lock_type lock_type, int try_lock)
 {
 	int ret, fd_lock_type;
 
@@ -390,7 +391,8 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type,
 		   when the lock is released, the FSCK flag will also be
 		   removed. */
 		index->header->flags |= MAIL_INDEX_FLAG_FSCK;
-		if (!mail_index_fmdatasync(index, sizeof(MailIndexHeader))) {
+		if (!mail_index_fmdatasync(index,
+					   sizeof(struct mail_index_header))) {
 			(void)index->set_lock(index, MAIL_LOCK_UNLOCK);
 			return FALSE;
 		}
@@ -399,8 +401,8 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type,
 	return TRUE;
 }
 
-static int mail_index_lock_full(MailIndex *index, MailLockType lock_type,
-				int try_lock)
+static int mail_index_lock_full(struct mail_index *index,
+				enum mail_lock_type lock_type, int try_lock)
 {
 	int keep_fsck;
 
@@ -428,7 +430,8 @@ static int mail_index_lock_full(MailIndex *index, MailLockType lock_type,
 		/* remove the FSCK flag only after successful fsync() */
 		if (mail_index_sync_file(index) && !keep_fsck) {
 			index->header->flags &= ~MAIL_INDEX_FLAG_FSCK;
-			if (msync(index->mmap_base, sizeof(MailIndexHeader),
+			if (msync(index->mmap_base,
+				  sizeof(struct mail_index_header),
 				  MS_SYNC) < 0) {
 				/* we only failed to remove the fsck flag,
 				   so this isn't fatal. */
@@ -445,27 +448,26 @@ static int mail_index_lock_full(MailIndex *index, MailLockType lock_type,
 		return mail_index_lock_change(index, lock_type, try_lock);
 }
 
-int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
+int mail_index_set_lock(struct mail_index *index, enum mail_lock_type lock_type)
 {
 	return mail_index_lock_full(index, lock_type, FALSE);
 }
 
-int mail_index_try_lock(MailIndex *index, MailLockType lock_type)
+int mail_index_try_lock(struct mail_index *index, enum mail_lock_type lock_type)
 {
 	return mail_index_lock_full(index, lock_type, TRUE);
 }
 
-void mail_index_set_lock_notify_callback(MailIndex *index,
-					 MailLockNotifyFunc func,
-					 void *context)
+void mail_index_set_lock_notify_callback(struct mail_index *index,
+					 MailLockNotifyFunc func, void *context)
 {
 	index->lock_notify_func = func;
 	index->lock_notify_context = context;
 }
 
-int mail_index_verify_hole_range(MailIndex *index)
+int mail_index_verify_hole_range(struct mail_index *index)
 {
-	MailIndexHeader *hdr;
+	struct mail_index_header *hdr;
 	unsigned int max_records;
 
 	hdr = index->header;
@@ -489,17 +491,18 @@ int mail_index_verify_hole_range(MailIndex *index)
 	return TRUE;
 }
 
-MailIndexHeader *mail_index_get_header(MailIndex *index)
+struct mail_index_header *mail_index_get_header(struct mail_index *index)
 {
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
 	return index->header;
 }
 
-MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
+struct mail_index_record *mail_index_lookup(struct mail_index *index,
+					    unsigned int seq)
 {
-	MailIndexHeader *hdr;
-	MailIndexRecord *rec;
+	struct mail_index_header *hdr;
+	struct mail_index_record *rec;
 	const char *error;
 	unsigned int idx;
 
@@ -547,8 +550,7 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 		return NULL;
 	}
 
-	rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				   sizeof(MailIndexHeader)) + idx;
+	rec = INDEX_RECORD_AT(index, idx);
 	if (rec->uid == 0) {
 		index_set_corrupted(index, "%s", error);
 		return NULL;
@@ -557,19 +559,19 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 	return rec;
 }
 
-MailIndexRecord *mail_index_next(MailIndex *index, MailIndexRecord *rec)
+struct mail_index_record *mail_index_next(struct mail_index *index,
+					  struct mail_index_record *rec)
 {
-	MailIndexRecord *end_rec;
+	struct mail_index_record *end_rec;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
-	i_assert(rec >= (MailIndexRecord *) index->mmap_base);
+	i_assert(rec >= (struct mail_index_record *) index->mmap_base);
 
 	if (rec == NULL)
 		return NULL;
 
 	/* go to the next non-deleted record */
-	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				       index->mmap_used_length);
+	end_rec = INDEX_END_RECORD(index);
 	while (++rec < end_rec) {
 		if (rec->uid != 0)
 			return rec;
@@ -578,12 +580,11 @@ MailIndexRecord *mail_index_next(MailIndex *index, MailIndexRecord *rec)
 	return NULL;
 }
 
-MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
-					     unsigned int first_uid,
-					     unsigned int last_uid,
-					     unsigned int *seq_r)
+struct mail_index_record *
+mail_index_lookup_uid_range(struct mail_index *index, unsigned int first_uid,
+			    unsigned int last_uid, unsigned int *seq_r)
 {
-	MailIndexRecord *rec;
+	struct mail_index_record *rec;
 	unsigned int idx;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
@@ -604,8 +605,7 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 		return NULL;
 	}
 
-	rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				   sizeof(MailIndexHeader)) + idx;
+	rec = INDEX_RECORD_AT(index, idx);
 	if (rec->uid < first_uid || rec->uid > last_uid) {
 		index_set_error(index, "Corrupted binary tree for index %s: "
 				"lookup returned offset to wrong UID "
@@ -618,10 +618,11 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 	return rec;
 }
 
-const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
-				    MailDataField field)
+const char *mail_index_lookup_field(struct mail_index *index,
+				    struct mail_index_record *rec,
+				    enum mail_data_field field)
 {
-	MailIndexDataRecord *datarec;
+	struct mail_index_data_record *datarec;
 
 	datarec = (rec->data_fields & field) == 0 ? NULL :
 		mail_index_data_lookup(index->data, rec, field);
@@ -636,11 +637,13 @@ const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
 	return datarec->data;
 }
 
-const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
-					MailDataField field, size_t *size)
+const void *mail_index_lookup_field_raw(struct mail_index *index,
+					struct mail_index_record *rec,
+					enum mail_data_field field,
+					size_t *size)
 {
-	MailIndexDataRecordHeader *datahdr;
-	MailIndexDataRecord *datarec;
+	struct mail_index_data_record_header *datahdr;
+	struct mail_index_data_record *datarec;
 
 	if ((rec->data_fields & field) == 0) {
 		*size = 0;
@@ -685,7 +688,8 @@ const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
 	}
 }
 
-void mail_index_cache_fields_later(MailIndex *index, MailDataField field)
+void mail_index_cache_fields_later(struct mail_index *index,
+				   enum mail_data_field field)
 {
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
@@ -707,7 +711,8 @@ void mail_index_cache_fields_later(MailIndex *index, MailDataField field)
 	}
 }
 
-time_t mail_get_internal_date(MailIndex *index, MailIndexRecord *rec)
+time_t mail_get_internal_date(struct mail_index *index,
+			      struct mail_index_record *rec)
 {
 	const time_t *date;
 	size_t size;
@@ -722,8 +727,10 @@ time_t mail_get_internal_date(MailIndex *index, MailIndexRecord *rec)
 	}
 }
 
-void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
-				  MailFlags old_flags, MailFlags new_flags)
+void mail_index_mark_flag_changes(struct mail_index *index,
+				  struct mail_index_record *rec,
+				  enum mail_flags old_flags,
+				  enum mail_flags new_flags)
 {
 	if ((old_flags & MAIL_SEEN) == 0 && (new_flags & MAIL_SEEN)) {
 		/* unseen -> seen */
@@ -766,28 +773,25 @@ void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 	}
 }
 
-static void update_first_hole_records(MailIndex *index)
+static void update_first_hole_records(struct mail_index *index)
 {
-        MailIndexRecord *rec, *end_rec;
+        struct mail_index_record *rec, *end_rec;
 
 	/* see if first_hole_records can be grown */
-	rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				   sizeof(MailIndexHeader)) +
-		index->header->first_hole_index +
-		index->header->first_hole_records;
-	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				       index->mmap_used_length);
+	rec = INDEX_RECORD_AT(index, index->header->first_hole_index +
+			      index->header->first_hole_records);
+	end_rec = INDEX_END_RECORD(index);
 	while (rec < end_rec && rec->uid == 0) {
 		index->header->first_hole_records++;
 		rec++;
 	}
 }
 
-static int mail_index_truncate_hole(MailIndex *index)
+static int mail_index_truncate_hole(struct mail_index *index)
 {
-	index->header->used_file_size = sizeof(MailIndexHeader) +
+	index->header->used_file_size = sizeof(struct mail_index_header) +
 		(uoff_t)index->header->first_hole_index *
-		sizeof(MailIndexRecord);
+		sizeof(struct mail_index_record);
 	index->header->first_hole_index = 0;
 	index->header->first_hole_records = 0;
 
@@ -809,10 +813,10 @@ static int mail_index_truncate_hole(MailIndex *index)
 	 (records) * (100-INDEX_COMPRESS_PERCENTAGE) / 100 > \
 	 	(hdr)->messages_count)
 
-int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
+int mail_index_expunge(struct mail_index *index, struct mail_index_record *rec,
 		       unsigned int seq, int external_change)
 {
-	MailIndexHeader *hdr;
+	struct mail_index_header *hdr;
 	unsigned int records, uid, idx;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
@@ -891,8 +895,9 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-int mail_index_update_flags(MailIndex *index, MailIndexRecord *rec,
-			    unsigned int seq, MailFlags flags,
+int mail_index_update_flags(struct mail_index *index,
+			    struct mail_index_record *rec,
+			    unsigned int seq, enum mail_flags flags,
 			    int external_change)
 {
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
@@ -909,7 +914,7 @@ int mail_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 					 rec->uid, external_change);
 }
 
-static int mail_index_grow(MailIndex *index)
+static int mail_index_grow(struct mail_index *index)
 {
 	uoff_t pos;
 	unsigned int grow_count;
@@ -920,7 +925,8 @@ static int mail_index_grow(MailIndex *index)
 	if (grow_count < 16)
 		grow_count = 16;
 
-	pos = index->mmap_full_length + (grow_count * sizeof(MailIndexRecord));
+	pos = index->mmap_full_length +
+		(grow_count * sizeof(struct mail_index_record));
 	i_assert(pos < OFF_T_MAX);
 
 	if (index->anon_mmap) {
@@ -952,9 +958,9 @@ static int mail_index_grow(MailIndex *index)
 	return TRUE;
 }
 
-MailIndexRecord *mail_index_append_begin(MailIndex *index)
+struct mail_index_record *mail_index_append_begin(struct mail_index *index)
 {
-	MailIndexRecord *rec;
+	struct mail_index_record *rec;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
@@ -964,20 +970,21 @@ MailIndexRecord *mail_index_append_begin(MailIndex *index)
 	}
 
 	i_assert(index->header->used_file_size == index->mmap_used_length);
-	i_assert(index->mmap_used_length + sizeof(MailIndexRecord) <=
+	i_assert(index->mmap_used_length + sizeof(struct mail_index_record) <=
 		 index->mmap_full_length);
 
-	rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				   index->mmap_used_length);
-	memset(rec, 0, sizeof(MailIndexRecord));
+	rec = (struct mail_index_record *) ((char *) index->mmap_base +
+					    index->mmap_used_length);
+	memset(rec, 0, sizeof(struct mail_index_record));
 
-	index->header->used_file_size += sizeof(MailIndexRecord);
-	index->mmap_used_length += sizeof(MailIndexRecord);
+	index->header->used_file_size += sizeof(struct mail_index_record);
+	index->mmap_used_length += sizeof(struct mail_index_record);
 
 	return rec;
 }
 
-int mail_index_append_end(MailIndex *index, MailIndexRecord *rec)
+int mail_index_append_end(struct mail_index *index,
+			  struct mail_index_record *rec)
 {
 	i_assert(rec->uid == 0);
 
@@ -999,7 +1006,7 @@ int mail_index_append_end(MailIndex *index, MailIndexRecord *rec)
 	return TRUE;
 }
 
-MailIndexError mail_index_get_last_error(MailIndex *index)
+enum mail_index_error mail_index_get_last_error(struct mail_index *index)
 {
 	if (index->inconsistent)
 		return MAIL_INDEX_ERROR_INCONSISTENT;
@@ -1016,7 +1023,7 @@ MailIndexError mail_index_get_last_error(MailIndex *index)
 	return MAIL_INDEX_ERROR_NONE;
 }
 
-const char *mail_index_get_last_error_text(MailIndex *index)
+const char *mail_index_get_last_error_text(struct mail_index *index)
 {
 	return index->error;
 }

@@ -12,43 +12,44 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-#define MAX_INBUF_SIZE (AUTH_MAX_REQUEST_DATA_SIZE)
+#define MAX_INBUF_SIZE AUTH_MAX_REQUEST_DATA_SIZE
 #define MAX_OUTBUF_SIZE \
-	(sizeof(AuthContinuedRequestData) + AUTH_MAX_REQUEST_DATA_SIZE)
+	(sizeof(struct auth_continued_request_data) + \
+	 AUTH_MAX_REQUEST_DATA_SIZE)
 
-struct _AuthConnection {
-	AuthConnection *next;
+struct auth_connection {
+	struct auth_connection *next;
 
 	char *path;
 	int fd;
-	IO io;
-	IStream *input;
-	OStream *output;
+	struct io *io;
+	struct istream *input;
+	struct ostream *output;
 
 	unsigned int auth_process;
-	AuthMethod available_auth_methods;
-        AuthReplyData in_reply;
+	enum auth_method available_auth_methods;
+        struct auth_reply_data in_reply;
 
-        HashTable *requests;
+        struct hash_table *requests;
 
 	unsigned int init_received:1;
 	unsigned int in_reply_received:1;
 };
 
-AuthMethod available_auth_methods;
+enum auth_method available_auth_methods;
 
 static int auth_reconnect;
 static unsigned int request_id_counter;
-static AuthConnection *auth_connections;
-static Timeout to;
+static struct auth_connection *auth_connections;
+static struct timeout *to;
 
-static void auth_connection_destroy(AuthConnection *conn);
-static void auth_input(void *context, int fd, IO io);
+static void auth_connection_destroy(struct auth_connection *conn);
+static void auth_input(void *context, int fd, struct io *io);
 static void auth_connect_missing(void);
 
-static AuthConnection *auth_connection_find(const char *path)
+static struct auth_connection *auth_connection_find(const char *path)
 {
-	AuthConnection *conn;
+	struct auth_connection *conn;
 
 	for (conn = auth_connections; conn != NULL; conn = conn->next) {
 		if (strcmp(conn->path, path) == 0)
@@ -58,10 +59,10 @@ static AuthConnection *auth_connection_find(const char *path)
 	return NULL;
 }
 
-static AuthConnection *auth_connection_new(const char *path)
+static struct auth_connection *auth_connection_new(const char *path)
 {
-	AuthConnection *conn;
-        ClientAuthInitData init_data;
+	struct auth_connection *conn;
+        struct client_auth_init_data init_data;
 	int fd;
 
 	fd = net_connect_unix(path);
@@ -71,7 +72,7 @@ static AuthConnection *auth_connection_new(const char *path)
 		return NULL;
 	}
 
-	conn = i_new(AuthConnection, 1);
+	conn = i_new(struct auth_connection, 1);
 	conn->path = i_strdup(path);
 	conn->fd = fd;
 	conn->io = io_add(fd, IO_READ, auth_input, conn);
@@ -94,13 +95,13 @@ static AuthConnection *auth_connection_new(const char *path)
 	return conn;
 }
 
-static void request_destroy(AuthRequest *request)
+static void request_destroy(struct auth_request *request)
 {
 	hash_remove(request->conn->requests, POINTER_CAST(request->id));
 	i_free(request);
 }
 
-static void request_abort(AuthRequest *request)
+static void request_abort(struct auth_request *request)
 {
 	request->callback(request, request->conn->auth_process,
 			  AUTH_RESULT_INTERNAL_FAILURE,
@@ -115,9 +116,9 @@ static void request_hash_destroy(void *key __attr_unused__, void *value,
 	request_abort(value);
 }
 
-static void auth_connection_destroy(AuthConnection *conn)
+static void auth_connection_destroy(struct auth_connection *conn)
 {
-	AuthConnection **pos;
+	struct auth_connection **pos;
 
 	for (pos = &auth_connections; *pos != NULL; pos = &(*pos)->next) {
 		if (*pos == conn) {
@@ -138,10 +139,10 @@ static void auth_connection_destroy(AuthConnection *conn)
 	i_free(conn);
 }
 
-static AuthConnection *auth_connection_get(AuthMethod method, size_t size,
-					   const char **error)
+static struct auth_connection *
+auth_connection_get(enum auth_method method, size_t size, const char **error)
 {
-	AuthConnection *conn;
+	struct auth_connection *conn;
 	int found;
 
 	found = FALSE;
@@ -172,14 +173,15 @@ static AuthConnection *auth_connection_get(AuthMethod method, size_t size,
 
 static void update_available_auth_methods(void)
 {
-	AuthConnection *conn;
+	struct auth_connection *conn;
 
         available_auth_methods = 0;
 	for (conn = auth_connections; conn != NULL; conn = conn->next)
                 available_auth_methods |= conn->available_auth_methods;
 }
 
-static void auth_handle_init(AuthConnection *conn, AuthInitData *init_data)
+static void auth_handle_init(struct auth_connection *conn,
+			     struct auth_init_data *init_data)
 {
 	conn->auth_process = init_data->auth_process;
 	conn->available_auth_methods = init_data->auth_methods;
@@ -188,10 +190,11 @@ static void auth_handle_init(AuthConnection *conn, AuthInitData *init_data)
 	update_available_auth_methods();
 }
 
-static void auth_handle_reply(AuthConnection *conn, AuthReplyData *reply_data,
+static void auth_handle_reply(struct auth_connection *conn,
+			      struct auth_reply_data *reply_data,
 			      const unsigned char *data)
 {
-	AuthRequest *request;
+	struct auth_request *request;
 
 	request = hash_lookup(conn->requests, POINTER_CAST(reply_data->id));
 	if (request == NULL) {
@@ -214,10 +217,10 @@ static void auth_handle_reply(AuthConnection *conn, AuthReplyData *reply_data,
 }
 
 static void auth_input(void *context, int fd __attr_unused__,
-		       IO io __attr_unused__)
+		       struct io *io __attr_unused__)
 {
-	AuthConnection *conn = context;
-        AuthInitData init_data;
+	struct auth_connection *conn = context;
+        struct auth_init_data init_data;
 	const unsigned char *data;
 	size_t size;
 
@@ -240,15 +243,17 @@ static void auth_input(void *context, int fd __attr_unused__,
 	data = i_stream_get_data(conn->input, &size);
 
 	if (!conn->init_received) {
-		if (size == sizeof(AuthInitData)) {
-			memcpy(&init_data, data, sizeof(AuthInitData));
-			i_stream_skip(conn->input, sizeof(AuthInitData));
+		if (size == sizeof(struct auth_init_data)) {
+			memcpy(&init_data, data, sizeof(struct auth_init_data));
+			i_stream_skip(conn->input,
+				      sizeof(struct auth_init_data));
 
 			auth_handle_init(conn, &init_data);
-		} else if (size > sizeof(AuthInitData)) {
+		} else if (size > sizeof(struct auth_init_data)) {
 			i_error("BUG: imap-auth sent us too much "
 				"initialization data (%"PRIuSIZE_T " vs %"
-				PRIuSIZE_T")", size, sizeof(AuthInitData));
+				PRIuSIZE_T")", size,
+				sizeof(struct auth_init_data));
 			auth_connection_destroy(conn);
 		}
 
@@ -257,13 +262,13 @@ static void auth_input(void *context, int fd __attr_unused__,
 
 	if (!conn->in_reply_received) {
 		data = i_stream_get_data(conn->input, &size);
-		if (size < sizeof(AuthReplyData))
+		if (size < sizeof(struct auth_reply_data))
 			return;
 
-		memcpy(&conn->in_reply, data, sizeof(AuthReplyData));
-		data += sizeof(AuthReplyData);
-		size -= sizeof(AuthReplyData);
-		i_stream_skip(conn->input, sizeof(AuthReplyData));
+		memcpy(&conn->in_reply, data, sizeof(struct auth_reply_data));
+		data += sizeof(struct auth_reply_data);
+		size -= sizeof(struct auth_reply_data);
+		i_stream_skip(conn->input, sizeof(struct auth_reply_data));
 		conn->in_reply_received = TRUE;
 	}
 
@@ -276,22 +281,22 @@ static void auth_input(void *context, int fd __attr_unused__,
 	i_stream_skip(conn->input, conn->in_reply.data_size);
 }
 
-int auth_init_request(AuthMethod method, AuthCallback callback,
+int auth_init_request(enum auth_method method, AuthCallback callback,
 		      void *context, const char **error)
 {
-	AuthConnection *conn;
-	AuthRequest *request;
-	AuthInitRequestData request_data;
+	struct auth_connection *conn;
+	struct auth_request *request;
+	struct auth_init_request_data request_data;
 
 	if (auth_reconnect)
 		auth_connect_missing();
 
-	conn = auth_connection_get(method, sizeof(AuthInitRequestData), error);
+	conn = auth_connection_get(method, sizeof(request_data), error);
 	if (conn == NULL)
 		return FALSE;
 
 	/* create internal request structure */
-	request = i_new(AuthRequest, 1);
+	request = i_new(struct auth_request, 1);
 	request->method = method;
 	request->conn = conn;
 	request->id = ++request_id_counter;
@@ -310,10 +315,10 @@ int auth_init_request(AuthMethod method, AuthCallback callback,
 	return TRUE;
 }
 
-void auth_continue_request(AuthRequest *request, const unsigned char *data,
-			   size_t data_size)
+void auth_continue_request(struct auth_request *request,
+			   const unsigned char *data, size_t data_size)
 {
-	AuthContinuedRequestData request_data;
+	struct auth_continued_request_data request_data;
 
 	/* send continued request to auth */
 	memcpy(request_data.cookie, request->cookie, AUTH_COOKIE_SIZE);
@@ -362,8 +367,9 @@ static void auth_connect_missing(void)
 	(void)closedir(dirp);
 }
 
-static void auth_connect_missing_timeout(void *context __attr_unused__,
-					 Timeout timeout __attr_unused__)
+static void
+auth_connect_missing_timeout(void *context __attr_unused__,
+			     struct timeout *timeout __attr_unused__)
 {
 	if (auth_reconnect)
                 auth_connect_missing();
@@ -381,7 +387,7 @@ void auth_connection_init(void)
 
 void auth_connection_deinit(void)
 {
-	AuthConnection *next;
+	struct auth_connection *next;
 
 	while (auth_connections != NULL) {
 		next = auth_connections->next;

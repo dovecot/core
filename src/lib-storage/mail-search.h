@@ -4,7 +4,7 @@
 #include "imap-parser.h"
 #include "mail-storage.h"
 
-typedef enum {
+enum mail_search_arg_type {
 	SEARCH_OR,
 	SEARCH_SUB,
 
@@ -49,14 +49,14 @@ typedef enum {
 	/* our shortcuts for headers */
         SEARCH_IN_REPLY_TO,
         SEARCH_MESSAGE_ID
-} MailSearchArgType;
+};
 
-struct _MailSearchArg {
-	MailSearchArg *next;
+struct mail_search_arg {
+	struct mail_search_arg *next;
 
-	MailSearchArgType type;
+	enum mail_search_arg_type type;
 	union {
-		MailSearchArg *subargs;
+		struct mail_search_arg *subargs;
 		const char *str;
 	} value;
 
@@ -67,23 +67,24 @@ struct _MailSearchArg {
 	int result;
 };
 
-typedef void (*MailSearchForeachFunc)(MailSearchArg *arg, void *context);
+typedef void (*MailSearchForeachFunc)(struct mail_search_arg *arg,
+				      void *context);
 
 /* Builds search arguments based on IMAP arguments. */
-MailSearchArg *mail_search_args_build(Pool pool, ImapArg *args,
-				      const char **error);
+struct mail_search_arg *
+mail_search_args_build(pool_t pool, struct imap_arg *args, const char **error);
 
 /* Reset the results in search arguments */
-void mail_search_args_reset(MailSearchArg *args);
+void mail_search_args_reset(struct mail_search_arg *args);
 
 /* goes through arguments in list that don't have a result yet.
    Returns 1 = search matched, -1 = search unmatched, 0 = don't know yet */
-int mail_search_args_foreach(MailSearchArg *args, MailSearchForeachFunc func,
-			     void *context);
+int mail_search_args_foreach(struct mail_search_arg *args,
+			     MailSearchForeachFunc func, void *context);
 
 /* Fills have_headers, have_body and have_text based on if such search
    argument exists that needs to be checked. */
-void mail_search_args_analyze(MailSearchArg *args, int *have_headers,
+void mail_search_args_analyze(struct mail_search_arg *args, int *have_headers,
 			      int *have_body, int *have_text);
 
 #endif

@@ -23,7 +23,7 @@
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/* FIXME: inserting IO is slow if there's lots of them. I should add a linked
+/* FIXME: inserting io is slow if there's lots of them. I should add a linked
    list of priorities pointing to first item in the list with the priority. */
 
 #include "lib.h"
@@ -39,11 +39,11 @@ time_t ioloop_time = 0;
 struct timeval ioloop_timeval;
 struct timezone ioloop_timezone;
 
-static IOLoop current_ioloop = NULL;
+static struct ioloop *current_ioloop = NULL;
 
-static void update_highest_fd(IOLoop ioloop)
+static void update_highest_fd(struct ioloop *ioloop)
 {
-        IO io;
+        struct io *io;
 	int max_highest_fd;
 
         max_highest_fd = ioloop->highest_fd-1;
@@ -59,9 +59,9 @@ static void update_highest_fd(IOLoop ioloop)
 	}
 }
 
-static void io_list_insert(IOLoop ioloop, IO io)
+static void io_list_insert(struct ioloop *ioloop, struct io *io)
 {
-	IO prev, next;
+	struct io *prev, *next;
 
         prev = NULL;
 	for (next = ioloop->ios; next != NULL; next = next->next) {
@@ -83,21 +83,21 @@ static void io_list_insert(IOLoop ioloop, IO io)
 	}
 }
 
-IO io_add(int fd, int condition, IOFunc func, void *data)
+struct io *io_add(int fd, int condition, IOFunc func, void *data)
 {
 	return io_add_priority(fd, IO_PRIORITY_DEFAULT,
 			       condition, func, data);
 }
 
-IO io_add_priority(int fd, int priority, int condition,
-		   IOFunc func, void *context)
+struct io *io_add_priority(int fd, int priority, int condition,
+			   IOFunc func, void *context)
 {
-	IO io;
+	struct io *io;
 
 	i_assert(fd >= 0);
 	i_assert(func != NULL);
 
-	io = p_new(current_ioloop->pool, struct _IO, 1);
+	io = p_new(current_ioloop->pool, struct io, 1);
 	io->fd = fd;
 	io->priority = priority;
         io->condition = condition;
@@ -114,7 +114,7 @@ IO io_add_priority(int fd, int priority, int condition,
 	return io;
 }
 
-void io_remove(IO io)
+void io_remove(struct io *io)
 {
 	i_assert(io != NULL);
 	i_assert(io->fd >= 0);
@@ -131,7 +131,7 @@ void io_remove(IO io)
 	io->fd = -1;
 }
 
-void io_destroy(IOLoop ioloop, IO io)
+void io_destroy(struct ioloop *ioloop, struct io *io)
 {
         /* remove from list */
 	if (io->prev == NULL)
@@ -145,9 +145,9 @@ void io_destroy(IOLoop ioloop, IO io)
 	p_free(ioloop->pool, io);
 }
 
-static void timeout_list_insert(IOLoop ioloop, Timeout timeout)
+static void timeout_list_insert(struct ioloop *ioloop, struct timeout *timeout)
 {
-	Timeout *t;
+	struct timeout **t;
         struct timeval *next_run;
 
         next_run = &timeout->next_run;
@@ -160,7 +160,8 @@ static void timeout_list_insert(IOLoop ioloop, Timeout timeout)
         *t = timeout;
 }
 
-inline static void timeout_update_next(Timeout timeout, struct timeval *tv_now)
+inline static void
+timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 {
         if (tv_now == NULL)
 		gettimeofday(&timeout->next_run, NULL);
@@ -183,11 +184,11 @@ inline static void timeout_update_next(Timeout timeout, struct timeval *tv_now)
 	}
 }
 
-Timeout timeout_add(int msecs, TimeoutFunc func, void *context)
+struct timeout *timeout_add(int msecs, TimeoutFunc func, void *context)
 {
-	Timeout timeout;
+	struct timeout *timeout;
 
-	timeout = p_new(current_ioloop->pool, struct _Timeout, 1);
+	timeout = p_new(current_ioloop->pool, struct timeout, 1);
         timeout->msecs = msecs;
 
 	timeout->func = func;
@@ -199,16 +200,16 @@ Timeout timeout_add(int msecs, TimeoutFunc func, void *context)
 	return timeout;
 }
 
-void timeout_remove(Timeout timeout)
+void timeout_remove(struct timeout *timeout)
 {
 	i_assert(timeout != NULL);
 
 	timeout->destroyed = TRUE;
 }
 
-void timeout_destroy(IOLoop ioloop, Timeout timeout)
+void timeout_destroy(struct ioloop *ioloop, struct timeout *timeout)
 {
-	Timeout *t;
+	struct timeout **t;
 
 	for (t = &ioloop->timeouts; *t != NULL; t = &(*t)->next) {
 		if (*t == timeout)
@@ -219,7 +220,7 @@ void timeout_destroy(IOLoop ioloop, Timeout timeout)
         p_free(ioloop->pool, timeout);
 }
 
-int io_loop_get_wait_time(Timeout timeout, struct timeval *tv,
+int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
 			  struct timeval *tv_now)
 {
 	if (timeout == NULL)
@@ -248,9 +249,9 @@ int io_loop_get_wait_time(Timeout timeout, struct timeval *tv,
         return 0;
 }
 
-void io_loop_handle_timeouts(IOLoop ioloop)
+void io_loop_handle_timeouts(struct ioloop *ioloop)
 {
-	Timeout t, next;
+	struct timeout *t, *next;
 	struct timeval tv;
         unsigned int t_id;
 
@@ -285,32 +286,32 @@ void io_loop_handle_timeouts(IOLoop ioloop)
 	}
 }
 
-void io_loop_run(IOLoop ioloop)
+void io_loop_run(struct ioloop *ioloop)
 {
         ioloop->running = TRUE;
 	while (ioloop->running)
 		io_loop_handler_run(ioloop);
 }
 
-void io_loop_stop(IOLoop ioloop)
+void io_loop_stop(struct ioloop *ioloop)
 {
         ioloop->running = FALSE;
 }
 
-void io_loop_set_running(IOLoop ioloop)
+void io_loop_set_running(struct ioloop *ioloop)
 {
         ioloop->running = TRUE;
 }
 
-IOLoop io_loop_create(Pool pool)
+struct ioloop *io_loop_create(pool_t pool)
 {
-	IOLoop ioloop;
+	struct ioloop *ioloop;
 
 	/* initialize time */
 	gettimeofday(&ioloop_timeval, &ioloop_timezone);
 	ioloop_time = ioloop_timeval.tv_sec;
 
-        ioloop = p_new(pool, struct _IOLoop, 1);
+        ioloop = p_new(pool, struct ioloop, 1);
 	pool_ref(pool);
 	ioloop->pool = pool;
 	ioloop->highest_fd = -1;
@@ -323,10 +324,10 @@ IOLoop io_loop_create(Pool pool)
         return ioloop;
 }
 
-void io_loop_destroy(IOLoop ioloop)
+void io_loop_destroy(struct ioloop *ioloop)
 {
 	while (ioloop->ios != NULL) {
-		IO io = ioloop->ios;
+		struct io *io = ioloop->ios;
 
 		if (!io->destroyed) {
 			i_warning("I/O leak: %p (%d)",
@@ -337,7 +338,7 @@ void io_loop_destroy(IOLoop ioloop)
 	}
 
 	while (ioloop->timeouts != NULL) {
-		Timeout to = ioloop->timeouts;
+		struct timeout *to = ioloop->timeouts;
 
 		if (!to->destroyed) {
 			i_warning("Timeout leak: %p", (void *) to->func);

@@ -15,8 +15,7 @@
  * and avoid compile-time configuration.
  */
 
-#include <string.h>
-
+#include "lib.h"
 #include "md5.h"
 
 /*
@@ -48,16 +47,16 @@
  */
 #if defined(__i386__) || defined(__vax__)
 #define SET(n) \
-	(*(const MD5_u32plus *)&ptr[(n) * 4])
+	(*(const uint_fast32_t *)&ptr[(n) * 4])
 #define GET(n) \
 	SET(n)
 #else
 #define SET(n) \
 	(ctx->block[(n)] = \
-	(MD5_u32plus)ptr[(n) * 4] | \
-	((MD5_u32plus)ptr[(n) * 4 + 1] << 8) | \
-	((MD5_u32plus)ptr[(n) * 4 + 2] << 16) | \
-	((MD5_u32plus)ptr[(n) * 4 + 3] << 24))
+	(uint_fast32_t)ptr[(n) * 4] | \
+	((uint_fast32_t)ptr[(n) * 4 + 1] << 8) | \
+	((uint_fast32_t)ptr[(n) * 4 + 2] << 16) | \
+	((uint_fast32_t)ptr[(n) * 4 + 3] << 24))
 #define GET(n) \
 	(ctx->block[(n)])
 #endif
@@ -66,11 +65,11 @@
  * This processes one or more 64-byte data blocks, but does NOT update
  * the bit counters.  There're no alignment requirements.
  */
-static const void *body(MD5Context *ctx, const void *data, size_t size)
+static const void *body(struct md5_context *ctx, const void *data, size_t size)
 {
 	const unsigned char *ptr;
-	MD5_u32plus a, b, c, d;
-	MD5_u32plus saved_a, saved_b, saved_c, saved_d;
+	uint_fast32_t a, b, c, d;
+	uint_fast32_t saved_a, saved_b, saved_c, saved_d;
 
 	ptr = data;
 
@@ -173,7 +172,7 @@ static const void *body(MD5Context *ctx, const void *data, size_t size)
 	return ptr;
 }
 
-void md5_init(MD5Context *ctx)
+void md5_init(struct md5_context *ctx)
 {
 	ctx->a = 0x67452301;
 	ctx->b = 0xefcdab89;
@@ -184,10 +183,10 @@ void md5_init(MD5Context *ctx)
 	ctx->hi = 0;
 }
 
-void md5_update(MD5Context *ctx, const void *data, size_t size)
+void md5_update(struct md5_context *ctx, const void *data, size_t size)
 {
 	/* @UNSAFE */
-	MD5_u32plus saved_lo;
+	uint_fast32_t saved_lo;
 	unsigned long used, free;
 
 	saved_lo = ctx->lo;
@@ -219,7 +218,7 @@ void md5_update(MD5Context *ctx, const void *data, size_t size)
 	memcpy(ctx->buffer, data, size);
 }
 
-void md5_final(MD5Context *ctx, unsigned char result[16])
+void md5_final(struct md5_context *ctx, unsigned char result[16])
 {
 	/* @UNSAFE */
 	unsigned long used, free;
@@ -273,7 +272,7 @@ void md5_final(MD5Context *ctx, unsigned char result[16])
 
 void md5_get_digest(const void *data, size_t size, unsigned char result[16])
 {
-	MD5Context ctx;
+	struct md5_context ctx;
 
 	md5_init(&ctx);
 	md5_update(&ctx, data, size);

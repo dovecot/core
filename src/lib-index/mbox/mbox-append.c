@@ -8,11 +8,12 @@
 #include "mbox-index.h"
 #include "mail-index-util.h"
 
-static int mbox_index_append_next(MailIndex *index, IStream *input)
+static int mbox_index_append_next(struct mail_index *index,
+				  struct istream *input)
 {
-	MailIndexRecord *rec;
-	MailIndexUpdate *update;
-        MboxHeaderContext ctx;
+	struct mail_index_record *rec;
+	struct mail_index_update *update;
+        struct mbox_header_context ctx;
 	time_t internal_date;
 	uoff_t abs_start_offset, eoh_offset;
 	const unsigned char *data;
@@ -110,7 +111,7 @@ static int mbox_index_append_next(MailIndex *index, IStream *input)
 	return !failed;
 }
 
-int mbox_index_append(MailIndex *index, IStream *input)
+int mbox_index_append(struct mail_index *index, struct istream *input)
 {
 	int ret;
 

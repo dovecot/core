@@ -13,20 +13,20 @@
 
 #define CREATE_MODE 0770 /* umask() should limit it more */
 
-typedef struct {
+struct rename_context {
 	int found;
 	size_t oldnamelen;
 	const char *newname;
-} RenameContext;
+};
 
-extern MailStorage maildir_storage;
-extern Mailbox maildir_mailbox;
+extern struct mail_storage maildir_storage;
+extern struct mailbox maildir_mailbox;
 
 static const char *maildirs[] = { "cur", "new", "tmp", NULL  };
 
-static MailStorage *maildir_create(const char *data, const char *user)
+static struct mail_storage *maildir_create(const char *data, const char *user)
 {
-	MailStorage *storage;
+	struct mail_storage *storage;
 	const char *home, *path, *root_dir, *index_dir, *p;
 
 	root_dir = index_dir = NULL;
@@ -65,17 +65,17 @@ static MailStorage *maildir_create(const char *data, const char *user)
 	if (index_dir == NULL)
 		index_dir = root_dir;
 
-	storage = i_new(MailStorage, 1);
-	memcpy(storage, &maildir_storage, sizeof(MailStorage));
+	storage = i_new(struct mail_storage, 1);
+	memcpy(storage, &maildir_storage, sizeof(struct mail_storage));
 
 	storage->dir = i_strdup(root_dir);
 	storage->index_dir = i_strdup(index_dir);
 	storage->user = i_strdup(user);
-	storage->callbacks = i_new(MailStorageCallbacks, 1);
+	storage->callbacks = i_new(struct mail_storage_callbacks, 1);
 	return storage;
 }
 
-static void maildir_free(MailStorage *storage)
+static void maildir_free(struct mail_storage *storage)
 {
 	i_free(storage->dir);
 	i_free(storage->index_dir);
@@ -93,7 +93,7 @@ static int maildir_autodetect(const char *data)
 		S_ISDIR(st.st_mode);
 }
 
-static int maildir_is_valid_name(MailStorage *storage, const char *name)
+static int maildir_is_valid_name(struct mail_storage *storage, const char *name)
 {
 	return name[0] != '\0' && name[0] != storage->hierarchy_sep &&
 		name[strlen(name)-1] != storage->hierarchy_sep &&
@@ -101,7 +101,8 @@ static int maildir_is_valid_name(MailStorage *storage, const char *name)
 		strchr(name, '*') == NULL && strchr(name, '%') == NULL;
 }
 
-static const char *maildir_get_path(MailStorage *storage, const char *name)
+static const char *maildir_get_path(struct mail_storage *storage,
+				    const char *name)
 {
 	return t_strconcat(storage->dir, "/.", name, NULL);
 }
@@ -125,7 +126,7 @@ static int create_maildir(const char *dir, int verify)
 	return TRUE;
 }
 
-static int create_index_dir(MailStorage *storage, const char *name)
+static int create_index_dir(struct mail_storage *storage, const char *name)
 {
 	const char *dir;
 
@@ -142,7 +143,7 @@ static int create_index_dir(MailStorage *storage, const char *name)
 	return TRUE;
 }
 
-static int verify_inbox(MailStorage *storage)
+static int verify_inbox(struct mail_storage *storage)
 {
 	const char **tmp, *src, *dest, *inbox;
 
@@ -173,11 +174,12 @@ static int verify_inbox(MailStorage *storage)
 	return create_index_dir(storage, "INBOX");
 }
 
-static Mailbox *maildir_open(MailStorage *storage, const char *name,
-			     int readonly, int fast)
+static struct mailbox *
+maildir_open(struct mail_storage *storage, const char *name,
+	     int readonly, int fast)
 {
-	IndexMailbox *ibox;
-	MailIndex *index;
+	struct index_mailbox *ibox;
+	struct mail_index *index;
 	const char *path, *index_dir;
 
 	path = t_strconcat(storage->dir, "/.", name, NULL);
@@ -195,10 +197,11 @@ static Mailbox *maildir_open(MailStorage *storage, const char *name,
 		ibox->expunge_locked = maildir_expunge_locked;
 		index_mailbox_check_add(ibox, t_strconcat(path, "/new", NULL));
 	}
-	return (Mailbox *) ibox;
+	return (struct mailbox *) ibox;
 }
 
-static const char *inbox_fix_case(MailStorage *storage, const char *name)
+static const char *inbox_fix_case(struct mail_storage *storage,
+				  const char *name)
 {
         if (strncasecmp(name, "INBOX", 5) == 0 &&
 	    (name[5] == '\0' || name[5] == storage->hierarchy_sep)) {
@@ -210,8 +213,9 @@ static const char *inbox_fix_case(MailStorage *storage, const char *name)
 	return name;
 }
 
-static Mailbox *maildir_open_mailbox(MailStorage *storage, const char *name,
-				     int readonly, int fast)
+static struct mailbox *
+maildir_open_mailbox(struct mail_storage *storage,
+		     const char *name, int readonly, int fast)
 {
 	const char *path;
 	struct stat st;
@@ -250,7 +254,8 @@ static Mailbox *maildir_open_mailbox(MailStorage *storage, const char *name,
 	}
 }
 
-static int maildir_create_mailbox(MailStorage *storage, const char *name)
+static int maildir_create_mailbox(struct mail_storage *storage,
+				  const char *name)
 {
 	const char *path;
 
@@ -275,7 +280,8 @@ static int maildir_create_mailbox(MailStorage *storage, const char *name)
 	}
 }
 
-static int maildir_delete_mailbox(MailStorage *storage, const char *name)
+static int maildir_delete_mailbox(struct mail_storage *storage,
+				  const char *name)
 {
 	struct stat st;
 	const char *src, *dest, *index_dir;
@@ -343,7 +349,7 @@ static int maildir_delete_mailbox(MailStorage *storage, const char *name)
 	return TRUE;
 }
 
-static int move_inbox_data(MailStorage *storage, const char *newdir)
+static int move_inbox_data(struct mail_storage *storage, const char *newdir)
 {
 	const char **tmp, *oldpath, *newpath;
 
@@ -374,7 +380,7 @@ static int move_inbox_data(MailStorage *storage, const char *newdir)
 	return TRUE;
 }
 
-static int rename_indexes(MailStorage *storage,
+static int rename_indexes(struct mail_storage *storage,
 			  const char *oldname, const char *newname)
 {
 	const char *oldpath, *newpath;
@@ -395,10 +401,11 @@ static int rename_indexes(MailStorage *storage,
 	return TRUE;
 }
 
-static void rename_subfolder(MailStorage *storage, const char *name,
-			     MailboxFlags flags __attr_unused__, void *context)
+static void rename_subfolder(struct mail_storage *storage, const char *name,
+			     enum mailbox_flags flags __attr_unused__,
+			     void *context)
 {
-	RenameContext *ctx = context;
+	struct rename_context *ctx = context;
 	const char *newname, *oldpath, *newpath;
 
 	i_assert(ctx->oldnamelen <= strlen(name));
@@ -425,10 +432,10 @@ static void rename_subfolder(MailStorage *storage, const char *name,
 	(void)rename_indexes(storage, name, newname);
 }
 
-static int maildir_rename_mailbox(MailStorage *storage, const char *oldname,
-				  const char *newname)
+static int maildir_rename_mailbox(struct mail_storage *storage,
+				  const char *oldname, const char *newname)
 {
-	RenameContext ctx;
+	struct rename_context ctx;
 	const char *oldpath, *newpath;
 	int ret;
 
@@ -485,9 +492,9 @@ static int maildir_rename_mailbox(MailStorage *storage, const char *oldname,
 	}
 }
 
-static int maildir_get_mailbox_name_status(MailStorage *storage,
+static int maildir_get_mailbox_name_status(struct mail_storage *storage,
 					   const char *name,
-					   MailboxNameStatus *status)
+					   enum mailbox_name_status *status)
 {
 	struct stat st;
 	const char *path;
@@ -514,7 +521,7 @@ static int maildir_get_mailbox_name_status(MailStorage *storage,
 	}
 }
 
-MailStorage maildir_storage = {
+struct mail_storage maildir_storage = {
 	"maildir", /* name */
 
 	'.', /* hierarchy_sep - can't be changed */
@@ -543,7 +550,7 @@ MailStorage maildir_storage = {
 	0
 };
 
-Mailbox maildir_mailbox = {
+struct mailbox maildir_mailbox = {
 	NULL, /* name */
 	NULL, /* storage */
 

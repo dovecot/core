@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_delete(Client *client)
+int cmd_delete(struct client *client)
 {
 	const char *mailbox;
 

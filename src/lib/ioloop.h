@@ -10,8 +10,12 @@
 #define IO_PRIORITY_DEFAULT	0
 #define IO_PRIORITY_HIGH	-100
 
-typedef void (*IOFunc) (void *context, int fd, IO io);
-typedef void (*TimeoutFunc) (void *context, Timeout timeout);
+struct io;
+struct timeout;
+struct ioloop;
+
+typedef void (*IOFunc) (void *context, int fd, struct io *io);
+typedef void (*TimeoutFunc) (void *context, struct timeout *timeout);
 
 /* Time when the I/O loop started calling handlers.
    Can be used instead of time(NULL). */
@@ -22,23 +26,23 @@ extern struct timezone ioloop_timezone;
 /* I/O listeners - you can create different handlers for IO_READ and IO_WRITE,
    but make sure you don't create multiple handlers of same type, it's not
    checked and removing one will stop the other from working as well. */
-IO io_add(int fd, int condition, IOFunc func, void *context);
-IO io_add_priority(int fd, int priority, int condition,
-		   IOFunc func, void *context);
-void io_remove(IO io);
+struct io *io_add(int fd, int condition, IOFunc func, void *context);
+struct io *io_add_priority(int fd, int priority, int condition,
+			   IOFunc func, void *context);
+void io_remove(struct io *io);
 
 /* Timeout handlers */
-Timeout timeout_add(int msecs, TimeoutFunc func, void *context);
-void timeout_remove(Timeout timeout);
+struct timeout *timeout_add(int msecs, TimeoutFunc func, void *context);
+void timeout_remove(struct timeout *timeout);
 
-void io_loop_run(IOLoop ioloop);
-void io_loop_stop(IOLoop ioloop); /* safe to run in signal handler */
+void io_loop_run(struct ioloop *ioloop);
+void io_loop_stop(struct ioloop *ioloop); /* safe to run in signal handler */
 
 /* call these if you wish to run the iteration only once */
-void io_loop_set_running(IOLoop ioloop);
-void io_loop_handler_run(IOLoop ioloop);
+void io_loop_set_running(struct ioloop *ioloop);
+void io_loop_handler_run(struct ioloop *ioloop);
 
-IOLoop io_loop_create(Pool pool);
-void io_loop_destroy(IOLoop ioloop);
+struct ioloop *io_loop_create(pool_t pool);
+void io_loop_destroy(struct ioloop *ioloop);
 
 #endif

@@ -28,7 +28,7 @@
 
 #include <stdlib.h>
 
-static Pool pool = NULL;
+static pool_t pool = NULL;
 
 void env_put(const char *env)
 {

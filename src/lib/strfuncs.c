@@ -142,7 +142,7 @@ int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 	return ret;
 }
 
-char *p_strdup(Pool pool, const char *str)
+char *p_strdup(pool_t pool, const char *str)
 {
 	void *mem;
 	size_t len;
@@ -159,7 +159,7 @@ char *p_strdup(Pool pool, const char *str)
 	return mem;
 }
 
-char *p_strdup_empty(Pool pool, const char *str)
+char *p_strdup_empty(pool_t pool, const char *str)
 {
 	if (str == NULL || *str == '\0')
                 return NULL;
@@ -167,7 +167,7 @@ char *p_strdup_empty(Pool pool, const char *str)
 	return p_strdup(pool, str);
 }
 
-char *p_strdup_until(Pool pool, const void *start, const void *end)
+char *p_strdup_until(pool_t pool, const void *start, const void *end)
 {
 	size_t size;
 	char *mem;
@@ -181,7 +181,7 @@ char *p_strdup_until(Pool pool, const void *start, const void *end)
 	return mem;
 }
 
-char *p_strndup(Pool pool, const void *str, size_t max_chars)
+char *p_strndup(pool_t pool, const void *str, size_t max_chars)
 {
 	char *mem;
 	size_t len;
@@ -201,7 +201,7 @@ char *p_strndup(Pool pool, const void *str, size_t max_chars)
 	return mem;
 }
 
-char *p_strdup_printf(Pool pool, const char *format, ...)
+char *p_strdup_printf(pool_t pool, const char *format, ...)
 {
 	va_list args;
         char *ret;
@@ -213,7 +213,7 @@ char *p_strdup_printf(Pool pool, const char *format, ...)
 	return ret;
 }
 
-char *p_strdup_vprintf(Pool pool, const char *format, va_list args)
+char *p_strdup_vprintf(pool_t pool, const char *format, va_list args)
 {
 	char *ret;
 	va_list args2;
@@ -280,7 +280,7 @@ const char *_vstrconcat(const char *str1, va_list args, size_t *ret_len)
         return temp;
 }
 
-char *p_strconcat(Pool pool, const char *str1, ...)
+char *p_strconcat(pool_t pool, const char *str1, ...)
 {
 	va_list args;
         const char *temp;

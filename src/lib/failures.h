@@ -2,7 +2,7 @@
 #define __FAILURES_H
 
 /* Default exit status codes that we could use. */
-typedef enum {
+enum fatal_exit_status {
 	FATAL_LOGOPEN	= 80, /* Can't open log file */
 	FATAL_LOGWRITE  = 81, /* Can't write to log file */
 	FATAL_LOGERROR  = 82, /* Internal logging error */
@@ -10,7 +10,7 @@ typedef enum {
 	FATAL_EXEC	= 84, /* exec() failed */
 
 	FATAL_DEFAULT	= 89
-} FatalExitStatus;
+};
 
 #define DEFAULT_FAILURE_STAMP_FORMAT "%b %d %H:%M:%S "
 

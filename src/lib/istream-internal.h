@@ -4,19 +4,17 @@
 #include "istream.h"
 #include "iostream-internal.h"
 
-typedef struct __IStream _IStream;
-
-struct __IStream {
+struct _istream {
 /* inheritance: */
-	_IOStream iostream;
+	struct _iostream iostream;
 
 /* methods: */
-	ssize_t (*read)(_IStream *stream);
-	void (*skip_count)(_IStream *stream, uoff_t count);
-	void (*seek)(_IStream *stream, uoff_t v_offset);
+	ssize_t (*read)(struct _istream *stream);
+	void (*skip_count)(struct _istream *stream, uoff_t count);
+	void (*seek)(struct _istream *stream, uoff_t v_offset);
 
 /* data: */
-	IStream istream;
+	struct istream istream;
 
 	int fd;
 	const unsigned char *buffer;
@@ -26,7 +24,7 @@ struct __IStream {
 	size_t skip, pos, cr_lookup_pos;
 };
 
-IStream *_i_stream_create(_IStream *_buf, Pool pool, int fd,
-			  uoff_t start_offset, uoff_t v_size);
+struct istream *_i_stream_create(struct _istream *_buf, pool_t pool, int fd,
+				 uoff_t start_offset, uoff_t v_size);
 
 #endif

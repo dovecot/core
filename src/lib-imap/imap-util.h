@@ -1,7 +1,7 @@
 #ifndef __IMAP_UTIL_H
 #define __IMAP_UTIL_H
 
-typedef enum {
+enum mail_flags {
 	MAIL_ANSWERED		= 0x0000001,
 	MAIL_FLAGGED		= 0x0000002,
 	MAIL_DELETED		= 0x0000004,
@@ -14,7 +14,7 @@ typedef enum {
 
 	MAIL_SYSTEM_FLAGS_MASK	= 0x000003f,
 	MAIL_CUSTOM_FLAGS_MASK	= 0xfffffc0
-} MailFlags;
+};
 
 /* growing number of flags isn't very easy. biggest problem is that they're
    stored into unsigned int, which is 32bit almost everywhere. another thing
@@ -30,7 +30,7 @@ enum {
 
 /* Return flags as a space separated string. custom_flags[] is a list of
    names for custom flags, flags having NULL or "" entry are ignored. */
-const char *imap_write_flags(MailFlags flags, const char *custom_flags[],
+const char *imap_write_flags(enum mail_flags flags, const char *custom_flags[],
 			     unsigned int custom_flags_count);
 
 #endif

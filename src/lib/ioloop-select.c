@@ -34,25 +34,26 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-struct _IOLoopHandlerData {
+struct ioloop_handler_data {
 	fd_set read_fds, write_fds;
 };
 
 static fd_set tmp_read_fds, tmp_write_fds;
 
-void io_loop_handler_init(IOLoop ioloop)
+void io_loop_handler_init(struct ioloop *ioloop)
 {
-	ioloop->handler_data = p_new(ioloop->pool, IOLoopHandlerData, 1);
+	ioloop->handler_data =
+		p_new(ioloop->pool, struct ioloop_handler_data, 1);
         FD_ZERO(&ioloop->handler_data->read_fds);
 	FD_ZERO(&ioloop->handler_data->write_fds);
 }
 
-void io_loop_handler_deinit(IOLoop ioloop)
+void io_loop_handler_deinit(struct ioloop *ioloop)
 {
         p_free(ioloop->pool, ioloop->handler_data);
 }
 
-void io_loop_handle_add(IOLoop ioloop, int fd, int condition)
+void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition)
 {
 	i_assert(fd >= 0);
 
@@ -65,7 +66,7 @@ void io_loop_handle_add(IOLoop ioloop, int fd, int condition)
 		FD_SET(fd, &ioloop->handler_data->write_fds);
 }
 
-void io_loop_handle_remove(IOLoop ioloop, int fd, int condition)
+void io_loop_handle_remove(struct ioloop *ioloop, int fd, int condition)
 {
 	i_assert(fd >= 0 && fd < FD_SETSIZE);
 
@@ -76,15 +77,13 @@ void io_loop_handle_remove(IOLoop ioloop, int fd, int condition)
 }
 
 #define io_check_condition(fd, condition) \
-	((((condition) & IO_READ) && \
-	  FD_ISSET((fd), &tmp_read_fds)) || \
-	 (((condition) & IO_WRITE) && \
-	  FD_ISSET((fd), &tmp_write_fds)))
+	((((condition) & IO_READ) && FD_ISSET((fd), &tmp_read_fds)) || \
+	 (((condition) & IO_WRITE) && FD_ISSET((fd), &tmp_write_fds)))
 
-void io_loop_handler_run(IOLoop ioloop)
+void io_loop_handler_run(struct ioloop *ioloop)
 {
 	struct timeval tv;
-	IO io, next;
+	struct io *io, *next;
         unsigned int t_id;
 	int ret, fd, condition;
 

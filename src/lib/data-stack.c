@@ -44,29 +44,27 @@
 #  define INITIAL_STACK_SIZE (1024*32)
 #endif
 
-typedef struct _StackBlock StackBlock;
-typedef struct _StackFrameBlock StackFrameBlock;
-
-struct _StackBlock {
-	StackBlock *next;
+struct stack_block {
+	struct stack_block *next;
 
 	size_t size, left;
 	/* unsigned char data[]; */
 };
 
-#define SIZEOF_MEMBLOCK MEM_ALIGN(sizeof(StackBlock))
+#define SIZEOF_MEMBLOCK MEM_ALIGN(sizeof(struct stack_block))
 
 #define STACK_BLOCK_DATA(block) \
 	((char *) (block) + SIZEOF_MEMBLOCK)
 
 /* current_frame_block contains last t_push()ed frames. After that new
-   StackFrameBlock is created and it's ->prev is set to current_frame_block. */
+   stack_frame_block is created and it's ->prev is set to
+   current_frame_block. */
 #define BLOCK_FRAME_COUNT 32
 
-struct _StackFrameBlock {
-	StackFrameBlock *prev;
+struct stack_frame_block {
+	struct stack_frame_block *prev;
 
-	StackBlock *block[BLOCK_FRAME_COUNT];
+	struct stack_block *block[BLOCK_FRAME_COUNT];
         size_t block_space_used[BLOCK_FRAME_COUNT];
 	size_t last_alloc_size[BLOCK_FRAME_COUNT];
 };
@@ -74,18 +72,18 @@ struct _StackFrameBlock {
 unsigned int data_stack_frame;
 
 static int frame_pos; /* current frame position current_frame_block */
-static StackFrameBlock *current_frame_block; /* current stack frame block */
-static StackFrameBlock *unused_frame_blocks; /* unused stack frames */
+static struct stack_frame_block *current_frame_block;
+static struct stack_frame_block *unused_frame_blocks;
 
-static StackBlock *current_block; /* block currently used for allocation */
-static StackBlock *unused_block; /* largest unused block is kept here */
+static struct stack_block *current_block; /* block now used for allocation */
+static struct stack_block *unused_block; /* largest unused block is kept here */
 
-static StackBlock *last_buffer_block;
+static struct stack_block *last_buffer_block;
 static size_t last_buffer_size;
 
 unsigned int t_push(void)
 {
-        StackFrameBlock *frame_block;
+        struct stack_frame_block *frame_block;
 
 	frame_pos++;
 	if (frame_pos == BLOCK_FRAME_COUNT) {
@@ -93,7 +91,7 @@ unsigned int t_push(void)
 		frame_pos = 0;
 		if (unused_frame_blocks == NULL) {
 			/* allocate new block */
-			frame_block = calloc(sizeof(StackFrameBlock), 1);
+			frame_block = calloc(sizeof(*frame_block), 1);
 			if (frame_block == NULL)
 				i_panic("t_push(): Out of memory");
 		} else {
@@ -114,7 +112,7 @@ unsigned int t_push(void)
         return data_stack_frame++;
 }
 
-static void free_blocks(StackBlock *block)
+static void free_blocks(struct stack_block *block)
 {
 	/* free all the blocks, except if any of them is bigger than
 	   unused_block, replace it */
@@ -132,7 +130,7 @@ static void free_blocks(StackBlock *block)
 
 unsigned int t_pop(void)
 {
-	StackFrameBlock *frame_block;
+	struct stack_frame_block *frame_block;
 	int popped_frame_pos;
 
 	if (frame_pos < 0)
@@ -169,9 +167,9 @@ unsigned int t_pop(void)
         return --data_stack_frame;
 }
 
-static StackBlock *mem_block_alloc(size_t min_size)
+static struct stack_block *mem_block_alloc(size_t min_size)
 {
-	StackBlock *block;
+	struct stack_block *block;
 	size_t prev_size, alloc_size;
 
 	prev_size = current_block == NULL ? 0 : current_block->size;
@@ -191,7 +189,7 @@ static StackBlock *mem_block_alloc(size_t min_size)
 
 static void *t_malloc_real(size_t size, int permanent)
 {
-	StackBlock *block;
+	struct stack_block *block;
         void *ret;
 #ifdef DEBUG
 	int warn = FALSE;
@@ -355,7 +353,7 @@ void data_stack_deinit(void)
 		i_panic("Missing t_pop() call");
 
 	while (unused_frame_blocks != NULL) {
-                StackFrameBlock *frame_block = unused_frame_blocks;
+                struct stack_frame_block *frame_block = unused_frame_blocks;
 		unused_frame_blocks = unused_frame_blocks->prev;
 
                 free(frame_block);
@@ -367,29 +365,26 @@ void data_stack_deinit(void)
 
 #else
 
-typedef struct _StackFrame StackFrame;
-typedef struct _FrameAlloc FrameAlloc;
-
-struct _StackFrame {
-	StackFrame *next;
-	FrameAlloc *allocs;
+struct stack_frame {
+	struct stack_frame *next;
+	struct frame_alloc *allocs;
 };
 
-struct _FrameAlloc {
-	FrameAlloc *next;
+struct frame_alloc {
+	struct frame_alloc *next;
 	void *mem;
 };
 
 unsigned int data_stack_frame;
 
-static StackFrame *current_frame;
+static struct stack_frame *current_frame;
 static void *buffer_mem;
 
 unsigned int t_push(void)
 {
-	StackFrame *frame;
+	struct stack_frame *frame;
 
-	frame = malloc(sizeof(StackFrame));
+	frame = malloc(sizeof(struct stack_frame));
 	if (frame == NULL)
 		i_panic("t_push(): Out of memory");
 	frame->allocs = NULL;
@@ -401,8 +396,8 @@ unsigned int t_push(void)
 
 unsigned int t_pop(void)
 {
-	StackFrame *frame;
-	FrameAlloc *alloc;
+	struct stack_frame *frame;
+	struct frame_alloc *alloc;
 
 	frame = current_frame;
 	current_frame = frame->next;
@@ -421,9 +416,9 @@ unsigned int t_pop(void)
 
 static void add_alloc(void *mem)
 {
-	FrameAlloc *alloc;
+	struct frame_alloc *alloc;
 
-	alloc = malloc(sizeof(FrameAlloc));
+	alloc = malloc(sizeof(struct frame_alloc));
 	if (alloc == NULL)
 		i_panic("add_alloc(): Out of memory");
 	alloc->mem = mem;

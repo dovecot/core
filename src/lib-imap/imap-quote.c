@@ -78,7 +78,7 @@ static size_t next_token(const unsigned char *value, size_t len,
 	return i;
 }
 
-static void append_quoted_qp(String *str, const unsigned char *value,
+static void append_quoted_qp(string_t *str, const unsigned char *value,
 			     size_t len)
 {
 	size_t i;
@@ -105,7 +105,7 @@ static void append_quoted_qp(String *str, const unsigned char *value,
 	}
 }
 
-static void append_quoted(String *str, const unsigned char *value, size_t len)
+static void append_quoted(string_t *str, const unsigned char *value, size_t len)
 {
 	size_t i;
 
@@ -117,9 +117,9 @@ static void append_quoted(String *str, const unsigned char *value, size_t len)
 }
 
 /* does two things: 1) escape '\' and '"' characters, 2) 8bit text -> QP */
-static String *get_quoted_str(const unsigned char *value, size_t value_len)
+static string_t *get_quoted_str(const unsigned char *value, size_t value_len)
 {
-	String *str;
+	string_t *str;
 	size_t token_len;
 	int qp, need_qp, quoted;
 
@@ -170,9 +170,10 @@ const char *imap_quote_str_nil(const char *value)
 				     strlen(value)));
 }
 
-char *imap_quote_value(Pool pool, const unsigned char *value, size_t value_len)
+char *imap_quote_value(pool_t pool, const unsigned char *value,
+		       size_t value_len)
 {
-	String *str;
+	string_t *str;
 
 	str = get_quoted_str(value, value_len);
 	return p_strndup(pool, str_data(str), str_len(str));

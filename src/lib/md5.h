@@ -9,19 +9,16 @@
 #ifndef __MD5_H
 #define __MD5_H
 
-/* Any 32-bit or wider integer data type will do */
-typedef unsigned long MD5_u32plus;
-
-typedef struct {
-	MD5_u32plus lo, hi;
-	MD5_u32plus a, b, c, d;
+struct md5_context {
+	uint_fast32_t lo, hi;
+	uint_fast32_t a, b, c, d;
 	unsigned char buffer[64];
-	MD5_u32plus block[16];
-} MD5Context;
+	uint_fast32_t block[16];
+};
 
-void md5_init(MD5Context *ctx);
-void md5_update(MD5Context *ctx, const void *data, size_t size);
-void md5_final(MD5Context *ctx, unsigned char result[16]);
+void md5_init(struct md5_context *ctx);
+void md5_update(struct md5_context *ctx, const void *data, size_t size);
+void md5_final(struct md5_context *ctx, unsigned char result[16]);
 
 void md5_get_digest(const void *data, size_t size, unsigned char result[16]);
 

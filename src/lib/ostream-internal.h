@@ -4,24 +4,23 @@
 #include "ostream.h"
 #include "iostream-internal.h"
 
-typedef struct __OStream _OStream;
-
-struct __OStream {
+struct _ostream {
 /* inheritance: */
-	_IOStream iostream;
+	struct _iostream iostream;
 
 /* methods: */
-	void (*cork)(_OStream *stream);
-	int (*flush)(_OStream *stream);
-	int (*have_space)(_OStream *stream, size_t size);
-	int (*seek)(_OStream *stream, uoff_t offset);
-	ssize_t (*send)(_OStream *stream, const void *data, size_t size);
-	off_t (*send_istream)(_OStream *outstream, IStream *instream);
+	void (*cork)(struct _ostream *stream);
+	int (*flush)(struct _ostream *stream);
+	int (*have_space)(struct _ostream *stream, size_t size);
+	int (*seek)(struct _ostream *stream, uoff_t offset);
+	ssize_t (*send)(struct _ostream *stream, const void *data, size_t size);
+	off_t (*send_istream)(struct _ostream *outstream,
+			      struct istream *instream);
 
 /* data: */
-	OStream ostream;
+	struct ostream ostream;
 };
 
-OStream *_o_stream_create(_OStream *_stream, Pool pool);
+struct ostream *_o_stream_create(struct _ostream *_stream, pool_t pool);
 
 #endif

@@ -5,20 +5,20 @@
 #include "index-messageset.h"
 #include "mail-custom-flags.h"
 
-typedef struct {
-	IndexMailbox *ibox;
-	MailFlags flags;
-	ModifyType modify_type;
+struct update_context {
+	struct index_mailbox *ibox;
+	enum mail_flags flags;
+	enum modify_type modify_type;
 	int notify;
-} UpdateContext;
+};
 
-static int update_func(MailIndex *index, MailIndexRecord *rec,
+static int update_func(struct mail_index *index, struct mail_index_record *rec,
 		       unsigned int client_seq, unsigned int idx_seq,
 		       void *context)
 {
-	UpdateContext *ctx = context;
-	MailStorage *storage;
-	MailFlags flags;
+	struct update_context *ctx = context;
+	struct mail_storage *storage;
+	enum mail_flags flags;
 	const char **custom_flags;
 
 	switch (ctx->modify_type) {
@@ -60,13 +60,15 @@ static int update_func(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
-			       MailFlags flags, const char *custom_flags[],
-			       ModifyType modify_type, int notify,
+int index_storage_update_flags(struct mailbox *box,
+			       const char *messageset, int uidset,
+			       enum mail_flags flags,
+			       const char *custom_flags[],
+			       enum modify_type modify_type, int notify,
 			       int *all_found)
 {
-	IndexMailbox *ibox = (IndexMailbox *) box;
-        UpdateContext ctx;
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+        struct update_context ctx;
 	int ret;
 
 	if (box->readonly) {

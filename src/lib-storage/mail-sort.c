@@ -10,27 +10,27 @@
 
 #include <stdlib.h>
 
-struct _MailSortContext {
-	MailSortType output[MAX_SORT_PROGRAM_SIZE];
-	MailSortType common_mask;
+struct mail_sort_context {
+	enum mail_sort_type output[MAX_SORT_PROGRAM_SIZE];
+	enum mail_sort_type common_mask;
 
-	MailSortFuncs funcs;
+	struct mail_sort_funcs funcs;
 	void *func_context;
 
-	Buffer *sort_buffer;
-	Pool temp_pool;
+	buffer_t *sort_buffer;
+	pool_t temp_pool;
 
 	time_t last_arrival, last_date;
 	uoff_t last_size;
 	char *last_cc, *last_from, *last_subject, *last_to;
 };
 
-static void mail_sort_flush(MailSortContext *ctx);
+static void mail_sort_flush(struct mail_sort_context *ctx);
 
-static MailSortType
-mail_sort_normalize(const MailSortType *input, Buffer *output)
+static enum mail_sort_type
+mail_sort_normalize(const enum mail_sort_type *input, buffer_t *output)
 {
-        MailSortType type, mask = 0;
+        enum mail_sort_type type, mask = 0;
 	int pos, reverse;
 
 	reverse = FALSE;
@@ -59,11 +59,11 @@ mail_sort_normalize(const MailSortType *input, Buffer *output)
 	return mask;
 }
 
-static MailSortType
-mail_sort_get_common_mask(const MailSortType *input,
-			  MailSortType **output)
+static enum mail_sort_type
+mail_sort_get_common_mask(const enum mail_sort_type *input,
+			  enum mail_sort_type **output)
 {
-	MailSortType mask = 0;
+	enum mail_sort_type mask = 0;
 
 	while (*input == **output && *input != MAIL_SORT_END) {
 		if (*input != MAIL_SORT_REVERSE)
@@ -74,16 +74,17 @@ mail_sort_get_common_mask(const MailSortType *input,
 	return mask;
 }
 
-MailSortContext *mail_sort_init(const MailSortType *input, MailSortType *output,
-				MailSortFuncs funcs, void *context)
+struct mail_sort_context *
+mail_sort_init(const enum mail_sort_type *input, enum mail_sort_type *output,
+	       struct mail_sort_funcs funcs, void *context)
 {
-	MailSortContext *ctx;
-	MailSortType norm_input[MAX_SORT_PROGRAM_SIZE];
-	MailSortType norm_output[MAX_SORT_PROGRAM_SIZE];
-	Buffer *buf;
+	struct mail_sort_context *ctx;
+	enum mail_sort_type norm_input[MAX_SORT_PROGRAM_SIZE];
+	enum mail_sort_type norm_output[MAX_SORT_PROGRAM_SIZE];
+	buffer_t *buf;
 	int i;
 
-	ctx = i_new(MailSortContext, 1);
+	ctx = i_new(struct mail_sort_context, 1);
 
 	t_push();
 	buf = buffer_create_data(data_stack_pool,
@@ -114,7 +115,7 @@ MailSortContext *mail_sort_init(const MailSortType *input, MailSortType *output,
 	return ctx;
 }
 
-void mail_sort_deinit(MailSortContext *ctx)
+void mail_sort_deinit(struct mail_sort_context *ctx)
 {
 	mail_sort_flush(ctx);
 	buffer_free(ctx->sort_buffer);
@@ -140,7 +141,7 @@ static int addr_strcmp(const char *s1, const char *s2)
 	return strcasecmp(s1, s2);
 }
 
-static int subject_cmp(Pool pool, const char *s1, const char *s2)
+static int subject_cmp(pool_t pool, const char *s1, const char *s2)
 {
 	int ret;
 
@@ -155,7 +156,8 @@ static int subject_cmp(Pool pool, const char *s1, const char *s2)
 	return ret;
 }
 
-static void mail_sort_check_flush(MailSortContext *ctx, unsigned int id)
+static void mail_sort_check_flush(struct mail_sort_context *ctx,
+				  unsigned int id)
 {
 	const char *str;
 	time_t t;
@@ -233,7 +235,7 @@ static void mail_sort_check_flush(MailSortContext *ctx, unsigned int id)
 		mail_sort_flush(ctx);
 }
 
-void mail_sort_input(MailSortContext *ctx, unsigned int id)
+void mail_sort_input(struct mail_sort_context *ctx, unsigned int id)
 {
 	if (ctx->common_mask != 0)
 		mail_sort_check_flush(ctx, id);
@@ -241,14 +243,14 @@ void mail_sort_input(MailSortContext *ctx, unsigned int id)
 	buffer_append(ctx->sort_buffer, &id, sizeof(id));
 }
 
-static MailSortContext *mail_sort_qsort_context;
+static struct mail_sort_context *mail_sort_qsort_context;
 
 static int mail_sort_qsort_func(const void *p1, const void *p2)
 {
 	const unsigned int *i1 = p1;
 	const unsigned int *i2 = p2;
-	MailSortType *output = mail_sort_qsort_context->output;
-        MailSortFuncs *funcs = &mail_sort_qsort_context->funcs;
+	enum mail_sort_type *output = mail_sort_qsort_context->output;
+        struct mail_sort_funcs *funcs = &mail_sort_qsort_context->funcs;
 	void *ctx = mail_sort_qsort_context->func_context;
 	int ret, reverse = FALSE;
 
@@ -315,7 +317,7 @@ static int mail_sort_qsort_func(const void *p1, const void *p2)
 	return ret != 0 ? ret : (*i1 < *i2 ? -1 : 1);
 }
 
-static void mail_sort_flush(MailSortContext *ctx)
+static void mail_sort_flush(struct mail_sort_context *ctx)
 {
 	unsigned int *arr;
 	size_t count;

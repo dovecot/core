@@ -10,6 +10,7 @@
 #define IS_VALID_PASSWD(pass) \
 	((pass)[0] != '\0' && (pass)[0] != '*' && (pass)[0] != '!')
 
-void passwd_fill_cookie_reply(struct passwd *pw, AuthCookieReplyData *reply);
+void passwd_fill_cookie_reply(struct passwd *pw,
+			      struct auth_cookie_reply_data *reply);
 
 #endif

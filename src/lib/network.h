@@ -20,7 +20,7 @@
 #  endif
 #endif
 
-struct _IPADDR {
+struct ip_addr {
 	unsigned short family;
 #ifdef HAVE_IPV6
 	struct in6_addr ip;
@@ -40,10 +40,11 @@ struct _IPADDR {
 #define IPADDR_IS_V6(ip) ((ip)->family == AF_INET6)
 
 /* returns 1 if IPADDRs are the same */
-int net_ip_compare(const IPADDR *ip1, const IPADDR *ip2);
+int net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2);
 
 /* Connect to socket with ip address */
-int net_connect_ip(const IPADDR *ip, unsigned int port, const IPADDR *my_ip);
+int net_connect_ip(const struct ip_addr *ip, unsigned int port,
+		   const struct ip_addr *my_ip);
 /* Connect to named UNIX socket */
 int net_connect_unix(const char *path);
 /* Disconnect socket */
@@ -60,16 +61,16 @@ int net_set_cork(int fd, int cork);
 
 /* Set IP to contain INADDR_ANY for IPv4 or IPv6. The IPv6 any address may
    include IPv4 depending on the system (Linux yes, BSD no). */
-void net_get_ip_any4(IPADDR *ip);
-void net_get_ip_any6(IPADDR *ip);
+void net_get_ip_any4(struct ip_addr *ip);
+void net_get_ip_any6(struct ip_addr *ip);
 
 /* Listen for connections on a socket */
-int net_listen(const IPADDR *my_ip, unsigned int *port);
+int net_listen(const struct ip_addr *my_ip, unsigned int *port);
 /* Listen for connections on an UNIX socket */
 int net_listen_unix(const char *path);
 /* Accept a connection on a socket. Returns -1 for temporary failure,
    -2 for fatal failure */
-int net_accept(int fd, IPADDR *addr, unsigned int *port);
+int net_accept(int fd, struct ip_addr *addr, unsigned int *port);
 
 /* Read data from socket, return number of bytes read,
    -1 = error, -2 = disconnected */
@@ -79,7 +80,7 @@ ssize_t net_transmit(int fd, const void *data, size_t len);
 
 /* Get IP addresses for host. ips contains ips_count of IPs, they don't need
    to be free'd. Returns 0 = ok, others = error code for net_gethosterror() */
-int net_gethostbyname(const char *addr, IPADDR **ips, int *ips_count);
+int net_gethostbyname(const char *addr, struct ip_addr **ips, int *ips_count);
 /* get error of net_gethostname() */
 const char *net_gethosterror(int error);
 /* return TRUE if host lookup failed because it didn't exist (ie. not
@@ -87,12 +88,12 @@ const char *net_gethosterror(int error);
 int net_hosterror_notfound(int error);
 
 /* Get socket address/port */
-int net_getsockname(int fd, IPADDR *addr, unsigned int *port);
+int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port);
 
-/* Returns IPADDR as string, or NULL if ip is invalid. */
-const char *net_ip2host(const IPADDR *ip);
-/* char* -> IPADDR translation. */
-int net_host2ip(const char *host, IPADDR *ip);
+/* Returns ip_addr as string, or NULL if ip is invalid. */
+const char *net_ip2host(const struct ip_addr *ip);
+/* char* -> struct ip_addr translation. */
+int net_host2ip(const char *host, struct ip_addr *ip);
 
 /* Get socket error */
 int net_geterror(int fd);

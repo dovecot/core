@@ -8,6 +8,6 @@
    If src_pos is non-NULL, it's updated to first non-translated character in
    src. */
 void quoted_printable_decode(const unsigned char *src, size_t src_size,
-			     size_t *src_pos_r, Buffer *dest);
+			     size_t *src_pos_r, buffer_t *dest);
 
 #endif

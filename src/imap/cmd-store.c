@@ -3,8 +3,8 @@
 #include "common.h"
 #include "commands.h"
 
-static int get_modify_type(Client *client, const char *item,
-			   ModifyType *modify_type, int *silent)
+static int get_modify_type(struct client *client, const char *item,
+			   enum modify_type *modify_type, int *silent)
 {
 	if (*item == '+') {
 		*modify_type = MODIFY_ADD;
@@ -32,11 +32,11 @@ static int get_modify_type(Client *client, const char *item,
 	return TRUE;
 }
 
-int cmd_store(Client *client)
+int cmd_store(struct client *client)
 {
-	ImapArg *args;
-	MailFlags flags;
-	ModifyType modify_type;
+	struct imap_arg *args;
+	enum mail_flags flags;
+	enum modify_type modify_type;
 	const char *custflags[MAIL_CUSTOM_FLAGS_COUNT];
 	const char *messageset, *item;
 	int silent, all_found;

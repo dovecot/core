@@ -11,21 +11,22 @@
 
 #include <unistd.h>
 
-typedef struct {
-	MailIndex *index;
-	MailIndexRecord *rec;
+struct index_msgcache_context {
+	struct mail_index *index;
+	struct mail_index_record *rec;
 	time_t internal_date;
-} IndexMsgcacheContext;
+};
 
-int index_msgcache_open(ImapMessageCache *cache, MailIndex *index,
-			MailIndexRecord *rec, ImapCacheField fields)
+int index_msgcache_open(struct imap_message_cache *cache,
+			struct mail_index *index, struct mail_index_record *rec,
+			enum imap_cache_field fields)
 {
-	IndexMsgcacheContext *ctx;
+	struct index_msgcache_context *ctx;
 	uoff_t vp_header_size, vp_body_size, full_virtual_size;
 	const uoff_t *uoff_p;
 	size_t size;
 
-	ctx = t_new(IndexMsgcacheContext, 1);
+	ctx = t_new(struct index_msgcache_context, 1);
 	ctx->index = index;
 	ctx->rec = rec;
 	ctx->internal_date = (time_t)-1;
@@ -71,27 +72,28 @@ int index_msgcache_open(ImapMessageCache *cache, MailIndex *index,
 				  full_virtual_size, ctx);
 }
 
-static IStream *index_msgcache_open_mail(void *context)
+static struct istream *index_msgcache_open_mail(void *context)
 {
-	IndexMsgcacheContext *ctx = context;
+	struct index_msgcache_context *ctx = context;
 	int deleted;
 
 	return ctx->index->open_mail(ctx->index, ctx->rec,
 				     &ctx->internal_date, &deleted);
 }
 
-static IStream *index_msgcache_stream_rewind(IStream *input,
-					     void *context __attr_unused__)
+static struct istream *
+index_msgcache_stream_rewind(struct istream *input,
+			     void *context __attr_unused__)
 {
 	i_stream_seek(input, 0);
 	return input;
 }
 
-static const char *index_msgcache_get_cached_field(ImapCacheField field,
-						   void *context)
+static const char *
+index_msgcache_get_cached_field(enum imap_cache_field field, void *context)
 {
-	IndexMsgcacheContext *ctx = context;
-	MailDataField data_field;
+	struct index_msgcache_context *ctx = context;
+	enum mail_data_field data_field;
 	const time_t *time_p;
 	const char *ret;
 	size_t size;
@@ -131,10 +133,11 @@ static const char *index_msgcache_get_cached_field(ImapCacheField field,
 	return ret;
 }
 
-static MessagePart *index_msgcache_get_cached_parts(Pool pool, void *context)
+static struct message_part *
+index_msgcache_get_cached_parts(pool_t pool, void *context)
 {
-	IndexMsgcacheContext *ctx = context;
-	MessagePart *part;
+	struct index_msgcache_context *ctx = context;
+	struct message_part *part;
 	const void *part_data;
 	size_t part_size;
 
@@ -150,7 +153,7 @@ static MessagePart *index_msgcache_get_cached_parts(Pool pool, void *context)
 	part = message_part_deserialize(pool, part_data, part_size);
 	if (part == NULL) {
 		index_set_corrupted(ctx->index,
-				    "Corrupted cached MessagePart data");
+				    "Corrupted cached message_part data");
 		return NULL;
 	}
 
@@ -159,7 +162,7 @@ static MessagePart *index_msgcache_get_cached_parts(Pool pool, void *context)
 
 static time_t index_msgcache_get_internal_date(void *context)
 {
-	IndexMsgcacheContext *ctx = context;
+	struct index_msgcache_context *ctx = context;
 
 	if (ctx->internal_date != (time_t)-1)
 		return ctx->internal_date;
@@ -167,7 +170,7 @@ static time_t index_msgcache_get_internal_date(void *context)
 	return ctx->index->get_internal_date(ctx->index, ctx->rec);
 }
 
-ImapMessageCacheIface index_msgcache_iface = {
+struct imap_message_cache_iface index_msgcache_iface = {
 	index_msgcache_open_mail,
 	index_msgcache_stream_rewind,
 	index_msgcache_get_cached_field,

@@ -2,14 +2,15 @@
 
 #include "lib.h"
 #include "str.h"
-#include "rfc822-tokenize.h"
-#include "rfc822-address.h"
+#include "message-tokenize.h"
+#include "message-address.h"
 
-static Rfc822Address *new_address(Pool pool, Rfc822Address ***next_addr)
+static struct message_address *
+new_address(pool_t pool, struct message_address ***next_addr)
 {
-	Rfc822Address *addr;
+	struct message_address *addr;
 
-	addr = p_new(pool, Rfc822Address, 1);
+	addr = p_new(pool, struct message_address, 1);
 
 	**next_addr = addr;
 	*next_addr = &addr->next;
@@ -17,33 +18,33 @@ static Rfc822Address *new_address(Pool pool, Rfc822Address ***next_addr)
 	return addr;
 }
 
-Rfc822Address *rfc822_address_parse(Pool pool, const unsigned char *data,
-				    size_t size)
+struct message_address *
+message_address_parse(pool_t pool, const unsigned char *data, size_t size)
 {
-	static const Rfc822Token stop_tokens_init[] =
+	static const enum message_token stop_tokens_init[] =
 		{ ',', '@', '<', ':', TOKEN_LAST };
-	static const Rfc822Token stop_tokens_group[] =
+	static const enum message_token stop_tokens_group[] =
 		{ ',', '@', '<', ';', TOKEN_LAST };
-	static const Rfc822Token stop_tokens_domain[] =
+	static const enum message_token stop_tokens_domain[] =
 		{ ',', '<', TOKEN_LAST };
-	static const Rfc822Token stop_tokens_domain_group[] =
+	static const enum message_token stop_tokens_domain_group[] =
 		{ ',', '<', ';', TOKEN_LAST };
-	static const Rfc822Token stop_tokens_post_addr[] =
+	static const enum message_token stop_tokens_post_addr[] =
 		{ ',', TOKEN_LAST };
-	static const Rfc822Token stop_tokens_post_addr_group[] =
+	static const enum message_token stop_tokens_post_addr_group[] =
 		{ ',', ';', TOKEN_LAST };
-	static const Rfc822Token stop_tokens_addr_route[] =
+	static const enum message_token stop_tokens_addr_route[] =
 		{ ':', '>', TOKEN_LAST };
-	static const Rfc822Token stop_tokens_addr_mailbox[] =
+	static const enum message_token stop_tokens_addr_mailbox[] =
 		{ '@', '>', TOKEN_LAST };
-	static const Rfc822Token stop_tokens_addr_domain[] =
+	static const enum message_token stop_tokens_addr_domain[] =
 		{ '>', TOKEN_LAST };
 
-	Rfc822Address *first_addr, **next_addr, *addr;
-	Rfc822TokenizeContext *ctx;
-	const Rfc822Token *stop_tokens;
-	Rfc822Token token;
-	String *mailbox, *domain, *route, *name, *comment, *next_phrase;
+	struct message_address *first_addr, **next_addr, *addr;
+	struct message_tokenizer *tok;
+	const enum message_token *stop_tokens;
+	enum message_token token;
+	string_t *mailbox, *domain, *route, *name, *comment, *next_phrase;
 	size_t len;
 	int ingroup, stop;
 
@@ -60,8 +61,8 @@ Rfc822Address *rfc822_address_parse(Pool pool, const unsigned char *data,
 	   ENVELOPE wants groups to be stored like (NIL, NIL, group, NIL),
 	   ..., (NIL, NIL, NIL, NIL)
 	*/
-	ctx = rfc822_tokenize_init(data, size, NULL, NULL);
-	rfc822_tokenize_skip_comments(ctx, FALSE);
+	tok = message_tokenize_init(data, size, NULL, NULL);
+	message_tokenize_skip_comments(tok, FALSE);
 
 	t_push();
 	mailbox = t_str_new(128);
@@ -83,15 +84,15 @@ Rfc822Address *rfc822_address_parse(Pool pool, const unsigned char *data,
 		} else {
 			len = 0;
 		}
-		rfc822_tokenize_get_string(ctx, next_phrase, comment,
-					   stop_tokens);
+		message_tokenize_get_string(tok, next_phrase, comment,
+					    stop_tokens);
 
 		if (next_phrase == name && len > 0 && len == str_len(name)) {
 			/* nothing appeneded, remove the space */
 			str_truncate(name, len-1);
 		}
 
-		token = rfc822_tokenize_get(ctx);
+		token = message_tokenize_get(tok);
 		switch (token) {
 		case TOKEN_LAST:
 		case ',':
@@ -153,30 +154,30 @@ Rfc822Address *rfc822_address_parse(Pool pool, const unsigned char *data,
 			}
 
 			/* mailbox */
-			rfc822_tokenize_get_string(ctx, mailbox, NULL,
-						   stop_tokens_addr_mailbox);
+			message_tokenize_get_string(tok, mailbox, NULL,
+						    stop_tokens_addr_mailbox);
 
-			if (rfc822_tokenize_get(ctx) == '@' &&
+			if (message_tokenize_get(tok) == '@' &&
 			    str_len(mailbox) == 0) {
 				/* route is given */
-				rfc822_tokenize_get_string(ctx,
+				message_tokenize_get_string(tok,
 					route, NULL, stop_tokens_addr_route);
 
-				if (rfc822_tokenize_get(ctx) == ':') {
+				if (message_tokenize_get(tok) == ':') {
 					/* mailbox comes next */
-					rfc822_tokenize_get_string(ctx,
+					message_tokenize_get_string(tok,
 						mailbox, NULL,
 						stop_tokens_addr_mailbox);
 				}
 			}
 
-			if (rfc822_tokenize_get(ctx) == '@') {
+			if (message_tokenize_get(tok) == '@') {
 				/* domain */
-				rfc822_tokenize_get_string(ctx,
+				message_tokenize_get_string(tok,
 					domain, NULL, stop_tokens_addr_domain);
 			}
 
-			token = rfc822_tokenize_get(ctx);
+			token = message_tokenize_get(tok);
 			i_assert(token == '>' || token == TOKEN_LAST);
 
 			next_phrase = name;
@@ -204,7 +205,7 @@ Rfc822Address *rfc822_address_parse(Pool pool, const unsigned char *data,
 		(void)new_address(pool, &next_addr);
 
 	t_pop();
-	rfc822_tokenize_deinit(ctx);
+	message_tokenize_deinit(tok);
 
 	return first_addr;
 }

@@ -6,7 +6,7 @@
 #include "quoted-printable.h"
 
 void quoted_printable_decode(const unsigned char *src, size_t src_size,
-			     size_t *src_pos_r, Buffer *dest)
+			     size_t *src_pos_r, buffer_t *dest)
 {
 	char hexbuf[3];
 	size_t src_pos, next;

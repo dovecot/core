@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-int index_set_error(MailIndex *index, const char *fmt, ...)
+int index_set_error(struct mail_index *index, const char *fmt, ...)
 {
 	va_list va;
 
@@ -31,7 +31,7 @@ int index_set_error(MailIndex *index, const char *fmt, ...)
 	return FALSE;
 }
 
-int index_set_corrupted(MailIndex *index, const char *fmt, ...)
+int index_set_corrupted(struct mail_index *index, const char *fmt, ...)
 {
 	va_list va;
 
@@ -48,7 +48,7 @@ int index_set_corrupted(MailIndex *index, const char *fmt, ...)
 	return FALSE;
 }
 
-int index_set_syscall_error(MailIndex *index, const char *function)
+int index_set_syscall_error(struct mail_index *index, const char *function)
 {
 	i_assert(function != NULL);
 
@@ -57,7 +57,7 @@ int index_set_syscall_error(MailIndex *index, const char *function)
 	return FALSE;
 }
 
-int index_file_set_syscall_error(MailIndex *index, const char *filepath,
+int index_file_set_syscall_error(struct mail_index *index, const char *filepath,
 				 const char *function)
 {
 	i_assert(filepath != NULL);
@@ -69,7 +69,7 @@ int index_file_set_syscall_error(MailIndex *index, const char *filepath,
 	return FALSE;
 }
 
-void index_reset_error(MailIndex *index)
+void index_reset_error(struct mail_index *index)
 {
 	if (index->error != NULL) {
 		i_free(index->error);
@@ -79,7 +79,7 @@ void index_reset_error(MailIndex *index)
 	index->nodiskspace = FALSE;
 }
 
-int mail_index_create_temp_file(MailIndex *index, const char **path)
+int mail_index_create_temp_file(struct mail_index *index, const char **path)
 {
 	int fd;
 
@@ -109,7 +109,7 @@ int mail_index_create_temp_file(MailIndex *index, const char **path)
 
 static void mail_index_lock_notify(unsigned int secs_left, void *context)
 {
-	MailIndex *index = context;
+	struct mail_index *index = context;
 
 	if (index->lock_notify_func == NULL)
 		return;
@@ -118,7 +118,7 @@ static void mail_index_lock_notify(unsigned int secs_left, void *context)
 				secs_left, index->lock_notify_context);
 }
 
-int mail_index_wait_lock(MailIndex *index, int lock_type)
+int mail_index_wait_lock(struct mail_index *index, int lock_type)
 {
 	int ret;
 

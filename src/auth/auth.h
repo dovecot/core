@@ -3,28 +3,28 @@
 
 #include "auth-interface.h"
 
-typedef void (*AuthCallback) (AuthReplyData *reply, const unsigned char *data,
-			      void *context);
+typedef void (*AuthCallback)(struct auth_reply_data *reply,
+			     const unsigned char *data, void *context);
 
-typedef struct {
-	AuthMethod method;
+struct auth_module {
+	enum auth_method method;
 
 	void (*init)(unsigned int login_pid,
-		     AuthInitRequestData *request,
+		     struct auth_init_request_data *request,
 		     AuthCallback callback, void *context);
-} AuthModule;
+};
 
-extern AuthMethod auth_methods;
+extern enum auth_method auth_methods;
 extern const char *const *auth_realms;
 
-void auth_register_module(AuthModule *module);
-void auth_unregister_module(AuthModule *module);
+void auth_register_module(struct auth_module *module);
+void auth_unregister_module(struct auth_module *module);
 
 void auth_init_request(unsigned int login_pid,
-		       AuthInitRequestData *request,
+		       struct auth_init_request_data *request,
 		       AuthCallback callback, void *context);
 void auth_continue_request(unsigned int login_pid,
-			   AuthContinuedRequestData *request,
+			   struct auth_continued_request_data *request,
 			   const unsigned char *data,
 			   AuthCallback callback, void *context);
 

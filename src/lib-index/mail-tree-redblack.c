@@ -84,7 +84,7 @@
 */
 
 static unsigned int
-rb_alloc(MailTree *tree)
+rb_alloc(struct mail_tree *tree)
 {
 	unsigned int x;
 
@@ -94,23 +94,23 @@ rb_alloc(MailTree *tree)
 	}
 
 	i_assert(tree->header->used_file_size == tree->mmap_used_length);
-	i_assert(tree->mmap_used_length + sizeof(MailTreeNode) <=
+	i_assert(tree->mmap_used_length + sizeof(struct mail_tree_node) <=
 		 tree->mmap_full_length);
 
-	x = (tree->mmap_used_length - sizeof(MailTreeHeader)) /
-		sizeof(MailTreeNode);
+	x = (tree->mmap_used_length - sizeof(struct mail_tree_header)) /
+		sizeof(struct mail_tree_node);
 
-	tree->header->used_file_size += sizeof(MailTreeNode);
-	tree->mmap_used_length += sizeof(MailTreeNode);
+	tree->header->used_file_size += sizeof(struct mail_tree_node);
+	tree->mmap_used_length += sizeof(struct mail_tree_node);
 
-	memset(&tree->node_base[x], 0, sizeof(MailTreeNode));
+	memset(&tree->node_base[x], 0, sizeof(struct mail_tree_node));
 	return x;
 }
 
 static void
-rb_move(MailTree *tree, unsigned int src, unsigned int dest)
+rb_move(struct mail_tree *tree, unsigned int src, unsigned int dest)
 {
-	MailTreeNode *node = tree->node_base;
+	struct mail_tree_node *node = tree->node_base;
 
 	/* update parent */
 	if (node[src].up != RBNULL) {
@@ -130,21 +130,22 @@ rb_move(MailTree *tree, unsigned int src, unsigned int dest)
 	if (tree->header->root == src)
 		tree->header->root = dest;
 
-	memcpy(&node[dest], &node[src], sizeof(MailTreeNode));
-	memset(&node[src], 0, sizeof(MailTreeNode));
+	memcpy(&node[dest], &node[src], sizeof(struct mail_tree_node));
+	memset(&node[src], 0, sizeof(struct mail_tree_node));
 }
 
 static void
-rb_free(MailTree *tree, unsigned int x)
+rb_free(struct mail_tree *tree, unsigned int x)
 {
 	unsigned int last;
 
 	i_assert(tree->mmap_used_length >=
-		 sizeof(MailTreeHeader) + sizeof(MailTreeNode));
+		 sizeof(struct mail_tree_header) +
+		 sizeof(struct mail_tree_node));
 
 	/* get index to last used record */
-	last = (tree->mmap_used_length - sizeof(MailTreeHeader)) /
-		sizeof(MailTreeNode) - 1;
+	last = (tree->mmap_used_length - sizeof(struct mail_tree_header)) /
+		sizeof(struct mail_tree_node) - 1;
 
 	if (last != x) {
 		/* move it over the one we want free'd */
@@ -152,8 +153,8 @@ rb_free(MailTree *tree, unsigned int x)
 	}
 
 	/* mark the moved node unused */
-	tree->mmap_used_length -= sizeof(MailTreeNode);
-	tree->header->used_file_size -= sizeof(MailTreeNode);
+	tree->mmap_used_length -= sizeof(struct mail_tree_node);
+	tree->header->used_file_size -= sizeof(struct mail_tree_node);
 
 	_mail_tree_truncate(tree);
 }
@@ -177,9 +178,9 @@ rb_free(MailTree *tree, unsigned int x)
 */
 
 static void
-rb_left_rotate(MailTree *tree, unsigned int x)
+rb_left_rotate(struct mail_tree *tree, unsigned int x)
 {
-	MailTreeNode *node = tree->node_base;
+	struct mail_tree_node *node = tree->node_base;
 	unsigned int y, a_nodes, c_nodes;
 
 	i_assert(x != RBNULL);
@@ -222,9 +223,9 @@ rb_left_rotate(MailTree *tree, unsigned int x)
 }
 
 static void
-rb_right_rotate(MailTree *tree, unsigned int y)
+rb_right_rotate(struct mail_tree *tree, unsigned int y)
 {
-	MailTreeNode *node = tree->node_base;
+	struct mail_tree_node *node = tree->node_base;
 	unsigned int x, a_nodes, c_nodes;
 
 	i_assert(y != RBNULL);
@@ -269,9 +270,9 @@ rb_right_rotate(MailTree *tree, unsigned int y)
 /* Return index to the smallest key greater than x
 */
 static unsigned int 
-rb_successor(MailTree *tree, unsigned int x)
+rb_successor(struct mail_tree *tree, unsigned int x)
 {
-	MailTreeNode *node = tree->node_base;
+	struct mail_tree_node *node = tree->node_base;
 	unsigned int y;
 
 	if (node[x].right != RBNULL) {
@@ -299,9 +300,9 @@ rb_successor(MailTree *tree, unsigned int x)
 
 /* Restore the reb-black properties after insert */
 static int
-rb_insert_fix(MailTree *tree, unsigned int z)
+rb_insert_fix(struct mail_tree *tree, unsigned int z)
 {
-	MailTreeNode *node = tree->node_base;
+	struct mail_tree_node *node = tree->node_base;
 	unsigned int x, y, x_up_up;
 
 	/* color this new node red */
@@ -380,9 +381,9 @@ rb_insert_fix(MailTree *tree, unsigned int z)
 
 /* Restore the reb-black properties after a delete */
 static void
-rb_delete_fix(MailTree *tree, unsigned int x)
+rb_delete_fix(struct mail_tree *tree, unsigned int x)
 {
-	MailTreeNode *node = tree->node_base;
+	struct mail_tree_node *node = tree->node_base;
 	unsigned int w;
 
 	while (x != tree->header->root && IS_NODE_BLACK(node[x])) {
@@ -490,9 +491,9 @@ rb_delete_fix(MailTree *tree, unsigned int x)
 /* Delete the node z, and free up the space
 */
 static void
-rb_delete(MailTree *tree, unsigned int z)
+rb_delete(struct mail_tree *tree, unsigned int z)
 {
-	MailTreeNode *node = tree->node_base;
+	struct mail_tree_node *node = tree->node_base;
         unsigned int x, y, b;
 
 	if (node[z].left == RBNULL || node[z].right == RBNULL) {
@@ -550,9 +551,9 @@ rb_delete(MailTree *tree, unsigned int z)
 
 #ifdef DEBUG_TREE
 int
-rb_check1(MailTree *tree, unsigned int x)
+rb_check1(struct mail_tree *tree, unsigned int x)
 {
-        MailTreeNode *node = tree->node_base;
+        struct mail_tree_node *node = tree->node_base;
 
 	if (IS_NODE_RED(node[x])) {
 		if (!IS_NODE_BLACK(node[node[x].left]) ||
@@ -585,9 +586,9 @@ rb_check1(MailTree *tree, unsigned int x)
 	return 0;
 }
 
-int count_black(MailTree *tree, unsigned int x)
+int count_black(struct mail_tree *tree, unsigned int x)
 {
-        MailTreeNode *node = tree->node_base;
+        struct mail_tree_node *node = tree->node_base;
 	int nleft, nright;
 
 	if (x == RBNULL)
@@ -610,9 +611,9 @@ int count_black(MailTree *tree, unsigned int x)
 	return nleft;
 }
 
-int count_nodes(MailTree *tree, unsigned int x)
+int count_nodes(struct mail_tree *tree, unsigned int x)
 {
-        MailTreeNode *node = tree->node_base;
+        struct mail_tree_node *node = tree->node_base;
 	int nleft, nright;
 
 	if (x == RBNULL)
@@ -633,9 +634,9 @@ int count_nodes(MailTree *tree, unsigned int x)
 	return nleft+nright+1;
 }
 
-void dumptree(MailTree *tree, unsigned int x, int n)
+void dumptree(struct mail_tree *tree, unsigned int x, int n)
 {
-        MailTreeNode *node = tree->node_base;
+        struct mail_tree_node *node = tree->node_base;
 
 	if (x != RBNULL) {
 		n++;
@@ -651,9 +652,9 @@ void dumptree(MailTree *tree, unsigned int x, int n)
 }
 
 int
-rb_check(MailTree *tree)
+rb_check(struct mail_tree *tree)
 {
-        MailTreeNode *node = tree->node_base;
+        struct mail_tree_node *node = tree->node_base;
 	unsigned int root;
 
 	root = tree->header->root;
@@ -685,11 +686,12 @@ rb_check(MailTree *tree)
 }
 #endif
 
-unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
+unsigned int mail_tree_lookup_uid_range(struct mail_tree *tree,
+					unsigned int *seq_r,
 					unsigned int first_uid,
 					unsigned int last_uid)
 {
-	MailTreeNode *node;
+	struct mail_tree_node *node;
 	unsigned int x, y, seq;
 
 	i_assert(first_uid > 0 && last_uid > 0);
@@ -746,9 +748,9 @@ unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 	return x == RBNULL ? (unsigned int)-1 : node[x].value;
 }
 
-unsigned int mail_tree_lookup_sequence(MailTree *tree, unsigned int seq)
+unsigned int mail_tree_lookup_sequence(struct mail_tree *tree, unsigned int seq)
 {
-        MailTreeNode *node;
+        struct mail_tree_node *node;
 	unsigned int x, upleft_nodes, left_nodes;
 
 	i_assert(seq != 0);
@@ -782,9 +784,10 @@ unsigned int mail_tree_lookup_sequence(MailTree *tree, unsigned int seq)
 	return (unsigned int)-1;
 }
 
-int mail_tree_insert(MailTree *tree, unsigned int uid, unsigned int index)
+int mail_tree_insert(struct mail_tree *tree,
+		     unsigned int uid, unsigned int index)
 {
-        MailTreeNode *node;
+        struct mail_tree_node *node;
 	unsigned int x, z;
 
 	i_assert(uid != 0);
@@ -841,9 +844,10 @@ int mail_tree_insert(MailTree *tree, unsigned int uid, unsigned int index)
 	return TRUE;
 }
 
-int mail_tree_update(MailTree *tree, unsigned int uid, unsigned int index)
+int mail_tree_update(struct mail_tree *tree,
+		     unsigned int uid, unsigned int index)
 {
-	MailTreeNode *node;
+	struct mail_tree_node *node;
 	unsigned int x;
 
 	i_assert(uid != 0);
@@ -875,9 +879,9 @@ int mail_tree_update(MailTree *tree, unsigned int uid, unsigned int index)
 	return FALSE;
 }
 
-void mail_tree_delete(MailTree *tree, unsigned int uid)
+void mail_tree_delete(struct mail_tree *tree, unsigned int uid)
 {
-	MailTreeNode *node;
+	struct mail_tree_node *node;
 	unsigned int x;
 
 	i_assert(uid != 0);

@@ -5,20 +5,18 @@
 #include "mail-index.h"
 #include "imap-message-cache.h"
 
-typedef struct _IndexMailbox IndexMailbox;
-
-struct _IndexMailbox {
-	Mailbox box;
+struct index_mailbox {
+	struct mailbox box;
 
 	/* expunge messages marked as deleted, requires index to be
 	   exclusively locked */
-	int (*expunge_locked)(IndexMailbox *ibox, int notify);
+	int (*expunge_locked)(struct index_mailbox *ibox, int notify);
 
-	MailIndex *index;
-	ImapMessageCache *cache;
+	struct mail_index *index;
+	struct imap_message_cache *cache;
 
 	char *check_path;
-	Timeout check_to;
+	struct timeout *check_to;
 	time_t check_file_stamp;
 	time_t last_check;
 
@@ -30,61 +28,70 @@ struct _IndexMailbox {
 	unsigned int delay_save_unlocking:1; /* For COPYing inside mailbox */
 };
 
-extern ImapMessageCacheIface index_msgcache_iface;
+extern struct imap_message_cache_iface index_msgcache_iface;
 
-int mail_storage_set_index_error(IndexMailbox *ibox);
-int index_storage_lock(IndexMailbox *ibox, MailLockType lock_type);
+int mail_storage_set_index_error(struct index_mailbox *ibox);
+int index_storage_lock(struct index_mailbox *ibox,
+		       enum mail_lock_type lock_type);
 
-void index_storage_add(MailIndex *index);
-MailIndex *index_storage_lookup_ref(const char *path);
-void index_storage_unref(MailIndex *index);
+void index_storage_add(struct mail_index *index);
+struct mail_index *index_storage_lookup_ref(const char *path);
+void index_storage_unref(struct mail_index *index);
 
-IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
-				 MailIndex *index, const char *name,
-				 int readonly, int fast);
-int index_storage_close(Mailbox *box);
+struct index_mailbox *
+index_storage_init(struct mail_storage *storage, struct mailbox *box,
+		   struct mail_index *index, const char *name,
+		   int readonly, int fast);
+int index_storage_close(struct mailbox *box);
 
-int index_storage_sync_and_lock(IndexMailbox *ibox, int sync_size,
-				MailLockType data_lock_type);
-int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted);
+int index_storage_sync_and_lock(struct index_mailbox *ibox, int sync_size,
+				enum mail_lock_type data_lock_type);
+int index_storage_sync_modifylog(struct index_mailbox *ibox, int hide_deleted);
 
-int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
+int index_mailbox_fix_custom_flags(struct index_mailbox *ibox,
+				   enum mail_flags *flags,
                                    const char *custom_flags[]);
 
-unsigned int index_storage_get_recent_count(MailIndex *index);
+unsigned int index_storage_get_recent_count(struct mail_index *index);
 
-int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
-			     MailIndexRecord **rec);
-int index_expunge_mail(IndexMailbox *ibox, MailIndexRecord *rec,
+int index_expunge_seek_first(struct index_mailbox *ibox, unsigned int *seq,
+			     struct mail_index_record **rec);
+int index_expunge_mail(struct index_mailbox *ibox,
+		       struct mail_index_record *rec,
 		       unsigned int seq, int notify);
 
-int index_storage_save(MailStorage *storage, const char *path,
-		       IStream *input, OStream *output, uoff_t data_size);
+int index_storage_save(struct mail_storage *storage, const char *path,
+		       struct istream *input, struct ostream *output,
+		       uoff_t data_size);
 
-int index_msgcache_open(ImapMessageCache *cache, MailIndex *index,
-			MailIndexRecord *rec, ImapCacheField fields);
+int index_msgcache_open(struct imap_message_cache *cache,
+			struct mail_index *index, struct mail_index_record *rec,
+			enum imap_cache_field fields);
 
-void index_mailbox_check_add(IndexMailbox *ibox, const char *path);
-void index_mailbox_check_remove(IndexMailbox *ibox);
+void index_mailbox_check_add(struct index_mailbox *ibox, const char *path);
+void index_mailbox_check_remove(struct index_mailbox *ibox);
 
-/* Mailbox methods: */
-void index_storage_set_callbacks(MailStorage *storage,
-				 MailStorageCallbacks *callbacks,
+/* mailbox methods: */
+void index_storage_set_callbacks(struct mail_storage *storage,
+				 struct mail_storage_callbacks *callbacks,
 				 void *context);
-int index_storage_copy(Mailbox *box, Mailbox *destbox,
+int index_storage_copy(struct mailbox *box, struct mailbox *destbox,
 		       const char *messageset, int uidset);
-int index_storage_expunge(Mailbox *box, int notify);
-int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
-			     MailboxStatus *status);
-int index_storage_sync(Mailbox *box, int sync_expunges);
-int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
-			       MailFlags flags, const char *custom_flags[],
-			       ModifyType modify_type, int notify,
+int index_storage_expunge(struct mailbox *box, int notify);
+int index_storage_get_status(struct mailbox *box,
+			     enum mailbox_status_items items,
+			     struct mailbox_status *status);
+int index_storage_sync(struct mailbox *box, int sync_expunges);
+int index_storage_update_flags(struct mailbox *box, const char *messageset,
+			       int uidset, enum mail_flags flags,
+			       const char *custom_flags[],
+			       enum modify_type modify_type, int notify,
 			       int *all_found);
-int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
-			OStream *output, int *all_found);
-int index_storage_search(Mailbox *box, const char *charset, MailSearchArg *args,
-			 MailSortType *sorting, OStream *output,
-			 int uid_result);
+int index_storage_fetch(struct mailbox *box, struct mail_fetch_data *fetch_data,
+			struct ostream *output, int *all_found);
+int index_storage_search(struct mailbox *box, const char *charset,
+			 struct mail_search_arg *args,
+			 enum mail_sort_type *sorting,
+			 struct ostream *output, int uid_result);
 
 #endif

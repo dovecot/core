@@ -4,10 +4,10 @@
 #include "str.h"
 #include "imap-util.h"
 
-const char *imap_write_flags(MailFlags flags, const char *custom_flags[],
+const char *imap_write_flags(enum mail_flags flags, const char *custom_flags[],
 			     unsigned int custom_flags_count)
 {
-	String *str;
+	string_t *str;
 	const char *sysflags, *name;
 	unsigned int i;
 

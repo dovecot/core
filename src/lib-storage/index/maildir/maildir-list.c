@@ -11,12 +11,12 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-typedef struct {
+struct find_subscribed_context {
 	MailboxFunc func;
 	void *context;
-} FindSubscribedContext;
+};
 
-static MailboxFlags
+static enum mailbox_flags
 maildir_get_marked_flags_from(const char *dir, time_t index_stamp)
 {
 	struct stat st;
@@ -44,8 +44,8 @@ maildir_get_marked_flags_from(const char *dir, time_t index_stamp)
 	return st.st_mtime <= cur_stamp ? MAILBOX_UNMARKED : MAILBOX_MARKED;
 }
 
-static MailboxFlags
-maildir_get_marked_flags(MailStorage *storage, const char *dir)
+static enum mailbox_flags
+maildir_get_marked_flags(struct mail_storage *storage, const char *dir)
 {
 	const char *path;
 	struct stat st;
@@ -71,14 +71,14 @@ maildir_get_marked_flags(MailStorage *storage, const char *dir)
 	return maildir_get_marked_flags_from(dir, st.st_mtime);
 }
 
-int maildir_find_mailboxes(MailStorage *storage, const char *mask,
+int maildir_find_mailboxes(struct mail_storage *storage, const char *mask,
 			   MailboxFunc func, void *context)
 {
-        ImapMatchGlob *glob;
+        struct imap_match_glob *glob;
 	DIR *dirp;
 	struct dirent *d;
 	struct stat st;
-        MailboxFlags flags;
+        enum mailbox_flags flags;
 	char path[PATH_MAX];
 	int failed, found_inbox;
 
@@ -155,11 +155,11 @@ int maildir_find_mailboxes(MailStorage *storage, const char *mask,
 	return !failed;
 }
 
-static int maildir_subs_func(MailStorage *storage, const char *name,
+static int maildir_subs_func(struct mail_storage *storage, const char *name,
 			     void *context)
 {
-	FindSubscribedContext *ctx = context;
-	MailboxFlags flags;
+	struct find_subscribed_context *ctx = context;
+	enum mailbox_flags flags;
 	struct stat st;
 	char path[PATH_MAX];
 
@@ -176,10 +176,10 @@ static int maildir_subs_func(MailStorage *storage, const char *name,
 	return TRUE;
 }
 
-int maildir_find_subscribed(MailStorage *storage, const char *mask,
+int maildir_find_subscribed(struct mail_storage *storage, const char *mask,
 			    MailboxFunc func, void *context)
 {
-	FindSubscribedContext ctx;
+	struct find_subscribed_context ctx;
 
 	ctx.func = func;
 	ctx.context = context;

@@ -50,10 +50,10 @@ typedef linux_const void *pam_item_t;
 #  define USERPASS_USER_FIXED		3
 #endif
 
-typedef struct {
+struct pam_userpass {
 	const char *user;
 	const char *pass;
-} pam_userpass_t;
+};
 
 static char *service_name;
 
@@ -61,7 +61,7 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	struct pam_response **resp, void *appdata_ptr)
 {
 	/* @UNSAFE */
-	pam_userpass_t *userpass = (pam_userpass_t *)appdata_ptr;
+	struct pam_userpass *userpass = (struct pam_userpass *) appdata_ptr;
 #ifdef AUTH_PAM_USERPASS
 	pamc_bp_t prompt;
 	const char *input;
@@ -172,10 +172,10 @@ static int pam_auth(pam_handle_t *pamh)
 }
 
 static int pam_verify_plain(const char *user, const char *password,
-			    AuthCookieReplyData *reply)
+			    struct auth_cookie_reply_data *reply)
 {
 	pam_handle_t *pamh;
-	pam_userpass_t userpass;
+	struct pam_userpass userpass;
 	struct pam_conv conv;
 	struct passwd *pw;
 	int status, status2;
@@ -219,7 +219,7 @@ static void pam_deinit(void)
 	i_free(service_name);
 }
 
-UserInfoModule userinfo_pam = {
+struct user_info_module userinfo_pam = {
 	pam_init,
 	pam_deinit,
 

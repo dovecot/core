@@ -9,12 +9,13 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
-extern MailIndex maildir_index;
+extern struct mail_index maildir_index;
 
-MailFlags maildir_filename_get_flags(const char *fname, MailFlags default_flags)
+enum mail_flags maildir_filename_get_flags(const char *fname,
+					   enum mail_flags default_flags)
 {
 	const char *info;
-	MailFlags flags;
+	enum mail_flags flags;
 
 	info = strchr(fname, ':');
 	if (info == NULL || info[1] != '2' || info[2] != ',')
@@ -54,9 +55,9 @@ MailFlags maildir_filename_get_flags(const char *fname, MailFlags default_flags)
 	return flags;
 }
 
-const char *maildir_filename_set_flags(const char *fname, MailFlags flags)
+const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags)
 {
-	String *flags_str;
+	string_t *flags_str;
 	const char *info, *oldflags;
 	int i, nextflag;
 
@@ -133,22 +134,22 @@ const char *maildir_filename_set_flags(const char *fname, MailFlags flags)
 	return str_c(flags_str);
 }
 
-MailIndex *maildir_index_alloc(const char *dir, const char *maildir)
+struct mail_index *maildir_index_alloc(const char *dir, const char *maildir)
 {
-	MailIndex *index;
+	struct mail_index *index;
 
 	i_assert(dir != NULL);
 	i_assert(maildir != NULL);
 
-	index = i_new(MailIndex, 1);
-	memcpy(index, &maildir_index, sizeof(MailIndex));
+	index = i_new(struct mail_index, 1);
+	memcpy(index, &maildir_index, sizeof(struct mail_index));
 
 	index->mailbox_path = i_strdup(maildir);
 	mail_index_init(index, dir);
 	return index;
 }
 
-static void maildir_index_free(MailIndex *index)
+static void maildir_index_free(struct mail_index *index)
 {
 	mail_index_close(index);
 	i_free(index->dir);
@@ -156,7 +157,8 @@ static void maildir_index_free(MailIndex *index)
 	i_free(index);
 }
 
-static time_t maildir_get_internal_date(MailIndex *index, MailIndexRecord *rec)
+static time_t maildir_get_internal_date(struct mail_index *index,
+					struct mail_index_record *rec)
 {
 	struct stat st;
 	const char *fname;
@@ -183,11 +185,12 @@ static time_t maildir_get_internal_date(MailIndex *index, MailIndexRecord *rec)
 	return st.st_mtime;
 }
 
-static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
-				      unsigned int seq, MailFlags flags,
+static int maildir_index_update_flags(struct mail_index *index,
+				      struct mail_index_record *rec,
+				      unsigned int seq, enum mail_flags flags,
 				      int external_change)
 {
-	MailIndexUpdate *update;
+	struct mail_index_update *update;
 	const char *old_fname, *new_fname;
 	const char *old_path, *new_path;
 
@@ -232,7 +235,7 @@ static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-MailIndex maildir_index = {
+struct mail_index maildir_index = {
 	mail_index_open,
 	mail_index_open_or_create,
 	maildir_index_free,

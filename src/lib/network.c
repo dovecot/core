@@ -49,7 +49,7 @@ union sockaddr_union {
 #  define SIZEOF_SOCKADDR(so) (sizeof(so.sin))
 #endif
 
-int net_ip_compare(const IPADDR *ip1, const IPADDR *ip2)
+int net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2)
 {
 	if (ip1->family != ip2->family)
 		return 0;
@@ -64,7 +64,8 @@ int net_ip_compare(const IPADDR *ip1, const IPADDR *ip2)
 
 
 /* copy IP to sockaddr */
-static inline void sin_set_ip(union sockaddr_union *so, const IPADDR *ip)
+static inline void
+sin_set_ip(union sockaddr_union *so, const struct ip_addr *ip)
 {
 	if (ip == NULL) {
 #ifdef HAVE_IPV6
@@ -86,7 +87,8 @@ static inline void sin_set_ip(union sockaddr_union *so, const IPADDR *ip)
 		memcpy(&so->sin.sin_addr, &ip->ip, 4);
 }
 
-static inline void sin_get_ip(const union sockaddr_union *so, IPADDR *ip)
+static inline void
+sin_get_ip(const union sockaddr_union *so, struct ip_addr *ip)
 {
 	ip->family = so->sin.sin_family;
 
@@ -125,7 +127,8 @@ static inline void close_save_errno(int fd)
 }
 
 /* Connect to socket with ip address */
-int net_connect_ip(const IPADDR *ip, unsigned int port, const IPADDR *my_ip)
+int net_connect_ip(const struct ip_addr *ip, unsigned int port,
+		   const struct ip_addr *my_ip)
 {
 	union sockaddr_union so;
 	int fd, ret, opt = 1;
@@ -233,7 +236,7 @@ int net_set_cork(int fd __attr_unused__, int cork __attr_unused__)
 #endif
 }
 
-void net_get_ip_any4(IPADDR *ip)
+void net_get_ip_any4(struct ip_addr *ip)
 {
 	struct in_addr *in_ip = (struct in_addr *) &ip->ip;
 
@@ -241,19 +244,19 @@ void net_get_ip_any4(IPADDR *ip)
 	in_ip->s_addr = INADDR_ANY;
 }
 
-void net_get_ip_any6(IPADDR *ip)
+void net_get_ip_any6(struct ip_addr *ip)
 {
 #ifdef HAVE_IPV6
 	ip->family = AF_INET6;
 	ip->ip = in6addr_any;
 #else
-	memset(ip, 0, sizeof(IPADDR));
+	memset(ip, 0, sizeof(struct ip_addr));
 #endif
 }
 
 /* Listen for connections on a socket. if `my_ip' is NULL, listen in any
    address. */
-int net_listen(const IPADDR *my_ip, unsigned int *port)
+int net_listen(const struct ip_addr *my_ip, unsigned int *port)
 {
 	union sockaddr_union so;
 	int ret, fd, opt = 1;
@@ -338,7 +341,7 @@ int net_listen_unix(const char *path)
 }
 
 /* Accept a connection on a socket */
-int net_accept(int fd, IPADDR *addr, unsigned int *port)
+int net_accept(int fd, struct ip_addr *addr, unsigned int *port)
 {
 	union sockaddr_union so;
 	int ret;
@@ -414,7 +417,7 @@ ssize_t net_transmit(int fd, const void *data, size_t len)
 
 /* Get IP addresses for host. ips contains ips_count of IPs, they don't need
    to be free'd. Returns 0 = ok, others = error code for net_gethosterror() */
-int net_gethostbyname(const char *addr, IPADDR **ips, int *ips_count)
+int net_gethostbyname(const char *addr, struct ip_addr **ips, int *ips_count)
 {
 	/* @UNSAFE */
 #ifdef HAVE_IPV6
@@ -454,7 +457,7 @@ int net_gethostbyname(const char *addr, IPADDR **ips, int *ips_count)
                 count++;
 
         *ips_count = count;
-        *ips = t_malloc(sizeof(IPADDR) * count);
+        *ips = t_malloc(sizeof(struct ip_addr) * count);
 
         count = 0;
 	for (ai = origai; ai != NULL; ai = ai->ai_next, count++) {
@@ -474,7 +477,7 @@ int net_gethostbyname(const char *addr, IPADDR **ips, int *ips_count)
 		count++;
 
         *ips_count = count;
-        *ips = t_malloc(sizeof(IPADDR) * count);
+        *ips = t_malloc(sizeof(struct ip_addr) * count);
 
 	while (count > 0) {
 		count--;
@@ -488,7 +491,7 @@ int net_gethostbyname(const char *addr, IPADDR **ips, int *ips_count)
 }
 
 /* Get socket address/port */
-int net_getsockname(int fd, IPADDR *addr, unsigned int *port)
+int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port)
 {
 	union sockaddr_union so;
 	socklen_t addrlen;
@@ -505,7 +508,7 @@ int net_getsockname(int fd, IPADDR *addr, unsigned int *port)
 	return 0;
 }
 
-const char *net_ip2host(const IPADDR *ip)
+const char *net_ip2host(const struct ip_addr *ip)
 {
 #ifdef HAVE_IPV6
 	char host[MAX_IP_LEN+1];
@@ -531,7 +534,7 @@ const char *net_ip2host(const IPADDR *ip)
 	return 0;
 }
 
-int net_host2ip(const char *host, IPADDR *ip)
+int net_host2ip(const char *host, struct ip_addr *ip)
 {
 	if (strchr(host, ':') != NULL) {
 		/* IPv6 */

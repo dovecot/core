@@ -3,9 +3,9 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_copy(Client *client)
+int cmd_copy(struct client *client)
 {
-	Mailbox *destbox;
+	struct mailbox *destbox;
 	const char *messageset, *mailbox;
 
 	/* <message set> <mailbox> */

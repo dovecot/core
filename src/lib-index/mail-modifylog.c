@@ -18,9 +18,10 @@
 #define MAX_MODIFYLOG_SIZE (4096*8)
 
 /* How large chunks to use to grow log file */
-#define MODIFYLOG_GROW_SIZE (sizeof(ModifyLogRecord) * 128)
+#define MODIFYLOG_GROW_SIZE (sizeof(struct modify_log_record) * 128)
 
-#define MODIFY_LOG_INITIAL_SIZE (sizeof(ModifyLogHeader) + MODIFYLOG_GROW_SIZE)
+#define MODIFY_LOG_INITIAL_SIZE \
+	(sizeof(struct modify_log_header) + MODIFYLOG_GROW_SIZE)
 
 #define MODIFYLOG_FILE_POSITION(log, ptr) \
 	((size_t) ((char *) (ptr) - (char *) (log)->mmap_base))
@@ -30,10 +31,8 @@
 	((char *) (ptr) >= (char *) (area_ptr) && \
 	 (char *) (ptr) < (char *) (area_ptr) + (area_size))
 
-typedef struct _ModifyLogFile ModifyLogFile;
-
-struct _ModifyLogFile {
-	MailModifyLog *log;
+struct modify_log_file {
+	struct mail_modify_log *log;
 
 	int fd;
 	char *filepath;
@@ -42,10 +41,10 @@ struct _ModifyLogFile {
 	size_t mmap_used_length;
 	size_t mmap_full_length;
 
-	ModifyLogRecord *last_expunge, *last_flags;
+	struct modify_log_record *last_expunge, *last_flags;
 	int last_expunge_external, last_flags_external;
 
-	ModifyLogHeader *header;
+	struct modify_log_header *header;
 	uoff_t synced_position;
 	unsigned int synced_id;
 
@@ -54,18 +53,18 @@ struct _ModifyLogFile {
 	unsigned int second_log:1;
 };
 
-struct _MailModifyLog {
-	MailIndex *index;
+struct mail_modify_log {
+	struct mail_index *index;
 
-	ModifyLogRecord *iterator_end;
+	struct modify_log_record *iterator_end;
 
-	ModifyLogFile file1, file2;
-	ModifyLogFile *head, *tail;
+	struct modify_log_file file1, file2;
+	struct modify_log_file *head, *tail;
 };
 
-static const ModifyLogExpunge no_expunges = { 0, 0, 0 };
+static const struct modify_log_expunge no_expunges = { 0, 0, 0 };
 
-static int modifylog_set_syscall_error(ModifyLogFile *file,
+static int modifylog_set_syscall_error(struct modify_log_file *file,
 				       const char *function)
 {
 	i_assert(function != NULL);
@@ -76,7 +75,8 @@ static int modifylog_set_syscall_error(ModifyLogFile *file,
 	return FALSE;
 }
 
-static int modifylog_set_corrupted(ModifyLogFile *file, const char *fmt, ...)
+static int modifylog_set_corrupted(struct modify_log_file *file,
+				   const char *fmt, ...)
 {
 	va_list va;
 
@@ -96,7 +96,7 @@ static int modifylog_set_corrupted(ModifyLogFile *file, const char *fmt, ...)
 	return FALSE;
 }
 
-static int modifylog_drop_lock(ModifyLogFile *file)
+static int modifylog_drop_lock(struct modify_log_file *file)
 {
 	int ret;
 
@@ -118,7 +118,8 @@ static int modifylog_drop_lock(ModifyLogFile *file)
 	return 1;
 }
 
-static int modifylog_file_have_other_users(ModifyLogFile *file, int keep_lock)
+static int modifylog_file_have_other_users(struct modify_log_file *file,
+					   int keep_lock)
 {
 	int ret;
 
@@ -140,9 +141,10 @@ static int modifylog_file_have_other_users(ModifyLogFile *file, int keep_lock)
 }
 
 /* returns 1 = yes, 0 = no, -1 = error */
-static int modifylog_have_other_users(MailModifyLog *log, int keep_lock)
+static int modifylog_have_other_users(struct mail_modify_log *log,
+				      int keep_lock)
 {
-	ModifyLogFile *file;
+	struct modify_log_file *file;
 	int ret;
 
 	ret = modifylog_file_have_other_users(log->head, keep_lock);
@@ -161,9 +163,9 @@ static int modifylog_have_other_users(MailModifyLog *log, int keep_lock)
 	return ret;
 }
 
-static int mmap_update(ModifyLogFile *file, int forced)
+static int mmap_update(struct modify_log_file *file, int forced)
 {
-	ModifyLogHeader *hdr;
+	struct modify_log_header *hdr;
 	unsigned int extra;
 
 	if (!forced && file->header != NULL &&
@@ -201,15 +203,15 @@ static int mmap_update(ModifyLogFile *file, int forced)
 		return modifylog_set_syscall_error(file, "mmap()");
 	}
 
-	if (file->mmap_full_length < sizeof(ModifyLogHeader)) {
+	if (file->mmap_full_length < sizeof(struct modify_log_header)) {
 		index_set_error(file->log->index, "Too small modify log %s",
 				file->filepath);
 		(void)unlink(file->filepath);
 		return FALSE;
 	}
 
-	extra = (file->mmap_full_length - sizeof(ModifyLogHeader)) %
-		sizeof(ModifyLogRecord);
+	extra = (file->mmap_full_length - sizeof(struct modify_log_header)) %
+		sizeof(struct modify_log_record);
 
 	if (extra != 0) {
 		/* partial write or corrupted -
@@ -228,8 +230,8 @@ static int mmap_update(ModifyLogFile *file, int forced)
 		return FALSE;
 	}
 
-	if ((hdr->used_file_size - sizeof(ModifyLogHeader)) %
-	    sizeof(ModifyLogRecord) != 0) {
+	if ((hdr->used_file_size - sizeof(struct modify_log_header)) %
+	    sizeof(struct modify_log_record) != 0) {
 		modifylog_set_corrupted(file,
 			"Invalid used_file_size in header (%"PRIuUOFF_T")",
 			hdr->used_file_size);
@@ -243,7 +245,7 @@ static int mmap_update(ModifyLogFile *file, int forced)
 	return TRUE;
 }
 
-static int mmap_init_update(ModifyLogFile *file)
+static int mmap_init_update(struct modify_log_file *file)
 {
 	if (!mmap_update(file, TRUE))
 		return FALSE;
@@ -253,11 +255,11 @@ static int mmap_init_update(ModifyLogFile *file)
 	return TRUE;
 }
 
-static MailModifyLog *mail_modifylog_new(MailIndex *index)
+static struct mail_modify_log *mail_modifylog_new(struct mail_index *index)
 {
-	MailModifyLog *log;
+	struct mail_modify_log *log;
 
-	log = i_new(MailModifyLog, 1);
+	log = i_new(struct mail_modify_log, 1);
 	log->index = index;
 
 	log->file1.fd = -1;
@@ -273,7 +275,7 @@ static MailModifyLog *mail_modifylog_new(MailIndex *index)
 	return log;
 }
 
-static void modifylog_munmap(ModifyLogFile *file)
+static void modifylog_munmap(struct modify_log_file *file)
 {
 	if (file->anon_mmap) {
 		if (munmap_anon(file->mmap_base, file->mmap_full_length) < 0)
@@ -291,7 +293,7 @@ static void modifylog_munmap(ModifyLogFile *file)
 	file->last_flags = NULL;
 }
 
-static void modifylog_close_file(ModifyLogFile *file)
+static void modifylog_close_file(struct modify_log_file *file)
 {
 	modifylog_munmap(file);
 
@@ -302,17 +304,18 @@ static void modifylog_close_file(ModifyLogFile *file)
 	}
 }
 
-static void mail_modifylog_init_header(MailModifyLog *log, ModifyLogHeader *hdr)
+static void mail_modifylog_init_header(struct mail_modify_log *log,
+				       struct modify_log_header *hdr)
 {
-	memset(hdr, 0, sizeof(ModifyLogHeader));
+	memset(hdr, 0, sizeof(struct modify_log_header));
 	hdr->indexid = log->index->indexid;
-	hdr->used_file_size = sizeof(ModifyLogHeader);
+	hdr->used_file_size = sizeof(struct modify_log_header);
 }
 
-static int mail_modifylog_init_fd(ModifyLogFile *file, int fd)
+static int mail_modifylog_init_fd(struct modify_log_file *file, int fd)
 {
-	MailIndex *index = file->log->index;
-        ModifyLogHeader hdr;
+	struct mail_index *index = file->log->index;
+        struct modify_log_header hdr;
 
         mail_modifylog_init_header(file->log, &hdr);
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
@@ -334,18 +337,18 @@ static int mail_modifylog_init_fd(ModifyLogFile *file, int fd)
 	return TRUE;
 }
 
-static int modifylog_mark_full(ModifyLogFile *file)
+static int modifylog_mark_full(struct modify_log_file *file)
 {
 	unsigned int sync_id = SYNC_ID_FULL;
 
 	if (file->mmap_base != NULL) {
 		file->header->sync_id = SYNC_ID_FULL;
 
-		if (msync(file->mmap_base, sizeof(ModifyLogHeader),
+		if (msync(file->mmap_base, sizeof(struct modify_log_header),
 			  MS_SYNC) < 0)
 			return modifylog_set_syscall_error(file, "msync()");
 	} else {
-		off_t offset = offsetof(ModifyLogHeader, sync_id);
+		off_t offset = offsetof(struct modify_log_header, sync_id);
 
 		if (lseek(file->fd, offset, SEEK_SET) < 0)
 			return modifylog_set_syscall_error(file, "lseek()");
@@ -360,9 +363,9 @@ static int modifylog_mark_full(ModifyLogFile *file)
 }
 
 /* Returns 1 = ok, 0 = can't lock file, -1 = error */
-static int modifylog_reuse_or_create_file(ModifyLogFile *file)
+static int modifylog_reuse_or_create_file(struct modify_log_file *file)
 {
-	MailIndex *index = file->log->index;
+	struct mail_index *index = file->log->index;
 	int fd, ret;
 
 	if (index->nodiskspace)
@@ -404,10 +407,10 @@ static int modifylog_reuse_or_create_file(ModifyLogFile *file)
 }
 
 /* Returns 1 = ok, 0 = full, -1 = error */
-static int mail_modifylog_open_and_verify(ModifyLogFile *file)
+static int mail_modifylog_open_and_verify(struct modify_log_file *file)
 {
-	MailIndex *index = file->log->index;
-	ModifyLogHeader hdr;
+	struct mail_index *index = file->log->index;
+	struct modify_log_header hdr;
 	ssize_t ret;
 	int fd;
 
@@ -459,7 +462,7 @@ static int mail_modifylog_open_and_verify(ModifyLogFile *file)
 	return ret;
 }
 
-static int modifylog_files_open_or_create(MailModifyLog *log)
+static int modifylog_files_open_or_create(struct mail_modify_log *log)
 {
 	int i, ret1, ret2;
 
@@ -513,7 +516,7 @@ static int modifylog_files_open_or_create(MailModifyLog *log)
 	return FALSE;
 }
 
-static void modifylog_create_anon(ModifyLogFile *file)
+static void modifylog_create_anon(struct modify_log_file *file)
 {
 	file->mmap_full_length = MODIFY_LOG_INITIAL_SIZE;
 	file->mmap_base = mmap_anon(file->mmap_full_length);
@@ -528,9 +531,9 @@ static void modifylog_create_anon(ModifyLogFile *file)
 	file->filepath = i_strdup("(in-memory modify log)");
 }
 
-int mail_modifylog_create(MailIndex *index)
+int mail_modifylog_create(struct mail_index *index)
 {
-	MailModifyLog *log;
+	struct mail_modify_log *log;
 	int ret;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
@@ -558,9 +561,9 @@ int mail_modifylog_create(MailIndex *index)
 	return TRUE;
 }
 
-int mail_modifylog_open_or_create(MailIndex *index)
+int mail_modifylog_open_or_create(struct mail_index *index)
 {
-	MailModifyLog *log;
+	struct mail_modify_log *log;
 
 	log = mail_modifylog_new(index);
 
@@ -574,7 +577,7 @@ int mail_modifylog_open_or_create(MailIndex *index)
 	return TRUE;
 }
 
-void mail_modifylog_free(MailModifyLog *log)
+void mail_modifylog_free(struct mail_modify_log *log)
 {
 	log->index->modifylog = NULL;
 
@@ -586,9 +589,9 @@ void mail_modifylog_free(MailModifyLog *log)
 	i_free(log);
 }
 
-int mail_modifylog_sync_file(MailModifyLog *log, int *fsync_fd)
+int mail_modifylog_sync_file(struct mail_modify_log *log, int *fsync_fd)
 {
-	ModifyLogFile *file = log->head;
+	struct modify_log_file *file = log->head;
 
 	*fsync_fd = -1;
 
@@ -605,16 +608,16 @@ int mail_modifylog_sync_file(MailModifyLog *log, int *fsync_fd)
 	return TRUE;
 }
 
-void mail_modifylog_notify_lock_drop(MailModifyLog *log)
+void mail_modifylog_notify_lock_drop(struct mail_modify_log *log)
 {
 	log->head->last_expunge = NULL;
 	log->head->last_flags = NULL;
 }
 
 /* if head file is closed, change it */
-static int modifylog_update_head(MailModifyLog *log)
+static int modifylog_update_head(struct mail_modify_log *log)
 {
-	ModifyLogFile *file;
+	struct modify_log_file *file;
 
 	if (!mmap_update(log->head, FALSE))
 		return FALSE;
@@ -639,12 +642,12 @@ static int modifylog_update_head(MailModifyLog *log)
 
 	/* we're non-synced */
 	file->synced_id = 0;
-	file->synced_position = sizeof(ModifyLogHeader);
+	file->synced_position = sizeof(struct modify_log_header);
 	log->head = file;
 	return TRUE;
 }
 
-static int mmap_update_both(MailModifyLog *log)
+static int mmap_update_both(struct mail_modify_log *log)
 {
 	if (!modifylog_update_head(log))
 		return FALSE;
@@ -657,7 +660,7 @@ static int mmap_update_both(MailModifyLog *log)
 	return TRUE;
 }
 
-static int mail_modifylog_grow(ModifyLogFile *file)
+static int mail_modifylog_grow(struct modify_log_file *file)
 {
 	uoff_t new_fsize;
 	void *base;
@@ -692,10 +695,11 @@ static int mail_modifylog_grow(ModifyLogFile *file)
 	return TRUE;
 }
 
-static int mail_modifylog_append(ModifyLogFile *file, ModifyLogRecord **rec,
+static int mail_modifylog_append(struct modify_log_file *file,
+				 struct modify_log_record **rec,
 				 int external_change)
 {
-	ModifyLogRecord *destrec;
+	struct modify_log_record *destrec;
 
 	i_assert(file->log->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 	i_assert(file->header->sync_id != SYNC_ID_FULL);
@@ -720,20 +724,20 @@ static int mail_modifylog_append(ModifyLogFile *file, ModifyLogRecord **rec,
 	}
 
 	i_assert(file->header->used_file_size == file->mmap_used_length);
-	i_assert(file->mmap_used_length + sizeof(ModifyLogRecord) <=
+	i_assert(file->mmap_used_length + sizeof(struct modify_log_record) <=
 		 file->mmap_full_length);
 
-	destrec = (ModifyLogRecord *) ((char *) file->mmap_base +
-				       file->mmap_used_length);
-	memcpy(destrec, *rec, sizeof(ModifyLogRecord));
+	destrec = (struct modify_log_record *) ((char *) file->mmap_base +
+						file->mmap_used_length);
+	memcpy(destrec, *rec, sizeof(struct modify_log_record));
 
 	if (!external_change && file->header->sync_id == file->synced_id) {
-		file->synced_position += sizeof(ModifyLogRecord);
+		file->synced_position += sizeof(struct modify_log_record);
 		file->synced_id++;
 	}
 
-	file->header->used_file_size += sizeof(ModifyLogRecord);
-	file->mmap_used_length += sizeof(ModifyLogRecord);
+	file->header->used_file_size += sizeof(struct modify_log_record);
+	file->mmap_used_length += sizeof(struct modify_log_record);
 
 	file->header->sync_id++;
 	file->modified = TRUE;
@@ -742,11 +746,11 @@ static int mail_modifylog_append(ModifyLogFile *file, ModifyLogRecord **rec,
 	return TRUE;
 }
 
-int mail_modifylog_add_expunge(MailModifyLog *log, unsigned int seq,
+int mail_modifylog_add_expunge(struct mail_modify_log *log, unsigned int seq,
 			       unsigned int uid, int external_change)
 {
-	ModifyLogFile *file;
-	ModifyLogRecord rec, *recp;
+	struct modify_log_file *file;
+	struct modify_log_record rec, *recp;
 
 	if (!modifylog_update_head(log))
 		return FALSE;
@@ -786,11 +790,11 @@ int mail_modifylog_add_expunge(MailModifyLog *log, unsigned int seq,
 	return TRUE;
 }
 
-int mail_modifylog_add_flags(MailModifyLog *log, unsigned int seq,
+int mail_modifylog_add_flags(struct mail_modify_log *log, unsigned int seq,
 			     unsigned int uid, int external_change)
 {
-	ModifyLogFile *file;
-	ModifyLogRecord rec, *recp;
+	struct modify_log_file *file;
+	struct modify_log_record rec, *recp;
 
 	if (!modifylog_update_head(log))
 		return FALSE;
@@ -823,26 +827,27 @@ int mail_modifylog_add_flags(MailModifyLog *log, unsigned int seq,
 	return TRUE;
 }
 
-static void mail_modifylog_get_nonsynced_file(ModifyLogFile *file,
-					      const ModifyLogRecord **arr,
-					      unsigned int *count)
+static void
+mail_modifylog_get_nonsynced_file(struct modify_log_file *file,
+				  const struct modify_log_record **arr,
+				  unsigned int *count)
 {
-	ModifyLogRecord *end_rec;
+	struct modify_log_record *end_rec;
 
 	i_assert(file->synced_position <= file->mmap_used_length);
-	i_assert(file->synced_position >= sizeof(ModifyLogHeader));
+	i_assert(file->synced_position >= sizeof(struct modify_log_header));
 
-	*arr = (ModifyLogRecord *) ((char *) file->mmap_base +
-				    file->synced_position);
-	end_rec = (ModifyLogRecord *) ((char *) file->mmap_base +
-				       file->mmap_used_length);
+	*arr = (struct modify_log_record *) ((char *) file->mmap_base +
+					     file->synced_position);
+	end_rec = (struct modify_log_record *) ((char *) file->mmap_base +
+						file->mmap_used_length);
 	*count = (unsigned int) (end_rec - *arr);
 }
 
-int mail_modifylog_get_nonsynced(MailModifyLog *log,
-				 const ModifyLogRecord **arr1,
+int mail_modifylog_get_nonsynced(struct mail_modify_log *log,
+				 const struct modify_log_record **arr1,
 				 unsigned int *count1,
-				 const ModifyLogRecord **arr2,
+				 const struct modify_log_record **arr2,
 				 unsigned int *count2)
 {
 	i_assert(log->index->lock_type != MAIL_LOCK_UNLOCK);
@@ -860,21 +865,22 @@ int mail_modifylog_get_nonsynced(MailModifyLog *log,
 	return TRUE;
 }
 
-static int mail_modifylog_try_truncate(ModifyLogFile *file)
+static int mail_modifylog_try_truncate(struct modify_log_file *file)
 {
 	if (modifylog_have_other_users(file->log, TRUE) != 0)
 		return FALSE;
 
 	file->header->sync_id = 0;
-	file->header->used_file_size = sizeof(ModifyLogHeader);
+	file->header->used_file_size = sizeof(struct modify_log_header);
 
-	if (msync(file->mmap_base, sizeof(ModifyLogHeader), MS_SYNC) < 0) {
+	if (msync(file->mmap_base,
+		  sizeof(struct modify_log_header), MS_SYNC) < 0) {
 		modifylog_set_syscall_error(file, "msync()");
 		return FALSE;
 	}
 
 	file->synced_id = 0;
-	file->synced_position = sizeof(ModifyLogHeader);
+	file->synced_position = sizeof(struct modify_log_header);
 
 	if (file_set_size(file->fd, MODIFY_LOG_INITIAL_SIZE) < 0)
 		modifylog_set_syscall_error(file, "file_set_size()");
@@ -883,9 +889,9 @@ static int mail_modifylog_try_truncate(ModifyLogFile *file)
 }
 
 /* switches to active modify log, updating our sync mark to end of it */
-static int mail_modifylog_switch_file(MailModifyLog *log)
+static int mail_modifylog_switch_file(struct mail_modify_log *log)
 {
-	ModifyLogFile *file;
+	struct modify_log_file *file;
 
 	(void)mail_modifylog_try_truncate(log->tail);
 
@@ -904,9 +910,9 @@ static int mail_modifylog_switch_file(MailModifyLog *log)
 	return mmap_init_update(log->head);
 }
 
-static int mail_modifylog_try_switch_file(MailModifyLog *log)
+static int mail_modifylog_try_switch_file(struct mail_modify_log *log)
 {
-	ModifyLogFile *file;
+	struct modify_log_file *file;
 
 	if (log->head->anon_mmap)
 		return TRUE;
@@ -932,7 +938,7 @@ static int mail_modifylog_try_switch_file(MailModifyLog *log)
 	return mmap_init_update(log->head);
 }
 
-int mail_modifylog_mark_synced(MailModifyLog *log)
+int mail_modifylog_mark_synced(struct mail_modify_log *log)
 {
 	i_assert(log->index->lock_type != MAIL_LOCK_UNLOCK);
 
@@ -960,29 +966,29 @@ int mail_modifylog_mark_synced(MailModifyLog *log)
 
 static int compare_expunge(const void *p1, const void *p2)
 {
-	const ModifyLogExpunge *e1 = p1;
-	const ModifyLogExpunge *e2 = p2;
+	const struct modify_log_expunge *e1 = p1;
+	const struct modify_log_expunge *e2 = p2;
 
 	return e1->uid1 < e2->uid1 ? -1 : e1->uid1 > e2->uid1 ? 1 : 0;
 }
 
-static ModifyLogRecord *modifylog_first(MailModifyLog *log)
+static struct modify_log_record *modifylog_first(struct mail_modify_log *log)
 {
-	ModifyLogFile *file;
-        ModifyLogRecord *rec;
+	struct modify_log_file *file;
+        struct modify_log_record *rec;
 
 	file = log->tail;
-	rec = (ModifyLogRecord *) ((char *) file->mmap_base +
-				   file->synced_position);
-	log->iterator_end = (ModifyLogRecord *) ((char *) file->mmap_base +
-						 file->mmap_used_length);
+	rec = (struct modify_log_record *) ((char *) file->mmap_base +
+					    file->synced_position);
+	log->iterator_end = (struct modify_log_record *)
+		((char *) file->mmap_base + file->mmap_used_length);
 	return rec < log->iterator_end ? rec : NULL;
 }
 
-static ModifyLogRecord *modifylog_next(MailModifyLog *log,
-				       ModifyLogRecord *rec)
+static struct modify_log_record *
+modifylog_next(struct mail_modify_log *log, struct modify_log_record *rec)
 {
-	ModifyLogFile *file;
+	struct modify_log_file *file;
 
 	rec++;
 	if (rec < log->iterator_end)
@@ -993,15 +999,16 @@ static ModifyLogRecord *modifylog_next(MailModifyLog *log,
 		return NULL; /* end of head */
 
 	/* end of tail, jump to beginning of head */
-	rec = (ModifyLogRecord *) ((char *) file->mmap_base +
-				   sizeof(ModifyLogHeader));
-	log->iterator_end = (ModifyLogRecord *) ((char *) file->mmap_base +
-						 file->mmap_used_length);
+	rec = (struct modify_log_record *) ((char *) file->mmap_base +
+					    sizeof(struct modify_log_header));
+	log->iterator_end = (struct modify_log_record *)
+		((char *) file->mmap_base + file->mmap_used_length);
 	return rec < log->iterator_end ? rec : NULL;
 }
 
-static unsigned int modifylog_get_record_count_after(MailModifyLog *log,
-						     ModifyLogRecord *rec)
+static unsigned int
+modifylog_get_record_count_after(struct mail_modify_log *log,
+				 struct modify_log_record *rec)
 {
 	unsigned int count = 0;
 
@@ -1011,33 +1018,33 @@ static unsigned int modifylog_get_record_count_after(MailModifyLog *log,
 		/* only head */
 		count = (log->head->mmap_used_length -
 			 MODIFYLOG_FILE_POSITION(log->head, rec)) /
-			sizeof(ModifyLogRecord);
+			sizeof(struct modify_log_record);
 	} else {
 		/* tail */
 		count = (log->tail->mmap_used_length -
 			 MODIFYLOG_FILE_POSITION(log->tail, rec)) /
-			sizeof(ModifyLogRecord);
+			sizeof(struct modify_log_record);
 
 		if (log->head != log->tail) {
 			/* + head */
 			count += (log->tail->mmap_used_length -
-				  sizeof(ModifyLogHeader)) /
-				sizeof(ModifyLogRecord);
+				  sizeof(struct modify_log_header)) /
+				sizeof(struct modify_log_record);
 		}
 	}
 
 	return count;
 }
 
-const ModifyLogExpunge *
-mail_modifylog_seq_get_expunges(MailModifyLog *log,
+const struct modify_log_expunge *
+mail_modifylog_seq_get_expunges(struct mail_modify_log *log,
 				unsigned int first_seq,
 				unsigned int last_seq,
 				unsigned int *expunges_before)
 {
-	ModifyLogRecord *rec;
-	ModifyLogExpunge *expunge;
-	Buffer *buf;
+	struct modify_log_record *rec;
+	struct modify_log_expunge *expunge;
+	buffer_t *buf;
 	size_t count;
 	unsigned int before, max_records;
 
@@ -1070,9 +1077,10 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 	if (max_records > last_seq - first_seq + 1)
 		max_records = last_seq - first_seq + 1;
 
-	i_assert((max_records+1) < SSIZE_T_MAX/sizeof(ModifyLogExpunge));
+	i_assert((max_records+1) <
+		 SSIZE_T_MAX / sizeof(struct modify_log_expunge));
 	buf = buffer_create_static_hard(data_stack_pool, (max_records+1) *
-					sizeof(ModifyLogExpunge));
+					sizeof(struct modify_log_expunge));
 
 	before = 0;
 	for (; rec != NULL; rec = modifylog_next(log, rec)) {
@@ -1124,27 +1132,28 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 	memset(expunge, 0, sizeof(*expunge));
 
 	/* extract the array from buffer */
-	count = buffer_get_used_size(buf)/sizeof(ModifyLogExpunge);
+	count = buffer_get_used_size(buf)/sizeof(struct modify_log_expunge);
 	expunge = buffer_free_without_data(buf);
 
 	/* sort the UID array, not including the terminating 0 */
-	qsort(expunge, count-1, sizeof(ModifyLogExpunge), compare_expunge);
+	qsort(expunge, count-1, sizeof(struct modify_log_expunge),
+	      compare_expunge);
 
 	*expunges_before = before;
 	return expunge;
 }
 
-const ModifyLogExpunge *
-mail_modifylog_uid_get_expunges(MailModifyLog *log,
+const struct modify_log_expunge *
+mail_modifylog_uid_get_expunges(struct mail_modify_log *log,
 				unsigned int first_uid,
 				unsigned int last_uid,
 				unsigned int *expunges_before)
 {
 	/* pretty much copy&pasted from sequence code above ..
 	   kind of annoying */
-	ModifyLogRecord *rec;
-	ModifyLogExpunge *expunge;
-	Buffer *buf;
+	struct modify_log_record *rec;
+	struct modify_log_expunge *expunge;
+	buffer_t *buf;
 	size_t count;
 	unsigned int before, max_records;
 
@@ -1177,9 +1186,10 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 	if (max_records > last_uid - first_uid + 1)
 		max_records = last_uid - first_uid + 1;
 
-	i_assert((max_records+1) < SSIZE_T_MAX/sizeof(ModifyLogExpunge));
+	i_assert((max_records+1) <
+		 SSIZE_T_MAX / sizeof(struct modify_log_expunge));
 	buf = buffer_create_static_hard(data_stack_pool, (max_records+1) *
-					sizeof(ModifyLogExpunge));
+					sizeof(struct modify_log_expunge));
 
 	before = 0;
 	for (; rec != NULL; rec = modifylog_next(log, rec)) {
@@ -1212,26 +1222,28 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 	memset(expunge, 0, sizeof(*expunge));
 
 	/* extract the array from buffer */
-	count = buffer_get_used_size(buf)/sizeof(ModifyLogExpunge);
+	count = buffer_get_used_size(buf) / sizeof(struct modify_log_expunge);
 	expunge = buffer_free_without_data(buf);
 
 	/* sort the UID array, not including the terminating 0 */
-	qsort(expunge, count-1, sizeof(ModifyLogExpunge), compare_expunge);
+	qsort(expunge, count-1, sizeof(struct modify_log_expunge),
+	      compare_expunge);
 
 	*expunges_before = before;
 	return expunge;
 }
 
-static unsigned int modifylog_file_get_expunge_count(ModifyLogFile *file)
+static unsigned int
+modifylog_file_get_expunge_count(struct modify_log_file *file)
 {
-	ModifyLogRecord *rec, *end_rec;
+	struct modify_log_record *rec, *end_rec;
 	unsigned int expunges;
 
 	/* find the first expunged message that affects our range */
-	rec = (ModifyLogRecord *) ((char *) file->mmap_base +
-				   file->synced_position);
-	end_rec = (ModifyLogRecord *) ((char *) file->mmap_base +
-				       file->mmap_used_length);
+	rec = (struct modify_log_record *) ((char *) file->mmap_base +
+					    file->synced_position);
+	end_rec = (struct modify_log_record *) ((char *) file->mmap_base +
+						file->mmap_used_length);
 
 	expunges = 0;
 	while (rec < end_rec) {
@@ -1243,7 +1255,7 @@ static unsigned int modifylog_file_get_expunge_count(ModifyLogFile *file)
 	return expunges;
 }
 
-unsigned int mail_modifylog_get_expunge_count(MailModifyLog *log)
+unsigned int mail_modifylog_get_expunge_count(struct mail_modify_log *log)
 {
 	unsigned int expunges;
 

@@ -8,19 +8,19 @@
 
 #include <unistd.h>
 
-typedef struct {
-	Mailbox *dest;
+struct copy_context {
+	struct mailbox *dest;
 	const char **custom_flags;
 	int copy_inside_mailbox;
-} CopyContext;
+};
 
-static int copy_func(MailIndex *index, MailIndexRecord *rec,
+static int copy_func(struct mail_index *index, struct mail_index_record *rec,
 		     unsigned int client_seq __attr_unused__,
 		     unsigned int idx_seq __attr_unused__, void *context)
 {
-	CopyContext *ctx = context;
-	IndexMailbox *dest_ibox = NULL;
-	IStream *input;
+	struct copy_context *ctx = context;
+	struct index_mailbox *dest_ibox = NULL;
+	struct istream *input;
 	time_t internal_date;
 	int failed, deleted;
 
@@ -30,7 +30,7 @@ static int copy_func(MailIndex *index, MailIndexRecord *rec,
 
 	if (ctx->copy_inside_mailbox) {
                 /* kludgy.. */
-		dest_ibox = (IndexMailbox *) ctx->dest;
+		dest_ibox = (struct index_mailbox *) ctx->dest;
 		dest_ibox->delay_save_unlocking = TRUE;
 	}
 
@@ -46,12 +46,12 @@ static int copy_func(MailIndex *index, MailIndexRecord *rec,
 	return !failed;
 }
 
-int index_storage_copy(Mailbox *box, Mailbox *destbox,
+int index_storage_copy(struct mailbox *box, struct mailbox *destbox,
 		       const char *messageset, int uidset)
 {
-	IndexMailbox *ibox = (IndexMailbox *) box;
-        CopyContext ctx;
-	MailLockType lock_type;
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+        struct copy_context ctx;
+	enum mail_lock_type lock_type;
 	int failed;
 
 	if (destbox->readonly) {

@@ -4,12 +4,12 @@
 #include "commands.h"
 #include "mail-search.h"
 
-int cmd_search(Client *client)
+int cmd_search(struct client *client)
 {
-	MailSearchArg *sargs;
-	ImapArg *args;
+	struct mail_search_arg *sargs;
+	struct imap_arg *args;
 	int args_count;
-	Pool pool;
+	pool_t pool;
 	const char *error, *charset;
 
 	args_count = imap_parser_read_args(client->parser, 0, 0, &args);

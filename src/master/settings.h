@@ -60,10 +60,8 @@ extern int set_overwrite_incompatible_index;
 extern unsigned int set_umask;
 
 /* auth */
-typedef struct _AuthConfig AuthConfig;
-
-struct _AuthConfig {
-	AuthConfig *next;
+struct auth_config {
+	struct auth_config *next;
 
 	char *name;
 	char *methods;
@@ -77,7 +75,7 @@ struct _AuthConfig {
 	unsigned int process_size;
 };
 
-extern AuthConfig *auth_processes_config;
+extern struct auth_config *auth_processes_config;
 
 void settings_read(const char *path);
 

@@ -14,8 +14,8 @@
 
 #define DECODE_BLOCK_SIZE 8192
 
-typedef struct {
-	Pool pool;
+struct body_search_context {
+	pool_t pool;
 
 	const char *key;
 	size_t key_len;
@@ -23,16 +23,16 @@ typedef struct {
 	const char *charset;
 	unsigned int unknown_charset:1;
 	unsigned int search_header:1;
-} BodySearchContext;
+};
 
-typedef struct {
-	BodySearchContext *body_ctx;
+struct part_search_context {
+	struct body_search_context *body_ctx;
 
-	HeaderSearchContext *hdr_search_ctx;
-	CharsetTranslation *translation;
+	struct header_search_context *hdr_search_ctx;
+	struct charset_translation *translation;
 
-	Buffer *decode_buf;
-	Buffer *match_buf;
+	buffer_t *decode_buf;
+	buffer_t *match_buf;
 
 	char *content_type;
 	char *content_charset;
@@ -43,12 +43,12 @@ typedef struct {
 	unsigned int content_type_text:1; /* text/any or message/any */
 	unsigned int ignore_header:1;
 	unsigned int found:1;
-} PartSearchContext;
+};
 
 static void parse_content_type(const unsigned char *value, size_t value_len,
 			       void *context)
 {
-	PartSearchContext *ctx = context;
+	struct part_search_context *ctx = context;
 
 	if (ctx->content_type != NULL) {
 		ctx->content_type = i_strndup(value, value_len);
@@ -63,7 +63,7 @@ parse_content_type_param(const unsigned char *name, size_t name_len,
 			 const unsigned char *value, size_t value_len,
 			 int value_quoted, void *context)
 {
-	PartSearchContext *ctx = context;
+	struct part_search_context *ctx = context;
 
 	if (name_len == 7 && memcasecmp(name, "charset", 7) == 0 &&
 	    ctx->content_charset == NULL) {
@@ -75,7 +75,7 @@ parse_content_type_param(const unsigned char *name, size_t name_len,
 static void parse_content_encoding(const unsigned char *value, size_t value_len,
 				   void *context)
 {
-	PartSearchContext *ctx = context;
+	struct part_search_context *ctx = context;
 
 	switch (value_len) {
 	case 4:
@@ -101,12 +101,12 @@ static void parse_content_encoding(const unsigned char *value, size_t value_len,
 	}
 }
 
-static void header_find(MessagePart *part __attr_unused__,
+static void header_find(struct message_part *part __attr_unused__,
 			const unsigned char *name, size_t name_len,
 			const unsigned char *value, size_t value_len,
 			void *context)
 {
-	PartSearchContext *ctx = context;
+	struct part_search_context *ctx = context;
 
 	if (ctx->found)
 		return;
@@ -129,7 +129,8 @@ static void header_find(MessagePart *part __attr_unused__,
 	}
 }
 
-static int message_search_header(PartSearchContext *ctx, IStream *input)
+static int message_search_header(struct part_search_context *ctx,
+				 struct istream *input)
 {
 	ctx->hdr_search_ctx = message_header_search_init(data_stack_pool,
 							 ctx->body_ctx->key,
@@ -143,7 +144,8 @@ static int message_search_header(PartSearchContext *ctx, IStream *input)
 	return ctx->found;
 }
 
-static int message_search_decoded_block(PartSearchContext *ctx, Buffer *block)
+static int message_search_decoded_block(struct part_search_context *ctx,
+					buffer_t *block)
 {
 	const unsigned char *p, *end, *key;
 	size_t key_len, block_size, *matches, match_count, value;
@@ -191,11 +193,12 @@ static int message_search_decoded_block(PartSearchContext *ctx, Buffer *block)
 }
 
 /* returns 1 = found, 0 = not found, -1 = error in input data */
-static int message_search_body_block(PartSearchContext *ctx, Buffer *block)
+static int message_search_body_block(struct part_search_context *ctx,
+				     buffer_t *block)
 {
 	const unsigned char *inbuf;
-	Buffer *outbuf;
-        CharsetResult result;
+	buffer_t *outbuf;
+        enum charset_result result;
 	size_t block_pos, inbuf_size, inbuf_left, ret;
 
 	outbuf = buffer_create_static(data_stack_pool, DECODE_BLOCK_SIZE);
@@ -250,11 +253,12 @@ static int message_search_body_block(PartSearchContext *ctx, Buffer *block)
 	return 0;
 }
 
-static int message_search_body(PartSearchContext *ctx, IStream *input,
-			       MessagePart *part)
+static int message_search_body(struct part_search_context *ctx,
+			       struct istream *input,
+			       struct message_part *part)
 {
 	const unsigned char *data;
-	Buffer *decodebuf;
+	buffer_t *decodebuf;
 	size_t data_size, pos;
 	uoff_t old_limit;
 	ssize_t ret;
@@ -336,13 +340,13 @@ static int message_search_body(PartSearchContext *ctx, IStream *input,
 	return found;
 }
 
-static int message_body_search_init(BodySearchContext *ctx, const char *key,
-				    const char *charset, int *unknown_charset,
-				    int search_header)
+static int message_body_search_init(struct body_search_context *ctx,
+				    const char *key, const char *charset,
+				    int *unknown_charset, int search_header)
 {
 	size_t key_len;
 
-	memset(ctx, 0, sizeof(BodySearchContext));
+	memset(ctx, 0, sizeof(struct body_search_context));
 
 	/* get the key uppercased */
 	key = charset_to_ucase_utf8_string(charset, unknown_charset,
@@ -362,10 +366,11 @@ static int message_body_search_init(BodySearchContext *ctx, const char *key,
 	return TRUE;
 }
 
-static int message_body_search_ctx(BodySearchContext *ctx, IStream *input,
-				   MessagePart *part)
+static int message_body_search_ctx(struct body_search_context *ctx,
+				   struct istream *input,
+				   struct message_part *part)
 {
-	PartSearchContext part_ctx;
+	struct part_search_context part_ctx;
 	int found;
 
 	found = FALSE;
@@ -404,10 +409,10 @@ static int message_body_search_ctx(BodySearchContext *ctx, IStream *input,
 }
 
 int message_body_search(const char *key, const char *charset,
-			int *unknown_charset, IStream *input,
-			MessagePart *part, int search_header)
+			int *unknown_charset, struct istream *input,
+			struct message_part *part, int search_header)
 {
-        BodySearchContext ctx;
+        struct body_search_context ctx;
 
 	if (!message_body_search_init(&ctx, key, charset, unknown_charset,
 				      search_header))

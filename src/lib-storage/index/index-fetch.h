@@ -1,24 +1,25 @@
 #ifndef __INDEX_FETCH_H
 #define __INDEX_FETCH_H
 
-typedef struct {
-	Mailbox *box;
-	MailStorage *storage;
-	ImapMessageCache *cache;
-	MailIndex *index;
+struct fetch_context {
+	struct mailbox *box;
+	struct mail_storage *storage;
+	struct imap_message_cache *cache;
+	struct mail_index *index;
 
 	const char **custom_flags;
 	unsigned int custom_flags_count;
 
-	MailFetchData *fetch_data;
-	OStream *output;
-	String *str;
+	struct mail_fetch_data *fetch_data;
+	struct ostream *output;
+	string_t *str;
 	int update_seen, failed;
 	int first;
-} FetchContext;
+};
 
-ImapCacheField index_fetch_body_get_cache(const char *section);
-int index_fetch_body_section(MailIndexRecord *rec, MailFetchBodyData *sect,
-			     FetchContext *ctx);
+enum imap_cache_field index_fetch_body_get_cache(const char *section);
+int index_fetch_body_section(struct mail_index_record *rec,
+			     struct mail_fetch_body_data *sect,
+			     struct fetch_context *ctx);
 
 #endif

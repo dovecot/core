@@ -9,7 +9,7 @@
 static int header_decode(const unsigned char *data, size_t size,
 			 const char *charset, void *context)
 {
-	Buffer *buf = context;
+	buffer_t *buf = context;
 	const char *utf8_str;
 	unsigned char *buf_data;
 	size_t i, used_size;
@@ -19,7 +19,8 @@ static int header_decode(const unsigned char *data, size_t size,
 		buffer_append(buf, data, size);
 	} else {
 		t_push();
-		utf8_str = charset_to_utf8_string(charset, NULL, data, size, &size);
+		utf8_str = charset_to_utf8_string(charset, NULL, data,
+						  size, &size);
 		if (utf8_str == NULL)
 			size = 0;
 		else
@@ -40,7 +41,7 @@ static int header_decode(const unsigned char *data, size_t size,
 	return TRUE;
 }
 
-static void pack_whitespace(Buffer *buf)
+static void pack_whitespace(buffer_t *buf)
 {
 	char *data, *dest;
 	int last_lwsp;
@@ -78,7 +79,7 @@ static void pack_whitespace(Buffer *buf)
 	buffer_set_used_size(buf, (size_t) (dest - data)+1);
 }
 
-static void remove_subj_trailers(Buffer *buf)
+static void remove_subj_trailers(buffer_t *buf)
 {
 	const char *data;
 	size_t orig_size, size;
@@ -125,7 +126,7 @@ static int remove_blob(const char **datap)
 	return TRUE;
 }
 
-static int remove_subj_leader(Buffer *buf)
+static int remove_subj_leader(buffer_t *buf)
 {
 	const char *data, *orig_data;
 	int ret = FALSE;
@@ -175,7 +176,7 @@ static int remove_subj_leader(Buffer *buf)
 	return TRUE;
 }
 
-static int remove_blob_when_nonempty(Buffer *buf)
+static int remove_blob_when_nonempty(buffer_t *buf)
 {
 	const char *data, *orig_data;
 
@@ -189,7 +190,7 @@ static int remove_blob_when_nonempty(Buffer *buf)
 	return FALSE;
 }
 
-static int remove_subj_fwd_hdr(Buffer *buf)
+static int remove_subj_fwd_hdr(buffer_t *buf)
 {
 	const char *data;
 	size_t size;
@@ -212,9 +213,9 @@ static int remove_subj_fwd_hdr(Buffer *buf)
 	return TRUE;
 }
 
-const char *imap_get_base_subject_cased(Pool pool, const char *subject)
+const char *imap_get_base_subject_cased(pool_t pool, const char *subject)
 {
-	Buffer *buf;
+	buffer_t *buf;
 	size_t subject_len;
 	int found;
 

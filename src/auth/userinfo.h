@@ -3,7 +3,7 @@
 
 #include "auth-interface.h"
 
-typedef struct {
+struct user_info_module {
 	void (*init)(const char *args);
 	void (*deinit)(void);
 
@@ -11,7 +11,7 @@ typedef struct {
 	   information. reply should have been initialized (zeroed) before
 	   calling this function. */
 	int (*verify_plain)(const char *user, const char *password,
-			    AuthCookieReplyData *reply);
+			    struct auth_cookie_reply_data *reply);
 
 	/* Digest-MD5 specific password lookup. The digest is filled with
 	   the MD5 password which consists of a MD5 sum of
@@ -19,16 +19,16 @@ typedef struct {
 	   in UTF-8, otherwise ISO-8859-1. Returns TRUE if user was found. */
 	int (*lookup_digest_md5)(const char *user, const char *realm,
 				 unsigned char digest[16],
-				 AuthCookieReplyData *reply);
-} UserInfoModule;
+				 struct auth_cookie_reply_data *reply);
+};
 
-extern UserInfoModule *userinfo;
+extern struct user_info_module *userinfo;
 
-extern UserInfoModule userinfo_passwd;
-extern UserInfoModule userinfo_shadow;
-extern UserInfoModule userinfo_pam;
-extern UserInfoModule userinfo_passwd_file;
-extern UserInfoModule userinfo_vpopmail;
+extern struct user_info_module userinfo_passwd;
+extern struct user_info_module userinfo_shadow;
+extern struct user_info_module userinfo_pam;
+extern struct user_info_module userinfo_passwd_file;
+extern struct user_info_module userinfo_vpopmail;
 
 void userinfo_init(void);
 void userinfo_deinit(void);

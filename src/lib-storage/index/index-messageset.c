@@ -22,12 +22,12 @@ static unsigned int get_next_number(const char **str)
 	return num;
 }
 
-static int mail_index_foreach(MailIndex *index,
+static int mail_index_foreach(struct mail_index *index,
 			      unsigned int seq, unsigned int seq2,
 			      MsgsetForeachFunc func, void *context)
 {
-	MailIndexRecord *rec;
-	const ModifyLogExpunge *expunges;
+	struct mail_index_record *rec;
+	const struct modify_log_expunge *expunges;
 	unsigned int idx_seq, expunges_before, temp;
 	int expunges_found;
 
@@ -90,7 +90,7 @@ static int mail_index_foreach(MailIndex *index,
 	return !expunges_found && seq > seq2 ? 1 : 2;
 }
 
-static int mail_index_messageset_foreach(MailIndex *index,
+static int mail_index_messageset_foreach(struct mail_index *index,
 					 const char *messageset,
 					 unsigned int messages_count,
 					 MsgsetForeachFunc func, void *context,
@@ -175,12 +175,12 @@ static int mail_index_messageset_foreach(MailIndex *index,
 	return all_found ? 1 : 2;
 }
 
-static int mail_index_uid_foreach(MailIndex *index,
+static int mail_index_uid_foreach(struct mail_index *index,
 				  unsigned int uid, unsigned int uid2,
 				  MsgsetForeachFunc func, void *context)
 {
-	MailIndexRecord *rec;
-	const ModifyLogExpunge *expunges;
+	struct mail_index_record *rec;
+	const struct modify_log_expunge *expunges;
 	unsigned int client_seq, idx_seq, expunges_before, temp;
 	int expunges_found;
 
@@ -234,12 +234,13 @@ static int mail_index_uid_foreach(MailIndex *index,
 	return expunges_found ? 2 : 1;
 }
 
-static int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
+static int mail_index_uidset_foreach(struct mail_index *index,
+				     const char *uidset,
 				     unsigned int messages_count,
 				     MsgsetForeachFunc func, void *context,
 				     const char **error)
 {
-	MailIndexRecord *rec;
+	struct mail_index_record *rec;
 	const char *input;
 	unsigned int uid, uid2;
 	int ret, all_found;
@@ -309,7 +310,7 @@ static int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 	return all_found ? 1 : 2;
 }
 
-int index_messageset_foreach(IndexMailbox *ibox,
+int index_messageset_foreach(struct index_mailbox *ibox,
 			     const char *messageset, int uidset,
 			     MsgsetForeachFunc func, void *context)
 {

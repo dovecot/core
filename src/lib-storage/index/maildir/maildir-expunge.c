@@ -5,7 +5,8 @@
 
 #include <unistd.h>
 
-static int expunge_msg(IndexMailbox *ibox, MailIndexRecord *rec)
+static int expunge_msg(struct index_mailbox *ibox,
+		       struct mail_index_record *rec)
 {
 	const char *fname;
 	char path[PATH_MAX];
@@ -34,9 +35,9 @@ static int expunge_msg(IndexMailbox *ibox, MailIndexRecord *rec)
 	return TRUE;
 }
 
-int maildir_expunge_locked(IndexMailbox *ibox, int notify)
+int maildir_expunge_locked(struct index_mailbox *ibox, int notify)
 {
-	MailIndexRecord *rec;
+	struct mail_index_record *rec;
 	unsigned int seq;
 
 	if (!index_expunge_seek_first(ibox, &seq, &rec))

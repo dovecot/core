@@ -27,37 +27,37 @@
 #include "istream.h"
 #include "ostream-internal.h"
 
-void o_stream_ref(OStream *stream)
+void o_stream_ref(struct ostream *stream)
 {
 	_io_stream_ref(stream->real_stream);
 }
 
-void o_stream_unref(OStream *stream)
+void o_stream_unref(struct ostream *stream)
 {
 	_io_stream_unref(stream->real_stream);
 }
 
-void o_stream_close(OStream *stream)
+void o_stream_close(struct ostream *stream)
 {
 	_io_stream_close(stream->real_stream);
 	stream->closed = TRUE;
 }
 
-void o_stream_set_max_buffer_size(OStream *stream, size_t max_size)
+void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size)
 {
 	_io_stream_set_max_buffer_size(stream->real_stream, max_size);
 }
 
-void o_stream_set_blocking(OStream *stream, int timeout_msecs,
+void o_stream_set_blocking(struct ostream *stream, int timeout_msecs,
 			   void (*timeout_func)(void *), void *context)
 {
 	_io_stream_set_blocking(stream->real_stream, timeout_msecs,
 				timeout_func, context);
 }
 
-void o_stream_cork(OStream *stream)
+void o_stream_cork(struct ostream *stream)
 {
-	_OStream *_stream = stream->real_stream;
+	struct _ostream *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return;
@@ -65,9 +65,9 @@ void o_stream_cork(OStream *stream)
 	_stream->cork(_stream);
 }
 
-int o_stream_flush(OStream *stream)
+int o_stream_flush(struct ostream *stream)
 {
-	_OStream *_stream = stream->real_stream;
+	struct _ostream *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return -1;
@@ -75,16 +75,16 @@ int o_stream_flush(OStream *stream)
 	return _stream->flush(_stream);
 }
 
-int o_stream_have_space(OStream *stream, size_t size)
+int o_stream_have_space(struct ostream *stream, size_t size)
 {
-	_OStream *_stream = stream->real_stream;
+	struct _ostream *_stream = stream->real_stream;
 
 	return _stream->have_space(_stream, size);
 }
 
-int o_stream_seek(OStream *stream, uoff_t offset)
+int o_stream_seek(struct ostream *stream, uoff_t offset)
 {
-	_OStream *_stream = stream->real_stream;
+	struct _ostream *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return -1;
@@ -92,9 +92,9 @@ int o_stream_seek(OStream *stream, uoff_t offset)
 	return _stream->seek(_stream, offset);
 }
 
-ssize_t o_stream_send(OStream *stream, const void *data, size_t size)
+ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size)
 {
-	_OStream *_stream = stream->real_stream;
+	struct _ostream *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return -1;
@@ -105,14 +105,15 @@ ssize_t o_stream_send(OStream *stream, const void *data, size_t size)
 	return _stream->send(_stream, data, size);
 }
 
-ssize_t o_stream_send_str(OStream *stream, const char *str)
+ssize_t o_stream_send_str(struct ostream *stream, const char *str)
 {
 	return o_stream_send(stream, str, strlen(str));
 }
 
-off_t o_stream_send_istream(OStream *outstream, IStream *instream)
+off_t o_stream_send_istream(struct ostream *outstream,
+			    struct istream *instream)
 {
-	_OStream *_outstream = outstream->real_stream;
+	struct _ostream *_outstream = outstream->real_stream;
 
 	if (outstream->closed || instream->closed)
 		return -1;
@@ -120,7 +121,7 @@ off_t o_stream_send_istream(OStream *outstream, IStream *instream)
 	return _outstream->send_istream(_outstream, instream);
 }
 
-OStream *_o_stream_create(_OStream *_stream, Pool pool)
+struct ostream *_o_stream_create(struct _ostream *_stream, pool_t pool)
 {
 	_stream->ostream.real_stream = _stream;
 

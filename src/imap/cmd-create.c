@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_create(Client *client)
+int cmd_create(struct client *client)
 {
 	const char *mailbox;
 	int ignore;
