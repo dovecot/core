@@ -96,7 +96,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	MailIndexUpdate *update;
         MboxHeaderContext ctx;
 	time_t internal_date;
-	uoff_t start_offset, stop_offset, old_size;
+	uoff_t abs_start_offset, stop_offset, old_size;
 	unsigned char *data, md5_digest[16];
 	unsigned int size, pos, virtual_size;
 	const char *location;
@@ -129,7 +129,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 		internal_date = ioloop_time;
 
 	io_buffer_skip(inbuf, pos+1);
-	start_offset = inbuf->start_offset + inbuf->offset;
+	abs_start_offset = inbuf->start_offset + inbuf->offset;
 
 	/* now, find the ending "[\r]\nFrom " */
 	mbox_read_message(inbuf, &virtual_size);
@@ -143,8 +143,8 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	update = index->update_begin(index, rec);
 
 	/* location = offset to beginning of message */
-	location = binary_to_hex((unsigned char *) &start_offset,
-				 sizeof(start_offset));
+	location = binary_to_hex((unsigned char *) &abs_start_offset,
+				 sizeof(abs_start_offset));
 	index->update_field(update, FIELD_TYPE_LOCATION, location, 0);
 
 	/* parse the header and cache wanted fields. get the message flags
@@ -155,7 +155,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 
         old_size = inbuf->size;
 	inbuf->size = stop_offset;
-	io_buffer_seek(inbuf, start_offset);
+	io_buffer_seek(inbuf, abs_start_offset - inbuf->start_offset);
 
 	mail_index_update_headers(update, inbuf, 0, mbox_header_func, &ctx);
 
