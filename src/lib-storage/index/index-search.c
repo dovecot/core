@@ -405,6 +405,7 @@ static int search_arg_match_envelope(struct mail_search_context *ctx,
 		case SEARCH_SENTON:
 		case SEARCH_SENTSINCE:
 			ret = search_sent(arg->type, arg->value.str, field);
+			break;
 		default:
 			if (arg->value.str[0] == '\0') {
 				/* we're just testing existence of the field.
@@ -467,8 +468,9 @@ static void search_header_arg(struct mail_search_arg *arg, void *context)
 		/* date is handled differently than others */
 		if (ctx->name_len == 4 &&
 		    memcasecmp(ctx->name, "Date", 4) == 0) {
-			search_sent(arg->type, arg->value.str,
-				    t_strndup(ctx->value, ctx->value_len));
+			ret = search_sent(arg->type, arg->value.str,
+				t_strndup(ctx->value, ctx->value_len));
+			ARG_SET_RESULT(arg, ret);
 		}
 		return;
 
@@ -548,6 +550,15 @@ static void search_header_unmatch(struct mail_search_arg *arg,
 				  void *context __attr_unused__)
 {
 	switch (arg->type) {
+	case SEARCH_SENTBEFORE:
+	case SEARCH_SENTON:
+	case SEARCH_SENTSINCE:
+		if (arg->not) {
+			/* date header not found, so we match only for
+			   NOT searches */
+			ARG_SET_RESULT(arg, 0);
+		}
+		break;
 	case SEARCH_FROM:
 	case SEARCH_TO:
 	case SEARCH_CC:
