@@ -37,6 +37,7 @@ void client_send_line(struct imap_client *client, const char *line);
 void client_send_tagline(struct imap_client *client, const char *line);
 
 int client_read(struct imap_client *client);
+int client_skip_line(struct imap_client *client);
 void client_input(void *context);
 
 void client_ref(struct imap_client *client);

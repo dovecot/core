@@ -44,9 +44,10 @@ static int proxy_input_line(struct imap_client *client,
 	} else if (strncmp(line, "P OK ", 5) == 0) {
 		/* Login successful. Send this line to client. */
 		(void)o_stream_send_str(client->output, client->cmd_tag);
-		(void)o_stream_send_str(client->output, line + 2);
+		(void)o_stream_send_str(client->output, line + 1);
 		(void)o_stream_send(client->output, "\r\n", 2);
 
+		(void)client_skip_line(client);
 		login_proxy_detach(client->proxy, client->input,
 				   client->output);
 

@@ -73,7 +73,7 @@ static void client_open_streams(struct imap_client *client, int fd)
 
 /* Skip incoming data until newline is found,
    returns TRUE if newline was found. */
-static int client_skip_line(struct imap_client *client)
+int client_skip_line(struct imap_client *client)
 {
 	const unsigned char *data;
 	size_t i, data_size;
