@@ -6,7 +6,7 @@
 #include "rfc822-tokenize.h"
 
 struct _Rfc822TokenizeContext {
-	const char *data;
+	const unsigned char *data;
 	size_t size;
 
 	Rfc822TokenizeErrorFunc error_func;
@@ -42,7 +42,7 @@ struct _Rfc822TokenizeContext {
 
 
 Rfc822TokenizeContext *
-rfc822_tokenize_init(const char *data, size_t size,
+rfc822_tokenize_init(const unsigned char *data, size_t size,
 		     Rfc822TokenizeErrorFunc error_func, void *error_context)
 {
 	Rfc822TokenizeContext *ctx;
@@ -79,7 +79,7 @@ void rfc822_tokenize_dot_token(Rfc822TokenizeContext *ctx, int set)
 Rfc822Token rfc822_tokenize_next(Rfc822TokenizeContext *ctx)
 {
 	int token, level, last_atom;
-	const char *data;
+	const unsigned char *data;
 	size_t i, size;
 
 	if (ctx->token == TOKEN_LAST)
@@ -275,8 +275,8 @@ Rfc822Token rfc822_tokenize_get(const Rfc822TokenizeContext *ctx)
 	return ctx->token;
 }
 
-const char *rfc822_tokenize_get_value(const Rfc822TokenizeContext *ctx,
-				      size_t *len)
+const unsigned char *
+rfc822_tokenize_get_value(const Rfc822TokenizeContext *ctx, size_t *len)
 {
 	i_assert(IS_TOKEN_STRING(ctx->token));
 
@@ -289,7 +289,7 @@ void rfc822_tokenize_get_string(Rfc822TokenizeContext *ctx,
 				const Rfc822Token *stop_tokens)
 {
 	Rfc822Token token;
-	const char *value;
+	const unsigned char *value;
 	size_t len;
 	int i, token_str, last_str;
 

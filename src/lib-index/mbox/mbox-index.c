@@ -139,7 +139,7 @@ void mbox_header_free_context(MboxHeaderContext *ctx __attr_unused__)
 {
 }
 
-static MailFlags mbox_get_status_flags(const char *value, size_t len)
+static MailFlags mbox_get_status_flags(const unsigned char *value, size_t len)
 {
 	MailFlags flags;
 	size_t i;
@@ -168,7 +168,7 @@ static MailFlags mbox_get_status_flags(const char *value, size_t len)
 	return flags;
 }
 
-static void mbox_update_custom_flags(const char *value __attr_unused__,
+static void mbox_update_custom_flags(const unsigned char *value __attr_unused__,
 				     size_t len __attr_unused__,
 				     int index, void *context)
 {
@@ -179,7 +179,7 @@ static void mbox_update_custom_flags(const char *value __attr_unused__,
 }
 
 static MailFlags
-mbox_get_keyword_flags(const char *value, size_t len,
+mbox_get_keyword_flags(const unsigned char *value, size_t len,
 		       const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT])
 {
 	MailFlags flags;
@@ -190,7 +190,7 @@ mbox_get_keyword_flags(const char *value, size_t len,
 	return flags;
 }
 
-static int mbox_parse_imapbase(const char *value, size_t len,
+static int mbox_parse_imapbase(const unsigned char *value, size_t len,
 			       MboxHeaderContext *ctx)
 {
 	const char **flag;
@@ -247,8 +247,8 @@ static int mbox_parse_imapbase(const char *value, size_t len,
 }
 
 void mbox_header_func(MessagePart *part __attr_unused__,
-		      const char *name, size_t name_len,
-		      const char *value, size_t value_len,
+		      const unsigned char *name, size_t name_len,
+		      const unsigned char *value, size_t value_len,
 		      void *context)
 {
 	MboxHeaderContext *ctx = context;
@@ -256,12 +256,10 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 	size_t i;
 	int fixed = FALSE;
 
-	/* Pretty much copy&pasted from popa3d by Solar Designer */
-	switch (*name) {
-	case '\0':
+	if (name_len == 0) {
 		/* End of headers */
 		if (!ctx->set_read_limit)
-			break;
+			return;
 
 		/* a) use Content-Length, b) search for "From "-line */
 		start_offset = ctx->input->v_offset;
@@ -279,12 +277,15 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 
 		i_stream_seek(ctx->input, start_offset);
 		i_stream_set_read_limit(ctx->input, end_offset);
-		break;
+		return;
+	}
 
+	/* Pretty much copy&pasted from popa3d by Solar Designer */
+	switch (*name) {
 	case 'R':
 	case 'r':
 		if (!ctx->received && name_len == 8 &&
-		    strncasecmp(name, "Received", 8) == 0) {
+		    memcasecmp(name, "Received", 8) == 0) {
 			ctx->received = TRUE;
 			fixed = TRUE;
 		}
@@ -293,7 +294,7 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 	case 'C':
 	case 'c':
 		if (name_len == 14 && ctx->set_read_limit &&
-		    strncasecmp(name, "Content-Length", 14) == 0) {
+		    memcasecmp(name, "Content-Length", 14) == 0) {
 			/* manual parsing, so we can deal with uoff_t */
 			ctx->content_length = 0;
 			for (i = 0; i < value_len; i++) {
@@ -312,12 +313,12 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 	case 'D':
 	case 'd':
 		if (name_len == 12)
-			fixed = strncasecmp(name, "Delivered-To", 12) == 0;
+			fixed = memcasecmp(name, "Delivered-To", 12) == 0;
 		else if (name_len == 4) {
 			/* Received-header contains date too,
 			   and more trusted one */
 			fixed = !ctx->received &&
-				strncasecmp(name, "Date", 4) == 0;
+				memcasecmp(name, "Date", 4) == 0;
 		}
 		break;
 
@@ -327,13 +328,13 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 			/* Received-header contains unique ID too,
 			   and more trusted one */
 			fixed = !ctx->received &&
-				strncasecmp(name, "Message-ID", 10) == 0;
+				memcasecmp(name, "Message-ID", 10) == 0;
 		}
 		break;
 
 	case 'S':
 	case 's':
-		if (name_len == 6 && strncasecmp(name, "Status", 6) == 0) {
+		if (name_len == 6 && memcasecmp(name, "Status", 6) == 0) {
 			/* update message flags */
 			ctx->flags |= mbox_get_status_flags(value, value_len);
 		}
@@ -345,18 +346,18 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 			/* Let the local delivery agent help generate unique
 			   ID's but don't blindly trust this header alone as
 			   it could just as easily come from the remote. */
-			fixed = strncasecmp(name, "X-Delivery-ID:", 13) == 0;
+			fixed = memcasecmp(name, "X-Delivery-ID:", 13) == 0;
 		} else if (name_len == 8 &&
-			 strncasecmp(name, "X-Status", 8) == 0) {
+			   memcasecmp(name, "X-Status", 8) == 0) {
 			/* update message flags */
 			ctx->flags |= mbox_get_status_flags(value, value_len);
 		} else if (name_len == 10 &&
-			   strncasecmp(name, "X-Keywords", 10) == 0) {
+			   memcasecmp(name, "X-Keywords", 10) == 0) {
 			/* update custom message flags */
 			ctx->flags |= mbox_get_keyword_flags(value, value_len,
 							     ctx->custom_flags);
 		} else if (name_len == 10 &&
-			   strncasecmp(name, "X-IMAPbase", 10) == 0) {
+			   memcasecmp(name, "X-IMAPbase", 10) == 0) {
 			/* update list of custom message flags */
 			(void)mbox_parse_imapbase(value, value_len, ctx);
 		}
@@ -367,9 +368,10 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 		md5_update(&ctx->md5, value, value_len);
 }
 
-void mbox_keywords_parse(const char *value, size_t len,
+void mbox_keywords_parse(const unsigned char *value, size_t len,
 			 const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT],
-			 void (*func)(const char *, size_t, int, void *),
+			 void (*func)(const unsigned char *, size_t,
+				      int, void *),
 			 void *context)
 {
 	size_t custom_len[MAIL_CUSTOM_FLAGS_COUNT];
@@ -409,7 +411,7 @@ void mbox_keywords_parse(const char *value, size_t len,
 		/* check if it's found */
 		for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
 			if (custom_len[i] == item_len &&
-			    strncasecmp(custom_flags[i], value, item_len) == 0)
+			    memcasecmp(custom_flags[i], value, item_len) == 0)
 				break;
 		}
 
@@ -484,8 +486,8 @@ static int mbox_is_valid_from(IStream *input, size_t startpos)
 			if (msg[i] == '\n') {
 				msg += startpos;
 				i -= startpos;
-				return mbox_from_parse_date((const char *) msg,
-							    size) != (time_t)-1;
+				return mbox_from_parse_date(msg, size) !=
+					(time_t)-1;
 			}
 		}
 	}

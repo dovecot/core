@@ -224,7 +224,8 @@ const char *imap_get_base_subject_cased(Pool pool, const char *subject)
 	/* (1) Convert any RFC 2047 encoded-words in the subject to
 	   UTF-8.  Convert all tabs and continuations to space.
 	   Convert all multiple spaces to a single space. */
-	message_header_decode(subject, subject_len, header_decode, buf);
+	message_header_decode((const unsigned char *) subject, subject_len,
+			      header_decode, buf);
 	buffer_append_c(buf, '\0');
 
 	pack_whitespace(buf);

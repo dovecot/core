@@ -5,6 +5,6 @@
 const char *imap_quote_str_nil(const char *value);
 
 /* Return value quoted and allocated from specified pool. */
-char *imap_quote_value(Pool pool, const char *value, size_t value_len);
+char *imap_quote_value(Pool pool, const unsigned char *value, size_t value_len);
 
 #endif

@@ -9,6 +9,7 @@ struct _Rfc822Address {
 	char *name, *route, *mailbox, *domain;
 };
 
-Rfc822Address *rfc822_address_parse(Pool pool, const char *str);
+Rfc822Address *rfc822_address_parse(Pool pool, const unsigned char *data,
+				    size_t size);
 
 #endif

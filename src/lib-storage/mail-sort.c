@@ -61,7 +61,7 @@ mail_sort_normalize(const MailSortType *input, Buffer *output)
 
 static MailSortType
 mail_sort_get_common_mask(const MailSortType *input,
-			  const MailSortType **output)
+			  MailSortType **output)
 {
 	MailSortType mask = 0;
 

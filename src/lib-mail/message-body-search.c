@@ -45,7 +45,7 @@ typedef struct {
 	unsigned int found:1;
 } PartSearchContext;
 
-static void parse_content_type(const char *value, size_t value_len,
+static void parse_content_type(const unsigned char *value, size_t value_len,
 			       void *context)
 {
 	PartSearchContext *ctx = context;
@@ -58,38 +58,39 @@ static void parse_content_type(const char *value, size_t value_len,
 	}
 }
 
-static void parse_content_type_param(const char *name, size_t name_len,
-				     const char *value, size_t value_len,
-				     int value_quoted, void *context)
+static void
+parse_content_type_param(const unsigned char *name, size_t name_len,
+			 const unsigned char *value, size_t value_len,
+			 int value_quoted, void *context)
 {
 	PartSearchContext *ctx = context;
 
-	if (name_len == 7 && strncasecmp(name, "charset", 7) == 0 &&
+	if (name_len == 7 && memcasecmp(name, "charset", 7) == 0 &&
 	    ctx->content_charset == NULL) {
 		ctx->content_charset = i_strndup(value, value_len);
 		if (value_quoted) str_unescape(ctx->content_charset);
 	}
 }
 
-static void parse_content_encoding(const char *value, size_t value_len,
+static void parse_content_encoding(const unsigned char *value, size_t value_len,
 				   void *context)
 {
 	PartSearchContext *ctx = context;
 
 	switch (value_len) {
 	case 4:
-		if (strncasecmp(value, "7bit", 4) != 0 &&
-		    strncasecmp(value, "8bit", 4) != 0)
+		if (memcasecmp(value, "7bit", 4) != 0 &&
+		    memcasecmp(value, "8bit", 4) != 0)
 			ctx->content_unknown = TRUE;
 		break;
 	case 6:
-		if (strncasecmp(value, "base64", 6) == 0)
+		if (memcasecmp(value, "base64", 6) == 0)
 			ctx->content_base64 = TRUE;
-		else if (strncasecmp(value, "binary", 6) != 0)
+		else if (memcasecmp(value, "binary", 6) != 0)
 			ctx->content_unknown = TRUE;
 		break;
 	case 16:
-		if (strncasecmp(value, "quoted-printable", 16) == 0)
+		if (memcasecmp(value, "quoted-printable", 16) == 0)
 			ctx->content_qp = TRUE;
 		else
 			ctx->content_unknown = TRUE;
@@ -101,8 +102,9 @@ static void parse_content_encoding(const char *value, size_t value_len,
 }
 
 static void header_find(MessagePart *part __attr_unused__,
-			const char *name, size_t name_len,
-			const char *value, size_t value_len, void *context)
+			const unsigned char *name, size_t name_len,
+			const unsigned char *value, size_t value_len,
+			void *context)
 {
 	PartSearchContext *ctx = context;
 
@@ -114,13 +116,13 @@ static void header_find(MessagePart *part __attr_unused__,
 						   ctx->hdr_search_ctx);
 	}
 
-	if (name_len == 12 && strncasecmp(name, "Content-Type", 12) == 0) {
+	if (name_len == 12 && memcasecmp(name, "Content-Type", 12) == 0) {
 		message_content_parse_header(value, value_len,
 					     parse_content_type,
 					     parse_content_type_param,
 					     ctx);
 	} else if (name_len == 25 &&
-		   strncasecmp(name, "Content-Transfer-Encoding", 25) == 0) {
+		   memcasecmp(name, "Content-Transfer-Encoding", 25) == 0) {
 		message_content_parse_header(value, value_len,
 					     parse_content_encoding,
 					     NULL, ctx);
@@ -344,7 +346,8 @@ static int message_body_search_init(BodySearchContext *ctx, const char *key,
 
 	/* get the key uppercased */
 	key = charset_to_ucase_utf8_string(charset, unknown_charset,
-					   key, strlen(key), &key_len);
+					   (const unsigned char *) key,
+					   strlen(key), &key_len);
 	if (key == NULL)
 		return FALSE;
 

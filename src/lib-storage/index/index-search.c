@@ -43,7 +43,7 @@ typedef struct {
 	MailSearchArg *args;
 	int custom_header;
 
-	const char *name, *value;
+	const unsigned char *name, *value;
 	size_t name_len, value_len;
 } SearchHeaderContext;
 
@@ -341,7 +341,6 @@ static int search_arg_match_envelope(SearchIndexContext *ctx,
 	ImapEnvelopeField env_field;
         HeaderSearchContext *hdr_search_ctx;
 	const char *envelope, *field;
-	size_t size;
 	int ret;
 
 	switch (arg->type) {
@@ -417,9 +416,10 @@ static int search_arg_match_envelope(SearchIndexContext *ctx,
 				break;
 			}
 
-			size = strlen(field);
-			ret = message_header_search(field, size,
-						    hdr_search_ctx) ? 1 : 0;
+			ret = message_header_search(
+						(const unsigned char *) field,
+						strlen(field),
+						hdr_search_ctx) ? 1 : 0;
 		}
 	}
 	t_pop();
@@ -457,35 +457,31 @@ static void search_header_arg(MailSearchArg *arg, void *context)
 	case SEARCH_SENTSINCE:
 		/* date is handled differently than others */
 		if (ctx->name_len == 4 &&
-		    strncasecmp(ctx->name, "Date", 4) == 0) {
+		    memcasecmp(ctx->name, "Date", 4) == 0) {
 			search_sent(arg->type, arg->value.str,
 				    t_strndup(ctx->value, ctx->value_len));
 		}
 		return;
 
 	case SEARCH_FROM:
-		if (ctx->name_len != 4 ||
-		    strncasecmp(ctx->name, "From", 4) != 0)
+		if (ctx->name_len != 4 || memcasecmp(ctx->name, "From", 4) != 0)
 			return;
 		break;
 	case SEARCH_TO:
-		if (ctx->name_len != 2 ||
-		    strncasecmp(ctx->name, "To", 2) != 0)
+		if (ctx->name_len != 2 || memcasecmp(ctx->name, "To", 2) != 0)
 			return;
 		break;
 	case SEARCH_CC:
-		if (ctx->name_len != 2 ||
-		    strncasecmp(ctx->name, "Cc", 2) != 0)
+		if (ctx->name_len != 2 || memcasecmp(ctx->name, "Cc", 2) != 0)
 			return;
 		break;
 	case SEARCH_BCC:
-		if (ctx->name_len != 3 ||
-		    strncasecmp(ctx->name, "Bcc", 3) != 0)
+		if (ctx->name_len != 3 || memcasecmp(ctx->name, "Bcc", 3) != 0)
 			return;
 		break;
 	case SEARCH_SUBJECT:
 		if (ctx->name_len != 7 ||
-		    strncasecmp(ctx->name, "Subject", 7) != 0)
+		    memcasecmp(ctx->name, "Subject", 7) != 0)
 			return;
 		break;
 	case SEARCH_HEADER:
@@ -493,7 +489,7 @@ static void search_header_arg(MailSearchArg *arg, void *context)
 
 		len = strlen(arg->hdr_field_name);
 		if (ctx->name_len != len ||
-		    strncasecmp(ctx->name, arg->hdr_field_name, len) != 0)
+		    memcasecmp(ctx->name, arg->hdr_field_name, len) != 0)
 			return;
 	case SEARCH_TEXT:
 		/* TEXT goes through all headers */
@@ -525,19 +521,19 @@ static void search_header_arg(MailSearchArg *arg, void *context)
 }
 
 static void search_header(MessagePart *part __attr_unused__,
-			  const char *name, size_t name_len,
-			  const char *value, size_t value_len,
+			  const unsigned char *name, size_t name_len,
+			  const unsigned char *value, size_t value_len,
 			  void *context)
 {
 	SearchHeaderContext *ctx = context;
 
 	if ((name_len > 0 && ctx->custom_header) ||
-	    (name_len == 4 && strncasecmp(name, "Date", 4) == 0) ||
-	    (name_len == 4 && strncasecmp(name, "From", 4) == 0) ||
-	    (name_len == 2 && strncasecmp(name, "To", 2) == 0) ||
-	    (name_len == 2 && strncasecmp(name, "Cc", 2) == 0) ||
-	    (name_len == 3 && strncasecmp(name, "Bcc", 3) == 0) ||
-	    (name_len == 7 && strncasecmp(name, "Subject", 7) == 0)) {
+	    (name_len == 4 && memcasecmp(name, "Date", 4) == 0) ||
+	    (name_len == 4 && memcasecmp(name, "From", 4) == 0) ||
+	    (name_len == 2 && memcasecmp(name, "To", 2) == 0) ||
+	    (name_len == 2 && memcasecmp(name, "Cc", 2) == 0) ||
+	    (name_len == 3 && memcasecmp(name, "Bcc", 3) == 0) ||
+	    (name_len == 7 && memcasecmp(name, "Subject", 7) == 0)) {
 		ctx->name = name;
 		ctx->value = value;
 		ctx->name_len = name_len;

@@ -134,7 +134,7 @@ charset_to_utf8_string_int(const char *charset, int *unknown_charset,
 		if (!ucase) {
 			if (utf8_size_r != NULL)
 				*utf8_size_r = size;
-			return t_strndup((const char *) data, size);
+			return t_strndup(data, size);
 		}
 
 		return _charset_utf8_ucase_strdup(data, size, utf8_size_r);

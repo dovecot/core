@@ -68,7 +68,7 @@ static MessagePart *message_part_append(Pool pool, MessagePart *parent)
 	return part;
 }
 
-static void parse_content_type(const char *value, size_t value_len,
+static void parse_content_type(const unsigned char *value, size_t value_len,
 			       void *context)
 {
 	MessageParseContext *parse_ctx = context;
@@ -94,14 +94,15 @@ static void parse_content_type(const char *value, size_t value_len,
 	}
 }
 
-static void parse_content_type_param(const char *name, size_t name_len,
-				     const char *value, size_t value_len,
-				     int value_quoted, void *context)
+static void
+parse_content_type_param(const unsigned char *name, size_t name_len,
+			 const unsigned char *value, size_t value_len,
+			 int value_quoted, void *context)
 {
 	MessageParseContext *parse_ctx = context;
 
 	if ((parse_ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
-	    name_len != 8 || strncasecmp(name, "boundary", 8) != 0)
+	    name_len != 8 || memcasecmp(name, "boundary", 8) != 0)
 		return;
 
 	if (parse_ctx->last_boundary == NULL) {
@@ -113,8 +114,8 @@ static void parse_content_type_param(const char *name, size_t name_len,
 }
 
 static void parse_header_field(MessagePart *part,
-			       const char *name, size_t name_len,
-			       const char *value, size_t value_len,
+			       const unsigned char *name, size_t name_len,
+			       const unsigned char *value, size_t value_len,
 			       void *context)
 {
 	MessageParseContext *parse_ctx = context;
@@ -125,7 +126,7 @@ static void parse_header_field(MessagePart *part,
 				parse_ctx->context);
 	}
 
-	if (name_len == 12 && strncasecmp(name, "Content-Type", 12) == 0) {
+	if (name_len == 12 && memcasecmp(name, "Content-Type", 12) == 0) {
 		/* we need to know the boundary */
 		message_content_parse_header(value, value_len,
 					     parse_content_type,
@@ -390,11 +391,9 @@ void message_parse_header(MessagePart *part, IStream *input,
 					if (msg[i-1] == '\r') value_len--;
 
 					/* and finally call the function */
-					func(part,
-					     (const char *) msg + line_start,
-					     name_len,
-					     (const char *) msg + colon_pos,
-					     value_len, context);
+					func(part, msg + line_start, name_len,
+					     msg + colon_pos, value_len,
+					     context);
 				}
 
 				colon_pos = UINT_MAX;
@@ -430,16 +429,16 @@ void message_parse_header(MessagePart *part, IStream *input,
 
 	if (func != NULL) {
 		/* "end of headers" notify */
-		func(part, "", 0, "", 0, context);
+		func(part, NULL, 0, NULL, 0, context);
 	}
 }
 
 static MessageBoundary *boundary_find(MessageBoundary *boundaries,
-				      const char *msg, size_t len)
+				      const unsigned char *msg, size_t len)
 {
 	while (boundaries != NULL) {
 		if (boundaries->len <= len &&
-		    strncmp(boundaries->boundary, msg, boundaries->len) == 0)
+		    memcmp(boundaries->boundary, msg, boundaries->len) == 0)
 			return boundaries;
 
 		boundaries = boundaries->next;
@@ -471,8 +470,8 @@ message_find_boundary(IStream *input, MessageBoundary *boundaries,
 			    msg[line_start+1] == '-') {
 				/* possible boundary */
 				boundary = boundary_find(boundaries,
-					(const char *) msg + line_start + 2,
-					i - line_start - 2);
+							 msg + line_start + 2,
+							 i - line_start - 2);
 				if (boundary != NULL)
 					break;
 			}
@@ -496,8 +495,8 @@ message_find_boundary(IStream *input, MessageBoundary *boundaries,
 			   70 chars without "--" or less. We allow
 			   a bit larger.. */
 			boundary = boundary_find(boundaries,
-					(const char *) msg + line_start + 2,
-					i - line_start - 2);
+						 msg + line_start + 2,
+						 i - line_start - 2);
 			if (boundary != NULL)
 				break;
 

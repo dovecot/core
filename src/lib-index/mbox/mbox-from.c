@@ -16,9 +16,9 @@ static const char *months[] = {
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
-time_t mbox_from_parse_date(const char *msg, size_t size)
+time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 {
-	const char *msg_end;
+	const unsigned char *msg_end;
 	struct tm tm;
 	int i;
 
@@ -41,7 +41,7 @@ time_t mbox_from_parse_date(const char *msg, size_t size)
 
 	/* month */
 	for (i = 0; i < 12; i++) {
-		if (strncasecmp(months[i], msg, 3) == 0) {
+		if (memcasecmp(months[i], msg, 3) == 0) {
 			tm.tm_mon = i;
 			break;
 		}

@@ -36,21 +36,22 @@ message_header_search_init(Pool pool, const char *key, const char *charset,
 {
 	HeaderSearchContext *ctx;
 	size_t key_len;
-	const char *p;
+	const unsigned char *p;
 
 	ctx = p_new(pool, HeaderSearchContext, 1);
 	ctx->pool = pool;
 
 	/* get the key uppercased */
 	key = charset_to_ucase_utf8_string(charset, unknown_charset,
-					   key, strlen(key), &key_len);
+					   (const unsigned char *) key,
+					   strlen(key), &key_len);
 
 	if (key == NULL) {
 		/* invalid key */
 		return NULL;
 	}
 
-	ctx->key = p_strdup(pool, key);
+	ctx->key = (unsigned char *) p_strdup(pool, key);
 	ctx->key_len = key_len;
 	ctx->key_charset = p_strdup(pool, charset);
 	ctx->unknown_charset = charset == NULL;
@@ -104,7 +105,7 @@ static void search_with_charset(const unsigned char *data, size_t size,
 		/* unknown character set, or invalid data */
 	} else {
 		ctx->submatch = TRUE;
-		search_loop(utf8_data, utf8_size, ctx);
+		search_loop((const unsigned char *) utf8_data, utf8_size, ctx);
 		ctx->submatch = FALSE;
 	}
 }

@@ -372,8 +372,8 @@ typedef struct {
 } HeaderUpdateContext;
 
 static void update_header_func(MessagePart *part,
-			       const char *name, size_t name_len,
-			       const char *value, size_t value_len,
+			       const unsigned char *name, size_t name_len,
+			       const unsigned char *value, size_t value_len,
 			       void *context)
 {
 	HeaderUpdateContext *ctx = context;
@@ -387,12 +387,8 @@ static void update_header_func(MessagePart *part,
 			ctx->envelope_pool =
 				pool_alloconly_create("index envelope", 2048);
 		}
-		t_push();
-		imap_envelope_parse_header(ctx->envelope_pool,
-					   &ctx->envelope,
-					   t_strndup(name, name_len),
-					   value, value_len);
-		t_pop();
+		imap_envelope_parse_header(ctx->envelope_pool, &ctx->envelope,
+					   name, name_len, value, value_len);
 	}
 
 	if (ctx->header_func != NULL) {

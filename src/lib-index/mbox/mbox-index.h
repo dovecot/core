@@ -31,12 +31,13 @@ void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index,
 			      IStream *input);
 void mbox_header_free_context(MboxHeaderContext *ctx);
 void mbox_header_func(MessagePart *part __attr_unused__,
-		      const char *name, size_t name_len,
-		      const char *value, size_t value_len,
+		      const unsigned char *name, size_t name_len,
+		      const unsigned char *value, size_t value_len,
 		      void *context);
-void mbox_keywords_parse(const char *value, size_t len,
+void mbox_keywords_parse(const unsigned char *value, size_t len,
 			 const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT],
-			 void (*func)(const char *, size_t, int, void *),
+			 void (*func)(const unsigned char *, size_t,
+				      int, void *),
 			 void *context);
 int mbox_skip_crlf(IStream *input);
 void mbox_skip_empty_lines(IStream *input);
@@ -55,7 +56,7 @@ IStream *mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
 
 int mbox_index_append(MailIndex *index, IStream *input);
 
-time_t mbox_from_parse_date(const char *msg, size_t size);
+time_t mbox_from_parse_date(const unsigned char *msg, size_t size);
 const char *mbox_from_create(const char *sender, time_t time);
 
 int mbox_index_rewrite(MailIndex *index);

@@ -67,6 +67,11 @@ const char *str_c(String *str)
 	return buffer_get_data(str, NULL);
 }
 
+const unsigned char *str_data(const String *str)
+{
+	return buffer_get_data(str, NULL);
+}
+
 char *str_c_modifyable(String *str)
 {
 	if (!str_add_nul(str))
@@ -85,12 +90,12 @@ void str_append(String *str, const char *cstr)
 	buffer_append(str, cstr, strlen(cstr));
 }
 
-void str_append_n(String *str, const char *cstr, size_t max_len)
+void str_append_n(String *str, const void *cstr, size_t max_len)
 {
 	size_t len;
 
 	len = 0;
-	while (len < max_len && cstr[len] != '\0')
+	while (len < max_len && ((const char *)cstr)[len] != '\0')
 		len++;
 
 	buffer_append(str, cstr, len);

@@ -18,15 +18,15 @@ struct _MessagePartEnvelopeData {
 	char *in_reply_to, *message_id;
 };
 
-static Rfc822Address *parse_address(Pool pool, const char *value,
+static Rfc822Address *parse_address(Pool pool, const unsigned char *value,
 				    size_t value_len)
 {
-	return rfc822_address_parse(pool, t_strndup(value, value_len));
+	return rfc822_address_parse(pool, value, value_len);
 }
 
 void imap_envelope_parse_header(Pool pool, MessagePartEnvelopeData **data,
-				const char *name,
-				const char *value, size_t value_len)
+				const unsigned char *name, size_t name_len,
+				const unsigned char *value, size_t value_len)
 {
 	if (*data == NULL) {
 		*data = p_new(pool, MessagePartEnvelopeData, 1);
@@ -35,28 +35,60 @@ void imap_envelope_parse_header(Pool pool, MessagePartEnvelopeData **data,
 
 	t_push();
 
-	if (strcasecmp(name, "Date") == 0 && (*data)->date == NULL)
-		(*data)->date = imap_quote_value(pool, value, value_len);
-	else if (strcasecmp(name, "Subject") == 0 && (*data)->subject == NULL)
-		(*data)->subject = imap_quote_value(pool, value, value_len);
-	else if (strcasecmp(name, "From") == 0 && (*data)->from == NULL)
-		(*data)->from = parse_address(pool, value, value_len);
-	else if (strcasecmp(name, "Sender") == 0 && (*data)->sender == NULL)
-		(*data)->sender = parse_address(pool, value, value_len);
-	else if (strcasecmp(name, "Reply-To") == 0 && (*data)->reply_to == NULL)
-		(*data)->reply_to = parse_address(pool, value, value_len);
-	else if (strcasecmp(name, "To") == 0 && (*data)->to == NULL)
-		(*data)->to = parse_address(pool, value, value_len);
-	else if (strcasecmp(name, "Cc") == 0 && (*data)->cc == NULL)
-		(*data)->cc = parse_address(pool, value, value_len);
-	else if (strcasecmp(name, "Bcc") == 0 && (*data)->bcc == NULL)
-		(*data)->bcc = parse_address(pool, value, value_len);
-	else if (strcasecmp(name, "In-Reply-To") == 0 &&
-		 (*data)->in_reply_to == NULL)
-		(*data)->in_reply_to = imap_quote_value(pool, value, value_len);
-	else if (strcasecmp(name, "Message-Id") == 0 &&
-		 (*data)->message_id == NULL)
-		(*data)->message_id = imap_quote_value(pool, value, value_len);
+	switch (name_len) {
+	case 2:
+		if (memcasecmp(name, "To", 2) == 0 && (*data)->to == NULL)
+			(*data)->to = parse_address(pool, value, value_len);
+		else if (memcasecmp(name, "Cc", 2) == 0 && (*data)->cc == NULL)
+			(*data)->cc = parse_address(pool, value, value_len);
+		break;
+	case 3:
+		if (memcasecmp(name, "Bcc", 3) == 0 && (*data)->bcc == NULL)
+			(*data)->bcc = parse_address(pool, value, value_len);
+		break;
+	case 4:
+		if (memcasecmp(name, "From", 4) == 0 && (*data)->from == NULL)
+			(*data)->from = parse_address(pool, value, value_len);
+		else if (memcasecmp(name, "Date", 4) == 0 &&
+			 (*data)->date == NULL) {
+			(*data)->date = imap_quote_value(pool, value,
+							 value_len);
+		}
+		break;
+	case 6:
+		if (memcasecmp(name, "Sender", 6) == 0 &&
+		    (*data)->sender == NULL)
+			(*data)->sender = parse_address(pool, value, value_len);
+		break;
+	case 7:
+		if (memcasecmp(name, "Subject", 7) == 0 &&
+		    (*data)->subject == NULL) {
+			(*data)->subject = imap_quote_value(pool, value,
+							    value_len);
+		}
+		break;
+	case 8:
+		if (memcasecmp(name, "Reply-To", 8) == 0 &&
+		    (*data)->reply_to == NULL) {
+			(*data)->reply_to = parse_address(pool, value,
+							  value_len);
+		}
+		break;
+	case 10:
+		if (memcasecmp(name, "Message-Id", 10) == 0 &&
+		    (*data)->message_id == NULL) {
+			(*data)->message_id = imap_quote_value(pool, value,
+							       value_len);
+		}
+		break;
+	case 11:
+		if (memcasecmp(name, "In-Reply-To", 11) == 0 &&
+		    (*data)->in_reply_to == NULL) {
+			(*data)->in_reply_to = imap_quote_value(pool, value,
+								value_len);
+		}
+		break;
+	}
 
 	t_pop();
 }

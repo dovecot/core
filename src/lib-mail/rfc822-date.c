@@ -17,7 +17,7 @@ static const char *weekday_names[] = {
 	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
 };
 
-static int parse_timezone(const char *str, size_t len)
+static int parse_timezone(const unsigned char *str, size_t len)
 {
 	int offset;
 	char chr;
@@ -87,7 +87,7 @@ static int parse_timezone(const char *str, size_t len)
 }
 
 static Rfc822Token next_token(Rfc822TokenizeContext *ctx,
-			      const char **value, size_t *value_len)
+			      const unsigned char **value, size_t *value_len)
 {
 	Rfc822Token token;
 
@@ -102,7 +102,7 @@ static int rfc822_parse_date_tokens(Rfc822TokenizeContext *ctx, time_t *time,
 {
 	struct tm tm;
 	Rfc822Token token;
-	const char *value;
+	const unsigned char *value;
 	size_t i, len;
 
 	/* [weekday_name "," ] dd month_name [yy]yy hh:mi[:ss] timezone */
@@ -135,7 +135,7 @@ static int rfc822_parse_date_tokens(Rfc822TokenizeContext *ctx, time_t *time,
 		return FALSE;
 
 	for (i = 0; i < 12; i++) {
-		if (strncasecmp(month_names[i], value, 3) == 0) {
+		if (memcasecmp(month_names[i], value, 3) == 0) {
 			tm.tm_mon = i;
 			break;
 		}
@@ -214,7 +214,8 @@ int rfc822_parse_date(const char *data, time_t *time, int *timezone_offset)
 	if (data == NULL || *data == '\0')
 		return FALSE;
 
-	ctx = rfc822_tokenize_init(data, (size_t)-1, NULL, NULL);
+	ctx = rfc822_tokenize_init((const unsigned char *) data, (size_t)-1,
+				   NULL, NULL);
 	ret = rfc822_parse_date_tokens(ctx, time, timezone_offset);
 	rfc822_tokenize_deinit(ctx);
 

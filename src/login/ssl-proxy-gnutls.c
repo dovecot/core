@@ -458,7 +458,7 @@ static void gcrypt_log_handler(void *context __attr_unused__, int level,
 void ssl_proxy_init(void)
 {
 	const char *certfile, *keyfile, *paramfile;
-	char buf[4];
+	unsigned char buf[4];
 	int ret;
 
 	certfile = getenv("SSL_CERT_FILE");

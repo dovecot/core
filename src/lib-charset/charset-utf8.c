@@ -98,7 +98,7 @@ charset_to_utf8_string(const char *charset, int *unknown_charset,
 			*unknown_charset = FALSE;
 		if (utf8_size_r != NULL)
 			*utf8_size_r = size;
-		return t_strndup((const char *) data, size);
+		return t_strndup(data, size);
 	} else {
 		if (unknown_charset != NULL)
 			*unknown_charset = TRUE;

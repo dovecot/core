@@ -196,7 +196,7 @@ static int mbox_write_content_length(MboxRewriteContext *ctx)
 	return TRUE;
 }
 
-static const char *strip_chars(const char *value, size_t value_len,
+static const char *strip_chars(const unsigned char *value, size_t value_len,
 			       const char *list)
 {
 	/* @UNSAFE: leave only unknown flags, very likely none */
@@ -216,7 +216,7 @@ static const char *strip_chars(const char *value, size_t value_len,
 	return ret;
 }
 
-static void update_stripped_custom_flags(const char *value, size_t len,
+static void update_stripped_custom_flags(const unsigned char *value, size_t len,
 					 int index, void *context)
 {
 	String *str = context;
@@ -229,7 +229,7 @@ static void update_stripped_custom_flags(const char *value, size_t len,
 	}
 }
 
-static const char *strip_custom_flags(const char *value, size_t len,
+static const char *strip_custom_flags(const unsigned char *value, size_t len,
 				      MboxRewriteContext *ctx)
 {
 	String *str;
@@ -241,8 +241,8 @@ static const char *strip_custom_flags(const char *value, size_t len,
 }
 
 static void header_func(MessagePart *part __attr_unused__,
-			const char *name, size_t name_len,
-			const char *value, size_t value_len,
+			const unsigned char *name, size_t name_len,
+			const unsigned char *value, size_t value_len,
 			void *context)
 {
 	MboxRewriteContext *ctx = context;
@@ -252,25 +252,27 @@ static void header_func(MessagePart *part __attr_unused__,
 	if (ctx->failed)
 		return;
 
-	if (name_len == 6 && strncasecmp(name, "Status", 6) == 0) {
+	if (name_len == 6 && memcasecmp(name, "Status", 6) == 0) {
 		ctx->status_found = TRUE;
 		str = strip_chars(value, value_len, "RO");
 		(void)mbox_write_status(ctx, str);
-	} else if (name_len == 8 && strncasecmp(name, "X-Status", 8) == 0) {
+	} else if (name_len == 8 && memcasecmp(name, "X-Status", 8) == 0) {
 		ctx->xstatus_found = TRUE;
 		str = strip_chars(value, value_len, "ADFT");
 		(void)mbox_write_xstatus(ctx, str);
-	} else if (name_len == 10 && strncasecmp(name, "X-Keywords", 10) == 0) {
+	} else if (name_len == 10 && memcasecmp(name, "X-Keywords", 10) == 0) {
 		ctx->ximapbase_found = TRUE;
 		str = strip_custom_flags(value, value_len, ctx);
 		(void)mbox_write_xkeywords(ctx, str);
-	} else if (name_len == 10 && strncasecmp(name, "X-IMAPbase", 10) == 0) {
+	} else if (name_len == 10 && memcasecmp(name, "X-IMAPbase", 10) == 0) {
 		if (ctx->seq == 1) {
 			/* temporarily copy the value to make sure we
 			   don't overflow it */
+			const char *str;
+
 			t_push();
-			value = t_strndup(value, value_len);
-			ctx->uid_validity = strtoul(value, &end, 10);
+			str = t_strndup(value, value_len);
+			ctx->uid_validity = strtoul(str, &end, 10);
 			while (*end == ' ') end++;
 			ctx->uid_last = strtoul(end, &end, 10);
 			t_pop();
@@ -279,7 +281,7 @@ static void header_func(MessagePart *part __attr_unused__,
 			(void)mbox_write_ximapbase(ctx);
 		}
 	} else if (name_len == 14 &&
-		   strncasecmp(name, "Content-Length", 14) == 0) {
+		   memcasecmp(name, "Content-Length", 14) == 0) {
 		ctx->content_length_found = TRUE;
 		(void)mbox_write_content_length(ctx);
 	} else if (name_len > 0) {

@@ -29,14 +29,14 @@ typedef struct _Rfc822TokenizeContext Rfc822TokenizeContext;
 
    missing_char == '\0': unexpected character at str[pos]
    missing_char != '\0': missing character */
-typedef int (*Rfc822TokenizeErrorFunc)(const char *str, size_t pos,
+typedef int (*Rfc822TokenizeErrorFunc)(const unsigned char *str, size_t pos,
 				       char missing_char, void *context);
 
 /* Tokenize the string. Returns NULL if string is empty. Memory for
    returned array is allocated from data stack. You don't have to use
    the tokens_count, since last token is always 0. */
 Rfc822TokenizeContext *
-rfc822_tokenize_init(const char *data, size_t size,
+rfc822_tokenize_init(const unsigned char *data, size_t size,
 		     Rfc822TokenizeErrorFunc error_func, void *error_context);
 void rfc822_tokenize_deinit(Rfc822TokenizeContext *ctx);
 
@@ -54,8 +54,8 @@ Rfc822Token rfc822_tokenize_get(const Rfc822TokenizeContext *ctx);
 /* - not including enclosing "", () or []
    - '\' isn't expanded
    - [CR+]LF+LWSP (continued header) isn't removed */
-const char *rfc822_tokenize_get_value(const Rfc822TokenizeContext *ctx,
-				      size_t *len);
+const unsigned char *
+rfc822_tokenize_get_value(const Rfc822TokenizeContext *ctx, size_t *len);
 
 /* Read tokens as a string, all quoted strings will be unquoted.
    Reads until stop_token is found. */

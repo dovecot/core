@@ -113,7 +113,8 @@ const char *imap_parser_get_error(ImapParser *parser)
 }
 
 /* skip over everything parsed so far, plus the following whitespace */
-static int imap_parser_skip_to_next(ImapParser *parser, const char **data,
+static int imap_parser_skip_to_next(ImapParser *parser,
+				    const unsigned char **data,
 				    size_t *data_size)
 {
 	size_t i;
@@ -187,8 +188,8 @@ static int imap_parser_close_list(ImapParser *parser)
 	return TRUE;
 }
 
-static void imap_parser_save_arg(ImapParser *parser, const char *data,
-				 size_t lastpos)
+static void imap_parser_save_arg(ImapParser *parser, const unsigned char *data,
+				 size_t size)
 {
 	ImapArg *arg;
 
@@ -196,21 +197,21 @@ static void imap_parser_save_arg(ImapParser *parser, const char *data,
 
 	switch (parser->cur_type) {
 	case ARG_PARSE_ATOM:
-		if (lastpos == 3 && strncmp(data, "NIL", 3) == 0) {
+		if (size == 3 && memcmp(data, "NIL", 3) == 0) {
 			/* NIL argument */
 			arg->type = IMAP_ARG_NIL;
 		} else {
 			/* simply save the string */
 			arg->type = IMAP_ARG_ATOM;
-			arg->_data.str = p_strndup(parser->pool, data, lastpos);
+			arg->_data.str = p_strndup(parser->pool, data, size);
 		}
 		break;
 	case ARG_PARSE_STRING:
 		/* data is quoted and may contain escapes. */
-		i_assert(lastpos > 0);
+		i_assert(size > 0);
 
 		arg->type = IMAP_ARG_STRING;
-		arg->_data.str = p_strndup(parser->pool, data+1, lastpos-1);
+		arg->_data.str = p_strndup(parser->pool, data+1, size-1);
 
 		/* remove the escapes */
 		if (parser->str_first_escape >= 0 &&
@@ -224,7 +225,7 @@ static void imap_parser_save_arg(ImapParser *parser, const char *data,
 		if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0) {
 			/* simply save the string */
 			arg->type = IMAP_ARG_STRING;
-			arg->_data.str = p_strndup(parser->pool, data, lastpos);
+			arg->_data.str = p_strndup(parser->pool, data, size);
 		} else {
 			/* save literal size */
 			arg->type = IMAP_ARG_LITERAL_SIZE;
@@ -238,7 +239,7 @@ static void imap_parser_save_arg(ImapParser *parser, const char *data,
 	parser->cur_type = ARG_PARSE_NONE;
 }
 
-static int imap_parser_read_atom(ImapParser *parser, const char *data,
+static int imap_parser_read_atom(ImapParser *parser, const unsigned char *data,
 				 size_t data_size)
 {
 	size_t i;
@@ -275,8 +276,8 @@ static int imap_parser_read_atom(ImapParser *parser, const char *data,
 	return parser->cur_type == ARG_PARSE_NONE;
 }
 
-static int imap_parser_read_string(ImapParser *parser, const char *data,
-				   size_t data_size)
+static int imap_parser_read_string(ImapParser *parser,
+				   const unsigned char *data, size_t data_size)
 {
 	size_t i;
 
@@ -339,7 +340,8 @@ static int imap_parser_literal_end(ImapParser *parser)
 	return TRUE;
 }
 
-static int imap_parser_read_literal(ImapParser *parser, const char *data,
+static int imap_parser_read_literal(ImapParser *parser,
+				    const unsigned char *data,
 				    size_t data_size)
 {
 	size_t i, prev_size;
@@ -370,7 +372,8 @@ static int imap_parser_read_literal(ImapParser *parser, const char *data,
 	return FALSE;
 }
 
-static int imap_parser_read_literal_data(ImapParser *parser, const char *data,
+static int imap_parser_read_literal_data(ImapParser *parser,
+					 const unsigned char *data,
 					 size_t data_size)
 {
 	if (parser->literal_skip_crlf) {
@@ -419,10 +422,10 @@ static int imap_parser_read_literal_data(ImapParser *parser, const char *data,
    an argument inside a list was processed. */
 static int imap_parser_read_arg(ImapParser *parser)
 {
-	const char *data;
+	const unsigned char *data;
 	size_t data_size;
 
-	data = (const char *) i_stream_get_data(parser->input, &data_size);
+	data = i_stream_get_data(parser->input, &data_size);
 	if (data_size == 0)
 		return FALSE;
 
@@ -485,8 +488,7 @@ static int imap_parser_read_arg(ImapParser *parser)
 
 		/* pass through to parsing data. since input->skip was
 		   modified, we need to get the data start position again. */
-		data = (const char *) i_stream_get_data(parser->input,
-							&data_size);
+		data = i_stream_get_data(parser->input, &data_size);
 
 		/* fall through */
 	case ARG_PARSE_LITERAL_DATA:
@@ -551,10 +553,10 @@ int imap_parser_read_args(ImapParser *parser, unsigned int count,
 
 const char *imap_parser_read_word(ImapParser *parser)
 {
-	const char *data;
+	const unsigned char *data;
 	size_t i, data_size;
 
-	data = (const char *) i_stream_get_data(parser->input, &data_size);
+	data = i_stream_get_data(parser->input, &data_size);
 
 	for (i = 0; i < data_size; i++) {
 		if (data[i] == ' ' || data[i] == '\r' || data[i] == '\n')
@@ -571,10 +573,10 @@ const char *imap_parser_read_word(ImapParser *parser)
 
 const char *imap_parser_read_line(ImapParser *parser)
 {
-	const char *data;
+	const unsigned char *data;
 	size_t i, data_size;
 
-	data = (const char *) i_stream_get_data(parser->input, &data_size);
+	data = i_stream_get_data(parser->input, &data_size);
 
 	for (i = 0; i < data_size; i++) {
 		if (data[i] == '\r' || data[i] == '\n')

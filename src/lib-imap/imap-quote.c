@@ -13,7 +13,7 @@
 #define IS_BREAK_OR_CRLF_CHAR(c) \
 	(IS_BREAK_CHAR(c) || (c) == '\r' || (c) == '\n')
 
-static size_t next_token_quoted(const char *value, size_t len,
+static size_t next_token_quoted(const unsigned char *value, size_t len,
 				int *need_qp, int *quoted)
 {
 	size_t i;
@@ -22,7 +22,7 @@ static size_t next_token_quoted(const char *value, size_t len,
 	*quoted = TRUE;
 
 	for (i = *quoted ? 0 : 1; i < len; i++) {
-		if ((unsigned char)value[i] & 0x80)
+		if (value[i] & 0x80)
 			*need_qp = TRUE;
 
 		if (value[i] == '"' || value[i] == '\r' || value[i] == '\n') {
@@ -35,7 +35,7 @@ static size_t next_token_quoted(const char *value, size_t len,
 	return i;
 }
 
-static size_t next_token(const char *value, size_t len,
+static size_t next_token(const unsigned char *value, size_t len,
 			 int *need_qp, int *quoted, int qp_on)
 {
 	size_t i = 0;
@@ -68,7 +68,7 @@ static size_t next_token(const char *value, size_t len,
 
 	/* then stop at break-char */
 	for (; i < len; i++) {
-		if ((unsigned char)value[i] & 0x80)
+		if (value[i] & 0x80)
 			*need_qp = TRUE;
 
 		if (IS_BREAK_OR_CRLF_CHAR(value[i]))
@@ -78,7 +78,8 @@ static size_t next_token(const char *value, size_t len,
 	return i;
 }
 
-static void append_quoted_qp(String *str, const char *value, size_t len)
+static void append_quoted_qp(String *str, const unsigned char *value,
+			     size_t len)
 {
 	size_t i;
 	unsigned char c;
@@ -96,15 +97,15 @@ static void append_quoted_qp(String *str, const char *value, size_t len)
 			str_append_c(str, value[i]);
 		} else {
 			str_append_c(str, '=');
-			c = (unsigned char)value[i] >> 4;
+			c = value[i] >> 4;
 			str_append_c(str, c < 10 ? (c+'0') : (c-10+'A'));
-			c = (unsigned char)value[i] & 0x0f;
+			c = value[i] & 0x0f;
 			str_append_c(str, c < 10 ? (c+'0') : (c-10+'A'));
 		}
 	}
 }
 
-static void append_quoted(String *str, const char *value, size_t len)
+static void append_quoted(String *str, const unsigned char *value, size_t len)
 {
 	size_t i;
 
@@ -116,7 +117,7 @@ static void append_quoted(String *str, const char *value, size_t len)
 }
 
 /* does two things: 1) escape '\' and '"' characters, 2) 8bit text -> QP */
-static String *get_quoted_str(const char *value, size_t value_len)
+static String *get_quoted_str(const unsigned char *value, size_t value_len)
 {
 	String *str;
 	size_t token_len;
@@ -165,13 +166,14 @@ static String *get_quoted_str(const char *value, size_t value_len)
 const char *imap_quote_str_nil(const char *value)
 {
 	return value == NULL ? "NIL" :
-		str_c(get_quoted_str(value, strlen(value)));
+		str_c(get_quoted_str((const unsigned char *) value,
+				     strlen(value)));
 }
 
-char *imap_quote_value(Pool pool, const char *value, size_t value_len)
+char *imap_quote_value(Pool pool, const unsigned char *value, size_t value_len)
 {
 	String *str;
 
 	str = get_quoted_str(value, value_len);
-	return p_strndup(pool, str_c(str), str_len(str));
+	return p_strndup(pool, str_data(str), str_len(str));
 }

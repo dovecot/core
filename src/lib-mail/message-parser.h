@@ -42,8 +42,8 @@ struct _MessagePart {
 /* NOTE: name and value aren't \0-terminated. Also called once at end of
    headers with name_len = value_len = 0. */
 typedef void (*MessageHeaderFunc)(MessagePart *part,
-				  const char *name, size_t name_len,
-				  const char *value, size_t value_len,
+				  const unsigned char *name, size_t name_len,
+				  const unsigned char *value, size_t value_len,
 				  void *context);
 
 /* func is called for each field in message header. */

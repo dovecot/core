@@ -16,8 +16,7 @@ IStream *i_stream_create_file(int fd, Pool pool, size_t max_buffer_size,
 IStream *i_stream_create_mmap(int fd, Pool pool, size_t block_size,
 			      uoff_t start_offset, uoff_t v_size,
 			      int autoclose_fd);
-IStream *i_stream_create_from_data(Pool pool, const unsigned char *data,
-				   size_t size);
+IStream *i_stream_create_from_data(Pool pool, const void *data, size_t size);
 
 /* Reference counting. References start from 1, so calling i_stream_unref()
    destroys the stream if i_stream_ref() is never used. */

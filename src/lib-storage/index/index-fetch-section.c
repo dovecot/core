@@ -18,7 +18,7 @@ typedef struct {
 
 	uoff_t skip, max_size;
 	const char *const *fields;
-	int (*match_func) (const char *const *, const char *, size_t);
+	int (*match_func) (const char *const *, const unsigned char *, size_t);
 } FetchHeaderFieldContext;
 
 /* For FETCH[HEADER.FIELDS*] we need to modify the header data before sending
@@ -97,9 +97,10 @@ static const char **get_fields_array(const char *fields)
 }
 
 static int header_match(const char *const *fields,
-			const char *name, size_t size)
+			const unsigned char *name, size_t size)
 {
-	const char *field, *name_start, *name_end;
+	const unsigned char *name_start, *name_end;
+	const char *field;
 
 	if (size == 0)
 		return FALSE;
@@ -131,25 +132,25 @@ static int header_match(const char *const *fields,
 }
 
 static int header_match_not(const char *const *fields,
-			    const char *name, size_t size)
+			    const unsigned char *name, size_t size)
 {
 	return !header_match(fields, name, size);
 }
 
 static int header_match_mime(const char *const *fields __attr_unused__,
-			     const char *name, size_t size)
+			     const unsigned char *name, size_t size)
 {
-	if (size > 8 && strncasecmp(name, "Content-", 8) == 0)
+	if (size > 8 && memcasecmp(name, "Content-", 8) == 0)
 		return TRUE;
 
-	if (size == 12 && strncasecmp(name, "Mime-Version", 13) == 0)
+	if (size == 12 && memcasecmp(name, "Mime-Version", 12) == 0)
 		return TRUE;
 
 	return FALSE;
 }
 
 static int fetch_header_append(FetchHeaderFieldContext *ctx,
-			       const char *str, size_t size)
+			       const unsigned char *str, size_t size)
 {
 	if (ctx->skip > 0) {
 		if (ctx->skip >= size) {
@@ -179,13 +180,13 @@ static int fetch_header_append(FetchHeaderFieldContext *ctx,
 }
 
 static void fetch_header_field(MessagePart *part __attr_unused__,
-			       const char *name, size_t name_len,
-			       const char *value __attr_unused__,
+			       const unsigned char *name, size_t name_len,
+			       const unsigned char *value __attr_unused__,
 			       size_t value_len __attr_unused__,
 			       void *context)
 {
 	FetchHeaderFieldContext *ctx = context;
-	const char *field_start, *field_end, *cr, *p;
+	const unsigned char *field_start, *field_end, *cr, *p;
 
 	/* see if we want this field. */
 	if (!ctx->match_func(ctx->fields, name, name_len))

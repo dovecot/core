@@ -17,7 +17,8 @@ static Rfc822Address *new_address(Pool pool, Rfc822Address ***next_addr)
 	return addr;
 }
 
-Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
+Rfc822Address *rfc822_address_parse(Pool pool, const unsigned char *data,
+				    size_t size)
 {
 	static const Rfc822Token stop_tokens_init[] =
 		{ ',', '@', '<', ':', TOKEN_LAST };
@@ -46,7 +47,7 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 	size_t len;
 	int ingroup, stop;
 
-	if (str == NULL || *str == '\0')
+	if (size == 0)
 		return NULL;
 
 	first_addr = NULL;
@@ -59,7 +60,7 @@ Rfc822Address *rfc822_address_parse(Pool pool, const char *str)
 	   ENVELOPE wants groups to be stored like (NIL, NIL, group, NIL),
 	   ..., (NIL, NIL, NIL, NIL)
 	*/
-	ctx = rfc822_tokenize_init(str, (size_t)-1, NULL, NULL);
+	ctx = rfc822_tokenize_init(data, size, NULL, NULL);
 	rfc822_tokenize_skip_comments(ctx, FALSE);
 
 	t_push();

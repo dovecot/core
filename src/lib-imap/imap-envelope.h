@@ -26,8 +26,8 @@ typedef enum {
 
 /* Update envelope data based from given header field */
 void imap_envelope_parse_header(Pool pool, MessagePartEnvelopeData **data,
-				const char *name,
-				const char *value, size_t value_len);
+				const unsigned char *name, size_t name_len,
+				const unsigned char *value, size_t value_len);
 
 /* Write envelope to given string */
 void imap_envelope_write_part_data(MessagePartEnvelopeData *data,

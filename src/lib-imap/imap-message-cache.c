@@ -147,8 +147,8 @@ static CachedMessage *cache_open_or_create(ImapMessageCache *cache,
 }
 
 static void parse_envelope_header(MessagePart *part,
-				  const char *name, size_t name_len,
-				  const char *value, size_t value_len,
+				  const unsigned char *name, size_t name_len,
+				  const unsigned char *value, size_t value_len,
 				  void *context)
 {
 	CachedMessage *msg = context;
@@ -156,8 +156,7 @@ static void parse_envelope_header(MessagePart *part,
 	if (part == NULL || part->parent == NULL) {
 		/* parse envelope headers if we're at the root message part */
 		imap_envelope_parse_header(msg->pool, &msg->envelope,
-					   t_strndup(name, name_len),
-					   value, value_len);
+					   name, name_len, value, value_len);
 	}
 }
 

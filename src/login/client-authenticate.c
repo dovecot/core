@@ -251,7 +251,8 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 	linelen = strlen(line);
 	buf = buffer_create_static_hard(data_stack_pool, linelen);
 
-	if (base64_decode(line, linelen, NULL, buf) <= 0) {
+	if (base64_decode((const unsigned char *) line, linelen,
+			  NULL, buf) <= 0) {
 		/* failed */
 		client_auth_abort(client, "NO Invalid base64 data");
 	} else if (client->auth_request == NULL) {

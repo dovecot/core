@@ -10,7 +10,10 @@ typedef enum {
 	MAIL_RECENT		= 0x0000020,
 
 	/* rest of the bits are custom flags */
-	MAIL_CUSTOM_FLAG_1      = 0x0000040
+	MAIL_CUSTOM_FLAG_1      = 0x0000040,
+
+	MAIL_SYSTEM_FLAGS_MASK	= 0x000003f,
+	MAIL_CUSTOM_FLAGS_MASK	= 0xfffffc0
 } MailFlags;
 
 /* growing number of flags isn't very easy. biggest problem is that they're
@@ -19,9 +22,6 @@ typedef enum {
    file name using 'a'..'z' letters which gets us exactly the needed 26
    flags. if more is added, the current code breaks. */
 enum {
-	MAIL_SYSTEM_FLAGS_MASK	= 0x000003f,
-	MAIL_CUSTOM_FLAGS_MASK	= 0xfffffc0,
-
 	MAIL_CUSTOM_FLAG_1_BIT	= 6,
 	MAIL_CUSTOM_FLAGS_COUNT	= 26,
 

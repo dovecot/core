@@ -44,7 +44,7 @@ static int mbox_index_append_next(MailIndex *index, IStream *input)
 	}
 
 	/* parse the From-line */
-	internal_date = mbox_from_parse_date((const char *) data + 5, size - 5);
+	internal_date = mbox_from_parse_date(data + 5, size - 5);
 	if (internal_date == (time_t)-1)
 		internal_date = ioloop_time;
 

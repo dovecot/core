@@ -167,21 +167,21 @@ char *p_strdup_empty(Pool pool, const char *str)
 	return p_strdup(pool, str);
 }
 
-char *p_strdup_until(Pool pool, const char *start, const char *end)
+char *p_strdup_until(Pool pool, const void *start, const void *end)
 {
 	size_t size;
 	char *mem;
 
-	i_assert(start <= end);
+	i_assert((const char *) start <= (const char *) end);
 
-	size = (size_t) (end-start);
+	size = (size_t) ((const char *) end - (const char *) start);
 
 	mem = p_malloc(pool, size + 1);
 	memcpy(mem, start, size);
 	return mem;
 }
 
-char *p_strndup(Pool pool, const char *str, size_t max_chars)
+char *p_strndup(Pool pool, const void *str, size_t max_chars)
 {
 	char *mem;
 	size_t len;
@@ -192,7 +192,7 @@ char *p_strndup(Pool pool, const char *str, size_t max_chars)
 		return NULL;
 
 	len = 0;
-	while (str[len] != '\0' && len < max_chars)
+	while (((const char *) str)[len] != '\0' && len < max_chars)
 		len++;
 
 	mem = pool->malloc(pool, len+1);
@@ -316,12 +316,12 @@ const char *t_strdup_empty(const char *str)
 	return p_strdup_empty(data_stack_pool, str);
 }
 
-const char *t_strdup_until(const char *start, const char *end)
+const char *t_strdup_until(const void *start, const void *end)
 {
 	return p_strdup_until(data_stack_pool, start, end);
 }
 
-const char *t_strndup(const char *str, size_t max_chars)
+const char *t_strndup(const void *str, size_t max_chars)
 {
 	return p_strndup(data_stack_pool, str, max_chars);
 }
@@ -460,6 +460,23 @@ char *str_lcase(char *str)
 	for (p = str; *p != '\0'; p++)
 		*p = i_tolower(*p);
         return str;
+}
+
+int memcasecmp(const void *p1, const void *p2, size_t size)
+{
+	const unsigned char *s1 = p1;
+	const unsigned char *s2 = p2;
+	int ret;
+
+	while (size > 0) {
+		ret = i_toupper(*s1) - i_toupper(*s2);
+		if (ret != 0)
+			return ret;
+
+		s1++; s2++; size--;
+	}
+
+        return 0;
 }
 
 const char **t_strsplit(const char *data, const char *separators)

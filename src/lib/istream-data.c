@@ -63,8 +63,7 @@ static void _skip(_IStream *stream, uoff_t count)
 	stream->istream.v_offset += count;
 }
 
-IStream *i_stream_create_from_data(Pool pool, const unsigned char *data,
-				   size_t size)
+IStream *i_stream_create_from_data(Pool pool, const void *data, size_t size)
 {
 	_IStream *stream;
 

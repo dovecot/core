@@ -51,20 +51,21 @@ const char *str_escape(const char *str)
 	return ret;
 }
 
-void str_append_unescaped(String *dest, const char *src, size_t src_size)
+void str_append_unescaped(String *dest, const void *src, size_t src_size)
 {
+	const unsigned char *src_c = src;
 	size_t start = 0, i = 0;
 
 	while (i < src_size) {
 		start = i;
 		for (; i < src_size; i++) {
-			if (src[i] == '\\')
+			if (src_c[i] == '\\')
 				break;
 		}
 
-		str_append_n(dest, src + start, i-start);
+		str_append_n(dest, src_c + start, i-start);
 
-		if (src[i] == '\\')
+		if (src_c[i] == '\\')
 			i++;
 		start = i;
 	}

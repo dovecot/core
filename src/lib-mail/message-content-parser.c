@@ -5,7 +5,7 @@
 #include "rfc822-tokenize.h"
 #include "message-content-parser.h"
 
-void message_content_parse_header(const char *data, size_t size,
+void message_content_parse_header(const unsigned char *data, size_t size,
 				  ParseContentFunc func,
 				  ParseContentParamFunc param_func,
 				  void *context)
@@ -14,7 +14,7 @@ void message_content_parse_header(const char *data, size_t size,
 	Rfc822TokenizeContext *ctx;
 	Rfc822Token token;
 	String *str;
-	const char *key, *value;
+	const unsigned char *key, *value;
 	size_t key_len, value_len;
 
 	ctx = rfc822_tokenize_init(data, size, NULL, NULL);
@@ -27,7 +27,7 @@ void message_content_parse_header(const char *data, size_t size,
 	rfc822_tokenize_get_string(ctx, str, NULL, stop_tokens);
 
 	if (func != NULL)
-		func(str_c(str), str_len(str), context);
+		func(str_data(str), str_len(str), context);
 
 	t_pop();
 
