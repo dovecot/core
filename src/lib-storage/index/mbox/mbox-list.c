@@ -142,8 +142,11 @@ mbox_mailbox_list_init(struct mail_storage *storage, const char *mask,
 		ctx->istorage = istorage;
 		ctx->flags = flags;
 		ctx->next = mbox_list_subs;
+
+		path = t_strconcat(istorage->dir,
+				   "/" SUBSCRIPTION_FILE_NAME, NULL);
 		ctx->subsfile_ctx =
-			subsfile_list_init(storage, SUBSCRIPTION_FILE_NAME);
+			subsfile_list_init(storage, path);
 		if (ctx->subsfile_ctx == NULL) {
 			i_free(ctx);
 			return NULL;

@@ -4,7 +4,7 @@
 /* Extra space to leave in X-Keywords header when rewriting mbox */
 #define MBOX_HEADER_EXTRA_SPACE 100
 
-#define SUBSCRIPTION_FILE_NAME "subscriptions"
+#define SUBSCRIPTION_FILE_NAME ".subscriptions"
 #define MBOX_INDEX_PREFIX "dovecot.index"
 
 #include "index-storage.h"
