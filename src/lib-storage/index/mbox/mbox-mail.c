@@ -16,6 +16,8 @@
 
 static int mbox_mail_seek(struct index_mail *mail)
 {
+	struct mbox_transaction_context *t =
+		(struct mbox_transaction_context *)mail->trans;
 	struct index_mailbox *ibox = mail->ibox;
 	enum mbox_sync_flags sync_flags = 0;
 	int ret, deleted;
@@ -30,7 +32,7 @@ __again:
 			return -1;
 
 		i_assert(ibox->mbox_lock_type != F_UNLCK);
-		ibox->mbox_mail_lock_id = ibox->mbox_lock_id;
+		t->mbox_lock_id = ibox->mbox_lock_id;
 	}
 
 	if (mbox_file_open_stream(ibox) < 0)
@@ -49,8 +51,8 @@ __again:
 	if (ret == 0) {
 		/* we'll need to re-sync it completely */
 		if (ibox->mbox_lock_type == F_RDLCK) {
-			if (ibox->mbox_mail_lock_id == ibox->mbox_lock_id)
-                                ibox->mbox_mail_lock_id = 0;
+			if (ibox->mbox_lock_id == t->mbox_lock_id)
+				t->mbox_lock_id = 0;
 			(void)mbox_unlock(mail->ibox, ibox->mbox_lock_id);
 			ibox->mbox_lock_id = 0;
 			i_assert(ibox->mbox_lock_type == F_UNLCK);

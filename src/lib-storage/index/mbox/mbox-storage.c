@@ -365,14 +365,6 @@ mbox_get_path(struct index_storage *storage, const char *name)
 	return t_strconcat(storage->dir, "/", name, NULL);
 }
 
-static void mbox_mail_deinit(struct index_mail *mail)
-{
-	if (mail->ibox->mbox_mail_lock_id != 0) {
-		(void)mbox_unlock(mail->ibox, mail->ibox->mbox_mail_lock_id);
-                mail->ibox->mbox_mail_lock_id = 0;
-	}
-}
-
 static int mbox_mail_is_recent(struct index_mailbox *ibox __attr_unused__,
 			       uint32_t uid __attr_unused__)
 {
@@ -416,7 +408,6 @@ mbox_open(struct index_storage *storage, const char *name,
 	ibox->mbox_lock_type = F_UNLCK;
 	ibox->mbox_ext_idx = mbox_ext_idx;
 
-	ibox->mail_deinit = mbox_mail_deinit;
 	ibox->is_recent = mbox_mail_is_recent;
 	ibox->mail_interface = &mbox_mail;
         ibox->mbox_do_dirty_syncs = getenv("MBOX_DIRTY_SYNCS") != NULL;

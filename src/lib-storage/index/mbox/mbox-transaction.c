@@ -37,6 +37,12 @@ int mbox_transaction_commit(struct mailbox_transaction_context *_t,
 	}
 	t = NULL;
 
+	if (lock_id != 0 && ibox->mbox_lock_type != F_WRLCK) {
+		/* unlock before writing any changes */
+		(void)mbox_unlock(ibox, lock_id);
+		lock_id = 0;
+	}
+
 	if (ret == 0) {
 		enum mbox_sync_flags mbox_sync_flags = MBOX_SYNC_LAST_COMMIT;
 		if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0)
