@@ -29,7 +29,6 @@ struct imap_client {
 	unsigned int destroyed:1;
 };
 
-struct client *client_create(int fd, struct ip_addr *ip, int ssl);
 void client_destroy(struct imap_client *client, const char *reason);
 
 void client_send_line(struct imap_client *client, const char *line);

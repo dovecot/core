@@ -348,7 +348,8 @@ static void client_destroy_oldest(void)
 	}
 }
 
-struct client *client_create(int fd, struct ip_addr *ip, int ssl)
+struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
+			     const struct ip_addr *ip)
 {
 	struct imap_client *client;
 	const char *addr;
@@ -373,6 +374,7 @@ struct client *client_create(int fd, struct ip_addr *ip, int ssl)
 		(IPADDR_IS_V4(ip) && strncmp(addr, "127.", 4) == 0) ||
 		(IPADDR_IS_V6(ip) && strcmp(addr, "::1") == 0);
 
+	client->common.local_ip = *local_ip;
 	client->common.ip = *ip;
 	client->common.fd = fd;
 

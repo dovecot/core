@@ -82,6 +82,7 @@ struct settings {
 	unsigned int mail_process_size;
 	int mail_use_modules;
 	const char *mail_modules;
+	const char *mail_log_prefix;
 
 	/* imap */
 	unsigned int imap_max_line_length;

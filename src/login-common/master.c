@@ -49,7 +49,8 @@ void master_request_login(struct client *client, master_callback_t *callback,
 		req.tag = ++master_tag_counter;
 	req.auth_pid = auth_pid;
 	req.auth_id = auth_id;
-	req.ip = client->ip;
+	req.local_ip = client->local_ip;
+	req.remote_ip = client->ip;
 
 	if (fd_send(master_fd, client->fd, &req, sizeof(req)) != sizeof(req))
 		i_fatal("fd_send(%d) failed: %m", client->fd);

@@ -77,9 +77,17 @@ void mech_request_new(struct auth_client_connection *conn,
 {
         struct mech_module *mech;
 	struct auth_request *auth_request;
+	size_t ip_size = 1;
+
+	if (request->ip_family == AF_INET)
+		ip_size = 4;
+	else if (request->ip_family != 0)
+		ip_size = sizeof(auth_request->local_ip.ip);
+	else
+		ip_size = 0;
 
 	/* make sure data is NUL-terminated */
-	if (request->data_size == 0 || request->initial_resp_idx == 0 ||
+	if (request->data_size <= ip_size*2 || request->initial_resp_idx == 0 ||
 	    request->mech_idx >= request->data_size ||
 	    request->protocol_idx >= request->data_size ||
 	    request->initial_resp_idx > request->data_size ||
@@ -126,6 +134,16 @@ void mech_request_new(struct auth_client_connection *conn,
 		auth_request->protocol =
 			p_strdup(auth_request->pool,
 				 (const char *)data + request->protocol_idx);
+
+		if (request->ip_family != 0) {
+			auth_request->local_ip.family = request->ip_family;
+			auth_request->remote_ip.family = request->ip_family;
+				
+
+			memcpy(&auth_request->local_ip, data, ip_size);
+			memcpy(&auth_request->remote_ip, data + ip_size,
+			       ip_size);
+		}
 
 		hash_insert(conn->auth_requests, POINTER_CAST(request->id),
 			    auth_request);
@@ -265,6 +283,10 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 		{ 'n', NULL },
 		{ 'd', NULL },
 		{ 'p', NULL },
+		{ 'h', NULL },
+		{ 'l', NULL },
+		{ 'r', NULL },
+		{ 'P', NULL },
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
@@ -281,6 +303,12 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	if (tab[2].value != NULL)
 		tab[2].value = escape_func(tab[2].value+1);
 	tab[3].value = auth_request->protocol;
+	/* tab[4] = we have no home dir */
+	if (auth_request->local_ip.family != 0)
+		tab[5].value = net_ip2addr(&auth_request->local_ip);
+	if (auth_request->remote_ip.family != 0)
+		tab[6].value = net_ip2addr(&auth_request->remote_ip);
+	tab[7].value = dec2str(auth_request->conn->pid);
 	return tab;
 }
 

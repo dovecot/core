@@ -1,6 +1,7 @@
 #ifndef __MECH_H
 #define __MECH_H
 
+#include "network.h"
 #include "auth-client-interface.h"
 
 struct auth_client_connection;
@@ -20,6 +21,7 @@ struct auth_request {
 	time_t created;
 
 	char *protocol;
+	struct ip_addr local_ip, remote_ip;
 	mech_callback_t *callback;
 
 	int (*auth_initial)(struct auth_request *auth_request,

@@ -148,10 +148,8 @@ int cmd_user(struct pop3_client *client, const char *args)
 		return TRUE;
 	}
 
-	/* authorization ID \0 authentication ID \0 pass */
-	buffer_set_used_size(client->plain_login, 0);
-	buffer_append_c(client->plain_login, '\0');
-	buffer_append(client->plain_login, args, strlen(args));
+	i_free(client->last_user);
+	client->last_user = i_strdup(args);
 
 	client_send_line(client, "+OK");
 	return TRUE;
@@ -160,23 +158,34 @@ int cmd_user(struct pop3_client *client, const char *args)
 int cmd_pass(struct pop3_client *client, const char *args)
 {
 	const char *error;
+	struct auth_request_info info;
+	string_t *plain_login;
 
-	if (buffer_get_used_size(client->plain_login) == 0) {
+	if (client->last_user == NULL) {
 		client_send_line(client, "-ERR No username given.");
 		return TRUE;
 	}
 
-	buffer_append_c(client->plain_login, '\0');
-	buffer_append(client->plain_login, args, strlen(args));
+	/* authorization ID \0 authentication ID \0 pass */
+	plain_login = t_str_new(128);
+	str_append_c(plain_login, '\0');
+	str_append(plain_login, client->last_user);
+	str_append_c(plain_login, '\0');
+	str_append(plain_login, args);
+
+	memset(&info, 0, sizeof(info));
+	info.mech = "PLAIN";
+	info.protocol = "POP3";
+	info.flags = client_get_auth_flags(client);
+	info.local_ip = client->common.local_ip;
+	info.remote_ip = client->common.ip;
+	info.initial_resp_data = str_data(plain_login);
+	info.initial_resp_size = str_len(plain_login);
 
 	client_ref(client);
 	client->common.auth_request =
-		auth_client_request_new(auth_client, "PLAIN", "POP3",
-                                        client_get_auth_flags(client),
-					str_data(client->plain_login),
-					str_len(client->plain_login),
+		auth_client_request_new(auth_client, &info,
 					login_callback, client, &error);
-	buffer_set_used_size(client->plain_login, 0);
 
 	if (client->common.auth_request != NULL) {
 		/* don't read any input from client until login is finished */
@@ -265,6 +274,7 @@ static void client_auth_input(void *context)
 
 int cmd_auth(struct pop3_client *client, const char *args)
 {
+	struct auth_request_info info;
 	const struct auth_mech_desc *mech;
 	const char *mech_name, *error, *p;
 	string_t *buf;
@@ -303,11 +313,18 @@ int cmd_auth(struct pop3_client *client, const char *args)
 		return TRUE;
 	}
 
+	memset(&info, 0, sizeof(info));
+	info.mech = mech->name;
+	info.protocol = "POP3";
+	info.flags = client_get_auth_flags(client);
+	info.local_ip = client->common.local_ip;
+	info.remote_ip = client->common.ip;
+	info.initial_resp_data = str_data(buf);
+	info.initial_resp_size = str_len(buf);
+
 	client_ref(client);
 	client->common.auth_request =
-		auth_client_request_new(auth_client, mech->name, "POP3",
-                                        client_get_auth_flags(client),
-					str_data(buf), str_len(buf),
+		auth_client_request_new(auth_client, &info,
 					authenticate_callback, client, &error);
 	if (client->common.auth_request != NULL) {
 		/* following input data will go to authentication */

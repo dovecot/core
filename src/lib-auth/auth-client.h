@@ -1,6 +1,7 @@
 #ifndef __AUTH_CLIENT_H
 #define __AUTH_CLIENT_H
 
+#include "network.h"
 #include "../auth/auth-client-interface.h"
 
 struct auth_client;
@@ -10,6 +11,17 @@ struct auth_mech_desc {
 	char *name;
 	unsigned int plaintext:1;
 	unsigned int advertise:1;
+};
+
+struct auth_request_info {
+	const char *mech;
+	const char *protocol;
+	enum auth_client_request_new_flags flags;
+
+	struct ip_addr local_ip, remote_ip;
+
+	const unsigned char *initial_resp_data;
+	size_t initial_resp_size;
 };
 
 /* reply is NULL if auth connection died */
@@ -38,10 +50,7 @@ auth_client_find_mech(struct auth_client *client, const char *name);
    happens for the request. */
 struct auth_request *
 auth_client_request_new(struct auth_client *client,
-			const char *mech, const char *protocol,
-			enum auth_client_request_new_flags flags,
-			const unsigned char *initial_resp_data,
-			size_t initial_resp_size,
+			const struct auth_request_info *request_info,
 			auth_request_callback_t *callback, void *context,
 			const char **error_r);
 

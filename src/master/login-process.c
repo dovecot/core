@@ -39,7 +39,7 @@ struct login_auth_request {
 	unsigned int login_tag;
 	int fd;
 
-	struct ip_addr ip;
+	struct ip_addr local_ip, remote_ip;
 };
 
 static unsigned int auth_id_counter, login_pid_counter;
@@ -82,9 +82,13 @@ void auth_master_callback(struct auth_master_reply *reply,
 	else {
 		struct login_group *group = request->process->group;
 
+		t_push();
 		master_reply.success =
-			create_mail_process(group, request->fd, &request->ip,
+			create_mail_process(group, request->fd,
+					    &request->local_ip,
+					    &request->remote_ip,
 					    reply, (const char *) data);
+		t_pop();
 	}
 
 	/* reply to login */
@@ -268,7 +272,8 @@ static void login_process_input(void *context)
 	authreq->tag = ++auth_id_counter;
 	authreq->login_tag = req.tag;
 	authreq->fd = client_fd;
-	authreq->ip = req.ip;
+	authreq->local_ip = req.local_ip;
+	authreq->remote_ip = req.remote_ip;
 
 	auth_process = auth_process_find(req.auth_pid);
 	if (auth_process == NULL) {

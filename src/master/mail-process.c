@@ -75,8 +75,10 @@ static int validate_chroot(struct settings *set, const char *dir)
 }
 
 static const struct var_expand_table *
-get_var_expand_table(const char *user, const char *home,
-		     enum process_type process_type)
+get_var_expand_table(enum process_type process_type,
+		     const char *user, const char *home,
+		     const struct ip_addr *local_ip,
+		     const struct ip_addr *remote_ip, pid_t pid)
 {
 	static struct var_expand_table static_tab[] = {
 		{ 'u', NULL },
@@ -84,6 +86,9 @@ get_var_expand_table(const char *user, const char *home,
 		{ 'd', NULL },
 		{ 'p', NULL },
 		{ 'h', NULL },
+		{ 'l', NULL },
+		{ 'r', NULL },
+		{ 'P', NULL },
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
@@ -97,6 +102,9 @@ get_var_expand_table(const char *user, const char *home,
 	if (tab[2].value != NULL) tab[2].value++;
 	tab[3].value = t_str_ucase(process_names[process_type]);
 	tab[4].value = home;
+	tab[5].value = net_ip2addr(local_ip);
+	tab[6].value = net_ip2addr(remote_ip);
+	tab[7].value = dec2str(pid);
 
 	return tab;
 }
@@ -173,16 +181,18 @@ env_put_namespace(struct namespace_settings *ns, const char *default_location,
 }
 
 int create_mail_process(struct login_group *group, int socket,
-			struct ip_addr *ip,
+			const struct ip_addr *local_ip,
+			const struct ip_addr *remote_ip,
 			struct auth_master_reply *reply, const char *data)
 {
 	struct settings *set = group->set;
 	const struct var_expand_table *var_expand_table;
 	const char *argv[4];
 	const char *addr, *mail, *user, *chroot_dir, *home_dir, *full_home_dir;
-	const char *executable, *p, *prefix;
+	const char *executable, *p;
 	struct log_io *log;
 	char title[1024];
+	string_t *str;
 	pid_t pid;
 	int i, err, ret, log_fd;
 
@@ -196,6 +206,8 @@ int create_mail_process(struct login_group *group, int socket,
 			      data + reply->virtual_user_idx))
 		return FALSE;
 
+	user = data + reply->virtual_user_idx;
+	mail = data + reply->mail_idx;
 	home_dir = data + reply->home_idx;
 	chroot_dir = data + reply->chroot_idx;
 
@@ -217,12 +229,16 @@ int create_mail_process(struct login_group *group, int socket,
 		return FALSE;
 	}
 
+	var_expand_table =
+		get_var_expand_table(group->process_type, user, home_dir,
+				     local_ip, remote_ip,
+				     pid != 0 ? pid : getpid());
+	str = t_str_new(128);
+
 	if (pid != 0) {
 		/* master */
-		prefix = t_strdup_printf("%s(%s): ",
-					 process_names[group->process_type],
-					 data + reply->virtual_user_idx);
-		log_set_prefix(log, prefix);
+		var_expand(str, set->mail_log_prefix, var_expand_table);
+		log_set_prefix(log, str_c(str));
 
 		mail_process_count++;
 		PID_ADD_PROCESS_TYPE(pid, group->process_type);
@@ -230,10 +246,9 @@ int create_mail_process(struct login_group *group, int socket,
 		return TRUE;
 	}
 
-	prefix = t_strdup_printf("master-%s(%s): ",
-				 process_names[group->process_type],
-				 data + reply->virtual_user_idx);
-	log_set_prefix(log, prefix);
+	str_append(str, "master-");
+	var_expand(str, set->mail_log_prefix, var_expand_table);
+	log_set_prefix(log, str_c(str));
 
 	child_process_init_env();
 
@@ -345,12 +360,6 @@ int create_mail_process(struct login_group *group, int socket,
 	/* user given environment - may be malicious. virtual_user comes from
 	   auth process, but don't trust that too much either. Some auth
 	   mechanism might allow leaving extra data there. */
-	mail = data + reply->mail_idx;
-	user = data + reply->virtual_user_idx;
-
-	var_expand_table =
-		get_var_expand_table(user, home_dir, group->process_type);
-
 	if (*mail == '\0' && set->default_mail_env != NULL)
 		mail = expand_mail_env(set->default_mail_env, var_expand_table);
 
@@ -362,7 +371,7 @@ int create_mail_process(struct login_group *group, int socket,
 	env_put(t_strconcat("MAIL=", mail, NULL));
 	env_put(t_strconcat("USER=", data + reply->virtual_user_idx, NULL));
 
-	addr = net_ip2addr(ip);
+	addr = net_ip2addr(remote_ip);
 	env_put(t_strconcat("IP=", addr, NULL));
 
 	if (!set->verbose_proctitle)

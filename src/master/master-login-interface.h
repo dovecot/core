@@ -13,7 +13,7 @@ struct master_login_request {
 	unsigned int auth_pid;
 	unsigned int auth_id;
 
-	struct ip_addr ip;
+	struct ip_addr local_ip, remote_ip;
 };
 
 struct master_login_reply {

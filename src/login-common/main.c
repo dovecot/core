@@ -76,7 +76,7 @@ static void sig_quit(int signo __attr_unused__)
 
 static void login_accept(void *context __attr_unused__)
 {
-	struct ip_addr ip;
+	struct ip_addr ip, local_ip;
 	int fd;
 
 	fd = net_accept(LOGIN_LISTEN_FD, &ip, NULL);
@@ -89,12 +89,15 @@ static void login_accept(void *context __attr_unused__)
 	if (process_per_connection)
 		main_close_listen();
 
-	(void)client_create(fd, &ip, FALSE);
+	if (net_getsockname(fd, &local_ip, NULL) < 0)
+		memset(&local_ip, 0, sizeof(local_ip));
+
+	(void)client_create(fd, FALSE, &local_ip, &ip);
 }
 
 static void login_accept_ssl(void *context __attr_unused__)
 {
-	struct ip_addr ip;
+	struct ip_addr ip, local_ip;
 	struct client *client;
 	struct ssl_proxy *proxy;
 	int fd, fd_ssl;
@@ -108,12 +111,14 @@ static void login_accept_ssl(void *context __attr_unused__)
 
 	if (process_per_connection)
 		main_close_listen();
+	if (net_getsockname(fd, &local_ip, NULL) < 0)
+		memset(&local_ip, 0, sizeof(local_ip));
 
 	fd_ssl = ssl_proxy_new(fd, &ip, &proxy);
 	if (fd_ssl == -1)
 		net_disconnect(fd);
 	else {
-		client = client_create(fd_ssl, &ip, TRUE);
+		client = client_create(fd_ssl, TRUE, &local_ip, &ip);
 		client->proxy = proxy;
 	}
 }
@@ -216,7 +221,7 @@ static void main_deinit(void)
 int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
 	const char *name, *group_name;
-	struct ip_addr ip;
+	struct ip_addr ip, local_ip;
 	struct ssl_proxy *proxy = NULL;
 	struct client *client;
 	int i, fd = -1, master_fd = -1;
@@ -256,10 +261,12 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	main_init();
 
 	if (is_inetd) {
-		if (net_getsockname(1, &ip, NULL) < 0) {
+		if (net_getpeername(1, &ip, NULL) < 0) {
 			i_fatal("%s can be started only through dovecot "
 				"master process, inetd or equilevant", argv[0]);
 		}
+		if (net_getsockname(1, &local_ip, NULL) < 0)
+			memset(&local_ip, 0, sizeof(local_ip));
 
 		fd = 1;
 		for (i = 1; i < argc; i++) {
@@ -273,11 +280,11 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 
 		master_init(master_fd, FALSE);
 		closing_down = TRUE;
-	}
 
-	if (fd != -1) {
-		client = client_create(fd, &ip, TRUE);
-		client->proxy = proxy;
+		if (fd != -1) {
+			client = client_create(fd, TRUE, &local_ip, &ip);
+			client->proxy = proxy;
+		}
 	}
 
 	io_loop_run(ioloop);

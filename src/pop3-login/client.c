@@ -228,7 +228,8 @@ static void client_destroy_oldest(void)
 	}
 }
 
-struct client *client_create(int fd, struct ip_addr *ip, int ssl)
+struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
+			     const struct ip_addr *ip)
 {
 	struct pop3_client *client;
 	const char *addr;
@@ -253,11 +254,11 @@ struct client *client_create(int fd, struct ip_addr *ip, int ssl)
 		(IPADDR_IS_V4(ip) && strncmp(addr, "127.", 4) == 0) ||
 		(IPADDR_IS_V6(ip) && strcmp(addr, "::1") == 0);
 
+	client->common.local_ip = *local_ip;
 	client->common.ip = *ip;
 	client->common.fd = fd;
 	client->common.io = io_add(fd, IO_READ, client_input, client);
 	client_open_streams(client, fd);
-	client->plain_login = buffer_create_dynamic(system_pool, 128, 8192);
 
 	client->last_input = ioloop_time;
 	hash_insert(clients, client, client);
@@ -317,7 +318,6 @@ int client_unref(struct pop3_client *client)
 	i_stream_unref(client->input);
 	o_stream_unref(client->output);
 
-	buffer_free(client->plain_login);
 	i_free(client->common.virtual_user);
 	i_free(client);
 

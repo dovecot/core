@@ -5,6 +5,7 @@
 #include "master.h"
 
 struct client {
+	struct ip_addr local_ip;
 	struct ip_addr ip;
 	struct ssl_proxy *proxy;
 
@@ -19,7 +20,8 @@ struct client {
 	/* ... */
 };
 
-struct client *client_create(int fd, struct ip_addr *ip, int ssl);
+struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
+			     const struct ip_addr *ip);
 
 unsigned int clients_get_count(void);
 void clients_notify_auth_connected(void);

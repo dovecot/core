@@ -107,8 +107,6 @@ static void login_callback(struct auth_request *request,
 {
 	struct imap_client *client = context;
 	const char *error;
-	const void *ptr;
-	size_t size;
 
 	switch (auth_callback(request, reply, data, &client->common,
 			      master_callback, &error)) {
@@ -141,7 +139,8 @@ client_get_auth_flags(struct imap_client *client)
 int cmd_login(struct imap_client *client, struct imap_arg *args)
 {
 	const char *user, *pass, *error;
-	string_t *str;
+	struct auth_request_info info;
+	string_t *plain_login;
 
 	/* two arguments: username and password */
 	if (args[0].type != IMAP_ARG_ATOM && args[0].type != IMAP_ARG_STRING)
@@ -165,20 +164,26 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	}
 
 	/* authorization ID \0 authentication ID \0 pass */
-	str = t_str_new(64);
-	str_append_c(str, '\0');
-	str_append(str, user);
-	str_append_c(str, '\0');
-	str_append(str, pass);
+	plain_login = t_str_new(64);
+	str_append_c(plain_login, '\0');
+	str_append(plain_login, user);
+	str_append_c(plain_login, '\0');
+	str_append(plain_login, pass);
+
+	memset(&info, 0, sizeof(info));
+	info.mech = "PLAIN";
+	info.protocol = "IMAP";
+	info.flags = client_get_auth_flags(client);
+	info.local_ip = client->common.local_ip;
+	info.remote_ip = client->common.ip;
+	info.initial_resp_data = str_data(plain_login);
+	info.initial_resp_size = str_len(plain_login);
 
 	client_ref(client);
 
 	client->common.auth_request =
-		auth_client_request_new(auth_client, "PLAIN", "IMAP",
-					client_get_auth_flags(client),
-					str_data(str), str_len(str),
-					login_callback,
-					client, &error);
+		auth_client_request_new(auth_client, &info,
+					login_callback, client, &error);
 	if (client->common.auth_request == NULL) {
 		client_send_tagline(client, t_strconcat(
 			"NO Login failed: ", error, NULL));
@@ -278,6 +283,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 {
 	const struct auth_mech_desc *mech;
 	const char *mech_name, *error;
+	struct auth_request_info info;
 
 	/* we want only one argument: authentication mechanism name */
 	if (args[0].type != IMAP_ARG_ATOM && args[0].type != IMAP_ARG_STRING)
@@ -302,12 +308,17 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 		return TRUE;
 	}
 
+	memset(&info, 0, sizeof(info));
+	info.mech = mech->name;
+	info.protocol = "IMAP";
+	info.flags = client_get_auth_flags(client);
+	info.local_ip = client->common.local_ip;
+	info.remote_ip = client->common.ip;
+
 	client_ref(client);
 	client->common.auth_request =
-		auth_client_request_new(auth_client, mech->name, "IMAP",
-					client_get_auth_flags(client),
-					NULL, 0, authenticate_callback,
-					client, &error);
+		auth_client_request_new(auth_client, &info,
+					authenticate_callback, client, &error);
 	if (client->common.auth_request != NULL) {
 		/* following input data will go to authentication */
 		if (client->common.io != NULL)

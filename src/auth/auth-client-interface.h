@@ -50,6 +50,8 @@ struct auth_client_request_new {
 
 	enum auth_client_request_new_flags flags;
 
+	uint32_t ip_family; /* if non-zero, data begins with local/remote IPs */
+
 	uint32_t protocol_idx;
 	uint32_t mech_idx;
 	uint32_t initial_resp_idx;

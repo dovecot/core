@@ -11,10 +11,11 @@
 struct auth_request {
         struct auth_server_connection *conn;
 
+	unsigned int id;
+
 	char *mech, *protocol;
 	enum auth_client_request_new_flags flags;
-
-	unsigned int id;
+	struct ip_addr local_ip, remote_ip;
 
 	unsigned char *initial_resp_data;
 	size_t initial_resp_size;
@@ -73,6 +74,7 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 {
 	struct auth_client_request_new auth_request;
 	buffer_t *buf;
+	size_t size;
 	int ret;
 
 	memset(&auth_request, 0, sizeof(auth_request));
@@ -80,9 +82,19 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 	auth_request.id = request->id;
 	auth_request.flags = request->flags;
 
+	if (request->local_ip.family == request->remote_ip.family)
+		auth_request.ip_family = request->local_ip.family;
+
 	t_push();
 	buf = buffer_create_dynamic(pool_datastack_create(), 256, (size_t)-1);
 	buffer_set_used_size(buf, sizeof(auth_request));
+
+	if (auth_request.ip_family != 0) {
+		size = IPADDR_IS_V4(&request->local_ip) ? 4 :
+			sizeof(request->local_ip.ip);
+		buffer_append(buf, &request->local_ip.ip, size);
+		buffer_append(buf, &request->remote_ip.ip, size);
+	}
 
 	auth_request.mech_idx =
 		buffer_get_used_size(buf) - sizeof(auth_request);
@@ -236,32 +248,34 @@ void auth_server_requests_remove_all(struct auth_server_connection *conn)
 
 struct auth_request *
 auth_client_request_new(struct auth_client *client,
-			const char *mech, const char *protocol,
-			enum auth_client_request_new_flags flags,
-			const unsigned char *initial_resp_data,
-			size_t initial_resp_size,
+			const struct auth_request_info *request_info,
 			auth_request_callback_t *callback, void *context,
 			const char **error_r)
 {
 	struct auth_server_connection *conn;
 	struct auth_request *request;
 
-	conn = auth_server_connection_find_mech(client, mech, error_r);
+	conn = auth_server_connection_find_mech(client, request_info->mech,
+						error_r);
 	if (conn == NULL)
 		return NULL;
 
 	request = i_new(struct auth_request, 1);
 	request->conn = conn;
-	request->mech = i_strdup(mech);
-	request->protocol = i_strdup(protocol);
-	request->flags = flags;
+	request->mech = i_strdup(request_info->mech);
+	request->protocol = i_strdup(request_info->protocol);
+	request->flags = request_info->flags;
+	request->local_ip = request_info->local_ip;
+	request->remote_ip = request_info->remote_ip;
 	request->id = ++client->request_id_counter;
 
-	if (initial_resp_size != 0) {
-		request->initial_resp_size = initial_resp_size;
-		request->initial_resp_data = i_malloc(initial_resp_size);
-		memcpy(request->initial_resp_data, initial_resp_data,
-		       initial_resp_size);
+	if (request_info->initial_resp_size != 0) {
+		request->initial_resp_size = request_info->initial_resp_size;
+		request->initial_resp_data =
+			i_malloc(request_info->initial_resp_size);
+		memcpy(request->initial_resp_data,
+		       request_info->initial_resp_data,
+		       request_info->initial_resp_size);
 	}
 	
 	if (request->id == 0) {

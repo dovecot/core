@@ -107,6 +107,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_INT, mail_process_size),
 	DEF(SET_BOOL, mail_use_modules),
 	DEF(SET_STR, mail_modules),
+	DEF(SET_STR, mail_log_prefix),
 
 	/* imap */
 	DEF(SET_INT, imap_max_line_length),
@@ -241,6 +242,7 @@ struct settings default_settings = {
 	MEMBER(mail_process_size) 256,
 	MEMBER(mail_use_modules) FALSE,
 	MEMBER(mail_modules) MODULEDIR"/imap",
+	MEMBER(mail_log_prefix) "%Up(%u): ",
 
 	/* imap */
 	MEMBER(imap_max_line_length) 65536,

@@ -17,7 +17,7 @@ struct pop3_client {
 	time_t last_input;
 	unsigned int bad_counter;
 
-	buffer_t *plain_login;
+	char *last_user;
 
 	unsigned int tls:1;
 	unsigned int secured:1;
@@ -25,7 +25,6 @@ struct pop3_client {
 	unsigned int destroyed:1;
 };
 
-struct client *client_create(int fd, struct ip_addr *ip, int ssl);
 void client_destroy(struct pop3_client *client, const char *reason);
 
 void client_send_line(struct pop3_client *client, const char *line);
