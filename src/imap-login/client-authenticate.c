@@ -235,10 +235,8 @@ static void client_auth_input(void *context)
 	char *line;
 	size_t linelen, bufsize;
 
-	if (!client_read(client)) {
-		client_unref(client);
+	if (!client_read(client))
 		return;
-	}
 
 	if (client->skip_line) {
 		if (i_stream_next_line(client->input) == NULL)
