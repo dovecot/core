@@ -76,7 +76,7 @@ const char *imap_parser_get_error(struct imap_parser *parser);
    count-sized array of arguments are stored into args when return value is
    0 or larger. If all arguments weren't read, they're set to NIL. count
    can be set to 0 to read all arguments in the line. Last element in
-   args[size] is always of type IMAP_ARG_EOL. */
+   args is always of type IMAP_ARG_EOL. */
 int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 			  enum imap_parser_flags flags, struct imap_arg **args);
 
