@@ -65,7 +65,6 @@ uint32_t mail_index_register_record_extra(struct mail_index *index,
 	}
 
 	i_assert(size % 4 == 0);
-	i_assert(!index->opened);
 	i_assert(index->max_record_size + size <= 65535);
 
 	if (index->extra_records_count >= MAIL_INDEX_MAX_EXTRA_RECORDS) {
