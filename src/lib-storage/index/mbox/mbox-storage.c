@@ -497,7 +497,20 @@ static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
 	}
 
 	if (S_ISDIR(st.st_mode)) {
-		/* deleting a folder, only allow it if it's empty */
+		/* deleting a folder, only allow it if it's empty.
+		   Delete .imap folder before to make sure it goes empty. */
+		index_dir = t_strconcat(storage->index_dir, "/", name,
+					"/.imap", NULL);
+
+		if (index_dir != NULL && rmdir(index_dir) < 0 &&
+		    !ENOTFOUND(errno) && errno != ENOTEMPTY) {
+			if (!mbox_handle_errors(storage)) {
+				mail_storage_set_critical(storage,
+					"rmdir() failed for %s: %m", index_dir);
+				return FALSE;
+			}
+		}
+
 		if (rmdir(path) == 0)
 			return TRUE;
 
