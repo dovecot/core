@@ -158,7 +158,7 @@ int mbox_lock_read(MailIndex *index)
 
 int mbox_lock_write(MailIndex *index)
 {
-	i_assert(index->mbox_lock_type != F_RDLCK);
+	i_assert(index->mbox_locks == 0 || index->mbox_lock_type != F_RDLCK);
 	return mbox_lock(index, TRUE);
 }
 
@@ -172,7 +172,6 @@ int mbox_unlock(MailIndex *index)
 	if (--index->mbox_locks > 0)
 		return TRUE;
 
-	index->mbox_lock_type = F_UNLCK;
 	failed = FALSE;
 #ifdef USE_FLOCK
 	if (!mbox_lock_flock(index, F_UNLCK))
