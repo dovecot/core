@@ -1288,7 +1288,7 @@ int mail_index_reopen(struct mail_index *index, int fd)
 	return ret;
 }
 
-int mail_index_refresh(struct mail_index *index)
+int mail_index_reopen_if_needed(struct mail_index *index)
 {
 	struct stat st1, st2;
 
@@ -1312,6 +1312,32 @@ int mail_index_refresh(struct mail_index *index)
 	} else {
 		return 0;
 	}
+}
+
+int mail_index_refresh(struct mail_index *index)
+{
+	unsigned int lock_id;
+	int ret;
+
+	if (index->excl_lock_count > 0) {
+		/* we have index exclusively locked, nothing could
+		   have changed. */
+		return 0;
+	}
+
+	if (!index->mmap_disable) {
+		/* reopening is all we need */
+		return mail_index_reopen_if_needed(index);
+	}
+
+	/* mail_index_map() simply reads latest changes from transaction log,
+	   which makes us fully refreshed. */
+	if (mail_index_lock_shared(index, TRUE, &lock_id) < 0)
+		return -1;
+
+	ret = mail_index_map(index, FALSE);
+	mail_index_unlock(index, lock_id);
+	return ret <= 0 ? -1 : 0;
 }
 
 struct mail_cache *mail_index_get_cache(struct mail_index *index)

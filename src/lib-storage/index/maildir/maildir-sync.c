@@ -537,15 +537,13 @@ static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 	ibox->last_cur_mtime = mail_index_get_header(ibox->view)->sync_stamp;
 	if (ibox->dirty_cur_time == 0 && cur_mtime != ibox->last_cur_mtime) {
 		/* check if the index has been updated.. */
-		struct mail_index_view *view;
-
-		if (mail_index_view_open_locked(ibox->index, &view) < 0) {
+		if (mail_index_refresh(ibox->index) < 0) {
 			mail_storage_set_index_error(ibox);
 			return -1;
 		}
 
-		ibox->last_cur_mtime = mail_index_get_header(view)->sync_stamp;
-		mail_index_view_close(view);
+		ibox->last_cur_mtime =
+			mail_index_get_header(ibox->view)->sync_stamp;
 	}
 
 	if (new_mtime != ibox->last_new_mtime ||

@@ -151,13 +151,15 @@ void mail_index_close(struct mail_index *index);
 
 struct mail_cache *mail_index_get_cache(struct mail_index *index);
 
+/* Refresh index so mail_index_lookup*() will return latest values. Note that
+   immediately after this call there may already be changes, so if you need to
+   rely on validity of the returned values, use some external locking for it. */
+int mail_index_refresh(struct mail_index *index);
+
 /* View can be used to look into index. Sequence numbers inside view change
    only when you synchronize it. The view acquires required locks
    automatically, but you'll have to drop them manually. */
 struct mail_index_view *mail_index_view_open(struct mail_index *index);
-/* Open view to latest index locked. */
-int mail_index_view_open_locked(struct mail_index *index,
-				struct mail_index_view **view_r);
 void mail_index_view_close(struct mail_index_view *view);
 
 /* Returns the index for given view. */

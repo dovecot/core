@@ -310,7 +310,8 @@ int mail_cache_lock(struct mail_cache *cache)
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
 		return 0;
 
-	if (mail_index_view_open_locked(cache->index, &view) < 0)
+	view = mail_index_view_open(cache->index);
+	if (mail_index_refresh(cache->index) < 0)
 		return -1;
 
 	ext = mail_index_view_get_ext(view, cache->ext_id);

@@ -129,7 +129,7 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 
 	if (update_index && index->excl_lock_count == 0) {
 		i_assert(index->lock_type != F_WRLCK);
-		if ((ret2 = mail_index_refresh(index)) < 0)
+		if ((ret2 = mail_index_reopen_if_needed(index)) < 0)
 			return -1;
 		if (ret > 0 && ret2 == 0) {
 			i_assert(lock_type == F_RDLCK);
@@ -149,7 +149,7 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		if (lock_type == F_WRLCK)
 			return 0;
 		if (update_index && index->lock_type == F_UNLCK) {
-			if (mail_index_refresh(index) < 0)
+			if (mail_index_reopen_if_needed(index) < 0)
 				return -1;
 		}
 

@@ -31,6 +31,13 @@ __again:
 		if (mbox_sync(ibox, sync_flags) < 0)
 			return -1;
 
+		/* refresh index file after mbox has been locked to make
+		   sure we get only up-to-date mbox offsets. */
+		if (mail_index_refresh(ibox->index) < 0) {
+			mail_storage_set_index_error(ibox);
+			return -1;
+		}
+
 		i_assert(ibox->mbox_lock_type != F_UNLCK);
 		t->mbox_lock_id = ibox->mbox_lock_id;
 	}

@@ -538,25 +538,6 @@ struct mail_index_view *mail_index_view_open(struct mail_index *index)
 	return view;
 }
 
-int mail_index_view_open_locked(struct mail_index *index,
-				struct mail_index_view **view_r)
-{
-	unsigned int lock_id;
-
-	if (mail_index_lock_shared(index, TRUE, &lock_id) < 0)
-		return -1;
-
-	*view_r = mail_index_view_open(index);
-	if (mail_index_view_lock_head(*view_r, FALSE) < 0) {
-		mail_index_view_close(*view_r);
-		mail_index_unlock(index, lock_id);
-		return -1;
-	}
-
-	mail_index_unlock(index, lock_id);
-	return 0;
-}
-
 const struct mail_index_ext *
 mail_index_view_get_ext(struct mail_index_view *view, uint32_t ext_id)
 {
