@@ -11,6 +11,7 @@
 #include "lib.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <syslog.h>
@@ -182,5 +183,28 @@ char *my_basename(char *path)
 	   too much trouble without any gain. */
 	p = strrchr(path, '/');
 	return p == NULL ? path : p + 1;
+}
+#endif
+
+#ifndef HAVE_STRTOULL
+unsigned long long int my_strtoull(const char *nptr, char **endptr, int base)
+{
+#ifdef HAVE_STRTOUQ
+	return strtouq(nptr, endptr, base);
+#else
+	unsigned long ret = 0;
+
+	/* we support only base-10 in our fallback implementation.. */
+	i_assert(base == 10);
+
+	for (; *nptr != '\0'; nptr++) {
+		if (*nptr < '0' || *nptr > '9')
+			break;
+		ret = ret * 10 + (*nptr - '0');
+	}
+	if (endptr != NULL)
+		*endptr = (char *)nptr;
+	return ret;
+#endif
 }
 #endif

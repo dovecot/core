@@ -118,6 +118,11 @@ int my_seteuid(uid_t euid);
 char *my_basename(char *path);
 #endif
 
+#ifndef HAVE_STRTOULL
+#  define strtoull my_strtoull
+unsigned long long int my_strtoull(const char *nptr, char **endptr, int base);
+#endif
+
 /* ctype.h isn't safe with signed chars,
    use our own instead if really needed */
 #define i_toupper(x) ((char) toupper((int) (unsigned char) (x)))

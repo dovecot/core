@@ -1,4 +1,4 @@
-AC_INIT(dovecot, 1.0-test52, [dovecot@dovecot.org])
+AC_INIT(dovecot, 1.0-test59, [dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AC_CONFIG_HEADERS([config.h])
@@ -258,7 +258,7 @@ fi
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsnprintf vsyslog writev pread \
-	       setrlimit setproctitle seteuid setreuid)
+	       setrlimit setproctitle seteuid setreuid strtoull strtouq)
 
 dnl * I/O loop function
 have_ioloop=no
