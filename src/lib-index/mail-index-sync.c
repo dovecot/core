@@ -207,7 +207,7 @@ static int mail_index_need_lock(struct mail_index *index,
 	     (index->hdr->log_file_seq == log_file_seq &&
 	      index->hdr->log_file_offset >= log_file_offset)) {
 		/* already synced */
-		return 0;
+		return mail_cache_need_compress(index->cache);
 	}
 
 	return 1;
@@ -219,7 +219,7 @@ int mail_index_sync_begin(struct mail_index *index,
 			  uint32_t log_file_seq, uoff_t log_file_offset)
 {
 	struct mail_index_sync_ctx *ctx;
-	uint32_t seq, new_file_seq;
+	uint32_t seq;
 	uoff_t offset;
 	unsigned int lock_id;
 
@@ -268,17 +268,6 @@ int mail_index_sync_begin(struct mail_index *index,
 	if (mail_index_sync_read_and_sort(ctx) < 0) {
                 mail_index_sync_end(ctx);
 		return -1;
-	}
-
-	/* check here if cache file's sequence has changed unexpectedly */
-	if (mail_cache_need_reset(index->cache, &new_file_seq)) {
-		uint32_t seq;
-		uoff_t offset;
-		struct mail_index_transaction *t;
-
-		t = mail_index_transaction_begin(ctx->view, FALSE);
-		mail_index_reset_cache(t, new_file_seq);
-                mail_index_transaction_commit(t, &seq, &offset);
 	}
 
 	*ctx_r = ctx;

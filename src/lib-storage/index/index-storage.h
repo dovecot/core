@@ -118,6 +118,7 @@ struct index_transaction_context {
 	struct mail_cache_transaction_ctx *cache_trans;
 
 	struct index_mail fetch_mail; /* for index_storage_fetch() */
+	unsigned int cache_trans_failed:1;
 };
 
 int mail_storage_set_index_error(struct index_mailbox *ibox);

@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "byteorder.h"
 #include "ostream.h"
+#include "file-set-size.h"
 #include "mail-cache-private.h"
 
 static unsigned char null4[4] = { 0, 0, 0, 0 };
@@ -100,39 +101,46 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	   removed. */
 	if (mail_index_get_header(view, &idx_hdr) < 0)
 		return -1;
-	if (mail_index_lookup_uid_range(view, idx_hdr->day_first_uid[7],
-					(uint32_t)-1, &first_new_seq,
-					&message_count) < 0)
-		return -1;
-	if (first_new_seq == 0)
-		first_new_seq = message_count+1;
+	if (idx_hdr->day_first_uid[7] == 0) {
+		first_new_seq = 1;
+		message_count = mail_index_view_get_message_count(view);
+	} else {
+		if (mail_index_lookup_uid_range(view, idx_hdr->day_first_uid[7],
+						(uint32_t)-1, &first_new_seq,
+						&message_count) < 0)
+			return -1;
+		if (first_new_seq == 0)
+			first_new_seq = message_count+1;
+	}
 
 	cache_view = mail_cache_view_open(cache, view);
 	t = mail_index_transaction_begin(view, FALSE);
 	output = o_stream_create_file(fd, default_pool, 0, FALSE);
 
 	memset(&hdr, 0, sizeof(hdr));
-	hdr.indexid = cache->hdr->indexid;
-	hdr.file_seq = cache->hdr->file_seq + 1;
+	hdr.indexid = idx_hdr->indexid;
+	hdr.file_seq = idx_hdr->cache_file_seq + 1;
 
-	memcpy(hdr.field_usage_decision_type,
-	       cache->hdr->field_usage_decision_type,
-	       sizeof(hdr.field_usage_decision_type));
-	memcpy(hdr.field_usage_last_used,
-	       cache->hdr->field_usage_last_used,
-	       sizeof(hdr.field_usage_last_used));
+	if (cache->hdr != NULL) {
+		memcpy(hdr.field_usage_decision_type,
+		       cache->hdr->field_usage_decision_type,
+		       sizeof(hdr.field_usage_decision_type));
+		memcpy(hdr.field_usage_last_used,
+		       cache->hdr->field_usage_last_used,
+		       sizeof(hdr.field_usage_last_used));
 
-        keep_fields = temp_fields = 0;
-	for (i = 0; i < 32; i++) {
-		if (cache->hdr->field_usage_decision_type[i] &
-		    MAIL_CACHE_DECISION_YES)
-			keep_fields |= 1 << i;
-		else if (cache->hdr->field_usage_decision_type[i] &
-			 MAIL_CACHE_DECISION_TEMP)
-			temp_fields |= 1 << i;
+		keep_fields = temp_fields = 0;
+		for (i = 0; i < 32; i++) {
+			if (cache->hdr->field_usage_decision_type[i] &
+			    MAIL_CACHE_DECISION_YES)
+				keep_fields |= 1 << i;
+			else if (cache->hdr->field_usage_decision_type[i] &
+				 MAIL_CACHE_DECISION_TEMP)
+				temp_fields |= 1 << i;
+		}
 	}
 
-	offset = sizeof(hdr);
+	o_stream_send(output, &hdr, sizeof(hdr));
 
 	/* merge all the header pieces into one. if some message doesn't have
 	   all the required pieces, we'll just have to drop them all. */
@@ -145,7 +153,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	if (str == NULL)
 		header_idx = -1;
 	else {
-		hdr.header_offsets[0] = mail_cache_uint32_to_offset(offset);
+		hdr.header_offsets[0] =
+			mail_cache_uint32_to_offset(output->offset);
 		header_idx = i;
 
 		size = strlen(str) + 1;
@@ -198,8 +207,25 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	}
 	hdr.used_file_size = uint32_to_nbo(output->offset);
 
-	o_stream_unref(output);
+	o_stream_seek(output, 0);
+	o_stream_send(output, &hdr, sizeof(hdr));
+
 	mail_cache_view_close(cache_view);
+
+	if (o_stream_flush(output) < 0) {
+		errno = output->stream_errno;
+		mail_cache_set_syscall_error(cache, "o_stream_flush()");
+		(void)mail_index_transaction_rollback(t);
+		o_stream_unref(output);
+		return -1;
+	}
+
+	if (output->offset < MAIL_CACHE_INITIAL_SIZE) {
+		/* grow the file some more. doesn't matter if it fails */
+		(void)file_set_size(fd, MAIL_CACHE_INITIAL_SIZE);
+	}
+
+	o_stream_unref(output);
 
 	if (fdatasync(fd) < 0) {
 		mail_cache_set_syscall_error(cache, "fdatasync()");
@@ -212,12 +238,13 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 
 int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 {
-	int fd, ret;
+	int fd, ret, locked;
 
 	i_assert(cache->trans_ctx == NULL);
 
-	if ((ret = mail_cache_lock(cache, TRUE)) <= 0)
-		return ret;
+	if ((ret = mail_cache_lock(cache, TRUE)) < 0)
+		return -1;
+	locked = ret > 0;
 
 #ifdef DEBUG
 	i_warning("Compressing cache file %s", cache->filepath);
@@ -232,6 +259,7 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 		return -1;
 	}
 
+	ret = 0;
 	if (mail_cache_copy(cache, view, fd) < 0) {
 		(void)file_dotlock_delete(cache->filepath, NULL, fd);
 		ret = -1;
@@ -246,7 +274,7 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 			mail_cache_file_close(cache);
 			cache->fd = fd;
 
-			if (mail_cache_mmap_update(cache, 0, 0) < 0)
+			if (mail_cache_map(cache, 0, 0) < 0)
 				ret = -1;
 		}
 	}
@@ -255,8 +283,10 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 	memset(cache->split_offsets, 0, sizeof(cache->split_offsets));
 	memset(cache->split_headers, 0, sizeof(cache->split_headers));
 
-	if (mail_cache_unlock(cache) < 0)
-		return -1;
+	if (locked) {
+		if (mail_cache_unlock(cache) < 0)
+			return -1;
+	}
 
 	if (ret == 0)
                 cache->need_compress = FALSE;
@@ -265,5 +295,5 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 
 int mail_cache_need_compress(struct mail_cache *cache)
 {
-	return FALSE; //FIXME:cache->need_compress;
+	return cache->need_compress;
 }

@@ -7,6 +7,7 @@
 #include "mmap-util.h"
 #include "mail-cache-private.h"
 
+#include <stddef.h>
 #include <sys/stat.h>
 
 struct mail_cache_transaction_ctx {
@@ -174,7 +175,7 @@ mail_cache_grow(struct mail_cache_transaction_ctx *ctx, uint32_t size)
 
 	if (ctx->used_file_size + size <= (uoff_t)st.st_size) {
 		/* no need to grow, just update mmap */
-		if (mail_cache_mmap_update(cache, 0, 0) < 0)
+		if (mail_cache_map(cache, 0, (size_t)st.st_size) < 0)
 			return -1;
 
 		i_assert(cache->mmap_length >= (uoff_t)st.st_size);
@@ -186,7 +187,7 @@ mail_cache_grow(struct mail_cache_transaction_ctx *ctx, uint32_t size)
 		return -1;
 	}
 
-	return mail_cache_mmap_update(cache, 0, 0);
+	return mail_cache_map(cache, 0, (size_t)new_fsize);
 }
 
 static uint32_t mail_cache_append_space(struct mail_cache_transaction_ctx *ctx,
@@ -217,10 +218,8 @@ static uint32_t mail_cache_append_space(struct mail_cache_transaction_ctx *ctx,
 static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 {
 	struct mail_cache *cache = ctx->cache;
-	struct mail_cache_record *cache_rec, *next;
-	const struct mail_index_record *rec;
-	struct mail_index_map *map;
-	uint32_t write_offset, update_offset;
+	struct mail_cache_record *cache_rec;
+	uint32_t offset, write_offset;
 	const void *buf;
 	size_t size, buf_size;
 	int ret;
@@ -230,15 +229,9 @@ static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 	size = sizeof(*cache_rec) + buf_size;
 	ctx->cache_rec.size = uint32_to_nbo(size);
 
-	ret = mail_index_lookup_full(ctx->view->view, ctx->prev_seq,
-				     &map, &rec);
+        ret = mail_cache_lookup_offset(ctx->view, ctx->prev_seq, &offset, TRUE);
 	if (ret < 0)
 		return -1;
-
-	if (map->hdr->cache_file_seq != cache->hdr->file_seq) {
-		/* FIXME: we should check if newer file is available? */
-		ret = 0;
-	}
 
 	if (ret == 0) {
 		/* it's been expunged already, do nothing */
@@ -247,22 +240,25 @@ static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 		if (write_offset == 0)
 			return -1;
 
-		cache_rec = mail_cache_get_record(cache, rec->cache_offset,
-						  TRUE);
+		cache_rec = mail_cache_get_record(cache, offset, TRUE);
 		if (cache_rec == NULL) {
 			/* first cache record - update offset in index file */
 			mail_index_update_cache(ctx->trans, ctx->prev_seq,
 						write_offset);
 		} else {
-			/* find the last cache record */
-			while ((next = mail_cache_get_next_record(cache,
-								  cache_rec)) != NULL)
-				cache_rec = next;
+			/* find offset to last cache record */
+			for (;;) {
+				cache_rec = mail_cache_get_record(cache, offset,
+								  FALSE);
+				if (cache_rec == NULL)
+					break;
+				offset = cache_rec->next_offset;
+			}
 
 			/* mark next_offset to be updated later */
-			update_offset = (char *) &cache_rec->next_offset -
-				(char *) cache->mmap_base;
-			mark_update(&ctx->cache_marks, update_offset,
+			offset = mail_cache_offset_to_uint32(offset) +
+				offsetof(struct mail_cache_record, next_offset);
+			mark_update(&ctx->cache_marks, offset,
 				    mail_cache_uint32_to_offset(write_offset));
 		}
 
@@ -285,7 +281,7 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 {
 	int ret = 0;
 
-	if (ctx->cache->disabled) {
+	if (MAIL_CACHE_IS_UNUSABLE(ctx->cache)) {
 		mail_cache_transaction_flush(ctx);
 		return 0;
 	}
@@ -541,7 +537,8 @@ int mail_cache_delete(struct mail_cache_transaction_ctx *ctx, uint32_t seq)
 
 	do {
 		deleted_space -= nbo_to_uint32(cache_rec->size);
-		cache_rec = mail_cache_get_next_record(cache, cache_rec);
+		cache_rec = mail_cache_get_record(cache, cache_rec->next_offset,
+						  FALSE);
 	} while (cache_rec != NULL);
 
 	/* see if we've reached the max. deleted space in file */

@@ -27,6 +27,9 @@
 #define CACHE_RECORD(cache, offset) \
 	((struct mail_cache_record *) ((char *) (cache)->mmap_base + offset))
 
+#define MAIL_CACHE_IS_UNUSABLE(cache) \
+	((cache)->hdr == NULL)
+
 enum mail_cache_decision_type {
 	/* Not needed currently */
 	MAIL_CACHE_DECISION_NO		= 0x00,
@@ -83,10 +86,7 @@ struct mail_cache {
         struct mail_cache_transaction_ctx *trans_ctx;
 	unsigned int locks;
 
-	unsigned int mmap_refresh:1;
 	unsigned int need_compress:1;
-	unsigned int silent:1;
-	unsigned int disabled:1;
 };
 
 struct mail_cache_view {
@@ -111,10 +111,9 @@ mail_cache_split_header(struct mail_cache *cache, const char *header);
 struct mail_cache_record *
 mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 		      int index_offset);
-struct mail_cache_record *
-mail_cache_get_next_record(struct mail_cache *cache,
-			   struct mail_cache_record *rec);
 
+int mail_cache_lookup_offset(struct mail_cache_view *view, uint32_t seq,
+			     uint32_t *offset, int skip_expunged);
 struct mail_cache_record *
 mail_cache_lookup(struct mail_cache_view *view, uint32_t seq,
 		  enum mail_cache_field fields);
@@ -123,9 +122,9 @@ int
 mail_cache_transaction_autocommit(struct mail_cache_view *view,
 				  uint32_t seq, enum mail_cache_field fields);
 
-int mail_cache_mmap_update(struct mail_cache *cache,
-			   size_t offset, size_t size);
+int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size);
 void mail_cache_file_close(struct mail_cache *cache);
+int mail_cache_reopen(struct mail_cache *cache);
 
 void mail_cache_handle_decisions(struct mail_cache_view *view, uint32_t seq,
 				 enum mail_cache_field field);

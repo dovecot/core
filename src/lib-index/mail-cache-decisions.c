@@ -132,6 +132,9 @@ void mail_cache_mark_missing(struct mail_cache_view *view, uint32_t seq,
 	unsigned int idx;
 	uint32_t uid;
 
+	if (MAIL_CACHE_IS_UNUSABLE(view->cache))
+		return;
+
 	idx = mail_cache_field_index(field);
 	if (view->cache->hdr->field_usage_decision_type[idx] !=
 	    MAIL_CACHE_DECISION_NO) {

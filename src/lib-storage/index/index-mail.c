@@ -128,10 +128,17 @@ int index_mail_cache_transaction_begin(struct index_mail *mail)
 	if (mail->trans->cache_trans != NULL)
 		return TRUE;
 
+	if (mail->trans->cache_trans_failed) {
+		/* don't try more than once */
+		return FALSE;
+	}
+
 	if (mail_cache_transaction_begin(mail->trans->cache_view, TRUE,
 					 mail->trans->trans,
-					 &mail->trans->cache_trans) <= 0)
+					 &mail->trans->cache_trans) <= 0) {
+                mail->trans->cache_trans_failed = TRUE;
 		return FALSE;
+	}
 
 	mail->data.cached_fields =
 		mail_cache_get_fields(mail->trans->cache_view, mail->data.seq);
