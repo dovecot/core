@@ -1,15 +1,5 @@
 noinst_LIBRARIES = liblib.a
 
-if IOLOOP_POLL
-ioloop_source = ioloop-poll.c
-else
-ioloop_source = ioloop-select.c
-endif
-
-ioloop_sources = \
-	ioloop-poll.c \
-	ioloop-select.c
-
 liblib_a_SOURCES = \
 	alarm-hup.c \
 	base64.c \
@@ -29,7 +19,8 @@ liblib_a_SOURCES = \
 	ibuffer-file.c \
 	ibuffer-mmap.c \
 	ioloop.c \
-	$(ioloop_source) \
+	ioloop-poll.c \
+	ioloop-select.c \
 	lib.c \
 	lib-signals.c \
 	md5.c \
@@ -92,6 +83,3 @@ noinst_HEADERS = \
 	utc-offset.h \
 	utc-mktime.h \
 	write-full.h
-
-EXTRA_DIST = \
-	$(ioloop_sources)

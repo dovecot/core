@@ -26,6 +26,8 @@
 #include "lib.h"
 #include "ioloop-internal.h"
 
+#ifdef IOLOOP_POLL
+
 #include <sys/poll.h>
 
 #ifndef INITIAL_POLL_FDS
@@ -212,3 +214,5 @@ void io_loop_handler_run(IOLoop ioloop)
 			io_destroy(ioloop, io);
 	}
 }
+
+#endif

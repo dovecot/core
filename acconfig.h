@@ -30,6 +30,10 @@
 #undef AUTH_PAM_USERPASS
 #undef HAVE_PAM_SETCRED
 
+/* How to implement I/O loop */
+#undef IOLOOP_SELECT
+#undef IOLOOP_POLL
+
 /* IMAP capabilities */
 #undef CAPABILITY_STRING
 

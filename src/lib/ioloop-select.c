@@ -26,6 +26,8 @@
 #include "lib.h"
 #include "ioloop-internal.h"
 
+#ifdef IOLOOP_SELECT
+
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -97,27 +99,33 @@ void io_loop_handler_run(IOLoop ioloop)
 	}
 
 	/* execute the I/O handlers in prioritized order */
-	for (io = ioloop->ios; io != NULL; io = next) {
+	for (io = ioloop->ios; io != NULL && ret > 0; io = next) {
 		next = io->next;
+
+		if (io->destroyed) {
+			/* we were destroyed, and io->fd points to -1 now. */
+			io_destroy(ioloop, io);
+			continue;
+		}
+
+		i_assert(io->fd >= 0);
 
 		fd = io->fd;
 		condition = io->condition;
 
-		destroyed = io->destroyed;
-		if (destroyed)
-			io_destroy(ioloop, io);
-
 		if (!io_check_condition(fd, condition))
                         continue;
 
-		if (!destroyed) {
-			t_id = t_push();
-			io->func(io->context, io->fd, io);
-			if (t_pop() != t_id)
-				i_panic("Leaked a t_pop() call!");
-		}
+		t_id = t_push();
+		io->func(io->context, io->fd, io);
+		if (t_pop() != t_id)
+			i_panic("Leaked a t_pop() call!");
 
-		if (--ret == 0)
-                        break;
+		if (io->destroyed)
+			io_destroy(ioloop, io);
+
+		ret--;
 	}
 }
+
+#endif
