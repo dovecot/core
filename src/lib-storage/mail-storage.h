@@ -14,7 +14,8 @@ enum mailbox_open_flags {
 enum mailbox_list_flags {
 	MAILBOX_LIST_SUBSCRIBED	= 0x01,
 	MAILBOX_LIST_FAST_FLAGS	= 0x02,
-	MAILBOX_LIST_CHILDREN	= 0x04
+	MAILBOX_LIST_CHILDREN	= 0x04,
+	MAILBOX_LIST_INBOX	= 0x04
 };
 
 enum mailbox_flags {

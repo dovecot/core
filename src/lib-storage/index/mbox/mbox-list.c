@@ -260,7 +260,8 @@ static int list_file(struct mbox_list_context *ctx, const char *fname)
 	}
 
 	/* make sure we give only one correct INBOX */
-	if (strcasecmp(list_path, "INBOX") == 0) {
+	if (strcasecmp(list_path, "INBOX") == 0 &&
+	    (ctx->flags & MAILBOX_LIST_INBOX) != 0) {
 		if (ctx->inbox_found ||
 		    strcmp(real_path, ctx->istorage->inbox_path) != 0)
 			return 0;
@@ -421,7 +422,8 @@ static struct mailbox_list *mbox_list_next(struct mbox_list_context *ctx)
 		list_dir_context_free(dir);
 	}
 
-	if (!ctx->inbox_found && imap_match(ctx->glob, "INBOX")  > 0) {
+	if (!ctx->inbox_found && (ctx->flags & MAILBOX_LIST_INBOX) != 0 &&
+	    imap_match(ctx->glob, "INBOX")  > 0) {
 		/* show inbox */
 		ctx->inbox_found = TRUE;
 		return mbox_list_inbox(ctx);

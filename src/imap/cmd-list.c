@@ -182,6 +182,7 @@ list_namespace_init(struct client *client, struct cmd_list_context *ctx)
 	struct namespace *ns = ctx->ns;
 	const char *cur_prefix, *cur_ref, *cur_mask;
 	enum imap_match_result match;
+	enum mailbox_list_flags list_flags;
 	unsigned int count;
 	size_t len;
 
@@ -288,9 +289,12 @@ list_namespace_init(struct client *client, struct cmd_list_context *ctx)
 	cur_ref = namespace_fix_sep(ns, cur_ref);
 	cur_mask = namespace_fix_sep(ns, cur_mask);
 
+	list_flags = ctx->list_flags;
+	if (*ns->prefix == '\0' || ns->inbox)
+		list_flags |= MAILBOX_LIST_INBOX;
 	ctx->list_ctx = mail_storage_mailbox_list_init(ns->storage,
 						       cur_ref, cur_mask,
-						       ctx->list_flags);
+						       list_flags);
 }
 
 static int cmd_list_continue(struct client *client)
