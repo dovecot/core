@@ -43,16 +43,28 @@ mail directory. With maildir you need to do mkdir ~user/Maildir, with mbox
 mkdir ~user/mail.
 
 
+Chrooting
+---------
+
+Chrooting can be used for extra security hardening to prevent users from
+having full access to the system, in case some security hole was found. It
+can also be used for local users to gain root privileges if used
+incorrectly. This is possible with hardlinking setuid binaries inside the
+chroot jail. There's at least two possibilities: create your own
+chroot/etc/passwd and run /bin/su, or create your own chroot/lib/libc.so
+and run any setuid binary.
+
+If you want chrooting, make sure that no local users can hardlink setuid
+binaries inside the jail. The safest way to do this would be to mount those
+filesystems with nosuid flag.
+
+
 System with local users
 -----------------------
 
-First of all, don't make imap process chroot to users' mail directory,
-UNLESS that filesystem is mounted with nosuid-flag. Otherwise there's a
-small possibility for the user to gain root privileges.
-
-Then you need to decide if you want users to have the same IMAP password
-than the system password. If yes, disable_plaintext_auth = yes is a very
-good idea.
+It's possible to use either the default system passwords or create separate
+IMAP passwords using eg. passwd-file authentication. If you use system
+passwords, disable_plaintext_auth = yes is a very good idea.
 
 
 System without local users
@@ -79,17 +91,19 @@ lots of memory to act as operating system's file cache.
 
 One performance tweak is to save mails with CR+LFs instead of just LFs.
 This can result in faster indexing of mails and smaller CPU usage when
-sending mails. With Linux and FreeBSD Dovecot can use sendfile() syscall to
-send such mails. However extra CRs do increase the mail size, meaning more
-I/O and potentially losing the gained performance. You can enable this for
-mails saved by Dovecot by setting mail_save_crlf = yes. For mails saved by
-your mailer you'll need to do something else, not yet covered by this
-documentation.
+sending mails. With Linux, FreeBSD and Solaris 9 Dovecot can use sendfile()
+syscall to send such mails. However extra CRs do increase the mail size,
+meaning more I/O and potentially losing the gained performance. You can
+enable this for mails saved by Dovecot by setting mail_save_crlf = yes. For
+mails saved by your mailer you'll need to do something else, not yet
+covered by this documentation.
 
 COPY command can be made much faster with maildir by setting
 maildir_copy_with_hardlinks = yes. This is problematic only if something
 modifies the mail in one folder but doesn't want it modified in the others.
-I don't know any MUA which would modify any mail file directly.
+I don't know any MUA which would modify mail files directly. IMAP protocol
+also requires that the mails don't change, so it would be problematic in
+any case.
 
 Logins can be handled either fast or securely. Doing it securely means
 creating a new login process for each connection instead of having only
@@ -103,7 +117,9 @@ Dovecot's memory usage is very small. Almost all memory usage you see with
 ps/top is from mmap()ed files, meaning that operating system can drop any
 of those memory pages at any time without needing to swap them. With
 Linux/x86 Dovecot usually takes about 48kB of non-mmaped memory plus ~4kB
-per cached mail, max. 16 by default, totaling around to 112kB.
+per cached mail, max. 16 by default, totaling around to 112kB. Some
+commands such as SORT and THREAD will use more memory though (around 800kB
+for threading 4600 mails).
 
 
 Rootless Dovecot
@@ -111,7 +127,7 @@ Rootless Dovecot
 
 It's possible to make Dovecot run under one uid, not requiring root
 privileges at any point. This shouldn't be thought of as any security
-feature, but instead just as a way for non-admins to run imap server from
+feature, but instead just as a way for non-admins to run imap server in
 their favourite mail server.
 
 If you do think of this as a good way to achieve security, ask yourself
