@@ -248,16 +248,14 @@ int mail_custom_flags_open_or_create(struct mail_index *index)
 				   CUSTOM_FLAGS_FILE_NAME, NULL);
 		fd = !readonly ? open(path, O_RDWR | O_CREAT, 0660) :
 			open(path, O_RDONLY);
-		if (fd == -1) {
-			if (errno == EACCES) {
-				fd = open(path, O_RDONLY);
-				readonly = TRUE;
-			}
-			if (errno != EACCES && errno != ENOENT &&
-			    !ENOSPACE(errno)) {
-				index_file_set_syscall_error(index, path, "open()");
-				return FALSE;
-			}
+		if (fd == -1 && errno == EACCES) {
+			fd = open(path, O_RDONLY);
+			readonly = TRUE;
+		}
+		if (fd == -1 && errno != EACCES && errno != ENOENT &&
+		    !ENOSPACE(errno)) {
+			index_file_set_syscall_error(index, path, "open()");
+			return FALSE;
 		}
 	} else {
 		path = NULL;
