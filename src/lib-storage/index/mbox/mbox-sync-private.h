@@ -113,6 +113,8 @@ struct mbox_sync_context {
 
 	unsigned int dest_first_mail:1;
 	unsigned int seen_first_mail:1;
+
+	/* global flags: */
 	unsigned int delay_writes:1;
 };
 
