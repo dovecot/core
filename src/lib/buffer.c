@@ -43,6 +43,8 @@ static void buffer_alloc(Buffer *buf, size_t min_size)
 	if (min_size == 0)
 		return;
 
+	i_assert(buf->w_buffer == NULL || buf->alloced);
+
 	buf->alloc = min_size;
 	if (buf->w_buffer == NULL)
 		buf->w_buffer = p_malloc(buf->pool, buf->alloc);
@@ -102,13 +104,14 @@ static int buffer_check_write(Buffer *buf, size_t *pos, size_t *data_size,
 				return FALSE;
 
 			new_size = buf->limit;
-			if (new_size == buf->alloc || new_size <= *pos)
+			if (*pos >= new_size)
 				return FALSE;
 
 			*data_size = new_size - *pos;
 		}
 
-		buffer_alloc(buf, new_size);
+		if (new_size != buf->alloc)
+			buffer_alloc(buf, new_size);
 	}
 
 	if (new_size > buf->used)
@@ -142,7 +145,7 @@ Buffer *buffer_create_data(Pool pool, void *data, size_t size)
 
 	buf = p_new(pool, Buffer, 1);
 	buf->pool = pool;
-	buf->max_alloc = buf->limit = size;
+	buf->alloc = buf->max_alloc = buf->limit = size;
 	buf->r_buffer = buf->w_buffer = data;
 	return buf;
 }
@@ -153,7 +156,7 @@ Buffer *buffer_create_const_data(Pool pool, const void *data, size_t size)
 
 	buf = p_new(pool, Buffer, 1);
 	buf->pool = pool;
-	buf->used = buf->max_alloc = buf->limit = size;
+	buf->used = buf->alloc = buf->max_alloc = buf->limit = size;
 	buf->r_buffer = data;
 	buf->readonly = TRUE;
 	return buf;
@@ -252,10 +255,9 @@ size_t buffer_delete(Buffer *buf, size_t pos, size_t size)
 
 	if (size < end_size) {
 		/* delete from between */
+		end_size -= size;
 		memmove(buf->w_buffer + buf->start_pos + pos,
-			buf->w_buffer + buf->start_pos + pos + size,
-			end_size - size);
-		end_size = size;
+			buf->w_buffer + buf->start_pos + pos + size, end_size);
 	} else {
 		/* delete the rest of the buffer */
 		size = end_size;
@@ -368,3 +370,51 @@ size_t buffer_get_size(const Buffer *buf)
 {
 	return buf->alloc - buf->start_pos;
 }
+
+#ifdef BUFFER_TEST
+/* gcc buffer.c -o buffer liblib.a -Wall -DHAVE_CONFIG_H -DBUFFER_TEST -g */
+int main(void)
+{
+	Buffer *buf;
+	char data[12], *bufdata;
+	size_t bufsize;
+
+	memset(data, '!', sizeof(data));
+	bufdata = data + 1;
+	bufsize = sizeof(data)-2;
+
+	buf = buffer_create_data(system_pool, bufdata, bufsize);
+	i_assert(buffer_write(buf, 5, "12345", 5) == 5);
+	i_assert(buf->used == 10);
+	i_assert(buffer_write(buf, 6, "12345", 5) == 4);
+	i_assert(buf->used == 10);
+
+	buf = buffer_create_data(system_pool, bufdata, bufsize);
+	i_assert(buffer_write(buf, 0, "1234567890", 10) == 10);
+	i_assert(buffer_write(buf, 0, "12345678901", 11) == 10);
+	i_assert(buffer_append(buf, "1", 1) == 0);
+	i_assert(buf->used == 10);
+
+	buf = buffer_create_data(system_pool, bufdata, bufsize);
+	i_assert(buffer_append(buf, "12345", 5) == 5);
+	i_assert(buf->used == 5);
+	i_assert(buffer_append(buf, "123456", 6) == 5);
+	i_assert(buf->used == 10);
+
+	buf = buffer_create_data(system_pool, bufdata, bufsize);
+	i_assert(buffer_append(buf, "12345", 5) == 5);
+	i_assert(buffer_insert(buf, 2, "123456", 6) == 5);
+	i_assert(buf->used == 10);
+	i_assert(memcmp(buf->r_buffer, "1212345345", 10) == 0);
+	i_assert(buffer_delete(buf, 2, 5) == 5);
+	i_assert(buf->used == 5);
+	i_assert(memcmp(buf->r_buffer, "12345", 5) == 0);
+	i_assert(buffer_delete(buf, 3, 5) == 2);
+	i_assert(buf->used == 3);
+	i_assert(memcmp(buf->r_buffer, "123", 3) == 0);
+
+	i_assert(data[0] == '!');
+	i_assert(data[sizeof(data)-1] == '!');
+	return 0;
+}
+#endif
