@@ -395,7 +395,7 @@ int mail_index_is_inconsistency_error(MailIndex *index);
 int mail_index_mmap_update(MailIndex *index);
 void mail_index_init_header(MailIndex *index, MailIndexHeader *hdr);
 void mail_index_close(MailIndex *index);
-int mail_index_fmsync(MailIndex *index, size_t size);
+int mail_index_fmdatasync(MailIndex *index, size_t size);
 int mail_index_verify_hole_range(MailIndex *index);
 void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 				  MailFlags old_flags, MailFlags new_flags);

@@ -14,6 +14,9 @@ int mail_index_data_reset(MailIndexData *data);
    re-open it. */
 int mail_index_data_mark_deleted(MailIndexData *data);
 
+/* Mark the file as being modified */
+void mail_index_data_mark_modified(MailIndexData *data);
+
 /* Append new data at the end of the file. Returns the position in file
    where the data begins, or 0 if error occured. */
 uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
@@ -23,7 +26,7 @@ uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
 int mail_index_data_add_deleted_space(MailIndexData *data, size_t data_size);
 
 /* Synchronize the data into disk */
-int mail_index_data_sync_file(MailIndexData *data);
+int mail_index_data_sync_file(MailIndexData *data, int *fsync_fd);
 
 /* Looks up a field from data file. If field is 0, returns the first field
    found. Returns NULL if not found or if error occured. */

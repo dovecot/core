@@ -177,12 +177,16 @@ void mail_index_close(MailIndex *index)
 static int mail_index_sync_file(MailIndex *index)
 {
 	struct utimbuf ut;
-	int failed;
+	unsigned int i;
+	int failed, fsync_fds[3];
 
 	if (index->anon_mmap)
 		return TRUE;
 
-	if (!mail_index_data_sync_file(index->data))
+	for (i = 0; i < sizeof(fsync_fds)/sizeof(fsync_fds[0]); i++)
+		fsync_fds[i] = -1;
+
+	if (!mail_index_data_sync_file(index->data, &fsync_fds[0]))
 		return FALSE;
 
 	if (msync(index->mmap_base, index->mmap_used_length, MS_SYNC) < 0)
@@ -191,12 +195,12 @@ static int mail_index_sync_file(MailIndex *index)
 	failed = FALSE;
 
 	if (index->tree != NULL) {
-		if (!mail_tree_sync_file(index->tree))
+		if (!mail_tree_sync_file(index->tree, &fsync_fds[1]))
 			failed = TRUE;
 	}
 
 	if (index->modifylog != NULL) {
-		if (!mail_modifylog_sync_file(index->modifylog))
+		if (!mail_modifylog_sync_file(index->modifylog, &fsync_fds[2]))
 			failed = TRUE;
 	}
 
@@ -206,20 +210,25 @@ static int mail_index_sync_file(MailIndex *index)
 	if (utime(index->filepath, &ut) < 0)
 		return index_set_syscall_error(index, "utime()");
 
+	for (i = 0; i < sizeof(fsync_fds)/sizeof(fsync_fds[0]); i++) {
+		if (fsync_fds[i] != -1 && fdatasync(fsync_fds[i]) < 0)
+			index_set_error(index, "fdatasync(%d) failed: %m", i);
+	}
+
 	if (fsync(index->fd) < 0)
 		return index_set_syscall_error(index, "fsync()");
 
 	return !failed;
 }
 
-int mail_index_fmsync(MailIndex *index, size_t size)
+int mail_index_fmdatasync(MailIndex *index, size_t size)
 {
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
 	if (!index->anon_mmap) {
 		if (msync(index->mmap_base, size, MS_SYNC) < 0)
 			return index_set_syscall_error(index, "msync()");
-		if (fsync(index->fd) < 0)
+		if (fdatasync(index->fd) < 0)
 			return index_set_syscall_error(index, "fsync()");
 	}
 
@@ -370,7 +379,7 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type)
 		   when the lock is released, the FSCK flag will also be
 		   removed. */
 		index->header->flags |= MAIL_INDEX_FLAG_FSCK;
-		if (!mail_index_fmsync(index, sizeof(MailIndexHeader))) {
+		if (!mail_index_fmdatasync(index, sizeof(MailIndexHeader))) {
 			(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
 			return FALSE;
 		}

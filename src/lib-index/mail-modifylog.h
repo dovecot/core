@@ -47,7 +47,7 @@ int mail_modifylog_add_flags(MailModifyLog *log, unsigned int seq,
 			     unsigned int uid, int external_change);
 
 /* Synchronize the data into disk */
-int mail_modifylog_sync_file(MailModifyLog *log);
+int mail_modifylog_sync_file(MailModifyLog *log, int *fsync_fd);
 
 /* Must be called when exclusive lock is dropped from index. */
 void mail_modifylog_notify_lock_drop(MailModifyLog *log);

@@ -18,7 +18,7 @@ int mail_index_truncate(MailIndex *index)
 
 	if (index->mmap_full_length <= INDEX_FILE_MIN_SIZE)
 		return TRUE;
-	    
+
 	/* really truncate the file only when it's almost empty */
 	empty_space = index->mmap_full_length - index->mmap_used_length;
 	truncate_threshold =
@@ -46,6 +46,7 @@ int mail_index_compress(MailIndex *index)
 {
 	MailIndexRecord *rec, *hole_rec, *end_rec;
 	unsigned int idx;
+	int tree_fd;
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
@@ -62,7 +63,7 @@ int mail_index_compress(MailIndex *index)
 	/* if we get interrupted, the whole index is probably corrupted.
 	   so keep rebuild-flag on while doing this */
 	index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
-	if (!mail_index_fmsync(index, sizeof(MailIndexHeader)))
+	if (!mail_index_fmdatasync(index, sizeof(MailIndexHeader)))
 		return FALSE;
 
 	/* first actually compress the data */
@@ -96,7 +97,16 @@ int mail_index_compress(MailIndex *index)
 	index->header->first_hole_records = 0;
 
 	/* make sure the whole file is synced before removing rebuild-flag */
-	if (!mail_index_fmsync(index, index->mmap_used_length))
+	if (!mail_tree_sync_file(index->tree, &tree_fd))
+		return FALSE;
+
+	if (fdatasync(tree_fd) < 0) {
+		index_file_set_syscall_error(index, index->tree->filepath,
+					     "fdatasync()");
+		return FALSE;
+	}
+
+	if (!mail_index_fmdatasync(index, index->mmap_used_length))
 		return FALSE;
 
 	index->header->flags &= ~(MAIL_INDEX_FLAG_COMPRESS |
@@ -130,7 +140,7 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 	/* now we'll begin the actual moving. keep rebuild-flag on
 	   while doing it. */
 	index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
-	if (!mail_index_fmsync(index, sizeof(MailIndexHeader)))
+	if (!mail_index_fmdatasync(index, sizeof(MailIndexHeader)))
 		return FALSE;
 
 	offset = sizeof(data_hdr);
@@ -195,8 +205,15 @@ int mail_index_compress_data(MailIndex *index)
 
 	failed = !mail_index_copy_data(index, fd, temppath);
 
-	if (close(fd) < 0)
+	if (close(fd) < 0) {
 		index_file_set_syscall_error(index, temppath, "close()");
+		failed = TRUE;
+	}
+
+	if (fdatasync(fd) < 0) {
+		index_file_set_syscall_error(index, temppath, "fdatasync()");
+		failed = TRUE;
+	}
 
 	if (!failed) {
 		/* now, rename the temp file to new data file. but before that
@@ -226,7 +243,7 @@ int mail_index_compress_data(MailIndex *index)
 	}
 
 	/* make sure the whole file is synced before removing rebuild-flag */
-	if (!mail_index_fmsync(index, index->mmap_used_length))
+	if (!mail_index_fmdatasync(index, index->mmap_used_length))
 		return FALSE;
 
 	index->header->flags &= ~(MAIL_INDEX_FLAG_COMPRESS_DATA |

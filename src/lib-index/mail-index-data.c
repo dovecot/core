@@ -40,6 +40,8 @@ struct _MailIndexData {
 
 	unsigned int anon_mmap:1;
 	unsigned int dirty_mmap:1;
+	unsigned int modified:1;
+	unsigned int fsynced:1;
 };
 
 int index_data_set_corrupted(MailIndexData *data, const char *fmt, ...)
@@ -146,9 +148,11 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 	i_assert(!data->anon_mmap);
 
 	if (data->mmap_base != NULL) {
-		if (data->mmap_used_length > 0 &&
+		if (data->modified &&
 		    msync(data->mmap_base, data->mmap_used_length, MS_SYNC) < 0)
 			return index_data_set_syscall_error(data, "msync()");
+		data->modified = FALSE;
+		data->fsynced = FALSE;
 
 		if (munmap(data->mmap_base, data->mmap_full_length) < 0)
 			index_data_set_syscall_error(data, "munmap()");
@@ -359,6 +363,8 @@ int mail_index_data_reset(MailIndexData *data)
 		return index_data_set_syscall_error(data, "write_full()");
 	}
 
+	data->modified = FALSE;
+	data->fsynced = FALSE;
 	return mmap_update(data, 0, 0);
 }
 
@@ -371,7 +377,13 @@ int mail_index_data_mark_deleted(MailIndexData *data)
 	if (msync(data->mmap_base, sizeof(MailIndexDataHeader), MS_SYNC) < 0)
 		return index_data_set_syscall_error(data, "msync()");
 
+	data->fsynced = FALSE;
 	return TRUE;
+}
+
+void mail_index_data_mark_modified(MailIndexData *data)
+{
+	data->modified = TRUE;
 }
 
 static int mail_index_data_grow(MailIndexData *data, size_t size)
@@ -443,6 +455,7 @@ uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
 	memcpy((char *) data->mmap_base + offset, buffer, size);
 	data->header->used_file_size += size;
 
+        data->modified = TRUE;
 	return offset;
 }
 
@@ -462,20 +475,28 @@ int mail_index_data_add_deleted_space(MailIndexData *data, size_t data_size)
 		if (data->header->deleted_space >= max_del_space)
 			data->index->set_flags |= MAIL_INDEX_FLAG_COMPRESS_DATA;
 	}
+
+        data->modified = TRUE;
 	return TRUE;
 }
 
-int mail_index_data_sync_file(MailIndexData *data)
+int mail_index_data_sync_file(MailIndexData *data, int *fsync_fd)
 {
+	*fsync_fd = -1;
+
 	if (data->anon_mmap)
 		return TRUE;
 
-	if (data->mmap_base != NULL && data->mmap_used_length > 0) {
+	if (data->modified) {
 		if (msync(data->mmap_base, data->mmap_used_length, MS_SYNC) < 0)
 			return index_data_set_syscall_error(data, "msync()");
 
-		if (fsync(data->fd) < 0)
-			return index_data_set_syscall_error(data, "fsync()");
+		data->fsynced = FALSE;
+	}
+
+	if (!data->fsynced) {
+		data->fsynced = TRUE;
+		*fsync_fd = data->fd;
 	}
 
 	return TRUE;

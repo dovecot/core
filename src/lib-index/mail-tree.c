@@ -43,7 +43,7 @@ int _mail_tree_set_corrupted(MailTree *tree, const char *fmt, ...)
 	return FALSE;
 }
 
-static int mmap_update(MailTree *tree, int forced)
+int _mail_tree_mmap_update(MailTree *tree, int forced)
 {
 	if (!forced && tree->header != NULL &&
 	    tree->mmap_full_length >= tree->header->used_file_size) {
@@ -58,6 +58,7 @@ static int mmap_update(MailTree *tree, int forced)
 		if (tree->modified &&
 		    msync(tree->mmap_base, tree->mmap_used_length, MS_SYNC) < 0)
 			return tree_set_syscall_error(tree, "msync()");
+		tree->modified = FALSE;
 
 		if (munmap(tree->mmap_base, tree->mmap_full_length) < 0)
 			tree_set_syscall_error(tree, "munmap()");
@@ -199,7 +200,7 @@ int mail_tree_open_or_create(MailIndex *index)
 		return FALSE;
 
 	do {
-		if (!mmap_update(tree, TRUE))
+		if (!_mail_tree_mmap_update(tree, TRUE))
 			break;
 
 		if (tree->mmap_full_length == 0) {
@@ -271,7 +272,7 @@ int mail_tree_rebuild(MailTree *tree)
 		return FALSE;
 
 	if (!mail_tree_init(tree) ||
-	    !mmap_update(tree, TRUE) ||
+	    !_mail_tree_mmap_update(tree, TRUE) ||
 	    !mmap_verify(tree)) {
 		tree->index->header->flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
 		return FALSE;
@@ -292,19 +293,19 @@ int mail_tree_rebuild(MailTree *tree)
 	return TRUE;
 }
 
-int mail_tree_sync_file(MailTree *tree)
+int mail_tree_sync_file(MailTree *tree, int *fsync_fd)
 {
+	*fsync_fd = -1;
+
 	if (!tree->modified || tree->anon_mmap)
 		return TRUE;
 
-	if (tree->mmap_base != NULL) {
-		if (msync(tree->mmap_base, tree->mmap_used_length, MS_SYNC) < 0)
-			return tree_set_syscall_error(tree, "msync()");
-	}
+	i_assert(tree->mmap_base != NULL);
 
-	if (fsync(tree->fd) < 0)
-		return tree_set_syscall_error(tree, "fsync()");
+	if (msync(tree->mmap_base, tree->mmap_used_length, MS_SYNC) < 0)
+		return tree_set_syscall_error(tree, "msync()");
 
+	*fsync_fd = tree->fd;
 	tree->modified = FALSE;
 	return TRUE;
 }
@@ -343,7 +344,7 @@ int _mail_tree_grow(MailTree *tree)
 		return tree_set_syscall_error(tree, "file_set_size()");
 	}
 
-	if (!mmap_update(tree, TRUE) || !mmap_verify(tree))
+	if (!_mail_tree_mmap_update(tree, TRUE) || !mmap_verify(tree))
 		return FALSE;
 
 	return TRUE;

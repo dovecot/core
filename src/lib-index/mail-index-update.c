@@ -231,6 +231,8 @@ static void update_by_replace(MailIndexUpdate *update)
 		rec = mail_index_data_next(update->index->data,
 					   update->rec, rec);
 	}
+
+        mail_index_data_mark_modified(update->index->data);
 }
 
 int mail_index_update_end(MailIndexUpdate *update)

@@ -178,6 +178,7 @@ static int mmap_update(ModifyLogFile *file, int forced)
 		if (file->modified &&
 		    msync(file->mmap_base, file->mmap_used_length, MS_SYNC) < 0)
 			return modifylog_set_syscall_error(file, "msync()");
+		file->modified = FALSE;
 
 		if (munmap(file->mmap_base, file->mmap_full_length) < 0)
 			modifylog_set_syscall_error(file, "munmap()");
@@ -578,22 +579,21 @@ void mail_modifylog_free(MailModifyLog *log)
 	i_free(log);
 }
 
-int mail_modifylog_sync_file(MailModifyLog *log)
+int mail_modifylog_sync_file(MailModifyLog *log, int *fsync_fd)
 {
 	ModifyLogFile *file = log->head;
+
+	*fsync_fd = -1;
 
 	if (!file->modified || file->anon_mmap)
 		return TRUE;
 
-	if (file->mmap_base != NULL) {
-		if (msync(file->mmap_base, file->mmap_used_length,
-			  MS_SYNC) < 0)
-			return modifylog_set_syscall_error(file, "msync()");
-	}
+	i_assert(file->mmap_base != NULL);
 
-	if (fsync(file->fd) < 0)
-		return modifylog_set_syscall_error(file, "fsync()");
+	if (msync(file->mmap_base, file->mmap_used_length, MS_SYNC) < 0)
+		return modifylog_set_syscall_error(file, "msync()");
 
+	*fsync_fd = file->fd;
 	file->modified = FALSE;
 	return TRUE;
 }

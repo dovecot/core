@@ -51,7 +51,7 @@ int mail_tree_open_or_create(MailIndex *index);
 void mail_tree_free(MailTree *tree);
 
 int mail_tree_rebuild(MailTree *tree);
-int mail_tree_sync_file(MailTree *tree);
+int mail_tree_sync_file(MailTree *tree, int *fsync_fd);
 
 /* Find first existing UID in range. Returns (unsigned int)-1 if not found. */
 unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
@@ -72,6 +72,7 @@ void mail_tree_delete(MailTree *tree, unsigned int uid);
 
 /* private: */
 int _mail_tree_set_corrupted(MailTree *tree, const char *fmt, ...);
+int _mail_tree_mmap_update(MailTree *tree, int forced);
 int _mail_tree_grow(MailTree *tree);
 
 #endif
