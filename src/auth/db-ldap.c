@@ -9,6 +9,7 @@
 #include "network.h"
 #include "ioloop.h"
 #include "hash.h"
+#include "str.h"
 #include "settings.h"
 #include "db-ldap.h"
 
@@ -259,6 +260,29 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *value,
 			dest++;
 		}
 	}
+}
+
+const char *ldap_escape(const char *str)
+{
+	string_t *s;
+	const char *p;
+
+	for (p = str; *p != '\0'; p++) {
+		if (strchr("*()\\", *p) != NULL)
+			break;
+	}
+
+	if (*p == '\0')
+		return str;
+
+	s = t_str_new(64);
+	str_append_n(s, str, (size_t) (p-str));
+	for (; *p != '\0'; p++) {
+		if (strchr("*()\\", *p) != NULL)
+			str_append_c(s, '\\');
+		str_append_c(s, *p);
+	}
+	return str_c(s);
 }
 
 static const char *parse_setting(const char *key, const char *value,

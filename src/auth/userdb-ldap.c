@@ -148,6 +148,7 @@ static void userdb_ldap_lookup(const char *user, const char *realm,
 	if (realm != NULL)
 		user = t_strconcat(user, "@", realm, NULL);
 
+	user = ldap_escape(user);
 	if (conn->set.user_filter == NULL) {
 		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
 			userdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER], user);

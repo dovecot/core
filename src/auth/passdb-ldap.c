@@ -73,6 +73,7 @@ static void handle_request(struct ldap_connection *conn,
 	} else {
 		attr = ldap_first_attribute(conn->ld, entry, &ber);
 		while (attr != NULL) {
+			i_warning("attr: %s", attr);
 			vals = ldap_get_values(conn->ld, entry, attr);
 			if (vals != NULL && vals[0] != NULL &&
 			    vals[1] == NULL) {
@@ -160,6 +161,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 				   auth_request->realm, NULL);
 	}
 
+	user = ldap_escape(user);
 	if (conn->set.pass_filter == NULL) {
 		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
 			passdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER], user);
