@@ -730,10 +730,11 @@ mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 static int
 mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 {
+	struct mail_index_view *sync_view = sync_ctx->sync_view;
 	uint32_t seq1, seq2;
 	uoff_t file_size;
 
-	if (mail_index_lookup_uid_range(sync_ctx->sync_view, uid, (uint32_t)-1,
+	if (mail_index_lookup_uid_range(sync_view, uid, (uint32_t)-1,
 					&seq1, &seq2) < 0) {
 		mail_storage_set_index_error(sync_ctx->ibox);
 		return -1;
@@ -749,6 +750,8 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 				sync_ctx->ibox->path);
 			return -1;
 		}
+		sync_ctx->idx_seq =
+			mail_index_view_get_message_count(sync_view) + 1;
 		return 1;
 	}
 
