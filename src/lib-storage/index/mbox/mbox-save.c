@@ -317,7 +317,8 @@ int mbox_save(struct mailbox_transaction_context *_t,
 		mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE,
 					save_flags, keywords);
 
-		offset = ctx->output->offset - 1;
+		offset = ctx->output->offset == 0 ? 0 :
+			ctx->output->offset - 1;
 		mail_index_update_extra_rec(ctx->trans, seq,
 					    ibox->mbox_extra_idx, &offset);
 		ctx->next_uid++;
