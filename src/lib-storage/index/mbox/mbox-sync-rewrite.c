@@ -27,17 +27,11 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 	i_stream_seek(sync_ctx->file_input, source);
 	o_stream_seek(output, dest);
 
-	if (size == (uoff_t)-1) {
-		input = sync_ctx->file_input;
-		ret = o_stream_send_istream(output, input) < 0 ? -1 : 0;
-	} else {
-		input = i_stream_create_limit(default_pool,
-					      sync_ctx->file_input,
-					      source, size);
-		ret = o_stream_send_istream(output, input);
-		i_stream_unref(input);
-		ret = ret == (off_t)size ? 0 : -1;
-	}
+	input = i_stream_create_limit(default_pool, sync_ctx->file_input,
+				      source, size);
+	ret = o_stream_send_istream(output, input);
+	i_stream_unref(input);
+	ret = ret == (off_t)size ? 0 : -1;
 
 	if (ret < 0) {
 		errno = output->stream_errno;
