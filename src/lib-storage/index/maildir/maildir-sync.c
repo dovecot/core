@@ -824,15 +824,19 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 	return ret;
 }
 
-static int maildir_sync_context(struct maildir_sync_context *ctx)
+static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 {
 	int ret, new_changed, cur_changed;
 
-	if (maildir_sync_quick_check(ctx, &new_changed, &cur_changed) < 0)
-		return -1;
+	if (!forced) {
+		if (maildir_sync_quick_check(ctx, &new_changed, &cur_changed) < 0)
+			return -1;
 
-	if (!new_changed && !cur_changed)
-		return 0;
+		if (!new_changed && !cur_changed)
+			return 0;
+	} else {
+		new_changed = cur_changed = TRUE;
+	}
 
 	/* we have to lock uidlist immediately, otherwise there's race
 	   conditions with other processes who might write older maildir
@@ -840,8 +844,14 @@ static int maildir_sync_context(struct maildir_sync_context *ctx)
 
 	   alternative would be to lock it when new files are found, but
 	   the directory scans _must_ be restarted then */
-	if ((ret = maildir_uidlist_try_lock(ctx->ibox->uidlist)) <= 0)
+	if ((ret = maildir_uidlist_try_lock(ctx->ibox->uidlist)) < 0)
 		return ret;
+	if (ret == 0 && !forced) {
+		/* we didn't get a lock, don't do syncing unless we really
+		   want to check for expunges or renames. new files won't
+		   be added. */
+		return 0;
+	}
 
 	ctx->partial = !cur_changed;
 	ctx->uidlist_sync_ctx =
@@ -865,32 +875,13 @@ static int maildir_sync_context(struct maildir_sync_context *ctx)
 	return ret;
 }
 
-static int maildir_sync_context_readonly(struct maildir_sync_context *ctx)
-{
-	int ret;
-
-	ctx->uidlist_sync_ctx =
-		maildir_uidlist_sync_init(ctx->ibox->uidlist, FALSE);
-
-	if (maildir_scan_dir(ctx, TRUE) < 0)
-		return -1;
-	if (maildir_scan_dir(ctx, FALSE) < 0)
-		return -1;
-
-	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
-	ret = maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
-        ctx->uidlist_sync_ctx = NULL;
-
-	return ret;
-}
-
-int maildir_storage_sync_readonly(struct index_mailbox *ibox)
+int maildir_storage_sync_force(struct index_mailbox *ibox)
 {
         struct maildir_sync_context *ctx;
 	int ret;
 
 	ctx = maildir_sync_context_new(ibox);
-	ret = maildir_sync_context_readonly(ctx);
+	ret = maildir_sync_context(ctx, TRUE);
 	maildir_sync_deinit(ctx);
 	return ret;
 }
@@ -906,7 +897,7 @@ int maildir_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 		ibox->sync_last_check = ioloop_time;
 
 		ctx = maildir_sync_context_new(ibox);
-		ret = maildir_sync_context(ctx);
+		ret = maildir_sync_context(ctx, FALSE);
 		maildir_sync_deinit(ctx);
 
 		if (ret < 0)

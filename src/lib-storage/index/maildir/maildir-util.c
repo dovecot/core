@@ -49,7 +49,7 @@ int maildir_file_do(struct index_mailbox *ibox, uint32_t uid,
 		/* file is either renamed or deleted. sync the maildir and
 		   see which one. if file appears to be renamed constantly,
 		   don't try to open it more than 10 times. */
-		if (maildir_storage_sync_readonly(ibox) < 0)
+		if (maildir_storage_sync_force(ibox) < 0)
 			return -1;
 
 		ret = maildir_file_do_try(ibox, uid, func, context);
