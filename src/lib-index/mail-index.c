@@ -411,6 +411,9 @@ int mail_index_lock_full(MailIndex *index, MailLockType lock_type,
 		/* anonymous mmaps are private and don't need any locking */
 		mail_index_update_header_changes(index);
 		index->lock_type = lock_type;
+
+		debug_mprotect(index->mmap_base, index->mmap_full_length,
+			       index);
 		return TRUE;
 	}
 
@@ -917,7 +920,7 @@ static int mail_index_grow(MailIndex *index)
 
 		index->mmap_base = base;
 		index->mmap_full_length = (size_t)pos;
-		return TRUE;
+		return mmap_verify(index);
 	}
 
 	if (file_set_size(index->fd, (off_t)pos) < 0) {

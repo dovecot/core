@@ -411,6 +411,7 @@ static int mail_index_data_grow(MailIndexData *data, size_t size)
 
 		data->mmap_base = base;
 		data->mmap_full_length = (size_t)new_fsize;
+		data->header = data->mmap_base;
 		return TRUE;
 	}
 
