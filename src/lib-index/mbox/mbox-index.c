@@ -123,12 +123,12 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 
 	case 'X':
 	case 'x':
-		/* Let the local delivery agent help generate unique ID's but
-		   don't blindly trust this header alone as it could just as
-		   easily come from the remote. */
-		if (name_len == 13)
+		if (name_len == 13) {
+			/* Let the local delivery agent help generate unique
+			   ID's but don't blindly trust this header alone as
+			   it could just as easily come from the remote. */
 			fixed = strncasecmp(name, "X-Delivery-ID:", 13) == 0;
-		else if (name_len == 8 &&
+		} else if (name_len == 8 &&
 			 strncasecmp(name, "X-Status", 8) == 0) {
 			/* update message flags */
 			ctx->flags |= mbox_get_status_flags(value, value_len);
