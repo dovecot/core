@@ -221,7 +221,7 @@ void net_set_nonblock(int fd __attr_unused__, int nonblock __attr_unused__)
 {
 #ifdef HAVE_FCNTL
 	if (fcntl(fd, F_SETFL, nonblock ? O_NONBLOCK : 0) < 0)
-		i_fatal("net_send_nonblock() failed: %m");
+		i_fatal("net_set_nonblock() failed: %m");
 #endif
 }
 
