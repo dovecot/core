@@ -194,7 +194,18 @@ void net_disconnect(int fd)
 void net_set_nonblock(int fd __attr_unused__, int nonblock __attr_unused__)
 {
 #ifdef HAVE_FCNTL
-	if (fcntl(fd, F_SETFL, nonblock ? O_NONBLOCK : 0) < 0)
+	int flags;
+
+	flags = fcntl(fd, F_GETFL, 0);
+	if (flags == -1)
+		i_fatal("net_set_nonblock() failed: %m");
+
+	if (nonblock)
+		flags |= O_NONBLOCK;
+	else
+		flags &= ~O_NONBLOCK;
+
+	if (fcntl(fd, F_SETFL, flags) < 0)
 		i_fatal("net_set_nonblock() failed: %m");
 #endif
 }
