@@ -21,6 +21,7 @@ typedef struct {
 
 	const char *charset;
 	unsigned int unknown_charset:1;
+	unsigned int search_header:1;
 } BodySearchContext;
 
 typedef struct {
@@ -42,6 +43,7 @@ typedef struct {
 	unsigned int content_base64:1;
 	unsigned int content_unknown:1;
 	unsigned int content_type_text:1; /* text/any or message/any */
+	unsigned int ignore_header:1;
 	unsigned int found:1;
 } PartSearchContext;
 
@@ -114,8 +116,10 @@ static void header_find(MessagePart *part __attr_unused__,
 	if (ctx->found)
 		return;
 
-	ctx->found = message_header_search(value, &value_len,
-					   ctx->hdr_search_ctx);
+	if (!ctx->ignore_header) {
+		ctx->found = message_header_search(value, &value_len,
+						   ctx->hdr_search_ctx);
+	}
 
 	if (name_len == 12 && strncasecmp(name, "Content-Type", 12) == 0) {
 		(void)message_content_parse_header(t_strndup(value, value_len),
@@ -201,9 +205,6 @@ static int message_search_body_block(PartSearchContext *ctx,
 	unsigned char outbuf[DECODE_BLOCK_SIZE];
 	size_t inbuf_size, outbuf_size, max_size;
 
-	if (ctx->body_ctx->unknown_charset || ctx->translation == NULL)
-		return message_search_decoded_block(ctx, data, size);
-
 	while (size > 0) {
 		if (ctx->decode_buf_used == 0) {
 			inbuf = data;
@@ -271,9 +272,10 @@ static int message_search_body(PartSearchContext *ctx, IBuffer *inbuf,
 		return FALSE;
 	}
 
-	ctx->translation = charset_to_utf8_begin(ctx->content_charset != NULL ?
-						 ctx->content_charset : "ascii",
-						 NULL);
+	ctx->translation = ctx->content_charset == NULL ? NULL :
+		charset_to_utf8_begin(ctx->content_charset, NULL);
+	if (ctx->translation == NULL)
+		ctx->translation = charset_to_utf8_begin("ascii", NULL);
 
 	ctx->match_count = 0;
 	ctx->matches = t_malloc(sizeof(size_t) * ctx->body_ctx->key_len);
@@ -328,7 +330,8 @@ static int message_search_body(PartSearchContext *ctx, IBuffer *inbuf,
 }
 
 static int message_body_search_init(BodySearchContext *ctx, const char *key,
-				    const char *charset, int *unknown_charset)
+				    const char *charset, int *unknown_charset,
+				    int search_header)
 {
 	size_t size;
 
@@ -347,6 +350,7 @@ static int message_body_search_init(BodySearchContext *ctx, const char *key,
 	ctx->key_len = size;
 	ctx->charset = charset;
 	ctx->unknown_charset = charset == NULL;
+	ctx->search_header = search_header;
 
 	return TRUE;
 }
@@ -365,6 +369,8 @@ static int message_body_search_ctx(BodySearchContext *ctx, IBuffer *inbuf,
 
 		memset(&part_ctx, 0, sizeof(part_ctx));
 		part_ctx.body_ctx = ctx;
+		part_ctx.ignore_header =
+			part->parent == NULL && !ctx->search_header;
 
 		t_push();
 
@@ -389,11 +395,12 @@ static int message_body_search_ctx(BodySearchContext *ctx, IBuffer *inbuf,
 
 int message_body_search(const char *key, const char *charset,
 			int *unknown_charset, IBuffer *inbuf,
-			MessagePart *part)
+			MessagePart *part, int search_header)
 {
         BodySearchContext ctx;
 
-        if (!message_body_search_init(&ctx, key, charset, unknown_charset))
+	if (!message_body_search_init(&ctx, key, charset, unknown_charset,
+				      search_header))
 		return -1;
 
 	return message_body_search_ctx(&ctx, inbuf, part);

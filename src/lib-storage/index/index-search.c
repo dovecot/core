@@ -534,7 +534,7 @@ static void search_body(MailSearchArg *arg, void *context)
 		ret = message_body_search(arg->value.str,
 					  ctx->index_ctx->charset,
 					  &unknown_charset, ctx->inbuf,
-					  ctx->part);
+					  ctx->part, arg->type == SEARCH_TEXT);
 
 		if (ret < 0) {
 			ctx->index_ctx->error = unknown_charset ?
@@ -548,7 +548,6 @@ static void search_body(MailSearchArg *arg, void *context)
 static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 {
 	IBuffer *inbuf;
-	MessageSize hdr_size;
 	int have_headers, have_body, have_text;
 
 	/* first check what we need to use */
@@ -567,11 +566,11 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 		hdr_ctx.custom_header = TRUE;
 		hdr_ctx.args = args;
 
-		message_parse_header(NULL, inbuf, &hdr_size,
+		message_parse_header(NULL, inbuf, NULL,
 				     search_header, &hdr_ctx);
 	} else {
 		if (!imap_msgcache_get_rfc822(search_open_cache(ctx), &inbuf,
-					      &hdr_size, NULL))
+					      NULL, NULL))
 			return FALSE;
 	}
 

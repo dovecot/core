@@ -7,6 +7,6 @@
    specific charset but is compared to message data without any translation. */
 int message_body_search(const char *key, const char *charset,
 			int *unknown_charset, IBuffer *inbuf,
-			MessagePart *part);
+			MessagePart *part, int search_header);
 
 #endif
