@@ -760,7 +760,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			/* a) line is larger than input buffer
 			   b) header ended unexpectedly */
 			if (colon_pos == UINT_MAX && ret == -2 &&
-			    !line->continues) {
+			    !line->continued) {
 				/* header name is huge. just skip it. */
 				message_skip_line(ctx->input, ctx->hdr_size,
 						  TRUE, &ctx->has_nuls);
@@ -771,7 +771,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			if (ret == -2) {
 				/* go back to last LWSP if found. */
 				size_t min_pos =
-					!line->continues ? colon_pos : 0;
+					!line->continued ? colon_pos : 0;
 				for (i = size-1; i > min_pos; i--) {
 					if (IS_LWSP(msg[i])) {
 						size = i;
