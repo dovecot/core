@@ -68,6 +68,34 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 	else
 		return -1;
 }
+
+#elif defined (HAVE_SOLARIS_SENDFILEV)
+
+#include <sys/sendfile.h>
+
+ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
+{
+	struct sendfilevec vec;
+	size_t sbytes;
+	ssize_t ret;
+
+	i_assert(count <= SSIZE_T_MAX);
+
+	vec.sfv_fd = in_fd;
+	vec.sfv_flag = 0;
+	vec.sfv_off = *offset;
+	vec.sfv_len = count;
+
+	ret = sendfilev(out_fd, &vec, 1, &sbytes);
+
+	*offset += sbytes;
+
+	if (ret >= 0 || (ret < 0 && errno == EAGAIN && sbytes > 0))
+		return (ssize_t)sbytes;
+	else
+		return -1;
+}
+
 #else
 ssize_t safe_sendfile(int out_fd __attr_unused__, int in_fd __attr_unused__,
 		      uoff_t *offset __attr_unused__,
@@ -76,4 +104,5 @@ ssize_t safe_sendfile(int out_fd __attr_unused__, int in_fd __attr_unused__,
 	errno = EINVAL;
 	return -1;
 }
+
 #endif
