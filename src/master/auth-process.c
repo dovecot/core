@@ -460,10 +460,13 @@ static int create_auth_process(struct auth_process_group *group,
 
 	child_process_init_env();
 
-	i_assert(group->balancer_listen_fd != 3);
-	if (group->listen_fd != 3) {
-		if (dup2(group->listen_fd, 3) < 0)
-			i_fatal("dup2() failed: %m");
+	if (!balancer_worker) {
+		i_assert(group->balancer_listen_fd != 3);
+		if (group->listen_fd != 3) {
+			if (dup2(group->listen_fd, 3) < 0)
+				i_fatal("dup2() failed: %m");
+		}
+		fd_close_on_exec(3, FALSE);
 	}
 
 	if (balancer) {
@@ -474,7 +477,7 @@ static int create_auth_process(struct auth_process_group *group,
 		fd_close_on_exec(4, FALSE);
 	}
 
-	for (i = 0; i <= 3; i++)
+	for (i = 0; i <= 2; i++)
 		fd_close_on_exec(i, FALSE);
 
 	/* setup access environment */
