@@ -185,6 +185,7 @@ void client_destroy(struct client *client)
 		i_stream_close(client->input);
 		o_stream_close(client->output);
 		client->cmd(client);
+		i_assert(client->cmd == NULL);
 	}
 	if (client->mailbox != NULL)
 		mailbox_close(client->mailbox);
