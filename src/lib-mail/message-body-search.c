@@ -117,6 +117,9 @@ static int message_search_header(struct part_search_context *ctx,
 
 	hdr_ctx = message_parse_header_init(input, NULL);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
+		if (hdr->eoh)
+			continue;
+
 		if (!ctx->ignore_header) {
 			if (message_header_search(hdr->value, hdr->value_len,
 						  hdr_search_ctx)) {

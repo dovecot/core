@@ -202,7 +202,7 @@ message_parse_part(struct istream *input, struct parser_context *parser_ctx)
 					     parser_ctx->context);
 		}
 
-		if (strcasecmp(hdr->name, "Content-Type") == 0) {
+		if (!hdr->eoh && strcasecmp(hdr->name, "Content-Type") == 0) {
 			if (hdr->continues) {
 				hdr->use_full_value = TRUE;
 				continue;
