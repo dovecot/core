@@ -194,7 +194,8 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 
 		return mbox_open(storage, name, readonly);
 	} else if (errno == ENOENT) {
-		mail_storage_set_error(storage, "Mailbox doesn't exist");
+		mail_storage_set_error(storage, "Mailbox doesn't exist: %s",
+				       name);
 		return NULL;
 	} else {
 		mail_storage_set_critical(storage, "Can't open mailbox %s: %m",
@@ -270,7 +271,8 @@ static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 	if (unlink(path) == -1) {
 		if (errno == ENOENT) {
 			mail_storage_set_error(storage,
-					       "Mailbox doesn't exist.");
+					       "Mailbox doesn't exist: %s",
+					       name);
 		} else {
 			mail_storage_set_critical(storage, "Can't delete mbox "
 						  "file %s: %m", path);

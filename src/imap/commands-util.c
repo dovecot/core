@@ -39,12 +39,14 @@ int client_verify_mailbox_name(Client *client, const char *mailbox,
 		if (!should_exist)
 			return TRUE;
 
-		client_send_tagline(client, "NO [TRYCREATE] "
-				    "Mailbox doesn't exist.");
+		client_send_tagline(client, t_strconcat(
+			"NO [TRYCREATE] Mailbox doesn't exist: ",
+			mailbox, NULL));
 		break;
 
 	case MAILBOX_NAME_INVALID:
-		client_send_tagline(client, "NO Invalid mailbox name.");
+		client_send_tagline(client, t_strconcat(
+			"NO Invalid mailbox name: ", mailbox, NULL));
 		break;
 
 	case MAILBOX_NAME_EXISTS:
