@@ -298,7 +298,7 @@ static void passwd_file_parse_file(PasswdFile *pw)
 	char *const *args;
 	char *line;
 
-	inbuf = io_buffer_create_file(pw->fd, default_pool, 2048);
+	inbuf = io_buffer_create_file(pw->fd, default_pool, 2048, FALSE);
 	for (;;) {
 		line = io_buffer_next_line(inbuf);
 		if (line == NULL) {

@@ -37,7 +37,6 @@ static IOBuffer *index_msgcache_inbuf_rewind(IOBuffer *inbuf,
 	if (!io_buffer_seek(inbuf, 0)) {
 		i_error("index_msgcache_inbuf_rewind: lseek() failed: %m");
 
-		(void)close(inbuf->fd);
 		io_buffer_destroy(inbuf);
 		return NULL;
 	}

@@ -343,8 +343,8 @@ static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
 	if (lseek(out_fd, (off_t)out_offset, SEEK_SET) < 0)
 		return -1;
 
-	inbuf = io_buffer_create_mmap(in_fd, default_pool, 65536, 0);
-	outbuf = io_buffer_create_file(out_fd, default_pool, 1024);
+	inbuf = io_buffer_create_mmap(in_fd, default_pool, 65536, 0, FALSE);
+	outbuf = io_buffer_create_file(out_fd, default_pool, 1024, FALSE);
 
 	ret = io_buffer_send_iobuffer(outbuf, inbuf, inbuf->size);
 	if (ret < 0)
@@ -431,8 +431,8 @@ int mbox_index_rewrite(MailIndex *index)
 	dirty_offset = 0;
 
 	inbuf = io_buffer_create_mmap(mbox_fd, default_pool,
-				      MAIL_MMAP_BLOCK_SIZE, 0);
-	outbuf = io_buffer_create_file(tmp_fd, default_pool, 8192);
+				      MAIL_MMAP_BLOCK_SIZE, 0, FALSE);
+	outbuf = io_buffer_create_file(tmp_fd, default_pool, 8192, FALSE);
 
 	failed = FALSE; seq = 1;
 	rec = index->lookup(index, 1);

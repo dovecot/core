@@ -65,17 +65,19 @@ IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
 	return buf;
 }
 
-IOBuffer *io_buffer_create_file(int fd, Pool pool, size_t max_buffer_size)
+IOBuffer *io_buffer_create_file(int fd, Pool pool, size_t max_buffer_size,
+				int autoclose_fd)
 {
 	IOBuffer *buf;
 
 	buf = io_buffer_create(fd, pool, IO_PRIORITY_DEFAULT, max_buffer_size);
 	buf->file = TRUE;
+	buf->close_file = autoclose_fd;
         return buf;
 }
 
 IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
-				uoff_t size)
+				uoff_t size, int autoclose_fd)
 {
 	IOBuffer *buf;
 	off_t start_offset, stop_offset;
@@ -93,7 +95,7 @@ IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
 		block_size += mmap_pagesize;
 	}
 
-	buf = io_buffer_create_file(fd, pool, block_size);
+	buf = io_buffer_create_file(fd, pool, block_size, autoclose_fd);
 	buf->mmaped = TRUE;
 	buf->receive = TRUE;
 
@@ -141,6 +143,7 @@ void io_buffer_destroy(IOBuffer *buf)
 			}
 		}
 	}
+	io_buffer_close(buf);
         p_free(buf->pool, buf);
 }
 
@@ -149,7 +152,12 @@ void io_buffer_close(IOBuffer *buf)
 	if (buf == NULL)
 		return;
 
-        buf->closed = TRUE;
+	buf->closed = TRUE;
+	if (buf->close_file && buf->fd != -1) {
+		if (close(buf->fd) < 0)
+			i_error("io_buffer_close(): close() failed: %m");
+		buf->fd = -1;
+	}
 }
 
 void io_buffer_reset(IOBuffer *buf)
@@ -244,8 +252,8 @@ static void buf_send_real(IOBuffer *buf)
 	}
 
 	if (ret < 0) {
-		buf->closed = TRUE;
 		buf->buf_errno = errno;
+		io_buffer_close(buf);
 	} else {
 		buf->offset += ret;
 		buf->skip += ret;
@@ -297,8 +305,8 @@ static void block_loop_send(IOBufferBlockContext *ctx)
 			my_write(ctx->outbuf->fd, ctx->data, size);
 
 		if (ret < 0) {
-			ctx->outbuf->closed = TRUE;
 			ctx->outbuf->buf_errno = errno;
+                        io_buffer_close(ctx->outbuf);
 		} else {
 			ctx->outbuf->offset += ret;
 			ctx->data += ret;
@@ -444,8 +452,8 @@ int io_buffer_send(IOBuffer *buf, const void *data, size_t size)
 				net_transmit(buf->fd, data, size);
 			if (ret < 0) {
 				/* disconnected */
-				buf->closed = TRUE;
 				buf->buf_errno = errno;
+				io_buffer_close(buf);
 				return -1;
 			}
 
@@ -499,7 +507,7 @@ static void block_loop_sendfile(IOBufferBlockContext *ctx)
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN) {
 			ctx->outbuf->buf_errno = errno;
-			ctx->outbuf->closed = TRUE;
+                        io_buffer_close(ctx->outbuf);
 		}
 		ret = 0;
 	}
@@ -590,6 +598,9 @@ int io_buffer_send_iobuffer(IOBuffer *outbuf, IOBuffer *inbuf, uoff_t size)
 
 	i_assert(size < OFF_T_MAX);
 	i_assert(inbuf->limit > 0 || size <= inbuf->limit - inbuf->offset);
+
+	if (inbuf->closed || outbuf->closed)
+		return -1;
 
 	ret = io_buffer_sendfile(outbuf, inbuf, size);
 	if (ret > 0 || outbuf->buf_errno != EINVAL)
@@ -857,6 +868,9 @@ int io_buffer_seek(IOBuffer *buf, uoff_t offset)
 {
 	uoff_t real_offset;
 
+	if (buf->closed)
+		return FALSE;
+
 	real_offset = buf->start_offset + offset;
 	if (real_offset > OFF_T_MAX) {
 		errno = EINVAL;
@@ -992,14 +1006,17 @@ int io_buffer_send_buffer(IOBuffer *buf, size_t size)
 	i_assert(size <= SSIZE_T_MAX);
 	i_assert(!buf->receive);
 
+	if (buf->closed)
+		return -1;
+
 	if (buf->pos == 0 && !buf->corked) {
 		/* buffer is empty, try to send the data immediately */
 		ret = buf->file ? my_write(buf->fd, buf->buffer, size) :
 			net_transmit(buf->fd, buf->buffer, size);
 		if (ret < 0) {
 			/* disconnected */
-			buf->closed = TRUE;
 			buf->buf_errno = errno;
+			io_buffer_close(buf);
 			return -1;
 		}
 

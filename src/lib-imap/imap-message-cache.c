@@ -348,7 +348,6 @@ void imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
 void imap_msgcache_close(ImapMessageCache *cache)
 {
 	if (cache->open_inbuf != NULL) {
-		(void)close(cache->open_inbuf->fd);
 		io_buffer_destroy(cache->open_inbuf);
 		cache->open_inbuf = NULL;
 	}

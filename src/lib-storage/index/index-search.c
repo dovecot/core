@@ -551,7 +551,6 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 				      search_text_body);
 	}
 
-	(void)close(inbuf->fd);
 	io_buffer_destroy(inbuf);
 	return TRUE;
 }

@@ -35,5 +35,6 @@ IOBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec)
 		return NULL;
 	}
 
-	return io_buffer_create_mmap(fd, default_pool, MAIL_MMAP_BLOCK_SIZE, 0);
+	return io_buffer_create_mmap(fd, default_pool, MAIL_MMAP_BLOCK_SIZE,
+				     0, TRUE);
 }

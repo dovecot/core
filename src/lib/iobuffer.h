@@ -34,6 +34,7 @@ struct _IOBuffer {
 	size_t buffer_size, max_buffer_size;
 
 	unsigned int file:1; /* reading/writing a file */
+	unsigned int close_file:1; /* io_buffer_close() actually close()s fd */
 	unsigned int mmaped:1; /* reading a file with mmap() */
 	unsigned int closed:1; /* all further read/writes will return 0 */
 	unsigned int transmit:1; /* this is a transmit buffer */
@@ -49,11 +50,12 @@ struct _IOBuffer {
 IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
 			   size_t max_buffer_size);
 /* Same as io_buffer_create(), but specify that we're reading/writing file. */
-IOBuffer *io_buffer_create_file(int fd, Pool pool, size_t max_buffer_size);
+IOBuffer *io_buffer_create_file(int fd, Pool pool, size_t max_buffer_size,
+				int autoclose_fd);
 /* Read the file by mmap()ing it in blocks. stop_offset specifies where to
    stop reading, or 0 to end of file. */
 IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
-				uoff_t size);
+				uoff_t size, int autoclose_fd);
 /* Destroy a buffer. */
 void io_buffer_destroy(IOBuffer *buf);
 /* Mark the buffer closed. Any sends/reads after this will return -1.

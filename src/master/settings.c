@@ -289,7 +289,7 @@ void settings_read(const char *path)
 		i_fatal("Can't open configuration file %s: %m", path);
 
 	linenum = 0;
-	inbuf = io_buffer_create_file(fd, default_pool, 2048);
+	inbuf = io_buffer_create_file(fd, default_pool, 2048, TRUE);
 	for (;;) {
 		line = io_buffer_next_line(inbuf);
 		if (line == NULL) {
@@ -339,7 +339,6 @@ void settings_read(const char *path)
 	};
 
 	io_buffer_destroy(inbuf);
-	(void)close(fd);
 
         settings_verify();
 }

@@ -131,8 +131,8 @@ int mbox_expunge_locked(IndexMailbox *ibox,
 	}
 
 	inbuf = io_buffer_create_mmap(fd, default_pool,
-				      MAIL_MMAP_BLOCK_SIZE, 0);
-	outbuf = io_buffer_create_file(fd, default_pool, 4096);
+				      MAIL_MMAP_BLOCK_SIZE, 0, FALSE);
+	outbuf = io_buffer_create_file(fd, default_pool, 4096, FALSE);
 
 	failed = !expunge_real(ibox, rec, seq, inbuf, outbuf,
 			       expunge_func, context);
