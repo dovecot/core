@@ -96,6 +96,7 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 
+	memset(buf, 0, sizeof(buf));
 	msg.msg_control = buf;
 	msg.msg_controllen = sizeof(buf);
 
@@ -107,7 +108,8 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 
 	/* at least one byte transferred - we should have the fd now */
 	cmsg = CMSG_FIRSTHDR(&msg);
-	if (cmsg == NULL || cmsg->cmsg_len < CMSG_LEN(sizeof(int)))
+	if (msg.msg_controllen < CMSG_SPACE(sizeof(int)) ||
+	    cmsg == NULL || cmsg->cmsg_len < CMSG_LEN(sizeof(int)))
 		*fd = -1;
 	else
 		*fd = *((int *) CMSG_DATA(cmsg));
