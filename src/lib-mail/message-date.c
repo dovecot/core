@@ -132,7 +132,7 @@ static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
 
 	/* month name */
 	token = next_token(ctx, &value, &len);
-	if (token != 'A' || len != 3)
+	if (token != 'A' || len < 3)
 		return FALSE;
 
 	for (i = 0; i < 12; i++) {
