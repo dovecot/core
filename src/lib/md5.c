@@ -16,6 +16,7 @@
  */
 
 #include "lib.h"
+#include "safe-memset.h"
 #include "md5.h"
 
 /*
@@ -267,7 +268,7 @@ void md5_final(struct md5_context *ctx, unsigned char result[16])
 	result[14] = ctx->d >> 16;
 	result[15] = ctx->d >> 24;
 
-	memset(ctx, 0, sizeof(ctx));
+	safe_memset(ctx, 0, sizeof(*ctx));
 }
 
 void md5_get_digest(const void *data, size_t size, unsigned char result[16])
