@@ -122,37 +122,39 @@ void client_send_storage_error(struct client *client)
 }
 
 int client_parse_mail_flags(struct client *client, struct imap_arg *args,
-			    size_t args_count, enum mail_flags *flags,
-			    const char *custflags[MAIL_CUSTOM_FLAGS_COUNT])
+			    struct mail_full_flags *flags)
 {
+	/* @UNSAFE */
 	char *atom;
-	size_t pos;
-	int i, custpos;
+	size_t max_flags, flag_pos, i;
 
-	memset(custflags, 0, sizeof(const char *) * MAIL_CUSTOM_FLAGS_COUNT);
+	max_flags = MAIL_CUSTOM_FLAGS_COUNT;
 
-	*flags = 0; custpos = 0;
-	for (pos = 0; pos < args_count; pos++) {
-		if (args[pos].type != IMAP_ARG_ATOM) {
+	memset(flags, 0, sizeof(*flags));
+	flags->custom_flags = t_new(const char *, flags->custom_flags_count);
+
+	flag_pos = 0;
+	while (args->type != IMAP_ARG_EOL) {
+		if (args->type != IMAP_ARG_ATOM) {
 			client_send_command_error(client,
 				"Flags list contains non-atoms.");
 			return FALSE;
 		}
 
-		atom = IMAP_ARG_STR(&args[pos]);
+		atom = IMAP_ARG_STR(args);
 		if (*atom == '\\') {
 			/* system flag */
 			str_ucase(atom);
 			if (strcmp(atom, "\\ANSWERED") == 0)
-				*flags |= MAIL_ANSWERED;
+				flags->flags |= MAIL_ANSWERED;
 			else if (strcmp(atom, "\\FLAGGED") == 0)
-				*flags |= MAIL_FLAGGED;
+				flags->flags |= MAIL_FLAGGED;
 			else if (strcmp(atom, "\\DELETED") == 0)
-				*flags |= MAIL_DELETED;
+				flags->flags |= MAIL_DELETED;
 			else if (strcmp(atom, "\\SEEN") == 0)
-				*flags |= MAIL_SEEN;
+				flags->flags |= MAIL_SEEN;
 			else if (strcmp(atom, "\\DRAFT") == 0)
-				*flags |= MAIL_DRAFT;
+				flags->flags |= MAIL_DRAFT;
 			else {
 				client_send_tagline(client, t_strconcat(
 					"BAD Invalid system flag ",
@@ -161,26 +163,30 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 			}
 		} else {
 			/* custom flag - first make sure it's not a duplicate */
-			for (i = 0; i < custpos; i++) {
-				if (strcasecmp(custflags[i], atom) == 0)
+			for (i = 0; i < flag_pos; i++) {
+				if (strcasecmp(flags->custom_flags[i],
+					       atom) == 0)
 					break;
 			}
 
-			if (i == MAIL_CUSTOM_FLAGS_COUNT) {
+			if (i == max_flags) {
 				client_send_tagline(client,
 					"Maximum number of different custom "
 					"flags exceeded");
 				return FALSE;
 			}
 
-			if (i == custpos) {
-				*flags |= 1 << (custpos +
-						MAIL_CUSTOM_FLAG_1_BIT);
-				custflags[custpos++] = atom;
+			if (i == flags->custom_flags_count) {
+				flags->flags |= 1 << (flag_pos +
+						      MAIL_CUSTOM_FLAG_1_BIT);
+				flags->custom_flags[flag_pos++] = atom;
 			}
 		}
+
+		args++;
 	}
 
+	flags->custom_flags_count = flag_pos;
 	return TRUE;
 }
 

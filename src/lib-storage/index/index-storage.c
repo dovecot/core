@@ -227,7 +227,6 @@ index_storage_init(struct mail_storage *storage, struct mailbox *box,
 		ibox->box.allow_custom_flags = TRUE;
 
 		ibox->index = index;
-		ibox->cache = imap_msgcache_alloc(&index_msgcache_iface);
 
 		ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 		index->set_lock_notify_callback(index, lock_notify, ibox);
@@ -266,7 +265,6 @@ int index_storage_close(struct mailbox *box)
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
 	index_mailbox_check_remove(ibox);
-	imap_msgcache_free(ibox->cache);
 	if (ibox->index != NULL)
 		index_storage_unref(ibox->index);
 
@@ -316,13 +314,14 @@ int mail_storage_set_index_error(struct index_mailbox *ibox)
 
 int index_mailbox_fix_custom_flags(struct index_mailbox *ibox,
 				   enum mail_flags *flags,
-                                   const char *custom_flags[])
+				   const char *custom_flags[],
+				   unsigned int custom_flags_count)
 {
 	int ret;
 
 	ret = mail_custom_flags_fix_list(ibox->index->custom_flags,
 					 flags, custom_flags,
-					 MAIL_CUSTOM_FLAGS_COUNT);
+					 custom_flags_count);
 	switch (ret) {
 	case 1:
 		return TRUE;

@@ -107,11 +107,12 @@ static int write_from_line(struct mail_storage *storage, struct ostream *output,
 
 static int write_flags(struct mail_storage *storage, struct ostream *output,
 		       const char *mbox_path,
-		       enum mail_flags flags, const char *custom_flags[])
+		       const struct mail_full_flags *full_flags)
 {
+	enum mail_flags flags = full_flags->flags;
 	const char *str;
 	unsigned int field;
-	int i;
+	unsigned int i;
 
 	if (flags == 0)
 		return TRUE;
@@ -138,15 +139,18 @@ static int write_flags(struct mail_storage *storage, struct ostream *output,
 			return write_error(storage, mbox_path);
 
 		field = 1 << MAIL_CUSTOM_FLAG_1_BIT;
-		for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++, field <<= 1) {
-			if ((flags & field) && custom_flags[i] != NULL) {
+		for (i = 0; i < full_flags->custom_flags_count; i++) {
+			const char *custom_flag = full_flags->custom_flags[i];
+
+			if ((flags & field) && custom_flag != NULL) {
 				if (o_stream_send(output, " ", 1) < 0)
 					return write_error(storage, mbox_path);
 
-				if (o_stream_send_str(output,
-						      custom_flags[i]) < 0)
+				if (o_stream_send_str(output, custom_flag) < 0)
 					return write_error(storage, mbox_path);
 			}
+
+                        field <<= 1;
 		}
 
 		if (o_stream_send(output, "\n", 1) < 0)
@@ -156,8 +160,8 @@ static int write_flags(struct mail_storage *storage, struct ostream *output,
 	return TRUE;
 }
 
-int mbox_storage_save(struct mailbox *box, enum mail_flags flags,
-		      const char *custom_flags[], time_t internal_date,
+int mbox_storage_save(struct mailbox *box, const struct mail_full_flags *flags,
+		      time_t internal_date,
 		      int timezone_offset __attr_unused__,
 		      struct istream *data, uoff_t data_size)
 {
@@ -176,8 +180,10 @@ int mbox_storage_save(struct mailbox *box, enum mail_flags flags,
 
 	/* we don't need the real flag positions, easier to keep using our own.
 	   they need to be checked/added though. */
-	real_flags = flags;
-	if (!index_mailbox_fix_custom_flags(ibox, &real_flags, custom_flags))
+	real_flags = flags->flags;
+	if (!index_mailbox_fix_custom_flags(ibox, &real_flags,
+					    flags->custom_flags,
+					    flags->custom_flags_count))
 		return FALSE;
 
 	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_EXCLUSIVE))
@@ -198,8 +204,7 @@ int mbox_storage_save(struct mailbox *box, enum mail_flags flags,
 
 		if (!write_from_line(box->storage, output, mbox_path,
 				     internal_date) ||
-		    !write_flags(box->storage, output, mbox_path, flags,
-				 custom_flags) ||
+		    !write_flags(box->storage, output, mbox_path, flags) ||
 		    !index_storage_save(box->storage, mbox_path,
 					data, output, data_size) ||
 		    !mbox_append_lf(box->storage, output, mbox_path)) {

@@ -1,6 +1,8 @@
 #ifndef __MESSAGE_PARSER_H
 #define __MESSAGE_PARSER_H
 
+#include "message-size.h"
+
 #define IS_LWSP(c) \
 	((c) == ' ' || (c) == '\t')
 
@@ -14,12 +16,6 @@ enum message_part_flags {
 
 	/* content-transfer-encoding: binary */
 	MESSAGE_PART_FLAG_BINARY		= 0x10
-};
-
-struct message_size {
-	uoff_t physical_size;
-	uoff_t virtual_size;
-	unsigned int lines;
 };
 
 struct message_part {

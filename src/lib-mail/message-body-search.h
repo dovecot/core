@@ -9,6 +9,6 @@ struct message_part;
    specific charset but is compared to message data without any translation. */
 int message_body_search(const char *key, const char *charset,
 			int *unknown_charset, struct istream *input,
-			struct message_part *part, int search_header);
+			const struct message_part *part, int search_header);
 
 #endif

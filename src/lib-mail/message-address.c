@@ -19,7 +19,8 @@ new_address(pool_t pool, struct message_address ***next_addr)
 }
 
 struct message_address *
-message_address_parse(pool_t pool, const unsigned char *data, size_t size)
+message_address_parse(pool_t pool, const unsigned char *data, size_t size,
+		      unsigned int max_addresses)
 {
 	static const enum message_token stop_tokens_init[] =
 		{ ',', '@', '<', ':', TOKEN_LAST };
@@ -74,8 +75,11 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size)
 	ingroup = FALSE; len = 0;
 	stop_tokens = stop_tokens_init;
 
+	if (max_addresses == 0)
+		max_addresses = (unsigned int)-1;
+
 	next_phrase = mailbox; stop = FALSE;
-	while (!stop) {
+	while (!stop && max_addresses > 0) {
 		if (next_phrase == name && str_len(name) > 0) {
 			/* continuing previously started name,
 			   separate it from us with space */
@@ -101,6 +105,7 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size)
 			if (str_len(mailbox) > 0 || str_len(domain) > 0 ||
 			    str_len(route) > 0 || str_len(name) > 0) {
 				addr = new_address(pool, &next_addr);
+				max_addresses--;
 				addr->mailbox = p_strdup(pool, str_c(mailbox));
 				addr->domain = str_len(domain) == 0 ? NULL :
 					p_strdup(pool, str_c(domain));
@@ -115,6 +120,7 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size)
 				/* end of group - add end of group marker */
 				ingroup = FALSE;
 				(void)new_address(pool, &next_addr);
+				max_addresses--;
 			}
 
 			if (token == TOKEN_LAST) {
@@ -187,6 +193,7 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size)
 		case ':':
 			/* beginning of group */
 			addr = new_address(pool, &next_addr);
+			max_addresses--;
 			addr->name = p_strdup(pool, str_c(mailbox));
 
 			str_truncate(mailbox, 0);
@@ -210,3 +217,61 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size)
 	return first_addr;
 }
 
+void message_address_write(string_t *str, const struct message_address *addr)
+{
+	int first = TRUE, in_group = FALSE;
+
+	/* a) mailbox@domain
+	   b) name <@route:mailbox@domain>
+	   c) group: .. ; */
+
+	while (addr != NULL) {
+		if (first)
+			first = FALSE;
+		else
+			str_append(str, ", ");
+
+		if (addr->mailbox == NULL && addr->domain == NULL) {
+			if (!in_group) {
+				if (addr->name != NULL)
+					str_append(str, addr->name);
+				str_append(str, ": ");
+				first = TRUE;
+			} else {
+				i_assert(addr->name == NULL);
+
+				/* cut out the ", " */
+				str_truncate(str, str_len(str)-2);
+				str_append_c(str, ';');
+			}
+
+			in_group = !in_group;
+		} else if ((addr->name == NULL || *addr->name == '\0') &&
+			   addr->route == NULL) {
+			i_assert(addr->mailbox != NULL);
+			i_assert(addr->domain != NULL);
+
+			str_append(str, addr->mailbox);
+			str_append_c(str, '@');
+			str_append(str, addr->domain);
+		} else {
+			i_assert(addr->mailbox != NULL);
+			i_assert(addr->domain != NULL);
+
+			if (addr->name != NULL) {
+				str_append(str, addr->name);
+				str_append_c(str, ' ');
+			}
+			str_append_c(str, '<');
+			if (addr->route != NULL) {
+				str_append_c(str, '@');
+				str_append(str, addr->route);
+				str_append_c(str, ':');
+			}
+			str_append(str, addr->mailbox);
+			str_append_c(str, '@');
+			str_append(str, addr->domain);
+			str_append_c(str, '>');
+		}
+	}
+}

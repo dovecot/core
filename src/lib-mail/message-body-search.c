@@ -255,7 +255,7 @@ static int message_search_body_block(struct part_search_context *ctx,
 
 static int message_search_body(struct part_search_context *ctx,
 			       struct istream *input,
-			       struct message_part *part)
+			       const struct message_part *part)
 {
 	const unsigned char *data;
 	buffer_t *decodebuf;
@@ -368,7 +368,7 @@ static int message_body_search_init(struct body_search_context *ctx,
 
 static int message_body_search_ctx(struct body_search_context *ctx,
 				   struct istream *input,
-				   struct message_part *part)
+				   const struct message_part *part)
 {
 	struct part_search_context part_ctx;
 	int found;
@@ -410,7 +410,7 @@ static int message_body_search_ctx(struct body_search_context *ctx,
 
 int message_body_search(const char *key, const char *charset,
 			int *unknown_charset, struct istream *input,
-			struct message_part *part, int search_header)
+			const struct message_part *part, int search_header)
 {
         struct body_search_context ctx;
 

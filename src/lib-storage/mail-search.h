@@ -1,9 +1,6 @@
 #ifndef __MAIL_SEARCH_H
 #define __MAIL_SEARCH_H
 
-#include "imap-parser.h"
-#include "mail-storage.h"
-
 enum mail_search_arg_type {
 	SEARCH_OR,
 	SEARCH_SUB,
@@ -69,10 +66,6 @@ struct mail_search_arg {
 
 typedef void (*mail_search_foreach_callback_t)(struct mail_search_arg *arg,
 					       void *context);
-
-/* Builds search arguments based on IMAP arguments. */
-struct mail_search_arg *
-mail_search_args_build(pool_t pool, struct imap_arg *args, const char **error);
 
 /* Reset the results in search arguments */
 void mail_search_args_reset(struct mail_search_arg *args);

@@ -35,9 +35,8 @@ static int get_modify_type(struct client *client, const char *item,
 int cmd_store(struct client *client)
 {
 	struct imap_arg *args;
-	enum mail_flags flags;
+	struct mail_full_flags flags;
 	enum modify_type modify_type;
-	const char *custflags[MAIL_CUSTOM_FLAGS_COUNT];
 	const char *messageset, *item;
 	int silent, all_found;
 
@@ -62,19 +61,17 @@ int cmd_store(struct client *client)
 	if (args[2].type == IMAP_ARG_LIST) {
 		if (!client_parse_mail_flags(client,
 					     IMAP_ARG_LIST(&args[2])->args,
-					     IMAP_ARG_LIST(&args[2])->size,
-					     &flags, custflags))
+					     &flags))
 			return TRUE;
 	} else {
-		if (!client_parse_mail_flags(client, &args[2], 1,
-					     &flags, custflags))
+		if (!client_parse_mail_flags(client, args+2, &flags))
 			return TRUE;
 	}
 
 	/* and update the flags */
 	client->sync_flags_send_uid = client->cmd_uid;
 	if (client->mailbox->update_flags(client->mailbox, messageset,
-					  client->cmd_uid, flags, custflags,
+					  client->cmd_uid, &flags,
 					  modify_type, !silent, &all_found)) {
 		/* NOTE: syncing isn't allowed here */
 		client_sync_without_expunges(client);

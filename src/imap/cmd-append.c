@@ -76,9 +76,8 @@ int cmd_append(struct client *client)
 {
 	struct imap_arg_list *flags_list;
 	struct mailbox *box;
-	enum mail_flags flags;
+	struct mail_full_flags flags;
 	time_t internal_date;
-	const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT];
 	const char *mailbox, *internal_date_str;
 	uoff_t msg_size;
 	int failed, timezone_offset;
@@ -97,13 +96,10 @@ int cmd_append(struct client *client)
 
 	if (flags_list != NULL) {
 		if (!client_parse_mail_flags(client, flags_list->args,
-					     flags_list->size,
-					     &flags, custom_flags))
+					     &flags))
 			return TRUE;
 	} else {
-		if (!client_parse_mail_flags(client, NULL, 0,
-					     &flags, custom_flags))
-			return TRUE;
+		memset(&flags, 0, sizeof(flags));
 	}
 
 	if (internal_date_str == NULL) {
@@ -131,8 +127,7 @@ int cmd_append(struct client *client)
 	o_stream_flush(client->output);
 
 	/* save the mail */
-	failed = !box->save(box, flags, custom_flags,
-			    internal_date, timezone_offset,
+	failed = !box->save(box, &flags, internal_date, timezone_offset,
 			    client->input, msg_size);
 	box->close(box);
 

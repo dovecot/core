@@ -1,6 +1,8 @@
 #ifndef __MAIL_STORAGE_H
 #define __MAIL_STORAGE_H
 
+struct message_size;
+
 #include "imap-util.h"
 
 enum mailbox_flags {
@@ -38,6 +40,9 @@ enum modify_type {
 };
 
 enum mail_sort_type {
+/* Maximum size for sort program, 2x for reverse + END */
+#define MAX_SORT_PROGRAM_SIZE (2*7 + 1)
+
 	MAIL_SORT_ARRIVAL	= 0x0010,
 	MAIL_SORT_CC		= 0x0020,
 	MAIL_SORT_DATE		= 0x0040,
@@ -57,11 +62,36 @@ enum mail_thread_type {
 	MAIL_THREAD_REFERENCES
 };
 
+enum mail_fetch_field {
+	MAIL_FETCH_FLAGS		= 0x0001,
+	MAIL_FETCH_MESSAGE_PARTS	= 0x0002,
+
+	MAIL_FETCH_RECEIVED_DATE	= 0x0004,
+	MAIL_FETCH_DATE			= 0x0008,
+	MAIL_FETCH_SIZE			= 0x0010,
+
+	MAIL_FETCH_STREAM_HEADER	= 0x0020,
+	MAIL_FETCH_STREAM_BODY		= 0x0040,
+
+	/* specials: */
+	MAIL_FETCH_IMAP_BODY		= 0x1000,
+	MAIL_FETCH_IMAP_BODYSTRUCTURE	= 0x2000,
+	MAIL_FETCH_IMAP_ENVELOPE	= 0x4000
+};
+
+struct mail_full_flags {
+	enum mail_flags flags;
+
+	const char **custom_flags;
+	unsigned int custom_flags_count;
+};
+
 struct mail_storage;
 struct mail_storage_callbacks;
 struct mailbox_status;
-struct mail_fetch_data;
 struct mail_search_arg;
+struct fetch_context;
+struct search_context;
 
 typedef void (*mailbox_list_callback_t)(struct mail_storage *storage,
 					const char *name,
@@ -179,7 +209,7 @@ struct mailbox {
 	/* Update mail flags, calling update_flags callbacks. */
 	int (*update_flags)(struct mailbox *box,
 			    const char *messageset, int uidset,
-			    enum mail_flags flags, const char *custom_flags[],
+			    const struct mail_full_flags *flags,
 			    enum modify_type modify_type, int notify,
 			    int *all_found);
 
@@ -187,27 +217,62 @@ struct mailbox {
 	int (*copy)(struct mailbox *box, struct mailbox *destbox,
 		    const char *messageset, int uidset);
 
-	/* Fetch wanted mail data. The results are written into output stream
-	   in RFC2060 FETCH format. */
-	int (*fetch)(struct mailbox *box, struct mail_fetch_data *fetch_data,
-		     struct ostream *output, int *all_found);
+	/* Initialize new fetch request. wanted_fields isn't required, but it
+	   can be used for optimizations. If *update_seen is TRUE, \Seen flag
+	   is set for all fetched mails. *update_seen may be changed back to
+	   FALSE if all mails are already seen, or if it's not possible to
+	   change the flag (eg. read-only mailbox). */
+	struct mail_fetch_context *
+		(*fetch_init)(struct mailbox *box,
+			      enum mail_fetch_field wanted_fields,
+			      int *update_seen,
+			      const char *messageset, int uidset);
+	/* Deinitialize fetch request. all_found is set to TRUE if all of the
+	   fetched messages were found (ie. not just deleted). */
+	int (*fetch_deinit)(struct mail_fetch_context *ctx, int *all_found);
+	/* Fetch the next message. Returned mail object can be used until
+	   the next call to fetch_next() or fetch_deinit(). */
+	struct mail *(*fetch_next)(struct mail_fetch_context *ctx);
 
-	/* Search wanted mail data. args contains the search criteria.
-	   Results are written into output stream in RFC2060 SEARCH format.
-	   If charset is NULL, the given search strings are matched without
-	   any conversion. */
-	int (*search)(struct mailbox *box, const char *charset,
-		      struct mail_search_arg *args,
-		      enum mail_sort_type *sorting,
-		      enum mail_thread_type threading,
-		      struct ostream *output, int uid_result);
+	/* Simplified fetching for a single UID or sequence. Must be called
+	   between fetch_init() .. fetch_deinit() or
+	   search_init() .. search_deinit() */
+	struct mail *(*fetch_uid)(struct mailbox *box, unsigned int uid,
+				  enum mail_fetch_field wanted_fields);
+	struct mail *(*fetch_seq)(struct mailbox *box, unsigned int seq,
+				  enum mail_fetch_field wanted_fields);
+
+	/* Modify sort_program to specify a sort program acceptable for
+	   search_init(). If server supports no sorting, it's simply set to
+	   {MAIL_SORT_END}. */
+	int (*search_get_sorting)(struct mailbox *box,
+				  enum mail_sort_type *sort_program);
+	/* Initialize new search request. Search arguments are given so that
+	   the storage can optimize the searching as it wants.
+
+	   If sort_program is non-NULL, it requests that the returned messages
+	   are sorted by the given criteria. sort_program must have gone
+	   through search_get_sorting().
+
+	   wanted_fields and wanted_headers aren't required, but they can be
+	   used for optimizations. */
+	struct mail_search_context *
+		(*search_init)(struct mailbox *box, const char *charset,
+			       struct mail_search_arg *args,
+			       const enum mail_sort_type *sort_program,
+			       enum mail_fetch_field wanted_fields,
+			       const char *const wanted_headers[]);
+	/* Deinitialize search request. */
+	int (*search_deinit)(struct mail_search_context *ctx);
+	/* Search the next message. Returned mail object can be used until
+	   the next call to search_next() or search_deinit(). */
+	struct mail *(*search_next)(struct mail_search_context *ctx);
 
 	/* Save a new mail into mailbox. timezone_offset specifies the
-	   timezone in minutes which internal_date was originally given
+	   timezone in minutes which received_date was originally given
 	   with. */
-	int (*save)(struct mailbox *box, enum mail_flags flags,
-		    const char *custom_flags[],
-		    time_t internal_date, int timezone_offset,
+	int (*save)(struct mailbox *box, const struct mail_full_flags *flags,
+		    time_t received_date, int timezone_offset,
 		    struct istream *data, uoff_t data_size);
 
 	/* Returns TRUE if mailbox is now in inconsistent state, meaning that
@@ -222,6 +287,48 @@ struct mailbox {
 	unsigned int allow_custom_flags:1;
 /* private: */
 	unsigned int inconsistent:1;
+};
+
+struct mail {
+	/* always set */
+	unsigned int seq;
+	unsigned int uid;
+
+	unsigned int seen_updated:1; /* if update_seen was TRUE */
+
+	const struct mail_full_flags *(*get_flags)(struct mail *mail);
+	const struct message_part *(*get_parts)(struct mail *mail);
+
+	/* Get the time message was received (IMAP INTERNALDATE).
+	   Returns (time_t)-1 if error occured. */
+	time_t (*get_received_date)(struct mail *mail);
+	/* Get the Date-header in mail. Timezone is in minutes.
+	   Returns (time_t)-1 if error occured, 0 if field wasn't found or
+	   couldn't be parsed. */
+	time_t (*get_date)(struct mail *mail, int *timezone);
+	/* Get the full virtual size of mail (IMAP RFC822.SIZE).
+	   Returns (uoff_t)-1 if error occured */
+	uoff_t (*get_size)(struct mail *mail);
+
+	/* Get value for single header field */
+	const char *(*get_header)(struct mail *mail, const char *field);
+
+	/* Returns the parsed address for given header field. */
+	const struct message_address *(*get_address)(struct mail *mail,
+						     const char *field);
+	/* Returns the first mailbox (RFC2822 local-part) field for given
+	   address header field. */
+	const char *(*get_first_mailbox)(struct mail *mail, const char *field);
+
+	/* Returns input stream pointing to beginning of message header.
+	   hdr_size and body_size are updated unless they're NULL. */
+	struct istream *(*get_stream)(struct mail *mail,
+				      struct message_size *hdr_size,
+				      struct message_size *body_size);
+
+	/* Get the any of the "special" fields. */
+	const char *(*get_special)(struct mail *mail,
+				   enum mail_fetch_field field);
 };
 
 struct mailbox_status {
@@ -270,34 +377,6 @@ struct mail_storage_callbacks {
 				 unsigned int custom_flags_count,
 				 void *context);
 
-};
-
-struct mail_fetch_data {
-	const char *messageset;
-	unsigned int uidset:1;
-
-	unsigned int body:1;
-	unsigned int bodystructure:1;
-	unsigned int envelope:1;
-	unsigned int flags:1;
-	unsigned int internaldate:1;
-	unsigned int rfc822:1;
-	unsigned int rfc822_header:1;
-	unsigned int rfc822_size:1;
-	unsigned int rfc822_text:1;
-	unsigned int uid:1;
-
-	struct mail_fetch_body_data *body_sections;
-};
-
-struct mail_fetch_body_data {
-	struct mail_fetch_body_data *next;
-
-	const char *section; /* NOTE: always uppercased */
-	uoff_t skip, max_size; /* if you don't want max_size,
-	                          set it to (uoff_t)-1 */
-	unsigned int skip_set:1;
-	unsigned int peek:1;
 };
 
 /* register all mail storages */

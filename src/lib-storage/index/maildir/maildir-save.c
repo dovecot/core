@@ -78,12 +78,14 @@ maildir_read_into_tmp(struct mail_storage *storage, const char *dir,
 	return fname;
 }
 
-int maildir_storage_save(struct mailbox *box, enum mail_flags flags,
-			 const char *custom_flags[], time_t internal_date,
+int maildir_storage_save(struct mailbox *box,
+			 const struct mail_full_flags *flags,
+			 time_t internal_date,
 			 int timezone_offset __attr_unused__,
 			 struct istream *data, uoff_t data_size)
 {
         struct index_mailbox *ibox = (struct index_mailbox *) box;
+	enum mail_flags mail_flags;
         struct utimbuf buf;
 	const char *tmpdir, *fname, *tmp_path, *new_path;
 	int failed;
@@ -93,7 +95,10 @@ int maildir_storage_save(struct mailbox *box, enum mail_flags flags,
 		return FALSE;
 	}
 
-	if (!index_mailbox_fix_custom_flags(ibox, &flags, custom_flags))
+	mail_flags = flags->flags;
+	if (!index_mailbox_fix_custom_flags(ibox, &mail_flags,
+					    flags->custom_flags,
+					    flags->custom_flags_count))
 		return FALSE;
 
 	t_push();
@@ -107,7 +112,7 @@ int maildir_storage_save(struct mailbox *box, enum mail_flags flags,
 	}
 	tmp_path = t_strconcat(tmpdir, "/", fname, NULL);
 
-	fname = maildir_filename_set_flags(fname, flags);
+	fname = maildir_filename_set_flags(fname, mail_flags);
 	new_path = t_strconcat(ibox->index->mailbox_path, "/new/", fname, NULL);
 
 	/* set the internal_date by modifying mtime */

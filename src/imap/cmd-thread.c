@@ -3,8 +3,8 @@
 #include "common.h"
 #include "buffer.h"
 #include "commands.h"
-#include "mail-search.h"
-#include "mail-sort.h"
+#include "imap-search.h"
+#include "imap-thread.h"
 
 int cmd_thread(struct client *client)
 {
@@ -58,23 +58,19 @@ int cmd_thread(struct client *client)
 
 	pool = pool_alloconly_create("mail_search_args", 2048);
 
-	sargs = mail_search_args_build(pool, args, &error);
+	sargs = imap_search_args_build(pool, args, &error);
 	if (sargs == NULL) {
 		/* error in search arguments */
 		client_send_tagline(client, t_strconcat("NO ", error, NULL));
+	} else if (imap_thread(client, charset, sargs, threading)) {
+		/* NOTE: syncing is allowed when returning UIDs */
+		if (client->cmd_uid)
+			client_sync_full(client);
+		else
+			client_sync_without_expunges(client);
+		client_send_tagline(client, "OK Search completed.");
 	} else {
-		if (client->mailbox->search(client->mailbox, charset,
-					    sargs, NULL, threading,
-					    client->output, client->cmd_uid)) {
-			/* NOTE: syncing is allowed when returning UIDs */
-			if (client->cmd_uid)
-				client_sync_full(client);
-			else
-				client_sync_without_expunges(client);
-			client_send_tagline(client, "OK Search completed.");
-		} else {
-			client_send_storage_error(client);
-		}
+		client_send_storage_error(client);
 	}
 
 	pool_unref(pool);

@@ -10,7 +10,7 @@ struct fetch_context {
 	const char **custom_flags;
 	unsigned int custom_flags_count;
 
-	struct mail_fetch_data *fetch_data;
+	//struct mail_fetch_data *fetch_data;
 	struct ostream *output;
 	string_t *str;
 	int update_seen, failed;

@@ -9,12 +9,8 @@ INCLUDES = \
 
 libstorage_a_SOURCES = \
 	mail-search.c \
-	mail-sort.c \
-	mail-storage.c \
-	mail-thread.c
+	mail-storage.c
 
 noinst_HEADERS = \
 	mail-search.h \
-	mail-sort.h \
-	mail-storage.h \
-	mail-thread.h
+	mail-storage.h

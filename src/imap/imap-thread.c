@@ -27,13 +27,13 @@
 
 /* Implementation of draft-ietf-imapext-thread-12 threading algorithm */
 
-#include "lib.h"
+#include "common.h"
 #include "hash.h"
 #include "ostream.h"
 #include "str.h"
 #include "message-tokenize.h"
 #include "imap-base-subject.h"
-#include "mail-thread.h"
+#include "imap-thread.h"
 
 #include <stdlib.h>
 
@@ -67,7 +67,11 @@ struct node {
 	} u;
 };
 
-struct mail_thread_context {
+struct thread_context {
+	struct mail_search_context *search_ctx;
+	struct mailbox *box;
+	struct ostream *output;
+
 	pool_t pool;
 	pool_t temp_pool;
 
@@ -77,41 +81,13 @@ struct mail_thread_context {
 	struct node root_node;
 	size_t root_count; /* not exact after prune_dummy_messages() */
 
-	const struct mail_sort_callbacks *callbacks;
-	void *callback_context;
-
-        struct ostream *output;
+	int id_is_uid;
 };
 
-struct mail_thread_context *
-mail_thread_init(enum mail_thread_type type, struct ostream *output,
-		 const struct mail_sort_callbacks *callbacks,
-		 void *callback_context)
-{
-	struct mail_thread_context *ctx;
-	pool_t pool;
+static void mail_thread_input(struct thread_context *ctx, struct mail *mail);
+static void mail_thread_finish(struct thread_context *ctx);
 
-	if (type != MAIL_THREAD_REFERENCES)
-		i_fatal("Only REFERENCES threading supported");
-
-	pool = pool_alloconly_create("mail_thread_context",
-				     sizeof(struct node) * APPROX_MSG_COUNT);
-
-	ctx = p_new(pool, struct mail_thread_context, 1);
-	ctx->pool = pool;
-	ctx->temp_pool = pool_alloconly_create("mail_thread_context temp",
-					       APPROX_MSG_COUNT *
-					       APPROX_MSGID_SIZE);
-	ctx->msgid_hash = hash_create(default_pool, ctx->temp_pool,
-				      APPROX_MSG_COUNT*2, str_hash,
-				      (hash_cmp_callback_t)strcmp);
-	ctx->callbacks = callbacks;
-	ctx->callback_context = callback_context;
-	ctx->output = output;
-	return ctx;
-}
-
-static void mail_thread_deinit(struct mail_thread_context *ctx)
+static void mail_thread_deinit(struct thread_context *ctx)
 {
 	if (ctx->msgid_hash != NULL)
 		hash_destroy(ctx->msgid_hash);
@@ -122,7 +98,55 @@ static void mail_thread_deinit(struct mail_thread_context *ctx)
 	pool_unref(ctx->pool);
 }
 
-static void add_root(struct mail_thread_context *ctx, struct node *node)
+int imap_thread(struct client *client, const char *charset,
+		struct mail_search_arg *args, enum mail_thread_type type)
+{
+	static const char *wanted_headers[] = {
+		"message-id", "in-reply-to", "references",
+		NULL
+	};
+	struct thread_context *ctx;
+	struct mail *mail;
+	int ret;
+
+	if (type != MAIL_THREAD_REFERENCES)
+		i_fatal("Only REFERENCES threading supported");
+
+	ctx = t_new(struct thread_context, 1);
+
+	/* initialize searching */
+	ctx->search_ctx = client->mailbox->
+		search_init(client->mailbox, charset, args, NULL,
+			    MAIL_FETCH_DATE, wanted_headers);
+	if (ctx->search_ctx == NULL)
+		return FALSE;
+
+	ctx->box = client->mailbox;
+	ctx->output = client->output;
+	ctx->pool = pool_alloconly_create("thread_context",
+					  sizeof(struct node) *
+					  APPROX_MSG_COUNT);
+	ctx->temp_pool = pool_alloconly_create("thread_context temp",
+					       APPROX_MSG_COUNT *
+					       APPROX_MSGID_SIZE);
+	ctx->msgid_hash = hash_create(default_pool, ctx->temp_pool,
+				      APPROX_MSG_COUNT*2, str_hash,
+				      (hash_cmp_callback_t)strcmp);
+
+	ctx->id_is_uid = client->cmd_uid;
+	while ((mail = client->mailbox->search_next(ctx->search_ctx)) != NULL)
+		mail_thread_input(ctx, mail);
+
+	o_stream_send_str(client->output, "* THREAD");
+	mail_thread_finish(ctx);
+	o_stream_send_str(client->output, "\r\n");
+
+	ret = client->mailbox->search_deinit(ctx->search_ctx);
+        mail_thread_deinit(ctx);
+	return ret;
+}
+
+static void add_root(struct thread_context *ctx, struct node *node)
 {
 	node->parent = &ctx->root_node;
 	node->next = ctx->root_node.first_child;
@@ -131,8 +155,7 @@ static void add_root(struct mail_thread_context *ctx, struct node *node)
 	ctx->root_count++;
 }
 
-static struct node *create_node(struct mail_thread_context *ctx,
-				const char *msgid)
+static struct node *create_node(struct thread_context *ctx, const char *msgid)
 {
 	struct node *node;
 
@@ -143,7 +166,7 @@ static struct node *create_node(struct mail_thread_context *ctx,
 	return node;
 }
 
-static struct node *create_id_node(struct mail_thread_context *ctx,
+static struct node *create_id_node(struct thread_context *ctx,
 				   unsigned int id, time_t sent_date)
 {
 	struct node *node;
@@ -156,7 +179,7 @@ static struct node *create_id_node(struct mail_thread_context *ctx,
 	return node;
 }
 
-static struct node *update_message(struct mail_thread_context *ctx,
+static struct node *update_message(struct thread_context *ctx,
 				   const char *msgid, time_t sent_date,
 				   unsigned int id)
 {
@@ -212,6 +235,25 @@ static int get_untokenized_msgid(const char **msgid_p, string_t *msgid)
 	return FALSE;
 }
 
+static void strip_lwsp(char *str)
+{
+	/* @UNSAFE */
+	char *dest;
+
+	/* find the first lwsp */
+	while (*str != ' ' && *str != '\t' && *str != '\r' && *str != '\n') {
+		if (*str == '\0')
+			return;
+		str++;
+	}
+
+	for (dest = str; *str != '\0'; str++) {
+		if (*str != ' ' && *str != '\t' && *str != '\r' && *str != '\n')
+			*dest++ = *str;
+	}
+	*dest = '\0';
+}
+
 static const char *get_msgid(const char **msgid_p)
 {
 	const char *msgid = *msgid_p;
@@ -241,8 +283,7 @@ static const char *get_msgid(const char **msgid_p)
 
 			if (*p == '@')
 				found_at = TRUE;
-			if (*p == '>' || *p == '"' || *p == '(' || *p == ' ' ||
-			    *p == '\t' || *p == '\r' || *p == '\n')
+			if (*p == '>' || *p == '"' || *p == '(')
 				break;
 
 			if (*p == '\0') {
@@ -253,8 +294,13 @@ static const char *get_msgid(const char **msgid_p)
 
 		if (*p == '>') {
 			*msgid_p = p+1;
-			if (found_at)
-				return t_strdup_until(msgid, p);
+			if (found_at) {
+				char *s;
+
+				s = p_strdup_until(data_stack_pool, msgid, p);
+				strip_lwsp(s);
+				return s;
+			}
 		} else {
 			/* ok, do it the slow way */
 			*msgid_p = msgid;
@@ -273,7 +319,7 @@ static const char *get_msgid(const char **msgid_p)
 	}
 }
 
-static void unlink_child(struct mail_thread_context *ctx,
+static void unlink_child(struct thread_context *ctx,
 			 struct node *child, int add_to_root)
 {
 	struct node **node;
@@ -310,7 +356,7 @@ static int find_child(struct node *node, struct node *child)
 	return FALSE;
 }
 
-static void link_node(struct mail_thread_context *ctx, const char *parent_msgid,
+static void link_node(struct thread_context *ctx, const char *parent_msgid,
 		      struct node *child, int replace)
 {
 	struct node *parent, **node;
@@ -346,7 +392,7 @@ static void link_node(struct mail_thread_context *ctx, const char *parent_msgid,
 	*node = child;
 }
 
-static void link_message(struct mail_thread_context *ctx,
+static void link_message(struct thread_context *ctx,
 			 const char *parent_msgid, const char *child_msgid,
 			 int replace)
 {
@@ -359,7 +405,7 @@ static void link_message(struct mail_thread_context *ctx,
 	link_node(ctx, parent_msgid, child, replace);
 }
 
-static int link_references(struct mail_thread_context *ctx,
+static int link_references(struct thread_context *ctx,
 			   struct node *node, const char *references)
 {
 	const char *parent_id, *child_id;
@@ -378,20 +424,28 @@ static int link_references(struct mail_thread_context *ctx,
 	return TRUE;
 }
 
-void mail_thread_input(struct mail_thread_context *ctx, unsigned int id,
-		       const char *message_id, const char *in_reply_to,
-		       const char *references, time_t sent_date)
+static void mail_thread_input(struct thread_context *ctx, struct mail *mail)
 {
-	const char *refid;
+	const char *refid, *message_id, *in_reply_to, *references;
 	struct node *node;
+	time_t sent_date;
 
-	i_assert(id > 0);
+	t_push();
 
-	node = update_message(ctx, get_msgid(&message_id), sent_date, id);
+	sent_date = mail->get_date(mail, NULL);
+	if (sent_date == (time_t)-1)
+		sent_date = 0;
+
+	message_id = mail->get_header(mail, "message-id");
+	node = update_message(ctx, get_msgid(&message_id), sent_date,
+			      ctx->id_is_uid ? mail->uid : mail->seq);
 
 	/* link references */
+	references = mail->get_header(mail, "references");
 	if (!link_references(ctx, node, references)) {
-		refid = get_msgid(&in_reply_to);
+		in_reply_to = mail->get_header(mail, "in-reply-to");
+		refid = in_reply_to == NULL ? NULL : get_msgid(&in_reply_to);
+
 		if (refid != NULL)
 			link_node(ctx, refid, node, TRUE);
 		else {
@@ -400,6 +454,8 @@ void mail_thread_input(struct mail_thread_context *ctx, unsigned int id,
 				unlink_child(ctx, node, TRUE);
 		}
 	}
+
+	t_pop();
 }
 
 static struct node *find_last_child(struct node *node)
@@ -432,7 +488,7 @@ static struct node **promote_children(struct node **parent)
 	return &child->next;
 }
 
-static void prune_dummy_messages(struct mail_thread_context *ctx,
+static void prune_dummy_messages(struct thread_context *ctx,
 				 struct node **node_p)
 {
 	struct node **a;
@@ -555,7 +611,7 @@ static struct node *sort_nodes(struct node *list)
 	}
 }
 
-static void add_base_subject(struct mail_thread_context *ctx,
+static void add_base_subject(struct thread_context *ctx,
 			     const char *subject, struct node *node)
 {
 	struct node *hash_node;
@@ -588,13 +644,12 @@ static void add_base_subject(struct mail_thread_context *ctx,
 	node->u.info->reply = is_reply_or_forward;
 }
 
-static void gather_base_subjects(struct mail_thread_context *ctx)
+static void gather_base_subjects(struct thread_context *ctx)
 {
-	const struct mail_sort_callbacks *cb;
+	struct mail *mail;
 	struct node *node;
 	unsigned int id;
 
-	cb = ctx->callbacks;
 	ctx->subject_hash =
 		hash_create(default_pool, ctx->temp_pool, ctx->root_count * 2,
 			    str_hash, (hash_cmp_callback_t)strcmp);
@@ -611,14 +666,17 @@ static void gather_base_subjects(struct mail_thread_context *ctx)
 			node->u.info->sorted = TRUE;
 		}
 
-		t_push();
+		if (ctx->id_is_uid)
+			mail = ctx->box->fetch_uid(ctx->box, id, 0);
+		else
+			mail = ctx->box->fetch_seq(ctx->box, id, 0);
 
-		add_base_subject(ctx, cb->input_str(MAIL_SORT_SUBJECT, id,
-						    ctx->callback_context),
-				 node);
-
-		cb->input_reset(ctx->callback_context);
-		t_pop();
+		if (mail != NULL) {
+			t_push();
+			add_base_subject(ctx, mail->get_header(mail, "subject"),
+					 node);
+			t_pop();
+		}
 	}
 }
 
@@ -630,7 +688,7 @@ static void reset_children_parent(struct node *parent)
 		node->parent = parent;
 }
 
-static void merge_subject_threads(struct mail_thread_context *ctx)
+static void merge_subject_threads(struct thread_context *ctx)
 {
 	struct node **node_p, *node, *hash_node;
 	char *base_subject;
@@ -737,7 +795,7 @@ static void merge_subject_threads(struct mail_thread_context *ctx)
 	}
 }
 
-static void sort_root_nodes(struct mail_thread_context *ctx)
+static void sort_root_nodes(struct thread_context *ctx)
 {
 	struct node *node;
 
@@ -755,7 +813,7 @@ static void sort_root_nodes(struct mail_thread_context *ctx)
 	ctx->root_node.first_child = sort_nodes(ctx->root_node.first_child);
 }
 
-static int send_nodes(struct mail_thread_context *ctx,
+static int send_nodes(struct thread_context *ctx,
 		      string_t *str, struct node *node)
 {
 	if (node->next == NULL && NODE_HAS_PARENT(ctx, node)) {
@@ -791,7 +849,7 @@ static int send_nodes(struct mail_thread_context *ctx,
 	return TRUE;
 }
 
-static void send_roots(struct mail_thread_context *ctx)
+static void send_roots(struct thread_context *ctx)
 {
 	struct node *node;
 	string_t *str;
@@ -840,14 +898,14 @@ static void send_roots(struct mail_thread_context *ctx)
 
 static void save_root_cb(void *key __attr_unused__, void *value, void *context)
 {
-	struct mail_thread_context *ctx = context;
+	struct thread_context *ctx = context;
 	struct node *node = value;
 
 	if (node->parent == NULL)
 		add_root(ctx, node);
 }
 
-void mail_thread_finish(struct mail_thread_context *ctx)
+static void mail_thread_finish(struct thread_context *ctx)
 {
 	struct node *node;
 
@@ -889,6 +947,4 @@ void mail_thread_finish(struct mail_thread_context *ctx)
 	t_push();
 	send_roots(ctx);
 	t_pop();
-
-        mail_thread_deinit(ctx);
 }

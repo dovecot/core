@@ -1,7 +1,11 @@
 #ifndef __MESSAGE_SIZE_H
 #define __MESSAGE_SIZE_H
 
-struct message_size;
+struct message_size {
+	uoff_t physical_size;
+	uoff_t virtual_size;
+	unsigned int lines;
+};
 
 /* Calculate size of message header. Leave the input point to first
    character in body. */

@@ -13,20 +13,16 @@ libstorage_index_a_SOURCES = \
 	index-copy.c \
 	index-expunge.c \
 	index-fetch.c \
-	index-fetch-section.c \
+	index-mail.c \
 	index-mailbox-check.c \
 	index-messageset.c \
-	index-msgcache.c \
 	index-save.c \
 	index-search.c \
-	index-sort.c \
 	index-status.c \
 	index-storage.c \
 	index-sync.c \
 	index-update-flags.c
 
 noinst_HEADERS = \
-	index-fetch.h \
 	index-messageset.h \
-	index-sort.h \
 	index-storage.h

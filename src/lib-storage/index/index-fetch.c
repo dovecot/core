@@ -3,414 +3,157 @@
 #include "lib.h"
 #include "ostream.h"
 #include "str.h"
+#include "mail-index.h"
+#include "mail-modifylog.h"
 #include "mail-custom-flags.h"
 #include "index-storage.h"
-#include "index-fetch.h"
 #include "index-messageset.h"
-#include "message-send.h"
-#include "imap-date.h"
-#include "imap-util.h"
-#include "imap-message-cache.h"
+#include "index-mail.h"
 
-#include <unistd.h>
+struct mail_fetch_context {
+	struct index_mailbox *ibox;
+	struct mail_index *index;
 
-static int index_fetch_internaldate(struct mail_index_record *rec,
-				    struct fetch_context *ctx)
-{
-	time_t date;
+	struct messageset_context *msgset_ctx;
+	struct index_mail mail;
 
-	date = imap_msgcache_get_internal_date(ctx->cache);
-	if (date != (time_t)-1) {
-		str_printfa(ctx->str, "INTERNALDATE \"%s\" ",
-			    imap_to_datetime(date));
-		return TRUE;
-	} else {
-		mail_storage_set_critical(ctx->storage,
-			"Couldn't generate INTERNALDATE for UID %u (index %s)",
-			rec->uid, ctx->index->filepath);
-		return FALSE;
-	}
-}
+	int update_seen;
+};
 
-static int index_fetch_body(struct mail_index_record *rec,
-			    struct fetch_context *ctx)
-{
-	const char *body;
-
-	body = imap_msgcache_get(ctx->cache, IMAP_CACHE_BODY);
-	if (body != NULL) {
-		str_printfa(ctx->str, "BODY (%s) ", body);
-		return TRUE;
-	} else {
-		mail_storage_set_critical(ctx->storage,
-			"Couldn't generate BODY for UID %u (index %s)",
-			rec->uid, ctx->index->filepath);
-		return FALSE;
-	}
-}
-
-static int index_fetch_bodystructure(struct mail_index_record *rec,
-				     struct fetch_context *ctx)
-{
-	const char *bodystructure;
-
-	bodystructure = imap_msgcache_get(ctx->cache, IMAP_CACHE_BODYSTRUCTURE);
-	if (bodystructure != NULL) {
-		str_printfa(ctx->str, "BODYSTRUCTURE (%s) ", bodystructure);
-		return TRUE;
-	} else {
-		mail_storage_set_critical(ctx->storage,
-			"Couldn't generate BODYSTRUCTURE for UID %u (index %s)",
-			rec->uid, ctx->index->filepath);
-		return FALSE;
-	}
-}
-
-static int index_fetch_envelope(struct mail_index_record *rec,
-				struct fetch_context *ctx)
-{
-	const char *envelope;
-
-	envelope = imap_msgcache_get(ctx->cache, IMAP_CACHE_ENVELOPE);
-	if (envelope != NULL) {
-		str_printfa(ctx->str, "ENVELOPE (%s) ", envelope);
-		return TRUE;
-	} else {
-		mail_storage_set_critical(ctx->storage,
-			"Couldn't generate ENVELOPE for UID %u (index %s)",
-			rec->uid, ctx->index->filepath);
-		return FALSE;
-	}
-}
-
-static int index_fetch_rfc822_size(struct mail_index_record *rec,
-				   struct fetch_context *ctx)
-{
-	uoff_t size;
-
-	size = imap_msgcache_get_virtual_size(ctx->cache);
-	if (size == (uoff_t)-1) {
-		mail_storage_set_critical(ctx->storage,
-			"Couldn't get RFC822.SIZE for UID %u (index %s)",
-			rec->uid, ctx->index->filepath);
-		return FALSE;
-	}
-
-	str_printfa(ctx->str, "RFC822.SIZE %"PRIuUOFF_T" ", size);
-	return TRUE;
-}
-
-static void index_fetch_flags(struct mail_index_record *rec,
-			      struct fetch_context *ctx)
-{
-	enum mail_flags flags;
-
-	flags = rec->msg_flags;
-	if (rec->uid >= ctx->index->first_recent_uid)
-		flags |= MAIL_RECENT;
-	if (ctx->update_seen)
-		flags |= MAIL_SEEN;
-
-	str_printfa(ctx->str, "FLAGS (%s) ",
-		    imap_write_flags(flags, ctx->custom_flags,
-				     ctx->custom_flags_count));
-}
-
-static void index_fetch_uid(struct mail_index_record *rec,
-			    struct fetch_context *ctx)
-{
-	str_printfa(ctx->str, "UID %u ", rec->uid);
-}
-
-static int index_fetch_send_rfc822(struct mail_index_record *rec,
-				   struct fetch_context *ctx)
-{
-	struct message_size hdr_size, body_size;
-	struct istream *input;
-	const char *str;
-
-	if (!imap_msgcache_get_rfc822(ctx->cache, &input,
-				      &hdr_size, &body_size)) {
-		mail_storage_set_critical(ctx->storage,
-			"Couldn't get RFC822 for UID %u (index %s)",
-			rec->uid, ctx->index->filepath);
-		return FALSE;
-	}
-
-	str = t_strdup_printf(" RFC822 {%"PRIuUOFF_T"}\r\n",
-			      hdr_size.virtual_size + body_size.virtual_size);
-	if (ctx->first) {
-		str++; ctx->first = FALSE;
-	}
-	if (o_stream_send_str(ctx->output, str) < 0)
-		return FALSE;
-
-	body_size.physical_size += hdr_size.physical_size;
-	body_size.virtual_size += hdr_size.virtual_size;
-	return message_send(ctx->output, input, &body_size, 0, (uoff_t)-1);
-}
-
-static int index_fetch_send_rfc822_header(struct mail_index_record *rec,
-					  struct fetch_context *ctx)
-{
-	struct message_size hdr_size;
-	struct istream *input;
-	const char *str;
-
-	if (!imap_msgcache_get_rfc822(ctx->cache, &input, &hdr_size, NULL)) {
-		mail_storage_set_critical(ctx->storage,
-			"Couldn't get RFC822.HEADER for UID %u (index %s)",
-			rec->uid, ctx->index->filepath);
-		return FALSE;
-	}
-
-	str = t_strdup_printf(" RFC822.HEADER {%"PRIuUOFF_T"}\r\n",
-			      hdr_size.virtual_size);
-	if (ctx->first) {
-		str++; ctx->first = FALSE;
-	}
-	if (o_stream_send_str(ctx->output, str) < 0)
-		return FALSE;
-
-	return message_send(ctx->output, input, &hdr_size, 0, (uoff_t)-1);
-}
-
-static int index_fetch_send_rfc822_text(struct mail_index_record *rec,
-					struct fetch_context *ctx)
-{
-	struct message_size body_size;
-	struct istream *input;
-	const char *str;
-
-	if (!imap_msgcache_get_rfc822(ctx->cache, &input, NULL, &body_size)) {
-		mail_storage_set_critical(ctx->storage,
-			"Couldn't get RFC822.TEXT for UID %u (index %s)",
-			rec->uid, ctx->index->filepath);
-		return FALSE;
-	}
-
-	str = t_strdup_printf(" RFC822.TEXT {%"PRIuUOFF_T"}\r\n",
-			      body_size.virtual_size);
-	if (ctx->first) {
-		str++; ctx->first = FALSE;
-	}
-	if (o_stream_send_str(ctx->output, str) < 0)
-		return FALSE;
-
-	return message_send(ctx->output, input, &body_size, 0, (uoff_t)-1);
-}
-
-static enum imap_cache_field index_get_cache(struct mail_fetch_data *fetch_data)
-{
-	struct mail_fetch_body_data *sect;
-	enum imap_cache_field field;
-
-	field = 0;
-	if (fetch_data->body)
-		field |= IMAP_CACHE_BODY;
-	if (fetch_data->bodystructure)
-		field |= IMAP_CACHE_BODYSTRUCTURE;
-	if (fetch_data->envelope)
-		field |= IMAP_CACHE_ENVELOPE;
-	if (fetch_data->internaldate)
-		field |= IMAP_CACHE_INTERNALDATE;
-
-	if (fetch_data->rfc822_size)
-		field |= IMAP_CACHE_VIRTUAL_SIZE;
-	if (fetch_data->rfc822) {
-		field |= IMAP_CACHE_MESSAGE_OPEN | IMAP_CACHE_MESSAGE_HDR_SIZE |
-			IMAP_CACHE_MESSAGE_BODY_SIZE;
-	}
-	if (fetch_data->rfc822_header)
-		field |= IMAP_CACHE_MESSAGE_OPEN | IMAP_CACHE_MESSAGE_HDR_SIZE;
-	if (fetch_data->rfc822_text)
-		field |= IMAP_CACHE_MESSAGE_OPEN | IMAP_CACHE_MESSAGE_BODY_SIZE;
-
-	/* check what body[] sections want */
-	sect = fetch_data->body_sections;
-	for (; sect != NULL; sect = sect->next)
-		field |= index_fetch_body_get_cache(sect->section);
-	return field;
-}
-
-static int fetch_msgcache_open(struct fetch_context *ctx,
-			       struct mail_index_record *rec)
-{
-	enum imap_cache_field fields;
-
-	fields = index_get_cache(ctx->fetch_data);
-	if (fields == 0)
-		return TRUE;
-
-	return index_msgcache_open(ctx->cache, ctx->index, rec, fields);
-}
-
-static int index_fetch_mail(struct mail_index *index __attr_unused__,
-			    struct mail_index_record *rec,
-			    unsigned int client_seq, unsigned int idx_seq,
-			    void *context)
-{
-	struct fetch_context *ctx = context;
-	struct mail_fetch_body_data *sect;
-	size_t len, orig_len;
-	int failed, data_written, fetch_flags;
-
-	/* first see what we need to do. this way we don't first do some
-	   light parsing and later notice that we need to do heavier parsing
-	   anyway */
-	if (!fetch_msgcache_open(ctx, rec)) {
-		/* most likely message not found, just ignore it. */
-		imap_msgcache_close(ctx->cache);
-		ctx->failed = TRUE;
-		return TRUE;
-	}
-
-	if (ctx->update_seen && (rec->msg_flags & MAIL_SEEN) == 0) {
-		(void)index->update_flags(index, rec, idx_seq,
-					  rec->msg_flags | MAIL_SEEN, FALSE);
-		fetch_flags = TRUE;
-	} else {
-		fetch_flags = FALSE;
-	}
-
-	ctx->str = t_str_new(2048);
-
-	str_printfa(ctx->str, "* %u FETCH (", client_seq);
-	orig_len = str_len(ctx->str);
-
-	failed = TRUE;
-	data_written = FALSE;
-	do {
-		/* these can't fail */
-		if (ctx->fetch_data->uid)
-			index_fetch_uid(rec, ctx);
-		if (ctx->fetch_data->flags || fetch_flags)
-			index_fetch_flags(rec, ctx);
-
-		/* rest can */
-		if (ctx->fetch_data->internaldate)
-			if (!index_fetch_internaldate(rec, ctx))
-				break;
-		if (ctx->fetch_data->body)
-			if (!index_fetch_body(rec, ctx))
-				break;
-		if (ctx->fetch_data->bodystructure)
-			if (!index_fetch_bodystructure(rec, ctx))
-				break;
-		if (ctx->fetch_data->envelope)
-			if (!index_fetch_envelope(rec, ctx))
-				break;
-		if (ctx->fetch_data->rfc822_size)
-			if (!index_fetch_rfc822_size(rec, ctx))
-				break;
-
-		/* send the data written into temp string,
-		   not including the trailing zero */
-		ctx->first = str_len(ctx->str) == orig_len;
-		len = str_len(ctx->str);
-		if (len > 0) {
-			if (!ctx->first)
-				str_truncate(ctx->str, --len);
-
-			if (o_stream_send(ctx->output,
-					  str_c(ctx->str), len) < 0)
-				break;
-		}
-
-		data_written = TRUE;
-
-		/* large data */
-		if (ctx->fetch_data->rfc822)
-			if (!index_fetch_send_rfc822(rec, ctx))
-				break;
-		if (ctx->fetch_data->rfc822_text)
-			if (!index_fetch_send_rfc822_text(rec, ctx))
-				break;
-		if (ctx->fetch_data->rfc822_header)
-			if (!index_fetch_send_rfc822_header(rec, ctx))
-				break;
-
-		sect = ctx->fetch_data->body_sections;
-		for (; sect != NULL; sect = sect->next) {
-			if (!index_fetch_body_section(rec, sect, ctx))
-				break;
-		}
-
-		failed = FALSE;
-	} while (0);
-
-	if (data_written) {
-		if (o_stream_send(ctx->output, ")\r\n", 3) < 0)
-			failed = TRUE;
-	}
-
-	imap_msgcache_close(ctx->cache);
-	return !failed;
-}
-
-int index_storage_fetch(struct mailbox *box, struct mail_fetch_data *fetch_data,
-			struct ostream *output, int *all_found)
+struct mail_fetch_context *
+index_storage_fetch_init(struct mailbox *box,
+			 enum mail_fetch_field wanted_fields, int *update_seen,
+			 const char *messageset, int uidset)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
-	struct fetch_context ctx;
-	struct mail_fetch_body_data *sect;
-	int ret;
+        struct mail_fetch_context *ctx;
 
-	memset(&ctx, 0, sizeof(ctx));
+	ctx = i_new(struct mail_fetch_context, 1);
 
-	if (!box->readonly) {
-		/* If we have any BODY[..] sections, \Seen flag is added for
-		   all messages */
-		sect = fetch_data->body_sections;
-		for (; sect != NULL; sect = sect->next) {
-			if (!sect->peek) {
-				ctx.update_seen = TRUE;
-				break;
-			}
-		}
-
-		if (fetch_data->rfc822 || fetch_data->rfc822_text)
-			ctx.update_seen = TRUE;
-	}
+	if (!box->readonly)
+		*update_seen = FALSE;
 
 	/* need exclusive lock to update the \Seen flags */
-	if (ctx.update_seen) {
+	if (*update_seen) {
 		if (!index_storage_lock(ibox, MAIL_LOCK_EXCLUSIVE))
-			return FALSE;
+			return NULL;
 	}
 
 	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_SHARED))
-		return FALSE;
+		return NULL;
 
-	if (ctx.update_seen &&
+	if (*update_seen &&
 	    ibox->index->header->messages_count ==
 	    ibox->index->header->seen_messages_count) {
 		/* if all messages are already seen, there's no point in
 		   keeping exclusive lock */
-		ctx.update_seen = FALSE;
+		*update_seen = FALSE;
 		(void)index_storage_lock(ibox, MAIL_LOCK_SHARED);
 	}
 
-	ctx.box = box;
-	ctx.storage = box->storage;
-	ctx.cache = ibox->cache;
-	ctx.index = ibox->index;
-	ctx.custom_flags =
-		mail_custom_flags_list_get(ibox->index->custom_flags);
-        ctx.custom_flags_count = MAIL_CUSTOM_FLAGS_COUNT;
+	ctx->ibox = ibox;
+	ctx->index = ibox->index;
+	ctx->update_seen = *update_seen;
 
-	ctx.fetch_data = fetch_data;
-	ctx.output = output;
+	index_mail_init(ibox, &ctx->mail, wanted_fields, NULL);
+	ctx->msgset_ctx = index_messageset_init(ibox, messageset, uidset);
+	return ctx;
+}
 
-	ret = index_messageset_foreach(ibox, fetch_data->messageset,
-				       fetch_data->uidset,
-				       index_fetch_mail, &ctx);
+int index_storage_fetch_deinit(struct mail_fetch_context *ctx, int *all_found)
+{
+	int ret;
 
-	if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
-		return FALSE;
+	ret = index_messageset_deinit(ctx->msgset_ctx);
 
 	if (all_found != NULL)
-		*all_found = ret == 1 && !ctx.failed;
+		*all_found = ret > 0;
 
-	return ret > 0;
+	if (!index_storage_lock(ctx->ibox, MAIL_LOCK_UNLOCK))
+		ret = -1;
+
+	if (ctx->ibox->fetch_mail.pool != NULL)
+		index_mail_deinit(&ctx->ibox->fetch_mail);
+	index_mail_deinit(&ctx->mail);
+	i_free(ctx);
+	return ret >= 0;
+}
+
+struct mail *index_storage_fetch_next(struct mail_fetch_context *ctx)
+{
+	const struct messageset_mail *msgset_mail;
+	struct mail_index_record *rec;
+	int ret;
+
+	do {
+		msgset_mail = index_messageset_next(ctx->msgset_ctx);
+		if (msgset_mail == NULL)
+			return NULL;
+
+		rec = msgset_mail->rec;
+		ctx->mail.mail.seen_updated = FALSE;
+		if (ctx->update_seen && (rec->msg_flags & MAIL_SEEN) == 0) {
+			if (ctx->index->update_flags(ctx->index, rec,
+						     msgset_mail->idx_seq,
+						     rec->msg_flags | MAIL_SEEN,
+						     FALSE))
+				ctx->mail.mail.seen_updated = TRUE;
+		}
+
+		ctx->mail.mail.seq = msgset_mail->client_seq;
+		ctx->mail.mail.uid = rec->uid;
+
+		ret = index_mail_next(&ctx->mail, rec);
+	} while (ret == 0);
+
+	return ret < 0 ? NULL : &ctx->mail.mail;
+}
+
+static struct mail *
+fetch_record(struct index_mailbox *ibox, struct mail_index_record *rec,
+	     enum mail_fetch_field wanted_fields)
+{
+	if (ibox->fetch_mail.pool != NULL)
+		index_mail_deinit(&ibox->fetch_mail);
+
+	index_mail_init(ibox, &ibox->fetch_mail, wanted_fields, NULL);
+	if (index_mail_next(&ibox->fetch_mail, rec) <= 0)
+		return NULL;
+
+	return &ibox->fetch_mail.mail;
+}
+
+struct mail *index_storage_fetch_uid(struct mailbox *box, unsigned int uid,
+				     enum mail_fetch_field wanted_fields)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+        struct mail_index_record *rec;
+
+	i_assert(ibox->index->lock_type != MAIL_LOCK_UNLOCK);
+
+	rec = ibox->index->lookup_uid_range(ibox->index, uid, uid, NULL);
+	if (rec == NULL)
+		return NULL;
+
+	return fetch_record(ibox, rec, wanted_fields);
+}
+
+struct mail *index_storage_fetch_seq(struct mailbox *box, unsigned int seq,
+				     enum mail_fetch_field wanted_fields)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+        struct mail_index_record *rec;
+	unsigned int expunges_before;
+
+	i_assert(ibox->index->lock_type != MAIL_LOCK_UNLOCK);
+
+	if (mail_modifylog_seq_get_expunges(ibox->index->modifylog, seq, seq,
+					    &expunges_before) == NULL)
+		return NULL;
+
+	rec = ibox->index->lookup(ibox->index, seq - expunges_before);
+	if (rec == NULL)
+		return NULL;
+
+	return fetch_record(ibox, rec, wanted_fields);
 }

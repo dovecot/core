@@ -24,12 +24,10 @@ void client_sync_without_expunges(struct client *client);
 /* Send last mail storage error message to client. */
 void client_send_storage_error(struct client *client);
 
-/* Parse flags, stores custom flag names into custflags[]. The names point to
-   strings in ImapArgList. Returns TRUE if successful, if not sends an error
-   message to client. */
+/* Parse flags. Returns TRUE if successful, if not sends an error message to
+   client. */
 int client_parse_mail_flags(struct client *client, struct imap_arg *args,
-			    size_t args_count, enum mail_flags *flags,
-			    const char *custflags[MAIL_CUSTOM_FLAGS_COUNT]);
+			    struct mail_full_flags *flags);
 
 /* Send FLAGS + PERMANENTFLAGS to client. */
 void client_send_mailbox_flags(struct client *client, struct mailbox *box,

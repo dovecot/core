@@ -34,9 +34,9 @@ typedef int (*message_tokenize_error_callback_t)(const unsigned char *str,
 						 char missing_char,
 						 void *context);
 
-/* Tokenize the string. Returns NULL if string is empty. Memory for
-   returned array is allocated from data stack. You don't have to use
-   the tokens_count, since last token is always 0. */
+/* Initialize message tokenizer. data is parsed until \0 is found, or size
+   bytes has been parsed, so it's possible to give (size_t)-1 as size
+   if the string is \0 terminated. */
 struct message_tokenizer *
 message_tokenize_init(const unsigned char *data, size_t size,
 		      message_tokenize_error_callback_t error_cb,

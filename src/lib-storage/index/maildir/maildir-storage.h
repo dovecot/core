@@ -5,8 +5,8 @@
 
 int maildir_storage_copy(struct mailbox *box, struct mailbox *destbox,
 			 const char *messageset, int uidset);
-int maildir_storage_save(struct mailbox *box, enum mail_flags flags,
-			 const char *custom_flags[],
+int maildir_storage_save(struct mailbox *box,
+			 const struct mail_full_flags *flags,
 			 time_t internal_date, int timezone_offset,
 			 struct istream *data, uoff_t data_size);
 

@@ -56,13 +56,23 @@ imap_SOURCES = \
 	client.c \
 	commands.c \
 	commands-util.c \
+	imap-fetch.c \
+	imap-fetch-body-section.c \
+	imap-search.c \
+	imap-sort.c \
+	imap-thread.c \
 	mail-storage-callbacks.c \
 	main.c \
 	rawlog.c
+
 
 noinst_HEADERS = \
 	client.h \
 	commands.h \
 	commands-util.h \
 	common.h \
+	imap-fetch.h \
+	imap-search.h \
+	imap-sort.h \
+	imap-thread.h \
 	rawlog.h

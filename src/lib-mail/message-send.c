@@ -8,7 +8,7 @@
 #include "message-size.h"
 
 int message_send(struct ostream *output, struct istream *input,
-		 struct message_size *msg_size,
+		 const struct message_size *msg_size,
 		 uoff_t virtual_skip, uoff_t max_virtual_size)
 {
 	const unsigned char *msg;

@@ -1,87 +1,86 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "index-messageset.h"
 #include "maildir-index.h"
 #include "maildir-storage.h"
 #include "mail-custom-flags.h"
+#include "mail-index-util.h"
+#include "index-messageset.h"
 
 #include <stdlib.h>
 #include <unistd.h>
 
-struct copy_hard_context {
-	struct mail_storage *storage;
-	struct index_mailbox *dest;
-	int error;
-	const char **custom_flags;
-};
-
-static int copy_hard_cb(struct mail_index *index,
-			struct mail_index_record *rec,
-			unsigned int client_seq __attr_unused__,
-			unsigned int idx_seq __attr_unused__, void *context)
+static int hardlink_messageset(struct messageset_context *ctx,
+			       struct index_mailbox *src,
+			       struct index_mailbox *dest)
 {
-	struct copy_hard_context *ctx = context;
+        struct mail_index *index = src->index;
+        const struct messageset_mail *mail;
 	enum mail_flags flags;
-	const char *fname;
-	char src[PATH_MAX], dest[PATH_MAX];
+	const char **custom_flags;
+	const char *fname, *src_fname, *dest_fname;
 
-	flags = rec->msg_flags;
-	if (!index_mailbox_fix_custom_flags(ctx->dest, &flags,
-					    ctx->custom_flags))
-		return FALSE;
+	custom_flags = mail_custom_flags_list_get(index->custom_flags);
 
-	/* link the file */
-	fname = index->lookup_field(index, rec, DATA_FIELD_LOCATION);
-	if (str_ppath(src, sizeof(src),
-		      index->mailbox_path, "cur/", fname) < 0) {
-		mail_storage_set_critical(ctx->storage, "Filename too long: %s",
-					  fname);
-		return FALSE;
-	}
+	while ((mail = index_messageset_next(ctx)) != NULL) {
+		flags = mail->rec->msg_flags;
+		if (!index_mailbox_fix_custom_flags(dest, &flags,
+						    custom_flags,
+						    MAIL_CUSTOM_FLAGS_COUNT))
+			return -1;
 
-	fname = maildir_filename_set_flags(maildir_generate_tmp_filename(),
-					   flags);
-	if (str_ppath(dest, sizeof(dest),
-		      ctx->dest->index->mailbox_path, "new/", fname) < 0) {
-		mail_storage_set_critical(ctx->storage, "Filename too long: %s",
-					  fname);
-		return FALSE;
-	}
-
-	if (link(src, dest) == 0)
-		return TRUE;
-	else {
-		if (errno != EXDEV) {
-			mail_storage_set_critical(ctx->storage, "link(%s, %s) "
-						  "failed: %m", src, dest);
-			ctx->error = TRUE;
+		/* link the file */
+		fname = index->lookup_field(index, mail->rec,
+					    DATA_FIELD_LOCATION);
+		if (fname == NULL) {
+			index_set_corrupted(index,
+				"Missing location field for record %u",
+				mail->rec->uid);
+			return -1;
 		}
-		return FALSE;
+
+		t_push();
+		src_fname = t_strconcat(index->mailbox_path, "cur/",
+					fname, NULL);
+		dest_fname = t_strconcat(dest->index->mailbox_path, "new/",
+                	maildir_filename_set_flags(
+				maildir_generate_tmp_filename(), flags), NULL);
+
+		if (link(src_fname, dest_fname) < 0) {
+			if (errno != EXDEV) {
+				mail_storage_set_critical(src->box.storage,
+					"link(%s, %s) failed: %m",
+					src_fname, dest_fname);
+				t_pop();
+				return -1;
+			}
+			t_pop();
+			return 0;
+		}
+		t_pop();
 	}
+
+	return 1;
 }
 
-static int maildir_copy_with_hardlinks(struct index_mailbox *src,
-				       struct index_mailbox *dest,
-				       const char *messageset, int uidset)
+static int copy_with_hardlinks(struct index_mailbox *src,
+			       struct index_mailbox *dest,
+			       const char *messageset, int uidset)
 {
-	struct copy_hard_context ctx;
+        struct messageset_context *ctx;
 	int ret;
 
 	if (!index_storage_sync_and_lock(src, TRUE, MAIL_LOCK_SHARED))
 		return -1;
 
-	ctx.storage = src->box.storage;
-	ctx.dest = dest;
-	ctx.error = FALSE;
-	ctx.custom_flags = mail_custom_flags_list_get(src->index->custom_flags);
-
-	ret = index_messageset_foreach(src, messageset, uidset,
-				       copy_hard_cb, &ctx);
+	ctx = index_messageset_init(src, messageset, uidset);
+	ret = hardlink_messageset(ctx, src, dest);
+	if (index_messageset_deinit(ctx) < 0)
+		ret = -1;
 
 	(void)index_storage_lock(src, MAIL_LOCK_UNLOCK);
 
-	return ctx.error ? -1 : ret;
+	return ret;
 }
 
 int maildir_storage_copy(struct mailbox *box, struct mailbox *destbox,
@@ -99,7 +98,7 @@ int maildir_storage_copy(struct mailbox *box, struct mailbox *destbox,
 	    destbox->storage == box->storage) {
 		/* both source and destination mailbox are in maildirs and
 		   copy_with_hardlinks option is on, do it */
-		switch (maildir_copy_with_hardlinks(ibox,
+		switch (copy_with_hardlinks(ibox,
 			(struct index_mailbox *) destbox, messageset, uidset)) {
 		case 1:
 			return TRUE;

@@ -35,25 +35,31 @@ void imap_envelope_parse_header(pool_t pool,
 
 	switch (name_len) {
 	case 2:
-		if (memcasecmp(name, "To", 2) == 0 && d->to == NULL)
-			d->to = message_address_parse(pool, value, value_len);
-		else if (memcasecmp(name, "Cc", 2) == 0 && d->cc == NULL)
-			d->cc = message_address_parse(pool, value, value_len);
+		if (memcasecmp(name, "To", 2) == 0 && d->to == NULL) {
+			d->to = message_address_parse(pool, value,
+						      value_len, 0);
+		} else if (memcasecmp(name, "Cc", 2) == 0 && d->cc == NULL) {
+			d->cc = message_address_parse(pool, value,
+						      value_len, 0);
+		}
 		break;
 	case 3:
-		if (memcasecmp(name, "Bcc", 3) == 0 && d->bcc == NULL)
-			d->bcc = message_address_parse(pool, value, value_len);
+		if (memcasecmp(name, "Bcc", 3) == 0 && d->bcc == NULL) {
+			d->bcc = message_address_parse(pool, value,
+						       value_len, 0);
+		}
 		break;
 	case 4:
-		if (memcasecmp(name, "From", 4) == 0 && d->from == NULL)
-			d->from = message_address_parse(pool, value, value_len);
-		else if (memcasecmp(name, "Date", 4) == 0 && d->date == NULL)
+		if (memcasecmp(name, "From", 4) == 0 && d->from == NULL) {
+			d->from = message_address_parse(pool, value,
+							value_len, 0);
+		} else if (memcasecmp(name, "Date", 4) == 0 && d->date == NULL)
 			d->date = imap_quote_value(pool, value, value_len);
 		break;
 	case 6:
 		if (memcasecmp(name, "Sender", 6) == 0 && d->sender == NULL) {
 			d->sender = message_address_parse(pool, value,
-							  value_len);
+							  value_len, 0);
 		}
 		break;
 	case 7:
@@ -63,8 +69,8 @@ void imap_envelope_parse_header(pool_t pool,
 	case 8:
 		if (memcasecmp(name, "Reply-To", 8) == 0 &&
 		    d->reply_to == NULL) {
-			d->reply_to =
-				message_address_parse(pool, value, value_len);
+			d->reply_to = message_address_parse(pool, value,
+							    value_len, 0);
 		}
 		break;
 	case 10:
@@ -171,47 +177,55 @@ static int imap_address_arg_append(struct imap_arg *arg, string_t *str,
 			return FALSE;
 	}
 
+	if (*in_group && args[0] == NULL && args[1] == NULL &&
+	    args[2] == NULL && args[3] == NULL) {
+		/* end of group */
+		str_append_c(str, ';');
+		*in_group = FALSE;
+		return TRUE;
+	}
+
 	if (str_len(str) > 0)
 		str_append(str, ", ");
 
-	if (*in_group) {
-		if (args[0] == NULL && args[1] == NULL &&
-		    args[2] == NULL && args[3] == NULL) {
-			/* end of group */
-			str_append_c(str, ';');
-			*in_group = FALSE;
-			return TRUE;
+	if (!*in_group && args[0] == NULL && args[1] == NULL &&
+	    args[2] != NULL && args[3] == NULL) {
+		/* beginning of group */
+		str_append(str, args[2]);
+		str_append(str, ": ");
+		*in_group = TRUE;
+		return TRUE;
+	}
+
+	/* a) mailbox@domain
+	   b) name <@route:mailbox@domain> */
+	if (args[0] == NULL && args[1] == NULL) {
+		if (args[2] != NULL)
+			str_append(str, args[2]);
+		if (args[3] != NULL) {
+			str_append_c(str, '@');
+			str_append(str, args[3]);
 		}
 	} else {
-		if (args[0] == NULL && args[1] == NULL &&
-		    args[2] != NULL && args[3] == NULL) {
-			/* beginning of group */
-			str_append(str, args[2]);
-			str_append(str, ": ");
-			*in_group = TRUE;
-			return TRUE;
+		if (args[0] != NULL) {
+			str_append(str, args[0]);
+			str_append_c(str, ' ');
 		}
-	}
 
-        /* name <@route:mailbox@domain> */
-	if (args[0] != NULL) {
-		str_append(str, args[0]);
-		str_append_c(str, ' ');
+		str_append_c(str, '<');
+		if (args[1] != NULL) {
+			str_append_c(str, '@');
+			str_append(str, args[1]);
+			str_append_c(str, ':');
+		}
+		if (args[2] != NULL)
+			str_append(str, args[2]);
+		if (args[3] != NULL) {
+			str_append_c(str, '@');
+			str_append(str, args[3]);
+		}
+		str_append_c(str, '>');
 	}
-
-	str_append_c(str, '<');
-	if (args[1] != NULL) {
-		str_append_c(str, '@');
-		str_append(str, args[1]);
-		str_append_c(str, ':');
-	}
-	if (args[2] != NULL)
-		str_append(str, args[2]);
-	if (args[3] != NULL) {
-		str_append_c(str, '@');
-		str_append(str, args[3]);
-	}
-	str_append_c(str, '>');
 	return TRUE;
 }
 

@@ -213,7 +213,8 @@ static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
 	return TRUE;
 }
 
-int message_date_parse(const char *data, time_t *time, int *timezone_offset)
+int message_date_parse(const unsigned char *data, size_t size,
+		       time_t *time, int *timezone_offset)
 {
 	struct message_tokenizer *ctx;
 	int ret;
@@ -221,8 +222,7 @@ int message_date_parse(const char *data, time_t *time, int *timezone_offset)
 	if (data == NULL || *data == '\0')
 		return FALSE;
 
-	ctx = message_tokenize_init((const unsigned char *) data, (size_t)-1,
-				    NULL, NULL);
+	ctx = message_tokenize_init(data, size, NULL, NULL);
 	ret = mail_date_parse_tokens(ctx, time, timezone_offset);
 	message_tokenize_deinit(ctx);
 
