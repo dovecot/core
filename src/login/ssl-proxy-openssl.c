@@ -55,7 +55,7 @@ static void plain_block_input(struct ssl_proxy *proxy, int block)
 		if (proxy->io_plain_read == NULL) {
 			proxy->io_plain_read =
 				io_add(proxy->fd_plain, IO_READ,
-				       (io_func_t)plain_read, proxy);
+				       (io_callback_t)plain_read, proxy);
 		}
 	}
 }
@@ -116,7 +116,8 @@ static void plain_write(struct ssl_proxy *proxy)
 			if (proxy->io_plain_write == NULL) {
 				proxy->io_plain_write =
 					io_add(proxy->fd_plain, IO_WRITE,
-					       (io_func_t)plain_write, proxy);
+					       (io_callback_t)plain_write,
+					       proxy);
 			}
 		} else {
 			proxy->plainout_pos = 0;
