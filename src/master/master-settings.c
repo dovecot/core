@@ -850,7 +850,13 @@ int master_settings_read(const char *path)
 			else
 				prev->next = server->next;
 		} else {
-                        auth = server->auths;
+			auth = server->auths;
+			if (auth == NULL) {
+				i_error("Missing auth section for server %s",
+					server->name);
+				return FALSE;
+			}
+
 			for (; auth != NULL; auth = auth->next) {
 				if (!auth_settings_verify(auth))
 					return FALSE;
