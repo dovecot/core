@@ -185,7 +185,7 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data,
 
 	*data = i_stream_get_data(stream, size);
 	return ret == -2 ? -2 :
-		*size > 0 ? 0 : -1;
+		*size > 0 || !stream->eof ? 0 : -1;
 }
 
 struct istream *_i_stream_create(struct _istream *_stream, pool_t pool, int fd,
