@@ -9,8 +9,6 @@
  * (at your option) any later version.
  */
 
-#include <ctype.h>
-
 #include "lib.h"
 #include "buffer.h"
 #include "compat.h"
@@ -19,6 +17,8 @@
 #include "hmac-md5.h"
 #include "ntlm.h"
 #include "ntlm-des.h"
+
+#include <ctype.h>
 
 static unsigned char *
 t_unicode_str(const char *src, int ucase, size_t *size)

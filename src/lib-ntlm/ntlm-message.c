@@ -9,9 +9,6 @@
  * (at your option) any later version.
  */
 
-#include <stdarg.h>
-#include <ctype.h>
-
 #include "lib.h"
 #include "str.h"
 #include "buffer.h"
@@ -20,6 +17,9 @@
 
 #include "ntlm.h"
 #include "ntlm-message.h"
+
+#include <stdarg.h>
+#include <ctype.h>
 
 const char * __ntlmssp_t_str(const void *message, struct ntlmssp_buffer *buffer)
 {
