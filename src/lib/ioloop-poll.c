@@ -186,13 +186,11 @@ void io_loop_handler_run(struct ioloop *ioloop)
 
 		pollfd = &data->fds[data->fd_index[io->fd]];
 		if (pollfd->revents != 0) {
-			ret--;
-
 			if (pollfd->revents & POLLNVAL) {
 				i_error("invalid I/O fd %d, callback %p",
 					io->fd, (void *) io->callback);
 				pollfd->events &= ~POLLNVAL;
-				pollfd->revents &= ~POLLNVAL;
+				pollfd->revents = 0;
 				call = FALSE;
 			} else if ((io->condition &
 				    (IO_READ|IO_WRITE)) == (IO_READ|IO_WRITE)) {
@@ -207,6 +205,9 @@ void io_loop_handler_run(struct ioloop *ioloop)
 			} else {
 				call = FALSE;
 			}
+
+			if (pollfd->revents == 0)
+				ret--;
 
 			if (call) {
 				t_id = t_push();
