@@ -44,14 +44,14 @@ typedef struct _MailFetchBodyData MailFetchBodyData;
 typedef struct _MailSearchArg MailSearchArg;
 
 typedef void (*MailboxFunc)(MailStorage *storage, const char *name,
-			    MailboxFlags flags, void *user_data);
+			    MailboxFlags flags, void *context);
 
 typedef void (*MailExpungeFunc)(Mailbox *mailbox, unsigned int seq,
-				unsigned int uid, void *user_data);
+				unsigned int uid, void *context);
 typedef void (*MailFlagUpdateFunc)(Mailbox *mailbox, unsigned int seq,
 				   unsigned int uid, MailFlags flags,
 				   const char *custom_flags[],
-				   void *user_data);
+				   void *context);
 
 /* All methods returning int return either TRUE or FALSE. */
 struct _MailStorage {
@@ -89,7 +89,7 @@ struct _MailStorage {
 	/* Execute specified function for all mailboxes matching given
 	   mask. The mask is in RFC2060 LIST format. */
 	int (*find_mailboxes)(MailStorage *storage, const char *mask,
-			      MailboxFunc func, void *user_data);
+			      MailboxFunc func, void *context);
 
 	/* Subscribe/unsubscribe mailbox. There should be no error when
 	   subscribing to already subscribed mailbox. Subscribing to
@@ -98,7 +98,7 @@ struct _MailStorage {
 
 	/* Exactly like find_mailboxes(), but list only subscribed mailboxes. */
 	int (*find_subscribed)(MailStorage *storage, const char *mask,
-			       MailboxFunc func, void *user_data);
+			       MailboxFunc func, void *context);
 
 	/* Returns mailbox name status */
 	int (*get_mailbox_name_status)(MailStorage *storage, const char *name,
@@ -132,7 +132,7 @@ struct _Mailbox {
 	   to expunge() function is that expunge_func is also called. */
 	int (*sync)(Mailbox *box, unsigned int *messages, int expunge,
 		    MailExpungeFunc expunge_func, MailFlagUpdateFunc flag_func,
-		    void *user_data);
+		    void *context);
 
 	/* Expunge all mails with \Deleted flag. */
 	int (*expunge)(Mailbox *box);
@@ -141,7 +141,7 @@ struct _Mailbox {
 	int (*update_flags)(Mailbox *box, const char *messageset, int uidset,
 			    MailFlags flags, const char *custom_flags[],
 			    ModifyType modify_type,
-			    MailFlagUpdateFunc func, void *user_data,
+			    MailFlagUpdateFunc func, void *context,
 			    int *all_found);
 
 	/* Copy mails to another mailbox */

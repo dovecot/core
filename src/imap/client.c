@@ -332,7 +332,7 @@ static void client_input(Client *client)
 		client_destroy(client);
 }
 
-static void idle_timeout(void *user_data __attr_unused__,
+static void idle_timeout(void *context __attr_unused__,
 			 Timeout timeout __attr_unused__)
 {
 	if (my_client == NULL)

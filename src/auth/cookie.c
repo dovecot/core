@@ -121,7 +121,7 @@ CookieData *cookie_lookup_and_remove(unsigned char cookie[AUTH_COOKIE_SIZE])
 	return data;
 }
 
-static void cookie_timeout(void *user_data __attr_unused__,
+static void cookie_timeout(void *context __attr_unused__,
 			   Timeout timeout __attr_unused__)
 {
 	time_t remove_time;

@@ -8,14 +8,14 @@
 #define PARSE_ERROR() \
 	STMT_START { \
 	if (error_func != NULL && \
-	    !error_func(str, (int) (p-str), '\0', user_data)) \
+	    !error_func(str, (int) (p-str), '\0', context)) \
 		return NULL; \
 	} STMT_END
 
 #define PARSE_ERROR_MISSING(c) \
 	STMT_START { \
 	if (error_func != NULL && \
-	    !error_func(str, (int) (p-str), c, user_data)) \
+	    !error_func(str, (int) (p-str), c, context)) \
 		return NULL; \
 	} STMT_END
 
@@ -37,7 +37,7 @@ static Rfc822Token *alloc_token(Rfc822Token **tokens, int *pos, int type)
 
 const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 				   Rfc822TokenizeErrorFunc error_func,
-				   void *user_data)
+				   void *context)
 {
 	Rfc822Token *first_token, *token;
 	const char *p, *last_atom;
@@ -173,7 +173,7 @@ const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 	}
 
 	if (in_bracket && error_func != NULL) {
-		if (!error_func(str, (int) (p-str), '>', user_data))
+		if (!error_func(str, (int) (p-str), '>', context))
 			return NULL;
 	}
 

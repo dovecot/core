@@ -25,7 +25,7 @@ static unsigned int get_next_number(const char **str)
 
 static int mail_index_foreach(MailIndex *index,
 			      unsigned int seq, unsigned int seq2,
-			      MsgsetForeachFunc func, void *user_data)
+			      MsgsetForeachFunc func, void *context)
 {
 	MailIndexRecord *rec;
 	const unsigned int *expunges;
@@ -65,7 +65,7 @@ static int mail_index_foreach(MailIndex *index,
 		if (seq > seq2)
 			break;
 
-		if (!func(index, rec, seq, user_data))
+		if (!func(index, rec, seq, context))
 			return 0;
 
 		rec = index->next(index, rec);
@@ -81,7 +81,7 @@ static int mail_index_foreach(MailIndex *index,
 
 int mail_index_messageset_foreach(MailIndex *index, const char *messageset,
 				  unsigned int messages_count,
-				  MsgsetForeachFunc func, void *user_data)
+				  MsgsetForeachFunc func, void *context)
 {
 	const char *input;
 	unsigned int seq, seq2;
@@ -148,7 +148,7 @@ int mail_index_messageset_foreach(MailIndex *index, const char *messageset,
 			/* too large .. ignore silently */
 		} else {
 			ret = mail_index_foreach(index, seq, seq2,
-						 func, user_data);
+						 func, context);
 			if (ret <= 0)
 				return ret;
 			if (ret == 2)
@@ -162,7 +162,7 @@ int mail_index_messageset_foreach(MailIndex *index, const char *messageset,
 static int mail_index_uid_foreach(MailIndex *index,
 				  unsigned int uid, unsigned int uid2,
 				  unsigned int max_sequence,
-				  MsgsetForeachFunc func, void *user_data)
+				  MsgsetForeachFunc func, void *context)
 {
 	MailIndexRecord *rec;
 	off_t pos;
@@ -217,7 +217,7 @@ static int mail_index_uid_foreach(MailIndex *index,
 		}
 		i_assert(*expunges != rec->uid);
 
-		if (!func(index, rec, seq, user_data))
+		if (!func(index, rec, seq, context))
 			return 0;
 
 		seq++;
@@ -234,7 +234,7 @@ static int mail_index_uid_foreach(MailIndex *index,
 
 int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 			      unsigned int messages_count,
-			      MsgsetForeachFunc func, void *user_data)
+			      MsgsetForeachFunc func, void *context)
 {
 	MailIndexRecord *rec;
 	const char *input;
@@ -299,7 +299,7 @@ int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 		} else {
 			ret = mail_index_uid_foreach(index, uid, uid2,
 						     messages_count,
-						     func, user_data);
+						     func, context);
 			if (ret <= 0)
 				return ret;
 			if (ret == 2)

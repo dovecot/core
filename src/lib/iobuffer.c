@@ -179,14 +179,14 @@ void io_buffer_set_max_size(IOBuffer *buf, unsigned int max_size)
 
 void io_buffer_set_send_blocking(IOBuffer *buf, unsigned int max_size,
 				 int timeout_msecs, TimeoutFunc timeout_func,
-				 void *user_data)
+				 void *context)
 {
 	i_assert(!buf->receive);
 
 	buf->transmit = TRUE;
 	buf->timeout_msecs = timeout_msecs;
 	buf->timeout_func = timeout_func;
-	buf->timeout_user_data = user_data;
+	buf->timeout_context = context;
 	buf->blocking = max_size > 0;
 	buf->max_size = max_size;
 }
@@ -230,7 +230,7 @@ static void buf_send_real(IOBuffer *buf)
 
 			/* call flush function */
 			if (buf->flush_func != NULL) {
-				buf->flush_func(buf->flush_user_data, buf);
+				buf->flush_func(buf->flush_context, buf);
 				buf->flush_func = NULL;
 
 				if (buf->corked) {
@@ -265,43 +265,43 @@ typedef struct {
 	IOBuffer *inbuf;
 
 	int timeout;
-} IOBufferBlockData;
+} IOBufferBlockContext;
 
-static void block_loop_send(IOBufferBlockData *bd)
+static void block_loop_send(IOBufferBlockContext *ctx)
 {
 	int ret;
 
-	if (bd->outbuf->skip != bd->outbuf->pos) {
-		buf_send_real(bd->outbuf);
+	if (ctx->outbuf->skip != ctx->outbuf->pos) {
+		buf_send_real(ctx->outbuf);
 	} else {
 		/* send the data */
-		ret = !bd->outbuf->file ?
-			net_transmit(bd->outbuf->fd, bd->data, bd->size) :
-			my_write(bd->outbuf->fd, bd->data, bd->size);
+		ret = !ctx->outbuf->file ?
+			net_transmit(ctx->outbuf->fd, ctx->data, ctx->size) :
+			my_write(ctx->outbuf->fd, ctx->data, ctx->size);
 
 		if (ret < 0) {
-			bd->outbuf->closed = TRUE;
+			ctx->outbuf->closed = TRUE;
 		} else {
-			bd->outbuf->offset += ret;
-			bd->data += ret;
-			bd->size -= ret;
+			ctx->outbuf->offset += ret;
+			ctx->data += ret;
+			ctx->size -= ret;
 		}
 	}
 
-	if (bd->outbuf->closed || bd->size == 0)
-		io_loop_stop(bd->ioloop);
+	if (ctx->outbuf->closed || ctx->size == 0)
+		io_loop_stop(ctx->ioloop);
 }
 
-static void block_loop_timeout(void *user_data, Timeout timeout __attr_unused__)
+static void block_loop_timeout(void *context, Timeout timeout __attr_unused__)
 {
-	IOBufferBlockData *data = user_data;
+	IOBufferBlockContext *ctx = context;
 
-	data->timeout = TRUE;
-	io_loop_stop(data->ioloop);
+	ctx->timeout = TRUE;
+	io_loop_stop(ctx->ioloop);
 }
 
-static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockData *bd,
-			    void (*send_func)(IOBufferBlockData *bd))
+static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockContext *ctx,
+			    void (*send_func)(IOBufferBlockContext *ctx))
 {
 	Timeout to;
 	int save_errno;
@@ -311,14 +311,14 @@ static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockData *bd,
 		io_remove(buf->io);
 
 	/* create a new I/O loop */
-	bd->ioloop = io_loop_create();
-	bd->outbuf = buf;
+	ctx->ioloop = io_loop_create();
+	ctx->outbuf = buf;
 
-	buf->io = io_add(buf->fd, IO_WRITE, (IOFunc) send_func, bd);
+	buf->io = io_add(buf->fd, IO_WRITE, (IOFunc) send_func, ctx);
 	to = buf->timeout_msecs <= 0 ? NULL :
-		timeout_add(buf->timeout_msecs, block_loop_timeout, bd);
+		timeout_add(buf->timeout_msecs, block_loop_timeout, ctx);
 
-	io_loop_run(bd->ioloop);
+	io_loop_run(ctx->ioloop);
 	save_errno = errno;
 
 	if (buf->corked) {
@@ -333,30 +333,30 @@ static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockData *bd,
 	}
 
 	if (to != NULL) {
-		if (bd->timeout && buf->timeout_func != NULL) {
+		if (ctx->timeout && buf->timeout_func != NULL) {
 			/* call user-given timeout function */
-			buf->timeout_func(buf->timeout_user_data, to);
+			buf->timeout_func(buf->timeout_context, to);
 		}
 		timeout_remove(to);
 	}
 
-	io_loop_destroy(bd->ioloop);
+	io_loop_destroy(ctx->ioloop);
 
 	errno = save_errno;
-	return bd->size > 0 ? -1 : 1;
+	return ctx->size > 0 ? -1 : 1;
 }
 
 static int io_buffer_send_blocking(IOBuffer *buf, const void *data,
 				   unsigned int size)
 {
-        IOBufferBlockData bd;
+        IOBufferBlockContext ctx;
 
-	memset(&bd, 0, sizeof(IOBufferBlockData));
+	memset(&ctx, 0, sizeof(ctx));
 
-	bd.data = data;
-	bd.size = size;
+	ctx.data = data;
+	ctx.size = size;
 
-        return io_buffer_ioloop(buf, &bd, block_loop_send);
+        return io_buffer_ioloop(buf, &ctx, block_loop_send);
 }
 
 void io_buffer_cork(IOBuffer *buf)
@@ -451,27 +451,27 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 }
 
 #ifdef HAVE_SYS_SENDFILE_H
-static void block_loop_sendfile(IOBufferBlockData *bd)
+static void block_loop_sendfile(IOBufferBlockContext *ctx)
 {
 	int ret;
 
-	ret = sendfile(bd->outbuf->fd, bd->inbuf->fd,
-		       &bd->inbuf->mmap_offset, bd->size);
+	ret = sendfile(ctx->outbuf->fd, ctx->inbuf->fd,
+		       &ctx->inbuf->mmap_offset, ctx->size);
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN)
-			bd->outbuf->closed = TRUE;
+			ctx->outbuf->closed = TRUE;
 		ret = 0;
 	}
 
-	bd->size -= ret;
-	if (bd->outbuf->closed || bd->size == 0)
-		io_loop_stop(bd->ioloop);
+	ctx->size -= ret;
+	if (ctx->outbuf->closed || ctx->size == 0)
+		io_loop_stop(ctx->ioloop);
 }
 
 static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 			      unsigned int size)
 {
-        IOBufferBlockData bd;
+        IOBufferBlockContext ctx;
 	int ret;
 
 	io_buffer_send_flush(outbuf);
@@ -489,12 +489,12 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 		return 1;
 	}
 
-	memset(&bd, 0, sizeof(IOBufferBlockData));
+	memset(&ctx, 0, sizeof(ctx));
 
-	bd.inbuf = inbuf;
-	bd.size = size - ret;
+	ctx.inbuf = inbuf;
+	ctx.size = size - ret;
 
-	ret = io_buffer_ioloop(outbuf, &bd, block_loop_sendfile);
+	ret = io_buffer_ioloop(outbuf, &ctx, block_loop_sendfile);
 	if (ret < 0 && errno == EINVAL) {
 		/* this shouldn't happen, must be a bug. It would also
 		   mess up later if we let this pass. */
@@ -504,32 +504,32 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 }
 #endif
 
-static void block_loop_copy(IOBufferBlockData *bd)
+static void block_loop_copy(IOBufferBlockContext *ctx)
 {
 	unsigned char *in_data;
 	unsigned int size;
 	int ret;
 
-	while ((ret = io_buffer_read_data(bd->inbuf, &in_data,
+	while ((ret = io_buffer_read_data(ctx->inbuf, &in_data,
 					  &size, 0)) <= 0) {
 		if (ret == -1) {
 			/* disconnected */
-			bd->outbuf->closed = TRUE;
+			ctx->outbuf->closed = TRUE;
 			break;
 		}
 	}
 
 	/* send the data */
-	bd->data = (const char *) in_data;
-	bd->size = size;
-	block_loop_send(bd);
+	ctx->data = (const char *) in_data;
+	ctx->size = size;
+	block_loop_send(ctx);
 
-	io_buffer_skip(bd->inbuf, size - bd->size);
+	io_buffer_skip(ctx->inbuf, size - ctx->size);
 }
 
 int io_buffer_send_buf(IOBuffer *outbuf, IOBuffer *inbuf, unsigned int size)
 {
-	IOBufferBlockData bd;
+	IOBufferBlockContext ctx;
 	unsigned char *in_data;
 	unsigned int in_size;
 	int ret;
@@ -563,12 +563,12 @@ int io_buffer_send_buf(IOBuffer *outbuf, IOBuffer *inbuf, unsigned int size)
 	}
 
 	/* create blocking send loop */
-	memset(&bd, 0, sizeof(IOBufferBlockData));
+	memset(&ctx, 0, sizeof(ctx));
 
-	bd.inbuf = inbuf;
-	bd.size = size;
+	ctx.inbuf = inbuf;
+	ctx.size = size;
 
-	return io_buffer_ioloop(outbuf, &bd, block_loop_copy);
+	return io_buffer_ioloop(outbuf, &ctx, block_loop_copy);
 }
 
 void io_buffer_send_flush(IOBuffer *buf)
@@ -583,17 +583,17 @@ void io_buffer_send_flush(IOBuffer *buf)
 }
 
 void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
-				   void *user_data)
+				   void *context)
 {
 	i_assert(!buf->receive);
 
 	if (buf->skip == buf->pos) {
-		func(user_data, buf);
+		func(context, buf);
 		return;
 	}
 
 	buf->flush_func = func;
-	buf->flush_user_data = user_data;
+	buf->flush_context = context;
 }
 
 int io_buffer_read_mmaped(IOBuffer *buf, unsigned int size)

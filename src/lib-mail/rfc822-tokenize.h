@@ -39,14 +39,14 @@ struct _Rfc822Token {
    missing_char == '\0': unexpected character at str[pos]
    missing_char != '\0': missing character */
 typedef int (*Rfc822TokenizeErrorFunc)(const char *str, int pos,
-				       char missing_char, void *user_data);
+				       char missing_char, void *context);
 
 /* Tokenize the string. Returns NULL if string is empty. Memory for
    returned array is allocated from temporary pool. You don't have to use
    the tokens_count, since last token is always 0. */
 const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 				   Rfc822TokenizeErrorFunc error_func,
-				   void *user_data);
+				   void *context);
 
 /* Returns the tokens as a string. */
 const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count,

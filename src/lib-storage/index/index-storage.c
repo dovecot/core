@@ -72,9 +72,9 @@ int mail_storage_set_index_error(IndexMailbox *ibox)
 	return FALSE;
 }
 
-static MailFlags get_used_flags(void *user_data)
+static MailFlags get_used_flags(void *context)
 {
-        IndexMailbox *ibox = user_data;
+        IndexMailbox *ibox = context;
 	MailIndexRecord *rec;
 	MailFlags used_flags;
 

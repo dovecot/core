@@ -37,8 +37,8 @@ const int mac_priority[] =
 static GNUTLS_CERTIFICATE_SERVER_CREDENTIALS x509_cred;
 static GNUTLS_DH_PARAMS dh_params;
 
-static void ssl_input(void *user_data, int handle, IO io);
-static void plain_input(void *user_data, int handle, IO io);
+static void ssl_input(void *context, int handle, IO io);
+static void plain_input(void *context, int handle, IO io);
 static void ssl_proxy_destroy(SSLProxy *proxy);
 
 static int proxy_recv_ssl(SSLProxy *proxy, void *data, unsigned int size)
@@ -94,10 +94,10 @@ static void ssl_proxy_destroy(SSLProxy *proxy)
 	i_free(proxy);
 }
 
-static void ssl_output(void *user_data, int fd __attr_unused__,
+static void ssl_output(void *context, int fd __attr_unused__,
 		       IO io __attr_unused__)
 {
-        SSLProxy *proxy = user_data;
+        SSLProxy *proxy = context;
 	int sent;
 
 	sent = net_transmit(proxy->fd_plain,
@@ -120,10 +120,10 @@ static void ssl_output(void *user_data, int fd __attr_unused__,
 	proxy->io_ssl = io_add(proxy->fd_ssl, IO_READ, ssl_input, proxy);
 }
 
-static void ssl_input(void *user_data, int fd __attr_unused__,
+static void ssl_input(void *context, int fd __attr_unused__,
 		      IO io __attr_unused__)
 {
-        SSLProxy *proxy = user_data;
+        SSLProxy *proxy = context;
 	int rcvd, sent;
 
 	rcvd = proxy_recv_ssl(proxy, proxy->outbuf_plain,
@@ -151,10 +151,10 @@ static void ssl_input(void *user_data, int fd __attr_unused__,
 	proxy->io_ssl = io_add(proxy->fd_ssl, IO_WRITE, ssl_output, proxy);
 }
 
-static void plain_output(void *user_data, int fd __attr_unused__,
+static void plain_output(void *context, int fd __attr_unused__,
 			 IO io __attr_unused__)
 {
-	SSLProxy *proxy = user_data;
+	SSLProxy *proxy = context;
 	int sent;
 
 	/* FIXME: (void*) 1 is horrible kludge, but there's no need for us
@@ -173,10 +173,10 @@ static void plain_output(void *user_data, int fd __attr_unused__,
 	proxy->io_plain = io_add(proxy->fd_plain, IO_READ, plain_input, proxy);
 }
 
-static void plain_input(void *user_data, int fd __attr_unused__,
+static void plain_input(void *context, int fd __attr_unused__,
 			IO io __attr_unused__)
 {
-	SSLProxy *proxy = user_data;
+	SSLProxy *proxy = context;
 	char buf[1024];
 	int rcvd, sent;
 

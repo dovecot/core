@@ -11,10 +11,10 @@ typedef struct {
 	IOBuffer *outbuf;
 	TempString *str;
 	int update_seen;
-} FetchData;
+} FetchContext;
 
 ImapCacheField index_fetch_body_get_cache(const char *section);
 void index_fetch_body_section(MailIndexRecord *rec, unsigned int seq,
-			      MailFetchBodyData *sect, FetchData *data);
+			      MailFetchBodyData *sect, FetchContext *data);
 
 #endif

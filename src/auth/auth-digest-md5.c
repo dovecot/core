@@ -510,9 +510,9 @@ static int parse_digest_response(AuthData *auth, const char *data,
 static void auth_digest_md5_continue(CookieData *cookie,
 				     AuthContinuedRequestData *request,
 				     const unsigned char *data,
-				     AuthCallback callback, void *user_data)
+				     AuthCallback callback, void *context)
 {
-	AuthData *auth = cookie->user_data;
+	AuthData *auth = cookie->context;
 	AuthReplyData reply;
 	const char *error;
 
@@ -526,7 +526,7 @@ static void auth_digest_md5_continue(CookieData *cookie,
 		   word from client */
 		auth->cookie_reply.success = TRUE;
 		reply.result = AUTH_RESULT_SUCCESS;
-		callback(&reply, NULL, user_data);
+		callback(&reply, NULL, context);
 		return;
 	}
 
@@ -537,21 +537,21 @@ static void auth_digest_md5_continue(CookieData *cookie,
 
 		reply.data_size = strlen(auth->rspauth);
 		callback(&reply, (const unsigned char *) auth->rspauth,
-			 user_data);
+			 context);
 		auth->authenticated = TRUE;
 		return;
 	}
 
 	/* failed */
 	reply.result = AUTH_RESULT_FAILURE;
-	callback(&reply, error, user_data);
+	callback(&reply, error, context);
 	cookie_remove(cookie->cookie);
 }
 
 static int auth_digest_md5_fill_reply(CookieData *cookie,
 				      AuthCookieReplyData *reply)
 {
-	AuthData *auth = cookie->user_data;
+	AuthData *auth = cookie->context;
 
 	if (!auth->authenticated)
 		return FALSE;
@@ -562,11 +562,11 @@ static int auth_digest_md5_fill_reply(CookieData *cookie,
 
 static void auth_digest_md5_free(CookieData *cookie)
 {
-	pool_unref(((AuthData *) cookie->user_data)->pool);
+	pool_unref(((AuthData *) cookie->context)->pool);
 }
 
 static void auth_digest_md5_init(AuthInitRequestData *request,
-				 AuthCallback callback, void *user_data)
+				 AuthCallback callback, void *context)
 {
 	CookieData *cookie;
 	AuthReplyData reply;
@@ -584,7 +584,7 @@ static void auth_digest_md5_init(AuthInitRequestData *request,
 	cookie->auth_fill_reply = auth_digest_md5_fill_reply;
 	cookie->auth_continue = auth_digest_md5_continue;
 	cookie->free = auth_digest_md5_free;
-	cookie->user_data = auth;
+	cookie->context = auth;
 
 	cookie_add(cookie);
 
@@ -599,7 +599,7 @@ static void auth_digest_md5_init(AuthInitRequestData *request,
 
 	challenge = get_digest_challenge(auth);
 	reply.data_size = strlen(challenge);
-	callback(&reply, (const unsigned char *) challenge, user_data);
+	callback(&reply, (const unsigned char *) challenge, context);
 
 	t_pop();
 }

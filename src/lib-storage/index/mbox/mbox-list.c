@@ -12,11 +12,11 @@
 
 typedef struct {
 	MailboxFunc func;
-	void *user_data;
-} FindSubscribedData;
+	void *context;
+} FindSubscribedContext;
 
 static int mbox_find_path(MailStorage *storage, const ImapMatchGlob *glob,
-			  MailboxFunc func, void *user_data,
+			  MailboxFunc func, void *context,
 			  const char *relative_dir, int *found_inbox)
 {
 	DIR *dirp;
@@ -88,7 +88,7 @@ static int mbox_find_path(MailStorage *storage, const ImapMatchGlob *glob,
 		if (S_ISDIR(st.st_mode)) {
 			/* subdirectory, scan it too */
 			if (!mbox_find_path(storage, glob, func,
-					    user_data, path, NULL)) {
+					    context, path, NULL)) {
 				failed = TRUE;
 				break;
 			}
@@ -97,7 +97,7 @@ static int mbox_find_path(MailStorage *storage, const ImapMatchGlob *glob,
 			    strcasecmp(path, "inbox") == 0)
 				*found_inbox = TRUE;
 
-			func(storage, path, MAILBOX_NOINFERIORS, user_data);
+			func(storage, path, MAILBOX_NOINFERIORS, context);
 		}
 	}
 
@@ -106,7 +106,7 @@ static int mbox_find_path(MailStorage *storage, const ImapMatchGlob *glob,
 }
 
 int mbox_find_mailboxes(MailStorage *storage, const char *mask,
-			MailboxFunc func, void *user_data)
+			MailboxFunc func, void *context)
 {
         const ImapMatchGlob *glob;
 	int found_inbox;
@@ -116,23 +116,23 @@ int mbox_find_mailboxes(MailStorage *storage, const char *mask,
 	glob = imap_match_init(mask, TRUE, '/');
 
 	found_inbox = FALSE;
-	if (!mbox_find_path(storage, glob, func, user_data,
+	if (!mbox_find_path(storage, glob, func, context,
 			    NULL, &found_inbox))
 		return FALSE;
 
 	if (!found_inbox && imap_match(glob, "INBOX", 0, NULL) < 0) {
 		/* INBOX always exists */
 		func(storage, "INBOX", MAILBOX_UNMARKED | MAILBOX_NOINFERIORS,
-		     user_data);
+		     context);
 	}
 
 	return TRUE;
 }
 
 static int mbox_subs_func(MailStorage *storage, const char *name,
-			  void *user_data)
+			  void *context)
 {
-	FindSubscribedData *data = user_data;
+	FindSubscribedContext *ctx = context;
 	MailboxFlags flags;
 	struct stat st;
 	char path[1024];
@@ -147,19 +147,19 @@ static int mbox_subs_func(MailStorage *storage, const char *name,
 			0 : MAILBOX_NOSELECT;
 	}
 
-	data->func(storage, name, flags, data->user_data);
+	ctx->func(storage, name, flags, ctx->context);
 	return TRUE;
 }
 
 int mbox_find_subscribed(MailStorage *storage, const char *mask,
-			 MailboxFunc func, void *user_data)
+			 MailboxFunc func, void *context)
 {
-	FindSubscribedData data;
+	FindSubscribedContext ctx;
 
-	data.func = func;
-	data.user_data = user_data;
+	ctx.func = func;
+	ctx.context = context;
 
-	if (subsfile_foreach(storage, mask, mbox_subs_func, &data) <= 0)
+	if (subsfile_foreach(storage, mask, mbox_subs_func, &ctx) <= 0)
 		return FALSE;
 
 	return TRUE;

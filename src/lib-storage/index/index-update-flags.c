@@ -10,24 +10,24 @@ typedef struct {
 	FlagsFile *flagsfile;
 	ModifyType modify_type;
 	MailFlagUpdateFunc func;
-	void *user_data;
-} UpdateData;
+	void *context;
+} UpdateContext;
 
 static int update_func(MailIndex *index, MailIndexRecord *rec,
-		       unsigned int seq, void *user_data)
+		       unsigned int seq, void *context)
 {
-	UpdateData *data = user_data;
+	UpdateContext *ctx = context;
 	MailFlags flags;
 
-	switch (data->modify_type) {
+	switch (ctx->modify_type) {
 	case MODIFY_ADD:
-		flags = rec->msg_flags | data->flags;
+		flags = rec->msg_flags | ctx->flags;
 		break;
 	case MODIFY_REMOVE:
-		flags = rec->msg_flags & ~data->flags;
+		flags = rec->msg_flags & ~ctx->flags;
 		break;
 	case MODIFY_REPLACE:
-		flags = data->flags;
+		flags = ctx->flags;
 		break;
 	default:
 		flags = 0;
@@ -40,11 +40,11 @@ static int update_func(MailIndex *index, MailIndexRecord *rec,
 	if (!index->update_flags(index, rec, seq, flags, FALSE))
 		return FALSE;
 
-	if (data->func != NULL) {
-		data->func(data->box, seq, rec->uid, flags,
-			   flags_file_list_get(data->flagsfile),
-			   data->user_data);
-		flags_file_list_unref(data->flagsfile);
+	if (ctx->func != NULL) {
+		ctx->func(ctx->box, seq, rec->uid, flags,
+			  flags_file_list_get(ctx->flagsfile),
+			  ctx->context);
+		flags_file_list_unref(ctx->flagsfile);
 	}
 	return TRUE;
 }
@@ -52,11 +52,11 @@ static int update_func(MailIndex *index, MailIndexRecord *rec,
 int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
 			       MailFlags flags, const char *custom_flags[],
 			       ModifyType modify_type,
-			       MailFlagUpdateFunc func, void *user_data,
+			       MailFlagUpdateFunc func, void *context,
 			       int *all_found)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
-        UpdateData data;
+        UpdateContext ctx;
 	int ret;
 
 	if (box->readonly) {
@@ -70,22 +70,22 @@ int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
 		return mail_storage_set_index_error(ibox);
 
-	data.box = box;
-	data.flags = flags & ~MAIL_RECENT; /* \Recent can't be changed */
-	data.flagsfile = ibox->flagsfile;
-	data.modify_type = modify_type;
-	data.func = func;
-	data.user_data = user_data;
+	ctx.box = box;
+	ctx.flags = flags & ~MAIL_RECENT; /* \Recent can't be changed */
+	ctx.flagsfile = ibox->flagsfile;
+	ctx.modify_type = modify_type;
+	ctx.func = func;
+	ctx.context = context;
 
 	if (uidset) {
 		ret = mail_index_uidset_foreach(ibox->index, messageset,
 						ibox->synced_messages_count,
-						update_func, &data);
+						update_func, &ctx);
 	} else {
 		ret = mail_index_messageset_foreach(ibox->index,
 						    messageset,
 						    ibox->synced_messages_count,
-						    update_func, &data);
+						    update_func, &ctx);
 	}
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK) || ret == -1)

@@ -344,7 +344,7 @@ void mail_index_close(MailIndex *index);
 int mail_index_rebuild_all(MailIndex *index);
 int mail_index_sync_file(MailIndex *index);
 void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
-			       MessageHeaderFunc header_func, void *user_data);
+			       MessageHeaderFunc header_func, void *context);
 
 /* Max. mmap()ed size for a message */
 #define MAIL_MMAP_BLOCK_SIZE (1024*256)

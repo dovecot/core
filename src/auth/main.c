@@ -24,7 +24,7 @@ static void sig_quit(int signo __attr_unused__)
 	io_loop_stop(ioloop);
 }
 
-static void auth_accept(void *user_data __attr_unused__, int listen_fd,
+static void auth_accept(void *context __attr_unused__, int listen_fd,
 			IO io __attr_unused__)
 {
 	int fd;

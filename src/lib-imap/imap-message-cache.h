@@ -41,8 +41,8 @@ void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
 			   size_t pv_headers_size, size_t pv_body_size,
 			   IOBuffer *inbuf,
 			   IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf,
-						     void *user_data),
-			   void *user_data);
+						     void *context),
+			   void *context);
 
 /* Close the IOBuffer for cached message. */
 void imap_msgcache_close(ImapMessageCache *cache);

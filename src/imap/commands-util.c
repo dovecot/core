@@ -72,9 +72,9 @@ int client_verify_open_mailbox(Client *client)
 
 static void sync_expunge_func(Mailbox *mailbox __attr_unused__,
 			      unsigned int seq,
-			      unsigned int uid __attr_unused__, void *user_data)
+			      unsigned int uid __attr_unused__, void *context)
 {
-	Client *client = user_data;
+	Client *client = context;
 	char str[MAX_INT_STRLEN+20];
 
 	i_snprintf(str, sizeof(str), "* %u EXPUNGE", seq);
@@ -83,9 +83,9 @@ static void sync_expunge_func(Mailbox *mailbox __attr_unused__,
 
 static void sync_flags_func(Mailbox *mailbox __attr_unused__, unsigned int seq,
 			    unsigned int uid __attr_unused__, MailFlags flags,
-			    const char *custom_flags[], void *user_data)
+			    const char *custom_flags[], void *context)
 {
-	Client *client = user_data;
+	Client *client = context;
 	const char *str;
 
 	t_push();

@@ -47,8 +47,8 @@ struct _ImapMessageCache {
 	IOBuffer *open_inbuf;
 	size_t open_size, open_virtual_size;
 
-	IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf, void *user_data);
-	void *user_data;
+	IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf, void *context);
+	void *context;
 };
 
 ImapMessageCache *imap_msgcache_alloc(void)
@@ -139,9 +139,9 @@ static CachedMessage *cache_open_or_create(ImapMessageCache *cache,
 static void parse_envelope_header(MessagePart *part,
 				  const char *name, unsigned int name_len,
 				  const char *value, unsigned int value_len,
-				  void *user_data)
+				  void *context)
 {
-	CachedMessage *msg = user_data;
+	CachedMessage *msg = context;
 
 	if (part == NULL || part->parent == NULL) {
 		/* parse envelope headers if we're at the root message part */
@@ -168,7 +168,7 @@ static void imap_msgcache_get_inbuf(ImapMessageCache *cache, off_t offset)
 	if (offset < cache->open_inbuf->offset) {
 		/* need to rewind */
 		cache->open_inbuf = cache->inbuf_rewind(cache->open_inbuf,
-							cache->user_data);
+							cache->context);
 		if (cache->open_inbuf == NULL)
 			i_fatal("Can't rewind message buffer");
 	}
@@ -324,8 +324,8 @@ void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
 			   size_t pv_headers_size, size_t pv_body_size,
 			   IOBuffer *inbuf,
 			   IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf,
-						     void *user_data),
-			   void *user_data)
+						     void *context),
+			   void *context)
 {
 	CachedMessage *msg;
 
@@ -340,7 +340,7 @@ void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
 		cache->open_virtual_size = virtual_size;
 
 		cache->inbuf_rewind = inbuf_rewind;
-		cache->user_data = user_data;
+		cache->context = context;
 	}
 
 	if (pv_headers_size != 0 && msg->hdr_size == NULL) {

@@ -13,7 +13,7 @@ struct _WaitingRequest {
 
 	int id;
 	MasterCallback callback;
-	void *user_data;
+	void *context;
 };
 
 static IO io_master;
@@ -22,14 +22,14 @@ static WaitingRequest *requests, **next_request;
 static unsigned int master_pos;
 static char master_buf[sizeof(MasterReply)];
 
-static void push_request(int id, MasterCallback callback, void *user_data)
+static void push_request(int id, MasterCallback callback, void *context)
 {
 	WaitingRequest *req;
 
 	req = i_new(WaitingRequest, 1);
 	req->id = id;
 	req->callback = callback;
-	req->user_data = user_data;
+	req->context = context;
 
 	*next_request = req;
 	next_request = &req->next;
@@ -51,7 +51,7 @@ static void pop_request(MasterReply *reply)
 			"(got %d, expecting %d)", reply->id, req->id);
 	}
 
-	req->callback(reply->result, req->user_data);
+	req->callback(reply->result, req->context);
 
 	requests = req->next;
 	if (requests == NULL)
@@ -62,7 +62,7 @@ static void pop_request(MasterReply *reply)
 
 void master_request_imap(int fd, int auth_process, const char *login_tag,
 			 unsigned char cookie[AUTH_COOKIE_SIZE],
-			 MasterCallback callback, void *user_data)
+			 MasterCallback callback, void *context)
 {
 	MasterRequest req;
 
@@ -82,10 +82,10 @@ void master_request_imap(int fd, int auth_process, const char *login_tag,
 		    fd, &req, sizeof(req)) != sizeof(req))
 		i_fatal("fd_send() failed: %m");
 
-	push_request(req.id, callback, user_data);
+	push_request(req.id, callback, context);
 }
 
-static void master_input(void *user_data __attr_unused__, int fd,
+static void master_input(void *context __attr_unused__, int fd,
 			 IO io __attr_unused__)
 {
 	int ret;

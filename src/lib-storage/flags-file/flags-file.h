@@ -15,8 +15,8 @@ void flags_file_destroy(FlagsFile *ff);
    out which of them could be removed. */
 int flags_file_fix_custom_flags(FlagsFile *ff, MailFlags *flags,
 				const char *custom_flags[],
-				MailFlags (*get_used_flags)(void *user_data),
-				void *user_data);
+				MailFlags (*get_used_flags)(void *context),
+				void *context);
 
 /* Returns a pointer to list of flags. */
 const char **flags_file_list_get(FlagsFile *ff);

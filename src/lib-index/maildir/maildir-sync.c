@@ -172,15 +172,15 @@ typedef struct {
 	MailIndex *index;
 	const char *dir;
 	int failed;
-} HashAppendData;
+} HashAppendContext;
 
 static void maildir_index_hash_append_file(void *key __attr_unused__,
-					   void *value, void *user_data)
+					   void *value, void *context)
 {
-	HashAppendData *data = user_data;
+	HashAppendContext *ctx = context;
 
-	if (!maildir_index_append_file(data->index, data->dir, value)) {
-		data->failed = TRUE;
+	if (!maildir_index_append_file(ctx->index, ctx->dir, value)) {
+		ctx->failed = TRUE;
                 hash_foreach_stop();
 	}
 }
@@ -188,14 +188,14 @@ static void maildir_index_hash_append_file(void *key __attr_unused__,
 static int maildir_index_append_files(MailIndex *index, const char *dir,
 				      HashTable *files)
 {
-	HashAppendData data;
+	HashAppendContext ctx;
 
-	data.failed = FALSE;
-	data.index = index;
-	data.dir = dir;
-	hash_foreach(files, maildir_index_hash_append_file, &data);
+	ctx.failed = FALSE;
+	ctx.index = index;
+	ctx.dir = dir;
+	hash_foreach(files, maildir_index_hash_append_file, &ctx);
 
-	return !data.failed;
+	return !ctx.failed;
 }
 
 static int maildir_index_sync_dir(MailIndex *index, const char *dir)

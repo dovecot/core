@@ -43,7 +43,7 @@ static void master_handle_request(AuthCookieRequestData *request,
 	}
 }
 
-static void master_input(void *user_data __attr_unused__, int fd,
+static void master_input(void *context __attr_unused__, int fd,
 			 IO io __attr_unused__)
 {
 	int ret;

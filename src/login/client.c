@@ -156,10 +156,10 @@ static int client_command_execute(Client *client, char *line)
 	return FALSE;
 }
 
-void client_input(void *user_data, int fd __attr_unused__,
+void client_input(void *context, int fd __attr_unused__,
 		  IO io __attr_unused__)
 {
-	Client *client = user_data;
+	Client *client = context;
 	char *line;
 
 	client->last_input = ioloop_time;
@@ -192,10 +192,10 @@ void client_input(void *user_data, int fd __attr_unused__,
 }
 
 static void client_hash_destroy_oldest(void *key, void *value __attr_unused__,
-				       void *user_data)
+				       void *context)
 {
 	Client *client = key;
-	Client **destroy_clients = user_data;
+	Client **destroy_clients = context;
 	int i;
 
 	for (i = 0; i < CLIENT_DESTROY_OLDEST_COUNT; i++) {
@@ -315,7 +315,7 @@ void client_syslog(Client *client, const char *text)
 }
 
 static void client_hash_check_idle(void *key, void *value __attr_unused__,
-				   void *user_data __attr_unused__)
+				   void *context __attr_unused__)
 {
 	Client *client = key;
 
@@ -325,7 +325,7 @@ static void client_hash_check_idle(void *key, void *value __attr_unused__,
 	}
 }
 
-static void idle_timeout(void *user_data __attr_unused__,
+static void idle_timeout(void *context __attr_unused__,
 			 Timeout timeout __attr_unused__)
 {
 	hash_foreach(clients, client_hash_check_idle, NULL);
@@ -338,7 +338,7 @@ void clients_init(void)
 }
 
 static void client_hash_destroy(void *key, void *value __attr_unused__,
-				void *user_data __attr_unused__)
+				void *context __attr_unused__)
 {
 	client_destroy(key, NULL);
 }

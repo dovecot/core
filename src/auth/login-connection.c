@@ -26,9 +26,9 @@ static AuthInitData auth_init_data;
 static LoginConnection *connections;
 
 static void request_callback(AuthReplyData *reply, const unsigned char *data,
-			     void *user_data)
+			     void *context)
 {
-	LoginConnection *conn = user_data;
+	LoginConnection *conn = context;
 
 	i_assert(reply->data_size <= AUTH_MAX_REPLY_DATA_SIZE);
 
@@ -40,10 +40,10 @@ static void request_callback(AuthReplyData *reply, const unsigned char *data,
 	}
 }
 
-static void login_input(void *user_data, int fd __attr_unused__,
+static void login_input(void *context, int fd __attr_unused__,
 			IO io __attr_unused__)
 {
-	LoginConnection *conn  = user_data;
+	LoginConnection *conn  = context;
         unsigned char *data;
 	unsigned int size;
 

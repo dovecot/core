@@ -5,7 +5,7 @@
 
 #define IO_BUFFER_MIN_SIZE		512
 
-typedef void (*IOBufferFlushFunc) (void *user_data, IOBuffer *buf);
+typedef void (*IOBufferFlushFunc) (void *context, IOBuffer *buf);
 
 struct _IOBuffer {
 	int fd;
@@ -22,10 +22,10 @@ struct _IOBuffer {
 
 	int timeout_msecs;
 	TimeoutFunc timeout_func;
-	void *timeout_user_data;
+	void *timeout_context;
 
 	IOBufferFlushFunc flush_func;
-	void *flush_user_data;
+	void *flush_context;
 
 	unsigned char *buffer;
         unsigned int cr_lookup_pos; /* used only when reading a line */
@@ -74,7 +74,7 @@ void io_buffer_set_max_size(IOBuffer *buf, unsigned int max_size);
    timeout_msecs to 0 may block infinitely. */
 void io_buffer_set_send_blocking(IOBuffer *buf, unsigned int max_size,
 				 int timeout_msecs, TimeoutFunc timeout_func,
-				 void *user_data);
+				 void *context);
 
 /* Set TCP_CORK on if supported, ie. don't send out partial frames.
    io_buffer_send_flush() removes the cork. */
@@ -93,7 +93,7 @@ void io_buffer_send_flush(IOBuffer *buf);
    If the buffer is empty already, the function will be called immediately.
    The function will be called only once. */
 void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
-				   void *user_data);
+				   void *context);
 
 /* Returns number of bytes read if read was ok,
    -1 if disconnected / EOF, -2 if the buffer is full */

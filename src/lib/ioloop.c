@@ -89,7 +89,7 @@ IO io_add(int fd, int condition, IOFunc func, void *data)
 }
 
 IO io_add_priority(int fd, int priority, int condition,
-		   IOFunc func, void *user_data)
+		   IOFunc func, void *context)
 {
 	IO io;
 
@@ -102,7 +102,7 @@ IO io_add_priority(int fd, int priority, int condition,
         io->condition = condition;
 
 	io->func = func;
-        io->user_data = user_data;
+        io->context = context;
 
 	if (io->fd > current_ioloop->highest_fd)
                 current_ioloop->highest_fd = io->fd;
@@ -180,7 +180,7 @@ inline static void timeout_update_next(Timeout timeout, struct timeval *tv_now)
 	}
 }
 
-Timeout timeout_add(int msecs, TimeoutFunc func, void *user_data)
+Timeout timeout_add(int msecs, TimeoutFunc func, void *context)
 {
 	Timeout timeout;
 
@@ -188,7 +188,7 @@ Timeout timeout_add(int msecs, TimeoutFunc func, void *user_data)
         timeout->msecs = msecs;
 
 	timeout->func = func;
-	timeout->user_data = user_data;
+	timeout->context = context;
 
         timeout_update_next(timeout, NULL);
         timeout_list_insert(current_ioloop, timeout);
@@ -275,7 +275,7 @@ void io_loop_handle_timeouts(IOLoop ioloop)
                 timeout_update_next(t, &ioloop_timeval);
 
                 t_id = t_push();
-		t->func(t->user_data, t);
+		t->func(t->context, t);
 		if (t_pop() != t_id)
                         i_panic("Leaked a t_pop() call!");
 	}

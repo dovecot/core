@@ -55,7 +55,7 @@ void auth_unregister_module(AuthModule *module)
 }
 
 void auth_init_request(AuthInitRequestData *request,
-		       AuthCallback callback, void *user_data)
+		       AuthCallback callback, void *context)
 {
 	AuthModuleList *list;
 
@@ -64,13 +64,13 @@ void auth_init_request(AuthInitRequestData *request,
 		i_error("BUG: imap-login requested unsupported "
 			"auth method %d", request->method);
 		failure_reply.id = request->id;
-		callback(&failure_reply, NULL, user_data);
+		callback(&failure_reply, NULL, context);
 		return;
 	}
 
 	for (list = auth_modules; list != NULL; list = list->next) {
 		if (list->module.method == request->method) {
-			list->module.init(request, callback, user_data);
+			list->module.init(request, callback, context);
 			return;
 		}
 	}
@@ -80,7 +80,7 @@ void auth_init_request(AuthInitRequestData *request,
 
 void auth_continue_request(AuthContinuedRequestData *request,
 			   const unsigned char *data,
-			   AuthCallback callback, void *user_data)
+			   AuthCallback callback, void *context)
 {
 	CookieData *cookie_data;
 
@@ -88,10 +88,10 @@ void auth_continue_request(AuthContinuedRequestData *request,
 	if (cookie_data == NULL) {
 		/* timeouted cookie */
 		failure_reply.id = request->id;
-		callback(&failure_reply, NULL, user_data);
+		callback(&failure_reply, NULL, context);
 	} else {
 		cookie_data->auth_continue(cookie_data, request, data,
-					   callback, user_data);
+					   callback, context);
 	}
 }
 

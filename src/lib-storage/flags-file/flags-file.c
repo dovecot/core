@@ -409,8 +409,8 @@ static void remove_unused_custom_flags(FlagsFile *ff, MailFlags used_flags)
 }
 
 static int get_flag_index(FlagsFile *ff, const char *flag,
-			  MailFlags (*get_used_flags)(void *user_data),
-			  void *user_data)
+			  MailFlags (*get_used_flags)(void *context),
+			  void *context)
 {
 	int i, first_empty;
 
@@ -434,7 +434,7 @@ static int get_flag_index(FlagsFile *ff, const char *flag,
 	first_empty = find_first_unused_flag(ff);
 	if (first_empty == -1) {
 		/* all custom flags are used, see if some of them are unused */
-		remove_unused_custom_flags(ff, get_used_flags(user_data));
+		remove_unused_custom_flags(ff, get_used_flags(context));
 
 		first_empty = find_first_unused_flag(ff);
 		if (first_empty == -1) {
@@ -452,8 +452,8 @@ static int get_flag_index(FlagsFile *ff, const char *flag,
 
 int flags_file_fix_custom_flags(FlagsFile *ff, MailFlags *flags,
 				const char *custom_flags[],
-				MailFlags (*get_used_flags)(void *user_data),
-				void *user_data)
+				MailFlags (*get_used_flags)(void *context),
+				void *context)
 {
 	MailFlags oldflags, flag;
 	int i, idx;
@@ -474,7 +474,7 @@ int flags_file_fix_custom_flags(FlagsFile *ff, MailFlags *flags,
 				 *custom_flags[i] != '\0');
 
 			idx = get_flag_index(ff, custom_flags[i],
-					     get_used_flags, user_data);
+					     get_used_flags, context);
 			if (idx == -1) {
 				mail_storage_set_error(ff->storage,
 					"Maximum number of different custom "

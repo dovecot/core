@@ -12,7 +12,7 @@ struct _CookieData {
 	void (*auth_continue)(CookieData *cookie,
 			      AuthContinuedRequestData *request,
 			      const unsigned char *data,
-			      AuthCallback callback, void *user_data);
+			      AuthCallback callback, void *context);
 
 	/* fills reply from cookie, returns TRUE if successful */
 	int (*auth_fill_reply)(CookieData *cookie, AuthCookieReplyData *reply);
@@ -20,7 +20,7 @@ struct _CookieData {
 	/* Free all data related to cookie */
 	void (*free)(CookieData *cookie);
 
-	void *user_data;
+	void *context;
 };
 
 typedef void (*CookieFreeFunc)(void *data);

@@ -34,7 +34,7 @@ void client_send_tagline(Client *client, const char *line);
 void client_syslog(Client *client, const char *text);
 
 int client_read(Client *client);
-void client_input(void *user_data, int fd, IO io);
+void client_input(void *context, int fd, IO io);
 
 void clients_init(void);
 void clients_deinit(void);

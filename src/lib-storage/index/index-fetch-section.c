@@ -32,24 +32,24 @@ ImapCacheField index_fetch_body_get_cache(const char *section)
 
 /* fetch BODY[] or BODY[TEXT] */
 static int fetch_body(MailIndexRecord *rec, MailFetchBodyData *sect,
-		      FetchData *data, int fetch_header)
+		      FetchContext *ctx, int fetch_header)
 {
 	MessageSize size;
 	IOBuffer *inbuf;
 	const char *str;
 
-	if (!imap_msgcache_get_rfc822_partial(data->cache, rec->uid,
+	if (!imap_msgcache_get_rfc822_partial(ctx->cache, rec->uid,
 					      sect->skip, sect->max_size,
 					      fetch_header, &size, &inbuf)) {
 		i_error("Couldn't get BODY[] for UID %u (index %s)",
-			rec->uid, data->index->filepath);
+			rec->uid, ctx->index->filepath);
 		return FALSE;
 	}
 
 	str = t_strdup_printf("{%lu}\r\n", (unsigned long) size.virtual_size);
-	(void)io_buffer_send(data->outbuf, str, strlen(str));
+	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
 
-	(void)imap_message_send(data->outbuf, inbuf, &size, 0, sect->max_size);
+	(void)imap_message_send(ctx->outbuf, inbuf, &size, 0, sect->max_size);
 	return TRUE;
 }
 
@@ -128,20 +128,20 @@ typedef struct {
 	char *dest;
 	char *const *fields;
 	int (*match_func) (char *const *, const char *, unsigned int);
-} FetchHeaderFieldData;
+} FetchHeaderFieldContext;
 
 static void fetch_header_field(MessagePart *part __attr_unused__,
 			       const char *name, unsigned int name_len,
 			       const char *value __attr_unused__,
 			       unsigned int value_len __attr_unused__,
-			       void *user_data)
+			       void *context)
 {
-	FetchHeaderFieldData *data = user_data;
+	FetchHeaderFieldContext *ctx = context;
 	const char *name_start, *name_end, *cr;
 	unsigned int len;
 
 	/* see if we want this field */
-	if (!data->match_func(data->fields, name, name_len))
+	if (!ctx->match_func(ctx->fields, name, name_len))
 		return;
 
 	/* add the field, inserting CRs when needed. FIXME: is this too
@@ -156,11 +156,11 @@ static void fetch_header_field(MessagePart *part __attr_unused__,
 		else if (*name == '\n' && cr != name-1) {
 			/* missing CR */
 			len = (unsigned int) (name-name_start);
-			memcpy(data->dest, name_start, len);
+			memcpy(ctx->dest, name_start, len);
 
-			data->dest[len++] = '\r';
-			data->dest[len++] = '\n';
-			data->dest += len;
+			ctx->dest[len++] = '\r';
+			ctx->dest[len++] = '\n';
+			ctx->dest += len;
 
 			name_start = name+1;
 		}
@@ -169,8 +169,8 @@ static void fetch_header_field(MessagePart *part __attr_unused__,
 	if (name_start != name_end) {
 		/* last linebreak was \r\n */
 		len = (unsigned int) (name_end-name_start);
-		memcpy(data->dest, name_start, len);
-		data->dest += len;
+		memcpy(ctx->dest, name_start, len);
+		ctx->dest += len;
 	}
 }
 
@@ -180,20 +180,20 @@ fetch_header_fields(IOBuffer *inbuf, char *dest, char *const *fields,
 		    int (*match_func) (char *const *, const char *,
 				       unsigned int))
 {
-	FetchHeaderFieldData data;
+	FetchHeaderFieldContext ctx;
 
-	data.dest = dest;
-	data.fields = fields;
-	data.match_func = match_func;
+	ctx.dest = dest;
+	ctx.fields = fields;
+	ctx.match_func = match_func;
 
-	message_parse_header(NULL, inbuf, NULL, fetch_header_field, &data);
-	return (unsigned int) (data.dest - dest);
+	message_parse_header(NULL, inbuf, NULL, fetch_header_field, &ctx);
+	return (unsigned int) (ctx.dest - dest);
 }
 
 /* fetch wanted headers from given data */
 static void fetch_header_from(IOBuffer *inbuf, MessageSize *size,
 			      const char *section, MailFetchBodyData *sect,
-			      FetchData *data)
+			      FetchContext *ctx)
 {
 	const char *str;
 	char *dest;
@@ -205,8 +205,8 @@ static void fetch_header_from(IOBuffer *inbuf, MessageSize *size,
 		/* all headers */
 		str = t_strdup_printf("{%lu}\r\n",
 				      (unsigned long) size->virtual_size);
-		(void)io_buffer_send(data->outbuf, str, strlen(str));
-		(void)imap_message_send(data->outbuf, inbuf, size,
+		(void)io_buffer_send(ctx->outbuf, str, strlen(str));
+		(void)imap_message_send(ctx->outbuf, inbuf, size,
 					sect->skip, sect->max_size);
 		return;
 	}
@@ -245,36 +245,36 @@ static void fetch_header_from(IOBuffer *inbuf, MessageSize *size,
 	}
 
 	str = t_strdup_printf("{%u}\r\n", len);
-	io_buffer_send(data->outbuf, str, strlen(str));
-	if (len > 0) io_buffer_send(data->outbuf, dest, len);
+	io_buffer_send(ctx->outbuf, str, strlen(str));
+	if (len > 0) io_buffer_send(ctx->outbuf, dest, len);
 
 	t_pop();
 }
 
 /* fetch BODY[HEADER...] */
 static int fetch_header(MailIndexRecord *rec, MailFetchBodyData *sect,
-			FetchData *data)
+			FetchContext *ctx)
 {
 	MessageSize hdr_size;
 	IOBuffer *inbuf;
 
-	if (!imap_msgcache_get_rfc822(data->cache, rec->uid,
+	if (!imap_msgcache_get_rfc822(ctx->cache, rec->uid,
 				      &hdr_size, NULL, &inbuf))
 		return FALSE;
 
-	fetch_header_from(inbuf, &hdr_size, sect->section, sect, data);
+	fetch_header_from(inbuf, &hdr_size, sect->section, sect, ctx);
 	return TRUE;
 }
 
 /* Find MessagePart for section (eg. 1.3.4) */
 static MessagePart *part_find(MailIndexRecord *rec, MailFetchBodyData *sect,
-			      FetchData *data, const char **section)
+			      FetchContext *ctx, const char **section)
 {
 	MessagePart *part;
 	const char *path;
 	int num;
 
-	part = imap_msgcache_get_parts(data->cache, rec->uid);
+	part = imap_msgcache_get_parts(ctx->cache, rec->uid);
 
 	path = sect->section;
 	while (*path >= '0' && *path <= '9' && part != NULL) {
@@ -308,13 +308,13 @@ static MessagePart *part_find(MailIndexRecord *rec, MailFetchBodyData *sect,
 
 /* fetch BODY[1.2] or BODY[1.2.TEXT] */
 static int fetch_part_body(MessagePart *part, unsigned int uid,
-			   MailFetchBodyData *sect, FetchData *data)
+			   MailFetchBodyData *sect, FetchContext *ctx)
 {
 	IOBuffer *inbuf;
 	const char *str;
 	off_t skip_pos;
 
-	if (!imap_msgcache_get_data(data->cache, uid, &inbuf))
+	if (!imap_msgcache_get_data(ctx->cache, uid, &inbuf))
 		return FALSE;
 
 	/* jump to beginning of wanted data */
@@ -324,11 +324,11 @@ static int fetch_part_body(MessagePart *part, unsigned int uid,
 
 	str = t_strdup_printf("{%lu}\r\n",
 			      (unsigned long) part->body_size.virtual_size);
-	(void)io_buffer_send(data->outbuf, str, strlen(str));
+	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
 
 	/* FIXME: potential performance problem with big messages:
 	   FETCH BODY[1]<100000..1024>, hopefully no clients do this */
-	(void)imap_message_send(data->outbuf, inbuf, &part->body_size,
+	(void)imap_message_send(ctx->outbuf, inbuf, &part->body_size,
 				sect->skip, sect->max_size);
 	return TRUE;
 }
@@ -336,42 +336,42 @@ static int fetch_part_body(MessagePart *part, unsigned int uid,
 /* fetch BODY[1.2.MIME|HEADER...] */
 static int fetch_part_header(MessagePart *part, unsigned int uid,
 			     const char *section, MailFetchBodyData *sect,
-			     FetchData *data)
+			     FetchContext *ctx)
 {
 	IOBuffer *inbuf;
 
-	if (!imap_msgcache_get_data(data->cache, uid, &inbuf))
+	if (!imap_msgcache_get_data(ctx->cache, uid, &inbuf))
 		return FALSE;
 
 	io_buffer_skip(inbuf, part->pos.physical_pos);
-	fetch_header_from(inbuf, &part->header_size, section, sect, data);
+	fetch_header_from(inbuf, &part->header_size, section, sect, ctx);
 	return TRUE;
 }
 
 static int fetch_part(MailIndexRecord *rec, MailFetchBodyData *sect,
-		      FetchData *data)
+		      FetchContext *ctx)
 {
 	MessagePart *part;
 	const char *section;
 
-	part = part_find(rec, sect, data, &section);
+	part = part_find(rec, sect, ctx, &section);
 	if (part == NULL)
 		return FALSE;
 
 	if (*section == '\0' || strcasecmp(section, "TEXT") == 0)
-		return fetch_part_body(part, rec->uid, sect, data);
+		return fetch_part_body(part, rec->uid, sect, ctx);
 
 	if (strncasecmp(section, "HEADER", 6) == 0)
-		return fetch_part_header(part, rec->uid, section, sect, data);
+		return fetch_part_header(part, rec->uid, section, sect, ctx);
 	if (strcasecmp(section, "MIME") == 0)
-		return fetch_part_header(part, rec->uid, section, sect, data);
+		return fetch_part_header(part, rec->uid, section, sect, ctx);
 
 	return FALSE;
 }
 
 void index_fetch_body_section(MailIndexRecord *rec,
 			      unsigned int seq __attr_unused__,
-			      MailFetchBodyData *sect, FetchData *data)
+			      MailFetchBodyData *sect, FetchContext *ctx)
 {
 	const char *str;
 	int fetch_ok;
@@ -380,22 +380,22 @@ void index_fetch_body_section(MailIndexRecord *rec,
 		t_strdup_printf(" BODY[%s] ", sect->section) :
 		t_strdup_printf(" BODY[%s]<%lu> ", sect->section,
 				(unsigned long) sect->skip);
-	(void)io_buffer_send(data->outbuf, str, strlen(str));
+	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
 
 	if (*sect->section == '\0') {
-		fetch_ok = fetch_body(rec, sect, data, TRUE);
+		fetch_ok = fetch_body(rec, sect, ctx, TRUE);
 	} else if (strcasecmp(sect->section, "TEXT") == 0) {
-		fetch_ok = fetch_body(rec, sect, data, FALSE);
+		fetch_ok = fetch_body(rec, sect, ctx, FALSE);
 	} else if (strncasecmp(sect->section, "HEADER", 6) == 0) {
-		fetch_ok = fetch_header(rec, sect, data);
+		fetch_ok = fetch_header(rec, sect, ctx);
 	} else if (*sect->section >= '0' && *sect->section <= '9') {
-		fetch_ok = fetch_part(rec, sect, data);
+		fetch_ok = fetch_part(rec, sect, ctx);
 	} else {
 		fetch_ok = FALSE;
 	}
 
 	if (!fetch_ok) {
 		/* error */
-		(void)io_buffer_send(data->outbuf, "{0}\r\n", 5);
+		(void)io_buffer_send(ctx->outbuf, "{0}\r\n", 5);
 	}
 }

@@ -8,9 +8,9 @@
 static void auth_plain_continue(CookieData *cookie,
 				AuthContinuedRequestData *request,
 				const unsigned char *data,
-				AuthCallback callback, void *user_data)
+				AuthCallback callback, void *context)
 {
-	AuthCookieReplyData *cookie_reply = cookie->user_data;
+	AuthCookieReplyData *cookie_reply = cookie->context;
 	AuthReplyData reply;
 	const char *user, *pass;
 	unsigned int i, count;
@@ -43,7 +43,7 @@ static void auth_plain_continue(CookieData *cookie,
 		}
 	}
 
-        callback(&reply, NULL, user_data);
+        callback(&reply, NULL, context);
 
 	if (!cookie_reply->success) {
 		/* failed, we don't need the cookie anymore */
@@ -55,7 +55,7 @@ static int auth_plain_fill_reply(CookieData *cookie, AuthCookieReplyData *reply)
 {
 	AuthCookieReplyData *cookie_reply;
 
-	cookie_reply = cookie->user_data;
+	cookie_reply = cookie->context;
 	if (!cookie_reply->success)
 		return FALSE;
 
@@ -65,12 +65,12 @@ static int auth_plain_fill_reply(CookieData *cookie, AuthCookieReplyData *reply)
 
 static void auth_plain_free(CookieData *cookie)
 {
-	i_free(cookie->user_data);
+	i_free(cookie->context);
 	i_free(cookie);
 }
 
 static void auth_plain_init(AuthInitRequestData *request,
-			    AuthCallback callback, void *user_data)
+			    AuthCallback callback, void *context)
 {
 	CookieData *cookie;
 	AuthReplyData reply;
@@ -79,7 +79,7 @@ static void auth_plain_init(AuthInitRequestData *request,
 	cookie->auth_fill_reply = auth_plain_fill_reply;
 	cookie->auth_continue = auth_plain_continue;
 	cookie->free = auth_plain_free;
-	cookie->user_data = i_new(AuthCookieReplyData, 1);
+	cookie->context = i_new(AuthCookieReplyData, 1);
 
 	cookie_add(cookie);
 
@@ -89,7 +89,7 @@ static void auth_plain_init(AuthInitRequestData *request,
 	reply.result = AUTH_RESULT_CONTINUE;
 	memcpy(reply.cookie, cookie->cookie, AUTH_COOKIE_SIZE);
 
-	callback(&reply, NULL, user_data);
+	callback(&reply, NULL, context);
 }
 
 AuthModule auth_plain = {

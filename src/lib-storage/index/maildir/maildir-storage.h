@@ -10,11 +10,11 @@ int maildir_storage_save(Mailbox *box, MailFlags flags,
 			 IOBuffer *data, size_t data_size);
 
 int maildir_find_mailboxes(MailStorage *storage, const char *mask,
-			   MailboxFunc func, void *user_data);
+			   MailboxFunc func, void *context);
 int maildir_find_subscribed(MailStorage *storage, const char *mask,
-			    MailboxFunc func, void *user_data);
+			    MailboxFunc func, void *context);
 
 int maildir_expunge_locked(IndexMailbox *ibox,
-			   MailExpungeFunc expunge_func, void *user_data);
+			   MailExpungeFunc expunge_func, void *context);
 
 #endif

@@ -9,11 +9,11 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		      time_t internal_date, IOBuffer *data, size_t data_size);
 
 int mbox_find_mailboxes(MailStorage *storage, const char *mask,
-			MailboxFunc func, void *user_data);
+			MailboxFunc func, void *context);
 int mbox_find_subscribed(MailStorage *storage, const char *mask,
-			 MailboxFunc func, void *user_data);
+			 MailboxFunc func, void *context);
 
 int mbox_expunge_locked(IndexMailbox *ibox,
-			MailExpungeFunc expunge_func, void *user_data);
+			MailExpungeFunc expunge_func, void *context);
 
 #endif

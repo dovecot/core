@@ -39,14 +39,14 @@ static HashTable *processes = NULL;
 static void login_process_destroy(LoginProcess *p);
 static void login_process_unref(LoginProcess *p);
 
-static void auth_callback(AuthCookieReplyData *cookie_reply, void *user_data)
+static void auth_callback(AuthCookieReplyData *cookie_reply, void *context)
 {
 	const char *env[] = {
 		"MAIL", NULL,
 		"LOGIN_TAG", NULL,
 		NULL
 	};
-	LoginAuthRequest *request = user_data;
+	LoginAuthRequest *request = context;
         LoginProcess *process;
 	MasterReply reply;
 
@@ -76,10 +76,10 @@ static void auth_callback(AuthCookieReplyData *cookie_reply, void *user_data)
 	i_free(request);
 }
 
-static void login_process_input(void *user_data, int fd __attr_unused__,
+static void login_process_input(void *context, int fd __attr_unused__,
 				IO io __attr_unused__)
 {
-	LoginProcess *p = user_data;
+	LoginProcess *p = context;
 	AuthProcess *auth_process;
 	LoginAuthRequest *authreq;
 	MasterRequest req;
@@ -258,7 +258,7 @@ static pid_t create_login_process(void)
 }
 
 static void login_hash_cleanup(void *key __attr_unused__, void *value,
-			       void *user_data __attr_unused__)
+			       void *context __attr_unused__)
 {
 	LoginProcess *p = value;
 
@@ -270,7 +270,7 @@ void login_processes_cleanup(void)
 	hash_foreach(processes, login_hash_cleanup, NULL);
 }
 
-static void login_processes_start_missing(void *user_data __attr_unused__,
+static void login_processes_start_missing(void *context __attr_unused__,
 					  Timeout timeout __attr_unused__)
 {
 	/* create max. one process every second, that way if it keeps
@@ -287,7 +287,7 @@ void login_processes_init(void)
 }
 
 static void login_hash_destroy(void *key __attr_unused__, void *value,
-			       void *user_data __attr_unused__)
+			       void *context __attr_unused__)
 {
 	login_process_destroy(value);
 }

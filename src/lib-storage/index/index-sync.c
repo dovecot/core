@@ -7,7 +7,7 @@
 int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 		       MailExpungeFunc expunge_func,
 		       MailFlagUpdateFunc flag_func,
-		       void *user_data)
+		       void *context)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	ModifyLogRecord *log;
@@ -39,7 +39,7 @@ int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 		case RECORD_TYPE_EXPUNGE:
 			if (expunge_func != NULL) {
 				expunge_func(box, log->seq,
-					     log->uid, user_data);
+					     log->uid, context);
 			}
 			break;
 		case RECORD_TYPE_FLAGS_CHANGED:
@@ -55,7 +55,7 @@ int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 					flags |= MAIL_RECENT;
 
 				flag_func(box, log->seq, log->uid, flags,
-					  custom_flags, user_data);
+					  custom_flags, context);
 			}
 			break;
 		}
@@ -67,7 +67,7 @@ int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 
 	if (!failed && expunge) {
 		/* expunge messages */
-		failed = !ibox->expunge_locked(ibox, expunge_func, user_data);
+		failed = !ibox->expunge_locked(ibox, expunge_func, context);
 	}
 
 	/* get the messages count even if there was some failures.

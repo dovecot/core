@@ -277,31 +277,31 @@ typedef struct {
 	MessagePartEnvelopeData *envelope;
 
 	MessageHeaderFunc header_func;
-	void *user_data;
-} HeaderUpdateData;
+	void *context;
+} HeaderUpdateContext;
 
 static void update_header_func(MessagePart *part,
 			       const char *name, unsigned int name_len,
 			       const char *value, unsigned int value_len,
-			       void *user_data)
+			       void *context)
 {
-	HeaderUpdateData *data = user_data;
+	HeaderUpdateContext *ctx = context;
 	MailField field;
 	const char *str;
 
 	if (part != NULL && part->parent != NULL)
 		return;
 
-	if (data->header_func != NULL) {
-		data->header_func(part, name, name_len,
-				  value, value_len, data->user_data);
+	if (ctx->header_func != NULL) {
+		ctx->header_func(part, name, name_len,
+				 value, value_len, ctx->context);
 	}
 
 	if (name_len == 4 && strncasecmp(name, "Date", 4) == 0) {
 		/* date is stored into index record itself */
 		str = field_get_value(value, value_len);
-		if (!rfc822_parse_date(str, &data->update->rec->sent_date))
-			data->update->rec->sent_date = ioloop_time;
+		if (!rfc822_parse_date(str, &ctx->update->rec->sent_date))
+			ctx->update->rec->sent_date = ioloop_time;
 		return;
 	}
 
@@ -309,47 +309,47 @@ static void update_header_func(MessagePart *part,
 	field = mail_header_get_field(name, name_len);
 	if (field != 0) {
 		/* do we want to store this? */
-		if (data->update->index->header->cache_fields & field) {
+		if (ctx->update->index->header->cache_fields & field) {
 			str = field_get_value(value, value_len);
-			data->update->index->update_field(data->update,
-							  field, str, 0);
+			ctx->update->index->update_field(ctx->update,
+							 field, str, 0);
 		}
 	}
 
-	if (data->update->index->header->cache_fields & FIELD_TYPE_ENVELOPE) {
-		if (data->envelope_pool == NULL) {
-			data->envelope_pool = pool_create("index envelope",
-							  2048, FALSE);
+	if (ctx->update->index->header->cache_fields & FIELD_TYPE_ENVELOPE) {
+		if (ctx->envelope_pool == NULL) {
+			ctx->envelope_pool =
+				pool_create("index envelope", 2048, FALSE);
 		}
-		imap_envelope_parse_header(data->envelope_pool,
-					   &data->envelope,
+		imap_envelope_parse_header(ctx->envelope_pool,
+					   &ctx->envelope,
 					   t_strndup(name, name_len),
 					   value, value_len);
 	}
 }
 
 void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
-			       MessageHeaderFunc header_func, void *user_data)
+			       MessageHeaderFunc header_func, void *context)
 {
-	HeaderUpdateData data;
+	HeaderUpdateContext ctx;
 	MailField cache_fields;
 	MessagePart *part;
 	MessageSize hdr_size, body_size;
 	Pool pool;
 	const char *value;
 
-	data.update = update;
-	data.envelope_pool = NULL;
-	data.envelope = NULL;
-	data.header_func = header_func;
-	data.user_data = user_data;
+	ctx.update = update;
+	ctx.envelope_pool = NULL;
+	ctx.envelope = NULL;
+	ctx.header_func = header_func;
+	ctx.context = context;
 
 	cache_fields = update->index->header->cache_fields;
 	if ((cache_fields & (FIELD_TYPE_BODY|FIELD_TYPE_BODYSTRUCTURE)) != 0) {
 		/* for body / bodystructure, we need need to
 		   fully parse the message */
 		pool = pool_create("index message parser", 2048, FALSE);
-		part = message_parse(pool, inbuf, update_header_func, &data);
+		part = message_parse(pool, inbuf, update_header_func, &ctx);
 
 		/* update our sizes */
 		update->rec->header_size = part->header_size.physical_size;
@@ -380,7 +380,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 		pool_unref(pool);
 	} else {
 		message_parse_header(NULL, inbuf, &hdr_size,
-				     update_header_func, &data);
+				     update_header_func, &ctx);
 
 		update->rec->header_size = hdr_size.physical_size;
 		update->rec->body_size = (inbuf->stop_offset - inbuf->offset) -
@@ -397,13 +397,13 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 		}
 	}
 
-	if (data.envelope != NULL) {
+	if (ctx.envelope != NULL) {
 		t_push();
-		value = imap_envelope_get_part_data(data.envelope);
+		value = imap_envelope_get_part_data(ctx.envelope);
 		update->index->update_field(update, FIELD_TYPE_ENVELOPE,
 					    value, 0);
 		t_pop();
 
-		pool_unref(data.envelope_pool);
+		pool_unref(ctx.envelope_pool);
 	}
 }

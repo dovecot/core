@@ -33,7 +33,7 @@ struct _WaitingRequest {
 	int id;
 
 	AuthCallback callback;
-	void *user_data;
+	void *context;
 };
 
 static Timeout to;
@@ -42,14 +42,14 @@ static AuthProcess *processes;
 static void auth_process_destroy(AuthProcess *p);
 
 static void push_request(AuthProcess *process, int id,
-			 AuthCallback callback, void *user_data)
+			 AuthCallback callback, void *context)
 {
 	WaitingRequest *req;
 
 	req = i_new(WaitingRequest, 1);
 	req->id = id;
 	req->callback = callback;
-	req->user_data = user_data;
+	req->context = context;
 
 	*process->next_request = req;
 	process->next_request = &req->next;
@@ -85,14 +85,14 @@ static void pop_request(AuthProcess *process, AuthCookieReplyData *reply)
 	if (process->requests == NULL)
 		process->next_request = &process->requests;
 
-	req->callback(reply, req->user_data);
+	req->callback(reply, req->context);
 
 	i_free(req);
 }
 
-static void auth_process_input(void *user_data, int fd, IO io __attr_unused__)
+static void auth_process_input(void *context, int fd, IO io __attr_unused__)
 {
-	AuthProcess *p = user_data;
+	AuthProcess *p = context;
 	int ret;
 
 	ret = net_receive(fd, p->reply_buf + p->reply_pos,
@@ -148,7 +148,7 @@ static void auth_process_destroy(AuthProcess *p)
 	for (; p->requests != NULL; p->requests = next) {
 		next = p->requests->next;
 
-		p->requests->callback(NULL, p->requests->user_data);
+		p->requests->callback(NULL, p->requests->context);
 		i_free(p->requests);
 	}
 
@@ -261,7 +261,7 @@ AuthProcess *auth_process_find(int id)
 
 void auth_process_request(AuthProcess *process, int id,
 			  unsigned char cookie[AUTH_COOKIE_SIZE],
-			  AuthCallback callback, void *user_data)
+			  AuthCallback callback, void *context)
 {
 	AuthCookieRequestData req;
 
@@ -271,7 +271,7 @@ void auth_process_request(AuthProcess *process, int id,
 	if (io_buffer_send(process->outbuf, &req, sizeof(req)) < 0)
 		auth_process_destroy(process);
 
-	push_request(process, id, callback, user_data);
+	push_request(process, id, callback, context);
 }
 
 static int auth_process_get_count(const char *name)
@@ -295,7 +295,7 @@ void auth_processes_cleanup(void)
 		(void)close(p->fd);
 }
 
-static void auth_processes_start_missing(void *user_data __attr_unused__,
+static void auth_processes_start_missing(void *context __attr_unused__,
 					 Timeout timeout __attr_unused__)
 {
 	AuthConfig *config;

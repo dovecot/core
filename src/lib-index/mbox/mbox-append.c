@@ -110,9 +110,9 @@ static time_t from_line_parse_date(const char *msg, size_t size)
 static void header_func(MessagePart *part __attr_unused__,
 			const char *name, unsigned int name_len,
 			const char *value, unsigned int value_len,
-			void *user_data)
+			void *context)
 {
-	MailIndexRecord *rec = user_data;
+	MailIndexRecord *rec = context;
 
 	rec->msg_flags |= mbox_header_get_flags(name, name_len,
 						value, value_len);

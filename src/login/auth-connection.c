@@ -38,7 +38,7 @@ static int auth_connects_failed;
 static int request_id_counter;
 static AuthConnection *auth_connections;
 
-static void auth_input(void *user_data, int fd, IO io);
+static void auth_input(void *context, int fd, IO io);
 static void auth_connect_missing(void);
 
 static AuthConnection *auth_connection_new(const char *path)
@@ -78,12 +78,12 @@ static void request_abort(AuthRequest *request)
 {
 	request->callback(request, request->conn->auth_process,
 			  AUTH_RESULT_INTERNAL_FAILURE,
-			  "Authentication process died", 0, request->user_data);
+			  "Authentication process died", 0, request->context);
 	request_destroy(request);
 }
 
 static void request_hash_destroy(void *key __attr_unused__, void *value,
-				 void *user_data __attr_unused__)
+				 void *context __attr_unused__)
 {
 	request_abort(value);
 }
@@ -179,17 +179,17 @@ static void auth_handle_reply(AuthConnection *conn, AuthReplyData *reply_data,
 	t_push();
 	request->callback(request, request->conn->auth_process,
 			  reply_data->result, data, reply_data->data_size,
-			  request->user_data);
+			  request->context);
 	t_pop();
 
 	if (reply_data->result != AUTH_RESULT_CONTINUE)
 		request_destroy(request);
 }
 
-static void auth_input(void *user_data, int fd __attr_unused__,
+static void auth_input(void *context, int fd __attr_unused__,
 		       IO io __attr_unused__)
 {
-	AuthConnection *conn = user_data;
+	AuthConnection *conn = context;
         AuthInitData init_data;
 	unsigned char *data;
 	unsigned int size;
@@ -249,7 +249,7 @@ static void auth_input(void *user_data, int fd __attr_unused__,
 }
 
 int auth_init_request(AuthMethod method, AuthCallback callback,
-		      void *user_data, const char **error)
+		      void *context, const char **error)
 {
 	AuthConnection *conn;
 	AuthRequest *request;
@@ -268,7 +268,7 @@ int auth_init_request(AuthMethod method, AuthCallback callback,
 	request->conn = conn;
 	request->id = ++request_id_counter;
 	request->callback = callback;
-	request->user_data = user_data;
+	request->context = context;
 
 	hash_insert(conn->requests, INT_TO_POINTER(request->id), request);
 

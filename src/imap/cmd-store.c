@@ -6,9 +6,9 @@
 
 static void update_func(Mailbox *mailbox __attr_unused__, unsigned int seq,
 			unsigned int uid __attr_unused__, MailFlags flags,
-			const char *custom_flags[], void *user_data)
+			const char *custom_flags[], void *context)
 {
-	Client *client = user_data;
+	Client *client = context;
 	const char *str;
 
 	t_push();
@@ -20,9 +20,9 @@ static void update_func(Mailbox *mailbox __attr_unused__, unsigned int seq,
 
 static void update_func_uid(Mailbox *mailbox __attr_unused__, unsigned int seq,
 			    unsigned int uid, MailFlags flags,
-			    const char *custom_flags[], void *user_data)
+			    const char *custom_flags[], void *context)
 {
-	Client *client = user_data;
+	Client *client = context;
 	const char *str;
 
 	t_push();

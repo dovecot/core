@@ -23,7 +23,7 @@ static void sig_quit(int signo __attr_unused__)
 	io_loop_stop(ioloop);
 }
 
-static void login_accept(void *user_data __attr_unused__, int listen_fd,
+static void login_accept(void *context __attr_unused__, int listen_fd,
 			 IO io __attr_unused__)
 {
 	IPADDR addr;
@@ -36,7 +36,7 @@ static void login_accept(void *user_data __attr_unused__, int listen_fd,
 	(void)client_create(fd, &addr);
 }
 
-static void login_accept_ssl(void *user_data __attr_unused__, int listen_fd,
+static void login_accept_ssl(void *context __attr_unused__, int listen_fd,
 			     IO io __attr_unused__)
 {
 	Client *client;

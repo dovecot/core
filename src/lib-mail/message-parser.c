@@ -24,11 +24,11 @@ typedef struct {
 	MessageBoundary *boundaries;
 
 	MessageHeaderFunc func;
-	void *user_data;
-} MessageParseData;
+	void *context;
+} MessageParseContext;
 
 static MessagePart *message_parse_part(IOBuffer *inbuf,
-				       MessageParseData *parse_data);
+				       MessageParseContext *parse_ctx);
 static MessagePart *message_parse_body(IOBuffer *inbuf,
 				       MessageBoundary *boundaries,
 				       MessageSize *body_size);
@@ -63,60 +63,60 @@ static MessagePart *message_part_append(Pool pool, MessagePart *parent)
 }
 
 static void parse_content_type(const Rfc822Token *tokens, int count,
-			       void *user_data)
+			       void *context)
 {
-	MessageParseData *parse_data = user_data;
+	MessageParseContext *parse_ctx = context;
 	const char *str;
 
 	if (tokens[0].token != 'A')
 		return;
 
-	if (parse_data->last_content_type != NULL)
+	if (parse_ctx->last_content_type != NULL)
 		return;
 
 	str = rfc822_tokens_get_value(tokens, count, FALSE);
-	parse_data->last_content_type = p_strdup(parse_data->pool, str);
+	parse_ctx->last_content_type = p_strdup(parse_ctx->pool, str);
 
 	if (strcasecmp(str, "message/rfc822") == 0)
-		parse_data->part->message_rfc822 = TRUE;
+		parse_ctx->part->message_rfc822 = TRUE;
 	else if (strncasecmp(str, "text/", 5) == 0)
-		parse_data->part->text = TRUE;
+		parse_ctx->part->text = TRUE;
 	else if (strncasecmp(str, "multipart/", 10) == 0) {
-		parse_data->part->multipart = TRUE;
+		parse_ctx->part->multipart = TRUE;
 
 		if (strcasecmp(str+10, "digest") == 0)
-			parse_data->part->multipart_digest = TRUE;
+			parse_ctx->part->multipart_digest = TRUE;
 	}
 }
 
 static void parse_content_type_param(const Rfc822Token *name,
 				     const Rfc822Token *value,
-				     int value_count, void *user_data)
+				     int value_count, void *context)
 {
-	MessageParseData *parse_data = user_data;
+	MessageParseContext *parse_ctx = context;
 	const char *str;
 
-	if (!parse_data->part->multipart || name->len != 8 ||
+	if (!parse_ctx->part->multipart || name->len != 8 ||
 	    strncasecmp(name->ptr, "boundary", 8) != 0)
 		return;
 
-	if (parse_data->last_boundary == NULL) {
+	if (parse_ctx->last_boundary == NULL) {
 		str = rfc822_tokens_get_value(value, value_count, FALSE);
-		parse_data->last_boundary = p_strdup(parse_data->pool, str);
+		parse_ctx->last_boundary = p_strdup(parse_ctx->pool, str);
 	}
 }
 
 static void parse_header_field(MessagePart *part,
 			       const char *name, unsigned int name_len,
 			       const char *value, unsigned int value_len,
-			       void *user_data)
+			       void *context)
 {
-	MessageParseData *parse_data = user_data;
+	MessageParseContext *parse_ctx = context;
 
 	/* call the user-defined header parser */
-	if (parse_data->func != NULL) {
-		parse_data->func(part, name, name_len, value, value_len,
-				 parse_data->user_data);
+	if (parse_ctx->func != NULL) {
+		parse_ctx->func(part, name, name_len, value, value_len,
+				parse_ctx->context);
 	}
 
 	if (name_len == 12 && strncasecmp(name, "Content-Type", 12) == 0) {
@@ -124,38 +124,38 @@ static void parse_header_field(MessagePart *part,
 		(void)message_content_parse_header(t_strndup(value, value_len),
 						   parse_content_type,
 						   parse_content_type_param,
-						   parse_data);
+						   parse_ctx);
 	}
 }
 
 static MessagePart *message_parse_multipart(IOBuffer *inbuf,
-					    MessageParseData *parse_data)
+					    MessageParseContext *parse_ctx)
 {
 	MessagePart *parent_part, *next_part, *part;
 	MessageBoundary *b;
 
 	/* multipart message. add new boundary */
 	b = t_new(MessageBoundary, 1);
-	b->part = parse_data->part;
-	b->boundary = parse_data->last_boundary;
+	b->part = parse_ctx->part;
+	b->boundary = parse_ctx->last_boundary;
 	b->len = strlen(b->boundary);
 
-	b->next = parse_data->boundaries;
-	parse_data->boundaries = b;
+	b->next = parse_ctx->boundaries;
+	parse_ctx->boundaries = b;
 
 	/* reset fields */
-	parse_data->last_boundary = NULL;
-	parse_data->last_content_type = NULL;
+	parse_ctx->last_boundary = NULL;
+	parse_ctx->last_content_type = NULL;
 
 	/* skip the data before the first boundary */
-	parent_part = parse_data->part;
-	next_part = message_skip_boundary(inbuf, parse_data->boundaries,
+	parent_part = parse_ctx->part;
+	next_part = message_skip_boundary(inbuf, parse_ctx->boundaries,
 					  &parent_part->body_size);
 
 	/* now, parse the parts */
 	while (next_part == parent_part) {
 		/* new child */
-		part = message_part_append(parse_data->pool, parent_part);
+		part = message_part_append(parse_ctx->pool, parent_part);
 
 		/* set child position */
 		memcpy(&part->pos, &parent_part->pos, sizeof(MessagePosition));
@@ -164,8 +164,8 @@ static MessagePart *message_parse_multipart(IOBuffer *inbuf,
 		part->pos.virtual_pos += parent_part->body_size.virtual_size +
 			parent_part->header_size.virtual_size;
 
-                parse_data->part = part;
-		next_part = message_parse_part(inbuf, parse_data);
+                parse_ctx->part = part;
+		next_part = message_parse_part(inbuf, parse_ctx);
 
 		/* update our size */
 		message_size_add_part(&parent_part->body_size, part);
@@ -174,64 +174,64 @@ static MessagePart *message_parse_multipart(IOBuffer *inbuf,
 			break;
 
 		/* skip the boundary */
-		next_part = message_skip_boundary(inbuf, parse_data->boundaries,
+		next_part = message_skip_boundary(inbuf, parse_ctx->boundaries,
 						  &parent_part->body_size);
 	}
 
 	/* remove boundary */
-	i_assert(parse_data->boundaries == b);
-	parse_data->boundaries = b->next;
+	i_assert(parse_ctx->boundaries == b);
+	parse_ctx->boundaries = b->next;
 	return next_part;
 }
 
 static MessagePart *message_parse_part(IOBuffer *inbuf,
-				       MessageParseData *parse_data)
+				       MessageParseContext *parse_ctx)
 {
 	MessagePart *next_part, *part;
 	size_t hdr_size;
 
-	message_parse_header(parse_data->part, inbuf,
-			     &parse_data->part->header_size,
-			     parse_header_field, parse_data);
+	message_parse_header(parse_ctx->part, inbuf,
+			     &parse_ctx->part->header_size,
+			     parse_header_field, parse_ctx);
 
 	/* update message position/size */
-	hdr_size = parse_data->part->header_size.physical_size;
+	hdr_size = parse_ctx->part->header_size.physical_size;
 
-	if (parse_data->last_boundary != NULL)
-		return message_parse_multipart(inbuf, parse_data);
+	if (parse_ctx->last_boundary != NULL)
+		return message_parse_multipart(inbuf, parse_ctx);
 
-	if (parse_data->last_content_type == NULL) {
-		if (parse_data->part->parent != NULL &&
-		    parse_data->part->parent->multipart_digest) {
+	if (parse_ctx->last_content_type == NULL) {
+		if (parse_ctx->part->parent != NULL &&
+		    parse_ctx->part->parent->multipart_digest) {
 			/* when there's no content-type specified and we're
 			   below multipart/digest, the assume message/rfc822
 			   content-type */
-			parse_data->part->message_rfc822 = TRUE;
+			parse_ctx->part->message_rfc822 = TRUE;
 		} else {
 			/* otherwise we default to text/plain */
-			parse_data->part->text = TRUE;
+			parse_ctx->part->text = TRUE;
 		}
 	}
 
-	parse_data->last_boundary = NULL;
-        parse_data->last_content_type = NULL;
+	parse_ctx->last_boundary = NULL;
+        parse_ctx->last_content_type = NULL;
 
-	if (parse_data->part->message_rfc822) {
+	if (parse_ctx->part->message_rfc822) {
 		/* message/rfc822 part - the message body begins with
 		   headers again, this works pretty much the same as
 		   a single multipart/mixed item */
-		part = message_part_append(parse_data->pool, parse_data->part);
+		part = message_part_append(parse_ctx->pool, parse_ctx->part);
 
-		parse_data->part = part;
-		next_part = message_parse_part(inbuf, parse_data);
-		parse_data->part = part->parent;
+		parse_ctx->part = part;
+		next_part = message_parse_part(inbuf, parse_ctx);
+		parse_ctx->part = part->parent;
 
 		/* our body size is the size of header+body in message/rfc822 */
 		message_size_add_part(&part->parent->body_size, part);
 	} else {
 		/* normal message, read until the next boundary */
-		part = parse_data->part;
-		next_part = message_parse_body(inbuf, parse_data->boundaries,
+		part = parse_ctx->part;
+		next_part = message_parse_body(inbuf, parse_ctx->boundaries,
 					       &part->body_size);
 	}
 
@@ -239,19 +239,19 @@ static MessagePart *message_parse_part(IOBuffer *inbuf,
 }
 
 MessagePart *message_parse(Pool pool, IOBuffer *inbuf,
-			   MessageHeaderFunc func, void *user_data)
+			   MessageHeaderFunc func, void *context)
 {
 	MessagePart *part;
-	MessageParseData parse_data;
+	MessageParseContext parse_ctx;
 
-	memset(&parse_data, 0, sizeof(parse_data));
-	parse_data.pool = pool;
-	parse_data.func = func;
-	parse_data.user_data = user_data;
-	parse_data.part = part = p_new(pool, MessagePart, 1);
+	memset(&parse_ctx, 0, sizeof(parse_ctx));
+	parse_ctx.pool = pool;
+	parse_ctx.func = func;
+	parse_ctx.context = context;
+	parse_ctx.part = part = p_new(pool, MessagePart, 1);
 
 	t_push();
-	message_parse_part(inbuf, &parse_data);
+	message_parse_part(inbuf, &parse_ctx);
 	t_pop();
 	return part;
 }
@@ -302,7 +302,7 @@ static void message_skip_line(IOBuffer *inbuf, MessageSize *msg_size)
 
 void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 			  MessageSize *hdr_size,
-			  MessageHeaderFunc func, void *user_data)
+			  MessageHeaderFunc func, void *context)
 {
 	unsigned char *msg;
 	unsigned int i, size, startpos, missing_cr_count;
@@ -390,7 +390,7 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 					/* and finally call the function */
 					func(part, msg + line_start, name_len,
 					     msg + colon_pos, value_len,
-					     user_data);
+					     context);
 				}
 
 				colon_pos = UINT_MAX;

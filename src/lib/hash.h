@@ -5,7 +5,7 @@
 typedef unsigned int (*HashFunc) (const void *p);
 /* Returns 0 if the pointers are equal. */
 typedef int (*HashCompareFunc) (const void *p1, const void *p2);
-typedef void (*HashForeachFunc) (void *key, void *value, void *user_data);
+typedef void (*HashForeachFunc) (void *key, void *value, void *context);
 
 typedef struct _HashTable HashTable;
 
@@ -39,7 +39,7 @@ unsigned int hash_size(HashTable *table);
 /* Calls the given function for each node in hash table. You may safely
    call hash_*() functions inside your function, but if you add any
    new nodes, they may or may not be called for in this foreach loop. */
-void hash_foreach(HashTable *table, HashForeachFunc func, void *user_data);
+void hash_foreach(HashTable *table, HashForeachFunc func, void *context);
 /* Stop the active hash_foreach() loop */
 void hash_foreach_stop(void);
 

@@ -14,7 +14,7 @@ struct _IndexMailbox {
 	/* expunge messages marked as deleted, requires index to be
 	   exclusively locked */
 	int (*expunge_locked)(IndexMailbox *ibox,
-			      MailExpungeFunc expunge_func, void *user_data);
+			      MailExpungeFunc expunge_func, void *context);
 
 	MailIndex *index;
 	FlagsFile *flagsfile;
@@ -47,11 +47,11 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 		       MailExpungeFunc expunge_func,
 		       MailFlagUpdateFunc flag_func,
-		       void *user_data);
+		       void *context);
 int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
 			       MailFlags flags, const char *custom_flags[],
 			       ModifyType modify_type,
-			       MailFlagUpdateFunc func, void *user_data,
+			       MailFlagUpdateFunc func, void *context,
 			       int *all_found);
 int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 			IOBuffer *outbuf, int *all_found);

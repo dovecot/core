@@ -111,7 +111,7 @@ void io_loop_handler_run(IOLoop ioloop)
 
 		if (!destroyed) {
 			t_id = t_push();
-			io->func(io->user_data, io->fd, io);
+			io->func(io->context, io->fd, io);
 			if (t_pop() != t_id)
 				i_panic("Leaked a t_pop() call!");
 		}

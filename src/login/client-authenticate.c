@@ -80,9 +80,9 @@ static void client_auth_abort(Client *client, const char *msg)
 	client_unref(client);
 }
 
-static void master_callback(MasterReplyResult result, void *user_data)
+static void master_callback(MasterReplyResult result, void *context)
 {
-	Client *client = user_data;
+	Client *client = context;
 
 	switch (result) {
 	case MASTER_RESULT_SUCCESS:
@@ -116,9 +116,9 @@ static void client_send_auth_data(Client *client, const unsigned char *data,
 
 static int auth_callback(AuthRequest *request, int auth_process,
 			 AuthResult result, const unsigned char *reply_data,
-			 unsigned int reply_data_size, void *user_data)
+			 unsigned int reply_data_size, void *context)
 {
-	Client *client = user_data;
+	Client *client = context;
 
 	switch (result) {
 	case AUTH_RESULT_CONTINUE:
@@ -159,12 +159,12 @@ static int auth_callback(AuthRequest *request, int auth_process,
 
 static void login_callback(AuthRequest *request, int auth_process,
 			   AuthResult result, const unsigned char *reply_data,
-			   unsigned int reply_data_size, void *user_data)
+			   unsigned int reply_data_size, void *context)
 {
-	Client *client = user_data;
+	Client *client = context;
 
 	if (auth_callback(request, auth_process, result,
-			  reply_data, reply_data_size, user_data)) {
+			  reply_data, reply_data_size, context)) {
 		auth_continue_request(request, client->plain_login,
 				      client->plain_login_len);
 
@@ -216,19 +216,19 @@ int cmd_login(Client *client, const char *user, const char *pass)
 static void authenticate_callback(AuthRequest *request, int auth_process,
 				  AuthResult result,
 				  const unsigned char *reply_data,
-				  unsigned int reply_data_size, void *user_data)
+				  unsigned int reply_data_size, void *context)
 {
-	Client *client = user_data;
+	Client *client = context;
 
 	if (auth_callback(request, auth_process, result,
-			  reply_data, reply_data_size, user_data))
+			  reply_data, reply_data_size, context))
 		client_send_auth_data(client, reply_data, reply_data_size);
 }
 
-static void client_auth_input(void *user_data, int fd __attr_unused__,
+static void client_auth_input(void *context, int fd __attr_unused__,
 			      IO io __attr_unused__)
 {
-	Client *client = user_data;
+	Client *client = context;
 	char *line;
 	int size;
 

@@ -18,7 +18,7 @@ typedef struct {
 	Pool pool;
 	ListNode *nodes;
 	MailStorage *storage;
-} ListData;
+} ListContext;
 
 static const char *mailbox_flags2str(MailboxFlags flags)
 {
@@ -79,13 +79,13 @@ static ListNode *list_node_get(Pool pool, ListNode **node,
 }
 
 static void list_func(MailStorage *storage __attr_unused__, const char *name,
-		     MailboxFlags flags, void *user_data)
+		      MailboxFlags flags, void *context)
 {
-	ListData *data = user_data;
+	ListContext *ctx = context;
 	ListNode *node;
 
-	node = list_node_get(data->pool, &data->nodes, name,
-			     data->storage->hierarchy_sep);
+	node = list_node_get(ctx->pool, &ctx->nodes, name,
+			     ctx->storage->hierarchy_sep);
 
 	/* set the flags, this also nicely overrides the NOSELECT flag
 	   set by list_node_get() */
@@ -129,7 +129,7 @@ static void list_send(Client *client, ListNode *node, const char *cmd,
 
 int cmd_list_full(Client *client, int subscribed)
 {
-	ListData data;
+	ListContext ctx;
 	const char *ref, *pattern;
 	char sep_chr, sep[3];
 
@@ -162,23 +162,23 @@ int cmd_list_full(Client *client, int subscribed)
 			pattern = t_strconcat(ref, pattern, NULL);
 		}
 
-		data.pool = pool_create("ListData", 10240, FALSE);
-		data.nodes = NULL;
-		data.storage = client->storage;
+		ctx.pool = pool_create("ListCtx", 10240, FALSE);
+		ctx.nodes = NULL;
+		ctx.storage = client->storage;
 
 		if (!subscribed) {
 			client->storage->find_mailboxes(client->storage,
 							pattern,
-							list_func, &data);
+							list_func, &ctx);
 		} else {
 			client->storage->find_subscribed(client->storage,
 							 pattern,
-							 list_func, &data);
+							 list_func, &ctx);
 		}
 
-		list_send(client, data.nodes, subscribed ? "LSUB" : "LIST",
+		list_send(client, ctx.nodes, subscribed ? "LSUB" : "LIST",
 			  NULL, sep, imap_match_init(pattern, TRUE, sep_chr));
-		pool_unref(data.pool);
+		pool_unref(ctx.pool);
 	}
 
 	client_send_tagline(client, subscribed ?

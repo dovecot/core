@@ -31,7 +31,7 @@ static int expunge_msg(IndexMailbox *ibox, MailIndexRecord *rec,
 }
 
 int maildir_expunge_locked(IndexMailbox *ibox,
-			   MailExpungeFunc expunge_func, void *user_data)
+			   MailExpungeFunc expunge_func, void *context)
 {
 	MailIndexRecord *rec;
 	unsigned int seq, uid;
@@ -46,7 +46,7 @@ int maildir_expunge_locked(IndexMailbox *ibox,
 				return FALSE;
 
 			if (expunge_func != NULL)
-				expunge_func(&ibox->box, seq, uid, user_data);
+				expunge_func(&ibox->box, seq, uid, context);
 			seq--;
 		}
 		rec = ibox->index->next(ibox->index, rec);

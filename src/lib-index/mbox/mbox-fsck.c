@@ -12,20 +12,20 @@
 typedef struct {
 	const char *msgid;
 	MailFlags flags;
-} HeaderData;
+} HeaderContext;
 
 static void header_func(MessagePart *part __attr_unused__,
 			const char *name, unsigned int name_len,
 			const char *value, unsigned int value_len,
-			void *user_data)
+			void *context)
 {
-	HeaderData *data = user_data;
+	HeaderContext *ctx = context;
 
 	if (name_len != 10 || strncasecmp(name, "Message-ID", 10) != 0)
 		return;
 
-	data->msgid = t_strndup(value, value_len);
-	data->flags |= mbox_header_get_flags(name, name_len, value, value_len);
+	ctx->msgid = t_strndup(value, value_len);
+	ctx->flags |= mbox_header_get_flags(name, name_len, value, value_len);
 }
 
 static MailIndexRecord *

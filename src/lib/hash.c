@@ -262,7 +262,7 @@ void hash_thaw(HashTable *table)
                 hash_cleanup(table);
 }
 
-void hash_foreach(HashTable *table, HashForeachFunc func, void *user_data)
+void hash_foreach(HashTable *table, HashForeachFunc func, void *context)
 {
 	HashNode *node;
 	unsigned int i;
@@ -276,7 +276,7 @@ void hash_foreach(HashTable *table, HashForeachFunc func, void *user_data)
 	for (i = 0; i < table->size; i++) {
 		for (node = table->nodes[i]; node; node = node->next) {
 			if (!node->destroyed) {
-				func(node->key, node->value, user_data);
+				func(node->key, node->value, context);
 
 				if (foreach_stop) {
 					foreach_stop = FALSE;

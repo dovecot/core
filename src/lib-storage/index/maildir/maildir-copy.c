@@ -11,27 +11,27 @@ typedef struct {
 	MailStorage *storage;
 	const char *dest_maildir;
 	int error;
-} CopyHardData;
+} CopyHardContext;
 
 static int copy_hard_func(MailIndex *index, MailIndexRecord *rec,
-			  unsigned int seq __attr_unused__, void *user_data)
+			  unsigned int seq __attr_unused__, void *context)
 {
-	CopyHardData *data = user_data;
+	CopyHardContext *ctx = context;
 	const char *fname;
 	char src[1024], dest[1024];
 
 	/* link the file */
 	fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
 	i_snprintf(src, sizeof(src), "%s/cur/%s", index->dir, fname);
-	i_snprintf(dest, sizeof(dest), "%s/new/%s", data->dest_maildir, fname);
+	i_snprintf(dest, sizeof(dest), "%s/new/%s", ctx->dest_maildir, fname);
 
 	if (link(src, dest) == 0)
 		return TRUE;
 	else {
 		if (errno != EXDEV) {
-			mail_storage_set_critical(data->storage, "link(%s, %s) "
+			mail_storage_set_critical(ctx->storage, "link(%s, %s) "
 						  "failed: %m", src, dest);
-			data->error = TRUE;
+			ctx->error = TRUE;
 		}
 		return FALSE;
 	}
@@ -41,7 +41,7 @@ static int maildir_copy_with_hardlinks(IndexMailbox *src,
 				       IndexMailbox *dest,
 				       const char *messageset, int uidset)
 {
-        CopyHardData data;
+        CopyHardContext ctx;
 	int ret;
 
 	if (!src->index->set_lock(src->index, MAIL_LOCK_SHARED))
@@ -51,18 +51,18 @@ static int maildir_copy_with_hardlinks(IndexMailbox *src,
 		return mail_storage_set_index_error(dest);
 	}
 
-	data.storage = src->box.storage;
-	data.dest_maildir = dest->index->dir;
-	data.error = FALSE;
+	ctx.storage = src->box.storage;
+	ctx.dest_maildir = dest->index->dir;
+	ctx.error = FALSE;
 
 	if (uidset) {
 		ret = mail_index_uidset_foreach(src->index, messageset,
 						src->synced_messages_count,
-						copy_hard_func, &data);
+						copy_hard_func, &ctx);
 	} else {
 		ret = mail_index_messageset_foreach(src->index, messageset,
 						    src->synced_messages_count,
-						    copy_hard_func, &data);
+						    copy_hard_func, &ctx);
 	}
 
 	if (ret == -1)
@@ -78,7 +78,7 @@ static int maildir_copy_with_hardlinks(IndexMailbox *src,
 		ret = -1;
 	}
 
-	return data.error ? -1 : ret;
+	return ctx.error ? -1 : ret;
 }
 
 int maildir_storage_copy(Mailbox *box, Mailbox *destbox,

@@ -69,7 +69,7 @@ static void sig_quit(int signo __attr_unused__)
 	io_loop_stop(ioloop);
 }
 
-static void children_check_timeout(void *user_data __attr_unused__,
+static void children_check_timeout(void *context __attr_unused__,
 				   Timeout timeout __attr_unused__)
 {
 	const char *process_type_name;

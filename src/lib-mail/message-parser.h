@@ -31,18 +31,18 @@ struct _MessagePart {
 	unsigned int text:1; /* content-type: text/.. */
 	unsigned int binary:1; /* content-transfer-encoding: binary */
 
-	void *user_data;
+	void *context;
 };
 
 /* NOTE: name and value aren't \0-terminated */
 typedef void (*MessageHeaderFunc)(MessagePart *part,
 				  const char *name, unsigned int name_len,
 				  const char *value, unsigned int value_len,
-				  void *user_data);
+				  void *context);
 
 /* func is called for each field in message header. */
 MessagePart *message_parse(Pool pool, IOBuffer *inbuf,
-			   MessageHeaderFunc func, void *user_data);
+			   MessageHeaderFunc func, void *context);
 
 /* Call func for each field in message header. Fills the hdr_size.
    part can be NULL, just make sure your header function works with it.
@@ -51,6 +51,6 @@ MessagePart *message_parse(Pool pool, IOBuffer *inbuf,
    message body. */
 void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 			  MessageSize *hdr_size,
-			  MessageHeaderFunc func, void *user_data);
+			  MessageHeaderFunc func, void *context);
 
 #endif

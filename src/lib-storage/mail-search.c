@@ -369,7 +369,7 @@ void mail_search_args_reset(MailSearchArg *args)
 }
 
 static void search_arg_foreach(MailSearchArg *arg, MailSearchForeachFunc func,
-			       void *user_data)
+			       void *context)
 {
 	MailSearchArg *subarg;
 
@@ -384,7 +384,7 @@ static void search_arg_foreach(MailSearchArg *arg, MailSearchForeachFunc func,
 		subarg = arg->value.subargs;
 		while (subarg != NULL) {
 			if (subarg->result == 0)
-				search_arg_foreach(subarg, func, user_data);
+				search_arg_foreach(subarg, func, context);
 
 			if (subarg->result == -1) {
 				/* failed */
@@ -405,7 +405,7 @@ static void search_arg_foreach(MailSearchArg *arg, MailSearchForeachFunc func,
 		arg->result = -1;
 		while (subarg != NULL) {
 			if (subarg->result == 0)
-				search_arg_foreach(subarg, func, user_data);
+				search_arg_foreach(subarg, func, context);
 
 			if (subarg->result == 1) {
 				/* matched */
@@ -420,18 +420,18 @@ static void search_arg_foreach(MailSearchArg *arg, MailSearchForeachFunc func,
 		}
 	} else {
 		/* just a single condition */
-		func(arg, user_data);
+		func(arg, context);
 	}
 }
 
 int mail_search_args_foreach(MailSearchArg *args, MailSearchForeachFunc func,
-			     void *user_data)
+			     void *context)
 {
 	int result;
 
 	result = 1;
 	for (; args != NULL; args = args->next) {
-		search_arg_foreach(args, func, user_data);
+		search_arg_foreach(args, func, context);
 
 		if (args->result == -1) {
 			/* failed, abort */

@@ -10,8 +10,8 @@
 #define IO_PRIORITY_DEFAULT	0
 #define IO_PRIORITY_HIGH	-100
 
-typedef void (*IOFunc) (void *user_data, int fd, IO io);
-typedef void (*TimeoutFunc) (void *user_data, Timeout timeout);
+typedef void (*IOFunc) (void *context, int fd, IO io);
+typedef void (*TimeoutFunc) (void *context, Timeout timeout);
 
 /* Time when the I/O loop started calling handlers.
    Can be used instead of time(NULL). */
@@ -21,13 +21,13 @@ extern struct timeval ioloop_timeval;
 /* I/O listeners - you can create different handlers for IO_READ and IO_WRITE,
    but make sure you don't create multiple handlers of same type, it's not
    checked and removing one will stop the other from working as well. */
-IO io_add(int fd, int condition, IOFunc func, void *user_data);
+IO io_add(int fd, int condition, IOFunc func, void *context);
 IO io_add_priority(int fd, int priority, int condition,
-		   IOFunc func, void *user_data);
+		   IOFunc func, void *context);
 void io_remove(IO io);
 
 /* Timeout handlers */
-Timeout timeout_add(int msecs, TimeoutFunc func, void *user_data);
+Timeout timeout_add(int msecs, TimeoutFunc func, void *context);
 void timeout_remove(Timeout timeout);
 
 void io_loop_run(IOLoop ioloop);

@@ -4,10 +4,9 @@
 #include "rfc822-tokenize.h"
 #include "message-content-parser.h"
 
-int message_content_parse_header(const char *value,
-				 ParseContentFunc func,
+int message_content_parse_header(const char *value, ParseContentFunc func,
 				 ParseContentParamFunc param_func,
-				 void *user_data)
+				 void *context)
 {
 	const Rfc822Token *tokens;
 	int i, next, ntokens;
@@ -25,7 +24,7 @@ int message_content_parse_header(const char *value,
 	}
 
 	if (func != NULL)
-		func(tokens, i, user_data);
+		func(tokens, i, context);
 
 	if (param_func != NULL) {
 		/* parse the parameters */
@@ -41,7 +40,7 @@ int message_content_parse_header(const char *value,
 			    tokens[i+1].token == '=') {
 				/* <atom> = <value> */
 				param_func(tokens + i, tokens + i + 2,
-					   next - (i+2), user_data);
+					   next - (i+2), context);
 			}
 		}
 	}

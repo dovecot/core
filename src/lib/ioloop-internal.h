@@ -32,7 +32,7 @@ struct _IO {
 	unsigned int invalid:1;
 
 	IOFunc func;
-        void *user_data;
+        void *context;
 };
 
 struct _Timeout {
@@ -44,7 +44,7 @@ struct _Timeout {
         int destroyed;
 
 	TimeoutFunc func;
-        void *user_data;
+        void *context;
 };
 
 int io_loop_get_wait_time(Timeout timeout, struct timeval *tv,

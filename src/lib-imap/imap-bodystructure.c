@@ -32,9 +32,9 @@ static void part_write_bodystructure(MessagePart *part, TempString *str,
 				     int extended);
 
 static void parse_content_type(const Rfc822Token *tokens,
-			       int count, void *user_data)
+			       int count, void *context)
 {
-        MessagePartBodyData *data = user_data;
+        MessagePartBodyData *data = context;
 	const char *value;
 	int i;
 
@@ -53,9 +53,9 @@ static void parse_content_type(const Rfc822Token *tokens,
 
 static void parse_save_params_list(const Rfc822Token *name,
 				   const Rfc822Token *value, int value_count,
-				   void *user_data)
+				   void *context)
 {
-        MessagePartBodyData *data = user_data;
+        MessagePartBodyData *data = context;
 	const char *str;
 
 	if (data->str->len != 0)
@@ -70,9 +70,9 @@ static void parse_save_params_list(const Rfc822Token *name,
 }
 
 static void parse_content_transfer_encoding(const Rfc822Token *tokens,
-					    int count, void *user_data)
+					    int count, void *context)
 {
-        MessagePartBodyData *data = user_data;
+        MessagePartBodyData *data = context;
 	const char *value;
 
 	value = rfc822_tokens_get_value_quoted(tokens, count, FALSE);
@@ -80,9 +80,9 @@ static void parse_content_transfer_encoding(const Rfc822Token *tokens,
 }
 
 static void parse_content_disposition(const Rfc822Token *tokens,
-				      int count, void *user_data)
+				      int count, void *context)
 {
-        MessagePartBodyData *data = user_data;
+        MessagePartBodyData *data = context;
 	const char *value;
 
 	value = rfc822_tokens_get_value_quoted(tokens, count, FALSE);
@@ -90,9 +90,9 @@ static void parse_content_disposition(const Rfc822Token *tokens,
 }
 
 static void parse_content_language(const Rfc822Token *tokens,
-				   int count, void *user_data)
+				   int count, void *context)
 {
-        MessagePartBodyData *data = user_data;
+        MessagePartBodyData *data = context;
 	const char *value;
 
 	if (count <= 0)
@@ -107,9 +107,9 @@ static void parse_content_language(const Rfc822Token *tokens,
 static void parse_header(MessagePart *part,
 			 const char *name, unsigned int name_len,
 			 const char *value,
-			 unsigned int value_len, void *user_data)
+			 unsigned int value_len, void *context)
 {
-	Pool pool = user_data;
+	Pool pool = context;
 	MessagePartBodyData *part_data;
 	int parent_rfc822;
 
@@ -118,13 +118,13 @@ static void parse_header(MessagePart *part,
 			       strncasecmp(name, "Content-", 8) != 0))
 		return;
 
-	if (part->user_data == NULL) {
+	if (part->context == NULL) {
 		/* initialize message part data */
-		part->user_data = part_data =
+		part->context = part_data =
 			p_new(pool, MessagePartBodyData, 1);
 		part_data->pool = pool;
 	}
-	part_data = part->user_data;
+	part_data = part->context;
 
 	t_push();
 
@@ -190,7 +190,7 @@ static void part_parse_headers(MessagePart *part, IOBuffer *inbuf, Pool pool)
 static void part_write_body_multipart(MessagePart *part, TempString *str,
 				      int extended)
 {
-	MessagePartBodyData *data = part->user_data;
+	MessagePartBodyData *data = part->context;
 
 	if (part->children != NULL)
 		part_write_bodystructure(part->children, str, extended);
@@ -243,7 +243,7 @@ static void part_write_body_multipart(MessagePart *part, TempString *str,
 
 static void part_write_body(MessagePart *part, TempString *str, int extended)
 {
-	MessagePartBodyData *data = part->user_data;
+	MessagePartBodyData *data = part->context;
 
 	if (data == NULL) {
 		/* there was no content headers, use an empty structure */
@@ -281,7 +281,7 @@ static void part_write_body(MessagePart *part, TempString *str, int extended)
 		i_assert(part->children != NULL);
 		i_assert(part->children->next == NULL);
 
-                child_data = part->children->user_data;
+                child_data = part->children->context;
 
 		t_string_append_c(str, ' ');
 		if (child_data != NULL && child_data->envelope != NULL) {

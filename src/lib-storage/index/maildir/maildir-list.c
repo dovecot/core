@@ -12,8 +12,8 @@
 
 typedef struct {
 	MailboxFunc func;
-	void *user_data;
-} FindSubscribedData;
+	void *context;
+} FindSubscribedContext;
 
 static MailboxFlags maildir_get_marked_flags(const char *dir)
 {
@@ -52,7 +52,7 @@ static MailboxFlags maildir_get_marked_flags(const char *dir)
 }
 
 int maildir_find_mailboxes(MailStorage *storage, const char *mask,
-			   MailboxFunc func, void *user_data)
+			   MailboxFunc func, void *context)
 {
         const ImapMatchGlob *glob;
 	DIR *dirp;
@@ -116,13 +116,13 @@ int maildir_find_mailboxes(MailStorage *storage, const char *mask,
 		}
 
                 flags = maildir_get_marked_flags(path);
-		func(storage, fname+1, flags, user_data);
+		func(storage, fname+1, flags, context);
 	}
 
 	if (!failed && !found_inbox &&
 	    imap_match(glob, "INBOX", 0, NULL) >= 0) {
 		/* .INBOX directory doesn't exist yet, but INBOX still exists */
-		func(storage, "INBOX", 0, user_data);
+		func(storage, "INBOX", 0, context);
 	}
 
 	(void)closedir(dirp);
@@ -130,9 +130,9 @@ int maildir_find_mailboxes(MailStorage *storage, const char *mask,
 }
 
 static int maildir_subs_func(MailStorage *storage, const char *name,
-			     void *user_data)
+			     void *context)
 {
-	FindSubscribedData *data = user_data;
+	FindSubscribedContext *ctx = context;
 	MailboxFlags flags;
 	struct stat st;
 	char path[1024];
@@ -144,19 +144,19 @@ static int maildir_subs_func(MailStorage *storage, const char *name,
 	else
 		flags = MAILBOX_NOSELECT;
 
-	data->func(storage, name, flags, data->user_data);
+	ctx->func(storage, name, flags, ctx->context);
 	return TRUE;
 }
 
 int maildir_find_subscribed(MailStorage *storage, const char *mask,
-			    MailboxFunc func, void *user_data)
+			    MailboxFunc func, void *context)
 {
-	FindSubscribedData data;
+	FindSubscribedContext ctx;
 
-	data.func = func;
-	data.user_data = user_data;
+	ctx.func = func;
+	ctx.context = context;
 
-	if (subsfile_foreach(storage, mask, maildir_subs_func, &data) <= 0)
+	if (subsfile_foreach(storage, mask, maildir_subs_func, &ctx) <= 0)
 		return FALSE;
 
 	return TRUE;

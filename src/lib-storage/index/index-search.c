@@ -20,7 +20,7 @@ typedef struct {
 	IndexMailbox *ibox;
 	MailIndexRecord *rec;
 	unsigned int seq;
-} SearchIndexData;
+} SearchIndexContext;
 
 typedef struct {
 	MailSearchArg *args;
@@ -28,7 +28,7 @@ typedef struct {
 
 	const char *name, *value;
 	unsigned int name_len, value_len;
-} SearchHeaderData;
+} SearchHeaderContext;
 
 typedef struct {
 	MailSearchArg *args;
@@ -36,7 +36,7 @@ typedef struct {
 	size_t size;
 
 	unsigned int max_searchword_len;
-} SearchTextData;
+} SearchTextContext;
 
 /* truncate timestamp to day */
 static time_t timestamp_trunc(time_t t)
@@ -172,11 +172,11 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 	}
 }
 
-static void search_index_arg(MailSearchArg *arg, void *user_data)
+static void search_index_arg(MailSearchArg *arg, void *context)
 {
-	SearchIndexData *data = user_data;
+	SearchIndexContext *ctx = context;
 
-	switch (search_arg_match_index(data->ibox, data->rec, data->seq,
+	switch (search_arg_match_index(ctx->ibox, ctx->rec, ctx->seq,
 				       arg->type, arg->value.str)) {
 	case -1:
 		/* unknown */
@@ -231,11 +231,11 @@ static int search_arg_match_cached(MailIndex *index, MailIndexRecord *rec,
 	}
 }
 
-static void search_cached_arg(MailSearchArg *arg, void *user_data)
+static void search_cached_arg(MailSearchArg *arg, void *context)
 {
-	SearchIndexData *data = user_data;
+	SearchIndexContext *ctx = context;
 
-	switch (search_arg_match_cached(data->ibox->index, data->rec,
+	switch (search_arg_match_cached(ctx->ibox->index, ctx->rec,
 					arg->type, arg->value.str)) {
 	case -1:
 		/* unknown */
@@ -291,9 +291,9 @@ static int header_value_match(const char *haystack, unsigned int haystack_len,
 	return -1;
 }
 
-static void search_header_arg(MailSearchArg *arg, void *user_data)
+static void search_header_arg(MailSearchArg *arg, void *context)
 {
-	SearchHeaderData *data = user_data;
+	SearchHeaderContext *ctx = context;
 	const char *value;
 	unsigned int len;
 	int ret;
@@ -301,41 +301,41 @@ static void search_header_arg(MailSearchArg *arg, void *user_data)
 	/* first check that the field name matches to argument. */
 	switch (arg->type) {
 	case SEARCH_FROM:
-		if (data->name_len != 4 ||
-		    strncasecmp(data->name, "From", 4) != 0)
+		if (ctx->name_len != 4 ||
+		    strncasecmp(ctx->name, "From", 4) != 0)
 			return;
 		value = arg->value.str;
 		break;
 	case SEARCH_TO:
-		if (data->name_len != 2 ||
-		    strncasecmp(data->name, "To", 2) != 0)
+		if (ctx->name_len != 2 ||
+		    strncasecmp(ctx->name, "To", 2) != 0)
 			return;
 		value = arg->value.str;
 		break;
 	case SEARCH_CC:
-		if (data->name_len != 2 ||
-		    strncasecmp(data->name, "Cc", 2) != 0)
+		if (ctx->name_len != 2 ||
+		    strncasecmp(ctx->name, "Cc", 2) != 0)
 			return;
 		value = arg->value.str;
 		break;
 	case SEARCH_BCC:
-		if (data->name_len != 3 ||
-		    strncasecmp(data->name, "Bcc", 3) != 0)
+		if (ctx->name_len != 3 ||
+		    strncasecmp(ctx->name, "Bcc", 3) != 0)
 			return;
 		value = arg->value.str;
 		break;
 	case SEARCH_SUBJECT:
-		if (data->name_len != 7 ||
-		    strncasecmp(data->name, "Subject", 7) != 0)
+		if (ctx->name_len != 7 ||
+		    strncasecmp(ctx->name, "Subject", 7) != 0)
 			return;
 		value = arg->value.str;
 		break;
 	case SEARCH_HEADER:
-		data->custom_header = TRUE;
+		ctx->custom_header = TRUE;
 
 		len = strlen(arg->value.str);
-		if (data->name_len != len ||
-		    strncasecmp(data->name, arg->value.str, len) != 0)
+		if (ctx->name_len != len ||
+		    strncasecmp(ctx->name, arg->value.str, len) != 0)
 			return;
 
 		value = arg->hdr_value;
@@ -344,34 +344,34 @@ static void search_header_arg(MailSearchArg *arg, void *user_data)
 	}
 
 	/* then check if the value matches */
-	ret = header_value_match(data->value, data->value_len, value);
+	ret = header_value_match(ctx->value, ctx->value_len, value);
         ARG_SET_RESULT(arg, ret);
 }
 
 static void search_header(MessagePart *part __attr_unused__,
 			  const char *name, unsigned int name_len,
 			  const char *value, unsigned int value_len,
-			  void *user_data)
+			  void *context)
 {
-	SearchHeaderData *data = user_data;
+	SearchHeaderContext *ctx = context;
 
-	if (data->custom_header ||
+	if (ctx->custom_header ||
 	    (name_len == 4 && strncasecmp(name, "From", 4) == 0) ||
 	    (name_len == 2 && strncasecmp(name, "To", 2) == 0) ||
 	    (name_len == 2 && strncasecmp(name, "Cc", 2) == 0) ||
 	    (name_len == 3 && strncasecmp(name, "Bcc", 3) == 0) ||
 	    (name_len == 7 && strncasecmp(name, "Subject", 7) == 0)) {
-		data->name = name;
-		data->value = value;
-		data->name_len = name_len;
-		data->value_len = value_len;
+		ctx->name = name;
+		ctx->value = value;
+		ctx->name_len = name_len;
+		ctx->value_len = value_len;
 
-		data->custom_header = FALSE;
-		mail_search_args_foreach(data->args, search_header_arg, data);
+		ctx->custom_header = FALSE;
+		mail_search_args_foreach(ctx->args, search_header_arg, ctx);
 	}
 }
 
-static void search_text(MailSearchArg *arg, SearchTextData *data)
+static void search_text(MailSearchArg *arg, SearchTextContext *ctx)
 {
 	const char *p;
 	unsigned int i, len, max;
@@ -380,12 +380,12 @@ static void search_text(MailSearchArg *arg, SearchTextData *data)
 		return;
 
 	len = strlen(arg->value.str);
-	if (len > data->max_searchword_len)
-		data->max_searchword_len = len;
+	if (len > ctx->max_searchword_len)
+		ctx->max_searchword_len = len;
 
-	if (data->size >= len) {
-		max = data->size-len;
-		for (i = 0, p = data->msg; i <= max; i++, p++) {
+	if (ctx->size >= len) {
+		max = ctx->size-len;
+		for (i = 0, p = ctx->msg; i <= max; i++, p++) {
 			if (i_toupper(*p) == arg->value.str[0] &&
 			    strncasecmp(p, arg->value.str, len) == 0) {
 				/* match */
@@ -396,24 +396,24 @@ static void search_text(MailSearchArg *arg, SearchTextData *data)
 	}
 }
 
-static void search_text_header(MailSearchArg *arg, void *user_data)
+static void search_text_header(MailSearchArg *arg, void *context)
 {
-	SearchTextData *data = user_data;
+	SearchTextContext *ctx = context;
 
 	if (arg->type == SEARCH_TEXT)
-		search_text(arg, data);
+		search_text(arg, ctx);
 }
 
-static void search_text_body(MailSearchArg *arg, void *user_data)
+static void search_text_body(MailSearchArg *arg, void *context)
 {
-	SearchTextData *data = user_data;
+	SearchTextContext *ctx = context;
 
 	if (arg->type == SEARCH_TEXT || arg->type == SEARCH_BODY)
-		search_text(arg, data);
+		search_text(arg, ctx);
 }
 
 static void search_text_set_unmatched(MailSearchArg *arg,
-				      void *user_data __attr_unused__)
+				      void *context __attr_unused__)
 {
 	if (arg->type == SEARCH_TEXT || arg->type == SEARCH_BODY)
 		ARG_SET_RESULT(arg, -1);
@@ -423,26 +423,26 @@ static void search_arg_match_data(IOBuffer *inbuf, unsigned int max_size,
 				  MailSearchArg *args,
 				  MailSearchForeachFunc search_func)
 {
-	SearchTextData data;
+	SearchTextContext ctx;
 	unsigned int size;
 	int ret;
 
-	memset(&data, 0, sizeof(data));
-	data.args = args;
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.args = args;
 
 	/* do this in blocks: read data, compare it for all search words, skip
 	   for block size - (strlen(largest_searchword)-1) and continue. */
 	while (max_size > 0 &&
 	       (ret = io_buffer_read_max(inbuf, max_size)) > 0) {
-		data.msg = io_buffer_get_data(inbuf, &size);
+		ctx.msg = io_buffer_get_data(inbuf, &size);
 		if (size > 0) {
-			data.size = max_size < size ? max_size : size;
-			max_size -= data.size;
+			ctx.size = max_size < size ? max_size : size;
+			max_size -= ctx.size;
 
-			mail_search_args_foreach(args, search_func, &data);
+			mail_search_args_foreach(args, search_func, &ctx);
 
-			if (data.max_searchword_len < size)
-				size -= data.max_searchword_len-1;
+			if (ctx.max_searchword_len < size)
+				size -= ctx.max_searchword_len-1;
 			io_buffer_skip(inbuf, size);
 		}
 	}
@@ -464,14 +464,14 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 		return FALSE;
 
 	if (have_headers) {
-		SearchHeaderData data;
+		SearchHeaderContext ctx;
 
-		memset(&data, 0, sizeof(data));
+		memset(&ctx, 0, sizeof(ctx));
 
 		/* header checks */
-		data.custom_header = TRUE;
-		data.args = args;
-		message_parse_header(NULL, inbuf, NULL, search_header, &data);
+		ctx.custom_header = TRUE;
+		ctx.args = args;
+		message_parse_header(NULL, inbuf, NULL, search_header, &ctx);
 	}
 
 	if (have_text) {
@@ -603,7 +603,7 @@ static void search_get_sequences(IndexMailbox *ibox, MailSearchArg *args,
 static void search_messages(IndexMailbox *ibox, MailSearchArg *args,
 			    IOBuffer *outbuf, int uid_result)
 {
-	SearchIndexData data;
+	SearchIndexContext ctx;
 	MailIndexRecord *rec;
 	unsigned int first_seq, last_seq, seq;
 	char num[MAX_INT_STRLEN+10];
@@ -611,17 +611,17 @@ static void search_messages(IndexMailbox *ibox, MailSearchArg *args,
 	/* see if we can limit the records we look at */
 	search_get_sequences(ibox, args, &first_seq, &last_seq);
 
-	data.ibox = ibox;
+	ctx.ibox = ibox;
 
 	rec = ibox->index->lookup(ibox->index, first_seq);
 	for (seq = first_seq; rec != NULL && seq <= last_seq; seq++) {
-		data.rec = rec;
-		data.seq = seq;
+		ctx.rec = rec;
+		ctx.seq = seq;
 
 		mail_search_args_reset(args);
 
-		mail_search_args_foreach(args, search_index_arg, &data);
-		mail_search_args_foreach(args, search_cached_arg, &data);
+		mail_search_args_foreach(args, search_index_arg, &ctx);
+		mail_search_args_foreach(args, search_cached_arg, &ctx);
 
 		if (search_arg_match_text(ibox, rec, args) &&
 		    args->result == 1) {
