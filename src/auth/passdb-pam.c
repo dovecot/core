@@ -276,7 +276,7 @@ static void pam_child_input(void *context)
 		i_error("PAM: Child process returned only %d bytes", ret);
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else {
-		result = *((enum passdb_result *) buf);
+		memcpy(&result, buf, sizeof(result));
 
 		if ((size_t)ret > sizeof(result)) {
 			/* error message included */
