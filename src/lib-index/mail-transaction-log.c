@@ -742,10 +742,10 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 
 		size = read_offset - file->buffer_offset;
 		buffer_set_used_size(file->buffer, size);
-
-		if (mail_transaction_log_file_sync(file) < 0)
-			return -1;
 	} while (ret > 0 || (ret < 0 && errno == EINTR));
+
+	if (mail_transaction_log_file_sync(file) < 0)
+		return -1;
 
 	if (ret == 0) {
 		/* EOF */
@@ -812,6 +812,8 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	    file->buffer_offset <= start_offset) {
 		/* it's all mmaped already */
 		i_assert(end_offset == (uoff_t)-1);
+		if (mail_transaction_log_file_sync(file) < 0)
+			return -1;
 		return 1;
 	}
 
