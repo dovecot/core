@@ -21,7 +21,7 @@ static MailSearchArg *search_arg_new(Pool pool, MailSearchArgType type)
 #define ARG_NEW(type, value) \
 	arg_new(data, args, next_sarg, type, value)
 
-static int arg_new(SearchBuildData *data, ImapArgList **args,
+static int arg_new(SearchBuildData *data, ImapArg **args,
 		   MailSearchArg **next_sarg, MailSearchArgType type, int value)
 {
 	MailSearchArg *sarg;
@@ -36,36 +36,36 @@ static int arg_new(SearchBuildData *data, ImapArgList **args,
 		return FALSE;
 	}
 
-	sarg->value.str = str_ucase((*args)->arg.data.str);
-	*args = (*args)->next;
+	sarg->value.str = str_ucase((*args)->data.str);
+	*args += 1;
 
 	/* second arg */
 	if (value == 2) {
-		if (*args == NULL) {
+		if ((*args)->type == IMAP_ARG_EOL) {
 			data->error = "Missing parameter for argument";
 			return FALSE;
 		}
 
-		sarg->hdr_value = str_ucase((*args)->arg.data.str);
-		*args = (*args)->next;
+		sarg->hdr_value = str_ucase((*args)->data.str);
+		*args += 1;
 	}
 
 	return TRUE;
 }
 
-static int search_arg_build(SearchBuildData *data, ImapArgList **args,
+static int search_arg_build(SearchBuildData *data, ImapArg **args,
 			    MailSearchArg **next_sarg)
 {
 	MailSearchArg **subargs;
 	ImapArg *arg;
 	char *str;
 
-	if (*args == NULL) {
+	if ((*args)->type == IMAP_ARG_EOL) {
 		data->error = "Missing argument";
 		return FALSE;
 	}
 
-	arg = &(*args)->arg;
+	arg = *args;
 
 	if (arg->type == IMAP_ARG_NIL) {
 		/* NIL not allowed */
@@ -74,17 +74,17 @@ static int search_arg_build(SearchBuildData *data, ImapArgList **args,
 	}
 
 	if (arg->type == IMAP_ARG_LIST) {
-		ImapArgList *list = arg->data.list;
+		ImapArg *listargs = arg->data.list->args;
 
 		*next_sarg = search_arg_new(data->pool, SEARCH_SUB);
 		subargs = &(*next_sarg)->value.subargs;
-		while (list != NULL) {
-			if (!search_arg_build(data, &list, subargs))
+		while (listargs->type != IMAP_ARG_EOL) {
+			if (!search_arg_build(data, &listargs, subargs))
 				return FALSE;
 			subargs = &(*subargs)->next;
 		}
 
-		*args = (*args)->next;
+		*args += 1;
 		return TRUE;
 	}
 
@@ -93,7 +93,7 @@ static int search_arg_build(SearchBuildData *data, ImapArgList **args,
 
 	/* string argument - get the name and jump to next */
 	str = arg->data.str;
-	*args = (*args)->next;
+	*args += 1;
 	str_ucase(str);
 
 	switch (*str) {
@@ -140,32 +140,32 @@ static int search_arg_build(SearchBuildData *data, ImapArgList **args,
 			/* <field-name> <string> */
 			const char *key;
 
-			if (*args == NULL) {
+			if ((*args)->type == IMAP_ARG_EOL) {
 				data->error = "Missing parameter for HEADER";
 				return FALSE;
 			}
-			key = str_ucase((*args)->arg.data.str);
+			key = str_ucase((*args)->data.str);
 
 			if (strcmp(key, "FROM") == 0) {
-				*args = (*args)->next;
+				*args += 1;
 				return ARG_NEW(SEARCH_FROM, 1);
 			} else if (strcmp(key, "TO") == 0) {
-				*args = (*args)->next;
+				*args += 1;
 				return ARG_NEW(SEARCH_TO, 1);
 			} else if (strcmp(key, "CC") == 0) {
-				*args = (*args)->next;
+				*args += 1;
 				return ARG_NEW(SEARCH_CC, 1);
 			} else if (strcmp(key, "BCC") == 0) {
-				*args = (*args)->next;
+				*args += 1;
 				return ARG_NEW(SEARCH_BCC, 1);
 			} else if (strcmp(key, "SUBJECT") == 0) {
-				*args = (*args)->next;
+				*args += 1;
 				return ARG_NEW(SEARCH_SUBJECT, 1);
 			} else if (strcmp(key, "IN-REPLY-TO") == 0) {
-				*args = (*args)->next;
+				*args += 1;
 				return ARG_NEW(SEARCH_IN_REPLY_TO, 1);
 			} else if (strcmp(key, "MESSAGE-ID") == 0) {
-				*args = (*args)->next;
+				*args += 1;
 				return ARG_NEW(SEARCH_MESSAGE_ID, 1);
 			} else {
 				return ARG_NEW(SEARCH_HEADER, 2);
@@ -216,15 +216,14 @@ static int search_arg_build(SearchBuildData *data, ImapArgList **args,
 
 				/* <key> OR <key> OR ... <key> - put them all
 				   under one SEARCH_OR list. */
-				if (*args == NULL)
+				if ((*args)->type == IMAP_ARG_EOL)
 					break;
 
-				arg = &(*args)->arg;
-				if (arg->type != IMAP_ARG_ATOM ||
-				    strcasecmp(arg->data.str, "OR") != 0)
+				if ((*args)->type != IMAP_ARG_ATOM ||
+				    strcasecmp((*args)->data.str, "OR") != 0)
 					break;
 
-				*args = (*args)->next;
+				*args += 1;
 			}
 
 			if (!search_arg_build(data, args, subargs))
@@ -330,29 +329,19 @@ static int search_arg_build(SearchBuildData *data, ImapArgList **args,
 	return FALSE;
 }
 
-MailSearchArg *mail_search_args_build(Pool pool, ImapArg *args, int args_count,
+MailSearchArg *mail_search_args_build(Pool pool, ImapArg *args,
 				      const char **error)
 {
         SearchBuildData data;
 	MailSearchArg *first_sarg, **sargs;
-	ImapArgList *list, **listp;
-	int i;
-
-	/* first we need to conver the imap arguments into ImapArgList */
-	list = NULL; listp = &list;
-	for (i = 0; i < args_count; i++) {
-		*listp = t_new(ImapArgList, 1);
-		memcpy(&(*listp)->arg, &args[i], sizeof(ImapArg));
-		listp = &(*listp)->next;
-	}
 
 	data.pool = pool;
 	data.error = NULL;
 
 	/* get the first arg */
 	first_sarg = NULL; sargs = &first_sarg;
-	while (list != NULL) {
-		if (!search_arg_build(&data, &list, sargs)) {
+	while (args->type != IMAP_ARG_EOL) {
+		if (!search_arg_build(&data, &args, sargs)) {
 			*error = data.error;
 			return NULL;
 		}

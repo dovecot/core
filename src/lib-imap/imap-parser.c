@@ -8,6 +8,8 @@
 #define is_linebreak(c) \
 	((c) == '\r' || (c) == '\n')
 
+#define LIST_ALLOC_SIZE 7
+
 typedef enum {
 	ARG_PARSE_NONE = 0,
 	ARG_PARSE_ATOM,
@@ -17,31 +19,44 @@ typedef enum {
 } ArgParseType;
 
 struct _ImapParser {
+	/* permanent */
 	Pool pool;
 	IBuffer *inbuf;
 	OBuffer *outbuf;
 	size_t max_literal_size;
+        ImapParserFlags flags;
 
-	ImapArg *args;
-	unsigned int pos;
-	unsigned int args_size;
+	/* reset by imap_parser_reset(): */
+        ImapArgList *root_list;
+        ImapArgList *cur_list;
+	ImapArg *list_arg;
 
 	ArgParseType cur_type;
 	size_t cur_pos;
-	ImapArg *cur_arg;
 
-	ImapArg *cur_list_arg; /* argument which contains current list */
-	ImapArgList **cur_list; /* pointer where to append next list item */
-
-        ImapParserFlags flags;
 	int str_first_escape; /* ARG_PARSE_STRING: index to first '\' */
 	uoff_t literal_size; /* ARG_PARSE_LITERAL: string size */
-	unsigned int literal_skip_crlf:1;
 
+	unsigned int literal_skip_crlf:1;
 	unsigned int inside_bracket:1;
 	unsigned int eol:1;
 	unsigned int error:1;
 };
+
+#define LIST_REALLOC(parser, old_list, size) \
+	p_realloc((parser)->pool, old_list, \
+		  sizeof(ImapArgList) + sizeof(ImapArg) * ((size)-1))
+
+static void imap_args_realloc(ImapParser *parser, size_t size)
+{
+	parser->cur_list = LIST_REALLOC(parser, parser->cur_list, size);
+	parser->cur_list->alloc = size;
+
+	if (parser->list_arg == NULL)
+		parser->root_list = parser->cur_list;
+	else
+		parser->list_arg->data.list = parser->cur_list;
+}
 
 ImapParser *imap_parser_create(IBuffer *inbuf, OBuffer *outbuf,
 			       size_t max_literal_size)
@@ -53,6 +68,8 @@ ImapParser *imap_parser_create(IBuffer *inbuf, OBuffer *outbuf,
 	parser->inbuf = inbuf;
 	parser->outbuf = outbuf;
 	parser->max_literal_size = max_literal_size;
+
+	imap_args_realloc(parser, LIST_ALLOC_SIZE);
 	return parser;
 }
 
@@ -66,19 +83,22 @@ void imap_parser_reset(ImapParser *parser)
 {
 	p_clear(parser->pool);
 
-	parser->pos = 0;
-	parser->args = NULL;
-	parser->args_size = 0;
+	parser->root_list = NULL;
+	parser->cur_list = NULL;
+	parser->list_arg = NULL;
 
 	parser->cur_type = ARG_PARSE_NONE;
 	parser->cur_pos = 0;
-	parser->cur_arg = NULL;
 
-	parser->cur_list_arg = NULL;
-	parser->cur_list = NULL;
+	parser->str_first_escape = 0;
+	parser->literal_size = 0;
 
+	parser->literal_skip_crlf = FALSE;
+	parser->inside_bracket = FALSE;
 	parser->eol = FALSE;
 	parser->error = FALSE;
+
+	imap_args_realloc(parser, LIST_ALLOC_SIZE);
 }
 
 static int imap_parser_skip_whitespace(ImapParser *parser, char **data,
@@ -101,68 +121,62 @@ static int imap_parser_skip_whitespace(ImapParser *parser, char **data,
 
 static ImapArg *imap_arg_create(ImapParser *parser)
 {
-	ImapArgList *list;
+	ImapArg *arg;
 
-	/* create new argument into list */
 	i_assert(parser->cur_list != NULL);
 
-	list = p_new(parser->pool, ImapArgList, 1);
-	*parser->cur_list = list;
-	parser->cur_list = &list->next;
+	if (parser->cur_list->size == parser->cur_list->alloc)
+		imap_args_realloc(parser, parser->cur_list->alloc * 2);
 
-	return &list->arg;
+	arg = &parser->cur_list->args[parser->cur_list->size];
+	arg->parent = parser->list_arg;
+	parser->cur_list->size++;
+
+	return arg;
 }
 
 static void imap_parser_open_list(ImapParser *parser)
 {
-	if (parser->cur_arg == NULL)
-		parser->cur_arg = imap_arg_create(parser);
+	parser->list_arg = imap_arg_create(parser);
 
-	parser->cur_arg->type = IMAP_ARG_LIST;
-	parser->cur_list = &parser->cur_arg->data.list;
-	parser->cur_list_arg = parser->cur_arg;
+	parser->cur_list = NULL;
+	imap_args_realloc(parser, LIST_ALLOC_SIZE);
+
+	parser->list_arg->type = IMAP_ARG_LIST;
+	parser->list_arg->data.list = parser->cur_list;
 
 	parser->cur_type = ARG_PARSE_NONE;
-	parser->cur_arg = NULL;
 }
 
 static int imap_parser_close_list(ImapParser *parser)
 {
-	ImapArgList **list;
+	ImapArg *arg;
 
-	if (parser->cur_list_arg == NULL) {
+	if (parser->list_arg == NULL) {
 		/* we're not inside list */
 		parser->error = TRUE;
 		return FALSE;
 	}
 
-	parser->cur_list_arg = parser->cur_list_arg->parent;
-	if (parser->cur_list_arg == NULL) {
-		/* end of argument */
-		parser->cur_list = NULL;
-		return TRUE;
+	arg = imap_arg_create(parser);
+	arg->type = IMAP_ARG_EOL;
+
+	parser->list_arg = parser->list_arg->parent;
+	if (parser->list_arg == NULL) {
+		parser->cur_list = parser->root_list;
+	} else {
+		parser->cur_list = parser->list_arg->data.list;
 	}
 
-	/* skip to end of the upper list */
-        list = &parser->cur_list_arg->data.list;
-	while (*list != NULL)
-		list = &(*list)->next;
-	parser->cur_list = list;
-
 	parser->cur_type = ARG_PARSE_NONE;
-	parser->cur_arg = NULL;
-
 	return TRUE;
 }
 
-static void imap_parser_save_arg(ImapParser *parser, char *data,
-				 size_t lastpos)
+static void imap_parser_save_arg(ImapParser *parser, char *data, size_t lastpos)
 {
 	ImapArg *arg;
 
-	arg = parser->cur_arg;
-	if (arg == NULL)
-		arg = imap_arg_create(parser);
+	arg = imap_arg_create(parser);
 
 	switch (parser->cur_type) {
 	case ARG_PARSE_ATOM:
@@ -177,11 +191,14 @@ static void imap_parser_save_arg(ImapParser *parser, char *data,
 		break;
 	case ARG_PARSE_STRING:
 		/* data is quoted and may contain escapes. */
+		i_assert(lastpos > 0);
+
 		arg->type = IMAP_ARG_STRING;
 		arg->data.str = p_strndup(parser->pool, data+1, lastpos-1);
 
 		/* remove the escapes */
-		if (parser->str_first_escape >= 0) {
+		if (parser->str_first_escape >= 0 &&
+		    (parser->flags & IMAP_PARSE_FLAG_NO_UNESCAPE) == 0) {
 			/* -1 because we skipped the '"' prefix */
 			string_remove_escapes(arg->data.str +
 					      parser->str_first_escape-1);
@@ -202,7 +219,6 @@ static void imap_parser_save_arg(ImapParser *parser, char *data,
 		i_assert(0);
 	}
 
-	parser->cur_arg = NULL;
         parser->cur_type = ARG_PARSE_NONE;
 }
 
@@ -363,7 +379,7 @@ static int imap_parser_read_literal_data(ImapParser *parser, char *data,
 		if (data_size >= parser->literal_size) {
 			imap_parser_save_arg(parser, data,
 					     (size_t)parser->literal_size);
-			parser->cur_pos = (size_t) parser->literal_size;
+			parser->cur_pos = (size_t)parser->literal_size;
 		}
 	} else {
 		/* we want to save only literal size, not the literal itself. */
@@ -375,7 +391,7 @@ static int imap_parser_read_literal_data(ImapParser *parser, char *data,
 
 /* Returns TRUE if argument was fully processed. Also returns TRUE if
    an argument inside a list was processed. */
-static int imap_parser_read_arg(ImapParser *parser, ImapArg *root_arg)
+static int imap_parser_read_arg(ImapParser *parser)
 {
 	char *data;
 	size_t data_size;
@@ -383,11 +399,6 @@ static int imap_parser_read_arg(ImapParser *parser, ImapArg *root_arg)
 	data = (char *) i_buffer_get_data(parser->inbuf, &data_size);
 	if (data_size == 0)
 		return FALSE;
-
-	if (parser->cur_arg == NULL && parser->cur_list == NULL) {
-		/* beginning to parse a new argument */
-		parser->cur_arg = root_arg;
-	}
 
 	while (parser->cur_type == ARG_PARSE_NONE) {
 		/* we haven't started parsing yet */
@@ -416,7 +427,7 @@ static int imap_parser_read_arg(ImapParser *parser, ImapArg *root_arg)
 			if (!imap_parser_close_list(parser))
 				return FALSE;
 
-			if (parser->cur_list_arg == NULL) {
+			if (parser->list_arg == NULL) {
 				/* end of argument */
 				parser->cur_pos++;
 				return TRUE;
@@ -449,15 +460,14 @@ static int imap_parser_read_arg(ImapParser *parser, ImapArg *root_arg)
 		/* pass through to parsing data. since inbuf->skip was
 		   modified, we need to get the data start position again. */
 		data = (char *) i_buffer_get_data(parser->inbuf, &data_size);
+
+		/* fall through */
 	case ARG_PARSE_LITERAL_DATA:
 		imap_parser_read_literal_data(parser, data, data_size);
 		break;
 	default:
 		i_assert(0);
 	}
-
-	/* NOTE: data and data_size are invalid here, the functions above
-	   may have changed them. */
 
 	return parser->cur_type == ARG_PARSE_NONE;
 }
@@ -467,33 +477,30 @@ int imap_parser_read_args(ImapParser *parser, unsigned int count,
 {
 	parser->flags = flags;
 
-	while (count == 0 || parser->pos < count) {
-		if (parser->pos >= parser->args_size) {
-			parser->args_size = nearest_power(parser->pos+1);
-			if (parser->args_size < 8)
-				parser->args_size = 8;
-
-			parser->args =
-				p_realloc(parser->pool, parser->args,
-					  parser->args_size * sizeof(ImapArg));
-		}
-
-		if (!imap_parser_read_arg(parser, &parser->args[parser->pos]))
+	while (count == 0 || parser->root_list->size < count) {
+		if (!imap_parser_read_arg(parser))
 			break;
-
-		/* jump to next argument, unless we're processing a list */
-		if (parser->cur_list == NULL)
-			parser->pos++;
 	}
 
-	if (parser->pos >= count || parser->eol) {
-		/* all arguments read / end of line */
-		*args = parser->args;
-		return count == 0 || parser->pos < count ? parser->pos : count;
-	} else if (parser->error) {
+	if (parser->error) {
 		/* error, abort */
 		*args = NULL;
 		return -1;
+	} else if (parser->root_list->size >= count || parser->eol) {
+		/* all arguments read / end of line */
+		if (count >= parser->root_list->alloc) {
+			/* unused arguments must be NIL-filled. */
+			parser->root_list->alloc = count+1;
+			parser->root_list = LIST_REALLOC(parser,
+							 parser->root_list,
+							 count+1);
+		}
+
+		parser->root_list->args[parser->root_list->size].type =
+			IMAP_ARG_EOL;
+
+		*args = parser->root_list->args;
+		return parser->root_list->size;
 	} else {
 		/* need more data */
 		*args = NULL;

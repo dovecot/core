@@ -224,8 +224,7 @@ static int parse_arg(Client *client, ImapArg *arg, MailFetchData *data)
 
 int cmd_fetch(Client *client)
 {
-	ImapArg *args;
-	ImapArgList *list;
+	ImapArg *args, *listargs;
 	MailFetchData data;
 	const char *messageset;
 	int all_found;
@@ -249,14 +248,12 @@ int cmd_fetch(Client *client)
 		if (!parse_arg(client, &args[1], &data))
 			return TRUE;
 	} else {
-		list = args[1].data.list;
-		while (list != NULL) {
-			ImapArg *arg = &list->arg;
-
-			if (!parse_arg(client, arg, &data))
+		listargs = args[1].data.list->args;
+		while (listargs->type != IMAP_ARG_EOL) {
+			if (!parse_arg(client, listargs, &data))
 				return TRUE;
 
-			list = list->next;
+			listargs++;
 		}
 	}
 

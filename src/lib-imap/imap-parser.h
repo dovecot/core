@@ -6,7 +6,9 @@ typedef enum {
 	   and not convert literal into string. Useful when you need to deal
 	   with large literal sizes. The literal must be the last read
 	   parameter. */
-	IMAP_PARSE_FLAG_LITERAL_SIZE	= 0x01
+	IMAP_PARSE_FLAG_LITERAL_SIZE	= 0x01,
+	/* Don't remove '\' chars from string arguments */
+	IMAP_PARSE_FLAG_NO_UNESCAPE	= 0x02,
 } ImapParserFlags;
 
 typedef enum {
@@ -14,7 +16,9 @@ typedef enum {
 	IMAP_ARG_ATOM,
 	IMAP_ARG_STRING,
 	IMAP_ARG_LITERAL_SIZE,
-	IMAP_ARG_LIST
+	IMAP_ARG_LIST,
+
+	IMAP_ARG_EOL /* end of argument list */
 } ImapArgType;
 
 typedef struct _ImapParser ImapParser;
@@ -33,8 +37,8 @@ struct _ImapArg {
 };
 
 struct _ImapArgList {
-	ImapArgList *next;
-	ImapArg arg;
+	size_t size, alloc;
+	ImapArg args[1]; /* variable size */
 };
 
 /* Create new IMAP argument parser. The max. size of inbuf limits the
@@ -48,13 +52,14 @@ void imap_parser_destroy(ImapParser *parser);
 /* Reset the parser to initial state. */
 void imap_parser_reset(ImapParser *parser);
 
-/* Read a number of arguments. This function doesn't call tbuffer_read(), you
+/* Read a number of arguments. This function doesn't call i_buffer_read(), you
    need to do that. Returns number of arguments read (may be less than count
    in case of EOL), -2 if more data is needed or -1 if error occured.
 
    count-sized array of arguments are stored into args when return value is
    0 or larger. If all arguments weren't read, they're set to NIL. count
-   can be set to 0 to read all arguments in the line. */
+   can be set to 0 to read all arguments in the line. Last element in
+   args[size] is always of type IMAP_ARG_EOL. */
 int imap_parser_read_args(ImapParser *parser, unsigned int count,
 			  ImapParserFlags flags, ImapArg **args);
 

@@ -31,7 +31,8 @@ void client_send_storage_error(Client *client);
 /* Parse flags, stores custom flag names into custflags[]. The names point to
    strings in ImapArgList. Returns TRUE if successful, if not sends an error
    message to client. */
-int client_parse_mail_flags(Client *client, ImapArgList *list, MailFlags *flags,
+int client_parse_mail_flags(Client *client, ImapArg *args, size_t args_count,
+			    MailFlags *flags,
 			    const char *custflags[MAIL_CUSTOM_FLAGS_COUNT]);
 
 #endif

@@ -130,14 +130,14 @@ static int imap_address_arg_append(ImapArg *arg, TempString *str, int *in_group)
 	list = arg->data.list;
 
 	/* we require 4 arguments, strings or NILs */
-	for (i = 0; i < 4; i++) {
-		if (list == NULL)
-			return FALSE;
+	if (list->size < 4)
+		return FALSE;
 
-		if (list->arg.type == IMAP_ARG_NIL)
+	for (i = 0; i < 4; i++) {
+		if (list->args[i].type == IMAP_ARG_NIL)
 			args[i] = NULL;
-		else if (list->arg.type == IMAP_ARG_STRING)
-			args[i] = list->arg.data.str;
+		else if (list->args[i].type == IMAP_ARG_STRING)
+			args[i] = list->args[i].data.str;
 		else
 			return FALSE;
 	}
@@ -190,6 +190,7 @@ static const char *imap_envelope_parse_address(ImapArg *arg)
 {
 	ImapArgList *list;
 	TempString *str;
+	size_t i;
 	int in_group;
 
 	if (arg->type != IMAP_ARG_LIST)
@@ -197,8 +198,10 @@ static const char *imap_envelope_parse_address(ImapArg *arg)
 
 	in_group = FALSE;
 	str = t_string_new(128);
-	for (list = arg->data.list; list != NULL; list = list->next) {
-		if (!imap_address_arg_append(&list->arg, str, &in_group))
+
+        list = arg->data.list;
+	for (i = 0; i < list->size; i++) {
+		if (!imap_address_arg_append(&list->args[i], str, &in_group))
 			return NULL;
 	}
 
@@ -235,14 +238,13 @@ const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field)
 	ImapParser *parser;
 	ImapArg *args;
 	const char *value;
-	size_t len;
 	int ret;
 
 	i_assert(field < IMAP_ENVELOPE_FIELDS);
 
-	len = strlen(envelope);
-	inbuf = i_buffer_create_from_data(data_stack_pool, envelope, len);
-	parser = imap_parser_create(inbuf, NULL, len);
+	inbuf = i_buffer_create_from_data(data_stack_pool, envelope,
+					  strlen(envelope));
+	parser = imap_parser_create(inbuf, NULL, 0);
 
 	(void)i_buffer_read(inbuf);
 	ret = imap_parser_read_args(parser, field+1, 0, &args);

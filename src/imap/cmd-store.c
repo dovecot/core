@@ -64,7 +64,6 @@ static int get_modify_type(Client *client, const char *item,
 int cmd_store(Client *client)
 {
 	ImapArg *args;
-	ImapArgList *list, tmplist;
 	MailFlags flags;
 	ModifyType modify_type;
 	MailFlagUpdateFunc func;
@@ -90,16 +89,16 @@ int cmd_store(Client *client)
 	if (!get_modify_type(client, item, &modify_type, &silent))
 		return TRUE;
 
-	if (args[2].type == IMAP_ARG_LIST)
-		list = args[2].data.list;
-	else {
-		tmplist.next = NULL;
-		tmplist.arg = args[2];
-		list = &tmplist;
+	if (args[2].type == IMAP_ARG_LIST) {
+		if (!client_parse_mail_flags(client, args[2].data.list->args,
+					     args[2].data.list->size,
+					     &flags, custflags))
+			return TRUE;
+	} else {
+		if (!client_parse_mail_flags(client, &args[2], 1,
+					     &flags, custflags))
+			return TRUE;
 	}
-
-	if (!client_parse_mail_flags(client, list, &flags, custflags))
-		return TRUE;
 
 	/* and update the flags */
 	func = silent ? NULL :

@@ -69,7 +69,7 @@ struct _MailSearchArg {
 typedef void (*MailSearchForeachFunc)(MailSearchArg *arg, void *context);
 
 /* Builds search arguments based on IMAP arguments. */
-MailSearchArg *mail_search_args_build(Pool pool, ImapArg *args, int args_count,
+MailSearchArg *mail_search_args_build(Pool pool, ImapArg *args,
 				      const char **error);
 
 /* Reset the results in search arguments */

@@ -151,23 +151,25 @@ void client_send_storage_error(Client *client)
 		client->storage->get_last_error(client->storage), NULL));
 }
 
-int client_parse_mail_flags(Client *client, ImapArgList *list, MailFlags *flags,
+int client_parse_mail_flags(Client *client, ImapArg *args, size_t args_count,
+			    MailFlags *flags,
 			    const char *custflags[MAIL_CUSTOM_FLAGS_COUNT])
 {
 	char *atom;
+	size_t pos;
 	int i, custpos;
 
 	memset(custflags, 0, sizeof(const char *) * MAIL_CUSTOM_FLAGS_COUNT);
 
 	*flags = 0; custpos = 0;
-	while (list != NULL) {
-		if (list->arg.type != IMAP_ARG_ATOM) {
-			client_send_command_error(client, "Flags list "
-						  "contains non-atoms.");
+	for (pos = 0; pos < args_count; pos++) {
+		if (args[pos].type != IMAP_ARG_ATOM) {
+			client_send_command_error(client,
+				"Flags list contains non-atoms.");
 			return FALSE;
 		}
 
-		atom = list->arg.data.str;
+		atom = args[pos].data.str;
 		if (*atom == '\\') {
 			/* system flag */
 			str_ucase(atom);
@@ -206,8 +208,7 @@ int client_parse_mail_flags(Client *client, ImapArgList *list, MailFlags *flags,
 				custflags[custpos++] = atom;
 			}
 		}
-
-		list = list->next;
 	}
+
 	return TRUE;
 }

@@ -20,7 +20,7 @@ static int index_fetch_body(MailIndexRecord *rec, FetchContext *ctx)
 
 	body = imap_msgcache_get(ctx->cache, IMAP_CACHE_BODY);
 	if (body != NULL) {
-		t_string_printfa(ctx->str, "BODY %s ", body);
+		t_string_printfa(ctx->str, "BODY (%s) ", body);
 		return TRUE;
 	} else {
 		mail_storage_set_critical(ctx->storage,
@@ -36,7 +36,7 @@ static int index_fetch_bodystructure(MailIndexRecord *rec, FetchContext *ctx)
 
 	bodystructure = imap_msgcache_get(ctx->cache, IMAP_CACHE_BODYSTRUCTURE);
 	if (bodystructure != NULL) {
-		t_string_printfa(ctx->str, "BODYSTRUCTURE %s ",
+		t_string_printfa(ctx->str, "BODYSTRUCTURE (%s) ",
 				 bodystructure);
 		return TRUE;
 	} else {

@@ -5,22 +5,22 @@
 #include "commands.h"
 
 /* Returns status items, or -1 if error */
-static MailboxStatusItems get_status_items(Client *client, ImapArgList *list)
+static MailboxStatusItems get_status_items(Client *client, ImapArg *args)
 {
 	const char *item;
 	MailboxStatusItems items;
 
 	items = 0;
-	for (; list != NULL; list = list->next) {
-		if (list->arg.type != IMAP_ARG_ATOM) {
+	for (; args->type != IMAP_ARG_EOL; args++) {
+		if (args->type != IMAP_ARG_ATOM) {
 			/* list may contain only atoms */
-			client_send_command_error(client, "Status list "
-						  "contains non-atoms.");
+			client_send_command_error(client,
+				"Status list contains non-atoms.");
 			return -1;
 		}
 
-		str_ucase(list->arg.data.str);
-		item = list->arg.data.str;
+		str_ucase(args->data.str);
+		item = args->data.str;
 
 		if (strcmp(item, "MESSAGES") == 0)
 			items |= STATUS_MESSAGES;
@@ -95,7 +95,7 @@ int cmd_status(Client *client)
 	}
 
 	/* get the items client wants */
-	items = get_status_items(client, args[1].data.list);
+	items = get_status_items(client, args[1].data.list->args);
 	if (items == (MailboxStatusItems)-1) {
 		/* error */
 		return TRUE;

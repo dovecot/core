@@ -27,7 +27,7 @@ int cmd_search(Client *client)
 
 	pool = pool_create("MailSearchArgs", 2048, FALSE);
 
-	sargs = mail_search_args_build(pool, args, args_count, &error);
+	sargs = mail_search_args_build(pool, args, &error);
 	if (sargs == NULL) {
 		/* error in search arguments */
 		client_send_tagline(client, t_strconcat("NO ", error, NULL));

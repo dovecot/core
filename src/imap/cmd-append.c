@@ -92,7 +92,8 @@ int cmd_append(Client *client)
 		return FALSE;
 	}
 
-	if (!client_parse_mail_flags(client, flags_list, &flags, custom_flags))
+	if (!client_parse_mail_flags(client, flags_list->args, flags_list->size,
+				     &flags, custom_flags))
 		return TRUE;
 
 	if (internal_date_str == NULL) {
