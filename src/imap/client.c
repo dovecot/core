@@ -249,8 +249,8 @@ static int client_handle_input(Client *client)
 {
         if (client->cmd_func != NULL) {
 		/* command is being executed - continue it */
-		if (client->cmd_func(client)) {
-			/* command is finished */
+		if (client->cmd_func(client) || client->cmd_error) {
+			/* command execution was finished */
 			client_command_finished(client);
 			return TRUE;
 		}

@@ -257,7 +257,7 @@ static int imap_parser_read_atom(ImapParser *parser, const char *data,
 	}
 
 	parser->cur_pos = i;
-	return TRUE;
+	return parser->cur_type == ARG_PARSE_NONE;
 }
 
 static int imap_parser_read_string(ImapParser *parser, const char *data,
@@ -299,7 +299,7 @@ static int imap_parser_read_string(ImapParser *parser, const char *data,
 	}
 
 	parser->cur_pos = i;
-	return TRUE;
+	return parser->cur_type == ARG_PARSE_NONE;
 }
 
 static int imap_parser_literal_end(ImapParser *parser)
@@ -333,13 +333,13 @@ static int imap_parser_read_literal(ImapParser *parser, const char *data,
 	for (i = parser->cur_pos; i < data_size; i++) {
 		if (data[i] == '}') {
 			i_buffer_skip(parser->inbuf, i+1);
-			if (!imap_parser_literal_end(parser))
-				return FALSE;
-			break;
+			return imap_parser_literal_end(parser);
 		}
 
-		if (data[i] < '0' || data[i] > '9')
+		if (data[i] < '0' || data[i] > '9') {
+			parser->error = TRUE;
 			return FALSE;
+		}
 
 		prev_size = parser->literal_size;
 		parser->literal_size = parser->literal_size*10 + (data[i]-'0');
@@ -351,7 +351,8 @@ static int imap_parser_read_literal(ImapParser *parser, const char *data,
 		}
 	}
 
-	return TRUE;
+	parser->cur_pos = i;
+	return FALSE;
 }
 
 static int imap_parser_read_literal_data(ImapParser *parser, const char *data,
@@ -359,16 +360,21 @@ static int imap_parser_read_literal_data(ImapParser *parser, const char *data,
 {
 	if (parser->literal_skip_crlf) {
 		/* skip \r\n or \n, anything else gives an error */
+		if (data_size == 0)
+			return FALSE;
+
 		if (*data == '\r') {
 			if (data_size == 1)
-				return TRUE;
+				return FALSE;
 
 			data++; data_size--;
 			i_buffer_skip(parser->inbuf, 1);
 		}
 
-		if (*data != '\n')
+		if (*data != '\n') {
+			parser->error = TRUE;
 			return FALSE;
+		}
 
 		data++; data_size--;
 		i_buffer_skip(parser->inbuf, 1);
@@ -379,17 +385,19 @@ static int imap_parser_read_literal_data(ImapParser *parser, const char *data,
 
 	if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0) {
 		/* now we just wait until we've read enough data */
-		if (data_size >= parser->literal_size) {
+		if (data_size < parser->literal_size)
+			return FALSE;
+		else {
 			imap_parser_save_arg(parser, data,
 					     (size_t)parser->literal_size);
 			parser->cur_pos = (size_t)parser->literal_size;
+			return TRUE;
 		}
 	} else {
 		/* we want to save only literal size, not the literal itself. */
 		imap_parser_save_arg(parser, NULL, 0);
+		return TRUE;
 	}
-
-	return TRUE;
 }
 
 /* Returns TRUE if argument was fully processed. Also returns TRUE if
@@ -467,13 +475,15 @@ static int imap_parser_read_arg(ImapParser *parser)
 
 		/* fall through */
 	case ARG_PARSE_LITERAL_DATA:
-		imap_parser_read_literal_data(parser, data, data_size);
+		if (!imap_parser_read_literal_data(parser, data, data_size))
+			return FALSE;
 		break;
 	default:
                 i_unreached();
 	}
 
-	return parser->cur_type == ARG_PARSE_NONE;
+	i_assert(parser->cur_type == ARG_PARSE_NONE);
+	return TRUE;
 }
 
 int imap_parser_read_args(ImapParser *parser, unsigned int count,
