@@ -1,5 +1,8 @@
 /* Copyright (C) 2004 Timo Sirainen */
 
+/* MD5 header summing logic was pretty much copy&pasted from popa3d by
+   Solar Designer */
+
 #include "lib.h"
 #include "buffer.h"
 #include "istream.h"
@@ -266,9 +269,64 @@ static int parse_content_length(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
+static int parse_date(struct mbox_sync_mail_context *ctx,
+		      struct message_header_line *hdr)
+{
+	if (!ctx->seen_received_hdr) {
+		/* Received-header contains date too, and more trusted one */
+		md5_update(&ctx->hdr_md5_ctx, hdr->value, hdr->value_len);
+	}
+	return TRUE;
+}
+
+static int parse_delivered_to(struct mbox_sync_mail_context *ctx,
+			      struct message_header_line *hdr)
+{
+	md5_update(&ctx->hdr_md5_ctx, hdr->value, hdr->value_len);
+	return TRUE;
+}
+
+static int parse_message_id(struct mbox_sync_mail_context *ctx,
+			    struct message_header_line *hdr)
+{
+	if (!ctx->seen_received_hdr) {
+		/* Received-header contains unique ID too,
+		   and more trusted one */
+		md5_update(&ctx->hdr_md5_ctx, hdr->value, hdr->value_len);
+	}
+	return TRUE;
+}
+
+static int parse_received(struct mbox_sync_mail_context *ctx,
+			  struct message_header_line *hdr)
+{
+	if (!ctx->seen_received_hdr) {
+		/* get only the first received-header */
+		md5_update(&ctx->hdr_md5_ctx, hdr->value, hdr->value_len);
+		if (!hdr->continues)
+			ctx->seen_received_hdr = TRUE;
+	}
+	return TRUE;
+}
+
+static int parse_x_delivery_id(struct mbox_sync_mail_context *ctx,
+			       struct message_header_line *hdr)
+{
+	/* Let the local delivery agent help generate unique ID's but don't
+	   blindly trust this header alone as it could just as easily come from
+	   the remote. */
+	md5_update(&ctx->hdr_md5_ctx, hdr->value, hdr->value_len);
+	return TRUE;
+}
+
 static struct header_func header_funcs[] = {
 	{ "Content-Length", parse_content_length },
+	{ "Date", parse_date },
+	{ "Delivered-To", parse_delivered_to },
+	{ "Message-ID", parse_message_id },
+	{ "Received", parse_received },
 	{ "Status", parse_status },
+	{ "X-Delivery-ID", parse_x_delivery_id },
 	{ "X-IMAP", parse_x_imap },
 	{ "X-IMAPbase", parse_x_imap_base },
 	{ "X-Keywords", parse_x_keywords },
@@ -309,6 +367,8 @@ void mbox_sync_parse_next_mail(struct istream *input,
 
 	ctx->content_length = (uoff_t)-1;
 	str_truncate(ctx->header, 0);
+
+	md5_init(&ctx->hdr_md5_ctx);
 
         line_start_pos = 0;
 	hdr_ctx = message_parse_header_init(input, NULL, FALSE);
@@ -360,6 +420,8 @@ void mbox_sync_parse_next_mail(struct istream *input,
 			str_append_c(ctx->header, '\n');
 	}
 	message_parse_header_deinit(hdr_ctx);
+
+	md5_final(&ctx->hdr_md5_ctx, ctx->hdr_md5_sum);
 
 	if ((ctx->seq == 1 && sync_ctx->base_uid_validity == 0) ||
 	    (ctx->seq > 1 && sync_ctx->dest_first_mail)) {

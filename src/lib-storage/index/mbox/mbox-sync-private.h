@@ -1,6 +1,7 @@
 #ifndef __MBOX_SYNC_PRIVATE_H
 #define __MBOX_SYNC_PRIVATE_H
 
+#include "md5.h"
 #include "mail-index.h"
 
 struct mbox_flag_type {
@@ -56,6 +57,9 @@ struct mbox_sync_mail_context {
 	size_t header_first_change, header_last_change;
 	string_t *header, *uidl;
 
+	struct md5_context hdr_md5_ctx;
+	unsigned char hdr_md5_sum[16];
+
 	uoff_t content_length;
 
 	size_t hdr_pos[MBOX_HDR_COUNT];
@@ -67,6 +71,7 @@ struct mbox_sync_mail_context {
 	unsigned int seen_imapbase:1;
 	unsigned int pseudo:1;
 	unsigned int updated:1;
+	unsigned int seen_received_hdr:1;
 };
 
 struct mbox_sync_context {

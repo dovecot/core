@@ -365,6 +365,45 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 	return ret;
 }
 
+static int mbox_sync_find_index_md5(struct mbox_sync_context *sync_ctx,
+				    unsigned char hdr_md5_sum[],
+				    const struct mail_index_record **rec_r)
+{
+        const struct mail_index_record *rec = NULL;
+	uint32_t messages_count;
+	const void *data;
+	int ret;
+
+	messages_count = mail_index_view_get_message_count(sync_ctx->sync_view);
+	while (sync_ctx->idx_seq <= messages_count) {
+		ret = mail_index_lookup(sync_ctx->sync_view,
+					sync_ctx->idx_seq, &rec);
+		if (ret < 0) {
+			mail_storage_set_index_error(sync_ctx->ibox);
+			return -1;
+		}
+
+		if (mail_index_lookup_extra(sync_ctx->sync_view,
+					    sync_ctx->idx_seq,
+					    sync_ctx->ibox->md5hdr_extra_idx,
+					    &data) < 0) {
+			mail_storage_set_index_error(sync_ctx->ibox);
+			return -1;
+		}
+
+		if (memcmp(data, hdr_md5_sum, 16) == 0)
+			break;
+
+		/* externally expunged message, remove from index */
+		mail_index_expunge(sync_ctx->t, sync_ctx->idx_seq);
+                sync_ctx->idx_seq++;
+		rec = NULL;
+	}
+
+	*rec_r = rec;
+	return 0;
+}
+
 static int mbox_sync_get_from_offset(struct mbox_sync_context *sync_ctx,
 				     uint32_t seq, uint64_t *offset_r)
 {
@@ -419,6 +458,14 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 		mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
 					MODIFY_REPLACE, mbox_flags,
 					mail->keywords);
+
+		if (sync_ctx->ibox->md5hdr_extra_idx != 0) {
+			mail_index_update_extra_rec(sync_ctx->t,
+				sync_ctx->idx_seq,
+				sync_ctx->ibox->md5hdr_extra_idx,
+				mail_ctx->hdr_md5_sum);
+		}
+
 		if (str_len(mail_ctx->uidl) > 0) {
 			/*FIXME:mail_cache_add(sync_ctx->cache_trans,
 				       MAIL_CACHE_UID_STRING,
@@ -762,13 +809,33 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			return -1;
 
 		rec = NULL;
-		if (uid != 0 && !mail_ctx->pseudo) {
+		if (uid != 0 && !mail_ctx->pseudo &&
+		    sync_ctx->ibox->md5hdr_extra_idx == 0) {
 			ret = mbox_sync_read_index_rec(sync_ctx, uid, &rec);
 			if (ret < 0)
 				return -1;
 			if (ret == 0)
 				uid = 0;
 		}
+
+		if (uid == 0 && sync_ctx->ibox->mbox_readonly) {
+			/* Use MD5 sums */
+			if (sync_ctx->ibox->md5hdr_extra_idx == 0) {
+				sync_ctx->ibox->md5hdr_extra_idx =
+					mail_index_register_record_extra(
+						sync_ctx->ibox->index,
+						"header-md5", 16);
+			}
+
+			if (mbox_sync_find_index_md5(sync_ctx,
+						     mail_ctx->hdr_md5_sum,
+						     &rec) < 0)
+				return -1;
+
+			if (rec != NULL)
+				uid = rec->uid;
+		}
+
 		if (uid == 0) {
 			/* missing/broken X-UID. all the rest of the mails
 			   need new UIDs. */

@@ -88,7 +88,7 @@ struct index_mailbox {
 	unsigned int mbox_lock_id, mbox_mail_lock_id;
 	int mbox_readonly;
 
-	uint32_t mbox_extra_idx;
+	uint32_t mbox_extra_idx, md5hdr_extra_idx;
 
 	/* maildir sync: */
 	struct maildir_uidlist *uidlist;
