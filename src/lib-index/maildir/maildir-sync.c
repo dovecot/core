@@ -788,6 +788,8 @@ static int maildir_sync_new_dir(struct maildir_sync_context *ctx,
 		if (append_index) {
 			if (!move_to_cur)
 				ctx->index->maildir_have_new = TRUE;
+			if (ctx->uidlist != NULL)
+				ctx->uidlist->rewrite = TRUE;
 
 			t_push();
 			if (!maildir_index_append_file(ctx->index, final_dir,
