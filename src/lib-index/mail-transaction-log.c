@@ -1192,7 +1192,7 @@ static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 				      struct mail_index_transaction *t)
 {
 	struct mail_index *index = t->view->index;
-	struct mail_keyword_transaction *kt;
+	struct mail_keyword_transaction **kt;
 	struct mail_transaction_keyword_update kt_hdr;
 	buffer_t *buf;
 	size_t i, size, size_offset, name_offset;
@@ -1206,27 +1206,29 @@ static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 		buffer_set_used_size(buf, 0);
 
 		memset(&kt_hdr, 0, sizeof(kt_hdr));
-		kt_hdr.keywords_count = kt[i].keywords->count;
-		kt_hdr.modify_type = kt[i].modify_type;
+		kt_hdr.keywords_count = kt[i]->keywords->count;
+		kt_hdr.modify_type = kt[i]->modify_type;
 		buffer_append(buf, &kt_hdr,
 			      sizeof(kt_hdr) - sizeof(kt_hdr.name_size));
 
 		size_offset = buf->used;
 		name_offset = buf->used +
-			kt[i].keywords->count * sizeof(uint16_t);
+			kt[i]->keywords->count * sizeof(uint16_t);
 
 		idx = 0;
-		first_keyword = kt[i].keywords->start;
-		last_idx = kt[i].keywords->end - first_keyword;
+		first_keyword = kt[i]->keywords->start;
+		last_idx = kt[i]->keywords->end - first_keyword;
 
 		for (; idx <= last_idx; idx++) {
 			uint16_t name_size;
 			const char *keyword;
 
-			if ((kt[i].keywords->bitmask[idx / 8] &
+			if ((kt[i]->keywords->bitmask[idx / 8] &
 			     (1 << (idx % 8))) == 0)
 				continue;
 
+			i_assert(first_keyword + idx <
+				 index->keywords_buf->used / sizeof(keyword));
 			keyword = index->keywords[first_keyword + idx];
 
 			name_size = strlen(keyword);
@@ -1240,7 +1242,7 @@ static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 
 		if ((buf->used % 4) != 0)
 			buffer_append_zero(buf, 4 - (buf->used % 4));
-		buffer_append_buf(buf, kt[i].messages, 0, (size_t)-1);
+		buffer_append_buf(buf, kt[i]->messages, 0, (size_t)-1);
 
 		if (log_append_buffer(file, buf, NULL,
 				      MAIL_TRANSACTION_KEYWORD_UPDATE,

@@ -60,6 +60,7 @@ static void mail_keyword_transaction_free(struct mail_keyword_transaction *kt)
 
 	if (kt->messages != NULL)
 		buffer_free(kt->messages);
+	i_free(kt);
 }
 
 static void mail_index_transaction_free(struct mail_index_transaction *t)
@@ -81,13 +82,13 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 	}
 
 	if (t->keyword_updates != NULL) {
-		struct mail_keyword_transaction *kt;
+		struct mail_keyword_transaction **kt;
 
 		kt = buffer_get_modifyable_data(t->keyword_updates, &size);
 		size /= sizeof(*kt);
 
 		for (i = 0; i < size; i++)
-			mail_keyword_transaction_free(&kt[i]);
+			mail_keyword_transaction_free(kt[i]);
 		buffer_free(t->keyword_updates);
 	}
 
@@ -175,16 +176,16 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 	}
 
 	if (t->keyword_updates != NULL) {
-		struct mail_keyword_transaction *kt;
+		struct mail_keyword_transaction **kt;
 
 		kt = buffer_get_modifyable_data(t->keyword_updates, &size);
 		size /= sizeof(*kt);
 
 		for (i = 0; i < size; i++) {
-			if (kt[i].messages == NULL)
+			if (kt[i]->messages == NULL)
 				continue;
 
-			mail_index_buffer_convert_to_uids(t, kt[i].messages,
+			mail_index_buffer_convert_to_uids(t, kt[i]->messages,
 				sizeof(uint32_t) * 2, TRUE);
 		}
 	}
@@ -746,12 +747,14 @@ mail_keyword_transaction_new(struct mail_index_transaction *t,
 	if (t->keyword_updates == NULL)
                 t->keyword_updates = buffer_create_dynamic(default_pool, 512);
 
-	kt = buffer_append_space_unsafe(t->keyword_updates, sizeof(*kt));
+	kt = i_new(struct mail_keyword_transaction, 1);
 	kt->transaction = t;
 	kt->keywords = keywords;
 
 	kt->next = keywords->kt;
 	keywords->kt = kt;
+
+	buffer_append(t->keyword_updates, &kt, sizeof(kt));
 	return kt;
 }
 
