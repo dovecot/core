@@ -955,7 +955,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					struct mbox_sync_mail_context *mail_ctx)
 {
-	uoff_t file_size, offset, padding, trailer_size, old_file_size;
+	uoff_t file_size, offset, padding, trailer_size;
 
 	if (!istream_raw_mbox_is_eof(sync_ctx->input)) {
 		i_assert(sync_ctx->need_space_seq == 0);
@@ -973,27 +973,24 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 			(sync_ctx->seq - sync_ctx->need_space_seq + 1);
 		sync_ctx->space_diff -= padding;
 
+		i_assert(sync_ctx->expunged_space <= -sync_ctx->space_diff);
 		sync_ctx->space_diff += sync_ctx->expunged_space;
-		if (sync_ctx->expunged_space <= -sync_ctx->space_diff)
-			sync_ctx->expunged_space = 0;
-		else
-			sync_ctx->expunged_space -= -sync_ctx->space_diff;
+		sync_ctx->expunged_space = 0;
 
 		if (mail_ctx->have_eoh && !mail_ctx->updated)
 			str_append_c(mail_ctx->header, '\n');
 
 		i_assert(sync_ctx->space_diff < 0);
 
-		old_file_size = i_stream_get_size(sync_ctx->file_input);
 		if (file_set_size(sync_ctx->fd,
-				  old_file_size + -sync_ctx->space_diff) < 0) {
+				  file_size + -sync_ctx->space_diff) < 0) {
 			mbox_set_syscall_error(sync_ctx->ibox,
 					       "file_set_size()");
 			return -1;
 		}
 		istream_raw_mbox_flush(sync_ctx->input);
 
-		if (mbox_sync_rewrite(sync_ctx, old_file_size,
+		if (mbox_sync_rewrite(sync_ctx, file_size,
 				      -sync_ctx->space_diff, padding,
 				      sync_ctx->need_space_seq,
 				      sync_ctx->seq) < 0)
