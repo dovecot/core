@@ -625,7 +625,7 @@ AC_TRY_RUN([
   
     return strcmp(mem, "3") == 0 ? 0 : 1;
   }
-],
+], [
   AC_MSG_RESULT(no)
 ], [
   AC_MSG_RESULT(yes)
