@@ -8,7 +8,7 @@
 #include "common.h"
 #include "str.h"
 #include "var-expand.h"
-#include "password-verify.h"
+#include "password-scheme.h"
 #include "db-ldap.h"
 #include "passdb.h"
 

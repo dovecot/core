@@ -38,7 +38,7 @@ dovecot_auth_SOURCES = \
 	passdb-pam.c \
 	passdb-shadow.c \
 	passdb-vpopmail.c \
-	password-verify.c \
+	password-scheme.c \
 	userdb.c \
 	userdb-ldap.c \
 	userdb-passwd.c \
@@ -59,6 +59,6 @@ noinst_HEADERS = \
 	mech.h \
 	mycrypt.h \
 	passdb.h \
-	password-verify.h \
+	password-scheme.h \
 	userdb.h \
 	userdb-vpopmail.h

@@ -3,6 +3,7 @@
 #include "common.h"
 #include "mech.h"
 #include "auth-module.h"
+#include "password-scheme.h"
 #include "passdb.h"
 
 #include <stdlib.h>
@@ -49,12 +50,19 @@ void passdb_handle_credentials(enum passdb_credentials credentials,
 	if (password != NULL) {
 		wanted_scheme = passdb_credentials_to_str(credentials);
 		if (strcasecmp(scheme, wanted_scheme) != 0) {
-			if (verbose) {
-				i_info("password(%s): Requested %s scheme, "
-				       "but we have only %s", user,
-				       wanted_scheme, scheme);
+			if (strcasecmp(scheme, "PLAIN") == 0) {
+				/* we can generate anything out of plaintext
+				   passwords */
+				password = password_generate(password, user,
+							     wanted_scheme);
+			} else {
+				if (verbose) {
+					i_info("password(%s): Requested %s "
+					       "scheme, but we have only %s",
+					       user, wanted_scheme, scheme);
+				}
+				password = NULL;
 			}
-			password = NULL;
 		}
 	}
 

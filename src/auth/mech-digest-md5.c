@@ -309,7 +309,7 @@ static int auth_handle_response(struct digest_auth_request *auth,
 			*error = "Invalid realm";
 			return FALSE;
 		}
-		if (auth->realm == NULL)
+		if (auth->realm == NULL && *value != '\0')
 			auth->realm = p_strdup(auth->pool, value);
 		return TRUE;
 	}

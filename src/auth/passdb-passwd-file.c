@@ -7,7 +7,7 @@
 
 #include "common.h"
 #include "passdb.h"
-#include "password-verify.h"
+#include "password-scheme.h"
 #include "db-passwd-file.h"
 
 struct passwd_file *passdb_pwf = NULL;
