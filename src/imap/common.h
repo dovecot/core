@@ -11,6 +11,6 @@
 #define DEFAULT_MAX_CUSTOM_FLAG_LENGTH 50
 
 extern struct ioloop *ioloop;
-extern unsigned int max_custom_flag_length;
+extern unsigned int max_custom_flag_length, mailbox_check_interval;
 
 #endif

@@ -5,6 +5,13 @@
 #include "mail-index.h"
 #include "index-mail.h"
 
+struct index_autosync_file {
+	struct index_autosync_file *next;
+
+	char *path;
+	time_t last_stamp;
+};
+
 struct index_mailbox {
 	struct mailbox box;
 
@@ -14,10 +21,11 @@ struct index_mailbox {
 
 	struct mail_index *index;
 
-	char *check_path;
-	struct timeout *check_to;
-	time_t check_file_stamp;
-	time_t last_check;
+	struct timeout *autosync_to;
+        struct index_autosync_file *autosync_files;
+	enum mailbox_sync_type autosync_type;
+	time_t sync_last_check;
+	unsigned int min_newmail_notify_interval;
 
 	struct index_mail fetch_mail; /* fetch_uid() or fetch_seq() */
 	unsigned int synced_messages_count;
@@ -64,7 +72,7 @@ int index_storage_save(struct mail_storage *storage, const char *path,
 		       struct istream *input, struct ostream *output);
 
 void index_mailbox_check_add(struct index_mailbox *ibox, const char *path);
-void index_mailbox_check_remove(struct index_mailbox *ibox);
+void index_mailbox_check_remove_all(struct index_mailbox *ibox);
 
 /* mailbox methods: */
 void index_storage_set_callbacks(struct mail_storage *storage,

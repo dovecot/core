@@ -44,6 +44,7 @@ int cmd_store(struct client *client);
 int cmd_copy(struct client *client);
 int cmd_uid(struct client *client);
 int cmd_unselect(struct client *client);
+int cmd_idle(struct client *client);
 
 /* private: */
 int _cmd_list_full(struct client *client, int subscribed);

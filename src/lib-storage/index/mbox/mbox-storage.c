@@ -338,10 +338,8 @@ static struct mailbox *mbox_open(struct mail_storage *storage, const char *name,
 
 	ibox = index_storage_init(storage, &mbox_mailbox, index,
 				  name, readonly, fast);
-	if (ibox != NULL) {
+	if (ibox != NULL)
 		ibox->expunge_locked = mbox_expunge_locked;
-		index_mailbox_check_add(ibox, index->mailbox_path);
-	}
 	return (struct mailbox *) ibox;
 }
 
@@ -621,6 +619,19 @@ static int mbox_storage_close(struct mailbox *box)
 	return index_storage_close(box) && !failed;
 }
 
+static void mbox_storage_auto_sync(struct mailbox *box,
+				   enum mailbox_sync_type sync_type,
+				   unsigned int min_newmail_notify_interval)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+
+	ibox->autosync_type = sync_type;
+	ibox->min_newmail_notify_interval = min_newmail_notify_interval;
+
+        index_mailbox_check_remove_all(ibox);
+	index_mailbox_check_add(ibox, ibox->index->mailbox_path);
+}
+
 struct mail_storage mbox_storage = {
 	"mbox", /* name */
 
@@ -657,6 +668,7 @@ struct mailbox mbox_mailbox = {
 	mbox_storage_close,
 	index_storage_get_status,
 	index_storage_sync,
+	mbox_storage_auto_sync,
 	index_storage_expunge,
 	index_storage_update_flags,
 	index_storage_copy,

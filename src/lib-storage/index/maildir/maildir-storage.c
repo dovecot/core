@@ -224,10 +224,8 @@ maildir_open(struct mail_storage *storage, const char *name,
 
 	ibox = index_storage_init(storage, &maildir_mailbox, index, name,
 				  readonly, fast);
-	if (ibox != NULL) {
+	if (ibox != NULL)
 		ibox->expunge_locked = maildir_expunge_locked;
-		index_mailbox_check_add(ibox, t_strconcat(path, "/new", NULL));
-	}
 	return (struct mailbox *) ibox;
 }
 
@@ -553,6 +551,23 @@ static int maildir_get_mailbox_name_status(struct mail_storage *storage,
 	}
 }
 
+static void maildir_storage_auto_sync(struct mailbox *box,
+				      enum mailbox_sync_type sync_type,
+				      unsigned int min_newmail_notify_interval)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+
+	ibox->autosync_type = sync_type;
+	ibox->min_newmail_notify_interval = min_newmail_notify_interval;
+
+        index_mailbox_check_remove_all(ibox);
+	index_mailbox_check_add(ibox, t_strconcat(ibox->index->mailbox_path,
+						  "/new", NULL));
+	index_mailbox_check_add(ibox, t_strconcat(ibox->index->mailbox_path,
+						  "/cur", NULL));
+}
+
+
 struct mail_storage maildir_storage = {
 	"maildir", /* name */
 
@@ -589,6 +604,7 @@ struct mailbox maildir_mailbox = {
 	index_storage_close,
 	index_storage_get_status,
 	index_storage_sync,
+	maildir_storage_auto_sync,
 	index_storage_expunge,
 	index_storage_update_flags,
 	maildir_storage_copy,

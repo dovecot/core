@@ -73,6 +73,11 @@ int _cmd_select_full(struct client *client, int readonly)
 			    "OK [READ-ONLY] Select completed." :
 			    "OK [READ-WRITE] Select completed.");
 
+	if (mailbox_check_interval != 0) {
+		box->auto_sync(box, MAILBOX_SYNC_NO_EXPUNGES,
+			       mailbox_check_interval);
+	}
+
 	return TRUE;
 }
 

@@ -276,7 +276,7 @@ int index_storage_close(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
-	index_mailbox_check_remove(ibox);
+	index_mailbox_check_remove_all(ibox);
 	if (ibox->index != NULL)
 		index_storage_unref(ibox->index);
 

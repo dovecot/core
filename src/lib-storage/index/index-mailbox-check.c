@@ -7,47 +7,65 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-static int check_interval = -1;
-
 static void check_timeout(void *context)
 {
 	struct index_mailbox *ibox = context;
+	struct index_autosync_file *file;
 	struct stat st;
+	int synced, sync_expunges;
 
-	if (ioloop_time - ibox->last_check < check_interval)
+	/* check changes only when we can also notify of new mail */
+	if ((unsigned int) (ioloop_time - ibox->sync_last_check) <
+	    ibox->min_newmail_notify_interval)
 		return;
 
-	ibox->last_check = ioloop_time;
-	if (stat(ibox->check_path, &st) == 0 &&
-	    ibox->check_file_stamp != st.st_mtime) {
-		ibox->check_file_stamp = st.st_mtime;
-		ibox->box.sync(&ibox->box, FALSE);
+	ibox->sync_last_check = ioloop_time;
+
+	synced = FALSE;
+	sync_expunges = ibox->autosync_type != MAILBOX_SYNC_NO_EXPUNGES;
+
+	for (file = ibox->autosync_files; file != NULL; file = file->next) {
+		if (stat(file->path, &st) == 0 &&
+		    file->last_stamp != st.st_mtime) {
+			file->last_stamp = st.st_mtime;
+			if (!synced) {
+				ibox->box.sync(&ibox->box, sync_expunges);
+				synced = TRUE;
+			}
+		}
 	}
 }
 
 void index_mailbox_check_add(struct index_mailbox *ibox, const char *path)
 {
-	const char *str;
+	struct index_autosync_file *file;
 	struct stat st;
 
-	if (check_interval < 0) {
-		str = getenv("MAILBOX_CHECK_INTERVAL");
-		check_interval = str == NULL ? 0 : atoi(str);
-		if (check_interval < 0)
-			check_interval = 0;
-	}
+	file = i_new(struct index_autosync_file, 1);
+	file->path = i_strdup(path);
+	file->last_stamp = stat(path, &st) < 0 ? 0 : st.st_mtime;
 
-	if (check_interval == 0)
-		return;
+	file->next = ibox->autosync_files;
+        ibox->autosync_files = file;
 
-	ibox->check_path = i_strdup(path);
-	ibox->check_file_stamp = stat(path, &st) < 0 ? 0 : st.st_mtime;
-	ibox->check_to = timeout_add(1000, check_timeout, ibox);
+	if (ibox->autosync_to == NULL)
+		ibox->autosync_to = timeout_add(1000, check_timeout, ibox);
 }
 
-void index_mailbox_check_remove(struct index_mailbox *ibox)
+void index_mailbox_check_remove_all(struct index_mailbox *ibox)
 {
-	if (ibox->check_to != NULL)
-		timeout_remove(ibox->check_to);
-	i_free(ibox->check_path);
+	struct index_autosync_file *file;
+
+	while (ibox->autosync_files != NULL) {
+		file = ibox->autosync_files;
+		ibox->autosync_files = file->next;
+
+                i_free(file->path);
+		i_free(file);
+	}
+
+	if (ibox->autosync_to != NULL) {
+		timeout_remove(ibox->autosync_to);
+		ibox->autosync_to = NULL;
+	}
 }

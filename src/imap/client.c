@@ -30,8 +30,6 @@ extern struct mail_storage_callbacks mail_storage_callbacks;
 static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
-static void client_input(void *context);
-
 static void client_output_timeout(void *context)
 {
 	struct client *client = context;
@@ -67,7 +65,7 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 	o_stream_set_blocking(client->output, CLIENT_OUTPUT_TIMEOUT,
 			      client_output_timeout, client);
 
-	client->io = io_add(hin, IO_READ, client_input, client);
+	client->io = io_add(hin, IO_READ, _client_input, client);
 	client->parser = imap_parser_create(client->input, client->output,
 					    MAX_INBUF_SIZE,
 					    MAX_IMAP_ARG_ELEMENTS);
@@ -222,7 +220,7 @@ int client_read_string_args(struct client *client, unsigned int count, ...)
 	return i == count;
 }
 
-static void client_reset_command(struct client *client)
+void _client_reset_command(struct client *client)
 {
 	client->cmd_tag = NULL;
 	client->cmd_name = NULL;
@@ -260,7 +258,7 @@ static int client_handle_input(struct client *client)
 		client->input_skip_line = TRUE;
 		if (client->cmd_func(client) || client->cmd_error) {
 			/* command execution was finished */
-			client_reset_command(client);
+			_client_reset_command(client);
                         client->bad_counter = 0;
 			return TRUE;
 		}
@@ -273,7 +271,7 @@ static int client_handle_input(struct client *client)
 			return FALSE;
 
 		/* got the newline */
-		client_reset_command(client);
+		_client_reset_command(client);
 
 		/* pass through to parse next command */
 	}
@@ -302,20 +300,23 @@ static int client_handle_input(struct client *client)
 		client_send_command_error(client, t_strconcat(
 			"Unknown command '", client->cmd_name, "'", NULL));
 		client->input_skip_line = TRUE;
-		client_reset_command(client);
+		_client_reset_command(client);
 	} else {
 		client->input_skip_line = TRUE;
 		if (client->cmd_func(client) || client->cmd_error) {
 			/* command execution was finished */
-			client_reset_command(client);
+			_client_reset_command(client);
                         client->bad_counter = 0;
+		} else {
+			/* unfinished */
+			return FALSE;
 		}
 	}
 
 	return TRUE;
 }
 
-static void client_input(void *context)
+void _client_input(void *context)
 {
 	struct client *client = context;
 
@@ -333,7 +334,7 @@ static void client_input(void *context)
 		client->input_skip_line = TRUE;
 
 		client_send_command_error(client, "Too long argument.");
-		client_reset_command(client);
+		_client_reset_command(client);
 		break;
 	}
 

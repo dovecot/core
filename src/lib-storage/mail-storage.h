@@ -33,6 +33,12 @@ enum mailbox_name_status {
 	MAILBOX_NAME_NOINFERIORS
 };
 
+enum mailbox_sync_type {
+	MAILBOX_SYNC_NONE,
+	MAILBOX_SYNC_ALL,
+	MAILBOX_SYNC_NO_EXPUNGES
+};
+
 enum modify_type {
 	MODIFY_ADD,
 	MODIFY_REMOVE,
@@ -205,6 +211,11 @@ struct mailbox {
 	/* Synchronize the mailbox. If sync_expunges is FALSE, everything
 	   but expunges are synced. */
 	int (*sync)(struct mailbox *box, int sync_expunges);
+
+	/* Synchronize mailbox in background. It's done until this function is
+	   called with sync_type = MAILBOX_SYNC_NONE */
+	void (*auto_sync)(struct mailbox *box, enum mailbox_sync_type sync_type,
+			  unsigned int min_newmail_notify_interval);
 
 	/* Expunge all mails with \Deleted flag. If notify is TRUE, call
 	   expunge callbacks. Also always does full syncing. */

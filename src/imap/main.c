@@ -16,7 +16,7 @@
         (getenv("LOGGED_IN") == NULL)
 
 struct ioloop *ioloop;
-unsigned int max_custom_flag_length;
+unsigned int max_custom_flag_length, mailbox_check_interval;
 
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 
@@ -106,6 +106,10 @@ static void main_init(void)
 	max_custom_flag_length = str != NULL ?
 		(unsigned int)strtoul(str, NULL, 10) :
 		DEFAULT_MAX_CUSTOM_FLAG_LENGTH;
+
+	str = getenv("MAILBOX_CHECK_INTERVAL");
+	mailbox_check_interval = str == NULL ? 0 :
+		(unsigned int)strtoul(str, NULL, 10);
 
 	client = client_create(hin, hout, storage);
 

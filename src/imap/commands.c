@@ -41,6 +41,10 @@ client_command_func_t *client_command_find(const char *name)
 		if (strcmp(name, "FETCH") == 0)
 			return cmd_fetch;
 		break;
+	case 'I':
+		if (strcmp(name, "IDLE") == 0)
+			return cmd_idle;
+		break;
 	case 'L':
 		if (strcmp(name, "LIST") == 0)
 			return cmd_list;

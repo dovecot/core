@@ -214,7 +214,7 @@ int index_storage_sync(struct mailbox *box, int sync_expunges)
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 	int ret;
 
-	ibox->last_check = ioloop_time;
+	ibox->sync_last_check = ioloop_time;
 
 	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_UNLOCK))
 		return FALSE;

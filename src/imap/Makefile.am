@@ -35,6 +35,7 @@ cmds = \
 	cmd-examine.c \
 	cmd-expunge.c \
 	cmd-fetch.c \
+	cmd-idle.c \
 	cmd-list.c \
 	cmd-login.c \
 	cmd-logout.c \

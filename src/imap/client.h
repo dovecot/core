@@ -70,4 +70,7 @@ int client_read_string_args(struct client *client, unsigned int count, ...);
 void clients_init(void);
 void clients_deinit(void);
 
+void _client_input(void *context);
+void _client_reset_command(struct client *client);
+
 #endif
