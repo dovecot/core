@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "ssl-proxy.h"
 
 int ssl_initialized = FALSE;
 
