@@ -486,8 +486,7 @@ message_parse_body(struct istream *input, struct message_boundary *boundaries,
 	struct message_size body_size;
 
 	if (boundaries == NULL) {
-		message_get_body_size(input, &body_size,
-				      (uoff_t)-1, NULL, has_nuls);
+		message_get_body_size(input, &body_size, has_nuls);
 		message_size_add(msg_size, &body_size);
 		boundary = NULL;
 	} else {

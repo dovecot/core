@@ -435,8 +435,7 @@ static uoff_t get_size(struct mail *_mail)
 		data->hdr_size_set = TRUE;
 	}
 	if (body_size == (uoff_t)-1) {
-		message_get_body_size(data->stream, &data->body_size,
-				      (uoff_t)-1, NULL, NULL);
+		message_get_body_size(data->stream, &data->body_size, NULL);
 		body_size = data->body_size.virtual_size;
 		data->body_size_set = TRUE;
 	}
@@ -567,7 +566,7 @@ static struct istream *get_stream(struct mail *_mail,
 				      data->hdr_size.physical_size);
 
 			message_get_body_size(data->stream, &data->body_size,
-					      (uoff_t)-1, NULL, NULL);
+					      NULL);
 			data->body_size_set = TRUE;
 		}
 

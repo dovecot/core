@@ -62,63 +62,53 @@ void message_get_header_size(struct istream *input, struct message_size *hdr,
 }
 
 void message_get_body_size(struct istream *input, struct message_size *body,
-			   uoff_t max_virtual_size, int *last_cr, int *has_nuls)
+			   int *has_nuls)
 {
 	const unsigned char *msg;
-	size_t i, size, startpos, missing_cr_count;
-	int cr;
+	size_t i, size, missing_cr_count;
+	int last_cr;
 
 	memset(body, 0, sizeof(struct message_size));
 	if (has_nuls != NULL)
 		*has_nuls = FALSE;
 
-	cr = 0;
-	missing_cr_count = 0; startpos = 0;
-	while (max_virtual_size != 0 &&
-	       i_stream_read_data(input, &msg, &size, startpos) > 0) {
-		cr = 0;
-		for (i = startpos; i < size && max_virtual_size > 0; i++) {
-			max_virtual_size--;
+	missing_cr_count = 0; last_cr = FALSE;
+	if (i_stream_read_data(input, &msg, &size, 0) <= 0)
+		return;
 
-			if (msg[i] == '\0') {
-				if (has_nuls != NULL)
-					*has_nuls = TRUE;
-			} else if (msg[i] == '\n') {
-				if (i == 0 || msg[i-1] != '\r') {
+	if (msg[0] == '\n')
+		missing_cr_count++;
+
+	do {
+		for (i = 1; i < size; i++) {
+			if (msg[i] > '\n')
+				continue;
+
+			if (msg[i] == '\n') {
+				if (msg[i-1] != '\r') {
 					/* missing CR */
 					missing_cr_count++;
-
-					if (max_virtual_size == 0) {
-						cr = 2;
-						break;
-					}
-
-					max_virtual_size--;
 				}
 
 				/* increase after making sure we didn't break
 				   at virtual \r */
 				body->lines++;
+			} else if (msg[i] == '\0') {
+				if (has_nuls != NULL)
+					*has_nuls = TRUE;
 			}
 		}
 
-		if (cr == 0 && i > 0 && msg[i-1] == '\r')
-			cr = 1;
-
 		/* leave the last character, it may be \r */
 		i_stream_skip(input, i - 1);
-		startpos = 1;
-
 		body->physical_size += i - 1;
-	}
-	i_stream_skip(input, startpos);
-	body->physical_size += startpos;
+	} while (i_stream_read_data(input, &msg, &size, 1) > 0);
+
+	i_stream_skip(input, 1);
+	body->physical_size++;
 
 	body->virtual_size = body->physical_size + missing_cr_count;
 	i_assert(body->virtual_size >= body->physical_size);
-
-	if (last_cr != NULL)
-		*last_cr = cr;
 }
 
 void message_size_add(struct message_size *dest,
