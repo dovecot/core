@@ -386,7 +386,7 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 	}
 
 	/* check that all fields were found */
-	for (i = 0; i < ctx.max_field; i++) {
+	for (i = 0; i <= ctx.max_field; i++) {
 		if (ctx.fields_found[i] == 1) {
 			t_pop();
 			return 0;
