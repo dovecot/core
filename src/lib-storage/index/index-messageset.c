@@ -111,6 +111,8 @@ static unsigned int get_next_number(const char **str)
 
 static int messageset_parse_next(struct messageset_context *ctx)
 {
+	unsigned int num;
+
 	if (ctx->p == NULL) {
 		/* num1..num2 already set.  */
 		ctx->p = "";
@@ -163,6 +165,15 @@ static int messageset_parse_next(struct messageset_context *ctx)
 		unsigned int temp = ctx->num1;
 		ctx->num1 = ctx->num2;
 		ctx->num2 = temp;
+	}
+
+	num = ctx->num2 == (unsigned int)-1 ? ctx->num1 : ctx->num2;
+	if (num > ctx->messages_count && !ctx->uidset &&
+	    num != (unsigned int)-1) {
+		ctx->error = t_strdup_printf("Message sequence %u "
+					     "larger than message count (%u)",
+					     num, ctx->messages_count);
+		return FALSE;
 	}
 
 	return TRUE;
