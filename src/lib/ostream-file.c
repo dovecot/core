@@ -133,12 +133,13 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 			       const struct const_iovec *iov, int iov_size)
 {
 	ssize_t ret;
-	size_t size;
+	size_t size, sent;
 	int i;
 
 	if (iov_size == 1)
 		ret = write(fstream->fd, iov->iov_base, iov->iov_len);
 	else {
+		sent = 0;
 		while (iov_size > UIO_MAXIOV) {
 			size = 0;
 			for (i = 0; i < UIO_MAXIOV; i++)
@@ -149,6 +150,7 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 			if (ret != (ssize_t)size)
 				break;
 
+			sent += ret;
 			iov += UIO_MAXIOV;
 			iov_size -= UIO_MAXIOV;
 		}
@@ -156,6 +158,8 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 		if (iov_size <= UIO_MAXIOV) {
 			ret = writev(fstream->fd, (const struct iovec *)iov,
 				     iov_size);
+			if (ret > 0)
+				ret += sent;
 		}
 	}
 
