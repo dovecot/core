@@ -1,6 +1,10 @@
 #ifndef __SETTINGS_H
 #define __SETTINGS_H
 
+/* common */
+extern char *set_log_path;
+extern char *set_log_timestamp;
+
 /* login */
 extern char *set_login_executable;
 extern char *set_login_user;

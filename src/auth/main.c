@@ -53,7 +53,7 @@ static void main_init(void)
 	} else {
 		/* log failures into specified log file */
 		i_set_failure_file(logfile, "imap-auth");
-		i_set_failure_timestamp_format(DEFAULT_FAILURE_STAMP_FORMAT);
+		i_set_failure_timestamp_format(getenv("IMAP_LOGSTAMP"));
 	}
 
 	restrict_access_by_env();

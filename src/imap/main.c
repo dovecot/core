@@ -30,7 +30,7 @@ static void main_init(int use_syslog)
 	if (logfile != NULL) {
 		/* log failures into specified log file */
 		i_set_failure_file(logfile, log_prefix);
-		i_set_failure_timestamp_format(DEFAULT_FAILURE_STAMP_FORMAT);
+		i_set_failure_timestamp_format(getenv("IMAP_LOGSTAMP"));
 	} else if (use_syslog) {
 		/* prefix with imapd(user) */
 		openlog(log_prefix, 0, LOG_MAIL);

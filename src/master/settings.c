@@ -23,6 +23,9 @@ typedef struct {
 } Setting;
 
 static Setting settings[] = {
+	{ "log_path",		SET_STR, &set_log_path },
+	{ "log_timestamp",	SET_STR, &set_log_timestamp },
+
 	{ "login_executable",	SET_STR, &set_login_executable },
 	{ "login_user",		SET_STR, &set_login_user },
 	{ "login_dir",		SET_STR, &set_login_dir },
@@ -53,6 +56,10 @@ static Setting settings[] = {
 
 	{ NULL, 0, NULL }
 };
+
+/* common */
+char *set_log_path = NULL;
+char *set_log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT;
 
 /* login */
 char *set_login_executable = PKG_LIBDIR "/imap-login";

@@ -22,7 +22,6 @@ const char *process_names[PROCESS_TYPE_MAX] = {
 	"imap"
 };
 
-static const char *logfile = NULL;
 static IOLoop ioloop;
 static Timeout to_children;
 
@@ -50,8 +49,14 @@ void clean_child_process(void)
 		*environ = NULL;
 
 	/* set the failure log */
-	if (logfile != NULL)
-		putenv((char *) t_strconcat("IMAP_LOGFILE=", logfile, NULL));
+	if (set_log_path != NULL) {
+		putenv((char *) t_strconcat("IMAP_LOGFILE=",
+					    set_log_path, NULL));
+	}
+	if (set_log_timestamp != NULL) {
+		putenv((char *) t_strconcat("IMAP_LOGSTAMP=",
+					    set_log_timestamp, NULL));
+	}
 
 	(void)close(null_fd);
 	(void)close(imap_fd);
@@ -148,19 +153,14 @@ static void open_fds(void)
 	}
 }
 
-static void main_init(const char *logfile)
+static void main_init()
 {
 	lib_init_signals(sig_quit);
 
 	/* deny file access from everyone else except owner */
         (void)umask(0077);
 
-	if (logfile == NULL)
-		logfile = getenv("IMAP_LOGFILE");
-
-	if (logfile == NULL) {
-		/* open the syslog immediately so chroot() won't
-		   break logging */
+	if (set_log_path == NULL) {
 		openlog("imap-master", LOG_NDELAY, LOG_MAIL);
 
 		i_set_panic_handler(i_syslog_panic_handler);
@@ -169,8 +169,8 @@ static void main_init(const char *logfile)
 		i_set_warning_handler(i_syslog_warning_handler);
 	} else {
 		/* log failures into specified log file */
-		i_set_failure_file(logfile, "imap-master");
-		i_set_failure_timestamp_format(DEFAULT_FAILURE_STAMP_FORMAT);
+		i_set_failure_file(set_log_path, "imap-master");
+		i_set_failure_timestamp_format(set_log_timestamp);
 	}
 
 	pids = hash_create(default_pool, 128, NULL, NULL);
@@ -228,11 +228,6 @@ int main(int argc, char *argv[])
 			i++;
 			if (i == argc) i_fatal("Missing config file argument");
 			configfile = argv[i];
-		} else if (strcmp(argv[i], "-l") == 0) {
-			/* log file */
-			i++;
-			if (i == argc) i_fatal("Missing log file argument");
-			logfile = argv[i];
 		} else {
 			i_fatal("Unknown argument: %s", argv[1]);
 		}
@@ -247,7 +242,7 @@ int main(int argc, char *argv[])
 
 	ioloop = io_loop_create();
 
-	main_init(logfile);
+	main_init();
         io_loop_run(ioloop);
 	main_deinit();
 
