@@ -157,6 +157,11 @@ static int mail_index_read_header(struct mail_index *index,
 {
 	ssize_t ret;
 
+	if (lseek(index->fd, 0, SEEK_SET) < 0) {
+		index_set_syscall_error(index, "seek()");
+		return -1;
+	}
+
 	ret = read(index->fd, hdr, sizeof(*hdr));
 	if (ret < 0) {
 		index_set_syscall_error(index, "read()");
