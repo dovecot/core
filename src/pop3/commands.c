@@ -249,9 +249,8 @@ static void fetch_callback(struct client *client)
 	const unsigned char *data;
 	unsigned char add;
 	size_t i, size;
-	ssize_t ret;
 
-	o_stream_set_max_buffer_size(client->output, 0);
+	o_stream_uncork(client->output);
 
 	while ((ctx->body_lines > 0 || !ctx->in_body) &&
 	       i_stream_read_data(ctx->stream, &data, &size, 0) > 0) {
@@ -297,29 +296,26 @@ static void fetch_callback(struct client *client)
 			}
 		}
 
-		if ((ret = o_stream_send(client->output, data, i)) < 0)
+		if (o_stream_send(client->output, data, i) < 0)
 			break;
-		if (ret > 0)
-			ctx->last = data[ret-1];
-		i_stream_skip(ctx->stream, ret);
+		ctx->last = data[i-1];
+		i_stream_skip(ctx->stream, i);
 
-		if ((size_t)ret != i) {
+		if (o_stream_get_buffer_used_size(client->output) > 0) {
 			/* continue later */
+			printf("plop\n");
 			return;
 		}
 
 		if (add != '\0') {
-			if ((ret = o_stream_send(client->output, &add, 1)) < 0)
+			if (o_stream_send(client->output, &add, 1) < 0)
 				break;
-			if (ret == 0)
-				return;
 
 			ctx->last = add;
 			if (add == 0x80)
 				i_stream_skip(ctx->stream, 1);
 		}
 	}
-	o_stream_set_max_buffer_size(client->output, (size_t)-1);
 
 	if (ctx->last != '\n') {
 		/* didn't end with CRLF */

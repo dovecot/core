@@ -325,15 +325,19 @@ static void client_output(void *context)
 
 	client->last_output = ioloop_time;
 
+	if (client->cmd != NULL)
+		client->cmd(client);
+
 	if (o_stream_get_buffer_used_size(client->output) <
 	    OUTBUF_THROTTLE_SIZE/2 && client->io == NULL &&
 	    client->cmd == NULL) {
 		/* enable input again */
 		client->io = io_add(i_stream_get_fd(client->input), IO_READ,
 				    client_input, client);
-		if (client->waiting_input)
-			client_input(client);
 	}
+
+	if (client->cmd == NULL && client->io != NULL && client->waiting_input)
+		client_input(client);
 }
 
 static void idle_timeout(void *context __attr_unused__)
