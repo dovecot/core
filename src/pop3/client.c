@@ -404,8 +404,10 @@ static void client_output(void *context)
 
 	client->last_output = ioloop_time;
 
+	o_stream_cork(client->output);
 	if (client->cmd != NULL)
 		client->cmd(client);
+	o_stream_uncork(client->output);
 
 	if (o_stream_get_buffer_used_size(client->output) <
 	    OUTBUF_THROTTLE_SIZE/2 && client->io == NULL &&

@@ -227,8 +227,7 @@ static void fetch_callback(struct client *client)
 	const unsigned char *data;
 	unsigned char add;
 	size_t i, size;
-
-	o_stream_uncork(client->output);
+	int ret;
 
 	while ((ctx->body_lines > 0 || !ctx->in_body) &&
 	       i_stream_read_data(ctx->stream, &data, &size, 0) > 0) {
@@ -281,12 +280,13 @@ static void fetch_callback(struct client *client)
 			i_stream_skip(ctx->stream, i);
 		}
 
-		if (o_stream_get_buffer_used_size(client->output) > 0) {
-			if (client->output->closed)
+		if (o_stream_get_buffer_used_size(client->output) >= 4096) {
+			if ((ret = o_stream_flush(client->output)) < 0)
 				break;
-
-			/* continue later */
-			return;
+			if (ret == 0) {
+				/* continue later */
+				return;
+			}
 		}
 
 		if (add != '\0') {
