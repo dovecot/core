@@ -1,11 +1,17 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
 #include "lib.h"
+#include "base64.h"
 #include "hex-binary.h"
 #include "md5.h"
 #include "mycrypt.h"
 #include "randgen.h"
+#include "str.h"
 #include "password-scheme.h"
+
+#ifdef HAVE_OPENSSL_SHA1
+#  include <openssl/sha.h>
+#endif
 
 static const char *salt_chars =
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -13,7 +19,7 @@ static const char *salt_chars =
 int password_verify(const char *plaintext, const char *password,
 		    const char *scheme, const char *user)
 {
-	unsigned char digest[16];
+	unsigned char md5_digest[16];
 	const char *realm, *str;
 
 	if (password == NULL)
@@ -26,6 +32,18 @@ int password_verify(const char *plaintext, const char *password,
                 str = password_generate_md5_crypt(plaintext, password);
 		return strcmp(str, password) == 0;
 	}
+#ifdef HAVE_OPENSSL_SHA1
+	if (strcasecmp(scheme, "SHA1") == 0) {
+		unsigned char sha1_digest[SHA_DIGEST_LENGTH];
+		string_t *str;
+
+		SHA1(plaintext, strlen(plaintext), sha1_digest);
+
+		str = t_str_new(64);
+		base64_encode(sha1_digest, sizeof(sha1_digest), str);
+		return strcasecmp(str_c(str), password) == 0;
+	}
+#endif
 
 	if (strcasecmp(scheme, "PLAIN") == 0)
 		return strcmp(password, plaintext) == 0;
@@ -42,15 +60,15 @@ int password_verify(const char *plaintext, const char *password,
 
 		str = t_strconcat(t_strcut(user, '@'), ":", realm,  ":",
 				  plaintext, NULL);
-		md5_get_digest(str, strlen(str), digest);
-		str = binary_to_hex(digest, sizeof(digest));
+		md5_get_digest(str, strlen(str), md5_digest);
+		str = binary_to_hex(md5_digest, sizeof(md5_digest));
 
 		return strcasecmp(str, password) == 0;
 	}
 
 	if (strcasecmp(scheme, "PLAIN-MD5") == 0) {
-		md5_get_digest(plaintext, strlen(plaintext), digest);
-		str = binary_to_hex(digest, sizeof(digest));
+		md5_get_digest(plaintext, strlen(plaintext), md5_digest);
+		str = binary_to_hex(md5_digest, sizeof(md5_digest));
 		return strcasecmp(str, password) == 0;
 	}
 

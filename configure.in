@@ -580,6 +580,13 @@ else
 fi
 AC_SUBST(RAND_LIBS)
 
+AC_CHECK_LIB(crypto, SHA1_Init, [
+  AC_CHECK_HEADER(openssl/sha.h, [
+    AC_DEFINE(HAVE_OPENSSL_SHA1,, Define if you have SHA1 in OpenSSL)
+    AUTH_LIBS=-lcrypto
+  ])
+])
+
 dnl * do we have tm_gmtoff
 AC_MSG_CHECKING([for tm_gmtoff])
 AC_CACHE_VAL(i_cv_field_tm_gmtoff,
