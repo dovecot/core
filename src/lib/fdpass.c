@@ -33,7 +33,7 @@
 
 #define _XPG4_2
 
-#ifndef AIX
+#ifndef _AIX
 #  define _XOPEN_SOURCE_EXTENDED /* for Tru64, breaks AIX */
 #endif
 
