@@ -125,9 +125,6 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 
 	i_assert(!data->anon_mmap);
 
-	data->header = NULL;
-	data->mmap_used_length = 0;
-
 	if (data->mmap_base != NULL) {
 		if (msync(data->mmap_base, data->mmap_used_length, MS_SYNC) < 0)
 			return index_data_set_syscall_error(data, "msync()");
@@ -135,6 +132,9 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 		if (munmap(data->mmap_base, data->mmap_full_length) < 0)
 			index_data_set_syscall_error(data, "munmap()");
 	}
+
+	data->header = NULL;
+	data->mmap_used_length = 0;
 
 	data->mmap_base = mmap_rw_file(data->fd, &data->mmap_full_length);
 	if (data->mmap_base == MAP_FAILED) {
