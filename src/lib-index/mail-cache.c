@@ -199,7 +199,10 @@ static int mail_cache_file_reopen(struct mail_cache *cache)
 {
 	int fd;
 
-	i_assert(!cache->anon_mmap);
+	if (cache->anon_mmap) {
+		/* cache was set corrupted, we'll have to quit */
+		return FALSE;
+	}
 
 	fd = open(cache->filepath, O_RDWR);
 	if (fd == -1)

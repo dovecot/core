@@ -297,9 +297,11 @@ static int mail_index_open_index(struct mail_index *index,
 
 	if ((ret = mail_index_read_header(index, &hdr)) < 0)
 		return FALSE;
+	index->indexid = hdr.indexid;
 
 	if (ret == 0 || hdr.major_version != MAIL_INDEX_MAJOR_VERSION ||
-	    (hdr.flags & MAIL_INDEX_HDR_FLAG_REBUILD) != 0) {
+	    (hdr.flags & MAIL_INDEX_HDR_FLAG_REBUILD) != 0 ||
+	    !mail_index_mmap_update(index)) {
 		if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0)
 			return FALSE;
 
@@ -317,11 +319,6 @@ static int mail_index_open_index(struct mail_index *index,
 		if (!mail_index_init_file(index, &hdr))
 			return FALSE;
 	}
-
-	index->indexid = hdr.indexid;
-
-	if (!mail_index_mmap_update(index))
-		return FALSE;
 
 	if (index->lock_type == MAIL_LOCK_SHARED) {
 		/* we don't want to keep the shared lock while opening
