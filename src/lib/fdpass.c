@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2003 Timo Sirainen */
+/* Copyright (c) 2002-2004 Timo Sirainen */
 
 /*
    fdpass.c - File descriptor passing between processes via UNIX sockets
@@ -30,10 +30,15 @@
 #include <sys/un.h>
 #include <sys/uio.h>
 
+/* Solaris uses 32bit socklen_t as cmsg_len, so with Solaris we use
+   _CMSG_DATA_ALIGN() macro to do the alignment for us.
+
+   Perhaps the best solution would be to change sizeof(size_t) calculations
+   to sizeof(cmsg->cmsg_len)? At least if other OSes have similiar problems.. */
 #ifndef CMSG_SPACE
 #  if defined(_CMSG_DATA_ALIGN) && defined(_CMSG_HDR_ALIGN)  /* for Solaris */
 #    define CMSG_SPACE(len) \
-	(_CMSG_DATA_ALIGN(len) + _CMSG_HDR_ALIGN(sizeof(struct cmsghdr)))
+	(_CMSG_DATA_ALIGN(len) + _CMSG_DATA_ALIGN(sizeof(struct cmsghdr)))
 #    define CMSG_LEN(len) \
 	(_CMSG_DATA_ALIGN(sizeof(struct cmsghdr)) + (len))
 #  else
