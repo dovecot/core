@@ -96,7 +96,7 @@ int cmd_store(struct client *client)
 	/* and update the flags */
 	box = client->mailbox;
 
-	if (!box->is_readonly(box)) {
+	if (box->is_readonly(box)) {
 		/* read-only, don't every try to get write locking */
 		failed = FALSE;
 	} else {
