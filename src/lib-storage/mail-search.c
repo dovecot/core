@@ -31,7 +31,7 @@ static int arg_new(SearchBuildData *data, ImapArg **args,
 		return TRUE;
 
 	/* first arg */
-	if (*args == NULL) {
+	if ((*args)->type == IMAP_ARG_EOL) {
 		data->error = "Missing parameter for argument";
 		return FALSE;
 	}
