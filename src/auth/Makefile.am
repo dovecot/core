@@ -17,7 +17,8 @@ libpassword_a_SOURCES = \
 	password-scheme.c \
 	password-scheme-md5crypt.c \
 	password-scheme-cram-md5.c \
-	password-scheme-ntlm.c
+	password-scheme-ntlm.c \
+	password-scheme-rpa.c
 
 dovecot_auth_LDADD = \
 	libpassword.a \
@@ -45,6 +46,7 @@ dovecot_auth_SOURCES = \
 	mech-cram-md5.c \
 	mech-digest-md5.c \
 	mech-ntlm.c \
+	mech-rpa.c \
 	mech-apop.c \
 	passdb.c \
 	passdb-bsdauth.c \

@@ -32,5 +32,6 @@ const char *password_generate_md5_crypt(const char *pw, const char *salt);
 const char *password_generate_cram_md5(const char *pw);
 const char *password_generate_lm(const char *pw);
 const char *password_generate_ntlm(const char *pw);
+const char *password_generate_rpa(const char *pw);
 
 #endif

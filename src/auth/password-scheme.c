@@ -424,6 +424,18 @@ static const char *ntlm_generate(const char *plaintext,
 	return password_generate_ntlm(plaintext);
 }
 
+static int rpa_verify(const char *plaintext, const char *password,
+		      const char *user __attr_unused__)
+{
+	return strcasecmp(password, password_generate_rpa(plaintext)) == 0;
+}
+
+static const char *rpa_generate(const char *plaintext,
+				const char *user __attr_unused__)
+{
+	return password_generate_rpa(plaintext);
+}
+
 static const struct password_scheme default_schemes[] = {
 	{ "CRYPT", crypt_verify, crypt_generate },
 	{ "MD5", md5_verify, md5_generate },
@@ -439,6 +451,7 @@ static const struct password_scheme default_schemes[] = {
 	{ "LDAP-MD5", ldap_md5_verify, ldap_md5_generate },
 	{ "LANMAN", lm_verify, lm_generate },
 	{ "NTLM", ntlm_verify, ntlm_generate },
+	{ "RPA", rpa_verify, rpa_generate },
 	{ NULL, NULL, NULL }
 };
 

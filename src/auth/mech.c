@@ -393,6 +393,7 @@ extern struct mech_module mech_apop;
 extern struct mech_module mech_cram_md5;
 extern struct mech_module mech_digest_md5;
 extern struct mech_module mech_ntlm;
+extern struct mech_module mech_rpa;
 extern struct mech_module mech_anonymous;
 
 void mech_init(void)
@@ -428,6 +429,8 @@ void mech_init(void)
 			mech_register_module(&mech_digest_md5);
 		else if (strcasecmp(*mechanisms, "NTLM") == 0)
 			mech_register_module(&mech_ntlm);
+		else if (strcasecmp(*mechanisms, "RPA") == 0)
+			mech_register_module(&mech_rpa);
 		else if (strcasecmp(*mechanisms, "ANONYMOUS") == 0) {
 			if (anonymous_username == NULL) {
 				i_fatal("ANONYMOUS listed in mechanisms, "
@@ -489,5 +492,6 @@ void mech_deinit(void)
 	mech_unregister_module(&mech_cram_md5);
 	mech_unregister_module(&mech_digest_md5);
 	mech_unregister_module(&mech_ntlm);
+	mech_unregister_module(&mech_rpa);
 	mech_unregister_module(&mech_anonymous);
 }
