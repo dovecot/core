@@ -666,7 +666,7 @@ AC_TRY_COMPILE([
 ])
 
 dnl * If mmap() plays nicely with write()
-AC_MSG_CHECKING([whether we need to use MS_INVALIDATE with mmaps])
+AC_MSG_CHECKING([whether shared mmaps get updated by write()s])
 AC_TRY_RUN([
   #include <stdio.h>
   #include <sys/types.h>
@@ -698,10 +698,10 @@ AC_TRY_RUN([
     return strcmp(mem, "3") == 0 ? 0 : 1;
   }
 ], [
-  AC_MSG_RESULT(no)
-], [
   AC_MSG_RESULT(yes)
-  AC_DEFINE(NEED_MS_INVALIDATE,, Define if your mmap() implementation requires use of MS_INVALIDATE to work with write())
+], [
+  AC_MSG_RESULT(no)
+  AC_DEFINE(MMAP_CONFLICTS_WRITE,, [Define if shared mmaps don't get updated by write()s])
 ])
 
 
@@ -1041,7 +1041,7 @@ fi
 
 if test $need_crypt = yes; then
 	AC_CHECK_LIB(crypt, crypt, [
-		AUTH_LIBS="$AUTH_LIBS -lcrypt"
+		AUTH_LIBS="-lcrypt $AUTH_LIBS"
 	], [
 		AC_CHECK_FUNC(crypt,, [
 			AC_ERROR([crypt() wasn't found])
