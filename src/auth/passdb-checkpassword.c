@@ -5,6 +5,7 @@
 
 #include "common.h"
 #include "buffer.h"
+#include "str.h"
 #include "ioloop.h"
 #include "hash.h"
 #include "passdb.h"
@@ -19,12 +20,15 @@ struct chkpw_auth_request {
 	struct io *io_out, *io_in;
 	pid_t pid;
 
-	buffer_t *input_buf;
+	string_t *input_buf;
 	char *password;
 	unsigned int write_pos;
 
 	struct auth_request *request;
-        verify_plain_callback_t *callback;
+	verify_plain_callback_t *callback;
+
+	int exit_status;
+	unsigned int exited:1;
 };
 
 static char *checkpassword_path, *checkpassword_reply_path;
@@ -33,11 +37,6 @@ static struct timeout *to_wait;
 
 static void checkpassword_request_close(struct chkpw_auth_request *request)
 {
-	if (request->input_buf != NULL) {
-		buffer_free(request->input_buf);
-		request->input_buf = NULL;
-	}
-
 	if (request->fd_in != -1) {
 		if (close(request->fd_in) < 0)
 			i_error("checkpassword: close() failed: %m");
@@ -61,16 +60,58 @@ static void checkpassword_request_finish(struct chkpw_auth_request *request,
 {
 	hash_remove(clients, POINTER_CAST(request->pid));
 
-	/* FIXME: store request->input_buf so userdb can fetch it */
+	if (result == PASSDB_RESULT_OK) {
+		request->request->extra_fields =
+			p_strdup(request->request->pool,
+				 str_c(request->input_buf));
+	}
 
-	if (auth_request_unref(request->request))
+	if (auth_request_unref(request->request)) {
 		request->callback(result, request->request);
+	}
 
         checkpassword_request_close(request);
+
+	if (request->input_buf != NULL) {
+		str_free(request->input_buf);
+		request->input_buf = NULL;
+	}
 
 	safe_memset(request->password, 0, strlen(request->password));
 	i_free(request->password);
 	i_free(request);
+}
+
+static void
+checkpassword_request_half_finish(struct chkpw_auth_request *request)
+{
+	if (!request->exited || request->fd_in != -1)
+		return;
+
+	switch (request->exit_status) {
+	case 0:
+		if (request->input_buf != NULL) {
+			checkpassword_request_finish(request, PASSDB_RESULT_OK);
+			break;
+		}
+		/* missing input - fall through */
+	case 1:
+		checkpassword_request_finish(request,
+					     PASSDB_RESULT_USER_UNKNOWN);
+		break;
+	case 2:
+		/* checkpassword is called with wrong
+		   parameters? unlikely */
+	case 111:
+		/* temporary problem, treat as internal error */
+	default:
+		/* whatever error.. */
+		i_error("checkpassword: Child %s exited with status %d",
+			dec2str(request->pid), request->exit_status);
+		checkpassword_request_finish(request,
+					     PASSDB_RESULT_INTERNAL_FAILURE);
+		break;
+	}
 }
 
 static void wait_timeout(void *context __attr_unused__)
@@ -96,29 +137,10 @@ static void wait_timeout(void *context __attr_unused__)
 			i_error("checkpassword: Child %s died with signal %d",
 				dec2str(pid), WTERMSIG(status));
 		} else if (WIFEXITED(status) && request != NULL) {
-			switch (WEXITSTATUS(status)) {
-			case 0:
-				checkpassword_request_finish(request,
-							     PASSDB_RESULT_OK);
-				request = NULL;
-				break;
-			case 1:
-				checkpassword_request_finish(request,
-							     PASSDB_RESULT_OK);
-				request = NULL;
-				break;
-			case 2:
-				/* checkpassword is called with wrong
-				   parameters? unlikely */
-			case 111:
-				/* temporary problem, treat as internal error */
-			default:
-				/* whatever error.. */
-				i_error("checkpassword: "
-					"Child %s exited with status %d",
-					dec2str(pid), WEXITSTATUS(status));
-				break;
-			}
+			request->exited = TRUE;
+			request->exit_status = WEXITSTATUS(status);
+			checkpassword_request_half_finish(request);
+			request = NULL;
 		}
 
 		if (request != NULL) {
@@ -159,12 +181,11 @@ static void checkpassword_child_input(void *context)
 		if (ret < 0)
 			i_error("checkpassword: read() failed: %m");
 		checkpassword_request_close(request);
+		checkpassword_request_half_finish(request);
 	} else {
-		if (request->input_buf == NULL) {
-			request->input_buf =
-				buffer_create_dynamic(default_pool, 512);
-		}
-		buffer_append(request->input_buf, buf, ret);
+		if (request->input_buf == NULL)
+			request->input_buf = str_new(default_pool, 512);
+		str_append_n(request->input_buf, buf, ret);
 	}
 }
 
@@ -190,7 +211,8 @@ static void checkpassword_child_output(void *context)
 	if (size > 512) {
 		i_error("checkpassword: output larger than 512 bytes: "
 			"%"PRIuSIZE_T, size);
-		checkpassword_request_close(request);
+		checkpassword_request_finish(request,
+					     PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
 	}
 
@@ -199,7 +221,8 @@ static void checkpassword_child_output(void *context)
 	if (ret <= 0) {
 		if (ret < 0)
 			i_error("checkpassword: write() failed: %m");
-		checkpassword_request_close(request);
+		checkpassword_request_finish(request,
+					     PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
 	}
 
@@ -282,7 +305,7 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 
 	if (to_wait == NULL) {
 		/* FIXME: we could use SIGCHLD */
-		to_wait = timeout_add(1000, wait_timeout, NULL);
+		to_wait = timeout_add(100, wait_timeout, NULL);
 	}
 }
 

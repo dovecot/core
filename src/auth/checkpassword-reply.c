@@ -14,8 +14,20 @@ int main(void)
 	lib_init();
 	str = t_str_new(1024);
 
-	str_printfa(str, "USER=%s\nHOME=%s\nSHELL=%s\nUID=%s\nGID=%s\n\n",
-		    getenv("USER"), getenv("HOME"), getenv("SHELL"),
+	if (strchr(getenv("USER"), '\t') != NULL) {
+		i_error("USER contains TAB");
+		return 1;
+	}
+	if (strchr(getenv("HOME"), '\t') != NULL) {
+		i_error("HOME contains TAB");
+		return 1;
+	}
+
+	str_printfa(str, "userdb_user=%s\t"
+		    "userdb_home=%s\t"
+		    "userdb_uid=%s\t"
+		    "userdb_gid=%s\t",
+		    getenv("USER"), getenv("HOME"),
 		    dec2str(getuid()), dec2str(getgid()));
 
 	if (write_full(4, str_data(str), str_len(str)) < 0) {
