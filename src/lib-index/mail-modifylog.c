@@ -889,7 +889,7 @@ static int mail_modifylog_try_truncate(struct modify_log_file *file)
 		return FALSE;
 
 #ifdef DEBUG
-	mprotect(file->header, sizeof(struct modify_log_header),
+	mprotect(file->mmap_base, sizeof(struct modify_log_header),
 		 PROT_READ | PROT_WRITE);
 #endif
 	file->header->sync_id = 0;
