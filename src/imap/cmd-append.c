@@ -14,7 +14,8 @@
    internal_date may be NULL as a result, but mailbox and msg_size are always
    set when successful. */
 static int validate_args(struct imap_arg *args, struct imap_arg_list **flags,
-			 const char **internal_date, uoff_t *msg_size)
+			 const char **internal_date, uoff_t *msg_size,
+			 int *nonsync)
 {
 	/* [<flags>] */
 	if (args->type != IMAP_ARG_LIST)
@@ -32,9 +33,11 @@ static int validate_args(struct imap_arg *args, struct imap_arg_list **flags,
 		args++;
 	}
 
-	if (args->type != IMAP_ARG_LITERAL_SIZE)
+	if (args->type != IMAP_ARG_LITERAL_SIZE &&
+	    args->type != IMAP_ARG_LITERAL_SIZE_NONSYNC)
 		return FALSE;
 
+	*nonsync = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
 	*msg_size = IMAP_ARG_LITERAL_SIZE(args);
 	return TRUE;
 }
@@ -51,7 +54,7 @@ int cmd_append(struct client *client)
 	const char *mailbox, *internal_date_str;
 	uoff_t msg_size;
 	unsigned int count;
-	int ret, failed, timezone_offset;
+	int ret, failed, timezone_offset, nonsync;
 
 	/* <mailbox> */
 	if (!client_read_string_args(client, 1, &mailbox))
@@ -122,7 +125,7 @@ int cmd_append(struct client *client)
 		}
 
 		if (!validate_args(args, &flags_list, &internal_date_str,
-				   &msg_size)) {
+				   &msg_size, &nonsync)) {
 			/* error */
 			client_send_command_error(client, "Invalid arguments.");
 			break;
@@ -154,8 +157,10 @@ int cmd_append(struct client *client)
 			break;
 		}
 
-		o_stream_send(client->output, "+ OK\r\n", 6);
-		o_stream_flush(client->output);
+		if (!nonsync) {
+			o_stream_send(client->output, "+ OK\r\n", 6);
+			o_stream_flush(client->output);
+		}
 
 		/* save the mail */
 		i_stream_set_read_limit(client->input,

@@ -16,6 +16,7 @@ enum imap_arg_type {
 	IMAP_ARG_ATOM,
 	IMAP_ARG_STRING,
 	IMAP_ARG_LITERAL_SIZE,
+	IMAP_ARG_LITERAL_SIZE_NONSYNC,
 	IMAP_ARG_LIST,
 
 	IMAP_ARG_EOL /* end of argument list */
@@ -40,7 +41,8 @@ struct imap_arg {
 	 (arg)->_data.str : _imap_arg_str_error(arg))
 
 #define IMAP_ARG_LITERAL_SIZE(arg) \
-	((arg)->type == IMAP_ARG_LITERAL_SIZE ? \
+	(((arg)->type == IMAP_ARG_LITERAL_SIZE || \
+	 (arg)->type == IMAP_ARG_LITERAL_SIZE_NONSYNC) ? \
 	 (arg)->_data.literal_size : _imap_arg_literal_size_error(arg))
 
 #define IMAP_ARG_LIST(arg) \

@@ -42,6 +42,7 @@ struct imap_parser {
 	const char *error;
 
 	unsigned int literal_skip_crlf:1;
+	unsigned int literal_nonsync:1;
 	unsigned int inside_bracket:1;
 	unsigned int eol:1;
 };
@@ -233,7 +234,9 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 			arg->_data.str = p_strndup(parser->pool, data, size);
 		} else {
 			/* save literal size */
-			arg->type = IMAP_ARG_LITERAL_SIZE;
+			arg->type = parser->literal_nonsync ?
+				IMAP_ARG_LITERAL_SIZE_NONSYNC :
+				IMAP_ARG_LITERAL_SIZE;
 			arg->_data.literal_size = parser->literal_size;
 		}
 		break;
@@ -334,7 +337,7 @@ static int imap_parser_literal_end(struct imap_parser *parser)
 			return FALSE;
 		}
 
-		if (parser->output != NULL) {
+		if (parser->output != NULL && !parser->literal_nonsync) {
 			o_stream_send(parser->output, "+ OK\r\n", 6);
 			o_stream_flush(parser->output);
 		}
@@ -358,6 +361,16 @@ static int imap_parser_read_literal(struct imap_parser *parser,
 		if (data[i] == '}') {
 			i_stream_skip(parser->input, i+1);
 			return imap_parser_literal_end(parser);
+		}
+
+		if (parser->literal_nonsync) {
+			parser->error = "Expecting '}' after '+'";
+			return FALSE;
+		}
+
+		if (data[i] == '+') {
+			parser->literal_nonsync = TRUE;
+			continue;
 		}
 
 		if (data[i] < '0' || data[i] > '9') {
@@ -455,6 +468,7 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 		case '{':
 			parser->cur_type = ARG_PARSE_LITERAL;
 			parser->literal_size = 0;
+			parser->literal_nonsync = FALSE;
 			break;
 		case '(':
 			imap_parser_open_list(parser);
