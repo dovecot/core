@@ -137,6 +137,18 @@ static Mailbox *maildir_open(MailStorage *storage, const char *name,
 	return (Mailbox *) ibox;
 }
 
+static const char *inbox_fix_case(MailStorage *storage, const char *name)
+{
+        if (strncasecmp(name, "INBOX", 5) == 0 &&
+	    (name[5] == '\0' || name[5] == storage->hierarchy_sep)) {
+		/* use same case with all INBOX folders or we'll get
+		   into trouble */
+		name = t_strconcat("INBOX", name+5, NULL);
+	}
+
+	return name;
+}
+
 static Mailbox *maildir_open_mailbox(MailStorage *storage, const char *name,
 				     int readonly)
 {
@@ -145,8 +157,8 @@ static Mailbox *maildir_open_mailbox(MailStorage *storage, const char *name,
 
 	mail_storage_clear_error(storage);
 
-	/* INBOX is always case-insensitive */
-	if (strcasecmp(name, "INBOX") == 0) {
+	name = inbox_fix_case(storage, name);
+	if (strcmp(name, "INBOX") == 0) {
 		if (!verify_inbox(storage, storage->dir))
 			return NULL;
 		return maildir_open(storage, "INBOX", readonly);
@@ -180,13 +192,7 @@ static int maildir_create_mailbox(MailStorage *storage, const char *name)
 
 	mail_storage_clear_error(storage);
 
-	if (strncasecmp(name, "INBOX", 5) == 0 &&
-	    (name[5] == '\0' || name[5] == storage->hierarchy_sep)) {
-		/* use same case with all INBOX folders or we'll get
-		   into trouble */
-		name = t_strconcat("INBOX", name+5, NULL);
-	}
-
+	name = inbox_fix_case(storage, name);
 	if (!maildir_is_valid_name(storage, name)) {
 		mail_storage_set_error(storage, "Invalid mailbox name");
 		return FALSE;
@@ -213,6 +219,7 @@ static int maildir_delete_mailbox(MailStorage *storage, const char *name)
 
 	mail_storage_clear_error(storage);
 
+	name = inbox_fix_case(storage, name);
 	if (strcasecmp(name, "INBOX") == 0) {
 		mail_storage_set_error(storage, "INBOX can't be deleted.");
 		return FALSE;
@@ -300,9 +307,7 @@ static int maildir_rename_mailbox(MailStorage *storage, const char *oldname,
 
 	mail_storage_clear_error(storage);
 
-	if (strcasecmp(oldname, "INBOX") == 0)
-		oldname = "INBOX";
-
+	oldname = inbox_fix_case(storage, oldname);
 	if (!maildir_is_valid_name(storage, oldname) ||
 	    !maildir_is_valid_name(storage, newname)) {
 		mail_storage_set_error(storage, "Invalid mailbox name");
@@ -340,9 +345,7 @@ static int maildir_get_mailbox_name_status(MailStorage *storage,
 
 	mail_storage_clear_error(storage);
 
-	if (strcasecmp(name, "INBOX") == 0)
-		name = "INBOX";
-
+	name = inbox_fix_case(storage, name);
 	if (!maildir_is_valid_name(storage, name)) {
 		*status = MAILBOX_NAME_INVALID;
 		return TRUE;
