@@ -345,6 +345,9 @@ int cmd_fetch(struct client *client)
 		}
 	}
 
+	if (client->cmd_uid)
+		imap_data |= IMAP_FETCH_UID;
+
 	ret = imap_fetch(client, fetch_data, imap_data,
 			 bodies, messageset, client->cmd_uid);
 	if (ret >= 0) {
