@@ -389,6 +389,7 @@ AC_TRY_COMPILE([
 ], [
   off_t i = OFF_T_MAX;
 ], [
+  :
 ], [
   AC_DEFINE_UNQUOTED(OFF_T_MAX, $offt_max, Maximum value of off_t)
 ])
