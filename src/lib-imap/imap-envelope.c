@@ -15,47 +15,169 @@ struct _MessagePartEnvelopeData {
 	char *in_reply_to, *message_id;
 };
 
-static const char *
-t_buffer_get_quote(const char *value, unsigned int *value_len)
-{
-	char *buf, *p;
-	unsigned int i, len;
+#define IS_BREAK_CHAR(c) \
+	((c) == ' ' || (c) == '\t' || (c) == '\r' || (c) == '\n' || \
+	 (c) == ',' || (c) == ':' || (c) == ';' || (c) == '@' || \
+	 (c) == '<' || (c) == '>' || (c) == '(' || (c) == ')' || \
+	 (c) == '[' || (c) == ']' || (c) == '=')
 
-	len = *value_len;
-	p = buf = t_buffer_get(len * 2 + 3);
-	*p++ = '"';
+static unsigned int next_token_quoted(const char *value, unsigned int len,
+				      int *need_qp)
+{
+	unsigned int i;
+
+	i_assert(value[0] == '"');
+
+	*need_qp = FALSE;
+
+	for (i = 1; i < len; i++) {
+		if ((unsigned char)value[i] & 0x80)
+			*need_qp = TRUE;
+
+		if (value[i] == '"') {
+			i++;
+			break;
+		}
+	}
+
+	return i;
+}
+
+static unsigned int next_token(const char *value, unsigned int len,
+			       int *need_qp, int qp_on)
+{
+	unsigned int i = 0;
+
+	if (value[0] == '"')
+		return next_token_quoted(value, len, need_qp);
+
+	*need_qp = FALSE;
+
+	if (qp_on) {
+		/* skip spaces, so we don't end up QP'ing word at a time */
+		for (i = 0; i < len; i++) {
+			if (value[i] != ' ')
+				break;
+		}
+	}
+
+	if (IS_BREAK_CHAR(value[i])) {
+		/* return all break-chars in one token */
+		for (i++; i < len; i++) {
+			if (!IS_BREAK_CHAR(value[i]))
+				break;
+		}
+
+		return i;
+	}
+
+	/* then stop at break-char */
+	for (; i < len; i++) {
+		if ((unsigned char)value[i] & 0x80)
+			*need_qp = TRUE;
+
+		if (IS_BREAK_CHAR(value[i]))
+			break;
+	}
+
+	return i;
+}
+
+static void append_quoted_qp(TempString *str, const char *value,
+			     unsigned int len)
+{
+	unsigned int i;
+	unsigned char c;
+
+	/* do this the easy way, it's already broken behaviour to leave the
+	   8bit text in mailbox, so we shouldn't need to try too hard to make
+	   it readable. Keep 'A'..'Z', 'a'..'z' and '0'..'9', QP rest */
+
+	for (i = 0; i < len; i++) {
+		if (value[i] == ' ')
+			t_string_append_c(str, '_');
+		else if ((value[i] >= 'A' && value[i] <= 'Z') ||
+			 (value[i] >= 'a' && value[i] <= 'z') ||
+			 (value[i] >= '0' && value[i] <= '9')) {
+			t_string_append_c(str, value[i]);
+		} else {
+			t_string_append_c(str, '=');
+			c = (unsigned char)value[i] >> 4;
+			t_string_append_c(str, c < 10 ? (c+'0') : (c-10+'A'));
+			c = (unsigned char)value[i] & 0x0f;
+			t_string_append_c(str, c < 10 ? (c+'0') : (c-10+'A'));
+		}
+	}
+}
+
+static void append_quoted(TempString *str, const char *value, unsigned int len)
+{
+	unsigned int i;
+
 	for (i = 0; i < len; i++) {
 		if (value[i] == '\\' || value[i] == '"')
-			*p++ = '\\';
-		*p++ = value[i];
+			t_string_append_c(str, '\\');
+		t_string_append_c(str, value[i]);
 	}
-	*p++ = '"';
-	*p++ = '\0';
+}
 
-	*value_len = (unsigned int) (p-buf);
-	return buf;
+/* does two things: 1) escape '\' and '"' characters, 2) 8bit text -> QP */
+static TempString *get_quoted_str(const char *value, unsigned int value_len)
+{
+	TempString *str;
+	unsigned int token_len;
+	int qp, need_qp;
+
+	str = t_string_new(value_len * 2);
+	qp = FALSE;
+
+	t_string_append_c(str, '"');
+	while (value_len > 0) {
+		token_len = next_token(value, value_len, &need_qp, qp);
+		i_assert(token_len > 0);
+
+		/* header may be split to multiple lines, we don't want them */
+		while (token_len > 0 && (value[0] == '\r' ||
+					 value[0] == '\n')) {
+			value++;
+			value_len--;
+		}
+
+		if (need_qp && !qp) {
+			t_string_append(str, "=?x-unknown?Q?");
+			qp = TRUE;
+		} else if (!need_qp && qp) {
+			t_string_append(str, "?=");
+			qp = FALSE;
+		}
+
+		if (need_qp)
+			append_quoted_qp(str, value, token_len);
+		else
+			append_quoted(str, value, token_len);
+
+		value += token_len;
+		value_len -= token_len;
+	}
+
+	if (qp) t_string_append(str, "?=");
+	t_string_append_c(str, '"');
+
+	return str;
 }
 
 static const char *quote_str_nil(const char *value)
 {
-	const char *buf;
-	unsigned int value_len;
-
-	if (value == NULL)
-		return "NIL";
-
-	value_len = strlen(value);
-	buf = t_buffer_get_quote(value, &value_len);
-	t_buffer_alloc(value_len);
-	return buf;
+	return value == NULL ? "NIL" :
+		get_quoted_str(value, strlen(value))->str;
 }
 
 static char *quote_value(Pool pool, const char *value, unsigned int value_len)
 {
-	const char *buf;
+	TempString *str;
 
-	buf = t_buffer_get_quote(value, &value_len);
-	return p_strndup(pool, buf, value_len);
+	str = get_quoted_str(value, value_len);
+	return p_strndup(pool, str->str, str->len);
 }
 
 static Rfc822Address *parse_address(Pool pool, const char *value,
