@@ -45,37 +45,31 @@
 #  define MMAP_BASE_MOVE (1024UL*1024UL*128UL) /* 128M */
 #endif
 
-/* get it near 4kB which is the most common page size */
-#define MAX_CHUNKS (4096 / 2 / sizeof(size_t) - 3)
-
 #define MMAP_SIGNATURE 0xdeadbeef
 
 #define PAGE_ALIGN(size) \
-	(((size) + page_size) & ~(size_t)(page_size-1))
+	(((size) + (size_t)page_size-1) & ~(size_t)(page_size-1))
 
 struct movable_header {
 	unsigned int signature;
-	int chunks;
 	size_t size;
-
-	void *chunk_ptr[MAX_CHUNKS];
-	size_t chunk_size[MAX_CHUNKS];
 };
 
 static int page_size = 0;
 static int header_size = 0;
 static void *movable_mmap_base = NULL;
+static void *mmap_top_limit = NULL;
 
 static void movable_mmap_init(void)
 {
-	page_size = getpagesize();
+	char x;
 
-	if (page_size >= header_size)
-		header_size = page_size;
-	else {
-		header_size = sizeof(struct movable_header) + page_size -
-			sizeof(struct movable_header) % page_size;
-	}
+	page_size = getpagesize();
+	header_size = page_size;
+
+	/* keep our allocations far below stack. assumes the stack is
+	   growing down. */
+	mmap_top_limit = &x - (1024*1024*256);
 }
 
 static int anon_mmap_fixed(void *address, size_t length)
@@ -113,6 +107,8 @@ static int anon_mmap_fixed(void *address, size_t length)
 void *mmap_anon(size_t length)
 {
 	struct movable_header *hdr;
+	void *next_mmap_base;
+	ssize_t offset;
 	int ret;
 
 	if (header_size == 0)
@@ -120,8 +116,7 @@ void *mmap_anon(size_t length)
 
 	/* we need extra page to store the pieces which construct
 	   the full mmap. also allocate only page-aligned mmap sizes. */
-	length += header_size;
-	length = PAGE_ALIGN(length);
+	length = PAGE_ALIGN(length + header_size);
 
 	if (movable_mmap_base == NULL) {
 		/* this is fully guessing */
@@ -129,131 +124,111 @@ void *mmap_anon(size_t length)
 			PAGE_ALIGN((size_t)((char *)mmap_anon - (char *)NULL));
 	}
 
-	do {
-		movable_mmap_base = (char *) movable_mmap_base +
-			MMAP_BASE_MOVE;
-		hdr = movable_mmap_base;
-
-		if (movable_mmap_base != NULL)
-			ret = anon_mmap_fixed(movable_mmap_base, length);
-		else {
-			/* we can't use NULL address */
-			errno = EINVAL;
-			ret = -1;
+	offset = MMAP_BASE_MOVE;
+	for (;;) {
+		next_mmap_base = (char *) movable_mmap_base + offset;
+		if ((char *) next_mmap_base < (char *) movable_mmap_base) {
+			/* we're wrapping, fix the offset a bit so we won't
+			   just loop with same addresses.. */
+			offset /= 2;
+			if (offset/10 < page_size) {
+				/* enough tries */
+				errno = ENOMEM;
+				return MAP_FAILED;
+			}
 		}
 
-	} while (ret == -1 && errno == EINVAL);
+		movable_mmap_base = next_mmap_base;
 
-	if (ret == -1)
-		return MAP_FAILED;
+		if ((char *) movable_mmap_base >
+		    (char *) movable_mmap_base + length) {
+			/* too high, would wrap */
+			continue;
+		}
 
-	/* initialize the header */
-	hdr->signature = MMAP_SIGNATURE;
-	hdr->chunks = 1;
-	hdr->size = length;
-	hdr->chunk_ptr[0] = hdr;
-	hdr->chunk_size[0] = length;
+		if ((char *) movable_mmap_base + length >=
+		    (char *) mmap_top_limit) {
+			/* too high, stack could grow over it */
+			continue;
+		}
 
-	return (char *) hdr + header_size;
-}
+		if (movable_mmap_base == NULL)
+			continue;
 
-static void *remove_chunks(struct movable_header *hdr, size_t new_size)
-{
-	int i;
-
-	for (i = hdr->chunks-1; i > 0; i--) {
-		if (hdr->size - hdr->chunk_size[i] < new_size)
+		ret = anon_mmap_fixed(movable_mmap_base, length);
+		if (ret == 0)
 			break;
 
-		if (munmap(hdr->chunk_ptr[i], hdr->chunk_size[i]) < 0)
-			i_panic("munmap() failed: %m");
-
-		hdr->size -= hdr->chunk_size[i];
-		hdr->chunks--;
+		if (ret < 0 && errno != EINVAL)
+			return MAP_FAILED;
 	}
+
+	/* initialize the header */
+	hdr = movable_mmap_base;
+	hdr->signature = MMAP_SIGNATURE;
+	hdr->size = length - header_size;
 
 	return (char *) hdr + header_size;
 }
 
-static void *move_chunks(struct movable_header *hdr, size_t new_size,
-			 int maymove)
+static int mremap_try_grow(struct movable_header *hdr, size_t new_size)
 {
-	unsigned char *new_base, *p;
-	int i;
+	void *grow_base;
 
-	if (!maymove) {
-		errno = ENOMEM;
-		return MAP_FAILED;
+	grow_base = (char *) hdr + header_size + hdr->size;
+	if ((char *) grow_base <= (char *) hdr + header_size ||
+	    (char *) grow_base >= (char *) mmap_top_limit) {
+		/* overflows valid address range */
+		return 0;
 	}
+
+	if (anon_mmap_fixed(grow_base, new_size - hdr->size) < 0) {
+		if (errno == EINVAL) {
+			/* can't grow, wanted address space is already in use */
+			return 0;
+		}
+
+		return -1;
+	}
+
+	hdr->size = new_size;
+	return 1;
+}
+
+static void *mremap_move(struct movable_header *hdr, size_t new_size)
+{
+	void *new_base;
+	char *p;
+	size_t block_size, old_size;
 
 	new_base = mmap_anon(new_size - header_size);
 	if (new_base == MAP_FAILED)
 		return MAP_FAILED;
 
-	/* copy first chunk without header */
-	memcpy(new_base, (char *) hdr->chunk_ptr[0] + header_size,
-	       hdr->chunk_size[0] - header_size);
-	p = new_base + (hdr->chunk_size[0] - header_size);
+	/* If we're moving large memory areas, it takes less memory to
+	   copy the memory pages in smaller blocks. */
+	old_size = hdr->size;
+	block_size = 1024*1024;
 
-	for (i = 1; i < hdr->chunks; i++) {
-		memcpy(p, hdr->chunk_ptr[i], hdr->chunk_size[i]);
-		p += hdr->chunk_size[i];
+	p = (char *) (hdr + header_size + hdr->size);
+	do {
+		if (block_size > old_size)
+			block_size = old_size;
+		p -= block_size;
 
-		if (munmap(hdr->chunk_ptr[i], hdr->chunk_size[i]) < 0)
+		memcpy((char *) new_base + (p - (char *) hdr), p, block_size);
+		if (munmap(p, block_size) < 0)
 			i_panic("munmap() failed: %m");
-	}
+	} while (p != (char *) hdr);
 
-	if (munmap(hdr->chunk_ptr[0], hdr->chunk_size[0]) < 0)
-		i_panic("munmap() failed: %m");
 	return new_base;
-}
-
-static void *add_chunks(struct movable_header *hdr, size_t new_size,
-			int maymove)
-{
-	void *base;
-	size_t chunk_size;
-
-	new_size = PAGE_ALIGN(new_size);
-	if (hdr->chunks == MAX_CHUNKS)
-		return move_chunks(hdr, new_size, maymove);
-
-	/* get our new address, make sure we're not over/underflowing
-	   our address */
-#if MMAP_BASE_MOVE > 0
-	base = (char *) hdr->chunk_ptr[hdr->chunks-1] +
-		hdr->chunk_size[hdr->chunks-1];
-	if (base < hdr->chunk_ptr[hdr->chunks-1])
-		return move_chunks(hdr, new_size, maymove);
-#else
-	base = (char *) hdr->chunk_ptr[hdr->chunks-1] -
-		hdr->chunk_size[hdr->chunks-1];
-	if (base > hdr->chunk_ptr[hdr->chunks-1])
-		return move_chunks(hdr, new_size, maymove);
-#endif
-
-	chunk_size = new_size - hdr->size;
-	if (anon_mmap_fixed(base, chunk_size) < 0) {
-		if (errno == EINVAL) {
-			/* can't grow, the memory address is used */
-			return move_chunks(hdr, new_size, maymove);
-		}
-
-		return MAP_FAILED;
-	}
-
-        hdr->chunk_ptr[hdr->chunks] = base;
-	hdr->chunk_size[hdr->chunks] = chunk_size;
-	hdr->size += chunk_size;
-	hdr->chunks++;
-
-	return (char *) hdr + header_size;
 }
 
 void *mremap_anon(void *old_address, size_t old_size  __attr_unused__,
 		  size_t new_size, unsigned long flags)
 {
 	struct movable_header *hdr;
+	int ret;
 
 	if (old_address == NULL || old_address == MAP_FAILED) {
 		errno = EINVAL;
@@ -264,18 +239,38 @@ void *mremap_anon(void *old_address, size_t old_size  __attr_unused__,
 	if (hdr->signature != MMAP_SIGNATURE)
 		i_panic("movable_mremap(): Invalid old_address");
 
-	new_size += header_size;
+	new_size = PAGE_ALIGN(new_size);
 
-	if (hdr->size > new_size)
-		return remove_chunks(hdr, new_size);
-	else
-		return add_chunks(hdr, new_size, (flags & MREMAP_MAYMOVE) != 0);
+	if (new_size > hdr->size) {
+		/* grow */
+		ret = mremap_try_grow(hdr, new_size);
+		if (ret > 0)
+			return old_address;
+		if (ret < 0)
+			return MAP_FAILED;
+
+		if ((flags & MREMAP_MAYMOVE) == 0) {
+			errno = ENOMEM;
+			return MAP_FAILED;
+		}
+
+		return mremap_move(hdr, new_size);
+	}
+
+	if (new_size < hdr->size) {
+		/* shrink */
+		if (munmap((char *) hdr + header_size + new_size,
+			   hdr->size - new_size) < 0)
+			i_panic("munmap() failed: %m");
+		hdr->size = new_size;
+	}
+
+	return old_address;
 }
 
 int munmap_anon(void *start, size_t length __attr_unused__)
 {
 	struct movable_header *hdr;
-	int i;
 
 	if (start == NULL || start == MAP_FAILED) {
 		errno = EINVAL;
@@ -286,11 +281,8 @@ int munmap_anon(void *start, size_t length __attr_unused__)
 	if (hdr->signature != MMAP_SIGNATURE)
 		i_panic("movable_munmap(): Invalid address");
 
-	/* [0] chunk must be free'd last since it contains the header */
-	for (i = hdr->chunks-1; i >= 0; i--) {
-		if (munmap(hdr->chunk_ptr[i], hdr->chunk_size[i]) < 0)
-			i_panic("munmap() failed: %m");
-	}
+	if (munmap(hdr, hdr->size + header_size) < 0)
+		i_panic("munmap() failed: %m");
 
 	return 0;
 }
