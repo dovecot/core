@@ -467,11 +467,9 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 
 	msg = cache->open_msg;
 	if (msg->hdr_size == NULL) {
-		if (!imap_msgcache_get_inbuf(cache, 0))
+		cache_fields(cache, IMAP_CACHE_MESSAGE_HDR_SIZE);
+		if (msg->hdr_size == NULL)
 			return FALSE;
-
-		msg->hdr_size = p_new(msg->pool, MessageSize, 1);
-		message_get_header_size(cache->open_inbuf, msg->hdr_size);
 	}
 
 	physical_skip = get_header ? 0 : msg->hdr_size->physical_size;
