@@ -131,8 +131,13 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 
 	if (lock_info->have_pid) {
 		/* we've local PID. Check if it exists. */
-		if (kill(pid, 0) == 0 || errno != ESRCH)
-			return 0;
+		if (kill(pid, 0) == 0 || errno != ESRCH) {
+			if (pid != getpid())
+				return 0;
+			/* it's us. either we're locking it again, or it's a
+			   stale lock file with same pid than us. either way,
+			   recreate it.. */
+		}
 
 		/* doesn't exist - go ahead and delete */
 		if (unlink(lock_info->lock_path) < 0 && errno != ENOENT) {
