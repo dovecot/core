@@ -526,7 +526,9 @@ static void credentials_callback(const char *result,
 	struct digest_auth_request *auth =
 		(struct digest_auth_request *) request;
 
-	mech_auth_finish(request, verify_credentials(auth, result));
+	auth->authenticated = TRUE;
+	mech_auth_finish(request, auth->rspauth, strlen(auth->rspauth),
+			 verify_credentials(auth, result));
 }
 
 static int
@@ -561,13 +563,13 @@ mech_digest_md5_auth_continue(struct login_connection *conn,
 		auth_request->id = request->id;
 		auth_request->callback = callback;
 
+		auth_request->user = p_strdup(auth_request->pool,
+					      auth->username);
+		auth_request->realm = p_strdup(auth_request->pool, auth->realm);
+
 		passdb->lookup_credentials(&auth->auth_request,
 					   PASSDB_CREDENTIALS_DIGEST_MD5,
 					   credentials_callback);
-
-		reply.data_size = strlen(auth->rspauth);
-		callback(&reply, auth->rspauth, conn);
-		auth->authenticated = TRUE;
 		return TRUE;
 	}
 

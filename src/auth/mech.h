@@ -54,7 +54,8 @@ void mech_init_login_reply(struct auth_login_reply *reply);
 void *mech_auth_success(struct auth_login_reply *reply,
 			struct auth_request *auth_request,
 			const void *data, size_t data_size);
-void mech_auth_finish(struct auth_request *auth_request, int success);
+void mech_auth_finish(struct auth_request *auth_request,
+		      const void *data, size_t data_size, int success);
 
 void mech_cyrus_sasl_init_lib(void);
 struct auth_request *mech_cyrus_sasl_new(struct login_connection *conn,

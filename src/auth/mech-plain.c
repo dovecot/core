@@ -9,7 +9,7 @@
 static void verify_callback(enum passdb_result result,
 			    struct auth_request *request)
 {
-	mech_auth_finish(request, result == PASSDB_RESULT_OK);
+	mech_auth_finish(request, NULL, 0, result == PASSDB_RESULT_OK);
 }
 
 static int

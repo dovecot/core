@@ -163,7 +163,8 @@ void *mech_auth_success(struct auth_login_reply *reply,
 	return buffer_get_modifyable_data(buf, NULL);
 }
 
-void mech_auth_finish(struct auth_request *auth_request, int success)
+void mech_auth_finish(struct auth_request *auth_request,
+		      const void *data, size_t data_size, int success)
 {
 	struct auth_login_reply reply;
 	void *reply_data;
@@ -172,7 +173,8 @@ void mech_auth_finish(struct auth_request *auth_request, int success)
 	reply.id = auth_request->id;
 
 	if (success) {
-		reply_data = mech_auth_success(&reply, auth_request, NULL, 0);
+		reply_data = mech_auth_success(&reply, auth_request,
+					       data, data_size);
 		reply.result = AUTH_LOGIN_RESULT_SUCCESS;
 	} else {
 		reply_data = NULL;
