@@ -162,7 +162,6 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
                        mail_cache_foreach_callback_t *callback, void *context)
 {
 	uint32_t offset;
-	buffer_t *offsets;
 	int ret;
 
         if (MAIL_CACHE_IS_UNUSABLE(view->cache))
@@ -178,38 +177,34 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 		view->cached_offset = offset;
 	}
 
-	t_push();
-	offsets = buffer_create_dynamic(pool_datastack_create(),
-					128, (size_t)-1);
 	ret = 1;
+	buffer_set_used_size(view->offsets_buf, 0);
 	while (offset != 0 && ret > 0) {
-		if (buffer_find_offset(offsets, offset)) {
+		if (buffer_find_offset(view->offsets_buf, offset)) {
 			mail_cache_set_corrupted(view->cache,
 						 "record list is circular");
-			ret = -1;
-			break;
+			return -1;
 		}
-		buffer_append(offsets, &offset, sizeof(offset));
+		buffer_append(view->offsets_buf, &offset, sizeof(offset));
 		ret = mail_cache_foreach_rec(view, &offset,
 					     callback, context);
 	}
 
 	if (ret > 0 && view->trans_seq1 <= seq && view->trans_seq2 >= seq &&
 	    mail_cache_transaction_lookup(view->transaction, seq, &offset)) {
-		buffer_set_used_size(offsets, 0);
+		buffer_set_used_size(view->offsets_buf, 0);
 		while (offset != 0 && ret > 0) {
-			if (buffer_find_offset(offsets, offset)) {
+			if (buffer_find_offset(view->offsets_buf, offset)) {
 				mail_cache_set_corrupted(view->cache,
 					"record list is circular");
-				ret = -1;
-				break;
+				return -1;
 			}
-			buffer_append(offsets, &offset, sizeof(offset));
+			buffer_append(view->offsets_buf,
+				      &offset, sizeof(offset));
 			ret = mail_cache_foreach_rec(view, &offset,
 						     callback, context);
 		}
 	}
-	t_pop();
 
 	return ret;
 }

@@ -333,6 +333,8 @@ mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview)
 	view = i_new(struct mail_cache_view, 1);
 	view->cache = cache;
 	view->view = iview;
+	view->offsets_buf =
+		buffer_create_dynamic(default_pool, 128, (size_t)-1);
 	view->cached_exists_buf =
 		buffer_create_dynamic(default_pool,
 				      cache->file_fields_count + 10,
@@ -345,6 +347,7 @@ void mail_cache_view_close(struct mail_cache_view *view)
 	if (view->cache->field_header_write_pending)
                 (void)mail_cache_header_fields_update(view->cache);
 
+	buffer_free(view->offsets_buf);
 	buffer_free(view->cached_exists_buf);
 	i_free(view);
 }
