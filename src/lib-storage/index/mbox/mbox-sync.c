@@ -616,6 +616,7 @@ mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 {
 	struct index_mailbox *ibox = sync_ctx->ibox;
 	uoff_t old_offset;
+	uint32_t uid;
 	int ret, deleted;
 
 	if (seq == 0) {
@@ -646,6 +647,15 @@ mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 			return 0;
 		}
 	}
+
+	if (seq <= 1)
+		uid = 0;
+	else if (mail_index_lookup_uid(sync_ctx->sync_view, seq-1, &uid) < 0) {
+		mail_storage_set_index_error(ibox);
+		return -1;
+	}
+
+	sync_ctx->prev_msg_uid = uid;
 
         /* set to -1, since it's always increased later */
 	sync_ctx->seq = seq-1;
@@ -721,6 +731,26 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 
 	while ((ret = mbox_sync_read_next_mail(sync_ctx, mail_ctx)) > 0) {
 		uid = mail_ctx->mail.uid;
+
+		if (mail_ctx->seq == 1 && sync_ctx->base_uid_validity != 0 &&
+                    sync_ctx->hdr->uid_validity != 0 &&
+		    sync_ctx->base_uid_validity !=
+		    sync_ctx->hdr->uid_validity) {
+			mail_storage_set_critical(sync_ctx->ibox->box.storage,
+				"UIDVALIDITY changed (%u -> %u) "
+				"in mbox file %s",
+				sync_ctx->hdr->uid_validity,
+				sync_ctx->base_uid_validity,
+				sync_ctx->ibox->path);
+                        mail_index_mark_corrupted(sync_ctx->ibox->index);
+			return -1;
+		}
+
+		if (mail_ctx->uid_broken && partial) {
+			/* UID ordering problems, resync everything to make
+			   sure we get everything right */
+			return 0;
+		}
 
 		if (mail_ctx->pseudo)
 			uid = 0;
@@ -1033,9 +1063,16 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 
 		/* partial syncing didn't work, do it again */
 		mbox_sync_restart(sync_ctx);
-		if (mbox_sync_loop(sync_ctx, &mail_ctx,
-				   (uint32_t)-1, FALSE) < 0)
+
+		mail_index_transaction_rollback(sync_ctx->t);
+		sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view,
+							   FALSE);
+
+		ret = mbox_sync_loop(sync_ctx, &mail_ctx, (uint32_t)-1, FALSE);
+		if (ret <= 0) {
+			i_assert(ret != 0);
 			return -1;
+		}
 	}
 
 	if (mbox_sync_handle_eof_updates(sync_ctx, &mail_ctx) < 0)

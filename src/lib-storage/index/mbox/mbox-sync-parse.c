@@ -215,6 +215,7 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 
 		if (value <= ctx->sync_ctx->prev_msg_uid) {
 			/* broken - UIDs must be growing */
+			ctx->uid_broken = TRUE;
 			return FALSE;
 		}
 		ctx->sync_ctx->prev_msg_uid = value;

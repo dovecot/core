@@ -82,6 +82,7 @@ struct mbox_sync_mail_context {
 	unsigned int updated:1;
 	unsigned int recent:1;
 	unsigned int seen_received_hdr:1;
+	unsigned int uid_broken:1;
 };
 
 struct mbox_sync_context {
