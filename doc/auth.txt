@@ -76,8 +76,7 @@ it's allowed by master process.
 
 Realm is useful only with Digest-MD5 authentication. It's possible to have
 multiple users with same name but in different realms. If plaintext is used
-to log in, the user is searched from all the realms, and first found is
-used.
+to log in, user is expected to be in no realm.
 
 The password field is in format: <data> "[" <type> "]", like "foo[13]".
 Type can be one of the following:
@@ -90,7 +89,23 @@ If [type] isn't specified at all or it's unknown, DES is used. The 13 and
 34 methods are compatible with PAM module pwdfile. Only the 56 method works
 with Digest-MD5 authentication.
 
-Easiest way to generate Digest-MD5 passwords is to use perl:
+DES
+---
 
-perl -MDigest::MD5 -e 'print Digest::MD5::md5_hex("user:realm:pass")."\n"'
+Use either mkpasswd, or:
 
+perl -e 'print crypt("pass", "two-letter-salt")."\n"'
+
+MD5
+---
+
+perl -MDigest::MD5 -e 'print Digest::MD5::md5_hex("pass")."[34]\n"'
+
+Digest-MD5
+----------
+
+perl -MDigest::MD5 -e 'print Digest::MD5::md5_hex("user:realm:pass")."[56]\n"'
+
+For plaintext authentication:
+
+perl -MDigest::MD5 -e 'print Digest::MD5::md5_hex("user::pass")."[56]\n"'
