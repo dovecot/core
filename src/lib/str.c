@@ -38,6 +38,11 @@ string_t *t_str_new(size_t initial_size)
 	return str_new(data_stack_pool, initial_size);
 }
 
+void str_free(string_t *str)
+{
+	buffer_free(str);
+}
+
 static int str_add_nul(string_t *str)
 {
 	size_t len;
