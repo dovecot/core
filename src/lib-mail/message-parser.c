@@ -468,8 +468,8 @@ message_find_boundary(IBuffer *inbuf, MessageBoundary *boundaries,
 			    msg[line_start+1] == '-') {
 				/* possible boundary */
 				boundary = boundary_find(boundaries,
-						(char *) msg + line_start + 2,
-						i - line_start - 2);
+					(const char *) msg + line_start + 2,
+					i - line_start - 2);
 				if (boundary != NULL)
 					break;
 			}
@@ -493,8 +493,8 @@ message_find_boundary(IBuffer *inbuf, MessageBoundary *boundaries,
 			   70 chars without "--" or less. We allow
 			   a bit larger.. */
 			boundary = boundary_find(boundaries,
-						 (char *) msg + line_start + 2,
-						 i - line_start - 2);
+					(const char *) msg + line_start + 2,
+					i - line_start - 2);
 			if (boundary != NULL)
 				break;
 
