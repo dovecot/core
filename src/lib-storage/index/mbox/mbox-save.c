@@ -282,7 +282,7 @@ static void save_header_callback(struct message_header_line *hdr,
 {
 	struct mbox_save_context *ctx = context;
 
-	if (!*matched && ctx->ibox->mbox_save_md5 && hdr != NULL)
+	if (!*matched && ctx->mbox_md5_ctx && hdr != NULL)
 		mbox_md5_continue(ctx->mbox_md5_ctx, hdr);
 
 	if ((hdr == NULL && ctx->eoh_input_offset == (uoff_t)-1) ||
@@ -376,7 +376,7 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 		ctx->body_output = getenv("MAIL_SAVE_CRLF") != NULL ?
 			o_stream_create_crlf(default_pool, ctx->output) :
 			o_stream_create_lf(default_pool, ctx->output);
-		if (ctx->ibox->mbox_save_md5)
+		if (ctx->ibox->mbox_save_md5 && ctx->synced)
 			ctx->mbox_md5_ctx = mbox_md5_init();
 	}
 
@@ -436,7 +436,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 		}
 	}
 
-	if (ctx->ibox->mbox_save_md5) {
+	if (ctx->mbox_md5_ctx) {
 		unsigned char hdr_md5_sum[16];
 
 		mbox_md5_finish(ctx->mbox_md5_ctx, hdr_md5_sum);
