@@ -203,7 +203,9 @@ static ssize_t _read(struct _istream *stream)
         fromp = mbox_from; from_start_pos = 0;
 	eoh_char = rstream->body_offset == (uoff_t)-1 ? '\n' : '\0';
 	for (i = stream->pos; i < pos; i++) {
-		if (buf[i] == eoh_char && i > 0 && buf[i-1] == '\n') {
+		if (buf[i] == eoh_char &&
+		    ((i > 0 && buf[i-1] == '\n') ||
+		     stream->istream.v_offset + i == rstream->hdr_offset)) {
 			rstream->body_offset = stream->istream.v_offset + i + 1;
 			eoh_char = '\0';
 		}
