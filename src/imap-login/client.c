@@ -202,7 +202,7 @@ static int client_handle_input(struct imap_client *client)
 		/* remove \r\n */
 		if (client->skip_line) {
 			if (!client_skip_line(client))
-				return TRUE;
+				return FALSE;
                         client->skip_line = FALSE;
 		}
 
@@ -225,7 +225,7 @@ static int client_handle_input(struct imap_client *client)
 	case -1:
 		/* error */
 		client_destroy(client, NULL);
-		return TRUE;
+		return FALSE;
 	case -2:
 		/* not enough data */
 		return FALSE;
