@@ -1044,6 +1044,17 @@ static int mail_transaction_log_scan_pending(struct mail_transaction_log *log,
 	    t->cache_updates != NULL) {
 		buffer_free(t->cache_updates);
 		t->cache_updates = NULL;
+
+		if (t->appends != NULL) {
+			struct mail_index_record *rec;
+			size_t i, size;
+
+			rec = buffer_get_modifyable_data(t->appends, &size);
+			size /= sizeof(*rec);
+
+			for (i = 0; i < size; i++)
+				rec[i].cache_offset = 0;
+		}
 	}
 
 	mail_transaction_log_view_close(sync_view);
