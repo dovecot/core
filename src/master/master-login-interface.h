@@ -7,11 +7,16 @@
 #define LOGIN_SSL_LISTEN_FD 1
 #define LOGIN_MASTER_SOCKET_FD 3
 
-struct master_login_request {
-	unsigned int tag;
+/* Increase the version number every time master_login_request
+   (or something else) is changed. */
+#define MASTER_LOGIN_PROTOCOL_VERSION 1
 
-	unsigned int auth_pid;
-	unsigned int auth_id;
+struct master_login_request {
+	uint32_t version;
+	uint32_t tag;
+
+	uint32_t auth_pid;
+	uint32_t auth_id;
 
 	struct ip_addr local_ip, remote_ip;
 };

@@ -44,6 +44,7 @@ void master_request_login(struct client *client, master_callback_t *callback,
 	i_assert(auth_pid != 0);
 
 	memset(&req, 0, sizeof(req));
+	req.version = MASTER_LOGIN_PROTOCOL_VERSION;
 	req.tag = ++master_tag_counter;
 	if (req.tag == 0)
 		req.tag = ++master_tag_counter;
@@ -77,6 +78,7 @@ void master_notify_finished(void)
 		return;
 
 	memset(&req, 0, sizeof(req));
+	req.version = MASTER_LOGIN_PROTOCOL_VERSION;
 
 	/* sending -1 as fd does the notification */
 	if (fd_send(master_fd, -1, &req, sizeof(req)) != sizeof(req))

@@ -238,6 +238,14 @@ static void login_process_input(void *context)
 	}
 
 	ret = fd_read(p->fd, &req, sizeof(req), &client_fd);
+	if (ret >= (ssize_t)sizeof(req.version) &&
+	    req.version != MASTER_LOGIN_PROTOCOL_VERSION) {
+		i_error("login: Protocol version mismatch "
+			"(mixed old and new binaries?)");
+		login_process_destroy(p);
+		return;
+	}
+
 	if (ret != sizeof(req)) {
 		if (ret == 0) {
 			/* disconnected, ie. the login process died */
