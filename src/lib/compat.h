@@ -95,8 +95,10 @@ ssize_t my_writev(int fd, const struct iovec *iov, int iov_len);
 #endif
 
 #ifndef HAVE_PWRITE
-ssize_t pread(int fd, void *buf, size_t count, off_t offset);
-ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset);
+#  define pread my_pread
+#  define pwrite my_pwrite
+ssize_t my_pread(int fd, void *buf, size_t count, off_t offset);
+ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset);
 #endif
 
 /* ctype.h isn't safe with signed chars,

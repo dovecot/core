@@ -15,7 +15,8 @@
 #endif
 
 #ifndef HAVE_MADVISE
-int madvise(void *start, size_t length, int advice);
+#  define madvise my_madvise
+int my_madvise(void *start, size_t length, int advice);
 #  ifndef MADV_NORMAL
 #    define MADV_NORMAL 0
 #    define MADV_RANDOM 0
