@@ -1224,19 +1224,19 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 		}
 	}
 
-	if (mail_index_lock_shared(log->index, TRUE, &lock_id) < 0) {
-		if (!log->index->log_locked)
-			mail_transaction_log_file_unlock(log->head);
-		return -1;
-	}
-	idx_hdr = *log->index->hdr;
-	mail_index_unlock(log->index, lock_id);
-
 	if (log->head->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_SIZE &&
 	    log->head->last_mtime <
 	    ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_MIN_TIME) {
 		/* we might want to rotate, but check first that everything is
 		   synced in index. */
+		if (mail_index_lock_shared(log->index, TRUE, &lock_id) < 0) {
+			if (!log->index->log_locked)
+				mail_transaction_log_file_unlock(log->head);
+			return -1;
+		}
+		idx_hdr = *log->index->hdr;
+		mail_index_unlock(log->index, lock_id);
+
 		if (log->head->hdr.file_seq == idx_hdr.log_file_seq &&
 		    log->head->sync_offset == idx_hdr.log_file_int_offset &&
 		    log->head->sync_offset == idx_hdr.log_file_ext_offset) {
