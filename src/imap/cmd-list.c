@@ -8,11 +8,6 @@
 #include "commands.h"
 #include "namespace.h"
 
-enum imap_list_flags {
-	IMAP_LIST_FLAG_EXT	= 0x01,
-	IMAP_LIST_FLAG_CHILDREN
-};
-
 static const char *
 mailbox_flags2str(enum mailbox_flags flags, enum mailbox_list_flags list_flags,
 		  int listext)
