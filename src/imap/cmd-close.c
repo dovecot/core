@@ -7,11 +7,12 @@
 int cmd_close(struct client *client)
 {
 	struct mailbox *mailbox = client->mailbox;
-	struct mail_storage *storage = mailbox_get_storage(mailbox);
+	struct mail_storage *storage;
 
 	if (!client_verify_open_mailbox(client))
 		return TRUE;
 
+	storage = mailbox_get_storage(mailbox);
 	client->mailbox = NULL;
 
 	if (!mailbox_is_readonly(mailbox)) {
