@@ -15,24 +15,6 @@ struct timezone ioloop_timezone;
 
 static struct ioloop *current_ioloop = NULL;
 
-static void update_highest_fd(struct ioloop *ioloop)
-{
-        struct io *io;
-	int max_highest_fd;
-
-        max_highest_fd = ioloop->highest_fd-1;
-	ioloop->highest_fd = -1;
-
-	for (io = ioloop->ios; io != NULL; io = io->next) {
-		if (!io->destroyed && io->fd > ioloop->highest_fd) {
-			ioloop->highest_fd = io->fd;
-
-			if (ioloop->highest_fd == max_highest_fd)
-                                break;
-		}
-	}
-}
-
 struct io *io_add(int fd, enum io_condition condition,
 		  io_callback_t *callback, void *context)
 {
@@ -52,9 +34,6 @@ struct io *io_add(int fd, enum io_condition condition,
 
 	io->callback = callback;
         io->context = context;
-
-	if (io->fd > current_ioloop->highest_fd)
-		current_ioloop->highest_fd = io->fd;
 
 	io_loop_handle_add(current_ioloop, io);
 
@@ -76,16 +55,10 @@ void io_remove(struct io *io)
 		return;
 	}
 
-	i_assert(io->fd <= current_ioloop->highest_fd);
-
 	/* notify the real I/O handler */
 	io_loop_handle_remove(current_ioloop, io);
 
 	io->destroyed = TRUE;
-
-	/* check if we removed the highest fd */
-	if (io->fd == current_ioloop->highest_fd)
-		update_highest_fd(current_ioloop);
 
 	io->fd = -1;
 }
@@ -275,7 +248,6 @@ struct ioloop *io_loop_create(pool_t pool)
         ioloop = p_new(pool, struct ioloop, 1);
 	pool_ref(pool);
 	ioloop->pool = pool;
-	ioloop->highest_fd = -1;
 
 	io_loop_handler_init(ioloop);
 

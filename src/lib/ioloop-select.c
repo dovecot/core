@@ -17,8 +17,27 @@ struct ioloop_handler_data {
 
 static fd_set tmp_read_fds, tmp_write_fds;
 
+static void update_highest_fd(struct ioloop *ioloop)
+{
+        struct io *io;
+	int max_highest_fd;
+
+        max_highest_fd = ioloop->highest_fd-1;
+	ioloop->highest_fd = -1;
+
+	for (io = ioloop->ios; io != NULL; io = io->next) {
+		if (!io->destroyed && io->fd > ioloop->highest_fd) {
+			ioloop->highest_fd = io->fd;
+
+			if (ioloop->highest_fd == max_highest_fd)
+                                break;
+		}
+	}
+}
+
 void io_loop_handler_init(struct ioloop *ioloop)
 {
+	ioloop->highest_fd = -1;
 	ioloop->handler_data =
 		p_new(ioloop->pool, struct ioloop_handler_data, 1);
         FD_ZERO(&ioloop->handler_data->read_fds);
@@ -44,6 +63,9 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 		FD_SET(fd, &ioloop->handler_data->read_fds);
         if (condition & IO_WRITE)
 		FD_SET(fd, &ioloop->handler_data->write_fds);
+
+	if (io->fd > ioloop->highest_fd)
+		ioloop->highest_fd = io->fd;
 }
 
 void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
@@ -57,6 +79,10 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 		FD_CLR(fd, &ioloop->handler_data->read_fds);
         if (condition & IO_WRITE)
 		FD_CLR(fd, &ioloop->handler_data->write_fds);
+
+	/* check if we removed the highest fd */
+	if (io->fd == ioloop->highest_fd)
+		update_highest_fd(ioloop);
 }
 
 #define io_check_condition(fd, condition) \
