@@ -1130,9 +1130,9 @@ if test $want_mysql = yes; then
 		AC_CHECK_HEADER(mysql.h,, [
 			AC_CHECK_HEADER(mysql/mysql.h, [
 				AUTH_CFLAGS="$AUTH_CFLAGS -DHAVE_MYSQL_MYSQL_H"
-			], want_mysql = no)
+			], want_mysql=no)
 		])
-	], want_mysql = no)
+	], want_mysql=no)
 
 	if test $want_mysql = yes; then
 		AUTH_LIBS="$AUTH_LIBS -lmysqlclient"
