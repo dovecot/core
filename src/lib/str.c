@@ -135,6 +135,11 @@ void str_vprintfa(string_t *str, const char *fmt, va_list args)
 	buffer_set_used_size(str, len);
 }
 
+void str_insert(string_t *str, size_t pos, const char *cstr)
+{
+	buffer_insert(str, pos, cstr, strlen(cstr));
+}
+
 void str_delete(string_t *str, size_t pos, size_t len)
 {
 	buffer_delete(str, pos, len);

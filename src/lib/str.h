@@ -21,7 +21,7 @@ void str_printfa(string_t *str, const char *fmt, ...)
 	__attr_format__(2, 3);
 void str_vprintfa(string_t *str, const char *fmt, va_list args);
 
-/* Delete/truncate */
+void str_insert(string_t *str, size_t pos, const char *cstr);
 void str_delete(string_t *str, size_t pos, size_t len);
 void str_truncate(string_t *str, size_t len);
 
