@@ -99,6 +99,8 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 
 const char *get_log_prefix(const struct auth_request *auth_request);
 
+void auth_failure_buf_flush(void);
+
 void mech_init(void);
 void mech_deinit(void);
 

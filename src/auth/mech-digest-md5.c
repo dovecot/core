@@ -511,16 +511,16 @@ static void credentials_callback(const char *result,
 		(struct digest_auth_request *) request;
 	struct auth_client_request_reply reply;
 
+	if (!verify_credentials(auth, result)) {
+		mech_auth_finish(request, NULL, 0, FALSE);
+		return;
+	}
+
 	mech_init_auth_client_reply(&reply);
 	reply.id = request->id;
-
-	if (!verify_credentials(auth, result))
-		reply.result = AUTH_CLIENT_RESULT_FAILURE;
-	else {
-		reply.result = AUTH_CLIENT_RESULT_CONTINUE;
-		reply.data_size = strlen(auth->rspauth);
-		auth->authenticated = TRUE;
-	}
+	reply.result = AUTH_CLIENT_RESULT_CONTINUE;
+	reply.data_size = strlen(auth->rspauth);
+	auth->authenticated = TRUE;
 
 	request->callback(&reply, auth->rspauth, request->conn);
 }

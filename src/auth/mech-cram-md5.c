@@ -132,13 +132,9 @@ static void credentials_callback(const char *result,
 	struct cram_auth_request *auth =
 		(struct cram_auth_request *) request;
 
-	if (verify_credentials(auth, result)) {
-		if (verbose) {
-			i_info("cram-md5(%s): authenticated",
-			       get_log_prefix(&auth->auth_request));
-		}
+	if (verify_credentials(auth, result))
 		mech_auth_finish(request, NULL, 0, TRUE);
-	} else {
+	else {
 		if (verbose) {
 			i_info("cram-md5(%s): authentication failed",
 			       get_log_prefix(&auth->auth_request));

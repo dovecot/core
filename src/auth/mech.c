@@ -22,6 +22,9 @@ static int set_use_cyrus_sasl;
 static int ssl_require_client_cert;
 static struct auth_client_request_reply failure_reply;
 
+static buffer_t *auth_failures_buf;
+static struct timeout *to_auth_failures;
+
 void mech_register_module(struct mech_module *module)
 {
 	struct mech_module_list *list;
@@ -224,24 +227,24 @@ void mech_auth_finish(struct auth_request *auth_request,
 	struct auth_client_request_reply reply;
 	void *reply_data;
 
-	memset(&reply, 0, sizeof(reply));
-	reply.id = auth_request->id;
-
-	if (success) {
-		reply_data = mech_auth_success(&reply, auth_request,
-					       data, data_size);
-		reply.result = AUTH_CLIENT_RESULT_SUCCESS;
-	} else {
-		reply_data = NULL;
-		reply.result = AUTH_CLIENT_RESULT_FAILURE;
+	if (!success) {
+		/* failure. don't announce it immediately to avoid
+		   a) timing attacks, b) flooding */
+		buffer_append(auth_failures_buf,
+			      &auth_request, sizeof(auth_request));
+		return;
 	}
 
+	memset(&reply, 0, sizeof(reply));
+	reply.id = auth_request->id;
+	reply.result = AUTH_CLIENT_RESULT_SUCCESS;
+
+	reply_data = mech_auth_success(&reply, auth_request, data, data_size);
 	auth_request->callback(&reply, reply_data, auth_request->conn);
 
-	if (!success || AUTH_MASTER_IS_DUMMY(auth_request->conn->master)) {
-		/* request is no longer needed, either because the
-		   authentication failed or because we don't have master
-		   process */
+	if (AUTH_MASTER_IS_DUMMY(auth_request->conn->master)) {
+		/* we don't have master process, the request is no longer
+		   needed */
 		mech_request_free(auth_request, auth_request->id);
 	}
 }
@@ -355,6 +358,31 @@ const char *get_log_prefix(const struct auth_request *auth_request)
 	return str_c(str);
 }
 
+void auth_failure_buf_flush(void)
+{
+	struct auth_request **auth_request;
+	struct auth_client_request_reply reply;
+	size_t i, size;
+
+	auth_request = buffer_get_modifyable_data(auth_failures_buf, &size);
+	size /= sizeof(*auth_request);
+
+	memset(&reply, 0, sizeof(reply));
+	reply.result = AUTH_CLIENT_RESULT_FAILURE;
+
+	for (i = 0; i < size; i++) {
+		reply.id = auth_request[i]->id;
+		auth_request[i]->callback(&reply, NULL, auth_request[i]->conn);
+		mech_request_free(auth_request[i], auth_request[i]->id);
+	}
+	buffer_set_used_size(auth_failures_buf, 0);
+}
+
+static void auth_failure_timeout(void *context __attr_unused__)
+{
+	auth_failure_buf_flush();
+}
+
 extern struct mech_module mech_plain;
 extern struct mech_module mech_cram_md5;
 extern struct mech_module mech_digest_md5;
@@ -431,11 +459,17 @@ void mech_init(void)
 	if (set_use_cyrus_sasl)
 		mech_cyrus_sasl_init_lib();
 #endif
-        ssl_require_client_cert = getenv("SSL_REQUIRE_CLIENT_CERT") != NULL;
+	ssl_require_client_cert = getenv("SSL_REQUIRE_CLIENT_CERT") != NULL;
+
+	auth_failures_buf =
+		buffer_create_dynamic(default_pool, 1024, (size_t)-1);
+        to_auth_failures = timeout_add(2000, auth_failure_timeout, NULL);
 }
 
 void mech_deinit(void)
 {
+	timeout_remove(to_auth_failures);
+
 	mech_unregister_module(&mech_plain);
 	mech_unregister_module(&mech_cram_md5);
 	mech_unregister_module(&mech_digest_md5);

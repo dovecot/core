@@ -51,10 +51,14 @@ static void open_logfile(void)
 
 static void drop_privileges(void)
 {
+	unsigned int seed;
+
 	open_logfile();
 
 	/* Open /dev/urandom before chrooting */
 	random_init();
+	random_fill(&seed, sizeof(seed));
+	srand(seed);
 
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(FALSE);
@@ -155,6 +159,8 @@ static void main_deinit(void)
 
         if (lib_signal_kill != 0)
 		i_warning("Killed with signal %d", lib_signal_kill);
+
+	auth_failure_buf_flush();
 
 	master = buffer_get_modifyable_data(masters_buf, &size);
 	size /= sizeof(*master);
