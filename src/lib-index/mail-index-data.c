@@ -303,6 +303,11 @@ int mail_index_data_create(struct mail_index *index)
 	if (fd == -1) {
 		data->mmap_full_length = INDEX_DATA_INITIAL_SIZE;
 		data->mmap_base = mmap_anon(data->mmap_full_length);
+		if (data->mmap_base == MAP_FAILED) {
+			i_free(data);
+			return index_file_set_syscall_error(index, path,
+							    "mmap_anon()");
+		}
 
 		memcpy(data->mmap_base, &hdr, sizeof(hdr));
 		data->header = data->mmap_base;

@@ -302,6 +302,9 @@ static int mail_tree_init(struct mail_tree *tree)
 	if (tree->anon_mmap) {
 		tree->mmap_full_length = MAIL_TREE_MIN_SIZE;
 		tree->mmap_base = mmap_anon(tree->mmap_full_length);
+		if (tree->mmap_base == MAP_FAILED)
+			return tree_set_syscall_error(tree, "mmap_anon()");
+
 		memcpy(tree->mmap_base, &hdr, sizeof(struct mail_tree_header));
 		return mmap_verify(tree);
 	}

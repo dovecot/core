@@ -512,11 +512,14 @@ static int modifylog_files_open_or_create(struct mail_modify_log *log)
 	return FALSE;
 }
 
-static void modifylog_create_anon(struct modify_log_file *file)
+static int modifylog_create_anon(struct modify_log_file *file)
 {
 	file->mmap_full_length = MODIFY_LOG_INITIAL_SIZE;
 	file->mmap_base = mmap_anon(file->mmap_full_length);
 	file->header = file->mmap_base;
+
+	if (file->mmap_base == MAP_FAILED)
+		return modifylog_set_syscall_error(file, "mmap_anon()");
 
 	mail_modifylog_init_header(file->log, file->mmap_base);
 
@@ -526,6 +529,7 @@ static void modifylog_create_anon(struct modify_log_file *file)
 	file->anon_mmap = TRUE;
 	file->filepath = i_strdup_printf("(in-memory modify log for %s)",
 					 file->log->index->mailbox_path);
+	return TRUE;
 }
 
 int mail_modifylog_create(struct mail_index *index)
@@ -537,9 +541,12 @@ int mail_modifylog_create(struct mail_index *index)
 
 	log = mail_modifylog_new(index);
 
-	if (INDEX_IS_IN_MEMORY(index))
-		modifylog_create_anon(&log->file1);
-	else {
+	if (INDEX_IS_IN_MEMORY(index)) {
+		if (!modifylog_create_anon(&log->file1)) {
+			mail_modifylog_free(log);
+			return FALSE;
+		}
+	} else {
 		ret = modifylog_reuse_or_create_file(&log->file1);
 		if (ret == 0) {
 			index_set_error(log->index,

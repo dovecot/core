@@ -285,6 +285,8 @@ static int mail_index_create_memory(struct mail_index *index,
 
 	index->mmap_full_length = INDEX_FILE_MIN_SIZE;
 	index->mmap_base = mmap_anon(index->mmap_full_length);
+	if (index->mmap_base == MAP_FAILED)
+		return index_file_set_syscall_error(index, path, "mmap_anon()");
 
 	mail_index_init_header(index, index->mmap_base);
 	index->header = index->mmap_base;
