@@ -187,6 +187,8 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 static int client_handle_input(struct imap_client *client)
 {
 	struct imap_arg *args;
+	const char *msg;
+	int fatal;
 
 	if (client->authenticating)
 		return FALSE; /* wait until authentication is finished */
@@ -224,8 +226,19 @@ static int client_handle_input(struct imap_client *client)
 	switch (imap_parser_read_args(client->parser, 0, 0, &args)) {
 	case -1:
 		/* error */
-		client_destroy(client, NULL);
-		return FALSE;
+		msg = imap_parser_get_error(client->parser, &fatal);
+		if (fatal) {
+			client_send_line(client, t_strconcat("* BYE ",
+							     msg, NULL));
+			client_destroy(client, t_strconcat("Disconnected: ",
+							   msg, NULL));
+			return FALSE;
+		}
+
+		client_send_tagline(client, t_strconcat("BAD ", msg, NULL));
+		client->cmd_finished = TRUE;
+		client->skip_line = TRUE;
+		return TRUE;
 	case -2:
 		/* not enough data */
 		return FALSE;
@@ -234,6 +247,8 @@ static int client_handle_input(struct imap_client *client)
 
 	if (*client->cmd_tag == '\0' ||
 	    !client_command_execute(client, client->cmd_name, args)) {
+		if (*client->cmd_tag == '\0')
+			client->cmd_tag = "*";
 		if (++client->bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
 			client_send_line(client,
 				"* BYE Too many invalid IMAP commands.");
