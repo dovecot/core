@@ -105,11 +105,6 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 
 	if (mail_ctx->seq == 1)
 		sync_ctx->seen_first_mail = TRUE;
-	if (mail_ctx->seq > 1 && sync_ctx->dest_first_mail) {
-		/* First message was expunged and this is the next one.
-		   Skip \n header */
-		mail_ctx->mail.from_offset++;
-	}
 
 	mbox_sync_parse_next_mail(sync_ctx->input, mail_ctx);
 	i_assert(sync_ctx->input->v_offset != mail_ctx->mail.from_offset ||
@@ -530,6 +525,13 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 		/* move the header backwards to fill expunged space */
 		move_diff = -sync_ctx->expunged_space;
 
+		if (sync_ctx->dest_first_mail) {
+			/* we're moving this mail to beginning of file.
+			   skip the initial \n (it's already counted in
+			   expunged_space) */
+			mail_ctx->mail.from_offset++;
+		}
+
 		/* read the From-line before rewriting overwrites it */
 		if (mbox_read_from_line(mail_ctx) < 0)
 			return -1;
@@ -546,6 +548,12 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			mail_ctx->mail.offset += move_diff;
 			if (mbox_write_from_line(mail_ctx) < 0)
 				return -1;
+		} else {
+			if (sync_ctx->dest_first_mail) {
+				/* didn't have enough space, move the offset
+				   back so seeking into it doesn't fail */
+				mail_ctx->mail.from_offset--;
+			}
 		}
 	} else if (mail_ctx->need_rewrite ||
 		   buffer_get_used_size(sync_ctx->syncs) != 0 ||
