@@ -380,18 +380,23 @@ static void part_write_body(struct message_part *part,
 		data = t_new(struct message_part_body_data, 1);
 	}
 
-	/* "content type" "subtype" */
-	str_append(str, NVL(data->content_type, "\"text\""));
-	str_append_c(str, ' ');
-	if (data->content_subtype != NULL)
-		str_append(str, data->content_subtype);
+	if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822)
+		str_append(str, "\"message\" \"rfc822\"");
 	else {
-		if (data->content_type == NULL ||
-		    strcasecmp(data->content_type, "\"text\"") == 0)
-			str_append(str, "\"plain\"");
-		else
-			str_append(str, "\"unknown\"");
+		/* "content type" "subtype" */
+		str_append(str, NVL(data->content_type, "\"text\""));
+		str_append_c(str, ' ');
 
+		if (data->content_subtype != NULL)
+			str_append(str, data->content_subtype);
+		else {
+			if (data->content_type == NULL ||
+			    strcasecmp(data->content_type, "\"text\"") == 0)
+				str_append(str, "\"plain\"");
+			else
+				str_append(str, "\"unknown\"");
+
+		}
 	}
 
 	/* ("content type param key" "value" ...) */
