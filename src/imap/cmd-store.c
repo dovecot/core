@@ -74,8 +74,10 @@ int cmd_store(struct client *client)
 	if (client->mailbox->update_flags(client->mailbox, messageset,
 					  client->cmd_uid, &flags,
 					  modify_type, !silent, &all_found)) {
-		/* NOTE: syncing isn't allowed here */
-		client_sync_without_expunges(client);
+		if (client->cmd_uid)
+			client_sync_full(client);
+		else
+			client_sync_without_expunges(client);
 		client_send_tagline(client, all_found ? "OK Store completed." :
 				    "NO Some of the messages no longer exist.");
 	} else {

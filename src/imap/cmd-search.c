@@ -91,7 +91,6 @@ int cmd_search(struct client *client)
 		/* error in search arguments */
 		client_send_tagline(client, t_strconcat("NO ", error, NULL));
 	} else if (imap_search(client, charset, sargs)) {
-		/* NOTE: syncing is allowed when returning UIDs */
 		if (client->cmd_uid)
 			client_sync_full(client);
 		else
