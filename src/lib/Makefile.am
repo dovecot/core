@@ -36,6 +36,7 @@ liblib_a_SOURCES = \
 	ostream.c \
 	ostream-file.c \
 	primes.c \
+	printf-upper-bound.c \
 	process-title.c \
 	randgen.c \
 	restrict-access.c \
@@ -82,6 +83,7 @@ noinst_HEADERS = \
 	ostream.h \
 	ostream-internal.h \
 	primes.h \
+	printf-upper-bound.h \
 	process-title.h \
 	randgen.h \
 	restrict-access.h \

@@ -28,8 +28,6 @@
 
 #include <stdlib.h>
 
-#define MAX_ALLOC_SIZE SSIZE_T_MAX
-
 typedef struct {
 	union {
 		size_t size;
@@ -73,8 +71,8 @@ static void *pool_data_stack_malloc(Pool pool __attr_unused__, size_t size)
 {
 	PoolAlloc *alloc;
 
-	if (size > MAX_ALLOC_SIZE)
-		i_panic("Trying to allocate too much memory");
+	if (size == 0 || size > SSIZE_T_MAX)
+		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 	alloc = t_malloc0(sizeof(PoolAlloc) + size);
 	alloc->size.size = size;
@@ -99,6 +97,9 @@ static void *pool_data_stack_realloc_min(Pool pool __attr_unused__,
 	PoolAlloc *alloc, *new_alloc;
         size_t old_size;
 	unsigned char *rmem;
+
+	if (size == 0 || size > SSIZE_T_MAX)
+		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 	if (mem == NULL)
 		return pool_data_stack_malloc(pool, size);

@@ -27,6 +27,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "fd-close-on-exec.h"
+#include "printf-upper-bound.h"
 
 #include <stdio.h>
 #include <stdlib.h>

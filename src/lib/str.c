@@ -23,6 +23,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "printf-upper-bound.h"
 #include "str.h"
 
 #include <stdio.h>

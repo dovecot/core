@@ -78,12 +78,6 @@ char *i_strdup_vprintf(const char *format, va_list args)
         return p_strdup_vprintf(default_pool, format, args);
 }
 
-void i_strdup_replace(char **dest, const char *str)
-{
-	p_free(default_pool, *dest);
-        *dest = p_strdup(default_pool, str);
-}
-
 char *i_strconcat(const char *str1, ...)
 {
 	va_list args;
@@ -93,9 +87,13 @@ char *i_strconcat(const char *str1, ...)
 
 	va_start(args, str1);
 
-	temp = temp_strconcat(str1, args, &len);
-        ret = p_malloc(default_pool, len);
-        memcpy(ret, temp, len);
+	temp = _vstrconcat(str1, args, &len);
+	if (temp == NULL)
+		ret = NULL;
+	else {
+		ret = p_malloc(default_pool, len);
+		memcpy(ret, temp, len);
+	}
 
 	va_end(args);
         return ret;

@@ -6,4 +6,4 @@ The exceptions are:
 src/lib/
   - md5.c : Public Domain
   - base64.c, mkgmtime.c : BSD-like (read it)
-  - hash.c, primes.c, strfuncs.c, tree.c : LGPL v2
+  - hash.c, primes.c, printf-upper-bound.c, tree.c : LGPL v2

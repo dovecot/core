@@ -202,11 +202,8 @@ static void *t_malloc_real(size_t size, int permanent)
 	int warn = FALSE;
 #endif
 
-	if (size == 0)
-		return NULL;
-
-	if (size > MAX_ALLOC_SIZE)
-		i_panic("Trying to allocate too much memory");
+	if (size == 0 || size > SSIZE_T_MAX)
+		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 	/* reset t_buffer_get() mark - not really needed but makes it easier
 	   to notice if t_malloc() is called between t_buffer_get() and
@@ -277,6 +274,9 @@ void *t_malloc0(size_t size)
 int t_try_realloc(void *mem, size_t size)
 {
 	size_t last_alloc_size;
+
+	if (size == 0 || size > SSIZE_T_MAX)
+		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 	last_alloc_size = current_frame_block->last_alloc_size[frame_pos];
 

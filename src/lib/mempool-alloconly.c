@@ -168,6 +168,9 @@ static void *pool_alloconly_malloc(Pool pool, size_t size)
 	AlloconlyPool *apool = (AlloconlyPool *) pool;
 	PoolAlloc *alloc;
 
+	if (size == 0 || size > SSIZE_T_MAX)
+		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
+
 	size = MEM_ALIGN(size);
 
 	if (apool->block->left < size + SIZEOF_POOLALLOC) {
@@ -221,6 +224,9 @@ static void *pool_alloconly_realloc_min(Pool pool, void *mem, size_t size)
 	PoolAlloc *alloc;
 	unsigned char *new_mem;
 	size_t old_size;
+
+	if (size == 0 || size > SSIZE_T_MAX)
+		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 	if (mem == NULL) {
 		alloc = NULL;

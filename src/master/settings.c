@@ -361,7 +361,8 @@ static const char *parse_auth(const char *key, const char *value)
 		ptr = NULL;
 
 	if (ptr != NULL) {
-		i_strdup_replace(ptr, value);
+		i_free(*ptr);
+		*ptr = i_strdup(value);
 		return NULL;
 	}
 
