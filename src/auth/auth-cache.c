@@ -41,7 +41,7 @@ char *auth_cache_parse_key(const char *query)
 			}
 		}
 	}
-	return str_c_modifyable(str);
+	return str_free_without_data(str);
 }
 
 static void

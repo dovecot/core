@@ -220,6 +220,7 @@ static void driver_mysql_query(struct sql_db *_db, const char *query,
 			break;
 
 		callback(&result.api, context);
+                mysql_free_result(result.result);
 		return;
 	case -1:
 		/* error */
