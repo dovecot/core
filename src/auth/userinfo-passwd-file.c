@@ -170,7 +170,7 @@ static int passwd_file_lookup_digest_md5(const char *user, const char *realm,
 	/* found */
 	i_assert(strlen(pu->password) == 32);
 
-	buf = buffer_create_data(data_stack_pool, digest, sizeof(digest));
+	buf = buffer_create_data(data_stack_pool, digest, 16);
 	if (!hex_to_binary(pu->password, buf))
 		return FALSE;
 	
