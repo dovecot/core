@@ -121,7 +121,7 @@ static int mbox_check_uidvalidity(struct mail_index *index,
 
 static int match_next_record(struct mail_index *index,
 			     struct mail_index_record *rec,
-			     unsigned int seq, struct istream *input,
+			     unsigned int *seq, struct istream *input,
 			     struct mail_index_record **next_rec, int *dirty)
 {
         struct mail_index_update *update;
@@ -167,7 +167,7 @@ static int match_next_record(struct mail_index *index,
 					     mbox_header_cb, &ctx);
 			md5_final(&ctx.md5, current_digest);
 
-			if (seq == 1) {
+			if (*seq == 1) {
 				if (!mbox_check_uidvalidity(index,
 							    ctx.uid_validity)) {
 					/* uidvalidity changed, abort */
@@ -194,7 +194,7 @@ static int match_next_record(struct mail_index *index,
 
 			/* update flags, unless we've changed them */
 			if ((rec->index_flags & INDEX_MAIL_FLAG_DIRTY) == 0) {
-				if (!index->update_flags(index, rec, seq,
+				if (!index->update_flags(index, rec, *seq,
 							 ctx.flags, TRUE))
 					return FALSE;
 
@@ -231,22 +231,24 @@ static int match_next_record(struct mail_index *index,
 		/* try next message */
 		if (first_rec == NULL) {
 			first_rec = rec;
-			first_seq = seq;
+			first_seq = *seq;
 		}
 		last_rec = rec;
-		last_seq = seq;
+		last_seq = *seq;
 
-		rec = index->next(index, rec); seq++;
+		rec = index->next(index, rec); *seq += 1;
 	} while (rec != NULL);
 
-	if (first_rec == NULL)
+	if (first_rec == NULL) {
+		*seq += 1;
 		*next_rec = rec == NULL ? NULL : index->next(index, rec);
-	else {
+	} else {
 		if (!index->expunge(index, first_rec, last_rec,
 				    first_seq, last_seq, TRUE))
 			return FALSE;
 
-		*next_rec = index->lookup(index, first_seq);
+		*seq = first_seq + 1;
+		*next_rec = index->lookup(index, *seq);
 	}
 
 	return TRUE;
@@ -304,16 +306,13 @@ static int mbox_sync_from_stream(struct mail_index *index,
 		if (input->v_offset == input->v_size)
 			break;
 
-		if (!match_next_record(index, rec, seq, input, &rec, &dirty))
+		if (!match_next_record(index, rec, &seq, input, &rec, &dirty))
 			return FALSE;
 
-		if (rec == NULL) {
+		if (rec == NULL && seq <= index->header->messages_count) {
 			/* Get back to line before From */
 			i_stream_seek(input, from_offset);
-			break;
 		}
-
-		seq++;
 	}
 
 	/* delete the rest of the records */

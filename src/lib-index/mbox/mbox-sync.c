@@ -73,8 +73,6 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
 	uoff_t filesize;
 	int count, fd;
 
-	i_assert(index->lock_type != MAIL_LOCK_SHARED);
-
 	if (index->mailbox_readonly && data_lock_type == MAIL_LOCK_EXCLUSIVE) {
 		index_set_error(index, "sync: %s is read-only, "
 				"can't get exclusive lock",
@@ -89,6 +87,8 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
 		/* we've already synced in this locking session */
 		return TRUE;
 	}
+
+	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
 	if (index->fd == -1) {
 		/* anon-mmaped */

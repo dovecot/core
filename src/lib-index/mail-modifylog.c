@@ -797,7 +797,7 @@ int mail_modifylog_add_expunges(struct mail_modify_log *log,
 			/* note that the weird looking logic above is correct.
 			   it's because of reordered seq numbers. */
 			i_assert(first_uid > file->last_expunge->uid2);
-			file->last_expunge->seq2 = last_seq;
+			file->last_expunge->seq2 += (last_seq - first_seq) + 1;
 			file->last_expunge->uid2 = last_uid;
 			return TRUE;
 		}
