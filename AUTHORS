@@ -8,6 +8,9 @@ Matthew Reimer <mreimer@vpop.net> (src/auth/*-mysql.c)
 
 Andrey Panin <pazke@donpac.ru> (src/auth/mech-apop.c, src/auth/mech-login.c)
 
+Joshua Goodall <joshua@roughtrade.net> (src/auth/password-scheme-cram-md5.c,
+  src/util/dovecotpw.c)
+
 This product includes software developed by Computing Services
 at Carnegie Mellon University (http://www.cmu.edu/computing/).
 (src/lib/base64.c, src/lib/mkgmtime.c)
@@ -27,3 +30,5 @@ Owen Taylor        <otaylor@gtk.org>
 Sebastian Wilhelmi <wilhelmi@ira.uka.de>
 
 Simon Tatham (src/lib-storage/mail-thread.c merge sorting)
+
+Grepping 'Patch by' from ChangeLog shows up more people.
