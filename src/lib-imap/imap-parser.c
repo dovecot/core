@@ -22,8 +22,9 @@ struct _ImapParser {
 	OBuffer *outbuf;
 	size_t max_literal_size;
 
-	unsigned int pos;
 	ImapArg *args;
+	unsigned int pos;
+	unsigned int args_size;
 
 	ArgParseType cur_type;
 	size_t cur_pos;
@@ -67,6 +68,7 @@ void imap_parser_reset(ImapParser *parser)
 
 	parser->pos = 0;
 	parser->args = NULL;
+	parser->args_size = 0;
 
 	parser->cur_type = ARG_PARSE_NONE;
 	parser->cur_pos = 0;
@@ -463,19 +465,17 @@ static int imap_parser_read_arg(ImapParser *parser, ImapArg *root_arg)
 int imap_parser_read_args(ImapParser *parser, unsigned int count,
 			  ImapParserFlags flags, ImapArg **args)
 {
-	unsigned int args_size;
-
 	parser->flags = flags;
 
-	args_size = 0;
 	while (count == 0 || parser->pos < count) {
-		if (parser->pos >= args_size) {
-			args_size = nearest_power(parser->pos);
-			if (args_size < 8) args_size = 8;
+		if (parser->pos >= parser->args_size) {
+			parser->args_size = nearest_power(parser->pos+1);
+			if (parser->args_size < 8)
+				parser->args_size = 8;
 
 			parser->args =
-				p_realloc_min(parser->pool, parser->args,
-					      args_size * sizeof(ImapArg));
+				p_realloc(parser->pool, parser->args,
+					  parser->args_size * sizeof(ImapArg));
 		}
 
 		if (!imap_parser_read_arg(parser, &parser->args[parser->pos]))
