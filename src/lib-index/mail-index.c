@@ -573,18 +573,17 @@ static int mail_index_create(struct mail_index *index,
 			mail_index_file_set_syscall_error(index, path,
 							  "unlink()");
 		}
-		return -1;
-	}
-
-	/* make it visible to others */
-	if (rename(path, index->filepath) < 0) {
-		mail_index_set_error(index, "rename(%s, %s) failed: %m",
-				     path, index->filepath);
-		return -1;
+	} else {
+		/* make it visible to others */
+		if (rename(path, index->filepath) < 0) {
+			mail_index_set_error(index, "rename(%s, %s) failed: %m",
+					     path, index->filepath);
+			ret = -1;
+		}
 	}
 
 	mail_transaction_log_sync_unlock(index->log);
-	return 1;
+	return ret;
 }
 
 static void mail_index_header_init(struct mail_index *index,
