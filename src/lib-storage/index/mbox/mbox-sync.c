@@ -278,7 +278,7 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 		mail_storage_set_critical(sync_ctx->ibox->box.storage,
 			"mbox sync: UID inserted in the middle of mailbox %s "
 			"(%u > %u)", sync_ctx->ibox->path, rec->uid, uid);
-		ret = 0;
+		ret = 0; rec = NULL;
 	} else {
 		ret = 1;
 	}
