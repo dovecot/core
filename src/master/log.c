@@ -21,6 +21,7 @@ struct log_io {
 	char *prefix;
 	char next_log_type;
 	unsigned int throttle_msg:1;
+	unsigned int destroying:1;
 };
 
 static struct log_io *log_ios;
@@ -113,7 +114,8 @@ static int log_it(struct log_io *log_io, const char *line, int continues)
 	if (!continues)
 		log_io->next_log_type = '\0';
 
-	if (++log_io->log_counter > MAX_LOG_MESSAGS_PER_SEC) {
+	if (++log_io->log_counter > MAX_LOG_MESSAGS_PER_SEC &&
+	    !log_io->destroying) {
 		log_throttle(log_io);
 		return 0;
 	}
@@ -196,6 +198,10 @@ static void log_io_free(struct log_io *log_io)
 	size_t size;
 
 	/* if there was something in buffer, write it */
+	log_io->destroying = TRUE;
+	(void)log_write_pending(log_io);
+
+	/* write partial data as well */
 	data = i_stream_get_data(log_io->stream, &size);
 	if (size != 0) {
 		t_push();
