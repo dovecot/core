@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 1.0-test20)
+AM_INIT_AUTOMAKE(dovecot, 1.0-test29)
 
 AM_MAINTAINER_MODE
 
@@ -752,6 +752,64 @@ AC_TRY_RUN([
   AC_DEFINE(MMAP_CONFLICTS_WRITE,, [Define if shared mmaps don't get updated by write()s])
 ])
 
+dnl * see if fd passing works
+AC_MSG_CHECKING([whether fd passing works])
+for i in 1 2; do
+  old_cflags="$CFLAGS"
+  CFLAGS="$CFLAGS -I$srcdir/src/lib $srcdir/src/lib/fdpass.c"
+  if test $i = 2; then
+    CFLAGS="$CFLAGS -DBUGGY_CMSG_MACROS"
+  fi
+
+  AC_TRY_RUN([
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <sys/wait.h>
+    #include <sys/stat.h>
+    #include <unistd.h>
+    #include <fcntl.h>
+    #include "fdpass.h"
+    
+    int main(void)
+    {
+	    int fd[2], send_fd, recv_fd, status;
+	    struct stat st, st2;
+	    char data;
+    
+	    send_fd = open("conftest.fdpass", O_CREAT|O_WRONLY);
+	    if (send_fd == -1) return 2;
+	    unlink("conftest.fdpass");
+	    if (fstat(send_fd, &st) < 0) return 2;
+	    if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) return 2;
+    
+	    switch (fork()) {
+	    case -1:
+		    return 2;
+	    case 0:
+		    if (fd_send(fd[0], send_fd, &data, 1) != 1) return 2;
+		    wait(&status);
+		    return status;
+	    default:
+		    if (fd_read(fd[1], &data, 1, &recv_fd) != 1) return 1;
+		    if (fstat(recv_fd, &st2) < 0) return 2;
+		    return st.st_ino == st2.st_ino ? 0 : 1;
+	    }
+    }
+  ], [
+    CFLAGS=$old_cflags
+    if test $i = 2; then
+      AC_DEFINE(BUGGY_CMSG_MACROS,, Define if you have buggy CMSG macros)
+    fi
+    AC_MSG_RESULT(yes)
+    break
+  ], [
+    dnl no, try with BUGGY_CMSG_MACROS
+    CFLAGS=$old_cflags
+    if test $i = 2; then
+      AC_MSG_RESULT(no)
+    fi
+  ])
+done
 
 dnl * Solaris compatible sendfile()
 AC_CHECK_LIB(sendfile, sendfile, [

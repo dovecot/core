@@ -6,7 +6,7 @@
    This isn't fully portable, but pretty much all UNIXes nowadays should
    support this. If you're having runtime problems with fd_read(), check the
    end of fd_read() and play with the if condition. If you're having problems
-   with fd_send(), try defining BUGGY_CMSG_HEADERS.
+   with fd_send(), try defining BUGGY_CMSG_MACROS.
 
    If this file doesn't compile at all, you should check if this is supported
    in your system at all. It may require some extra #define to enable it.
@@ -23,12 +23,20 @@
 #  define _XOPEN_SOURCE_EXTENDED /* for Tru64, breaks AIX */
 #endif
 
-#include "lib.h"
-#include "fdpass.h"
+#include <string.h>
+#include <limits.h>
+#include <sys/types.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/uio.h>
+
+#ifdef HAVE_CONFIG_H
+#  include "lib.h"
+#else
+#  define i_assert(x)
+#endif
+#include "fdpass.h"
 
 /* RFC 2292 defines CMSG_*() macros, but some operating systems don't have them
    so we'll define our own if they don't exist.
@@ -52,15 +60,15 @@
    correct in case it's sometimes needed..
 */
 
-#ifdef BUGGY_CMSG_HEADERS
+#ifdef BUGGY_CMSG_MACROS
 /* Some OSes have broken CMSG macros in 64bit systems. The macros use 64bit
    alignmentation while kernel uses 32bit alignmentation. */
 #  undef CMSG_SPACE
 #  undef CMSG_LEN
 #  undef CMSG_DATA
 #  define CMSG_DATA(cmsg) ((char *)((cmsg) + 1))
-#  define _CMSG_DATA_ALIGNMENT sizeof(uint32_t)
-#  define _CMSG_HDR_ALIGNMENT sizeof(uint32_t)
+#  define _CMSG_DATA_ALIGNMENT 4
+#  define _CMSG_HDR_ALIGNMENT 4
 #endif
 
 #ifndef CMSG_SPACE
@@ -93,7 +101,7 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 	char buf[CMSG_SPACE(sizeof(int))];
 
 	/* at least one byte is required to be sent with fd passing */
-	i_assert(size > 0 && size < SSIZE_T_MAX);
+	i_assert(size > 0 && size < INT_MAX);
 
 	memset(&msg, 0, sizeof(struct msghdr));
 
@@ -149,7 +157,7 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 	ssize_t ret;
 	char buf[CMSG_SPACE(sizeof(int))];
 
-	i_assert(size > 0 && size < SSIZE_T_MAX);
+	i_assert(size > 0 && size < INT_MAX);
 
 	memset(&msg, 0, sizeof (struct msghdr));
 
