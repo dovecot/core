@@ -75,15 +75,18 @@ static void main_init(int use_syslog)
 			i_fatal("MAIL environment missing and "
 				"autodetection failed (home %s)", home);
 		}
+	}
+
+	client = client_create(hin, hout, storage);
+
+	tag = getenv("LOGIN_TAG");
+	if (tag == NULL || *tag == '\0') {
+		client_send_line(client, t_strconcat(
+			" * PREAUTH [CAPABILITY "CAPABILITY_STRING"] "
+			"Logged in as ", getenv("USER"), NULL));
 	} else {
-		client = client_create(hin, hout, storage);
-
-		tag = getenv("LOGIN_TAG");
-		if (tag == NULL || *tag == '\0')
-			tag = "*";
-
-		client_send_line(client, t_strconcat(tag, " OK Logged in.",
-						     NULL));
+		client_send_line(client,
+				 t_strconcat(tag, " OK Logged in.", NULL));
 	}
 }
 
