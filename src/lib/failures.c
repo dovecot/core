@@ -84,20 +84,17 @@ static int default_handler(const char *prefix, FILE *f,
 
 	t_push();
 	if (recursed == 2) {
-		/* write without fixing format, that probably killed us
-		   last time. */
+		/* printf_string_upper_bound() probably killed us last time,
+		 just write the format now. */
 
-		/* make sure there's no %n in there */
-                (void)printf_string_upper_bound(format, args);
-		vfprintf(f, format, args2);
-		fputs(" - recursed!", f);
+		fputs("recursed: ", f);
+		fputs(format, f);
 	} else {
 		write_prefix(f);
 
 		fputs(prefix, f);
-		format = printf_string_fix_format(format);
-		/* make sure there's no %n in there */
-                (void)printf_string_upper_bound(format, args);
+		/* make sure there's no %n in there and fix %m */
+                (void)printf_string_upper_bound(&format, args);
 		vfprintf(f, format, args2);
 	}
 
@@ -268,7 +265,7 @@ static int syslog_handler(int level, const char *format, va_list args)
 
 	/* make sure there's no %n in there */
 	VA_COPY(args2, args);
-	(void)printf_string_upper_bound(format, args);
+	(void)printf_string_upper_bound(&format, args);
 
 	vsyslog(level, format, args2);
 	recursed--;

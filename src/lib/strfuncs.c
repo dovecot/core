@@ -85,8 +85,7 @@ int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 	va_start(args, format);
 	VA_COPY(args2, args);
 
-	format = printf_string_fix_format(format);
-	len = printf_string_upper_bound(format, args);
+	len = printf_string_upper_bound(&format, args);
 
 	i_assert(len >= 0);
 
@@ -203,9 +202,7 @@ char *p_strdup_vprintf(pool_t pool, const char *format, va_list args)
 
 	VA_COPY(args2, args);
 
-	format = printf_string_fix_format(format);
-
-	len = printf_string_upper_bound(format, args);
+	len = printf_string_upper_bound(&format, args);
         ret = p_malloc(pool, len);
 
 #ifdef HAVE_VSNPRINTF

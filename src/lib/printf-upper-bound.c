@@ -66,9 +66,11 @@ typedef struct
 #  define HONOUR_LONGS 0
 #endif
 
-size_t printf_string_upper_bound(const char *format, va_list args)
+size_t printf_string_upper_bound(const char **format_p, va_list args)
 {
+  const char *format = *format_p;
   size_t len = 1;
+  int fix_format = FALSE;
 
   if (!format)
     return len;
@@ -296,10 +298,9 @@ size_t printf_string_upper_bound(const char *format, va_list args)
 		  (void) va_arg (args, void*);
                   break;
 		case 'm':
-		  /* normally we shouldn't even get here, but we could be just
-		     checking the format string is valid before giving the
-		     format to vsyslog(). */
+		  /* %m, replace it with strerror() later */
 		  conv_len += strlen(strerror(errno)) + 256;
+		  fix_format = TRUE;
 		  break;
 
                   /* handle invalid cases
@@ -325,5 +326,7 @@ size_t printf_string_upper_bound(const char *format, va_list args)
         } /* else (c == '%') */
     } /* while (*format) */
 
+  if (fix_format)
+    *format_p = printf_string_fix_format(*format_p);
   return len;
 }
