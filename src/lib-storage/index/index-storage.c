@@ -294,14 +294,14 @@ int mail_storage_set_index_error(IndexMailbox *ibox)
 		mail_storage_set_error(ibox->box.storage, "Out of disk space");
 		break;
 	case MAIL_INDEX_ERROR_INDEX_LOCK_TIMEOUT:
-		mail_storage_set_error(ibox->box.storage, t_strconcat(
-			"Timeout while waiting for lock to index of mailbox ",
-			ibox->box.name, NULL));
+		mail_storage_set_error(ibox->box.storage,
+			"Timeout while waiting for lock to index of mailbox %s",
+			ibox->box.name);
 		break;
 	case MAIL_INDEX_ERROR_MAILBOX_LOCK_TIMEOUT:
-		mail_storage_set_error(ibox->box.storage, t_strconcat(
-			"Timeout while waiting for lock to mailbox ",
-			ibox->box.name, NULL));
+		mail_storage_set_error(ibox->box.storage,
+			"Timeout while waiting for lock to mailbox %s",
+			ibox->box.name);
 		break;
 	}
 
@@ -321,8 +321,8 @@ int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
 	case 1:
 		return TRUE;
 	case 0:
-		mail_storage_set_error(ibox->box.storage, "Maximum number of "
-				       "different custom flags exceeded");
+		mail_storage_set_error(ibox->box.storage,
+			"Maximum number of different custom flags exceeded");
 		return FALSE;
 	default:
 		return mail_storage_set_index_error(ibox);

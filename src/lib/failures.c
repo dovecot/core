@@ -52,6 +52,15 @@ static FailureFunc info_handler = default_info_handler;
 static FILE *log_fd = NULL, *log_info_fd = NULL;
 static char *log_prefix = NULL, *log_stamp_format = NULL;
 
+/* kludgy .. we want to trust log_stamp_format with -Wformat-nonliteral */
+static const char *get_log_stamp_format(const char *unused)
+	__attr_format_arg__(1);
+
+static const char *get_log_stamp_format(const char *unused __attr_unused__)
+{
+	return log_stamp_format;
+}
+
 static void write_prefix(FILE *f)
 {
 	struct tm *tm;
@@ -63,7 +72,8 @@ static void write_prefix(FILE *f)
 	if (log_stamp_format != NULL) {
 		tm = localtime(&ioloop_time);
 
-		if (strftime(str, sizeof(str), log_stamp_format, tm) > 0)
+		if (strftime(str, sizeof(str),
+			     get_log_stamp_format("unused"), tm) > 0)
 			fputs(str, f);
 	}
 }
