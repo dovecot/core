@@ -584,7 +584,8 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 
 			memset(&mail, 0, sizeof(mail));
 			mail.flags = MBOX_EXPUNGED;
-			mail.offset = mail_ctx->mail.from_offset -
+			mail.offset = mail.from_offset =
+				mail_ctx->mail.from_offset -
 				sync_ctx->expunged_space;
 			mail.space = sync_ctx->expunged_space;
 

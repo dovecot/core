@@ -284,7 +284,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 				   struct mbox_sync_mail *mails,
 				   uint32_t seq, uint32_t idx, uint32_t padding,
 				   off_t move_diff, uoff_t expunged_space,
-				   uoff_t end_offset)
+				   uoff_t end_offset, int first_nonexpunged)
 {
 	struct mbox_sync_mail_context mail_ctx;
 	uint32_t old_prev_msg_uid;
@@ -328,10 +328,11 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 			str_append_c(mail_ctx.header, '\n');
 	}
 
-	if (sync_ctx->dest_first_mail && expunged_space > 0) {
+	if (first_nonexpunged && expunged_space > 0) {
 		/* move From-line (after parsing headers so we don't
 		   overwrite them) */
-		if (mbox_move(sync_ctx, 0, mails[idx].from_offset,
+		if (mbox_move(sync_ctx, mails[idx].from_offset - expunged_space,
+			      mails[idx].from_offset,
 			      mails[idx].offset - mails[idx].from_offset) < 0)
 			return -1;
 	}
@@ -390,7 +391,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 {
 	struct mbox_sync_mail *mails;
 	uoff_t offset, dest_offset, next_end_offset, next_move_diff;
-	uoff_t expunged_space;
+	uoff_t start_offset, expunged_space;
 	uint32_t idx, first_nonexpunged_idx, padding_per_mail;
 	size_t size;
 	int ret = 0;
@@ -411,6 +412,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 	/* after expunge the next mail must have been missing space, or we
 	   would have moved it backwards already */
 	expunged_space = 0;
+	start_offset = mails[0].from_offset;
 	for (first_nonexpunged_idx = 0;; first_nonexpunged_idx++) {
 		i_assert(first_nonexpunged_idx != idx);
 		if ((mails[first_nonexpunged_idx].flags & MBOX_EXPUNGED) == 0)
@@ -420,7 +422,8 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 	i_assert(mails[first_nonexpunged_idx].space < 0);
 
 	/* start moving backwards. */
-	while (idx-- > first_nonexpunged_idx) {
+	while (idx > first_nonexpunged_idx) {
+		idx--;
 		if (idx == first_nonexpunged_idx) {
 			/* give the rest of the extra space to first mail.
 			   we might also have to move the mail backwards to
@@ -430,21 +433,26 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 		}
 
 		next_end_offset = mails[idx].offset;
+
 		if (mails[idx].space <= 0 &&
 		    (mails[idx].flags & MBOX_EXPUNGED) == 0) {
-			/* give space to this mail */
+			/* give space to this mail. end_offset is left to
+			   contain this message's From-line (ie. below we
+			   move only headers + body). */
+			int first_nonexpunged = idx == first_nonexpunged_idx;
+
 			next_move_diff = -mails[idx].space;
 			if (mbox_sync_read_and_move(sync_ctx, mails,
 						    first_seq + idx, idx,
 						    padding_per_mail,
 						    move_diff, expunged_space,
-						    end_offset) < 0) {
+						    end_offset,
+						    first_nonexpunged) < 0) {
 				ret = -1;
 				break;
 			}
 			move_diff -= next_move_diff + mails[idx].space;
-			if (idx == first_nonexpunged_idx)
-				move_diff += expunged_space;
+			end_offset = next_end_offset;
 		} else {
 			/* this mail provides more space. just move it forward
 			   from the extra space offset and set end_offset to
@@ -468,21 +476,23 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 				move_diff -= padding_per_mail;
 				mails[idx].space = padding_per_mail;
 			}
-			if (mbox_fill_space(sync_ctx,
-					    mails[idx].offset + move_diff,
+
+			mails[idx].offset += move_diff;
+			if (mbox_fill_space(sync_ctx, mails[idx].offset,
 					    padding_per_mail) < 0) {
 				ret = -1;
 				break;
 			}
-			mails[idx].offset += move_diff;
 		}
 
 		i_assert(idx > 0 || move_diff == 0);
 
 		end_offset = next_end_offset;
 		mails[idx].from_offset += move_diff;
-		i_assert(move_diff < OFF_T_MAX);
 	}
+
+	i_assert(mails[idx].from_offset == start_offset);
+	i_assert(move_diff + (off_t)expunged_space >= 0);
 
 	istream_raw_mbox_flush(sync_ctx->input);
 	return ret;
