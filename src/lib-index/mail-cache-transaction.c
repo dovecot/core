@@ -29,8 +29,6 @@ struct mail_cache_transaction_ctx {
 	unsigned int changes:1;
 };
 
-static const unsigned char *null4[] = { 0, 0, 0, 0 };
-
 static int mail_cache_link_unlocked(struct mail_cache *cache,
 				    uint32_t old_offset, uint32_t new_offset);
 

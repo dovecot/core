@@ -13,8 +13,6 @@
 
 #include <time.h>
 
-static const unsigned char *null4[] = { 0, 0, 0, 0 };
-
 static void
 mail_index_header_update_counts(struct mail_index_header *hdr,
 				uint8_t old_flags, uint8_t new_flags)

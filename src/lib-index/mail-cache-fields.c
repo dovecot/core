@@ -10,8 +10,6 @@
 
 #define CACHE_HDR_PREFETCH 1024
 
-static const unsigned char *null4[] = { 0, 0, 0, 0 };
-
 void mail_cache_register_fields(struct mail_cache *cache,
 				struct mail_cache_field *fields,
 				size_t fields_count)

@@ -6,8 +6,6 @@
 #include "file-set-size.h"
 #include "mail-cache-private.h"
 
-static unsigned char null4[4] = { 0, 0, 0, 0 };
-
 struct mail_cache_copy_context {
 	int new_msg;
 	buffer_t *buffer, *field_seen;
