@@ -4,13 +4,12 @@
 struct message_size;
 
 /* Send message to client inserting CRs if needed. Only max_virtual_size
-   bytes if sent (relative to virtual_skip), if you want it unlimited,
-   use (uoff_t)-1. Remember that if input begins with LF, CR is inserted
-   before it unless virtual_skip = 1. last_cr is set to 1, 0 or -1 if not
-   known. Returns number of bytes sent, or -1 if error. */
+   bytes are sent. If cr_skipped is FALSE and input begins with LF, it's
+   treated as CRLF. last_cr is set to 1, 0 or -1 if not known. Returns number
+   of bytes sent, or -1 if error. */
 off_t message_send(struct ostream *output, struct istream *input,
 		   const struct message_size *msg_size,
-		   uoff_t virtual_skip, uoff_t max_virtual_size, int *last_cr,
+		   int cr_skipped, uoff_t max_virtual_size, int *last_cr,
 		   int fix_nuls);
 
 /* Skip number of virtual bytes from putfer. msg_size is updated if it's not

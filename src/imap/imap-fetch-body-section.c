@@ -305,7 +305,7 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 	const void *data;
 	size_t data_size;
 	uoff_t start_offset, send_size;
-	int failed;
+	int failed, skip_cr;
 
 	/* HEADER, MIME, HEADER.FIELDS (list), HEADER.FIELDS.NOT (list) */
 
@@ -316,8 +316,12 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 				      ctx->prefix, send_size);
 		if (o_stream_send_str(ctx->output, str) < 0)
 			return FALSE;
+
+		skip_cr = seek_partial(ctx->select_counter, mail->uid,
+				       &partial, input, 0, body->skip);
+
 		return message_send(ctx->output, input, size,
-				    body->skip, send_size, NULL,
+				    skip_cr, send_size, NULL,
 				    !mail->has_no_nuls) >= 0;
 	}
 
