@@ -57,6 +57,7 @@ struct settings {
 	/* imap */
 	const char *imap_executable;
 	unsigned int imap_process_size;
+	unsigned int imap_max_line_length;
 	int imap_use_modules;
 	const char *imap_modules;
 

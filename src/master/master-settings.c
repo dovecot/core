@@ -73,6 +73,7 @@ static struct setting_def setting_defs[] = {
 	/* imap */
 	DEF(SET_STR, imap_executable),
 	DEF(SET_INT, imap_process_size),
+	DEF(SET_INT, imap_max_line_length),
 	DEF(SET_BOOL, imap_use_modules),
 	DEF(SET_STR, imap_modules),
 
@@ -186,6 +187,7 @@ struct settings default_settings = {
 	/* imap */
 	MEMBER(imap_executable) PKG_LIBEXECDIR"/imap",
 	MEMBER(imap_process_size) 256,
+	MEMBER(imap_max_line_length) 65536,
 	MEMBER(imap_use_modules) FALSE,
 	MEMBER(imap_modules) PKG_LIBDIR"/imap",
 

@@ -177,6 +177,8 @@ int create_mail_process(int socket, struct ip_addr *ip,
 			    set->client_workarounds, NULL));
 	env_put(t_strdup_printf("MAIL_MAX_FLAG_LENGTH=%u",
 				set->mail_max_flag_length));
+	env_put(t_strdup_printf("IMAP_MAX_LINE_LENGTH=%u",
+				set->imap_max_line_length));
 
 	if (set->mail_save_crlf)
 		env_put("MAIL_SAVE_CRLF=1");
