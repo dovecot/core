@@ -1076,9 +1076,12 @@ static int log_append_buffer(struct mail_transaction_log_file *file,
 	if (size == 0)
 		return 0;
 
-	if (hdr_buf != NULL)
+	i_assert((size % 4) == 0);
+
+	if (hdr_buf != NULL) {
 		hdr_data = buffer_get_data(hdr_buf, &hdr_data_size);
-	else {
+		i_assert((hdr_data_size % 4) == 0);
+	} else {
 		hdr_data = NULL;
 		hdr_data_size = 0;
 	}
@@ -1195,6 +1198,9 @@ mail_transaction_log_register_extra(struct mail_transaction_log_file *file,
 	intro->record_size = einfo->record_size;
 	intro->name_size = strlen(einfo->name);
 	buffer_append(buf, einfo->name, intro->name_size);
+
+	if ((buf->used % 4) != 0)
+		buffer_append(buf, null4, 4 - (buf->used % 4));
 
 	ret = log_append_buffer(file, buf, NULL, MAIL_TRANSACTION_EXTRA_INTRO,
 				t->view->external);
