@@ -22,7 +22,7 @@ struct io {
 	struct io *next;
 
 	int fd;
-	int condition;
+	enum io_condition condition;
 
 	unsigned int destroyed:1;
 
