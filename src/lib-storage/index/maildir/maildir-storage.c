@@ -208,8 +208,9 @@ static const char *maildir_get_index_path(struct index_storage *storage,
 	if (storage->index_dir == NULL)
 		return NULL;
 
-	if (strcmp(name, "INBOX") == 0 && storage->inbox_path != NULL)
-		return storage->inbox_path;
+	if (strcmp(name, "INBOX") == 0 &&
+	    strcmp(storage->index_dir, storage->dir) == 0)
+		return storage->dir;
 
 	if (full_filesystem_access && (*name == '/' || *name == '~'))
 		return maildir_get_absolute_path(name, FALSE);
@@ -328,23 +329,13 @@ static int create_control_dir(struct index_storage *storage, const char *name)
 
 static int verify_inbox(struct index_storage *storage)
 {
-	const char *inbox;
+	const char *path;
 
-	if (storage->inbox_path == NULL) {
-		/* first make sure the cur/ new/ and tmp/ dirs exist
-		   in root dir */
-		if (create_maildir(storage, storage->dir, TRUE) < 0)
-			return -1;
+	path = storage->inbox_path != NULL ?
+		storage->inbox_path : storage->dir;
 
-		/* create the .INBOX directory */
-		inbox = t_strconcat(storage->index_dir,
-				    "/"MAILDIR_FS_SEP_S"INBOX", NULL);
-		if (mkdir_verify(storage, inbox, TRUE) < 0)
-			return -1;
-	} else {
-		if (create_maildir(storage, storage->inbox_path, TRUE) < 0)
-			return -1;
-	}
+	if (create_maildir(storage, path, TRUE) < 0)
+		return -1;
 
 	/* make sure the index directories exist */
 	if (create_index_dir(storage, "INBOX") < 0)
