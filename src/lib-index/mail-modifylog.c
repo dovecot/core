@@ -31,22 +31,22 @@ struct _MailModifyLog {
 	unsigned int synced_id, mmaped_id;
 
 	unsigned int modified:1;
-	unsigned int dirty_mmap:1;
 	unsigned int second_log:1;
 };
 
 static const unsigned int no_expunges[] = { 0 };
 
-static void modifylog_set_syscall_error(MailModifyLog *log,
+static int modifylog_set_syscall_error(MailModifyLog *log,
 					const char *function)
 {
 	i_assert(function != NULL);
 
 	index_set_error(log->index, "%s failed with modify log file %s: %m",
 			function, log->filepath);
+	return FALSE;
 }
 
-static void modifylog_set_corrupted(MailModifyLog *log)
+static int modifylog_set_corrupted(MailModifyLog *log)
 {
 	index_set_error(log->index, "Modify log %s is corrupted",
 			log->filepath);
@@ -54,18 +54,8 @@ static void modifylog_set_corrupted(MailModifyLog *log)
 	/* make sure we don't get back here */
 	log->index->inconsistent = TRUE;
 	(void)unlink(log->filepath);
-}
 
-/* Returns 1 = ok, 0 = failed to get the lock, -1 = error */
-static int mail_modifylog_try_lock(MailModifyLog *log, int lock_type)
-{
-	int ret;
-
-	ret = file_try_lock(log->fd, lock_type);
-	if (ret == -1)
-                modifylog_set_syscall_error(log, "file_try_lock()");
-
-	return ret;
+	return FALSE;
 }
 
 static int mail_modifylog_wait_lock(MailModifyLog *log)
@@ -82,46 +72,55 @@ static int mail_modifylog_have_other_users(MailModifyLog *log)
 	int ret;
 
 	/* try grabbing exclusive lock */
-	ret = mail_modifylog_try_lock(log, F_WRLCK);
-	if (ret == -1)
-		return -1;
+	ret = file_try_lock(log->fd, F_WRLCK);
+	if (ret <= 0) {
+		if (ret < 0)
+			modifylog_set_syscall_error(log, "file_try_lock()");
+		return ret;
+	}
 
 	/* revert back to shared lock */
-	switch (mail_modifylog_try_lock(log, F_RDLCK)) {
-	case 0:
-		/* shouldn't happen */
-		index_set_error(log->index, "file_lock(F_WRLCK -> F_RDLCK) "
-				"failed with file %s", log->filepath);
-		/* fall through */
-	case -1:
+	ret = file_try_lock(log->fd, F_RDLCK);
+	if (ret < 0) {
+		modifylog_set_syscall_error(log, "file_try_lock()");
 		return -1;
 	}
 
-	return ret == 0 ? 1 : 0;
+	if (ret == 0) {
+		/* shouldn't happen */
+		index_set_error(log->index, "file_lock(F_WRLCK -> F_RDLCK) "
+				"failed with file %s", log->filepath);
+		return -1;
+	}
+
+	return 1;
 }
 
 static int mmap_update(MailModifyLog *log)
 {
 	unsigned int extra;
 
-	if (!log->dirty_mmap && log->mmaped_id == log->header->sync_id)
+	if (log->header != NULL && log->mmaped_id == log->header->sync_id)
 		return TRUE;
 
-	if (log->mmap_base != NULL)
-		(void)munmap(log->mmap_base, log->mmap_length);
+	if (log->mmap_base != NULL) {
+		if (munmap(log->mmap_base, log->mmap_length) < 0)
+			modifylog_set_syscall_error(log, "munmap()");
+	}
+
+	log->header = NULL;
 
 	log->mmap_base = mmap_rw_file(log->fd, &log->mmap_length);
 	if (log->mmap_base == MAP_FAILED) {
 		log->mmap_base = NULL;
-		log->header = NULL;
-		modifylog_set_syscall_error(log, "mmap()");
-		return FALSE;
+		return modifylog_set_syscall_error(log, "mmap()");
 	}
 
 	if (log->mmap_length < sizeof(ModifyLogHeader)) {
-		/* FIXME: we could do better.. */
+		index_set_error(log->index, "Too small modify log %s",
+				log->filepath);
 		(void)unlink(log->filepath);
-		i_panic("modify log corrupted");
+		return FALSE;
 	}
 
 	extra = (log->mmap_length - sizeof(ModifyLogHeader)) %
@@ -131,10 +130,10 @@ static int mmap_update(MailModifyLog *log)
 		/* partial write or corrupted -
 		   truncate the file to valid length */
 		log->mmap_length -= extra;
-		(void)ftruncate(log->fd, (off_t)log->mmap_length);
+		if (ftruncate(log->fd, (off_t)log->mmap_length) < 0)
+			modifylog_set_syscall_error(log, "ftruncate()");
 	}
 
-	log->dirty_mmap = FALSE;
 	log->header = log->mmap_base;
 	log->mmaped_id = log->header->sync_id;
 	return TRUE;
@@ -147,7 +146,6 @@ static MailModifyLog *mail_modifylog_new(MailIndex *index)
 	log = i_new(MailModifyLog, 1);
 	log->fd = -1;
 	log->index = index;
-	log->dirty_mmap = TRUE;
 
 	index->modifylog = log;
 	return log;
@@ -155,8 +153,6 @@ static MailModifyLog *mail_modifylog_new(MailIndex *index)
 
 static void mail_modifylog_close(MailModifyLog *log)
 {
-	log->dirty_mmap = TRUE;
-
 	if (log->mmap_base != NULL) {
 		munmap(log->mmap_base, log->mmap_length);
 		log->mmap_base = NULL;
@@ -180,14 +176,12 @@ static int mail_modifylog_init_fd(MailModifyLog *log, int fd,
 	hdr.indexid = log->index->indexid;
 
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
-		index_set_error(log->index, "write() failed for modify "
-				"log %s: %m", path);
+		index_file_set_syscall_error(log->index, path, "write_full()");
 		return FALSE;
 	}
 
 	if (ftruncate(fd, sizeof(hdr)) < 0) {
-		index_set_error(log->index, "ftruncate() failed for modify "
-				"log %s: %m", path);
+		index_file_set_syscall_error(log->index, path, "ftruncate()");
 		return FALSE;
 	}
 
@@ -201,15 +195,17 @@ static int mail_modifylog_open_and_init_file(MailModifyLog *log,
 
 	fd = open(path, O_RDWR | O_CREAT, 0660);
 	if (fd == -1) {
-		index_set_error(log->index, "Error opening modify log "
-				"file %s: %m", path);
+		if (errno == ENOSPC)
+			log->index->nodiskspace = TRUE;
+
+		index_file_set_syscall_error(log->index, path, "open()");
 		return FALSE;
 	}
 
 	ret = file_wait_lock(fd, F_WRLCK);
 	if (ret == -1) {
-		index_set_error(log->index, "Error locking modify log "
-				"file %s: %m", path);
+		index_file_set_syscall_error(log->index, path,
+					     "file_wait_lock()");
 	}
 
 	if (ret == 1 && mail_modifylog_init_fd(log, fd, path)) {
@@ -256,16 +252,15 @@ static int mail_modifylog_open_and_verify(MailModifyLog *log, const char *path)
 	fd = open(path, O_RDWR);
 	if (fd == -1) {
 		if (errno != ENOENT) {
-			index_set_error(log->index, "Can't open modify log "
-					"file %s: %m", path);
+			index_file_set_syscall_error(log->index, path,
+						     "open()");
 		}
 		return -1;
 	}
 
 	ret = 1;
 	if (read(fd, &hdr, sizeof(hdr)) != sizeof(hdr)) {
-		index_set_error(log->index, "read() failed when for modify "
-				"log file %s: %m", path);
+		index_file_set_syscall_error(log->index, path, "read()");
 		ret = -1;
 	}
 
@@ -361,16 +356,12 @@ int mail_modifylog_sync_file(MailModifyLog *log)
 		return TRUE;
 
 	if (log->mmap_base != NULL) {
-		if (msync(log->mmap_base, log->mmap_length, MS_SYNC) < 0) {
-			modifylog_set_syscall_error(log, "msync()");
-			return FALSE;
-		}
+		if (msync(log->mmap_base, log->mmap_length, MS_SYNC) < 0)
+			return modifylog_set_syscall_error(log, "msync()");
 	}
 
-	if (fsync(log->fd) < 0) {
-		modifylog_set_syscall_error(log, "fsync()");
-		return FALSE;
-	}
+	if (fsync(log->fd) < 0)
+		return modifylog_set_syscall_error(log, "fsync()");
 
 	log->modified = FALSE;
 	return TRUE;
@@ -394,24 +385,20 @@ static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord *rec,
 		}
 	}
 
-	if (lseek(log->fd, 0, SEEK_END) < 0) {
-		modifylog_set_syscall_error(log, "lseek()");
-		return FALSE;
-	}
+	if (lseek(log->fd, 0, SEEK_END) < 0)
+		return modifylog_set_syscall_error(log, "lseek()");
 
-	if (write_full(log->fd, rec, sizeof(ModifyLogRecord)) < 0) {
-                modifylog_set_syscall_error(log, "write_full()");
-		return FALSE;
+	if (write_full(log->fd, rec, sizeof(ModifyLogRecord)) < 0)
+                return modifylog_set_syscall_error(log, "write_full()");
+
+	if (!external_change && log->header->sync_id == log->synced_id) {
+		log->synced_position += sizeof(ModifyLogRecord);
+		log->synced_id++;
 	}
 
 	log->header->sync_id++;
 	log->modified = TRUE;
-	log->dirty_mmap = TRUE;
 
-	if (!external_change) {
-		log->synced_id = log->header->sync_id;
-		log->synced_position += sizeof(ModifyLogRecord);
-	}
 	return TRUE;
 }
 

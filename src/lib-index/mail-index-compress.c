@@ -184,7 +184,11 @@ int mail_index_compress_data(MailIndex *index)
 		index_file_set_syscall_error(index, temppath, "close()");
 
 	if (!failed) {
-		/* now, rename the temp file to new data file */
+		/* now, rename the temp file to new data file. but before that
+		   reset indexid to make sure that other processes know the
+		   data file is closed. */
+		(void)mail_index_data_mark_deleted(index->data);
+
 		mail_index_data_free(index->data);
 
 		datapath = t_strconcat(index->filepath, DATA_FILE_PREFIX, NULL);

@@ -22,12 +22,14 @@ struct _IndexMailbox {
 
 extern ImapMessageCacheIface index_msgcache_iface;
 
+int mail_storage_set_index_error(IndexMailbox *ibox);
+
 IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 				 MailIndex *index, const char *name,
 				 int readonly);
 void index_storage_close(Mailbox *box);
 
-int mail_storage_set_index_error(IndexMailbox *ibox);
+int index_storage_sync_if_possible(IndexMailbox *ibox);
 
 int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
                                    const char *custom_flags[]);

@@ -999,7 +999,7 @@ const char *mail_index_get_last_error(MailIndex *index)
 
 int mail_index_is_diskspace_error(MailIndex *index)
 {
-	return index->nodiskspace;
+	return !index->inconsistent && index->nodiskspace;
 }
 
 int mail_index_is_inconsistency_error(MailIndex *index)

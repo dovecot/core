@@ -326,8 +326,8 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 	MailFetchBodyData *sect;
 	int ret;
 
-	if (!ibox->index->sync(ibox->index))
-		return mail_storage_set_index_error(ibox);
+	if (!index_storage_sync_if_possible(ibox))
+		return FALSE;
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(ibox);

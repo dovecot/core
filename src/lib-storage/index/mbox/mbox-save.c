@@ -15,7 +15,45 @@
 
 static char my_hostdomain[256] = "";
 
-static int write_from_line(MailStorage *storage, int fd, time_t internal_date)
+static void set_error(MailStorage *storage, const char *mbox_path)
+{
+	if (errno == ENOSPC)
+		mail_storage_set_error(storage, "Not enough disk space");
+	else {
+		mail_storage_set_critical(storage, "Error writing to "
+					  "mbox file %s: %m", mbox_path);
+	}
+}
+
+static int mbox_check_ending_lf(MailStorage *storage, int fd, off_t pos,
+				const char *mbox_path)
+{
+	char ch;
+
+	if (pos == 0)
+		return TRUE;
+
+	do {
+		if (lseek(fd, 0, pos-1) < 0)
+			break;
+
+		if (read(fd, &ch, 1) != 1)
+			break;
+
+		if (ch != '\n') {
+			if (write_full(fd, &ch, 1) < 0)
+				break;
+		}
+
+		return TRUE;
+	} while (0);
+
+	set_error(storage, mbox_path);
+	return FALSE;
+}
+
+static int write_from_line(MailStorage *storage, int fd, const char *mbox_path,
+			   time_t internal_date)
 {
 	const char *sender, *line, *name;
 	size_t len;
@@ -41,7 +79,12 @@ static int write_from_line(MailStorage *storage, int fd, time_t internal_date)
 	line = mbox_from_create(sender, internal_date);
 	len = strlen(line);
 
-	return write_full(fd, line, len) < 0;
+	if (write_full(fd, line, len) < 0) {
+		set_error(storage, mbox_path);
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
@@ -49,6 +92,7 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	off_t pos;
+	const char *mbox_path;
 	int fd, failed;
 
 	if (box->readonly) {
@@ -75,39 +119,19 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 	failed = FALSE;
 
 	pos = lseek(fd, 0, SEEK_END);
-	if (pos == -1) {
+	if (pos < 0) {
 		mail_storage_set_critical(box->storage,
 					  "lseek() failed for mbox file %s: %m",
 					  ibox->index->mbox_path);
 		failed = TRUE;
 	} else {
-		if (pos > 0) {
-			/* make sure the file ends with \n */
-			if (lseek(fd, 0, pos-1) != pos-1)
-				failed = TRUE;
-			else {
-				char ch;
+		mbox_path = ibox->index->mbox_path;
 
-				if (read(fd, &ch, 1) != 1)
-					failed = TRUE;
-				else if (ch != '\n') {
-					if (write_full(fd, &ch, 1) < 0)
-						failed = TRUE;
-				}
-			}
-		}
-
-		if (failed) {
-			/* don't bother separating the errors, it's very
-			   unlikely that this will happen */
-			mail_storage_set_critical(box->storage,
-						  "Error appending LF to mbox "
-						  "file %s: %m",
-						  ibox->index->mbox_path);
-		} else if (!write_from_line(box->storage, fd, internal_date) ||
-			   !index_storage_save_into_fd(box->storage, fd,
-						       ibox->index->mbox_path,
-						       data, data_size)) {
+		if (!mbox_check_ending_lf(box->storage, fd, pos, mbox_path) ||
+		    !write_from_line(box->storage, fd, mbox_path,
+				     internal_date) ||
+		    !index_storage_save_into_fd(box->storage, fd, mbox_path,
+						data, data_size)) {
 			/* failed, truncate file back to original size */
 			(void)ftruncate(fd, pos);
 			failed = TRUE;

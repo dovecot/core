@@ -69,9 +69,44 @@ static int index_data_set_syscall_error(MailIndexData *data,
 	return FALSE;
 }
 
+static int data_file_reopen(MailIndexData *data)
+{
+	int fd;
+
+	fd = open(data->filepath, O_RDWR);
+	if (fd == -1)
+		return index_data_set_syscall_error(data, "open()");
+
+	if (close(data->fd) < 0)
+		index_data_set_syscall_error(data, "close()");
+
+	data->fd = fd;
+	return TRUE;
+}
+
 static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 {
 	MailIndexDataHeader *hdr;
+
+	if (data->header != NULL &&
+	    data->header->indexid != data->index->indexid) {
+		if (data->header->indexid != 0) {
+			/* index was just rebuilt. we should have noticed
+			   this before at index->set_lock() though. */
+			index_set_error(data->index,
+					"Warning: Inconsistency - Index "
+					"%s was rebuilt while we had it open",
+					data->filepath);
+			data->index->inconsistent = TRUE;
+			return FALSE;
+		}
+
+		/* data file was deleted, reopen it */
+		if (!data_file_reopen(data))
+			return FALSE;
+
+		size = 0;
+	}
 
 	if (size != 0) {
 		if (pos + size <= data->mmap_used_length)
@@ -132,8 +167,7 @@ int mail_index_data_open(MailIndex *index)
 			/* doesn't exist, rebuild the index */
 			INDEX_MARK_CORRUPTED(index);
 		}
-		index_set_error(index, "Can't open index data %s: %m", path);
-		return FALSE;
+		return index_file_set_syscall_error(index, path, "open()");
 	}
 
 	data = i_new(MailIndexData, 1);
@@ -297,6 +331,18 @@ int mail_index_data_reset(MailIndexData *data)
 			data->index->nodiskspace = TRUE;
 		return index_data_set_syscall_error(data, "write_full()");
 	}
+
+	return TRUE;
+}
+
+int mail_index_data_mark_deleted(MailIndexData *data)
+{
+	if (data->anon_mmap)
+		return TRUE;
+
+	data->header->indexid = 0;
+	if (msync(data->mmap_base, 0, sizeof(MailIndexDataHeader)) < 0)
+		return index_data_set_syscall_error(data, "msync()");
 
 	return TRUE;
 }

@@ -34,7 +34,7 @@ static int write_with_crlf(int fd, const unsigned char *data,
 		}
 	}
 
-	return write_full(fd, data, size) < 0;
+	return write_full(fd, data, size) >= 0;
 }
 
 int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
@@ -60,9 +60,15 @@ int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 			size = (size_t)data_size;
 		data_size -= size;
 
-		if (write_with_crlf(fd, data, size, &last_cr) != 0) {
-			mail_storage_set_critical(storage, "write() failed "
-						  "for file %s: %m", path);
+		if (!write_with_crlf(fd, data, size, &last_cr)) {
+			if (errno == ENOSPC) {
+				mail_storage_set_error(storage,
+						       "Not enough disk space");
+			} else {
+				mail_storage_set_critical(storage,
+							  "write() failed for "
+							  "file %s: %m", path);
+			}
 			return FALSE;
 		}
 

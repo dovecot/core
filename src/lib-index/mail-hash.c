@@ -57,6 +57,31 @@ struct _MailHash {
 	unsigned int modified:1;
 };
 
+static void mail_hash_file_close(MailHash *hash)
+{
+	if (close(hash->fd) < 0) {
+		index_file_set_syscall_error(hash->index,
+					     hash->filepath, "close()");
+	}
+	hash->fd = -1;
+}
+
+static int mail_hash_file_open(MailHash *hash)
+{
+	hash->fd = open(hash->filepath, O_RDWR);
+	if (hash->fd == -1) {
+		if (errno != ENOENT) {
+			index_file_set_syscall_error(hash->index,
+						     hash->filepath, "open()");
+			return FALSE;
+		}
+
+		return mail_hash_rebuild(hash);
+	}
+
+	return TRUE;
+}
+
 static int mmap_update_real(MailHash *hash)
 {
 	i_assert(!hash->anon_mmap);
@@ -91,7 +116,6 @@ static int hash_verify_header(MailHash *hash)
 	}
 
 	hash->header = hash->mmap_base;
-	hash->sync_id = hash->header->sync_id;
 	hash->size = (hash->mmap_length - sizeof(MailHashHeader)) /
 		sizeof(MailHashRecord);
 
@@ -110,13 +134,25 @@ static int hash_verify_header(MailHash *hash)
 static int mmap_update(MailHash *hash)
 {
 	if (hash->fd == -1)
-		return FALSE;
+		return hash->anon_mmap;
 
-	if (!hash->dirty_mmap) {
-		/* see if someone else modified it */
-		if (hash->header->sync_id == hash->sync_id)
-			return TRUE;
+	/* see if it's been rebuilt */
+	if (hash->header->indexid == hash->index->indexid)
+		return TRUE;
+
+	if (hash->header->indexid != 0) {
+		/* index was just rebuilt. we should have noticed
+		   this before at index->set_lock() though. */
+		index_set_error(hash->index, "Warning: Inconsistency - Index "
+				"%s was rebuilt while we had it open",
+				hash->filepath);
+		hash->index->inconsistent = TRUE;
+		return FALSE;
 	}
+
+	mail_hash_file_close(hash);
+	if (!mail_hash_file_open(hash))
+		return FALSE;
 
 	return mmap_update_real(hash) && hash_verify_header(hash);
 
@@ -143,8 +179,6 @@ static MailHash *mail_hash_new(MailIndex *index)
 	hash->fd = -1;
 	hash->index = index;
 	hash->filepath = i_strconcat(index->filepath, ".hash", NULL);
-	hash->dirty_mmap = TRUE;
-
 	index->hash = hash;
 	return hash;
 }
@@ -163,9 +197,8 @@ int mail_hash_open_or_create(MailIndex *index)
 
 	hash = mail_hash_new(index);
 
-	hash->fd = open(hash->filepath, O_RDWR);
-	if (hash->fd == -1)
-		return mail_hash_rebuild(hash);
+	if (!mail_hash_file_open(hash))
+		return FALSE;
 
 	if (!mmap_update_real(hash)) {
 		/* mmap() failure is fatal */
@@ -174,11 +207,11 @@ int mail_hash_open_or_create(MailIndex *index)
 	}
 
 	/* make sure the header looks fine */
-	failed = TRUE;
-	if (hash_verify_header(hash)) {
-		if (hash->header->indexid == hash->index->indexid)
-			failed = FALSE;
-		else {
+	if (!hash_verify_header(hash))
+		failed = TRUE;
+	else {
+		failed = hash->header->indexid != hash->index->indexid;
+		if (failed) {
 			index_set_error(hash->index,
 					"IndexID mismatch for hash file %s",
 					hash->filepath);
@@ -188,7 +221,6 @@ int mail_hash_open_or_create(MailIndex *index)
 	if (failed) {
 		/* recreate it */
 		hash_munmap(hash);
-		hash->dirty_mmap = TRUE;
 
 		return mail_hash_rebuild(hash);
 	}
@@ -255,7 +287,6 @@ static void hash_build(MailIndex *index, void *mmap_base,
 	/* setup header */
 	hdr = mmap_base;
 	hdr->indexid = index->indexid;
-	hdr->sync_id = ioloop_time;
 	hdr->used_records = count;
 }
 
@@ -304,6 +335,28 @@ static int hash_rebuild_to_file(MailIndex *index, int fd, const char *path,
 	return !failed;
 }
 
+/* set indexid to 0 in hash file */
+static int mail_hash_mark_deleted(MailHash *hash)
+{
+	MailIndexDataHeader hdr;
+
+	if (hash->fd == -1) {
+		/* see if we can open it */
+		hash->fd = open(hash->filepath, O_RDWR);
+		if (hash->fd == -1)
+			return TRUE;
+	}
+
+	memset(&hdr, 0, sizeof(hdr));
+	if (write_full(hash->fd, &hdr, sizeof(hdr)) < 0) {
+		index_file_set_syscall_error(hash->index, hash->filepath,
+					     "write_full()");
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 int mail_hash_rebuild(MailHash *hash)
 {
 	MailIndexHeader *index_header;
@@ -337,6 +390,9 @@ int mail_hash_rebuild(MailHash *hash)
 	if (fd != -1) {
 		failed = !hash_rebuild_to_file(hash->index, fd,
 					       path, hash_size);
+
+		if (!failed)
+			failed = !mail_hash_mark_deleted(hash);
 
 		if (!failed && rename(path, hash->filepath) < 0) {
 			index_set_error(hash->index, "rename(%s, %s) failed: "
@@ -377,7 +433,6 @@ int mail_hash_rebuild(MailHash *hash)
 		(void)close(hash->fd);
 	hash->fd = fd;
 	hash->anon_mmap = fd == -1;
-	hash->dirty_mmap = !hash->anon_mmap;
 	return TRUE;
 }
 

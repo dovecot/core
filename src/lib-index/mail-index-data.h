@@ -10,6 +10,10 @@ void mail_index_data_free(MailIndexData *data);
 /* Truncate the data file and update it's indexid */
 int mail_index_data_reset(MailIndexData *data);
 
+/* Set indexid to 0 to notify other processes using this file that they should
+   re-open it. */
+int mail_index_data_mark_deleted(MailIndexData *data);
+
 /* Append new data at the end of the file. Returns the position in file
    where the data begins, or 0 if error occured. */
 uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,

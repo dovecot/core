@@ -26,10 +26,15 @@ static int maildir_create_tmp(MailStorage *storage, const char *dir,
 	path = t_strconcat(dir, "/", *fname, NULL);
 	fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0660);
 	if (fd == -1) {
-		/* don't bother checking if it was because file existed -
-		   if that happens it's itself an error. */
-		mail_storage_set_critical(storage,
-					  "Can't create file %s: %m", path);
+		if (errno == ENOSPC) {
+			mail_storage_set_error(storage,
+					       "Not enough disk space");
+		} else {
+			/* don't bother checking if it was because file
+			   existed - if that happens it's itself an error. */
+			mail_storage_set_critical(storage, "Can't create file "
+						  "%s: %m", path);
+		}
 	}
 
 	return fd;
@@ -97,8 +102,15 @@ int maildir_storage_save(Mailbox *box, MailFlags flags,
 	if (rename(tmp_path, new_path) == 0)
 		failed = FALSE;
 	else {
-		mail_storage_set_critical(box->storage, "rename(%s, %s) "
-					  "failed: %m", tmp_path, new_path);
+		if (errno == ENOSPC) {
+			mail_storage_set_error(box->storage,
+					       "Not enough disk space");
+		} else {
+			mail_storage_set_critical(box->storage,
+						  "rename(%s, %s) failed: %m",
+						  tmp_path, new_path);
+		}
+
 		(void)unlink(tmp_path);
 		failed = TRUE;
 	}

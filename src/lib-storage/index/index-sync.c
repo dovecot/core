@@ -2,8 +2,28 @@
 
 #include "lib.h"
 #include "index-storage.h"
+#include "mail-index-util.h"
 #include "mail-modifylog.h"
 #include "mail-custom-flags.h"
+
+/* may leave the index locked */
+int index_storage_sync_if_possible(IndexMailbox *ibox)
+{
+	if (!ibox->index->sync(ibox->index)) {
+		if (!ibox->index->is_diskspace_error(ibox->index)) {
+			(void)ibox->index->set_lock(ibox->index,
+						    MAIL_LOCK_UNLOCK);
+			return mail_storage_set_index_error(ibox);
+		}
+
+		/* not enough disk space to sync. can't do much about it
+		   though, giving error message would just make it impossible
+		   to delete messages. */
+		index_reset_error(ibox->index);
+	}
+
+	return TRUE;
+}
 
 int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 		       MailExpungeFunc expunge_func,
@@ -25,8 +45,8 @@ int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 
 	*messages = 0;
 
-	if (!ibox->index->sync(ibox->index))
-		return mail_storage_set_index_error(ibox);
+	if (!index_storage_sync_if_possible(ibox))
+		return FALSE;
 
 	if (!ibox->index->set_lock(ibox->index, expunge ?
 				   MAIL_LOCK_EXCLUSIVE : MAIL_LOCK_SHARED))

@@ -51,23 +51,19 @@ static int mail_index_cleanup_dir_locks(const char *dir)
 	return FALSE;
 }
 
-static int mail_index_unlock_dir(MailIndex *index, const char *path,
+static int mail_index_unlock_dir(MailIndex *index, const char *private_path,
 				 const char *lockpath)
 {
 	struct stat st, lockst;
 
-	if (stat(lockpath, &st) != 0) {
-		index_set_error(index, "stat() failed for lock file %s: %m",
-				lockpath);
-		return FALSE;
-	}
+	if (stat(lockpath, &st) < 0)
+		return index_file_set_syscall_error(index, lockpath, "stat()");
 
 	if (st.st_nlink > 1) {
 		/* make sure we're really the one who's locked it */
-		if (stat(path, &lockst) != 0) {
-			index_set_error(index, "stat() failed for lock file "
-					"%s: %m", path);
-			return FALSE;
+		if (stat(private_path, &lockst) < 0) {
+			return index_file_set_syscall_error(index, private_path,
+							    "stat()");
 		}
 
 		if (st.st_dev != lockst.st_dev ||
@@ -84,20 +80,22 @@ static int mail_index_unlock_dir(MailIndex *index, const char *path,
 	}
 
 	/* first unlink the actual lock file */
-	if (unlink(lockpath) == -1) {
-		index_set_error(index, "unlink() failed for lock file %s: %m",
-				lockpath);
+	if (unlink(lockpath) < 0) {
+		index_file_set_syscall_error(index, lockpath, "unlink()");
 		return FALSE;
 	}
 
-	(void)unlink(path);
+	if (unlink(private_path) < 0) {
+		/* non-fatal */
+		index_file_set_syscall_error(index, private_path, "unlink()");
+	}
 	return TRUE;
 }
 
 int mail_index_lock_dir(MailIndex *index, MailLockType lock_type)
 {
 	struct stat st;
-	const char *path, *lockpath;
+	const char *private_path, *lockpath;
 	int fd, orig_errno, first;
 	time_t max_wait_time;
 
@@ -108,33 +106,39 @@ int mail_index_lock_dir(MailIndex *index, MailLockType lock_type)
 
 	/* use .dirlock.host.pid as our lock indicator file and
 	   .dirlock as the real lock */
-	path = t_strconcat(index->dir, "/" DIRLOCK_FILE_PREFIX ".",
-			   my_hostname, ".", my_pid, NULL);
+	private_path = t_strconcat(index->dir, "/" DIRLOCK_FILE_PREFIX ".",
+				   my_hostname, ".", my_pid, NULL);
 	lockpath = t_strconcat(index->dir, "/" DIRLOCK_FILE_PREFIX, NULL);
 
 	if (lock_type == MAIL_LOCK_UNLOCK)
-		return mail_index_unlock_dir(index, path, lockpath);
+		return mail_index_unlock_dir(index, private_path, lockpath);
 
-	(void)unlink(path);
-	fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0660);
+	(void)unlink(private_path);
+	fd = open(private_path, O_RDWR | O_CREAT | O_EXCL, 0660);
 	if (fd == -1) {
-		index_set_error(index, "Can't create lock file %s: %m", path);
+		if (errno == ENOSPC)
+			index->nodiskspace = TRUE;
+		index_file_set_syscall_error(index, private_path, "open()");
 		return FALSE;
 	}
 
 	/* try to link the file into lock file. */
 	first = TRUE; max_wait_time = time(NULL) + MAX_LOCK_WAIT_SECONDS;
-	while (link(path, lockpath) == -1) {
+	while (link(private_path, lockpath) < 0) {
+		if (errno == ENOSPC)
+			index->nodiskspace = TRUE;
+
 		if (errno != EEXIST) {
 			orig_errno = errno;
 
 			/* NFS may die and link() fail even if it really
 			   was created */
-			if (stat(path, &st) == 0 && st.st_nlink == 2)
+			if (stat(private_path, &st) == 0 && st.st_nlink == 2)
 				break;
 
+			errno = orig_errno;
 			index_set_error(index, "link(%s, %s) lock failed: %m",
-					path, lockpath);
+					private_path, lockpath);
 			return FALSE;
 		}
 
