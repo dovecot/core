@@ -130,9 +130,6 @@ static void open_logfile(const char *name)
 
 static void drop_privileges(const char *name)
 {
-	/* make sure we can't fork() */
-	restrict_process_size((unsigned int)-1, 1);
-
 	/* Log file or syslog opening probably requires roots */
 	open_logfile(name);
 
@@ -143,6 +140,9 @@ static void drop_privileges(const char *name)
 	/* Refuse to run as root - we should never need it and it's
 	   dangerous with SSL. */
 	restrict_access_by_env(TRUE);
+
+	/* make sure we can't fork() */
+	restrict_process_size((unsigned int)-1, 1);
 }
 
 static void main_init(void)
