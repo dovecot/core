@@ -86,6 +86,9 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		client->proxy_state++;
 		return;
 	case 2:
+		if (strncmp(line, "+OK", 3) != 0)
+			break;
+
 		/* Login successful. Send this line to client. */
 		(void)o_stream_send_str(client->output, line);
 		(void)o_stream_send(client->output, "\r\n", 2);
