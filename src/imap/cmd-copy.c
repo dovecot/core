@@ -65,9 +65,6 @@ int cmd_copy(struct client *client)
 	if (!client_verify_open_mailbox(client))
 		return TRUE;
 
-	if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
-		return TRUE;
-
 	/* open the destination mailbox */
 	if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
 		return TRUE;
