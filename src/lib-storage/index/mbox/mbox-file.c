@@ -33,6 +33,7 @@ int mbox_file_open(struct index_mailbox *ibox)
 		return -1;
 	}
 
+	ibox->mbox_writeonly = S_ISFIFO(st.st_mode);
 	ibox->mbox_fd = fd;
 	ibox->mbox_dev = st.st_dev;
 	ibox->mbox_ino = st.st_ino;
@@ -62,7 +63,10 @@ int mbox_file_open_stream(struct index_mailbox *ibox)
 			return -1;
 	}
 
-	if (ibox->mail_read_mmaped) {
+	if (ibox->mbox_writeonly) {
+		ibox->mbox_file_stream =
+			i_stream_create_from_data(default_pool, NULL, 0);
+	} else if (ibox->mail_read_mmaped) {
 		ibox->mbox_file_stream =
 			i_stream_create_mmap(ibox->mbox_fd, default_pool,
 					     MAIL_MMAP_BLOCK_SIZE,

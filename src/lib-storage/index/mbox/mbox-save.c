@@ -68,6 +68,11 @@ static int mbox_seek_to_end(struct mbox_save_context *ctx, uoff_t *offset)
 	char ch;
 	int fd;
 
+	if (ctx->ibox->mbox_writeonly) {
+		*offset = 0;
+		return 0;
+	}
+
 	fd = ctx->ibox->mbox_fd;
 	if (fstat(fd, &st) < 0)
                 return mbox_set_syscall_error(ctx->ibox, "fstat()");
@@ -145,6 +150,11 @@ static int mbox_write_content_length(struct mbox_save_context *ctx)
 	const char *str;
 	size_t len;
 	int ret = 0;
+
+	if (ctx->ibox->mbox_writeonly) {
+		/* we can't seek, don't set Content-Length */
+		return 0;
+	}
 
 	end_offset = ctx->output->offset;
 
@@ -541,9 +551,10 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 			&ctx->next_uid, sizeof(ctx->next_uid));
 	}
 
-	if (!ctx->synced && ctx->ibox->mbox_fd != -1) {
+	if (!ctx->synced && ctx->ibox->mbox_fd != -1 &&
+	    !ctx->ibox->mbox_writeonly) {
 		if (fdatasync(ctx->ibox->mbox_fd) < 0) {
-			mbox_set_syscall_error(ctx->ibox, "fsync()");
+			mbox_set_syscall_error(ctx->ibox, "fdatasync()");
 			ret = -1;
 		}
 	}

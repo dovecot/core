@@ -1403,7 +1403,8 @@ __again:
 		}
 	}
 
-	if (ret == 0 && ibox->mbox_lock_type == F_WRLCK) {
+	if (ret == 0 && ibox->mbox_lock_type == F_WRLCK &&
+	    !ibox->mbox_writeonly) {
 		if (fsync(ibox->mbox_fd) < 0) {
 			mbox_set_syscall_error(ibox, "fsync()");
 			ret = -1;
