@@ -20,18 +20,15 @@ struct crlf_ostream {
 
 static const struct const_iovec cr_iov = { "\r", 1 };
 
-static void _close(struct _iostream *stream)
+static void _close(struct _iostream *stream __attr_unused__)
 {
-	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
-
-	o_stream_close(cstream->output);
 }
 
 static void _destroy(struct _iostream *stream)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 
-	o_stream_ref(cstream->output);
+	o_stream_unref(cstream->output);
 }
 
 static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
