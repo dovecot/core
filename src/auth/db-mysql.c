@@ -79,7 +79,7 @@ void db_mysql_query(struct mysql_connection *conn, const char *query,
 		case CR_SERVER_GONE_ERROR:
 		case CR_SERVER_LOST:
 			/* connection lost - try immediate reconnect */
-			if (!mysql_conn_open(conn))
+			if (!db_mysql_connect(conn))
 				break;
 			if (mysql_query(conn->mysql, query) == 0) {
 				failed = FALSE;
