@@ -259,7 +259,8 @@ void auth_request_extra_finish(struct auth_request_extra *extra,
 
 	if (passdb_cache != NULL && cache_key != NULL) {
 		str = t_str_new(64);
-		str_append_str(str, extra->str);
+		if (extra->str != NULL)
+			str_append_str(str, extra->str);
 		if (extra->request->no_failure_delay) {
 			if (str_len(str) > 0)
 				str_append_c(str, '\t');
@@ -267,7 +268,8 @@ void auth_request_extra_finish(struct auth_request_extra *extra,
 		}
 		auth_cache_insert(passdb_cache, extra->request, cache_key,
 				  t_strconcat(extra->password == NULL ? "" :
-					      extra->password, "\t",
+					      extra->password,
+					      str_len(str) > 0 ? "\t" : "",
 					      str_c(str), NULL));
 	}
 
