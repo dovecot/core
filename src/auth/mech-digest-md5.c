@@ -519,6 +519,7 @@ static void credentials_callback(const char *result,
 		return;
 	}
 
+	request->authenticated = TRUE;
 	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
 			       request->rspauth, strlen(request->rspauth));
 }
