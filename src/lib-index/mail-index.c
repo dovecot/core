@@ -696,6 +696,8 @@ int mail_index_map(struct mail_index *index, int force)
 	struct mail_index_map *map;
 	int ret;
 
+	i_assert(index->lock_type != F_UNLCK);
+
 	if (!force && index->map != NULL) {
 		ret = mail_index_map_try_existing(index->map);
 		if (ret != 0)
@@ -972,6 +974,8 @@ static int mail_index_create(struct mail_index *index,
 	uoff_t offset;
 	int ret;
 
+	i_assert(index->lock_type == F_UNLCK);
+
 	/* log file lock protects index creation */
 	if (mail_transaction_log_sync_lock(index->log, &seq, &offset) < 0)
 		return -1;
@@ -990,7 +994,9 @@ static int mail_index_create(struct mail_index *index,
 		mail_index_file_set_syscall_error(index, path, "write_full()");
 		ret = -1;
 	} else {
+		index->lock_type = F_WRLCK;
 		ret = mail_index_map(index, FALSE);
+		index->lock_type = F_UNLCK;
 	}
 
 	if (ret == 0) {
@@ -1118,6 +1124,11 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 			(flags & MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE) != 0;
 		index->lock_method = lock_method;
 
+		/* don't even bother to handle dotlocking without mmap being
+		   disabled. that combination simply doesn't make any sense */
+		i_assert(lock_method != MAIL_INDEX_LOCK_DOTLOCK ||
+			 index->mmap_disable);
+
 		ret = mail_index_open_files(index, flags);
 		if (ret <= 0)
 			break;
@@ -1183,9 +1194,7 @@ int mail_index_reopen(struct mail_index *index, int fd)
 
 	old_map = index->map;
 	old_fd = index->fd;
-
-	index->map = NULL;
-	index->hdr = NULL;
+	old_map->refcount++;
 
 	/* new file, new locks. the old fd can keep it's locks, they don't
 	   matter anymore as no-one's going to modify the file. */
@@ -1213,7 +1222,10 @@ int mail_index_reopen(struct mail_index *index, int fd)
 	}
 
 	if (ret == 0) {
-		if (mail_index_map(index, FALSE) <= 0)
+		/* read the new mapping. note that with mmap_disable we want
+		   to keep the old mapping in index->map so we can update it
+		   by reading transaction log. */
+		if (mail_index_map(index, TRUE) <= 0)
 			ret = -1;
 	}
 

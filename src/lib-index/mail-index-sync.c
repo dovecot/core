@@ -290,6 +290,10 @@ static int mail_index_sync_commit_external(struct mail_index_sync_ctx *ctx,
 	return 0;
 }
 
+#define MAIL_INDEX_IS_SYNCS_SAME(index) \
+	((index)->sync_log_file_seq == (index)->hdr->log_file_seq && \
+	 (index)->sync_log_file_offset == (index)->hdr->log_file_ext_offset)
+
 int mail_index_sync_begin(struct mail_index *index,
                           struct mail_index_sync_ctx **ctx_r,
 			  struct mail_index_view **view_r,
@@ -299,36 +303,25 @@ int mail_index_sync_begin(struct mail_index *index,
 	struct mail_index_sync_ctx *ctx;
 	uint32_t seq;
 	uoff_t offset;
-	unsigned int lock_id;
+	unsigned int lock_id = 0;
 	int seen_external;
 
 	if (mail_transaction_log_sync_lock(index->log, &seq, &offset) < 0)
 		return -1;
 
-	if (mail_index_lock_shared(index, TRUE, &lock_id) < 0) {
-		mail_transaction_log_sync_unlock(index->log);
-		return -1;
-	}
-
-	if (index->mmap_disable) {
-		if (index->sync_log_file_seq != seq ||
-		    index->sync_log_file_offset != offset) {
-			/* we may have synced our internal view more than what
-			   is synced in index. re-read the whole index if our
-			   sync seq/offset doesn't match what is in index's
-			   header. */
-			if (mail_index_map(index, TRUE) <= 0) {
-				mail_transaction_log_sync_unlock(index->log);
-				mail_index_unlock(index, lock_id);
-				return -1;
-			}
-		} else {
-			/* the whole log file is synced already. */
-			i_assert(index->map->hdr.log_file_seq == seq);
-			i_assert(index->map->hdr.log_file_ext_offset == offset);
+	if (!index->mmap_disable || !MAIL_INDEX_IS_SYNCS_SAME(index) ||
+	    index->sync_log_file_seq != seq ||
+	    index->sync_log_file_offset != offset) {
+		/* make sure we have the latest file mapped */
+		if (mail_index_lock_shared(index, TRUE, &lock_id) < 0) {
+			mail_transaction_log_sync_unlock(index->log);
+			return -1;
 		}
-	} else {
-		if (mail_index_map(index, FALSE) <= 0) {
+
+		/* with mmap_disable the force parameter has somewhat special
+		   meaning, it syncs exactly to the log seq/offset in index
+		   file's header. */
+		if (mail_index_map(index, index->mmap_disable) <= 0) {
 			mail_transaction_log_sync_unlock(index->log);
 			mail_index_unlock(index, lock_id);
 			return -1;
