@@ -73,6 +73,12 @@ static int index_data_set_syscall_error(struct mail_index_data *data,
 
 static void mail_index_data_file_close(struct mail_index_data *data)
 {
+	if (data->modified) {
+		if (msync(data->mmap_base, data->mmap_used_length, MS_SYNC) < 0)
+			index_data_set_syscall_error(data, "msync()");
+		data->modified = FALSE;
+	}
+
 	if (data->anon_mmap) {
 		if (munmap_anon(data->mmap_base, data->mmap_full_length) < 0)
 			index_data_set_syscall_error(data, "munmap_anon()");
@@ -141,7 +147,9 @@ static int mmap_update(struct mail_index_data *data, uoff_t pos, size_t size)
 
 		if (pos + size <= data->mmap_full_length) {
 			data->mmap_used_length = data->header->used_file_size;
-			if (data->mmap_used_length <= data->mmap_full_length)
+			if (data->mmap_used_length >=
+			    sizeof(struct mail_index_data_header) &&
+			    data->mmap_used_length <= data->mmap_full_length)
 				return TRUE;
 
 			/* file size changed, re-mmap() */
