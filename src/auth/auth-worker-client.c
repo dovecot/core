@@ -128,7 +128,7 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	auth_request->mech_password =
 		p_strdup(auth_request->pool, password);
 
-	for (; num > 0; num++) {
+	for (; num > 0; num--) {
 		auth_request->passdb = auth_request->passdb->next;
 		if (auth_request->passdb == NULL) {
 			i_error("BUG: PASSV had invalid passdb num");
@@ -193,7 +193,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	auth_request = worker_auth_request_new(client, id, args);
 	auth_request->credentials = credentials;
 
-	for (; num > 0; num++) {
+	for (; num > 0; num--) {
 		auth_request->passdb = auth_request->passdb->next;
 		if (auth_request->passdb == NULL) {
 			i_error("BUG: PASSL had invalid passdb num");
@@ -237,7 +237,7 @@ auth_worker_handle_user(struct auth_worker_client *client,
 
 	auth_request = worker_auth_request_new(client, id, args);
 
-	for (; num > 0; num++) {
+	for (; num > 0; num--) {
 		auth_request->userdb = auth_request->userdb->next;
 		if (auth_request->userdb == NULL) {
 			i_error("BUG: USER had invalid userdb num");
