@@ -810,8 +810,8 @@ int mail_cache_truncate(struct mail_cache *cache)
 
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.indexid = cache->index->indexid;
-	hdr.sync_id = cache->sync_id = cache->index->cache_sync_id
-		=++cache->index->header->cache_sync_id;
+	hdr.sync_id = cache->sync_id = cache->index->cache_sync_id =
+		++cache->index->header->cache_sync_id;
 	hdr.used_file_size = uint32_to_nbo(sizeof(hdr));
 	cache->used_file_size = sizeof(hdr);
 
