@@ -48,6 +48,7 @@ message_header_search_init(pool_t pool, const char *key, const char *charset,
 
 	if (key == NULL) {
 		/* invalid key */
+		p_free(pool, ctx);
 		return NULL;
 	}
 

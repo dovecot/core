@@ -111,6 +111,10 @@ static int message_search_header(struct part_search_context *ctx,
 						    ctx->body_ctx->key,
 						    ctx->body_ctx->charset,
 						    NULL);
+	if (hdr_search_ctx == NULL) {
+		/* Invalid key. */
+		return FALSE;
+	}
 
 	/* we default to text content-type */
 	ctx->content_type_text = TRUE;
@@ -292,8 +296,7 @@ static int message_search_body(struct part_search_context *ctx,
 	if (ctx->translation == NULL)
 		ctx->translation = charset_to_utf8_begin("ascii", NULL);
 
-	ctx->decode_buf =
-		buffer_create_dynamic(pool_datastack_create(), 256);
+	ctx->decode_buf = buffer_create_dynamic(default_pool, 256);
 	ctx->match_buf = buffer_create_static_hard(pool_datastack_create(),
 						   sizeof(size_t) *
 						   ctx->body_ctx->key_len);
@@ -349,6 +352,7 @@ static int message_search_body(struct part_search_context *ctx,
 
 	if (ctx->translation != NULL)
 		charset_to_utf8_end(ctx->translation);
+	buffer_free(ctx->decode_buf);
 	return found;
 }
 
