@@ -5,7 +5,6 @@
 #include "lib.h"
 #include "alarm-hup.h"
 #include "ioloop.h"
-#include "file-set-size.h"
 #include "write-full.h"
 #include "network.h"
 #include "sendfile-util.h"
