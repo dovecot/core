@@ -30,16 +30,22 @@ index:
  - mbox:
      - if a file isn't valid mbox and it's tried to be opened, say it in one
        line in error log, not 6..
-     - if we read-locked mbox file when we're accessing it, we could get it
-       pretty reliable.. do other MUAs do that? if yes, drop the dotlock
-       and only support flock() or fcntl() locking
-     - don't open() + close() the mbox file all the time, at least while
-       it's being locked..
+     - locking: if we set shared lock to it while we're accessing it, we could
+       get it pretty reliable. this means that the mbox fd needs to be locked
+       before sync() and kept locked after that until we're done with it.
+       problems are:
+         - we don't have a single open mbox fd, we open it multiple times
+	 - switching to exclusive lock may deadlock
+	 - because mbox-rewrite rename()s the file, the old file gets lost.
+	   if mailer only checks the fd lock, the new mails disappear..
+	   i guess the only way to fix this is to set dotlock before opening
+	   the mbox file.
      - maybe support Content-Length for figuring out size of text? at least
        mutt doesn't prefix "From " in outbox.. If we verify that both
        Content-Length and Lines match correctly, there's quite a little chance
        that it could be broken by sending them invalid (doesn't local MTA
-       update them anyway?).
+       update them anyway?). Though, this may be a bit difficult to implement,
+       and now that we verify the From-line better, is this even needed?
      - rewriting could try to preserve the locations of fields it changes
        instead of writing them all to end..
      - mbox-rewrite rename()s the file, which breaks if the original was a
@@ -52,11 +58,12 @@ index:
    corrupted. especially if we later want to support some read-only boxes
    and keep the mail flags only in index file. fsck() could verify that
    records are ok, and that if data file isn't ok the record is deleted.
- - some fast-open flag for index, which wouldn't trigger cache_update on
-   open (for STATUS command).
  - if .customflags is removed and Maildir files have custom flags, add
    "unknown1" "unknown2" etc. flags to .customflags file for each found flag
  - debug: index could be read-only mmaped when it's not locked. 
+ - if message text is modified (or indexes are corrupted), this may happen:
+    Panic: file imap-bodystructure.c: line 179 (part_parse_headers):
+           assertion failed: (part->physical_pos >= inbuf->offset)
 
 lib-storage:
  - support multiple mailbox formats and locations for one user. that would
@@ -122,7 +129,7 @@ general:
    while just opening the indexes).
  - settings for specifying what sort of data to cache by default
    (index->cache_fields)
- - setting for choosing mbox locking method
+ - setting for choosing mbox locking methods
  - maybe a bit more verbose warnings for some errors, like "invalid date:
    <date that was tried>". easier than sniffing the traffic.
  - imap-login writes UTC timestamps to log file .. why is that?
