@@ -265,6 +265,8 @@ if test $want_gnutls = yes; then
   ], [
     have_ssl=no
   ], -lgcrypt)
+else
+  have_ssl=no
 fi
 
 dnl **
