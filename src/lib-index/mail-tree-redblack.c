@@ -673,7 +673,7 @@ unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 		return (unsigned int)-1;
 
 	rb_check(tree);
-	tree->modified = TRUE;
+	node = tree->node_base;
 
 	if (seq_r != NULL)
 		*seq_r = 0;
