@@ -206,7 +206,9 @@ enum maildir_file_action {
 	MAILDIR_FILE_ACTION_NEW,
 	MAILDIR_FILE_ACTION_NONE,
 
-	MAILDIR_FILE_FLAG_NEWDIR = 0x1000
+	MAILDIR_FILE_FLAG_NEWDIR	= 0x1000,
+	MAILDIR_FILE_FLAG_ALLOCED	= 0x2000,
+        MAILDIR_FILE_FLAGS		= 0x3000
 };
 
 struct maildir_hash_context {
@@ -511,7 +513,7 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 			i_warning("UID changed for %s/%s: %u -> %u",
 				  index->mailbox_path, fname, uid, uid_rec.uid);
 			hash_rec->action = MAILDIR_FILE_ACTION_UPDATE_CONTENT |
-				(hash_rec->action & MAILDIR_FILE_FLAG_NEWDIR);
+				(hash_rec->action & MAILDIR_FILE_FLAGS);
 		}
 
 		action = hash_rec != NULL ?
@@ -533,7 +535,7 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 				return FALSE;
 			seq--;
 			hash_rec->action = MAILDIR_FILE_ACTION_NEW |
-				(hash_rec->action & MAILDIR_FILE_FLAG_NEWDIR);
+				(hash_rec->action & MAILDIR_FILE_FLAGS);
 			ctx->new_count++;
 			break;
 		case MAILDIR_FILE_ACTION_NONE:
@@ -763,12 +765,28 @@ static int maildir_fix_duplicate(struct mail_index *index,
 	return ret;
 }
 
-static void uidlist_hash_remove_nones(void *key, void *value, void *context)
+static void uidlist_hash_fix_allocs(void *key, void *value, void *context)
 {
+        struct maildir_sync_context *ctx = context;
 	struct maildir_hash_rec *hash_rec = value;
 
-	if (ACTION(hash_rec) == MAILDIR_FILE_ACTION_NONE)
-		hash_remove(context, key);
+	switch (ACTION(hash_rec)) {
+	case MAILDIR_FILE_ACTION_NONE:
+		hash_remove(ctx->files, key);
+		break;
+	case MAILDIR_FILE_ACTION_EXPUNGE:
+		if (hash_rec->action & MAILDIR_FILE_FLAG_ALLOCED) {
+			/* we're getting here because our recently
+			   inserted node is traversed as well */
+			break;
+		}
+
+		hash_rec->action |= MAILDIR_FILE_FLAG_ALLOCED;
+		hash_insert(ctx->files, p_strdup(ctx->pool, key), value);
+		break;
+	default:
+		break;
+	}
 }
 
 static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
@@ -845,9 +863,10 @@ static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
 		}
 	} while ((d = readdir(dirp)) != NULL);
 
-	/* remove all none actions. records that are left must not have
-	   any pointers (filename) to index files */
-	hash_foreach(ctx->files, uidlist_hash_remove_nones, ctx->files);
+	/* records that are left to hash must not have any (filename) pointers
+	   to index file. So remove none actions, and p_strdup() expunge
+	   actions. */
+	hash_foreach(ctx->files, uidlist_hash_fix_allocs, ctx);
 
 	return TRUE;
 }
