@@ -49,7 +49,9 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 	ctx->trans = t;
 	ctx->reservations =
 		buffer_create_dynamic(system_pool, 256, (size_t)-1);
-	ctx->cache_file_seq = ctx->cache->hdr->file_seq;
+
+	if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache))
+		ctx->cache_file_seq = ctx->cache->hdr->file_seq;
 
 	i_assert(view->transaction == NULL);
 	view->transaction = ctx;
