@@ -415,7 +415,7 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
 
-		if (updates[idx].uid1 < u.uid1)
+		if (updates[idx].uid2 < u.uid1)
 			left_idx = idx+1;
 		else if (updates[idx].uid1 > u.uid1)
 			right_idx = idx;
