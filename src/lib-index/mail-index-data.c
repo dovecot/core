@@ -139,11 +139,11 @@ static int mmap_update(struct mail_index_data *data, uoff_t pos, size_t size)
 	}
 
 	if (size != 0) {
-		if (pos + size <= data->mmap_used_length)
-			return TRUE;
-
 		debug_mprotect(data->mmap_base, data->mmap_full_length,
 			       data->index);
+
+		if (pos + size <= data->mmap_used_length)
+			return TRUE;
 
 		if (pos + size <= data->mmap_full_length) {
 			data->mmap_used_length = data->header->used_file_size;
