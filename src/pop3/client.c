@@ -99,7 +99,7 @@ static int init_mailbox(struct client *client)
 		}
 	}
 
-	client_send_line(client, "-ERR Couldn't sync mailbox.");
+	client_send_line(client, "-ERR [IN-USE] Couldn't sync mailbox.");
 	return FALSE;
 }
 

@@ -6,6 +6,7 @@
 #include "str.h"
 #include "message-size.h"
 #include "mail-storage.h"
+#include "capability.h"
 #include "commands.h"
 
 #define MSGS_BITMASK_SIZE(client) \
@@ -82,6 +83,12 @@ static const char *get_size(struct client *client, const char *args,
 
 	*size = num;
 	return args;
+}
+
+static int cmd_capa(struct client *client, const char *args __attr_unused__)
+{
+	client_send_line(client, "+OK\r\n"POP3_CAPABILITY_REPLY".");
+	return TRUE;
 }
 
 static int cmd_dele(struct client *client, const char *args)
@@ -401,6 +408,10 @@ int client_command_execute(struct client *client,
 	while (*args == ' ') args++;
 
 	switch (*name) {
+	case 'C':
+		if (strcmp(name, "CAPA") == 0)
+			return cmd_capa(client, args);
+		break;
 	case 'D':
 		if (strcmp(name, "DELE") == 0)
 			return cmd_dele(client, args);

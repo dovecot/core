@@ -104,6 +104,8 @@ static int client_command_execute(struct pop3_client *client, const char *cmd,
 				  const char *args)
 {
 	cmd = str_ucase(t_strdup_noconst(cmd));
+	if (strcmp(cmd, "CAPA") == 0)
+		return cmd_capa(client, args);
 	if (strcmp(cmd, "USER") == 0)
 		return cmd_user(client, args);
 	if (strcmp(cmd, "PASS") == 0)

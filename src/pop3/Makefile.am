@@ -30,6 +30,7 @@ pop3_SOURCES = \
 	main.c
 
 noinst_HEADERS = \
+	capability.h \
 	client.h \
 	commands.h \
 	common.h

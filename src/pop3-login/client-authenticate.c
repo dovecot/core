@@ -10,9 +10,42 @@
 #include "str.h"
 #include "auth-connection.h"
 #include "../auth/auth-mech-desc.h"
+#include "../pop3/capability.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "master.h"
+
+static enum auth_mech auth_mechs = 0;
+static char *auth_mechs_capability = NULL;
+
+int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
+{
+	string_t *str;
+	int i;
+
+	if (auth_mechs != available_auth_mechs) {
+		auth_mechs = available_auth_mechs;
+		i_free(auth_mechs_capability);
+
+		str = t_str_new(128);
+
+		str_append(str, "SASL");
+		for (i = 0; i < AUTH_MECH_COUNT; i++) {
+			if ((auth_mechs & auth_mech_desc[i].mech) &&
+			    auth_mech_desc[i].name != NULL) {
+				str_append_c(str, ' ');
+				str_append(str, auth_mech_desc[i].name);
+			}
+		}
+
+		auth_mechs_capability = i_strdup(str_c(str));
+	}
+
+	client_send_line(client, t_strconcat("+OK\r\n" POP3_CAPABILITY_REPLY,
+					     auth_mechs_capability,
+					     "\r\n.", NULL));
+	return TRUE;
+}
 
 static struct auth_mech_desc *auth_mech_find(const char *name)
 {
