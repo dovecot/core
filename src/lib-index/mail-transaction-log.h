@@ -3,6 +3,7 @@
 
 #define MAIL_TRANSACTION_LOG_PREFIX ".log"
 #define MAIL_TRANSACTION_LOG_ROTATE_SIZE (1024*128)
+#define MAIL_TRANSACTION_LOG_ROTATE_MIN_TIME (60*5)
 
 struct mail_transaction_log_header {
 	uint32_t indexid;

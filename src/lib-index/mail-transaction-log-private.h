@@ -16,6 +16,7 @@ struct mail_transaction_log_file {
 
 	ino_t st_ino;
 	dev_t st_dev;
+	time_t last_mtime;
 
 	buffer_t *buffer;
 	uoff_t buffer_offset;

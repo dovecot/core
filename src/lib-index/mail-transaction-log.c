@@ -1,6 +1,7 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "buffer.h"
 #include "file-lock.h"
 #include "file-dotlock.h"
@@ -419,6 +420,7 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 	file->lock_type = F_UNLCK;
 	file->st_dev = st.st_dev;
 	file->st_ino = st.st_ino;
+	file->last_mtime = st.st_mtime;
 
 	ret = mail_transaction_log_file_read_hdr(file, &st);
 	if (ret == 0) {
@@ -439,6 +441,7 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 
 			file->st_dev = st.st_dev;
 			file->st_ino = st.st_ino;
+                        file->last_mtime = st.st_mtime;
 
 			memset(&file->hdr, 0, sizeof(file->hdr));
 			ret = mail_transaction_log_file_read_hdr(file, &st);
@@ -1098,7 +1101,9 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 
 	if (log->head->hdr.file_seq == index->hdr->log_file_seq &&
-	    log->head->hdr.used_size > MAIL_TRANSACTION_LOG_ROTATE_SIZE) {
+	    log->head->hdr.used_size > MAIL_TRANSACTION_LOG_ROTATE_SIZE &&
+	    log->head->last_mtime <
+	    ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_MIN_TIME) {
 		/* everything synced in index, we can rotate. */
 		if (mail_transaction_log_rotate(log) < 0) {
 			if (!log->index->log_locked) {
