@@ -5,6 +5,12 @@
 #include "commands-util.h"
 #include "imap-util.h"
 
+/* Maximum length for mailbox name, including it's path. This isn't fully
+   exact since the user can create folder hierarchy with small names, then
+   rename them to larger names. Mail storages should set more strict limits
+   to them, mbox/maildir currently allow paths only up to PATH_MAX. */
+#define MAILBOX_MAX_NAME_LEN 512
+
 int client_verify_mailbox_name(Client *client, const char *mailbox,
 			       int should_exist, int should_not_exist)
 {
@@ -26,6 +32,11 @@ int client_verify_mailbox_name(Client *client, const char *mailbox,
 			client_send_tagline(client, "NO Invalid mailbox name.");
 			return FALSE;
 		}
+	}
+
+	if (strlen(mailbox) > MAILBOX_MAX_NAME_LEN) {
+		client_send_tagline(client, "NO Mailbox name too long.");
+		return FALSE;
 	}
 
 	/* check what our storage thinks of it */

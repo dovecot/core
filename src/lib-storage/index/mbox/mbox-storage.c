@@ -107,12 +107,10 @@ int mbox_is_valid_mask(const char *mask)
 
 static int mbox_is_valid_name(MailStorage *storage, const char *name)
 {
-	if (name[0] == '\0' || name[0] == storage->hierarchy_sep ||
-	    name[strlen(name)-1] == storage->hierarchy_sep ||
-	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
-		return FALSE;
-
-	return mbox_is_valid_mask(name);
+	return name[0] != '\0' && name[0] != storage->hierarchy_sep &&
+		name[strlen(name)-1] != storage->hierarchy_sep &&
+		strchr(name, '*') == NULL && strchr(name, '%') == NULL &&
+		mbox_is_valid_mask(name);
 }
 
 static const char *mbox_get_index_dir(const char *mbox_path)
@@ -121,7 +119,7 @@ static const char *mbox_get_index_dir(const char *mbox_path)
 
 	p = strrchr(mbox_path, '/');
 	if (p == NULL)
-		return t_strconcat(".imap/", mbox_path);
+		return t_strconcat(".imap/", mbox_path, NULL);
 	else {
 		rootpath = t_strdup_until(mbox_path, p);
 		return t_strconcat(rootpath, "/.imap/", p+1, NULL);

@@ -98,7 +98,7 @@ static int mbox_find_path(MailStorage *storage, ImapMatchGlob *glob,
 			break;
 		}
 
-		if (stat(fullpath, &st) != 0) {
+		if (stat(fullpath, &st) < 0) {
 			if (errno == ENOENT)
 				continue; /* just deleted, ignore */
 

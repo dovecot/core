@@ -91,7 +91,7 @@ static int write_from_line(MailStorage *storage, OStream *output,
 			name = my_hostname;
 		}
 
-		strocpy(my_hostdomain, name, 256);
+		strocpy(my_hostdomain, name, sizeof(my_hostdomain));
 	}
 
 	sender = t_strconcat(storage->user, "@", my_hostdomain, NULL);
