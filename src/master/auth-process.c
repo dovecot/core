@@ -422,11 +422,17 @@ static void auth_set_environment(struct auth_settings *set)
 
 	for (ap = set->passdbs, i = 1; ap != NULL; ap = ap->next, i++) {
 		env_put(t_strdup_printf("PASSDB_%u_DRIVER=%s", i, ap->driver));
-		env_put(t_strdup_printf("PASSDB_%u_ARGS=%s", i, ap->args));
+		if (ap->args != NULL) {
+			env_put(t_strdup_printf("PASSDB_%u_ARGS=%s",
+						i, ap->args));
+		}
 	}
 	for (au = set->userdbs, i = 1; au != NULL; au = au->next, i++) {
 		env_put(t_strdup_printf("USERDB_%u_DRIVER=%s", i, au->driver));
-		env_put(t_strdup_printf("USERDB_%u_ARGS=%s", i, au->args));
+		if (au->args != NULL) {
+			env_put(t_strdup_printf("USERDB_%u_ARGS=%s",
+						i, au->args));
+		}
 	}
 
 	for (as = set->sockets, i = 1; as != NULL; as = as->next, i++) {
