@@ -39,7 +39,7 @@ mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 	const uint32_t *id_map;
 	struct mail_index_expunge_handler eh;
 	size_t handlers_count, id_map_size, size;
-	uint32_t ext_id;
+	uint32_t idx_ext_id, map_ext_id;
 
 	handlers = buffer_get_data(ctx->view->index->expunge_handlers,
 				   &handlers_count);
@@ -62,13 +62,14 @@ mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 	id_map_size /= sizeof(*id_map);
 
 	size = I_MIN(handlers_count, id_map_size);
-	for (ext_id = 0; ext_id < size; ext_id++) {
-		if (handlers[ext_id] == NULL || id_map[ext_id] == (uint32_t)-1)
+	for (idx_ext_id = 0; idx_ext_id < size; idx_ext_id++) {
+		map_ext_id = id_map[idx_ext_id];
+		if (handlers[idx_ext_id] == NULL || map_ext_id == (uint32_t)-1)
 			continue;
 
-		eh.handler = handlers[ext_id];
-		eh.context = &ctx->extra_context[ext_id];
-		eh.record_offset = extensions[id_map[ext_id]].record_offset;
+		eh.handler = handlers[idx_ext_id];
+		eh.context = &ctx->extra_context[map_ext_id];
+		eh.record_offset = extensions[map_ext_id].record_offset;
 		buffer_append(ctx->expunge_handlers, &eh, sizeof(eh));
 	}
 	ctx->expunge_handlers_set = TRUE;
