@@ -12,4 +12,5 @@ doc_DATA = \
 EXTRA_DIST = \
 	mkcert.sh \
 	dovecot-openssl.cnf \
+	dovecot-ldap.conf \
 	$(doc_DATA)
