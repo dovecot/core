@@ -392,7 +392,7 @@ int i_snprintf(char *str, size_t max_chars, const char *format, ...)
 	int ret;
 
 	i_assert(str != NULL);
-	i_assert(max_chars < SSIZE_T_MAX);
+	i_assert(max_chars < INT_MAX);
 	i_assert(format != NULL);
 
 	t_push();
@@ -413,7 +413,7 @@ int i_snprintf(char *str, size_t max_chars, const char *format, ...)
         int len;
 
 	i_assert(str != NULL);
-	i_assert(max_chars < SSIZE_T_MAX);
+	i_assert(max_chars < INT_MAX);
 	i_assert(format != NULL);
 
 	t_push();
