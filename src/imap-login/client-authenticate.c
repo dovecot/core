@@ -118,7 +118,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		break;
 	case SASL_SERVER_REPLY_MASTER_FAILED:
 		client_send_line(client, "* BYE Internal login failure. "
-				 "Error report written to server log.");
+				 "Refer to server log for more information.");
 		client_destroy(client, t_strconcat("Internal login failure: ",
 						   client->common.virtual_user,
 						   NULL));

@@ -10,7 +10,7 @@
 
 /* Message to show to users when critical error occurs */
 #define CRITICAL_MSG \
-	"Internal error occured. Error report written to server log."
+	"Internal error occured. Refer to server log for more information."
 #define CRITICAL_MSG_STAMP CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
 
 struct mail_storage_list {
