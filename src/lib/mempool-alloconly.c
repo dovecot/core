@@ -186,10 +186,17 @@ static void *pool_alloconly_malloc(pool_t pool, size_t size)
 	return mem;
 }
 
-static void pool_alloconly_free(pool_t pool __attr_unused__,
-				void *mem __attr_unused__)
+static void pool_alloconly_free(pool_t pool, void *mem)
 {
-	/* ignore */
+	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
+
+	/* we can free only the last allocation */
+	if (POOL_BLOCK_DATA(apool->block) +
+	    (apool->block->size - apool->block->left -
+	     apool->block->last_alloc_size) == mem) {
+		apool->block->left += apool->block->last_alloc_size;
+                apool->block->last_alloc_size = 0;
+	}
 }
 
 static int pool_try_grow(struct alloconly_pool *apool, void *mem, size_t size)
