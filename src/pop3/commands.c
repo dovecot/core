@@ -178,55 +178,24 @@ static int cmd_noop(struct client *client, const char *args __attr_unused__)
 	return TRUE;
 }
 
-static int expunge_mails(struct client *client, struct mailbox *box)
-{
-	struct mail_search_arg search_arg;
-        struct mailbox_transaction_context *t;
-	struct mail_search_context *ctx;
-	struct mail *mail;
-	uint32_t i;
-	int failed = FALSE;
-
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_ALL;
-
-	t = mailbox_transaction_begin(box, FALSE);
-	ctx = mailbox_search_init(t, NULL, &search_arg, NULL,
-				  MAIL_FETCH_VIRTUAL_SIZE, NULL);
-	if (ctx == NULL) {
-		mailbox_transaction_rollback(t);
-		return FALSE;
-	}
-
-	while ((mail = mailbox_search_next(ctx)) != NULL) {
-		i = mail->seq-1;
-		if ((client->deleted_bitmask[i / CHAR_BIT] &
-		     (1 << (i % CHAR_BIT))) != 0) {
-			if (mail->expunge(mail) < 0) {
-				failed = TRUE;
-				break;
-			}
-		}
-	}
-
-	if (mailbox_search_deinit(ctx) < 0 || failed) {
-		mailbox_transaction_rollback(t);
-		return FALSE;
-	}
-
-	mailbox_transaction_commit(t, MAILBOX_SYNC_FLAG_FULL_READ |
-				   MAILBOX_SYNC_FLAG_FULL_WRITE);
-	return TRUE;
-}
-
 static int cmd_quit(struct client *client, const char *args __attr_unused__)
 {
+	if (client->deleted) {
+		if (!client_update_mailbox(client, client->mailbox, TRUE)) {
+			client_send_storage_error(client);
+			client_disconnect(client);
+			return TRUE;
+		}
+
+		/* don't sync them again at client_destroy() */
+		i_free(client->seen_bitmask);
+                client->seen_bitmask = NULL;
+	}
+
 	if (!client->deleted)
 		client_send_line(client, "+OK Logging out.");
-	else if (expunge_mails(client, client->mailbox))
-		client_send_line(client, "+OK Logging out, messages deleted.");
 	else
-		client_send_storage_error(client);
+		client_send_line(client, "+OK Logging out, messages deleted.");
 
 	client_disconnect(client);
 	return TRUE;
@@ -344,7 +313,6 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 {
         struct fetch_context *ctx;
 	struct mail *mail;
-	struct mail_full_flags seen_flag;
 
 	ctx = i_new(struct fetch_context, 1);
 
@@ -366,9 +334,12 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 
 	if (body_lines == (uoff_t)-1) {
 		/* mark the message seen with RETR command */
-		memset(&seen_flag, 0, sizeof(seen_flag));
-		seen_flag.flags = MAIL_SEEN;
-		(void)mail->update_flags(mail, &seen_flag, MODIFY_ADD);
+		if (client->seen_bitmask == NULL) {
+			client->seen_bitmask =
+				i_malloc(MSGS_BITMASK_SIZE(client));
+		}
+		client->seen_bitmask[msgnum / CHAR_BIT] |=
+			1 << (msgnum % CHAR_BIT);
 	}
 
 	ctx->body_lines = body_lines;

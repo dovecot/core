@@ -130,6 +130,63 @@ static int init_mailbox(struct client *client)
 	return FALSE;
 }
 
+int client_update_mailbox(struct client *client, struct mailbox *box,
+			  int delete_mails)
+{
+	struct mail_search_arg search_arg;
+        struct mailbox_transaction_context *t;
+	struct mail_search_context *ctx;
+	struct mail *mail;
+	struct mail_full_flags seen_flag;
+	uint32_t i, bitmask;
+	int failed = FALSE;
+
+	if (delete_mails && client->deleted_bitmask == NULL)
+                delete_mails = FALSE;
+
+	memset(&search_arg, 0, sizeof(search_arg));
+	search_arg.type = SEARCH_ALL;
+
+	t = mailbox_transaction_begin(box, FALSE);
+	ctx = mailbox_search_init(t, NULL, &search_arg, NULL, 0, NULL);
+	if (ctx == NULL) {
+		mailbox_transaction_rollback(t);
+		return FALSE;
+	}
+
+	memset(&seen_flag, 0, sizeof(seen_flag));
+	seen_flag.flags = MAIL_SEEN;
+
+	while ((mail = mailbox_search_next(ctx)) != NULL) {
+		i = mail->seq-1;
+
+		bitmask = 1 << (i % CHAR_BIT);
+		if (delete_mails &&
+		    (client->deleted_bitmask[i/CHAR_BIT] & bitmask) != 0) {
+			if (mail->expunge(mail) < 0) {
+				failed = TRUE;
+				break;
+			}
+		} else if (client->seen_bitmask != NULL &&
+			   (client->seen_bitmask[i/CHAR_BIT] & bitmask) != 0) {
+			if (mail->update_flags(mail, &seen_flag,
+					       MODIFY_ADD) < 0) {
+				failed = TRUE;
+				break;
+			}
+		}
+	}
+
+	if (mailbox_search_deinit(ctx) < 0 || failed) {
+		mailbox_transaction_rollback(t);
+		return FALSE;
+	}
+
+	mailbox_transaction_commit(t, MAILBOX_SYNC_FLAG_FULL_READ |
+				   MAILBOX_SYNC_FLAG_FULL_WRITE);
+	return TRUE;
+}
+
 struct client *client_create(int hin, int hout, struct mail_storage *storage)
 {
 	struct client *client;
@@ -187,12 +244,18 @@ void client_destroy(struct client *client)
 		client->cmd(client);
 		i_assert(client->cmd == NULL);
 	}
-	if (client->mailbox != NULL)
+	if (client->mailbox != NULL) {
+		if (client->seen_bitmask != NULL) {
+			(void)client_update_mailbox(client, client->mailbox,
+						    FALSE);
+		}
 		mailbox_close(client->mailbox);
+	}
 	mail_storage_destroy(client->storage);
 
 	i_free(client->message_sizes);
 	i_free(client->deleted_bitmask);
+	i_free(client->seen_bitmask);
 
 	if (client->io != NULL)
 		io_remove(client->io);

@@ -29,6 +29,7 @@ struct client {
 	uint32_t last_seen;
 
 	unsigned char *deleted_bitmask;
+	unsigned char *seen_bitmask;
 
 	unsigned int deleted:1;
 	unsigned int waiting_input:1;
@@ -41,6 +42,9 @@ void client_destroy(struct client *client);
 
 /* Disconnect client connection */
 void client_disconnect(struct client *client);
+
+int client_update_mailbox(struct client *client, struct mailbox *box,
+			  int delete_mails);
 
 /* Send a line of data to client */
 int client_send_line(struct client *client, const char *fmt, ...)
