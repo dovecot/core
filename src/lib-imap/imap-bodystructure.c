@@ -420,23 +420,18 @@ static void part_write_body(struct message_part *part,
 	} else if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
 		/* message/rfc822 contains envelope + body + line count */
 		struct message_part_body_data *child_data;
+                struct message_part_envelope_data *env_data;
 
 		i_assert(part->children != NULL);
 		i_assert(part->children->next == NULL);
 
                 child_data = part->children->context;
+		env_data = child_data != NULL ? child_data->envelope : NULL;
 
-		str_append_c(str, ' ');
-		if (child_data != NULL && child_data->envelope != NULL) {
-			str_append_c(str, '(');
-			imap_envelope_write_part_data(child_data->envelope,
-						      str);
-			str_append_c(str, ')');
-		} else {
-			/* buggy message */
-			str_append(str, "NIL");
-		}
-		str_append_c(str, ' ');
+		str_append_c(str, " (");
+		imap_envelope_write_part_data(env_data, str);
+		str_append(str, ") ");
+
 		part_write_bodystructure(part->children, str, extended);
 		str_printfa(str, " %u", part->body_size.lines);
 	}

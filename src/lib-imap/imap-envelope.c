@@ -173,6 +173,14 @@ static void imap_write_address(string_t *str, struct message_address *addr)
 void imap_envelope_write_part_data(struct message_part_envelope_data *data,
 				   string_t *str)
 {
+	static const char *empty_envelope =
+		"NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL";
+
+	if (data == NULL) {
+		str_append(str, empty_envelope);
+		return;
+	}
+
 	str_append(str, NVL(data->date, "NIL"));
 	str_append_c(str, ' ');
 	str_append(str, NVL(data->subject, "NIL"));
