@@ -9,6 +9,8 @@
 
 /* Build with SSL/TLS support */
 #undef HAVE_SSL
+#undef HAVE_GNUTLS
+#undef HAVE_OPENSSL
 
 /* build with IPv6 support */
 #undef HAVE_IPV6

@@ -102,14 +102,24 @@ AC_ARG_WITH(rawlog,
 		AC_DEFINE(BUILD_RAWLOG)
 	fi)
 
-AC_ARG_WITH(gnutls,
-[  --with-gnutls           Build with GNUTLS (default)],
+AC_ARG_WITH(ssl,
+[  --with-ssl=[gnutls|openssl] Build with GNUTLS (default) or OpenSSL],
 	if test x$withval = xno; then
 		want_gnutls=no
+		want_openssl=no
+	elif test x$withval = xgnutls; then
+		want_gnutls=yes
+		want_openssl=no
+	elif test x$withval = xopenssl; then
+		want_gnutls=no
+		want_openssl=yes
 	else
 		want_gnutls=yes
-	fi,
-	want_gnutls=yes)
+		want_openssl=yes
+	fi, [
+		want_gnutls=yes
+		want_openssl=yes
+	])
 
 dnl **
 dnl ** just some generic stuff...
@@ -346,21 +356,41 @@ AC_TRY_COMPILE([
 ])
 
 dnl **
-dnl ** SSL (gnutls)
+dnl ** SSL
 dnl **
 
 if test $want_gnutls = yes; then
-  AC_CHECK_LIB(gnutls, gnutls_global_init, [
-    AC_DEFINE(HAVE_SSL)
-    SSL_LIBS="-lgnutls -lgcrypt"
-    AC_SUBST(SSL_LIBS)
-    have_ssl=yes
-  ], [
-    have_ssl=no
-  ], -lgcrypt)
+	AC_CHECK_LIB(gnutls, gnutls_global_init, [
+		AC_DEFINE(HAVE_SSL)
+		AC_DEFINE(HAVE_GNUTLS)
+		SSL_LIBS="-lgnutls -lgcrypt"
+		AC_SUBST(SSL_LIBS)
+		have_ssl="yes (GNUTLS)"
+		have_gnutls=yes
+	], [
+		have_ssl=no
+	], -lgcrypt)
 else
-  have_ssl=no
+	have_ssl=no
 fi
+
+if test "$want_openssl" = "yes" -a "$have_ssl" = "no"; then
+	AC_CHECK_LIB(ssl, SSL_read, [
+		AC_CHECK_LIB(crypto, X509_new, [
+			AC_CHECK_HEADERS(openssl/ssl.h openssl/err.h, [
+				AC_DEFINE(HAVE_SSL)
+				AC_DEFINE(HAVE_OPENSSL)
+				SSL_LIBS="-lssl -lcrypto"
+				AC_SUBST(SSL_LIBS)
+				have_ssl="yes (OpenSSL)"
+				have_openssl=yes
+			])
+		])
+	])
+fi
+
+AM_CONDITIONAL(SSL_GNUTLS, test "$have_gnutls" = "yes")
+AM_CONDITIONAL(SSL_OPENSSL, test "$have_openssl" = "yes")
 
 dnl **
 dnl ** shadow/pam support
@@ -481,7 +511,7 @@ dnl ** capabilities
 dnl **
 
 capability="IMAP4rev1"
-if test "$have_ssl" = "yes"; then
+if test "$have_ssl" != "no"; then
 	capability="$capability STARTTLS"
 fi
 AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability")

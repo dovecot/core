@@ -13,7 +13,9 @@ imap_login_SOURCES = \
 	client-authenticate.c \
 	main.c \
 	master.c \
-	ssl-proxy.c
+	ssl-proxy.c \
+	ssl-proxy-gnutls.c \
+	ssl-proxy-openssl.c
 
 noinst_HEADERS = \
 	auth-connection.h \

@@ -16,7 +16,9 @@ imap_master_SOURCES = \
 	login-process.c \
 	main.c \
 	settings.c \
-	ssl-init.c
+	ssl-init.c \
+	ssl-init-gnutls.c \
+	ssl-init-openssl.c
 
 noinst_HEADERS = \
 	auth-process.h \

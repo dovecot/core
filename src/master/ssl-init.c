@@ -2,88 +2,22 @@
 
 #include "common.h"
 #include "ioloop.h"
-#include "write-full.h"
+#include "ssl-init.h"
 
 #ifdef HAVE_SSL
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <gnutls/gnutls.h>
-
-static int prime_nums[] = { 768, 1024, 0 };
 
 static Timeout to;
 static int generating;
 
-static void write_datum(int fd, const char *fname, gnutls_datum *dbits)
-{
-	if (write_full(fd, &dbits->size, sizeof(dbits->size)) < 0)
-		i_fatal("write_full() failed for file %s: %m", fname);
-
-	if (write_full(fd, dbits->data, dbits->size) < 0)
-		i_fatal("write_full() failed for file %s: %m", fname);
-}
-
-static void generate_dh_parameters(int fd, const char *fname)
-{
-	gnutls_datum dbits, prime, generator;
-	int ret, bits, i;
-
-	dbits.size = sizeof(bits);
-	dbits.data = (unsigned char *) &bits;
-
-	for (i = 0; prime_nums[i] != 0; i++) {
-		bits = prime_nums[i];
-
-		ret = gnutls_dh_params_generate(&prime, &generator, bits);
-		if (ret < 0) {
-			i_fatal("gnutls_dh_params_generate(%d) failed: %s",
-				bits, gnutls_strerror(ret));
-		}
-
-		write_datum(fd, fname, &dbits);
-		write_datum(fd, fname, &prime);
-		write_datum(fd, fname, &generator);
-
-		free(prime.data);
-		free(generator.data);
-	}
-
-	bits = 0;
-	write_datum(fd, fname, &dbits);
-}
-
-static void generate_rsa_parameters(int fd, const char *fname)
-{
-	gnutls_datum m, e, d, p, q, u;
-	int ret;
-
-        ret = gnutls_rsa_params_generate(&m, &e, &d, &p, &q, &u, 512);
-	if (ret < 0) {
-		i_fatal("gnutls_rsa_params_generate() faile: %s",
-			strerror(ret));
-	}
-
-	write_datum(fd, fname, &m);
-	write_datum(fd, fname, &e);
-	write_datum(fd, fname, &d);
-	write_datum(fd, fname, &p);
-	write_datum(fd, fname, &q);
-	write_datum(fd, fname, &u);
-}
-
 static void generate_parameters_file(const char *fname)
 {
 	const char *temp_fname;
-	int fd, ret;
-
-	if ((ret = gnutls_global_init() < 0)) {
-		i_fatal("gnu_tls_global_init() failed: %s",
-			gnutls_strerror(ret));
-	}
+	int fd;
 
 	temp_fname = t_strconcat(fname, ".tmp", NULL);
 	(void)unlink(temp_fname);
@@ -94,16 +28,13 @@ static void generate_parameters_file(const char *fname)
 			temp_fname);
 	}
 
-	generate_dh_parameters(fd, temp_fname);
-	generate_rsa_parameters(fd, temp_fname);
+	_ssl_generate_parameters(fd, temp_fname);
 
 	if (close(fd) < 0)
 		i_fatal("close() failed for %s: %m", temp_fname);
 
 	if (rename(temp_fname, fname) < 0)
 		i_fatal("rename(%s, %s) failed: %m", temp_fname, fname);
-
-	gnutls_global_deinit();
 }
 
 static void start_generate_process(void)
@@ -171,16 +102,8 @@ void ssl_deinit(void)
 
 #else
 
-void ssl_parameter_process_destroyed(pid_t pid __attr_unused__)
-{
-}
-
-void ssl_init(void)
-{
-}
-
-void ssl_deinit(void)
-{
-}
+void ssl_parameter_process_destroyed(pid_t pid __attr_unused__) {}
+void ssl_init(void) {}
+void ssl_deinit(void) {}
 
 #endif
