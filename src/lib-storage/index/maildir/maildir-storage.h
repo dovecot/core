@@ -1,6 +1,10 @@
 #ifndef __MAILDIR_STORAGE_H
 #define __MAILDIR_STORAGE_H
 
+/* Hierarchy separator in Maildir++ filenames - shouldn't be changed */
+#define MAILDIR_FS_SEP '.'
+#define MAILDIR_FS_SEP_S "."
+
 #include "index-storage.h"
 
 struct mail_copy_context *maildir_storage_copy_init(struct mailbox *box);
@@ -32,6 +36,8 @@ maildir_storage_expunge_fetch_next(struct mail_expunge_context *ctx);
 int maildir_storage_expunge(struct mail *mail, struct mail_expunge_context *ctx,
 			    unsigned int *seq_r, int notify);
 
+const char *maildir_fix_mailbox_name(struct mail_storage *storage,
+				     const char *name, int remove_namespace);
 const char *maildir_get_path(struct mail_storage *storage, const char *name);
 
 #endif

@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
 #include "unlink-directory.h"
@@ -30,6 +30,7 @@ struct mailbox_list_context {
 	struct mail_storage *storage;
 	enum mailbox_list_flags flags;
 
+	const char *prefix;
 	struct imap_match_glob *glob;
 	struct subsfile_list_context *subsfile_ctx;
 
@@ -46,10 +47,20 @@ static struct mailbox_list *mbox_list_subs(struct mailbox_list_context *ctx);
 static struct mailbox_list *mbox_list_inbox(struct mailbox_list_context *ctx);
 static struct mailbox_list *mbox_list_path(struct mailbox_list_context *ctx);
 static struct mailbox_list *mbox_list_next(struct mailbox_list_context *ctx);
+static struct mailbox_list *mbox_list_none(struct mailbox_list_context *ctx);
 
-static const char *mask_get_dir(const char *mask)
+static const char *mask_get_dir(struct mail_storage *storage, const char *mask)
 {
 	const char *p, *last_dir;
+	size_t len;
+
+	if (storage->namespace != NULL) {
+		len = strlen(storage->namespace);
+		if (strncmp(mask, storage->namespace, len) != 0)
+			return NULL;
+
+		mask += len;
+	}
 
 	last_dir = NULL;
 	for (p = mask; *p != '\0' && *p != '%' && *p != '*'; p++) {
@@ -104,13 +115,23 @@ mbox_list_mailbox_init(struct mail_storage *storage, const char *mask,
 	const char *path, *virtual_path;
 	DIR *dirp;
 
+	mail_storage_clear_error(storage);
+
+	if (storage->hierarchy_sep != '/' && strchr(mask, '/') != NULL) {
+		/* this will never match, return nothing */
+		ctx = i_new(struct mailbox_list_context, 1);
+		ctx->storage = storage;
+                ctx->next = mbox_list_none;
+		return ctx;
+	}
+
+	mask = mbox_fix_mailbox_name(storage, mask, FALSE);
+
 	/* check that we're not trying to do any "../../" lists */
 	if (!mbox_is_valid_mask(mask)) {
 		mail_storage_set_error(storage, "Invalid mask");
 		return NULL;
 	}
-
-	mail_storage_clear_error(storage);
 
 	if ((flags & MAILBOX_LIST_SUBSCRIBED) != 0) {
 		ctx = i_new(struct mailbox_list_context, 1);
@@ -123,17 +144,17 @@ mbox_list_mailbox_init(struct mail_storage *storage, const char *mask,
 			return NULL;
 		}
 		ctx->glob = imap_match_init(default_pool, mask, TRUE, '/');
+		ctx->list_pool = pool_alloconly_create("mbox_list", 1024);
 		return ctx;
 	}
 
 	/* if we're matching only subdirectories, don't bother scanning the
 	   parent directories */
-	virtual_path = mask_get_dir(mask);
+	virtual_path = mask_get_dir(storage, mask);
 
 	path = mbox_get_path(storage, virtual_path);
 	if (list_opendir(storage, path, TRUE, &dirp) < 0)
 		return NULL;
-
 	/* if user gave invalid directory, we just don't show any results. */
 
 	ctx = i_new(struct mailbox_list_context, 1);
@@ -141,6 +162,8 @@ mbox_list_mailbox_init(struct mail_storage *storage, const char *mask,
 	ctx->flags = flags;
 	ctx->glob = imap_match_init(default_pool, mask, TRUE, '/');
 	ctx->list_pool = pool_alloconly_create("mbox_list", 1024);
+	ctx->prefix = storage->namespace == NULL ? "" :
+		mbox_fix_mailbox_name(storage, storage->namespace, FALSE);
 
 	if (virtual_path == NULL && imap_match(ctx->glob, "INBOX") > 0)
 		ctx->next = mbox_list_inbox;
@@ -153,7 +176,8 @@ mbox_list_mailbox_init(struct mail_storage *storage, const char *mask,
 		ctx->dir = i_new(struct list_dir_context, 1);
 		ctx->dir->dirp = dirp;
 		ctx->dir->real_path = i_strdup(path);
-		ctx->dir->virtual_path = i_strdup(virtual_path);
+		ctx->dir->virtual_path = virtual_path == NULL ? NULL :
+			i_strconcat(ctx->prefix, virtual_path, NULL);
 	}
 	return ctx;
 }
@@ -184,7 +208,8 @@ int mbox_list_mailbox_deinit(struct mailbox_list_context *ctx)
 
 	if (ctx->list_pool != NULL)
 		pool_unref(ctx->list_pool);
-	imap_match_deinit(ctx->glob);
+	if (ctx->glob != NULL)
+		imap_match_deinit(ctx->glob);
 	i_free(ctx);
 
 	return !failed;
@@ -216,7 +241,7 @@ static int list_file(struct mailbox_list_context *ctx, const char *fname)
 
 	/* check the mask */
 	if (ctx->dir->virtual_path == NULL)
-		list_path = fname;
+		list_path = t_strconcat(ctx->prefix, fname, NULL);
 	else {
 		list_path = t_strconcat(ctx->dir->virtual_path,
 					"/", fname, NULL);
@@ -280,6 +305,24 @@ static int list_file(struct mailbox_list_context *ctx, const char *fname)
 	return 0;
 }
 
+static struct mailbox_list *list_fix_name(struct mailbox_list_context *ctx)
+{
+	char *p, *str, sep;
+
+	if (strchr(ctx->list.name, '/') != NULL) {
+		str = p_strdup(ctx->list_pool, ctx->list.name);
+		ctx->list.name = str;
+
+		sep = ctx->storage->hierarchy_sep;
+		for (p = str; *p != '\0'; p++) {
+			if (*p == '/')
+				*p = sep;
+		}
+	}
+
+	return &ctx->list;
+}
+
 static struct mailbox_list *mbox_list_subs(struct mailbox_list_context *ctx)
 {
 	struct stat st;
@@ -304,18 +347,21 @@ static struct mailbox_list *mbox_list_subs(struct mailbox_list_context *ctx)
 		while ((p = strrchr(name, '/')) != NULL) {
 			name = t_strdup_until(name, p);
 			if (imap_match(ctx->glob, name) > 0) {
-				ctx->list.name = name;
-				return &ctx->list;
+				p_clear(ctx->list_pool);
+				ctx->list.name = p_strdup(ctx->list_pool, name);
+				return list_fix_name(ctx);
 			}
 		}
 		i_unreached();
 	}
 
+        (void)list_fix_name(ctx);
 	if ((ctx->flags & MAILBOX_LIST_FAST_FLAGS) != 0)
 		return &ctx->list;
 
 	t_push();
-	path = mbox_get_path(ctx->storage, ctx->list.name);
+	name = mbox_fix_mailbox_name(ctx->storage, ctx->list.name, TRUE);
+	path = mbox_get_path(ctx->storage, name);
 	if (stat(path, &st) == 0) {
 		if (S_ISDIR(st.st_mode))
 			ctx->list.flags = MAILBOX_NOSELECT | MAILBOX_CHILDREN;
@@ -343,7 +389,8 @@ static struct mailbox_list *mbox_list_inbox(struct mailbox_list_context *ctx)
 		ctx->next = mbox_list_next;
 
 	/* INBOX exists always, even if the file doesn't. */
-	ctx->list.flags = MAILBOX_NOINFERIORS;
+	ctx->list.flags = strncmp(ctx->prefix, "INBOX/", 6) == 0 ?
+		MAILBOX_CHILDREN : MAILBOX_NOINFERIORS;
 	if ((ctx->flags & MAILBOX_LIST_FAST_FLAGS) == 0) {
 		if (stat(ctx->storage->inbox_file, &st) < 0)
 			ctx->list.flags |= MAILBOX_UNMARKED;
@@ -360,11 +407,11 @@ static struct mailbox_list *mbox_list_path(struct mailbox_list_context *ctx)
 	ctx->next = mbox_list_next;
 
 	ctx->list.flags = MAILBOX_NOSELECT | MAILBOX_CHILDREN;
-	ctx->list.name = p_strconcat(ctx->list_pool,
+	ctx->list.name = p_strconcat(ctx->list_pool, ctx->prefix,
 				     ctx->dir->virtual_path, "/", NULL);
 
 	if (imap_match(ctx->glob, ctx->list.name) > 0)
-		return &ctx->list;
+		return list_fix_name(ctx);
 	else
 		return ctx->next(ctx);
 }
@@ -385,7 +432,7 @@ static struct mailbox_list *mbox_list_next(struct mailbox_list_context *ctx)
 			t_pop();
 
 			if (ret > 0)
-				return &ctx->list;
+				return list_fix_name(ctx);
 			if (ret < 0) {
 				ctx->failed = TRUE;
 				return NULL;
@@ -398,5 +445,11 @@ static struct mailbox_list *mbox_list_next(struct mailbox_list_context *ctx)
 	}
 
 	/* finished */
+	return NULL;
+}
+
+static struct mailbox_list *
+mbox_list_none(struct mailbox_list_context *ctx __attr_unused__)
+{
 	return NULL;
 }

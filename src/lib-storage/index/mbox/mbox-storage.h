@@ -28,6 +28,8 @@ struct mail *mbox_storage_expunge_fetch_next(struct mail_expunge_context *ctx);
 int mbox_storage_expunge(struct mail *mail, struct mail_expunge_context *ctx,
 			 unsigned int *seq_r, int notify);
 
+const char *mbox_fix_mailbox_name(struct mail_storage *storage,
+				  const char *name, int remove_namespace);
 int mbox_is_valid_mask(const char *mask);
 
 #endif

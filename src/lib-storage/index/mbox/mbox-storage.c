@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
 #include "home-expand.h"
@@ -126,7 +126,9 @@ static const char *create_root_dir(void)
 	return path;
 }
 
-static struct mail_storage *mbox_create(const char *data, const char *user)
+static struct mail_storage *
+mbox_create(const char *data, const char *user,
+	    const char *namespace, char hierarchy_sep)
 {
 	struct mail_storage *storage;
 	const char *root_dir, *inbox_file, *index_dir, *p;
@@ -187,6 +189,10 @@ static struct mail_storage *mbox_create(const char *data, const char *user)
 	storage = i_new(struct mail_storage, 1);
 	memcpy(storage, &mbox_storage, sizeof(struct mail_storage));
 
+	if (hierarchy_sep != '\0')
+		storage->hierarchy_sep = hierarchy_sep;
+	storage->namespace = i_strdup(namespace);
+
 	storage->dir = i_strdup(home_expand(root_dir));
 	storage->inbox_file = i_strdup(home_expand(inbox_file));
 	storage->index_dir = i_strdup(home_expand(index_dir));
@@ -200,6 +206,7 @@ static void mbox_free(struct mail_storage *storage)
 {
 	index_storage_deinit(storage);
 
+	i_free(storage->namespace);
 	i_free(storage->dir);
 	i_free(storage->inbox_file);
 	i_free(storage->index_dir);
@@ -207,6 +214,46 @@ static void mbox_free(struct mail_storage *storage)
 	i_free(storage->error);
 	i_free(storage->callbacks);
 	i_free(storage);
+}
+
+const char *mbox_fix_mailbox_name(struct mail_storage *storage,
+				  const char *name, int remove_namespace)
+{
+	char *dup, *p, sep;
+	size_t len;
+
+	if (strncasecmp(name, "INBOX", 5) == 0 &&
+	    (name[5] == '\0' || name[5] == storage->hierarchy_sep)) {
+		name = t_strconcat("INBOX", name+5, NULL);
+		if (name[5] == '\0') {
+			/* don't check namespace with INBOX */
+			return name;
+		}
+	}
+
+	if (storage->namespace != NULL && remove_namespace) {
+		len = strlen(storage->namespace);
+		if (strncmp(storage->namespace, name, len) != 0) {
+			i_panic("mbox: expecting namespace '%s' in name '%s'",
+				storage->namespace, name);
+		}
+		name += len;
+	}
+
+	if (*name == '/' && full_filesystem_access)
+		return name;
+
+	sep = storage->hierarchy_sep;
+	if (sep == '/')
+		return name;
+
+	dup = t_strdup_noconst(name);
+	for (p = dup; *p != '\0'; p++) {
+		if (*p == sep)
+			*p = '/';
+	}
+
+	return dup;
 }
 
 int mbox_is_valid_mask(const char *mask)
@@ -218,25 +265,26 @@ int mbox_is_valid_mask(const char *mask)
 		return TRUE;
 
 	/* make sure it's not absolute path */
-	if (*mask == '/' || *mask == '\\' || *mask == '~')
+	if (*mask == '/' || *mask == '~')
 		return FALSE;
 
-	/* make sure there's no "../" or "..\" stuff */
+	/* make sure there's no "../" stuff */
 	newdir = TRUE;
 	for (p = mask; *p != '\0'; p++) {
-		if (newdir && p[0] == '.' && p[1] == '.' &&
-		    (p[2] == '/' || p[2] == '\\'))
+		if (newdir && p[0] == '.' && p[1] == '.' && p[2] == '/')
 			return FALSE;
-		newdir = p[0] == '/' || p[0] == '\\';
+		newdir = p[0] == '/';
 	}
 
 	return TRUE;
 }
 
-static int mbox_is_valid_create_name(struct mail_storage *storage,
-				     const char *name)
+static int mbox_is_valid_create_name(const char *name)
 {
-	if (name[0] == '\0' || name[strlen(name)-1] == storage->hierarchy_sep ||
+	size_t len;
+
+	len = strlen(name);
+	if (name[0] == '\0' || name[len-1] == '/' ||
 	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
 		return FALSE;
 
@@ -367,6 +415,8 @@ mbox_open_mailbox(struct mail_storage *storage,
 
 	mail_storage_clear_error(storage);
 
+	name = mbox_fix_mailbox_name(storage, name, TRUE);
+
 	/* INBOX is always case-insensitive */
 	if (strcasecmp(name, "INBOX") == 0) {
 		/* make sure inbox exists */
@@ -413,10 +463,9 @@ static int mbox_create_mailbox(struct mail_storage *storage, const char *name,
 
 	mail_storage_clear_error(storage);
 
-	if (strcasecmp(name, "INBOX") == 0)
-		name = "INBOX";
+	name = mbox_fix_mailbox_name(storage, name, TRUE);
 
-	if (!mbox_is_valid_create_name(storage, name)) {
+	if (!mbox_is_valid_create_name(name)) {
 		mail_storage_set_error(storage, "Invalid mailbox name");
 		return FALSE;
 	}
@@ -481,6 +530,8 @@ static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
 	struct stat st;
 
 	mail_storage_clear_error(storage);
+
+	name = mbox_fix_mailbox_name(storage, name, TRUE);
 
 	if (strcasecmp(name, "INBOX") == 0) {
 		mail_storage_set_error(storage, "INBOX can't be deleted.");
@@ -573,14 +624,14 @@ static int mbox_rename_mailbox(struct mail_storage *storage,
 
 	mail_storage_clear_error(storage);
 
+	oldname = mbox_fix_mailbox_name(storage, oldname, TRUE);
+	newname = mbox_fix_mailbox_name(storage, newname, TRUE);
+
 	if (!mbox_is_valid_existing_name(oldname) ||
-	    !mbox_is_valid_create_name(storage, newname)) {
+	    !mbox_is_valid_create_name(newname)) {
 		mail_storage_set_error(storage, "Invalid mailbox name");
 		return FALSE;
 	}
-
-	if (strcasecmp(oldname, "INBOX") == 0)
-		oldname = "INBOX";
 
 	oldpath = mbox_get_path(storage, oldname);
 	newpath = mbox_get_path(storage, newname);
@@ -640,6 +691,13 @@ static int mbox_rename_mailbox(struct mail_storage *storage,
 	return TRUE;
 }
 
+static int mbox_set_subscribed(struct mail_storage *storage,
+			       const char *name, int set)
+{
+	name = mbox_fix_mailbox_name(storage, name, FALSE);
+	return subsfile_set_subscribed(storage, name, set);
+}
+
 static int mbox_get_mailbox_name_status(struct mail_storage *storage,
 					const char *name,
 					enum mailbox_name_status *status)
@@ -649,8 +707,7 @@ static int mbox_get_mailbox_name_status(struct mail_storage *storage,
 
 	mail_storage_clear_error(storage);
 
-	if (strcasecmp(name, "INBOX") == 0)
-		name = "INBOX";
+	name = mbox_fix_mailbox_name(storage, name, TRUE);
 
 	if (!mbox_is_valid_existing_name(name)) {
 		*status = MAILBOX_NAME_INVALID;
@@ -663,7 +720,7 @@ static int mbox_get_mailbox_name_status(struct mail_storage *storage,
 		return TRUE;
 	}
 
-	if (!mbox_is_valid_create_name(storage, name)) {
+	if (!mbox_is_valid_create_name(name)) {
 		*status = MAILBOX_NAME_INVALID;
 		return TRUE;
 	}
@@ -748,8 +805,9 @@ static int mbox_storage_lock(struct mailbox *box,
 
 struct mail_storage mbox_storage = {
 	"mbox", /* name */
+	NULL, /* namespace */
 
-	'/', /* hierarchy_sep - can't be changed */
+	'/', /* default hierarchy separator */
 
 	mbox_create,
 	mbox_free,
@@ -762,7 +820,7 @@ struct mail_storage mbox_storage = {
 	mbox_list_mailbox_init,
 	mbox_list_mailbox_deinit,
 	mbox_list_mailbox_next,
-	subsfile_set_subscribed,
+	mbox_set_subscribed,
 	mbox_get_mailbox_name_status,
 	mail_storage_get_last_error,
 

@@ -91,7 +91,8 @@ static int main_init(void)
 			mail = t_strconcat("maildir:", mail, NULL);
 	}
 
-	storage = mail_storage_create_with_data(mail, getenv("USER"));
+	storage = mail_storage_create_with_data(mail, getenv("USER"),
+						NULL, '\0');
 	if (storage == NULL) {
 		/* failed */
 		if (mail != NULL && *mail != '\0')
