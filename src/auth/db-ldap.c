@@ -14,6 +14,11 @@
 
 #include <stddef.h>
 
+/* This may block the process for two seconds, but at least it works. */
+#if LDAP_VENDOR_VERSION <= 20026
+#  define OPENLDAP_ASYNC_WORKAROUND
+#endif
+
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct ldap_settings, name) }
 
