@@ -1040,6 +1040,8 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		i_unreached();
 	}
 
+	i_assert(ctx->view->map->records_count ==
+		 ctx->view->map->hdr.messages_count);
 	return ret;
 }
 

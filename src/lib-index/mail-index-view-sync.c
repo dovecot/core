@@ -164,6 +164,8 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 				     &view->hdr, sizeof(view->hdr));
 			map->hdr = view->hdr;
 		}
+
+		i_assert(map->records_count == map->hdr.messages_count);
 	}
 
 	mail_index_view_unref_maps(view);

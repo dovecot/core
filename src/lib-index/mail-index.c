@@ -732,6 +732,7 @@ int mail_index_map(struct mail_index *index, int force)
 	i_assert(index->lock_type != F_UNLCK);
 
 	if (!force && index->map != NULL) {
+		i_assert(index->hdr != NULL);
 		ret = mail_index_map_try_existing(index->map);
 		if (ret != 0)
 			return ret;
@@ -780,6 +781,8 @@ int mail_index_map(struct mail_index *index, int force)
 		ret = mail_index_mmap(index, map);
 	else
 		ret = mail_index_read_map_with_retry(index, &map, force);
+	i_assert(index->map == NULL);
+
 	if (ret <= 0) {
 		mail_index_unmap_forced(index, map);
 		return ret;
@@ -795,6 +798,7 @@ int mail_index_map(struct mail_index *index, int force)
 
 	index->hdr = &map->hdr;
 	index->map = map;
+	i_assert(map->hdr.messages_count == map->records_count);
 	return 1;
 }
 
