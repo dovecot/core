@@ -54,10 +54,11 @@ void clean_child_process(void)
 	/* set the failure log */
 	if (set_log_path != NULL)
 		env_put(t_strconcat("IMAP_LOGFILE=", set_log_path, NULL));
+	else
+		env_put("IMAP_USE_SYSLOG=1");
+
 	if (set_log_timestamp != NULL)
 		env_put(t_strconcat("IMAP_LOGSTAMP=", set_log_timestamp, NULL));
-
-	closelog();
 }
 
 static void sig_quit(int signo __attr_unused__)
@@ -76,10 +77,29 @@ static void settings_reload(void)
         auth_processes_destroy_all();
 }
 
+static const char *get_exit_status_message(FatalExitStatus status)
+{
+	switch (status) {
+	case FATAL_LOGOPEN:
+		return "Can't open log file";
+	case FATAL_LOGWRITE:
+		return "Can't write to log file";
+	case FATAL_OUTOFMEM:
+		return "Out of memory";
+	case FATAL_EXEC:
+		return "exec() failed";
+
+	case FATAL_DEFAULT:
+		return NULL;
+	}
+
+	return NULL;
+}
+
 static void timeout_handler(void *context __attr_unused__,
 			    Timeout timeout __attr_unused__)
 {
-	const char *process_type_name;
+	const char *process_type_name, *msg;
 	pid_t pid;
 	int status, process_type;
 
@@ -104,8 +124,12 @@ static void timeout_handler(void *context __attr_unused__,
 			status = WEXITSTATUS(status);
 			if (status != 0) {
 				login_process_abormal_exit(pid);
-				i_error("child %d (%s) returned error %d",
-					(int)pid, process_type_name, status);
+				msg = get_exit_status_message(status);
+				if (msg != NULL)
+					msg = t_strconcat(" (", msg, ")", NULL);
+				i_error("child %d (%s) returned error %d%s",
+					(int)pid, process_type_name,
+					status, msg);
 			}
 		} else if (WIFSIGNALED(status)) {
 			login_process_abormal_exit(pid);
@@ -182,25 +206,25 @@ static void open_fds(void)
 	fd_close_on_exec(imaps_fd, TRUE);
 }
 
-static void main_init(void)
+static void open_logfile(void)
 {
-	lib_init_signals(sig_quit);
-
-	/* deny file access from everyone else except owner */
-        (void)umask(0077);
-
-	if (set_log_path == NULL) {
-		openlog("imap-master", LOG_NDELAY, LOG_MAIL);
-
-		i_set_panic_handler(i_syslog_panic_handler);
-		i_set_fatal_handler(i_syslog_fatal_handler);
-		i_set_error_handler(i_syslog_error_handler);
-		i_set_warning_handler(i_syslog_warning_handler);
-	} else {
-		/* log failures into specified log file */
+	if (set_log_path == NULL)
+		i_set_failure_syslog("imap-master", LOG_NDELAY, LOG_MAIL);
+	else {
+		/* log to file or stderr */
 		i_set_failure_file(set_log_path, "imap-master");
 		i_set_failure_timestamp_format(set_log_timestamp);
 	}
+}
+
+static void main_init(void)
+{
+	/* deny file access from everyone else except owner */
+        (void)umask(0077);
+
+	open_logfile();
+
+	lib_init_signals(sig_quit);
 
 	pids = hash_create(default_pool, 128, NULL, NULL);
 	to = timeout_add(100, timeout_handler, NULL);
@@ -240,7 +264,8 @@ static void daemonize(void)
 	if (pid != 0)
 		_exit(0);
 
-	setsid();
+	if (setsid() < 0)
+		i_fatal("setsid() failed: %m");
 }
 
 static void print_help(void)

@@ -38,32 +38,32 @@ static void auth_accept(void *context __attr_unused__, int listen_fd,
 	}
 }
 
-static void main_init(void)
+static void open_logfile(void)
 {
-	const char *logfile;
-
-	lib_init_signals(sig_quit);
-
-	logfile = getenv("IMAP_LOGFILE");
-	if (logfile == NULL) {
-		/* open the syslog immediately so chroot() won't
-		   break logging */
-		openlog("imap-auth", LOG_NDELAY, LOG_MAIL);
-
-		i_set_panic_handler(i_syslog_panic_handler);
-		i_set_fatal_handler(i_syslog_fatal_handler);
-		i_set_error_handler(i_syslog_error_handler);
-		i_set_warning_handler(i_syslog_warning_handler);
-	} else {
-		/* log failures into specified log file */
-		i_set_failure_file(logfile, "imap-auth");
+	if (getenv("IMAP_USE_SYSLOG") != NULL)
+		i_set_failure_syslog("imap-auth", LOG_NDELAY, LOG_MAIL);
+	else {
+		/* log to file or stderr */
+		i_set_failure_file(getenv("IMAP_LOGFILE"), "imap-auth");
 		i_set_failure_timestamp_format(getenv("IMAP_LOGSTAMP"));
 	}
+}
 
-	/* open /dev/urandom before chrooting */
+static void drop_privileges(void)
+{
+	/* Log file or syslog opening probably requires roots */
+	open_logfile();
+
+	/* Open /dev/urandom before chrooting */
 	random_init();
 
-	restrict_access_by_env();
+	/* Password lookups etc. may require roots, allow it. */
+	restrict_access_by_env(FALSE);
+}
+
+static void main_init(void)
+{
+	lib_init_signals(sig_quit);
 
 	auth_init();
 	cookies_init();
@@ -100,6 +100,8 @@ int main(int argc __attr_unused__, char *argv[] __attr_unused__)
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
+	drop_privileges();
+
 	ioloop = io_loop_create(system_pool);
 
 	main_init();

@@ -8,9 +8,9 @@
 
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/stat.h>
-#include <syslog.h>
 #include <grp.h>
+#include <syslog.h>
+#include <sys/stat.h>
 
 static unsigned int imap_process_count = 0;
 
@@ -105,12 +105,13 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip,
 				      const char *system_user,
 				      const char *virtual_user,
 				      uid_t uid, gid_t gid, const char *home,
-				      int chroot, const char *env[])
+				      int chroot, const char *mail,
+				      const char *login_tag)
 {
-	static char *argv[] = { NULL, "-s", NULL, NULL };
+	static char *argv[] = { NULL, NULL, NULL };
 	char host[MAX_IP_LEN], title[1024];
 	pid_t pid;
-	int i, j, err, found_mail;
+	int i, j, err;
 
 	if (imap_process_count == set_max_imap_processes) {
 		i_error("Maximum number of imap processes exceeded");
@@ -151,28 +152,11 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip,
 	}
 	(void)close(socket);
 
-	/* setup environment */
-        found_mail = FALSE;
-	for (; env[0] != NULL && env[1] != NULL; env += 2) {
-		if (strcmp(env[0], "MAIL") == 0) {
-			if (env[1] == NULL || *env[1] == '\0')
-				continue;
+	/* setup environment - set the most important environment first
+	   (paranoia about filling up environment without noticing) */
+	restrict_access_set_env(system_user, uid, gid, chroot ? home : NULL);
+	restrict_process_size(set_imap_process_size);
 
-			found_mail = TRUE;
-		}
-
-		env_put(t_strconcat(env[0], "=", env[1], NULL));
-	}
-
-	if (!found_mail && set_default_mail_env != NULL) {
-		const char *mail;
-
-		mail = expand_mail_env(set_default_mail_env,
-				       virtual_user, home);
-		env_put(t_strconcat("MAIL=", mail, NULL));
-	}
-
-	env_put(t_strconcat("USER=", virtual_user, NULL));
 	env_put(t_strconcat("HOME=", home, NULL));
 	env_put(t_strconcat("MAIL_CACHE_FIELDS=", set_mail_cache_fields, NULL));
 	env_put(t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
@@ -200,16 +184,27 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip,
 	if (set_mbox_read_dotlock)
 		env_put("MBOX_READ_DOTLOCK=1");
 
-	if (set_verbose_proctitle && net_ip2host(ip, host) == 0) {
-		i_snprintf(title, sizeof(title), "[%s %s]", virtual_user, host);
-		argv[2] = title;
+	/* user given environment - may be malicious. virtual_user comes from
+	   auth process, but don't trust that too much either. Some auth
+	   mechanism might allow leaving extra data there. */
+	if (mail == NULL && set_default_mail_env != NULL) {
+		mail = expand_mail_env(set_default_mail_env,
+				       virtual_user, home);
+		env_put(t_strconcat("MAIL=", mail, NULL));
 	}
 
-	/* setup access environment - needs to be done after
-	   clean_child_process() since it clears environment */
-	restrict_access_set_env(system_user, uid, gid, chroot ? home : NULL);
+	env_put(t_strconcat("MAIL=", mail, NULL));
+	env_put(t_strconcat("USER=", virtual_user, NULL));
+	env_put(t_strconcat("LOGIN_TAG=", login_tag, NULL));
 
-	restrict_process_size(set_imap_process_size);
+	if (set_verbose_proctitle && net_ip2host(ip, host) == 0) {
+		i_snprintf(title, sizeof(title), "[%s %s]", virtual_user, host);
+		argv[1] = title;
+	}
+
+	/* make sure we don't leak syslog fd, but do it last so that
+	   any errors above will be logged */
+	closelog();
 
 	/* hide the path, it's ugly */
 	argv[0] = strrchr(set_imap_executable, '/');
@@ -221,7 +216,7 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip,
 	for (i = 0; i < 3; i++)
 		(void)close(i);
 
-	i_fatal("execv(%s) failed: %m", set_imap_executable);
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", set_imap_executable);
 
 	/* not reached */
 	return 0;

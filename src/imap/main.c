@@ -11,48 +11,60 @@
 #include <stdlib.h>
 #include <syslog.h>
 
+#define IS_STANDALONE() \
+        (getenv("LOGIN_TAG") == NULL)
+
 IOLoop ioloop;
-static char log_prefix[128];
+static char log_prefix[128]; /* syslog() needs this to be permanent */
 
 static void sig_quit(int signo __attr_unused__)
 {
 	io_loop_stop(ioloop);
 }
 
-static void main_init(int use_syslog)
+static void open_logfile(void)
+{
+	const char *user;
+
+	user = getenv("USER");
+	if (user == NULL) user = "??";
+	if (strlen(user) >= sizeof(log_prefix)-6) {
+		/* quite a long user name, cut it */
+		user = t_strndup(user, sizeof(log_prefix)-6-2);
+		user = t_strconcat(user, "..", NULL);
+	}
+	i_snprintf(log_prefix, sizeof(log_prefix), "imap(%s)", user);
+
+	if (getenv("IMAP_USE_SYSLOG") != NULL)
+		i_set_failure_syslog(log_prefix, LOG_NDELAY, LOG_MAIL);
+	else {
+		/* log to file or stderr */
+		i_set_failure_file(getenv("IMAP_LOGFILE"), log_prefix);
+		i_set_failure_timestamp_format(getenv("IMAP_LOGSTAMP"));
+	}
+}
+
+static void drop_privileges(void)
+{
+	/* Log file or syslog opening probably requires roots */
+	open_logfile();
+
+	restrict_access_by_env(!IS_STANDALONE());
+}
+
+static void main_init(void)
 {
 	Client *client;
 	MailStorage *storage;
-	const char *logfile, *mail, *tag;
+	const char *mail;
 	int hin, hout;
+
+	lib_init_signals(sig_quit);
 
 	if (getenv("USER") == NULL)
 		i_fatal("USER environment missing");
 
 	hin = 0; hout = 1;
-
-	lib_init_signals(sig_quit);
-
-	i_snprintf(log_prefix, sizeof(log_prefix), "imap(%s)", getenv("USER"));
-
-	logfile = getenv("IMAP_LOGFILE");
-	if (logfile != NULL) {
-		/* log failures into specified log file */
-		i_set_failure_file(logfile, log_prefix);
-		i_set_failure_timestamp_format(getenv("IMAP_LOGSTAMP"));
-	} else if (use_syslog) {
-		/* open the syslog while we still have access to it */
-		openlog(log_prefix, LOG_NDELAY, LOG_MAIL);
-
-		i_set_panic_handler(i_syslog_panic_handler);
-		i_set_fatal_handler(i_syslog_fatal_handler);
-		i_set_error_handler(i_syslog_error_handler);
-		i_set_warning_handler(i_syslog_warning_handler);
-	}
-
-	/* do the chrooting etc. */
-	restrict_access_by_env();
-
 	rawlog_open(&hin, &hout);
 
 	mail_storage_register_all();
@@ -84,14 +96,13 @@ static void main_init(int use_syslog)
 
 	client = client_create(hin, hout, storage);
 
-	tag = getenv("LOGIN_TAG");
-	if (tag == NULL || *tag == '\0') {
+	if (IS_STANDALONE()) {
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY "CAPABILITY_STRING"] "
 			"Logged in as ", getenv("USER"), NULL));
 	} else {
-		client_send_line(client,
-				 t_strconcat(tag, " OK Logged in.", NULL));
+		client_send_line(client, t_strconcat(getenv("LOGIN_TAG"),
+						     " OK Logged in.", NULL));
 	}
 }
 
@@ -107,7 +118,7 @@ static void main_deinit(void)
 	closelog();
 }
 
-int main(int argc, char *argv[], char *envp[])
+int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
 #ifdef DEBUG
 	if (getenv("LOGIN_TAG") != NULL)
@@ -116,10 +127,12 @@ int main(int argc, char *argv[], char *envp[])
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
+	drop_privileges();
+
         process_title_init(argv, envp);
 	ioloop = io_loop_create(system_pool);
 
-	main_init(argc >= 2 && strcmp(argv[1], "-s") == 0);
+	main_init();
         io_loop_run(ioloop);
 	main_deinit();
 

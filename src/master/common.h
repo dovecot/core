@@ -37,7 +37,8 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip,
 				      const char *system_user,
 				      const char *virtual_user,
 				      uid_t uid, gid_t gid, const char *home,
-				      int chroot, const char *env[]);
+				      int chroot, const char *mail,
+				      const char *login_tag);
 void imap_process_destroyed(pid_t pid);
 
 /* misc */

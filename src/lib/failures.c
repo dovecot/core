@@ -35,7 +35,7 @@
 
 static void default_panic_handler(const char *format, va_list args)
 	__attr_noreturn__;
-static void default_fatal_handler(const char *format, va_list args)
+static void default_fatal_handler(int status, const char *format, va_list args)
 	__attr_noreturn__;
 
 static void default_error_handler(const char *format, va_list args);
@@ -43,7 +43,7 @@ static void default_warning_handler(const char *format, va_list args);
 
 /* Initialize working defaults */
 static FailureFunc panic_handler __attr_noreturn__ = default_panic_handler;
-static FailureFunc fatal_handler __attr_noreturn__ = default_fatal_handler;
+static FatalFailureFunc fatal_handler __attr_noreturn__ = default_fatal_handler;
 static FailureFunc error_handler = default_error_handler;
 static FailureFunc warning_handler = default_warning_handler;
 
@@ -80,7 +80,7 @@ static void default_panic_handler(const char *format, va_list args)
 	abort();
 }
 
-static void default_fatal_handler(const char *format, va_list args)
+static void default_fatal_handler(int status, const char *format, va_list args)
 {
 	write_prefix();
 
@@ -88,7 +88,10 @@ static void default_fatal_handler(const char *format, va_list args)
 	vfprintf(log_fd, printf_string_fix_format(format), args);
 	fputc('\n', log_fd);
 
-	exit(98);
+	if (fflush(log_fd) < 0 && status == FATAL_DEFAULT)
+		status = FATAL_LOGWRITE;
+
+	exit(status);
 }
 
 static void default_error_handler(const char *format, va_list args)
@@ -103,7 +106,8 @@ static void default_error_handler(const char *format, va_list args)
         fputc('\n', log_fd);
 	t_pop();
 
-	fflush(log_fd);
+	if (fflush(log_fd) < 0)
+		exit(FATAL_LOGWRITE);
 
 	errno = old_errno;
 }
@@ -120,7 +124,8 @@ static void default_warning_handler(const char *format, va_list args)
 	fputc('\n', log_fd);
 	t_pop();
 
-	fflush(log_fd);
+	if (fflush(log_fd) < 0)
+		exit(FATAL_LOGWRITE);
 
 	errno = old_errno;
 }
@@ -139,7 +144,16 @@ void i_fatal(const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	fatal_handler(format, args);
+	fatal_handler(FATAL_DEFAULT, format, args);
+	va_end(args);
+}
+
+void i_fatal_status(int status, const char *format, ...)
+{
+	va_list args;
+
+	va_start(args, format);
+	fatal_handler(status, format, args);
 	va_end(args);
 }
 
@@ -168,7 +182,7 @@ void i_set_panic_handler(FailureFunc func __attr_noreturn__)
         panic_handler = func;
 }
 
-void i_set_fatal_handler(FailureFunc func __attr_noreturn__)
+void i_set_fatal_handler(FatalFailureFunc func __attr_noreturn__)
 {
 	if (func == NULL)
 		func = default_fatal_handler;
@@ -195,10 +209,10 @@ void i_syslog_panic_handler(const char *fmt, va_list args)
         abort();
 }
 
-void i_syslog_fatal_handler(const char *fmt, va_list args)
+void i_syslog_fatal_handler(int status, const char *fmt, va_list args)
 {
 	vsyslog(LOG_CRIT, fmt, args);
-	exit(98);
+	exit(status);
 }
 
 void i_syslog_error_handler(const char *fmt, va_list args)
@@ -211,28 +225,40 @@ void i_syslog_warning_handler(const char *fmt, va_list args)
 	vsyslog(LOG_WARNING, fmt, args);
 }
 
+void i_set_failure_syslog(const char *ident, int options, int facility)
+{
+	openlog(ident, options, facility);
+
+	i_set_panic_handler(i_syslog_panic_handler);
+	i_set_fatal_handler(i_syslog_fatal_handler);
+	i_set_error_handler(i_syslog_error_handler);
+	i_set_warning_handler(i_syslog_warning_handler);
+}
+
 void i_set_failure_file(const char *path, const char *prefix)
 {
 	if (log_fd != NULL && log_fd != stderr)
 		(void)fclose(log_fd);
 
-	log_fd = fopen(path, "a");
-	if (log_fd == NULL)
-		i_fatal("Can't open log file %s: %m", path);
-	fd_close_on_exec(fileno(log_fd), TRUE);
-
 	i_free(log_prefix);
 	log_prefix = i_strconcat(prefix, ": ", NULL);
+
+	if (path == NULL)
+		log_fd = stderr;
+	else {
+		log_fd = fopen(path, "a");
+		if (log_fd == NULL) {
+			i_fatal_status(FATAL_LOGOPEN,
+				       "Can't open log file %s: %m", path);
+		}
+		fd_close_on_exec(fileno(log_fd), TRUE);
+	}
 }
 
 void i_set_failure_timestamp_format(const char *fmt)
 {
 	i_free(log_stamp_format);
         log_stamp_format = i_strdup(fmt);
-}
-
-void failures_init(void)
-{
 }
 
 void failures_deinit(void)

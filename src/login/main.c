@@ -115,27 +115,36 @@ static void login_accept_ssl(void *context __attr_unused__, int listen_fd,
 	}
 }
 
-static void main_init(void)
+static void open_logfile(void)
 {
-	const char *logfile, *value;
-
-	lib_init_signals(sig_quit);
-
-	logfile = getenv("IMAP_LOGFILE");
-	if (logfile == NULL) {
-		/* open the syslog immediately so chroot() won't
-		   break logging */
-		openlog("imap-login", LOG_NDELAY, LOG_MAIL);
-
-		i_set_panic_handler(i_syslog_panic_handler);
-		i_set_fatal_handler(i_syslog_fatal_handler);
-		i_set_error_handler(i_syslog_error_handler);
-		i_set_warning_handler(i_syslog_warning_handler);
-	} else {
-		/* log failures into specified log file */
-		i_set_failure_file(logfile, "imap-login");
+	if (getenv("IMAP_USE_SYSLOG") != NULL)
+		i_set_failure_syslog("imap-login", LOG_NDELAY, LOG_MAIL);
+	else {
+		/* log to file or stderr */
+		i_set_failure_file(getenv("IMAP_LOGFILE"), "imap-login");
 		i_set_failure_timestamp_format(getenv("IMAP_LOGSTAMP"));
 	}
+}
+
+static void drop_privileges(void)
+{
+	/* Log file or syslog opening probably requires roots */
+	open_logfile();
+
+	/* Initialize SSL proxy so it can read certificate and private
+	   key file. */
+	ssl_proxy_init();
+
+	/* Refuse to run as root - we should never need it and it's
+	   dangerous with SSL. */
+	restrict_access_by_env(TRUE);
+}
+
+static void main_init(void)
+{
+	const char *value;
+
+	lib_init_signals(sig_quit);
 
 	disable_plaintext_auth = getenv("DISABLE_PLAINTEXT_AUTH") != NULL;
 	process_per_connection = getenv("PROCESS_PER_CONNECTION") != NULL;
@@ -146,12 +155,6 @@ static void main_init(void)
 
         closing_down = FALSE;
 	main_refcount = 0;
-
-	/* Initialize SSL proxy before dropping privileges so it can read
-	   the certificate and private key file. */
-	ssl_proxy_init();
-
-	restrict_access_by_env();
 
 	auth_connection_init();
 	master_init();
@@ -204,7 +207,9 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
-        process_title_init(argv, envp);
+	drop_privileges();
+
+	process_title_init(argv, envp);
 	ioloop = io_loop_create(system_pool);
 
 	main_init();

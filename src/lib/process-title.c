@@ -48,12 +48,12 @@ static void linux_proctitle_init(char *argv[], char *envp[])
 		;
 
 	if ((p = malloc((i + 1) * sizeof(char *))) == NULL)
-		i_fatal("malloc() failed: %m");
+		i_panic("malloc() failed: %m");
 	environ = p;
 
 	for (i = 0; envp[i] != NULL; i++) {
 		if ((environ[i] = malloc(strlen(envp[i]) + 1)) == NULL)
-			i_fatal("malloc() failed: %m");
+			i_panic("malloc() failed: %m");
 
 		strcpy(environ[i], envp[i]);
 	}

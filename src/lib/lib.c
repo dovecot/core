@@ -44,7 +44,6 @@ void lib_init(void)
 	/* standard way to get rand() return different values. */
 	srand((unsigned int) time(NULL));
 
-	failures_init();
 	data_stack_init();
 	imem_init();
 }

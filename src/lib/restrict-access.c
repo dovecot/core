@@ -42,7 +42,7 @@ void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 	env_put(t_strdup_printf("RESTRICT_SETGID=%ld", (long) gid));
 }
 
-void restrict_access_by_env(void)
+void restrict_access_by_env(int disallow_root)
 {
 	const char *env;
 	gid_t gid;
@@ -89,9 +89,16 @@ void restrict_access_by_env(void)
 	if (uid != 0) {
 		if (setuid(uid) != 0)
 			i_fatal("setuid(%ld) failed: %m", (long) uid);
+	}
 
-		/* just extra verification */
+	/* verify that we actually dropped the privileges */
+	if (uid != 0 || disallow_root) {
 		if (setuid(0) == 0)
 			i_fatal("We couldn't drop root privileges");
+	}
+
+	if (gid != 0 || disallow_root) {
+		if (getgid() == 0 || getegid() == 0 || setgid(0) == 0)
+			i_fatal("We couldn't drop root group privileges");
 	}
 }

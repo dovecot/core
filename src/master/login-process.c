@@ -53,17 +53,9 @@ static void login_process_unref(LoginProcess *p);
 
 static void auth_callback(AuthCookieReplyData *cookie_reply, void *context)
 {
-	const char *env[] = {
-		"MAIL", NULL,
-		"LOGIN_TAG", NULL,
-		NULL
-	};
 	LoginAuthRequest *request = context;
         LoginProcess *process;
 	MasterReply reply;
-
-	env[1] = cookie_reply->mail;
-	env[3] = request->login_tag;
 
 	if (cookie_reply == NULL || !cookie_reply->success)
 		reply.result = MASTER_RESULT_FAILURE;
@@ -75,7 +67,9 @@ static void auth_callback(AuthCookieReplyData *cookie_reply, void *context)
 						   cookie_reply->uid,
 						   cookie_reply->gid,
 						   cookie_reply->home,
-						   cookie_reply->chroot, env);
+						   cookie_reply->chroot,
+						   cookie_reply->mail,
+						   request->login_tag);
 	}
 
 	/* reply to login */
@@ -331,13 +325,17 @@ static pid_t create_login_process(void)
 
 	restrict_process_size(set_login_process_size);
 
+	/* make sure we don't leak syslog fd, but do it last so that
+	   any errors above will be logged */
+	closelog();
+
 	/* hide the path, it's ugly */
 	argv[0] = strrchr(set_login_executable, '/');
 	if (argv[0] == NULL) argv[0] = set_login_executable; else argv[0]++;
 
 	execv(set_login_executable, (char **) argv);
 
-	i_fatal("execv(%s) failed: %m", argv[0]);
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", argv[0]);
 	return -1;
 }
 

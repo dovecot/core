@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <syslog.h>
 #include <sys/stat.h>
 
 typedef struct _WaitingRequest WaitingRequest;
@@ -255,13 +256,17 @@ static pid_t create_auth_process(AuthConfig *config)
 
 	restrict_process_size(config->process_size);
 
+	/* make sure we don't leak syslog fd, but do it last so that
+	   any errors above will be logged */
+	closelog();
+
 	/* hide the path, it's ugly */
 	argv[0] = strrchr(config->executable, '/');
 	if (argv[0] == NULL) argv[0] = config->executable; else argv[0]++;
 
 	execv(config->executable, (char **) argv);
 
-	i_fatal("execv(%s) failed: %m", argv[0]);
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", argv[0]);
 	return -1;
 }
 
