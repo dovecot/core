@@ -87,8 +87,10 @@ const char *net_gethosterror(int error);
    some error with name server) */
 int net_hosterror_notfound(int error);
 
-/* Get socket address/port */
+/* Get socket local address/port */
 int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port);
+/* Get socket remote address/port */
+int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port);
 
 /* Returns ip_addr as string, or NULL if ip is invalid. */
 const char *net_ip2addr(const struct ip_addr *ip);

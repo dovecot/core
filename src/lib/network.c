@@ -487,6 +487,23 @@ int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port)
 	return 0;
 }
 
+int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port)
+{
+	union sockaddr_union so;
+	socklen_t addrlen;
+
+	i_assert(fd >= 0);
+
+	addrlen = sizeof(so);
+	if (getpeername(fd, (struct sockaddr *) &so, &addrlen) == -1)
+		return -1;
+
+        if (addr != NULL) sin_get_ip(&so, addr);
+	if (port != NULL) *port = sin_get_port(&so);
+
+	return 0;
+}
+
 const char *net_ip2addr(const struct ip_addr *ip)
 {
 #ifdef HAVE_IPV6
