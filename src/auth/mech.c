@@ -215,6 +215,7 @@ int auth_request_unref(struct auth_request *request)
 }
 
 extern struct mech_module mech_plain;
+extern struct mech_module mech_cram_md5;
 extern struct mech_module mech_digest_md5;
 extern struct mech_module mech_anonymous;
 
@@ -242,6 +243,8 @@ void mech_init(void)
 	while (*mechanisms != NULL) {
 		if (strcasecmp(*mechanisms, "PLAIN") == 0)
 			mech_register_module(&mech_plain);
+		else if (strcasecmp(*mechanisms, "CRAM-MD5") == 0)
+			mech_register_module(&mech_cram_md5);
 		else if (strcasecmp(*mechanisms, "DIGEST-MD5") == 0)
 			mech_register_module(&mech_digest_md5);
 		else if (strcasecmp(*mechanisms, "ANONYMOUS") == 0) {
@@ -293,6 +296,7 @@ void mech_init(void)
 void mech_deinit(void)
 {
 	mech_unregister_module(&mech_plain);
+	mech_unregister_module(&mech_cram_md5);
 	mech_unregister_module(&mech_digest_md5);
 	mech_unregister_module(&mech_anonymous);
 }

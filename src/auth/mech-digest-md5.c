@@ -464,7 +464,7 @@ static int auth_handle_response(struct digest_auth_request *auth,
 }
 
 static int parse_digest_response(struct digest_auth_request *auth,
-				 const char *data, size_t size,
+				 const unsigned char *data, size_t size,
 				 const char **error)
 {
 	char *copy, *key, *value;
@@ -569,8 +569,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 		return TRUE;
 	}
 
-	if (parse_digest_response(auth, (const char *) data,
-				  request->data_size, &error)) {
+	if (parse_digest_response(auth, data, request->data_size, &error)) {
 		auth_request->callback = callback;
 
 		realm = auth->realm != NULL ? auth->realm : default_realm;

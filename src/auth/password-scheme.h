@@ -12,4 +12,8 @@ const char *password_get_scheme(const char **password);
 const char *password_generate(const char *plaintext, const char *user,
 			      const char *scheme);
 
+/* INTERNAL: */
+const char *password_generate_md5_crypt(const char *pw, const char *salt);
+const char *password_generate_cram_md5(const char *pw);
+
 #endif

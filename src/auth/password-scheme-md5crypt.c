@@ -19,7 +19,7 @@
 #include "safe-memset.h"
 #include "str.h"
 #include "md5.h"
-#include "md5crypt.h"
+#include "password-scheme.h"
 
 static unsigned char itoa64[] =		/* 0 ... 63 => ascii - 64 */
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -46,8 +46,7 @@ to64(string_t *str, unsigned long v, int n)
  * Use MD5 for what it is best at...
  */
 
-const char *
-md5_crypt(const char *pw, const char *salt)
+const char *password_generate_md5_crypt(const char *pw, const char *salt)
 {
 	const char *sp,*ep;
 	unsigned char	final[16];

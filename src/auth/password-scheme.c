@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "hex-binary.h"
 #include "md5.h"
-#include "md5crypt.h"
 #include "mycrypt.h"
 #include "randgen.h"
 #include "password-scheme.h"
@@ -23,8 +22,10 @@ int password_verify(const char *plaintext, const char *password,
 	if (strcasecmp(scheme, "CRYPT") == 0)
 		return strcmp(mycrypt(plaintext, password), password) == 0;
 
-	if (strcasecmp(scheme, "MD5") == 0)
-		return strcmp(md5_crypt(plaintext, password), password) == 0;
+	if (strcasecmp(scheme, "MD5") == 0) {
+                str = password_generate_md5_crypt(plaintext, password);
+		return strcmp(str, password) == 0;
+	}
 
 	if (strcasecmp(scheme, "PLAIN") == 0)
 		return strcmp(password, plaintext) == 0;
@@ -103,11 +104,14 @@ const char *password_generate(const char *plaintext, const char *user,
 		for (i = 0; i < 8; i++)
 			salt[i] = salt_chars[salt[i] % (sizeof(salt_chars)-1)];
 		salt[8] = '\0';
-		return t_strdup(md5_crypt(plaintext, salt));
+		return password_generate_md5_crypt(plaintext, salt);
 	}
 
 	if (strcasecmp(scheme, "PLAIN") == 0)
 		return plaintext;
+
+	if (strcasecmp(scheme, "CRAM-MD5") == 0)
+		return password_generate_cram_md5(plaintext);
 
 	if (strcasecmp(scheme, "DIGEST-MD5") == 0) {
 		/* user:realm:passwd */

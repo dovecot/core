@@ -23,11 +23,11 @@ dovecot_auth_SOURCES = \
 	db-pgsql.c \
 	db-passwd-file.c \
 	main.c \
-	md5crypt.c \
 	mech.c \
 	mech-anonymous.c \
 	mech-cyrus-sasl2.c \
 	mech-plain.c \
+	mech-cram-md5.c \
 	mech-digest-md5.c \
 	mycrypt.c \
 	passdb.c \
@@ -40,6 +40,8 @@ dovecot_auth_SOURCES = \
 	passdb-vpopmail.c \
 	passdb-pgsql.c \
 	password-scheme.c \
+	password-scheme-md5crypt.c \
+	password-scheme-cram-md5.c \
 	userdb.c \
 	userdb-ldap.c \
 	userdb-passwd.c \
@@ -59,7 +61,6 @@ noinst_HEADERS = \
 	db-pgsql.h \
 	db-passwd-file.h \
 	common.h \
-	md5crypt.h \
 	mech.h \
 	mycrypt.h \
 	passdb.h \

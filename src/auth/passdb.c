@@ -24,6 +24,8 @@ passdb_credentials_to_str(enum passdb_credentials credentials)
 		return "PLAIN";
 	case PASSDB_CREDENTIALS_CRYPT:
 		return "CRYPT";
+	case PASSDB_CREDENTIALS_CRAM_MD5:
+		return "CRAM-MD5";
 	case PASSDB_CREDENTIALS_DIGEST_MD5:
 		return "DIGEST-MD5";
 	}
@@ -132,6 +134,10 @@ void passdb_init(void)
 	if ((auth_mechanisms & AUTH_MECH_PLAIN) &&
 	    passdb->verify_plain == NULL)
 		i_fatal("Passdb %s doesn't support PLAIN method", name);
+
+	if ((auth_mechanisms & AUTH_MECH_CRAM_MD5) &&
+	    passdb->lookup_credentials == NULL)
+		i_fatal("Passdb %s doesn't support CRAM-MD5 method", name);
 
 	if ((auth_mechanisms & AUTH_MECH_DIGEST_MD5) &&
 	    passdb->lookup_credentials == NULL)
