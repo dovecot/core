@@ -122,10 +122,10 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 		}
 	}
 
-	if (fcntl(io->fd, F_SETSIG, 0) < 0)
-		i_error("fcntl(F_SETSIG, 0) failed: %m");
 	if (fcntl(io->fd, F_NOTIFY, 0) < 0)
 		i_error("fcntl(F_NOTIFY, 0) failed: %m");
+	if (fcntl(io->fd, F_SETSIG, 0) < 0)
+		i_error("fcntl(F_SETSIG, 0) failed: %m");
 
 	p_free(ioloop->pool, io);
 
