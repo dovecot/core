@@ -26,27 +26,28 @@
 #include "lib.h"
 #include "mmap-util.h"
 
-static void *mmap_file(int fd, size_t *length, int access)
-{
-	off_t size;
+#include <sys/stat.h>
 
-	size = lseek(fd, 0, SEEK_END);
-	if (size == -1)
+void *mmap_file(int fd, size_t *length, int prot)
+{
+	struct stat st;
+
+	if (fstat(fd, &st) < 0)
 		return MAP_FAILED;
 
-	if (size > SSIZE_T_MAX) {
+	if (st.st_size > SSIZE_T_MAX) {
 		/* too large file to map into memory */
 		errno = EFBIG;
 		return MAP_FAILED;
 	}
 
-	*length = (size_t)size;
+	*length = (size_t)st.st_size;
 	if (*length == 0)
 		return NULL;
 
 	i_assert(*length > 0 && *length < SSIZE_T_MAX);
 
-	return mmap(NULL, *length, access, MAP_SHARED, fd, 0);
+	return mmap(NULL, *length, prot, MAP_SHARED, fd, 0);
 }
 
 void *mmap_ro_file(int fd, size_t *length)
@@ -57,28 +58,6 @@ void *mmap_ro_file(int fd, size_t *length)
 void *mmap_rw_file(int fd, size_t *length)
 {
 	return mmap_file(fd, length, PROT_READ | PROT_WRITE);
-}
-
-void *mmap_aligned(int fd, int access, off_t offset, size_t length,
-		   void **data_start, size_t *mmap_length)
-{
-	void *mmap_base;
-	static int pagemask = 0;
-
-	if (pagemask == 0) {
-		pagemask = getpagesize();
-		i_assert(pagemask > 0);
-		pagemask--;
-	}
-
-	*mmap_length = length + (offset & pagemask);
-
-	mmap_base = mmap(NULL, *mmap_length, access, MAP_SHARED,
-			 fd, offset & ~pagemask);
-	*data_start = mmap_base == MAP_FAILED || mmap_base == NULL ? NULL :
-		(char *) mmap_base + (offset & pagemask);
-
-	return mmap_base;
 }
 
 #ifndef HAVE_MADVISE
