@@ -177,23 +177,20 @@ static int mail_index_read_map(struct mail_index *index,
 			       struct mail_index_map *map)
 {
 	struct mail_index_header hdr;
-	void *data;
+	void *data = NULL;
 	ssize_t ret;
 	size_t pos, records_size;
 
-	do {
-		memset(&hdr, 0, sizeof(hdr));
+	memset(&hdr, 0, sizeof(hdr));
 
-		ret = 1;
-		for (pos = 0; ret > 0 && pos < sizeof(hdr); ) {
-			ret = pread(index->fd, PTR_OFFSET(&hdr, pos),
-				    sizeof(hdr) - pos, pos);
-			if (ret > 0)
-				pos += ret;
-		}
-		if (ret < 0 || pos < MAIL_INDEX_HEADER_MIN_SIZE)
-			break;
-
+	ret = 1;
+	for (pos = 0; ret > 0 && pos < sizeof(hdr); ) {
+		ret = pread(index->fd, PTR_OFFSET(&hdr, pos),
+			    sizeof(hdr) - pos, pos);
+		if (ret > 0)
+			pos += ret;
+	}
+	if (ret >= 0 && pos >= MAIL_INDEX_HEADER_MIN_SIZE) {
 		records_size = hdr.messages_count *
 			sizeof(struct mail_index_record);
 
@@ -209,7 +206,7 @@ static int mail_index_read_map(struct mail_index *index,
 
 		ret = pread_full(index->fd, data, records_size,
 				 hdr.header_size);
-	} while (0);
+	}
 
 	if (ret < 0) {
 		if (errno == ESTALE)
@@ -265,25 +262,12 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 int mail_index_map(struct mail_index *index, int force)
 {
 	struct mail_index_map *map;
-	size_t used_size;
 	int ret;
 
-	if (index->map != NULL && MAIL_INDEX_MAP_IS_IN_MEMORY(index->map)) {
-		/* FIXME: can we avoid reading it? */
+	if (index->map != NULL) {
 		map = index->map;
-	} else if (index->map != NULL) {
-		map = index->map;
-
-		/* see if re-mmaping is needed (file has grown) */
-                used_size = map->hdr->header_size +
-			map->hdr->messages_count *
-			sizeof(struct mail_index_record);
-		if (map->mmap_size >= used_size && !force) {
-			/* update log file position in case it has changed */
-			map->log_file_seq = map->hdr->log_file_seq;
-			map->log_file_offset = map->hdr->log_file_offset;
+		if (map != NULL && !force)
 			return 1;
-		}
 
 		if (map->mmap_base != NULL) {
 			if (munmap(map->mmap_base, map->mmap_size) < 0)
