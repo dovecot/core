@@ -13,7 +13,7 @@
 #include <fcntl.h>
 
 /* Maximum size for modify log (isn't exact) */
-#define MAX_MODIFYLOG_SIZE 10240
+#define MAX_MODIFYLOG_SIZE (4096*8)
 
 #define MODIFYLOG_GROW_SIZE (sizeof(ModifyLogRecord) * 128)
 
@@ -77,7 +77,7 @@ static int modifylog_set_corrupted(MailModifyLog *log, const char *fmt, ...)
 }
 
 /* returns 1 = yes, 0 = no, -1 = error */
-static int mail_modifylog_have_other_users(MailModifyLog *log)
+static int mail_modifylog_have_other_users(MailModifyLog *log, int keep_lock)
 {
 	int ret;
 
@@ -91,6 +91,9 @@ static int mail_modifylog_have_other_users(MailModifyLog *log)
 			modifylog_set_syscall_error(log, "file_try_lock()");
 		return ret < 0 ? -1 : 1;
 	}
+
+	if (keep_lock)
+		return 0;
 
 	/* revert back to shared lock */
 	ret = file_try_lock(log->fd, F_RDLCK);
@@ -253,6 +256,23 @@ static int mail_modifylog_init_fd(MailModifyLog *log, int fd,
 	}
 
 	return TRUE;
+}
+
+static void mail_modifylog_try_truncate(MailModifyLog *log)
+{
+	if (mail_modifylog_have_other_users(log, TRUE) != 0)
+		return;
+
+	/* we're the only one using it, truncate it */
+	log->header->used_file_size = sizeof(ModifyLogHeader);
+
+	if (msync(log->mmap_base, sizeof(ModifyLogHeader), MS_SYNC) < 0) {
+		modifylog_set_syscall_error(log, "msync()");
+		return;
+	}
+
+	if (file_set_size(log->fd, MODIFY_LOG_INITIAL_SIZE) < 0)
+		modifylog_set_syscall_error(log, "file_set_size()");
 }
 
 static int modifylog_mark_full(MailModifyLog *log)
@@ -535,7 +555,7 @@ static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord **rec,
 	i_assert((*rec)->uid1 != 0);
 
 	if (!external_change) {
-		switch (mail_modifylog_have_other_users(log)) {
+		switch (mail_modifylog_have_other_users(log, FALSE)) {
 		case 0:
 			/* we're the only one having this log open,
 			   no need for modify log. */
@@ -548,6 +568,8 @@ static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord **rec,
 
 	if (!mmap_update(log, FALSE))
 		return FALSE;
+
+	i_assert(log->header->sync_id != SYNC_ID_FULL);
 
 	if (log->mmap_used_length == log->mmap_full_length) {
 		if (!mail_modifylog_grow(log))
@@ -672,6 +694,8 @@ static int mail_modifylog_switch_file(MailModifyLog *log)
 {
 	MailIndex *index = log->index;
 
+	mail_modifylog_try_truncate(log);
+
 	mail_modifylog_free(log);
 	return mail_modifylog_open_or_create(index);
 }
@@ -711,15 +735,10 @@ int mail_modifylog_mark_synced(MailModifyLog *log)
 		return mail_modifylog_switch_file(log);
 	}
 
-	if (log->synced_id == log->header->sync_id) {
-		/* we are already synced */
-		return TRUE;
+	if (log->synced_id != log->header->sync_id) {
+		log->synced_id = log->header->sync_id;
+		log->synced_position = log->mmap_used_length;
 	}
-
-	log->synced_id = log->header->sync_id;
-	log->synced_position = log->mmap_used_length;
-
-	log->modified = TRUE;
 
 	if (log->mmap_used_length > MAX_MODIFYLOG_SIZE) {
 		/* if the other file isn't locked, switch to it */
