@@ -52,7 +52,7 @@ int index_storage_copy(Mailbox *box, Mailbox *destbox,
 	cd.dest = destbox;
 
 	failed = index_messageset_foreach(ibox, messageset, uidset,
-					  copy_func, destbox) <= 0;
+					  copy_func, &cd) <= 0;
 
 	flags_file_list_unref(ibox->flagsfile);
 
