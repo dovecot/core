@@ -17,7 +17,7 @@
 #include <syslog.h>
 
 struct ioloop *ioloop;
-int verbose = FALSE;
+int verbose = FALSE, verbose_debug = FALSE;
 
 static struct io *io_listen;
 
@@ -71,6 +71,7 @@ static void main_init(void)
 	lib_init_signals(sig_quit);
 
 	verbose = getenv("VERBOSE") != NULL;
+	verbose_debug = getenv("VERBOSE_DEBUG") != NULL;
 
 	mech_init();
 	userdb_init();

@@ -88,7 +88,7 @@ static void login_input_handshake(struct login_connection *conn)
 		login_connection_destroy(conn);
 	} else {
 		conn->pid = rec.pid;
-		if (verbose) {
+		if (verbose_debug) {
 			i_info("Login process %d sent handshake: PID %s",
 			       conn->fd, dec2str(conn->pid));
 		}
@@ -176,7 +176,7 @@ struct login_connection *login_connection_create(int fd)
 {
 	struct login_connection *conn;
 
-	if (verbose)
+	if (verbose_debug)
 		i_info("Login process %d connected", fd);
 
 	conn = i_new(struct login_connection, 1);
@@ -220,7 +220,7 @@ void login_connection_destroy(struct login_connection *conn)
 	if (conn->fd == -1)
 		return;
 
-	if (verbose)
+	if (verbose_debug)
 		i_info("Login process %d disconnected", conn->fd);
 
 	for (pos = &connections; *pos != NULL; pos = &(*pos)->next) {
