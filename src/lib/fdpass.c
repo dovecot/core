@@ -1,5 +1,5 @@
 /*
- fdpass.c - FD passing, based on an example by
+ fdpass.c - FD passing
 
     Copyright (c) 2002 Timo Sirainen
 
