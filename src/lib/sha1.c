@@ -212,8 +212,9 @@ sha1_pad(struct sha1_ctxt *ctxt)
 }
 
 void
-sha1_loop(struct sha1_ctxt *ctxt, const uint8_t *input, size_t len)
+sha1_loop(struct sha1_ctxt *ctxt, const void *input, size_t len)
 {
+	const unsigned char *input_c = input;
 	size_t gaplen;
 	size_t gapstart;
 	size_t off;
@@ -226,7 +227,7 @@ sha1_loop(struct sha1_ctxt *ctxt, const uint8_t *input, size_t len)
 		gaplen = 64 - gapstart;
 
 		copysiz = (gaplen < len - off) ? gaplen : len - off;
-		memmove(&ctxt->m.b8[gapstart], &input[off], copysiz);
+		memmove(&ctxt->m.b8[gapstart], &input_c[off], copysiz);
 		COUNT += copysiz;
 		COUNT %= 64;
 		ctxt->c.b64[0] += copysiz * 8;

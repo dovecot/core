@@ -46,17 +46,18 @@
 static const char basis_64[] =
    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-int base64_encode(const unsigned char *src, size_t src_size, buffer_t *dest)
+int base64_encode(const void *src, size_t src_size, buffer_t *dest)
 {
+	const unsigned char *src_c = src;
 	size_t src_pos;
 	int c1, c2, c3;
 
 	for (src_pos = 0; src_pos < src_size; ) {
-		c1 = src[src_pos++];
+		c1 = src_c[src_pos++];
 		if (buffer_append_c(dest, basis_64[c1 >> 2]) != 1)
 			return 0;
 
-		c2 = src_pos == src_size ? 0 : src[src_pos];
+		c2 = src_pos == src_size ? 0 : src_c[src_pos];
 		if (buffer_append_c(dest, basis_64[((c1 & 0x03) << 4) |
 						   ((c2 & 0xf0) >> 4)]) != 1)
 			return 0;
@@ -67,7 +68,7 @@ int base64_encode(const unsigned char *src, size_t src_size, buffer_t *dest)
 			break;
 		}
 
-		c3 = src_pos == src_size ? 0 : src[src_pos];
+		c3 = src_pos == src_size ? 0 : src_c[src_pos];
 		if (buffer_append_c(dest, basis_64[((c2 & 0x0f) << 2) |
 						   ((c3 & 0xc0) >> 6)]) != 1)
 			return 0;
@@ -107,16 +108,17 @@ static const char index_64[256] = {
     XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,XX,
 };
 
-int base64_decode(const unsigned char *src, size_t src_size,
+int base64_decode(const void *src, size_t src_size,
 		  size_t *src_pos_r, buffer_t *dest)
 {
+	const unsigned char *src_c = src;
 	size_t src_pos;
 	unsigned char buf[4];
 	int c1, c2, c3, c4;
 	size_t ret, size;
 
 	for (src_pos = 0; src_pos+3 < src_size; ) {
-		c1 = src[src_pos++];
+		c1 = src_c[src_pos++];
 
 		if (c1 == '\n' || c1 == '\r' || c1 == ' ' || c1 == '\t')
 			continue;
@@ -124,15 +126,15 @@ int base64_decode(const unsigned char *src, size_t src_size,
 		if (index_64[c1] == XX)
 			return -1;
 
-		c2 = src[src_pos++];
+		c2 = src_c[src_pos++];
 		if (index_64[c2] == XX)
 			return -1;
 
-		c3 = src[src_pos++];
+		c3 = src_c[src_pos++];
 		if (c3 != '=' && index_64[c3] == XX)
 			return -1;
 
-		c4 = src[src_pos++];
+		c4 = src_c[src_pos++];
 		if (c4 != '=' && index_64[c4] == XX)
 			return -1;
 
