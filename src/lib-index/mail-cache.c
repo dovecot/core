@@ -222,12 +222,6 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 
 static int mail_cache_open_and_verify(struct mail_cache *cache)
 {
-	cache->filepath = i_strconcat(cache->index->filepath,
-				      MAIL_CACHE_FILE_PREFIX, NULL);
-
-	if (cache->index->mmap_disable || cache->index->mmap_no_write)
-		cache->file_cache = file_cache_new(-1);
-
 	cache->fd = open(cache->filepath, O_RDWR);
 	if (cache->fd == -1) {
 		if (errno == ENOENT) {
@@ -248,13 +242,15 @@ static int mail_cache_open_and_verify(struct mail_cache *cache)
 	return mail_cache_header_fields_read(cache);
 }
 
-struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
+static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 {
 	struct mail_cache *cache;
 
 	cache = i_new(struct mail_cache, 1);
 	cache->index = index;
 	cache->fd = -1;
+	cache->filepath =
+		i_strconcat(index->filepath, MAIL_CACHE_FILE_PREFIX, NULL);
 	cache->field_pool = pool_alloconly_create("Cache fields", 1024);
 	cache->field_name_hash =
 		hash_create(default_pool, cache->field_pool, 0,
@@ -265,11 +261,8 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 	cache->dotlock_settings.immediate_stale_timeout =
 		MAIL_CACHE_LOCK_IMMEDIATE_TIMEOUT;
 
-	if (mail_cache_open_and_verify(cache) < 0) {
-		/* failed for some reason - doesn't really matter,
-		   it's disabled for now. */
-		mail_cache_file_close(cache);
-	}
+	if (index->mmap_disable || index->mmap_no_write)
+		cache->file_cache = file_cache_new(-1);
 
 	cache->ext_id =
 		mail_index_ext_register(index, "cache", 0,
@@ -281,10 +274,33 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
                                          MAIL_INDEX_SYNC_HANDLER_INDEX |
 					 (cache->file_cache == NULL ? 0 :
 					  MAIL_INDEX_SYNC_HANDLER_VIEW));
+
 	if (cache->file_cache != NULL) {
 		mail_index_register_sync_lost_handler(index,
 			mail_cache_sync_lost_handler);
 	}
+	return cache;
+}
+
+struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
+{
+	struct mail_cache *cache;
+
+	cache = mail_cache_alloc(index);
+	if (mail_cache_open_and_verify(cache) < 0) {
+		/* failed for some reason - doesn't really matter,
+		   it's disabled for now. */
+		mail_cache_file_close(cache);
+	}
+	return cache;
+}
+
+struct mail_cache *mail_cache_create(struct mail_index *index)
+{
+	struct mail_cache *cache;
+
+	cache = mail_cache_alloc(index);
+	cache->need_compress = TRUE;
 	return cache;
 }
 
