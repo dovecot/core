@@ -92,7 +92,7 @@ static void auth_client_input_handshake(struct auth_client_connection *conn)
 	}
 }
 
-static void auth_client_input_request(struct auth_client_connection *conn)
+static int auth_client_input_request(struct auth_client_connection *conn)
 {
         enum auth_client_request_type type;
         unsigned char *data;
@@ -100,7 +100,7 @@ static void auth_client_input_request(struct auth_client_connection *conn)
 
 	data = i_stream_get_modifyable_data(conn->input, &size);
 	if (size < sizeof(type))
-		return;
+		return FALSE;
 
 	/* note that we can't directly cast the received data pointer into
 	   structures, as it may not be aligned properly. */
@@ -112,11 +112,11 @@ static void auth_client_input_request(struct auth_client_connection *conn)
 		struct auth_client_request_new request;
 
 		if (size < sizeof(request))
-			return;
+			return FALSE;
 
 		memcpy(&request, data, sizeof(request));
 		if (size < sizeof(request) + request.data_size)
-			return;
+			return FALSE;
 
 		/* we have a full init request */
 		conn->refcount++;
@@ -129,11 +129,11 @@ static void auth_client_input_request(struct auth_client_connection *conn)
                 struct auth_client_request_continue request;
 
 		if (size < sizeof(request))
-			return;
+			return FALSE;
 
 		memcpy(&request, data, sizeof(request));
 		if (size < sizeof(request) + request.data_size)
-			return;
+			return FALSE;
 
 		/* we have a full continued request */
 		conn->refcount++;
@@ -152,6 +152,7 @@ static void auth_client_input_request(struct auth_client_connection *conn)
 		auth_client_connection_destroy(conn);
 	}
 	auth_client_connection_unref(conn);
+	return TRUE;
 }
 
 static void auth_client_input(void *context)
@@ -175,8 +176,9 @@ static void auth_client_input(void *context)
 
 	if (conn->pid == 0)
 		auth_client_input_handshake(conn);
-	else
-		auth_client_input_request(conn);
+
+	while (auth_client_input_request(conn))
+		;
 }
 
 struct auth_client_connection *
