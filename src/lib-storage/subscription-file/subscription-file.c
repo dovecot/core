@@ -47,10 +47,13 @@ static const char *next_line(struct mail_storage *storage, const char *path,
 {
 	const char *line;
 
+	*failed = FALSE;
+	if (input == NULL)
+		return NULL;
+
 	while ((line = i_stream_next_line(input)) == NULL) {
 		switch (i_stream_read(input)) {
 		case -1:
-			*failed = FALSE;
 			return NULL;
 		case -2:
 			/* mailbox name too large */
@@ -63,7 +66,6 @@ static const char *next_line(struct mail_storage *storage, const char *path,
 		}
 	}
 
-	*failed = FALSE;
 	return line;
 }
 
@@ -104,7 +106,8 @@ int subsfile_set_subscribed(struct mail_storage *storage,
 		return FALSE;
 	}
 
-	input = i_stream_create_file(fd_in, default_pool,
+	input = fd_in == -1 ? NULL :
+		i_stream_create_file(fd_in, default_pool,
 				     MAX_MAILBOX_LENGTH, TRUE);
 	output = o_stream_create_file(fd_out, default_pool,
 				      MAX_MAILBOX_LENGTH, FALSE);
@@ -112,16 +115,16 @@ int subsfile_set_subscribed(struct mail_storage *storage,
 	while ((line = next_line(storage, path, input, &failed)) != NULL) {
 		if (strcmp(line, name) == 0) {
 			found = TRUE;
-			if (set)
-				break;
-		} else {
-			if (o_stream_send_str(output, line) < 0 ||
-			    o_stream_send(output, "\n", 1) < 0) {
-				subsfile_set_syscall_error(storage, "write()",
-							   path);
-				failed = TRUE;
-				break;
-			}
+			if (!set)
+				continue;
+		}
+
+		if (o_stream_send_str(output, line) < 0 ||
+		    o_stream_send(output, "\n", 1) < 0) {
+			subsfile_set_syscall_error(storage, "write()",
+						   path);
+			failed = TRUE;
+			break;
 		}
 	}
 
@@ -134,7 +137,8 @@ int subsfile_set_subscribed(struct mail_storage *storage,
 		}
 	}
 
-	i_stream_unref(input);
+	if (input != NULL)
+		i_stream_unref(input);
 	o_stream_unref(output);
 
 	if (failed || (set && found) || (!set && !found)) {
