@@ -77,6 +77,9 @@ int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 	if (*cache_offset == 0)
 		return 1;
 
+	if (MAIL_CACHE_IS_UNUSABLE(cache))
+		return 1;
+
 	ret = mail_cache_handler_init(&ctx, cache);
 	*context = ctx;
 	if (ret <= 0)
@@ -109,6 +112,9 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 		*context = NULL;
 		return 1;
 	}
+
+	if (MAIL_CACHE_IS_UNUSABLE(cache))
+		return 1;
 
 	if (cache->file_cache != NULL) {
 		file_cache_invalidate(cache->file_cache, *new_cache_offset,
