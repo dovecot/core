@@ -34,6 +34,25 @@ struct _MailModifyLog {
 	unsigned int second_log:1;
 };
 
+static void modifylog_set_syscall_error(MailModifyLog *log,
+					const char *function)
+{
+	i_assert(function != NULL);
+
+	index_set_error(log->index, "%s failed with modify log file %s: %m",
+			function, log->filepath);
+}
+
+static void modifylog_set_corrupted(MailModifyLog *log)
+{
+	index_set_error(log->index, "Modify log %s is corrupted",
+			log->filepath);
+
+	/* make sure we don't get back here */
+	log->index->inconsistent = TRUE;
+	(void)unlink(log->filepath);
+}
+
 static int file_lock(int fd, int wait_lock, int lock_type)
 {
 	struct flock fl;
@@ -58,21 +77,16 @@ static int mail_modifylog_try_lock(MailModifyLog *log, int lock_type)
 	int ret;
 
 	ret = file_lock(log->fd, FALSE, lock_type);
-	if (ret == -1) {
-		index_set_error(log->index, "fcntl() failed with file %s: %m",
-				log->filepath);
-	}
+	if (ret == -1)
+                modifylog_set_syscall_error(log, "fcntl(F_SETLK)");
 
 	return ret;
 }
 
 static int mail_modifylog_wait_lock(MailModifyLog *log)
 {
-	if (file_lock(log->fd, TRUE, F_RDLCK) < 1) {
-		index_set_error(log->index, "fcntl() failed with file %s: %m",
-				log->filepath);
-		return FALSE;
-	}
+	if (file_lock(log->fd, TRUE, F_RDLCK) < 1)
+                modifylog_set_syscall_error(log, "fcntl(F_SETLKW)");
 
 	return TRUE;
 }
@@ -115,9 +129,7 @@ static int mmap_update(MailModifyLog *log)
 	if (log->mmap_base == MAP_FAILED) {
 		log->mmap_base = NULL;
 		log->header = NULL;
-		index_set_error(log->index,
-				"modify log: mmap() failed with file %s: %m",
-				log->filepath);
+		modifylog_set_syscall_error(log, "mmap()");
 		return FALSE;
 	}
 
@@ -188,7 +200,7 @@ static int mail_modifylog_init_fd(MailModifyLog *log, int fd,
 		return FALSE;
 	}
 
-	if (ftruncate(fd, sizeof(hdr)) == -1) {
+	if (ftruncate(fd, sizeof(hdr)) < 0) {
 		index_set_error(log->index, "ftruncate() failed for modify "
 				"log %s: %m", path);
 		return FALSE;
@@ -364,16 +376,14 @@ int mail_modifylog_sync_file(MailModifyLog *log)
 		return TRUE;
 
 	if (log->mmap_base != NULL) {
-		if (msync(log->mmap_base, log->mmap_length, MS_SYNC) == -1) {
-			index_set_error(log->index, "msync() failed for %s: %m",
-					log->filepath);
+		if (msync(log->mmap_base, log->mmap_length, MS_SYNC) < 0) {
+			modifylog_set_syscall_error(log, "msync()");
 			return FALSE;
 		}
 	}
 
-	if (fsync(log->fd) == -1) {
-		index_set_error(log->index, "fsync() failed for %s: %m",
-				log->filepath);
+	if (fsync(log->fd) < 0) {
+		modifylog_set_syscall_error(log, "fsync()");
 		return FALSE;
 	}
 
@@ -399,15 +409,13 @@ static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord *rec,
 		}
 	}
 
-	if (lseek(log->fd, 0, SEEK_END) == -1) {
-		index_set_error(log->index, "lseek() failed with file %s: %m",
-				log->filepath);
+	if (lseek(log->fd, 0, SEEK_END) < 0) {
+		modifylog_set_syscall_error(log, "lseek()");
 		return FALSE;
 	}
 
 	if (write_full(log->fd, rec, sizeof(ModifyLogRecord)) < 0) {
-		index_set_error(log->index, "Error appending to file %s: %m",
-				log->filepath);
+                modifylog_set_syscall_error(log, "write_full()");
 		return FALSE;
 	}
 
@@ -597,9 +605,7 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 			if (max_records-- == 0) {
 				/* log contains more data than it should
 				   have - must be corrupted. */
-				index_set_error(log->index,
-						"Modify log %s is corrupted",
-						log->filepath);
+				modifylog_set_corrupted(log);
 				return NULL;
 			}
 
@@ -669,9 +675,7 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 			if (max_records-- == 0) {
 				/* log contains more data than it should
 				   have - must be corrupted. */
-				index_set_error(log->index,
-						"Modify log %s is corrupted",
-						log->filepath);
+				modifylog_set_corrupted(log);
 				return NULL;
 			}
 			*arr++ = rec->uid;

@@ -26,6 +26,10 @@
 #include "lib.h"
 #include "mmap-util.h"
 
+#if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
+#  define MAP_ANONYMOUS MAP_ANON
+#endif
+
 static void *mmap_file(int fd, size_t *length, int access)
 {
 	off_t size;
@@ -79,6 +83,12 @@ void *mmap_aligned(int fd, int access, off_t offset, size_t length,
 		(char *) mmap_base + (offset & pagemask);
 
 	return mmap_base;
+}
+
+void *mmap_anonymous(size_t length)
+{
+	return mmap(NULL, length, PROT_READ | PROT_WRITE,
+		    MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 }
 
 #ifndef HAVE_MADVISE

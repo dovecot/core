@@ -28,6 +28,29 @@ void index_set_error(MailIndex *index, const char *fmt, ...)
 	}
 }
 
+void index_set_corrupted(MailIndex *index, const char *fmt, ...)
+{
+	va_list va;
+
+	INDEX_MARK_CORRUPTED(index);
+	index->inconsistent = TRUE;
+
+	va_start(va, fmt);
+	t_push();
+	index_set_error(index, "Corrupted index file %s: %s",
+			index->filepath, t_strdup_vprintf(fmt, va));
+	t_pop();
+	va_end(va);
+}
+
+void index_set_syscall_error(MailIndex *index, const char *function)
+{
+	i_assert(function != NULL);
+
+	index_set_error(index, "%s failed with index file %s: %m",
+			function, index->filepath);
+}
+
 void index_reset_error(MailIndex *index)
 {
 	if (index->error != NULL) {

@@ -39,7 +39,7 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 
 	/* check that file size is somewhat reasonable */
 	if (fstat(fd, &st) == -1) {
-		index_set_error(index, "fstat() failed with file %s: %m", path);
+		index_set_error(index, "fstat() failed for file %s: %m", path);
 		return FALSE;
 	}
 
@@ -123,7 +123,7 @@ int maildir_index_build_dir(MailIndex *index, const char *source_dir,
 
 	dirp = opendir(source_dir);
 	if (dirp == NULL) {
-		index_set_error(index, "Couldn't build index from %s: %m",
+		index_set_error(index, "opendir() failed for dir %s: %m",
 				source_dir);
 		return FALSE;
 	}

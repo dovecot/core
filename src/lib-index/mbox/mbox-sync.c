@@ -60,8 +60,7 @@ int mbox_index_sync(MailIndex *index)
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
 	if (stat(index->mbox_path, &st) == -1) {
-		index_set_error(index, "stat() failed with mbox file %s: %m",
-				index->mbox_path);
+		mbox_set_syscall_error(index, "stat()");
 		return FALSE;
 	}
 

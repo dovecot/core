@@ -21,4 +21,6 @@ void *mmap_rw_file(int fd, size_t *length);
 void *mmap_aligned(int fd, int access, off_t offset, size_t length,
 		   void **data_start, size_t *mmap_length);
 
+void *mmap_anonymous(size_t length);
+
 #endif

@@ -52,8 +52,8 @@ static unsigned int get_first_unseen_seq(MailIndex *index)
 		rec = index->lookup_uid_range(index, lowwater_uid,
 					      hdr->next_uid - 1);
 		if (rec == NULL) {
-			i_warning("index header's seen_messages_count or "
-				  "first_unseen_uid_lowwater is invalid.");
+			i_error("index header's seen_messages_count or "
+				"first_unseen_uid_lowwater is invalid.");
                         INDEX_MARK_CORRUPTED(index);
 			return 0;
 		} else {

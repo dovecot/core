@@ -134,10 +134,8 @@ static int update_by_append(MailIndexUpdate *update)
 
 	if (max_size > INT_MAX) {
 		/* rec->data_size most likely corrupted */
-		index_set_error(update->index, "Error in index file %s: "
-				"data_size points outside file",
-				update->index->filepath);
-		update->index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
+		index_set_corrupted(update->index,
+				    "data_size points outside file");
 		return FALSE;
 	}
 
@@ -171,13 +169,11 @@ static int update_by_append(MailIndexUpdate *update)
 		if (src_size > max_size || max_size - src_size < pos) {
 			/* corrupted data file - old value had a field
 			   larger than expected */
-			index_set_error(update->index,
-					"Error in index file %s: "
-					"full_field_size points outside "
-					"data_size (field %d?)",
-					update->index->filepath,
-					rec == NULL ? -1 : (int)rec->field);
-			update->index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
+			index_set_corrupted(update->index,
+					    "full_field_size points outside "
+					    "data_size (field %d?)",
+					    update->index->filepath,
+					    rec == NULL ? -1 : (int)rec->field);
 			return FALSE;
 		}
 		memcpy(destrec->data, src, src_size);
@@ -418,10 +414,9 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 			part = message_part_deserialize(pool, value, size);
 			if (part == NULL) {
 				/* corrupted, rebuild it */
-				index_set_error(update->index, "Error in index "
-						"file %s: Corrupted cached "
-						"MessagePart data",
-						update->index->filepath);
+				index_set_corrupted(update->index,
+						    "Corrupted cached "
+						    "MessagePart data");
 			}
 		}
 

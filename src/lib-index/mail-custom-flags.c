@@ -21,7 +21,7 @@
 
 struct _MailCustomFlags {
 	MailIndex *index;
-	char *path;
+	char *filepath;
 	int fd;
 	int lock_type;
 
@@ -37,13 +37,21 @@ struct _MailCustomFlags {
 
 static int lock_file(MailCustomFlags *mcf, int type);
 
+static void index_cf_set_syscall_error(MailCustomFlags *mcf,
+				       const char *function)
+{
+	i_assert(function != NULL);
+
+	index_set_error(mcf->index, "%s failed with custom flags file %s: %m",
+			function, mcf->filepath);
+}
+
 static int update_mmap(MailCustomFlags *mcf)
 {
 	mcf->mmap_base = mmap_rw_file(mcf->fd, &mcf->mmap_length);
 	if (mcf->mmap_base == MAP_FAILED) {
 		mcf->mmap_base = NULL;
-		index_set_error(mcf->index, "mmap() failed for "
-				"custom flags file %s: %m", mcf->path);
+		index_cf_set_syscall_error(mcf, "mmap()");
 		return FALSE;
 	}
 
@@ -65,15 +73,13 @@ static int custom_flags_init(MailCustomFlags *mcf)
 		pos = lseek(mcf->fd, 0, SEEK_SET);
 
 	if (pos == -1) {
-		index_set_error(mcf->index, "lseek() failed for "
-				"custom flags file %s: %m", mcf->path);
+		index_cf_set_syscall_error(mcf, "lseek()");
 		return FALSE;
 	}
 
 	/* write the header - it's a 4 byte counter as hex */
 	if (write_full(mcf->fd, buf, HEADER_SIZE) < 0) {
-		index_set_error(mcf->index, "write() failed for "
-				"custom flags file %s: %m", mcf->path);
+		index_cf_set_syscall_error(mcf, "write_full()");
 		return FALSE;
 	}
 
@@ -133,7 +139,8 @@ static void custom_flags_sync(MailCustomFlags *mcf)
 
 			if (mcf->custom_flags[num] != NULL) {
 				i_warning("Error in custom flags file %s: "
-					  "Duplicated ID %u", mcf->path, num);
+					  "Duplicated ID %u", mcf->filepath,
+					  num);
 				i_free(mcf->custom_flags[num]);
 			}
 
@@ -188,8 +195,7 @@ static int lock_file(MailCustomFlags *mcf, int type)
 
 	while (fcntl(mcf->fd, F_SETLKW, &fl) == -1) {
 		if (errno != EINTR) {
-			index_set_error(mcf->index, "fcntl() failed for "
-					"custom flags file %s: %m", mcf->path);
+			index_cf_set_syscall_error(mcf, "fcntl(F_SETLKW)");
 			return FALSE;
 		}
 	}
@@ -230,7 +236,7 @@ int mail_custom_flags_open_or_create(MailIndex *index)
 
 	mcf = i_new(MailCustomFlags, 1);
 	mcf->index = index;
-	mcf->path = i_strdup(path);
+	mcf->filepath = i_strdup(path);
 	mcf->fd = fd;
 
 	if (!update_mmap(mcf)) {
@@ -264,7 +270,7 @@ void mail_custom_flags_free(MailCustomFlags *mcf)
 	(void)munmap(mcf->mmap_base, mcf->mmap_length);
 	(void)close(mcf->fd);
 
-	i_free(mcf->path);
+	i_free(mcf->filepath);
 	i_free(mcf);
 }
 
@@ -272,9 +278,8 @@ static int custom_flags_update_counter(MailCustomFlags *mcf)
 {
 	int i;
 
-	if (lseek(mcf->fd, 0, SEEK_SET) == -1) {
-		index_set_error(mcf->index, "lseek() failed for "
-				"custom flags file %s: %m", mcf->path);
+	if (lseek(mcf->fd, 0, SEEK_SET) < 0) {
+		index_cf_set_syscall_error(mcf, "lseek()");
 		return FALSE;
 	}
 
@@ -294,8 +299,7 @@ static int custom_flags_update_counter(MailCustomFlags *mcf)
 	}
 
 	if (write_full(mcf->fd, mcf->sync_counter, COUNTER_SIZE) < 0) {
-		index_set_error(mcf->index, "write() failed for "
-				"custom flags file %s: %m", mcf->path);
+		index_cf_set_syscall_error(mcf, "write_full()");
 		return FALSE;
 	}
 
@@ -316,16 +320,15 @@ static int custom_flags_add(MailCustomFlags *mcf, int idx, const char *name)
 
 	/* add the flag */
 	pos = lseek(mcf->fd, 0, SEEK_END);
-	if (pos == -1) {
-		index_set_error(mcf->index, "lseek() failed for "
-				"custom flags file %s: %m", mcf->path);
+	if (pos < 0) {
+		index_cf_set_syscall_error(mcf, "lseek()");
 		return FALSE;
 	}
 
 	if (pos != (off_t)mcf->mmap_length) {
-		index_set_error(mcf->index, "custom flags file %s was "
+		index_set_error(mcf->index, "Custom flags file %s was "
 				"changed by someone while we were"
-				"trying to modify it", mcf->path);
+				"trying to modify it", mcf->filepath);
 		return FALSE;
 	}
 
@@ -339,8 +342,7 @@ static int custom_flags_add(MailCustomFlags *mcf, int idx, const char *name)
 	}
 
 	if (write_full(mcf->fd, buf, len) < 0) {
-		index_set_error(mcf->index, "write() failed for "
-				"custom flags file %s: %m", mcf->path);
+		index_cf_set_syscall_error(mcf, "write_full()");
 		return FALSE;
 	}
 
@@ -387,10 +389,7 @@ static int custom_flags_remove(MailCustomFlags *mcf, unsigned int idx)
 
 			mcf->mmap_length -= linelen;
 			if (ftruncate(mcf->fd, (off_t) mcf->mmap_length) == -1) {
-				index_set_error(mcf->index,
-						"ftruncate() failed for "
-						"custom flags file %s: %m",
-						mcf->path);
+				index_cf_set_syscall_error(mcf, "ftruncate()");
 				return FALSE;
 			}
 

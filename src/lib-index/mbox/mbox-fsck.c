@@ -271,8 +271,7 @@ int mbox_index_fsck(MailIndex *index)
 	   but fcntl() locking requires it. */
 	fd = open(index->mbox_path, O_RDWR);
 	if (fd == -1) {
-		index_set_error(index, "Can't open mbox file %s: %m",
-				index->mbox_path);
+		mbox_set_syscall_error(index, "open()");
 		return FALSE;
 	}
 

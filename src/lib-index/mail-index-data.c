@@ -31,6 +31,29 @@ struct _MailIndexData {
 	unsigned int dirty_mmap:1;
 };
 
+void index_data_set_corrupted(MailIndexData *data, const char *fmt, ...)
+{
+	va_list va;
+
+	INDEX_MARK_CORRUPTED(data->index);
+
+	va_start(va, fmt);
+	t_push();
+	index_set_error(data->index, "Corrupted index data file %s: %s",
+			data->filepath, t_strdup_vprintf(fmt, va));
+	t_pop();
+	va_end(va);
+}
+
+static void index_data_set_syscall_error(MailIndexData *data,
+					 const char *function)
+{
+	i_assert(function != NULL);
+
+	index_set_error(data->index, "%s failed with index data file %s: %m",
+			function, data->filepath);
+}
+
 static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 {
 	if (!data->dirty_mmap && (size != 0 && pos+size <= data->mmap_length))
@@ -42,13 +65,10 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 	data->mmap_base = mmap_rw_file(data->fd, &data->mmap_length);
 	if (data->mmap_base == MAP_FAILED) {
 		data->mmap_base = NULL;
-		index_set_error(data->index, "index data: mmap() failed with "
-				"file %s: %m", data->filepath);
+		index_data_set_syscall_error(data, "mmap()");
 		return FALSE;
 	} else if (data->mmap_length < sizeof(MailIndexDataHeader)) {
-                INDEX_MARK_CORRUPTED(data->index);
-		index_set_error(data->index, "index data: truncated data "
-				"file %s", data->filepath);
+		index_data_set_corrupted(data, "File too small");
 		return FALSE;
 	} else {
 		data->dirty_mmap = FALSE;
@@ -119,7 +139,7 @@ static const char *init_data_file(MailIndex *index, int fd,
 	/* move temp file into .data file, deleting old one
 	   if it already exists */
 	realpath = t_strconcat(index->filepath, DATA_FILE_PREFIX, NULL);
-	if (rename(temppath, realpath) == -1) {
+	if (rename(temppath, realpath) < 0) {
 		index_set_error(index, "rename(%s, %s) failed: %m",
 				temppath, realpath);
 		(void)unlink(temppath);
@@ -174,9 +194,8 @@ int mail_index_data_reset(MailIndexData *data)
 {
 	MailIndexDataHeader hdr;
 
-	if (ftruncate(data->fd, sizeof(MailIndexDataHeader)) == -1) {
-		index_set_error(data->index, "ftruncate() failed for data file "
-				"%s: %m", data->filepath);
+	if (ftruncate(data->fd, sizeof(MailIndexDataHeader)) < 0) {
+		index_data_set_syscall_error(data, "ftruncate()");
 		return FALSE;
 	}
 
@@ -184,15 +203,13 @@ int mail_index_data_reset(MailIndexData *data)
 	hdr.indexid = data->index->indexid;
 	hdr.deleted_space = 0;
 
-	if (lseek(data->fd, 0, SEEK_SET) == -1) {
-		index_set_error(data->index, "lseek() failed for data file "
-				"%s: %m", data->filepath);
+	if (lseek(data->fd, 0, SEEK_SET) < 0) {
+		index_data_set_syscall_error(data, "lseek()");
 		return FALSE;
 	}
 
 	if (write_full(data->fd, &hdr, sizeof(hdr)) < 0) {
-		index_set_error(data->index, "write() failed for data file "
-				"%s: %m", data->filepath);
+		index_data_set_syscall_error(data, "write_full()");
 		return FALSE;
 	}
 
@@ -212,21 +229,18 @@ uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
 	i_assert((size & (MEM_ALIGN_SIZE-1)) == 0);
 
 	pos = lseek(data->fd, 0, SEEK_END);
-	if (pos == -1) {
-		index_set_error(data->index, "lseek() failed with file %s: %m",
-				data->filepath);
+	if (pos < 0) {
+		index_data_set_syscall_error(data, "lseek()");
 		return 0;
 	}
 
 	if (pos < (int)sizeof(MailIndexDataHeader)) {
-		index_set_error(data->index, "Header missing from data file %s",
-				data->filepath);
+		index_data_set_corrupted(data, "Header is missing");
 		return 0;
 	}
 
 	if (write_full(data->fd, buffer, size) < 0) {
-		index_set_error(data->index, "Error appending to file %s: %m",
-				data->filepath);
+		index_data_set_syscall_error(data, "write_full()");
 		return 0;
 	}
 
@@ -260,16 +274,14 @@ int mail_index_data_add_deleted_space(MailIndexData *data, size_t data_size)
 int mail_index_data_sync_file(MailIndexData *data)
 {
 	if (data->mmap_base != NULL) {
-		if (msync(data->mmap_base, data->mmap_length, MS_SYNC) == -1) {
-			index_set_error(data->index, "msync() failed for "
-					"%s: %m", data->filepath);
+		if (msync(data->mmap_base, data->mmap_length, MS_SYNC) < 0) {
+			index_data_set_syscall_error(data, "msync()");
 			return FALSE;
 		}
 	}
 
-	if (fsync(data->fd) == -1) {
-		index_set_error(data->index, "fsync() failed for %s: %m",
-				data->filepath);
+	if (fsync(data->fd) < 0) {
+		index_data_set_syscall_error(data, "fsync()");
 		return FALSE;
 	}
 
@@ -295,14 +307,13 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 	if (index_rec->data_position > data->mmap_length ||
 	    (data->mmap_length -
 	     index_rec->data_position < index_rec->data_size)) {
-		INDEX_MARK_CORRUPTED(data->index);
-		index_set_error(data->index, "Error in data file %s: "
-				"Given data size larger than file size "
-				"(%"PRIuUOFF_T" + %u > %"PRIuSIZE_T") "
-				"for record %u",
-				data->filepath, index_rec->data_position,
-				index_rec->data_size, data->mmap_length,
-				index_rec->uid);
+		index_data_set_corrupted(data, "Given data size larger than "
+					 "file size (%"PRIuUOFF_T
+					 " + %u > %"PRIuSIZE_T") for record %u",
+					 index_rec->data_position,
+					 index_rec->data_size,
+					 data->mmap_length,
+					 index_rec->uid);
 		return NULL;
 	}
 
@@ -317,11 +328,10 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 		   this as it won't crash and is quite likely noticed later. */
 		if (pos + sizeof(MailIndexDataRecord) > max_pos ||
 		    pos + DATA_RECORD_SIZE(rec) > max_pos) {
-			INDEX_MARK_CORRUPTED(data->index);
-			index_set_error(data->index, "Error in data file %s: "
-					"Field size points outside file "
-					"(%"PRIuUOFF_T" / %"PRIuUOFF_T")",
-					data->filepath, pos, max_pos);
+			index_data_set_corrupted(data, "Field size points "
+						 "outside file (%"PRIuUOFF_T
+						 " / %"PRIuUOFF_T")",
+						 pos, max_pos);
 			break;
 		}
 
@@ -361,12 +371,9 @@ mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
 	rec = (MailIndexDataRecord *) ((char *) data->mmap_base + pos);
 	end_pos = pos + DATA_RECORD_SIZE(rec);
 	if (end_pos < pos || end_pos > max_pos) {
-		INDEX_MARK_CORRUPTED(data->index);
-		index_set_error(data->index, "Error in data file %s: "
-				"Field size points outside file "
-				"(%"PRIuUOFF_T" + %u > %"PRIuUOFF_T")",
-				data->filepath, pos, rec->full_field_size,
-				max_pos);
+		index_data_set_corrupted(data, "Field size points outside file "
+					 "(%"PRIuUOFF_T" + %u > %"PRIuUOFF_T")",
+					 pos, rec->full_field_size, max_pos);
 		return NULL;
 	}
 
@@ -380,9 +387,8 @@ int mail_index_data_record_verify(MailIndexData *data, MailIndexDataRecord *rec)
 	if (rec->full_field_size > INT_MAX) {
 		/* we already check that the full_field_size is within file,
 		   so this can happen only if the file really is huge.. */
-		INDEX_MARK_CORRUPTED(data->index);
-		index_set_error(data->index, "Error in data file %s: "
-				"full_field_size > INT_MAX", data->filepath);
+		index_data_set_corrupted(data, "full_field_size (%u) > INT_MAX",
+					 rec->full_field_size);
 		return FALSE;
 	}
 
@@ -394,11 +400,9 @@ int mail_index_data_record_verify(MailIndexData *data, MailIndexDataRecord *rec)
 		}
 	}
 
-	INDEX_MARK_CORRUPTED(data->index);
-	index_set_error(data->index, "Error in data file %s: "
-			"Missing \\0 with field %u (%"PRIuUOFF_T")",
-			data->filepath, rec->field,
-			DATA_FILE_POSITION(data, rec));
+	index_data_set_corrupted(data, "Missing \\0 with field %u "
+				 "(%"PRIuUOFF_T")", rec->field,
+				 DATA_FILE_POSITION(data, rec));
 	return FALSE;
 }
 

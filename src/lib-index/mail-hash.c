@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "file-set-size.h"
 #include "primes.h"
 #include "mmap-util.h"
 #include "write-full.h"
@@ -35,6 +36,9 @@
    through lots of records just to find an empty spot */
 #define HASH_FUNC(uid) (uid * 2)
 
+#define HASH_FILE_SIZE(records) \
+	(sizeof(MailHashHeader) + (records) * sizeof(MailHashRecord))
+
 struct _MailHash {
 	MailIndex *index;
 
@@ -48,12 +52,15 @@ struct _MailHash {
 	size_t mmap_length;
 
 	MailHashHeader *header;
+	unsigned int anon_mmap:1;
 	unsigned int dirty_mmap:1;
 	unsigned int modified:1;
 };
 
 static int mmap_update_real(MailHash *hash)
 {
+	i_assert(!hash->anon_mmap);
+
 	if (hash->mmap_base != NULL)
 		(void)munmap(hash->mmap_base, hash->mmap_length);
 
@@ -187,83 +194,36 @@ void mail_hash_free(MailHash *hash)
 		hash->mmap_base = NULL;
 	}
 
-	(void)close(hash->fd);
+	if (hash->fd != -1)
+		(void)close(hash->fd);
 	i_free(hash->filepath);
 	i_free(hash);
 }
 
-static int file_set_size(int fd, off_t size)
+int mail_hash_sync_file(MailHash *hash)
 {
-	char block[1024];
-	int ret, old_errno;
-	off_t pos;
+	if (!hash->modified)
+		return TRUE;
+	hash->modified = FALSE;
 
-	i_assert(size >= 0);
-
-	/* try truncating it to the size we want. if this succeeds, the written
-	   area is full of zeros - exactly what we want. however, this may not
-	   work at all, in which case we fallback to write()ing the zeros. */
-	ret = ftruncate(fd, size);
-	old_errno = errno;
-
-	pos = lseek(fd, 0, SEEK_END);
-	if (ret != -1 && pos == size)
-		return lseek(fd, 0, SEEK_SET) == 0;
-
-	if (pos == -1)
-		return FALSE;
-	if (pos > size) {
-		/* ftruncate() failed for some reason, even while we were
-		   trying to make the file smaller */
-		errno = old_errno;
+	if (hash->anon_mmap ||
+	    msync(hash->mmap_base, hash->mmap_length, MS_SYNC) == 0)
+		return TRUE;
+	else {
+		index_set_error(hash->index, "msync() failed for %s: %m",
+				hash->filepath);
 		return FALSE;
 	}
-
-	/* start growing the file */
-	size -= pos;
-	memset(block, 0, sizeof(block));
-
-	while ((uoff_t)size > sizeof(block)) {
-		/* write in 1kb blocks */
-		if (write_full(fd, block, sizeof(block)) < 0)
-			return FALSE;
-		size -= sizeof(block);
-	}
-
-	/* write the remainder */
-	return write_full(fd, block, (size_t)size) == 0;
 }
 
-static int hash_rebuild_to_file(MailIndex *index, int fd,
-				unsigned int hash_size,
-				unsigned int messages_count)
+static void hash_build(MailIndex *index, void *mmap_base,
+		       unsigned int hash_size)
 {
 	MailHashHeader *hdr;
         MailHashRecord *rec;
+	MailIndexHeader *idx_hdr;
 	MailIndexRecord *idx_rec;
-	void *mmap_base;
 	unsigned int i, count;
-	size_t mmap_length;
-	size_t new_size;
-
-	i_assert(hash_size < MAX_HASH_SIZE);
-
-	/* fill the file with zeros */
-	new_size = sizeof(MailHashHeader) + hash_size * sizeof(MailHashRecord);
-	if (!file_set_size(fd, (off_t)new_size)) {
-		index_set_error(index, "Failed to fill temp hash to size "
-				"%"PRIuSIZE_T": %m", new_size);
-		return FALSE;
-	}
-
-	/* now, mmap() it */
-	mmap_base = mmap_rw_file(fd, &mmap_length);
-	if (mmap_base == MAP_FAILED) {
-		index_set_error(index, "mmap()ing temp hash failed: %m");
-		return FALSE;
-	}
-
-	i_assert(mmap_length == new_size);
 
 	/* we have empty hash file mmap()ed now. fill it by reading the
 	   messages from index. */
@@ -276,12 +236,12 @@ static int hash_rebuild_to_file(MailIndex *index, int fd,
 		idx_rec = index->next(index, idx_rec);
 	}
 
-	if (count != messages_count) {
+	idx_hdr = index->get_header(index);
+	if (count != idx_hdr->messages_count) {
 		/* mark this as an error but don't fail because of it. */
-                INDEX_MARK_CORRUPTED(index);
-		index_set_error(index, "Missing messages while rebuilding "
-				"hash file %s - %u found, header says %u",
-				index->filepath, count, messages_count);
+		index_set_corrupted(index, "Missing messages while rebuilding "
+				    "hash file - %u found, header says %u",
+				    count, idx_hdr->messages_count);
 	}
 
 	/* setup header */
@@ -289,23 +249,53 @@ static int hash_rebuild_to_file(MailIndex *index, int fd,
 	hdr->indexid = index->indexid;
 	hdr->sync_id = ioloop_time;
 	hdr->used_records = count;
-
-	return munmap(mmap_base, mmap_length) == 0;
 }
 
-int mail_hash_sync_file(MailHash *hash)
+static int hash_rebuild_to_file(MailIndex *index, int fd, const char *path,
+				unsigned int hash_size)
 {
-	if (!hash->modified)
-		return TRUE;
-	hash->modified = FALSE;
+	void *mmap_base;
+	size_t mmap_length, new_size;
 
-	if (msync(hash->mmap_base, hash->mmap_length, MS_SYNC) == 0)
-		return TRUE;
-	else {
-		index_set_error(hash->index, "msync() failed for %s: %m",
-				hash->filepath);
+	i_assert(hash_size < MAX_HASH_SIZE);
+
+	new_size = HASH_FILE_SIZE(hash_size);
+
+	/* fill the file with zeros */
+	if (file_set_size(fd, (off_t)new_size) < 0) {
+		index_set_error(index, "Failed to fill temp hash to "
+				"size %"PRIuSIZE_T": %m", new_size);
 		return FALSE;
 	}
+
+	/* now, mmap() it */
+	mmap_base = mmap_rw_file(fd, &mmap_length);
+	if (mmap_base == MAP_FAILED) {
+		index_set_error(index,
+				"mmap()ing temp hash failed: %m");
+		return FALSE;
+	}
+	i_assert(mmap_length == new_size);
+
+	hash_build(index, mmap_base, hash_size);
+
+	if (msync(mmap_base, mmap_length, MS_SYNC) < 0) {
+		index_set_error(index, "msync() failed for temp hash %s: %m",
+				path);
+		(void)munmap(mmap_base, mmap_length);
+		return FALSE;
+	}
+
+	(void)munmap(mmap_base, mmap_length);
+
+	/* we don't want to leave partially written hash around */
+	if (fsync(fd) < 0) {
+		index_set_error(index, "fsync() failed with temp hash %s: %m",
+				path);
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 int mail_hash_rebuild(MailHash *hash)
@@ -313,15 +303,13 @@ int mail_hash_rebuild(MailHash *hash)
 	MailIndexHeader *index_header;
 	const char *path;
 	unsigned int hash_size;
-	int fd;
+	int fd, failed;
 
 	if (!hash->index->set_lock(hash->index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	/* first get the number of messages in index */
+	/* figure out size for our hash */
 	index_header = hash->index->get_header(hash->index);
-
-	/* then figure out size for our hash */
 	hash_size = primes_closest(index_header->messages_count * 100 /
 				   MIN_PERCENTAGE);
 	if (hash_size < MIN_HASH_SIZE)
@@ -332,47 +320,59 @@ int mail_hash_rebuild(MailHash *hash)
 		/* either our calculation overflowed, or we reached the
 		   max. value primes_closest() gave us. and there's more
 		   mails - very unlikely. */
-		index_set_error(hash->index, "Too many mails in mailbox (%u), "
-				"max. hash file size reached for %s",
-				index_header->messages_count, hash->filepath);
+		index_set_corrupted(hash->index, "Too many mails in mailbox "
+				    "(%u)", index_header->messages_count);
 		return FALSE;
 	}
 
-	/* create the hash in a new temp file */
+	/* build the hash in a temp file, renaming it to the real hash
+	   once finished */
 	fd = mail_index_create_temp_file(hash->index, &path);
-	if (fd == -1)
-		return FALSE;
+	if (fd != -1) {
+		failed = !hash_rebuild_to_file(hash->index, fd,
+					       path, hash_size);
 
-	if (!hash_rebuild_to_file(hash->index, fd, hash_size,
-				  index_header->messages_count)) {
-		(void)close(fd);
-		(void)unlink(path);
-		return FALSE;
+		if (!failed && rename(path, hash->filepath) < 0) {
+			index_set_error(hash->index, "rename(%s, %s) failed: %m",
+					path, hash->filepath);
+			failed = TRUE;
+		}
+
+		if (failed) {
+			int old_errno = errno;
+
+			(void)close(fd);
+			(void)unlink(path);
+			fd = -1;
+
+			errno = old_errno;
+		}
 	}
 
-	if (fsync(fd) == -1) {
-		index_set_error(hash->index,
-				"fsync() failed with temp hash %s: %m", path);
-		(void)close(fd);
-		(void)unlink(path);
-		return FALSE;
-	}
+	if (fd == -1) {
+		/* building hash to file failed. if it was because there
+		   was no space in disk, we could just as well keep it in
+		   memory */
+		if (errno != ENOSPC)
+			return FALSE;
 
-	/* replace old hash file with this new one */
-	if (rename(path, hash->filepath) == -1) {
-		index_set_error(hash->index, "rename(%s, %s) failed: %m",
-				path, hash->filepath);
+		if (hash->mmap_base != NULL)
+			(void)munmap(hash->mmap_base, hash->mmap_length);
 
-		(void)close(fd);
-		(void)unlink(path);
-		return FALSE;
+		hash->mmap_length = HASH_FILE_SIZE(hash_size);
+		hash->mmap_base = mmap_anonymous(hash->mmap_length);
+		hash_build(hash->index, hash->mmap_base, hash_size);
+
+		/* make sure it doesn't exist anymore */
+		(void)unlink(hash->filepath);
 	}
 
 	/* switch fds */
 	if (hash->fd != -1)
 		(void)close(hash->fd);
 	hash->fd = fd;
-	hash->dirty_mmap = TRUE;
+	hash->anon_mmap = fd == -1;
+	hash->dirty_mmap = !hash->anon_mmap;
 	return TRUE;
 }
 

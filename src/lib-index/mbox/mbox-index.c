@@ -5,9 +5,18 @@
 #include "rfc822-tokenize.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
+#include "mail-index-data.h"
 #include "mail-custom-flags.h"
 
 static MailIndex mbox_index;
+
+void mbox_set_syscall_error(MailIndex *index, const char *function)
+{
+	i_assert(function != NULL);
+
+	index_set_error(index, "%s failed with mbox file %s: %m",
+			function, index->mbox_path);
+}
 
 void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index)
 {
@@ -300,17 +309,13 @@ int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
 	location = index->lookup_field_raw(index, rec,
 					   FIELD_TYPE_LOCATION, &size);
 	if (location == NULL) {
-		INDEX_MARK_CORRUPTED(index);
-		index_set_error(index, "Corrupted index file %s: "
-				"Missing location field for record %u",
-				index->filepath, rec->uid);
+		index_data_set_corrupted(index->data, "Missing location field "
+					 "for record %u", rec->uid);
 		*offset = 0;
 		return FALSE;
 	} else if (size != sizeof(uoff_t) || *location > OFF_T_MAX) {
-		INDEX_MARK_CORRUPTED(index);
-		index_set_error(index, "Corrupted index file %s: "
-				"Invalid location field for record %u",
-				index->filepath, rec->uid);
+		index_data_set_corrupted(index->data, "Invalid location field "
+					 "for record %u", rec->uid);
 		*offset = 0;
 		return FALSE;
 	} else {

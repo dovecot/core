@@ -15,10 +15,8 @@ IOBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec)
 
 	fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
 	if (fname == NULL) {
-                INDEX_MARK_CORRUPTED(index);
-		index_set_error(index, "Corrupted index file %s: "
-				"Missing location field for record %u",
-				index->filepath, rec->uid);
+		index_data_set_corrupted(index, "Missing location field for "
+					 "record %u", rec->uid);
 		return NULL;
 	}
 

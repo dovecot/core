@@ -25,15 +25,13 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 
 	fd = open(index->mbox_path, O_RDONLY);
 	if (fd == -1) {
-		index_set_error(index, "Can't open mbox file %s: %m",
-				index->mbox_path);
+		mbox_set_syscall_error(index, "open()");
 		return NULL;
 	}
 
 	pos = lseek(fd, (off_t)offset, SEEK_SET);
 	if (pos == -1) {
-		index_set_error(index, "lseek() failed with mbox file %s: %m",
-				index->mbox_path);
+		mbox_set_syscall_error(index, "lseek()");
 		(void)close(fd);
 		return NULL;
 	}
@@ -73,8 +71,7 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 
 	if (!failed) {
 		if (lseek(fd, (off_t)offset, SEEK_SET) < 0) {
-			index_set_error(index, "lseek() failed with mbox file "
-					"%s: %m", index->mbox_path);
+			mbox_set_syscall_error(index, "lseek()");
 			failed = TRUE;
 		}
 	} else {

@@ -43,4 +43,8 @@ int mail_index_data_record_verify(MailIndexData *data,
 /* Return the whole data file mmap()ed. */
 void *mail_index_data_get_mmaped(MailIndexData *data, size_t *size);
 
+/* "Error in index data file %s: ...". Also marks the index file as
+   corrupted. */
+void index_data_set_corrupted(MailIndexData *data, const char *fmt, ...);
+
 #endif

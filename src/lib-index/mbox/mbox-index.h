@@ -12,7 +12,7 @@ typedef struct {
 	int received;
 } MboxHeaderContext;
 
-MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path);
+void mbox_set_syscall_error(MailIndex *index, const char *function);;
 
 void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index);
 void mbox_header_free_context(MboxHeaderContext *ctx);
@@ -28,6 +28,7 @@ int mbox_skip_crlf(IOBuffer *inbuf);
 int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
 			       uoff_t *offset);
 
+MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path);
 int mbox_index_rebuild(MailIndex *index);
 int mbox_index_sync(MailIndex *index);
 int mbox_index_fsck(MailIndex *index);

@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "hash.h"
 #include "maildir-index.h"
+#include "mail-index-data.h"
 #include "mail-index-util.h"
 
 #include <stdlib.h>
@@ -37,7 +38,7 @@ static int maildir_index_sync_file(MailIndex *index,
 		/* file itself changed - reload the header */
 		fd = open(path, O_RDONLY);
 		if (fd == -1) {
-			index_set_error(index, "Error opening file %s: %m",
+			index_set_error(index, "open() failed for file %s: %m",
 					path);
 			failed = TRUE;
 		} else {
@@ -77,10 +78,9 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 	for (seq = 1; rec != NULL; rec = index->next(index, rec), seq++) {
 		fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
 		if (fname == NULL) {
-			INDEX_MARK_CORRUPTED(index);
-			index_set_error(index, "Corrupted index file %s: "
-					"Missing location field for record %u",
-					index->filepath, rec->uid);
+			index_data_set_corrupted(index->data,
+						 "Missing location field for "
+						 "record %u", rec->uid);
 			return FALSE;
 		}
 
@@ -109,7 +109,7 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 			file_changed = FALSE;
 		else {
 			if (stat(str, &st) == -1) {
-				index_set_error(index, "stat() failed with "
+				index_set_error(index, "stat() failed for "
 						"file %s: %m", str);
 				return FALSE;
 			}
@@ -181,10 +181,8 @@ static int maildir_index_sync_dir(MailIndex *index, const char *dir)
 		return FALSE;
 
 	if (index->header->messages_count >= INT_MAX/32) {
-		INDEX_MARK_CORRUPTED(index);
-		index_set_error(index, "Corrupted index file %s: Header "
-				"says %u messages", index->filepath,
-				index->header->messages_count);
+		index_set_corrupted(index, "Header says %u messages",
+				    index->header->messages_count);
 		return FALSE;
 	}
 
@@ -195,7 +193,7 @@ static int maildir_index_sync_dir(MailIndex *index, const char *dir)
 	   files which will be added then. */
 	dirp = opendir(dir);
 	if (dirp == NULL) {
-		index_set_error(index, "Couldn't sync index in dir %s: %m",
+		index_set_error(index, "opendir() failed for dir %s: %m",
 				dir);
 		return FALSE;
 	}
@@ -247,8 +245,7 @@ int maildir_index_sync(MailIndex *index)
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
 	if (fstat(index->fd, &sti) == -1) {
-		index_set_error(index, "fstat() failed with index file %s: %m",
-				index->filepath);
+		index_set_syscall_error(index, "fstat()");
 		return FALSE;
 	}
 
@@ -257,7 +254,7 @@ int maildir_index_sync(MailIndex *index)
 	   mail. */
         cur_dir = t_strconcat(index->dir, "/cur", NULL);
 	if (stat(cur_dir, &std) == -1) {
-		index_set_error(index, "fstat() failed for maildir %s: %m",
+		index_set_error(index, "stat() failed for maildir %s: %m",
 				cur_dir);
 		return FALSE;
 	}
@@ -270,7 +267,7 @@ int maildir_index_sync(MailIndex *index)
 	/* move mail from new/ to cur/ */
 	new_dir = t_strconcat(index->dir, "/new", NULL);
 	if (stat(new_dir, &std) == -1) {
-		index_set_error(index, "fstat() failed for maildir "
+		index_set_error(index, "stat() failed for maildir "
 				"%s: %m", new_dir);
 		return FALSE;
 	}
@@ -305,7 +302,7 @@ int maildir_index_sync(MailIndex *index)
 
 	/* update sync stamp */
 	if (stat(cur_dir, &std) == -1) {
-		index_set_error(index, "fstat() failed for maildir %s: %m",
+		index_set_error(index, "stat() failed for maildir %s: %m",
 				cur_dir);
 		return FALSE;
 	}

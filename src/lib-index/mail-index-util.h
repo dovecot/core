@@ -5,6 +5,12 @@
 void index_set_error(MailIndex *index, const char *fmt, ...)
 	__attr_format__(2, 3);
 
+/* "Error in index file %s: ...". Also marks the index file as corrupted. */
+void index_set_corrupted(MailIndex *index, const char *fmt, ...);
+
+/* "%s failed with index file %s: %m" */
+void index_set_syscall_error(MailIndex *index, const char *function);
+
 /* Reset the current error */
 void index_reset_error(MailIndex *index);
 

@@ -166,10 +166,8 @@ static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 	/* we need to update the flags in the file name */
 	old_fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
 	if (old_fname == NULL) {
-                INDEX_MARK_CORRUPTED(index);
-		index_set_error(index, "Corrupted index file %s: "
-				"Missing location field for record %u",
-				index->filepath, rec->uid);
+		index_data_set_corrupted(index, "Missing location field for "
+					 "record %u", rec->uid);
 		return FALSE;
 	}
 

@@ -15,6 +15,7 @@ liblib_a_SOURCES = \
 	compat.c \
 	failures.c \
 	fdpass.c \
+	file-set-size.c \
 	gmtoff.c \
 	hash.c \
 	hex-binary.c \
@@ -47,6 +48,7 @@ noinst_HEADERS = \
 	compat.h \
 	failures.h \
 	fdpass.h \
+	file-set-size.h \
 	gmtoff.h \
 	hash.h \
 	hex-binary.h \

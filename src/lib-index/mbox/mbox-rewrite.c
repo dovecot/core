@@ -168,8 +168,7 @@ static int mbox_write_header(MailIndex *index,
 	if (inbuf->offset >= end_offset) {
 		/* fsck should have noticed it.. */
 		index_set_error(index, "Error rewriting mbox file %s: "
-				"Unexpected end of file",
-				index->mbox_path);
+				"Unexpected end of file", index->mbox_path);
 		return FALSE;
 	}
 
@@ -269,10 +268,8 @@ int mbox_index_rewrite(MailIndex *index)
 	MailIndexRecord *rec;
 	IOBuffer *inbuf, *outbuf;
 	uoff_t offset;
-	const uoff_t *location;
 	const char *path;
 	unsigned int seq;
-	size_t size;
 	int in_fd, out_fd, failed;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
@@ -287,8 +284,7 @@ int mbox_index_rewrite(MailIndex *index)
 
 	in_fd = open(index->mbox_path, O_RDWR);
 	if (in_fd == -1) {
-		index_set_error(index, "Can't open mbox file %s: %m",
-				index->mbox_path);
+		mbox_set_syscall_error(index, "open()");
 		return FALSE;
 	}
 	inbuf = io_buffer_create_mmap(in_fd, default_pool,
@@ -305,22 +301,14 @@ int mbox_index_rewrite(MailIndex *index)
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
 		/* get offset to beginning of mail headers */
-		location = index->lookup_field_raw(index, rec,
-						   FIELD_TYPE_LOCATION, &size);
-		if (size != sizeof(uoff_t) || *location <= inbuf->offset) {
+		if (!mbox_mail_get_start_offset(index, rec, &offset)) {
 			/* fsck should have fixed it */
-			index_set_error(index, "Error rewriting mbox file %s: "
-					"Invalid location field in index",
-					index->mbox_path);
 			failed = TRUE;
 			break;
 		}
 
-		offset = *location;
 		if (offset + rec->header_size + rec->body_size > inbuf->size) {
-			index_set_error(index, "Error rewriting mbox file %s: "
-					"Invalid message size in index",
-					index->mbox_path);
+			index_set_corrupted(index, "Invalid message size");
 			failed = TRUE;
 			break;
 		}
@@ -354,8 +342,7 @@ int mbox_index_rewrite(MailIndex *index)
 	(void)io_buffer_send(outbuf, "\n", 1);
 	if (outbuf->closed) {
 		errno = outbuf->buf_errno;
-		index_set_error(index, "Error rewriting mbox file %s: "
-				"write() failed: %m", index->mbox_path);
+		mbox_set_syscall_error(index, "write()");
 		failed = TRUE;
 	}
 

@@ -33,17 +33,15 @@ int mbox_index_rebuild(MailIndex *index)
 	/* update indexid */
 	index->indexid = index->header->indexid;
 
-	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) == -1) {
-		index_set_error(index, "msync() failed for index file %s: %m",
-				index->filepath);
+	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) < 0) {
+		index_set_syscall_error(index, "msync()");
 		return FALSE;
 	}
 
 	/* truncate the file first, so it won't contain
 	   any invalid data even if we crash */
-	if (ftruncate(index->fd, sizeof(MailIndexHeader)) == -1) {
-		index_set_error(index, "Can't truncate index file %s: %m",
-				index->filepath);
+	if (ftruncate(index->fd, sizeof(MailIndexHeader)) < 0) {
+		index_set_syscall_error(index, "ftruncate()");
 		return FALSE;
 	}
 
@@ -55,8 +53,7 @@ int mbox_index_rebuild(MailIndex *index)
 	   but fcntl() locking requires it. */
 	fd = open(index->mbox_path, O_RDWR);
 	if (fd == -1) {
-		index_set_error(index, "Error opening mbox file %s: %m",
-				index->mbox_path);
+		mbox_set_syscall_error(index, "open()");
 		return FALSE;
 	}
 
@@ -80,8 +77,7 @@ int mbox_index_rebuild(MailIndex *index)
 
 	/* update sync stamp */
 	if (stat(index->mbox_path, &st) == -1) {
-		index_set_error(index, "fstat() failed for mbox file %s: %m",
-				index->mbox_path);
+		mbox_set_syscall_error(index, "fstat()");
 		return FALSE;
 	}
 

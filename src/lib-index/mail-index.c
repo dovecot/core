@@ -40,15 +40,12 @@ static int mmap_update(MailIndex *index)
 	index->mmap_base = mmap_rw_file(index->fd, &index->mmap_length);
 	if (index->mmap_base == MAP_FAILED) {
 		index->mmap_base = NULL;
-		index_set_error(index, "index: mmap() failed with file %s: %m",
-				index->filepath);
+		index_set_syscall_error(index, "mmap()");
 		return FALSE;
 	}
 
 	if (index->mmap_length < sizeof(MailIndexHeader)) {
-		index_set_error(index, "truncated index file %s",
-				index->filepath);
-                INDEX_MARK_CORRUPTED(index);
+                index_set_corrupted(index, "File too small");
 		return FALSE;
 	}
 
@@ -134,9 +131,8 @@ int mail_index_sync_file(MailIndex *index)
 		return FALSE;
 
 	if (index->mmap_base != NULL) {
-		if (msync(index->mmap_base, index->mmap_length, MS_SYNC) == -1) {
-			index_set_error(index, "msync() failed for %s: %m",
-					index->filepath);
+		if (msync(index->mmap_base, index->mmap_length, MS_SYNC) < 0) {
+			index_set_syscall_error(index, "msync()");
 			return FALSE;
 		}
 	}
@@ -151,15 +147,13 @@ int mail_index_sync_file(MailIndex *index)
 	/* keep index's modify stamp same as the sync file's stamp */
 	ut.actime = ioloop_time;
 	ut.modtime = index->file_sync_stamp;
-	if (utime(index->filepath, &ut) == -1) {
-		index_set_error(index, "utime() failed for %s: %m",
-				index->filepath);
+	if (utime(index->filepath, &ut) < 0) {
+		index_set_syscall_error(index, "utime()");
 		return FALSE;
 	}
 
-	if (fsync(index->fd) == -1) {
-		index_set_error(index, "fsync() failed for %s: %m",
-				index->filepath);
+	if (fsync(index->fd) < 0) {
+		index_set_syscall_error(index, "fsync()");
 		return FALSE;
 	}
 
@@ -170,14 +164,12 @@ int mail_index_fmsync(MailIndex *index, size_t size)
 {
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	if (msync(index->mmap_base, size, MS_SYNC) == -1) {
-		index_set_error(index, "msync() failed for %s: %m",
-				index->filepath);
+	if (msync(index->mmap_base, size, MS_SYNC) < 0) {
+		index_set_syscall_error(index, "msync()");
 		return FALSE;
 	}
-	if (fsync(index->fd) == -1) {
-		index_set_error(index, "fsync() failed for %s: %m",
-				index->filepath);
+	if (fsync(index->fd) < 0) {
+		index_set_syscall_error(index, "fsync()");
 		return FALSE;
 	}
 
@@ -227,12 +219,9 @@ int mail_index_try_lock(MailIndex *index, MailLockType lock_type)
 	fl.l_start = 0;
 	fl.l_len = 0;
 
-	if (fcntl(index->fd, F_SETLK, &fl) == -1) {
-		if (errno != EINTR && errno != EACCES) {
-			index_set_error(index, "fcntl(F_SETLKW, %d) "
-					"failed for file %s: %m", fl.l_type,
-					index->filepath);
-		}
+	if (fcntl(index->fd, F_SETLK, &fl) < 0) {
+		if (errno != EINTR && errno != EACCES)
+			index_set_syscall_error(index, "fcntl(F_SETLK)");
 		return FALSE;
 	}
 
@@ -249,7 +238,7 @@ int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
 
 	if (index->inconsistent) {
 		/* index is in inconsistent state and nothing else than
-		   free() is allowed for it. */
+		   free() is allowed for it. FIXME: what about msync()ing.. */
 		return FALSE;
 	}
 
@@ -287,11 +276,9 @@ int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
 	fl.l_start = 0;
 	fl.l_len = 0;
 
-	while (fcntl(index->fd, F_SETLKW, &fl) == -1) {
+	while (fcntl(index->fd, F_SETLKW, &fl) < 0) {
 		if (errno != EINTR) {
-			index_set_error(index, "fcntl(F_SETLKW, %d) "
-					"failed for file %s: %m", fl.l_type,
-					index->filepath);
+			index_set_syscall_error(index, "fcntl(F_SETLKW)");
 			return FALSE;
 		}
 	}
@@ -692,7 +679,7 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 				   "-%s", my_hostname);
 		}
 
-		if (rename(path, index_path) == -1) {
+		if (rename(path, index_path) < 0) {
 			index_set_error(index, "rename(%s, %s) failed: %m",
 					path, index_path);
 			(void)close(fd);
@@ -817,19 +804,15 @@ int mail_index_verify_hole_range(MailIndex *index)
 	if (hdr->first_hole_position < sizeof(MailIndexHeader) ||
 	    (hdr->first_hole_position -
 	     sizeof(MailIndexHeader)) % sizeof(MailIndexRecord) != 0) {
-		index_set_error(index, "Error in index file %s: "
-				"first_hole_position contains invalid value",
-				index->filepath);
-		INDEX_MARK_CORRUPTED(index);
+		index_set_corrupted(index, "first_hole_position contains "
+				    "invalid value");
 		return FALSE;
 	}
 
 	/* make sure position is in range.. */
 	if (hdr->first_hole_position >= index->mmap_length) {
-		index_set_error(index, "Error in index file %s: "
-				"first_hole_position points outside file",
-				index->filepath);
-		INDEX_MARK_CORRUPTED(index);
+		index_set_corrupted(index, "first_hole_position points "
+				    "outside file");
 		return FALSE;
 	}
 
@@ -839,10 +822,8 @@ int mail_index_verify_hole_range(MailIndex *index)
 			 sizeof(MailIndexHeader)) / sizeof(MailIndexRecord);
 	if (index->header->first_hole_records > max_records ||
 	    first_records + index->header->first_hole_records > max_records) {
-		index_set_error(index, "Error in index file %s: "
-				"first_hole_records points outside file",
-				index->filepath);
-		INDEX_MARK_CORRUPTED(index);
+		index_set_corrupted(index, "first_hole_records points "
+				    "outside file");
 		return FALSE;
 	}
 
@@ -885,10 +866,8 @@ static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 				"isn't mmap()ed (dirty_mmap not properly set)");
 		}
 
-		index_set_error(index, "Error in index file %s: "
-				"Header contains invalid message count",
-				index->filepath);
-		index->set_flags |= MAIL_INDEX_FLAG_FSCK;
+		index_set_corrupted(index,
+				    "Header contains invalid message count");
 		return NULL;
 	}
 
@@ -905,10 +884,8 @@ static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 		i_assert(rec <= last_rec);
 
 		if (rec->uid == 0) {
-			index_set_error(index, "Error in index file %s: "
-					"first_hole_position wasn't updated "
-					"properly", index->filepath);
-			INDEX_MARK_CORRUPTED(index);
+			index_set_corrupted(index, "first_hole_position "
+					    "wasn't updated properly");
 			return NULL;
 		}
 		return rec;
@@ -1093,10 +1070,8 @@ index_lookup_data_field(MailIndex *index, MailIndexRecord *rec, MailField field)
 	datarec = mail_index_data_lookup(index->data, rec, field);
 	if (datarec == NULL) {
 		/* corrupted, the field should have been there */
-		index_set_error(index, "Error in index file %s: "
-				"Field not found from data file",
-				index->filepath);
-		INDEX_MARK_CORRUPTED(index);
+		index_set_corrupted(index, "Field %u not found from data file "
+				    "for record %u", field, rec->uid);
 		return NULL;
 	}
 
@@ -1192,10 +1167,12 @@ void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 		} else if (rec->uid < index->header->first_unseen_uid_lowwater)
 			index->header->first_unseen_uid_lowwater = rec->uid;
 
-		if (index->header->seen_messages_count == 0)
-                        INDEX_MARK_CORRUPTED(index);
-		else
+		if (index->header->seen_messages_count == 0) {
+			index_set_corrupted(index, "seen_messages_count in "
+					    "header is invalid");
+		} else {
 			index->header->seen_messages_count--;
+		}
 	}
 
 	if ((old_flags & MAIL_DELETED) == 0 &&
@@ -1211,10 +1188,12 @@ void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 	} else if ((old_flags & MAIL_DELETED) &&
 		   (new_flags & MAIL_DELETED) == 0) {
 		/* deleted -> undeleted */
-		if (index->header->deleted_messages_count == 0)
-                        INDEX_MARK_CORRUPTED(index);
-		else
+		if (index->header->deleted_messages_count == 0) {
+			index_set_corrupted(index, "deleted_messages_count in "
+					    "header is invalid");
+		} else {
 			index->header->deleted_messages_count--;
+		}
 	}
 }
 
@@ -1241,8 +1220,7 @@ static int mail_index_truncate(MailIndex *index)
 	/* truncate index file */
 	file_size = (off_t)index->header->first_hole_position;
 	if (ftruncate(index->fd, file_size) < 0) {
-		index_set_error(index, "ftruncate() failed for index file "
-				"%s: %m", index->filepath);
+		index_set_syscall_error(index, "ftruncate()");
 		return FALSE;
 	}
 
@@ -1335,10 +1313,8 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	/* update message counts */
 	if (hdr->messages_count == 0) {
 		/* corrupted */
-		index_set_error(index, "Error in index file %s: "
-				"Header says there's no mail while expunging",
-				index->filepath);
-		INDEX_MARK_CORRUPTED(index);
+		index_set_corrupted(index, "Header says there's no mail "
+				    "while expunging");
 		return FALSE;
 	}
 
@@ -1385,14 +1361,12 @@ int mail_index_append_begin(MailIndex *index, MailIndexRecord **rec)
 
 	pos = lseek(index->fd, 0, SEEK_END);
 	if (pos < 0) {
-		index_set_error(index, "lseek() failed with file %s: %m",
-				index->filepath);
+		index_set_syscall_error(index, "lseek()");
 		return FALSE;
 	}
 
 	if (write_full(index->fd, *rec, sizeof(MailIndexRecord)) < 0) {
-		index_set_error(index, "Error appending to file %s: %m",
-				index->filepath);
+		index_set_syscall_error(index, "write_full()");
 		return FALSE;
 	}
 
@@ -1404,9 +1378,8 @@ int mail_index_append_begin(MailIndex *index, MailIndexRecord **rec)
 	index->header->sync_id++;
 	index->dirty_mmap = TRUE;
 
-	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) == -1) {
-		index_set_error(index, "msync() failed for %s: %m",
-				index->filepath);
+	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) < 0) {
+		index_set_syscall_error(index, "msync()");
 		return FALSE;
 	}
 

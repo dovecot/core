@@ -52,8 +52,7 @@ int mail_index_compress(MailIndex *index)
 	/* truncate the file to get rid of the extra records */
 	fsize = (size_t) ((char *) hole_rec - (char *) index->mmap_base);
 	if (ftruncate(index->fd, (off_t)fsize) == -1) {
-		index_set_error(index, "ftruncate() failed for %s: %m",
-				index->filepath);
+		index_set_syscall_error(index, "ftruncate()");
 		return FALSE;
 	}
 
@@ -104,9 +103,8 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
 		if (rec->data_position + rec->data_size > mmap_data_size) {
-			index_set_error(index, "Error in index file %s: "
-					"data_position+data_size points "
-					"outside file", index->filepath);
+			index_set_corrupted(index, "data_position+data_size "
+					    "points outside file");
 			return FALSE;
 		}
 

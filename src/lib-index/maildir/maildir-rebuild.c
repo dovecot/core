@@ -32,8 +32,7 @@ int maildir_index_rebuild(MailIndex *index)
 	/* truncate the file first, so it won't contain
 	   any invalid data even if we crash */
 	if (ftruncate(index->fd, sizeof(MailIndexHeader)) == -1) {
-		index_set_error(index, "Can't truncate index file %s: %m",
-				index->filepath);
+		index_set_syscall_error(index, "ftruncate()");
 		return FALSE;
 	}
 
@@ -53,7 +52,7 @@ int maildir_index_rebuild(MailIndex *index)
 
 	/* update sync stamp */
 	if (stat(cur_dir, &st) == -1) {
-		index_set_error(index, "fstat() failed for maildir %s: %m",
+		index_set_error(index, "stat() failed for maildir %s: %m",
 				cur_dir);
 		return FALSE;
 	}
