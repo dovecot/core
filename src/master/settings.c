@@ -85,8 +85,8 @@ char *set_imaps_listen = NULL;
 unsigned int set_imap_port = 143;
 unsigned int set_imaps_port = 993;
 
-char *set_ssl_cert_file = NULL;
-char *set_ssl_key_file = NULL;
+char *set_ssl_cert_file = "/etc/ssl/certs/imapd.pem";
+char *set_ssl_key_file = "/etc/ssl/private/imapd.pem";
 int set_disable_plaintext_auth = FALSE;
 
 unsigned int set_first_valid_uid = 500, set_last_valid_uid = 0;
