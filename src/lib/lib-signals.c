@@ -48,7 +48,6 @@ static void sig_quit(int signo)
 	signal(SIGINT, SIG_DFL);
 	signal(SIGTERM, SIG_DFL);
 
-	/* quit the I/O loop, deinitialization is be done properly */
 	lib_signal_kill = signo;
 	quit_handler(signo);
 }
