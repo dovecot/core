@@ -28,6 +28,7 @@
 
 #include <signal.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 static int initialized = FALSE;
 static unsigned int alarm_timeout = 30;
@@ -35,6 +36,9 @@ static unsigned int alarm_timeout = 30;
 unsigned int alarm_hup_set_interval(unsigned int timeout)
 {
 	unsigned int old;
+
+	if (getenv("DISABLE_ALARMHUP") != NULL)
+		return 0;
 
 	old = alarm_timeout;
 	alarm_timeout = timeout;
@@ -62,6 +66,9 @@ void alarm_hup_init(void)
 #ifdef HAVE_SIGACTION
 	struct sigaction act;
 #endif
+
+	if (getenv("DISABLE_ALARMHUP") != NULL)
+		alarm_timeout = 0;
 
 	if (initialized)
 		return;
