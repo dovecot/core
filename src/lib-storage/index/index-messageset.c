@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "mail-index.h"
 #include "mail-index-util.h"
-#include "mail-hash.h"
 #include "mail-modifylog.h"
 #include "index-messageset.h"
 
@@ -205,11 +204,10 @@ static int mail_index_uid_foreach(MailIndex *index,
 		}
 	}
 
-	rec = index->lookup_uid_range(index, uid, uid2);
+	rec = index->lookup_uid_range(index, uid, uid2, &idx_seq);
 	if (rec == NULL)
 		return expunges_found ? 2 : 1;
 
-	idx_seq = index->get_sequence(index, rec);
 	client_seq = idx_seq + expunges_before;
 
 	while (rec != NULL && rec->uid <= uid2) {

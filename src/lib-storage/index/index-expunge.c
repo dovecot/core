@@ -23,7 +23,7 @@ int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
 		*rec = hdr->first_deleted_uid_lowwater >= hdr->next_uid ? NULL :
 			ibox->index->lookup_uid_range(ibox->index,
 						hdr->first_deleted_uid_lowwater,
-						hdr->next_uid-1);
+						hdr->next_uid-1, seq);
 		if (*rec == NULL) {
 			mail_storage_set_critical(ibox->box.storage,
 				"index header's deleted_messages_count (%u) "
@@ -34,8 +34,6 @@ int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
 			/* fsck should be enough to fix it */
 			ibox->index->set_flags |= MAIL_INDEX_FLAG_FSCK;
 			return FALSE;
-		} else {
-			*seq = ibox->index->get_sequence(ibox->index, *rec);
 		}
 	} else {
 		*rec = ibox->index->lookup(ibox->index, 1);

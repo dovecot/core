@@ -174,7 +174,7 @@ static int mmap_update(MailModifyLog *log, int forced)
 	}
 
 	log->header = log->mmap_base;
-	log->mmap_used_length = log->header->used_file_size;
+	log->mmap_used_length = hdr->used_file_size;
 	return TRUE;
 }
 

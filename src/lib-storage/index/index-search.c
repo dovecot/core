@@ -682,18 +682,14 @@ static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
 	if (!search_get_uid_range(ibox, args, &first_uid, &last_uid))
 		return TRUE;
 
-	rec = ibox->index->lookup_uid_range(ibox->index, first_uid, last_uid);
+	rec = ibox->index->lookup_uid_range(ibox->index, first_uid, last_uid,
+					    &client_seq);
 	if (rec == NULL)
 		return TRUE;
 
 	expunges = mail_modifylog_uid_get_expunges(ibox->index->modifylog,
 						   rec->uid, last_uid,
 						   &expunges_before);
-
-	client_seq = ibox->index->get_sequence(ibox->index, rec);
-	if (client_seq == 0)
-		return mail_storage_set_index_error(ibox);
-
 	client_seq += expunges_before;
 
 	ctx.ibox = ibox;

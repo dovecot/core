@@ -21,7 +21,7 @@ enum {
 	MAIL_INDEX_FLAG_CACHE_FIELDS		= 0x04,
 	MAIL_INDEX_FLAG_COMPRESS		= 0x08,
 	MAIL_INDEX_FLAG_COMPRESS_DATA		= 0x10,
-	MAIL_INDEX_FLAG_REBUILD_HASH		= 0x20,
+	MAIL_INDEX_FLAG_REBUILD_TREE		= 0x20,
 	MAIL_INDEX_FLAG_DIRTY_MESSAGES		= 0x40,
 	MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS	= 0x80
 };
@@ -80,7 +80,7 @@ typedef enum {
 
 typedef struct _MailIndex MailIndex;
 typedef struct _MailIndexData MailIndexData;
-typedef struct _MailHash MailHash;
+typedef struct _MailTree MailTree;
 typedef struct _MailModifyLog MailModifyLog;
 typedef struct _MailCustomFlags MailCustomFlags;
 
@@ -222,10 +222,11 @@ struct _MailIndex {
 	   lookup() and last next() call. */
 	MailIndexRecord *(*next)(MailIndex *index, MailIndexRecord *rec);
 
-	/* First first existing UID in range. */
+	/* Find first existing UID in range. */
 	MailIndexRecord *(*lookup_uid_range)(MailIndex *index,
 					     unsigned int first_uid,
-					     unsigned int last_uid);
+					     unsigned int last_uid,
+					     unsigned int *seq_r);
 
 	/* Find field from specified record, or NULL if it's not in index.
 	   Makes sure that the field ends with \0. */
@@ -236,14 +237,11 @@ struct _MailIndex {
 	const void *(*lookup_field_raw)(MailIndex *index, MailIndexRecord *rec,
 					MailField field, size_t *size);
 
-	/* Returns sequence for given message, or 0 if failed. */
-	unsigned int (*get_sequence)(MailIndex *index, MailIndexRecord *rec);
-
 	/* Open mail file and return it as mmap()ed IOBuffer, or
 	   NULL if failed. */
 	IOBuffer *(*open_mail)(MailIndex *index, MailIndexRecord *rec);
 
-	/* Expunge a mail from index. Hash and modifylog is also updated. The
+	/* Expunge a mail from index. Tree and modifylog is also updated. The
 	   index must be exclusively locked before calling this function.
 	   If seq is 0, the modify log isn't updated. This is useful if
 	   after append() something goes wrong and you wish to delete the
@@ -310,7 +308,7 @@ struct _MailIndex {
 
 /* private: */
 	MailIndexData *data;
-	MailHash *hash;
+	MailTree *tree;
 	MailModifyLog *modifylog;
 	MailCustomFlags *custom_flags;
 
@@ -369,12 +367,12 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq);
 MailIndexRecord *mail_index_next(MailIndex *index, MailIndexRecord *rec);
 MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 					     unsigned int first_uid,
-					     unsigned int last_uid);
+					     unsigned int last_uid,
+					     unsigned int *seq_r);
 const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
 				    MailField field);
 const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
 					MailField field, size_t *size);
-unsigned int mail_index_get_sequence(MailIndex *index, MailIndexRecord *rec);
 int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		       unsigned int seq, int external_change);
 int mail_index_update_flags(MailIndex *index, MailIndexRecord *rec,

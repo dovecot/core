@@ -4,7 +4,6 @@
 #include "maildir-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
-#include "mail-hash.h"
 
 #include <unistd.h>
 #include <sys/stat.h>

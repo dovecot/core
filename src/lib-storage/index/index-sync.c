@@ -34,7 +34,7 @@ static int index_storage_sync_log(Mailbox *box, MailIndex *index,
 	MailIndexRecord *rec;
 	MailFlags flags;
 	const char **custom_flags;
-	unsigned int count;
+	unsigned int count, seq;
 
 	/* show the log */
 	log = mail_modifylog_get_nonsynced(index->modifylog, &count);
@@ -55,7 +55,7 @@ static int index_storage_sync_log(Mailbox *box, MailIndex *index,
 				break;
 
 			rec = index->lookup_uid_range(index,
-						      log->uid, log->uid);
+						      log->uid, log->uid, &seq);
 			if (rec != NULL) {
 				flags = rec->msg_flags;
 				if (rec->uid >= index->first_recent_uid)

@@ -20,14 +20,12 @@ static unsigned int get_first_unseen_seq(MailIndex *index)
 	if (lowwater_uid != 0) {
 		/* begin scanning from the low water mark */
 		rec = index->lookup_uid_range(index, lowwater_uid,
-					      hdr->next_uid - 1);
+					      hdr->next_uid - 1, &seq);
 		if (rec == NULL) {
 			i_error("index header's seen_messages_count or "
 				"first_unseen_uid_lowwater is invalid.");
                         INDEX_MARK_CORRUPTED(index);
 			return 0;
-		} else {
-			seq = index->get_sequence(index, rec);
 		}
 	} else {
 		/* begin scanning from the beginning */

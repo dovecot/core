@@ -8,7 +8,7 @@
 #include "mail-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
-#include "mail-hash.h"
+#include "mail-tree.h"
 #include "mail-modifylog.h"
 #include "mail-custom-flags.h"
 
@@ -156,9 +156,9 @@ void mail_index_close(MailIndex *index)
 		index->data = NULL;
 	}
 
-	if (index->hash != NULL) {
-                mail_hash_free(index->hash);
-		index->hash = NULL;
+	if (index->tree != NULL) {
+                mail_tree_free(index->tree);
+		index->tree = NULL;
 	}
 
 	if (index->modifylog != NULL) {
@@ -193,8 +193,8 @@ static int mail_index_sync_file(MailIndex *index)
 
 	failed = FALSE;
 
-	if (index->hash != NULL) {
-		if (!mail_hash_sync_file(index->hash))
+	if (index->tree != NULL) {
+		if (!mail_tree_sync_file(index->tree))
 			failed = TRUE;
 	}
 
@@ -445,9 +445,9 @@ MailIndexHeader *mail_index_get_header(MailIndex *index)
 MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 {
 	MailIndexHeader *hdr;
-	MailIndexRecord *rec, *last_rec;
-	unsigned int rec_seq;
-	uoff_t seekpos;
+	MailIndexRecord *rec;
+	const char *format;
+	uoff_t pos;
 
 	i_assert(seq > 0);
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
@@ -467,73 +467,40 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 	if (!mail_index_verify_hole_range(index))
 		return NULL;
 
-	seekpos = sizeof(MailIndexHeader) +
+	pos = sizeof(MailIndexHeader) +
 		(uoff_t)(seq-1) * sizeof(MailIndexRecord);
-	if (seekpos + sizeof(MailIndexRecord) > index->mmap_used_length) {
-		/* minimum file position for wanted sequence would point
-		   ouside file, so it can't exist. however, header said it
-		   should be found.. */
-		i_assert(index->header->used_file_size ==
-			 index->mmap_used_length);
-
-		index_set_corrupted(index,
-				    "Header contains invalid message count");
-		return NULL;
-	}
-
-	rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				   sizeof(MailIndexHeader));
-	last_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-					index->mmap_used_length -
-					sizeof(MailIndexRecord));
-
 	if (hdr->first_hole_position == 0 ||
-	    hdr->first_hole_position > seekpos) {
+	    hdr->first_hole_position > pos) {
 		/* easy, it's just at the expected index */
-		rec += seq-1;
-		i_assert(rec <= last_rec);
-
-		if (rec->uid == 0) {
-			index_set_corrupted(index, "first_hole_position "
-					    "wasn't updated properly");
+		format = "Invalid first_hole_position in header: %"PRIuUOFF_T;
+	} else {
+		/* find from binary tree */
+		pos = mail_tree_lookup_sequence(index->tree, seq);
+		if (pos == 0) {
+			index_set_corrupted(index, "Sequence %u not found from "
+					    "binary tree (%u msgs says header)",
+					    seq, hdr->messages_count);
 			return NULL;
 		}
-
-		index->last_lookup = rec;
-		index->last_lookup_seq = seq;
-		return rec;
+		format = "Invalid offset returned by binary tree: %"PRIuUOFF_T;
 	}
 
-	/* we need to walk through the index to get to wanted position */
-
-	/* some mails are deleted, jump after the first known hole
-	   and start counting non-deleted messages.. */
-	rec_seq = INDEX_POSITION_INDEX(hdr->first_hole_position+1) + 1;
-	rec += rec_seq-1 + hdr->first_hole_records;
-
-	if (seq > index->last_lookup_seq && index->last_lookup_seq > rec_seq) {
-		/* we want to lookup data after last lookup -
-		   this helps us some */
-		rec = index->last_lookup;
-		rec_seq = index->last_lookup_seq;
-	}
-
-	i_assert(rec->uid != 0);
-
-	while (rec_seq < seq && rec <= last_rec) {
-		rec++;
-
-		if (rec->uid != 0)
-			rec_seq++;
-	}
-
-	if (rec_seq != seq)
+	if (pos < sizeof(MailIndexHeader) ||
+	    pos > index->mmap_used_length - sizeof(MailIndexRecord) ||
+	    (pos - sizeof(MailIndexHeader)) % sizeof(MailIndexRecord) != 0) {
+		index_set_corrupted(index, format, pos);
 		return NULL;
-	else {
-		index->last_lookup = rec;
-		index->last_lookup_seq = rec_seq;
-		return rec;
 	}
+
+	rec = (MailIndexRecord *) ((char *) index->mmap_base + pos);
+	if (rec->uid == 0) {
+		index_set_corrupted(index, format, pos);
+		return NULL;
+	}
+
+	index->last_lookup = rec;
+	index->last_lookup_seq = seq;
+	return rec;
 }
 
 MailIndexRecord *mail_index_next(MailIndex *index, MailIndexRecord *rec)
@@ -559,89 +526,32 @@ MailIndexRecord *mail_index_next(MailIndex *index, MailIndexRecord *rec)
 
 MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 					     unsigned int first_uid,
-					     unsigned int last_uid)
+					     unsigned int last_uid,
+					     unsigned int *seq_r)
 {
-	MailIndexRecord *rec, *end_rec;
-	unsigned int uid, last_try_uid;
+	MailIndexRecord *rec;
 	uoff_t pos;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 	i_assert(first_uid > 0 && last_uid > 0);
 	i_assert(first_uid <= last_uid);
 
-	if (!mail_index_verify_hole_range(index))
+	pos = mail_tree_lookup_uid_range(index->tree, seq_r,
+					 first_uid, last_uid);
+	if (pos == 0)
 		return NULL;
 
-	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				       index->mmap_used_length);
-
-	/* check if first_uid is the first UID in the index, or an UID
-	   before that. this is quite common and hash lookup would be
-	   useless to try with those nonexisting old UIDs */
-	if (index->header->first_hole_position != sizeof(MailIndexHeader)) {
-		rec = (MailIndexRecord *) ((char *) index->mmap_base +
-					   sizeof(MailIndexHeader));
-	} else {
-		rec = (MailIndexRecord *) ((char *) index->mmap_base +
-					   index->header->first_hole_position +
-					   index->header->first_hole_records *
-					   sizeof(MailIndexRecord));
-	}
-
-	if (rec >= end_rec) {
-		/* no messages in index */
+	rec = (MailIndexRecord *) ((char *) index->mmap_base + pos);
+	if (rec->uid < first_uid || rec->uid > last_uid) {
+		index_set_error(index, "Corrupted binary tree for index %s: "
+				"lookup returned offset to wrong UID "
+				"(%u vs %u..%u)", index->filepath,
+				rec->uid, first_uid, last_uid);
+		index->set_flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
 		return NULL;
 	}
 
-	if (first_uid <= rec->uid) {
-		/* yes, first_uid pointed to beginning of index.
-		   make sure last_uid is in that range too. */
-		return last_uid >= rec->uid ? rec : NULL;
-	}
-
-	if (first_uid >= index->header->next_uid) {
-		/* UID doesn't even exist yet */
-		return NULL;
-	}
-
-	/* try the few first with hash lookups */
-	last_try_uid = last_uid - first_uid < 10 ? last_uid : first_uid + 4;
-	for (uid = first_uid; uid <= last_try_uid; uid++) {
-		pos = mail_hash_lookup_uid(index->hash, uid);
-		if (pos == 0)
-			continue;
-
-		rec = (MailIndexRecord *) ((char *) index->mmap_base + pos);
-		if (rec->uid != uid) {
-			index_set_error(index, "Corrupted hash for index %s: "
-					"lookup returned offset to different "
-					"UID (%u vs %u)", index->filepath,
-					rec->uid, uid);
-			index->set_flags |= MAIL_INDEX_FLAG_REBUILD_HASH;
-			rec = NULL;
-		}
-		return rec;
-	}
-
-	if (last_try_uid == last_uid)
-		return NULL;
-
-	/* fallback to looking through the whole index - this shouldn't be
-	   needed often, so don't bother trying anything too fancy. */
-	rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				   sizeof(MailIndexHeader));
-	while (rec < end_rec) {
-		if (rec->uid != 0) {
-			if (rec->uid > last_uid)
-				return NULL;
-
-			if (rec->uid >= first_uid)
-				return rec;
-		}
-		rec++;
-	}
-
-	return NULL;
+	return rec;
 }
 
 static MailIndexDataRecord *
@@ -699,64 +609,6 @@ const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
 
 	*size = datarec->full_field_size;
 	return datarec->data;
-}
-
-static unsigned int mail_index_get_sequence_real(MailIndex *index,
-						 MailIndexRecord *rec)
-{
-	MailIndexRecord *seekrec;
-	unsigned int seq;
-
-	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
-
-	if (rec == index->last_lookup) {
-		/* same as last lookup sequence - too easy */
-		return index->last_lookup_seq;
-	}
-
-	if (index->header->first_hole_position == 0) {
-		/* easy, it's just at the expected index */
-		return INDEX_POSITION_INDEX(
-			INDEX_FILE_POSITION(index, rec)) + 1;
-	}
-
-	if (!mail_index_verify_hole_range(index))
-		return 0;
-
-	seekrec = (MailIndexRecord *) ((char *) index->mmap_base +
-				       index->header->first_hole_position);
-	if (rec < seekrec) {
-		/* record before first hole */
-		return INDEX_POSITION_INDEX(
-			INDEX_FILE_POSITION(index, rec)) + 1;
-	}
-
-	/* we know the sequence after the first hole - skip to there and
-	   start browsing the records until ours is found */
-	seq = INDEX_POSITION_INDEX(INDEX_FILE_POSITION(index, seekrec))+1;
-	seekrec += index->header->first_hole_records;
-
-	for (; seekrec < rec; seekrec++) {
-		if (seekrec->uid != 0)
-			seq++;
-	}
-
-	return seq;
-}
-
-unsigned int mail_index_get_sequence(MailIndex *index, MailIndexRecord *rec)
-{
-	unsigned int seq;
-
-	seq = mail_index_get_sequence_real(index, rec);
-	if (seq > index->header->messages_count) {
-		index_set_corrupted(index, "Too small messages_count in header "
-				    "(found %u > %u)", seq,
-				    index->header->messages_count);
-		return 0;
-	}
-
-	return seq;
 }
 
 void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
@@ -858,11 +710,11 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 
 	/* expunge() may be called while index is being rebuilt and when
 	   there's no hash yet */
-	if (index->hash != NULL)
-		mail_hash_update(index->hash, rec->uid, 0);
+	if (index->tree != NULL)
+		mail_tree_delete(index->tree, rec->uid);
 	else {
 		/* make sure it also gets updated */
-		index->header->flags |= MAIL_INDEX_FLAG_REBUILD_HASH;
+		index->header->flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
 	}
 
 	/* setting UID to 0 is enough for deleting the mail from index */
@@ -1030,8 +882,8 @@ int mail_index_append_end(MailIndex *index, MailIndexRecord *rec)
 
 	rec->uid = index->header->next_uid++;
 
-	if (index->hash != NULL) {
-		mail_hash_update(index->hash, rec->uid,
+	if (index->tree != NULL) {
+		mail_tree_insert(index->tree, rec->uid,
 				 INDEX_FILE_POSITION(index, rec));
 	}
 

@@ -471,7 +471,6 @@ MailIndex mbox_index = {
         mail_index_lookup_uid_range,
 	mail_index_lookup_field,
 	mail_index_lookup_field_raw,
-	mail_index_get_sequence,
 	mbox_open_mail,
 	mail_index_expunge,
 	mbox_index_update_flags,

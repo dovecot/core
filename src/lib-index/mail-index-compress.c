@@ -5,7 +5,7 @@
 #include "mail-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
-#include "mail-hash.h"
+#include "mail-tree.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -45,6 +45,7 @@ int mail_index_truncate(MailIndex *index)
 int mail_index_compress(MailIndex *index)
 {
 	MailIndexRecord *rec, *hole_rec, *end_rec;
+	uoff_t pos;
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
@@ -73,8 +74,9 @@ int mail_index_compress(MailIndex *index)
 	while (rec < end_rec) {
 		if (rec->uid != 0) {
 			memcpy(hole_rec, rec, sizeof(MailIndexRecord));
-			mail_hash_update(index->hash, rec->uid,
-					 INDEX_FILE_POSITION(index, hole_rec));
+			pos = INDEX_FILE_POSITION(index, hole_rec);
+			if (!mail_tree_update(index->tree, rec->uid, pos))
+				return FALSE;
 			hole_rec++;
 		}
 		rec++;

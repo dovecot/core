@@ -10,7 +10,7 @@
 #include "mail-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
-#include "mail-hash.h"
+#include "mail-tree.h"
 #include "mail-lockdir.h"
 #include "mail-modifylog.h"
 #include "mail-custom-flags.h"
@@ -21,7 +21,7 @@
 #include <fcntl.h>
 
 static const char *index_file_prefixes[] =
-	{ "data", "hash", "log", "log.2", NULL };
+	{ "data", "tree", "log", "log.2", NULL };
 
 static int delete_index(const char *path)
 {
@@ -189,7 +189,7 @@ static int index_open_and_fix(MailIndex *index, int update_recent, int fast)
 		index->inconsistent = FALSE;
 	}
 
-	if (!mail_hash_open_or_create(index))
+	if (!mail_tree_open_or_create(index))
 		return FALSE;
 	if (!mail_modifylog_open_or_create(index))
 		return FALSE;
@@ -206,8 +206,8 @@ static int index_open_and_fix(MailIndex *index, int update_recent, int fast)
 			return FALSE;
 	}
 
-	if (index->header->flags & MAIL_INDEX_FLAG_REBUILD_HASH) {
-		if (!mail_hash_rebuild(index->hash))
+	if (index->header->flags & MAIL_INDEX_FLAG_REBUILD_TREE) {
+		if (!mail_tree_rebuild(index->tree))
 			return FALSE;
 	}
 
@@ -434,7 +434,7 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 			break;
 		}
 
-		if (!mail_hash_create(index))
+		if (!mail_tree_create(index))
 			break;
 		if (!mail_modifylog_create(index))
 			break;

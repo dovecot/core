@@ -6,7 +6,6 @@
 #include "mbox-lock.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
-#include "mail-hash.h"
 
 #include <unistd.h>
 #include <fcntl.h>
