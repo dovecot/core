@@ -402,6 +402,7 @@ int mail_index_map(struct mail_index *index, int force)
 
 	map->log_file_seq = map->hdr->log_file_seq;
 	map->log_file_offset = map->hdr->log_file_offset;
+	map->base_header_size = map->hdr->base_header_size;
 
 	index->hdr = map->hdr;
 	index->map = map;

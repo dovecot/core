@@ -51,6 +51,7 @@ struct mail_index_map {
 	uoff_t log_file_offset;
 
 	struct mail_index_header hdr_copy;
+	uint32_t base_header_size; /* so we don't need lock to access it */
 
 	unsigned int write_to_disk:1;
 };
