@@ -26,7 +26,7 @@ static void mail_cache_merge_bitmask(struct mail_cache *cache, buffer_t *buffer,
 		buf_field = *((uint32_t *)PTR_OFFSET(buf_data, pos));
 		pos += sizeof(uint32_t);
 
-		buf_data_size = cache->fields[field].field.field_size;
+		buf_data_size = cache->fields[buf_field].field.field_size;
 		if (buf_data_size == (unsigned int)-1) {
 			buf_data_size =
 				*((uint32_t *)PTR_OFFSET(buf_data, pos));
