@@ -208,13 +208,13 @@ int mail_index_compress_data(MailIndex *index)
 
 	failed = !mail_index_copy_data(index, fd, temppath);
 
-	if (close(fd) < 0) {
-		index_file_set_syscall_error(index, temppath, "close()");
+	if (fdatasync(fd) < 0) {
+		index_file_set_syscall_error(index, temppath, "fdatasync()");
 		failed = TRUE;
 	}
 
-	if (fdatasync(fd) < 0) {
-		index_file_set_syscall_error(index, temppath, "fdatasync()");
+	if (close(fd) < 0) {
+		index_file_set_syscall_error(index, temppath, "close()");
 		failed = TRUE;
 	}
 
