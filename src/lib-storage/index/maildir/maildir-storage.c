@@ -33,6 +33,7 @@ maildir_create(const char *data, const char *user,
 	struct mail_storage *storage;
 	const char *root_dir, *inbox_dir, *index_dir, *control_dir;
 	const char *home, *path, *p;
+	size_t len;
 
 	inbox_dir = root_dir = index_dir = control_dir = NULL;
 
@@ -73,6 +74,11 @@ maildir_create(const char *data, const char *user,
 
 	if (root_dir == NULL)
 		return NULL;
+
+	/* strip trailing '/' */
+	len = strlen(root_dir);
+	if (root_dir[len-1] == '/')
+		root_dir = t_strndup(root_dir, len-1);
 
 	if (index_dir == NULL)
 		index_dir = root_dir;

@@ -176,6 +176,11 @@ mbox_create(const char *data, const char *user,
 		root_dir = create_root_dir();
 		if (root_dir == NULL)
 			return NULL;
+	} else {
+		/* strip trailing '/' */
+		size_t len = strlen(root_dir);
+		if (root_dir[len-1] == '/')
+			root_dir = t_strndup(root_dir, len-1);
 	}
 
 	if (inbox_file == NULL)
