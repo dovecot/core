@@ -42,6 +42,7 @@ liblib_a_SOURCES = \
 	restrict-access.c \
 	restrict-process-size.c \
 	safe-memset.c \
+	safe-mkdir.c \
 	sendfile-util.c \
 	strfuncs.c \
 	temp-string.c \
@@ -87,6 +88,7 @@ noinst_HEADERS = \
 	restrict-access.h \
 	restrict-process-size.h \
 	safe-memset.h \
+	safe-mkdir.h \
 	sendfile-util.h \
 	strfuncs.h \
 	temp-string.h \

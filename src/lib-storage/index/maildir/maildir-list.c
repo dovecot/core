@@ -133,7 +133,7 @@ int maildir_find_mailboxes(MailStorage *storage, const char *mask,
 			   delete it ourself if it's been there longer than
 			   one hour */
 			if (st.st_mtime < 3600)
-				(void)unlink_directory(path);
+				(void)unlink_directory(path, TRUE);
 			continue;
 		}
 

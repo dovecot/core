@@ -307,7 +307,7 @@ static int maildir_delete_mailbox(MailStorage *storage, const char *name)
 
 	if (strcmp(storage->index_dir, storage->dir) != 0) {
 		index_dir = t_strconcat(storage->index_dir, "/.", name, NULL);
-		if (!unlink_directory(index_dir)) {
+		if (unlink_directory(index_dir, TRUE) < 0) {
 			mail_storage_set_critical(storage,
 						  "unlink_directory(%s) "
 						  "failed: %m", index_dir);
@@ -325,7 +325,7 @@ static int maildir_delete_mailbox(MailStorage *storage, const char *name)
 		}
 
 		/* ..dir already existed? delete it and try again */
-		if (!unlink_directory(dest)) {
+		if (unlink_directory(dest, TRUE) < 0) {
 			mail_storage_set_critical(storage,
 						  "unlink_directory(%s) "
 						  "failed: %m", dest);
@@ -334,7 +334,7 @@ static int maildir_delete_mailbox(MailStorage *storage, const char *name)
 		count++;
 	}
 
-	if (!unlink_directory(dest)) {
+	if (unlink_directory(dest, TRUE) < 0) {
 		mail_storage_set_critical(storage, "unlink_directory(%s) "
 					  "failed: %m", dest);
 		return FALSE;

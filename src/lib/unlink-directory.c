@@ -30,7 +30,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-int unlink_directory(const char *dir)
+int unlink_directory(const char *dir, int unlink_dir)
 {
 	DIR *dirp;
 	struct dirent *d;
@@ -39,7 +39,7 @@ int unlink_directory(const char *dir)
 
 	dirp = opendir(dir);
 	if (dirp == NULL)
-		return errno == ENOENT;
+		return errno == ENOENT ? 0 : -1;
 
 	while ((d = readdir(dirp)) != NULL) {
 		if (d->d_name[0] == '.' &&
@@ -50,26 +50,30 @@ int unlink_directory(const char *dir)
 		}
 
 		if (str_path(path, sizeof(path), dir, d->d_name) < 0)
-			return FALSE;
+			return -1;
 
 		if (unlink(path) == -1 && errno != ENOENT) {
 			int old_errno = errno;
 
-			if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
-				if (!unlink_directory(path))
-					return FALSE;
+			if (lstat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
+				if (unlink_directory(path, TRUE) < 0)
+					return -1;
 			} else {
 				/* so it wasn't a directory, unlink() again
 				   to get correct errno */
 				errno = old_errno;
-				return FALSE;
+				return -1;
 			}
 		}
 	}
 
-	(void)closedir(dirp);
+	if (closedir(dirp) < 0)
+		return -1;
 
-	if (rmdir(dir) == -1 && errno != ENOENT)
-		return FALSE;
-	return TRUE;
+	if (unlink_dir) {
+		if (rmdir(dir) == -1 && errno != ENOENT)
+			return -1;
+	}
+
+	return 0;
 }

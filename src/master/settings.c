@@ -2,13 +2,14 @@
 
 #include "lib.h"
 #include "istream.h"
+#include "safe-mkdir.h"
+#include "unlink-directory.h"
 #include "settings.h"
 
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <pwd.h>
-#include <sys/stat.h>
 
 typedef enum {
 	SET_STR,
@@ -231,12 +232,19 @@ static void settings_verify(void)
 #endif
 
 	/* since they're under /var/run by default, they may have been
-	   deleted */
-	(void)mkdir(PKG_RUNDIR, 0700);
-	if (mkdir(set_login_dir, 0700) == 0)
-		(void)chown(set_login_dir, set_login_uid, set_login_gid);
-	if (access(set_login_dir, X_OK) < 0)
-		i_fatal("Can't access login directory %s: %m", set_login_dir);
+	   deleted. */
+	if (safe_mkdir(PKG_RUNDIR, 0700, 0, 0) == 0) {
+		i_warning("Corrected permissions for base directory %s",
+			  PKG_RUNDIR);
+	}
+
+	/* wipe out contents of login directory, if it exists */
+	if (unlink_directory(set_login_dir, FALSE) < 0)
+		i_fatal("unlink_directory() failed for %s: %m", set_login_dir);
+
+	if (safe_mkdir(set_login_dir, 0700, set_login_uid, set_login_gid) == 0)
+		i_warning("Corrected permissions for login directory %s",
+			  set_login_dir);
 
 	if (set_max_imap_processes < 1)
 		i_fatal("max_imap_processes must be at least 1");

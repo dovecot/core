@@ -362,7 +362,7 @@ static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 
 	/* next delete the index directory */
 	index_dir = mbox_get_index_dir(storage, name);
-	if (!unlink_directory(index_dir) && errno != ENOENT) {
+	if (unlink_directory(index_dir, TRUE) < 0 && errno != ENOENT) {
 		mail_storage_set_critical(storage, "unlink_directory(%s) "
 					  "failed: %m", index_dir);
 		return FALSE;
