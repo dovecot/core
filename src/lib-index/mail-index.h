@@ -329,6 +329,7 @@ struct mail_index {
 	mail_lock_notify_callback_t *lock_notify_cb;
 	void *lock_notify_context;
 
+        mode_t mail_create_mode;
 	unsigned int private_flags_mask;
 
 	/* these fields are OR'ed to the fields in index header once we
@@ -366,7 +367,8 @@ struct mail_index {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	0
 #endif
 
 /* defaults - same as above but prefixed with mail_index_. */

@@ -190,7 +190,7 @@ static int create_temp_file(const char *prefix, const char **path_r)
 			return -1;
 		}
 
-		fd = open(*path_r, O_RDWR | O_EXCL | O_CREAT, 0644);
+		fd = open(*path_r, O_RDWR | O_EXCL | O_CREAT, 0666);
 		if (fd != -1)
 			return fd;
 

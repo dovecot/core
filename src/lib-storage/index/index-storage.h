@@ -29,8 +29,6 @@ struct index_mailbox {
         enum mailbox_lock_type lock_type;
 	struct mail_cache_transaction_ctx *trans_ctx;
 
-	mode_t mail_create_mode; /* for maildir */
-
 	struct timeout *autosync_to;
 	struct index_autosync_file *autosync_files;
         struct index_autosync_io *autosync_ios;
