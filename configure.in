@@ -282,11 +282,12 @@ AC_MSG_RESULT($i_cv_struct_iovec)
 
 dnl * Linux compatible mremap()
 AC_MSG_CHECKING([Linux compatible mremap()])
-AC_TRY_RUN([
+AC_TRY_COMPILE([
   #include <unistd.h>
   #define __USE_GNU
   #include <sys/mman.h>
-  int main() { mremap(0, 0, 0, MREMAP_MAYMOVE); }
+], [
+  mremap(0, 0, 0, MREMAP_MAYMOVE);
 ], [
   AC_DEFINE(HAVE_LINUX_MREMAP)
   AC_MSG_RESULT(yes)
@@ -296,9 +297,10 @@ AC_TRY_RUN([
 
 dnl * Linux compatible sendfile()
 AC_MSG_CHECKING([Linux compatible sendfile()])
-AC_TRY_RUN([
+AC_TRY_COMPILE([
   #include <sys/sendfile.h>
-  int main() { sendfile(0, 0, (void *) 0, 0); }
+], [
+  sendfile(0, 0, (void *) 0, 0);
 ], [
   AC_DEFINE(HAVE_LINUX_SENDFILE)
   AC_MSG_RESULT(yes)
@@ -308,11 +310,13 @@ AC_TRY_RUN([
 
 dnl * FreeBSD compatible sendfile()
 AC_MSG_CHECKING([FreeBSD compatible sendfile()])
-AC_TRY_RUN([
+AC_TRY_COMPILE([
   #include <sys/types.h>
   #include <sys/socket.h>
   #include <sys/uio.h>
-  int main() { sendfile(0, 0, 0, 0, (void *) 0, (void *) 0, 0); }
+], [
+  struct sf_hdtr hdtr;
+  sendfile(0, 0, 0, 0, &hdtr, (void *) 0, 0);
 ], [
   AC_DEFINE(HAVE_FREEBSD_SENDFILE)
   AC_MSG_RESULT(yes)
