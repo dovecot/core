@@ -21,7 +21,7 @@ static int tree_set_syscall_error(MailTree *tree, const char *function)
 {
 	i_assert(function != NULL);
 
-	index_set_error(tree->index, "%s failed with tree file %s: %m",
+	index_set_error(tree->index, "%s failed with binary tree file %s: %m",
 			function, tree->filepath);
 	return FALSE;
 }
@@ -33,7 +33,7 @@ int _mail_tree_set_corrupted(MailTree *tree, const char *fmt, ...)
 	va_start(va, fmt);
 	t_push();
 
-	index_set_error(tree->index, "Corrupted tree file %s: %s",
+	index_set_error(tree->index, "Corrupted binary tree file %s: %s",
 			tree->filepath, t_strdup_vprintf(fmt, va));
 
 	t_pop();
@@ -86,7 +86,7 @@ static int mmap_verify(MailTree *tree)
 
 	if (tree->mmap_full_length <
 	    sizeof(MailTreeHeader) + sizeof(MailTreeNode)) {
-		index_set_error(tree->index, "Too small tree file %s",
+		index_set_error(tree->index, "Too small binary tree file %s",
 				tree->filepath);
 		(void)unlink(tree->filepath);
 		return FALSE;
@@ -246,6 +246,9 @@ static int mail_tree_init(MailTree *tree)
 	hdr.indexid = tree->index->indexid;
 	hdr.used_file_size = sizeof(MailTreeHeader) + sizeof(MailTreeNode);
 
+	if (lseek(tree->fd, 0, SEEK_SET) < 0)
+		return tree_set_syscall_error(tree, "lseek()");
+
 	if (write_full(tree->fd, &hdr, sizeof(hdr)) < 0) {
 		if (errno == ENOSPC)
 			tree->index->nodiskspace = TRUE;
@@ -261,7 +264,6 @@ static int mail_tree_init(MailTree *tree)
 	}
 
 	return TRUE;
-
 }
 
 int mail_tree_rebuild(MailTree *tree)

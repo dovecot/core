@@ -446,8 +446,9 @@ rb_delete(MailTree *tree, unsigned int z)
 	else
 		x = node[y].right;
 
-	if (x != RBNULL)
-		node[x].up = node[y].up;
+	/* this may modify RBNULL, which IMHO is a bit nasty,
+	   but rb_delete_fix() requires it to work properly. */
+	node[x].up = node[y].up;
 
 	if (node[y].up == RBNULL) {
 		tree->header->root = x;
@@ -685,7 +686,7 @@ uoff_t mail_tree_lookup_sequence(MailTree *tree, unsigned int seq)
 		if (seq < left_nodes)
 			x = node[x].left;
 		else if (seq > left_nodes) {
-			upleft_nodes = left_nodes;
+			upleft_nodes = left_nodes+1;
 			x = node[x].right;
 		} else {
 			/* found it */
