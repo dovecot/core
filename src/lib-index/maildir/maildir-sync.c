@@ -445,7 +445,8 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
         struct maildir_uidlist *uidlist;
 	struct mail_index_record *rec;
 	struct maildir_hash_rec *hash_rec;
-        struct maildir_uidlist_rec uid_rec;
+	struct maildir_uidlist_rec uid_rec;
+        enum maildir_file_action action;
 	const char *fname, **new_files, *dir;
 	void *orig_key, *orig_value;
 	unsigned int seq, uid, last_uid, i, new_flag;
@@ -487,11 +488,12 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 		if (fname == NULL)
 			return FALSE;
 
-		hash_rec = hash_lookup(ctx->files, fname);
-		if (hash_rec == NULL) {
-			index_set_corrupted(index,
-				"Unexpectedly lost file %s from hash", fname);
-			return FALSE;
+		if (!hash_lookup_full(ctx->files, fname,
+				      &orig_key, &orig_value)) {
+			/* none action */
+			hash_rec = NULL;
+		} else {
+			hash_rec = orig_value;
 		}
 
 		if (uid_rec.uid == uid &&
@@ -502,7 +504,7 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 			return FALSE;
 		}
 
-		if (uid_rec.uid > uid &&
+		if (uid_rec.uid > uid && hash_rec != NULL &&
 		    (ACTION(hash_rec) == MAILDIR_FILE_ACTION_UPDATE_FLAGS ||
 		     ACTION(hash_rec) == MAILDIR_FILE_ACTION_NONE)) {
 			/* it's UID has changed. shouldn't happen. */
@@ -512,13 +514,17 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 				(hash_rec->action & MAILDIR_FILE_FLAG_NEWDIR);
 		}
 
-		switch (ACTION(hash_rec)) {
+		action = hash_rec != NULL ?
+			ACTION(hash_rec) : MAILDIR_FILE_ACTION_NONE;
+		switch (action) {
 		case MAILDIR_FILE_ACTION_EXPUNGE:
 			if (!index->expunge(index, rec, seq, TRUE))
 				return FALSE;
 			seq--;
 			break;
 		case MAILDIR_FILE_ACTION_UPDATE_FLAGS:
+			if (!maildir_update_filename(ctx, rec, orig_key))
+				return FALSE;
 			if (!maildir_update_flags(ctx, rec, seq, fname))
 				return FALSE;
 			break;
@@ -707,8 +713,10 @@ static int maildir_full_sync_init(struct maildir_sync_context *ctx)
 			return FALSE;
 		}
 
-		/* FIXME: wastes memory */
-		hash_insert(ctx->files, p_strdup(ctx->pool, fname), hash_rec);
+		/* WARNING: index must not be modified as long as these
+		   hash keys exist. Modifying might change the mmap base
+		   address. */
+		hash_insert(ctx->files, (void *) fname, hash_rec);
 
 		rec = index->next(index, rec);
 	}
@@ -742,6 +750,14 @@ static int maildir_fix_duplicate(struct mail_index *index,
 	t_pop();
 
 	return ret;
+}
+
+static void uidlist_hash_remove_nones(void *key, void *value, void *context)
+{
+	struct maildir_hash_rec *hash_rec = value;
+
+	if (ACTION(hash_rec) == MAILDIR_FILE_ACTION_NONE)
+		hash_remove(context, key);
 }
 
 static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
@@ -804,23 +820,23 @@ static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
 			hash_rec->action =
 				MAILDIR_FILE_ACTION_UPDATE_CONTENT | newflag;
 
-			/* make sure filename is not invalidated by expunge
-			   later. the file name may have changed also. */
 			hash_insert(ctx->files, p_strdup(ctx->pool, d->d_name),
 				    hash_rec);
 		} else if (strcmp(orig_key, d->d_name) != 0) {
-			/* update file name now. flags later because we don't
-			   know it's sequence number */
 			hash_rec->action =
 				MAILDIR_FILE_ACTION_UPDATE_FLAGS | newflag;
-			if (!maildir_update_filename(ctx, hash_rec->rec,
-						     d->d_name))
-				return FALSE;
+
+			hash_insert(ctx->files, p_strdup(ctx->pool, d->d_name),
+				    hash_rec);
                         ctx->flag_updates = TRUE;
 		} else {
 			hash_rec->action = MAILDIR_FILE_ACTION_NONE | newflag;
 		}
 	} while ((d = readdir(dirp)) != NULL);
+
+	/* remove all none actions. records that are left must not have
+	   any pointers (filename) to index files */
+	hash_foreach(ctx->files, uidlist_hash_remove_nones, ctx->files);
 
 	return TRUE;
 }
@@ -1094,6 +1110,7 @@ static int maildir_full_sync_finish_readonly(struct maildir_sync_context *ctx)
 	struct mail_index *index = ctx->index;
 	struct mail_index_record *rec;
 	struct maildir_hash_rec *hash_rec;
+	void *orig_key, *orig_value;
 	const char *fname;
 	unsigned int seq;
 
@@ -1106,14 +1123,15 @@ static int maildir_full_sync_finish_readonly(struct maildir_sync_context *ctx)
 		if (fname == NULL)
 			return FALSE;
 
-		hash_rec = hash_lookup(ctx->files, fname);
-		if (hash_rec == NULL) {
-			index_set_corrupted(index,
-				"Unexpectedly lost file %s from hash", fname);
-			return FALSE;
-		}
+		if (hash_lookup_full(ctx->files, fname, &orig_key, &orig_value))
+			hash_rec = orig_value;
+		else
+			hash_rec = NULL;
 
-		if (ACTION(hash_rec) == MAILDIR_FILE_ACTION_UPDATE_FLAGS) {
+		if (hash_rec != NULL &&
+		    ACTION(hash_rec) == MAILDIR_FILE_ACTION_UPDATE_FLAGS) {
+			if (!maildir_update_filename(ctx, rec, orig_key))
+				return FALSE;
 			if (!maildir_update_flags(ctx, rec, seq, fname))
 				return FALSE;
 		}
