@@ -271,7 +271,9 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 					    mail_cache_expunge_handler);
 	mail_index_register_sync_handler(index, cache->ext_id,
 					 mail_cache_sync_handler,
-					 cache->file_cache != NULL);
+                                         MAIL_INDEX_SYNC_HANDLER_INDEX |
+					 (cache->file_cache == NULL ? 0 :
+					  MAIL_INDEX_SYNC_HANDLER_VIEW));
 	return cache;
 }
 
