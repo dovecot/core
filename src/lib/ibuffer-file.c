@@ -232,31 +232,31 @@ static void _skip(_IBuffer *buf, uoff_t count)
 	buf->ibuffer.v_offset += count;
 }
 
-static int _seek(_IBuffer *buf, uoff_t v_offset)
+static void _seek(_IBuffer *buf, uoff_t v_offset)
 {
 	uoff_t real_offset;
 	off_t ret;
 
 	real_offset = buf->ibuffer.start_offset + v_offset;
 	if (real_offset > OFF_T_MAX) {
-		buf->ibuffer.buf_errno = EINVAL;
-		return -1;
+		buf->ibuffer.buf_errno = EOVERFLOW;
+		ret = -1;
+	} else {
+		ret = lseek(buf->fd, (off_t)real_offset, SEEK_SET);
+		if (ret < 0)
+			buf->ibuffer.buf_errno = errno;
+		else if (ret != (off_t)real_offset) {
+			buf->ibuffer.buf_errno = EINVAL;
+			ret = -1;
+		}
 	}
 
-	ret = lseek(buf->fd, (off_t)real_offset, SEEK_SET);
-	if (ret < 0) {
-		buf->ibuffer.buf_errno = errno;
-		return -1;
+	if (ret < 0)
+                i_buffer_close(&buf->ibuffer);
+	else {
+		buf->ibuffer.buf_errno = 0;
+		buf->ibuffer.v_offset = v_offset;
 	}
-
-	if (ret != (off_t)real_offset) {
-		buf->ibuffer.buf_errno = EINVAL;
-		return -1;
-	}
-
-	buf->ibuffer.buf_errno = 0;
-	buf->ibuffer.v_offset = v_offset;
-	return 1;
 }
 
 IBuffer *i_buffer_create_file(int fd, Pool pool, size_t max_buffer_size,

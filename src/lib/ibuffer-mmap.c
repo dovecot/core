@@ -172,7 +172,7 @@ static ssize_t _read(_IBuffer *buf)
 	return io_buffer_set_mmaped_pos(buf);
 }
 
-static int _seek(_IBuffer *buf, uoff_t v_offset)
+static void _seek(_IBuffer *buf, uoff_t v_offset)
 {
 	MmapIBuffer *mbuf = (MmapIBuffer *) buf;
 	uoff_t abs_offset;
@@ -190,7 +190,6 @@ static int _seek(_IBuffer *buf, uoff_t v_offset)
 	}
 
 	buf->ibuffer.v_offset = v_offset;
-	return 1;
 }
 
 static void _skip(_IBuffer *buf, uoff_t count)

@@ -83,13 +83,7 @@ static IBuffer *index_msgcache_open_mail(void *context)
 static IBuffer *index_msgcache_inbuf_rewind(IBuffer *inbuf,
 					    void *context __attr_unused__)
 {
-	if (!i_buffer_seek(inbuf, 0)) {
-		i_error("index_msgcache_inbuf_rewind: lseek() failed: %m");
-
-		i_buffer_unref(inbuf);
-		return NULL;
-	}
-
+	i_buffer_seek(inbuf, 0);
 	return inbuf;
 }
 

@@ -637,11 +637,7 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 	if (have_text) {
 		if (inbuf->v_offset != 0) {
 			/* need to rewind back to beginning of headers */
-			if (!i_buffer_seek(inbuf, 0)) {
-				errno = inbuf->buf_errno;
-				i_error("i_buffer_seek() failed: %m");
-				return FALSE;
-			}
+			i_buffer_seek(inbuf, 0);
 		}
 
 		old_limit = inbuf->v_limit;

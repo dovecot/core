@@ -13,7 +13,7 @@ struct __IBuffer {
 /* methods: */
 	ssize_t (*read)(_IBuffer *buf);
 	void (*skip_count)(_IBuffer *buf, uoff_t count);
-	int (*seek)(_IBuffer *buf, uoff_t v_offset);
+	void (*seek)(_IBuffer *buf, uoff_t v_offset);
 
 /* data: */
 	IBuffer ibuffer;

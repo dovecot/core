@@ -135,16 +135,16 @@ void i_buffer_skip(IBuffer *buf, uoff_t count)
 	_buf->skip_count(_buf, count);
 }
 
-int i_buffer_seek(IBuffer *buf, uoff_t v_offset)
+void i_buffer_seek(IBuffer *buf, uoff_t v_offset)
 {
 	_IBuffer *_buf = buf->real_buffer;
 
 	i_assert(v_offset <= buf->v_size);
 
 	if (buf->closed)
-		return -1;
+		return;
 
-	return _buf->seek(_buf, v_offset);
+	_buf->seek(_buf, v_offset);
 }
 
 char *i_buffer_next_line(IBuffer *buf)

@@ -307,8 +307,7 @@ static int fetch_header_from(IBuffer *inbuf, OBuffer *outbuf,
 			uoff_t first_size = ctx.dest_size;
 
 			ctx.outbuf = outbuf;
-			if (!i_buffer_seek(inbuf, start_offset))
-				failed = TRUE;
+			i_buffer_seek(inbuf, start_offset);
 
 			if (!failed &&
 			    !fetch_header_fields(inbuf, section, &ctx))

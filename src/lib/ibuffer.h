@@ -52,9 +52,9 @@ ssize_t i_buffer_read(IBuffer *buf);
 /* Skip forward a number of bytes. Never fails, the next read tells if it
    was successful. */
 void i_buffer_skip(IBuffer *buf, uoff_t count);
-/* Seek to specified position from beginning of file. This works only for
-   files. Returns 1 if successful, -1 if error. */
-int i_buffer_seek(IBuffer *buf, uoff_t v_offset);
+/* Seek to specified position from beginning of file. Never fails, the next
+   read tells if it was successful. This works only for files. */
+void i_buffer_seek(IBuffer *buf, uoff_t v_offset);
 /* Returns the next line from input buffer, or NULL if more data is needed
    to make a full line. NOTE: modifies the data in the buffer for the \0, so
    it works only with ibuffers that allow it (currently only file). */
