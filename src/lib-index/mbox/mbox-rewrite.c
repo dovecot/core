@@ -6,6 +6,7 @@
 #include "write-full.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
+#include "mail-custom-flags.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -145,8 +146,7 @@ static void header_func(MessagePart *part __attr_unused__,
 static int mbox_write_header(MailIndex *index,
 			     MailIndexRecord *rec, unsigned int seq,
 			     IOBuffer *inbuf, IOBuffer *outbuf,
-			     uoff_t end_offset,
-			     const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT])
+			     uoff_t end_offset)
 {
 	/* We need to update fields that define message flags. Standard fields
 	   are stored in Status and X-Status. For custom flags we use
@@ -161,7 +161,7 @@ static int mbox_write_header(MailIndex *index,
 	*/
 	MboxRewriteContext ctx;
 	MessageSize hdr_size;
-	const char *str, *flags;
+	const char *str, *flags, **custom_flags;
 	unsigned int field;
 	int i;
 
@@ -173,14 +173,16 @@ static int mbox_write_header(MailIndex *index,
 		return FALSE;
 	}
 
+	t_push();
+
+	custom_flags = mail_custom_flags_list_get(index->custom_flags);
+
 	/* parse the header, write the fields we don't want to change */
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.outbuf = outbuf;
 	ctx.seq = seq;
 	ctx.msg_flags = rec->msg_flags;
 	ctx.custom_flags = custom_flags;
-
-	t_push();
 
 	message_parse_header(NULL, inbuf, &hdr_size, header_func, &ctx);
 
@@ -250,14 +252,15 @@ static int mbox_write_header(MailIndex *index,
 	}
 	t_pop();
 
+	mail_custom_flags_list_unref(index->custom_flags);
+
 	/* empty line ends headers */
 	(void)io_buffer_send(outbuf, "\n", 1);
 
 	return TRUE;
 }
 
-int mbox_index_rewrite(MailIndex *index,
-		       const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT])
+int mbox_index_rewrite(MailIndex *index)
 {
 	/* Write it to temp file and then rename() to real file.
 	   easier and much safer than moving data inside the file.
@@ -330,7 +333,7 @@ int mbox_index_rewrite(MailIndex *index,
 		/* write header, updating flag fields */
 		offset += rec->header_size;
 		if (!mbox_write_header(index, rec, seq, inbuf, outbuf,
-				       offset, custom_flags)) {
+				       offset)) {
 			failed = TRUE;
 			break;
 		}

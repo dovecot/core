@@ -5,15 +5,16 @@
 #include "mail-index.h"
 
 typedef struct {
+	MailIndex *index;
 	MailFlags flags;
+	const char **custom_flags;
 	MD5Context md5;
 	int received;
-        const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT];
 } MboxHeaderContext;
 
 MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path);
 
-void mbox_header_init_context(MboxHeaderContext *ctx);
+void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index);
 void mbox_header_func(MessagePart *part __attr_unused__,
 		      const char *name, unsigned int name_len,
 		      const char *value, unsigned int value_len,
@@ -36,7 +37,6 @@ int mbox_index_append(MailIndex *index, IOBuffer *inbuf);
 time_t mbox_from_parse_date(const char *msg, unsigned int size);
 const char *mbox_from_create(const char *sender, time_t time);
 
-int mbox_index_rewrite(MailIndex *index,
-		       const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT]);
+int mbox_index_rewrite(MailIndex *index);
 
 #endif

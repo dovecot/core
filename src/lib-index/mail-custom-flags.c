@@ -460,8 +460,10 @@ static int get_flag_index(MailCustomFlags *mcf, const char *flag)
 
 	/* unlock + write lock, don't directly change from read -> write lock
 	   to prevent deadlocking */
-	if (!lock_file(mcf, F_UNLCK) || !lock_file(mcf, F_WRLCK))
-		return -1;
+	if (mcf->lock_type != F_WRLCK) {
+		if (!lock_file(mcf, F_UNLCK) || !lock_file(mcf, F_WRLCK))
+			return -1;
+	}
 
 	/* new flag, add it. first find the first free flag, note that
 	   unlock+lock might have just changed it. */
@@ -489,6 +491,8 @@ int mail_custom_flags_fix_list(MailCustomFlags *mcf, MailFlags *flags,
 {
 	MailFlags oldflags, flag;
 	int i, idx;
+
+	i_assert(mcf->custom_flags_refcount == 0);
 
 	if ((*flags & MAIL_CUSTOM_FLAGS_MASK) == 0)
 		return 1;

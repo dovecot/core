@@ -134,7 +134,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	   from Status and X-Status fields. temporarily limit the buffer size
 	   so the message body is parsed properly (FIXME: does this have
 	   side effects?) */
-	mbox_header_init_context(&ctx);
+	mbox_header_init_context(&ctx, index);
 
         old_size = inbuf->size;
 	inbuf->size = stop_offset;

@@ -132,7 +132,7 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 
 	/* get the MD5 sum of fixed headers and the current message flags
 	   in Status and X-Status fields */
-        mbox_header_init_context(&ctx);
+        mbox_header_init_context(&ctx, index);
 	message_parse_header(NULL, inbuf, &hdr_size, mbox_header_func, &ctx);
 	md5_final(&ctx.md5, current_digest);
 

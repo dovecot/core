@@ -5,13 +5,17 @@
 #include "rfc822-tokenize.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
+#include "mail-custom-flags.h"
 
 static MailIndex mbox_index;
 
-void mbox_header_init_context(MboxHeaderContext *ctx)
+void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index)
 {
 	memset(ctx, 0, sizeof(MboxHeaderContext));
 	md5_init(&ctx->md5);
+
+	ctx->index = index;
+	ctx->custom_flags = mail_custom_flags_list_get(index->custom_flags);
 }
 
 static MailFlags mbox_get_status_flags(const char *value, unsigned int len)
@@ -65,11 +69,33 @@ mbox_get_keyword_flags(const char *value, unsigned int len,
 	return flags;
 }
 
-static void
-mbox_get_custom_flags_list(const char *value, unsigned int len,
-			   const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT])
+static void mbox_parse_imapbase(const char *value, unsigned int len,
+				MboxHeaderContext *ctx)
 {
+	unsigned int i, spaces;
+
+	/* skip <uid validity> and <last uid> fields */
+	spaces = 0;
+	for (i = 0; i < len; i++) {
+		if (value[i] == ' ' && (i == 0 || value[i-1] != ' ')) {
+			if (++spaces == 2)
+				break;
+		}
+	}
+
+	while (i < len && value[i] == ' ') i++;
+
+	if (i == len)
+		return;
+
+	/* we're at the 3rd field now, which begins the list of custom flags */
+
+
 	/* FIXME */
+	mail_custom_flags_list_unref(ctx->index->custom_flags);
+
+	ctx->custom_flags =
+		mail_custom_flags_list_get(ctx->index->custom_flags);
 }
 
 void mbox_header_func(MessagePart *part __attr_unused__,
@@ -140,8 +166,7 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 		} else if (name_len == 10 &&
 			   strncasecmp(name, "X-IMAPbase", 10) == 0) {
 			/* update list of custom message flags */
-			mbox_get_custom_flags_list(value, value_len,
-						   ctx->custom_flags);
+			mbox_parse_imapbase(value, value_len, ctx);
 		}
 		break;
 	}
