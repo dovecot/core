@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mail-index.h"
+#include "mail-index-util.h"
 #include "index-storage.h"
 
 IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
@@ -59,6 +60,7 @@ int mail_storage_set_index_error(IndexMailbox *ibox)
 	ibox->box.inconsistent =
 		ibox->index->is_inconsistency_error(ibox->index);
 	mail_storage_set_internal_error(ibox->box.storage);
+	index_reset_error(ibox->index);
 	return FALSE;
 }
 
