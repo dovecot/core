@@ -147,6 +147,7 @@ static int find_wanted_headers(struct mail_cache *cache,
 	if (wanted_headers == NULL || *wanted_headers == NULL)
 		return -1;
 
+	t_push();
 	wanted_headers = sort_array(wanted_headers);
 
 	ret = -1;
@@ -167,11 +168,12 @@ static int find_wanted_headers(struct mail_cache *cache,
 		}
 
 		if (*tmp != NULL)
-			return ret;
+			break;
 
 		/* find the minimum matching header number */
 		ret = i;
 	}
+	t_pop();
 
 	return ret;
 }
@@ -756,7 +758,11 @@ void index_mail_headers_close(struct index_mail *mail)
 	idx = find_wanted_headers(mail->ibox->index->cache, headers);
 	if (idx >= 0) {
 		/* all headers found */
-                i_assert(idx == mail->data.header_save_idx);
+		if (idx != mail->data.header_save_idx) {
+			mail_cache_set_corrupted(mail->ibox->index->cache,
+				"Duplicated header names list (%d and %d)",
+				idx, mail->data.header_save_idx);
+		}
 	} else {
 		/* there's some new headers */
 		idx = find_unused_header_idx(mail->ibox->index->cache);

@@ -1325,21 +1325,15 @@ const char *const *mail_cache_get_header_fields(struct mail_cache *cache,
 	return cache->split_headers[idx];
 }
 
-int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
-				 unsigned int idx, const char *const headers[])
+static const char *write_header_string(const char *const headers[],
+				       size_t *size_r)
 {
-	struct mail_cache *cache = ctx->cache;
-	uint32_t offset, update_offset, size;
 	buffer_t *buffer;
-
-	i_assert(idx < MAIL_CACHE_HEADERS_COUNT);
-	i_assert(idx >= ctx->next_unused_header_lowwater);
-	i_assert(offset_to_uint32(cache->header->header_offsets[idx]) == 0);
-
-	t_push();
+	size_t size;
 
 	buffer = buffer_create_dynamic(pool_datastack_create(),
 				       512, (size_t)-1);
+
 	while (*headers != NULL) {
 		if (buffer_get_used_size(buffer) != 0)
 			buffer_append(buffer, "\n", 1);
@@ -1353,11 +1347,32 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 		buffer_append(buffer, null4, 4 - (size & 3));
 		size += 4 - (size & 3);
 	}
+	*size_r = size;
+	return buffer_get_data(buffer, NULL);
+}
+
+int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
+				 unsigned int idx, const char *const headers[])
+{
+	struct mail_cache *cache = ctx->cache;
+	uint32_t offset, update_offset, size;
+	const char *header_str;
+
+	i_assert(idx < MAIL_CACHE_HEADERS_COUNT);
+	i_assert(idx >= ctx->next_unused_header_lowwater);
+	i_assert(offset_to_uint32(cache->header->header_offsets[idx]) == 0);
+
+	t_push();
+
+	header_str = write_header_string(headers, &size);
+	i_assert(idx == 0 ||
+		 strcmp(mail_cache_get_header_fields_str(cache, idx-1),
+			header_str) != 0);
 
 	offset = mail_cache_append_space(ctx, size + sizeof(uint32_t));
 	if (offset != 0) {
 		memcpy((char *) cache->mmap_base + offset + sizeof(uint32_t),
-		       buffer_get_data(buffer, NULL), size);
+		       header_str, size);
 
 		size = uint32_to_nbo(size);
 		memcpy((char *) cache->mmap_base + offset,
@@ -1365,8 +1380,7 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 
 		/* update cached headers */
 		cache->split_offsets[idx] = cache->header->header_offsets[idx];
-		cache->split_headers[idx] =
-			split_header(cache, buffer_get_data(buffer, NULL));
+		cache->split_headers[idx] = split_header(cache, header_str);
 
 		/* mark used-bit to be updated later. not really needed for
 		   read-safety, but if transaction get rolled back we can't let
