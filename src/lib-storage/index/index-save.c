@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 static int write_with_crlf(int fd, const unsigned char *data,
-			   size_t size, unsigned int *last_cr)
+			   size_t size, int *last_cr)
 {
 	ssize_t i, cr;
 

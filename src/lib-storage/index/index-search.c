@@ -484,7 +484,7 @@ static void search_arg_match_data(IOBuffer *inbuf, uoff_t max_size,
 	   for block size - (strlen(largest_searchword)-1) and continue. */
 	while (io_buffer_read_data_blocking(inbuf, &data, &size,
 					    max_searchword_len-1) > 0) {
-		ctx.msg = data;
+		ctx.msg = (char *) data;
 		ctx.size = size;
 		mail_search_args_foreach(args, search_func, &ctx);
 		io_buffer_skip(inbuf, size - (max_searchword_len-1));
@@ -492,7 +492,7 @@ static void search_arg_match_data(IOBuffer *inbuf, uoff_t max_size,
 
 	if (size > 0) {
 		/* last block */
-		ctx.msg = data;
+		ctx.msg = (char *) data;
 		ctx.size = size;
 		mail_search_args_foreach(args, search_func, &ctx);
 		io_buffer_skip(inbuf, size);

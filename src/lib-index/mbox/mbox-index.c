@@ -325,7 +325,8 @@ static int mbox_is_valid_from(IOBuffer *inbuf, size_t startpos)
 			if (msg[i] == '\n') {
 				msg += startpos;
 				i -= startpos;
-				return mbox_from_parse_date(msg, size) != 0;
+				return mbox_from_parse_date((char *) msg,
+							    size) != 0;
 			}
 		}
 	}
