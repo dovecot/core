@@ -167,6 +167,7 @@ char *i_stream_next_line(IStream *stream)
 		return NULL;
 	}
 
+	/* @UNSAFE */
 	ret_buf = NULL;
 	for (i = _stream->cr_lookup_pos; i < _stream->pos; i++) {
 		if (_stream->buffer[i] == 10) {

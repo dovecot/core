@@ -32,9 +32,7 @@ typedef struct {
 	CharsetTranslation *translation;
 
 	Buffer *decode_buf;
-
-	size_t *matches;
-	ssize_t match_count;
+	Buffer *match_buf;
 
 	char *content_type;
 	char *content_charset;
@@ -156,30 +154,31 @@ static int message_search_header(PartSearchContext *ctx, IStream *input)
 static int message_search_decoded_block(PartSearchContext *ctx, Buffer *block)
 {
 	const unsigned char *p, *end, *key;
-	size_t key_len, block_size;
+	size_t key_len, block_size, *matches, match_count, value;
 	ssize_t i;
 
 	key = (const unsigned char *) ctx->body_ctx->key;
 	key_len = ctx->body_ctx->key_len;
 
+	matches = buffer_get_modifyable_data(ctx->match_buf, &match_count);
+	match_count /= sizeof(size_t);
+
 	p = buffer_get_data(block, &block_size);
 	end = p + block_size;
 	for (; p != end; p++) {
-		for (i = ctx->match_count-1; i >= 0; i--) {
-			if (key[ctx->matches[i]] == *p) {
-				if (++ctx->matches[i] == key_len) {
+		for (i = match_count-1; i >= 0; i--) {
+			if (key[matches[i]] == *p) {
+				if (++matches[i] == key_len) {
 					/* full match */
 					p++;
 					return TRUE;
 				}
 			} else {
 				/* non-match */
-				ctx->match_count--;
-				if (i != ctx->match_count) {
-					memmove(ctx->matches + i,
-						ctx->matches + i + 1,
-						ctx->match_count - i);
-				}
+				buffer_delete(ctx->match_buf,
+					      i * sizeof(size_t),
+					      sizeof(size_t));
+				match_count--;
 			}
 		}
 
@@ -190,8 +189,9 @@ static int message_search_decoded_block(PartSearchContext *ctx, Buffer *block)
 				return TRUE;
 			}
 
-			i_assert((size_t)ctx->match_count < key_len);
-			ctx->matches[ctx->match_count++] = 1;
+			value = 1;
+			buffer_append(ctx->match_buf, &value, sizeof(value));
+			match_count++;
 		}
 	}
 
@@ -284,9 +284,9 @@ static int message_search_body(PartSearchContext *ctx, IStream *input,
 		ctx->translation = charset_to_utf8_begin("ascii", NULL);
 
 	ctx->decode_buf = buffer_create_static(data_stack_pool, 256);
-
-	ctx->match_count = 0;
-	ctx->matches = t_malloc(sizeof(size_t) * ctx->body_ctx->key_len);
+	ctx->match_buf = buffer_create_static_hard(data_stack_pool,
+						   sizeof(size_t) *
+						   ctx->body_ctx->key_len);
 
 	i_stream_skip(input, part->physical_pos +
 		      part->header_size.physical_size - input->v_offset);

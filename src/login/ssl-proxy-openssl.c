@@ -135,14 +135,15 @@ static const char *ssl_last_error(void)
 {
 	unsigned long err;
 	char *buf;
+	size_t err_size = 256;
 
 	err = ERR_get_error();
 	if (err == 0)
 		return strerror(errno);
 
-	buf = t_malloc(256);
-	buf[255] = '\0';
-	ERR_error_string_n(err, buf, 255);
+	buf = t_malloc(err_size);
+	buf[err_size-1] = '\0';
+	ERR_error_string_n(err, buf, err_size-1);
 	return buf;
 }
 

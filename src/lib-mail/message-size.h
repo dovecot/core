@@ -18,6 +18,6 @@ void message_skip_virtual(IStream *input, uoff_t virtual_skip,
 			  MessageSize *msg_size, int *cr_skipped);
 
 /* Sum contents of src into dest. */
-void message_size_add(MessageSize *dest, MessageSize *src);
+void message_size_add(MessageSize *dest, const MessageSize *src);
 
 #endif

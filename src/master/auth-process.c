@@ -163,7 +163,8 @@ static void auth_process_destroy(AuthProcess *p)
 
 	o_stream_unref(p->output);
 	io_remove(p->io);
-	(void)close(p->fd);
+	if (close(p->fd) < 0)
+		i_error("close(auth) failed: %m");
 	i_free(p->name);
 	i_free(p);
 }
@@ -205,6 +206,7 @@ static pid_t create_auth_process(AuthConfig *config)
 	path = t_strconcat(set_login_dir, "/", config->name, NULL);
 	(void)unlink(path);
         (void)umask(0177); /* we want 0600 mode for the socket */
+
 	listen_fd = net_listen_unix(path);
 	if (listen_fd < 0)
 		i_fatal("Can't listen in UNIX socket %s: %m", path);
@@ -212,11 +214,14 @@ static pid_t create_auth_process(AuthConfig *config)
 	i_assert(listen_fd > 2);
 
 	/* set correct permissions */
-	(void)chown(path, set_login_uid, set_login_gid);
+	if (chown(path, set_login_uid, set_login_gid) < 0) {
+		i_fatal("login: chown(%s, %d, %d) failed: %m",
+			path, (int)set_login_uid, (int)set_login_gid);
+	}
 
 	/* move master communication handle to 0 */
 	if (dup2(fd[1], 0) < 0)
-		i_fatal("login: dup2() failed: %m");
+		i_fatal("login: dup2(0) failed: %m");
 
 	(void)close(fd[0]);
 	(void)close(fd[1]);
@@ -224,9 +229,9 @@ static pid_t create_auth_process(AuthConfig *config)
 	/* set /dev/null handle into 1 and 2, so if something is printed into
 	   stdout/stderr it can't go anywhere where it could cause harm */
 	if (dup2(null_fd, 1) < 0)
-		i_fatal("login: dup2() failed: %m");
+		i_fatal("login: dup2(1) failed: %m");
 	if (dup2(null_fd, 2) < 0)
-		i_fatal("login: dup2() failed: %m");
+		i_fatal("login: dup2(2) failed: %m");
 
 	clean_child_process();
 

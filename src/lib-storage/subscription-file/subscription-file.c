@@ -74,6 +74,7 @@ static int subscription_append(MailStorage *storage, int fd, const char *name,
 	if (lseek(fd, 0, SEEK_END) < 0)
 		return subsfile_set_syscall_error(storage, "lseek()", path);
 
+	/* @UNSAFE */
 	buf = t_buffer_get(len+2);
 	buf[0] = '\n';
 	memcpy(buf+1, name, len);

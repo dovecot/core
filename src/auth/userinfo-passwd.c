@@ -31,7 +31,6 @@ static int passwd_verify_plain(const char *user, const char *password,
 			       AuthCookieReplyData *reply)
 {
 	struct passwd *pw;
-	char *passdup;
 	int result;
 
 	pw = getpwnam(user);
@@ -39,11 +38,9 @@ static int passwd_verify_plain(const char *user, const char *password,
 		return FALSE;
 
 	/* check if the password is valid */
-        passdup = t_strdup_noconst(password);
-	result = strcmp(mycrypt(passdup, pw->pw_passwd), pw->pw_passwd) == 0;
+	result = strcmp(mycrypt(password, pw->pw_passwd), pw->pw_passwd) == 0;
 
 	/* clear the passwords from memory */
-	safe_memset(passdup, 0, strlen(passdup));
 	safe_memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
 
 	if (!result)

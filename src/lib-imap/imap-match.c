@@ -21,33 +21,34 @@ struct _ImapMatchGlob {
 static const char inbox[] = "INBOX";
 #define INBOXLEN (sizeof(inbox) - 1)
 
-ImapMatchGlob *imap_match_init(const char *str, int inboxcase, char separator)
+ImapMatchGlob *imap_match_init(const char *mask, int inboxcase, char separator)
 {
 	ImapMatchGlob *glob;
 	const char *p, *inboxp;
 	char *dst;
 
 	/* +1 from struct */
-	glob = t_malloc(sizeof(ImapMatchGlob) + strlen(str));
+	glob = t_malloc(sizeof(ImapMatchGlob) + strlen(mask));
 	glob->sep_char = separator;
 
+	/* @UNSAFE: compress the mask */
 	dst = glob->mask;
-	while (*str != '\0') {
-		if (*str == '*' || *str == '%') {
+	while (*mask != '\0') {
+		if (*mask == '*' || *mask == '%') {
 			/* remove duplicate hierarchy wildcards */
-			while (*str == '%') str++;
+			while (*mask == '%') mask++;
 
 			/* "%*" -> "*" */
-			if (*str == '*') {
+			if (*mask == '*') {
 				/* remove duplicate wildcards */
-				while (*str == '*' || *str == '%')
-					str++;
+				while (*mask == '*' || *mask == '%')
+					mask++;
 				*dst++ = '*';
 			} else {
 				*dst++ = '%';
 			}
 		} else {
-			*dst++ = *str++;
+			*dst++ = *mask++;
 		}
 	}
 	*dst++ = '\0';

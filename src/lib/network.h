@@ -89,8 +89,8 @@ int net_hosterror_notfound(int error);
 /* Get socket address/port */
 int net_getsockname(int fd, IPADDR *addr, unsigned int *port);
 
-/* IPADDR -> char* translation. `host' must be at least MAX_IP_LEN bytes */
-int net_ip2host(const IPADDR *ip, char *host);
+/* Returns IPADDR as string, or NULL if ip is invalid. */
+const char *net_ip2host(const IPADDR *ip);
 /* char* -> IPADDR translation. */
 int net_host2ip(const char *host, IPADDR *ip);
 

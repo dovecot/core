@@ -457,6 +457,8 @@ void settings_read(const char *path)
 		}
 		linenum++;
 
+		/* @UNSAFE: line is modified */
+
 		/* skip whitespace */
 		while (IS_WHITE(*line))
 			line++;

@@ -24,6 +24,8 @@
     Boston, MA 02111-1307, USA.
 */
 
+/* @UNSAFE: whole file */
+
 #include "lib.h"
 #include "strfuncs.h"
 

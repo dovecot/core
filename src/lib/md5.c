@@ -186,6 +186,7 @@ void md5_init(MD5Context *ctx)
 
 void md5_update(MD5Context *ctx, const void *data, size_t size)
 {
+	/* @UNSAFE */
 	MD5_u32plus saved_lo;
 	unsigned long used, free;
 
@@ -220,6 +221,7 @@ void md5_update(MD5Context *ctx, const void *data, size_t size)
 
 void md5_final(MD5Context *ctx, unsigned char result[16])
 {
+	/* @UNSAFE */
 	unsigned long used, free;
 
 	used = ctx->lo & 0x3f;

@@ -228,7 +228,8 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 			   do it only if the file isn't open already, since
 			   this takes more CPU than parsing message headers. */
 			value = cache->iface->get_cached_field(
-				IMAP_CACHE_BODYSTRUCTURE, cache->context);
+						IMAP_CACHE_BODYSTRUCTURE,
+						cache->context);
 			if (value != NULL) {
 				value = imap_body_parse_from_bodystructure(
 									value);

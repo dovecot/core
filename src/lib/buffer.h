@@ -29,6 +29,12 @@ size_t buffer_append(Buffer *buf, const void *data, size_t data_size);
 /* Append character to buffer, returns 1 if written, 0 if not. */
 size_t buffer_append_c(Buffer *buf, char chr);
 
+/* Insert data to buffer, returns number of bytes inserted. */
+size_t buffer_insert(Buffer *buf, size_t pos,
+		     const void *data, size_t data_size);
+/* Delete data from buffer, returns number of bytes deleted. */
+size_t buffer_delete(Buffer *buf, size_t pos, size_t size);
+
 /* Copy data from buffer to another. The buffers may be same in which case
    it's internal copying, possibly with overlapping positions (ie. memmove()
    like functionality). copy_size may be set to (size_t)-1 to copy the rest of

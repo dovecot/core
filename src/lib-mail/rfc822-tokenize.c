@@ -23,6 +23,7 @@ static Rfc822Token *alloc_token(Rfc822Token **tokens, int *pos, int type)
 {
 	Rfc822Token *token;
 
+	/* @UNSAFE */
 	if (*pos+1 >= INITIAL_COUNT)
 		*tokens = t_buffer_reget_type(*tokens, Rfc822Token, *pos + 2);
 
@@ -180,6 +181,7 @@ const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 	if (tokens_count != NULL)
 		*tokens_count = pos;
 
+	/* @UNSAFE */
 	first_token[pos++].token = 0;
 	t_buffer_alloc(sizeof(Rfc822Token) * pos);
 	return first_token;
@@ -187,6 +189,7 @@ const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 
 const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count)
 {
+	/* @UNSAFE */
 	char *buf;
 	size_t i, len, buf_size;
 	int last_atom;
@@ -249,6 +252,7 @@ const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count)
 const char *rfc822_tokens_get_value_quoted(const Rfc822Token *tokens,
 					   int count)
 {
+	/* @UNSAFE */
 	char *buf;
 	size_t len, buf_size;
 	int last_atom;

@@ -20,7 +20,6 @@ static int shadow_verify_plain(const char *user, const char *password,
 {
 	struct passwd *pw;
 	struct spwd *spw;
-	char *passdup;
 	int result;
 
 	spw = getspnam(user);
@@ -28,11 +27,9 @@ static int shadow_verify_plain(const char *user, const char *password,
 		return FALSE;
 
 	/* check if the password is valid */
-        passdup = t_strdup_noconst(password);
-	result = strcmp(mycrypt(passdup, spw->sp_pwdp), spw->sp_pwdp) == 0;
+	result = strcmp(mycrypt(password, spw->sp_pwdp), spw->sp_pwdp) == 0;
 
 	/* clear the passwords from memory */
-	safe_memset(passdup, 0, strlen(passdup));
 	safe_memset(spw->sp_pwdp, 0, strlen(spw->sp_pwdp));
 
 	if (!result)

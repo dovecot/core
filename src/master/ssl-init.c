@@ -32,7 +32,7 @@ static void generate_parameters_file(const char *fname)
 	_ssl_generate_parameters(fd, temp_fname);
 
 	if (close(fd) < 0)
-		i_fatal("close() failed for %s: %m", temp_fname);
+		i_fatal("close(%s) failed: %m", temp_fname);
 
 	if (rename(temp_fname, fname) < 0)
 		i_fatal("rename(%s, %s) failed: %m", temp_fname, fname);

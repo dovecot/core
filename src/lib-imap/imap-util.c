@@ -63,7 +63,7 @@ const char *imap_escape(const char *str)
 	if (esc == 0)
 		return str;
 
-	/* escape them */
+	/* @UNSAFE: escape them */
 	p = ret = t_malloc(i + esc + 1);
 	for (; *str != '\0'; str++) {
 		if (IS_ESCAPED_CHAR(str[i]))

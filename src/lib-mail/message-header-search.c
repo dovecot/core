@@ -18,8 +18,7 @@ struct _HeaderSearchContext {
 	size_t key_len;
 	char *key_charset;
 
-	size_t *matches; /* size of strlen(key) */
-	ssize_t match_count;
+	Buffer *match_buf;
 
 	unsigned int found:1;
 	unsigned int last_newline:1;
@@ -48,7 +47,6 @@ message_header_search_init(Pool pool, const char *key, const char *charset,
 
 	if (key == NULL) {
 		/* invalid key */
-		t_pop();
 		return NULL;
 	}
 
@@ -66,7 +64,8 @@ message_header_search_init(Pool pool, const char *key, const char *charset,
 	}
 
 	i_assert(ctx->key_len <= SSIZE_T_MAX/sizeof(size_t));
-	ctx->matches = p_new(pool, size_t, ctx->key_len);
+	ctx->match_buf = buffer_create_static_hard(pool, sizeof(size_t) *
+						   ctx->key_len);
 	return ctx;
 }
 
@@ -74,10 +73,11 @@ void message_header_search_free(HeaderSearchContext *ctx)
 {
 	Pool pool;
 
+	buffer_free(ctx->match_buf);
+
 	pool = ctx->pool;
 	p_free(pool, ctx->key);
 	p_free(pool, ctx->key_charset);
-	p_free(pool, ctx->matches);
 	p_free(pool, ctx);
 }
 
@@ -112,10 +112,13 @@ static void search_with_charset(const unsigned char *data, size_t size,
 static void search_loop(const unsigned char *data, size_t size,
 			HeaderSearchContext *ctx)
 {
-	size_t pos;
+	size_t pos, *matches, match_count, value;
 	ssize_t i;
 	unsigned char chr;
 	int last_newline;
+
+	matches = buffer_get_modifyable_data(ctx->match_buf, &match_count);
+	match_count /= sizeof(size_t);
 
 	last_newline = ctx->last_newline;
 	for (pos = 0; pos < size; pos++) {
@@ -137,7 +140,8 @@ static void search_loop(const unsigned char *data, size_t size,
 		if (last_newline && !ctx->submatch) {
 			if (!IS_LWSP(chr)) {
 				/* not a long header, reset matches */
-				ctx->match_count = 0;
+				buffer_set_used_size(ctx->match_buf, 0);
+				match_count = 0;
 			}
 			chr = ' ';
 		}
@@ -146,21 +150,19 @@ static void search_loop(const unsigned char *data, size_t size,
 		if (chr == '\r' || chr == '\n')
 			continue;
 
-		for (i = ctx->match_count-1; i >= 0; i--) {
-			if (ctx->key[ctx->matches[i]] == chr) {
-				if (++ctx->matches[i] == ctx->key_len) {
+		for (i = match_count-1; i >= 0; i--) {
+			if (ctx->key[matches[i]] == chr) {
+				if (++matches[i] == ctx->key_len) {
 					/* full match */
 					ctx->found = TRUE;
 					return;
 				}
 			} else {
 				/* non-match */
-				ctx->match_count--;
-				if (i != ctx->match_count) {
-					memmove(ctx->matches + i,
-						ctx->matches + i + 1,
-						ctx->match_count - i);
-				}
+				buffer_delete(ctx->match_buf,
+					      i * sizeof(size_t),
+					      sizeof(size_t));
+				match_count--;
 			}
 		}
 
@@ -170,8 +172,10 @@ static void search_loop(const unsigned char *data, size_t size,
 				ctx->found = TRUE;
 				break;
 			}
-			i_assert((size_t)ctx->match_count < ctx->key_len);
-			ctx->matches[ctx->match_count++] = 1;
+
+			value = 1;
+			buffer_append(ctx->match_buf, &value, sizeof(value));
+			match_count++;
 		}
 	}
 
@@ -205,6 +209,6 @@ int message_header_search(const unsigned char *header_block, size_t size,
 
 void message_header_search_reset(HeaderSearchContext *ctx)
 {
-	ctx->match_count = 0;
+	buffer_set_used_size(ctx->match_buf, 0);
 	ctx->found = FALSE;
 }

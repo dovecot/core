@@ -164,9 +164,12 @@ static IPADDR *resolve_ip(const char *name)
 		return ip;
 	}
 
+	/* Return the first IP if there happens to be multiple. */
 	ret = net_gethostbyname(name, &ip, &ips_count);
-	if (ret != 0)
-		i_fatal("Can't resolve address: %s", name);
+	if (ret != 0) {
+		i_fatal("Can't resolve address %s: %s",
+			name, net_gethosterror(ret));
+	}
 
 	if (ips_count < 1)
 		i_fatal("No IPs for address: %s", name);
@@ -245,9 +248,12 @@ static void main_deinit(void)
 
 	timeout_remove(to);
 
-	(void)close(null_fd);
-	(void)close(imap_fd);
-	(void)close(imaps_fd);
+	if (close(null_fd) < 0)
+		i_error("close(null_fd) failed: %m");
+	if (close(imap_fd) < 0)
+		i_error("close(imap_fd) failed: %m");
+	if (close(imaps_fd) < 0)
+		i_error("close(imaps_fd) failed: %m");
 
 	hash_destroy(pids);
 	closelog();

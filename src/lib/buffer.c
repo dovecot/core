@@ -21,6 +21,8 @@
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/* @UNSAFE: whole file */
+
 #include "lib.h"
 #include "buffer.h"
 
@@ -210,6 +212,58 @@ size_t buffer_append_c(Buffer *buf, char chr)
 	if (data_size == 1)
 		buf->w_buffer[pos] = chr;
 	return data_size;
+}
+
+size_t buffer_insert(Buffer *buf, size_t pos,
+		     const void *data, size_t data_size)
+{
+	size_t move_size, size;
+
+	move_size = buf->used - buf->start_pos;
+	i_assert(pos <= move_size);
+	move_size -= pos;
+
+	if (data_size < (size_t)-1 - move_size)
+		size = data_size + move_size;
+	else
+		size = (size_t)-1;
+
+	if (!buffer_check_write(buf, &pos, &size, TRUE))
+		return 0;
+
+	i_assert(size >= move_size);
+	size -= move_size;
+
+	memmove(buf->w_buffer + pos + size, buf->w_buffer + pos, move_size);
+	memcpy(buf->w_buffer + pos, data, size);
+	return size;
+}
+
+size_t buffer_delete(Buffer *buf, size_t pos, size_t size)
+{
+	size_t end_size;
+
+	if (buf->readonly)
+		return 0;
+
+	end_size = buf->used - buf->start_pos;
+	i_assert(pos <= end_size);
+	end_size -= pos;
+
+	if (size < end_size) {
+		/* delete from between */
+		memmove(buf->w_buffer + buf->start_pos + pos,
+			buf->w_buffer + buf->start_pos + pos + size,
+			end_size - size);
+		end_size = size;
+	} else {
+		/* delete the rest of the buffer */
+		size = end_size;
+		end_size = 0;
+	}
+
+	buffer_set_used_size(buf, pos + end_size);
+	return size;
 }
 
 size_t buffer_copy(Buffer *dest, size_t dest_pos,

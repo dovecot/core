@@ -79,7 +79,8 @@ static void auth_callback(AuthCookieReplyData *cookie_reply, void *context)
 	if (o_stream_send(process->output, &reply, sizeof(reply)) < 0)
 		login_process_destroy(process);
 
-	(void)close(request->fd);
+	if (close(request->fd) < 0)
+		i_error("close(imap client) failed: %m");
 	login_process_unref(process);
 	i_free(request);
 }
@@ -212,7 +213,8 @@ static void login_process_destroy(LoginProcess *p)
 
 	o_stream_close(p->output);
 	io_remove(p->io);
-	(void)close(p->fd);
+	if (close(p->fd) < 0)
+		i_error("close(login) failed: %m");
 
 	if (!p->listening)
 		login_process_remove_from_lists(p);
@@ -270,17 +272,17 @@ static pid_t create_login_process(void)
 
 	/* move communication handle */
 	if (dup2(fd[1], LOGIN_MASTER_SOCKET_FD) < 0)
-		i_fatal("login: dup2() failed: %m");
+		i_fatal("login: dup2(master) failed: %m");
 	fd_close_on_exec(LOGIN_MASTER_SOCKET_FD, FALSE);
 
 	/* move the listen handle */
 	if (dup2(imap_fd, LOGIN_IMAP_LISTEN_FD) < 0)
-		i_fatal("login: dup2() failed: %m");
+		i_fatal("login: dup2(imap) failed: %m");
 	fd_close_on_exec(LOGIN_IMAP_LISTEN_FD, FALSE);
 
 	/* move the SSL listen handle */
 	if (dup2(imaps_fd, LOGIN_IMAPS_LISTEN_FD) < 0)
-		i_fatal("login: dup2() failed: %m");
+		i_fatal("login: dup2(imaps) failed: %m");
 	fd_close_on_exec(LOGIN_IMAPS_LISTEN_FD, FALSE);
 
 	/* imap_fd and imaps_fd are closed by clean_child_process() */
@@ -297,10 +299,8 @@ static pid_t create_login_process(void)
 
 	if (!set_login_chroot) {
 		/* no chrooting, but still change to the directory */
-		if (chdir(set_login_dir) < 0) {
-			i_fatal("chdir(%s) failed: %m",
-				set_login_dir);
-		}
+		if (chdir(set_login_dir) < 0)
+			i_fatal("chdir(%s) failed: %m", set_login_dir);
 	}
 
 	if (!set_ssl_disable) {

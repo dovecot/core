@@ -109,9 +109,10 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip,
 				      const char *login_tag)
 {
 	static char *argv[] = { NULL, NULL, NULL };
-	char host[MAX_IP_LEN], title[1024];
+	const char *host;
+	char title[1024];
 	pid_t pid;
-	int i, j, err;
+	int i, err;
 
 	if (imap_process_count == set_max_imap_processes) {
 		i_error("Maximum number of imap processes exceeded");
@@ -134,7 +135,8 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip,
 		/* master */
 		imap_process_count++;
 		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_IMAP);
-		(void)close(socket);
+		if (close(socket) < 0)
+			i_error("close(imap client) failed: %m");
 		return MASTER_RESULT_SUCCESS;
 	}
 
@@ -142,15 +144,12 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip,
 
 	/* move the imap socket into stdin, stdout and stderr fds */
 	for (i = 0; i < 3; i++) {
-		if (dup2(socket, i) < 0) {
-			err = errno;
-			for (j = 0; j < i; j++)
-				(void)close(j);
-			(void)close(socket);
-			i_fatal("imap: dup2() failed: %m");
-		}
+		if (dup2(socket, i) < 0)
+			i_fatal("imap: dup2(%d) failed: %m", i);
 	}
-	(void)close(socket);
+
+	if (close(socket) < 0)
+		i_error("imap: close(imap client) failed: %m");
 
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
@@ -197,7 +196,11 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip,
 	env_put(t_strconcat("USER=", virtual_user, NULL));
 	env_put(t_strconcat("LOGIN_TAG=", login_tag, NULL));
 
-	if (set_verbose_proctitle && net_ip2host(ip, host) == 0) {
+	if (set_verbose_proctitle) {
+		host = net_ip2host(ip);
+		if (host == NULL)
+			host = "??";
+
 		i_snprintf(title, sizeof(title), "[%s %s]", virtual_user, host);
 		argv[1] = title;
 	}

@@ -448,17 +448,11 @@ static void read_parameters(const char *fname)
 static void gcrypt_log_handler(void *context __attr_unused__, int level,
 			       const char *fmt, va_list args)
 {
-	char *buf;
-
-	t_push();
-
-	buf = t_malloc(printf_string_upper_bound(fmt, args));
-	vsprintf(buf, fmt, args);
-
-	if (level == GCRY_LOG_FATAL)
-		i_error("gcrypt fatal: %s", buf);
-
-	t_pop();
+	if (level == GCRY_LOG_FATAL) {
+		t_push();
+		i_error("gcrypt fatal: %s", t_strdup_vprintf(fmt, args));
+		t_pop();
+	}
 }
 
 void ssl_proxy_init(void)

@@ -251,8 +251,6 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 		return;
 	}
 
-	t_push();
-
 	linelen = strlen(line);
 	buf = buffer_create_static_hard(data_stack_pool, linelen);
 
@@ -272,8 +270,6 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 
 	bufsize = buffer_get_used_size(buf);
 	safe_memset(buffer_free_without_data(buf), 0, bufsize);
-
-	t_pop();
 }
 
 int cmd_authenticate(Client *client, const char *method_name)

@@ -56,8 +56,8 @@ void random_init(void)
 	urandom_fd = open("/dev/urandom", O_RDONLY);
 	if (urandom_fd == -1) {
 		if (errno == ENOENT) {
-			i_fatal("/dev/urandom doesn't exist, currently we "
-				"require it");
+			i_fatal("/dev/urandom doesn't exist, "
+				"currently we require it");
 		} else {
 			i_fatal("Can't open /dev/urandom: %m");
 		}

@@ -26,7 +26,6 @@ static int vpopmail_verify_plain(const char *user, const char *password,
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
-	char *passdup;
 	int result;
 
 	/* vpop_user must be zero-filled or parse_email() leaves an extra
@@ -77,10 +76,7 @@ static int vpopmail_verify_plain(const char *user, const char *password,
 	}
 
 	/* verify password */
-        passdup = t_strdup_noconst(password);
-	result = strcmp(crypt(passdup, vpw->pw_passwd), vpw->pw_passwd) == 0;
-
-	safe_memset(passdup, 0, strlen(passdup));
+	result = strcmp(crypt(password, vpw->pw_passwd), vpw->pw_passwd) == 0;
 	safe_memset(vpw->pw_passwd, 0, strlen(vpw->pw_passwd));
 
 	if (!result) {

@@ -119,7 +119,8 @@ void mbox_file_close_fd(MailIndex *index)
 	mbox_file_close_stream(index);
 
 	if (index->mbox_fd != -1) {
-		close(index->mbox_fd);
+		if (close(index->mbox_fd) < 0)
+			i_error("close(mbox) failed: %m");
 		index->mbox_fd = -1;
 	}
 }

@@ -218,6 +218,7 @@ static int verify_realm(const char *realm)
 
 static int parse_next(char **data, char **key, char **value)
 {
+	/* @UNSAFE */
 	char *p, *dest;
 
 	p = *data;
@@ -271,6 +272,7 @@ static int parse_next(char **data, char **key, char **value)
 /* remove leading and trailing whitespace */
 static char *trim(char *str)
 {
+	/* @UNSAFE */
 	char *ret;
 
 	while (IS_LWS(*str)) str++;

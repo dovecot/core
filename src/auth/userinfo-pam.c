@@ -60,6 +60,7 @@ static char *service_name;
 static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	struct pam_response **resp, void *appdata_ptr)
 {
+	/* @UNSAFE */
 	pam_userpass_t *userpass = (pam_userpass_t *)appdata_ptr;
 #ifdef AUTH_PAM_USERPASS
 	pamc_bp_t prompt;

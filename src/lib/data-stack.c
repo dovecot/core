@@ -23,6 +23,8 @@
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/* @UNSAFE: whole file */
+
 #include "lib.h"
 #include "data-stack.h"
 

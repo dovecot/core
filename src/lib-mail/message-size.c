@@ -161,7 +161,7 @@ void message_skip_virtual(IStream *input, uoff_t virtual_skip,
 	}
 }
 
-void message_size_add(MessageSize *dest, MessageSize *src)
+void message_size_add(MessageSize *dest, const MessageSize *src)
 {
 	dest->virtual_size += src->virtual_size;
 	dest->physical_size += src->physical_size;

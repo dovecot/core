@@ -51,15 +51,17 @@ int unlink_directory(const char *dir)
 
 		i_snprintf(path, sizeof(path), "%s/%s", dir, d->d_name);
 
-		if (unlink(path) == -1) {
+		if (unlink(path) == -1 && errno != ENOENT) {
+			int old_errno = errno;
+
 			if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
 				if (!unlink_directory(path))
 					return FALSE;
 			} else {
 				/* so it wasn't a directory, unlink() again
 				   to get correct errno */
-				if (unlink(path) == -1)
-					return FALSE;
+				errno = old_errno;
+				return FALSE;
 			}
 		}
 	}

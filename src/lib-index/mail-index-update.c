@@ -207,7 +207,7 @@ static int update_by_append(MailIndexUpdate *update, size_t data_size,
 	return TRUE;
 }
 
-/* Replace the whole block - assumes there's enoguh space to do it */
+/* Replace the whole block - assumes there's enough space to do it */
 static void update_by_replace_block(MailIndexUpdate *update, size_t extra_size)
 {
 	MailIndexDataRecordHeader *data_hdr;

@@ -38,12 +38,6 @@ typedef int socklen_t;
 #  error I do not know how to compare dev_t
 #endif
 
-/* memmove() */
-#ifndef HAVE_MEMMOVE
-#  define memmove my_memmove
-void *my_memmove(void *dest, const void *src, size_t n);
-#endif
-
 /* strcasecmp(), strncasecmp() */
 #ifndef HAVE_STRCASECMP
 #  ifdef HAVE_STRICMP

@@ -63,10 +63,6 @@ Client *client_create(int hin, int hout, MailStorage *storage)
 	client->output = o_stream_create_file(hout, default_pool, 4096,
 					      IO_PRIORITY_DEFAULT, FALSE);
 
-	/* always use nonblocking I/O */
-	net_set_nonblock(hin, TRUE);
-	net_set_nonblock(hout, TRUE);
-
 	/* set timeout for reading expected data (eg. APPEND). This is
 	   different from the actual idle time. */
 	i_stream_set_blocking(client->input, CLIENT_CMDINPUT_TIMEOUT,

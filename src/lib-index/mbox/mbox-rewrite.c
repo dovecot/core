@@ -199,7 +199,7 @@ static int mbox_write_content_length(MboxRewriteContext *ctx)
 static const char *strip_chars(const char *value, size_t value_len,
 			       const char *list)
 {
-	/* leave only unknown flags, very likely none */
+	/* @UNSAFE: leave only unknown flags, very likely none */
 	char *ret, *p;
 	size_t i;
 

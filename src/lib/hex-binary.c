@@ -33,6 +33,8 @@ const char *binary_to_hex(const unsigned char *data, size_t size)
 	size_t i;
 	int value;
 
+	/* @UNSAFE */
+
 	buf = p = t_malloc(size * 2 + 1);
 	for (i = 0; i < size; i++) {
 		value = data[i] >> 4;

@@ -119,7 +119,8 @@ static void auth_connection_destroy(AuthConnection *conn)
 	hash_foreach(conn->requests, request_hash_destroy, NULL);
 	hash_destroy(conn->requests);
 
-	(void)close(conn->fd);
+	if (close(conn->fd) < 0)
+		i_error("close(imap-auth) failed: %m");
 	io_remove(conn->io);
 	i_stream_unref(conn->input);
 	o_stream_unref(conn->output);

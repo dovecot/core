@@ -312,7 +312,7 @@ static void passwd_file_parse_file(PasswdFile *pw)
 {
 	IStream *input;
 	char *const *args;
-	char *line;
+	const char *line;
 
 	input = i_stream_create_file(pw->fd, default_pool, 2048, FALSE);
 	for (;;) {

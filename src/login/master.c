@@ -111,7 +111,8 @@ void master_close(void)
 
 	clients_destroy_all();
 
-	(void)close(LOGIN_MASTER_SOCKET_FD);
+	if (close(LOGIN_MASTER_SOCKET_FD) < 0)
+		i_fatal("close(master) failed: %m");
 
 	io_remove(io_master);
 	io_master = NULL;

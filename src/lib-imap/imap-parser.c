@@ -136,6 +136,7 @@ static ImapArg *imap_arg_create(ImapParser *parser)
 
 	i_assert(parser->cur_list != NULL);
 
+	/* @UNSAFE */
 	if (parser->cur_list->size == parser->cur_list->alloc)
 		imap_args_realloc(parser, parser->cur_list->alloc * 2);
 

@@ -34,34 +34,6 @@
 #  define INADDR_NONE INADDR_BROADCAST
 #endif
 
-#ifndef HAVE_MEMMOVE
-void *my_memmove(void *dest, const void *src, size_t size)
-{
-	char *destp = dest;
-        const char *srcp = src;
-
-	if (destp < srcp) {
-		/* dest = 1234, src=234 */
-		destp = dest;
-                srcp = src;
-		while (size > 0) {
-			*destp++ = *srcp++;
-                        size--;
-		}
-	} else if (destp > srcp) {
-		/* dest = 234, src=123 */
-		destp += size-1;
-                srcp += size-1;
-		while (size > 0) {
-			*destp-- = *srcp--;
-                        size--;
-		}
-	}
-
-        return dest;
-}
-#endif
-
 #if !defined (HAVE_STRCASECMP) && !defined (HAVE_STRICMP)
 int my_strcasecmp(const char *s1, const char *s2)
 {

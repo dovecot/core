@@ -21,12 +21,7 @@ struct _MessagePartEnvelopeData {
 static Rfc822Address *parse_address(Pool pool, const char *value,
 				    size_t value_len)
 {
-	Rfc822Address *ret;
-
-	t_push();
-	ret = rfc822_address_parse(pool, t_strndup(value, value_len));
-	t_pop();
-	return ret;
+	return rfc822_address_parse(pool, t_strndup(value, value_len));
 }
 
 void imap_envelope_parse_header(Pool pool, MessagePartEnvelopeData **data,
@@ -37,6 +32,8 @@ void imap_envelope_parse_header(Pool pool, MessagePartEnvelopeData **data,
 		*data = p_new(pool, MessagePartEnvelopeData, 1);
 		(*data)->pool = pool;
 	}
+
+	t_push();
 
 	if (strcasecmp(name, "Date") == 0 && (*data)->date == NULL)
 		(*data)->date = imap_quote_value(pool, value, value_len);
@@ -60,6 +57,8 @@ void imap_envelope_parse_header(Pool pool, MessagePartEnvelopeData **data,
 	else if (strcasecmp(name, "Message-Id") == 0 &&
 		 (*data)->message_id == NULL)
 		(*data)->message_id = imap_quote_value(pool, value, value_len);
+
+	t_pop();
 }
 
 static void imap_write_address(TempString *str, Rfc822Address *addr)

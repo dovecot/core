@@ -27,13 +27,14 @@ static Timeout to_idle;
 
 static void client_set_title(Client *client)
 {
-	char host[MAX_IP_LEN];
+	const char *host;
 
 	if (!verbose_proctitle || !process_per_connection)
 		return;
 
-	if (net_ip2host(&client->ip, host) < 0)
-		strcpy(host, "??");
+	host = net_ip2host(&client->ip);
+	if (host == NULL)
+		host = "??";
 
 	process_title_set(t_strdup_printf(client->tls ? "[%s TLS]" : "[%s]",
 					  host));
@@ -133,36 +134,39 @@ int client_read(Client *client)
 	}
 }
 
-static char *get_next_arg(char **line)
+static char *get_next_arg(char **linep)
 {
-	char *start;
+	char *line, *start;
 	int quoted;
 
-	while (**line == ' ') (*line)++;
+	line = *linep;
+	while (*line == ' ') line++;
 
-	if (**line == '"') {
+	/* @UNSAFE: get next argument, unescape arg if it's quoted */
+	if (*line == '"') {
 		quoted = TRUE;
-		(*line)++;
+		line++;
 
-		start = *line;
-		while (**line != '\0' && **line != '"') {
-			if (**line == '\\' && (*line)[1] != '\0')
-				(*line)++;
-			(*line)++;
+		start = line;
+		while (*line != '\0' && *line != '"') {
+			if (*line == '\\' && line[1] != '\0')
+				line++;
+			line++;
 		}
 
-		if (**line == '"')
-			*(*line)++ = '\0';
+		if (*line == '"')
+			*line++ = '\0';
 		string_remove_escapes(start);
 	} else {
-		start = *line;
-		while (**line != '\0' && **line != ' ')
-			(*line)++;
+		start = line;
+		while (*line != '\0' && *line != ' ')
+			line++;
 
-		if (**line == ' ')
-			*(*line)++ = '\0';
+		if (*line == ' ')
+			*line++ = '\0';
 	}
 
+	*linep = line;
 	return start;
 }
 
@@ -237,16 +241,17 @@ static void client_hash_destroy_oldest(void *key, void *value __attr_unused__,
 				       void *context)
 {
 	Client *client = key;
-	Client **destroy_clients = context;
-	int i;
+	Buffer *destroy_buf = context;
+	Client *const *destroy_clients;
+	size_t i, count;
 
-	for (i = 0; i < CLIENT_DESTROY_OLDEST_COUNT; i++) {
-		if (destroy_clients[i] == NULL ||
-		    destroy_clients[i]->created > client->created) {
-			memmove(destroy_clients+i+1, destroy_clients+i,
-				sizeof(Client *) *
-				(CLIENT_DESTROY_OLDEST_COUNT - i-1));
-			destroy_clients[i] = client;
+	destroy_clients = buffer_get_data(destroy_buf, &count);
+	count /= sizeof(Client *);
+
+	for (i = 0; i < count; i++) {
+		if (destroy_clients[i]->created > client->created) {
+			buffer_insert(destroy_buf, i * sizeof(Client *),
+				      &client, sizeof(client));
 			break;
 		}
 	}
@@ -254,13 +259,21 @@ static void client_hash_destroy_oldest(void *key, void *value __attr_unused__,
 
 static void client_destroy_oldest(void)
 {
-	Client *destroy_clients[CLIENT_DESTROY_OLDEST_COUNT];
-	int i;
+	Buffer *destroy_buf;
+	Client *const *destroy_clients;
+	size_t i, count;
 
-	memset(destroy_clients, 0, sizeof(destroy_clients));
-	hash_foreach(clients, client_hash_destroy_oldest, destroy_clients);
+	/* find the oldest clients and put them to destroy-buffer */
+	destroy_buf = buffer_create_static_hard(data_stack_pool,
+						sizeof(Client *) *
+						CLIENT_DESTROY_OLDEST_COUNT);
+	hash_foreach(clients, client_hash_destroy_oldest, destroy_buf);
 
-	for (i = 0; i < CLIENT_DESTROY_OLDEST_COUNT; i++) {
+	/* then kill them */
+	destroy_clients = buffer_get_data(destroy_buf, &count);
+	count /= sizeof(Client *);
+
+	for (i = 0; i < count; i++) {
 		client_destroy(destroy_clients[i],
 			       "Disconnected: Connection queue full");
 	}
@@ -357,10 +370,11 @@ void client_send_tagline(Client *client, const char *line)
 
 void client_syslog(Client *client, const char *text)
 {
-	char host[MAX_IP_LEN];
+	const char *host;
 
-	if (net_ip2host(&client->ip, host) == -1)
-		host[0] = '\0';
+	host = net_ip2host(&client->ip);
+	if (host == NULL)
+		host = "??";
 
 	syslog(LOG_INFO, "%s [%s]", text, host);
 }

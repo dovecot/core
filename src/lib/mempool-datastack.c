@@ -95,6 +95,7 @@ static void *pool_data_stack_realloc(Pool pool, void *mem, size_t size)
 static void *pool_data_stack_realloc_min(Pool pool __attr_unused__,
 					 void *mem, size_t size)
 {
+	/* @UNSAFE */
 	PoolAlloc *alloc, *new_alloc;
         size_t old_size;
 	unsigned char *rmem;

@@ -120,7 +120,7 @@ static inline unsigned int sin_get_port(union sockaddr_union *so)
 static inline void close_save_errno(int fd)
 {
 	int old_errno = errno;
-	close(fd);
+	(void)close(fd);
 	errno = old_errno;
 }
 
@@ -420,6 +420,7 @@ ssize_t net_transmit(int fd, const void *data, size_t len)
    to be free'd. Returns 0 = ok, others = error code for net_gethosterror() */
 int net_gethostbyname(const char *addr, IPADDR **ips, int *ips_count)
 {
+	/* @UNSAFE */
 #ifdef HAVE_IPV6
 	union sockaddr_union *so;
 	struct addrinfo hints, *ai, *origai;
@@ -508,25 +509,28 @@ int net_getsockname(int fd, IPADDR *addr, unsigned int *port)
 	return 0;
 }
 
-int net_ip2host(const IPADDR *ip, char *host)
+const char *net_ip2host(const IPADDR *ip)
 {
 #ifdef HAVE_IPV6
-	if (!inet_ntop(ip->family, &ip->ip, host, MAX_IP_LEN))
-		return -1;
+	char host[MAX_IP_LEN+1];
+
+	host[MAX_IP_LEN] = '\0';
+	if (inet_ntop(ip->family, &ip->ip, host, MAX_IP_LEN) == NULL)
+		return NULL;
+
+	return t_strdup(host);
 #else
 	unsigned long ip4;
 
-	if (ip->family != AF_INET) {
-		strcpy(host, "0.0.0.0");
-		return -1;
-	}
+	if (ip->family != AF_INET)
+		return NULL;
 
 	ip4 = ntohl(ip->ip.s_addr);
-	i_snprintf(host, MAX_IP_LEN, "%lu.%lu.%lu.%lu",
-		   (ip4 & 0xff000000UL) >> 24,
-		   (ip4 & 0x00ff0000) >> 16,
-		   (ip4 & 0x0000ff00) >> 8,
-		   (ip4 & 0x000000ff));
+	return t_strdup_printf("%lu.%lu.%lu.%lu",
+			       (ip4 & 0xff000000UL) >> 24,
+			       (ip4 & 0x00ff0000) >> 16,
+			       (ip4 & 0x0000ff00) >> 8,
+			       (ip4 & 0x000000ff));
 #endif
 	return 0;
 }
