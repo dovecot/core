@@ -35,11 +35,11 @@ static int update_func(MailIndex *index, MailIndexRecord *rec,
 		i_assert(0);
 	}
 
-	if (rec->uid >= index->first_recent_uid)
-		flags |= MAIL_RECENT;
-
 	if (!index->update_flags(index, rec, seq, flags, FALSE))
 		return FALSE;
+
+	if (rec->uid >= index->first_recent_uid)
+		flags |= MAIL_RECENT;
 
 	if (ctx->func != NULL) {
 		ctx->func(ctx->box, seq, rec->uid, flags,
