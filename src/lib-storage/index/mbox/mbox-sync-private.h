@@ -94,6 +94,7 @@ struct mbox_sync_context {
 	off_t expunged_space, space_diff;
 
 	unsigned int dest_first_mail:1;
+	unsigned int seen_first_mail:1;
 };
 
 int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock);

@@ -18,7 +18,7 @@ struct raw_mbox_istream {
 
 	unsigned int corrupted:1;
 	unsigned int eom:1;
-	unsigned int next_eof:1;
+	unsigned int eof:1;
 };
 
 static void _close(struct _iostream *stream __attr_unused__)
@@ -139,7 +139,6 @@ static ssize_t _read(struct _istream *stream)
 				stream->istream.v_offset +
 				(stream->pos - stream->skip);
 		}
-		stream->istream.eof = rstream->next_eof;
 		return -1;
 	}
 
@@ -173,7 +172,7 @@ static ssize_t _read(struct _istream *stream)
 		stream->pos = pos;
 
 		rstream->eom = TRUE;
-		rstream->next_eof = TRUE;
+		rstream->eof = TRUE;
 		handle_end_of_mail(rstream, pos);
 		return ret < 0 ? _read(stream) : ret;
 	}
@@ -182,7 +181,7 @@ static ssize_t _read(struct _istream *stream)
 		/* beginning of message, we haven't yet read our From-line */
 		if (mbox_read_from_line(rstream) < 0) {
 			stream->pos = 0;
-			stream->istream.eof = TRUE;
+			rstream->eof = TRUE;
 			rstream->corrupted = TRUE;
 			return -1;
 		}
@@ -270,7 +269,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 
         rstream->input_peak_offset = 0;
 	rstream->eom = FALSE;
-	rstream->next_eof = FALSE;
+	rstream->eof = FALSE;
 }
 
 struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input)
@@ -447,14 +446,13 @@ void istream_raw_mbox_next(struct istream *stream, uoff_t body_size)
 	rstream->hdr_offset = rstream->from_offset;
 	rstream->body_offset = (uoff_t)-1;
 
-	/* don't clear stream->eof if we don't have to */
 	if (stream->v_offset != rstream->from_offset)
 		i_stream_seek(stream, rstream->from_offset);
 	i_stream_seek(rstream->input, rstream->from_offset);
 
         rstream->input_peak_offset = 0;
 	rstream->eom = FALSE;
-	rstream->next_eof = FALSE;
+	rstream->eof = FALSE;
 }
 
 int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
@@ -465,7 +463,7 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 
 	rstream->corrupted = FALSE;
 	rstream->eom = FALSE;
-	rstream->next_eof = FALSE;
+	rstream->eof = FALSE;
         rstream->input_peak_offset = 0;
 
 	if (rstream->mail_size != (uoff_t)-1 &&
@@ -513,4 +511,12 @@ void istream_raw_mbox_flush(struct istream *stream)
 
 	rstream->istream.skip = 0;
 	rstream->istream.pos = 0;
+}
+
+int istream_raw_mbox_is_eof(struct istream *stream)
+{
+	struct raw_mbox_istream *rstream =
+		(struct raw_mbox_istream *)stream->real_stream;
+
+	return rstream->eof;
 }

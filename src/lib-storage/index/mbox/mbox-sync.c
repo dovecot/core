@@ -185,9 +185,9 @@ static int
 mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 			 struct mbox_sync_mail_context *mail_ctx)
 {
-	/* set input->eof */
+	/* get EOF */
 	(void)istream_raw_mbox_get_header_offset(sync_ctx->input);
-	if (sync_ctx->input->eof)
+	if (istream_raw_mbox_is_eof(sync_ctx->input))
 		return 0;
 
 	memset(mail_ctx, 0, sizeof(*mail_ctx));
@@ -200,6 +200,8 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	mail_ctx->mail.offset =
 		istream_raw_mbox_get_header_offset(sync_ctx->input);
 
+	if (mail_ctx->seq == 1)
+		sync_ctx->seen_first_mail = TRUE;
 	if (mail_ctx->seq > 1 && sync_ctx->dest_first_mail) {
 		/* First message was expunged and this is the next one.
 		   Skip \n header */
@@ -758,7 +760,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		}
 	}
 
-	if (sync_ctx->input->eof) {
+	if (istream_raw_mbox_is_eof(sync_ctx->input)) {
 		/* rest of the messages in index don't exist -> expunge them */
 		messages_count =
 			mail_index_view_get_message_count(sync_ctx->sync_view);
@@ -774,7 +776,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 {
 	uoff_t offset, extra_space, trailer_size;
 
-	if (!sync_ctx->input->eof) {
+	if (!istream_raw_mbox_is_eof(sync_ctx->input)) {
 		i_assert(sync_ctx->need_space_seq == 0);
 		i_assert(sync_ctx->expunged_space == 0);
 		return 0;
@@ -860,8 +862,8 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 
 	if ((sync_ctx->base_uid_validity != 0 &&
 	     sync_ctx->base_uid_validity != sync_ctx->hdr->uid_validity) ||
-	    sync_ctx->hdr->uid_validity == 0) {
-		if (sync_ctx->hdr->uid_validity == 0) {
+	    (sync_ctx->hdr->uid_validity == 0 && sync_ctx->seen_first_mail)) {
+		if (sync_ctx->base_uid_validity == 0) {
 			/* we couldn't rewrite X-IMAPbase because it's
 			   a read-only mbox */
 			i_assert(sync_ctx->ibox->mbox_readonly);
@@ -872,7 +874,8 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 			&sync_ctx->base_uid_validity,
 			sizeof(sync_ctx->base_uid_validity));
 	}
-	if (sync_ctx->input->eof &&
+
+	if (istream_raw_mbox_is_eof(sync_ctx->input) &&
 	    sync_ctx->next_uid != sync_ctx->hdr->next_uid) {
 		i_assert(sync_ctx->next_uid != 0);
 		mail_index_update_header(sync_ctx->t,
@@ -907,7 +910,8 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 	sync_ctx->prev_msg_uid = 0;
 	sync_ctx->seq = sync_ctx->idx_seq = 0;
 
-        sync_ctx->dest_first_mail = TRUE;
+	sync_ctx->dest_first_mail = TRUE;
+        sync_ctx->seen_first_mail = FALSE;
 }
 
 static int mbox_sync_do(struct mbox_sync_context *sync_ctx)
