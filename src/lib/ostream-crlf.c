@@ -63,9 +63,12 @@ static size_t _get_used_size(struct _ostream *stream)
 static int _seek(struct _ostream *stream, uoff_t offset)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
+	int ret;
 
 	cstream->last_cr = FALSE;
-	return o_stream_seek(cstream->output, offset);
+	ret = o_stream_seek(cstream->output, offset);
+	stream->ostream.offset = cstream->output->offset;
+	return ret;
 }
 
 static ssize_t sendv_crlf(struct crlf_ostream *cstream,
@@ -84,6 +87,7 @@ static ssize_t sendv_crlf(struct crlf_ostream *cstream,
 
 		cstream->last_cr = *((const char *)iov->iov_base + pos) == '\r';
 	}
+	cstream->ostream.ostream.offset = cstream->output->offset;
 	return ret;
 }
 
@@ -204,6 +208,8 @@ _sendv_lf(struct _ostream *stream, const struct const_iovec *iov,
 			if (new_iov_count == IOVBUF_COUNT) {
 				ret = o_stream_sendv(cstream->output,
 						     buf->data, new_iov_count);
+				stream->ostream.offset =
+					cstream->output->offset;
 				if (ret != (ssize_t)new_iov_size) {
 					t_pop();
 					return ret;
@@ -220,6 +226,8 @@ _sendv_lf(struct _ostream *stream, const struct const_iovec *iov,
 	}
 
 	ret = o_stream_sendv(cstream->output, buf->data, new_iov_count);
+	stream->ostream.offset = cstream->output->offset;
+
 	t_pop();
 	return ret;
 }
