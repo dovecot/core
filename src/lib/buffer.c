@@ -163,7 +163,7 @@ void buffer_reset(buffer_t *_buf)
 {
 	struct real_buffer *buf = (struct real_buffer *)_buf;
 
-	memset(buf, 0, I_MAX(buf->used, buf->dirty));
+	memset(buf->w_buffer, 0, I_MAX(buf->used, buf->dirty));
 	buf->dirty = 0;
 	buf->used = 0;
 }
