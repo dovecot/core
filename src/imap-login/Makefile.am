@@ -2,7 +2,7 @@ pkglibexecdir = $(libexecdir)/dovecot
 
 pkglibexec_PROGRAMS = imap-login
 
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-imap \

@@ -1,6 +1,6 @@
 noinst_LIBRARIES = libsettings.a
 
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib
 
 libsettings_a_SOURCES = \

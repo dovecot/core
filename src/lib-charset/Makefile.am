@@ -1,6 +1,6 @@
 noinst_LIBRARIES = libcharset.a
 
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib
 
 libcharset_a_SOURCES = \

@@ -2,7 +2,7 @@ pkglibexecdir = $(libexecdir)/dovecot
 
 pkglibexec_PROGRAMS = pop3
 
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \

@@ -1,6 +1,6 @@
 noinst_LIBRARIES = libsql.a
 
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	$(SQL_CFLAGS)
 

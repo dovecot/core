@@ -1,21 +1,21 @@
-AC_INIT(src)
+AC_INIT(dovecot, 1.0-test50, [dovecot@dovecot.org])
+AC_CONFIG_SRCDIR([src])
 
-AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 1.0-test49)
+AC_CONFIG_HEADERS([config.h])
+AM_INIT_AUTOMAKE
 
 AM_MAINTAINER_MODE
 
 AC_ISC_POSIX
 AC_PROG_CC
 AC_PROG_CPP
-AC_STDC_HEADERS
+AC_HEADER_STDC
 AC_C_INLINE
 AM_PROG_LIBTOOL
 AM_ICONV
 
-AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h)
-AC_CHECK_HEADERS(sys/uio.h sys/sysmacros.h sys/resource.h)
-AC_CHECK_HEADERS(sys/select.h)
+AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h \
+  sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h)
 
 # check posix headers
 AC_CHECK_HEADERS(sys/time.h)
@@ -209,6 +209,7 @@ AC_ARG_WITH(storages,
 [  --with-storages         Build specified mail storage formats (maildir,mbox)], [
 	mail_storages=`echo "$withval"|sed 's/,/ /g'` ],
 	mail_storages="maildir mbox")
+AC_SUBST(mail_storages)
 
 AC_ARG_WITH(moduledir,
 [  --with-moduledir=DIR    Base directory for dynamically loadable modules],
@@ -218,7 +219,7 @@ AC_ARG_WITH(moduledir,
 AC_SUBST(moduledir)
 
 dnl * gcc specific options
-if test "x$ac_cv_prog_gcc" = "xyes"; then
+if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
 	# -Wcast-qual -Wcast-align -Wconversion # too many warnings
 	# -Wstrict-prototypes -Wredundant-decls # may give warnings in some systems
 	# -Wmissing-format-attribute -Wmissing-noreturn -Wwrite-strings # a couple of warnings
@@ -337,7 +338,7 @@ AC_DEFUN([AC_TYPEOF], [
   visible="unknown"
   AC_MSG_CHECKING([type of $1])
 
-  if test "x$ac_cv_prog_gcc" = "xyes"; then
+  if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
     dnl * try with printf() + -Werror
     old_CFLAGS="$CFLAGS"
     CFLAGS="$CFLAGS -Werror"
@@ -368,12 +369,12 @@ AC_DEFUN([AC_TYPEOF], [
       esac
 
       if test "$fmt" != ""; then
-	AC_TRY_COMPILE([
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 	  #include <sys/types.h>
 	  #include <stdio.h>
-	], [
+	]], [[
 	  printf("$fmt", ($1)0);
-	], [
+	]])],[
 	  if test "$result" != ""; then
 	    dnl * warning check isn't working
 	    result=""
@@ -382,7 +383,7 @@ AC_DEFUN([AC_TYPEOF], [
 	  fi
 	  result="`echo $type|sed 's/-/ /g'`"
 	  visible="$result"
-	])
+	],[])
       fi
     done
     CFLAGS="$old_CFLAGS"
@@ -391,10 +392,10 @@ AC_DEFUN([AC_TYPEOF], [
   if test "$result" = ""; then
     for type in $order; do
       type="`echo $type|sed 's/-/ /g'`"
-      AC_TRY_COMPILE([
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 	#include <sys/types.h>
 	typedef $type $1;
-      ],, [
+      ]], [[]])],[
 	if test "$result" != ""; then
 	  dnl * compiler allows redefining to anything
 	  result=""
@@ -403,7 +404,7 @@ AC_DEFUN([AC_TYPEOF], [
 	fi
 	result="$type"
 	visible="$type"
-      ])
+      ],[])
     done
   fi
 
@@ -411,7 +412,7 @@ AC_DEFUN([AC_TYPEOF], [
     dnl * check with sizes
 
     dnl * older autoconfs don't include sys/types.h, so do it manually
-    AC_TRY_RUN([
+    AC_RUN_IFELSE([AC_LANG_SOURCE([[
       #include <stdio.h>
       #include <sys/types.h>
       int main() {
@@ -420,7 +421,7 @@ AC_DEFUN([AC_TYPEOF], [
 	fprintf(f, "%d\n", sizeof($1));
 	exit(0);
       }
-    ], [
+    ]])],[
       size=`cat conftestval`
       rm -f conftestval
 
@@ -435,7 +436,7 @@ AC_DEFUN([AC_TYPEOF], [
       if test "$result" = ""; then
         visible="`expr $size \* 8`bit (unknown type)"
       fi
-    ])
+    ],[],[])
   fi
 
   typeof_$1=$result
@@ -467,29 +468,29 @@ case "$typeof_off_t" in
     offt_bits=`expr 8 \* $ac_cv_sizeof_long_long`
     ;;
   *)
-    AC_ERROR([Unsupported off_t type])
+    AC_MSG_ERROR([Unsupported off_t type])
     ;;
 esac
 
 dnl * Do we have struct dirent->d_type
-AC_TRY_COMPILE([
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   #include <dirent.h>
-], [
+]], [[
   struct dirent d;
   d.d_type = DT_DIR;
-], [
+]])],[
   AC_DEFINE(HAVE_DIRENT_D_TYPE,, Define if you have struct dirent->d_type)
-])
+],[])
 
 dnl * Do we have OFF_T_MAX?
-AC_TRY_COMPILE([
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   #include <limits.h>
   #include <sys/types.h>
-], [
+]], [[
   off_t i = OFF_T_MAX;
-], [
+]])],[
   :
-], [
+],[
   AC_DEFINE_UNQUOTED(OFF_T_MAX, $offt_max, Maximum value of off_t)
 ])
 
@@ -499,13 +500,13 @@ dnl * make sure size_t isn't signed. we'd probably work fine with it, but
 dnl * it's more likely vulnerable to buffer overflows. Anyway, C99 specifies
 dnl * that it's unsigned and only some old systems define it as signed.
 AC_MSG_CHECKING([whether size_t is signed])
-AC_TRY_RUN([
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
   #include <sys/types.h>
   int main() {
     /* return 0 if we're signed */
     exit((size_t)(int)-1 <= 0 ? 0 : 1);
   }
-], [
+]])],[
   AC_MSG_RESULT(yes)
 
   echo
@@ -515,12 +516,12 @@ AC_TRY_RUN([
   echo "compile Dovecot, set ignore_signed_size=1 environment."
 
   if test "$ignore_signed_size" = ""; then
-    AC_ERROR([aborting])
+    AC_MSG_ERROR([aborting])
   fi
   echo "..ignoring as requested.."
-], [
+],[
   AC_MSG_RESULT(no)
-])
+],[])
 
 dnl Note: we check size_t rather than ssize_t here, because on OSX 10.2
 dnl ssize_t = int and size_t = unsigned long. We're mostly concerned about
@@ -553,13 +554,9 @@ AC_DEFINE_UNQUOTED(PRIuSIZE_T, "$sizet_fmt", printf() format for size_t)
 AC_DEFUN([AC_CHECKTYPE2], [
   AC_MSG_CHECKING([for $1])
   AC_CACHE_VAL(i_cv_type_$1,
-  [AC_TRY_COMPILE([
+  [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   #include <sys/types.h>
-  $2],
-  [$1 t;],
-  i_cv_type_$1=yes,
-  i_cv_type_$1=no,
-  )])
+  $2]], [[$1 t;]])],[i_cv_type_$1=yes],[i_cv_type_$1=no])])
   AC_MSG_RESULT($i_cv_type_$1)
 ])
 
@@ -606,12 +603,11 @@ AC_SUBST(RAND_LIBS)
 dnl * do we have tm_gmtoff
 AC_MSG_CHECKING([for tm_gmtoff])
 AC_CACHE_VAL(i_cv_field_tm_gmtoff,
-[AC_TRY_COMPILE([
-#include <time.h>],
-[struct tm *tm; return tm->tm_gmtoff;],
-i_cv_field_tm_gmtoff=yes,
-i_cv_field_tm_gmtoff=no,
-)])
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <time.h>]],
+[[struct tm *tm; return tm->tm_gmtoff;]])],
+[i_cv_field_tm_gmtoff=yes],
+[i_cv_field_tm_gmtoff=no])])
 if test $i_cv_field_tm_gmtoff = yes; then
 	AC_DEFINE(HAVE_TM_GMTOFF,, Define if you have struct tm->tm_gmtoff)
 fi
@@ -619,7 +615,7 @@ AC_MSG_RESULT($i_cv_field_tm_gmtoff)
 
 dnl * how large time_t values does gmtime() accept?
 AC_MSG_CHECKING([how large time_t values gmtime() accepts])
-AC_TRY_RUN([
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
   #include <stdio.h>
   #include <time.h>
   int main() {
@@ -642,26 +638,26 @@ AC_TRY_RUN([
     fclose(f);
     return 0;
   }
-], [
+]])],[
   max_bits=`cat conftest.temp`
   rm -f conftest.temp
   AC_MSG_RESULT($max_bits)
 ], [
   AC_MSG_RESULT([check failed, assuming 31])
   max_bits=31
-])
+],[])
 AC_DEFINE_UNQUOTED(TIME_T_MAX_BITS, $max_bits, max. time_t bits gmtime() can handle)
 
 dnl * do we have struct iovec
 AC_MSG_CHECKING([for struct iovec])
 AC_CACHE_VAL(i_cv_struct_iovec,
-[AC_TRY_COMPILE([
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/types.h>
 #include <sys/uio.h>
-#include <unistd.h>],
-[struct iovec *iovec;],
-i_cv_struct_iovec=yes,
-i_cv_struct_iovec=no)])
+#include <unistd.h>]],
+[[struct iovec *iovec;]])],
+[i_cv_struct_iovec=yes],
+[i_cv_struct_iovec=no])])
 
 if test $i_cv_struct_iovec = yes; then
 	AC_DEFINE(HAVE_STRUCT_IOVEC,, Define if you have struct iovec)
@@ -669,42 +665,42 @@ fi
 AC_MSG_RESULT($i_cv_struct_iovec)
 
 dnl * is dev_t an integer or something else?
-AC_TRY_COMPILE([
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   #include <sys/types.h>
   struct test { dev_t a; };
   static struct test t = { 0 };
-],,, [
+]], [[]])],[],[
   AC_DEFINE(DEV_T_STRUCT,, Define if your dev_t is a structure instead of integer type)
 
   dnl we can't initialize structures, so don't warn about them either
-  if test "x$ac_cv_prog_gcc" = "xyes"; then
+  if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
     CFLAGS=`echo $CFLAGS|sed 's/ -W\b//'`
   fi
 ])
 
 dnl * Do we have RLIMIT_AS?
-AC_TRY_COMPILE([
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   #include <sys/types.h>
   #include <sys/time.h>
   #include <sys/resource.h>
-], [
+]], [[
   struct rlimit r;
   getrlimit(RLIMIT_AS, &r);
-], [
+]])],[
   AC_DEFINE(HAVE_RLIMIT_AS,, Define if you have RLIMIT_AS for setrlimit())
-])
+],[])
 
 dnl * Do we have RLIMIT_NPROC?
-AC_TRY_COMPILE([
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   #include <sys/types.h>
   #include <sys/time.h>
   #include <sys/resource.h>
-], [
+]], [[
   struct rlimit r;
   getrlimit(RLIMIT_NPROC, &r);
-], [
+]])],[
   AC_DEFINE(HAVE_RLIMIT_NPROC,, Define if you have RLIMIT_NPROC for setrlimit())
-])
+],[])
 
 dnl * Linux compatible mremap()
 AC_MSG_CHECKING([Linux compatible mremap()])
@@ -863,7 +859,7 @@ dnl *** va_copy checks (from GLIB)
 dnl ***
 
 AC_CACHE_CHECK([for an implementation of va_copy()],lib_cv_va_copy,[
-	AC_TRY_RUN([
+	AC_RUN_IFELSE([AC_LANG_SOURCE([[
 	#include <stdarg.h>
 	void f (int i, ...) {
 	va_list args1, args2;
@@ -876,13 +872,12 @@ AC_CACHE_CHECK([for an implementation of va_copy()],lib_cv_va_copy,[
 	int main() {
 	  f (0, 42);
 	  return 0;
-	}],
+	}]])],
 	[lib_cv_va_copy=yes],
-	[lib_cv_va_copy=no],
-	[])
+	[lib_cv_va_copy=no],[])
 ])
 AC_CACHE_CHECK([for an implementation of __va_copy()],lib_cv___va_copy,[
-	AC_TRY_RUN([
+	AC_RUN_IFELSE([AC_LANG_SOURCE([[
 	#include <stdarg.h>
 	void f (int i, ...) {
 	va_list args1, args2;
@@ -895,10 +890,9 @@ AC_CACHE_CHECK([for an implementation of __va_copy()],lib_cv___va_copy,[
 	int main() {
 	  f (0, 42);
 	  return 0;
-	}],
+	}]])],
 	[lib_cv___va_copy=yes],
-	[lib_cv___va_copy=no],
-	[])
+	[lib_cv___va_copy=no],[])
 ])
 
 if test "x$lib_cv_va_copy" = "xyes"; then
@@ -913,7 +907,7 @@ if test -n "$va_copy_func"; then
 fi
 
 AC_CACHE_CHECK([whether va_lists can be copied by value],lib_cv_va_val_copy,[
-	AC_TRY_RUN([
+	AC_RUN_IFELSE([AC_LANG_SOURCE([[
 	#include <stdarg.h>
 	void f (int i, ...) {
 	va_list args1, args2;
@@ -926,10 +920,9 @@ AC_CACHE_CHECK([whether va_lists can be copied by value],lib_cv_va_val_copy,[
 	int main() {
 	  f (0, 42);
 	  return 0;
-	}],
+	}]])],
 	[lib_cv_va_val_copy=yes],
-	[lib_cv_va_val_copy=no],
-	[])
+	[lib_cv_va_val_copy=no],[])
 ])
 
 if test "x$lib_cv_va_val_copy" = "xno"; then
@@ -1232,7 +1225,7 @@ if test $need_crypt = yes; then
 		AUTH_LIBS="-lcrypt $AUTH_LIBS"
 	], [
 		AC_CHECK_FUNC(crypt,, [
-			AC_ERROR([crypt() wasn't found])
+			AC_MSG_ERROR([crypt() wasn't found])
 		])
 	])
 fi
@@ -1286,16 +1279,15 @@ dnl **
 if test "x$want_ipv6" = "xyes"; then
 	AC_MSG_CHECKING([for IPv6])
 	AC_CACHE_VAL(i_cv_type_in6_addr,
-	[AC_TRY_COMPILE([
+	[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 	#include <sys/types.h>
 	#include <sys/socket.h>
 	#include <netinet/in.h>
 	#include <netdb.h>
-	#include <arpa/inet.h>],
-	[struct in6_addr i;],
-	i_cv_type_in6_addr=yes,
-	i_cv_type_in6_addr=no,
-	)])
+	#include <arpa/inet.h>]],
+	[[struct in6_addr i;]])],
+	[i_cv_type_in6_addr=yes],
+	[i_cv_type_in6_addr=no])])
 	if test $i_cv_type_in6_addr = yes; then
 		AC_DEFINE(HAVE_IPV6,, Build with IPv6 support)
 	fi
@@ -1327,7 +1319,7 @@ AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability", IMAP capabilities)
 
 CFLAGS="$CFLAGS $EXTRA_CFLAGS"
 
-AC_OUTPUT(
+AC_CONFIG_FILES([
 Makefile
 doc/Makefile
 src/Makefile
@@ -1355,28 +1347,9 @@ src/pop3/Makefile
 src/pop3-login/Makefile
 src/util/Makefile
 stamp.h
-dovecot.spec)
+dovecot.spec])
 
-dnl **
-dnl ** register the storage classes
-dnl **
-
-dnl * do it after AC_OUTPUT(), so we know that the directory exists.
-dnl * it doesn't when building in different directory
-
-file="src/lib-storage/register/mail-storage-register.c"
-
-echo "/* this file is generated by configure */" > $file
-echo '#include "lib.h"' >> $file
-echo '#include "mail-storage.h"' >> $file
-for storage in $mail_storages; do
-	echo "extern struct mail_storage ${storage}_storage;" >> $file
-done
-echo "void mail_storage_register_all(void) {" >> $file
-for storage in $mail_storages; do
-	echo "mail_storage_class_register(&${storage}_storage);" >> $file
-done
-echo "}" >> $file
+AC_OUTPUT
 
 echo
 echo "Install prefix ...................... : $prefix"

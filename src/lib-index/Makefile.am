@@ -1,6 +1,6 @@
 noinst_LIBRARIES = libindex.a
 
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-mail
 

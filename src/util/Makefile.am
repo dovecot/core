@@ -3,7 +3,7 @@ pkglibexecdir = $(libexecdir)/dovecot
 pkglibexec_PROGRAMS = rawlog
 sbin_PROGRAMS = dovecotpw
 
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/auth
 

@@ -2,7 +2,7 @@ pkglibexecdir = $(libexecdir)/dovecot
 
 sbin_PROGRAMS = dovecot
 
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \

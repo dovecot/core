@@ -1,6 +1,6 @@
 noinst_LIBRARIES = libauth.a
 
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib
 
 libauth_a_SOURCES = \

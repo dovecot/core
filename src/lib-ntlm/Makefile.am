@@ -1,6 +1,6 @@
 noinst_LIBRARIES = libntlm.a
 
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib
 
 libntlm_a_SOURCES = \

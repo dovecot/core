@@ -4,7 +4,7 @@ pkglibexecdir = $(libexecdir)/dovecot
 
 pkglibexec_PROGRAMS = dovecot-auth checkpassword-reply
 
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
