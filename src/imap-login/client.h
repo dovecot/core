@@ -3,13 +3,14 @@
 
 #include "network.h"
 #include "master.h"
+#include "client-common.h"
 
-struct client {
+struct imap_client {
+	struct client common;
+
 	time_t created;
 	int refcount;
-	struct ip_addr ip;
 
-	int fd;
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
@@ -24,24 +25,22 @@ struct client {
 	struct auth_request *auth_request;
 	char *virtual_user;
 
-	master_callback_t *master_callback;
-
 	unsigned int tls:1;
 	unsigned int cmd_finished:1;
 	unsigned int skip_line:1;
 };
 
-struct client *client_create(int fd, struct ip_addr *ip, int imaps);
-void client_destroy(struct client *client, const char *reason);
+struct client *client_create(int fd, struct ip_addr *ip, int ssl);
+void client_destroy(struct imap_client *client, const char *reason);
 
-void client_ref(struct client *client);
-int client_unref(struct client *client);
+void client_ref(struct imap_client *client);
+int client_unref(struct imap_client *client);
 
-void client_send_line(struct client *client, const char *line);
-void client_send_tagline(struct client *client, const char *line);
-void client_syslog(struct client *client, const char *text);
+void client_send_line(struct imap_client *client, const char *line);
+void client_send_tagline(struct imap_client *client, const char *line);
+void client_syslog(struct imap_client *client, const char *text);
 
-int client_read(struct client *client);
+int client_read(struct imap_client *client);
 void client_input(void *context);
 
 unsigned int clients_get_count(void);

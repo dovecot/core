@@ -8,7 +8,7 @@
 #include "fd-close-on-exec.h"
 #include "auth-connection.h"
 #include "master.h"
-#include "client.h"
+#include "client-common.h"
 #include "ssl-proxy.h"
 
 #include <stdlib.h>
@@ -20,7 +20,7 @@ unsigned int max_logging_users;
 unsigned int login_process_uid;
 
 static struct ioloop *ioloop;
-static struct io *io_imap, *io_imaps;
+static struct io *io_listen, *io_listen_ssl;
 static int main_refcount;
 static int closing_down;
 
@@ -46,20 +46,20 @@ void main_close_listen(void)
 	if (closing_down)
 		return;
 
-	if (io_imap != NULL) {
-		if (close(LOGIN_IMAP_LISTEN_FD) < 0)
+	if (io_listen != NULL) {
+		if (close(LOGIN_LISTEN_FD) < 0)
 			i_fatal("can't close() IMAP listen handle");
 
-		io_remove(io_imap);
-		io_imap = NULL;
+		io_remove(io_listen);
+		io_listen = NULL;
 	}
 
-	if (io_imaps != NULL) {
-		if (close(LOGIN_IMAPS_LISTEN_FD) < 0)
+	if (io_listen_ssl != NULL) {
+		if (close(LOGIN_SSL_LISTEN_FD) < 0)
 			i_fatal("can't close() IMAPS listen handle");
 
-		io_remove(io_imaps);
-		io_imaps = NULL;
+		io_remove(io_listen_ssl);
+		io_listen_ssl = NULL;
 	}
 
 	closing_down = TRUE;
@@ -76,7 +76,7 @@ static void login_accept(void *context __attr_unused__)
 	struct ip_addr ip;
 	int fd;
 
-	fd = net_accept(LOGIN_IMAP_LISTEN_FD, &ip, NULL);
+	fd = net_accept(LOGIN_LISTEN_FD, &ip, NULL);
 	if (fd < 0) {
 		if (fd < -1)
 			i_fatal("accept() failed: %m");
@@ -92,10 +92,10 @@ static void login_accept(void *context __attr_unused__)
 static void login_accept_ssl(void *context __attr_unused__)
 {
 	struct client *client;
-	struct ip_addr addr;
+	struct ip_addr ip;
 	int fd, fd_ssl;
 
-	fd = net_accept(LOGIN_IMAPS_LISTEN_FD, &addr, NULL);
+	fd = net_accept(LOGIN_SSL_LISTEN_FD, &ip, NULL);
 	if (fd < 0) {
 		if (fd < -1)
 			i_fatal("accept() failed: %m");
@@ -108,31 +108,29 @@ static void login_accept_ssl(void *context __attr_unused__)
 	fd_ssl = ssl_proxy_new(fd);
 	if (fd_ssl == -1)
 		net_disconnect(fd);
-	else {
-		client = client_create(fd_ssl, &addr, TRUE);
-		client->tls = TRUE;
-	}
+	else
+		client = client_create(fd_ssl, &ip, TRUE);
 }
 
-static void open_logfile(void)
+static void open_logfile(const char *name)
 {
 	if (getenv("IMAP_USE_SYSLOG") != NULL)
-		i_set_failure_syslog("imap-login", LOG_NDELAY, LOG_MAIL);
+		i_set_failure_syslog(name, LOG_NDELAY, LOG_MAIL);
 	else {
 		/* log to file or stderr */
-		i_set_failure_file(getenv("IMAP_LOGFILE"), "imap-login");
+		i_set_failure_file(getenv("LOGFILE"), name);
 	}
 
-	if (getenv("IMAP_INFOLOGFILE") != NULL)
-		i_set_info_file(getenv("IMAP_INFOLOGFILE"));
+	if (getenv("INFOLOGFILE") != NULL)
+		i_set_info_file(getenv("INFOLOGFILE"));
 
-	i_set_failure_timestamp_format(getenv("IMAP_LOGSTAMP"));
+	i_set_failure_timestamp_format(getenv("LOGSTAMP"));
 }
 
-static void drop_privileges(void)
+static void drop_privileges(const char *name)
 {
 	/* Log file or syslog opening probably requires roots */
-	open_logfile();
+	open_logfile(name);
 
 	/* Initialize SSL proxy so it can read certificate and private
 	   key file. */
@@ -169,15 +167,15 @@ static void main_init(void)
 	auth_connection_init();
 	clients_init();
 
-	io_imap = io_imaps = NULL;
+	io_listen = io_listen_ssl = NULL;
 
-	if (net_getsockname(LOGIN_IMAP_LISTEN_FD, NULL, NULL) == 0) {
+	if (net_getsockname(LOGIN_LISTEN_FD, NULL, NULL) == 0) {
 		/* we're listening for imap */
-		io_imap = io_add(LOGIN_IMAP_LISTEN_FD, IO_READ,
-				 login_accept, NULL);
+		io_listen = io_add(LOGIN_LISTEN_FD, IO_READ,
+				   login_accept, NULL);
 	}
 
-	if (net_getsockname(LOGIN_IMAPS_LISTEN_FD, NULL, NULL) == 0) {
+	if (net_getsockname(LOGIN_SSL_LISTEN_FD, NULL, NULL) == 0) {
 		/* we're listening for imaps */
 		if (!ssl_initialized) {
 			/* this shouldn't happen, master should have
@@ -186,8 +184,8 @@ static void main_init(void)
 				"while they should have been");
 		}
 
-		io_imaps = io_add(LOGIN_IMAPS_LISTEN_FD, IO_READ,
-				  login_accept_ssl, NULL);
+		io_listen_ssl = io_add(LOGIN_SSL_LISTEN_FD, IO_READ,
+				       login_accept_ssl, NULL);
 	}
 
 	/* initialize master last - it sends the "we're ok" notification */
@@ -199,8 +197,8 @@ static void main_deinit(void)
         if (lib_signal_kill != 0)
 		i_warning("Killed with signal %d", lib_signal_kill);
 
-	if (io_imap != NULL) io_remove(io_imap);
-	if (io_imaps != NULL) io_remove(io_imaps);
+	if (io_listen != NULL) io_remove(io_listen);
+	if (io_listen_ssl != NULL) io_remove(io_listen_ssl);
 
 	clients_deinit();
 	master_deinit();
@@ -213,13 +211,17 @@ static void main_deinit(void)
 
 int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
+	const char *name;
+
 #ifdef DEBUG
         fd_debug_verify_leaks(3, 1024);
 #endif
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
-	drop_privileges();
+
+	name = strrchr(argv[0], '/');
+	drop_privileges(name == NULL ? argv[0] : name+1);
 
 	process_title_init(argv, envp);
 	ioloop = io_loop_create(system_pool);

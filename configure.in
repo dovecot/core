@@ -857,9 +857,11 @@ src/lib-storage/subscription-file/Makefile
 src/lib-storage/register/Makefile
 src/auth/Makefile
 src/imap/Makefile
-src/login/Makefile
+src/imap-login/Makefile
+src/login-common/Makefile
 src/master/Makefile
 src/pop3/Makefile
+src/pop3-login/Makefile
 stamp.h)
 
 echo

@@ -57,7 +57,7 @@ static struct auth_mech_desc *auth_mech_find(const char *name)
 	return NULL;
 }
 
-static void client_auth_abort(struct client *client, const char *msg)
+static void client_auth_abort(struct imap_client *client, const char *msg)
 {
 	if (client->auth_request != NULL) {
 		auth_abort_request(client->auth_request);
@@ -71,14 +71,15 @@ static void client_auth_abort(struct client *client, const char *msg)
 	/* get back to normal client input */
 	if (client->io != NULL)
 		io_remove(client->io);
-	client->io = client->fd == -1 ? NULL :
-		io_add(client->fd, IO_READ, client_input, client);
+	client->io = client->common.fd == -1 ? NULL :
+		io_add(client->common.fd, IO_READ, client_input, client);
 
 	client_unref(client);
 }
 
-static void master_callback(struct client *client, int success)
+static void master_callback(struct client *_client, int success)
 {
+	struct imap_client *client = (struct imap_client *) _client;
 	const char *reason = NULL;
 
 	if (success)
@@ -93,7 +94,7 @@ static void master_callback(struct client *client, int success)
 	client_unref(client);
 }
 
-static void client_send_auth_data(struct client *client,
+static void client_send_auth_data(struct imap_client *client,
 				  const unsigned char *data, size_t size)
 {
 	buffer_t *buf;
@@ -130,7 +131,7 @@ static int auth_callback(struct auth_request *request,
 			 struct auth_login_reply *reply,
 			 const unsigned char *data, void *context)
 {
-	struct client *client = context;
+	struct imap_client *client = context;
 	const char *user, *realm;
 
 	if (reply == NULL) {
@@ -159,7 +160,7 @@ static int auth_callback(struct auth_request *request,
 		   disconnect the client. */
 		client_send_tagline(client, "OK Logged in.");
 
-		master_request_imap(client, master_callback,
+		master_request_imap(&client->common, master_callback,
 				    request->conn->pid, request->id);
 
 		/* disable IO until we're back from master */
@@ -189,8 +190,9 @@ static int auth_callback(struct auth_request *request,
 
 static void login_callback(struct auth_request *request,
 			   struct auth_login_reply *reply,
-			   const unsigned char *data, struct client *client)
+			   const unsigned char *data, struct client *_client)
 {
+	struct imap_client *client = (struct imap_client *) _client;
 	const void *ptr;
 	size_t size;
 
@@ -202,7 +204,7 @@ static void login_callback(struct auth_request *request,
 	}
 }
 
-int cmd_login(struct client *client, struct imap_arg *args)
+int cmd_login(struct imap_client *client, struct imap_arg *args)
 {
 	const char *user, *pass, *error;
 
@@ -232,7 +234,7 @@ int cmd_login(struct client *client, struct imap_arg *args)
 
 	client_ref(client);
 	if (auth_init_request(AUTH_MECH_PLAIN, login_callback,
-			      client, &error)) {
+			      &client->common, &error)) {
 		/* don't read any input from client until login is finished */
 		if (client->io != NULL) {
 			io_remove(client->io);
@@ -250,15 +252,17 @@ int cmd_login(struct client *client, struct imap_arg *args)
 static void authenticate_callback(struct auth_request *request,
 				  struct auth_login_reply *reply,
 				  const unsigned char *data,
-				  struct client *client)
+				  struct client *_client)
 {
+	struct imap_client *client = (struct imap_client *) _client;
+
 	if (auth_callback(request, reply, data, client))
 		client_send_auth_data(client, data, reply->data_size);
 }
 
 static void client_auth_input(void *context)
 {
-	struct client *client = context;
+	struct imap_client *client = context;
 	buffer_t *buf;
 	char *line;
 	size_t linelen, bufsize;
@@ -305,7 +309,7 @@ static void client_auth_input(void *context)
 	safe_memset(buffer_free_without_data(buf), 0, bufsize);
 }
 
-int cmd_authenticate(struct client *client, struct imap_arg *args)
+int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 {
 	struct auth_mech_desc *mech;
 	const char *mech_name, *error;
@@ -335,11 +339,11 @@ int cmd_authenticate(struct client *client, struct imap_arg *args)
 
 	client_ref(client);
 	if (auth_init_request(mech->mech, authenticate_callback,
-			      client, &error)) {
+			      &client->common, &error)) {
 		/* following input data will go to authentication */
 		if (client->io != NULL)
 			io_remove(client->io);
-		client->io = io_add(client->fd, IO_READ,
+		client->io = io_add(client->common.fd, IO_READ,
 				    client_auth_input, client);
 	} else {
 		client_send_tagline(client, t_strconcat(

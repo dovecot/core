@@ -6,7 +6,7 @@
 #include "network.h"
 #include "fdpass.h"
 #include "master.h"
-#include "client.h"
+#include "client-common.h"
 
 #include <unistd.h>
 
