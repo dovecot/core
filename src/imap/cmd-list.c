@@ -79,7 +79,7 @@ static int parse_list_flags(struct client *client, struct imap_arg *args,
 static int
 list_namespace_mailboxes(struct client *client, struct imap_match_glob *glob,
 			 struct namespace *ns, struct mailbox_list_context *ctx,
-			 enum mailbox_list_flags list_flags)
+			 int match_inbox, enum mailbox_list_flags list_flags)
 {
 	struct mailbox_list *list;
 	const char *name;
@@ -126,8 +126,9 @@ list_namespace_mailboxes(struct client *client, struct imap_match_glob *glob,
 	}
 	t_pop();
 
-	if (!inbox_found && ns->inbox) {
+	if (!inbox_found && ns->inbox && match_inbox) {
 		/* INBOX always exists */
+		str_truncate(str, 0);
 		str_printfa(str, "* LIST () \"%s\" \"INBOX\"", ns->sep_str);
 		client_send_line(client, str_c(str));
 	}
@@ -161,7 +162,7 @@ static int list_mailboxes(struct client *client,
 	enum imap_match_result match;
 	const char *cur_prefix, *cur_ref, *cur_mask;
 	size_t len;
-	int inbox;
+	int inbox, match_inbox;
 
 	inbox = strncasecmp(ref, "INBOX", 5) == 0 ||
 		(*ref == '\0' && strncasecmp(mask, "INBOX", 5) == 0);
@@ -189,6 +190,7 @@ static int list_mailboxes(struct client *client,
 
 		glob = imap_match_init(pool_datastack_create(), mask,
 				       inbox && cur_ref == ref, ns->sep);
+		match_inbox = imap_match(glob, "INBOX") == IMAP_MATCH_YES;
 
 		if (*cur_ref != '\0' || *cur_prefix == '\0')
 			match = IMAP_MATCH_CHILDREN;
@@ -256,6 +258,7 @@ static int list_mailboxes(struct client *client,
 							     cur_ref, cur_mask,
 							     list_flags);
 			if (list_namespace_mailboxes(client, glob, ns, ctx,
+						     match_inbox,
 						     list_flags) < 0) {
 				client_send_storage_error(client, ns->storage);
 				t_pop();
