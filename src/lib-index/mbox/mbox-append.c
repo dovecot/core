@@ -84,6 +84,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	uoff_t abs_start_offset, stop_offset, old_size;
 	unsigned char *data, md5_digest[16];
 	size_t size, pos;
+	int failed;
 
 	/* get the From-line */
 	pos = 0;
@@ -153,14 +154,17 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	if (!index->update_end(update)) {
 		/* failed - delete the record */
 		(void)index->expunge(index, rec, 0, FALSE);
-		return FALSE;
+		failed = TRUE;
+	} else {
+		/* save message flags */
+		rec->msg_flags = ctx.flags;
+		mail_index_mark_flag_changes(index, rec, 0, rec->msg_flags);
+		failed = FALSE;
 	}
 
-	/* save message flags */
-	rec->msg_flags = ctx.flags;
-	mail_index_mark_flag_changes(index, rec, 0, rec->msg_flags);
+	mbox_header_free_context(&ctx);
 
-	return TRUE;
+	return !failed;
 }
 
 int mbox_index_append(MailIndex *index, IOBuffer *inbuf)

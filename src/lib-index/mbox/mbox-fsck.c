@@ -136,6 +136,8 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	message_parse_header(NULL, inbuf, &hdr_size, mbox_header_func, &ctx);
 	md5_final(&ctx.md5, current_digest);
 
+	mbox_header_free_context(&ctx);
+
 	body_offset = inbuf->offset;
 	do {
 		if (verify_header_md5sum(index, rec, current_digest) &&

@@ -220,7 +220,7 @@ int mail_custom_flags_open_or_create(MailIndex *index)
 	const char *path;
 	int fd;
 
-	path = t_strconcat(index->dir, CUSTOM_FLAGS_FILE_NAME, NULL);
+	path = t_strconcat(index->dir, "/", CUSTOM_FLAGS_FILE_NAME, NULL);
 	fd = open(path, O_RDWR | O_CREAT, 0660);
 	if (fd == -1) {
 		index_set_error(index, "Can't open custom flags file %s: %m",
@@ -444,9 +444,16 @@ static MailFlags get_used_flags(MailCustomFlags *mcf)
 	return used_flags;
 }
 
-static int get_flag_index(MailCustomFlags *mcf, const char *flag)
+static int get_flag_index(MailCustomFlags *mcf, const char *flag,
+			  int index_hint)
 {
 	int i, first_empty;
+
+	if (index_hint >= 0 && index_hint < MAIL_CUSTOM_FLAGS_COUNT) {
+		if (mcf->custom_flags[index_hint] != NULL &&
+		    strcasecmp(mcf->custom_flags[index_hint], flag) == 0)
+			return index_hint;
+	}
 
 	/* check existing flags */
 	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
@@ -487,10 +494,11 @@ static int get_flag_index(MailCustomFlags *mcf, const char *flag)
 }
 
 int mail_custom_flags_fix_list(MailCustomFlags *mcf, MailFlags *flags,
-			       const char *custom_flags[])
+			       const char *custom_flags[], unsigned int count)
 {
 	MailFlags oldflags, flag;
-	int i, idx;
+	unsigned int i;
+	int idx;
 
 	i_assert(mcf->custom_flags_refcount == 0);
 
@@ -504,12 +512,12 @@ int mail_custom_flags_fix_list(MailCustomFlags *mcf, MailFlags *flags,
 	*flags &= MAIL_SYSTEM_FLAGS_MASK;
 
 	flag = MAIL_CUSTOM_FLAG_1;
-	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++, flag <<= 1) {
+	for (i = 0; i < count; i++, flag <<= 1) {
 		if (oldflags & flag) {
 			i_assert(custom_flags[i] != NULL &&
 				 *custom_flags[i] != '\0');
 
-			idx = get_flag_index(mcf, custom_flags[i]);
+			idx = get_flag_index(mcf, custom_flags[i], i);
 			if (idx == -1) {
 				(void)lock_file(mcf, F_UNLCK);
 				return 0;

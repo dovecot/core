@@ -366,15 +366,12 @@ static int mbox_get_mailbox_name_status(MailStorage *storage, const char *name,
 static void mbox_storage_close(Mailbox *box)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
-	const char **list;
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
 		mail_storage_set_index_error(ibox);
 	else {
 		/* update flags by rewrite mbox file */
-                list = mail_custom_flags_list_get(ibox->index->custom_flags);
 		mbox_index_rewrite(ibox->index);
-		mail_custom_flags_list_unref(ibox->index->custom_flags);
 
 		(void)ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK);
 	}

@@ -549,6 +549,11 @@ static int mail_index_open_file(MailIndex *index, const char *filename,
 				break;
 		}
 
+		/* custom flags file needs to be open before
+		   rebuilding index */
+		if (!mail_custom_flags_open_or_create(index))
+			break;
+
 		if (hdr.flags & MAIL_INDEX_FLAG_REBUILD) {
 			/* index is corrupted, rebuild */
 			if (!index->rebuild(index))
@@ -558,8 +563,6 @@ static int mail_index_open_file(MailIndex *index, const char *filename,
 		if (!mail_hash_open_or_create(index))
 			break;
 		if (!mail_modifylog_open_or_create(index))
-			break;
-		if (!mail_custom_flags_open_or_create(index))
 			break;
 
 		if (hdr.flags & MAIL_INDEX_FLAG_FSCK) {
@@ -721,7 +724,8 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 		*dir_unlocked = TRUE;
 
 	/* create the data file, build the index and hash */
-	if (!mail_index_data_create(index) || !index->rebuild(index) ||
+	if (!mail_custom_flags_open_or_create(index) ||
+	    !mail_index_data_create(index) || !index->rebuild(index) ||
 	    !mail_hash_create(index) || !mail_modifylog_create(index)) {
 		index->updating = FALSE;
 		mail_index_close(index);

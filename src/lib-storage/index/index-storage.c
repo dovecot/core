@@ -59,7 +59,8 @@ int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
 	int ret;
 
 	ret = mail_custom_flags_fix_list(ibox->index->custom_flags,
-					 flags, custom_flags);
+					 flags, custom_flags,
+					 MAIL_CUSTOM_FLAGS_COUNT);
 	switch (ret) {
 	case 1:
 		return TRUE;

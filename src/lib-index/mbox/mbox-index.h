@@ -15,6 +15,7 @@ typedef struct {
 MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path);
 
 void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index);
+void mbox_header_free_context(MboxHeaderContext *ctx);
 void mbox_header_func(MessagePart *part __attr_unused__,
 		      const char *name, size_t name_len,
 		      const char *value, size_t value_len,

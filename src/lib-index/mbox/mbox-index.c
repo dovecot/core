@@ -18,6 +18,11 @@ void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index)
 	ctx->custom_flags = mail_custom_flags_list_get(index->custom_flags);
 }
 
+void mbox_header_free_context(MboxHeaderContext *ctx)
+{
+	mail_custom_flags_list_unref(ctx->index->custom_flags);
+}
+
 static MailFlags mbox_get_status_flags(const char *value, size_t len)
 {
 	MailFlags flags;
@@ -69,33 +74,67 @@ mbox_get_keyword_flags(const char *value, size_t len,
 	return flags;
 }
 
-static void mbox_parse_imapbase(const char *value, size_t len,
-				MboxHeaderContext *ctx)
+static int mbox_parse_imapbase(const char *value, size_t len,
+			       MboxHeaderContext *ctx)
 {
-	size_t i, spaces;
+	const char **custom_flags, **old_flags;
+	size_t pos, start;
+	MailFlags flags;
+	int idx, ret, spaces, max;
 
 	/* skip <uid validity> and <last uid> fields */
 	spaces = 0;
-	for (i = 0; i < len; i++) {
-		if (value[i] == ' ' && (i == 0 || value[i-1] != ' ')) {
+	for (pos = 0; pos < len; pos++) {
+		if (value[pos] == ' ' && (pos == 0 || value[pos-1] != ' ')) {
 			if (++spaces == 2)
 				break;
 		}
 	}
 
-	while (i < len && value[i] == ' ') i++;
+	while (pos < len && value[pos] == ' ') pos++;
 
-	if (i == len)
-		return;
+	if (pos == len)
+		return TRUE;
+
+	t_push();
 
 	/* we're at the 3rd field now, which begins the list of custom flags */
+	max = MAIL_CUSTOM_FLAGS_COUNT;
+	custom_flags = t_new(const char *, max);
+	for (idx = 0, start = pos; ; pos++) {
+		if (pos == len || value[pos] == ' ' || value[pos] == '\t') {
+			if (start != pos) {
+				if (idx == max) {
+					/* need more memory */
+					old_flags = custom_flags;
+					max *= 2;
+					custom_flags = t_new(const char *, max);
+					memcpy(custom_flags, old_flags,
+					       sizeof(const char *) * idx);
+				}
 
+				custom_flags[idx++] =
+					t_strdup_until(value+start, value+pos);
+			}
+			start = pos+1;
 
-	/* FIXME */
+			if (pos == len)
+				break;
+		}
+	}
+
 	mail_custom_flags_list_unref(ctx->index->custom_flags);
+
+	flags = MAIL_CUSTOM_FLAGS_MASK;
+	ret = mail_custom_flags_fix_list(ctx->index->custom_flags, &flags,
+					 custom_flags, idx);
 
 	ctx->custom_flags =
 		mail_custom_flags_list_get(ctx->index->custom_flags);
+
+	t_pop();
+
+	return ret > 0;
 }
 
 void mbox_header_func(MessagePart *part __attr_unused__,
@@ -166,7 +205,7 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 		} else if (name_len == 10 &&
 			   strncasecmp(name, "X-IMAPbase", 10) == 0) {
 			/* update list of custom message flags */
-			mbox_parse_imapbase(value, value_len, ctx);
+			(void)mbox_parse_imapbase(value, value_len, ctx);
 		}
 		break;
 	}
