@@ -211,10 +211,10 @@ int mbox_unlock(MailIndex *index)
 	failed = FALSE;
 	if (index->mbox_fd != -1) {
 #ifdef HAVE_FLOCK
-		if (!mbox_lock_flock(index, F_UNLCK))
+		if (!mbox_lock_flock(index, MAIL_LOCK_UNLOCK))
 			failed = TRUE;
 #endif
-		if (!mbox_lock_fcntl(index, F_UNLCK))
+		if (!mbox_lock_fcntl(index, MAIL_LOCK_UNLOCK))
 			failed = TRUE;
 	}
 

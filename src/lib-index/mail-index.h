@@ -476,7 +476,7 @@ int mail_index_truncate(MailIndex *index);
 
 /* MailLockType to fcntl() lock type */
 #define MAIL_LOCK_TO_FLOCK(lock_type) \
-        ((lock_type) == MAIL_LOCK_UNLOCK ? F_UNLCK : \
-		(lock_type) == MAIL_LOCK_SHARED ? F_RDLCK : F_WRLCK)
+        ((lock_type) == MAIL_LOCK_EXCLUSIVE ? F_WRLCK : \
+		(lock_type) == MAIL_LOCK_SHARED ? F_RDLCK : F_UNLCK)
 
 #endif
