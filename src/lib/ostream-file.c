@@ -486,7 +486,7 @@ static ssize_t _send(struct _ostream *stream, const void *data, size_t size)
 {
 	struct file_ostream *fstream = (struct file_ostream *) stream;
 	struct iovec iov;
-	ssize_t ret;
+	ssize_t ret = 0;
 
 	i_assert(size <= SSIZE_T_MAX);
 
@@ -498,7 +498,11 @@ static ssize_t _send(struct _ostream *stream, const void *data, size_t size)
 	    (!fstream->corked || !_have_space(stream, size))) {
 		iov.iov_base = (void *) data;
 		iov.iov_len = size;
+
 		ret = o_stream_writev(fstream, &iov, 1);
+		if (ret > 0)
+			stream->ostream.offset += ret;
+
 		if (ret < 0 || (size_t)ret == size)
 			return ret;
 
@@ -510,10 +514,10 @@ static ssize_t _send(struct _ostream *stream, const void *data, size_t size)
 		/* send it blocking */
 		if (o_stream_send_blocking(fstream, data, size) < 0)
 			return -1;
-		ret = (ssize_t)size;
+		ret += (ssize_t)size;
 	} else {
 		/* buffer it, at least partly */
-		ret = (ssize_t)o_stream_add(fstream, data, size);
+		ret += (ssize_t)o_stream_add(fstream, data, size);
 	}
 
 	stream->ostream.offset += ret;
@@ -595,12 +599,16 @@ static off_t io_stream_copy(struct _ostream *outstream,
 	struct iovec iov[3];
 	int iov_len;
 	const unsigned char *data;
-	size_t size;
+	size_t size, skip_size;
 	ssize_t ret;
 	int pos;
 
 	timeout_time = GET_TIMEOUT_TIME(foutstream);
 	iov_len = o_stream_fill_iovec(foutstream, iov);
+
+        skip_size = 0;
+	for (pos = 0; pos < iov_len; pos++)
+		skip_size += iov[pos].iov_len;
 
 	i_assert(!overlapping || iov_len == 0);
 
@@ -631,12 +639,22 @@ static off_t io_stream_copy(struct _ostream *outstream,
 			/* error */
 			return -1;
 		}
-		outstream->ostream.offset += ret;
 
 		if (ret == 0 && !STREAM_IS_BLOCKING(foutstream)) {
 			/* don't block */
 			break;
 		}
+
+		if (skip_size > 0) {
+			if ((size_t)ret < skip_size) {
+				skip_size -= ret;
+				ret = 0;
+			} else {
+				ret -= skip_size;
+				skip_size = 0;
+			}
+		}
+		outstream->ostream.offset += ret;
 
 		if (timeout_time > 0 && time(NULL) > timeout_time) {
 			/* timeouted */
