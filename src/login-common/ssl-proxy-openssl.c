@@ -14,6 +14,8 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+#define SSL_CIPHER_LIST "ALL:!LOW"
+
 enum ssl_io_action {
 	SSL_ADD_INPUT,
 	SSL_REMOVE_INPUT,
@@ -320,7 +322,6 @@ int ssl_proxy_new(int fd, struct ip_addr *ip)
 		return -1;
 	}
 
-	SSL_set_accept_state(ssl);
 	if (SSL_set_fd(ssl, fd) != 1) {
 		i_error("SSL_set_fd() failed: %s", ssl_last_error());
 		SSL_free(ssl);
@@ -344,6 +345,8 @@ int ssl_proxy_new(int fd, struct ip_addr *ip)
 	proxy->fd_plain = sfd[0];
 	proxy->ip = *ip;
 
+	hash_insert(ssl_proxies, proxy, proxy);
+
 	proxy->refcount++;
 	ssl_handshake(proxy);
 	if (!ssl_proxy_unref(proxy)) {
@@ -353,7 +356,6 @@ int ssl_proxy_new(int fd, struct ip_addr *ip)
 	}
 
         main_ref();
-	hash_insert(ssl_proxies, proxy, proxy);
 	return sfd[1];
 }
 
@@ -401,7 +403,6 @@ static RSA *ssl_gen_rsa_key(SSL *ssl __attr_unused__,
 void ssl_proxy_init(void)
 {
 	const char *certfile, *keyfile, *paramfile;
-	int ret;
 
 	certfile = getenv("SSL_CERT_FILE");
 	keyfile = getenv("SSL_KEY_FILE");
@@ -418,14 +419,20 @@ void ssl_proxy_init(void)
 	if ((ssl_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL)
 		i_fatal("SSL_CTX_new() failed");
 
-        ret = SSL_CTX_use_certificate_chain_file(ssl_ctx, certfile);
-	if (ret != 1) {
+	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
+
+	if (SSL_CTX_set_cipher_list(ssl_ctx, SSL_CIPHER_LIST) != 1) {
+		i_fatal("Can't set cipher list to '%s': %s",
+			SSL_CIPHER_LIST, ssl_last_error());
+	}
+
+	if (SSL_CTX_use_certificate_chain_file(ssl_ctx, certfile) != 1) {
 		i_fatal("Can't load certificate file %s: %s",
 			certfile, ssl_last_error());
 	}
 
-	ret = SSL_CTX_use_PrivateKey_file(ssl_ctx, keyfile, SSL_FILETYPE_PEM);
-	if (ret != 1) {
+	if (SSL_CTX_use_RSAPrivateKey_file(ssl_ctx, keyfile,
+					   SSL_FILETYPE_PEM) != 1) {
 		i_fatal("Can't load private key file %s: %s",
 			keyfile, ssl_last_error());
 	}

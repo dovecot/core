@@ -333,6 +333,8 @@ int ssl_proxy_new(int fd, struct ip_addr *ip)
 	proxy->fd_plain = sfd[0];
 	proxy->ip = *ip;
 
+	hash_insert(ssl_proxies, proxy, proxy);
+
 	proxy->refcount++;
 	ssl_handshake(proxy);
 	if (!ssl_proxy_destroy(proxy)) {
@@ -342,7 +344,6 @@ int ssl_proxy_new(int fd, struct ip_addr *ip)
 	}
 
         main_ref();
-	hash_insert(ssl_proxies, proxy, proxy);
 	return sfd[1];
 }
 
