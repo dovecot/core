@@ -268,8 +268,10 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 		}
 
 		ret = mail_index_sync_next(sync_ctx->index_sync_ctx, sync_rec);
-		if (ret < 0)
+		if (ret < 0) {
+			mail_storage_set_index_error(sync_ctx->ibox);
 			return -1;
+		}
 
 		if (ret == 0) {
 			memset(sync_rec, 0, sizeof(*sync_rec));
@@ -634,8 +636,10 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 	uint64_t offset;
 
 	if (mail_index_lookup_uid_range(sync_ctx->sync_view, uid, uid,
-					&seq, &seq) < 0)
+					&seq, &seq) < 0) {
+		mail_storage_set_index_error(sync_ctx->ibox);
 		return -1;
+	}
 
 	if (seq == 0)
 		return 0;
@@ -1085,16 +1089,19 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
 
 	if (ret < 0)
 		mail_index_transaction_rollback(sync_ctx.t);
-	else if (mail_index_transaction_commit(sync_ctx.t, &seq, &offset) < 0)
+	else if (mail_index_transaction_commit(sync_ctx.t, &seq, &offset) < 0) {
+		mail_storage_set_index_error(ibox);
 		ret = -1;
-	else {
+	} else {
 		ibox->commit_log_file_seq = 0;
 		ibox->commit_log_file_offset = 0;
 	}
 	sync_ctx.t = NULL;
 
-	if (mail_index_sync_end(index_sync_ctx) < 0)
+	if (mail_index_sync_end(index_sync_ctx) < 0) {
+		mail_storage_set_index_error(ibox);
 		ret = -1;
+	}
 
 	if (sync_ctx.base_uid_last != sync_ctx.next_uid-1 && ret == 0 &&
 	    !ibox->mbox_readonly) {
@@ -1108,17 +1115,21 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
 		if (ret < 0)
 			mail_storage_set_index_error(ibox);
 		else {
-			ret = mail_index_get_header(sync_ctx.sync_view,
+			(void)mail_index_get_header(sync_ctx.sync_view,
 						    &sync_ctx.hdr);
 			if ((ret = mbox_sync_update_imap_base(&sync_ctx)) < 0)
 				mail_index_transaction_rollback(sync_ctx.t);
 			else if (mail_index_transaction_commit(sync_ctx.t,
 							       &seq,
-							       &offset) < 0)
+							       &offset) < 0) {
+				mail_storage_set_index_error(ibox);
 				ret = -1;
+			}
 
-			if (mail_index_sync_end(sync_ctx.index_sync_ctx) < 0)
+			if (mail_index_sync_end(sync_ctx.index_sync_ctx) < 0) {
+				mail_storage_set_index_error(ibox);
 				ret = -1;
+			}
 		}
 	}
 
