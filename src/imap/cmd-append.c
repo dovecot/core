@@ -214,7 +214,7 @@ static int cmd_append_continue_parsing(struct client *client)
 					   ctx->msg_size);
 	ctx->save_ctx = mailbox_save_init(ctx->t, &flags, internal_date,
 					  timezone_offset, NULL,
-					  ctx->input, TRUE);
+					  ctx->input, FALSE);
 
 	client->command_pending = TRUE;
 	client->cmd_func = cmd_append_continue_message;
