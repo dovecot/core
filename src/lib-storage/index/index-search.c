@@ -461,13 +461,6 @@ static void search_text_body(MailSearchArg *arg, void *context)
 		search_text(arg, ctx);
 }
 
-static void search_text_set_unmatched(MailSearchArg *arg,
-				      void *context __attr_unused__)
-{
-	if (arg->type == SEARCH_TEXT || arg->type == SEARCH_BODY)
-		ARG_SET_RESULT(arg, -1);
-}
-
 static void search_arg_match_data(IOBuffer *inbuf, uoff_t max_size,
 				  MailSearchArg *args,
 				  MailSearchForeachFunc search_func)
@@ -554,9 +547,6 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 
 		search_arg_match_data(inbuf, rec->body_size, args,
 				      search_text_body);
-
-		/* set the rest as unmatched */
-		mail_search_args_foreach(args, search_text_set_unmatched, NULL);
 	}
 
 	(void)close(inbuf->fd);
@@ -670,8 +660,10 @@ static void search_messages(IndexMailbox *ibox, MailSearchArg *args,
 {
 	SearchIndexContext ctx;
 	MailIndexRecord *rec;
+        MailSearchArg *arg;
 	unsigned int first_seq, last_seq, seq;
 	char num[MAX_LARGEST_T_STRLEN+10];
+	int found;
 
 	if (ibox->synced_messages_count == 0)
 		return;
@@ -691,11 +683,20 @@ static void search_messages(IndexMailbox *ibox, MailSearchArg *args,
 		mail_search_args_foreach(args, search_cached_arg, &ctx);
 		mail_search_args_foreach(args, search_slow_arg, &ctx);
 
-		if (search_arg_match_text(ibox, rec, args) &&
-		    args->result == 1) {
-			i_snprintf(num, sizeof(num), " %u",
-				   uid_result ? rec->uid : seq);
-			io_buffer_send(outbuf, num, strlen(num));
+		if (search_arg_match_text(ibox, rec, args)) {
+			found = TRUE;
+			for (arg = args; arg != NULL; arg = arg->next) {
+				if (arg->result != 1) {
+					found = FALSE;
+					break;
+				}
+			}
+
+			if (found) {
+				i_snprintf(num, sizeof(num), " %u",
+					   uid_result ? rec->uid : seq);
+				io_buffer_send(outbuf, num, strlen(num));
+			}
 		}
 		rec = ibox->index->next(ibox->index, rec);
 	}
