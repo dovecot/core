@@ -261,7 +261,7 @@ static void mail_index_update_header_changes(struct mail_index *index)
 
 static int mail_index_write_header_changes(struct mail_index *index)
 {
-	int failed;
+	int failed = FALSE;
 
 	/* use our own locking here so we don't mess up with any other
 	   index states, like inconsistency. */
@@ -275,10 +275,13 @@ static int mail_index_write_header_changes(struct mail_index *index)
 
 	mail_index_update_header_changes(index);
 
-	failed = msync(index->mmap_base,
-		       sizeof(struct mail_index_header), MS_SYNC) < 0;
-	if (failed)
-		index_set_syscall_error(index, "msync()");
+	if (!index->anon_mmap) {
+		if (msync(index->mmap_base,
+			  sizeof(struct mail_index_header), MS_SYNC) < 0) {
+			index_set_syscall_error(index, "msync()");
+			failed = TRUE;
+		}
+	}
 
 #ifdef DEBUG
 	mprotect(index->mmap_base, index->mmap_used_length, PROT_NONE);
@@ -446,7 +449,8 @@ static int mail_index_lock_full(struct mail_index *index,
 		/* remove the FSCK flag only after successful fsync() */
 		if (mail_index_sync_file(index) && !keep_fsck) {
 			index->header->flags &= ~MAIL_INDEX_FLAG_FSCK;
-			if (msync(index->mmap_base,
+			if (!index->anon_mmap &&
+			    msync(index->mmap_base,
 				  sizeof(struct mail_index_header),
 				  MS_SYNC) < 0) {
 				/* we only failed to remove the fsck flag,

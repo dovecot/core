@@ -76,13 +76,24 @@ static int index_data_set_syscall_error(struct mail_index_data *data,
 	return FALSE;
 }
 
+static int mail_index_data_msync(struct mail_index_data *data)
+{
+	if (!data->modified)
+		return TRUE;
+
+	if (!data->anon_mmap) {
+		if (msync(data->mmap_base, data->mmap_used_length, MS_SYNC) < 0)
+			return index_data_set_syscall_error(data, "msync()");
+	}
+
+	data->modified = FALSE;
+	data->fsynced = FALSE;
+	return TRUE;
+}
+
 static void mail_index_data_file_close(struct mail_index_data *data)
 {
-	if (data->modified) {
-		if (msync(data->mmap_base, data->mmap_used_length, MS_SYNC) < 0)
-			index_data_set_syscall_error(data, "msync()");
-		data->modified = FALSE;
-	}
+	(void)mail_index_data_msync(data);
 
 	if (data->anon_mmap) {
 		if (munmap_anon(data->mmap_base, data->mmap_full_length) < 0)
@@ -164,11 +175,8 @@ static int mmap_update(struct mail_index_data *data, uoff_t pos, size_t size)
 	i_assert(!data->anon_mmap);
 
 	if (data->mmap_base != NULL) {
-		if (data->modified &&
-		    msync(data->mmap_base, data->mmap_used_length, MS_SYNC) < 0)
-			return index_data_set_syscall_error(data, "msync()");
-		data->modified = FALSE;
-		data->fsynced = FALSE;
+		if (!mail_index_data_msync(data))
+			return FALSE;
 
 		if (munmap(data->mmap_base, data->mmap_full_length) < 0)
 			index_data_set_syscall_error(data, "munmap()");
@@ -504,12 +512,8 @@ int mail_index_data_sync_file(struct mail_index_data *data, int *fsync_fd)
 	if (data->anon_mmap)
 		return TRUE;
 
-	if (data->modified) {
-		if (msync(data->mmap_base, data->mmap_used_length, MS_SYNC) < 0)
-			return index_data_set_syscall_error(data, "msync()");
-
-		data->fsynced = FALSE;
-	}
+	if (!mail_index_data_msync(data))
+		return FALSE;
 
 	if (!data->fsynced) {
 		data->fsynced = TRUE;

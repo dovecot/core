@@ -55,7 +55,7 @@ static int mmap_update(struct mail_tree *tree)
 
 	if (tree->mmap_base != NULL) {
 		/* make sure we're synced before munmap() */
-		if (tree->modified &&
+		if (!tree->anon_mmap && tree->modified &&
 		    msync(tree->mmap_base, tree->mmap_highwater, MS_SYNC) < 0)
 			return tree_set_syscall_error(tree, "msync()");
 		tree->modified = FALSE;

@@ -32,9 +32,11 @@ int mbox_index_rebuild(struct mail_index *index)
 	if (index->opened)
 		index->inconsistent = TRUE;
 
-	if (msync(index->mmap_base,
-		  sizeof(struct mail_index_header), MS_SYNC) < 0)
-		return index_set_syscall_error(index, "msync()");
+	if (!index->anon_mmap) {
+		if (msync(index->mmap_base,
+			  sizeof(struct mail_index_header), MS_SYNC) < 0)
+			return index_set_syscall_error(index, "msync()");
+	}
 
 	/* reset data file */
 	if (!mail_index_data_reset(index->data))
