@@ -9,6 +9,7 @@
 
 #include "userinfo-passwd.h"
 
+#include <stdio.h>
 #include <vpopmail.h>
 #include <vauth.h>
 
