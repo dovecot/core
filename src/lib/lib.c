@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+unsigned char null4[4] = { 0, 0, 0, 0 };
+
 size_t nearest_power(size_t num)
 {
 	size_t n = 1;
