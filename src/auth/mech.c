@@ -17,9 +17,9 @@ const char *const *auth_realms;
 const char *default_realm;
 const char *anonymous_username;
 char username_chars[256], username_translation[256];
+int ssl_require_client_cert;
 
 static int set_use_cyrus_sasl;
-static int ssl_require_client_cert;
 static struct auth_client_request_reply failure_reply;
 
 static buffer_t *auth_failures_buf;
@@ -467,11 +467,11 @@ void mech_init(void)
 	env = getenv("USERNAME_CHARS");
 	if (env == NULL || *env == '\0') {
 		/* all chars are allowed */
-		memset(username_chars, 0xff, sizeof(username_chars));
+		memset(username_chars, 1, sizeof(username_chars));
 	} else {
 		memset(username_chars, 0, sizeof(username_chars));
 		for (; *env != '\0'; env++)
-			username_chars[((unsigned char)*env) & 0xff] = 0xff;
+			username_chars[((unsigned char)*env) & 0xff] = 1;
 	}
 
 	env = getenv("USERNAME_TRANSLATION");

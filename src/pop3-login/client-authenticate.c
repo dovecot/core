@@ -258,8 +258,7 @@ static void client_auth_input(void *context)
 	linelen = strlen(line);
 	buf = buffer_create_static_hard(pool_datastack_create(), linelen);
 
-	if (base64_decode((const unsigned char *) line, linelen,
-			  NULL, buf) <= 0) {
+	if (base64_decode(line, linelen, NULL, buf) <= 0) {
 		/* failed */
 		client_auth_abort(client, "Invalid base64 data");
 	} else if (client->common.auth_request == NULL) {
@@ -322,8 +321,7 @@ int cmd_auth(struct pop3_client *client, const char *args)
 	argslen = strlen(args);
 	buf = buffer_create_static_hard(pool_datastack_create(), argslen);
 
-	if (base64_decode((const unsigned char *)args, argslen,
-			  NULL, buf) <= 0) {
+	if (base64_decode(args, argslen, NULL, buf) <= 0) {
 		/* failed */
 		client_send_line(client, "-ERR Invalid base64 data.");
 		return TRUE;

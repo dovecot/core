@@ -432,7 +432,7 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 void ssl_proxy_init(void)
 {
 	const char *cafile, *certfile, *keyfile, *paramfile, *cipher_list;
-	char buf;
+	unsigned char buf;
 
 	cafile = getenv("SSL_CA_FILE");
 	certfile = getenv("SSL_CERT_FILE");

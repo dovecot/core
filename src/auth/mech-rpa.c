@@ -320,7 +320,7 @@ buffer_append_asn1_length(buffer_t *buf, unsigned int length)
 	}
 }
 
-static const char *
+static const unsigned char *
 mech_rpa_build_token2(struct rpa_auth_request *auth,
 		      const char *realms, size_t *size)
 {
@@ -366,7 +366,7 @@ mech_rpa_build_token2(struct rpa_auth_request *auth,
 	return buffer_free_without_data(buf);
 }
 
-static const char *
+static const unsigned char *
 mech_rpa_build_token4(struct rpa_auth_request *auth, size_t *size)
 {
 	unsigned int length = sizeof(rpa_oid) + 17 + 17 + 1;

@@ -95,7 +95,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		mech_auth_finish(auth_request, NULL, 0, FALSE);
 		return TRUE;
 	}
-	auth->challenge = p_strdup(auth->pool, data);
+	auth->challenge = p_strdup(auth->pool, (const char *)data);
 
 	if (tmp != end) {
 		username = ++tmp;
@@ -114,7 +114,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 	}
 	tmp++;
 
-	auth_request->user = p_strdup(auth->pool, username);
+	auth_request->user = p_strdup(auth->pool, (const char *)username);
 	if (!mech_fix_username(auth_request->user, &error)) {
 		if (verbose) {
 			i_info("apop(%s): %s",

@@ -45,7 +45,7 @@ static void _notify_changes(struct mailbox *box, unsigned int min_interval,
 {
 	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
 
-	return p->box->notify_changes(box, min_interval, callback, context);
+	p->box->notify_changes(box, min_interval, callback, context);
 }
 
 static struct mail *_fetch(struct mailbox_transaction_context *t, uint32_t seq,
