@@ -298,6 +298,9 @@ AC_TRY_COMPILE([
 dnl * Linux compatible sendfile()
 AC_MSG_CHECKING([Linux compatible sendfile()])
 AC_TRY_COMPILE([
+  #include <sys/types.h>
+  #include <sys/socket.h>
+  #include <sys/uio.h>
   #include <sys/sendfile.h>
 ], [
   sendfile(0, 0, (void *) 0, 0);
