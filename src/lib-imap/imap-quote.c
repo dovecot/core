@@ -8,6 +8,7 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 		       size_t value_len)
 {
 	size_t i;
+	int literal = FALSE;
 
 	for (i = 0; i < value_len; i++) {
 		if (value[i] == 0) {
@@ -16,10 +17,10 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 		}
 
 		if ((value[i] & 0x80) != 0)
-			break;
+			literal = TRUE;
 	}
 
-	if (i == value_len) {
+	if (!literal) {
 		/* no 8bit chars, return as "string" */
 		str_append_c(str, '"');
 		str_append_n(str, value, value_len);
