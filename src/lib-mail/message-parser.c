@@ -328,18 +328,13 @@ void message_parse_header(MessagePart *part, IBuffer *inbuf,
 			continue;
 		}
 
-		if (size <= startpos) {
-			if (ret <= 0) {
-				/* EOF and nothing in buffer. the later check is
-				   needed only when there's no message body */
-				break;
-			}
-
-			parse_size = size;
-		} else {
-			parse_size = size-1;
+		if (ret < 0 || (ret <= 0 && size == startpos)) {
+			/* EOF and nothing in buffer. the later check is
+			   needed only when there's no message body */
+			break;
 		}
 
+		parse_size = size <= startpos+1 ? size : size-1;
 		for (i = startpos; i < parse_size; i++) {
 			if (msg[i] == ':' && colon_pos == UINT_MAX) {
 				colon_pos = i;
