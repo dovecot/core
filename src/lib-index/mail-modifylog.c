@@ -577,22 +577,6 @@ static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord **rec,
 	return TRUE;
 }
 
-static int mail_modifylog_merge_last(ModifyLogRecord *rec,
-				     unsigned int seq, unsigned int uid)
-{
-	if (seq+1 == rec->seq1) {
-		rec->seq1 = seq;
-		rec->uid1 = uid;
-		return TRUE;
-	} else if (seq-1 == rec->seq2) {
-		rec->seq2 = seq;
-		rec->uid2 = uid;
-		return TRUE;
-	} else {
-		return FALSE;
-	}
-}
-
 int mail_modifylog_add_expunge(MailModifyLog *log, unsigned int seq,
 			       unsigned int uid, int external_change)
 {
@@ -603,8 +587,19 @@ int mail_modifylog_add_expunge(MailModifyLog *log, unsigned int seq,
 
 	if (log->last_expunge != NULL &&
 	    log->last_expunge_external == external_change) {
-		if (mail_modifylog_merge_last(log->last_expunge, seq, uid))
+		if (seq+1 == log->last_expunge->seq1) {
+			i_assert(uid < log->last_expunge->uid1);
+			log->last_expunge->seq1 = seq;
+			log->last_expunge->uid1 = uid;
 			return TRUE;
+		} else if (seq == log->last_expunge->seq1) {
+			/* note the different weirder logic than with
+			   flag changing, because of reordered seq numbers. */
+			i_assert(uid > log->last_expunge->uid2);
+			log->last_expunge->seq2++;
+			log->last_expunge->uid2 = uid;
+			return TRUE;
+		}
 	}
 
 	rec.type = RECORD_TYPE_EXPUNGE;
@@ -627,8 +622,15 @@ int mail_modifylog_add_flags(MailModifyLog *log, unsigned int seq,
 
 	if (log->last_flags != NULL &&
 	    log->last_flags_external == external_change) {
-		if (mail_modifylog_merge_last(log->last_flags, seq, uid))
+		if (seq+1 == log->last_flags->seq1) {
+			log->last_flags->seq1 = seq;
+			log->last_flags->uid1 = uid;
 			return TRUE;
+		} else if (seq-1 == log->last_flags->seq2) {
+			log->last_flags->seq2 = seq;
+			log->last_flags->uid2 = uid;
+			return TRUE;
+		}
 	}
 
 	rec.type = RECORD_TYPE_FLAGS_CHANGED;

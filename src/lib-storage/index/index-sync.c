@@ -73,7 +73,8 @@ int index_storage_sync_modifylog(IndexMailbox *ibox)
         MailboxSyncCallbacks *sc;
 	void *sc_context;
 	const char **custom_flags;
-	unsigned int count, seq, seq_count, i, first_flag_change, messages;
+	unsigned int count, seq, seq_count, i, messages;
+	unsigned int first_flag_change, first_flag_messages_count;
 
 	/* show the log */
 	log = mail_modifylog_get_nonsynced(ibox->index->modifylog, &count);
@@ -87,6 +88,7 @@ int index_storage_sync_modifylog(IndexMailbox *ibox)
 	   numbers. */
 	messages = ibox->synced_messages_count;
 	first_flag_change = count;
+        first_flag_messages_count = 0;
 	for (i = 0; i < count; i++) {
 		if (log[i].seq1 > messages) {
 			/* client doesn't know about this message yet */
@@ -104,14 +106,19 @@ int index_storage_sync_modifylog(IndexMailbox *ibox)
 			}
 			break;
 		case RECORD_TYPE_FLAGS_CHANGED:
-			if (first_flag_change == count)
+			if (first_flag_change == count) {
 				first_flag_change = i;
+				first_flag_messages_count = messages;
+			}
 			break;
 		}
 	}
 
+	/* set synced messages count before flag changes break it */
+	ibox->synced_messages_count = messages;
+
 	/* now show the flags */
-	messages = ibox->synced_messages_count;
+	messages = first_flag_messages_count;
 	custom_flags = mail_custom_flags_list_get(ibox->index->custom_flags);
 	for (i = first_flag_change; i < count; i++) {
 		if (log[i].seq1 > messages) {
@@ -143,8 +150,6 @@ int index_storage_sync_modifylog(IndexMailbox *ibox)
 			break;
 		}
 	}
-
-	ibox->synced_messages_count = messages;
 
 	/* mark synced */
 	if (!mail_modifylog_mark_synced(ibox->index->modifylog))
