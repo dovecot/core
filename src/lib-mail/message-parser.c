@@ -892,6 +892,7 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 		line->full_value_len = line->value_len;
 	} else if (line->use_full_value) {
 		/* continue saving the full value */
+		buffer_append_c(ctx->value_buf, '\n');
 		buffer_append(ctx->value_buf, line->value, line->value_len);
 		line->full_value = buffer_get_data(ctx->value_buf,
 						   &line->full_value_len);
