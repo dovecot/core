@@ -212,7 +212,7 @@ void i_syslog_warning_handler(const char *fmt, va_list args)
 
 void i_set_failure_file(const char *path, const char *prefix)
 {
-	if (log_fd != stderr)
+	if (log_fd != NULL && log_fd != stderr)
 		(void)fclose(log_fd);
 
 	log_fd = fopen(path, "a");
