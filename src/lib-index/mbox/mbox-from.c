@@ -47,6 +47,11 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 		}
 	}
 
+	if (i == 12 && memcmp(msg, "???", 3) == 0) {
+		/* just a hack to parse one special mbox I have :) */
+		i = 0;
+	}
+
 	if (i == 12 || msg[3] != ' ')
 		return (time_t)-1;
 	msg += 4;
@@ -61,6 +66,8 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 			return (time_t)-1;
 		tm.tm_mday = (msg[0]-'0') * 10 + (msg[1]-'0');
 	}
+	if (tm.tm_mday == 0)
+		tm.tm_mday = 1;
 	msg += 3;
 
 	/* hour */
