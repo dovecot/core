@@ -493,25 +493,24 @@ void mail_cache_set_defaults(struct mail_cache *cache,
 
 static const struct mail_cache_record *
 mail_cache_compress_record(struct mail_cache *cache,
-			   struct mail_index_record *rec,
-			   enum mail_cache_field remove_fields,
+			   struct mail_index_record *rec, int header_idx,
 			   uint32_t *size_r)
 {
-	enum mail_cache_field cached_fields, field;
+	enum mail_cache_field orig_cached_fields, cached_fields, field;
 	struct mail_cache_record cache_rec;
 	buffer_t *buffer;
 	const void *data;
-	size_t size;
+	size_t size, pos;
 	uint32_t nb_size;
 	int i;
 
 	memset(&cache_rec, 0, sizeof(cache_rec));
 	buffer = buffer_create_dynamic(data_stack_pool, 4096, (size_t)-1);
 
-	cached_fields = mail_cache_get_fields(cache, rec) & ~remove_fields;
+        orig_cached_fields = mail_cache_get_fields(cache, rec);
+	cached_fields = orig_cached_fields & ~MAIL_CACHE_HEADERS_MASK;
 	buffer_append(buffer, &cache_rec, sizeof(cache_rec));
-	for (i = 0; i < 32; i++) {
-		field = nbo32_bitmasks[i];
+	for (i = 0, field = 1; i < 31; i++, field <<= 1) {
 		if ((cached_fields & field) == 0)
 			continue;
 
@@ -529,6 +528,32 @@ mail_cache_compress_record(struct mail_cache *cache,
 			buffer_append(buffer, null4, 4 - (size & 3));
 	}
 
+	/* now merge all the headers if we have them all */
+	if ((orig_cached_fields & mail_cache_header_fields[header_idx]) != 0) {
+		nb_size = 0;
+		pos = buffer_get_used_size(buffer);
+		buffer_append(buffer, &nb_size, sizeof(nb_size));
+
+		for (i = 0; i <= header_idx; i++) {
+			field = mail_cache_header_fields[i];
+			if (mail_cache_lookup_field(cache, rec, field,
+						    &data, &size) && size > 1) {
+				size--; /* terminating \0 */
+				buffer_append(buffer, data, size);
+				nb_size += size;
+			}
+		}
+		buffer_append(buffer, "", 1);
+		nb_size++;
+		if ((nb_size & 3) != 0)
+			buffer_append(buffer, null4, 4 - (nb_size & 3));
+
+		nb_size = uint32_to_nbo(nb_size);
+		buffer_write(buffer, pos, &nb_size, sizeof(nb_size));
+
+		cached_fields |= MAIL_CACHE_HEADERS1;
+	}
+
 	cache_rec.fields = cached_fields;
 	cache_rec.size = uint32_to_nbo(buffer_get_used_size(buffer));
 	buffer_write(buffer, 0, &cache_rec, sizeof(cache_rec));
@@ -543,11 +568,11 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 	struct mail_cache_header *hdr;
 	const struct mail_cache_record *cache_rec;
 	struct mail_index_record *rec;
-        enum mail_cache_field used_fields, remove_fields;
+        enum mail_cache_field used_fields;
 	unsigned char *mmap_base;
 	const char *str;
 	uint32_t new_file_size, offset, size, nb_size;
-	int i;
+	int i, header_idx;
 
 	/* pick some reasonably good file size */
 	new_file_size = cache->used_file_size -
@@ -568,27 +593,28 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 	hdr = (struct mail_cache_header *) mmap_base;
 	offset = sizeof(*hdr);
 
-	/* get the newest message header list */
-	remove_fields = 0;
+	/* merge all the header pieces into one. if some message doesn't have
+	   all the required pieces, we'll just have to drop them all. */
 	for (i = MAIL_CACHE_HEADERS_COUNT-1; i >= 0; i--) {
 		str = mail_cache_get_header_fields_str(cache, i);
-		if (str != NULL) {
-			hdr->header_offsets[0] = uint32_to_nbo(offset | 2);
-
-			size = strlen(str) + 1;
-			nb_size = uint32_to_nbo(size);
-
-			memcpy(mmap_base + offset, &nb_size, sizeof(nb_size));
-			offset += sizeof(nb_size);
-			memcpy(mmap_base + offset, str, size);
-			offset += (size + 3) & ~3;
+		if (str != NULL)
 			break;
-		}
 	}
 
-	/* remove other headers */
-	for (i--; i >= 0; i--)
-		remove_fields |= mail_cache_header_fields[i];
+	if (str == NULL)
+		header_idx = -1;
+	else {
+		hdr->header_offsets[0] = uint32_to_nbo(offset | 2);
+		header_idx = i;
+
+		size = strlen(str) + 1;
+		nb_size = uint32_to_nbo(size);
+
+		memcpy(mmap_base + offset, &nb_size, sizeof(nb_size));
+		offset += sizeof(nb_size);
+		memcpy(mmap_base + offset, str, size);
+		offset += (size + 3) & ~3;
+	}
 
 	used_fields = 0;
 	rec = cache->index->lookup(cache->index, 1);
@@ -596,8 +622,7 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 		cache_rec = mail_cache_lookup(cache, rec);
 		if (cache_rec == NULL)
 			rec->cache_offset = 0;
-		else if ((nbo_to_uint32(cache_rec->next_offset) & 2) == 0 &&
-			 remove_fields == 0) {
+		else if ((nbo_to_uint32(cache_rec->next_offset) & 2) == 0) {
 			/* just one unmodified block, copy it */
 			size = nbo_to_uint32(cache_rec->size);
 			i_assert(offset + size <= new_file_size);
@@ -611,7 +636,7 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 			/* multiple blocks, sort them into buffer */
 			t_push();
 			cache_rec = mail_cache_compress_record(cache, rec,
-							       remove_fields,
+							       header_idx,
 							       &size);
 			i_assert(offset + size <= new_file_size);
 			memcpy(mmap_base + offset, cache_rec, size);
@@ -1013,6 +1038,12 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 	if (!commit_all_changes(ctx))
 		ret = FALSE;
 
+	if (ctx->next_unused_header_lowwater == MAIL_CACHE_HEADERS_COUNT) {
+		/* they're all used - compress the cache to get more */
+		ctx->cache->index->set_flags |=
+			MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE;
+	}
+
 	mail_cache_transaction_flush(ctx);
 	return ret;
 }
@@ -1189,7 +1220,7 @@ const char *const *mail_cache_get_header_fields(struct mail_cache *cache,
 			cache->split_offsets[i] =
 				cache->header->header_offsets[i];
 
-			str = mail_cache_get_header_fields_str(cache, idx);
+			str = mail_cache_get_header_fields_str(cache, i);
 			cache->split_headers[i] = split_header(cache, str);
 		}
 		t_pop();
@@ -1237,6 +1268,11 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 
 		cache->header->header_offsets[idx] = uint32_to_nbo(offset);
 
+		/* the above value may actually be in split_offsets[] if
+		   last transaction was rolled back. make sure the next
+		   get_header_fields() notices it's changed */
+                cache->split_offsets[idx] = 0;
+
 		/* mark used-bit to be updated later. not really needed for
 		   read-safety, but if transaction get rolled back we can't let
 		   this point to invalid location. */
@@ -1279,10 +1315,14 @@ cache_get_record(struct mail_cache *cache, uint32_t offset)
 	cache_rec = CACHE_RECORD(cache, offset);
 
 	size = nbo_to_uint32(cache_rec->size);
-	if (!mmap_update(cache, offset, sizeof(*cache_rec) + size))
+	if (size < sizeof(*cache_rec)) {
+		mail_cache_set_corrupted(cache, "invalid record size");
+		return NULL;
+	}
+	if (!mmap_update(cache, offset, size))
 		return NULL;
 
-	if (offset + sizeof(*cache_rec) + size > cache->mmap_length) {
+	if (offset + size > cache->mmap_length) {
 		mail_cache_set_corrupted(cache, "record points outside file");
 		return NULL;
 	}
@@ -1391,10 +1431,11 @@ mail_cache_lookup(struct mail_cache *cache, const struct mail_index_record *rec)
 
 static int get_field_num(enum mail_cache_field field)
 {
+	unsigned int mask;
 	int i;
 
-	for (i = 0; i < 32; i++) {
-		if ((field & nbo32_bitmasks[i]) != 0)
+	for (i = 0, mask = 1; i < 31; i++, mask <<= 1) {
+		if ((field & mask) != 0)
 			return i;
 	}
 
@@ -1412,8 +1453,7 @@ static size_t get_insert_offset(struct mail_cache_transaction_ctx *ctx,
 
 	buf = buffer_get_data(ctx->cache_data, NULL);
 
-	for (i = 0; i < 32; i++) {
-		mask = nbo32_bitmasks[i];
+	for (i = 0, mask = 1; i < 31; i++, mask <<= 1) {
 		if ((field & mask) != 0)
 			return offset;
 
@@ -1558,16 +1598,24 @@ static int cache_get_field(struct mail_cache *cache,
 	unsigned char *buf;
 	unsigned int mask;
 	uint32_t rec_size, data_size;
-	size_t offset = 0;
+	size_t offset, next_offset;
 	int i;
 
 	rec_size = nbo_to_uint32(cache_rec->size);
-	buf = (unsigned char *) cache_rec + sizeof(*cache_rec);
+	buf = (unsigned char *) cache_rec;
+	offset = sizeof(*cache_rec);
 
-	for (i = 0; i < 32; i++) {
-		mask = nbo32_bitmasks[i];
+	for (i = 0, mask = 1; i < 31; i++, mask <<= 1) {
 		if ((cache_rec->fields & mask) == 0)
 			continue;
+
+		/* all records are at least 32bit. we have to check this
+		   before getting data_size. */
+		if (offset + sizeof(uint32_t) > rec_size) {
+			mail_cache_set_corrupted(cache,
+				"Record continues outside it's allocated size");
+			return FALSE;
+		}
 
 		if ((mask & MAIL_CACHE_FIXED_MASK) != 0)
 			data_size = mail_cache_field_sizes[i];
@@ -1575,6 +1623,13 @@ static int cache_get_field(struct mail_cache *cache,
 			memcpy(&data_size, buf + offset, sizeof(data_size));
 			data_size = nbo_to_uint32(data_size);
 			offset += sizeof(data_size);
+		}
+
+		next_offset = offset + ((data_size + 3) & ~3);
+		if (next_offset > rec_size) {
+			mail_cache_set_corrupted(cache,
+				"Record continues outside it's allocated size");
+			return FALSE;
 		}
 
 		if (field == mask) {
@@ -1587,14 +1642,7 @@ static int cache_get_field(struct mail_cache *cache,
 			*size_r = data_size;
 			return TRUE;
 		}
-
-		offset += (data_size + 3) & ~3;
-
-		if (offset >= rec_size) {
-			mail_cache_set_corrupted(cache,
-				"Record continues outside it's allocated size");
-			return FALSE;
-		}
+		offset = next_offset;
 	}
 
 	i_unreached();

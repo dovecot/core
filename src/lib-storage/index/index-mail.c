@@ -1,16 +1,13 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
 #include "buffer.h"
 #include "istream.h"
 #include "str.h"
-#include "message-address.h"
 #include "message-date.h"
 #include "message-part-serialize.h"
 #include "imap-bodystructure.h"
 #include "imap-envelope.h"
-#include "mail-index.h"
-#include "mail-index-util.h"
 #include "mail-custom-flags.h"
 #include "mail-cache.h"
 #include "index-storage.h"
@@ -31,8 +28,6 @@ static struct message_part *get_cached_parts(struct index_mail *mail)
 					MAIL_CACHE_MESSAGEPART);
 		return NULL;
 	}
-
-	// FIXME: for non-multipart messages we could build it
 
 	if (!mail_cache_lookup_field(mail->ibox->index->cache, mail->data.rec,
 				     MAIL_CACHE_MESSAGEPART,
@@ -126,7 +121,7 @@ static void get_cached_sent_date(struct index_mail *mail,
 	}
 }
 
-static int index_mail_cache_transaction_begin(struct index_mail *mail)
+int index_mail_cache_transaction_begin(struct index_mail *mail)
 {
 	if (mail->ibox->trans_ctx != NULL)
 		return TRUE;
@@ -159,9 +154,8 @@ static int index_mail_cache_can_add(struct index_mail *mail,
 	return TRUE;
 }
 
-static void index_mail_cache_add(struct index_mail *mail,
-				 enum mail_cache_field field,
-				 const void *data, size_t size)
+void index_mail_cache_add(struct index_mail *mail, enum mail_cache_field field,
+			  const void *data, size_t size)
 {
 	struct index_mailbox *ibox = mail->ibox;
 
@@ -175,7 +169,7 @@ static void index_mail_cache_add(struct index_mail *mail,
 	mail->data.cached_fields |= field;
 }
 
-static int open_stream(struct index_mail *mail, uoff_t position)
+int index_mail_open_stream(struct index_mail *mail, uoff_t position)
 {
 	struct index_mail_data *data = &mail->data;
 	int deleted;
@@ -197,269 +191,6 @@ static int open_stream(struct index_mail *mail, uoff_t position)
 	}
 
 	i_stream_seek(mail->data.stream, position);
-	return TRUE;
-}
-
-static int find_wanted_headers(struct mail_cache *cache,
-			       const char *const wanted_headers[])
-{
-	const char *const *headers, *const *tmp, *const *tmp2;
-	int i;
-
-	if (wanted_headers == NULL || *wanted_headers == NULL)
-		return -1;
-
-	for (i = MAIL_CACHE_HEADERS_COUNT-1; i >= 0; i--) {
-		headers = mail_cache_get_header_fields(cache, i);
-		if (headers == NULL)
-			continue;
-
-		for (tmp = wanted_headers; *tmp != NULL; tmp++) {
-			for (tmp2 = headers; *tmp2 != NULL; tmp2++) {
-				if (strcasecmp(*tmp2, *tmp) == 0)
-					break;
-			}
-
-			if (*tmp2 == NULL)
-				break;
-		}
-
-		if (*tmp == NULL)
-			return i;
-	}
-
-	return -1;
-}
-
-static struct cached_header *
-find_cached_header(struct index_mail *mail, const char *name, size_t len)
-{
-	struct cached_header *hdr;
-
-	for (hdr = mail->data.headers; hdr != NULL; hdr = hdr->next) {
-		if (len == hdr->name_len &&
-		    memcasecmp(hdr->name, name, len) == 0)
-			return hdr;
-	}
-
-	return NULL;
-}
-
-void index_mail_parse_header(struct message_part *part __attr_unused__,
-			     struct message_header_line *hdr, void *context)
-{
-	struct index_mail *mail = context;
-	struct index_mail_data *data = &mail->data;
-	struct cached_header *cached_hdr;
-
-	if (data->save_envelope) {
-		imap_envelope_parse_header(mail->pool,
-					   &data->envelope_data, hdr);
-
-		if (hdr == NULL) {
-			/* finalize the envelope */
-			string_t *str;
-
-			str = str_new(mail->pool, 256);
-			imap_envelope_write_part_data(data->envelope_data, str);
-			data->envelope = str_c(str);
-		}
-	}
-
-	if (hdr == NULL) {
-		/* end of headers */
-		if (data->save_sent_date) {
-			/* not found */
-			data->sent_date.time = 0;
-			data->sent_date.timezone = 0;
-			data->save_sent_date = FALSE;
-		}
-		if (data->sent_date.time != (time_t)-1) {
-			index_mail_cache_add(mail, MAIL_CACHE_SENT_DATE,
-					     &data->sent_date,
-					     sizeof(data->sent_date));
-		}
-
-		/* mark parsed headers as fully saved */
-                cached_hdr = data->headers;
-		for (; cached_hdr != NULL; cached_hdr = cached_hdr->next) {
-			if (cached_hdr->parsing) {
-				cached_hdr->parsing = FALSE;
-				cached_hdr->fully_saved = TRUE;
-			}
-		}
-		return;
-	}
-
-	if (data->save_sent_date && strcasecmp(hdr->name, "Date") == 0) {
-		if (hdr->continues) {
-			hdr->use_full_value = TRUE;
-			return;
-		}
-		if (!message_date_parse(hdr->full_value, hdr->full_value_len,
-					&data->sent_date.time,
-					&data->sent_date.timezone)) {
-			/* 0 == parse error */
-			data->sent_date.time = 0;
-			data->sent_date.timezone = 0;
-		}
-		data->save_sent_date = FALSE;
-	}
-
-	cached_hdr = find_cached_header(mail, hdr->name, hdr->name_len);
-	if (cached_hdr != NULL && !cached_hdr->fully_saved) {
-		if (!hdr->continued) {
-			str_append(data->header_data, hdr->name);
-			str_append(data->header_data, ": ");
-		}
-		if (cached_hdr->value_idx == 0)
-			cached_hdr->value_idx = str_len(data->header_data);
-		str_append_n(data->header_data, hdr->value, hdr->value_len);
-		if (!hdr->no_newline)
-			str_append(data->header_data, "\n");
-	}
-}
-
-static struct cached_header *
-add_cached_header(struct index_mail *mail, const char *name)
-{
-	struct cached_header *hdr;
-
-	i_assert(*name != '\0');
-
-	hdr = find_cached_header(mail, name, strlen(name));
-	if (hdr != NULL)
-		return hdr;
-
-	hdr = p_new(mail->pool, struct cached_header, 1);
-	hdr->name = p_strdup(mail->pool, name);
-	hdr->name_len = strlen(name);
-
-	hdr->next = mail->data.headers;
-	mail->data.headers = hdr;
-
-	return hdr;
-}
-
-static const char *const *get_header_names(struct cached_header *hdr)
-{
-	const char *null = NULL;
-	buffer_t *buffer;
-
-	buffer = buffer_create_dynamic(data_stack_pool, 128, (size_t)-1);
-	for (; hdr != NULL; hdr = hdr->next)
-		buffer_append(buffer, &hdr->name, sizeof(const char *));
-	buffer_append(buffer, &null, sizeof(const char *));
-
-	return buffer_get_data(buffer, NULL);
-}
-
-static int find_unused_header_idx(struct mail_cache *cache)
-{
-	int i;
-
-	for (i = 0; i < MAIL_CACHE_HEADERS_COUNT; i++) {
-		if (mail_cache_get_header_fields(cache, i) == NULL)
-			return i;
-	}
-	return -1;
-}
-
-void index_mail_parse_header_init(struct index_mail *mail,
-				  const char *const *headers)
-{
-	struct cached_header *hdr;
-	const char *const *tmp;
-
-	if (mail->data.header_data == NULL)
-		mail->data.header_data = str_new(mail->pool, 4096);
-
-	if (headers == NULL) {
-		/* parsing all headers */
-		for (hdr = mail->data.headers; hdr != NULL; hdr = hdr->next)
-			hdr->parsing = TRUE;
-	} else {
-		for (hdr = mail->data.headers; hdr != NULL; hdr = hdr->next) {
-			for (tmp = headers; *tmp != NULL; tmp++) {
-				if (strcasecmp(*tmp, hdr->name) == 0)
-					hdr->parsing = TRUE;
-			}
-		}
-	}
-}
-
-static int parse_header(struct index_mail *mail)
-{
-	struct mail_cache *cache = mail->ibox->index->cache;
-	const char *const *headers, *const *tmp;
-	int idx;
-
-	if (!open_stream(mail, 0))
-		return FALSE;
-
-	if (mail->data.save_cached_headers) {
-		/* we want to save some of the headers. that means we'll have
-		   to save all the headers in that group. if we're creating a
-		   new group, save all the headers in previous group in it
-		   too. */
-		idx = mail->data.save_header_idx;
-		if (idx < 0) {
-			/* can we reuse existing? */
-			headers = get_header_names(mail->data.headers);
-			idx = find_wanted_headers(cache, headers);
-			if (idx >= 0)
-				mail->data.save_header_idx = idx;
-		}
-		if (idx < 0) {
-			idx = find_unused_header_idx(cache);
-			idx--; /* include all previous headers too */
-		}
-
-		headers = idx < 0 ? NULL :
-			mail_cache_get_header_fields(cache, idx);
-
-		if (headers != NULL) {
-			for (tmp = headers; *tmp != NULL; tmp++)
-				add_cached_header(mail, *tmp);
-		}
-	}
-
-	index_mail_parse_header_init(mail, NULL);
-	message_parse_header(NULL, mail->data.stream, &mail->data.hdr_size,
-			     index_mail_parse_header, mail);
-	mail->data.parse_header = FALSE;
-	mail->data.headers_read = TRUE;
-	mail->data.hdr_size_set = TRUE;
-
-	return TRUE;
-}
-
-static int parse_cached_header(struct index_mail *mail, int idx)
-{
-	struct istream *istream;
-	const char *str, *const *idx_headers;
-
-	idx_headers = mail_cache_get_header_fields(mail->ibox->index->cache,
-						   idx);
-	i_assert(idx_headers != NULL);
-
-	str = mail_cache_lookup_string_field(mail->ibox->index->cache,
-					     mail->data.rec,
-					     mail_cache_header_fields[idx]);
-	if (str == NULL)
-		return FALSE;
-
-	t_push();
-	istream = i_stream_create_from_data(data_stack_pool, str, strlen(str));
-	index_mail_parse_header_init(mail, idx_headers);
-	message_parse_header(NULL, istream, NULL,
-			     index_mail_parse_header, mail);
-
-	i_stream_unref(istream);
-	t_pop();
-
-	if (idx == mail->data.header_idx)
-		mail->data.headers_read = TRUE;
 	return TRUE;
 }
 
@@ -496,7 +227,7 @@ static const struct message_part *get_parts(struct mail *_mail)
 			return data->parts;
 	}
 
-	if (!open_stream(mail, 0))
+	if (!index_mail_open_stream(mail, 0))
 		return NULL;
 
 	data->parts = message_parse(mail->pool, data->stream,
@@ -551,10 +282,9 @@ static time_t get_received_date(struct mail *_mail)
 
 static time_t get_date(struct mail *_mail, int *timezone)
 {
-	static const char *date_headers[] = { "Date", NULL };
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
-	int idx;
+	const char *str;
 
 	if (data->sent_date.time != (time_t)-1) {
 		if (timezone != NULL)
@@ -566,20 +296,20 @@ static time_t get_date(struct mail *_mail, int *timezone)
 		get_cached_sent_date(mail, &data->sent_date);
 
 	if (data->sent_date.time == (time_t)-1) {
-		idx = data->parse_header ? -1 :
-			find_wanted_headers(mail->ibox->index->cache,
-					    date_headers);
-
 		data->save_sent_date = TRUE;
-		if (idx >= 0) {
-			if (!parse_cached_header(mail, idx))
-				idx = -1;
+		str = _mail->get_header(_mail, "Date");
+		if (data->sent_date.time == (time_t)-1) {
+			if (!message_date_parse(str, (size_t)-1,
+						&data->sent_date.time,
+						&data->sent_date.timezone)) {
+				/* 0 == parse error */
+				data->sent_date.time = 0;
+				data->sent_date.timezone = 0;
+			}
+			index_mail_cache_add(mail, MAIL_CACHE_SENT_DATE,
+					     &data->sent_date,
+					     sizeof(data->sent_date));
 		}
-		if (idx < 0)
-			parse_header(mail);
-
-		index_mail_cache_add(mail, MAIL_CACHE_SENT_DATE,
-				     &data->sent_date, sizeof(data->sent_date));
 	}
 
 	if (timezone != NULL)
@@ -666,8 +396,9 @@ static uoff_t get_size(struct mail *_mail)
 	}
 
 	if (!get_msgpart_sizes(mail)) {
+		/* this gives us header size for free */
 		if (data->parse_header)
-			parse_header(mail);
+			index_mail_parse_headers(mail);
 	}
 
 	hdr_size = data->hdr_size_set ?
@@ -695,7 +426,8 @@ static uoff_t get_size(struct mail *_mail)
 	/* have to parse, slow.. */
 	hdr_phys_size = hdr_size != (uoff_t)-1 && data->hdr_size_set ?
 		data->hdr_size.physical_size : (uoff_t)-1;
-	if (!open_stream(mail, hdr_phys_size != (uoff_t)-1 ? hdr_phys_size : 0))
+	if (!index_mail_open_stream(mail, hdr_phys_size != (uoff_t)-1 ?
+				    hdr_phys_size : 0))
 		return (uoff_t)-1;
 
 	if (hdr_phys_size == (uoff_t)-1) {
@@ -717,97 +449,6 @@ static uoff_t get_size(struct mail *_mail)
 	return data->size;
 }
 
-static const char *get_header(struct mail *_mail, const char *field)
-{
-	struct index_mail *mail = (struct index_mail *) _mail;
-	struct cached_header *hdr;
-	size_t field_len;
-	int idx;
-
-	field_len = strlen(field);
-	hdr = find_cached_header(mail, field, field_len);
-	if (hdr == NULL) {
-		/* not wanted initially, add it and check if we can
-		   get it from cache */
-		const char *headers[2];
-
-		hdr = add_cached_header(mail, field);
-
-		headers[0] = field; headers[1] = NULL;
-		idx = find_wanted_headers(mail->ibox->index->cache, headers);
-	} else {
-		idx = mail->data.header_idx;
-	}
-
-	if (!hdr->fully_saved) {
-		if (idx >= 0) {
-			if (!parse_cached_header(mail, idx))
-				idx = -1;
-		}
-		if (idx < 0) {
-			mail->data.save_cached_headers = TRUE;
-			parse_header(mail);
-		}
-
-		hdr = find_cached_header(mail, field, field_len);
-	}
-
-	return hdr->value_idx == 0 ? NULL :
-		t_strcut(str_c(mail->data.header_data) + hdr->value_idx, '\n');
-}
-
-static struct istream *get_headers(struct mail *_mail,
-				   const char *const minimum_fields[])
-{
-	struct index_mail *mail = (struct index_mail *) _mail;
-	struct cached_header *hdr;
-	const char *const *tmp, *str;
-	int idx, all_exists, all_saved;
-
-	i_assert(*minimum_fields != NULL);
-
-	all_exists = all_saved = TRUE;
-	for (tmp = minimum_fields; *tmp != NULL; tmp++) {
-		hdr = find_cached_header(mail, *tmp, strlen(*tmp));
-		if (hdr == NULL) {
-			add_cached_header(mail, *tmp);
-			all_exists = FALSE;
-		} else if (!hdr->fully_saved)
-			all_saved = FALSE;
-	}
-
-	if (all_exists) {
-		if (all_saved) {
-			return i_stream_create_from_data(mail->pool,
-					str_data(mail->data.header_data),
-					str_len(mail->data.header_data));
-		}
-
-		idx = mail->data.header_idx;
-	} else {
-		idx = find_wanted_headers(mail->ibox->index->cache,
-					  get_header_names(mail->data.headers));
-	}
-
-	if (idx >= 0) {
-		/* everything should be cached */
-		str = mail_cache_lookup_string_field(mail->ibox->index->cache,
-				mail->data.rec, mail_cache_header_fields[idx]);
-		if (str != NULL) {
-			return i_stream_create_from_data(mail->pool,
-							 str, strlen(str));
-		}
-	}
-	if (idx < 0) {
-		mail->data.save_cached_headers = TRUE;
-		parse_header(mail);
-	}
-
-	return i_stream_create_from_data(mail->pool,
-					 str_data(mail->data.header_data),
-					 str_len(mail->data.header_data));
-}
-
 static struct istream *get_stream(struct mail *_mail,
 				  struct message_size *hdr_size,
 				  struct message_size *body_size)
@@ -815,7 +456,7 @@ static struct istream *get_stream(struct mail *_mail,
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
 
-	if (!open_stream(mail, 0))
+	if (!index_mail_open_stream(mail, 0))
 		return NULL;
 
 	if (hdr_size != NULL || body_size != NULL) {
@@ -858,7 +499,6 @@ static const char *get_special(struct mail *_mail, enum mail_fetch_field field)
 	struct mail_cache *cache = mail->ibox->index->cache;
 	enum mail_cache_field cache_field;
 	char *str;
-	int i, idx;
 
 	switch (field) {
 	case MAIL_FETCH_IMAP_BODY:
@@ -894,7 +534,7 @@ static const char *get_special(struct mail *_mail, enum mail_fetch_field field)
 			return data->body;
 		}
 
-		if (!open_stream(mail, 0))
+		if (!index_mail_open_stream(mail, 0))
 			return NULL;
 
 		if (data->parts == NULL)
@@ -922,34 +562,8 @@ static const char *get_special(struct mail *_mail, enum mail_fetch_field field)
 		if (data->envelope != NULL)
 			return data->envelope;
 
-		if (data->parse_header) {
-			data->save_envelope = TRUE;
-			parse_header(mail);
-			return data->envelope;
-		}
-
-		if (data->save_envelope) {
-			/* it was in wanted_fields, header_idx should be
-			   correct */
-			idx = data->header_idx;
-			i_assert(idx >= 0);
-		} else {
-			idx = find_wanted_headers(cache, imap_envelope_headers);
-		}
-
 		data->save_envelope = TRUE;
-		if (idx >= 0) {
-			if (!parse_cached_header(mail, idx))
-				idx = -1;
-		}
-		if (idx < 0) {
-			for (i = 0; imap_envelope_headers[i] != NULL; i++) {
-				add_cached_header(mail,
-						  imap_envelope_headers[i]);
-			}
-			data->save_cached_headers = TRUE;
-			parse_header(mail);
-		}
+		(void)_mail->get_header(_mail, "Date");
 		return data->envelope;
 	default:
 		i_unreached();
@@ -965,8 +579,8 @@ static struct mail index_mail = {
 	get_received_date,
 	get_date,
 	get_size,
-	get_header,
-	get_headers,
+	index_mail_get_header,
+	index_mail_get_headers,
 	get_stream,
 	get_special,
 	index_storage_update_flags,
@@ -981,14 +595,13 @@ void index_mail_init(struct index_mailbox *ibox, struct index_mail *mail,
 	mail->mail = index_mail;
 	mail->mail.box = &ibox->box;
 
-	mail->wanted_headers_idx =
-		find_wanted_headers(ibox->index->cache, wanted_headers);
-
 	mail->pool = pool_alloconly_create("index_mail", 16384);
 	mail->ibox = ibox;
 	mail->wanted_fields = wanted_fields;
 	mail->wanted_headers = wanted_headers;
 	mail->expunge_counter = ibox->index->expunge_counter;
+
+	index_mail_headers_init(mail);
 
 	if (ibox->mail_init != NULL)
 		ibox->mail_init(mail);
@@ -996,39 +609,10 @@ void index_mail_init(struct index_mailbox *ibox, struct index_mail *mail,
 
 static void index_mail_close(struct index_mail *mail)
 {
-	struct index_mail_data *data = &mail->data;
-	const char *const *headers;
+	if (mail->data.stream != NULL)
+		i_stream_unref(mail->data.stream);
 
-	if (data->stream != NULL)
-		i_stream_unref(data->stream);
-
-	if (!data->save_cached_headers || !data->headers_read)
-		return;
-
-	/* save cached headers - FIXME: this breaks if fetch_uid() and
-	   fetch/search are both accessing headers from same message.
-	   index_mails should probably be shared.. */
-	if (!index_mail_cache_transaction_begin(mail))
-		return;
-
-	if (data->save_header_idx < 0) {
-		data->save_header_idx =
-			find_unused_header_idx(mail->ibox->index->cache);
-		if (data->save_header_idx < 0)
-			return;
-
-                headers = get_header_names(data->headers);
-		if (!mail_cache_set_header_fields(mail->ibox->trans_ctx,
-						  data->save_header_idx,
-						  headers))
-			return;
-	}
-
-	mail_cache_add(mail->ibox->trans_ctx, data->rec,
-		       mail_cache_header_fields[data->save_header_idx],
-		       str_c(mail->data.header_data),
-		       str_len(mail->data.header_data)+1);
-	data->save_cached_headers = FALSE;
+	index_mail_headers_close(mail);
 }
 
 int index_mail_next(struct index_mail *mail, struct mail_index_record *rec,
@@ -1037,7 +621,7 @@ int index_mail_next(struct index_mail *mail, struct mail_index_record *rec,
 	struct mail_index *index = mail->ibox->index;
 	struct index_mail_data *data = &mail->data;
         enum mail_index_record_flag index_flags;
-	int i, ret, open_mail, only_wanted_headers;
+	int ret, open_mail;
 
 	i_assert(mail->expunge_counter == index->expunge_counter);
 
@@ -1097,51 +681,10 @@ int index_mail_next(struct index_mail *mail, struct mail_index_record *rec,
 					  MAIL_FETCH_STREAM_BODY))
 		open_mail = TRUE;
 
-	/* check headers */
-	if (mail->wanted_fields & MAIL_FETCH_IMAP_ENVELOPE) {
-		for (i = 0; imap_envelope_headers[i] != NULL; i++) 
-			add_cached_header(mail, imap_envelope_headers[i]);
-	} else if ((mail->wanted_fields & MAIL_FETCH_DATE) &&
-		   data->sent_date.time == (time_t)-1)
-		add_cached_header(mail, "Date");
-
-	only_wanted_headers = mail->data.headers == NULL;
-	if (mail->wanted_headers != NULL) {
-		const char *const *tmp;
-
-		for (tmp = mail->wanted_headers; *tmp != NULL; tmp++)
-			add_cached_header(mail, *tmp);
-	}
-
-	data->save_header_idx = -1;
-	if (data->headers != NULL &&
-	    (mail->wanted_fields & (MAIL_FETCH_STREAM_HEADER |
-				    MAIL_FETCH_STREAM_BODY)) == 0) {
-		/* we're not explicitly opening the file, caching the headers
-		   could be a good idea if they're not already cached */
-		if (only_wanted_headers) {
-			/* no extra headers, we already know if it's indexed */
-			data->header_idx = mail->wanted_headers_idx;
-		} else {
-			const char *const *headers;
-
-			headers = get_header_names(data->headers);
-			data->header_idx =
-				find_wanted_headers(index->cache, headers);
-		}
-		if (data->header_idx == -1 ||
-		    (data->cached_fields &
-		     mail_cache_header_fields[data->header_idx]) == 0) {
-			data->save_cached_headers = TRUE;
-			data->parse_header = TRUE;
-			data->save_header_idx = data->header_idx;
-		}
-	} else {
-		data->header_idx = -1;
-	}
+        index_mail_headers_init_next(mail);
 
 	if ((open_mail || data->parse_header) && !delay_open) {
-		if (!open_stream(mail, 0))
+		if (!index_mail_open_stream(mail, 0))
 			ret = data->deleted ? 0 : -1;
 		else
 			ret = 1;

@@ -6,17 +6,6 @@
 
 struct message_header_line;
 
-struct cached_header {
-	struct cached_header *next;
-
-	size_t name_len;
-	const char *name;
-	size_t value_idx; /* in header_data */
-
-	unsigned int parsing:1;
-	unsigned int fully_saved:1;
-};
-
 struct index_mail_data {
 	struct mail_full_flags flags;
 	time_t date, received_date;
@@ -25,9 +14,12 @@ struct index_mail_data {
 	enum mail_cache_field cached_fields;
 	struct mail_sent_date sent_date;
 
-	struct cached_header *headers;
+	buffer_t *headers;
 	string_t *header_data;
-	int header_idx, save_header_idx;
+	int header_data_cached, header_data_cached_contiguous;
+	size_t header_data_uncached_offset;
+	struct istream *header_stream;
+	int header_save_idx;
 
 	struct message_part *parts;
 	const char *envelope, *body, *bodystructure;
@@ -40,13 +32,14 @@ struct index_mail_data {
         struct message_size hdr_size, body_size;
 
 	unsigned int parse_header:1;
-	unsigned int headers_read:1;
-	unsigned int save_cached_headers:1;
-	unsigned int save_sent_date:1;
 	unsigned int save_envelope:1;
+	unsigned int save_sent_date:1;
 	unsigned int hdr_size_set:1;
 	unsigned int body_size_set:1;
 	unsigned int deleted:1;
+	unsigned int header_data_cached_partial:1;
+	unsigned int header_fully_parsed:1;
+	unsigned int header_save:1;
 };
 
 struct index_mail {
@@ -71,8 +64,23 @@ int index_mail_next(struct index_mail *mail, struct mail_index_record *rec,
 void index_mail_deinit(struct index_mail *mail);
 
 void index_mail_parse_header_init(struct index_mail *mail,
-				  const char *const *headers);
+				  const char *const headers[]);
 void index_mail_parse_header(struct message_part *part,
 			     struct message_header_line *hdr, void *context);
+
+int index_mail_cache_transaction_begin(struct index_mail *mail);
+void index_mail_cache_add(struct index_mail *mail, enum mail_cache_field field,
+			  const void *data, size_t size);
+
+int index_mail_open_stream(struct index_mail *mail, uoff_t position);
+int index_mail_parse_headers(struct index_mail *mail);
+
+void index_mail_headers_init(struct index_mail *mail);
+void index_mail_headers_init_next(struct index_mail *mail);
+void index_mail_headers_close(struct index_mail *mail);
+
+const char *index_mail_get_header(struct mail *_mail, const char *field);
+struct istream *index_mail_get_headers(struct mail *_mail,
+				       const char *const minimum_fields[]);
 
 #endif
