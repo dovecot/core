@@ -270,10 +270,11 @@ static void message_skip_line(IOBuffer *inbuf, MessageSize *msg_size)
 	while (io_buffer_read_data(inbuf, &msg, &size, startpos) >= 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] == '\n') {
-				if (i == 0 || msg[i-1] != '\r')
-					msg_size->virtual_size++;
-				if (msg_size != NULL)
+				if (msg_size != NULL) {
+					if (i == 0 || msg[i-1] != '\r')
+						msg_size->virtual_size++;
 					msg_size->lines++;
+				}
 				break;
 			}
 		}
@@ -319,11 +320,6 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 	colon_pos = UINT_MAX;
 	while ((ret = io_buffer_read_data(inbuf, &msg,
 					  &size, startpos+1)) != -1) {
-		if (size == 0) {
-			/* no, we never want empty buffer */
-			continue;
-		}
-
 		if (ret == -2) {
 			/* overflow, line is too long. just skip it. */
 			i_assert(size > 2);
@@ -331,6 +327,11 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
                         message_skip_line(inbuf, hdr_size);
 			startpos = line_start = 0;
 			colon_pos = UINT_MAX;
+			continue;
+		}
+
+		if (size == 0) {
+			/* no, we never want empty buffer */
 			continue;
 		}
 
@@ -409,16 +410,14 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 
 		if (i > 0) {
 			/* leave the last line to buffer */
-			startpos = line_start;
-			line_start = 0;
-
 			if (colon_pos != UINT_MAX)
-				colon_pos -= startpos;
-
-			io_buffer_skip(inbuf, i - startpos);
-
+				colon_pos -= line_start;
 			if (hdr_size != NULL)
-				hdr_size->physical_size += i - startpos;
+				hdr_size->physical_size += line_start;
+			io_buffer_skip(inbuf, line_start);
+
+			startpos = i-line_start;
+			line_start = 0;
 		}
 	}
 	io_buffer_skip(inbuf, startpos);

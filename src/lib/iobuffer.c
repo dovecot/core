@@ -855,10 +855,12 @@ int io_buffer_read_data(IOBuffer *buf, unsigned char **data,
 {
 	int ret;
 
-	if (buf->pos - buf->skip <= threshold) {
+	if (buf->pos - buf->skip > threshold)
+		ret = 1;
+	else {
 		/* we need more data */
 		ret = io_buffer_read(buf);
-		if (ret <= 0) {
+		if (ret <= 0 && ret != -2) {
 			*size = 0;
 			*data = NULL;
 			return ret;
@@ -866,7 +868,7 @@ int io_buffer_read_data(IOBuffer *buf, unsigned char **data,
 	}
 
 	*data = io_buffer_get_data(buf, size);
-	return 1;
+	return ret;
 }
 
 unsigned char *io_buffer_get_space(IOBuffer *buf, unsigned int size)
