@@ -104,13 +104,13 @@ int imap_parse_datetime(const char *str, time_t *time)
 	str++;
 
 	/* hh: */
-	if (!i_isdigit(str[0]) || !i_isdigit(str[1]) || str[2] != '-')
+	if (!i_isdigit(str[0]) || !i_isdigit(str[1]) || str[2] != ':')
 		return FALSE;
 	tm.tm_hour = (str[0]-'0') * 10 + (str[1]-'0');
 	str += 3;
 
 	/* mm: */
-	if (!i_isdigit(str[0]) || !i_isdigit(str[1]) || str[2] != '-')
+	if (!i_isdigit(str[0]) || !i_isdigit(str[1]) || str[2] != ':')
 		return FALSE;
 	tm.tm_min = (str[0]-'0') * 10 + (str[1]-'0');
 	str += 3;
