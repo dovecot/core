@@ -212,9 +212,9 @@ static int index_open_and_fix(MailIndex *index, int update_recent, int fast)
 			return FALSE;
 	}
 
-	/* sync before updating cached fields so it won't print
-	   warnings if mails were deleted */
-	if (!index->sync(index))
+	/* sync ourself - before updating cache and compression which
+	   may happen because of this. */
+	if (!index->sync_and_lock(index, MAIL_LOCK_EXCLUSIVE, NULL))
 		return FALSE;
 
 	if (!fast && (index->header->flags & MAIL_INDEX_FLAG_CACHE_FIELDS)) {

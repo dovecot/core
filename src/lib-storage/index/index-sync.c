@@ -27,12 +27,20 @@ static void index_storage_sync_size(IndexMailbox *ibox)
 	}
 }
 
-/* may leave the index locked */
-int index_storage_sync_index_if_possible(IndexMailbox *ibox, int sync_size)
+int index_storage_sync_and_lock(IndexMailbox *ibox, int sync_size,
+				MailLockType lock_type)
 {
 	MailIndex *index = ibox->index;
+	int unlock, changes;
 
-	if (index->sync(index)) {
+	if (lock_type != MAIL_LOCK_UNLOCK)
+		unlock = FALSE;
+	else {
+		unlock = TRUE;
+		lock_type = MAIL_LOCK_SHARED;
+	}
+
+	if (index->sync_and_lock(index, lock_type, &changes)) {
 		/* reset every time it has worked */
 		ibox->sent_diskspace_warning = FALSE;
 	} else {
@@ -53,8 +61,11 @@ int index_storage_sync_index_if_possible(IndexMailbox *ibox, int sync_size)
 	}
 
 	/* notify about changes in mailbox size. */
-	if (index->lock_type == MAIL_LOCK_UNLOCK)
+	if (!changes) {
+		if (unlock)
+			(void)index->set_lock(index, MAIL_LOCK_UNLOCK);
 		return TRUE; /* no changes - must be no new mail either */
+	}
 
 	if (sync_size)
 		index_storage_sync_size(ibox);
@@ -66,6 +77,9 @@ int index_storage_sync_index_if_possible(IndexMailbox *ibox, int sync_size)
                 	mail_custom_flags_list_get(index->custom_flags),
 			MAIL_CUSTOM_FLAGS_COUNT, ibox->sync_context);
 	}
+
+	if (unlock)
+		(void)index->set_lock(index, MAIL_LOCK_UNLOCK);
 
 	return TRUE;
 }
@@ -194,16 +208,13 @@ int index_storage_sync(Mailbox *box, int sync_expunges)
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	int failed;
 
-	if (!index_storage_sync_index_if_possible(ibox, FALSE))
+	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_SHARED))
 		return FALSE;
 
 	if (!sync_expunges) {
 		/* FIXME: we could still send flag changes */
 		failed = FALSE;
 	} else {
-		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
-			return mail_storage_set_index_error(ibox);
-
 		failed = !index_storage_sync_modifylog(ibox, FALSE);
 	}
 

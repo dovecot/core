@@ -199,9 +199,13 @@ struct _MailIndex {
 	   Same locking issues as with rebuild(). */
 	int (*fsck)(MailIndex *index);
 
-	/* Synchronize the index with the mailbox. Same locking issues as
-	   with rebuild(). */
-	int (*sync)(MailIndex *index);
+	/* Synchronize the index with the mailbox. Index must not have shared
+	   lock when calling this function. The lock_type specifies what
+	   locking state the index will be left, also locking mailbox file
+	   if needed. If changes is non-NULL, it's set to TRUE if any changes
+	   were noticed. */
+	int (*sync_and_lock)(MailIndex *index, MailLockType lock_type,
+			     int *changes);
 
 	/* Returns the index header (never fails). The index needs to be
 	   locked before calling this function, and must be kept locked as
@@ -329,7 +333,6 @@ struct _MailIndex {
 	int mbox_fd;
 	IBuffer *mbox_inbuf;
 	MailLockType mbox_lock_type;
-	MailLockType mbox_lock_next_sync;
 
 	/* these counters can be used to check that we've synced the mailbox
 	   after locking it */
@@ -371,7 +374,7 @@ struct _MailIndex {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0
+	0, 0, 0, 0
 
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent, int fast);

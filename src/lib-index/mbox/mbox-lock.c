@@ -151,6 +151,10 @@ int mbox_lock(MailIndex *index, MailLockType lock_type)
 {
 	struct stat st;
 
+	/* index must be locked before mbox file, to avoid deadlocks */
+	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
+
+	/* allow only unlock -> shared/exclusive or exclusive -> shared */
 	i_assert(lock_type == MAIL_LOCK_SHARED ||
 		 lock_type == MAIL_LOCK_EXCLUSIVE);
 	i_assert(lock_type != MAIL_LOCK_EXCLUSIVE ||
@@ -200,7 +204,6 @@ int mbox_unlock(MailIndex *index)
 	int failed;
 
 	index->mbox_lock_counter++;
-	index->mbox_lock_next_sync = MAIL_LOCK_UNLOCK;
 
 	if (index->mbox_lock_type == MAIL_LOCK_UNLOCK)
 		return TRUE;

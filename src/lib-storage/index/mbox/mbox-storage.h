@@ -14,7 +14,6 @@ int mbox_find_mailboxes(MailStorage *storage, const char *mask,
 int mbox_find_subscribed(MailStorage *storage, const char *mask,
 			 MailboxFunc func, void *context);
 
-int mbox_storage_expunge(Mailbox *box, int notify);
 int mbox_expunge_locked(IndexMailbox *ibox, int notify);
 
 #endif

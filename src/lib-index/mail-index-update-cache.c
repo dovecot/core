@@ -38,10 +38,6 @@ int mail_index_update_cache(MailIndex *index)
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	/* make sure the index is ok before doing this */
-	if (!index->fsck(index))
-		return FALSE;
-
 	cache_fields = index->header->cache_fields;
 
 	rec = index->lookup(index, 1);

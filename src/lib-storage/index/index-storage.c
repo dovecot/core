@@ -191,7 +191,7 @@ IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 	return NULL;
 }
 
-void index_storage_close(Mailbox *box)
+int index_storage_close(Mailbox *box)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 
@@ -199,6 +199,8 @@ void index_storage_close(Mailbox *box)
 	index_storage_unref(ibox->index);
 	i_free(box->name);
 	i_free(box);
+
+	return TRUE;
 }
 
 void index_storage_set_sync_callbacks(Mailbox *box,

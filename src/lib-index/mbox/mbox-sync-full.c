@@ -47,6 +47,7 @@ static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
 {
 	const void *part_data;
 	void *part_data_copy;
+	uoff_t virtual_size;
 	size_t size;
 
 	/* update FIELD_HDR_HEADER_SIZE */
@@ -54,10 +55,15 @@ static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
 				&hdr_size->physical_size,
 				sizeof(hdr_size->physical_size));
 
+	/* reset FIELD_HDR_VIRTUAL_SIZE - we don't know it anymore */
+        virtual_size = (uoff_t)-1;
+	index->update_field_raw(update, DATA_HDR_VIRTUAL_SIZE,
+				&virtual_size, sizeof(virtual_size));
+
+	/* update DATA_FIELD_MESSAGEPART */
 	if ((rec->data_fields & DATA_FIELD_MESSAGEPART) == 0)
 		return TRUE;
 
-	/* update DATA_FIELD_MESSAGEPART */
 	part_data = index->lookup_field_raw(index, rec, DATA_FIELD_MESSAGEPART,
 					    &size);
 	if (part_data == NULL) {
@@ -77,10 +83,9 @@ static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
 		return FALSE;
 	}
 
-	t_pop();
-
 	index->update_field_raw(update, DATA_FIELD_MESSAGEPART,
 				part_data_copy, size);
+	t_pop();
 	return TRUE;
 }
 
@@ -183,9 +188,6 @@ static int mbox_sync_buf(MailIndex *index, IBuffer *inbuf)
 	unsigned int seq;
 	int dirty;
 
-	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
-		return FALSE;
-
 	mbox_skip_empty_lines(inbuf);
 
 	/* first make sure we start with a "From " line. If file is too
@@ -217,6 +219,10 @@ static int mbox_sync_buf(MailIndex *index, IBuffer *inbuf)
 			if (!mbox_skip_crlf(inbuf)) {
 				/* they just went and broke it, even while
 				   we had it locked. */
+				index_set_error(index,
+						"Error syncing mbox file %s: "
+						"LF not found where expected",
+						index->mbox_path);
 				return FALSE;
 			}
 		}
@@ -258,18 +264,20 @@ static int mbox_sync_buf(MailIndex *index, IBuffer *inbuf)
 int mbox_sync_full(MailIndex *index)
 {
 	IBuffer *inbuf;
-	int failed, unlock;
+	int failed;
 
-	unlock = index->mbox_lock_type == MAIL_LOCK_UNLOCK;
+	if (index->lock_type == MAIL_LOCK_SHARED)
+		(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
+
+	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
+		return FALSE;
+
 	inbuf = mbox_get_inbuf(index, 0, MAIL_LOCK_SHARED);
 	if (inbuf == NULL)
 		return FALSE;
 
 	failed = !mbox_sync_buf(index, inbuf);
 	i_buffer_unref(inbuf);
-
-	if (unlock)
-		(void)mbox_unlock(index);
 
 	return !failed;
 }

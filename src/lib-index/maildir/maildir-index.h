@@ -13,7 +13,7 @@ MailFlags maildir_filename_get_flags(const char *fname,
 const char *maildir_filename_set_flags(const char *fname, MailFlags flags);
 
 int maildir_index_rebuild(MailIndex *index);
-int maildir_index_sync(MailIndex *index);
+int maildir_index_sync(MailIndex *index, MailLockType lock_type, int *changes);
 
 int maildir_index_append_file(MailIndex *index, const char *dir,
 			      const char *fname);

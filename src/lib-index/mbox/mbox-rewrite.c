@@ -406,9 +406,17 @@ int mbox_index_rewrite(MailIndex *index)
 	unsigned int seq;
 	int tmp_fd, failed, dirty_found, rewrite;
 
-	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
+	i_assert(index->lock_type == MAIL_LOCK_UNLOCK);
 
-	if ((index->header->flags & MAIL_INDEX_FLAG_DIRTY_MESSAGES) == 0) {
+	if (!index->set_lock(index, MAIL_LOCK_SHARED))
+		return FALSE;
+
+        rewrite = (index->header->flags & MAIL_INDEX_FLAG_DIRTY_MESSAGES);
+
+	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
+		return FALSE;
+
+	if (!rewrite) {
 		/* no need to rewrite */
 		return TRUE;
 	}
@@ -417,8 +425,7 @@ int mbox_index_rewrite(MailIndex *index)
 	failed = TRUE; rewrite = FALSE;
 	do {
 		/* make sync() lock the file to prevent race conditions */
-                index->mbox_lock_next_sync = MAIL_LOCK_EXCLUSIVE;
-		if (!index->sync(index))
+		if (!index->sync_and_lock(index, MAIL_LOCK_EXCLUSIVE, NULL))
 			break;
 
 		inbuf = mbox_get_inbuf(index, 0, MAIL_LOCK_EXCLUSIVE);
@@ -442,6 +449,8 @@ int mbox_index_rewrite(MailIndex *index)
 
 	if (!rewrite) {
 		(void)mbox_unlock(index);
+		if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
+			failed = TRUE;
 		if (inbuf != NULL)
 			i_buffer_unref(inbuf);
 		return !failed;
@@ -455,10 +464,9 @@ int mbox_index_rewrite(MailIndex *index)
 	}
 	dirty_offset = 0;
 
-	//offset = hdr_size = body_size = 0; /* just to keep compiler happy */
-
-	t_push();
-	outbuf = o_buffer_create_file(tmp_fd, data_stack_pool, 8192, 0, FALSE);
+	/* note: we can't use data_stack_pool with outbuf because it's
+	   being written to inside t_push() .. t_pop() calls */
+	outbuf = o_buffer_create_file(tmp_fd, system_pool, 8192, 0, FALSE);
 
 	failed = FALSE; seq = 1;
 	rec = index->lookup(index, 1);
@@ -535,7 +543,6 @@ int mbox_index_rewrite(MailIndex *index)
 
 	i_buffer_unref(inbuf);
 	o_buffer_unref(outbuf);
-	t_pop();
 
 	if (!failed) {
 		/* POSSIBLE DATA LOSS HERE. We're writing to the mbox file,
@@ -565,10 +572,13 @@ int mbox_index_rewrite(MailIndex *index)
 		}
 	}
 
+	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
+		failed = TRUE;
+
 	(void)mbox_unlock(index);
 	(void)unlink(path);
 
 	if (close(tmp_fd) < 0)
 		index_file_set_syscall_error(index, path, "close()");
-	return failed;
+	return !failed;
 }

@@ -72,14 +72,11 @@ int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
 		return FALSE;
 	}
 
-	if (!index_storage_sync_index_if_possible(ibox, TRUE))
-		return FALSE;
-
 	if (!index_mailbox_fix_custom_flags(ibox, &flags, custom_flags))
 		return FALSE;
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
-		return mail_storage_set_index_error(ibox);
+	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_EXCLUSIVE))
+		return FALSE;
 
 	ctx.ibox = ibox;
 	ctx.flags = flags & ~MAIL_RECENT; /* \Recent can't be changed */

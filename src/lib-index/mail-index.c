@@ -248,23 +248,6 @@ static void mail_index_update_header_changes(MailIndex *index)
 	}
 }
 
-int mail_index_try_lock(MailIndex *index, MailLockType lock_type)
-{
-	int ret;
-
-	if (index->lock_type == lock_type)
-		return TRUE;
-
-	if (index->anon_mmap)
-		return TRUE;
-
-	ret = file_try_lock(index->fd, MAIL_LOCK_TO_FLOCK(lock_type));
-	if (ret < 0)
-		index_set_syscall_error(index, "file_try_lock()");
-
-	return ret > 0;
-}
-
 static int mail_index_write_header_changes(MailIndex *index)
 {
 	int failed;
@@ -274,11 +257,20 @@ static int mail_index_write_header_changes(MailIndex *index)
 	if (file_wait_lock(index->fd, F_WRLCK, DEFAULT_LOCK_TIMEOUT) <= 0)
 		return index_set_syscall_error(index, "file_wait_lock()");
 
+#ifdef DEBUG
+	mprotect(index->mmap_base, index->mmap_used_length,
+		 PROT_READ|PROT_WRITE);
+#endif
+
 	mail_index_update_header_changes(index);
 
 	failed = msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) < 0;
 	if (failed)
 		index_set_syscall_error(index, "msync()");
+
+#ifdef DEBUG
+	mprotect(index->mmap_base, index->mmap_used_length, PROT_NONE);
+#endif
 
 	if (file_wait_lock(index->fd, F_UNLCK, 0) <= 0)
 		return index_set_syscall_error(index, "file_wait_lock()");
@@ -313,10 +305,13 @@ static int mail_index_lock_remove(MailIndex *index)
 	return TRUE;
 }
 
-static int mail_index_lock_change(MailIndex *index, MailLockType lock_type)
+static int mail_index_lock_change(MailIndex *index, MailLockType lock_type,
+				  int try_lock)
 {
-	/* shared -> exclusive isn't allowed */
-	i_assert(lock_type != MAIL_LOCK_EXCLUSIVE ||
+	int ret, fd_lock_type;
+
+	/* shared -> exclusive isn't allowed without try_lock */
+	i_assert(try_lock || lock_type != MAIL_LOCK_EXCLUSIVE ||
 		 index->lock_type != MAIL_LOCK_SHARED);
 
 	if (index->inconsistent) {
@@ -325,9 +320,20 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type)
 		return FALSE;
 	}
 
-	if (file_wait_lock(index->fd, MAIL_LOCK_TO_FLOCK(lock_type),
-			   DEFAULT_LOCK_TIMEOUT) <= 0)
-		return index_set_syscall_error(index, "file_wait_lock()");
+	fd_lock_type = MAIL_LOCK_TO_FLOCK(lock_type);
+	if (try_lock) {
+		ret = file_try_lock(index->fd, fd_lock_type);
+		if (ret < 0)
+			index_set_syscall_error(index, "file_try_lock()");
+		if (ret <= 0)
+			return FALSE;
+	} else {
+		if (file_wait_lock(index->fd, fd_lock_type,
+				   DEFAULT_LOCK_TIMEOUT) <= 0) {
+			return index_set_syscall_error(index,
+						       "file_wait_lock()");
+		}
+	}
 
 	index->lock_type = lock_type;
 	debug_mprotect(index->mmap_base, index->mmap_full_length, index);
@@ -389,7 +395,8 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type)
 	return TRUE;
 }
 
-int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
+int mail_index_lock_full(MailIndex *index, MailLockType lock_type,
+			 int try_lock)
 {
 	int keep_fsck;
 
@@ -425,7 +432,17 @@ int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
 	if (lock_type == MAIL_LOCK_UNLOCK)
 		return mail_index_lock_remove(index);
 	else
-		return mail_index_lock_change(index, lock_type);
+		return mail_index_lock_change(index, lock_type, try_lock);
+}
+
+int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
+{
+	return mail_index_lock_full(index, lock_type, FALSE);
+}
+
+int mail_index_try_lock(MailIndex *index, MailLockType lock_type)
+{
+	return mail_index_lock_full(index, lock_type, TRUE);
 }
 
 int mail_index_verify_hole_range(MailIndex *index)

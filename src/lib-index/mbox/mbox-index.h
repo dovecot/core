@@ -48,7 +48,7 @@ int mbox_mail_get_location(MailIndex *index, MailIndexRecord *rec,
 
 MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path);
 int mbox_index_rebuild(MailIndex *index);
-int mbox_index_sync(MailIndex *index);
+int mbox_index_sync(MailIndex *index, MailLockType lock_type, int *changes);
 int mbox_sync_full(MailIndex *index);
 IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
 			time_t *internal_date, int *deleted);

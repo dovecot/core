@@ -903,11 +903,8 @@ int index_storage_search(Mailbox *box, MailSearchArg *args,
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	int failed;
 
-	if (!index_storage_sync_index_if_possible(ibox, TRUE))
+	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_SHARED))
 		return FALSE;
-
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
-		return mail_storage_set_index_error(ibox);
 
 	o_buffer_send(outbuf, "* SEARCH", 8);
 	failed = !search_messages(ibox, args, outbuf, uid_result);

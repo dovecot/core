@@ -119,8 +119,9 @@ struct _Mailbox {
 
 	MailStorage *storage;
 
-	/* Close the box */
-	void (*close)(Mailbox *box);
+	/* Close the box. Returns FALSE if some cleanup errors occured, but
+	   the mailbox was closed anyway. */
+	int (*close)(Mailbox *box);
 
 	/* Set synchronization callback functions to use. */
 	void (*set_sync_callbacks)(Mailbox *box,

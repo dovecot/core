@@ -371,46 +371,18 @@ static int mbox_get_mailbox_name_status(MailStorage *storage, const char *name,
 	}
 }
 
-static void mbox_storage_close(Mailbox *box)
+static int mbox_storage_close(Mailbox *box)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
+	int failed = FALSE;
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
+	/* update flags by rewrite mbox file */
+	if (!mbox_index_rewrite(ibox->index)) {
 		mail_storage_set_index_error(ibox);
-	else {
-		/* update flags by rewrite mbox file */
-		mbox_index_rewrite(ibox->index);
-
-		(void)ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK);
+		failed = TRUE;
 	}
 
-	index_storage_close(box);
-}
-
-static int mbox_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
-			      OBuffer *outbuf, int *all_found)
-{
-	IndexMailbox *ibox = (IndexMailbox *) box;
-	int ret;
-
-	ibox->index->mbox_lock_next_sync = MAIL_LOCK_SHARED;
-	ret = index_storage_fetch(box, fetch_data, outbuf, all_found);
-	(void)mbox_unlock(ibox->index);
-
- 	return ret;
-}
-
-static int mbox_storage_search(Mailbox *box, MailSearchArg *args,
-			       OBuffer *outbuf, int uid_result)
-{
-	IndexMailbox *ibox = (IndexMailbox *) box;
-	int ret;
-
-	ibox->index->mbox_lock_next_sync = MAIL_LOCK_SHARED;
-	ret = index_storage_search(box, args, outbuf, uid_result);
-	(void)mbox_unlock(ibox->index);
-
- 	return ret;
+	return index_storage_close(box) && !failed;
 }
 
 MailStorage mbox_storage = {
@@ -444,11 +416,11 @@ Mailbox mbox_mailbox = {
 	index_storage_set_sync_callbacks,
 	index_storage_get_status,
 	index_storage_sync,
-	mbox_storage_expunge,
+	index_storage_expunge,
 	index_storage_update_flags,
 	index_storage_copy,
-	mbox_storage_fetch,
-	mbox_storage_search,
+	index_storage_fetch,
+	index_storage_search,
 	mbox_storage_save,
 	mail_storage_is_inconsistency_error,
 

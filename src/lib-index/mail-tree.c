@@ -125,6 +125,9 @@ static int mmap_verify(MailTree *tree)
 
 int _mail_tree_mmap_update(MailTree *tree, int forced)
 {
+	debug_mprotect(tree->mmap_base, tree->mmap_full_length,
+		       tree->index);
+
 	if (!forced && tree->header != NULL &&
 	    tree->sync_id == tree->header->sync_id) {
 		/* make sure file size hasn't changed */

@@ -701,6 +701,20 @@ static void mbox_index_free(MailIndex *index)
 	i_free(index);
 }
 
+static int mbox_index_set_lock(MailIndex *index, MailLockType lock_type)
+{
+	if (lock_type == MAIL_LOCK_UNLOCK)
+		(void)mbox_unlock(index);
+	return mail_index_set_lock(index, lock_type);
+}
+
+static int mbox_index_try_lock(MailIndex *index, MailLockType lock_type)
+{
+	if (lock_type == MAIL_LOCK_UNLOCK)
+		(void)mbox_unlock(index);
+	return mail_index_try_lock(index, lock_type);
+}
+
 static int mbox_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 				   unsigned int seq, MailFlags flags,
 				   int external_change)
@@ -719,8 +733,8 @@ MailIndex mbox_index = {
 	mail_index_open,
 	mail_index_open_or_create,
 	mbox_index_free,
-	mail_index_set_lock,
-	mail_index_try_lock,
+	mbox_index_set_lock,
+	mbox_index_try_lock,
 	mbox_index_rebuild,
 	mail_index_fsck,
 	mbox_index_sync,

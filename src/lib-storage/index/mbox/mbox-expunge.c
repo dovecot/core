@@ -150,15 +150,3 @@ int mbox_expunge_locked(IndexMailbox *ibox, int notify)
 
 	return !failed;
 }
-
-int mbox_storage_expunge(Mailbox *box, int notify)
-{
-	IndexMailbox *ibox = (IndexMailbox *) box;
-	int ret;
-
-	ibox->index->mbox_lock_next_sync = MAIL_LOCK_EXCLUSIVE;
-	ret = index_storage_expunge(box, notify);
-	(void)mbox_unlock(ibox->index);
-
-	return ret;
-}

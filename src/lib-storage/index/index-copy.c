@@ -40,6 +40,7 @@ int index_storage_copy(Mailbox *box, Mailbox *destbox,
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
         CopyContext ctx;
+	MailLockType lock_type;
 	int failed;
 
 	if (destbox->readonly) {
@@ -48,10 +49,11 @@ int index_storage_copy(Mailbox *box, Mailbox *destbox,
 		return FALSE;
 	}
 
-	if (!ibox->index->sync(ibox->index))
-		return mail_storage_set_index_error(ibox);
+	lock_type = destbox->storage == box->storage &&
+		strcmp(destbox->name, box->name) == 0 ?
+		MAIL_LOCK_EXCLUSIVE : MAIL_LOCK_SHARED;
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
+	if (!ibox->index->sync_and_lock(ibox->index, lock_type, NULL))
 		return mail_storage_set_index_error(ibox);
 
 	ctx.custom_flags =

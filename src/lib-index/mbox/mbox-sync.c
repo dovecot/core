@@ -33,9 +33,6 @@ static uoff_t get_indexed_mbox_size(MailIndex *index)
 			offset += hdr_size + body_size;
 	}
 
-	if (index->lock_type == MAIL_LOCK_SHARED)
-		(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
-
 	if (offset > OFF_T_MAX) {
 		/* too large to fit in off_t */
 		return 0;
@@ -44,17 +41,16 @@ static uoff_t get_indexed_mbox_size(MailIndex *index)
 	return offset;
 }
 
-int mbox_index_sync(MailIndex *index)
+int mbox_index_sync(MailIndex *index, MailLockType lock_type, int *changes)
 {
 	struct stat st;
-	MailLockType lock_type;
 	time_t index_mtime;
 	uoff_t filesize;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
-	lock_type = index->mbox_lock_next_sync;
-	index->mbox_lock_next_sync = MAIL_LOCK_UNLOCK;
+	if (changes != NULL)
+		*changes = FALSE;
 	index->mbox_sync_counter = index->mbox_lock_counter;
 
 	if (index->fd == -1) {
@@ -79,34 +75,60 @@ int mbox_index_sync(MailIndex *index)
                 mbox_file_close_fd(index);
 	}
 
-	if (lock_type != MAIL_LOCK_UNLOCK) {
-		if (!mbox_lock(index, lock_type))
+	if (lock_type == MAIL_LOCK_EXCLUSIVE) {
+		/* if we know that we want exclusive lock, we might get
+		   it immediately to save extra lock changes */
+		if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 			return FALSE;
 	}
 
-	if (index_mtime == st.st_mtime && index->mbox_size == filesize)
-		return TRUE;
+	if (index_mtime != st.st_mtime || index->mbox_size != filesize) {
+		mbox_file_close_inbuf(index);
 
-	mbox_file_close_inbuf(index);
+		/* problem .. index->mbox_size points to data after the last
+		   message. that should be \n or end of file. modify filesize
+		   accordingly to allow the extra byte. Don't actually bother
+		   to open the file and verify it, it'd just slow things.. */
+		index->mbox_size = get_indexed_mbox_size(index);
+		if (filesize == index->mbox_size+1)
+			index->mbox_size = filesize;
 
-	/* problem .. index->mbox_size points to data after the last message.
-	   that should be \n, \r\n, or end of file. modify filesize
-	   accordingly to allow any of the extra 0-2 bytes. Don't actually
-	   bother to open the file and verify it, it'd just slow things.. */
-	index->mbox_size = get_indexed_mbox_size(index);
-	if (filesize == index->mbox_size+1 ||
-	    filesize == index->mbox_size+2)
-		index->mbox_size = filesize;
+		if (index->file_sync_stamp == 0 &&
+		    index->mbox_size == filesize) {
+			/* just opened the mailbox, and the file size is same
+			   as we expected. don't bother checking it any
+			   further. */
+		} else {
+			if (changes != NULL)
+				*changes = TRUE;
 
-	if (index->file_sync_stamp == 0 && index->mbox_size == filesize) {
-		/* just opened the mailbox, and the file size is same as
-		   we expected. don't bother checking it any further. */
+			/* file has changed, scan through the whole mbox */
+			if (!mbox_sync_full(index)) {
+				(void)index->set_lock(index, MAIL_LOCK_UNLOCK);
+				return FALSE;
+			}
+
+			if (lock_type == MAIL_LOCK_EXCLUSIVE &&
+			    index->mbox_lock_type == MAIL_LOCK_SHARED) {
+				/* mbox_sync_full() left it */
+				if (!mbox_unlock(index))
+					return FALSE;
+			}
+		}
+
 		index->file_sync_stamp = st.st_mtime;
-		return TRUE;
 	}
 
-	index->file_sync_stamp = st.st_mtime;
+	if (!index->set_lock(index, lock_type))
+		return FALSE;
 
-	/* file has changed, scan through the whole mbox */
-	return mbox_sync_full(index);
+	if (lock_type != MAIL_LOCK_UNLOCK) {
+		if (!mbox_lock(index, lock_type))
+			return FALSE;
+	} else {
+		if (!mbox_unlock(index))
+			return FALSE;
+	}
+
+	return TRUE;
 }

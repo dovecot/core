@@ -58,10 +58,7 @@ static int maildir_copy_with_hardlinks(IndexMailbox *src,
 	CopyHardContext ctx;
 	int ret;
 
-	if (!src->index->sync(src->index))
-		return mail_storage_set_index_error(src);
-
-	if (!src->index->set_lock(src->index, MAIL_LOCK_SHARED))
+	if (!src->index->sync_and_lock(src->index, MAIL_LOCK_SHARED, NULL))
 		return mail_storage_set_index_error(src);
 
 	ctx.storage = src->box.storage;

@@ -249,7 +249,7 @@ static int maildir_index_sync_dir(MailIndex *index, const char *dir)
 	return !failed;
 }
 
-int maildir_index_sync(MailIndex *index)
+int maildir_index_sync(MailIndex *index, MailLockType lock_type, int *changes)
 {
 	struct stat sti, std;
 	struct utimbuf ut;
@@ -257,6 +257,9 @@ int maildir_index_sync(MailIndex *index)
 	time_t index_mtime;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
+
+	if (changes != NULL)
+		*changes = FALSE;
 
 	if (index->fd == -1) {
 		/* anon-mmaped */
@@ -275,6 +278,7 @@ int maildir_index_sync(MailIndex *index)
 		return index_file_set_syscall_error(index, cur_dir, "stat()");
 
 	if (std.st_mtime != index_mtime) {
+		if (changes != NULL) *changes = TRUE;
 		if (!maildir_index_sync_dir(index, cur_dir))
 			return FALSE;
 	}
@@ -285,6 +289,8 @@ int maildir_index_sync(MailIndex *index)
 		return index_file_set_syscall_error(index, new_dir, "stat()");
 
 	if (std.st_mtime != index_mtime) {
+		if (changes != NULL) *changes = TRUE;
+
 		if (!maildir_index_build_dir(index, new_dir, cur_dir))
 			return FALSE;
 
@@ -324,5 +330,5 @@ int maildir_index_sync(MailIndex *index)
 			return index_set_syscall_error(index, "utime()");
 	}
 
-	return TRUE;
+	return index->set_lock(index, lock_type);
 }
