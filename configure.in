@@ -142,6 +142,7 @@ AC_DEFINE_UNQUOTED(_FILE_OFFSET_BITS, $preferred_off_t_bits)
 
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
+AC_CHECK_SIZEOF(void *)
 AC_CHECK_SIZEOF(long long)
 
 dnl * older autoconfs don't include sys/types.h, so do it manually

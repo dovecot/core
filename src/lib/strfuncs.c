@@ -76,7 +76,7 @@ typedef struct
   unsigned int precision;
   int alternate_format, zero_padding, adjust_left, locale_grouping;
   int add_space, add_sign, possible_sign, seen_precision;
-  int mod_half, mod_long, mod_extra_long;
+  int mod_long, mod_extra_long;
 } PrintfArgSpec;
 
 #if (SIZEOF_LONG > 4) || (SIZEOF_VOID_P > 4)
@@ -103,7 +103,6 @@ size_t printf_string_upper_bound(const char *format, va_list args)
           PrintfArgSpec spec;
           int seen_l = FALSE, conv_done = FALSE;
           unsigned int conv_len = 0;
-          const char *spec_start = format;
 
           memset(&spec, 0, sizeof(spec));
           do
@@ -192,7 +191,7 @@ size_t printf_string_upper_bound(const char *format, va_list args)
                   /* parse type modifiers
                    */
                 case 'h':
-                  spec.mod_half = TRUE;
+		  /* ignore */
                   break;
                 case 'l':
                   if (!seen_l)
@@ -203,28 +202,8 @@ size_t printf_string_upper_bound(const char *format, va_list args)
                     }
                   /* else, fall through */
                 case 'L':
-                case 'q':
                   spec.mod_long = TRUE;
                   spec.mod_extra_long = TRUE;
-                  break;
-                case 'z':
-                case 'Z':
-#if GLIB_SIZEOF_SIZE_T > 4
-                  spec.mod_long = TRUE;
-                  spec.mod_extra_long = TRUE;
-#endif /* GLIB_SIZEOF_SIZE_T > 4 */
-                  break;
-                case 't':
-#if GLIB_SIZEOF_PTRDIFF_T > 4
-                  spec.mod_long = TRUE;
-                  spec.mod_extra_long = TRUE;
-#endif /* GLIB_SIZEOF_PTRDIFF_T > 4 */
-                  break;
-                case 'j':
-#if GLIB_SIZEOF_INTMAX_T > 4
-                  spec.mod_long = TRUE;
-                  spec.mod_extra_long = TRUE;
-#endif /* GLIB_SIZEOF_INTMAX_T > 4 */
                   break;
 
                   /* parse output conversions
@@ -232,13 +211,6 @@ size_t printf_string_upper_bound(const char *format, va_list args)
                 case '%':
                   conv_len += 1;
                   break;
-                case 'O':
-                case 'D':
-                case 'I':
-                case 'U':
-                  /* some C libraries feature long variants for these as well? */
-                  spec.mod_long = TRUE;
-                  /* fall through */
                 case 'o':
                   conv_len += 2;
                   /* fall through */
@@ -259,8 +231,8 @@ size_t printf_string_upper_bound(const char *format, va_list args)
                     conv_len *= 2;
                   if (spec.mod_extra_long)
                     {
-#ifdef G_HAVE_GINT64
-                      (void) va_arg (args, gint64);
+#if SIZEOF_LONG_LONG > 0
+                      (void) va_arg (args, long long);
 #else
                       (void) va_arg (args, long);
 #endif
@@ -305,16 +277,10 @@ size_t printf_string_upper_bound(const char *format, va_list args)
                   if (spec.locale_grouping)
                     conv_len *= 2;
                   break;
-                case 'C':
-                  spec.mod_long = TRUE;
-                  /* fall through */
                 case 'c':
                   conv_len += spec.mod_long ? MB_LEN_MAX : 1;
                   (void) va_arg (args, int);
                   break;
-                case 'S':
-                  spec.mod_long = TRUE;
-                  /* fall through */
                 case 's':
                   v_string = va_arg (args, char*);
                   if (!v_string)
@@ -327,30 +293,20 @@ size_t printf_string_upper_bound(const char *format, va_list args)
                   if (spec.mod_long)
                     i_panic("unable to handle wide char strings");
                   break;
-                case 'P': /* do we actually need this? */
-                  /* fall through */
                 case 'p':
                   spec.alternate_format = TRUE;
                   conv_len += 10;
                   if (HONOUR_LONGS)
                     conv_len *= 2;
-                  /* fall through */
-                case 'n':
-                  conv_done = TRUE;
-                  (void) va_arg (args, void*);
-                  break;
-                case 'm':
-                  /* there's not much we can do to be clever */
-                  v_string = strerror (errno);
-                  v_uint = v_string ? strlen (v_string) : 0;
-                  conv_len += I_MAX (256, v_uint);
+		  conv_done = TRUE;
+		  (void) va_arg (args, void*);
                   break;
 
                   /* handle invalid cases
                    */
                 case '\000':
                   /* no conversion specification, bad bad */
-                  conv_len += format - spec_start;
+		  i_panic("Missing conversion specifier");
                   break;
                 default:
                   i_panic("unable to handle `%c' while parsing format", c);
