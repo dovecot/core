@@ -11,18 +11,18 @@ static int expunge_msg(IndexMailbox *ibox, MailIndexRecord *rec,
 	const char *fname;
 	char path[1024];
 
-	/* get our file name - ignore if it's missing,
-	   we're deleting it after all.. */
 	fname = ibox->index->lookup_field(ibox->index, rec,
 					  FIELD_TYPE_LOCATION);
 	if (fname != NULL) {
 		i_snprintf(path, sizeof(path), "%s/cur/%s",
 			   ibox->index->dir, fname);
-		if (unlink(path) == -1 && errno != ENOENT) {
+		if (unlink(path) < 0) {
+			/* if it didn't exist, someone just had either
+			   deleted it or changed it's flags */
 			mail_storage_set_error(ibox->box.storage,
 					       "unlink() failed for "
 					       "message file %s: %m", path);
-			/* continue anyway */
+			return FALSE;
 		}
 	}
 
