@@ -38,7 +38,7 @@ static uoff_t get_indexed_mbox_size(MailIndex *index)
 		return 0;
 	}
 
-	return offset;
+	return offset + 1; /* +1 for trailing \n */
 }
 
 static int mbox_lock_and_sync_full(MailIndex *index,
@@ -104,16 +104,18 @@ int mbox_index_sync(MailIndex *index, MailLockType data_lock_type,
 
 		index->mbox_size = get_indexed_mbox_size(index);
 		if (index->file_sync_stamp == 0 &&
-		    index->mbox_size == filesize+1) {
+		    index->mbox_size == filesize) {
 			/* just opened the mailbox, and the file size is same
 			   as we expected. don't bother checking it any
-			   further. the +1 comes from the extra \n at end. */
+			   further. */
 		} else {
 			if (changes != NULL)
 				*changes = TRUE;
 
 			if (!mbox_lock_and_sync_full(index, data_lock_type))
 				return FALSE;
+
+			index->mbox_size = filesize;
 		}
 
 		index->file_sync_stamp = st.st_mtime;
