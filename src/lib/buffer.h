@@ -2,7 +2,7 @@
 #define __BUFFER_H
 
 struct buffer {
-	const unsigned char *data;
+	const void *data;
 	const size_t used;
 };
 
