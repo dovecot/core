@@ -272,7 +272,7 @@ static pid_t create_auth_process(struct auth_config *config)
 	/* create socket for listening auth requests from imap-login */
 	path = t_strconcat(set_login_dir, "/", config->name, NULL);
 	(void)unlink(path);
-        (void)umask(0177); /* we want 0600 mode for the socket */
+        (void)umask(0117); /* we want 0660 mode for the socket */
 
 	listen_fd = net_listen_unix(path);
 	if (listen_fd < 0)
@@ -281,7 +281,7 @@ static pid_t create_auth_process(struct auth_config *config)
 	i_assert(listen_fd > 2);
 
 	/* set correct permissions */
-	if (chown(path, set_login_uid, set_login_gid) < 0) {
+	if (chown(path, geteuid(), set_login_gid) < 0) {
 		i_fatal("login: chown(%s, %s, %s) failed: %m",
 			path, dec2str(set_login_uid), dec2str(set_login_gid));
 	}

@@ -273,9 +273,10 @@ static void settings_verify(void)
 	if (unlink_directory(set_login_dir, FALSE) < 0)
 		i_fatal("unlink_directory() failed for %s: %m", set_login_dir);
 
-	if (safe_mkdir(set_login_dir, 0700, set_login_uid, set_login_gid) == 0)
+	if (safe_mkdir(set_login_dir, 0750, geteuid(), set_login_gid) == 0) {
 		i_warning("Corrected permissions for login directory %s",
 			  set_login_dir);
+	}
 
 	if (set_max_imap_processes < 1)
 		i_fatal("max_imap_processes must be at least 1");
