@@ -8,17 +8,28 @@
 
 int lib_signal_kill;
 unsigned int lib_signal_hup_count;
+unsigned int lib_signal_usr1_count, lib_signal_usr2_count;
 
 static void (*quit_handler) (int);
 
-static void sig_hup(int signo __attr_unused__)
+static void sig_counter(int signo)
 {
 #ifndef HAVE_SIGACTION
 	/* some systems may have changed the signal handler to default one */
-        signal(SIGHUP, sig_hup);
+        signal(signo, sig_counter);
 #endif
 
-        lib_signal_hup_count++;
+	switch (signo) {
+	case SIGHUP:
+		lib_signal_hup_count++;
+		break;
+	case SIGUSR1:
+		lib_signal_usr1_count++;
+		break;
+	case SIGUSR2:
+		lib_signal_usr2_count++;
+		break;
+	}
 }
 
 static void sig_quit(int signo)
@@ -49,13 +60,23 @@ void lib_init_signals(void (*sig_quit_handler) (int))
 	if (sigemptyset(&act.sa_mask) < 0)
 		i_fatal("sigemptyset(): %m");
 	act.sa_flags = 0;
-	act.sa_handler = sig_hup;
+	act.sa_handler = sig_counter;
 	while (sigaction(SIGHUP, &act, NULL) < 0) {
 		if (errno != EINTR)
 			i_fatal("sigaction(): %m");
 	}
+	while (sigaction(SIGUSR1, &act, NULL) < 0) {
+		if (errno != EINTR)
+			i_fatal("sigaction(): %m");
+	}
+	while (sigaction(SIGUSR2, &act, NULL) < 0) {
+		if (errno != EINTR)
+			i_fatal("sigaction(): %m");
+	}
 #else
-        signal(SIGHUP, sig_hup);
+        signal(SIGHUP, sig_counter);
+        signal(SIGUSR1, sig_counter);
+        signal(SIGUSR2, sig_counter);
 #endif
 
 	/* these signals should be called only once, so it's safe to use
