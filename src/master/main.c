@@ -401,6 +401,9 @@ int main(int argc, char *argv[])
 			i++;
 			if (i == argc) i_fatal("Missing config file argument");
 			configfile = argv[i];
+		} else if (strcmp(argv[i], "--version") == 0) {
+			printf("%s\n", VERSION);
+			return 0;
 		} else {
 			print_help();
 			i_fatal("Unknown argument: %s", argv[1]);
