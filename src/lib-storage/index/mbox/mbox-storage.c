@@ -495,6 +495,16 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 		return -1;
 	}
 
+	if (strncasecmp(name, "INBOX/", 6) == 0) {
+		/* We might actually be able to create mailboxes under INBOX
+		   because the real INBOX file isn't usually named as INBOX
+		   in the root mail directory. that would anyway be a special
+		   case which would require special handling elsewhere, so just
+		   don't allow it. */
+		mail_storage_set_error(_storage, "Mailbox already exists");
+		return -1;
+	}
+
 	/* make sure it doesn't exist already */
 	path = mbox_get_path(storage, name);
 	if (stat(path, &st) == 0) {
