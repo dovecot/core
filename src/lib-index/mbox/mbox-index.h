@@ -13,8 +13,7 @@ typedef struct {
 
 MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path);
 
-void mbox_header_init_context(MboxHeaderContext *ctx,
-			      const char*custom_flags[MAIL_CUSTOM_FLAGS_COUNT]);
+void mbox_header_init_context(MboxHeaderContext *ctx);
 void mbox_header_func(MessagePart *part __attr_unused__,
 		      const char *name, unsigned int name_len,
 		      const char *value, unsigned int value_len,

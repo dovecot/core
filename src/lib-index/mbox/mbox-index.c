@@ -8,11 +8,9 @@
 
 static MailIndex mbox_index;
 
-void mbox_header_init_context(MboxHeaderContext *ctx,
-			      const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT])
+void mbox_header_init_context(MboxHeaderContext *ctx)
 {
 	memset(ctx, 0, sizeof(MboxHeaderContext));
-	memcpy(ctx->custom_flags, custom_flags, sizeof(ctx->custom_flags));
 	md5_init(&ctx->md5);
 }
 
