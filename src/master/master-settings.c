@@ -46,6 +46,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, ssl_listen),
 
 	DEF(SET_BOOL, ssl_disable),
+	DEF(SET_STR, ssl_ca_file),
 	DEF(SET_STR, ssl_cert_file),
 	DEF(SET_STR, ssl_key_file),
 	DEF(SET_STR, ssl_parameters_file),
@@ -164,6 +165,7 @@ struct settings default_settings = {
 	MEMBER(ssl_listen) NULL,
 
 	MEMBER(ssl_disable) FALSE,
+	MEMBER(ssl_ca_file) NULL,
 	MEMBER(ssl_cert_file) SSLDIR"/certs/dovecot.pem",
 	MEMBER(ssl_key_file) SSLDIR"/private/dovecot.pem",
 	MEMBER(ssl_parameters_file) "ssl-parameters.dat",
@@ -418,6 +420,12 @@ static int settings_verify(struct settings *set)
 
 #ifdef HAVE_SSL
 	if (!set->ssl_disable) {
+		if (set->ssl_ca_file != NULL &&
+		    access(set->ssl_ca_file, R_OK) < 0) {
+			i_fatal("Can't use SSL CA file %s: %m",
+				set->ssl_ca_file);
+		}
+
 		if (access(set->ssl_cert_file, R_OK) < 0) {
 			i_error("Can't use SSL certificate %s: %m",
 				set->ssl_cert_file);

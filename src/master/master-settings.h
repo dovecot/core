@@ -23,6 +23,7 @@ struct settings {
 	const char *ssl_listen;
 
 	int ssl_disable;
+	const char *ssl_ca_file;
 	const char *ssl_cert_file;
 	const char *ssl_key_file;
 	const char *ssl_parameters_file;

@@ -403,9 +403,10 @@ static RSA *ssl_gen_rsa_key(SSL *ssl __attr_unused__,
 
 void ssl_proxy_init(void)
 {
-	const char *certfile, *keyfile, *paramfile;
+	const char *cafile, *certfile, *keyfile, *paramfile;
 	char buf;
 
+	cafile = getenv("SSL_CA_FILE");
 	certfile = getenv("SSL_CERT_FILE");
 	keyfile = getenv("SSL_KEY_FILE");
 	paramfile = getenv("SSL_PARAM_FILE");
@@ -426,6 +427,13 @@ void ssl_proxy_init(void)
 	if (SSL_CTX_set_cipher_list(ssl_ctx, SSL_CIPHER_LIST) != 1) {
 		i_fatal("Can't set cipher list to '%s': %s",
 			SSL_CIPHER_LIST, ssl_last_error());
+	}
+
+	if (cafile != NULL) {
+		if (SSL_CTX_load_verify_locations(ssl_ctx, cafile, NULL) != 1) {
+			i_fatal("Can't load CA file %s: %s",
+				cafile, ssl_last_error());
+		}
 	}
 
 	if (SSL_CTX_use_certificate_chain_file(ssl_ctx, certfile) != 1) {
