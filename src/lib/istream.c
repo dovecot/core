@@ -179,19 +179,18 @@ unsigned char *i_stream_get_modifyable_data(struct istream *stream,
 int i_stream_read_data(struct istream *stream, const unsigned char **data,
 		       size_t *size, size_t threshold)
 {
-	struct _istream *_stream = stream->real_stream;
 	ssize_t ret = 0;
 
-	while (_stream->pos - _stream->skip <= threshold) {
+	do {
+		*data = i_stream_get_data(stream, size);
+		if (*size > threshold)
+			return 1;
+
 		/* we need more data */
 		ret = i_stream_read(stream);
-		if (ret < 0)
-			break;
-	}
+	} while (ret >= 0);
 
-	*data = i_stream_get_data(stream, size);
-	return *size > threshold ? 1 :
-		ret == -2 ? -2 :
+	return ret == -2 ? -2 :
 		*size > 0 ? 0 : -1;
 }
 
