@@ -73,9 +73,10 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 
 			if (fstat(first_fd, &st) == 0) {
 #ifdef HAVE_SYS_SYSMACROS_H
-				i_panic("Leaked file fd %d: dev %u.%u inode %s",
-					first_fd, major(st.st_dev),
-					minor(st.st_dev), dec2str(st.st_ino));
+				i_panic("Leaked file fd %d: dev %s.%s inode %s", first_fd,
+					dec2str(major(st.st_dev)),
+					dec2str(minor(st.st_dev)),
+					dec2str(st.st_ino));
 #else
 				i_panic("Leaked file fd %d: dev %s inode %s",
 					first_fd, dec2str(st.st_dev),
