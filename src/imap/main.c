@@ -34,7 +34,7 @@ struct client_workaround_list client_workaround_list[] = {
 };
 
 struct ioloop *ioloop;
-unsigned int max_keyword_length, mailbox_check_interval;
+unsigned int max_keyword_length;
 unsigned int imap_max_line_length;
 enum client_workarounds client_workarounds = 0;
 
@@ -157,10 +157,6 @@ static void main_init(void)
 	max_keyword_length = str != NULL ?
 		(unsigned int)strtoul(str, NULL, 10) :
 		DEFAULT_MAX_KEYWORD_LENGTH;
-
-	str = getenv("MAILBOX_CHECK_INTERVAL");
-	mailbox_check_interval = str == NULL ? 0 :
-		(unsigned int)strtoul(str, NULL, 10);
 
         parse_workarounds();
 

@@ -59,7 +59,6 @@ struct settings {
 	const char *default_mail_env;
 	const char *mail_cache_fields;
 	const char *mail_never_cache_fields;
-	unsigned int mailbox_check_interval;
 	unsigned int mailbox_idle_check_interval;
 	int mail_full_filesystem_access;
 	int mail_max_keyword_length;

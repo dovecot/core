@@ -30,7 +30,7 @@ enum client_workarounds {
 };
 
 extern struct ioloop *ioloop;
-extern unsigned int max_keyword_length, mailbox_check_interval;
+extern unsigned int max_keyword_length;
 extern unsigned int imap_max_line_length;
 extern enum client_workarounds client_workarounds;
 
