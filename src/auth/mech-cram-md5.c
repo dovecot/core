@@ -103,25 +103,27 @@ static int verify_credentials(struct cram_auth_request *auth,
 }
 
 static int parse_cram_response(struct cram_auth_request *auth,
-			       const char *data, const char **error)
+			       const unsigned char *data, size_t size,
+			       const char **error_r)
 {
-	char *digest;
-	int failed;
+	size_t i;
 
-	*error = NULL;
-	failed = FALSE;
+	*error_r = NULL;
 
-	digest = strchr(data, ' ');
-	if (digest != NULL) {
-		auth->username = p_strdup_until(auth->pool, data, digest);
-		digest++;
-		auth->response = p_strdup(auth->pool, digest);
-	} else {
-		*error = "missing digest";
-		failed = TRUE;
+	for (i = 0; i < size; i++) {
+		if (data[i] == ' ')
+			break;
 	}
 
-	return !failed;
+	if (i == size) {
+		*error_r = "missing digest";
+		return FALSE;
+	}
+
+	auth->username = p_strndup(auth->pool, data, i);
+	i++;
+	auth->response = p_strndup(auth->pool, data + i, size - i);
+	return TRUE;
 }
 
 static void credentials_callback(const char *result,
@@ -147,18 +149,15 @@ static void credentials_callback(const char *result,
 
 static int
 mech_cram_md5_auth_continue(struct auth_request *auth_request,
-			    struct auth_client_request_continue *request,
-			    const unsigned char *data,
-			    mech_callback_t *callback)
+	struct auth_client_request_continue *request __attr_unused__,
+	const unsigned char *data,
+	mech_callback_t *callback)
 {
 	struct cram_auth_request *auth =
 		(struct cram_auth_request *)auth_request;
 	const char *error;
 
-	/* unused */
-	(void)request;
-
-	if (parse_cram_response(auth, (const char *) data, &error)) {
+	if (parse_cram_response(auth, data, request->data_size, &error)) {
 		auth_request->callback = callback;
 
 		auth_request->user =
