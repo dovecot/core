@@ -662,7 +662,7 @@ unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 					unsigned int first_uid,
 					unsigned int last_uid)
 {
-	MailTreeNode *node = tree->node_base;
+	MailTreeNode *node;
 	unsigned int x, y, seq;
 
 	i_assert(first_uid > 0 && last_uid > 0);
@@ -673,6 +673,7 @@ unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 		return (unsigned int)-1;
 
 	rb_check(tree);
+	tree->modified = TRUE;
 
 	if (seq_r != NULL)
 		*seq_r = 0;
@@ -720,7 +721,7 @@ unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 
 unsigned int mail_tree_lookup_sequence(MailTree *tree, unsigned int seq)
 {
-        MailTreeNode *node = tree->node_base;
+        MailTreeNode *node;
 	unsigned int x, upleft_nodes, left_nodes;
 
 	i_assert(seq != 0);
@@ -730,6 +731,7 @@ unsigned int mail_tree_lookup_sequence(MailTree *tree, unsigned int seq)
 		return (unsigned int)-1;
 
 	rb_check(tree);
+	node = tree->node_base;
 
 	x = tree->header->root;
 
@@ -755,7 +757,7 @@ unsigned int mail_tree_lookup_sequence(MailTree *tree, unsigned int seq)
 
 int mail_tree_insert(MailTree *tree, unsigned int uid, unsigned int index)
 {
-        MailTreeNode *node = tree->node_base;
+        MailTreeNode *node;
 	unsigned int x, z;
 
 	i_assert(uid != 0);
@@ -764,7 +766,7 @@ int mail_tree_insert(MailTree *tree, unsigned int uid, unsigned int index)
 	if (!_mail_tree_mmap_update(tree, FALSE))
 		return FALSE;
 
-	tree->modified = TRUE;
+	node = tree->node_base;
 
 	/* we'll always insert to right side of the tree */
 	x = tree->header->root;
@@ -807,12 +809,14 @@ int mail_tree_insert(MailTree *tree, unsigned int uid, unsigned int index)
 
         rb_insert_fix(tree, z);
         rb_check(tree);
+
+	tree->modified = TRUE;
 	return TRUE;
 }
 
 int mail_tree_update(MailTree *tree, unsigned int uid, unsigned int index)
 {
-	MailTreeNode *node = tree->node_base;
+	MailTreeNode *node;
 	unsigned int x;
 
 	i_assert(uid != 0);
@@ -822,6 +826,7 @@ int mail_tree_update(MailTree *tree, unsigned int uid, unsigned int index)
 		return FALSE;
 
 	rb_check(tree);
+	node = tree->node_base;
 
 	tree->modified = TRUE;
 
@@ -845,7 +850,7 @@ int mail_tree_update(MailTree *tree, unsigned int uid, unsigned int index)
 
 void mail_tree_delete(MailTree *tree, unsigned int uid)
 {
-	MailTreeNode *node = tree->node_base;
+	MailTreeNode *node;
 	unsigned int x;
 
 	i_assert(uid != 0);
@@ -854,7 +859,7 @@ void mail_tree_delete(MailTree *tree, unsigned int uid)
 	if (!_mail_tree_mmap_update(tree, FALSE))
 		return;
 
-	tree->modified = TRUE;
+	node = tree->node_base;
 
 	x = tree->header->root;
 	while (x != RBNULL) {
@@ -869,4 +874,6 @@ void mail_tree_delete(MailTree *tree, unsigned int uid)
 			break;
 		}
 	}
+
+	tree->modified = TRUE;
 }
