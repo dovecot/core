@@ -31,7 +31,7 @@ const char *_charset_utf8_ucase_strdup(const unsigned char *data, size_t size,
 }
 
 
-#ifndef HAVE_ICONV_H
+#ifndef HAVE_ICONV
 
 #include <ctype.h>
 

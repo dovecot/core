@@ -4,16 +4,10 @@
 #include "buffer.h"
 #include "charset-utf8.h"
 
-#ifdef HAVE_ICONV_H
+#ifdef HAVE_ICONV
 
 #include <iconv.h>
 #include <ctype.h>
-
-#ifdef __sun__
-#  define ICONV_CONST const
-#else
-#  define ICONV_CONST
-#endif
 
 struct charset_translation {
 	iconv_t cd;

@@ -12,8 +12,9 @@ AC_STDC_HEADERS
 AC_C_INLINE
 AC_ARG_PROGRAM
 AM_PROG_LIBTOOL
+AM_ICONV
 
-AC_CHECK_HEADERS(string.h stdlib.h stdint.h unistd.h dirent.h iconv.h)
+AC_CHECK_HEADERS(string.h stdlib.h stdint.h unistd.h dirent.h)
 AC_CHECK_HEADERS(sys/uio.h sys/sysmacros.h sys/resource.h linux/mman.h)
 AC_CHECK_HEADERS(sys/select.h)
 
