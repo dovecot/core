@@ -204,6 +204,7 @@ int imap_fetch(struct imap_fetch_context *ctx)
 			str_truncate(ctx->cur_str, 0);
 			str_append_c(ctx->cur_str, ' ');
 			ctx->first = TRUE;
+			ctx->line_finished = FALSE;
 		}
 
 		for (; ctx->cur_handler < size; ctx->cur_handler++) {
@@ -231,6 +232,7 @@ int imap_fetch(struct imap_fetch_context *ctx)
 			str_truncate(ctx->cur_str, 0);
 		}
 
+		ctx->line_finished = TRUE;
 		if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0)
 			return -1;
 
@@ -244,6 +246,11 @@ int imap_fetch(struct imap_fetch_context *ctx)
 int imap_fetch_deinit(struct imap_fetch_context *ctx)
 {
 	str_free(ctx->cur_str);
+
+	if (!ctx->line_finished) {
+		if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0)
+			return -1;
+	}
 
 	if (ctx->cur_input != NULL) {
 		i_stream_unref(ctx->cur_input);
