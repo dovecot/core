@@ -227,7 +227,8 @@ static const char *mbox_get_index_dir(struct mail_storage *storage,
 	if (p == NULL)
 		return t_strconcat(storage->index_dir, "/.imap/", name, NULL);
 	else {
-		return t_strconcat(storage->index_dir, t_strdup_until(name, p),
+		return t_strconcat(storage->index_dir, "/",
+				   t_strdup_until(name, p),
 				   "/.imap/", p+1, NULL);
 	}
 }
