@@ -284,6 +284,8 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 {
 	struct index_mailbox *ibox;
 	enum mail_index_open_flags index_flags;
+	enum mail_index_lock_method lock_method = 0;
+	const char *str;
 
 	i_assert(name != NULL);
 
@@ -296,8 +298,16 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 	if (getenv("MMAP_NO_WRITE") != NULL)
 #endif
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE;
-	if (getenv("FCNTL_LOCKS_DISABLE") != NULL)
-		index_flags |= MAIL_INDEX_OPEN_FLAG_FCNTL_LOCKS_DISABLE;
+
+	str = getenv("LOCK_METHOD");
+	if (str == NULL || strcmp(str, "fcntl") == 0)
+		lock_method = MAIL_INDEX_LOCK_FCNTL;
+	else if (strcmp(str, "flock") == 0)
+		lock_method = MAIL_INDEX_LOCK_FLOCK;
+	else if (strcmp(str, "dotlock") == 0)
+		lock_method = MAIL_INDEX_LOCK_DOTLOCK;
+	else
+		i_fatal("Unknown lock_method: %s", str);
 
 	do {
 		ibox = i_new(struct index_mailbox, 1);
@@ -315,7 +325,7 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 		ibox->commit_log_file_seq = 0;
 		ibox->mail_read_mmaped = getenv("MAIL_READ_MMAPED") != NULL;
 
-		if (mail_index_open(index, index_flags) < 0)
+		if (mail_index_open(index, index_flags, lock_method) < 0)
 			break;
 
 		ibox->cache = mail_index_get_cache(index);

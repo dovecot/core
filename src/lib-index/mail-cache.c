@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "buffer.h"
 #include "hash.h"
-#include "file-lock.h"
 #include "mmap-util.h"
 #include "write-full.h"
 #include "mail-cache-private.h"
@@ -257,8 +256,11 @@ int mail_cache_lock(struct mail_cache *cache)
 	}
 
 	for (i = 0; i < 3; i++) {
-		if ((ret = file_wait_lock(cache->fd, F_WRLCK)) <= 0) {
-			mail_cache_set_syscall_error(cache, "file_wait_lock()");
+		ret = mail_index_lock_fd(cache->index, cache->fd, F_WRLCK,
+					 MAIL_INDEX_LOCK_SECS);
+		if (ret <= 0) {
+			mail_cache_set_syscall_error(cache,
+				"mail_index_wait_lock_fd()");
 			break;
 		}
 		cache->locked = TRUE;
@@ -321,8 +323,10 @@ void mail_cache_unlock(struct mail_cache *cache)
                 mail_cache_update_need_compress(cache);
 	}
 
-	if (file_wait_lock(cache->fd, F_UNLCK) <= 0)
-		mail_cache_set_syscall_error(cache, "file_wait_lock(F_UNLCK)");
+	if (mail_index_lock_fd(cache->index, cache->fd, F_UNLCK, 0) <= 0) {
+		mail_cache_set_syscall_error(cache,
+			"mail_index_wait_lock_fd(F_UNLCK)");
+	}
 }
 
 struct mail_cache_view *

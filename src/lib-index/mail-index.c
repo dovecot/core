@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "buffer.h"
-#include "file-lock.h"
 #include "mmap-util.h"
 #include "read-full.h"
 #include "write-full.h"
@@ -948,7 +947,8 @@ static int mail_index_open_files(struct mail_index *index,
 	return 1;
 }
 
-int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
+int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
+		    enum mail_index_lock_method lock_method)
 {
 	int i = 0, ret;
 
@@ -963,6 +963,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 		index->lock_type = F_UNLCK;
 		index->lock_id = 2;
 
+		index->readonly = FALSE;
 		index->nodiskspace = FALSE;
 		index->index_lock_timeout = FALSE;
 		index->log_locked = FALSE;
@@ -970,9 +971,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 			(flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) != 0;
 		index->mmap_no_write =
 			(flags & MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE) != 0;
-		index->fcntl_locks_disable =
-			(flags & MAIL_INDEX_OPEN_FLAG_FCNTL_LOCKS_DISABLE) != 0;
-		index->readonly = FALSE;
+		index->lock_method = lock_method;
 
 		ret = mail_index_open_files(index, flags);
 		if (ret <= 0)

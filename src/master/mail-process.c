@@ -208,8 +208,6 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("MMAP_DISABLE=1");
 	if (set->mmap_no_write)
 		env_put("MMAP_NO_WRITE=1");
-	if (set->fcntl_locks_disable)
-		env_put("FCNTL_LOCKS_DISABLE=1");
 	if (set->maildir_stat_dirs)
 		env_put("MAILDIR_STAT_DIRS=1");
 	if (set->maildir_copy_with_hardlinks)
@@ -226,6 +224,7 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("MBOX_LAZY_WRITES=1");
 	(void)umask(set->umask);
 
+	env_put(t_strconcat("LOCK_METHOD=", set->lock_method, NULL));
 	env_put(t_strconcat("MBOX_READ_LOCKS=", set->mbox_read_locks, NULL));
 	env_put(t_strconcat("MBOX_WRITE_LOCKS=", set->mbox_write_locks, NULL));
 	env_put(t_strdup_printf("MBOX_LOCK_TIMEOUT=%u",

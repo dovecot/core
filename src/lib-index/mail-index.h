@@ -23,9 +23,13 @@ enum mail_index_open_flags {
 	/* Don't try to write() to mmap()ed index files. Required for the few
 	   OSes that don't have unified buffer cache
 	   (currently OpenBSD <= 3.5) */
-	MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE	= 0x08,
-	/* Don't use fcntl() locking */
-	MAIL_INDEX_OPEN_FLAG_FCNTL_LOCKS_DISABLE= 0x10
+	MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE	= 0x08
+};
+
+enum mail_index_lock_method {
+	MAIL_INDEX_LOCK_FCNTL,
+	MAIL_INDEX_LOCK_FLOCK,
+	MAIL_INDEX_LOCK_DOTLOCK
 };
 
 enum mail_index_header_compat_flags {
@@ -140,7 +144,8 @@ void mail_index_free(struct mail_index *index);
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid);
 
-int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags);
+int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
+		    enum mail_index_lock_method lock_method);
 void mail_index_close(struct mail_index *index);
 
 /* Force checking if index can be refreshed. */

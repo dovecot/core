@@ -21,12 +21,91 @@
 #include "lib.h"
 #include "buffer.h"
 #include "mmap-util.h"
-#include "file-lock.h"
 #include "write-full.h"
 #include "mail-index-private.h"
 
 #include <stdio.h>
 #include <sys/stat.h>
+
+#ifdef HAVE_FLOCK
+#  include <sys/file.h>
+#endif
+
+#define MAIL_INDEX_LOCK_WAIT_TIME 120
+
+int mail_index_lock_fd(struct mail_index *index, int fd, int lock_type,
+		       unsigned int timeout_secs)
+{
+	if (timeout_secs != 0) alarm(MAIL_INDEX_LOCK_WAIT_TIME);
+
+	switch (index->lock_method) {
+	case MAIL_INDEX_LOCK_FCNTL: {
+#ifndef HAVE_FCNTL
+		i_fatal("fcntl() locks not supported");
+#else
+		struct flock fl;
+
+		fl.l_type = lock_type;
+		fl.l_whence = SEEK_SET;
+		fl.l_start = 0;
+		fl.l_len = 0;
+
+		if (fcntl(fd, timeout_secs ? F_SETLKW : F_SETLK, &fl) < 0) {
+			if (timeout_secs == 0 &&
+			    (errno == EACCES || errno == EAGAIN)) {
+				/* locked by another process */
+				return 0;
+			}
+
+			if (errno == EINTR) {
+				/* most likely alarm hit, meaning we timeouted.
+				   even if not, we probably want to be killed
+				   so stop blocking. */
+				errno = EAGAIN;
+				if (timeout_secs != 0) alarm(0);
+				return 0;
+			}
+		}
+		if (timeout_secs != 0) alarm(0);
+		return 1;
+#endif
+	}
+	case MAIL_INDEX_LOCK_FLOCK: {
+#ifndef HAVE_FLOCK
+		i_fatal("flock() locks not supported");
+#else
+		int operation = timeout_secs != 0 ? 0 : LOCK_NB;
+
+		switch (lock_type) {
+		case F_RDLCK:
+			operation |= LOCK_SH;
+			break;
+		case F_WRLCK:
+			operation |= LOCK_EX;
+			break;
+		case F_UNLCK:
+			operation |= LOCK_UN;
+			break;
+		}
+
+		if (flock(fd, operation) < 0) {
+			if (errno == EWOULDBLOCK || errno == EINTR) {
+				/* a) locked by another process,
+				   b) timeouted */
+				if (timeout_secs != 0) alarm(0);
+				return 0;
+			}
+		}
+		if (timeout_secs != 0) alarm(0);
+		return 1;
+#endif
+	}
+	case MAIL_INDEX_LOCK_DOTLOCK:
+		/* we shouldn't get here */
+		break;
+	}
+	i_unreached();
+}
 
 int mail_index_map_lock_mprotect(struct mail_index *index,
 				 struct mail_index_map *map, int lock_type)
@@ -91,7 +170,7 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	if (ret > 0)
 		return 1;
 
-	if (index->fcntl_locks_disable) {
+	if (index->lock_type == MAIL_INDEX_LOCK_DOTLOCK) {
 		/* FIXME: exclusive locking will rewrite the index file every
 		   time. shouldn't really be needed.. reading doesn't require
 		   locks then, though */
@@ -111,12 +190,8 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	}
 
 	if (lock_type == F_RDLCK || !index->log_locked) {
-		ret = file_wait_lock_full(index->fd, lock_type, timeout_secs,
-					  NULL, NULL);
-		if (ret < 0) {
-			mail_index_set_syscall_error(index, "file_wait_lock()");
-			return -1;
-		}
+		ret = mail_index_lock_fd(index, index->fd, lock_type,
+					 timeout_secs);
 	} else {
 		/* this is kind of kludgy. we wish to avoid deadlocks while
 		   trying to lock transaction log, but it can happen if our
@@ -132,14 +207,14 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		   so, the workaround for this problem is that we simply try
 		   locking once. if it doesn't work, just rewrite the file.
 		   hopefully there won't be any other deadlocking issues. :) */
-		ret = file_try_lock(index->fd, lock_type);
-		if (ret < 0) {
-			mail_index_set_syscall_error(index, "file_try_lock()");
-			return -1;
-		}
+		ret = mail_index_lock_fd(index, index->fd, lock_type, 0);
 	}
-	if (ret == 0)
-		return 0;
+	if (ret <= 0) {
+		if (ret == 0)
+			return 0;
+		mail_index_set_syscall_error(index, "mail_index_lock_fd()");
+		return -1;
+	}
 
 	if (index->lock_type == F_UNLCK)
 		index->lock_id += 2;
@@ -163,7 +238,7 @@ int mail_index_lock_shared(struct mail_index *index, int update_index,
 {
 	int ret;
 
-	ret = mail_index_lock(index, F_RDLCK, DEFAULT_LOCK_TIMEOUT,
+	ret = mail_index_lock(index, F_RDLCK, MAIL_INDEX_LOCK_SECS,
 			      update_index, lock_id_r);
 	if (ret > 0)
 		return 0;
@@ -340,12 +415,12 @@ static void mail_index_excl_unlock_finish(struct mail_index *index)
 			(void)close(fd);
 	}
 
-	if (index->shared_lock_count > 0 && !index->fcntl_locks_disable) {
+	if (index->shared_lock_count > 0 &&
+	    index->lock_method != MAIL_INDEX_LOCK_DOTLOCK) {
 		/* leave ourself shared locked. */
-		if (file_try_lock(index->fd, F_RDLCK) <= 0) {
+		if (mail_index_lock_fd(index, index->fd, F_RDLCK, 0) <= 0) {
 			mail_index_file_set_syscall_error(index,
-							  index->copy_lock_path,
-							  "file_try_lock()");
+				index->copy_lock_path, "mail_index_lock_fd()");
 		}
 		i_assert(index->lock_type == F_WRLCK);
 		index->lock_type = F_RDLCK;
@@ -384,10 +459,11 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 		index->lock_id += 2;
 		index->lock_type = F_UNLCK;
 		(void)mail_index_lock_mprotect(index, F_UNLCK);
-		if (!index->fcntl_locks_disable) {
-			if (file_wait_lock(index->fd, F_UNLCK) < 0) {
+		if (index->lock_method != MAIL_INDEX_LOCK_DOTLOCK) {
+			if (mail_index_lock_fd(index, index->fd,
+					       F_UNLCK, 0) < 0) {
 				mail_index_set_syscall_error(index,
-					"file_wait_lock()");
+					"mail_index_lock_fd()");
 			}
 		}
 	}

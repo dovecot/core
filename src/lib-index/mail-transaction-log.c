@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "buffer.h"
-#include "file-lock.h"
 #include "file-dotlock.h"
 #include "read-full.h"
 #include "write-full.h"
@@ -129,11 +128,11 @@ mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 	if (file->locked)
 		return 0;
 
-	if (file->log->index->fcntl_locks_disable)
+	if (file->log->index->lock_type == MAIL_INDEX_LOCK_DOTLOCK)
 		return mail_transaction_log_file_dotlock(file);
 
-	ret = file_wait_lock_full(file->fd, F_WRLCK, DEFAULT_LOCK_TIMEOUT,
-				  NULL, NULL);
+	ret = mail_index_lock_fd(file->log->index, file->fd, F_WRLCK,
+				 MAIL_INDEX_LOCK_SECS);
 	if (ret > 0) {
 		file->locked = TRUE;
 		return 0;
@@ -141,7 +140,7 @@ mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 	if (ret < 0) {
 		mail_index_file_set_syscall_error(file->log->index,
 						  file->filepath,
-						  "file_wait_lock()");
+						  "mail_index_wait_lock_fd()");
 		return -1;
 	}
 
@@ -163,16 +162,16 @@ mail_transaction_log_file_unlock(struct mail_transaction_log_file *file)
 
 	file->locked = FALSE;
 
-	if (file->log->index->fcntl_locks_disable) {
+	if (file->log->index->lock_method == MAIL_INDEX_LOCK_DOTLOCK) {
 		mail_transaction_log_file_undotlock(file);
 		return;
 	}
 
-	ret = file_wait_lock(file->fd, F_UNLCK);
+	ret = mail_index_lock_fd(file->log->index, file->fd, F_UNLCK, 0);
 	if (ret <= 0) {
 		mail_index_file_set_syscall_error(file->log->index,
 						  file->filepath,
-						  "file_wait_lock()");
+						  "mail_index_wait_lock_fd()");
 	}
 }
 

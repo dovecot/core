@@ -1,11 +1,17 @@
 #ifndef __MAIL_INDEX_PRIVATE_H
 #define __MAIL_INDEX_PRIVATE_H
 
+/* Make sure F_RDLCK, F_WRLCK and F_UNLCK get defined */
+#include <unistd.h>
+#include <fcntl.h>
+
 #include "file-dotlock.h"
 #include "mail-index.h"
 
 struct mail_transaction_header;
 
+/* How many seconds to wait a lock for index file. */
+#define MAIL_INDEX_LOCK_SECS 120
 /* Index file is grown exponentially when we're adding less than this many
    records. */
 #define MAIL_INDEX_MAX_POWER_GROW (1024*1024 / sizeof(struct mail_index_record))
@@ -91,6 +97,7 @@ struct mail_index {
 	unsigned int lock_id;
 	char *copy_lock_path;
 	struct dotlock dotlock;
+        enum mail_index_lock_method lock_method;
 
 	unsigned int last_grow_count;
 
@@ -102,7 +109,6 @@ struct mail_index {
 	unsigned int log_locked:1;
 	unsigned int mmap_disable:1;
 	unsigned int mmap_no_write:1;
-	unsigned int fcntl_locks_disable:1;
 	unsigned int readonly:1;
 	unsigned int fsck:1;
 };
@@ -126,6 +132,9 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id);
 int mail_index_is_locked(struct mail_index *index, unsigned int lock_id);
 int mail_index_map_lock_mprotect(struct mail_index *index,
 				 struct mail_index_map *map, int lock_type);
+
+int mail_index_lock_fd(struct mail_index *index, int fd, int lock_type,
+		       unsigned int timeout_secs);
 
 /* Map index file to memory, replacing the previous mapping for index.
    Returns 1 = ok, 0 = corrupted, -1 = error. If index needs fscking, it

@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "buffer.h"
-#include "file-lock.h"
 #include "mail-index-view-private.h"
 #include "mail-transaction-log.h"
 
