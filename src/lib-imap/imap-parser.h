@@ -46,8 +46,7 @@ struct _ImapArg {
 	 (arg)->_data.literal_size : _imap_arg_literal_size_error(arg))
 
 #define IMAP_ARG_LIST(arg) \
-	((arg)->type == IMAP_ARG_NIL ? NULL : \
-	 (arg)->type == IMAP_ARG_LIST ? \
+	((arg)->type == IMAP_ARG_LIST ? \
 	 (arg)->_data.list : _imap_arg_list_error(arg))
 
 struct _ImapArgList {
