@@ -171,7 +171,7 @@ char *p_strndup(pool_t pool, const void *str, size_t max_chars)
 	while (((const char *) str)[len] != '\0' && len < max_chars)
 		len++;
 
-	mem = pool->malloc(pool, len+1);
+	mem = p_malloc(pool, len+1);
 	memcpy(mem, str, len);
 	mem[len] = '\0';
 	return mem;
