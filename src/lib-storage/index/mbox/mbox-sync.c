@@ -1258,7 +1258,8 @@ __again:
 	}
 
 	ret = mail_index_sync_begin(ibox->index, &index_sync_ctx, &sync_view,
-				    seq, offset, !ibox->keep_recent);
+				    seq, offset, !ibox->keep_recent,
+				    (flags & MBOX_SYNC_REWRITE) != 0);
 	if (ret <= 0) {
 		if (ret < 0)
 			mail_storage_set_index_error(ibox);
@@ -1351,7 +1352,8 @@ __again:
 		ret = mail_index_sync_begin(ibox->index,
 					    &sync_ctx.index_sync_ctx,
 					    &sync_ctx.sync_view,
-					    (uint32_t)-1, (uoff_t)-1, FALSE);
+					    (uint32_t)-1, (uoff_t)-1,
+					    FALSE, FALSE);
 		if (ret < 0)
 			mail_storage_set_index_error(ibox);
 		else {

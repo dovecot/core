@@ -202,7 +202,8 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx, int sync_recent)
 	size_t size;
 	int ret;
 
-	if (ctx->view->map->hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) {
+	if ((ctx->view->map->hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) &&
+	    ctx->sync_dirty) {
 		/* show dirty flags as flag updates */
 		if (mail_index_sync_add_dirty_updates(ctx) < 0)
 			return -1;
@@ -248,7 +249,7 @@ int mail_index_sync_begin(struct mail_index *index,
                           struct mail_index_sync_ctx **ctx_r,
 			  struct mail_index_view **view_r,
 			  uint32_t log_file_seq, uoff_t log_file_offset,
-			  int sync_recent)
+			  int sync_recent, int sync_dirty)
 {
 	struct mail_index_sync_ctx *ctx;
 	uint32_t seq;
@@ -279,6 +280,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx = i_new(struct mail_index_sync_ctx, 1);
 	ctx->index = index;
 	ctx->lock_id = lock_id;
+	ctx->sync_dirty = sync_dirty;
 
 	ctx->view = mail_index_view_open(index);
 	ctx->view->external = TRUE;

@@ -207,7 +207,7 @@ int mail_index_sync_begin(struct mail_index *index,
 			  struct mail_index_sync_ctx **ctx_r,
 			  struct mail_index_view **view_r,
 			  uint32_t log_file_seq, uoff_t log_file_offset,
-			  int sync_recent);
+			  int sync_recent, int sync_dirty);
 /* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */
 int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec);
