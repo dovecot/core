@@ -47,6 +47,7 @@ static void pool_alloconly_free(pool_t pool, void *mem);
 static void *pool_alloconly_realloc(pool_t pool, void *mem,
 				    size_t old_size, size_t new_size);
 static void pool_alloconly_clear(pool_t pool);
+static size_t pool_alloconly_get_max_easy_alloc_size(pool_t pool);
 
 static void block_alloc(struct alloconly_pool *pool, size_t size);
 
@@ -62,6 +63,7 @@ static struct pool static_alloconly_pool = {
 	pool_alloconly_realloc,
 
 	pool_alloconly_clear,
+	pool_alloconly_get_max_easy_alloc_size,
 
 	TRUE,
 	FALSE
@@ -270,4 +272,11 @@ static void pool_alloconly_clear(pool_t pool)
 	       apool->block->size - apool->block->left);
 	apool->block->left = apool->block->size;
 	apool->block->last_alloc_size = 0;
+}
+
+static size_t pool_alloconly_get_max_easy_alloc_size(pool_t pool)
+{
+	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
+
+	return apool->block->left;
 }

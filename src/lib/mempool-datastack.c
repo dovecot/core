@@ -13,6 +13,7 @@ static void pool_data_stack_free(pool_t pool, void *mem);
 static void *pool_data_stack_realloc(pool_t pool, void *mem,
 				     size_t old_size, size_t new_size);
 static void pool_data_stack_clear(pool_t pool);
+static size_t pool_data_stack_get_max_easy_alloc_size(pool_t pool);
 
 static struct pool static_data_stack_pool = {
 	pool_data_stack_get_name,
@@ -26,6 +27,7 @@ static struct pool static_data_stack_pool = {
 	pool_data_stack_realloc,
 
 	pool_data_stack_clear,
+	pool_data_stack_get_max_easy_alloc_size,
 
 	TRUE,
 	TRUE
@@ -127,4 +129,10 @@ static void *pool_data_stack_realloc(pool_t pool, void *mem,
 
 static void pool_data_stack_clear(pool_t pool __attr_unused__)
 {
+}
+
+static size_t
+pool_data_stack_get_max_easy_alloc_size(pool_t pool __attr_unused__)
+{
+	return t_get_bytes_available();
 }

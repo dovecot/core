@@ -26,6 +26,10 @@ struct pool {
 	   this and crashes if it's used */
 	void (*clear)(pool_t pool);
 
+	/* Returns the maximum amount of bytes that can be allocated with
+	   minimal trouble. If there's no such concept, always returns 0. */
+	size_t (*get_max_easy_alloc_size)(pool_t pool);
+
 	unsigned int alloconly_pool:1;
 	unsigned int datastack_pool:1;
 };
@@ -64,5 +68,7 @@ pool_t pool_datastack_create(void);
 	} STMT_END
 
 #define p_clear(pool) (pool)->clear(pool)
+
+#define p_get_max_easy_alloc_size(pool) (pool)->get_max_easy_alloc_size(pool)
 
 #endif

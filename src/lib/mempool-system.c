@@ -21,6 +21,7 @@ static void pool_system_free(pool_t pool, void *mem);
 static void *pool_system_realloc(pool_t pool, void *mem,
 				 size_t old_size, size_t new_size);
 static void pool_system_clear(pool_t pool);
+static size_t pool_system_get_max_easy_alloc_size(pool_t pool);
 
 static struct pool static_system_pool = {
 	pool_system_get_name,
@@ -34,6 +35,7 @@ static struct pool static_system_pool = {
 	pool_system_realloc,
 
 	pool_system_clear,
+	pool_system_get_max_easy_alloc_size,
 
 	FALSE,
 	FALSE
@@ -110,4 +112,9 @@ static void *pool_system_realloc(pool_t pool __attr_unused__, void *mem,
 static void pool_system_clear(pool_t pool __attr_unused__)
 {
 	i_panic("pool_system_clear() must not be called");
+}
+
+static size_t pool_system_get_max_easy_alloc_size(pool_t pool __attr_unused__)
+{
+	return 0;
 }
