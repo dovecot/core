@@ -10,6 +10,8 @@ struct ostream {
 	struct _ostream *real_stream;
 };
 
+/* Create new output stream from given file descriptor.
+   If max_buffer_size is 0, an "optimal" buffer size is used (max 128kB). */
 struct ostream *
 o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 		     int autoclose_fd);

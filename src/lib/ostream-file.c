@@ -858,5 +858,9 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 			fstream->no_socket_cork = TRUE;
 		}
 	}
+
+	if (max_buffer_size == 0)
+		fstream->max_buffer_size = fstream->optimal_block_size;
+
 	return ostream;
 }
