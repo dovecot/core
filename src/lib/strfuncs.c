@@ -234,7 +234,7 @@ size_t printf_string_upper_bound(const char *format, va_list args)
 #if SIZEOF_LONG_LONG > 0
                       (void) va_arg (args, long long);
 #else
-                      (void) va_arg (args, long);
+		      i_panic("mod_extra_long not supported");
 #endif
                     }
                   else if (spec.mod_long)
