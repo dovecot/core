@@ -17,13 +17,13 @@ static void mail_cache_merge_bitmask(struct mail_cache *cache, buffer_t *buffer,
 				     size_t data_size)
 {
 	void *buf_data;
-	uint32_t buf_file_field;
+	uint32_t buf_field;
 	unsigned int i, buf_data_size;
 	size_t pos, buf_size;
 
 	buf_data = buffer_get_modifyable_data(buffer, &buf_size);
 	for (pos = sizeof(struct mail_cache_record); pos < buf_size; ) {
-		buf_file_field = *((uint32_t *)PTR_OFFSET(buf_data, pos));
+		buf_field = *((uint32_t *)PTR_OFFSET(buf_data, pos));
 		pos += sizeof(uint32_t);
 
 		buf_data_size = cache->fields[field].field.field_size;
@@ -33,7 +33,7 @@ static void mail_cache_merge_bitmask(struct mail_cache *cache, buffer_t *buffer,
 			pos += sizeof(uint32_t);
 		}
 
-		if (cache->file_field_map[buf_file_field] == field) {
+		if (buf_field == field) {
 			/* found it, do the merging */
 			unsigned char *dest = PTR_OFFSET(buf_data, pos);
 
