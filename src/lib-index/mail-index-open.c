@@ -136,7 +136,8 @@ static int index_open_and_fix(struct mail_index *index,
 	if (!rebuilt) {
 		/* sync ourself. do it before updating cache and compression
 		   which may happen because of this. */
-		if (!index->sync_and_lock(index, MAIL_LOCK_SHARED, NULL) &&
+		if (!index->sync_and_lock(index, FALSE,
+					  MAIL_LOCK_SHARED, NULL) &&
 		    !index->nodiskspace)
 			return FALSE;
 

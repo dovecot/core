@@ -56,7 +56,7 @@ struct mail_index *
 mbox_index_alloc(const char *mbox_path, const char *index_dir,
 		 const char *control_dir);
 int mbox_index_rebuild(struct mail_index *index);
-int mbox_index_sync(struct mail_index *index,
+int mbox_index_sync(struct mail_index *index, int minimal_sync,
 		    enum mail_lock_type lock_type, int *changes);
 int mbox_sync_full(struct mail_index *index);
 struct istream *mbox_open_mail(struct mail_index *index,

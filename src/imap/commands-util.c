@@ -94,7 +94,16 @@ int client_verify_open_mailbox(struct client *client)
 void client_sync_full(struct client *client)
 {
 	if (client->mailbox != NULL) {
-		if (!client->mailbox->sync(client->mailbox, TRUE))
+		if (!client->mailbox->sync(client->mailbox, 0))
+                        client_send_untagged_storage_error(client);
+	}
+}
+
+void client_sync_full_fast(struct client *client)
+{
+	if (client->mailbox != NULL) {
+		if (!client->mailbox->sync(client->mailbox,
+					   MAIL_SYNC_FLAG_FAST))
                         client_send_untagged_storage_error(client);
 	}
 }
@@ -102,7 +111,9 @@ void client_sync_full(struct client *client)
 void client_sync_without_expunges(struct client *client)
 {
 	if (client->mailbox != NULL) {
-		if (!client->mailbox->sync(client->mailbox, FALSE))
+		if (!client->mailbox->sync(client->mailbox,
+                                           MAIL_SYNC_FLAG_NO_EXPUNGES |
+					   MAIL_SYNC_FLAG_FAST))
 			client_send_untagged_storage_error(client);
 	}
 }

@@ -78,7 +78,8 @@ int index_storage_expunge(struct mailbox *box, int notify)
 	if (!index_storage_lock(ibox, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_EXCLUSIVE))
+	if (!index_storage_sync_and_lock(ibox, FALSE, TRUE,
+					 MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
 	/* modifylog must be marked synced before expunging

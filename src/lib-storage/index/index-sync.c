@@ -7,6 +7,9 @@
 #include "mail-modifylog.h"
 #include "mail-custom-flags.h"
 
+/* How often to do full sync when fast sync flag is set. */
+#define MAILBOX_FULL_SYNC_INTERVAL 5
+
 static void index_storage_sync_size(struct index_mailbox *ibox)
 {
 	struct mail_storage *storage = ibox->box.storage;
@@ -29,7 +32,8 @@ static void index_storage_sync_size(struct index_mailbox *ibox)
 	}
 }
 
-int index_storage_sync_and_lock(struct index_mailbox *ibox, int sync_size,
+int index_storage_sync_and_lock(struct index_mailbox *ibox,
+				int sync_size, int minimal_sync,
 				enum mail_lock_type data_lock_type)
 {
 	struct mail_storage *storage = ibox->box.storage;
@@ -39,7 +43,8 @@ int index_storage_sync_and_lock(struct index_mailbox *ibox, int sync_size,
         set_shared_lock = ibox->index->lock_type != MAIL_LOCK_EXCLUSIVE;
 
         index_storage_init_lock_notify(ibox);
-	failed = !index->sync_and_lock(index, data_lock_type, &changes);
+	failed = !index->sync_and_lock(index, minimal_sync,
+				       data_lock_type, &changes);
 	ibox->index->set_lock_notify_callback(ibox->index, NULL, NULL);
 
 	if (!failed) {
@@ -209,19 +214,29 @@ int index_storage_sync_modifylog(struct index_mailbox *ibox, int hide_deleted)
 	return TRUE;
 }
 
-int index_storage_sync(struct mailbox *box, int sync_expunges)
+int index_storage_sync(struct mailbox *box, enum mail_sync_flags flags)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 	int ret;
 
-	ibox->sync_last_check = ioloop_time;
+	if ((flags & MAIL_SYNC_FLAG_FAST) == 0 ||
+	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
+		ibox->sync_last_check = ioloop_time;
 
-	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_UNLOCK))
-		return FALSE;
+		if (!index_storage_sync_and_lock(ibox, FALSE, FALSE,
+						 MAIL_LOCK_UNLOCK))
+			return FALSE;
+	} else {
+		/* check only modify log */
+		if (!index_storage_lock(ibox, MAIL_LOCK_SHARED)) {
+			(void)index_storage_lock(ibox, MAIL_LOCK_UNLOCK);
+			return FALSE;
+		}
+	}
 
 	/* FIXME: we could sync flags always, but expunges in the middle
 	   could make it a bit more difficult and slower */
-	if (sync_expunges ||
+	if ((flags & MAIL_SYNC_FLAG_NO_EXPUNGES) == 0 ||
 	    mail_modifylog_get_expunge_count(ibox->index->modifylog) == 0)
 		ret = index_storage_sync_modifylog(ibox, FALSE);
 	else

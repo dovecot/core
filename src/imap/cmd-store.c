@@ -75,7 +75,7 @@ int cmd_store(struct client *client)
 					  client->cmd_uid, &flags,
 					  modify_type, !silent, &all_found)) {
 		if (client->cmd_uid)
-			client_sync_full(client);
+			client_sync_full_fast(client);
 		else
 			client_sync_without_expunges(client);
 		client_send_tagline(client, all_found ? "OK Store completed." :

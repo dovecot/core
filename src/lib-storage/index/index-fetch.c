@@ -42,7 +42,8 @@ index_storage_fetch_init(struct mailbox *box,
 
 	check_mail = (client_workarounds &
 		      WORKAROUND_OE6_FETCH_NO_NEWMAIL) == 0;
-	if (!index_storage_sync_and_lock(ibox, check_mail, MAIL_LOCK_SHARED))
+	if (!index_storage_sync_and_lock(ibox, check_mail, TRUE,
+					 MAIL_LOCK_SHARED))
 		return NULL;
 
 	if (update_seen != NULL && *update_seen &&

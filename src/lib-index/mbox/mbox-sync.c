@@ -65,7 +65,7 @@ static int mbox_lock_and_sync_full(struct mail_index *index,
 	return mbox_sync_full(index);
 }
 
-int mbox_index_sync(struct mail_index *index,
+int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
 		    enum mail_lock_type data_lock_type, int *changes)
 {
 	struct stat st;

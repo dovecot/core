@@ -151,7 +151,7 @@ static int copy_with_hardlinks(struct index_mailbox *src,
         struct messageset_context *ctx;
 	int exdev, ret, ret2;
 
-	if (!index_storage_sync_and_lock(src, TRUE, MAIL_LOCK_SHARED))
+	if (!src->index->set_lock(src->index, MAIL_LOCK_SHARED))
 		return -1;
 
 	ctx = index_messageset_init(src, messageset, uidset, FALSE);

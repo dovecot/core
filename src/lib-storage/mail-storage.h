@@ -93,6 +93,11 @@ enum mail_fetch_field {
 	MAIL_FETCH_IMAP_ENVELOPE	= 0x4000
 };
 
+enum mail_sync_flags {
+	MAIL_SYNC_FLAG_NO_EXPUNGES	= 0x01,
+	MAIL_SYNC_FLAG_FAST		= 0x02
+};
+
 enum client_workarounds {
 	WORKAROUND_OE6_FETCH_NO_NEWMAIL	= 0x01,
 	WORKAROUND_OUTLOOK_IDLE		= 0x02
@@ -225,9 +230,8 @@ struct mailbox {
 	int (*get_status)(struct mailbox *box, enum mailbox_status_items items,
 			  struct mailbox_status *status);
 
-	/* Synchronize the mailbox. If sync_expunges is FALSE, everything
-	   but expunges are synced. */
-	int (*sync)(struct mailbox *box, int sync_expunges);
+	/* Synchronize the mailbox. */
+	int (*sync)(struct mailbox *box, enum mail_sync_flags flags);
 
 	/* Synchronize mailbox in background. It's done until this function is
 	   called with sync_type = MAILBOX_SYNC_NONE */

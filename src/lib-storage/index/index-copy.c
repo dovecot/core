@@ -64,7 +64,8 @@ int index_storage_copy(struct mailbox *box, struct mailbox *destbox,
 		if (!index_storage_lock(ibox, MAIL_LOCK_EXCLUSIVE))
 			return FALSE;
 	} else {
-		if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_SHARED))
+		if (!index_storage_sync_and_lock(ibox, TRUE, TRUE,
+						 MAIL_LOCK_SHARED))
 			return FALSE;
 	}
 

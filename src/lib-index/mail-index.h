@@ -247,8 +247,10 @@ struct mail_index {
 	   lock when calling this function. The data_lock_type specifies what
 	   lock should be set to data file (mbox file). This function may
 	   leave the index in ANY locking state. If changes is non-NULL, it's
-	   set to TRUE if any changes were noticed. */
-	int (*sync_and_lock)(struct mail_index *index,
+	   set to TRUE if any changes were noticed. If minimal_sync is TRUE,
+	   we do as little as possible to get data file locked (ie. noop with
+	   maildir). */
+	int (*sync_and_lock)(struct mail_index *index, int minimal_sync,
 			     enum mail_lock_type data_lock_type, int *changes);
 
 	/* Returns the index header (never fails). The index needs to be

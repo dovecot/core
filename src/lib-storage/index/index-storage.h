@@ -52,7 +52,8 @@ index_storage_init(struct mail_storage *storage, struct mailbox *box,
 		   int readonly, int fast);
 int index_storage_close(struct mailbox *box);
 
-int index_storage_sync_and_lock(struct index_mailbox *ibox, int sync_size,
+int index_storage_sync_and_lock(struct index_mailbox *ibox,
+				int sync_size, int minimal_sync,
 				enum mail_lock_type data_lock_type);
 int index_storage_sync_modifylog(struct index_mailbox *ibox, int hide_deleted);
 
@@ -82,7 +83,7 @@ int index_storage_expunge(struct mailbox *box, int notify);
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status);
-int index_storage_sync(struct mailbox *box, int sync_expunges);
+int index_storage_sync(struct mailbox *box, enum mail_sync_flags flags);
 int index_storage_update_flags(struct mailbox *box, const char *messageset,
 			       int uidset, const struct mail_full_flags *flags,
 			       enum modify_type modify_type, int notify,

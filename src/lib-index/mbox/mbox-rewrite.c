@@ -600,8 +600,8 @@ int mbox_index_rewrite(struct mail_index *index)
 			if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 				break;
 
-			if (!index->sync_and_lock(index, MAIL_LOCK_EXCLUSIVE,
-						  NULL))
+			if (!index->sync_and_lock(index, FALSE,
+						  MAIL_LOCK_EXCLUSIVE, NULL))
 				break;
 		}
 

@@ -207,7 +207,7 @@ int cmd_append(struct client *client)
 	box->close(box);
 
 	if (!failed) {
-		client_sync_full(client);
+		client_sync_full_fast(client);
 		client_send_tagline(client, "OK Append completed.");
 	}
 	return TRUE;

@@ -325,7 +325,8 @@ mbox_storage_save_init(struct mailbox *box, int transaction)
 		return NULL;
 	}
 
-	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_EXCLUSIVE))
+	if (!index_storage_sync_and_lock(ibox, FALSE, TRUE,
+					 MAIL_LOCK_EXCLUSIVE))
 		return NULL;
 
 	ctx = i_new(struct mail_save_context, 1);

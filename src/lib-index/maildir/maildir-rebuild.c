@@ -44,7 +44,7 @@ int maildir_index_rebuild(struct mail_index *index)
 	}
 
 	/* read the mails by syncing */
-	if (!index->sync_and_lock(index, MAIL_LOCK_UNLOCK, NULL))
+	if (!index->sync_and_lock(index, FALSE, MAIL_LOCK_UNLOCK, NULL))
 		return FALSE;
 
 	/* rebuild is complete - remove the flag */

@@ -20,6 +20,9 @@ int client_verify_open_mailbox(struct client *client);
    FETCH FLAGS, EXISTS and RECENT responses. */
 void client_sync_full(struct client *client);
 
+/* Synchronize fast. */
+void client_sync_full_fast(struct client *client);
+
 /* Synchronize all but expunges with client. */
 void client_sync_without_expunges(struct client *client);
 

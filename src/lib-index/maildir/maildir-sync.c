@@ -1337,7 +1337,7 @@ int maildir_index_sync_readonly(struct mail_index *index,
 	return ret;
 }
 
-int maildir_index_sync(struct mail_index *index,
+int maildir_index_sync(struct mail_index *index, int minimal_sync,
 		       enum mail_lock_type data_lock_type __attr_unused__,
 		       int *changes)
 {
@@ -1348,6 +1348,9 @@ int maildir_index_sync(struct mail_index *index,
 
 	if (changes != NULL)
 		*changes = FALSE;
+
+	if (minimal_sync)
+		return TRUE;
 
 	ctx = maildir_sync_context_new(index);
 	ret = maildir_index_sync_context(ctx, changes);

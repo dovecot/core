@@ -926,7 +926,7 @@ index_storage_search_init(struct mailbox *box, const char *charset,
 		return NULL;
 	}
 
-	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_SHARED))
+	if (!index_storage_sync_and_lock(ibox, TRUE, TRUE, MAIL_LOCK_SHARED))
 		return NULL;
 
 	ctx = i_new(struct mail_search_context, 1);

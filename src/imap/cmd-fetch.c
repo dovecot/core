@@ -354,7 +354,7 @@ int cmd_fetch(struct client *client)
 		if ((client_workarounds &
 		     WORKAROUND_OE6_FETCH_NO_NEWMAIL) == 0) {
 			if (client->cmd_uid)
-				client_sync_full(client);
+				client_sync_full_fast(client);
 			else
 				client_sync_without_expunges(client);
 		}

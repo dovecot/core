@@ -30,7 +30,7 @@ const char *maildir_filename_set_flags(const char *fname,
 int maildir_index_rebuild(struct mail_index *index);
 int maildir_index_sync_readonly(struct mail_index *index,
 				const char *fname, int *found);
-int maildir_index_sync(struct mail_index *index,
+int maildir_index_sync(struct mail_index *index, int minimal_sync,
 		       enum mail_lock_type lock_type, int *changes);
 
 int maildir_index_append_file(struct mail_index *index, const char *dir,

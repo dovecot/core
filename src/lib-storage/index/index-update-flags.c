@@ -83,7 +83,7 @@ int index_storage_update_flags(struct mailbox *box, const char *messageset,
 	if (!index_storage_lock(ibox, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_UNLOCK))
+	if (!index_storage_sync_and_lock(ibox, TRUE, TRUE, MAIL_LOCK_UNLOCK))
 		return FALSE;
 
 	mail_flags &= ~MAIL_RECENT; /* \Recent can't be changed */

@@ -31,14 +31,14 @@ int cmd_copy(struct client *client)
 	ret = client->mailbox->copy(client->mailbox, destbox,
 				    messageset, client->cmd_uid);
 
-	/* sync always - if COPY fails because of expunges they'll get
-	   synced here */
-	client_sync_full(client);
-
-	if (ret)
+	if (ret) {
+		client_sync_full_fast(client);
 		client_send_tagline(client, "OK Copy completed.");
-	else
+	} else {
+		/* if COPY fails because of expunges they'll get synced here */
+		client_sync_full(client);
 		client_send_storage_error(client);
+	}
 
 	destbox->close(destbox);
 	return TRUE;
