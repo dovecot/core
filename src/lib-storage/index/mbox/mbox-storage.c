@@ -20,6 +20,12 @@
 extern struct mail_storage mbox_storage;
 extern struct mailbox mbox_mailbox;
 
+static int mbox_permission_denied(struct mail_storage *storage)
+{
+	mail_storage_set_error(storage, "Permission denied");
+	return FALSE;
+}
+
 static int mkdir_parents(const char *path)
 {
 	const char *p, *dir;
@@ -448,6 +454,8 @@ static int mbox_create_mailbox(struct mail_storage *storage, const char *name,
 	p = only_hierarchy ? path + strlen(path) : strrchr(path, '/');
 	if (p != NULL) {
 		if (mkdir_parents(t_strdup_until(path, p)) < 0) {
+			if (errno == EACCES)
+				return mbox_permission_denied(storage);
 			mail_storage_set_critical(storage,
 				"mkdir_parents() failed for mbox path %s: %m",
 				path);
@@ -469,6 +477,8 @@ static int mbox_create_mailbox(struct mail_storage *storage, const char *name,
 		/* mailbox was just created between stat() and open() call.. */
 		mail_storage_set_error(storage, "Mailbox already exists");
 		return FALSE;
+	} else if (errno == EACCES) {
+		return mbox_permission_denied(storage);
 	} else {
 		mail_storage_set_critical(storage, "Can't create mailbox "
 					  "%s: %m", name);
@@ -512,12 +522,14 @@ static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
 			return TRUE;
 
 		if (errno == ENOTEMPTY) {
-			mail_storage_set_error(storage, "Folder %s "
-					       "isn't empty, can't delete it.",
-					       name);
+			mail_storage_set_error(storage,
+				"Folder %s isn't empty, can't delete it.",
+				name);
+		} else if (errno == EACCES) {
+			mbox_permission_denied(storage);
 		} else {
-			mail_storage_set_critical(storage, "rmdir() failed for "
-						  "%s: %m", path);
+			mail_storage_set_critical(storage,
+				"rmdir() failed for %s: %m", path);
 		}
 		return FALSE;
 	}
@@ -528,6 +540,8 @@ static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
 			mail_storage_set_error(storage,
 					       "Mailbox doesn't exist: %s",
 					       name);
+		} else if (errno == EACCES) {
+			mbox_permission_denied(storage);
 		} else {
 			mail_storage_set_critical(storage,
 						  "unlink() failed for %s: %m",
@@ -578,13 +592,16 @@ static int mbox_rename_mailbox(struct mail_storage *storage,
 	}
 
 	/* NOTE: renaming INBOX works just fine with us, it's simply created
-	   the next time it's needed. */
+	   the next time it's needed. FIXME: it's not atomic, should we use
+	   rename() instead? That might overwrite files.. */
 	if (link(oldpath, newpath) == 0)
 		(void)unlink(oldpath);
 	else if (errno == EEXIST) {
 		mail_storage_set_error(storage,
 				       "Target mailbox already exists");
 		return FALSE;
+	} else if (errno == EACCES) {
+		return mbox_permission_denied(storage);
 	} else {
 		mail_storage_set_critical(storage, "link(%s, %s) failed: %m",
 					  oldpath, newpath);
