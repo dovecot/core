@@ -289,6 +289,8 @@ struct _MailIndex {
 
 	void (*update_field)(MailIndexUpdate *update, MailField field,
 			     const char *value, size_t extra_space);
+	/* Just remember that full_field_size will be MEM_ALIGNed, so
+	   it may differer from the given size parameter. */
 	void (*update_field_raw)(MailIndexUpdate *update, MailField field,
 				 const void *value, size_t size);
 

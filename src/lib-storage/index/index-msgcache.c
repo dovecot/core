@@ -5,6 +5,7 @@
 #include "imap-message-cache.h"
 #include "message-part-serialize.h"
 #include "mail-index.h"
+#include "mail-index-util.h"
 
 #include <unistd.h>
 
@@ -83,8 +84,8 @@ static MessagePart *index_msgcache_get_cached_parts(Pool pool, void *context)
 
 	part = message_part_deserialize(pool, part_data, part_size);
 	if (part == NULL) {
-		i_error("Error in index file %s: Corrupted cached "
-			"MessagePart data", ctx->index->filepath);
+		index_set_corrupted(ctx->index,
+				    "Corrupted cached MessagePart data");
 		return NULL;
 	}
 

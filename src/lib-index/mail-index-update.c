@@ -416,8 +416,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 			if (part == NULL) {
 				/* corrupted, rebuild it */
 				index_set_corrupted(update->index,
-						    "Corrupted cached "
-						    "MessagePart data");
+					"Corrupted cached MessagePart data");
 			}
 		}
 

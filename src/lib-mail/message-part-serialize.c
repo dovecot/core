@@ -146,7 +146,7 @@ MessagePart *message_part_deserialize(Pool pool, const void *data,
 	size_t count;
 
 	/* make sure it looks valid */
-	if (size == 0 || (size % sizeof(SerializedMessagePart)) != 0)
+	if (size < sizeof(SerializedMessagePart))
 		return NULL;
 
 	spart = data;
@@ -167,7 +167,7 @@ int message_part_serialize_update_header(void *data, size_t size,
 	size_t i, count;
 
 	/* make sure it looks valid */
-	if (size == 0 || (size % sizeof(SerializedMessagePart)) != 0)
+	if (size < sizeof(SerializedMessagePart))
 		return FALSE;
 
 	if (hdr_size->physical_size >= OFF_T_MAX ||
@@ -204,7 +204,7 @@ int message_part_deserialize_size(const void *data, size_t size,
         const SerializedMessagePart *spart = data;
 
 	/* make sure it looks valid */
-	if (size == 0 || (size % sizeof(SerializedMessagePart)) != 0)
+	if (size < sizeof(SerializedMessagePart))
 		return FALSE;
 
 	hdr_size->physical_size = spart->header_physical_size;

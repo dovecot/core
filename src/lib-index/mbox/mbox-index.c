@@ -402,7 +402,7 @@ int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
 					 "for record %u", rec->uid);
 		*offset = 0;
 		return FALSE;
-	} else if (size != sizeof(uoff_t) || *location > OFF_T_MAX) {
+	} else if (size < sizeof(uoff_t) || *location > OFF_T_MAX) {
 		index_data_set_corrupted(index->data, "Invalid location field "
 					 "for record %u", rec->uid);
 		*offset = 0;

@@ -37,7 +37,7 @@ static int verify_header_md5sum(MailIndex *index, MailIndexRecord *rec,
 
 	/* MD5 sums must match */
 	old_digest = index->lookup_field_raw(index, rec, FIELD_TYPE_MD5, &size);
-	return old_digest != NULL && size == 16 &&
+	return old_digest != NULL && size >= 16 &&
                 memcmp(old_digest, current_digest, 16) == 0;
 }
 
