@@ -1,7 +1,6 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
-#include "imap-util.h"
 #include "mail-storage.h"
 
 static void alert_no_diskspace(struct mailbox *mailbox __attr_unused__,
