@@ -4,13 +4,12 @@
 #include "istream.h"
 #include "ostream.h"
 #include "file-dotlock.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "subscription-file.h"
 
 #include <unistd.h>
 #include <fcntl.h>
 
-#define SUBSCRIPTION_FILE_NAME ".subscriptions"
 #define MAX_MAILBOX_LENGTH PATH_MAX
 
 #define SUBSCRIPTION_FILE_LOCK_TIMEOUT 120
@@ -27,19 +26,18 @@ struct subsfile_list_context {
 	int failed;
 };
 
-static int subsfile_set_syscall_error(struct mail_storage *storage,
-				      const char *function, const char *path)
+static void subsfile_set_syscall_error(struct mail_storage *storage,
+				       const char *function, const char *path)
 {
 	i_assert(function != NULL);
 
-	if (errno == EACCES) {
+	if (errno == EACCES)
 		mail_storage_set_error(storage, "Permission denied");
-		return FALSE;
+	else {
+		mail_storage_set_critical(storage,
+			"%s failed with subscription file %s: %m",
+			function, path);
 	}
-
-	mail_storage_set_critical(storage,
-		"%s failed with subscription file %s: %m", function, path);
-	return FALSE;
 }
 
 static const char *next_line(struct mail_storage *storage, const char *path,
@@ -69,10 +67,10 @@ static const char *next_line(struct mail_storage *storage, const char *path,
 	return line;
 }
 
-int subsfile_set_subscribed(struct mail_storage *storage,
+int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 			    const char *name, int set)
 {
-	const char *path, *line;
+	const char *line;
 	struct istream *input;
 	struct ostream *output;
 	int fd_in, fd_out, found, failed = FALSE;
@@ -80,9 +78,6 @@ int subsfile_set_subscribed(struct mail_storage *storage,
 	if (strcasecmp(name, "INBOX") == 0)
 		name = "INBOX";
 
-	path = t_strconcat(storage->control_dir != NULL ?
-			   storage->control_dir : storage->dir,
-			   "/" SUBSCRIPTION_FILE_NAME, NULL);
 	/* FIXME: set lock notification callback */
 	fd_out = file_dotlock_open(path, NULL, SUBSCRIPTION_FILE_LOCK_TIMEOUT,
 				   SUBSCRIPTION_FILE_CHANGE_TIMEOUT,
@@ -96,14 +91,14 @@ int subsfile_set_subscribed(struct mail_storage *storage,
 			subsfile_set_syscall_error(storage,
 						   "file_dotlock_open()", path);
 		}
-		return FALSE;
+		return -1;
 	}
 
 	fd_in = open(path, O_RDONLY);
 	if (fd_in == -1 && errno != ENOENT) {
 		subsfile_set_syscall_error(storage, "open()", path);
 		file_dotlock_delete(path, fd_out);
-		return FALSE;
+		return -1;
 	}
 
 	input = fd_in == -1 ? NULL :
@@ -154,20 +149,16 @@ int subsfile_set_subscribed(struct mail_storage *storage,
 			failed = TRUE;
 		}
 	}
-	return !failed;
+	return failed ? -1 : 0;
 }
 
 struct subsfile_list_context *
-subsfile_list_init(struct mail_storage *storage)
+subsfile_list_init(struct mail_storage *storage, const char *path)
 {
 	struct subsfile_list_context *ctx;
 	pool_t pool;
-	const char *path;
 	int fd;
 
-	path = t_strconcat(storage->control_dir != NULL ?
-			   storage->control_dir : storage->dir,
-			   "/" SUBSCRIPTION_FILE_NAME, NULL);
 	fd = open(path, O_RDONLY);
 	if (fd == -1 && errno != ENOENT) {
 		subsfile_set_syscall_error(storage, "open()", path);
@@ -194,7 +185,7 @@ int subsfile_list_deinit(struct subsfile_list_context *ctx)
 		i_stream_unref(ctx->input);
 	pool_unref(ctx->pool);
 
-	return !failed;
+	return failed ? -1 : 0;
 }
 
 const char *subsfile_list_next(struct subsfile_list_context *ctx)

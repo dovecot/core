@@ -1,5 +1,6 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
+#if 0
 #include "lib.h"
 #include "istream.h"
 #include "ostream.h"
@@ -210,3 +211,4 @@ int mbox_storage_expunge(struct mail *mail, struct mail_expunge_context *_ctx,
 
 	return index_storage_expunge(mail, ctx->ctx, seq_r, notify);
 }
+#endif

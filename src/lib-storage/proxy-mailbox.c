@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "proxy-mailbox.h"
 
+#if 0
 static int _is_readonly(struct mailbox *box)
 {
 	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
@@ -22,13 +23,6 @@ static int _close(struct mailbox *box)
 	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
 
 	return p->box->close(p->box);
-}
-
-static int _lock(struct mailbox *box, enum mailbox_lock_type lock_type)
-{
-	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
-
-	return p->box->lock(p->box, lock_type);
 }
 
 static int _get_status(struct mailbox *box, enum mailbox_status_items items,
@@ -54,20 +48,21 @@ static void _auto_sync(struct mailbox *box, enum mailbox_sync_flags flags,
 	p->box->auto_sync(p->box, flags, min_newmail_notify_interval);
 }
 
-static struct mail *_fetch_uid(struct mailbox *box, unsigned int uid,
-			       enum mail_fetch_field wanted_fields)
+static struct mail *_fetch(struct mailbox_transaction_context *t, uint32_t seq,
+			   enum mail_fetch_field wanted_fields)
 {
-	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
+	struct proxy_mailbox *p = (struct proxy_mailbox *) t->box;
 
-	return p->box->fetch_uid(p->box, uid, wanted_fields);
+	return box->fetch(t, seq, wanted_fields);
 }
 
-static struct mail *_fetch_seq(struct mailbox *box, unsigned int seq,
-			       enum mail_fetch_field wanted_fields)
+static int _get_uids(struct mailbox_transaction_context *t,
+		     uint32_t uid1, uint32_t uid2,
+		     uint32_t *seq1_r, uint32_t *seq2_r)
 {
-	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
+	struct proxy_mailbox *p = (struct proxy_mailbox *) t->box;
 
-	return p->box->fetch_uid(p->box, seq, wanted_fields);
+	return p->box->get_uids(p->box, uid1, uid2, seq1_r, seq2_r);
 }
 
 static int _search_get_sorting(struct mailbox *box,
@@ -91,35 +86,19 @@ _search_init(struct mailbox *box, const char *charset,
 				   wanted_fields, wanted_headers);
 }
 
-static struct mail_save_context *
-_save_init(struct mailbox *box, int transaction)
+static struct mailbox_transaction_context *
+_transaction_begin(struct mailbox *box)
 {
 	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
 
-	return p->box->save_init(p->box, transaction);
+	return p->box->transaction_begin(p->box);
 }
 
-static struct mail_copy_context *_copy_init(struct mailbox *box)
+static int _is_inconsistent(struct mailbox *box)
 {
 	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
 
-	return p->box->copy_init(p->box);
-}
-
-static struct mail_expunge_context *
-_expunge_init(struct mailbox *box, enum mail_fetch_field wanted_fields,
-	      int expunge_all)
-{
-	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
-
-	return p->box->expunge_init(p->box, wanted_fields, expunge_all);
-}
-
-static int _is_inconsistency_error(struct mailbox *box)
-{
-	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
-
-	return p->box->is_inconsistency_error(p->box);
+	return p->box->is_inconsistent(p->box);
 }
 
 void proxy_mailbox_init(struct proxy_mailbox *proxy, struct mailbox *box)
@@ -131,27 +110,27 @@ void proxy_mailbox_init(struct proxy_mailbox *proxy, struct mailbox *box)
 	pb->name = box->name;
 	pb->storage = box->storage;
 
-	pb->search_deinit = box->search_deinit;
-	pb->search_next = box->search_next;
-	pb->save_deinit = box->save_deinit;
-	pb->save_next = box->save_next;
-	pb->copy_deinit = box->copy_deinit;
-	pb->expunge_deinit = box->expunge_deinit;
-	pb->expunge_fetch_next = box->expunge_fetch_next;
-
 	pb->is_readonly = _is_readonly;
 	pb->allow_new_custom_flags = _allow_new_custom_flags;
 	pb->close = _close;
-	pb->lock = _lock;
 	pb->get_status = _get_status;
 	pb->sync = _sync;
 	pb->auto_sync = _auto_sync;
-	pb->fetch_uid = _fetch_uid;
-	pb->fetch_seq = _fetch_seq;
+	pb->fetch = box->fetch;
+	pb->get_uids = box->get_uids;
+
 	pb->search_get_sorting = _search_get_sorting;
-	pb->search_init = _search_init;
-	pb->save_init = _save_init;
-	pb->copy_init = _copy_init;
-	pb->expunge_init = _expunge_init;
-	pb->is_inconsistency_error = _is_inconsistency_error;
+	pb->search_init = box->search_init;
+	pb->search_next = box->search_next;
+	pb->search_deinit = box->search_deinit;
+
+	pb->transaction_begin = _transaction_begin;
+	pb->transaction_commit = box->transaction_commit;
+	pb->transaction_rollback = box->transaction_rollback;
+
+	pb->save = box->save;
+	pb->copy = box->copy;
+
+	pb->is_inconsistent = _is_inconsistent;
 }
+#endif

@@ -40,7 +40,7 @@ int client_verify_mailbox_name(struct client *client, const char *mailbox,
 		return FALSE;
 
 	/* make sure it even looks valid */
-	sep = storage->hierarchy_sep;
+	sep = mail_storage_get_hierarchy_sep(storage);
 	if (*mailbox == '\0' || strspn(mailbox, "\r\n*%?") != 0) {
 		client_send_tagline(client, "NO Invalid mailbox name.");
 		return FALSE;
@@ -60,8 +60,8 @@ int client_verify_mailbox_name(struct client *client, const char *mailbox,
 	}
 
 	/* check what our storage thinks of it */
-	if (!storage->get_mailbox_name_status(storage, mailbox,
-					      &mailbox_status)) {
+	if (mail_storage_get_mailbox_name_status(storage, mailbox,
+						 &mailbox_status) < 0) {
 		client_send_storage_error(client, storage);
 		return FALSE;
 	}
@@ -115,9 +115,9 @@ void client_sync_full(struct client *client)
 	if (client->mailbox == NULL)
 		return;
 
-	if (!client->mailbox->sync(client->mailbox, 0)) {
+	if (mailbox_sync(client->mailbox, 0) < 0) {
 		client_send_untagged_storage_error(client,
-						   client->mailbox->storage);
+			mailbox_get_storage(client->mailbox));
 	}
 }
 
@@ -126,9 +126,9 @@ void client_sync_full_fast(struct client *client)
 	if (client->mailbox == NULL)
 		return;
 
-	if (!client->mailbox->sync(client->mailbox, MAILBOX_SYNC_FAST)) {
+	if (mailbox_sync(client->mailbox, MAILBOX_SYNC_FLAG_FAST) < 0) {
 		client_send_untagged_storage_error(client,
-						   client->mailbox->storage);
+			mailbox_get_storage(client->mailbox));
 	}
 }
 
@@ -137,10 +137,10 @@ void client_sync_without_expunges(struct client *client)
 	if (client->mailbox == NULL)
 		return;
 
-	if (!client->mailbox->sync(client->mailbox, MAILBOX_SYNC_FAST |
-				   MAILBOX_SYNC_FLAG_NO_EXPUNGES)) {
+	if (mailbox_sync(client->mailbox, MAILBOX_SYNC_FLAG_FAST |
+			 MAILBOX_SYNC_FLAG_NO_EXPUNGES) < 0) {
 		client_send_untagged_storage_error(client,
-						   client->mailbox->storage);
+			mailbox_get_storage(client->mailbox));
 	}
 }
 
@@ -151,14 +151,14 @@ void client_send_storage_error(struct client *client,
 	int syntax;
 
 	if (client->mailbox != NULL &&
-	    client->mailbox->is_inconsistency_error(client->mailbox)) {
+	    mailbox_is_inconsistent(client->mailbox)) {
 		/* we can't do forced CLOSE, so have to disconnect */
 		client_disconnect_with_error(client,
 			"Mailbox is in inconsistent state, please relogin.");
 		return;
 	}
 
-	error = storage->get_last_error(storage, &syntax);
+	error = mail_storage_get_last_error(storage, &syntax);
 	client_send_tagline(client, t_strconcat(syntax ? "BAD " : "NO ",
 						error, NULL));
 }
@@ -170,14 +170,14 @@ void client_send_untagged_storage_error(struct client *client,
 	int syntax;
 
 	if (client->mailbox != NULL &&
-	    client->mailbox->is_inconsistency_error(client->mailbox)) {
+	    mailbox_is_inconsistent(client->mailbox)) {
 		/* we can't do forced CLOSE, so have to disconnect */
 		client_disconnect_with_error(client,
 			"Mailbox is in inconsistent state, please relogin.");
 		return;
 	}
 
-	error = storage->get_last_error(storage, &syntax);
+	error = mail_storage_get_last_error(storage, &syntax);
 	client_send_line(client,
 			 t_strconcat(syntax ? "* BAD " : "* NO ", error, NULL));
 }
@@ -262,7 +262,7 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 				return FALSE;
 			}
 
-			if (i == flags->custom_flags_count) {
+			if (i == flag_pos) {
 				if (!is_valid_custom_flag(client, old_flags,
 							  atom))
 					return FALSE;
@@ -316,13 +316,13 @@ void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 	client_send_line(client,
 		t_strconcat("* FLAGS ("SYSTEM_FLAGS, str, ")", NULL));
 
-	if (box->is_readonly(box)) {
+	if (mailbox_is_readonly(box)) {
 		client_send_line(client, "* OK [PERMANENTFLAGS ()] "
 				 "Read-only mailbox.");
 	} else {
 		client_send_line(client,
 			t_strconcat("* OK [PERMANENTFLAGS ("SYSTEM_FLAGS, str,
-				    box->allow_new_custom_flags(box) ?
+				    mailbox_allow_new_custom_flags(box) ?
 				    " \\*" : "", ")] Flags permitted.", NULL));
 	}
 }

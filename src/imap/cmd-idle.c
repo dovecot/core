@@ -29,11 +29,10 @@ static void idle_finish(struct client *client, int done_ok)
 			    IO_READ, _client_input, client);
 
 	if (client->mailbox != NULL) {
-		client->mailbox->auto_sync(client->mailbox,
-					   mailbox_check_interval != 0 ?
-					   MAILBOX_SYNC_FLAG_NO_EXPUNGES :
-					   MAILBOX_SYNC_NONE,
-					   mailbox_check_interval);
+		mailbox_auto_sync(client->mailbox, mailbox_check_interval != 0 ?
+				  MAILBOX_SYNC_FLAG_NO_EXPUNGES :
+				  MAILBOX_SYNC_AUTO_STOP,
+				  mailbox_check_interval);
 	}
 
 	client_sync_full(client);
@@ -84,18 +83,16 @@ static void idle_timeout(void *context)
 	timeout_remove(client->idle_to);
 	client->idle_to = NULL;
 
-	if (!client->mailbox->get_status(client->mailbox, STATUS_MESSAGES,
-					 &status)) {
+	if (mailbox_get_status(client->mailbox, STATUS_MESSAGES, &status) < 0) {
 		client_send_untagged_storage_error(client,
-						   client->mailbox->storage);
+			mailbox_get_storage(client->mailbox));
 		idle_finish(client, TRUE);
 	} else {
                 client->idle_expunge = status.messages+1;
 		client_send_line(client,
 			t_strdup_printf("* %u EXISTS", client->idle_expunge));
 
-		client->mailbox->auto_sync(client->mailbox,
-					   MAILBOX_SYNC_NONE, 0);
+		mailbox_auto_sync(client->mailbox, MAILBOX_SYNC_AUTO_STOP, 0);
 	}
 }
 
@@ -116,10 +113,8 @@ int cmd_idle(struct client *client)
 	if (interval == 0)
 		interval = DEFAULT_IDLE_CHECK_INTERVAL;
 
-	if (client->mailbox != NULL) {
-		client->mailbox->auto_sync(client->mailbox,
-					   MAILBOX_SYNC_FULL, interval);
-	}
+	if (client->mailbox != NULL)
+		mailbox_auto_sync(client->mailbox, 0, interval);
 
 	client_send_line(client, "+ idling");
 

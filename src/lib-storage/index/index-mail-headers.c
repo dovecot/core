@@ -39,6 +39,7 @@
 #include "buffer.h"
 #include "str.h"
 #include "message-date.h"
+#include "message-parser.h"
 #include "imap-envelope.h"
 #include "imap-bodystructure.h"
 #include "index-storage.h"
@@ -140,7 +141,7 @@ static const char *const *sort_array(const char *const *arr)
 	return data;
 }
 
-static int find_wanted_headers(struct mail_cache *cache,
+static int find_wanted_headers(struct mail_cache_view *cache_view,
 			       const char *const wanted_headers[])
 {
 	const char *const *headers, *const *tmp;
@@ -154,7 +155,7 @@ static int find_wanted_headers(struct mail_cache *cache,
 
 	ret = -1;
 	for (i = MAIL_CACHE_HEADERS_COUNT-1; i >= 0; i--) {
-		headers = mail_cache_get_header_fields(cache, i);
+		headers = mail_cache_get_header_fields(cache_view, i);
 		if (headers == NULL)
 			continue;
 
@@ -185,7 +186,7 @@ static int mail_find_wanted_headers(struct index_mail *mail,
 {
 	int idx;
 
-	idx = find_wanted_headers(mail->ibox->index->cache, wanted_headers);
+	idx = find_wanted_headers(mail->ibox->cache_view, wanted_headers);
 	if (idx < 0)
 		return -1;
 
@@ -433,7 +434,7 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 		data->header_stream = istream;
 	} else {
 		str = mail_cache_lookup_string_field(
-			mail->ibox->index->cache, data->rec,
+			mail->ibox->cache_view, data->seq,
 			mail_cache_header_fields[idx]);
 		if (str == NULL) {
 			/* broken - we expected the header to exist */
@@ -446,10 +447,10 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 						    str, strlen(str));
 	}
 
-	idx_headers = mail_cache_get_header_fields(mail->ibox->index->cache,
+	idx_headers = mail_cache_get_header_fields(mail->ibox->cache_view,
 						   idx);
 	if (idx_headers == NULL) {
-		mail_cache_set_corrupted(mail->ibox->index->cache,
+		mail_cache_set_corrupted(mail->ibox->cache,
 			"Headers %d names not found", idx);
 		t_pop();
 		return FALSE;
@@ -485,13 +486,14 @@ static void trash_partial_headers(struct index_mail *mail)
 
 int index_mail_parse_headers(struct index_mail *mail)
 {
-	struct mail_cache *cache = mail->ibox->index->cache;
 	struct index_mail_data *data = &mail->data;
 	const char *str, *const *headers;
 	int idx, max;
 
-	if (!index_mail_open_stream(mail, 0))
-		return FALSE;
+	if (data->stream == NULL) {
+		if (mail->mail.get_stream(&mail->mail, NULL, NULL) == NULL)
+			return FALSE;
+	}
 
 	if (mail->data.header_data == NULL)
 		mail->data.header_data = str_new(mail->pool, 4096);
@@ -508,8 +510,9 @@ int index_mail_parse_headers(struct index_mail *mail)
 		/* add all cached headers to beginning of header_data */
                 idx = data->header_data_cached; max = idx-1;
 		for (; idx < MAIL_CACHE_HEADERS_COUNT; idx++) {
-			str = mail_cache_lookup_string_field(cache, data->rec,
-						mail_cache_header_fields[idx]);
+			str = mail_cache_lookup_string_field(
+				mail->ibox->cache_view, mail->data.seq,
+				mail_cache_header_fields[idx]);
 			if (str == NULL)
 				continue;
 
@@ -522,7 +525,8 @@ int index_mail_parse_headers(struct index_mail *mail)
 
 		/* make sure we cache everything */
 		for (idx = MAIL_CACHE_HEADERS_COUNT-1; idx >= 0; idx--) {
-			headers = mail_cache_get_header_fields(cache, idx);
+			headers = mail_cache_get_header_fields(
+					mail->ibox->cache_view, idx);
 			if (headers != NULL)
 				break;
 		}
@@ -537,8 +541,10 @@ int index_mail_parse_headers(struct index_mail *mail)
 		if (max >= 0) {
 			/* now we'll have to set value_idx for all headers that
 			   are already cached */
-			if (!parse_cached_headers(mail, max))
+			if (!parse_cached_headers(mail, max)) {
+				/* FIXME: handle better */
 				return FALSE;
+			}
 		}
 
 		/* it's possible that we're parsing headers without wanting
@@ -593,8 +599,10 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 			idx = mail_find_wanted_headers(mail, arr);
 
 			if (idx >= 0) {
-				if (!parse_cached_headers(mail, idx))
-					return NULL;
+				if (!parse_cached_headers(mail, idx)) {
+					/* broken cache, parse again */
+					idx = -1;
+				}
 			}
 		}
 
@@ -647,7 +655,7 @@ struct istream *index_mail_get_headers(struct mail *_mail,
 		}
 		for (i = data->header_data_cached; i <= idx; i++) {
 			str = mail_cache_lookup_string_field(
-					mail->ibox->index->cache, data->rec,
+					mail->ibox->cache_view, data->seq,
 					mail_cache_header_fields[i]);
 			if (str == NULL)
 				continue;
@@ -679,14 +687,14 @@ struct istream *index_mail_get_headers(struct mail *_mail,
 
 void index_mail_headers_init(struct index_mail *mail)
 {
-	struct mail_cache *cache = mail->ibox->index->cache;
+	struct mail_cache_view *cache_view = mail->ibox->cache_view;
 	int idx = -2, idx2 = -2;
 
 	if (mail->wanted_headers != NULL && *mail->wanted_headers != NULL)
-		idx = find_wanted_headers(cache, mail->wanted_headers);
+		idx = find_wanted_headers(cache_view, mail->wanted_headers);
 
 	if (idx != -1 && (mail->wanted_fields & MAIL_FETCH_IMAP_ENVELOPE))
-		idx2 = find_wanted_headers(cache, imap_envelope_headers);
+		idx2 = find_wanted_headers(cache_view, imap_envelope_headers);
 
 	mail->wanted_headers_idx = idx == -1 || idx2 == -1 ? -1 :
 		idx > idx2 ? idx : idx2;
@@ -735,12 +743,12 @@ void index_mail_headers_init_next(struct index_mail *mail)
 	}
 }
 
-static int find_unused_header_idx(struct mail_cache *cache)
+static int find_unused_header_idx(struct mail_cache_view *cache_view)
 {
 	int i;
 
 	for (i = 0; i < MAIL_CACHE_HEADERS_COUNT; i++) {
-		if (mail_cache_get_header_fields(cache, i) == NULL)
+		if (mail_cache_get_header_fields(cache_view, i) == NULL)
 			return i;
 	}
 
@@ -761,21 +769,21 @@ void index_mail_headers_close(struct index_mail *mail)
 	   accessing headers from same message. index_mails should probably be
 	   shared.. */
 	headers = cached_header_get_names(mail);
-	idx = find_wanted_headers(mail->ibox->index->cache, headers);
+	idx = find_wanted_headers(mail->ibox->cache_view, headers);
 	if (idx >= 0) {
 		/* all headers found */
 		if (idx != mail->data.header_save_idx) {
-			mail_cache_set_corrupted(mail->ibox->index->cache,
+			mail_cache_set_corrupted(mail->ibox->cache,
 				"Duplicated header names list (%d and %d)",
 				idx, mail->data.header_save_idx);
 		}
 	} else {
 		/* there's some new headers */
-		idx = find_unused_header_idx(mail->ibox->index->cache);
+		idx = find_unused_header_idx(mail->ibox->cache_view);
 		if (idx < 0)
 			return;
 
-		if (!mail_cache_set_header_fields(mail->ibox->trans_ctx,
+		if (!mail_cache_set_header_fields(mail->trans->cache_trans,
 						  idx, headers))
 			return;
 	}
@@ -784,7 +792,7 @@ void index_mail_headers_close(struct index_mail *mail)
 	len = str_len(mail->data.header_data) -
 		data->header_data_uncached_offset;
 
-	mail_cache_add(mail->ibox->trans_ctx, data->rec,
+	mail_cache_add(mail->trans->cache_trans, data->seq,
 		       mail_cache_header_fields[idx], str, len+1);
 	data->header_save = FALSE;
 }

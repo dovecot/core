@@ -19,7 +19,7 @@ int cmd_create(struct client *client)
 		return TRUE;
 
 	len = strlen(mailbox);
-	if (mailbox[len-1] != storage->hierarchy_sep)
+	if (mailbox[len-1] != mail_storage_get_hierarchy_sep(storage))
 		directory = FALSE;
 	else {
 		/* name ends with hierarchy separator - client is just
@@ -32,11 +32,9 @@ int cmd_create(struct client *client)
 	if (!client_verify_mailbox_name(client, mailbox, FALSE, TRUE))
 		return TRUE;
 
-	if (!storage->create_mailbox(storage, mailbox, directory)) {
+	if (mail_storage_mailbox_create(storage, mailbox, directory) < 0)
 		client_send_storage_error(client, storage);
-		return TRUE;
-	}
-
-	client_send_tagline(client, "OK Create completed.");
+	else
+		client_send_tagline(client, "OK Create completed.");
 	return TRUE;
 }

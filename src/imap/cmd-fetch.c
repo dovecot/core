@@ -3,6 +3,8 @@
 #include "common.h"
 #include "commands.h"
 #include "imap-fetch.h"
+#include "imap-search.h"
+#include "mail-search.h"
 
 /* Parse next digits in string into integer. Returns FALSE if the integer
    becomes too big and wraps. */
@@ -315,6 +317,7 @@ int cmd_fetch(struct client *client)
 	enum mail_fetch_field fetch_data;
 	enum imap_fetch_field imap_data;
 	struct imap_fetch_body_data *bodies, **bodies_p;
+	struct mail_search_arg *search_arg;
 	const char *messageset;
 	int ret;
 
@@ -351,9 +354,12 @@ int cmd_fetch(struct client *client)
 	if (client->cmd_uid)
 		imap_data |= IMAP_FETCH_UID;
 
-	ret = imap_fetch(client, fetch_data, imap_data,
-			 bodies, messageset, client->cmd_uid);
-	if (ret >= 0) {
+	search_arg = imap_search_get_arg(client, messageset, client->cmd_uid);
+	if (search_arg == NULL)
+		return TRUE;
+
+	ret = imap_fetch(client, fetch_data, imap_data, bodies, search_arg);
+	if (ret == 0) {
 		if ((client_workarounds &
 		     WORKAROUND_OE6_FETCH_NO_NEWMAIL) == 0) {
 			if (client->cmd_uid)
@@ -362,10 +368,26 @@ int cmd_fetch(struct client *client)
 				client_sync_without_expunges(client);
 		}
 
-		client_send_tagline(client, ret > 0 ? "OK Fetch completed." :
-			"NO Some of the requested messages no longer exist.");
+		client_send_tagline(client, "OK Fetch completed.");
 	} else {
-		client_send_storage_error(client, client->mailbox->storage);
+		struct mail_storage *storage;
+		const char *error;
+		int syntax;
+
+                storage = mailbox_get_storage(client->mailbox);
+		error = mail_storage_get_last_error(storage, &syntax);
+		if (!syntax) {
+			/* We never want to reply NO to FETCH requests,
+			   BYE is preferrable (see imap-ml for reasons). */
+			if (error == NULL) {
+				error = "Out of sync: "
+					"Trying to fetch expunged message";
+			}
+			client_disconnect_with_error(client, error);
+		} else {
+			/* user error, we'll reply with BAD */
+			client_send_storage_error(client, storage);
+		}
 	}
 
 	return TRUE;

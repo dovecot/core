@@ -47,7 +47,7 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	if (hook_mail_storage_created != NULL)
 		hook_mail_storage_created(&ns->storage);
 
-	ns->hierarchy_sep = ns->storage->hierarchy_sep;
+	ns->hierarchy_sep = mail_storage_get_hierarchy_sep(ns->storage);
 	return ns;
 }
 
@@ -106,7 +106,7 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 	ns->type = NAMESPACE_PRIVATE;
 	ns->inbox = TRUE;
 	ns->prefix = p_strdup(pool, "");
-	ns->hierarchy_sep = ns->storage->hierarchy_sep;
+	ns->hierarchy_sep = mail_storage_get_hierarchy_sep(ns->storage);
 	if (hook_mail_storage_created != NULL)
 		hook_mail_storage_created(&ns->storage);
 

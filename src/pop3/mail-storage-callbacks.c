@@ -54,7 +54,6 @@ static void expunge(struct mailbox *mailbox __attr_unused__,
 
 static void update_flags(struct mailbox *mailbox __attr_unused__,
 			 unsigned int seq __attr_unused__,
-			 unsigned int uid __attr_unused__,
 			 const struct mail_full_flags *flags __attr_unused__,
 			 void *context __attr_unused__)
 {

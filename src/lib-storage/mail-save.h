@@ -11,4 +11,6 @@ int mail_storage_save(struct mail_storage *storage, const char *path,
 		      struct istream *input, struct ostream *output, int crlf,
 		      header_callback_t *header_callback, void *context);
 
+int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail);
+
 #endif

@@ -60,23 +60,21 @@ static int get_mailbox_status(struct client *client,
 	int failed;
 
 	if (client->mailbox != NULL &&
-	    mailbox_name_equals(client->mailbox->name, mailbox)) {
+	    mailbox_name_equals(mailbox_get_name(client->mailbox), mailbox)) {
 		/* this mailbox is selected */
 		box = client->mailbox;
 	} else {
 		/* open the mailbox */
-		box = storage->open_mailbox(storage, mailbox,
-					    mailbox_open_flags |
-					    MAILBOX_OPEN_FAST |
-					    MAILBOX_OPEN_READONLY);
+		box = mailbox_open(storage, mailbox, mailbox_open_flags |
+				   MAILBOX_OPEN_FAST | MAILBOX_OPEN_READONLY);
 		if (box == NULL)
 			return FALSE;
 	}
 
-	failed = !box->get_status(box, items, status);
+	failed = mailbox_get_status(box, items, status) < 0;
 
 	if (box != client->mailbox)
-		box->close(box);
+		mailbox_close(box);
 
 	return !failed;
 }

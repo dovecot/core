@@ -1,5 +1,6 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
+#if 0
 #include "lib.h"
 #include "hostpid.h"
 #include "ostream.h"
@@ -371,3 +372,4 @@ int mbox_storage_save_deinit(struct mail_save_context *ctx, int rollback)
 	i_free(ctx);
 	return !failed;
 }
+#endif

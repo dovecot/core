@@ -399,6 +399,7 @@ static int dotlock_delete(const char *path, const struct dotlock *dotlock)
 	if (dotlock->ino != st.st_ino ||
 	    !CMP_DEV_T(dotlock->dev, st.st_dev)) {
 		i_warning("Our dotlock file %s was overridden", lock_path);
+		errno = EEXIST;
 		return 0;
 	}
 
@@ -447,12 +448,15 @@ int file_dotlock_replace(const char *path, int fd, int verify_owner)
 {
 	struct stat st, st2;
 	const char *lock_path;
+	int old_errno;
 
 	lock_path = t_strconcat(path, ".lock", NULL);
 	if (verify_owner) {
 		if (fstat(fd, &st) < 0) {
+			old_errno = errno;
 			i_error("fstat(%s) failed: %m", lock_path);
 			(void)close(fd);
+			errno = old_errno;
 			return -1;
 		}
 	}
@@ -471,6 +475,7 @@ int file_dotlock_replace(const char *path, int fd, int verify_owner)
 		    !CMP_DEV_T(st.st_dev, st2.st_dev)) {
 			i_warning("Our dotlock file %s was overridden",
 				  lock_path);
+			errno = EEXIST;
 			return 0;
 		}
 	}
@@ -486,11 +491,14 @@ int file_dotlock_delete(const char *path, int fd)
 {
 	struct dotlock dotlock;
 	struct stat st;
+	int old_errno;
 
 	if (fstat(fd, &st) < 0) {
+		old_errno = errno;
 		i_error("fstat(%s) failed: %m",
 			t_strconcat(path, ".lock", NULL));
 		(void)close(fd);
+		errno = old_errno;
 		return -1;
 	}
 

@@ -1,14 +1,61 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "mail-storage.h"
 #include "mail-search.h"
 #include "imap-search.h"
 #include "imap-parser.h"
+#include "imap-messageset.h"
 
 struct search_build_data {
 	pool_t pool;
+        struct mailbox *box;
 	const char *error;
 };
+
+static int
+imap_uidset_parse(struct mailbox *box, const char *uidset,
+		  struct mail_search_seqset **seqset_r, const char **error_r)
+{
+	struct mail_search_seqset *seqset, **p;
+	int syntax, last;
+
+	*seqset_r = imap_messageset_parse(uidset);
+	if (*seqset_r == NULL) {
+		*error_r = "Invalid UID messageset";
+		return -1;
+	}
+
+	p = seqset_r;
+	for (seqset = *seqset_r; seqset != NULL; seqset = seqset->next) {
+		if (seqset->seq1 == (uint32_t)-1) {
+			/* last message, stays same */
+			continue;
+		}
+
+		last = seqset->seq2 == (uint32_t)-1;
+		if (mailbox_get_uids(box, seqset->seq1, seqset->seq2,
+				     &seqset->seq1, &seqset->seq2) < 0) {
+			struct mail_storage *storage = mailbox_get_storage(box);
+			*error_r = mail_storage_get_last_error(storage,
+							       &syntax);
+			return -1;
+		}
+
+		if (seqset->seq1 == 0 && last) {
+			/* we need special case for too_high_uid:* case */
+			seqset->seq1 = seqset->seq2 = (uint32_t)-1;
+		}
+
+		if (seqset->seq1 != 0)
+			p = &seqset->next;
+		else
+			*p = seqset->next;
+	}
+
+	*error_r = NULL;
+	return 0;
+}
 
 static struct mail_search_arg *
 search_arg_new(pool_t pool, enum mail_search_arg_type type)
@@ -65,6 +112,7 @@ static int search_arg_build(struct search_build_data *data,
 			    struct imap_arg **args,
 			    struct mail_search_arg **next_sarg)
 {
+        struct mail_search_seqset *seqset;
 	struct mail_search_arg **subargs;
 	struct imap_arg *arg;
 	char *str;
@@ -277,7 +325,13 @@ static int search_arg_build(struct search_build_data *data,
 	case 'U':
 		if (strcmp(str, "UID") == 0) {
 			/* <message set> */
-			return ARG_NEW(SEARCH_UID);
+			if (!ARG_NEW(SEARCH_SEQSET))
+				return FALSE;
+
+			return imap_uidset_parse(data->box,
+						 (*next_sarg)->value.str,
+						 &(*next_sarg)->value.seqset,
+						 &data->error) == 0;
 		} else if (strcmp(str, "UNANSWERED") == 0) {
 			if (!ARG_NEW_FLAG(SEARCH_ANSWERED))
 				return FALSE;
@@ -313,10 +367,16 @@ static int search_arg_build(struct search_build_data *data,
 	default:
 		if (*str == '*' || (*str >= '0' && *str <= '9')) {
 			/* <message-set> */
-			if (!ARG_NEW_FLAG(SEARCH_SET))
+			seqset = imap_messageset_parse(str);
+			if (seqset == NULL) {
+				data->error = "Invalid messageset";
+				return FALSE;
+			}
+
+			if (!ARG_NEW_FLAG(SEARCH_SEQSET))
 				return FALSE;
 
-			(*next_sarg)->value.str = str;
+			(*next_sarg)->value.seqset = seqset;
 			return TRUE;
 		}
 		break;
@@ -327,11 +387,15 @@ static int search_arg_build(struct search_build_data *data,
 }
 
 struct mail_search_arg *
-imap_search_args_build(pool_t pool, struct imap_arg *args, const char **error)
+imap_search_args_build(pool_t pool, struct mailbox *box, struct imap_arg *args,
+		       const char **error_r)
 {
         struct search_build_data data;
 	struct mail_search_arg *first_sarg, **sargs;
 
+	*error_r = NULL;
+
+	data.box = box;
 	data.pool = pool;
 	data.error = NULL;
 
@@ -339,23 +403,62 @@ imap_search_args_build(pool_t pool, struct imap_arg *args, const char **error)
 	first_sarg = NULL; sargs = &first_sarg;
 	while (args->type != IMAP_ARG_EOL) {
 		if (!search_arg_build(&data, &args, sargs)) {
-			*error = data.error;
+			*error_r = data.error;
 			return NULL;
 		}
 		sargs = &(*sargs)->next;
 	}
 
-	*error = NULL;
 	return first_sarg;
 }
 
-struct mail_search_arg *
-imap_search_get_msgset_arg(const char *messageset, int uidset)
+int imap_search_get_msgset_arg(const char *messageset,
+			       struct mail_search_arg **arg_r,
+			       const char **error_r)
 {
 	struct mail_search_arg *arg;
 
 	arg = t_new(struct mail_search_arg, 1);
-	arg->type = uidset ? SEARCH_UID : SEARCH_SET;
-	arg->value.str = t_strdup(messageset);
-	return arg;
+	arg->type = SEARCH_SEQSET;
+	arg->value.seqset = imap_messageset_parse(messageset);
+	if (arg->value.seqset == NULL) {
+		*error_r = "Invalid messageset";
+		return -1;
+	}
+	*arg_r = arg;
+	return 0;
+}
+
+int imap_search_get_uidset_arg(struct mailbox *box, const char *uidset,
+			       struct mail_search_arg **arg_r,
+			       const char **error_r)
+{
+	struct mail_search_arg *arg;
+
+	arg = t_new(struct mail_search_arg, 1);
+	arg->type = SEARCH_SEQSET;
+	*arg_r = arg;
+	return imap_uidset_parse(box, uidset, &arg->value.seqset, error_r);
+}
+
+struct mail_search_arg *
+imap_search_get_arg(struct client *client, const char *set, int uid)
+{
+	struct mail_search_arg *search_arg;
+	const char *error;
+	int ret;
+
+	if (!uid) {
+		ret = imap_search_get_msgset_arg(set, &search_arg,
+						 &error);
+	} else {
+		ret = imap_search_get_uidset_arg(client->mailbox, set,
+						 &search_arg, &error);
+	}
+	if (ret < 0) {
+		client_send_tagline(client, t_strconcat("BAD ", error, NULL));
+		return NULL;
+	}
+
+	return search_arg;
 }

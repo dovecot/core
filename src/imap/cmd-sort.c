@@ -116,7 +116,7 @@ int cmd_sort(struct client *client)
 
 	pool = pool_alloconly_create("mail_search_args", 2048);
 
-	sargs = imap_search_args_build(pool, args, &error);
+	sargs = imap_search_args_build(pool, client->mailbox, args, &error);
 	if (sargs == NULL) {
 		/* error in search arguments */
 		client_send_tagline(client, t_strconcat("NO ", error, NULL));
@@ -128,7 +128,8 @@ int cmd_sort(struct client *client)
 			client_sync_without_expunges(client);
 		client_send_tagline(client, "OK Sort completed.");
 	} else {
-		client_send_storage_error(client, client->mailbox->storage);
+		client_send_storage_error(client,
+					  mailbox_get_storage(client->mailbox));
 	}
 
 	pool_unref(pool);

@@ -5,6 +5,8 @@
 #include "index-storage.h"
 
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 
 static void check_timeout(void *context)

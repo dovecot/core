@@ -69,9 +69,8 @@ struct client *client_create(int hin, int hout, struct namespace *namespaces)
 	client->namespaces = namespaces;
 
 	while (namespaces != NULL) {
-		namespaces->storage->set_callbacks(namespaces->storage,
-						   &mail_storage_callbacks,
-						   client);
+		mail_storage_set_callbacks(namespaces->storage,
+					   &mail_storage_callbacks, client);
 		namespaces = namespaces->next;
 	}
 
@@ -88,7 +87,7 @@ void client_destroy(struct client *client)
 	o_stream_flush(client->output);
 
 	if (client->mailbox != NULL)
-		client->mailbox->close(client->mailbox);
+		mailbox_close(client->mailbox);
 	namespace_deinit(client->namespaces);
 
 	imap_parser_destroy(client->parser);

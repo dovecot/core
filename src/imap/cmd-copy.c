@@ -4,42 +4,53 @@
 #include "commands.h"
 #include "imap-search.h"
 
-static int fetch_and_copy(struct mail_copy_context *copy_ctx,
-			  struct mailbox *srcbox, struct mailbox *destbox,
-			  const char *messageset, int uidset, int *all_found)
+static int fetch_and_copy(struct mailbox_transaction_context *t,
+			  struct mailbox *srcbox,
+			  struct mail_search_arg *search_args)
 {
-	struct mail_search_arg *search_arg;
 	struct mail_search_context *search_ctx;
+        struct mailbox_transaction_context *src_trans;
 	struct mail *mail;
-	int failed = FALSE;
+	int ret;
 
-	search_arg = imap_search_get_msgset_arg(messageset, uidset);
-	search_ctx = srcbox->search_init(srcbox, NULL, search_arg, NULL,
+	src_trans = mailbox_transaction_begin(srcbox, FALSE);
+	search_ctx = mailbox_search_init(src_trans, NULL, search_args, NULL,
 					 MAIL_FETCH_STREAM_HEADER |
 					 MAIL_FETCH_STREAM_BODY, NULL);
-	if (search_ctx == NULL)
-		return FALSE;
+	if (search_ctx == NULL) {
+		mailbox_transaction_rollback(src_trans);
+		return -1;
+	}
 
-	while ((mail = srcbox->search_next(search_ctx)) != NULL) {
-		if (!destbox->copy(mail, copy_ctx)) {
-			failed = TRUE;
+	ret = 1;
+	while ((mail = mailbox_search_next(search_ctx)) != NULL) {
+		if (mail->expunged) {
+			ret = 0;
+			break;
+		}
+		if (mailbox_copy(t, mail) < 0) {
+			ret = -1;
 			break;
 		}
 	}
 
-	if (!srcbox->search_deinit(search_ctx, all_found))
-		return FALSE;
+	if (mailbox_search_deinit(search_ctx) < 0)
+		ret = -1;
 
-	return !failed;
+	if (mailbox_transaction_commit(src_trans) < 0)
+		ret = -1;
+
+	return ret;
 }
 
 int cmd_copy(struct client *client)
 {
 	struct mail_storage *storage;
 	struct mailbox *destbox;
-        struct mail_copy_context *copy_ctx;
+	struct mailbox_transaction_context *t;
+        struct mail_search_arg *search_arg;
 	const char *messageset, *mailbox;
-	int failed = FALSE, all_found = TRUE;
+	int ret;
 
 	/* <message set> <mailbox> */
 	if (!client_read_string_args(client, 2, &messageset, &mailbox))
@@ -55,42 +66,34 @@ int cmd_copy(struct client *client)
 	if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
 		return TRUE;
 
+	search_arg = imap_search_get_arg(client, messageset, client->cmd_uid);
+	if (search_arg == NULL)
+		return TRUE;
+
 	storage = client_find_storage(client, mailbox);
 	if (storage == NULL)
 		return TRUE;
 
-	destbox = storage->open_mailbox(storage, mailbox,
-					mailbox_open_flags | MAILBOX_OPEN_FAST);
+	destbox = mailbox_open(storage, mailbox,
+			       mailbox_open_flags | MAILBOX_OPEN_FAST);
 	if (destbox == NULL) {
 		client_send_storage_error(client, storage);
 		return TRUE;
 	}
 
-	if (destbox == client->mailbox) {
-		/* copying inside same mailbox, make sure we get the
-		   locking right */
-		if (!destbox->lock(destbox, MAILBOX_LOCK_READ |
-				   MAILBOX_LOCK_SAVE))
-			failed = TRUE;
-	}
+	t = mailbox_transaction_begin(destbox, FALSE);
+	ret = fetch_and_copy(t, client->mailbox, search_arg);
 
-	copy_ctx = failed ? NULL : destbox->copy_init(destbox);
-	if (copy_ctx == NULL)
-		failed = TRUE;
+	if (ret <= 0)
+		mailbox_transaction_rollback(t);
 	else {
-		if (!fetch_and_copy(copy_ctx, client->mailbox, destbox,
-				    messageset, client->cmd_uid, &all_found))
-			failed = TRUE;
-
-		if (!destbox->copy_deinit(copy_ctx, failed || !all_found))
-			failed = TRUE;
+		if (mailbox_transaction_commit(t) < 0)
+			ret = -1;
 	}
 
-	(void)destbox->lock(destbox, MAILBOX_LOCK_UNLOCK);
-
-	if (failed)
+	if (ret < 0)
 		client_send_storage_error(client, storage);
-	else if (!all_found) {
+	else if (ret == 0) {
 		/* some messages were expunged, sync them */
 		client_sync_full(client);
 		client_send_tagline(client,
@@ -103,6 +106,6 @@ int cmd_copy(struct client *client)
 		client_send_tagline(client, "OK Copy completed.");
 	}
 
-	destbox->close(destbox);
+	mailbox_close(destbox);
 	return TRUE;
 }

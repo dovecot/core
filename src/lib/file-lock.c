@@ -30,6 +30,7 @@ int file_wait_lock_full(int fd, int lock_type, unsigned int timeout,
 	else {
 		alarm_hup_init();
 		timeout_time = time(NULL) + timeout;
+		alarm(timeout);
 	}
 
 	fl.l_type = lock_type;

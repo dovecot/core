@@ -1,10 +1,8 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
 #include "ioloop.h"
 #include "mail-index.h"
-#include "mail-index-util.h"
-#include "mail-custom-flags.h"
 #include "index-storage.h"
 
 #include <stdlib.h>
@@ -23,7 +21,11 @@ struct index_list {
 	struct index_list *next;
 
 	struct mail_index *index;
+	char *mailbox_path;
 	int refcount;
+
+	dev_t index_dir_dev;
+	ino_t index_dir_ino;
 
 	time_t destroy_time;
 };
@@ -32,12 +34,12 @@ static struct index_list *indexes = NULL;
 static struct timeout *to_index = NULL;
 static int index_storage_refcount = 0;
 
-void index_storage_init(struct mail_storage *storage __attr_unused__)
+void index_storage_init(struct index_storage *storage __attr_unused__)
 {
 	index_storage_refcount++;
 }
 
-void index_storage_deinit(struct mail_storage *storage __attr_unused__)
+void index_storage_deinit(struct index_storage *storage __attr_unused__)
 {
 	if (--index_storage_refcount > 0)
 		return;
@@ -45,7 +47,8 @@ void index_storage_deinit(struct mail_storage *storage __attr_unused__)
         index_storage_destroy_unrefed();
 }
 
-void index_storage_add(struct mail_index *index)
+static void index_storage_add(struct mail_index *index,
+			      const char *mailbox_path, struct stat *st)
 {
 	struct index_list *list;
 
@@ -53,43 +56,56 @@ void index_storage_add(struct mail_index *index)
 	list->refcount = 1;
 	list->index = index;
 
+	list->mailbox_path = i_strdup(mailbox_path);
+	list->index_dir_dev = st->st_dev;
+	list->index_dir_ino = st->st_ino;
+
 	list->next = indexes;
 	indexes = list;
 }
 
+static void index_list_free(struct index_list *list)
+{
+	mail_index_free(list->index);
+	i_free(list->mailbox_path);
+	i_free(list);
+}
+
 struct mail_index *
-index_storage_lookup_ref(const char *index_dir, const char *path)
+index_storage_alloc(const char *index_dir, const char *mailbox_path,
+		    const char *prefix)
 {
 	struct index_list **list, *rec;
-	struct mail_index *match;
-	struct stat st1, st2;
+	struct mail_index *index;
+	struct stat st;
 	int destroy_count;
 
 	if (index_dir != NULL) {
-		if (stat(index_dir, &st1) < 0)
+		if (stat(index_dir, &st) < 0)
 			return NULL;
+	} else {
+		memset(&st, 0, sizeof(st));
 	}
 
 	/* compare index_dir inodes so we don't break even with symlinks.
 	   for in-memory indexes compare just mailbox paths */
-	destroy_count = 0; match = NULL;
+	destroy_count = 0; index = NULL;
 	for (list = &indexes; *list != NULL;) {
 		rec = *list;
 
-		if ((index_dir != NULL && stat(rec->index->dir, &st2) == 0 &&
-		     st1.st_ino == st2.st_ino && st1.st_dev == st2.st_dev) ||
-		    (index_dir == NULL &&
-		     strcmp(path, rec->index->mailbox_path) == 0)) {
+		if ((index_dir != NULL && st.st_ino == rec->index_dir_ino &&
+		     st.st_dev == rec->index_dir_dev) ||
+		    (index_dir == NULL && st.st_ino == 0 &&
+		     strcmp(mailbox_path, rec->mailbox_path) == 0)) {
 			rec->refcount++;
-			match = rec->index;
+			index = rec->index;
 		}
 
 		if (rec->refcount == 0) {
 			if (rec->destroy_time <= ioloop_time ||
 			    destroy_count >= INDEX_CACHE_MAX) {
-				rec->index->free(rec->index);
 				*list = rec->next;
-				i_free(rec);
+				index_list_free(rec);
 				continue;
 			} else {
 				destroy_count++;
@@ -99,7 +115,12 @@ index_storage_lookup_ref(const char *index_dir, const char *path)
                 list = &(*list)->next;
 	}
 
-	return match;
+	if (index == NULL) {
+		index = mail_index_alloc(index_dir, prefix);
+		index_storage_add(index, mailbox_path, &st);
+	}
+
+	return index;
 }
 
 static void destroy_unrefed(int all)
@@ -111,9 +132,8 @@ static void destroy_unrefed(int all)
 
 		if (rec->refcount == 0 &&
 		    (all || rec->destroy_time <= ioloop_time)) {
-			rec->index->free(rec->index);
 			*list = rec->next;
-			i_free(rec);
+			index_list_free(rec);
 		} else {
 			list = &(*list)->next;
 		}
@@ -223,11 +243,11 @@ static enum mail_cache_field get_never_cache_fields(void)
 	return ret;
 }
 
-static void lock_notify(enum mail_lock_notify_type notify_type,
+static void lock_notify(enum mailbox_lock_notify_type notify_type,
 			unsigned int secs_left, void *context)
 {
 	struct index_mailbox *ibox = context;
-	struct mail_storage *storage = ibox->box.storage;
+	struct index_storage *storage = ibox->storage;
 	const char *str;
 	time_t now;
 
@@ -241,10 +261,10 @@ static void lock_notify(enum mail_lock_notify_type notify_type,
 
 	/* if notify type changes, print the message immediately */
 	now = time(NULL);
-	if (ibox->last_notify_type == (enum mail_lock_notify_type)-1 ||
+	if (ibox->last_notify_type == MAILBOX_LOCK_NOTIFY_NONE ||
 	    ibox->last_notify_type == notify_type) {
-		if (ibox->last_notify_type == (enum mail_lock_notify_type)-1 &&
-		    notify_type == MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE) {
+		if (ibox->last_notify_type == MAILBOX_LOCK_NOTIFY_NONE &&
+		    notify_type == MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE) {
 			/* first override notification, show it */
 		} else {
 			if (now < ibox->next_lock_notify || secs_left < 15)
@@ -256,73 +276,31 @@ static void lock_notify(enum mail_lock_notify_type notify_type,
         ibox->last_notify_type = notify_type;
 
 	switch (notify_type) {
-	case MAIL_LOCK_NOTIFY_MAILBOX_ABORT:
+	case MAILBOX_LOCK_NOTIFY_NONE:
+		break;
+	case MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT:
 		str = t_strdup_printf("Mailbox is locked, will abort in "
 				      "%u seconds", secs_left);
 		storage->callbacks->notify_no(&ibox->box, str,
 					      storage->callback_context);
 		break;
-	case MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE:
+	case MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE:
 		str = t_strdup_printf("Stale mailbox lock file detected, "
 				      "will override in %u seconds", secs_left);
 		storage->callbacks->notify_ok(&ibox->box, str,
 					      storage->callback_context);
 		break;
-	case MAIL_LOCK_NOTIFY_INDEX_ABORT:
-		str = t_strdup_printf("Mailbox index is locked, will abort in "
-				      "%u seconds", secs_left);
-		storage->callbacks->notify_no(&ibox->box, str,
-					      storage->callback_context);
-		break;
 	}
 }
 
-void index_storage_init_lock_notify(struct index_mailbox *ibox)
+void index_storage_reset_lock_notify(struct index_mailbox *ibox)
 {
-	if (ibox->index->mailbox_readonly)
-		ibox->readonly = TRUE;
-
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
-	ibox->last_notify_type = (enum mail_lock_notify_type)-1;
-
-	ibox->index->set_lock_notify_callback(ibox->index, lock_notify, ibox);
-}
-
-int index_storage_lock(struct index_mailbox *ibox,
-		       enum mail_lock_type lock_type)
-{
-	int ret = TRUE;
-
-	if (lock_type == MAIL_LOCK_UNLOCK) {
-		if (ibox->trans_ctx != NULL) {
-			if (!mail_cache_transaction_commit(ibox->trans_ctx))
-				ret = FALSE;
-			if (!mail_cache_transaction_end(ibox->trans_ctx))
-				ret = FALSE;
-			ibox->trans_ctx = NULL;
-		}
-		if (ibox->lock_type != MAILBOX_LOCK_UNLOCK)
-			return TRUE;
-	} else {
-		if (ibox->lock_type == MAIL_LOCK_EXCLUSIVE)
-			return TRUE;
-	}
-
-	/* we have to set/reset this every time, because the same index
-	   may be used by multiple IndexMailboxes. */
-        index_storage_init_lock_notify(ibox);
-	if (!ibox->index->set_lock(ibox->index, lock_type))
-		ret = FALSE;
-	ibox->index->set_lock_notify_callback(ibox->index, NULL, NULL);
-
-	if (!ret)
-		return mail_storage_set_index_error(ibox);
-
-	return TRUE;
+	ibox->last_notify_type = MAILBOX_LOCK_NOTIFY_NONE;
 }
 
 struct index_mailbox *
-index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
+index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 			   struct mail_index *index, const char *name,
 			   enum mailbox_open_flags flags)
 {
@@ -334,52 +312,38 @@ index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
 	index_flags = MAIL_INDEX_OPEN_FLAG_CREATE;
 	if ((flags & MAILBOX_OPEN_FAST) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_FAST;
-	if ((flags & MAILBOX_OPEN_READONLY) != 0)
-		index_flags |= MAIL_INDEX_OPEN_FLAG_UPDATE_RECENT;
-	if ((flags & MAILBOX_OPEN_MMAP_INVALIDATE) != 0)
-		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_INVALIDATE;
 
 	do {
 		ibox = i_new(struct index_mailbox, 1);
 		ibox->box = *box;
+		ibox->storage = storage;
 
-		ibox->box.storage = storage;
+		ibox->box.storage = &storage->storage;
 		ibox->box.name = i_strdup(name);
 		ibox->readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
 
 		ibox->index = index;
 
 		ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
-		index->set_lock_notify_callback(index, lock_notify, ibox);
+		ibox->commit_log_file_seq = 0;
+		ibox->mail_read_mmaped = getenv("MAIL_READ_MMAPED") != NULL;
 
-		if (!index->opened) {
-			/* open the index first */
-			if (!index->open(index, index_flags))
-				break;
+		if (mail_index_open(index, index_flags) < 0)
+			break;
 
-			mail_cache_set_defaults(index->cache,
-						get_default_cache_fields(),
-						get_never_cache_fields());
+		ibox->cache = mail_index_get_cache(index);
+		mail_cache_set_defaults(ibox->cache,
+					get_default_cache_fields(),
+					get_never_cache_fields());
 
-			if (INDEX_IS_IN_MEMORY(index) &&
-			    storage->index_dir != NULL) {
-				storage->callbacks->notify_no(&ibox->box,
-					"Couldn't use index files",
-					storage->callback_context);
-			}
+		if (mail_index_is_in_memory(index) &&
+		    storage->index_dir != NULL) {
+			storage->callbacks->notify_no(&ibox->box,
+				"Couldn't use index files",
+				storage->callback_context);
 		}
 
-		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
-			break;
-
-		ibox->synced_messages_count =
-			mail_index_get_header(index)->messages_count;
-
-		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
-			break;
-
-		index->set_lock_notify_callback(index, NULL, NULL);
-
+		ibox->view = mail_index_view_open(index);
 		return ibox;
 	} while (0);
 
@@ -388,21 +352,21 @@ index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
 	return NULL;
 }
 
-int index_storage_mailbox_free(struct mailbox *box)
+void index_storage_mailbox_free(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
 	/* make sure we're unlocked */
-	(void)ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK);
+	mail_index_view_unlock(ibox->view);
 
 	index_mailbox_check_remove_all(ibox);
 	if (ibox->index != NULL)
 		index_storage_unref(ibox->index);
+	i_free(ibox->path);
+	i_free(ibox->control_dir);
 
 	i_free(box->name);
 	i_free(box);
-
-	return TRUE;
 }
 
 int index_storage_is_readonly(struct mailbox *box)
@@ -416,51 +380,41 @@ int index_storage_allow_new_custom_flags(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
-	return ibox->index->allow_new_custom_flags;
+	/* FIXME: return FALSE if we're full */
+	return !ibox->readonly;
 }
 
-int index_storage_is_inconsistency_error(struct mailbox *box)
+int index_storage_is_inconsistent(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
-	return ibox->inconsistent;
+	return mail_index_view_is_inconsistent(ibox->view);
 }
 
-void index_storage_set_callbacks(struct mail_storage *storage,
+void index_storage_set_callbacks(struct mail_storage *_storage,
 				 struct mail_storage_callbacks *callbacks,
 				 void *context)
 {
-	memcpy(storage->callbacks, callbacks,
-	       sizeof(struct mail_storage_callbacks));
+	struct index_storage *storage = (struct index_storage *) _storage;
+
+	*storage->callbacks = *callbacks;
 	storage->callback_context = context;
 }
 
 int mail_storage_set_index_error(struct index_mailbox *ibox)
 {
-	switch (ibox->index->get_last_error(ibox->index)) {
+	switch (mail_index_get_last_error(ibox->index)) {
 	case MAIL_INDEX_ERROR_NONE:
 	case MAIL_INDEX_ERROR_INTERNAL:
 		mail_storage_set_internal_error(ibox->box.storage);
 		break;
-	case MAIL_INDEX_ERROR_INCONSISTENT:
-		ibox->inconsistent = TRUE;
-		break;
 	case MAIL_INDEX_ERROR_DISKSPACE:
 		mail_storage_set_error(ibox->box.storage, "Out of disk space");
 		break;
-	case MAIL_INDEX_ERROR_INDEX_LOCK_TIMEOUT:
-		mail_storage_set_error(ibox->box.storage,
-			"Timeout while waiting for lock to index of mailbox %s",
-			ibox->box.name);
-		break;
-	case MAIL_INDEX_ERROR_MAILBOX_LOCK_TIMEOUT:
-		mail_storage_set_error(ibox->box.storage,
-			"Timeout while waiting for lock to mailbox %s",
-			ibox->box.name);
-		break;
 	}
 
-	index_reset_error(ibox->index);
+	mail_index_view_unlock(ibox->view);
+	mail_index_reset_error(ibox->index);
 	return FALSE;
 }
 
@@ -469,9 +423,9 @@ int index_mailbox_fix_custom_flags(struct index_mailbox *ibox,
 				   const char *custom_flags[],
 				   unsigned int custom_flags_count)
 {
-	int ret;
+	/*FIXME:int ret;
 
-	ret = mail_custom_flags_fix_list(ibox->index->custom_flags,
+	ret = mail_custom_flags_fix_list(ibox->index,
 					 flags, custom_flags,
 					 custom_flags_count);
 	switch (ret) {
@@ -483,16 +437,17 @@ int index_mailbox_fix_custom_flags(struct index_mailbox *ibox,
 		return FALSE;
 	default:
 		return mail_storage_set_index_error(ibox);
-	}
+	}*/
 }
 
-unsigned int index_storage_get_recent_count(struct mail_index *index)
+unsigned int index_storage_get_recent_count(struct mail_index_view *view)
 {
+#if 0
 	struct mail_index_header *hdr;
 	struct mail_index_record *rec;
 	unsigned int seq;
 
-	hdr = mail_index_get_header(index);
+	hdr = mail_index_get_header(view);
 	if (index->first_recent_uid <= 1) {
 		/* all are recent */
 		return hdr->messages_count;
@@ -502,7 +457,9 @@ unsigned int index_storage_get_recent_count(struct mail_index *index)
 	if (index->first_recent_uid >= hdr->next_uid)
 		return 0;
 
-	rec = index->lookup_uid_range(index, index->first_recent_uid,
-				      hdr->next_uid - 1, &seq);
+	rec = mail_index_lookup_uid_range(view, index->first_recent_uid,
+					  hdr->next_uid - 1, &seq);
 	return rec == NULL ? 0 : hdr->messages_count+1 - seq;
+#endif
+	return 0;
 }

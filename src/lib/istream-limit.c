@@ -61,8 +61,8 @@ static ssize_t _read(struct _istream *stream)
 	if (i_stream_read(lstream->input) == -2 && stream->buffer != NULL) {
 		if (stream->skip == 0)
 			return -2;
-		stream->istream.eof = lstream->input->eof;
 	}
+	stream->istream.eof = lstream->input->eof;
 
 	stream->pos -= stream->skip;
 	stream->skip = 0;

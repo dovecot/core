@@ -12,6 +12,7 @@ static int imap_search(struct client *client, const char *charset,
 		       struct mail_search_arg *sargs)
 {
         struct mail_search_context *ctx;
+        struct mailbox_transaction_context *trans;
 	const struct mail *mail;
 	string_t *str;
 	int ret, uid, first = TRUE;
@@ -19,13 +20,16 @@ static int imap_search(struct client *client, const char *charset,
 	str = t_str_new(STRBUF_SIZE);
 	uid = client->cmd_uid;
 
-	ctx = client->mailbox->search_init(client->mailbox, charset, sargs,
-					   NULL, 0, NULL);
-	if (ctx == NULL)
+	trans = mailbox_transaction_begin(client->mailbox, FALSE);
+	ctx = mailbox_search_init(trans, charset, sargs,
+				  NULL, 0, NULL);
+	if (ctx == NULL) {
+		mailbox_transaction_rollback(trans);
 		return FALSE;
+	}
 
 	str_append(str, "* SEARCH");
-	while ((mail = client->mailbox->search_next(ctx)) != NULL) {
+	while ((mail = mailbox_search_next(ctx)) != NULL) {
 		if (str_len(str) >= STRBUF_SIZE-MAX_INT_STRLEN) {
 			/* flush */
 			o_stream_send(client->output,
@@ -37,13 +41,16 @@ static int imap_search(struct client *client, const char *charset,
 		str_printfa(str, " %u", uid ? mail->uid : mail->seq);
 	}
 
-	ret = client->mailbox->search_deinit(ctx, NULL);
+	ret = mailbox_search_deinit(ctx);
 
-	if (!first || ret) {
+	if (mailbox_transaction_commit(trans) < 0)
+		ret = -1;
+
+	if (!first || ret == 0) {
 		str_append(str, "\r\n");
 		o_stream_send(client->output, str_data(str), str_len(str));
 	}
-	return ret;
+	return ret == 0;
 }
 
 int cmd_search(struct client *client)
@@ -86,7 +93,7 @@ int cmd_search(struct client *client)
 
 	pool = pool_alloconly_create("mail_search_args", 2048);
 
-	sargs = imap_search_args_build(pool, args, &error);
+	sargs = imap_search_args_build(pool, client->mailbox, args, &error);
 	if (sargs == NULL) {
 		/* error in search arguments */
 		client_send_tagline(client, t_strconcat("NO ", error, NULL));
@@ -97,7 +104,8 @@ int cmd_search(struct client *client)
 			client_sync_without_expunges(client);
 		client_send_tagline(client, "OK Search completed.");
 	} else {
-		client_send_storage_error(client, client->mailbox->storage);
+		client_send_storage_error(client,
+					  mailbox_get_storage(client->mailbox));
 	}
 
 	pool_unref(pool);

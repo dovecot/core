@@ -56,12 +56,12 @@ static int mailbox_list(struct client *client, struct mail_storage *storage,
 	struct mailbox_list *list;
 	string_t *str;
 
-	ctx = storage->list_mailbox_init(storage, mask, list_flags);
+	ctx = mail_storage_mailbox_list_init(storage, mask, list_flags);
 	if (ctx == NULL)
 		return FALSE;
 
 	str = t_str_new(256);
-	while ((list = storage->list_mailbox_next(ctx)) != NULL) {
+	while ((list = mail_storage_mailbox_list_next(ctx)) != NULL) {
 		str_truncate(str, 0);
 		str_printfa(str, "* %s (%s) \"%s\" ", reply,
 			    mailbox_flags2str(list->flags, list_flags),
@@ -73,7 +73,7 @@ static int mailbox_list(struct client *client, struct mail_storage *storage,
 		client_send_line(client, str_c(str));
 	}
 
-	return storage->list_mailbox_deinit(ctx);
+	return mail_storage_mailbox_list_deinit(ctx);
 }
 
 static int parse_list_flags(struct client *client, struct imap_arg *args,
@@ -152,7 +152,7 @@ int _cmd_list_full(struct client *client, int lsub)
 	else
 		storage = client->namespaces->storage;
 
-	sep_chr = storage->hierarchy_sep;
+	sep_chr = mail_storage_get_hierarchy_sep(storage);
 	if (sep_chr == '"' || sep_chr == '\\') {
 		sep[0] = '\\';
 		sep[1] = sep_chr;
@@ -184,8 +184,8 @@ int _cmd_list_full(struct client *client, int lsub)
 			}
 		}
 
-		failed = !mailbox_list(client, storage, mask, sep,
-				       lsub ? "LSUB" : "LIST", list_flags);
+		failed = mailbox_list(client, storage, mask, sep,
+				      lsub ? "LSUB" : "LIST", list_flags) < 0;
 	}
 
 	if (failed)

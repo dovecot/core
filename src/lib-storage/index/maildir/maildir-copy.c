@@ -1,12 +1,9 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2004 Timo Sirainen */
 
 #include "lib.h"
 #include "ioloop.h"
-#include "maildir-index.h"
 #include "maildir-storage.h"
-#include "mail-custom-flags.h"
-#include "mail-index-util.h"
-#include "index-messageset.h"
+#include "mail-save.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -17,8 +14,6 @@ struct maildir_copy_context {
 
 	pool_t pool;
 	struct rollback *rollbacks;
-
-	struct mail_copy_context *ctx;
 };
 
 struct hardlink_ctx {
@@ -31,7 +26,7 @@ struct rollback {
 	const char *fname;
 };
 
-static int do_hardlink(struct mail_index *index, const char *path,
+static int do_hardlink(struct index_mailbox *ibox, const char *path,
 		       void *context)
 {
 	struct hardlink_ctx *ctx = context;
@@ -41,14 +36,16 @@ static int do_hardlink(struct mail_index *index, const char *path,
 			return 0;
 
 		if (ENOSPACE(errno)) {
-			index->nodiskspace = TRUE;
+			mail_storage_set_error(ibox->box.storage,
+					       "Not enough disk space");
 			return -1;
 		}
 		if (errno == EACCES || errno == EXDEV)
 			return 1;
 
-		index_set_error(index, "link(%s, %s) failed: %m",
-				path, ctx->dest_path);
+		mail_storage_set_critical(ibox->box.storage,
+					  "link(%s, %s) failed: %m",
+					  path, ctx->dest_path);
 		return -1;
 	}
 
@@ -62,25 +59,23 @@ static int maildir_copy_hardlink(struct mail *mail,
 	struct index_mail *imail = (struct index_mail *) mail;
 	struct hardlink_ctx do_ctx;
 	struct rollback *rb;
+	const struct mail_full_flags *flags;
 	const char *dest_fname;
 
+        flags = mail->get_flags(mail);
 	dest_fname = maildir_generate_tmp_filename(&ioloop_timeval);
-	dest_fname = maildir_filename_set_flags(dest_fname,
-						mail->get_flags(mail)->flags);
+	dest_fname = maildir_filename_set_flags(dest_fname, flags->flags, NULL);
 
 	memset(&do_ctx, 0, sizeof(do_ctx));
-	do_ctx.dest_path = t_strconcat(ctx->ibox->index->mailbox_path, "/new/",
-				       dest_fname, NULL);
+	do_ctx.dest_path =
+		t_strconcat(ctx->ibox->path, "/new/", dest_fname, NULL);
 
-	if (!maildir_file_do(imail->ibox->index, imail->data.rec,
-			     do_hardlink, &do_ctx))
+	if (maildir_file_do(imail->ibox, imail->mail.uid,
+			    do_hardlink, &do_ctx) < 0)
 		return -1;
 
 	if (!do_ctx.found)
 		return 0;
-
-	if (ctx->pool == NULL)
-		ctx->pool = pool_alloconly_create("hard copy rollbacks", 2048);
 
 	rb = p_new(ctx->pool, struct rollback, 1);
 	rb->fname = p_strdup(ctx->pool, dest_fname);
@@ -90,52 +85,51 @@ static int maildir_copy_hardlink(struct mail *mail,
 	return 1;
 }
 
-struct mail_copy_context *maildir_storage_copy_init(struct mailbox *box)
+static struct maildir_copy_context *
+maildir_copy_init(struct index_mailbox *ibox)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *) box;
 	struct maildir_copy_context *ctx;
+	pool_t pool;
 
-	if (box->is_readonly(box)) {
-		mail_storage_set_error(box->storage,
-				       "Destination mailbox is read-only");
-		return NULL;
-	}
+	pool = pool_alloconly_create("maildir_copy_context", 2048);
 
-	ctx = i_new(struct maildir_copy_context, 1);
+	ctx = p_new(pool, struct maildir_copy_context, 1);
+	ctx->pool = pool;
 	ctx->hardlink = getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL;
 	ctx->ibox = ibox;
-	return (struct mail_copy_context *) ctx;
+	return ctx;
 }
 
-int maildir_storage_copy_deinit(struct mail_copy_context *_ctx, int rollback)
+int maildir_copy_commit(struct maildir_copy_context *ctx)
 {
-	struct maildir_copy_context *ctx = (struct maildir_copy_context *) _ctx;
+	pool_unref(ctx->pool);
+	return 0;
+}
+
+void maildir_copy_rollback(struct maildir_copy_context *ctx)
+{
         struct rollback *rb;
-	int ret = TRUE;
 
-	if (ctx->ctx != NULL)
-		ret = index_storage_copy_deinit(ctx->ctx, rollback);
-
-	if (rollback) {
-		for (rb = ctx->rollbacks; rb != NULL; rb = rb->next) {
-			t_push();
-			(void)unlink(t_strconcat(ctx->ibox->index->mailbox_path,
-						 "/new/", rb->fname, NULL));
-			t_pop();
-		}
+	for (rb = ctx->rollbacks; rb != NULL; rb = rb->next) {
+		t_push();
+		(void)unlink(t_strconcat(ctx->ibox->path,
+					 "/new/", rb->fname, NULL));
+		t_pop();
 	}
 
-	if (ctx->pool != NULL)
-		pool_unref(ctx->pool);
-
-	i_free(ctx);
-	return ret;
+	pool_unref(ctx->pool);
 }
 
-int maildir_storage_copy(struct mail *mail, struct mail_copy_context *_ctx)
+int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail)
 {
-	struct maildir_copy_context *ctx = (struct maildir_copy_context *) _ctx;
+	struct maildir_transaction_context *t =
+		(struct maildir_transaction_context *)_t;
+	struct maildir_copy_context *ctx;
 	int ret;
+
+	if (t->copy_ctx == NULL)
+		t->copy_ctx = maildir_copy_init(t->ictx.ibox);
+	ctx = t->copy_ctx;
 
 	if (ctx->hardlink && mail->box->storage == ctx->ibox->box.storage) {
 		t_push();
@@ -143,15 +137,12 @@ int maildir_storage_copy(struct mail *mail, struct mail_copy_context *_ctx)
 		t_pop();
 
 		if (ret > 0)
-			return TRUE;
+			return 0;
 		if (ret < 0)
-			return FALSE;
+			return -1;
 
 		/* non-fatal hardlinking failure, try the slow way */
 	}
 
-	if (ctx->ctx == NULL)
-		ctx->ctx = index_storage_copy_init(&ctx->ibox->box);
-
-	return index_storage_copy(mail, ctx->ctx);
+	return mail_storage_copy(_t, mail);
 }

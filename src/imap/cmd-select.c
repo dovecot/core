@@ -18,9 +18,9 @@ int _cmd_select_full(struct client *client, int readonly)
 	if (client->mailbox != NULL) {
 		box = client->mailbox;
 		client->mailbox = NULL;
-		if (!box->close(box)) {
+		if (mailbox_close(box) < 0) {
 			client_send_untagged_storage_error(client,
-							   box->storage);
+				mailbox_get_storage(box));
 		}
 	}
 
@@ -31,17 +31,18 @@ int _cmd_select_full(struct client *client, int readonly)
 	flags = mailbox_open_flags;
 	if (readonly)
 		flags |= MAILBOX_OPEN_READONLY;
-	box = storage->open_mailbox(storage, mailbox, flags);
+	box = mailbox_open(storage, mailbox, flags);
 	if (box == NULL) {
 		client_send_storage_error(client, storage);
 		return TRUE;
 	}
 
-	if (!box->get_status(box, STATUS_MESSAGES | STATUS_RECENT |
-			     STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
-			     STATUS_UIDNEXT | STATUS_CUSTOM_FLAGS, &status)) {
+	if (mailbox_get_status(box, STATUS_MESSAGES | STATUS_RECENT |
+			       STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
+			       STATUS_UIDNEXT | STATUS_CUSTOM_FLAGS,
+			       &status) < 0) {
 		client_send_storage_error(client, storage);
-		box->close(box);
+		mailbox_close(box);
 		return TRUE;
 	}
 
@@ -80,13 +81,13 @@ int _cmd_select_full(struct client *client, int readonly)
 				 "Disk space is full, delete some messages.");
 	}
 
-	client_send_tagline(client, box->is_readonly(box) ?
+	client_send_tagline(client, mailbox_is_readonly(box) ?
 			    "OK [READ-ONLY] Select completed." :
 			    "OK [READ-WRITE] Select completed.");
 
 	if (mailbox_check_interval != 0) {
-		box->auto_sync(box, MAILBOX_SYNC_FLAG_NO_EXPUNGES,
-			       mailbox_check_interval);
+		mailbox_auto_sync(box, MAILBOX_SYNC_FLAG_NO_EXPUNGES,
+				  mailbox_check_interval);
 	}
 
 	return TRUE;

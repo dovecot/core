@@ -48,6 +48,7 @@ liblib_a_SOURCES = \
 	printf-upper-bound.c \
 	process-title.c \
 	randgen.c \
+	read-full.c \
 	restrict-access.c \
 	restrict-process-size.c \
 	safe-memset.c \
@@ -102,6 +103,7 @@ noinst_HEADERS = \
 	printf-upper-bound.h \
 	process-title.h \
 	randgen.h \
+	read-full.h \
 	restrict-access.h \
 	restrict-process-size.h \
 	safe-memset.h \

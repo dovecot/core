@@ -142,34 +142,39 @@ static int cmd_noop(struct client *client, const char *args __attr_unused__)
 
 static int expunge_mails(struct client *client, struct mailbox *box)
 {
-	struct mail_expunge_context *ctx;
+	struct mail_search_arg search_arg;
+        struct mailbox_transaction_context *t;
+	struct mail_search_context *ctx;
 	struct mail *mail;
-	unsigned int i, j;
+	uint32_t i;
 	int failed = FALSE;
 
-	/* NOTE: if there's any external expunges, they'll get synced here.
-	   Currently we update only the deleted_bitmask[] so we don't end up
-	   expunging wrong messages, but message_sizes[] isn't updated. */
-	ctx = box->expunge_init(box, 0, TRUE);
-	if (ctx == NULL)
-		return FALSE;
+	memset(&search_arg, 0, sizeof(search_arg));
+	search_arg.type = SEARCH_ALL;
 
-	i = j = 0;
-	while ((mail = box->expunge_fetch_next(ctx)) != NULL) {
-		if ((client->deleted_bitmask[i] & (1 << j)) != 0) {
-			if (!mail->expunge(mail, ctx, NULL, FALSE)) {
+	t = mailbox_transaction_begin(box, FALSE);
+	ctx = mailbox_search_init(t, NULL, &search_arg, NULL,
+				  MAIL_FETCH_SIZE, NULL);
+	if (ctx == NULL) {
+		mailbox_transaction_rollback(t);
+		return FALSE;
+	}
+
+	while ((mail = mailbox_search_next(ctx)) != NULL) {
+		i = mail->seq-1;
+		if ((client->deleted_bitmask[i >> CHAR_BIT] &
+		     (1 << (i % CHAR_BIT))) != 0) {
+			if (mail->expunge(mail) < 0) {
 				failed = TRUE;
 				break;
 			}
 		}
-		if (++j == CHAR_BIT) {
-			j = 0; i++;
-		}
 	}
 
-	if (!box->expunge_deinit(ctx))
+	if (mailbox_search_deinit(ctx) < 0)
 		return FALSE;
 
+	mailbox_transaction_commit(t);
 	return !failed;
 }
 
@@ -257,24 +262,29 @@ static void fetch(struct client *client, unsigned int msgnum,
 		  uoff_t body_lines)
 {
 	struct mail_search_arg search_arg;
+        struct mail_search_seqset seqset;
+        struct mailbox_transaction_context *t;
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	struct istream *stream;
 
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_SET;
-	search_arg.value.str = dec2str(msgnum+1);
+	seqset.seq1 = seqset.seq2 = msgnum+1;
 
-	ctx = client->mailbox->search_init(client->mailbox, NULL,
-					   &search_arg, NULL,
-					   MAIL_FETCH_STREAM_HEADER |
-					   MAIL_FETCH_STREAM_BODY, NULL);
+	memset(&search_arg, 0, sizeof(search_arg));
+	search_arg.type = SEARCH_SEQSET;
+	search_arg.value.seqset = &seqset;
+
+	t = mailbox_transaction_begin(client->mailbox, FALSE);
+	ctx = mailbox_search_init(t, NULL, &search_arg, NULL,
+				  MAIL_FETCH_STREAM_HEADER |
+				  MAIL_FETCH_STREAM_BODY, NULL);
 	if (ctx == NULL) {
+		mailbox_transaction_rollback(t);
 		client_send_storage_error(client);
 		return;
 	}
 
-	mail = client->mailbox->search_next(ctx);
+	mail = mailbox_search_next(ctx);
 	stream = mail == NULL ? NULL : mail->get_stream(mail, NULL, NULL);
 	if (stream == NULL)
 		client_send_line(client, "-ERR Message not found.");
@@ -290,7 +300,8 @@ static void fetch(struct client *client, unsigned int msgnum,
 		client_send_line(client, ".");
 	}
 
-	(void)client->mailbox->search_deinit(ctx, NULL);
+	(void)mailbox_search_deinit(ctx);
+	(void)mailbox_transaction_commit(t);
 }
 
 static int cmd_retr(struct client *client, const char *args)
@@ -340,6 +351,8 @@ static int cmd_top(struct client *client, const char *args)
 static void list_uids(struct client *client, unsigned int message)
 {
 	struct mail_search_arg search_arg;
+	struct mail_search_seqset seqset;
+        struct mailbox_transaction_context *t;
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	int found = FALSE;
@@ -351,25 +364,28 @@ static void list_uids(struct client *client, unsigned int message)
 	if (message == 0)
 		search_arg.type = SEARCH_ALL;
 	else {
-		search_arg.type = SEARCH_SET;
-		search_arg.value.str = dec2str(message);
+		seqset.seq1 = seqset.seq2 = message;
+		search_arg.type = SEARCH_SEQSET;
+		search_arg.value.seqset = &seqset;
 	}
 
-	ctx = client->mailbox->search_init(client->mailbox, NULL,
-					   &search_arg, NULL, 0, NULL);
+	t = mailbox_transaction_begin(client->mailbox, FALSE);
+	ctx = mailbox_search_init(t, NULL, &search_arg, NULL, 0, NULL);
 	if (ctx == NULL) {
+		mailbox_transaction_rollback(t);
 		client_send_storage_error(client);
 		return;
 	}
 
-	while ((mail = client->mailbox->search_next(ctx)) != NULL) {
+	while ((mail = mailbox_search_next(ctx)) != NULL) {
 		client_send_line(client, message == 0 ?
 				 "%u %u.%u" : "+OK %u %u.%u",
 				 mail->seq, client->uidvalidity, mail->uid);
 		found = TRUE;
 	}
 
-	(void)client->mailbox->search_deinit(ctx, NULL);
+	(void)mailbox_search_deinit(ctx);
+	(void)mailbox_transaction_commit(t);
 
 	if (!found && message != 0)
 		client_send_line(client, "-ERR Message not found.");

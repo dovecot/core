@@ -70,6 +70,7 @@ struct node {
 
 struct thread_context {
 	struct mail_search_context *search_ctx;
+	struct mailbox_transaction_context *t;
 	struct mailbox *box;
 	struct ostream *output;
 
@@ -116,11 +117,14 @@ int imap_thread(struct client *client, const char *charset,
 	ctx = t_new(struct thread_context, 1);
 
 	/* initialize searching */
-	ctx->search_ctx = client->mailbox->
-		search_init(client->mailbox, charset, args, NULL,
-			    MAIL_FETCH_DATE, wanted_headers);
-	if (ctx->search_ctx == NULL)
+	ctx->t = mailbox_transaction_begin(client->mailbox, FALSE);
+	ctx->search_ctx =
+		mailbox_search_init(ctx->t, charset, args, NULL,
+				    MAIL_FETCH_DATE, wanted_headers);
+	if (ctx->search_ctx == NULL) {
+		mailbox_transaction_rollback(ctx->t);
 		return FALSE;
+	}
 
 	ctx->box = client->mailbox;
 	ctx->output = client->output;
@@ -135,16 +139,17 @@ int imap_thread(struct client *client, const char *charset,
 				      (hash_cmp_callback_t *)strcmp);
 
 	ctx->id_is_uid = client->cmd_uid;
-	while ((mail = client->mailbox->search_next(ctx->search_ctx)) != NULL)
+	while ((mail = mailbox_search_next(ctx->search_ctx)) != NULL)
 		mail_thread_input(ctx, mail);
 
 	o_stream_send_str(client->output, "* THREAD");
 	mail_thread_finish(ctx);
 	o_stream_send_str(client->output, "\r\n");
 
-	ret = client->mailbox->search_deinit(ctx->search_ctx, NULL);
+	ret = mailbox_search_deinit(ctx->search_ctx);
+	mailbox_transaction_rollback(ctx->t);
         mail_thread_deinit(ctx);
-	return ret;
+	return ret == 0;
 }
 
 static void add_root(struct thread_context *ctx, struct node *node)
@@ -651,6 +656,7 @@ static void gather_base_subjects(struct thread_context *ctx)
 	struct mail *mail;
 	struct node *node;
 	unsigned int id;
+	uint32_t seq;
 
 	ctx->subject_hash =
 		hash_create(default_pool, ctx->temp_pool, ctx->root_count * 2,
@@ -668,10 +674,14 @@ static void gather_base_subjects(struct thread_context *ctx)
 			node->u.info->sorted = TRUE;
 		}
 
-		if (ctx->id_is_uid)
-			mail = ctx->box->fetch_uid(ctx->box, id, 0);
-		else
-			mail = ctx->box->fetch_seq(ctx->box, id, 0);
+		if (!ctx->id_is_uid)
+			seq = id;
+		else {
+			if (mailbox_get_uids(ctx->box, id, id, &seq, &seq) < 0)
+				seq = 0;
+		}
+
+		mail = seq == 0 ? NULL : mailbox_fetch(ctx->t, seq, 0);
 
 		if (mail != NULL) {
 			t_push();

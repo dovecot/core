@@ -1,7 +1,7 @@
 #ifndef __PROXY_MAIL_STORAGE_H
 #define __PROXY_MAIL_STORAGE_H
 
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 
 struct proxy_mail_storage {
 	struct mail_storage proxy_storage;

@@ -707,6 +707,7 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 	} else {
 		/* new header line */
 		line->continued = FALSE;
+                line->name_offset = ctx->input->v_offset;
 	}
 
 	for (;;) {
@@ -773,6 +774,10 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 				if (msg[i] <= ':') {
 					if (msg[i] == ':') {
 						colon_pos = i;
+						// FIXME: correct?
+						line->full_value_offset =
+							ctx->input->v_offset +
+							i + 1;
 						break;
 					}
 					if (msg[i] == '\n') {

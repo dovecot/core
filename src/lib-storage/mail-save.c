@@ -4,7 +4,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "message-parser.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mail-save.h"
 
 static int write_with_crlf(struct ostream *output, const void *v_data,
@@ -94,16 +94,14 @@ static int save_headers(struct istream *input, struct ostream *output,
 {
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
-	int ret, failed = FALSE;
+	int ret = 0;
 
 	hdr_ctx = message_parse_header_init(input, NULL);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
 		ret = header_callback(hdr->name, write_func, context);
 		if (ret <= 0) {
-			if (ret < 0) {
-				failed = TRUE;
+			if (ret < 0)
 				break;
-			}
 			continue;
 		}
 
@@ -118,16 +116,17 @@ static int save_headers(struct istream *input, struct ostream *output,
 				write_func(output, "\n", 1);
 		}
 	}
-	if (!failed) {
+
+	if (ret >= 0) {
 		if (header_callback(NULL, write_func, context) < 0)
-			failed = TRUE;
+			ret = -1;
 
 		/* end of headers */
 		write_func(output, "\n", 1);
 	}
 	message_parse_header_deinit(hdr_ctx);
 
-	return !failed;
+	return ret < 0 ? -1 : 0;
 }
 
 int mail_storage_save(struct mail_storage *storage, const char *path,
@@ -143,9 +142,9 @@ int mail_storage_save(struct mail_storage *storage, const char *path,
 	write_func = crlf ? write_with_crlf : write_with_lf;
 
 	if (header_callback != NULL) {
-		if (!save_headers(input, output, header_callback,
-				  context, write_func))
-			return FALSE;
+		if (save_headers(input, output, header_callback,
+				 context, write_func) < 0)
+			return -1;
 	}
 
 	failed = FALSE;
@@ -186,5 +185,19 @@ int mail_storage_save(struct mail_storage *storage, const char *path,
 		}
 	}
 
-	return !failed;
+	return failed ? -1 : 0;
+}
+
+int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail)
+{
+	struct istream *input;
+
+	input = mail->get_stream(mail, NULL, NULL);
+	if (input == NULL)
+		return -1;
+
+	return mailbox_save(t, mail->get_flags(mail),
+			    mail->get_received_date(mail), 0,
+			    mail->get_special(mail, MAIL_FETCH_FROM_ENVELOPE),
+			    input);
 }

@@ -3,7 +3,7 @@ noinst_LIBRARIES = libstorage_subscription_file.a
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-storage \
-	-I$(top_srcdir)/src/lib-imap
+	-I$(top_srcdir)/src/lib-mail
 
 libstorage_subscription_file_a_SOURCES = \
 	subscription-file.c

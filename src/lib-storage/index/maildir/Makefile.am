@@ -11,10 +11,15 @@ INCLUDES = \
 
 libstorage_maildir_a_SOURCES = \
 	maildir-copy.c \
-	maildir-expunge.c \
 	maildir-list.c \
+	maildir-mail.c \
 	maildir-save.c \
-	maildir-storage.c
+	maildir-storage.c \
+	maildir-sync.c \
+	maildir-transaction.c \
+	maildir-uidlist.c \
+	maildir-util.c
 
 noinst_HEADERS = \
-	maildir-storage.h
+	maildir-storage.h \
+	maildir-uidlist.h

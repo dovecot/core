@@ -65,6 +65,7 @@ imap_SOURCES = \
 	imap-expunge.c \
 	imap-fetch.c \
 	imap-fetch-body-section.c \
+	imap-messageset.c \
 	imap-search.c \
 	imap-sort.c \
 	imap-thread.c \
@@ -80,6 +81,7 @@ noinst_HEADERS = \
 	common.h \
 	imap-expunge.h \
 	imap-fetch.h \
+	imap-messageset.h \
 	imap-search.h \
 	imap-sort.h \
 	imap-thread.h \

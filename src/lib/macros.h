@@ -21,6 +21,11 @@
 #define MEM_ALIGN(size) \
 	(((size) + MEM_ALIGN_SIZE-1) & ~((unsigned int) MEM_ALIGN_SIZE-1))
 
+#define PTR_OFFSET(ptr, offset) \
+	((void *) (((unsigned char *) (ptr)) + (offset)))
+#define CONST_PTR_OFFSET(ptr, offset) \
+	((const void *) (((const unsigned char *) (ptr)) + (offset)))
+
 /* Don't use simply MIN/MAX, as they're often defined elsewhere in include
    files that are included after this file generating tons of warnings. */
 #define I_MIN(a, b)  (((a) < (b)) ? (a) : (b))

@@ -152,7 +152,8 @@ static ssize_t _read(struct _istream *stream)
 		}
 		if (ret == 0) {
 			/* EOF */
-			stream->istream.eof = TRUE;
+			if (!fstream->file)
+				stream->istream.eof = TRUE;
 			return -1;
 		}
 

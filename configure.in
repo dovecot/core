@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 0.99.11-test4)
+AM_INIT_AUTOMAKE(dovecot, 1.0-test1)
 
 AM_MAINTAINER_MODE
 
@@ -195,7 +195,7 @@ AM_CONDITIONAL(BUILD_POP3D, test "$want_pop3d" = "yes")
 AC_ARG_WITH(storages,
 [  --with-storages         Build specified mail storage formats (maildir,mbox)], [
 	mail_storages=`echo "$withval"|sed 's/,/ /g'` ],
-	mail_storages="maildir mbox")
+	mail_storages="maildir")
 
 dnl * gcc specific options
 if test "x$ac_cv_prog_gcc" = "xyes"; then
@@ -1116,8 +1116,8 @@ dnl **
 dnl ** storage classes
 dnl **
 
-maildir_libs="../lib-storage/index/maildir/libstorage_maildir.a ../lib-index/maildir/libindex_maildir.a"
-mbox_libs="../lib-storage/index/mbox/libstorage_mbox.a ../lib-index/mbox/libindex_mbox.a"
+maildir_libs="../lib-storage/index/maildir/libstorage_maildir.a"
+mbox_libs="../lib-storage/index/mbox/libstorage_mbox.a"
 index_libs="../lib-storage/index/libstorage_index.a ../lib-index/libindex.a"
 
 STORAGE_LIBS=
@@ -1146,8 +1146,6 @@ src/lib-auth/Makefile
 src/lib-charset/Makefile
 src/lib-imap/Makefile
 src/lib-index/Makefile
-src/lib-index/maildir/Makefile
-src/lib-index/mbox/Makefile
 src/lib-mail/Makefile
 src/lib-settings/Makefile
 src/lib-storage/Makefile

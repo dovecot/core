@@ -61,7 +61,8 @@ static const char *_get_special(struct mail *mail, enum mail_fetch_field field)
 	return p->mail->get_special(p->mail, field);
 }
 
-static int _update_flags(struct mail *mail, const struct mail_full_flags *flags,
+static int _update_flags(struct mail *mail,
+			 const struct mail_full_flags *flags,
 			 enum modify_type modify_type)
 {
 	struct proxy_mail *p = (struct proxy_mail *) mail;
@@ -69,12 +70,11 @@ static int _update_flags(struct mail *mail, const struct mail_full_flags *flags,
 	return p->mail->update_flags(p->mail, flags, modify_type);
 }
 
-static int _expunge(struct mail *mail, struct mail_expunge_context *ctx,
-		    unsigned int *seq_r, int notify)
+static int _expunge(struct mail *mail)
 {
 	struct proxy_mail *p = (struct proxy_mail *) mail;
 
-	return p->mail->expunge(p->mail, ctx, seq_r, notify);
+	return p->mail->expunge(p->mail);
 }
 
 void proxy_mail_init(struct proxy_mail *proxy, struct mail *mail)

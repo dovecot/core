@@ -1,250 +1,89 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ioloop.h"
 #include "index-storage.h"
-#include "mail-index-util.h"
-#include "mail-modifylog.h"
-#include "mail-custom-flags.h"
-
-/* How often to do full sync when fast sync flag is set. */
-#define MAILBOX_FULL_SYNC_INTERVAL 5
-
-static void index_storage_sync_size(struct index_mailbox *ibox)
-{
-	struct mail_storage *storage = ibox->box.storage;
-	unsigned int messages, recent;
-
-	if (storage->callbacks->new_messages == NULL)
-		return;
-
-	messages = ibox->index->get_header(ibox->index)->messages_count;
-	messages += mail_modifylog_get_expunge_count(ibox->index->modifylog);
-
-	if (messages != ibox->synced_messages_count) {
-		i_assert(messages > ibox->synced_messages_count);
-
-		/* new messages in mailbox */
-		recent = index_storage_get_recent_count(ibox->index);
-		storage->callbacks->new_messages(&ibox->box, messages, recent,
-						 storage->callback_context);
-		ibox->synced_messages_count = messages;
-	}
-}
-
-int index_storage_sync_and_lock(struct index_mailbox *ibox,
-				int sync_size, int minimal_sync,
-				enum mail_lock_type data_lock_type)
-{
-	struct mail_storage *storage = ibox->box.storage;
-	struct mail_index *index = ibox->index;
-	int failed, changes, set_shared_lock;
-
-        set_shared_lock = ibox->index->lock_type != MAIL_LOCK_EXCLUSIVE;
-
-        index_storage_init_lock_notify(ibox);
-	failed = !index->sync_and_lock(index, minimal_sync,
-				       data_lock_type, &changes);
-	ibox->index->set_lock_notify_callback(ibox->index, NULL, NULL);
-
-	if (!failed) {
-		/* reset every time it has worked */
-		ibox->sent_diskspace_warning = FALSE;
-	} else {
-		if (index->get_last_error(index) !=
-		    MAIL_INDEX_ERROR_DISKSPACE) {
-			(void)index_storage_lock(ibox, MAIL_LOCK_UNLOCK);
-			return mail_storage_set_index_error(ibox);
-		}
-
-		/* notify client once about it */
-		if (!ibox->sent_diskspace_warning &&
-		    storage->callbacks->alert_no_diskspace != NULL) {
-			ibox->sent_diskspace_warning = TRUE;
-			storage->callbacks->alert_no_diskspace(
-				&ibox->box, storage->callback_context);
-		}
-
-		index_reset_error(index);
-	}
-
-	if (set_shared_lock) {
-		/* just make sure we are locked, and that we drop our
-		   exclusive lock if it wasn't wanted originally */
-		if (!index_storage_lock(ibox, MAIL_LOCK_SHARED)) {
-			(void)index_storage_lock(ibox, MAIL_LOCK_UNLOCK);
-			return FALSE;
-		}
-	}
-
-	/* notify about changes in mailbox size. */
-	if (!changes)
-		return TRUE; /* no changes - must be no new mail either */
-
-	if (sync_size)
-		index_storage_sync_size(ibox);
-
-	/* notify changes in custom flags */
-	if (mail_custom_flags_has_changes(index->custom_flags) &&
-	    storage->callbacks->new_custom_flags != NULL) {
-		storage->callbacks->new_custom_flags(&ibox->box,
-                	mail_custom_flags_list_get(index->custom_flags),
-			MAIL_CUSTOM_FLAGS_COUNT, storage->callback_context);
-	}
-
-	return TRUE;
-}
-
-int index_storage_sync_modifylog(struct index_mailbox *ibox, int hide_deleted)
-{
-	const struct modify_log_record *log1, *log2, *log, *first_flag_log;
-	struct mail_index_record *rec;
-	struct mail_full_flags flags;
-        struct mail_storage_callbacks *sc;
-	void *sc_context;
-	unsigned int count1, count2, total_count, seq, seq_count, i, messages;
-	unsigned int first_flag_change, first_flag_messages_count;
-
-	/* show the log */
-	if (!mail_modifylog_get_nonsynced(ibox->index->modifylog,
-					  &log1, &count1, &log2, &count2))
-		return mail_storage_set_index_error(ibox);
-
-	sc = ibox->box.storage->callbacks;
-	sc_context = ibox->box.storage->callback_context;
-
-	/* first show expunges. this makes it easier to deal with sequence
-	   numbers. */
-	total_count = count1 + count2;
-	messages = ibox->synced_messages_count;
-	first_flag_change = total_count;
-	first_flag_log = NULL;
-        first_flag_messages_count = 0;
-
-	for (i = 0, log = log1; i < total_count; i++, log++) {
-		if (i == count1)
-			log = log2;
-
-		if (log->seq1 > messages) {
-			/* client doesn't know about this message yet */
-			continue;
-		}
-
-		switch (log->type) {
-		case RECORD_TYPE_EXPUNGE:
-			seq_count = (log->seq2 - log->seq1) + 1;
-			messages -= seq_count;
-
-			if (sc->expunge == NULL)
-				break;
-
-			for (; seq_count > 0; seq_count--) {
-				sc->expunge(&ibox->box, log->seq1,
-					    sc_context);
-			}
-			break;
-		case RECORD_TYPE_FLAGS_CHANGED:
-			if (first_flag_change == total_count) {
-				first_flag_change = i;
-				first_flag_log = log;
-				first_flag_messages_count = messages;
-			}
-			break;
-		}
-	}
-
-	/* set synced messages count before flag changes break it */
-	ibox->synced_messages_count = messages;
-
-	/* now show the flags */
-	messages = first_flag_messages_count;
-	flags.custom_flags =
-		mail_custom_flags_list_get(ibox->index->custom_flags);
-	flags.custom_flags_count = MAIL_CUSTOM_FLAGS_COUNT;
-
-	if (sc->update_flags == NULL) {
-		/* don't bother going through, we're not printing them anyway */
-		total_count = 0;
-	}
-
-	log = first_flag_log;
-	for (i = first_flag_change; i < total_count; i++, log++) {
-		if (i == count1)
-			log = log2;
-
-		if (log->seq1 > messages) {
-			/* client doesn't know about this message yet */
-			continue;
-		}
-
-		switch (log->type) {
-		case RECORD_TYPE_EXPUNGE:
-			messages -= (log->seq2 - log->seq1) + 1;
-			break;
-		case RECORD_TYPE_FLAGS_CHANGED:
-			rec = ibox->index->lookup_uid_range(ibox->index,
-							    log->uid1,
-							    log->uid2, &seq);
-			while (rec != NULL && rec->uid <= log->uid2) {
-				flags.flags = rec->msg_flags;
-				if (rec->uid >= ibox->index->first_recent_uid)
-					flags.flags |= MAIL_RECENT;
-
-				/* \Deleted-hiding is useful when syncing just
-				   before doing EXPUNGE. */
-				if ((flags.flags & MAIL_DELETED) == 0 ||
-				    !hide_deleted) {
-					sc->update_flags(&ibox->box, seq,
-							 rec->uid, &flags,
-							 sc_context);
-				}
-
-                                seq++;
-				rec = ibox->index->next(ibox->index, rec);
-			}
-			break;
-		}
-	}
-
-	/* mark synced */
-	if (!mail_modifylog_mark_synced(ibox->index->modifylog))
-		return mail_storage_set_index_error(ibox);
-
-	return TRUE;
-}
 
 int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *) box;
-	int ret;
+	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	struct mail_index_view_sync_ctx *ctx;
+        struct mail_full_flags full_flags;
+	const struct mail_index_record *rec;
+	struct mail_index_sync_rec sync;
+	struct mail_storage_callbacks *sc;
+	const uint32_t *expunges;
+	size_t i, expunges_count;
+	void *sc_context;
+	enum mail_index_sync_type sync_mask;
+	uint32_t seq, new_count;
+	int ret, appends;
 
-	if ((flags & MAILBOX_SYNC_FAST) == 0 ||
-	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
-		ibox->sync_last_check = ioloop_time;
+	sync_mask = MAIL_INDEX_SYNC_MASK_ALL;
+	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0)
+		sync_mask &= ~MAIL_INDEX_SYNC_TYPE_EXPUNGE;
 
-		if (!index_storage_sync_and_lock(ibox, FALSE, FALSE,
-						 MAIL_LOCK_UNLOCK))
-			return FALSE;
+	if (mail_index_view_sync_begin(ibox->view, sync_mask, &ctx) < 0) {
+                mail_storage_set_index_error(ibox);
+		return -1;
+	}
+
+	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0) {
+		expunges_count = 0;
+		expunges = NULL;
 	} else {
-		/* check only modify log */
-		if (!index_storage_lock(ibox, MAIL_LOCK_SHARED)) {
-			(void)index_storage_lock(ibox, MAIL_LOCK_UNLOCK);
-			return FALSE;
+		expunges =
+			mail_index_view_sync_get_expunges(ctx, &expunges_count);
+	}
+
+	sc = ibox->storage->callbacks;
+	sc_context = ibox->storage->callback_context;
+	appends = FALSE;
+
+	memset(&full_flags, 0, sizeof(full_flags));
+	while ((ret = mail_index_view_sync_next(ctx, &sync)) > 0) {
+		switch (sync.type) {
+		case MAIL_INDEX_SYNC_TYPE_APPEND:
+			appends = TRUE;
+			break;
+		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
+			/* later */
+			break;
+		case MAIL_INDEX_SYNC_TYPE_FLAGS:
+			if (sc->update_flags == NULL)
+				break;
+
+			/* FIXME: hide the flag updates for expunged messages */
+			for (seq = sync.seq1; seq <= sync.seq2; seq++) {
+				if (mail_index_lookup(ibox->view,
+						      seq, &rec) < 0) {
+					ret = -1;
+					break;
+				}
+				full_flags.flags = rec->flags; // FIXME
+				sc->update_flags(&ibox->box, seq,
+						 &full_flags, sc_context);
+			}
+			break;
 		}
 	}
 
-	/* FIXME: we could sync flags always, but expunges in the middle
-	   could make it a bit more difficult and slower */
-	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) == 0 ||
-	    mail_modifylog_get_expunge_count(ibox->index->modifylog) == 0)
-		ret = index_storage_sync_modifylog(ibox, FALSE);
-	else
-		ret = TRUE;
+	if (sc->expunge != NULL) {
+		for (i = expunges_count*2; i > 0; i -= 2) {
+			for (seq = expunges[i-1]; seq >= expunges[i-2]; seq--)
+				sc->expunge(&ibox->box, seq, sc_context);
+		}
+	}
 
-	index_storage_sync_size(ibox);
+	mail_index_view_sync_end(ctx);
 
-	if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
-		return FALSE;
+	if (appends) {
+		new_count = mail_index_view_get_message_count(ibox->view);
+		sc->new_messages(&ibox->box, new_count, 0, sc_context);
+	}
 
+	if (ret < 0)
+		mail_storage_set_index_error(ibox);
+
+	mail_index_view_unlock(ibox->view);
 	return ret;
 }

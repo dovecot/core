@@ -5,39 +5,73 @@
 #define MAILDIR_FS_SEP '.'
 #define MAILDIR_FS_SEP_S "."
 
+#define SUBSCRIPTION_FILE_NAME "subscriptions"
+#define MAILDIR_INDEX_PREFIX "dovecot.index"
+
 #include "index-storage.h"
 
-struct mail_copy_context *maildir_storage_copy_init(struct mailbox *box);
-int maildir_storage_copy_deinit(struct mail_copy_context *ctx, int rollback);
-int maildir_storage_copy(struct mail *mail, struct mail_copy_context *ctx);
+struct maildir_save_context;
+struct maildir_copy_context;
 
-struct mail_save_context *
-maildir_storage_save_init(struct mailbox *box, int transaction);
-int maildir_storage_save_deinit(struct mail_save_context *ctx, int rollback);
-int maildir_storage_save_next(struct mail_save_context *ctx,
-			      const struct mail_full_flags *flags,
-			      time_t received_date, int timezone_offset,
-			      struct istream *data);
+struct maildir_transaction_context {
+	struct index_transaction_context ictx;
+	struct maildir_save_context *save_ctx;
+	struct maildir_copy_context *copy_ctx;
+};
+
+extern struct mail maildir_mail;
+
+/* Return -1 = error, 0 = file not found, 1 = ok */
+typedef int maildir_file_do_func(struct index_mailbox *ibox,
+				 const char *path, void *context);
+
+int maildir_file_do(struct index_mailbox *ibox, uint32_t seq,
+		    maildir_file_do_func *func, void *context);
+const char *maildir_generate_tmp_filename(const struct timeval *tv);
+int maildir_create_tmp(struct index_mailbox *ibox, const char *dir,
+		       mode_t mode, const char **fname_r);
 
 struct mailbox_list_context *
-maildir_list_mailbox_init(struct mail_storage *storage,
+maildir_mailbox_list_init(struct mail_storage *storage,
 			  const char *mask, enum mailbox_list_flags flags);
-int maildir_list_mailbox_deinit(struct mailbox_list_context *ctx);
+int maildir_mailbox_list_deinit(struct mailbox_list_context *ctx);
 struct mailbox_list *
-maildir_list_mailbox_next(struct mailbox_list_context *ctx);
+maildir_mailbox_list_next(struct mailbox_list_context *ctx);
 
-struct mail_expunge_context *
-maildir_storage_expunge_init(struct mailbox *box,
-			     enum mail_fetch_field wanted_fields,
-			     int expunge_all);
-int maildir_storage_expunge_deinit(struct mail_expunge_context *ctx);
-struct mail *
-maildir_storage_expunge_fetch_next(struct mail_expunge_context *ctx);
-int maildir_storage_expunge(struct mail *mail, struct mail_expunge_context *ctx,
-			    unsigned int *seq_r, int notify);
+int maildir_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
+int maildir_storage_sync_readonly(struct index_mailbox *ibox);
 
-const char *maildir_fix_mailbox_name(struct mail_storage *storage,
+struct mailbox_transaction_context *
+maildir_transaction_begin(struct mailbox *box, int hide);
+int maildir_transaction_commit(struct mailbox_transaction_context *t);
+void maildir_transaction_rollback(struct mailbox_transaction_context *t);
+
+int maildir_save(struct mailbox_transaction_context *t,
+		 const struct mail_full_flags *flags,
+		 time_t received_date, int timezone_offset,
+		 const char *from_envelope, struct istream *data);
+int maildir_save_commit(struct maildir_save_context *ctx);
+void maildir_save_rollback(struct maildir_save_context *ctx);
+
+int maildir_copy(struct mailbox_transaction_context *t, struct mail *mail);
+int maildir_copy_commit(struct maildir_copy_context *ctx);
+void maildir_copy_rollback(struct maildir_copy_context *ctx);
+
+int maildir_storage_expunge(struct mail *mail,
+			    struct mailbox_transaction_context *t);
+
+const char *maildir_fix_mailbox_name(struct index_storage *storage,
 				     const char *name, int remove_namespace);
-const char *maildir_get_path(struct mail_storage *storage, const char *name);
+const char *maildir_get_path(struct index_storage *storage, const char *name);
+
+int maildir_sync_last_commit(struct index_mailbox *ibox);
+
+int maildir_filename_get_flags(const char *fname, enum mail_flags *flags_r,
+			       custom_flags_mask_t custom_flags_r);
+const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
+				       custom_flags_mask_t custom_flags);
+
+unsigned int maildir_hash(const void *p);
+int maildir_cmp(const void *p1, const void *p2);
 
 #endif

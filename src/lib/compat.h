@@ -81,6 +81,11 @@ int my_getpagesize(void);
 #  define fdatasync fsync
 #endif
 
+struct const_iovec {
+	const void *iov_base;
+	size_t iov_len;
+};
+
 #ifndef HAVE_STRUCT_IOVEC
 struct iovec {
 	void *iov_base;

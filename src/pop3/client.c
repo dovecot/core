@@ -41,14 +41,15 @@ static void client_output_timeout(void *context)
 static int init_mailbox(struct client *client)
 {
 	struct mail_search_arg search_arg;
+        struct mailbox_transaction_context *t;
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	struct mailbox_status status;
-	int i, all_found, failed;
+	int i, failed;
 
-	if (!client->mailbox->get_status(client->mailbox,
-					 STATUS_MESSAGES | STATUS_UIDVALIDITY,
-					 &status)) {
+	if (mailbox_get_status(client->mailbox,
+			       STATUS_MESSAGES | STATUS_UIDVALIDITY,
+			       &status) < 0) {
 		client_send_storage_error(client);
 		return FALSE;
 	}
@@ -62,19 +63,21 @@ static int init_mailbox(struct client *client)
 	memset(&search_arg, 0, sizeof(search_arg));
 	search_arg.type = SEARCH_ALL;
 
+	t = mailbox_transaction_begin(client->mailbox, FALSE);
+
 	client->message_sizes = i_new(uoff_t, client->messages_count);
 	for (i = 0; i < 2; i++) {
-		ctx = client->mailbox->search_init(client->mailbox, NULL,
-						   &search_arg, NULL,
-						   MAIL_FETCH_SIZE, NULL);
+		ctx = mailbox_search_init(t, NULL, &search_arg, NULL,
+					  MAIL_FETCH_SIZE, NULL);
 		if (ctx == NULL) {
 			client_send_storage_error(client);
+                        mailbox_transaction_rollback(t);
 			return FALSE;
 		}
 
 		client->total_size = 0;
 		failed = FALSE;
-		while ((mail = client->mailbox->search_next(ctx)) != NULL) {
+		while ((mail = mailbox_search_next(ctx)) != NULL) {
 			uoff_t size = mail->get_size(mail);
 
 			if (size == (uoff_t)-1) {
@@ -87,20 +90,23 @@ static int init_mailbox(struct client *client)
 			client->message_sizes[mail->seq-1] = size;
 		}
 
-		if (!client->mailbox->search_deinit(ctx, &all_found)) {
+		if (mailbox_search_deinit(ctx) < 0) {
 			client_send_storage_error(client);
+                        mailbox_transaction_rollback(t);
 			return FALSE;
 		}
 
-		if (!failed && all_found)
+		if (!failed)
 			return TRUE;
 
 		/* well, sync and try again */
-		if (!client->mailbox->sync(client->mailbox, TRUE)) {
+		if (mailbox_sync(client->mailbox, 0) < 0) {
 			client_send_storage_error(client);
+                        mailbox_transaction_rollback(t);
 			return FALSE;
 		}
 	}
+	mailbox_transaction_commit(t);
 
 	client_send_line(client, "-ERR [IN-USE] Couldn't sync mailbox.");
 	return FALSE;
@@ -124,11 +130,11 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
         client->last_input = ioloop_time;
 	client->storage = storage;
 
-	storage->set_callbacks(storage, &mail_storage_callbacks, client);
+	mail_storage_set_callbacks(storage, &mail_storage_callbacks, client);
 
 	flags = getenv("MMAP_INVALIDATE") != NULL ?
 		MAILBOX_OPEN_MMAP_INVALIDATE : 0;
-	client->mailbox = storage->open_mailbox(storage, "INBOX", flags);
+	client->mailbox = mailbox_open(storage, "INBOX", flags);
 	if (client->mailbox == NULL) {
 		client_send_line(client, "-ERR No INBOX for user.");
 		return NULL;
@@ -152,7 +158,7 @@ void client_destroy(struct client *client)
 	o_stream_flush(client->output);
 
 	if (client->mailbox != NULL)
-		client->mailbox->close(client->mailbox);
+		mailbox_close(client->mailbox);
 	mail_storage_destroy(client->storage);
 
 	i_free(client->message_sizes);
@@ -195,14 +201,14 @@ void client_send_storage_error(struct client *client)
 {
 	const char *error;
 
-	if (client->mailbox->is_inconsistency_error(client->mailbox)) {
+	if (mailbox_is_inconsistent(client->mailbox)) {
 		client_send_line(client, "-ERR Mailbox is in inconsistent "
 				 "state, please relogin.");
 		client_disconnect(client);
 		return;
 	}
 
-	error = client->storage->get_last_error(client->storage, NULL);
+	error = mail_storage_get_last_error(client->storage, NULL);
 	client_send_line(client, "-ERR %s", error != NULL ? error :
 			 "BUG: Unknown error");
 }

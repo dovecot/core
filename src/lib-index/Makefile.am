@@ -1,26 +1,34 @@
-SUBDIRS = maildir mbox
-
 noinst_LIBRARIES = libindex.a
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
-	-I$(top_srcdir)/src/lib-mail \
-	-I$(top_srcdir)/src/lib-imap
+	-I$(top_srcdir)/src/lib-mail
 
 libindex_a_SOURCES = \
-        mail-cache.c \
-	mail-custom-flags.c \
+	mail-cache.c \
+	mail-cache-lookup.c \
+	mail-cache-transaction.c \
         mail-index.c \
-        mail-index-file.c \
         mail-index-fsck.c \
-        mail-index-open.c \
-        mail-index-rebuild.c \
-        mail-index-util.c \
-	mail-modifylog.c
+        mail-index-lock.c \
+        mail-index-transaction.c \
+        mail-index-reset.c \
+        mail-index-sync.c \
+        mail-index-sync-update.c \
+        mail-index-view.c \
+        mail-index-view-sync.c \
+        mail-transaction-log.c \
+        mail-transaction-log-view.c \
+        mail-transaction-util.c
 
 noinst_HEADERS = \
-        mail-cache.h \
-	mail-custom-flags.h \
+	mail-cache.h \
+	mail-cache-private.h \
 	mail-index.h \
-        mail-index-util.h \
-	mail-modifylog.h
+	mail-index-private.h \
+	mail-index-sync-private.h \
+	mail-index-transaction-private.h \
+	mail-index-view-private.h \
+        mail-transaction-log.h \
+	mail-transaction-log-private.h \
+        mail-transaction-util.h

@@ -29,6 +29,7 @@
 
 struct sort_context {
 	struct mail_search_context *search_ctx;
+	struct mailbox_transaction_context *t;
 
 	enum mail_sort_type sort_program[MAX_SORT_PROGRAM_SIZE];
 	enum mail_sort_type common_mask, cache_mask;
@@ -209,7 +210,7 @@ int imap_sort(struct client *client, const char *charset,
 
 	/* remove the common part from sort program, we already know input is
 	   sorted that much so we don't have to worry about it. */
-	if (!client->mailbox->search_get_sorting(client->mailbox, norm_prog))
+	if (mailbox_search_get_sorting(client->mailbox, norm_prog) < 0)
 		return FALSE;
 	ctx->common_mask = mail_sort_get_common_mask(ctx->sort_program,
 						     norm_prog, &count);
@@ -223,11 +224,14 @@ int imap_sort(struct client *client, const char *charset,
 	wanted_fields = init_sort_elements(ctx, wanted_headers);
 
 	/* initialize searching */
-	ctx->search_ctx = client->mailbox->
-		search_init(client->mailbox, charset, args, norm_prog,
-			    wanted_fields, wanted_headers);
-	if (ctx->search_ctx == NULL)
+	ctx->t = mailbox_transaction_begin(client->mailbox, FALSE);
+	ctx->search_ctx =
+		mailbox_search_init(ctx->t, charset, args, norm_prog,
+				    wanted_fields, wanted_headers);
+	if (ctx->search_ctx == NULL) {
+		mailbox_transaction_rollback(ctx->t);
 		return FALSE;
+	}
 
 	ctx->box = client->mailbox;
 	ctx->output = client->output;
@@ -240,11 +244,13 @@ int imap_sort(struct client *client, const char *charset,
 
         ctx->id_is_uid = client->cmd_uid;
 
-	while ((mail = client->mailbox->search_next(ctx->search_ctx)) != NULL)
+	while ((mail = mailbox_search_next(ctx->search_ctx)) != NULL)
 		mail_sort_input(ctx, mail);
 
 	mail_sort_flush(ctx);
-	ret = client->mailbox->search_deinit(ctx->search_ctx, NULL);
+	ret = mailbox_search_deinit(ctx->search_ctx);
+
+	mailbox_transaction_rollback(ctx->t);
 
 	if (ctx->written || ret) {
 		str_append(ctx->str, "\r\n");
@@ -487,11 +493,15 @@ static struct sort_context *qsort_context;
 static struct mail *get_mail(struct sort_context *ctx, const unsigned char *buf)
 {
 	unsigned int id = *((unsigned int *) buf);
+	uint32_t seq;
 
-	if (ctx->id_is_uid)
-		return ctx->box->fetch_uid(ctx->box, id, 0);
-	else
-		return ctx->box->fetch_seq(ctx->box, id, 0);
+	if (!ctx->id_is_uid)
+		seq = id;
+	else {
+		if (mailbox_get_uids(ctx->box, id, id, &seq, &seq) < 0)
+			return NULL;
+	}
+	return mailbox_fetch(ctx->t, seq, 0);
 
 }
 

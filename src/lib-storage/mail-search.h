@@ -5,10 +5,9 @@ enum mail_search_arg_type {
 	SEARCH_OR,
 	SEARCH_SUB,
 
-	/* message sets */
+	/* sequence sets */
 	SEARCH_ALL,
-	SEARCH_SET,
-	SEARCH_UID,
+	SEARCH_SEQSET,
 
 	/* flags */
 	SEARCH_ANSWERED,
@@ -40,12 +39,18 @@ enum mail_search_arg_type {
 	SEARCH_TEXT
 };
 
+struct mail_search_seqset {
+	uint32_t seq1, seq2;
+        struct mail_search_seqset *next;
+};
+
 struct mail_search_arg {
 	struct mail_search_arg *next;
 
 	enum mail_search_arg_type type;
-	union {
+	struct {
 		struct mail_search_arg *subargs;
+                struct mail_search_seqset *seqset;
 		const char *str;
 	} value;
 

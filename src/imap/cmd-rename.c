@@ -29,10 +29,10 @@ int cmd_rename(struct client *client)
 		return TRUE;
 	}
 
-	if (old_storage->rename_mailbox(old_storage, oldname, newname))
-		client_send_tagline(client, "OK Rename completed.");
-	else
+	if (mail_storage_mailbox_rename(old_storage, oldname, newname) < 0)
 		client_send_storage_error(client, old_storage);
+	else
+		client_send_tagline(client, "OK Rename completed.");
 
 	return TRUE;
 }

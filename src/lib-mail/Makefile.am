@@ -19,6 +19,7 @@ libmail_a_SOURCES = \
 	quoted-printable.c
 
 noinst_HEADERS = \
+	mail-types.h \
 	message-address.h \
 	message-body-search.h \
 	message-content-parser.h \

@@ -1,33 +1,7 @@
 #ifndef __IMAP_UTIL_H
 #define __IMAP_UTIL_H
 
-enum modify_type {
-	MODIFY_ADD,
-	MODIFY_REMOVE,
-	MODIFY_REPLACE
-};
-
-enum mail_flags {
-	MAIL_ANSWERED		= 0x0000001,
-	MAIL_FLAGGED		= 0x0000002,
-	MAIL_DELETED		= 0x0000004,
-	MAIL_SEEN		= 0x0000008,
-	MAIL_DRAFT		= 0x0000010,
-	MAIL_RECENT		= 0x0000020,
-
-	/* rest of the bits are custom flags */
-	MAIL_CUSTOM_FLAG_1      = 0x0000040,
-
-	MAIL_SYSTEM_FLAGS_MASK	= 0x000003f,
-	MAIL_CUSTOM_FLAGS_MASK	= 0xfffffc0
-};
-
-struct mail_full_flags {
-	enum mail_flags flags;
-
-	const char **custom_flags;
-	unsigned int custom_flags_count;
-};
+struct mail_full_flags;
 
 /* growing number of flags isn't very easy. biggest problem is that they're
    stored into unsigned int, which is 32bit almost everywhere. another thing

@@ -11,7 +11,7 @@ int cmd_logout(struct client *client)
 		/* this could be done at client_disconnect() as well,
 		   but eg. mbox rewrite takes a while so the waiting is
 		   better to happen before "OK" message. */
-		client->mailbox->close(client->mailbox);
+		mailbox_close(client->mailbox);
 		client->mailbox = NULL;
 	}
 

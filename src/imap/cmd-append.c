@@ -48,7 +48,7 @@ int cmd_append(struct client *client)
 	struct mail_storage *storage;
 	struct mailbox *box;
 	struct mailbox_status status;
-	struct mail_save_context *ctx;
+        struct mailbox_transaction_context *t;
 	struct imap_parser *save_parser;
 	struct imap_arg *args;
 	struct imap_arg_list *flags_list;
@@ -72,16 +72,16 @@ int cmd_append(struct client *client)
 	if (storage == NULL)
 		return TRUE;
 
-	box = storage->open_mailbox(storage, mailbox,
-				    mailbox_open_flags | MAILBOX_OPEN_FAST);
+	box = mailbox_open(storage, mailbox,
+			   mailbox_open_flags | MAILBOX_OPEN_FAST);
 	if (box == NULL) {
 		client_send_storage_error(client, storage);
 		return TRUE;
 	}
 
-	if (!box->get_status(box, STATUS_CUSTOM_FLAGS, &status)) {
+	if (mailbox_get_status(box, STATUS_CUSTOM_FLAGS, &status) < 0) {
 		client_send_storage_error(client, storage);
-		box->close(box);
+		mailbox_close(box);
 		return TRUE;
 	}
 	memset(&old_flags, 0, sizeof(old_flags));
@@ -89,11 +89,7 @@ int cmd_append(struct client *client)
 	client_save_custom_flags(&old_flags, status.custom_flags,
 				 status.custom_flags_count);
 
-	ctx = box->save_init(box, TRUE);
-	if (ctx == NULL) {
-		client_send_storage_error(client, storage);
-		return TRUE;
-	}
+	t = mailbox_transaction_begin(box, FALSE);
 
 	/* if error occurs, the CRLF is already read. */
 	client->input_skip_line = FALSE;
@@ -159,8 +155,8 @@ int cmd_append(struct client *client)
 
 		if (internal_date_str == NULL) {
 			/* no time given, default to now. */
-			internal_date = ioloop_time;
-			timezone_offset = ioloop_timezone.tz_minuteswest;
+			internal_date = (time_t)-1;
+			timezone_offset = 0;
 		} else if (!imap_parse_datetime(internal_date_str,
 						&internal_date,
 						&timezone_offset)) {
@@ -184,8 +180,8 @@ int cmd_append(struct client *client)
 		input = i_stream_create_limit(default_pool, client->input,
 					      client->input->v_offset,
 					      msg_size);
-		if (!box->save_next(ctx, &flags, internal_date,
-				    timezone_offset, input)) {
+		if (mailbox_save(t, &flags, internal_date, timezone_offset,
+				 NULL, input) < 0) {
 			i_stream_unref(input);
 			client_send_storage_error(client, storage);
 			break;
@@ -199,15 +195,19 @@ int cmd_append(struct client *client)
 	}
         imap_parser_destroy(save_parser);
 
-	if (!box->save_deinit(ctx, failed)) {
-		failed = TRUE;
-		client_send_storage_error(client, storage);
+	if (failed)
+		mailbox_transaction_rollback(t);
+	else {
+		if (mailbox_transaction_commit(t) < 0) {
+			failed = TRUE;
+			client_send_storage_error(client, storage);
+		}
 	}
 
-	box->close(box);
+	mailbox_close(box);
 
 	if (!failed) {
-		client_sync_full_fast(client);
+		client_sync_full(client);
 		client_send_tagline(client, "OK Append completed.");
 	}
 	return TRUE;

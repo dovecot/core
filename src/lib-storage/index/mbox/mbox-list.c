@@ -1,5 +1,6 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
+#if 0
 #include "lib.h"
 #include "unlink-directory.h"
 #include "imap-match.h"
@@ -453,3 +454,4 @@ mbox_list_none(struct mailbox_list_context *ctx __attr_unused__)
 {
 	return NULL;
 }
+#endif

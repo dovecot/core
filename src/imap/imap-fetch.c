@@ -10,7 +10,7 @@
 #include "imap-date.h"
 #include "commands.h"
 #include "imap-fetch.h"
-#include "imap-search.h"
+#include "imap-util.h"
 
 #include <unistd.h>
 
@@ -43,10 +43,19 @@ static void fetch_uid(struct imap_fetch_context *ctx, struct mail *mail)
 static int fetch_flags(struct imap_fetch_context *ctx, struct mail *mail,
 		       const struct mail_full_flags *flags)
 {
+	struct mail_full_flags full_flags;
+
 	if (flags == NULL) {
 		flags = mail->get_flags(mail);
 		if (flags == NULL)
 			return FALSE;
+	}
+
+	if (ctx->update_seen) {
+		/* \Seen change isn't shown by get_flags() yet */
+		full_flags = *flags;
+		full_flags.flags |= MAIL_SEEN;
+		flags = &full_flags;
 	}
 
 	str_printfa(ctx->str, "FLAGS (%s) ", imap_write_flags(flags));
@@ -242,11 +251,9 @@ static int fetch_mail(struct imap_fetch_context *ctx, struct mail *mail)
 			return FALSE;
 
 		if ((flags->flags & MAIL_SEEN) == 0) {
-			if (!mail->update_flags(mail, &ctx->seen_flag,
-						MODIFY_ADD))
+			if (mail->update_flags(mail, &ctx->seen_flag,
+					       MODIFY_ADD) < 0)
 				return FALSE;
-
-			flags = NULL; /* \Seen won't update automatically */
 			seen_updated = TRUE;
 		}
 	}
@@ -328,17 +335,16 @@ int imap_fetch(struct client *client,
 	       enum mail_fetch_field fetch_data,
 	       enum imap_fetch_field imap_data,
 	       struct imap_fetch_body_data *bodies,
-	       const char *messageset, int uidset)
+	       struct mail_search_arg *search_args)
 {
 	struct mailbox *box = client->mailbox;
-	struct mail_search_arg *search_arg;
 	struct imap_fetch_context ctx;
+	struct mailbox_transaction_context *t;
 	struct mail *mail;
 	struct imap_fetch_body_data *body;
 	const char *null = NULL;
 	const char *const *wanted_headers, *const *arr;
 	buffer_t *buffer;
-	int all_found;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.fetch_data = fetch_data;
@@ -348,7 +354,7 @@ int imap_fetch(struct client *client,
 	ctx.select_counter = client->select_counter;
 	ctx.seen_flag.flags = MAIL_SEEN;
 
-	if (!box->is_readonly(box)) {
+	if (!mailbox_is_readonly(box)) {
 		/* If we have any BODY[..] sections, \Seen flag is added for
 		   all messages. */
 		for (body = bodies; body != NULL; body = body->next) {
@@ -383,19 +389,14 @@ int imap_fetch(struct client *client,
 	wanted_headers = !ctx.body_fetch_from_cache ? NULL :
 		buffer_get_data(buffer, NULL);
 
-	if (ctx.update_seen) {
-		if (!box->lock(box, MAILBOX_LOCK_FLAGS | MAILBOX_LOCK_READ))
-			return -1;
-	}
-
-	search_arg = imap_search_get_msgset_arg(messageset, uidset);
-	ctx.search_ctx = box->search_init(box, NULL, search_arg, NULL,
-					  fetch_data, wanted_headers);
+	t = mailbox_transaction_begin(box, TRUE);
+	ctx.search_ctx = mailbox_search_init(t, NULL, search_args, NULL,
+					     fetch_data, wanted_headers);
 	if (ctx.search_ctx == NULL)
 		ctx.failed = TRUE;
 	else {
 		ctx.str = str_new(default_pool, 8192);
-		while ((mail = box->search_next(ctx.search_ctx)) != NULL) {
+		while ((mail = mailbox_search_next(ctx.search_ctx)) != NULL) {
 			if (!fetch_mail(&ctx, mail)) {
 				ctx.failed = TRUE;
 				break;
@@ -403,11 +404,15 @@ int imap_fetch(struct client *client,
 		}
 		str_free(ctx.str);
 
-		if (!box->search_deinit(ctx.search_ctx, &all_found))
+		if (mailbox_search_deinit(ctx.search_ctx) < 0)
 			ctx.failed = TRUE;
 	}
 
-	(void)box->lock(box, MAILBOX_LOCK_UNLOCK);
-
-	return ctx.failed ? -1 : all_found;
+	if (ctx.failed)
+		mailbox_transaction_rollback(t);
+	else {
+		if (mailbox_transaction_commit(t) < 0)
+			ctx.failed = TRUE;
+	}
+	return ctx.failed ? -1 : 0;
 }

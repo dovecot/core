@@ -40,7 +40,7 @@ int imap_fetch(struct client *client,
 	       enum mail_fetch_field fetch_data,
 	       enum imap_fetch_field imap_data,
 	       struct imap_fetch_body_data *bodies,
-	       const char *messageset, int uidset);
+	       struct mail_search_arg *search_args);
 
 int imap_fetch_body_section(struct imap_fetch_context *ctx,
 			    const struct imap_fetch_body_data *body,

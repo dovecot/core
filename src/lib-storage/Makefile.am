@@ -20,6 +20,7 @@ noinst_HEADERS = \
 	mail-save.h \
 	mail-search.h \
 	mail-storage.h \
+	mail-storage-private.h \
 	mailbox-tree.h \
 	proxy-mail.h \
 	proxy-mail-storage.h \

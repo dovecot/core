@@ -10,21 +10,16 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib-storage
 
 libstorage_index_a_SOURCES = \
-	index-copy.c \
-	index-expunge.c \
 	index-fetch.c \
 	index-mail.c \
 	index-mail-headers.c \
 	index-mailbox-check.c \
-	index-messageset.c \
 	index-search.c \
 	index-status.c \
 	index-storage.c \
 	index-sync.c \
-	index-update-flags.c
+	index-transaction.c
 
 noinst_HEADERS = \
-	index-expunge.h \
 	index-mail.h \
-	index-messageset.h \
 	index-storage.h

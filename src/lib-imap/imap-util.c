@@ -2,12 +2,13 @@
 
 #include "lib.h"
 #include "str.h"
+#include "mail-types.h"
 #include "imap-util.h"
 
 const char *imap_write_flags(const struct mail_full_flags *flags)
 {
 	string_t *str;
-	const char *sysflags, *name;
+	const char *sysflags;
 	unsigned int i;
 
 	i_assert(flags->custom_flags_count <= MAIL_CUSTOM_FLAGS_COUNT);
@@ -27,12 +28,22 @@ const char *imap_write_flags(const struct mail_full_flags *flags)
 	if (*sysflags != '\0')
 		sysflags++;
 
-	if ((flags->flags & MAIL_CUSTOM_FLAGS_MASK) == 0)
+	if (flags->custom_flags_count == 0)
 		return sysflags;
 
 	/* we have custom flags too */
 	str = t_str_new(256);
 	str_append(str, sysflags);
+
+#if 1
+	for (i = 0; i < flags->custom_flags_count; i++) {
+		if (str_len(str) > 0)
+			str_append_c(str, ' ');
+		str_append(str, flags->custom_flags[i]);
+	}
+#else // FIXME
+	if ((flags->flags & MAIL_CUSTOM_FLAGS_MASK) == 0)
+		return sysflags;
 
 	for (i = 0; i < flags->custom_flags_count; i++) {
 		if (flags->flags & (1 << (i + MAIL_CUSTOM_FLAG_1_BIT))) {
@@ -44,6 +55,6 @@ const char *imap_write_flags(const struct mail_full_flags *flags)
 			}
 		}
 	}
-
+#endif
 	return str_c(str);
 }

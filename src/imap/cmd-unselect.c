@@ -12,8 +12,10 @@ int cmd_unselect(struct client *client)
 
 	client->mailbox = NULL;
 
-	if (!mailbox->close(mailbox))
-		client_send_untagged_storage_error(client, mailbox->storage);
+	if (mailbox_close(mailbox) < 0) {
+		client_send_untagged_storage_error(client,
+						   mailbox_get_storage(mailbox));
+	}
 
 	client_send_tagline(client, "OK Unselect completed.");
 	return TRUE;

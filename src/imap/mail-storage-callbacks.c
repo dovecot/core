@@ -45,8 +45,7 @@ static void expunge(struct mailbox *mailbox, unsigned int seq, void *context)
 	client_send_line(client, str);
 }
 
-static void update_flags(struct mailbox *mailbox,
-			 unsigned int seq, unsigned int uid __attr_unused__,
+static void update_flags(struct mailbox *mailbox, unsigned int seq,
 			 const struct mail_full_flags *flags, void *context)
 {
 	struct client *client = context;
