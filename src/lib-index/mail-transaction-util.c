@@ -207,7 +207,8 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 
 		if (first > 0 && new_exp.uid1 <= dest[first-1].uid2+1) {
 			/* continue previous record */
-			dest[first-1].uid2 = new_exp.uid2;
+			if (dest[first-1].uid2 < new_exp.uid2)
+				dest[first-1].uid2 = new_exp.uid2;
 		} else if (i == first) {
 			buffer_insert(expunges_buf, i * sizeof(new_exp),
 				      &new_exp, sizeof(new_exp));
