@@ -932,7 +932,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					struct mbox_sync_mail_context *mail_ctx)
 {
-	uoff_t offset, padding, trailer_size, old_file_size;
+	uoff_t file_size, offset, padding, trailer_size, old_file_size;
 
 	if (!istream_raw_mbox_is_eof(sync_ctx->input)) {
 		i_assert(sync_ctx->need_space_seq == 0);
@@ -940,8 +940,9 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		return 0;
 	}
 
-	trailer_size = i_stream_get_size(sync_ctx->file_input) -
-		sync_ctx->file_input->v_offset;
+	file_size = i_stream_get_size(sync_ctx->file_input);
+	i_assert(file_size >= sync_ctx->file_input->v_offset);
+	trailer_size = file_size - sync_ctx->file_input->v_offset;
 
 	if (sync_ctx->need_space_seq != 0) {
 		i_assert(sync_ctx->space_diff < 0);
@@ -983,8 +984,9 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 
 	if (sync_ctx->expunged_space > 0) {
 		/* copy trailer, then truncate the file */
-		offset = i_stream_get_size(sync_ctx->file_input) -
-			sync_ctx->expunged_space - trailer_size;
+		file_size = i_stream_get_size(sync_ctx->file_input);
+		i_assert(file_size >= sync_ctx->expunged_space + trailer_size);
+		offset = file_size - sync_ctx->expunged_space - trailer_size;
 
 		if (mbox_move(sync_ctx, offset,
 			      offset + sync_ctx->expunged_space,
