@@ -353,7 +353,8 @@ static int search_arg_build(struct search_build_data *data,
 			(*next_sarg)->not = TRUE;
 			return TRUE;
 		} else if (strcmp(str, "UNKEYWORD") == 0) {
-			if (!ARG_NEW_FLAG(SEARCH_KEYWORD))
+			/* <flag> */
+			if (!ARG_NEW(SEARCH_KEYWORD))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
