@@ -8,6 +8,8 @@
 
 #ifdef HAVE_GNUTLS
 
+#error broken currently
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -276,7 +278,7 @@ static void ssl_handshake(void *context)
 		return;
 
 	/* i/o interrupted */
-	dir = gnutls_handshake_get_direction(proxy->session) == 0 ?
+	dir = gnutls_record_get_direction(proxy->session) == 0 ?
 		IO_READ : IO_WRITE;
 	if (proxy->io_ssl_dir != dir) {
 		if (proxy->io_ssl != NULL)
@@ -298,7 +300,7 @@ static gnutls_session initialize_state(void)
 	gnutls_compression_set_priority(session, comp_priority);
 	gnutls_kx_set_priority(session, kx_priority);
 	gnutls_mac_set_priority(session, mac_priority);
-	gnutls_cert_type_set_priority(session, cert_type_priority);
+	gnutls_certificate_type_set_priority(session, cert_type_priority);
 
 	gnutls_cred_set(session, GNUTLS_CRD_CERTIFICATE, x509_cred);
 	return session;
@@ -504,8 +506,8 @@ void ssl_proxy_init(void)
 
 	read_parameters(paramfile);
 
-	if ((ret = gnutls_certificate_allocate_cred(&x509_cred)) < 0) {
-		i_fatal("gnutls_certificate_allocate_cred() failed: %s",
+	if ((ret = gnutls_certificate_allocate_credentials(&x509_cred)) < 0) {
+		i_fatal("gnutls_certificate_allocate_credentials() failed: %s",
 			gnutls_strerror(ret));
 	}
 
@@ -516,12 +518,8 @@ void ssl_proxy_init(void)
 			certfile, keyfile, gnutls_strerror(ret));
 	}
 
-        ret = gnutls_certificate_set_dh_params(x509_cred, dh_params);
-	if (ret < 0)
-		i_fatal("Can't set DH parameters: %s", gnutls_strerror(ret));
-	ret = gnutls_certificate_set_rsa_params(x509_cred, rsa_params);
-	if (ret < 0)
-		i_fatal("Can't set RSA parameters: %s", gnutls_strerror(ret));
+        gnutls_certificate_set_dh_params(x509_cred, dh_params);
+        gnutls_certificate_set_rsa_export_params(x509_cred, rsa_params);
 
         ssl_proxies = hash_create(default_pool, default_pool, 0, NULL, NULL);
 	ssl_initialized = TRUE;
@@ -541,7 +539,7 @@ void ssl_proxy_deinit(void)
 	hash_iterate_deinit(iter);
 	hash_destroy(ssl_proxies);
 
-	gnutls_certificate_free_cred(x509_cred);
+	gnutls_certificate_free_credentials(x509_cred);
 	gnutls_global_deinit();
 }
 
