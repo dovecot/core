@@ -108,6 +108,9 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	i_assert(sync_ctx->input->v_offset != mail_ctx->mail.from_offset ||
 		 sync_ctx->input->eof);
 
+	if (sync_ctx->sync_restart)
+		return 0;
+
 	mail_ctx->mail.body_size =
 		istream_raw_mbox_get_body_size(sync_ctx->input,
 					       mail_ctx->content_length);
@@ -913,7 +916,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 					break;
 
 				/* we can skip forward to next record which
-				   needs updating. if it failes because the
+				   needs updating. if it fails because the
 				   offset is dirty, just ignore and continue
 				   from where we are now. */
 				uid = sync_ctx->sync_rec.uid1;
@@ -922,6 +925,9 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			}
 		}
 	}
+
+	if (sync_ctx->sync_restart)
+		return 0;
 
 	if (istream_raw_mbox_is_eof(sync_ctx->input)) {
 		/* rest of the messages in index don't exist -> expunge them */
@@ -1089,7 +1095,8 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 	sync_ctx->space_diff = 0;
 
 	sync_ctx->dest_first_mail = TRUE;
-        sync_ctx->seen_first_mail = FALSE;
+	sync_ctx->seen_first_mail = FALSE;
+        sync_ctx->sync_restart = FALSE;
 }
 
 static int mbox_sync_do(struct mbox_sync_context *sync_ctx,

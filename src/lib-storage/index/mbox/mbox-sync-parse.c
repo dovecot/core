@@ -211,8 +211,23 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 
 	if (ctx->sync_ctx != NULL) {
 		if (value >= ctx->sync_ctx->next_uid) {
-			/* next_uid broken - fix it */
-			ctx->sync_ctx->next_uid = value+1;
+			/* UID is larger than expected. */
+			if (ctx->sync_ctx->ibox->mbox_sync_dirty &&
+			    !ctx->sync_ctx->dest_first_mail &&
+			    !ctx->sync_ctx->seen_first_mail) {
+				/* current next-uid isn't necessarily known
+				   if changes were made without updating index
+				   file. restart the sync. */
+				i_assert(!ctx->sync_ctx->sync_restart);
+				ctx->sync_ctx->sync_restart = TRUE;
+				return FALSE;
+			}
+
+			/* Don't allow it because incoming mails can contain
+			   untrusted X-UID fields, causing possibly DoS if
+			   the UIDs get large enough. */
+			ctx->uid_broken = TRUE;
+			return FALSE;
 		}
 
 		if (value <= ctx->sync_ctx->prev_msg_uid) {
@@ -341,6 +356,9 @@ void mbox_sync_parse_next_mail(struct istream *input,
 
 			if (!func->func(ctx, hdr)) {
 				/* this header is broken, remove it */
+				if (ctx->sync_ctx->sync_restart)
+					break;
+
 				ctx->need_rewrite = TRUE;
 				str_truncate(ctx->header, line_start_pos);
 				if (ctx->header_first_change == (size_t)-1) {
