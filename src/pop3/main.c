@@ -58,7 +58,6 @@ static void drop_privileges(void)
 
 static int main_init(void)
 {
-	struct client *client;
 	struct mail_storage *storage;
 	const char *mail;
 
@@ -94,8 +93,7 @@ static int main_init(void)
 		}
 	}
 
-	client = client_create(0, 1, storage);
-	return client != NULL;
+	return client_create(0, 1, storage) != NULL;
 }
 
 static void main_deinit(void)
