@@ -186,10 +186,23 @@ static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
 		if (mail_index_lookup(ctx->view, seq, &rec) < 0)
 			return -1;
 
-		if ((rec->flags & MAIL_RECENT) == 0)
+		if ((rec->flags & MAIL_RECENT) == 0) {
+			if (update.uid1 != 0) {
+				mail_index_sync_sort_flags(ctx->updates_buf,
+							   &update,
+							   sizeof(update));
+				update.uid1 = 0;
+			}
 			continue;
+		}
 
-		update.uid1 = update.uid2 = rec->uid;
+		/* group updates together as much as possible */
+		if (update.uid1 == 0)
+			update.uid1 = rec->uid;
+                update.uid2 = rec->uid;
+	}
+
+	if (update.uid1 != 0) {
 		mail_index_sync_sort_flags(ctx->updates_buf,
 					   &update, sizeof(update));
 	}
