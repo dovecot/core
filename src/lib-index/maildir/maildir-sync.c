@@ -678,6 +678,12 @@ static int maildir_full_sync_init(struct maildir_sync_context *ctx)
 	size_t size;
 	int have_new;
 
+	/* FIXME: kludge. we want to have pointers to data file, so we must
+	   make sure that it's base address doesn't change. this call makes
+	   sure it's fully mmaped in memory even when we begin */
+	if (mail_index_data_get_mmaped(index->data, &size) == NULL)
+		return FALSE;
+
 	if (index->header->messages_count >= INT_MAX/32) {
 		index_set_corrupted(index, "Header says %u messages",
 				    index->header->messages_count);
