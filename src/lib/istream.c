@@ -111,7 +111,8 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 	i_assert(stream->v_size == 0 ||
 		 stream->v_offset + count <= stream->v_size);
 
-	if (count <= _stream->pos - _stream->skip) {
+	data_size = _stream->pos - _stream->skip;
+	if (count <= data_size) {
 		stream->v_offset += count;
 		_stream->skip += count;
 		return;
@@ -120,10 +121,8 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 	if (stream->closed)
 		return;
 
-	data_size = _stream->pos - _stream->skip;
-	_stream->skip = _stream->pos;
-
 	count -= data_size;
+	_stream->skip = _stream->pos;
 	stream->v_offset += data_size;
 
 	if (_stream->pos < _stream->high_pos) {
