@@ -124,7 +124,7 @@ static const char *const *sort_array(const char *const *arr)
 	already_sorted = TRUE;
 	for (i = 0; arr[i] != NULL; i++) {
 		if (i > 0 && already_sorted &&
-		    strcasecmp(arr[i], arr[i-1]) >= 0)
+		    strcasecmp(arr[i], arr[i-1]) <= 0)
 			already_sorted = FALSE;
 		buffer_append(buffer, &arr[i], sizeof(const char *));
 	}
