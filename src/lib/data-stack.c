@@ -1,5 +1,5 @@
 /*
- temp-mempool.c : Memory pool for temporary memory allocations
+ data-stack.c : Data stack implementation
 
     Copyright (c) 2001-2002 Timo Sirainen
 
@@ -24,91 +24,94 @@
 */
 
 #include "lib.h"
-#include "temp-mempool.h"
+#include "data-stack.h"
 
 #include <stdlib.h>
 
-/* #define TEMP_POOL_DISABLE */
+/* Use malloc() and free() for all memory allocations. Useful for debugging
+   memory corruption. */
+/* #define DISABLE_DATA_STACK */
 
-#ifndef TEMP_POOL_DISABLE
+#ifndef DISABLE_DATA_STACK
 
-/* max. number of bytes to even try to allocate. This is done just to avoid
+/* Max. number of bytes to even try to allocate. This is done just to avoid
    allocating less memory than was actually requested because of integer
    overflows. */
 #define MAX_ALLOC_SIZE SSIZE_T_MAX
 
-/* Initial pool size - this should be kept in a size that doesn't exceed
-   in a normal use to keep it fast. */
-#define INITIAL_POOL_SIZE (1024*32)
+/* Initial stack size - this should be kept in a size that doesn't exceed
+   in a normal use to avoid extra malloc()ing. */
+#define INITIAL_STACK_SIZE (1024*32)
 
-typedef struct _MemBlock MemBlock;
-typedef struct _MemBlockStack MemBlockStack;
+typedef struct _StackBlock StackBlock;
+typedef struct _StackFrameBlock StackFrameBlock;
 
-struct _MemBlock {
-	MemBlock *next;
+struct _StackBlock {
+	StackBlock *next;
 
 	size_t size, left;
 	/* unsigned char data[]; */
 };
 
-#define SIZEOF_MEMBLOCK MEM_ALIGN(sizeof(MemBlock))
+#define SIZEOF_MEMBLOCK MEM_ALIGN(sizeof(StackBlock))
 
-#define MEM_BLOCK_DATA(block) \
+#define STACK_BLOCK_DATA(block) \
 	((char *) (block) + SIZEOF_MEMBLOCK)
 
-/* current_stack contains last t_push()ed blocks. After that new
-   MemBlockStack is created and it's ->prev is set to current_stack. */
-#define MEM_LIST_BLOCK_COUNT 16
+/* current_frame_block contains last t_push()ed frames. After that new
+   StackFrameBlock is created and it's ->prev is set to current_frame_block. */
+#define BLOCK_FRAME_COUNT 32
 
-struct _MemBlockStack {
-	MemBlockStack *prev;
+struct _StackFrameBlock {
+	StackFrameBlock *prev;
 
-	MemBlock *block[MEM_LIST_BLOCK_COUNT];
-        int block_space_used[MEM_LIST_BLOCK_COUNT];
-	int last_alloc_size;
+	StackBlock *block[BLOCK_FRAME_COUNT];
+        size_t block_space_used[BLOCK_FRAME_COUNT];
+	size_t last_alloc_size[BLOCK_FRAME_COUNT];
 };
 
-static int stack_pos; /* next free position in current_stack->block[] */
-static MemBlockStack *current_stack; /* current stack position */
-static MemBlockStack *unused_stack_list; /* unused stack blocks */
+static int frame_pos; /* current frame position current_frame_block */
+static StackFrameBlock *current_frame_block; /* current stack frame block */
+static StackFrameBlock *unused_frame_blocks; /* unused stack frames */
 
-static MemBlock *current_block; /* block currently used for allocation */
-static MemBlock *unused_block; /* largest unused block is kept here */
+static StackBlock *current_block; /* block currently used for allocation */
+static StackBlock *unused_block; /* largest unused block is kept here */
 
-static MemBlock *last_buffer_block;
+static StackBlock *last_buffer_block;
 static size_t last_buffer_size;
 
 int t_push(void)
 {
-        MemBlockStack *stack;
+        StackFrameBlock *frame_block;
 
-	if (stack_pos == MEM_LIST_BLOCK_COUNT) {
-		/* stack list full */
-		stack_pos = 0;
-		if (unused_stack_list == NULL) {
-			/* allocate new stack */
-			stack = calloc(sizeof(MemBlockStack), 1);
-			if (stack == NULL)
+	frame_pos++;
+	if (frame_pos == BLOCK_FRAME_COUNT) {
+		/* frame block full */
+		frame_pos = 0;
+		if (unused_frame_blocks == NULL) {
+			/* allocate new block */
+			frame_block = calloc(sizeof(StackFrameBlock), 1);
+			if (frame_block == NULL)
 				i_panic("t_push(): Out of memory");
 		} else {
-			/* use existing unused stack */
-			stack = unused_stack_list;
-			unused_stack_list = unused_stack_list->prev;
+			/* use existing unused frame_block */
+			frame_block = unused_frame_blocks;
+			unused_frame_blocks = unused_frame_blocks->prev;
 		}
 
-		stack->prev = current_stack;
-		current_stack = stack;
+		frame_block->prev = current_frame_block;
+		current_frame_block = frame_block;
 	}
 
 	/* mark our current position */
-	current_stack->block[stack_pos] = current_block;
-	current_stack->block_space_used[stack_pos] = current_block->left;
-        current_stack->last_alloc_size = 0;
+	current_frame_block->block[frame_pos] = current_block;
+	current_frame_block->block_space_used[frame_pos] = current_block->left;
+        current_frame_block->last_alloc_size[frame_pos] = 0;
 
-        return stack_pos++;
+        return frame_pos;
 }
 
-static void free_blocks(MemBlock *block)
+static void free_blocks(StackBlock *block)
 {
 	/* free all the blocks, except if any of them is bigger than
 	   unused_block, replace it */
@@ -126,15 +129,15 @@ static void free_blocks(MemBlock *block)
 
 int t_pop(void)
 {
-	MemBlockStack *stack;
+	StackFrameBlock *frame_block;
+	int popped_frame_pos;
 
-	if (stack_pos == 0)
+	if (frame_pos < 0)
 		i_panic("t_pop() called with empty stack");
-	stack_pos--;
 
 	/* update the current block */
-	current_block = current_stack->block[stack_pos];
-	current_block->left = current_stack->block_space_used[stack_pos];
+	current_block = current_frame_block->block[frame_pos];
+	current_block->left = current_frame_block->block_space_used[frame_pos];
 
 	if (current_block->next != NULL) {
 		/* free unused blocks */
@@ -142,23 +145,26 @@ int t_pop(void)
 		current_block->next = NULL;
 	}
 
-	if (stack_pos == 0) {
-		/* stack block is now unused, add it to unused list */
-		stack_pos = MEM_LIST_BLOCK_COUNT;
+	popped_frame_pos = frame_pos;
+	if (frame_pos > 0)
+		frame_pos--;
+	else {
+		/* frame block is now unused, add it to unused list */
+		frame_pos = BLOCK_FRAME_COUNT-1;
 
-		stack = current_stack;
-		current_stack = stack->prev;
+		frame_block = current_frame_block;
+		current_frame_block = frame_block->prev;
 
-		stack->prev = unused_stack_list;
-		unused_stack_list = stack;
+		frame_block->prev = unused_frame_blocks;
+		unused_frame_blocks = frame_block;
 	}
 
-        return stack_pos;
+        return popped_frame_pos;
 }
 
-static MemBlock *mem_block_alloc(size_t min_size)
+static StackBlock *mem_block_alloc(size_t min_size)
 {
-	MemBlock *block;
+	StackBlock *block;
 	size_t prev_size, alloc_size;
 
 	prev_size = current_block == NULL ? 0 : current_block->size;
@@ -178,7 +184,7 @@ static MemBlock *mem_block_alloc(size_t min_size)
 
 static void *t_malloc_real(size_t size, int permanent)
 {
-	MemBlock *block;
+	StackBlock *block;
         void *ret;
 
 	if (size == 0)
@@ -197,11 +203,11 @@ static void *t_malloc_real(size_t size, int permanent)
 	size = MEM_ALIGN(size);
 
 	/* used for t_try_grow() */
-	current_stack->last_alloc_size = size;
+	current_frame_block->last_alloc_size[frame_pos] = size;
 
 	if (current_block->left >= size) {
 		/* enough space in current block, use it */
-		ret = MEM_BLOCK_DATA(current_block) +
+		ret = STACK_BLOCK_DATA(current_block) +
 			(current_block->size - current_block->left);
                 if (permanent)
 			current_block->left -= size;
@@ -224,7 +230,7 @@ static void *t_malloc_real(size_t size, int permanent)
 	current_block->next = block;
 	current_block = block;
 
-        return MEM_BLOCK_DATA(current_block);
+        return STACK_BLOCK_DATA(current_block);
 }
 
 void *t_malloc(size_t size)
@@ -243,19 +249,20 @@ void *t_malloc0(size_t size)
 
 int t_try_grow(void *mem, size_t size)
 {
-	size_t grow_size;
+	size_t last_alloc_size;
 
-	/* see if we want to grow the memory we allocated last */
-	if (MEM_BLOCK_DATA(current_block) +
+	last_alloc_size = current_frame_block->last_alloc_size[frame_pos];
+
+	/* see if we're trying to grow the memory we allocated last */
+	if (STACK_BLOCK_DATA(current_block) +
 	    (current_block->size - current_block->left -
-	     current_stack->last_alloc_size) == mem) {
+	     last_alloc_size) == mem) {
 		/* yeah, see if we have space to grow */
 		size = MEM_ALIGN(size);
-		grow_size = size - current_stack->last_alloc_size;
-		if (current_block->left >= grow_size) {
+		if (current_block->left >= size - last_alloc_size) {
 			/* just shrink the available size */
-			current_block->left -= grow_size;
-			current_stack->last_alloc_size = size;
+			current_block->left -= size - last_alloc_size;
+			current_frame_block->last_alloc_size[frame_pos] = size;
 			return TRUE;
 		}
 	}
@@ -300,15 +307,15 @@ void t_buffer_alloc(size_t size)
 	t_malloc_real(size, TRUE);
 }
 
-void temp_mempool_init(void)
+void data_stack_init(void)
 {
-	current_block = mem_block_alloc(INITIAL_POOL_SIZE);
+	current_block = mem_block_alloc(INITIAL_STACK_SIZE);
 	current_block->left = current_block->size;
 	current_block->next = NULL;
 
-	current_stack = NULL;
-	unused_stack_list = NULL;
-	stack_pos = MEM_LIST_BLOCK_COUNT;
+	current_frame_block = NULL;
+	unused_frame_blocks = NULL;
+	frame_pos = BLOCK_FRAME_COUNT-1;
 
 	t_push();
 
@@ -316,18 +323,18 @@ void temp_mempool_init(void)
 	last_buffer_size = 0;
 }
 
-void temp_mempool_deinit(void)
+void data_stack_deinit(void)
 {
 	t_pop();
 
-	if (stack_pos != MEM_LIST_BLOCK_COUNT)
+	if (frame_pos != BLOCK_FRAME_COUNT-1)
 		i_panic("Missing t_pop() call");
 
-	while (unused_stack_list != NULL) {
-                MemBlockStack *stack = unused_stack_list;
-		unused_stack_list = unused_stack_list->prev;
+	while (unused_frame_blocks != NULL) {
+                StackFrameBlock *frame_block = unused_frame_blocks;
+		unused_frame_blocks = unused_frame_blocks->prev;
 
-                free(stack);
+                free(frame_block);
 	}
 
 	free(current_block);
@@ -336,63 +343,63 @@ void temp_mempool_deinit(void)
 
 #else
 
-typedef struct _Stack Stack;
-typedef struct _Alloc Alloc;
+typedef struct _StackFrame StackFrame;
+typedef struct _FrameAlloc FrameAlloc;
 
-struct _Stack {
-	Stack *next;
-	Alloc *allocs;
+struct _StackFrame {
+	StackFrame *next;
+	FrameAlloc *allocs;
 };
 
-struct _Alloc {
-	Alloc *next;
+struct _FrameAlloc {
+	FrameAlloc *next;
 	void *mem;
 };
 
 static int stack_counter;
-static Stack *current_stack;
+static StackFrame *current_frame;
 static void *buffer_mem;
 
 int t_push(void)
 {
-	Stack *stack;
+	StackFrame *frame;
 
-	stack = malloc(sizeof(Stack));
-	stack->allocs = NULL;
+	frame = malloc(sizeof(StackFrame));
+	frame->allocs = NULL;
 
-	stack->next = current_stack;
-	current_stack = stack;
+	frame->next = current_frame_block;
+	current_frame_block = frame;
 	return stack_counter++;
 }
 
 int t_pop(void)
 {
-	Stack *stack;
-	Alloc *alloc;
+	StackFrame *frame;
+	FrameAlloc *alloc;
 
-	stack = current_stack;
-	current_stack = stack->next;
+	frame = current_frame_block;
+	current_frame_block = frame->next;
 
-	while (stack->allocs != NULL) {
-		alloc = stack->allocs;
-		stack->allocs = alloc->next;
+	while (frame->allocs != NULL) {
+		alloc = frame->allocs;
+		frame->allocs = alloc->next;
 
 		free(alloc->mem);
 		free(alloc);
 	}
 
-	free(stack);
+	free(frame);
 	return --stack_counter;
 }
 
 static void add_alloc(void *mem)
 {
-	Alloc *alloc;
+	FrameAlloc *alloc;
 
-	alloc = malloc(sizeof(Alloc));
+	alloc = malloc(sizeof(FrameAlloc));
 	alloc->mem = mem;
-	alloc->next = current_stack->allocs;
-	current_stack->allocs = alloc;
+	alloc->next = current_frame->allocs;
+	current_frame->allocs = alloc;
 
 	if (buffer_mem != NULL) {
 		free(buffer_mem);
@@ -456,16 +463,16 @@ void t_buffer_alloc(size_t size)
 	add_alloc(mem);
 }
 
-void temp_mempool_init(void)
+void data_stack_init(void)
 {
         stack_counter = 0;
-	current_stack = NULL;
+	current_frame_block = NULL;
 	buffer_mem = NULL;
 
 	t_push();
 }
 
-void temp_mempool_deinit(void)
+void data_stack_deinit(void)
 {
 	t_pop();
 

@@ -25,8 +25,8 @@ typedef struct _TempString TempString;
 #include "macros.h"
 #include "failures.h"
 
+#include "data-stack.h"
 #include "mempool.h"
-#include "temp-mempool.h"
 #include "imem.h"
 
 #include "strfuncs.h"

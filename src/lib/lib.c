@@ -44,13 +44,13 @@ void lib_init(void)
 	srand((unsigned int) time(NULL));
 
 	failures_init();
-	temp_mempool_init();
+	data_stack_init();
 	imem_init();
 }
 
 void lib_deinit(void)
 {
         imem_deinit();
-	temp_mempool_deinit();
+	data_stack_deinit();
         failures_deinit();
 }

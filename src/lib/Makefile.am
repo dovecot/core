@@ -13,6 +13,7 @@ ioloop_sources = \
 liblib_a_SOURCES = \
 	base64.c \
 	compat.c \
+	data-stack.c \
 	failures.c \
 	fdpass.c \
 	file-lock.c \
@@ -39,7 +40,6 @@ liblib_a_SOURCES = \
 	restrict-access.c \
 	sendfile-util.c \
 	strfuncs.c \
-	temp-mempool.c \
 	temp-string.c \
 	unlink-directory.c \
 	unlink-lockfiles.c \
@@ -48,6 +48,7 @@ liblib_a_SOURCES = \
 noinst_HEADERS = \
 	base64.h \
 	compat.h \
+	data-stack.h \
 	failures.h \
 	fdpass.h \
 	file-lock.h \
@@ -72,7 +73,6 @@ noinst_HEADERS = \
 	restrict-access.h \
 	sendfile-util.h \
 	strfuncs.h \
-	temp-mempool.h \
 	temp-string.h \
 	unlink-directory.h \
 	unlink-lockfiles.h \
