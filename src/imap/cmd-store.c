@@ -40,7 +40,7 @@ int cmd_store(struct client *client)
 	const char *messageset, *item;
 	int silent, all_found;
 
-	if (!client_read_args(client, 3, 0, &args))
+	if (!client_read_args(client, 0, 0, &args))
 		return FALSE;
 
 	if (!client_verify_open_mailbox(client))
