@@ -160,6 +160,7 @@ static int imap_parser_close_list(ImapParser *parser)
 
 	arg = imap_arg_create(parser);
 	arg->type = IMAP_ARG_EOL;
+	parser->cur_list->size--; /* EOL doesn't belong to argument count */
 
 	parser->list_arg = parser->list_arg->parent;
 	if (parser->list_arg == NULL) {
