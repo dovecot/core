@@ -38,7 +38,7 @@ void db_pgsql_query(struct pgsql_connection *conn, const char *query,
 		    struct pgsql_request *request)
 {
 	PGresult *res;
-	int failed;
+	int i, failed;
 
 	if (!conn->connected) {
 		if (!pgsql_conn_open(conn)) {
@@ -50,14 +50,23 @@ void db_pgsql_query(struct pgsql_connection *conn, const char *query,
 	if (verbose_debug)
 		i_info("PGSQL: Performing query: %s", query);
 
-	res = PQexec(conn->pg, query);
+	for (i = 0; i < 2; i++) {
+		res = PQexec(conn->pg, query);
 
-	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+		if (PQresultStatus(res) != PGRES_FATAL_ERROR)
+			break;
+
+		/* probably lost connection */
+		i_info("PGSQL: Fatal error, reconnecting");
+		PQreset(conn->pg);
+	}
+
+	if (PQresultStatus(res) == PGRES_TUPLES_OK)
+		failed = FALSE;
+	else {
 		i_error("PGSQL: Query \"%s\" failed: %s",
 			query, PQresultErrorMessage(res));
 		failed = TRUE;
-	} else {
-		failed = FALSE;
 	}
 
 	request->callback(conn, request, failed ? NULL : res);
