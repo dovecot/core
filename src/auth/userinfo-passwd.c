@@ -8,10 +8,7 @@
 #include "config.h"
 #undef HAVE_CONFIG_H
 
-#ifdef USERINFO_PASSWD
-
 #include "userinfo-passwd.h"
-#include "mycrypt.h"
 
 void passwd_fill_cookie_reply(struct passwd *pw, AuthCookieReplyData *reply)
 {
@@ -27,6 +24,10 @@ void passwd_fill_cookie_reply(struct passwd *pw, AuthCookieReplyData *reply)
 	if (strocpy(reply->home, pw->pw_dir, sizeof(reply->home)) < 0)
 		i_panic("home overflow");
 }
+
+#ifdef USERINFO_PASSWD
+
+#include "mycrypt.h"
 
 static int passwd_verify_plain(const char *user, const char *password,
 			       AuthCookieReplyData *reply)
