@@ -402,6 +402,16 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 		update->index->update_field_raw(update, DATA_HDR_VIRTUAL_SIZE,
 						&uoff_size, sizeof(uoff_size));
 
+		/* update binary flags */
+		if (part->header_size.virtual_size ==
+		    part->header_size.physical_size)
+			update->rec->index_flags |=
+				INDEX_MAIL_FLAG_BINARY_HEADER;
+
+		if (part->body_size.virtual_size ==
+		    part->body_size.physical_size)
+			update->rec->index_flags |= INDEX_MAIL_FLAG_BINARY_BODY;
+
 		/* don't save both BODY + BODYSTRUCTURE since BODY can be
 		   generated from BODYSTRUCTURE. FIXME: However that takes
 		   CPU, maybe this should be configurable (I/O vs. CPU)? */
