@@ -314,12 +314,14 @@ static int fetch_mail(struct imap_fetch_context *ctx, struct mail *mail)
 			if (!fetch_send_rfc822_text(ctx, mail))
 				break;
 
-		for (body = ctx->bodies; body != NULL; body = body->next) {
-			if (!imap_fetch_body_section(ctx, body, mail))
-				break;
-		}
-
 		failed = FALSE;
+
+		for (body = ctx->bodies; body != NULL; body = body->next) {
+			if (!imap_fetch_body_section(ctx, body, mail)) {
+				failed = TRUE;
+				break;
+			}
+		}
 	} while (0);
 
 	if (data_written) {
