@@ -89,6 +89,8 @@ static const char *get_exit_status_message(FatalExitStatus status)
 		return "Can't open log file";
 	case FATAL_LOGWRITE:
 		return "Can't write to log file";
+	case FATAL_LOGERROR:
+		return "Internal logging error";
 	case FATAL_OUTOFMEM:
 		return "Out of memory";
 	case FATAL_EXEC:
