@@ -448,6 +448,16 @@ case "$typeof_off_t" in
     ;;
 esac
 
+dnl * Do we have struct dirent->d_type
+AC_TRY_COMPILE([
+  #include <dirent.h>
+], [
+  struct dirent d;
+  d.d_type = DT_DIR;
+], [
+  AC_DEFINE(HAVE_DIRENT_D_TYPE,, Define if you have struct dirent->d_type)
+])
+
 dnl * Do we have OFF_T_MAX?
 AC_TRY_COMPILE([
   #include <limits.h>

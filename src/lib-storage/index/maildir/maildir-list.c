@@ -10,6 +10,7 @@
 #include "maildir-storage.h"
 #include "mailbox-tree.h"
 
+#include <stdlib.h>
 #include <dirent.h>
 #include <sys/stat.h>
 
@@ -53,11 +54,12 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 {
 	DIR *dirp;
 	struct dirent *d;
+	struct stat st;
 	const char *path, *p, *mailbox_c;
 	string_t *mailbox;
 	enum imap_match_result match;
 	struct mailbox_node *node;
-	int created;
+	int stat_dirs, created, hide;
 
 	dirp = opendir(ctx->dir);
 	if (dirp == NULL) {
@@ -75,6 +77,8 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 		node->flags &= ~(MAILBOX_PLACEHOLDER | MAILBOX_NONEXISTENT);
 	}
 
+	stat_dirs = getenv("MAILDIR_STAT_DIRS") != NULL;
+
 	mailbox = t_str_new(PATH_MAX);
 	while ((d = readdir(dirp)) != NULL) {
 		const char *fname = d->d_name;
@@ -87,10 +91,22 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 		    (fname[1] == '\0' || (fname[1] == '.' && fname[2] == '\0')))
 			continue;
 
-		/* FIXME: kludges. these files must be renamed later */
-		if (strcmp(fname, ".customflags") == 0 ||
-		    strcmp(fname, ".subscriptions") == 0)
+#ifdef HAVE_DIRENT_D_TYPE
+		/* check the type always since there's no extra cost */
+		if (d->d_type == DT_DIR)
+			;
+		else if (d->d_type != DT_UNKNOWN)
 			continue;
+		else
+#endif
+		if (stat_dirs) {
+			t_push();
+			path = t_strdup_printf("%s/%s", ctx->dir, fname);
+			hide = stat(path, &st) < 0 || !S_ISDIR(st.st_mode);
+			t_pop();
+			if (hide)
+				continue;
+		}
 
 		if (fname[1] == MAILDIR_FS_SEP) {
 			/* this mailbox is in the middle of being deleted,
@@ -99,8 +115,6 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 			   delete it ourself if it's been there longer than
 			   one hour. don't touch it if it's outside our
 			   mail root dir. */
-			struct stat st;
-
 			t_push();
 			path = t_strdup_printf("%s/%s", ctx->dir, fname);
 			if (stat(path, &st) == 0 &&
