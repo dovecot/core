@@ -2,7 +2,6 @@
 
 #include "common.h"
 #include "ostream.h"
-#include "imap-util.h"
 #include "mail-storage.h"
 #include "commands-util.h"
 
