@@ -450,7 +450,7 @@ void istream_raw_mbox_next(struct istream *stream, uoff_t body_size)
 	i_stream_seek(rstream->input, rstream->from_offset);
 
 	rstream->eof = FALSE;
-	rstream->istream.istream.eof = TRUE;
+	rstream->istream.istream.eof = FALSE;
 }
 
 int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
@@ -461,7 +461,7 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 
 	rstream->corrupted = FALSE;
 	rstream->eof = FALSE;
-	rstream->istream.istream.eof = TRUE;
+	rstream->istream.istream.eof = FALSE;
 
 	if (rstream->mail_size != (uoff_t)-1 &&
 	    rstream->hdr_offset + rstream->mail_size == offset) {

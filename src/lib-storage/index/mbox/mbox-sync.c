@@ -135,7 +135,8 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	}
 
 	mbox_sync_parse_next_mail(sync_ctx->input, mail_ctx);
-	i_assert(sync_ctx->input->v_offset != mail_ctx->from_offset);
+	i_assert(sync_ctx->input->v_offset != mail_ctx->from_offset ||
+		 sync_ctx->input->eof);
 
 	mail_ctx->mail.body_size =
 		istream_raw_mbox_get_body_size(sync_ctx->input,
