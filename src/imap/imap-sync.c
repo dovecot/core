@@ -16,7 +16,7 @@ int imap_sync(struct client *client, struct mailbox *box,
 	struct mail *mail;
         const struct mail_full_flags *mail_flags;
 	string_t *str;
-	uint32_t seq;
+	uint32_t seq, messages_count;
 
 	if (client->mailbox != box) {
 		/* mailbox isn't selected - we only wish to sync the mailbox
@@ -29,6 +29,7 @@ int imap_sync(struct client *client, struct mailbox *box,
 
 	t_push();
 	str = t_str_new(256);
+	messages_count = client->messages_count;
 
 	t = mailbox_transaction_begin(box, FALSE);
 	ctx = mailbox_sync_init(box, flags);
@@ -50,6 +51,7 @@ int imap_sync(struct client *client, struct mailbox *box,
 			}
 			break;
 		case MAILBOX_SYNC_TYPE_EXPUNGE:
+			messages_count -= sync_rec.seq2 - sync_rec.seq1 + 1;
 			for (seq = sync_rec.seq2; seq >= sync_rec.seq1; seq--) {
 				str_truncate(str, 0);
 				str_printfa(str, "* %u EXPUNGE", seq);
@@ -67,8 +69,8 @@ int imap_sync(struct client *client, struct mailbox *box,
 
 	mailbox_transaction_commit(t);
 
-	if (status.messages != client->messages_count) {
-                client->messages_count = status.messages;
+	client->messages_count = status.messages;
+	if (status.messages != messages_count) {
 		str_truncate(str, 0);
 		str_printfa(str, "* %u EXISTS", status.messages);
 		client_send_line(client, str_c(str));
