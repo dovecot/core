@@ -23,7 +23,7 @@ ClientCommandFunc client_command_find(const char *name)
 		if (strcmp(name, "CLOSE") == 0)
 			return cmd_close;
 		if (strcmp(name, "CHECK") == 0)
-			return cmd_copy;
+			return cmd_check;
 		if (strcmp(name, "CAPABILITY") == 0)
 			return cmd_capability;
 		break;
