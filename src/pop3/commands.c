@@ -169,7 +169,7 @@ static int expunge_mails(struct client *client, struct mailbox *box)
 
 	while ((mail = mailbox_search_next(ctx)) != NULL) {
 		i = mail->seq-1;
-		if ((client->deleted_bitmask[i >> CHAR_BIT] &
+		if ((client->deleted_bitmask[i / CHAR_BIT] &
 		     (1 << (i % CHAR_BIT))) != 0) {
 			if (mail->expunge(mail) < 0) {
 				failed = TRUE;
