@@ -227,9 +227,11 @@ struct _MailIndex {
 	const void *(*lookup_field_raw)(MailIndex *index, MailIndexRecord *rec,
 					MailField field, size_t *size);
 
-	/* Open mail file and return it as mmap()ed IBuffer, or
-	   NULL if failed. */
-	IBuffer *(*open_mail)(MailIndex *index, MailIndexRecord *rec);
+	/* Open mail file and return it as mmap()ed IBuffer. If we fails,
+	   we return NULL and set deleted = TRUE if failure was because the
+	   mail was just deleted (ie. not an error). */
+	IBuffer *(*open_mail)(MailIndex *index, MailIndexRecord *rec,
+			      int *deleted);
 
 	/* Expunge a mail from index. Tree and modifylog is also updated. The
 	   index must be exclusively locked before calling this function.

@@ -163,7 +163,7 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 	case SEARCH_SMALLER:
 		user_size = str_to_uoff_t(value);
 		if (mail_index_get_virtual_size(ibox->index, rec, TRUE, &size))
-			return size < user_size;
+			return size > 0 && size < user_size;
 
 		/* knowing physical size may be enough */
 		if (rec->header_size + rec->body_size >= user_size)
@@ -336,7 +336,7 @@ static int search_arg_match_slow(MailIndex *index, MailIndexRecord *rec,
 	case SEARCH_SMALLER:
 		if (!mail_index_get_virtual_size(index, rec, FALSE, &size))
 			return -1;
-		return size < str_to_uoff_t(value);
+		return size > 0 && size < str_to_uoff_t(value);
 	case SEARCH_LARGER:
 		if (!mail_index_get_virtual_size(index, rec, FALSE, &size))
 			return -1;
@@ -583,14 +583,14 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 {
 	IBuffer *inbuf;
 	MessageSize hdr_size;
-	int have_headers, have_body, have_text;
+	int have_headers, have_body, have_text, deleted;
 
 	/* first check what we need to use */
 	mail_search_args_analyze(args, &have_headers, &have_body, &have_text);
 	if (!have_headers && !have_body && !have_text)
 		return TRUE;
 
-	inbuf = ibox->index->open_mail(ibox->index, rec);
+	inbuf = ibox->index->open_mail(ibox->index, rec, &deleted);
 	if (inbuf == NULL)
 		return FALSE;
 

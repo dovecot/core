@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
+IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec, int *deleted)
 {
 	IBuffer *inbuf;
 	uoff_t offset, v_stop_offset;
@@ -18,6 +18,8 @@ IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 	int failed;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
+
+	*deleted = FALSE;
 
 	/* check for inconsistency here, to avoid extra error messages */
 	if (index->inconsistent)

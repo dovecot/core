@@ -11,11 +11,11 @@ static int cache_record(MailIndex *index, MailIndexRecord *rec,
 {
 	MailIndexUpdate *update;
 	IBuffer *inbuf;
-	int failed;
+	int failed, deleted;
 
-	inbuf = index->open_mail(index, rec);
+	inbuf = index->open_mail(index, rec, &deleted);
 	if (inbuf == NULL)
-		return FALSE;
+		return deleted;
 
 	cache_fields &= ~rec->cached_fields;
 

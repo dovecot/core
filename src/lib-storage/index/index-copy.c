@@ -19,9 +19,9 @@ static int copy_func(MailIndex *index, MailIndexRecord *rec,
 {
 	CopyContext *ctx = context;
 	IBuffer *inbuf;
-	int failed;
+	int failed, deleted;
 
-	inbuf = index->open_mail(index, rec);
+	inbuf = index->open_mail(index, rec, &deleted);
 	if (inbuf == NULL)
 		return FALSE;
 

@@ -9,12 +9,15 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec)
+IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
+			   int *deleted)
 {
 	const char *fname, *path;
 	int fd;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
+
+	*deleted = FALSE;
 
 	/* check for inconsistency here, to avoid extra error messages */
 	if (index->inconsistent)
@@ -30,6 +33,11 @@ IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec)
 	path = t_strconcat(index->dir, "/cur/", fname, NULL);
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
+		if (errno == ENOENT) {
+			*deleted = TRUE;
+			return NULL;
+		}
+
 		index_set_error(index, "Error opening mail file %s: %m", path);
 		return NULL;
 	}

@@ -47,7 +47,7 @@ MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path);
 int mbox_index_rebuild(MailIndex *index);
 int mbox_index_sync(MailIndex *index);
 int mbox_index_fsck(MailIndex *index);
-IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec);
+IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec, int *deleted);
 
 int mbox_index_append(MailIndex *index, IBuffer *inbuf);
 

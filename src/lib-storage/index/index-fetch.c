@@ -215,7 +215,7 @@ static ImapCacheField index_get_cache(MailFetchData *fetch_data)
 	return field;
 }
 
-static void index_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
+static int index_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
 {
 	ImapCacheField fields;
 	uoff_t virtual_header_size, virtual_body_size;
@@ -223,9 +223,9 @@ static void index_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
 
 	fields = index_get_cache(ctx->fetch_data);
 	if (fields == 0)
-		return;
+		return TRUE;
 
-        mail_cache_context = index_msgcache_get_context(ctx->index, rec);
+	mail_cache_context = index_msgcache_get_context(ctx->index, rec);
 
 	if (rec->header_size == 0) {
 		virtual_header_size = 0;
@@ -239,9 +239,9 @@ static void index_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
 			rec->body_size : 0;
 	}
 
-	imap_msgcache_open(ctx->cache, rec->uid, fields,
-			   virtual_header_size, virtual_body_size,
-			   mail_cache_context);
+	return imap_msgcache_open(ctx->cache, rec->uid, fields,
+				  virtual_header_size, virtual_body_size,
+				  mail_cache_context);
 }
 
 static int index_fetch_mail(MailIndex *index __attr_unused__,
@@ -255,6 +255,16 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 	unsigned int orig_len;
 	int failed, data_written, fetch_flags;
 
+	/* first see what we need to do. this way we don't first do some
+	   light parsing and later notice that we need to do heavier parsing
+	   anyway */
+	if (!index_msgcache_open(ctx, rec)) {
+		/* most likely message not found, just ignore it. */
+		imap_msgcache_close(ctx->cache);
+		ctx->failed = TRUE;
+		return TRUE;
+	}
+
 	if (ctx->update_seen && (rec->msg_flags & MAIL_SEEN) == 0) {
 		(void)index->update_flags(index, rec, idx_seq,
 					  rec->msg_flags | MAIL_SEEN, FALSE);
@@ -267,11 +277,6 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 
 	t_string_printfa(ctx->str, "* %u FETCH (", client_seq);
 	orig_len = ctx->str->len;
-
-	/* first see what we need to do. this way we don't first do some
-	   light parsing and later notice that we need to do heavier parsing
-	   anyway */
-	index_msgcache_open(ctx, rec);
 
 	failed = TRUE;
 	data_written = FALSE;
@@ -402,7 +407,7 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 		return mail_storage_set_index_error(ibox);
 
 	if (all_found != NULL)
-		*all_found = ret == 1;
+		*all_found = ret == 1 && !ctx.failed;
 
 	return ret > 0;
 }

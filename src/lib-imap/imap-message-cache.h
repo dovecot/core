@@ -42,11 +42,13 @@ void imap_msgcache_clear(ImapMessageCache *cache);
 void imap_msgcache_free(ImapMessageCache *cache);
 
 /* Open the specified message. virtual_header/body_size may be 0
-   if it's not known. */
-void imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
-			ImapCacheField fields,
-			uoff_t virtual_header_size, uoff_t virtual_body_size,
-			void *context);
+   if it's not known. Returns TRUE if all specified fields were cached.
+   Even if FALSE is returned, it's possible to use the cached data,
+   imap_msgcache_get() just returns NULL for those that weren't. */
+int imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
+		       ImapCacheField fields,
+		       uoff_t virtual_header_size, uoff_t virtual_body_size,
+		       void *context);
 
 /* Close the IOBuffer for opened message. */
 void imap_msgcache_close(ImapMessageCache *cache);

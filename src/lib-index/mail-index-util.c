@@ -114,6 +114,7 @@ int mail_index_get_virtual_size(MailIndex *index, MailIndexRecord *rec,
 	IBuffer *inbuf;
 	const void *part_data;
 	size_t size;
+	int deleted;
 
 	if ((rec->index_flags & INDEX_MAIL_FLAG_BINARY_HEADER) &&
 	    (rec->index_flags & INDEX_MAIL_FLAG_BINARY_BODY)) {
@@ -146,9 +147,11 @@ int mail_index_get_virtual_size(MailIndex *index, MailIndexRecord *rec,
 		return FALSE;
 	}
 
-	inbuf = index->open_mail(index, rec);
-	if (inbuf == NULL)
-		return FALSE;
+	inbuf = index->open_mail(index, rec, &deleted);
+	if (inbuf == NULL) {
+		/* If we were deleted, just return TRUE with 0 size. */
+		return deleted;
+	}
 
 	/* we don't care about the difference in header/body,
 	   so parse the whole message as a "body" */

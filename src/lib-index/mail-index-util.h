@@ -25,7 +25,7 @@ int mail_index_create_temp_file(MailIndex *index, const char **path);
 /* Calculates virtual size for specified message. If the fastscan is FALSE
    and the size can't be figured out from headers, the message is opened and
    fully scanned to calculate the size. Returns TRUE if size was successfully
-   got. */
+   got. If mail was just deleted, returns TRUE and sets virtual_size to 0. */
 int mail_index_get_virtual_size(MailIndex *index, MailIndexRecord *rec,
 				int fastscan, uoff_t *virtual_size);
 

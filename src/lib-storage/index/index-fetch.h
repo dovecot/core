@@ -13,7 +13,7 @@ typedef struct {
 	MailFetchData *fetch_data;
 	OBuffer *outbuf;
 	TempString *str;
-	int update_seen;
+	int update_seen, failed;
 	int first;
 } FetchContext;
 

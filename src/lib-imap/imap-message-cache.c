@@ -186,12 +186,14 @@ static void msg_get_part(ImapMessageCache *cache)
 }
 
 /* Caches the fields for given message if possible */
-static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
+static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 {
         CachedMessage *msg;
 	const char *value;
+	int failed;
 
 	msg = cache->open_msg;
+	failed = FALSE;
 
 	t_push();
 
@@ -207,7 +209,9 @@ static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 							    cache->open_inbuf,
 							    TRUE);
 		}
+
 		msg->cached_bodystructure = p_strdup(msg->pool, value);
+		failed = value == NULL;
 	}
 
 	if ((fields & IMAP_CACHE_BODY) && msg->cached_body == NULL) {
@@ -233,7 +237,9 @@ static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 							    cache->open_inbuf,
 							    FALSE);
 		}
+
 		msg->cached_body = p_strdup(msg->pool, value);
+		failed = value == NULL;
 	}
 
 	if ((fields & IMAP_CACHE_ENVELOPE) && msg->cached_envelope == NULL) {
@@ -258,8 +264,8 @@ static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 			value = imap_envelope_get_part_data(msg->envelope);
 		}
 
-		if (value != NULL)
-			msg->cached_envelope = p_strdup(msg->pool, value);
+		msg->cached_envelope = p_strdup(msg->pool, value);
+		failed = value == NULL;
 	}
 
 	if ((fields & IMAP_CACHE_MESSAGE_BODY_SIZE) && msg->body_size == NULL) {
@@ -287,6 +293,8 @@ static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 
 			msg->part = message_parse(msg->pool, cache->open_inbuf,
 						  func, msg);
+		} else {
+			failed = TRUE;
 		}
 	}
 
@@ -313,17 +321,26 @@ static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 			if (imap_msgcache_get_inbuf(cache, 0)) {
 				message_get_header_size(cache->open_inbuf,
 							msg->hdr_size);
+			} else {
+				failed = TRUE;
 			}
 		}
 	}
 
+	if (fields & IMAP_CACHE_MESSAGE_OPEN) {
+		/* this isn't needed for anything else than pre-opening the
+		   mail and seeing if it fails. */
+		failed = !imap_msgcache_get_inbuf(cache, 0);
+	}
+
 	t_pop();
+	return !failed;
 }
 
-void imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
-			ImapCacheField fields,
-			uoff_t virtual_header_size, uoff_t virtual_body_size,
-			void *context)
+int imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
+		       ImapCacheField fields,
+		       uoff_t virtual_header_size, uoff_t virtual_body_size,
+		       void *context)
 {
 	CachedMessage *msg;
 
@@ -349,7 +366,7 @@ void imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
 			virtual_body_size;
 	}
 
-	cache_fields(cache, fields);
+	return cache_fields(cache, fields);
 }
 
 void imap_msgcache_close(ImapMessageCache *cache)

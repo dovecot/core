@@ -26,9 +26,10 @@ void *index_msgcache_get_context(MailIndex *index, MailIndexRecord *rec)
 
 static IBuffer *index_msgcache_open_mail(void *context)
 {
-        IndexMsgcacheContext *ctx = context;
+	IndexMsgcacheContext *ctx = context;
+	int deleted;
 
-	return ctx->index->open_mail(ctx->index, ctx->rec);
+	return ctx->index->open_mail(ctx->index, ctx->rec, &deleted);
 }
 
 static IBuffer *index_msgcache_inbuf_rewind(IBuffer *inbuf,
