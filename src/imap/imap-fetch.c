@@ -382,7 +382,7 @@ static int fetch_flags(struct imap_fetch_context *ctx, struct mail *mail,
 	if (ctx->flags_update_seen && (flags & MAIL_SEEN) == 0) {
 		/* Add \Seen flag */
 		flags |= MAIL_SEEN;
-		if (mail->update_flags(mail, MAIL_SEEN, MODIFY_ADD) < 0)
+		if (mail->update_flags(mail, MODIFY_ADD, MAIL_SEEN) < 0)
 			return -1;
 	} else if (ctx->flags_show_only_seen_changes) {
 		return 1;
