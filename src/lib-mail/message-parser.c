@@ -5,6 +5,7 @@
 #include "rfc822-tokenize.h"
 #include "message-content-parser.h"
 #include "message-parser.h"
+#include "message-size.h"
 
 typedef struct _MessageBoundary {
 	struct _MessageBoundary *next;
@@ -266,7 +267,7 @@ static void message_skip_line(IOBuffer *inbuf, MessageSize *msg_size)
 	while (io_buffer_read_data(inbuf, &msg, &size, startpos) >= 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] == '\n') {
-				if (i > 0 && msg[i-1] != '\r')
+				if (i == 0 || msg[i-1] != '\r')
 					msg_size->virtual_size++;
 				if (msg_size != NULL)
 					msg_size->lines++;
@@ -275,7 +276,7 @@ static void message_skip_line(IOBuffer *inbuf, MessageSize *msg_size)
 		}
 
 		if (i < size) {
-			startpos = i;
+			startpos = i+1;
 			break;
 		}
 
@@ -337,7 +338,7 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 		   the \n ending the header. */
 		size--;
 		for (i = startpos; i < size; i++) {
-			if (msg[i] == ':' && colon_pos != UINT_MAX) {
+			if (msg[i] == ':' && colon_pos == UINT_MAX) {
 				colon_pos = i;
 				continue;
 			}
@@ -355,14 +356,12 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 
 			if (i == 0 || (i == 1 && msg[i-1] == '\r')) {
 				/* no headers at all */
-				i++;
 				break;
 			}
 
 			if ((i > 0 && msg[i-1] == '\n') ||
 			    (i > 1 && msg[i-2] == '\n' && msg[i-1] == '\r')) {
 				/* \n\n or \n\r\n - end of headers */
-				i++;
 				break;
 			}
 
@@ -401,7 +400,7 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 
 		if (i < size) {
 			/* end of header */
-			startpos = i;
+			startpos = i+1;
 			break;
 		}
 
@@ -450,12 +449,9 @@ static MessageBoundary *
 message_find_boundary(IOBuffer *inbuf, MessageBoundary *boundaries,
 		      MessageSize *msg_size, int skip_over)
 {
-	// FIXME: probably lots of bugs in this function
 	MessageBoundary *boundary;
 	unsigned char *msg;
 	unsigned int i, size, startpos, line_start, missing_cr_count;
-
-	memset(msg_size, 0, sizeof(MessageSize));
 
 	boundary = NULL;
 	missing_cr_count = startpos = line_start = 0;
@@ -475,7 +471,7 @@ message_find_boundary(IOBuffer *inbuf, MessageBoundary *boundaries,
 					break;
 			}
 
-			if (i > 0 && msg[i-1] != '\r') {
+			if (i == 0 || msg[i-1] != '\r') {
 				/* missing CR */
 				missing_cr_count++;
 			}
@@ -515,38 +511,33 @@ message_find_boundary(IOBuffer *inbuf, MessageBoundary *boundaries,
 
 			io_buffer_skip(inbuf, i);
 			msg_size->physical_size += i;
+			msg_size->virtual_size += i;
 
 			startpos = size - i;
 		}
 	}
 
 	if (boundary != NULL) {
-		msg_size->physical_size += line_start - startpos;
-
 		if (skip_over) {
 			/* leave the pointer right after the boundary */
 			line_start += 2 + boundary->len;
 		} else if (line_start > 0 && msg[line_start-1] == '\n') {
 			/* leave the \r\n before the boundary */
 			line_start--;
-			msg_size->physical_size--;
 			msg_size->lines--;
 
-			if (line_start > 0 && msg[line_start-1] == '\r') {
+			if (line_start > 0 && msg[line_start-1] == '\r')
 				line_start--;
-				msg_size->physical_size--;
-			} else {
+			else
 				missing_cr_count--;
-			}
 		}
 		startpos = line_start;
 	}
 
 	io_buffer_skip(inbuf, startpos);
 	msg_size->physical_size += startpos;
+	msg_size->virtual_size += startpos + missing_cr_count;
 
-	msg_size->virtual_size +=
-		msg_size->physical_size + missing_cr_count;
 	i_assert(msg_size->virtual_size >= msg_size->physical_size);
 
 	return boundary;
@@ -558,8 +549,14 @@ static MessagePart *message_parse_body(IOBuffer *inbuf,
 {
 	MessageBoundary *boundary;
 
-        boundary = message_find_boundary(inbuf, boundaries, body_size, FALSE);
-	return boundary == NULL ? NULL : boundary->part;
+	if (boundaries == NULL) {
+		message_get_body_size(inbuf, body_size, -1);
+		return NULL;
+	} else {
+		boundary = message_find_boundary(inbuf, boundaries,
+						 body_size, FALSE);
+		return boundary == NULL ? NULL : boundary->part;
+	}
 }
 
 /* skip data until next boundary is found. if it's end boundary,

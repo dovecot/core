@@ -21,7 +21,7 @@ struct _MessagePart {
 	MessagePart *next;
 	MessagePart *children;
 
-        MessagePosition pos;
+        MessagePosition pos; /* absolute position from beginning of message */
 	MessageSize header_size;
 	MessageSize body_size;
 

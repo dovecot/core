@@ -1,10 +1,9 @@
 #ifndef __IMAP_MESSAGE_CACHE_H
 #define __IMAP_MESSAGE_CACHE_H
 
-// FIXME: update comments
-
 /* IMAP message cache. Caches are mailbox-specific and must be cleared
-   if UID validity changes.
+   if UID validity changes. Also if message data may have changed,
+   imap_msgcache_close() must be called.
 
    Caching is mostly done to avoid parsing the same message multiple times
    when client fetches the message in parts.
@@ -59,22 +58,22 @@ const char *imap_msgcache_get(ImapMessageCache *cache, unsigned int uid,
 /* Returns the root MessagePart for message, or NULL if it's not cached. */
 MessagePart *imap_msgcache_get_parts(ImapMessageCache *cache, unsigned int uid);
 
-/* Returns FALSE if message isn't in cache. If data is not NULL, it's set to
-   point to beginning of message data. If fd is not NULL, it's set to contain
-   the message file descriptor seeked to same position as *data. If hdr_size
-   is NULL, *data contains only the message body. */
+/* Returns FALSE if message isn't in cache. If inbuf is not NULL, it's set
+   to point to beginning of message, or to beginning of message body if
+   hdr_size is NULL. */
 int imap_msgcache_get_rfc822(ImapMessageCache *cache, unsigned int uid,
 			     MessageSize *hdr_size, MessageSize *body_size,
                              IOBuffer **inbuf);
 
 /* Returns FALSE if message isn't in cache. *inbuf is set to point to the first
-   non-skipped character. size is set to specify the full size for message. */
+   non-skipped character. size is set to specify the full size of message. */
 int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
 				     off_t virtual_skip, off_t max_virtual_size,
 				     int get_header, MessageSize *size,
 				     IOBuffer **inbuf);
 
-/* Like imap_msgcache_get_rfc822() without calculating virtual sizes. */
+/* Returns FALSE if message isn't in cache.  *inbuf is set to point to
+   beginning of message. */
 int imap_msgcache_get_data(ImapMessageCache *cache, unsigned int uid,
                            IOBuffer **inbuf);
 

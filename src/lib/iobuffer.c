@@ -198,7 +198,7 @@ static int my_write(int fd, const void *buf, unsigned int size)
 	i_assert(size <= INT_MAX);
 
 	if (size == 0)
-		return 1;
+		return 0;
 
 	ret = write(fd, buf, size);
 	if (ret < 0 && (errno == EINTR || errno == EAGAIN))
@@ -413,6 +413,9 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 	if (buf->closed)
                 return -1;
 
+	if (size == 0)
+		return 1;
+
 	if (buf->pos == 0) {
 		/* buffer is empty, try to send the data immediately */
 		ret = buf->file ? my_write(buf->fd, data, size) :
@@ -427,9 +430,6 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 		data = (const char *) data + ret;
                 size -= ret;
 	}
-
-	if (size == 0)
-		return 1;
 
 	if (io_buffer_get_space(buf, size) == NULL) {
 		if (buf->blocking) {
@@ -607,7 +607,7 @@ int io_buffer_read_mmaped(IOBuffer *buf, unsigned int size)
 
 	if (buf->pos != 0) {
 		aligned_skip = buf->skip & ~mmap_pagemask;
-		if (buf->buffer != NULL) {
+		if (aligned_skip == 0 && buf->buffer != NULL) {
 			/* didn't skip enough bytes */
 			return -2;
 		}
@@ -686,7 +686,6 @@ int io_buffer_read_max(IOBuffer *buf, unsigned int size)
                 return -1;
 	}
 
-        buf->offset += ret;
 	buf->pos += ret;
         return ret;
 }
@@ -700,9 +699,10 @@ void io_buffer_skip(IOBuffer *buf, unsigned int size)
 {
 	int ret;
 
+	buf->offset += size;
+
 	if (size <= buf->pos - buf->skip) {
 		buf->skip += size;
-		buf->offset += size;
 		return;
 	}
 
@@ -769,13 +769,14 @@ static void io_buffer_skip_lf(IOBuffer *buf)
 		if (buf->skip == buf->cr_lookup_pos)
 			buf->cr_lookup_pos++;
 		buf->skip++;
+		buf->offset++;
 	}
 	buf->last_cr = FALSE;
 }
 
 char *io_buffer_next_line(IOBuffer *buf)
 {
-	// FIXME: update buf->offset
+	/* FIXME: buf->offset isn't updated right.. (skip_lf thing?) */
 	unsigned char *ret_buf;
         unsigned int i;
 
@@ -794,6 +795,7 @@ char *io_buffer_next_line(IOBuffer *buf)
 			ret_buf = buf->buffer + buf->skip;
 
 			i++;
+			buf->offset += i - buf->skip;
 			buf->skip = i;
                         break;
 		}

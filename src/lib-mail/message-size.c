@@ -38,7 +38,7 @@ void message_get_header_size(IOBuffer *inbuf, MessageSize *hdr)
 
 		if (i < size) {
 			/* end of header */
-			startpos = i + 1;
+			startpos = i+1;
 			break;
 		}
 
