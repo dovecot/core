@@ -47,11 +47,13 @@
 	} STMT_END
 #  define ARRAY_SET_TYPE(array, array_type) \
 	array_type **array ## __ ## type = NULL
+#  define ARRAY_INIT { 0, 0 }, 0
 #else
 #  define ARRAY_DEFINE(name, array_type) name
 #  define ARRAY_CREATE(array, pool, array_type, init_count) \
 	array_create(array, pool, sizeof(array_type), init_count);
 #  define ARRAY_SET_TYPE(array, array_type)
+#  define ARRAY_INIT { 0, 0 }
 #endif
 
 struct array {
