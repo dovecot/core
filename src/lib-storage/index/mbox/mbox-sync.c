@@ -34,12 +34,15 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "buffer.h"
+#include "hostpid.h"
 #include "istream.h"
 #include "file-set-size.h"
 #include "str.h"
 #include "write-full.h"
+#include "message-date.h"
 #include "istream-raw-mbox.h"
 #include "mbox-storage.h"
+#include "mbox-from.h"
 #include "mbox-file.h"
 #include "mbox-lock.h"
 #include "mbox-sync-private.h"
@@ -49,6 +52,14 @@
 #include <sys/stat.h>
 
 #define MBOX_SYNC_SECS 1
+
+/* The text below was taken exactly as c-client wrote it to my mailbox,
+   so it's probably copyrighted by University of Washington. */
+#define DUMMY_MESSAGE_BODY \
+"This text is part of the internal format of your mail folder, and is not\n" \
+"a real message.  It is created automatically by the mail system software.\n" \
+"If deleted, important folder data will be lost, and it will be re-created\n" \
+"with the data reset to initial values.\n"
 
 int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset)
 {
@@ -941,6 +952,38 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	return 1;
 }
 
+static int mbox_write_dummy(struct mbox_sync_context *sync_ctx)
+{
+	string_t *str;
+
+	str = t_str_new(1024);
+	str_printfa(str, "%sDate: %s\n"
+		    "From: Mail System Internal Data <MAILER-DAEMON@%s>\n"
+		    "Subject: DON'T DELETE THIS MESSAGE -- FOLDER INTERNAL DATA"
+		    "\nMessage-ID: <%s@%s>\n"
+		    "X-IMAP: %u %010u\n"
+		    "Status: RO\n"
+		    "\n"
+		    DUMMY_MESSAGE_BODY,
+                    mbox_from_create("MAILER_DAEMON", ioloop_time),
+		    message_date_create(ioloop_time),
+		    my_hostname, dec2str(ioloop_time), my_hostname,
+		    sync_ctx->base_uid_validity,
+		    sync_ctx->next_uid-1);
+
+	if (pwrite_full(sync_ctx->fd, str_data(str), str_len(str), 0) < 0) {
+		if (!ENOSPACE(errno)) {
+			mbox_set_syscall_error(sync_ctx->ibox,
+					       "pwrite_full()");
+			return -1;
+		}
+
+		/* out of disk space, truncate to empty */
+		(void)ftruncate(sync_ctx->fd, 0);
+	}
+	return 0;
+}
+
 static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					struct mbox_sync_mail_context *mail_ctx)
 {
@@ -1012,6 +1055,11 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		if (ftruncate(sync_ctx->fd, offset + trailer_size) < 0) {
 			mbox_set_syscall_error(sync_ctx->ibox, "ftruncate()");
 			return -1;
+		}
+
+		if (offset == 0) {
+			if (mbox_write_dummy(sync_ctx) < 0)
+				return -1;
 		}
 
                 sync_ctx->expunged_space = 0;
