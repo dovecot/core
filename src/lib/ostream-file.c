@@ -872,12 +872,22 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 	if (offset >= 0) {
 		ostream->offset = offset;
 
-		if (fstat(fd, &st) == 0 &&
-		    (uoff_t)st.st_blksize > fstream->optimal_block_size) {
-			/* use the optimal block size, but with a
-			   reasonable limit */
-			fstream->optimal_block_size =
-				I_MIN(st.st_blksize, MAX_OPTIMAL_BLOCK_SIZE);
+		if (fstat(fd, &st) == 0) {
+			if ((uoff_t)st.st_blksize >
+			    fstream->optimal_block_size) {
+				/* use the optimal block size, but with a
+				   reasonable limit */
+				fstream->optimal_block_size =
+					I_MIN(st.st_blksize,
+					      MAX_OPTIMAL_BLOCK_SIZE);
+			}
+
+			if (S_ISREG(st.st_mode)) {
+				fstream->no_socket_cork = TRUE;
+				fstream->file = TRUE;
+
+				o_stream_set_blocking(ostream, 60000, 0, NULL);
+			}
 		}
 #ifndef HAVE_LINUX_SENDFILE
 		/* only Linux supports sendfile() with non-sockets. Other
@@ -885,14 +895,10 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 		   don't bother to even try with them. */
 		fstream->no_sendfile = TRUE;
 #endif
-		fstream->no_socket_cork = FALSE;
-		fstream->file = TRUE;
-
-		o_stream_set_blocking(ostream, 60000, 0, NULL);
 	} else {
 		if (net_getsockname(fd, NULL, NULL) < 0) {
 			fstream->no_sendfile = TRUE;
-			fstream->no_socket_cork = FALSE;
+			fstream->no_socket_cork = TRUE;
 		}
 	}
 	return ostream;
