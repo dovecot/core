@@ -89,14 +89,15 @@ documentation.
 COPY command can be made much faster with maildir by setting
 maildir_copy_with_hardlinks = yes. This is problematic only if something
 modifies the mail in one folder but doesn't want it modified in the others.
-I don't know any MUA which would modify any mail files directly.
+I don't know any MUA which would modify any mail file directly.
 
-Logins can be handled either fast, or securely. Doing it securely means
+Logins can be handled either fast or securely. Doing it securely means
 creating a new login process for each connection instead of having only
 few processes handling multiple connections. The problem with sharing
 connections is that if a security hole is found, the attacker could hijack
 other peoples connections or steal their passwords if plaintext
-authentication was used (even with SSL/TLS).
+authentication was used (even with SSL/TLS). If you want to be fast,
+set login_process_per_user = no.
 
 Dovecot's memory usage is very small. Almost all memory usage you see with
 ps/top is from mmap()ed files, meaning that operating system can drop any
