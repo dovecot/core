@@ -13,6 +13,12 @@
 
 #define CREATE_MODE 0770 /* umask() should limit it more */
 
+typedef struct {
+	int found;
+	size_t oldnamelen;
+	const char *newname;
+} RenameContext;
+
 extern MailStorage maildir_storage;
 extern Mailbox maildir_mailbox;
 
@@ -68,7 +74,9 @@ static int maildir_autodetect(const char *data)
 static int maildir_is_valid_name(MailStorage *storage, const char *name)
 {
 	return name[0] != '\0' && name[0] != storage->hierarchy_sep &&
-		strchr(name, '/') == NULL && strchr(name, '\\') == NULL;
+		name[strlen(name)-1] != storage->hierarchy_sep &&
+		strchr(name, '/') == NULL && strchr(name, '\\') == NULL &&
+		strchr(name, '*') == NULL && strchr(name, '%') == NULL;
 }
 
 /* create or fix maildir, ignore if it already exists */
@@ -309,10 +317,39 @@ static int move_inbox_data(MailStorage *storage, const char *newdir)
 	return TRUE;
 }
 
+static void rename_subfolder(MailStorage *storage, const char *name,
+			     MailboxFlags flags __attr_unused__, void *context)
+{
+	RenameContext *ctx = context;
+	char oldpath[1024], newpath[1024];
+
+	i_assert(ctx->oldnamelen <= strlen(name));
+
+	i_snprintf(oldpath, sizeof(oldpath), "%s/.%s", storage->dir, name);
+	i_snprintf(newpath, sizeof(newpath), "%s/.%s.%s",
+		   storage->dir, ctx->newname, name + ctx->oldnamelen);
+
+	/* FIXME: it's possible to merge two folders if either one of them
+	   doesn't have existing root folder. We could check this but I'm not
+	   sure if it's worth it. It could be even considered as a feature.
+
+	   Anyway, the bug with merging is that if both folders have
+	   identically named subfolder they conflict. Just ignore those and
+	   leave them under the old folder. */
+	if (rename(oldpath, newpath) == 0 || errno == EEXIST)
+		ctx->found = TRUE;
+	else {
+		mail_storage_set_critical(storage, "rename(%s, %s) failed: %m",
+					  oldpath, newpath);
+	}
+}
+
 static int maildir_rename_mailbox(MailStorage *storage, const char *oldname,
 				  const char *newname)
 {
+	RenameContext ctx;
 	char oldpath[1024], newpath[1024];
+	int ret;
 
 	mail_storage_clear_error(storage);
 
@@ -325,12 +362,31 @@ static int maildir_rename_mailbox(MailStorage *storage, const char *oldname,
 
 	/* NOTE: renaming INBOX works just fine with us, it's simply created
 	   the next time it's needed. Only problem with it is that it's not
-	   atomic operation but that can't be really helped. */
+	   atomic operation but that can't be really helped.
+
+	   NOTE: is't possible to rename a nonexisting folder which has
+	   subfolders. In that case we should ignore the rename() error. */
 	i_snprintf(oldpath, sizeof(oldpath), "%s/.%s", storage->dir, oldname);
 	i_snprintf(newpath, sizeof(newpath), "%s/.%s", storage->dir, newname);
-	if (rename(oldpath, newpath) == 0) {
+
+	ret = rename(oldpath, newpath);
+	if (ret == 0 || (errno == ENOENT && strcmp(oldname, "INBOX") != 0)) {
 		if (strcmp(oldname, "INBOX") == 0)
 			return move_inbox_data(storage, newpath);
+
+		ctx.found = ret == 0;
+		ctx.oldnamelen = strlen(oldname)+1;
+		ctx.newname = newname;
+		if (!maildir_find_mailboxes(storage,
+					    t_strconcat(oldname, ".*", NULL),
+					    rename_subfolder, &ctx))
+			return FALSE;
+
+		if (!ctx.found) {
+			mail_storage_set_error(storage,
+					       "Mailbox doesn't exist");
+			return FALSE;
+		}
 		return TRUE;
 	}
 

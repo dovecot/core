@@ -91,7 +91,9 @@ static int mbox_is_valid_name(MailStorage *storage, const char *name)
 	const char *p;
 	int newdir;
 
-	if (name[0] == '\0' || name[0] == storage->hierarchy_sep)
+	if (name[0] == '\0' || name[0] == storage->hierarchy_sep ||
+	    name[strlen(name)-1] == storage->hierarchy_sep ||
+	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
 		return FALSE;
 
 	/* make sure there's no "../" or "..\" stuff */
