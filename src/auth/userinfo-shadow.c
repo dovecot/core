@@ -32,8 +32,8 @@ static int shadow_verify_plain(const char *user, const char *password,
 	result = strcmp(mycrypt(passdup, spw->sp_pwdp), spw->sp_pwdp) == 0;
 
 	/* clear the passwords from memory */
-	memset(passdup, 0, strlen(passdup));
-	memset(spw->sp_pwdp, 0, strlen(spw->sp_pwdp));
+	safe_memset(passdup, 0, strlen(passdup));
+	safe_memset(spw->sp_pwdp, 0, strlen(spw->sp_pwdp));
 
 	if (!result)
 		return FALSE;

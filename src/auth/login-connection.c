@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "network.h"
+#include "safe-memset.h"
 #include "login-connection.h"
 
 #include <stdlib.h>
@@ -106,7 +107,7 @@ static void login_input(void *context, int fd __attr_unused__,
 		conn->type = AUTH_REQUEST_NONE;
 
 		/* clear any sensitive data from memory */
-		memset(data + sizeof(request), 0, request.data_size);
+		safe_memset(data + sizeof(request), 0, request.data_size);
 	} else {
 		/* unknown request */
 		i_error("BUG: imap-login sent us unknown request %u",

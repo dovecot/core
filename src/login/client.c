@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "process-title.h"
+#include "safe-memset.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "ssl-proxy.h"
@@ -180,7 +181,7 @@ static int client_command_execute(Client *client, char *line)
 		pass = get_next_arg(&line);
 		ret = cmd_login(client, user, pass);
 
-		memset(pass, 0, strlen(pass));
+		safe_memset(pass, 0, strlen(pass));
 		return ret;
 	}
 	if (strcmp(cmd, "AUTHENTICATE") == 0)

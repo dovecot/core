@@ -2,6 +2,7 @@
 #define __USERINFO_PASSWD_H
 
 #include "common.h"
+#include "safe-memset.h"
 #include "userinfo.h"
 
 #include <pwd.h>

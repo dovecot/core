@@ -43,8 +43,8 @@ static int passwd_verify_plain(const char *user, const char *password,
 	result = strcmp(mycrypt(passdup, pw->pw_passwd), pw->pw_passwd) == 0;
 
 	/* clear the passwords from memory */
-	memset(passdup, 0, strlen(passdup));
-	memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
+	safe_memset(passdup, 0, strlen(passdup));
+	safe_memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
 
 	if (!result)
 		return FALSE;

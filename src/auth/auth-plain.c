@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "safe-memset.h"
 #include "auth.h"
 #include "cookie.h"
 #include "userinfo.h"
@@ -49,7 +50,7 @@ static void auth_plain_continue(CookieData *cookie,
 
 		if (*pass != '\0') {
 			/* make sure it's cleared */
-			memset(pass, 0, strlen(pass));
+			safe_memset(pass, 0, strlen(pass));
 		}
 	}
 

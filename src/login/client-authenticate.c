@@ -6,6 +6,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "safe-memset.h"
 #include "temp-string.h"
 #include "auth-connection.h"
 #include "client.h"
@@ -267,10 +268,10 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 	}
 
 	/* clear sensitive data */
-	memset(line, 0, linelen);
+	safe_memset(line, 0, linelen);
 
 	bufsize = buffer_get_used_size(buf);
-	memset(buffer_free_without_data(buf), 0, bufsize);
+	safe_memset(buffer_free_without_data(buf), 0, bufsize);
 
 	t_pop();
 }

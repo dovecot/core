@@ -80,8 +80,8 @@ static int vpopmail_verify_plain(const char *user, const char *password,
         passdup = t_strdup_noconst(password);
 	result = strcmp(crypt(passdup, vpw->pw_passwd), vpw->pw_passwd) == 0;
 
-	memset(passdup, 0, strlen(passdup));
-	memset(vpw->pw_passwd, 0, strlen(vpw->pw_passwd));
+	safe_memset(passdup, 0, strlen(passdup));
+	safe_memset(vpw->pw_passwd, 0, strlen(vpw->pw_passwd));
 
 	if (!result) {
 		I_DEBUG(("vpopmail: password mismatch for user %s@%s",

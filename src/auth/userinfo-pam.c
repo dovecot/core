@@ -125,8 +125,8 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 			while (--i >= 0) {
 				if ((*resp)[i].resp == NULL)
 					continue;
-				memset((*resp)[i].resp, 0,
-				       strlen((*resp)[i].resp));
+				safe_memset((*resp)[i].resp, 0,
+					    strlen((*resp)[i].resp));
 				free((*resp)[i].resp);
 				(*resp)[i].resp = NULL;
 			}
@@ -201,7 +201,7 @@ static int pam_verify_plain(const char *user, const char *password,
 	if (pw == NULL)
 		return FALSE;
 
-	memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
+	safe_memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
 	passwd_fill_cookie_reply(pw, reply);
 	return TRUE;
 }

@@ -41,6 +41,7 @@ liblib_a_SOURCES = \
 	randgen.c \
 	restrict-access.c \
 	restrict-process-size.c \
+	safe-memset.c \
 	sendfile-util.c \
 	strfuncs.c \
 	temp-string.c \
@@ -85,6 +86,7 @@ noinst_HEADERS = \
 	randgen.h \
 	restrict-access.h \
 	restrict-process-size.h \
+	safe-memset.h \
 	sendfile-util.h \
 	strfuncs.h \
 	temp-string.h \
