@@ -755,8 +755,10 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 
 	if (ret == 0) {
 		/* EOF */
-		buffer_set_used_size(file->buffer,
-				     file->sync_offset - file->buffer_offset);
+		if (file->sync_offset > file->buffer_offset) {
+			buffer_set_used_size(file->buffer, file->sync_offset -
+					     file->buffer_offset);
+		}
 		return 1;
 	}
 
