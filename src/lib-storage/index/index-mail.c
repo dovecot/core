@@ -627,7 +627,7 @@ int index_mail_next(struct index_mail *mail, uint32_t seq)
 {
 	struct index_mail_data *data = &mail->data;
         const struct mail_index_record *rec;
-        enum mail_cache_record_flag cache_flags;
+        uint32_t cache_flags;
 
 	if (mail_index_lookup(mail->trans->trans_view, seq, &rec) < 0) {
 		mail_storage_set_index_error(mail->ibox);
