@@ -336,7 +336,7 @@ _send_istream(struct _ostream *outstream, struct istream *instream)
 			return sent;
 	}
 
-	return sent == 0 ? -1 : (ssize_t)sent;
+	return sent == 0 && instream->stream_errno != 0 ? -1 : (ssize_t)sent;
 }
 
 static struct crlf_ostream *
