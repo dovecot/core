@@ -63,7 +63,7 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 
 #define INDEX_HAS_MISSING_LOGS(index, file) \
 	((file)->hdr.file_seq != (index)->hdr->log_file_seq && \
-	 ((file)->hdr.file_seq != (index)->hdr->log_file_seq+1 || \
+	 ((file)->hdr.prev_file_seq != (index)->hdr->log_file_seq || \
 	  (file)->hdr.prev_file_offset != (index)->hdr->log_file_offset))
 
 
@@ -78,6 +78,8 @@ static int mail_transaction_log_check_file_seq(struct mail_transaction_log *log)
 		return -1;
 
 	file = log->head;
+	file->refcount++;
+
 	ret = mail_index_lock_shared(index, TRUE, &lock_id);
 	if (ret == 0) {
 		ret = mail_index_map(index, FALSE);
@@ -88,7 +90,11 @@ static int mail_transaction_log_check_file_seq(struct mail_transaction_log *log)
 			ret = mail_transaction_log_rotate(log);
 		}
 	}
-	(void)mail_transaction_log_file_lock(file, F_UNLCK);
+
+	if (--file->refcount == 0)
+		mail_transaction_logs_clean(log);
+	else
+		(void)mail_transaction_log_file_lock(file, F_UNLCK);
 	return ret;
 }
 
@@ -330,11 +336,16 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 	hdr.indexid = index->indexid;
 	hdr.used_size = sizeof(hdr);
 
-	if (index->fd != -1)
+	if (index->fd != -1) {
+		hdr.prev_file_seq = index->hdr->log_file_seq;
 		hdr.prev_file_offset = index->hdr->log_file_offset;
+	}
 	hdr.file_seq = index->hdr->log_file_seq+1;
 
-	i_assert(log->head == NULL || hdr.file_seq > log->head->hdr.file_seq);
+	if (log->head != NULL && hdr.file_seq <= log->head->hdr.file_seq) {
+		/* make sure the sequence grows */
+		hdr.file_seq = log->head->hdr.file_seq+1;
+	}
 
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
 		mail_index_file_set_syscall_error(index, path, "write_full()");
@@ -439,14 +450,15 @@ mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
 
 void mail_transaction_logs_clean(struct mail_transaction_log *log)
 {
-	struct mail_transaction_log_file **p;
+	struct mail_transaction_log_file **p, *next;
 
 	for (p = &log->tail; *p != NULL; ) {
 		if ((*p)->refcount != 0)
                         p = &(*p)->next;
 		else {
-                        mail_transaction_log_file_close(*p);
-			*p = (*p)->next;
+			next = (*p)->next;
+			mail_transaction_log_file_close(*p);
+			*p = next;
 		}
 	}
 }
@@ -455,7 +467,7 @@ static int mail_transaction_log_rotate(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file;
 	struct stat st;
-	int fd;
+	int fd, lock_type;
 
 	if (fstat(log->head->fd, &st) < 0) {
 		mail_index_file_set_syscall_error(log->index,
@@ -473,10 +485,16 @@ static int mail_transaction_log_rotate(struct mail_transaction_log *log)
 	if (file == NULL)
 		return -1;
 
-	if (log->head != NULL) {
-		if (--log->head->refcount == 0)
-			mail_transaction_logs_clean(log);
+	lock_type = log->head->lock_type;
+	if (lock_type != F_UNLCK) {
+		if (mail_transaction_log_file_lock(file, lock_type) < 0)
+			return -1;
 	}
+
+	if (--log->head->refcount == 0)
+		mail_transaction_logs_clean(log);
+	else
+		(void)mail_transaction_log_file_lock(log->head, F_UNLCK);
 
 	log->head = file;
 	return 0;
@@ -988,6 +1006,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 				uoff_t *log_file_offset_r)
 {
 	struct mail_index_view *view = t->view;
+	struct mail_index *index;
 	struct mail_transaction_log *log;
 	struct mail_transaction_log_file *file;
 	size_t offset;
@@ -1000,7 +1019,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 		return 0;
 	}
 
-	log = mail_index_view_get_index(view)->log;
+	index = mail_index_view_get_index(view);
+	log = index->log;
 
 	if (log->index->log_locked) {
 		i_assert(view->external);
@@ -1008,6 +1028,19 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 		if (mail_transaction_log_lock_head(log) < 0)
 			return -1;
 	}
+
+	if (log->head->hdr.file_seq == index->hdr->log_file_seq &&
+	    log->head->hdr.used_size > MAIL_TRANSACTION_LOG_ROTATE_SIZE) {
+		/* everything synced in index, we can rotate. */
+		if (mail_transaction_log_rotate(log) < 0) {
+			if (!log->index->log_locked) {
+				(void)mail_transaction_log_file_lock(log->head,
+								     F_UNLCK);
+			}
+			return -1;
+		}
+	}
+
 	file = log->head;
 	append_offset = file->hdr.used_size;
 

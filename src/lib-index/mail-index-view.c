@@ -14,6 +14,7 @@ struct mail_index_view *mail_index_view_open(struct mail_index *index)
 	view->index = index;
 	view->log_view = mail_transaction_log_view_open(index->log);
 
+	view->indexid = index->indexid;
 	view->map = index->map;
 	view->map->refcount++;
 
@@ -33,8 +34,27 @@ void mail_index_view_close(struct mail_index_view *view)
 	i_free(view);
 }
 
+static int mail_index_view_map_protect(struct mail_index_view *view)
+{
+	/* not head mapping, no need to lock */
+	if (!view->map_protected) {
+		if (mail_index_map_lock_mprotect(view->index, view->map,
+						 F_RDLCK) < 0)
+			return -1;
+		view->map_protected = TRUE;
+	}
+	return 0;
+}
+
 int mail_index_view_lock_head(struct mail_index_view *view, int update_index)
 {
+	unsigned int lock_id;
+
+	if (view->map != view->index->map) {
+		if (mail_index_view_map_protect(view) < 0)
+			return -1;
+	}
+
 	if (!mail_index_is_locked(view->index, view->lock_id)) {
 		if (mail_index_lock_shared(view->index, update_index,
 					   &view->lock_id) < 0)
@@ -45,13 +65,17 @@ int mail_index_view_lock_head(struct mail_index_view *view, int update_index)
 			return -1;
 		}
 
-		if (view->index->indexid != view->map->hdr->indexid) {
+		if (view->index->indexid != view->indexid) {
 			/* index was rebuilt */
 			view->inconsistent = TRUE;
 			return -1;
 		}
 	} else if (update_index) {
-		// FIXME: check if we need to reopen it!
+		if (mail_index_lock_shared(view->index, TRUE, &lock_id) < 0)
+			return -1;
+
+		mail_index_unlock(view->index, view->lock_id);
+		view->lock_id = lock_id;
 	}
 
 	return 0;
@@ -63,7 +87,8 @@ int mail_index_view_lock(struct mail_index_view *view)
 		return -1;
 
 	if (view->map != view->index->map) {
-		/* not head mapping, no need to lock */
+		if (mail_index_view_map_protect(view) < 0)
+			return -1;
 		return 0;
 	}
 
@@ -72,6 +97,12 @@ int mail_index_view_lock(struct mail_index_view *view)
 
 void mail_index_view_unlock(struct mail_index_view *view)
 {
+	if (view->map_protected) {
+		(void)mail_index_map_lock_mprotect(view->index, view->map,
+						   F_UNLCK);
+		view->map_protected = FALSE;
+	}
+
 	if (view->lock_id != 0) {
 		mail_index_unlock(view->index, view->lock_id);
 		view->lock_id = 0;

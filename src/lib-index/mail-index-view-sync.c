@@ -160,6 +160,7 @@ static int sync_append(const struct mail_index_record *rec, void *context)
 
 	map->records_count++;
 	map->hdr_copy.messages_count++;
+	map->hdr_copy.next_uid = rec->uid+1;
 
 	mail_index_header_update_counts(&map->hdr_copy, 0, rec->flags);
 	mail_index_header_update_lowwaters(&map->hdr_copy, rec);

@@ -7,6 +7,7 @@ struct mail_index_view {
 	struct mail_index *index;
         struct mail_transaction_log_view *log_view;
 
+	unsigned int indexid;
 	struct mail_index_map *map;
 
 	uint32_t log_file_seq;
@@ -19,6 +20,7 @@ struct mail_index_view {
 	unsigned int inconsistent:1;
 	unsigned int syncing:1;
 	unsigned int external:1;
+	unsigned int map_protected:1;
 };
 
 int mail_index_view_lock(struct mail_index_view *view);

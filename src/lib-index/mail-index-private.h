@@ -103,6 +103,8 @@ int mail_index_lock_exclusive(struct mail_index *index,
 void mail_index_unlock(struct mail_index *index, unsigned int lock_id);
 /* Returns 1 if given lock_id is valid, 0 if not. */
 int mail_index_is_locked(struct mail_index *index, unsigned int lock_id);
+int mail_index_map_lock_mprotect(struct mail_index *index,
+				 struct mail_index_map *map, int lock_type);
 
 /* Map index file to memory, replacing the previous mapping for index.
    Returns 1 = ok, 0 = corrupted, -1 = error. If index needs fscking, it

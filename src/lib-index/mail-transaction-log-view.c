@@ -90,10 +90,10 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	ret = mail_transaction_log_file_find(view->log, min_file_seq, &file);
 	if (ret <= 0) {
 		if (ret == 0 &&
-		    min_file_seq == view->log->tail->hdr.file_seq-1 &&
+		    min_file_seq == view->log->tail->hdr.prev_file_seq &&
 		    min_file_offset == view->log->tail->hdr.prev_file_offset) {
 			/* we can skip this */
-			min_file_seq++;
+			min_file_seq = view->log->tail->hdr.file_seq;
 			min_file_offset =
 				sizeof(struct mail_transaction_log_header);
 			ret = mail_transaction_log_file_find(view->log,
@@ -197,19 +197,26 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 			     const void **data_r)
 {
 	const struct mail_transaction_header *hdr;
-	struct mail_transaction_log_file *file = view->file;
+	struct mail_transaction_log_file *file;
 	const struct mail_transaction_type_map *type_rec;
 	const void *data;
 	unsigned int record_size;
 	size_t file_size;
 
-	view->prev_file_seq = file->hdr.file_seq;
-	view->prev_file_offset = view->file_offset;
+	for (;;) {
+		file = view->file;
 
-	if (view->file_offset == file->hdr.used_size) {
+		view->prev_file_seq = file->hdr.file_seq;
+		view->prev_file_offset = view->file_offset;
+
+		if (view->file_offset != file->hdr.used_size)
+			break;
+
 		view->file = file->next;
 		view->file_offset = sizeof(struct mail_transaction_log_header);
-		return 0;
+
+		if (view->file == NULL)
+			return 0;
 	}
 
 	data = buffer_get_data(file->buffer, &file_size);

@@ -132,7 +132,6 @@ int maildir_sync_last_commit(struct index_mailbox *ibox)
 		ibox->commit_log_file_seq = 0;
 		ibox->commit_log_file_offset = 0;
 	} else {
-		// FIXME: this is bad - we have to fix this in some way
 		mail_storage_set_index_error(ibox);
 	}
 	return ret;
@@ -307,7 +306,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 
 	if (mail_index_sync_begin(ibox->index, &sync_ctx, &view,
 				  (uint32_t)-1, (uoff_t)-1) <= 0) {
-		// FIXME: ?
+		mail_storage_set_index_error(ibox);
 		return -1;
 	}
 
@@ -393,7 +392,6 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		ibox->commit_log_file_seq = 0;
 		ibox->commit_log_file_offset = 0;
 	} else {
-		// FIXME: this is bad - we have to fix this in some way
 		mail_storage_set_index_error(ibox);
 	}
 

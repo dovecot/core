@@ -2,10 +2,12 @@
 #define __MAIL_TRANSACTION_LOG_H
 
 #define MAIL_TRANSACTION_LOG_PREFIX ".log"
+#define MAIL_TRANSACTION_LOG_ROTATE_SIZE (1024*128)
 
 struct mail_transaction_log_header {
 	uint32_t indexid;
 	uint32_t file_seq;
+	uint32_t prev_file_seq;
 	uint32_t prev_file_offset;
 	uint32_t used_size;
 };

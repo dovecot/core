@@ -113,22 +113,29 @@ static int mail_index_has_changed(struct mail_index *index)
 	}
 }
 
-static int mail_index_lock_mprotect(struct mail_index *index, int lock_type)
+int mail_index_map_lock_mprotect(struct mail_index *index,
+				 struct mail_index_map *map, int lock_type)
 {
 	int prot;
 
-	if (index->map != NULL &&
-	    !MAIL_INDEX_MAP_IS_IN_MEMORY(index->map)) {
+	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
 		prot = lock_type == F_UNLCK ? PROT_NONE :
 			lock_type == F_WRLCK ? (PROT_READ|PROT_WRITE) :
 			PROT_READ;
-		if (mprotect(index->map->mmap_base,
-			     index->map->mmap_size, prot) < 0) {
+		if (mprotect(map->mmap_base, map->mmap_size, prot) < 0) {
 			mail_index_set_syscall_error(index, "mprotect()");
 			return -1;
 		}
 	}
 	return 0;
+}
+
+static int mail_index_lock_mprotect(struct mail_index *index, int lock_type)
+{
+	if (index->map == NULL)
+		return 0;
+
+	return mail_index_map_lock_mprotect(index, index->map, lock_type);
 }
 
 static int mail_index_lock(struct mail_index *index, int lock_type,
@@ -142,13 +149,22 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	if (lock_type == F_RDLCK && index->lock_type != F_UNLCK) {
 		index->shared_lock_count++;
 		*lock_id_r = index->lock_id;
-		return 1;
-	}
-	if (lock_type == F_WRLCK && index->lock_type == F_WRLCK) {
+		ret = 1;
+	} else if (lock_type == F_WRLCK && index->lock_type == F_WRLCK) {
 		index->excl_lock_count++;
 		*lock_id_r = index->lock_id + 1;
-		return 1;
+		ret = 1;
+	} else {
+		ret = 0;
 	}
+
+	if (update_index && index->excl_lock_count == 0) {
+		if (mail_index_has_changed(index) < 0)
+			return -1;
+	}
+
+	if (ret > 0)
+		return 1;
 
 	if (index->fcntl_locks_disable) {
 		/* FIXME: exclusive locking will rewrite the index file every
@@ -167,11 +183,6 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		index->lock_type = F_RDLCK;
 		*lock_id_r = index->lock_id;
 		return 1;
-	}
-
-	if (update_index) {
-		if (mail_index_has_changed(index) < 0)
-			return -1;
 	}
 
 	ret = file_wait_lock_full(index->fd, lock_type, timeout_secs,
