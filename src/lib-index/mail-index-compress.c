@@ -33,6 +33,9 @@ int mail_index_truncate(MailIndex *index)
 			(index->mmap_full_length - sizeof(MailIndexHeader)) %
 			sizeof(MailIndexRecord);
 
+		if (index->mmap_full_length < INDEX_FILE_MIN_SIZE)
+                        index->mmap_full_length = INDEX_FILE_MIN_SIZE;
+
 		if (ftruncate(index->fd, (off_t)index->mmap_full_length) < 0)
 			return index_set_syscall_error(index, "ftruncate()");
 
