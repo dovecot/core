@@ -176,7 +176,6 @@ void mail_index_close(MailIndex *index)
 
 static int mail_index_sync_file(MailIndex *index)
 {
-	struct utimbuf ut;
 	unsigned int i;
 	int failed, fsync_fds[3];
 
@@ -204,21 +203,26 @@ static int mail_index_sync_file(MailIndex *index)
 			failed = TRUE;
 	}
 
-	/* keep index's modify stamp same as the sync file's stamp */
-	ut.actime = ioloop_time;
-	ut.modtime = index->file_sync_stamp;
-	if (utime(index->filepath, &ut) < 0)
-		return index_set_syscall_error(index, "utime()");
-
 	for (i = 0; i < sizeof(fsync_fds)/sizeof(fsync_fds[0]); i++) {
 		if (fsync_fds[i] != -1 && fdatasync(fsync_fds[i]) < 0)
 			index_set_error(index, "fdatasync(%u) failed: %m", i);
 	}
 
-	if (fsync(index->fd) < 0)
-		return index_set_syscall_error(index, "fsync()");
+	if (fdatasync(index->fd) < 0)
+		return index_set_syscall_error(index, "fdatasync()");
 
 	return !failed;
+}
+
+static void mail_index_update_timestamp(MailIndex *index)
+{
+	struct utimbuf ut;
+
+	/* keep index's modify stamp same as the sync file's stamp */
+	ut.actime = ioloop_time;
+	ut.modtime = index->file_sync_stamp;
+	if (utime(index->filepath, &ut) < 0)
+		index_set_syscall_error(index, "utime()");
 }
 
 int mail_index_fmdatasync(MailIndex *index, size_t size)
@@ -427,6 +431,8 @@ int mail_index_lock_full(MailIndex *index, MailLockType lock_type,
 				index_set_syscall_error(index, "msync()");
 			}
 		}
+
+		mail_index_update_timestamp(index);
 	}
 
 	if (lock_type == MAIL_LOCK_UNLOCK)
