@@ -1,21 +1,5 @@
- - message header search: we should ignore LWSP between two MIME blocks
- - if indexes exist but dovecot-uidlist doesn't, it's not tried to be recreated
- - maildir: copy is broken?
- - copy doesn't print error message if source is expunged
+ happens too often: mail-transaction-log-view.c: line 138 (mail_transaction_log_view_set): assertion failed: (min_file_seq != max_file_seq || min_file_offset <= max_file_offset)
 
- - keywords:
-    - add some limits to how many there can be
-       - don't return \* in PERMANENTFLAGS when we're full
-    - send FLAGS/PERMANENTFLAGS untagged replies when they change
-    - sync to mbox/maildir
-    - remove unused keywords?
- - support specifying hex/base64 encoding in password scheme. for example
-   {plain-md5.base64}
- - happens too often: mail-transaction-log-view.c: line 138 (mail_transaction_log_view_set): assertion failed: (min_file_seq != max_file_seq || min_file_offset <= max_file_offset)
- - login_process_per_connection=no + auth_count > 1
-    - dovecot-auth gives timeout errors
-    - failed requests are sent to all auth processes
- - mbox file offsets still aren't 64bit aligned for some reason..
 line 493 (mbox_lock): assertion failed: (lock_type == F_RDLCK || ibox->mbox_lock_type != F_RDLCK)
 #5  0x0806faa3 in mbox_lock (ibox=0x80d89b8, lock_type=1, lock_id_r=0xbea6b434) at mbox-lock.c:493
 #6  0x08075439 in mbox_sync (ibox=0x80d89b8, flags=MBOX_SYNC_REWRITE) at mbox-sync.c:1286
@@ -28,63 +12,12 @@ line 493 (mbox_lock): assertion failed: (lock_type == F_RDLCK || ibox->mbox_lock
 mail-index-transaction.c: line 467 (mail_index_transaction_add_last): 
 assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
 
- - flag merging code is too complex in index syncing. it should be moved into
-   mbox/maildir syncing where they're combined
- - index_removal_timeout gets leaked in some conditions. how?
- - non-mmaped cache: last block in file isn't cached. is invalidating still
-   not enough? if cache_offset is updated after our view is synced, we see the
-   new offset but not it's invalidation? -> don't re-read index file, sync it
-   as a view.
-
- - login_process_per_connection = no -> log throtting is beginning to be a
-   problem! make it per-file setting and disable in this case.
- - rename foo foo.xyz -> infinite loop possible?
- - pipe() failed: Too many open files - fine, but don't log it 1000 times
-   a second
- - inetd startup doesn't work anymore
- - auth protocol: make sure values can't have tabs/lfs
- - auth cache: cache userdb data too.
- - passdb extra data: if name starts with userdb_, user it for userdb.
-   add "passdb" userdb if passdb handles that.
- - auth: remove system_user and allow returning multiple gids instead.
- - transaction log: when replacing log with a same sequence, we remove it from
-   log's file list, but we don't do anything to existing log views. this can
-   crash later in mail_transaction_log_view_set() because 'first' is from log
-   list, while we're comparing it into view->tail which it never is. also
-   overwriting it leaks memory..
- - mbox: when we're updating flags with lazy writing, we're still parsing the
-   mbox, just not writing to it!
- - mbox: always add empty line. make the parser require it too? syncing should
-   make sure there always exists two LFs at end of file. raw-mbox-stream should
-   make sure the last message ends with LF even if it doesn't exist in the file
-
-	if (sync_ctx.seen_first_mail &&
-	    sync_ctx.base_uid_last != sync_ctx.next_uid-1 &&
-	    ret == 0 && !sync_ctx.delay_writes) {
-     ^ doesn't work correctly with partial syncing?
- - mail_index_lookup_ext() doesn't handle resizes between views. probably
-   needs size_t *size_r parameter added..
- - get_field() doesn't work if it's not already cached
- - we probably shouldn't do duplicate detection/fixing?.. or at least stat()
-   the old file before trying, because we might have just previously seen the
-   old file and then new file and then we try to fix it..
-
- - mbox: how well does dirty sync + status work? it reads the last mail every
-   time? not very good..
- - rawlog process gets stuck when imap dies:
-     send(1, 0xFFBFF4C8, 1024, 0)    (sleeping...)
- - subscribe: IMAP(anonymous): open(anonymous/mail/.temp...) failed: Permission denied
- - we can mail_cache_add() same header multiple times..
- - configurable syslog prefix
- - SIGHUP restarts auth processes .. but does it wait until they've finished
-   with all requests? no.
- - SIGHUP rather shouldn't restart listening sockets if they didn't change..
- - subscriptions file should contain namespace prefixes. at least optionally.
-   there's the subscriptions = yes setting now for namespaces.. do it so that
-   if prefix = "" has subscriptions, it contains prefixes. otherwise not.
- - if auth process dies, login process should retry authentication if possible.
-   or if not, disconnect the client so it doesn't think the auth failed.
- - mbox: syncing existing indexes takes 4x longer than creating new one, why?
+ - keywords:
+    - add some limits to how many there can be
+       - don't return \* in PERMANENTFLAGS when we're full
+    - send FLAGS/PERMANENTFLAGS untagged replies when they change
+    - sync to mbox/maildir
+    - remove unused keywords?
 
  - caching
      - size.physical isn't cached
@@ -95,12 +28,33 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
        (latest_mail_index_date - month)
      - when parsing mbox or saving message, parse the mail through index-mail
        so things gets saved into cache immediately
+     - we can mail_cache_add() same header multiple times..
+     - get_field() doesn't work if it's not already cached
+    - we could try compressing same field values into a single
+      location in cache file.
+    - Most messages are text/plain/7bit/us-ascii/no-other-content-type-params.
+      Instead of saving tons of nearly identical BODY/BODYSTRUCTURE fields
+      into cache, we could just set INDEX_MAIL_FLAG_TEXT_PLAIN_7BIT_ASCII bit
+      on and generate the bodystructure for such messages on the fly.
+    - support caching allmessage headers. this could be useful when
+      indexes are in local disk but actual mails are accessed through NFS.
 
- - maildir: hardlink copying doesn't update indexes
-
- - dotlocking: stale_timeout should probably take into account how old the
-   file is.. so uses more time with more recent locks..
-
+ - mbox
+     - syncing existing indexes takes 4x longer than creating new one, why?
+     - how well does dirty sync + status work? it reads the last mail every
+       time? not very good..
+     - mbox file offsets still aren't 64bit aligned for some reason..
+     - when we're updating flags with lazy writing, we're still parsing the
+       mbox, just not writing to it!
+     - always add empty line. make the parser require it too? syncing should
+       make sure there always exists two LFs at end of file. raw-mbox-stream
+       should make sure the last message ends with LF even if it doesn't exist
+       in the file
+     - 
+	    if (sync_ctx.seen_first_mail &&
+		sync_ctx.base_uid_last != sync_ctx.next_uid-1 &&
+		ret == 0 && !sync_ctx.delay_writes) {
+	 ^ doesn't work correctly with partial syncing?
     - COPY doesn't work to itself (lock assert crash)
     - Create UW-IMAP like "DON'T DELETE THIS MESSAGE" message when mbox
       gets empty
@@ -111,145 +65,126 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
     - if we can't create dotlock file for mbox, make sure it still can be
       selected in read-only state
 
+ - maildir
+    - if indexes exist but dovecot-uidlist doesn't, it's not tried to be
+      recreated
+    - hardlink copying doesn't update indexes
+    - rename foo foo.xyz -> infinite loop possible?
+    - we probably shouldn't do duplicate detection/fixing?.. or at least stat()
+      the old file before trying, because we might have just previously seen
+      the old file and then new file and then we try to fix it..
+    - if .customflags is removed and Maildir files have custom flags, add
+      "unknown1" "unknown2" etc. flags to .customflags file for each found flag
+
  - index
+    - if uoff_t or time_t size changes, don't rebuild indexes because they
+      don't use them. just rebuild cache file.
+    - flag merging code is too complex in index syncing. it should be moved
+      into mbox/maildir syncing where they're combined
+    - mail_index_lookup_ext() doesn't handle resizes between views. probably
+      needs size_t *size_r parameter added..
     - optimize initial left_idx in mail_index_lookup_uid_range()
     - when referencing log files, open them immediately?
     - if log file is lost, generate it from old and new index
     - make sure when changing flags multiple times in transaction it goes ok.
       especially replace + dirty flag
+    - transaction log: when replacing log with a same sequence, we remove it
+      from log's file list, but we don't do anything to existing log views.
+      this can crash later in mail_transaction_log_view_set() because 'first'
+      is from log list, while we're comparing it into view->tail which it never
+      is. also overwriting it leaks memory..
+    - read-only support for mailboxes where we don't have write-access
+    - when mailbox is deleted/renamed and someone else had it open, we get
+      stat() error messages in log file.
+    - sort: we could create alternative indexes for different sort conditions.
+      sort code itself already supports this optimization.
 
- - post-login-sql-command
- - add setting: ssl_options = bitmask. by default we enable all openssl
-   workarounds, this could be used to disable some of them
-
- - open("/var/run/dovecot//ssl-parameters.dat", O_RDONLY|O_LARGEFILE) =-1 ENOENT
-    ^ loops forever
-
- - support read-only logins. user could with alternative password get only
-   read-access to mails so mails could be read relatively safely with
-   untrusted computers. Maybe always send [ALERT] about the previous
-   read-only login time with IP?
- - ~/.dovecotrc to override system wide settings. namespace settings should
-   override all the previous namespace settings instead of adding new.
-
- - fix cygwin compile? _close and _read in *stream*.c fails.
- - handle out of quota conditions:
-     - if dovecot-uidlist can't be written, assume the new mails have UIDs 
-       beginning from uidlist.next_uid. Whenever mails are expunged, overwrite
-       the next_uid field with the current highest next_uid. Whenever we have
-       assumed UIDs and uidlist gets updated, throw the client out with
-       "inconsist mailbox".
-     - make sure all syscalls check for ENOSPACE (and ENOACCESS while at it)
- - NFS safety:
-    - .customflags: use rename(), but there's a problem when we have to remove
-      unused flags to make room for new ones. to fix that add new field in
-      the file, it would be set for flags which are currently unused. if that
-      field is set, .customflags must be locked before the flag is set to any
-      messages. but make sure there's no race conditions, we probably have to
-      wait a few seconds just to make sure no-one set a flag we want to remove
-    - ESTALE
-
- - send client IP immediately after accept() to master process. make sure
-   master shows the IP if login dies unexpectedly. master should probably also
-   kill the login process if it doesn't kill itself soon enough.. or maybe just
-   log the IP immediately.
-
- - ioloop-kqueue.c patch
- - does dovecot-auth really break when it runs out of fds?
-
- - should we support some non-tokenizing way to parse mail addresses? ..
-   eg. "foo ? bar <x@y>" would now show up as "foo? bar <x@y>"
-
- - when mailbox is deleted/renamed and someone else had it open, we get
-   stat() error messages in log file.
-
- - bugs
-    - CREATE a, CREATE b, save mails into them, DELETE a, RENAME b a.
-      -> breaks if a+b have same UIDVALIDITY. We could update the
-      UIDVALIDITY for the renamed mailbox and all mailboxes under it.
-      Then return with tagged "OK [NEW-UIDVALIDITY 1234] Renamed". Assuming
-      other IMAP people agree to that.
-
- - reliability fixes:
+ - lib-storage
+    - index_removal_timeout gets leaked in some conditions. how?
+    - subscribe: IMAP(anonymous): open(anonymous/mail/.temp...) failed: Permission denied
+    - subscriptions file should contain namespace prefixes. at least optionally.
+      there's the subscriptions = yes setting now for namespaces.. do it so that
+      if prefix = "" has subscriptions, it contains prefixes. otherwise not.
+    - support zlib compressed mbox/maildir? mbox maybe just read-only.
+      do it through istream-zlib wrapper
+    - should we allow following symlinks in mbox/maildirs? they are now.
+       - if we implement shared mailboxes with shared indexes, never do that or
+	 others could symlink your personal mailboxes and see the indexes
+	 created for it which may contain envelope etc. data
+       - this allows circular mailbox hierarchies which should be prevented by
+	 eg. allowing max. 20 hierarchies.
     - limit folder hierarchy levels? user can now create eg. a/a/a/a/...
       and then start renaming them from end to beginning, which probably will
       at some point start causing syscall failures which will fill up logs.
-    - dotlock overriding is racy, but it's pretty difficult to fix it. Also
-      overriding someone else's dotlock in shared folder isn't possible. These
-      could be fixed by having separate lock process running as root, which
-      would chown() the file for another uid and then unlink() it as that user.
-      One problem with that is that if malicious user sets setuid+execute bits
-      on for the file, he could run the file and get changed to the new uid.
-      That hopefully shouldn't matter much since the new uid should be user
-      with minimum possible privileges. Anyway, optional..
 
- - checks:
-   - make sure SELECT rebuilds index properly when next_uid is near 32bit value
-   - make sure connection limits work
-   - check if some asserts should be changed into if/i_panic code, so that
-     disabling asserts would be possible
+ - login
+    - Digest-MD5: support integrity protection, and maybe crypting. Do it
+      through login process like SSL is done?
+    -  x login foo bar
+       x NO Authentication failed.
+       x login cras pass
+       * BYE Disconnected for inactivity.
+	^ but it's not disconnecting! (buggy dovecot-auth not replying)
+    - imap-login: Authenticate PLAIN failed: Authentication failed:
+      Authentication server isn't connected, try again later.. [127.0.0.1]
+        ^ NO Authentication failed. (should be Temporary login failure!)
+    - if auth process dies, login process should retry authentication if
+      possible. or if not, disconnect the client so it doesn't think the auth
+      failed.
+    - send client IP immediately after accept() to master process. make sure
+      master shows the IP if login dies unexpectedly. master should probably
+      also kill the login process if it doesn't kill itself soon enough.. or
+      maybe just log the IP immediately.
 
- - enhancements:
-    - option to disable SORT, SEARCH and other memory/cpu-intensive features.
-      defaults and per-user by dovecot-auth.
-    - maildir could support also the dirty-flag in messages. files would be
-      renamed "whenever there's time" (that'd require the indexer program, or
-      forking and doing it in background)
+ - auth
+    - APOP is broken?
+    - support specifying hex/base64 encoding in password scheme. for example
+      {plain-md5.base64}
+    - auth protocol: make sure values can't have tabs/lfs
+    - auth cache: cache userdb data too.
+    - remove system_user and allow returning multiple gids instead.
+    - SIGHUP restarts auth processes .. but does it wait until they've finished
+      with all requests? no.
+    - post-login-sql-command
+    - does dovecot-auth really break when it runs out of fds?
+    - dovecot-auth should limit how fast authentication requests are allowed from
+      login processes. especially if there's one login/connection the speed
+      should be something like once/sec. also limit how fast to accept new
+      connections.
+    - support read-only logins. user could with alternative password get only
+      read-access to mails so mails could be read relatively safely with
+      untrusted computers. Maybe always send [ALERT] about the previous
+      read-only login time with IP?
+
+ - master
+    - pipe() failed: Too many open files - fine, but don't log it 1000 times
+      a second
+    - inetd startup doesn't work anymore
+    - configurable syslog prefix
+    - SIGHUP rather shouldn't restart listening sockets if they didn't change..
+
+ - quota
+    - support Maildir++ quota
+    - if dovecot-uidlist can't be written, assume the new mails have UIDs 
+      beginning from uidlist.next_uid. Whenever mails are expunged, overwrite
+      the next_uid field with the current highest next_uid. Whenever we have
+      assumed UIDs and uidlist gets updated, throw the client out with
+      "inconsist mailbox".
+    - make sure all syscalls check for ENOSPACE (and ENOACCESS while at it)
+
+ - ssl
+    - add setting: ssl_options = bitmask. by default we enable all openssl
+      workarounds, this could be used to disable some of them
+    - open("/var/run/dovecot//ssl-parameters.dat", O_RDONLY|O_LARGEFILE) =-1 ENOENT
+       ^ loops forever
+    - gnutls support isn't working
     - OpenSSL: support generated DH parameters
     - SSL: Support password protected key files. Support reading the password
       from user at runtime (dovecot startssl or something). currently it just
       hangs.
-    - check with strace what dovecot does when evolution checks new mail,
-      it's quite a lot. some things probably wouldn't need to be done
-      (mkdirs inbox) and other things could be cached in memory.
-    - sort: we could create alternative indexes for different sort conditions.
-      sort code itself already supports this optimization.
-    - support zlib compressed mbox/maildir? mbox maybe just read-only.
-      do it through istream-zlib wrapper
-    - THREAD=ORDEREDSUBJECT - although pretty useless I'd think.
 
- - logging
-    - Login: username 1.2.3.4:1025 5.6.7.8:993 imaps,compressed
-    - Logout: username 1.2.3.4:1025 5.6.7.8:993 imaps,compressed in:1000 out:1000000
-    - n failed login attepts (before failure or success, once in n seconds)
-
- - lib-charset:
-     - utf8_toupper() is a must. and a bit difficult if we want to do it right.
-     - add support for other things than iconv() as well? we could reuse
-       the code from cyrus or courier
-     - cache iconvs? they'd probably be faster if we just reset the
-       conversion instead of opening new one every time. and there will likely
-       be only one or two charsets which are used for nearly all conversions.
-
- - should we allow following symlinks in mbox/maildirs? they are now.
-    - if we implement shared mailboxes with shared indexes, never do that or
-      others could symlink your personal mailboxes and see the indexes
-      created for it which may contain envelope etc. data
-    - this allows circular mailbox hierarchies which should be prevented by
-      eg. allowing max. 20 hierarchies.
-
- - index:
-    - we could try compressing same from/to/subject fields into a single
-      location in data file. requires larger changes..
-    - Most messages are text/plain/7bit/us-ascii/no-other-content-type-params.
-      Instead of saving tons of nearly identical BODY/BODYSTRUCTURE fields
-      into cache, we could just set INDEX_MAIL_FLAG_TEXT_PLAIN_7BIT_ASCII bit
-      on and generate the bodystructure for such messages on the fly.
-    - read-only support for mailboxes where we don't have write-access
-    - if .customflags is removed and Maildir files have custom flags, add
-      "unknown1" "unknown2" etc. flags to .customflags file for each found flag
-    - support storing message headers into indexes. this could be useful when
-      indexes are in local disk but actual mails are accessed through NFS.
-    - if we wanted to support huge mailboxes with small memory usage, it'd now
-      be possible if we just instead of mmap()ing the whole index files would
-      have maybe 3-4 256k mmap()ed areas which we move based on the need.
-	- should work fine with imap.index and imap.index.cache
-	- log files aren't affected by mailbox size
-	- but, is it worth the trouble really? the OS can do all this itself,
-	  only thing we're doing is keeping the processes virtual memory usage
-	  small.
-
- - SEARCH:
+ - search
+    - message header search: we should ignore LWSP between two MIME blocks
     - message_body_search() could accept multiple search keywords so we
       wouldn't need to call it separately for each one (so we wouldn't need
       to parse the message multiple times).
@@ -265,34 +200,47 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
       Hello world!" 2 "Hello, I'm ...". This would be especially useful with
       the above attachment scanning.
 
- - general:
+ - lib
+    - file cache: last block in file isn't cached.
+    - ioloop-kqueue.c patch
+    - dotlocking: stale_timeout should probably take into account how old the
+      file is.. so uses more time with more recent locks..
+
+ - lib-charset
+     - utf8_toupper() is a must. and a bit difficult if we want to do it right.
+     - add support for other things than iconv() as well? we could reuse
+       the code from cyrus or courier
+     - cache iconvs? they'd probably be faster if we just reset the
+       conversion instead of opening new one every time. and there will likely
+       be only one or two charsets which are used for nearly all conversions.
+
+ - general
     - sieve (rfc3028), we can use Cyrus Sieve
-    - rfc2231 continuation support
+    - rfc2231 continuation support (useless?)
     - rfc2557 support for BODYSTRUCTURE, as specified by RFC3501
     - lmtp server - is it needed? dovecot-deliver binary at least would be
       useful
     - create indexer binary
-    - support Maildir++ quota
-
- - cleanups:
-    - check if t_push()/t_pop() should be added somewhere
-    - grep for FIXME
-
- - auth / login:
-    - kchuid, SRP
-    - Digest-MD5: support integrity protection, and maybe crypting. Do it
-      through login process like SSL is done?
-    - dovecot-auth should limit how fast authentication requests are allowed from
-      login processes. especially if there's one login/connection the speed
-      should be something like once/sec. also limit how fast to accept new
-      connections.
-    - if passdb = userdb, ask them both in one query and cache it. implement
-      passwordcheck userdb using the caching.
+    - ~/.dovecotrc to override system wide settings. namespace settings should
+      override all the previous namespace settings instead of adding new.
+    - ESTALE handling for NFS safety
+    - option to disable SORT, SEARCH and other memory/cpu-intensive features.
+      defaults and per-user by dovecot-auth.
+    - dotlock overriding is racy, but it's pretty difficult to fix it. Also
+      overriding someone else's dotlock in shared folder isn't possible. These
+      could be fixed by having separate lock process running as root, which
+      would chown() the file for another uid and then unlink() it as that user.
+      One problem with that is that if malicious user sets setuid+execute bits
+      on for the file, he could run the file and get changed to the new uid.
+      That hopefully shouldn't matter much since the new uid should be user
+      with minimum possible privileges. Anyway, optional..
+    - things break if next_uid gets to 2^32
 
 capabilities:
  - preferrably all should be possible to #ifdef away by a configure
    option (--without-capabilities=acl,namespace,...)
  - possibility to disable them from config file
+ - THREAD=ORDEREDSUBJECT - although pretty useless I'd think.
  - acl (rfc2086, draft-ietf-imapext-acl), namespace (rfc2342)
      - probably do it like cyrus. "user.<username>" to access other
        users, with "" defaulting to "user.<myself>". these should be
