@@ -33,7 +33,8 @@ void client_destroy(struct imap_client *client, const char *reason);
 
 void client_send_line(struct imap_client *client, const char *line);
 void client_send_tagline(struct imap_client *client, const char *line);
-void client_syslog(struct imap_client *client, const char *text);
+void client_syslog(struct imap_client *client, const char *format, ...)
+	__attr_format__(2, 3);
 
 int client_read(struct imap_client *client);
 void client_input(void *context);

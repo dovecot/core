@@ -25,6 +25,7 @@ struct pop3_client {
 
 	unsigned int tls:1;
 	unsigned int secured:1;
+	unsigned int authenticating:1;
 	unsigned int auth_connected:1;
 	unsigned int destroyed:1;
 };
@@ -32,7 +33,8 @@ struct pop3_client {
 void client_destroy(struct pop3_client *client, const char *reason);
 
 void client_send_line(struct pop3_client *client, const char *line);
-void client_syslog(struct pop3_client *client, const char *text);
+void client_syslog(struct pop3_client *client, const char *format, ...)
+	__attr_format__(2, 3);
 
 int client_read(struct pop3_client *client);
 void client_input(void *context);

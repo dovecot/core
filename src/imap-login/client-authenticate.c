@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2004 Timo Sirainen */
 
 #include "common.h"
 #include "base64.h"
@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "safe-memset.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "imap-parser.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
@@ -15,6 +16,9 @@
 #include "client-authenticate.h"
 #include "auth-common.h"
 #include "master.h"
+
+/* Used only for string sanitization while verbose_auth is set. */
+#define MAX_MECH_NAME 64
 
 const char *client_authenticate_get_capabilities(int secured)
 {
@@ -49,6 +53,9 @@ static void client_auth_abort(struct imap_client *client, const char *msg)
 		auth_client_request_abort(client->common.auth_request);
 		client->common.auth_request = NULL;
 	}
+
+	if (msg != NULL && verbose_auth)
+		client_syslog(client, "Authentication failed: %s", msg);
 
 	client_send_tagline(client, msg != NULL ?
 			    t_strconcat("NO ", msg, NULL) :
@@ -161,6 +168,10 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	pass = IMAP_ARG_STR(&args[1]);
 
 	if (!client->secured && disable_plaintext_auth) {
+		if (verbose_auth) {
+			client_syslog(client, "Login failed: "
+				      "Plaintext authentication disabled");
+		}
 		client_send_line(client,
 			"* BAD [ALERT] Plaintext authentication is disabled, "
 			"but your client sent password in plaintext anyway. "
@@ -192,6 +203,8 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 		auth_client_request_new(auth_client, NULL, &info,
 					login_callback, client, &error);
 	if (client->common.auth_request == NULL) {
+		if (verbose_auth)
+			client_syslog(client, "Login failed: %s", error);
 		client_send_tagline(client, t_strconcat(
 			"NO Login failed: ", error, NULL));
 		client_unref(client);
@@ -214,6 +227,12 @@ static void authenticate_callback(struct auth_request *request,
 {
 	struct imap_client *client = context;
 	const char *error;
+
+	if (!client->authenticating) {
+		/* client aborted */
+		i_assert(reply == NULL);
+		return;
+	}
 
 	switch (auth_callback(request, reply, data, &client->common,
 			      master_callback, &error)) {
@@ -301,12 +320,22 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 
 	mech = auth_client_find_mech(auth_client, mech_name);
 	if (mech == NULL) {
+		if (verbose_auth) {
+			client_syslog(client, "Authenticate %s failed: "
+				      "Unsupported mechanism",
+				      str_sanitize(mech_name, MAX_MECH_NAME));
+		}
 		client_send_tagline(client,
 				    "NO Unsupported authentication mechanism.");
 		return TRUE;
 	}
 
 	if (!client->secured && mech->plaintext && disable_plaintext_auth) {
+		if (verbose_auth) {
+			client_syslog(client, "Authenticate %s failed: "
+				      "Plaintext authentication disabled",
+				      str_sanitize(mech_name, MAX_MECH_NAME));
+		}
 		client_send_tagline(client,
 				    "NO Plaintext authentication disabled.");
 		return TRUE;
@@ -333,6 +362,11 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 					   client_auth_input, client);
                 client->authenticating = TRUE;
 	} else {
+		if (verbose_auth) {
+			client_syslog(client, "Authenticate %s failed: %s",
+				      str_sanitize(mech_name, MAX_MECH_NAME),
+				      error);
+		}
 		client_send_tagline(client, t_strconcat(
 			"NO Authentication failed: ", error, NULL));
 		client_unref(client);

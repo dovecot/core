@@ -419,6 +419,8 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 		env_put("VERBOSE_PROCTITLE=1");
 	if (set->verbose_ssl)
 		env_put("VERBOSE_SSL=1");
+	if (set->server->auths->verbose)
+		env_put("VERBOSE_AUTH=1");
 
 	if (set->login_process_per_connection) {
 		env_put("PROCESS_PER_CONNECTION=1");

@@ -17,8 +17,8 @@
 #include <unistd.h>
 #include <syslog.h>
 
-int disable_plaintext_auth, process_per_connection, verbose_proctitle;
-int verbose_ssl, greeting_capability;
+int disable_plaintext_auth, process_per_connection, greeting_capability;
+int verbose_proctitle, verbose_ssl, verbose_auth;
 char *greeting;
 unsigned int max_logging_users;
 unsigned int login_process_uid;
@@ -159,6 +159,7 @@ static void main_init(void)
 	process_per_connection = getenv("PROCESS_PER_CONNECTION") != NULL;
 	verbose_proctitle = getenv("VERBOSE_PROCTITLE") != NULL;
         verbose_ssl = getenv("VERBOSE_SSL") != NULL;
+        verbose_auth = getenv("VERBOSE_AUTH") != NULL;
 
 	value = getenv("MAX_LOGGING_USERS");
 	max_logging_users = value == NULL ? 0 : strtoul(value, NULL, 10);

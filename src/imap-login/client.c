@@ -434,7 +434,7 @@ void client_destroy(struct imap_client *client, const char *reason)
 	client->destroyed = TRUE;
 
 	if (reason != NULL)
-		client_syslog(client, reason);
+		client_syslog(client, "%s", reason);
 
 	hash_remove(clients, client);
 
@@ -507,15 +507,20 @@ void client_send_tagline(struct imap_client *client, const char *line)
 	client_send_line(client, t_strconcat(client->cmd_tag, " ", line, NULL));
 }
 
-void client_syslog(struct imap_client *client, const char *text)
+void client_syslog(struct imap_client *client, const char *format, ...)
 {
 	const char *addr;
+	va_list args;
 
 	addr = net_ip2addr(&client->common.ip);
 	if (addr == NULL)
 		addr = "??";
 
-	i_info("%s [%s]", text, addr);
+	t_push();
+	va_start(args, format);
+	i_info("%s [%s]", t_strdup_vprintf(format, args), addr);
+	va_end(args);
+	t_pop();
 }
 
 static void client_check_idle(struct imap_client *client)
