@@ -220,7 +220,8 @@ lookup_user_callback(const char *result, struct auth_request *auth_request)
 
 	str = t_str_new(64);
 	str_printfa(str, "%u\t", auth_request->id);
-	str_append(str, result);
+	if (result != NULL)
+		str_append(str, result);
 	str_append_c(str, '\n');
 
 	o_stream_send(client->output, str_data(str), str_len(str));

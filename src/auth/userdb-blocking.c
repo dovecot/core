@@ -10,6 +10,9 @@
 
 static void user_callback(struct auth_request *request, const char *reply)
 {
+	if (*reply == '\0')
+		reply = NULL;
+
         request->private_callback.userdb(reply, request);
 }
 
