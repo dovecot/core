@@ -564,8 +564,8 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 	struct mail_index_header hdr;
 	const struct mail_transaction_header *thdr;
 	const void *tdata;
-	uint32_t max_seq;
-	uoff_t max_offset;
+	uint32_t prev_seq, max_seq;
+	uoff_t prev_offset, max_offset;
 	size_t pos;
 	int ret, skipped;
 
@@ -629,6 +629,12 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 			break;
 		}
 	}
+
+	mail_transaction_log_view_get_prev_pos(log_view, &prev_seq,
+					       &prev_offset);
+        index->map->hdr.log_file_seq = prev_seq;
+	index->map->hdr.log_file_int_offset =
+		index->map->hdr.log_file_ext_offset = prev_offset;
 
 	mail_index_sync_map_deinit(&sync_map_ctx);
 	mail_index_view_close(view);
