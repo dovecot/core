@@ -130,7 +130,8 @@ static void list_send(struct list_send_context *ctx, struct list_node *node,
 			name = node->name;
 		send_name = name;
 
-		if (node->flags != MAILBOX_PLACEHOLDER)
+		if (node->flags != MAILBOX_PLACEHOLDER &&
+		    node->flags != MAILBOX_NOSELECT)
 			match = IMAP_MATCH_YES;
 		else {
 			/* make sure the placeholder matches. */
