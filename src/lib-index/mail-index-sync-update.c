@@ -53,8 +53,8 @@ mail_index_header_update_lowwaters(struct mail_index_header *hdr,
 		hdr->first_deleted_uid_lowwater = rec->uid;
 }
 
-void mail_index_sync_expunge(struct mail_index_view *view,
-			     const struct mail_transaction_expunge *e)
+static void mail_index_sync_expunge(struct mail_index_view *view,
+				    const struct mail_transaction_expunge *e)
 {
 	struct mail_index_map *map = view->map;
 	struct mail_index_header *hdr = &map->hdr_copy;
@@ -84,7 +84,8 @@ void mail_index_sync_expunge(struct mail_index_view *view,
 	view->messages_count -= count;
 
 	if (map->buffer != NULL) {
-		buffer_set_used_size(map->buffer, map->records_count);
+		buffer_set_used_size(map->buffer,
+				     map->records_count * sizeof(*rec));
 		map->records = buffer_get_modifyable_data(map->buffer, NULL);
 	}
 }

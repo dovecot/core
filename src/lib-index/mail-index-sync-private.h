@@ -26,9 +26,6 @@ extern struct mail_transaction_map_functions mail_index_map_sync_funcs;
 
 int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx);
 
-void mail_index_sync_expunge(struct mail_index_view *view,
-			     const struct mail_transaction_expunge *e);
-
 void
 mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
 			    const struct mail_transaction_expunge *exp);
