@@ -519,7 +519,7 @@ static const struct message_part *get_parts(struct mail *_mail)
 
 		buf_data = buffer_get_data(buffer, &buf_size);
 		index_mail_cache_add(mail, MAIL_CACHE_MESSAGEPART,
-				     &buf_data, buf_size);
+				     buf_data, buf_size);
 		t_pop();
 	}
 	return data->parts;
