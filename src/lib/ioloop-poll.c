@@ -139,7 +139,8 @@ void io_loop_handler_run(IOLoop ioloop)
         struct pollfd *pollfd;
         struct timeval tv;
 	IO io, next;
-	int msecs, ret, t_id;
+	unsigned int t_id;
+	int msecs, ret;
 
         data = ioloop->handler_data;
 

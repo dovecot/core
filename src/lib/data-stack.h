@@ -32,16 +32,16 @@
       slower.
 */
 
+extern unsigned int data_stack_frame;
+
 /* All t_..() allocations between t_push() and t_pop() are free'd
    after t_pop() is called. Returns stack frame number which can be used
    to detect missing t_pop() calls:
 
    x = t_push(); .. if (t_pop() != x) abort();
-
-   Note that the frame number wraps at some point (but t_pop() wraps it back).
 */
-int t_push(void);
-int t_pop(void);
+unsigned int t_push(void);
+unsigned int t_pop(void);
 
 /* WARNING: Be careful when using this functions, it's too easy to
    accidentally save the returned value somewhere permanently.

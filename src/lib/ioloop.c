@@ -252,7 +252,7 @@ void io_loop_handle_timeouts(IOLoop ioloop)
 {
 	Timeout t, next;
 	struct timeval tv;
-        int t_id;
+        unsigned int t_id;
 
 	gettimeofday(&ioloop_timeval, &ioloop_timezone);
 	ioloop_time = ioloop_timeval.tv_sec;

@@ -70,6 +70,8 @@ struct _StackFrameBlock {
 	size_t last_alloc_size[BLOCK_FRAME_COUNT];
 };
 
+unsigned int data_stack_frame;
+
 static int frame_pos; /* current frame position current_frame_block */
 static StackFrameBlock *current_frame_block; /* current stack frame block */
 static StackFrameBlock *unused_frame_blocks; /* unused stack frames */
@@ -80,7 +82,7 @@ static StackBlock *unused_block; /* largest unused block is kept here */
 static StackBlock *last_buffer_block;
 static size_t last_buffer_size;
 
-int t_push(void)
+unsigned int t_push(void)
 {
         StackFrameBlock *frame_block;
 
@@ -108,7 +110,7 @@ int t_push(void)
 	current_frame_block->block_space_used[frame_pos] = current_block->left;
         current_frame_block->last_alloc_size[frame_pos] = 0;
 
-        return frame_pos;
+        return data_stack_frame++;
 }
 
 static void free_blocks(StackBlock *block)
@@ -127,7 +129,7 @@ static void free_blocks(StackBlock *block)
 	}
 }
 
-int t_pop(void)
+unsigned int t_pop(void)
 {
 	StackFrameBlock *frame_block;
 	int popped_frame_pos;
@@ -159,7 +161,7 @@ int t_pop(void)
 		unused_frame_blocks = frame_block;
 	}
 
-        return popped_frame_pos;
+        return --data_stack_frame;
 }
 
 static StackBlock *mem_block_alloc(size_t min_size)
@@ -309,6 +311,8 @@ void t_buffer_alloc(size_t size)
 
 void data_stack_init(void)
 {
+        data_stack_frame = 0;
+
 	current_block = mem_block_alloc(INITIAL_STACK_SIZE);
 	current_block->left = current_block->size;
 	current_block->next = NULL;
@@ -356,11 +360,10 @@ struct _FrameAlloc {
 	void *mem;
 };
 
-static int stack_counter;
 static StackFrame *current_frame;
 static void *buffer_mem;
 
-int t_push(void)
+unsigned int t_push(void)
 {
 	StackFrame *frame;
 
@@ -371,10 +374,10 @@ int t_push(void)
 
 	frame->next = current_frame;
 	current_frame = frame;
-	return stack_counter++;
+	return data_stack_frame++;
 }
 
-int t_pop(void)
+unsigned int t_pop(void)
 {
 	StackFrame *frame;
 	FrameAlloc *alloc;
@@ -391,7 +394,7 @@ int t_pop(void)
 	}
 
 	free(frame);
-	return --stack_counter;
+	return --data_stack_frame;
 }
 
 static void add_alloc(void *mem)
@@ -479,7 +482,7 @@ void t_buffer_alloc(size_t size)
 
 void data_stack_init(void)
 {
-        stack_counter = 0;
+        data_stack_frame = 0;
 	current_frame = NULL;
 	buffer_mem = NULL;
 
@@ -490,7 +493,7 @@ void data_stack_deinit(void)
 {
 	t_pop();
 
-	if (stack_counter != 0)
+	if (data_stack_frame != 0)
 		i_panic("Missing t_pop() call");
 }
 
