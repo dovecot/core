@@ -313,7 +313,7 @@ int mail_index_map(struct mail_index *index, int force)
 	map->log_file_seq = map->hdr->log_file_seq;
 	map->log_file_offset = map->hdr->log_file_offset;
 
-	index->hdr = map->mmap_base;
+	index->hdr = map->hdr;
 	index->map = map;
 	return 1;
 }

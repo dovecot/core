@@ -102,7 +102,8 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 	    log->head->hdr.file_seq != index->hdr->log_file_seq) {
 		/* head log file isn't same as head index file -
 		   shouldn't happen except in race conditions. lock them and
-		   check again - FIXME: missing error handling */
+		   check again - FIXME: missing error handling.
+		   FIXME: index->hdr check crashes if we created the log */
 		(void)mail_transaction_log_check_file_seq(log);
 	}
 	return log;
@@ -178,6 +179,7 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 	}
 
 	if (ret < 0) {
+		// FIXME: handle ESTALE
 		mail_index_file_set_syscall_error(file->log->index,
 						  file->filepath, "pread()");
 		return -1;
@@ -542,6 +544,9 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 	}
 
 	size = file->hdr.used_size - file->buffer_offset - size;
+	if (size == 0)
+		return 1;
+
 	data = buffer_append_space_unsafe(file->buffer, size);
 
 	ret = pread(file->fd, data, size, offset);

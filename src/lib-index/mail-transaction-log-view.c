@@ -151,13 +151,11 @@ mail_transaction_log_view_set_corrupted(struct mail_transaction_log_view *view,
 {
 	va_list va;
 
-	i_assert(view->file != NULL);
-
 	view->broken = TRUE;
 
 	va_start(va, fmt);
 	t_push();
-	mail_transaction_log_file_set_corrupted(view->file, "%s",
+	mail_transaction_log_file_set_corrupted(view->log->head, "%s",
 						t_strdup_vprintf(fmt, va));
 	t_pop();
 	va_end(va);

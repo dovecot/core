@@ -263,6 +263,9 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 		memcpy(map->mmap_base, &ctx.hdr, sizeof(ctx.hdr));
 		if (msync(map->mmap_base, map->file_used_size, MS_SYNC) < 0)
 			return mail_index_set_syscall_error(index, "msync()");
+	} else {
+		map->hdr_copy = ctx.hdr;
+		map->hdr = &map->hdr_copy;
 	}
 
 	return ret;

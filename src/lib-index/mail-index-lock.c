@@ -241,6 +241,8 @@ static int mail_index_lock_exclusive_copy(struct mail_index *index)
         index->excl_lock_count++;
 
 	if (mail_index_reopen(index, fd) < 0) {
+		/* FIXME: do this without another reopen which drops locks
+		   and causes potential crashes */
 		i_assert(index->excl_lock_count == 1);
 		i_free(index->copy_lock_path);
 		index->copy_lock_path = NULL;
@@ -304,6 +306,17 @@ int mail_index_lock_exclusive(struct mail_index *index,
 
 static int mail_index_copy_lock_finish(struct mail_index *index)
 {
+	if (index->shared_lock_count > 0) {
+		/* leave ourself shared locked. */
+		if (file_try_lock(index->fd, F_RDLCK) <= 0) {
+			mail_index_file_set_syscall_error(index,
+							  index->copy_lock_path,
+							  "file_try_lock()");
+			return -1;
+		}
+		index->lock_id--;
+	}
+
 	if (fsync(index->fd) < 0) {
 		mail_index_file_set_syscall_error(index, index->copy_lock_path,
 						  "fsync()");
@@ -318,40 +331,34 @@ static int mail_index_copy_lock_finish(struct mail_index *index)
 
 	i_free(index->copy_lock_path);
 	index->copy_lock_path = NULL;
-
-	index->shared_lock_count = 0;
-	index->lock_id += 2;
-	index->lock_type = F_UNLCK;
 	return 0;
+}
+
+static void mail_index_excl_unlock_finish(struct mail_index *index)
+{
+	if (index->map != NULL && index->map->write_to_disk) {
+		i_assert(index->log_locked);
+
+		if (index->copy_lock_path != NULL) {
+			/* new mapping replaces the old */
+			(void)unlink(index->copy_lock_path);
+			i_free(index->copy_lock_path);
+			index->copy_lock_path = NULL;
+		}
+		if (mail_index_copy(index) < 0)
+			mail_index_set_inconsistent(index);
+	}
+
+	if (index->copy_lock_path != NULL) {
+		i_assert(index->log_locked);
+
+		if (mail_index_copy_lock_finish(index) < 0)
+			mail_index_set_inconsistent(index);
+	}
 }
 
 void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 {
-	if (index->copy_lock_path != NULL ||
-	    (index->map != NULL && index->map->write_to_disk)) {
-		i_assert(index->log_locked);
-		i_assert(index->excl_lock_count > 0);
-		i_assert(lock_id == index->lock_id+1);
-
-		if (--index->excl_lock_count == 0) {
-			if (index->map != NULL && index->map->write_to_disk) {
-				if (index->copy_lock_path != NULL) {
-					/* new mapping replaces the old */
-					(void)unlink(index->copy_lock_path);
-                                        i_free(index->copy_lock_path);
-                                        index->copy_lock_path = NULL;
-				}
-				if (mail_index_copy(index) < 0) {
-					mail_index_set_inconsistent(index);
-					return;
-				}
-			}
-			if (mail_index_copy_lock_finish(index) < 0)
-				mail_index_set_inconsistent(index);
-		}
-		return;
-	}
-
 	if ((lock_id & 1) == 0) {
 		/* shared lock */
 		if (mail_index_is_locked(index, lock_id)) {
@@ -362,13 +369,15 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 		/* exclusive lock */
 		i_assert(lock_id == index->lock_id+1);
 		i_assert(index->excl_lock_count > 0);
-		index->excl_lock_count--;
+		if (--index->excl_lock_count == 0)
+			mail_index_excl_unlock_finish(index);
 	}
 
 	if (index->shared_lock_count == 0 && index->excl_lock_count == 0) {
 		index->lock_id += 2;
 		index->lock_type = F_UNLCK;
-		if (index->map != NULL) {
+		if (index->map != NULL &&
+		    !MAIL_INDEX_MAP_IS_IN_MEMORY(index->map)) {
 			if (mprotect(index->map->mmap_base,
 				     index->map->file_size, PROT_NONE) < 0)
 				mail_index_set_syscall_error(index,
