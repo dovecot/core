@@ -244,12 +244,14 @@ const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field)
 	inbuf = i_buffer_create_from_data(data_stack_pool, envelope, len);
 	parser = imap_parser_create(inbuf, NULL, len);
 
-	ret = imap_parser_read_args(parser, field, 0, &args);
-	if (ret < 0)
+	(void)i_buffer_read(inbuf);
+	ret = imap_parser_read_args(parser, field+1, 0, &args);
+	if (ret > (int)field) {
+		value = imap_envelope_parse_arg(&args[field], field, envelope);
+	} else {
 		i_error("Error parsing IMAP envelope: %s", envelope);
-
-	value = ret < (int)field ? NULL :
-		imap_envelope_parse_arg(&args[field], field, envelope);
+		value = NULL;
+	}
 
 	imap_parser_destroy(parser);
 	i_buffer_unref(inbuf);
