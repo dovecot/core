@@ -45,3 +45,6 @@
 /* What type should be used for largest_t */
 #undef LARGEST_T_LONG
 #undef LARGEST_T_LONG_LONG
+
+/* Define if you have Linux-compatible mremap() */
+#undef HAVE_LINUX_MREMAP
