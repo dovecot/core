@@ -40,13 +40,17 @@ void mbox_transaction_rollback(struct mailbox_transaction_context *t);
 struct mailbox_sync_context *
 mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 
-int mbox_save(struct mailbox_transaction_context *t,
-	      const struct mail_full_flags *flags,
-	      time_t received_date, int timezone_offset,
-	      const char *from_envelope, struct istream *data,
-	      struct mail **mail_r);
-int mbox_save_commit(struct mbox_save_context *ctx);
-void mbox_save_rollback(struct mbox_save_context *ctx);
+struct mail_save_context *
+mbox_save_init(struct mailbox_transaction_context *_t,
+	       const struct mail_full_flags *flags,
+	       time_t received_date, int timezone_offset,
+	       const char *from_envelope, struct istream *input, int want_mail);
+int mbox_save_continue(struct mail_save_context *ctx);
+int mbox_save_finish(struct mail_save_context *ctx, struct mail **mail_r);
+void mbox_save_cancel(struct mail_save_context *ctx);
+
+int mbox_transaction_save_commit(struct mbox_save_context *ctx);
+void mbox_transaction_save_rollback(struct mbox_save_context *ctx);
 
 int mbox_is_valid_mask(const char *mask);
 

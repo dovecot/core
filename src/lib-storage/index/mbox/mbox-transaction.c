@@ -25,7 +25,7 @@ int mbox_transaction_commit(struct mailbox_transaction_context *_t)
 	int mbox_modified, ret = 0;
 
 	if (t->save_ctx != NULL)
-		ret = mbox_save_commit(t->save_ctx);
+		ret = mbox_transaction_save_commit(t->save_ctx);
 	mbox_modified = t->mbox_modified;
 
 	if (ret == 0) {
@@ -55,7 +55,7 @@ void mbox_transaction_rollback(struct mailbox_transaction_context *_t)
 	struct index_mailbox *ibox = t->ictx.ibox;
 
 	if (t->save_ctx != NULL)
-		mbox_save_rollback(t->save_ctx);
+		mbox_transaction_save_rollback(t->save_ctx);
 
 	if (t->mbox_lock_id != 0)
 		(void)mbox_unlock(ibox, t->mbox_lock_id);

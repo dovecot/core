@@ -102,11 +102,16 @@ struct mailbox {
 	int (*search_deinit)(struct mail_search_context *ctx);
 	struct mail *(*search_next)(struct mail_search_context *ctx);
 
-	int (*save)(struct mailbox_transaction_context *t,
-		    const struct mail_full_flags *flags,
-		    time_t received_date, int timezone_offset,
-		    const char *from_envelope, struct istream *data,
-		    struct mail **dest_mail_r);
+	struct mail_save_context *
+		(*save_init)(struct mailbox_transaction_context *t,
+			     const struct mail_full_flags *flags,
+			     time_t received_date, int timezone_offset,
+			     const char *from_envelope, struct istream *input,
+			     int want_mail);
+	int (*save_continue)(struct mail_save_context *ctx);
+	int (*save_finish)(struct mail_save_context *ctx, struct mail **mail_r);
+	void (*save_cancel)(struct mail_save_context *ctx);
+
 	int (*copy)(struct mailbox_transaction_context *t, struct mail *mail,
 		    struct mail **dest_mail_r);
 
@@ -122,6 +127,10 @@ struct mailbox_transaction_context {
 };
 
 struct mail_search_context {
+	struct mailbox *box;
+};
+
+struct mail_save_context {
 	struct mailbox *box;
 };
 

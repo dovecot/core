@@ -22,11 +22,11 @@ int maildir_transaction_commit(struct mailbox_transaction_context *_t)
 	int ret = 0;
 
 	if (t->save_ctx != NULL) {
-		if (maildir_save_commit(t->save_ctx) < 0)
+		if (maildir_transaction_save_commit(t->save_ctx) < 0)
 			ret = -1;
 	}
 	if (t->copy_ctx != NULL) {
-		if (maildir_copy_commit(t->copy_ctx) < 0)
+		if (maildir_transaction_copy_commit(t->copy_ctx) < 0)
 			ret = -1;
 	}
 
@@ -42,8 +42,8 @@ void maildir_transaction_rollback(struct mailbox_transaction_context *_t)
 		(struct maildir_transaction_context *)_t;
 
 	if (t->save_ctx != NULL)
-		maildir_save_rollback(t->save_ctx);
+		maildir_transaction_save_rollback(t->save_ctx);
 	if (t->copy_ctx != NULL)
-		maildir_copy_rollback(t->copy_ctx);
+		maildir_transaction_copy_rollback(t->copy_ctx);
 	index_transaction_rollback(_t);
 }

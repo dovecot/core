@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "maildir-storage.h"
-#include "mail-save.h"
+#include "mail-copy.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -100,13 +100,13 @@ maildir_copy_init(struct index_mailbox *ibox)
 	return ctx;
 }
 
-int maildir_copy_commit(struct maildir_copy_context *ctx)
+int maildir_transaction_copy_commit(struct maildir_copy_context *ctx)
 {
 	pool_unref(ctx->pool);
 	return 0;
 }
 
-void maildir_copy_rollback(struct maildir_copy_context *ctx)
+void maildir_transaction_copy_rollback(struct maildir_copy_context *ctx)
 {
         struct rollback *rb;
 

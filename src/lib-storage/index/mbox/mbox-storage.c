@@ -9,7 +9,7 @@
 #include "mbox-storage.h"
 #include "mbox-lock.h"
 #include "mbox-file.h"
-#include "mail-save.h"
+#include "mail-copy.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -838,7 +838,10 @@ struct mailbox mbox_mailbox = {
 	index_storage_search_init,
 	index_storage_search_deinit,
 	index_storage_search_next,
-	mbox_save,
+	mbox_save_init,
+	mbox_save_continue,
+	mbox_save_finish,
+	mbox_save_cancel,
 	mail_storage_copy,
 	index_storage_is_inconsistent
 };

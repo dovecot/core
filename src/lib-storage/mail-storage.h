@@ -319,14 +319,19 @@ struct mail *mailbox_search_next(struct mail_search_context *ctx);
    minutes in which received_date was originally given with. To use
    current time, set received_date to (time_t)-1.
 
-   If mail_r is non-NULL, the saved message can be accessed using it.
-   Note that setting it non-NULL may require mailbox syncing, so don't give
-   give it unless you need it. */
-int mailbox_save(struct mailbox_transaction_context *t,
-		 const struct mail_full_flags *flags,
-		 time_t received_date, int timezone_offset,
-		 const char *from_envelope, struct istream *data,
-		 struct mail **mail_r);
+   If want_mail is TRUE, mail_r will be set in mailbox_save_finish() and
+   the saved message can be accessed using it. Note that setting it may
+   require mailbox syncing, so don't set it unless you need it. */
+struct mail_save_context *
+mailbox_save_init(struct mailbox_transaction_context *t,
+		  const struct mail_full_flags *flags,
+		  time_t received_date, int timezone_offset,
+		  const char *from_envelope, struct istream *input,
+		  int want_mail);
+int mailbox_save_continue(struct mail_save_context *ctx);
+int mailbox_save_finish(struct mail_save_context *ctx, struct mail **mail_r);
+void mailbox_save_cancel(struct mail_save_context *ctx);
+
 /* Copy given message. If dest_mail_r is non-NULL, the copied message can be
    accessed using it. Note that setting it non-NULL may require mailbox
    syncing, so don't give give it unless you need it. */

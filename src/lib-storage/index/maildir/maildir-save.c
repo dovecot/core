@@ -6,7 +6,6 @@
 #include "str.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
-#include "mail-save.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +20,7 @@ struct maildir_filename {
 };
 
 struct maildir_save_context {
+	struct mail_save_context ctx;
 	pool_t pool;
 
 	struct index_mailbox *ibox;
@@ -29,49 +29,16 @@ struct maildir_save_context {
 
 	const char *tmpdir, *newdir, *curdir;
 	struct maildir_filename *files;
-};
 
-static const char *
-maildir_read_into_tmp(struct index_mailbox *ibox, const char *dir,
-		      struct istream *input)
-{
-	const char *path, *fname;
+	struct istream *input;
 	struct ostream *output;
-	int fd, crlf;
+	int fd;
+	time_t received_date;
+	uint32_t seq;
 
-	fd = maildir_create_tmp(ibox, dir, ibox->mail_create_mode, &path);
-	if (fd == -1)
-		return NULL;
-
-	fname = strrchr(path, '/');
-	i_assert(fname != NULL);
-	fname++;
-
-	output = o_stream_create_file(fd, pool_datastack_create(), 0, FALSE);
-
-	crlf = getenv("MAIL_SAVE_CRLF") != NULL;
-	if (mail_storage_save(ibox->box.storage, path, input, output,
-			      crlf, crlf, NULL, NULL) < 0)
-		fname = NULL;
-
-	o_stream_unref(output);
-	/* FIXME: when saving multiple messages, we could get better
-	   performance if we left the fd open and fsync()ed it later */
-	if (fsync(fd) < 0) {
-		mail_storage_set_critical(ibox->box.storage,
-					  "fsync() failed for %s: %m", path);
-		fname = NULL;
-	}
-	if (close(fd) < 0) {
-		mail_storage_set_critical(ibox->box.storage,
-					  "close() failed for %s: %m", path);
-		fname = NULL;
-	}
-
-	if (fname == NULL)
-		(void)unlink(path);
-	return fname;
-}
+	unsigned int save_crlf:1;
+	unsigned int failed:1;
+};
 
 static int maildir_file_move(struct maildir_save_context *ctx,
 			     const char *basename, const char *dest)
@@ -112,7 +79,7 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 }
 
 static struct maildir_save_context *
-mailbox_save_init(struct maildir_transaction_context *t)
+maildir_transaction_save_init(struct maildir_transaction_context *t)
 {
         struct index_mailbox *ibox = t->ictx.ibox;
 	struct maildir_save_context *ctx;
@@ -120,6 +87,7 @@ mailbox_save_init(struct maildir_transaction_context *t)
 
 	pool = pool_alloconly_create("maildir_save_context", 4096);
 	ctx = p_new(pool, struct maildir_save_context, 1);
+	ctx->ctx.box = &ibox->box;
 	ctx->pool = pool;
 	ctx->ibox = ibox;
 	ctx->trans = t->ictx.trans;
@@ -129,29 +97,49 @@ mailbox_save_init(struct maildir_transaction_context *t)
 	ctx->tmpdir = p_strconcat(pool, ibox->path, "/tmp", NULL);
 	ctx->newdir = p_strconcat(pool, ibox->path, "/new", NULL);
 	ctx->curdir = p_strconcat(pool, ibox->path, "/cur", NULL);
+
+	ctx->save_crlf = getenv("MAIL_SAVE_CRLF") != NULL;
 	return ctx;
 }
 
-int maildir_save(struct mailbox_transaction_context *_t,
-		 const struct mail_full_flags *flags,
-		 time_t received_date, int timezone_offset __attr_unused__,
-		 const char *from_envelope __attr_unused__,
-		 struct istream *data, struct mail **mail_r)
+struct mail_save_context *
+maildir_save_init(struct mailbox_transaction_context *_t,
+		  const struct mail_full_flags *flags,
+		  time_t received_date, int timezone_offset __attr_unused__,
+		  const char *from_envelope __attr_unused__,
+		  struct istream *input, int want_mail __attr_unused__)
 {
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)_t;
 	struct maildir_save_context *ctx;
 	struct index_mailbox *ibox = t->ictx.ibox;
 	struct maildir_filename *mf;
-        struct utimbuf buf;
-	const char *fname, *dest_fname, *tmp_path;
+	const char *fname, *dest_fname, *path;
 	enum mail_flags mail_flags;
 	keywords_mask_t keywords;
-	uint32_t seq;
+
+	t_push();
 
 	if (t->save_ctx == NULL)
-		t->save_ctx = mailbox_save_init(t);
+		t->save_ctx = maildir_transaction_save_init(t);
 	ctx = t->save_ctx;
+
+	/* create a new file in tmp/ directory */
+	ctx->fd = maildir_create_tmp(ibox, ctx->tmpdir, ibox->mail_create_mode,
+				     &path);
+	if (ctx->fd == -1) {
+		ctx->failed = TRUE;
+		t_pop();
+		return &ctx->ctx;
+	}
+
+	fname = strrchr(path, '/');
+	i_assert(fname != NULL);
+	fname++;
+
+	ctx->received_date = received_date;
+	ctx->input = input;
+	ctx->output = o_stream_create_file(ctx->fd, system_pool, 0, FALSE);
 
 	mail_flags = (flags->flags & ~MAIL_RECENT) |
 		(ibox->keep_recent ? MAIL_RECENT : 0);
@@ -159,29 +147,6 @@ int maildir_save(struct mailbox_transaction_context *_t,
 					    flags->keywords,
 					    flags->keywords_count))
 		return FALSE;*/
-
-	t_push();
-
-	/* create the file into tmp/ directory */
-	fname = maildir_read_into_tmp(ibox, ctx->tmpdir, data);
-	if (fname == NULL) {
-		t_pop();
-		return -1;
-	}
-
-	tmp_path = t_strconcat(ctx->tmpdir, "/", fname, NULL);
-
-	if (received_date != (time_t)-1) {
-		/* set the received_date by modifying mtime */
-		buf.actime = ioloop_time;
-		buf.modtime = received_date;
-		if (utime(tmp_path, &buf) < 0) {
-			mail_storage_set_critical(ibox->box.storage,
-				"utime(%s) failed: %m", tmp_path);
-			t_pop();
-			return -1;
-		}
-	}
 
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
@@ -200,18 +165,111 @@ int maildir_save(struct mailbox_transaction_context *_t,
 	memset(keywords, 0, INDEX_KEYWORDS_BYTE_COUNT);
 	// FIXME: set keywords
 
-	mail_index_append(t->ictx.trans, 0, &seq);
-	mail_index_update_flags(t->ictx.trans, seq, MODIFY_REPLACE,
+	mail_index_append(t->ictx.trans, 0, &ctx->seq);
+	mail_index_update_flags(t->ictx.trans, ctx->seq, MODIFY_REPLACE,
 				mail_flags, keywords);
 	t_pop();
 
+	ctx->failed = FALSE;
+	return &ctx->ctx;
+}
+
+int maildir_save_continue(struct mail_save_context *_ctx)
+{
+	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+
+	if (ctx->failed)
+		return -1;
+
+	if (o_stream_send_istream(ctx->output, ctx->input) < 0) {
+		ctx->failed = TRUE;
+		return -1;
+	}
+	return 0;
+}
+
+int maildir_save_finish(struct mail_save_context *_ctx, struct mail **mail_r)
+{
+	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct utimbuf buf;
+	const char *path;
+
+	if (ctx->failed && ctx->fd == -1) {
+		/* tmp file creation failed */
+		return -1;
+	}
+
+	t_push();
+	path = t_strconcat(ctx->tmpdir, "/", ctx->files->basename, NULL);
+
+	if (ctx->received_date != (time_t)-1) {
+		/* set the received_date by modifying mtime */
+		buf.actime = ioloop_time;
+		buf.modtime = ctx->received_date;
+
+		if (utime(path, &buf) < 0) {
+			ctx->failed = TRUE;
+			mail_storage_set_critical(ctx->ibox->box.storage,
+						  "utime(%s) failed: %m", path);
+		}
+	}
+
+	o_stream_unref(ctx->output);
+	ctx->output = NULL;
+
+	/* FIXME: when saving multiple messages, we could get better
+	   performance if we left the fd open and fsync()ed it later */
+	if (fsync(ctx->fd) < 0) {
+		mail_storage_set_critical(ctx->ibox->box.storage,
+					  "fsync(%s) failed: %m", path);
+		ctx->failed = TRUE;
+	}
+	if (close(ctx->fd) < 0) {
+		mail_storage_set_critical(ctx->ibox->box.storage,
+					  "close(%s) failed: %m", path);
+		ctx->failed = TRUE;
+	}
+	ctx->fd = -1;
+
+	if (ctx->failed) {
+		/* delete the tmp file */
+		if (unlink(path) < 0 && errno != ENOENT) {
+			mail_storage_set_critical(ctx->ibox->box.storage,
+				"unlink(%s) failed: %m", path);
+		}
+
+		errno = ctx->output->stream_errno;
+		if (ENOSPACE(errno)) {
+			mail_storage_set_error(ctx->ibox->box.storage,
+					       "Not enough disk space");
+		} else if (errno != 0) {
+			mail_storage_set_critical(ctx->ibox->box.storage,
+				"write(%s) failed: %m", ctx->ibox->path);
+		}
+
+		ctx->files = ctx->files->next;
+		t_pop();
+		return -1;
+	}
+
 	if (mail_r != NULL) {
-		if (index_mail_next(&ctx->mail, seq) < 0)
+		i_assert(ctx->seq != 0);
+
+		if (index_mail_next(&ctx->mail, ctx->seq) < 0)
 			return -1;
 		*mail_r = &ctx->mail.mail;
 	}
 
+	t_pop();
 	return 0;
+}
+
+void maildir_save_cancel(struct mail_save_context *_ctx)
+{
+	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+
+	ctx->failed = TRUE;
+	(void)maildir_save_finish(_ctx, NULL);
 }
 
 static void maildir_save_commit_abort(struct maildir_save_context *ctx,
@@ -235,10 +293,10 @@ static void maildir_save_commit_abort(struct maildir_save_context *ctx,
 	ctx->files = pos;
 	t_pop();
 
-	maildir_save_rollback(ctx);
+	maildir_transaction_save_rollback(ctx);
 }
 
-int maildir_save_commit(struct maildir_save_context *ctx)
+int maildir_transaction_save_commit(struct maildir_save_context *ctx)
 {
 	struct maildir_uidlist_sync_ctx *sync_ctx;
 	struct maildir_filename *mf;
@@ -246,6 +304,8 @@ int maildir_save_commit(struct maildir_save_context *ctx)
 	enum maildir_uidlist_rec_flag flags;
 	const char *fname;
 	int ret = 0;
+
+	i_assert(ctx->output == NULL);
 
 	ret = maildir_uidlist_lock(ctx->ibox->uidlist);
 	if (ret <= 0) {
@@ -284,10 +344,12 @@ int maildir_save_commit(struct maildir_save_context *ctx)
 	return ret;
 }
 
-void maildir_save_rollback(struct maildir_save_context *ctx)
+void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
 {
 	struct maildir_filename *mf;
 	string_t *str;
+
+	i_assert(ctx->output == NULL);
 
 	t_push();
 	str = t_str_new(1024);

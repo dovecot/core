@@ -8,7 +8,7 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib-imap
 
 libstorage_a_SOURCES = \
-	mail-save.c \
+	mail-copy.c \
 	mail-search.c \
 	mail-storage.c \
 	mailbox-tree.c \
@@ -17,7 +17,7 @@ libstorage_a_SOURCES = \
 	proxy-mailbox.c
 
 noinst_HEADERS = \
-	mail-save.h \
+	mail-copy.h \
 	mail-search.h \
 	mail-storage.h \
 	mail-storage-private.h \

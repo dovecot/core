@@ -805,7 +805,10 @@ struct mailbox maildir_mailbox = {
 	index_storage_search_init,
 	index_storage_search_deinit,
 	index_storage_search_next,
-	maildir_save,
+	maildir_save_init,
+	maildir_save_continue,
+	maildir_save_finish,
+	maildir_save_cancel,
 	maildir_copy,
 	index_storage_is_inconsistent
 };

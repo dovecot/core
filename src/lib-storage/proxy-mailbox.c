@@ -115,18 +115,19 @@ static void _transaction_rollback(struct mailbox_transaction_context *t)
 	pbox->box->transaction_rollback(pt->ctx);
 }
 
-static int _save(struct mailbox_transaction_context *t,
-		 const struct mail_full_flags *flags,
-		 time_t received_date, int timezone_offset,
-		 const char *from_envelope, struct istream *data,
-		 struct mail **mail_r)
+static struct mail_save_context *
+_save_init(struct mailbox_transaction_context *t,
+	   const struct mail_full_flags *flags,
+	   time_t received_date, int timezone_offset,
+	   const char *from_envelope, struct istream *input, int want_mail)
 {
 	struct proxy_mailbox_transaction_context *pt =
 		(struct proxy_mailbox_transaction_context *)t;
 	struct proxy_mailbox *pbox = (struct proxy_mailbox *)t->box;
 
-	return pbox->box->save(pt->ctx, flags, received_date, timezone_offset,
-			       from_envelope, data, mail_r);
+	return pbox->box->save_init(pt->ctx, flags, received_date,
+				    timezone_offset, from_envelope, input,
+				    want_mail);
 }
 
 static int _copy(struct mailbox_transaction_context *t, struct mail *mail,
@@ -176,7 +177,10 @@ void proxy_mailbox_init(struct proxy_mailbox *proxy, struct mailbox *box)
 	pb->transaction_commit = _transaction_commit;
 	pb->transaction_rollback = _transaction_rollback;
 
-	pb->save = _save;
+	pb->save_init = _save_init;
+	pb->save_continue = box->save_continue;
+	pb->save_finish = box->save_finish;
+	pb->save_cancel = box->save_cancel;
 	pb->copy = _copy;
 
 	pb->is_inconsistent = _is_inconsistent;

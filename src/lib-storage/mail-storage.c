@@ -413,14 +413,30 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context *t)
 	t->box->transaction_rollback(t);
 }
 
-int mailbox_save(struct mailbox_transaction_context *t,
-		 const struct mail_full_flags *flags,
-		 time_t received_date, int timezone_offset,
-		 const char *from_envelope, struct istream *data,
-		 struct mail **mail_r)
+struct mail_save_context *
+mailbox_save_init(struct mailbox_transaction_context *t,
+		  const struct mail_full_flags *flags,
+		  time_t received_date, int timezone_offset,
+		  const char *from_envelope, struct istream *input,
+		  int want_mail)
 {
-	return t->box->save(t, flags, received_date, timezone_offset,
-			    from_envelope, data, mail_r);
+	return t->box->save_init(t, flags, received_date, timezone_offset,
+				 from_envelope, input, want_mail);
+}
+
+int mailbox_save_continue(struct mail_save_context *ctx)
+{
+	return ctx->box->save_continue(ctx);
+}
+
+int mailbox_save_finish(struct mail_save_context *ctx, struct mail **mail_r)
+{
+	return ctx->box->save_finish(ctx, mail_r);
+}
+
+void mailbox_save_cancel(struct mail_save_context *ctx)
+{
+	ctx->box->save_cancel(ctx);
 }
 
 int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
