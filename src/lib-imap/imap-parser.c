@@ -325,7 +325,9 @@ static int imap_parser_read_string(struct imap_parser *parser,
 
 static int imap_parser_literal_end(struct imap_parser *parser)
 {
-	if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0) {
+	if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) != 0)
+		parser->eol = TRUE;
+	else {
 		if (parser->literal_size > parser->max_literal_size) {
 			/* too long string, abort. */
 			parser->error = "Literal size too large";
@@ -531,11 +533,16 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 
 	if (parser->error != NULL) {
 		/* error, abort */
+		i_stream_skip(parser->input, parser->cur_pos);
+		parser->cur_pos = 0;
 		*args = NULL;
 		return -1;
 	} else if ((!IS_UNFINISHED(parser) && count > 0 &&
 		    parser->root_list->size >= count) || parser->eol) {
 		/* all arguments read / end of line. */
+		i_stream_skip(parser->input, parser->cur_pos);
+		parser->cur_pos = 0;
+
 		if (parser->list_arg != NULL) {
 			parser->error = "Missing ')'";
 			*args = NULL;
