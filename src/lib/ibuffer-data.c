@@ -70,6 +70,7 @@ IBuffer *i_buffer_create_from_data(Pool pool, const unsigned char *data,
 
 	buf = p_new(pool, _IBuffer, 1);
 	buf->buffer = data;
+	buf->pos = size;
 
 	buf->iobuf.close = _close;
 	buf->iobuf.destroy = _destroy;
