@@ -96,7 +96,7 @@ static int get_reply_data(PasswdUser *pu, AuthCookieReplyData *reply)
 		size_t pos;
 
 		pos = (size_t) (pu->realm - (const char *) pu->user_realm);
-		reply->virtual_user[pos] = '@';
+		reply->virtual_user[pos-1] = '@';
 	}
 
 	reply->chroot = pu->chroot;
