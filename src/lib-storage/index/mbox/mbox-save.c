@@ -196,6 +196,7 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		outbuf = o_buffer_create_file(index->mbox_fd,
 					      data_stack_pool, 4096,
 					      0, FALSE);
+		o_buffer_set_blocking(outbuf, 60000, NULL, NULL);
 
 		if (!write_from_line(box->storage, outbuf, mbox_path,
 				     internal_date) ||

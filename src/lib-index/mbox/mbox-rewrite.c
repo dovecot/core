@@ -375,6 +375,7 @@ static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
 	inbuf = i_buffer_create_mmap(in_fd, data_stack_pool,
 				     1024*256, 0, 0, FALSE);
 	outbuf = o_buffer_create_file(out_fd, data_stack_pool, 1024, 0, FALSE);
+	o_buffer_set_blocking(outbuf, 60000, NULL, NULL);
 
 	ret = o_buffer_send_ibuffer(outbuf, inbuf);
 	if (ret < 0)
@@ -468,6 +469,7 @@ int mbox_index_rewrite(MailIndex *index)
 	/* note: we can't use data_stack_pool with outbuf because it's
 	   being written to inside t_push() .. t_pop() calls */
 	outbuf = o_buffer_create_file(tmp_fd, system_pool, 8192, 0, FALSE);
+	o_buffer_set_blocking(outbuf, 60000, NULL, NULL);
 
 	failed = FALSE; seq = 1;
 	rec = index->lookup(index, 1);

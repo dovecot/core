@@ -129,6 +129,7 @@ int mbox_expunge_locked(IndexMailbox *ibox, int notify)
 	t_push();
 	outbuf = o_buffer_create_file(ibox->index->mbox_fd, data_stack_pool,
 				      4096, 0, FALSE);
+	o_buffer_set_blocking(outbuf, 60000, NULL, NULL);
 
 	failed = !expunge_real(ibox, rec, seq, inbuf, outbuf, notify);
 

@@ -61,6 +61,7 @@ static const char *maildir_read_into_tmp(MailStorage *storage, const char *dir,
 	t_push();
 	outbuf = o_buffer_create_file(fd, data_stack_pool, 4096,
 				      IO_PRIORITY_DEFAULT, FALSE);
+	o_buffer_set_blocking(outbuf, 60000, NULL, NULL);
 
 	path = t_strconcat(dir, "/", fname, NULL);
 	if (!index_storage_save(storage, path, buf, outbuf, data_size))
