@@ -525,10 +525,14 @@ static void credentials_callback(const char *result,
 {
 	struct digest_auth_request *auth =
 		(struct digest_auth_request *) request;
+	int success;
+
+	success = verify_credentials(auth, result);
 
 	auth->authenticated = TRUE;
-	mech_auth_finish(request, auth->rspauth, strlen(auth->rspauth),
-			 verify_credentials(auth, result));
+	mech_auth_finish(request, auth->rspauth,
+			 auth->rspauth == NULL ? 0 : strlen(auth->rspauth),
+			 success);
 }
 
 static int
