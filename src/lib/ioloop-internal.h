@@ -27,7 +27,6 @@ struct io {
 	int condition;
 
 	unsigned int destroyed:1;
-	unsigned int invalid:1;
 
 	io_callback_t *callback;
         void *context;
