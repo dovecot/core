@@ -90,7 +90,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 	if (ctx->mail.uid == ctx->sync_ctx->first_uid &&
 	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1) {
 		ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
-		str_printfa(ctx->header, "X-IMAPbase: %u %u",
+		str_printfa(ctx->header, "X-IMAPbase: %u %010u",
 			    ctx->sync_ctx->base_uid_validity,
 			    ctx->sync_ctx->next_uid-1);
 		//FIXME:keywords_append(ctx, all_keywords);

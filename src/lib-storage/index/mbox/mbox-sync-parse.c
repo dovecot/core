@@ -124,6 +124,17 @@ static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
+static int parse_x_imap(struct mbox_sync_mail_context *ctx,
+			struct message_header_line *hdr)
+{
+	if (!parse_x_imap_base(ctx, hdr))
+		return FALSE;
+
+	/* this is the UW-IMAP style "FOLDER INTERNAL DATA" message. skip it. */
+	ctx->pseudo = TRUE;
+	return TRUE;
+}
+
 static int parse_x_keywords(struct mbox_sync_mail_context *ctx,
 			    struct message_header_line *hdr)
 {
@@ -226,6 +237,7 @@ static int parse_content_length(struct mbox_sync_mail_context *ctx,
 static struct header_func header_funcs[] = {
 	{ "Content-Length", parse_content_length },
 	{ "Status", parse_status },
+	{ "X-IMAP", parse_x_imap },
 	{ "X-IMAPbase", parse_x_imap_base },
 	{ "X-Keywords", parse_x_keywords },
 	{ "X-Status", parse_x_status },

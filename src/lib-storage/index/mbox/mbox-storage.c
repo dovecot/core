@@ -397,6 +397,7 @@ mbox_open(struct index_storage *storage, const char *name,
 	struct index_mailbox *ibox;
 	struct mail_index *index;
 	const char *path, *index_dir;
+	uint32_t mbox_extra_idx;
 
 	if (strcasecmp(name, "INBOX") == 0) {
 		/* name = "INBOX"
@@ -413,6 +414,8 @@ mbox_open(struct index_storage *storage, const char *name,
 	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
+	mbox_extra_idx = mail_index_register_record_extra(index, "mbox",
+							  sizeof(uint64_t));
 	ibox = index_storage_mailbox_init(storage, &mbox_mailbox,
 					  index, name, flags);
 	if (ibox == NULL)
@@ -421,6 +424,7 @@ mbox_open(struct index_storage *storage, const char *name,
 	ibox->path = i_strdup(path);
 	ibox->mbox_fd = -1;
 	ibox->mbox_lock_type = F_UNLCK;
+	ibox->mbox_extra_idx = mbox_extra_idx;
 
 	ibox->get_recent_count = mbox_get_recent_count;
 	ibox->mail_interface = &mbox_mail;
@@ -775,10 +779,6 @@ static int mbox_get_mailbox_name_status(struct mail_storage *_storage,
 
 static int mbox_storage_close(struct mailbox *box)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
-
-	if (ibox->mbox_data_buf != NULL)
-		buffer_free(ibox->mbox_data_buf);
         index_storage_mailbox_free(box);
 	return 0;
 }

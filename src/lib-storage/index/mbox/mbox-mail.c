@@ -13,21 +13,28 @@
 
 static int mbox_mail_seek(struct index_mail *mail)
 {
-	i_assert(mail->mail.seq <= mail->ibox->mbox_data_count);
+	struct index_mailbox *ibox = mail->ibox;
+	const void *data;
+
+	if (mail_index_lookup_extra(ibox->view, mail->mail.seq,
+				    ibox->mbox_extra_idx, &data) < 0) {
+		mail_storage_set_index_error(ibox);
+		return -1;
+	}
 
 	// FIXME: lock the file. sync if needed.
 
-	if (mbox_file_open_stream(mail->ibox) < 0)
+	if (mbox_file_open_stream(ibox) < 0)
 		return -1;
 
-	istream_raw_mbox_seek(mail->ibox->mbox_stream,
-			      mail->ibox->mbox_data[mail->mail.seq-1] >> 1);
+	istream_raw_mbox_seek(ibox->mbox_stream, *((const uint64_t *)data));
 	return 0;
 }
 
 static const struct mail_full_flags *mbox_mail_get_flags(struct mail *_mail)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	return index_mail_get_flags(_mail);
+	/*FIXME:struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 
 	i_assert(_mail->seq <= mail->ibox->mbox_data_count);
@@ -36,7 +43,7 @@ static const struct mail_full_flags *mbox_mail_get_flags(struct mail *_mail)
 	if ((mail->ibox->mbox_data[_mail->seq-1] & 1) != 0)
 		data->flags.flags |= MAIL_RECENT;
 
-	return &data->flags;
+	return &data->flags;*/
 }
 
 static time_t mbox_mail_get_received_date(struct mail *_mail)

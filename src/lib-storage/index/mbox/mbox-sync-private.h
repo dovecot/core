@@ -30,6 +30,7 @@ struct mbox_sync_mail {
 	uint8_t flags;
 	keywords_mask_t keywords;
 
+	uoff_t from_offset;
 	uoff_t offset; /* if space <= 0, points to beginning */
 	off_t space;
 	uoff_t body_size;
@@ -52,6 +53,7 @@ struct mbox_sync_mail_context {
 	unsigned int have_eoh:1;
 	unsigned int need_rewrite:1;
 	unsigned int seen_imapbase:1;
+	unsigned int pseudo:1;
 	unsigned int updated:1;
 };
 

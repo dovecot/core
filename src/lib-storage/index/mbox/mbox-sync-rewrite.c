@@ -196,17 +196,6 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 	return 1;
 }
 
-static void mbox_sync_fix_from_offset(struct mbox_sync_context *sync_ctx,
-				      uint32_t idx, off_t diff)
-{
-	uoff_t *offset_p;
-
-	offset_p = buffer_get_space_unsafe(sync_ctx->ibox->mbox_data_buf,
-					   idx * sizeof(*offset_p),
-					   sizeof(*offset_p));
-	*offset_p = (*offset_p & 1) | (((*offset_p >> 1) + diff) << 1);
-}
-
 static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 				   struct mbox_sync_mail *mails,
 				   uint32_t seq, uint32_t idx,
@@ -245,9 +234,6 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	i_assert(mail_ctx.mail.space == mails[idx].space);
         sync_ctx->prev_msg_uid = old_prev_msg_uid;
 
-	/* we're moving next message - update it's from_offset */
-	mbox_sync_fix_from_offset(sync_ctx, idx+1, mails[idx+1].space);
-
 	if (mail_ctx.mail.space <= 0)
 		mbox_sync_headers_add_space(&mail_ctx, extra_per_mail);
 	else if (mail_ctx.mail.space <= extra_per_mail) {
@@ -267,6 +253,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 		// FIXME: error handling
 		return -1;
 	}
+	mails[idx+1].from_offset += mails[idx+1].space;
 
 	*end_offset = offset + mails[idx+1].space - str_len(mail_ctx.header);
 
@@ -334,7 +321,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 	i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
 
 	mails = buffer_get_modifyable_data(mails_buf, &size);
-	size /= sizeof(*mails);
+	i_assert(size / sizeof(*mails) == last_seq - first_seq + 1);
 
 	/* if there's expunges in mails[], we would get more correct balancing
 	   by counting only them here. however, that might make us overwrite
@@ -386,8 +373,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 				break;
 			}
 
-			mbox_sync_fix_from_offset(sync_ctx, idx+1,
-						  mails[idx+1].space);
+			mails[idx+1].from_offset += mails[idx+1].space;
 
 			mails[idx].space += mails[idx+1].space;
 			if (mails[idx].uid != 0)
@@ -408,8 +394,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 				// FIXME: error handling
 				ret = -1;
 			}
-			mbox_sync_fix_from_offset(sync_ctx, 1,
-						  (off_t)end_offset - offset);
+			mails[1].from_offset -= offset - end_offset;
 			idx++;
 
 			start_offset += offset - end_offset;
