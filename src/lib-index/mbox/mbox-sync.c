@@ -114,6 +114,7 @@ static int mbox_check_new_mail(MailIndex *index)
 int mbox_index_sync(MailIndex *index)
 {
 	struct stat st;
+	uoff_t filesize;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
@@ -126,11 +127,21 @@ int mbox_index_sync(MailIndex *index)
 	if (index->file_sync_stamp == st.st_mtime)
 		return TRUE;
 
-	if (index->mbox_size == 0 && st.st_size != 0)
+	filesize = st.st_size;
+	if (index->mbox_size == 0 && filesize != 0) {
 		index->mbox_size = get_indexed_mbox_size(index);
 
-	if (index->file_sync_stamp == 0 &&
-	    index->mbox_size == (uoff_t)st.st_size) {
+		/* problem .. index->mbox_size points to data after the last
+		   message. that should be \n, \r\n, or end of file. modify
+		   filesize accordingly to allow any of the extra 0-2 bytes.
+		   Don't actually bother to open the file and verify it, it'd
+		   just slow things.. */
+		if (filesize == index->mbox_size+1 ||
+		    filesize == index->mbox_size+2)
+			filesize = index->mbox_size;
+	}
+
+	if (index->file_sync_stamp == 0 && index->mbox_size == filesize) {
 		/* just opened the mailbox, and the file size is same as
 		   we expected. don't bother checking it any further. */
 		index->file_sync_stamp = st.st_mtime;
@@ -140,7 +151,7 @@ int mbox_index_sync(MailIndex *index)
 	index->file_sync_stamp = st.st_mtime;
 
 	/* file has been modified. */
-	if (index->mbox_size < (uoff_t)st.st_size) {
+	if (index->mbox_size < filesize) {
 		/* file was grown, hopefully just new mail */
 		return mbox_check_new_mail(index);
 	} else {

@@ -190,7 +190,7 @@ int mbox_index_append(MailIndex *index, IOBuffer *inbuf)
 		return FALSE;
 
 	for (;;) {
-		if (inbuf->offset != 0) {
+		if (inbuf->start_offset + inbuf->offset != 0) {
 			/* we're at the [\r]\n before the From-line,
 			   skip it */
 			if (!mbox_skip_crlf(inbuf)) {
