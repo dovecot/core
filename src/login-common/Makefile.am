@@ -19,4 +19,5 @@ noinst_HEADERS = \
 	client-common.h \
 	common.h \
 	master.h \
+	sasl-server.h \
 	ssl-proxy.h
