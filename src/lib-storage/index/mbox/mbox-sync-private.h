@@ -21,6 +21,7 @@ enum header_position {
 
 #define MBOX_NONRECENT MAIL_RECENT /* kludgy */
 #define MBOX_EXPUNGED 0x40
+#define MBOX_DIRTY_SPACE 0x80
 
 #define STATUS_FLAGS_MASK (MAIL_SEEN|MBOX_NONRECENT)
 #define XSTATUS_FLAGS_MASK (MAIL_ANSWERED|MAIL_FLAGGED|MAIL_DRAFT|MAIL_DELETED)
@@ -114,7 +115,8 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 			     buffer_t *syncs_buf);
 void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 				  const struct mbox_sync_mail *mail);
-int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff);
+int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff,
+			  int leave_space_hole);
 int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, uoff_t extra_space,
 		      uint32_t first_seq, uint32_t last_seq);
 

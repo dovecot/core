@@ -72,7 +72,7 @@ static int mbox_fill_space(struct mbox_sync_context *sync_ctx,
 }
 
 static void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
-					size_t size)
+					size_t size, size_t *skip_space_pos_r)
 {
 	size_t data_size, pos, start_pos;
 	const unsigned char *data;
@@ -105,19 +105,30 @@ static void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 		}
 	}
 
-	/* pos points to end of headers now, and start_pos to beginning
+	/* pos points to end of header now, and start_pos to beginning
 	   of whitespace. */
-	buffer_copy(ctx->header, pos + size,
-		    ctx->header, pos, (size_t)-1);
-	p = buffer_get_space_unsafe(ctx->header, pos, size);
-	memset(p, ' ', size);
 
-	ctx->mail.offset = ctx->hdr_offset + start_pos;
-	ctx->mail.space = (pos - start_pos) + size;
+	if (/*size > 1024 && */skip_space_pos_r != NULL) {
+		/* we're rewriting messages and moving space towards beginning
+		   of file. it's useless to write lots of spaces because we're
+		   overwriting it soon anyway. */
+		*skip_space_pos_r = start_pos;
+	} else {
+		if (skip_space_pos_r != NULL)
+			*skip_space_pos_r = (size_t)-1;
+
+		buffer_copy(ctx->header, pos + size,
+			    ctx->header, pos, (size_t)-1);
+		p = buffer_get_space_unsafe(ctx->header, pos, size);
+		memset(p, ' ', size);
+	}
 
 	if (ctx->header_first_change > pos)
 		ctx->header_first_change = pos;
 	ctx->header_last_change = (size_t)-1;
+
+	ctx->mail.offset = ctx->hdr_offset + start_pos;
+	ctx->mail.space = (pos - start_pos) + size;
 }
 
 static void mbox_sync_header_remove_space(struct mbox_sync_mail_context *ctx,
@@ -201,19 +212,23 @@ static void mbox_sync_headers_remove_space(struct mbox_sync_mail_context *ctx,
 	/* FIXME: see if we could remove X-Keywords header completely */
 }
 
-int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
+int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff,
+			  int leave_space_hole)
 {
-	size_t old_hdr_size, new_hdr_size;
+	size_t old_hdr_size, new_hdr_size, space_pos, hdr_size;
 
 	i_assert(ctx->sync_ctx->ibox->mbox_lock_type == F_WRLCK);
 
 	old_hdr_size = ctx->body_offset - ctx->hdr_offset;
 	new_hdr_size = str_len(ctx->header);
 
+	space_pos = (size_t)-1;
 	if (new_hdr_size <= old_hdr_size) {
 		/* add space. note that we must call add_space() even if we're
 		   not adding anything so mail.offset gets fixed. */
-		mbox_sync_headers_add_space(ctx, old_hdr_size - new_hdr_size);
+		mbox_sync_headers_add_space(ctx, old_hdr_size - new_hdr_size,
+					    leave_space_hole ?
+					    &space_pos : NULL);
 	} else if (new_hdr_size > old_hdr_size) {
 		/* try removing the space where we can */
 		mbox_sync_headers_remove_space(ctx,
@@ -259,13 +274,28 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 	    ctx->header_last_change != 0)
 		str_truncate(ctx->header, ctx->header_last_change);
 
+	i_assert(space_pos >= ctx->header_first_change);
+
+	hdr_size = space_pos == (size_t)-1 ? str_len(ctx->header) : space_pos;
 	if (pwrite_full(ctx->sync_ctx->fd,
 			str_data(ctx->header) + ctx->header_first_change,
-			str_len(ctx->header) - ctx->header_first_change,
-			ctx->hdr_offset + move_diff +
-			ctx->header_first_change) < 0) {
+			hdr_size - ctx->header_first_change,
+			ctx->hdr_offset + ctx->header_first_change +
+			move_diff) < 0) {
 		mbox_set_syscall_error(ctx->sync_ctx->ibox, "pwrite_full()");
 		return -1;
+	}
+	if (space_pos != (size_t)-1) {
+		ctx->mail.flags |= MBOX_DIRTY_SPACE;
+		if (pwrite_full(ctx->sync_ctx->fd,
+				str_data(ctx->header) + space_pos,
+				str_len(ctx->header) - space_pos,
+				ctx->mail.offset + ctx->mail.space +
+				move_diff) < 0) {
+			mbox_set_syscall_error(ctx->sync_ctx->ibox,
+					       "pwrite_full()");
+			return -1;
+		}
 	}
 
 	if (ctx->sync_ctx->dest_first_mail) {
@@ -286,7 +316,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	struct mbox_sync_mail_context mail_ctx;
 	uint32_t old_prev_msg_uid;
 	uoff_t hdr_offset, offset, dest_offset;
-	size_t old_hdr_size, need_space;
+	size_t old_hdr_size, need_space, space_pos, hdr_size;
 
 	if (mbox_sync_seek(sync_ctx, mails[idx].from_offset) < 0)
 		return -1;
@@ -295,6 +325,8 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	mail_ctx.sync_ctx = sync_ctx;
 	mail_ctx.seq = seq;
 	mail_ctx.header = sync_ctx->header;
+	mail_ctx.uidl = sync_ctx->uidl;
+	str_truncate(mail_ctx.uidl, 0);
 
 	hdr_offset = mails[idx].offset;
 	mail_ctx.mail.offset = mails[idx].offset;
@@ -328,9 +360,10 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	if (space_diff - need_space < (uoff_t)mail_ctx.mail.space) {
 		mbox_sync_headers_remove_space(&mail_ctx, mail_ctx.mail.space -
 					       (space_diff - need_space));
+                space_pos = (size_t)-1;
 	} else {
 		mbox_sync_headers_add_space(&mail_ctx, space_diff - need_space -
-					    mail_ctx.mail.space);
+					    mail_ctx.mail.space, &space_pos);
 	}
 	mails[idx].offset = mail_ctx.mail.offset;
 	mails[idx].space = mail_ctx.mail.space;
@@ -343,10 +376,23 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 		      end_offset - dest_offset) < 0)
 		return -1;
 
+	hdr_size = space_pos == (size_t)-1 ?
+		str_len(mail_ctx.header) : space_pos;
 	if (pwrite_full(sync_ctx->fd, str_data(mail_ctx.header),
-			str_len(mail_ctx.header), hdr_offset) < 0) {
+			hdr_size, hdr_offset) < 0) {
 		mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
 		return -1;
+	}
+	if (space_pos != (size_t)-1) {
+		/* skip over the space in header, it's written later. */
+                mails[idx].flags |= MBOX_DIRTY_SPACE;
+		if (pwrite_full(sync_ctx->fd,
+				str_data(mail_ctx.header) + space_pos,
+				str_len(mail_ctx.header) - space_pos,
+				mails[idx].offset + mails[idx].space) < 0) {
+			mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
+			return -1;
+		}
 	}
 
 	if (mails[idx].from_offset == 0) {
@@ -435,17 +481,29 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, uoff_t extra_space,
 				break;
 			}
 
-			if (mbox_fill_space(sync_ctx, offset,
-					    dest_offset - offset) < 0) {
-				ret = -1;
-				break;
-			}
-
 			mails[idx].space += space_diff;
+			mails[idx].flags |= MBOX_DIRTY_SPACE;
  		}
 
 		mails[idx+1].from_offset += space_diff;
+		mails[idx+1].offset += space_diff;
+
+		if ((mails[idx+1].flags & MBOX_DIRTY_SPACE) != 0) {
+                        mails[idx+1].flags &= ~MBOX_DIRTY_SPACE;
+			if (mbox_fill_space(sync_ctx, mails[idx+1].offset,
+					    mails[idx+1].space) < 0) {
+				ret = -1;
+				break;
+			}
+		}
 	} while (idx > 0);
+
+	if ((mails[0].flags & MBOX_DIRTY_SPACE) != 0) {
+		mails[0].flags &= ~MBOX_DIRTY_SPACE;
+		if (mbox_fill_space(sync_ctx, mails[0].offset,
+				    mails[0].space) < 0)
+			ret = -1;
+	}
 
 	istream_raw_mbox_flush(sync_ctx->input);
 	return ret;

@@ -629,7 +629,8 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			return -1;
 
 		mbox_sync_update_header(mail_ctx, sync_ctx->syncs);
-		if ((ret = mbox_sync_try_rewrite(mail_ctx, move_diff)) < 0)
+		ret = mbox_sync_try_rewrite(mail_ctx, move_diff, FALSE);
+		if (ret < 0)
 			return -1;
 
 		if (ret > 0) {
@@ -648,7 +649,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			return ret;
 
 		mbox_sync_update_header(mail_ctx, sync_ctx->syncs);
-		if ((ret = mbox_sync_try_rewrite(mail_ctx, 0)) < 0)
+		if ((ret = mbox_sync_try_rewrite(mail_ctx, 0, FALSE)) < 0)
 			return -1;
 	} else {
 		/* nothing to do */
@@ -929,6 +930,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					struct mbox_sync_mail_context *mail_ctx)
 {
 	uoff_t offset, extra_space, trailer_size;
+	int need_rewrite;
 
 	if (!istream_raw_mbox_is_eof(sync_ctx->input)) {
 		i_assert(sync_ctx->need_space_seq == 0);
@@ -959,10 +961,11 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					-sync_ctx->space_diff) < 0)
 			return -1;
 
-		if (mbox_sync_try_rewrite(mail_ctx, 0) < 0)
+		need_rewrite = sync_ctx->seq != sync_ctx->need_space_seq;
+		if (mbox_sync_try_rewrite(mail_ctx, 0, need_rewrite) < 0)
 			return -1;
 
-		if (sync_ctx->seq != sync_ctx->need_space_seq) {
+		if (need_rewrite) {
 			buffer_set_used_size(sync_ctx->mails,
 					     (sync_ctx->seq -
 					      sync_ctx->need_space_seq) *
