@@ -25,7 +25,6 @@
 
 
 #include "lib.h"
-#include "ioloop.h"
 #include "fd-close-on-exec.h"
 #include "printf-upper-bound.h"
 
@@ -68,12 +67,14 @@ static void write_prefix(FILE *f)
 {
 	struct tm *tm;
 	char str[256];
+	time_t now;
 
 	if (log_prefix != NULL)
 		fputs(log_prefix, f);
 
 	if (log_stamp_format != NULL) {
-		tm = localtime(&ioloop_time);
+		now = time(NULL);
+		tm = localtime(&now);
 
 		if (strftime(str, sizeof(str),
 			     get_log_stamp_format("unused"), tm) > 0)
