@@ -288,8 +288,12 @@ static int search_arg_match_cached(MailIndex *index, MailIndexRecord *rec,
 
 	/* get field from hopefully cached envelope */
 	envelope = index->lookup_field(index, rec, FIELD_TYPE_ENVELOPE);
-	field = envelope == NULL ? NULL :
-		imap_envelope_parse(envelope, env_field);
+	if (envelope != NULL)
+		field = imap_envelope_parse(envelope, env_field);
+	else {
+		index->cache_fields_later(index, rec, FIELD_TYPE_ENVELOPE);
+		field = NULL;
+	}
 
 	if (field == NULL)
 		ret = -1;

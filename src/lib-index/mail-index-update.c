@@ -387,8 +387,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 		   CPU, maybe this should be configurable (I/O vs. CPU)? */
 		if ((cache_fields & FIELD_TYPE_BODY) &&
 		    ((update->rec->cached_fields | cache_fields) &
-		     FIELD_TYPE_BODYSTRUCTURE) == 0)
-		    {
+		     FIELD_TYPE_BODYSTRUCTURE) == 0) {
 			t_push();
 			i_buffer_seek(inbuf, start_offset);
 			value = imap_part_get_bodystructure(pool, &part,

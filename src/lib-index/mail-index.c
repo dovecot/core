@@ -568,37 +568,13 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 	return rec;
 }
 
-static MailIndexDataRecord *
-index_lookup_data_field(MailIndex *index, MailIndexRecord *rec, MailField field)
-{
-	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
-
-	/* first check if the field even could be in the file */
-	if ((rec->cached_fields & field) != field) {
-		if ((index->header->cache_fields & field) == 0) {
-			/* no, but make sure the future records will have it.
-			   we don't immediately mark the index to cache this
-			   field for old messages as some clients never ask
-			   the info again */
-			index->set_cache_fields |= field;
-		} else {
-			/* this is at least the second time it's being asked,
-			   make sure it'll be cached soon. */
-			index->set_flags |= MAIL_INDEX_FLAG_CACHE_FIELDS;
-		}
-
-		return NULL;
-	}
-
-	return mail_index_data_lookup(index->data, rec, field);
-}
-
 const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
 				    MailField field)
 {
 	MailIndexDataRecord *datarec;
 
-	datarec = index_lookup_data_field(index, rec, field);
+	datarec = (rec->cached_fields & field) == 0 ? NULL :
+		mail_index_data_lookup(index->data, rec, field);
 	if (datarec == NULL)
 		return NULL;
 
@@ -615,7 +591,8 @@ const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
 {
 	MailIndexDataRecord *datarec;
 
-	datarec = index_lookup_data_field(index, rec, field);
+	datarec = (rec->cached_fields & field) == 0 ? NULL :
+		mail_index_data_lookup(index->data, rec, field);
 	if (datarec == NULL) {
 		*size = 0;
 		return NULL;
@@ -623,6 +600,27 @@ const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
 
 	*size = datarec->full_field_size;
 	return datarec->data;
+}
+
+void mail_index_cache_fields_later(MailIndex *index, MailIndexRecord *rec,
+				   MailField field)
+{
+	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
+
+	/* first check if the field even could be in the file */
+	if ((rec->cached_fields & field) != field) {
+		if ((index->header->cache_fields & field) == 0) {
+			/* no, but make sure the future records will have it.
+			   we don't immediately mark the index to cache this
+			   field for old messages as some clients never ask
+			   the info again */
+			index->set_cache_fields |= field;
+		} else {
+			/* this is at least the second time it's being asked,
+			   make sure it'll be cached soon. */
+			index->set_flags |= MAIL_INDEX_FLAG_CACHE_FIELDS;
+		}
+	}
 }
 
 void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,

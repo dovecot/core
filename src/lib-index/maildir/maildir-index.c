@@ -215,6 +215,7 @@ MailIndex maildir_index = {
         mail_index_lookup_uid_range,
 	mail_index_lookup_field,
 	mail_index_lookup_field_raw,
+	mail_index_cache_fields_later,
 	maildir_open_mail,
 	mail_index_expunge,
 	maildir_index_update_flags,

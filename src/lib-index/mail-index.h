@@ -227,6 +227,12 @@ struct _MailIndex {
 	const void *(*lookup_field_raw)(MailIndex *index, MailIndexRecord *rec,
 					MailField field, size_t *size);
 
+	/* Mark the fields to be cached later. If any of them is already
+	   set in hdr->cache_fields, mark the caching to happen next time
+	   index is opened. */
+	void (*cache_fields_later)(MailIndex *index, MailIndexRecord *rec,
+				   MailField field);
+
 	/* Open mail file and return it as mmap()ed IBuffer. If we fails,
 	   we return NULL and set deleted = TRUE if failure was because the
 	   mail was just deleted (ie. not an error). */
@@ -365,6 +371,8 @@ const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
 				    MailField field);
 const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
 					MailField field, size_t *size);
+void mail_index_cache_fields_later(MailIndex *index, MailIndexRecord *rec,
+				   MailField field);
 int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		       unsigned int seq, int external_change);
 int mail_index_update_flags(MailIndex *index, MailIndexRecord *rec,

@@ -50,6 +50,7 @@ static const char *index_msgcache_get_cached_field(ImapCacheField field,
 {
 	IndexMsgcacheContext *ctx = context;
 	MailField index_field;
+	const char *ret;
 
 	switch (field) {
 	case IMAP_CACHE_BODY:
@@ -62,11 +63,15 @@ static const char *index_msgcache_get_cached_field(ImapCacheField field,
 		index_field = FIELD_TYPE_ENVELOPE;
 		break;
 	default:
-		index_field = 0;
+		return NULL;
 	}
 
-	return index_field == 0 ? NULL :
-		ctx->index->lookup_field(ctx->index, ctx->rec, index_field);
+	ret = ctx->index->lookup_field(ctx->index, ctx->rec, index_field);
+	if (ret == NULL) {
+		ctx->index->cache_fields_later(ctx->index, ctx->rec,
+					       index_field);
+	}
+	return ret;
 }
 
 static MessagePart *index_msgcache_get_cached_parts(Pool pool, void *context)
@@ -79,8 +84,11 @@ static MessagePart *index_msgcache_get_cached_parts(Pool pool, void *context)
 	part_data = ctx->index->lookup_field_raw(ctx->index, ctx->rec,
 						 FIELD_TYPE_MESSAGEPART,
 						 &part_size);
-	if (part_data == NULL)
+	if (part_data == NULL) {
+		ctx->index->cache_fields_later(ctx->index, ctx->rec,
+					       FIELD_TYPE_MESSAGEPART);
 		return NULL;
+	}
 
 	part = message_part_deserialize(pool, part_data, part_size);
 	if (part == NULL) {
