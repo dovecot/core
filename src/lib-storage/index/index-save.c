@@ -55,14 +55,11 @@ int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 		}
 
 		data = io_buffer_get_data(buf, &size);
-		if (size == 0)
-			continue;
-
 		if (size > data_size)
 			size = data_size;
 		data_size -= size;
 
-		if (write_with_crlf(fd, data, size, &last_cr)) {
+		if (write_with_crlf(fd, data, size, &last_cr) != 0) {
 			mail_storage_set_critical(storage, "write() failed "
 						  "for file %s: %m", path);
 			return FALSE;
