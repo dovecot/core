@@ -192,10 +192,12 @@ void client_send_line(struct client *client, const char *fmt, ...)
 	if (client->output->closed)
 		return;
 
+	t_push();
 	va_start(va, fmt);
 	(void)o_stream_send_str(client->output, t_strdup_vprintf(fmt, va));
 	(void)o_stream_send(client->output, "\r\n", 2);
 	va_end(va);
+	t_pop();
 }
 
 void client_send_storage_error(struct client *client)
