@@ -17,7 +17,7 @@
 #include <sys/socket.h>
 
 #define TIMESTAMP_WAIT_TIME 5
-#define TIMESTAMP_FORMAT " * OK [RAWLOG TIMESTAMP] %Y-%m-%d %H:%M:%S\n"
+#define TIMESTAMP_FORMAT "* OK [RAWLOG TIMESTAMP] %Y-%m-%d %H:%M:%S\n"
 
 static struct ioloop *ioloop;
 static int client_in, client_out, imap_in, imap_out;
