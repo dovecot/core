@@ -487,9 +487,8 @@ static int settings_verify(struct settings *set)
 	}
 
 #ifndef HAVE_FLOCK
-	if (fcntl_got && !dotlock_got && !flock_got) {
-		i_error("mbox_locks: Only flock selected, "
-			"and flock() isn't supported in this system");
+	if (flock_got) {
+		i_error("mbox_locks: flock is not supported in this system");
 		return FALSE;
 	}
 	flock_got = FALSE;
