@@ -209,11 +209,14 @@ static int expunge_mails(struct client *client, struct mailbox *box)
 		}
 	}
 
-	if (mailbox_search_deinit(ctx) < 0)
+	if (mailbox_search_deinit(ctx) < 0 || failed) {
+		mailbox_transaction_rollback(t);
 		return FALSE;
+	}
 
-	mailbox_transaction_commit(t, 0);
-	return !failed;
+	mailbox_transaction_commit(t, MAILBOX_SYNC_FLAG_FULL_READ |
+				   MAILBOX_SYNC_FLAG_FULL_WRITE);
+	return TRUE;
 }
 
 static int cmd_quit(struct client *client, const char *args __attr_unused__)
@@ -310,6 +313,9 @@ static void fetch_callback(struct client *client)
 		}
 
 		if (o_stream_get_buffer_used_size(client->output) > 0) {
+			if (client->output->closed)
+				break;
+
 			/* continue later */
 			return;
 		}
