@@ -15,6 +15,7 @@
 #include "common.h"
 #include "buffer.h"
 #include "ioloop.h"
+#include "network.h"
 #include "passdb.h"
 #include "mycrypt.h"
 #include "safe-memset.h"
@@ -204,7 +205,7 @@ static int pam_auth(pam_handle_t *pamh, const char **error)
 }
 
 static void
-pam_verify_plain_child(const char *service, const char *user,
+pam_verify_plain_child(const struct auth_request *request, const char *service,
 		       const char *password, int fd)
 {
 	pam_handle_t *pamh;
@@ -219,15 +220,21 @@ pam_verify_plain_child(const char *service, const char *user,
 	conv.conv = pam_userpass_conv;
 	conv.appdata_ptr = &userpass;
 
-	userpass.user = user;
+	userpass.user = request->user;
 	userpass.pass = password;
 
-	status = pam_start(service, user, &conv, &pamh);
+	status = pam_start(service, request->user, &conv, &pamh);
 	if (status != PAM_SUCCESS) {
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 		str = t_strdup_printf("pam_start() failed: %s",
 				      pam_strerror(pamh, status));
 	} else {
+#ifdef PAM_RHOST
+		const char *host = net_ip2addr(&request->remote_ip);
+		if (host != NULL)
+			pam_set_item(pamh, PAM_RHOST, host);
+#endif
+
 		status = pam_auth(pamh, &str);
 		if ((status2 = pam_end(pamh, status)) == PAM_SUCCESS) {
 			/* FIXME: check for PASSDB_RESULT_UNKNOWN_USER
@@ -360,7 +367,7 @@ pam_verify_plain(struct auth_request *request, const char *password,
 
 	if (pid == 0) {
 		(void)close(fd[0]);
-		pam_verify_plain_child(service, request->user, password, fd[1]);
+		pam_verify_plain_child(request, service, password, fd[1]);
 		_exit(0);
 	}
 
