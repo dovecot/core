@@ -220,6 +220,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("POP3_NO_FLAG_UPDATES=1");
 	if (set->mbox_dirty_syncs)
 		env_put("MBOX_DIRTY_SYNCS=1");
+	if (set->mbox_very_dirty_syncs)
+		env_put("MBOX_VERY_DIRTY_SYNCS=1");
 	if (set->mbox_lazy_writes)
 		env_put("MBOX_LAZY_WRITES=1");
 	(void)umask(set->umask);

@@ -102,6 +102,7 @@ struct index_mailbox {
 	unsigned int syncing_commit:1;
 	unsigned int mbox_sync_dirty:1;
 	unsigned int mbox_do_dirty_syncs:1;
+	unsigned int mbox_very_dirty_syncs:1;
 	unsigned int mbox_save_md5:1;
 };
 

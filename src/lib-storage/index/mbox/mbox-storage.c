@@ -411,7 +411,9 @@ mbox_open(struct index_storage *storage, const char *name,
 
 	ibox->is_recent = mbox_mail_is_recent;
 	ibox->mail_interface = &mbox_mail;
-        ibox->mbox_do_dirty_syncs = getenv("MBOX_DIRTY_SYNCS") != NULL;
+        ibox->mbox_very_dirty_syncs = getenv("MBOX_VERY_DIRTY_SYNCS") != NULL;
+	ibox->mbox_do_dirty_syncs = ibox->mbox_very_dirty_syncs ||
+		getenv("MBOX_DIRTY_SYNCS") != NULL;
 
 	ibox->md5hdr_ext_idx =
 		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);

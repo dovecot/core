@@ -1459,7 +1459,8 @@ mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 
 	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
 	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
-		if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0)
+		if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0 &&
+		    !ibox->mbox_very_dirty_syncs)
 			mbox_sync_flags |= MBOX_SYNC_UNDIRTY;
 		if ((flags & MAILBOX_SYNC_FLAG_FULL_WRITE) != 0)
 			mbox_sync_flags |= MBOX_SYNC_REWRITE;

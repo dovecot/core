@@ -77,6 +77,7 @@ struct settings {
 	unsigned int mbox_lock_timeout;
 	unsigned int mbox_dotlock_change_timeout;
 	int mbox_dirty_syncs;
+	int mbox_very_dirty_syncs;
 	int mbox_lazy_writes;
 	unsigned int umask;
 	int mail_drop_priv_before_exec;
