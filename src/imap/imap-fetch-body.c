@@ -156,10 +156,13 @@ static off_t imap_fetch_send(struct ostream *output, struct istream *input,
 			add = '\0';
 			blocks = TRUE;
 		}
+
+		if (ret > 0)
+			cr_skipped = msg[ret-1] == '\r';
+
 		i_stream_skip(input, ret);
 		sent += ret;
 
-		cr_skipped = ret > 0 && msg[ret-1] == '\r';
 		if (add != '\0') {
 			if ((ret = o_stream_send(output, &add, 1)) < 0)
 				return -1;
