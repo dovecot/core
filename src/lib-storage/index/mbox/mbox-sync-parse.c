@@ -304,7 +304,8 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	}
 	message_parse_header_deinit(hdr_ctx);
 
-	if (ctx->seq == 1 && ctx->sync_ctx->base_uid_validity == 0) {
+	if ((ctx->seq == 1 && ctx->sync_ctx->base_uid_validity == 0) ||
+	    (ctx->seq > 1 && ctx->sync_ctx->first_uid == 0)) {
 		/* missing X-IMAPbase */
 		ctx->need_rewrite = TRUE;
 	}

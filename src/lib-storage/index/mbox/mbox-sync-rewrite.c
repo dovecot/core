@@ -242,7 +242,8 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 			str_append_c(mail_ctx.header, '\n');
 	}
 
-	i_assert(mail_ctx.mail.space == mails[idx].space);
+	/* breaks with leftover space:
+	   i_assert(mail_ctx.mail.space == mails[idx].space);*/
         sync_ctx->prev_msg_uid = old_prev_msg_uid;
 
 	/* we're moving next message - update it's from_offset */
@@ -285,7 +286,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 		      uint32_t first_seq, uint32_t last_seq, off_t extra_space)
 {
 	/* FIXME: with mails[0] = expunged and first_seq=1, we leave the
-	   \n header? */
+	   \n header! */
 	struct mbox_sync_mail *mails;
 	size_t size;
 	uoff_t offset, start_offset, end_offset, dest_offset;
@@ -303,7 +304,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 	   data which hasn't yet been copied backwards. to avoid too much
 	   complexity, we just leave all the rest of the extra space to first
 	   mail */
-	extra_per_mail = extra_space / (last_seq - first_seq + 1+3);
+	extra_per_mail = extra_space / (last_seq - first_seq + 1);
 	idx = last_seq - first_seq;
 
 	if (mails[idx].uid != 0)

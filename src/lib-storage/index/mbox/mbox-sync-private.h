@@ -52,6 +52,7 @@ struct mbox_sync_mail_context {
 	unsigned int have_eoh:1;
 	unsigned int need_rewrite:1;
 	unsigned int seen_imapbase:1;
+	unsigned int updated:1;
 };
 
 struct mbox_sync_context {
@@ -61,7 +62,7 @@ struct mbox_sync_context {
 
 	string_t *header, *from_line;
 	uint32_t base_uid_validity, base_uid_last;
-	uint32_t prev_msg_uid, next_uid;
+	uint32_t prev_msg_uid, next_uid, first_uid;
 	off_t expunged_space;
 };
 

@@ -87,7 +87,8 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 	old_hdr_size = ctx->body_offset - ctx->hdr_offset;
 	new_hdr_size = str_len(ctx->header);
 
-	if (ctx->seq == 1 && ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1) {
+	if (ctx->mail.uid == ctx->sync_ctx->first_uid &&
+	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1) {
 		ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
 		str_printfa(ctx->header, "X-IMAPbase: %u %u",
 			    ctx->sync_ctx->base_uid_validity,
@@ -216,7 +217,8 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 		}
 	}
 
-        mbox_sync_add_missing_headers(ctx);
+	mbox_sync_add_missing_headers(ctx);
+	ctx->updated = TRUE;
 }
 
 void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
