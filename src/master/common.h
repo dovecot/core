@@ -13,15 +13,24 @@ enum {
 	PROCESS_TYPE_UNKNOWN,
 	PROCESS_TYPE_AUTH,
 	PROCESS_TYPE_LOGIN,
-	PROCESS_TYPE_IMAP,
+	PROCESS_TYPE_MAIL,
 	PROCESS_TYPE_SSL_PARAM,
 
 	PROCESS_TYPE_MAX
 };
 
+enum {
+	FD_IMAP,
+	FD_IMAPS,
+	FD_POP3,
+	FD_POP3S,
+
+	FD_MAX
+};
+
 extern struct ioloop *ioloop;
 extern struct hash_table *pids;
-extern int null_fd, imap_fd, imaps_fd;
+extern int null_fd, mail_fd[FD_MAX];
 
 /* processes */
 #define PID_GET_PROCESS_TYPE(pid) \

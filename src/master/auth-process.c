@@ -222,7 +222,7 @@ static void auth_process_destroy(struct auth_process *p)
 		}
 	}
 
-	(void)unlink(t_strconcat(set_login_dir, "/", p->name, NULL));
+	(void)unlink(t_strconcat(set->login_dir, "/", p->name, NULL));
 
 	hash_foreach(p->requests, request_hash_destroy, NULL);
 	hash_destroy(p->requests);
@@ -236,7 +236,7 @@ static void auth_process_destroy(struct auth_process *p)
 	i_free(p);
 }
 
-static pid_t create_auth_process(struct auth_config *config)
+static pid_t create_auth_process(struct auth_settings *auth_set)
 {
 	static char *argv[] = { NULL, NULL };
 	const char *path;
@@ -244,8 +244,8 @@ static pid_t create_auth_process(struct auth_config *config)
 	pid_t pid;
 	int fd[2], listen_fd, i;
 
-	if ((pwd = getpwnam(config->user)) == NULL)
-		i_fatal("Auth user doesn't exist: %s", config->user);
+	if ((pwd = getpwnam(auth_set->user)) == NULL)
+		i_fatal("Auth user doesn't exist: %s", auth_set->user);
 
 	/* create communication to process with a socket pair */
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) == -1) {
@@ -264,13 +264,13 @@ static pid_t create_auth_process(struct auth_config *config)
 	if (pid != 0) {
 		/* master */
 		fd_close_on_exec(fd[0], TRUE);
-		auth_process_new(pid, fd[0], config->name);
+		auth_process_new(pid, fd[0], auth_set->name);
 		(void)close(fd[1]);
 		return pid;
 	}
 
-	/* create socket for listening auth requests from imap-login */
-	path = t_strconcat(set_login_dir, "/", config->name, NULL);
+	/* create socket for listening auth requests from login */
+	path = t_strconcat(set->login_dir, "/", auth_set->name, NULL);
 	(void)unlink(path);
         (void)umask(0117); /* we want 0660 mode for the socket */
 
@@ -281,9 +281,9 @@ static pid_t create_auth_process(struct auth_config *config)
 	i_assert(listen_fd > 2);
 
 	/* set correct permissions */
-	if (chown(path, geteuid(), set_login_gid) < 0) {
+	if (chown(path, geteuid(), set->login_gid) < 0) {
 		i_fatal("login: chown(%s, %s, %s) failed: %m",
-			path, dec2str(set_login_uid), dec2str(set_login_gid));
+			path, dec2str(geteuid()), dec2str(set->login_gid));
 	}
 
 	/* move master communication handle to 0 */
@@ -315,34 +315,35 @@ static pid_t create_auth_process(struct auth_config *config)
 
 	/* setup access environment - needs to be done after
 	   clean_child_process() since it clears environment */
-	restrict_access_set_env(config->user, pwd->pw_uid, pwd->pw_gid,
-				config->chroot);
+	restrict_access_set_env(auth_set->user, pwd->pw_uid, pwd->pw_gid,
+				auth_set->chroot);
 
 	/* set other environment */
 	env_put(t_strconcat("AUTH_PROCESS=", dec2str(getpid()), NULL));
-	env_put(t_strconcat("MECHANISMS=", config->mechanisms, NULL));
-	env_put(t_strconcat("REALMS=", config->realms, NULL));
-	env_put(t_strconcat("USERDB=", config->userdb, NULL));
-	env_put(t_strconcat("USERDB_ARGS=", config->userdb_args, NULL));
-	env_put(t_strconcat("PASSDB=", config->passdb, NULL));
-	env_put(t_strconcat("PASSDB_ARGS=", config->passdb_args, NULL));
+	env_put(t_strconcat("MECHANISMS=", auth_set->mechanisms, NULL));
+	env_put(t_strconcat("REALMS=", auth_set->realms, NULL));
+	env_put(t_strconcat("USERDB=", auth_set->userdb, NULL));
+	env_put(t_strconcat("PASSDB=", auth_set->passdb, NULL));
 
-	if (config->use_cyrus_sasl)
+	if (auth_set->use_cyrus_sasl)
 		env_put("USE_CYRUS_SASL=1");
-	if (config->verbose)
+	if (auth_set->verbose)
 		env_put("VERBOSE=1");
 
-	restrict_process_size(config->process_size);
+	restrict_process_size(auth_set->process_size);
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */
 	closelog();
 
 	/* hide the path, it's ugly */
-	argv[0] = strrchr(config->executable, '/');
-	if (argv[0] == NULL) argv[0] = config->executable; else argv[0]++;
+	argv[0] = strrchr(auth_set->executable, '/');
+	if (argv[0] == NULL)
+		argv[0] = i_strdup(auth_set->executable);
+	else
+		argv[0]++;
 
-	execv(config->executable, (char **) argv);
+	execv(auth_set->executable, argv);
 
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", argv[0]);
 	return -1;
@@ -387,14 +388,14 @@ void auth_processes_destroy_all(void)
 static void
 auth_processes_start_missing(void *context __attr_unused__)
 {
-	struct auth_config *config;
+	struct auth_settings *auth_set;
 	unsigned int count;
 
-        config = auth_processes_config;
-	for (; config != NULL; config = config->next) {
-		count = auth_process_get_count(config->name);
-		for (; count < config->count; count++)
-			(void)create_auth_process(config);
+        auth_set = set->auths;
+	for (; auth_set != NULL; auth_set = auth_set->next) {
+		count = auth_process_get_count(auth_set->name);
+		for (; count < auth_set->count; count++)
+			(void)create_auth_process(auth_set);
 	}
 }
 

@@ -1,6 +1,6 @@
 pkglibexecdir = $(libexecdir)/dovecot
 
-sbin_PROGRAMS = imap-master
+sbin_PROGRAMS = dovecot
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
@@ -9,14 +9,14 @@ INCLUDES = \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DSSLDIR=\""$(ssldir)\""
 
-imap_master_LDADD = \
+dovecot_LDADD = \
 	../lib/liblib.a \
 	$(SSL_LIBS)
 
-imap_master_SOURCES = \
+dovecot_SOURCES = \
 	auth-process.c \
-	imap-process.c \
 	login-process.c \
+	mail-process.c \
 	main.c \
 	settings.c \
 	ssl-init.c \
@@ -26,8 +26,8 @@ imap_master_SOURCES = \
 noinst_HEADERS = \
 	auth-process.h \
 	common.h \
-	imap-process.h \
 	login-process.h \
+	mail-process.h \
 	master-login-interface.h \
 	settings.h \
 	ssl-init.h

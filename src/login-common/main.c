@@ -20,7 +20,7 @@ unsigned int max_logging_users;
 unsigned int login_process_uid;
 
 static struct ioloop *ioloop;
-static struct io *io_listen, *io_listen_ssl;
+static struct io *io_listen, *io_ssl_listen;
 static int main_refcount;
 static int closing_down;
 
@@ -48,18 +48,18 @@ void main_close_listen(void)
 
 	if (io_listen != NULL) {
 		if (close(LOGIN_LISTEN_FD) < 0)
-			i_fatal("can't close() IMAP listen handle");
+			i_fatal("close(listen) failed: %m");
 
 		io_remove(io_listen);
 		io_listen = NULL;
 	}
 
-	if (io_listen_ssl != NULL) {
+	if (io_ssl_listen != NULL) {
 		if (close(LOGIN_SSL_LISTEN_FD) < 0)
-			i_fatal("can't close() IMAPS listen handle");
+			i_fatal("close(ssl_listen) failed: %m");
 
-		io_remove(io_listen_ssl);
-		io_listen_ssl = NULL;
+		io_remove(io_ssl_listen);
+		io_ssl_listen = NULL;
 	}
 
 	closing_down = TRUE;
@@ -114,7 +114,7 @@ static void login_accept_ssl(void *context __attr_unused__)
 
 static void open_logfile(const char *name)
 {
-	if (getenv("IMAP_USE_SYSLOG") != NULL)
+	if (getenv("USE_SYSLOG") != NULL)
 		i_set_failure_syslog(name, LOG_NDELAY, LOG_MAIL);
 	else {
 		/* log to file or stderr */
@@ -167,24 +167,22 @@ static void main_init(void)
 	auth_connection_init();
 	clients_init();
 
-	io_listen = io_listen_ssl = NULL;
+	io_listen = io_ssl_listen = NULL;
 
 	if (net_getsockname(LOGIN_LISTEN_FD, NULL, NULL) == 0) {
-		/* we're listening for imap */
 		io_listen = io_add(LOGIN_LISTEN_FD, IO_READ,
 				   login_accept, NULL);
 	}
 
 	if (net_getsockname(LOGIN_SSL_LISTEN_FD, NULL, NULL) == 0) {
-		/* we're listening for imaps */
 		if (!ssl_initialized) {
 			/* this shouldn't happen, master should have
-			   disabled the imaps socket.. */
+			   disabled the ssl socket.. */
 			i_fatal("BUG: SSL initialization parameters not given "
 				"while they should have been");
 		}
 
-		io_listen_ssl = io_add(LOGIN_SSL_LISTEN_FD, IO_READ,
+		io_ssl_listen = io_add(LOGIN_SSL_LISTEN_FD, IO_READ,
 				       login_accept_ssl, NULL);
 	}
 
@@ -198,7 +196,7 @@ static void main_deinit(void)
 		i_warning("Killed with signal %d", lib_signal_kill);
 
 	if (io_listen != NULL) io_remove(io_listen);
-	if (io_listen_ssl != NULL) io_remove(io_listen_ssl);
+	if (io_ssl_listen != NULL) io_remove(io_ssl_listen);
 
 	clients_deinit();
 	master_deinit();

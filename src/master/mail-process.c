@@ -8,7 +8,7 @@
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "var-expand.h"
-#include "imap-process.h"
+#include "mail-process.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -16,30 +16,30 @@
 #include <syslog.h>
 #include <sys/stat.h>
 
-static unsigned int imap_process_count = 0;
+static unsigned int mail_process_count = 0;
 
 static int validate_uid_gid(uid_t uid, gid_t gid)
 {
 	if (uid == 0) {
-		i_error("imap process isn't allowed for root");
+		i_error("mail process isn't allowed for root");
 		return FALSE;
 	}
 
 	if (uid != 0 && gid == 0) {
-		i_error("imap process isn't allowed to be in group 0");
+		i_error("mail process isn't allowed to be in group 0");
 		return FALSE;
 	}
 
-	if (uid < (uid_t)set_first_valid_uid ||
-	    (set_last_valid_uid != 0 && uid > (uid_t)set_last_valid_uid)) {
-		i_error("imap process isn't allowed to use UID %s",
+	if (uid < (uid_t)set->first_valid_uid ||
+	    (set->last_valid_uid != 0 && uid > (uid_t)set->last_valid_uid)) {
+		i_error("mail process isn't allowed to use UID %s",
 			dec2str(uid));
 		return FALSE;
 	}
 
-	if (gid < (gid_t)set_first_valid_gid ||
-	    (set_last_valid_gid != 0 && gid > (gid_t)set_last_valid_gid)) {
-		i_error("imap process isn't allowed to use "
+	if (gid < (gid_t)set->first_valid_gid ||
+	    (set->last_valid_gid != 0 && gid > (gid_t)set->last_valid_gid)) {
+		i_error("mail process isn't allowed to use "
 			"GID %s (UID is %s)", dec2str(gid), dec2str(uid));
 		return FALSE;
 	}
@@ -54,10 +54,10 @@ static int validate_chroot(const char *dir)
 	if (*dir == '\0')
 		return FALSE;
 
-	if (set_valid_chroot_dirs == NULL)
+	if (set->valid_chroot_dirs == NULL)
 		return FALSE;
 
-	chroot_dirs = t_strsplit(set_valid_chroot_dirs, ":");
+	chroot_dirs = t_strsplit(set->valid_chroot_dirs, ":");
 	while (*chroot_dirs != NULL) {
 		if (**chroot_dirs != '\0' &&
 		    strncmp(dir, *chroot_dirs, strlen(*chroot_dirs)) == 0)
@@ -98,17 +98,18 @@ static const char *expand_mail_env(const char *env, const char *user,
 	return str_c(str);
 }
 
-int create_imap_process(int socket, struct ip_addr *ip,
+int create_mail_process(int socket, struct ip_addr *ip,
+			const char *executable, unsigned int process_size,
 			struct auth_master_reply *reply, const char *data)
 {
-	static char *argv[] = { NULL, NULL, NULL };
+	static const char *argv[] = { NULL, NULL, NULL };
 	const char *host, *mail;
 	char title[1024];
 	pid_t pid;
 	int i, err;
 
-	if (imap_process_count == set_max_imap_processes) {
-		i_error("Maximum number of imap processes exceeded");
+	if (mail_process_count == set->max_mail_processes) {
+		i_error("Maximum number of mail processes exceeded");
 		return FALSE;
 	}
 
@@ -126,64 +127,69 @@ int create_imap_process(int socket, struct ip_addr *ip,
 
 	if (pid != 0) {
 		/* master */
-		imap_process_count++;
-		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_IMAP);
+		mail_process_count++;
+		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_MAIL);
 		return TRUE;
 	}
 
 	clean_child_process();
 
-	/* move the imap socket into stdin, stdout and stderr fds */
+	/* move the client socket into stdin and stdout fds */
 	fd_close_on_exec(socket, FALSE);
-	for (i = 0; i < 3; i++) {
-		if (dup2(socket, i) < 0)
-			i_fatal("imap: dup2(%d) failed: %m", i);
-	}
+	if (dup2(socket, 0) < 0)
+		i_fatal("mail: dup2(stdin) failed: %m");
+	if (dup2(socket, 1) < 0)
+		i_fatal("mail: dup2(stdout) failed: %m");
+	if (dup2(null_fd, 2) < 0)
+		i_fatal("mail: dup2(stderr) failed: %m");
 
 	if (close(socket) < 0)
-		i_error("imap: close(imap client) failed: %m");
+		i_error("mail: close(mail client) failed: %m");
 
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
 	restrict_access_set_env(data + reply->system_user_idx,
 				reply->uid, reply->gid,
 				reply->chroot ? data + reply->home_idx : NULL);
-	restrict_process_size(set_imap_process_size);
+
+	restrict_process_size(process_size);
 
 	env_put("LOGGED_IN=1");
 	env_put(t_strconcat("HOME=", data + reply->home_idx, NULL));
-	env_put(t_strconcat("MAIL_CACHE_FIELDS=", set_mail_cache_fields, NULL));
+	env_put(t_strconcat("MAIL_CACHE_FIELDS=",
+			    set->mail_cache_fields, NULL));
 	env_put(t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
-			    set_mail_never_cache_fields, NULL));
+			    set->mail_never_cache_fields, NULL));
 	env_put(t_strdup_printf("MAILBOX_CHECK_INTERVAL=%u",
-				set_mailbox_check_interval));
+				set->mailbox_check_interval));
 
-	if (set_mail_save_crlf)
+	if (set->mail_save_crlf)
 		env_put("MAIL_SAVE_CRLF=1");
-	if (set_mail_read_mmaped)
+	if (set->mail_read_mmaped)
 		env_put("MAIL_READ_MMAPED=1");
-	if (set_maildir_copy_with_hardlinks)
+	if (set->maildir_copy_with_hardlinks)
 		env_put("MAILDIR_COPY_WITH_HARDLINKS=1");
-	if (set_maildir_check_content_changes)
+	if (set->maildir_check_content_changes)
 		env_put("MAILDIR_CHECK_CONTENT_CHANGES=1");
-	if (set_overwrite_incompatible_index)
+	if (set->overwrite_incompatible_index)
 		env_put("OVERWRITE_INCOMPATIBLE_INDEX=1");
-	if (umask(set_umask) != set_umask)
-		i_fatal("Invalid umask: %o", set_umask);
+	if (umask(set->umask) != set->umask)
+		i_fatal("Invalid umask: %o", set->umask);
 
-	env_put(t_strconcat("MBOX_LOCKS=", set_mbox_locks, NULL));
-	env_put(t_strdup_printf("MBOX_LOCK_TIMEOUT=%u", set_mbox_lock_timeout));
+	env_put(t_strconcat("MBOX_LOCKS=", set->mbox_locks, NULL));
+	env_put(t_strdup_printf("MBOX_LOCK_TIMEOUT=%u",
+				set->mbox_lock_timeout));
 	env_put(t_strdup_printf("MBOX_DOTLOCK_CHANGE_TIMEOUT=%u",
-				set_mbox_dotlock_change_timeout));
-	if (set_mbox_read_dotlock)
+				set->mbox_dotlock_change_timeout));
+	if (set->mbox_read_dotlock)
 		env_put("MBOX_READ_DOTLOCK=1");
 
 	/* user given environment - may be malicious. virtual_user comes from
 	   auth process, but don't trust that too much either. Some auth
 	   mechanism might allow leaving extra data there. */
 	mail = data + reply->mail_idx;
-	if (*mail == '\0' && set_default_mail_env != NULL) {
-		mail = expand_mail_env(set_default_mail_env,
+	if (*mail == '\0' && set->default_mail_env != NULL) {
+		mail = expand_mail_env(set->default_mail_env,
 				       data + reply->virtual_user_idx,
 				       data + reply->home_idx);
 	}
@@ -191,7 +197,7 @@ int create_imap_process(int socket, struct ip_addr *ip,
 	env_put(t_strconcat("MAIL=", mail, NULL));
 	env_put(t_strconcat("USER=", data + reply->virtual_user_idx, NULL));
 
-	if (set_verbose_proctitle) {
+	if (set->verbose_proctitle) {
 		host = net_ip2host(ip);
 		if (host == NULL)
 			host = "??";
@@ -206,22 +212,22 @@ int create_imap_process(int socket, struct ip_addr *ip,
 	closelog();
 
 	/* hide the path, it's ugly */
-	argv[0] = strrchr(set_imap_executable, '/');
-	if (argv[0] == NULL) argv[0] = set_imap_executable; else argv[0]++;
+	argv[0] = strrchr(executable, '/');
+	if (argv[0] == NULL) argv[0] = executable; else argv[0]++;
 
-	execv(set_imap_executable, argv);
+	execv(executable, (char **) argv);
 	err = errno;
 
 	for (i = 0; i < 3; i++)
 		(void)close(i);
 
-	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", set_imap_executable);
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 
 	/* not reached */
 	return FALSE;
 }
 
-void imap_process_destroyed(pid_t pid __attr_unused__)
+void mail_process_destroyed(pid_t pid __attr_unused__)
 {
-	imap_process_count--;
+	mail_process_count--;
 }

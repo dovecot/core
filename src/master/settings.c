@@ -7,6 +7,7 @@
 #include "settings.h"
 
 #include <stdio.h>
+#include <stddef.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <pwd.h>
@@ -17,157 +18,224 @@ enum setting_type {
 	SET_BOOL
 };
 
-struct setting {
-	const char *name;
+struct setting_def {
 	enum setting_type type;
-	void *ptr;
+	const char *name;
+	size_t offset;
 };
 
-static struct setting settings[] = {
-	{ "base_dir",		SET_STR, &set_base_dir },
-	{ "log_path",		SET_STR, &set_log_path },
-	{ "info_log_path",	SET_STR, &set_info_log_path },
-	{ "log_timestamp",	SET_STR, &set_log_timestamp },
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct settings, name) }
 
-	{ "imap_port",		SET_INT, &set_imap_port },
-	{ "imaps_port",		SET_INT, &set_imaps_port },
-	{ "imap_listen",	SET_STR, &set_imap_listen },
-	{ "imaps_listen",	SET_STR, &set_imaps_listen },
-	{ "ssl_disable",	SET_BOOL,&set_ssl_disable, },
-	{ "ssl_cert_file",	SET_STR, &set_ssl_cert_file },
-	{ "ssl_key_file",	SET_STR, &set_ssl_key_file },
-	{ "ssl_parameters_file",SET_STR, &set_ssl_parameters_file },
-	{ "ssl_parameters_regenerate",
-				SET_INT, &set_ssl_parameters_regenerate },
-	{ "disable_plaintext_auth",
-				SET_BOOL,&set_disable_plaintext_auth },
+static struct setting_def setting_defs[] = {
+	/* common */
+	DEF(SET_STR, base_dir),
+	DEF(SET_STR, log_path),
+	DEF(SET_STR, info_log_path),
+	DEF(SET_STR, log_timestamp),
 
-	{ "login_executable",	SET_STR, &set_login_executable },
-	{ "login_user",		SET_STR, &set_login_user },
-	{ "login_process_size",	SET_INT, &set_login_process_size },
-	{ "login_dir",		SET_STR, &set_login_dir },
-	{ "login_chroot",	SET_BOOL,&set_login_chroot },
-	{ "login_process_per_connection",
-				SET_BOOL,&set_login_process_per_connection },
-	{ "login_processes_count",
-				SET_INT, &set_login_processes_count },
-	{ "max_logging_users",	SET_INT, &set_max_logging_users },
+	/* general */
+	DEF(SET_STR, protocols),
+	DEF(SET_STR, imap_listen),
+	DEF(SET_STR, imaps_listen),
+	DEF(SET_STR, pop3_listen),
+	DEF(SET_STR, pop3s_listen),
 
-	{ "imap_executable",	SET_STR, &set_imap_executable },
-	{ "imap_process_size",	SET_INT, &set_imap_process_size },
-	{ "valid_chroot_dirs",	SET_STR, &set_valid_chroot_dirs },
-	{ "max_imap_processes",	SET_INT, &set_max_imap_processes },
-	{ "verbose_proctitle",	SET_BOOL,&set_verbose_proctitle },
-	{ "first_valid_uid",	SET_INT, &set_first_valid_uid },
-	{ "last_valid_uid",	SET_INT, &set_last_valid_uid },
-	{ "first_valid_gid",	SET_INT, &set_first_valid_gid },
-	{ "last_valid_gid",	SET_INT, &set_last_valid_gid },
-	{ "default_mail_env",	SET_STR, &set_default_mail_env },
-	{ "mail_cache_fields",	SET_STR, &set_mail_cache_fields },
-	{ "mail_never_cache_fields",
-				SET_STR, &set_mail_never_cache_fields },
-	{ "mailbox_check_interval",
-				SET_INT, &set_mailbox_check_interval },
-	{ "mail_save_crlf",	SET_BOOL,&set_mail_save_crlf },
-	{ "mail_read_mmaped",	SET_BOOL,&set_mail_read_mmaped },
-	{ "maildir_copy_with_hardlinks",
-				SET_BOOL,&set_maildir_copy_with_hardlinks },
-	{ "maildir_check_content_changes",
-				SET_BOOL,&set_maildir_check_content_changes },
-	{ "mbox_locks",		SET_STR, &set_mbox_locks, },
-	{ "mbox_read_dotlock",	SET_BOOL,&set_mbox_read_dotlock, },
-	{ "mbox_lock_timeout",	SET_INT, &set_mbox_lock_timeout, },
-	{ "mbox_dotlock_change_timeout",
-				SET_INT, &set_mbox_dotlock_change_timeout, },
-	{ "overwrite_incompatible_index",
-				SET_BOOL,&set_overwrite_incompatible_index },
-	{ "umask",		SET_INT, &set_umask },
+	DEF(SET_BOOL, ssl_disable),
+	DEF(SET_STR, ssl_cert_file),
+	DEF(SET_STR, ssl_key_file),
+	DEF(SET_STR, ssl_parameters_file),
+	DEF(SET_STR, ssl_parameters_regenerate),
+	DEF(SET_BOOL, disable_plaintext_auth),
 
-	{ NULL, 0, NULL }
+	/* login */
+	DEF(SET_STR, login_dir),
+	DEF(SET_BOOL, login_chroot),
+
+	/* mail */
+	DEF(SET_STR, valid_chroot_dirs),
+	DEF(SET_INT, max_mail_processes),
+	DEF(SET_BOOL, verbose_proctitle),
+
+	DEF(SET_INT, first_valid_uid),
+	DEF(SET_INT, last_valid_uid),
+	DEF(SET_INT, first_valid_gid),
+	DEF(SET_INT, last_valid_gid),
+
+	DEF(SET_STR, default_mail_env),
+	DEF(SET_STR, mail_cache_fields),
+	DEF(SET_STR, mail_never_cache_fields),
+	DEF(SET_STR, mailbox_check_interval),
+	DEF(SET_STR, mail_save_crlf),
+	DEF(SET_STR, mail_read_mmaped),
+	DEF(SET_STR, maildir_copy_with_hardlinks),
+	DEF(SET_STR, maildir_check_content_changes),
+	DEF(SET_STR, mbox_locks),
+	DEF(SET_STR, mbox_read_dotlock),
+	DEF(SET_STR, mbox_lock_timeout),
+	DEF(SET_STR, mbox_dotlock_change_timeout),
+	DEF(SET_STR, overwrite_incompatible_index),
+	DEF(SET_STR, umask),
+
+	/* imap */
+	DEF(SET_STR, imap_executable),
+	DEF(SET_INT, imap_process_size),
+
+	/* pop3 */
+	DEF(SET_STR, pop3_executable),
+	DEF(SET_INT, pop3_process_size),
+
+	{ 0, NULL, 0 }
 };
 
-/* common */
-char *set_base_dir = PKG_RUNDIR;
-char *set_log_path = NULL;
-char *set_info_log_path = NULL;
-char *set_log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT;
+#undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct login_settings, name) }
 
-/* general */
-unsigned int set_imap_port = 143;
-unsigned int set_imaps_port = 993;
-char *set_imap_listen = "*";
-char *set_imaps_listen = NULL;
+static struct setting_def login_setting_defs[] = {
+	DEF(SET_STR, executable),
+	DEF(SET_STR, user),
 
-int set_ssl_disable = FALSE;
-char *set_ssl_cert_file = SSLDIR"/certs/imapd.pem";
-char *set_ssl_key_file = SSLDIR"/private/imapd.pem";
-char *set_ssl_parameters_file = "ssl-parameters.dat";
-unsigned int set_ssl_parameters_regenerate = 24;
-int set_disable_plaintext_auth = FALSE;
+	DEF(SET_BOOL, process_per_connection),
 
-/* login */
-char *set_login_executable = PKG_LIBEXECDIR"/imap-login";
-unsigned int set_login_process_size = 16;
-char *set_login_user = "imapd";
-char *set_login_dir = "login";
+	DEF(SET_INT, process_size),
+	DEF(SET_INT, processes_count),
+	DEF(SET_INT, max_processes_count),
+	DEF(SET_INT, max_logging_users),
 
-int set_login_chroot = TRUE;
-int set_login_process_per_connection = TRUE;
-unsigned int set_login_processes_count = 3;
-unsigned int set_login_max_processes_count = 128;
-unsigned int set_max_logging_users = 256;
+	{ 0, NULL, 0 }
+};
 
-uid_t set_login_uid; /* generated from set_login_user */
-gid_t set_login_gid; /* generated from set_login_user */
+#undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct auth_settings, name) }
 
-/* imap */
-char *set_imap_executable = PKG_LIBEXECDIR"/imap";
-unsigned int set_imap_process_size = 256;
-char *set_valid_chroot_dirs = NULL;
-unsigned int set_max_imap_processes = 1024;
-int set_verbose_proctitle = FALSE;
+static struct setting_def auth_setting_defs[] = {
+	DEF(SET_STR, mechanisms),
+	DEF(SET_STR, realms),
+	DEF(SET_STR, userdb),
+	DEF(SET_STR, passdb),
+	DEF(SET_STR, executable),
+	DEF(SET_STR, user),
+	DEF(SET_STR, chroot),
 
-unsigned int set_first_valid_uid = 500, set_last_valid_uid = 0;
-unsigned int set_first_valid_gid = 1, set_last_valid_gid = 0;
+	DEF(SET_BOOL, use_cyrus_sasl),
+	DEF(SET_BOOL, verbose),
 
-char *set_default_mail_env = NULL;
-char *set_mail_cache_fields = "MessagePart";
-char *set_mail_never_cache_fields = NULL;
-unsigned int set_mailbox_check_interval = 0;
-int set_mail_save_crlf = FALSE;
-int set_mail_read_mmaped = FALSE;
-int set_maildir_copy_with_hardlinks = FALSE;
-int set_maildir_check_content_changes = FALSE;
-char *set_mbox_locks = "dotlock fcntl flock";
-int set_mbox_read_dotlock = FALSE;
-unsigned int set_mbox_lock_timeout = 300;
-unsigned int set_mbox_dotlock_change_timeout = 30;
-int set_overwrite_incompatible_index = FALSE;
-unsigned int set_umask = 0077;
+	DEF(SET_INT, count),
+	DEF(SET_INT, process_size),
 
-/* auth */
-struct auth_config *auth_processes_config = NULL;
+	{ 0, NULL, 0 }
+};
 
-static void fix_base_path(char **str)
+struct settings default_settings = {
+	/* common */
+	MEMBER(base_dir) PKG_RUNDIR,
+	MEMBER(log_path) NULL,
+	MEMBER(info_log_path) NULL,
+	MEMBER(log_timestamp) DEFAULT_FAILURE_STAMP_FORMAT,
+
+	/* general */
+	MEMBER(protocols) "imap imaps",
+	MEMBER(imap_listen) "*",
+	MEMBER(imaps_listen) NULL,
+	MEMBER(pop3_listen) "*",
+	MEMBER(pop3s_listen) NULL,
+
+	MEMBER(ssl_disable) FALSE,
+	MEMBER(ssl_cert_file) SSLDIR"/certs/dovecot.pem",
+	MEMBER(ssl_key_file) SSLDIR"/private/dovecot.pem",
+	MEMBER(ssl_parameters_file) "ssl-parameters.dat",
+	MEMBER(ssl_parameters_regenerate) 24,
+	MEMBER(disable_plaintext_auth) FALSE,
+
+	/* login */
+	MEMBER(login_dir) "login",
+	MEMBER(login_chroot) TRUE,
+
+	/* mail */
+	MEMBER(valid_chroot_dirs) NULL,
+	MEMBER(max_mail_processes) 1024,
+	MEMBER(verbose_proctitle) FALSE,
+
+	MEMBER(first_valid_uid) 500,
+	MEMBER(last_valid_uid) 0,
+	MEMBER(first_valid_gid) 1,
+	MEMBER(last_valid_gid) 0,
+
+	MEMBER(default_mail_env) NULL,
+	MEMBER(mail_cache_fields) "MessagePart",
+	MEMBER(mail_never_cache_fields) NULL,
+	MEMBER(mailbox_check_interval) 0,
+	MEMBER(mail_save_crlf) FALSE,
+	MEMBER(mail_read_mmaped) FALSE,
+	MEMBER(maildir_copy_with_hardlinks) FALSE,
+	MEMBER(maildir_check_content_changes) FALSE,
+	MEMBER(mbox_locks) "dotlock fcntl flock",
+	MEMBER(mbox_read_dotlock) FALSE,
+	MEMBER(mbox_lock_timeout) 300,
+	MEMBER(mbox_dotlock_change_timeout) 30,
+	MEMBER(overwrite_incompatible_index) FALSE,
+	MEMBER(umask) 0077,
+
+	/* imap */
+	MEMBER(imap_executable) PKG_LIBEXECDIR"/imap",
+	MEMBER(imap_process_size) 256,
+
+	/* pop3 */
+	MEMBER(pop3_executable) PKG_LIBEXECDIR"/pop3",
+	MEMBER(pop3_process_size) 256,
+
+	MEMBER(login_gid) 0,
+	MEMBER(auths) NULL,
+	MEMBER(logins) NULL
+};
+
+struct login_settings default_login_settings = {
+	MEMBER(next) NULL,
+	MEMBER(name) NULL,
+
+	MEMBER(executable) NULL,
+	MEMBER(user) "dovecot",
+
+	MEMBER(process_per_connection) TRUE,
+
+	MEMBER(process_size) 16,
+	MEMBER(processes_count) 3,
+	MEMBER(max_processes_count) 128,
+	MEMBER(max_logging_users) 256,
+
+	MEMBER(uid) 0 /* generated */
+};
+
+static pool_t settings_pool;
+struct settings *set = NULL;
+
+static void fix_base_path(struct settings *set, const char **str)
 {
-	char *fullpath;
-
 	if (*str != NULL && **str != '\0' && **str != '/') {
-		fullpath = i_strconcat(set_base_dir, "/", *str, NULL);
-		i_free(*str);
-		*str = i_strdup(fullpath);
+		*str = p_strconcat(settings_pool,
+				   set->base_dir, "/", *str, NULL);
 	}
 }
 
-static void get_login_uid(void)
+static void get_login_uid(struct settings *set,
+			  struct login_settings *login_set)
 {
 	struct passwd *pw;
 
-	if ((pw = getpwnam(set_login_user)) == NULL)
-		i_fatal("Login user doesn't exist: %s", set_login_user);
+	if ((pw = getpwnam(login_set->user)) == NULL)
+		i_fatal("Login user doesn't exist: %s", login_set->user);
 
-	set_login_uid = pw->pw_uid;
-	set_login_gid = pw->pw_gid;
+	if (set->login_gid == 0)
+		set->login_gid = pw->pw_gid;
+	else if (set->login_gid != pw->pw_gid) {
+		i_fatal("All login process users must belong to same group "
+			"(%s vs %s)", dec2str(set->login_gid),
+			dec2str(pw->pw_gid));
+	}
+
+	login_set->uid = pw->pw_uid;
 }
 
 static const char *get_bool(const char *value, int *result)
@@ -182,22 +250,37 @@ static const char *get_bool(const char *value, int *result)
 	return NULL;
 }
 
-static void auth_settings_verify(void)
+static const char *get_uint(const char *value, unsigned int *result)
 {
-	struct auth_config *auth;
+	int num;
 
-	for (auth = auth_processes_config; auth != NULL; auth = auth->next) {
-		if (access(auth->executable, X_OK) < 0) {
-			i_fatal("Can't use auth executable %s: %m",
-				auth->executable);
-		}
+	if (!sscanf(value, "%i", &num) || num < 0)
+		return t_strconcat("Invalid number: ", value, NULL);
+	*result = num;
+	return NULL;
+}
 
-		fix_base_path(&auth->chroot);
-		if (auth->chroot != NULL && access(auth->chroot, X_OK) < 0) {
-			i_fatal("Can't access auth chroot directory %s: %m",
-				auth->chroot);
-		}
+static void auth_settings_verify(struct auth_settings *auth)
+{
+	if (access(auth->executable, X_OK) < 0)
+		i_fatal("Can't use auth executable %s: %m", auth->executable);
+
+	fix_base_path(set, &auth->chroot);
+	if (auth->chroot != NULL && access(auth->chroot, X_OK) < 0) {
+		i_fatal("Can't access auth chroot directory %s: %m",
+			auth->chroot);
 	}
+}
+
+static void login_settings_verify(struct login_settings *login)
+{
+	if (access(login->executable, X_OK) < 0)
+		i_fatal("Can't use login executable %s: %m", login->executable);
+
+	if (login->processes_count < 1)
+		i_fatal("login_processes_count must be at least 1");
+	if (login->max_logging_users < 1)
+		i_fatal("max_logging_users must be at least 1");
 }
 
 static const char *get_directory(const char *path)
@@ -214,86 +297,91 @@ static const char *get_directory(const char *path)
 	}
 }
 
-static void settings_verify(void)
+static void settings_verify(struct settings *set)
 {
+	struct login_settings *login;
+	struct auth_settings *auth;
 	const char *const *str;
 	const char *dir;
 	int dotlock_got, fcntl_got, flock_got;
 
-	get_login_uid();
-
-	if (access(set_login_executable, X_OK) < 0) {
-		i_fatal("Can't use login executable %s: %m",
-			set_login_executable);
+	for (login = set->logins; login != NULL; login = login->next) {
+		get_login_uid(set, login);
+		login_settings_verify(login);
 	}
 
-	if (access(set_imap_executable, X_OK) < 0) {
-		i_fatal("Can't use imap executable %s: %m",
-			set_imap_executable);
+	if (strstr(set->protocols, "imap") != NULL) {
+		if (access(set->imap_executable, X_OK) < 0) {
+			i_fatal("Can't use imap executable %s: %m",
+				set->imap_executable);
+		}
 	}
 
-	if (set_log_path != NULL) {
-		dir = get_directory(set_log_path);
+	if (strstr(set->protocols, "pop3") != NULL) {
+		if (access(set->pop3_executable, X_OK) < 0) {
+			i_fatal("Can't use pop3 executable %s: %m",
+				set->pop3_executable);
+		}
+	}
+
+	if (set->log_path != NULL) {
+		dir = get_directory(set->log_path);
 		if (access(dir, W_OK) < 0)
 			i_fatal("Can't access log directory %s: %m", dir);
 	}
 
-	if (set_info_log_path != NULL) {
-		dir = get_directory(set_info_log_path);
+	if (set->info_log_path != NULL) {
+		dir = get_directory(set->info_log_path);
 		if (access(dir, W_OK) < 0)
 			i_fatal("Can't access info log directory %s: %m", dir);
 	}
 
 #ifdef HAVE_SSL
-	if (!set_ssl_disable) {
-		if (access(set_ssl_cert_file, R_OK) < 0) {
+	if (!set->ssl_disable) {
+		if (access(set->ssl_cert_file, R_OK) < 0) {
 			i_fatal("Can't use SSL certificate %s: %m",
-				set_ssl_cert_file);
+				set->ssl_cert_file);
 		}
 
-		if (access(set_ssl_key_file, R_OK) < 0) {
+		if (access(set->ssl_key_file, R_OK) < 0) {
 			i_fatal("Can't use SSL key file %s: %m",
-				set_ssl_key_file);
+				set->ssl_key_file);
 		}
 	}
 #endif
 
 	/* fix relative paths */
-	fix_base_path(&set_ssl_parameters_file);
-	fix_base_path(&set_login_dir);
+	fix_base_path(set, &set->ssl_parameters_file);
+	fix_base_path(set, &set->login_dir);
 
 	/* since they're under /var/run by default, they may have been
 	   deleted. */
-	if (safe_mkdir(set_base_dir, 0700, geteuid(), getegid()) == 0) {
+	if (safe_mkdir(set->base_dir, 0700, geteuid(), getegid()) == 0) {
 		i_warning("Corrected permissions for base directory %s",
 			  PKG_RUNDIR);
 	}
 
 	/* wipe out contents of login directory, if it exists */
-	if (unlink_directory(set_login_dir, FALSE) < 0)
-		i_fatal("unlink_directory() failed for %s: %m", set_login_dir);
+	if (unlink_directory(set->login_dir, FALSE) < 0)
+		i_fatal("unlink_directory() failed for %s: %m", set->login_dir);
 
-	if (safe_mkdir(set_login_dir, 0750, geteuid(), set_login_gid) == 0) {
+	if (safe_mkdir(set->login_dir, 0750, geteuid(), set->login_gid) == 0) {
 		i_warning("Corrected permissions for login directory %s",
-			  set_login_dir);
+			  set->login_dir);
 	}
 
-	if (set_max_imap_processes < 1)
-		i_fatal("max_imap_processes must be at least 1");
-	if (set_login_processes_count < 1)
-		i_fatal("login_processes_count must be at least 1");
-	if (set_max_logging_users < 1)
-		i_fatal("max_logging_users must be at least 1");
+	if (set->max_mail_processes < 1)
+		i_fatal("max_mail_processes must be at least 1");
 
-	if (set_last_valid_uid != 0 &&
-	    set_first_valid_uid > set_last_valid_uid)
+	if (set->last_valid_uid != 0 &&
+	    set->first_valid_uid > set->last_valid_uid)
 		i_fatal("first_valid_uid can't be larger than last_valid_uid");
-	if (set_last_valid_gid != 0 &&
-	    set_first_valid_gid > set_last_valid_gid)
+	if (set->last_valid_gid != 0 &&
+	    set->first_valid_gid > set->last_valid_gid)
 		i_fatal("first_valid_gid can't be larger than last_valid_gid");
 
 	dotlock_got = fcntl_got = flock_got = FALSE;
-	for (str = t_strsplit(set_mbox_locks, " "); *str != NULL; str++) {
+	for (str = t_strsplit(set->mbox_locks, " "); *str != NULL; str++) {
 		if (strcasecmp(*str, "dotlock") == 0)
 			dotlock_got = TRUE;
 		else if (strcasecmp(*str, "fcntl") == 0)
@@ -315,189 +403,140 @@ static void settings_verify(void)
 	if (!dotlock_got && !fcntl_got && !flock_got)
 		i_fatal("mbox_locks: No mbox locking methods selected");
 
-	if (dotlock_got && !set_mbox_read_dotlock && !fcntl_got && !flock_got) {
+	if (dotlock_got && !set->mbox_read_dotlock &&
+	    !fcntl_got && !flock_got) {
 		i_warning("mbox_locks: Only dotlock selected, forcing "
 			  "mbox_read_dotlock = yes to avoid corruption.");
-                set_mbox_read_dotlock = TRUE;
+                set->mbox_read_dotlock = TRUE;
 	}
 
-	auth_settings_verify();
+	for (auth = set->auths; auth != NULL; auth = auth->next)
+		auth_settings_verify(auth);
 }
 
-static struct auth_config *auth_config_new(const char *name)
+static void auth_settings_new(struct settings *set, const char *name)
 {
-	struct auth_config *auth;
+	struct auth_settings *auth;
 
-	auth = i_new(struct auth_config, 1);
-	auth->name = i_strdup(name);
-	auth->executable = i_strdup(PKG_LIBEXECDIR"/imap-auth");
+	auth = p_new(settings_pool, struct auth_settings, 1);
+	auth->name = p_strdup(settings_pool, name);
+	auth->executable = p_strdup(settings_pool,
+				    PKG_LIBEXECDIR"/dovecot-auth");
 	auth->count = 1;
 
-	auth->next = auth_processes_config;
-        auth_processes_config = auth;
-	return auth;
+	auth->next = set->auths;
+        set->auths = auth;
 }
 
-static void auth_config_free(struct auth_config *auth)
+static const char *parse_new_auth(struct settings *set, const char *name)
 {
-	i_free(auth->name);
-	i_free(auth->mechanisms);
-	i_free(auth->realms);
-	i_free(auth->userdb);
-	i_free(auth->userdb_args);
-	i_free(auth->passdb);
-	i_free(auth->passdb_args);
-	i_free(auth->executable);
-	i_free(auth->user);
-	i_free(auth->chroot);
-	i_free(auth);
-}
-
-static const char *parse_new_auth(const char *name)
-{
-	struct auth_config *auth;
+	struct auth_settings *auth;
 
 	if (strchr(name, '/') != NULL)
 		return "Authentication process name must not contain '/'";
 
-	for (auth = auth_processes_config; auth != NULL; auth = auth->next) {
+	for (auth = set->auths; auth != NULL; auth = auth->next) {
 		if (strcmp(auth->name, name) == 0) {
 			return "Authentication process already exists "
 				"with the same name";
 		}
 	}
 
-	(void)auth_config_new(name);
+	auth_settings_new(set, name);
 	return NULL;
 }
 
-static const char *parse_auth(const char *key, const char *value)
+static void login_settings_new(struct settings *set, const char *name)
 {
-	struct auth_config *auth = auth_processes_config;
-	const char *p;
-	char **ptr;
+	struct login_settings *login;
 
-	if (auth == NULL)
-		return "Authentication process name not defined yet";
+	login = p_new(settings_pool, struct login_settings, 1);
 
-	/* check the easy string values first */
-	if (strcmp(key, "auth_mechanisms") == 0)
-		ptr = &auth->mechanisms;
-	else if (strcmp(key, "auth_realms") == 0)
-		ptr = &auth->realms;
-	else if (strcmp(key, "auth_executable") == 0)
-		ptr = &auth->executable;
-	else if (strcmp(key, "auth_user") == 0)
-		ptr = &auth->user;
-	else if (strcmp(key, "auth_chroot") == 0)
-		ptr = &auth->chroot;
-	else
-		ptr = NULL;
+	/* copy defaults */
+	*login = set->logins != NULL ? *set->logins :
+		default_login_settings;
 
-	if (ptr != NULL) {
-		i_free(*ptr);
-		*ptr = i_strdup(value);
-		return NULL;
+	if (strcasecmp(name, "imap") == 0) {
+		login->name = "imap";
+		login->executable = PKG_LIBEXECDIR"/imap-login";
+	} else if (strcasecmp(name, "pop3") == 0) {
+		login->name = "pop3";
+		login->executable = PKG_LIBEXECDIR"/pop3-login";
+	} else {
+		i_fatal("Unknown login process type '%s'", name);
 	}
 
-	if (strcmp(key, "auth_userdb") == 0) {
-		/* split it into userdb + userdb_args */
-		for (p = value; *p != ' ' && *p != '\0'; )
-			p++;
-
-		i_free(auth->userdb);
-		auth->userdb = i_strdup_until(value, p);
-
-		while (*p == ' ') p++;
-
-		i_free(auth->userdb_args);
-		auth->userdb_args = i_strdup(p);
-		return NULL;
-	}
-
-	if (strcmp(key, "auth_passdb") == 0) {
-		/* split it into passdb + passdb_args */
-		for (p = value; *p != ' ' && *p != '\0'; )
-			p++;
-
-		i_free(auth->passdb);
-		auth->passdb = i_strdup_until(value, p);
-
-		while (*p == ' ') p++;
-
-		i_free(auth->passdb_args);
-		auth->passdb_args = i_strdup(p);
-		return NULL;
-	}
-
-	if (strcmp(key, "auth_cyrus_sasl") == 0)
-		return get_bool(value, &auth->use_cyrus_sasl);
-
-	if (strcmp(key, "auth_verbose") == 0)
-		return get_bool(value, &auth->verbose);
-
-	if (strcmp(key, "auth_count") == 0) {
-		int num;
-
-		if (!sscanf(value, "%i", &num) || num < 0)
-			return t_strconcat("Invalid number: ", value, NULL);
-                auth->count = num;
-		return NULL;
-	}
-
-	if (strcmp(key, "auth_process_size") == 0) {
-		int num;
-
-		if (!sscanf(value, "%i", &num) || num < 0)
-			return t_strconcat("Invalid number: ", value, NULL);
-                auth->process_size = num;
-		return NULL;
-	}
-
-	return t_strconcat("Unknown setting: ", key, NULL);
+	login->next = set->logins;
+	set->logins = login;
 }
 
-static const char *parse_setting(const char *key, const char *value)
+static const char *parse_new_login(struct settings *set, const char *name)
 {
-	struct setting *set;
+	struct login_settings *login;
 
-	if (strcmp(key, "auth") == 0)
-		return parse_new_auth(value);
-	if (strncmp(key, "auth_", 5) == 0)
-		return parse_auth(key, value);
+	for (login = set->logins; login != NULL; login = login->next) {
+		if (strcmp(login->name, name) == 0) {
+			return "Login process already exists "
+				"with the same name";
+		}
+	}
 
-	for (set = settings; set->name != NULL; set++) {
-		if (strcmp(set->name, key) == 0) {
-			switch (set->type) {
+	login_settings_new(set, name);
+	return NULL;
+}
+
+static const char *
+parse_setting_from_defs(struct setting_def *defs, void *base,
+			const char *key, const char *value)
+{
+	struct setting_def *def;
+
+	for (def = defs; def->name != NULL; def++) {
+		if (strcmp(def->name, key) == 0) {
+			void *ptr = STRUCT_MEMBER_P(base, def->offset);
+
+			switch (def->type) {
 			case SET_STR:
-				i_free(*((char **)set->ptr));
-				*((char **)set->ptr) = i_strdup_empty(value);
-				break;
+				*((char **) ptr) =
+					p_strdup_empty(settings_pool, value);
+				return NULL;
 			case SET_INT:
 				/* use %i so we can handle eg. 0600
 				   as octal value with umasks */
-				if (!sscanf(value, "%i", (int *) set->ptr))
-					return t_strconcat("Invalid number: ",
-							   value, NULL);
-				break;
+				return get_uint(value, (unsigned int *) ptr);
 			case SET_BOOL:
-				return get_bool(value, set->ptr);
+				return get_bool(value, (int *) ptr);
 			}
-			return NULL;
 		}
 	}
 
 	return t_strconcat("Unknown setting: ", key, NULL);
 }
 
-static void settings_free(void)
+static const char *parse_setting(struct settings *set,
+				 const char *key, const char *value)
 {
-	while (auth_processes_config != NULL) {
-		struct auth_config *auth = auth_processes_config;
+	if (strcmp(key, "auth") == 0)
+		return parse_new_auth(set, value);
+	if (strncmp(key, "auth_", 5) == 0) {
+		if (set->auths == NULL)
+			return "Authentication process name not defined yet";
 
-		auth_processes_config = auth->next;
-                auth_config_free(auth);
+		return parse_setting_from_defs(auth_setting_defs,
+					       set->auths, key + 5, value);
 	}
+
+	if (strcmp(key, "login") == 0)
+		return parse_new_login(set, value);
+	if (strncmp(key, "login_", 6) == 0) {
+		if (set->logins == NULL)
+			return "Login process name not defined yet";
+
+		return parse_setting_from_defs(login_setting_defs,
+					       set->logins, key + 6, value);
+	}
+
+	return parse_setting_from_defs(setting_defs, set, key, value);
 }
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
@@ -509,7 +548,9 @@ void settings_read(const char *path)
 	char *line, *key, *p;
 	int fd, linenum;
 
-	settings_free();
+	p_clear(settings_pool);
+	set = p_new(settings_pool, struct settings, 1);
+	*set = default_settings;
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0)
@@ -558,7 +599,7 @@ void settings_read(const char *path)
 				p--;
 			*p = '\0';
 
-			errormsg = parse_setting(key, line);
+			errormsg = parse_setting(set, key, line);
 		}
 
 		if (errormsg != NULL) {
@@ -569,18 +610,10 @@ void settings_read(const char *path)
 
 	i_stream_unref(input);
 
-        settings_verify();
+        settings_verify(set);
 }
 
 void settings_init(void)
 {
-	struct setting *set;
-
-	/* strdup() all default settings */
-	for (set = settings; set->name != NULL; set++) {
-		if (set->type == SET_STR) {
-			char **str = set->ptr;
-			*str = i_strdup(*str);
-		}
-	}
+	settings_pool = pool_alloconly_create("settings", 1024);
 }

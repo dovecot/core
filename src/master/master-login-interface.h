@@ -4,8 +4,8 @@
 #include "network.h"
 
 #define LOGIN_MASTER_SOCKET_FD 0
-#define LOGIN_IMAP_LISTEN_FD 1
-#define LOGIN_IMAPS_LISTEN_FD 2
+#define LOGIN_LISTEN_FD 1
+#define LOGIN_SSL_LISTEN_FD 2
 
 struct master_login_request {
 	unsigned int tag;

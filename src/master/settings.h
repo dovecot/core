@@ -1,76 +1,97 @@
 #ifndef __SETTINGS_H
 #define __SETTINGS_H
 
-/* common */
-extern char *set_base_dir;
-extern char *set_log_path;
-extern char *set_info_log_path;
-extern char *set_log_timestamp;
+struct settings {
+	/* common */
+	const char *base_dir;
+	const char *log_path;
+	const char *info_log_path;
+	const char *log_timestamp;
 
-/* general */
-extern unsigned int set_imap_port;
-extern unsigned int set_imaps_port;
-extern char *set_imap_listen;
-extern char *set_imaps_listen;
+	/* general */
+	const char *protocols;
+	const char *imap_listen;
+	const char *imaps_listen;
+	const char *pop3_listen;
+	const char *pop3s_listen;
 
-extern int set_ssl_disable;
-extern char *set_ssl_cert_file;
-extern char *set_ssl_key_file;
-extern char *set_ssl_parameters_file;
-extern unsigned int set_ssl_parameters_regenerate;
-extern int set_disable_plaintext_auth;
+	int ssl_disable;
+	const char *ssl_cert_file;
+	const char *ssl_key_file;
+	const char *ssl_parameters_file;
+	unsigned int ssl_parameters_regenerate;
+	int disable_plaintext_auth;
 
-/* login */
-extern char *set_login_executable;
-extern char *set_login_user;
-extern unsigned int set_login_process_size;
-extern char *set_login_dir;
-extern int set_login_chroot;
-extern int set_login_process_per_connection;
-extern unsigned int set_login_processes_count;
-extern unsigned int set_login_max_processes_count;
-extern unsigned int set_max_logging_users;
+	/* login */
+	const char *login_dir;
+	int login_chroot;
 
-extern uid_t set_login_uid;
-extern gid_t set_login_gid;
+	/* mail */
+	const char *valid_chroot_dirs;
+	unsigned int max_mail_processes;
+	int verbose_proctitle;
 
-/* imap */
-extern char *set_imap_executable;
-extern unsigned int set_imap_process_size;
-extern char *set_valid_chroot_dirs;
-extern unsigned int set_max_imap_processes;
-extern int set_verbose_proctitle;
+	unsigned int first_valid_uid, last_valid_uid;
+	unsigned int first_valid_gid, last_valid_gid;
 
-extern unsigned int set_first_valid_uid, set_last_valid_uid;
-extern unsigned int set_first_valid_gid, set_last_valid_gid;
+	const char *default_mail_env;
+	const char *mail_cache_fields;
+	const char *mail_never_cache_fields;
+	unsigned int mailbox_check_interval;
+	int mail_save_crlf;
+	int mail_read_mmaped;
+	int maildir_copy_with_hardlinks;
+	int maildir_check_content_changes;
+	char *mbox_locks;
+	int mbox_read_dotlock;
+	unsigned int mbox_lock_timeout;
+	unsigned int mbox_dotlock_change_timeout;
+	int overwrite_incompatible_index;
+	unsigned int umask;
 
-extern char *set_default_mail_env;
-extern char *set_mail_cache_fields;
-extern char *set_mail_never_cache_fields;
-extern unsigned int set_mailbox_check_interval;
-extern int set_mail_save_crlf;
-extern int set_mail_read_mmaped;
-extern int set_maildir_copy_with_hardlinks;
-extern int set_maildir_check_content_changes;
-extern char *set_mbox_locks;
-extern int set_mbox_read_dotlock;
-extern unsigned int set_mbox_lock_timeout;
-extern unsigned int set_mbox_dotlock_change_timeout;
-extern int set_overwrite_incompatible_index;
-extern unsigned int set_umask;
+	/* imap */
+	const char *imap_executable;
+	unsigned int imap_process_size;
 
-/* auth */
-struct auth_config {
-	struct auth_config *next;
+	/* imap */
+	const char *pop3_executable;
+	unsigned int pop3_process_size;
 
-	char *name;
-	char *mechanisms;
-	char *realms;
-	char *userdb, *userdb_args;
-	char *passdb, *passdb_args;
-	char *executable;
-	char *user;
-	char *chroot;
+	/* .. */
+	gid_t login_gid;
+
+	struct auth_settings *auths;
+	struct login_settings *logins;
+};
+
+struct login_settings {
+	struct login_settings *next;
+
+	const char *name;
+	const char *executable;
+	const char *user;
+
+	int process_per_connection;
+
+	unsigned int process_size;
+	unsigned int processes_count;
+	unsigned int max_processes_count;
+	unsigned int max_logging_users;
+
+	uid_t uid; /* gid must be always same with all login processes */
+};
+
+struct auth_settings {
+	struct auth_settings *next;
+
+	const char *name;
+	const char *mechanisms;
+	const char *realms;
+	const char *userdb;
+	const char *passdb;
+	const char *executable;
+	const char *user;
+	const char *chroot;
 
 	int use_cyrus_sasl, verbose;
 
@@ -78,7 +99,7 @@ struct auth_config {
 	unsigned int process_size;
 };
 
-extern struct auth_config *auth_processes_config;
+extern struct settings *set;
 
 void settings_read(const char *path);
 

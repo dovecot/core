@@ -50,7 +50,7 @@ static void start_generate_process(void)
 
 	if (pid == 0) {
 		/* child */
-		generate_parameters_file(set_ssl_parameters_file);
+		generate_parameters_file(set->ssl_parameters_file);
 		exit(0);
 	} else {
 		/* parent */
@@ -69,13 +69,13 @@ static void check_parameters_file(void *context __attr_unused__)
 	struct stat st;
 	time_t regen_time;
 
-	if (set_ssl_parameters_file == NULL || set_ssl_disable || generating)
+	if (set->ssl_parameters_file == NULL || set->ssl_disable || generating)
 		return;
 
-	if (lstat(set_ssl_parameters_file, &st) < 0) {
+	if (lstat(set->ssl_parameters_file, &st) < 0) {
 		if (errno != ENOENT) {
 			i_error("lstat() failed for SSL parameters file %s: %m",
-				set_ssl_parameters_file);
+				set->ssl_parameters_file);
 			return;
 		}
 
@@ -83,7 +83,8 @@ static void check_parameters_file(void *context __attr_unused__)
 	}
 
 	/* make sure it's new enough and the permissions are correct */
-        regen_time = st.st_mtime + (time_t)(set_ssl_parameters_regenerate*3600);
+	regen_time = st.st_mtime +
+		(time_t)(set->ssl_parameters_regenerate*3600);
 	if (regen_time < ioloop_time || (st.st_mode & 077) != 0 ||
 	    st.st_uid != geteuid() || st.st_gid != getegid())
 		start_generate_process();

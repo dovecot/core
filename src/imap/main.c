@@ -36,17 +36,17 @@ static void open_logfile(void)
 	}
 	i_snprintf(log_prefix, sizeof(log_prefix), "imap(%s)", user);
 
-	if (getenv("IMAP_USE_SYSLOG") != NULL)
+	if (getenv("USE_SYSLOG") != NULL)
 		i_set_failure_syslog(log_prefix, LOG_NDELAY, LOG_MAIL);
 	else {
 		/* log to file or stderr */
-		i_set_failure_file(getenv("IMAP_LOGFILE"), log_prefix);
+		i_set_failure_file(getenv("LOGFILE"), log_prefix);
 	}
 
-	if (getenv("IMAP_INFOLOGFILE") != NULL)
-		i_set_info_file(getenv("IMAP_INFOLOGFILE"));
+	if (getenv("INFOLOGFILE") != NULL)
+		i_set_info_file(getenv("INFOLOGFILE"));
 
-	i_set_failure_timestamp_format(getenv("IMAP_LOGSTAMP"));
+	i_set_failure_timestamp_format(getenv("LOGSTAMP"));
 }
 
 static void drop_privileges(void)

@@ -9,7 +9,7 @@
 
 #include "auth-process.h"
 #include "login-process.h"
-#include "imap-process.h"
+#include "mail-process.h"
 #include "ssl-init.h"
 
 #include <stdio.h>
@@ -33,7 +33,7 @@ static struct timeout *to;
 
 struct ioloop *ioloop;
 struct hash_table *pids;
-int null_fd, imap_fd, imaps_fd;
+int null_fd, mail_fd[FD_MAX];
 
 int validate_str(const char *str, size_t max_len)
 {
@@ -53,18 +53,20 @@ void clean_child_process(void)
 	env_clean();
 
 	/* set the failure log */
-	if (set_log_path == NULL)
-		env_put("IMAP_USE_SYSLOG=1");
+	if (set->log_path == NULL)
+		env_put("USE_SYSLOG=1");
 	else
-		env_put(t_strconcat("IMAP_LOGFILE=", set_log_path, NULL));
+		env_put(t_strconcat("LOGFILE=", set->log_path, NULL));
 
-	if (set_info_log_path != NULL) {
-		env_put(t_strconcat("IMAP_INFOLOGFILE=",
-				    set_info_log_path, NULL));
+	if (set->info_log_path != NULL) {
+		env_put(t_strconcat("INFOLOGFILE=",
+				    set->info_log_path, NULL));
 	}
 
-	if (set_log_timestamp != NULL)
-		env_put(t_strconcat("IMAP_LOGSTAMP=", set_log_timestamp, NULL));
+	if (set->log_timestamp != NULL) {
+		env_put(t_strconcat("LOGSTAMP=",
+				    set->log_timestamp, NULL));
+	}
 }
 
 static void sig_quit(int signo __attr_unused__)
@@ -120,8 +122,8 @@ static void timeout_handler(void *context __attr_unused__)
 		process_type = PID_GET_PROCESS_TYPE(pid);
 		PID_REMOVE_PROCESS_TYPE(pid);
 
-		if (process_type == PROCESS_TYPE_IMAP)
-			imap_process_destroyed(pid);
+		if (process_type == PROCESS_TYPE_MAIL)
+			mail_process_destroyed(pid);
 		if (process_type == PROCESS_TYPE_SSL_PARAM)
 			ssl_parameter_process_destroyed(pid);
 
@@ -153,13 +155,37 @@ static void timeout_handler(void *context __attr_unused__)
 		i_warning("waitpid() failed: %m");
 }
 
-static struct ip_addr *resolve_ip(const char *name)
+static struct ip_addr *resolve_ip(const char *name, unsigned int *port)
 {
+	const char *p;
 	struct ip_addr *ip;
 	int ret, ips_count;
 
 	if (name == NULL)
-		return NULL; /* defaults to "*" or "::" */
+		return NULL; /* defaults to "*" or "[::]" */
+
+	if (name[0] == '[') {
+		/* IPv6 address */
+		p = strchr(name, ']');
+		if (p == NULL)
+			i_fatal("Missing ']' in address %s", name);
+
+		name = t_strdup_until(name, p);
+
+		p++;
+		if (*p != '\0' && *p != ':')
+			i_fatal("Invalid data after ']' in address %s", name);
+	} else {
+		p = strrchr(name, ':');
+		if (p != NULL)
+			name = t_strdup_until(name, p);
+	}
+
+	if (p != NULL) {
+		if (!is_numeric(p+1, '\0'))
+			i_fatal("Invalid port in address %s", name);
+		*port = atoi(p+1);
+	}
 
 	if (strcmp(name, "*") == 0) {
 		/* IPv4 any */
@@ -168,7 +194,7 @@ static struct ip_addr *resolve_ip(const char *name)
 		return ip;
 	}
 
-	if (strcmp(name, "::") == 0) {
+	if (strcmp(name, "[::]") == 0) {
 		/* IPv6 any */
 		ip = t_new(struct ip_addr, 1);
 		net_get_ip_any6(ip);
@@ -190,49 +216,86 @@ static struct ip_addr *resolve_ip(const char *name)
 
 static void open_fds(void)
 {
-	struct ip_addr *imap_ip, *imaps_ip;
+	struct ip_addr *imap_ip, *imaps_ip, *pop3_ip, *pop3s_ip, *ip;
+	const char *const *proto;
+	unsigned int imap_port = 143;
+	unsigned int pop3_port = 110;
+#ifdef HAVE_SSL
+	unsigned int imaps_port = 993;
+	unsigned int pop3s_port = 995;
+#else
+	unsigned int imaps_port = 0;
+	unsigned int pop3s_port = 0;
+#endif
+	unsigned int port;
+	int *fd, i;
 
-	imap_ip = resolve_ip(set_imap_listen);
-	imaps_ip = resolve_ip(set_imaps_listen);
+	/* resolve */
+	imap_ip = resolve_ip(set->imap_listen, &imap_port);
+	imaps_ip = resolve_ip(set->imaps_listen, &imaps_port);
+	pop3_ip = resolve_ip(set->pop3_listen, &pop3_port);
+	pop3s_ip = resolve_ip(set->pop3s_listen, &pop3s_port);
 
-	if (imaps_ip == NULL && set_imaps_listen == NULL)
+	if (imaps_ip == NULL && set->imaps_listen == NULL)
 		imaps_ip = imap_ip;
+	if (pop3s_ip == NULL && set->pop3s_listen == NULL)
+		pop3s_ip = pop3_ip;
 
+	/* initialize fds */
 	null_fd = open("/dev/null", O_RDONLY);
 	if (null_fd == -1)
 		i_fatal("Can't open /dev/null: %m");
 	fd_close_on_exec(null_fd, TRUE);
 
-	imap_fd = set_imap_port == 0 ? dup(null_fd) :
-		net_listen(imap_ip, &set_imap_port);
-	if (imap_fd == -1)
-		i_fatal("listen(%d) failed: %m", set_imap_port);
-	fd_close_on_exec(imap_fd, TRUE);
+	for (i = 0; i < FD_MAX; i++)
+		mail_fd[i] = -1;
 
-#ifdef HAVE_SSL
-	imaps_fd = set_ssl_disable || set_imaps_port == 0 ? dup(null_fd) :
-		net_listen(imaps_ip, &set_imaps_port);
-#else
-	imaps_fd = dup(null_fd);
-#endif
-	if (imaps_fd == -1)
-		i_fatal("listen(%d) failed: %m", set_imaps_port);
-	fd_close_on_exec(imaps_fd, TRUE);
+	/* register wanted protocols */
+	for (proto = t_strsplit(set->protocols, " "); *proto != NULL; proto++) {
+		if (strcasecmp(*proto, "imap") == 0) {
+			fd = &mail_fd[FD_IMAP]; ip = imap_ip; port = imap_port;
+		} else if (strcasecmp(*proto, "imaps") == 0) {
+			fd = &mail_fd[FD_IMAPS]; ip = imaps_ip; port = imaps_port;
+		} else if (strcasecmp(*proto, "pop3") == 0) {
+			fd = &mail_fd[FD_POP3]; ip = pop3_ip; port = pop3_port;
+		} else if (strcasecmp(*proto, "pop3s") == 0) {
+			fd = &mail_fd[FD_POP3S]; ip = pop3s_ip; port = pop3s_port;
+		} else {
+			i_fatal("Unknown protocol %s", *proto);
+		}
+
+		if (*fd != -1)
+			i_fatal("Protocol %s given more than once", *proto);
+
+		*fd = port == 0 ? dup(null_fd) : net_listen(ip, &port);
+		if (*fd == -1)
+			i_fatal("listen(%d) failed: %m", port);
+		fd_close_on_exec(*fd, TRUE);
+	}
+
+	for (i = 0; i < FD_MAX; i++) {
+		if (mail_fd[i] == -1) {
+			mail_fd[i] = dup(null_fd);
+			if (mail_fd[i] == -1)
+				i_fatal("dup(mail_fd[%d]) failed: %m", i);
+			fd_close_on_exec(mail_fd[i], TRUE);
+		}
+	}
 }
 
 static void open_logfile(void)
 {
-	if (set_log_path == NULL)
-		i_set_failure_syslog("imap-master", LOG_NDELAY, LOG_MAIL);
+	if (set->log_path == NULL)
+		i_set_failure_syslog("dovecot", LOG_NDELAY, LOG_MAIL);
 	else {
 		/* log to file or stderr */
-		i_set_failure_file(set_log_path, "imap-master");
+		i_set_failure_file(set->log_path, "dovecot");
 	}
 
-	if (set_info_log_path != NULL)
-		i_set_info_file(set_info_log_path);
+	if (set->info_log_path != NULL)
+		i_set_info_file(set->info_log_path);
 
-	i_set_failure_timestamp_format(set_log_timestamp);
+	i_set_failure_timestamp_format(set->log_timestamp);
 
 	i_info("Dovecot starting up");
 }
@@ -256,6 +319,8 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
+	int i;
+
         if (lib_signal_kill != 0)
 		i_warning("Killed with signal %d", lib_signal_kill);
 
@@ -270,10 +335,11 @@ static void main_deinit(void)
 
 	if (close(null_fd) < 0)
 		i_error("close(null_fd) failed: %m");
-	if (close(imap_fd) < 0)
-		i_error("close(imap_fd) failed: %m");
-	if (close(imaps_fd) < 0)
-		i_error("close(imaps_fd) failed: %m");
+
+	for (i = 0; i < FD_MAX; i++) {
+		if (close(mail_fd[i]) < 0)
+			i_error("close(mail_fd[%d]) failed: %m", i);
+	}
 
 	hash_destroy(pids);
 	closelog();
@@ -296,7 +362,7 @@ static void daemonize(void)
 
 static void print_help(void)
 {
-	printf("Usage: imap-master [-F] [-c <config file>]\n");
+	printf("Usage: dovecot [-F] [-c <config file>]\n");
 }
 
 int main(int argc, char *argv[])
