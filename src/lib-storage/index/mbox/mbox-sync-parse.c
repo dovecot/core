@@ -523,5 +523,6 @@ int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
 		mail_storage_set_index_error(ibox);
 		return -1;
 	}
-	return memcmp(data, ctx.hdr_md5_sum, 16) == 0;
+	return data == NULL ? 0 :
+		memcmp(data, ctx.hdr_md5_sum, 16) == 0;
 }
