@@ -8,6 +8,6 @@
    is_reply_or_forward is set to TRUE if message looks like reply or forward,
    according to draft-ietf-imapext-thread-12 rules. */
 const char *imap_get_base_subject_cased(pool_t pool, const char *subject,
-					int *is_reply_or_forward);
+					int *is_reply_or_forward_r);
 
 #endif
