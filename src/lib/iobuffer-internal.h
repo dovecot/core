@@ -1,8 +1,6 @@
 #ifndef __IOBUFFER_INTERNAL_H
 #define __IOBUFFER_INTERNAL_H
 
-#include "ioloop.h" /* TimeoutFunc */
-
 /* This file is private to IBuffer and OBuffer implementation */
 
 typedef struct _IOBuffer _IOBuffer;

@@ -27,6 +27,7 @@
 #include "alarm-hup.h"
 #include "ibuffer-internal.h"
 
+#include <time.h>
 #include <unistd.h>
 #include <network.h>
 

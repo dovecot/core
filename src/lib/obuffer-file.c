@@ -25,6 +25,7 @@
 
 #include "lib.h"
 #include "alarm-hup.h"
+#include "ioloop.h"
 #include "network.h"
 #include "sendfile-util.h"
 #include "ibuffer.h"
