@@ -72,12 +72,12 @@ static void login_input_handshake(struct login_connection *conn)
 	i_stream_skip(conn->input, sizeof(rec));
 
 	if (rec.pid == 0) {
-		i_error("BUG: imap-login said it's PID 0");
+		i_error("BUG: login said it's PID 0");
 		login_connection_destroy(conn);
 	} else if (login_connection_lookup(rec.pid) != NULL) {
 		/* well, it might have just reconnected very fast .. although
 		   there's not much reason for it. */
-		i_error("BUG: imap-login gave a PID of existing connection");
+		i_error("BUG: login gave a PID of existing connection");
 		login_connection_destroy(conn);
 	} else {
 		conn->pid = rec.pid;
@@ -133,7 +133,7 @@ static void login_input_request(struct login_connection *conn)
 		safe_memset(data + sizeof(request), 0, request.data_size);
 	} else {
 		/* unknown request */
-		i_error("BUG: imap-login sent us unknown request %u", type);
+		i_error("BUG: login sent us unknown request %u", type);
 		login_connection_destroy(conn);
 	}
 }
@@ -151,7 +151,7 @@ static void login_input(void *context)
 		return;
 	case -2:
 		/* buffer full */
-		i_error("BUG: imap-login sent us more than %d bytes of data",
+		i_error("BUG: login sent us more than %d bytes of data",
 			(int)MAX_INBUF_SIZE);
 		login_connection_destroy(conn);
 		return;

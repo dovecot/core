@@ -64,7 +64,7 @@ void mech_request_new(struct login_connection *conn,
 
 	if ((auth_mechanisms & request->mech) == 0) {
 		/* unsupported mechanism */
-		i_error("BUG: imap-login requested unsupported "
+		i_error("BUG: login requested unsupported "
 			"auth mechanism %d", request->mech);
 		failure_reply.id = request->id;
 		callback(&failure_reply, NULL, conn);

@@ -7,38 +7,34 @@
 
 #include "common.h"
 #include "userdb.h"
-#include "passwd-file.h"
+#include "db-passwd-file.h"
 
 struct passwd_file *userdb_pwf = NULL;
 
 static void passwd_file_lookup(const char *user, const char *realm,
 			       userdb_callback_t *callback, void *context)
 {
-	struct user_data *data;
+	struct user_data data;
 	struct passwd_user *pu;
-	pool_t pool;
 
-	pu = passwd_file_lookup_user(userdb_pwf, user, realm);
+	pu = db_passwd_file_lookup(userdb_pwf, user, realm);
 	if (pu == NULL) {
 		callback(NULL, context);
 		return;
 	}
 
-	pool = pool_alloconly_create("user_data", 512);
-	data = p_new(pool, struct user_data, 1);
-	data->pool = pool;
+	memset(&data, 0, sizeof(data));
+	data.uid = pu->uid;
+	data.gid = pu->gid;
 
-	data->uid = pu->uid;
-	data->gid = pu->gid;
+	data.virtual_user = realm == NULL ? user :
+		t_strconcat(user, "@", realm, NULL);
+	data.home = pu->home;
+	data.mail = pu->mail;
 
-	data->virtual_user = realm == NULL ? p_strdup(data->pool, user) :
-		p_strconcat(data->pool, user, "@", realm, NULL);
-	data->home = p_strdup(data->pool, pu->home);
-	data->mail = p_strdup(data->pool, pu->mail);
+	data.chroot = pu->chroot;
 
-	data->chroot = pu->chroot;
-
-	callback(data, context);
+	callback(&data, context);
 }
 
 static void passwd_file_init(const char *args)
@@ -47,13 +43,13 @@ static void passwd_file_init(const char *args)
 		userdb_pwf = passdb_pwf;
                 userdb_pwf->refcount++;
 	} else {
-		userdb_pwf = passwd_file_parse(args);
+		userdb_pwf = db_passwd_file_parse(args);
 	}
 }
 
 static void passwd_file_deinit(void)
 {
-	passwd_file_unref(userdb_pwf);
+	db_passwd_file_unref(userdb_pwf);
 }
 
 struct userdb_module userdb_passwd_file = {

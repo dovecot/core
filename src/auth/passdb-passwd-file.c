@@ -7,7 +7,7 @@
 
 #include "common.h"
 #include "passdb.h"
-#include "passwd-file.h"
+#include "db-passwd-file.h"
 
 #include "hex-binary.h"
 #include "md5.h"
@@ -24,7 +24,7 @@ passwd_file_verify_plain(const char *user, const char *realm,
 	unsigned char digest[16];
 	const char *str;
 
-	pu = passwd_file_lookup_user(passdb_pwf, user, realm);
+	pu = db_passwd_file_lookup(passdb_pwf, user, realm);
 	if (pu == NULL) {
 		callback(PASSDB_RESULT_USER_UNKNOWN, context);
 		return;
@@ -99,7 +99,7 @@ passwd_file_lookup_credentials(const char *user, const char *realm,
 {
 	struct passwd_user *pu;
 
-	pu = passwd_file_lookup_user(passdb_pwf, user, realm);
+	pu = db_passwd_file_lookup(passdb_pwf, user, realm);
 	if (pu == NULL) {
 		callback(NULL, context);
 		return;
@@ -141,13 +141,13 @@ static void passwd_file_init(const char *args)
 		passdb_pwf = userdb_pwf;
                 passdb_pwf->refcount++;
 	} else {
-		passdb_pwf = passwd_file_parse(args);
+		passdb_pwf = db_passwd_file_parse(args);
 	}
 }
 
 static void passwd_file_deinit(void)
 {
-	passwd_file_unref(passdb_pwf);
+	db_passwd_file_unref(passdb_pwf);
 }
 
 struct passdb_module passdb_passwd_file = {

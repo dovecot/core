@@ -240,7 +240,7 @@ void mech_cyrus_sasl_init_lib(void)
 {
 	int ret;
 
-	ret = sasl_server_init(sasl_callbacks, "imap-auth");
+	ret = sasl_server_init(sasl_callbacks, "dovecot-auth");
 	if (ret != SASL_OK) {
 		i_fatal("sasl_server_init() failed: %s",
 			sasl_errstring(ret, NULL, NULL));

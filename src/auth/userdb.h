@@ -2,13 +2,11 @@
 #define __USERDB_H
 
 struct user_data {
-	pool_t pool;
+	const char *virtual_user;
+	const char *home;
+	const char *mail;
 
-	char *virtual_user;
-	char *home;
-	char *mail;
-
-	char *system_user;
+	const char *system_user;
 	uid_t uid;
 	gid_t gid;
 

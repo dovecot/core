@@ -1,5 +1,5 @@
-#ifndef __PASSWD_FILE_H
-#define __PASSWD_FILE_H
+#ifndef __DB_PASSWD_FILE_H
+#define __DB_PASSWD_FILE_H
 
 enum password_type {
 	PASSWORD_NONE,
@@ -39,10 +39,10 @@ extern struct passwd_file *userdb_pwf;
 extern struct passwd_file *passdb_pwf;
 
 struct passwd_user *
-passwd_file_lookup_user(struct passwd_file *pw,
-			const char *user, const char *realm);
+db_passwd_file_lookup(struct passwd_file *pw,
+		      const char *user, const char *realm);
 
-struct passwd_file *passwd_file_parse(const char *path);
-void passwd_file_unref(struct passwd_file *pw);
+struct passwd_file *db_passwd_file_parse(const char *path);
+void db_passwd_file_unref(struct passwd_file *pw);
 
 #endif

@@ -13,9 +13,8 @@
 static void passwd_lookup(const char *user, const char *realm,
 			  userdb_callback_t *callback, void *context)
 {
-	struct user_data *data;
+	struct user_data data;
 	struct passwd *pw;
-	pool_t pool;
 
 	if (realm != NULL)
 		user = t_strconcat(user, "@", realm, NULL);
@@ -29,18 +28,14 @@ static void passwd_lookup(const char *user, const char *realm,
 		return;
 	}
 
-	pool = pool_alloconly_create("user_data", 512);
-	data = p_new(pool, struct user_data, 1);
-	data->pool = pool;
+	memset(&data, 0, sizeof(data));
+	data.uid = pw->pw_uid;
+	data.gid = pw->pw_gid;
 
-	data->uid = pw->pw_uid;
-	data->gid = pw->pw_gid;
+	data.virtual_user = data.system_user = pw->pw_name;
+	data.home = pw->pw_dir;
 
-	data->system_user = p_strdup(data->pool, pw->pw_name);
-	data->virtual_user = data->system_user;
-	data->home = p_strdup(data->pool, pw->pw_dir);
-
-	callback(data, context);
+	callback(&data, context);
 }
 
 struct userdb_module userdb_passwd = {

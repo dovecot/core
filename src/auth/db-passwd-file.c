@@ -7,7 +7,7 @@
 
 #include "common.h"
 #include "userdb.h"
-#include "passwd-file.h"
+#include "db-passwd-file.h"
 
 #include "buffer.h"
 #include "istream.h"
@@ -169,27 +169,6 @@ static void passwd_file_close(struct passwd_file *pw)
 	}
 }
 
-struct passwd_file *passwd_file_parse(const char *path)
-{
-	struct passwd_file *pw;
-
-	pw = i_new(struct passwd_file, 1);
-	pw->refcount = 1;
-	pw->path = i_strdup(path);
-
-	passwd_file_open(pw);
-	return pw;
-}
-
-void passwd_file_unref(struct passwd_file *pw)
-{
-	if (--pw->refcount == 0) {
-		passwd_file_close(pw);
-		i_free(pw->path);
-		i_free(pw);
-	}
-}
-
 static void passwd_file_sync(struct passwd_file *pw)
 {
 	struct stat st;
@@ -203,9 +182,30 @@ static void passwd_file_sync(struct passwd_file *pw)
 	}
 }
 
+struct passwd_file *db_passwd_file_parse(const char *path)
+{
+	struct passwd_file *pw;
+
+	pw = i_new(struct passwd_file, 1);
+	pw->refcount = 1;
+	pw->path = i_strdup(path);
+
+	passwd_file_open(pw);
+	return pw;
+}
+
+void db_passwd_file_unref(struct passwd_file *pw)
+{
+	if (--pw->refcount == 0) {
+		passwd_file_close(pw);
+		i_free(pw->path);
+		i_free(pw);
+	}
+}
+
 struct passwd_user *
-passwd_file_lookup_user(struct passwd_file *pw,
-			const char *user, const char *realm)
+db_passwd_file_lookup(struct passwd_file *pw,
+		      const char *user, const char *realm)
 {
 	struct passwd_user *pu;
 

@@ -19,28 +19,23 @@ static char *static_home_template;
 static void static_lookup(const char *user, const char *realm,
 			  userdb_callback_t *callback, void *context)
 {
-	struct user_data *data;
-	pool_t pool;
+	struct user_data data;
 	string_t *str;
 
 	if (realm != NULL)
 		user = t_strconcat(user, "@", realm, NULL);
 
-	pool = pool_alloconly_create("user_data", 512);
-	data = p_new(pool, struct user_data, 1);
-	data->pool = pool;
+	memset(&data, 0, sizeof(data));
+	data.uid = static_uid;
+	data.gid = static_gid;
 
-	data->uid = static_uid;
-	data->gid = static_gid;
-
-	data->system_user = p_strdup(data->pool, user);
-	data->virtual_user = data->system_user;
+	data.virtual_user = data.system_user = user;
 
 	str = t_str_new(256);
 	var_expand(str, static_home_template, user, NULL);
-	data->home = p_strdup(data->pool, str_c(str));
+	data.home = str_c(str);
 
-	callback(data, context);
+	callback(&data, context);
 }
 
 static void static_init(const char *args)

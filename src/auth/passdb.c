@@ -30,6 +30,9 @@ void passdb_init(void)
 	if (name == NULL)
 		i_fatal("PASSDB environment is unset");
 
+	args = strchr(name, ' ');
+	name = t_strcut(name, ' ');
+
 #ifdef PASSDB_PASSWD
 	if (strcasecmp(name, "passwd") == 0)
 		passdb = &passdb_passwd;
@@ -55,12 +58,8 @@ void passdb_init(void)
 		i_fatal("Unknown passdb type '%s'", name);
 
 	/* initialize */
-	if (passdb->init != NULL) {
-		args = getenv("PASSDB_ARGS");
-		if (args == NULL) args = "";
-
-		passdb->init(args);
-	}
+	if (passdb->init != NULL)
+		passdb->init(args != NULL ? args+1 : "");
 
 	if ((auth_mechanisms & AUTH_MECH_PLAIN) &&
 	    passdb->verify_plain == NULL)

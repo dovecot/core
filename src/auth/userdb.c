@@ -17,6 +17,9 @@ void userdb_init(void)
 	if (name == NULL)
 		i_fatal("USERDB environment is unset");
 
+	args = strchr(name, ' ');
+	name = t_strcut(name, ' ');
+
 #ifdef USERDB_PASSWD
 	if (strcasecmp(name, "passwd") == 0)
 		userdb = &userdb_passwd;
@@ -38,12 +41,8 @@ void userdb_init(void)
 		i_fatal("Unknown userdb type '%s'", name);
 
 	/* initialize */
-	if (userdb->init != NULL) {
-		args = getenv("USERDB_ARGS");
-		if (args == NULL) args = "";
-
-		userdb->init(args);
-	}
+	if (userdb->init != NULL)
+		userdb->init(args != NULL ? args+1 : "");
 }
 
 void userdb_deinit(void)
