@@ -248,10 +248,6 @@ static void mail_index_update_header_changes(MailIndex *index)
 	}
 }
 
-#define MAIL_LOCK_TO_FLOCK(lock_type) \
-        ((lock_type) == MAIL_LOCK_UNLOCK ? F_UNLCK : \
-		(lock_type) == MAIL_LOCK_SHARED ? F_RDLCK : F_WRLCK)
-
 int mail_index_try_lock(MailIndex *index, MailLockType lock_type)
 {
 	int ret;

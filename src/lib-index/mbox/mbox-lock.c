@@ -28,11 +28,11 @@
 #define STALE_LOCK_TIMEOUT (60*10)
 
 #ifdef HAVE_FLOCK
-static int mbox_lock_flock(MailIndex *index, int lock_type)
+static int mbox_lock_flock(MailIndex *index, MailLockType lock_type)
 {
-	if (lock_type == F_WRLCK)
+	if (lock_type == MAIL_LOCK_EXCLUSIVE)
 		lock_type = LOCK_EX;
-	else if (lock_type == F_RDLCK)
+	else if (lock_type == MAIL_LOCK_SHARED)
 		lock_type = LOCK_SH;
 	else
 		lock_type = LOCK_UN;
@@ -45,11 +45,11 @@ static int mbox_lock_flock(MailIndex *index, int lock_type)
 }
 #endif
 
-static int mbox_lock_fcntl(MailIndex *index, int lock_type)
+static int mbox_lock_fcntl(MailIndex *index, MailLockType lock_type)
 {
 	struct flock fl;
 
-	fl.l_type = lock_type;
+	fl.l_type = MAIL_LOCK_TO_FLOCK(lock_type);
 	fl.l_whence = SEEK_SET;
 	fl.l_start = 0;
 	fl.l_len = 0;
