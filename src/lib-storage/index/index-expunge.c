@@ -32,7 +32,7 @@ int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
 				hdr->first_deleted_uid_lowwater);
 
 			/* fsck should be enough to fix it */
-			ibox->index->header->flags |= MAIL_INDEX_FLAG_FSCK;
+			ibox->index->set_flags |= MAIL_INDEX_FLAG_FSCK;
 			return FALSE;
 		} else {
 			*seq = ibox->index->get_sequence(ibox->index, *rec);

@@ -361,6 +361,8 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type)
 
 int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
 {
+	int keep_fsck;
+
 	if (index->lock_type == lock_type)
 		return TRUE;
 
@@ -373,10 +375,11 @@ int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
 
 	if (index->lock_type == MAIL_LOCK_EXCLUSIVE) {
 		/* dropping exclusive lock (either unlock or to shared) */
+		keep_fsck = (index->set_flags & MAIL_INDEX_FLAG_FSCK) != 0;
 		mail_index_update_header_changes(index);
 
 		/* remove the FSCK flag only after successful fsync() */
-		if (mail_index_sync_file(index)) {
+		if (mail_index_sync_file(index) && !keep_fsck) {
 			index->header->flags &= ~MAIL_INDEX_FLAG_FSCK;
 			if (msync(index->mmap_base, sizeof(MailIndexHeader),
 				  MS_SYNC) < 0) {

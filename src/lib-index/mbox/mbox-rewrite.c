@@ -348,8 +348,10 @@ int mbox_index_rewrite(MailIndex *index)
 
 	if (!failed) {
 		if (rename(path, index->mbox_path) == 0) {
-			/* all ok, we need to fsck the index next time */
-			index->header->flags |= MAIL_INDEX_FLAG_FSCK;
+			/* all ok, we need to fsck the index next time.
+			   use set_flags because set_lock() would remove it
+			   if we modified it directly */
+			index->set_flags |= MAIL_INDEX_FLAG_FSCK;
 			reset_dirty_flags(index);
 		} else {
 			index_set_error(index, "rename(%s, %s) failed: %m",
