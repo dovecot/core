@@ -32,21 +32,30 @@
 #include <syslog.h>
 #include <time.h>
 
-static FailureFunc panic_handler __attr_noreturn__, fatal_handler __attr_noreturn__;
-static FailureFunc error_handler, warning_handler;
-
-static FILE *log_fd;
-static char *log_prefix, *log_stamp_format;
-
 static void default_panic_handler(const char *format, va_list args)
 	__attr_noreturn__;
 static void default_fatal_handler(const char *format, va_list args)
 	__attr_noreturn__;
 
+static void default_error_handler(const char *format, va_list args);
+static void default_warning_handler(const char *format, va_list args);
+
+/* Initialize working defaults */
+static FailureFunc panic_handler __attr_noreturn__ = default_panic_handler;
+static FailureFunc fatal_handler __attr_noreturn__ = default_fatal_handler;
+static FailureFunc error_handler = default_error_handler;
+static FailureFunc warning_handler = default_warning_handler;
+
+static FILE *log_fd = NULL;
+static char *log_prefix = NULL, *log_stamp_format = NULL;
+
 static void write_prefix(void)
 {
 	struct tm *tm;
 	char str[256];
+
+	if (log_fd == NULL)
+		log_fd = stderr;
 
 	if (log_prefix != NULL)
 		fputs(log_prefix, log_fd);
@@ -222,19 +231,11 @@ void i_set_failure_timestamp_format(const char *fmt)
 
 void failures_init(void)
 {
-	log_fd = stderr;
-	log_prefix = NULL;
-        log_stamp_format = NULL;
-
-        i_set_panic_handler(NULL);
-        i_set_fatal_handler(NULL);
-        i_set_error_handler(NULL);
-        i_set_warning_handler(NULL);
 }
 
 void failures_deinit(void)
 {
-	if (log_fd != stderr) {
+	if (log_fd != NULL && log_fd != stderr) {
 		(void)fclose(log_fd);
 		log_fd = stderr;
 	}
