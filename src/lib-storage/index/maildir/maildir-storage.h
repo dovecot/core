@@ -14,14 +14,19 @@ int maildir_storage_save_next(struct mail_save_context *ctx,
 			      time_t received_date, int timezone_offset,
 			      struct istream *data);
 
-int maildir_find_mailboxes(struct mail_storage *storage, const char *mask,
-			   mailbox_list_callback_t callback, void *context);
-int maildir_find_subscribed(struct mail_storage *storage, const char *mask,
-			    mailbox_list_callback_t callback, void *context);
+struct mailbox_list_context *
+maildir_list_mailbox_init(struct mail_storage *storage,
+			  const char *mask, enum mailbox_list_flags flags,
+			  int *sorted);
+int maildir_list_mailbox_deinit(struct mailbox_list_context *ctx);
+struct mailbox_list *
+maildir_list_mailbox_next(struct mailbox_list_context *ctx);
 
 int maildir_expunge_locked(struct index_mailbox *ibox, int notify);
 
 /* Return new filename base to save into tmp/ */
 const char *maildir_generate_tmp_filename(void);
+
+const char *maildir_get_path(struct mail_storage *storage, const char *name);
 
 #endif

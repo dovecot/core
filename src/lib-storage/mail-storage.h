@@ -5,6 +5,11 @@ struct message_size;
 
 #include "imap-util.h"
 
+enum mailbox_list_flags {
+	MAILBOX_LIST_SUBSCRIBED	= 0x01, /* show only subscribed */
+	MAILBOX_LIST_NO_FLAGS	= 0x02  /* don't set mailbox_flags */
+};
+
 enum mailbox_flags {
 	MAILBOX_NOSELECT	= 0x01,
 	MAILBOX_CHILDREN	= 0x02,
@@ -86,7 +91,8 @@ enum mail_fetch_field {
 };
 
 enum client_workarounds {
-	WORKAROUND_OE6_FETCH_NO_NEWMAIL	= 0x01
+	WORKAROUND_OE6_FETCH_NO_NEWMAIL	= 0x01,
+	WORKAROUND_LIST_SORT		= 0x02
 };
 
 struct mail_full_flags {
@@ -98,14 +104,11 @@ struct mail_full_flags {
 
 struct mail_storage;
 struct mail_storage_callbacks;
+struct mailbox_list;
 struct mailbox_status;
 struct mail_search_arg;
 struct fetch_context;
 struct search_context;
-
-typedef void mailbox_list_callback_t(struct mail_storage *storage,
-				     const char *name, enum mailbox_flags flags,
-				     void *context);
 
 /* All methods returning int return either TRUE or FALSE. */
 struct mail_storage {
@@ -156,21 +159,28 @@ struct mail_storage {
 	int (*rename_mailbox)(struct mail_storage *storage, const char *oldname,
 			      const char *newname);
 
-	/* Execute specified function for all mailboxes matching given
-	   mask. The mask is in RFC2060 LIST format. */
-	int (*find_mailboxes)(struct mail_storage *storage, const char *mask,
-			      mailbox_list_callback_t *callback, void *context);
+	/* Initialize new mailbox list request. mask may contain '%' and '*'
+	   wildcards as defined in RFC2060. Matching against "INBOX" is
+	   case-insensitive, but anything else is not. *sorted is set to TRUE
+	   if the output will contain parent mailboxes always before their
+	   children. */
+	struct mailbox_list_context *
+		(*list_mailbox_init)(struct mail_storage *storage,
+				     const char *mask,
+				     enum mailbox_list_flags flags,
+				     int *sorted);
+	/* Deinitialize mailbox list request. Returns FALSE if some error
+	   occured while listing. */
+	int (*list_mailbox_deinit)(struct mailbox_list_context *ctx);
+	/* Get next mailbox. Returns the mailbox name */
+	struct mailbox_list *
+		(*list_mailbox_next)(struct mailbox_list_context *ctx);
 
 	/* Subscribe/unsubscribe mailbox. There should be no error when
 	   subscribing to already subscribed mailbox. Subscribing to
 	   unexisting mailboxes is optional. */
 	int (*set_subscribed)(struct mail_storage *storage,
 			      const char *name, int set);
-
-	/* Exactly like find_mailboxes(), but list only subscribed mailboxes. */
-	int (*find_subscribed)(struct mail_storage *storage, const char *mask,
-			       mailbox_list_callback_t *callback,
-			       void *context);
 
 	/* Returns mailbox name status */
 	int (*get_mailbox_name_status)(struct mail_storage *storage,
@@ -354,6 +364,11 @@ struct mail {
 	/* Get the any of the "special" fields. */
 	const char *(*get_special)(struct mail *mail,
 				   enum mail_fetch_field field);
+};
+
+struct mailbox_list {
+	const char *name;
+        enum mailbox_flags flags;
 };
 
 struct mailbox_status {

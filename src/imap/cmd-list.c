@@ -76,20 +76,6 @@ static struct list_node *list_node_get(pool_t pool, struct list_node **node,
 	return *node;
 }
 
-static void list_cb(struct mail_storage *storage __attr_unused__,
-		    const char *name, enum mailbox_flags flags, void *context)
-{
-	struct list_context *ctx = context;
-	struct list_node *node;
-
-	node = list_node_get(ctx->pool, &ctx->nodes, name,
-			     ctx->storage->hierarchy_sep);
-
-	/* set the flags, this also nicely overrides the NOSELECT flag
-	   set by list_node_get() */
-	node->flags = flags;
-}
-
 static void list_send(struct client *client, struct list_node *node,
 		      const char *cmd, const char *path, const char *sep)
 {
@@ -119,10 +105,77 @@ static void list_send(struct client *client, struct list_node *node,
 	}
 }
 
+static void list_unsorted(struct client *client,
+			  struct mailbox_list_context *ctx,
+			  const char *cmd, const char *sep)
+{
+	struct mailbox_list *list;
+	const char *name, *str;
+
+	while ((list = client->storage->list_mailbox_next(ctx)) != NULL) {
+		t_push();
+		if (strcasecmp(list->name, "INBOX") == 0)
+			name = "INBOX";
+		else
+			name = str_escape(list->name);
+		str = t_strdup_printf("* %s (%s) \"%s\" \"%s\"", cmd,
+				      mailbox_flags2str(list->flags),
+				      sep, name);
+		client_send_line(client, str);
+		t_pop();
+	}
+}
+
+static void list_and_sort(struct client *client,
+			  struct mailbox_list_context *ctx,
+			  const char *cmd, const char *sep)
+{
+	struct mailbox_list *list;
+	struct list_node *nodes, *node;
+	pool_t pool;
+
+	pool = pool_alloconly_create("list_mailboxes", 10240);
+	nodes = NULL;
+
+	while ((list = client->storage->list_mailbox_next(ctx)) != NULL) {
+		node = list_node_get(pool, &nodes, list->name,
+				     client->storage->hierarchy_sep);
+
+		/* set the flags, this also overrides the
+		   NOSELECT flag set by list_node_get() */
+		node->flags = list->flags;
+	}
+
+	list_send(client, nodes, cmd, NULL, sep);
+	pool_unref(pool);
+}
+
+static int list_mailboxes(struct client *client, const char *mask,
+			  int subscribed, const char *sep)
+{
+	struct mailbox_list_context *ctx;
+	const char *cmd;
+	int sorted;
+
+	ctx = client->storage->
+		list_mailbox_init(client->storage, mask,
+				  subscribed ? MAILBOX_LIST_SUBSCRIBED : 0,
+				  &sorted);
+	if (ctx == NULL)
+		return FALSE;
+
+        cmd = subscribed ? "LSUB" : "LIST";
+	if (sorted || (client_workarounds & WORKAROUND_LIST_SORT) == 0)
+		list_unsorted(client, ctx, cmd, sep);
+	else
+		list_and_sort(client, ctx, cmd, sep);
+
+	return client->storage->list_mailbox_deinit(ctx);
+}
+
 int _cmd_list_full(struct client *client, int subscribed)
 {
-	struct list_context ctx;
-	const char *ref, *pattern;
+	const char *ref, *mask;
 	char sep_chr, sep[3];
 	int failed;
 
@@ -137,50 +190,32 @@ int _cmd_list_full(struct client *client, int subscribed)
 	}
 
 	/* <reference> <mailbox wildcards> */
-	if (!client_read_string_args(client, 2, &ref, &pattern))
+	if (!client_read_string_args(client, 2, &ref, &mask))
 		return FALSE;
 
-	if (*pattern == '\0' && !subscribed) {
+	if (*mask == '\0' && !subscribed) {
 		/* special request to return the hierarchy delimiter */
 		client_send_line(client, t_strconcat(
 			"* LIST (\\Noselect) \"", sep, "\" \"\"", NULL));
 		failed = FALSE;
 	} else {
 		if (*ref != '\0') {
-			/* join reference + pattern */
-			if (*pattern == sep_chr &&
+			/* join reference + mask */
+			if (*mask == sep_chr &&
 			    ref[strlen(ref)-1] == sep_chr) {
 				/* LIST A. .B -> A.B */
-				pattern++;
+				mask++;
 			}
-			if (*pattern != sep_chr &&
+			if (*mask != sep_chr &&
 			    ref[strlen(ref)-1] != sep_chr) {
 				/* LIST A B -> A.B */
-				pattern = t_strconcat(ref, sep, pattern, NULL);
+				mask = t_strconcat(ref, sep, mask, NULL);
 			} else {
-				pattern = t_strconcat(ref, pattern, NULL);
+				mask = t_strconcat(ref, mask, NULL);
 			}
 		}
 
-		ctx.pool = pool_alloconly_create("list_context", 10240);
-		ctx.nodes = NULL;
-		ctx.storage = client->storage;
-
-		if (!subscribed) {
-			failed = !client->storage->
-				find_mailboxes(client->storage,
-					       pattern, list_cb, &ctx);
-		} else {
-			failed = !client->storage->
-				find_subscribed(client->storage,
-						pattern, list_cb, &ctx);
-		}
-
-		if (!failed) {
-			list_send(client, ctx.nodes,
-				  subscribed ? "LSUB" : "LIST", NULL, sep);
-		}
-		pool_unref(ctx.pool);
+		failed = !list_mailboxes(client, mask, subscribed, sep);
 	}
 
 	if (failed)

@@ -1,12 +1,10 @@
-/* Copyright (C) 2002 Timo Sirainen */
-
-/* ugly code here - text files are annoying to manage */
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
+#include "istream.h"
+#include "ostream.h"
 #include "file-lock.h"
-#include "mmap-util.h"
 #include "write-full.h"
-#include "imap-match.h"
 #include "mail-storage.h"
 #include "subscription-file.h"
 
@@ -14,6 +12,17 @@
 #include <fcntl.h>
 
 #define SUBSCRIPTION_FILE_NAME ".subscriptions"
+#define MAX_MAILBOX_LENGTH PATH_MAX
+
+struct subsfile_list_context {
+	pool_t pool;
+
+	struct mail_storage *storage;
+	struct istream *input;
+	const char *path;
+
+	int failed;
+};
 
 static int subsfile_set_syscall_error(struct mail_storage *storage,
 				      const char *path, const char *function)
@@ -27,8 +36,7 @@ static int subsfile_set_syscall_error(struct mail_storage *storage,
 }
 
 static int subscription_open(struct mail_storage *storage, int update,
-			     const char **path, void **mmap_base,
-			     size_t *mmap_length)
+			     const char **path)
 {
 	int fd;
 
@@ -42,7 +50,7 @@ static int subscription_open(struct mail_storage *storage, int update,
 			return -1;
 		}
 
-		return -2;
+		return -1;
 	}
 
 	/* FIXME: we should work without locking, rename() would be easiest
@@ -52,115 +60,108 @@ static int subscription_open(struct mail_storage *storage, int update,
 		(void)close(fd);
 		return -1;
 	}
-
-	*mmap_base = update ? mmap_rw_file(fd, mmap_length) :
-		mmap_ro_file(fd, mmap_length);
-	if (*mmap_base == MAP_FAILED) {
-		*mmap_base = NULL;
-		subsfile_set_syscall_error(storage, "mmap()", *path);
-		(void)close(fd);
-		return -1;
-	}
-
-	(void)madvise(*mmap_base, *mmap_length, MADV_SEQUENTIAL);
 	return fd;
 }
 
-static int subscription_append(struct mail_storage *storage, int fd,
-			       const char *name, size_t len, int prefix_lf,
-			       const char *path)
+static const char *next_line(struct mail_storage *storage, const char *path,
+			     struct istream *input, int *failed)
 {
-	char *buf;
+	const char *line;
 
-	if (lseek(fd, 0, SEEK_END) < 0)
-		return subsfile_set_syscall_error(storage, "lseek()", path);
-
-	/* @UNSAFE */
-	buf = t_buffer_get(len+2);
-	buf[0] = '\n';
-	memcpy(buf+1, name, len);
-	buf[len+1] = '\n';
-
-	if (prefix_lf)
-		len += 2;
-	else {
-		buf++;
-		len++;
+	while ((line = i_stream_next_line(input)) == NULL) {
+		switch (i_stream_read(input)) {
+		case -1:
+			*failed = FALSE;
+			return NULL;
+		case -2:
+			/* mailbox name too large */
+			mail_storage_set_critical(storage,
+				"Subscription file %s contains lines longer "
+				"than %u characters", path,
+				MAX_MAILBOX_LENGTH);
+			*failed = TRUE;
+			return NULL;
+		}
 	}
 
-	if (write_full(fd, buf, len) < 0) {
-		subsfile_set_syscall_error(storage, "write_full()", path);
-		return FALSE;
+	*failed = FALSE;
+	return line;
+}
+
+static int stream_cut(struct mail_storage *storage, const char *path,
+		      struct istream *input, uoff_t count)
+{
+	struct ostream *output;
+	int fd, failed;
+
+	fd = i_stream_get_fd(input);
+	i_assert(fd != -1);
+
+	output = o_stream_create_file(fd, default_pool, 4096, 0, 0);
+	if (o_stream_seek(output, input->start_offset + input->v_offset) < 0) {
+		failed = TRUE;
+		errno = output->stream_errno;
+		subsfile_set_syscall_error(storage, "o_stream_seek()", path);
+	} else {
+		i_stream_skip(input, count);
+		failed = o_stream_send_istream(output, input) < 0;
+		if (failed) {
+			errno = output->stream_errno;
+			subsfile_set_syscall_error(storage,
+						   "o_stream_send_istream()",
+						   path);
+		}
 	}
 
-	return TRUE;
+	if (!failed) {
+		if (ftruncate(fd, output->offset) < 0) {
+			subsfile_set_syscall_error(storage, "ftruncate()",
+						   path);
+			failed = TRUE;
+		}
+	}
+
+	o_stream_unref(output);
+	return !failed;
 }
 
 int subsfile_set_subscribed(struct mail_storage *storage,
 			    const char *name, int set)
 {
-	void *mmap_base;
-	size_t mmap_length;
-	const char *path;
-	char *subscriptions, *end, *p;
-	size_t namelen, afterlen, removelen;
-	int fd,  failed, prefix_lf;
+	const char *path, *line;
+	struct istream *input;
+	uoff_t offset;
+	int fd, failed;
 
 	if (strcasecmp(name, "INBOX") == 0)
 		name = "INBOX";
 
-	fd = subscription_open(storage, TRUE, &path, &mmap_base, &mmap_length);
+	fd = subscription_open(storage, TRUE, &path);
 	if (fd == -1)
 		return FALSE;
 
-	namelen = strlen(name);
+	input = i_stream_create_file(fd, default_pool,
+				     MAX_MAILBOX_LENGTH, FALSE);
+	do {
+		offset = input->v_offset;
+                line = next_line(storage, path, input, &failed);
+	} while (line != NULL && strcmp(line, name) != 0);
 
-	subscriptions = mmap_base;
-	if (subscriptions == NULL)
-		p = NULL;
-	else {
-		end = subscriptions + mmap_length;
-		for (p = subscriptions; p != end; p++) {
-			if (*p == *name && p+namelen <= end &&
-			    strncmp(p, name, namelen) == 0) {
-				/* make sure beginning and end matches too */
-				if ((p == subscriptions || p[-1] == '\n') &&
-				    (p+namelen == end || p[namelen] == '\n'))
-					break;
-			}
+	if (!failed) {
+		if (set && line == NULL) {
+			/* add subscription. we're at EOF so just write it */
+			write_full(fd, t_strconcat(name, "\n", NULL),
+				   strlen(name)+1);
+		} else if (!set && line != NULL) {
+			/* remove subcription. */
+			uoff_t size = input->v_offset - offset;
+			i_stream_seek(input, offset);
+			if (!stream_cut(storage, path, input, size))
+				failed = TRUE;
 		}
-
-		if (p == end)
-			p = NULL;
 	}
 
-	failed = FALSE;
-	if (p != NULL && !set) {
-		/* remove it */
-		afterlen = mmap_length - (size_t) (p - subscriptions);
-		removelen = namelen < afterlen ? namelen+1 : namelen;
-
-		if (removelen < afterlen)
-			memmove(p, p+removelen, afterlen-removelen);
-
-		if (ftruncate(fd, (off_t) (mmap_length - removelen)) == -1) {
-			subsfile_set_syscall_error(storage, "ftruncate()",
-						   path);
-			failed = TRUE;
-		}
-	} else if (p == NULL && set) {
-		/* append it */
-		prefix_lf = mmap_length > 0 &&
-			subscriptions[mmap_length-1] != '\n';
-		if (!subscription_append(storage, fd, name, namelen,
-					 prefix_lf, path))
-			failed = TRUE;
-	}
-
-	if (mmap_base != NULL && munmap(mmap_base, mmap_length) < 0) {
-		subsfile_set_syscall_error(storage, "munmap()", path);
-		failed = TRUE;
-	}
+	i_stream_unref(input);
 
 	if (close(fd) < 0) {
 		subsfile_set_syscall_error(storage, "close()", path);
@@ -169,45 +170,45 @@ int subsfile_set_subscribed(struct mail_storage *storage,
 	return !failed;
 }
 
-int subsfile_foreach(struct mail_storage *storage, const char *mask,
-		     subsfile_foreach_callback_t *callback, void *context)
+struct subsfile_list_context *
+subsfile_list_init(struct mail_storage *storage)
 {
-        struct imap_match_glob *glob;
-	const char *path, *start, *end, *p, *line;
-	void *mmap_base;
-	size_t mmap_length;
-	int fd, ret;
+	struct subsfile_list_context *ctx;
+	pool_t pool;
+	const char *path;
+	int fd;
 
-	fd = subscription_open(storage, FALSE, &path, &mmap_base, &mmap_length);
-	if (fd < 0) {
-		/* -2 = no subscription file, ignore */
-		return fd == -1 ? -1 : 1;
-	}
+	fd = subscription_open(storage, FALSE, &path);
+	if (fd == -1 && errno != ENOENT)
+		return NULL;
 
-	glob = imap_match_init(mask, TRUE, storage->hierarchy_sep);
+	pool = pool_alloconly_create("subsfile_list", MAX_MAILBOX_LENGTH+1024);
 
-	start = mmap_base; end = start + mmap_length; ret = 1;
-	while (ret) {
-		t_push();
+	ctx = p_new(pool, struct subsfile_list_context, 1);
+	ctx->pool = pool;
+	ctx->storage = storage;
+	ctx->input = fd == -1 ? NULL :
+		i_stream_create_file(fd, pool, MAX_MAILBOX_LENGTH, TRUE);
+	ctx->path = p_strdup(pool, path);
+	return ctx;
+}
 
-		for (p = start; p != end; p++) {
-			if (*p == '\n')
-				break;
-		}
+int subsfile_list_deinit(struct subsfile_list_context *ctx)
+{
+	int failed;
 
-		line = t_strdup_until(start, p);
-		if (line != NULL && *line != '\0' && imap_match(glob, line) > 0)
-			ret = callback(storage, line, context);
-		t_pop();
+	failed = ctx->failed;
+	if (ctx->input != NULL)
+		i_stream_unref(ctx->input);
+	pool_unref(ctx->pool);
 
-		if (p == end)
-			break;
-		start = p+1;
-	}
+	return !failed;
+}
 
-	if (mmap_base != NULL && munmap(mmap_base, mmap_length) < 0)
-		subsfile_set_syscall_error(storage, "munmap()", path);
-	if (close(fd) < 0)
-		subsfile_set_syscall_error(storage, "close()", path);
-	return ret;
+const char *subsfile_list_next(struct subsfile_list_context *ctx)
+{
+	if (ctx->failed || ctx->input == NULL)
+		return NULL;
+
+	return next_line(ctx->storage, ctx->path, ctx->input, &ctx->failed);
 }

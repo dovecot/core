@@ -12,10 +12,25 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-struct find_subscribed_context {
-	mailbox_list_callback_t *callback;
-	void *context;
+struct mailbox_list_context {
+	pool_t pool, list_pool;
+
+	struct mail_storage *storage;
+	const char *dir, *prefix;
+        enum mailbox_list_flags flags;
+
+	DIR *dirp;
+	struct imap_match_glob *glob;
+	struct subsfile_list_context *subsfile_ctx;
+
+	struct mailbox_list *(*next)(struct mailbox_list_context *ctx);
+
+	struct mailbox_list list;
+	int found_inbox, failed;
 };
+
+static struct mailbox_list *maildir_list_subs(struct mailbox_list_context *ctx);
+static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx);
 
 static enum mailbox_flags
 maildir_get_marked_flags_from(const char *dir, time_t index_stamp)
@@ -72,50 +87,147 @@ maildir_get_marked_flags(struct mail_storage *storage, const char *dir)
 	return maildir_get_marked_flags_from(dir, st.st_mtime);
 }
 
-int maildir_find_mailboxes(struct mail_storage *storage, const char *mask,
-			   mailbox_list_callback_t callback, void *context)
+struct mailbox_list_context *
+maildir_list_mailbox_init(struct mail_storage *storage,
+			  const char *mask, enum mailbox_list_flags flags,
+			  int *sorted)
 {
-        struct imap_match_glob *glob;
-	DIR *dirp;
-	struct dirent *d;
-	struct stat st;
-        enum mailbox_flags flags;
-	const char *dir, *prefix, *p;
-	char path[PATH_MAX];
-	int failed, found_inbox, ret;
+        struct mailbox_list_context *ctx;
+	pool_t pool;
+	const char *dir, *p;
 
+	*sorted = FALSE;
 	mail_storage_clear_error(storage);
 
+	pool = pool_alloconly_create("maildir_list", 1024);
+	ctx = p_new(pool, struct mailbox_list_context, 1);
+	ctx->pool = pool;
+	ctx->storage = storage;
+	ctx->flags = flags;
+
+	if ((flags & MAILBOX_LIST_SUBSCRIBED) != 0) {
+		ctx->glob = imap_match_init(pool, mask, TRUE, '.');
+		ctx->subsfile_ctx = subsfile_list_init(storage);
+		ctx->next = maildir_list_subs;
+		if (ctx->subsfile_ctx == NULL) {
+			pool_unref(pool);
+			return NULL;
+		}
+		return ctx;
+	}
+
 	if (!full_filesystem_access || (p = strrchr(mask, '/')) == NULL) {
-		dir = storage->dir;
-		prefix = "";
+		ctx->dir = storage->dir;
+		ctx->prefix = "";
 	} else {
 		p = strchr(p, storage->hierarchy_sep);
 		if (p == NULL) {
 			/* this isn't going to work */
 			mail_storage_set_error(storage, "Invalid list mask");
+			pool_unref(pool);
 			return FALSE;
 		}
 
 		dir = t_strdup_until(mask, p);
-		prefix = t_strdup_until(mask, p+1);
+		ctx->prefix = t_strdup_until(mask, p+1);
 
 		if (*mask != '/' && *mask != '~')
 			dir = t_strconcat(storage->dir, "/", dir, NULL);
-		dir = home_expand(dir);
+		ctx->dir = p_strdup(pool, home_expand(dir));
 	}
 
-	dirp = opendir(dir);
-	if (dirp == NULL) {
+	ctx->dirp = opendir(ctx->dir);
+	if (ctx->dirp == NULL) {
 		mail_storage_set_critical(storage, "opendir(%s) failed: %m",
-					  dir);
-		return FALSE;
+					  ctx->dir);
+		pool_unref(pool);
+		return NULL;
 	}
 
-	glob = imap_match_init(mask, TRUE, '.');
+	ctx->list_pool = pool_alloconly_create("maildir_list.list", 4096);
+	ctx->glob = imap_match_init(pool, mask, TRUE, '.');
+	ctx->next = maildir_list_next;
+	return ctx;
+}
 
-	failed = found_inbox = FALSE;
-	while ((d = readdir(dirp)) != NULL) {
+int maildir_list_mailbox_deinit(struct mailbox_list_context *ctx)
+{
+	int failed;
+
+	if (ctx->subsfile_ctx != NULL)
+		failed = !subsfile_list_deinit(ctx->subsfile_ctx);
+	else
+		failed = ctx->failed;
+
+	if (ctx->dirp != NULL)
+		(void)closedir(ctx->dirp);
+	if (ctx->list_pool != NULL)
+		pool_unref(ctx->list_pool);
+	imap_match_deinit(ctx->glob);
+	pool_unref(ctx->pool);
+
+	return !failed;
+}
+
+static struct mailbox_list *maildir_list_subs(struct mailbox_list_context *ctx)
+{
+	struct stat st;
+	const char *name, *path, *p;
+	enum imap_match_result match = IMAP_MATCH_NO;
+
+	while ((name = subsfile_list_next(ctx->subsfile_ctx)) != NULL) {
+		match = imap_match(ctx->glob, name);
+		if (match == IMAP_MATCH_YES || match == IMAP_MATCH_PARENT)
+			break;
+	}
+
+	if (name == NULL)
+		return NULL;
+
+	ctx->list.flags = 0;
+	ctx->list.name = name;
+
+	if ((ctx->flags & MAILBOX_LIST_NO_FLAGS) != 0)
+		return &ctx->list;
+
+	if (match == IMAP_MATCH_PARENT) {
+		/* placeholder */
+		ctx->list.flags = MAILBOX_NOSELECT;
+		while ((p = strrchr(name, '.')) != NULL) {
+			name = t_strdup_until(name, p);
+			if (imap_match(ctx->glob, name) > 0) {
+				ctx->list.name = name;
+				return &ctx->list;
+			}
+		}
+		i_unreached();
+	}
+
+	t_push();
+	path = maildir_get_path(ctx->storage, ctx->list.name);
+	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
+		ctx->list.flags = maildir_get_marked_flags(ctx->storage, path);
+	else {
+		if (strcasecmp(ctx->list.name, "INBOX") == 0)
+			ctx->list.flags = 0;
+		else
+			ctx->list.flags = MAILBOX_NOSELECT;
+	}
+	t_pop();
+	return &ctx->list;
+}
+
+static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx)
+{
+	struct dirent *d;
+	struct stat st;
+	char path[PATH_MAX];
+	int ret;
+
+	if (ctx->dirp == NULL)
+		return NULL;
+
+	while ((d = readdir(ctx->dirp)) != NULL) {
 		const char *fname = d->d_name;
 
 		if (fname[0] != '.')
@@ -128,23 +240,24 @@ int maildir_find_mailboxes(struct mail_storage *storage, const char *mask,
 		/* make sure the mask matches - dirs beginning with ".."
 		   should be deleted and we always want to check those. */
 		t_push();
-		ret = imap_match(glob, t_strconcat(prefix, fname+1, NULL));
+		ret = imap_match(ctx->glob,
+				 t_strconcat(ctx->prefix, fname+1, NULL));
 		t_pop();
 		if (fname[1] == '.' || ret <= 0)
 			continue;
 
-		if (str_path(path, sizeof(path), dir, fname) < 0)
+		if (str_path(path, sizeof(path), ctx->dir, fname) < 0)
 			continue;
 
 		/* make sure it's a directory */
-		if (stat(path, &st) != 0) {
+		if (stat(path, &st) < 0) {
 			if (errno == ENOENT)
 				continue; /* just deleted, ignore */
 
-			mail_storage_set_critical(storage,
+			mail_storage_set_critical(ctx->storage,
 						  "stat(%s) failed: %m", path);
-			failed = TRUE;
-			break;
+			ctx->failed = TRUE;
+			return NULL;
 		}
 
 		if (!S_ISDIR(st.st_mode))
@@ -162,60 +275,43 @@ int maildir_find_mailboxes(struct mail_storage *storage, const char *mask,
 		}
 
 		if (strcasecmp(fname+1, "INBOX") == 0) {
-			if (found_inbox) {
+			if (ctx->found_inbox) {
 				/* another inbox, ignore it */
 				continue;
 			}
-			found_inbox = TRUE;
+			ctx->found_inbox = TRUE;
 		}
 
-		t_push();
-		flags = maildir_get_marked_flags(storage, path);
-		callback(storage, t_strconcat(prefix, fname+1, NULL),
-			 flags, context);
-		t_pop();
+		p_clear(ctx->list_pool);
+		if ((ctx->flags & MAILBOX_LIST_NO_FLAGS) == 0) {
+			ctx->list.flags =
+				maildir_get_marked_flags(ctx->storage, path);
+		}
+		ctx->list.name = p_strconcat(ctx->list_pool,
+					     ctx->prefix, fname+1, NULL);
+		return &ctx->list;
 	}
 
-	if (!failed && !found_inbox && imap_match(glob, "INBOX") > 0) {
+	if (closedir(ctx->dirp) < 0) {
+		mail_storage_set_critical(ctx->storage,
+					  "closedir(%s) failed: %m", ctx->dir);
+		ctx->failed = TRUE;
+	}
+	ctx->dirp = NULL;
+
+	if (!ctx->found_inbox && imap_match(ctx->glob, "INBOX") > 0) {
 		/* .INBOX directory doesn't exist yet, but INBOX still exists */
-		callback(storage, "INBOX", 0, context);
+		ctx->list.flags = 0;
+		ctx->list.name = "INBOX";
+		return &ctx->list;
 	}
 
-	(void)closedir(dirp);
-	return !failed;
+	/* we're finished */
+	return NULL;
 }
 
-static int maildir_subs_cb(struct mail_storage *storage, const char *name,
-			   void *context)
+struct mailbox_list *
+maildir_list_mailbox_next(struct mailbox_list_context *ctx)
 {
-	struct find_subscribed_context *ctx = context;
-	enum mailbox_flags flags;
-	struct stat st;
-	char path[PATH_MAX];
-
-	if (str_ppath(path, sizeof(path), storage->dir, ".", name) < 0)
-		flags = MAILBOX_NOSELECT;
-	else {
-		if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
-			flags = maildir_get_marked_flags(storage, path);
-		else
-			flags = MAILBOX_NOSELECT;
-	}
-
-	ctx->callback(storage, name, flags, ctx->context);
-	return TRUE;
-}
-
-int maildir_find_subscribed(struct mail_storage *storage, const char *mask,
-			    mailbox_list_callback_t callback, void *context)
-{
-	struct find_subscribed_context ctx;
-
-	ctx.callback = callback;
-	ctx.context = context;
-
-	if (subsfile_foreach(storage, mask, maildir_subs_cb, &ctx) <= 0)
-		return FALSE;
-
-	return TRUE;
+	return ctx->next(ctx);
 }

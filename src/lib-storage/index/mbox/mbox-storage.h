@@ -14,10 +14,11 @@ int mbox_storage_save_next(struct mail_save_context *ctx,
 			   time_t received_date, int timezone_offset,
 			   struct istream *data);
 
-int mbox_find_mailboxes(struct mail_storage *storage, const char *mask,
-			mailbox_list_callback_t callback, void *context);
-int mbox_find_subscribed(struct mail_storage *storage, const char *mask,
-			 mailbox_list_callback_t callback, void *context);
+struct mailbox_list_context *
+mbox_list_mailbox_init(struct mail_storage *storage, const char *mask,
+		       enum mailbox_list_flags flags, int *sorted);
+int mbox_list_mailbox_deinit(struct mailbox_list_context *ctx);
+struct mailbox_list *mbox_list_mailbox_next(struct mailbox_list_context *ctx);
 
 int mbox_expunge_locked(struct index_mailbox *ibox, int notify);
 

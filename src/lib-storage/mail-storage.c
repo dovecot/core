@@ -23,6 +23,7 @@ struct client_workaround_list {
 
 struct client_workaround_list client_workaround_list[] = {
 	{ "oe6-fetch-no-newmail", WORKAROUND_OE6_FETCH_NO_NEWMAIL },
+	{ "list-sort", WORKAROUND_LIST_SORT },
 	{ NULL, 0 }
 };
 
@@ -48,11 +49,13 @@ void mail_storage_init(void)
 
 		list = client_workaround_list;
 		for (; list->name != NULL; list++) {
-			if (strcasecmp(*str, list->name) == 0)
+			if (strcasecmp(*str, list->name) == 0) {
 				client_workarounds |= list->num;
-			else
-				i_fatal("Unknown client workaround: %s", *str);
+				break;
+			}
 		}
+		if (list->name == NULL)
+			i_fatal("Unknown client workaround: %s", *str);
 	}
 }
 

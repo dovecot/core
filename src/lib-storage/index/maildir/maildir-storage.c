@@ -120,8 +120,7 @@ static const char *maildir_get_absolute_path(const char *name)
 	return t_strconcat(t_strdup_until(name, p), "/", p, NULL);
 }
 
-static const char *maildir_get_path(struct mail_storage *storage,
-				    const char *name)
+const char *maildir_get_path(struct mail_storage *storage, const char *name)
 {
 	if (full_filesystem_access && (*name == '/' || *name == '~'))
 		return maildir_get_absolute_path(name);
@@ -431,43 +430,63 @@ static int rename_indexes(struct mail_storage *storage,
 	return TRUE;
 }
 
-static void rename_subfolder(struct mail_storage *storage, const char *name,
-			     enum mailbox_flags flags __attr_unused__,
-			     void *context)
+static int rename_subfolders(struct mail_storage *storage,
+			     const char *oldname, const char *newname)
 {
-	struct rename_context *ctx = context;
-	const char *newname, *oldpath, *newpath;
+	struct mailbox_list_context *ctx;
+        struct mailbox_list *list;
+	const char *oldpath, *newpath, *new_listname;
+	size_t oldnamelen;
+	int sorted, ret;
 
-	i_assert(ctx->oldnamelen <= strlen(name));
+	ret = 0;
+	oldnamelen = strlen(oldname);
 
-	newname = t_strconcat(ctx->newname, ".", name + ctx->oldnamelen, NULL);
+	ctx = storage->list_mailbox_init(storage,
+					 t_strconcat(oldname, ".*", NULL),
+					 MAILBOX_LIST_NO_FLAGS, &sorted);
+	while ((list = maildir_list_mailbox_next(ctx)) != NULL) {
+		i_assert(oldnamelen <= strlen(list->name));
 
-	oldpath = maildir_get_path(storage, name);
-	newpath = maildir_get_path(storage, newname);
+		t_push();
+		new_listname = t_strconcat(newname, ".",
+					   list->name + oldnamelen, NULL);
+		oldpath = maildir_get_path(storage, list->name);
+		newpath = maildir_get_path(storage, new_listname);
 
-	/* FIXME: it's possible to merge two folders if either one of them
-	   doesn't have existing root folder. We could check this but I'm not
-	   sure if it's worth it. It could be even considered as a feature.
+		/* FIXME: it's possible to merge two folders if either one of
+		   them doesn't have existing root folder. We could check this
+		   but I'm not sure if it's worth it. It could be even
+		   considered as a feature.
 
-	   Anyway, the bug with merging is that if both folders have
-	   identically named subfolder they conflict. Just ignore those and
-	   leave them under the old folder. */
-	if (rename(oldpath, newpath) == 0 || errno == EEXIST)
-		ctx->found = TRUE;
-	else {
-		mail_storage_set_critical(storage, "rename(%s, %s) failed: %m",
-					  oldpath, newpath);
+		   Anyway, the bug with merging is that if both folders have
+		   identically named subfolder they conflict. Just ignore those
+		   and leave them under the old folder. */
+		if (rename(oldpath, newpath) == 0 ||
+		    errno == EEXIST || errno == ENOTEMPTY)
+			ret = 1;
+		else {
+			mail_storage_set_critical(storage, "rename(%s, %s) failed: %m",
+						  oldpath, newpath);
+			ret = -1;
+			t_pop();
+			break;
+		}
+
+		(void)rename_indexes(storage, list->name, new_listname);
+		t_pop();
 	}
 
-	(void)rename_indexes(storage, name, newname);
+	if (!maildir_list_mailbox_deinit(ctx))
+		return -1;
+	return ret;
 }
 
 static int maildir_rename_mailbox(struct mail_storage *storage,
 				  const char *oldname, const char *newname)
 {
-	struct rename_context ctx;
 	const char *oldpath, *newpath;
-	int ret;
+	int ret, found;
 
 	mail_storage_clear_error(storage);
 
@@ -495,19 +514,16 @@ static int maildir_rename_mailbox(struct mail_storage *storage,
 		if (!rename_indexes(storage, oldname, newname))
 			return FALSE;
 
-		ctx.found = ret == 0;
-		ctx.oldnamelen = strlen(oldname)+1;
-		ctx.newname = newname;
-		if (!maildir_find_mailboxes(storage,
-					    t_strconcat(oldname, ".*", NULL),
-					    rename_subfolder, &ctx))
+		found = ret == 0;
+		ret = rename_subfolders(storage, oldname, newname);
+		if (ret < 0)
 			return FALSE;
-
-		if (!ctx.found) {
+		if (!found && ret == 0) {
 			mail_storage_set_error(storage,
 					       "Mailbox doesn't exist");
 			return FALSE;
 		}
+
 		return TRUE;
 	}
 
@@ -581,9 +597,10 @@ struct mail_storage maildir_storage = {
 	maildir_create_mailbox,
 	maildir_delete_mailbox,
 	maildir_rename_mailbox,
-	maildir_find_mailboxes,
+	maildir_list_mailbox_init,
+	maildir_list_mailbox_deinit,
+	maildir_list_mailbox_next,
 	subsfile_set_subscribed,
-	maildir_find_subscribed,
 	maildir_get_mailbox_name_status,
 	mail_storage_get_last_error,
 

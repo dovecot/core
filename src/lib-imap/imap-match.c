@@ -10,6 +10,8 @@
 #include <ctype.h>
 
 struct imap_match_glob {
+	pool_t pool;
+
 	int inboxcase;
 	const char *inboxcase_end;
 
@@ -21,15 +23,16 @@ struct imap_match_glob {
 static const char inbox[] = "INBOX";
 #define INBOXLEN (sizeof(inbox) - 1)
 
-struct imap_match_glob *imap_match_init(const char *mask, int inboxcase,
-					char separator)
+struct imap_match_glob *
+imap_match_init(pool_t pool, const char *mask, int inboxcase, char separator)
 {
 	struct imap_match_glob *glob;
 	const char *p, *inboxp;
 	char *dst;
 
 	/* +1 from struct */
-	glob = t_malloc(sizeof(struct imap_match_glob) + strlen(mask));
+	glob = p_malloc(pool, sizeof(struct imap_match_glob) + strlen(mask));
+	glob->pool = pool;
 	glob->sep_char = separator;
 
 	/* @UNSAFE: compress the mask */
@@ -79,11 +82,16 @@ struct imap_match_glob *imap_match_init(const char *mask, int inboxcase,
 		}
 
 		if (glob->inboxcase && inboxp != NULL && *inboxp != '\0' &&
-		    *p != '*' && (p != glob->mask && p[-1] == '%'))
+		    *p != '*' && (p != glob->mask && p[-1] != '%'))
 			glob->inboxcase = FALSE;
 	}
 
 	return glob;
+}
+
+void imap_match_deinit(struct imap_match_glob *glob)
+{
+	p_free(glob->pool, glob);
 }
 
 static inline int cmp_chr(const struct imap_match_glob *glob,
@@ -94,23 +102,24 @@ static inline int cmp_chr(const struct imap_match_glob *glob,
 		 i_toupper(*data) == i_toupper(maskchr));
 }
 
-static int match_sub(const struct imap_match_glob *glob, const char **data_p,
-		     const char **mask_p)
+static enum imap_match_result
+match_sub(const struct imap_match_glob *glob, const char **data_p,
+	  const char **mask_p)
 {
 	const char *mask, *data;
-	int ret, best_ret;
+	enum imap_match_result ret, best_ret;
 
 	data = *data_p; mask = *mask_p;
 
 	while (*mask != '\0' && *mask != '*' && *mask != '%') {
 		if (!cmp_chr(glob, data, *mask)) {
 			return *data == '\0' && *mask == glob->sep_char ?
-				0 : -1;
+				IMAP_MATCH_CHILDREN : IMAP_MATCH_NO;
 		}
 		data++; mask++;
 	}
 
-        best_ret = -1;
+        best_ret = IMAP_MATCH_NO;
 	while (*mask == '%') {
 		mask++;
 
@@ -126,8 +135,8 @@ static int match_sub(const struct imap_match_glob *glob, const char **data_p,
 				if (ret > 0)
 					break;
 
-				if (ret == 0)
-					best_ret = 0;
+				if (ret == IMAP_MATCH_CHILDREN)
+					best_ret = IMAP_MATCH_CHILDREN;
 			}
 
 			if (*data == glob->sep_char)
@@ -139,18 +148,23 @@ static int match_sub(const struct imap_match_glob *glob, const char **data_p,
 
 	if (*mask != '*') {
 		if (*data == '\0' && *mask != '\0')
-			return *mask == glob->sep_char ? 0 : best_ret;
+			return *mask == glob->sep_char ?
+				IMAP_MATCH_CHILDREN : best_ret;
 
-		if (*data != '\0')
-			return best_ret;
+		if (*data != '\0') {
+			return best_ret != IMAP_MATCH_NO ||
+				*mask != '\0' || *data != glob->sep_char ?
+				best_ret : IMAP_MATCH_PARENT;
+		}
 	}
 
 	*data_p = data;
 	*mask_p = mask;
-	return 1;
+	return IMAP_MATCH_YES;
 }
 
-int imap_match(struct imap_match_glob *glob, const char *data)
+enum imap_match_result
+imap_match(struct imap_match_glob *glob, const char *data)
 {
 	const char *mask;
 	int ret;
@@ -168,14 +182,14 @@ int imap_match(struct imap_match_glob *glob, const char *data)
 			return ret;
 
 		if (*mask == '\0')
-			return 1;
+			return IMAP_MATCH_YES;
 	}
 
 	while (*mask == '*') {
 		mask++;
 
 		if (*mask == '\0')
-			return 1;
+			return IMAP_MATCH_YES;
 
 		while (*data != '\0') {
 			if (cmp_chr(glob, data, *mask)) {
@@ -187,5 +201,6 @@ int imap_match(struct imap_match_glob *glob, const char *data)
 		}
 	}
 
-	return *data == '\0' && *mask == '\0' ? 1 : 0;
+	return *data == '\0' && *mask == '\0' ?
+		IMAP_MATCH_YES : IMAP_MATCH_CHILDREN;
 }

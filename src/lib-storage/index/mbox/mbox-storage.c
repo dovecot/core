@@ -645,9 +645,10 @@ struct mail_storage mbox_storage = {
 	mbox_create_mailbox,
 	mbox_delete_mailbox,
 	mbox_rename_mailbox,
-	mbox_find_mailboxes,
+	mbox_list_mailbox_init,
+	mbox_list_mailbox_deinit,
+	mbox_list_mailbox_next,
 	subsfile_set_subscribed,
-	mbox_find_subscribed,
 	mbox_get_mailbox_name_status,
 	mail_storage_get_last_error,
 
