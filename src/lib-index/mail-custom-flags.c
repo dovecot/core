@@ -379,7 +379,7 @@ static int custom_flags_remove(MailCustomFlags *mcf, unsigned int idx)
 			memmove(line, data, mcf->mmap_length - pos);
 
 			mcf->mmap_length -= linelen;
-			if (ftruncate(mcf->fd, (off_t) mcf->mmap_length) == -1) {
+			if (ftruncate(mcf->fd, (off_t) mcf->mmap_length) < 0) {
 				index_cf_set_syscall_error(mcf, "ftruncate()");
 				return FALSE;
 			}
@@ -478,6 +478,8 @@ static int get_flag_index(MailCustomFlags *mcf, const char *flag,
 
 	if (!custom_flags_add(mcf, first_empty, flag))
 		return -1;
+
+	mcf->index->set_flags |= MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS;
 
 	mcf->custom_flags[first_empty] = i_strdup(flag);
 	return first_empty;

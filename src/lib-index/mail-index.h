@@ -16,13 +16,14 @@ enum {
 	/* Rebuild flag is set while index is being rebuilt or when
 	   some error is noticed in the index file. If this flag is set,
 	   the index shouldn't be used before rebuilding it. */
-	MAIL_INDEX_FLAG_REBUILD		= 0x01,
-	MAIL_INDEX_FLAG_FSCK		= 0x02,
-	MAIL_INDEX_FLAG_CACHE_FIELDS	= 0x04,
-	MAIL_INDEX_FLAG_COMPRESS	= 0x08,
-	MAIL_INDEX_FLAG_COMPRESS_DATA	= 0x10,
-	MAIL_INDEX_FLAG_REBUILD_HASH	= 0x20,
-	MAIL_INDEX_FLAG_DIRTY_MESSAGES	= 0x40
+	MAIL_INDEX_FLAG_REBUILD			= 0x01,
+	MAIL_INDEX_FLAG_FSCK			= 0x02,
+	MAIL_INDEX_FLAG_CACHE_FIELDS		= 0x04,
+	MAIL_INDEX_FLAG_COMPRESS		= 0x08,
+	MAIL_INDEX_FLAG_COMPRESS_DATA		= 0x10,
+	MAIL_INDEX_FLAG_REBUILD_HASH		= 0x20,
+	MAIL_INDEX_FLAG_DIRTY_MESSAGES		= 0x40,
+	MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS	= 0x80
 };
 
 typedef enum {

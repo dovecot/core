@@ -38,7 +38,8 @@ static void reset_dirty_flags(MailIndex *index)
 		rec = index->next(index, rec);
 	}
 
-	index->header->flags &= ~MAIL_INDEX_FLAG_DIRTY_MESSAGES;
+	index->header->flags &= ~(MAIL_INDEX_FLAG_DIRTY_MESSAGES |
+				  MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS);
 }
 
 static int mbox_write(MailIndex *index, IOBuffer *inbuf, IOBuffer *outbuf,
@@ -262,18 +263,48 @@ static int mbox_write_header(MailIndex *index,
 	return TRUE;
 }
 
+static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
+{
+	IOBuffer *inbuf, *outbuf;
+	int ret;
+
+	i_assert(out_offset <= OFF_T_MAX);
+
+	if (lseek(in_fd, 0, SEEK_SET) < 0)
+		return -1;
+	if (lseek(out_fd, (off_t)out_offset, SEEK_SET) < 0)
+		return -1;
+
+	inbuf = io_buffer_create_mmap(in_fd, default_pool, 65536, 0);
+	outbuf = io_buffer_create_file(out_fd, default_pool, 1024);
+
+	ret = io_buffer_send_iobuffer(outbuf, inbuf, inbuf->size);
+	if (ret < 0)
+		errno = outbuf->buf_errno;
+	else {
+		/* we may have shrinked the file */
+		i_assert(out_offset + inbuf->size <= OFF_T_MAX);
+		ret = ftruncate(out_fd, (off_t) (out_offset + inbuf->size));
+	}
+
+	io_buffer_destroy(outbuf);
+	io_buffer_destroy(inbuf);
+
+	return ret;
+}
+
 int mbox_index_rewrite(MailIndex *index)
 {
-	/* Write it to temp file and then rename() to real file.
-	   easier and much safer than moving data inside the file.
-	   This rewriting relies quite a lot on valid header/body sizes
-	   which fsck() should have ensured. */
+	/* Write messages beginning from the first dirty one to temp file,
+	   then copy it over the mbox file. This may create data loss if
+	   interrupted (see below). This rewriting relies quite a lot on
+	   valid header/body sizes which fsck() should have ensured. */
 	MailIndexRecord *rec;
 	IOBuffer *inbuf, *outbuf;
-	uoff_t offset;
+	uoff_t offset, dirty_offset;
 	const char *path;
 	unsigned int seq;
-	int in_fd, out_fd, failed;
+	int mbox_fd, tmp_fd, failed, dirty_found, locked, rewrite;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
@@ -282,36 +313,58 @@ int mbox_index_rewrite(MailIndex *index)
 		return TRUE;
 	}
 
-	if (!mbox_index_fsck(index))
-		return FALSE;
+	mbox_fd = tmp_fd = -1; locked = FALSE;
+	failed = TRUE; rewrite = FALSE;
+	do {
+		/* lock before fscking to prevent race conditions between
+		   fsck's unlock and our lock. */
+		mbox_fd = open(index->mbox_path, O_RDWR);
+		if (mbox_fd == -1) {
+			mbox_set_syscall_error(index, "open()");
+			break;
+		}
 
-	if ((index->header->flags & MAIL_INDEX_FLAG_DIRTY_MESSAGES) == 0) {
-		/* fsck() figured out there's no dirty messages after all */
-		return TRUE;
-	}
+		if (!mbox_lock(index, index->mbox_path, mbox_fd, TRUE))
+			break;
+		locked = TRUE;
 
-	in_fd = open(index->mbox_path, O_RDWR);
-	if (in_fd == -1)
-		return mbox_set_syscall_error(index, "open()");
+		if (!mbox_index_fsck(index))
+			break;
 
-	out_fd = mail_index_create_temp_file(index, &path);
-	if (out_fd == -1) {
-		if (close(in_fd) < 0)
+		if ((index->header->flags &
+		     MAIL_INDEX_FLAG_DIRTY_MESSAGES) == 0) {
+			/* fsck() figured out there's no dirty messages
+			   after all */
+			failed = FALSE; rewrite = FALSE;
+			break;
+		}
+
+		tmp_fd = mail_index_create_temp_file(index, &path);
+		if (tmp_fd == -1)
+			break;
+
+		failed = FALSE; rewrite = TRUE;
+	} while (0);
+
+	if (!rewrite) {
+		if (locked)
+			(void)mbox_unlock(index, index->mbox_path, mbox_fd);
+		if (mbox_fd != -1 && close(mbox_fd) < 0)
 			mbox_set_syscall_error(index, "close()");
-		return FALSE;
+		return !failed;
 	}
 
-	if (!mbox_lock(index, index->mbox_path, in_fd, TRUE)) {
-		if (close(in_fd) < 0)
-			mbox_set_syscall_error(index, "close()");
-		if (close(out_fd) < 0)
-			index_file_set_syscall_error(index, path, "close()");
-		return FALSE;
+	if (index->header->flags & MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS) {
+		/* need to update X-IMAPbase in first message */
+		dirty_found = TRUE;
+	} else {
+		dirty_found = FALSE;
 	}
+	dirty_offset = 0;
 
-	inbuf = io_buffer_create_mmap(in_fd, default_pool,
+	inbuf = io_buffer_create_mmap(mbox_fd, default_pool,
 				      MAIL_MMAP_BLOCK_SIZE, 0);
-	outbuf = io_buffer_create_file(out_fd, default_pool, 8192);
+	outbuf = io_buffer_create_file(tmp_fd, default_pool, 8192);
 
 	failed = FALSE; seq = 1;
 	rec = index->lookup(index, 1);
@@ -329,29 +382,46 @@ int mbox_index_rewrite(MailIndex *index)
 			break;
 		}
 
-		/* write the From-line */
-		if (!mbox_write(index, inbuf, outbuf, offset)) {
-			failed = TRUE;
-			break;
+		if (!dirty_found &&
+		    (rec->index_flags & INDEX_MAIL_FLAG_DIRTY)) {
+			/* first dirty message */
+			dirty_found = TRUE;
+			dirty_offset = offset;
+
+			io_buffer_seek(inbuf, dirty_offset);
 		}
 
-		/* write header, updating flag fields */
-		offset += rec->header_size;
-		if (!mbox_write_header(index, rec, seq, inbuf, outbuf,
-				       offset)) {
-			failed = TRUE;
-			break;
-		}
+		if (dirty_found) {
+			/* write the From-line */
+			if (!mbox_write(index, inbuf, outbuf, offset)) {
+				failed = TRUE;
+				break;
+			}
 
-		/* write body */
-		offset += rec->body_size;
-		if (!mbox_write(index, inbuf, outbuf, offset)) {
-			failed = TRUE;
-			break;
+			/* write header, updating flag fields */
+			offset += rec->header_size;
+			if (!mbox_write_header(index, rec, seq, inbuf, outbuf,
+					       offset)) {
+				failed = TRUE;
+				break;
+			}
+
+			/* write body */
+			offset += rec->body_size;
+			if (!mbox_write(index, inbuf, outbuf, offset)) {
+				failed = TRUE;
+				break;
+			}
 		}
 
 		seq++;
 		rec = index->next(index, rec);
+	}
+
+	if (!dirty_found) {
+		index_set_error(index, "Expected dirty messages not found "
+				"from mbox file %s", index->mbox_path);
+		failed = TRUE;
 	}
 
 	/* always end with a \n */
@@ -362,28 +432,43 @@ int mbox_index_rewrite(MailIndex *index)
 		failed = TRUE;
 	}
 
+	io_buffer_destroy(outbuf);
+	io_buffer_destroy(inbuf);
+
 	if (!failed) {
-		if (rename(path, index->mbox_path) == 0) {
+		/* POSSIBLE DATA LOSS HERE. We're writing to the mbox file,
+		   so if we get killed here before finished, we'll lose some
+		   bytes. I can't really think of any way to fix this,
+		   rename() is problematic too especially because of file
+		   locking issues (new mail could be lost).
+
+		   Usually we're moving the data by just a few bytes, so
+		   the data loss should never be more than those few bytes..
+		   If we moved more, we could have written the file from end
+		   to beginning in blocks (it'd be a bit slow to do it in
+		   blocks of ~1-10 bytes which is the usual case, so we don't
+		   bother).
+
+		   Also, we might as well be shrinking the file, in which
+		   case we can't lose data. */
+		if (fd_copy(tmp_fd, mbox_fd, dirty_offset) == 0) {
 			/* all ok, we need to fsck the index next time.
 			   use set_flags because set_lock() would remove it
 			   if we modified it directly */
 			index->set_flags |= MAIL_INDEX_FLAG_FSCK;
 			reset_dirty_flags(index);
 		} else {
-			index_set_error(index, "rename(%s, %s) failed: %m",
-					path, index->mbox_path);
+			mbox_set_syscall_error(index, "fd_copy()");
 			failed = TRUE;
 		}
 	}
 
-	(void)mbox_unlock(index, index->mbox_path, in_fd);
+	(void)mbox_unlock(index, index->mbox_path, mbox_fd);
 	(void)unlink(path);
 
-	if (close(in_fd) < 0)
+	if (close(mbox_fd) < 0)
 		mbox_set_syscall_error(index, "close()");
-	if (close(out_fd) < 0)
+	if (close(tmp_fd) < 0)
 		index_file_set_syscall_error(index, path, "close()");
-	io_buffer_destroy(outbuf);
-	io_buffer_destroy(inbuf);
 	return failed;
 }
