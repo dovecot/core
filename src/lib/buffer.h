@@ -30,6 +30,9 @@ void buffer_free(buffer_t *buf);
    unfree'd. */
 void *buffer_free_without_data(buffer_t *buf);
 
+/* Reset the buffer. used size and it's contents are zeroed. */
+void buffer_reset(buffer_t *buf);
+
 /* Write data to buffer at specified position, returns number of bytes
    written. */
 size_t buffer_write(buffer_t *buf, size_t pos,
