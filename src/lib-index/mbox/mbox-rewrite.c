@@ -57,7 +57,7 @@ static int mbox_write(MailIndex *index, IBuffer *inbuf, OBuffer *outbuf,
 	i_assert(inbuf->v_offset <= end_offset);
 
 	old_limit = inbuf->v_limit;
-	i_buffer_set_read_limit(inbuf, end_offset - inbuf->v_offset);
+	i_buffer_set_read_limit(inbuf, end_offset);
 	if (o_buffer_send_ibuffer(outbuf, inbuf) < 0) {
 		index_set_error(index, "Error rewriting mbox file %s: %s",
 				index->mbox_path, strerror(outbuf->buf_errno));

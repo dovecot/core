@@ -202,7 +202,7 @@ o_buffer_writev(FileOBuffer *fbuf, struct iovec *iov, unsigned int iov_size)
 
 	update_iovec(iov, iov_size, ret);
 	update_buffer(fbuf, ret);
-	fbuf->obuf.obuffer.v_offset += ret;
+	fbuf->obuf.obuffer.offset += ret;
 
 	return ret;
 }
@@ -392,7 +392,7 @@ static int _seek(_OBuffer *buf, uoff_t offset)
 	}
 
 	buf->obuffer.buf_errno = 0;
-	buf->obuffer.v_offset = 0;
+	buf->obuffer.offset = offset;
 	return 1;
 }
 
@@ -528,8 +528,8 @@ static void ioloop_sendfile(IOLoopWriteContext *ctx)
 	in_fd = i_buffer_get_fd(ctx->inbuf);
 	i_assert(in_fd != -1);
 
-	offset = ctx->inbuf->v_offset;
-	send_size = ctx->inbuf->v_limit - offset;
+	offset = ctx->inbuf->start_offset + ctx->inbuf->v_offset;
+	send_size = ctx->inbuf->v_limit - ctx->inbuf->v_offset;
 
 	ret = safe_sendfile(ctx->fbuf->fd, in_fd, &offset,
 			    MAX_SSIZE_T(send_size));
@@ -542,7 +542,7 @@ static void ioloop_sendfile(IOLoopWriteContext *ctx)
 	}
 
 	i_buffer_skip(ctx->inbuf, (size_t)ret);
-	outbuf->v_offset += ret;
+	outbuf->offset += ret;
 
 	if (outbuf->closed || (size_t)ret == send_size)
 		io_loop_stop(ctx->ioloop);
@@ -594,8 +594,8 @@ static off_t o_buffer_sendfile(_OBuffer *outbuf, IBuffer *inbuf)
 		return -1;
 
 	/* first try if we can do it with a single sendfile() call */
-	offset = inbuf->v_offset;
-	send_size = inbuf->v_limit - offset;
+	offset = inbuf->start_offset + inbuf->v_offset;
+	send_size = inbuf->v_limit - inbuf->v_offset;
 
 	s_ret = safe_sendfile(foutbuf->fd, in_fd, &offset,
 			      MAX_SSIZE_T(send_size));
@@ -608,7 +608,7 @@ static off_t o_buffer_sendfile(_OBuffer *outbuf, IBuffer *inbuf)
 	}
 
 	i_buffer_skip(inbuf, (size_t)s_ret);
-	outbuf->obuffer.v_offset += s_ret;
+	outbuf->obuffer.offset += s_ret;
 
 	if ((uoff_t)s_ret == send_size) {
 		/* yes, all sent */

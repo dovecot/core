@@ -4,7 +4,7 @@
 #include "ioloop.h" /* TimeoutFunc */
 
 struct _OBuffer {
-	uoff_t v_offset; /* relative to start offset */
+	uoff_t offset;
 
 	int buf_errno;
 	unsigned int closed:1;
@@ -43,8 +43,8 @@ int o_buffer_flush(OBuffer *buf);
    max_size, 0 if not. */
 int o_buffer_have_space(OBuffer *buf, size_t size);
 
-/* Seek to specified position from beginning of file and v_offset is set to 0.
-   This works only for files. Returns 1 if successful, -1 if error. */
+/* Seek to specified position from beginning of file. This works only for
+   files. Returns 1 if successful, -1 if error. */
 int o_buffer_seek(OBuffer *buf, uoff_t offset);
 /* Returns number of bytes sent or buffered, or -1 if disconnected */
 ssize_t o_buffer_send(OBuffer *buf, const void *data, size_t size);

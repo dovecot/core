@@ -70,7 +70,7 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 			i_assert(inbuf->v_offset <= from_offset);
 			i_buffer_skip(inbuf, from_offset - inbuf->v_offset);
 
-			if (outbuf->v_offset == 0) {
+			if (outbuf->offset == 0) {
 				/* we're writing to beginning of mbox, so we
 				   don't want the [\r]\n there */
 				(void)i_buffer_read_data(inbuf, &data,
@@ -82,8 +82,7 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 					i_buffer_skip(inbuf, 2);
 			}
 
-			i_buffer_set_read_limit(inbuf,
-						end_offset - inbuf->v_offset);
+			i_buffer_set_read_limit(inbuf, end_offset);
 			failed = o_buffer_send_ibuffer(outbuf, inbuf) < 0;
 			i_buffer_set_read_limit(inbuf, old_limit);
 
@@ -101,14 +100,10 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 	   as well just appended more data.. but if we've deleted all mail,
 	   don't write the only \n there. */
 	copy_size = inbuf->v_size - inbuf->v_offset;
-	if (outbuf->v_offset == 0 && copy_size == 1)
+	if (outbuf->offset == 0 && copy_size == 1)
 		return TRUE;
 
-	i_buffer_set_read_limit(inbuf, copy_size);
-	failed = o_buffer_send_ibuffer(outbuf, inbuf) < 0;
-	i_buffer_set_read_limit(inbuf, old_limit);
-
-	return !failed && inbuf->v_offset == end_offset;
+	return o_buffer_send_ibuffer(outbuf, inbuf) >= 0;
 }
 
 int mbox_expunge_locked(IndexMailbox *ibox,
@@ -144,13 +139,13 @@ int mbox_expunge_locked(IndexMailbox *ibox,
 	failed = !expunge_real(ibox, rec, seq, inbuf, outbuf,
 			       expunge_func, context);
 
-	if (failed && outbuf->v_offset > 0) {
+	if (failed && outbuf->offset > 0) {
 		/* we moved some of the data. move the rest as well so there
 		   won't be invalid holes in mbox file */
 		(void)o_buffer_send_ibuffer(outbuf, inbuf);
 	}
 
-	if (ftruncate(ibox->index->mbox_fd, outbuf->v_offset) < 0) {
+	if (ftruncate(ibox->index->mbox_fd, outbuf->offset) < 0) {
 		mail_storage_set_error(ibox->box.storage, "ftruncate() failed "
 				       "for mbox file %s: %m",
 				       ibox->index->mbox_path);

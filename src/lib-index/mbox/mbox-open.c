@@ -12,7 +12,7 @@
 IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 {
 	IBuffer *inbuf;
-	uoff_t offset, stop_offset;
+	uoff_t offset, v_stop_offset;
 	const unsigned char *data;
 	size_t size;
 	int failed;
@@ -26,7 +26,7 @@ IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 	if (!mbox_mail_get_start_offset(index, rec, &offset))
 		return NULL;
 
-	stop_offset = offset + rec->header_size + rec->body_size;
+	v_stop_offset = rec->header_size + rec->body_size;
 
 	inbuf = mbox_file_open(index, offset, FALSE);
 	if (inbuf == NULL)
@@ -34,7 +34,7 @@ IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 
 	/* make sure message size is valid - it must end with
 	   either EOF or "\nFrom "*/
-	if (!i_buffer_seek(inbuf, stop_offset - offset)) {
+	if (!i_buffer_seek(inbuf, v_stop_offset)) {
 		errno = inbuf->buf_errno;
 		mbox_set_syscall_error(index, "i_buffer_seek()");
 		i_buffer_unref(inbuf);
@@ -73,12 +73,13 @@ IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 		/* file has been updated, rescan it */
 		index->set_flags |= MAIL_INDEX_FLAG_FSCK;
 
-		index_set_error(index, "mbox file %s was modified "
-				"unexpectedly, fscking", index->mbox_path);
+		index_set_error(index,
+			"mbox file %s was modified unexpectedly, fscking",
+			index->mbox_path);
 		i_buffer_unref(inbuf);
 		return NULL;
 	}
 
-	i_buffer_set_read_limit(inbuf, stop_offset - offset);
+	i_buffer_set_read_limit(inbuf, v_stop_offset);
 	return inbuf;
 }
