@@ -104,10 +104,6 @@ static int anon_mmap_fixed(void *address, size_t length)
 
 	i_assert(address != NULL);
 
-	i_warning("%p %u", address, length);
-	errno = ENOMEM;
-	return -1;
-
 	base = mmap(address, length, PROT_READ | PROT_WRITE,
 		    MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, zero_fd, 0);
 
