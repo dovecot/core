@@ -121,9 +121,13 @@ unsigned int t_push(void)
 
 static void free_blocks(struct stack_block *block)
 {
+	struct stack_block *next;
+
 	/* free all the blocks, except if any of them is bigger than
 	   unused_block, replace it */
 	while (block != NULL) {
+		next = block->next;
+
 		if (unused_block == NULL || block->size > unused_block->size) {
 			free(unused_block);
 			unused_block = block;
@@ -131,7 +135,7 @@ static void free_blocks(struct stack_block *block)
 			free(block);
 		}
 
-		block = block->next;
+		block = next;
 	}
 }
 
