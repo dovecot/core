@@ -69,7 +69,9 @@ struct mail_transaction_header_update {
 };
 
 struct mail_transaction_ext_intro {
-	uint32_t ext_id; /* must be first */
+	/* old extension: set ext_id. don't set name.
+	   new extension: ext_id = (uint32_t)-1. give name. */
+	uint32_t ext_id;
 	uint32_t hdr_size;
 	uint16_t record_size;
 	uint16_t record_align;
@@ -78,15 +80,11 @@ struct mail_transaction_ext_intro {
 	/* unsigned char name[]; */
 };
 
+/* these are set for the last ext_intro */
 struct mail_transaction_ext_hdr_update {
-	uint32_t ext_id; /* must be first */
 	uint16_t offset;
 	uint16_t size;
 	/* unsigned char data[]; */
-};
-
-struct mail_transaction_ext_rec_header {
-	uint32_t ext_id; /* must be first */
 };
 
 struct mail_transaction_ext_rec_update {

@@ -423,7 +423,7 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 	return new_map;
 }
 
-static int
+static void
 sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 		struct mail_index_sync_map_ctx *ctx)
 {
@@ -433,13 +433,6 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 	struct mail_index_header *hdr;
 	uint32_t offset, old_size, new_size, old_record_size;
 	int modified = FALSE;
-
-	if (ext_id != u->ext_id) {
-		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
-			"Introduced existing extension with wrong id: %u != %u",
-			u->ext_id, ext_id);
-		return -1;
-	}
 
 	ext = buffer_get_modifyable_data(map->extensions, NULL);
 	ext += ext_id;
@@ -492,8 +485,6 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 		mail_index_sync_replace_map(ctx->view, map);
 		modified = TRUE;
 	}
-
-	return 1;
 }
 
 static int sync_ext_intro(const struct mail_transaction_ext_intro *u,
@@ -507,17 +498,37 @@ static int sync_ext_intro(const struct mail_transaction_ext_intro *u,
 	const char *name;
 	buffer_t *hdr_buf;
 	uint32_t ext_id, hdr_offset;
-	int ret;
+
+	if (u->ext_id != (uint32_t)-1 &&
+	    (map->extensions == NULL ||
+	     u->ext_id >= map->extensions->used / sizeof(*ext))) {
+		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+			"Extension introduction for unknown id %u", u->ext_id);
+		return -1;
+	}
+
+	if (u->ext_id == (uint32_t)-1 && u->name_size == 0) {
+		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+			"Extension introduction without id or name");
+		return -1;
+	}
 
 	t_push();
-	name = t_strndup(u + 1, u->name_size);
+	if (u->ext_id != (uint32_t)-1) {
+		name = NULL;
+		ext_id = u->ext_id;
+	} else {
+		name = t_strndup(u + 1, u->name_size);
+		ext_id = mail_index_map_lookup_ext(map, name);
+	}
 
-	ext_id = mail_index_map_lookup_ext(map, name);
 	if (ext_id != (uint32_t)-1) {
 		/* exists already - are we resizing? */
-		ret = sync_ext_resize(u, ext_id, ctx);
+		sync_ext_resize(u, ext_id, ctx);
 		t_pop();
-		return ret;
+
+		ctx->last_ext_id = ext_id;
+		return 1;
 	}
 
 	hdr_buf = map->hdr_copy_buf;
@@ -562,20 +573,14 @@ static int sync_ext_intro(const struct mail_transaction_ext_intro *u,
 
 	t_pop();
 
-	if (ext_id != u->ext_id) {
-		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
-			"Introduced extension with invalid id: %u != %u",
-			u->ext_id, ext_id);
-		return -1;
-	}
-
 	map = sync_ext_reorder(map, ext_id, 0);
 	mail_index_sync_replace_map(ctx->view, map);
+
+	ctx->last_ext_id = ext_id;
 	return 1;
 }
 
-static int sync_ext_reset(const struct mail_transaction_ext_rec_header *u,
-			  void *context)
+static int sync_ext_reset(void *context)
 {
         struct mail_index_sync_map_ctx *ctx = context;
 	struct mail_index_view *view = ctx->view;
@@ -584,15 +589,14 @@ static int sync_ext_reset(const struct mail_transaction_ext_rec_header *u,
 	struct mail_index_record *rec;
 	uint32_t i;
 
-	if (map->extensions == NULL ||
-	    u->ext_id >= map->extensions->used / sizeof(*ext)) {
+	if (ctx->last_ext_id == (uint32_t)-1) {
 		mail_transaction_log_view_set_corrupted(view->log_view,
-			"Extension reset for unknown id %u", u->ext_id);
+			"Extension reset without intro prefix");
 		return -1;
 	}
 
 	ext = map->extensions->data;
-	ext += u->ext_id;
+	ext += ctx->last_ext_id;
 
 	memset(buffer_get_space_unsafe(map->hdr_copy_buf, ext->hdr_offset,
 				       ext->hdr_size), 0, ext->hdr_size);
@@ -613,15 +617,14 @@ static int sync_ext_hdr_update(const struct mail_transaction_ext_hdr_update *u,
 	struct mail_index_map *map = ctx->view->map;
         const struct mail_index_ext *ext;
 
-	if (map->extensions == NULL ||
-	    u->ext_id >= map->extensions->used / sizeof(*ext)) {
+	if (ctx->last_ext_id == (uint32_t)-1) {
 		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
-			"Extension header update for unknown id %u", u->ext_id);
+			"Extension header update without intro prefix");
 		return -1;
 	}
 
 	ext = map->extensions->data;
-	ext += u->ext_id;
+	ext += ctx->last_ext_id;
 
 	buffer_write(map->hdr_copy_buf, ext->hdr_offset + u->offset,
 		     u + 1, u->size);
@@ -630,8 +633,7 @@ static int sync_ext_hdr_update(const struct mail_transaction_ext_hdr_update *u,
 }
 
 static int
-sync_ext_rec_update(const struct mail_transaction_ext_rec_header *hdr,
-		    const struct mail_transaction_ext_rec_update *u,
+sync_ext_rec_update(const struct mail_transaction_ext_rec_update *u,
 		    void *context)
 {
         struct mail_index_sync_map_ctx *ctx = context;
@@ -640,10 +642,9 @@ sync_ext_rec_update(const struct mail_transaction_ext_rec_header *hdr,
         const struct mail_index_ext *ext;
 	uint32_t seq;
 
-	if (view->map->extensions == NULL ||
-	    hdr->ext_id >= view->map->extensions->used / sizeof(*ext)) {
-		mail_transaction_log_view_set_corrupted(view->log_view,
-			"Extension update for unknown id %u", hdr->ext_id);
+	if (ctx->last_ext_id == (uint32_t)-1) {
+		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+			"Extension record update update without intro prefix");
 		return -1;
 	}
 
@@ -652,7 +653,7 @@ sync_ext_rec_update(const struct mail_transaction_ext_rec_header *hdr,
 
 	if (seq != 0) {
 		ext = view->map->extensions->data;
-		ext += hdr->ext_id;
+		ext += ctx->last_ext_id;
 
 		rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
 		memcpy(PTR_OFFSET(rec, ext->record_offset),
@@ -750,6 +751,152 @@ mail_index_update_day_headers(struct mail_index_header *hdr, uint32_t uid)
 	hdr->day_first_uid[0] = uid;
 }
 
+int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
+			   const struct mail_transaction_header *hdr,
+			   const void *data)
+{
+	int ret = 0;
+
+	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
+	case MAIL_TRANSACTION_APPEND: {
+		const struct mail_index_record *rec, *end;
+
+		end = CONST_PTR_OFFSET(data, hdr->size);
+		for (rec = data; rec < end; rec++) {
+			ret = sync_append(rec, ctx);
+			if (ret <= 0)
+				break;
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_EXPUNGE:
+	case MAIL_TRANSACTION_EXPUNGE|MAIL_TRANSACTION_EXPUNGE_PROT: {
+		const struct mail_transaction_expunge *rec, *end;
+
+		end = CONST_PTR_OFFSET(data, hdr->size);
+		for (rec = data; rec < end; rec++) {
+			ret = sync_expunge(rec, ctx);
+			if (ret <= 0)
+				break;
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_FLAG_UPDATE: {
+		const struct mail_transaction_flag_update *rec, *end;
+
+		end = CONST_PTR_OFFSET(data, hdr->size);
+		for (rec = data; rec < end; rec++) {
+			ret = sync_flag_update(rec, ctx);
+			if (ret <= 0)
+				break;
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_CACHE_RESET: {
+		const struct mail_transaction_cache_reset *rec = data;
+
+		ret = sync_cache_reset(rec, ctx);
+		break;
+	}
+	case MAIL_TRANSACTION_CACHE_UPDATE: {
+		const struct mail_transaction_cache_update *rec, *end;
+
+		end = CONST_PTR_OFFSET(data, hdr->size);
+		for (rec = data; rec != end; rec++) {
+			ret = sync_cache_update(rec, ctx);
+			if (ret <= 0)
+				break;
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_HEADER_UPDATE: {
+		const struct mail_transaction_header_update *rec;
+		unsigned int i;
+
+		for (i = 0; i < hdr->size; ) {
+			rec = CONST_PTR_OFFSET(data, i);
+			ret = sync_header_update(rec, ctx);
+			if (ret <= 0)
+				break;
+
+			i += sizeof(*rec) + rec->size;
+			if ((i % 4) != 0)
+				i += 4 - (i % 4);
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_EXT_INTRO: {
+		const struct mail_transaction_ext_intro *rec = data;
+		unsigned int i;
+
+		for (i = 0; i < hdr->size; ) {
+			if (i + sizeof(*rec) > hdr->size) {
+				/* should be just extra padding */
+				break;
+			}
+
+			rec = CONST_PTR_OFFSET(data, i);
+			ret = sync_ext_intro(rec, ctx);
+			if (ret <= 0)
+				break;
+
+			i += sizeof(*rec) + rec->name_size;
+			if ((i % 4) != 0)
+				i += 4 - (i % 4);
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_EXT_RESET:
+		ret = sync_ext_reset(ctx);
+		break;
+	case MAIL_TRANSACTION_EXT_HDR_UPDATE: {
+		const struct mail_transaction_ext_hdr_update *rec = data;
+		unsigned int i;
+
+		for (i = 0; i < hdr->size; ) {
+			rec = CONST_PTR_OFFSET(data, i);
+			ret = sync_ext_hdr_update(rec, ctx);
+			if (ret <= 0)
+				break;
+
+			i += sizeof(*rec) + rec->size;
+			if ((i % 4) != 0)
+				i += 4 - (i % 4);
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_EXT_REC_UPDATE: {
+		const struct mail_transaction_ext_rec_update *rec, *end;
+		const struct mail_index_ext *ext;
+		unsigned int record_size;
+
+		/* call the first one, it checks if last_ext_id isn't set */
+		rec = data;
+		ret = sync_ext_rec_update(rec, ctx);
+		if (ret <= 0)
+			break;
+
+		ext = ctx->view->map->extensions->data;
+		record_size = sizeof(*rec) + ext[ctx->last_ext_id].record_size;
+
+		rec = CONST_PTR_OFFSET(rec, record_size);
+		end = CONST_PTR_OFFSET(data, hdr->size);
+		while (rec < end) {
+			ret = sync_ext_rec_update(rec, ctx);
+			if (ret <= 0)
+				break;
+
+			rec = CONST_PTR_OFFSET(rec, record_size);
+		}
+		break;
+	}
+	default:
+		i_unreached();
+	}
+
+	return ret;
+}
+
 int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 {
 	struct mail_index *index = sync_ctx->index;
@@ -767,6 +914,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	memset(&sync_map_ctx, 0, sizeof(sync_map_ctx));
 	sync_map_ctx.view = view;
 	sync_map_ctx.update_cache = TRUE;
+        sync_map_ctx.last_ext_id = (uint32_t)-1;
 
 	/* we'll have to update view->lock_id to avoid mail_index_view_lock()
 	   trying to update the file later. */
@@ -821,9 +969,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 			}
 		}
 
-		if (mail_transaction_map(view->map, thdr, data,
-					 &mail_index_map_sync_funcs,
-					 &sync_map_ctx) < 0) {
+		if (mail_index_sync_record(&sync_map_ctx, thdr, data) < 0) {
 			ret = -1;
 			break;
 		}
@@ -884,10 +1030,3 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
         mail_index_view_unlock(view);
 	return ret;
 }
-
-struct mail_transaction_map_functions mail_index_map_sync_funcs = {
-	sync_expunge, sync_append, sync_flag_update,
-	sync_cache_reset, sync_cache_update, sync_header_update,
-	sync_ext_intro, sync_ext_reset,
-	sync_ext_hdr_update, sync_ext_rec_update
-};

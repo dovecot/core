@@ -57,8 +57,6 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 		buffer_free(t->updates);
 	if (t->cache_updates != NULL)
 		buffer_free(t->cache_updates);
-	if (t->ext_intros != NULL)
-		buffer_free(t->ext_intros);
 	i_free(t);
 }
 

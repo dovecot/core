@@ -8,38 +8,10 @@ struct mail_transaction_type_map {
 };
 extern const struct mail_transaction_type_map mail_transaction_type_map[];
 
-struct mail_transaction_map_functions {
-	int (*expunge)(const struct mail_transaction_expunge *e, void *context);
-	int (*append)(const struct mail_index_record *rec, void *context);
-	int (*flag_update)(const struct mail_transaction_flag_update *u,
-			   void *context);
-	int (*cache_reset)(const struct mail_transaction_cache_reset *u,
-			    void *context);
-	int (*cache_update)(const struct mail_transaction_cache_update *u,
-			    void *context);
-	int (*header_update)(const struct mail_transaction_header_update *u,
-			     void *context);
-	int (*ext_intro)(const struct mail_transaction_ext_intro *u,
-			 void *context);
-	int (*ext_reset)(const struct mail_transaction_ext_rec_header *u,
-			 void *context);
-	int (*ext_hdr_update)(const struct mail_transaction_ext_hdr_update *u,
-			      void *context);
-	int (*ext_rec_update)(const struct mail_transaction_ext_rec_header *hdr,
-			      const struct mail_transaction_ext_rec_update *u,
-			      void *context);
-};
-
 const struct mail_transaction_type_map *
 mail_transaction_type_lookup(enum mail_transaction_type type);
 enum mail_transaction_type
 mail_transaction_type_mask_get(enum mail_index_sync_type sync_type);
-
-int mail_transaction_map(struct mail_index_map *map,
-			 const struct mail_transaction_header *hdr,
-			 const void *data,
-			 struct mail_transaction_map_functions *func_map,
-			 void *context);
 
 void
 mail_transaction_log_sort_expunges(buffer_t *expunges_buf,

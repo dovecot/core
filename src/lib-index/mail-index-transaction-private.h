@@ -21,8 +21,6 @@ struct mail_index_transaction {
 
 	buffer_t *ext_rec_updates; /* buffer[] */
 	buffer_t *ext_resizes; /* struct mail_transaction_ext_intro[] */
-	buffer_t *ext_intros;
-	uint32_t ext_intros_max_id;
 
 	uint32_t new_cache_file_seq, last_cache_file_seq;
 	buffer_t *cache_updates;
