@@ -640,8 +640,6 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 	struct maildir_uidlist *uidlist = ctx->uidlist;
 	struct maildir_uidlist_rec *rec, *old_rec;
 
-	i_assert(!ctx->locked);
-
 	if (ctx->failed)
 		return -1;
 
