@@ -91,13 +91,13 @@ static int cmd_stls(struct pop3_client *client)
 		o_stream_unref(client->output);
 
 		client_open_streams(client, fd_ssl);
+		client->common.io = io_add(client->common.fd, IO_READ,
+					   client_input, client);
 	} else {
-		client_send_line(client, "-ERR TLS handehake failed.");
-		client_destroy(client, "TLS handshake failed");
+		client_send_line(client, "-ERR TLS initialization failed.");
+		client_destroy(client, "TLS initialization failed.");
 	}
 
-	client->common.io =
-		io_add(client->common.fd, IO_READ, client_input, client);
 	return TRUE;
 }
 

@@ -140,13 +140,13 @@ static int cmd_starttls(struct imap_client *client)
 		imap_parser_destroy(client->parser);
 
 		client_open_streams(client, fd_ssl);
+		client->common.io = io_add(client->common.fd, IO_READ,
+					   client_input, client);
 	} else {
-		client_send_line(client, " * BYE TLS handehake failed.");
-		client_destroy(client, "TLS handshake failed");
+		client_send_line(client, "* BYE TLS initialization failed.");
+		client_destroy(client, "TLS initialization failed.");
 	}
 
-	client->common.io =
-		io_add(client->common.fd, IO_READ, client_input, client);
 	return TRUE;
 }
 
@@ -376,8 +376,10 @@ void client_destroy(struct imap_client *client, const char *reason)
 		client->common.io = NULL;
 	}
 
-	net_disconnect(client->common.fd);
-	client->common.fd = -1;
+	if (client->common.fd != -1) {
+		net_disconnect(client->common.fd);
+		client->common.fd = -1;
+	}
 
 	i_free(client->common.virtual_user);
 	client_unref(client);

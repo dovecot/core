@@ -312,8 +312,11 @@ int ssl_proxy_new(int fd)
 
 	proxy->refcount++;
 	ssl_handshake_step(proxy);
-	if (!ssl_proxy_destroy(proxy))
-		return -1;
+	if (!ssl_proxy_destroy(proxy)) {
+		/* handshake failed. return the disconnected socket anyway
+		   so the caller doesn't try to use the old closed fd */
+		return sfd[1];
+	}
 
         main_ref();
 	return sfd[1];
