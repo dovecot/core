@@ -33,7 +33,9 @@ int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 		str_append(str, "SASL");
 		for (i = 0; i < AUTH_MECH_COUNT; i++) {
 			if ((auth_mechs & auth_mech_desc[i].mech) &&
-			    auth_mech_desc[i].name != NULL) {
+			    auth_mech_desc[i].name != NULL &&
+			    (client->tls || !auth_mech_desc[i].plaintext ||
+			     !disable_plaintext_auth)) {
 				str_append_c(str, ' ');
 				str_append(str, auth_mech_desc[i].name);
 			}

@@ -89,14 +89,13 @@ static int client_skip_line(struct imap_client *client)
 
 static int cmd_capability(struct imap_client *client)
 {
-	const char *capability;
+	const char *capability, *auths;
 
+	auths = client_authenticate_get_capabilities(client->tls);
 	capability = t_strconcat("* CAPABILITY " CAPABILITY_STRING,
 				 ssl_initialized ? " STARTTLS" : "",
 				 disable_plaintext_auth && !client->tls ?
-				 " LOGINDISABLED" : "",
-				 client_authenticate_get_capabilities(),
-				 NULL);
+				 " LOGINDISABLED" : "", auths, NULL);
 	client_send_line(client, capability);
 	client_send_tagline(client, "OK Capability completed.");
 	return TRUE;

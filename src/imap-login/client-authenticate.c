@@ -19,7 +19,7 @@
 static enum auth_mech auth_mechs = 0;
 static char *auth_mechs_capability = NULL;
 
-const char *client_authenticate_get_capabilities(void)
+const char *client_authenticate_get_capabilities(int tls)
 {
 	string_t *str;
 	int i;
@@ -34,7 +34,9 @@ const char *client_authenticate_get_capabilities(void)
 
 	for (i = 0; i < AUTH_MECH_COUNT; i++) {
 		if ((auth_mechs & auth_mech_desc[i].mech) &&
-		    auth_mech_desc[i].name != NULL) {
+		    auth_mech_desc[i].name != NULL &&
+		    (tls || !auth_mech_desc[i].plaintext ||
+		     !disable_plaintext_auth)) {
 			str_append_c(str, ' ');
 			str_append(str, "AUTH=");
 			str_append(str, auth_mech_desc[i].name);
