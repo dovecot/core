@@ -264,6 +264,9 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 
 	auth_continue_request(client->auth_request, (unsigned char *) line,
 			      (size_t)size);
+
+	/* clear sensitive data */
+	memset(line, 0, size);
 }
 
 int cmd_authenticate(Client *client, const char *method_name)
@@ -302,4 +305,3 @@ int cmd_authenticate(Client *client, const char *method_name)
 
 	return TRUE;
 }
-

@@ -162,13 +162,8 @@ static int client_command_execute(Client *client, char *line)
 		memset(pass, 0, strlen(pass));
 		return ret;
 	}
-	if (strcmp(cmd, "AUTHENTICATE") == 0) {
-		char *data = get_next_arg(&line);
-
-		ret = cmd_authenticate(client, data);
-		memset(data, 0, strlen(data));
-		return ret;
-	}
+	if (strcmp(cmd, "AUTHENTICATE") == 0)
+		return cmd_authenticate(client, get_next_arg(&line));
 	if (strcmp(cmd, "CAPABILITY") == 0)
 		return cmd_capability(client);
 	if (strcmp(cmd, "STARTTLS") == 0)
