@@ -78,10 +78,10 @@ static ssize_t _read(struct _istream *stream)
 	mstream->istream.skip = 0;
 	mstream->istream.buffer = i_stream_get_data(mstream->input, &pos);
 
-	if (pos == mstream->istream.pos)
+	if (pos <= mstream->istream.pos)
 		ret = -1;
 	else {
-		ret = mstream->istream.pos - pos;
+		ret = pos - mstream->istream.pos;
                 mstream->istream.pos = pos;
 	}
 
