@@ -199,7 +199,7 @@ create_temp_file(const char *prefix, const char **path_r, int write_pid)
 
 	for (;;) {
 		do {
-			random_fill(randbuf, sizeof(randbuf));
+			random_fill_weak(randbuf, sizeof(randbuf));
 			str_truncate(path, len);
 			str_append(path,
 				   binary_to_hex(randbuf, sizeof(randbuf)));
