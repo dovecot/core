@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "hex-binary.h"
 #include "message-parser.h"
 #include "message-part-serialize.h"
@@ -12,20 +12,20 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-static void skip_line(IOBuffer *inbuf)
+static void skip_line(IBuffer *inbuf)
 {
-	unsigned char *msg;
+	const unsigned char *msg;
 	size_t i, size;
 
-	while (io_buffer_read_data_blocking(inbuf, &msg, &size, 0) > 0) {
+	while (i_buffer_read_data(inbuf, &msg, &size, 0) > 0) {
 		for (i = 0; i < size; i++) {
 			if (msg[i] == '\n') {
-				io_buffer_skip(inbuf, i+1);
+				i_buffer_skip(inbuf, i+1);
 				return;
 			}
 		}
 
-		io_buffer_skip(inbuf, i);
+		i_buffer_skip(inbuf, i);
 	}
 }
 
@@ -83,7 +83,7 @@ static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
 }
 
 static int match_next_record(MailIndex *index, MailIndexRecord *rec,
-			     unsigned int seq, IOBuffer *inbuf,
+			     unsigned int seq, IBuffer *inbuf,
 			     MailIndexRecord **next_rec, int *dirty)
 {
         MailIndexUpdate *update;
@@ -97,14 +97,14 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	/* skip the From-line */
 	skip_line(inbuf);
 
-	header_offset = inbuf->offset;
+	header_offset = inbuf->v_offset;
 
 	if (rec->body_size == 0) {
 		/* possibly broken message, find the From-line to make sure
 		   header parser won't pass it. */
 		mbox_skip_header(inbuf);
-		io_buffer_set_read_limit(inbuf, inbuf->offset);
-		io_buffer_seek(inbuf, header_offset);
+		i_buffer_set_read_limit(inbuf, inbuf->v_offset);
+		i_buffer_seek(inbuf, header_offset);
 	}
 
 	/* get the MD5 sum of fixed headers and the current message flags
@@ -114,9 +114,9 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	md5_final(&ctx.md5, current_digest);
 
 	mbox_header_free_context(&ctx);
-	io_buffer_set_read_limit(inbuf, 0);
+	i_buffer_set_read_limit(inbuf, 0);
 
-	body_offset = inbuf->offset;
+	body_offset = inbuf->v_offset;
 	do {
 		if (verify_header_md5sum(index, rec, current_digest) &&
 		    mbox_verify_end_of_body(inbuf,
@@ -169,11 +169,11 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
+static int mbox_index_fsck_buf(MailIndex *index, IBuffer *inbuf)
 {
 	MailIndexRecord *rec;
 	uoff_t from_offset;
-	unsigned char *data;
+	const unsigned char *data;
 	size_t size;
 	unsigned int seq;
 	int dirty;
@@ -185,8 +185,8 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 
 	/* first make sure we start with a "From " line. If file is too
 	   small, we'll just treat it as empty mbox file. */
-	if (io_buffer_read_data_blocking(inbuf, &data, &size, 5) > 0 &&
-	    strncmp((char *) data, "From ", 5) != 0) {
+	if (i_buffer_read_data(inbuf, &data, &size, 5) > 0 &&
+	    strncmp((const char *) data, "From ", 5) != 0) {
 		index_set_error(index, "File isn't in mbox format: %s",
 				index->mbox_path);
 		return FALSE;
@@ -205,8 +205,8 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 
 	dirty = FALSE;
 	while (rec != NULL) {
-		from_offset = inbuf->offset;
-		if (inbuf->offset != 0) {
+		from_offset = inbuf->v_offset;
+		if (inbuf->v_offset != 0) {
 			/* we're at the [\r]\n before the From-line,
 			   skip it */
 			if (!mbox_skip_crlf(inbuf)) {
@@ -216,7 +216,7 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 			}
 		}
 
-		if (inbuf->offset == inbuf->size)
+		if (inbuf->v_offset == inbuf->v_size)
 			break;
 
 		if (!match_next_record(index, rec, seq, inbuf, &rec, &dirty))
@@ -224,7 +224,7 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 
 		if (rec == NULL) {
 			/* Get back to line before From */
-			io_buffer_seek(inbuf, from_offset);
+			i_buffer_seek(inbuf, from_offset);
 			break;
 		}
 
@@ -244,7 +244,7 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 		index->header->flags &= ~MAIL_INDEX_FLAG_DIRTY_MESSAGES;
 	}
 
-	if (inbuf->offset == inbuf->size)
+	if (inbuf->v_offset == inbuf->v_size)
 		return TRUE;
 	else
 		return mbox_index_append(index, inbuf);
@@ -252,7 +252,7 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 
 int mbox_index_fsck(MailIndex *index)
 {
-	IOBuffer *inbuf;
+	IBuffer *inbuf;
 	int failed;
 
 	inbuf = mbox_file_open(index, 0, TRUE);
@@ -265,7 +265,7 @@ int mbox_index_fsck(MailIndex *index)
 		failed = !mbox_index_fsck_buf(index, inbuf);
 		(void)mbox_unlock(index);
 	}
-	io_buffer_unref(inbuf);
+	i_buffer_unref(inbuf);
 
 	if (failed)
 		return FALSE;

@@ -1,19 +1,19 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "message-parser.h"
 #include "message-size.h"
 
-void message_get_header_size(IOBuffer *inbuf, MessageSize *hdr)
+void message_get_header_size(IBuffer *inbuf, MessageSize *hdr)
 {
-	unsigned char *msg;
+	const unsigned char *msg;
 	size_t i, size, startpos, missing_cr_count;
 
 	memset(hdr, 0, sizeof(MessageSize));
 
 	missing_cr_count = 0; startpos = 0;
-	while (io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
+	while (i_buffer_read_data(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] != '\n')
 				continue;
@@ -44,28 +44,28 @@ void message_get_header_size(IOBuffer *inbuf, MessageSize *hdr)
 
 		/* leave the last two characters, they may be \r\n */
 		startpos = size == 1 ? 1 : 2;
-		io_buffer_skip(inbuf, i - startpos);
+		i_buffer_skip(inbuf, i - startpos);
 
 		hdr->physical_size += i - startpos;
 	}
-	io_buffer_skip(inbuf, startpos);
+	i_buffer_skip(inbuf, startpos);
 	hdr->physical_size += startpos;
 
 	hdr->virtual_size = hdr->physical_size + missing_cr_count;
 	i_assert(hdr->virtual_size >= hdr->physical_size);
 }
 
-void message_get_body_size(IOBuffer *inbuf, MessageSize *body,
+void message_get_body_size(IBuffer *inbuf, MessageSize *body,
 			   uoff_t max_virtual_size)
 {
-	unsigned char *msg;
+	const unsigned char *msg;
 	size_t i, size, startpos, missing_cr_count;
 
 	memset(body, 0, sizeof(MessageSize));
 
 	missing_cr_count = 0; startpos = 0;
 	while (max_virtual_size != 0 &&
-	       io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
+	       i_buffer_read_data(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size && max_virtual_size != 0; i++) {
 			if (max_virtual_size > 0)
 				max_virtual_size--;
@@ -91,22 +91,22 @@ void message_get_body_size(IOBuffer *inbuf, MessageSize *body,
 		}
 
 		/* leave the last character, it may be \r */
-		io_buffer_skip(inbuf, i - 1);
+		i_buffer_skip(inbuf, i - 1);
 		startpos = 1;
 
 		body->physical_size += i - 1;
 	}
-	io_buffer_skip(inbuf, startpos);
+	i_buffer_skip(inbuf, startpos);
 	body->physical_size += startpos;
 
 	body->virtual_size = body->physical_size + missing_cr_count;
 	i_assert(body->virtual_size >= body->physical_size);
 }
 
-void message_skip_virtual(IOBuffer *inbuf, uoff_t virtual_skip,
+void message_skip_virtual(IBuffer *inbuf, uoff_t virtual_skip,
 			  MessageSize *msg_size, int *cr_skipped)
 {
-	unsigned char *msg;
+	const unsigned char *msg;
 	size_t i, size, startpos;
 
 	*cr_skipped = FALSE;
@@ -114,7 +114,7 @@ void message_skip_virtual(IOBuffer *inbuf, uoff_t virtual_skip,
 		return;
 
 	startpos = 0;
-	while (io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
+	while (i_buffer_read_data(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size && virtual_skip > 0; i++) {
 			virtual_skip--;
 
@@ -151,12 +151,12 @@ void message_skip_virtual(IOBuffer *inbuf, uoff_t virtual_skip,
 		}
 
 		if (i < size) {
-			io_buffer_skip(inbuf, i);
+			i_buffer_skip(inbuf, i);
 			break;
 		}
 
 		/* leave the last character, it may be \r */
-		io_buffer_skip(inbuf, i - 1);
+		i_buffer_skip(inbuf, i - 1);
 		startpos = 1;
 	}
 }

@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "hostpid.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "write-full.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
@@ -145,12 +145,12 @@ static int write_flags(MailStorage *storage, int fd, const char *mbox_path,
 }
 
 int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
-		      time_t internal_date, IOBuffer *data, uoff_t data_size)
+		      time_t internal_date, IBuffer *data, uoff_t data_size)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	MailFlags real_flags;
 	const char *mbox_path;
-	IOBuffer *inbuf;
+	IBuffer *inbuf;
 	int fd, failed;
 	off_t pos;
 
@@ -165,12 +165,12 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 	if (!index_mailbox_fix_custom_flags(ibox, &real_flags, custom_flags))
 		return FALSE;
 
-	/* just make sure the mbox is opened, we don't need the iobuffer */
+	/* just make sure the mbox is opened, we don't need the ibuffer */
 	inbuf = mbox_file_open(ibox->index, 0, TRUE);
 	if (inbuf == NULL)
 		return FALSE;
 
-	io_buffer_unref(inbuf);
+	i_buffer_unref(inbuf);
 	fd = ibox->index->mbox_fd;
 
 	if (!mbox_lock_write(ibox->index)) {

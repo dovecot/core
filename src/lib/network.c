@@ -225,11 +225,13 @@ void net_set_nonblock(int fd __attr_unused__, int nonblock __attr_unused__)
 #endif
 }
 
-void net_set_cork(int fd __attr_unused__, int cork __attr_unused__)
+int net_set_cork(int fd __attr_unused__, int cork __attr_unused__)
 {
 #ifdef TCP_CORK
-	if (setsockopt(fd, SOL_TCP, TCP_CORK, &cork, sizeof(cork)) < 0)
-		i_error("setsockopt(TCP_CORK) failed: %m");
+	return setsockopt(fd, SOL_TCP, TCP_CORK, &cork, sizeof(cork));
+#else
+	errno = ENOPROTOOPT;
+	return -1;
 #endif
 }
 

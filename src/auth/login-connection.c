@@ -2,7 +2,8 @@
 
 #include "common.h"
 #include "network.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
+#include "obuffer.h"
 #include "login-connection.h"
 
 #include <stdlib.h>
@@ -18,7 +19,8 @@ struct _LoginConnection {
 
 	int fd;
 	IO io;
-	IOBuffer *inbuf, *outbuf;
+	IBuffer *inbuf;
+	OBuffer *outbuf;
         AuthRequestType type;
 };
 
@@ -32,10 +34,10 @@ static void request_callback(AuthReplyData *reply, const unsigned char *data,
 
 	i_assert(reply->data_size <= AUTH_MAX_REPLY_DATA_SIZE);
 
-	if (io_buffer_send(conn->outbuf, reply, sizeof(AuthReplyData)) < 0)
+	if (o_buffer_send(conn->outbuf, reply, sizeof(AuthReplyData)) < 0)
 		login_connection_destroy(conn);
 	else if (reply->data_size > 0) {
-		if (io_buffer_send(conn->outbuf, data, reply->data_size) < 0)
+		if (o_buffer_send(conn->outbuf, data, reply->data_size) < 0)
 			login_connection_destroy(conn);
 	}
 }
@@ -44,10 +46,10 @@ static void login_input(void *context, int fd __attr_unused__,
 			IO io __attr_unused__)
 {
 	LoginConnection *conn  = context;
-        unsigned char *data;
+        const unsigned char *data;
 	size_t size;
 
-	switch (io_buffer_read(conn->inbuf)) {
+	switch (i_buffer_read(conn->inbuf)) {
 	case 0:
 		return;
 	case -1:
@@ -62,7 +64,7 @@ static void login_input(void *context, int fd __attr_unused__,
 		return;
 	}
 
-	data = io_buffer_get_data(conn->inbuf, &size);
+	data = i_buffer_get_data(conn->inbuf, &size);
 	if (size < sizeof(AuthRequestType))
 		return;
 
@@ -80,7 +82,7 @@ static void login_input(void *context, int fd __attr_unused__,
 			return;
 
 		memcpy(&request, data, sizeof(request));
-		io_buffer_skip(conn->inbuf, sizeof(request));
+		i_buffer_skip(conn->inbuf, sizeof(request));
 
 		/* we have a full init request */
 		auth_init_request(&request, request_callback, conn);
@@ -95,8 +97,7 @@ static void login_input(void *context, int fd __attr_unused__,
 		if (size < sizeof(request) + request.data_size)
 			return;
 
-		io_buffer_skip(conn->inbuf,
-			       sizeof(request) + request.data_size);
+		i_buffer_skip(conn->inbuf, sizeof(request) + request.data_size);
 
 		/* we have a full continued request */
 		auth_continue_request(&request, data + sizeof(request),
@@ -117,18 +118,18 @@ LoginConnection *login_connection_create(int fd)
 	conn = i_new(LoginConnection, 1);
 
 	conn->fd = fd;
-	conn->inbuf = io_buffer_create(fd, default_pool,
-				       IO_PRIORITY_DEFAULT, MAX_INBUF_SIZE);
-	conn->outbuf = io_buffer_create(fd, default_pool,
-					IO_PRIORITY_DEFAULT, MAX_OUTBUF_SIZE);
+	conn->inbuf = i_buffer_create_file(fd, default_pool, MAX_INBUF_SIZE,
+					   FALSE);
+	conn->outbuf = o_buffer_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
+					    IO_PRIORITY_DEFAULT, FALSE);
 	conn->io = io_add(fd, IO_READ, login_input, conn);
 	conn->type = AUTH_REQUEST_NONE;
 
 	conn->next = connections;
 	connections = conn;
 
-	if (io_buffer_send(conn->outbuf, &auth_init_data,
-			   sizeof(auth_init_data)) < 0) {
+	if (o_buffer_send(conn->outbuf, &auth_init_data,
+			  sizeof(auth_init_data)) < 0) {
 		login_connection_destroy(conn);
 		conn = NULL;
 	}
@@ -147,8 +148,8 @@ void login_connection_destroy(LoginConnection *conn)
 		}
 	}
 
-	io_buffer_close(conn->inbuf);
-	io_buffer_close(conn->outbuf);
+	i_buffer_unref(conn->inbuf);
+	o_buffer_unref(conn->outbuf);
 
 	io_remove(conn->io);
 	net_disconnect(conn->fd);

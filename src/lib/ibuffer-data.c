@@ -1,5 +1,5 @@
 /*
-   iobuffer.c : Input/output buffer common handling
+   ibuffer-data.c : Input buffer interface for reading from data buffer
 
     Copyright (c) 2002 Timo Sirainen
 
@@ -24,47 +24,61 @@
 */
 
 #include "lib.h"
-#include "iobuffer-internal.h"
+#include "ibuffer-internal.h"
 
-void _io_buffer_init(Pool pool, _IOBuffer *buf)
+static void _close(_IOBuffer *buf __attr_unused__)
 {
-	buf->pool = pool;
-	buf->refcount = 1;
 }
 
-void _io_buffer_ref(_IOBuffer *buf)
+static void _destroy(_IOBuffer *buf __attr_unused__)
 {
-	buf->refcount++;
 }
 
-void _io_buffer_unref(_IOBuffer *buf)
+static void _set_max_size(_IOBuffer *buf __attr_unused__,
+			  size_t max_size __attr_unused__)
 {
-	Pool pool;
-
-	i_assert(buf->refcount > 0);
-	if (--buf->refcount != 0)
-		return;
-
-	buf->close(buf);
-	buf->destroy(buf);
-
-	pool = buf->pool;
-        p_free(pool, buf);
-	pool_unref(pool);
 }
 
-void _io_buffer_close(_IOBuffer *buf)
+static void _set_blocking(_IOBuffer *buf __attr_unused__,
+			  int timeout_msecs __attr_unused__,
+			  TimeoutFunc timeout_func __attr_unused__,
+			  void *context __attr_unused__)
 {
-	buf->close(buf);
 }
 
-void _io_buffer_set_max_size(_IOBuffer *buf, size_t max_size)
+static ssize_t _read(_IBuffer *buf)
 {
-	buf->set_max_size(buf, max_size);
+	return buf->pos - buf->skip;
 }
 
-void _io_buffer_set_blocking(_IOBuffer *buf, int timeout_msecs,
-			     TimeoutFunc timeout_func, void *context)
+static int _seek(_IBuffer *buf, uoff_t v_offset)
 {
-	buf->set_blocking(buf, timeout_msecs, timeout_func, context);
+	buf->skip = v_offset;
+	return 1;
+}
+
+static int _skip(_IBuffer *buf, uoff_t count)
+{
+	buf->skip += count;
+	return 1;
+}
+
+IBuffer *i_buffer_create_from_data(Pool pool, const unsigned char *data,
+				   size_t size)
+{
+	_IBuffer *buf;
+
+	buf = p_new(pool, _IBuffer, 1);
+	buf->buffer = data;
+
+	buf->iobuf.close = _close;
+	buf->iobuf.destroy = _destroy;
+	buf->iobuf.set_max_size = _set_max_size;
+	buf->iobuf.set_blocking = _set_blocking;
+
+	buf->read = _read;
+	buf->skip_count = _skip;
+	buf->seek = _seek;
+
+	return _i_buffer_create(buf, pool, -1, 0, size);
 }

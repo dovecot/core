@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "maildir-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-IOBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec)
+IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec)
 {
 	const char *fname, *path;
 	int fd;
@@ -34,6 +34,6 @@ IOBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec)
 		return NULL;
 	}
 
-	return io_buffer_create_mmap(fd, default_pool, MAIL_MMAP_BLOCK_SIZE, 0,
-				     0, IOBUFFER_FLAG_AUTOCLOSE);
+	return i_buffer_create_mmap(fd, default_pool, MAIL_MMAP_BLOCK_SIZE,
+				    0, 0, TRUE);
 }

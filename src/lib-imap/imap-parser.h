@@ -38,9 +38,11 @@ struct _ImapArgList {
 };
 
 /* Create new IMAP argument parser. The max. size of inbuf limits the
-   maximum size of each argument. outbuf is used for sending command
-   continuation requests for string literals. */
-ImapParser *imap_parser_create(IOBuffer *inbuf, IOBuffer *outbuf);
+   maximum size of each argument. max_literal_size also limits sizes of
+   literals which we even try to handle if FLAG_LITERAL_SIZE is not set.
+   outbuf is used for sending command continuation requests for literals. */
+ImapParser *imap_parser_create(IBuffer *inbuf, OBuffer *outbuf,
+			       size_t max_literal_size);
 void imap_parser_destroy(ImapParser *parser);
 
 /* Reset the parser to initial state. */

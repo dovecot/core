@@ -2,7 +2,7 @@
 
 #include "common.h"
 #include "network.h"
-#include "iobuffer.h"
+#include "obuffer.h"
 #include "fdpass.h"
 #include "restrict-access.h"
 #include "login-process.h"
@@ -19,7 +19,7 @@ typedef struct {
 	pid_t pid;
 	int fd;
 	IO io;
-	IOBuffer *outbuf;
+	OBuffer *outbuf;
 	unsigned int destroyed:1;
 } LoginProcess;
 
@@ -68,7 +68,7 @@ static void auth_callback(AuthCookieReplyData *cookie_reply, void *context)
 	reply.id = request->login_id;
 
 	process = request->process;
-	if (io_buffer_send(process->outbuf, &reply, sizeof(reply)) < 0)
+	if (o_buffer_send(process->outbuf, &reply, sizeof(reply)) < 0)
 		login_process_destroy(process);
 
 	(void)close(request->fd);
@@ -139,8 +139,9 @@ static LoginProcess *login_process_new(pid_t pid, int fd)
 	p->pid = pid;
 	p->fd = fd;
 	p->io = io_add(fd, IO_READ, login_process_input, p);
-	p->outbuf = io_buffer_create(fd, default_pool, IO_PRIORITY_DEFAULT,
-				     sizeof(MasterReply)*10);
+	p->outbuf = o_buffer_create_file(fd, default_pool,
+					 sizeof(MasterReply)*10,
+					 IO_PRIORITY_DEFAULT, FALSE);
 
 	hash_insert(processes, POINTER_CAST(pid), p);
 	return p;
@@ -152,7 +153,7 @@ static void login_process_destroy(LoginProcess *p)
 		return;
 	p->destroyed = TRUE;
 
-	io_buffer_close(p->outbuf);
+	o_buffer_close(p->outbuf);
 	io_remove(p->io);
 	(void)close(p->fd);
 
@@ -165,7 +166,7 @@ static void login_process_unref(LoginProcess *p)
 	if (--p->refcount > 0)
 		return;
 
-	io_buffer_unref(p->outbuf);
+	o_buffer_unref(p->outbuf);
 	i_free(p);
 }
 

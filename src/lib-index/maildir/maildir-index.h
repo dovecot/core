@@ -20,7 +20,7 @@ int maildir_index_append_file(MailIndex *index, const char *dir,
 int maildir_index_build_dir(MailIndex *index, const char *source_dir,
 			    const char *dest_dir);
 
-IOBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec);
+IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec);
 
 int maildir_record_update(MailIndexUpdate *update, int fd, off_t file_size);
 

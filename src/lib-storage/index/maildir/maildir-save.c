@@ -1,8 +1,8 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "hostpid.h"
-#include "iobuffer.h"
 #include "maildir-index.h"
 #include "maildir-storage.h"
 
@@ -41,7 +41,7 @@ static int maildir_create_tmp(MailStorage *storage, const char *dir,
 }
 
 static const char *maildir_read_into_tmp(MailStorage *storage, const char *dir,
-					 IOBuffer *buf, uoff_t data_size)
+					 IBuffer *buf, uoff_t data_size)
 {
 	const char *fname, *path;
 	int fd;
@@ -63,7 +63,7 @@ static const char *maildir_read_into_tmp(MailStorage *storage, const char *dir,
 
 int maildir_storage_save(Mailbox *box, MailFlags flags,
 			 const char *custom_flags[], time_t internal_date,
-			 IOBuffer *data, uoff_t data_size)
+			 IBuffer *data, uoff_t data_size)
 {
         IndexMailbox *ibox = (IndexMailbox *) box;
         struct utimbuf buf;

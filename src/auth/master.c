@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
-#include "iobuffer.h"
+#include "obuffer.h"
 #include "network.h"
 #include "cookie.h"
 
@@ -9,7 +9,7 @@
 
 static AuthCookieReplyData failure_reply;
 
-static IOBuffer *outbuf;
+static OBuffer *outbuf;
 static IO io_master;
 
 static unsigned int master_pos;
@@ -33,7 +33,7 @@ static void master_handle_request(AuthCookieRequestData *request,
 	}
 
 	reply->id = request->id;
-	switch (io_buffer_send(outbuf, reply, sizeof(AuthCookieReplyData))) {
+	switch (o_buffer_send(outbuf, reply, sizeof(AuthCookieReplyData))) {
 	case -2:
 		i_fatal("Master transmit buffer full, aborting");
 	case -1:
@@ -70,13 +70,14 @@ void master_init(void)
 	memset(&failure_reply, 0, sizeof(failure_reply));
 
 	master_pos = 0;
-	outbuf = io_buffer_create(MASTER_SOCKET_FD, default_pool,
-				  IO_PRIORITY_DEFAULT, MAX_OUTBUF_SIZE);
+	outbuf = o_buffer_create_file(MASTER_SOCKET_FD, default_pool,
+				      MAX_OUTBUF_SIZE, IO_PRIORITY_DEFAULT,
+				      FALSE);
 	io_master = io_add(MASTER_SOCKET_FD, IO_READ, master_input, NULL);
 }
 
 void master_deinit(void)
 {
-	io_buffer_unref(outbuf);
+	o_buffer_unref(outbuf);
 	io_remove(io_master);
 }

@@ -9,7 +9,7 @@ typedef struct {
 	const char **custom_flags;
 
 	MailFetchData *fetch_data;
-	IOBuffer *outbuf;
+	OBuffer *outbuf;
 	TempString *str;
 	int update_seen, found_unseen;
 	int first;

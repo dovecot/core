@@ -365,6 +365,8 @@ int t_push(void)
 	StackFrame *frame;
 
 	frame = malloc(sizeof(StackFrame));
+	if (frame == NULL)
+		i_panic("t_push(): Out of memory");
 	frame->allocs = NULL;
 
 	frame->next = current_frame;
@@ -397,6 +399,8 @@ static void add_alloc(void *mem)
 	FrameAlloc *alloc;
 
 	alloc = malloc(sizeof(FrameAlloc));
+	if (alloc == NULL)
+		i_panic("add_alloc(): Out of memory");
 	alloc->mem = mem;
 	alloc->next = current_frame->allocs;
 	current_frame->allocs = alloc;
@@ -412,6 +416,8 @@ void *t_malloc(size_t size)
 	void *mem;
 
 	mem = malloc(size);
+	if (mem == NULL)
+		i_panic("t_malloc(): Out of memory");
 	add_alloc(mem);
 	return mem;
 }
@@ -421,6 +427,8 @@ void *t_malloc0(size_t size)
 	void *mem;
 
 	mem = calloc(size, 1);
+	if (mem == NULL)
+		i_panic("t_malloc0(): Out of memory");
 	add_alloc(mem);
 	return mem;
 }
@@ -440,6 +448,8 @@ int t_try_realloc(void *mem, size_t size)
 void *t_buffer_get(size_t size)
 {
 	buffer_mem = realloc(buffer_mem, size);
+	if (buffer_mem == NULL)
+		i_panic("t_buffer_get(): Out of memory");
 	return buffer_mem;
 }
 
@@ -448,6 +458,8 @@ void *t_buffer_reget(void *buffer, size_t size)
 	i_assert(buffer == buffer_mem);
 
 	buffer_mem = realloc(buffer_mem, size);
+	if (buffer_mem == NULL)
+		i_panic("t_buffer_reget(): Out of memory");
 	return buffer_mem;
 }
 
@@ -458,6 +470,8 @@ void t_buffer_alloc(size_t size)
 	i_assert(buffer_mem != NULL);
 
 	mem = realloc(buffer_mem, size);
+	if (mem == NULL)
+		i_panic("t_buffer_alloc(): Out of memory");
 	buffer_mem = NULL;
 
 	add_alloc(mem);

@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "obuffer.h"
 #include "temp-string.h"
 #include "mail-custom-flags.h"
 #include "index-storage.h"
@@ -108,7 +108,7 @@ static void index_fetch_uid(MailIndexRecord *rec, FetchContext *ctx)
 static int index_fetch_send_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 {
 	MessageSize hdr_size, body_size;
-	IOBuffer *inbuf;
+	IBuffer *inbuf;
 	const char *str;
 
 	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf,
@@ -124,7 +124,7 @@ static int index_fetch_send_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
-	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
 		return FALSE;
 
 	body_size.physical_size += hdr_size.physical_size;
@@ -136,7 +136,7 @@ static int index_fetch_send_rfc822_header(MailIndexRecord *rec,
 					  FetchContext *ctx)
 {
 	MessageSize hdr_size;
-	IOBuffer *inbuf;
+	IBuffer *inbuf;
 	const char *str;
 
 	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, &hdr_size, NULL)) {
@@ -151,7 +151,7 @@ static int index_fetch_send_rfc822_header(MailIndexRecord *rec,
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
-	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
 		return FALSE;
 
 	return message_send(ctx->outbuf, inbuf, &hdr_size, 0, (uoff_t)-1);
@@ -160,7 +160,7 @@ static int index_fetch_send_rfc822_header(MailIndexRecord *rec,
 static int index_fetch_send_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 {
 	MessageSize body_size;
-	IOBuffer *inbuf;
+	IBuffer *inbuf;
 	const char *str;
 
 	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, NULL, &body_size)) {
@@ -175,7 +175,7 @@ static int index_fetch_send_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
-	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
 		return FALSE;
 
 	return message_send(ctx->outbuf, inbuf, &body_size, 0, (uoff_t)-1);
@@ -299,8 +299,8 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 			if (!ctx->first)
 				ctx->str->len--;
 
-			if (io_buffer_send(ctx->outbuf, ctx->str->str,
-					   ctx->str->len) < 0)
+			if (o_buffer_send(ctx->outbuf, ctx->str->str,
+					  ctx->str->len) < 0)
 				break;
 		}
 
@@ -327,7 +327,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 	} while (0);
 
 	if (data_written) {
-		if (io_buffer_send(ctx->outbuf, ")\r\n", 3) < 0)
+		if (o_buffer_send(ctx->outbuf, ")\r\n", 3) < 0)
 			failed = TRUE;
 	}
 
@@ -336,7 +336,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 }
 
 int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
-			IOBuffer *outbuf, int *all_found)
+			OBuffer *outbuf, int *all_found)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	FetchContext ctx;

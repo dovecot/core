@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "mail-custom-flags.h"
 #include "index-storage.h"
 #include "index-messageset.h"
@@ -18,7 +18,7 @@ static int copy_func(MailIndex *index, MailIndexRecord *rec,
 		     unsigned int idx_seq __attr_unused__, void *context)
 {
 	CopyContext *ctx = context;
-	IOBuffer *inbuf;
+	IBuffer *inbuf;
 	int failed;
 
 	inbuf = index->open_mail(index, rec);
@@ -28,9 +28,9 @@ static int copy_func(MailIndex *index, MailIndexRecord *rec,
 	/* save it in destination mailbox */
 	failed = !ctx->dest->save(ctx->dest, rec->msg_flags,
 				  ctx->custom_flags, rec->internal_date,
-				  inbuf, inbuf->size);
+				  inbuf, inbuf->v_size);
 
-	io_buffer_unref(inbuf);
+	i_buffer_unref(inbuf);
 	return !failed;
 }
 

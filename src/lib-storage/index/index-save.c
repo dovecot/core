@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "write-full.h"
 #include "index-storage.h"
 
@@ -38,9 +38,9 @@ static int write_with_crlf(int fd, const unsigned char *data,
 }
 
 int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
-			       IOBuffer *buf, uoff_t data_size)
+			       IBuffer *buf, uoff_t data_size)
 {
-	unsigned char *data;
+	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
 	int last_cr, failed;
@@ -49,14 +49,14 @@ int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 
 	failed = FALSE;
 	while (data_size > 0) {
-		ret = io_buffer_read_blocking(buf);
+		ret = i_buffer_read(buf);
 		if (ret < 0) {
 			mail_storage_set_critical(storage,
 						  "Error reading mail: %m");
 			return FALSE;
 		}
 
-		data = io_buffer_get_data(buf, &size);
+		data = i_buffer_get_data(buf, &size);
 		if (size > data_size)
 			size = (size_t)data_size;
 		data_size -= size;
@@ -73,7 +73,7 @@ int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 			failed = TRUE;
 		}
 
-		io_buffer_skip(buf, size);
+		i_buffer_skip(buf, size);
 	}
 
 	return !failed;

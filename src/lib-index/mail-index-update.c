@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "ioloop.h"
 #include "rfc822-date.h"
 #include "rfc822-tokenize.h"
@@ -319,7 +319,7 @@ static void update_header_func(MessagePart *part,
 	}
 }
 
-void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
+void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
                                MailField cache_fields,
 			       MessageHeaderFunc header_func, void *context)
 {
@@ -361,7 +361,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 			}
 		}
 
-		start_offset = inbuf->offset;
+		start_offset = inbuf->v_offset;
 
 		if (part == NULL) {
 			part = message_parse(pool, inbuf,
@@ -369,7 +369,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 		} else {
 			/* cached, construct the bodystructure using it.
 			   also we need to parse the header.. */
-			io_buffer_seek(inbuf, start_offset);
+			i_buffer_seek(inbuf, start_offset);
 			message_parse_header(NULL, inbuf, NULL,
 					     update_header_func, &ctx);
 		}
@@ -380,7 +380,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 
 		if (cache_fields & FIELD_TYPE_BODY) {
 			t_push();
-			io_buffer_seek(inbuf, start_offset);
+			i_buffer_seek(inbuf, start_offset);
 			value = imap_part_get_bodystructure(pool, &part,
 							    inbuf, FALSE);
 			update->index->update_field(update, FIELD_TYPE_BODY,
@@ -390,7 +390,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 
 		if (cache_fields & FIELD_TYPE_BODYSTRUCTURE) {
 			t_push();
-			io_buffer_seek(inbuf, start_offset);
+			i_buffer_seek(inbuf, start_offset);
 			value = imap_part_get_bodystructure(pool, &part,
 							    inbuf, TRUE);
 			update->index->update_field(update,
@@ -414,7 +414,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 				     update_header_func, &ctx);
 
 		update->rec->header_size = hdr_size.physical_size;
-		update->rec->body_size = inbuf->size - inbuf->offset;
+		update->rec->body_size = inbuf->v_size - inbuf->v_offset;
 	}
 
 	if (ctx.envelope != NULL) {

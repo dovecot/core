@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "hex-binary.h"
 #include "md5.h"
 #include "mbox-index.h"
@@ -23,20 +23,21 @@ static MailIndexRecord *mail_index_record_append_begin(MailIndex *index,
 	return rec;
 }
 
-static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
+static int mbox_index_append_next(MailIndex *index, IBuffer *inbuf)
 {
 	MailIndexRecord *rec;
 	MailIndexUpdate *update;
         MboxHeaderContext ctx;
 	time_t internal_date;
 	uoff_t abs_start_offset, eoh_offset;
-	unsigned char *data, md5_digest[16];
+	const unsigned char *data;
+	unsigned char md5_digest[16];
 	size_t size, pos;
 	int failed;
 
 	/* get the From-line */
 	pos = 0;
-	while (io_buffer_read_data_blocking(inbuf, &data, &size, pos) > 0) {
+	while (i_buffer_read_data(inbuf, &data, &size, pos) > 0) {
 		for (; pos < size; pos++) {
 			if (data[pos] == '\n')
 				break;
@@ -62,13 +63,13 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	if (internal_date <= 0)
 		internal_date = ioloop_time;
 
-	io_buffer_skip(inbuf, pos+1);
-	abs_start_offset = inbuf->start_offset + inbuf->offset;
+	i_buffer_skip(inbuf, pos+1);
+	abs_start_offset = inbuf->start_offset + inbuf->v_offset;
 
 	/* now, find the end of header. also stops at "\nFrom " if it's
 	   found (broken messages) */
 	mbox_skip_header(inbuf);
-	eoh_offset = inbuf->offset;
+	eoh_offset = inbuf->v_offset;
 
 	/* add message to index */
 	rec = mail_index_record_append_begin(index, internal_date);
@@ -87,13 +88,13 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	mbox_header_init_context(&ctx, index, inbuf);
         ctx.set_read_limit = TRUE;
 
-	io_buffer_seek(inbuf, abs_start_offset - inbuf->start_offset);
+	i_buffer_seek(inbuf, abs_start_offset - inbuf->start_offset);
 
-	io_buffer_set_read_limit(inbuf, eoh_offset);
+	i_buffer_set_read_limit(inbuf, eoh_offset);
 	mail_index_update_headers(update, inbuf, 0, mbox_header_func, &ctx);
 
-	io_buffer_seek(inbuf, inbuf->limit);
-	io_buffer_set_read_limit(inbuf, 0);
+	i_buffer_seek(inbuf, inbuf->v_limit);
+	i_buffer_set_read_limit(inbuf, 0);
 
 	/* save MD5 */
 	md5_final(&ctx.md5, md5_digest);
@@ -117,9 +118,9 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	return !failed;
 }
 
-int mbox_index_append(MailIndex *index, IOBuffer *inbuf)
+int mbox_index_append(MailIndex *index, IBuffer *inbuf)
 {
-	if (inbuf->offset == inbuf->size) {
+	if (inbuf->v_offset == inbuf->v_size) {
 		/* no new data */
 		return TRUE;
 	}
@@ -128,7 +129,7 @@ int mbox_index_append(MailIndex *index, IOBuffer *inbuf)
 		return FALSE;
 
 	for (;;) {
-		if (inbuf->start_offset + inbuf->offset != 0) {
+		if (inbuf->start_offset + inbuf->v_offset != 0) {
 			/* we're at the [\r]\n before the From-line,
 			   skip it */
 			if (!mbox_skip_crlf(inbuf)) {
@@ -142,7 +143,7 @@ int mbox_index_append(MailIndex *index, IOBuffer *inbuf)
 			}
 		}
 
-		if (inbuf->offset == inbuf->size)
+		if (inbuf->v_offset == inbuf->v_size)
 			break;
 
 		if (!mbox_index_append_next(index, inbuf))

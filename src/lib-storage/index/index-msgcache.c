@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "imap-message-cache.h"
 #include "message-part-serialize.h"
 #include "mail-index.h"
@@ -24,20 +24,20 @@ void *index_msgcache_get_context(MailIndex *index, MailIndexRecord *rec)
 	return ctx;
 }
 
-static IOBuffer *index_msgcache_open_mail(void *context)
+static IBuffer *index_msgcache_open_mail(void *context)
 {
         IndexMsgcacheContext *ctx = context;
 
 	return ctx->index->open_mail(ctx->index, ctx->rec);
 }
 
-static IOBuffer *index_msgcache_inbuf_rewind(IOBuffer *inbuf,
-					     void *context __attr_unused__)
+static IBuffer *index_msgcache_inbuf_rewind(IBuffer *inbuf,
+					    void *context __attr_unused__)
 {
-	if (!io_buffer_seek(inbuf, 0)) {
+	if (!i_buffer_seek(inbuf, 0)) {
 		i_error("index_msgcache_inbuf_rewind: lseek() failed: %m");
 
-		io_buffer_unref(inbuf);
+		i_buffer_unref(inbuf);
 		return NULL;
 	}
 

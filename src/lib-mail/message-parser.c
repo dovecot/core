@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "rfc822-tokenize.h"
 #include "message-content-parser.h"
 #include "message-parser.h"
@@ -27,12 +27,12 @@ typedef struct {
 	void *context;
 } MessageParseContext;
 
-static MessagePart *message_parse_part(IOBuffer *inbuf,
+static MessagePart *message_parse_part(IBuffer *inbuf,
 				       MessageParseContext *parse_ctx);
-static MessagePart *message_parse_body(IOBuffer *inbuf,
+static MessagePart *message_parse_body(IBuffer *inbuf,
 				       MessageBoundary *boundaries,
 				       MessageSize *body_size);
-static MessagePart *message_skip_boundary(IOBuffer *inbuf,
+static MessagePart *message_skip_boundary(IBuffer *inbuf,
 					  MessageBoundary *boundaries,
 					  MessageSize *boundary_size);
 
@@ -136,7 +136,7 @@ static void parse_header_field(MessagePart *part,
 	}
 }
 
-static MessagePart *message_parse_multipart(IOBuffer *inbuf,
+static MessagePart *message_parse_multipart(IBuffer *inbuf,
 					    MessageParseContext *parse_ctx)
 {
 	MessagePart *parent_part, *next_part, *part;
@@ -185,7 +185,7 @@ static MessagePart *message_parse_multipart(IOBuffer *inbuf,
 	return next_part;
 }
 
-static MessagePart *message_parse_part(IOBuffer *inbuf,
+static MessagePart *message_parse_part(IBuffer *inbuf,
 				       MessageParseContext *parse_ctx)
 {
 	MessagePart *next_part, *part;
@@ -241,7 +241,7 @@ static MessagePart *message_parse_part(IOBuffer *inbuf,
 	return next_part;
 }
 
-MessagePart *message_parse(Pool pool, IOBuffer *inbuf,
+MessagePart *message_parse(Pool pool, IBuffer *inbuf,
 			   MessageHeaderFunc func, void *context)
 {
 	MessagePart *part;
@@ -260,14 +260,14 @@ MessagePart *message_parse(Pool pool, IOBuffer *inbuf,
 }
 
 /* skip over to next line increasing message size */
-static void message_skip_line(IOBuffer *inbuf, MessageSize *msg_size)
+static void message_skip_line(IBuffer *inbuf, MessageSize *msg_size)
 {
-	unsigned char *msg;
+	const unsigned char *msg;
 	size_t i, size, startpos;
 
 	startpos = 0;
 
-	while (io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
+	while (i_buffer_read_data(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] == '\n') {
 				if (msg_size != NULL) {
@@ -285,7 +285,7 @@ static void message_skip_line(IOBuffer *inbuf, MessageSize *msg_size)
 		}
 
 		/* leave the last character, it may be \r */
-		io_buffer_skip(inbuf, i - 1);
+		i_buffer_skip(inbuf, i - 1);
 		startpos = 1;
 
 		if (msg_size != NULL) {
@@ -294,7 +294,7 @@ static void message_skip_line(IOBuffer *inbuf, MessageSize *msg_size)
 		}
 	}
 
-	io_buffer_skip(inbuf, startpos);
+	i_buffer_skip(inbuf, startpos);
 
 	if (msg_size != NULL) {
 		msg_size->physical_size += startpos;
@@ -302,11 +302,11 @@ static void message_skip_line(IOBuffer *inbuf, MessageSize *msg_size)
 	}
 }
 
-void message_parse_header(MessagePart *part, IOBuffer *inbuf,
+void message_parse_header(MessagePart *part, IBuffer *inbuf,
 			  MessageSize *hdr_size,
 			  MessageHeaderFunc func, void *context)
 {
-	unsigned char *msg;
+	const unsigned char *msg;
 	size_t i, size, startpos, missing_cr_count;
 	size_t line_start, colon_pos, end_pos, name_len, value_len;
 	int ret;
@@ -317,8 +317,7 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 	missing_cr_count = startpos = line_start = 0;
 	colon_pos = UINT_MAX;
 	for (;;) {
-		ret = io_buffer_read_data_blocking(inbuf, &msg, &size,
-						   startpos+1);
+		ret = i_buffer_read_data(inbuf, &msg, &size, startpos+1);
 		if (ret == -2) {
 			/* overflow, line is too long. just skip it. */
 			i_assert(size > 2);
@@ -411,13 +410,13 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 			colon_pos -= line_start;
 		if (hdr_size != NULL)
 			hdr_size->physical_size += line_start;
-		io_buffer_skip(inbuf, line_start);
+		i_buffer_skip(inbuf, line_start);
 
 		startpos = i-line_start;
 		line_start = 0;
 	}
 
-	io_buffer_skip(inbuf, startpos);
+	i_buffer_skip(inbuf, startpos);
 
 	if (hdr_size != NULL) {
 		hdr_size->physical_size += startpos;
@@ -450,17 +449,17 @@ static MessageBoundary *boundary_find(MessageBoundary *boundaries,
    [\r]\n before the boundary, otherwise leave it right after the known
    boundary so the ending "--" can be checked. */
 static MessageBoundary *
-message_find_boundary(IOBuffer *inbuf, MessageBoundary *boundaries,
+message_find_boundary(IBuffer *inbuf, MessageBoundary *boundaries,
 		      MessageSize *msg_size, int skip_over)
 {
 	MessageBoundary *boundary;
-	unsigned char *msg;
+	const unsigned char *msg;
 	size_t i, size, startpos, line_start, missing_cr_count;
 
 	boundary = NULL;
 	missing_cr_count = startpos = line_start = 0;
 
-	while (io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
+	while (i_buffer_read_data(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] != '\n')
 				continue;
@@ -510,7 +509,7 @@ message_find_boundary(IOBuffer *inbuf, MessageBoundary *boundaries,
 			line_start -= i;
 		}
 
-		io_buffer_skip(inbuf, i);
+		i_buffer_skip(inbuf, i);
 		msg_size->physical_size += i;
 		msg_size->virtual_size += i;
 
@@ -534,7 +533,7 @@ message_find_boundary(IOBuffer *inbuf, MessageBoundary *boundaries,
 		startpos = line_start;
 	}
 
-	io_buffer_skip(inbuf, startpos);
+	i_buffer_skip(inbuf, startpos);
 	msg_size->physical_size += startpos;
 	msg_size->virtual_size += startpos + missing_cr_count;
 
@@ -543,7 +542,7 @@ message_find_boundary(IOBuffer *inbuf, MessageBoundary *boundaries,
 	return boundary;
 }
 
-static MessagePart *message_parse_body(IOBuffer *inbuf,
+static MessagePart *message_parse_body(IBuffer *inbuf,
 				       MessageBoundary *boundaries,
 				       MessageSize *body_size)
 {
@@ -561,12 +560,12 @@ static MessagePart *message_parse_body(IOBuffer *inbuf,
 
 /* skip data until next boundary is found. if it's end boundary,
    skip the footer as well. */
-static MessagePart *message_skip_boundary(IOBuffer *inbuf,
+static MessagePart *message_skip_boundary(IBuffer *inbuf,
 					  MessageBoundary *boundaries,
 					  MessageSize *boundary_size)
 {
 	MessageBoundary *boundary;
-	unsigned char *msg;
+	const unsigned char *msg;
 	size_t size;
 	int end_boundary;
 
@@ -577,7 +576,7 @@ static MessagePart *message_skip_boundary(IOBuffer *inbuf,
 
 	/* now, see if it's end boundary */
 	end_boundary = FALSE;
-	if (io_buffer_read_data_blocking(inbuf, &msg, &size, 1) > 0)
+	if (i_buffer_read_data(inbuf, &msg, &size, 1) > 0)
 		end_boundary = msg[0] == '-' && msg[1] == '-';
 
 	/* skip the rest of the line */

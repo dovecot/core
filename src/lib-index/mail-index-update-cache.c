@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "mail-index.h"
 
 #include <unistd.h>
@@ -10,7 +10,7 @@ static int cache_record(MailIndex *index, MailIndexRecord *rec,
 			MailField cache_fields)
 {
 	MailIndexUpdate *update;
-	IOBuffer *inbuf;
+	IBuffer *inbuf;
 	int failed;
 
 	inbuf = index->open_mail(index, rec);
@@ -23,7 +23,7 @@ static int cache_record(MailIndex *index, MailIndexRecord *rec,
 	mail_index_update_headers(update, inbuf, cache_fields, NULL, NULL);
 	failed = !index->update_end(update);
 
-	io_buffer_unref(inbuf);
+	i_buffer_unref(inbuf);
 	return !failed;
 }
 

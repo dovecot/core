@@ -54,8 +54,9 @@ void net_disconnect_later(int fd);
 
 /* Set socket blocking/nonblocking */
 void net_set_nonblock(int fd, int nonblock);
-/* Set TCP_CORK if supported, ie. don't send out partial frames. */
-void net_set_cork(int fd, int cork);
+/* Set TCP_CORK if supported, ie. don't send out partial frames.
+   Returns 0 if ok, -1 if failed. */
+int net_set_cork(int fd, int cork);
 
 /* Listen for connections on a socket */
 int net_listen(IPADDR *my_ip, unsigned int *port);

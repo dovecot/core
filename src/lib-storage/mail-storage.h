@@ -159,16 +159,16 @@ struct _Mailbox {
 	/* Fetch wanted mail data. The results are written into outbuf
 	   in RFC2060 FETCH format. */
 	int (*fetch)(Mailbox *box, MailFetchData *fetch_data,
-		     IOBuffer *outbuf, int *all_found);
+		     OBuffer *outbuf, int *all_found);
 
 	/* Search wanted mail data. args contains the search criteria.
 	   results are written into outbuf in RFC2060 SEARCH format. */
 	int (*search)(Mailbox *box, MailSearchArg *args,
-		      IOBuffer *outbuf, int uid_result);
+		      OBuffer *outbuf, int uid_result);
 
 	/* Save a new mail into mailbox. */
 	int (*save)(Mailbox *box, MailFlags flags, const char *custom_flags[],
-		    time_t internal_date, IOBuffer *data, uoff_t data_size);
+		    time_t internal_date, IBuffer *data, uoff_t data_size);
 
 	/* Returns TRUE if mailbox is now in inconsistent state, meaning that
 	   the message IDs etc. may have changed - only way to recover this

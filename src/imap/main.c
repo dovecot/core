@@ -70,7 +70,7 @@ static void main_init(int use_syslog)
 				"autodetection failed (home %s)", home);
 		}
 	} else {
-		client = client_create(0, 1, FALSE, storage);
+		client = client_create(0, 1, storage);
 
 		tag = getenv("LOGIN_TAG");
 		if (tag == NULL || *tag == '\0')

@@ -10,7 +10,8 @@ struct _Client {
 
 	int fd;
 	IO io;
-	IOBuffer *inbuf, *outbuf;
+	IBuffer *inbuf;
+	OBuffer *outbuf;
 
 	time_t last_input;
 	char *tag;

@@ -1,7 +1,8 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
+#include "obuffer.h"
 #include "temp-string.h"
 #include "write-full.h"
 #include "mbox-index.h"
@@ -15,7 +16,7 @@
 #include <fcntl.h>
 
 typedef struct {
-	IOBuffer *outbuf;
+	OBuffer *outbuf;
 	int failed;
 
 	uoff_t content_length;
@@ -48,23 +49,28 @@ static void reset_dirty_flags(MailIndex *index)
 				  MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS);
 }
 
-static int mbox_write(MailIndex *index, IOBuffer *inbuf, IOBuffer *outbuf,
+static int mbox_write(MailIndex *index, IBuffer *inbuf, OBuffer *outbuf,
 		      uoff_t end_offset)
 {
-	i_assert(inbuf->offset <= end_offset);
+	uoff_t old_limit;
 
-	if (io_buffer_send_iobuffer(outbuf, inbuf,
-				    end_offset - inbuf->offset) < 0)
-		return FALSE;
+	i_assert(inbuf->v_offset <= end_offset);
 
-	if (inbuf->offset < end_offset) {
+	old_limit = inbuf->v_limit;
+	i_buffer_set_read_limit(inbuf, end_offset - inbuf->v_offset);
+	if (o_buffer_send_ibuffer(outbuf, inbuf) < 0) {
+		index_set_error(index, "Error rewriting mbox file %s: %s",
+				index->mbox_path, strerror(outbuf->buf_errno));
+	} else if (inbuf->v_offset < end_offset) {
 		/* fsck should have noticed it.. */
 		index_set_error(index, "Error rewriting mbox file %s: "
 				"Unexpected end of file", index->mbox_path);
-		return FALSE;
+	} else {
+		return TRUE;
 	}
 
-	return TRUE;
+	i_buffer_set_read_limit(inbuf, old_limit);
+	return FALSE;
 }
 
 static int mbox_write_ximapbase(MboxRewriteContext *ctx)
@@ -74,21 +80,21 @@ static int mbox_write_ximapbase(MboxRewriteContext *ctx)
 
 	str = t_strdup_printf("X-IMAPbase: %u %u",
 			      ctx->uid_validity, ctx->uid_last);
-	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
 		return FALSE;
 
 	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
 		if (ctx->custom_flags[i] != NULL) {
-			if (io_buffer_send(ctx->outbuf, " ", 1) < 0)
+			if (o_buffer_send(ctx->outbuf, " ", 1) < 0)
 				return FALSE;
 
-			if (io_buffer_send(ctx->outbuf, ctx->custom_flags[i],
-					   strlen(ctx->custom_flags[i])) < 0)
+			if (o_buffer_send(ctx->outbuf, ctx->custom_flags[i],
+					  strlen(ctx->custom_flags[i])) < 0)
 				return FALSE;
 		}
 	}
 
-	if (io_buffer_send(ctx->outbuf, "\n", 1) < 0)
+	if (o_buffer_send(ctx->outbuf, "\n", 1) < 0)
 		return FALSE;
 
 	return TRUE;
@@ -103,32 +109,32 @@ static int mbox_write_xkeywords(MboxRewriteContext *ctx, const char *x_keywords)
 	    x_keywords == NULL)
 		return TRUE;
 
-	if (io_buffer_send(ctx->outbuf, "X-Keywords:", 11) < 0)
+	if (o_buffer_send(ctx->outbuf, "X-Keywords:", 11) < 0)
 		return FALSE;
 
 	field = 1 << MAIL_CUSTOM_FLAG_1_BIT;
 	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++, field <<= 1) {
 		if ((ctx->msg_flags & field) && ctx->custom_flags[i] != NULL) {
-			if (io_buffer_send(ctx->outbuf, " ", 1) < 0)
+			if (o_buffer_send(ctx->outbuf, " ", 1) < 0)
 				return FALSE;
 
-			if (io_buffer_send(ctx->outbuf, ctx->custom_flags[i],
-					   strlen(ctx->custom_flags[i])) < 0)
+			if (o_buffer_send(ctx->outbuf, ctx->custom_flags[i],
+					  strlen(ctx->custom_flags[i])) < 0)
 				return FALSE;
 		}
 	}
 
 	if (x_keywords != NULL) {
 		/* X-Keywords that aren't custom flags */
-		if (io_buffer_send(ctx->outbuf, " ", 1) < 0)
+		if (o_buffer_send(ctx->outbuf, " ", 1) < 0)
 			return FALSE;
 
-		if (io_buffer_send(ctx->outbuf, x_keywords,
-				   strlen(x_keywords)) < 0)
+		if (o_buffer_send(ctx->outbuf, x_keywords,
+				  strlen(x_keywords)) < 0)
 			return FALSE;
 	}
 
-	if (io_buffer_send(ctx->outbuf, "\n", 1) < 0)
+	if (o_buffer_send(ctx->outbuf, "\n", 1) < 0)
 		return FALSE;
 
 	return TRUE;
@@ -142,9 +148,9 @@ static int mbox_write_status(MboxRewriteContext *ctx, const char *status)
 	if (status != NULL)
 		str = t_strconcat(str, status, NULL);
 
-	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
 		return FALSE;
-	if (io_buffer_send(ctx->outbuf, "\n", 1) < 0)
+	if (o_buffer_send(ctx->outbuf, "\n", 1) < 0)
 		return FALSE;
 
 	return TRUE;
@@ -166,9 +172,9 @@ static int mbox_write_xstatus(MboxRewriteContext *ctx, const char *x_status)
 			  (ctx->msg_flags & MAIL_DELETED) ? "T" : "",
 			  x_status, NULL);
 
-	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
 		return FALSE;
-	if (io_buffer_send(ctx->outbuf, "\n", 1) < 0)
+	if (o_buffer_send(ctx->outbuf, "\n", 1) < 0)
 		return FALSE;
 
 	return TRUE;
@@ -181,7 +187,7 @@ static int mbox_write_content_length(MboxRewriteContext *ctx)
 	i_snprintf(str, sizeof(str), "Content-Length: %"PRIuUOFF_T"\n",
 		   ctx->content_length);
 
-	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
 		return FALSE;
 	return TRUE;
 }
@@ -274,10 +280,10 @@ static void header_func(MessagePart *part __attr_unused__,
 		(void)mbox_write_content_length(ctx);
 	} else if (name_len > 0) {
 		/* save this header */
-		(void)io_buffer_send(ctx->outbuf, name, name_len);
-		(void)io_buffer_send(ctx->outbuf, ": ", 2);
-		(void)io_buffer_send(ctx->outbuf, value, value_len);
-		(void)io_buffer_send(ctx->outbuf, "\n", 1);
+		(void)o_buffer_send(ctx->outbuf, name, name_len);
+		(void)o_buffer_send(ctx->outbuf, ": ", 2);
+		(void)o_buffer_send(ctx->outbuf, value, value_len);
+		(void)o_buffer_send(ctx->outbuf, "\n", 1);
 	}
 
 	if (ctx->outbuf->closed)
@@ -286,7 +292,7 @@ static void header_func(MessagePart *part __attr_unused__,
 
 static int mbox_write_header(MailIndex *index,
 			     MailIndexRecord *rec, unsigned int seq,
-			     IOBuffer *inbuf, IOBuffer *outbuf,
+			     IBuffer *inbuf, OBuffer *outbuf,
 			     uoff_t end_offset)
 {
 	/* We need to update fields that define message flags. Standard fields
@@ -303,7 +309,7 @@ static int mbox_write_header(MailIndex *index,
 	MboxRewriteContext ctx;
 	MessageSize hdr_size;
 
-	if (inbuf->offset >= end_offset) {
+	if (inbuf->v_offset >= end_offset) {
 		/* fsck should have noticed it.. */
 		index_set_error(index, "Error rewriting mbox file %s: "
 				"Unexpected end of file", index->mbox_path);
@@ -321,9 +327,9 @@ static int mbox_write_header(MailIndex *index,
 	ctx.uid_validity = index->header->uid_validity-1;
 	ctx.custom_flags = mail_custom_flags_list_get(index->custom_flags);
 
-	io_buffer_set_read_limit(inbuf, inbuf->offset + rec->header_size);
+	i_buffer_set_read_limit(inbuf, inbuf->v_offset + rec->header_size);
 	message_parse_header(NULL, inbuf, &hdr_size, header_func, &ctx);
-	io_buffer_set_read_limit(inbuf, 0);
+	i_buffer_set_read_limit(inbuf, 0);
 
 	i_assert(hdr_size.physical_size == rec->header_size);
 
@@ -347,14 +353,15 @@ static int mbox_write_header(MailIndex *index,
 	mail_custom_flags_list_unref(index->custom_flags);
 
 	/* empty line ends headers */
-	(void)io_buffer_send(outbuf, "\n", 1);
+	(void)o_buffer_send(outbuf, "\n", 1);
 
 	return TRUE;
 }
 
 static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
 {
-	IOBuffer *inbuf, *outbuf;
+	IBuffer *inbuf;
+	OBuffer *outbuf;
 	int ret;
 
 	i_assert(out_offset <= OFF_T_MAX);
@@ -364,21 +371,22 @@ static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
 
 	t_push();
 
-	inbuf = io_buffer_create_mmap(in_fd, data_stack_pool,
-				      1024*256, 0, 0, 0);
-	outbuf = io_buffer_create_file(out_fd, data_stack_pool, 1024, FALSE);
+	inbuf = i_buffer_create_mmap(in_fd, data_stack_pool,
+				     1024*256, 0, 0, FALSE);
+	outbuf = o_buffer_create_file(out_fd, data_stack_pool, 1024,
+				      IO_PRIORITY_DEFAULT, FALSE);
 
-	ret = io_buffer_send_iobuffer(outbuf, inbuf, inbuf->size);
+	ret = o_buffer_send_ibuffer(outbuf, inbuf);
 	if (ret < 0)
 		errno = outbuf->buf_errno;
 	else {
 		/* we may have shrinked the file */
-		i_assert(out_offset + inbuf->size <= OFF_T_MAX);
-		ret = ftruncate(out_fd, (off_t) (out_offset + inbuf->size));
+		i_assert(out_offset + inbuf->v_size <= OFF_T_MAX);
+		ret = ftruncate(out_fd, (off_t) (out_offset + inbuf->v_size));
 	}
 
-	io_buffer_unref(outbuf);
-	io_buffer_unref(inbuf);
+	o_buffer_unref(outbuf);
+	i_buffer_unref(inbuf);
 	t_pop();
 
 	return ret;
@@ -391,7 +399,8 @@ int mbox_index_rewrite(MailIndex *index)
 	   interrupted (see below). This rewriting relies quite a lot on
 	   valid header/body sizes which fsck() should have ensured. */
 	MailIndexRecord *rec;
-	IOBuffer *inbuf, *outbuf;
+	IBuffer *inbuf;
+	OBuffer *outbuf;
 	uoff_t offset, dirty_offset;
 	const char *path;
 	unsigned int seq;
@@ -439,7 +448,7 @@ int mbox_index_rewrite(MailIndex *index)
 		if (locked)
 			(void)mbox_unlock(index);
 		if (inbuf != NULL)
-			io_buffer_unref(inbuf);
+			i_buffer_unref(inbuf);
 		return !failed;
 	}
 
@@ -452,7 +461,8 @@ int mbox_index_rewrite(MailIndex *index)
 	dirty_offset = 0;
 
 	t_push();
-	outbuf = io_buffer_create_file(tmp_fd, data_stack_pool, 8192, FALSE);
+	outbuf = o_buffer_create_file(tmp_fd, data_stack_pool, 8192,
+				      IO_PRIORITY_DEFAULT, FALSE);
 
 	failed = FALSE; seq = 1;
 	rec = index->lookup(index, 1);
@@ -465,7 +475,8 @@ int mbox_index_rewrite(MailIndex *index)
 				break;
 			}
 
-			if (offset + rec->header_size + rec->body_size > inbuf->size) {
+			if (offset + rec->header_size +
+			    rec->body_size > inbuf->v_size) {
 				index_set_corrupted(index,
 						    "Invalid message size");
 				failed = TRUE;
@@ -481,7 +492,7 @@ int mbox_index_rewrite(MailIndex *index)
 			dirty_found = TRUE;
 			dirty_offset = offset;
 
-			io_buffer_seek(inbuf, dirty_offset);
+			i_buffer_seek(inbuf, dirty_offset);
 		}
 
 		if (dirty_found) {
@@ -518,15 +529,15 @@ int mbox_index_rewrite(MailIndex *index)
 	}
 
 	/* always end with a \n */
-	(void)io_buffer_send(outbuf, "\n", 1);
+	(void)o_buffer_send(outbuf, "\n", 1);
 	if (outbuf->closed) {
 		errno = outbuf->buf_errno;
 		mbox_set_syscall_error(index, "write()");
 		failed = TRUE;
 	}
 
-	io_buffer_unref(inbuf);
-	io_buffer_unref(outbuf);
+	i_buffer_unref(inbuf);
+	o_buffer_unref(outbuf);
 	t_pop();
 
 	if (!failed) {

@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "temp-string.h"
 #include "mmap-util.h"
 #include "message-parser.h"
@@ -47,7 +47,7 @@ struct _ImapMessageCache {
 	int messages_count;
 
 	CachedMessage *open_msg;
-	IOBuffer *open_inbuf;
+	IBuffer *open_inbuf;
 
 	void *context;
 };
@@ -160,7 +160,7 @@ static int imap_msgcache_get_inbuf(ImapMessageCache *cache, uoff_t offset)
 {
 	if (cache->open_inbuf == NULL)
 		cache->open_inbuf = cache->iface->open_mail(cache->context);
-	else if (offset < cache->open_inbuf->offset) {
+	else if (offset < cache->open_inbuf->v_offset) {
 		/* need to rewind */
 		cache->open_inbuf =
 			cache->iface->inbuf_rewind(cache->open_inbuf,
@@ -170,9 +170,9 @@ static int imap_msgcache_get_inbuf(ImapMessageCache *cache, uoff_t offset)
 	if (cache->open_inbuf == NULL)
 		return FALSE;
 
-	i_assert(offset >= cache->open_inbuf->offset);
+	i_assert(offset >= cache->open_inbuf->v_offset);
 
-	io_buffer_skip(cache->open_inbuf, offset - cache->open_inbuf->offset);
+	i_buffer_skip(cache->open_inbuf, offset - cache->open_inbuf->v_offset);
 	return TRUE;
 }
 
@@ -342,7 +342,7 @@ void imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
 void imap_msgcache_close(ImapMessageCache *cache)
 {
 	if (cache->open_inbuf != NULL) {
-		io_buffer_unref(cache->open_inbuf);
+		i_buffer_unref(cache->open_inbuf);
 		cache->open_inbuf = NULL;
 	}
 
@@ -386,7 +386,7 @@ MessagePart *imap_msgcache_get_parts(ImapMessageCache *cache)
 	return cache->open_msg->part;
 }
 
-int imap_msgcache_get_rfc822(ImapMessageCache *cache, IOBuffer **inbuf,
+int imap_msgcache_get_rfc822(ImapMessageCache *cache, IBuffer **inbuf,
 			     MessageSize *hdr_size, MessageSize *body_size)
 {
 	CachedMessage *msg;
@@ -422,11 +422,11 @@ int imap_msgcache_get_rfc822(ImapMessageCache *cache, IOBuffer **inbuf,
 	return TRUE;
 }
 
-static void get_partial_size(IOBuffer *inbuf,
+static void get_partial_size(IBuffer *inbuf,
 			     uoff_t virtual_skip, uoff_t max_virtual_size,
 			     MessageSize *partial, MessageSize *dest)
 {
-	unsigned char *msg;
+	const unsigned char *msg;
 	size_t size;
 	int cr_skipped;
 
@@ -434,7 +434,7 @@ static void get_partial_size(IOBuffer *inbuf,
 	if (partial->virtual_size > virtual_skip)
 		memset(partial, 0, sizeof(MessageSize));
 	else {
-		io_buffer_skip(inbuf, partial->physical_size);
+		i_buffer_skip(inbuf, partial->physical_size);
 		virtual_skip -= partial->virtual_size;
 	}
 
@@ -442,7 +442,7 @@ static void get_partial_size(IOBuffer *inbuf,
 
 	if (!cr_skipped) {
 		/* see if we need to add virtual CR */
-		if (io_buffer_read_data_blocking(inbuf, &msg, &size, 0) > 0) {
+		if (i_buffer_read_data(inbuf, &msg, &size, 0) > 0) {
 			if (msg[0] == '\n')
 				dest->virtual_size++;
 		}
@@ -455,7 +455,7 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 				     uoff_t virtual_skip,
 				     uoff_t max_virtual_size,
 				     int get_header, MessageSize *size,
-                                     IOBuffer **inbuf)
+                                     IBuffer **inbuf)
 {
 	CachedMessage *msg;
 	uoff_t physical_skip;
@@ -513,7 +513,7 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 	return TRUE;
 }
 
-int imap_msgcache_get_data(ImapMessageCache *cache, IOBuffer **inbuf)
+int imap_msgcache_get_data(ImapMessageCache *cache, IBuffer **inbuf)
 {
 	i_assert(cache->open_msg != NULL);
 

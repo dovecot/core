@@ -40,7 +40,7 @@ int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
 			     MailIndexRecord **rec);
 
 int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
-			       IOBuffer *buf, uoff_t data_size);
+			       IBuffer *buf, uoff_t data_size);
 
 void *index_msgcache_get_context(MailIndex *index, MailIndexRecord *rec);
 
@@ -61,8 +61,8 @@ int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
 			       MailFlagUpdateFunc func, void *context,
 			       int *all_found);
 int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
-			IOBuffer *outbuf, int *all_found);
+			OBuffer *outbuf, int *all_found);
 int index_storage_search(Mailbox *box, MailSearchArg *args,
-			 IOBuffer *outbuf, int uid_result);
+			 OBuffer *outbuf, int uid_result);
 
 #endif

@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "settings.h"
 
 #include <stdio.h>
@@ -124,6 +124,18 @@ static void settings_initialize(void)
 	}
 }
 
+static void auth_settings_verify(void)
+{
+	AuthConfig *auth;
+
+	for (auth = auth_processes_config; auth != NULL; auth = auth->next) {
+		if (access(set_imap_executable, X_OK) == -1) {
+			i_fatal("Can't use auth executable %s: %m",
+				auth->executable);
+		}
+	}
+}
+
 static void settings_verify(void)
 {
 	get_login_uid();
@@ -150,6 +162,8 @@ static void settings_verify(void)
 		i_fatal("first_valid_uid can't be larger than last_valid_uid");
 	if (set_first_valid_gid < set_last_valid_gid)
 		i_fatal("first_valid_gid can't be larger than last_valid_gid");
+
+	auth_settings_verify();
 }
 
 static AuthConfig *auth_config_new(const char *name)
@@ -169,6 +183,9 @@ static AuthConfig *auth_config_new(const char *name)
 static const char *parse_new_auth(const char *name)
 {
 	AuthConfig *auth;
+
+	if (strchr(name, '/') != NULL)
+		return "Authentication process name must not contain '/'";
 
 	for (auth = auth_processes_config; auth != NULL; auth = auth->next) {
 		if (strcmp(auth->name, name) == 0) {
@@ -277,7 +294,7 @@ static const char *parse_setting(const char *key, const char *value)
 
 void settings_read(const char *path)
 {
-	IOBuffer *inbuf;
+	IBuffer *inbuf;
 	const char *errormsg;
 	char *line, *key, *p;
 	int fd, linenum;
@@ -289,11 +306,11 @@ void settings_read(const char *path)
 		i_fatal("Can't open configuration file %s: %m", path);
 
 	linenum = 0;
-	inbuf = io_buffer_create_file(fd, default_pool, 2048, TRUE);
+	inbuf = i_buffer_create_file(fd, default_pool, 2048, TRUE);
 	for (;;) {
-		line = io_buffer_next_line(inbuf);
+		line = i_buffer_next_line(inbuf);
 		if (line == NULL) {
-			if (io_buffer_read(inbuf) <= 0)
+			if (i_buffer_read(inbuf) <= 0)
 				break;
                         continue;
 		}
@@ -338,7 +355,7 @@ void settings_read(const char *path)
 		}
 	};
 
-	io_buffer_unref(inbuf);
+	i_buffer_unref(inbuf);
 
         settings_verify();
 }

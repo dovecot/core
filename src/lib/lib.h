@@ -18,7 +18,8 @@ typedef struct _IO *IO;
 typedef struct _Timeout *Timeout;
 
 typedef struct _IPADDR IPADDR;
-typedef struct _IOBuffer IOBuffer;
+typedef struct _IBuffer IBuffer;
+typedef struct _OBuffer OBuffer;
 typedef struct _TempString TempString;
 
 #include "compat.h"

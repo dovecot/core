@@ -62,6 +62,19 @@ void my_vsyslog(int priority, const char *format, va_list args);
 int my_getpagesize(void);
 #endif
 
+#ifndef HAVE_STRUCT_IOVEC
+struct iovec {
+	void *iov_base;
+	size_t iov_len;
+};
+#endif
+
+#ifndef HAVE_WRITEV
+#  define writev my_writev
+struct iovec;
+ssize_t my_writev(int fd, const struct iovec *iov, size_t iov_len);
+#endif
+
 /* ctype.h isn't safe with signed chars,
    use our own instead if really needed */
 #define i_toupper(x) ((char) toupper((int) (unsigned char) (x)))

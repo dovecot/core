@@ -44,7 +44,7 @@ typedef void (*MessageHeaderFunc)(MessagePart *part,
 				  void *context);
 
 /* func is called for each field in message header. */
-MessagePart *message_parse(Pool pool, IOBuffer *inbuf,
+MessagePart *message_parse(Pool pool, IBuffer *inbuf,
 			   MessageHeaderFunc func, void *context);
 
 /* Call func for each field in message header. Fills the hdr_size.
@@ -52,7 +52,7 @@ MessagePart *message_parse(Pool pool, IOBuffer *inbuf,
    This function doesn't use data stack so your header function may save
    values to it. When finished, inbuf will point to beginning of message
    body. */
-void message_parse_header(MessagePart *part, IOBuffer *inbuf,
+void message_parse_header(MessagePart *part, IBuffer *inbuf,
 			  MessageSize *hdr_size,
 			  MessageHeaderFunc func, void *context);
 

@@ -1,7 +1,8 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
+#include "obuffer.h"
 #include "mmap-util.h"
 #include "rfc822-tokenize.h"
 #include "rfc822-date.h"
@@ -530,12 +531,12 @@ static void search_text_body(MailSearchArg *arg, void *context)
 		search_text(arg, ctx);
 }
 
-static void search_arg_match_data(IOBuffer *inbuf, uoff_t max_size,
+static void search_arg_match_data(IBuffer *inbuf, uoff_t max_size,
 				  MailSearchArg *args,
 				  MailSearchForeachFunc search_func)
 {
 	SearchTextContext ctx;
-	unsigned char *data;
+	const unsigned char *data;
 	size_t size, max_searchword_len;
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -545,33 +546,33 @@ static void search_arg_match_data(IOBuffer *inbuf, uoff_t max_size,
 	mail_search_args_foreach(args, search_func, &ctx);
         max_searchword_len = ctx.max_searchword_len;
 
-	io_buffer_set_read_limit(inbuf, inbuf->offset + max_size);
+	i_buffer_set_read_limit(inbuf, inbuf->v_offset + max_size);
 
 	/* do this in blocks: read data, compare it for all search words, skip
 	   for block size - (strlen(largest_searchword)-1) and continue. */
-	while (io_buffer_read_data_blocking(inbuf, &data, &size,
-					    max_searchword_len-1) > 0) {
+	while (i_buffer_read_data(inbuf, &data, &size,
+				  max_searchword_len-1) > 0) {
 		ctx.msg = (char *) data;
 		ctx.size = size;
 		mail_search_args_foreach(args, search_func, &ctx);
-		io_buffer_skip(inbuf, size - (max_searchword_len-1));
+		i_buffer_skip(inbuf, size - (max_searchword_len-1));
 	}
 
 	if (size > 0) {
 		/* last block */
-		ctx.msg = (char *) data;
+		ctx.msg = (const char *) data;
 		ctx.size = size;
 		mail_search_args_foreach(args, search_func, &ctx);
-		io_buffer_skip(inbuf, size);
+		i_buffer_skip(inbuf, size);
 	}
 
-	io_buffer_set_read_limit(inbuf, 0);
+	i_buffer_set_read_limit(inbuf, 0);
 }
 
 static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 				 MailSearchArg *args)
 {
-	IOBuffer *inbuf;
+	IBuffer *inbuf;
 	MessageSize hdr_size;
 	int have_headers, have_body, have_text;
 
@@ -604,10 +605,11 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 	}
 
 	if (have_text) {
-		if (inbuf->offset != 0) {
+		if (inbuf->v_offset != 0) {
 			/* need to rewind back to beginning of headers */
-			if (!io_buffer_seek(inbuf, 0)) {
-				i_error("io_buffer_seek() failed: %m");
+			if (!i_buffer_seek(inbuf, 0)) {
+				errno = inbuf->buf_errno;
+				i_error("i_buffer_seek() failed: %m");
 				return FALSE;
 			}
 		}
@@ -617,16 +619,16 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 	}
 
 	if (have_text || have_body) {
-		if (inbuf->offset == 0) {
+		if (inbuf->v_offset == 0) {
 			/* skip over headers */
-			io_buffer_skip(inbuf, hdr_size.physical_size);
+			i_buffer_skip(inbuf, hdr_size.physical_size);
 		}
 
 		search_arg_match_data(inbuf, rec->body_size, args,
 				      search_text_body);
 	}
 
-	io_buffer_unref(inbuf);
+	i_buffer_unref(inbuf);
 	return TRUE;
 }
 
@@ -739,7 +741,7 @@ static int search_get_uid_range(IndexMailbox *ibox, MailSearchArg *args,
 }
 
 static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
-			   IOBuffer *outbuf, int uid_result)
+			   OBuffer *outbuf, int uid_result)
 {
 	SearchIndexContext ctx;
 	MailIndexRecord *rec;
@@ -795,7 +797,7 @@ static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
 			if (found) {
 				i_snprintf(num, sizeof(num), " %u",
 					   uid_result ? rec->uid : client_seq);
-				io_buffer_send(outbuf, num, strlen(num));
+				o_buffer_send(outbuf, num, strlen(num));
 			}
 		}
 
@@ -806,7 +808,7 @@ static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
 }
 
 int index_storage_search(Mailbox *box, MailSearchArg *args,
-			 IOBuffer *outbuf, int uid_result)
+			 OBuffer *outbuf, int uid_result)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	int failed;
@@ -817,9 +819,9 @@ int index_storage_search(Mailbox *box, MailSearchArg *args,
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(ibox);
 
-	io_buffer_send(outbuf, "* SEARCH", 8);
+	o_buffer_send(outbuf, "* SEARCH", 8);
 	failed = !search_messages(ibox, args, outbuf, uid_result);
-	io_buffer_send(outbuf, "\r\n", 2);
+	o_buffer_send(outbuf, "\r\n", 2);
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);

@@ -134,3 +134,29 @@ int my_getpagesize(void)
 #endif
 }
 #endif
+
+#ifndef HAVE_WRITEV
+ssize_t my_writev(int fd, const struct iovec *iov, size_t iov_len)
+{
+	size_t i, written;
+	ssize_t ret;
+
+	written = 0;
+	for (i = 0; i < iov_len; i++, iov++) {
+		ret = write(fd, iov->iov_base, iov->iov_len);
+		if (ret < 0)
+			return -1;
+
+		written += ret;
+		if ((size_t)ret != iov->iov_len)
+			break;
+	}
+
+	if (written > SSIZE_T_MAX) {
+		errno = ERANGE;
+		return -1;
+	}
+
+	return (ssize_t)written;
+}
+#endif

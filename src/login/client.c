@@ -2,7 +2,8 @@
 
 #include "common.h"
 #include "hash.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
+#include "obuffer.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "ssl-proxy.h"
@@ -49,7 +50,7 @@ static int cmd_starttls(Client *client)
 	}
 
 	client_send_tagline(client, "OK Begin TLS negotiation now.");
-	io_buffer_send_flush(client->outbuf);
+	o_buffer_flush(client->outbuf);
 
 	/* must be removed before ssl_proxy_new(), since it may
 	   io_add() the same fd. */
@@ -59,11 +60,15 @@ static int cmd_starttls(Client *client)
 	if (fd_ssl != -1) {
 		client->tls = TRUE;
 		client->fd = fd_ssl;
-		client->inbuf->fd = fd_ssl;
-		client->outbuf->fd = fd_ssl;
 
-		i_assert(client->inbuf->io == NULL);
-		i_assert(client->outbuf->io == NULL);
+		i_buffer_unref(client->inbuf);
+		o_buffer_unref(client->outbuf);
+
+		client->inbuf = i_buffer_create_file(fd_ssl, default_pool,
+						     8192, FALSE);
+		client->outbuf = o_buffer_create_file(fd_ssl, default_pool,
+						      1024, IO_PRIORITY_DEFAULT,
+						      FALSE);
 	} else {
 		client_send_line(client, " * BYE TLS handehake failed.");
 		client_destroy(client, "TLS handshake failed");
@@ -89,7 +94,7 @@ static int cmd_logout(Client *client)
 
 int client_read(Client *client)
 {
-	switch (io_buffer_read(client->inbuf)) {
+	switch (i_buffer_read(client->inbuf)) {
 	case -2:
 		/* buffer full */
 		client_send_line(client, "* BYE Input buffer full, aborting");
@@ -181,9 +186,9 @@ void client_input(void *context, int fd __attr_unused__,
 		return;
 
 	client_ref(client);
-	io_buffer_cork(client->outbuf);
+	o_buffer_cork(client->outbuf);
 
-	while ((line = io_buffer_next_line(client->inbuf)) != NULL) {
+	while ((line = i_buffer_next_line(client->inbuf)) != NULL) {
 		/* split the arguments, make sure we have at
 		   least tag + command */
 		i_free(client->tag);
@@ -198,7 +203,7 @@ void client_input(void *context, int fd __attr_unused__,
 	}
 
 	if (client_unref(client))
-		io_buffer_send_flush(client->outbuf);
+		o_buffer_flush(client->outbuf);
 }
 
 static void client_hash_destroy_oldest(void *key, void *value __attr_unused__,
@@ -255,10 +260,9 @@ Client *client_create(int fd, IPADDR *ip)
 	memcpy(&client->ip, ip, sizeof(IPADDR));
 	client->fd = fd;
 	client->io = io_add(fd, IO_READ, client_input, client);
-	client->inbuf = io_buffer_create(fd, default_pool,
-					 IO_PRIORITY_DEFAULT, 8192);
-	client->outbuf = io_buffer_create(fd, default_pool,
-					  IO_PRIORITY_DEFAULT, 1024);
+	client->inbuf = i_buffer_create_file(fd, default_pool, 8192, FALSE);
+	client->outbuf = o_buffer_create_file(fd, default_pool, 1024,
+					      IO_PRIORITY_DEFAULT, FALSE);
         client->last_input = ioloop_time;
 	hash_insert(clients, client, client);
 
@@ -273,8 +277,8 @@ void client_destroy(Client *client, const char *reason)
 
 	hash_remove(clients, client);
 
-	io_buffer_close(client->inbuf);
-	io_buffer_close(client->outbuf);
+	i_buffer_close(client->inbuf);
+	o_buffer_close(client->outbuf);
 
 	if (client->io != NULL) {
 		io_remove(client->io);
@@ -297,8 +301,8 @@ int client_unref(Client *client)
 	if (--client->refcount > 0)
 		return TRUE;
 
-	io_buffer_unref(client->inbuf);
-	io_buffer_unref(client->outbuf);
+	i_buffer_unref(client->inbuf);
+	o_buffer_unref(client->outbuf);
 
 	i_free(client->tag);
 	i_free(client->plain_login);
@@ -308,8 +312,8 @@ int client_unref(Client *client)
 
 void client_send_line(Client *client, const char *line)
 {
-	io_buffer_send(client->outbuf, line, strlen(line));
-	io_buffer_send(client->outbuf, "\r\n", 2);
+	o_buffer_send(client->outbuf, line, strlen(line));
+	o_buffer_send(client->outbuf, "\r\n", 2);
 }
 
 void client_send_tagline(Client *client, const char *line)

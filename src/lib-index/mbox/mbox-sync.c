@@ -1,7 +1,6 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
 

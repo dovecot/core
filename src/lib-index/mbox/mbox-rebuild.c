@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
 #include "mail-index-data.h"
@@ -14,7 +14,7 @@
 
 int mbox_index_rebuild(MailIndex *index)
 {
-	IOBuffer *inbuf;
+	IBuffer *inbuf;
 	struct stat st;
 	int failed;
 
@@ -48,7 +48,7 @@ int mbox_index_rebuild(MailIndex *index)
 
 	/* lock the mailbox so we can be sure no-one interrupts us. */
 	if (!mbox_lock_read(index)) {
-		io_buffer_unref(inbuf);
+		i_buffer_unref(inbuf);
 		return FALSE;
 	}
 
@@ -56,7 +56,7 @@ int mbox_index_rebuild(MailIndex *index)
 	failed = !mbox_index_append(index, inbuf);
 	(void)mbox_unlock(index);
 
-	io_buffer_unref(inbuf);
+	i_buffer_unref(inbuf);
 
 	if (failed)
 		return FALSE;

@@ -24,6 +24,10 @@ liblib_a_SOURCES = \
 	hostpid.c \
 	imem.c \
 	iobuffer.c \
+	ibuffer.c \
+	ibuffer-data.c \
+	ibuffer-file.c \
+	ibuffer-mmap.c \
 	ioloop.c \
 	$(ioloop_source) \
 	lib.c \
@@ -36,6 +40,8 @@ liblib_a_SOURCES = \
 	mmap-anon.c \
 	mmap-util.c \
 	network.c \
+	obuffer.c \
+	obuffer-file.c \
 	primes.c \
 	randgen.c \
 	restrict-access.c \
@@ -59,7 +65,9 @@ noinst_HEADERS = \
 	hex-binary.h \
 	hostpid.h \
 	imem.h \
-	iobuffer.h \
+	iobuffer-internal.h \
+	ibuffer.h \
+	ibuffer-internal.h \
 	ioloop.h \
 	ioloop-internal.h \
 	lib.h \
@@ -69,6 +77,8 @@ noinst_HEADERS = \
 	mempool.h \
 	mmap-util.h \
 	network.h \
+	obuffer.h \
+	obuffer-internal.h \
 	primes.h \
 	randgen.h \
 	restrict-access.h \

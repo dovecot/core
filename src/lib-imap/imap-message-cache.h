@@ -24,10 +24,10 @@ typedef enum {
 
 typedef struct {
 	/* Open mail for reading. */
-	IOBuffer *(*open_mail)(void *context);
+	IBuffer *(*open_mail)(void *context);
 	/* Rewind input buffer to beginning, possibly closing the old buffer
 	   if it can't directly be rewinded. */
-	IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf, void *context);
+	IBuffer *(*inbuf_rewind)(IBuffer *inbuf, void *context);
 
 	/* Returns field if it's already cached, or NULL. */
 	const char *(*get_cached_field)(ImapCacheField field, void *context);
@@ -59,7 +59,7 @@ MessagePart *imap_msgcache_get_parts(ImapMessageCache *cache);
 
 /* Returns TRUE if successful. If inbuf is not NULL, it's set to point to
    beginning of message, or to beginning of message body if hdr_size is NULL. */
-int imap_msgcache_get_rfc822(ImapMessageCache *cache, IOBuffer **inbuf,
+int imap_msgcache_get_rfc822(ImapMessageCache *cache, IBuffer **inbuf,
 			     MessageSize *hdr_size, MessageSize *body_size);
 
 /* Returns TRUE if successful. *inbuf is set to point to the first non-skipped
@@ -68,10 +68,10 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 				     uoff_t virtual_skip,
 				     uoff_t max_virtual_size,
 				     int get_header, MessageSize *size,
-				     IOBuffer **inbuf);
+				     IBuffer **inbuf);
 
 /* Returns TRUE if successful. *inbuf is set to point to beginning of
    message. */
-int imap_msgcache_get_data(ImapMessageCache *cache, IOBuffer **inbuf);
+int imap_msgcache_get_data(ImapMessageCache *cache, IBuffer **inbuf);
 
 #endif

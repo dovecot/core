@@ -229,9 +229,9 @@ struct _MailIndex {
 	const void *(*lookup_field_raw)(MailIndex *index, MailIndexRecord *rec,
 					MailField field, size_t *size);
 
-	/* Open mail file and return it as mmap()ed IOBuffer, or
+	/* Open mail file and return it as mmap()ed IBuffer, or
 	   NULL if failed. */
-	IOBuffer *(*open_mail)(MailIndex *index, MailIndexRecord *rec);
+	IBuffer *(*open_mail)(MailIndex *index, MailIndexRecord *rec);
 
 	/* Expunge a mail from index. Tree and modifylog is also updated. The
 	   index must be exclusively locked before calling this function.
@@ -391,7 +391,7 @@ int mail_index_fmsync(MailIndex *index, size_t size);
 int mail_index_verify_hole_range(MailIndex *index);
 void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 				  MailFlags old_flags, MailFlags new_flags);
-void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
+void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
                                MailField cache_fields,
 			       MessageHeaderFunc header_func, void *context);
 int mail_index_update_cache(MailIndex *index);

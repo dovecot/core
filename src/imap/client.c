@@ -2,7 +2,8 @@
 
 #include "common.h"
 #include "network.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
+#include "obuffer.h"
 #include "commands.h"
 
 #include <stdlib.h>
@@ -33,8 +34,8 @@ static void client_output_timeout(void *context,
 {
 	Client *client = context;
 
-	io_buffer_close(client->inbuf);
-	io_buffer_close(client->outbuf);
+	i_buffer_close(client->inbuf);
+	o_buffer_close(client->outbuf);
 }
 
 static void client_input_timeout(void *context,
@@ -44,37 +45,35 @@ static void client_input_timeout(void *context,
 
 	client_send_line(my_client, "* BYE Disconnected for inactivity "
 			 "while waiting for command data.");
-	io_buffer_close(client->outbuf);
+	o_buffer_close(client->outbuf);
 }
 
-Client *client_create(int hin, int hout, int socket, MailStorage *storage)
+Client *client_create(int hin, int hout, MailStorage *storage)
 {
 	Client *client;
 
 	client = i_new(Client, 1);
-	client->socket = socket;
-	client->inbuf = io_buffer_create(hin, default_pool, 0,
-					 MAX_INBUF_SIZE);
-	client->outbuf = io_buffer_create(hout, default_pool, 0, 0);
+	client->inbuf = i_buffer_create_file(hin, default_pool,
+					     MAX_INBUF_SIZE, FALSE);
+	client->outbuf = o_buffer_create_file(hout, default_pool, 4096,
+					      IO_PRIORITY_DEFAULT, FALSE);
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(hin, TRUE);
 	net_set_nonblock(hout, TRUE);
 
-	/* set timeout for sending data */
-	io_buffer_set_blocking(client->outbuf, 4096, CLIENT_OUTPUT_TIMEOUT,
-			       client_output_timeout, client);
-
 	/* set timeout for reading expected data (eg. APPEND). This is
 	   different from the actual idle time. */
-	io_buffer_set_blocking(client->inbuf, 0, CLIENT_CMDINPUT_TIMEOUT,
-			       client_input_timeout, client);
+	i_buffer_set_blocking(client->inbuf, CLIENT_CMDINPUT_TIMEOUT,
+			      client_input_timeout, client);
 
-	client->inbuf->file = !socket;
-	client->outbuf->file = !socket;
+	/* set timeout for sending data */
+	o_buffer_set_blocking(client->outbuf, CLIENT_OUTPUT_TIMEOUT,
+			      client_output_timeout, client);
 
-	client->io = io_add(socket, IO_READ, (IOFunc) client_input, client);
-	client->parser = imap_parser_create(client->inbuf, client->outbuf);
+	client->io = io_add(hin, IO_READ, (IOFunc) client_input, client);
+	client->parser = imap_parser_create(client->inbuf, client->outbuf,
+					    MAX_INBUF_SIZE);
         client->last_input = ioloop_time;
 
 	client->storage = storage;
@@ -86,7 +85,7 @@ Client *client_create(int hin, int hout, int socket, MailStorage *storage)
 
 void client_destroy(Client *client)
 {
-	io_buffer_send_flush(client->outbuf);
+	o_buffer_flush(client->outbuf);
 
 	if (client->mailbox != NULL)
 		client->mailbox->close(client->mailbox);
@@ -95,8 +94,8 @@ void client_destroy(Client *client)
 	imap_parser_destroy(client->parser);
 	io_remove(client->io);
 
-	io_buffer_unref(client->inbuf);
-	io_buffer_unref(client->outbuf);
+	i_buffer_unref(client->inbuf);
+	o_buffer_unref(client->outbuf);
 
 	i_free(client);
 
@@ -107,43 +106,24 @@ void client_destroy(Client *client)
 
 void client_disconnect(Client *client)
 {
-	io_buffer_send_flush(client->outbuf);
+	o_buffer_flush(client->outbuf);
 
-	io_buffer_close(client->inbuf);
-	io_buffer_close(client->outbuf);
+	i_buffer_close(client->inbuf);
+	o_buffer_close(client->outbuf);
 }
 
 void client_send_line(Client *client, const char *data)
 {
-	unsigned char *buf;
-	size_t len;
-
 	if (client->outbuf->closed)
 		return;
 
-	len = strlen(data);
-
-	buf = io_buffer_get_space(client->outbuf, len+2);
-	if (buf != NULL) {
-		memcpy(buf, data, len);
-		buf[len++] = '\r'; buf[len++] = '\n';
-
-		/* Returns error only if we disconnected -
-		   we don't need to do anything about it. */
-		(void)io_buffer_send_buffer(client->outbuf, len);
-	} else {
-		/* not enough space in output buffer, send this directly.
-		   will block. */
-		io_buffer_send(client->outbuf, data, len);
-		io_buffer_send(client->outbuf, "\r\n", 2);
-	}
+	(void)o_buffer_send(client->outbuf, data, strlen(data));
+	(void)o_buffer_send(client->outbuf, "\r\n", 2);
 }
 
 void client_send_tagline(Client *client, const char *data)
 {
 	const char *tag = client->cmd_tag;
-	unsigned char *buf;
-	size_t taglen, len;
 
 	if (client->outbuf->closed)
 		return;
@@ -151,24 +131,10 @@ void client_send_tagline(Client *client, const char *data)
 	if (tag == NULL || *tag == '\0')
 		tag = "*";
 
-	taglen = strlen(tag);
-	len = strlen(data);
-
-	buf = io_buffer_get_space(client->outbuf, taglen+1+len+2);
-	if (buf != NULL) {
-		memcpy(buf, tag, taglen); buf[taglen] = ' ';
-		buf += taglen+1;
-
-		memcpy(buf, data, len); buf += len;
-		buf[0] = '\r'; buf[1] = '\n';
-
-		(void)io_buffer_send_buffer(client->outbuf, taglen+1+len+2);
-	} else {
-		const char *str;
-
-		str = t_strconcat(tag, " ", data, "\r\n", NULL);
-		(void)io_buffer_send(client->outbuf, str, strlen(str));
-	}
+	(void)o_buffer_send(client->outbuf, tag, strlen(tag));
+	(void)o_buffer_send(client->outbuf, " ", 1);
+	(void)o_buffer_send(client->outbuf, data, strlen(data));
+	(void)o_buffer_send(client->outbuf, "\r\n", 2);
 }
 
 void client_send_command_error(Client *client, const char *msg)
@@ -260,16 +226,16 @@ static void client_command_finished(Client *client)
    returns TRUE if newline was found. */
 static int client_skip_line(Client *client)
 {
-	unsigned char *data;
+	const unsigned char *data;
 	size_t i, data_size;
 
 	/* get the beginning of data in input buffer */
-	data = io_buffer_get_data(client->inbuf, &data_size);
+	data = i_buffer_get_data(client->inbuf, &data_size);
 
 	for (i = 0; i < data_size; i++) {
 		if (data[i] == '\n') {
 			client->inbuf_skip_line = FALSE;
-			io_buffer_skip(client->inbuf, i+1);
+			i_buffer_skip(client->inbuf, i+1);
 			break;
 		}
 	}
@@ -338,7 +304,7 @@ static void client_input(Client *client)
 {
 	client->last_input = ioloop_time;
 
-	switch (io_buffer_read(client->inbuf)) {
+	switch (i_buffer_read(client->inbuf)) {
 	case -1:
 		/* disconnected */
 		client_destroy(client);
@@ -354,10 +320,10 @@ static void client_input(Client *client)
 		break;
 	}
 
-	io_buffer_cork(client->outbuf);
+	o_buffer_cork(client->outbuf);
 	while (client_handle_input(client))
 		;
-	io_buffer_send_flush(client->outbuf);
+	o_buffer_flush(client->outbuf);
 
 	if (client->outbuf->closed)
 		client_destroy(client);

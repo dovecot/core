@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "rfc822-tokenize.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
@@ -22,7 +22,7 @@ int mbox_set_syscall_error(MailIndex *index, const char *function)
 	return FALSE;
 }
 
-IOBuffer *mbox_file_open(MailIndex *index, uoff_t offset, int reopen)
+IBuffer *mbox_file_open(MailIndex *index, uoff_t offset, int reopen)
 {
 	i_assert(offset < OFF_T_MAX);
 
@@ -37,9 +37,9 @@ IOBuffer *mbox_file_open(MailIndex *index, uoff_t offset, int reopen)
 		}
 	}
 
-	return io_buffer_create_mmap(index->mbox_fd, default_pool,
-				     MAIL_MMAP_BLOCK_SIZE,
-				     (uoff_t)offset, 0, 0);
+	return i_buffer_create_mmap(index->mbox_fd, default_pool,
+				    MAIL_MMAP_BLOCK_SIZE,
+				    (uoff_t)offset, 0, FALSE);
 }
 
 void mbox_file_close(MailIndex *index)
@@ -51,7 +51,7 @@ void mbox_file_close(MailIndex *index)
 }
 
 void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index,
-			      IOBuffer *inbuf)
+			      IBuffer *inbuf)
 {
 	memset(ctx, 0, sizeof(MboxHeaderContext));
 	md5_init(&ctx->md5);
@@ -198,19 +198,19 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 			break;
 
 		/* a) use Content-Length, b) search for "From "-line */
-		start_offset = ctx->inbuf->offset;
-		io_buffer_set_read_limit(ctx->inbuf, 0);
+		start_offset = ctx->inbuf->v_offset;
+		i_buffer_set_read_limit(ctx->inbuf, 0);
 
 		end_offset = start_offset + ctx->content_length;
 		if (ctx->content_length == 0 ||
 		    !mbox_verify_end_of_body(ctx->inbuf, end_offset)) {
 			mbox_skip_message(ctx->inbuf);
-			end_offset = ctx->inbuf->offset;
+			end_offset = ctx->inbuf->v_offset;
 			ctx->content_length = end_offset - start_offset;
 		}
 
-		io_buffer_seek(ctx->inbuf, start_offset);
-		io_buffer_set_read_limit(ctx->inbuf, end_offset);
+		i_buffer_seek(ctx->inbuf, start_offset);
+		i_buffer_set_read_limit(ctx->inbuf, end_offset);
 		break;
 
 	case 'R':
@@ -346,16 +346,16 @@ void mbox_keywords_parse(const char *value, size_t len,
 	}
 }
 
-int mbox_skip_crlf(IOBuffer *inbuf)
+int mbox_skip_crlf(IBuffer *inbuf)
 {
-	unsigned char *data;
+	const unsigned char *data;
 	size_t size, pos;
 
 	pos = 0;
-	while (io_buffer_read_data_blocking(inbuf, &data, &size, pos) > 0) {
+	while (i_buffer_read_data(inbuf, &data, &size, pos) > 0) {
 		if (pos == 0) {
 			if (data[0] == '\n') {
-				io_buffer_skip(inbuf, 1);
+				i_buffer_skip(inbuf, 1);
 				return TRUE;
 			}
 			if (data[0] != '\r')
@@ -368,7 +368,7 @@ int mbox_skip_crlf(IOBuffer *inbuf)
 			if (data[1] != '\n')
 				return FALSE;
 
-			io_buffer_skip(inbuf, 2);
+			i_buffer_skip(inbuf, 2);
 			return TRUE;
 		}
 	}
@@ -377,25 +377,25 @@ int mbox_skip_crlf(IOBuffer *inbuf)
 	return TRUE;
 }
 
-void mbox_skip_empty_lines(IOBuffer *inbuf)
+void mbox_skip_empty_lines(IBuffer *inbuf)
 {
-	unsigned char *data;
+	const unsigned char *data;
 	size_t size;
 
 	/* skip empty lines at beginning */
-	while (io_buffer_read_data_blocking(inbuf, &data, &size, 0) > 0 &&
+	while (i_buffer_read_data(inbuf, &data, &size, 0) > 0 &&
 	       (data[0] == '\r' || data[0] == '\n')) {
-		io_buffer_skip(inbuf, 1);
+		i_buffer_skip(inbuf, 1);
 	}
 }
 
-static int mbox_is_valid_from(IOBuffer *inbuf, size_t startpos)
+static int mbox_is_valid_from(IBuffer *inbuf, size_t startpos)
 {
-	unsigned char *msg;
+	const unsigned char *msg;
 	size_t i, size;
 
 	i = startpos;
-	while (io_buffer_read_data_blocking(inbuf, &msg, &size, i) > 0) {
+	while (i_buffer_read_data(inbuf, &msg, &size, i) > 0) {
 		for (; i < size; i++) {
 			if (msg[i] == '\n') {
 				msg += startpos;
@@ -409,15 +409,15 @@ static int mbox_is_valid_from(IOBuffer *inbuf, size_t startpos)
 	return FALSE;
 }
 
-static void mbox_skip_forward(IOBuffer *inbuf, int header)
+static void mbox_skip_forward(IBuffer *inbuf, int header)
 {
-	unsigned char *msg;
+	const unsigned char *msg;
 	size_t i, size, startpos;
 	int lastmsg;
 
 	/* read until "[\r]\nFrom " is found */
 	startpos = i = 0; lastmsg = TRUE;
-	while (io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
+	while (i_buffer_read_data(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] == '\n' && header && i >= 1) {
 				/* \n[\r]\n - end of header? */
@@ -458,12 +458,12 @@ static void mbox_skip_forward(IOBuffer *inbuf, int header)
 		startpos = i < 7 ? i : 7;
 		i -= startpos;
 
-		io_buffer_skip(inbuf, i);
+		i_buffer_skip(inbuf, i);
 	}
 
 	if (lastmsg && startpos > 0) {
 		/* end of file, remove the last [\r]\n */
-		msg = io_buffer_get_data(inbuf, &size);
+		msg = i_buffer_get_data(inbuf, &size);
 		if (size == startpos) {
 			if (msg[startpos-1] == '\n')
 				startpos--;
@@ -472,36 +472,36 @@ static void mbox_skip_forward(IOBuffer *inbuf, int header)
 		}
 	}
 
-	io_buffer_skip(inbuf, startpos);
+	i_buffer_skip(inbuf, startpos);
 }
 
-void mbox_skip_header(IOBuffer *inbuf)
+void mbox_skip_header(IBuffer *inbuf)
 {
 	mbox_skip_forward(inbuf, TRUE);
 }
 
-void mbox_skip_message(IOBuffer *inbuf)
+void mbox_skip_message(IBuffer *inbuf)
 {
 	mbox_skip_forward(inbuf, FALSE);
 }
 
-int mbox_verify_end_of_body(IOBuffer *inbuf, uoff_t end_offset)
+int mbox_verify_end_of_body(IBuffer *inbuf, uoff_t end_offset)
 {
-	unsigned char *data;
+	const unsigned char *data;
 	size_t size;
 
 	/* don't bother parsing the whole body, just make
 	   sure it ends properly */
-	io_buffer_seek(inbuf, end_offset);
+	i_buffer_seek(inbuf, end_offset);
 
-	if (inbuf->offset == inbuf->size) {
+	if (inbuf->v_offset == inbuf->v_size) {
 		/* end of file. a bit unexpected though,
 		   since \n is missing. */
 		return TRUE;
 	}
 
 	/* read forward a bit */
-	if (io_buffer_read_data_blocking(inbuf, &data, &size, 6) < 0)
+	if (i_buffer_read_data(inbuf, &data, &size, 6) < 0)
 		return FALSE;
 
 	/* either there should be the next From-line,

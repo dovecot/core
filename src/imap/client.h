@@ -11,7 +11,8 @@ typedef int (*ClientCommandFunc) (Client *client);
 struct _Client {
 	int socket;
 	IO io;
-	IOBuffer *inbuf, *outbuf;
+	IBuffer *inbuf;
+	OBuffer *outbuf;
 
 	MailStorage *storage;
 	Mailbox *mailbox;
@@ -32,7 +33,7 @@ struct _Client {
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-Client *client_create(int hin, int hout, int socket, MailStorage *storage);
+Client *client_create(int hin, int hout, MailStorage *storage);
 void client_destroy(Client *client);
 
 /* Disconnect client connection */

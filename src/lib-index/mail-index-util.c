@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "iobuffer.h"
+#include "ibuffer.h"
 #include "hostpid.h"
 #include "message-size.h"
 #include "message-part-serialize.h"
@@ -111,7 +111,7 @@ int mail_index_get_virtual_size(MailIndex *index, MailIndexRecord *rec,
 				int fastscan, uoff_t *virtual_size)
 {
 	MessageSize hdr_size, body_size;
-	IOBuffer *inbuf;
+	IBuffer *inbuf;
 	const void *part_data;
 	size_t size;
 
@@ -155,6 +155,6 @@ int mail_index_get_virtual_size(MailIndex *index, MailIndexRecord *rec,
 	message_get_body_size(inbuf, &body_size, (uoff_t)-1);
 	*virtual_size = body_size.virtual_size;
 
-	io_buffer_unref(inbuf);
+	i_buffer_unref(inbuf);
 	return TRUE;
 }
