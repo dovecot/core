@@ -186,13 +186,11 @@ void io_loop_handler_run(struct ioloop *ioloop)
 			continue;
 
 		if (pollfd->revents & POLLNVAL) {
-			if (!io->invalid) {
-				io->invalid = TRUE;
-				i_warning("invalid I/O fd %d, callback %p",
-					  io->fd, (void *) io->callback);
-			}
-
-                        continue;
+			i_error("invalid I/O fd %d, callback %p",
+				io->fd, (void *) io->callback);
+			pollfd->events &= ~POLLNVAL;
+			pollfd->revents &= ~POLLNVAL;
+			continue;
 		}
 
 		if ((io->condition &
