@@ -608,7 +608,8 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 
 	start = str_data(mail->data.header_data);
 	end = start + str_len(mail->data.header_data);
-	for (p = start + hdr->value_idx; p != end; p++) {
+	start += hdr->value_idx;
+	for (p = start; p != end; p++) {
 		if (*p == '\n') {
 			if (p+1 == end || (p[1] != ' ' && p[1] != '\t'))
 				break;
