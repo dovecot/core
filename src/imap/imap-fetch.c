@@ -169,6 +169,7 @@ int imap_fetch(struct imap_fetch_context *ctx)
 
 		ctx->cont_handler = NULL;
 		ctx->cur_offset = 0;
+                ctx->cur_handler++;
 	}
 
 	handlers = buffer_get_data(ctx->handlers, &size);
