@@ -176,7 +176,7 @@ static void master_input(void *context)
 
 		/* make sure the major version matches */
 		if (strncmp(line, "VERSION\t", 8) != 0 ||
-		    atoi(t_strcut(line + 8, '.')) !=
+		    atoi(t_strcut(line + 8, '\t')) !=
 		    AUTH_MASTER_PROTOCOL_MAJOR_VERSION) {
 			i_error("Master not compatible with this server "
 				"(mixed old and new binaries?)");
@@ -261,7 +261,7 @@ auth_master_connection_create(int fd, unsigned int pid)
 void auth_master_connection_send_handshake(struct auth_master_connection *conn)
 {
 	if (conn->output != NULL) {
-		master_send(conn, "VERSION\t%u.%u\nSPID\t%u\n",
+		master_send(conn, "VERSION\t%u\t%u\nSPID\t%u\n",
 			    AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
                             AUTH_MASTER_PROTOCOL_MINOR_VERSION, conn->pid);
 	}

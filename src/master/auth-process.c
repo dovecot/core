@@ -217,7 +217,7 @@ static void auth_process_input(void *context)
 
 		/* make sure the major version matches */
 		if (strncmp(line, "VERSION\t", 8) != 0 ||
-		    atoi(t_strcut(line + 8, '.')) !=
+		    atoi(t_strcut(line + 8, '\t')) !=
 		    AUTH_MASTER_PROTOCOL_MAJOR_VERSION) {
 			i_error("Auth process %s not compatible with master "
 				"process (mixed old and new binaries?)",
@@ -269,7 +269,7 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 					 FALSE);
 	p->requests = hash_create(default_pool, default_pool, 0, NULL, NULL);
 
-	handshake = t_strdup_printf("VERSION\t%u.%u\n",
+	handshake = t_strdup_printf("VERSION\t%u\t%u\n",
 				    AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
 				    AUTH_MASTER_PROTOCOL_MINOR_VERSION);
 	(void)o_stream_send_str(p->output, handshake);

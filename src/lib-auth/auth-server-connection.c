@@ -147,7 +147,7 @@ static void auth_client_input(void *context)
 
 		/* make sure the major version matches */
 		if (strncmp(line, "VERSION\t", 8) != 0 ||
-		    atoi(t_strcut(line + 8, '.')) !=
+		    atoi(t_strcut(line + 8, '\t')) !=
 		    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION) {
 			i_error("Authentication server not compatible with "
 				"this client (mixed old and new binaries?)");
@@ -227,7 +227,7 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 	conn->next = client->connections;
 	client->connections = conn;
 
-	handshake = t_strdup_printf("VERSION\t%u.%u\nCPID\t%u\n",
+	handshake = t_strdup_printf("VERSION\t%u\t%u\nCPID\t%u\n",
 				    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
                                     AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
 				    client->pid);
