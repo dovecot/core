@@ -46,11 +46,14 @@ struct mail_index *index_storage_lookup_ref(const char *path);
 void index_storage_unref(struct mail_index *index);
 void index_storage_destroy_unrefed(void);
 
+void index_storage_init(struct mail_storage *storage);
+void index_storage_deinit(struct mail_storage *storage);
+
 struct index_mailbox *
-index_storage_init(struct mail_storage *storage, struct mailbox *box,
-		   struct mail_index *index, const char *name,
-		   int readonly, int fast);
-int index_storage_close(struct mailbox *box);
+index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
+			   struct mail_index *index, const char *name,
+			   int readonly, int fast);
+int index_storage_mailbox_free(struct mailbox *box);
 
 int index_storage_sync_and_lock(struct index_mailbox *ibox,
 				int sync_size, int minimal_sync,

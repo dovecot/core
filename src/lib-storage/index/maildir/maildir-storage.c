@@ -86,11 +86,14 @@ static struct mail_storage *maildir_create(const char *data, const char *user)
 	storage->control_dir = i_strdup(home_expand(control_dir));
 	storage->user = i_strdup(user);
 	storage->callbacks = i_new(struct mail_storage_callbacks, 1);
+	index_storage_init(storage);
 	return storage;
 }
 
 static void maildir_free(struct mail_storage *storage)
 {
+	index_storage_deinit(storage);
+
 	i_free(storage->dir);
 	i_free(storage->inbox_file);
 	i_free(storage->index_dir);
@@ -334,8 +337,8 @@ maildir_open(struct mail_storage *storage, const char *name,
 		index_storage_add(index);
 	}
 
-	ibox = index_storage_init(storage, &maildir_mailbox, index, name,
-				  readonly, fast);
+	ibox = index_storage_mailbox_init(storage, &maildir_mailbox,
+					  index, name, readonly, fast);
 	if (ibox != NULL)
 		ibox->expunge_locked = maildir_expunge_locked;
 	return (struct mailbox *) ibox;
@@ -674,7 +677,7 @@ static int maildir_storage_close(struct mailbox *box)
 	}
 	ibox->index->set_lock_notify_callback(ibox->index, NULL, NULL);
 
-	return index_storage_close(box) && !failed;
+	return index_storage_mailbox_free(box) && !failed;
 }
 
 static void maildir_storage_auto_sync(struct mailbox *box,

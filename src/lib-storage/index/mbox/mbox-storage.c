@@ -343,8 +343,8 @@ static struct mailbox *mbox_open(struct mail_storage *storage, const char *name,
 		index_storage_add(index);
 	}
 
-	ibox = index_storage_init(storage, &mbox_mailbox, index,
-				  name, readonly, fast);
+	ibox = index_storage_mailbox_init(storage, &mbox_mailbox, index,
+					  name, readonly, fast);
 	if (ibox != NULL)
 		ibox->expunge_locked = mbox_expunge_locked;
 	return (struct mailbox *) ibox;
@@ -688,7 +688,7 @@ static int mbox_storage_close(struct mailbox *box)
 	}
 	ibox->index->set_lock_notify_callback(ibox->index, NULL, NULL);
 
-	return index_storage_close(box) && !failed;
+	return index_storage_mailbox_free(box) && !failed;
 }
 
 static void mbox_storage_auto_sync(struct mailbox *box,

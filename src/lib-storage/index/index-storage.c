@@ -29,6 +29,21 @@ struct index_list {
 };
 
 static struct index_list *indexes = NULL;
+static struct timeout *to_index = NULL;
+static int index_storage_refcount = 0;
+
+void index_storage_init(struct mail_storage *storage __attr_unused__)
+{
+	index_storage_refcount++;
+}
+
+void index_storage_deinit(struct mail_storage *storage __attr_unused__)
+{
+	if (--index_storage_refcount > 0)
+		return;
+
+        index_storage_destroy_unrefed();
+}
 
 void index_storage_add(struct mail_index *index)
 {
@@ -83,30 +98,15 @@ struct mail_index *index_storage_lookup_ref(const char *path)
 	return match;
 }
 
-void index_storage_unref(struct mail_index *index)
-{
-	struct index_list *list;
-
-	for (list = indexes; list != NULL; list = list->next) {
-		if (list->index == index) {
-			i_assert(list->refcount > 0);
-			list->refcount--;
-			list->destroy_time = ioloop_time + INDEX_CACHE_TIMEOUT;
-			return;
-		}
-	}
-
-	i_unreached();
-}
-
-void index_storage_destroy_unrefed(void)
+static void destroy_unrefed(int all)
 {
 	struct index_list **list, *rec;
 
 	for (list = &indexes; *list != NULL;) {
 		rec = *list;
 
-		if (rec->refcount == 0) {
+		if (rec->refcount == 0 &&
+		    (all || rec->destroy_time <= ioloop_time)) {
 			rec->index->free(rec->index);
 			*list = rec->next;
 			i_free(rec);
@@ -114,6 +114,39 @@ void index_storage_destroy_unrefed(void)
 			list = &(*list)->next;
 		}
 	}
+
+	if (indexes == NULL && to_index != NULL) {
+		timeout_remove(to_index);
+		to_index = NULL;
+	}
+}
+
+static void index_removal_timeout(void *context __attr_unused__)
+{
+	destroy_unrefed(FALSE);
+}
+
+void index_storage_unref(struct mail_index *index)
+{
+	struct index_list *list;
+
+	for (list = indexes; list != NULL; list = list->next) {
+		if (list->index == index)
+			break;
+	}
+
+	i_assert(list != NULL);
+	i_assert(list->refcount > 0);
+
+	list->refcount--;
+	list->destroy_time = ioloop_time + INDEX_CACHE_TIMEOUT;
+	if (to_index == NULL)
+		to_index = timeout_add(1000, index_removal_timeout, NULL);
+}
+
+void index_storage_destroy_unrefed(void)
+{
+	destroy_unrefed(TRUE);
 }
 
 static enum mail_data_field get_data_fields(const char *fields)
@@ -264,9 +297,9 @@ int index_storage_lock(struct index_mailbox *ibox,
 }
 
 struct index_mailbox *
-index_storage_init(struct mail_storage *storage, struct mailbox *box,
-		   struct mail_index *index, const char *name,
-		   int readonly, int fast)
+index_storage_mailbox_init(struct mail_storage *storage, struct mailbox *box,
+			   struct mail_index *index, const char *name,
+			   int readonly, int fast)
 {
 	struct index_mailbox *ibox;
 	enum mail_index_open_flags flags;
@@ -327,11 +360,11 @@ index_storage_init(struct mail_storage *storage, struct mailbox *box,
 	} while (0);
 
 	mail_storage_set_index_error(ibox);
-	index_storage_close(&ibox->box);
+	index_storage_mailbox_free(&ibox->box);
 	return NULL;
 }
 
-int index_storage_close(struct mailbox *box)
+int index_storage_mailbox_free(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
