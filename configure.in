@@ -855,7 +855,7 @@ if test "$want_openssl" = "yes" && test "$have_ssl" = "no"; then
   fi
 fi
 
-if test $want_gnutls = yes && test $have_ssl = no; then
+if test $want_gnutls = yes && test "$have_ssl" = no; then
 	AC_CHECK_LIB(gnutls, gnutls_global_init, [
 		AC_CHECK_HEADERS(gnutls/gnutls.h, [
 			AC_DEFINE(HAVE_GNUTLS,, Build with GNUTLS support)
