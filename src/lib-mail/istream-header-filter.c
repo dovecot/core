@@ -149,12 +149,12 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 
 	if (hdr == NULL) {
 		/* finished */
+		message_parse_header_deinit(mstream->hdr_ctx);
+		mstream->hdr_ctx = NULL;
+
 		if (!mstream->header_read && mstream->callback != NULL)
 			mstream->callback(NULL, &matched, mstream->context);
 		mstream->header_read = TRUE;
-
-		message_parse_header_deinit(mstream->hdr_ctx);
-		mstream->hdr_ctx = NULL;
 
 		mstream->header_size.physical_size = mstream->input->v_offset;
 		mstream->header_size.virtual_size =
