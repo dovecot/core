@@ -1,3 +1,26 @@
+v0.98.2 2002-09-30  Timo Sirainen <tss@iki.fi>
+
+	+ --with-file-offset-size=32 can now be used to select 32bit file
+	  offsets. Using them should be a bit faster and take a bit less
+	  disk and memory (also needed to compile Dovecot successfully with
+	  TinyCC).
+	+ maildir_copy_with_hardlinks option works now
+	+ Check new mail and notify about it to client also after
+	  commands which don't allow full syncing (FETCH, STORE, SEARCH).
+	  Also always send RECENT after EXISTS notify.
+	+ If we're out of disk space while opening mailbox, notify about it
+	  with ALERT.
+	- STORE and SEARCH didn't handle properly message sequence numbers
+	  when some in the middle were externally deleted
+	- SEARCH: Only first search condition was checked.
+	- mbox: Message flags given to APPEND were ignored.
+	- mbox: index was corrupted when changing flags for multipart MIME
+	  messages
+	- Out of disk space-handling wasn't working properly with .customflags
+	  file
+	- if auth processes were killed, login processes weren't reconnecting
+	  to them
+
 v0.98.1 2002-09-24  Timo Sirainen <tss@iki.fi>
 
 	+ Faster and safer mbox rewriting when flags are updated

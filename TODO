@@ -57,6 +57,9 @@ index:
  - debug: index could be read-only mmaped when it's not locked. 
  - when index is being rebuilt, it always complains about hash/modifylog
    having wrong indexid..
+ - we sometiemes leave some space in the index files (memory alignment,
+   extra_space). we should keep those bytes zeroed to make sure nothing
+   sensitive is left there.
 
 lib-storage:
  - support multiple mailbox formats and locations for one user. that would
@@ -69,13 +72,12 @@ lib-storage:
  - optimize SEARCH [UN]SEEN, [UN]DELETED and [UN]RECENT. They're able to
    skip lots of messages based on the index header data.
  - use a trie index for fast text searching, like cyrus squat?
- - BUG: hardlink-COPY doesn't work right:
-     - it should generate new filename for destination folder, so copying
-       same message twice won't break it
-     - custom flags aren't copied
- - maildir: atomic COPY could be done by setting a "temporary" flag into the
-   file's name. once copying is done, set an ignore-temporary field into
-   index's header. at next sync the temporary flag will be removed.
+ - maildir: atomic COPY could be done by having transaction directories.
+   Make a "tra" directory at the same level as cur/new/tmp, and make it
+   have subdirectories in the same way as tmp has temp files. Directory
+   begins with a "." as long as transaction isn't finished, rename()ing
+   it away finishes it. All mails under finished dirs must be moved into
+   new/ directory and the directory removed by any process who notices them.
  - we should probably do some light checking that appended mails actually
    look like valid rfc822 mails..
  - SEARCH CHARSET support, iconv()? also means we need to parse the charset
@@ -90,6 +92,11 @@ lib-storage:
    with them, but with mbox a long X-IMAPbase could break something.. Maybe
    configurable, default to 50 chars?
  - SEARCH should use imap-msgcache, especially for size checking
+ - we could send flag changes after all commands by making expunge/flags sync
+   counters separate for modify log. flags would need to update the seq
+   though, too slow?
+ - things calling message_send() could verify that it wrote enough data.
+   if not, fill the rest with spaces and return failure.
 
 general:
  - capabilities:
@@ -97,13 +104,14 @@ general:
      - quota (rfc2087)
      - namespace (rfc2342), id (rfc2971), mailbox-referrals (rfc2193),
        literal+ (rfc2088), idle (rfc2177), uidplus (rfc2359)
-     - drafts: listext, children, unselect, multiappend, annotatemore
+     - drafts: listext, children, unselect, multiappend, annotate,
+       annotatemore, binary
          - sort, thread: are these really useful for clients? do any actually
 	   use them? i'd think most clients want to know all the messages
 	   anyway and can do the sorting/threading themselves.
          - http://www.imc.org/ids.html
- - sieve? (rfc-3028)
- - rfc-2231 continuation support
+ - sieve? (rfc3028)
+ - rfc2231 continuation support
 
  - go through .temp files and delete them
  - Content-Language isn't parsed correctly
@@ -112,17 +120,9 @@ general:
  - SIGHUPing master should reload the configuration .. killing imap-auth and
    imap-login processes? or just signal imap-login to stop accepting new
    connections and let it kill itself
- - users should always be able to delete mail from mailbox, even if their
-   quota is completely full. this would require us to create the indexes
-   elsewhere .. in-memory should work fine?
- - if index was rebuilt (because corruption was noticed), the user should be
-   disconnected because everything might have changed (unless it's noticed
-   while just opening the indexes).
  - settings for specifying what sort of data to cache by default
    (index->cache_fields)
  - setting for choosing mbox locking methods
- - maybe a bit more verbose warnings for some errors, like "invalid date:
-   <date that was tried>". easier than sniffing the traffic.
  - imap-login writes UTC timestamps to log file .. why is that?
  - imap-login leaks I/O descriptors when killed (ssl_input + plain_input)
  - logins are always sent now using syslog(), we'd need to have i_info()
@@ -130,14 +130,15 @@ general:
    possible to log into different log than errors.
  - should we bother checking if there's invalid 8bit headers in
    BODY/BODYSTRUCTURE output and converting them to quoted printable?
- - virtual mail which shows up every time we're out of disk space. but how?..
  - update docs/index.txt
+ - support Maildir++ quota
+ - maybe give more untagged NO/ALERT replies? like when mailbox is in
+   inconsistent state.
 
 auth / login:
- - SRP authentication support?
+ - kchuid, SRP, anonymous SASL
  - PAM: support some options so /etc/passwd-lookup isn't needed. uid=x, gid=y,
    mailroot=/var/mail. maildirs should be then created when needed
- - vpopmail support
  - Digest-MD5: support integrity protection, and maybe crypting. Do it
    through imap-login like SSL is done?
  - imap-auth should limit how fast authentication requests are allowed from
