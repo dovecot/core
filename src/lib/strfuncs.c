@@ -467,7 +467,12 @@ static const char **_strsplit(const char *data, const char *separators,
 	char *str;
         size_t alloc_len, len;
 
-        i_assert(*separators != '\0');
+	i_assert(*separators != '\0');
+
+	if (spaces)
+		while (*data == ' ') data++;
+	if (*data == '\0')
+		return t_new(const char *, 1);
 
 	str = t_strdup_noconst(data);
 
