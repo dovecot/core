@@ -1,0 +1,15 @@
+#ifndef __AUTH_WORKER_SERVER_H
+#define __AUTH_WORKER_SERVER_H
+
+struct auth_request;
+
+typedef void auth_worker_callback_t(struct auth_request *request,
+				    const char *reply);
+
+void auth_worker_call(struct auth_request *auth_request, const char *data,
+		      auth_worker_callback_t *callback);
+
+void auth_worker_server_init(void);
+void auth_worker_server_deinit(void);
+
+#endif
