@@ -9,6 +9,11 @@
 #define is_linebreak(c) \
 	((c) == '\r' || (c) == '\n')
 
+#define IS_ATOM_SPECIAL(c) \
+	((c) == '(' || (c) == ')' || (c) == '{' || \
+	 (c) == '*' || (c) == '%' || (c) == '"' || (c) == '\\' || \
+	 (c) <= 32 || (c) == 0x7f)
+
 #define LIST_ALLOC_SIZE 7
 
 enum arg_parse_type {
@@ -281,6 +286,12 @@ static int imap_parser_read_atom(struct imap_parser *parser,
 				 is_linebreak(data[i])) {
 				imap_parser_save_arg(parser, data, i);
 				break;
+			} else if (IS_ATOM_SPECIAL(data[i])) {
+				parser->error = "Invalid characters in atom";
+				return FALSE;
+			} else if ((data[i] & 0x80) != 0) {
+				parser->error = "8bit data in atom";
+				return FALSE;
 			}
 		}
 	}
