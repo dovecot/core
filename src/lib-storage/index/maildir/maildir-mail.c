@@ -220,7 +220,7 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 		data->stream = maildir_open_mail(mail->ibox, mail->mail.uid,
 						 &deleted);
 		if (data->stream == NULL) {
-			data->deleted = deleted;
+			_mail->expunged = deleted;
 			return NULL;
 		}
 	}

@@ -22,7 +22,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 	enum mbox_sync_flags sync_flags = 0;
 	int ret, deleted;
 
-	if (mail->data.deleted)
+	if (mail->mail.expunged)
 		return 0;
 
 __again:
@@ -49,7 +49,7 @@ __again:
 			     &deleted);
 	if (ret < 0) {
 		if (deleted) {
-			mail->data.deleted = TRUE;
+			mail->mail.expunged = TRUE;
 			return 0;
 		}
 		return -1;

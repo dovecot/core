@@ -84,7 +84,6 @@ struct index_mail_data {
 	unsigned int hdr_size_set:1;
 	unsigned int body_size_set:1;
 	unsigned int open_mail:1;
-	unsigned int deleted:1;
 };
 
 struct index_mail {

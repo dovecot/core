@@ -718,8 +718,11 @@ int index_mail_next(struct index_mail *mail, uint32_t seq)
 		data->save_bodystructure_header = TRUE;
 		data->save_bodystructure_body = TRUE;
 	} else if (mail->wanted_fields & (MAIL_FETCH_STREAM_HEADER |
-					  MAIL_FETCH_STREAM_BODY))
+					  MAIL_FETCH_STREAM_BODY)) {
 		data->open_mail = TRUE;
+		/* open stream to set expunged flag */
+		(void)mail->mail.get_stream(&mail->mail, NULL, NULL);
+	}
 
 	if ((mail->wanted_fields & MAIL_FETCH_DATE) &&
 	    data->sent_date.time == (time_t)-1)
