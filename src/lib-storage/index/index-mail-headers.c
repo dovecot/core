@@ -240,10 +240,15 @@ void index_mail_parse_header_init(struct index_mail *mail,
 	data = buffer_get_modifyable_data(mail->data.headers, &size);
 	size /= sizeof(struct cached_header *);
 
+	mail->data.parsing_count = 0;
 	if (headers == NULL) {
 		/* parsing all headers */
-		for (i = 0; i < size; i++)
-			data[i]->parsing = TRUE;
+		for (i = 0; i < size; i++) {
+			if (!data[i]->fully_saved) {
+				data[i]->parsing = TRUE;
+				mail->data.parsing_count++;
+			}
+		}
 	} else {
 		t_push();
 		headers = sort_array(headers);
@@ -251,7 +256,10 @@ void index_mail_parse_header_init(struct index_mail *mail,
 			cmp = strcasecmp(*headers, data[i]->name);
 			if (cmp <= 0) {
 				if (cmp == 0) {
-					data[i]->parsing = TRUE;
+					if (!data[i]->fully_saved) {
+						data[i]->parsing = TRUE;
+						mail->data.parsing_count++;
+					}
 					i++;
 				}
 				headers++;
@@ -261,12 +269,17 @@ void index_mail_parse_header_init(struct index_mail *mail,
 		}
 		t_pop();
 	}
+
+	if (mail->data.save_sent_date || mail->data.save_envelope) {
+		/* parse the whole header */
+		mail->data.parsing_count = -1;
+	}
 }
 
-void index_mail_parse_header(struct message_part *part,
-			     struct message_header_line *hdr, void *context)
+int index_mail_parse_header(struct message_part *part,
+			    struct message_header_line *hdr,
+			    struct index_mail *mail)
 {
-	struct index_mail *mail = context;
 	struct index_mail_data *data = &mail->data;
 	struct cached_header *cached_hdr;
 	int timezone;
@@ -275,7 +288,7 @@ void index_mail_parse_header(struct message_part *part,
 		imap_bodystructure_parse_header(mail->pool, part, hdr);
 
 	if (part != NULL && part->parent != NULL)
-		return;
+		return FALSE;
 
 	if (data->save_envelope) {
 		imap_envelope_parse_header(mail->pool,
@@ -306,7 +319,7 @@ void index_mail_parse_header(struct message_part *part,
 		}
 
 		cached_headers_mark_fully_saved(mail);
-		return;
+		return TRUE;
 	}
 
 	if (data->save_sent_date && strcasecmp(hdr->name, "Date") == 0) {
@@ -341,14 +354,32 @@ void index_mail_parse_header(struct message_part *part,
 				     hdr->value, hdr->value_len);
 			if (!hdr->no_newline)
 				str_append(data->header_data, "\n");
+			if (!hdr->continues) {
+				cached_hdr->fully_saved = TRUE;
+				data->parsing_count--;
+			}
 		} else {
 			/* it's already in header_data. */
-			if (cached_hdr->value_idx == 0) {
-				cached_hdr->value_idx =
-					data->header_stream->v_offset;
-			}
+			i_assert(cached_hdr->value_idx == 0);
+			cached_hdr->value_idx = data->header_stream->v_offset;
+
+			cached_hdr->fully_saved = TRUE;
+			data->parsing_count--;
 		}
+
+		if (data->parsing_count == 0)
+			return FALSE;
 	}
+	return TRUE;
+}
+
+static void index_mail_parse_header_cb(struct message_part *part,
+				       struct message_header_line *hdr,
+				       void *context)
+{
+	struct index_mail *mail = context;
+
+	(void)index_mail_parse_header(part, hdr, mail);
 }
 
 static int index_mail_can_cache_headers(struct index_mail *mail)
@@ -421,8 +452,17 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 	}
 
 	index_mail_parse_header_init(mail, idx_headers);
-	message_parse_header(NULL, istream, NULL,
-			     index_mail_parse_header, mail);
+
+	struct message_header_parser_ctx *hdr_ctx;
+	struct message_header_line *hdr;
+
+	hdr_ctx = message_parse_header_init(istream, NULL);
+	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
+		if (!index_mail_parse_header(NULL, hdr, mail))
+			break;
+	}
+	message_parse_header_deinit(hdr_ctx);
+	index_mail_parse_header(NULL, NULL, mail);
 
 	data->header_stream = NULL;
 	i_stream_unref(istream);
@@ -504,12 +544,12 @@ int index_mail_parse_headers(struct index_mail *mail)
 
 	if (data->parts != NULL || data->parser_ctx != NULL) {
 		message_parse_header(data->parts, data->stream, &data->hdr_size,
-				     index_mail_parse_header, mail);
+				     index_mail_parse_header_cb, mail);
 	} else {
 		data->parser_ctx =
 			message_parser_init(mail->pool, data->stream);
 		message_parser_parse_header(data->parser_ctx, &data->hdr_size,
-					    index_mail_parse_header, mail);
+					    index_mail_parse_header_cb, mail);
 	}
 	data->hdr_size_set = TRUE;
 

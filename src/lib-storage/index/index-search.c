@@ -482,7 +482,7 @@ static void search_header(struct message_part *part,
 	if (hdr->eoh)
 		return;
 
-	index_mail_parse_header(part, hdr, ctx->index_context->mail);
+	index_mail_parse_header(part, hdr, &ctx->index_context->imail);
 
 	if (ctx->custom_header || strcasecmp(hdr->name, "Date") == 0) {
 		ctx->hdr = hdr;

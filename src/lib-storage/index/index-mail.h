@@ -31,6 +31,7 @@ struct index_mail_data {
 	struct istream *stream;
 	struct message_size hdr_size, body_size;
 	struct message_parser_ctx *parser_ctx;
+	int parsing_count;
 
 	unsigned int parse_header:1;
 	unsigned int bodystructure_header_want:1;
@@ -69,8 +70,9 @@ void index_mail_deinit(struct index_mail *mail);
 
 void index_mail_parse_header_init(struct index_mail *mail,
 				  const char *const headers[]);
-void index_mail_parse_header(struct message_part *part,
-			     struct message_header_line *hdr, void *context);
+int index_mail_parse_header(struct message_part *part,
+			    struct message_header_line *hdr,
+			    struct index_mail *mail);
 
 int index_mail_cache_transaction_begin(struct index_mail *mail);
 void index_mail_cache_add(struct index_mail *mail, enum mail_cache_field field,
