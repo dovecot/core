@@ -168,7 +168,9 @@ int create_mail_process(struct login_group *group, int socket,
 	if (*home_dir != '\0') {
 		full_home_dir = *chroot_dir == '\0' ? home_dir :
 			t_strconcat(chroot_dir, "/", home_dir, NULL);
-		if (chdir(full_home_dir) < 0)
+		/* NOTE: if home directory is NFS-mounted, we might not
+		   have access to it as root. Ignore such errors. */
+		if (chdir(full_home_dir) < 0 && errno != EACCES)
 			i_fatal("chdir(%s) failed: %m", full_home_dir);
 	}
 
