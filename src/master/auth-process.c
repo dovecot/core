@@ -67,7 +67,7 @@ static int handle_reply(struct auth_process *process,
 	}
 
 	if (data[nul_pos] != '\0') {
-		i_error("Auth process %s sent invalid reply",
+		i_panic("Auth process %s sent invalid reply",
 			dec2str(process->pid));
 		return FALSE;
 	}
@@ -152,25 +152,28 @@ static void auth_process_input(void *context)
 		p->initialized = TRUE;
 	}
 
-	if (!p->in_auth_reply) {
+	for (;;) {
+		if (!p->in_auth_reply) {
+			data = i_stream_get_data(p->input, &size);
+			if (size < sizeof(p->auth_reply))
+				break;
+
+			p->in_auth_reply = TRUE;
+			memcpy(&p->auth_reply, data, sizeof(p->auth_reply));
+
+			i_stream_skip(p->input, sizeof(p->auth_reply));
+		}
+
 		data = i_stream_get_data(p->input, &size);
-		if (size < sizeof(p->auth_reply))
-			return;
+		if (size < p->auth_reply.data_size)
+			break;
 
-		p->in_auth_reply = TRUE;
-		memcpy(&p->auth_reply, data, sizeof(p->auth_reply));
+		/* reply is now read */
+		if (!handle_reply(p, &p->auth_reply, data)) {
+			auth_process_destroy(p);
+			break;
+		}
 
-		i_stream_skip(p->input, sizeof(p->auth_reply));
-	}
-
-	data = i_stream_get_data(p->input, &size);
-	if (p->auth_reply.data_size < size)
-		return;
-
-	/* reply is now read */
-	if (!handle_reply(p, &p->auth_reply, data))
-		auth_process_destroy(p);
-	else {
 		p->in_auth_reply = FALSE;
 		i_stream_skip(p->input, p->auth_reply.data_size);
 	}
