@@ -45,7 +45,7 @@ struct _ImapMessageCache {
 
 	CachedMessage *open_msg;
 	IOBuffer *open_inbuf;
-	size_t open_size, open_virtual_size;
+	off_t open_virtual_size;
 
 	IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf, void *context);
 	void *context;
@@ -292,8 +292,14 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 			message_get_header_size(cache->open_inbuf,
 						msg->hdr_size);
 
+			i_assert((off_t)msg->hdr_size->physical_size <
+				 cache->open_inbuf->size);
+			i_assert((off_t)msg->hdr_size->virtual_size <
+				 cache->open_virtual_size);
+
 			msg->body_size->lines = 0;
-			msg->body_size->physical_size = cache->open_size -
+			msg->body_size->physical_size =
+				cache->open_inbuf->size -
 				msg->hdr_size->physical_size;
 			msg->body_size->virtual_size =
 				cache->open_virtual_size -
@@ -320,8 +326,8 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 }
 
 void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
-			   ImapCacheField fields, size_t virtual_size,
-			   size_t pv_headers_size, size_t pv_body_size,
+			   ImapCacheField fields, off_t virtual_size,
+			   off_t pv_headers_size, off_t pv_body_size,
 			   IOBuffer *inbuf,
 			   IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf,
 						     void *context),
@@ -335,8 +341,6 @@ void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
 
 		cache->open_msg = msg;
 		cache->open_inbuf = inbuf;
-		cache->open_size = cache->open_inbuf->stop_offset -
-			cache->open_inbuf->offset;
 		cache->open_virtual_size = virtual_size;
 
 		cache->inbuf_rewind = inbuf_rewind;
@@ -369,7 +373,7 @@ void imap_msgcache_close(ImapMessageCache *cache)
 	}
 
 	cache->open_msg = NULL;
-	cache->open_size = cache->open_virtual_size = 0;
+	cache->open_virtual_size = 0;
 }
 
 void imap_msgcache_set(ImapMessageCache *cache, unsigned int uid,
@@ -538,7 +542,8 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
 	if (virtual_skip == 0) {
 		if (max_virtual_size < 0 && msg->body_size == NULL) {
 			msg->body_size = p_new(msg->pool, MessageSize, 1);
-			msg->body_size->physical_size = cache->open_size -
+			msg->body_size->physical_size =
+				cache->open_inbuf->size -
 				msg->hdr_size->physical_size;
 			msg->body_size->virtual_size =
 				cache->open_virtual_size -

@@ -49,7 +49,8 @@ void mail_storage_class_unregister(MailStorage *storage_class)
 	}
 }
 
-MailStorage *mail_storage_create(const char *name, const char *data)
+MailStorage *mail_storage_create(const char *name, const char *data,
+				 const char *user)
 {
 	MailStorageList *list;
 
@@ -57,19 +58,19 @@ MailStorage *mail_storage_create(const char *name, const char *data)
 
 	for (list = storages; list != NULL; list = list->next) {
 		if (strcasecmp(list->storage->name, name) == 0)
-			return list->storage->create(data);
+			return list->storage->create(data, user);
 	}
 
 	return NULL;
 }
 
-MailStorage *mail_storage_create_default(void)
+MailStorage *mail_storage_create_default(const char *user)
 {
 	MailStorageList *list;
 	MailStorage *storage;
 
 	for (list = storages; list != NULL; list = list->next) {
-		storage = list->storage->create(NULL);
+		storage = list->storage->create(NULL, user);
 		if (storage != NULL)
 			return storage;
 	}
@@ -89,13 +90,13 @@ static MailStorage *mail_storage_autodetect(const char *data)
 	return NULL;
 }
 
-MailStorage *mail_storage_create_with_data(const char *data)
+MailStorage *mail_storage_create_with_data(const char *data, const char *user)
 {
 	MailStorage *storage;
 	const char *p, *name;
 
 	if (data == NULL || *data == '\0')
-		return mail_storage_create_default();
+		return mail_storage_create_default(user);
 
 	/* check if we're in the form of mailformat:data
 	   (eg. maildir:Maildir) */
@@ -104,11 +105,11 @@ MailStorage *mail_storage_create_with_data(const char *data)
 
 	if (*p == ':') {
 		name = t_strdup_until(data, p);
-		storage = mail_storage_create(name, p+1);
+		storage = mail_storage_create(name, p+1, user);
 	} else {
 		storage = mail_storage_autodetect(data);
 		if (storage != NULL)
-			storage = storage->create(data);
+			storage = storage->create(data, user);
 	}
 
 	return storage;

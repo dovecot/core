@@ -55,7 +55,7 @@ static void main_init(int use_syslog)
 			mail = t_strconcat("maildir:", mail, NULL);
 	}
 
-	storage = mail_storage_create_with_data(mail);
+	storage = mail_storage_create_with_data(mail, getenv("USER"));
 	if (storage == NULL) {
 		/* failed */
 		if (mail != NULL && *mail != '\0')

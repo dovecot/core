@@ -37,8 +37,8 @@ int imap_msgcache_is_cached(ImapMessageCache *cache, unsigned int uid,
    non-zero, they're set to saved to message's both physical and virtual
    sizes (ie. doesn't need to be calculated). */
 void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
-			   ImapCacheField fields, size_t virtual_size,
-			   size_t pv_headers_size, size_t pv_body_size,
+			   ImapCacheField fields, off_t virtual_size,
+			   off_t pv_headers_size, off_t pv_body_size,
 			   IOBuffer *inbuf,
 			   IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf,
 						     void *context),

@@ -383,8 +383,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 				     update_header_func, &ctx);
 
 		update->rec->header_size = hdr_size.physical_size;
-		update->rec->body_size = (inbuf->stop_offset - inbuf->offset) -
-			hdr_size.physical_size;
+		update->rec->body_size = inbuf->size - inbuf->offset;
 
 		if (update->rec->full_virtual_size == 0) {
 			/* we need to calculate virtual size of the

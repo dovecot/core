@@ -1,4 +1,4 @@
-SUBDIRS = maildir
+SUBDIRS = maildir mbox
 
 noinst_LIBRARIES = libstorage_index.a
 

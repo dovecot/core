@@ -1,20 +1,12 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "mmap-util.h"
 #include "ioloop.h"
+#include "iobuffer.h"
+#include "hex-binary.h"
+#include "md5.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
-
-#include <time.h>
-#include <ctype.h>
-#include <unistd.h>
-#include <sys/mman.h>
-
-static const char *months[] = {
-	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-};
 
 static MailIndexRecord *
 mail_index_record_append(MailIndex *index, time_t internal_date,
@@ -33,123 +25,102 @@ mail_index_record_append(MailIndex *index, time_t internal_date,
 	return rec;
 }
 
-static time_t from_line_parse_date(const char *msg, size_t size)
+static void mbox_read_message(IOBuffer *inbuf, unsigned int *virtual_size)
 {
-	const char *msg_end;
-	struct tm tm;
-	int i;
+	unsigned char *msg;
+	unsigned int i, size, startpos, vsize;
 
-	/* From <sender> <date> <moreinfo> */
-	if (strncmp(msg, "From ", 5) != 0)
-		return 0;
+	/* read until "[\r]\nFrom " is found */
+	startpos = 0; vsize = 0;
+	while (io_buffer_read_data(inbuf, &msg, &size, startpos) >= 0) {
+		for (i = startpos; i < size; i++) {
+			if (msg[i] == '\n') {
+				if (i == 0 || msg[i-1] != '\r') {
+					/* missing CR */
+					vsize++;
+				}
+			} else if (msg[i] == ' ' && i >= 5) {
+				/* See if it's space after "From" */
+				if (msg[i-5] == '\n' && msg[i-4] == 'F' &&
+				    msg[i-3] == 'r' && msg[i-2] == 'o' &&
+				    msg[i-1] == 'm') {
+					/* yes, see if we had \r too */
+					i -= 5;
+					if (i > 0 && msg[i-1] == '\r')
+						i--;
+					else
+						vsize--;
+					break;
+				}
+			}
+		}
 
-	msg_end = msg + size;
-
-	/* skip sender */
-	msg += 5;
-	while (*msg != ' ' && msg < msg_end) msg++;
-	while (*msg == ' ' && msg < msg_end) msg++;
-
-	/* next 24 chars are the date in asctime() format,
-	   eg. "Thu Nov 29 22:33:52 2001" */
-	if (msg+24 > msg_end)
-		return 0;
-
-	memset(&tm, 0, sizeof(tm));
-
-	/* skip weekday */
-	msg += 4;
-
-	/* month */
-	for (i = 0; i < 12; i++) {
-		if (strncasecmp(months[i], msg, 3) == 0) {
-			tm.tm_mon = i;
+		if (i < size) {
+			startpos = i;
 			break;
+		}
+
+		if (i > 0) {
+			startpos = i < 7 ? i : 7;
+			i -= startpos;
+
+			io_buffer_skip(inbuf, i);
+			vsize += i;
 		}
 	}
 
-	if (i == 12 || msg[3] != ' ')
-		return 0;
-	msg += 4;
+	io_buffer_skip(inbuf, startpos);
+	vsize += startpos;
 
-	/* day */
-	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
-		return 0;
-	tm.tm_mday = (msg[0]-'0') * 10 + (msg[1]-'0');
-	msg += 3;
-
-	/* hour */
-	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ':')
-		return 0;
-	tm.tm_hour = (msg[0]-'0') * 10 + (msg[1]-'0');
-	msg += 3;
-
-	/* minute */
-	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ':')
-		return 0;
-	tm.tm_min = (msg[0]-'0') * 10 + (msg[1]-'0');
-	msg += 3;
-
-	/* second */
-	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
-		return 0;
-	tm.tm_sec = (msg[0]-'0') * 10 + (msg[1]-'0');
-	msg += 3;
-
-	/* year */
-	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
-	    !i_isdigit(msg[2]) || !i_isdigit(msg[3]))
-		return 0;
-	tm.tm_year = (msg[0]-'0') * 1000 + (msg[1]-'0') * 100 +
-		(msg[2]-'0') * 10 + (msg[3]-'0') - 1900;
-
-	tm.tm_isdst = -1;
-	return mktime(&tm);
+	*virtual_size = vsize;
 }
 
-static void header_func(MessagePart *part __attr_unused__,
-			const char *name, unsigned int name_len,
-			const char *value, unsigned int value_len,
-			void *context)
-{
-	MailIndexRecord *rec = context;
-
-	rec->msg_flags |= mbox_header_get_flags(name, name_len,
-						value, value_len);
-}
-
-static int mbox_index_append_data(MailIndex *index, const char *msg,
-				  off_t offset, size_t physical_size,
-				  size_t virtual_size)
+static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 {
 	MailIndexRecord *rec;
 	MailIndexUpdate *update;
+        MboxHeaderContext ctx;
 	time_t internal_date;
-	char location[MAX_INT_STRLEN];
-	unsigned int i;
+	off_t start_offset, stop_offset, old_size;
+	unsigned char *data, md5_digest[16];
+	unsigned int size, pos, virtual_size;
+	const char *location;
 
-	internal_date = from_line_parse_date(msg, physical_size);
+	/* get the From-line */
+	pos = 0;
+	while (io_buffer_read_data(inbuf, &data, &size, pos) >= 0) {
+		for (; pos < size; pos++) {
+			if (data[pos] == '\n')
+				break;
+		}
+
+		if (pos < size)
+			break;
+	}
+
+	if (pos == size || size <= 5 || strncmp(data, "From ", 5) != 0) {
+		/* a) no \n found, or line too long
+		   b) not a From-line */
+		index_set_error(index, "Error indexing mbox file %s: "
+				"From-line not found where expected",
+				index->mbox_path);
+		index->set_flags |= MAIL_INDEX_FLAG_FSCK;
+		return FALSE;
+	}
+
+	/* parse the From-line */
+	internal_date = mbox_from_parse_date(data, size);
 	if (internal_date <= 0)
 		internal_date = ioloop_time;
 
-	/* skip the From-line */
-	for (i = 0; i < physical_size; i++) {
-		if (msg[i] == '\n') {
-			i++;
-			break;
-		}
-	}
+	io_buffer_skip(inbuf, pos+1);
+	start_offset = inbuf->offset;
 
-	if (i == physical_size)
-		return FALSE;
+	/* now, find the ending "[\r]\nFrom " */
+	mbox_read_message(inbuf, &virtual_size);
+	stop_offset = inbuf->offset;
 
-	msg += i;
-	offset += i;
-	physical_size -= i;
-	virtual_size -= i;
-	if (i > 0 && msg[i-1] != '\r')
-		virtual_size--;
-
+	/* add message to index */
 	rec = mail_index_record_append(index, internal_date, virtual_size);
 	if (rec == NULL)
 		return FALSE;
@@ -157,11 +128,32 @@ static int mbox_index_append_data(MailIndex *index, const char *msg,
 	update = index->update_begin(index, rec);
 
 	/* location = offset to beginning of message */
-	i_snprintf(location, sizeof(location), "%lu", (unsigned long) offset);
+	location = binary_to_hex((unsigned char *) &start_offset,
+				 sizeof(start_offset));
 	index->update_field(update, FIELD_TYPE_LOCATION, location, 0);
 
-	/* parse the header and cache wanted fields */
-	mail_index_update_headers(update, msg, physical_size, header_func, rec);
+	/* parse the header and cache wanted fields. get the message flags
+	   from Status and X-Status fields. temporarily limit the buffer size
+	   so the message body is parsed properly (FIXME: does this have
+	   side effects?) */
+	mbox_header_init_context(&ctx);
+
+        old_size = inbuf->size;
+	inbuf->size = stop_offset;
+	io_buffer_seek(inbuf, start_offset);
+
+	mail_index_update_headers(update, inbuf, mbox_header_func, &ctx);
+
+	inbuf->size = old_size;
+	io_buffer_seek(inbuf, stop_offset);
+
+	/* save message flags */
+	rec->msg_flags |= ctx.flags;
+
+	/* save MD5 */
+	md5_final(&ctx.md5, md5_digest);
+	index->update_field(update, FIELD_TYPE_MD5,
+                            binary_to_hex(md5_digest, sizeof(md5_digest)), 0);
 
 	if (!index->update_end(update)) {
 		/* failed - delete the record */
@@ -172,79 +164,9 @@ static int mbox_index_append_data(MailIndex *index, const char *msg,
 	return TRUE;
 }
 
-int mbox_index_append_mmaped(MailIndex *index, const char *data,
-			     size_t data_size, off_t start_offset)
+int mbox_index_append(MailIndex *index, IOBuffer *inbuf)
 {
-	const char *data_start, *data_end, *start, *cr;
-	size_t size, vsize;
-	off_t pos;
-	int missing_cr_count;
-
-	/* we should start with "From ". if we don't, something's messed up
-	   and we should check the whole file instead. */
-	if (strncmp(data, "From ", 5) != 0) {
-		index->set_flags |= MAIL_INDEX_FLAG_FSCK;
-		return FALSE;
-	}
-
-	/* each message ends at "\nFrom ". first get the size of the message,
-	   then parse it. calculate the missing CR count as well. */
-	start = data; cr = NULL; missing_cr_count = 0;
-
-	data_start = data;
-	data_end = data + data_size;
-	for (; data != data_end; data++) {
-		if (*data == '\r')
-			cr = data;
-		else if (*data == '\n') {
-			if (cr != data-1)
-				missing_cr_count++;
-
-			if (data+6 < data_end && data[1] == 'F' &&
-			    data[2] == 'r' && data[3] == 'o' &&
-			    data[4] == 'm' && data[5] == ' ') {
-				/* end of message */
-				pos = (off_t) (start - data_start) +
-					start_offset;
-				size = (size_t) (data - start) + 1;
-				vsize = size + missing_cr_count;
-				if (!mbox_index_append_data(index, start, pos,
-							    size, vsize))
-					return FALSE;
-
-				missing_cr_count = 0;
-				start = data+1;
-			}
-		}
-	}
-
-	/* last message */
-	pos = (off_t) (start - data_start);
-	size = (size_t) (data - start);
-	vsize = size + missing_cr_count;
-	return mbox_index_append_data(index, start, pos, size, vsize);
-}
-
-int mbox_index_append(MailIndex *index, int fd, const char *path)
-{
-	void *mmap_base;
-	size_t mmap_length;
-	off_t pos, end_pos;
-	int ret;
-
-	/* get our current position */
-	pos = lseek(fd, 0, SEEK_CUR);
-
-	/* get the size of the file */
-	end_pos = lseek(fd, 0, SEEK_END);
-
-	if (pos == -1 || end_pos == -1) {
-		index_set_error(index, "lseek() failed with mbox file %s: %m",
-				path);
-		return FALSE;
-	}
-
-	if (pos == end_pos) {
+	if (inbuf->offset == inbuf->size) {
 		/* no new data */
 		return TRUE;
 	}
@@ -252,18 +174,27 @@ int mbox_index_append(MailIndex *index, int fd, const char *path)
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	/* mmap() the file */
-	mmap_length = end_pos-pos;
-	mmap_base = mmap(NULL, mmap_length, PROT_READ, MAP_SHARED, fd, pos);
-	if (mmap_base == MAP_FAILED) {
-		index_set_error(index, "mmap() failed with mbox file %s: %m",
-				path);
-		return FALSE;
+	for (;;) {
+		if (inbuf->offset != 0) {
+			/* we're at the [\r]\n before the From-line,
+			   skip it */
+			if (!mbox_skip_crlf(inbuf)) {
+				index_set_error(index,
+						"Error indexing mbox file %s: "
+						"LF not found where expected",
+						index->mbox_path);
+
+				index->set_flags |= MAIL_INDEX_FLAG_FSCK;
+				return FALSE;
+			}
+		}
+
+		if (inbuf->offset == inbuf->size)
+			break;
+
+		if (!mbox_index_append_next(index, inbuf))
+			return FALSE;
 	}
 
-	(void)madvise(mmap_base, mmap_length, MADV_SEQUENTIAL);
-
-	ret = mbox_index_append_mmaped(index, mmap_base, mmap_length, pos);
-	(void)munmap(mmap_base, mmap_length);
-	return ret;
+	return TRUE;
 }

@@ -60,7 +60,7 @@ struct _MailStorage {
 	char hierarchy_sep;
 
 	/* Create new instance */
-	MailStorage *(*create)(const char *data);
+	MailStorage *(*create)(const char *data, const char *user);
 
 	/* Free this instance */
 	void (*free)(MailStorage *storage);
@@ -109,6 +109,7 @@ struct _MailStorage {
 
 /* private: */
 	char *dir; /* root directory */
+	char *user; /* name of user accessing the storage */
 	char *error;
 };
 
@@ -223,11 +224,12 @@ void mail_storage_class_unregister(MailStorage *storage_class);
 /* Create a new instance of registered mail storage class with given
    storage-specific data. If data is NULL, it tries to use defaults.
    May return NULL if anything fails. */
-MailStorage *mail_storage_create(const char *name, const char *data);
+MailStorage *mail_storage_create(const char *name, const char *data,
+				 const char *user);
 void mail_storage_destroy(MailStorage *storage);
 
-MailStorage *mail_storage_create_default(void);
-MailStorage *mail_storage_create_with_data(const char *data);
+MailStorage *mail_storage_create_default(const char *user);
+MailStorage *mail_storage_create_with_data(const char *data, const char *user);
 
 /* Set error message in storage. Critical errors are logged with i_error(),
    but user sees only "internal error" message. */

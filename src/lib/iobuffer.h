@@ -10,10 +10,8 @@ typedef void (*IOBufferFlushFunc) (void *context, IOBuffer *buf);
 struct _IOBuffer {
 	int fd;
 
-	unsigned int pos, skip;
-	unsigned int size, max_size;
-	off_t start_offset, stop_offset;
-	off_t offset; /* virtual offset, 0 = start_offset */
+	off_t start_offset;
+	off_t offset, size; /* virtual offset, 0 = start_offset */
 
 /* private: */
 	Pool pool;
@@ -29,7 +27,10 @@ struct _IOBuffer {
 
 	unsigned char *buffer;
         unsigned int cr_lookup_pos; /* used only when reading a line */
+
 	off_t mmap_offset;
+	unsigned int pos, skip;
+	unsigned int buffer_size, max_buffer_size;
 
 	unsigned int file:1; /* reading/writing a file */
 	unsigned int mmaped:1; /* reading a file with mmap() */
@@ -52,7 +53,7 @@ IOBuffer *io_buffer_create_file(int fd, Pool pool,
 /* Read the file by mmap()ing it in blocks. stop_offset specifies where to
    stop reading, or 0 to end of file. */
 IOBuffer *io_buffer_create_mmap(int fd, Pool pool, unsigned int block_size,
-				off_t stop_offset);
+				off_t size);
 /* Destroy a buffer. */
 void io_buffer_destroy(IOBuffer *buf);
 /* Mark the buffer closed. Any sends/reads after this will return -1.

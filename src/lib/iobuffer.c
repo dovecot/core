@@ -50,7 +50,7 @@ IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
 	buf->fd = fd;
 	buf->pool = pool;
 	buf->priority = priority;
-	buf->max_size = max_buffer_size;
+	buf->max_buffer_size = max_buffer_size;
 	return buf;
 }
 
@@ -65,7 +65,7 @@ IOBuffer *io_buffer_create_file(int fd, Pool pool,
 }
 
 IOBuffer *io_buffer_create_mmap(int fd, Pool pool, unsigned int block_size,
-				off_t stop_offset)
+				off_t size)
 {
 	IOBuffer *buf;
 
@@ -83,24 +83,20 @@ IOBuffer *io_buffer_create_mmap(int fd, Pool pool, unsigned int block_size,
 	}
 
 	buf = io_buffer_create_file(fd, pool, block_size);
-	buf->stop_offset = stop_offset;
 	buf->mmaped = TRUE;
 	buf->receive = TRUE;
 
 	/* set offsets */
 	buf->start_offset = lseek(fd, 0, SEEK_CUR);
-	buf->stop_offset = stop_offset > 0 ? stop_offset :
-		lseek(fd, 0, SEEK_END);
+	buf->size = size > 0 ? size :
+		lseek(fd, 0, SEEK_END) - buf->start_offset;
 
-	if (buf->start_offset == -1 || buf->stop_offset == -1) {
+	if (buf->start_offset < 0 || buf->size < 0) {
 		i_error("io_buffer_create_mmap(): lseek() failed: %m");
-		buf->start_offset = buf->stop_offset = 0;
+		buf->start_offset = buf->size = 0;
 	}
 
-	/* fix offset alignment */
-	buf->mmap_offset = buf->start_offset & ~mmap_pagemask;
-	buf->skip = buf->mmap_offset & mmap_pagemask;
-
+	buf->skip = buf->pos = buf->start_offset;
 	return buf;
 }
 
@@ -115,7 +111,7 @@ void io_buffer_destroy(IOBuffer *buf)
 		if (!buf->mmaped)
 			p_free(buf->pool, buf->buffer);
 		else
-			(void)munmap(buf->buffer, buf->size);
+			(void)munmap(buf->buffer, buf->buffer_size);
 	}
         p_free(buf->pool, buf);
 }
@@ -134,9 +130,9 @@ void io_buffer_reset(IOBuffer *buf)
 	buf->last_cr = FALSE;
 
 	if (buf->mmaped && buf->buffer != NULL) {
-		(void)munmap(buf->buffer, buf->size);
+		(void)munmap(buf->buffer, buf->buffer_size);
 		buf->buffer = NULL;
-		buf->size = 0;
+		buf->buffer_size = 0;
 	}
 
 	buf->mmap_offset = buf->offset = 0;
@@ -155,9 +151,9 @@ IOBuffer *io_buffer_set_pool(IOBuffer *buf, Pool pool)
 	newbuf->pool = pool;
 
 	if (!newbuf->mmaped) {
-		newbuf->buffer = p_malloc(pool, buf->size);
+		newbuf->buffer = p_malloc(pool, buf->buffer_size);
 		memcpy(newbuf->buffer, buf->buffer + buf->skip,
-		       buf->size - buf->skip);
+		       buf->buffer_size - buf->skip);
 
 		newbuf->cr_lookup_pos -= newbuf->skip;
 		newbuf->pos -= newbuf->skip;
@@ -174,7 +170,7 @@ void io_buffer_set_max_size(IOBuffer *buf, unsigned int max_size)
 {
 	i_assert(!buf->mmaped);
 
-	buf->max_size = max_size;
+	buf->max_buffer_size = max_size;
 }
 
 void io_buffer_set_send_blocking(IOBuffer *buf, unsigned int max_size,
@@ -188,7 +184,7 @@ void io_buffer_set_send_blocking(IOBuffer *buf, unsigned int max_size,
 	buf->timeout_func = timeout_func;
 	buf->timeout_context = context;
 	buf->blocking = max_size > 0;
-	buf->max_size = max_size;
+	buf->max_buffer_size = max_size;
 }
 
 static int my_write(int fd, const void *buf, unsigned int size)
@@ -373,17 +369,18 @@ static void buffer_alloc_more(IOBuffer *buf, unsigned int size)
 {
 	i_assert(!buf->mmaped);
 
-	buf->size = buf->pos+size;
-	buf->size = buf->size <= IO_BUFFER_MIN_SIZE ? IO_BUFFER_MIN_SIZE :
-		nearest_power(buf->size);
+	buf->buffer_size = buf->pos+size;
+	buf->buffer_size =
+		buf->buffer_size <= IO_BUFFER_MIN_SIZE ? IO_BUFFER_MIN_SIZE :
+		nearest_power(buf->buffer_size);
 
-	if (buf->max_size > 0 && buf->size > buf->max_size)
-		buf->size = buf->max_size;
+	if (buf->max_buffer_size > 0 && buf->buffer_size > buf->max_buffer_size)
+		buf->buffer_size = buf->max_buffer_size;
 
-	buf->buffer = p_realloc(buf->pool, buf->buffer, buf->size);
+	buf->buffer = p_realloc(buf->pool, buf->buffer, buf->buffer_size);
 	if (buf->buffer == NULL) {
 		/* pool limit exceeded */
-		buf->pos = buf->size = 0;
+		buf->pos = buf->buffer_size = 0;
 	}
 }
 
@@ -456,7 +453,7 @@ static void block_loop_sendfile(IOBufferBlockContext *ctx)
 	int ret;
 
 	ret = sendfile(ctx->outbuf->fd, ctx->inbuf->fd,
-		       &ctx->inbuf->mmap_offset, ctx->size);
+		       &ctx->inbuf->offset, ctx->size);
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN)
 			ctx->outbuf->closed = TRUE;
@@ -598,44 +595,43 @@ void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 
 int io_buffer_read_mmaped(IOBuffer *buf, unsigned int size)
 {
-	unsigned int aligned_skip;
+	off_t stop_offset, aligned_skip;
 
-	if (buf->stop_offset - buf->mmap_offset <= (off_t)buf->size) {
+	stop_offset = buf->size + buf->start_offset;
+	if (stop_offset - buf->mmap_offset <= (off_t)buf->buffer_size) {
 		/* end of file is already mapped */
 		return -1;
 	}
 
-	if (buf->pos != 0) {
-		aligned_skip = buf->skip & ~mmap_pagemask;
-		if (aligned_skip == 0 && buf->buffer != NULL) {
-			/* didn't skip enough bytes */
-			return -2;
-		}
-
-		buf->skip -= aligned_skip;
-		buf->mmap_offset += aligned_skip;
+	aligned_skip = buf->skip & ~mmap_pagemask;
+	if (aligned_skip == 0 && buf->buffer != NULL) {
+		/* didn't skip enough bytes */
+		return -2;
 	}
 
+	buf->skip -= aligned_skip;
+	buf->mmap_offset += aligned_skip;
+
 	if (buf->buffer != NULL)
-		(void)munmap(buf->buffer, buf->size);
+		(void)munmap(buf->buffer, buf->buffer_size);
 
-	buf->size = buf->stop_offset - buf->mmap_offset < (off_t)buf->max_size ?
-		buf->stop_offset - buf->mmap_offset : buf->max_size;
+	buf->buffer_size = stop_offset - buf->mmap_offset;
+	if (buf->buffer_size > buf->max_buffer_size)
+		buf->buffer_size = buf->max_buffer_size;
+	if (buf->buffer_size > size)
+		buf->buffer_size = size;
 
-	if (buf->size > size)
-		buf->size = size;
-
-	buf->buffer = mmap(NULL, buf->size, PROT_READ, MAP_PRIVATE,
+	buf->buffer = mmap(NULL, buf->buffer_size, PROT_READ, MAP_PRIVATE,
 			   buf->fd, buf->mmap_offset);
 	if (buf->buffer == MAP_FAILED) {
 		i_error("io_buffer_read_mmaped(): mmap() failed: %m");
 		return -1;
 	}
 
-	(void)madvise(buf->buffer, buf->size, MADV_SEQUENTIAL);
+	(void)madvise(buf->buffer, buf->buffer_size, MADV_SEQUENTIAL);
 
-	buf->pos = buf->size;
-	return buf->size;
+	buf->pos = buf->buffer_size;
+	return buf->buffer_size;
 }
 
 int io_buffer_read_max(IOBuffer *buf, unsigned int size)
@@ -652,29 +648,30 @@ int io_buffer_read_max(IOBuffer *buf, unsigned int size)
 	if (buf->mmaped)
 		return io_buffer_read_mmaped(buf, size);
 
-	if (buf->pos == buf->size) {
+	if (buf->pos == buf->buffer_size) {
 		if (buf->skip > 0) {
 			/* remove the unused bytes from beginning of buffer */
                         io_buffer_compress(buf);
-		} else if (buf->max_size == 0 || buf->size < buf->max_size) {
+		} else if (buf->max_buffer_size == 0 ||
+			   buf->buffer_size < buf->max_buffer_size) {
 			/* buffer is full - grow it */
 			buffer_alloc_more(buf, IO_BUFFER_MIN_SIZE);
 		}
 
-		if (buf->pos == buf->size)
+		if (buf->pos == buf->buffer_size)
                         return -2; /* buffer full */
 	}
 
         /* fill the buffer */
-	if (buf->size-buf->pos < size)
-		size = buf->size - buf->pos;
+	if (buf->buffer_size-buf->pos < size)
+		size = buf->buffer_size - buf->pos;
 
 	if (!buf->file) {
 		ret = net_receive(buf->fd, buf->buffer + buf->pos,
-				  buf->size - buf->pos);
+				  buf->buffer_size - buf->pos);
 	} else {
                 ret = read(buf->fd, buf->buffer + buf->pos,
-			   buf->size - buf->pos);
+			   buf->buffer_size - buf->pos);
 		if (ret == 0)
 			ret = -1; /* EOF */
 		else if (ret < 0 && (errno == EINTR || errno == EAGAIN))
@@ -707,24 +704,17 @@ void io_buffer_skip(IOBuffer *buf, unsigned int size)
 	}
 
 	if (buf->mmaped) {
-		if (buf->stop_offset - buf->mmap_offset <= (off_t)size) {
-			/* end of file */
-			buf->mmap_offset = buf->stop_offset;
-			buf->size = 0;
-			return;
-		}
-
 		/* these point outside mmap now, next io_buffer_read_mmaped()
 		   will fix them */
 		buf->skip += size;
 		buf->pos = buf->skip;
 	} else {
-		if (buf->size == 0)
+		if (buf->buffer_size == 0)
 			buffer_alloc_more(buf, IO_BUFFER_MIN_SIZE);
 
 		size -= buf->skip;
-		while (size > buf->size) {
-			ret = io_buffer_read_max(buf, buf->size);
+		while (size > buf->buffer_size) {
+			ret = io_buffer_read_max(buf, buf->buffer_size);
 			if (ret <= 0)
 				break;
 
@@ -747,7 +737,7 @@ int io_buffer_seek(IOBuffer *buf, off_t offset)
 
 		/* then set the wanted position, next read will
 		   pick up from there */
-		buf->mmap_offset = buf->start_offset;
+		buf->offset = buf->start_offset;
 		buf->pos = buf->skip = offset;
 	} else {
 		real_offset = buf->start_offset + offset;
@@ -844,18 +834,19 @@ unsigned char *io_buffer_get_space(IOBuffer *buf, unsigned int size)
 	buf->transmit = TRUE;
 
 	/* make sure we have enough space in buffer */
-	if (buf->size - buf->pos < size && buf->skip > 0) {
+	if (buf->buffer_size - buf->pos < size && buf->skip > 0) {
 		/* remove the unused bytes from beginning of buffer */
 		io_buffer_compress(buf);
 	}
 
-	if (buf->size - buf->pos < size &&
-	    (buf->max_size == 0 || size <= buf->max_size - buf->pos)) {
+	if (buf->buffer_size - buf->pos < size &&
+	    (buf->max_buffer_size == 0 ||
+	     size <= buf->max_buffer_size - buf->pos)) {
 		/* allocate more space */
                 buffer_alloc_more(buf, size);
 	}
 
-	if (buf->size - buf->pos < size)
+	if (buf->buffer_size - buf->pos < size)
                 return NULL;
 
         return buf->buffer + buf->pos;
@@ -903,9 +894,9 @@ int io_buffer_set_data(IOBuffer *buf, const void *data, unsigned int size)
 
 	io_buffer_reset(buf);
 
-	if (buf->size < size) {
+	if (buf->buffer_size < size) {
 		buffer_alloc_more(buf, size);
-		if (buf->size < size)
+		if (buf->buffer_size < size)
                         return -2;
 	}
 

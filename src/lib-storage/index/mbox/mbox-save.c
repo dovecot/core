@@ -10,6 +10,38 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <netdb.h>
+
+static char my_hostdomain[256] = "";
+
+static int write_from_line(MailStorage *storage, int fd, time_t internal_date)
+{
+	const char *sender, *line, *name;
+	size_t len;
+
+	if (*my_hostdomain == '\0') {
+		struct hostent *hent;
+
+		hostpid_init();
+		hent = gethostbyname(my_hostname);
+
+		name = hent != NULL ? hent->h_name : NULL;
+		if (name == NULL) {
+			/* failed, use just the hostname */
+			name = my_hostname;
+		}
+
+		strncpy(my_hostdomain, name, 255);
+		my_hostdomain[255] = '\0';
+	}
+
+	sender = t_strconcat(storage->user, "@", my_hostdomain, NULL);
+
+	line = mbox_from_create(sender, internal_date);
+	len = strlen(line);
+
+	return (size_t)write(fd, line, len) == len;
+}
 
 int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		      time_t internal_date, IOBuffer *data, size_t data_size)
@@ -47,14 +79,15 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 					  "lseek() failed for mbox file %s: %m",
 					  ibox->index->mbox_path);
 		failed = TRUE;
-	}
-
-	if (!failed && !index_storage_save_into_fd(box->storage, fd,
-						   ibox->index->mbox_path,
-						   data, data_size)) {
-		/* failed, truncate file back to original size */
-		(void)ftruncate(fd, pos);
-		failed = TRUE;
+	} else {
+		if (!write_from_line(box->storage, fd, internal_date) ||
+		    !index_storage_save_into_fd(box->storage, fd,
+						ibox->index->mbox_path,
+						data, data_size)) {
+			/* failed, truncate file back to original size */
+			(void)ftruncate(fd, pos);
+			failed = TRUE;
+		}
 	}
 
 	(void)mbox_unlock(ibox->index, ibox->index->mbox_path, fd);

@@ -1,106 +1,122 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "mmap-util.h"
+#include "iobuffer.h"
+#include "hex-binary.h"
 #include "message-parser.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
 #include "mail-index-util.h"
 
+#include <unistd.h>
 #include <fcntl.h>
 
-typedef struct {
-	const char *msgid;
-	MailFlags flags;
-} HeaderContext;
-
-static void header_func(MessagePart *part __attr_unused__,
-			const char *name, unsigned int name_len,
-			const char *value, unsigned int value_len,
-			void *context)
+static void skip_line(IOBuffer *inbuf)
 {
-	HeaderContext *ctx = context;
+	unsigned char *msg;
+	unsigned int i, size;
 
-	if (name_len != 10 || strncasecmp(name, "Message-ID", 10) != 0)
-		return;
+	while (io_buffer_read_data(inbuf, &msg, &size, 0) >= 0) {
+		for (i = 0; i < size; i++) {
+			if (msg[i] == '\n')
+				break;
+		}
 
-	ctx->msgid = t_strndup(value, value_len);
-	ctx->flags |= mbox_header_get_flags(name, name_len, value, value_len);
+		if (i < size) {
+			io_buffer_skip(inbuf, i+1);
+			break;
+		}
+
+		io_buffer_skip(inbuf, i);
+	}
 }
 
 static MailIndexRecord *
 match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
-		  const char **data, const char *data_end)
+		  IOBuffer *inbuf)
 {
-#if 0 // FIXME
 	MessageSize hdr_size;
-        HeaderData hdr_data;
-	const char *rec_msgid, *data_next;
+	MboxHeaderContext ctx;
+	off_t old_offset;
+	unsigned char *data, current_digest[16], old_digest[16];
+	unsigned int size;
+	const char *md5sum;
 
 	/* skip the From-line */
-	while (*data != data_end && **data != '\n')
-		(*data)++;
-	(*data)++;
+	skip_line(inbuf);
 
-	if (*data >= data_end) {
-		/* end of data */
-		(void)index->expunge(index, rec, *seq, TRUE);
-		return rec;
-	}
-
-	/* find the Message-ID from the header */
-	memset(&hdr_data, 0, sizeof(hdr_data));
-	message_parse_header(NULL, *data, (size_t) (data_end-*data), &hdr_size,
-			     header_func, &hdr_data);
+	/* get the MD5 sum of fixed headers and the current message flags
+	   in Status and X-Status fields */
+        mbox_header_init_context(&ctx);
+	message_parse_header(NULL, inbuf, &hdr_size, mbox_header_func, &ctx);
+	md5_final(&ctx.md5, current_digest);
 
 	do {
+		old_offset = inbuf->offset;
 		do {
-			/* message-id must match (or be non-existant) */
-			rec_msgid = index->lookup_field(index, rec,
-							FIELD_TYPE_MESSAGEID);
-			if (hdr_data.msgid == NULL && rec_msgid != NULL)
+			/* MD5 sums must match */
+			md5sum = index->lookup_field(index, rec,
+						     FIELD_TYPE_MD5);
+			if (md5sum == NULL || strlen(md5sum) != 32 ||
+			    hex_to_binary(md5sum, old_digest) <= 0)
 				break;
-			if (hdr_data.msgid != NULL &&
-			    (rec_msgid == NULL ||
-			     strcmp(hdr_data.msgid, rec_msgid) != 0))
+
+			if (memcmp(old_digest, current_digest, 16) != 0)
 				break;
 
 			/* don't bother parsing the whole body, just make
 			   sure it ends properly */
-			data_next = *data + rec->header_size + rec->body_size;
-			if (data_next == data_end) {
+			io_buffer_skip(inbuf, rec->body_size);
+
+			if (inbuf->offset == inbuf->size) {
 				/* last message */
-			} else if (data_next+5 >= data_end ||
-				   strncmp(data_next-1, "\nFrom ", 6) != 0)
-				break;
+			} else {
+				/* read forward a bit */
+				if (io_buffer_read_data(inbuf, &data,
+							&size, 6) <= 0 ||
+				    size < 7)
+					break;
+
+				if (data[0] == '\r')
+					data++;
+				if (strncmp(data, "\nFrom ", 6) != 0)
+					break;
+			}
 
 			/* valid message, update flags */
-			if ((rec->msg_flags & hdr_data.flags) != hdr_data.flags)
-				rec->msg_flags |= hdr_data.flags;
-
-			*data = data_next;
+			if ((rec->msg_flags & ctx.flags) != ctx.flags)
+				rec->msg_flags |= ctx.flags;
 			return rec;
 		} while (0);
+
+		/* get back to beginning of message body */
+		if (inbuf->offset != old_offset)
+			io_buffer_seek(inbuf, old_offset);
 
 		/* try next message */
 		(*seq)++;
 		(void)index->expunge(index, rec, *seq, TRUE);
 		rec = index->next(index, rec);
 	} while (rec != NULL);
-#endif
+
 	return NULL;
 }
 
-static int mbox_index_fsck_mmap(MailIndex *index, const char *data, size_t size)
+static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 {
 	MailIndexRecord *rec;
-	const char *data_end;
-	unsigned int seq;
+	unsigned char *data;
+	unsigned int seq, size;
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
 	/* first make sure we start with a "From " line. */
+	while (io_buffer_read_data(inbuf, &data, &size, 5) >= 0) {
+		if (size > 5)
+			break;
+	}
+
 	if (size <= 5 || strncmp(data, "From ", 5) != 0) {
 		index_set_error(index, "File isn't in mbox format: %s",
 				index->mbox_path);
@@ -118,9 +134,21 @@ static int mbox_index_fsck_mmap(MailIndex *index, const char *data, size_t size)
 	seq = 1;
 	rec = index->lookup(index, 1);
 
-	data_end = data + size;
 	while (rec != NULL) {
-		rec = match_next_record(index, rec, &seq, &data, data_end);
+		if (inbuf->offset != 0) {
+			/* we're at the [\r]\n before the From-line,
+			   skip it */
+			if (!mbox_skip_crlf(inbuf)) {
+				/* they just went and broke it, even while
+				   we had it locked. */
+				return FALSE;
+			}
+		}
+
+		if (inbuf->offset == inbuf->size)
+			break;
+
+		rec = match_next_record(index, rec, &seq, inbuf);
 		if (rec == NULL)
 			break;
 
@@ -128,18 +156,15 @@ static int mbox_index_fsck_mmap(MailIndex *index, const char *data, size_t size)
 		rec = index->next(index, rec);
 	}
 
-	if (data == data_end)
+	if (inbuf->offset == inbuf->size)
 		return TRUE;
-	else {
-		return mbox_index_append_mmaped(index, data,
-						(size_t) (data_end-data), 0);
-	}
+	else
+		return mbox_index_append(index, inbuf);
 }
 
 int mbox_index_fsck(MailIndex *index)
 {
-	void *mmap_base;
-	size_t mmap_length;
+	IOBuffer *inbuf;
 	int fd, failed;
 
 	/* open the mbox file. we don't really need to open it read-write,
@@ -151,31 +176,20 @@ int mbox_index_fsck(MailIndex *index)
 		return FALSE;
 	}
 
-	mmap_base = mmap_ro_file(fd, &mmap_length);
-	if (mmap_base == MAP_FAILED) {
-		index_set_error(index, "mmap() failed with mbox file %s: %m",
-				index->mbox_path);
-		return FALSE;
-	}
-	(void)madvise(mmap_base, mmap_length, MADV_SEQUENTIAL);
-
-	if (mmap_base == NULL) {
-		/* file is empty */
-		(void)close(fd);
-		return TRUE;
-	}
+	inbuf = io_buffer_create_mmap(fd, default_pool,
+				      MAIL_MMAP_BLOCK_SIZE, -1);
 
 	/* lock the mailbox so we can be sure no-one interrupts us.
 	   we are trying to repair our index after all. */
 	if (!mbox_lock(index, index->mbox_path, fd))
 		failed = TRUE;
 	else {
-		failed = !mbox_index_fsck_mmap(index, mmap_base, mmap_length);
+		failed = !mbox_index_fsck_buf(index, inbuf);
 		(void)mbox_unlock(index, index->mbox_path, fd);
 	}
 
-	(void)munmap(mmap_base, mmap_length);
 	(void)close(fd);
+	io_buffer_destroy(inbuf);
 
 	if (failed)
 		return FALSE;

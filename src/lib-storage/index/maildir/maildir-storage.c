@@ -18,7 +18,7 @@ static Mailbox maildir_mailbox;
 
 static const char *maildirs[] = { "cur", "new", "tmp", NULL  };
 
-static MailStorage *maildir_create(const char *data)
+static MailStorage *maildir_create(const char *data, const char *user)
 {
 	MailStorage *storage;
 	const char *home, *path;
@@ -46,12 +46,14 @@ static MailStorage *maildir_create(const char *data)
 	memcpy(storage, &maildir_storage, sizeof(MailStorage));
 
 	storage->dir = i_strdup(data);
+	storage->user = i_strdup(user);
 	return storage;
 }
 
 static void maildir_free(MailStorage *storage)
 {
 	i_free(storage->dir);
+	i_free(storage->user);
 	i_free(storage);
 }
 
@@ -356,6 +358,7 @@ MailStorage maildir_storage = {
 	maildir_get_mailbox_name_status,
 	mail_storage_get_last_error,
 
+	NULL,
 	NULL,
 	NULL
 };

@@ -26,7 +26,7 @@ static int copy_func(MailIndex *index, MailIndexRecord *rec,
 	/* save it in destination mailbox */
 	failed = !cd->dest->save(cd->dest, rec->msg_flags,
 				 cd->custom_flags, rec->internal_date,
-				 inbuf, inbuf->stop_offset - inbuf->offset);
+				 inbuf, inbuf->size);
 	(void)close(inbuf->fd);
 	io_buffer_destroy(inbuf);
 	return !failed;

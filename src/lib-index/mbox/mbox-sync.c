@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "iobuffer.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
 
@@ -9,17 +10,18 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-static size_t get_indexed_mbox_size(MailIndex *index)
+static off_t get_indexed_mbox_size(MailIndex *index)
 {
 	MailIndexRecord *rec, *prev;
 	const char *location;
-	size_t size;
+	unsigned long size;
 
 	if (index->lock_type == MAIL_LOCK_UNLOCK) {
 		if (!mail_index_set_lock(index, MAIL_LOCK_SHARED))
 			return 0;
 	}
 
+	/* get the last record */
 	rec = index->header->messages_count == 0 ? NULL :
 		index->lookup(index, index->header->messages_count);
 	if (rec == NULL) {
@@ -34,6 +36,8 @@ static size_t get_indexed_mbox_size(MailIndex *index)
 
 	size = 0;
 	if (rec != NULL) {
+		/* get the offset + size of last message, which tells the
+		   last known mbox file size */
 		location = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
 		if (location == NULL) {
 			INDEX_MARK_CORRUPTED(index);
@@ -48,11 +52,12 @@ static size_t get_indexed_mbox_size(MailIndex *index)
 
 	if (index->lock_type == MAIL_LOCK_SHARED)
 		(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
-	return size;
+	return (off_t)size;
 }
 
 static int mbox_check_new_mail(MailIndex *index)
 {
+	IOBuffer *inbuf;
 	off_t pos;
 	int fd, ret;
 
@@ -78,8 +83,11 @@ static int mbox_check_new_mail(MailIndex *index)
 	}
 
 	/* add the new data */
-	ret = mbox_index_append(index, fd, index->mbox_path);
+	inbuf = io_buffer_create_mmap(fd, default_pool,
+				      MAIL_MMAP_BLOCK_SIZE, -1);
+	ret = mbox_index_append(index, inbuf);
 	(void)close(fd);
+	io_buffer_destroy(inbuf);
 
 	if (index->set_flags & MAIL_INDEX_FLAG_FSCK) {
 		/* it wasn't just new mail, reread the mbox */

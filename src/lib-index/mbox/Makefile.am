@@ -8,6 +8,7 @@ INCLUDES = \
 
 libstorage_index_mbox_a_SOURCES = \
 	mbox-append.c \
+	mbox-from.c \
 	mbox-fsck.c \
 	mbox-index.c \
 	mbox-lock.c \

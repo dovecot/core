@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "iobuffer.h"
+#include "hex-binary.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
 
@@ -13,8 +14,8 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 {
 	const char *location;
 	off_t pos, offset, stop_offset;
-	char buf[5];
-	int fd, ret, ok;
+	char buf[7], *p;
+	int fd, ret, failed;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
@@ -27,8 +28,16 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 		return NULL;
 	}
 
-	/* location = offset */
-	offset = (off_t)strtoul(location, NULL, 10);
+	/* location = offset in hex */
+	if (strlen(location) != sizeof(offset)*2 ||
+	    hex_to_binary(location, (unsigned char *) &offset) <= 0) {
+                INDEX_MARK_CORRUPTED(index);
+		index_set_error(index, "Corrupted index file %s: "
+				"Invalid location field for record %u",
+				index->filepath, rec->uid);
+		return NULL;
+	}
+
 	stop_offset = offset + rec->header_size + rec->body_size;
 
 	fd = open(index->mbox_path, O_RDONLY);
@@ -46,21 +55,30 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 		return NULL;
 	}
 
-	ok = FALSE;
+	failed = TRUE;
 	if (pos == offset) {
 		/* make sure message size is valid */
 		if (lseek(fd, stop_offset, SEEK_SET) == stop_offset) {
 			/* and check that we end with either EOF or to
 			   beginning of next message */
-			ret = read(fd, buf, 5);
+			ret = read(fd, buf, 7);
 			if (ret == 0)
-				ok = TRUE; /* end of file */
-			else if (ret == 5 && strncmp(buf, "From ", 5) == 0)
-				ok = TRUE;
+				failed = FALSE; /* end of file */
+			else if (ret >= 6) {
+				/* "[\r]\nFrom " expected */
+				if (buf[0] != '\r')
+					p = buf;
+				else {
+					p = buf+1;
+					ret--;
+				}
+				if (ret >= 6 && strncmp(p, "\nFrom ", 6) == 0)
+					failed = FALSE;
+			}
 		}
 	}
 
-	if (ok) {
+	if (!failed) {
 		if (lseek(fd, offset, SEEK_SET) == offset) {
 			/* everything ok */
 			return io_buffer_create_mmap(fd, default_pool,
@@ -74,6 +92,9 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 	} else {
 		/* file has been updated, rescan it */
 		index->set_flags |= MAIL_INDEX_FLAG_FSCK;
+
+		index_set_error(index, "mbox file %s was modified "
+				"unexpectedly, fscking", index->mbox_path);
 	}
 
 	(void)close(fd);

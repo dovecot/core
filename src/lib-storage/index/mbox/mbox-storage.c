@@ -40,7 +40,7 @@ static int mbox_autodetect(const char *data)
 	return FALSE;
 }
 
-static MailStorage *mbox_create(const char *data)
+static MailStorage *mbox_create(const char *data, const char *user)
 {
 	MailStorage *storage;
 	const char *home, *path;
@@ -73,12 +73,14 @@ static MailStorage *mbox_create(const char *data)
 	memcpy(storage, &mbox_storage, sizeof(MailStorage));
 
 	storage->dir = i_strdup(data);
+	storage->user = i_strdup(user);
 	return storage;
 }
 
 static void mbox_free(MailStorage *storage)
 {
 	i_free(storage->dir);
+	i_free(storage->user);
 	i_free(storage);
 }
 
@@ -345,6 +347,7 @@ MailStorage mbox_storage = {
 	mbox_get_mailbox_name_status,
 	mail_storage_get_last_error,
 
+	NULL,
 	NULL,
 	NULL
 };

@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "iobuffer.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
 #include "mail-index-data.h"
@@ -14,6 +15,7 @@
 
 int mbox_index_rebuild(MailIndex *index)
 {
+	IOBuffer *inbuf;
 	struct stat st;
 	int fd;
 
@@ -25,14 +27,17 @@ int mbox_index_rebuild(MailIndex *index)
 	/* reset the header */
 	mail_index_init_header(index->header);
 
-	/* we require Message-ID to be cached */
-	index->header->cache_fields |= FIELD_TYPE_MESSAGEID;
+	/* we require MD5 to be cached */
+	index->header->cache_fields |= FIELD_TYPE_MD5;
 
 	/* update indexid */
 	index->indexid = index->header->indexid;
 
-	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) == -1)
+	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) == -1) {
+		index_set_error(index, "msync() failed for index file %s: %m",
+				index->filepath);
 		return FALSE;
+	}
 
 	/* truncate the file first, so it won't contain
 	   any invalid data even if we crash */
@@ -61,7 +66,9 @@ int mbox_index_rebuild(MailIndex *index)
 		return FALSE;
 	}
 
-	if (!mbox_index_append(index, fd, index->mbox_path)) {
+	inbuf = io_buffer_create_mmap(fd, default_pool,
+				      MAIL_MMAP_BLOCK_SIZE, -1);
+	if (!mbox_index_append(index, inbuf)) {
 		(void)mbox_unlock(index, index->mbox_path, fd);
 		(void)close(fd);
 		return FALSE;
@@ -69,6 +76,7 @@ int mbox_index_rebuild(MailIndex *index)
 
 	(void)mbox_unlock(index, index->mbox_path, fd);
 	(void)close(fd);
+	io_buffer_destroy(inbuf);
 
 	/* update sync stamp */
 	if (stat(index->mbox_path, &st) == -1) {

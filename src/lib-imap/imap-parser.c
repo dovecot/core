@@ -284,7 +284,8 @@ static int imap_parser_read_literal(ImapParser *parser, char *data,
 	/* expecting digits + "}" */
 	for (i = parser->cur_pos; i < data_size; i++) {
 		if (data[i] == '}') {
-			if (parser->literal_size > parser->inbuf->max_size) {
+			if (parser->literal_size >
+			    parser->inbuf->max_buffer_size) {
 				/* too long string, abort. */
 				parser->error = TRUE;
 				return FALSE;
