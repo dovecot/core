@@ -295,7 +295,7 @@ AC_CHECK_SIZEOF(long)
 AC_CHECK_SIZEOF(void *)
 AC_CHECK_SIZEOF(long long)
 
-AC_DEFUN(AC_TYPEOF, [
+AC_DEFUN([AC_TYPEOF], [
   dnl * first check if we can get the size with redefining typedefs
 
   order="$2"
@@ -510,7 +510,7 @@ esac
 AC_DEFINE_UNQUOTED(SSIZE_T_MAX, $ssizet_max, Maximum value of ssize_t)
 AC_DEFINE_UNQUOTED(PRIuSIZE_T, "$sizet_fmt", printf() format for size_t)
 
-AC_DEFUN(AC_CHECKTYPE2, [
+AC_DEFUN([AC_CHECKTYPE2], [
   AC_MSG_CHECKING([for $1])
   AC_CACHE_VAL(i_cv_type_$1,
   [AC_TRY_COMPILE([
