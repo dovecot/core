@@ -88,6 +88,15 @@ AC_ARG_WITH(pam,
 	fi,
 	want_pam=yes)
 
+AC_ARG_WITH(ldap,
+[  --with-ldap             Build with LDAP support],
+	if test x$withval = xno; then
+		want_ldap=no
+	else
+		want_ldap=yes
+	fi,
+	want_ldap=no)
+
 AC_ARG_WITH(vpopmail,
 [  --with-vpopmail         Build with vpopmail support (default)],
 	if test x$withval = xno; then
@@ -146,6 +155,16 @@ AC_ARG_WITH(ssldir,
 	ssldir=/etc/ssl
 )
 AC_SUBST(ssldir)
+
+AC_ARG_WITH(pop3d,
+[  --with-pop3d            Build POP3 server (default)],
+	if test x$withval = xno; then
+		want_pop3d=no
+	else
+		want_pop3d=yes
+	fi,
+	want_pop3d=yes)
+AM_CONDITIONAL(BUILD_POP3D, test "$want_pop3d" = "yes")
 
 dnl * gcc specific options
 if test "x$ac_cv_prog_gcc" = "xyes"; then
@@ -723,6 +742,19 @@ if test $want_pam = yes; then
 	])
 fi
 
+if test $want_ldap = yes; then
+	AC_CHECK_LIB(ldap, ldap_init, [
+		AC_CHECK_HEADER(ldap.h, [
+			PASSDB_LIBS="$PASSDB_LIBS -lldap"
+
+        		AC_DEFINE(USERDB_LDAP,, Build with LDAP support)
+		        AC_DEFINE(PASSDB_LDAP,, Build with LDAP support)
+			userdb="$userdb ldap"
+			passdb="$passdb ldap"
+		])
+	])
+fi
+
 if test $want_vpopmail = yes; then
 	vpopmail_home="`echo ~vpopmail`"
 	vpop_libdeps="$vpopmail_home/etc/lib_deps"
@@ -871,3 +903,4 @@ echo "Building with user database modules . :$userdb"
 echo "Building with password lookup modules :$passdb"
 echo "Building with SSL support ........... : $have_ssl"
 echo "Building with IPv6 support .......... : $want_ipv6"
+echo "Building with pop3 server ........... : $want_pop3d"
