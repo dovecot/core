@@ -5,45 +5,22 @@ test:
  - make sure rfc822_parse_date() works properly
  - make sure imap_match functions work properly
  - make sure connection limits work
- - make sure it's noticed by other processes if a) data file is compressed,
-   b) hash is rebuilt
  - make sure the index's ftruncate stuff works
  - make sure modify log works properly, especially switching the files
 
 index:
- - optimization:
-     - could hash function be better..? like uid*uid? what about changing
-       probe strategy from linear to something else?
-     - support shrinking hash file when it becomes 99% empty or so
-     - if first_hole_records == MAIL_INDEX_RECORD_COUNT() -
-       header->messages_count, we know we can just skip over the hole and do
-       another direct lookup there
-     - we could use tree structure to keep track of seqnumbers.. each node
-       would store how many subnodes it has. deleting nodes (mails) would just
-       update those counts. this increases the cost of lookups/inserts/deletions
-       but is faster when more than one hole appears in file.. is it worth it?
-       maybe #ifdefed away. except we could get rid of the hash file with this
-       as well, since it could be used to look for both sequences and uids. it
-       also speeds up UID range lookups when the first UIDs don't exist. use
-       right-threaded redblack/avl trees (we need to know all child node counts,
-       does that affect redblack's performance?)
  - mbox:
      - if a file isn't valid mbox and it's tried to be opened, say it in one
        line in error log, not 6..
      - locking: if we set shared lock to it while we're accessing it, we could
        get it pretty reliable. this means that the mbox fd needs to be locked
        before sync() and kept locked after that until we're done with it.
-       problems are:
-         - we don't have a single open mbox fd, we open it multiple times
-	 - switching to exclusive lock may deadlock
-     - maybe support Content-Length for figuring out size of text? at least
-       mutt doesn't prefix "From " in outbox.. If we verify that both
-       Content-Length and Lines match correctly, there's quite a little chance
-       that it could be broken by sending them invalid (doesn't local MTA
-       update them anyway?). Though, this may be a bit difficult to implement,
-       and now that we verify the From-line better, is this even needed?
-     - rewriting could try to preserve the locations of fields it changes
-       instead of writing them all to end..
+         - requires mbox file to be open all the time. i guess that's fine.
+	 - expunge requires dropping the shared lock and getting exclusive
+	   lock. after that we must sync again to make sure the file wasn't
+	   changed.
+	 - could be done in index->set_lock() and try_lock(). in that case
+	   ignore the above
      - empty lines at beginning of file still aren't ignored
  - read-only support for mailboxes where we don't have write-access? Maybe,
    but don't try to use their indexes since that's way too problematic, and
@@ -55,11 +32,16 @@ index:
  - if .customflags is removed and Maildir files have custom flags, add
    "unknown1" "unknown2" etc. flags to .customflags file for each found flag
  - debug: index could be read-only mmaped when it's not locked. 
- - when index is being rebuilt, it always complains about hash/modifylog
+ - when index is being rebuilt, it always complains about tree/modifylog
    having wrong indexid..
- - we sometiemes leave some space in the index files (memory alignment,
+ - we sometimes leave some space in the index files (memory alignment,
    extra_space). we should keep those bytes zeroed to make sure nothing
    sensitive is left there.
+ - verify memory alignment is valid when reading from index files. if we
+   used "unsigned int record_index"es instead of uoff_t's there wouldn't be
+   any problems.. yes, good idea :)
+ - tree file is never shrinked
+ - tree has some locking issues while opening it
 
 lib-storage:
  - support multiple mailbox formats and locations for one user. that would
@@ -67,11 +49,21 @@ lib-storage:
    usually the only way to communicate with others would be to create
    RemoteMailStorage which would use TCP/UNIX sockets to connect to another 
    imap session.
+ - SEARCH:
+     - optimize [UN]SEEN, [UN]DELETED and [UN]RECENT. They're able to
+       skip lots of messages based on the index header data.
+     - CHARSET support, iconv()? also means we need to parse the charset stuff
+       in headers.
+     - could optionally support scanning inside file attachments and use
+       plugins to extract text out of them (word, excel, pdf, etc. etc.)
+     - should use imap-msgcache, especially for size checking
+       (or should it bother? with larger mailboxes there's no use for it)
+     - use a trie index for fast text searching, like cyrus squat?
  - DELETE/RENAME: when someone else had the mailbox open, we should
    disconnect it (when stat() fails with ENOENT while syncing)
- - optimize SEARCH [UN]SEEN, [UN]DELETED and [UN]RECENT. They're able to
-   skip lots of messages based on the index header data.
- - use a trie index for fast text searching, like cyrus squat?
+ - RENAME INBOX isn't atomic with Maildir. And in general, RENAME can't
+   move mails between different storages. Maybe support doing also using
+   COPY + delete once COPY is atomic?
  - maildir: atomic COPY could be done by having transaction directories.
    Make a "tra" directory at the same level as cur/new/tmp, and make it
    have subdirectories in the same way as tmp has temp files. Directory
@@ -80,18 +72,9 @@ lib-storage:
    new/ directory and the directory removed by any process who notices them.
  - we should probably do some light checking that appended mails actually
    look like valid rfc822 mails..
- - SEARCH CHARSET support, iconv()? also means we need to parse the charset
-   stuff in headers.
- - SEARCH could optionally support scanning inside file attachments and use
-   plugins to extract text out of them (word, excel, pdf, etc. etc.)
- - RENAME INBOX isn't atomic with Maildir. And in general, RENAME can't
-   move mails between different storages. Maybe support doing also using
-   COPY + delete once COPY is atomic?
- - "UID FETCH|SEARCH|STORE *" doesn't work if latest message was deleted.
  - maybe limit the length of custom flags? we don't really have a problem
    with them, but with mbox a long X-IMAPbase could break something.. Maybe
    configurable, default to 50 chars?
- - SEARCH should use imap-msgcache, especially for size checking
  - we could send flag changes after all commands by making expunge/flags sync
    counters separate for modify log. flags would need to update the seq
    though, too slow?
@@ -99,19 +82,6 @@ lib-storage:
    if not, fill the rest with spaces and return failure.
 
 general:
- - capabilities:
-     - acl (rfc2086)
-     - quota (rfc2087)
-     - namespace (rfc2342), id (rfc2971), mailbox-referrals (rfc2193),
-       literal+ (rfc2088), idle (rfc2177), uidplus (rfc2359)
-     - drafts: listext, children, unselect, multiappend, annotate,
-       annotatemore, binary
-         - sort, thread: are these really useful for clients? do any actually
-	   use them? i'd think most clients want to know all the messages
-	   anyway and can do the sorting/threading themselves.
-	   well, squirrelmail seems to want sorting.. guess they could be
-	   useful when clients don't want all messages..
-         - http://www.imc.org/ids.html
  - sieve? (rfc3028)
  - rfc2231 continuation support
 
@@ -125,8 +95,8 @@ general:
  - settings for specifying what sort of data to cache by default
    (index->cache_fields)
  - setting for choosing mbox locking methods
- - imap-login writes UTC timestamps to log file .. why is that?
- - imap-login leaks I/O descriptors when killed (ssl_input + plain_input)
+ - imap-login leaks I/O descriptors when killed, that's because the SSL
+   fds are destroyed lazily.. should we bother fixing..?
  - logins are always sent now using syslog(), we'd need to have i_info()
    or something so they could also be written to log files.. also make it
    possible to log into different log than errors.
@@ -148,29 +118,31 @@ auth / login:
    login processes. especially if there's one login/connection the speed
    should be something like once/sec. also limit how fast to accept new
    connections.
+ - Diffie Hellman parameters should be regenerated once in a while
  - HIGH: support executing each login in it's own process, so if an exploit
    is ever found from it, the attacker can't see other users' passwords.
-    - master should limit number of login processes to max_logging_users,
-      killing old processes when limit is reached
-    - master should try to keep login_processes_count extra processes all
-      the time
-    - login should notify master after it accept()s, and it must close the
-      listening socket immediately
+     - master should limit number of login processes to max_logging_users,
+       killing old processes when limit is reached
+     - master should try to keep login_processes_count extra processes all
+       the time
+     - login should notify master after it accept()s, and it must close the
+       listening socket immediately
+     - Diffie Hellman parameters for SSL need to be somehow transferred
+       between login processes. It's too slow if they're generated every time,
+       and I'd rather not link SSL libs to imap-master.
 
 cleanups / checks:
  - grep for FIXME
  - check if t_push()/t_pop() should be added somewhere
  - IOBuffer should probably be split into IBuffer and OBuffer, and maybe
    making it's internals hidden .. or at least only partly visible.
- - io_buffer_fd_ref() .. unref() and destroy() would close if refcount = 0?
-   annoying those close(inbuf->fd)s with open_mail()..
  - allocating readwrite pools now just uses system_pool .. so pool_unref()
    can't free memory used by it .. what to do about it? at least count the
    malloc/free calls and complain if at the exit they don't match
  - ..wonder what it would look like if I did s/FooBarBaz/struct foo_bar_baz/..
  - HIGH: Make sure messages of size INT_MAX..UINT_MAX (and more) work
-   correctly. virtual_size can also overflow making it less than physical_size
- - verify memory alignment is valid when reading from index files
+   correctly with 32bit file offsets. virtual_size can also overflow making
+   it less than physical_size.
  - create env_put() and env_clean()
  - nearest_power() could be problematic with things that want it for ints,
    not size_t..
@@ -185,3 +157,110 @@ optional optimizations:
    with local shared mailboxes as we don't use same UID for everyone's mail
    and we may be chrooted, so locally we could communicate with UNIX sockets,
    remotely that could be done with TCP sockets.
+
+capabilities:
+ - preferrably all should be possible to #ifdef away by a configure
+   option (--without-capabilities=acl,namespace,...)
+ - possibility to disable them from config file
+ - acl (rfc2086, draft-ietf-imapext-acl), namespace (rfc2342)
+     - probably do it like cyrus. "user.<username>" to access other
+       users, with "" defaulting to "user.<myself>". these should be
+       configurable however.
+     - shared namespaces? maybe configurable in config file
+     - easiest way to do ACL would be to use unix modes, but is that
+       useful at all? Well, ACL2 has a bit better support for that, so
+       maybe we could support it.
+     - otherwise gets a bit trickly, we could keep all mail in "imapmail"
+       group and 0600/0700 mode by default, but when mail is shared to others,
+       the group read/write access bits would be set. or alternatively we
+       could launch another imap process to handle it, which we should support
+       anyway. ACLs could be stored into ".acl" ascii file in each folder.
+     - are flags private or shared between users? lets see if we can
+       get ACL2 to configure this.. \Deleted must be shared always,
+       \Seen should be private by default.
+ - quota (rfc2087, draft-cridland-imap-quota)
+     - give filesystem values only to admins
+     - support for Maildir++, probably no need to support more.
+       quota capability supports complex quota configuration, but if
+       no mailer supports them we probably shouldn't bother either
+ - id (rfc2971)
+     - must be configurable what gets sent, default to only name=Dovecot
+     - separate pre/post-login settings
+     - optionally log configured parts of the client information, but only
+       once, probably at the same time as logging "Logged in",
+       "Disconnected", etc.
+     - remember to force truncating values longer than 30 chars,
+       especially before logging
+ - mailbox-referrals (rfc2193)
+     - this is useful whenever we would otherwise need to make the
+       connection ourself. for example load balancing and shared mailboxes
+       requiring another UID to run.
+     - this rfc defines no exact way for server to detect if client
+       supports referrals or not. I don't think there's much point in
+       supporting only referrals, as most clients don't support them.
+       Instead we should return referrals when we know that client
+       supports them, otherwise do the connecting ourself. If client
+       issues RLIST or RLSUB command, it's safe to assume it supports
+       referrals.
+     - for load balancing this works just fine, but what about shared
+       mailboxes which require different UID? If we login with our own
+       username, we end up with our own UID instead of what we wanted.
+       IMAP URLs don't support separated authorization id which would
+       have made this very easy.. We could give the "userid@group" as
+       userid, but clients probably treat it as different userid and
+       ask the password again.
+     - problems, problems, .. maybe not worth the trouble.
+ - literal+ (rfc2088)
+     - simple. in case of invalid data, just disconnect client.
+ - idle (rfc2177)
+     - just call the syncing every few seconds (configurable)
+     - with Linux we can use fcntl() and F_SETSIG to provide fast checks.
+       just make sure sync() still won't be called more than once in a
+       few seconds
+ - uidplus (rfc2359)
+     - uid expunge: no problem
+     - append, copy: oh no. these would slow down things and make
+       handling them much more difficult. currently we just store the
+       mails to destination mailbox without touching the indexes. since
+       we'd need to know their final UID, we'd have to lock the indexes
+       and mbox) fsck() first and append() next to find out the uid,
+       maildir) move the mail directly into cur/ and index it.
+ - unselect (no draft or anything AFAIK)
+     - like CLOSE, but doesn't expunge mails. easy.
+ - drafts:
+     - http://www.imc.org/ids.html
+     - multiappend (draft-crispin-imap-multiappend)
+	 - shouldn't have any problems
+     - listext (draft-ietf-imapext-list-extensions)
+	 - well, it expired January 2002.. I like it though.
+     - children (draft-gahrns-imap-child-mailbox)
+	 - I like listext more.. They have the same functionality though,
+	   so pretty easy to support both if needed
+     - annotate (draft-ietf-imapext-annotate)
+	 - per-message annotations. this will be major change. especially
+	   because currently there's no suitable storage for them, and
+	   they'll probably change all the time.. maybe if we moved into
+	   berkeley db to store the .data file and these annotations.
+     - annotatemore (draft-daboo-imap-annotatemore)
+	 - server and per-mailbox annotations. much easier than
+	   per-message annotations, but they'd be easier to place into
+	   db as well.
+     - binary (draft-nerenberg-imap-binary)
+	 - perhaps not too useful. I'd like to make Dovecot fully
+	   binary-safe though.
+     - sort (draft-ietf-imapext-sort)
+	 - basically sorted SEARCH, requiring CHARSET support for
+	   UTF-8 and ASCII
+	 - we could create alternative binary tree file(s) for different sort
+	   conditions, ".tree-sort" or something. or if we decide to just
+	   keep it in memory, btree could still be best choice.
+	 - required by squirrelmail (webmail)
+     - thread (draft-ietf-imapext-thread)
+         - basically SORT but reply with thread lists
+	 - possibly use a binary tree too .. or maybe it's enough to use the
+	   sort-tree and then just pick up the references separately? have to
+	   check more carefully later.
+     - view (draft-ietf-imapext-view)
+         - slow, complex, luckily draft expired almost two years ago.
+	   i hope i don't have to implement this :)
+	 - can be done client-side just fine (evolution's virtual folders)
