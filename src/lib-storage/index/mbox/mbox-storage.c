@@ -341,7 +341,7 @@ static struct mailbox *mbox_open(struct mail_storage *storage, const char *name,
 		   path = "<inbox_file>/INBOX"
 		   index_dir = "/mail/.imap/INBOX" */
 		path = storage->inbox_file;
-		index_dir = mbox_get_index_dir(storage, "/INBOX");
+		index_dir = mbox_get_index_dir(storage, "INBOX");
 	} else {
 		/* name = "foo/bar"
 		   path = "/mail/foo/bar"
