@@ -107,10 +107,11 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			continue;
 		}
 
-		matched = bsearch(hdr->name, mstream->headers,
-				  mstream->headers_count,
-				  sizeof(*mstream->headers),
-				  bsearch_strcasecmp) != NULL;
+		matched = mstream->headers_count == 0 ? FALSE :
+			bsearch(hdr->name, mstream->headers,
+				mstream->headers_count,
+				sizeof(*mstream->headers),
+				bsearch_strcasecmp) != NULL;
 		if (mstream->cur_line > mstream->parsed_lines &&
 		    mstream->callback != NULL) {
                         mstream->parsed_lines = mstream->cur_line;
