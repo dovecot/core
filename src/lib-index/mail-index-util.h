@@ -20,7 +20,8 @@ int index_set_error(MailIndex *index, const char *fmt, ...)
 	__attr_format__(2, 3);
 
 /* "Error in index file %s: ...". Also marks the index file as corrupted. */
-int index_set_corrupted(MailIndex *index, const char *fmt, ...);
+int index_set_corrupted(MailIndex *index, const char *fmt, ...)
+	__attr_format__(2, 3);
 
 /* "%s failed with index file %s: %m" */
 int index_set_syscall_error(MailIndex *index, const char *function);

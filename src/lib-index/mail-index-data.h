@@ -53,6 +53,7 @@ void *mail_index_data_get_mmaped(MailIndexData *data, size_t *size);
 
 /* "Error in index data file %s: ...". Also marks the index file as
    corrupted. */
-int index_data_set_corrupted(MailIndexData *data, const char *fmt, ...);
+int index_data_set_corrupted(MailIndexData *data, const char *fmt, ...)
+	__attr_format__(2, 3);
 
 #endif

@@ -71,7 +71,8 @@ int mail_tree_update(MailTree *tree, unsigned int uid, unsigned int index);
 void mail_tree_delete(MailTree *tree, unsigned int uid);
 
 /* private: */
-int _mail_tree_set_corrupted(MailTree *tree, const char *fmt, ...);
+int _mail_tree_set_corrupted(MailTree *tree, const char *fmt, ...)
+	__attr_format__(2, 3);
 int _mail_tree_mmap_update(MailTree *tree, int forced);
 int _mail_tree_grow(MailTree *tree);
 void _mail_tree_truncate(MailTree *tree);

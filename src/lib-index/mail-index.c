@@ -499,7 +499,7 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 {
 	MailIndexHeader *hdr;
 	MailIndexRecord *rec;
-	const char *format;
+	const char *error;
 	unsigned int idx;
 
 	i_assert(seq > 0);
@@ -517,13 +517,15 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 	idx = seq-1;
 	if (hdr->first_hole_records == 0 || hdr->first_hole_index > idx) {
 		/* easy, it's just at the expected index */
-		format = "Invalid first_hole_index in header: %"PRIuUOFF_T;
+		error = t_strdup_printf("Invalid first_hole_index in header: "
+					"%u", idx);
 	} else if (hdr->first_hole_records ==
 		   MAIL_INDEX_RECORD_COUNT(index) - hdr->messages_count) {
 		/* only one hole in file, skip it and we're at
 		   correct position */
 		idx += hdr->first_hole_records;
-		format = "Invalid hole locations in header: %"PRIuUOFF_T;
+		error = t_strdup_printf("Invalid hole locations in header: %u",
+					idx);
 	} else {
 		/* find from binary tree */
 		idx = mail_tree_lookup_sequence(index->tree, seq);
@@ -534,18 +536,20 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 				seq, hdr->messages_count);
 			return NULL;
 		}
-		format = "Invalid offset returned by binary tree: %"PRIuUOFF_T;
+
+		error = t_strdup_printf("Invalid offset returned by "
+					"binary tree: %u", idx);
 	}
 
 	if (idx >= MAIL_INDEX_RECORD_COUNT(index)) {
-		index_set_corrupted(index, format, idx);
+		index_set_corrupted(index, "%s", error);
 		return NULL;
 	}
 
 	rec = (MailIndexRecord *) ((char *) index->mmap_base +
 				   sizeof(MailIndexHeader)) + idx;
 	if (rec->uid == 0) {
-		index_set_corrupted(index, format, idx);
+		index_set_corrupted(index, "%s", error);
 		return NULL;
 	}
 
