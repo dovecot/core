@@ -368,6 +368,7 @@ static void mail_index_excl_unlock_finish(struct mail_index *index)
 	if (index->map != NULL && index->map->write_to_disk) {
 		i_assert(index->log_locked);
 
+                index->map->write_to_disk = FALSE;
 		if (index->copy_lock_path != NULL) {
 			/* new mapping replaces the old */
 			(void)unlink(index->copy_lock_path);

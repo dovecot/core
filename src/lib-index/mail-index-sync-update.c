@@ -171,7 +171,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 				 uint32_t sync_stamp, uint64_t sync_size)
 {
 	struct mail_index *index = sync_ctx->index;
-	struct mail_index_map *map = index->map;
+	struct mail_index_map *map;
         struct mail_index_update_ctx ctx;
 	struct mail_index_sync_rec rec;
 	const struct mail_index_record *appends;
@@ -217,6 +217,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	if (mail_index_lock_exclusive(index, &lock_id) < 0)
 		return -1;
 
+	map = index->map;
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map))
 		map->write_to_disk = TRUE;
 
