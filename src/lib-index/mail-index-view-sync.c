@@ -96,6 +96,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	   have already changed under us. */
 	i_assert((sync_mask & MAIL_INDEX_SYNC_TYPE_FLAGS) != 0);
 	i_assert(!view->syncing);
+	i_assert(view->transactions == 0);
 
 	if (mail_index_view_lock_head(view, TRUE) < 0)
 		return -1;
