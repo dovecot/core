@@ -686,7 +686,8 @@ static int mbox_rename_mailbox(struct mail_storage *storage,
 	old_indexdir = mbox_get_index_dir(storage, oldname);
 	new_indexdir = mbox_get_index_dir(storage, newname);
 	if (old_indexdir != NULL) {
-		if (rename(old_indexdir, new_indexdir) < 0) {
+		if (rename(old_indexdir, new_indexdir) < 0 &&
+		    errno != ENOENT) {
 			mail_storage_set_critical(storage,
 						  "rename(%s, %s) failed: %m",
 						  old_indexdir, new_indexdir);
