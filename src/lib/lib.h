@@ -1,6 +1,11 @@
 #ifndef __LIB_H
 #define __LIB_H
 
+/* default lib includes */
+#ifdef HAVE_CONFIG_H
+#  include "../../config.h"
+#endif
+
 /* default system includes - keep these at minimum.. */
 #include <string.h> /* strcmp() etc. */
 #include <stdarg.h> /* va_list is used everywhere */
@@ -15,11 +20,6 @@ typedef struct _Timeout *Timeout;
 typedef struct _IPADDR IPADDR;
 typedef struct _IOBuffer IOBuffer;
 typedef struct _TempString TempString;
-
-/* default lib includes */
-#ifdef HAVE_CONFIG_H
-#  include "../../config.h"
-#endif
 
 #if defined (UOFF_T_INT)
 typedef unsigned int uoff_t;
