@@ -453,6 +453,7 @@ uoff_t mail_index_data_append(struct mail_index_data *data, const void *buffer,
 
 	memcpy((char *) data->mmap_base + offset, buffer, size);
 	data->header->used_file_size += size;
+	data->mmap_used_length += size;
 
         data->modified = TRUE;
 	return offset;
