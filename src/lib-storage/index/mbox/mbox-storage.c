@@ -373,7 +373,7 @@ static void mbox_storage_close(Mailbox *box)
 	else {
 		/* update flags by rewrite mbox file */
                 list = mail_custom_flags_list_get(ibox->index->custom_flags);
-		mbox_index_rewrite(ibox->index, list);
+		mbox_index_rewrite(ibox->index);
 		mail_custom_flags_list_unref(ibox->index->custom_flags);
 
 		(void)ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK);
