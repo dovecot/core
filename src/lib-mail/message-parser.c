@@ -533,13 +533,23 @@ message_skip_boundary(struct message_parser_ctx *parser_ctx,
 	if (boundary == NULL)
 		return NULL;
 
-	/* now, see if it's end boundary */
-	end_boundary = FALSE;
-	if (i_stream_read_data(parser_ctx->input, &msg, &size,
-			       2 + boundary->len + 1) > 0) {
-		end_boundary = msg[boundary->len + 2] == '-' &&
-			msg[boundary->len + 2 + 1] == '-';
+	/* skip over to beginning of next line.
+	   size = "\r\n" + "--" + boundary + "--" */
+	(void)i_stream_read_data(parser_ctx->input, &msg, &size,
+				 2 + 2 + boundary->len + 2 - 1);
+	i_assert(size >= 3);
+	if (msg[0] == '\r') {
+		msg++; size--;
 	}
+	if (msg[0] == '\n') {
+		msg++; size--;
+	}
+	i_assert(size >= 2 && msg[0] == '-' && msg[1] == '-');
+	msg += 2; size -= 2;
+
+	/* now, see if it's end boundary. */
+	end_boundary = size >= boundary->len + 2 &&
+		msg[boundary->len] == '-' && msg[boundary->len + 1] == '-';
 
 	/* now, the boundary we found may not be what we expected.
 	   change boundary_size to be the found boundary's parent part */
