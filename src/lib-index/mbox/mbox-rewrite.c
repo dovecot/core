@@ -218,9 +218,9 @@ static int mbox_write_xstatus(struct mbox_rewrite_context *ctx,
 
 	str = t_strconcat("X-Status: ",
 			  (ctx->msg_flags & MAIL_ANSWERED) ? "A" : "",
-			  (ctx->msg_flags & MAIL_DRAFT) ? "D" : "",
+			  (ctx->msg_flags & MAIL_DELETED) ? "D" : "",
 			  (ctx->msg_flags & MAIL_FLAGGED) ? "F" : "",
-			  (ctx->msg_flags & MAIL_DELETED) ? "T" : "",
+			  (ctx->msg_flags & MAIL_DRAFT) ? "T" : "",
 			  x_status, NULL);
 
 	if (o_stream_send_str(ctx->output, str) < 0)

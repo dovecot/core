@@ -131,11 +131,11 @@ static const char *get_system_flags(enum mail_flags flags)
 
 		if ((flags & MAIL_ANSWERED) != 0)
 			str_append_c(str, 'A');
-		if ((flags & MAIL_DRAFT) != 0)
+		if ((flags & MAIL_DELETED) != 0)
 			str_append_c(str, 'D');
 		if ((flags & MAIL_FLAGGED) != 0)
 			str_append_c(str, 'F');
-		if ((flags & MAIL_DELETED) != 0)
+		if ((flags & MAIL_DRAFT) != 0)
 			str_append_c(str, 'T');
 		str_append_c(str, '\n');
 	}

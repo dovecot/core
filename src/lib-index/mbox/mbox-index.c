@@ -154,13 +154,13 @@ mbox_get_status_flags(const unsigned char *value, size_t len)
 		case 'F':
 			flags |= MAIL_FLAGGED;
 			break;
-		case 'D':
+		case 'T':
 			flags |= MAIL_DRAFT;
 			break;
 		case 'R':
 			flags |= MAIL_SEEN;
 			break;
-		case 'T':
+		case 'D':
 			flags |= MAIL_DELETED;
 			break;
 		}
