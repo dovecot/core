@@ -2,6 +2,7 @@ docdir = $(datadir)/doc/dovecot
 
 doc_DATA = \
 	auth.txt \
+	auth-protocol.txt \
 	configuration.txt \
 	design.txt \
 	index.txt \
