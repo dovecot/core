@@ -292,6 +292,7 @@ static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 
 	map->hdr_copy = hdr;
 	map->hdr = &map->hdr_copy;
+	map->records_count = map->hdr->messages_count;
 
 	i_assert(map->mmap_size >= size);
 	return 0;
