@@ -88,19 +88,14 @@ static void mbox_free(MailStorage *storage)
 	i_free(storage);
 }
 
-static int mbox_is_valid_name(MailStorage *storage, const char *name)
+int mbox_is_valid_mask(const char *mask)
 {
 	const char *p;
 	int newdir;
 
-	if (name[0] == '\0' || name[0] == storage->hierarchy_sep ||
-	    name[strlen(name)-1] == storage->hierarchy_sep ||
-	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
-		return FALSE;
-
 	/* make sure there's no "../" or "..\" stuff */
 	newdir = TRUE;
-	for (p = name; *p != '\0'; p++) {
+	for (p = mask; *p != '\0'; p++) {
 		if (newdir && p[0] == '.' && p[1] == '.' &&
 		    (p[2] == '/' || p[2] == '\\'))
 			return FALSE;
@@ -108,6 +103,16 @@ static int mbox_is_valid_name(MailStorage *storage, const char *name)
 	}
 
 	return TRUE;
+}
+
+static int mbox_is_valid_name(MailStorage *storage, const char *name)
+{
+	if (name[0] == '\0' || name[0] == storage->hierarchy_sep ||
+	    name[strlen(name)-1] == storage->hierarchy_sep ||
+	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
+		return FALSE;
+
+	return mbox_is_valid_mask(name);
 }
 
 static const char *mbox_get_index_dir(const char *mbox_path)

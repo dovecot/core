@@ -16,4 +16,6 @@ int mbox_find_subscribed(MailStorage *storage, const char *mask,
 
 int mbox_expunge_locked(IndexMailbox *ibox, int notify);
 
+int mbox_is_valid_mask(const char *mask);
+
 #endif
