@@ -66,7 +66,7 @@ const char *imap_escape(const char *str)
 	/* @UNSAFE: escape them */
 	p = ret = t_malloc(i + esc + 1);
 	for (; *str != '\0'; str++) {
-		if (IS_ESCAPED_CHAR(str[i]))
+		if (IS_ESCAPED_CHAR(*str))
 			*p++ = '\\';
 		*p++ = *str;
 	}
