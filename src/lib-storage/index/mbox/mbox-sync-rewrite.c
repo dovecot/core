@@ -157,10 +157,12 @@ static void mbox_sync_header_remove_space(struct mbox_sync_mail_context *ctx,
 	   the beginning of header instead of end, we don't have to
 	   worry about multiline-headers. */
 	str_delete(ctx->header, start_pos, *size);
-	last_line_pos = last_line_pos <= *size ?
-		start_pos : last_line_pos - *size;
-
+	if (last_line_pos <= start_pos + *size)
+		last_line_pos = start_pos;
+	else
+		last_line_pos -= *size;
 	data_size -= *size;
+
 	*size = 0;
 
 	if (ctx->mail.space < data_size - last_line_pos) {
@@ -216,8 +218,6 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 		if (new_hdr_size <= old_hdr_size) {
 			/* good, we removed enough. */
 			i_assert(new_hdr_size == old_hdr_size);
-			ctx->mail.space =
-				-(ssize_t)(new_hdr_size - old_hdr_size);
 		} else if (move_diff < 0 &&
 			   new_hdr_size - old_hdr_size <= -move_diff) {
 			/* moving backwards - we can use the extra space from
