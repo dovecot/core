@@ -42,6 +42,7 @@ struct index_storage {
 	char *index_dir;
 	char *control_dir;
 	char *inbox_path; /* INBOX location */
+        char *temp_prefix; /* prefix for temporary files */
 
 	char *user; /* name of user accessing the storage */
 

@@ -14,6 +14,6 @@ int subsfile_list_deinit(struct subsfile_list_context *ctx);
 const char *subsfile_list_next(struct subsfile_list_context *ctx);
 
 int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
-			    const char *name, int set);
+			    const char *temp_prefix, const char *name, int set);
 
 #endif

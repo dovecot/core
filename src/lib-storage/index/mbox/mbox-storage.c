@@ -728,7 +728,8 @@ static int mbox_set_subscribed(struct mail_storage *_storage,
 
 	path = t_strconcat(storage->dir, "/" SUBSCRIPTION_FILE_NAME, NULL);
 	name = mbox_fix_mailbox_name(storage, name, FALSE);
-	return subsfile_set_subscribed(_storage, path, name, set);
+	return subsfile_set_subscribed(_storage, path, storage->temp_prefix,
+				       name, set);
 }
 
 static int mbox_get_mailbox_name_status(struct mail_storage *_storage,

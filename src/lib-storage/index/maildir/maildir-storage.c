@@ -1,6 +1,7 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
+#include "hostpid.h"
 #include "home-expand.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
@@ -92,6 +93,10 @@ maildir_create(const char *data, const char *user,
 		storage->storage.hierarchy_sep = hierarchy_sep;
 	storage->storage.namespace = i_strdup(namespace);
 
+	/* the default ".temp.xxx" prefix would be treated as directory */
+	storage->temp_prefix =
+		i_strconcat("temp.", my_hostname, ".", my_pid, ".", NULL);
+
 	storage->dir = i_strdup(home_expand(root_dir));
 	storage->inbox_path = i_strdup(home_expand(inbox_dir));
 	storage->index_dir = i_strdup(home_expand(index_dir));
@@ -108,6 +113,7 @@ static void maildir_free(struct mail_storage *_storage)
 
 	index_storage_deinit(storage);
 
+	i_free(storage->temp_prefix);
 	i_free(storage->dir);
 	i_free(storage->inbox_path);
 	i_free(storage->index_dir);
@@ -731,7 +737,8 @@ static int maildir_set_subscribed(struct mail_storage *_storage,
 			   "/" SUBSCRIPTION_FILE_NAME, NULL);
 
 	name = maildir_fix_mailbox_name(storage, name, FALSE);
-	return subsfile_set_subscribed(_storage, path, name, set);
+	return subsfile_set_subscribed(_storage, path, storage->temp_prefix,
+				       name, set);
 }
 
 static int maildir_get_mailbox_name_status(struct mail_storage *_storage,

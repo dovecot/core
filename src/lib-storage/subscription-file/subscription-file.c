@@ -68,7 +68,7 @@ static const char *next_line(struct mail_storage *storage, const char *path,
 }
 
 int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
-			    const char *name, int set)
+			    const char *temp_prefix, const char *name, int set)
 {
 	const char *line;
 	struct istream *input;
@@ -79,7 +79,7 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 		name = "INBOX";
 
 	/* FIXME: set lock notification callback */
-	fd_out = file_dotlock_open(path, NULL, NULL,
+	fd_out = file_dotlock_open(path, temp_prefix, NULL,
 				   SUBSCRIPTION_FILE_LOCK_TIMEOUT,
 				   SUBSCRIPTION_FILE_CHANGE_TIMEOUT,
 				   SUBSCRIPTION_FILE_IMMEDIATE_TIMEOUT,

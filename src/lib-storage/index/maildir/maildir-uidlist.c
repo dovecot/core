@@ -79,8 +79,9 @@ int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
 	path = t_strconcat(uidlist->ibox->control_dir,
 			   "/" MAILDIR_UIDLIST_NAME, NULL);
         old_mask = umask(0777 & ~uidlist->ibox->mail_create_mode);
-	fd = file_dotlock_open(path, NULL, NULL, 0, 0,
-			       UIDLIST_LOCK_STALE_TIMEOUT, NULL, NULL);
+	fd = file_dotlock_open(path, uidlist->ibox->storage->temp_prefix,
+			       NULL, 0, 0, UIDLIST_LOCK_STALE_TIMEOUT,
+			       NULL, NULL);
 	umask(old_mask);
 	if (fd == -1) {
 		if (errno == EAGAIN)
