@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "istream.h"
+#include "hex-binary.h"
 #include "str.h"
 #include "message-date.h"
 #include "message-part-serialize.h"
@@ -518,6 +519,7 @@ const char *index_mail_get_special(struct mail *_mail,
 	struct index_mail_data *data = &mail->data;
 	struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	string_t *str;
+	const void *ext_data;
 
 	switch (field) {
 	case MAIL_FETCH_IMAP_BODY:
@@ -579,13 +581,16 @@ const char *index_mail_get_special(struct mail *_mail,
 		return data->envelope;
 	case MAIL_FETCH_FROM_ENVELOPE:
 		return NULL;
-	case MAIL_FETCH_UID_STRING:
-		if (data->uid_string == NULL) {
-			data->uid_string =
-				p_strdup_printf(mail->pool, "%u.%u",
-						mail->uid_validity, _mail->uid);
+	case MAIL_FETCH_HEADER_MD5:
+		if (mail_index_lookup_ext(mail->trans->trans_view, data->seq,
+					  mail->ibox->md5hdr_ext_idx,
+					  &ext_data) < 0) {
+			mail_storage_set_index_error(mail->ibox);
+			return NULL;
 		}
-		return data->uid_string;
+		if (ext_data == NULL)
+			return NULL;
+		return binary_to_hex(ext_data, 16);
 	default:
 		i_unreached();
 		return NULL;

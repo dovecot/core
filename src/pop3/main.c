@@ -9,6 +9,7 @@
 #include "process-title.h"
 #include "randgen.h"
 #include "module-dir.h"
+#include "var-expand.h"
 #include "mail-storage.h"
 
 #include <stdio.h>
@@ -40,6 +41,8 @@ static char log_prefix[128]; /* syslog() needs this to be permanent */
 enum client_workarounds client_workarounds = 0;
 int enable_last_command = FALSE;
 int no_flag_updates = FALSE;
+const char *uidl_format;
+enum uidl_keys uidl_keymask;
 
 static void sig_quit(int signo __attr_unused__)
 {
@@ -66,6 +69,28 @@ static void parse_workarounds(void)
 		if (list->name == NULL)
 			i_fatal("Unknown client workaround: %s", *str);
 	}
+}
+
+static enum uidl_keys parse_uidl_keymask(const char *format)
+{
+	enum uidl_keys mask = 0;
+
+	for (; *format != '\0'; format++) {
+		if (format[0] == '%' && format[1] != '\0') {
+			switch (var_get_key(++format)) {
+			case 'v':
+				mask |= UIDL_UIDVALIDITY;
+				break;
+			case 'u':
+				mask |= UIDL_UID;
+				break;
+			case 'm':
+				mask |= UIDL_MD5;
+				break;
+			}
+		}
+	}
+	return mask;
 }
 
 static void open_logfile(void)
@@ -138,6 +163,11 @@ static int main_init(void)
 	parse_workarounds();
 	enable_last_command = getenv("POP3_ENABLE_LAST") != NULL;
 	no_flag_updates = getenv("POP3_NO_FLAG_UPDATES") != NULL;
+
+	uidl_format = getenv("POP3_UIDL_FORMAT");
+	if (uidl_format == NULL)
+		uidl_format = "%v.%u";
+	uidl_keymask = parse_uidl_keymask(uidl_format);
 
 	storage = mail_storage_create_with_data(mail, getenv("USER"));
 	if (storage == NULL) {

@@ -4,6 +4,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "var-expand.h"
 #include "message-size.h"
 #include "mail-storage.h"
 #include "mail-search.h"
@@ -478,9 +479,22 @@ struct cmd_uidl_context {
 
 static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 {
+	static struct var_expand_table static_tab[] = {
+		{ 'v', NULL },
+		{ 'u', NULL },
+		{ 'm', NULL },
+		{ '\0', NULL }
+	};
+	struct var_expand_table *tab;
 	struct mail *mail;
-	const char *uid_str;
+	string_t *str;
 	int ret, found = FALSE;
+
+	tab = t_malloc(sizeof(static_tab));
+	memcpy(tab, static_tab, sizeof(static_tab));
+	tab[0].value = t_strdup_printf("%u", client->uid_validity);
+
+	str = str_new(default_pool, 128);
 
 	while ((mail = mailbox_search_next(ctx->search_ctx)) != NULL) {
 		if (client->deleted) {
@@ -489,21 +503,34 @@ static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 			    (1 << (idx % CHAR_BIT)))
 				continue;
 		}
-
-		uid_str = mail->get_special(mail, MAIL_FETCH_UID_STRING);
 		found = TRUE;
 
-		ret = client_send_line(client, ctx->message == 0 ?
-				       "%u %s" : "+OK %u %s",
-				       mail->seq, uid_str);
+		t_push();
+		if ((uidl_keymask & UIDL_UID) != 0)
+			tab[1].value = dec2str(mail->uid);
+		if ((uidl_keymask & UIDL_MD5) != 0) {
+			tab[2].value =
+				mail->get_special(mail, MAIL_FETCH_HEADER_MD5);
+		}
+
+		str_truncate(str, 0);
+		str_printfa(str, ctx->message == 0 ? "%u " : "+OK %u ",
+			    mail->seq);
+		var_expand(str, uidl_format, tab);
+
+		ret = client_send_line(client, "%s", str_c(str));
+		t_pop();
+
 		if (ret < 0)
 			break;
 		if (ret == 0 && ctx->message == 0) {
 			/* output is being buffered, continue when there's
 			   more space */
+			str_free(str);
 			return 0;
 		}
 	}
+	str_free(str);
 
 	/* finished */
 	(void)mailbox_search_deinit(ctx->search_ctx);
@@ -527,6 +554,7 @@ static struct cmd_uidl_context *
 cmd_uidl_init(struct client *client, unsigned int message)
 {
         struct cmd_uidl_context *ctx;
+	enum mail_fetch_field wanted_fields;
 
 	ctx = i_new(struct cmd_uidl_context, 1);
 
@@ -539,8 +567,13 @@ cmd_uidl_init(struct client *client, unsigned int message)
 		ctx->search_arg.value.seqset = &ctx->seqset;
 	}
 
+	wanted_fields = 0;
+	if ((uidl_keymask & UIDL_MD5) != 0)
+		wanted_fields |= MAIL_FETCH_HEADER_MD5;
+
 	ctx->search_ctx = mailbox_search_init(client->trans, NULL,
-					      &ctx->search_arg, NULL, 0, NULL);
+					      &ctx->search_arg, NULL,
+					      wanted_fields, NULL);
 	if (message == 0) {
 		client->cmd = cmd_uidl_callback;
 		client->cmd_context = ctx;

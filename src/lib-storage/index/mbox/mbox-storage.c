@@ -417,6 +417,8 @@ mbox_open(struct index_storage *storage, const char *name,
 
 	ibox->md5hdr_ext_idx =
 		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
+	if ((flags & MAILBOX_OPEN_KEEP_HEADER_MD5) != 0)
+		ibox->mbox_save_md5 = TRUE;
 
 	if (access(path, R_OK|W_OK) < 0) {
 		if (errno < EACCES)

@@ -37,16 +37,15 @@ static struct timeout *to_idle;
 static void client_input(void *context);
 static int client_output(void *context);
 
-static int sync_mailbox(struct mailbox *box)
+static int sync_mailbox(struct mailbox *box, struct mailbox_status *status)
 {
 	struct mailbox_sync_context *ctx;
         struct mailbox_sync_rec sync_rec;
-	struct mailbox_status status;
 
 	ctx = mailbox_sync_init(box, MAILBOX_SYNC_FLAG_FULL_READ);
 	while (mailbox_sync_next(ctx, &sync_rec) > 0)
 		;
-	return mailbox_sync_deinit(ctx, &status);
+	return mailbox_sync_deinit(ctx, status);
 }
 
 static int init_mailbox(struct client *client)
@@ -54,6 +53,7 @@ static int init_mailbox(struct client *client)
 	struct mail_search_arg search_arg;
         struct mailbox_transaction_context *t;
 	struct mail_search_context *ctx;
+        struct mailbox_status status;
 	struct mail *mail;
 	buffer_t *message_sizes_buf;
 	int i, failed;
@@ -64,10 +64,11 @@ static int init_mailbox(struct client *client)
 	search_arg.type = SEARCH_ALL;
 
 	for (i = 0; i < 2; i++) {
-		if (sync_mailbox(client->mailbox) < 0) {
+		if (sync_mailbox(client->mailbox, &status) < 0) {
 			client_send_storage_error(client);
 			break;
 		}
+		client->uid_validity = status.uidvalidity;
 
 		t = mailbox_transaction_begin(client->mailbox, FALSE);
 		ctx = mailbox_search_init(t, NULL, &search_arg, NULL,
@@ -152,6 +153,8 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 	flags = 0;
 	if (no_flag_updates)
 		flags |= MAILBOX_OPEN_KEEP_RECENT;
+	if ((uidl_keymask & UIDL_MD5) != 0)
+		flags |= MAILBOX_OPEN_KEEP_HEADER_MD5;
 	client->mailbox = mailbox_open(storage, "INBOX", flags);
 	if (client->mailbox == NULL) {
 		i_error("Couldn't open INBOX: %s",

@@ -197,6 +197,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 			    set->imap_capability, NULL));
 	env_put(t_strconcat("IMAP_CLIENT_WORKAROUNDS=",
 			    set->imap_client_workarounds, NULL));
+	env_put(t_strconcat("POP3_UIDL_FORMAT=",
+			    set->pop3_uidl_format, NULL));
 	env_put(t_strconcat("POP3_CLIENT_WORKAROUNDS=",
 			    set->pop3_client_workarounds, NULL));
 
