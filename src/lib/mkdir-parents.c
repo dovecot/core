@@ -27,7 +27,7 @@ int mkdir_parents(const char *path, mode_t mode)
 		t_pop();
 
 		/* should work now */
-		if (mkdir(path, mode) < 0 && errno != EEXIST)
+		if (mkdir(path, mode) < 0 && errno != EEXIST && errno != EISDIR)
 			return -1;
 	}
 
