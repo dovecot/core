@@ -298,7 +298,6 @@ _sendv_lf(struct _ostream *stream, const struct const_iovec *iov,
 	if (new_iov_count == 0) {
 		/* Tried to send only CR. */
 		ret = 0;
-		total++;
 	} else {
 		ret = sendv_lf(cstream, iov_buf->data, new_iov_count,
 			       diff_buf->data, &total);
@@ -327,6 +326,7 @@ _send_istream(struct _ostream *outstream, struct istream *instream)
 		if (ret <= 0)
 			return ret < 0 && sent == 0 ? -1 : (ssize_t)sent;
 
+		i_assert((size_t)ret <= iov.iov_len);
 		i_stream_skip(instream, ret);
 		sent += ret;
 
