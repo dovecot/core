@@ -41,12 +41,11 @@
 	(CMSG_ALIGN(sizeof(struct cmsghdr)) + (len))
 #endif
 
-int fd_send(int handle, int send_fd, const void *data, size_t size)
+ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 {
         struct msghdr msg;
         struct iovec iov;
         struct cmsghdr *cmsg;
-	int *fdptr;
 	char buf[CMSG_SPACE(sizeof(int))];
 
 	i_assert(size < SSIZE_T_MAX);
@@ -55,26 +54,32 @@ int fd_send(int handle, int send_fd, const void *data, size_t size)
 
         iov.iov_base = (void *) data;
         iov.iov_len = size;
-        msg.msg_control = buf;
-        msg.msg_controllen = sizeof(buf);
+
+	if (send_fd != -1) {
+		msg.msg_control = buf;
+		msg.msg_controllen = sizeof(buf);
+	}
+
         msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 
-        cmsg = CMSG_FIRSTHDR(&msg);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-	cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-	fdptr = (int *) CMSG_DATA(cmsg);
-	*fdptr = send_fd;
+	if (send_fd != -1) {
+		cmsg = CMSG_FIRSTHDR(&msg);
+		cmsg->cmsg_level = SOL_SOCKET;
+		cmsg->cmsg_type = SCM_RIGHTS;
+		cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+		*((int *) CMSG_DATA(cmsg)) = send_fd;
+	}
+
 	return sendmsg(handle, &msg, 0);
 }
 
-int fd_read(int handle, void *data, size_t size, int *fd)
+ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 {
 	struct msghdr msg;
 	struct iovec iov;
 	struct cmsghdr *cmsg;
-	int ret;
+	ssize_t ret;
 	char buf[CMSG_SPACE(sizeof(int))];
 
 	i_assert(size < SSIZE_T_MAX);
@@ -92,6 +97,9 @@ int fd_read(int handle, void *data, size_t size, int *fd)
 	iov.iov_len = size;
 
 	ret = recvmsg(handle, &msg, 0);
-	*fd = *(int *) CMSG_DATA(cmsg);
+	if (msg.msg_controllen != sizeof(buf))
+		*fd = -1;
+	else
+		*fd = *(int *) CMSG_DATA(cmsg);
 	return ret;
 }
