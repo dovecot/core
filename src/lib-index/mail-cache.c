@@ -246,15 +246,14 @@ int mail_cache_mmap_update(struct mail_cache *cache, size_t offset, size_t size)
 {
 	int synced, ret;
 
-	for (synced = FALSE;; synced = TRUE) {
-		ret = mmap_update_nocheck(cache, offset, size);
-		if (ret > 0)
-			return 0;
-		if (ret < 0)
-			return -1;
+	ret = mmap_update_nocheck(cache, offset, size);
+	if (ret > 0)
+		return 0;
+	if (ret < 0)
+		return -1;
 
-		if (mmap_verify_header(cache) <= 0)
-			return -1;
+	if (mmap_verify_header(cache) <= 0)
+		return -1;
 
 #if 0 // FIXME
 		/* see if cache file was rebuilt - do it only once to avoid
@@ -266,7 +265,6 @@ int mail_cache_mmap_update(struct mail_cache *cache, size_t offset, size_t size)
 		if (mail_cache_file_reopen(cache) < 0)
 			return -1;
 #endif
-	}
 	return 0;
 }
 
