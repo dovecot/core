@@ -285,8 +285,10 @@ static int imap_parser_literal_end(ImapParser *parser)
 			return FALSE;
 		}
 
-		io_buffer_send(parser->outbuf, "+ OK\r\n", 6);
-		io_buffer_send_flush(parser->outbuf);
+		if (parser->outbuf != NULL) {
+			io_buffer_send(parser->outbuf, "+ OK\r\n", 6);
+			io_buffer_send_flush(parser->outbuf);
+		}
 	}
 
 	parser->cur_type = ARG_PARSE_LITERAL_DATA;

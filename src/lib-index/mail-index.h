@@ -34,21 +34,16 @@ typedef enum {
 
 	   Location field is a good first field anyway, it's the one most
 	   often needed. With maildir format, it's the file name and with
-	   mbox format it's the file position as a string. */
+	   mbox format it's the file position. */
 	FIELD_TYPE_LOCATION		= 0x0001,
 	FIELD_TYPE_ENVELOPE		= 0x0002,
 	FIELD_TYPE_BODY			= 0x0004,
 	FIELD_TYPE_BODYSTRUCTURE	= 0x0008,
-	FIELD_TYPE_FROM			= 0x0010,
-	FIELD_TYPE_TO			= 0x0020,
-	FIELD_TYPE_CC			= 0x0040,
-	FIELD_TYPE_BCC			= 0x0080,
-	FIELD_TYPE_SUBJECT		= 0x0100,
-	FIELD_TYPE_MD5			= 0x0200,
-	FIELD_TYPE_MESSAGEPART		= 0x0400,
+	FIELD_TYPE_MD5			= 0x0010,
+	FIELD_TYPE_MESSAGEPART		= 0x0020,
 
-	FIELD_TYPE_LAST			= 0x0800,
-	FIELD_TYPE_MAX_BITS		= 11
+	FIELD_TYPE_LAST			= 0x0040,
+	FIELD_TYPE_MAX_BITS		= 6
 } MailField;
 
 typedef enum {
@@ -139,18 +134,15 @@ struct _MailIndexRecord {
 	unsigned int uid;
 	unsigned int msg_flags; /* MailFlags */
 	time_t internal_date;
-	time_t sent_date;
-
-	uoff_t header_size;
-	uoff_t body_size;
 
 	unsigned int index_flags; /* MailIndexMailFlags */
-	unsigned int cached_fields;
+	unsigned int cached_fields; /* MailField */
 
-	uoff_t data_position;
 	unsigned int data_size;
+	uoff_t data_position;
 
-	unsigned int alignment;
+	uoff_t header_size; /* 0 if not known yet */
+	uoff_t body_size; /* if header_size == 0, the size of full message */
 };
 
 struct _MailIndexDataRecord {

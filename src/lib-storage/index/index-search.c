@@ -4,7 +4,10 @@
 #include "iobuffer.h"
 #include "mmap-util.h"
 #include "rfc822-tokenize.h"
+#include "rfc822-date.h"
+#include "message-size.h"
 #include "imap-date.h"
+#include "imap-envelope.h"
 #include "index-storage.h"
 #include "mail-index-util.h"
 #include "mail-modifylog.h"
@@ -155,19 +158,6 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 			return FALSE;
 		return rec->internal_date >= t;
 
-	case SEARCH_SENTBEFORE:
-		if (!imap_parse_date(value, &t))
-			return FALSE;
-		return rec->sent_date < t;
-	case SEARCH_SENTON:
-		if (!imap_parse_date(value, &t))
-			return FALSE;
-		return rec->sent_date >= t && rec->sent_date < t + 3600*24;
-	case SEARCH_SENTSINCE:
-		if (!imap_parse_date(value, &t))
-			return FALSE;
-		return rec->sent_date >= t;
-
 	/* sizes, only with fastscanning */
 	case SEARCH_SMALLER:
 		if (!mail_index_get_virtual_size(ibox->index, rec, TRUE, &size))
@@ -201,21 +191,42 @@ static void search_index_arg(MailSearchArg *arg, void *context)
 	}
 }
 
-static int match_field(MailIndex *index, MailIndexRecord *rec,
-		       MailField field, const char *value)
+static int search_sent(MailSearchArgType type, const char *value,
+		       const char *sent_value)
 {
-	const char *field_value;
-	size_t i, value_len;
+	time_t search_time, sent_time;
+	int timezone_offset;
 
-	field_value = index->lookup_field(index, rec, field);
-	if (field_value == NULL)
-		return -1;
+	if (!imap_parse_date(value, &search_time))
+		return 0;
 
-	/* note: value is already uppercased */
-	value_len = strlen(value);
-	for (i = 0; field_value[i] != '\0'; i++) {
-		if (value[0] == i_toupper(field_value[i]) &&
-		    strncasecmp(value, field_value+i, value_len) == 0)
+	/* NOTE: RFC2060 doesn't specify if timezones should affect
+	   matching, so we ignore them. */
+	if (!rfc822_parse_date(sent_value, &sent_time, &timezone_offset))
+		return 0;
+
+	switch (type) {
+	case SEARCH_SENTBEFORE:
+		return sent_time < search_time;
+	case SEARCH_SENTON:
+		return sent_time >= search_time &&
+			sent_time < search_time + 3600*24;
+	case SEARCH_SENTSINCE:
+		return sent_time >= search_time;
+	default:
+		i_assert(0);
+	}
+}
+
+static int search_substr(const char *haystack, const char *needle)
+{
+	size_t i, needle_len;
+
+	/* note: needle is already uppercased */
+	needle_len = strlen(needle);
+	for (i = 0; haystack[i] != '\0'; i++) {
+		if (needle[0] == i_toupper(haystack[i]) &&
+		    strncasecmp(needle, haystack+i, needle_len) == 0)
 			return 1;
 	}
 
@@ -226,20 +237,64 @@ static int match_field(MailIndex *index, MailIndexRecord *rec,
 static int search_arg_match_cached(MailIndex *index, MailIndexRecord *rec,
 				   MailSearchArgType type, const char *value)
 {
+        ImapEnvelopeField env_field;
+	const char *envelope, *field;
+	int ret;
+
 	switch (type) {
+	case SEARCH_SENTBEFORE:
+	case SEARCH_SENTON:
+	case SEARCH_SENTSINCE:
+                env_field = IMAP_ENVELOPE_DATE;
+		break;
+
 	case SEARCH_FROM:
-		return match_field(index, rec, FIELD_TYPE_FROM, value);
+                env_field = IMAP_ENVELOPE_FROM;
+		break;
 	case SEARCH_TO:
-		return match_field(index, rec, FIELD_TYPE_TO, value);
+                env_field = IMAP_ENVELOPE_TO;
+		break;
 	case SEARCH_CC:
-		return match_field(index, rec, FIELD_TYPE_CC, value);
+                env_field = IMAP_ENVELOPE_CC;
+		break;
 	case SEARCH_BCC:
-		return match_field(index, rec, FIELD_TYPE_BCC, value);
+                env_field = IMAP_ENVELOPE_BCC;
+		break;
 	case SEARCH_SUBJECT:
-		return match_field(index, rec, FIELD_TYPE_SUBJECT, value);
+                env_field = IMAP_ENVELOPE_SUBJECT;
+		break;
+
+	case SEARCH_IN_REPLY_TO:
+                env_field = IMAP_ENVELOPE_IN_REPLY_TO;
+		break;
+	case SEARCH_MESSAGE_ID:
+                env_field = IMAP_ENVELOPE_MESSAGE_ID;
+		break;
 	default:
 		return -1;
 	}
+
+	t_push();
+
+	/* get field from hopefully cached envelope */
+	envelope = index->lookup_field(index, rec, FIELD_TYPE_ENVELOPE);
+	field = envelope == NULL ? NULL :
+		imap_envelope_parse(envelope, env_field);
+
+	if (field == NULL)
+		ret = -1;
+	else {
+		switch (type) {
+		case SEARCH_SENTBEFORE:
+		case SEARCH_SENTON:
+		case SEARCH_SENTSINCE:
+			ret = search_sent(type, value, field);
+		default:
+			ret = search_substr(field, value);
+		}
+	}
+	t_pop();
+	return ret;
 }
 
 static void search_cached_arg(MailSearchArg *arg, void *context)
@@ -351,6 +406,17 @@ static void search_header_arg(MailSearchArg *arg, void *context)
 
 	/* first check that the field name matches to argument. */
 	switch (arg->type) {
+	case SEARCH_SENTBEFORE:
+	case SEARCH_SENTON:
+	case SEARCH_SENTSINCE:
+		/* date is handled differently than others */
+		if (ctx->name_len == 4 &&
+		    strncasecmp(ctx->name, "Date", 4) == 0) {
+			search_sent(arg->type, arg->value.str,
+				    t_strndup(ctx->value, ctx->value_len));
+		}
+		return;
+
 	case SEARCH_FROM:
 		if (ctx->name_len != 4 ||
 		    strncasecmp(ctx->name, "From", 4) != 0)
@@ -407,6 +473,7 @@ static void search_header(MessagePart *part __attr_unused__,
 	SearchHeaderContext *ctx = context;
 
 	if ((name_len > 0 && ctx->custom_header) ||
+	    (name_len == 4 && strncasecmp(name, "Date", 4) == 0) ||
 	    (name_len == 4 && strncasecmp(name, "From", 4) == 0) ||
 	    (name_len == 2 && strncasecmp(name, "To", 2) == 0) ||
 	    (name_len == 2 && strncasecmp(name, "Cc", 2) == 0) ||
@@ -505,6 +572,7 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 				 MailSearchArg *args)
 {
 	IOBuffer *inbuf;
+	MessageSize hdr_size;
 	int have_headers, have_body, have_text;
 
 	/* first check what we need to use */
@@ -524,7 +592,15 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 		/* header checks */
 		ctx.custom_header = TRUE;
 		ctx.args = args;
-		message_parse_header(NULL, inbuf, NULL, search_header, &ctx);
+		message_parse_header(NULL, inbuf, &hdr_size,
+				     search_header, &ctx);
+
+		i_assert(rec->header_size == 0 ||
+			 hdr_size.physical_size == rec->header_size);
+	} else if (rec->header_size == 0) {
+		message_get_header_size(inbuf, &hdr_size);
+	} else {
+		hdr_size.physical_size = rec->header_size;
 	}
 
 	if (have_text) {
@@ -536,15 +612,14 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 			}
 		}
 
-		search_arg_match_data(inbuf, rec->header_size,
+		search_arg_match_data(inbuf, hdr_size.physical_size,
 				      args, search_text_header);
 	}
 
 	if (have_text || have_body) {
-		if (inbuf->offset != rec->header_size) {
+		if (inbuf->offset == 0) {
 			/* skip over headers */
-			i_assert(inbuf->offset == 0);
-			io_buffer_skip(inbuf, rec->header_size);
+			io_buffer_skip(inbuf, hdr_size.physical_size);
 		}
 
 		search_arg_match_data(inbuf, rec->body_size, args,

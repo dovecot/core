@@ -44,7 +44,11 @@ typedef enum {
 
 	/* body */
 	SEARCH_BODY,
-	SEARCH_TEXT
+	SEARCH_TEXT,
+
+	/* our shortcuts for headers */
+        SEARCH_IN_REPLY_TO,
+        SEARCH_MESSAGE_ID
 } MailSearchArgType;
 
 struct _MailSearchArg {

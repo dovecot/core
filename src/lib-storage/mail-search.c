@@ -161,6 +161,12 @@ static int search_arg_build(SearchBuildData *data, ImapArgList **args,
 			} else if (strcmp(key, "SUBJECT") == 0) {
 				*args = (*args)->next;
 				return ARG_NEW(SEARCH_SUBJECT, 1);
+			} else if (strcmp(key, "IN-REPLY-TO") == 0) {
+				*args = (*args)->next;
+				return ARG_NEW(SEARCH_IN_REPLY_TO, 1);
+			} else if (strcmp(key, "MESSAGE-ID") == 0) {
+				*args = (*args)->next;
+				return ARG_NEW(SEARCH_MESSAGE_ID, 1);
 			} else {
 				return ARG_NEW(SEARCH_HEADER, 2);
 			}
@@ -466,11 +472,16 @@ static void search_arg_analyze(MailSearchArg *arg, int *have_headers,
 			subarg = subarg->next;
 		}
 		break;
+	case SEARCH_SENTBEFORE:
+	case SEARCH_SENTON:
+	case SEARCH_SENTSINCE:
 	case SEARCH_FROM:
 	case SEARCH_TO:
 	case SEARCH_CC:
 	case SEARCH_BCC:
 	case SEARCH_SUBJECT:
+	case SEARCH_IN_REPLY_TO:
+	case SEARCH_MESSAGE_ID:
 	case SEARCH_HEADER:
 		*have_headers = TRUE;
 		break;

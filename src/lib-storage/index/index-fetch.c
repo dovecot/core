@@ -226,12 +226,17 @@ static void index_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
 
         mail_cache_context = index_msgcache_get_context(ctx->index, rec);
 
-	virtual_header_size =
-		(rec->index_flags & INDEX_MAIL_FLAG_BINARY_HEADER) ?
-		rec->header_size : 0;
-	virtual_body_size =
-		(rec->index_flags & INDEX_MAIL_FLAG_BINARY_BODY) ?
-		rec->body_size : 0;
+	if (rec->header_size == 0) {
+		virtual_header_size = 0;
+		virtual_body_size = 0;
+	} else {
+		virtual_header_size =
+			(rec->index_flags & INDEX_MAIL_FLAG_BINARY_HEADER) ?
+			rec->header_size : 0;
+		virtual_body_size =
+			(rec->index_flags & INDEX_MAIL_FLAG_BINARY_BODY) ?
+			rec->body_size : 0;
+	}
 
 	imap_msgcache_open(ctx->cache, rec->uid, fields,
 			   virtual_header_size, virtual_body_size,

@@ -170,10 +170,9 @@ static int update_by_append(MailIndexUpdate *update)
 			/* corrupted data file - old value had a field
 			   larger than expected */
 			index_set_corrupted(update->index,
-					    "full_field_size points outside "
-					    "data_size (field %d?)",
-					    update->index->filepath,
-					    rec == NULL ? -1 : (int)rec->field);
+				"full_field_size points outside data_size "
+				"(field %u?)", update->index->filepath,
+				rec == NULL ? 0 : rec->field);
 			return FALSE;
 		}
 		memcpy(destrec->data, src, src_size);
@@ -197,7 +196,7 @@ static int update_by_append(MailIndexUpdate *update)
 	if (fpos == 0)
 		return FALSE;
 
-	/* update index file position - it's mmap()ed so it'll be writte
+	/* update index file position - it's mmap()ed so it'll be written
 	   into disk when index is unlocked. */
 	update->rec->data_position = fpos;
 	update->rec->data_size = pos;
@@ -283,45 +282,6 @@ void mail_index_update_field_raw(MailIndexUpdate *update, MailField field,
 	update_field_full(update, field, value, size, 0);
 }
 
-static MailField mail_header_get_field(const char *str, size_t len)
-{
-	if (len == 7 && strncasecmp(str, "Subject", 7) == 0)
-		return FIELD_TYPE_SUBJECT;
-	if (len == 4 && strncasecmp(str, "From", 4) == 0)
-		return FIELD_TYPE_FROM;
-	if (len == 2 && strncasecmp(str, "To", 2) == 0)
-		return FIELD_TYPE_TO;
-	if (len == 2 && strncasecmp(str, "Cc", 2) == 0)
-		return FIELD_TYPE_CC;
-	if (len == 3 && strncasecmp(str, "Bcc", 3) == 0)
-		return FIELD_TYPE_BCC;
-
-	return 0;
-}
-
-static const char *field_get_value(const char *value, size_t len)
-{
-	char *ret, *p;
-	size_t i;
-
-	ret = t_malloc(len+1);
-
-	/* compress the long headers (remove \r?\n before space or tab) */
-	for (i = 0, p = ret; i < len; i++) {
-		if (value[i] == '\r' && i+1 != len && value[i+1] == '\n')
-			i++;
-
-		if (value[i] == '\n') {
-			i_assert(IS_LWSP(value[i+1]));
-		} else {
-			*p++ = value[i];
-		}
-	}
-	*p = '\0';
-
-	return ret;
-}
-
 typedef struct {
 	MailIndexUpdate *update;
 	Pool envelope_pool;
@@ -337,30 +297,11 @@ static void update_header_func(MessagePart *part,
 			       void *context)
 {
 	HeaderUpdateContext *ctx = context;
-	MailField field;
-	const char *str;
 
 	if (part != NULL && part->parent != NULL)
 		return;
 
-	if (name_len == 4 && strncasecmp(name, "Date", 4) == 0) {
-		/* date is stored into index record itself */
-		str = field_get_value(value, value_len);
-		if (!rfc822_parse_date(str, &ctx->update->rec->sent_date))
-			ctx->update->rec->sent_date = ioloop_time;
-	}
-
 	/* see if we can do anything with this field */
-	field = mail_header_get_field(name, name_len);
-	if (field != 0) {
-		/* do we want to store this? */
-		if (ctx->update->index->header->cache_fields & field) {
-			str = field_get_value(value, value_len);
-			ctx->update->index->update_field(ctx->update,
-							 field, str, 0);
-		}
-	}
-
 	if (ctx->update->index->header->cache_fields & FIELD_TYPE_ENVELOPE) {
 		if (ctx->envelope_pool == NULL) {
 			ctx->envelope_pool =
@@ -372,7 +313,6 @@ static void update_header_func(MessagePart *part,
 					   value, value_len);
 	}
 
-	/* keep this last, it may break the parameter data by moving mmaping */
 	if (ctx->header_func != NULL) {
 		ctx->header_func(part, name, name_len,
 				 value, value_len, ctx->context);

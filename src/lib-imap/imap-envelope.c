@@ -1,8 +1,10 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "iobuffer.h"
 #include "temp-string.h"
 #include "rfc822-address.h"
+#include "imap-parser.h"
 #include "imap-envelope.h"
 #include "imap-quote.h"
 
@@ -115,4 +117,140 @@ const char *imap_envelope_get_part_data(MessagePartEnvelopeData *data)
 	str = t_string_new(2048);
         imap_envelope_write_part_data(data, str);
 	return str->str;
+}
+
+static int imap_address_arg_append(ImapArg *arg, TempString *str, int *in_group)
+{
+	ImapArgList *list;
+	const char *args[4];
+	int i;
+
+	if (arg->type != IMAP_ARG_LIST)
+		return FALSE;
+	list = arg->data.list;
+
+	/* we require 4 arguments, strings or NILs */
+	for (i = 0; i < 4; i++) {
+		if (list == NULL)
+			return FALSE;
+
+		if (list->arg.type == IMAP_ARG_NIL)
+			args[i] = NULL;
+		else if (list->arg.type == IMAP_ARG_STRING)
+			args[i] = list->arg.data.str;
+		else
+			return FALSE;
+	}
+
+	if (str->len > 0)
+		t_string_append(str, ", ");
+
+	if (*in_group) {
+		if (args[0] == NULL && args[1] == NULL &&
+		    args[2] == NULL && args[3] == NULL) {
+			/* end of group */
+			t_string_append_c(str, ';');
+			*in_group = FALSE;
+			return TRUE;
+		}
+	} else {
+		if (args[0] == NULL && args[1] == NULL &&
+		    args[2] != NULL && args[3] == NULL) {
+			/* beginning of group */
+			t_string_append(str, args[2]);
+			t_string_append(str, ": ");
+			*in_group = TRUE;
+			return TRUE;
+		}
+	}
+
+        /* name <@route:mailbox@domain> */
+	if (args[0] != NULL) {
+		t_string_append(str, args[0]);
+		t_string_append_c(str, ' ');
+	}
+
+	t_string_append_c(str, '<');
+	if (args[1] != NULL) {
+		t_string_append_c(str, '@');
+		t_string_append(str, args[1]);
+		t_string_append_c(str, ':');
+	}
+	if (args[2] != NULL)
+		t_string_append(str, args[2]);
+	if (args[3] != NULL) {
+		t_string_append_c(str, '@');
+		t_string_append(str, args[3]);
+	}
+	t_string_append_c(str, '>');
+	return TRUE;
+}
+
+static const char *imap_envelope_parse_address(ImapArg *arg)
+{
+	ImapArgList *list;
+	TempString *str;
+	int in_group;
+
+	if (arg->type != IMAP_ARG_LIST)
+		return NULL;
+
+	in_group = FALSE;
+	str = t_string_new(128);
+	for (list = arg->data.list; list != NULL; list = list->next) {
+		if (!imap_address_arg_append(&list->arg, str, &in_group))
+			return NULL;
+	}
+
+	return str->str;
+}
+
+static const char *
+imap_envelope_parse_arg(ImapArg *arg, ImapEnvelopeField field,
+			const char *envelope)
+{
+	const char *value;
+
+	if (arg->type == IMAP_ARG_NIL)
+		return "";
+
+	if (field >= IMAP_ENVELOPE_FROM && field <= IMAP_ENVELOPE_BCC)
+		value = imap_envelope_parse_address(arg);
+	else if (arg->type == IMAP_ARG_STRING || arg->type == IMAP_ARG_ATOM)
+		value = t_strdup(arg->data.str);
+	else
+		value = NULL;
+
+	if (value == NULL) {
+		i_error("Invalid field %u in IMAP envelope: %s",
+			field, envelope);
+	}
+
+	return value;
+}
+
+const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field)
+{
+	IOBuffer *inbuf;
+	ImapParser *parser;
+	ImapArg *args;
+	const char *value;
+	int ret;
+
+	i_assert(field < IMAP_ENVELOPE_FIELDS);
+
+	inbuf = io_buffer_create_from_data(envelope, strlen(envelope),
+					   data_stack_pool);
+	parser = imap_parser_create(inbuf, NULL);
+
+	ret = imap_parser_read_args(parser, field, 0, &args);
+	if (ret < 0)
+		i_error("Error parsing IMAP envelope: %s", envelope);
+
+	value = ret < (int)field ? NULL :
+		imap_envelope_parse_arg(&args[field], field, envelope);
+
+	imap_parser_destroy(parser);
+	io_buffer_unref(inbuf);
+	return value;
 }

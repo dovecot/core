@@ -97,12 +97,11 @@ static const Rfc822Token *next_token(const Rfc822Token **tokens)
 	return ret;
 }
 
-int rfc822_parse_date(const char *str, time_t *time)
+int rfc822_parse_date(const char *str, time_t *time, int *timezone_offset)
 {
 	struct tm tm;
 	const Rfc822Token *tokens, *tok;
 	size_t i;
-	int zone_offset;
 
 	if (str == NULL || *str == '\0')
 		return FALSE;
@@ -198,14 +197,13 @@ int rfc822_parse_date(const char *str, time_t *time)
 	if (tok == NULL || tok->token != 'A')
 		return FALSE;
 
-	zone_offset = parse_timezone(tok->ptr, tok->len);
+	*timezone_offset = parse_timezone(tok->ptr, tok->len);
 
 	tm.tm_isdst = -1;
 	*time = mktime(&tm);
 	if (*time < 0)
 		return FALSE;
 
-	*time -= zone_offset * 60;
 	return TRUE;
 }
 
