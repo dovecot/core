@@ -171,18 +171,22 @@ static void parse_header(MessagePart *part,
 	t_pop();
 }
 
-static void part_parse_headers(MessagePart *part, IOBuffer *inbuf, Pool pool)
+static void part_parse_headers(MessagePart *part, IOBuffer *inbuf,
+			       uoff_t start_offset, Pool pool)
 {
 	while (part != NULL) {
 		/* note that we want to parse the header of all
 		   the message parts, multiparts too. */
-		i_assert(part->physical_pos >= inbuf->offset);
-		io_buffer_skip(inbuf, part->physical_pos - inbuf->offset);
+		i_assert(part->physical_pos >= inbuf->offset - start_offset);
+		io_buffer_skip(inbuf, part->physical_pos -
+			       (inbuf->offset - start_offset));
 
 		message_parse_header(part, inbuf, NULL, parse_header, pool);
 
-		if (part->children != NULL)
-			part_parse_headers(part->children, inbuf, pool);
+		if (part->children != NULL) {
+			part_parse_headers(part->children, inbuf,
+					   start_offset, pool);
+		}
 
 		part = part->next;
 	}
@@ -359,10 +363,14 @@ static const char *part_get_bodystructure(MessagePart *part, int extended)
 const char *imap_part_get_bodystructure(Pool pool, MessagePart **part,
 					IOBuffer *inbuf, int extended)
 {
+	uoff_t start_offset;
+
 	if (*part == NULL)
 		*part = message_parse(pool, inbuf, parse_header, pool);
-	else
-		part_parse_headers(*part, inbuf, pool);
+	else {
+		start_offset = inbuf->offset;
+		part_parse_headers(*part, inbuf, start_offset, pool);
+	}
 
 	return part_get_bodystructure(*part, extended);
 }
