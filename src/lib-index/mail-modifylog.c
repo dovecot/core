@@ -710,32 +710,33 @@ static int mail_modifylog_append(struct modify_log_file *file,
 	i_assert((*rec)->seq1 != 0);
 	i_assert((*rec)->uid1 != 0);
 
-	if (!external_change &&
-	    file->log->cache_lock_counter !=
-	    file->log->index->excl_lock_counter) {
-		switch (modifylog_have_other_users(file->log, FALSE)) {
-		case 0:
-			/* we're the only one having this log open,
-			   no need for modify log. */
-			file->log->cache_have_others = FALSE;
-			file->log->cache_lock_counter =
-				file->log->index->excl_lock_counter;
+	if (!external_change) {
+		if (file->log->cache_lock_counter !=
+		    file->log->index->excl_lock_counter) {
+			switch (modifylog_have_other_users(file->log, FALSE)) {
+			case 0:
+				/* we're the only one having this log open,
+				   no need for modify log. */
+				file->log->cache_have_others = FALSE;
+				file->log->cache_lock_counter =
+					file->log->index->excl_lock_counter;
 
+				*rec = NULL;
+				return TRUE;
+			case -1:
+				return FALSE;
+			default:
+				file->log->cache_have_others = TRUE;
+				file->log->cache_lock_counter =
+					file->log->index->excl_lock_counter;
+				break;
+			}
+		}
+
+		if (!file->log->cache_have_others) {
 			*rec = NULL;
 			return TRUE;
-		case -1:
-			return FALSE;
-		default:
-			file->log->cache_have_others = TRUE;
-			file->log->cache_lock_counter =
-				file->log->index->excl_lock_counter;
-			break;
 		}
-	}
-
-	if (!file->log->cache_have_others) {
-		*rec = NULL;
-		return TRUE;
 	}
 
 	if (file->mmap_used_length == file->mmap_full_length) {
