@@ -704,6 +704,8 @@ for storage in $STORAGE; do
 done
 echo "}" >> $file
 
+CFLAGS="$CFLAGS $EXTRA_CFLAGS"
+
 AC_OUTPUT(
 Makefile
 doc/Makefile
