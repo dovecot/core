@@ -7,7 +7,7 @@
 
 #include <stdio.h>
 
-static MailIndex maildir_index;
+extern MailIndex maildir_index;
 
 MailFlags maildir_filename_get_flags(const char *fname, MailFlags default_flags)
 {
@@ -200,7 +200,7 @@ static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-static MailIndex maildir_index = {
+MailIndex maildir_index = {
 	mail_index_open,
 	mail_index_open_or_create,
 	maildir_index_free,

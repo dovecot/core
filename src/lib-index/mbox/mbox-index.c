@@ -8,7 +8,7 @@
 #include "mail-index-data.h"
 #include "mail-custom-flags.h"
 
-static MailIndex mbox_index;
+extern MailIndex mbox_index;
 
 int mbox_set_syscall_error(MailIndex *index, const char *function)
 {
@@ -455,7 +455,7 @@ static int mbox_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-static MailIndex mbox_index = {
+MailIndex mbox_index = {
 	mail_index_open,
 	mail_index_open_or_create,
 	mbox_index_free,

@@ -16,7 +16,7 @@
 #define CREATE_MODE 0770 /* umask() should limit it more */
 
 extern MailStorage mbox_storage;
-static Mailbox mbox_mailbox;
+extern Mailbox mbox_mailbox;
 
 static int mbox_autodetect(const char *data)
 {
@@ -403,7 +403,7 @@ MailStorage mbox_storage = {
 	NULL
 };
 
-static Mailbox mbox_mailbox = {
+Mailbox mbox_mailbox = {
 	NULL, /* name */
 	NULL, /* storage */
 

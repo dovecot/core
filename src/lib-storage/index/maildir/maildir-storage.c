@@ -14,7 +14,7 @@
 #define CREATE_MODE 0770 /* umask() should limit it more */
 
 extern MailStorage maildir_storage;
-static Mailbox maildir_mailbox;
+extern Mailbox maildir_mailbox;
 
 static const char *maildirs[] = { "cur", "new", "tmp", NULL  };
 
@@ -389,7 +389,7 @@ MailStorage maildir_storage = {
 	NULL
 };
 
-static Mailbox maildir_mailbox = {
+Mailbox maildir_mailbox = {
 	NULL, /* name */
 	NULL, /* storage */
 
