@@ -958,6 +958,15 @@ static int mbox_sync_update_imap_base(struct mbox_sync_context *sync_ctx)
 {
 	struct mbox_sync_mail_context mail_ctx;
 
+	if (istream_raw_mbox_seek(sync_ctx->input, 0) < 0) {
+		/* doesn't begin with a From-line, which is weird because it
+		   just did. */
+		mail_storage_set_critical(sync_ctx->ibox->box.storage,
+			"Unexpectedly lost From-header line from mbox file %s",
+			sync_ctx->ibox->path);
+		return -1;
+	}
+
 	sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view, FALSE);
 	sync_ctx->update_base_uid_last = sync_ctx->next_uid-1;
 
