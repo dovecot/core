@@ -12,6 +12,7 @@
 #include "str.h"
 #include "imap-base-subject.h"
 #include "mail-storage.h"
+#include "message-address.h"
 #include "imap-sort.h"
 
 #include <stdlib.h>
@@ -274,6 +275,21 @@ static const char *string_table_get(struct sort_context *ctx, const char *str)
 	return value;
 }
 
+static const char *get_first_mailbox(struct mail *mail, const char *field)
+{
+	struct message_address *addr;
+	const char *str;
+
+	str = mail->get_header(mail, field);
+	if (str == NULL)
+		return NULL;
+
+	addr = message_address_parse(data_stack_pool,
+				     (const unsigned char *) str,
+				     (size_t)-1, 1);
+	return addr != NULL ? addr->mailbox : NULL;
+}
+
 static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 {
 	const char *str;
@@ -290,7 +306,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	}
 
 	if (ctx->common_mask & MAIL_SORT_CC) {
-		str = mail->get_first_mailbox(mail, "cc");
+		str = get_first_mailbox(mail, "cc");
 		if (str != NULL)
 			str = str_ucase(t_strdup_noconst(str));
 
@@ -310,7 +326,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	}
 
 	if (ctx->common_mask & MAIL_SORT_FROM) {
-		str = mail->get_first_mailbox(mail, "from");
+		str = get_first_mailbox(mail, "from");
 		if (str != NULL)
 			str = str_ucase(t_strdup_noconst(str));
 
@@ -345,7 +361,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	}
 
 	if (ctx->common_mask & MAIL_SORT_TO) {
-		str = mail->get_first_mailbox(mail, "to");
+		str = get_first_mailbox(mail, "to");
 		if (str != NULL)
 			str = str_ucase(t_strdup_noconst(str));
 
@@ -408,7 +424,7 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 		if (ctx->common_mask & MAIL_SORT_CC)
 			str = ctx->last_cc;
 		else {
-			str = mail->get_first_mailbox(mail, "cc");
+			str = get_first_mailbox(mail, "cc");
 			if (str != NULL)
 				str = str_ucase(t_strdup_noconst(str));
 		}
@@ -422,7 +438,7 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 		if (ctx->common_mask & MAIL_SORT_FROM)
 			str = ctx->last_from;
 		else {
-			str = mail->get_first_mailbox(mail, "from");
+			str = get_first_mailbox(mail, "from");
 			if (str != NULL)
 				str = str_ucase(t_strdup_noconst(str));
 		}
@@ -436,7 +452,7 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 		if (ctx->common_mask & MAIL_SORT_TO)
 			str = ctx->last_to;
 		else {
-			str = mail->get_first_mailbox(mail, "to");
+			str = get_first_mailbox(mail, "to");
 			if (str != NULL)
 				str = str_ucase(t_strdup_noconst(str));
 		}
@@ -556,13 +572,13 @@ static const char *get_str(enum mail_sort_type type, const unsigned char *buf,
 			return imap_get_base_subject_cased(ctx->temp_pool,
 							   str, NULL);
 		case MAIL_SORT_CC:
-			str = mail->get_first_mailbox(mail, "cc");
+			str = get_first_mailbox(mail, "cc");
 			break;
 		case MAIL_SORT_FROM:
-			str = mail->get_first_mailbox(mail, "from");
+			str = get_first_mailbox(mail, "from");
 			break;
 		case MAIL_SORT_TO:
-			str = mail->get_first_mailbox(mail, "to");
+			str = get_first_mailbox(mail, "to");
 			break;
 		default:
 			i_unreached();

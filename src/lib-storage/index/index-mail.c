@@ -808,35 +808,6 @@ static struct istream *get_headers(struct mail *_mail,
 					 str_len(mail->data.header_data));
 }
 
-static const struct message_address *
-get_address(struct mail *_mail, const char *field)
-{
-	struct index_mail *mail = (struct index_mail *) _mail;
-	const char *str;
-
-	str = get_header(_mail, field);
-	if (str == NULL)
-		return NULL;
-
-	return message_address_parse(mail->pool, (const unsigned char *) str,
-				     (size_t)-1, 1);
-}
-
-static const char *get_first_mailbox(struct mail *_mail, const char *field)
-{
-	struct index_mail *mail = (struct index_mail *) _mail;
-	struct message_address *addr;
-	const char *str;
-
-	str = get_header(_mail, field);
-	if (str == NULL)
-		return NULL;
-
-	addr = message_address_parse(mail->pool, (const unsigned char *) str,
-				     (size_t)-1, 1);
-	return addr != NULL ? addr->mailbox : NULL;
-}
-
 static struct istream *get_stream(struct mail *_mail,
 				  struct message_size *hdr_size,
 				  struct message_size *body_size)
@@ -996,8 +967,6 @@ static struct mail index_mail = {
 	get_size,
 	get_header,
 	get_headers,
-	get_address,
-	get_first_mailbox,
 	get_stream,
 	get_special,
 	index_storage_update_flags,

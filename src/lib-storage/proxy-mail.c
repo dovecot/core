@@ -45,21 +45,6 @@ static const char *_get_header(struct mail *mail, const char *field)
 	return p->mail->get_header(p->mail, field);
 }
 
-static const struct message_address *
-_get_address(struct mail *mail, const char *field)
-{
-	struct proxy_mail *p = (struct proxy_mail *) mail;
-
-	return p->mail->get_address(p->mail, field);
-}
-
-static const char *_get_first_mailbox(struct mail *mail, const char *field)
-{
-	struct proxy_mail *p = (struct proxy_mail *) mail;
-
-	return p->mail->get_first_mailbox(p->mail, field);
-}
-
 static struct istream *_get_stream(struct mail *mail,
 				   struct message_size *hdr_size,
 				   struct message_size *body_size)
@@ -113,8 +98,6 @@ void proxy_mail_init(struct proxy_mail *proxy, struct mail *mail)
 	pm->get_date = _get_date;
 	pm->get_size = _get_size;
 	pm->get_header = _get_header;
-	pm->get_address = _get_address;
-	pm->get_first_mailbox = _get_first_mailbox;
 	pm->get_stream = _get_stream;
 	pm->get_special = _get_special;
 	pm->update_flags = _update_flags;

@@ -377,13 +377,6 @@ struct mail {
 	struct istream *(*get_headers)(struct mail *mail,
 				       const char *const minimum_fields[]);
 
-	/* Returns the parsed address for given header field. */
-	const struct message_address *(*get_address)(struct mail *mail,
-						     const char *field);
-	/* Returns the first mailbox (RFC2822 local-part) field for given
-	   address header field. */
-	const char *(*get_first_mailbox)(struct mail *mail, const char *field);
-
 	/* Returns input stream pointing to beginning of message header.
 	   hdr_size and body_size are updated unless they're NULL. */
 	struct istream *(*get_stream)(struct mail *mail,
