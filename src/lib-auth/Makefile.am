@@ -9,4 +9,6 @@ libauth_a_SOURCES = \
 	auth-server-request.c
 
 noinst_HEADERS = \
-	auth-client.h
+	auth-client.h \
+	auth-server-connection.h \
+	auth-server-request.h
