@@ -30,8 +30,10 @@ int auth_callback(struct auth_request *request, struct auth_login_reply *reply,
 
 	if (reply == NULL) {
 		/* failed */
-                auth_request_unref(client->auth_request);
-		client->auth_request = NULL;
+		if (client->auth_request != NULL) {
+			auth_request_unref(client->auth_request);
+			client->auth_request = NULL;
+		}
 		*error = "Authentication process died.";
 		return -1;
 	}
