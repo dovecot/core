@@ -31,6 +31,11 @@ static int compress(struct mail_index *index, unsigned int remove_first_idx,
 	index->header->used_file_size -= sizeof(*rec) * count;
 	index->mmap_used_length -= sizeof(*rec) * count;
 
+	/* not really needed since append() will initialize it as well,
+	   but may help preventing problems if change is only partially
+	   written to disk */
+	memset((char *) rec + index->mmap_used_length, 0, sizeof(*rec) * count);
+
 	return mail_index_truncate(index);
 }
 

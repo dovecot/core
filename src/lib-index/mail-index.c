@@ -680,6 +680,7 @@ struct mail_index_record *mail_index_append(struct mail_index *index)
 					    index->mmap_used_length);
 	rec->uid = index->header->next_uid++;
 	rec->msg_flags = 0;
+	rec->cache_offset = 0;
 
 	index->header->used_file_size += sizeof(*rec);
 	index->mmap_used_length += sizeof(*rec);
