@@ -53,10 +53,8 @@ void io_destroy(struct ioloop *ioloop, struct io **io_p);
 void timeout_destroy(struct ioloop *ioloop, struct timeout **timeout_p);
 
 /* I/O handler calls */
-void io_loop_handle_add(struct ioloop *ioloop, int fd,
-			enum io_condition condition);
-void io_loop_handle_remove(struct ioloop *ioloop, int fd,
-			   enum io_condition condition);
+void io_loop_handle_add(struct ioloop *ioloop, struct io *io);
+void io_loop_handle_remove(struct ioloop *ioloop, struct io *io);
 
 void io_loop_handler_init(struct ioloop *ioloop);
 void io_loop_handler_deinit(struct ioloop *ioloop);

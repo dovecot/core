@@ -30,9 +30,11 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
         p_free(ioloop->pool, ioloop->handler_data);
 }
 
-void io_loop_handle_add(struct ioloop *ioloop, int fd,
-			enum io_condition condition)
+void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 {
+	enum io_condition condition = io->condition;
+	int fd = io->fd;
+
 	i_assert(fd >= 0);
 
 	if (fd >= FD_SETSIZE)
@@ -44,9 +46,11 @@ void io_loop_handle_add(struct ioloop *ioloop, int fd,
 		FD_SET(fd, &ioloop->handler_data->write_fds);
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop, int fd,
-			   enum io_condition condition)
+void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 {
+	enum io_condition condition = io->condition;
+	int fd = io->fd;
+
 	i_assert(fd >= 0 && fd < FD_SETSIZE);
 
         if (condition & IO_READ)

@@ -56,7 +56,7 @@ struct io *io_add(int fd, enum io_condition condition,
 	if (io->fd > current_ioloop->highest_fd)
 		current_ioloop->highest_fd = io->fd;
 
-	io_loop_handle_add(current_ioloop, io->fd, io->condition);
+	io_loop_handle_add(current_ioloop, io);
 
 	/* have to append it, or io_destroy() breaks */
         io_p = &current_ioloop->ios;
@@ -79,7 +79,7 @@ void io_remove(struct io *io)
 	i_assert(io->fd <= current_ioloop->highest_fd);
 
 	/* notify the real I/O handler */
-	io_loop_handle_remove(current_ioloop, io->fd, io->condition);
+	io_loop_handle_remove(current_ioloop, io);
 
 	io->destroyed = TRUE;
 
