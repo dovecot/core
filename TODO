@@ -1,12 +1,52 @@
+ - if we deleted mail but didn't write modify log, other dovecots don't
+   handle it properly. they either assert at index-sync.c:42 or if new
+   mails have also been added since, they don't notice it at all
+
+ - when modifylog gets switched, the others who haven't synced it and try to
+   add flag changes add them to old file..
+ - RENAME: If the name has inferior hierarchical names, then the inferior
+	   hierarchical names MUST also be renamed (ie. foo -> bar renames
+	   also foo/bar -> bar/bar). (and RENAME INBOX!)
+ - passwd-file doesn't notice changes in the file
+ - tree file is never shrinked
+ - tree has some locking issues while opening it
+ - SEARCH FROM/TO/CC/BCC now generates the field from ENVELOPE which it uses
+   for matching. This however gives different results than when matching from
+   headers.
+ - when fetching body/envelope we could try to index it immediately if
+   we can get lock with try_lock.
+ - maildir could support flag parameters like file:2,S,U1030712092. also
+   could support that format for UIDs with .uidvalidity file. And mbox
+   could support the X-UID field..
+
+ - APPENDed mails have wrong time? (-5h, maildir (no it doesn't? what about
+   with OE?))
+ - mbox: what if 1 msg is deleted is x-imapbase rewritten?
+ - check that search message-id worked properly always
+ - check that search's OR and () work properly
+
+ - imap/ and lib-imap/ should allow infinite number of custom flags, it's
+   storage's problem if it can't handle too many of them.
+ - are the lowwater marks always reset to 0 when they don't exist? could be
+   just as well set to next_uid..
+ - optionally use only in-memory indexes
+ - mbox handling is too slow, uw-imapd is much faster
+ - maildir could support also the dirty-flag in messages. files would be
+   renamed "whenever there's time" (that'd require the indexer program, or
+   forking and doing it in background)
+ - optionally keep the message file name as it's UID. Then we don't have to
+   save the filename anywhere.
+ - Should SEARCH SENT* apply timezone?
+   
+
 test:
  - make sure mmap()s work properly with NFS
  - make sure locking is done properly when opening/switching modifylog 
  - make sure SELECT rebuilds index properly when next_uid is near 32bit value
- - make sure rfc822_parse_date() works properly
- - make sure imap_match functions work properly
  - make sure connection limits work
- - make sure the index's ftruncate stuff works
- - make sure modify log works properly, especially switching the files
+ - make sure modify log works properly, especially
+     - switching the files
+     - seq1:seq2 ranges made a lot of changes
 
 index:
  - mbox:
@@ -20,8 +60,18 @@ index:
 	   lock. after that we must sync again to make sure the file wasn't
 	   changed.
 	 - could be done in index->set_lock() and try_lock(). in that case
-	   ignore the above
+	   ignore the above. sometimes (quite often?) this is a bit useless
+	   since we're not touching the mbox file, but overall it simplifies
+	   things a log
+	 - mbox_file_open() could re-open() the file only when sync() has
+	   noticed that the file inode/etc. have changed. it could also
+	   cache the ibuffer as long as the mbox file is being locked
+	   (ie. can't cache between locks, since the file may be shrinked)
      - empty lines at beginning of file still aren't ignored
+     - UW-IMAPd writes empty spaces after X-Keywords which it uses so that
+       it doesn't have to rewrite the whole file if status flags changed
+       in the beginning of it. We could do that too.
+     - we need either From-line escaping or writing Content-Length
  - read-only support for mailboxes where we don't have write-access? Maybe,
    but don't try to use their indexes since that's way too problematic, and
    probably even impossible since we can't lock it.
@@ -37,11 +87,22 @@ index:
  - we sometimes leave some space in the index files (memory alignment,
    extra_space). we should keep those bytes zeroed to make sure nothing
    sensitive is left there.
- - verify memory alignment is valid when reading from index files. if we
-   used "unsigned int record_index"es instead of uoff_t's there wouldn't be
-   any problems.. yes, good idea :)
  - tree file is never shrinked
  - tree has some locking issues while opening it
+ - log transferred amount of bytes. just a bit problematic who logs it, since
+   imap-login does SSL transfers but not unencrypted.. could also log SSL
+   settings (especially compression).
+ - if we wanted to support huge mailboxes with small memory usage, it'd now
+   be possible if we just instead of mmap()ing the whole index files would
+   have maybe 3-4 256k mmap()ed areas which we move based on the need.
+     - should work fine with .imap.index and .imap.index.data
+     - log files aren't affected by mailbox size
+     - if the tree file also kept constantly moving the nodes so that
+       tree's root was at the beginning of the file, we could use this mmap
+       caching with it too
+     - but, is it worth the trouble really? the OS can do all this itself,
+       only thing we're doing is keeping the processes virtual memory usage
+       small.
 
 lib-storage:
  - support multiple mailbox formats and locations for one user. that would
@@ -50,14 +111,10 @@ lib-storage:
    RemoteMailStorage which would use TCP/UNIX sockets to connect to another 
    imap session.
  - SEARCH:
-     - optimize [UN]SEEN, [UN]DELETED and [UN]RECENT. They're able to
-       skip lots of messages based on the index header data.
      - CHARSET support, iconv()? also means we need to parse the charset stuff
        in headers.
      - could optionally support scanning inside file attachments and use
        plugins to extract text out of them (word, excel, pdf, etc. etc.)
-     - should use imap-msgcache, especially for size checking
-       (or should it bother? with larger mailboxes there's no use for it)
      - use a trie index for fast text searching, like cyrus squat?
  - DELETE/RENAME: when someone else had the mailbox open, we should
    disconnect it (when stat() fails with ENOENT while syncing)
@@ -82,18 +139,14 @@ lib-storage:
    if not, fill the rest with spaces and return failure.
 
 general:
- - sieve? (rfc3028)
+ - sieve (rfc3028)
  - rfc2231 continuation support
 
- - go through .temp files and delete them
- - Content-Language isn't parsed correctly
  - ulimit / setrlimit() should be set somewhere for imap process
  - create indexer binary
  - SIGHUPing master should reload the configuration .. killing imap-auth and
    imap-login processes? or just signal imap-login to stop accepting new
    connections and let it kill itself
- - settings for specifying what sort of data to cache by default
-   (index->cache_fields)
  - setting for choosing mbox locking methods
  - imap-login leaks I/O descriptors when killed, that's because the SSL
    fds are destroyed lazily.. should we bother fixing..?
@@ -106,7 +159,7 @@ general:
  - update docs/index.txt
  - support Maildir++ quota
  - maybe give more untagged NO/ALERT replies? like when mailbox is in
-   inconsistent state.
+   inconsistent state. and when UIDs are reordered because they're too large.
 
 auth / login:
  - kchuid, SRP, anonymous SASL
@@ -134,8 +187,6 @@ auth / login:
 cleanups / checks:
  - grep for FIXME
  - check if t_push()/t_pop() should be added somewhere
- - IOBuffer should probably be split into IBuffer and OBuffer, and maybe
-   making it's internals hidden .. or at least only partly visible.
  - allocating readwrite pools now just uses system_pool .. so pool_unref()
    can't free memory used by it .. what to do about it? at least count the
    malloc/free calls and complain if at the exit they don't match
@@ -146,6 +197,11 @@ cleanups / checks:
  - create env_put() and env_clean()
  - nearest_power() could be problematic with things that want it for ints,
    not size_t..
+ - when sending lots of data with io_buffer_send(), it does a lot of
+   io_add() and io_remove()s. and io_remove() just marks it destroyed, so
+   it may creates lots of IOs before the next ioloop run.. Though now it
+   doesn't matter much since we're corked and we don't create the IOs,
+   but ioloop should probably be fixed anyway.
 
 optional optimizations:
  - provide some helper binary to save new mail into mailboxes with CR+LF
