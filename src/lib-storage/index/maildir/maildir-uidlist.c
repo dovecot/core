@@ -678,7 +678,7 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 	    rec->uid != (uint32_t)-1)
 		maildir_uidlist_mark_recent(uidlist, rec->uid);
 
-	rec->flags |= flags;
+	rec->flags = (rec->flags | flags) & ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
 	rec->filename = p_strdup(ctx->record_pool, filename);
 	hash_insert(ctx->files, rec->filename, rec);
 	return 1;
