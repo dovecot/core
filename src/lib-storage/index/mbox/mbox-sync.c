@@ -1027,7 +1027,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
-static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
+static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 {
 	struct stat st;
 
