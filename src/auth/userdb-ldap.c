@@ -97,9 +97,10 @@ static void handle_request(struct ldap_connection *conn,
 	BerElement *ber;
 	char *attr, **vals;
 
-	entry = ldap_first_entry(conn->ld, res);
+	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);
 	if (entry == NULL) {
-		i_error("LDAP: ldap_first_entry failed()");
+		if (res != NULL)
+			i_error("LDAP: Authenticated user not found");
 		urequest->userdb_callback(NULL, request->context);
 		return;
 	}

@@ -55,6 +55,7 @@ struct ldap_settings default_ldap_settings = {
 static struct ldap_connection *ldap_connections = NULL;
 
 static int ldap_conn_open(struct ldap_connection *conn);
+static void ldap_conn_close(struct ldap_connection *conn);
 
 static int deref2str(const char *str)
 {
@@ -142,6 +143,8 @@ static void ldap_input(void *context)
 			if (ret < 0) {
 				i_error("LDAP: ldap_result() failed: %s",
 					get_ldap_error(conn));
+				/* reconnect */
+				ldap_conn_close(conn);
 			}
 			return;
 		}
@@ -195,8 +198,13 @@ static int ldap_conn_open(struct ldap_connection *conn)
 	   until it's done. */
 	ret = ldap_simple_bind_s(conn->ld, conn->set.dn, conn->set.dnpass);
 	if (ret != LDAP_SUCCESS) {
-		i_error("LDAP: ldap_simple_bind_s() failed: %s",
-			ldap_err2string(ret));
+		if (ret == LDAP_SERVER_DOWN) {
+			i_error("LDAP: Can't connect to server: %s",
+				conn->set.hosts);
+		} else {
+			i_error("LDAP: ldap_simple_bind_s() failed: %s",
+				ldap_err2string(ret));
+		}
 		return FALSE;
 	}
 

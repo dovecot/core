@@ -66,10 +66,11 @@ static void handle_request(struct ldap_connection *conn,
 
 	password = NULL;
 
-	entry = ldap_first_entry(conn->ld, res);
-	if (entry == NULL)
-		i_error("ldap(%s): unknown user", user);
-	else {
+	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);
+	if (entry == NULL) {
+		if (res != NULL)
+			i_error("ldap(%s): unknown user", user);
+	} else {
 		attr = ldap_first_attribute(conn->ld, entry, &ber);
 		while (attr != NULL) {
 			vals = ldap_get_values(conn->ld, entry, attr);
