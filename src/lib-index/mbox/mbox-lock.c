@@ -119,7 +119,7 @@ static int mbox_lock_fcntl(MailIndex *index, MailLockType lock_type,
 }
 
 static int mbox_lock_dotlock(MailIndex *index, const char *path,
-			     time_t max_wait_time)
+			     time_t max_wait_time, int checkonly)
 {
 	struct stat st;
 	time_t now, last_change, last_mtime;
@@ -161,6 +161,17 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path,
 
 			usleep(LOCK_RANDOM_USLEEP_TIME);
 			continue;
+		}
+
+		if (checkonly) {
+			/* we only wanted to check that the .lock file
+			   doesn't exist. This is racy of course, but I don't
+			   think there's any better way to do it really.
+			   The fcntl/flock later does the real locking, so
+			   problem comes only when someone uses only dotlock
+			   locking, and we can't fix that without dotlocking
+			   ourself (which we didn't want to do here) */
+			return TRUE;
 		}
 
 		fd = open(path, O_WRONLY | O_EXCL | O_CREAT, 0);
@@ -275,9 +286,10 @@ int mbox_lock(MailIndex *index, MailLockType lock_type)
 	max_wait_time = time(NULL) + lock_timeout;
 
 	/* make .lock file first to protect overwriting the file */
-	if (use_dotlock && index->mbox_dotlock_ino == 0 &&
-	    (lock_type == MAIL_LOCK_EXCLUSIVE || use_read_dotlock)) {
-		if (!mbox_lock_dotlock(index, index->mbox_path, max_wait_time))
+	if (use_dotlock && index->mbox_dotlock_ino == 0) {
+		if (!mbox_lock_dotlock(index, index->mbox_path, max_wait_time,
+				       lock_type == MAIL_LOCK_SHARED &&
+				       !use_read_dotlock))
 			return FALSE;
 	}
 
