@@ -67,13 +67,14 @@ void ssl_parameter_process_destroyed(pid_t pid __attr_unused__)
 static void check_parameters_file(void)
 {
 	struct stat st;
+	time_t regen_time;
 
 	if (set_ssl_parameters_file == NULL || set_ssl_disable || generating)
 		return;
 
-	if (stat(set_ssl_parameters_file, &st) != 0) {
+	if (lstat(set_ssl_parameters_file, &st) < 0) {
 		if (errno != ENOENT) {
-			i_error("stat() failed for SSL parameters file %s: %m",
+			i_error("lstat() failed for SSL parameters file %s: %m",
 				set_ssl_parameters_file);
 			return;
 		}
@@ -81,8 +82,10 @@ static void check_parameters_file(void)
 		st.st_mtime = 0;
 	}
 
-	if (st.st_mtime +
-	    (time_t)(set_ssl_parameters_regenerate*3600) < ioloop_time)
+	/* make sure it's new enough and the permissions are correct */
+        regen_time = st.st_mtime + (time_t)(set_ssl_parameters_regenerate*3600);
+	if (regen_time < ioloop_time || (st.st_mode & 077) != 0 ||
+	    st.st_uid != geteuid() || st.st_gid != getegid())
 		start_generate_process();
 }
 

@@ -233,7 +233,7 @@ static void settings_verify(void)
 
 	/* since they're under /var/run by default, they may have been
 	   deleted. */
-	if (safe_mkdir(PKG_RUNDIR, 0700, 0, 0) == 0) {
+	if (safe_mkdir(PKG_RUNDIR, 0700, geteuid(), getegid()) == 0) {
 		i_warning("Corrected permissions for base directory %s",
 			  PKG_RUNDIR);
 	}
