@@ -58,22 +58,23 @@ static int imap_fetch_handler_bsearch(const void *name_p, const void *handler_p)
 	return name[i] < 'A' || name[i] >= 'Z' ? 0 : -1;
 }
 
-int imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *arg)
+int imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
+			    struct imap_arg **args)
 {
 	const struct imap_fetch_handler *handler;
 
-	handler = bsearch(arg, fetch_handlers->data,
+	handler = bsearch(name, fetch_handlers->data,
 			  fetch_handlers->used /
 			  sizeof(struct imap_fetch_handler),
                           sizeof(struct imap_fetch_handler),
 			  imap_fetch_handler_bsearch);
 	if (handler == NULL) {
 		client_send_command_error(ctx->client,
-			t_strconcat("Unknown command ", arg, NULL));
+			t_strconcat("Unknown command ", name, NULL));
 		return FALSE;
 	}
 
-	return handler->init(ctx, arg);
+	return handler->init(ctx, name, args);
 }
 
 struct imap_fetch_context *imap_fetch_init(struct client *client)
@@ -136,7 +137,7 @@ void imap_fetch_begin(struct imap_fetch_context *ctx,
 			ctx->flags_update_seen = FALSE;
 		else if (!ctx->flags_have_handler) {
 			ctx->flags_show_only_seen_changes = TRUE;
-			(void)imap_fetch_init_handler(ctx, "FLAGS");
+			(void)imap_fetch_init_handler(ctx, "FLAGS", NULL);
 		}
 	}
 
@@ -290,14 +291,15 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 	return 1;
 }
 
-static int fetch_body_init(struct imap_fetch_context *ctx, const char *arg)
+static int fetch_body_init(struct imap_fetch_context *ctx, const char *name,
+			   struct imap_arg **args)
 {
-	if (arg[4] == '\0') {
+	if (name[4] == '\0') {
 		ctx->fetch_data |= MAIL_FETCH_IMAP_BODY;
 		imap_fetch_add_handler(ctx, fetch_body, NULL);
 		return TRUE;
 	}
-	return fetch_body_section_init(ctx, arg);
+	return fetch_body_section_init(ctx, name, args);
 }
 
 static int fetch_bodystructure(struct imap_fetch_context *ctx,
@@ -325,7 +327,8 @@ static int fetch_bodystructure(struct imap_fetch_context *ctx,
 }
 
 static int fetch_bodystructure_init(struct imap_fetch_context *ctx,
-				    const char *arg __attr_unused__)
+				    const char *name __attr_unused__,
+				    struct imap_arg **args __attr_unused__)
 {
 	ctx->fetch_data |= MAIL_FETCH_IMAP_BODYSTRUCTURE;
 	imap_fetch_add_handler(ctx, fetch_bodystructure, NULL);
@@ -356,7 +359,8 @@ static int fetch_envelope(struct imap_fetch_context *ctx, struct mail *mail,
 }
 
 static int fetch_envelope_init(struct imap_fetch_context *ctx,
-			       const char *arg __attr_unused__)
+			       const char *name __attr_unused__,
+			       struct imap_arg **args __attr_unused__)
 {
 	ctx->fetch_data |= MAIL_FETCH_IMAP_ENVELOPE;
 	imap_fetch_add_handler(ctx, fetch_envelope, NULL);
@@ -392,7 +396,8 @@ static int fetch_flags(struct imap_fetch_context *ctx, struct mail *mail,
 }
 
 static int fetch_flags_init(struct imap_fetch_context *ctx,
-			    const char *arg __attr_unused__)
+			    const char *name __attr_unused__,
+			    struct imap_arg **args __attr_unused__)
 {
 	ctx->flags_have_handler = TRUE;
 	ctx->fetch_data |= MAIL_FETCH_FLAGS;
@@ -416,7 +421,8 @@ static int fetch_internaldate(struct imap_fetch_context *ctx, struct mail *mail,
 
 
 static int fetch_internaldate_init(struct imap_fetch_context *ctx,
-				   const char *arg __attr_unused__)
+				   const char *name __attr_unused__,
+				   struct imap_arg **args __attr_unused__)
 {
 	ctx->fetch_data |= MAIL_FETCH_RECEIVED_DATE;
 	imap_fetch_add_handler(ctx, fetch_internaldate, NULL);
@@ -431,7 +437,8 @@ static int fetch_uid(struct imap_fetch_context *ctx, struct mail *mail,
 }
 
 static int fetch_uid_init(struct imap_fetch_context *ctx __attr_unused__,
-			  const char *arg __attr_unused__)
+			  const char *name __attr_unused__,
+			  struct imap_arg **args __attr_unused__)
 {
 	imap_fetch_add_handler(ctx, fetch_uid, NULL);
 	return TRUE;

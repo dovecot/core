@@ -6,45 +6,52 @@
 #include "imap-search.h"
 #include "mail-search.h"
 
+const char *all_macro[] = {
+	"FLAGS", "INTERNALDATE", "RFC822.SIZE", "ENVELOPE", NULL
+};
+const char *fast_macro[] = {
+	"FLAGS", "INTERNALDATE", "RFC822.SIZE", NULL
+};
+const char *full_macro[] = {
+	"FLAGS", "INTERNALDATE", "RFC822.SIZE", "ENVELOPE", "BODY", NULL
+};
+
 static int
 fetch_parse_args(struct client *client, struct imap_fetch_context *ctx,
 		 struct imap_arg *arg)
 {
-	const char *str;
+	const char *str, *const *macro;
 
 	if (arg->type == IMAP_ARG_ATOM) {
 		str = str_ucase(IMAP_ARG_STR(arg));
+		arg++;
 
 		/* handle macros first */
-		if (strcmp(str, "ALL") == 0) {
-			if (!imap_fetch_init_handler(ctx, "FLAGS") ||
-			    !imap_fetch_init_handler(ctx, "INTERNALDATE") ||
-			    !imap_fetch_init_handler(ctx, "RFC822.SIZE") ||
-			    !imap_fetch_init_handler(ctx, "ENVELOPE"))
+		if (strcmp(str, "ALL") == 0)
+			macro = all_macro;
+		else if (strcmp(str, "FAST") == 0)
+			macro = fast_macro;
+		else if (strcmp(str, "FULL") == 0)
+			macro = full_macro;
+		else {
+			macro = NULL;
+			if (!imap_fetch_init_handler(ctx, str, &arg))
 				return FALSE;
-		} else if (strcmp(str, "FAST") == 0) {
-			if (!imap_fetch_init_handler(ctx, "FLAGS") ||
-			    !imap_fetch_init_handler(ctx, "INTERNALDATE") ||
-			    !imap_fetch_init_handler(ctx, "RFC822.SIZE"))
-				return FALSE;
-		} else if (strcmp(str, "FULL") == 0) {
-			if (!imap_fetch_init_handler(ctx, "FLAGS") ||
-			    !imap_fetch_init_handler(ctx, "INTERNALDATE") ||
-			    !imap_fetch_init_handler(ctx, "RFC822.SIZE") ||
-			    !imap_fetch_init_handler(ctx, "ENVELOPE") ||
-			    !imap_fetch_init_handler(ctx, "BODY"))
-				return FALSE;
-		} else {
-			if (!imap_fetch_init_handler(ctx, str))
-				return FALSE;
+		}
+		if (macro != NULL) {
+			while (*macro != NULL) {
+				if (!imap_fetch_init_handler(ctx, *macro, &arg))
+					return FALSE;
+				macro++;
+			}
 		}
 	} else {
 		arg = IMAP_ARG_LIST(arg)->args;
 		while (arg->type == IMAP_ARG_ATOM) {
 			str = str_ucase(IMAP_ARG_STR(arg));
-			if (!imap_fetch_init_handler(ctx, str))
-				return FALSE;
 			arg++;
+			if (!imap_fetch_init_handler(ctx, str, &arg))
+				return FALSE;
 		}
 		if (arg->type != IMAP_ARG_EOL) {
 			client_send_command_error(client,
@@ -54,7 +61,7 @@ fetch_parse_args(struct client *client, struct imap_fetch_context *ctx,
 	}
 
 	if (client->cmd_uid) {
-		if (!imap_fetch_init_handler(ctx, "UID"))
+		if (!imap_fetch_init_handler(ctx, "UID", &arg))
 			return FALSE;
 	}
 
@@ -122,7 +129,7 @@ int cmd_fetch(struct client *client)
 	const char *messageset;
 	int ret;
 
-	if (!client_read_args(client, 2, 0, &args))
+	if (!client_read_args(client, 0, 0, &args))
 		return FALSE;
 
 	if (!client_verify_open_mailbox(client))

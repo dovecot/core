@@ -48,7 +48,6 @@ struct imap_parser {
 
 	unsigned int literal_skip_crlf:1;
 	unsigned int literal_nonsync:1;
-	unsigned int inside_bracket:1;
 	unsigned int eol:1;
 	unsigned int fatal_error:1;
 };
@@ -114,7 +113,6 @@ void imap_parser_reset(struct imap_parser *parser)
 	parser->error = NULL;
 
 	parser->literal_skip_crlf = FALSE;
-	parser->inside_bracket = FALSE;
 	parser->eol = FALSE;
 
 	imap_args_realloc(parser, LIST_ALLOC_SIZE);
@@ -277,33 +275,14 @@ static int imap_parser_read_atom(struct imap_parser *parser,
 {
 	size_t i;
 
-	/* read until we've found space, CR or LF. Data inside '[' and ']'
-	   characters are an exception though, allow spaces inside them. */
+	/* read until we've found space, CR or LF. */
 	for (i = parser->cur_pos; i < data_size; i++) {
-		if (parser->inside_bracket) {
-			if (data[i] == '[') {
-				/* nested '[' characters not allowed
-				   (too much trouble and imap doesn't need) */
-				parser->error = "Unexpected '['";
-			}
-			if (is_linebreak(data[i])) {
-				/* missing ']' character */
-				parser->error = "Missing ']'";
-				return FALSE;
-			}
-
-			if (data[i] == ']')
-				parser->inside_bracket = FALSE;
-		} else {
-			if (data[i] == '[')
-				parser->inside_bracket = TRUE;
-			else if (data[i] == ' ' || data[i] == ')' ||
-				 is_linebreak(data[i])) {
-				imap_parser_save_arg(parser, data, i);
-				break;
-			} else if (!is_valid_atom_char(parser, data[i]))
-				return FALSE;
-		}
+		if (data[i] == ' ' || data[i] == ')' ||
+			 is_linebreak(data[i])) {
+			imap_parser_save_arg(parser, data, i);
+			break;
+		} else if (!is_valid_atom_char(parser, data[i]))
+			return FALSE;
 	}
 
 	parser->cur_pos = i;
@@ -519,7 +498,6 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 			if (!is_valid_atom_char(parser, data[0]))
 				return FALSE;
 			parser->cur_type = ARG_PARSE_ATOM;
-                        parser->inside_bracket = FALSE;
 			break;
 		}
 
