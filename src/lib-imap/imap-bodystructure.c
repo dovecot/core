@@ -6,9 +6,10 @@
 #include "rfc822-tokenize.h"
 #include "message-parser.h"
 #include "message-content-parser.h"
+#include "imap-parser.h"
+#include "imap-quote.h"
 #include "imap-envelope.h"
 #include "imap-bodystructure.h"
-#include "imap-quote.h"
 
 #define EMPTY_BODYSTRUCTURE \
         "(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0)"
@@ -385,15 +386,21 @@ static void part_write_body(MessagePart *part, TempString *str, int extended)
 static void part_write_bodystructure(MessagePart *part, TempString *str,
 				     int extended)
 {
+	i_assert(part->parent != NULL || part->next == NULL);
+
 	while (part != NULL) {
-		t_string_append_c(str, '(');
+		if (part->parent != NULL)
+			t_string_append_c(str, '(');
+
 		if (part->flags & MESSAGE_PART_FLAG_MULTIPART)
 			part_write_body_multipart(part, str, extended);
 		else
 			part_write_body(part, str, extended);
 
+		if (part->parent != NULL)
+			t_string_append_c(str, ')');
+
 		part = part->next;
-		t_string_append_c(str, ')');
 	}
 }
 
@@ -419,4 +426,179 @@ const char *imap_part_get_bodystructure(Pool pool, MessagePart **part,
 	}
 
 	return part_get_bodystructure(*part, extended);
+}
+
+static int imap_write_list(ImapArg *args, TempString *str)
+{
+	/* don't do any typechecking, just write it out */
+	t_string_append_c(str, '(');
+	while (args->type != IMAP_ARG_EOL) {
+		switch (args->type) {
+		case IMAP_ARG_NIL:
+			t_string_append(str, "NIL");
+			break;
+		case IMAP_ARG_ATOM:
+			t_string_append(str, args->data.str);
+			break;
+		case IMAP_ARG_STRING:
+			t_string_append_c(str, '"');
+			t_string_append(str, args->data.str);
+			t_string_append_c(str, '"');
+			break;
+		case IMAP_ARG_LIST:
+			if (!imap_write_list(args->data.list->args, str))
+				return FALSE;
+			break;
+		default:
+			return FALSE;
+		}
+		args++;
+
+		if (args->type != IMAP_ARG_EOL)
+			t_string_append_c(str, ' ');
+	}
+	t_string_append_c(str, ')');
+	return TRUE;
+}
+
+static int imap_parse_bodystructure_args(ImapArg *args, TempString *str)
+{
+	ImapArg *subargs;
+	int i, multipart, text, message_rfc822;
+
+	multipart = FALSE;
+	while (args->type == IMAP_ARG_LIST) {
+		t_string_append_c(str, '(');
+		if (!imap_parse_bodystructure_args(args->data.list->args, str))
+			return FALSE;
+		t_string_append_c(str, ')');
+
+		multipart = TRUE;
+		args++;
+	}
+
+	if (multipart) {
+		/* next is subtype of Content-Type. rest is skipped. */
+		if (args->type != IMAP_ARG_STRING)
+			return FALSE;
+
+		t_string_printfa(str, " \"%s\"", args->data.str);
+		return TRUE;
+	}
+
+	/* "content type" "subtype" */
+	if (args[0].type != IMAP_ARG_STRING || args[1].type != IMAP_ARG_STRING)
+		return FALSE;
+
+	text = strcasecmp(args[0].data.str, "text") == 0;
+	message_rfc822 = strcasecmp(args[0].data.str, "message") == 0 &&
+		strcasecmp(args[1].data.str, "rfc822") == 0;
+
+	t_string_printfa(str, "\"%s\" \"%s\"",
+			 args[0].data.str, args[1].data.str);
+	args += 2;
+
+	/* ("content type param key" "value" ...) | NIL */
+	if (args->type == IMAP_ARG_LIST) {
+		t_string_append(str, " (");
+                subargs = args->data.list->args;
+		for (; subargs->type != IMAP_ARG_EOL; ) {
+			if (subargs[0].type != IMAP_ARG_STRING ||
+			    subargs[1].type != IMAP_ARG_STRING)
+				return FALSE;
+
+			t_string_printfa(str, "\"%s\" \"%s\"",
+					 subargs[0].data.str,
+					 subargs[1].data.str);
+
+			subargs += 2;
+			if (subargs->type == IMAP_ARG_EOL)
+				break;
+			t_string_append_c(str, ' ');
+		}
+		t_string_append(str, ")");
+	} else if (args->type == IMAP_ARG_NIL) {
+		t_string_append(str, " NIL");
+	} else {
+		return FALSE;
+	}
+	args++;
+
+	/* "content id" "content description" "transfer encoding" size */
+	for (i = 0; i < 4; i++, args++) {
+		if (args->type == IMAP_ARG_NIL) {
+			t_string_append(str, " NIL");
+		} else if (args->type == IMAP_ARG_ATOM) {
+			t_string_append_c(str, ' ');
+			t_string_append(str, args->data.str);
+		} else if (args->type == IMAP_ARG_STRING) {
+			t_string_printfa(str, " \"%s\"", args->data.str);
+		} else {
+			return FALSE;
+		}
+	}
+
+	if (text) {
+		/* text/xxx - text lines */
+		if (args->type != IMAP_ARG_ATOM)
+			return FALSE;
+
+		t_string_append_c(str, ' ');
+		t_string_append(str, args->data.str);
+	} else if (message_rfc822) {
+		/* message/rfc822 - envelope + bodystructure + text lines */
+		if (args[0].type != IMAP_ARG_LIST ||
+		    args[1].type != IMAP_ARG_LIST ||
+		    args[2].type != IMAP_ARG_ATOM)
+			return FALSE;
+
+		t_string_append_c(str, ' ');
+
+		if (!imap_write_list(args[0].data.list->args, str))
+			return FALSE;
+
+		t_string_append_c(str, ' ');
+
+		if (!imap_parse_bodystructure_args(args[1].data.list->args,
+						   str))
+			return FALSE;
+
+		t_string_append_c(str, ' ');
+		t_string_append(str, args[2].data.str);
+	}
+
+	return TRUE;
+}
+
+const char *imap_body_parse_from_bodystructure(const char *bodystructure)
+{
+	IBuffer *inbuf;
+	ImapParser *parser;
+	ImapArg *args;
+	TempString *str;
+	const char *value;
+	size_t len;
+	int ret;
+
+	len = strlen(bodystructure);
+	str = t_string_new(len);
+
+	inbuf = i_buffer_create_from_data(data_stack_pool, bodystructure, len);
+	(void)i_buffer_read(inbuf);
+
+	parser = imap_parser_create(inbuf, NULL, 0);
+	ret = imap_parser_read_args(parser, 0, IMAP_PARSE_FLAG_NO_UNESCAPE,
+				    &args);
+
+	if (ret <= 0 || !imap_parse_bodystructure_args(args, str))
+		value = NULL;
+	else
+		value = str->str;
+
+	if (value == NULL)
+		i_error("Error parsing IMAP bodystructure: %s", bodystructure);
+
+	imap_parser_destroy(parser);
+	i_buffer_unref(inbuf);
+	return value;
 }

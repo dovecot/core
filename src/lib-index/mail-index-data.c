@@ -523,7 +523,7 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 			break;
 		}
 
-		if (rec->field == field) {
+		if (rec->field == field || field == 0) {
 			/* match */
 			return rec;
 		} else if (rec->field < field) {

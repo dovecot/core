@@ -194,19 +194,6 @@ static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 	msg = cache->open_msg;
 
 	t_push();
-	if ((fields & IMAP_CACHE_BODY) && msg->cached_body == NULL) {
-		value = cache->iface->get_cached_field(IMAP_CACHE_BODY,
-						       cache->context);
-		if (value == NULL && imap_msgcache_get_inbuf(cache, 0)) {
-			msg_get_part(cache);
-
-			value = imap_part_get_bodystructure(msg->pool,
-							    &msg->part,
-							    cache->open_inbuf,
-							    FALSE);
-		}
-		msg->cached_body = p_strdup(msg->pool, value);
-	}
 
 	if ((fields & IMAP_CACHE_BODYSTRUCTURE) &&
 	    msg->cached_bodystructure == NULL) {
@@ -221,6 +208,32 @@ static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 							    TRUE);
 		}
 		msg->cached_bodystructure = p_strdup(msg->pool, value);
+	}
+
+	if ((fields & IMAP_CACHE_BODY) && msg->cached_body == NULL) {
+		value = cache->iface->get_cached_field(IMAP_CACHE_BODY,
+						       cache->context);
+		if (value == NULL && cache->open_inbuf != NULL) {
+			/* we can generate it from cached BODYSTRUCTURE.
+			   do it only if the file isn't open already, since
+			   this takes more CPU than parsing message headers. */
+			value = cache->iface->get_cached_field(
+				IMAP_CACHE_BODYSTRUCTURE, cache->context);
+			if (value != NULL) {
+				value = imap_body_parse_from_bodystructure(
+									value);
+			}
+		}
+
+		if (value == NULL && imap_msgcache_get_inbuf(cache, 0)) {
+			msg_get_part(cache);
+
+			value = imap_part_get_bodystructure(msg->pool,
+							    &msg->part,
+							    cache->open_inbuf,
+							    FALSE);
+		}
+		msg->cached_body = p_strdup(msg->pool, value);
 	}
 
 	if ((fields & IMAP_CACHE_ENVELOPE) && msg->cached_envelope == NULL) {

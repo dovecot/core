@@ -25,8 +25,8 @@ int mail_index_data_add_deleted_space(MailIndexData *data, size_t data_size);
 /* Synchronize the data into disk */
 int mail_index_data_sync_file(MailIndexData *data);
 
-/* Looks up a field from data file. Returns NULL if not found or
-   if error occured. */
+/* Looks up a field from data file. If field is 0, returns the first field
+   found. Returns NULL if not found or if error occured. */
 MailIndexDataRecord *
 mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 		       MailField field);

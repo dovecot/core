@@ -81,7 +81,7 @@ static int have_too_large_fields(MailIndexUpdate *update)
 	size_left = update->rec->data_size;
 
 	/* start from the first data field - it's required to exist */
-	rec = mail_index_data_lookup(update->index->data, update->rec, 1);
+	rec = mail_index_data_lookup(update->index->data, update->rec, 0);
 	while (rec != NULL) {
 		if (rec->full_field_size > size_left) {
 			/* corrupted */
@@ -146,7 +146,7 @@ static int update_by_append(MailIndexUpdate *update)
 	mem = p_malloc(update->pool, max_size + sizeof(MailIndexDataRecord)*2);
 	pos = 0;
 
-	rec = mail_index_data_lookup(update->index->data, update->rec, 1);
+	rec = mail_index_data_lookup(update->index->data, update->rec, 0);
 	for (i = 0, field = 1; field != FIELD_TYPE_LAST; i++, field <<= 1) {
 		destrec = (MailIndexDataRecord *) ((char *) mem + pos);
 
@@ -211,7 +211,7 @@ static void update_by_replace(MailIndexUpdate *update)
 	int index;
 
 	/* start from the first data field - it's required to exist */
-	rec = mail_index_data_lookup(update->index->data, update->rec, 1);
+	rec = mail_index_data_lookup(update->index->data, update->rec, 0);
 	while (rec != NULL) {
 		if (rec->field & update->updated_fields) {
 			/* field was changed */
@@ -378,7 +378,13 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 		update->rec->header_size = part->header_size.physical_size;
 		update->rec->body_size = part->body_size.physical_size;
 
-		if (cache_fields & FIELD_TYPE_BODY) {
+		/* don't save both BODY + BODYSTRUCTURE since BODY can be
+		   generated from BODYSTRUCTURE. FIXME: However that takes
+		   CPU, maybe this should be configurable (I/O vs. CPU)? */
+		if ((cache_fields & FIELD_TYPE_BODY) &&
+		    ((update->rec->cached_fields | cache_fields) &
+		     FIELD_TYPE_BODYSTRUCTURE) == 0)
+		    {
 			t_push();
 			i_buffer_seek(inbuf, start_offset);
 			value = imap_part_get_bodystructure(pool, &part,

@@ -6,4 +6,7 @@
 const char *imap_part_get_bodystructure(Pool pool, MessagePart **part,
 					IBuffer *inbuf, int extended);
 
+/* Return BODY part from BODYSTRUCTURE */
+const char *imap_body_parse_from_bodystructure(const char *bodystructure);
+
 #endif

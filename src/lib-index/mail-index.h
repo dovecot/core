@@ -27,14 +27,6 @@ enum {
 };
 
 typedef enum {
-	/* First MUST become a field that ALWAYS exists. This is because some
-	   code which goes through all fields does it by calling
-	   lookup_field(.., .., 1) and next() after that. If the first field
-	   didn't exist, nothing would be found.
-
-	   Location field is a good first field anyway, it's the one most
-	   often needed. With maildir format, it's the file name and with
-	   mbox format it's the file position. */
 	FIELD_TYPE_LOCATION		= 0x0001,
 	FIELD_TYPE_ENVELOPE		= 0x0002,
 	FIELD_TYPE_BODY			= 0x0004,
