@@ -55,7 +55,7 @@ static void idle_client_input(void *context)
 	case -2:
 		client->input_skip_line = TRUE;
 		idle_finish(client, FALSE);
-		break;
+		return;
 	}
 
 	while ((line = i_stream_next_line(client->input)) != NULL) {
