@@ -68,7 +68,7 @@ static int maildir_autodetect(const char *data)
 static int maildir_is_valid_name(MailStorage *storage, const char *name)
 {
 	return name[0] != '\0' && name[0] != storage->hierarchy_sep &&
-		strchr(name, '/') == NULL;
+		strchr(name, '/') == NULL && strchr(name, '\\') == NULL;
 }
 
 /* create or fix maildir, ignore if it already exists */
