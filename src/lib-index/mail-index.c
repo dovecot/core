@@ -134,6 +134,8 @@ static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 	const struct mail_index_header *hdr;
 	unsigned int records_count;
 
+	i_assert(map->buffer == NULL);
+
 	map->mmap_base = index->lock_type != F_WRLCK ?
 		mmap_ro_file(index->fd, &map->mmap_size) :
 		mmap_rw_file(index->fd, &map->mmap_size);
@@ -184,6 +186,8 @@ static int mail_index_read_map(struct mail_index *index,
 	void *data = NULL;
 	ssize_t ret;
 	size_t pos, records_size;
+
+	i_assert(map->mmap_base == NULL);
 
 	memset(&hdr, 0, sizeof(hdr));
 
@@ -272,6 +276,12 @@ int mail_index_map(struct mail_index *index, int force)
 
 	map = index->map;
 	if (map != NULL && MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
+		if (map->write_to_disk) {
+			/* we have modified this mapping and it's waiting to
+			   be written to disk once we drop exclusive lock.
+			   mapping couldn't have changed, so do nothing. */
+			return 1;
+		}
 		/* FIXME: we need to re-read header */
 	} else if (map != NULL) {
 		/* see if re-mmaping is needed (file has grown) */
