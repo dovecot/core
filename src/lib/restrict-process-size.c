@@ -38,8 +38,14 @@ void restrict_process_size(unsigned int size __attr_unused__)
 	rlim.rlim_max = rlim.rlim_cur =
 		size > 0 && size < INT_MAX/1024/1024 ?
 		size*1024*1024 : RLIM_INFINITY;
+
+	if (setrlimit(RLIMIT_DATA, &rlim) < 0)
+		i_fatal("setrlimit(RLIMIT_DATA, %u): %m", size);
+
+#ifdef HAVE_RLIMIT_AS
 	if (setrlimit(RLIMIT_AS, &rlim) < 0)
 		i_fatal("setrlimit(RLIMIT_AS, %u): %m", size);
+#endif
 #else
 	if (size != 0) {
 		i_warning("Can't restrict process size: "

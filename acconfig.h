@@ -24,6 +24,9 @@
 /* Define if your dev_t is a structure instead of integer type */
 #undef DEV_T_STRUCT
 
+/* Define if you have RLIMIT_AS for setrlimit() */
+#undef HAVE_RLIMIT_AS
+
 #undef USERINFO_PASSWD
 #undef USERINFO_PASSWD_FILE
 #undef USERINFO_SHADOW

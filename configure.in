@@ -408,6 +408,18 @@ AC_TRY_COMPILE([
   fi
 ])
 
+dnl * Do we have RLIMIT_AS?
+AC_TRY_COMPILE([
+  #include <sys/types.h>
+  #include <sys/time.h>
+  #include <sys/resource.h>
+], [
+  struct rlimit r;
+  getrlimit(RLIMIT_AS, &r);
+], [
+  AC_DEFINE(HAVE_RLIMIT_AS)
+])
+
 dnl * Linux compatible mremap()
 AC_MSG_CHECKING([Linux compatible mremap()])
 AC_TRY_COMPILE([
