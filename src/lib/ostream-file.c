@@ -430,10 +430,12 @@ static ssize_t _sendv(struct _ostream *stream, const struct const_iovec *iov,
 			added = o_stream_add(fstream,
 					CONST_PTR_OFFSET(iov[0].iov_base, size),
 					iov[0].iov_len - size);
+			ret += added;
+
 			if (added != iov[0].iov_len - size) {
 				/* buffer full */
-				stream->ostream.offset += added;
-				return added;
+				stream->ostream.offset += ret;
+				return ret;
 			}
 
 			iov++;
