@@ -211,12 +211,14 @@ static pid_t create_auth_process(AuthConfig *config)
 	if (dup2(fd[1], 0) < 0)
 		i_fatal("login: dup2() failed: %m");
 
-	/* move login communication handle to 1 */
-	if (dup2(listen_fd, 1) < 0)
+	/* move login communication handle to 3 */
+	if (dup2(listen_fd, 3) < 0)
 		i_fatal("login: dup2() failed: %m");
 
-	/* set /dev/null handle into 2, so if something is printed into
-	   stderr it can't go anywhere where it could cause harm */
+	/* set /dev/null handle into 1 and 2, so if something is printed into
+	   stdout/stderr it can't go anywhere where it could cause harm */
+	if (dup2(null_fd, 1) < 0)
+		i_fatal("login: dup2() failed: %m");
 	if (dup2(null_fd, 2) < 0)
 		i_fatal("login: dup2() failed: %m");
 
