@@ -31,6 +31,9 @@
 #include "network.h"
 
 #include <unistd.h>
+#include <sys/stat.h>
+
+#define IO_BUFFER_MIN_SIZE 4096
 
 #define MAX_SSIZE_T(size) ((size) < SSIZE_T_MAX ? (size_t)(size) : SSIZE_T_MAX)
 
@@ -57,6 +60,7 @@ IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
         i_assert(fd >= 0);
         i_assert(pool != NULL);
 
+	pool_ref(pool);
 	buf = p_new(pool, IOBuffer, 1);
 	buf->refcount = 1;
 	buf->fd = fd;
@@ -67,22 +71,22 @@ IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
 }
 
 IOBuffer *io_buffer_create_file(int fd, Pool pool, size_t max_buffer_size,
-				int autoclose_fd)
+				int flags)
 {
 	IOBuffer *buf;
 
 	buf = io_buffer_create(fd, pool, IO_PRIORITY_DEFAULT, max_buffer_size);
 	buf->file = TRUE;
-	buf->close_file = autoclose_fd;
+	buf->close_file = (flags & IOBUFFER_FLAG_AUTOCLOSE) != 0;
         return buf;
 }
 
 IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
-				uoff_t start_offset, uoff_t size,
-				int autoclose_fd)
+				uoff_t start_offset, uoff_t size, int flags)
 {
 	IOBuffer *buf;
-	off_t stop_offset;
+	struct stat st;
+	uoff_t stop_offset;
 
 	i_assert(start_offset < OFF_T_MAX);
 
@@ -99,30 +103,33 @@ IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
 		block_size += mmap_pagesize;
 	}
 
-	buf = io_buffer_create_file(fd, pool, block_size, autoclose_fd);
+	buf = io_buffer_create_file(fd, pool, block_size, flags);
 	buf->mmaped = TRUE;
 	buf->receive = TRUE;
 
-	stop_offset = lseek(fd, 0, SEEK_END);
-	if (stop_offset < 0) {
+	if (fstat(fd, &st) == 0)
+		stop_offset = (uoff_t)st.st_size;
+	else {
 		i_error("io_buffer_create_mmap(): lseek() failed: %m");
 		stop_offset = 0;
-		buf->size = 0;
 	}
 
-	if (start_offset > (uoff_t)stop_offset)
+	if (start_offset > stop_offset)
 		start_offset = stop_offset;
 
-	if (size > (uoff_t)stop_offset-start_offset) {
-		i_warning("Trying to create IOBuffer with size %"PRIuUOFF_T
-			  " but we have only %"PRIuUOFF_T" bytes available "
-			  "in file", size, stop_offset-start_offset);
+	if (size > stop_offset-start_offset) {
+		i_warning("Trying to create IOBuffer with size "
+			  "%"PRIuUOFF_T" but we have only %"PRIuUOFF_T
+			  " bytes available in file", size,
+			  stop_offset-start_offset);
 		size = stop_offset-start_offset;
 	}
 
+	if (size == 0)
+		size = stop_offset - start_offset;
+
 	buf->start_offset = start_offset;
-	buf->size = size > 0 ? size : stop_offset - start_offset;
-	buf->limit = buf->size;
+	buf->limit = buf->size = size;
 
 	buf->skip = buf->pos = buf->start_offset;
 	return buf;
@@ -156,6 +163,7 @@ void io_buffer_unref(IOBuffer *buf)
 	}
 	io_buffer_close(buf);
         p_free(buf->pool, buf);
+	pool_unref(buf->pool);
 }
 
 void io_buffer_close(IOBuffer *buf)
@@ -238,11 +246,6 @@ static ssize_t my_write(int fd, const void *buf, size_t size)
 {
 	ssize_t ret;
 
-	i_assert(size <= SSIZE_T_MAX);
-
-	if (size == 0)
-		return 0;
-
 	ret = write(fd, buf, size);
 	if (ret < 0 && (errno == EINTR || errno == EAGAIN))
 		ret = 0;
@@ -250,38 +253,52 @@ static ssize_t my_write(int fd, const void *buf, size_t size)
 	return ret;
 }
 
-static void buf_send_real(IOBuffer *buf)
+static ssize_t io_buffer_write(IOBuffer *buf, const void *data, size_t size)
 {
-	int ret;
+	ssize_t ret;
 
-	if (!buf->file) {
-		ret = net_transmit(buf->fd, buf->buffer + buf->skip,
-				   buf->pos - buf->skip);
-	} else {
-		ret = my_write(buf->fd, buf->buffer + buf->skip,
-			       buf->pos - buf->skip);
-	}
+	if (size > SSIZE_T_MAX)
+		size = SSIZE_T_MAX;
+	if (size == 0)
+		return 0;
 
+	ret = buf->file ? my_write(buf->fd, data, size) :
+		net_transmit(buf->fd, data, size);
 	if (ret < 0) {
+		/* disconnected */
 		buf->buf_errno = errno;
 		io_buffer_close(buf);
-	} else {
-		buf->offset += ret;
-		buf->skip += ret;
-		if (buf->skip == buf->pos) {
-			/* everything sent */
-			buf->skip = buf->pos = 0;
+		return -1;
+	}
 
-			/* call flush function */
-			if (buf->flush_func != NULL) {
-				buf->flush_func(buf->flush_context, buf);
-				buf->flush_func = NULL;
+	buf->offset += ret;
+	return ret;
+}
 
-				if (buf->corked) {
-					/* remove cork */
+static void buf_send_real(IOBuffer *buf)
+{
+	ssize_t ret;
+
+	ret = io_buffer_write(buf, buf->buffer + buf->skip,
+			      buf->pos - buf->skip);
+	if (ret < 0)
+		return;
+
+	buf->skip += ret;
+	if (buf->skip == buf->pos) {
+		/* everything sent */
+		buf->skip = buf->pos = 0;
+
+		/* call flush function */
+		if (buf->flush_func != NULL) {
+			buf->flush_func(buf->flush_context, buf);
+			buf->flush_func = NULL;
+
+			if (buf->corked) {
+				/* remove cork */
+				if (!buf->file)
 					net_set_cork(buf->fd, FALSE);
-					buf->corked = FALSE;
-				}
+				buf->corked = FALSE;
 			}
 		}
 	}
@@ -300,32 +317,56 @@ static int buf_send(IOBuffer *buf)
         return TRUE;
 }
 
+#define IOBUFFER_IS_FULL(buf) \
+	((buf)->pos == (buf)->buffer_size)
+
+/* write only as much as needed, put the rest into buffer.
+   write() only full buffers. */
 static void block_loop_send(IOBufferBlockContext *ctx)
 {
-	size_t size;
+	size_t size, buffer_space_left;
 	ssize_t ret;
 
-	if (ctx->outbuf->skip != ctx->outbuf->pos) {
-		buf_send_real(ctx->outbuf);
+	size = MAX_SSIZE_T(ctx->size);
+
+	buffer_space_left = ctx->outbuf->buffer_size - ctx->outbuf->pos;
+	if (ctx->outbuf->pos != 0 || ctx->size < buffer_space_left) {
+		if (buffer_space_left > 0) {
+			/* we have space in the buffer, fill it before
+			   writing */
+			if (size > buffer_space_left)
+				size = buffer_space_left;
+
+			memcpy(ctx->outbuf->buffer + ctx->outbuf->pos,
+			       ctx->data, size);
+			ctx->outbuf->pos += size;
+
+			ctx->data += size;
+			ctx->size -= size;
+		}
+
+		if (IOBUFFER_IS_FULL(ctx->outbuf))
+			buf_send_real(ctx->outbuf);
 	} else {
-		/* send the data */
-		size = MAX_SSIZE_T(ctx->size);
-
-		ret = !ctx->outbuf->file ?
-			net_transmit(ctx->outbuf->fd, ctx->data, size) :
-			my_write(ctx->outbuf->fd, ctx->data, size);
-
-		if (ret < 0) {
-			ctx->outbuf->buf_errno = errno;
-                        io_buffer_close(ctx->outbuf);
-		} else {
-			ctx->outbuf->offset += ret;
+		ret = io_buffer_write(ctx->outbuf, ctx->data, size);
+		if (ret > 0) {
 			ctx->data += ret;
 			ctx->size -= ret;
 		}
 	}
 
-	if (ctx->outbuf->closed || (ctx->size == 0 && ctx->last_block))
+	if (ctx->outbuf->closed || (ctx->size == 0 && ctx->last_block &&
+				    !IOBUFFER_IS_FULL(ctx->outbuf)))
+		io_loop_stop(ctx->ioloop);
+}
+
+/* write out all data from buffer */
+static void block_loop_flush(IOBufferBlockContext *ctx)
+{
+	if (ctx->outbuf->skip != ctx->outbuf->pos)
+		buf_send_real(ctx->outbuf);
+
+	if (ctx->outbuf->closed || ctx->outbuf->skip == ctx->outbuf->pos)
 		io_loop_stop(ctx->ioloop);
 }
 
@@ -342,7 +383,6 @@ static void block_loop_timeout(void *context, Timeout timeout __attr_unused__)
 static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockContext *ctx,
 			    void (*send_func)(IOBufferBlockContext *ctx))
 {
-	Pool pool;
 	Timeout to;
 	int save_errno;
 
@@ -350,9 +390,10 @@ static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockContext *ctx,
 	if (buf->io != NULL)
 		io_remove(buf->io);
 
+	t_push();
+
 	/* create a new I/O loop */
-	pool = pool_create("io_buffer_ioloop", 1024, FALSE);
-	ctx->ioloop = io_loop_create(pool);
+	ctx->ioloop = io_loop_create(data_stack_pool);
 	ctx->outbuf = buf;
 
 	buf->io = io_add(buf->fd, IO_WRITE, (IOFunc) send_func, ctx);
@@ -361,12 +402,6 @@ static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockContext *ctx,
 
 	io_loop_run(ctx->ioloop);
 	save_errno = errno;
-
-	if (buf->corked) {
-		/* remove cork */
-		net_set_cork(buf->fd, FALSE);
-		buf->corked = FALSE;
-	}
 
 	if (buf->io != NULL) {
 		io_remove(buf->io);
@@ -382,7 +417,8 @@ static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockContext *ctx,
 	}
 
 	io_loop_destroy(ctx->ioloop);
-	pool_unref(pool);
+
+	t_pop();
 
 	errno = save_errno;
 	return ctx->size > 0 ? -1 : 1;
@@ -402,13 +438,38 @@ static int io_buffer_send_blocking(IOBuffer *buf, const void *data,
         return io_buffer_ioloop(buf, &ctx, block_loop_send);
 }
 
+static int io_buffer_flush(IOBuffer *buf)
+{
+        IOBufferBlockContext ctx;
+	ssize_t ret;
+
+	if (buf->skip == buf->pos)
+		return 1;
+
+	ret = io_buffer_write(buf, buf->buffer + buf->skip,
+			      buf->pos - buf->skip);
+	if (ret < 0)
+		return -1;
+
+	buf->skip += ret;
+	if (buf->skip == buf->pos)
+		return 1;
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.last_block = TRUE;
+
+        return io_buffer_ioloop(buf, &ctx, block_loop_flush);
+}
+
 void io_buffer_cork(IOBuffer *buf)
 {
 	i_assert(!buf->receive);
 
-	if (!buf->file && !buf->corked)
-		net_set_cork(buf->fd, TRUE);
-	buf->corked = TRUE;
+	if (!buf->corked) {
+		if (!buf->file)
+			net_set_cork(buf->fd, TRUE);
+		buf->corked = TRUE;
+	}
 }
 
 static void buffer_alloc_more(IOBuffer *buf, size_t size)
@@ -446,7 +507,8 @@ static void io_buffer_compress(IOBuffer *buf)
 
 int io_buffer_send(IOBuffer *buf, const void *data, size_t size)
 {
-	int i, corked, ret;
+	ssize_t ret;
+	int i, corked;
 
 	i_assert(!buf->receive);
         i_assert(data != NULL);
@@ -462,16 +524,10 @@ int io_buffer_send(IOBuffer *buf, const void *data, size_t size)
 	for (i = 0; i < 2; i++) {
 		if (buf->pos == 0 && !corked) {
 			/* buffer is empty, try to send the data immediately */
-			ret = buf->file ? my_write(buf->fd, data, size) :
-				net_transmit(buf->fd, data, size);
-			if (ret < 0) {
-				/* disconnected */
-				buf->buf_errno = errno;
-				io_buffer_close(buf);
+			ret = io_buffer_write(buf, data, size);
+			if (ret < 0)
 				return -1;
-			}
 
-			buf->offset += ret;
 			data = (const char *) data + ret;
 			size -= ret;
 		}
@@ -501,7 +557,7 @@ int io_buffer_send(IOBuffer *buf, const void *data, size_t size)
 	memcpy(buf->buffer + buf->pos, data, size);
 	buf->pos += size;
 
-	if (buf->io == NULL) {
+	if (buf->io == NULL && !buf->corked) {
 		buf->io = io_add_priority(buf->fd, buf->priority, IO_WRITE,
 					  (IOFunc) buf_send, buf);
 	}
@@ -543,7 +599,9 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 
 	i_assert(inbuf->offset < OFF_T_MAX);
 
-	io_buffer_send_flush(outbuf);
+	/* flush out any data in buffer */
+	if (io_buffer_flush(outbuf) < 0)
+		return -1;
 
 	/* first try if we can do it with a single sendfile() call */
 	offset = inbuf->offset;
@@ -636,15 +694,15 @@ void io_buffer_send_flush(IOBuffer *buf)
 {
 	i_assert(!buf->receive);
 
-	if (buf->closed || buf->io == NULL)
+	if (buf->closed)
                 return;
 
-	if (buf->skip != buf->pos)
-		io_buffer_send_blocking(buf, NULL, 0);
+	io_buffer_flush(buf);
 
 	if (buf->corked) {
 		/* remove cork */
-		net_set_cork(buf->fd, FALSE);
+		if (!buf->file)
+			net_set_cork(buf->fd, FALSE);
 		buf->corked = FALSE;
 	}
 }
@@ -661,6 +719,12 @@ void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 
 	buf->flush_func = func;
 	buf->flush_context = context;
+
+	/* if we're corked, the io wasn't set */
+	if (buf->io == NULL) {
+		buf->io = io_add_priority(buf->fd, buf->priority, IO_WRITE,
+					  (IOFunc) buf_send, buf);
+	}
 }
 
 static ssize_t io_buffer_set_mmaped_pos(IOBuffer *buf)
@@ -721,7 +785,11 @@ static ssize_t io_buffer_read_mmaped(IOBuffer *buf)
 		return -1;
 	}
 
-	(void)madvise((void *) buf->buffer, buf->buffer_size, MADV_SEQUENTIAL);
+	/* madvise() only if the mmap()ed area was larger than page size */
+	if (buf->buffer_size > mmap_pagesize) {
+		(void)madvise((void *) buf->buffer, buf->buffer_size,
+			      MADV_SEQUENTIAL);
+	}
 
 	return io_buffer_set_mmaped_pos(buf);
 }
@@ -1064,16 +1132,10 @@ int io_buffer_send_buffer(IOBuffer *buf, size_t size)
 
 	if (buf->pos == 0 && !buf->corked) {
 		/* buffer is empty, try to send the data immediately */
-		ret = buf->file ? my_write(buf->fd, buf->buffer, size) :
-			net_transmit(buf->fd, buf->buffer, size);
-		if (ret < 0) {
-			/* disconnected */
-			buf->buf_errno = errno;
-			io_buffer_close(buf);
+		ret = io_buffer_write(buf, buf->buffer, size);
+		if (ret < 0)
 			return -1;
-		}
 
-		buf->offset += ret;
 		if ((size_t)ret == size) {
                         /* all sent */
 			return 1;
@@ -1084,7 +1146,7 @@ int io_buffer_send_buffer(IOBuffer *buf, size_t size)
 
 	buf->pos += size;
 
-	if (buf->io == NULL) {
+	if (buf->io == NULL && !buf->corked) {
 		buf->io = io_add_priority(buf->fd, buf->priority, IO_WRITE,
 					  (IOFunc) buf_send, buf);
 	}

@@ -39,7 +39,7 @@ IOBuffer *mbox_file_open(MailIndex *index, uoff_t offset, int reopen)
 
 	return io_buffer_create_mmap(index->mbox_fd, default_pool,
 				     MAIL_MMAP_BLOCK_SIZE,
-				     (uoff_t)offset, 0, FALSE);
+				     (uoff_t)offset, 0, 0);
 }
 
 void mbox_file_close(MailIndex *index)

@@ -35,7 +35,7 @@
 	 ((tvp)->tv_sec == (uvp)->tv_sec && \
 	  (tvp)->tv_usec > (uvp)->tv_usec))
 
-time_t ioloop_time;
+time_t ioloop_time = 0;
 struct timeval ioloop_timeval;
 
 static IOLoop current_ioloop = NULL;
@@ -192,7 +192,8 @@ Timeout timeout_add(int msecs, TimeoutFunc func, void *context)
 	timeout->func = func;
 	timeout->context = context;
 
-        timeout_update_next(timeout, NULL);
+	timeout_update_next(timeout, current_ioloop->running ?
+			    NULL : &ioloop_timeval);
         timeout_list_insert(current_ioloop, timeout);
 	return timeout;
 }

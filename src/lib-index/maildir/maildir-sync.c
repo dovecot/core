@@ -14,9 +14,9 @@
 #include <utime.h>
 #include <sys/stat.h>
 
-static int maildir_index_sync_file(MailIndex *index,
-				   MailIndexRecord *rec, unsigned int seq,
-				   const char *fname, const char *path,
+static int maildir_index_sync_file(MailIndex *index, MailIndexRecord *rec,
+				   unsigned int seq, const char *fname,
+				   const char *path, off_t file_size,
 				   int fname_changed, int file_changed)
 {
 	MailIndexUpdate *update;
@@ -41,7 +41,7 @@ static int maildir_index_sync_file(MailIndex *index,
 			index_file_set_syscall_error(index, path, "open()");
 			failed = TRUE;
 		} else {
-			if (!maildir_record_update(update, fd, path))
+			if (!maildir_record_update(update, fd, file_size))
 				failed = TRUE;
 			if (close(fd) < 0) {
 				index_file_set_syscall_error(index, path,
@@ -124,7 +124,8 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 		fname_changed = strcmp(value, fname) != 0;
 		if (fname_changed || file_changed) {
 			if (!maildir_index_sync_file(index, rec, seq, value,
-						     str, fname_changed,
+						     str, st.st_size,
+						     fname_changed,
 						     file_changed))
 				return FALSE;
 		}

@@ -362,8 +362,11 @@ static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
 	if (lseek(out_fd, (off_t)out_offset, SEEK_SET) < 0)
 		return -1;
 
-	inbuf = io_buffer_create_mmap(in_fd, default_pool, 65536, 0, 0, FALSE);
-	outbuf = io_buffer_create_file(out_fd, default_pool, 1024, FALSE);
+	t_push();
+
+	inbuf = io_buffer_create_mmap(in_fd, data_stack_pool,
+				      1024*256, 0, 0, 0);
+	outbuf = io_buffer_create_file(out_fd, data_stack_pool, 1024, FALSE);
 
 	ret = io_buffer_send_iobuffer(outbuf, inbuf, inbuf->size);
 	if (ret < 0)
@@ -376,6 +379,7 @@ static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
 
 	io_buffer_unref(outbuf);
 	io_buffer_unref(inbuf);
+	t_pop();
 
 	return ret;
 }
@@ -447,7 +451,8 @@ int mbox_index_rewrite(MailIndex *index)
 	}
 	dirty_offset = 0;
 
-	outbuf = io_buffer_create_file(tmp_fd, default_pool, 8192, FALSE);
+	t_push();
+	outbuf = io_buffer_create_file(tmp_fd, data_stack_pool, 8192, FALSE);
 
 	failed = FALSE; seq = 1;
 	rec = index->lookup(index, 1);
@@ -522,6 +527,7 @@ int mbox_index_rewrite(MailIndex *index)
 
 	io_buffer_unref(inbuf);
 	io_buffer_unref(outbuf);
+	t_pop();
 
 	if (!failed) {
 		/* POSSIBLE DATA LOSS HERE. We're writing to the mbox file,

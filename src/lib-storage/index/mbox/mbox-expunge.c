@@ -126,7 +126,8 @@ int mbox_expunge_locked(IndexMailbox *ibox,
 		return FALSE;
 	}
 
-	outbuf = io_buffer_create_file(inbuf->fd, default_pool, 4096, FALSE);
+	t_push();
+	outbuf = io_buffer_create_file(inbuf->fd, data_stack_pool, 4096, FALSE);
 
 	failed = !expunge_real(ibox, rec, seq, inbuf, outbuf,
 			       expunge_func, context);
@@ -148,6 +149,7 @@ int mbox_expunge_locked(IndexMailbox *ibox,
 
 	(void)mbox_unlock(ibox->index);
 	io_buffer_unref(outbuf);
+	t_pop();
 
 	return !failed;
 }

@@ -22,6 +22,6 @@ int maildir_index_build_dir(MailIndex *index, const char *source_dir,
 
 IOBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec);
 
-int maildir_record_update(MailIndexUpdate *update, int fd, const char *path);
+int maildir_record_update(MailIndexUpdate *update, int fd, off_t file_size);
 
 #endif

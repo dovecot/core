@@ -3,9 +3,11 @@
 
 #include "ioloop.h"
 
-#define IO_BUFFER_MIN_SIZE		512
-
 typedef void (*IOBufferFlushFunc) (void *context, IOBuffer *buf);
+
+enum {
+        IOBUFFER_FLAG_AUTOCLOSE		= 0x01
+};
 
 struct _IOBuffer {
 	int fd;
@@ -52,12 +54,12 @@ IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
 			   size_t max_buffer_size);
 /* Same as io_buffer_create(), but specify that we're reading/writing file. */
 IOBuffer *io_buffer_create_file(int fd, Pool pool, size_t max_buffer_size,
-				int autoclose_fd);
+				int flags);
 /* Read the file by mmap()ing it in blocks. stop_offset specifies where to
    stop reading, or 0 to end of file. */
 IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
 				uoff_t start_offset, uoff_t size,
-				int autoclose_fd);
+				int flags);
 
 /* Reference counting. References start from 1, so calling io_buffer_unref()
    destroys the buffer if io_buffer_ref() is never used. */
