@@ -251,6 +251,13 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 	if (!client_read(client))
 		return;
 
+	if (client->skip_line) {
+		if (i_stream_next_line(client->input) == NULL)
+			return;
+
+		client->skip_line = FALSE;
+	}
+
 	/* @UNSAFE */
 	line = i_stream_next_line(client->input);
 	if (line == NULL)

@@ -178,8 +178,11 @@ static void client_handle_input(struct client *client)
 		imap_parser_reset(client->parser);
 
 		/* remove \r\n */
-		if (!client_skip_line(client))
-			return;
+		if (client->skip_line) {
+			if (!client_skip_line(client))
+				return;
+                        client->skip_line = FALSE;
+		}
 
 		client->cmd_finished = FALSE;
 	}
@@ -205,6 +208,7 @@ static void client_handle_input(struct client *client)
 		/* not enough data */
 		return;
 	}
+	client->skip_line = TRUE;
 
 	if (*client->cmd_tag == '\0' ||
 	    !client_command_execute(client, client->cmd_name, args)) {
