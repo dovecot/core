@@ -23,6 +23,7 @@ struct mail_index_sync_ctx {
 	unsigned int lock_id;
 
 	unsigned int sync_appends:1;
+	unsigned int sync_recent:1;
 	unsigned int sync_dirty:1;
 };
 

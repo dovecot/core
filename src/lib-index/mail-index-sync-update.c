@@ -528,6 +528,19 @@ void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx)
 	mail_index_sync_deinit_handlers(sync_map_ctx);
 }
 
+static void mail_index_sync_remove_recent(struct mail_index_sync_ctx *sync_ctx)
+{
+	struct mail_index_map *map = sync_ctx->view->map;
+	struct mail_index_record *rec;
+	unsigned int i;
+
+	for (i = 0; i < map->records_count; i++) {
+		rec = MAIL_INDEX_MAP_IDX(map, i);
+		if ((rec->flags & MAIL_RECENT) != 0)
+			rec->flags &= ~MAIL_RECENT;
+	}
+}
+
 int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 				 int sync_only_external)
 {
@@ -573,6 +586,11 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	had_dirty = (map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0;
 	if (had_dirty)
 		map->hdr.flags &= ~MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
+
+	if (sync_ctx->sync_recent) {
+		/* mark all messages non-recent */
+		mail_index_sync_remove_recent(sync_ctx);
+	}
 
 	/* make sure we don't go doing fsck while modifying the index */
 	index->sync_update = TRUE;

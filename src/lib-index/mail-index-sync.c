@@ -99,6 +99,7 @@ static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
 {
 	const struct mail_index_record *rec;
 	uint32_t seq, messages_count;
+	int seen_recent = FALSE;
 
 	messages_count = mail_index_view_get_messages_count(ctx->view);
 	for (seq = 1; seq <= messages_count; seq++) {
@@ -106,15 +107,23 @@ static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
 			return -1;
 
 		if ((rec->flags & MAIL_RECENT) != 0) {
+			seen_recent = TRUE;
 			mail_index_update_flags(ctx->trans, rec->uid,
 						MODIFY_REMOVE, MAIL_RECENT);
 		}
 	}
+
+	if (!seen_recent) {
+		/* no recent messages, drop the sync_recent flag so we
+		   don't scan through the message again */
+		ctx->sync_recent = FALSE;
+	}
+
 	return 0;
 }
 
 static int
-mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx, int sync_recent,
+mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 			      int *seen_external_r)
 {
 	size_t size;
@@ -129,7 +138,7 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx, int sync_recent,
 			return -1;
 	}
 
-	if (sync_recent) {
+	if (ctx->sync_recent) {
 		if (mail_index_sync_add_recent_updates(ctx) < 0)
 			return -1;
 	}
@@ -250,6 +259,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx = i_new(struct mail_index_sync_ctx, 1);
 	ctx->index = index;
 	ctx->lock_id = lock_id;
+	ctx->sync_recent = sync_recent;
 	ctx->sync_dirty = sync_dirty;
 
 	ctx->view = mail_index_view_open(index);
@@ -311,8 +321,7 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	/* we need to have all the transactions sorted to optimize
 	   caller's mailbox access patterns */
-	if (mail_index_sync_read_and_sort(ctx, sync_recent,
-					  &seen_external) < 0) {
+	if (mail_index_sync_read_and_sort(ctx, &seen_external) < 0) {
                 mail_index_sync_rollback(ctx);
 		return -1;
 	}
