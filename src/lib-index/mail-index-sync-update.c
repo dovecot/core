@@ -12,16 +12,19 @@
 
 #include <stdlib.h>
 
-static void mail_index_sync_replace_map(struct mail_index_view *view,
+static void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 					struct mail_index_map *map)
 {
+        struct mail_index_view *view = ctx->view;
 	mail_index_unmap(view->index, view->map);
 	view->map = map;
 	view->map->refcount++;
 	mail_index_unmap(view->index, view->index->map);
 	view->index->map = map;
 	view->index->hdr = &map->hdr;
-	map->write_to_disk = TRUE;
+
+	if (ctx->type == MAIL_INDEX_SYNC_HANDLER_INDEX)
+		map->write_to_disk = TRUE;
 }
 
 static void
@@ -202,7 +205,7 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 		   I/O we copy the index into memory rather than to
 		   temporary file */
 		map = mail_index_map_to_memory(map, map->hdr.record_size);
-		mail_index_sync_replace_map(view, map);
+		mail_index_sync_replace_map(ctx, map);
 	}
 	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));
 
@@ -576,7 +579,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 
 	if (old_record_size != u->record_size) {
 		map = sync_ext_reorder(map, ext_id, old_record_size);
-		mail_index_sync_replace_map(ctx->view, map);
+		mail_index_sync_replace_map(ctx, map);
 	}
 }
 
@@ -679,7 +682,7 @@ static int sync_ext_intro(const struct mail_transaction_ext_intro *u,
         mail_index_sync_init_handlers(ctx);
 
 	map = sync_ext_reorder(map, ext_id, 0);
-	mail_index_sync_replace_map(ctx->view, map);
+	mail_index_sync_replace_map(ctx, map);
 
 	ctx->cur_ext_ignore = FALSE;
 	ctx->cur_ext_id = ext_id;
