@@ -1,12 +1,12 @@
 #ifndef __CLIENT_H
 #define __CLIENT_H
 
+#include "commands.h"
+
 struct client;
 struct mail_storage;
 struct imap_parser;
 struct imap_arg;
-
-typedef int command_func_t(struct client *client);
 
 struct mailbox_keywords {
 	pool_t pool; /* will be p_clear()ed when changed */

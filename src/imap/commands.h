@@ -1,10 +1,14 @@
 #ifndef __COMMANDS_H
 #define __COMMANDS_H
 
+struct client;
+
 #include "mail-storage.h"
 #include "imap-parser.h"
 #include "imap-sync.h"
 #include "commands-util.h"
+
+typedef int command_func_t(struct client *client);
 
 struct command {
 	const char *name;

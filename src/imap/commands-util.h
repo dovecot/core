@@ -7,6 +7,7 @@ struct msgset_generator_context {
 };
 
 struct mail_full_flags;
+struct mailbox_keywords;
 
 /* Finds mail storage for given mailbox from namespaces. If not found,
    sends "Unknown namespace" error message to client. */
