@@ -240,13 +240,28 @@ static void parse_header(struct message_part *part,
 {
 	pool_t pool = context;
 	struct message_part_body_data *part_data;
+	struct message_part_envelope_data *envelope;
 	int parent_rfc822;
 
-	if (hdr == NULL || hdr->eoh)
+	if (hdr == NULL) {
+		/* If there was no Mime-Version, forget all the Content-stuff */
+		if ((part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0 &&
+		    part->context != NULL) {
+			part_data = part->context;
+			envelope = part_data->envelope;
+
+			memset(part_data, 0, sizeof(*part_data));
+			part_data->pool = pool;
+			part_data->envelope = envelope;
+		}
+		return;
+	}
+
+	if (hdr->eoh)
 		return;
 
 	parent_rfc822 = part->parent != NULL &&
-		(part->parent->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822);
+		(part->parent->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0;
 	if (!parent_rfc822 && strncasecmp(hdr->name, "Content-", 8) != 0)
 		return;
 
@@ -260,8 +275,7 @@ static void parse_header(struct message_part *part,
 
 	t_push();
 
-	if ((part->flags & MESSAGE_PART_FLAG_IS_MIME) != 0)
-		parse_content_header(part_data, hdr, pool);
+	parse_content_header(part_data, hdr, pool);
 
 	if (parent_rfc822) {
 		/* message/rfc822, we need the envelope */
