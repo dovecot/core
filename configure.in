@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 1.0-test1)
+AM_INIT_AUTOMAKE(dovecot, 1.0-test2)
 
 AM_MAINTAINER_MODE
 
@@ -828,18 +828,6 @@ dnl **
 
 have_ssl=no
 
-if test $want_gnutls = yes; then
-	AC_CHECK_LIB(gnutls, gnutls_global_init, [
-		AC_CHECK_HEADERS(gnutls/gnutls.h, [
-			AC_DEFINE(HAVE_GNUTLS,, Build with GNUTLS support)
-			SSL_LIBS="-lgnutls -lgcrypt"
-			AC_SUBST(SSL_LIBS)
-			have_ssl="yes (GNUTLS)"
-			have_gnutls=yes
-		])
-	],, -lgcrypt)
-fi
-
 if test "$want_openssl" = "yes" && test "$have_ssl" = "no"; then
   if pkg-config --exists openssl; then
     PKG_CHECK_MODULES(SSL, openssl)
@@ -858,6 +846,18 @@ if test "$want_openssl" = "yes" && test "$have_ssl" = "no"; then
     AC_DEFINE(HAVE_OPENSSL,, Build with OpenSSL support)
     have_ssl="yes (OpenSSL)"
   fi
+fi
+
+if test $want_gnutls = yes && test $have_ssl = no; then
+	AC_CHECK_LIB(gnutls, gnutls_global_init, [
+		AC_CHECK_HEADERS(gnutls/gnutls.h, [
+			AC_DEFINE(HAVE_GNUTLS,, Build with GNUTLS support)
+			SSL_LIBS="-lgnutls -lgcrypt"
+			AC_SUBST(SSL_LIBS)
+			have_ssl="yes (GNUTLS)"
+			have_gnutls=yes
+		])
+	],, -lgcrypt)
 fi
 
 if test "$have_ssl" != "no"; then
