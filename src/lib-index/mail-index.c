@@ -108,7 +108,23 @@ void mail_index_register_expunge_handler(struct mail_index *index,
 					 uint32_t ext_id,
 					 mail_index_expunge_handler_t *cb)
 {
-	array_idx_set(&index->expunge_handlers, ext_id, &cb);
+        mail_index_expunge_handler_t **p;
+
+	p = array_modifyable_idx(&index->expunge_handlers, ext_id);
+	i_assert(*p == NULL);
+
+	*p = cb;
+}
+
+void mail_index_unregister_expunge_handler(struct mail_index *index,
+					   uint32_t ext_id)
+{
+        mail_index_expunge_handler_t **p;
+
+	p = array_modifyable_idx(&index->expunge_handlers, ext_id);
+	i_assert(*p != NULL);
+
+	*p = NULL;
 }
 
 void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
@@ -118,14 +134,43 @@ void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
 	struct mail_index_sync_handler *h;
 
 	h = array_modifyable_idx(&index->sync_handlers, ext_id);
+	i_assert(h->callback == NULL);
+
 	h->callback = cb;
 	h->type = type;
+}
+
+void mail_index_unregister_sync_handler(struct mail_index *index,
+					uint32_t ext_id)
+{
+	struct mail_index_sync_handler *h;
+
+	h = array_modifyable_idx(&index->sync_handlers, ext_id);
+	i_assert(h->callback != NULL);
+
+	h->callback = NULL;
+	h->type = 0;
 }
 
 void mail_index_register_sync_lost_handler(struct mail_index *index,
 					   mail_index_sync_lost_handler_t *cb)
 {
 	array_append(&index->sync_lost_handlers, &cb, 1);
+}
+
+void mail_index_unregister_sync_lost_handler(struct mail_index *index,
+					     mail_index_sync_lost_handler_t *cb)
+{
+	mail_index_sync_lost_handler_t *const *handlers;
+	unsigned int i, count;
+
+	handlers = array_get(&index->sync_lost_handlers, &count);
+	for (i = 0; i < count; i++) {
+		if (handlers[i] == cb) {
+			array_delete(&index->sync_lost_handlers, i, 1);
+			break;
+		}
+	}
 }
 
 static void mail_index_map_init_extbufs(struct mail_index_map *map,

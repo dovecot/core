@@ -307,9 +307,15 @@ struct mail_cache *mail_cache_create(struct mail_index *index)
 void mail_cache_free(struct mail_cache *cache)
 {
 	if (cache->file_cache != NULL) {
+		mail_index_unregister_sync_lost_handler(cache->index,
+			mail_cache_sync_lost_handler);
+
 		file_cache_free(cache->file_cache);
 		cache->file_cache = NULL;
 	}
+
+	mail_index_unregister_expunge_handler(cache->index, cache->ext_id);
+	mail_index_unregister_sync_handler(cache->index, cache->ext_id);
 
 	mail_cache_file_close(cache);
 

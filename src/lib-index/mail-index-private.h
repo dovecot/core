@@ -173,11 +173,17 @@ struct mail_index_sync_handler {
 void mail_index_register_expunge_handler(struct mail_index *index,
 					 uint32_t ext_id,
 					 mail_index_expunge_handler_t *cb);
+void mail_index_unregister_expunge_handler(struct mail_index *index,
+					   uint32_t ext_id);
 void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
 				      mail_index_sync_handler_t *cb,
 				      enum mail_index_sync_handler_type type);
+void mail_index_unregister_sync_handler(struct mail_index *index,
+					uint32_t ext_id);
 void mail_index_register_sync_lost_handler(struct mail_index *index,
 					   mail_index_sync_lost_handler_t *cb);
+void mail_index_unregister_sync_lost_handler(struct mail_index *index,
+					mail_index_sync_lost_handler_t *cb);
 
 int mail_index_write_base_header(struct mail_index *index,
 				 const struct mail_index_header *hdr);
