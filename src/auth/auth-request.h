@@ -13,7 +13,9 @@ struct auth_request {
 
 	pool_t pool;
 	char *user;
-	const char *extra_fields;
+	char *mech_password; /* set if verify_plain() is called */
+	char *passdb_password; /* set after password lookup if successful */
+	string_t *extra_fields;
 
 	struct mech_module *mech;
 	struct auth *auth;
@@ -25,6 +27,11 @@ struct auth_request {
 
 	const char *service;
 	struct ip_addr local_ip, remote_ip;
+
+	union {
+		verify_plain_callback_t *verify_plain;
+                lookup_credentials_callback_t *lookup_credentials;
+	} private_callback;
 
 	mech_callback_t *callback;
 	void *context;
@@ -68,13 +75,8 @@ void auth_request_lookup_user(struct auth_request *request,
 int auth_request_set_username(struct auth_request *request,
 			      const char *username, const char **error_r);
 
-struct auth_request_extra *
-auth_request_extra_begin(struct auth_request *request);
-void auth_request_extra_next(struct auth_request_extra *extra,
-			     const char *name, const char *value);
-void auth_request_extra_finish(struct auth_request_extra *extra,
-			       const char *user_password,
-			       const char *cache_key);
+void auth_request_set_field(struct auth_request *request,
+			    const char *name, const char *value);
 
 const struct var_expand_table *
 auth_request_get_var_expand_table(const struct auth_request *auth_request,

@@ -401,6 +401,7 @@ static void pam_deinit(void)
 
 struct passdb_module passdb_pam = {
 	"pam",
+	NULL, NULL,
 
 	NULL,
 	pam_init,

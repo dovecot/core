@@ -37,6 +37,12 @@ typedef void lookup_credentials_callback_t(enum passdb_result result,
 struct passdb_module {
 	const char *name;
 
+	/* The caching key for this module, or NULL if caching isn't wanted. */
+	const char *cache_key;
+	/* Default password scheme for this module.
+	   If cache_key is set, must not be NULL. */
+	const char *default_pass_scheme;
+
 	void (*preinit)(const char *args);
 	void (*init)(const char *args);
 	void (*deinit)(void);

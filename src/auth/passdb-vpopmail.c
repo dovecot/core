@@ -47,7 +47,7 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 
 	crypted_pass = vpw->pw_passwd;
 	scheme = password_get_scheme(&crypted_pass);
-	if (scheme == NULL) scheme = "CRYPT";
+	if (scheme == NULL) scheme = passdb_vpopmail->default_pass_scheme;
 
 	ret = password_verify(password, crypted_pass, scheme, request->user);
 
@@ -98,6 +98,7 @@ static void vpopmail_deinit(void)
 
 struct passdb_module passdb_vpopmail = {
 	"vpopmail",
+	"%u", "CRYPT",
 
 	NULL, NULL,
 	vpopmail_deinit,

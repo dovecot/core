@@ -62,8 +62,10 @@ static void checkpassword_request_finish(struct chkpw_auth_request *request,
 
 	if (result == PASSDB_RESULT_OK) {
 		request->request->extra_fields =
-			p_strdup(request->request->pool,
-				 str_c(request->input_buf));
+			str_new(request->request->pool,
+				str_len(request->input_buf));
+		str_append_str(request->request->extra_fields,
+			       request->input_buf);
 	}
 
 	if (auth_request_unref(request->request)) {
@@ -341,6 +343,7 @@ static void checkpassword_deinit(void)
 
 struct passdb_module passdb_checkpassword = {
 	"checkpassword",
+	NULL, NULL,
 
 	NULL,
 	checkpassword_init,

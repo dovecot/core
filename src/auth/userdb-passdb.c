@@ -36,7 +36,7 @@ static void passdb_lookup(struct auth_request *auth_request,
 	str = t_str_new(256);
 	str_append(str, auth_request->user);
 
-	args = t_strsplit(auth_request->extra_fields, "\t");
+	args = t_strsplit(str_c(auth_request->extra_fields), "\t");
 	for (; *args != NULL; args++) {
 		const char *arg = *args;
 

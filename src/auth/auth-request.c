@@ -14,12 +14,6 @@
 #include "passdb.h"
 #include "passdb-cache.h"
 
-struct auth_request_extra {
-	struct auth_request *request;
-	string_t *str;
-	char *user_password, *password;
-};
-
 struct auth_request *
 auth_request_new(struct auth *auth, struct mech_module *mech,
 		 mech_callback_t *callback, void *context)
@@ -90,19 +84,132 @@ void auth_request_continue(struct auth_request *request,
 	request->mech->auth_continue(request, data, data_size);
 }
 
+static void auth_request_save_cache(struct auth_request *request,
+				    enum passdb_result result)
+{
+	struct passdb_module *passdb = request->auth->passdb;
+	string_t *str;
+
+	if (passdb_cache == NULL)
+		return;
+
+	if (passdb->cache_key == NULL)
+		return;
+
+	if (result < 0) {
+		/* lookup failed. */
+		if (result == PASSDB_RESULT_USER_UNKNOWN) {
+			auth_cache_insert(passdb_cache, request,
+					  passdb->cache_key, "");
+		}
+		return;
+	}
+
+	/* save all except the currently given password in cache */
+	str = t_str_new(32 + str_len(request->extra_fields));
+	if (request->passdb_password != NULL) {
+		if (*request->passdb_password != '{') {
+			/* cached passwords must have a known scheme */
+			str_append_c(str, '{');
+			str_append(str, passdb->default_pass_scheme);
+			str_append_c(str, '}');
+		}
+		str_append(str, request->passdb_password);
+	}
+	if (request->extra_fields != NULL) {
+		str_append_c(str, '\t');
+		str_append_str(str, request->extra_fields);
+	}
+	if (request->no_failure_delay) {
+		str_append_c(str, '\t');
+		str_append(str, "nodelay");
+	}
+	auth_cache_insert(passdb_cache, request, passdb->cache_key, str_c(str));
+}
+
+static void auth_request_verify_plain_callback(enum passdb_result result,
+					       struct auth_request *request)
+{
+        auth_request_save_cache(request, result);
+
+	if (request->proxy) {
+		/* we're proxying - send back the password that was
+		   sent by user (not the password in passdb). */
+		str_printfa(request->extra_fields, "\tpass=%s",
+			    request->mech_password);
+	}
+
+	if (request->passdb_password != NULL) {
+		safe_memset(request->passdb_password, 0,
+			    strlen(request->mech_password));
+	}
+
+        safe_memset(request->mech_password, 0, strlen(request->mech_password));
+	request->private_callback.verify_plain(result, request);
+}
+
 void auth_request_verify_plain(struct auth_request *request,
 			       const char *password,
 			       verify_plain_callback_t *callback)
 {
-	request->auth->passdb->verify_plain(request, password, callback);
+	struct passdb_module *passdb = request->auth->passdb;
+	enum passdb_result result;
+	const char *cache_key;
+
+	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
+	if (cache_key != NULL) {
+		if (passdb_cache_verify_plain(request, cache_key, password,
+					      &result)) {
+			callback(result, request);
+			return;
+		}
+	}
+
+	request->mech_password = p_strdup(request->pool, password);
+	request->private_callback.verify_plain = callback;
+	passdb->verify_plain(request, password,
+			     auth_request_verify_plain_callback);
+}
+
+static void
+auth_request_lookup_credentials_callback(enum passdb_result result,
+					 const char *credentials,
+					 struct auth_request *request)
+{
+        auth_request_save_cache(request, result);
+
+	if (request->passdb_password != NULL) {
+		safe_memset(request->passdb_password, 0,
+			    strlen(request->mech_password));
+	}
+
+	request->private_callback.lookup_credentials(result, credentials,
+						     request);
 }
 
 void auth_request_lookup_credentials(struct auth_request *request,
 				     enum passdb_credentials credentials,
 				     lookup_credentials_callback_t *callback)
 {
-	request->auth->passdb->lookup_credentials(request, credentials,
-						  callback);
+	struct passdb_module *passdb = request->auth->passdb;
+	const char *cache_key, *result, *scheme;
+
+	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
+	if (cache_key != NULL) {
+		if (passdb_cache_lookup_credentials(request, cache_key,
+						    &result, &scheme)) {
+			passdb_handle_credentials(result != NULL ?
+						  PASSDB_RESULT_OK :
+						  PASSDB_RESULT_USER_UNKNOWN,
+						  credentials, result, scheme,
+						  callback, request);
+			return;
+		}
+	}
+
+	request->private_callback.lookup_credentials = callback;
+	passdb->lookup_credentials(request, credentials,
+				   auth_request_lookup_credentials_callback);
 }
 
 void auth_request_lookup_user(struct auth_request *request,
@@ -142,50 +249,45 @@ int auth_request_set_username(struct auth_request *request,
 	return TRUE;
 }
 
-struct auth_request_extra *
-auth_request_extra_begin(struct auth_request *request)
-{
-	struct auth_request_extra *extra;
-
-	extra = i_new(struct auth_request_extra, 1);
-	extra->request = request;
-	return extra;
-}
-
-void auth_request_extra_next(struct auth_request_extra *extra,
-			     const char *name, const char *value)
+void auth_request_set_field(struct auth_request *request,
+			    const char *name, const char *value)
 {
 	string_t *str;
 
 	i_assert(value != NULL);
 
 	if (strcmp(name, "password") == 0) {
-		i_assert(extra->password == NULL);
-		extra->password = i_strdup(value);
+		if (request->passdb_password == NULL) {
+			request->passdb_password =
+				p_strdup(request->pool, value);
+		} else {
+			auth_request_log_error(request, "auth",
+				"Multiple password values not supported");
+		}
 		return;
 	}
 
 	if (strcmp(name, "nodelay") == 0) {
 		/* don't delay replying to client of the failure */
-		extra->request->no_failure_delay = TRUE;
+		request->no_failure_delay = TRUE;
 		return;
 	}
 
-	str = extra->str;
+	str = request->extra_fields;
 	if (str == NULL)
-		extra->str = str = str_new(extra->request->pool, 64);
+		request->extra_fields = str = str_new(request->pool, 64);
 
 	if (strcmp(name, "nologin") == 0) {
 		/* user can't actually login - don't keep this
 		   reply for master */
-		extra->request->no_login = TRUE;
+		request->no_login = TRUE;
 		if (str_len(str) > 0)
 			str_append_c(str, '\t');
 		str_append(str, name);
 	} else if (strcmp(name, "proxy") == 0) {
 		/* we're proxying authentication for this user. send
 		   password back if using plaintext authentication. */
-		extra->request->proxy = TRUE;
+		request->proxy = TRUE;
 		if (str_len(str) > 0)
 			str_append_c(str, '\t');
 		str_append(str, name);
@@ -194,45 +296,6 @@ void auth_request_extra_next(struct auth_request_extra *extra,
 			str_append_c(str, '\t');
 		str_printfa(str, "%s=%s", name, value);
 	}
-}
-
-void auth_request_extra_finish(struct auth_request_extra *extra,
-			       const char *user_password, const char *cache_key)
-{
-	string_t *str;
-
-	if (passdb_cache != NULL && cache_key != NULL) {
-		str = t_str_new(64);
-		if (extra->str != NULL)
-			str_append_str(str, extra->str);
-		if (extra->request->no_failure_delay) {
-			if (str_len(str) > 0)
-				str_append_c(str, '\t');
-			str_append(str, "nodelay");
-		}
-		auth_cache_insert(passdb_cache, extra->request, cache_key,
-				  t_strconcat(extra->password == NULL ? "" :
-					      extra->password,
-					      str_len(str) > 0 ? "\t" : "",
-					      str_c(str), NULL));
-	}
-
-	if (user_password != NULL) {
-		if (extra->request->proxy) {
-			/* we're proxying - send back the password that was
-			   sent by user (not the password in passdb). */
-			str_printfa(extra->str, "\tpass=%s", user_password);
-		}
-	}
-
-	if (extra->str != NULL)
-		extra->request->extra_fields = str_c(extra->str);
-
-	if (extra->password != NULL) {
-		safe_memset(extra->password, 0, strlen(extra->password));
-		i_free(extra->password);
-	}
-	i_free(extra);
 }
 
 static const char *escape_none(const char *str)

@@ -9,16 +9,13 @@
 
 struct auth_cache *passdb_cache = NULL;
 
-static void list_save(struct auth_request *request, const char *password,
-		      const char *const *list)
+static void list_save(struct auth_request *request, const char *const *list)
 {
-	struct auth_request_extra *extra;
 	const char *name, *value;
 
 	if (*list == NULL)
 		return;
 
-	extra = auth_request_extra_begin(request);
 	for (; *list != NULL; list++) {
 		t_push();
 		value = strchr(*list, '=');
@@ -30,20 +27,17 @@ static void list_save(struct auth_request *request, const char *password,
 			value++;
 		}
 
-		auth_request_extra_next(extra, name, value);
+		auth_request_set_field(request, name, value);
 		t_pop();
 	}
-	auth_request_extra_finish(extra, password, NULL);
 }
 
 int passdb_cache_verify_plain(struct auth_request *request, const char *key,
-			      const char *password, const char *default_scheme,
+			      const char *password,
 			      enum passdb_result *result_r)
 {
 	const char *value, *cached_pw, *scheme, *const *list;
 	int ret;
-
-	i_assert(default_scheme != NULL);
 
 	if (passdb_cache == NULL)
 		return FALSE;
@@ -63,9 +57,9 @@ int passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	cached_pw = list[0];
 
 	scheme = password_get_scheme(&cached_pw);
-	if (scheme == NULL)
-		scheme = default_scheme;
-        list_save(request, password, list+1);
+	i_assert(scheme != NULL);
+
+        list_save(request, list + 1);
 
 	ret = password_verify(password, cached_pw, scheme, request->user);
 	if (ret < 0) {
@@ -101,10 +95,11 @@ int passdb_cache_lookup_credentials(struct auth_request *request,
 	}
 
 	list = t_strsplit(value, "\t");
-        list_save(request, NULL, list+1);
+        list_save(request, list + 1);
 
 	*result_r = list[0];
 	*scheme_r = password_get_scheme(result_r);
+	i_assert(*scheme_r != NULL);
 	return TRUE;
 }
 

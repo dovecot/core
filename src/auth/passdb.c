@@ -159,6 +159,9 @@ void passdb_init(struct auth *auth)
 	passdb_cache_init();
 	if (auth->passdb->init != NULL)
 		auth->passdb->init(auth->passdb_args);
+
+	i_assert(auth->passdb->default_pass_scheme != NULL ||
+		 auth->passdb->cache_key == NULL);
 }
 
 void passdb_deinit(struct auth *auth)

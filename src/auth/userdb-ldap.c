@@ -181,7 +181,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	var_expand(str, conn->set.user_filter, vars);
 	filter = str_c(str);
 
-	request = i_new(struct userdb_ldap_request, 1);
+	request = p_new(auth_request->pool, struct userdb_ldap_request, 1);
 	request->request.callback = handle_request;
 	request->request.context = context;
 	request->auth_request = auth_request;

@@ -118,7 +118,6 @@ void db_ldap_search(struct ldap_connection *conn, const char *base, int scope,
 	if (!conn->connected) {
 		if (!db_ldap_connect(conn)) {
 			request->callback(conn, request, NULL);
-			i_free(request);
 			return;
 		}
 	}
@@ -128,7 +127,6 @@ void db_ldap_search(struct ldap_connection *conn, const char *base, int scope,
 		i_error("LDAP: ldap_search() failed (filter %s): %s",
 			filter, ldap_get_error(conn));
 		request->callback(conn, request, NULL);
-		i_free(request);
 		return;
 	}
 
@@ -171,7 +169,6 @@ static void ldap_input(void *context)
 		} else {
 			hash_remove(conn->requests, POINTER_CAST(msgid));
 			request->callback(conn, request, res);
-			i_free(request);
 		}
 
 		ldap_msgfree(res);
@@ -254,7 +251,6 @@ static void ldap_conn_close(struct ldap_connection *conn)
 		struct ldap_request *request = value;
 
 		request->callback(conn, request, NULL);
-		i_free(request);
 	}
 	hash_iterate_deinit(iter);
 	hash_clear(conn->requests, FALSE);

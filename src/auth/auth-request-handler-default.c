@@ -114,10 +114,10 @@ static const char *get_client_extra_fields(struct auth_request *request)
 		return NULL;
 
 	/* we only wish to remove all fields prefixed with "userdb_" */
-	if (strstr(request->extra_fields, "userdb_") == NULL)
-		return request->extra_fields;
+	if (strstr(str_c(request->extra_fields), "userdb_") == NULL)
+		return str_c(request->extra_fields);
 
-	fields = t_strsplit(request->extra_fields, "\t");
+	fields = t_strsplit(str_c(request->extra_fields), "\t");
 	for (src = dest = 0; fields[src] != NULL; src++) {
 		if (strncmp(fields[src], "userdb_", 7) != 0)
 			fields[dest++] = fields[src];
