@@ -250,6 +250,7 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 
 	map->records_count -= count;
 	map->hdr.messages_count -= count;
+	view->hdr.messages_count -= count;
 
 	if (map->buffer != NULL) {
 		buffer_set_used_size(map->buffer, map->records_count *
@@ -291,6 +292,7 @@ static int sync_append(const struct mail_index_record *rec, void *context)
 	map->hdr.messages_count++;
 	map->hdr.next_uid = rec->uid+1;
 	map->records_count++;
+	view->hdr.messages_count++;
 
 	if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 		map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
@@ -1185,6 +1187,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 		}
 	}
 	i_assert(view->map == index->map);
+	view->hdr = map->hdr;
 
         mail_index_view_unlock(view);
 	return ret;
