@@ -27,99 +27,6 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
-static int mail_index_reopen(struct mail_index *index, int fd)
-{
-	struct mail_index_map *old_map;
-	unsigned int old_shared_locks, old_lock_id, lock_id = 0;
-	int ret, old_fd, old_lock_type;
-
-	old_map = index->map;
-	old_fd = index->fd;
-
-	index->map = NULL;
-	index->hdr = NULL;
-
-	/* new file, new locks. the old fd can keep it's locks, they don't
-	   matter anymore as no-one's going to modify the file. */
-	old_lock_type = index->lock_type;
-	old_lock_id = index->lock_id;
-	old_shared_locks = index->shared_lock_count;
- 
-	if (index->lock_type == F_RDLCK)
-		index->lock_type = F_UNLCK;
-	index->lock_id += 2;
-	index->shared_lock_count = 0;
-
-	if (fd != -1) {
-		index->fd = fd;
-		ret = 0;
-	} else {
-		i_assert(index->excl_lock_count == 0);
-		ret = mail_index_try_open_only(index);
-		if (ret > 0)
-			ret = mail_index_lock_shared(index, FALSE, &lock_id);
-		else if (ret == 0) {
-			/* index file is lost */
-			ret = -1;
-		}
-	}
-
-	if (ret == 0) {
-		if (mail_index_map(index, FALSE) <= 0)
-			ret = -1;
-	}
-
-	if (lock_id != 0)
-		mail_index_unlock(index, lock_id);
-
-	if (ret == 0) {
-		mail_index_unmap(index, old_map);
-		if (close(old_fd) < 0)
-			mail_index_set_syscall_error(index, "close()");
-	} else {
-		if (index->map != NULL)
-			mail_index_unmap(index, index->map);
-		if (index->fd != -1) {
-			if (close(index->fd) < 0)
-				mail_index_set_syscall_error(index, "close()");
-		}
-
-		index->map = old_map;
-		index->hdr = index->map->hdr;
-		index->fd = old_fd;
-		index->lock_type = old_lock_type;
-		index->lock_id = old_lock_id;
-		index->shared_lock_count = old_shared_locks;
-	}
-	return ret;
-}
-
-static int mail_index_has_changed(struct mail_index *index)
-{
-	struct stat st1, st2;
-
-	if (fstat(index->fd, &st1) < 0)
-		return mail_index_set_syscall_error(index, "fstat()");
-	if (stat(index->filepath, &st2) < 0) {
-		mail_index_set_syscall_error(index, "stat()");
-		if (errno != ENOENT)
-			return -1;
-
-		/* lost it? recreate */
-		(void)mail_index_mark_corrupted(index);
-		return -1;
-	}
-
-	if (st1.st_ino != st2.st_ino ||
-	    !CMP_DEV_T(st1.st_dev, st2.st_dev)) {
-		if (mail_index_reopen(index, -1) < 0)
-			return -1;
-		return 1;
-	} else {
-		return 0;
-	}
-}
-
 int mail_index_map_lock_mprotect(struct mail_index *index,
 				 struct mail_index_map *map, int lock_type)
 {
@@ -167,7 +74,7 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	}
 
 	if (update_index && index->excl_lock_count == 0) {
-		if ((ret2 = mail_index_has_changed(index)) < 0)
+		if ((ret2 = mail_index_refresh(index)) < 0)
 			return -1;
 		if (ret > 0 && ret2 == 0)
 			return 1;
@@ -184,7 +91,7 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		if (lock_type == F_WRLCK)
 			return 0;
 		if (update_index && index->lock_type == F_UNLCK) {
-			if (mail_index_has_changed(index) < 0)
+			if (mail_index_refresh(index) < 0)
 				return -1;
 		}
 		if (mail_index_lock_mprotect(index, lock_type) < 0)

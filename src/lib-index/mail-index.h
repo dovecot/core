@@ -136,6 +136,9 @@ void mail_index_free(struct mail_index *index);
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags);
 void mail_index_close(struct mail_index *index);
 
+/* Force checking if index can be refreshed. */
+int mail_index_refresh(struct mail_index *index);
+
 struct mail_cache *mail_index_get_cache(struct mail_index *index);
 
 /* View can be used to look into index. Sequence numbers inside view change

@@ -77,8 +77,7 @@ void mail_index_header_init(struct mail_index_header *hdr);
 int mail_index_write_header(struct mail_index *index,
 			    const struct mail_index_header *hdr);
 
-int mail_index_try_open_only(struct mail_index *index);
-int mail_index_try_open(struct mail_index *index, unsigned int *lock_id_r);
+int mail_index_reopen(struct mail_index *index, int fd);
 int mail_index_create_tmp_file(struct mail_index *index, const char **path_r);
 
 /* Returns 0 = ok, -1 = error. If update_index is TRUE, reopens the index
