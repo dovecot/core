@@ -14,6 +14,16 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+static void update_header(struct mail_index *index)
+{
+	struct mail_index_header *hdr = index->header;
+
+	index->cache_sync_id = hdr->cache_sync_id;
+	index->log_sync_id = hdr->log_sync_id;
+	index->sync_stamp = hdr->sync_stamp;
+	index->sync_size = hdr->sync_size;
+}
+
 static int mmap_verify(struct mail_index *index)
 {
 	struct mail_index_header *hdr;
@@ -30,6 +40,12 @@ static int mmap_verify(struct mail_index *index)
 	hdr = index->mmap_base;
 	index->header = hdr;
 	index->header_size = hdr->header_size;
+
+	if (index->header_size > index->mmap_full_length) {
+		index_set_corrupted(index, "Invalid header_size in header "
+				    "(%u)", index->header_size);
+		return FALSE;
+	}
 
 	extra = (index->mmap_full_length - index->header_size) %
 		sizeof(struct mail_index_record);
@@ -75,11 +91,8 @@ static int mmap_verify(struct mail_index *index)
 	}
 
 	index->master_sync_id = hdr->master_sync_id;
-	index->cache_sync_id = hdr->cache_sync_id;
-	index->log_sync_id = hdr->log_sync_id;
-	index->sync_stamp = hdr->sync_stamp;
-	index->sync_size = hdr->sync_size;
 	index->mmap_used_length = hdr->used_file_size;
+        update_header(index);
 	return TRUE;
 }
 
@@ -90,9 +103,7 @@ int mail_index_mmap_update(struct mail_index *index)
 
 	if (index->mmap_base != NULL) {
 		index->header = (struct mail_index_header *) index->mmap_base;
-
-		index->cache_sync_id = index->header->cache_sync_id;
-		index->log_sync_id = index->header->log_sync_id;
+		update_header(index);
 
 		if (index->mmap_invalidate) {
 			if (msync(index->mmap_base,
