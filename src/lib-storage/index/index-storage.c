@@ -335,6 +335,9 @@ int index_storage_close(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
+	/* make sure we're unlocked */
+	(void)ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK);
+
 	index_mailbox_check_remove_all(ibox);
 	if (ibox->index != NULL)
 		index_storage_unref(ibox->index);
