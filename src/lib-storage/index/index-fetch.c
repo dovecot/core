@@ -301,7 +301,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 		len = str_len(ctx->str);
 		if (len > 0) {
 			if (!ctx->first)
-				str_truncate(ctx->str, len-1);
+				str_truncate(ctx->str, --len);
 
 			if (o_stream_send(ctx->output,
 					  str_c(ctx->str), len) < 0)
