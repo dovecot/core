@@ -425,6 +425,11 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 			hdr_size->physical_size + missing_cr_count;
 		i_assert(hdr_size->virtual_size >= hdr_size->physical_size);
 	}
+
+	if (func != NULL) {
+		/* "end of headers" notify */
+		func(part, "", 0, "", 0, context);
+	}
 }
 
 static MessageBoundary *boundary_find(MessageBoundary *boundaries,

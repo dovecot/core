@@ -29,7 +29,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	MailIndexUpdate *update;
         MboxHeaderContext ctx;
 	time_t internal_date;
-	uoff_t abs_start_offset, stop_offset;
+	uoff_t abs_start_offset, eoh_offset;
 	unsigned char *data, md5_digest[16];
 	size_t size, pos;
 	int failed;
@@ -65,9 +65,10 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	io_buffer_skip(inbuf, pos+1);
 	abs_start_offset = inbuf->start_offset + inbuf->offset;
 
-	/* now, find the ending "[\r]\nFrom " */
-	mbox_skip_message(inbuf);
-	stop_offset = inbuf->offset;
+	/* now, find the end of header. also stops at "\nFrom " if it's
+	   found (broken messages) */
+	mbox_skip_header(inbuf);
+	eoh_offset = inbuf->offset;
 
 	/* add message to index */
 	rec = mail_index_record_append_begin(index, internal_date);
@@ -82,17 +83,17 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 
 	/* parse the header and cache wanted fields. get the message flags
 	   from Status and X-Status fields. temporarily limit the buffer size
-	   so the message body is parsed properly (FIXME: does this have
-	   side effects?) */
-	mbox_header_init_context(&ctx, index);
+	   so the message body is parsed properly */
+	mbox_header_init_context(&ctx, index, inbuf);
+        ctx.set_read_limit = TRUE;
 
 	io_buffer_seek(inbuf, abs_start_offset - inbuf->start_offset);
 
-	io_buffer_set_read_limit(inbuf, stop_offset);
+	io_buffer_set_read_limit(inbuf, eoh_offset);
 	mail_index_update_headers(update, inbuf, 0, mbox_header_func, &ctx);
-	io_buffer_set_read_limit(inbuf, 0);
 
-	io_buffer_seek(inbuf, stop_offset);
+	io_buffer_seek(inbuf, inbuf->limit);
+	io_buffer_set_read_limit(inbuf, 0);
 
 	/* save MD5 */
 	md5_final(&ctx.md5, md5_digest);

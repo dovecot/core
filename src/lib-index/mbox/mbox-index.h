@@ -10,6 +10,10 @@ typedef struct {
 	const char **custom_flags;
 	MD5Context md5;
 	int received;
+
+	IOBuffer *inbuf;
+	uoff_t content_length;
+	int set_read_limit;
 } MboxHeaderContext;
 
 int mbox_set_syscall_error(MailIndex *index, const char *function);
@@ -20,7 +24,8 @@ int mbox_set_syscall_error(MailIndex *index, const char *function);
 IOBuffer *mbox_file_open(MailIndex *index, uoff_t offset, int reopen);
 void mbox_file_close(MailIndex *index);
 
-void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index);
+void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index,
+			      IOBuffer *inbuf);
 void mbox_header_free_context(MboxHeaderContext *ctx);
 void mbox_header_func(MessagePart *part __attr_unused__,
 		      const char *name, size_t name_len,
@@ -32,7 +37,9 @@ void mbox_keywords_parse(const char *value, size_t len,
 			 void *context);
 int mbox_skip_crlf(IOBuffer *inbuf);
 void mbox_skip_empty_lines(IOBuffer *inbuf);
+void mbox_skip_header(IOBuffer *inbuf);
 void mbox_skip_message(IOBuffer *inbuf);
+int mbox_verify_end_of_body(IOBuffer *inbuf, uoff_t end_offset);
 int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
 			       uoff_t *offset);
 

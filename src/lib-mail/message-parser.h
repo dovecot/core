@@ -36,7 +36,8 @@ struct _MessagePart {
 	void *context;
 };
 
-/* NOTE: name and value aren't \0-terminated */
+/* NOTE: name and value aren't \0-terminated. Also called once at end of
+   headers with name_len = value_len = 0. */
 typedef void (*MessageHeaderFunc)(MessagePart *part,
 				  const char *name, size_t name_len,
 				  const char *value, size_t value_len,

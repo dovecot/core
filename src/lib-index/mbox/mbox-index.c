@@ -54,12 +54,14 @@ void mbox_file_close(MailIndex *index)
 	}
 }
 
-void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index)
+void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index,
+			      IOBuffer *inbuf)
 {
 	memset(ctx, 0, sizeof(MboxHeaderContext));
 	md5_init(&ctx->md5);
 
 	ctx->index = index;
+	ctx->inbuf = inbuf;
 	ctx->custom_flags = mail_custom_flags_list_get(index->custom_flags);
 }
 
@@ -188,16 +190,58 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 		      void *context)
 {
 	MboxHeaderContext *ctx = context;
+	uoff_t start_offset, end_offset;
+	size_t i;
 	int fixed = FALSE;
 
 	/* Pretty much copy&pasted from popa3d by Solar Designer */
 	switch (*name) {
+	case '\0':
+		/* End of headers */
+		if (!ctx->set_read_limit)
+			break;
+
+		/* a) use Content-Length, b) search for "From "-line */
+		start_offset = ctx->inbuf->offset;
+		io_buffer_set_read_limit(ctx->inbuf, 0);
+
+		end_offset = start_offset + ctx->content_length;
+		if (ctx->content_length == 0 ||
+		    !mbox_verify_end_of_body(ctx->inbuf, end_offset)) {
+			mbox_skip_message(ctx->inbuf);
+			end_offset = ctx->inbuf->offset;
+			ctx->content_length = end_offset - start_offset;
+		}
+
+		io_buffer_seek(ctx->inbuf, start_offset);
+		io_buffer_set_read_limit(ctx->inbuf, end_offset);
+		break;
+
 	case 'R':
 	case 'r':
 		if (!ctx->received && name_len == 8 &&
 		    strncasecmp(name, "Received", 8) == 0) {
 			ctx->received = TRUE;
 			fixed = TRUE;
+		}
+		break;
+
+	case 'C':
+	case 'c':
+		if (name_len == 14 &&
+		    strncasecmp(name, "Content-Length", 14) == 0) {
+			/* manual parsing, so we can deal with uoff_t */
+			ctx->content_length = 0;
+			for (i = 0; i < value_len; i++) {
+				if (value[i] < '0' || value[i] > '9') {
+					/* invalid */
+					ctx->content_length = 0;
+					break;
+				}
+
+				ctx->content_length = ctx->content_length * 10 +
+					(value[i] - '0');
+			}
 		}
 		break;
 
@@ -369,7 +413,7 @@ static int mbox_is_valid_from(IOBuffer *inbuf, size_t startpos)
 	return FALSE;
 }
 
-void mbox_skip_message(IOBuffer *inbuf)
+static void mbox_skip_forward(IOBuffer *inbuf, int header)
 {
 	unsigned char *msg;
 	size_t i, size, startpos;
@@ -379,6 +423,16 @@ void mbox_skip_message(IOBuffer *inbuf)
 	startpos = i = 0; lastmsg = TRUE;
 	while (io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
+			if (msg[i] == '\n' && header && i >= 1) {
+				/* \n[\r]\n - end of header? */
+				if (msg[i-1] == '\n' ||
+				    (msg[i-1] == '\r' && i >= 2 &&
+				     msg[i-2] == '\r')) {
+					i++;
+					break;
+				}
+			}
+
 			if (msg[i] == ' ' && i >= 5) {
 				/* See if it's space after "From" */
 				if (msg[i-5] == '\n' && msg[i-4] == 'F' &&
@@ -423,6 +477,51 @@ void mbox_skip_message(IOBuffer *inbuf)
 	}
 
 	io_buffer_skip(inbuf, startpos);
+}
+
+void mbox_skip_header(IOBuffer *inbuf)
+{
+	mbox_skip_forward(inbuf, TRUE);
+}
+
+void mbox_skip_message(IOBuffer *inbuf)
+{
+	mbox_skip_forward(inbuf, FALSE);
+}
+
+int mbox_verify_end_of_body(IOBuffer *inbuf, uoff_t end_offset)
+{
+	unsigned char *data;
+	size_t size;
+
+	/* don't bother parsing the whole body, just make
+	   sure it ends properly */
+	io_buffer_seek(inbuf, end_offset);
+
+	if (inbuf->offset == inbuf->size) {
+		/* end of file. a bit unexpected though,
+		   since \n is missing. */
+		return TRUE;
+	}
+
+	/* read forward a bit */
+	if (io_buffer_read_data_blocking(inbuf, &data, &size, 6) < 0)
+		return FALSE;
+
+	/* either there should be the next From-line,
+	   or [\r]\n at end of file */
+	if (size > 0 && data[0] == '\r') {
+		data++; size--;
+	}
+	if (size > 0) {
+		if (data[0] != '\n')
+			return FALSE;
+
+		data++; size--;
+	}
+
+	return size == 0 ||
+		(size >= 5 && strncmp((char *) data, "From ", 5) == 0);
 }
 
 int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,

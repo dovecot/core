@@ -78,7 +78,8 @@ static int header_match(char *const *fields, const char *name, size_t size)
 {
 	const char *field, *name_start, *name_end;
 
-	i_assert(size > 0);
+	if (size == 0)
+		return FALSE;
 
 	name_start = name;
 	name_end = name + size;

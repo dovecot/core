@@ -41,41 +41,6 @@ static int verify_header_md5sum(MailIndex *index, MailIndexRecord *rec,
                 memcmp(old_digest, current_digest, 16) == 0;
 }
 
-static int verify_end_of_body(IOBuffer *inbuf, uoff_t end_offset)
-{
-	unsigned char *data;
-	size_t size;
-
-	/* don't bother parsing the whole body, just make
-	   sure it ends properly */
-	io_buffer_seek(inbuf, end_offset);
-
-	if (inbuf->offset == inbuf->size) {
-		/* end of file. a bit unexpected though,
-		   since \n is missing. */
-		return TRUE;
-	}
-
-	/* read forward a bit */
-	if (io_buffer_read_data_blocking(inbuf, &data, &size, 6) < 0)
-		return FALSE;
-
-	/* either there should be the next From-line,
-	   or [\r]\n at end of file */
-	if (size > 0 && data[0] == '\r') {
-		data++; size--;
-	}
-	if (size > 0) {
-		if (data[0] != '\n')
-			return FALSE;
-
-		data++; size--;
-	}
-
-	return size == 0 ||
-		(size >= 5 && strncmp((char *) data, "From ", 5) == 0);
-}
-
 static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
 				   MailIndexUpdate *update,
 				   MessageSize *hdr_size)
@@ -137,14 +102,14 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	if (rec->body_size == 0) {
 		/* possibly broken message, find the From-line to make sure
 		   header parser won't pass it. */
-		mbox_skip_message(inbuf);
+		mbox_skip_header(inbuf);
 		io_buffer_set_read_limit(inbuf, inbuf->offset);
 		io_buffer_seek(inbuf, header_offset);
 	}
 
 	/* get the MD5 sum of fixed headers and the current message flags
 	   in Status and X-Status fields */
-        mbox_header_init_context(&ctx, index);
+        mbox_header_init_context(&ctx, index, inbuf);
 	message_parse_header(NULL, inbuf, &hdr_size, mbox_header_func, &ctx);
 	md5_final(&ctx.md5, current_digest);
 
@@ -154,7 +119,8 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	body_offset = inbuf->offset;
 	do {
 		if (verify_header_md5sum(index, rec, current_digest) &&
-		    verify_end_of_body(inbuf, body_offset + rec->body_size)) {
+		    mbox_verify_end_of_body(inbuf,
+					    body_offset + rec->body_size)) {
 			/* valid message */
 			update = index->update_begin(index, rec);
 

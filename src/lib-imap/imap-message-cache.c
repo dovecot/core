@@ -242,12 +242,6 @@ static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 						     msg);
 			}
 
-			if (msg->envelope == NULL) {
-				imap_envelope_parse_header(msg->pool,
-							   &msg->envelope,
-							   "", "", 0);
-			}
-
 			value = imap_envelope_get_part_data(msg->envelope);
 		}
 

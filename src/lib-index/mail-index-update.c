@@ -343,11 +343,6 @@ static void update_header_func(MessagePart *part,
 	if (part != NULL && part->parent != NULL)
 		return;
 
-	if (ctx->header_func != NULL) {
-		ctx->header_func(part, name, name_len,
-				 value, value_len, ctx->context);
-	}
-
 	if (name_len == 4 && strncasecmp(name, "Date", 4) == 0) {
 		/* date is stored into index record itself */
 		str = field_get_value(value, value_len);
@@ -375,6 +370,12 @@ static void update_header_func(MessagePart *part,
 					   &ctx->envelope,
 					   t_strndup(name, name_len),
 					   value, value_len);
+	}
+
+	/* keep this last, it may break the parameter data by moving mmaping */
+	if (ctx->header_func != NULL) {
+		ctx->header_func(part, name, name_len,
+				 value, value_len, ctx->context);
 	}
 }
 

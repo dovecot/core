@@ -254,7 +254,7 @@ static void header_func(MessagePart *part __attr_unused__,
 			ctx->ximapbase_found = TRUE;
 			(void)mbox_write_ximapbase(ctx);
 		}
-	} else {
+	} else if (name_len > 0) {
 		/* save this header */
 		(void)io_buffer_send(ctx->outbuf, name, name_len);
 		(void)io_buffer_send(ctx->outbuf, ": ", 2);

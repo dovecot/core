@@ -406,7 +406,7 @@ static void search_header(MessagePart *part __attr_unused__,
 {
 	SearchHeaderContext *ctx = context;
 
-	if (ctx->custom_header ||
+	if ((name_len > 0 && ctx->custom_header) ||
 	    (name_len == 4 && strncasecmp(name, "From", 4) == 0) ||
 	    (name_len == 2 && strncasecmp(name, "To", 2) == 0) ||
 	    (name_len == 2 && strncasecmp(name, "Cc", 2) == 0) ||
