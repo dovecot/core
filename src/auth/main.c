@@ -72,11 +72,13 @@ static void main_init(void)
 	auth_init();
 	cookies_init();
 	login_connections_init();
-	master_init();
 	userinfo_init();
 
 	io_listen = io_add_priority(LOGIN_LISTEN_FD, IO_PRIORITY_LOW,
 				    IO_READ, auth_accept, NULL);
+
+	/* initialize master last - it sends the "we're ok" notification */
+	master_init();
 }
 
 static void main_deinit(void)

@@ -77,6 +77,10 @@ void master_init(void)
 				      MAX_OUTBUF_SIZE, IO_PRIORITY_DEFAULT,
 				      FALSE);
 	io_master = io_add(MASTER_SOCKET_FD, IO_READ, master_input, NULL);
+
+	/* just a note to master that we're ok. if we die before,
+	   master should shutdown itself. */
+	o_stream_send(output, "O", 1);
 }
 
 void master_deinit(void)

@@ -24,6 +24,7 @@ struct login_process {
 	int fd;
 	struct io *io;
 	struct ostream *output;
+	unsigned int initialized:1;
 	unsigned int listening:1;
 	unsigned int destroyed:1;
 };
@@ -131,9 +132,14 @@ static void login_process_input(void *context, int fd __attr_unused__,
 	}
 
 	if (client_fd == -1) {
-		/* just a notification that the login process isn't
-		   listening for new connections anymore */
-		login_process_mark_nonlistening(p);
+		/* just a notification that the login process */
+		if (!p->initialized) {
+			/* initialization notify */
+			p->initialized = TRUE;;
+		} else {
+			/* not listening for new connections anymore */
+			login_process_mark_nonlistening(p);
+		}
 		return;
 	}
 
@@ -210,6 +216,8 @@ static void login_process_destroy(struct login_process *p)
 		return;
 	p->destroyed = TRUE;
 
+	if (!p->initialized)
+		i_fatal("Login process died too early - shutting down");
 	if (p->listening)
 		listening_processes--;
 

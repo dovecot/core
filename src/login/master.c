@@ -151,6 +151,10 @@ void master_init(void)
 
         master_pos = 0;
 	io_master = io_add(LOGIN_MASTER_SOCKET_FD, IO_READ, master_input, NULL);
+
+	/* just a note to master that we're ok. if we die before,
+	   master should shutdown itself. */
+        master_notify_finished();
 }
 
 void master_deinit(void)

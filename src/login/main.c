@@ -169,7 +169,6 @@ static void main_init(void)
 	main_refcount = 0;
 
 	auth_connection_init();
-	master_init();
 	clients_init();
 
 	io_imap = io_imaps = NULL;
@@ -192,6 +191,9 @@ static void main_init(void)
 		io_imaps = io_add(LOGIN_IMAPS_LISTEN_FD, IO_READ,
 				  login_accept_ssl, NULL);
 	}
+
+	/* initialize master last - it sends the "we're ok" notification */
+	master_init();
 }
 
 static void main_deinit(void)

@@ -29,6 +29,8 @@ struct auth_process {
 	char reply_buf[sizeof(struct auth_cookie_reply_data)];
 
 	struct waiting_request *requests, **next_request;
+
+	unsigned int initialized:1;
 };
 
 struct waiting_request {
@@ -109,6 +111,18 @@ static void auth_process_input(void *context, int fd,
 		return;
 	}
 
+	if (!p->initialized) {
+		if (p->reply_buf[0] != 'O') {
+			i_fatal("Auth process sent invalid initialization "
+				"notification");
+		}
+
+		p->initialized = TRUE;
+
+		ret--;
+		memmove(p->reply_buf, p->reply_buf + 1, ret);
+	}
+
 	p->reply_pos += ret;
 	if (p->reply_pos < sizeof(p->reply_buf))
 		return;
@@ -145,6 +159,9 @@ static void auth_process_destroy(struct auth_process *p)
 {
 	struct auth_process **pos;
 	struct waiting_request *next;
+
+	if (!p->initialized)
+		i_fatal("Auth process died too early - shutting down");
 
 	for (pos = &processes; *pos != NULL; pos = &(*pos)->next) {
 		if (*pos == p) {
