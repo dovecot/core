@@ -126,6 +126,7 @@ AC_ARG_WITH(ssldir,
 	ssldir="$withval",
 	ssldir=/etc/ssl
 )
+AC_SUBST(ssldir)
 
 dnl * gcc specific options
 if test "x$ac_cv_prog_gcc" = "xyes"; then
