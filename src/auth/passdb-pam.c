@@ -168,7 +168,7 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 
 static int pam_auth(pam_handle_t *pamh, const char *user, const char **error)
 {
-	char *item;
+	void *item;
 	int status;
 
 	*error = NULL;
