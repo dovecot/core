@@ -52,7 +52,6 @@ struct _MailHash {
 
 	MailHashHeader *header;
 	unsigned int anon_mmap:1;
-	unsigned int dirty_mmap:1;
 	unsigned int modified:1;
 };
 
@@ -94,9 +93,10 @@ static int mmap_update_real(MailHash *hash)
 			hash_set_syscall_error(hash, "munmap()");
 	}
 
+	hash->header = NULL;
+
 	hash->mmap_base = mmap_rw_file(hash->fd, &hash->mmap_length);
 	if (hash->mmap_base == MAP_FAILED) {
-		hash->mmap_base = NULL;
 		hash->header = NULL;
 		hash_set_syscall_error(hash, "mmap()");
 		return FALSE;
@@ -112,26 +112,23 @@ static int hash_verify_header(MailHash *hash)
 	    sizeof(MailHashRecord) != 0) {
 		/* hash must be corrupted, rebuilding should have noticed
 		   if it was only partially written. */
-		hash->header = NULL;
 		index_set_error(hash->index, "Corrupted hash file %s: "
 				"Invalid file size %"PRIuSIZE_T"",
 				hash->filepath, hash->mmap_length);
 		return FALSE;
 	}
 
-	hash->header = hash->mmap_base;
 	hash->size = (hash->mmap_length - sizeof(MailHashHeader)) /
 		sizeof(MailHashRecord);
 
 	if (hash->size < MIN_HASH_SIZE || hash->size > MAX_HASH_SIZE) {
 		/* invalid size, probably corrupted. */
-		hash->header = NULL;
 		index_set_error(hash->index, "Corrupted hash file %s: "
 				"Invalid size %u", hash->filepath, hash->size);
 		return FALSE;
 	}
 
-	hash->dirty_mmap = FALSE;
+	hash->header = hash->mmap_base;
 	return TRUE;
 }
 
@@ -462,7 +459,7 @@ int mail_hash_rebuild(MailHash *hash)
 	hash->anon_mmap = fd == -1;
 
 	if (fd != -1) {
-		if (!mmap_update_real(hash))
+		if (!mmap_update_real(hash) || !hash_verify_header(hash))
 			return FALSE;
 	}
 

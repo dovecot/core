@@ -185,6 +185,7 @@ static int index_open_and_fix(MailIndex *index, int update_recent)
 		/* index is corrupted, rebuild */
 		if (!index->rebuild(index))
 			return FALSE;
+		hdr = index->header;
 
 		/* no inconsistency problems while still opening
 		   the index */
