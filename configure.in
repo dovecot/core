@@ -114,25 +114,44 @@ AC_DEFINE_UNQUOTED(_FILE_OFFSET_BITS, $preferred_off_t_bits)
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
 AC_CHECK_SIZEOF(long long)
-AC_CHECK_SIZEOF(ssize_t)
+
+dnl * older autoconfs don't include sys/types.h, so do it manually
+AC_MSG_CHECKING([size of ssize_t])
+AC_TRY_RUN([
+  #include <stdio.h>
+  #include <sys/types.h>
+  int main() {
+    FILE *f=fopen("conftestval", "w");
+    if (!f) exit(1);
+    fprintf(f, "%d\n", sizeof(ssize_t));
+    exit(0);
+  }
+], [
+  sizeof_ssize_t=`cat conftestval`
+  rm -f conftestval
+], [
+  sizeof_ssize_t=0
+  AC_ERROR([Unsupported ssize_t size])
+])
+AC_MSG_RESULT($sizeof_off_t)
 
 AC_MSG_CHECKING([size of off_t])
-sizeof_off_t=0
-for size in 4 8; do
-  AC_TRY_RUN([
-    #define _FILE_OFFSET_BITS $preferred_off_t_bits
-    #include <sys/types.h>
-    #include <unistd.h>
-    int main() { off_t size; return sizeof(size) == $size ? 0 : 1; }
-  ], [
-    sizeof_off_t=$size
-    break
-  ])
-done
-
-if test x$sizeof_off_t = x0; then
+AC_TRY_RUN([
+  #include <stdio.h>
+  #include <sys/types.h>
+  int main() {
+    FILE *f=fopen("conftestval", "w");
+    if (!f) exit(1);
+    fprintf(f, "%d\n", sizeof(off_t));
+    exit(0);
+  }
+], [
+  sizeof_off_t=`cat conftestval`
+  rm -f conftestval
+], [
+  sizeof_off_t=0
   AC_ERROR([Unsupported off_t size])
-fi
+])
 AC_MSG_RESULT($sizeof_off_t)
 
 if test x$sizeof_off_t = x$ac_cv_sizeof_long; then
@@ -154,10 +173,10 @@ else
   AC_ERROR([Couldn't find integer type for off_t])
 fi
 
-if test x$ac_cv_sizeof_ssize_t = x$ac_cv_sizeof_int; then
+if test x$sizeof_ssize_t = x$ac_cv_sizeof_int; then
   AC_DEFINE_UNQUOTED(SSIZE_T_MAX, INT_MAX)
   AC_DEFINE_UNQUOTED(PRIuSIZE_T, "u")
-elif test x$ac_cv_sizeof_ssize_t = x$ac_cv_sizeof_long_long; then
+elif test x$sizeof_ssize_t = x$ac_cv_sizeof_long_long; then
   AC_DEFINE_UNQUOTED(SSIZE_T_MAX, LLONG_MAX)
   AC_DEFINE_UNQUOTED(PRIuSIZE_T, "llu")
 else
