@@ -132,9 +132,10 @@ int mail_index_sync_file(MailIndex *index)
 	}
 
 	failed = FALSE;
-	if (!mail_hash_sync_file(index->hash))
+	if (index->hash != NULL && !mail_hash_sync_file(index->hash))
 		failed = TRUE;
-	if (!mail_modifylog_sync_file(index->modifylog))
+	if (index->modifylog != NULL &&
+	    !mail_modifylog_sync_file(index->modifylog))
 		failed = TRUE;
 
 	/* keep index's modify stamp same as the sync file's stamp */
@@ -1310,7 +1311,7 @@ int mail_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 			    int external_change)
 {
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
-	i_assert(seq != 0);
+	i_assert(seq != 0 || !external_change);
 
 	if (flags == rec->msg_flags)
 		return TRUE; /* no changes */

@@ -160,9 +160,6 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	inbuf->size = old_size;
 	io_buffer_seek(inbuf, stop_offset);
 
-	/* save message flags */
-	rec->msg_flags |= ctx.flags;
-
 	/* save MD5 */
 	md5_final(&ctx.md5, md5_digest);
 	index->update_field(update, FIELD_TYPE_MD5,
@@ -173,6 +170,10 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 		(void)index->expunge(index, rec, 0, FALSE);
 		return FALSE;
 	}
+
+	/* save message flags, after location field is saved */
+	if (!index->update_flags(index, rec, 0, ctx.flags, FALSE))
+		return FALSE;
 
 	return TRUE;
 }
