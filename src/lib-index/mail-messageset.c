@@ -274,7 +274,7 @@ int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 	MailIndexRecord *rec;
 	const char *input;
 	unsigned int uid, uid2;
-	int ret, all_found;
+	int ret;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
@@ -284,7 +284,6 @@ int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 		return 1;
 	}
 
-	all_found = TRUE;
 	input = uidset;
 	while (*input != '\0') {
 		if (*input == '*') {
@@ -336,10 +335,8 @@ int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 						     func, context, error);
 			if (ret <= 0)
 				return ret;
-			if (ret == 2)
-				all_found = FALSE;
 		}
 	}
 
-	return all_found ? 1 : 2;
+	return 1;
 }
