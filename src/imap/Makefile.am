@@ -22,7 +22,7 @@ imap_LDADD = \
 	../lib-mail/libmail.a \
 	../lib-charset/libcharset.a \
 	../lib/liblib.a \
-	$(LTLIBICONV)
+	$(LIBICONV)
 
 cmds = \
 	cmd-append.c \
