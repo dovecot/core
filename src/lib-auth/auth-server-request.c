@@ -207,7 +207,7 @@ int auth_client_input_fail(struct auth_server_connection *conn,
 
 	list = t_strsplit(args, "\t");
 	if (list[0] == NULL) {
-		i_error("BUG: Authentication server sent broken OK line");
+		i_error("BUG: Authentication server sent broken FAIL line");
 		return FALSE;
 	}
 
