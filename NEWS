@@ -1,3 +1,10 @@
+v0.99.7 2003-01-14  Timo Sirainen <tss@iki.fi>
+
+	+ Rewrote doc/index.txt, small updates to doc/design.txt and
+	  doc/multiaccess.txt
+	- New hash table code was broken with removing, which broke several
+	  things. Fixed, but it's still a bit ugly code though..
+
 v0.99.6 2003-01-13  Timo Sirainen <tss@iki.fi>
 
 	+ THREAD=REFERENCES extension support. ORDEREDSUBJECT would be easy to

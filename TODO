@@ -217,7 +217,6 @@ general:
  - rfc2557 support for BODYSTRUCTURE, as specified by latest IMAP4rev1 draft
 
  - create indexer binary
- - update docs/index.txt
  - support Maildir++ quota
  - maybe give more untagged NO/ALERT replies? like when mailbox is in
    inconsistent state. and when UIDs are reordered because they're too large.
