@@ -26,65 +26,25 @@ struct mailbox_list_context {
 	struct mailbox_list *(*next)(struct mailbox_list_context *ctx);
 
 	struct mailbox_list list;
-	int found_inbox, failed;
+	int failed;
 };
 
 static struct mailbox_list *maildir_list_subs(struct mailbox_list_context *ctx);
 static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx);
 
-static enum mailbox_flags
-maildir_get_marked_flags_from(const char *dir, time_t index_stamp)
+static enum mailbox_flags maildir_get_marked_flags(const char *dir)
 {
-	struct stat st;
-	char path[PATH_MAX];
-	time_t cur_stamp;
+	struct stat st_new, st_cur;
 
-	if (str_path(path, sizeof(path), dir, "cur") < 0 ||
-	    stat(path, &st) < 0) {
-		/* no cur/ directory - broken */
-		return 0;
-	}
+	/* assume changes if new/ has been modified later than cur/ */
+	if (stat(t_strconcat(dir, "/new", NULL), &st_new) < 0)
+		return MAILBOX_UNMARKED;
 
-	cur_stamp = st.st_mtime;
-	if (cur_stamp != index_stamp) {
-		/* changes in cur directory */
-		return MAILBOX_MARKED;
-	}
+	if (stat(t_strconcat(dir, "/cur", NULL), &st_cur) < 0)
+		return MAILBOX_UNMARKED;
 
-	if (str_path(path, sizeof(path), dir, "new") < 0 ||
-	    stat(path, &st) < 0) {
-		/* no new/ directory - broken */
-		return 0;
-	}
-
-	return st.st_mtime <= cur_stamp ? MAILBOX_UNMARKED : MAILBOX_MARKED;
-}
-
-static enum mailbox_flags
-maildir_get_marked_flags(struct mail_storage *storage, const char *dir)
-{
-	const char *path;
-	struct stat st;
-
-	hostpid_init();
-
-	/* first try to use .imap.index-hostname */
-	path = t_strconcat(dir, "/" INDEX_FILE_PREFIX "-", my_hostname, NULL);
-	if (stat(path, &st) == -1 && errno == ENOENT) {
-		/* fallback to .imap.index */
-		path = t_strconcat(dir, "/" INDEX_FILE_PREFIX, NULL);
-	}
-
-	if (stat(path, &st) == -1) {
-		/* error, or index simply isn't created yet */
-		if (errno != ENOENT) {
-			mail_storage_set_critical(storage,
-						  "stat(%s) failed: %m", path);
-		}
-		return 0;
-	}
-
-	return maildir_get_marked_flags_from(dir, st.st_mtime);
+	return st_new.st_mtime <= st_cur.st_mtime ?
+		MAILBOX_UNMARKED : MAILBOX_MARKED;
 }
 
 struct mailbox_list_context *
@@ -206,7 +166,7 @@ static struct mailbox_list *maildir_list_subs(struct mailbox_list_context *ctx)
 	t_push();
 	path = maildir_get_path(ctx->storage, ctx->list.name);
 	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
-		ctx->list.flags = maildir_get_marked_flags(ctx->storage, path);
+		ctx->list.flags = maildir_get_marked_flags(path);
 	else {
 		if (strcasecmp(ctx->list.name, "INBOX") == 0)
 			ctx->list.flags = 0;
@@ -274,19 +234,12 @@ static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx)
 			continue;
 		}
 
-		if (strcasecmp(fname+1, "INBOX") == 0) {
-			if (ctx->found_inbox) {
-				/* another inbox, ignore it */
-				continue;
-			}
-			ctx->found_inbox = TRUE;
-		}
+		if (strcasecmp(fname+1, "INBOX") == 0)
+			continue; /* ignore inboxes */
 
 		p_clear(ctx->list_pool);
-		if ((ctx->flags & MAILBOX_LIST_NO_FLAGS) == 0) {
-			ctx->list.flags =
-				maildir_get_marked_flags(ctx->storage, path);
-		}
+		if ((ctx->flags & MAILBOX_LIST_NO_FLAGS) == 0)
+			ctx->list.flags = maildir_get_marked_flags(path);
 		ctx->list.name = p_strconcat(ctx->list_pool,
 					     ctx->prefix, fname+1, NULL);
 		return &ctx->list;
@@ -299,9 +252,10 @@ static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx)
 	}
 	ctx->dirp = NULL;
 
-	if (!ctx->found_inbox && imap_match(ctx->glob, "INBOX") > 0) {
-		/* .INBOX directory doesn't exist yet, but INBOX still exists */
-		ctx->list.flags = 0;
+	if (imap_match(ctx->glob, "INBOX") > 0) {
+		const char *path = maildir_get_path(ctx->storage, "INBOX");
+
+		ctx->list.flags = maildir_get_marked_flags(path);
 		ctx->list.name = "INBOX";
 		return &ctx->list;
 	}
