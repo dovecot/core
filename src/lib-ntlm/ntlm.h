@@ -26,10 +26,11 @@ static inline unsigned int __ntlmssp_buffer_length(struct ntlmssp_buffer *buffer
 	return read_le16(&buffer->length);
 }
 
-#define ntlmssp_t_str(message, buffer) \
-	__ntlmssp_t_str((message), &message->buffer)
+#define ntlmssp_t_str(message, buffer, unicode) \
+	__ntlmssp_t_str((message), &(message)->buffer, (unicode))
 
 const char * __ntlmssp_t_str(const void *message,
-			     struct ntlmssp_buffer *buffer);
+			     struct ntlmssp_buffer *buffer,
+			     int unicode);
 
 #endif

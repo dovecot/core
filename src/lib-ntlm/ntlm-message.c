@@ -21,42 +21,52 @@
 #include <stdarg.h>
 #include <ctype.h>
 
-const char * __ntlmssp_t_str(const void *message, struct ntlmssp_buffer *buffer)
+const char * __ntlmssp_t_str(const void *message, struct ntlmssp_buffer *buffer,
+			     int unicode)
 {
-	unsigned int len = read_le16(&buffer->length) / sizeof(ucs2le_t);
-	string_t *str = t_str_new(len / 2);
+	unsigned int len = read_le16(&buffer->length);
 	const char *p = ((char *) message) + read_le32(&buffer->offset);
+	string_t *str;
+
+	if (unicode)
+		len /= sizeof(ucs2le_t);
+
+	str = t_str_new(len);
 
 	while (len-- > 0) {
 		str_append_c(str, *p & 0x7f);
-		p += sizeof(ucs2le_t);
+		p += unicode ? sizeof(ucs2le_t) : 1;
 	}
 
 	return str_c(str);
 }
 
-static unsigned int append_string(buffer_t *buf, const char *str, int ucase)
+static unsigned int append_string(buffer_t *buf, const char *str, 
+				  int ucase, int unicode)
 {
 	unsigned int length = 0;
 
 	for ( ; *str; str++) {
 		buffer_append_c(buf, ucase ? toupper(*str) : *str);
-		buffer_append_c(buf, 0);
-		length += sizeof(ucs2le_t);
+		if (unicode) {
+			buffer_append_c(buf, 0);
+			length++; 
+		}
+		length++;
 	}
 
 	return length;
 }
 
 static void ntlmssp_append_string(buffer_t *buf, size_t buffer_offset,
-				  const char *str)
+				  const char *str, int unicode)
 {
 	struct ntlmssp_buffer buffer;
 	unsigned int length;
 
 	write_le32(&buffer.offset, buffer_get_used_size(buf));
 
-	length = append_string(buf, str, 0);
+	length = append_string(buf, str, FALSE, unicode);
 
 	write_le16(&buffer.length, length);
 	write_le16(&buffer.space, length);
@@ -95,7 +105,8 @@ static void ntlmssp_append_target_info(buffer_t *buf, size_t buffer_offset, ...)
 				write_le16(&info.length,
 					   strlen(data) * sizeof(ucs2le_t));
 				buffer_append(buf, &info, sizeof(info));
-				length = append_string(buf, data, 0);
+				length = append_string(buf, data, FALSE, TRUE) +
+					 sizeof(info);
 				break;
 			default:
 				i_panic("Invalid NTLM target info block type "
@@ -115,9 +126,13 @@ static void ntlmssp_append_target_info(buffer_t *buf, size_t buffer_offset, ...)
 
 static inline uint32_t ntlmssp_flags(uint32_t client_flags)
 {
-	uint32_t flags = NTLMSSP_NEGOTIATE_UNICODE |
-			 NTLMSSP_NEGOTIATE_NTLM |
+	uint32_t flags = NTLMSSP_NEGOTIATE_NTLM |
 			 NTLMSSP_NEGOTIATE_TARGET_INFO;
+
+	if (client_flags & NTLMSSP_NEGOTIATE_UNICODE)
+		flags |= NTLMSSP_NEGOTIATE_UNICODE;
+	else
+		flags |= NTLMSSP_NEGOTIATE_OEM;
 
 	if (client_flags & NTLMSSP_NEGOTIATE_NTLM2)
 		flags |= NTLMSSP_NEGOTIATE_NTLM2;
@@ -134,6 +149,7 @@ ntlmssp_create_challenge(pool_t pool, const struct ntlmssp_request *request,
 {
 	buffer_t *buf;
 	uint32_t flags = ntlmssp_flags(read_le32(&request->flags));
+	int unicode = flags & NTLMSSP_NEGOTIATE_UNICODE;
 	struct ntlmssp_challenge c;
 
 	buf = buffer_create_dynamic(pool, sizeof(struct ntlmssp_challenge));
@@ -149,7 +165,7 @@ ntlmssp_create_challenge(pool_t pool, const struct ntlmssp_request *request,
 	if (flags & NTLMSSP_TARGET_TYPE_SERVER)
 		ntlmssp_append_string(buf,
 			offsetof(struct ntlmssp_challenge, target_name),
-			my_hostname);
+			my_hostname, unicode);
 
 	ntlmssp_append_target_info(buf, offsetof(struct ntlmssp_challenge,
 						 target_info),
@@ -199,11 +215,6 @@ int ntlmssp_check_request(const struct ntlmssp_request *request,
 	}
 
 	flags = read_le32(&request->flags);
-
-	if ((flags & NTLMSSP_NEGOTIATE_UNICODE) == 0) {
-		*error = "client doesn't advertise Unicode support";
-		return 0;
-	}
 
 	if ((flags & NTLMSSP_NEGOTIATE_NTLM) == 0) {
 		*error = "client doesn't advertise NTLM support";

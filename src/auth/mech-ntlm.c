@@ -26,6 +26,7 @@ struct ntlm_auth_request {
 
 	/* requested: */
 	int ntlm2_negotiated;
+	int unicode_negotiated;
 	const unsigned char *challenge;
 
 	/* received: */
@@ -141,6 +142,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 			(struct ntlmssp_request *)data;
 		const struct ntlmssp_challenge *message;
 		size_t message_size;
+		uint32_t flags;
 
 		if (!ntlmssp_check_request(ntlm_request, data_size, &error)) {
 			if (verbose) {
@@ -154,8 +156,9 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 
 		message = ntlmssp_create_challenge(request->pool, ntlm_request,
 						   &message_size);
-		request->ntlm2_negotiated =
-			read_le32(&message->flags) & NTLMSSP_NEGOTIATE_NTLM2;
+		flags = read_le32(&message->flags);
+		request->ntlm2_negotiated = flags & NTLMSSP_NEGOTIATE_NTLM2;
+		request->unicode_negotiated = flags & NTLMSSP_NEGOTIATE_UNICODE;
 		request->challenge = message->challenge;
 
 		auth_request->callback(auth_request,
@@ -180,7 +183,8 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 		memcpy(request->response, response, data_size);
 
 		username = p_strdup(auth_request->pool,
-				    ntlmssp_t_str(request->response, user));
+				    ntlmssp_t_str(request->response, user, 
+				    request->unicode_negotiated));
 
 		if (!mech_fix_username(username, &error)) {
 			if (verbose) {
