@@ -64,10 +64,9 @@ static int init_mailbox(struct client *client)
 	memset(&search_arg, 0, sizeof(search_arg));
 	search_arg.type = SEARCH_ALL;
 
-	t = mailbox_transaction_begin(client->mailbox, FALSE);
-
 	client->message_sizes = i_new(uoff_t, client->messages_count);
 	for (i = 0; i < 2; i++) {
+		t = mailbox_transaction_begin(client->mailbox, FALSE);
 		ctx = mailbox_search_init(t, NULL, &search_arg, NULL,
 					  MAIL_FETCH_SIZE, NULL);
 		if (ctx == NULL) {
@@ -104,6 +103,7 @@ static int init_mailbox(struct client *client)
 		}
 
 		/* well, sync and try again */
+		mailbox_transaction_rollback(t);
 		if (mailbox_sync(client->mailbox, 0) < 0) {
 			client_send_storage_error(client);
                         mailbox_transaction_rollback(t);
