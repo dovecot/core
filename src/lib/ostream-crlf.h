@@ -3,7 +3,7 @@
 
 /* Replace all plain LFs with CRLF. */
 struct ostream *o_stream_create_crlf(pool_t pool, struct ostream *output);
-/* Remove all CRs. */
+/* Replace all CRLF pairs with plain LFs. */
 struct ostream *o_stream_create_lf(pool_t pool, struct ostream *output);
 
 #endif

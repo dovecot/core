@@ -1,5 +1,8 @@
 /* Copyright (c) 2004 Timo Sirainen */
 
+/* The code is quite ugly because we want the send functions to return correcly
+   the number of input bytes consumed, not number of bytes actually sent. */
+
 #include "lib.h"
 #include "buffer.h"
 #include "istream.h"
@@ -14,6 +17,8 @@ struct crlf_ostream {
         struct ostream *output;
 	int last_cr;
 };
+
+static const struct const_iovec cr_iov = { "\r", 1 };
 
 static void _close(struct _iostream *stream)
 {
@@ -71,8 +76,9 @@ static int _seek(struct _ostream *stream, uoff_t offset)
 	return ret;
 }
 
-static ssize_t sendv_crlf(struct crlf_ostream *cstream,
-			  const struct const_iovec *iov, size_t iov_count)
+static ssize_t
+sendv_crlf(struct crlf_ostream *cstream, const struct const_iovec *iov,
+	   size_t iov_count, const char *diff, ssize_t *total_r)
 {
 	ssize_t ret;
 	size_t pos;
@@ -81,11 +87,18 @@ static ssize_t sendv_crlf(struct crlf_ostream *cstream,
 	if (ret > 0) {
 		pos = (size_t)ret - 1;
 		while (pos >= iov->iov_len) {
+			*total_r += iov->iov_len + *diff;
 			pos -= iov->iov_len;
 			iov++;
+			diff++;
 		}
 
 		cstream->last_cr = *((const char *)iov->iov_base + pos) == '\r';
+
+		if (pos + 1 == iov->iov_len)
+			*total_r += iov->iov_len + *diff;
+		else
+			*total_r += pos;
 	}
 	cstream->ostream.ostream.offset = cstream->output->offset;
 	return ret;
@@ -95,21 +108,23 @@ static ssize_t
 _sendv_crlf(struct _ostream *stream, const struct const_iovec *iov,
 	    size_t iov_count)
 {
-	static const struct const_iovec cr_iov = { "\r", 1 };
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
-	buffer_t *buf;
+	buffer_t *iov_buf, *diff_buf;
 	const unsigned char *data;
 	struct const_iovec new_iov;
 	size_t vec, i, len, start, new_iov_count = 0, new_iov_size = 0;
-	ssize_t ret;
+	ssize_t ret, total;
 	int last_cr;
 
 	last_cr = cstream->last_cr;
 
 	t_push();
-	buf = buffer_create_dynamic(unsafe_data_stack_pool,
-				    sizeof(struct const_iovec *) * IOVBUF_COUNT,
-				    (size_t)-1);
+	iov_buf = buffer_create_dynamic(unsafe_data_stack_pool,
+					sizeof(struct const_iovec *) *
+					IOVBUF_COUNT, (size_t)-1);
+	diff_buf = buffer_create_dynamic(unsafe_data_stack_pool,
+					 IOVBUF_COUNT, (size_t)-1);
+	total = 0;
 	for (vec = 0; vec < iov_count; vec++) {
 		data = iov[vec].iov_base;
 		len = iov[vec].iov_len;
@@ -134,27 +149,32 @@ _sendv_crlf(struct _ostream *stream, const struct const_iovec *iov,
 				new_iov.iov_base = data + start;
 				new_iov.iov_len = i - start;
 
-				buffer_append(buf, &new_iov, sizeof(new_iov));
+				buffer_append(iov_buf, &new_iov,
+					      sizeof(new_iov));
+				buffer_append_c(diff_buf, 0);
 				new_iov_count++;
 				new_iov_size += new_iov.iov_len;
 			}
 			start = i;
 
 			if (i != len) {
-				buffer_append(buf, &cr_iov, sizeof(cr_iov));
+				buffer_append(iov_buf, &cr_iov, sizeof(cr_iov));
+				buffer_append_c(diff_buf, -1);
 				new_iov_count++;
 				new_iov_size++;
 			}
 
 			if (new_iov_count >= IOVBUF_COUNT-1) {
-				ret = sendv_crlf(cstream, buf->data,
-						 new_iov_count);
+				ret = sendv_crlf(cstream, iov_buf->data,
+						 new_iov_count, diff_buf->data,
+						 &total);
 				if (ret != (ssize_t)new_iov_size) {
 					t_pop();
-					return ret;
+					return ret < 0 ? ret : total;
 				}
 
-				buffer_set_used_size(buf, 0);
+				buffer_set_used_size(iov_buf, 0);
+				buffer_set_used_size(diff_buf, 0);
 				new_iov_count = 0;
 				new_iov_size = 0;
 			}
@@ -167,8 +187,31 @@ _sendv_crlf(struct _ostream *stream, const struct const_iovec *iov,
 			last_cr = data[len-1] == '\r';
 	}
 
-	ret = sendv_crlf(cstream, buf->data, new_iov_count);
+	ret = sendv_crlf(cstream, iov_buf->data, new_iov_count,
+			 diff_buf->data, &total);
 	t_pop();
+	return ret < 0 ? ret : total;
+}
+
+static ssize_t
+sendv_lf(struct crlf_ostream *cstream, const struct const_iovec *iov,
+	 size_t iov_count, const char *diff, ssize_t *total_r)
+{
+	ssize_t ret;
+	size_t left;
+
+	ret = o_stream_sendv(cstream->output, iov, iov_count);
+	if (ret >= 0) {
+		left = (size_t)ret;
+		while (left >= iov->iov_len) {
+			*total_r += iov->iov_len + *diff;
+			left -= iov->iov_len;
+			iov++;
+			diff++;
+		}
+		*total_r += left;
+	}
+	cstream->ostream.ostream.offset = cstream->output->offset;
 	return ret;
 }
 
@@ -177,45 +220,80 @@ _sendv_lf(struct _ostream *stream, const struct const_iovec *iov,
 	  size_t iov_count)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
-	buffer_t *buf;
+	buffer_t *iov_buf, *diff_buf;
 	const unsigned char *data;
 	struct const_iovec new_iov;
-	size_t vec, i, len, start, new_iov_count = 0, new_iov_size = 0;
-	ssize_t ret;
+	size_t vec, i, len, start, next, new_iov_count = 0, new_iov_size = 0;
+	ssize_t ret, total;
+	int diff;
 
 	t_push();
-	buf = buffer_create_dynamic(unsafe_data_stack_pool,
-				    sizeof(struct const_iovec *) * IOVBUF_COUNT,
-				    (size_t)-1);
+	iov_buf = buffer_create_dynamic(unsafe_data_stack_pool,
+					sizeof(struct const_iovec *) *
+					IOVBUF_COUNT, (size_t)-1);
+	diff_buf = buffer_create_dynamic(unsafe_data_stack_pool,
+					 IOVBUF_COUNT, (size_t)-1);
+	total = 0;
 	for (vec = 0; vec < iov_count; vec++) {
 		data = iov[vec].iov_base;
 		len = iov[vec].iov_len;
 
 		for (i = start = 0;; i++) {
-			if (i != len && data[i] != '\r')
-				continue;
-
-			if (i != start) {
-				new_iov.iov_base = data + start;
-				new_iov.iov_len = i - start;
-
-				buffer_append(buf, &new_iov, sizeof(new_iov));
-				new_iov_count++;
-				new_iov_size += new_iov.iov_len;
+			if (i != len) {
+				if (data[i] != '\n' || i == 0 ||
+				    data[i-1] != '\r')
+					continue;
 			}
-			start = i+1;
+
+			if (start == 0 && i > 0 && data[0] != '\n' &&
+			    cstream->last_cr) {
+				/* bare CR, keep it */
+				buffer_append(iov_buf, &cr_iov, sizeof(cr_iov));
+				buffer_append_c(diff_buf, -1);
+				new_iov_count++;
+				new_iov_size++;
+			}
+
+			next = i;
+			if (i != len) {
+				/* skipping an CR */
+				i--;
+				cstream->last_cr = FALSE;
+				diff = 1;
+			} else if (i != start && data[i-1] == '\r') {
+				/* data ends with CR, don't add it yet */
+				i--;
+				cstream->last_cr = TRUE;
+				diff = 1;
+			} else {
+				/* data doesn't end with CR */
+				cstream->last_cr = FALSE;
+				diff = 0;
+			}
+
+			new_iov.iov_base = data + start;
+			new_iov.iov_len = i - start;
+
+			buffer_append(iov_buf, &new_iov, sizeof(new_iov));
+			buffer_append_c(diff_buf, diff);
+			new_iov_count++;
+			new_iov_size += new_iov.iov_len;
+
+			start = i = next;
 
 			if (new_iov_count == IOVBUF_COUNT) {
-				ret = o_stream_sendv(cstream->output,
-						     buf->data, new_iov_count);
+				ret = sendv_lf(cstream, iov_buf->data,
+					       new_iov_count, diff_buf->data,
+					       &total);
 				stream->ostream.offset =
 					cstream->output->offset;
 				if (ret != (ssize_t)new_iov_size) {
 					t_pop();
-					return ret;
+					return ret < 0 ? ret : total;
 				}
 
-				buffer_set_used_size(buf, 0);
+				buffer_set_used_size(iov_buf, 0);
+				buffer_set_used_size(diff_buf, 0);
 				new_iov_count = 0;
 				new_iov_size = 0;
 			}
@@ -225,11 +303,18 @@ _sendv_lf(struct _ostream *stream, const struct const_iovec *iov,
 		}
 	}
 
-	ret = o_stream_sendv(cstream->output, buf->data, new_iov_count);
+	if (new_iov_count == 0) {
+		/* Tried to send only CR. */
+		ret = 0;
+		total++;
+	} else {
+		ret = sendv_lf(cstream, iov_buf->data, new_iov_count,
+			       diff_buf->data, &total);
+	}
 	stream->ostream.offset = cstream->output->offset;
 
 	t_pop();
-	return ret;
+	return ret < 0 ? ret : total;
 }
 
 static off_t
