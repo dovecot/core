@@ -1,25 +1,35 @@
+ - auth: all password checking code should be in one place
+ - update auth.txt about userdb/passdb
+ - fix code so that it works well with --disable-asserts
+
+ - we need permanent storage for UIDs. with mbox use X-UID like UW-IMAP,
+   with maildir a) file:2,flags,Uuid b) file,U=uid:2,flags. uid validity
+   would be in .uidvalidity file. the b-case would require that to be done
+   by the client moving it from new/ to cur/
+
+ - DELETE/RENAME: when someone else had the mailbox open, we should
+   disconnect it (when stat() fails with ENOENT while syncing). Also deleting
+   selected mailbox begins giving internal error messages.
+
+ - .customflags needs nfs-safe locking and it shouldn't be stored with indexes
+
  - bugs
     - maildir: if mail file isn't found, it may be because it was renamed
       (flag changed). we must then sync the directory and see again if the mail
       is found
-    - we may override mbox dotlock file, but then get stuck at fcntl/flock.
-      we should check for those before overriding the mbox lock..
-    - mail-lockdir.c isn't 100% safe.. stale locks are detected by checking
-      that hard link count is 1, then it's unlink()ed. but what if another
-      process did the same unlink() + creat() in the middle of our
-      stat()..unlink()? no easy way to fix this really, just replace it with a
-      fcntl() lock.
-    - SEARCH FROM/TO/CC/BCC now generates the field from ENVELOPE which it
-      uses for matching. This however may give different results than when
-      matching from headers.
+    - mail-lockdir.c is useless and buggy. we can just get exclusive fcntl
+      lock to the index files we want to keep locked.
     - SIGHUP didn't update imap_listen. this is a bit annoying to fix though,
-      since new listen() may fail for a few times because auth processes may
+      since new listen() may fail for a few times because login processes may
       not die immediately..
     - SIGHUP doesn't update log file location.
-    - We can use Linux sendfile() up to 2GB, after that we get EOVERFLOW and
-      fail. We should rather fallback to mmap+write at that point.
     - unlink_directory() is racy with symlink handling, see if that could be
       helped..
+    - CREATE a, CREATE b, save mails into them, DELETE a, RENAME b a.
+      -> breaks if a+b have same UIDVALIDITY. We could update the
+      UIDVALIDITY for the renamed mailbox and all mailboxes under it.
+      Then return with tagged "OK [NEW-UIDVALIDITY 1234] Renamed". Assuming
+      other IMAP people agree to that.
 
  - reliability fixes:
     - if we deleted mail from index but didn't write modify log, other
@@ -43,11 +53,9 @@
  - checks:
    - if we have entries in modifylog with UID 10..11, 9..12, 8..13 etc.
      do they work correctly?
-   - check that search message-id worked properly always
-   - check that search's OR and () work properly
-   - Should SEARCH SENT* apply timezone?
    - make sure SELECT rebuilds index properly when next_uid is near 32bit value
    - make sure connection limits work
+   - check that both header and envelope address writer produce same output
 
  - enhancements:
     - option to disable SORT, SEARCH and other memory/cpu-intensive features.
@@ -91,6 +99,8 @@
       any mails with quota enabled
     - support zlib compressed mbox/maildir? mbox maybe just read-only.
     - THREAD=ORDEREDSUBJECT - although pretty useless I'd think.
+    - sql authentication and mail database support. create some generic lib-sql
+      which both can use
 
  - logging
      - Login: username 1.2.3.4:1025 5.6.7.8:993 imaps,compressed
@@ -111,19 +121,6 @@
        created for it which may contain envelope etc. data
      - this allows circular mailbox hierarchies which should be prevented by
        eg. allowing max. 20 hierarchies.
-
- - allow index files to be in completely separate location than mail data.
-   mails could be read through slow NFS access but indexes from fast local
-   disk. with this thinking it makes more sense to create larger index files
-   to save for example mail headers. also index rebuilding should be very
-   light operation, the indexes would be filled while the data is being
-   accessed by the imap client. of course all this should be optional so
-   we don't slow down when mails and indexes are stored in same disk.
-
- - we need permanent storage for UIDs. with mbox use X-UID like UW-IMAP,
-   with maildir a) file:2,flags,Uuid b) file,U=uid:2,flags. uid validity
-   would be in .uidvalidity file. the b-case would require that to be done
-   by the client moving it from new/ to cur/
 
 index:
  - mbox:
@@ -154,6 +151,10 @@ index:
    "unknown1" "unknown2" etc. flags to .customflags file for each found flag
  - when index is being rebuilt, it always complains about tree/modifylog
    having wrong indexid..
+ - skipping deleted records in .imap.index would be faster if we saved the
+   deleted block size to first/last record, so we could just jump over them.
+ - support storing message headers into indexes. this could be useful when
+   indexes are in local disk but actual mails are accessed through NFS
  - if we wanted to support huge mailboxes with small memory usage, it'd now
    be possible if we just instead of mmap()ing the whole index files would
    have maybe 3-4 256k mmap()ed areas which we move based on the need.
@@ -187,23 +188,11 @@ lib-storage:
        do. like: SEARCH X-PRINT-MATCHES TEXT "hello" -> * SEARCH 1 "He said:
        Hello world!" 2 "Hello, I'm ...". This would be especially useful with
        the above attachment scanning.
- - DELETE/RENAME: when someone else had the mailbox open, we should
-   disconnect it (when stat() fails with ENOENT while syncing). Also deleting
-   selected mailbox begins giving internal error messages.
  - RENAME INBOX isn't atomic with Maildir. And in general, RENAME can't
    move mails between different storages. Maybe support doing also using
    COPY + delete once COPY is atomic?
- - maildir: atomic COPY could be done by having transaction directories.
-   Make a "tra" directory at the same level as cur/new/tmp, and make it
-   have subdirectories in the same way as tmp has temp files. Directory
-   begins with a "." as long as transaction isn't finished, rename()ing
-   it away finishes it. All mails under finished dirs must be moved into
-   new/ directory and the directory removed by any process who notices them.
  - we should probably do some light checking that appended mails actually
    look like valid rfc822 mails..
- - maybe limit the length of custom flags? we don't really have a problem
-   with them, but with mbox a long X-IMAPbase could break something.. Maybe
-   configurable, default to 50 chars?
  - we could send flag changes after all commands by making expunge/flags sync
    counters separate for modify log. flags would need to update the seq
    though, too slow?
@@ -212,10 +201,11 @@ lib-storage:
    0 = filled, 1 = ok.
 
 general:
- - sieve (rfc3028)
+ - sieve (rfc3028), we can use Cyrus Sieve
  - rfc2231 continuation support
  - rfc2557 support for BODYSTRUCTURE, as specified by latest IMAP4rev1 draft
 
+ - lmtp server
  - create indexer binary
  - support Maildir++ quota
  - maybe give more untagged NO/ALERT replies? like when mailbox is in
@@ -225,8 +215,6 @@ general:
 
 auth / login:
  - kchuid, SRP, anonymous SASL
- - PAM: support some options so /etc/passwd-lookup isn't needed. uid=x, gid=y,
-   mailroot=/var/mail. maildirs should be then created when needed
  - Digest-MD5: support integrity protection, and maybe crypting. Do it
    through imap-login like SSL is done?
  - for invalid user/pass, wait for a while before giving a reply to user
@@ -306,13 +294,6 @@ capabilities:
        userid, but clients probably treat it as different userid and
        ask the password again.
      - problems, problems, .. maybe not worth the trouble.
- - literal+ (rfc2088)
-     - simple. in case of invalid data, just disconnect client.
- - idle (rfc2177)
-     - just call the syncing every few seconds (configurable)
-     - with Linux we can use fcntl() and F_SETSIG to provide fast checks.
-       just make sure sync() still won't be called more than once in a
-       few seconds
  - uidplus (rfc2359)
      - uid expunge: no problem
      - append, copy: oh no. these would slow down things and make
@@ -321,12 +302,11 @@ capabilities:
        we'd need to know their final UID, we'd have to lock the indexes
        and mbox) fsck() first and append() next to find out the uid,
        maildir) move the mail directly into cur/ and index it.
- - unselect (no draft or anything AFAIK)
-     - like CLOSE, but doesn't expunge mails. easy.
+     - except, the index updating is faster than requiring to sync the
+       changed mailbox. we'll probably create such deliver-binary anyway,
+       so it can't be that difficult to code.
  - drafts:
      - http://www.imc.org/ids.html
-     - multiappend (draft-crispin-imap-multiappend)
-	 - shouldn't have any problems
      - listext (draft-ietf-imapext-list-extensions)
 	 - well, it expired January 2002.. I like it though.
      - children (draft-gahrns-imap-child-mailbox)
@@ -337,6 +317,10 @@ capabilities:
 	   because currently there's no suitable storage for them, and
 	   they'll probably change all the time.. maybe if we moved into
 	   berkeley db to store the .data file and these annotations.
+	 - this is separate problem from index files. indexes are treated as
+	   temporary files, annotations are permanent data. we'd have to
+	   support non-db way to do this too, which would probably be just a
+	   simple (slow) text file.
      - annotatemore (draft-daboo-imap-annotatemore)
 	 - server and per-mailbox annotations. much easier than
 	   per-message annotations, but they'd be easier to place into
