@@ -93,25 +93,13 @@ static int parse_list_flags(struct client *client, struct imap_arg *args,
 
 int _cmd_list_full(struct client *client, int lsub)
 {
+	struct namespace *ns;
 	struct mail_storage *storage;
 	struct imap_arg *args;
         enum mailbox_list_flags list_flags;
 	const char *ref, *mask;
 	char sep_chr, sep[3];
 	int failed, listext;
-
-	/* FIXME: really needs some work.. */
-	storage = client->namespaces->storage;
-
-	sep_chr = storage->hierarchy_sep;
-	if (sep_chr == '"' || sep_chr == '\\') {
-		sep[0] = '\\';
-		sep[1] = sep_chr;
-		sep[2] = '\0';
-	} else {
-		sep[0] = sep_chr;
-		sep[1] = '\0';
-	}
 
 	/* [(<options>)] <reference> <mailbox wildcards> */
 	if (!client_read_args(client, 0, 0, &args))
@@ -138,6 +126,23 @@ int _cmd_list_full(struct client *client, int lsub)
 	if (ref == NULL || mask == NULL) {
 		client_send_command_error(client, "Invalid arguments.");
 		return TRUE;
+	}
+
+	/* FIXME: really needs some work.. */
+	ns = namespace_find(client->namespaces, mask);
+	if (ns != NULL)
+		storage = ns->storage;
+	else
+		storage = client->namespaces->storage;
+
+	sep_chr = storage->hierarchy_sep;
+	if (sep_chr == '"' || sep_chr == '\\') {
+		sep[0] = '\\';
+		sep[1] = sep_chr;
+		sep[2] = '\0';
+	} else {
+		sep[0] = sep_chr;
+		sep[1] = '\0';
 	}
 
 	if (*mask == '\0' && !lsub) {
