@@ -79,13 +79,11 @@ const char *password_get_scheme(const char **password)
 	scheme = t_strdup_until(*password + 1, p);
 	*password = p + 1;
 
-	/* LDAP's RFC2307 specifies the MD5 scheme for what we call PLAIN-MD5,
-	   only base64-encoded rather than hex-encoded.
+	/* LDAP's RFC2307 specifies the MD5 scheme for what we call LDAP-MD5.
 	   We can detect this case - base64 doesn't use '$'. */
 	if (strncasecmp(scheme, "MD5", 3) == 0 &&
-	    strncmp(*password, "$1$", 3) != 0) {
+	    strncmp(*password, "$1$", 3) != 0)
 		scheme = "LDAP-MD5";
-	}
 	return scheme;
 }
 
