@@ -735,7 +735,7 @@ static int mail_modifylog_append(struct modify_log_file *file,
 
 	if (!file->log->cache_have_others) {
 		*rec = NULL;
-		return FALSE;
+		return TRUE;
 	}
 
 	if (file->mmap_used_length == file->mmap_full_length) {
