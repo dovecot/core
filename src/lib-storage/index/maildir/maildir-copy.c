@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "mail-messageset.h"
+#include "index-messageset.h"
 #include "maildir-storage.h"
 
 #include <stdlib.h>

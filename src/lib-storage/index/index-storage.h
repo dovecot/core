@@ -2,7 +2,6 @@
 #define __INDEX_STORAGE_H
 
 #include "mail-storage.h"
-#include "mail-messageset.h"
 #include "mail-index.h"
 #include "imap-message-cache.h"
 #include "flags-file/flags-file.h"
@@ -31,10 +30,6 @@ IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 void index_storage_close(Mailbox *box);
 
 int mail_storage_set_index_error(IndexMailbox *ibox);
-
-int index_messageset_foreach(IndexMailbox *ibox,
-			     const char *messageset, int uidset,
-			     MsgsetForeachFunc func, void *context);
 
 int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
 				   const char *custom_flags[]);

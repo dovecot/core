@@ -5,7 +5,7 @@
 #include "temp-string.h"
 #include "index-storage.h"
 #include "index-fetch.h"
-#include "mail-messageset.h"
+#include "index-messageset.h"
 #include "message-send.h"
 #include "imap-date.h"
 #include "imap-util.h"

@@ -17,7 +17,6 @@ libstorage_index_a_SOURCES = \
         mail-index-update-cache.c \
         mail-index-util.c \
         mail-lockdir.c \
-        mail-messageset.c \
 	mail-modifylog.c
 
 noinst_HEADERS = \
@@ -26,5 +25,4 @@ noinst_HEADERS = \
         mail-index-data.h \
         mail-index-util.h \
         mail-lockdir.h \
-        mail-messageset.h \
 	mail-modifylog.h

@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "iobuffer.h"
 #include "index-storage.h"
-#include "mail-messageset.h"
+#include "index-messageset.h"
 
 #include <unistd.h>
 

@@ -5,7 +5,7 @@
 #include "mail-index-util.h"
 #include "mail-hash.h"
 #include "mail-modifylog.h"
-#include "mail-messageset.h"
+#include "index-messageset.h"
 
 static unsigned int get_next_number(const char **str)
 {
@@ -87,10 +87,11 @@ static int mail_index_foreach(MailIndex *index,
 	return !expunges_found && seq > seq2 ? 1 : 2;
 }
 
-int mail_index_messageset_foreach(MailIndex *index, const char *messageset,
-				  unsigned int messages_count,
-				  MsgsetForeachFunc func, void *context,
-				  const char **error)
+static int mail_index_messageset_foreach(MailIndex *index,
+					 const char *messageset,
+					 unsigned int messages_count,
+					 MsgsetForeachFunc func, void *context,
+					 const char **error)
 {
 	const char *input;
 	unsigned int seq, seq2;
@@ -232,10 +233,10 @@ static int mail_index_uid_foreach(MailIndex *index,
 	return expunges_found ? 2 : 1;
 }
 
-int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
-			      unsigned int messages_count,
-			      MsgsetForeachFunc func, void *context,
-			      const char **error)
+static int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
+				     unsigned int messages_count,
+				     MsgsetForeachFunc func, void *context,
+				     const char **error)
 {
 	MailIndexRecord *rec;
 	const char *input;
@@ -307,4 +308,33 @@ int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 	}
 
 	return all_found ? 1 : 2;
+}
+
+int index_messageset_foreach(IndexMailbox *ibox,
+			     const char *messageset, int uidset,
+			     MsgsetForeachFunc func, void *context)
+{
+	const char *error;
+	int ret;
+
+	if (uidset) {
+		ret = mail_index_uidset_foreach(ibox->index, messageset,
+						ibox->synced_messages_count,
+						func, context, &error);
+	} else {
+		ret = mail_index_messageset_foreach(ibox->index, messageset,
+						    ibox->synced_messages_count,
+						    func, context, &error);
+	}
+
+	if (ret < 0) {
+		if (ret == -2) {
+			/* user error */
+			mail_storage_set_error(ibox->box.storage, "%s", error);
+		} else {
+			mail_storage_set_index_error(ibox);
+		}
+	}
+
+	return ret;
 }
