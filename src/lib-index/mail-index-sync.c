@@ -453,9 +453,9 @@ int mail_index_sync_commit(struct mail_index_sync_ctx *ctx)
 
 	mail_transaction_log_get_head(ctx->index->log, &seq, &offset);
 
-	if (ret == 0) {
-		hdr = ctx->index->hdr;
-
+	hdr = ctx->index->hdr;
+	if (ret == 0 && (hdr->log_file_seq != seq ||
+			 hdr->log_file_offset != offset)) {
 		if (mail_transaction_log_view_set(ctx->view->log_view,
 				hdr->log_file_seq, hdr->log_file_offset,
 				seq, offset, MAIL_TRANSACTION_TYPE_MASK) < 0)
