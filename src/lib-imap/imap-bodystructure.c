@@ -450,19 +450,10 @@ static void part_write_bodystructure(struct message_part *part,
 	}
 }
 
-static const char *part_get_bodystructure(struct message_part *part,
-					  int extended)
-{
-	string_t *str;
-
-	str = t_str_new(2048);
-	part_write_bodystructure(part, str, extended);
-	return str_c(str);
-}
-
 const char *imap_part_get_bodystructure(pool_t pool, struct message_part **part,
 					struct istream *input, int extended)
 {
+	string_t *str;
 	uoff_t start_offset;
 
 	if (*part == NULL)
@@ -472,7 +463,9 @@ const char *imap_part_get_bodystructure(pool_t pool, struct message_part **part,
 		part_parse_headers(*part, input, start_offset, pool);
 	}
 
-	return part_get_bodystructure(*part, extended);
+	str = t_str_new(2048);
+	part_write_bodystructure(*part, str, extended);
+	return str_c(str);
 }
 
 static int imap_write_list(const struct imap_arg *args, string_t *str)
