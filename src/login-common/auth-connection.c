@@ -50,7 +50,7 @@ static struct auth_connection *auth_connection_new(const char *path)
 
 	fd = net_connect_unix(path);
 	if (fd == -1) {
-		i_error("Can't connect to imap-auth at %s: %m", path);
+		i_error("Can't connect to auth process at %s: %m", path);
                 auth_reconnect = TRUE;
 		return NULL;
 	}
@@ -112,7 +112,7 @@ static void auth_connection_destroy(struct auth_connection *conn)
 	hash_destroy(conn->requests);
 
 	if (close(conn->fd) < 0)
-		i_error("close(imap-auth) failed: %m");
+		i_error("close(auth) failed: %m");
 	io_remove(conn->io);
 	i_stream_unref(conn->input);
 	o_stream_unref(conn->output);
@@ -179,7 +179,7 @@ static void auth_handle_reply(struct auth_connection *conn,
 
 	request = hash_lookup(conn->requests, POINTER_CAST(reply->id));
 	if (request == NULL) {
-		i_error("BUG: imap-auth sent us reply with unknown ID %u",
+		i_error("BUG: Auth process sent us reply with unknown ID %u",
 			reply->id);
 		return;
 	}
@@ -206,8 +206,8 @@ static void auth_input(void *context)
 		auth_connection_destroy(conn);
 		return;
 	case -2:
-		/* buffer full - can't happen unless imap-auth is buggy */
-		i_error("BUG: imap-auth sent us more than %d bytes of data",
+		/* buffer full - can't happen unless auth is buggy */
+		i_error("BUG: Auth process sent us more than %d bytes of data",
 			MAX_INBUF_SIZE);
 		auth_connection_destroy(conn);
 		return;
@@ -221,7 +221,7 @@ static void auth_input(void *context)
 
 			auth_handle_handshake(conn, &handshake);
 		} else if (size > sizeof(handshake)) {
-			i_error("BUG: imap-auth sent us too large handshake "
+			i_error("BUG: Auth process sent us too large handshake "
 				"(%"PRIuSIZE_T " vs %"PRIuSIZE_T")", size,
 				sizeof(handshake));
 			auth_connection_destroy(conn);
