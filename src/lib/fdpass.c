@@ -33,8 +33,11 @@
 
 #define _XPG4_2
 
+#if defined(irix) || defined (__irix__) || defined(sgi) || defined (__sgi__)
+#  define _XOPEN_SOURCE /* for IRIX */
+#endif
+
 #ifndef _AIX
-#  define _XOPEN_SOURCE /* for IRIX, breaks AIX */
 #  define _XOPEN_SOURCE_EXTENDED /* for Tru64, breaks AIX */
 #endif
 
