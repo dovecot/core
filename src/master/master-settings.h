@@ -129,6 +129,7 @@ struct auth_settings {
 	const char *user;
 	const char *chroot;
 	const char *username_chars;
+	const char *username_translation;
 	const char *anonymous_username;
 
 	int use_cyrus_sasl, verbose, debug;

@@ -115,7 +115,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 	tmp++;
 
 	auth_request->user = p_strdup(auth->pool, username);
-	if (!mech_is_valid_username(auth_request->user)) {
+	if (!mech_fix_username(auth_request->user)) {
 		if (verbose) {
 			i_info("apop(%s): invalid username",
 			       get_log_prefix(auth_request));

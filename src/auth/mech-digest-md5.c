@@ -559,7 +559,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 							 realm, NULL);
 		}
 
-		if (mech_is_valid_username(auth_request->user)) {
+		if (mech_fix_username(auth_request->user)) {
 			passdb->lookup_credentials(&auth->auth_request,
 						PASSDB_CREDENTIALS_DIGEST_MD5,
 						credentials_callback);

@@ -483,7 +483,7 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 		return TRUE;
 	}
 
-	if (!mech_is_valid_username(auth_request->user)) {
+	if (!mech_fix_username(auth_request->user)) {
 		if (verbose) {
 			i_info("rpa(%s): invalid username",
 			       get_log_prefix(auth_request));

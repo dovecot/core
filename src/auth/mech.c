@@ -16,7 +16,7 @@ struct mech_module_list *mech_modules;
 const char *const *auth_realms;
 const char *default_realm;
 const char *anonymous_username;
-char username_chars[256];
+char username_chars[256], username_translation[256];
 
 static int set_use_cyrus_sasl;
 static int ssl_require_client_cert;
@@ -253,11 +253,13 @@ void mech_auth_finish(struct auth_request *auth_request,
 	}
 }
 
-int mech_is_valid_username(const char *username)
+int mech_fix_username(char *username)
 {
-	const unsigned char *p;
+	unsigned char *p;
 
-	for (p = (const unsigned char *)username; *p != '\0'; p++) {
+	for (p = (unsigned char *)username; *p != '\0'; p++) {
+		if (username_translation[*p & 0xff] != 0)
+			*p = username_translation[*p & 0xff];
 		if (username_chars[*p & 0xff] == 0)
 			return FALSE;
 	}
@@ -468,6 +470,15 @@ void mech_init(void)
 		memset(username_chars, 0, sizeof(username_chars));
 		for (; *env != '\0'; env++)
 			username_chars[((unsigned char)*env) & 0xff] = 0xff;
+	}
+
+	env = getenv("USERNAME_TRANSLATION");
+	memset(username_translation, 0, sizeof(username_translation));
+	if (env != NULL) {
+		for (; *env != '\0' && env[1] != '\0'; env += 2) {
+			username_translation[((unsigned char)*env) & 0xff] =
+				env[1];
+		}
 	}
 
 	set_use_cyrus_sasl = getenv("USE_CYRUS_SASL") != NULL;

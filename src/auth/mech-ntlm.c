@@ -175,7 +175,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 		username = p_strdup(auth_request->pool,
 				    ntlmssp_t_str(auth->response, user));
 
-		if (!mech_is_valid_username(username)) {
+		if (!mech_fix_username(username)) {
 			if (verbose) {
 				i_info("ntlm(%s): invalid username",
 				       get_log_prefix(auth_request));

@@ -60,7 +60,7 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 						      authenid);
 		}
 
-		if (!mech_is_valid_username(auth_request->user)) {
+		if (!mech_fix_username(auth_request->user)) {
 			/* invalid username */
 			if (verbose) {
 				i_info("plain(%s): invalid username",

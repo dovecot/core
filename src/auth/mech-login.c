@@ -34,7 +34,7 @@ mech_login_auth_continue(struct auth_request *auth_request,
 		auth_request->user =
 			p_strndup(auth_request->pool, data, data_size);
 
-		if (!mech_is_valid_username(auth_request->user)) {
+		if (!mech_fix_username(auth_request->user)) {
 			if (verbose) {
 				i_info("login(%s): invalid username",
 				       get_log_prefix(auth_request));

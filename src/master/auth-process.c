@@ -382,6 +382,8 @@ static int create_auth_process(struct auth_process_group *group)
 	env_put(t_strconcat("USERDB=", group->set->userdb, NULL));
 	env_put(t_strconcat("PASSDB=", group->set->passdb, NULL));
 	env_put(t_strconcat("USERNAME_CHARS=", group->set->username_chars, NULL));
+	env_put(t_strconcat("USERNAME_TRANSLATION=",
+			    group->set->username_translation, NULL));
 	env_put(t_strconcat("ANONYMOUS_USERNAME=",
 			    group->set->anonymous_username, NULL));
 
