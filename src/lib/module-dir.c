@@ -35,6 +35,14 @@ void *module_get_symbol(struct module *module, const char *symbol)
 	return ret;
 }
 
+static void *get_symbol(struct module *module, const char *symbol, int quiet)
+{
+	if (quiet)
+		return dlsym(module->handle, symbol);
+
+	return module_get_symbol(module, symbol);
+}
+
 static void module_free(struct module *module)
 {
 	if (module->deinit != NULL)
@@ -66,9 +74,11 @@ module_load(const char *path, const char *name, int require_init_funcs)
 
 	/* get our init func */
 	init = (void (*)())
-		module_get_symbol(module, t_strconcat(name, "_init", NULL));
+		get_symbol(module, t_strconcat(name, "_init", NULL),
+			   !require_init_funcs);
 	module->deinit = init == NULL ? NULL : (void (*)())
-		module_get_symbol(module, t_strconcat(name, "_deinit", NULL));
+		get_symbol(module, t_strconcat(name, "_deinit", NULL),
+			   !require_init_funcs);
 
 	if ((init == NULL || module->deinit == NULL) && require_init_funcs) {
 		module->deinit = NULL;
