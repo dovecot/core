@@ -485,6 +485,9 @@ int mail_modifylog_mark_synced(MailModifyLog *log)
 {
 	i_assert(log->index->lock_type != MAIL_LOCK_UNLOCK);
 
+	if (!mmap_update(log))
+		return FALSE;
+
 	if (log->header->sync_id == SYNC_ID_FULL) {
 		/* log file is full, switch to next one */
 		return mail_modifylog_switch_file(log);
