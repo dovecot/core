@@ -142,6 +142,7 @@ static struct setting_def namespace_setting_defs[] = {
 	DEF(SET_STR, separator),
 	DEF(SET_STR, prefix),
 	DEF(SET_STR, location),
+	DEF(SET_BOOL, inbox),
 
 	{ 0, NULL, 0 }
 };

@@ -133,6 +133,8 @@ static void env_put_namespace(struct namespace_settings *ns,
 			env_put(t_strdup_printf("NAMESPACE_%u_PREFIX=%s",
 						i, ns->prefix));
 		}
+		if (ns->inbox)
+			env_put(t_strdup_printf("NAMESPACE_%u_INBOX=1", i));
 		t_pop();
 	}
 }

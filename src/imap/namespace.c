@@ -12,12 +12,14 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 {
         struct namespace *ns;
         const char *sep, *type, *prefix;
+	int inbox;
 
 	ns = p_new(pool, struct namespace, 1);
 
 	sep = getenv(t_strdup_printf("NAMESPACE_%u_SEP", num));
 	type = getenv(t_strdup_printf("NAMESPACE_%u_TYPE", num));
 	prefix = getenv(t_strdup_printf("NAMESPACE_%u_PREFIX", num));
+	inbox = getenv(t_strdup_printf("NAMESPACE_%u_INBOX", num)) != NULL;
 
 	if (type == NULL || *type == '\0' || strncmp(type, "private", 7) == 0)
 		ns->type = NAMESPACE_PRIVATE;
@@ -32,6 +34,7 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 		prefix = "";
 
 	ns->prefix = p_strdup(pool, prefix);
+	ns->inbox = inbox;
 	ns->storage = mail_storage_create_with_data(data, user, ns->prefix,
 						    sep != NULL ? *sep : '\0');
 	if (ns->storage == NULL) {
@@ -99,6 +102,7 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 	}
 
 	ns->type = NAMESPACE_PRIVATE;
+	ns->inbox = TRUE;
 	ns->prefix = p_strdup(pool, "");
 	ns->hierarchy_sep = ns->storage->hierarchy_sep;
 	if (hook_mail_storage_created != NULL)
@@ -123,6 +127,17 @@ namespace_find(struct namespace *namespaces, const char *mailbox)
 	int inbox;
 
 	inbox = strncasecmp(mailbox, "INBOX", 5) == 0;
+	if (inbox && mailbox[5] == '\0') {
+		/* find the INBOX namespace */
+		while (namespaces != NULL) {
+			if (namespaces->inbox)
+				return namespaces;
+			if (namespaces->prefix == NULL)
+				best = namespaces;
+			namespaces = namespaces->next;
+		}
+		return best;
+	}
 
 	while (namespaces != NULL) {
 		len = namespaces->prefix == NULL ? 0 :

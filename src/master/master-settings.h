@@ -120,6 +120,8 @@ struct namespace_settings {
 	const char *separator;
 	const char *prefix;
 	const char *location;
+
+	int inbox;
 };
 
 struct server_settings {

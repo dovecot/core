@@ -13,6 +13,7 @@ struct namespace {
         enum namespace_type type;
 	char hierarchy_sep;
 	char *prefix;
+	int inbox;
 	struct mail_storage *storage;
 };
 
