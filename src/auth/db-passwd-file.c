@@ -12,6 +12,7 @@
 #include "buffer.h"
 #include "istream.h"
 #include "hash.h"
+#include "str.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -21,7 +22,7 @@
 static void passwd_file_add(struct passwd_file *pw, const char *username,
 			    const char *pass, const char *const *args)
 {
-	/* args = uid, gid, user info, home dir, shell, mail, chroot */
+	/* args = uid, gid, user info, home dir, shell, flags, mail */
 	struct passwd_user *pu;
 	const char *p;
 
@@ -97,15 +98,23 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	if (*args != NULL)
 		args++;
 
-	/* mail storage */
-	if (*args != NULL) {
-		pu->mail = p_strdup(pw->pool, *args);
-		args++;
-	}
-
-	/* chroot */
+	/* flags */
 	if (*args != NULL && strstr(*args, "chroot") != NULL)
 		pu->chroot = TRUE;
+
+	/* rest is MAIL environment */
+	if (*args != NULL) {
+		string_t *str = t_str_new(100);
+		str_append(str, *args);
+		args++;
+
+		while (*args != NULL) {
+			str_append_c(str, ':');
+			str_append(str, *args);
+			args++;
+		}
+		pu->mail = p_strdup(pw->pool, str_c(str));
+	}
 
 	hash_insert(pw->users, pu->user_realm, pu);
 }
