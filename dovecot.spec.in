@@ -1,9 +1,11 @@
 # DarContact: Timo Sirainen <tss@iki.fi>
+%define uid 96
+%define gid 96
 
 Summary: Dovecot secure IMAP server.
 Name: dovecot
 Version: @VERSION@
-Release: 0
+Release: 1
 License: GPL
 Group: System Environment/Daemons
 URL: http://dovecot.procontrol.fi/
@@ -16,14 +18,12 @@ BuildRoot: %{_tmppath}/root-%{name}-%{version}
 Prefix: %{_prefix}
 
 Prereq: /usr/sbin/useradd, /usr/sbin/usermod
-BuildRequires: openssl-devel %{!?rh62:, pam-devel} %{?rh62: pam}
+BuildRequires: openssl-devel %{!?rh62:, pam-devel} %{?rh62: pam} gettext
 
 %description
 Dovecot is an IMAP server for Linux/UNIX-like systems, written with
 security primarily in mind. Although it's written with C, it uses
-several coding techniques to avoid most of the common pitfalls. Next
-release will also contain a small POP3 server.
-
+several coding techniques to avoid most of the common pitfalls.
 Dovecot can work with standard mbox and maildir formats and it's fully
 compatible with UW-IMAP and Courier IMAP servers as well as mail
 clients accessing the mailboxes directly.
@@ -36,7 +36,7 @@ clients accessing the mailboxes directly.
 #
 # Init file for Dovecot IMAP daemon
 #
-# chkconfig: - 54 46
+# chkconfig: 345 54 46
 # description: Dovecot IMAP Daemon
 #
 # processname: dovecot
@@ -101,8 +101,17 @@ esac
 exit \$RETVAL
 EOF
 
+%{__cat} <<EOF >dovecot.pam
+#%PAM-1.0
+auth       required     pam_nologin.so
+auth       required     pam_stack.so service=system-auth
+account    required     pam_stack.so service=system-auth
+session    required     pam_stack.so service=system-auth
+EOF
+
 %build
-export CPPFLAGS="-I/usr/kerberos/include"
+export CPPFLAGS="`pkg-config --cflags-only-I openssl`"
+export LDFLAGS="`pkg-config --libs-only-L openssl`"
 %configure \
 	--with-ssl="openssl" \
 	--with-ssldir="%{_sysconfdir}/ssl"
@@ -112,27 +121,33 @@ export CPPFLAGS="-I/usr/kerberos/include"
 %{__rm} -rf %{buildroot}
 %makeinstall
 %{__install} -d -m0755 %{buildroot}%{_initrddir}
-%{__install} -m0755 dovecot.sysv %{buildroot}%{_initrddir}/dovecot
+%{__install} -m0755 dovecot.sysv %{buildroot}%{_initrddir}/%{name}
+%{__install} -d -m0755 %{buildroot}%{_sysconfdir}/pam.d
+%{__install} -m0644 dovecot.pam %{buildroot}%{_sysconfdir}/pam.d/imap
+%{__install} -m0644 dovecot.pam %{buildroot}%{_sysconfdir}/pam.d/imaps
+%{__install} -m0644 dovecot.pam %{buildroot}%{_sysconfdir}/pam.d/pop3
+%{__install} -m0644 dovecot.pam %{buildroot}%{_sysconfdir}/pam.d/pop3s
 %{__mv} -f %{buildroot}%{_sysconfdir}/dovecot-example.conf %{buildroot}%{_sysconfdir}/dovecot.conf
 
 ### Clean up buildroot
-%{__rm} -rf %{buildroot}%{_datadir}/doc/dovecot/
+%{__rm} -rf %{buildroot}%{_datadir}/doc/%{name}/
 
 %pre
-/usr/sbin/useradd -M -s /sbin/nologin -r dovecot &>/dev/null || :
-/usr/sbin/usermod -s /sbin/nologin dovecot &>/dev/null || :
+# Add the dovecot user and group if not found
+/usr/sbin/groupadd -g %{gid} -r %{name} &>/dev/null || :
+/usr/sbin/useradd -d /var/run/%{name} -s /bin/false -g %{name} -M -r -u %{uid} %{name} &>/dev/null || :
 
 %post
 /sbin/chkconfig --add dovecot
 
 %preun
 if [ $1 -eq 0 ]; then
-	/sbin/service dovecot stop &>/dev/null || :
+	/sbin/service %{name} stop &>/dev/null || :
 	/sbin/chkconfig --del dovecot
 fi
 
 %postun
-/sbin/service dovecot condrestart &>/dev/null || :
+/sbin/service %{name} condrestart &>/dev/null || :
 
 %clean
 %{__rm} -rf %{buildroot}
@@ -142,11 +157,16 @@ fi
 %doc AUTHORS ChangeLog COPYING* NEWS README TODO
 %doc doc/*.conf doc/*.sh doc/*.txt
 %config %{_sysconfdir}/dovecot.conf
-%config %{_initrddir}/dovecot
+%config %{_initrddir}/%{name}
+%config %{_sysconfdir}/pam.d/*
 %{_sbindir}/*
-%{_libexecdir}/dovecot/
+%dir %{_libexecdir}/%{name}
+%{_libexecdir}/%{name}/
 
 %changelog
+* Mon May 5 2003 Levente Farkas <lfarkas@lfarkas.org>
+- update a few things in the spec file
+
 * Tue Apr 29 2003 Dag Wieers <dag@wieers.com> - 0.99.9-0
 - Updated to release 0.99.9.
 
