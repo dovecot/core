@@ -64,6 +64,7 @@ struct file_ostream {
 	unsigned int full:1; /* if head == tail, is buffer empty or full? */
 	unsigned int corked:1;
 	unsigned int no_socket_cork:1;
+	unsigned int no_sendfile:1;
 	unsigned int autoclose_fd:1;
 };
 
@@ -641,6 +642,7 @@ static off_t io_stream_copy(struct _ostream *outstream,
 
 static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 {
+	struct file_ostream *foutstream = (struct file_ostream *) outstream;
 	off_t ret;
 
 	i_assert(instream->v_limit <= OFF_T_MAX);
@@ -649,14 +651,17 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 	if (instream->v_offset == instream->v_limit)
 		return 0;
 
-	ret = io_stream_sendfile(outstream, instream);
-	if (ret >= 0 || outstream->ostream.stream_errno != EINVAL)
-		return ret;
+	if (!foutstream->no_sendfile) {
+		ret = io_stream_sendfile(outstream, instream);
+		if (ret >= 0 || outstream->ostream.stream_errno != EINVAL)
+			return ret;
 
-	/* sendfile() not supported (with this fd), fallback to
-	   regular sending */
+		/* sendfile() not supported (with this fd), fallback to
+		   regular sending */
+		outstream->ostream.stream_errno = 0;
+		foutstream->no_sendfile = TRUE;
+	}
 
-	outstream->ostream.stream_errno = 0;
 	return io_stream_copy(outstream, instream);
 }
 
