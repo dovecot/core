@@ -173,7 +173,8 @@ static void parse_header(MessagePart *part,
 	/* fix the name to be \0-terminated */
 	name = t_strndup(name, name_len);
 
-	if (strcasecmp(name, "Content-Type") == 0 && part_data->content_type) {
+	if (strcasecmp(name, "Content-Type") == 0 &&
+	    part_data->content_type == NULL) {
 		part_data->str = t_string_new(256);
 		(void)message_content_parse_header(t_strndup(value, value_len),
 						   parse_content_type,
