@@ -264,7 +264,7 @@ static void header_cb(struct message_part *part __attr_unused__,
 		str = strip_chars(value, value_len, "ADFT");
 		(void)mbox_write_xstatus(ctx, str);
 	} else if (name_len == 10 && memcasecmp(name, "X-Keywords", 10) == 0) {
-		ctx->ximapbase_found = TRUE;
+		ctx->xkeywords_found = TRUE;
 		str = strip_custom_flags(value, value_len, ctx);
 		(void)mbox_write_xkeywords(ctx, str);
 	} else if (name_len == 10 && memcasecmp(name, "X-IMAPbase", 10) == 0) {
