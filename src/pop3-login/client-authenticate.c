@@ -36,7 +36,7 @@ int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 		for (i = 0; i < AUTH_MECH_COUNT; i++) {
 			if ((auth_mechs & auth_mech_desc[i].mech) &&
 			    auth_mech_desc[i].name != NULL &&
-			    (client->tls || !auth_mech_desc[i].plaintext ||
+			    (client->secured || !auth_mech_desc[i].plaintext ||
 			     !disable_plaintext_auth)) {
 				str_append_c(str, ' ');
 				str_append(str, auth_mech_desc[i].name);
@@ -156,7 +156,7 @@ static void login_callback(struct auth_request *request,
 
 int cmd_user(struct pop3_client *client, const char *args)
 {
-	if (!client->tls && disable_plaintext_auth) {
+	if (!client->secured && disable_plaintext_auth) {
 		client_send_line(client,
 				 "-ERR Plaintext authentication disabled.");
 		return TRUE;
@@ -284,7 +284,7 @@ int cmd_auth(struct pop3_client *client, const char *args)
 		return TRUE;
 	}
 
-	if (!client->tls && mech->plaintext && disable_plaintext_auth) {
+	if (!client->secured && mech->plaintext && disable_plaintext_auth) {
 		client_send_line(client,
 				 "-ERR Plaintext authentication disabled.");
 		return TRUE;

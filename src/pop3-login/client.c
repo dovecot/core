@@ -83,6 +83,7 @@ static int cmd_stls(struct pop3_client *client)
 	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip);
 	if (fd_ssl != -1) {
 		client->tls = TRUE;
+		client->secured = TRUE;
                 client_set_title(client);
 
 		client->common.fd = fd_ssl;
@@ -234,6 +235,7 @@ static void client_destroy_oldest(void)
 struct client *client_create(int fd, struct ip_addr *ip, int ssl)
 {
 	struct pop3_client *client;
+	const char *addr;
 
 	if (max_logging_users > CLIENT_DESTROY_OLDEST_COUNT &&
 	    hash_size(clients) >= max_logging_users) {
@@ -249,6 +251,11 @@ struct client *client_create(int fd, struct ip_addr *ip, int ssl)
 	client->created = ioloop_time;
 	client->refcount = 1;
 	client->tls = ssl;
+
+        addr = net_ip2addr(ip);
+	client->secured = ssl ||
+		(IPADDR_IS_V4(ip) && strncmp(addr, "127.", 4) == 0) ||
+		(IPADDR_IS_V6(ip) && strcmp(addr, "::1") == 0);
 
 	client->common.ip = *ip;
 	client->common.fd = fd;

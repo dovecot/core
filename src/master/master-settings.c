@@ -165,7 +165,7 @@ struct settings default_settings = {
 	MEMBER(ssl_key_file) SSLDIR"/private/dovecot.pem",
 	MEMBER(ssl_parameters_file) "ssl-parameters.dat",
 	MEMBER(ssl_parameters_regenerate) 24,
-	MEMBER(disable_plaintext_auth) FALSE,
+	MEMBER(disable_plaintext_auth) TRUE,
 	MEMBER(verbose_ssl) FALSE,
 
 	/* login */

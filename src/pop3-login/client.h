@@ -20,6 +20,7 @@ struct pop3_client {
 	buffer_t *plain_login;
 
 	unsigned int tls:1;
+	unsigned int secured:1;
 	unsigned int input_blocked:1;
 	unsigned int destroyed:1;
 };

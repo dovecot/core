@@ -16,7 +16,7 @@
 #include "auth-common.h"
 #include "master.h"
 
-const char *client_authenticate_get_capabilities(int tls)
+const char *client_authenticate_get_capabilities(int secured)
 {
 	static enum auth_mech cached_auth_mechs = 0;
 	static char *cached_capability = NULL;
@@ -36,7 +36,7 @@ const char *client_authenticate_get_capabilities(int tls)
 	for (i = 0; i < AUTH_MECH_COUNT; i++) {
 		if ((auth_mechs & auth_mech_desc[i].mech) &&
 		    auth_mech_desc[i].name != NULL &&
-		    (tls || !auth_mech_desc[i].plaintext ||
+		    (secured || !auth_mech_desc[i].plaintext ||
 		     !disable_plaintext_auth)) {
 			str_append_c(str, ' ');
 			str_append(str, "AUTH=");
@@ -167,10 +167,10 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	user = IMAP_ARG_STR(&args[0]);
 	pass = IMAP_ARG_STR(&args[1]);
 
-	if (!client->tls && disable_plaintext_auth) {
+	if (!client->secured && disable_plaintext_auth) {
 		client_send_line(client,
 			"* BAD [ALERT] Plaintext authentication is disabled, "
-			"but your client sent password in plaintext anyway."
+			"but your client sent password in plaintext anyway. "
 			"If anyone was listening, the password was exposed.");
 		client_send_tagline(client,
 				    "NO Plaintext authentication disabled.");
@@ -304,7 +304,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 		return TRUE;
 	}
 
-	if (!client->tls && mech->plaintext && disable_plaintext_auth) {
+	if (!client->secured && mech->plaintext && disable_plaintext_auth) {
 		client_send_tagline(client,
 				    "NO Plaintext authentication disabled.");
 		return TRUE;

@@ -23,6 +23,7 @@ struct imap_client {
 	buffer_t *plain_login;
 
 	unsigned int tls:1;
+	unsigned int secured:1;
 	unsigned int cmd_finished:1;
 	unsigned int skip_line:1;
 	unsigned int input_blocked:1;

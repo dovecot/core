@@ -89,11 +89,11 @@ static int cmd_capability(struct imap_client *client)
 {
 	const char *capability, *auths;
 
-	auths = client_authenticate_get_capabilities(client->tls);
+	auths = client_authenticate_get_capabilities(client->secured);
 	capability = t_strconcat("* CAPABILITY " CAPABILITY_STRING,
 				 (ssl_initialized && !client->tls) ?
 				 " STARTTLS" : "",
-				 disable_plaintext_auth && !client->tls ?
+				 disable_plaintext_auth && !client->secured ?
 				 " LOGINDISABLED" : "", auths, NULL);
 	client_send_line(client, capability);
 	client_send_tagline(client, "OK Capability completed.");
@@ -127,6 +127,7 @@ static int cmd_starttls(struct imap_client *client)
 	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip);
 	if (fd_ssl != -1) {
 		client->tls = TRUE;
+		client->secured = TRUE;
                 client_set_title(client);
 
 		/* we skipped it already, so don't ignore next command */
@@ -339,6 +340,7 @@ static void client_destroy_oldest(void)
 struct client *client_create(int fd, struct ip_addr *ip, int ssl)
 {
 	struct imap_client *client;
+	const char *addr;
 
 	if (max_logging_users > CLIENT_DESTROY_OLDEST_COUNT &&
 	    hash_size(clients) >= max_logging_users) {
@@ -354,6 +356,11 @@ struct client *client_create(int fd, struct ip_addr *ip, int ssl)
 	client->created = ioloop_time;
 	client->refcount = 1;
 	client->tls = ssl;
+
+        addr = net_ip2addr(ip);
+	client->secured = ssl ||
+		(IPADDR_IS_V4(ip) && strncmp(addr, "127.", 4) == 0) ||
+		(IPADDR_IS_V6(ip) && strcmp(addr, "::1") == 0);
 
 	client->common.ip = *ip;
 	client->common.fd = fd;
