@@ -22,9 +22,10 @@ struct save_header_context {
 	int failed;
 };
 
-static int write_with_crlf(struct ostream *output, const unsigned char *data,
+static int write_with_crlf(struct ostream *output, const void *v_data,
 			   size_t size)
 {
+	const unsigned char *data = v_data;
 	size_t i, start;
 
 	i_assert(size <= SSIZE_T_MAX);
@@ -56,9 +57,10 @@ static int write_with_crlf(struct ostream *output, const unsigned char *data,
 	return size;
 }
 
-static int write_with_lf(struct ostream *output, const unsigned char *data,
+static int write_with_lf(struct ostream *output, const void *v_data,
 			 size_t size)
 {
+	const unsigned char *data = v_data;
 	size_t i, start;
 
 	i_assert(size <= SSIZE_T_MAX);
@@ -139,7 +141,7 @@ int index_storage_save(struct mail_storage *storage, const char *path,
 		       struct istream *input, struct ostream *output,
 		       header_callback_t *header_callback, void *context)
 {
-	int (*write_func)(struct ostream *, const unsigned char *, size_t);
+	int (*write_func)(struct ostream *, const void *, size_t);
 	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
