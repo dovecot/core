@@ -66,7 +66,7 @@ static void ssl_set_io(struct ssl_proxy *proxy, enum ssl_io_action action)
 		if (proxy->io_ssl_write != NULL)
 			break;
 		proxy->io_ssl_write = io_add(proxy->fd_ssl, IO_WRITE,
-					    ssl_step, proxy);
+					     ssl_step, proxy);
 		break;
 	case SSL_REMOVE_OUTPUT:
 		if (proxy->io_ssl_write != NULL) {
@@ -308,6 +308,7 @@ int ssl_proxy_new(int fd, struct ip_addr *ip)
 	SSL_set_accept_state(ssl);
 	if (SSL_set_fd(ssl, fd) != 1) {
 		i_error("SSL_set_fd() failed: %s", ssl_last_error());
+		SSL_free(ssl);
 		return -1;
 	}
 
@@ -348,8 +349,6 @@ static int ssl_proxy_destroy(struct ssl_proxy *proxy)
 
 	hash_remove(ssl_proxies, proxy);
 
-	SSL_free(proxy->ssl);
-
 	(void)net_disconnect(proxy->fd_ssl);
 	(void)net_disconnect(proxy->fd_plain);
 
@@ -362,6 +361,7 @@ static int ssl_proxy_destroy(struct ssl_proxy *proxy)
 	if (proxy->io_plain_write != NULL)
 		io_remove(proxy->io_plain_write);
 
+	SSL_free(proxy->ssl);
 	i_free(proxy);
 
 	main_unref();
