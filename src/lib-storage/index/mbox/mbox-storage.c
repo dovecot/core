@@ -501,7 +501,8 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 		   in the root mail directory. that would anyway be a special
 		   case which would require special handling elsewhere, so just
 		   don't allow it. */
-		mail_storage_set_error(_storage, "Mailbox already exists");
+		mail_storage_set_error(_storage,
+				"Mailbox doesn't allow inferior mailboxes");
 		return -1;
 	}
 
@@ -662,6 +663,13 @@ static int mbox_mailbox_rename(struct mail_storage *_storage,
 	if (!mbox_is_valid_existing_name(oldname) ||
 	    !mbox_is_valid_create_name(newname)) {
 		mail_storage_set_error(_storage, "Invalid mailbox name");
+		return -1;
+	}
+
+	if (strncasecmp(newname, "INBOX/", 6) == 0) {
+		/* Not allowed - see explanation in mbox_mailbox_create */
+		mail_storage_set_error(_storage,
+			"Target mailbox doesn't allow inferior mailboxes");
 		return -1;
 	}
 
