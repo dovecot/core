@@ -842,13 +842,25 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 		line->name_len = str_len(ctx->name);
 	} else {
 		/* get value. skip all LWSP after ':'. Note that RFC2822
-		   doesn't say we should, but history behind it.. */
+		   doesn't say we should, but history behind it..
+
+		   Exception to this is if the value consists only of LWSP,
+		   then skip only the one LWSP after ':'. */
 		line->value = msg + colon_pos+1;
 		line->value_len = size - colon_pos - 1;
-		while (line->value_len > 0 &&
-		       IS_LWSP(line->value[0])) {
+		while (line->value_len > 0 && IS_LWSP(line->value[0])) {
 			line->value++;
 			line->value_len--;
+		}
+
+		if (line->value_len == 0) {
+			/* everything was LWSP */
+			line->value = msg + colon_pos+1;
+			line->value_len = size - colon_pos - 1;
+			if (line->value_len > 0 && IS_LWSP(line->value[0])) {
+				line->value++;
+				line->value_len--;
+			}
 		}
 
 		/* get name, skip LWSP before ':' */
