@@ -147,17 +147,6 @@ static int try_create_lock(const char *lock_path, struct dotlock *dotlock_r)
 	if (fd == -1)
 		return -1;
 
-	/* got it, save the inode info */
-	if (fstat(fd, &st) < 0) {
-		i_error("fstat(%s) failed: %m", lock_path);
-		(void)close(fd);
-		return -1;
-	}
-
-	dotlock_r->dev = st.st_dev;
-	dotlock_r->ino = st.st_ino;
-	dotlock_r->mtime = st.st_mtime;
-
 	/* write our pid and host, if possible */
 	str = t_strdup_printf("%s:%s", my_pid, my_hostname);
 	if (write_full(fd, str, strlen(str)) < 0) {
@@ -169,6 +158,17 @@ static int try_create_lock(const char *lock_path, struct dotlock *dotlock_r)
 			return -1;
 		}
 	}
+
+	/* save the inode info after writing */
+	if (fstat(fd, &st) < 0) {
+		i_error("fstat(%s) failed: %m", lock_path);
+		(void)close(fd);
+		return -1;
+	}
+
+	dotlock_r->dev = st.st_dev;
+	dotlock_r->ino = st.st_ino;
+	dotlock_r->mtime = st.st_mtime;
 
 	if (close(fd) < 0) {
 		i_error("close(%s) failed: %m", lock_path);
