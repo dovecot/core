@@ -191,6 +191,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	credentials = atoi(credentials_str);
 
 	auth_request = worker_auth_request_new(client, id, args);
+	auth_request->credentials = credentials;
 
 	for (; num > 0; num++) {
 		auth_request->passdb = auth_request->passdb->next;
