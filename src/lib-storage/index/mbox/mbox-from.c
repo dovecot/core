@@ -1,20 +1,5 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
-/*
-  Known formats to the VALID macro are:
- 		From user Wed Dec  2 05:53 1992
-  BSD		From user Wed Dec  2 05:53:22 1992
-  SysV		From user Wed Dec  2 05:53 PST 1992
-  rn		From user Wed Dec  2 05:53:22 PST 1992
- 		From user Wed Dec  2 05:53 -0700 1992
-  emacs	From user Wed Dec  2 05:53:22 -0700 1992
- 		From user Wed Dec  2 05:53 1992 PST
- 		From user Wed Dec  2 05:53:22 1992 PST
- 		From user Wed Dec  2 05:53 1992 -0700
-  Solaris	From user Wed Dec  2 05:53:22 1992 -0700
-
-  */
-
 #include "lib.h"
 #include "str.h"
 #include "utc-mktime.h"
