@@ -37,10 +37,72 @@ static void client_output_timeout(void *context)
 	o_stream_close(client->output);
 }
 
+static int init_mailbox(struct client *client)
+{
+	struct mail_fetch_context *ctx;
+	struct mail *mail;
+	struct mailbox_status status;
+	const char *messageset;
+	int i, all_found, failed;
+
+	if (!client->mailbox->get_status(client->mailbox,
+					 STATUS_MESSAGES | STATUS_UIDVALIDITY,
+					 &status)) {
+		client_send_storage_error(client);
+		return FALSE;
+	}
+
+	client->messages_count = status.messages;
+	client->uidvalidity = status.uidvalidity;
+	client->message_sizes = i_new(uoff_t, client->messages_count);
+
+	messageset = t_strdup_printf("1:%u", client->messages_count);
+	for (i = 0; i < 2; i++) {
+		ctx = client->mailbox->fetch_init(client->mailbox,
+						  MAIL_FETCH_SIZE,
+						  NULL, messageset, FALSE);
+		if (ctx == NULL) {
+			client_send_storage_error(client);
+			return FALSE;
+		}
+
+		client->total_size = 0;
+		failed = FALSE;
+		while ((mail = client->mailbox->fetch_next(ctx)) != NULL) {
+			uoff_t size = mail->get_size(mail);
+
+			if (size == (uoff_t)-1) {
+				failed = TRUE;
+				break;
+			}
+                        client->total_size += size;
+
+			i_assert(mail->seq <= client->messages_count);
+			client->message_sizes[mail->seq-1] = size;
+		}
+
+		if (!client->mailbox->fetch_deinit(ctx, &all_found)) {
+			client_send_storage_error(client);
+			return FALSE;
+		}
+
+		if (!failed && all_found)
+			return TRUE;
+
+		/* well, sync and try again */
+		if (!client->mailbox->sync(client->mailbox, TRUE)) {
+			client_send_storage_error(client);
+			return FALSE;
+		}
+	}
+
+	client_send_line(client, "-ERR Couldn't sync mailbox.");
+	return FALSE;
+}
+
 struct client *client_create(int hin, int hout, struct mailbox *mailbox)
 {
 	struct client *client;
-	struct mailbox_status status;
 
 	client = i_new(struct client, 1);
 	client->input = i_stream_create_file(hin, default_pool,
@@ -64,11 +126,10 @@ struct client *client_create(int hin, int hout, struct mailbox *mailbox)
 	i_assert(my_client == NULL);
 	my_client = client;
 
-	if (!mailbox->get_status(mailbox, STATUS_MESSAGES, &status)) {
+	if (!init_mailbox(client)) {
 		client_destroy(client);
-		return NULL;
+		client = NULL;
 	}
-	client->messages_count = status.messages;
 
 	return client;
 }
@@ -81,8 +142,8 @@ void client_destroy(struct client *client)
 		client->mailbox->close(client->mailbox);
 	mail_storage_destroy(client->storage);
 
-	if (client->deleted_bitmask != NULL)
-		i_free(client->deleted_bitmask);
+	i_free(client->message_sizes);
+	i_free(client->deleted_bitmask);
 
 	io_remove(client->io);
 
@@ -115,6 +176,14 @@ void client_send_line(struct client *client, const char *fmt, ...)
 	(void)o_stream_send_str(client->output, t_strdup_vprintf(fmt, va));
 	(void)o_stream_send(client->output, "\r\n", 2);
 	va_end(va);
+}
+
+void client_send_storage_error(struct client *client)
+{
+	const char *error;
+
+	error = client->storage->get_last_error(client->storage, NULL);
+	client_send_line(client, "-ERR %s", error);
 }
 
 static void client_input(void *context)

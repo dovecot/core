@@ -16,6 +16,10 @@ struct client {
 	unsigned int bad_counter;
 
 	unsigned int messages_count;
+	unsigned int uidvalidity;
+	uoff_t *message_sizes;
+	uoff_t total_size;
+
 	unsigned char *deleted_bitmask;
 
 	unsigned int deleted:1;
@@ -32,6 +36,7 @@ void client_disconnect(struct client *client);
 /* Send a line of data to client */
 void client_send_line(struct client *client, const char *fmt, ...)
 	__attr_format__(2, 3);
+void client_send_storage_error(struct client *client);
 
 void clients_init(void);
 void clients_deinit(void);

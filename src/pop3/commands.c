@@ -9,14 +9,6 @@
 #define MSGS_BITMASK_SIZE(client) \
 	((client->messages_count + (CHAR_BIT-1)) / CHAR_BIT)
 
-static void client_send_storage_error(struct client *client)
-{
-	const char *error;
-
-	error = client->storage->get_last_error(client->storage, NULL);
-	client_send_line(client, "-ERR %s", error);
-}
-
 static const char *get_msgnum(struct client *client, const char *args,
 			      unsigned int *msgnum)
 {
@@ -106,53 +98,25 @@ static void cmd_dele(struct client *client, const char *args)
 	client_send_line(client, "+OK Marked to be deleted.");
 }
 
-static void list_sizes(struct client *client, unsigned int message)
-{
-	struct mail_fetch_context *ctx;
-	struct mail *mail;
-	const char *messageset;
-	int found = FALSE;
-
-	if (client->messages_count == 0 && message == 0)
-		return;
-
-	messageset = message == 0 ?
-		t_strdup_printf("1:%u", client->messages_count) :
-		t_strdup_printf("%u", message);
-
-	ctx = client->mailbox->fetch_init(client->mailbox, MAIL_FETCH_SIZE,
-					  NULL, messageset, FALSE);
-	if (ctx == NULL) {
-		client_send_storage_error(client);
-		return;
-	}
-
-	while ((mail = client->mailbox->fetch_next(ctx)) != NULL) {
-		uoff_t size = mail->get_size(mail);
-
-		client_send_line(client, message == 0 ? "%u %"PRIuUOFF_T :
-				 "+OK %u %"PRIuUOFF_T, mail->seq, size);
-		found = TRUE;
-	}
-
-	(void)client->mailbox->fetch_deinit(ctx, NULL);
-
-	if (!found && message != 0)
-		client_send_line(client, "-ERR Message not found.");
-}
-
 static void cmd_list(struct client *client, const char *args)
 {
+	unsigned int i;
+
 	if (*args == '\0') {
 		client_send_line(client, "+OK %u messages:",
 				 client->messages_count);
-		list_sizes(client, 0);
+		for (i = 0; i < client->messages_count; i++) {
+			client_send_line(client, "%u %"PRIuUOFF_T,
+					 i, client->message_sizes[i]);
+		}
 		client_send_line(client, ".");
 	} else {
 		unsigned int msgnum;
 
-		if (get_msgnum(client, args, &msgnum) != NULL)
-			list_sizes(client, msgnum);
+		if (get_msgnum(client, args, &msgnum) != NULL) {
+			client_send_line(client, "+OK %u %"PRIuUOFF_T,
+					 msgnum, client->message_sizes[msgnum]);
+		}
 	}
 }
 
@@ -223,7 +187,6 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t max_lines)
 	struct mail_fetch_context *ctx;
 	struct mail *mail;
 	struct istream *stream;
-	struct message_size hdr_size, body_size;
 
 	ctx = client->mailbox->fetch_init(client->mailbox,
 					  MAIL_FETCH_STREAM_HEADER |
@@ -239,15 +202,18 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t max_lines)
 	if (mail == NULL)
 		client_send_line(client, "-ERR Message not found.");
 	else {
-		stream = mail->get_stream(mail, &hdr_size, &body_size);
-		message_size_add(&body_size, &hdr_size);
+		stream = mail->get_stream(mail, NULL, NULL);
 
-		client_send_line(client, "+OK %"PRIuUOFF_T" octets",
-				 body_size.virtual_size);
+		if (max_lines == (uoff_t)-1) {
+			client_send_line(client, "+OK %"PRIuUOFF_T" octets",
+					 client->message_sizes[msgnum]);
+		} else {
+			client_send_line(client, "+OK");
+		}
 
 		// FIXME: "." lines needs to be escaped
 		// FIXME: and send only max_lines
-		message_send(client->output, stream, &body_size, 0, (uoff_t)-1);
+		client_send_line(client, ".");
 	}
 
 	(void)client->mailbox->fetch_deinit(ctx, NULL);
@@ -273,35 +239,8 @@ static void cmd_rset(struct client *client, const char *args __attr_unused__)
 
 static void cmd_stat(struct client *client, const char *args __attr_unused__)
 {
-	struct mail_fetch_context *ctx;
-	struct mail *mail;
-	uoff_t size, total_size;
-	const char *messageset;
-
-	if (client->messages_count == 0) {
-		client_send_line(client, "+OK 0 0");
-		return;
-	}
-
-	messageset = t_strdup_printf("1:%u", client->messages_count);
-	ctx = client->mailbox->fetch_init(client->mailbox, MAIL_FETCH_SIZE,
-					  NULL, messageset, FALSE);
-	if (ctx == NULL) {
-		client_send_storage_error(client);
-		return;
-	}
-
-	total_size = 0;
-	while ((mail = client->mailbox->fetch_next(ctx)) != NULL) {
-		size = mail->get_size(mail);
-		if (size != (uoff_t)-1)
-			total_size += size;
-	}
-
-	(void)client->mailbox->fetch_deinit(ctx, NULL);
-
-	client_send_line(client, "+OK %u %"PRIuUOFF_T,
-			 client->messages_count, total_size);
+	client_send_line(client, "+OK %u %"PRIuUOFF_T, client->
+			 messages_count, client->total_size);
 }
 
 static void cmd_top(struct client *client, const char *args)
@@ -337,7 +276,8 @@ static void list_uids(struct client *client, unsigned int message)
 
 	while ((mail = client->mailbox->fetch_next(ctx)) != NULL) {
 		client_send_line(client, message == 0 ?
-				 "%u %u" : "+OK %u %u", mail->seq, mail->uid);
+				 "%u %u.%u" : "+OK %u %u.%u",
+				 mail->seq, client->uidvalidity, mail->uid);
 		found = TRUE;
 	}
 
