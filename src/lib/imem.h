@@ -8,7 +8,7 @@ extern pool_t default_pool;
         ((type *) i_malloc(sizeof(type) * (count)))
 void *i_malloc(size_t size);
 void i_free(void *mem);
-void *i_realloc(void *mem, size_t size);
+void *i_realloc(void *mem, size_t old_size, size_t new_size);
 
 /* string functions */
 char *i_strdup(const char *str);

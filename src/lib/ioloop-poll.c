@@ -71,7 +71,8 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition)
 {
 	struct ioloop_handler_data *data = ioloop->handler_data;
-	int index, old_size;
+	unsigned int old_size;
+	int index;
 
 	if ((unsigned int) fd >= data->idx_size) {
                 /* grow the fd -> index array */
@@ -79,6 +80,7 @@ void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition)
 
 		data->idx_size = nearest_power((unsigned int) fd+1);
 		data->fd_index = p_realloc(ioloop->pool, data->fd_index,
+					   sizeof(int) * old_size,
 					   sizeof(int) * data->idx_size);
 		memset(data->fd_index + old_size, 0xff,
 		       sizeof(int) * (data->idx_size-old_size));
@@ -86,8 +88,11 @@ void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition)
 
 	if (data->fds_pos >= data->fds_size) {
 		/* grow the fd array */
+		old_size = data->fds_size;
+
 		data->fds_size = nearest_power(data->fds_size+1);
 		data->fds = p_realloc(ioloop->pool, data->fds,
+				      sizeof(struct pollfd) * old_size,
 				      sizeof(struct pollfd) * data->fds_size);
 	}
 

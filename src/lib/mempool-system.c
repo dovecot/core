@@ -30,19 +30,12 @@
 
 #include <stdlib.h>
 
-struct pool_alloc {
-	union {
-		size_t size;
-		unsigned char alignment[MEM_ALIGN_SIZE];
-	} size;
-	/* void data[]; */
-};
-
 static void pool_system_ref(pool_t pool);
 static void pool_system_unref(pool_t pool);
 static void *pool_system_malloc(pool_t pool, size_t size);
 static void pool_system_free(pool_t pool, void *mem);
-static void *pool_system_realloc(pool_t pool, void *mem, size_t size);
+static void *pool_system_realloc(pool_t pool, void *mem,
+				 size_t old_size, size_t new_size);
 static void pool_system_clear(pool_t pool);
 
 static struct pool static_system_pool = {
@@ -69,58 +62,40 @@ static void pool_system_unref(pool_t pool __attr_unused__)
 
 static void *pool_system_malloc(pool_t pool __attr_unused__, size_t size)
 {
-	struct pool_alloc *alloc;
+	void *mem;
 
 	if (size == 0 || size > SSIZE_T_MAX)
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
-	alloc = calloc(sizeof(struct pool_alloc) + size, 1);
-	if (alloc == NULL)
+	mem = calloc(size, 1);
+	if (mem == NULL)
 		i_panic("pool_system_malloc(): Out of memory");
-	alloc->size.size = size;
 
-	return (char *) alloc + sizeof(struct pool_alloc);
+	return mem;
 }
 
 static void pool_system_free(pool_t pool __attr_unused__, void *mem)
 {
 	if (mem != NULL)
-		free((char *) mem - sizeof(struct pool_alloc));
+		free(mem);
 }
 
 static void *pool_system_realloc(pool_t pool __attr_unused__, void *mem,
-				 size_t size)
+				 size_t old_size, size_t new_size)
 {
-	struct pool_alloc *alloc;
-	size_t old_size;
-	char *rmem;
+	if (new_size == 0 || new_size > SSIZE_T_MAX)
+		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
-	if (size == 0 || size > SSIZE_T_MAX)
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
-
-	if (mem == NULL) {
-		alloc = NULL;
-		old_size = 0;
-	} else {
-		/* get old size */
-		alloc = (struct pool_alloc *)
-			((char *) mem - sizeof(struct pool_alloc));
-		old_size = alloc->size.size;
-	}
-
-        /* alloc & set new size */
-	alloc = realloc(alloc, sizeof(struct pool_alloc) + size);
-	if (alloc == NULL)
+	mem = realloc(mem, new_size);
+	if (mem == NULL)
 		i_panic("pool_system_realloc(): Out of memory");
-	alloc->size.size = size;
 
-        rmem = (char *) alloc + sizeof(struct pool_alloc);
-	if (size > old_size) {
+	if (old_size < new_size) {
                 /* clear new data */
-		memset(rmem + old_size, 0, size-old_size);
+		memset(mem + old_size, 0, new_size - old_size);
 	}
 
-        return rmem;
+        return mem;
 }
 
 static void pool_system_clear(pool_t pool __attr_unused__)

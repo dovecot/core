@@ -37,9 +37,9 @@ void i_free(void *mem)
         p_free(default_pool, mem);
 }
 
-void *i_realloc(void *mem, size_t size)
+void *i_realloc(void *mem, size_t old_size, size_t new_size)
 {
-        return p_realloc(default_pool, mem, size);
+        return p_realloc(default_pool, mem, old_size, new_size);
 }
 
 char *i_strdup(const char *str)

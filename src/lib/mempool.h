@@ -18,8 +18,9 @@ struct pool {
 	void *(*malloc)(pool_t pool, size_t size);
 	void (*free)(pool_t pool, void *mem);
 
-	/* reallocate the `mem' to be exactly `size' */
-	void *(*realloc)(pool_t pool, void *mem, size_t size);
+	/* memory in old_size..new_size will be zeroed */
+	void *(*realloc)(pool_t pool, void *mem,
+			 size_t old_size, size_t new_size);
 
 	/* Frees all the memory in pool. NOTE: system_pool doesn't support
 	   this and crashes if it's used */
@@ -41,7 +42,8 @@ pool_t pool_alloconly_create(const char *name, size_t size);
 #define pool_unref(pool) (pool)->unref(pool)
 
 #define p_malloc(pool, size) (pool)->malloc(pool, size)
-#define p_realloc(pool, mem, size) (pool)->realloc(pool, mem, size)
+#define p_realloc(pool, mem, old_size, new_size) \
+	(pool)->realloc(pool, mem, old_size, new_size)
 #define p_free(pool, mem) (pool)->free(pool, mem)
 
 #define p_clear(pool) (pool)->clear(pool)

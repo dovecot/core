@@ -389,7 +389,8 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 		return;
 
 	fstream->buffer = p_realloc(fstream->ostream.iostream.pool,
-				    fstream->buffer, size);
+				    fstream->buffer,
+				    fstream->buffer_size, size);
 
 	if (fstream->tail <= fstream->head && !IS_STREAM_EMPTY(fstream)) {
 		head_size = I_MIN(fstream->head, size - fstream->buffer_size);

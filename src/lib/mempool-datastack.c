@@ -28,19 +28,12 @@
 
 #include <stdlib.h>
 
-struct pool_alloc {
-	union {
-		size_t size;
-		unsigned char alignment[MEM_ALIGN_SIZE];
-	} size;
-	/* void data[]; */
-};
-
 static void pool_data_stack_ref(pool_t pool);
 static void pool_data_stack_unref(pool_t pool);
 static void *pool_data_stack_malloc(pool_t pool, size_t size);
 static void pool_data_stack_free(pool_t pool, void *mem);
-static void *pool_data_stack_realloc(pool_t pool, void *mem, size_t size);
+static void *pool_data_stack_realloc(pool_t pool, void *mem,
+				     size_t old_size, size_t new_size);
 static void pool_data_stack_clear(pool_t pool);
 
 static struct pool static_data_stack_pool = {
@@ -67,15 +60,10 @@ static void pool_data_stack_unref(pool_t pool __attr_unused__)
 
 static void *pool_data_stack_malloc(pool_t pool __attr_unused__, size_t size)
 {
-	struct pool_alloc *alloc;
-
 	if (size == 0 || size > SSIZE_T_MAX)
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
-	alloc = t_malloc0(sizeof(struct pool_alloc) + size);
-	alloc->size.size = size;
-
-	return (char *) alloc + sizeof(struct pool_alloc);
+	return t_malloc0(size);
 }
 
 static void pool_data_stack_free(pool_t pool __attr_unused__,
@@ -83,38 +71,29 @@ static void pool_data_stack_free(pool_t pool __attr_unused__,
 {
 }
 
-static void *pool_data_stack_realloc(pool_t pool __attr_unused__,
-				     void *mem, size_t size)
+static void *pool_data_stack_realloc(pool_t pool __attr_unused__, void *mem,
+				     size_t old_size, size_t new_size)
 {
-	/* @UNSAFE */
-	struct pool_alloc *alloc, *new_alloc;
-        size_t old_size;
-	unsigned char *rmem;
+	void *new_mem;
 
-	if (size == 0 || size > SSIZE_T_MAX)
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
+	/* @UNSAFE */
+	if (new_size == 0 || new_size > SSIZE_T_MAX)
+		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
 	if (mem == NULL)
-		return pool_data_stack_malloc(pool, size);
+		return pool_data_stack_malloc(pool, new_size);
 
-	/* get old size */
-	alloc = (struct pool_alloc *)
-		((char *) mem - sizeof(struct pool_alloc));
-	old_size = alloc->size.size;
-
-	if (old_size >= size)
+	if (old_size >= new_size)
 		return mem;
 
-	if (!t_try_realloc(alloc, sizeof(struct pool_alloc) + size)) {
-		new_alloc = t_malloc(sizeof(struct pool_alloc) + size);
-		memcpy(new_alloc, alloc, old_size + sizeof(struct pool_alloc));
-		alloc = new_alloc;
+	if (!t_try_realloc(mem, new_size)) {
+		new_mem = t_malloc(new_size);
+		memcpy(new_mem, mem, old_size);
+		mem = new_mem;
 	}
-	alloc->size.size = size;
 
-        rmem = (unsigned char *) alloc + sizeof(struct pool_alloc);
-	memset(rmem + old_size, 0, size-old_size);
-	return rmem;
+	memset((char *) mem + old_size, 0, new_size - old_size);
+	return mem;
 }
 
 static void pool_data_stack_clear(pool_t pool __attr_unused__)

@@ -46,14 +46,16 @@ struct imap_parser {
 	unsigned int eol:1;
 };
 
-#define LIST_REALLOC(parser, old_list, size) \
+/* @UNSAFE */
+#define LIST_REALLOC(parser, old_list, new_size) \
 	p_realloc((parser)->pool, old_list, \
 		  sizeof(struct imap_arg_list) + \
-		  sizeof(struct imap_arg) * ((size)-1))
+		  (old_list == NULL ? 0 : \
+		   sizeof(struct imap_arg) * (old_list)->alloc), \
+		  sizeof(struct imap_arg) * (new_size))
 
 static void imap_args_realloc(struct imap_parser *parser, size_t size)
 {
-	/* @UNSAFE */
 	parser->cur_list = LIST_REALLOC(parser, parser->cur_list, size);
 	parser->cur_list->alloc = size;
 
@@ -536,10 +538,10 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 		   that last argument isn't only partially parsed. */
 		if (count >= parser->root_list->alloc) {
 			/* unused arguments must be NIL-filled. */
-			parser->root_list->alloc = count+1;
 			parser->root_list = LIST_REALLOC(parser,
 							 parser->root_list,
 							 count+1);
+			parser->root_list->alloc = count+1;
 		}
 
 		parser->root_list->args[parser->root_list->size].type =

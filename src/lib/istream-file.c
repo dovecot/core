@@ -97,11 +97,15 @@ static void _set_blocking(struct _iostream *stream, int timeout_msecs,
 static void i_stream_grow_buffer(struct _istream *stream, size_t bytes)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
+	size_t old_size;
+
+	old_size = stream->buffer_size;
 
 	stream->buffer_size = stream->pos + bytes;
-	stream->buffer_size =
-		stream->buffer_size <= I_STREAM_MIN_SIZE ? I_STREAM_MIN_SIZE :
-		nearest_power(stream->buffer_size);
+	if (stream->buffer_size <= I_STREAM_MIN_SIZE)
+		stream->buffer_size = I_STREAM_MIN_SIZE;
+	else
+		stream->buffer_size = nearest_power(stream->buffer_size);
 
 	if (fstream->max_buffer_size > 0 &&
 	    stream->buffer_size > fstream->max_buffer_size)
@@ -109,7 +113,7 @@ static void i_stream_grow_buffer(struct _istream *stream, size_t bytes)
 
 	stream->buffer = stream->w_buffer =
 		p_realloc(stream->iostream.pool, stream->w_buffer,
-			  stream->buffer_size);
+			  old_size, stream->buffer_size);
 }
 
 static void i_stream_compress(struct _istream *stream)

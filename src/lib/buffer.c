@@ -54,11 +54,9 @@ static void buffer_alloc(buffer_t *buf, size_t size)
 
 	i_assert(size > buf->alloc);
 
+	buf->w_buffer = p_realloc(buf->pool, buf->w_buffer, buf->alloc, size);
 	buf->alloc = size;
-	if (buf->w_buffer == NULL)
-		buf->w_buffer = p_malloc(buf->pool, buf->alloc);
-	else
-		buf->w_buffer = p_realloc(buf->pool, buf->w_buffer, buf->alloc);
+
 	buf->r_buffer = buf->w_buffer;
 	buf->alloced = TRUE;
 }

@@ -88,8 +88,8 @@ static void hash_nodes_destroy(struct hash_table *table, struct hash_node *node)
 	}
 }
 
-struct hash_table *hash_create(pool_t pool, unsigned int initial_size,
-			       HashFunc hash_func,
+struct hash_table *hash_create(pool_t node_pool, pool_t table_pool,
+			       unsigned int initial_size, HashFunc hash_func,
 			       HashCompareFunc key_compare_func)
 {
 	struct hash_table *table;
@@ -97,7 +97,8 @@ struct hash_table *hash_create(pool_t pool, unsigned int initial_size,
         i_assert(pool != NULL);
 
 	table = p_new(pool, struct hash_table, 1);
-        table->pool = pool;
+        table->node_pool = node_pool;
+        table->table_pool = table_pool;
 	table->size = CLAMP(primes_closest(initial_size),
 			    HASH_TABLE_MIN_SIZE,
 			    HASH_TABLE_MAX_SIZE);

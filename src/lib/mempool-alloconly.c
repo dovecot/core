@@ -57,20 +57,12 @@ struct pool_block {
 #define POOL_BLOCK_DATA(block) \
 	((char *) (block) + SIZEOF_POOLBLOCK)
 
-struct pool_alloc {
-	union {
-		size_t size;
-		unsigned char alignment[MEM_ALIGN_SIZE];
-	} size;
-	unsigned char data[MEM_ALIGN_SIZE]; /* variable size */
-};
-#define SIZEOF_POOLALLOC (sizeof(struct pool_alloc)-MEM_ALIGN_SIZE)
-
 static void pool_alloconly_ref(pool_t pool);
 static void pool_alloconly_unref(pool_t pool);
 static void *pool_alloconly_malloc(pool_t pool, size_t size);
 static void pool_alloconly_free(pool_t pool, void *mem);
-static void *pool_alloconly_realloc(pool_t pool, void *mem, size_t size);
+static void *pool_alloconly_realloc(pool_t pool, void *mem,
+				    size_t old_size, size_t new_size);
 static void pool_alloconly_clear(pool_t pool);
 
 static void block_alloc(struct alloconly_pool *pool, size_t size);
@@ -160,25 +152,24 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 static void *pool_alloconly_malloc(pool_t pool, size_t size)
 {
 	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
-	struct pool_alloc *alloc;
+	void *mem;
 
 	if (size == 0 || size > SSIZE_T_MAX)
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 	size = MEM_ALIGN(size);
 
-	if (apool->block->left < size + SIZEOF_POOLALLOC) {
+	if (apool->block->left < size) {
 		/* we need a new block */
 		block_alloc(apool, size);
 	}
 
-	alloc = (struct pool_alloc *) (POOL_BLOCK_DATA(apool->block) +
-				       apool->block->size - apool->block->left);
-	alloc->size.size = size;
+	mem = POOL_BLOCK_DATA(apool->block) +
+		(apool->block->size - apool->block->left);
 
-	apool->block->left -= size + SIZEOF_POOLALLOC;
+	apool->block->left -= size;
 	apool->block->last_alloc_size = size;
-	return alloc->data;
+	return mem;
 }
 
 static void pool_alloconly_free(pool_t pool __attr_unused__,
@@ -206,39 +197,34 @@ static int pool_try_grow(struct alloconly_pool *apool, void *mem, size_t size)
 	return FALSE;
 }
 
-static void *pool_alloconly_realloc(pool_t pool, void *mem, size_t size)
+static void *pool_alloconly_realloc(pool_t pool, void *mem,
+				    size_t old_size, size_t new_size)
 {
 	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
-	struct pool_alloc *alloc;
 	unsigned char *new_mem;
-	size_t old_size;
 
-	if (size == 0 || size > SSIZE_T_MAX)
-		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
+	if (new_size == 0 || new_size > SSIZE_T_MAX)
+		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
 	if (mem == NULL)
-		return pool_alloconly_malloc(pool, size);
+		return pool_alloconly_malloc(pool, new_size);
 
-	/* get old size */
-	alloc = (struct pool_alloc *) ((char *) mem - SIZEOF_POOLALLOC);
-	old_size = alloc->size.size;
-
-	if (size <= old_size)
+	if (new_size <= old_size)
 		return mem;
 
-	size = MEM_ALIGN(size);
+	new_size = MEM_ALIGN(new_size);
 
 	/* see if we can directly grow it */
-	if (!pool_try_grow(apool, mem, size)) {
+	if (!pool_try_grow(apool, mem, new_size)) {
 		/* slow way - allocate + copy */
-		new_mem = pool_alloconly_malloc(pool, size);
+		new_mem = pool_alloconly_malloc(pool, new_size);
 		memcpy(new_mem, mem, old_size);
 		mem = new_mem;
 	}
 
-	if (size > old_size) {
+	if (old_size < new_size) {
                 /* clear new data */
-		memset((char *) mem + old_size, 0, size - old_size);
+		memset((char *) mem + old_size, 0, new_size - old_size);
 	}
 
         return mem;
