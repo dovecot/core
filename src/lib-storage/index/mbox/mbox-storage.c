@@ -141,7 +141,7 @@ static void verify_inbox(MailStorage *storage)
 	i_snprintf(path, sizeof(path), "%s/inbox", storage->dir);
 
 	/* make sure inbox file itself exists */
-	fd = open(path, O_RDWR | O_CREAT | O_EXCL);
+	fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0660);
 	if (fd != -1)
 		(void)close(fd);
 
@@ -229,14 +229,14 @@ static int mbox_create_mailbox(MailStorage *storage, const char *name)
 		return FALSE;
 	}
 
-	if (errno != EEXIST) {
+	if (errno != ENOENT) {
 		mail_storage_set_critical(storage, "stat() failed for mbox "
 					  "file %s: %m", path);
 		return FALSE;
 	}
 
 	/* create the mailbox file */
-	fd = open(path, O_RDWR | O_CREAT | O_EXCL);
+	fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0660);
 	if (fd != -1) {
 		(void)close(fd);
 		return TRUE;
@@ -284,7 +284,7 @@ static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 
 	/* next delete the index directory */
 	index_dir = mbox_get_index_dir(path);
-	if (!unlink_directory(index_dir)) {
+	if (!unlink_directory(index_dir) && errno != ENOENT) {
 		mail_storage_set_critical(storage, "unlink_directory(%s) "
 					  "failed: %m", index_dir);
 		return FALSE;

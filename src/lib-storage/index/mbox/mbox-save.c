@@ -114,7 +114,7 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		return FALSE;
 
 	/* append the data into mbox file */
-	fd = open(ibox->index->mbox_path, O_RDWR | O_CREAT);
+	fd = open(ibox->index->mbox_path, O_RDWR | O_CREAT, 0660);
 	if (fd == -1) {
 		mail_storage_set_critical(box->storage, "Can't open mbox file "
 					  "%s: %m", ibox->index->mbox_path);
