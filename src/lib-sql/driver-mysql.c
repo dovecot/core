@@ -307,7 +307,6 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query,
 
 		/* none are connected. connect_delays may have gotten too high,
 		   reset all of them to see if some are still alive. */
-		i_error("resetting delay");
 		for (i = 0; i < size; i++)
 			conn[i].connect_delay = CONNECT_RESET_DELAY;
 	}
