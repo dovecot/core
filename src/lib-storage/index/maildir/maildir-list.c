@@ -64,8 +64,8 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 		if (errno != ENOENT) {
 			mail_storage_set_critical(ctx->mailbox_ctx.storage,
 				"opendir(%s) failed: %m", ctx->dir);
-			return FALSE;
 		}
+		return FALSE;
 	}
 
 	/* INBOX exists always */
