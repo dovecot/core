@@ -3,7 +3,7 @@
 
 struct imap_arg;
 struct mailbox;
-struct client;
+struct client_command_context;
 
 /* Builds search arguments based on IMAP arguments. */
 struct mail_search_arg *
@@ -11,6 +11,7 @@ imap_search_args_build(pool_t pool, struct mailbox *box, struct imap_arg *args,
 		       const char **error_r);
 
 struct mail_search_arg *
-imap_search_get_arg(struct client *client, const char *set, int uid);
+imap_search_get_arg(struct client_command_context *cmd,
+		    const char *set, int uid);
 
 #endif

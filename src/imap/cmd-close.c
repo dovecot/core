@@ -4,12 +4,13 @@
 #include "commands.h"
 #include "imap-expunge.h"
 
-int cmd_close(struct client *client)
+int cmd_close(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	struct mailbox *mailbox = client->mailbox;
 	struct mail_storage *storage;
 
-	if (!client_verify_open_mailbox(client))
+	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
 	storage = mailbox_get_storage(mailbox);
@@ -23,6 +24,6 @@ int cmd_close(struct client *client)
 	if (mailbox_close(mailbox) < 0)
                 client_send_untagged_storage_error(client, storage);
 
-	client_send_tagline(client, "OK Close completed.");
+	client_send_tagline(cmd, "OK Close completed.");
 	return TRUE;
 }

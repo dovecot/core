@@ -36,7 +36,9 @@ struct client *client_create(int hin, int hout, struct namespace *namespaces)
 					    imap_max_line_length);
         client->last_input = ioloop_time;
 
-	client->cmd_pool = pool_alloconly_create("command pool", 8192);
+	client->cmd.pool = pool_alloconly_create("command pool", 8192);
+	client->cmd.client = client;
+
 	client->keywords.pool = pool_alloconly_create("mailbox_keywords", 512);
 	client->namespaces = namespaces;
 
@@ -62,7 +64,7 @@ void client_destroy(struct client *client)
 		/* try to deinitialize the command */
 		i_stream_close(client->input);
 		o_stream_close(client->output);
-		ret = client->cmd_func(client);
+		ret = client->cmd.func(&client->cmd);
 		i_assert(ret);
 	}
 
@@ -78,7 +80,7 @@ void client_destroy(struct client *client)
 	o_stream_unref(client->output);
 
 	pool_unref(client->keywords.pool);
-	pool_unref(client->cmd_pool);
+	pool_unref(client->cmd.pool);
 	i_free(client);
 
 	/* quit the program */
@@ -119,9 +121,10 @@ int client_send_line(struct client *client, const char *data)
 		CLIENT_OUTPUT_OPTIMAL_SIZE;
 }
 
-void client_send_tagline(struct client *client, const char *data)
+void client_send_tagline(struct client_command_context *cmd, const char *data)
 {
-	const char *tag = client->cmd_tag;
+	struct client *client = cmd->client;
+	const char *tag = cmd->tag;
 
 	if (client->output->closed)
 		return;
@@ -135,9 +138,11 @@ void client_send_tagline(struct client *client, const char *data)
 	(void)o_stream_send(client->output, "\r\n", 2);
 }
 
-void client_send_command_error(struct client *client, const char *msg)
+void client_send_command_error(struct client_command_context *cmd,
+			       const char *msg)
 {
-	const char *error, *cmd;
+	struct client *client = cmd->client;
+	const char *error, *cmd_name;
 	int fatal;
 
 	if (msg == NULL) {
@@ -148,17 +153,17 @@ void client_send_command_error(struct client *client, const char *msg)
 		}
 	}
 
-	if (client->cmd_tag == NULL)
+	if (cmd->tag == NULL)
 		error = t_strconcat("BAD Error in IMAP tag: ", msg, NULL);
-	else if (client->cmd_name == NULL)
+	else if (cmd->name == NULL)
 		error = t_strconcat("BAD Error in IMAP command: ", msg, NULL);
 	else {
-		cmd = t_str_ucase(client->cmd_name);
+		cmd_name = t_str_ucase(cmd->name);
 		error = t_strconcat("BAD Error in IMAP command ",
-				    cmd, ": ", msg, NULL);
+				    cmd_name, ": ", msg, NULL);
 	}
 
-	client_send_tagline(client, error);
+	client_send_tagline(cmd, error);
 
 	if (++client->bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
 		client_disconnect_with_error(client,
@@ -168,17 +173,17 @@ void client_send_command_error(struct client *client, const char *msg)
 	/* client_read_args() failures rely on this being set, so that the
 	   command processing is stopped even while command function returns
 	   FALSE. */
-	client->cmd_param_error = TRUE;
+	cmd->param_error = TRUE;
 }
 
-int client_read_args(struct client *client, unsigned int count,
+int client_read_args(struct client_command_context *cmd, unsigned int count,
 		     unsigned int flags, struct imap_arg **args)
 {
 	int ret;
 
 	i_assert(count <= INT_MAX);
 
-	ret = imap_parser_read_args(client->parser, count, flags, args);
+	ret = imap_parser_read_args(cmd->client->parser, count, flags, args);
 	if (ret >= (int)count) {
 		/* all parameters read successfully */
 		return TRUE;
@@ -187,20 +192,21 @@ int client_read_args(struct client *client, unsigned int count,
 		return FALSE;
 	} else {
 		/* error, or missing arguments */
-		client_send_command_error(client, ret < 0 ? NULL :
+		client_send_command_error(cmd, ret < 0 ? NULL :
 					  "Missing arguments");
 		return FALSE;
 	}
 }
 
-int client_read_string_args(struct client *client, unsigned int count, ...)
+int client_read_string_args(struct client_command_context *cmd,
+			    unsigned int count, ...)
 {
 	struct imap_arg *imap_args;
 	va_list va;
 	const char *str;
 	unsigned int i;
 
-	if (!client_read_args(client, count, 0, &imap_args))
+	if (!client_read_args(cmd, count, 0, &imap_args))
 		return FALSE;
 
 	va_start(va, count);
@@ -208,13 +214,13 @@ int client_read_string_args(struct client *client, unsigned int count, ...)
 		const char **ret = va_arg(va, const char **);
 
 		if (imap_args[i].type == IMAP_ARG_EOL) {
-			client_send_command_error(client, "Missing arguments.");
+			client_send_command_error(cmd, "Missing arguments.");
 			break;
 		}
 
 		str = imap_arg_string(&imap_args[i]);
 		if (str == NULL) {
-			client_send_command_error(client, "Invalid arguments.");
+			client_send_command_error(cmd, "Invalid arguments.");
 			break;
 		}
 
@@ -228,6 +234,8 @@ int client_read_string_args(struct client *client, unsigned int count, ...)
 
 void _client_reset_command(struct client *client)
 {
+	pool_t pool;
+
 	/* reset input idle time because command output might have taken a
 	   long time and we don't want to disconnect client immediately then */
 	client->last_input = ioloop_time;
@@ -238,13 +246,13 @@ void _client_reset_command(struct client *client)
 				    IO_READ, _client_input, client);
 	}
 
-	client->cmd_tag = NULL;
-	client->cmd_name = NULL;
-	client->cmd_func = NULL;
-	client->cmd_uid = FALSE;
-	client->cmd_param_error = FALSE;
+	pool = client->cmd.pool;
+	memset(&client->cmd, 0, sizeof(client->cmd));
 
-	p_clear(client->cmd_pool);
+	p_clear(pool);
+	client->cmd.pool = pool;
+	client->cmd.client = client;
+
 	imap_parser_reset(client->parser);
 }
 
@@ -269,11 +277,13 @@ static int client_skip_line(struct client *client)
 	return !client->input_skip_line;
 }
 
-static int client_handle_input(struct client *client)
+static int client_handle_input(struct client_command_context *cmd)
 {
-        if (client->cmd_func != NULL) {
+	struct client *client = cmd->client;
+
+        if (cmd->func != NULL) {
 		/* command is being executed - continue it */
-		if (client->cmd_func(client) || client->cmd_param_error) {
+		if (cmd->func(cmd) || cmd->param_error) {
 			/* command execution was finished */
                         client->bad_counter = 0;
 			_client_reset_command(client);
@@ -293,35 +303,35 @@ static int client_handle_input(struct client *client)
 		/* pass through to parse next command */
 	}
 
-	if (client->cmd_tag == NULL) {
-                client->cmd_tag = imap_parser_read_word(client->parser);
-		if (client->cmd_tag == NULL)
+	if (cmd->tag == NULL) {
+                cmd->tag = imap_parser_read_word(client->parser);
+		if (cmd->tag == NULL)
 			return FALSE; /* need more data */
-		client->cmd_tag = p_strdup(client->cmd_pool, client->cmd_tag);
+		cmd->tag = p_strdup(cmd->pool, cmd->tag);
 	}
 
-	if (client->cmd_name == NULL) {
-		client->cmd_name = imap_parser_read_word(client->parser);
-		if (client->cmd_name == NULL)
+	if (cmd->name == NULL) {
+		cmd->name = imap_parser_read_word(client->parser);
+		if (cmd->name == NULL)
 			return FALSE; /* need more data */
-		client->cmd_name = p_strdup(client->cmd_pool, client->cmd_name);
+		cmd->name = p_strdup(cmd->pool, cmd->name);
 	}
 
-	if (client->cmd_name == '\0') {
+	if (cmd->name == '\0') {
 		/* command not given - cmd_func is already NULL. */
 	} else {
 		/* find the command function */
-		client->cmd_func = command_find(client->cmd_name);
+		cmd->func = command_find(cmd->name);
 	}
 
-	if (client->cmd_func == NULL) {
+	if (cmd->func == NULL) {
 		/* unknown command */
-		client_send_command_error(client, "Unknown command.");
+		client_send_command_error(cmd, "Unknown command.");
 		client->input_skip_line = TRUE;
 		_client_reset_command(client);
 	} else {
 		client->input_skip_line = TRUE;
-		if (client->cmd_func(client) || client->cmd_param_error) {
+		if (cmd->func(cmd) || cmd->param_error) {
 			/* command execution was finished. */
                         client->bad_counter = 0;
 			_client_reset_command(client);
@@ -337,6 +347,7 @@ static int client_handle_input(struct client *client)
 void _client_input(void *context)
 {
 	struct client *client = context;
+	struct client_command_context *cmd = &client->cmd;
 
 	if (client->command_pending) {
 		/* already processing one command. wait. */
@@ -359,13 +370,13 @@ void _client_input(void *context)
 		   until newline is found. */
 		client->input_skip_line = TRUE;
 
-		client_send_command_error(client, "Too long argument.");
+		client_send_command_error(cmd, "Too long argument.");
 		_client_reset_command(client);
 		break;
 	}
 
 	o_stream_cork(client->output);
-	while (client_handle_input(client))
+	while (client_handle_input(cmd))
 		;
 	o_stream_uncork(client->output);
 
@@ -379,6 +390,7 @@ void _client_input(void *context)
 int _client_output(void *context)
 {
 	struct client *client = context;
+	struct client_command_context *cmd = &client->cmd;
 	int ret, finished;
 
 	client->last_output = ioloop_time;
@@ -394,7 +406,7 @@ int _client_output(void *context)
 	/* continue processing command */
 	o_stream_cork(client->output);
 	client->output_pending = TRUE;
-	finished = client->cmd_func(client) || client->cmd_param_error;
+	finished = cmd->func(cmd) || cmd->param_error;
 	o_stream_uncork(client->output);
 
 	/* a bit kludgy. normally we would want to get back here, but IDLE

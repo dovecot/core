@@ -100,13 +100,14 @@ static void mail_thread_deinit(struct thread_context *ctx)
 	pool_unref(ctx->pool);
 }
 
-int imap_thread(struct client *client, const char *charset,
+int imap_thread(struct client_command_context *cmd, const char *charset,
 		struct mail_search_arg *args, enum mail_thread_type type)
 {
 	static const char *wanted_headers[] = {
 		"message-id", "in-reply-to", "references", "subject",
 		NULL
 	};
+	struct client *client = cmd->client;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct thread_context *ctx;
 	struct mail *mail;
@@ -142,7 +143,7 @@ int imap_thread(struct client *client, const char *charset,
 				      APPROX_MSG_COUNT*2, str_hash,
 				      (hash_cmp_callback_t *)strcmp);
 
-	ctx->id_is_uid = client->cmd_uid;
+	ctx->id_is_uid = cmd->uid;
 	while ((mail = mailbox_search_next(ctx->search_ctx)) != NULL)
 		mail_thread_input(ctx, mail);
 

@@ -18,8 +18,7 @@ const char *full_macro[] = {
 };
 
 static int
-fetch_parse_args(struct client *client, struct imap_fetch_context *ctx,
-		 struct imap_arg *arg)
+fetch_parse_args(struct imap_fetch_context *ctx, struct imap_arg *arg)
 {
 	const char *str, *const *macro;
 
@@ -55,13 +54,13 @@ fetch_parse_args(struct client *client, struct imap_fetch_context *ctx,
 				return FALSE;
 		}
 		if (arg->type != IMAP_ARG_EOL) {
-			client_send_command_error(client,
+			client_send_command_error(ctx->cmd,
 				"FETCH list contains non-atoms.");
 			return FALSE;
 		}
 	}
 
-	if (client->cmd_uid) {
+	if (ctx->cmd->uid) {
 		if (!imap_fetch_init_handler(ctx, "UID", &arg))
 			return FALSE;
 	}
@@ -69,8 +68,9 @@ fetch_parse_args(struct client *client, struct imap_fetch_context *ctx,
 	return TRUE;
 }
 
-static int cmd_fetch_finish(struct client *client, int failed)
+static int cmd_fetch_finish(struct client_command_context *cmd, int failed)
 {
+	struct client *client = cmd->client;
 	static const char *ok_message = "OK Fetch completed.";
 
 	if (failed) {
@@ -90,27 +90,27 @@ static int cmd_fetch_finish(struct client *client, int failed)
 			client_disconnect_with_error(client, error);
 		} else {
 			/* user error, we'll reply with BAD */
-			client_send_storage_error(client, storage);
+			client_send_storage_error(cmd, storage);
 		}
 		return TRUE;
 	}
 
 	if ((client_workarounds & WORKAROUND_OE6_FETCH_NO_NEWMAIL) != 0) {
-		client_send_tagline(client, ok_message);
+		client_send_tagline(cmd, ok_message);
 		return TRUE;
 	} else {
-		return cmd_sync(client, MAILBOX_SYNC_FLAG_FAST |
-				(client->cmd_uid ? 0 :
-				 MAILBOX_SYNC_FLAG_NO_EXPUNGES), ok_message);
+		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
+				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+				ok_message);
 	}
 }
 
-static int cmd_fetch_continue(struct client *client)
+static int cmd_fetch_continue(struct client_command_context *cmd)
 {
-        struct imap_fetch_context *ctx = client->cmd_context;
+        struct imap_fetch_context *ctx = cmd->context;
 	int ret;
 
-	if (client->output->closed)
+	if (cmd->client->output->closed)
 		ret = -1;
 	else {
 		if ((ret = imap_fetch(ctx)) == 0) {
@@ -123,39 +123,40 @@ static int cmd_fetch_continue(struct client *client)
 
 	if (imap_fetch_deinit(ctx) < 0)
 		ret = -1;
-	return cmd_fetch_finish(client, ret < 0);
+	return cmd_fetch_finish(cmd, ret < 0);
 }
 
-int cmd_fetch(struct client *client)
+int cmd_fetch(struct client_command_context *cmd)
 {
-        struct imap_fetch_context *ctx;
+	struct client *client = cmd->client;
+	struct imap_fetch_context *ctx;
 	struct imap_arg *args;
 	struct mail_search_arg *search_arg;
 	const char *messageset;
 	int ret;
 
-	if (!client_read_args(client, 0, 0, &args))
+	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
 
-	if (!client_verify_open_mailbox(client))
+	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
 	messageset = imap_arg_string(&args[0]);
 	if (messageset == NULL ||
 	    (args[1].type != IMAP_ARG_LIST && args[1].type != IMAP_ARG_ATOM)) {
-		client_send_command_error(client, "Invalid arguments.");
+		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
 
-	search_arg = imap_search_get_arg(client, messageset, client->cmd_uid);
+	search_arg = imap_search_get_arg(cmd, messageset, cmd->uid);
 	if (search_arg == NULL)
 		return TRUE;
 
-	ctx = imap_fetch_init(client);
+	ctx = imap_fetch_init(cmd);
 	if (ctx == NULL)
 		return TRUE;
 
-	if (!fetch_parse_args(client, ctx, &args[1])) {
+	if (!fetch_parse_args(ctx, &args[1])) {
 		imap_fetch_deinit(ctx);
 		return TRUE;
 	}
@@ -164,13 +165,13 @@ int cmd_fetch(struct client *client)
 	if ((ret = imap_fetch(ctx)) == 0) {
 		/* unfinished */
 		client->command_pending = TRUE;
-		client->cmd_func = cmd_fetch_continue;
-		client->cmd_context = ctx;
+		cmd->func = cmd_fetch_continue;
+		cmd->context = ctx;
 		return FALSE;
 	}
 	if (ret < 0)
 		ctx->failed = TRUE;
 	if (imap_fetch_deinit(ctx) < 0)
 		ret = -1;
-	return cmd_fetch_finish(client, ret < 0);
+	return cmd_fetch_finish(cmd, ret < 0);
 }

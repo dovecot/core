@@ -48,8 +48,9 @@ static int fetch_and_copy(struct mailbox_transaction_context *t,
 	return ret;
 }
 
-int cmd_copy(struct client *client)
+int cmd_copy(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	struct mail_storage *storage;
 	struct mailbox *destbox;
 	struct mailbox_transaction_context *t;
@@ -59,21 +60,21 @@ int cmd_copy(struct client *client)
 	int ret;
 
 	/* <message set> <mailbox> */
-	if (!client_read_string_args(client, 2, &messageset, &mailbox))
+	if (!client_read_string_args(cmd, 2, &messageset, &mailbox))
 		return FALSE;
 
-	if (!client_verify_open_mailbox(client))
+	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
 	/* open the destination mailbox */
-	if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
+	if (!client_verify_mailbox_name(cmd, mailbox, TRUE, FALSE))
 		return TRUE;
 
-	search_arg = imap_search_get_arg(client, messageset, client->cmd_uid);
+	search_arg = imap_search_get_arg(cmd, messageset, cmd->uid);
 	if (search_arg == NULL)
 		return TRUE;
 
-	storage = client_find_storage(client, &mailbox);
+	storage = client_find_storage(cmd, &mailbox);
 	if (storage == NULL)
 		return TRUE;
 
@@ -83,7 +84,7 @@ int cmd_copy(struct client *client)
 		destbox = mailbox_open(storage, mailbox, MAILBOX_OPEN_FAST |
 				       MAILBOX_OPEN_KEEP_RECENT);
 		if (destbox == NULL) {
-			client_send_storage_error(client, storage);
+			client_send_storage_error(cmd, storage);
 			return TRUE;
 		}
 	}
@@ -104,13 +105,13 @@ int cmd_copy(struct client *client)
 	}
 
 	if (ret > 0)
-		return cmd_sync(client, sync_flags, "OK Copy completed.");
+		return cmd_sync(cmd, sync_flags, "OK Copy completed.");
 	else if (ret == 0) {
 		/* some messages were expunged, sync them */
-		return cmd_sync(client, 0,
+		return cmd_sync(cmd, 0,
 			"NO Some of the requested messages no longer exist.");
 	} else {
-		client_send_storage_error(client, storage);
+		client_send_storage_error(cmd, storage);
 		return TRUE;
 	}
 }

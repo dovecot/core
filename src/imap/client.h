@@ -15,6 +15,20 @@ struct mailbox_keywords {
         unsigned int keywords_count;
 };
 
+struct client_command_context {
+	struct client *client;
+
+	pool_t pool;
+	const char *tag;
+	const char *name;
+
+	command_func_t *func;
+	void *context;
+
+	unsigned int uid:1; /* used UID command */
+	unsigned int param_error:1;
+};
+
 struct client {
 	int socket;
 	struct io *io;
@@ -31,17 +45,11 @@ struct client {
 	unsigned int bad_counter;
 
 	struct imap_parser *parser;
-	pool_t cmd_pool;
-	const char *cmd_tag;
-	const char *cmd_name;
-	command_func_t *cmd_func;
-	void *cmd_context;
+	struct client_command_context cmd;
 
 	unsigned int command_pending:1;
 	unsigned int input_pending:1;
 	unsigned int output_pending:1;
-	unsigned int cmd_uid:1; /* used UID command */
-	unsigned int cmd_param_error:1;
 	unsigned int rawlog:1;
 	unsigned int input_skip_line:1; /* skip all the data until we've
 					   found a new line */
@@ -60,18 +68,20 @@ void client_disconnect_with_error(struct client *client, const char *msg);
    -1 if error */
 int client_send_line(struct client *client, const char *data);
 /* Send line of data to client, prefixed with client->tag */
-void client_send_tagline(struct client *client, const char *data);
+void client_send_tagline(struct client_command_context *cmd, const char *data);
 
 /* Send BAD command error to client. msg can be NULL. */
-void client_send_command_error(struct client *client, const char *msg);
+void client_send_command_error(struct client_command_context *cmd,
+			       const char *msg);
 
 /* Read a number of arguments. Returns TRUE if everything was read or
    FALSE if either needs more data or error occured. */
-int client_read_args(struct client *client, unsigned int count,
+int client_read_args(struct client_command_context *cmd, unsigned int count,
 		     unsigned int flags, struct imap_arg **args);
 /* Reads a number of string arguments. ... is a list of pointers where to
    store the arguments. */
-int client_read_string_args(struct client *client, unsigned int count, ...);
+int client_read_string_args(struct client_command_context *cmd,
+			    unsigned int count, ...);
 
 void clients_init(void);
 void clients_deinit(void);

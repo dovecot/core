@@ -6,8 +6,9 @@
 #include "imap-search.h"
 #include "imap-thread.h"
 
-int cmd_thread(struct client *client)
+int cmd_thread(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	enum mail_thread_type threading;
 	struct mail_search_arg *sargs;
 	struct imap_arg *args;
@@ -20,16 +21,16 @@ int cmd_thread(struct client *client)
 		return FALSE;
 
 	if (args_count < 3) {
-		client_send_command_error(client, args_count < 0 ? NULL :
+		client_send_command_error(cmd, args_count < 0 ? NULL :
 					  "Missing or invalid arguments.");
 		return TRUE;
 	}
 
-	if (!client_verify_open_mailbox(client))
+	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
 	if (args->type != IMAP_ARG_ATOM && args->type != IMAP_ARG_STRING) {
-		client_send_command_error(client,
+		client_send_command_error(cmd,
 					  "Invalid thread algorithm argument.");
 		return TRUE;
 	}
@@ -38,18 +39,18 @@ int cmd_thread(struct client *client)
 	if (strcasecmp(str, "REFERENCES") == 0)
 		threading = MAIL_THREAD_REFERENCES;
 	else if (strcasecmp(str, "ORDEREDSUBJECT") == 0) {
-		client_send_command_error(client,
+		client_send_command_error(cmd,
 			"ORDEREDSUBJECT threading is currently not supported.");
 		return TRUE;
 	} else {
-		client_send_command_error(client, "Unknown thread algorithm.");
+		client_send_command_error(cmd, "Unknown thread algorithm.");
 		return TRUE;
 	}
 	args++;
 
 	/* charset */
 	if (args->type != IMAP_ARG_ATOM && args->type != IMAP_ARG_STRING) {
-		client_send_command_error(client,
+		client_send_command_error(cmd,
 					  "Invalid charset argument.");
 		return TRUE;
 	}
@@ -61,15 +62,14 @@ int cmd_thread(struct client *client)
 	sargs = imap_search_args_build(pool, client->mailbox, args, &error);
 	if (sargs == NULL) {
 		/* error in search arguments */
-		client_send_tagline(client, t_strconcat("NO ", error, NULL));
-	} else if (imap_thread(client, charset, sargs, threading) == 0) {
+		client_send_tagline(cmd, t_strconcat("NO ", error, NULL));
+	} else if (imap_thread(cmd, charset, sargs, threading) == 0) {
 		pool_unref(pool);
-		return cmd_sync(client, MAILBOX_SYNC_FLAG_FAST |
-				(client->cmd_uid ?
-				 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
+				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
 				"OK Thread completed.");
 	} else {
-		client_send_storage_error(client,
+		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
 	}
 

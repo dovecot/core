@@ -17,19 +17,20 @@
 #define MAILBOX_MAX_NAME_LEN 512
 
 struct mail_storage *
-client_find_storage(struct client *client, const char **mailbox)
+client_find_storage(struct client_command_context *cmd, const char **mailbox)
 {
 	struct namespace *ns;
 
-	ns = namespace_find(client->namespaces, mailbox);
+	ns = namespace_find(cmd->client->namespaces, mailbox);
 	if (ns != NULL)
 		return ns->storage;
 
-	client_send_tagline(client, "NO Unknown namespace.");
+	client_send_tagline(cmd, "NO Unknown namespace.");
 	return NULL;
 }
 
-int client_verify_mailbox_name(struct client *client, const char *mailbox,
+int client_verify_mailbox_name(struct client_command_context *cmd,
+			       const char *mailbox,
 			       int should_exist, int should_not_exist)
 {
 	struct mail_storage *storage;
@@ -37,34 +38,34 @@ int client_verify_mailbox_name(struct client *client, const char *mailbox,
 	const char *p;
 	char sep;
 
-	storage = client_find_storage(client, &mailbox);
+	storage = client_find_storage(cmd, &mailbox);
 	if (storage == NULL)
 		return FALSE;
 
 	/* make sure it even looks valid */
 	sep = mail_storage_get_hierarchy_sep(storage);
 	if (*mailbox == '\0' || strspn(mailbox, "\r\n*%?") != 0) {
-		client_send_tagline(client, "NO Invalid mailbox name.");
+		client_send_tagline(cmd, "NO Invalid mailbox name.");
 		return FALSE;
 	}
 
 	/* make sure two hierarchy separators aren't next to each others */
 	for (p = mailbox+1; *p != '\0'; p++) {
 		if (p[0] == sep && p[1] == sep) {
-			client_send_tagline(client, "NO Invalid mailbox name.");
+			client_send_tagline(cmd, "NO Invalid mailbox name.");
 			return FALSE;
 		}
 	}
 
 	if (strlen(mailbox) > MAILBOX_MAX_NAME_LEN) {
-		client_send_tagline(client, "NO Mailbox name too long.");
+		client_send_tagline(cmd, "NO Mailbox name too long.");
 		return FALSE;
 	}
 
 	/* check what our storage thinks of it */
 	if (mail_storage_get_mailbox_name_status(storage, mailbox,
 						 &mailbox_status) < 0) {
-		client_send_storage_error(client, storage);
+		client_send_storage_error(cmd, storage);
 		return FALSE;
 	}
 
@@ -73,25 +74,25 @@ int client_verify_mailbox_name(struct client *client, const char *mailbox,
 		if (should_exist || !should_not_exist)
 			return TRUE;
 
-		client_send_tagline(client, "NO Mailbox exists.");
+		client_send_tagline(cmd, "NO Mailbox exists.");
 		break;
 
 	case MAILBOX_NAME_VALID:
 		if (!should_exist)
 			return TRUE;
 
-		client_send_tagline(client, t_strconcat(
+		client_send_tagline(cmd, t_strconcat(
 			"NO [TRYCREATE] Mailbox doesn't exist: ",
 			mailbox, NULL));
 		break;
 
 	case MAILBOX_NAME_INVALID:
-		client_send_tagline(client, t_strconcat(
+		client_send_tagline(cmd, t_strconcat(
 			"NO Invalid mailbox name: ", mailbox, NULL));
 		break;
 
 	case MAILBOX_NAME_NOINFERIORS:
-		client_send_tagline(client,
+		client_send_tagline(cmd,
 			"NO Mailbox parent doesn't allow inferior mailboxes.");
 		break;
 
@@ -102,33 +103,33 @@ int client_verify_mailbox_name(struct client *client, const char *mailbox,
 	return FALSE;
 }
 
-int client_verify_open_mailbox(struct client *client)
+int client_verify_open_mailbox(struct client_command_context *cmd)
 {
-	if (client->mailbox != NULL)
+	if (cmd->client->mailbox != NULL)
 		return TRUE;
 	else {
-		client_send_tagline(client, "BAD No mailbox selected.");
+		client_send_tagline(cmd, "BAD No mailbox selected.");
 		return FALSE;
 	}
 }
 
-void client_send_storage_error(struct client *client,
+void client_send_storage_error(struct client_command_context *cmd,
 			       struct mail_storage *storage)
 {
 	const char *error;
 	int syntax;
 
-	if (client->mailbox != NULL &&
-	    mailbox_is_inconsistent(client->mailbox)) {
+	if (cmd->client->mailbox != NULL &&
+	    mailbox_is_inconsistent(cmd->client->mailbox)) {
 		/* we can't do forced CLOSE, so have to disconnect */
-		client_disconnect_with_error(client,
+		client_disconnect_with_error(cmd->client,
 			"Mailbox is in inconsistent state, please relogin.");
 		return;
 	}
 
 	error = mail_storage_get_last_error(storage, &syntax);
-	client_send_tagline(client, t_strconcat(syntax ? "BAD " : "NO ",
-						error, NULL));
+	client_send_tagline(cmd,
+			    t_strconcat(syntax ? "BAD " : "NO ", error, NULL));
 }
 
 void client_send_untagged_storage_error(struct client *client,
@@ -150,19 +151,21 @@ void client_send_untagged_storage_error(struct client *client,
 			 t_strconcat(syntax ? "* BAD " : "* NO ", error, NULL));
 }
 
-static int is_valid_keyword(struct client *client, const char *keyword)
+static int is_valid_keyword(struct client_command_context *cmd,
+			    const char *keyword)
 {
+	struct mailbox_keywords *keywords = &cmd->client->keywords;
 	size_t i;
 
 	/* if it already exists, skip validity checks */
-	for (i = 0; i < client->keywords.keywords_count; i++) {
-		if (client->keywords.keywords[i] != NULL &&
-		    strcasecmp(client->keywords.keywords[i], keyword) == 0)
+	for (i = 0; i < keywords->keywords_count; i++) {
+		if (keywords->keywords[i] != NULL &&
+		    strcasecmp(keywords->keywords[i], keyword) == 0)
 			return TRUE;
 	}
 
 	if (strlen(keyword) > max_keyword_length) {
-		client_send_tagline(client,
+		client_send_tagline(cmd,
 			t_strdup_printf("BAD Invalid keyword name '%s': "
 					"Maximum length is %u characters",
 					keyword, max_keyword_length));
@@ -172,8 +175,8 @@ static int is_valid_keyword(struct client *client, const char *keyword)
 	return TRUE;
 }
 
-int client_parse_mail_flags(struct client *client, struct imap_arg *args,
-			    enum mail_flags *flags_r,
+int client_parse_mail_flags(struct client_command_context *cmd,
+			    struct imap_arg *args, enum mail_flags *flags_r,
 			    const char *const **keywords_r)
 {
 	const char *const *keywords;
@@ -183,11 +186,11 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 
 	*flags_r = 0;
 	*keywords_r = NULL;
-	buffer = buffer_create_dynamic(client->cmd_pool, 256);
+	buffer = buffer_create_dynamic(cmd->pool, 256);
 
 	while (args->type != IMAP_ARG_EOL) {
 		if (args->type != IMAP_ARG_ATOM) {
-			client_send_command_error(client,
+			client_send_command_error(cmd,
 				"Flags list contains non-atoms.");
 			return FALSE;
 		}
@@ -207,7 +210,7 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 			else if (strcmp(atom, "\\DRAFT") == 0)
 				*flags_r |= MAIL_DRAFT;
 			else {
-				client_send_tagline(client, t_strconcat(
+				client_send_tagline(cmd, t_strconcat(
 					"BAD Invalid system flag ",
 					atom, NULL));
 				return FALSE;
@@ -222,7 +225,7 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 			}
 
 			if (i == size) {
-				if (!is_valid_keyword(client, atom))
+				if (!is_valid_keyword(cmd, atom))
 					return FALSE;
 				buffer_append(buffer, &atom, sizeof(atom));
 			}

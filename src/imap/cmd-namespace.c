@@ -33,8 +33,9 @@ static void list_namespaces(struct namespace *ns, enum namespace_type type,
 		str_append(str, "NIL");
 }
 
-int cmd_namespace(struct client *client)
+int cmd_namespace(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	string_t *str;
 
 	str = t_str_new(256);
@@ -47,6 +48,6 @@ int cmd_namespace(struct client *client)
         list_namespaces(client->namespaces, NAMESPACE_PUBLIC, str);
 
 	client_send_line(client, str_c(str));
-	client_send_tagline(client, "OK Namespace completed.");
+	client_send_tagline(cmd, "OK Namespace completed.");
 	return TRUE;
 }

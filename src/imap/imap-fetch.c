@@ -67,7 +67,7 @@ int imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
                           sizeof(struct imap_fetch_handler),
 			  imap_fetch_handler_bsearch);
 	if (handler == NULL) {
-		client_send_command_error(ctx->client,
+		client_send_command_error(ctx->cmd,
 			t_strconcat("Unknown command ", name, NULL));
 		return FALSE;
 	}
@@ -75,8 +75,9 @@ int imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
 	return handler->init(ctx, name, args);
 }
 
-struct imap_fetch_context *imap_fetch_init(struct client *client)
+struct imap_fetch_context *imap_fetch_init(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	struct imap_fetch_context *ctx;
 
 	if (fetch_handlers == NULL) {
@@ -85,13 +86,14 @@ struct imap_fetch_context *imap_fetch_init(struct client *client)
 					     sizeof(default_handlers[0]));
 	}
 
-	ctx = p_new(client->cmd_pool, struct imap_fetch_context, 1);
+	ctx = p_new(cmd->pool, struct imap_fetch_context, 1);
 	ctx->client = client;
+	ctx->cmd = cmd;
 	ctx->box = client->mailbox;
 
 	ctx->cur_str = str_new(default_pool, 8192);
-	ctx->all_headers_buf = buffer_create_dynamic(client->cmd_pool, 128);
-	ctx->handlers = buffer_create_dynamic(client->cmd_pool, 128);
+	ctx->all_headers_buf = buffer_create_dynamic(cmd->pool, 128);
+	ctx->handlers = buffer_create_dynamic(cmd->pool, 128);
 	ctx->line_finished = TRUE;
 	return ctx;
 }

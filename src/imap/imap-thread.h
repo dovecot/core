@@ -7,7 +7,7 @@ enum mail_thread_type {
 	MAIL_THREAD_REFERENCES
 };
 
-int imap_thread(struct client *client, const char *charset,
+int imap_thread(struct client_command_context *cmd, const char *charset,
 		struct mail_search_arg *args, enum mail_thread_type type);
 
 #endif

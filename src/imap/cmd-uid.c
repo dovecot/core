@@ -3,23 +3,23 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_uid(struct client *client)
+int cmd_uid(struct client_command_context *cmd)
 {
-	const char *cmd;
+	const char *cmd_name;
 
 	/* UID <command> <args> */
-	cmd = imap_parser_read_word(client->parser);
-	if (cmd == NULL)
+	cmd_name = imap_parser_read_word(cmd->client->parser);
+	if (cmd_name == NULL)
 		return FALSE;
 
-	client->cmd_func = command_find(t_strconcat("UID ", cmd, NULL));
+	cmd->func = command_find(t_strconcat("UID ", cmd_name, NULL));
 
-	if (client->cmd_func != NULL) {
-		client->cmd_uid = TRUE;
-		return client->cmd_func(client);
+	if (cmd->func != NULL) {
+		cmd->uid = TRUE;
+		return cmd->func(cmd);
 	} else {
-		client_send_tagline(client, t_strconcat(
-			"BAD Unknown UID command ", cmd, NULL));
+		client_send_tagline(cmd, t_strconcat(
+			"BAD Unknown UID command ", cmd_name, NULL));
 		return TRUE;
 	}
 }

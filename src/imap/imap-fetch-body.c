@@ -594,7 +594,7 @@ static int fetch_body_header_fields_init(struct imap_fetch_context *ctx,
 	t_push();
 
 	for (arr = body->fields; *arr != NULL; arr++) {
-		char *hdr = p_strdup(ctx->client->cmd_pool, *arr);
+		char *hdr = p_strdup(ctx->cmd->pool, *arr);
 		buffer_append(ctx->all_headers_buf, &hdr, sizeof(hdr));
 	}
 
@@ -660,7 +660,7 @@ static int fetch_body_section_name_init(struct imap_fetch_context *ctx,
 		}
 	}
 
-	client_send_command_error(ctx->client,
+	client_send_command_error(ctx->cmd,
 		"Invalid BODY[..] parameter: Unknown or broken section");
 	return FALSE;
 }
@@ -694,17 +694,17 @@ static int body_section_build(struct imap_fetch_context *ctx,
 	const char **arr;
 	size_t i;
 
-	str = str_new(ctx->client->cmd_pool, 128);
+	str = str_new(ctx->cmd->pool, 128);
 	str_append(str, prefix);
 	str_append(str, " (");
 
 	/* @UNSAFE: NULL-terminated list of headers */
-	arr = p_new(ctx->client->cmd_pool, const char *, list->size + 1);
+	arr = p_new(ctx->cmd->pool, const char *, list->size + 1);
 
 	for (i = 0; i < list->size; i++) {
 		if (list->args[i].type != IMAP_ARG_ATOM &&
 		    list->args[i].type != IMAP_ARG_STRING) {
-			client_send_command_error(ctx->client,
+			client_send_command_error(ctx->cmd,
 				"Invalid BODY[..] parameter: "
 				"Header list contains non-strings");
 			return FALSE;
@@ -738,7 +738,7 @@ int fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 	const char *partial;
 	const char *p = name + 4;
 
-	body = p_new(ctx->client->cmd_pool, struct imap_fetch_body_data, 1);
+	body = p_new(ctx->cmd->pool, struct imap_fetch_body_data, 1);
 	body->max_size = (uoff_t)-1;
 
 	if (strncmp(p, ".PEEK", 5) == 0) {
@@ -749,7 +749,7 @@ int fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 	}
 
 	if (*p != '[') {
-		client_send_command_error(ctx->client,
+		client_send_command_error(ctx->cmd,
 			"Invalid BODY[..] parameter: Missing '['");
 		return FALSE;
 	}
@@ -758,7 +758,7 @@ int fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 		/* BODY[HEADER.FIELDS.. (headers list)] */
 		if ((*args)[1].type != IMAP_ARG_ATOM ||
 		    IMAP_ARG_STR(&(*args)[1])[0] != ']') {
-			client_send_command_error(ctx->client,
+			client_send_command_error(ctx->cmd,
 				"Invalid BODY[..] parameter: Missing ']'");
 			return FALSE;
 		}
@@ -772,11 +772,11 @@ int fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 		body->section = p+1;
 		p = strchr(body->section, ']');
 		if (p == NULL) {
-			client_send_command_error(ctx->client,
+			client_send_command_error(ctx->cmd,
 				"Invalid BODY[..] parameter: Missing ']'");
 			return FALSE;
 		}
-		body->section = p_strdup_until(ctx->client->cmd_pool,
+		body->section = p_strdup_until(ctx->cmd->pool,
 					       body->section, p);
 	}
 
@@ -788,7 +788,7 @@ int fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 
 		if (!read_uoff_t(&p, &body->skip) || body->skip > OFF_T_MAX) {
 			/* wrapped */
-			client_send_command_error(ctx->client,
+			client_send_command_error(ctx->cmd,
 				"Invalid BODY[..] parameter: "
 				"Too big partial start");
 			return FALSE;
@@ -807,7 +807,7 @@ int fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 			if (!read_uoff_t(&p, &body->max_size) ||
 			    body->max_size > OFF_T_MAX) {
 				/* wrapped */
-				client_send_command_error(ctx->client,
+				client_send_command_error(ctx->cmd,
 					"Invalid BODY[..] parameter: "
 					"Too big partial end");
 				return FALSE;
@@ -815,7 +815,7 @@ int fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 		}
 
 		if (*p != '>') {
-			client_send_command_error(ctx->client,
+			client_send_command_error(ctx->cmd,
 				t_strdup_printf("Invalid BODY[..] parameter: "
 						"Missing '>' in '%s'",
 						partial));
@@ -947,7 +947,7 @@ int fetch_rfc822_init(struct imap_fetch_context *ctx, const char *name,
 		return TRUE;
 	}
 
-	client_send_command_error(ctx->client, t_strconcat(
+	client_send_command_error(ctx->cmd, t_strconcat(
 		"Unknown parameter ", name, NULL));
 	return FALSE;
 }

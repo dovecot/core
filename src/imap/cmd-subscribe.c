@@ -3,33 +3,33 @@
 #include "common.h"
 #include "commands.h"
 
-int _cmd_subscribe_full(struct client *client, int subscribe)
+int _cmd_subscribe_full(struct client_command_context *cmd, int subscribe)
 {
         struct mail_storage *storage;
 	const char *mailbox;
 
 	/* <mailbox> */
-	if (!client_read_string_args(client, 1, &mailbox))
+	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
 
-	if (!client_verify_mailbox_name(client, mailbox, subscribe, FALSE))
+	if (!client_verify_mailbox_name(cmd, mailbox, subscribe, FALSE))
 		return TRUE;
 
-	storage = client_find_storage(client, &mailbox);
+	storage = client_find_storage(cmd, &mailbox);
 	if (storage == NULL)
 		return TRUE;
 
 	if (mail_storage_set_subscribed(storage, mailbox, subscribe) < 0)
-		client_send_storage_error(client, storage);
+		client_send_storage_error(cmd, storage);
 	else {
-		client_send_tagline(client, subscribe ?
+		client_send_tagline(cmd, subscribe ?
 				    "OK Subscribe completed." :
 				    "OK Unsubscribe completed.");
 	}
 	return TRUE;
 }
 
-int cmd_subscribe(struct client *client)
+int cmd_subscribe(struct client_command_context *cmd)
 {
-	return _cmd_subscribe_full(client, TRUE);
+	return _cmd_subscribe_full(cmd, TRUE);
 }

@@ -4,8 +4,10 @@
 #include "ostream.h"
 #include "commands.h"
 
-int cmd_logout(struct client *client)
+int cmd_logout(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
+
 	client_send_line(client, "* BYE Logging out");
 	o_stream_uncork(client->output);
 
@@ -17,7 +19,7 @@ int cmd_logout(struct client *client)
 		client->mailbox = NULL;
 	}
 
-	client_send_tagline(client, "OK Logout completed.");
+	client_send_tagline(cmd, "OK Logout completed.");
 	client_disconnect(client);
 	return TRUE;
 }

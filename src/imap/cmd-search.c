@@ -8,9 +8,10 @@
 
 #define STRBUF_SIZE 1024
 
-static int imap_search(struct client *client, const char *charset,
+static int imap_search(struct client_command_context *cmd, const char *charset,
 		       struct mail_search_arg *sargs)
 {
+	struct client *client = cmd->client;
         struct mail_search_context *ctx;
         struct mailbox_transaction_context *trans;
 	const struct mail *mail;
@@ -18,7 +19,7 @@ static int imap_search(struct client *client, const char *charset,
 	int ret, uid, first = TRUE;
 
 	str = t_str_new(STRBUF_SIZE);
-	uid = client->cmd_uid;
+	uid = cmd->uid;
 
 	trans = mailbox_transaction_begin(client->mailbox, FALSE);
 	ctx = mailbox_search_init(trans, charset, sargs,
@@ -53,8 +54,9 @@ static int imap_search(struct client *client, const char *charset,
 	return ret == 0;
 }
 
-int cmd_search(struct client *client)
+int cmd_search(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	struct mail_search_arg *sargs;
 	struct imap_arg *args;
 	int args_count;
@@ -65,12 +67,12 @@ int cmd_search(struct client *client)
 		if (args_count == -2)
 			return FALSE;
 
-		client_send_command_error(client, args_count < 0 ? NULL :
+		client_send_command_error(cmd, args_count < 0 ? NULL :
 					  "Missing SEARCH arguments.");
 		return TRUE;
 	}
 
-	if (!client_verify_open_mailbox(client))
+	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
 	if (args->type == IMAP_ARG_ATOM &&
@@ -79,7 +81,7 @@ int cmd_search(struct client *client)
 		args++;
 		if (args->type != IMAP_ARG_ATOM &&
 		    args->type != IMAP_ARG_STRING) {
-			client_send_command_error(client,
+			client_send_command_error(cmd,
 						  "Invalid charset argument.");
 			return TRUE;
 		}
@@ -90,17 +92,17 @@ int cmd_search(struct client *client)
 		charset = NULL;
 	}
 
-	sargs = imap_search_args_build(client->cmd_pool, client->mailbox, args, &error);
+	sargs = imap_search_args_build(cmd->pool, client->mailbox,
+				       args, &error);
 	if (sargs == NULL) {
 		/* error in search arguments */
-		client_send_tagline(client, t_strconcat("NO ", error, NULL));
-	} else if (imap_search(client, charset, sargs)) {
-		return cmd_sync(client, MAILBOX_SYNC_FLAG_FAST |
-				(client->cmd_uid ?
-				 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+		client_send_tagline(cmd, t_strconcat("NO ", error, NULL));
+	} else if (imap_search(cmd, charset, sargs)) {
+		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
+				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
 				"OK Search completed.");
 	} else {
-		client_send_storage_error(client,
+		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
 	}
 

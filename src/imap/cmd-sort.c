@@ -25,7 +25,7 @@ static struct sort_name sort_names[] = {
 };
 
 static enum mail_sort_type *
-get_sort_program(struct client *client, struct imap_arg *args)
+get_sort_program(struct client_command_context *cmd, struct imap_arg *args)
 {
 	enum mail_sort_type type;
 	buffer_t *buf;
@@ -33,7 +33,7 @@ get_sort_program(struct client *client, struct imap_arg *args)
 
 	if (args->type == IMAP_ARG_EOL) {
 		/* empyty list */
-		client_send_command_error(client, "Empty sort program.");
+		client_send_command_error(cmd, "Empty sort program.");
 		return NULL;
 	}
 
@@ -49,7 +49,7 @@ get_sort_program(struct client *client, struct imap_arg *args)
 		}
 
 		if (sort_names[i].type == MAIL_SORT_END) {
-			client_send_command_error(client, t_strconcat(
+			client_send_command_error(cmd, t_strconcat(
 				"Unknown sort argument: ", arg, NULL));
 			return NULL;
 		}
@@ -63,7 +63,7 @@ get_sort_program(struct client *client, struct imap_arg *args)
 	buffer_append(buf, &type, sizeof(type));
 
 	if (args->type != IMAP_ARG_EOL) {
-		client_send_command_error(client,
+		client_send_command_error(cmd,
 					  "Invalid sort list argument.");
 		return NULL;
 	}
@@ -71,8 +71,9 @@ get_sort_program(struct client *client, struct imap_arg *args)
 	return buffer_free_without_data(buf);
 }
 
-int cmd_sort(struct client *client)
+int cmd_sort(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	struct mail_search_arg *sargs;
 	enum mail_sort_type *sorting;
 	struct imap_arg *args;
@@ -85,28 +86,28 @@ int cmd_sort(struct client *client)
 		return FALSE;
 
 	if (args_count < 3) {
-		client_send_command_error(client, args_count < 0 ? NULL :
+		client_send_command_error(cmd, args_count < 0 ? NULL :
 					  "Missing or invalid arguments.");
 		return TRUE;
 	}
 
-	if (!client_verify_open_mailbox(client))
+	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
 	/* sort program */
 	if (args->type != IMAP_ARG_LIST) {
-		client_send_command_error(client, "Invalid sort argument.");
+		client_send_command_error(cmd, "Invalid sort argument.");
 		return TRUE;
 	}
 
-	sorting = get_sort_program(client, IMAP_ARG_LIST(args)->args);
+	sorting = get_sort_program(cmd, IMAP_ARG_LIST(args)->args);
 	if (sorting == NULL)
 		return TRUE;
 	args++;
 
 	/* charset */
 	if (args->type != IMAP_ARG_ATOM && args->type != IMAP_ARG_STRING) {
-		client_send_command_error(client,
+		client_send_command_error(cmd,
 					  "Invalid charset argument.");
 		return TRUE;
 	}
@@ -118,15 +119,14 @@ int cmd_sort(struct client *client)
 	sargs = imap_search_args_build(pool, client->mailbox, args, &error);
 	if (sargs == NULL) {
 		/* error in search arguments */
-		client_send_tagline(client, t_strconcat("NO ", error, NULL));
-	} else if (imap_sort(client, charset, sargs, sorting) == 0) {
+		client_send_tagline(cmd, t_strconcat("NO ", error, NULL));
+	} else if (imap_sort(cmd, charset, sargs, sorting) == 0) {
 		pool_unref(pool);
-		return cmd_sync(client, MAILBOX_SYNC_FLAG_FAST |
-				(client->cmd_uid ?
-				 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
+				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
 				"OK Sort completed.");
 	} else {
-		client_send_storage_error(client,
+		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
 	}
 

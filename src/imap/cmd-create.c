@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_create(struct client *client)
+int cmd_create(struct client_command_context *cmd)
 {
 	struct mail_storage *storage;
 	const char *mailbox, *full_mailbox;
@@ -11,11 +11,11 @@ int cmd_create(struct client *client)
 	size_t len;
 
 	/* <mailbox> */
-	if (!client_read_string_args(client, 1, &mailbox))
+	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
 	full_mailbox = mailbox;
 
-	storage = client_find_storage(client, &mailbox);
+	storage = client_find_storage(cmd, &mailbox);
 	if (storage == NULL)
 		return TRUE;
 
@@ -31,12 +31,12 @@ int cmd_create(struct client *client)
 		full_mailbox = t_strndup(full_mailbox, strlen(full_mailbox)-1);
 	}
 
-	if (!client_verify_mailbox_name(client, full_mailbox, FALSE, TRUE))
+	if (!client_verify_mailbox_name(cmd, full_mailbox, FALSE, TRUE))
 		return TRUE;
 
 	if (mail_storage_mailbox_create(storage, mailbox, directory) < 0)
-		client_send_storage_error(client, storage);
+		client_send_storage_error(cmd, storage);
 	else
-		client_send_tagline(client, "OK Create completed.");
+		client_send_tagline(cmd, "OK Create completed.");
 	return TRUE;
 }

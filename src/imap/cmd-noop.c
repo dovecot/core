@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_noop(struct client *client)
+int cmd_noop(struct client_command_context *cmd)
 {
-	return cmd_sync(client, 0, "OK NOOP completed.");
+	return cmd_sync(cmd, 0, "OK NOOP completed.");
 }

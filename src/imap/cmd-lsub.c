@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_lsub(struct client *client)
+int cmd_lsub(struct client_command_context *cmd)
 {
-	return _cmd_list_full(client, TRUE);
+	return _cmd_list_full(cmd, TRUE);
 }

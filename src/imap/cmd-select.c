@@ -4,15 +4,16 @@
 #include "commands.h"
 #include "imap-sync.h"
 
-int _cmd_select_full(struct client *client, int readonly)
+int _cmd_select_full(struct client_command_context *cmd, int readonly)
 {
+	struct client *client = cmd->client;
 	struct mail_storage *storage;
 	struct mailbox *box;
 	struct mailbox_status status;
 	const char *mailbox;
 
 	/* <mailbox> */
-	if (!client_read_string_args(client, 1, &mailbox))
+	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
 
 	if (client->mailbox != NULL) {
@@ -24,19 +25,19 @@ int _cmd_select_full(struct client *client, int readonly)
 		}
 	}
 
-	storage = client_find_storage(client, &mailbox);
+	storage = client_find_storage(cmd, &mailbox);
 	if (storage == NULL)
 		return TRUE;
 
 	box = mailbox_open(storage, mailbox, !readonly ? 0 :
 			   (MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT));
 	if (box == NULL) {
-		client_send_storage_error(client, storage);
+		client_send_storage_error(cmd, storage);
 		return TRUE;
 	}
 
 	if (imap_sync_nonselected(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		client_send_storage_error(client, storage);
+		client_send_storage_error(cmd, storage);
 		mailbox_close(box);
 		return TRUE;
 	}
@@ -45,7 +46,7 @@ int _cmd_select_full(struct client *client, int readonly)
 			       STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
 			       STATUS_UIDNEXT | STATUS_KEYWORDS,
 			       &status) < 0) {
-		client_send_storage_error(client, storage);
+		client_send_storage_error(cmd, storage);
 		mailbox_close(box);
 		return TRUE;
 	}
@@ -87,13 +88,13 @@ int _cmd_select_full(struct client *client, int readonly)
 				 "Disk space is full, delete some messages.");
 	}
 
-	client_send_tagline(client, mailbox_is_readonly(box) ?
+	client_send_tagline(cmd, mailbox_is_readonly(box) ?
 			    "OK [READ-ONLY] Select completed." :
 			    "OK [READ-WRITE] Select completed.");
 	return TRUE;
 }
 
-int cmd_select(struct client *client)
+int cmd_select(struct client_command_context *cmd)
 {
-	return _cmd_select_full(client, FALSE);
+	return _cmd_select_full(cmd, FALSE);
 }

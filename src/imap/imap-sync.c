@@ -164,38 +164,39 @@ int imap_sync_nonselected(struct mailbox *box, enum mailbox_sync_flags flags)
 	return mailbox_sync_deinit(ctx, &status);
 }
 
-static int cmd_sync_continue(struct client *client)
+static int cmd_sync_continue(struct client_command_context *cmd)
 {
-	struct cmd_sync_context *ctx = client->cmd_context;
+	struct cmd_sync_context *ctx = cmd->context;
 
 	if (imap_sync_more(ctx->sync_ctx) == 0)
 		return FALSE;
 
 	if (imap_sync_deinit(ctx->sync_ctx) < 0) {
-		client_send_untagged_storage_error(client,
-			mailbox_get_storage(client->mailbox));
+		client_send_untagged_storage_error(cmd->client,
+			mailbox_get_storage(cmd->client->mailbox));
 	}
 
-	client_send_tagline(client, ctx->tagline);
+	client_send_tagline(cmd, ctx->tagline);
 	return TRUE;
 }
 
-int cmd_sync(struct client *client, enum mailbox_sync_flags flags,
+int cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	     const char *tagline)
 {
         struct cmd_sync_context *ctx;
 
-	if (client->mailbox == NULL) {
-		client_send_tagline(client, tagline);
+	if (cmd->client->mailbox == NULL) {
+		client_send_tagline(cmd, tagline);
 		return TRUE;
 	}
 
-	ctx = p_new(client->cmd_pool, struct cmd_sync_context, 1);
-	ctx->tagline = p_strdup(client->cmd_pool, tagline);
-	ctx->sync_ctx = imap_sync_init(client, client->mailbox, flags);
+	ctx = p_new(cmd->pool, struct cmd_sync_context, 1);
+	ctx->tagline = p_strdup(cmd->pool, tagline);
+	ctx->sync_ctx = imap_sync_init(cmd->client, cmd->client->mailbox,
+				       flags);
 
-	client->cmd_func = cmd_sync_continue;
-	client->cmd_context = ctx;
-	client->command_pending = TRUE;
-	return cmd_sync_continue(client);
+	cmd->func = cmd_sync_continue;
+	cmd->context = ctx;
+	cmd->client->command_pending = TRUE;
+	return cmd_sync_continue(cmd);
 }

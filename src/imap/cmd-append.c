@@ -14,6 +14,7 @@
 
 struct cmd_append_context {
 	struct client *client;
+        struct client_command_context *cmd;
 	struct mail_storage *storage;
 	struct mailbox *box;
         struct mailbox_transaction_context *t;
@@ -25,11 +26,12 @@ struct cmd_append_context {
 	struct mail_save_context *save_ctx;
 };
 
-static int cmd_append_continue_message(struct client *client);
+static int cmd_append_continue_message(struct client_command_context *cmd);
 
 static void client_input(void *context)
 {
 	struct client *client = context;
+	struct client_command_context *cmd = &client->cmd;
 
 	client->last_input = ioloop_time;
 
@@ -50,12 +52,12 @@ static void client_input(void *context)
 		   until newline is found. */
 		client->input_skip_line = TRUE;
 
-		client_send_command_error(client, "Too long argument.");
+		client_send_command_error(cmd, "Too long argument.");
 		_client_reset_command(client);
 		break;
 	}
 
-	if (client->cmd_func(client)) {
+	if (cmd->func(cmd)) {
 		/* command execution was finished */
 		client->bad_counter = 0;
 		_client_reset_command(client);
@@ -119,16 +121,16 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 	if (ctx->t != NULL)
 		mailbox_transaction_rollback(ctx->t);
 
-	if (ctx->box != ctx->client->mailbox && ctx->box != NULL)
+	if (ctx->box != ctx->cmd->client->mailbox && ctx->box != NULL)
 		mailbox_close(ctx->box);
 
 	(void)i_stream_get_data(ctx->client->input, &size);
 	ctx->client->input_pending = size != 0;
 }
 
-static int cmd_append_continue_cancel(struct client *client)
+static int cmd_append_continue_cancel(struct client_command_context *cmd)
 {
-	struct cmd_append_context *ctx = client->cmd_context;
+	struct cmd_append_context *ctx = cmd->context;
 	size_t size;
 
 	(void)i_stream_read(ctx->input);
@@ -156,14 +158,15 @@ static int cmd_append_cancel(struct cmd_append_context *ctx, int nonsync)
 					   ctx->msg_size);
 
 	ctx->client->command_pending = TRUE;
-	ctx->client->cmd_func = cmd_append_continue_cancel;
-	ctx->client->cmd_context = ctx;
-	return cmd_append_continue_cancel(ctx->client);
+	ctx->cmd->func = cmd_append_continue_cancel;
+	ctx->cmd->context = ctx;
+	return cmd_append_continue_cancel(ctx->cmd);
 }
 
-static int cmd_append_continue_parsing(struct client *client)
+static int cmd_append_continue_parsing(struct client_command_context *cmd)
 {
-	struct cmd_append_context *ctx = client->cmd_context;
+	struct client *client = cmd->client;
+	struct cmd_append_context *ctx = cmd->context;
 	struct imap_arg *args;
 	struct imap_arg_list *flags_list;
 	enum mail_flags flags;
@@ -181,7 +184,7 @@ static int cmd_append_continue_parsing(struct client *client)
 				    IMAP_PARSE_FLAG_LITERAL_SIZE, &args);
 	if (ret == -1) {
 		if (ctx->box != NULL)
-			client_send_command_error(client, NULL);
+			client_send_command_error(cmd, NULL);
 		cmd_append_finish(ctx);
 		return TRUE;
 	}
@@ -203,22 +206,22 @@ static int cmd_append_continue_parsing(struct client *client)
 		ret = mailbox_transaction_commit(ctx->t, 0);
 		ctx->t = NULL;
 		if (ret < 0) {
-			client_send_storage_error(client, ctx->storage);
+			client_send_storage_error(cmd, ctx->storage);
 			cmd_append_finish(ctx);
 			return TRUE;
 		}
 
-		sync_flags = ctx->box == client->mailbox ?
+		sync_flags = ctx->box == cmd->client->mailbox ?
 			0 : MAILBOX_SYNC_FLAG_FAST;
 
 		client->input_skip_line = TRUE;
 		cmd_append_finish(ctx);
-		return cmd_sync(client, sync_flags, "OK Append completed.");
+		return cmd_sync(cmd, sync_flags, "OK Append completed.");
 	}
 
 	if (!validate_args(args, &flags_list, &internal_date_str,
 			   &ctx->msg_size, &nonsync)) {
-		client_send_command_error(client, "Invalid arguments.");
+		client_send_command_error(cmd, "Invalid arguments.");
 		return cmd_append_cancel(ctx, nonsync);
 	}
 
@@ -229,7 +232,7 @@ static int cmd_append_continue_parsing(struct client *client)
 	}
 
 	if (flags_list != NULL) {
-		if (!client_parse_mail_flags(client, flags_list->args,
+		if (!client_parse_mail_flags(cmd, flags_list->args,
 					     &flags, &keywords_list))
 			return cmd_append_cancel(ctx, nonsync);
 		keywords = keywords_list == NULL ? NULL :
@@ -245,13 +248,13 @@ static int cmd_append_continue_parsing(struct client *client)
 		timezone_offset = 0;
 	} else if (!imap_parse_datetime(internal_date_str,
 					&internal_date, &timezone_offset)) {
-		client_send_tagline(client, "BAD Invalid internal date.");
+		client_send_tagline(cmd, "BAD Invalid internal date.");
 		return cmd_append_cancel(ctx, nonsync);
 	}
 
 	if (ctx->msg_size == 0) {
 		/* no message data, abort */
-		client_send_tagline(client, "NO Append aborted.");
+		client_send_tagline(cmd, "NO Append aborted.");
 		cmd_append_finish(ctx);
 		return TRUE;
 	}
@@ -276,13 +279,14 @@ static int cmd_append_continue_parsing(struct client *client)
 		mailbox_keywords_free(ctx->t, keywords);
 
 	client->command_pending = TRUE;
-	client->cmd_func = cmd_append_continue_message;
-	return cmd_append_continue_message(client);
+	cmd->func = cmd_append_continue_message;
+	return cmd_append_continue_message(cmd);
 }
 
-static int cmd_append_continue_message(struct client *client)
+static int cmd_append_continue_message(struct client_command_context *cmd)
 {
-	struct cmd_append_context *ctx = client->cmd_context;
+	struct client *client = cmd->client;
+	struct cmd_append_context *ctx = cmd->context;
 	size_t size;
 	int failed;
 
@@ -310,7 +314,7 @@ static int cmd_append_continue_message(struct client *client)
 
 		if (ctx->save_ctx == NULL) {
 			/* failed above */
-			client_send_storage_error(client, ctx->storage);
+			client_send_storage_error(cmd, ctx->storage);
 			failed = TRUE;
 		} else if (client->input->eof) {
 			/* client disconnected */
@@ -318,7 +322,7 @@ static int cmd_append_continue_message(struct client *client)
 			mailbox_save_cancel(ctx->save_ctx);
 		} else if (mailbox_save_finish(ctx->save_ctx, NULL) < 0) {
 			failed = TRUE;
-			client_send_storage_error(client, ctx->storage);
+			client_send_storage_error(cmd, ctx->storage);
 		}
 		ctx->save_ctx = NULL;
 
@@ -330,57 +334,60 @@ static int cmd_append_continue_message(struct client *client)
 		/* prepare for next message */
 		client->command_pending = FALSE;
 		imap_parser_reset(ctx->save_parser);
-		client->cmd_func = cmd_append_continue_parsing;
-		return cmd_append_continue_parsing(client);
+		cmd->func = cmd_append_continue_parsing;
+		return cmd_append_continue_parsing(cmd);
 	}
 
 	return FALSE;
 }
 
-static struct mailbox *get_mailbox(struct client *client, const char *name)
+static struct mailbox *
+get_mailbox(struct client_command_context *cmd, const char *name)
 {
 	struct mail_storage *storage;
 	struct mailbox *box;
 
-	if (!client_verify_mailbox_name(client, name, TRUE, FALSE))
+	if (!client_verify_mailbox_name(cmd, name, TRUE, FALSE))
 		return NULL;
 
-	storage = client_find_storage(client, &name);
+	storage = client_find_storage(cmd, &name);
 	if (storage == NULL)
 		return NULL;
 
-	if (client->mailbox != NULL &&
-	    mailbox_name_equals(mailbox_get_name(client->mailbox), name))
-		return client->mailbox;
+	if (cmd->client->mailbox != NULL &&
+	    mailbox_name_equals(mailbox_get_name(cmd->client->mailbox), name))
+		return cmd->client->mailbox;
 
 	box = mailbox_open(storage, name, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT);
 	if (box == NULL) {
-		client_send_storage_error(client, storage);
+		client_send_storage_error(cmd, storage);
 		return NULL;
 	}
 	return box;
 }
 
-int cmd_append(struct client *client)
+int cmd_append(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
         struct cmd_append_context *ctx;
 	struct mailbox_status status;
 	const char *mailbox;
 
 	/* <mailbox> */
-	if (!client_read_string_args(client, 1, &mailbox))
+	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
 
-	ctx = p_new(client->cmd_pool, struct cmd_append_context, 1);
+	ctx = p_new(cmd->pool, struct cmd_append_context, 1);
+	ctx->cmd = cmd;
 	ctx->client = client;
-	ctx->box = get_mailbox(client, mailbox);
+	ctx->box = get_mailbox(cmd, mailbox);
 	if (ctx->box != NULL) {
 		ctx->storage = mailbox_get_storage(ctx->box);
 
 		if (mailbox_get_status(ctx->box, STATUS_KEYWORDS,
 				       &status) < 0) {
-			client_send_storage_error(client, ctx->storage);
+			client_send_storage_error(cmd, ctx->storage);
 			mailbox_close(ctx->box);
 			ctx->box = NULL;
 		} else {
@@ -402,7 +409,7 @@ int cmd_append(struct client *client)
 	ctx->save_parser = imap_parser_create(client->input, client->output,
 					      imap_max_line_length);
 
-	client->cmd_func = cmd_append_continue_parsing;
-	client->cmd_context = ctx;
-	return cmd_append_continue_parsing(client);
+	cmd->func = cmd_append_continue_parsing;
+	cmd->context = ctx;
+	return cmd_append_continue_parsing(cmd);
 }

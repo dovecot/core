@@ -3,8 +3,8 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_login(struct client *client)
+int cmd_login(struct client_command_context *cmd)
 {
-	client_send_tagline(client, "OK Already logged in.");
+	client_send_tagline(cmd, "OK Already logged in.");
 	return TRUE;
 }

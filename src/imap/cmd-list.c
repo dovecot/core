@@ -63,14 +63,15 @@ mailbox_flags2str(enum mailbox_flags flags, enum mailbox_list_flags list_flags)
 	return *str == '\0' ? "" : str+1;
 }
 
-static int parse_list_flags(struct client *client, struct imap_arg *args,
-			    enum mailbox_list_flags *list_flags)
+static int
+parse_list_flags(struct client_command_context *cmd, struct imap_arg *args,
+		 enum mailbox_list_flags *list_flags)
 {
 	const char *atom;
 
 	while (args->type != IMAP_ARG_EOL) {
 		if (args->type != IMAP_ARG_ATOM) {
-			client_send_command_error(client,
+			client_send_command_error(cmd,
 				"List options contains non-atoms.");
 			return FALSE;
 		}
@@ -82,7 +83,7 @@ static int parse_list_flags(struct client *client, struct imap_arg *args,
 		else if (strcasecmp(atom, "CHILDREN") == 0)
 			*list_flags |= MAILBOX_LIST_CHILDREN;
 		else {
-			client_send_tagline(client, t_strconcat(
+			client_send_tagline(cmd, t_strconcat(
 				"BAD Invalid list option ", atom, NULL));
 			return FALSE;
 		}
@@ -178,8 +179,10 @@ static void skip_prefix(const char **prefix, const char **mask, int inbox)
 }
 
 static void
-list_namespace_init(struct client *client, struct cmd_list_context *ctx)
+list_namespace_init(struct client_command_context *cmd,
+		    struct cmd_list_context *ctx)
 {
+        struct client *client = cmd->client;
 	struct namespace *ns = ctx->ns;
 	const char *cur_prefix, *cur_ref, *cur_mask;
 	enum imap_match_result match;
@@ -206,7 +209,7 @@ list_namespace_init(struct client *client, struct cmd_list_context *ctx)
 			    ctx->inbox && cur_ref == ctx->ref);
 	}
 
-	ctx->glob = imap_match_init(client->cmd_pool, ctx->mask,
+	ctx->glob = imap_match_init(cmd->pool, ctx->mask,
 				    ctx->inbox && cur_ref == ctx->ref, ns->sep);
 
 	if (*cur_ref != '\0' || *cur_prefix == '\0')
@@ -216,7 +219,7 @@ list_namespace_init(struct client *client, struct cmd_list_context *ctx)
 		if (cur_prefix[len-1] == ns->sep)
 			cur_prefix = t_strndup(cur_prefix, len-1);
 		match = ns->hidden ? IMAP_MATCH_NO :
-			imap_match(ctx->glob, cur_prefix);
+		       imap_match(ctx->glob, cur_prefix);
 
 		if (match == IMAP_MATCH_YES) {
 			/* The prefix itself matches */
@@ -298,31 +301,33 @@ list_namespace_init(struct client *client, struct cmd_list_context *ctx)
 						       list_flags);
 }
 
-static int cmd_list_continue(struct client *client)
+static int cmd_list_continue(struct client_command_context *cmd)
 {
-        struct cmd_list_context *ctx = client->cmd_context;
+	struct client *client = cmd->client;
+        struct cmd_list_context *ctx = cmd->context;
 	int ret;
 
 	for (; ctx->ns != NULL; ctx->ns = ctx->ns->next) {
 		if (ctx->list_ctx == NULL)
-			list_namespace_init(client, ctx);
+			list_namespace_init(cmd, ctx);
 
 		if ((ret = list_namespace_mailboxes(client, ctx)) < 0) {
-			client_send_storage_error(client, ctx->ns->storage);
+			client_send_storage_error(cmd, ctx->ns->storage);
 			return TRUE;
 		}
 		if (ret == 0)
 			return FALSE;
 	}
 
-	client_send_tagline(client, !ctx->lsub ?
+	client_send_tagline(cmd, !ctx->lsub ?
 			    "OK List completed." :
 			    "OK Lsub completed.");
 	return TRUE;
 }
 
-int _cmd_list_full(struct client *client, int lsub)
+int _cmd_list_full(struct client_command_context *cmd, int lsub)
 {
+	struct client *client = cmd->client;
 	struct namespace *ns;
 	struct imap_arg *args;
 	enum mailbox_list_flags list_flags;
@@ -330,7 +335,7 @@ int _cmd_list_full(struct client *client, int lsub)
 	const char *ref, *mask;
 
 	/* [(<options>)] <reference> <mailbox wildcards> */
-	if (!client_read_args(client, 0, 0, &args))
+	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
 
 	if (lsub) {
@@ -342,7 +347,7 @@ int _cmd_list_full(struct client *client, int lsub)
 		list_flags = 0;
 	} else {
 		list_flags = _MAILBOX_LIST_LISTEXT;
-		if (!parse_list_flags(client, IMAP_ARG_LIST(&args[0])->args,
+		if (!parse_list_flags(cmd, IMAP_ARG_LIST(&args[0])->args,
 				      &list_flags))
 			return TRUE;
 		args++;
@@ -356,7 +361,7 @@ int _cmd_list_full(struct client *client, int lsub)
 	mask = imap_arg_string(&args[1]);
 
 	if (ref == NULL || mask == NULL) {
-		client_send_command_error(client, "Invalid arguments.");
+		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
 
@@ -373,9 +378,9 @@ int _cmd_list_full(struct client *client, int lsub)
 				"* LIST (\\Noselect) \"", ns->sep_str,
 				"\" \"\"", NULL));
 		}
-		client_send_tagline(client, "OK List completed.");
+		client_send_tagline(cmd, "OK List completed.");
 	} else {
-		ctx = p_new(client->cmd_pool, struct cmd_list_context, 1);
+		ctx = p_new(cmd->pool, struct cmd_list_context, 1);
 		ctx->ref = ref;
 		ctx->mask = mask;
 		ctx->list_flags = list_flags;
@@ -384,21 +389,21 @@ int _cmd_list_full(struct client *client, int lsub)
 			(*ref == '\0' && strncasecmp(mask, "INBOX", 5) == 0);
 		ctx->ns = client->namespaces;
 
-		client->cmd_context = ctx;
-		if (!cmd_list_continue(client)) {
+		cmd->context = ctx;
+		if (!cmd_list_continue(cmd)) {
 			/* unfinished */
 			client->command_pending = TRUE;
-			client->cmd_func = cmd_list_continue;
+			cmd->func = cmd_list_continue;
 			return FALSE;
 		}
 
-		client->cmd_context = NULL;
+		cmd->context = NULL;
 		return TRUE;
 	}
 	return TRUE;
 }
 
-int cmd_list(struct client *client)
+int cmd_list(struct client_command_context *cmd)
 {
-	return _cmd_list_full(client, FALSE);
+	return _cmd_list_full(cmd, FALSE);
 }

@@ -4,11 +4,12 @@
 #include "commands.h"
 #include "str.h"
 
-int cmd_capability(struct client *client)
+int cmd_capability(struct client_command_context *cmd)
 {
-	client_send_line(client, t_strconcat("* CAPABILITY ",
-					     str_c(capability_string), NULL));
+	client_send_line(cmd->client,
+			 t_strconcat("* CAPABILITY ",
+				     str_c(capability_string), NULL));
 
-	client_send_tagline(client, "OK Capability completed.");
+	client_send_tagline(cmd, "OK Capability completed.");
 	return TRUE;
 }

@@ -187,10 +187,11 @@ static void mail_sort_deinit(struct sort_context *ctx)
 	i_free(ctx->last_to);
 }
 
-int imap_sort(struct client *client, const char *charset,
+int imap_sort(struct client_command_context *cmd, const char *charset,
 	      struct mail_search_arg *args,
 	      const enum mail_sort_type *sort_program)
 {
+	struct client *client = cmd->client;
 	enum mail_sort_type norm_prog[MAX_SORT_PROGRAM_SIZE];
         enum mail_fetch_field wanted_fields;
 	const char *wanted_headers[MAX_WANTED_HEADERS];
@@ -245,7 +246,7 @@ int imap_sort(struct client *client, const char *charset,
 	ctx->str = t_str_new(STRBUF_SIZE);
 	str_append(ctx->str, "* SORT");
 
-        ctx->id_is_uid = client->cmd_uid;
+        ctx->id_is_uid = cmd->uid;
 
 	while ((mail = mailbox_search_next(ctx->search_ctx)) != NULL)
 		mail_sort_input(ctx, mail);

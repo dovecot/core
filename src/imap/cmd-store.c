@@ -6,7 +6,7 @@
 #include "imap-search.h"
 #include "imap-util.h"
 
-static int get_modify_type(struct client *client, const char *item,
+static int get_modify_type(struct client_command_context *cmd, const char *item,
 			   enum modify_type *modify_type, int *silent)
 {
 	if (*item == '+') {
@@ -20,14 +20,14 @@ static int get_modify_type(struct client *client, const char *item,
 	}
 
 	if (strncasecmp(item, "FLAGS", 5) != 0) {
-		client_send_tagline(client, t_strconcat(
+		client_send_tagline(cmd, t_strconcat(
 			"NO Invalid item ", item, NULL));
 		return FALSE;
 	}
 
 	*silent = strcasecmp(item+5, ".SILENT") == 0;
 	if (!*silent && item[5] != '\0') {
-		client_send_tagline(client, t_strconcat(
+		client_send_tagline(cmd, t_strconcat(
 			"NO Invalid item ", item, NULL));
 		return FALSE;
 	}
@@ -35,8 +35,9 @@ static int get_modify_type(struct client *client, const char *item,
 	return TRUE;
 }
 
-int cmd_store(struct client *client)
+int cmd_store(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	struct imap_arg *args;
 	enum mail_flags flags;
 	const char *const *keywords_list;
@@ -50,10 +51,10 @@ int cmd_store(struct client *client)
 	const char *messageset, *item;
 	int silent, failed;
 
-	if (!client_read_args(client, 0, 0, &args))
+	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
 
-	if (!client_verify_open_mailbox(client))
+	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
 	/* validate arguments */
@@ -61,26 +62,26 @@ int cmd_store(struct client *client)
 	item = imap_arg_string(&args[1]);
 
 	if (messageset == NULL || item == NULL) {
-		client_send_command_error(client, "Invalid arguments.");
+		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
 
-	if (!get_modify_type(client, item, &modify_type, &silent))
+	if (!get_modify_type(cmd, item, &modify_type, &silent))
 		return TRUE;
 
 	if (args[2].type == IMAP_ARG_LIST) {
-		if (!client_parse_mail_flags(client,
+		if (!client_parse_mail_flags(cmd,
 					     IMAP_ARG_LIST(&args[2])->args,
 					     &flags, &keywords_list))
 			return TRUE;
 	} else {
-		if (!client_parse_mail_flags(client, args+2,
+		if (!client_parse_mail_flags(cmd, args+2,
 					     &flags, &keywords_list))
 			return TRUE;
 	}
 
 	box = client->mailbox;
-	search_arg = imap_search_get_arg(client, messageset, client->cmd_uid);
+	search_arg = imap_search_get_arg(cmd, messageset, cmd->uid);
 	if (search_arg == NULL)
 		return TRUE;
 
@@ -121,12 +122,11 @@ int cmd_store(struct client *client)
 	}
 
 	if (!failed) {
-		return cmd_sync(client, MAILBOX_SYNC_FLAG_FAST |
-				(client->cmd_uid ?
-				 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
+				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
 				"OK Store completed.");
 	} else {
-		client_send_storage_error(client, mailbox_get_storage(box));
+		client_send_storage_error(cmd, mailbox_get_storage(box));
 		return TRUE;
 	}
 }

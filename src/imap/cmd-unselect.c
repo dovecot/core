@@ -3,11 +3,12 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_unselect(struct client *client)
+int cmd_unselect(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	struct mailbox *mailbox = client->mailbox;
 
-	if (!client_verify_open_mailbox(client))
+	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
 	client->mailbox = NULL;
@@ -17,6 +18,6 @@ int cmd_unselect(struct client *client)
 						   mailbox_get_storage(mailbox));
 	}
 
-	client_send_tagline(client, "OK Unselect completed.");
+	client_send_tagline(cmd, "OK Unselect completed.");
 	return TRUE;
 }

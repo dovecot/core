@@ -3,11 +3,11 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_check(struct client *client)
+int cmd_check(struct client_command_context *cmd)
 {
-	if (!client_verify_open_mailbox(client))
+	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
-	return cmd_sync(client, MAILBOX_SYNC_FLAG_FULL_READ |
+	return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FULL_READ |
 			MAILBOX_SYNC_FLAG_FULL_WRITE, "OK Check completed.");
 }

@@ -23,6 +23,7 @@ struct imap_fetch_context_handler {
 
 struct imap_fetch_context {
 	struct client *client;
+	struct client_command_context *cmd;
 	struct mailbox *box;
 
 	struct mailbox_transaction_context *trans;
@@ -61,7 +62,7 @@ void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 void imap_fetch_add_handler(struct imap_fetch_context *ctx,
 			    imap_fetch_handler_t *handler, void *context);
 
-struct imap_fetch_context *imap_fetch_init(struct client *client);
+struct imap_fetch_context *imap_fetch_init(struct client_command_context *cmd);
 int imap_fetch_deinit(struct imap_fetch_context *ctx);
 int imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
 			    struct imap_arg **args);

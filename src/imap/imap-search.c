@@ -444,22 +444,23 @@ imap_search_get_uidset_arg(pool_t pool, struct mailbox *box, const char *uidset,
 }
 
 struct mail_search_arg *
-imap_search_get_arg(struct client *client, const char *set, int uid)
+imap_search_get_arg(struct client_command_context *cmd,
+		    const char *set, int uid)
 {
 	struct mail_search_arg *search_arg;
 	const char *error;
 	int ret;
 
 	if (!uid) {
-		ret = imap_search_get_msgset_arg(client->cmd_pool, set,
+		ret = imap_search_get_msgset_arg(cmd->pool, set,
 						 &search_arg, &error);
 	} else {
-		ret = imap_search_get_uidset_arg(client->cmd_pool,
-						 client->mailbox, set,
+		ret = imap_search_get_uidset_arg(cmd->pool,
+						 cmd->client->mailbox, set,
 						 &search_arg, &error);
 	}
 	if (ret < 0) {
-		client_send_command_error(client, error);
+		client_send_command_error(cmd, error);
 		return NULL;
 	}
 

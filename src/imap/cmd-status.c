@@ -8,7 +8,7 @@
 
 /* Returns status items, or -1 if error */
 static enum mailbox_status_items
-get_status_items(struct client *client, struct imap_arg *args)
+get_status_items(struct client_command_context *cmd, struct imap_arg *args)
 {
 	const char *item;
 	enum mailbox_status_items items;
@@ -17,7 +17,7 @@ get_status_items(struct client *client, struct imap_arg *args)
 	for (; args->type != IMAP_ARG_EOL; args++) {
 		if (args->type != IMAP_ARG_ATOM) {
 			/* list may contain only atoms */
-			client_send_command_error(client,
+			client_send_command_error(cmd,
 				"Status list contains non-atoms.");
 			return -1;
 		}
@@ -35,7 +35,7 @@ get_status_items(struct client *client, struct imap_arg *args)
 		else if (strcmp(item, "UNSEEN") == 0)
 			items |= STATUS_UNSEEN;
 		else {
-			client_send_tagline(client, t_strconcat(
+			client_send_tagline(cmd, t_strconcat(
 				"BAD Invalid status item ", item, NULL));
 			return -1;
 		}
@@ -76,8 +76,9 @@ static int get_mailbox_status(struct client *client,
 	return !failed;
 }
 
-int cmd_status(struct client *client)
+int cmd_status(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	struct imap_arg *args;
 	struct mailbox_status status;
 	enum mailbox_status_items items;
@@ -86,29 +87,29 @@ int cmd_status(struct client *client)
 	string_t *str;
 
 	/* <mailbox> <status items> */
-	if (!client_read_args(client, 2, 0, &args))
+	if (!client_read_args(cmd, 2, 0, &args))
 		return FALSE;
 
 	mailbox = imap_arg_string(&args[0]);
 	if (mailbox == NULL || args[1].type != IMAP_ARG_LIST) {
-		client_send_command_error(client, "Status items must be list.");
+		client_send_command_error(cmd, "Status items must be list.");
 		return TRUE;
 	}
 
 	/* get the items client wants */
-	items = get_status_items(client, IMAP_ARG_LIST(&args[1])->args);
+	items = get_status_items(cmd, IMAP_ARG_LIST(&args[1])->args);
 	if (items == (enum mailbox_status_items)-1) {
 		/* error */
 		return TRUE;
 	}
 
-	storage = client_find_storage(client, &mailbox);
+	storage = client_find_storage(cmd, &mailbox);
 	if (storage == NULL)
 		return FALSE;
 
 	/* get status */
 	if (!get_mailbox_status(client, storage, mailbox, items, &status)) {
-		client_send_storage_error(client, storage);
+		client_send_storage_error(cmd, storage);
 		return TRUE;
 	}
 
@@ -133,7 +134,7 @@ int cmd_status(struct client *client)
 	str_append_c(str, ')');
 
 	client_send_line(client, str_c(str));
-	client_send_tagline(client, "OK Status completed.");
+	client_send_tagline(cmd, "OK Status completed.");
 
 	return TRUE;
 }

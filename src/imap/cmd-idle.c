@@ -13,6 +13,7 @@
 
 struct cmd_idle_context {
 	struct client *client;
+	struct client_command_context *cmd;
 
 	struct imap_sync_context *sync_ctx;
 	struct timeout *to;
@@ -22,7 +23,7 @@ struct cmd_idle_context {
 	unsigned int sync_pending:1;
 };
 
-static int cmd_idle_continue(struct client *client);
+static int cmd_idle_continue(struct client_command_context *cmd);
 
 static void idle_finish(struct cmd_idle_context *ctx, int done_ok)
 {
@@ -48,9 +49,9 @@ static void idle_finish(struct cmd_idle_context *ctx, int done_ok)
 		mailbox_notify_changes(client->mailbox, 0, NULL, NULL);
 
 	if (done_ok)
-		client_send_tagline(client, "OK Idle completed.");
+		client_send_tagline(ctx->cmd, "OK Idle completed.");
 	else
-		client_send_tagline(client, "BAD Expected DONE.");
+		client_send_tagline(ctx->cmd, "BAD Expected DONE.");
 
 	o_stream_uncork(client->output);
 
@@ -126,13 +127,14 @@ static void idle_callback(struct mailbox *box, void *context)
 	else {
 		ctx->sync_pending = FALSE;
 		ctx->sync_ctx = imap_sync_init(ctx->client, box, 0);
-		cmd_idle_continue(ctx->client);
+		cmd_idle_continue(ctx->cmd);
 	}
 }
 
-static int cmd_idle_continue(struct client *client)
+static int cmd_idle_continue(struct client_command_context *cmd)
 {
-	struct cmd_idle_context *ctx = client->cmd_context;
+	struct client *client = cmd->client;
+	struct cmd_idle_context *ctx = cmd->context;
 
 	if (client->output->closed) {
 		idle_finish(ctx, FALSE);
@@ -166,13 +168,15 @@ static int cmd_idle_continue(struct client *client)
 	return FALSE;
 }
 
-int cmd_idle(struct client *client)
+int cmd_idle(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	struct cmd_idle_context *ctx;
 	const char *str;
 	unsigned int interval;
 
-	ctx = p_new(client->cmd_pool, struct cmd_idle_context, 1);
+	ctx = p_new(cmd->pool, struct cmd_idle_context, 1);
+	ctx->cmd = cmd;
 	ctx->client = client;
 
 	if ((client_workarounds & WORKAROUND_OUTLOOK_IDLE) != 0 &&
@@ -197,7 +201,7 @@ int cmd_idle(struct client *client)
 			    IO_READ, idle_client_input, ctx);
 
 	client->command_pending = TRUE;
-	client->cmd_func = cmd_idle_continue;
-	client->cmd_context = ctx;
+	cmd->func = cmd_idle_continue;
+	cmd->context = ctx;
 	return FALSE;
 }
