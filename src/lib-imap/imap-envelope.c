@@ -16,25 +16,29 @@ struct _MessagePartEnvelopeData {
 };
 
 #define IS_BREAK_CHAR(c) \
-	((c) == ' ' || (c) == '\t' || (c) == '\r' || (c) == '\n' || \
+	((c) == ' ' || (c) == '\t' || \
 	 (c) == ',' || (c) == ':' || (c) == ';' || (c) == '@' || \
 	 (c) == '<' || (c) == '>' || (c) == '(' || (c) == ')' || \
 	 (c) == '[' || (c) == ']' || (c) == '=')
 
-static size_t next_token_quoted(const char *value, size_t len, int *need_qp)
+#define IS_BREAK_OR_CRLF_CHAR(c) \
+	(IS_BREAK_CHAR(c) || (c) == '\r' || (c) == '\n')
+
+static size_t next_token_quoted(const char *value, size_t len,
+				int *need_qp, int *quoted)
 {
 	size_t i;
 
-	i_assert(value[0] == '"');
-
 	*need_qp = FALSE;
+	*quoted = TRUE;
 
-	for (i = 1; i < len; i++) {
+	for (i = *quoted ? 0 : 1; i < len; i++) {
 		if ((unsigned char)value[i] & 0x80)
 			*need_qp = TRUE;
 
-		if (value[i] == '"') {
+		if (value[i] == '"' || value[i] == '\r' || value[i] == '\n') {
 			i++;
+			*quoted = value[i] == '"';
 			break;
 		}
 	}
@@ -42,12 +46,13 @@ static size_t next_token_quoted(const char *value, size_t len, int *need_qp)
 	return i;
 }
 
-static size_t next_token(const char *value, size_t len, int *need_qp, int qp_on)
+static size_t next_token(const char *value, size_t len,
+			 int *need_qp, int *quoted, int qp_on)
 {
 	size_t i = 0;
 
-	if (value[0] == '"')
-		return next_token_quoted(value, len, need_qp);
+	if (value[0] == '"' || *quoted)
+		return next_token_quoted(value, len, need_qp, quoted);
 
 	*need_qp = FALSE;
 
@@ -62,7 +67,7 @@ static size_t next_token(const char *value, size_t len, int *need_qp, int qp_on)
 			return i;
 	}
 
-	if (IS_BREAK_CHAR(value[i])) {
+	if (IS_BREAK_OR_CRLF_CHAR(value[i])) {
 		/* return all break-chars in one token */
 		for (i++; i < len; i++) {
 			if (!IS_BREAK_CHAR(value[i]))
@@ -77,7 +82,7 @@ static size_t next_token(const char *value, size_t len, int *need_qp, int qp_on)
 		if ((unsigned char)value[i] & 0x80)
 			*need_qp = TRUE;
 
-		if (IS_BREAK_CHAR(value[i]))
+		if (IS_BREAK_OR_CRLF_CHAR(value[i]))
 			break;
 	}
 
@@ -126,14 +131,15 @@ static TempString *get_quoted_str(const char *value, size_t value_len)
 {
 	TempString *str;
 	size_t token_len;
-	int qp, need_qp;
+	int qp, need_qp, quoted;
 
 	str = t_string_new(value_len * 2);
 	qp = FALSE;
+	quoted = FALSE;
 
 	t_string_append_c(str, '"');
 	while (value_len > 0) {
-		token_len = next_token(value, value_len, &need_qp, qp);
+		token_len = next_token(value, value_len, &need_qp, &quoted, qp);
 		i_assert(token_len > 0 && token_len <= value_len);
 
 		/* header may be split to multiple lines, we don't want them */
