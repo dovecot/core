@@ -403,11 +403,18 @@ int create_mail_process(struct login_group *group, int socket,
 		full_home_dir = *chroot_dir == '\0' ? home_dir :
 			t_strconcat(chroot_dir, "/", home_dir, NULL);
 		/* NOTE: if home directory is NFS-mounted, we might not
-		   have access to it as root. Change the effective UID
+		   have access to it as root. Change the effective UID and GID
 		   temporarily to make it work. */
-		if (uid != master_uid && seteuid(uid) < 0)
-			i_fatal("seteuid(%s) failed: %m", dec2str(uid));
+		if (uid != master_uid) {
+			if (setegid(gid) < 0)
+				i_fatal("setegid(%s) failed: %m", dec2str(gid));
+			if (seteuid(uid) < 0)
+				i_fatal("seteuid(%s) failed: %m", dec2str(uid));
+		}
 		ret = chdir(full_home_dir);
+
+		/* Change UID back. No need to change GID back, it doesn't
+		   really matter. */
 		if (uid != master_uid && seteuid(master_uid) < 0)
 			i_fatal("seteuid(%s) failed: %m", dec2str(master_uid));
 
