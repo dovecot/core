@@ -57,7 +57,7 @@ int mail_index_view_lock_head(struct mail_index_view *view, int update_index)
 	return 0;
 }
 
-int mail_index_view_lock(struct mail_index_view *view, int update_index)
+int mail_index_view_lock(struct mail_index_view *view)
 {
 	if (view->inconsistent)
 		return -1;
@@ -67,7 +67,7 @@ int mail_index_view_lock(struct mail_index_view *view, int update_index)
 		return 0;
 	}
 
-	return mail_index_view_lock_head(view, update_index);
+	return mail_index_view_lock_head(view, FALSE);
 }
 
 void mail_index_view_unlock(struct mail_index_view *view)
@@ -108,7 +108,7 @@ void mail_index_view_transaction_unref(struct mail_index_view *view)
 int mail_index_get_header(struct mail_index_view *view,
 			  const struct mail_index_header **hdr_r)
 {
-	if (mail_index_view_lock(view, FALSE) < 0)
+	if (mail_index_view_lock(view) < 0)
 		return -1;
 
 	*hdr_r = view->map->hdr;
@@ -125,7 +125,7 @@ int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
 	i_assert(seq > 0);
 	i_assert(seq <= view->map->records_count);
 
-	if (mail_index_view_lock(view, FALSE) < 0)
+	if (mail_index_view_lock(view) < 0)
 		return -1;
 
 	rec = &view->map->records[seq-1];
@@ -160,7 +160,7 @@ int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
 	i_assert(seq > 0);
 	i_assert(seq <= view->map->records_count);
 
-	if (mail_index_view_lock(view, FALSE) < 0)
+	if (mail_index_view_lock(view) < 0)
 		return -1;
 
 	*uid_r = view->map->records[seq-1].uid;
@@ -215,7 +215,7 @@ int mail_index_lookup_uid_range(struct mail_index_view *view,
 	i_assert(first_uid > 0);
 	i_assert(first_uid <= last_uid);
 
-	if (mail_index_view_lock(view, FALSE) < 0)
+	if (mail_index_view_lock(view) < 0)
 		return -1;
 
 	left_idx = 0;
@@ -250,7 +250,7 @@ int mail_index_lookup_first(struct mail_index_view *view, enum mail_flags flags,
 
 	*seq_r = 0;
 
-	if (mail_index_view_lock(view, FALSE) < 0)
+	if (mail_index_view_lock(view) < 0)
 		return -1;
 
 	if ((flags_mask & MAIL_RECENT) != 0 && (flags & MAIL_RECENT) != 0)

@@ -21,7 +21,7 @@ struct mail_index_view {
 	unsigned int external:1;
 };
 
-int mail_index_view_lock(struct mail_index_view *view, int update_index);
+int mail_index_view_lock(struct mail_index_view *view);
 int mail_index_view_lock_head(struct mail_index_view *view, int update_index);
 void mail_index_view_add_synced_transaction(struct mail_index_view *view,
 					    uint32_t log_file_seq,
