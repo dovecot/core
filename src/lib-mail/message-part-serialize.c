@@ -175,12 +175,12 @@ int message_part_serialize_update_header(void *data, size_t size,
 	    spart->header_physical_size >= OFF_T_MAX)
 		return FALSE;
 
+	first_pos = spart->physical_pos;
+	pos_diff = (off_t)hdr_size->physical_size - spart->header_physical_size;
+
 	spart->header_physical_size = hdr_size->physical_size;
 	spart->header_virtual_size = hdr_size->virtual_size;
 	spart->header_lines = hdr_size->lines;
-
-	first_pos = spart->physical_pos;
-	pos_diff = (off_t)hdr_size->physical_size - spart->header_physical_size;
 
 	if (pos_diff != 0) {
 		/* have to update all positions */
