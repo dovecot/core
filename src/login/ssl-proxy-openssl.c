@@ -131,7 +131,7 @@ static void plain_write(SSLProxy *proxy)
 
 }
 
-const char *ssl_last_error(void)
+static const char *ssl_last_error(void)
 {
 	unsigned long err;
 	char *buf;
