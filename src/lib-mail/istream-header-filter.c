@@ -88,6 +88,13 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		mstream->cur_line++;
 
 		if (hdr->eoh) {
+			if (!mstream->header_read &&
+			    mstream->callback != NULL) {
+				matched = TRUE;
+				mstream->callback(hdr, &matched,
+						  mstream->context);
+			}
+
 			if (mstream->crlf)
 				buffer_append(mstream->hdr_buf, "\r\n", 2);
 			else
