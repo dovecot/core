@@ -264,10 +264,16 @@ static void listen_protocols(void)
 		if (*fd != -1)
 			i_fatal("Protocol %s given more than once", *proto);
 
-		*fd = port == 0 ? dup(null_fd) : net_listen(ip, &port);
-		if (*fd == -1)
-			i_fatal("listen(%d) failed: %m", port);
-		net_set_nonblock(*fd, TRUE);
+		if (port == 0) {
+			*fd = dup(null_fd);
+			if (*fd == -1)
+				i_fatal("dup(null_fd) failed: %m");
+		} else {
+			*fd = net_listen(ip, &port);
+			if (*fd == -1)
+				i_fatal("listen(%d) failed: %m", port);
+			net_set_nonblock(*fd, TRUE);
+		}
 		fd_close_on_exec(*fd, TRUE);
 	}
 
