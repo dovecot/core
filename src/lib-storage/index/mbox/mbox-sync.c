@@ -738,6 +738,11 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 
         /* set to -1, since it's always increased later */
 	sync_ctx->seq = seq1-1;
+	if (sync_ctx->seq == 0 && offset != 0) {
+		/* this mbox has pseudo mail which contains the X-IMAP header */
+		sync_ctx->seq++;
+	}
+
         sync_ctx->idx_seq = seq1;
 	sync_ctx->dest_first_mail = sync_ctx->seq == 0;
 	if (istream_raw_mbox_seek(sync_ctx->input, offset) < 0) {
