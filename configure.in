@@ -380,7 +380,17 @@ case "$typeof_off_t" in
     ;;
 esac
 
-AC_DEFINE_UNQUOTED(OFF_T_MAX, $offt_max, Maximum value of off_t)
+dnl * Do we have OFF_T_MAX?
+AC_TRY_COMPILE([
+  #include <limits.h>
+  #include <sys/types.h>
+], [
+  off_t i = OFF_T_MAX;
+], [
+], [
+  AC_DEFINE_UNQUOTED(OFF_T_MAX, $offt_max, Maximum value of off_t)
+])
+
 AC_DEFINE_UNQUOTED(PRIuUOFF_T, "$uofft_fmt", printf() format for uoff_t)
 
 dnl * make sure size_t isn't signed. we'd probably work fine with it, but
