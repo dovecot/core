@@ -595,6 +595,10 @@ void mail_index_update_cache(struct mail_index_transaction *t, uint32_t seq,
 {
 	struct mail_index_record *rec;
 
+	i_assert(seq > 0 &&
+		 (seq <= mail_index_view_get_message_count(t->view) ||
+		  seq <= t->last_new_seq));
+
 	if (file_seq != t->last_cache_file_seq) {
 		mail_index_transaction_reset_cache_updates(t);
                 t->last_cache_file_seq = file_seq;
@@ -618,6 +622,10 @@ int mail_index_update_cache_lookup(struct mail_index_transaction *t,
 {
 	const void *p;
 	size_t pos;
+
+	i_assert(seq > 0 &&
+		 (seq <= mail_index_view_get_message_count(t->view) ||
+		  seq <= t->last_new_seq));
 
 	if (t->cache_updates == NULL)
 		return FALSE;
@@ -648,6 +656,9 @@ void mail_index_update_extra_rec(struct mail_index_transaction *t,
 	buffer_t **buf;
         const struct mail_index_extra_record_info *einfo;
 
+	i_assert(seq > 0 &&
+		 (seq <= mail_index_view_get_message_count(t->view) ||
+		  seq <= t->last_new_seq));
 	i_assert(data_id < index->extra_infos->used / sizeof(*einfo));
 
 	einfo = index->extra_infos->data;
