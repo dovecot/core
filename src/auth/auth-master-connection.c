@@ -289,7 +289,6 @@ static void auth_accept(void *context)
 		case LISTENER_BALANCER:
 			/* worker process connected to us */
 			auth_request_balancer_add_child(fd);
-			auth_listener_destroy(l);
 			break;
 		}
 	}
