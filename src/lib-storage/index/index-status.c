@@ -5,6 +5,10 @@
 #include "mail-index-util.h"
 #include "index-storage.h"
 
+#define STATUS_MESSAGE_COUNTS \
+	(STATUS_MESSAGES | STATUS_RECENT | STATUS_UIDNEXT | \
+	 STATUS_UIDVALIDITY | STATUS_UNSEEN | STATUS_FIRST_UNSEEN_SEQ)
+
 static unsigned int get_first_unseen_seq(struct mail_index *index)
 {
 	struct mail_index_header *hdr;
@@ -82,22 +86,29 @@ int index_storage_get_status(struct mailbox *box,
 
 	memset(status, 0, sizeof(struct mailbox_status));
 
-	/* if we're doing STATUS for selected mailbox, we have to sync it
-	   first or STATUS reply may give different data */
-	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_UNLOCK))
-		return FALSE;
+	if ((items & STATUS_MESSAGE_COUNTS) != 0) {
+		/* if we're doing STATUS for selected mailbox, we have to sync
+		   it first or STATUS reply may give different data */
+		if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_UNLOCK))
+			return FALSE;
 
-	if (!index_storage_sync_modifylog(ibox, FALSE)) {
-		(void)index_storage_lock(ibox, MAIL_LOCK_UNLOCK);
-		return FALSE;
+		if (!index_storage_sync_modifylog(ibox, FALSE)) {
+			(void)index_storage_lock(ibox, MAIL_LOCK_UNLOCK);
+			return FALSE;
+		}
+	} else {
+		if (!index_storage_lock(ibox, MAIL_LOCK_SHARED))
+			return FALSE;
 	}
 
 	/* we can get most of the status items without any trouble */
 	hdr = mail_index_get_header(ibox->index);
-	status->messages = hdr->messages_count;
-	status->unseen = hdr->messages_count - hdr->seen_messages_count;
-	status->uidvalidity = hdr->uid_validity;
-	status->uidnext = hdr->next_uid;
+	if ((items & STATUS_MESSAGE_COUNTS) != 0) {
+		status->messages = hdr->messages_count;
+		status->unseen = hdr->messages_count - hdr->seen_messages_count;
+		status->uidvalidity = hdr->uid_validity;
+		status->uidnext = hdr->next_uid;
+	}
 	status->diskspace_full = ibox->index->nodiskspace;
 
 	if (items & STATUS_FIRST_UNSEEN_SEQ) {
