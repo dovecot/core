@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "maildir-index.h"
 #include "mail-index-util.h"
 
@@ -83,11 +84,21 @@ static int maildir_rename_mail(struct mail_index *index,
 			if (ret == -1)
 				return FALSE;
 
-			if (ret == 1 && index->maildir_keep_new) {
-				/* looks like we have some more space again,
-				   see if we could move mails from new/ to
-				   cur/ again */
-				index->maildir_keep_new = FALSE;
+			if (ret == 1) {
+				if (index->maildir_keep_new &&
+				    (rec->index_flags &
+				     INDEX_MAIL_FLAG_MAILDIR_NEW) != 0) {
+					/* looks like we have some more space
+					   again, see if we could move mails
+					   from new/ to cur/ again */
+					index->maildir_keep_new = FALSE;
+					rec->index_flags &=
+						~INDEX_MAIL_FLAG_MAILDIR_NEW;
+				}
+
+				/* cur/ was updated, set it dirty-synced */
+                                index->file_sync_stamp = ioloop_time;
+				index->maildir_cur_dirty = ioloop_time;
 			}
 
 		}

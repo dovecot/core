@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "maildir-index.h"
 #include "mail-index-util.h"
 
@@ -54,7 +55,7 @@ int maildir_expunge_mail(struct mail_index *index,
 	for (i = 0;; i++) {
 		ret = maildir_expunge_mail_file(index, rec, &fname);
 		if (ret > 0)
-			return TRUE;
+			break;
 		if (ret < 0)
 			return FALSE;
 
@@ -72,4 +73,9 @@ int maildir_expunge_mail(struct mail_index *index,
 			return TRUE;
 		}
 	}
+
+	/* cur/ was updated, set it dirty-synced */
+	index->maildir_cur_dirty = ioloop_time;
+	index->file_sync_stamp = ioloop_time;
+	return TRUE;
 }
