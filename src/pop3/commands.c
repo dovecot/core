@@ -332,6 +332,7 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 {
         struct fetch_context *ctx;
 	struct mail *mail;
+	struct mail_full_flags seen_flag;
 
 	ctx = i_new(struct fetch_context, 1);
 
@@ -349,6 +350,13 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 		client_send_line(client, "-ERR Message not found.");
 		fetch_deinit(ctx);
 		return;
+	}
+
+	if (body_lines == (uoff_t)-1) {
+		/* mark the message seen with RETR command */
+		memset(&seen_flag, 0, sizeof(seen_flag));
+		seen_flag.flags = MAIL_SEEN;
+		(void)mail->update_flags(mail, &seen_flag, MODIFY_ADD);
 	}
 
 	ctx->body_lines = body_lines;
