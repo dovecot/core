@@ -180,7 +180,7 @@ int settings_read(const char *path, const char *section,
 			}
 
 			if (*line != '{')
-				errormsg = "Missing value";
+				errormsg = "Expecting '='";
 			else {
 				sections++;
 				if (next_section != NULL &&
