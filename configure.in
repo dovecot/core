@@ -415,6 +415,12 @@ if test $i_cv_type_uintmax_t = yes; then
   AC_DEFINE(HAVE_UINTMAX_T,, Define if you have uintmax_t (C99 type))
 fi
 
+dnl use separate check, eg. Solaris 8 has uintmax_t but not uint_fast32_t
+AC_CHECKTYPE2(uint_fast32_t, [#include <inttypes.h>])
+if test $i_cv_type_uint_fast32_t = yes; then
+  AC_DEFINE(HAVE_UINT_FAST32_T,, Define if you have uint_fast32_t (C99 type))
+fi
+
 AC_CHECKTYPE2(socklen_t, [#include <sys/socket.h>])
 if test $i_cv_type_socklen_t = yes; then
   AC_DEFINE(HAVE_SOCKLEN_T,, Define to 'int' if you don't have socklen_t)

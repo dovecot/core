@@ -23,7 +23,9 @@ typedef unsigned long long uintmax_t;
 #  else
 typedef unsigned long uintmax_t;
 #  endif
+#endif
 
+#ifndef HAVE_UINT_FAST32_T
 #  if SIZEOF_INT >= 4
 typedef unsigned int uint_fast32_t;
 #  else
