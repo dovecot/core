@@ -14,9 +14,6 @@
 #define MAIL_TREE_INITIAL_SIZE \
 	(sizeof(MailTreeHeader) + sizeof(MailTreeNode) * 64)
 
-#define TREE_GROW_SIZE \
-	(sizeof(MailTreeNode) * 64)
-
 static int tree_set_syscall_error(MailTree *tree, const char *function)
 {
 	i_assert(function != NULL);
@@ -315,9 +312,16 @@ int mail_tree_sync_file(MailTree *tree)
 int _mail_tree_grow(MailTree *tree)
 {
 	uoff_t new_fsize;
+	unsigned int grow_count;
 	void *base;
 
-	new_fsize = (uoff_t)tree->mmap_full_length + TREE_GROW_SIZE;
+	grow_count = tree->index->header->messages_count *
+		INDEX_GROW_PERCENTAGE / 100;
+	if (grow_count < 16)
+		grow_count = 16;
+
+	new_fsize = (uoff_t)tree->mmap_full_length +
+		(grow_count * sizeof(MailTreeNode));
 	i_assert(new_fsize < OFF_T_MAX);
 
 	if (tree->anon_mmap) {
