@@ -735,9 +735,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				uid = 0;
 		}
 
-		if (uid == 0 && sync_ctx->ibox->mbox_readonly &&
-		    !mail_ctx->pseudo) {
-			/* Use MD5 sums */
+		if (sync_ctx->ibox->mbox_readonly && !mail_ctx->pseudo) {
+			/* Read-only mboxes use MD5 sums. */
 			if (sync_ctx->ibox->md5hdr_extra_idx == 0) {
 				sync_ctx->ibox->md5hdr_extra_idx =
 					mail_index_register_record_extra(
