@@ -329,7 +329,10 @@ static int mbox_is_valid_create_name(const char *name)
 
 static int mbox_is_valid_existing_name(const char *name)
 {
-	if (name[0] == '\0')
+	size_t len;
+
+	len = strlen(name);
+	if (name[0] == '\0' || name[len-1] == '/')
 		return FALSE;
 
 	return mbox_is_valid_mask(name);
