@@ -10,6 +10,7 @@
 #include "write-full.h"
 #include "message-parser.h"
 #include "mail-index.h"
+#include "mbox-storage.h"
 #include "mbox-sync-private.h"
 
 #include <stdlib.h>
@@ -206,18 +207,25 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 		}
 	}
 
-	if (value >= ctx->sync_ctx->next_uid) {
-		/* next_uid broken - fix it */
-		ctx->sync_ctx->next_uid = value+1;
-	}
+	if (ctx->sync_ctx != NULL) {
+		if (value >= ctx->sync_ctx->next_uid) {
+			/* next_uid broken - fix it */
+			ctx->sync_ctx->next_uid = value+1;
+		}
 
-	if (value <= ctx->sync_ctx->prev_msg_uid) {
-		/* broken - UIDs must be growing */
-		return FALSE;
+		if (value <= ctx->sync_ctx->prev_msg_uid) {
+			/* broken - UIDs must be growing */
+			return FALSE;
+		}
+		ctx->sync_ctx->prev_msg_uid = value;
 	}
 
 	ctx->mail.uid = value;
-	ctx->sync_ctx->prev_msg_uid = value;
+
+	if (ctx->sync_ctx == NULL) {
+		/* we're in mbox_sync_parse_match_mail() */
+		return TRUE;
+	}
 
 	if (ctx->sync_ctx->dest_first_mail && !ctx->seen_imapbase) {
 		/* everything was good, except we can't have X-UID before
@@ -328,30 +336,32 @@ static int parse_x_delivery_id(struct mbox_sync_mail_context *ctx,
 
 static struct header_func header_funcs[] = {
 	{ "Content-Length", parse_content_length },
-	{ "Date", parse_date },
-	{ "Delivered-To", parse_delivered_to },
-	{ "Message-ID", parse_message_id },
-	{ "Received", parse_received },
 	{ "Status", parse_status },
-	{ "X-Delivery-ID", parse_x_delivery_id },
 	{ "X-IMAP", parse_x_imap },
 	{ "X-IMAPbase", parse_x_imap_base },
 	{ "X-Keywords", parse_x_keywords },
 	{ "X-Status", parse_x_status },
 	{ "X-UID", parse_x_uid },
-	{ "X-UIDL", parse_x_uidl },
-	{ NULL, NULL }
+	{ "X-UIDL", parse_x_uidl }
 };
+#define HEADER_FUNCS_COUNT (sizeof(header_funcs) / sizeof(*header_funcs))
 
-static struct header_func *header_func_find(const char *header)
+static struct header_func md5_header_funcs[] = {
+	{ "Date", parse_date },
+	{ "Delivered-To", parse_delivered_to },
+	{ "Message-ID", parse_message_id },
+	{ "Received", parse_received },
+	{ "X-Delivery-ID", parse_x_delivery_id }
+};
+#define MD5_HEADER_FUNCS_COUNT \
+	(sizeof(md5_header_funcs) / sizeof(*md5_header_funcs))
+
+static int bsearch_header_func_cmp(const void *p1, const void *p2)
 {
-	int i;
+	const char *key = p1;
+	const struct header_func *func = p2;
 
-	for (i = 0; header_funcs[i].header != NULL; i++) {
-		if (strcasecmp(header_funcs[i].header, header) == 0)
-			return &header_funcs[i];
-	}
-	return NULL;
+	return strcasecmp(key, func->header);
 }
 
 void mbox_sync_parse_next_mail(struct istream *input,
@@ -391,7 +401,21 @@ void mbox_sync_parse_next_mail(struct istream *input,
 			str_append_n(ctx->header, hdr->middle, hdr->middle_len);
 		}
 
-		func = header_func_find(hdr->name);
+		func = bsearch(hdr->name, md5_header_funcs,
+			       MD5_HEADER_FUNCS_COUNT,
+			       sizeof(*header_funcs), bsearch_header_func_cmp);
+		if (func != NULL) {
+			/* these functions do nothing more than update
+			   MD5 sums */
+			(void)func->func(ctx, hdr);
+			func = NULL;
+		} else {
+			func = bsearch(hdr->name, header_funcs,
+				       HEADER_FUNCS_COUNT,
+				       sizeof(*header_funcs),
+				       bsearch_header_func_cmp);
+		}
+
 		if (func != NULL) {
 			if (hdr->continues) {
 				hdr->use_full_value = TRUE;
@@ -434,4 +458,70 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	}
 
 	ctx->body_offset = input->v_offset;
+}
+
+int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
+			       struct mail_index_view *view, uint32_t seq)
+{
+        struct mbox_sync_mail_context ctx;
+	struct message_header_parser_ctx *hdr_ctx;
+	struct message_header_line *hdr;
+	struct header_func *func;
+	const void *data;
+	uint32_t uid;
+	int ret;
+
+	memset(&ctx, 0, sizeof(ctx));
+	md5_init(&ctx.hdr_md5_ctx);
+
+	hdr_ctx = message_parse_header_init(ibox->mbox_stream, NULL, FALSE);
+	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
+		if (hdr->eoh)
+			break;
+
+		func = bsearch(hdr->name, md5_header_funcs,
+			       MD5_HEADER_FUNCS_COUNT,
+			       sizeof(*header_funcs), bsearch_header_func_cmp);
+		if (func != NULL) {
+			/* these functions do nothing more than update
+			   MD5 sums */
+			(void)func->func(&ctx, hdr);
+		} else if (strcasecmp(hdr->name, "X-UID") == 0) {
+			if (hdr->continues) {
+				hdr->use_full_value = TRUE;
+				continue;
+			}
+			(void)parse_x_uid(&ctx, hdr);
+
+			if (ctx.mail.uid != 0)
+				break;
+		}
+	}
+	i_assert(ret != 0);
+	message_parse_header_deinit(hdr_ctx);
+
+	md5_final(&ctx.hdr_md5_ctx, ctx.hdr_md5_sum);
+
+	if (ctx.mail.uid != 0) {
+		/* match by X-UID header */
+		if (mail_index_lookup_uid(view, seq, &uid) < 0) {
+			mail_storage_set_index_error(ibox);
+			return -1;
+		}
+		return ctx.mail.uid == uid;
+	}
+
+	/* match by MD5 sum */
+	if (ibox->md5hdr_extra_idx == 0) {
+		ibox->md5hdr_extra_idx =
+			mail_index_register_record_extra(ibox->index,
+							 "header-md5", 16);
+	}
+
+	if (mail_index_lookup_extra(view, seq, ibox->md5hdr_extra_idx,
+				    &data) < 0) {
+		mail_storage_set_index_error(ibox);
+		return -1;
+	}
+	return memcmp(data, ctx.hdr_md5_sum, 16) == 0;
 }

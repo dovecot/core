@@ -705,9 +705,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	messages_count = mail_index_view_get_message_count(sync_ctx->sync_view);
 
 	if (min_message_count != 0) {
-		ret = mbox_sync_seek_to_seq(sync_ctx,
-					    partial || messages_count == 0 ?
-					    messages_count : 1);
+		ret = mbox_sync_seek_to_seq(sync_ctx, partial ?
+					    messages_count : 0);
 	} else {
 		/* we sync only what we need to. jump to first record that
 		   needs updating */

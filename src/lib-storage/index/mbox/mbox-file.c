@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "istream.h"
 #include "mbox-storage.h"
+#include "mbox-sync-private.h"
 #include "mbox-file.h"
 #include "istream-raw-mbox.h"
 
@@ -126,7 +127,13 @@ int mbox_file_seek(struct index_mailbox *ibox, struct mail_index_view *view,
 	}
 
 	if (ibox->mbox_sync_dirty) {
-		/* FIXME: we're dirty - make sure this is the correct mail */
+		/* we're dirty - make sure this is the correct mail */
+		ret = mbox_sync_parse_match_mail(ibox, view, seq);
+		if (ret <= 0)
+			return ret;
+
+		ret = istream_raw_mbox_seek(ibox->mbox_stream, offset);
+		i_assert(ret == 0);
 	}
 
 	return 1;

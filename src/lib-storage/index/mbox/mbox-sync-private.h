@@ -115,6 +115,9 @@ int mbox_sync_has_changed(struct index_mailbox *ibox, int leave_dirty);
 
 void mbox_sync_parse_next_mail(struct istream *input,
 			       struct mbox_sync_mail_context *ctx);
+int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
+			       struct mail_index_view *view, uint32_t seq);
+
 void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 			     buffer_t *syncs_buf);
 void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
