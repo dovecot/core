@@ -128,6 +128,7 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 {
 	struct client *client;
         enum mailbox_open_flags flags;
+	int syntax_error;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(hin, TRUE);
@@ -151,6 +152,8 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 		flags |= MAILBOX_OPEN_KEEP_RECENT;
 	client->mailbox = mailbox_open(storage, "INBOX", flags);
 	if (client->mailbox == NULL) {
+		i_error("Couldn't open INBOX: %s",
+			mail_storage_get_last_error(storage, &syntax_error));
 		client_send_line(client, "-ERR No INBOX for user.");
 		client_destroy(client);
 		return NULL;
