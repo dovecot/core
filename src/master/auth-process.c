@@ -313,6 +313,7 @@ static pid_t create_auth_process(struct auth_process_group *group)
 	env_put(t_strconcat("AUTH_PROCESS=", dec2str(getpid()), NULL));
 	env_put(t_strconcat("MECHANISMS=", group->set->mechanisms, NULL));
 	env_put(t_strconcat("REALMS=", group->set->realms, NULL));
+	env_put(t_strconcat("DEFAULT_REALM=", group->set->default_realm, NULL));
 	env_put(t_strconcat("USERDB=", group->set->userdb, NULL));
 	env_put(t_strconcat("PASSDB=", group->set->passdb, NULL));
 

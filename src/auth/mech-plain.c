@@ -47,7 +47,15 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 		mech_auth_finish(auth_request, NULL, 0, FALSE);
 	} else {
 		/* split and save user/realm */
-		auth_request->user = p_strdup(auth_request->pool, authenid);
+		if (strchr(authenid, '@') == NULL && default_realm != NULL) {
+			auth_request->user = p_strconcat(auth_request->pool,
+							 authenid, "@",
+							 default_realm, NULL);
+		} else {
+			auth_request->user = p_strdup(auth_request->pool,
+						      authenid);
+		}
+
 		passdb->verify_plain(auth_request, pass, verify_callback);
 
 		/* make sure it's cleared */

@@ -37,6 +37,7 @@ struct mech_module {
 
 extern enum auth_mech auth_mechanisms;
 extern const char *const *auth_realms;
+extern const char *default_realm;
 
 void mech_register_module(struct mech_module *module);
 void mech_unregister_module(struct mech_module *module);

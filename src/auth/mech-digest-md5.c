@@ -551,7 +551,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	struct digest_auth_request *auth =
 		(struct digest_auth_request *)auth_request;
 	struct auth_login_reply reply;
-	const char *error;
+	const char *error, *realm;
 
 	/* initialize reply */
 	mech_init_login_reply(&reply);
@@ -568,13 +568,14 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 				  request->data_size, &error)) {
 		auth_request->callback = callback;
 
-		if (auth->realm == NULL) {
+		realm = auth->realm != NULL ? auth->realm : default_realm;
+		if (realm == NULL) {
 			auth_request->user = p_strdup(auth_request->pool,
 						      auth->username);
 		} else {
 			auth_request->user = p_strconcat(auth_request->pool,
 							 auth->username, "@",
-							 auth->realm, NULL);
+							 realm, NULL);
 		}
 
 		passdb->lookup_credentials(&auth->auth_request,

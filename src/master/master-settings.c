@@ -106,6 +106,7 @@ static struct setting_def login_setting_defs[] = {
 static struct setting_def auth_setting_defs[] = {
 	DEF(SET_STR, mechanisms),
 	DEF(SET_STR, realms),
+	DEF(SET_STR, default_realm),
 	DEF(SET_STR, userdb),
 	DEF(SET_STR, passdb),
 	DEF(SET_STR, executable),

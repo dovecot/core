@@ -17,6 +17,7 @@ struct mech_module_list {
 
 enum auth_mech auth_mechanisms;
 const char *const *auth_realms;
+const char *default_realm;
 
 static int set_use_cyrus_sasl;
 static struct mech_module_list *mech_modules;
@@ -228,6 +229,10 @@ void mech_init(void)
 	if (env == NULL)
 		env = "";
 	auth_realms = t_strsplit(env, " ");
+
+	default_realm = getenv("DEFAULT_REALM");
+	if (default_realm != NULL && *default_realm == '\0')
+		default_realm = NULL;
 
 	set_use_cyrus_sasl = getenv("USE_CYRUS_SASL") != NULL;
 

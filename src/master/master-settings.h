@@ -92,6 +92,7 @@ struct auth_settings {
 	const char *name;
 	const char *mechanisms;
 	const char *realms;
+	const char *default_realm;
 	const char *userdb;
 	const char *passdb;
 	const char *executable;
