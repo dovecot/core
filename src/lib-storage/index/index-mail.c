@@ -169,7 +169,7 @@ const struct mail_full_flags *index_mail_get_flags(struct mail *_mail)
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
 
-	data->flags.flags = data->rec->flags;
+	data->flags.flags = data->rec->flags & MAIL_FLAGS_MASK;
 	/*FIXME:data->flags.keywords =
 		mail_keywords_list_get(mail->ibox->index->keywords);
 	data->flags.keywords_count = MAIL_KEYWORDS_COUNT;*/
@@ -641,8 +641,7 @@ int index_mail_update_flags(struct mail *mail,
 	enum mail_flags modify_flags;
 	keywords_mask_t keywords;
 
-	/* \Recent can't be changed */
-	modify_flags = flags->flags & ~MAIL_RECENT;
+	modify_flags = flags->flags & MAIL_FLAGS_MASK;
 
 	/*if (!index_mailbox_fix_keywords(ibox, &modify_flags,
 					    flags->keywords,

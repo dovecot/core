@@ -44,6 +44,7 @@ struct maildir_uidlist {
 	uint32_t first_recent_uid;
 
 	unsigned int initial_read:1;
+	unsigned int initial_sync:1;
 };
 
 struct maildir_uidlist_sync_ctx {
@@ -389,6 +390,18 @@ uint32_t maildir_uidlist_get_recent_count(struct maildir_uidlist *uidlist)
 	size_t size;
 	uint32_t count;
 
+	if (!uidlist->initial_sync) {
+		/* we haven't synced yet, trust index */
+		const struct mail_index_header *hdr;
+
+		if (mail_index_get_header(uidlist->ibox->view, &hdr) < 0)
+			return 0;
+		return hdr->recent_messages_count;
+	}
+
+	/* all recent messages were in new/ dir, so even if we did only
+	   a partial sync we should know all the recent messages. */
+
 	if (uidlist->first_recent_uid == 0)
 		return 0;
 
@@ -606,6 +619,10 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 		buffer_append(uidlist->record_buf, &rec, sizeof(rec));
 	}
 
+	if ((flags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 &&
+	    rec->uid != (uint32_t)-1)
+		maildir_uidlist_mark_recent(uidlist, rec->uid);
+
 	rec->flags = (rec->flags | flags) & ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
 	rec->filename = p_strdup(uidlist->record_pool, filename);
 	hash_insert(uidlist->files, rec->filename, rec);
@@ -777,6 +794,7 @@ int maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 		}
 	}
 	ctx->finished = TRUE;
+	ctx->uidlist->initial_sync = TRUE;
 	return !ctx->locked;
 }
 

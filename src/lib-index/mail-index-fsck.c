@@ -41,6 +41,7 @@ static int mail_index_fsck_locked(struct mail_index *index,
 	}
 
 	hdr.messages_count = 0;
+	hdr.recent_messages_count = 0;
 	hdr.seen_messages_count = 0;
 	hdr.deleted_messages_count = 0;
 
@@ -56,6 +57,8 @@ static int mail_index_fsck_locked(struct mail_index *index,
 		}
 
 		hdr.messages_count++;
+		if ((rec->flags & MAIL_RECENT) != 0)
+			hdr.recent_messages_count++;
 		if ((rec->flags & MAIL_SEEN) != 0)
 			hdr.seen_messages_count++;
 		if ((rec->flags & MAIL_DELETED) != 0)
@@ -88,6 +91,7 @@ static int mail_index_fsck_locked(struct mail_index *index,
                 hdr.first_deleted_uid_lowwater = hdr.next_uid;
 
         CHECK(messages_count, !=);
+        CHECK(recent_messages_count, !=);
         CHECK(seen_messages_count, !=);
         CHECK(deleted_messages_count, !=);
 

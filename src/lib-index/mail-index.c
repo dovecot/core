@@ -77,7 +77,8 @@ static int mail_index_check_header(struct mail_index *index,
 	if (hdr->next_uid == 0)
 		return 0;
 
-	if (hdr->seen_messages_count > hdr->messages_count ||
+	if (hdr->recent_messages_count > hdr->messages_count ||
+	    hdr->seen_messages_count > hdr->messages_count ||
 	    hdr->deleted_messages_count > hdr->messages_count)
 		return 0;
 	if (hdr->first_recent_uid_lowwater > hdr->next_uid ||

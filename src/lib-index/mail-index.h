@@ -6,7 +6,7 @@
 #define MAIL_INDEX_MAJOR_VERSION 4
 #define MAIL_INDEX_MINOR_VERSION 0
 
-#define MAIL_INDEX_HEADER_MIN_SIZE 68
+#define MAIL_INDEX_HEADER_MIN_SIZE 72
 
 /* Number of keywords in mail_index_record. */
 #define INDEX_KEYWORDS_COUNT (3*8)
@@ -77,6 +77,7 @@ struct mail_index_header {
 	uint32_t next_uid;
 
 	uint32_t messages_count;
+	uint32_t recent_messages_count;
 	uint32_t seen_messages_count;
 	uint32_t deleted_messages_count;
 

@@ -442,6 +442,8 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 		ret = maildir_uidlist_sync_next_pre(ctx->uidlist_sync_ctx,
 						    dp->d_name);
 		if (ret == 0) {
+			/* new file and we couldn't lock uidlist, check this
+			   later in next sync. */
 			if (new_dir)
 				ctx->ibox->last_new_mtime = 0;
 			else
@@ -596,6 +598,13 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 	while (maildir_uidlist_iter_next(iter, &uid, &uflags, &filename)) {
 		maildir_filename_get_flags(filename, &flags, keywords);
 
+		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 &&
+		    (uflags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0 &&
+		    (uflags & MAILDIR_UIDLIST_REC_FLAG_MOVED) == 0) {
+			/* mail is recent for next session as well */
+			flags |= MAIL_RECENT;
+		}
+
 	__again:
 		seq++;
 		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
@@ -673,14 +682,21 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			continue;
 		}
 
-		maildir_filename_get_flags(filename, &flags, keywords);
-		if ((uint8_t)flags != (rec->flags & MAIL_FLAGS_MASK) ||
+		if (((uint8_t)flags & ~MAIL_RECENT) !=
+		    (rec->flags & (MAIL_FLAGS_MASK^MAIL_RECENT)) ||
 		    memcmp(keywords, rec->keywords,
 			   INDEX_KEYWORDS_BYTE_COUNT) != 0) {
-			/* FIXME: this is wrong if there's syncs later.
-			   it gets fixed in next sync however.. */
+			/* FIXME: this is wrong if there's pending changes in
+			   transaction log already. it gets fixed in next sync
+			   however.. */
 			mail_index_update_flags(trans, seq, MODIFY_REPLACE,
 						flags, keywords);
+		} else if ((flags & MAIL_RECENT) == 0 &&
+			   (rec->flags & MAIL_RECENT) != 0) {
+			/* just remove recent flag */
+			memset(keywords, 0, sizeof(keywords));
+			mail_index_update_flags(trans, seq, MODIFY_REMOVE,
+						MAIL_RECENT, keywords);
 		}
 	}
 	maildir_uidlist_iter_deinit(iter);

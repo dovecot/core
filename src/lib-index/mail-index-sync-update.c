@@ -20,20 +20,28 @@ struct mail_index_update_ctx {
 void mail_index_header_update_counts(struct mail_index_header *hdr,
 				     uint8_t old_flags, uint8_t new_flags)
 {
+	if (((old_flags ^ new_flags) & MAIL_RECENT) != 0) {
+		/* different recent-flag */
+		if ((old_flags & MAIL_RECENT) == 0)
+			hdr->recent_messages_count++;
+		else if (--hdr->recent_messages_count == 0)
+			hdr->first_recent_uid_lowwater = hdr->next_uid;
+	}
+
 	if (((old_flags ^ new_flags) & MAIL_SEEN) != 0) {
 		/* different seen-flag */
-		if ((old_flags & MAIL_SEEN) == 0)
-			hdr->seen_messages_count++;
-		else
+		if ((old_flags & MAIL_SEEN) != 0)
 			hdr->seen_messages_count--;
+		else if (++hdr->seen_messages_count == hdr->messages_count)
+			hdr->first_unseen_uid_lowwater = hdr->next_uid;
 	}
 
 	if (((old_flags ^ new_flags) & MAIL_DELETED) != 0) {
 		/* different deleted-flag */
 		if ((old_flags & MAIL_DELETED) == 0)
 			hdr->deleted_messages_count++;
-		else
-			hdr->deleted_messages_count--;
+		else if (--hdr->deleted_messages_count == 0)
+			hdr->first_deleted_uid_lowwater = hdr->next_uid;
 	}
 }
 
