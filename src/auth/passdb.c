@@ -104,6 +104,9 @@ void passdb_init(void)
 	args = strchr(name, ' ');
 	name = t_strcut(name, ' ');
 
+	while (args != NULL && (*args == ' ' || *args == '\t'))
+		args++;
+
 #ifdef PASSDB_PASSWD
 	if (strcasecmp(name, "passwd") == 0)
 		passdb = &passdb_passwd;
@@ -157,7 +160,7 @@ void passdb_init(void)
 
 	/* initialize */
 	if (passdb->init != NULL)
-		passdb->init(args != NULL ? args+1 : "");
+		passdb->init(args);
 
 	mech_list_verify_passdb(passdb, name);
 }

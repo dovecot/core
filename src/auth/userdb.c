@@ -25,6 +25,9 @@ void userdb_init(void)
 	args = strchr(name, ' ');
 	name = t_strcut(name, ' ');
 
+	while (args != NULL && (*args == ' ' || *args == '\t'))
+		args++;
+
 #ifdef USERDB_PASSWD
 	if (strcasecmp(name, "passwd") == 0)
 		userdb = &userdb_passwd;
@@ -66,7 +69,7 @@ void userdb_init(void)
 
 	/* initialize */
 	if (userdb->init != NULL)
-		userdb->init(args != NULL ? args+1 : "");
+		userdb->init(args);
 }
 
 void userdb_deinit(void)
