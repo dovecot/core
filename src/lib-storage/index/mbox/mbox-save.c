@@ -184,12 +184,18 @@ static void mbox_save_init_sync(struct mbox_transaction_context *t)
 {
 	struct mbox_save_context *ctx = t->save_ctx;
 	const struct mail_index_header *hdr;
+	struct mail_index_view *view;
 
-	hdr = mail_index_get_header(t->ictx.trans_view);
+	/* open a new view to get the header. this is required if we just
+	   synced the mailbox so we can get updated next_uid. */
+	view = mail_index_view_open(t->ictx.ibox->index);
+	hdr = mail_index_get_header(view);
 
 	ctx->next_uid = hdr->next_uid;
 	ctx->synced = TRUE;
         t->mbox_modified = TRUE;
+
+	mail_index_view_close(view);
 }
 
 static void status_flags_append(string_t *str, enum mail_flags flags,
