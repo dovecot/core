@@ -41,6 +41,7 @@ void *mmap_rw_file(int fd, size_t *length)
 int my_madvise(void *start __attr_unused__, size_t length __attr_unused__,
 	       int advice __attr_unused__)
 {
+	return 0;
 }
 #endif
 
