@@ -460,13 +460,13 @@ int mail_index_data_sync_file(MailIndexData *data)
 	if (data->anon_mmap)
 		return TRUE;
 
-	if (data->mmap_base != NULL) {
+	if (data->mmap_base != NULL && data->mmap_used_length > 0) {
 		if (msync(data->mmap_base, data->mmap_used_length, MS_SYNC) < 0)
 			return index_data_set_syscall_error(data, "msync()");
-	}
 
-	if (fsync(data->fd) < 0)
-		return index_data_set_syscall_error(data, "fsync()");
+		if (fsync(data->fd) < 0)
+			return index_data_set_syscall_error(data, "fsync()");
+	}
 
 	return TRUE;
 }
