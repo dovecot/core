@@ -26,8 +26,14 @@ int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 	string_t *str;
 
 	str = t_str_new(128);
-	str_append(str, "SASL");
+	str_append(str, "+OK\r\n" POP3_CAPABILITY_REPLY);
 
+	if (ssl_initialized && !client->common.tls)
+		str_append(str, "STLS\r\n");
+	if (!disable_plaintext_auth || client->common.secured)
+		str_append(str, "USER\r\n");
+
+	str_append(str, "SASL");
 	mech = auth_client_get_available_mechs(auth_client, &count);
 	for (i = 0; i < count; i++) {
 		/* a) transport is secured
@@ -41,12 +47,9 @@ int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 			str_append(str, mech[i].name);
 		}
 	}
+	str_append(str, "\r\n.");
 
-	client_send_line(client,
-			 t_strconcat("+OK\r\n" POP3_CAPABILITY_REPLY,
-				     (ssl_initialized && !client->common.tls) ?
-				     "STLS\r\n" : "",
-				     str_c(str), "\r\n.", NULL));
+	client_send_line(client, str_c(str));
 	return TRUE;
 }
 
