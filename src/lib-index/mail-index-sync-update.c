@@ -521,6 +521,7 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 
 	new_map->records = buffer_get_modifyable_data(new_map->buffer, NULL);
 	new_map->records_count = old_records_count;
+	i_assert(new_map->records_count == new_map->hdr.messages_count);
 
 	/* update record offsets in headers */
 	for (i = 0; i < size; i++) {
