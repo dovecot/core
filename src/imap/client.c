@@ -70,6 +70,9 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 
 	i_assert(my_client == NULL);
 	my_client = client;
+
+	if (hook_client_created != NULL)
+		hook_client_created(client);
 	return client;
 }
 
