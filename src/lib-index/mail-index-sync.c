@@ -198,7 +198,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	return 1;
 }
 
-static void
+void
 mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
 			    const struct mail_transaction_expunge *exp)
 {
@@ -207,7 +207,7 @@ mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
 	rec->seq2 = exp->seq2;
 }
 
-static void
+void
 mail_index_sync_get_update(struct mail_index_sync_rec *rec,
 			   const struct mail_transaction_flag_update *update)
 {
@@ -250,45 +250,6 @@ static int mail_index_sync_rec_check(struct mail_index_view *view,
 		break;
 	}
 	return TRUE;
-}
-
-int mail_index_sync_get_rec(struct mail_index_view *view,
-			    struct mail_index_sync_rec *rec,
-			    const struct mail_transaction_header *hdr,
-			    const void *data, size_t *data_offset)
-{
-	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
-	case MAIL_TRANSACTION_APPEND: {
-		rec->type = MAIL_INDEX_SYNC_TYPE_APPEND;
-		rec->seq1 = view->index->map->records_count + 1;
-		rec->seq2 = rec->seq1 + hdr->size /
-			sizeof(struct mail_index_record) - 1;
-		rec->appends = NULL;
-
-		*data_offset += hdr->size;
-		break;
-	}
-	case MAIL_TRANSACTION_EXPUNGE: {
-		const struct mail_transaction_expunge *exp =
-			CONST_PTR_OFFSET(data, *data_offset);
-
-		*data_offset += sizeof(*exp);
-                mail_index_sync_get_expunge(rec, exp);
-		break;
-	}
-	case MAIL_TRANSACTION_FLAG_UPDATE: {
-		const struct mail_transaction_flag_update *update =
-			CONST_PTR_OFFSET(data, *data_offset);
-
-		*data_offset += sizeof(*update);
-                mail_index_sync_get_update(rec, update);
-		break;
-	}
-	default:
-		i_unreached();
-	}
-
-	return mail_index_sync_rec_check(view, rec);
 }
 
 int mail_index_sync_next(struct mail_index_sync_ctx *ctx,

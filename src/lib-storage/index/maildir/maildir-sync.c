@@ -392,8 +392,13 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 
 		ret = maildir_uidlist_sync_next_pre(ctx->uidlist_sync_ctx,
 						    dp->d_name);
-		if (ret == 0)
+		if (ret == 0) {
+			if (new_dir)
+				ctx->ibox->last_new_mtime = 0;
+			else
+				ctx->ibox->dirty_cur_time = ioloop_time;
 			continue;
+		}
 		if (ret < 0)
 			break;
 
@@ -406,7 +411,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 			if (strchr(dp->d_name, ':') == NULL)
 				str_append(dest, ":2,");
 			if (rename(str_c(src), str_c(dest)) == 0) {
-				/* we moved it - it's \Recent for use */
+				/* we moved it - it's \Recent for us */
                                 ctx->ibox->dirty_cur_time = ioloop_time;
 				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED |
 					MAILDIR_UIDLIST_REC_FLAG_RECENT;
@@ -495,9 +500,11 @@ static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 		/* cur/ changed, or delayed cur/ check */
 		*cur_changed_r = TRUE;
 		ibox->last_cur_mtime = cur_mtime;
+
+		ibox->dirty_cur_time =
+			cur_mtime >= ioloop_time - MAILDIR_SYNC_SECS ?
+			cur_mtime : 0;
 	}
-	ibox->dirty_cur_time =
-		cur_mtime >= ioloop_time - MAILDIR_SYNC_SECS ? cur_mtime : 0;
 
 	return 0;
 }
@@ -547,6 +554,17 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		}
 
 		if (seq > hdr->messages_count) {
+			if (uid < hdr->next_uid) {
+				/* message not in index, but next_uid header
+				   is updated? shouldn't really happen.. */
+				mail_storage_set_critical(ibox->box.storage,
+					"Maildir sync: UID < next_uid "
+					"(%u < %u)", uid, hdr->next_uid);
+				mail_index_mark_corrupted(ibox->index);
+				ret = -1;
+				break;
+			}
+
 			mail_index_append(trans, uid, &seq);
 			mail_index_update_flags(trans, seq, MODIFY_REPLACE,
 						flags, keywords);
@@ -570,7 +588,8 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			   shouldn't happen */
 			mail_storage_set_critical(ibox->box.storage,
 				"Maildir sync: UID inserted in the middle "
-				"of mailbox (%u > %u)", rec->uid, uid);
+				"of mailbox (%u > %u, file = %s)",
+				rec->uid, uid, filename);
 			mail_index_mark_corrupted(ibox->index);
 			ret = -1;
 			break;
@@ -586,6 +605,8 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		if ((uint8_t)flags != (rec->flags & MAIL_FLAGS_MASK) ||
 		    memcmp(keywords, rec->keywords,
 			   INDEX_KEYWORDS_BYTE_COUNT) != 0) {
+			/* FIXME: this is wrong if there's syncs later.
+			   it gets fixed in next sync however.. */
 			mail_index_update_flags(trans, seq, MODIFY_REPLACE,
 						flags, keywords);
 		}
@@ -656,11 +677,14 @@ static int maildir_sync_context(struct maildir_sync_context *ctx)
 			return -1;
 	}
 
+	/* finish uidlist syncing, but keep it still locked */
+        maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
+	if (maildir_sync_index(ctx) < 0)
+		return -1;
+
 	ret = maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
         ctx->uidlist_sync_ctx = NULL;
 
-	if (ret == 0)
-		ret = maildir_sync_index(ctx);
 	return ret;
 }
 

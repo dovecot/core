@@ -31,4 +31,11 @@ void mail_index_header_update_counts(struct mail_index_header *hdr,
 void mail_index_header_update_lowwaters(struct mail_index_header *hdr,
 					const struct mail_index_record *rec);
 
+void
+mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
+			    const struct mail_transaction_expunge *exp);
+void
+mail_index_sync_get_update(struct mail_index_sync_rec *rec,
+			   const struct mail_transaction_flag_update *update);
+
 #endif

@@ -59,6 +59,7 @@ struct maildir_uidlist_sync_ctx {
 	unsigned int partial:1;
 	unsigned int synced:1;
 	unsigned int locked:1;
+	unsigned int finished:1;
 	unsigned int failed:1;
 };
 
@@ -176,6 +177,8 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 			uidlist->fname, uid, uidlist->last_read_uid);
 		return 0;
 	}
+	uidlist->last_read_uid = uid;
+
 	if (uid >= uidlist->next_uid) {
                 mail_storage_set_critical(uidlist->ibox->box.storage,
 			"UID larger than next_uid in file %s (%u >= %u)",
@@ -636,6 +639,8 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 	struct maildir_uidlist *uidlist = ctx->uidlist;
 	struct maildir_uidlist_rec *rec, *old_rec;
 
+	i_assert(!ctx->locked);
+
 	if (ctx->failed)
 		return -1;
 
@@ -761,10 +766,8 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 	}
 }
 
-int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
+void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 {
-	int ret = ctx->failed ? -1 : 0;
-
 	if (!ctx->partial) {
 		if (!ctx->failed && !ctx->locked)
 			maildir_uidlist_swap(ctx);
@@ -775,6 +778,15 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
 		}
 		maildir_uidlist_mark_all(ctx->uidlist, FALSE);
 	}
+	ctx->finished = TRUE;
+}
+
+int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
+{
+	int ret = ctx->failed ? -1 : 0;
+
+	if (!ctx->finished)
+		maildir_uidlist_sync_finish(ctx);
 
 	if (ctx->new_files_count != 0 && !ctx->failed && !ctx->locked)
 		ret = maildir_uidlist_rewrite(ctx->uidlist);

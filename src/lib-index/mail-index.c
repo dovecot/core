@@ -277,8 +277,10 @@ int mail_index_map(struct mail_index *index, int force)
 		hdr = map->mmap_base;
                 used_size = hdr->header_size +
 			hdr->messages_count * sizeof(struct mail_index_record);
-		if (map->mmap_size >= used_size && !force)
+		if (map->mmap_size >= used_size && !force) {
+			map->records_count = hdr->messages_count;
 			return 1;
+		}
 
 		if (munmap(map->mmap_base, map->mmap_size) < 0)
 			mail_index_set_syscall_error(index, "munmap()");

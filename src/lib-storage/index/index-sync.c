@@ -15,7 +15,7 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 	size_t i, expunges_count;
 	void *sc_context;
 	enum mail_index_sync_type sync_mask;
-	uint32_t seq, new_count, recent_count;
+	uint32_t seq, messages_count, recent_count;
 	int ret, appends;
 
 	sync_mask = MAIL_INDEX_SYNC_MASK_ALL;
@@ -39,6 +39,8 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 	sc_context = ibox->storage->callback_context;
 	appends = FALSE;
 
+	messages_count = mail_index_view_get_message_count(ibox->view);
+
 	memset(&full_flags, 0, sizeof(full_flags));
 	while ((ret = mail_index_view_sync_next(ctx, &sync)) > 0) {
 		switch (sync.type) {
@@ -51,6 +53,9 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
 			if (sc->update_flags == NULL)
 				break;
+
+			if (sync.seq2 > messages_count)
+				sync.seq2 = messages_count;
 
 			/* FIXME: hide the flag updates for expunged messages */
 			for (seq = sync.seq1; seq <= sync.seq2; seq++) {
@@ -72,7 +77,10 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 
 	if (sc->expunge != NULL) {
 		for (i = expunges_count*2; i > 0; i -= 2) {
-			for (seq = expunges[i-1]; seq >= expunges[i-2]; seq--)
+			seq = expunges[i-1];
+			if (seq > messages_count)
+				seq = messages_count;
+			for (; seq >= expunges[i-2]; seq--)
 				sc->expunge(&ibox->box, seq, sc_context);
 		}
 	}
@@ -80,9 +88,9 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 	mail_index_view_sync_end(ctx);
 
 	if (appends) {
-		new_count = mail_index_view_get_message_count(ibox->view);
+		messages_count = mail_index_view_get_message_count(ibox->view);
 		recent_count = ibox->get_recent_count(ibox);
-		sc->new_messages(&ibox->box, new_count, recent_count,
+		sc->new_messages(&ibox->box, messages_count, recent_count,
 				 sc_context);
 	}
 

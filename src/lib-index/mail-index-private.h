@@ -112,11 +112,6 @@ int mail_index_fix_header(struct mail_index *index, struct mail_index_map *map,
 void mail_index_view_transaction_ref(struct mail_index_view *view);
 void mail_index_view_transaction_unref(struct mail_index_view *view);
 
-int mail_index_sync_get_rec(struct mail_index_view *view,
-			    struct mail_index_sync_rec *rec,
-			    const struct mail_transaction_header *hdr,
-			    const void *data, size_t *data_offset);
-
 void mail_index_set_inconsistent(struct mail_index *index);
 
 int mail_index_set_error(struct mail_index *index, const char *fmt, ...)

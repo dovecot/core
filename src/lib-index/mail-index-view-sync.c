@@ -12,6 +12,7 @@ struct mail_index_view_sync_ctx {
 	enum mail_index_sync_type sync_mask;
 	struct mail_index_map *sync_map;
 	buffer_t *expunges;
+	uint32_t messages_count;
 
 	const struct mail_transaction_header *hdr;
 	const void *data;
@@ -104,6 +105,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	ctx->sync_mask = sync_mask;
 	ctx->sync_map = map;
 	ctx->expunges = expunges;
+	ctx->messages_count = mail_index_view_get_message_count(view);
 
 	*ctx_r = ctx;
 	return 0;
@@ -246,6 +248,46 @@ static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 	return 1;
 }
 
+static void
+mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
+			     struct mail_index_sync_rec *rec)
+{
+	const struct mail_transaction_header *hdr = ctx->hdr;
+	const void *data = ctx->data;
+
+	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
+	case MAIL_TRANSACTION_APPEND: {
+		rec->type = MAIL_INDEX_SYNC_TYPE_APPEND;
+		rec->seq1 = ctx->messages_count + 1;
+		ctx->messages_count +=
+			hdr->size / sizeof(struct mail_index_record);
+		rec->seq2 = ctx->messages_count;
+		rec->appends = NULL;
+
+		ctx->data_offset += hdr->size;
+		break;
+	}
+	case MAIL_TRANSACTION_EXPUNGE: {
+		const struct mail_transaction_expunge *exp =
+			CONST_PTR_OFFSET(data, ctx->data_offset);
+
+		ctx->data_offset += sizeof(*exp);
+                mail_index_sync_get_expunge(rec, exp);
+		break;
+	}
+	case MAIL_TRANSACTION_FLAG_UPDATE: {
+		const struct mail_transaction_flag_update *update =
+			CONST_PTR_OFFSET(data, ctx->data_offset);
+
+		ctx->data_offset += sizeof(*update);
+                mail_index_sync_get_update(rec, update);
+		break;
+	}
+	default:
+		i_unreached();
+	}
+}
+
 int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 			      struct mail_index_sync_rec *sync_rec)
 {
@@ -278,9 +320,7 @@ int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 		}
 	}
 
-	if (!mail_index_sync_get_rec(view, sync_rec, ctx->hdr, ctx->data,
-				     &ctx->data_offset))
-		return -1;
+	mail_index_view_sync_get_rec(ctx, sync_rec);
 	return 1;
 }
 
