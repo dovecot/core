@@ -65,7 +65,7 @@ void str_append_unescaped(string_t *dest, const void *src, size_t src_size)
 
 		str_append_n(dest, src_c + start, i-start);
 
-		if (src_c[i] == '\\')
+		if (i < src_size)
 			i++;
 		start = i;
 	}
@@ -83,8 +83,10 @@ char *str_unescape(char *str)
 	}
 
 	for (dest = str; *str != '\0'; str++) {
-		if (*str != '\\' || str[1] == '\0')
-			*dest++ = *str;
+		if (*str == '\\' && str[1] != '\0')
+			str++;
+
+		*dest++ = *str;
 	}
 
 	*dest = '\0';
