@@ -30,9 +30,14 @@ AC_ARG_ENABLE(ipv6,
 
 AC_ARG_WITH(file-offset-size,
 [  --with-file-offset-size=BITS  Set size of file offsets. Usually 32 or 64.
-                          (default: 64 if available) ],
+                          (default: 64 if available)],
 	preferred_off_t_bits=$withval,
 	preferred_off_t_bits=64)
+
+AC_ARG_WITH(mem-align,
+[  --with-mem-align=BYTES  Set the memory alignment (default: 8)],
+	mem_align=$withval,
+	mem_align=8)
 
 AC_ARG_WITH(passwd,
 [  --with-passwd           Build with /etc/passwd support (default)],
@@ -216,11 +221,8 @@ else
   AC_DEFINE(LARGEST_T_LONG)
 fi
 
-dnl * memory alignment, needed with non-x86 systems and should speed up
-dnl * x86 systems too. Use 8 with everyone to make sure 64bit lookups
-dnl * work. Currently it should also be safe to set to 4 if off_t == 32bit.
-dnl * With x86 it could be 1 as well if you want to save a bit space/memory.
-AC_DEFINE(MEM_ALIGN_SIZE, 8)
+dnl * memory alignment
+AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align)
 
 dnl * socklen_t - AC_CHECK_TYPE() would be _really_ useful if it only would
 dnl * accept header files where to find the typedef..

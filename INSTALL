@@ -48,6 +48,19 @@ supports it (Linux and Solaris does). You most likely won't have mails
 larger than 2GB, so you may want to drop this to 32bit for a bit smaller
 disk and memory usage.
 
+  --with-mem-align=BYTES
+
+Specifies memory alignment, needed with many non-x86 systems and should
+speed up x86 systems too. Default is 8 with everyone to make sure 64bit
+memory accessing work. Currently it should also be safe to set to 4 when
+using 32bit file offets. With x86 it could be 1 as well if you want to save
+a bit of disk space (in .imap.index.data file) and memory.
+
+Specifies memory alignment to use. Many non-x86 systems require this 
+
+With many non-x86 systems this is
+required to be 64bit (8 bytes) since all 64bit memo
+
   --with-passwd           Build with /etc/passwd support (default)
   --with-passwd-file      Build with passwd-like file support (default)
   --with-shadow           Build with shadow password support (default)
