@@ -28,17 +28,23 @@
 
 #include <fcntl.h>
 
-#if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
-#  define MAP_ANONYMOUS MAP_ANON
+#ifndef MAP_ANONYMOUS
+#  ifdef MAP_ANON
+#    define MAP_ANONYMOUS MAP_ANON
+#  else
+#    define MAP_ANONYMOUS 0
+#  endif
 #endif
 
 #ifndef HAVE_LINUX_MREMAP
 
+#include "fd-close-on-exec.h"
+
 #include <stdlib.h>
 #include <sys/mman.h>
 
-/* MMAP_BASE_MOVE may be negative as well */
-#if SSIZE_T_MAX >= LLONG_MAX
+/* MMAP_BASE_MOVE may be set to negative as well */
+#if SSIZE_T_MAX > 2147483647L
    /* 64bit or more */
 #  define MMAP_BASE_MOVE (1024ULL*1024ULL*1024ULL*128ULL) /* 128GB */
 #else
@@ -60,11 +66,20 @@ static int page_size = 0;
 static int header_size = 0;
 static void *movable_mmap_base = NULL;
 static void *mmap_top_limit, *mmap_heap_bottom, *mmap_heap_top;
+static int zero_fd = -1;
 
 static void movable_mmap_init(void)
 {
 	ssize_t abs_base_move;
 	char x;
+
+#if MAP_ANONYMOUS == 0
+	/* mmap()ing /dev/zero should be the same with some platforms */
+	zero_fd = open("/dev/zero", O_RDWR);
+	if (zero_fd == -1)
+		i_fatal("Can't open /dev/zero for creating anonymous mmap");
+	fd_close_on_exec(zero_fd, TRUE);
+#endif
 
 	abs_base_move = MMAP_BASE_MOVE;
 	if (abs_base_move < 0)
@@ -87,22 +102,10 @@ static int anon_mmap_fixed(void *address, size_t length)
 {
 	void *base;
 
-#ifdef MAP_ANONYMOUS
-	base = mmap(address, length, PROT_READ | PROT_WRITE,
-		    MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-#else
-	int fd;
-
-	/* mmap()ing /dev/zero should be the same with some platforms */
-	fd = open("/dev/zero", O_RDWR);
-	if (fd == -1)
-		i_fatal("Can't open /dev/zero for creating anonymous mmap");
+	i_assert(address != NULL);
 
 	base = mmap(address, length, PROT_READ | PROT_WRITE,
-		    MAP_FIXED | MAP_PRIVATE, fd, 0);
-
-	(void)close(fd);
-#endif
+		    MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, zero_fd, 0);
 
 	if (base != MAP_FAILED && base != address) {
 		/* shouldn't happen with MAP_FIXED, but who knows.. */
@@ -118,8 +121,9 @@ static int anon_mmap_fixed(void *address, size_t length)
 void *mmap_anon(size_t length)
 {
 	struct movable_header *hdr;
-	void *next_mmap_base;
+	void *next_mmap_base, *base;
 	ssize_t offset;
+	unsigned int count;
 	int ret;
 
 	if (header_size == 0)
@@ -135,7 +139,7 @@ void *mmap_anon(size_t length)
 			PAGE_ALIGN((size_t)((char *)mmap_anon - (char *)NULL));
 	}
 
-	offset = MMAP_BASE_MOVE;
+	offset = MMAP_BASE_MOVE; count = 0;
 	for (;;) {
 		next_mmap_base = (char *) movable_mmap_base + offset;
 		if ((char *) next_mmap_base < (char *) movable_mmap_base) {
@@ -176,8 +180,19 @@ void *mmap_anon(size_t length)
 		if (ret == 0)
 			break;
 
-		if (ret < 0 && errno != EINVAL)
+		if (errno != EINVAL && errno != ENOMEM)
 			return MAP_FAILED;
+
+		if (++count == 100) {
+			/* enough tries, try non-fixed mmap() */
+			base = mmap(NULL, length, PROT_READ | PROT_WRITE,
+				    MAP_ANONYMOUS | MAP_PRIVATE, zero_fd, 0);
+			if (base == MAP_FAILED)
+				return MAP_FAILED;
+
+			movable_mmap_base = base;
+			break;
+		}
 	}
 
 	/* initialize the header */
@@ -200,7 +215,7 @@ static int mremap_try_grow(struct movable_header *hdr, size_t new_size)
 	}
 
 	if (anon_mmap_fixed(grow_base, new_size - hdr->size) < 0) {
-		if (errno == EINVAL) {
+		if (errno == EINVAL || errno == ENOMEM) {
 			/* can't grow, wanted address space is already in use */
 			return 0;
 		}
