@@ -356,7 +356,7 @@ get_mailbox(struct client_command_context *cmd, const char *name)
 		return NULL;
 
 	if (cmd->client->mailbox != NULL &&
-	    mailbox_name_equals(mailbox_get_name(cmd->client->mailbox), name))
+	    mailbox_equals(cmd->client->mailbox, storage, name))
 		return cmd->client->mailbox;
 
 	box = mailbox_open(storage, name, MAILBOX_OPEN_FAST |

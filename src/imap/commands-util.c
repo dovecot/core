@@ -310,12 +310,21 @@ void client_save_keywords(struct mailbox_keywords *dest,
 		dest->keywords[i] = p_strdup(dest->pool, keywords[i]);
 }
 
-int mailbox_name_equals(const char *box1, const char *box2)
+int mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,
+		   const char *name2)
 {
-	if (strcmp(box1, box2) == 0)
+	struct mail_storage *storage1 = mailbox_get_storage(box1);
+	const char *name1;
+
+	if (storage1 != storage2)
+		return FALSE;
+
+        name1 = mailbox_get_name(box1);
+	if (strcmp(name1, name2) == 0)
 		return TRUE;
 
-	return strcasecmp(box1, "INBOX") == 0 && strcasecmp(box2, "INBOX") == 0;
+	return strcasecmp(name1, "INBOX") == 0 &&
+		strcasecmp(name2, "INBOX") == 0;
 }
 
 void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str)

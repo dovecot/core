@@ -53,7 +53,7 @@ static int get_mailbox_status(struct client *client,
 	int failed;
 
 	if (client->mailbox != NULL &&
-	    mailbox_name_equals(mailbox_get_name(client->mailbox), mailbox)) {
+	    mailbox_equals(client->mailbox, storage, mailbox)) {
 		/* this mailbox is selected */
 		box = client->mailbox;
 	} else {

@@ -52,7 +52,8 @@ void client_save_keywords(struct mailbox_keywords *dest,
 			  const char *const keywords[],
 			  unsigned int keywords_count);
 
-int mailbox_name_equals(const char *box1, const char *box2);
+int mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,
+		   const char *name2);
 
 void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str);
 void msgset_generator_next(struct msgset_generator_context *ctx, uint32_t uid);
