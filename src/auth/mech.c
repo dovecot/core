@@ -114,6 +114,12 @@ struct auth_request *auth_request_new(struct mech_module *mech)
 
 void auth_request_destroy(struct auth_request *request)
 {
+	i_assert(request->refcount > 0);
+
+	if (request->destroyed)
+		return;
+	request->destroyed = TRUE;
+
 	if (request->conn != NULL) {
 		hash_remove(request->conn->auth_requests,
 			    POINTER_CAST(request->id));
@@ -143,7 +149,12 @@ void mech_auth_finish(struct auth_request *request,
 			requests += auth_failures_buf->used/sizeof(*requests)-1;
 			i_assert(*requests != request);
 		}
+
 		buffer_append(auth_failures_buf, &request, sizeof(request));
+
+		/* make sure the request isn't found anymore */
+		auth_request_ref(request);
+		auth_request_destroy(request);
 		return;
 	}
 
@@ -189,6 +200,7 @@ void auth_request_ref(struct auth_request *request)
 
 int auth_request_unref(struct auth_request *request)
 {
+	i_assert(request->refcount > 0);
 	if (--request->refcount > 0)
 		return TRUE;
 
