@@ -170,8 +170,7 @@ void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file)
 
 #define INDEX_HAS_MISSING_LOGS(index, file) \
 	!(((file)->hdr.file_seq == (index)->hdr->log_file_seq && \
-	   (index)->hdr->log_file_int_offset >= \
-	   sizeof(struct mail_transaction_log_header)) || \
+	   (index)->hdr->log_file_int_offset >= (file)->hdr.hdr_size) || \
 	  ((file)->hdr.prev_file_seq == (index)->hdr->log_file_seq && \
 	   (file)->hdr.prev_file_offset == (index)->hdr->log_file_int_offset))
 
