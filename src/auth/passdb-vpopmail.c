@@ -14,6 +14,8 @@
 
 #include "userdb-vpopmail.h"
 
+#include <stdlib.h>
+
 static void
 vpopmail_verify_plain(struct auth_request *request, const char *password,
 		      verify_plain_callback_t *callback)
@@ -54,6 +56,25 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}
+
+#ifdef HAVE_VPOPMAIL_OPEN_SMTP_RELAY
+	if (strcmp(request->protocol, "POP3") == 0 ||
+	    strcmp(request->protocol, "IMAP") == 0) {
+		const char *host = net_ip2addr(&request->remote_ip);
+		if (host != NULL) {
+			/* use putenv() directly rather than env_put() which
+			   would leak memory every time we got here. use a
+			   static buffer for putenv() as SUSv2 requirements
+			   would otherwise corrupt our environment later. */
+			static char ip_env[256];
+
+			i_snprintf(ip_env, sizeof(ip_env),
+				   "TCPREMOTEIP=%s", host);
+			putenv(ip_env);
+			open_smtp_relay();
+		}
+	}
+#endif
 
 	callback(PASSDB_RESULT_OK, request);
 }
