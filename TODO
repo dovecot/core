@@ -1,3 +1,16 @@
+ - openbsd: if we ever write() to a file that is mmaped(), even if munmap()ed
+   in the middle, the mmaped area doesn't get updated. This mostly happens
+   when updating headers with write().. is it worth fixing? ..
+ - maildir append doesn't actually need the mailbox to be synced.
+   index->open_mailbox() could have some parameter to specify if mailbox
+   should be synced or not.
+ - postgresql support doesn't reconnect if connection drops.
+ - we could process multiple commands (especially command + implicit sync
+   after it) without dropping (index) lock in the middle. that'd mean all
+   commands should be able to begin in any lock state and they shouldn't drop
+   the lock. there'd be some new drop_lock() function which finally does that.
+
+ - fix cygwin compile? _close and _read in *stream*.c fails.
  - fix SSL for RedHat 9. Use pkg-config.
  - PAM waits for two seconds on wrong passwords. dovecot-auth is completely
    stuck at that time. maybe fork() new PAM checkers?
@@ -22,11 +35,15 @@
     - the process that assigns UID to message should be the one to see
       it as recent
     - we don't handle non-contiguous recent ranges
- - maildir: stat()ing new/ would be enough if mtime is unchanged and older
-   than a few seconds
  - don't break if we rename selected mailbox
  - struct mail_index_data_record_header isn't 8byte padded with 32bit off_t
- - quota full: rename() is problematic, uidlist and new/ dir especially
+ - handle out of quota conditions:
+     - if dovecot-uidlist can't be written, assume the new mails have UIDs 
+       beginning from uidlist.next_uid. Whenever mails are expunged, overwrite
+       the next_uid field with the current highest next_uid. Whenever we have
+       assumed UIDs and uidlist gets updated, throw the client out with
+       "inconsist mailbox".
+     - make sure all syscalls check for ENOSPACE (and ENOACCESS while at it)
  - NFS safety:
     - use link()s instead of relying on O_EXCL
     - .subscriptions: use rename() like dovecot-uidlist
@@ -61,17 +78,12 @@
  - full_filesystem_access=yes + Maildir + SELECT "INBOX/" works? ..
  - should we support some non-tokenizing way to parse mail addresses? ..
    eg. "foo ? bar <x@y>" would now show up as "foo? bar <x@y>"
- - add charset/us-ascii to body/bodystructure
  - we hang if ssl key is password protected
- - is there still something wrong with SSL proxy?
 
  - DELETE/RENAME: when someone else had the mailbox open, we should
    disconnect it (when stat() fails with ENOENT while syncing).
 
  - bugs
-    - maildir: if mail file isn't found, it may be because it was renamed
-      (flag changed). we must then sync the directory and see again if the mail
-      is found
     - SIGHUP didn't update imap_listen. this is a bit annoying to fix though,
       since new listen() may fail for a few times because login processes may
       not die immediately..
@@ -83,7 +95,6 @@
       other IMAP people agree to that.
 
  - reliability fixes:
-    - maildir: check if there's base name conflicts when syncing.
     - if we deleted mail from index but didn't write modify log, other
       dovecots don't handle it properly. they either assert at index-sync.c:42
       or if new mails have also been added since, they don't notice it at all
@@ -197,6 +208,16 @@
       eg. allowing max. 20 hierarchies.
 
  - index:
+    - currently we read-lock it when eg. fetching mails. that can be a very
+      long lock. currently we also wait for exclusive lock if we want to sync
+      mailbox. with shared folders this would be real problem, but it's not
+      nice currently either if you want to have multiple connections to same
+      mailbox. solutions:
+        - syncing shouldn't wait lock more than a few seconds
+	- fetching could drop the lock after a few seconds. might get tricky
+	  though.
+        - maybe more fine grained locking? reading all mails shouldn't prevent
+	  appending new mails. accessing header could be more problematic.
     - we could try compressing same from/to/subject fields into a single
       location in data file. requires larger changes..
     - Most messages are text/plain/7bit/us-ascii/no-other-content-type-params.
@@ -254,12 +275,11 @@
  - general:
     - sieve (rfc3028), we can use Cyrus Sieve
     - rfc2231 continuation support
-    - rfc2557 support for BODYSTRUCTURE, as specified by latest IMAP4rev1 draft
-    - lmtp server
+    - rfc2557 support for BODYSTRUCTURE, as specified by RFC3501
+    - lmtp server - is it needed? dovecot-deliver binary at least would be
+      useful
     - create indexer binary
     - support Maildir++ quota
-    - provide some helper binary to save new mail into mailboxes with CR+LF
-      line breaks?
     - some kind of IMAP proxy for load distributing
     - maybe give more untagged NO/ALERT replies? like when mailbox is in
       inconsistent state. and when UIDs are reordered because they're too
@@ -273,7 +293,7 @@
  - cleanups:
     - check if t_push()/t_pop() should be added somewhere
     - try to fix @UNSAFE code to use buffer API instead
-	- subscription-file.c, custom_flags, ioloop
+	- subscription-file.c, custom_flags
 	- [io]stream-file.c?
     - grep for FIXME
     - index/create_temp_file is used in only two places. once mbox rewriting
