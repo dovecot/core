@@ -154,6 +154,8 @@ static int mail_cache_unlink_hole(struct mail_cache *cache, size_t size,
 
 		if (hole.size >= size)
 			break;
+
+		prev_offset = offset;
 		offset = hole.next_offset;
 	}
 	if (offset == 0)
@@ -169,6 +171,7 @@ static int mail_cache_unlink_hole(struct mail_cache *cache, size_t size,
 		}
 	}
 	hdr->deleted_space -= hole.size;
+	cache->hdr_modified = TRUE;
 
 	hole_r->next_offset = offset;
 	hole_r->size = hole.size;
