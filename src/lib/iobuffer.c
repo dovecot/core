@@ -666,7 +666,7 @@ static ssize_t io_buffer_read_mmaped(IOBuffer *buf, size_t size)
 	(void)madvise(buf->buffer, buf->buffer_size, MADV_SEQUENTIAL);
 
 	buf->pos = buf->buffer_size;
-	return buf->buffer_size;
+	return buf->buffer_size - buf->skip;
 }
 
 ssize_t io_buffer_read(IOBuffer *buf)
