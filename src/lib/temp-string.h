@@ -13,7 +13,7 @@ TempString *t_string_new(size_t initial_size);
 
 /* Append string/character */
 void t_string_append(TempString *tstr, const char *str);
-void t_string_append_n(TempString *tstr, const char *str, size_t size);
+void t_string_append_n(TempString *tstr, const char *str, size_t max_len);
 void t_string_append_c(TempString *tstr, char chr);
 
 /* Append printf()-like data */

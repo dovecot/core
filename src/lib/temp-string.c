@@ -85,17 +85,23 @@ static void t_string_inc(TempString *tstr, size_t size)
 /* Append string/character */
 void t_string_append(TempString *tstr, const char *str)
 {
-	t_string_append_n(tstr, str, strlen(str));
+	t_string_append_n(tstr, str, SSIZE_T_MAX-1);
 }
 
-void t_string_append_n(TempString *tstr, const char *str, size_t size)
+void t_string_append_n(TempString *tstr, const char *str, size_t max_len)
 {
-	i_assert(size < SSIZE_T_MAX);
+	size_t len;
 
-	t_string_inc(tstr, size);
-	memcpy(tstr->str + tstr->len, str, size);
+	i_assert(max_len < SSIZE_T_MAX);
 
-	tstr->len += size;
+	len = 0;
+	while (len < max_len && str[len] != '\0')
+		len++;
+
+	t_string_inc(tstr, len);
+	memcpy(tstr->str + tstr->len, str, len);
+
+	tstr->len += len;
 	tstr->str[tstr->len] = '\0';
 }
 
