@@ -139,6 +139,8 @@ static void env_put_namespace(struct namespace_settings *ns,
 		}
 		if (ns->inbox)
 			env_put(t_strdup_printf("NAMESPACE_%u_INBOX=1", i));
+		if (ns->hidden)
+			env_put(t_strdup_printf("NAMESPACE_%u_HIDDEN=1", i));
 		t_pop();
 	}
 }

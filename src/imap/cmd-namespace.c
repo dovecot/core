@@ -12,7 +12,7 @@ static void list_namespaces(struct namespace *ns, enum namespace_type type,
 	int found = FALSE;
 
 	while (ns != NULL) {
-		if (ns->type == type) {
+		if (ns->type == type && !ns->hidden) {
 			if (!found) {
 				str_append_c(str, '(');
 				found = TRUE;

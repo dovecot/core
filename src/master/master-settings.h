@@ -122,6 +122,7 @@ struct namespace_settings {
 	const char *location;
 
 	int inbox;
+	int hidden;
 };
 
 struct server_settings {

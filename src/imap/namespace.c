@@ -12,7 +12,7 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 {
         struct namespace *ns;
         const char *sep, *type, *prefix;
-	int inbox;
+	int inbox, hidden;
 
 	ns = p_new(pool, struct namespace, 1);
 
@@ -20,6 +20,7 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	type = getenv(t_strdup_printf("NAMESPACE_%u_TYPE", num));
 	prefix = getenv(t_strdup_printf("NAMESPACE_%u_PREFIX", num));
 	inbox = getenv(t_strdup_printf("NAMESPACE_%u_INBOX", num)) != NULL;
+	hidden = getenv(t_strdup_printf("NAMESPACE_%u_HIDDEN", num)) != NULL;
 
 	if (type == NULL || *type == '\0' || strncmp(type, "private", 7) == 0)
 		ns->type = NAMESPACE_PRIVATE;
@@ -35,6 +36,7 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 
 	ns->prefix = p_strdup(pool, prefix);
 	ns->inbox = inbox;
+	ns->hidden = hidden;
 	ns->storage = mail_storage_create_with_data(data, user, ns->prefix,
 						    sep != NULL ? *sep : '\0');
 	if (ns->storage == NULL) {
