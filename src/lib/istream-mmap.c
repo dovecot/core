@@ -94,14 +94,14 @@ static void _set_blocking(struct _iostream *stream __attr_unused__,
 static ssize_t io_stream_set_mmaped_pos(struct _istream *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
+	uoff_t top;
 
 	i_assert((uoff_t)mstream->mmap_offset <=
 		 stream->istream.start_offset + stream->istream.v_limit);
 
-	stream->pos = stream->istream.start_offset + stream->istream.v_limit -
+	top = stream->istream.start_offset + stream->istream.v_limit -
 		mstream->mmap_offset;
-	if (stream->pos > stream->buffer_size)
-		stream->pos = stream->buffer_size;
+	stream->pos = I_MIN(top, stream->buffer_size);
 
 	return stream->pos - stream->skip;
 }
@@ -110,6 +110,7 @@ static ssize_t _read(struct _istream *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 	size_t aligned_skip, limit_size;
+	uoff_t top;
 
 	if (stream->istream.start_offset + stream->istream.v_limit <=
 	    (uoff_t)mstream->mmap_offset + stream->pos) {
@@ -137,10 +138,9 @@ static ssize_t _read(struct _istream *stream)
 			i_error("io_stream_read_mmaped(): munmap() failed: %m");
 	}
 
-	stream->buffer_size = stream->istream.start_offset +
-		stream->istream.v_size - mstream->mmap_offset;
-	if (stream->buffer_size > mstream->mmap_block_size)
-		stream->buffer_size = mstream->mmap_block_size;
+	top = stream->istream.start_offset + stream->istream.v_size -
+		mstream->mmap_offset;
+	stream->buffer_size = I_MIN(top, mstream->mmap_block_size);
 
 	i_assert((uoff_t)mstream->mmap_offset + stream->buffer_size <=
 		 stream->istream.start_offset + stream->istream.v_size);

@@ -23,19 +23,23 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 	/* make sure given offset fits into off_t */
 	if (sizeof(off_t) * CHAR_BIT == 32) {
 		/* 32bit off_t */
-		if (*offset > 2147483647L) {
-			errno = EOVERFLOW;
+		if (*offset >= 2147483647L) {
+			errno = EINVAL;
 			return -1;
 		}
+		if (count > 2147483647L - *offset)
+			count = 2147483647L - *offset;
 	} else {
 		/* they're most likely the same size. if not, fix this
 		   code later */
 		i_assert(sizeof(off_t) == sizeof(uoff_t));
 
-		if (*offset > OFF_T_MAX) {
-			errno = EOVERFLOW;
+		if (*offset >= OFF_T_MAX) {
+			errno = EINVAL;
 			return -1;
 		}
+		if (count > OFF_T_MAX - *offset)
+			count = OFF_T_MAX - *offset;
 	}
 
 	safe_offset = (off_t)*offset;
