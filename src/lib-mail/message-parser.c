@@ -479,7 +479,7 @@ message_find_boundary(struct istream *input,
 			if (msg[i] != '\n')
 				continue;
 
-			if (i > line_start+2 && msg[line_start] == '-' &&
+			if (i >= line_start+2 && msg[line_start] == '-' &&
 			    msg[line_start+1] == '-') {
 				/* possible boundary */
 				boundary = boundary_find(boundaries,
