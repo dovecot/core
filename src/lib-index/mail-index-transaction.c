@@ -411,7 +411,7 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 
 	/* find the first update with either overlapping range,
 	   or the update which will come after our insert */
-	idx = 0;
+	idx = size;
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
 
@@ -427,6 +427,7 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 
 	/* overlapping ranges, split/merge them */
 	i_assert(idx == 0 || updates[idx-1].uid2 < u.uid1);
+	i_assert(idx == size || updates[idx].uid2 >= u.uid1);
 
 	for (; idx < size && u.uid2 >= updates[idx].uid1; idx++) {
 		if (u.uid1 != updates[idx].uid1 &&
