@@ -47,25 +47,27 @@ static int init_mailbox(struct client *client)
 	struct mailbox_status status;
 	int i, failed;
 
-	if (mailbox_get_status(client->mailbox,
-			       STATUS_MESSAGES | STATUS_UIDVALIDITY,
-			       &status) < 0) {
-		client_send_storage_error(client);
-		return FALSE;
-	}
-
-	client->messages_count = status.messages;
-	client->deleted_size = 0;
-	client->uidvalidity = status.uidvalidity;
-
-	if (client->messages_count == 0)
-		return TRUE;
-
 	memset(&search_arg, 0, sizeof(search_arg));
 	search_arg.type = SEARCH_ALL;
 
-	client->message_sizes = i_new(uoff_t, client->messages_count);
 	for (i = 0; i < 2; i++) {
+		if (mailbox_get_status(client->mailbox,
+				       STATUS_MESSAGES | STATUS_UIDVALIDITY,
+				       &status) < 0) {
+			client_send_storage_error(client);
+			return FALSE;
+		}
+
+		client->messages_count = status.messages;
+		client->deleted_size = 0;
+		client->uidvalidity = status.uidvalidity;
+
+		if (client->messages_count == 0)
+			return TRUE;
+
+		i_free(client->message_sizes);
+		client->message_sizes = i_new(uoff_t, client->messages_count);
+
 		t = mailbox_transaction_begin(client->mailbox, FALSE);
 		ctx = mailbox_search_init(t, NULL, &search_arg, NULL,
 					  MAIL_FETCH_SIZE, NULL);
