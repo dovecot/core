@@ -58,13 +58,15 @@ int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 		if (add_cr) {
 			if (io_buffer_send(outbuf, "\r", 1) <= 0)
 				return FALSE;
+			cr_skipped = TRUE;
+		} else {
+			cr_skipped = i > 0 && msg[i-1] == '\r';
 		}
 
 		/* see if we've reached the limit */
 		if (max_virtual_size == 0)
 			break;
 
-		cr_skipped = TRUE;
 		io_buffer_skip(inbuf, i);
 	}
 
