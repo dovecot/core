@@ -39,11 +39,17 @@ static int mbox_find_path(MailStorage *storage, ImapMatchGlob *glob,
 
 	dirp = opendir(dir);
 	if (dirp == NULL) {
-		if (errno != ENOENT && errno != ENOTDIR) {
-			mail_storage_set_critical(storage,
-				"opendir(%s) failed: %m", dir);
-		}
 		t_pop();
+
+		if (relative_dir != NULL &&
+		    (errno == ENOENT || errno == ENOTDIR)) {
+			/* probably just race condition with other client
+			   deleting the mailbox. */
+			return TRUE;
+		}
+
+		mail_storage_set_critical(storage,
+					  "opendir(%s) failed: %m", dir);
 		return FALSE;
 	}
 
