@@ -882,9 +882,12 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 		   don't bother to even try with them. */
 		fstream->no_sendfile = TRUE;
 #endif
+		fstream->no_socket_cork = FALSE;
 	} else {
-		if (net_getsockname(fd, NULL, NULL) < 0)
+		if (net_getsockname(fd, NULL, NULL) < 0) {
 			fstream->no_sendfile = TRUE;
+			fstream->no_socket_cork = FALSE;
+		}
 	}
 	return ostream;
 }
