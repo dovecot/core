@@ -1119,40 +1119,65 @@ if test $want_pgsql = yes; then
 fi
 
 if test $want_mysql = yes; then
-	mysql_header=mysql.h
-	AC_CHECK_LIB(mysqlclient, mysql_init, [
-		AC_CHECK_HEADER(mysql.h,, [
-			AC_CHECK_HEADER(mysql/mysql.h, [
-				mysql_header=mysql/mysql.h
-				AUTH_CFLAGS="$AUTH_CFLAGS -DHAVE_MYSQL_MYSQL_H"
-			], want_mysql=no)
-		])
-	], want_mysql=no)
-
-	if test $want_mysql = yes; then
-		AC_CHECK_LIB(mysqlclient, mysql_ssl_set, [
-			AC_DEFINE(HAVE_MYSQL_SSL,, Define if your MySQL library has SSL functions)
-			if test "x$have_openssl" = "yes"; then
-			  ssl_define="#define HAVE_OPENSSL"
-			else
-			  ssl_define=""
+	# based on code from PHP
+	for i in /usr /usr/local /usr/local/mysql; do
+		for j in include include/mysql ""; do
+			if test -r "$i/$j/mysql.h"; then
+				MYSQL_INCLUDE=$i/$j
 			fi
-			AC_TRY_COMPILE([
-			  $ssl_define
-			  #include <$mysql_header>
-			], [
-			  mysql_set_ssl(0, 0, 0, 0, 0, 0);
-			], [
-				AC_DEFINE(HAVE_MYSQL_SSL_CIPHER,, Define if your MySQL library supports setting cipher)
-			])
-		])
-		AUTH_LIBS="$AUTH_LIBS -lmysqlclient"
+		done
+		for j in lib lib/mysql ""; do
+			if test -f "$i/$j/libmysqlclient.so" || test -f "$i/$j/libmysqlclient.a"; then
+				MYSQL_LIBDIR=$i/$j
+			fi
+		done
+	done
 
-        	AC_DEFINE(USERDB_MYSQL,, Build with MySQL support)
-		AC_DEFINE(PASSDB_MYSQL,, Build with MySQL support)
-		userdb="$userdb mysql"
-		passdb="$passdb mysql"
+	old_LIBS=$LIBS
+	if test "$MYSQL_LIBDIR" != ""; then
+		LIBS="$LIBS -L$MYSQL_LIBDIR"
 	fi
+
+	AC_CHECK_LIB(mysqlclient, mysql_init, [
+		old_CPPFLAGS=$CPPFLAGS
+		if test "$MYSQL_INCLUDE" != ""; then
+			CPPFLAGS="$CPPFLAGS -I $MYSQL_INCLUDE"
+		fi
+		AC_CHECK_HEADER(mysql.h, [
+			if test "$MYSQL_INCLUDE" != ""; then
+				AUTH_CFLAGS="$AUTH_CFLAGS -I$MYSQL_INCLUDE"
+			fi
+			if test "$MYSQL_LIBDIR" != ""; then
+				AUTH_LIBS="$AUTH_LIBS -L$MYSQL_LIBDIR"
+			fi
+			AUTH_LIBS="$AUTH_LIBS -lmysqlclient"
+
+			AC_CHECK_LIB(mysqlclient, mysql_ssl_set, [
+				AC_DEFINE(HAVE_MYSQL_SSL,, Define if your MySQL library has SSL functions)
+				if test "x$have_openssl" = "yes"; then
+				  ssl_define="#define HAVE_OPENSSL"
+				else
+				  ssl_define=""
+				fi
+				AC_TRY_COMPILE([
+				  $ssl_define
+				  #include <$mysql_header>
+				], [
+				  mysql_set_ssl(0, 0, 0, 0, 0, 0);
+				], [
+					AC_DEFINE(HAVE_MYSQL_SSL_CIPHER,, Define if your MySQL library supports setting cipher)
+				])
+			])
+			
+			AC_DEFINE(USERDB_MYSQL,, Build with MySQL support)
+			AC_DEFINE(PASSDB_MYSQL,, Build with MySQL support)
+			userdb="$userdb mysql"
+			passdb="$passdb mysql"
+		])
+		CPPFLAGS=$old_CPPFLAGS
+	])
+
+	LIBS=$old_LIBS
 fi
 
 if test $want_vpopmail = yes; then

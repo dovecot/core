@@ -1,13 +1,8 @@
 #ifndef __DB_MYSQL_H
 #define __DB_MYSQL_H
 
-#ifdef HAVE_MYSQL_MYSQL_H
-#  include <mysql/mysql.h>
-#  include <mysql/errmsg.h>
-#else
-#  include <mysql.h>
-#  include <errmsg.h>
-#endif
+#include <mysql.h>
+#include <errmsg.h>
 
 struct mysql_connection;
 struct mysql_request;
