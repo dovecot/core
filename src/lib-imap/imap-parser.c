@@ -292,6 +292,7 @@ static int imap_parser_read_literal(ImapParser *parser, char *data,
 			}
 
                         io_buffer_send(parser->outbuf, "+ OK\r\n", 6);
+			io_buffer_send_flush(parser->outbuf);
 			parser->cur_type = ARG_PARSE_LITERAL_DATA;
 			parser->literal_skip_crlf = TRUE;
 
