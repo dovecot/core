@@ -118,11 +118,6 @@ static void i_stream_compress(struct _istream *stream)
 		stream->pos - stream->skip);
 	stream->pos -= stream->skip;
 
-	if (stream->skip > stream->cr_lookup_pos)
-		stream->cr_lookup_pos = 0;
-	else
-		stream->cr_lookup_pos -= stream->skip;
-
 	stream->skip = 0;
 }
 

@@ -81,7 +81,7 @@ void i_stream_set_start_offset(struct istream *stream, uoff_t offset)
 	}
 
 	/* reset buffer data */
-	_stream->skip = _stream->pos = _stream->cr_lookup_pos = 0;
+	_stream->skip = _stream->pos = 0;
 }
 
 void i_stream_set_read_limit(struct istream *stream, uoff_t v_offset)
@@ -169,7 +169,7 @@ char *i_stream_next_line(struct istream *stream)
 
 	/* @UNSAFE */
 	ret_buf = NULL;
-	for (i = _stream->cr_lookup_pos; i < _stream->pos; i++) {
+	for (i = _stream->skip; i < _stream->pos; i++) {
 		if (_stream->buffer[i] == 10) {
 			/* got it */
 			if (i > 0 && _stream->buffer[i-1] == '\r')
@@ -185,7 +185,6 @@ char *i_stream_next_line(struct istream *stream)
 		}
 	}
 
-	_stream->cr_lookup_pos = i;
         return ret_buf;
 }
 
