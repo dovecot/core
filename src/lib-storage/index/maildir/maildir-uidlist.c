@@ -45,7 +45,6 @@ struct maildir_uidlist {
 
 	unsigned int initial_read:1;
 	unsigned int initial_sync:1;
-	unsigned int file_missing:1;
 };
 
 struct maildir_uidlist_sync_ctx {
@@ -257,11 +256,9 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 				"open(%s) failed: %m", uidlist->fname);
 			return -1;
 		}
-		uidlist->file_missing = TRUE;
 		uidlist->initial_read = TRUE;
 		return 0;
 	}
-	uidlist->file_missing = FALSE;
 
 	if (fstat(fd, &st) < 0) {
 		mail_storage_set_critical(storage,
@@ -526,8 +523,6 @@ static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
 			mail_storage_set_critical(ibox->box.storage,
 				"file_dotlock_replace(%s) failed: %m", db_path);
 			ret = -1;
-		} else {
-			uidlist->file_missing = FALSE;
 		}
 	} else {
 		(void)close(uidlist->lock_fd);
