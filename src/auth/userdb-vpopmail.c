@@ -99,7 +99,7 @@ static void vpopmail_lookup(const char *user, userdb_callback_t *callback,
 	data.uid = uid;
 	data.gid = gid;
 
-	data.virtual_user = vpw->pw_name;
+	data.virtual_user = vuser;
 	data.home = vpw->pw_dir;
 
 	callback(&data, context);
