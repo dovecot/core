@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 1.0-test10)
+AM_INIT_AUTOMAKE(dovecot, 1.0-test13)
 
 AM_MAINTAINER_MODE
 
@@ -205,6 +205,13 @@ AC_ARG_WITH(storages,
 [  --with-storages         Build specified mail storage formats (maildir,mbox)], [
 	mail_storages=`echo "$withval"|sed 's/,/ /g'` ],
 	mail_storages="maildir mbox")
+
+AC_ARG_WITH(moduledir,
+[  --with-moduledir=DIR    Base directory for dynamically loadable modules],
+	moduledir="$withval",
+	moduledir=$libdir/dovecot
+)
+AC_SUBST(moduledir)
 
 dnl * gcc specific options
 if test "x$ac_cv_prog_gcc" = "xyes"; then

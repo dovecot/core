@@ -8,7 +8,7 @@ INCLUDES = \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DPKG_RUNDIR=\""$(localstatedir)/run/$(PACKAGE)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
-	-DPKG_LIBDIR=\""$(libdir)/$(PACKAGE)"\" \
+	-DMODULEDIR=\""$(moduledir)"\" \
 	-DSSLDIR=\""$(ssldir)\""
 
 dovecot_LDADD = \

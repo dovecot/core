@@ -237,7 +237,7 @@ struct settings default_settings = {
 	MEMBER(mail_executable) PKG_LIBEXECDIR"/imap",
 	MEMBER(mail_process_size) 256,
 	MEMBER(mail_use_modules) FALSE,
-	MEMBER(mail_modules) PKG_LIBDIR"/imap",
+	MEMBER(mail_modules) MODULEDIR"/imap",
 
 	/* imap */
 	MEMBER(imap_max_line_length) 65536,
@@ -715,13 +715,13 @@ create_new_server(const char *name,
 	server->imap->protocol = MAIL_PROTOCOL_IMAP;
 	server->imap->login_executable = PKG_LIBEXECDIR"/imap-login";
 	server->imap->mail_executable = PKG_LIBEXECDIR"/imap";
-	server->imap->mail_modules = PKG_LIBDIR"/imap";
+	server->imap->mail_modules = MODULEDIR"/imap";
 
 	server->pop3->server = server;
 	server->pop3->protocol = MAIL_PROTOCOL_POP3;
 	server->pop3->login_executable = PKG_LIBEXECDIR"/pop3-login";
 	server->pop3->mail_executable = PKG_LIBEXECDIR"/pop3";
-	server->pop3->mail_modules = PKG_LIBDIR"/pop3";
+	server->pop3->mail_modules = MODULEDIR"/pop3";
 
 	return server;
 }
