@@ -929,6 +929,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 		 (seq <= mail_index_view_get_messages_count(t->view) ||
 		  seq <= t->last_new_seq));
 	i_assert(keywords->count > 0 || modify_type == MODIFY_REPLACE);
+	i_assert(keywords->kt->transaction->view->index == t->view->index);
 
 	for (kt = keywords->kt; kt != NULL; kt = kt->next) {
 		if (kt->transaction == t &&
