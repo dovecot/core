@@ -314,6 +314,25 @@ void mbox_skip_empty_lines(IOBuffer *inbuf)
 	}
 }
 
+static int mbox_is_valid_from(IOBuffer *inbuf, size_t startpos)
+{
+	unsigned char *msg;
+	size_t i, size;
+
+	i = startpos;
+	while (io_buffer_read_data_blocking(inbuf, &msg, &size, i) > 0) {
+		for (; i < size; i++) {
+			if (msg[i] == '\n') {
+				msg += startpos;
+				i -= startpos;
+				return mbox_from_parse_date(msg, size) != 0;
+			}
+		}
+	}
+
+	return FALSE;
+}
+
 void mbox_skip_message(IOBuffer *inbuf)
 {
 	unsigned char *msg;
@@ -329,11 +348,17 @@ void mbox_skip_message(IOBuffer *inbuf)
 				if (msg[i-5] == '\n' && msg[i-4] == 'F' &&
 				    msg[i-3] == 'r' && msg[i-2] == 'o' &&
 				    msg[i-1] == 'm') {
-					/* yes, see if we had \r too */
-					i -= 5;
-					if (i > 0 && msg[i-1] == '\r')
-						i--;
-					break;
+					/* check still that the From-line looks
+					   actually valid, in outbox there
+					   might be some lines beginning with
+					   From. */
+					if (mbox_is_valid_from(inbuf, i-4)) {
+						/* see if we had \r too */
+						i -= 5;
+						if (i > 0 && msg[i-1] == '\r')
+							i--;
+						break;
+					}
 				}
 			}
 		}
