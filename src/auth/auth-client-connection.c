@@ -226,9 +226,14 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 		return FALSE;
 	}
 
-	request = auth_request_new(conn->auth, mech);
+	request = mech->auth_new(auth_callback);
 	if (request == NULL)
 		return TRUE;
+
+	request->auth = conn->auth;
+	request->mech = mech;
+	request->created = ioloop_time;
+
 	hash_insert(conn->auth_requests, POINTER_CAST(id), request);
 
 	request->conn = conn;
@@ -297,8 +302,7 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 
 	/* connection is referenced only until auth_callback is called. */
 	conn->refcount++;
-	auth_request_initial(request, initial_resp_data, initial_resp_len,
-			     auth_callback);
+	auth_request_initial(request, initial_resp_data, initial_resp_len);
 	return TRUE;
 }
 
@@ -348,7 +352,7 @@ auth_client_input_cont(struct auth_client_connection *conn, const char *args)
 	}
 
 	conn->refcount++;
-	auth_request_continue(request, buf->data, buf->used, auth_callback);
+	auth_request_continue(request, buf->data, buf->used);
 	return TRUE;
 }
 

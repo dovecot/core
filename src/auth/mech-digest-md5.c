@@ -543,8 +543,7 @@ static void credentials_callback(enum passdb_result result,
 
 static void
 mech_digest_md5_auth_continue(struct auth_request *auth_request,
-			      const unsigned char *data, size_t data_size,
-			      mech_callback_t *callback)
+			      const unsigned char *data, size_t data_size)
 {
 	struct digest_auth_request *request =
 		(struct digest_auth_request *)auth_request;
@@ -558,8 +557,6 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	}
 
 	if (parse_digest_response(request, data, data_size, &error)) {
-		auth_request->callback = callback;
-
 		username = request->realm == NULL ? request->username :
 			t_strconcat(request->username, "@",
 				    request->realm, NULL);
@@ -580,8 +577,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 
 static void
 mech_digest_md5_auth_initial(struct auth_request *auth_request,
-			     const unsigned char *data, size_t data_size,
-			     mech_callback_t *callback)
+			     const unsigned char *data, size_t data_size)
 {
 	struct digest_auth_request *request =
 		(struct digest_auth_request *)auth_request;
@@ -589,14 +585,13 @@ mech_digest_md5_auth_initial(struct auth_request *auth_request,
 
 	if (data_size > 0) {
 		/* FIXME: support subsequent authentication? */
-		mech_digest_md5_auth_continue(auth_request, data, data_size,
-					      callback);
+		mech_digest_md5_auth_continue(auth_request, data, data_size);
 		return;
 	}
 
 	challenge = get_digest_challenge(request);
-	callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
-		 str_data(challenge), str_len(challenge));
+	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
+			       str_data(challenge), str_len(challenge));
 }
 
 static void mech_digest_md5_auth_free(struct auth_request *request)
@@ -605,7 +600,7 @@ static void mech_digest_md5_auth_free(struct auth_request *request)
 }
 
 static struct auth_request *
-mech_digest_md5_auth_new(void)
+mech_digest_md5_auth_new(mech_callback_t *callback)
 {
 	struct digest_auth_request *request;
 	pool_t pool;
@@ -613,10 +608,11 @@ mech_digest_md5_auth_new(void)
 	pool = pool_alloconly_create("digest_md5_auth_request", 2048);
 	request = p_new(pool, struct digest_auth_request, 1);
 	request->pool = pool;
+	request->qop = QOP_AUTH;
 
 	request->auth_request.refcount = 1;
 	request->auth_request.pool = pool;
-	request->qop = QOP_AUTH;
+	request->auth_request.callback = callback;
 	return &request->auth_request;
 }
 

@@ -504,13 +504,10 @@ mech_rpa_auth_phase3(struct auth_request *auth_request,
 
 static void
 mech_rpa_auth_continue(struct auth_request *auth_request,
-		       const unsigned char *data, size_t data_size,
-		       mech_callback_t *callback)
+		       const unsigned char *data, size_t data_size)
 {
 	struct rpa_auth_request *request =
 		(struct rpa_auth_request *)auth_request;
-
-	auth_request->callback = callback;
 
 	switch (request->phase) {
 	case 0:
@@ -530,13 +527,14 @@ mech_rpa_auth_continue(struct auth_request *auth_request,
 
 static void
 mech_rpa_auth_initial(struct auth_request *request,
-		      const unsigned char *data, size_t data_size,
-		      mech_callback_t *callback)
+		      const unsigned char *data, size_t data_size)
 {
-	if (data_size == 0)
-		callback(request, AUTH_CLIENT_RESULT_CONTINUE, NULL, 0);
-	else
-		mech_rpa_auth_continue(request, data, data_size, callback);
+	if (data_size == 0) {
+		request->callback(request, AUTH_CLIENT_RESULT_CONTINUE,
+				  NULL, 0);
+	} else {
+		mech_rpa_auth_continue(request, data, data_size);
+	}
 }
 
 static void
@@ -551,7 +549,7 @@ mech_rpa_auth_free(struct auth_request *auth_request)
 	pool_unref(auth_request->pool);
 }
 
-static struct auth_request *mech_rpa_auth_new(void)
+static struct auth_request *mech_rpa_auth_new(mech_callback_t *callback)
 {
 	struct rpa_auth_request *request;
 	pool_t pool;
@@ -563,6 +561,7 @@ static struct auth_request *mech_rpa_auth_new(void)
 
 	request->auth_request.refcount = 1;
 	request->auth_request.pool = pool;
+	request->auth_request.callback = callback;
 	return &request->auth_request;
 }
 

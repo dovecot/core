@@ -48,11 +48,9 @@ void auth_request_ref(struct auth_request *request);
 int auth_request_unref(struct auth_request *request);
 
 void auth_request_initial(struct auth_request *request,
-			  const unsigned char *data, size_t data_size,
-			  mech_callback_t *callback);
+			  const unsigned char *data, size_t data_size);
 void auth_request_continue(struct auth_request *request,
-			   const unsigned char *data, size_t data_size,
-			   mech_callback_t *callback);
+			   const unsigned char *data, size_t data_size);
 
 void auth_request_verify_plain(struct auth_request *request,
 			       const char *password,

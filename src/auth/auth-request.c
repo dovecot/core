@@ -23,21 +23,6 @@ struct auth_request_extra {
 static buffer_t *auth_failures_buf;
 static struct timeout *to_auth_failures;
 
-struct auth_request *auth_request_new(struct auth *auth,
-				      struct mech_module *mech)
-{
-	struct auth_request *request;
-
-	request = mech->auth_new();
-	if (request == NULL)
-		return NULL;
-
-	request->auth = auth;
-	request->mech = mech;
-	request->created = ioloop_time;
-	return request;
-}
-
 void auth_request_destroy(struct auth_request *request)
 {
 	i_assert(request->refcount > 0);
@@ -118,17 +103,15 @@ int auth_request_unref(struct auth_request *request)
 }
 
 void auth_request_initial(struct auth_request *request,
-			  const unsigned char *data, size_t data_size,
-			  mech_callback_t *callback)
+			  const unsigned char *data, size_t data_size)
 {
-	request->mech->auth_initial(request, data, data_size, callback);
+	request->mech->auth_initial(request, data, data_size);
 }
 
 void auth_request_continue(struct auth_request *request,
-			   const unsigned char *data, size_t data_size,
-			   mech_callback_t *callback)
+			   const unsigned char *data, size_t data_size)
 {
-	request->mech->auth_continue(request, data, data_size, callback);
+	request->mech->auth_continue(request, data, data_size);
 }
 
 void auth_request_verify_plain(struct auth_request *request,

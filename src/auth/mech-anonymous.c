@@ -5,8 +5,7 @@
 
 static void
 mech_anonymous_auth_continue(struct auth_request *request,
-			     const unsigned char *data, size_t data_size,
-			     mech_callback_t *callback)
+			     const unsigned char *data, size_t data_size)
 {
 	i_assert(request->auth->anonymous_username != NULL);
 
@@ -18,7 +17,6 @@ mech_anonymous_auth_continue(struct auth_request *request,
 		auth_request_log_info(request, "anonymous", "login");
 	}
 
-	request->callback = callback;
 	request->user = p_strdup(request->pool,
 				 request->auth->anonymous_username);
 
@@ -27,14 +25,13 @@ mech_anonymous_auth_continue(struct auth_request *request,
 
 static void
 mech_anonymous_auth_initial(struct auth_request *request,
-			    const unsigned char *data, size_t data_size,
-			    mech_callback_t *callback)
+			    const unsigned char *data, size_t data_size)
 {
-	if (data_size == 0)
-		callback(request, AUTH_CLIENT_RESULT_CONTINUE, NULL, 0);
-	else {
-		mech_anonymous_auth_continue(request, data, data_size,
-					     callback);
+	if (data_size == 0) {
+		request->callback(request, AUTH_CLIENT_RESULT_CONTINUE,
+				  NULL, 0);
+	} else {
+		mech_anonymous_auth_continue(request, data, data_size);
 	}
 }
 
@@ -44,7 +41,7 @@ mech_anonymous_auth_free(struct auth_request *request)
 	pool_unref(request->pool);
 }
 
-static struct auth_request *mech_anonymous_auth_new(void)
+static struct auth_request *mech_anonymous_auth_new(mech_callback_t *callback)
 {
         struct auth_request *request;
 	pool_t pool;
@@ -53,7 +50,7 @@ static struct auth_request *mech_anonymous_auth_new(void)
 	request = p_new(pool, struct auth_request, 1);
 	request->refcount = 1;
 	request->pool = pool;
-
+	request->callback = callback;
 	return request;
 }
 

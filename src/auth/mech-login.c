@@ -32,13 +32,10 @@ static void verify_callback(enum passdb_result result,
 
 static void
 mech_login_auth_continue(struct auth_request *request,
-			 const unsigned char *data, size_t data_size,
-			 mech_callback_t *callback)
+			 const unsigned char *data, size_t data_size)
 {
 	static const char prompt2[] = "Password:";
 	const char *username, *error;
-
-	request->callback = callback;
 
 	if (request->user == NULL) {
 		username = t_strndup(data, data_size);
@@ -49,8 +46,8 @@ mech_login_auth_continue(struct auth_request *request,
 			return;
 		}
 
-		callback(request, AUTH_CLIENT_RESULT_CONTINUE,
-			 prompt2, strlen(prompt2));
+		request->callback(request, AUTH_CLIENT_RESULT_CONTINUE,
+				  prompt2, strlen(prompt2));
 	} else {
 		char *pass = p_strndup(unsafe_data_stack_pool, data, data_size);
 		auth_request_verify_plain(request, pass, verify_callback);
@@ -61,13 +58,12 @@ mech_login_auth_continue(struct auth_request *request,
 static void
 mech_login_auth_initial(struct auth_request *request,
 			const unsigned char *data __attr_unused__,
-			size_t data_size __attr_unused__,
-			mech_callback_t *callback)
+			size_t data_size __attr_unused__)
 {
 	static const char prompt1[] = "Username:";
 
-	callback(request, AUTH_CLIENT_RESULT_CONTINUE,
-		 prompt1, strlen(prompt1));
+	request->callback(request, AUTH_CLIENT_RESULT_CONTINUE,
+			  prompt1, strlen(prompt1));
 }
 
 static void mech_login_auth_free(struct auth_request *request)
@@ -75,16 +71,16 @@ static void mech_login_auth_free(struct auth_request *request)
 	pool_unref(request->pool);
 }
 
-static struct auth_request *mech_login_auth_new(void)
+static struct auth_request *mech_login_auth_new(mech_callback_t *callback)
 {
 	struct auth_request *request;
 	pool_t pool;
 
 	pool = pool_alloconly_create("login_auth_request", 256);
 	request = p_new(pool, struct auth_request, 1);
-
 	request->refcount = 1;
 	request->pool = pool;
+	request->callback = callback;
 	return request;
 }
 

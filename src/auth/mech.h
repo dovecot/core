@@ -24,13 +24,11 @@ struct mech_module {
 	unsigned int passdb_need_plain:1;
 	unsigned int passdb_need_credentials:1;
 
-	struct auth_request *(*auth_new)(void);
+	struct auth_request *(*auth_new)(mech_callback_t *callback);
 	void (*auth_initial)(struct auth_request *request,
-			     const unsigned char *data, size_t data_size,
-			     mech_callback_t *callback);
+			     const unsigned char *data, size_t data_size);
 	void (*auth_continue)(struct auth_request *request,
-			      const unsigned char *data, size_t data_size,
-			      mech_callback_t *callback);
+			      const unsigned char *data, size_t data_size);
 	void (*auth_free)(struct auth_request *request);
 };
 

@@ -132,16 +132,13 @@ static void credentials_callback(enum passdb_result result,
 
 static void
 mech_cram_md5_auth_continue(struct auth_request *auth_request,
-			    const unsigned char *data, size_t data_size,
-			    mech_callback_t *callback)
+			    const unsigned char *data, size_t data_size)
 {
 	struct cram_auth_request *request =
 		(struct cram_auth_request *)auth_request;
 	const char *error;
 
 	if (parse_cram_response(request, data, data_size, &error)) {
-		auth_request->callback = callback;
-
 		if (auth_request_set_username(auth_request, request->username,
 					      &error)) {
 			auth_request_lookup_credentials(auth_request,
@@ -161,15 +158,14 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 static void
 mech_cram_md5_auth_initial(struct auth_request *auth_request,
 			   const unsigned char *data __attr_unused__,
-			   size_t data_size __attr_unused__,
-			   mech_callback_t *callback)
+			   size_t data_size __attr_unused__)
 {
 	struct cram_auth_request *request =
 		(struct cram_auth_request *)auth_request;
 
 	request->challenge = p_strdup(request->pool, get_cram_challenge());
-	callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
-		 request->challenge, strlen(request->challenge));
+	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
+			       request->challenge, strlen(request->challenge));
 }
 
 static void mech_cram_md5_auth_free(struct auth_request *request)
@@ -177,7 +173,7 @@ static void mech_cram_md5_auth_free(struct auth_request *request)
 	pool_unref(request->pool);
 }
 
-static struct auth_request *mech_cram_md5_auth_new(void)
+static struct auth_request *mech_cram_md5_auth_new(mech_callback_t *callback)
 {
 	struct cram_auth_request *request;
 	pool_t pool;
@@ -188,6 +184,7 @@ static struct auth_request *mech_cram_md5_auth_new(void)
 
 	request->auth_request.refcount = 1;
 	request->auth_request.pool = pool;
+	request->auth_request.callback = callback;
 	return &request->auth_request;
 }
 
