@@ -58,16 +58,6 @@ void passdb_handle_credentials(enum passdb_result result,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request);
 
-extern struct passdb_module passdb_passwd;
-extern struct passdb_module passdb_bsdauth;
-extern struct passdb_module passdb_shadow;
-extern struct passdb_module passdb_passwd_file;
-extern struct passdb_module passdb_pam;
-extern struct passdb_module passdb_checkpassword;
-extern struct passdb_module passdb_vpopmail;
-extern struct passdb_module passdb_ldap;
-extern struct passdb_module passdb_sql;
-
 void passdb_preinit(struct auth *auth, const char *data);
 void passdb_init(struct auth *auth);
 void passdb_deinit(struct auth *auth);

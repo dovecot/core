@@ -8,6 +8,14 @@
 #include <pwd.h>
 #include <grp.h>
 
+extern struct userdb_module userdb_passdb;
+extern struct userdb_module userdb_static;
+extern struct userdb_module userdb_passwd;
+extern struct userdb_module userdb_passwd_file;
+extern struct userdb_module userdb_vpopmail;
+extern struct userdb_module userdb_ldap;
+extern struct userdb_module userdb_sql;
+
 struct userdb_module *userdbs[] = {
 #ifdef USERDB_PASSWD
 	&userdb_passwd,
