@@ -1,41 +1,23 @@
+/* Copyright (c) 2002-2003 Timo Sirainen */
+
 /*
- fdpass.c - File descriptor passing between processes via UNIX sockets
+   fdpass.c - File descriptor passing between processes via UNIX sockets
 
- This isn't fully portable, but pretty much all UNIXes nowadays should
- support this. If you're having runtime problems, check the end of fd_read()
- and play with the if condition.
+   This isn't fully portable, but pretty much all UNIXes nowadays should
+   support this. If you're having runtime problems, check the end of fd_read()
+   and play with the if condition.
 
- If this file doesn't compile at all, you should check if this is supported
- in your system at all. It may require some extra #define to enable it.
- If not, you're pretty much out of luck. Cygwin didn't last I checked.
-
-    Copyright (c) 2002-2003 Timo Sirainen
-
-    Permission is hereby granted, free of charge, to any person obtaining
-    a copy of this software and associated documentation files (the
-    "Software"), to deal in the Software without restriction, including
-    without limitation the rights to use, copy, modify, merge, publish,
-    distribute, sublicense, and/or sell copies of the Software, and to
-    permit persons to whom the Software is furnished to do so, subject to
-    the following conditions:
-
-    The above copyright notice and this permission notice shall be
-    included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   If this file doesn't compile at all, you should check if this is supported
+   in your system at all. It may require some extra #define to enable it.
+   If not, you're pretty much out of luck. Cygwin didn't last I checked.
 */
 
 #define _XPG4_2
 
 #if defined(irix) || defined (__irix__) || defined(sgi) || defined (__sgi__)
-#  define _XOPEN_SOURCE /* for IRIX */
+#  define _XOPEN_SOURCE 4 /* for IRIX */
 #endif
+
 
 #if !defined(_AIX) && !defined(_XOPEN_SOURCE_EXTENDED)
 #  define _XOPEN_SOURCE_EXTENDED /* for Tru64, breaks AIX */
