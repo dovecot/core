@@ -216,7 +216,7 @@ static void _cork(struct _ostream *stream, int set)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
-	if (fstream->corked != set) {
+	if (fstream->corked != set && !stream->ostream.closed) {
 		if (!fstream->no_socket_cork) {
 			if (net_set_cork(fstream->fd, set) < 0)
 				fstream->no_socket_cork = TRUE;
