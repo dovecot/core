@@ -332,6 +332,7 @@ static int mbox_create_mailbox(MailStorage *storage, const char *name)
 static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 {
 	const char *index_dir, *path;
+	struct stat st;
 
 	mail_storage_clear_error(storage);
 
@@ -345,17 +346,45 @@ static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 		return FALSE;
 	}
 
-	/* first unlink the mbox file */
 	path = mbox_get_path(storage, name);
-	if (unlink(path) == -1) {
+	if (lstat(path, &st) < 0) {
+		if (errno == ENOENT) {
+			mail_storage_set_error(storage,
+					       "Mailbox doesn't exist: %s",
+					       name);
+		} else {
+			mail_storage_set_critical(storage, "lstat() failed for "
+						  "%s: %m", path);
+		}
+		return FALSE;
+	}
+
+	if (S_ISDIR(st.st_mode)) {
+		/* deleting a folder, only allow it if it's empty */
+		if (rmdir(path) == 0)
+			return TRUE;
+
+		if (errno == ENOTEMPTY) {
+			mail_storage_set_error(storage, "Folder %s "
+					       "isn't empty, can't delete it.",
+					       name);
+		} else {
+			mail_storage_set_critical(storage, "rmdir() failed for "
+						  "%s: %m", path);
+		}
+		return FALSE;
+	}
+
+	/* first unlink the mbox file */
+	if (unlink(path) < 0) {
 		if (errno == ENOENT) {
 			mail_storage_set_error(storage,
 					       "Mailbox doesn't exist: %s",
 					       name);
 		} else {
 			mail_storage_set_critical(storage,
-						  "Can't delete mbox file "
-						  "%s: %m", path);
+						  "unlink() failed for %s: %m",
+						  path);
 		}
 		return FALSE;
 	}
