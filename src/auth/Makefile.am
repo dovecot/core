@@ -40,7 +40,6 @@ dovecot_auth_SOURCES = \
 	main.c \
 	mech.c \
 	mech-anonymous.c \
-	mech-cyrus-sasl2.c \
 	mech-plain.c \
 	mech-login.c \
 	mech-cram-md5.c \

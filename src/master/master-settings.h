@@ -136,7 +136,7 @@ struct auth_settings {
 	const char *username_translation;
 	const char *anonymous_username;
 
-	int use_cyrus_sasl, verbose, debug;
+	int verbose, debug;
 	int ssl_require_client_cert;
 
 	unsigned int count;

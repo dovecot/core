@@ -20,7 +20,6 @@ const char *anonymous_username;
 char username_chars[256], username_translation[256];
 int ssl_require_client_cert;
 
-static int set_use_cyrus_sasl;
 static struct auth_client_request_reply failure_reply;
 
 static buffer_t *auth_failures_buf;
@@ -114,13 +113,7 @@ void mech_request_new(struct auth_client_connection *conn,
 		return;
 	}
 
-#ifdef USE_CYRUS_SASL2
-	if (set_use_cyrus_sasl)
-		auth_request = mech_cyrus_sasl_new(conn, request, callback);
-	else
-#endif
-		auth_request = mech->auth_new();
-
+	auth_request = mech->auth_new();
 	if (auth_request == NULL)
 		return;
 
@@ -473,11 +466,6 @@ void mech_init(void)
 		}
 	}
 
-	set_use_cyrus_sasl = getenv("USE_CYRUS_SASL") != NULL;
-#ifdef USE_CYRUS_SASL2
-	if (set_use_cyrus_sasl)
-		mech_cyrus_sasl_init_lib();
-#endif
 	ssl_require_client_cert = getenv("SSL_REQUIRE_CLIENT_CERT") != NULL;
 
 	auth_failures_buf = buffer_create_dynamic(default_pool, 1024);

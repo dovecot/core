@@ -83,13 +83,6 @@ void mech_auth_finish(struct auth_request *auth_request,
 
 int mech_fix_username(char *username, const char **error_r);
 
-void mech_cyrus_sasl_init_lib(void);
-struct auth_request *
-mech_cyrus_sasl_new(struct auth_client_connection *conn,
-		    struct auth_client_request_new *request,
-		    const unsigned char *data,
-		    mech_callback_t *callback);
-
 void auth_request_ref(struct auth_request *request);
 int auth_request_unref(struct auth_request *request);
 

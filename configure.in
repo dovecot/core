@@ -156,15 +156,6 @@ AC_ARG_WITH(mysql,
 	fi,
 	want_mysql=no)
 
-AC_ARG_WITH(cyrus-sasl2,
-[  --with-cyrus-sasl2      Build with Cyrus SASL 2 library support],
-	if test x$withval = xno; then
-		want_cyrus_sasl2=no
-	else
-		want_cyrus_sasl2=yes
-	fi,
-	want_cyrus_sasl2=no)
-
 AC_ARG_WITH(ssl,
 [  --with-ssl=[gnutls|openssl] Build with GNUTLS (default) or OpenSSL],
 	if test x$withval = xno; then
@@ -1232,16 +1223,6 @@ if test $want_vpopmail = yes; then
 		want_vpopmail=no
 		AC_MSG_RESULT(not found)
 	fi
-fi
-
-if test $want_cyrus_sasl2 = yes; then
-	AC_CHECK_LIB(sasl2, sasl_server_start, [
-		AC_CHECK_HEADER(sasl/sasl.h, [
-			AC_DEFINE(USE_CYRUS_SASL2,,
-				  Define if you want to use Cyrus SASL library)
-			AUTH_LIBS="$AUTH_LIBS -lsasl2"
-		])
-	])
 fi
 
 if test $need_crypt = yes; then

@@ -397,8 +397,6 @@ static int create_auth_process(struct auth_process_group *group)
 					&as->master);
 	}
 
-	if (group->set->use_cyrus_sasl)
-		env_put("USE_CYRUS_SASL=1");
 	if (group->set->verbose)
 		env_put("VERBOSE=1");
 	if (group->set->debug)

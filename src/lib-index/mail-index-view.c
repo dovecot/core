@@ -167,13 +167,13 @@ static void mail_index_view_ref_map(struct mail_index_view *view,
 
 void mail_index_view_unref_maps(struct mail_index_view *view)
 {
-	struct mail_index_map **maps;
+	struct mail_index_map *const *maps;
 	size_t i, size;
 
 	if (view->map_refs == NULL)
 		return;
 
-	maps = buffer_get_modifyable_data(view->map_refs, &size);
+	maps = buffer_get_data(view->map_refs, &size);
 	size /= sizeof(*maps);
 
 	for (i = 0; i < size; i++)
