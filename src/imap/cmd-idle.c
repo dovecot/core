@@ -134,6 +134,11 @@ static int cmd_idle_continue(struct client *client)
 {
 	struct cmd_idle_context *ctx = client->cmd_context;
 
+	if (client->output->closed) {
+		idle_finish(ctx, FALSE);
+		return TRUE;
+	}
+
 	if (ctx->sync_ctx != NULL) {
 		if (imap_sync_more(ctx->sync_ctx) == 0) {
 			/* unfinished */
@@ -156,6 +161,7 @@ static int cmd_idle_continue(struct client *client)
 		   client */
                 idle_callback(client->mailbox, client);
 	}
+
 	return FALSE;
 }
 

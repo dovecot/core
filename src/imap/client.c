@@ -58,6 +58,13 @@ struct client *client_create(int hin, int hout, struct namespace *namespaces)
 
 void client_destroy(struct client *client)
 {
+	if (client->cmd_func != NULL) {
+		/* try to deinitialize the command */
+		i_stream_close(client->input);
+		o_stream_close(client->output);
+		(void)client->cmd_func(client);
+	}
+
 	if (client->mailbox != NULL)
 		mailbox_close(client->mailbox);
 	namespace_deinit(client->namespaces);
