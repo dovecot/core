@@ -30,16 +30,22 @@ struct auth_cache {
 char *auth_cache_parse_key(const char *query)
 {
 	string_t *str;
+	char key_seen[256];
+
+	memset(key_seen, 0, sizeof(key_seen));
 
 	str = str_new(default_pool, 32);
 	for (; *query != '\0'; query++) {
 		if (*query == '%' && query[1] != '\0') {
 			query++;
-			if (*query != '%') {
+			if (*query != '%' && !key_seen[(uint8_t)*query]) {
 				if (str_len(str) != 0)
 					str_append_c(str, '\t');
 				str_append_c(str, '%');
 				str_append_c(str, *query);
+
+				/* @UNSAFE */
+                                key_seen[(uint8_t)*query] = 1;
 			}
 		}
 	}
