@@ -32,38 +32,23 @@
 int file_set_size(int fd, off_t size)
 {
 	char block[1024];
-	int ret, old_errno;
 	off_t pos;
 
 	i_assert(size >= 0);
 
-	/* FIXME: this may not be good idea, since mmap()ing and writing
-	   to it creates fragmentation. */
-
-	/* try truncating it to the size we want. if this succeeds, the written
-	   area is full of zeros - exactly what we want. however, this may not
-	   work at all, in which case we fallback to write()ing the zeros. */
-	ret = -1;/*ftruncate(fd, size)*/;
-	old_errno = errno;
-
 	pos = lseek(fd, 0, SEEK_END);
-	if (ret != -1 && pos == size)
-		return 0;
-
 	if (pos < 0)
 		return -1;
-	if (pos > size) {
-		/* ftruncate() failed for some reason, even while we were
-		   trying to make the file smaller */
-		errno = old_errno;
-		return -1;
-	}
 
-	size -= pos;
+	if (size < pos)
+		return ftruncate(fd, size);
+	if (size == pos)
+		return 0;
 
 	/* start growing the file */
 	memset(block, 0, sizeof(block));
 
+	size -= pos;
 	while ((uoff_t)size > sizeof(block)) {
 		/* write in 1kb blocks */
 		if (write_full(fd, block, sizeof(block)) < 0)
