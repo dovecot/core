@@ -76,8 +76,11 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	if (update_index && index->excl_lock_count == 0) {
 		if ((ret2 = mail_index_refresh(index)) < 0)
 			return -1;
-		if (ret > 0 && ret2 == 0)
+		if (ret > 0 && ret2 == 0) {
+			if (mail_index_lock_mprotect(index, lock_type) < 0)
+				return -1;
 			return 1;
+		}
 		ret = 0;
 	}
 
