@@ -13,7 +13,9 @@ int mbox_expunge_locked(IndexMailbox *ibox,
 	   blocks. probably better to do it in small blocks than to
 	   memmove() megabytes of data.. */
 
-	rec = index_expunge_seek_first(ibox, &seq);
+	if (!index_expunge_seek_first(ibox, &seq, &rec))
+		return FALSE;
+
 	while (rec != NULL) {
 		if (rec->msg_flags & MAIL_DELETED) {
 			/* save UID before deletion */

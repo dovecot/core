@@ -36,7 +36,9 @@ int maildir_expunge_locked(IndexMailbox *ibox,
 	MailIndexRecord *rec;
 	unsigned int seq, uid;
 
-	rec = index_expunge_seek_first(ibox, &seq);
+	if (!index_expunge_seek_first(ibox, &seq, &rec))
+		return FALSE;
+
 	while (rec != NULL) {
 		if (rec->msg_flags & MAIL_DELETED) {
 			/* save UID before deletion */

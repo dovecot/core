@@ -3,36 +3,42 @@
 #include "lib.h"
 #include "index-storage.h"
 
-MailIndexRecord *index_expunge_seek_first(IndexMailbox *ibox,
-					  unsigned int *seq)
+int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
+			     MailIndexRecord **rec)
 {
 	MailIndexHeader *hdr;
-	MailIndexRecord *rec;
+
+	i_assert(ibox->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
 	hdr = ibox->index->get_header(ibox->index);
 	if (hdr->deleted_messages_count == 0)
-		return NULL;
+		return FALSE;
 
 	/* find mails with DELETED flag and expunge them */
 	if (hdr->first_deleted_uid_lowwater > 1) {
-		rec = hdr->first_deleted_uid_lowwater >= hdr->next_uid ? NULL :
+		*rec = hdr->first_deleted_uid_lowwater >= hdr->next_uid ? NULL :
 			ibox->index->lookup_uid_range(ibox->index,
 						hdr->first_deleted_uid_lowwater,
 						hdr->next_uid-1);
-		if (rec == NULL) {
-			i_warning("index header's deleted_messages_count or "
-				  "first_deleted_uid_lowwater is invalid.");
-                        INDEX_MARK_CORRUPTED(ibox->index);
-			return NULL;
+		if (*rec == NULL) {
+			mail_storage_set_critical(ibox->box.storage,
+				"index header's deleted_messages_count (%u) "
+				"or first_deleted_uid_lowwater (%u) "
+				"is invalid.", hdr->deleted_messages_count,
+				hdr->first_deleted_uid_lowwater);
+
+			/* fsck should be enough to fix it */
+			ibox->index->header->flags |= MAIL_INDEX_FLAG_FSCK;
+			return FALSE;
 		} else {
-			*seq = ibox->index->get_sequence(ibox->index, rec);
+			*seq = ibox->index->get_sequence(ibox->index, *rec);
 		}
 	} else {
-		rec = ibox->index->lookup(ibox->index, 1);
+		*rec = ibox->index->lookup(ibox->index, 1);
 		*seq = 1;
 	}
 
-	return rec;
+	return TRUE;
 }
 
 int index_storage_expunge(Mailbox *box)

@@ -39,8 +39,8 @@ int index_messageset_foreach(IndexMailbox *ibox,
 int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
 				   const char *custom_flags[]);
 
-MailIndexRecord *index_expunge_seek_first(IndexMailbox *ibox,
-					  unsigned int *seq);
+int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
+			     MailIndexRecord **rec);
 
 int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 			       IOBuffer *buf, size_t data_size);
