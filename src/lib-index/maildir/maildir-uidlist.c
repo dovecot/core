@@ -49,8 +49,9 @@ int maildir_uidlist_try_lock(struct mail_index *index)
 
 		if (st.st_mtime < ioloop_time - UIDLIST_LOCK_STALE_TIMEOUT) {
 			if (unlink(path) < 0 && errno != ENOENT) {
-				return index_file_set_syscall_error(index, path,
-								    "unlink()");
+				index_file_set_syscall_error(index, path,
+							     "unlink()");
+				return -1;
 			}
 			/* try again */
 			continue;
