@@ -132,21 +132,19 @@
    for example include microseconds in it which Dovecot does.
 
    There's a simple way to prevent this from happening in some cases:
-   Don't move the mail from new/ to cur/ if it's mtime is >= time() -
+   Don't move the mail from new/ to cur/ if it's mtime (it's included
+   in beginning of file name, so stat() isn't needed) is >= time() -
    MAILDIR_SYNC_SECS. The second delivery's link() call then fails
    because the file is already in new/, and it will then use a
    different filename. There's a few problems with this however:
 
-      - it requires extra stat() call which is unneeded extra I/O
       - another MUA might still move the mail to cur/
       - if first file's flags are modified by either Dovecot or another
         MUA, it's moved to cur/ (you _could_ just do the dirty-flagging
 	but that'd be ugly)
 
-   Because this is useful only for very few people and it requires
-   extra I/O, I decided not to implement this. It should be however
-   quite easy to do since we need to be able to deal with files in new/
-   in any case.
+   Because this is useful only for very few people and it requires some
+   extra code, I decided not to implement it at least for now.
 
    It's also possible to never accidentally overwrite a mail by using
    link() + unlink() rather than rename(). This however isn't very
@@ -164,8 +162,10 @@
 
    And it gets worse when they're unlink()ing in cur/ directory:
 
-      c) Client 1 changes mails's flag and client 2 changes it back
-         between 1's link() and unlink(). The mail is now expunged.
+      c) Most other maildir clients use rename(). So if client 1 changes
+         mail's flag with link()+unlink() and client 2 using rename()
+	 changes it back between 1's link() and unlink(), the mail gets
+	 expunged.
 
       d) If you try to deal with the duplicates by unlink()ing another
          one of them, you might end up unlinking both of them.
