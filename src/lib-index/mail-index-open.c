@@ -150,7 +150,6 @@ static int mail_index_open_init(MailIndex *index, int update_recent)
 			return FALSE;
 	}
 
-	index->mail_read_mmaped = getenv("MAIL_READ_MMAPED") != NULL;
 	return TRUE;
 }
 
@@ -499,6 +498,20 @@ static void mail_index_cleanup_temp_files(const char *dir)
 {
 	unlink_lockfiles(dir, t_strconcat("temp.", my_hostname, NULL),
 			 "temp.", time(NULL) - TEMP_FILE_TIMEOUT);
+}
+
+void mail_index_init(MailIndex *index, const char *dir)
+{
+	size_t len;
+
+	index->fd = -1;
+	index->dir = i_strdup(dir);
+
+	len = strlen(index->dir);
+	if (index->dir[len-1] == '/')
+		index->dir[len-1] = '\0';
+
+	index->mail_read_mmaped = getenv("MAIL_READ_MMAPED") != NULL;
 }
 
 int mail_index_open(MailIndex *index, int update_recent, int fast)

@@ -136,21 +136,14 @@ const char *maildir_filename_set_flags(const char *fname, MailFlags flags)
 MailIndex *maildir_index_alloc(const char *dir)
 {
 	MailIndex *index;
-	int len;
 
 	i_assert(dir != NULL);
 
 	index = i_new(MailIndex, 1);
 	memcpy(index, &maildir_index, sizeof(MailIndex));
 
-	index->fd = -1;
-	index->dir = i_strdup(dir);
-
-	len = strlen(index->dir);
-	if (index->dir[len-1] == '/')
-		index->dir[len-1] = '\0';
-
-	return (MailIndex *) index;
+	mail_index_init(index, dir);
+	return index;
 }
 
 static void maildir_index_free(MailIndex *index)

@@ -713,24 +713,18 @@ int mbox_mail_get_location(MailIndex *index, MailIndexRecord *rec,
 MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path)
 {
 	MailIndex *index;
-	int len;
 
 	i_assert(dir != NULL);
 
 	index = i_new(MailIndex, 1);
 	memcpy(index, &mbox_index, sizeof(MailIndex));
 
-	index->fd = -1;
 	index->mbox_fd = -1;
 	index->mbox_sync_counter = (unsigned int)-1;
-	index->dir = i_strdup(dir);
-
-	len = strlen(index->dir);
-	if (index->dir[len-1] == '/')
-		index->dir[len-1] = '\0';
 
 	index->mbox_path = i_strdup(mbox_path);
-	return (MailIndex *) index;
+	mail_index_init(index, dir);
+	return index;
 }
 
 static void mbox_index_free(MailIndex *index)

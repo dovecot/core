@@ -417,6 +417,7 @@ int mail_index_is_diskspace_error(MailIndex *index);
 int mail_index_is_inconsistency_error(MailIndex *index);
 
 /* INTERNAL: */
+void mail_index_init(MailIndex *index, const char *dir);
 int mail_index_mmap_update(MailIndex *index);
 void mail_index_init_header(MailIndex *index, MailIndexHeader *hdr);
 void mail_index_close(MailIndex *index);
