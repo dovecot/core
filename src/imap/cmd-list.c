@@ -157,7 +157,13 @@ int _cmd_list_full(Client *client, int subscribed)
 				/* LIST A. .B -> A.B */
 				pattern++;
 			}
-			pattern = t_strconcat(ref, pattern, NULL);
+			if (*pattern != sep_chr &&
+			    ref[strlen(ref)-1] != sep_chr) {
+				/* LIST A B -> A.B */
+				pattern = t_strconcat(ref, sep, pattern, NULL);
+			} else {
+				pattern = t_strconcat(ref, pattern, NULL);
+			}
 		}
 
 		ctx.pool = pool_alloconly_create("ListContext", 10240);
