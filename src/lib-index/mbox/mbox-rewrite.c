@@ -413,16 +413,16 @@ int mbox_index_rewrite(MailIndex *index)
 		return TRUE;
 	}
 
-	tmp_fd = -1;
+	tmp_fd = -1; inbuf = NULL;
 	failed = TRUE; rewrite = FALSE;
 	do {
-		/* lock before fscking to prevent race conditions between
-		   fsck's unlock and our lock. */
-		inbuf = mbox_get_inbuf(index, 0, MAIL_LOCK_EXCLUSIVE);
-		if (inbuf == NULL)
+		/* make sync() lock the file to prevent race conditions */
+                index->mbox_lock_next_sync = MAIL_LOCK_EXCLUSIVE;
+		if (!index->sync(index))
 			break;
 
-		if (!index->sync(index))
+		inbuf = mbox_get_inbuf(index, 0, MAIL_LOCK_EXCLUSIVE);
+		if (inbuf == NULL)
 			break;
 
 		if ((index->header->flags &
