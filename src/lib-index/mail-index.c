@@ -27,7 +27,10 @@ static int mmap_update(MailIndex *index)
 
 	if (!index->dirty_mmap) {
 		index->header = (MailIndexHeader *) index->mmap_base;
-		return TRUE;
+
+		/* make sure file size hasn't changed */
+		if (index->header->updateid == index->updateid)
+			return TRUE;
 	}
 
 	if (index->mmap_base != NULL)
@@ -62,6 +65,7 @@ static int mmap_update(MailIndex *index)
 	index->last_lookup = NULL;
 
 	index->header = (MailIndexHeader *) index->mmap_base;
+	index->updateid = index->header->updateid;
 	index->dirty_mmap = FALSE;
 	return TRUE;
 }
@@ -842,6 +846,7 @@ static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 	MailIndexRecord *rec, *last_rec;
 	unsigned int seq;
 	uoff_t seekpos;
+	off_t pos;
 
 	if (lookup_seq == index->last_lookup_seq &&
 	    index->last_lookup != NULL && index->last_lookup->uid != 0) {
@@ -861,7 +866,19 @@ static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 	seekpos = sizeof(MailIndexHeader) +
 		(uoff_t)(lookup_seq-1) * sizeof(MailIndexRecord);
 	if (seekpos + sizeof(MailIndexRecord) > index->mmap_length) {
-		/* out of range */
+		/* minimum file position for wanted sequence would point
+		   ouside file, so it can't exist. however, header said it
+		   should be found.. fsck. */
+		pos = lseek(index->fd, 0, SEEK_END);
+		if (pos >= 0 && (uoff_t)pos > seekpos) {
+			i_panic("Index lookup failed because whole file "
+				"isn't mmap()ed (dirty_mmap not properly set)");
+		}
+
+		index_set_error(index, "Error in index file %s: "
+				"Header contains invalid message count",
+				index->filepath);
+		index->set_flags |= MAIL_INDEX_FLAG_FSCK;
 		return NULL;
 	}
 
@@ -1216,6 +1233,9 @@ static int mail_index_truncate(MailIndex *index)
 	index->header->first_hole_position = 0;
 	index->header->first_hole_records = 0;
 
+	index->header->updateid++;
+	index->dirty_mmap = TRUE;
+
 	if (index->header->messages_count == 0) {
 		/* all mail was deleted, truncate data file */
 		if (!mail_index_data_reset(index->data))
@@ -1251,7 +1271,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		mail_hash_update(index->hash, rec->uid, 0);
 	else {
 		/* make sure it also gets updated */
-		index->flags |= MAIL_INDEX_FLAG_REBUILD_HASH;
+		index->header->flags |= MAIL_INDEX_FLAG_REBUILD_HASH;
 	}
 
 	/* setting UID to 0 is enough for deleting the mail from index */
@@ -1370,7 +1390,11 @@ int mail_index_append(MailIndex *index, MailIndexRecord **rec)
 	if (index->hash != NULL)
 		mail_hash_update(index->hash, (*rec)->uid, (uoff_t)pos);
 
+	/* file size changed, let others know about it too by changing
+	   updateid in header. */
+	index->header->updateid++;
 	index->dirty_mmap = TRUE;
+
 	if (!mmap_update(index))
 		return FALSE;
 

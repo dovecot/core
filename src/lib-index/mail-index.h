@@ -86,12 +86,14 @@ struct _MailIndexHeader {
 	   5 = MEM_ALIGN_SIZE */
 
 	unsigned int indexid;
+	unsigned int updateid; /* re-mmap() when changed, required only
+	                          if file size is changed */
+
 	unsigned int flags;
+	unsigned int cache_fields;
 
 	uoff_t first_hole_position;
 	unsigned int first_hole_records;
-
-	unsigned int cache_fields;
 
 	unsigned int uid_validity;
 	unsigned int next_uid;
@@ -287,6 +289,7 @@ struct _MailIndex {
 	char *dir; /* directory where to place the index files */
 	char *filepath; /* index file path */
 	unsigned int indexid;
+	unsigned int updateid;
 
 	char *mbox_path; /* mbox-specific path to the actual mbox file */
 	uoff_t mbox_size; /* last synced size of mbox file */
@@ -324,7 +327,7 @@ struct _MailIndex {
 #define MAIL_INDEX_PRIVATE_FILL \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0
 
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent);
