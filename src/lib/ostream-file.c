@@ -37,11 +37,15 @@
 #include "ostream-internal.h"
 
 #include <unistd.h>
+#include <sys/stat.h>
 #ifdef HAVE_SYS_UIO_H
 #  include <sys/uio.h>
 #endif
 
-#define O_STREAM_MIN_SIZE 4096
+/* try to keep the buffer size within 4k..128k. ReiserFS may actually return
+   128k as optimal size. */
+#define DEFAULT_OPTIMAL_BLOCK_SIZE 4096
+#define MAX_OPTIMAL_BLOCK_SIZE (128*1024)
 
 #define IS_STREAM_EMPTY(fstream) \
 	((fstream)->head == (fstream)->tail && !(fstream)->full)
@@ -57,7 +61,7 @@ struct file_ostream {
 	struct io *io;
 
 	unsigned char *buffer; /* ring-buffer */
-	size_t buffer_size, max_buffer_size;
+	size_t buffer_size, max_buffer_size, optimal_block_size;
 	size_t head, tail; /* first unsent/unused byte */
 
 	int timeout_msecs;
@@ -605,7 +609,7 @@ static off_t io_stream_copy(struct _ostream *outstream,
 		if (overlapping)
 			i_stream_seek(instream, instream->v_offset);
 		(void)i_stream_read_data(instream, &data, &size,
-					 O_STREAM_MIN_SIZE-1);
+					 foutstream->optimal_block_size-1);
 
 		if (size == 0) {
 			/* all sent */
@@ -666,7 +670,6 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 	time_t timeout_time;
 	uoff_t in_start_offset, in_offset, out_offset;
 	const unsigned char *data;
-	unsigned char buffer[4096];
 	size_t buffer_size, size, read_size;
 	ssize_t ret;
 
@@ -674,9 +677,17 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 
 	timeout_time = GET_TIMEOUT_TIME(foutstream);
 
+	/* figure out optimal buffer size */
 	buffer_size = instream->real_stream->buffer_size;
-	if (buffer_size == 0 || buffer_size > sizeof(buffer))
-		buffer_size = sizeof(buffer);
+	if (buffer_size == 0 || buffer_size > foutstream->buffer_size) {
+		if (foutstream->optimal_block_size > foutstream->buffer_size) {
+			o_stream_grow_buffer(foutstream,
+					     foutstream->optimal_block_size -
+					     foutstream->buffer_size);
+		}
+
+		buffer_size = foutstream->buffer_size;
+	}
 
 	in_start_offset = instream->v_offset;
 	in_offset = instream->v_limit;
@@ -705,9 +716,10 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 				if (instream->mmaped) {
 					/* we'll have to write it through
 					   buffer of the file gets corrupted */
-					i_assert(size <= sizeof(buffer));
-					memcpy(buffer, data, size);
-					data = buffer;
+					i_assert(size <=
+						 foutstream->buffer_size);
+					memcpy(foutstream->buffer, data, size);
+					data = foutstream->buffer;
 				}
 				break;
 			}
@@ -811,6 +823,7 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 {
 	struct file_ostream *fstream;
 	struct ostream *ostream;
+	struct stat st;
 	off_t offset;
 
 	fstream = p_new(pool, struct file_ostream, 1);
@@ -818,6 +831,7 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 	fstream->priority = priority;
 	fstream->max_buffer_size = max_buffer_size;
 	fstream->autoclose_fd = autoclose_fd;
+	fstream->optimal_block_size = DEFAULT_OPTIMAL_BLOCK_SIZE;
 
 	fstream->ostream.iostream.close = _close;
 	fstream->ostream.iostream.destroy = _destroy;
@@ -834,7 +848,16 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 	ostream = _o_stream_create(&fstream->ostream, pool);
 
 	offset = lseek(fd, 0, SEEK_CUR);
-	if (offset >= 0)
+	if (offset >= 0) {
 		ostream->offset = offset;
+
+		if (fstat(fd, &st) == 0 &&
+		    (uoff_t)st.st_blksize > fstream->optimal_block_size) {
+			/* use the optimal block size, but with a
+			   reasonable limit */
+			fstream->optimal_block_size =
+				I_MIN(st.st_blksize, MAX_OPTIMAL_BLOCK_SIZE);
+		}
+	}
 	return ostream;
 }
