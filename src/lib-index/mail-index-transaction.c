@@ -359,7 +359,7 @@ static void mail_index_transaction_add_last(struct mail_index_transaction *t)
 	if (idx < size && data[idx].uid2 < update.uid1)
 		idx++;
 
-	i_assert(idx == size || data[idx].uid1 < update.uid1);
+	i_assert(idx == size || data[idx].uid1 <= update.uid1);
 
 	/* insert it into buffer, split it in multiple parts if needed
 	   to make sure the ordering stays the same */
@@ -371,10 +371,12 @@ static void mail_index_transaction_add_last(struct mail_index_transaction *t)
 		last = update.uid2;
 		update.uid2 = data[idx].uid1-1;
 
-		buffer_insert(t->updates, idx * sizeof(update),
-			      &update, sizeof(update));
-		data = buffer_get_modifyable_data(t->updates, NULL);
-		size++;
+		if (update.uid1 <= update.uid2) {
+			buffer_insert(t->updates, idx * sizeof(update),
+				      &update, sizeof(update));
+			data = buffer_get_modifyable_data(t->updates, NULL);
+			size++;
+		}
 
 		update.uid1 = update.uid2+1;
 		update.uid2 = last;

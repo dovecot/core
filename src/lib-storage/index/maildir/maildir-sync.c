@@ -197,11 +197,13 @@ struct maildir_sync_context {
 
 struct maildir_index_sync_context {
         struct index_mailbox *ibox;
-        struct mail_index_view *view;
+	struct mail_index_view *view;
 	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_transaction *trans;
 
 	struct mail_index_sync_rec sync_rec;
 	uint32_t seq;
+	int have_dirty, last_dirty;
 };
 
 static int maildir_expunge(struct index_mailbox *ibox, const char *path,
@@ -228,6 +230,8 @@ static int maildir_sync_flags(struct index_mailbox *ibox, const char *path,
 	uint8_t flags8;
         keywords_mask_t keywords;
 
+	ctx->last_dirty = FALSE;
+
 	(void)maildir_filename_get_flags(path, &flags, keywords);
 
 	flags8 = flags;
@@ -241,9 +245,11 @@ static int maildir_sync_flags(struct index_mailbox *ibox, const char *path,
 	if (errno == ENOENT)
 		return 0;
 
-	if (ENOSPACE(errno)) {
-		if (mail_index_sync_set_dirty(ctx->sync_ctx, ctx->seq) < 0)
-			return -1;
+	if (ENOSPACE(errno) || errno == EACCES) {
+		memset(keywords, 0, sizeof(keywords));
+		mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_ADD,
+					MAIL_INDEX_MAIL_FLAG_DIRTY, keywords);
+		ctx->last_dirty = TRUE;
 		return 1;
 	}
 
@@ -257,6 +263,7 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 {
 	struct mail_index_sync_rec *sync_rec = &ctx->sync_rec;
 	struct mail_index_view *view = ctx->view;
+	const struct mail_index_record *rec;
 	uint32_t seq, seq1, seq2, uid;
 
 	switch (sync_rec->type) {
@@ -293,9 +300,23 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 		for (ctx->seq = seq1; ctx->seq <= seq2; ctx->seq++) {
 			if (mail_index_lookup_uid(view, ctx->seq, &uid) < 0)
 				return -1;
-			if (maildir_file_do(ibox, uid, maildir_sync_flags,
-					    ctx) < 0)
+			if (maildir_file_do(ibox, uid,
+					    maildir_sync_flags, ctx) < 0)
 				return -1;
+			if (!ctx->last_dirty) {
+				/* if this flag was dirty, drop it */
+				if (mail_index_lookup(view, ctx->seq, &rec) < 0)
+					return -1;
+				if (rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) {
+					keywords_mask_t keywords;
+
+					memset(keywords, 0, sizeof(keywords));
+					mail_index_update_flags(ctx->trans,
+						ctx->seq, MODIFY_REMOVE,
+						MAIL_INDEX_MAIL_FLAG_DIRTY,
+						keywords);
+				}
+			}
 		}
 		break;
 	}
@@ -306,6 +327,9 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 int maildir_sync_last_commit(struct index_mailbox *ibox)
 {
 	struct maildir_index_sync_context ctx;
+	const struct mail_index_header *hdr;
+	uint32_t seq;
+	uoff_t offset;
 	int ret;
 
 	if (ibox->commit_log_file_seq == 0)
@@ -318,6 +342,12 @@ int maildir_sync_last_commit(struct index_mailbox *ibox)
 				    ibox->commit_log_file_seq,
 				    ibox->commit_log_file_offset);
 	if (ret > 0) {
+		if (mail_index_get_header(ctx.view, &hdr) == 0 &&
+		    (hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0)
+			ctx.have_dirty = TRUE;
+
+		ctx.trans = mail_index_transaction_begin(ctx.view, FALSE);
+
 		while ((ret = mail_index_sync_next(ctx.sync_ctx,
 						   &ctx.sync_rec)) > 0) {
 			if (maildir_sync_record(ibox, &ctx) < 0) {
@@ -325,6 +355,8 @@ int maildir_sync_last_commit(struct index_mailbox *ibox)
 				break;
 			}
 		}
+		if (mail_index_transaction_commit(ctx.trans, &seq, &offset) < 0)
+			ret = -1;
 		if (mail_index_sync_end(ctx.sync_ctx, 0, 0) < 0)
 			ret = -1;
 	}
@@ -557,6 +589,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 	i_assert(ret == 0); /* view is locked, can't happen */
 
 	trans = mail_index_transaction_begin(view, FALSE);
+	sync_ctx.trans = trans;
 
 	seq = 0;
 	iter = maildir_uidlist_iter_init(ibox->uidlist);
@@ -658,6 +691,15 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			mail_index_expunge(trans, seq);
 	}
 
+	/* now, sync the index */
+	while ((ret = mail_index_sync_next(sync_ctx.sync_ctx,
+					   &sync_ctx.sync_rec)) > 0) {
+		if (maildir_sync_record(ibox, &sync_ctx) < 0) {
+			ret = -1;
+			break;
+		}
+	}
+
 	if (ret < 0)
 		mail_index_transaction_rollback(trans);
 	else {
@@ -669,15 +711,6 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 		else if (seq != 0) {
 			ibox->commit_log_file_seq = seq;
 			ibox->commit_log_file_offset = offset;
-		}
-	}
-
-	/* now, sync the index */
-	while ((ret = mail_index_sync_next(sync_ctx.sync_ctx,
-					   &sync_ctx.sync_rec)) > 0) {
-		if (maildir_sync_record(ibox, &sync_ctx) < 0) {
-			ret = -1;
-			break;
 		}
 	}
 

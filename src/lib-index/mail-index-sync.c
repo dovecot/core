@@ -25,7 +25,7 @@ static void mail_index_sync_sort_flags(struct mail_index_sync_ctx *ctx)
 	dest = buffer_get_data(ctx->updates_buf, &dest_count);
 	dest_count /= sizeof(*dest);
 
-	for (i = 0; src != src_end; ) {
+	for (i = 0; src != src_end; src++) {
 		new_update = *src;
 
 		/* insert it into buffer, split it in multiple parts if needed
@@ -312,22 +312,6 @@ int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 		ctx->sync_appends;
 }
 
-int mail_index_sync_set_dirty(struct mail_index_sync_ctx *ctx, uint32_t seq)
-{
-	if (ctx->dirty_lock_id == 0) {
-		if (mail_index_lock_exclusive(ctx->index,
-					      &ctx->dirty_lock_id) < 0)
-			return -1;
-	}
-
-	/* FIXME: maybe this should go through transaction log anyway?
-	   doesn't work well with non-mmaped indexes.. */
-	i_assert(seq <= ctx->view->map->records_count);
-	ctx->view->map->records[seq-1].flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
-	ctx->have_dirty = TRUE;
-	return 0;
-}
-
 int mail_index_sync_end(struct mail_index_sync_ctx *ctx,
 			uint32_t sync_stamp, uint64_t sync_size)
 {
@@ -357,9 +341,6 @@ int mail_index_sync_end(struct mail_index_sync_ctx *ctx,
 						 sync_size) < 0)
 			ret = -1;
 	}
-
-	if (ctx->dirty_lock_id == 0) 
-		mail_index_unlock(ctx->index, ctx->dirty_lock_id);
 
 	mail_index_unlock(ctx->index, ctx->lock_id);
 	mail_transaction_log_sync_unlock(ctx->index->log);

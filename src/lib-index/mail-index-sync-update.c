@@ -13,6 +13,8 @@ struct mail_index_update_ctx {
 	struct mail_index_view *view;
 	struct mail_index_header hdr;
 	struct mail_transaction_log_view *log_view;
+
+	unsigned int have_dirty:1;
 };
 
 void mail_index_header_update_counts(struct mail_index_header *hdr,
@@ -74,6 +76,11 @@ static void mail_index_sync_update_flags(struct mail_index_update_ctx *ctx,
 
 	if (seq1 == 0)
 		return;
+
+	if ((syncrec->add_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
+		ctx->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
+		ctx->have_dirty = TRUE;
+	}
 
 	update_keywords = FALSE;
 	for (i = 0; i < INDEX_KEYWORDS_BYTE_COUNT; i++) {
@@ -185,7 +192,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	struct mail_index_sync_rec rec;
 	const struct mail_index_record *appends;
 	unsigned int append_count;
-	uint32_t count, file_seq, src_idx, dest_idx, dirty_flag;
+	uint32_t count, file_seq, src_idx, dest_idx, i;
 	uint32_t seq1, seq2;
 	uoff_t file_offset;
 	unsigned int lock_id;
@@ -203,12 +210,6 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	ctx.view = sync_ctx->view;
 	ctx.hdr = *index->hdr;
 	ctx.log_view = sync_ctx->view->log_view;
-
-	dirty_flag = sync_ctx->have_dirty ? MAIL_INDEX_HDR_FLAG_HAVE_DIRTY : 0;
-	if ((ctx.hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != dirty_flag) {
-		ctx.hdr.flags ^= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
-		changed = TRUE;
-	}
 
 	/* see if we need to update sync headers */
 	if (ctx.hdr.sync_stamp != sync_stamp && sync_stamp != 0) {
@@ -300,6 +301,17 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	ctx.hdr.messages_count = map->records_count;
 	ctx.hdr.log_file_seq = file_seq;
 	ctx.hdr.log_file_offset = file_offset;
+
+	if ((ctx.hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) &&
+	    !ctx.have_dirty) {
+		/* do we have dirty flags anymore? */
+		for (i = 0; i < map->records_count; i++) {
+			if (map->records[i].flags & MAIL_INDEX_MAIL_FLAG_DIRTY)
+				break;
+		}
+		if (i == map->records_count)
+			ctx.hdr.flags &= ~MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
+	}
 
 	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
 		map->mmap_used_size = index->hdr->header_size +

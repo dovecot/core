@@ -196,10 +196,6 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec);
 /* Returns 1 if there's more to sync, 0 if not. */
 int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
-/* Mark given message to be dirty, ie. we couldn't temporarily change the
-   message flags in storage. Dirty messages are tried to be synced again in
-   next sync. */
-int mail_index_sync_set_dirty(struct mail_index_sync_ctx *ctx, uint32_t seq);
 /* End synchronization by unlocking the index and closing the view.
    sync_stamp/sync_size in header is updated to given values. */
 int mail_index_sync_end(struct mail_index_sync_ctx *ctx,
@@ -207,8 +203,8 @@ int mail_index_sync_end(struct mail_index_sync_ctx *ctx,
 
 /* Mark index file corrupted. Invalidates all views. */
 void mail_index_mark_corrupted(struct mail_index *index);
-/* Check and fix any found problems. If index is broken beyond repair, calls
-   mail_index_reset() and returns 0. Otherwise returns -1 if there was some
+/* Check and fix any found problems. If index is broken beyond repair, it's
+   marked corrupted and 0 is returned. Otherwise returns -1 if there was some
    I/O error or 1 if everything went ok. */
 int mail_index_fsck(struct mail_index *index);
 

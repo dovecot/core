@@ -292,10 +292,16 @@ static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 	return 1;
 }
 
-static void
+#define FLAG_UPDATE_IS_INTERNAL(u, empty) \
+	(((u)->add_flags | (u)->remove_flags) == MAIL_INDEX_MAIL_FLAG_DIRTY && \
+	 memcmp((u)->add_keywords, empty, INDEX_KEYWORDS_BYTE_COUNT) == 0 && \
+	 memcmp((u)->add_keywords, empty, INDEX_KEYWORDS_BYTE_COUNT) == 0)
+
+static int
 mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 			     struct mail_index_sync_rec *rec)
 {
+	static keywords_mask_t empty_keywords = { 0, };
 	const struct mail_transaction_header *hdr = ctx->hdr;
 	const void *data = ctx->data;
 
@@ -318,13 +324,21 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 		const struct mail_transaction_flag_update *update =
 			CONST_PTR_OFFSET(data, ctx->data_offset);
 
-		ctx->data_offset += sizeof(*update);
+		for (;;) {
+			ctx->data_offset += sizeof(*update);
+			if (!FLAG_UPDATE_IS_INTERNAL(update, empty_keywords))
+				break;
+
+			if (ctx->data_offset == ctx->hdr->size)
+				return 0;
+		}
                 mail_index_sync_get_update(rec, update);
 		break;
 	}
 	default:
 		i_unreached();
 	}
+	return 1;
 }
 
 int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
@@ -335,31 +349,34 @@ int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 	uoff_t offset;
 	int ret;
 
-	if (ctx->hdr == NULL || ctx->data_offset == ctx->hdr->size) {
-		ctx->data_offset = 0;
-		do {
-			ret = mail_index_view_sync_next_trans(ctx, &seq,
-							      &offset);
-			if (ret < 0)
-				return -1;
+	do {
+		if (ctx->hdr == NULL || ctx->data_offset == ctx->hdr->size) {
+			ctx->data_offset = 0;
+			do {
+				ret = mail_index_view_sync_next_trans(ctx, &seq,
+								      &offset);
+				if (ret < 0)
+					return -1;
 
-			if (ctx->last_read)
-				return 0;
+				if (ctx->last_read)
+					return 0;
 
-			if (!ctx->skipped) {
-				view->log_file_seq = seq;
-				view->log_file_offset = offset +
-					sizeof(*ctx->hdr) + ctx->hdr->size;
+				if (!ctx->skipped) {
+					view->log_file_seq = seq;
+					view->log_file_offset = offset +
+						sizeof(*ctx->hdr) +
+						ctx->hdr->size;
+				}
+			} while (ret == 0);
+
+			if (ctx->skipped) {
+				mail_index_view_add_synced_transaction(view,
+								       seq,
+								       offset);
 			}
-		} while (ret == 0);
-
-		if (ctx->skipped) {
-			mail_index_view_add_synced_transaction(view, seq,
-							       offset);
 		}
-	}
+	} while (!mail_index_view_sync_get_rec(ctx, sync_rec));
 
-	mail_index_view_sync_get_rec(ctx, sync_rec);
 	return 1;
 }
 
