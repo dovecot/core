@@ -234,7 +234,7 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 		return FALSE;
 	}
 
-	request = auth_request_new(mech);
+	request = auth_request_new(conn->auth, mech);
 	if (request == NULL)
 		return TRUE;
 	hash_insert(conn->auth_requests, POINTER_CAST(id), request);
@@ -276,7 +276,7 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 		return FALSE;
 	}
 
-	if (ssl_require_client_cert && !valid_client_cert) {
+	if (request->auth->ssl_require_client_cert && !valid_client_cert) {
 		/* we fail without valid certificate */
 		if (verbose) {
 			i_info("ssl-cert-check(%s): "
@@ -450,6 +450,7 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
 	pool = pool_alloconly_create("Auth client", 4096);
 	conn = p_new(pool, struct auth_client_connection, 1);
 	conn->pool = pool;
+	conn->auth = master->auth;
 	conn->master = master;
 	conn->refcount = 1;
 	conn->connect_uid = ++connect_uid_counter;
@@ -474,8 +475,8 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
                     AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
 		    master->pid, conn->connect_uid);
 
-	iov[0].iov_base = str_data(mech_handshake);
-	iov[0].iov_len = str_len(mech_handshake);
+	iov[0].iov_base = str_data(conn->auth->mech_handshake);
+	iov[0].iov_len = str_len(conn->auth->mech_handshake);
 	iov[1].iov_base = str_data(str);
 	iov[1].iov_len = str_len(str);
 

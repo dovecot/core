@@ -26,8 +26,6 @@ struct userdb_module {
 		       userdb_callback_t *callback, void *context);
 };
 
-extern struct userdb_module *userdb;
-
 extern struct userdb_module userdb_passdb;
 extern struct userdb_module userdb_static;
 extern struct userdb_module userdb_passwd;
@@ -39,8 +37,8 @@ extern struct userdb_module userdb_sql;
 uid_t userdb_parse_uid(struct auth_request *request, const char *str);
 gid_t userdb_parse_gid(struct auth_request *request, const char *str);
 
-void userdb_preinit(void);
-void userdb_init(void);
-void userdb_deinit(void);
+void userdb_preinit(struct auth *auth, const char *data);
+void userdb_init(struct auth *auth);
+void userdb_deinit(struct auth *auth);
 
 #endif

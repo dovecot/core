@@ -54,6 +54,7 @@ struct digest_auth_request {
 
 static string_t *get_digest_challenge(struct digest_auth_request *request)
 {
+	struct auth *auth = request->auth_request.auth;
 	buffer_t *buf;
 	string_t *str;
 	const char *const *tmp;
@@ -84,7 +85,7 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 
 	str = t_str_new(256);
 
-	for (tmp = auth_realms; *tmp != NULL; tmp++) {
+	for (tmp = auth->auth_realms; *tmp != NULL; tmp++) {
 		str_printfa(str, "realm=\"%s\"", *tmp);
 		str_append_c(str, ',');
 	}
@@ -225,14 +226,15 @@ static int verify_credentials(struct digest_auth_request *request,
 	return TRUE;
 }
 
-static int verify_realm(const char *realm)
+static int verify_realm(struct digest_auth_request *request, const char *realm)
 {
 	const char *const *tmp;
 
 	if (*realm == '\0')
 		return TRUE;
 
-	for (tmp = auth_realms; *tmp != NULL; tmp++) {
+        tmp = request->auth_request.auth->auth_realms;
+	for (; *tmp != NULL; tmp++) {
 		if (strcasecmp(realm, *tmp) == 0)
 			return TRUE;
 	}
@@ -301,7 +303,7 @@ static int auth_handle_response(struct digest_auth_request *request,
 	str_lcase(key);
 
 	if (strcmp(key, "realm") == 0) {
-		if (!verify_realm(value)) {
+		if (!verify_realm(request, value)) {
 			*error = "Invalid realm";
 			return FALSE;
 		}
@@ -550,7 +552,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 {
 	struct digest_auth_request *request =
 		(struct digest_auth_request *)auth_request;
-	const char *error, *realm;
+	const char *username, *error;
 
 	if (request->authenticated) {
 		/* authentication is done, we were just waiting the last
@@ -562,18 +564,13 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	if (parse_digest_response(request, data, data_size, &error)) {
 		auth_request->callback = callback;
 
-		realm = request->realm != NULL ? request->realm : default_realm;
-		if (realm == NULL) {
-			auth_request->user = p_strdup(auth_request->pool,
-						      request->username);
-		} else {
-			auth_request->user = p_strconcat(auth_request->pool,
-							 request->username, "@",
-							 realm, NULL);
-		}
+		username = request->realm == NULL ? request->username :
+			t_strconcat(request->username, "@",
+				    request->realm, NULL);
 
-		if (mech_fix_username(auth_request->user, &error)) {
-			passdb->lookup_credentials(auth_request,
+		if (auth_request_set_username(auth_request, username, &error)) {
+			auth_request->auth->passdb->
+				lookup_credentials(auth_request,
 						PASSDB_CREDENTIALS_DIGEST_MD5,
 						credentials_callback);
 			return;

@@ -40,22 +40,9 @@ struct mech_module_list {
 	struct mech_module module;
 };
 
-extern struct mech_module_list *mech_modules;
-extern buffer_t *mech_handshake;
-
-extern const char *const *auth_realms;
-extern const char *default_realm;
-extern const char *anonymous_username;
-extern char username_chars[256];
-extern int ssl_require_client_cert;
-
 void mech_register_module(struct mech_module *module);
 void mech_unregister_module(struct mech_module *module);
 struct mech_module *mech_module_find(const char *name);
-
-const string_t *auth_mechanisms_get_list(void);
-
-int mech_fix_username(char *username, const char **error_r);
 
 void mech_init(void);
 void mech_deinit(void);

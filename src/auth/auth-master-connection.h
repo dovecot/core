@@ -2,6 +2,8 @@
 #define __AUTH_MASTER_CONNECTION_H
 
 struct auth_master_connection {
+	struct auth *auth;
+
 	unsigned int pid;
 	int refcount;
 
@@ -21,7 +23,7 @@ struct auth_master_connection {
 #define AUTH_MASTER_IS_DUMMY(master) (master->fd == -1)
 
 struct auth_master_connection *
-auth_master_connection_create(int fd, unsigned int pid);
+auth_master_connection_create(struct auth *auth, int fd, unsigned int pid);
 void auth_master_connection_send_handshake(struct auth_master_connection *conn);
 void auth_master_connection_destroy(struct auth_master_connection *conn);
 

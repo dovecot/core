@@ -36,14 +36,14 @@ mech_login_auth_continue(struct auth_request *request,
 			 mech_callback_t *callback)
 {
 	static const char prompt2[] = "Password:";
-	const char *error;
+	const char *username, *error;
 
 	request->callback = callback;
 
 	if (request->user == NULL) {
-		request->user = p_strndup(request->pool, data, data_size);
+		username = t_strndup(data, data_size);
 
-		if (!mech_fix_username(request->user, &error)) {
+		if (!auth_request_set_username(request, username, &error)) {
 			if (verbose) {
 				i_info("login(%s): %s",
 				       get_log_prefix(request), error);
@@ -56,7 +56,8 @@ mech_login_auth_continue(struct auth_request *request,
 			 prompt2, strlen(prompt2));
 	} else {
 		char *pass = p_strndup(unsafe_data_stack_pool, data, data_size);
-		passdb->verify_plain(request, pass, verify_callback);
+		request->auth->passdb->verify_plain(request, pass,
+						    verify_callback);
 		safe_memset(pass, 0, strlen(pass));
 	}
 }

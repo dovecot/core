@@ -8,10 +8,6 @@
 #include <pwd.h>
 #include <grp.h>
 
-#ifdef HAVE_MODULES
-static struct auth_module *userdb_module = NULL;
-#endif
-
 struct userdb_module *userdbs[] = {
 #ifdef USERDB_PASSWD
 	&userdb_passwd,
@@ -36,9 +32,6 @@ struct userdb_module *userdbs[] = {
 #endif
 	NULL
 };
-
-struct userdb_module *userdb;
-static char *userdb_args;
 
 uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 {
@@ -76,59 +69,56 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 	return gr->gr_gid;
 }
 
-void userdb_preinit(void)
+void userdb_preinit(struct auth *auth, const char *data)
 {
 	struct userdb_module **p;
 	const char *name, *args;
 
-	name = getenv("USERDB");
-	if (name == NULL)
-		i_fatal("USERDB environment is unset");
-
-	args = strchr(name, ' ');
-	name = t_strcut(name, ' ');
+	args = strchr(data, ' ');
+	name = t_strcut(data, ' ');
 
 	if (args == NULL) args = "";
 	while (*args == ' ' || *args == '\t')
 		args++;
 
-	userdb_args = i_strdup(args);
+	auth->userdb_args = i_strdup(args);
 
-	userdb = NULL;
 	for (p = userdbs; *p != NULL; p++) {
 		if (strcmp((*p)->name, name) == 0) {
-			userdb = *p;
+			auth->userdb = *p;
 			break;
 		}
 	}
 #ifdef HAVE_MODULES
-	userdb_module = userdb != NULL ? NULL : auth_module_open(name);
-	if (userdb_module != NULL) {
-		userdb = auth_module_sym(userdb_module,
-					 t_strconcat("userdb_", name, NULL));
+	auth->userdb_module = auth->userdb != NULL ? NULL :
+		auth_module_open(name);
+	if (auth->userdb_module != NULL) {
+		auth->userdb = auth_module_sym(auth->userdb_module,
+					       t_strconcat("userdb_", name,
+							   NULL));
 	}
 #endif
 
-	if (userdb == NULL)
+	if (auth->userdb == NULL)
 		i_fatal("Unknown userdb type '%s'", name);
 
-	if (userdb->preinit != NULL)
-		userdb->preinit(args);
+	if (auth->userdb->preinit != NULL)
+		auth->userdb->preinit(args);
 }
 
-void userdb_init(void)
+void userdb_init(struct auth *auth)
 {
-	if (userdb->init != NULL)
-		userdb->init(userdb_args);
+	if (auth->userdb->init != NULL)
+		auth->userdb->init(auth->userdb_args);
 }
 
-void userdb_deinit(void)
+void userdb_deinit(struct auth *auth)
 {
-	if (userdb != NULL && userdb->deinit != NULL)
-		userdb->deinit();
+	if (auth->userdb->deinit != NULL)
+		auth->userdb->deinit();
 #ifdef HAVE_MODULES
-	if (userdb_module != NULL)
-                auth_module_close(userdb_module);
+	if (auth->userdb_module != NULL)
+                auth_module_close(auth->userdb_module);
 #endif
-	i_free(userdb_args);
+	i_free(auth->userdb_args);
 }

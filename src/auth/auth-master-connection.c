@@ -149,7 +149,8 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 		master_request->auth_request = request;
 
 		conn->refcount++;
-		userdb->lookup(request, userdb_callback, master_request);
+		request->auth->userdb->lookup(request, userdb_callback,
+					      master_request);
 	}
 	return TRUE;
 }
@@ -256,11 +257,12 @@ auth_master_connection_set_fd(struct auth_master_connection *conn, int fd)
 }
 
 struct auth_master_connection *
-auth_master_connection_create(int fd, unsigned int pid)
+auth_master_connection_create(struct auth *auth, int fd, unsigned int pid)
 {
 	struct auth_master_connection *conn;
 
 	conn = i_new(struct auth_master_connection, 1);
+	conn->auth = auth;
 	conn->refcount = 1;
 	conn->pid = pid;
 	conn->fd = fd;

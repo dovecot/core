@@ -32,6 +32,7 @@ dovecot_auth_LDADD = \
 	$(MODULE_LIBS)
 
 dovecot_auth_SOURCES = \
+	auth.c \
 	auth-cache.c \
 	auth-client-connection.c \
 	auth-master-connection.c \
@@ -71,6 +72,7 @@ dovecot_auth_SOURCES = \
 	userdb-sql.c
 
 noinst_HEADERS = \
+	auth.h \
 	auth-cache.h \
 	auth-client-connection.h \
 	auth-client-interface.h \

@@ -8,7 +8,7 @@ mech_anonymous_auth_continue(struct auth_request *request,
 			     const unsigned char *data, size_t data_size,
 			     mech_callback_t *callback)
 {
-	i_assert(anonymous_username != NULL);
+	i_assert(request->auth->anonymous_username != NULL);
 
 	if (verbose) {
 		/* temporarily set the user to the one that was given,
@@ -20,7 +20,8 @@ mech_anonymous_auth_continue(struct auth_request *request,
 	}
 
 	request->callback = callback;
-	request->user = p_strdup(request->pool, anonymous_username);
+	request->user = p_strdup(request->pool,
+				 request->auth->anonymous_username);
 
 	auth_request_success(request, NULL, 0);
 }

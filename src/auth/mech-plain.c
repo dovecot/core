@@ -60,16 +60,7 @@ mech_plain_auth_continue(struct auth_request *request,
 		}
 		auth_request_fail(request);
 	} else {
-		/* split and save user/realm */
-		if (strchr(authenid, '@') == NULL && default_realm != NULL) {
-			request->user = p_strconcat(request->pool,
-						    authenid, "@",
-						    default_realm, NULL);
-		} else {
-			request->user = p_strdup(request->pool, authenid);
-		}
-
-		if (!mech_fix_username(request->user, &error)) {
+		if (!auth_request_set_username(request, authenid, &error)) {
 			/* invalid username */
 			if (verbose) {
 				i_info("plain(%s): %s",
@@ -77,7 +68,8 @@ mech_plain_auth_continue(struct auth_request *request,
 			}
 			auth_request_fail(request);
 		} else {
-			passdb->verify_plain(request, pass, verify_callback);
+			request->auth->passdb->verify_plain(request, pass,
+							    verify_callback);
 		}
 
 		/* make sure it's cleared */

@@ -23,7 +23,8 @@ struct auth_request_extra {
 static buffer_t *auth_failures_buf;
 static struct timeout *to_auth_failures;
 
-struct auth_request *auth_request_new(struct mech_module *mech)
+struct auth_request *auth_request_new(struct auth *auth,
+				      struct mech_module *mech)
 {
 	struct auth_request *request;
 
@@ -31,6 +32,7 @@ struct auth_request *auth_request_new(struct mech_module *mech)
 	if (request == NULL)
 		return NULL;
 
+	request->auth = auth;
 	request->mech = mech;
 	request->created = ioloop_time;
 	return request;
@@ -113,6 +115,37 @@ int auth_request_unref(struct auth_request *request)
 
 	request->mech->auth_free(request);
 	return FALSE;
+}
+
+int auth_request_set_username(struct auth_request *request,
+			      const char *username, const char **error_r)
+{
+	unsigned char *p;
+
+	if (*username == '\0') {
+		/* Some PAM plugins go nuts with empty usernames */
+		*error_r = "Empty username";
+		return FALSE;
+	}
+
+	if (strchr(username, '@') == NULL &&
+	    request->auth->default_realm != NULL) {
+		request->user = p_strconcat(request->pool, username, "@",
+					    request->auth->default_realm, NULL);
+	} else {
+		request->user = p_strdup(request->pool, username);
+	}
+
+	for (p = (unsigned char *)request->user; *p != '\0'; p++) {
+		if (request->auth->username_translation[*p & 0xff] != 0)
+			*p = request->auth->username_translation[*p & 0xff];
+		if (request->auth->username_chars[*p & 0xff] == 0) {
+			*error_r = "Username contains disallowed characters";
+			return FALSE;
+		}
+	}
+
+	return TRUE;
 }
 
 struct auth_request_extra *

@@ -8,10 +8,9 @@
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
 #include "randgen.h"
-#include "mech.h"
-#include "userdb.h"
-#include "passdb.h"
 #include "password-scheme.h"
+#include "mech.h"
+#include "auth.h"
 #include "auth-request.h"
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
@@ -29,6 +28,7 @@ int verbose = FALSE, verbose_debug = FALSE;
 int standalone = FALSE;
 
 static buffer_t *masters_buf;
+static struct auth *auth;
 
 static void sig_quit(int signo __attr_unused__)
 {
@@ -153,7 +153,7 @@ static void add_extra_listeners(void)
 		str = t_strdup_printf("AUTH_%u_MASTER", i);
 		master_fd = create_unix_listener(str);
 
-		master = auth_master_connection_create(-1, getpid());
+		master = auth_master_connection_create(auth, -1, getpid());
 		if (master_fd != -1) {
 			auth_master_connection_add_listener(master, master_fd,
 							    master_path, FALSE);
@@ -180,8 +180,7 @@ static void drop_privileges(void)
 
 	/* Initialize databases so their configuration files can be readable
 	   only by root. Also load all modules here. */
-	userdb_preinit();
-	passdb_preinit();
+	auth = auth_preinit();
         password_schemes_init();
 
 	masters_buf = buffer_create_dynamic(default_pool, 64);
@@ -198,12 +197,11 @@ static void main_init(int nodaemon)
 	const char *env;
 	unsigned int pid;
 
-	userdb_init();
-	passdb_init();
+	mech_init();
+	auth_init(auth);
+	auth_requests_init();
 
 	lib_init_signals(sig_quit);
-	mech_init();
-	auth_requests_init();
 
 	env = getenv("AUTH_PROCESS");
 	standalone = env == NULL;
@@ -237,7 +235,8 @@ static void main_init(int nodaemon)
 		if (pid == 0)
 			i_fatal("AUTH_PROCESS can't be 0");
 
-		master = auth_master_connection_create(MASTER_SOCKET_FD, pid);
+		master = auth_master_connection_create(auth, MASTER_SOCKET_FD,
+						       pid);
 		auth_master_connection_add_listener(master, LOGIN_LISTEN_FD,
 						    NULL, TRUE);
 		auth_client_connections_init(master);
@@ -267,9 +266,8 @@ static void main_deinit(void)
 		auth_master_connection_destroy(master[i]);
 
         password_schemes_deinit();
-	passdb_deinit();
-	userdb_deinit();
 	auth_requests_deinit();
+	auth_deinit(auth);
 	mech_deinit();
 
 	random_deinit();

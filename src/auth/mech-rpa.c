@@ -238,15 +238,6 @@ rpa_read_buffer(pool_t pool, const unsigned char **data,
 	return len;
 }
 
-static char *
-rpa_parse_username(pool_t pool, const char *username)
-{
-	const char *p = strrchr(username, '@');
-
-	return p == NULL ? p_strdup(pool, username) :
-		p_strdup_until(pool, username, p);
-}
-
 static int
 rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 		 size_t data_size, const char **error)
@@ -274,10 +265,11 @@ rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 	}
 	p += 2;
 
-	user = t_strndup(p, len);
+	user = t_strcut(t_strndup(p, len), '@');
 	p += len;
 
-	auth_request->user = rpa_parse_username(request->pool, user);
+	if (!auth_request_set_username(auth_request, user, error))
+		return FALSE;
 
 	request->username_ucs2be = ucs2be_str(request->pool, auth_request->user,
 					      &request->username_len);
@@ -494,16 +486,8 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 		return;
 	}
 
-	if (!mech_fix_username(auth_request->user, &error)) {
-		if (verbose) {
-			i_info("rpa(%s): %s",
-			       get_log_prefix(auth_request), error);
-		}
-		auth_request_fail(auth_request);
-		return;
-	}
-
-	passdb->lookup_credentials(auth_request, PASSDB_CREDENTIALS_RPA,
+	auth_request->auth->passdb->
+		lookup_credentials(auth_request, PASSDB_CREDENTIALS_RPA,
 				   rpa_credentials_callback);
 }
 

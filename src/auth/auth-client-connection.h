@@ -4,6 +4,7 @@
 struct auth_client_connection {
 	struct auth_client_connection *next;
 
+	struct auth *auth;
 	struct auth_master_connection *master;
 	int refcount;
 

@@ -8,10 +8,6 @@
 
 #include <stdlib.h>
 
-#ifdef HAVE_MODULES
-static struct auth_module *passdb_module = NULL;
-#endif
-
 struct passdb_module *passdbs[] = {
 #ifdef PASSDB_PASSWD
 	&passdb_passwd,
@@ -42,9 +38,6 @@ struct passdb_module *passdbs[] = {
 #endif
 	NULL
 };
-
-struct passdb_module *passdb;
-static char *passdb_args;
 
 static const char *
 passdb_credentials_to_str(enum passdb_credentials credentials)
@@ -116,62 +109,59 @@ void passdb_handle_credentials(enum passdb_result result,
 	callback(PASSDB_RESULT_OK, password, auth_request);
 }
 
-void passdb_preinit(void)
+void passdb_preinit(struct auth *auth, const char *data)
 {
 	struct passdb_module **p;
 	const char *name, *args;
 
-	name = getenv("PASSDB");
-	if (name == NULL)
-		i_fatal("PASSDB environment is unset");
-
-	args = strchr(name, ' ');
-	name = t_strcut(name, ' ');
+	args = strchr(data, ' ');
+	name = t_strcut(data, ' ');
 
 	if (args == NULL) args = "";
 	while (*args == ' ' || *args == '\t')
 		args++;
 
-	passdb_args = i_strdup(args);
+	auth->passdb_args = i_strdup(args);
 
-	passdb = NULL;
 	for (p = passdbs; *p != NULL; p++) {
 		if (strcmp((*p)->name, name) == 0) {
-			passdb = *p;
+			auth->passdb = *p;
 			break;
 		}
 	}
 	
 #ifdef HAVE_MODULES
-	passdb_module = passdb != NULL ? NULL : auth_module_open(name);
-	if (passdb_module != NULL) {
-		passdb = auth_module_sym(passdb_module,
-					 t_strconcat("passdb_", name, NULL));
+	auth->passdb_module = auth->passdb != NULL ? NULL :
+		auth_module_open(name);
+	if (auth->passdb_module != NULL) {
+		auth->passdb = auth_module_sym(auth->passdb_module,
+					       t_strconcat("passdb_", name,
+							   NULL));
 	}
 #endif
 
-	if (passdb == NULL)
+	if (auth->passdb == NULL)
 		i_fatal("Unknown passdb type '%s'", name);
 
-	if (passdb->preinit != NULL)
-		passdb->preinit(passdb_args);
+	if (auth->passdb->preinit != NULL)
+		auth->passdb->preinit(auth->passdb_args);
 }
 
-void passdb_init(void)
+void passdb_init(struct auth *auth)
 {
 	passdb_cache_init();
-	if (passdb->init != NULL)
-		passdb->init(passdb_args);
+	if (auth->passdb->init != NULL)
+		auth->passdb->init(auth->passdb_args);
 }
 
-void passdb_deinit(void)
+void passdb_deinit(struct auth *auth)
 {
-	if (passdb != NULL && passdb->deinit != NULL)
-		passdb->deinit();
+	if (auth->passdb->deinit != NULL)
+		auth->passdb->deinit();
 #ifdef HAVE_MODULES
-	if (passdb_module != NULL)
-                auth_module_close(passdb_module);
+	if (auth->passdb_module != NULL)
+                auth_module_close(auth->passdb_module);
 #endif
 	passdb_cache_deinit();
-	i_free(passdb_args);
+	i_free(auth->passdb_args);
 }

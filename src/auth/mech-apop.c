@@ -129,8 +129,8 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 	}
 	tmp++;
 
-	auth_request->user = p_strdup(request->pool, (const char *)username);
-	if (!mech_fix_username(auth_request->user, &error)) {
+	if (!auth_request_set_username(auth_request, (const char *)username,
+				       &error)) {
 		if (verbose) {
 			i_info("apop(%s): %s",
 			       get_log_prefix(auth_request), error);
@@ -141,7 +141,8 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 
 	memcpy(request->digest, tmp, sizeof(request->digest));
 
-	passdb->lookup_credentials(auth_request, PASSDB_CREDENTIALS_PLAINTEXT,
+	auth_request->auth->passdb->
+		lookup_credentials(auth_request, PASSDB_CREDENTIALS_PLAINTEXT,
 				   apop_credentials_callback);
 }
 

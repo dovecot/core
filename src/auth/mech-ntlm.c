@@ -175,7 +175,8 @@ ntlm_credentials_callback(enum passdb_result result,
 
 	/* NTLM credentials not found or didn't want to use them,
 	   try with LM credentials */
-	passdb->lookup_credentials(auth_request, PASSDB_CREDENTIALS_LANMAN,
+	auth_request->auth->passdb->
+		lookup_credentials(auth_request, PASSDB_CREDENTIALS_LANMAN,
 				   lm_credentials_callback);
 }
 
@@ -220,7 +221,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 	} else {
 		const struct ntlmssp_response *response =
 			(struct ntlmssp_response *)data;
-		char *username;
+		const char *username;
 
 		if (!ntlmssp_check_response(response, data_size, &error)) {
 			if (verbose) {
@@ -235,11 +236,10 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 		request->response = p_malloc(request->pool, data_size);
 		memcpy(request->response, response, data_size);
 
-		username = p_strdup(auth_request->pool,
-				    ntlmssp_t_str(request->response, user, 
-				    request->unicode_negotiated));
+		username = ntlmssp_t_str(request->response, user, 
+					 request->unicode_negotiated);
 
-		if (!mech_fix_username(username, &error)) {
+		if (!auth_request_set_username(auth_request, username, &error)) {
 			if (verbose) {
 				i_info("ntlm(%s): %s",
 				       get_log_prefix(auth_request), error);
@@ -248,8 +248,8 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 			return;
 		}
 
-		auth_request->user = username;
-		passdb->lookup_credentials(auth_request,
+		auth_request->auth->passdb->
+			lookup_credentials(auth_request,
 					   PASSDB_CREDENTIALS_NTLM,
 					   ntlm_credentials_callback);
 	}
