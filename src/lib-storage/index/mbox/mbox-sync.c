@@ -1237,6 +1237,9 @@ int mbox_sync(struct index_mailbox *ibox, enum mbox_sync_flags flags)
 		lock_id = 0;
 	}
 
+	/* reopen input stream to make sure it has nothing buffered */
+        mbox_file_close_stream(ibox);
+
 __again:
 	if (changed) {
 		/* we're most likely modifying the mbox while syncing, just
