@@ -392,6 +392,12 @@ void mail_cache_unlock(struct mail_cache *cache)
 
 	cache->locked = FALSE;
 
+	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
+		/* we found it to be broken during the lock. just clean up. */
+		cache->hdr_modified = FALSE;
+		return;
+	}
+
 	if (cache->hdr_modified) {
 		cache->hdr_modified = FALSE;
 		if (pwrite_full(cache->fd, &cache->hdr_copy,
