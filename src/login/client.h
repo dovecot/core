@@ -15,6 +15,8 @@ struct client {
 	struct imap_parser *parser;
 
 	time_t last_input;
+	unsigned int bad_counter;
+
 	const char *cmd_tag, *cmd_name;
 
 	buffer_t *plain_login;

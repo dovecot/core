@@ -24,6 +24,9 @@
 /* Disconnect client after idling this many seconds */
 #define CLIENT_LOGIN_IDLE_TIMEOUT 60
 
+/* Disconnect client when it sends too many bad commands */
+#define CLIENT_MAX_BAD_COMMANDS 10
+
 /* When max. number of simultaneous connections is reached, few of the
    oldest connections are disconnected. Since we have to go through the whole
    client hash, it's faster if we disconnect multiple clients. */
@@ -210,6 +213,13 @@ static void client_handle_input(struct client *client)
 
 	if (*client->cmd_tag == '\0' ||
 	    !client_command_execute(client, client->cmd_name, args)) {
+		if (++client->bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
+			client_send_line(client,
+				"* BYE Too many invalid IMAP commands.");
+			client_destroy(client, "Disconnected: "
+				       "Too many invalid commands");
+			return;
+		} 
 		client_send_tagline(client,
 			"BAD Error in IMAP command received by server.");
 	}

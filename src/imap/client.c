@@ -23,7 +23,7 @@
    a command, disconnect the client */
 #define CLIENT_CMDINPUT_TIMEOUT CLIENT_OUTPUT_TIMEOUT
 
-/* Disconnect client when it sends too many bad commands */
+/* Disconnect client when it sends too many bad commands in a row */
 #define CLIENT_MAX_BAD_COMMANDS 20
 
 /* Disconnect client after idling this many seconds */
@@ -252,6 +252,7 @@ static int client_handle_input(struct client *client)
 		if (client->cmd_func(client) || client->cmd_error) {
 			/* command execution was finished */
 			client_command_finished(client);
+                        client->bad_counter = 0;
 			return TRUE;
 		}
 		return FALSE;
@@ -296,6 +297,7 @@ static int client_handle_input(struct client *client)
 		if (client->cmd_func(client) || client->cmd_error) {
 			/* command execution was finished */
 			client_command_finished(client);
+                        client->bad_counter = 0;
 		}
 	}
 
