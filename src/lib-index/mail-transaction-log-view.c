@@ -153,6 +153,12 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	for (seq = min_file_seq+1; seq <= max_file_seq; seq++) {
 		file = file->next;
 		if (file == NULL || file->hdr.file_seq != seq)  {
+			if (file == NULL && max_file_seq == (uint32_t)-1) {
+				/* we just wanted to sync everything */
+				max_file_seq = seq-1;
+				break;
+			}
+
 			mail_index_set_error(view->log->index,
 				"Lost transaction log file %s seq %u",
 				view->log->tail->filepath, seq);

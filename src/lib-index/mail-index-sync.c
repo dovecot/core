@@ -310,10 +310,29 @@ int mail_index_sync_begin(struct mail_index *index,
 		return -1;
 	}
 
-	if (mail_index_map(index, FALSE) <= 0) {
-		mail_transaction_log_sync_unlock(index->log);
-		mail_index_unlock(index, lock_id);
-		return -1;
+	if (index->mmap_disable) {
+		if (index->sync_log_file_seq != seq ||
+		    index->sync_log_file_offset != offset) {
+			/* we may have synced our internal view more than what
+			   is synced in index. re-read the whole index if our
+			   sync seq/offset doesn't match what is in index's
+			   header. */
+			if (mail_index_map(index, TRUE) <= 0) {
+				mail_transaction_log_sync_unlock(index->log);
+				mail_index_unlock(index, lock_id);
+				return -1;
+			}
+		} else {
+			/* the whole log file is synced already. */
+			i_assert(index->map->hdr.log_file_seq == seq);
+			i_assert(index->map->hdr.log_file_ext_offset == offset);
+		}
+	} else {
+		if (mail_index_map(index, FALSE) <= 0) {
+			mail_transaction_log_sync_unlock(index->log);
+			mail_index_unlock(index, lock_id);
+			return -1;
+		}
 	}
 
 	if (!mail_index_need_lock(index, sync_recent,
@@ -504,6 +523,7 @@ static void mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 
 int mail_index_sync_commit(struct mail_index_sync_ctx *ctx)
 {
+	struct mail_index *index = ctx->index;
 	const struct mail_index_header *hdr;
 	uint32_t seq, seq2;
 	uoff_t offset, offset2;
@@ -515,9 +535,9 @@ int mail_index_sync_commit(struct mail_index_sync_ctx *ctx)
 	/* we have had the transaction log locked since the beginning of sync,
 	   so only external changes could have been committed. write them to
 	   the index here as well. */
-	mail_transaction_log_get_head(ctx->index->log, &seq, &offset);
+	mail_transaction_log_get_head(index->log, &seq, &offset);
 
-	hdr = ctx->index->hdr;
+	hdr = index->hdr;
 	if (ret == 0 && (hdr->log_file_seq != seq ||
 			 hdr->log_file_int_offset != offset ||
 			 hdr->log_file_ext_offset != offset)) {
@@ -529,12 +549,12 @@ int mail_index_sync_commit(struct mail_index_sync_ctx *ctx)
 			ret = -1;
 	}
 
-	if (ret == 0 && mail_cache_need_compress(ctx->index->cache)) {
-		if (mail_cache_compress(ctx->index->cache, ctx->view) < 0)
+	if (ret == 0 && mail_cache_need_compress(index->cache)) {
+		if (mail_cache_compress(index->cache, ctx->view) < 0)
 			ret = -1;
 		else {
 			/* cache_offsets have changed, sync them */
-			mail_transaction_log_get_head(ctx->index->log,
+			mail_transaction_log_get_head(index->log,
 						      &seq2, &offset2);
 			if (mail_transaction_log_view_set(ctx->view->log_view,
 					seq, offset, seq2, offset2,
@@ -544,6 +564,9 @@ int mail_index_sync_commit(struct mail_index_sync_ctx *ctx)
 				ret = -1;
 		}
 	}
+
+	index->sync_log_file_seq = index->map->hdr.log_file_seq;
+	index->sync_log_file_offset = index->map->hdr.log_file_int_offset;
 
 	mail_index_sync_end(ctx);
 	return ret;

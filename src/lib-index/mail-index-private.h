@@ -107,6 +107,11 @@ struct mail_index {
 	struct dotlock dotlock;
         enum mail_index_lock_method lock_method;
 
+	/* These are typically same as map->hdr->log_file_*, but with
+	   mmap_disable we may have synced more than index */
+	uint32_t sync_log_file_seq;
+	uoff_t sync_log_file_offset;
+
 	unsigned int last_grow_count;
 
 	char *error;

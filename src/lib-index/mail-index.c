@@ -6,6 +6,7 @@
 #include "read-full.h"
 #include "write-full.h"
 #include "mail-index-private.h"
+#include "mail-index-sync-private.h"
 #include "mail-transaction-log.h"
 #include "mail-cache.h"
 
@@ -432,6 +433,25 @@ static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 	return 1;
 }
 
+static int mail_index_read_header(struct mail_index *index,
+				  struct mail_index_header *hdr, size_t *pos_r)
+{
+	size_t pos;
+	int ret;
+
+	memset(hdr, 0, sizeof(*hdr));
+
+	ret = 1;
+	for (pos = 0; ret > 0 && pos < sizeof(*hdr); ) {
+		ret = pread(index->fd, PTR_OFFSET(hdr, pos),
+			    sizeof(*hdr) - pos, pos);
+		if (ret > 0)
+			pos += ret;
+	}
+	*pos_r = pos;
+	return ret;
+}
+
 static int mail_index_read_map(struct mail_index *index,
 			       struct mail_index_map *map, int *retry_r)
 {
@@ -443,15 +463,7 @@ static int mail_index_read_map(struct mail_index *index,
 	i_assert(map->mmap_base == NULL);
 
 	*retry_r = FALSE;
-	memset(&hdr, 0, sizeof(hdr));
-
-	ret = 1;
-	for (pos = 0; ret > 0 && pos < sizeof(hdr); ) {
-		ret = pread(index->fd, PTR_OFFSET(&hdr, pos),
-			    sizeof(hdr) - pos, pos);
-		if (ret > 0)
-			pos += ret;
-	}
+	ret = mail_index_read_header(index, &hdr, &pos);
 
 	if (pos > (ssize_t)offsetof(struct mail_index_header, major_version) &&
 	    hdr.major_version != MAIL_INDEX_MAJOR_VERSION) {
@@ -523,13 +535,113 @@ static int mail_index_read_map(struct mail_index *index,
 		memcpy(&map->hdr, &hdr, hdr.base_header_size);
 	}
 	map->hdr_base = map->hdr_copy_buf->data;
+
+	index->sync_log_file_seq = hdr.log_file_seq;
+	index->sync_log_file_offset = hdr.log_file_int_offset;
 	return 1;
 }
 
+static int mail_index_sync_from_transactions(struct mail_index *index,
+					     struct mail_index_map *map,
+					     int sync_to_index)
+{
+	struct mail_index_view *view;
+	struct mail_transaction_log_view *log_view;
+	struct mail_index_sync_map_ctx sync_map_ctx;
+	struct mail_index_header hdr;
+	const struct mail_transaction_header *thdr;
+	const void *tdata;
+	uint32_t max_seq;
+	uoff_t max_offset;
+	size_t pos;
+	int ret, skipped;
+
+	if (sync_to_index) {
+		/* read the real log position where we are supposed to be
+		   synced */
+		ret = mail_index_read_header(index, &hdr, &pos);
+		if (ret < 0 && errno != ESTALE) {
+			mail_index_set_syscall_error(index, "pread()");
+			return -1;
+		}
+		if (pos < MAIL_INDEX_HEADER_MIN_SIZE)
+			return 0;
+
+		if (map->hdr.log_file_seq == hdr.log_file_seq &&
+		    map->hdr.log_file_int_offset == hdr.log_file_int_offset) {
+			/* nothing to do */
+			return 1;
+		}
+
+		if (map->hdr.log_file_seq > hdr.log_file_seq ||
+		    (map->hdr.log_file_seq == hdr.log_file_seq &&
+		     map->hdr.log_file_int_offset > hdr.log_file_int_offset)) {
+			/* we went too far, have to re-read the file */
+			return 0;
+		}
+		if (map->hdr.log_file_ext_offset !=
+		    map->hdr.log_file_int_offset ||
+		    hdr.log_file_ext_offset != hdr.log_file_int_offset) {
+			/* too much trouble to get this right. */
+			return 0;
+		}
+		max_seq = hdr.log_file_seq;
+		max_offset = hdr.log_file_int_offset;
+	} else {
+		/* sync everything there is */
+		max_seq = (uint32_t)-1;
+		max_offset = (uoff_t)-1;
+	}
+
+	log_view = mail_transaction_log_view_open(index->log);
+	if (mail_transaction_log_view_set(log_view,
+					  map->hdr.log_file_seq,
+					  map->hdr.log_file_int_offset,
+					  max_seq, max_offset,
+					  MAIL_TRANSACTION_TYPE_MASK) < 0) {
+		mail_transaction_log_view_close(log_view);
+		return 0;
+	}
+
+	index->map = map;
+
+	view = mail_index_view_open(index);
+	mail_index_sync_map_init(&sync_map_ctx, view,
+				 MAIL_INDEX_SYNC_HANDLER_VIEW);
+
+	while ((ret = mail_transaction_log_view_next(log_view, &thdr, &tdata,
+						     &skipped)) > 0) {
+		if (mail_index_sync_record(&sync_map_ctx, thdr, tdata) < 0) {
+			ret = -1;
+			break;
+		}
+	}
+
+	mail_index_sync_map_deinit(&sync_map_ctx);
+	mail_index_view_close(view);
+	mail_transaction_log_view_close(log_view);
+
+	index->map = NULL;
+	return ret < 0 ? -1 : 1;
+}
+
 static int mail_index_read_map_with_retry(struct mail_index *index,
-					  struct mail_index_map *map)
+					  struct mail_index_map *map,
+					  int sync_to_index)
 {
 	int i, ret, retry;
+
+	if (map->hdr.indexid != 0) {
+		/* sync this as a view from transaction log. */
+		ret = mail_index_sync_from_transactions(index, map,
+							sync_to_index);
+		if (ret != 0)
+			return ret;
+
+		/* transaction log lost/broken, fallback to re-reading it */
+		/* FIXME: file cache need to be reset (except not really with
+		   sync_to_index if we were just rewinding..) */
+	}
 
 	for (i = 0; i < MAIL_INDEX_ESTALE_RETRY_COUNT; i++) {
 		ret = mail_index_read_map(index, map, &retry);
@@ -598,24 +710,27 @@ int mail_index_map(struct mail_index *index, int force)
 	if (index->map != NULL && index->map->refcount > 1) {
 		/* this map is already used by some views and they may have
 		   pointers into it. leave them and create a new mapping. */
+		if (!index->mmap_disable) {
+			map = NULL;
+		} else {
+			/* create a copy of the mapping instead so we don't
+			   have to re-read it */
+			map = mail_index_map_to_memory(index->map,
+						index->map->hdr.record_size);
+		}
 		index->map->refcount--;
 		index->map = NULL;
+	} else {
+		map = index->map;
 	}
 
-	map = index->map;
 	if (map == NULL) {
 		map = i_new(struct mail_index_map, 1);
 		map->refcount = 1;
 		map->hdr_copy_buf =
 			buffer_create_dynamic(default_pool, sizeof(map->hdr));
 	} else if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
-		if (map->write_to_disk) {
-			/* we have modified this mapping and it's waiting to
-			   be written to disk once we drop exclusive lock.
-			   mapping couldn't have changed, so do nothing. */
-			return 1;
-		}
-		/* FIXME: we need to re-read header */
+		i_assert(!map->write_to_disk);
 	} else if (map->mmap_base != NULL) {
 		i_assert(map->buffer == NULL);
 		if (munmap(map->mmap_base, map->mmap_size) < 0)
@@ -628,8 +743,8 @@ int mail_index_map(struct mail_index *index, int force)
 
 	if (!index->mmap_disable)
 		ret = mail_index_mmap(index, map);
-	 else
-		ret = mail_index_read_map_with_retry(index, map);
+	else
+		ret = mail_index_read_map_with_retry(index, map, force);
 	if (ret <= 0) {
 		mail_index_unmap_forced(index, map);
 		return ret;

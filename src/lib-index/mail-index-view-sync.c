@@ -342,6 +342,9 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 
 	i_assert(view->syncing);
 
+	if (ctx->sync_map_update)
+		mail_index_sync_map_deinit(&ctx->sync_map_ctx);
+
 	if (view->log_syncs != NULL && !ctx->skipped_some)
 		buffer_set_used_size(view->log_syncs, 0);
 
