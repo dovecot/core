@@ -3,7 +3,7 @@
 #include "config.h"
 #undef HAVE_CONFIG_H
 
-#ifdef PASSDB_PASSWD
+#ifdef PASSDB_SHADOW
 
 #include "common.h"
 #include "safe-memset.h"
