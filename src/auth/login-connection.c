@@ -276,8 +276,10 @@ static void request_timeout(void *context __attr_unused__)
 	struct login_connection *conn;
 
 	for (conn = connections; conn != NULL; conn = conn->next) {
+		conn->refcount++;
 		hash_foreach(conn->auth_requests,
 			     auth_request_hash_timeout_check, conn);
+		login_connection_unref(conn);
 	}
 }
 
