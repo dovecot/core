@@ -49,6 +49,7 @@ struct mail_index_map {
 	uoff_t log_file_offset;
 
 	struct mail_index_header hdr_copy;
+
 	unsigned int write_to_disk:1;
 };
 
@@ -69,7 +70,7 @@ struct mail_index {
 	uint32_t indexid;
 
 	int lock_type, shared_lock_count, excl_lock_count;
-	unsigned int lock_id, copy_lock_id;
+	unsigned int lock_id, opening_lock_id;
 	char *copy_lock_path;
 	struct dotlock dotlock;
 
@@ -91,6 +92,7 @@ int mail_index_write_header(struct mail_index *index,
 			    const struct mail_index_header *hdr);
 
 int mail_index_create(struct mail_index *index, struct mail_index_header *hdr);
+int mail_index_try_open_only(struct mail_index *index);
 int mail_index_try_open(struct mail_index *index, unsigned int *lock_id_r);
 int mail_index_create_tmp_file(struct mail_index *index, const char **path_r);
 

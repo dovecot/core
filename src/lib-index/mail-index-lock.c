@@ -1,30 +1,21 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 /*
-   Locking is meant to be as transparent as possible. Anything that locks
-   the index must either keep it only a short time, or be prepared that the
-   lock is lost.
-
-   Lock is lost in only one situation: when we try to get an exclusive lock
-   but we already have a shared lock. Then we'll drop all shared locks and
-   get the exclusive lock.
-
    Locking should never fail or timeout. Exclusive locks must be kept as short
-   time as possible. Shared locks can be long living, so if can't get exclusive
-   lock directly within 2 seconds, we'll replace the index file with a copy of
-   it. That means the shared lock holders can keep using the old file while
-   we're modifying the new file.
+   time as possible. Shared locks can be long living, so if we can't get
+   exclusive lock directly within 2 seconds, we'll replace the index file with
+   a copy of it. That means the shared lock holders can keep using the old file
+   while we're modifying the new file.
 
-   lock_id is used to figure out if acquired lock is still valid. Shared
-   locks have even numbers, exclusive locks have odd numbers. The number is
-   increased by two every time the lock is dropped.
+   lock_id is used to figure out if acquired lock is still valid. When index
+   file is reopened, the lock_id can become invalid. It doesn't matter however,
+   as no-one's going to modify the old file anymore.
 
-   mail_index_lock_shared() -> lock_id=2
-   mail_index_lock_shared() -> lock_id=2
-   mail_index_lock_exclusive() -> lock_id=5 (had to drop shared locks)
-   mail_index_lock_shared() -> lock_id=4
-
-   Only 4 and 5 locks are valid at this time.
+   lock_id also tells if we're referring to shared or exclusive lock. This
+   allows us to drop back to shared locking once all exclusive locks are
+   dropped. Shared locks have even numbers, exclusive locks have odd numbers.
+   The number is increased by two every time the lock is dropped or index file
+   is reopened.
 */
 
 #include "lib.h"
@@ -38,23 +29,69 @@
 
 static int mail_index_reopen(struct mail_index *index, int fd)
 {
-	int ret;
+	struct mail_index_map *old_map;
+	unsigned int old_shared_locks, old_lock_id, lock_id = 0;
+	int ret, old_fd, old_lock_type;
 
-	mail_index_unmap(index, index->map);
+	old_map = index->map;
+	old_fd = index->fd;
+
 	index->map = NULL;
+	index->hdr = NULL;
 
-	if (close(index->fd) < 0)
-		mail_index_set_syscall_error(index, "close()");
-	index->fd = fd;
+	/* new file, new locks. the old fd can keep it's locks, they don't
+	   matter anymore as no-one's going to modify the file. */
+	old_lock_type = index->lock_type;
+	old_lock_id = index->lock_id;
+	old_shared_locks = index->shared_lock_count;
+ 
+	if (index->lock_type == F_RDLCK)
+		index->lock_type = F_UNLCK;
+	index->lock_id += 2;
+	index->shared_lock_count = 0;
 
-	ret = fd < 0 ? mail_index_try_open(index, NULL) :
-		mail_index_map(index, FALSE);
-	if (ret <= 0) {
-		// FIXME: serious problem, we'll just crash later..
-		return -1;
+	if (fd != -1) {
+		index->fd = fd;
+		ret = 0;
+	} else {
+		i_assert(index->excl_lock_count == 0);
+		ret = mail_index_try_open_only(index);
+		if (ret > 0)
+			ret = mail_index_lock_shared(index, FALSE, &lock_id);
+		else if (ret == 0) {
+			/* index file is lost */
+			ret = -1;
+		}
 	}
 
-	return 0;
+	if (ret == 0) {
+		if (mail_index_map(index, FALSE) <= 0)
+			ret = -1;
+	}
+
+	if (lock_id != 0)
+		mail_index_unlock(index, lock_id);
+
+	if (ret == 0) {
+		mail_index_unmap(index, old_map);
+		if (close(old_fd) < 0)
+			mail_index_set_syscall_error(index, "close()");
+	} else {
+		if (index->map != NULL)
+			mail_index_unmap(index, index->map);
+		if (index->fd != -1) {
+			if (close(index->fd) < 0)
+				mail_index_set_syscall_error(index, "close()");
+		}
+
+		index->map = old_map;
+		index->hdr = index->map->hdr;
+		index->fd = old_fd;
+		index->lock_type = old_lock_type;
+		index->lock_id = old_lock_id;
+		index->shared_lock_count = old_shared_locks;
+	}
+	return ret;
 }
 
 static int mail_index_has_changed(struct mail_index *index)
@@ -102,6 +139,17 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 
 	i_assert(lock_type == F_RDLCK || lock_type == F_WRLCK);
 
+	if (lock_type == F_RDLCK && index->lock_type != F_UNLCK) {
+		index->shared_lock_count++;
+		*lock_id_r = index->lock_id;
+		return 1;
+	}
+	if (lock_type == F_WRLCK && index->lock_type == F_WRLCK) {
+		index->excl_lock_count++;
+		*lock_id_r = index->lock_id + 1;
+		return 1;
+	}
+
 	if (index->fcntl_locks_disable) {
 		/* FIXME: exclusive locking will rewrite the index file every
 		   time. shouldn't really be needed.. reading doesn't require
@@ -114,65 +162,32 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		}
 		if (mail_index_lock_mprotect(index, lock_type) < 0)
 			return -1;
-		index->lock_type = lock_type;
+
+		index->shared_lock_count++;
+		index->lock_type = F_RDLCK;
+		*lock_id_r = index->lock_id;
 		return 1;
 	}
 
-	if (lock_type == F_WRLCK && index->lock_type == F_RDLCK) {
-		/* drop shared locks */
-		i_assert(index->excl_lock_count == 0);
-
-		if (file_wait_lock(index->fd, F_UNLCK) < 0)
-			mail_index_set_syscall_error(index, "file_wait_lock()");
-
-		index->shared_lock_count = 0;
-		index->lock_type = F_UNLCK;
-		index->lock_id += 2; /* make sure failures below work right */
-	}
-
-	if (index->excl_lock_count > 0 || index->shared_lock_count > 0) {
-		i_assert(lock_type == F_RDLCK || index->excl_lock_count > 0);
-		if (lock_type == F_RDLCK) {
-			index->shared_lock_count++;
-			*lock_id_r = index->lock_id;
-		} else {
-			index->excl_lock_count++;
-			*lock_id_r = index->lock_id + 1;
-		}
-		return 1;
-	}
-
-	i_assert(index->lock_type == F_UNLCK);
-
-	if (update_index && lock_type != F_WRLCK) {
+	if (update_index) {
 		if (mail_index_has_changed(index) < 0)
 			return -1;
 	}
 
-	do {
-		ret = file_wait_lock_full(index->fd, lock_type, timeout_secs,
-					  NULL, NULL);
-		if (ret <= 0) {
-			if (ret == 0)
-				return 0;
-			mail_index_set_syscall_error(index, "file_wait_lock()");
-			return -1;
+	ret = file_wait_lock_full(index->fd, lock_type, timeout_secs,
+				  NULL, NULL);
+	if (ret <= 0) {
+		if (ret == 0 || errno == EDEADLK) {
+			/* deadlock equals to timeout */
+			return 0;
 		}
+		mail_index_set_syscall_error(index, "file_wait_lock()");
+		return -1;
+	}
 
-		if (lock_type == F_WRLCK) {
-			/* we need to have the latest index file locked -
-			   check if it's been updated. */
-			if ((ret = mail_index_has_changed(index)) < 0) {
-				(void)file_wait_lock(index->fd, F_UNLCK);
-				return -1;
-			}
-			if (ret > 0)
-				continue;
-		}
-	} while (0);
-
+	if (index->lock_type == F_UNLCK)
+		index->lock_id += 2;
 	index->lock_type = lock_type;
-	index->lock_id += 2;
 
 	if (lock_type == F_RDLCK) {
 		index->shared_lock_count++;
@@ -215,7 +230,8 @@ static int mail_index_copy(struct mail_index *index)
 	if (fd == -1)
 		return -1;
 
-	(void)mail_index_lock_mprotect(index, F_RDLCK);
+	if (index->lock_type == F_UNLCK)
+		(void)mail_index_lock_mprotect(index, F_RDLCK);
 
 	ret = write_full(fd, index->map->hdr, sizeof(*index->map->hdr));
 	if (ret < 0 || write_full(fd, index->map->records,
@@ -224,17 +240,20 @@ static int mail_index_copy(struct mail_index *index)
 		mail_index_file_set_syscall_error(index, path, "write_full()");
 		(void)close(fd);
 		(void)unlink(path);
-		return -1;
+		fd = -1;
+	} else {
+		i_assert(index->copy_lock_path == NULL);
+		index->copy_lock_path = i_strdup(path);
 	}
 
-	i_assert(index->copy_lock_path == NULL);
-	index->copy_lock_path = i_strdup(path);
+	if (index->lock_type == F_UNLCK)
+		(void)mail_index_lock_mprotect(index, F_UNLCK);
 	return fd;
 }
 
 static int mail_index_lock_exclusive_copy(struct mail_index *index)
 {
-	int fd;
+	int fd, old_lock_type;
 
 	i_assert(index->log_locked);
 
@@ -243,31 +262,32 @@ static int mail_index_lock_exclusive_copy(struct mail_index *index)
 		return 0;
 	}
 
-	/* copy the index to index.tmp and use it. when */
+        i_assert(index->excl_lock_count == 0);
+
+	/* copy the index to index.tmp and use it */
 	fd = mail_index_copy(index);
 	if (fd == -1)
 		return -1;
 
+	old_lock_type = index->lock_type;
 	index->lock_type = F_WRLCK;
         index->excl_lock_count++;
 
 	if (mail_index_reopen(index, fd) < 0) {
-		/* FIXME: do this without another reopen which drops locks
-		   and causes potential crashes */
 		i_assert(index->excl_lock_count == 1);
+		if (unlink(index->copy_lock_path) < 0) {
+			mail_index_file_set_syscall_error(index,
+							  index->copy_lock_path,
+							  "unlink()");
+		}
 		i_free(index->copy_lock_path);
 		index->copy_lock_path = NULL;
 
-		/* go back to old index */
-		(void)mail_index_reopen(index, -1);
-
-		index->lock_type = F_UNLCK;
+		index->lock_type = old_lock_type;
 		index->excl_lock_count = 0;
-		index->shared_lock_count = 0;
 		return -1;
 	}
 
-        i_assert(index->excl_lock_count == 1);
 	return 0;
 }
 
@@ -347,10 +367,14 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 {
 	if ((lock_id & 1) == 0) {
 		/* shared lock */
-		if (mail_index_is_locked(index, lock_id)) {
-			i_assert(index->shared_lock_count > 0);
-			index->shared_lock_count--;
+		if (!mail_index_is_locked(index, lock_id)) {
+			/* unlocking some older generation of the index file.
+			   we've already closed the file so just ignore this. */
+			return;
 		}
+
+		i_assert(index->shared_lock_count > 0);
+		index->shared_lock_count--;
 	} else {
 		/* exclusive lock */
 		i_assert(lock_id == index->lock_id + 1);

@@ -102,6 +102,7 @@ static int mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 					 int external)
 {
         enum mail_transaction_type flag;
+	size_t size;
 	int ret;
 
 	flag = external ? MAIL_TRANSACTION_EXTERNAL : 0;
@@ -111,6 +112,11 @@ static int mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 		if ((ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) == flag)
 			mail_index_sync_sort_transaction(ctx);
 	}
+
+	ctx->expunges = buffer_get_data(ctx->expunges_buf, &size);
+	ctx->expunges_count = size / sizeof(*ctx->expunges);
+	ctx->updates = buffer_get_data(ctx->updates_buf, &size);
+	ctx->updates_count = size / sizeof(*ctx->updates);
 
 	return ret;
 }
@@ -136,7 +142,6 @@ int mail_index_sync_begin(struct mail_index *index,
 	struct mail_index_sync_ctx *ctx;
 	uint32_t seq;
 	uoff_t offset;
-	size_t size;
 	unsigned int lock_id;
 
 	if (mail_transaction_log_sync_lock(index->log, &seq, &offset) < 0)
@@ -187,11 +192,6 @@ int mail_index_sync_begin(struct mail_index *index,
                 mail_index_sync_end(ctx);
 		return -1;
 	}
-
-	ctx->expunges = buffer_get_data(ctx->expunges_buf, &size);
-	ctx->expunges_count = size / sizeof(*ctx->expunges);
-	ctx->updates = buffer_get_data(ctx->updates_buf, &size);
-	ctx->updates_count = size / sizeof(*ctx->updates);
 
 	*ctx_r = ctx;
 	*view_r = ctx->view;

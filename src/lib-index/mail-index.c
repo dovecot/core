@@ -14,8 +14,6 @@
 #include <time.h>
 #include <sys/stat.h>
 
-static int mail_index_try_open_only(struct mail_index *index);
-
 struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 {
 	struct mail_index *index;
@@ -465,7 +463,7 @@ int mail_index_create(struct mail_index *index, struct mail_index_header *hdr)
 	return 1;
 }
 
-static int mail_index_try_open_only(struct mail_index *index)
+int mail_index_try_open_only(struct mail_index *index)
 {
 	int i;
 
@@ -530,10 +528,10 @@ static int
 mail_index_open2(struct mail_index *index, enum mail_index_open_flags flags)
 {
 	struct mail_index_header hdr;
-	unsigned int lock_id = 0;
 	int ret;
 
-	ret = mail_index_try_open(index, &lock_id);
+	index->opening_lock_id = 0;
+	ret = mail_index_try_open(index, &index->opening_lock_id);
 	if (ret > 0)
 		hdr = *index->hdr;
 	else if (ret == 0) {
@@ -551,8 +549,10 @@ mail_index_open2(struct mail_index *index, enum mail_index_open_flags flags)
 	if (index->log == NULL)
 		return -1;
 
-	if (lock_id != 0)
-		mail_index_unlock(index, lock_id);
+	if (index->opening_lock_id != 0) {
+		mail_index_unlock(index, index->opening_lock_id);
+                index->opening_lock_id = 0;
+	}
 	return index->fd != -1 ? 1 : mail_index_create(index, &hdr);
 }
 
