@@ -1248,9 +1248,8 @@ static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 
 		if ((buf->used % 4) != 0)
 			buffer_append_zero(buf, 4 - (buf->used % 4));
-		buffer_append_buf(buf, kt[i]->messages, 0, (size_t)-1);
 
-		if (log_append_buffer(file, buf, NULL,
+		if (log_append_buffer(file, kt[i]->messages, buf, 
 				      MAIL_TRANSACTION_KEYWORD_UPDATE,
 				      t->external) < 0)
 			return -1;
