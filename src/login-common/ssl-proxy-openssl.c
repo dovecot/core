@@ -368,8 +368,6 @@ int ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy)
 
 void ssl_proxy_free(struct ssl_proxy *proxy)
 {
-	if (!proxy->destroyed)
-		ssl_proxy_destroy(proxy);
 	ssl_proxy_unref(proxy);
 }
 
