@@ -120,8 +120,7 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 		if (errno == ENOSPC)
 			index->nodiskspace = TRUE;
 
-		index_set_error(index, "Error writing to temp index data "
-				"%s: %m", path);
+		index_file_set_syscall_error(index, path, "write_full()");
 		return FALSE;
 	}
 
@@ -145,8 +144,8 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 			if (errno == ENOSPC)
 				index->nodiskspace = TRUE;
 
-			index_set_error(index, "Error writing to temp index "
-					"data %s: %m", path);
+			index_file_set_syscall_error(index, path,
+						     "write_full()");
 			return FALSE;
 		}
 
@@ -154,6 +153,17 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 		offset += rec->data_size;
 
 		rec = index->next(index, rec);
+	}
+
+	/* update header */
+	data_hdr.used_file_size = offset;
+
+	if (lseek(fd, 0, SEEK_SET) < 0)
+		return index_file_set_syscall_error(index, path, "lseek()");
+
+	if (write_full(fd, &data_hdr, sizeof(data_hdr)) < 0) {
+		index_file_set_syscall_error(index, path, "write_full()");
+		return FALSE;
 	}
 
 	return TRUE;
