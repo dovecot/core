@@ -66,7 +66,7 @@ static int verify_credentials(struct cram_auth_request *auth,
 		return FALSE;
 
 	hmac_md5_set_cram_context(&ctx, context_digest);
-	md5_update(&ctx.ctx, auth->challenge, strlen(auth->challenge));
+	hmac_md5_update(&ctx, auth->challenge, strlen(auth->challenge));
 	hmac_md5_final(&ctx, digest);
 
 	response_hex = binary_to_hex(digest, 16);
