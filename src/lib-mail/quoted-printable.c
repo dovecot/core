@@ -18,10 +18,10 @@ void quoted_printable_decode(const unsigned char *src, size_t src_size,
 		if (src[src_pos] != '_' && src[src_pos] != '=')
 			continue;
 
-		buffer_append(dest, src, src_pos - next);
+		buffer_append(dest, src + next, src_pos - next);
 
 		if (src[src_pos] == '_') {
-			buffer_append(dest, " ", 1);
+			buffer_append_c(dest, ' ');
 			next = src_pos+1;
 		} else {
 			/* =<hex> */
@@ -40,6 +40,8 @@ void quoted_printable_decode(const unsigned char *src, size_t src_size,
 			}
 		}
 	}
+
+	buffer_append(dest, src + next, src_size - next);
 
 	if (src_pos_r != NULL)
 		*src_pos_r = src_pos;

@@ -7,6 +7,7 @@ INCLUDES = \
 libmail_a_SOURCES = \
 	message-body-search.c \
 	message-content-parser.c \
+	message-header-decode.c \
 	message-header-search.c \
 	message-parser.c \
 	message-part-serialize.c \
@@ -20,6 +21,7 @@ libmail_a_SOURCES = \
 noinst_HEADERS = \
 	message-body-search.h \
 	message-content-parser.h \
+	message-header-decode.h \
 	message-header-search.h \
 	message-parser.h \
 	message-part-serialize.h \
