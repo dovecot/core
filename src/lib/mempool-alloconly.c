@@ -229,17 +229,19 @@ static void *pool_alloconly_realloc_min(Pool pool, void *mem, size_t size)
 	size = MEM_ALIGN(size);
 
 	/* see if we can directly grow it */
-	if (pool_try_grow(apool, mem, size))
-		return mem;
-
-	/* slow way - allocate + copy */
-        new_mem = pool_alloconly_malloc(pool, size);
-	if (size > old_size) {
-                /* clear new data */
-		memset(new_mem + old_size, 0, size - old_size);
+	if (!pool_try_grow(apool, mem, size)) {
+		/* slow way - allocate + copy */
+		new_mem = pool_alloconly_malloc(pool, size);
+		memcpy(new_mem, mem, old_size);
+		mem = new_mem;
 	}
 
-        return new_mem;
+	if (size > old_size) {
+                /* clear new data */
+		memset(mem + old_size, 0, size - old_size);
+	}
+
+        return mem;
 }
 
 static void pool_alloconly_clear(Pool pool)
