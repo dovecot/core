@@ -88,7 +88,20 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail)
 	if (body == NULL)
 		return FALSE;
 
-	str_printfa(ctx->str, "BODY (%s) ", body);
+	if (ctx->first) {
+		if (o_stream_send_str(ctx->output, "BODY (") < 0)
+			return FALSE;
+		ctx->first = FALSE;
+	} else {
+		if (o_stream_send_str(ctx->output, " BODY(") < 0)
+			return FALSE;
+	}
+
+	if (o_stream_send_str(ctx->output, body) < 0)
+		return FALSE;
+
+	if (o_stream_send(ctx->output, ")", 1) < 0)
+		return FALSE;
 	return TRUE;
 }
 
@@ -101,7 +114,20 @@ static int fetch_bodystructure(struct imap_fetch_context *ctx,
 	if (bodystructure == NULL)
 		return FALSE;
 
-	str_printfa(ctx->str, "BODYSTRUCTURE (%s) ", bodystructure);
+	if (ctx->first) {
+		if (o_stream_send_str(ctx->output, "BODYSTRUCTURE (") < 0)
+			return FALSE;
+		ctx->first = FALSE;
+	} else {
+		if (o_stream_send_str(ctx->output, " BODYSTRUCTURE(") < 0)
+			return FALSE;
+	}
+
+	if (o_stream_send_str(ctx->output, bodystructure) < 0)
+		return FALSE;
+
+	if (o_stream_send(ctx->output, ")", 1) < 0)
+		return FALSE;
 	return TRUE;
 }
 
@@ -113,7 +139,20 @@ static int fetch_envelope(struct imap_fetch_context *ctx, struct mail *mail)
 	if (envelope == NULL)
 		return FALSE;
 
-	str_printfa(ctx->str, "ENVELOPE (%s) ", envelope);
+	if (ctx->first) {
+		if (o_stream_send_str(ctx->output, "ENVELOPE (") < 0)
+			return FALSE;
+		ctx->first = FALSE;
+	} else {
+		if (o_stream_send_str(ctx->output, " ENVELOPE(") < 0)
+			return FALSE;
+	}
+
+	if (o_stream_send_str(ctx->output, envelope) < 0)
+		return FALSE;
+
+	if (o_stream_send(ctx->output, ")", 1) < 0)
+		return FALSE;
 	return TRUE;
 }
 
@@ -233,15 +272,6 @@ static int fetch_mail(struct imap_fetch_context *ctx, struct mail *mail)
 		if (ctx->fetch_data & MAIL_FETCH_SIZE)
 			if (!fetch_rfc822_size(ctx, mail))
 				break;
-		if (ctx->fetch_data & MAIL_FETCH_IMAP_BODY)
-			if (!fetch_body(ctx, mail))
-				break;
-		if (ctx->fetch_data & MAIL_FETCH_IMAP_BODYSTRUCTURE)
-			if (!fetch_bodystructure(ctx, mail))
-				break;
-		if (ctx->fetch_data & MAIL_FETCH_IMAP_ENVELOPE)
-			if(!fetch_envelope(ctx, mail))
-				break;
 
 		/* send the data written into temp string */
 		len = str_len(ctx->str);
@@ -253,6 +283,18 @@ static int fetch_mail(struct imap_fetch_context *ctx, struct mail *mail)
 			break;
 
 		data_written = TRUE;
+
+		/* medium size data .. seems to be faster without
+		 putting through string */
+		if (ctx->fetch_data & MAIL_FETCH_IMAP_BODY)
+			if (!fetch_body(ctx, mail))
+				break;
+		if (ctx->fetch_data & MAIL_FETCH_IMAP_BODYSTRUCTURE)
+			if (!fetch_bodystructure(ctx, mail))
+				break;
+		if (ctx->fetch_data & MAIL_FETCH_IMAP_ENVELOPE)
+			if(!fetch_envelope(ctx, mail))
+				break;
 
 		/* large data */
 		if (ctx->imap_data & IMAP_FETCH_RFC822)
