@@ -65,7 +65,7 @@ int index_storage_sync_index_if_possible(IndexMailbox *ibox, int sync_size)
 	return TRUE;
 }
 
-int index_storage_sync_modifylog(IndexMailbox *ibox)
+int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted)
 {
 	const ModifyLogRecord *log;
 	MailIndexRecord *rec;
@@ -139,10 +139,16 @@ int index_storage_sync_modifylog(IndexMailbox *ibox)
 				if (rec->uid >= ibox->index->first_recent_uid)
 					flags |= MAIL_RECENT;
 
-				sc->update_flags(&ibox->box, seq, rec->uid,
-						 flags, custom_flags,
-						 MAIL_CUSTOM_FLAGS_COUNT,
-						 sc_context);
+				/* \Deleted-hiding is useful when syncing just
+				   before doing EXPUNGE. */
+				if ((flags & MAIL_DELETED) == 0 ||
+				    !hide_deleted) {
+					sc->update_flags(
+						&ibox->box, seq, rec->uid,
+						flags, custom_flags,
+						MAIL_CUSTOM_FLAGS_COUNT,
+						sc_context);
+				}
 
                                 seq++;
 				rec = ibox->index->next(ibox->index, rec);
@@ -173,7 +179,7 @@ int index_storage_sync(Mailbox *box, int sync_expunges)
 		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
 			return mail_storage_set_index_error(ibox);
 
-		failed = !index_storage_sync_modifylog(ibox);
+		failed = !index_storage_sync_modifylog(ibox, FALSE);
 	}
 
 	/* check size only if we're locked (== at least something changed) */

@@ -77,7 +77,7 @@ int index_storage_expunge(Mailbox *box, int notify)
 		return mail_storage_set_index_error(ibox);
 
 	/* modifylog must be marked synced before expunging anything new */
-	failed = !index_storage_sync_modifylog(ibox);
+	failed = !index_storage_sync_modifylog(ibox, TRUE);
 
 	if (!failed)
 		failed = !ibox->expunge_locked(ibox, notify);

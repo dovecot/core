@@ -38,7 +38,7 @@ IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 void index_storage_close(Mailbox *box);
 
 int index_storage_sync_index_if_possible(IndexMailbox *ibox, int sync_size);
-int index_storage_sync_modifylog(IndexMailbox *ibox);
+int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted);
 
 int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
                                    const char *custom_flags[]);

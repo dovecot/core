@@ -78,7 +78,7 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(ibox);
 
-	if (!index_storage_sync_modifylog(ibox)) {
+	if (!index_storage_sync_modifylog(ibox, FALSE)) {
 		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 			return mail_storage_set_index_error(ibox);
 		return FALSE;
