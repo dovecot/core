@@ -64,7 +64,7 @@ void settings_read(const char *path, settings_callback_t *callback,
 {
 	struct istream *input;
 	const char *errormsg;
-	char *line, *key, *p;
+	char *line, *key;
 	int fd, linenum;
 
 	fd = open(path, O_RDONLY);
@@ -107,12 +107,6 @@ void settings_read(const char *path, settings_callback_t *callback,
 			/* skip whitespace after '=' */
 			*line++ = '\0';
 			while (IS_WHITE(*line)) line++;
-
-			/* skip trailing whitespace */
-			p = line + strlen(line);
-			while (p > line && IS_WHITE(p[-1]))
-				p--;
-			*p = '\0';
 
 			errormsg = callback(key, line, context);
 		}
