@@ -49,7 +49,7 @@ unsigned int alarm_hup_set_interval(unsigned int timeout)
 
 static void sig_alarm(int signo __attr_unused__)
 {
-	/* we need fcntl() to stop with EINTR */
+	/* we need syscalls to stop with EINTR */
 	if (raise(SIGHUP) < 0)
 		i_fatal("kill(): %m");
 
