@@ -220,6 +220,7 @@ maildir_index_alloc(const char *maildir, const char *index_dir,
 	struct mail_index *index;
 
 	i_assert(maildir != NULL);
+	i_assert(control_dir != NULL);
 
 	index = i_new(struct mail_index, 1);
 	memcpy(index, &maildir_index, sizeof(struct mail_index));
