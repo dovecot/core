@@ -410,6 +410,7 @@ int client_unref(struct pop3_client *client)
 	if (client->output != NULL)
 		o_stream_unref(client->output);
 
+	i_free(client->last_user);
 	i_free(client->apop_challenge);
 	i_free(client->common.virtual_user);
 	i_free(client->common.auth_mech_name);
