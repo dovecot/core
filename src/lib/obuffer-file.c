@@ -197,8 +197,11 @@ o_buffer_writev(FileOBuffer *fbuf, struct iovec *iov, unsigned int iov_size)
 	i_assert(iov_size > 0);
 
 	ret = writev(fbuf->fd, iov, iov_size);
-	if (ret < 0)
+	if (ret < 0) {
+		if (errno == EAGAIN || errno == EINTR)
+			return 0;
 		return -1;
+	}
 
 	update_iovec(iov, iov_size, ret);
 	update_buffer(fbuf, ret);
