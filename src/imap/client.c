@@ -364,7 +364,7 @@ void _client_input(void *context)
 static void client_output(void *context)
 {
 	struct client *client = context;
-	int ret;
+	int ret, finished;
 
 	if ((ret = o_stream_flush(client->output)) < 0) {
 		client_destroy(client);
@@ -375,15 +375,17 @@ static void client_output(void *context)
 
 	if (client->command_pending) {
 		o_stream_cork(client->output);
-		if (client->cmd_func(client)) {
+		finished = client->cmd_func(client);
+		o_stream_uncork(client->output);
+
+		if (finished) {
 			/* command execution was finished */
                         client->bad_counter = 0;
 			_client_reset_command(client);
-		}
-		o_stream_uncork(client->output);
 
-		if (client->input_pending)
-			_client_input(client);
+			if (client->input_pending)
+				_client_input(client);
+		}
 	}
 }
 
