@@ -171,6 +171,12 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 
 void client_destroy(struct client *client)
 {
+	if (client->cmd != NULL) {
+		/* deinitialize command */
+		i_stream_close(client->input);
+		o_stream_close(client->output);
+		client->cmd(client);
+	}
 	if (client->mailbox != NULL)
 		mailbox_close(client->mailbox);
 	mail_storage_destroy(client->storage);
