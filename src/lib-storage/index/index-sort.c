@@ -6,22 +6,55 @@
 #include "imap-envelope.h"
 #include "imap-message-cache.h"
 #include "mail-index.h"
+#include "mail-modifylog.h"
 #include "index-storage.h"
 #include "index-sort.h"
 
-static struct imap_message_cache *
-search_open_cache(struct index_sort_context *ctx, unsigned int uid)
+static struct mail_index_record *
+lookup_client_seq(struct index_sort_context *ctx, unsigned int client_seq)
 {
-	i_assert(uid != 0);
+	struct mail_index_record *rec;
+        unsigned int expunges_before;
 
-	if (ctx->last_uid != uid) {
+	if (ctx->synced_sequences)
+		return ctx->ibox->index->lookup(ctx->ibox->index, client_seq);
+
+	t_push();
+	if (mail_modifylog_seq_get_expunges(ctx->ibox->index->modifylog,
+					    client_seq, client_seq,
+					    &expunges_before) == NULL) {
+		rec = NULL;
+	} else {
+		rec = ctx->ibox->index->lookup(ctx->ibox->index,
+					       client_seq - expunges_before);
+	}
+	t_pop();
+
+	return rec;
+}
+
+static struct imap_message_cache *
+search_open_cache(struct index_sort_context *ctx, unsigned int id)
+{
+	i_assert(id != 0);
+
+	if (ctx->last_id != id) {
 		ctx->cached = FALSE;
-		ctx->last_uid = uid;
+		ctx->last_id = id;
 
-		ctx->rec = ctx->ibox->index->lookup_uid_range(ctx->ibox->index,
-							      uid, uid, NULL);
+		if ((ctx->id_is_uid && ctx->current_rec->uid == id) ||
+		    (!ctx->id_is_uid && ctx->current_client_seq == id)) {
+			ctx->rec = ctx->current_rec;
+		} else if (ctx->id_is_uid) {
+			ctx->rec = ctx->ibox->index->
+				lookup_uid_range(ctx->ibox->index,
+						 id, id, NULL);
+		} else {
+			ctx->rec = lookup_client_seq(ctx, id);
+		}
+
 		if (ctx->rec == NULL) {
-			ctx->last_uid = 0;
+			ctx->last_id = 0;
 			return NULL;
 		}
 	}

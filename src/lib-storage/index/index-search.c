@@ -824,6 +824,7 @@ static int search_messages(struct index_mailbox *ibox, const char *charset,
 			   struct mail_search_arg *args,
 			   struct mail_sort_context *sort_ctx,
 			   struct mail_thread_context *thread_ctx,
+                           struct index_sort_context *index_sort_ctx,
 			   struct ostream *output, int uid_result)
 {
 	struct search_index_context ctx;
@@ -850,6 +851,7 @@ static int search_messages(struct index_mailbox *ibox, const char *charset,
 						   rec->uid, last_uid,
 						   &expunges_before);
 	client_seq += expunges_before;
+	index_sort_ctx->synced_sequences = expunges->uid1 == 0;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.ibox = ibox;
@@ -860,8 +862,8 @@ static int search_messages(struct index_mailbox *ibox, const char *charset,
 		while (expunges->uid1 != 0 && expunges->uid1 < rec->uid) {
 			i_assert(expunges->uid2 < rec->uid);
 
-			expunges++;
 			client_seq += expunges->seq_count;
+			expunges++;
 		}
 		i_assert(!(expunges->uid1 <= rec->uid &&
 			   expunges->uid2 >= rec->uid));
@@ -897,10 +899,16 @@ static int search_messages(struct index_mailbox *ibox, const char *charset,
 			}
 
 			if (found) {
+				unsigned int id = uid_result ?
+					rec->uid : client_seq;
+
+				index_sort_ctx->current_client_seq = client_seq;
+				index_sort_ctx->current_rec = rec;
+
 				if (sort_ctx != NULL)
-					mail_sort_input(sort_ctx, rec->uid);
+					mail_sort_input(sort_ctx, id);
 				else if (thread_ctx != NULL) {
-					mail_thread_input(thread_ctx, rec->uid,
+					mail_thread_input(thread_ctx, id,
 							  ctx.message_id,
 							  ctx.in_reply_to,
 							  ctx.references,
@@ -908,8 +916,7 @@ static int search_messages(struct index_mailbox *ibox, const char *charset,
 				} else {
 					o_stream_send(output, " ", 1);
 
-					str = dec2str(uid_result ? rec->uid :
-						      client_seq);
+					str = dec2str(id);
 					o_stream_send_str(output, str);
 				}
 			}
@@ -946,6 +953,7 @@ int index_storage_search(struct mailbox *box, const char *charset,
 		memset(&index_sort_ctx, 0, sizeof(index_sort_ctx));
 		index_sort_ctx.ibox = ibox;
 		index_sort_ctx.output = output;
+		index_sort_ctx.id_is_uid = uid_result;
 
 		thread_ctx = NULL;
 		sort_ctx = mail_sort_init(sort_unsorted, sorting, output,
@@ -955,6 +963,7 @@ int index_storage_search(struct mailbox *box, const char *charset,
 	} else if (threading != MAIL_THREAD_NONE) {
 		memset(&index_sort_ctx, 0, sizeof(index_sort_ctx));
 		index_sort_ctx.ibox = ibox;
+		index_sort_ctx.id_is_uid = uid_result;
 
 		sort_ctx = NULL;
 		thread_ctx = mail_thread_init(threading, output,
@@ -962,13 +971,14 @@ int index_storage_search(struct mailbox *box, const char *charset,
 					      &index_sort_ctx);
 		o_stream_send_str(output, "* THREAD");
 	} else {
+		memset(&index_sort_ctx, 0, sizeof(index_sort_ctx));
 		sort_ctx = NULL;
 		thread_ctx = NULL;
 		o_stream_send_str(output, "* SEARCH");
 	}
 
 	failed = !search_messages(ibox, charset, args, sort_ctx, thread_ctx,
-				  output, uid_result);
+				  &index_sort_ctx, output, uid_result);
 	if (sort_ctx != NULL)
 		mail_sort_deinit(sort_ctx);
 	if (thread_ctx != NULL)
