@@ -688,6 +688,9 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 	if (msync(mmap_base, offset, MS_SYNC) < 0)
 		return mail_cache_set_syscall_error(cache, "msync()");
 
+	if (munmap(mmap_base, new_file_size) < 0)
+		return mail_cache_set_syscall_error(cache, "munmap()");
+
 	if (fdatasync(fd) < 0)
 		return mail_cache_set_syscall_error(cache, "fdatasync()");
 	return TRUE;
