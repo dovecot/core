@@ -511,7 +511,7 @@ static time_t get_time(enum mail_sort_type type, const unsigned char *buf,
 	return t;
 }
 
-static time_t get_uofft(enum mail_sort_type type, const unsigned char *buf,
+static uoff_t get_uofft(enum mail_sort_type type, const unsigned char *buf,
 			struct sort_context *ctx)
 {
 	uoff_t size;
