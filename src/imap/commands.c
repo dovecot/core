@@ -82,6 +82,9 @@ client_command_func_t client_command_find(const char *name)
 			return cmd_uid;
 		if (strcmp(name, "UNSUBSCRIBE") == 0)
 			return cmd_unsubscribe;
+		if (strcmp(name, "UNSELECT") == 0)
+			return cmd_unselect;
+
 		break;
 	}
 

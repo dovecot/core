@@ -49,6 +49,7 @@ cmds = \
 	cmd-subscribe.c \
 	cmd-thread.c \
 	cmd-uid.c \
+	cmd-unselect.c \
 	cmd-unsubscribe.c
 
 imap_SOURCES = \

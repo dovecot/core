@@ -121,6 +121,16 @@ void client_send_storage_error(struct client *client)
 						error, NULL));
 }
 
+void client_send_closing_mailbox_error(struct client *client)
+{
+	const char *error;
+	int syntax;
+
+	error = client->storage->get_last_error(client->storage, &syntax);
+	client_send_line(client,
+			 t_strconcat(syntax ? "* BAD " : "* NO ", error, NULL));
+}
+
 int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 			    struct mail_full_flags *flags)
 {
@@ -131,8 +141,7 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 	max_flags = MAIL_CUSTOM_FLAGS_COUNT;
 
 	memset(flags, 0, sizeof(*flags));
-	flags->custom_flags = flags->custom_flags_count == 0 ? NULL :
-		t_new(const char *, flags->custom_flags_count);
+	flags->custom_flags = t_new(const char *, max_flags);
 
 	flag_pos = 0;
 	while (args->type != IMAP_ARG_EOL) {

@@ -14,7 +14,8 @@ int _cmd_select_full(struct client *client, int readonly)
 		return FALSE;
 
 	if (client->mailbox != NULL) {
-		client->mailbox->close(client->mailbox);
+		if (!client->mailbox->close(client->mailbox))
+                        client_send_closing_mailbox_error(client);
 		client->mailbox = NULL;
 	}
 
