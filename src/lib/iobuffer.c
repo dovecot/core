@@ -622,7 +622,7 @@ void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 	buf->flush_context = context;
 }
 
-static int io_buffer_read_mmaped(IOBuffer *buf, size_t size)
+static ssize_t io_buffer_read_mmaped(IOBuffer *buf, size_t size)
 {
 	uoff_t stop_offset;
 	size_t aligned_skip;
@@ -665,12 +665,12 @@ static int io_buffer_read_mmaped(IOBuffer *buf, size_t size)
 	return buf->buffer_size;
 }
 
-int io_buffer_read(IOBuffer *buf)
+ssize_t io_buffer_read(IOBuffer *buf)
 {
         return io_buffer_read_max(buf, SSIZE_T_MAX);
 }
 
-int io_buffer_read_max(IOBuffer *buf, size_t size)
+ssize_t io_buffer_read_max(IOBuffer *buf, size_t size)
 {
 	ssize_t ret;
 
