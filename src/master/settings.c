@@ -62,6 +62,7 @@ static Setting settings[] = {
 	{ "mailbox_check_interval",
 				SET_INT, &set_mailbox_check_interval },
 	{ "mail_save_crlf",	SET_BOOL,&set_mail_save_crlf },
+	{ "mail_read_mmaped",	SET_BOOL,&set_mail_read_mmaped },
 	{ "maildir_copy_with_hardlinks",
 				SET_BOOL,&set_maildir_copy_with_hardlinks },
 	{ "maildir_check_content_changes",
@@ -121,6 +122,7 @@ char *set_mail_cache_fields = "MessagePart";
 char *set_mail_never_cache_fields = NULL;
 unsigned int set_mailbox_check_interval = 30;
 int set_mail_save_crlf = FALSE;
+int set_mail_read_mmaped = FALSE;
 int set_maildir_copy_with_hardlinks = FALSE;
 int set_maildir_check_content_changes = FALSE;
 char *set_mbox_locks = "dotlock fcntl flock";

@@ -71,9 +71,19 @@ IBuffer *mbox_get_inbuf(MailIndex *index, uoff_t offset, MailLockType lock_type)
 	}
 
 	if (index->mbox_inbuf == NULL) {
-		index->mbox_inbuf =
-			i_buffer_create_mmap(index->mbox_fd, default_pool,
-					     MAIL_MMAP_BLOCK_SIZE, 0, 0, FALSE);
+		if (index->mail_read_mmaped) {
+			index->mbox_inbuf =
+				i_buffer_create_mmap(index->mbox_fd,
+						     default_pool,
+						     MAIL_MMAP_BLOCK_SIZE,
+						     0, 0, FALSE);
+		} else {
+			index->mbox_inbuf =
+				i_buffer_create_file(index->mbox_fd,
+						     default_pool,
+						     MAIL_READ_BLOCK_SIZE,
+						     FALSE);
+		}
 	}
 
 	i_buffer_set_read_limit(index->mbox_inbuf, 0);

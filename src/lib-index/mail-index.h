@@ -366,6 +366,7 @@ struct _MailIndex {
 
 	unsigned int anon_mmap:1;
 	unsigned int opened:1;
+	unsigned int mail_read_mmaped:1;
 	unsigned int inconsistent:1;
 	unsigned int nodiskspace:1;
 };
@@ -376,7 +377,7 @@ struct _MailIndex {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0
 
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent, int fast);
@@ -433,6 +434,8 @@ int mail_index_truncate(MailIndex *index);
 
 /* Max. mmap()ed size for a message */
 #define MAIL_MMAP_BLOCK_SIZE (1024*256)
+/* Block size when read()ing message. */
+#define MAIL_READ_BLOCK_SIZE (1024*8)
 
 /* Delete unused non-local temp files after 24h. Just to be sure we don't
    delete it too early. The temp files don't harm much anyway. */

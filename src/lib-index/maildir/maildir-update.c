@@ -16,8 +16,13 @@ int maildir_record_update(MailIndex *index, MailIndexUpdate *update, int fd)
 		return TRUE;
 
 	t_push();
-	inbuf = i_buffer_create_mmap(fd, data_stack_pool, MAIL_MMAP_BLOCK_SIZE,
-				     0, 0, FALSE);
+	if (index->mail_read_mmaped) {
+		inbuf = i_buffer_create_mmap(fd, data_stack_pool,
+					     MAIL_MMAP_BLOCK_SIZE, 0, 0, FALSE);
+	} else {
+		inbuf = i_buffer_create_file(fd, data_stack_pool,
+					     MAIL_READ_BLOCK_SIZE, FALSE);
+	}
 	mail_index_update_headers(update, inbuf, cache_fields, NULL, NULL);
 	i_buffer_unref(inbuf);
 	t_pop();

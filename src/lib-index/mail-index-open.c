@@ -150,6 +150,7 @@ static int mail_index_open_init(MailIndex *index, int update_recent)
 			return FALSE;
 	}
 
+	index->mail_read_mmaped = getenv("MAIL_READ_MMAPED") != NULL;
 	return TRUE;
 }
 

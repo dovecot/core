@@ -53,6 +53,11 @@ IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
 		}
 	}
 
-	return i_buffer_create_mmap(fd, default_pool, MAIL_MMAP_BLOCK_SIZE,
-				    0, 0, TRUE);
+	if (index->mail_read_mmaped) {
+		return i_buffer_create_mmap(fd, default_pool,
+					    MAIL_MMAP_BLOCK_SIZE, 0, 0, TRUE);
+	} else {
+		return i_buffer_create_file(fd, default_pool,
+					    MAIL_READ_BLOCK_SIZE, TRUE);
+	}
 }

@@ -124,6 +124,8 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
 
 	if (set_mail_save_crlf)
 		putenv("MAIL_SAVE_CRLF=1");
+	if (set_mail_read_mmaped)
+		putenv("MAIL_READ_MMAPED=1");
 	if (set_maildir_copy_with_hardlinks)
 		putenv("MAILDIR_COPY_WITH_HARDLINKS=1");
 	if (set_maildir_check_content_changes)
