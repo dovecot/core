@@ -499,7 +499,8 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 		offset += new_map->hdr->record_size;
 	}
 
-	if (ext_id == size-1 && ext[ext_id].record_size != old_size) {
+	if (ext_id == size-1 && ext[ext_id].record_size != old_size &&
+	    old_records_count != 0) {
 		/* we didn't fully write the last record */
 		buffer_append_zero(new_map->buffer,
 				   ext[ext_id].record_size - old_size);
