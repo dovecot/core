@@ -68,9 +68,11 @@ static ssize_t _read(struct _istream *stream)
 	stream->skip = 0;
 	stream->buffer = i_stream_get_data(lstream->input, &pos);
 
-	left = lstream->v_size - stream->istream.v_offset;
-	if (pos > left)
-		pos = left;
+	if (lstream->v_size != (uoff_t)-1) {
+		left = lstream->v_size - stream->istream.v_offset;
+		if (pos > left)
+			pos = left;
+	}
 
 	ret = pos <= stream->pos ? -1 :
 		(ssize_t) (pos - stream->pos);
