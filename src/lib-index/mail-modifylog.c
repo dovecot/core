@@ -37,7 +37,7 @@ struct _MailModifyLog {
 static const unsigned int no_expunges[] = { 0 };
 
 static int modifylog_set_syscall_error(MailModifyLog *log,
-					const char *function)
+				       const char *function)
 {
 	i_assert(function != NULL);
 
@@ -188,8 +188,17 @@ static int mail_modifylog_init_fd(MailModifyLog *log, int fd,
 	return TRUE;
 }
 
-static int mail_modifylog_open_and_init_file(MailModifyLog *log,
-					     const char *path)
+static int modifylog_mark_full(MailModifyLog *log)
+{
+	log->header->sync_id = SYNC_ID_FULL;
+
+	if (msync(log->mmap_base, sizeof(ModifyLogHeader), MS_SYNC) < 0)
+		return modifylog_set_syscall_error(log, "msync()");
+
+	return TRUE;
+}
+
+static int modifylog_open_and_init_file(MailModifyLog *log, const char *path)
 {
 	int fd, ret;
 
@@ -209,11 +218,13 @@ static int mail_modifylog_open_and_init_file(MailModifyLog *log,
 	}
 
 	if (ret == 1 && mail_modifylog_init_fd(log, fd, path)) {
-		mail_modifylog_close(log);
+		if (log->fd == -1 || modifylog_mark_full(log)) {
+			mail_modifylog_close(log);
 
-		log->fd = fd;
-		log->filepath = i_strdup(path);
-		return TRUE;
+			log->fd = fd;
+			log->filepath = i_strdup(path);
+			return TRUE;
+		}
 	}
 
 	(void)close(fd);
@@ -230,7 +241,7 @@ int mail_modifylog_create(MailIndex *index)
 	log = mail_modifylog_new(index);
 
 	path = t_strconcat(log->index->filepath, ".log", NULL);
-	if (!mail_modifylog_open_and_init_file(log, path) ||
+	if (!modifylog_open_and_init_file(log, path) ||
 	    !mail_modifylog_wait_lock(log) ||
 	    !mmap_update(log)) {
 		/* fatal failure */
@@ -309,10 +320,10 @@ static int mail_modifylog_find_or_create(MailModifyLog *log)
 		}
 
 		/* try creating/reusing them */
-		if (mail_modifylog_open_and_init_file(log, path1))
+		if (modifylog_open_and_init_file(log, path1))
 			return TRUE;
 
-		if (mail_modifylog_open_and_init_file(log, path2))
+		if (modifylog_open_and_init_file(log, path2))
 			return TRUE;
 
 		/* maybe the file was just switched, check the logs again */
@@ -464,12 +475,7 @@ static void mail_modifylog_try_switch_file(MailModifyLog *log)
 	path = t_strconcat(log->index->filepath,
 			   log->second_log ? ".log" : ".log.2", NULL);
 
-	if (mail_modifylog_open_and_init_file(log, path)) {
-		/* FIXME: we want to update the _old_ file's header.
-		   and this changes the new one. and it's already closed the
-		   old one and mmap() is invalid, and we crash here.. */
-		log->header->sync_id = SYNC_ID_FULL;
-	}
+	(void)modifylog_open_and_init_file(log, path);
 }
 
 int mail_modifylog_mark_synced(MailModifyLog *log)
