@@ -102,20 +102,17 @@ static void update_buffer(struct file_ostream *fstream, size_t size)
 	if (fstream->head < fstream->tail) {
 		/* ...HXXXT... */
 		used = fstream->tail - fstream->head;
-		fstream->head += I_MIN(used, size);
+		i_assert(size <= used);
+		fstream->head += size;
 	} else {
 		/* XXXT...HXXX */
 		used = fstream->buffer_size - fstream->head;
 		if (size > used) {
 			size -= used;
-			if (size < fstream->tail)
-				fstream->head = size;
-			else {
-				/* whole buffer is sent */
-				fstream->head = fstream->tail = 0;
-			}
+			i_assert(size <= fstream->tail);
+			fstream->head = size;
 		} else {
-			fstream->head += I_MIN(used, size);
+			fstream->head += size;
 		}
 
 		fstream->full = FALSE;
@@ -128,7 +125,6 @@ static void update_buffer(struct file_ostream *fstream, size_t size)
 		fstream->head = 0;
 }
 
-/* NOTE: modifies iov */
 static ssize_t o_stream_writev(struct file_ostream *fstream,
 			       const struct const_iovec *iov, int iov_size)
 {
@@ -158,9 +154,9 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 		if (iov_size <= UIO_MAXIOV) {
 			ret = writev(fstream->fd, (const struct iovec *)iov,
 				     iov_size);
-			if (ret > 0)
-				ret += sent;
 		}
+		if (ret > 0)
+			ret += sent;
 	}
 
 	if (ret < 0) {
@@ -373,7 +369,8 @@ static size_t o_stream_add(struct file_ostream *fstream,
 
 		if (unused > size-sent)
 			unused = size-sent;
-		memcpy(fstream->buffer + fstream->tail, data, unused);
+		memcpy(fstream->buffer + fstream->tail,
+		       CONST_PTR_OFFSET(data, sent), unused);
 		sent += unused;
 
 		fstream->tail += unused;
