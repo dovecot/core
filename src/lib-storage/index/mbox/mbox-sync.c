@@ -453,12 +453,12 @@ static int mbox_read_from_line(struct mbox_sync_mail_context *ctx)
 }
 
 static int
-mbox_write_from_line(struct mbox_sync_mail_context *ctx, off_t move_diff)
+mbox_write_from_line(struct mbox_sync_mail_context *ctx)
 {
 	string_t *str = ctx->sync_ctx->from_line;
 
 	if (pwrite_full(ctx->sync_ctx->fd, str_data(str), str_len(str),
-			ctx->mail.from_offset + move_diff) < 0) {
+			ctx->mail.from_offset) < 0) {
 		mbox_set_syscall_error(ctx->sync_ctx->ibox, "pwrite_full()");
 		return -1;
 	}
@@ -540,7 +540,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			   new location */
 			mail_ctx->mail.from_offset += move_diff;
 			mail_ctx->mail.offset += move_diff;
-			if (mbox_write_from_line(mail_ctx, move_diff) < 0)
+			if (mbox_write_from_line(mail_ctx) < 0)
 				return -1;
 		}
 	} else if (mail_ctx->need_rewrite ||
