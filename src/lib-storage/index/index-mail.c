@@ -600,15 +600,13 @@ void index_mail_init(struct index_transaction_context *t,
 	struct index_header_lookup_ctx *wanted_headers =
 		(struct index_header_lookup_ctx *)_wanted_headers;
 	const struct mail_index_header *hdr;
-	int ret;
 
 	mail->mail = *t->ibox->mail_interface;
 	mail->mail.box = &t->ibox->box;
 
 	/* only reason we couldn't get header is if view is invalidated */
-	ret = mail_index_get_header(t->ibox->view, &hdr);
-	if (ret == 0)
-		mail->uid_validity = hdr->uid_validity;
+	hdr = mail_index_get_header(t->ibox->view);
+	mail->uid_validity = hdr->uid_validity;
 
 	mail->pool = pool_alloconly_create("index_mail", 16384);
 	mail->ibox = t->ibox;

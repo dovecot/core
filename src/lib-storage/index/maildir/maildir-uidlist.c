@@ -400,8 +400,7 @@ uint32_t maildir_uidlist_get_recent_count(struct maildir_uidlist *uidlist)
 		/* we haven't synced yet, trust index */
 		const struct mail_index_header *hdr;
 
-		if (mail_index_get_header(uidlist->ibox->view, &hdr) < 0)
-			return 0;
+		hdr = mail_index_get_header(uidlist->ibox->view);
 		return hdr->recent_messages_count;
 	}
 

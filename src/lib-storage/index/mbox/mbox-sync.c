@@ -1187,10 +1187,7 @@ int mbox_sync_has_changed(struct index_mailbox *ibox, int leave_dirty)
 	const struct mail_index_header *hdr;
 	struct stat st;
 
-	if (mail_index_get_header(ibox->view, &hdr) < 0) {
-		mail_storage_set_index_error(ibox);
-		return -1;
-	}
+	hdr = mail_index_get_header(ibox->view);
 
 	if (stat(ibox->path, &st) < 0) {
 		mbox_set_syscall_error(ibox, "stat()");
@@ -1338,14 +1335,7 @@ __again:
 	memset(&sync_ctx, 0, sizeof(sync_ctx));
 	sync_ctx.ibox = ibox;
 
-	if (mail_index_get_header(sync_view, &sync_ctx.hdr) < 0) {
-		/* view is invalidated */
-		mail_storage_set_index_error(ibox);
-		mail_index_sync_rollback(index_sync_ctx);
-		(void)mbox_unlock(ibox, lock_id);
-		return -1;
-	}
-
+	sync_ctx.hdr = mail_index_get_header(sync_view);
 	sync_ctx.from_line = str_new(default_pool, 256);
 	sync_ctx.header = str_new(default_pool, 4096);
 	sync_ctx.uidl = str_new(default_pool, 128);
@@ -1400,8 +1390,8 @@ __again:
 		if (ret < 0)
 			mail_storage_set_index_error(ibox);
 		else {
-			(void)mail_index_get_header(sync_ctx.sync_view,
-						    &sync_ctx.hdr);
+			sync_ctx.hdr =
+				mail_index_get_header(sync_ctx.sync_view);
 			if ((ret = mbox_sync_update_imap_base(&sync_ctx)) < 0)
 				mail_index_transaction_rollback(sync_ctx.t);
 			else if (mail_index_transaction_commit(sync_ctx.t,

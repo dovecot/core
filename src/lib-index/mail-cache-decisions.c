@@ -87,9 +87,9 @@ void mail_cache_decision_lookup(struct mail_cache_view *view, uint32_t seq,
 	}
 
 	/* see if we want to change decision from TEMP to YES */
-	if (mail_index_lookup_uid(view->view, seq, &uid) < 0 ||
-	    mail_index_get_header(view->view, &hdr) < 0)
+	if (mail_index_lookup_uid(view->view, seq, &uid) < 0)
 		return;
+	hdr = mail_index_get_header(view->view);
 
 	if (ioloop_time - cache->fields[field].last_used > 3600*24) {
 		/* update last_used about once a day */

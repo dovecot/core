@@ -124,8 +124,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 
 	/* get sequence of first message which doesn't need it's temp fields
 	   removed. */
-	if (mail_index_get_header(view, &idx_hdr) < 0)
-		return -1;
+	idx_hdr = mail_index_get_header(view);
 	if (idx_hdr->day_first_uid[7] == 0) {
 		first_new_seq = 1;
 		message_count = mail_index_view_get_message_count(view);

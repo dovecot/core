@@ -545,11 +545,7 @@ static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 		}
 
 		view = mail_index_view_open(ibox->index);
-		if (mail_index_get_header(view, &hdr) < 0) {
-			mail_index_view_close(view);
-			mail_storage_set_index_error(ibox);
-			return -1;
-		}
+		hdr = mail_index_get_header(view);
 		ibox->last_cur_mtime = hdr->sync_stamp;
 		mail_index_view_close(view);
 	}
@@ -616,13 +612,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	uint32_t uid_validity, next_uid;
 	int ret;
 
-	if (mail_index_get_header(view, &hdr) < 0) {
-		/* view is invalidated */
-		mail_storage_set_index_error(ibox);
-                maildir_sync_index_abort(sync_ctx);
-		return -1;
-	}
-
+	hdr = mail_index_get_header(view);
 	uid_validity = maildir_uidlist_get_uid_validity(ibox->uidlist);
 	if (uid_validity != hdr->uid_validity &&
 	    uid_validity != 0 && hdr->uid_validity != 0) {

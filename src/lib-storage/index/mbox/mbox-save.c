@@ -170,21 +170,18 @@ static int mbox_write_content_length(struct mbox_save_context *ctx)
 	return ret;
 }
 
-static int mbox_save_init_sync(struct mbox_transaction_context *t)
+static void mbox_save_init_sync(struct mbox_transaction_context *t)
 {
 	struct mbox_save_context *ctx = t->save_ctx;
 	const struct mail_index_header *hdr;
 
-	if (mail_index_get_header(t->ictx.trans_view, &hdr) < 0) {
-		mail_storage_set_index_error(ctx->ibox);
-		return -1;
-	}
+	hdr = mail_index_get_header(t->ictx.trans_view);
+
 	ctx->next_uid = hdr->next_uid;
 	ctx->synced = TRUE;
         t->mbox_modified = TRUE;
 
 	index_mail_init(&t->ictx, &ctx->mail, 0, NULL);
-	return 0;
 }
 
 static void status_flags_append(string_t *str, enum mail_flags flags,
@@ -257,10 +254,8 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 			ret = mbox_sync_has_changed(ibox, TRUE);
 			if (ret < 0)
 				return -1;
-			if (ret == 0) {
-				if (mbox_save_init_sync(t) < 0)
-					return -1;
-			}
+			if (ret == 0)
+				mbox_save_init_sync(t);
 		}
 
 		if (mbox_seek_to_end(ctx, &ctx->append_offset) < 0)
@@ -274,8 +269,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		/* we'll need to assign UID for the mail immediately. */
 		if (mbox_sync(ibox, 0) < 0)
 			return -1;
-		if (mbox_save_init_sync(t) < 0)
-			return -1;
+		mbox_save_init_sync(t);
 	}
 
 	return 0;

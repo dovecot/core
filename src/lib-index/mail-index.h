@@ -250,8 +250,8 @@ mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx);
 
 /* Returns the index header. */
-int mail_index_get_header(struct mail_index_view *view,
-			  const struct mail_index_header **hdr_r);
+const struct mail_index_header *
+mail_index_get_header(struct mail_index_view *view);
 /* Returns the given message. Returns -1 if error, 1 if ok, 0 if mail was
    expunged but data was returned from some older index.  */
 int mail_index_lookup(struct mail_index_view *view, uint32_t seq,

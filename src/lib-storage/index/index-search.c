@@ -692,11 +692,7 @@ static int search_get_seqset(struct index_search_context *ctx,
 {
         const struct mail_index_header *hdr;
 
-	if (mail_index_get_header(ctx->view, &hdr) < 0) {
-		mail_storage_set_index_error(ctx->ibox);
-		return -1;
-	}
-
+	hdr = mail_index_get_header(ctx->view);
 	if (search_parse_msgset_args(ctx->ibox, hdr, args,
 				     &ctx->seq1, &ctx->seq2) < 0)
 		return -1;

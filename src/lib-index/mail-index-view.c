@@ -164,11 +164,10 @@ static uint32_t _view_get_message_count(struct mail_index_view *view)
 	return view->messages_count;
 }
 
-static int _view_get_header(struct mail_index_view *view,
-			    const struct mail_index_header **hdr_r)
+static const struct mail_index_header *
+_view_get_header(struct mail_index_view *view)
 {
-	*hdr_r = &view->hdr;
-	return 0;
+	return &view->hdr;
 }
 
 static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
@@ -432,10 +431,10 @@ uint32_t mail_index_view_get_message_count(struct mail_index_view *view)
 	return view->messages_count;
 }
 
-int mail_index_get_header(struct mail_index_view *view,
-			  const struct mail_index_header **hdr_r)
+const struct mail_index_header *
+mail_index_get_header(struct mail_index_view *view)
 {
-	return view->methods.get_header(view, hdr_r);
+	return view->methods.get_header(view);
 }
 
 int mail_index_lookup(struct mail_index_view *view, uint32_t seq,

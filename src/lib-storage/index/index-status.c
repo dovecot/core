@@ -26,9 +26,7 @@ int index_storage_get_status_locked(struct index_mailbox *ibox,
 	memset(status_r, 0, sizeof(struct mailbox_status));
 
 	/* we can get most of the status items without any trouble */
-	if (mail_index_get_header(ibox->view, &hdr) < 0)
-		return -1;
-
+	hdr = mail_index_get_header(ibox->view);
 	status_r->messages = hdr->messages_count;
 	status_r->recent = ibox->synced_recent_count;
 	status_r->unseen =

@@ -783,10 +783,10 @@ static int mbox_storage_close(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	const struct mail_index_header *hdr;
-	int ret;
+	int ret = 0;
 
-	ret = mail_index_get_header(ibox->view, &hdr);
-	if (ret == 0 && (hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0 &&
+	hdr = mail_index_get_header(ibox->view);
+	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0 &&
 	    !ibox->readonly && !ibox->mbox_readonly) {
 		/* we've done changes to mbox which haven't been written yet.
 		   do it now. */

@@ -31,17 +31,14 @@ static uint32_t _tview_get_message_count(struct mail_index_view *view)
 		 tview->t->last_new_seq - tview->t->first_new_seq);
 }
 
-static int _tview_get_header(struct mail_index_view *view,
-			     const struct mail_index_header **hdr_r)
+static const struct mail_index_header *
+_tview_get_header(struct mail_index_view *view)
 {
 	struct mail_index_view_transaction *tview =
                 (struct mail_index_view_transaction *)view;
 
-	if (tview->parent->get_header(view, hdr_r) < 0)
-		return -1;
-
 	/* FIXME: header counters may not be correct */
-	return 0;
+	return tview->parent->get_header(view);
 }
 
 static int _tview_lookup_full(struct mail_index_view *view, uint32_t seq,

@@ -6,8 +6,8 @@
 struct mail_index_view_methods {
 	void (*close)(struct mail_index_view *view);
 	uint32_t (*get_message_count)(struct mail_index_view *view);
-	int (*get_header)(struct mail_index_view *view,
-			  const struct mail_index_header **hdr_r);
+	const struct mail_index_header *
+		(*get_header)(struct mail_index_view *view);
 	int (*lookup_full)(struct mail_index_view *view, uint32_t seq,
 			   struct mail_index_map **map_r,
 			   const struct mail_index_record **rec_r);
