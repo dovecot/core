@@ -297,8 +297,8 @@ static const char *trim(const char *str)
 	return ret;
 }
 
-static int auth_handle_response(struct digest_auth_request *auth, char *key, char *value,
-				const char **error)
+static int auth_handle_response(struct digest_auth_request *auth,
+				char *key, char *value, const char **error)
 {
 	int i;
 
@@ -460,8 +460,9 @@ static int auth_handle_response(struct digest_auth_request *auth, char *key, cha
 	return TRUE;
 }
 
-static int parse_digest_response(struct digest_auth_request *auth, const char *data,
-				 size_t size, const char **error)
+static int parse_digest_response(struct digest_auth_request *auth,
+				 const char *data, size_t size,
+				 const char **error)
 {
 	char *copy, *key, *value;
 	int failed;
@@ -525,14 +526,20 @@ static void credentials_callback(const char *result,
 {
 	struct digest_auth_request *auth =
 		(struct digest_auth_request *) request;
-	int success;
+	struct auth_login_reply reply;
 
-	success = verify_credentials(auth, result);
+	mech_init_login_reply(&reply);
+	reply.id = request->id;
 
-	auth->authenticated = TRUE;
-	mech_auth_finish(request, auth->rspauth,
-			 auth->rspauth == NULL ? 0 : strlen(auth->rspauth),
-			 success);
+	if (!verify_credentials(auth, result))
+		reply.result = AUTH_LOGIN_RESULT_FAILURE;
+	else {
+		reply.result = AUTH_LOGIN_RESULT_CONTINUE;
+		reply.data_size = strlen(auth->rspauth);
+		auth->authenticated = TRUE;
+	}
+
+	request->callback(&reply, auth->rspauth, request->conn);
 }
 
 static int
@@ -554,10 +561,7 @@ mech_digest_md5_auth_continue(struct login_connection *conn,
 	if (auth->authenticated) {
 		/* authentication is done, we were just waiting the last
 		   word from client */
-		void *data;
-
-		data = mech_auth_success(&reply, auth_request, NULL, 0);
-		callback(&reply, data, conn);
+		mech_auth_finish(auth_request, NULL, 0, TRUE);
 		return TRUE;
 	}
 
@@ -569,7 +573,8 @@ mech_digest_md5_auth_continue(struct login_connection *conn,
 
 		auth_request->user = p_strdup(auth_request->pool,
 					      auth->username);
-		auth_request->realm = p_strdup(auth_request->pool, auth->realm);
+		auth_request->realm =
+			p_strdup_empty(auth_request->pool, auth->realm);
 
 		passdb->lookup_credentials(&auth->auth_request,
 					   PASSDB_CREDENTIALS_DIGEST_MD5,
