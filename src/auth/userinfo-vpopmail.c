@@ -76,7 +76,7 @@ static int vpopmail_verify_plain(const char *user, const char *password,
 	}
 
 	/* verify password */
-	result = strcmp(crypt(password, vpw->pw_passwd), vpw->pw_passwd) == 0;
+	result = strcmp(mycrypt(password, vpw->pw_passwd), vpw->pw_passwd) == 0;
 	safe_memset(vpw->pw_passwd, 0, strlen(vpw->pw_passwd));
 
 	if (!result) {
