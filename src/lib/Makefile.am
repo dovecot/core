@@ -102,6 +102,7 @@ noinst_HEADERS = \
 	module-dir.h \
 	network.h \
 	ostream.h \
+	ostream-crlf.h \
 	ostream-internal.h \
 	primes.h \
 	printf-upper-bound.h \
