@@ -331,6 +331,9 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	size_t size, max_size, seq_idx, seq_limit, seq_count;
 	int commit;
 
+	if (MAIL_CACHE_IS_UNUSABLE(cache))
+		return -1;
+
 	commit = ctx->prev_seq == 0;
 	if (commit) {
 		/* committing, remove the last dummy record */
@@ -447,7 +450,7 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache *cache = ctx->cache;
 	int ret = 0;
 
-	if (!ctx->changes) {
+	if (!ctx->changes || MAIL_CACHE_IS_UNUSABLE(cache)) {
 		mail_cache_transaction_free(ctx);
 		return 0;
 	}
@@ -484,7 +487,8 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 	i_assert(size % sizeof(uint32_t)*2 == 0);
 	size /= sizeof(*buf);
 
-	if (ctx->reserved_space > 0 || size > 0) {
+	if ((ctx->reserved_space > 0 || size > 0) &&
+	    !MAIL_CACHE_IS_UNUSABLE(cache)) {
 		if (mail_cache_lock(cache) > 0) {
 			mail_cache_transaction_free_space(ctx);
 
@@ -644,6 +648,9 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 		    uint32_t new_offset)
 {
 	i_assert(cache->locked);
+
+	if (MAIL_CACHE_IS_UNUSABLE(cache))
+		return -1;
 
 	if (new_offset + sizeof(struct mail_cache_record) >
 	    cache->hdr_copy.used_file_size) {
