@@ -549,7 +549,7 @@ static MessagePart *message_parse_body(IStream *input,
 	MessageBoundary *boundary;
 
 	if (boundaries == NULL) {
-		message_get_body_size(input, body_size, (uoff_t)-1);
+		message_get_body_size(input, body_size, (uoff_t)-1, NULL);
 		return NULL;
 	} else {
 		boundary = message_find_boundary(input, boundaries,

@@ -507,11 +507,14 @@ int imap_msgcache_get_rfc822(ImapMessageCache *cache, IStream **stream,
 	return TRUE;
 }
 
-static void get_partial_size(IStream *stream,
-			     uoff_t virtual_skip, uoff_t max_virtual_size,
-			     MessageSize *partial, MessageSize *dest,
-			     int *cr_skipped)
+static uoff_t get_partial_size(IStream *stream,
+			       uoff_t virtual_skip, uoff_t max_virtual_size,
+			       MessageSize *partial, MessageSize *dest,
+			       int *cr_skipped)
 {
+	uoff_t physical_skip;
+	int last_cr;
+
 	/* see if we can use the existing partial */
 	if (partial->virtual_size > virtual_skip)
 		memset(partial, 0, sizeof(MessageSize));
@@ -521,23 +524,31 @@ static void get_partial_size(IStream *stream,
 	}
 
 	message_skip_virtual(stream, virtual_skip, partial, cr_skipped);
+        physical_skip = partial->physical_size;
 
 	if (*cr_skipped && max_virtual_size != (uoff_t)-1) {
 		/* get_body_size() sees \n first, counting it as \r\n */
 		max_virtual_size++;
 	}
 
-	message_get_body_size(stream, dest, max_virtual_size);
+	message_get_body_size(stream, dest, max_virtual_size, &last_cr);
 
 	if (*cr_skipped) {
 		/* extra virtual \r counted, drop it */
 		dest->virtual_size--;
-		/* we'll see \n as first character next time, so make sure
-		   we don't count the (virtual) \r twice. */
-		partial->virtual_size--;
 	}
 
-	// FIXME: add dest to partial
+	message_size_add(partial, dest);
+	if (last_cr != 0) {
+		/* we'll see \n as first character next time, so make sure
+		   we don't count the (virtual) \r twice. */
+		i_assert(partial->physical_size > 0);
+
+		if (last_cr == 1)
+			partial->physical_size--;
+		partial->virtual_size--;
+	}
+	return physical_skip;
 }
 
 int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
@@ -596,11 +607,10 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 		if (!get_header)
 			virtual_skip += msg->hdr_size->virtual_size;
 
-		get_partial_size(cache->open_stream, virtual_skip,
-				 max_virtual_size, msg->partial_size, size,
-				 cr_skipped);
-
-		physical_skip = msg->partial_size->physical_size;
+		physical_skip =
+			get_partial_size(cache->open_stream, virtual_skip,
+					 max_virtual_size, msg->partial_size,
+					 size, cr_skipped);
 	}
 
 	/* seek to wanted position */

@@ -37,24 +37,17 @@ int message_send(OStream *output, IStream *input, MessageSize *msg_size,
 	message_skip_virtual(input, virtual_skip, NULL, &cr_skipped);
 
 	/* go through the message data and insert CRs where needed.  */
-	while (i_stream_read_data(input, &msg, &size, 0) > 0) {
+	while (max_virtual_size > 0 &&
+	       i_stream_read_data(input, &msg, &size, 0) > 0) {
 		add_cr = FALSE;
-		for (i = 0; i < size; i++) {
+		for (i = 0; i < size && max_virtual_size > 0; i++) {
+			max_virtual_size--;
+
 			if (msg[i] == '\n') {
 				if ((i == 0 && !cr_skipped) ||
 				    (i > 0 && msg[i-1] != '\r')) {
 					/* missing CR */
-					if (max_virtual_size > 0)
-						max_virtual_size--;
 					add_cr = TRUE;
-					break;
-				}
-
-			}
-
-			if (max_virtual_size > 0) {
-				if (--max_virtual_size == 0) {
-					i++;
 					break;
 				}
 			}
@@ -70,10 +63,6 @@ int message_send(OStream *output, IStream *input, MessageSize *msg_size,
 		} else {
 			cr_skipped = i > 0 && msg[i-1] == '\r';
 		}
-
-		/* see if we've reached the limit */
-		if (max_virtual_size == 0)
-			break;
 
 		i_stream_skip(input, i);
 	}
