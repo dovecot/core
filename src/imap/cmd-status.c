@@ -42,17 +42,22 @@ static MailboxStatusItems get_status_items(Client *client, ImapArgList *list)
 	return items;
 }
 
+static int mailbox_name_equals(const char *box1, const char *box2)
+{
+	if (strcmp(box1, box2) == 0)
+		return TRUE;
+
+	return strcasecmp(box1, "INBOX") == 0 && strcasecmp(box2, "INBOX") == 0;
+}
+
 static int get_mailbox_status(Client *client, const char *mailbox,
 			      MailboxStatusItems items, MailboxStatus *status)
 {
 	Mailbox *box;
 	int failed;
 
-	if (strcasecmp(mailbox, "inbox") == 0)
-		mailbox = "INBOX";
-
 	if (client->mailbox != NULL &&
-	    strcmp(client->mailbox->name, mailbox) == 0) {
+	    mailbox_name_equals(client->mailbox->name, mailbox)) {
 		/* this mailbox is selected */
 		box = client->mailbox;
 	} else {
