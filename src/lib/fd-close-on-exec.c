@@ -33,11 +33,11 @@ void fd_close_on_exec(int fd, int set)
 
 	flags = fcntl(fd, F_GETFD, 0);
 	if (flags < 0)
-		i_fatal("fcntl(F_GETFD) failed: %m");
+		i_fatal("fcntl(F_GETFD, %d) failed: %m", fd);
 
 	flags = set ? (flags | FD_CLOEXEC) : (flags & ~FD_CLOEXEC);
 	if (fcntl(fd, F_SETFD, flags) < 0)
-		i_fatal("fcntl(F_SETFD) failed: %m");
+		i_fatal("fcntl(F_SETFD, %d) failed: %m", fd);
 }
 
 void fd_debug_verify_leaks(int first_fd, int last_fd)
