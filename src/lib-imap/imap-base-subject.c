@@ -53,7 +53,7 @@ static void pack_whitespace(buffer_t *buf)
 
 	/* check if we need to do anything */
 	while (*data != '\0') {
-		if (*data == '\t' ||
+		if (*data == '\t' || *data == '\n' || *data == '\r' ||
 		    (*data == ' ' && (data[1] == ' ' || data[1] == '\t')))
 			break;
 		data++;
@@ -65,7 +65,8 @@ static void pack_whitespace(buffer_t *buf)
 	/* @UNSAFE: convert/pack the whitespace */
 	dest = data; last_lwsp = FALSE;
 	while (*data != '\0') {
-		if (*data == '\t' || *data == ' ') {
+		if (*data == '\t' || *data == ' ' ||
+		    *data == '\r' || *data == '\n') {
 			if (!last_lwsp) {
 				*dest++ = ' ';
 				last_lwsp = TRUE;
