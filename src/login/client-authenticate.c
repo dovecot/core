@@ -75,7 +75,8 @@ static void client_auth_abort(Client *client, const char *msg)
 	/* get back to normal client input */
 	if (client->io != NULL)
 		io_remove(client->io);
-	client->io = io_add(client->fd, IO_READ, client_input, client);
+	client->io = client->fd == -1 ? NULL :
+		io_add(client->fd, IO_READ, client_input, client);
 
 	client_unref(client);
 }
