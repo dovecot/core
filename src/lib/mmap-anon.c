@@ -30,8 +30,6 @@
 #  define MAP_ANONYMOUS MAP_ANON
 #endif
 
-#undef HAVE_LINUX_MREMAP
-
 #ifndef HAVE_LINUX_MREMAP
 
 #include <sys/mman.h>
