@@ -1176,8 +1176,12 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 
 		/* don't even bother to handle dotlocking without mmap being
 		   disabled. that combination simply doesn't make any sense */
-		i_assert(lock_method != MAIL_INDEX_LOCK_DOTLOCK ||
-			 index->mmap_disable);
+		if (lock_method == MAIL_INDEX_LOCK_DOTLOCK &&
+		    !index->mmap_disable) {
+			i_fatal("lock_method=dotlock and mmap_disable=no "
+				"combination isn't supported. "
+				"You don't _really_ want it anyway.");
+		}
 
 		ret = mail_index_open_files(index, flags);
 		if (ret <= 0)
