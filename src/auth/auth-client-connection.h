@@ -18,7 +18,9 @@ struct auth_client_connection {
 
 	unsigned int pid;
 	unsigned int connect_uid;
+
 	unsigned int version_received:1;
+	unsigned int delayed_destroy:1;
 };
 
 struct auth_client_connection *

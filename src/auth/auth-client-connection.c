@@ -23,6 +23,8 @@
 #define MAX_OUTBUF_SIZE (1024*50)
 
 static void auth_client_connection_unref(struct auth_client_connection *conn);
+static void
+auth_client_connection_destroy_wait(struct auth_client_connection *conn);
 
 static void auth_client_send(struct auth_client_connection *conn,
 			     const char *fmt, ...) __attr_format__(2, 3);
@@ -44,7 +46,7 @@ static void auth_client_send(struct auth_client_connection *conn,
 	if (ret != (ssize_t)str->used) {
 		i_warning("Authentication client %u: "
 			  "Transmit buffer full, killing it", conn->pid);
-		auth_client_connection_destroy(conn);
+		auth_client_connection_destroy_wait(conn);
 	}
 	va_end(args);
 	t_pop();
@@ -99,7 +101,7 @@ static void auth_callback(struct auth_request *request,
 		i_warning("Authentication client %u: "
 			  "Transmit buffer full, killing it",
 			  request->conn->pid);
-		auth_client_connection_destroy(request->conn);
+		auth_client_connection_destroy_wait(request->conn);
 	}
 	t_pop();
 
@@ -357,7 +359,7 @@ static void auth_client_input(void *context)
 		/* buffer full */
 		i_error("BUG: Auth client %u sent us more than %d bytes",
 			conn->pid, (int)AUTH_CLIENT_MAX_LINE_LENGTH);
-		auth_client_connection_destroy(conn);
+		auth_client_connection_destroy_wait(conn);
 		return;
 	}
 
@@ -373,7 +375,7 @@ static void auth_client_input(void *context)
 			i_error("Authentication client %u "
 				"not compatible with this server "
 				"(mixed old and new binaries?)", conn->pid);
-			auth_client_connection_destroy(conn);
+			auth_client_connection_destroy_wait(conn);
 			return;
 		}
 		conn->version_received = TRUE;
@@ -398,7 +400,7 @@ static void auth_client_input(void *context)
 		t_pop();
 
 		if (!ret) {
-			auth_client_connection_destroy(conn);
+			auth_client_connection_destroy_wait(conn);
 			break;
 		}
 	}
@@ -472,14 +474,25 @@ void auth_client_connection_destroy(struct auth_client_connection *conn)
 	i_stream_close(conn->input);
 	o_stream_close(conn->output);
 
-	io_remove(conn->io);
-	conn->io = 0;
+	if (conn->io != NULL) {
+		io_remove(conn->io);
+		conn->io = NULL;
+	}
 
 	net_disconnect(conn->fd);
 	conn->fd = -1;
 
 	conn->master = NULL;
         auth_client_connection_unref(conn);
+}
+
+static void
+auth_client_connection_destroy_wait(struct auth_client_connection *conn)
+{
+        conn->delayed_destroy = TRUE;
+
+	io_remove(conn->io);
+	conn->io = NULL;
 }
 
 static void auth_client_connection_unref(struct auth_client_connection *conn)
@@ -513,6 +526,11 @@ auth_client_connection_check_timeouts(struct auth_client_connection *conn)
 	void *key, *value;
 	unsigned int secs;
 	int destroy = FALSE;
+
+	if (conn->delayed_destroy) {
+		auth_client_connection_destroy(conn);
+		return;
+	}
 
 	iter = hash_iterate_init(conn->auth_requests);
 	while (hash_iterate(iter, &key, &value)) {
