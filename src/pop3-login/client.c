@@ -13,6 +13,8 @@
 #include "client-authenticate.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
+#include "hostpid.h"
+#include "imem.h"
 
 /* max. length of input command line (spec says 512) */
 #define MAX_INBUF_SIZE 2048
@@ -122,6 +124,8 @@ static int client_command_execute(struct pop3_client *client, const char *cmd,
 		return cmd_pass(client, args);
 	if (strcmp(cmd, "AUTH") == 0)
 		return cmd_auth(client, args);
+	if (strcmp(cmd, "APOP") == 0)
+		return cmd_apop(client, args);
 	if (strcmp(cmd, "STLS") == 0)
 		return cmd_stls(client);
 	if (strcmp(cmd, "QUIT") == 0)
@@ -228,6 +232,19 @@ static void client_destroy_oldest(void)
 	}
 }
 
+static char *get_apop_challenge(void)
+{
+	struct auth_connect_id id;
+
+	/* FIXME: breaks if we're not connected! */
+
+	if (!auth_client_reserve_connection(auth_client, "APOP", &id))
+		return NULL;
+
+	return i_strdup_printf("<%x.%x.%s@%s>", id.server_pid, id.connect_uid,
+			       dec2str(ioloop_time), my_hostname);
+}
+
 struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 			     const struct ip_addr *ip)
 {
@@ -265,7 +282,9 @@ struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 
 	main_ref();
 
-	client_send_line(client, "+OK " PACKAGE " ready.");
+	client->apop_challenge = get_apop_challenge();
+	client_send_line(client, t_strconcat("+OK " PACKAGE " ready.",
+					     client->apop_challenge, NULL));
 	client_set_title(client);
 	return &client->common;
 }
@@ -318,6 +337,7 @@ int client_unref(struct pop3_client *client)
 	i_stream_unref(client->input);
 	o_stream_unref(client->output);
 
+	i_free(client->apop_challenge);
 	i_free(client->common.virtual_user);
 	i_free(client);
 

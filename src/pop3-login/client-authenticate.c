@@ -3,6 +3,7 @@
 #include "common.h"
 #include "base64.h"
 #include "buffer.h"
+#include "hex-binary.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -184,7 +185,7 @@ int cmd_pass(struct pop3_client *client, const char *args)
 
 	client_ref(client);
 	client->common.auth_request =
-		auth_client_request_new(auth_client, &info,
+		auth_client_request_new(auth_client, NULL, &info,
 					login_callback, client, &error);
 
 	if (client->common.auth_request != NULL) {
@@ -322,7 +323,7 @@ int cmd_auth(struct pop3_client *client, const char *args)
 
 	client_ref(client);
 	client->common.auth_request =
-		auth_client_request_new(auth_client, &info,
+		auth_client_request_new(auth_client, NULL, &info,
 					authenticate_callback, client, &error);
 	if (client->common.auth_request != NULL) {
 		/* following input data will go to authentication */
@@ -336,5 +337,71 @@ int cmd_auth(struct pop3_client *client, const char *args)
 		client_unref(client);
 	}
 
+	return TRUE;
+}
+
+int cmd_apop(struct pop3_client *client, const char *args)
+{
+	struct auth_request_info info;
+	const char *error, *p;
+	buffer_t *apop_data;
+
+	if (client->apop_challenge == NULL) {
+	        client_send_line(client, "-ERR APOP not enabled.");
+		return TRUE;
+	}
+
+	/* <username> <md5 sum in hex> */
+	p = strchr(args, ' ');
+	if (p == NULL || strlen(p+1) != 32) {
+	        client_send_line(client, "-ERR Invalid parameters.");
+		return TRUE;
+	}
+
+	/* APOP challenge \0 username \0 APOP response */
+	apop_data = buffer_create_dynamic(pool_datastack_create(),
+					  128, (size_t)-1);
+	buffer_append(apop_data, client->apop_challenge,
+		      strlen(client->apop_challenge)+1);
+	buffer_append(apop_data, args, (size_t)(p-args));
+	buffer_append_c(apop_data, '\0');
+
+	if (hex_to_binary(p+1, apop_data) <= 0) {
+		client_send_line(client,
+				 "-ERR Invalid characters in MD5 response.");
+		return TRUE;
+	}
+
+	memset(&info, 0, sizeof(info));
+	info.mech = "APOP";
+	info.protocol = "POP3";
+	info.flags = client_get_auth_flags(client);
+	info.local_ip = client->common.local_ip;
+	info.remote_ip = client->common.ip;
+	info.initial_resp_data =
+		buffer_get_data(apop_data, &info.initial_resp_size);
+
+	client_ref(client);
+	client->common.auth_request =
+		auth_client_request_new(auth_client, &client->auth_id, &info,
+					login_callback, client, &error);
+
+	if (client->common.auth_request != NULL) {
+		/* don't read any input from client until login is finished */
+		if (client->common.io != NULL) {
+			io_remove(client->common.io);
+			client->common.io = NULL;
+		}
+	} else if (error == NULL) {
+		/* the auth connection was lost. we have no choice
+		   but to fail the APOP logins completely since the
+		   challenge is auth connection-specific. disconnect. */
+		client_destroy(client, "APOP auth connection lost");
+		client_unref(client);
+	} else {
+		client_send_line(client,
+			t_strconcat("-ERR Login failed: ", error, NULL));
+		client_unref(client);
+	}
 	return TRUE;
 }

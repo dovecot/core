@@ -37,6 +37,7 @@ struct auth_client_handshake_mech_desc {
 /* Server -> Client */
 struct auth_client_handshake_reply {
 	unsigned int server_pid; /* unique auth process identifier */
+	unsigned int connect_uid; /* unique connection identifier */
 
 	uint32_t mech_count;
 	uint32_t data_size;

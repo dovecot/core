@@ -13,6 +13,11 @@ struct auth_mech_desc {
 	unsigned int advertise:1;
 };
 
+struct auth_connect_id {
+	unsigned int server_pid;
+	unsigned int connect_uid;
+};
+
 struct auth_request_info {
 	const char *mech;
 	const char *protocol;
@@ -46,10 +51,17 @@ auth_client_get_available_mechs(struct auth_client *client,
 const struct auth_mech_desc *
 auth_client_find_mech(struct auth_client *client, const char *name);
 
+/* Reserve connection for specific mechanism. The id can be given to
+   auth_client_request_new() to force it to use the same connection, or fail.
+   This is currently useful only for APOP authentication. Returns TRUE if
+   successfull. */
+int auth_client_reserve_connection(struct auth_client *client, const char *mech,
+				   struct auth_connect_id *id_r);
+
 /* Create a new authentication request. callback is called whenever something
-   happens for the request. */
+   happens for the request. id can be NULL. */
 struct auth_request *
-auth_client_request_new(struct auth_client *client,
+auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 			const struct auth_request_info *request_info,
 			auth_request_callback_t *callback, void *context,
 			const char **error_r);

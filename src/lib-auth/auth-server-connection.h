@@ -37,7 +37,9 @@ struct auth_server_connection {
 	struct istream *input;
 	struct ostream *output;
 
-	unsigned int pid;
+	unsigned int server_pid;
+	unsigned int connect_uid;
+
 	const struct auth_mech_desc *available_auth_mechs;
 	unsigned int available_auth_mechs_count;
         struct auth_client_request_reply reply;

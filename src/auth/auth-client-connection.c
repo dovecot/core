@@ -185,7 +185,10 @@ static void auth_client_input(void *context)
 struct auth_client_connection *
 auth_client_connection_create(struct auth_master_connection *master, int fd)
 {
+	static unsigned int connect_uid_counter = 0;
 	struct auth_client_connection *conn;
+	struct auth_client_handshake_reply handshake_reply;
+
 	pool_t pool;
 
 	pool = pool_alloconly_create("Auth client", 4096);
@@ -193,6 +196,7 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
 	conn->pool = pool;
 	conn->master = master;
 	conn->refcount = 1;
+	conn->connect_uid = ++connect_uid_counter;
 
 	conn->fd = fd;
 	conn->input = i_stream_create_file(fd, default_pool, MAX_INBUF_SIZE,
@@ -207,9 +211,13 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
 	conn->next = master->clients;
 	master->clients = conn;
 
-	if (o_stream_send(conn->output, master->handshake_reply,
-			  sizeof(*master->handshake_reply) +
-			  master->handshake_reply->data_size) < 0) {
+	handshake_reply = *master->handshake_reply;
+	handshake_reply.connect_uid = conn->connect_uid;
+
+	if (o_stream_send(conn->output, &handshake_reply,
+			  sizeof(handshake_reply)) < 0 ||
+	    o_stream_send(conn->output, master->handshake_reply + 1,
+			  handshake_reply.data_size) < 0) {
 		auth_client_connection_destroy(conn);
 		conn = NULL;
 	}

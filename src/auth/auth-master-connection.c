@@ -226,7 +226,7 @@ static void master_get_handshake_reply(struct auth_master_connection *master)
 		mech_desc_offset += sizeof(mech_desc);
 	}
 
-	reply.data_size = buffer_get_used_size(buf);
+	reply.data_size = buffer_get_used_size(buf) - sizeof(reply);
 	memcpy(buffer_get_space_unsafe(buf, 0, sizeof(reply)),
 	       &reply, sizeof(reply));
 

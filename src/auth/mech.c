@@ -384,6 +384,7 @@ static void auth_failure_timeout(void *context __attr_unused__)
 }
 
 extern struct mech_module mech_plain;
+extern struct mech_module mech_apop;
 extern struct mech_module mech_cram_md5;
 extern struct mech_module mech_digest_md5;
 extern struct mech_module mech_anonymous;
@@ -411,6 +412,8 @@ void mech_init(void)
 	while (*mechanisms != NULL) {
 		if (strcasecmp(*mechanisms, "PLAIN") == 0)
 			mech_register_module(&mech_plain);
+		else if (strcasecmp(*mechanisms, "APOP") == 0)
+			mech_register_module(&mech_apop);
 		else if (strcasecmp(*mechanisms, "CRAM-MD5") == 0)
 			mech_register_module(&mech_cram_md5);
 		else if (strcasecmp(*mechanisms, "DIGEST-MD5") == 0)
@@ -471,6 +474,7 @@ void mech_deinit(void)
 	timeout_remove(to_auth_failures);
 
 	mech_unregister_module(&mech_plain);
+	mech_unregister_module(&mech_apop);
 	mech_unregister_module(&mech_cram_md5);
 	mech_unregister_module(&mech_digest_md5);
 	mech_unregister_module(&mech_anonymous);

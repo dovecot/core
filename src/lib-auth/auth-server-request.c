@@ -247,7 +247,7 @@ void auth_server_requests_remove_all(struct auth_server_connection *conn)
 }
 
 struct auth_request *
-auth_client_request_new(struct auth_client *client,
+auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 			const struct auth_request_info *request_info,
 			auth_request_callback_t *callback, void *context,
 			const char **error_r)
@@ -255,8 +255,20 @@ auth_client_request_new(struct auth_client *client,
 	struct auth_server_connection *conn;
 	struct auth_request *request;
 
-	conn = auth_server_connection_find_mech(client, request_info->mech,
-						error_r);
+	if (id == NULL) {
+		conn = auth_server_connection_find_mech(client,
+							request_info->mech,
+							error_r);
+	} else {
+		*error_r = NULL;
+		conn = client->connections;
+		for (; conn != NULL; conn = conn->next) {
+			if (conn->connect_uid == id->connect_uid &&
+			    conn->server_pid == id->server_pid)
+				break;
+		}
+	}
+
 	if (conn == NULL)
 		return NULL;
 
@@ -324,5 +336,5 @@ unsigned int auth_client_request_get_id(struct auth_request *request)
 
 unsigned int auth_client_request_get_server_pid(struct auth_request *request)
 {
-	return request->conn->pid;
+	return request->conn->server_pid;
 }

@@ -31,6 +31,7 @@ dovecot_auth_SOURCES = \
 	mech-plain.c \
 	mech-cram-md5.c \
 	mech-digest-md5.c \
+	mech-apop.c \
 	mycrypt.c \
 	passdb.c \
 	passdb-bsdauth.c \

@@ -4,6 +4,7 @@
 #include "network.h"
 #include "master.h"
 #include "client-common.h"
+#include "auth-client.h"
 
 struct pop3_client {
 	struct client common;
@@ -18,6 +19,9 @@ struct pop3_client {
 	unsigned int bad_counter;
 
 	char *last_user;
+
+	char *apop_challenge;
+	struct auth_connect_id auth_id;
 
 	unsigned int tls:1;
 	unsigned int secured:1;

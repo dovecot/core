@@ -87,6 +87,22 @@ auth_client_find_mech(struct auth_client *client, const char *name)
 	return NULL;
 }
 
+int auth_client_reserve_connection(struct auth_client *client, const char *mech,
+				   struct auth_connect_id *id_r)
+{
+	struct auth_server_connection *conn;
+	const char *error;
+
+	conn = auth_server_connection_find_mech(client, mech, &error);
+	if (conn == NULL)
+		return FALSE;
+
+	id_r->server_pid = conn->server_pid;
+	id_r->connect_uid = conn->connect_uid;
+
+	return TRUE;
+}
+
 int auth_client_is_connected(struct auth_client *client)
 {
 	return !client->reconnect &&

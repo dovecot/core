@@ -182,7 +182,7 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	client_ref(client);
 
 	client->common.auth_request =
-		auth_client_request_new(auth_client, &info,
+		auth_client_request_new(auth_client, NULL, &info,
 					login_callback, client, &error);
 	if (client->common.auth_request == NULL) {
 		client_send_tagline(client, t_strconcat(
@@ -315,7 +315,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 
 	client_ref(client);
 	client->common.auth_request =
-		auth_client_request_new(auth_client, &info,
+		auth_client_request_new(auth_client, NULL, &info,
 					authenticate_callback, client, &error);
 	if (client->common.auth_request != NULL) {
 		/* following input data will go to authentication */

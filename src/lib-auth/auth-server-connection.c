@@ -80,7 +80,8 @@ static void auth_handle_handshake(struct auth_server_connection *conn,
 			conn->has_plain_mech = TRUE;
 	}
 
-	conn->pid = handshake->server_pid;
+	conn->server_pid = handshake->server_pid;
+	conn->connect_uid = handshake->connect_uid;
 	conn->available_auth_mechs_count =
 		buffer_get_used_size(buf) / sizeof(mech_desc);
 	conn->available_auth_mechs = buffer_free_without_data(buf);

@@ -18,6 +18,7 @@ struct auth_client_connection {
 	struct hash_table *auth_requests;
 
 	unsigned int pid;
+	unsigned int connect_uid;
 };
 
 struct auth_client_connection *
