@@ -296,7 +296,7 @@ int create_mail_process(struct login_group *group, int socket,
 
 	if (set->server->namespaces != NULL) {
 		env_put_namespace(set->server->namespaces,
-				  set->default_mail_env, user, home_dir);
+				  mail, user, home_dir);
 	}
 
 	env_put(t_strconcat("MAIL=", mail, NULL));
