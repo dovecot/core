@@ -37,7 +37,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 }
 
 struct userdb_module userdb_passwd = {
-	NULL, NULL,
+	NULL, NULL, NULL,
 	passwd_lookup
 };
 

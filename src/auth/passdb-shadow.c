@@ -62,7 +62,7 @@ static void shadow_deinit(void)
 }
 
 struct passdb_module passdb_shadow = {
-	NULL,
+	NULL, NULL,
 	shadow_deinit,
 
 	shadow_verify_plain,

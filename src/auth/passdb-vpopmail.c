@@ -98,7 +98,7 @@ static void vpopmail_deinit(void)
 }
 
 struct passdb_module passdb_vpopmail = {
-	NULL,
+	NULL, NULL,
 	vpopmail_deinit,
 
 	vpopmail_verify_plain,

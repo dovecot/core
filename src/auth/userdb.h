@@ -16,6 +16,7 @@ struct user_data {
 typedef void userdb_callback_t(struct user_data *user, void *context);
 
 struct userdb_module {
+	void (*preinit)(const char *args);
 	void (*init)(const char *args);
 	void (*deinit)(void);
 
@@ -33,6 +34,7 @@ extern struct userdb_module userdb_ldap;
 extern struct userdb_module userdb_pgsql;
 extern struct userdb_module userdb_mysql;
 
+void userdb_preinit(void);
 void userdb_init(void);
 void userdb_deinit(void);
 

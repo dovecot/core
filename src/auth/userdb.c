@@ -11,8 +11,9 @@ static struct auth_module *userdb_module = NULL;
 #endif
 
 struct userdb_module *userdb;
+static char *userdb_args;
 
-void userdb_init(void)
+void userdb_preinit(void)
 {
 	const char *name, *args;
 
@@ -28,6 +29,8 @@ void userdb_init(void)
 	if (args == NULL) args = "";
 	while (*args == ' ' || *args == '\t')
 		args++;
+
+	userdb_args = i_strdup(args);
 
 #ifdef USERDB_PASSWD
 	if (strcasecmp(name, "passwd") == 0)
@@ -68,9 +71,14 @@ void userdb_init(void)
 	if (userdb == NULL)
 		i_fatal("Unknown userdb type '%s'", name);
 
-	/* initialize */
+	if (userdb->preinit != NULL)
+		userdb->preinit(args);
+}
+
+void userdb_init(void)
+{
 	if (userdb->init != NULL)
-		userdb->init(args);
+		userdb->init(userdb_args);
 }
 
 void userdb_deinit(void)
@@ -81,4 +89,5 @@ void userdb_deinit(void)
 	if (userdb_module != NULL)
                 auth_module_close(userdb_module);
 #endif
+	i_free(userdb_args);
 }

@@ -179,7 +179,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 		       &request->request);
 }
 
-static void userdb_ldap_init(const char *args)
+static void userdb_ldap_preinit(const char *args)
 {
 	struct ldap_connection *conn;
 
@@ -192,6 +192,11 @@ static void userdb_ldap_init(const char *args)
 			  &userdb_ldap_conn->attr_names);
 }
 
+static void userdb_ldap_init(const char *args __attr_unused__)
+{
+	(void)db_ldap_connect(userdb_ldap_conn->conn);
+}
+
 static void userdb_ldap_deinit(void)
 {
 	db_ldap_unref(userdb_ldap_conn->conn);
@@ -199,6 +204,7 @@ static void userdb_ldap_deinit(void)
 }
 
 struct userdb_module userdb_ldap = {
+	userdb_ldap_preinit,
 	userdb_ldap_init,
 	userdb_ldap_deinit,
 

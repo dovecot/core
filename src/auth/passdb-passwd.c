@@ -62,7 +62,7 @@ static void passwd_deinit(void)
 }
 
 struct passdb_module passdb_passwd = {
-	NULL,
+	NULL, NULL,
 	passwd_deinit,
 
 	passwd_verify_plain,

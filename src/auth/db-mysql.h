@@ -54,4 +54,6 @@ void db_mysql_query(struct mysql_connection *conn, const char *query,
 struct mysql_connection *db_mysql_init(const char *config_path);
 void db_mysql_unref(struct mysql_connection *conn);
 
+int db_mysql_connect(struct mysql_connection *conn);
+
 #endif

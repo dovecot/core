@@ -153,12 +153,17 @@ static void mysql_lookup_credentials(struct auth_request *request,
         mysql_lookup_pass(request, &mysql_request->request);
 }
 
-static void passdb_mysql_init(const char *args)
+static void passdb_mysql_preinit(const char *args)
 {
 	struct mysql_connection *conn;
 
 	passdb_mysql_conn = i_new(struct passdb_mysql_connection, 1);
 	passdb_mysql_conn->conn = conn = db_mysql_init(args);
+}
+
+static void passdb_mysql_init(const char *args __attr_unused__)
+{
+	(void)db_mysql_connect(passdb_mysql_conn->conn);
 }
 
 static void passdb_mysql_deinit(void)
@@ -168,6 +173,7 @@ static void passdb_mysql_deinit(void)
 }
 
 struct passdb_module passdb_mysql = {
+	passdb_mysql_preinit,
 	passdb_mysql_init,
 	passdb_mysql_deinit,
 

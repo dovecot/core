@@ -45,4 +45,6 @@ void db_pgsql_query(struct pgsql_connection *conn, const char *query,
 struct pgsql_connection *db_pgsql_init(const char *config_path);
 void db_pgsql_unref(struct pgsql_connection *conn);
 
+int db_pgsql_connect(struct pgsql_connection *conn);
+
 #endif

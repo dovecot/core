@@ -84,6 +84,7 @@ static void static_deinit(void)
 }
 
 struct userdb_module userdb_static = {
+	NULL,
 	static_init,
 	static_deinit,
 

@@ -65,7 +65,7 @@ static void bsdauth_deinit(void)
 }
 
 struct passdb_module passdb_bsdauth = {
-	NULL,
+	NULL, NULL,
 	bsdauth_deinit,
 
 	bsdauth_verify_plain,

@@ -150,12 +150,17 @@ static void pgsql_lookup_credentials(struct auth_request *request,
         pgsql_lookup_pass(request, &pgsql_request->request);
 }
 
-static void passdb_pgsql_init(const char *args)
+static void passdb_pgsql_preinit(const char *args)
 {
 	struct pgsql_connection *conn;
 
 	passdb_pgsql_conn = i_new(struct passdb_pgsql_connection, 1);
 	passdb_pgsql_conn->conn = conn = db_pgsql_init(args);
+}
+
+static void passdb_pgsql_init(const char *args __attr_unused__)
+{
+	(void)db_pgsql_connect(passdb_pgsql_conn->conn);
 }
 
 static void passdb_pgsql_deinit(void)
@@ -165,6 +170,7 @@ static void passdb_pgsql_deinit(void)
 }
 
 struct passdb_module passdb_pgsql = {
+	passdb_pgsql_preinit,
 	passdb_pgsql_init,
 	passdb_pgsql_deinit,
 

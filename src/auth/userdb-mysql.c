@@ -138,12 +138,17 @@ static void userdb_mysql_lookup(struct auth_request *auth_request,
 	db_mysql_query(conn, query, &request->request);
 }
 
-static void userdb_mysql_init(const char *args)
+static void userdb_mysql_preinit(const char *args)
 {
 	struct mysql_connection *conn;
 
 	userdb_mysql_conn = i_new(struct userdb_mysql_connection, 1);
 	userdb_mysql_conn->conn = conn = db_mysql_init(args);
+}
+
+static void userdb_mysql_init(const char *args)
+{
+	(void)db_mysql_connect(userdb_mysql_conn->conn);
 }
 
 static void userdb_mysql_deinit(void)
@@ -153,6 +158,7 @@ static void userdb_mysql_deinit(void)
 }
 
 struct userdb_module userdb_mysql = {
+	userdb_mysql_preinit,
 	userdb_mysql_init,
 	userdb_mysql_deinit,
 

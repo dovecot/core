@@ -108,12 +108,17 @@ static void userdb_pgsql_lookup(struct auth_request *auth_request,
 	db_pgsql_query(conn, query, &request->request);
 }
 
-static void userdb_pgsql_init(const char *args)
+static void userdb_pgsql_preinit(const char *args)
 {
 	struct pgsql_connection *conn;
 
 	userdb_pgsql_conn = i_new(struct userdb_pgsql_connection, 1);
 	userdb_pgsql_conn->conn = conn = db_pgsql_init(args);
+}
+
+static void userdb_pgsql_init(const char *args __attr_unused__)
+{
+	(void)db_pgsql_connect(userdb_pgsql_conn->conn);
 }
 
 static void userdb_pgsql_deinit(void)
@@ -123,6 +128,7 @@ static void userdb_pgsql_deinit(void)
 }
 
 struct userdb_module userdb_pgsql = {
+	userdb_pgsql_preinit,
 	userdb_pgsql_init,
 	userdb_pgsql_deinit,
 

@@ -67,7 +67,6 @@ struct ldap_settings default_ldap_settings = {
 
 static struct ldap_connection *ldap_connections = NULL;
 
-static int ldap_conn_open(struct ldap_connection *conn);
 static void ldap_conn_close(struct ldap_connection *conn);
 
 static int deref2str(const char *str)
@@ -117,7 +116,7 @@ void db_ldap_search(struct ldap_connection *conn, const char *base, int scope,
 	int msgid;
 
 	if (!conn->connected) {
-		if (!ldap_conn_open(conn)) {
+		if (!db_ldap_connect(conn)) {
 			request->callback(conn, request, NULL);
 			return;
 		}
@@ -177,7 +176,7 @@ static void ldap_input(void *context)
 	}
 }
 
-static int ldap_conn_open(struct ldap_connection *conn)
+int db_ldap_connect(struct ldap_connection *conn)
 {
 	int ret, fd;
 
@@ -372,8 +371,6 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 
         conn->set.ldap_deref = deref2str(conn->set.deref);
         conn->set.ldap_scope = scope2str(conn->set.scope);
-
-	(void)ldap_conn_open(conn);
 
 	conn->next = ldap_connections;
         ldap_connections = conn;

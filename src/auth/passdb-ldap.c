@@ -201,7 +201,7 @@ static void ldap_lookup_credentials(struct auth_request *request,
         ldap_lookup_pass(request, &ldap_request->request);
 }
 
-static void passdb_ldap_init(const char *args)
+static void passdb_ldap_preinit(const char *args)
 {
 	struct ldap_connection *conn;
 
@@ -214,6 +214,11 @@ static void passdb_ldap_init(const char *args)
 			  &passdb_ldap_conn->attr_names);
 }
 
+static void passdb_ldap_init(const char *args __attr_unused__)
+{
+	(void)db_ldap_connect(passdb_ldap_conn->conn);
+}
+
 static void passdb_ldap_deinit(void)
 {
 	db_ldap_unref(passdb_ldap_conn->conn);
@@ -221,6 +226,7 @@ static void passdb_ldap_deinit(void)
 }
 
 struct passdb_module passdb_ldap = {
+	passdb_ldap_preinit,
 	passdb_ldap_init,
 	passdb_ldap_deinit,
 

@@ -54,7 +54,6 @@ struct mysql_settings default_mysql_settings = {
 
 static struct mysql_connection *mysql_connections = NULL;
 
-static int mysql_conn_open(struct mysql_connection *conn);
 static void mysql_conn_close(struct mysql_connection *conn);
 
 void db_mysql_query(struct mysql_connection *conn, const char *query,
@@ -67,7 +66,7 @@ void db_mysql_query(struct mysql_connection *conn, const char *query,
 		i_info("MySQL: Performing query: %s", query);
 
 	if (!conn->connected) {
-		if (!mysql_conn_open(conn)) {
+		if (!db_mysql_connect(conn)) {
 			request->callback(conn, request, NULL);
 			return;
 		}
@@ -110,7 +109,7 @@ void db_mysql_query(struct mysql_connection *conn, const char *query,
 	i_free(request);
 }
 
-static int mysql_conn_open(struct mysql_connection *conn)
+int db_mysql_connect(struct mysql_connection *conn)
 {
 	int use_ssl = FALSE;
 
@@ -213,8 +212,6 @@ struct mysql_connection *db_mysql_init(const char *config_path)
 		i_fatal("MySQL: db variable isn't set in config file");
 	if (conn->set.db_user == NULL)
 		i_fatal("MySQL: db_user variable isn't set in config file");
-
-	(void)mysql_conn_open(conn);
 
 	conn->next = mysql_connections;
 	mysql_connections = conn;

@@ -13,6 +13,7 @@ static struct auth_module *passdb_module = NULL;
 #endif
 
 struct passdb_module *passdb;
+static char *passdb_args;
 
 static const char *
 passdb_credentials_to_str(enum passdb_credentials credentials)
@@ -98,7 +99,7 @@ mech_list_verify_passdb(struct passdb_module *passdb, const char *name)
 	}
 }
 
-void passdb_init(void)
+void passdb_preinit(void)
 {
 	const char *name, *args;
 
@@ -114,6 +115,8 @@ void passdb_init(void)
 	if (args == NULL) args = "";
 	while (*args == ' ' || *args == '\t')
 		args++;
+
+	passdb_args = i_strdup(args);
 
 #ifdef PASSDB_PASSWD
 	if (strcasecmp(name, "passwd") == 0)
@@ -166,11 +169,16 @@ void passdb_init(void)
 	if (passdb == NULL)
 		i_fatal("Unknown passdb type '%s'", name);
 
-	/* initialize */
-	if (passdb->init != NULL)
-		passdb->init(args);
+	if (passdb->preinit != NULL)
+		passdb->preinit(passdb_args);
 
 	mech_list_verify_passdb(passdb, name);
+}
+
+void passdb_init(void)
+{
+	if (passdb->init != NULL)
+		passdb->init(passdb_args);
 }
 
 void passdb_deinit(void)
@@ -181,4 +189,5 @@ void passdb_deinit(void)
 	if (passdb_module != NULL)
                 auth_module_close(passdb_module);
 #endif
+	i_free(passdb_args);
 }

@@ -32,7 +32,6 @@ struct pgsql_settings default_pgsql_settings = {
 
 static struct pgsql_connection *pgsql_connections = NULL;
 
-static int pgsql_conn_open(struct pgsql_connection *conn);
 static void pgsql_conn_close(struct pgsql_connection *conn);
 
 const char *db_pgsql_escape(const char *str)
@@ -53,7 +52,7 @@ void db_pgsql_query(struct pgsql_connection *conn, const char *query,
 	int failed;
 
 	if (!conn->connected) {
-		if (!pgsql_conn_open(conn)) {
+		if (!db_pgsql_connect(conn)) {
 			request->callback(conn, request, NULL);
 			return;
 		}
@@ -92,7 +91,7 @@ void db_pgsql_query(struct pgsql_connection *conn, const char *query,
 	i_free(request);
 }
 
-static int pgsql_conn_open(struct pgsql_connection *conn)
+int db_pgsql_connect(struct pgsql_connection *conn)
 {
 	if (conn->connected)
 		return TRUE;
@@ -164,8 +163,6 @@ struct pgsql_connection *db_pgsql_init(const char *config_path)
 	conn->set = default_pgsql_settings;
 	if (!settings_read(config_path, NULL, parse_setting, NULL, conn))
 		exit(FATAL_DEFAULT);
-
-	(void)pgsql_conn_open(conn);
 
 	conn->next = pgsql_connections;
 	pgsql_connections = conn;

@@ -33,6 +33,7 @@ typedef void lookup_credentials_callback_t(const char *result,
 					   struct auth_request *request);
 
 struct passdb_module {
+	void (*preinit)(const char *args);
 	void (*init)(const char *args);
 	void (*deinit)(void);
 
@@ -66,6 +67,7 @@ extern struct passdb_module passdb_ldap;
 extern struct passdb_module passdb_pgsql;
 extern struct passdb_module passdb_mysql;
 
+void passdb_preinit(void);
 void passdb_init(void);
 void passdb_deinit(void);
 

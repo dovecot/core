@@ -54,6 +54,7 @@ static void passwd_file_deinit(void)
 }
 
 struct userdb_module userdb_passwd_file = {
+	NULL,
 	passwd_file_init,
 	passwd_file_deinit,
 
