@@ -42,7 +42,7 @@
 /* Initial stack size - this should be kept in a size that doesn't exceed
    in a normal use to avoid extra malloc()ing. */
 #ifdef DEBUG
-#  define INITIAL_STACK_SIZE (1024*8)
+#  define INITIAL_STACK_SIZE (1024*10)
 #else
 #  define INITIAL_STACK_SIZE (1024*32)
 #endif
