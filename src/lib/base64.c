@@ -56,7 +56,7 @@ int base64_encode(const unsigned char *src, size_t src_size, Buffer *dest)
 		if (buffer_append_c(dest, basis_64[c1 >> 2]) != 1)
 			return 0;
 
-		c2 = src_pos == src_size ? 0 : src[src_pos++];
+		c2 = src_pos == src_size ? 0 : src[src_pos];
 		if (buffer_append_c(dest, basis_64[((c1 & 0x03) << 4) |
 						   ((c2 & 0xf0) >> 4)]) != 1)
 			return 0;
@@ -67,7 +67,7 @@ int base64_encode(const unsigned char *src, size_t src_size, Buffer *dest)
 			break;
 		}
 
-		c3 = src_pos == src_size ? 0 : src[src_pos++];
+		c3 = src_pos == src_size ? 0 : src[src_pos];
 		if (buffer_append_c(dest, basis_64[((c2 & 0x0f) << 2) |
 						   ((c3 & 0xc0) >> 6)]) != 1)
 			return 0;
