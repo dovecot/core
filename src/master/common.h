@@ -17,8 +17,6 @@ enum {
 	PROCESS_TYPE_MAX
 };
 
-const char *process_type_names[PROCESS_TYPE_MAX];
-
 extern HashTable *pids;
 extern int null_fd, imap_fd, imaps_fd;
 
