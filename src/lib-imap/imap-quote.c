@@ -7,7 +7,7 @@
 void imap_quote_append(string_t *str, const unsigned char *value,
 		       size_t value_len)
 {
-	size_t i;
+	size_t i, linefeeds = 0;
 	int literal = FALSE;
 
 	for (i = 0; i < value_len; i++) {
@@ -16,6 +16,9 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 			break;
 		}
 
+		if (value[i] == 13 || value[i] == 10)
+                        linefeeds++;
+
 		if ((value[i] & 0x80) != 0)
 			literal = TRUE;
 	}
@@ -23,13 +26,22 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 	if (!literal) {
 		/* no 8bit chars, return as "string" */
 		str_append_c(str, '"');
-		str_append_n(str, value, value_len);
-		str_append_c(str, '"');
 	} else {
 		/* return as literal */
-		str_printfa(str, "{%"PRIuSIZE_T"}\r\n", value_len);
-		str_append_n(str, value, value_len);
+		str_printfa(str, "{%"PRIuSIZE_T"}\r\n", value_len - linefeeds);
 	}
+
+	if (linefeeds == 0)
+		str_append_n(str, value, value_len);
+	else {
+		for (i = 0; i < value_len; i++) {
+			if (value[i] != 13 && value[i] != 10)
+				str_append_c(str, value[i]);
+		}
+	}
+
+	if (!literal)
+		str_append_c(str, '"');
 }
 
 const char *imap_quote_str_nil(const char *value)
