@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "index-storage.h"
 #include "mail-index-util.h"
 #include "mail-modifylog.h"
@@ -204,22 +205,25 @@ int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted)
 int index_storage_sync(Mailbox *box, int sync_expunges)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
-	int failed;
+	int ret;
+
+	ibox->last_check = ioloop_time;
 
 	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_UNLOCK))
 		return FALSE;
 
-	if (!sync_expunges) {
-		/* FIXME: we could still send flag changes */
-		failed = FALSE;
-	} else {
-		failed = !index_storage_sync_modifylog(ibox, FALSE);
-	}
+	/* FIXME: we could sync flags always, but expunges in the middle
+	   could make it a bit more difficult and slower */
+	if (sync_expunges ||
+	    mail_modifylog_get_expunge_count(ibox->index->modifylog) == 0)
+		ret = index_storage_sync_modifylog(ibox, FALSE);
+	else
+		ret = TRUE;
 
 	index_storage_sync_size(ibox);
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);
 
-	return !failed;
+	return ret;
 }

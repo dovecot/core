@@ -37,6 +37,7 @@ extern unsigned int set_first_valid_gid, set_last_valid_gid;
 
 extern char *set_mail_cache_fields;
 extern char *set_mail_never_cache_fields;
+extern unsigned int set_mailbox_check_interval;
 extern int set_mail_save_crlf;
 extern int set_maildir_copy_with_hardlinks;
 extern int set_maildir_check_content_changes;

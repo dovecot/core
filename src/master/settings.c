@@ -39,7 +39,8 @@ static Setting settings[] = {
 	{ "login_user",		SET_STR, &set_login_user },
 	{ "login_dir",		SET_STR, &set_login_dir },
 	{ "login_chroot",	SET_BOOL,&set_login_chroot },
-	{ "login_processes_count", SET_INT, &set_login_processes_count },
+	{ "login_processes_count",
+				SET_INT, &set_login_processes_count },
 	{ "max_logging_users",	SET_INT, &set_max_logging_users },
 
 	{ "imap_executable",	SET_STR, &set_imap_executable },
@@ -53,6 +54,8 @@ static Setting settings[] = {
 	{ "mail_cache_fields",	SET_STR, &set_mail_cache_fields },
 	{ "mail_never_cache_fields",
 				SET_STR, &set_mail_never_cache_fields },
+	{ "mailbox_check_interval",
+				SET_INT, &set_mailbox_check_interval },
 	{ "mail_save_crlf",	SET_BOOL,&set_mail_save_crlf },
 	{ "maildir_copy_with_hardlinks",
 				SET_BOOL,&set_maildir_copy_with_hardlinks },
@@ -102,6 +105,7 @@ unsigned int set_first_valid_gid = 1, set_last_valid_gid = 0;
 
 char *set_mail_cache_fields = "MessagePart";
 char *set_mail_never_cache_fields = NULL;
+unsigned int set_mailbox_check_interval = 30;
 int set_mail_save_crlf = FALSE;
 int set_maildir_copy_with_hardlinks = FALSE;
 int set_maildir_check_content_changes = FALSE;

@@ -195,6 +195,7 @@ int index_storage_close(Mailbox *box)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 
+	index_mailbox_check_remove(ibox);
 	imap_msgcache_free(ibox->cache);
 	index_storage_unref(ibox->index);
 	i_free(box->name);

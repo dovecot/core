@@ -139,8 +139,10 @@ static Mailbox *maildir_open(MailStorage *storage, const char *name,
 
 	ibox = index_storage_init(storage, &maildir_mailbox, index, name,
 				  readonly, fast);
-	if (ibox != NULL)
+	if (ibox != NULL) {
 		ibox->expunge_locked = maildir_expunge_locked;
+		index_mailbox_check_add(ibox, t_strconcat(path, "/new", NULL));
+	}
 	return (Mailbox *) ibox;
 }
 

@@ -14,6 +14,7 @@ libstorage_index_a_SOURCES = \
 	index-expunge.c \
 	index-fetch.c \
 	index-fetch-section.c \
+	index-mailbox-check.c \
 	index-messageset.c \
 	index-msgcache.c \
 	index-save.c \

@@ -119,6 +119,8 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
 				    set_mail_cache_fields, NULL));
 	putenv((char *) t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
 				    set_mail_never_cache_fields, NULL));
+	putenv((char *) t_strdup_printf("MAILBOX_CHECK_INTERVAL=%u",
+					set_mailbox_check_interval));
 
 	if (set_mail_save_crlf)
 		putenv("MAIL_SAVE_CRLF=1");

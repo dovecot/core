@@ -19,6 +19,12 @@ struct _IndexMailbox {
 
 	MailIndex *index;
 	ImapMessageCache *cache;
+
+	char *check_path;
+	Timeout check_to;
+	time_t check_file_stamp;
+	time_t last_check;
+
 	unsigned int synced_messages_count;
 
 	unsigned int sent_diskspace_warning:1;
@@ -56,6 +62,9 @@ int index_storage_save(MailStorage *storage, const char *path,
 
 int index_msgcache_open(ImapMessageCache *cache, MailIndex *index,
 			MailIndexRecord *rec, ImapCacheField fields);
+
+void index_mailbox_check_add(IndexMailbox *ibox, const char *path);
+void index_mailbox_check_remove(IndexMailbox *ibox);
 
 /* Mailbox methods: */
 void index_storage_set_sync_callbacks(Mailbox *box,

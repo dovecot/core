@@ -171,8 +171,10 @@ static Mailbox *mbox_open(MailStorage *storage, const char *name,
 
 	ibox = index_storage_init(storage, &mbox_mailbox, index,
 				  name, readonly, fast);
-	if (ibox != NULL)
+	if (ibox != NULL) {
 		ibox->expunge_locked = mbox_expunge_locked;
+		index_mailbox_check_add(ibox, index->mbox_path);
+	}
 	return (Mailbox *) ibox;
 }
 
