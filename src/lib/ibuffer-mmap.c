@@ -177,17 +177,17 @@ static int _seek(_IBuffer *buf, uoff_t v_offset)
 	uoff_t abs_offset;
 
 	abs_offset = buf->ibuffer.start_offset + v_offset;
-	if (mbuf->mmap_offset >= abs_offset &&
-	    mbuf->mmap_offset + buf->pos < abs_offset) {
+	if (mbuf->mmap_offset <= abs_offset &&
+	    mbuf->mmap_offset + buf->pos > abs_offset) {
 		/* already mmaped */
-		buf->skip = mbuf->mmap_offset - abs_offset;
-		buf->pos = buf->buffer_size;
+		buf->skip = abs_offset - mbuf->mmap_offset;
 	} else {
 		/* force reading next time */
 		i_buffer_munmap(mbuf);
-		buf->skip = buf->pos = 0;
+		buf->skip = buf->pos = abs_offset;
 	}
 
+        buf->ibuffer.v_offset = v_offset;
 	return 1;
 }
 

@@ -128,7 +128,7 @@ int i_buffer_skip(IBuffer *buf, uoff_t count)
 		return -1;
 
 	data_size = _buf->pos - _buf->skip;
-	_buf->skip = _buf->pos = 0;
+	_buf->skip = _buf->pos;
 
 	count -= data_size;
 	buf->v_offset += data_size;
@@ -219,21 +219,19 @@ int i_buffer_read_data(IBuffer *buf, const unsigned char **data,
 		       size_t *size, size_t threshold)
 {
 	_IBuffer *_buf = buf->real_buffer;
-	ssize_t ret;
+	ssize_t ret = 0;
 
 	while (_buf->pos - _buf->skip <= threshold) {
 		/* we need more data */
 		ret = _buf->read(_buf);
-		if (ret < 0) {
-			if (ret == -2)
-				return -2;
-			else
-				break;
-		}
+		if (ret < 0)
+			break;
 	}
 
 	*data = i_buffer_get_data(buf, size);
-	return *size > threshold ? 1 : *size > 0 ? 0 : -1;
+	return *size > threshold ? 1 :
+		ret == -2 ? -2 :
+		*size > 0 ? 0 : -1;
 }
 
 IBuffer *_i_buffer_create(_IBuffer *_buf, Pool pool, int fd,
