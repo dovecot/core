@@ -332,7 +332,6 @@ static int mail_transaction_log_file_create(struct mail_transaction_log *log,
 			index->log_locked = FALSE;
 			return -1;
 		}
-		index->log_locked = FALSE;
 
 		ret = mail_index_map(index, FALSE);
 		if (ret > 0) {
@@ -347,6 +346,7 @@ static int mail_transaction_log_file_create(struct mail_transaction_log *log,
 		}
 		hdr.file_seq = index->hdr->log_file_seq;
 		mail_index_unlock(index, lock_id);
+		index->log_locked = FALSE;
 
 		if (ret <= 0) {
 			(void)file_dotlock_delete(path, fd);

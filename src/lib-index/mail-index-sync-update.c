@@ -220,6 +220,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 				map = mail_index_map_to_memory(map);
 				mail_index_unmap(index, index->map);
 				index->map = map;
+				index->hdr = map->hdr;
 				map->write_to_disk = TRUE;
 
 				dest_idx = rec.seq1-1;
