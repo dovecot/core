@@ -332,7 +332,7 @@ int mbox_sync_full(struct mail_index *index)
 		} else if (st.st_mtime == orig_st.st_mtime &&
 			   st.st_size == orig_st.st_size) {
 			i_stream_seek(input, continue_offset);
-			failed = !mbox_index_append_stream(index, input);
+			failed = mbox_index_append_stream(index, input) <= 0;
 		} else {
 			failed = mbox_sync_from_stream(index, input) <= 0;
 		}
