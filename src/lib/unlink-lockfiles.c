@@ -44,12 +44,8 @@ int unlink_lockfiles(const char *dir, const char *pidprefix,
 
 	/* check for any invalid access files */
 	dirp = opendir(dir);
-	if (dirp == NULL) {
-		if (errno == ENOENT)
-			return 0;
-		i_error("opendir(%s) failed: %m", dir);
+	if (dirp == NULL)
 		return -1;
-	}
 
 	pidlen = pidprefix == NULL ? 0 : strlen(pidprefix);
 	otherlen = otherprefix == NULL ? 0 : strlen(otherprefix);
@@ -69,7 +65,7 @@ int unlink_lockfiles(const char *dir, const char *pidprefix,
 			if (str_path(path, sizeof(path), dir, fname) == 0) {
 				if (unlink(path) < 0 && errno != ENOENT) {
 					i_error("unlink(%s) failed: %m", path);
-					ret = -1;
+					ret = 0;
 				}
 			}
 		} else if (otherprefix != NULL &&
@@ -80,15 +76,13 @@ int unlink_lockfiles(const char *dir, const char *pidprefix,
 			    st.st_ctime < other_min_time)
 				if (unlink(path) < 0 && errno != ENOENT) {
 					i_error("unlink(%s) failed: %m", path);
-					ret = -1;
+					ret = 0;
 				}
 		}
 	}
 
-	if (closedir(dirp) < 0) {
+	if (closedir(dirp) < 0)
 		i_error("closedir(%s) failed: %m", dir);
-		ret = -1;
-	}
 
 	return ret;
 }
