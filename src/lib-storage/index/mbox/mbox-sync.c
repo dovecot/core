@@ -1326,6 +1326,15 @@ __again:
 
 	memset(&sync_ctx, 0, sizeof(sync_ctx));
 	sync_ctx.ibox = ibox;
+
+	if (mail_index_get_header(sync_view, &sync_ctx.hdr) < 0) {
+		/* view is invalidated */
+		mail_storage_set_index_error(ibox);
+		mail_index_sync_rollback(index_sync_ctx);
+		(void)mbox_unlock(ibox, lock_id);
+		return -1;
+	}
+
 	sync_ctx.from_line = str_new(default_pool, 256);
 	sync_ctx.header = str_new(default_pool, 4096);
 	sync_ctx.uidl = str_new(default_pool, 128);
@@ -1337,9 +1346,6 @@ __again:
 	sync_ctx.mails = buffer_create_dynamic(default_pool, 4096);
 	sync_ctx.syncs = buffer_create_dynamic(default_pool, 256);
 
-	ret = mail_index_get_header(sync_view, &sync_ctx.hdr);
-	i_assert(ret == 0);
-
 	sync_ctx.file_input = sync_ctx.ibox->mbox_file_stream;
 	sync_ctx.input = sync_ctx.ibox->mbox_stream;
 	sync_ctx.fd = sync_ctx.ibox->mbox_fd;
@@ -1349,9 +1355,7 @@ __again:
 		((flags & MBOX_SYNC_REWRITE) == 0 &&
 		 getenv("MBOX_LAZY_WRITES") != NULL);
 
-
-	if (mbox_sync_do(&sync_ctx, flags) < 0)
-		ret = -1;
+	ret = mbox_sync_do(&sync_ctx, flags);
 
 	if (ret < 0)
 		mail_index_transaction_rollback(sync_ctx.t);

@@ -600,8 +600,12 @@ int maildir_sync_index(struct index_mailbox *ibox, int partial)
 	}
 	sync_ctx.view = view;
 
-	ret = mail_index_get_header(view, &hdr);
-	i_assert(ret == 0); /* view is locked, can't happen */
+	if (mail_index_get_header(view, &hdr) < 0) {
+		/* view is invalidated */
+		mail_storage_set_index_error(ibox);
+		(void)mail_index_sync_rollback(sync_ctx.sync_ctx);
+		return -1;
+	}
 
 	uid_validity = maildir_uidlist_get_uid_validity(ibox->uidlist);
 	if (uid_validity != hdr->uid_validity &&
