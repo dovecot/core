@@ -64,6 +64,15 @@ AC_ARG_ENABLE(pam,
 	fi,
 	want_pam=yes)
 
+AC_ARG_WITH(proxy,
+[  --without-gnutls        Don't try to use GNUTLS],
+	if test x$wantval = xno; then
+		want_gnutls=no
+	else
+		want_gnutls=yes
+	fi,
+	want_gnutls=yes)
+
 dnl **
 dnl ** just some generic stuff...
 dnl **
@@ -247,14 +256,16 @@ dnl **
 dnl ** SSL (gnutls)
 dnl **
 
-AC_CHECK_LIB(gnutls, gnutls_global_init, [
-	AC_DEFINE(HAVE_SSL)
-	SSL_LIBS="-lgnutls -lgcrypt"
-	AC_SUBST(SSL_LIBS)
-	have_ssl=yes
-], [
-	have_ssl=no
-], -lgcrypt)
+if test $want_gnutls = yes; then
+  AC_CHECK_LIB(gnutls, gnutls_global_init, [
+    AC_DEFINE(HAVE_SSL)
+    SSL_LIBS="-lgnutls -lgcrypt"
+    AC_SUBST(SSL_LIBS)
+    have_ssl=yes
+  ], [
+    have_ssl=no
+  ], -lgcrypt)
+fi
 
 dnl **
 dnl ** shadow/pam support
