@@ -120,6 +120,9 @@ static uoff_t mbox_mail_get_physical_size(struct mail *_mail)
 	struct istream *stream;
 	uoff_t hdr_offset, body_offset, body_size;
 
+	if (mbox_mail_seek(mail) <= 0)
+		return (uoff_t)-1;
+
 	/* our header size varies, so don't do any caching */
 	stream = mail->ibox->mbox_stream;
 	hdr_offset = istream_raw_mbox_get_header_offset(stream);
