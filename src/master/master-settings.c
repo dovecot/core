@@ -327,6 +327,18 @@ static void settings_verify(struct settings *set)
 			i_fatal("Can't use imap executable %s: %m",
 				set->imap_executable);
 		}
+#ifdef HAVE_MODULES
+		if (set->imap_use_modules &&
+		    access(set->imap_modules, R_OK | X_OK) < 0) {
+			i_fatal("Can't access imap module directory: %s: %m",
+				set->imap_modules);
+		}
+#else
+		if (set->imap_use_modules) {
+			i_warning("Module support wasn't built into Dovecot, "
+				  "ignoring imap_use_modules setting");
+		}
+#endif
 	}
 
 	if (strstr(set->protocols, "pop3") != NULL) {
@@ -334,6 +346,18 @@ static void settings_verify(struct settings *set)
 			i_fatal("Can't use pop3 executable %s: %m",
 				set->pop3_executable);
 		}
+#ifdef HAVE_MODULES
+		if (set->pop3_use_modules &&
+		    access(set->pop3_modules, R_OK | X_OK) < 0) {
+			i_fatal("Can't access pop3 module directory: %s: %m",
+				set->imap_modules);
+		}
+#else
+		if (set->pop3_use_modules) {
+			i_warning("Module support wasn't built into Dovecot, "
+				  "ignoring pop3_use_modules setting");
+		}
+#endif
 	}
 
 	if (set->log_path != NULL && access(set->log_path, W_OK) < 0) {
