@@ -1098,6 +1098,9 @@ static int maildir_index_sync_context(struct maildir_sync_context *ctx,
 	struct stat st;
 	time_t new_mtime, cur_mtime;
 
+	if (!maildir_try_flush_dirty_flags(ctx->index, FALSE))
+		return FALSE;
+
 	if (index->fd != -1) {
 		/* FIXME: file_sync_stamp should be in index file's headers.
 		   it should also contain maildir_cur_dirty. */

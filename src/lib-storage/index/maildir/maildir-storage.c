@@ -635,6 +635,21 @@ static int maildir_get_mailbox_name_status(struct mail_storage *storage,
 	}
 }
 
+static int maildir_storage_close(struct mailbox *box)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+	int failed = FALSE;
+
+        index_storage_init_lock_notify(ibox);
+	if (!maildir_try_flush_dirty_flags(ibox->index, TRUE)) {
+		mail_storage_set_index_error(ibox);
+		failed = TRUE;
+	}
+	ibox->index->set_lock_notify_callback(ibox->index, NULL, NULL);
+
+	return index_storage_close(box) && !failed;
+}
+
 static void maildir_storage_auto_sync(struct mailbox *box,
 				      enum mailbox_sync_type sync_type,
 				      unsigned int min_newmail_notify_interval)
@@ -688,7 +703,7 @@ struct mailbox maildir_mailbox = {
 	NULL, /* name */
 	NULL, /* storage */
 
-	index_storage_close,
+	maildir_storage_close,
 	index_storage_get_status,
 	index_storage_sync,
 	maildir_storage_auto_sync,

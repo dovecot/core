@@ -7,6 +7,66 @@
 
 #include <stdio.h>
 
+int maildir_try_flush_dirty_flags(struct mail_index *index, int force)
+{
+	struct mail_index_record *rec;
+	const char *old_fname, *old_path, *new_fname, *new_path;
+	int flag, dirty = FALSE;
+
+	if (index->next_dirty_flush == 0 ||
+	    (ioloop_time < index->next_dirty_flush && !force))
+		return TRUE;
+
+	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
+		return FALSE;
+
+	rec = index->lookup(index, 1);
+	while (rec != NULL) {
+		if ((rec->index_flags & INDEX_MAIL_FLAG_DIRTY) != 0) {
+			old_fname = maildir_get_location(index, rec);
+			if (old_fname == NULL)
+				return FALSE;
+
+			flag = (rec->index_flags &
+				INDEX_MAIL_FLAG_MAILDIR_NEW) != 0;
+			old_path = t_strconcat(index->mailbox_path,
+					       flag ? "/new/" : "/cur/",
+					       old_fname, NULL);
+
+			new_fname = maildir_filename_set_flags(old_fname,
+							       rec->msg_flags);
+			new_path = t_strconcat(index->mailbox_path,
+					       "/cur/", new_fname, NULL);
+
+			if (strcmp(old_path, new_path) == 0 ||
+			    rename(old_path, new_path) == 0)
+                                rec->index_flags &= ~INDEX_MAIL_FLAG_DIRTY;
+			else {
+				dirty = TRUE;
+				if (errno != ENOENT && errno != EACCES &&
+				    !ENOSPACE(errno)) {
+					index_set_error(index,
+						"rename(%s, %s) failed: %m",
+						old_path, new_path);
+					return FALSE;
+				}
+			}
+		}
+
+		rec = index->next(index, rec);
+	}
+
+	if (!dirty) {
+		index->header->flags &= ~MAIL_INDEX_FLAG_DIRTY_MESSAGES;
+		index->next_dirty_flush = 0;
+	} else {
+		index->next_dirty_flush =
+			ioloop_time + MAILDIR_DIRTY_FLUSH_TIMEOUT;
+	}
+
+	return TRUE;
+}
+
 static int handle_error(struct mail_index *index,
 			const char *path, const char *new_path)
 {
@@ -76,6 +136,8 @@ static int maildir_rename_mail(struct mail_index *index,
 					       "/cur/", new_fname, NULL);
 		}
 
+		ret = 0; break;
+
 		if (strcmp(old_fname, new_fname) == 0)
 			ret = 1;
 		else {
@@ -117,6 +179,10 @@ static int maildir_rename_mail(struct mail_index *index,
 		/* we couldn't actually rename() the file now.
 		   leave it's flags dirty so they get changed later. */
 		rec->index_flags |= INDEX_MAIL_FLAG_DIRTY;
+		index->header->flags |= MAIL_INDEX_FLAG_DIRTY_MESSAGES;
+		index->next_dirty_flush =
+			ioloop_time + MAILDIR_DIRTY_FLUSH_TIMEOUT;
+		*new_fname_r = NULL;
 	}
 	return TRUE;
 }
@@ -127,7 +193,7 @@ int maildir_index_update_flags(struct mail_index *index,
 {
 	struct mail_index_update *update;
 	const char *new_fname;
-	int ret;
+	int failed = FALSE;
 
 	t_push();
 	if (!maildir_rename_mail(index, rec, flags, &new_fname)) {
@@ -135,18 +201,18 @@ int maildir_index_update_flags(struct mail_index *index,
 		return FALSE;
 	}
 
-	/* update the filename in index */
-	update = index->update_begin(index, rec);
-	index->update_field(update, DATA_FIELD_LOCATION, new_fname, 0);
+	if (new_fname != NULL) {
+		/* update the filename in index */
+		update = index->update_begin(index, rec);
+		index->update_field(update, DATA_FIELD_LOCATION, new_fname, 0);
+		if (!index->update_end(update))
+			failed = TRUE;
+	}
 
-	if (!index->update_end(update))
-		ret = FALSE;
-	else if (!mail_index_update_flags(index, rec, seq, flags,
-					  external_change))
-		ret = FALSE;
-	else
-		ret = TRUE;
+	if (!failed && !mail_index_update_flags(index, rec, seq, flags,
+						external_change))
+		failed = TRUE;
 	t_pop();
 
-	return ret;
+	return !failed;
 }

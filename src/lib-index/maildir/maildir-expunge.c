@@ -17,6 +17,12 @@ static int maildir_expunge_mail_file(struct mail_index *index,
 	if (*fname == NULL)
 		return -1;
 
+	/* if we're in out-of-space condition, reset it since we'll probably
+	   have enough space now. */
+	index->maildir_keep_new = FALSE;
+	if (index->next_dirty_flush != 0)
+		index->next_dirty_flush = ioloop_time;
+
 	if ((rec->index_flags & INDEX_MAIL_FLAG_MAILDIR_NEW) != 0) {
 		/* probably in new/ dir */
 		path = t_strconcat(index->mailbox_path, "/new/", *fname, NULL);

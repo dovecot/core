@@ -8,6 +8,9 @@
 /* ":2,DFRST" - leave the 2 extra for other clients' additions */
 #define MAILDIR_LOCATION_EXTRA_SPACE 10
 
+/* How often to try to flush dirty flags. */
+#define MAILDIR_DIRTY_FLUSH_TIMEOUT (60*5)
+
 struct mail_index *
 maildir_index_alloc(const char *maildir, const char *index_dir,
 		    const char *control_dir);
@@ -35,6 +38,7 @@ int maildir_index_append_file(struct mail_index *index, const char *dir,
 int maildir_index_update_flags(struct mail_index *index,
 			       struct mail_index_record *rec, unsigned int seq,
 			       enum mail_flags flags, int external_change);
+int maildir_try_flush_dirty_flags(struct mail_index *index, int force);
 
 struct istream *maildir_open_mail(struct mail_index *index,
 				  struct mail_index_record *rec,
