@@ -405,14 +405,30 @@ rpa_credentials_callback(const char *credentials,
 {
 	struct rpa_auth_request *request =
 		(struct rpa_auth_request *)auth_request;
+	unsigned char response[16];
 	buffer_t *hash_buffer;
+	const unsigned char *token4;
+	size_t token4_size;
 
-	if (credentials == NULL)
+	if (credentials == NULL) {
+		mech_auth_finish(auth_request, NULL, 0, FALSE);
 		return;
+	}
 
 	request->pwd_md5 = p_malloc(request->pool, 16);
 	hash_buffer = buffer_create_data(request->pool, request->pwd_md5, 16);
 	hex_to_binary(credentials, hash_buffer);
+
+	rpa_user_response(request, response);
+	if (memcmp(response, request->user_response, 16) != 0) {
+		mech_auth_finish(auth_request, NULL, 0, FALSE);
+		return;
+	}
+
+	token4 = mech_rpa_build_token4(request, &token4_size);
+	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
+			       token4, token4_size);
+	request->phase = 2;
 }
 
 static void
@@ -455,10 +471,7 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 {
 	struct rpa_auth_request *request =
 		(struct rpa_auth_request *)auth_request;
-	unsigned char response[16];
-	const unsigned char *token4;
 	const char *error;
-	size_t token4_size;
 
 	if (!rpa_parse_token3(request, data, data_size, &error)) {
 		if (verbose) {
@@ -480,21 +493,6 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 
 	passdb->lookup_credentials(auth_request, PASSDB_CREDENTIALS_RPA,
 				   rpa_credentials_callback);
-	if (request->pwd_md5 == NULL) {
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
-		return;
-	}
-
-	rpa_user_response(request, response);
-	if (memcmp(response, request->user_response, 16) != 0) {
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
-		return;
-	}
-
-	token4 = mech_rpa_build_token4(request, &token4_size);
-	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
-			       token4, token4_size);
-	request->phase = 2;
 }
 
 static void
