@@ -67,7 +67,7 @@ static int handle_reply(struct auth_process *process,
 	}
 
 	if (data[nul_pos] != '\0') {
-		i_panic("Auth process %s sent invalid reply",
+		i_error("Auth process %s sent invalid reply",
 			dec2str(process->pid));
 		return FALSE;
 	}
