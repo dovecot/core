@@ -73,13 +73,7 @@ void settings_read(const char *path, settings_callback_t *callback,
 
 	linenum = 0;
 	input = i_stream_create_file(fd, default_pool, 2048, TRUE);
-	for (;;) {
-		line = i_stream_next_line(input);
-		if (line == NULL) {
-			if (i_stream_read(input) <= 0)
-				break;
-                        continue;
-		}
+	while ((line = i_stream_read_next_line(input)) != NULL) {
 		linenum++;
 
 		/* @UNSAFE: line is modified */

@@ -189,6 +189,19 @@ char *i_stream_next_line(struct istream *stream)
         return ret_buf;
 }
 
+char *i_stream_read_next_line(struct istream *stream)
+{
+	char *line;
+
+	line = i_stream_next_line(stream);
+	if (line != NULL)
+		return line;
+
+	if (i_stream_read(stream) > 0)
+		line = i_stream_next_line(stream);
+	return line;
+}
+
 const unsigned char *i_stream_get_data(struct istream *stream, size_t *size)
 {
 	struct _istream *_stream = stream->real_stream;

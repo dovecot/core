@@ -57,10 +57,13 @@ void i_stream_skip(struct istream *stream, uoff_t count);
 /* Seek to specified position from beginning of file. Never fails, the next
    read tells if it was successful. This works only for files. */
 void i_stream_seek(struct istream *stream, uoff_t v_offset);
-/* Reads the next line from stream and returns it, or NULL if more data is
+/* Gets the next line from stream and returns it, or NULL if more data is
    needed to make a full line. NOTE: modifies the data in buffer for the \0,
    so it works only with buffered streams (currently only file). */
 char *i_stream_next_line(struct istream *stream);
+/* Like i_stream_next_line(), but reads for more data if needed. Returns NULL
+   if more data is needed or error occured. */
+char *i_stream_read_next_line(struct istream *stream);
 /* Returns pointer to beginning of read data, or NULL if there's no data
    buffered. */
 const unsigned char *i_stream_get_data(struct istream *stream, size_t *size);

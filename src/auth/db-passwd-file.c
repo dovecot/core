@@ -142,14 +142,7 @@ static void passwd_file_open(struct passwd_file *pw)
 				str_hash, (hash_cmp_callback_t *)strcmp);
 
 	input = i_stream_create_file(pw->fd, default_pool, 4096, FALSE);
-	for (;;) {
-		line = i_stream_next_line(input);
-		if (line == NULL) {
-			if (i_stream_read(input) <= 0)
-				break;
-                        continue;
-		}
-
+	while ((line = i_stream_read_next_line(input)) != NULL) {
 		if (*line == '\0' || *line == ':')
 			continue; /* no username */
 
