@@ -328,6 +328,7 @@ static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 	if (mail_index_map(index, TRUE) <= 0)
 		return -1;
 
+	map = index->map;
 	map->hdr_copy = hdr;
 	map->hdr = &map->hdr_copy;
 	map->records_count = map->hdr->messages_count;
@@ -458,10 +459,11 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 			}
 			count = (hdr->size - sizeof(*append_hdr)) /
 				append_hdr->record_size;
-			if (mail_index_grow(index, view->map, count) < 0) {
+			if (mail_index_grow(index, map, count) < 0) {
 				ret = -1;
 				break;
 			}
+			map = index->map;
 		}
 
 		if (mail_transaction_map(index, hdr, data,
