@@ -15,7 +15,12 @@ int mbox_file_open(struct index_mailbox *ibox)
 
 	i_assert(ibox->mbox_fd == -1);
 
-	fd = open(ibox->path, ibox->readonly ? O_RDONLY : O_RDWR);
+	fd = open(ibox->path, ibox->mbox_readonly ? O_RDONLY : O_RDWR);
+	if (fd == -1 && errno == EACCES && !ibox->mbox_readonly) {
+                ibox->mbox_readonly = TRUE;
+		fd = open(ibox->path, O_RDONLY);
+	}
+
 	if (fd == -1) {
 		mbox_set_syscall_error(ibox, "open()");
 		return -1;

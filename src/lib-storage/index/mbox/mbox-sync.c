@@ -69,6 +69,8 @@ static int mbox_sync_lock(struct mbox_sync_context *sync_ctx, int lock_type)
 	struct stat old_st, st;
 	uoff_t old_from_offset = 0, old_offset = 0;
 
+	i_assert(lock_type != F_WRLCK || !ibox->mbox_readonly);
+
 	if (sync_ctx->lock_id != 0) {
 		if (fstat(sync_ctx->fd, &old_st) < 0) {
 			mbox_set_syscall_error(ibox, "stat()");
@@ -232,7 +234,7 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 
 	*sync_expunge_r = FALSE;
 
-	if (sync_ctx->ibox->readonly || sync_ctx->index_sync_ctx == NULL)
+	if (sync_ctx->ibox->mbox_readonly || sync_ctx->index_sync_ctx == NULL)
 		return 0;
 
 	mbox_sync_buffer_delete_old(sync_ctx->syncs, uid);
@@ -506,7 +508,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 	if (sync_ctx->first_uid == 0)
 		sync_ctx->first_uid = mail_ctx->mail.uid;
 
-	if (sync_ctx->ibox->readonly)
+	if (sync_ctx->ibox->mbox_readonly)
 		return 0;
 
 	if (sync_ctx->expunged_space > 0 && sync_ctx->need_space_seq == 0) {
@@ -1055,7 +1057,8 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
 	if (mail_index_sync_end(index_sync_ctx) < 0)
 		ret = -1;
 
-	if (sync_ctx.base_uid_last != sync_ctx.next_uid-1 && ret == 0) {
+	if (sync_ctx.base_uid_last != sync_ctx.next_uid-1 && ret == 0 &&
+	    !ibox->mbox_readonly) {
 		/* rewrite X-IMAPbase header. do it after mail_index_sync_end()
 		   so previous transactions have been committed. */
 		/* FIXME: ugly .. */
