@@ -125,8 +125,6 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path, int set)
 
 static int mbox_lock(MailIndex *index, int exclusive)
 {
-	int lock_type;
-
 	i_assert(index->mbox_fd != -1);
 
 	if (++index->mbox_locks > 1)
@@ -137,13 +135,17 @@ static int mbox_lock(MailIndex *index, int exclusive)
 			return FALSE;
 	}
 
-        lock_type = exclusive ? F_WRLCK : F_RDLCK;
+        index->mbox_lock_type = exclusive ? F_WRLCK : F_RDLCK;
 #ifdef USE_FLOCK
-	if (!mbox_lock_flock(index, lock_type))
+	if (!mbox_lock_flock(index, index->mbox_lock_type)) {
+		(void)mbox_lock_dotlock(index, index->mbox_path, FALSE);
 		return FALSE;
+	}
 #else
-	if (!mbox_lock_fcntl(index, lock_type))
+	if (!mbox_lock_fcntl(index, index->mbox_lock_type)) {
+		(void)mbox_lock_dotlock(index, index->mbox_path, FALSE);
 		return FALSE;
+	}
 #endif
 
 	return TRUE;
@@ -156,26 +158,31 @@ int mbox_lock_read(MailIndex *index)
 
 int mbox_lock_write(MailIndex *index)
 {
+	i_assert(index->mbox_lock_type != F_RDLCK);
 	return mbox_lock(index, TRUE);
 }
 
 int mbox_unlock(MailIndex *index)
 {
+	int failed;
+
 	i_assert(index->mbox_fd != -1);
 	i_assert(index->mbox_locks > 0);
 
 	if (--index->mbox_locks > 0)
 		return TRUE;
 
+	index->mbox_lock_type = F_UNLCK;
+	failed = FALSE;
 #ifdef USE_FLOCK
 	if (!mbox_lock_flock(index, F_UNLCK))
-		return FALSE;
+		failed = TRUE;
 #else
 	if (!mbox_lock_fcntl(index, F_UNLCK))
-		return FALSE;
+		failed = TRUE;
 #endif
 	if (!mbox_lock_dotlock(index, index->mbox_path, FALSE))
-		return FALSE;
+		failed = TRUE;
 
-	return TRUE;
+	return !failed;
 }

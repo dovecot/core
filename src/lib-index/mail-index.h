@@ -321,6 +321,7 @@ struct _MailIndex {
 	uoff_t mbox_size; /* last synced size of mbox file */
 	int mbox_fd;
 	int mbox_locks;
+	int mbox_lock_type;
 
 	int fd; /* opened index file */
 	char *error; /* last error message */
@@ -355,7 +356,8 @@ struct _MailIndex {
 #define MAIL_INDEX_PRIVATE_FILL \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	0
 
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent, int fast);
