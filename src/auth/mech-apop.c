@@ -138,7 +138,7 @@ static void mech_apop_auth_free(struct auth_request *request)
 	pool_unref(request->pool);
 }
 
-static struct auth_request *mech_apop_auth_new(mech_callback_t *callback)
+static struct auth_request *mech_apop_auth_new(void)
 {
 	struct apop_auth_request *request;
 	pool_t pool;
@@ -147,9 +147,7 @@ static struct auth_request *mech_apop_auth_new(mech_callback_t *callback)
 	request = p_new(pool, struct apop_auth_request, 1);
 	request->pool = pool;
 
-	request->auth_request.refcount = 1;
 	request->auth_request.pool = pool;
-	request->auth_request.callback = callback;
 	return &request->auth_request;
 }
 

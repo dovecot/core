@@ -41,8 +41,9 @@ void auth_request_success(struct auth_request *request,
 void auth_request_fail(struct auth_request *request);
 void auth_request_internal_failure(struct auth_request *request);
 
-struct auth_request *auth_request_new(struct auth *auth,
-				      struct mech_module *mech);
+struct auth_request *
+auth_request_new(struct auth *auth, struct mech_module *mech,
+		 mech_callback_t *callback);
 void auth_request_destroy(struct auth_request *request);
 void auth_request_ref(struct auth_request *request);
 int auth_request_unref(struct auth_request *request);

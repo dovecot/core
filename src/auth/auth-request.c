@@ -23,6 +23,22 @@ struct auth_request_extra {
 static buffer_t *auth_failures_buf;
 static struct timeout *to_auth_failures;
 
+struct auth_request *
+auth_request_new(struct auth *auth, struct mech_module *mech,
+		 mech_callback_t *callback)
+{
+	struct auth_request *request;
+
+	request = mech->auth_new();
+
+	request->refcount = 1;
+	request->auth = auth;
+	request->mech = mech;
+	request->callback = callback;
+	request->created = ioloop_time;
+	return request;
+}
+
 void auth_request_destroy(struct auth_request *request)
 {
 	i_assert(request->refcount > 0);

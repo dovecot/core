@@ -226,14 +226,7 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 		return FALSE;
 	}
 
-	request = mech->auth_new(auth_callback);
-	if (request == NULL)
-		return TRUE;
-
-	request->auth = conn->auth;
-	request->mech = mech;
-	request->created = ioloop_time;
-
+	request = auth_request_new(conn->auth, mech, auth_callback);
 	hash_insert(conn->auth_requests, POINTER_CAST(id), request);
 
 	request->conn = conn;
