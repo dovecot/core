@@ -174,7 +174,7 @@ void index_storage_destroy_unrefed(void)
 	destroy_unrefed(TRUE);
 }
 
-static void set_cache_decisions(const char *fields,
+static void set_cache_decisions(const char *set, const char *fields,
 				enum mail_cache_decision_type dec)
 {
 	const char *const *arr;
@@ -191,8 +191,8 @@ static void set_cache_decisions(const char *fields,
 			}
 		}
 		if (i == MAIL_CACHE_FIELD_COUNT) {
-			i_error("Invalid cache field name '%s', ignoring ",
-				*arr);
+			i_error("%s: Invalid cache field name '%s', ignoring ",
+				set, *arr);
 		}
 	}
 }
@@ -205,9 +205,10 @@ static void index_cache_register_defaults(struct mail_cache *cache)
 	if (never_env == NULL)
 		never_env = DEFAULT_NEVER_CACHE_FIELDS;
 
-	set_cache_decisions(getenv("MAIL_CACHE_FIELDS"),
+	set_cache_decisions("mail_cache_fields", getenv("MAIL_CACHE_FIELDS"),
 			    MAIL_CACHE_DECISION_TEMP);
-	set_cache_decisions(never_env, MAIL_CACHE_DECISION_NO |
+	set_cache_decisions("mail_never_cache_fields", never_env,
+			    MAIL_CACHE_DECISION_NO |
 			    MAIL_CACHE_DECISION_FORCED);
 
 	mail_cache_register_fields(cache, cache_fields,
