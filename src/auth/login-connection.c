@@ -186,7 +186,7 @@ struct login_connection *login_connection_create(int fd)
 	conn->input = i_stream_create_file(fd, default_pool, MAX_INBUF_SIZE,
 					   FALSE);
 	conn->output = o_stream_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
-					    IO_PRIORITY_DEFAULT, FALSE);
+					    FALSE);
 	conn->io = io_add(fd, IO_READ, login_input, conn);
 
 	conn->pool = pool_alloconly_create("auth_request hash", 10240);

@@ -107,10 +107,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		return;
 	}
 
-	/* execute the I/O handlers in prioritized order */
-	for (io = ioloop->ios; io != NULL && ret > 0; io = next) {
-		next = io->next;
-
+	io_p = &ioloop->ios;
+	for (io = ioloop->ios; io != NULL && ret > 0; io = *io_p) {
 		if (io->destroyed) {
 			/* we were destroyed, and io->fd points to -1 now. */
 			io_destroy(ioloop, io);
@@ -122,18 +120,19 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		fd = io->fd;
 		condition = io->condition;
 
-		if (!io_check_condition(fd, condition))
-                        continue;
+		if (io_check_condition(fd, condition)) {
+			t_id = t_push();
+			io->callback(io->context);
+			if (t_pop() != t_id)
+				i_panic("Leaked a t_pop() call!");
 
-		t_id = t_push();
-		io->callback(io->context);
-		if (t_pop() != t_id)
-			i_panic("Leaked a t_pop() call!");
+			if (io->destroyed)
+				io_destroy(ioloop, io_p);
 
-		if (io->destroyed)
-			io_destroy(ioloop, io);
+			ret--;
+		}
 
-		ret--;
+		io_p = &io->next;
 	}
 }
 

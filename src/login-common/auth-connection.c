@@ -70,7 +70,7 @@ static struct auth_connection *auth_connection_new(const char *path)
 	conn->input = i_stream_create_file(fd, default_pool, MAX_INBUF_SIZE,
 					   FALSE);
 	conn->output = o_stream_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
-					    IO_PRIORITY_DEFAULT, FALSE);
+					    FALSE);
 	conn->requests = hash_create(default_pool, default_pool, 100,
 				     NULL, NULL);
 

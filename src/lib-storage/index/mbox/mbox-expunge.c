@@ -129,7 +129,7 @@ int mbox_expunge_locked(struct index_mailbox *ibox, int notify)
 
 	t_push();
 	output = o_stream_create_file(ibox->index->mbox_fd, data_stack_pool,
-				      4096, 0, FALSE);
+				      4096, FALSE);
 	o_stream_set_blocking(output, 60000, NULL, NULL);
 
 	failed = !expunge_real(ibox, rec, seq, input, output, notify);

@@ -338,7 +338,7 @@ mbox_storage_save_init(struct mailbox *box, int transaction)
 	}
 
 	ctx->output = o_stream_create_file(ibox->index->mbox_fd,
-					   default_pool, 4096, 0, FALSE);
+					   default_pool, 4096, FALSE);
 	o_stream_set_blocking(ctx->output, 60000, NULL, NULL);
 	return ctx;
 }

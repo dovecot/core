@@ -80,8 +80,7 @@ static void main_init(void)
 
 	login_connections_init();
 
-	io_listen = io_add_priority(LOGIN_LISTEN_FD, IO_PRIORITY_LOW,
-				    IO_READ, auth_accept, NULL);
+	io_listen = io_add(LOGIN_LISTEN_FD, IO_READ, auth_accept, NULL);
 
 	/* initialize master last - it sends the "we're ok" notification */
 	master_connection_init();

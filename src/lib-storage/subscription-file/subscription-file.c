@@ -102,7 +102,7 @@ static int stream_cut(struct mail_storage *storage, const char *path,
 	fd = i_stream_get_fd(input);
 	i_assert(fd != -1);
 
-	output = o_stream_create_file(fd, default_pool, 4096, 0, 0);
+	output = o_stream_create_file(fd, default_pool, 4096, FALSE);
 	if (o_stream_seek(output, input->start_offset + input->v_offset) < 0) {
 		failed = TRUE;
 		errno = output->stream_errno;

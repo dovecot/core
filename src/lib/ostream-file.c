@@ -57,7 +57,6 @@ struct file_ostream {
 	struct _ostream ostream;
 
 	int fd;
-	int priority;
 	struct io *io;
 
 	unsigned char *buffer; /* ring-buffer */
@@ -476,9 +475,8 @@ static size_t o_stream_add(struct file_ostream *fstream,
 
 	if (sent != 0 && fstream->io == NULL &&
 	    !fstream->corked && !fstream->file) {
-		fstream->io = io_add_priority(fstream->fd, fstream->priority,
-					      IO_WRITE, stream_send_io,
-					      fstream);
+		fstream->io = io_add(fstream->fd, IO_WRITE, stream_send_io,
+				     fstream);
 	}
 
 	i_assert(!STREAM_IS_BLOCKING(fstream) || sent == size);
@@ -840,7 +838,7 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 
 struct ostream *
 o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
-		     int priority, int autoclose_fd)
+		     int autoclose_fd)
 {
 	struct file_ostream *fstream;
 	struct ostream *ostream;
@@ -849,7 +847,6 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 
 	fstream = p_new(pool, struct file_ostream, 1);
 	fstream->fd = fd;
-	fstream->priority = priority;
 	fstream->max_buffer_size = max_buffer_size;
 	fstream->autoclose_fd = autoclose_fd;
 	fstream->optimal_block_size = DEFAULT_OPTIMAL_BLOCK_SIZE;

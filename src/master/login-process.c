@@ -312,7 +312,7 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 	p->io = io_add(fd, IO_READ, login_process_input, p);
 	p->output = o_stream_create_file(fd, default_pool,
 					 sizeof(struct master_login_reply)*10,
-					 IO_PRIORITY_DEFAULT, FALSE);
+					 FALSE);
 
 	PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_LOGIN);
 	hash_insert(processes, POINTER_CAST(pid), p);

@@ -62,6 +62,8 @@ static struct auth_mech_desc *auth_mech_find(const char *name)
 
 static void client_auth_abort(struct imap_client *client, const char *msg)
 {
+	client->authenticating = FALSE;
+
 	if (client->common.auth_request != NULL) {
 		auth_abort_request(client->common.auth_request);
                 auth_request_unref(client->common.auth_request);
@@ -132,7 +134,6 @@ static void login_callback(struct auth_request *request,
 			      master_callback, &error)) {
 	case -1:
 		/* login failed */
-                client->authenticating = FALSE;
 		client_auth_abort(client, error);
 		break;
 
@@ -213,7 +214,6 @@ static void authenticate_callback(struct auth_request *request,
 			      master_callback, &error)) {
 	case -1:
 		/* login failed */
-                client->authenticating = FALSE;
 		client_auth_abort(client, error);
 		break;
 

@@ -46,8 +46,7 @@ maildir_read_into_tmp(struct index_mailbox *ibox, const char *dir,
 	fname++;
 
 	t_push();
-	output = o_stream_create_file(fd, data_stack_pool, 4096,
-				      IO_PRIORITY_DEFAULT, FALSE);
+	output = o_stream_create_file(fd, data_stack_pool, 4096, FALSE);
 	o_stream_set_blocking(output, 60000, NULL, NULL);
 
 	if (!mail_storage_save(ibox->box.storage, path, input, output,

@@ -50,8 +50,7 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 	client = i_new(struct client, 1);
 	client->input = i_stream_create_file(hin, default_pool,
 					     MAX_INBUF_SIZE, FALSE);
-	client->output = o_stream_create_file(hout, default_pool, 4096,
-					      IO_PRIORITY_DEFAULT, FALSE);
+	client->output = o_stream_create_file(hout, default_pool, 4096, FALSE);
 
 	/* set timeout for reading expected data (eg. APPEND). This is
 	   different from the actual idle time. */

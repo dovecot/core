@@ -12,7 +12,7 @@ struct ostream {
 
 struct ostream *
 o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
-		     int priority, int autoclose_fd);
+		     int autoclose_fd);
 
 /* Reference counting. References start from 1, so calling o_stream_unref()
    destroys the stream if o_stream_ref() is never used. */

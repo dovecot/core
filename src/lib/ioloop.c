@@ -23,9 +23,6 @@
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/* FIXME: inserting io is slow if there's lots of them. I should add a linked
-   list of priorities pointing to first item in the list with the priority. */
-
 #include "lib.h"
 #include "ioloop-internal.h"
 
@@ -59,38 +56,7 @@ static void update_highest_fd(struct ioloop *ioloop)
 	}
 }
 
-static void io_list_insert(struct ioloop *ioloop, struct io *io)
-{
-	struct io *prev, *next;
-
-        prev = NULL;
-	for (next = ioloop->ios; next != NULL; next = next->next) {
-		if (next->priority >= io->priority)
-                        break;
-                prev = next;
-	}
-
-	if (prev == NULL)
-                ioloop->ios = io;
-	else {
-		io->prev = prev;
-                prev->next = io;
-	}
-
-	if (next != NULL) {
-		io->next = next;
-		next->prev = io;
-	}
-}
-
-struct io *io_add(int fd, int condition, io_callback_t *callback, void *data)
-{
-	return io_add_priority(fd, IO_PRIORITY_DEFAULT,
-			       condition, callback, data);
-}
-
-struct io *io_add_priority(int fd, int priority, int condition,
-			   io_callback_t *callback, void *context)
+struct io *io_add(int fd, int condition, io_callback_t *callback, void *context)
 {
 	struct io *io;
 
@@ -99,7 +65,6 @@ struct io *io_add_priority(int fd, int priority, int condition,
 
 	io = p_new(current_ioloop->pool, struct io, 1);
 	io->fd = fd;
-	io->priority = priority;
         io->condition = condition;
 
 	io->callback = callback;
@@ -109,8 +74,9 @@ struct io *io_add_priority(int fd, int priority, int condition,
                 current_ioloop->highest_fd = io->fd;
 
         io_loop_handle_add(current_ioloop, io->fd, io->condition);
-	io_list_insert(current_ioloop, io);
 
+	io->next = current_ioloop->ios;
+	current_ioloop->ios = io;
 	return io;
 }
 
@@ -131,17 +97,12 @@ void io_remove(struct io *io)
 	io->fd = -1;
 }
 
-void io_destroy(struct ioloop *ioloop, struct io *io)
+void io_destroy(struct ioloop *ioloop, struct io **io_p)
 {
-        /* remove from list */
-	if (io->prev == NULL)
-                ioloop->ios = io->next;
-	else
-		io->prev->next = io->next;
+	struct io *io = *io_p;
 
-	if (io->next != NULL)
-		io->next->prev = io->prev;
-
+	/* remove from list */
+	*io_p = io->next;
 	p_free(ioloop->pool, io);
 }
 
@@ -183,7 +144,7 @@ static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 	}
 }
 
-struct timeout *timeout_add(int msecs, timeout_callback_t *callback,
+struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
 			    void *context)
 {
 	struct timeout *timeout;
@@ -207,16 +168,11 @@ void timeout_remove(struct timeout *timeout)
 	timeout->destroyed = TRUE;
 }
 
-void timeout_destroy(struct ioloop *ioloop, struct timeout *timeout)
+void timeout_destroy(struct ioloop *ioloop, struct timeout **timeout_p)
 {
-	struct timeout **t;
+        struct timeout *timeout = *timeout_p;
 
-	for (t = &ioloop->timeouts; *t != NULL; t = &(*t)->next) {
-		if (*t == timeout)
-			break;
-	}
-	*t = timeout->next;
-
+	*timeout_p = timeout->next;
         p_free(ioloop->pool, timeout);
 }
 
@@ -256,7 +212,7 @@ int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
 
 void io_loop_handle_timeouts(struct ioloop *ioloop)
 {
-	struct timeout *t, *next;
+	struct timeout *t, **t_p;
 	struct timeval tv;
         unsigned int t_id;
 
@@ -267,13 +223,13 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 	if (ioloop->timeouts == NULL || !ioloop->timeouts->run_now)
 		return;
 
-	for (t = ioloop->timeouts; t != NULL; t = next) {
-		next = t->next;
-
+	t_p = &ioloop->timeouts;
+	for (t = ioloop->timeouts; t != NULL; t = *t_p) {
 		if (t->destroyed) {
-                        timeout_destroy(ioloop, t);
+                        timeout_destroy(ioloop, t_p);
 			continue;
 		}
+		t_p = &t->next;
 
 		if (!t->run_now) {
 			io_loop_get_wait_time(t, &tv, &ioloop_timeval);
@@ -348,7 +304,7 @@ void io_loop_destroy(struct ioloop *ioloop)
 				  (void *) io->callback, io->fd);
 			io_remove(io);
 		}
-		io_destroy(ioloop, io);
+		io_destroy(ioloop, &ioloop->ios);
 	}
 
 	while (ioloop->timeouts != NULL) {
@@ -358,7 +314,7 @@ void io_loop_destroy(struct ioloop *ioloop)
 			i_warning("Timeout leak: %p", (void *) to->callback);
 			timeout_remove(to);
 		}
-                timeout_destroy(ioloop, to);
+                timeout_destroy(ioloop, &ioloop->timeouts);
 	}
 
         io_loop_handler_deinit(ioloop);

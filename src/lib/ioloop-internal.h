@@ -18,10 +18,9 @@ struct ioloop {
 };
 
 struct io {
-	struct io *prev, *next;
+	struct io *next;
 
 	int fd;
-        int priority;
 	int condition;
 
 	unsigned int destroyed:1;
@@ -34,9 +33,10 @@ struct timeout {
 	struct timeout *next;
 
 	struct timeval next_run;
-        int msecs;
-	int run_now;
-        int destroyed;
+        unsigned int msecs;
+
+	unsigned int run_now:1;
+	unsigned int destroyed:1;
 
 	timeout_callback_t *callback;
         void *context;
@@ -47,9 +47,9 @@ int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
 void io_loop_handle_timeouts(struct ioloop *ioloop);
 
 /* call only when io->destroyed is TRUE */
-void io_destroy(struct ioloop *ioloop, struct io *io);
+void io_destroy(struct ioloop *ioloop, struct io **io_p);
 /* call only when timeout->destroyed is TRUE */
-void timeout_destroy(struct ioloop *ioloop, struct timeout *timeout);
+void timeout_destroy(struct ioloop *ioloop, struct timeout **timeout_p);
 
 /* I/O handler calls */
 void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition);

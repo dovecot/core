@@ -207,7 +207,7 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 					MAX_INBUF_SIZE, FALSE);
 	p->output = o_stream_create_file(fd, default_pool,
 					 sizeof(struct auth_master_request)*100,
-					 IO_PRIORITY_DEFAULT, FALSE);
+					 FALSE);
 	p->requests = hash_create(default_pool, default_pool, 0, NULL, NULL);
 
 	p->next = group->processes;

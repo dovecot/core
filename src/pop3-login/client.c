@@ -53,8 +53,7 @@ static void client_set_title(struct pop3_client *client)
 static void client_open_streams(struct pop3_client *client, int fd)
 {
 	client->input = i_stream_create_file(fd, default_pool, 8192, FALSE);
-	client->output = o_stream_create_file(fd, default_pool, 1024,
-					      IO_PRIORITY_DEFAULT, FALSE);
+	client->output = o_stream_create_file(fd, default_pool, 1024, FALSE);
 }
 
 static int cmd_stls(struct pop3_client *client)

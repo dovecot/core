@@ -166,8 +166,7 @@ void master_connection_init(void)
 
 	master_pos = 0;
 	output = o_stream_create_file(MASTER_SOCKET_FD, default_pool,
-				      MAX_OUTBUF_SIZE, IO_PRIORITY_DEFAULT,
-				      FALSE);
+				      MAX_OUTBUF_SIZE, FALSE);
 	io_master = io_add(MASTER_SOCKET_FD, IO_READ, master_input, NULL);
 
 	/* just a note to master that we're ok. if we die before,

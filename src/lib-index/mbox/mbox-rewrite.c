@@ -495,7 +495,7 @@ static int fd_copy(struct mail_index *index, int in_fd, int out_fd,
 				     1024*256, 0, 0, FALSE);
 	i_stream_set_read_limit(input, size);
 
-	output = o_stream_create_file(out_fd, data_stack_pool, 1024, 0, FALSE);
+	output = o_stream_create_file(out_fd, data_stack_pool, 1024, FALSE);
 	o_stream_set_blocking(output, 60000, NULL, NULL);
 
 	ret = o_stream_send_istream(output, input);
@@ -643,7 +643,7 @@ int mbox_index_rewrite(struct mail_index *index)
 
 	/* note: we can't use data_stack_pool with output stream because it's
 	   being written to inside t_push() .. t_pop() calls */
-	output = o_stream_create_file(tmp_fd, system_pool, 8192, 0, FALSE);
+	output = o_stream_create_file(tmp_fd, system_pool, 8192, FALSE);
 	o_stream_set_blocking(output, 60000, NULL, NULL);
 
 	failed = FALSE; seq = 1;
