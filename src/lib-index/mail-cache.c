@@ -137,6 +137,34 @@ static struct mail_cache_record *
 mail_cache_lookup(struct mail_cache *cache,
 		  const struct mail_index_record *rec);
 
+static uint32_t uint32_to_offset(uint32_t offset)
+{
+	unsigned char buf[4];
+
+	i_assert(offset < 0x40000000);
+	i_assert((offset & 3) == 0);
+
+	offset >>= 2;
+	buf[0] = 0x80 | ((offset & 0x0fe00000) >> 21);
+	buf[1] = 0x80 | ((offset & 0x001fc000) >> 14);
+	buf[2] = 0x80 | ((offset & 0x00003f80) >> 7);
+	buf[3] = 0x80 |  (offset & 0x0000007f);
+	return *((uint32_t *) buf);
+}
+
+static uint32_t offset_to_uint32(uint32_t offset)
+{
+	const unsigned char *buf = (const unsigned char *) &offset;
+
+	if ((offset & 0x80808080) != 0x80808080)
+		return 0;
+
+	return (((uint32_t)buf[3] & 0x7f) << 2) |
+		(((uint32_t)buf[2] & 0x7f) << 9) |
+		(((uint32_t)buf[1] & 0x7f) << 16) |
+		(((uint32_t)buf[0] & 0x7f) << 23);
+}
+
 static int mail_cache_set_syscall_error(struct mail_cache *cache,
 					const char *function)
 {
@@ -602,7 +630,7 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 	if (str == NULL)
 		header_idx = -1;
 	else {
-		hdr->header_offsets[0] = uint32_to_nbo(offset | 2);
+		hdr->header_offsets[0] = uint32_to_offset(offset);
 		header_idx = i;
 
 		size = strlen(str) + 1;
@@ -620,13 +648,13 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 		cache_rec = mail_cache_lookup(cache, rec);
 		if (cache_rec == NULL)
 			rec->cache_offset = 0;
-		else if ((nbo_to_uint32(cache_rec->next_offset) & 2) == 0) {
+		else if (offset_to_uint32(cache_rec->next_offset) == 0) {
 			/* just one unmodified block, copy it */
 			size = nbo_to_uint32(cache_rec->size);
 			i_assert(offset + size <= new_file_size);
 
 			memcpy(mmap_base + offset, cache_rec, size);
-			rec->cache_offset = uint32_to_nbo(offset | 2);
+			rec->cache_offset = uint32_to_offset(offset);
 
 			size = (size + 3) & ~3;
 			offset += size;
@@ -641,7 +669,7 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 			used_fields |= cache_rec->fields;
 			t_pop();
 
-			rec->cache_offset = uint32_to_nbo(offset | 2);
+			rec->cache_offset = uint32_to_offset(offset);
 			offset += size;
 		}
 
@@ -893,38 +921,29 @@ static void mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 
 static void mark_update(buffer_t **buf, uint32_t offset, uint32_t data)
 {
-	unsigned char lower_data;
-
 	if (*buf == NULL)
 		*buf = buffer_create_dynamic(system_pool, 1024, (size_t)-1);
 
 	/* data is in big endian, we want to update only the lowest byte */
-	offset += sizeof(uint32_t) - 1;
 	buffer_append(*buf, &offset, sizeof(offset));
-
-	lower_data = data & 0xff;
-	buffer_append(*buf, &lower_data, 1);
+	buffer_append(*buf, &data, sizeof(data));
 }
 
 static int write_mark_updates(struct mail_index *index, buffer_t *marks,
 			      const char *path, int fd)
 {
-	const unsigned char *data, *end;
-	uint32_t offset;
+	const uint32_t *data, *end;
 	size_t size;
 
 	data = buffer_get_data(marks, &size);
-	end = data + size;
+	end = data + size/sizeof(uint32_t);
 
 	while (data < end) {
-		memcpy(&offset, data, sizeof(offset));
-		data += sizeof(offset);
-
-		if (pwrite(fd, data, sizeof(*data), offset) < 0) {
+		if (pwrite(fd, data+1, sizeof(*data), data[0]) < 0) {
 			index_file_set_syscall_error(index, path, "pwrite()");
 			return FALSE;
 		}
-		data++;
+		data += 2;
 	}
 	return TRUE;
 }
@@ -943,9 +962,9 @@ static void write_mark_updates_in_memory(buffer_t *marks, void *mmap_base,
 		memcpy(&offset, data, sizeof(offset));
 		data += sizeof(offset);
 
-		i_assert(offset < mmap_length);
-		((char *) mmap_base)[offset] = *data;
-		data++;
+		i_assert(offset <= mmap_length - sizeof(uint32_t));
+		memcpy((char *) mmap_base + offset, data, sizeof(uint32_t));
+		data += sizeof(uint32_t);
 	}
 }
 
@@ -1048,10 +1067,18 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 
 int mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 {
+	struct mail_cache *cache = ctx->cache;
+	unsigned int i;
+
 	/* no need to actually modify the file - we just didn't update
 	   used_file_size */
-	ctx->cache->used_file_size =
-		nbo_to_uint32(ctx->cache->header->used_file_size);
+	cache->used_file_size = nbo_to_uint32(cache->header->used_file_size);
+
+	/* make sure we don't cache the headers */
+	for (i = 0; i < ctx->next_unused_header_lowwater; i++) {
+		if (offset_to_uint32(cache->header->header_offsets[i]) == 0)
+			cache->split_offsets[i] = 1;
+	}
 
 	mail_cache_transaction_flush(ctx);
 	return TRUE;
@@ -1114,9 +1141,15 @@ static uint32_t mail_cache_append_space(struct mail_cache_transaction_ctx *ctx,
 	/* NOTE: must be done within transaction or rollback would break it */
 	uint32_t offset;
 
-	i_assert((size % sizeof(uint32_t)) == 0);
+	i_assert((size & 3) == 0);
 
 	offset = ctx->cache->used_file_size;
+	if (offset >= 0x40000000) {
+		index_set_error(ctx->cache->index, "Cache file too large: %s",
+				ctx->cache->filepath);
+		return 0;
+	}
+
 	if (offset + size > ctx->cache->mmap_length) {
 		if (!mail_cache_grow(ctx->cache, size))
 			return 0;
@@ -1132,13 +1165,10 @@ mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx)
 	uint32_t offset, data_size;
 	unsigned char *buf;
 
-	offset = nbo_to_uint32(cache->header->header_offsets[idx]);
+	offset = offset_to_uint32(cache->header->header_offsets[idx]);
 
-	if ((offset & 2) == 0 &&
-	    (cache->trans_ctx == NULL ||
-	     cache->trans_ctx->next_unused_header_lowwater <= idx))
+	if (offset == 0)
 		return NULL;
-	offset &= ~2;
 
 	if (!mmap_update(cache, offset, 1024))
 		return NULL;
@@ -1236,7 +1266,7 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 
 	i_assert(idx < MAIL_CACHE_HEADERS_COUNT);
 	i_assert(idx >= ctx->next_unused_header_lowwater);
-	i_assert((nbo_to_uint32(cache->header->header_offsets[idx]) & 2) == 0);
+	i_assert(offset_to_uint32(cache->header->header_offsets[idx]) == 0);
 
 	t_push();
 
@@ -1264,19 +1294,18 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 		memcpy((char *) cache->mmap_base + offset,
 		       &size, sizeof(uint32_t));
 
-		cache->header->header_offsets[idx] = uint32_to_nbo(offset);
-
-		/* the above value may actually be in split_offsets[] if
-		   last transaction was rolled back. make sure the next
-		   get_header_fields() notices it's changed */
-                cache->split_offsets[idx] = 0;
+		/* update cached headers */
+		cache->split_offsets[idx] = cache->header->header_offsets[idx];
+		cache->split_headers[idx] =
+			split_header(cache, buffer_get_data(buffer, NULL));
 
 		/* mark used-bit to be updated later. not really needed for
 		   read-safety, but if transaction get rolled back we can't let
 		   this point to invalid location. */
 		update_offset = (char *) &cache->header->header_offsets[idx] -
 			(char *) cache->mmap_base;
-		mark_update(&ctx->cache_marks, update_offset, offset | 2);
+		mark_update(&ctx->cache_marks, update_offset,
+			    uint32_to_offset(offset));
 
 		/* make sure get_header_fields() still works for this header
 		   while the transaction isn't yet committed. */
@@ -1293,15 +1322,9 @@ cache_get_record(struct mail_cache *cache, uint32_t offset)
 	struct mail_cache_record *cache_rec;
 	size_t size;
 
-	offset = nbo_to_uint32(offset);
-
-	if ((offset & 1) != 0) {
-		mail_cache_set_corrupted(cache, "bit 0 set in data offset");
+	offset = offset_to_uint32(offset);
+	if (offset == 0)
 		return NULL;
-	}
-	if ((offset & 2) == 0)
-		return NULL;
-	offset &= ~2;
 
 	if (!mmap_update(cache, offset, sizeof(*cache_rec) + 1024))
 		return NULL;
@@ -1366,24 +1389,21 @@ static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 		/* first cache record - update offset in index file */
 		i_assert(cache->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-		rec->cache_offset = uint32_to_nbo(write_offset);
-
-		/* mark used-bit to be updated later */
+		/* mark cache_offset to be updated later */
 		update_offset = (char *) &rec->cache_offset -
 			(char *) cache->index->mmap_base;
-		mark_update(&ctx->index_marks, update_offset, write_offset | 2);
+		mark_update(&ctx->index_marks, update_offset,
+			    uint32_to_offset(write_offset));
 	} else {
 		/* find the last cache record */
 		while ((next = cache_get_next_record(cache, cache_rec)) != NULL)
 			cache_rec = next;
 
-		/* set our offset, keep the used-bit still unset */
-		cache_rec->next_offset = uint32_to_nbo(write_offset);
-
-		/* mark used-bit to be updated later */
+		/* mark next_offset to be updated later */
 		update_offset = (char *) &cache_rec->next_offset -
 			(char *) cache->mmap_base;
-		mark_update(&ctx->cache_marks, update_offset, write_offset | 2);
+		mark_update(&ctx->cache_marks, update_offset,
+			    uint32_to_offset(write_offset));
 	}
 
 	memcpy((char *) cache->mmap_base + write_offset,
