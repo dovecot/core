@@ -396,8 +396,6 @@ struct mail_index {
 	/* last maildir sync: */
 	dev_t uidlist_dev;
 	ino_t uidlist_ino;
-	time_t uidlist_mtime;
-	off_t uidlist_size;
 
 	int maildir_lock_fd;
 
@@ -447,8 +445,7 @@ struct mail_index {
 	0, 0, 0, 0, 0, 0, { 0, 0, 0 }, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0
+	0, 0, 0, 0, 0, 0, 0, 0, 0
 #endif
 
 /* defaults - same as above but prefixed with mail_index_. */
