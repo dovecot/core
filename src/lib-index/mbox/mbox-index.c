@@ -477,12 +477,12 @@ static int mbox_is_valid_from(IBuffer *inbuf, size_t startpos)
 static void mbox_skip_forward(IBuffer *inbuf, int header)
 {
 	const unsigned char *msg;
-	size_t i, size, startpos;
+	size_t i, size, startpos, eoh;
 	int lastmsg, state, new_state;
 
 	/* read until "[\r]\nFrom " is found. assume '\n' at beginning of
 	   buffer */
-	startpos = i = 0; lastmsg = TRUE;
+	startpos = i = 0; eoh = 0; lastmsg = TRUE;
 	state = '\n';
 	while (i_buffer_read_data(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
@@ -493,20 +493,25 @@ static void mbox_skip_forward(IBuffer *inbuf, int header)
 					new_state = 'F';
 				else if (header) {
 					if (msg[i] == '\n') {
-						/* \n\n */
-						i_buffer_skip(inbuf, i+1);
-						return;
-					}
-
-					if (msg[i] == '\r')
+						/* \n\n, but if we have
+						   0-byte message body the
+						   following \n may belong
+						   to "From "-line */
+						eoh = i+1;
+						header = FALSE;
+						new_state = '\n';
+					} else if (msg[i] == '\r') {
+						/* possibly \n\r\n */
 						new_state = '\r';
+					}
 				}
 				break;
 			case '\r':
 				if (msg[i] == '\n') {
 					/* \n\r\n */
-					i_buffer_skip(inbuf, i+1);
-					return;
+					eoh = i+1;
+					header = FALSE;
+					new_state = '\n';
 				}
 				break;
 			case 'F':
@@ -543,17 +548,37 @@ static void mbox_skip_forward(IBuffer *inbuf, int header)
 				break;
 			}
 
-			if (new_state == 0 && msg[i] == '\n')
-				state = '\n';
-			else
+			if (new_state != 0)
 				state = new_state;
+			else if (eoh == 0)
+				state = msg[i] == '\n' ? '\n' : 0;
+			else {
+				/* end of header position confirmed */
+				i_buffer_skip(inbuf, eoh);
+				return;
+			}
 		}
 
-		/* Leave enough space to go back "\r\nFrom" */
-		startpos = i < 6 ? i : 6;
+		/* Leave enough space to go back "\r\nFrom" plus one for the
+		   end-of-headers check */
+		startpos = i < 7 ? i : 7;
 		i -= startpos;
 
+		if (eoh != 0) {
+			i_assert(i < eoh);
+			eoh -= i;
+		}
+
 		i_buffer_skip(inbuf, i);
+	}
+
+	if (eoh != 0) {
+		/* make sure we didn't end with \n\n or \n\r\n. In these
+		   cases the last [\r]\n doesn't belong to our message. */
+		if (eoh < size && (msg[eoh] != '\r' || eoh < size-1)) {
+			i_buffer_skip(inbuf, eoh);
+			return;
+		}
 	}
 
 	/* end of file, leave the last [\r]\n */
