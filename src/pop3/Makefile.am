@@ -10,13 +10,8 @@ INCLUDES = \
 
 pop3_LDADD = \
 	../lib-storage/register/libstorage-register.a \
-	../lib-storage/index/maildir/libstorage_maildir.a \
-	../lib-storage/index/mbox/libstorage_mbox.a \
-	../lib-storage/index/libstorage_index.a \
+	$(STORAGE_LIBS) \
 	../lib-storage/libstorage.a \
-	../lib-index/maildir/libstorage_index_maildir.a \
-	../lib-index/mbox/libstorage_index_mbox.a \
-	../lib-index/libstorage_index.a \
 	../lib-storage/subscription-file/libstorage_subscription_file.a \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \
