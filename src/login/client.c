@@ -45,6 +45,7 @@ static int cmd_capability(Client *client)
 	const char *capability;
 
 	capability = t_strconcat("* CAPABILITY " CAPABILITY_STRING,
+				 ssl_initialized ? " STARTTLS" : "",
 				 disable_plaintext_auth && !client->tls ?
 				 " LOGINDISABLED" : "",
 				 client_authenticate_get_capabilities(),
