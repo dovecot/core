@@ -68,7 +68,7 @@ static void check_parameters_file(void)
 {
 	struct stat st;
 
-	if (set_ssl_parameters_file == NULL || generating)
+	if (set_ssl_parameters_file == NULL || set_ssl_disable || generating)
 		return;
 
 	if (stat(set_ssl_parameters_file, &st) != 0) {
