@@ -1167,7 +1167,9 @@ void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
                         INDEX_MARK_CORRUPTED(index);
 		else
 			index->header->seen_messages_count--;
-	} else if ((old_flags & MAIL_DELETED) == 0 &&
+	}
+
+	if ((old_flags & MAIL_DELETED) == 0 &&
 		   (new_flags & MAIL_DELETED)) {
 		/* undeleted -> deleted */
 		index->header->deleted_messages_count++;
