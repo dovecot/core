@@ -372,8 +372,8 @@ index_messageset_next(struct messageset_context *ctx)
 		ctx->expunges++;
 	}
 
-	i_assert(!(ctx->expunges->uid1 <= mail->rec->uid &&
-		   ctx->expunges->uid2 >= mail->rec->uid));
+	i_assert(mail->rec->uid < ctx->expunges->uid1 ||
+		 mail->rec->uid > ctx->expunges->uid2);
 
 	if (!ctx->uidset && mail->client_seq > ctx->num2) {
 		/* finished this set - see if there's more */
