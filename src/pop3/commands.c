@@ -365,7 +365,7 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 	if (body_lines == (uoff_t)-1 && !no_flag_updates) {
 		if ((mail->get_flags(mail) & MAIL_SEEN) == 0) {
 			/* mark the message seen with RETR command */
-			(void)mail->update_flags(mail, MAIL_SEEN, MODIFY_ADD);
+			(void)mail->update_flags(mail, MODIFY_ADD, MAIL_SEEN);
 		}
 	}
 
