@@ -180,8 +180,11 @@ static int mail_index_copy(struct mail_index *index)
 		return -1;
 
 	if (index->lock_type == F_UNLCK) {
-		if (mail_index_lock_mprotect(index, F_RDLCK) < 0)
+		if (mail_index_lock_mprotect(index, F_RDLCK) < 0) {
+			(void)close(fd);
+			(void)unlink(path);
 			return -1;
+		}
 	}
 
 	ret = write_full(fd, index->map->hdr, sizeof(*index->map->hdr));
@@ -226,6 +229,7 @@ static int mail_index_lock_exclusive_copy(struct mail_index *index)
 
 	if (mail_index_reopen(index, fd) < 0) {
 		i_assert(index->excl_lock_count == 1);
+		(void)close(fd);
 		if (unlink(index->copy_lock_path) < 0) {
 			mail_index_file_set_syscall_error(index,
 							  index->copy_lock_path,
@@ -301,6 +305,8 @@ static int mail_index_copy_lock_finish(struct mail_index *index)
 
 static void mail_index_excl_unlock_finish(struct mail_index *index)
 {
+	int fd;
+
 	if (index->map != NULL && index->map->write_to_disk) {
 		i_assert(index->log_locked);
 
@@ -311,8 +317,11 @@ static void mail_index_excl_unlock_finish(struct mail_index *index)
 			i_free(index->copy_lock_path);
 			index->copy_lock_path = NULL;
 		}
-		if (mail_index_copy(index) < 0)
+		fd = mail_index_copy(index);
+		if (fd == -1)
 			mail_index_set_inconsistent(index);
+		else
+			(void)close(fd);
 	}
 
 	if (index->copy_lock_path != NULL) {

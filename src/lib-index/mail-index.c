@@ -491,8 +491,11 @@ mail_index_try_open(struct mail_index *index, unsigned int *lock_id_r)
 	if (ret <= 0)
 		return ret;
 
-	if (mail_index_lock_shared(index, FALSE, &lock_id) < 0)
+	if (mail_index_lock_shared(index, FALSE, &lock_id) < 0) {
+		(void)close(index->fd);
+		index->fd = -1;
 		return -1;
+	}
 	ret = mail_index_map(index, FALSE);
 	if (ret == 0) {
 		/* it's corrupted - recreate it */
