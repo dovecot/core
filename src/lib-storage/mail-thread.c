@@ -45,7 +45,7 @@
 /* Try to buffer this much data before sending it to output stream. */
 #define OUTPUT_BUF_SIZE 2048
 
-#define NODE_IS_DUMMY(node) ((node)->id == 0 || (node)->id == UINT_MAX)
+#define NODE_IS_DUMMY(node) ((node)->id == 0)
 
 struct root_info {
 	char *base_subject;
@@ -174,14 +174,7 @@ static struct node *update_message(struct mail_thread_context *ctx,
 		/* seen before in references */
 		node->id = id;
 	} else {
-		/* duplicate -> invalidate all of them.
-		   the message-id stays and acts like a dummy node. */
-		if (node->id != UINT_MAX) {
-			add_root(ctx, create_id_node(ctx, node->id,
-						     node->sent_date));
-			node->id = UINT_MAX;
-		}
-
+		/* duplicate */
 		node = create_id_node(ctx, id, sent_date);
 		add_root(ctx, node);
 	}
@@ -378,7 +371,7 @@ void mail_thread_input(struct mail_thread_context *ctx, unsigned int id,
 	const char *msgid, *refid;
 	struct node *node;
 
-	i_assert(id > 0 && id < UINT_MAX);
+	i_assert(id > 0);
 
 	/* get our message ID */
 	msgid = get_msgid(&message_id);
