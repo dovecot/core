@@ -402,7 +402,7 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 {
 	struct mail_transaction_flag_update *updates, tmp_update;
 	size_t size;
-	uint32_t idx;
+	uint32_t idx, move;
 
 	updates = buffer_get_modifyable_data(t->updates, &size);
 	size /= sizeof(*updates);
@@ -432,10 +432,18 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 		if (u.uid1 != updates[idx].uid1 &&
 		    (updates[idx].add_flags != u.add_flags ||
 		     updates[idx].remove_flags != u.remove_flags)) {
-			/* split existing update from beginning */
-			tmp_update = updates[idx];
-			tmp_update.uid2 = u.uid1 - 1;
-			updates[idx].uid1 = u.uid1;
+			if (u.uid1 < updates[idx].uid1) {
+				/* insert new update */
+				tmp_update = u;
+				tmp_update.uid2 = updates[idx].uid1 - 1;
+				move = 0;
+			} else {
+				/* split existing update from beginning */
+				tmp_update = updates[idx];
+				tmp_update.uid2 = u.uid1 - 1;
+				updates[idx].uid1 = u.uid1;
+				move = 1;
+			}
 
 			i_assert(tmp_update.uid1 <= tmp_update.uid2);
 			i_assert(updates[idx].uid1 <= updates[idx].uid2);
@@ -443,8 +451,11 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 			buffer_insert(t->updates, idx * sizeof(tmp_update),
 				      &tmp_update, sizeof(tmp_update));
 			updates = buffer_get_modifyable_data(t->updates, NULL);
-			size++; idx++;
+			size++; idx += move;
+		} else if (u.uid1 < updates[idx].uid1) {
+			updates[idx].uid1 = u.uid1;
 		}
+
 		if (u.uid2 < updates[idx].uid2 &&
 		    (updates[idx].add_flags != u.add_flags ||
 		     updates[idx].remove_flags != u.remove_flags)) {
