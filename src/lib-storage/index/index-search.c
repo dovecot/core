@@ -236,7 +236,7 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 	/* sizes */
 	case SEARCH_SMALLER:
 	case SEARCH_LARGER:
-		virtual_size = ctx->mail->get_size(ctx->mail);
+		virtual_size = ctx->mail->get_virtual_size(ctx->mail);
 		if (virtual_size == (uoff_t)-1)
 			return -1;
 

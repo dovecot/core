@@ -759,7 +759,7 @@ static int fetch_rfc822_size(struct imap_fetch_context *ctx, struct mail *mail,
 {
 	uoff_t size;
 
-	size = mail->get_size(mail);
+	size = mail->get_virtual_size(mail);
 	if (size == (uoff_t)-1)
 		return -1;
 
@@ -858,7 +858,7 @@ int fetch_rfc822_init(struct imap_fetch_context *ctx, const char *arg)
 	}
 
 	if (strcmp(arg+6, ".SIZE") == 0) {
-		ctx->fetch_data |= MAIL_FETCH_SIZE;
+		ctx->fetch_data |= MAIL_FETCH_VIRTUAL_SIZE;
 		imap_fetch_add_handler(ctx, fetch_rfc822_size, NULL);
 		return TRUE;
 	}

@@ -143,7 +143,7 @@ init_sort_elements(struct sort_context *ctx,
 	if (ctx->cache_mask & MAIL_SORT_DATE)
 		fields |= MAIL_FETCH_DATE;
 	if (ctx->cache_mask & MAIL_SORT_SIZE)
-		fields |= MAIL_FETCH_SIZE;
+		fields |= MAIL_FETCH_VIRTUAL_SIZE;
 
 	/* @UNSAFE */
 	i_assert(MAX_WANTED_HEADERS > 4);
@@ -349,7 +349,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	}
 
 	if (ctx->common_mask & MAIL_SORT_SIZE) {
-		size = mail->get_size(mail);
+		size = mail->get_virtual_size(mail);
 		if (size != ctx->last_size) {
 			ctx->last_size = size;
 			changed = TRUE;
@@ -425,7 +425,7 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 		if (ctx->common_mask & MAIL_SORT_SIZE)
 			size = ctx->last_size;
 		else
-			size = mail->get_size(mail);
+			size = mail->get_virtual_size(mail);
 
 		memcpy(buf + pos, &size, sizeof(size)); pos += sizeof(size);
 	}
@@ -554,7 +554,7 @@ static uoff_t get_uofft(enum mail_sort_type type, const unsigned char *buf,
 
 		i_assert(type == MAIL_SORT_SIZE);
 
-		return mail->get_size(mail);
+		return mail->get_virtual_size(mail);
 	}
 
 	/* use memcpy() to avoid any alignment problems */

@@ -111,6 +111,24 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 	return index_mail_get_special(_mail, field);
 }
 
+static uoff_t mbox_mail_get_physical_size(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail_data *data = &mail->data;
+	struct istream *stream;
+	uoff_t hdr_offset, body_offset, body_size;
+
+	/* our header size varies, so don't do any caching */
+	stream = mail->ibox->mbox_stream;
+	hdr_offset = istream_raw_mbox_get_header_offset(stream);
+	body_offset = istream_raw_mbox_get_body_offset(stream);
+	body_size = istream_raw_mbox_get_body_size(stream, (uoff_t)-1);
+
+	data->physical_size = (body_offset - hdr_offset) + body_size;
+	return data->physical_size;
+
+}
+
 static struct istream *mbox_mail_get_stream(struct mail *_mail,
 					    struct message_size *hdr_size,
 					    struct message_size *body_size)
@@ -147,7 +165,8 @@ struct mail mbox_mail = {
 	index_mail_get_parts,
 	mbox_mail_get_received_date,
 	index_mail_get_date,
-	index_mail_get_size,
+	index_mail_get_virtual_size,
+	mbox_mail_get_physical_size,
 	index_mail_get_header,
 	index_mail_get_headers,
 	mbox_mail_get_stream,

@@ -70,10 +70,11 @@ enum mail_fetch_field {
 
 	MAIL_FETCH_RECEIVED_DATE	= 0x00000004,
 	MAIL_FETCH_DATE			= 0x00000008,
-	MAIL_FETCH_SIZE			= 0x00000010,
+	MAIL_FETCH_VIRTUAL_SIZE		= 0x00000010,
+	MAIL_FETCH_PHYSICAL_SIZE	= 0x00000020,
 
-	MAIL_FETCH_STREAM_HEADER	= 0x00000020,
-	MAIL_FETCH_STREAM_BODY		= 0x00000040,
+	MAIL_FETCH_STREAM_HEADER	= 0x00000040,
+	MAIL_FETCH_STREAM_BODY		= 0x00000080,
 
 	/* specials: */
 	MAIL_FETCH_IMAP_BODY		= 0x00001000,
@@ -366,7 +367,10 @@ struct mail {
 	time_t (*get_date)(struct mail *mail, int *timezone);
 	/* Get the full virtual size of mail (IMAP RFC822.SIZE).
 	   Returns (uoff_t)-1 if error occured */
-	uoff_t (*get_size)(struct mail *mail);
+	uoff_t (*get_virtual_size)(struct mail *mail);
+	/* Get the full physical size of mail.
+	   Returns (uoff_t)-1 if error occured */
+	uoff_t (*get_physical_size)(struct mail *mail);
 
 	/* Get value for single header field */
 	const char *(*get_header)(struct mail *mail, const char *field);

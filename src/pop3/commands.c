@@ -186,7 +186,7 @@ static int expunge_mails(struct client *client, struct mailbox *box)
 
 	t = mailbox_transaction_begin(box, FALSE);
 	ctx = mailbox_search_init(t, NULL, &search_arg, NULL,
-				  MAIL_FETCH_SIZE, NULL);
+				  MAIL_FETCH_VIRTUAL_SIZE, NULL);
 	if (ctx == NULL) {
 		mailbox_transaction_rollback(t);
 		return FALSE;

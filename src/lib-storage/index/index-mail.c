@@ -21,6 +21,8 @@ struct mail_cache_field cache_fields[MAIL_CACHE_FIELD_COUNT] = {
 	  sizeof(time_t), 0 },
 	{ "size.virtual", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
 	  sizeof(uoff_t), 0 },
+	{ "size.physical", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
+	  sizeof(uoff_t), 0 },
 	{ "imap.body", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
 	{ "imap.bodystructure", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
 	{ "imap.envelope", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
@@ -123,6 +125,12 @@ uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
 uoff_t index_mail_get_cached_virtual_size(struct index_mail *mail)
 {
 	return index_mail_get_cached_uoff_t(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE);
+}
+
+static uoff_t index_mail_get_cached_physical_size(struct index_mail *mail)
+{
+	return index_mail_get_cached_uoff_t(mail,
+					    MAIL_CACHE_PHYSICAL_FULL_SIZE);
 }
 
 time_t index_mail_get_cached_received_date(struct index_mail *mail)
@@ -251,36 +259,56 @@ static int get_cached_msgpart_sizes(struct index_mail *mail)
 		}
 		data->body_size = data->parts->body_size;
 		data->body_size_set = TRUE;
-		data->size = data->parts->header_size.virtual_size +
+		data->virtual_size = data->parts->header_size.virtual_size +
 			data->body_size.virtual_size;
+		data->physical_size = data->parts->header_size.physical_size +
+			data->body_size.physical_size;
 	}
 
 	return data->parts != NULL;
 }
 
-uoff_t index_mail_get_size(struct mail *_mail)
+uoff_t index_mail_get_virtual_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
 	struct message_size hdr_size, body_size;
 
-	if (data->size != (uoff_t)-1)
-		return data->size;
+	if (data->virtual_size != (uoff_t)-1)
+		return data->virtual_size;
 
-	data->size = index_mail_get_cached_virtual_size(mail);
-	if (data->size != (uoff_t)-1)
-		return data->size;
+	data->virtual_size = index_mail_get_cached_virtual_size(mail);
+	if (data->virtual_size != (uoff_t)-1)
+		return data->virtual_size;
 
 	if (get_cached_msgpart_sizes(mail))
-		return data->size;
+		return data->virtual_size;
 
 	if (_mail->get_stream(_mail, &hdr_size, &body_size) == NULL)
 		return (uoff_t)-1;
 
 	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
 		       cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx,
-		       &data->size, sizeof(data->size));
-	return data->size;
+		       &data->virtual_size, sizeof(data->virtual_size));
+	return data->virtual_size;
+}
+
+uoff_t index_mail_get_physical_size(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *) _mail;
+	struct index_mail_data *data = &mail->data;
+
+	if (data->physical_size != (uoff_t)-1)
+		return data->physical_size;
+
+	data->physical_size = index_mail_get_cached_physical_size(mail);
+	if (data->physical_size != (uoff_t)-1)
+		return data->physical_size;
+
+	if (get_cached_msgpart_sizes(mail))
+		return data->physical_size;
+
+	return (uoff_t)-1;
 }
 
 static void parse_bodystructure_part_header(struct message_part *part,
@@ -295,7 +323,6 @@ static void parse_bodystructure_part_header(struct message_part *part,
 static void index_mail_parse_body(struct index_mail *mail, int need_parts)
 {
 	struct index_mail_data *data = &mail->data;
-        enum mail_cache_record_flag cache_flags;
 	enum mail_cache_decision_type decision;
 	buffer_t *buffer;
 	const void *buf_data;
@@ -398,8 +425,10 @@ struct istream *index_mail_init_stream(struct index_mail *_mail,
 	}
 
 	if (data->hdr_size_set && data->body_size_set) {
-		data->size = data->hdr_size.virtual_size +
+		data->virtual_size = data->hdr_size.virtual_size +
 			data->body_size.virtual_size;
+		data->physical_size = data->hdr_size.physical_size +
+			data->body_size.physical_size;
 	}
 
 	i_stream_seek(data->stream, 0);
@@ -615,7 +644,8 @@ int index_mail_next(struct index_mail *mail, uint32_t seq)
 
 	data->rec = rec;
 	data->seq = seq;
-	data->size = (uoff_t)-1;
+	data->virtual_size = (uoff_t)-1;
+	data->physical_size = (uoff_t)-1;
 	data->received_date = data->sent_date.time = (time_t)-1;
 
 	t_push();
@@ -633,8 +663,10 @@ int index_mail_next(struct index_mail *mail, uint32_t seq)
 		data->bodystructure = index_mail_get_cached_string(mail,
 					MAIL_CACHE_BODYSTRUCTURE);
 	}
-	if (mail->wanted_fields & MAIL_FETCH_SIZE)
-		data->size = index_mail_get_cached_virtual_size(mail);
+	if (mail->wanted_fields & MAIL_FETCH_VIRTUAL_SIZE)
+		data->virtual_size = index_mail_get_cached_virtual_size(mail);
+	if (mail->wanted_fields & MAIL_FETCH_PHYSICAL_SIZE)
+		data->physical_size = index_mail_get_cached_physical_size(mail);
 	if (mail->wanted_fields & MAIL_FETCH_DATE)
 		get_cached_sent_date(mail, &data->sent_date);
 

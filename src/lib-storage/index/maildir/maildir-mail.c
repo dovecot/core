@@ -102,21 +102,21 @@ static time_t maildir_mail_get_received_date(struct mail *_mail)
 	return data->received_date;
 }
 
-static uoff_t maildir_mail_get_size(struct mail *_mail)
+static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 {
-	struct index_mail *mail = (struct index_mail *) _mail;
+	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	const char *fname, *p;
 	uoff_t virtual_size;
         enum maildir_uidlist_rec_flag flags;
 
-	if (data->size != (uoff_t)-1)
-		return data->size;
+	if (data->virtual_size != (uoff_t)-1)
+		return data->virtual_size;
 
-	if ((mail->wanted_fields & MAIL_FETCH_SIZE) == 0) {
-		data->size = index_mail_get_cached_virtual_size(mail);
-		if (data->size != (uoff_t)-1)
-			return data->size;
+	if ((mail->wanted_fields & MAIL_FETCH_VIRTUAL_SIZE) == 0) {
+		data->virtual_size = index_mail_get_cached_virtual_size(mail);
+		if (data->virtual_size != (uoff_t)-1)
+			return data->virtual_size;
 	}
 
 	fname = maildir_uidlist_lookup(mail->ibox->uidlist,
@@ -142,7 +142,53 @@ static uoff_t maildir_mail_get_size(struct mail *_mail)
 		}
 	}
 
-	return index_mail_get_size(_mail);
+	return index_mail_get_virtual_size(_mail);
+}
+
+static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail_data *data = &mail->data;
+	struct stat st;
+	const char *fname, *p;
+	uoff_t size;
+	enum maildir_uidlist_rec_flag flags;
+
+	size = index_mail_get_physical_size(_mail);
+	if (size != (uoff_t)-1)
+		return size;
+
+	fname = maildir_uidlist_lookup(mail->ibox->uidlist,
+				       mail->mail.uid, &flags);
+	if (fname == NULL)
+		return (uoff_t)-1;
+
+	/* size can be included in filename */
+	p = strstr(fname, ",S=");
+	if (p != NULL) {
+		p += 3;
+		size = 0;
+		while (*p >= '0' && *p <= '9') {
+			size = size * 10 + (*p - '0');
+			p++;
+		}
+
+		if (*p != ':' && *p != ',' && *p != '\0')
+			size = (uoff_t)-1;
+	}
+
+	if (size == (uoff_t)-1) {
+		if (maildir_file_do(mail->ibox, mail->mail.uid,
+				    do_stat, &st) <= 0)
+			return (uoff_t)-1;
+		size = st.st_size;
+	}
+
+	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
+		       MAIL_CACHE_PHYSICAL_FULL_SIZE, &size, sizeof(size));
+	data->physical_size = size;
+	return size;
+
 }
 
 static struct istream *maildir_mail_get_stream(struct mail *_mail,
@@ -172,7 +218,8 @@ struct mail maildir_mail = {
 	index_mail_get_parts,
 	maildir_mail_get_received_date,
 	index_mail_get_date,
-	maildir_mail_get_size,
+	maildir_mail_get_virtual_size,
+	maildir_mail_get_physical_size,
 	index_mail_get_header,
 	index_mail_get_headers,
 	maildir_mail_get_stream,

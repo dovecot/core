@@ -11,6 +11,7 @@ enum index_cache_field {
 	MAIL_CACHE_SENT_DATE,
 	MAIL_CACHE_RECEIVED_DATE,
 	MAIL_CACHE_VIRTUAL_FULL_SIZE,
+	MAIL_CACHE_PHYSICAL_FULL_SIZE,
 
 	/* variable sized field */
 	MAIL_CACHE_BODY,
@@ -54,7 +55,7 @@ struct message_header_line;
 struct index_mail_data {
 	struct mail_full_flags flags;
 	time_t date, received_date;
-	uoff_t size;
+	uoff_t virtual_size, physical_size;
 
 	struct mail_sent_date sent_date;
 	struct index_mail_line parse_line;
@@ -130,7 +131,8 @@ const struct mail_full_flags *index_mail_get_flags(struct mail *_mail);
 const struct message_part *index_mail_get_parts(struct mail *_mail);
 time_t index_mail_get_received_date(struct mail *_mail);
 time_t index_mail_get_date(struct mail *_mail, int *timezone);
-uoff_t index_mail_get_size(struct mail *_mail);
+uoff_t index_mail_get_virtual_size(struct mail *mail);
+uoff_t index_mail_get_physical_size(struct mail *mail);
 struct istream *index_mail_init_stream(struct index_mail *mail,
 				       struct message_size *hdr_size,
 				       struct message_size *body_size);

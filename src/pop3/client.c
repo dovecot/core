@@ -82,7 +82,7 @@ static int init_mailbox(struct client *client)
 
 		t = mailbox_transaction_begin(client->mailbox, FALSE);
 		ctx = mailbox_search_init(t, NULL, &search_arg, NULL,
-					  MAIL_FETCH_SIZE, NULL);
+					  MAIL_FETCH_VIRTUAL_SIZE, NULL);
 		if (ctx == NULL) {
 			client_send_storage_error(client);
                         mailbox_transaction_rollback(t);
@@ -93,7 +93,7 @@ static int init_mailbox(struct client *client)
 		client->deleted_size = 0;
 		failed = FALSE;
 		while ((mail = mailbox_search_next(ctx)) != NULL) {
-			uoff_t size = mail->get_size(mail);
+			uoff_t size = mail->get_virtual_size(mail);
 
 			if (size == (uoff_t)-1) {
 				failed = TRUE;

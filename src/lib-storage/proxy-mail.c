@@ -31,11 +31,18 @@ static time_t _get_date(struct mail *mail, int *timezone)
 	return p->mail->get_date(p->mail, timezone);
 }
 
-static uoff_t _get_size(struct mail *mail)
+static uoff_t _get_virtual_size(struct mail *mail)
 {
 	struct proxy_mail *p = (struct proxy_mail *) mail;
 
-	return p->mail->get_size(p->mail);
+	return p->mail->get_virtual_size(p->mail);
+}
+
+static uoff_t _get_physical_size(struct mail *mail)
+{
+	struct proxy_mail *p = (struct proxy_mail *) mail;
+
+	return p->mail->get_physical_size(p->mail);
 }
 
 static const char *_get_header(struct mail *mail, const char *field)
@@ -97,7 +104,8 @@ void proxy_mail_init(struct proxy_mail *proxy, struct mail *mail)
 	pm->get_parts = _get_parts;
 	pm->get_received_date = _get_received_date;
 	pm->get_date = _get_date;
-	pm->get_size = _get_size;
+	pm->get_virtual_size = _get_virtual_size;
+	pm->get_physical_size = _get_physical_size;
 	pm->get_header = _get_header;
 	pm->get_headers = _get_headers;
 	pm->get_stream = _get_stream;
