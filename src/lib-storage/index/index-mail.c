@@ -631,7 +631,6 @@ int index_mail_next(struct index_mail *mail, uint32_t seq)
 {
 	struct index_mail_data *data = &mail->data;
         const struct mail_index_record *rec;
-        uint32_t cache_flags;
 
 	if (mail_index_lookup(mail->trans->trans_view, seq, &rec) < 0) {
 		mail_storage_set_index_error(mail->ibox);
@@ -650,14 +649,16 @@ int index_mail_next(struct index_mail *mail, uint32_t seq)
 	data->received_date = data->sent_date.time = (time_t)-1;
 
 	if (!index_mail_get_fixed_field(mail, MAIL_CACHE_FLAGS,
-					&cache_flags, sizeof(cache_flags)))
-		cache_flags = 0;
+					&data->cache_flags,
+					sizeof(data->cache_flags)))
+		data->cache_flags = 0;
 
 	mail->mail.seq = seq;
 	mail->mail.uid = rec->uid;
-	mail->mail.has_nuls = (cache_flags & MAIL_CACHE_FLAG_HAS_NULS) != 0;
+	mail->mail.has_nuls =
+		(data->cache_flags & MAIL_CACHE_FLAG_HAS_NULS) != 0;
 	mail->mail.has_no_nuls =
-		(cache_flags & MAIL_CACHE_FLAG_HAS_NO_NULS) != 0;
+		(data->cache_flags & MAIL_CACHE_FLAG_HAS_NO_NULS) != 0;
 
 	t_push();
 
