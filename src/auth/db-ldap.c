@@ -281,8 +281,9 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 	t_push();
 	attr = t_strsplit(attrlist, ",");
 
+	/* @UNSAFE */
 	for (size = 0; attr[size] != NULL; size++) ;
-	conn->attr_names = p_new(conn->pool, char *, size);
+	conn->attr_names = p_new(conn->pool, char *, size + 1);
 
 	for (i = 0; i < size; i++) {
 		p = strchr(attr[i], '=');
@@ -394,6 +395,7 @@ void db_ldap_unref(struct ldap_connection *conn)
 {
 	if (--conn->refcount > 0)
 		return;
+	i_assert(conn->refcount == 0);
 
 	ldap_conn_close(conn);
 

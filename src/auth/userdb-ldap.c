@@ -211,7 +211,6 @@ static void userdb_ldap_init(const char *args __attr_unused__)
 static void userdb_ldap_deinit(void)
 {
 	db_ldap_unref(userdb_ldap_conn);
-	i_free(userdb_ldap_conn);
 }
 
 struct userdb_module userdb_ldap = {

@@ -234,7 +234,6 @@ static void passdb_ldap_deinit(void)
 {
 	db_ldap_unref(passdb_ldap_conn);
 	i_free(passdb_ldap_cache_key);
-	i_free(passdb_ldap_conn);
 }
 
 struct passdb_module passdb_ldap = {
