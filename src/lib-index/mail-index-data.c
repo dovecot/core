@@ -497,6 +497,14 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 		return NULL;
 	}
 
+	if ((index_rec->data_position % MEM_ALIGN_SIZE) != 0) {
+		index_data_set_corrupted(data,
+			"Data position (%"PRIuUOFF_T") is not memory aligned "
+			"for record %u", index_rec->data_position,
+			index_rec->uid);
+		return NULL;
+	}
+
 	pos = index_rec->data_position;
 	max_pos = pos + index_rec->data_size;
 
