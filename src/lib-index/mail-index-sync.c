@@ -86,18 +86,15 @@ static void mail_index_sync_sort_transaction(struct mail_index_sync_ctx *ctx)
 	}
 }
 
-static int mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
-					 int external)
+static int mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 {
-        enum mail_transaction_type flag;
 	size_t size;
 	int ret;
 
-	flag = external ? MAIL_TRANSACTION_EXTERNAL : 0;
 	while ((ret = mail_transaction_log_view_next(ctx->view->log_view,
 						     &ctx->hdr,
 						     &ctx->data, NULL)) > 0) {
-		if ((ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) == flag)
+		if ((ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0)
 			mail_index_sync_sort_transaction(ctx);
 	}
 
@@ -176,7 +173,7 @@ int mail_index_sync_begin(struct mail_index *index,
 						 1024, (size_t)-1);
 	ctx->appends_buf = buffer_create_dynamic(default_pool,
 						 1024, (size_t)-1);
-	if (mail_index_sync_read_and_sort(ctx, FALSE) < 0) {
+	if (mail_index_sync_read_and_sort(ctx) < 0) {
                 mail_index_sync_end(ctx);
 		return -1;
 	}
@@ -326,14 +323,6 @@ int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 
 	if (ret == 0) {
 		hdr = ctx->index->hdr;
-		if (mail_transaction_log_view_set(ctx->view->log_view,
-				hdr->log_file_seq, hdr->log_file_offset,
-				seq, offset, MAIL_TRANSACTION_TYPE_MASK) < 0)
-			ret = -1;
-	}
-
-	if (ret == 0) {
-		mail_index_sync_read_and_sort(ctx, TRUE);
 
 		if (mail_transaction_log_view_set(ctx->view->log_view,
 				hdr->log_file_seq, hdr->log_file_offset,
@@ -344,6 +333,7 @@ int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 	}
 
 	mail_index_unlock(ctx->index, ctx->lock_id);
+        i_assert(!ctx->index->map->write_to_disk);
 	mail_transaction_log_sync_unlock(ctx->index->log);
 	mail_index_view_close(ctx->view);
 
