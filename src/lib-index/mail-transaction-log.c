@@ -33,7 +33,8 @@ struct mail_transaction_add_ctx {
 static struct mail_transaction_log_file *
 mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
 					 const char *path);
-static int mail_transaction_log_rotate(struct mail_transaction_log *log);
+static int mail_transaction_log_rotate(struct mail_transaction_log *log,
+				       int lock_type);
 
 static int
 mail_transaction_log_file_lock(struct mail_transaction_log_file *file,
@@ -89,7 +90,7 @@ static int mail_transaction_log_check_file_seq(struct mail_transaction_log *log)
 			ret = -1;
 		else if (INDEX_HAS_MISSING_LOGS(index, file)) {
 			/* broken - fix it by creating a new log file */
-			ret = mail_transaction_log_rotate(log);
+			ret = mail_transaction_log_rotate(log, F_UNLCK);
 		}
 	}
 
@@ -519,11 +520,12 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
 		log->head = NULL;
 }
 
-static int mail_transaction_log_rotate(struct mail_transaction_log *log)
+static int mail_transaction_log_rotate(struct mail_transaction_log *log,
+				       int lock_type)
 {
 	struct mail_transaction_log_file *file;
 	struct stat st;
-	int fd, lock_type;
+	int fd;
 
 	if (fstat(log->head->fd, &st) < 0) {
 		mail_index_file_set_syscall_error(log->index,
@@ -541,7 +543,6 @@ static int mail_transaction_log_rotate(struct mail_transaction_log *log)
 	if (file == NULL)
 		return -1;
 
-	lock_type = log->head->lock_type;
 	if (lock_type != F_UNLCK) {
 		if (mail_transaction_log_file_lock(file, lock_type) < 0) {
 			file->refcount--;
@@ -549,6 +550,7 @@ static int mail_transaction_log_rotate(struct mail_transaction_log *log)
 			return -1;
 		}
 	}
+	i_assert(file->lock_type == lock_type);
 
 	if (--log->head->refcount == 0)
 		mail_transaction_logs_clean(log);
@@ -568,7 +570,7 @@ static int mail_transaction_log_recreate(struct mail_transaction_log *log)
 	if (mail_index_lock_shared(log->index, TRUE, &lock_id) < 0)
 		return -1;
 
-	ret = mail_transaction_log_rotate(log);
+	ret = mail_transaction_log_rotate(log, F_UNLCK);
 	mail_index_unlock(log->index, lock_id);
 	return ret;
 }
@@ -833,6 +835,7 @@ static int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 			break;
 		}
 
+		i_assert(log->head->lock_type == F_UNLCK);
 		if (file != NULL) {
 			if (mail_transaction_log_file_lock(file, F_UNLCK) < 0)
 				return -1;
@@ -1118,7 +1121,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	    log->head->last_mtime <
 	    ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_MIN_TIME) {
 		/* everything synced in index, we can rotate. */
-		if (mail_transaction_log_rotate(log) < 0) {
+		if (mail_transaction_log_rotate(log, F_WRLCK) < 0) {
 			if (!log->index->log_locked) {
 				(void)mail_transaction_log_file_lock(log->head,
 								     F_UNLCK);
