@@ -44,7 +44,7 @@ static int file_lock(int fd, int wait_lock, int lock_type)
 	fl.l_len = 0;
 
 	if (fcntl(fd, wait_lock ? F_SETLKW : F_SETLK, &fl) == -1) {
-		if (errno == EACCES)
+		if (errno == EACCES || errno == EAGAIN)
 			return 0;
 		return -1;
 	}
