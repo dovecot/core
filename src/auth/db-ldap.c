@@ -26,6 +26,7 @@
 
 static struct setting_def setting_defs[] = {
 	DEF(SET_STR, hosts),
+	DEF(SET_STR, uris),
 	DEF(SET_STR, dn),
 	DEF(SET_STR, dnpass),
 	DEF(SET_STR, deref),
@@ -42,7 +43,8 @@ static struct setting_def setting_defs[] = {
 };
 
 struct ldap_settings default_ldap_settings = {
-	MEMBER(hosts) "localhost",
+	MEMBER(hosts) NULL,
+	MEMBER(uris) NULL,
 	MEMBER(dn) NULL,
 	MEMBER(dnpass) NULL,
 	MEMBER(deref) "never",
@@ -178,7 +180,12 @@ static int ldap_conn_open(struct ldap_connection *conn)
 		return TRUE;
 
 	if (conn->ld == NULL) {
-		conn->ld = ldap_init(conn->set.hosts, LDAP_PORT);
+		if (conn->set.uris != NULL) {
+			if (ldap_initialize(&conn->ld, conn->set.uris) != LDAP_SUCCESS)
+				conn->ld = NULL;
+		} else
+			conn->ld = ldap_init(conn->set.hosts, LDAP_PORT);
+
 		if (conn->ld == NULL)
 			i_fatal("LDAP: ldap_init() failed with hosts: %s",
 				conn->set.hosts);
