@@ -59,8 +59,6 @@ static int seek_partial(unsigned int select_counter, unsigned int uid,
 		memset(&partial->pos, 0, sizeof(partial->pos));
 	}
 
-	i_warning("skipping %lld", virtual_skip);
-
 	i_stream_seek(stream, partial->physical_start +
 		      partial->pos.physical_size);
 	message_skip_virtual(stream, virtual_skip, &partial->pos, &cr_skipped);
