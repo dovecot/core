@@ -782,9 +782,8 @@ mail_index_keywords_build(struct mail_index *index,
 	   new ones. build a bitmap pointing to them. keywords are never
 	   removed from index's keyword list. */
 	bitmask_offset = sizeof(k) - sizeof(k.bitmask);
-	keyword_buf =
-		buffer_create_static_hard(default_pool,
-					  bitmask_offset + (count + 7) / 8);
+	keyword_buf = buffer_create_dynamic(default_pool, bitmask_offset +
+					    (count + 7) / 8 + 8);
 	for (i = 0; i < count; i++) {
 		for (j = 0; index->keywords[j] != NULL; j++) {
 			if (strcasecmp(keywords[i], index->keywords[j]) == 0)
