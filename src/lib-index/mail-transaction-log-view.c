@@ -157,7 +157,8 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			return -1;
 	}
 
-	i_assert(max_file_offset <= file->sync_offset);
+	i_assert(max_file_offset == (uoff_t)-1 ||
+		 max_file_offset <= file->sync_offset);
 
 	/* we have all of them. update refcounts. */
 	if (view->tail->hdr.file_seq < first->hdr.file_seq) {
