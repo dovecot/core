@@ -79,6 +79,8 @@ void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition)
 		old_size = data->idx_size;
 
 		data->idx_size = nearest_power((unsigned int) fd+1);
+		i_assert(data->idx_size < (size_t)-1 / sizeof(int));
+
 		data->fd_index = p_realloc(ioloop->pool, data->fd_index,
 					   sizeof(int) * old_size,
 					   sizeof(int) * data->idx_size);
@@ -91,6 +93,8 @@ void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition)
 		old_size = data->fds_size;
 
 		data->fds_size = nearest_power(data->fds_size+1);
+		i_assert(data->fds_size < (size_t)-1 / sizeof(struct pollfd));
+
 		data->fds = p_realloc(ioloop->pool, data->fds,
 				      sizeof(struct pollfd) * old_size,
 				      sizeof(struct pollfd) * data->fds_size);
