@@ -100,13 +100,13 @@ static const char index_64[256] = {
 };
 #define CHAR64(c)  (index_64[(int)(unsigned char)(c)])
 
-ssize_t base64_decode(const char *src, unsigned char *dest)
+ssize_t base64_decode(const char *src, size_t size, unsigned char *dest)
 {
 	unsigned char *p;
 	int c1, c2, c3, c4;
 
 	p = dest;
-	while (*src != '\0') {
+	while (size >= 4) {
 		c1 = *src++;
 
 		if (CHAR64(c1) == XX)
@@ -124,17 +124,19 @@ ssize_t base64_decode(const char *src, unsigned char *dest)
 		if (c4 != '=' && CHAR64(c4) == XX)
 			return -1;
 
+		size -= 4;
+
 		*p++ = ((CHAR64(c1) << 2) | ((CHAR64(c2) & 0x30) >> 4));
 
 		if (c3 == '=') {
-			if (*src != '\0' || c4 != '=')
+			if (size != 0 || c4 != '=')
 				return -1;
 			break;
 		}
 
 		*p++ = (((CHAR64(c2) & 0xf) << 4) | ((CHAR64(c3) & 0x3c) >> 2));
 		if (c4 == '=') {
-			if (*src != '\0')
+			if (size != 0)
 				return -1;
 			break;
 		}
