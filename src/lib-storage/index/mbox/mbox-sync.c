@@ -1044,11 +1044,13 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 
 	if ((sync_ctx->base_uid_validity != 0 &&
 	     sync_ctx->base_uid_validity != sync_ctx->hdr->uid_validity) ||
-	    (sync_ctx->hdr->uid_validity == 0 && sync_ctx->seen_first_mail)) {
+	    sync_ctx->hdr->uid_validity == 0) {
 		if (sync_ctx->base_uid_validity == 0) {
 			/* we didn't rewrite X-IMAPbase header because
-			   a) mbox is read-only, b) we're lazy-writing */
-			i_assert(sync_ctx->delay_writes);
+			   a) mbox is read-only, b) we're lazy-writing,
+			   c) it's empty */
+			i_assert(sync_ctx->delay_writes ||
+				 sync_ctx->hdr->uid_validity == 0);
                         sync_ctx->base_uid_validity = time(NULL);
 		}
 		mail_index_update_header(sync_ctx->t,
