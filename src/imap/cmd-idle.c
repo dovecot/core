@@ -86,6 +86,9 @@ static void idle_timeout(void *context)
                 client->idle_expunge = status.messages+1;
 		client_send_line(client,
 			t_strdup_printf("* %u EXISTS", client->idle_expunge));
+
+		client->mailbox->auto_sync(client->mailbox,
+					   MAILBOX_SYNC_NONE, 0);
 	}
 }
 

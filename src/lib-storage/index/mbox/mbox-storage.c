@@ -628,8 +628,9 @@ static void mbox_storage_auto_sync(struct mailbox *box,
 	ibox->autosync_type = sync_type;
 	ibox->min_newmail_notify_interval = min_newmail_notify_interval;
 
-        index_mailbox_check_remove_all(ibox);
-	index_mailbox_check_add(ibox, ibox->index->mailbox_path);
+	index_mailbox_check_remove_all(ibox);
+	if (sync_type != MAILBOX_SYNC_NONE)
+		index_mailbox_check_add(ibox, ibox->index->mailbox_path);
 }
 
 struct mail_storage mbox_storage = {

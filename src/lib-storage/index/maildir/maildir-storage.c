@@ -536,10 +536,12 @@ static void maildir_storage_auto_sync(struct mailbox *box,
 	ibox->min_newmail_notify_interval = min_newmail_notify_interval;
 
         index_mailbox_check_remove_all(ibox);
-	index_mailbox_check_add(ibox, t_strconcat(ibox->index->mailbox_path,
-						  "/new", NULL));
-	index_mailbox_check_add(ibox, t_strconcat(ibox->index->mailbox_path,
-						  "/cur", NULL));
+	if (sync_type != MAILBOX_SYNC_NONE) {
+		index_mailbox_check_add(ibox,
+			t_strconcat(ibox->index->mailbox_path, "/new", NULL));
+		index_mailbox_check_add(ibox,
+			t_strconcat(ibox->index->mailbox_path, "/cur", NULL));
+	}
 }
 
 
