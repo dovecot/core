@@ -139,5 +139,6 @@ void passdb_cache_init(void)
 
 void passdb_cache_deinit(void)
 {
-	auth_cache_free(passdb_cache);
+	if (passdb_cache != NULL)
+		auth_cache_free(passdb_cache);
 }
