@@ -83,7 +83,7 @@ static int save_mail(struct mail_storage *storage, const char *mailbox,
 	struct io *io;
 	int ret = 0;
 
-	box = mailbox_open(storage, mailbox, MAILBOX_OPEN_FAST |
+	box = mailbox_open(storage, mailbox, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT);
 	if (box == NULL)
 		return FALSE;
