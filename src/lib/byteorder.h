@@ -88,4 +88,6 @@ void host_to_nbo(void *data, size_t size);
 #  define uint32_to_nbo(num) htonl(num)
 #endif
 
+extern uint32_t nbo32_bitmasks[32];
+
 #endif
