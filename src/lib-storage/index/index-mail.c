@@ -240,7 +240,7 @@ time_t index_mail_get_date(struct mail *_mail, int *timezone)
 
 	if (data->sent_date.time == (time_t)-1) {
 		data->save_sent_date = TRUE;
-		str = mail_get_header(_mail, "Date");
+		str = mail_get_first_header(_mail, "Date");
 		if (data->sent_date.time == (time_t)-1) {
 			if (!message_date_parse((const unsigned char *)str,
 						(size_t)-1,
@@ -763,8 +763,8 @@ void index_mail_free(struct mail *_mail)
 		array_free(&mail->header_lines);
 	if (array_is_created(&mail->header_match))
 		array_free(&mail->header_match);
-	if (array_is_created(&mail->header_offsets))
-		array_free(&mail->header_offsets);
+	if (array_is_created(&mail->header_match_lines))
+		array_free(&mail->header_match_lines);
 
 	pool_unref(mail->data_pool);
 	pool_unref(mail->mail.pool);

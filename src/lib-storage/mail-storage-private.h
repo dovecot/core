@@ -165,10 +165,11 @@ struct mail_vfuncs {
 	uoff_t (*get_virtual_size)(struct mail *mail);
 	uoff_t (*get_physical_size)(struct mail *mail);
 
-	const char *(*get_header)(struct mail *mail, const char *field);
+	const char *(*get_first_header)(struct mail *mail, const char *field);
+	const char *const *(*get_headers)(struct mail *mail, const char *field);
 	struct istream *
-		(*get_headers)(struct mail *mail,
-			       struct mailbox_header_lookup_ctx *headers);
+		(*get_header_stream)(struct mail *mail,
+				     struct mailbox_header_lookup_ctx *headers);
 	struct istream *(*get_stream)(struct mail *mail,
 				      struct message_size *hdr_size,
 				      struct message_size *body_size);

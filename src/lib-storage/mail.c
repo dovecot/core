@@ -74,23 +74,27 @@ uoff_t mail_get_physical_size(struct mail *mail)
 	return p->v.get_physical_size(mail);
 }
 
-const char *mail_get_header(struct mail *mail, const char *field)
-{
-{
-	struct mail_private *p = (struct mail_private *)mail;
-
-	return p->v.get_header(mail, field);
-}
-}
-
-struct istream *mail_get_headers(struct mail *mail,
-				 struct mailbox_header_lookup_ctx *headers)
-{
+const char *mail_get_first_header(struct mail *mail, const char *field)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_headers(mail, headers);
+	return p->v.get_first_header(mail, field);
 }
+
+const char *const *mail_get_headers(struct mail *mail, const char *field)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	return p->v.get_headers(mail, field);
+}
+
+struct istream *
+mail_get_header_stream(struct mail *mail,
+		       struct mailbox_header_lookup_ctx *headers)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	return p->v.get_header_stream(mail, headers);
 }
 
 struct istream *mail_get_stream(struct mail *mail,

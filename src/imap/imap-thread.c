@@ -448,14 +448,14 @@ static void mail_thread_input(struct thread_context *ctx, struct mail *mail)
 	if (sent_date == (time_t)-1)
 		sent_date = 0;
 
-	message_id = mail_get_header(mail, "message-id");
+	message_id = mail_get_first_header(mail, "message-id");
 	node = update_message(ctx, get_msgid(&message_id), sent_date,
 			      ctx->id_is_uid ? mail->uid : mail->seq);
 
 	/* link references */
-	references = mail_get_header(mail, "references");
+	references = mail_get_first_header(mail, "references");
 	if (!link_references(ctx, node, references)) {
-		in_reply_to = mail_get_header(mail, "in-reply-to");
+		in_reply_to = mail_get_first_header(mail, "in-reply-to");
 		refid = in_reply_to == NULL ? NULL : get_msgid(&in_reply_to);
 
 		if (refid != NULL)
@@ -693,7 +693,7 @@ static void gather_base_subjects(struct thread_context *ctx)
 
 		if (seq != 0 && mail_set_seq(ctx->mail, seq) == 0) {
 			t_push();
-                        subject = mail_get_header(ctx->mail, "subject");
+                        subject = mail_get_first_header(ctx->mail, "subject");
 			add_base_subject(ctx, subject, node);
 			t_pop();
 		}

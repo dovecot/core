@@ -290,7 +290,7 @@ static const char *get_first_mailbox(struct mail *mail, const char *field)
 	struct message_address *addr;
 	const char *str;
 
-	str = mail_get_header(mail, field);
+	str = mail_get_first_header(mail, field);
 	if (str == NULL)
 		return NULL;
 
@@ -356,7 +356,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	}
 
 	if (ctx->common_mask & MAIL_SORT_SUBJECT) {
-		str = mail_get_header(mail, "subject");
+		str = mail_get_first_header(mail, "subject");
 		if (str != NULL) {
 			str = imap_get_base_subject_cased(
 				pool_datastack_create(), str, NULL);
@@ -475,7 +475,7 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 		if (ctx->common_mask & MAIL_SORT_SUBJECT)
 			str = ctx->last_subject;
 		else {
-			str = mail_get_header(mail, "subject");
+			str = mail_get_first_header(mail, "subject");
 
 			if (str != NULL) {
 				str = imap_get_base_subject_cased(
@@ -580,7 +580,7 @@ static const char *get_str(enum mail_sort_type type, const unsigned char *buf,
 
 		switch (type) {
 		case MAIL_SORT_SUBJECT:
-			str = mail_get_header(mail, "subject");
+			str = mail_get_first_header(mail, "subject");
 			if (str == NULL)
 				return NULL;
 

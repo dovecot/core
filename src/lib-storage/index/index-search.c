@@ -486,7 +486,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 			headers_ctx =
 				mailbox_header_lookup_init(&ctx->ibox->box,
 							   headers);
-			input = mail_get_headers(ctx->mail, headers_ctx);
+			input = mail_get_header_stream(ctx->mail, headers_ctx);
 			if (input == NULL) {
 				mailbox_header_lookup_deinit(headers_ctx);
 				return FALSE;

@@ -415,10 +415,13 @@ uoff_t mail_get_virtual_size(struct mail *mail);
 uoff_t mail_get_physical_size(struct mail *mail);
 
 /* Get value for single header field */
-const char *mail_get_header(struct mail *mail, const char *field);
+const char *mail_get_first_header(struct mail *mail, const char *field);
+/* Return a NULL-terminated list of values for each found field. */
+const char *const *mail_get_headers(struct mail *mail, const char *field);
 /* Returns stream containing specified headers. */
-struct istream *mail_get_headers(struct mail *mail,
-				 struct mailbox_header_lookup_ctx *headers);
+struct istream *
+mail_get_header_stream(struct mail *mail,
+		       struct mailbox_header_lookup_ctx *headers);
 /* Returns input stream pointing to beginning of message header.
    hdr_size and body_size are updated unless they're NULL. */
 struct istream *mail_get_stream(struct mail *mail,

@@ -103,7 +103,7 @@ struct index_mail {
 	string_t *header_data;
 	array_t ARRAY_DEFINE(header_lines, struct index_mail_line);
 	array_t ARRAY_DEFINE(header_match, uint8_t);
-	array_t ARRAY_DEFINE(header_offsets, uint32_t);
+	array_t ARRAY_DEFINE(header_match_lines, unsigned int);
 	uint8_t header_match_value;
 };
 
@@ -123,10 +123,12 @@ int index_mail_parse_headers(struct index_mail *mail,
 			     struct mailbox_header_lookup_ctx *headers);
 void index_mail_headers_get_envelope(struct index_mail *mail);
 
-const char *index_mail_get_header(struct mail *_mail, const char *field);
+const char *index_mail_get_first_header(struct mail *_mail, const char *field);
+const char *const *
+index_mail_get_headers(struct mail *_mail, const char *field);
 struct istream *
-index_mail_get_headers(struct mail *_mail,
-		       struct mailbox_header_lookup_ctx *headers);
+index_mail_get_header_stream(struct mail *_mail,
+			     struct mailbox_header_lookup_ctx *headers);
 
 enum mail_flags index_mail_get_flags(struct mail *_mail);
 const char *const *index_mail_get_keywords(struct mail *_mail);
