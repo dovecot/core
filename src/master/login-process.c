@@ -138,7 +138,8 @@ static void login_process_mark_nonlistening(struct login_process *p)
 {
 	if (!p->listening) {
 		i_error("login: received another \"not listening\" "
-			"notification");
+			"notification (if you can't login at all, "
+			"see src/lib/fdpass.c)");
 		return;
 	}
 

@@ -1,7 +1,15 @@
 /*
- fdpass.c - FD passing
+ fdpass.c - File descriptor passing between processes via UNIX sockets
 
-    Copyright (c) 2002 Timo Sirainen
+ This isn't fully portable, but pretty much all UNIXes nowadays should
+ support this. If you're having runtime problems, check the end of fd_read()
+ and play with the if condition.
+
+ If this file doesn't compile at all, you should check if this is supported
+ in your system at all. It may require some extra #define to enable it.
+ If not, you're pretty much out of luck. Cygwin didn't last I checked.
+
+    Copyright (c) 2002-2003 Timo Sirainen
 
     Permission is hereby granted, free of charge, to any person obtaining
     a copy of this software and associated documentation files (the
@@ -107,9 +115,18 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 		return ret;
 	}
 
-	/* at least one byte transferred - we should have the fd now */
+	/* at least one byte transferred - we should have the fd now.
+	   do extra checks to make sure it really is an fd that is being
+	   transferred to avoid potential DoS conditions. some systems don't
+	   set all these values correctly however:
+
+	   Linux 2.0.x - cmsg_len, cmsg_level, cmsg_type are not set
+	   Tru64 - msg_controllen isn't set */
 	cmsg = CMSG_FIRSTHDR(&msg);
-	if (msg.msg_controllen < CMSG_SPACE(sizeof(int)) ||
+	if (
+#ifndef __osf__
+	    msg.msg_controllen < CMSG_SPACE(sizeof(int)) ||
+#endif
 	    cmsg == NULL || cmsg->cmsg_len < CMSG_LEN(sizeof(int)) ||
 	    cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS)
 		*fd = -1;
