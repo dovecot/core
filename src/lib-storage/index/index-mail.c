@@ -307,6 +307,8 @@ static void index_mail_parse_body(struct index_mail *mail, int need_parts)
 		message_parser_parse_body(data->parser_ctx,
 					  parse_bodystructure_part_header,
 					  NULL, mail->pool);
+		data->save_bodystructure_body = FALSE;
+		data->parsed_bodystructure = TRUE;
 	} else {
 		message_parser_parse_body(data->parser_ctx, NULL, NULL, NULL);
 	}
@@ -406,21 +408,28 @@ static void index_mail_parse_bodystructure(struct index_mail *mail,
 	string_t *str;
 	int bodystructure_cached = FALSE;
 
-	if (data->save_bodystructure_header || !data->save_bodystructure_body) {
-		/* we haven't parsed the header yet */
-		data->save_bodystructure_header = TRUE;
-		data->save_bodystructure_body = TRUE;
-		if (!index_mail_parse_headers(mail, NULL))
-			return;
-	}
+	if (!data->parsed_bodystructure) {
+		if (data->save_bodystructure_header ||
+		    !data->save_bodystructure_body) {
+			/* we haven't parsed the header yet */
+			data->save_bodystructure_header = TRUE;
+			data->save_bodystructure_body = TRUE;
+			if (!index_mail_parse_headers(mail, NULL))
+				return;
+		}
 
-	if (data->parts != NULL) {
-		i_assert(data->parts->next == NULL);
-		message_parse_from_parts(data->parts->children, data->stream,
-					 parse_bodystructure_part_header,
-					 mail->pool);
-	} else {
-		index_mail_parse_body(mail, FALSE);
+		if (data->parts != NULL) {
+			i_assert(data->parts->next == NULL);
+			i_stream_seek(data->stream,
+				      data->hdr_size.physical_size);
+			message_parse_from_parts(data->parts->children,
+						data->stream,
+						parse_bodystructure_part_header,
+						mail->pool);
+			data->parsed_bodystructure = TRUE;
+		} else {
+			index_mail_parse_body(mail, FALSE);
+		}
 	}
 
 	dec = mail_cache_field_get_decision(mail->ibox->cache,

@@ -77,6 +77,7 @@ struct index_mail_data {
 	unsigned int save_sent_date:1;
 	unsigned int save_bodystructure_header:1;
 	unsigned int save_bodystructure_body:1;
+	unsigned int parsed_bodystructure:1;
 	unsigned int hdr_size_set:1;
 	unsigned int body_size_set:1;
 	unsigned int open_mail:1;
