@@ -909,14 +909,24 @@ if test $need_crypt = yes; then
 fi
 
 dnl * dynamic modules?
+have_modules=no
 AC_CHECK_LIB(dl, dlopen, [
+  have_modules=yes
+  MODULE_LIBS="-export-dynamic -ldl"
+], [
+  AC_CHECK_FUNC(dlopen,, [
+    have_modules=yes
+    MODULE_LIBS="-export-dynamic"
+  ])
+])
+
+if test $have_modules = yes; then
   AC_DEFINE(HAVE_MODULES,, Define if you have dynamic module support)
   userdb="$userdb (modules)"
   passdb="$passdb (modules)"
 
-  MODULE_LIBS="-export-dynamic -ldl"
   AC_SUBST(MODULE_LIBS)
-])
+fi
 
 AC_SUBST(AUTH_CFLAGS)
 AC_SUBST(AUTH_LIBS)
