@@ -350,8 +350,6 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 		}
 
 		ibox->view = mail_index_view_open(index);
-		ibox->cache_view =
-			mail_cache_view_open(ibox->cache, ibox->view);
 		return ibox;
 	} while (0);
 
@@ -364,8 +362,6 @@ void index_storage_mailbox_free(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
-	if (ibox->cache_view != NULL)
-		mail_cache_view_close(ibox->cache_view);
 	if (ibox->view != NULL)
 		mail_index_view_close(ibox->view);
 

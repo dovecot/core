@@ -6,25 +6,24 @@
 #include "mail-index-view-private.h"
 #include "mail-transaction-log.h"
 
-struct mail_index_view *mail_index_view_open(struct mail_index *index)
+void mail_index_view_clone(struct mail_index_view *dest,
+			   const struct mail_index_view *src)
 {
-	struct mail_index_view *view;
+	memset(dest, 0, sizeof(dest));
+	dest->methods = src->methods;
+	dest->index = src->index;
+	dest->log_view = mail_transaction_log_view_open(src->index->log);
 
-	view = i_new(struct mail_index_view, 1);
-	view->index = index;
-	view->log_view = mail_transaction_log_view_open(index->log);
+	dest->indexid = src->indexid;
+	dest->map = src->map;
+	dest->map->refcount++;
+	dest->messages_count = src->messages_count;
 
-	view->indexid = index->indexid;
-	view->map = index->map;
-	view->map->refcount++;
-	view->messages_count = view->map->records_count;
-
-	view->log_file_seq = view->map->log_file_seq;
-	view->log_file_offset = view->map->log_file_offset;
-	return view;
+	dest->log_file_seq = src->log_file_seq;
+	dest->log_file_offset = src->log_file_offset;
 }
 
-void mail_index_view_close(struct mail_index_view *view)
+static void _view_close(struct mail_index_view *view)
 {
 	mail_index_view_unlock(view);
 	mail_transaction_log_view_close(view->log_view);
@@ -117,11 +116,6 @@ void mail_index_view_unlock(struct mail_index_view *view)
 	}
 }
 
-uint32_t mail_index_view_get_message_count(struct mail_index_view *view)
-{
-	return view->messages_count;
-}
-
 int mail_index_view_is_inconsistent(struct mail_index_view *view)
 {
 	if (view->index->indexid != view->indexid)
@@ -146,8 +140,13 @@ void mail_index_view_transaction_unref(struct mail_index_view *view)
 	view->transactions--;
 }
 
-int mail_index_get_header(struct mail_index_view *view,
-			  const struct mail_index_header **hdr_r)
+static uint32_t _view_get_message_count(struct mail_index_view *view)
+{
+	return view->messages_count;
+}
+
+static int _view_get_header(struct mail_index_view *view,
+			    const struct mail_index_header **hdr_r)
 {
 	if (mail_index_view_lock(view) < 0)
 		return -1;
@@ -155,7 +154,10 @@ int mail_index_get_header(struct mail_index_view *view,
 	if (view->map->hdr->messages_count == view->messages_count)
 		*hdr_r = view->map->hdr;
 	else {
-		/* messages_count differs, use a modified copy */
+		/* messages_count differs, use a modified copy.
+		   FIXME: so might seen_messages_count, etc. and they're
+		   more difficult to fix. maybe grab a copy of the header
+		   when opening the view initially?.. */
 		view->tmp_hdr_copy = *view->map->hdr;
 		view->tmp_hdr_copy.messages_count = view->messages_count;
 		*hdr_r = &view->tmp_hdr_copy;
@@ -163,16 +165,15 @@ int mail_index_get_header(struct mail_index_view *view,
 	return 0;
 }
 
-int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
-			   struct mail_index_map **map_r,
-			   const struct mail_index_record **rec_r)
+static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
+			     struct mail_index_map **map_r,
+			     const struct mail_index_record **rec_r)
 {
 	struct mail_index_map *map;
 	const struct mail_index_record *rec, *n_rec;
 	uint32_t uid;
 
-	i_assert(seq > 0);
-	i_assert(seq <= view->messages_count);
+	i_assert(seq > 0 && seq <= mail_index_view_get_message_count(view));
 
 	if (mail_index_view_lock(view) < 0)
 		return -1;
@@ -216,19 +217,10 @@ int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
 	}
 }
 
-int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
-		      const struct mail_index_record **rec_r)
+static int _view_lookup_uid(struct mail_index_view *view, uint32_t seq,
+			    uint32_t *uid_r)
 {
-	struct mail_index_map *map;
-
-	return mail_index_lookup_full(view, seq, &map, rec_r);
-}
-
-int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
-			  uint32_t *uid_r)
-{
-	i_assert(seq > 0);
-	i_assert(seq <= view->messages_count);
+	i_assert(seq > 0 && seq <= mail_index_view_get_message_count(view));
 
 	if (mail_index_view_lock(view) < 0)
 		return -1;
@@ -237,35 +229,14 @@ int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
 	return 0;
 }
 
-int mail_index_lookup_extra(struct mail_index_view *view, uint32_t seq,
-			    uint32_t data_id, const void **data_r)
-{
-	const struct mail_index_record *rec;
-	struct mail_index_map *map;
-	uint32_t offset;
-	int ret;
-
-	if ((ret = mail_index_lookup_full(view, seq, &map, &rec)) < 0)
-		return -1;
-
-	if (rec == NULL) {
-		*data_r = NULL;
-		return ret;
-	}
-
-	/* FIXME: do data_id mapping conversion */
-
-	offset = view->index->extra_records[data_id].offset;
-	*data_r = CONST_PTR_OFFSET(rec, offset);
-	return ret;
-}
-
 static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 				       uint32_t uid, uint32_t *left_idx_p,
 				       int nearest_side)
 {
 	const struct mail_index_record *rec_base, *rec;
 	uint32_t idx, left_idx, right_idx, record_size;
+
+	i_assert(view->messages_count <= view->map->records_count);
 
 	rec_base = view->map->records;
 	record_size = view->index->record_size;
@@ -306,9 +277,9 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 	return idx+1;
 }
 
-int mail_index_lookup_uid_range(struct mail_index_view *view,
-				uint32_t first_uid, uint32_t last_uid,
-				uint32_t *first_seq_r, uint32_t *last_seq_r)
+static int _view_lookup_uid_range(struct mail_index_view *view,
+				  uint32_t first_uid, uint32_t last_uid,
+				  uint32_t *first_seq_r, uint32_t *last_seq_r)
 {
 	uint32_t left_idx;
 
@@ -347,8 +318,9 @@ int mail_index_lookup_uid_range(struct mail_index_view *view,
 	return 0;
 }
 
-int mail_index_lookup_first(struct mail_index_view *view, enum mail_flags flags,
-			    uint8_t flags_mask, uint32_t *seq_r)
+static int _view_lookup_first(struct mail_index_view *view,
+			      enum mail_flags flags, uint8_t flags_mask,
+			      uint32_t *seq_r)
 {
 #define LOW_UPDATE(x) \
 	STMT_START { if ((x) > low_uid) low_uid = x; } STMT_END
@@ -378,7 +350,7 @@ int mail_index_lookup_first(struct mail_index_view *view, enum mail_flags flags,
 			return 0;
 	}
 
-	for (; seq <= view->messages_count; seq++, rec++) {
+	for (; seq <= view->messages_count; seq++) {
 		rec = MAIL_INDEX_MAP_IDX(view->index, view->map, seq-1);
 		if ((rec->flags & flags_mask) == (uint8_t)flags) {
 			*seq_r = seq;
@@ -387,4 +359,107 @@ int mail_index_lookup_first(struct mail_index_view *view, enum mail_flags flags,
 	}
 
 	return 0;
+}
+
+void mail_index_view_close(struct mail_index_view *view)
+{
+	view->methods.close(view);
+}
+
+uint32_t mail_index_view_get_message_count(struct mail_index_view *view)
+{
+	return view->messages_count;
+}
+
+int mail_index_get_header(struct mail_index_view *view,
+			  const struct mail_index_header **hdr_r)
+{
+	return view->methods.get_header(view, hdr_r);
+}
+
+int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
+		      const struct mail_index_record **rec_r)
+{
+	struct mail_index_map *map;
+
+	return mail_index_lookup_full(view, seq, &map, rec_r);
+}
+
+int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
+			  uint32_t *uid_r)
+{
+	return view->methods.lookup_uid(view, seq, uid_r);
+}
+
+int mail_index_lookup_extra(struct mail_index_view *view, uint32_t seq,
+			    uint32_t data_id, const void **data_r)
+{
+	const struct mail_index_record *rec;
+	struct mail_index_map *map;
+	uint32_t offset;
+	int ret;
+
+	if ((ret = mail_index_lookup_full(view, seq, &map, &rec)) < 0)
+		return -1;
+
+	if (rec == NULL) {
+		*data_r = NULL;
+		return ret;
+	}
+
+	/* FIXME: do data_id mapping conversion */
+
+	offset = view->index->extra_records[data_id].offset;
+	*data_r = CONST_PTR_OFFSET(rec, offset);
+	return ret;
+}
+
+int mail_index_lookup_uid_range(struct mail_index_view *view,
+				uint32_t first_uid, uint32_t last_uid,
+				uint32_t *first_seq_r, uint32_t *last_seq_r)
+{
+	return view->methods.lookup_uid_range(view, first_uid, last_uid,
+					      first_seq_r, last_seq_r);
+}
+
+int mail_index_lookup_first(struct mail_index_view *view, enum mail_flags flags,
+			    uint8_t flags_mask, uint32_t *seq_r)
+{
+	return view->methods.lookup_first(view, flags, flags_mask, seq_r);
+}
+
+int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
+			   struct mail_index_map **map_r,
+			   const struct mail_index_record **rec_r)
+{
+	return view->methods.lookup_full(view, seq, map_r, rec_r);
+}
+
+static struct mail_index_view_methods view_methods = {
+	_view_close,
+	_view_get_message_count,
+	_view_get_header,
+	_view_lookup_full,
+	_view_lookup_uid,
+	_view_lookup_uid_range,
+	_view_lookup_first
+};
+
+struct mail_index_view *mail_index_view_open(struct mail_index *index)
+{
+	struct mail_index_view *view;
+
+	view = i_new(struct mail_index_view, 1);
+	view->methods = view_methods;
+	view->index = index;
+	view->log_view = mail_transaction_log_view_open(index->log);
+
+	view->indexid = index->indexid;
+	view->map = index->map;
+	view->map->refcount++;
+	view->messages_count = view->map->records_count;
+
+	view->log_file_seq = view->map->log_file_seq;
+	view->log_file_offset = view->map->log_file_offset;
+	return view;
 }

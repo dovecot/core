@@ -179,7 +179,7 @@ static int mbox_save_init_sync(struct mbox_transaction_context *t)
 	struct mbox_save_context *ctx = t->save_ctx;
 	const struct mail_index_header *hdr;
 
-	if (mail_index_get_header(ctx->ibox->view, &hdr) < 0) {
+	if (mail_index_get_header(t->ictx.trans_view, &hdr) < 0) {
 		mail_storage_set_index_error(ctx->ibox);
 		return -1;
 	}
@@ -345,7 +345,7 @@ int mbox_save(struct mailbox_transaction_context *_t,
 	if (mail_r != NULL) {
 		const struct mail_index_record *rec;
 
-		if (mail_index_transaction_lookup(ctx->trans, seq, &rec) < 0)
+		if (mail_index_lookup(t->ictx.trans_view, seq, &rec) < 0)
 			return -1;
 		if (index_mail_next(&ctx->mail, rec, seq, FALSE) <= 0)
 			return -1;

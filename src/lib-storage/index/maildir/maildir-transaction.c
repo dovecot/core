@@ -7,13 +7,11 @@ struct mailbox_transaction_context *
 maildir_transaction_begin(struct mailbox *box, int hide)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
-	struct maildir_transaction_context *ctx;
+	struct maildir_transaction_context *t;
 
-	ctx = i_new(struct maildir_transaction_context, 1);
-	ctx->ictx.mailbox_ctx.box = box;
-	ctx->ictx.ibox = ibox;
-	ctx->ictx.trans = mail_index_transaction_begin(ibox->view, hide);
-	return &ctx->ictx.mailbox_ctx;
+	t = i_new(struct maildir_transaction_context, 1);
+        index_transaction_init(&t->ictx, ibox, hide);
+	return &t->ictx.mailbox_ctx;
 }
 
 int maildir_transaction_commit(struct mailbox_transaction_context *_t)

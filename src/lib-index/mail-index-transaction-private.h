@@ -1,8 +1,10 @@
 #ifndef __MAIL_INDEX_TRANSACTION_PRIVATE_H
 #define __MAIL_INDEX_TRANSACTION_PRIVATE_H
 
+#include "mail-transaction-log.h"
+
 struct mail_index_transaction {
-	struct mail_index_view *view;
+	struct mail_index_view *view, *updated_view;
 
         buffer_t *appends;
 	uint32_t first_new_seq, last_new_seq;
@@ -23,5 +25,8 @@ struct mail_index_transaction {
 	unsigned int hide_transaction:1;
 	unsigned int hdr_changed:1;
 };
+
+struct mail_index_record *
+mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq);
 
 #endif

@@ -178,6 +178,12 @@ int mail_index_transaction_commit(struct mail_index_transaction *t,
 				  uoff_t *log_file_offset_r);
 void mail_index_transaction_rollback(struct mail_index_transaction *t);
 
+/* Returns a view to transaction. Currently this differs from normal view only
+   in that it contains newly appended messages in transaction. The view is
+   destroyed when the transaction is destroyed. */
+struct mail_index_view *
+mail_index_transaction_get_updated_view(struct mail_index_transaction *t);
+
 /* Begin synchronizing mailbox with index file. This call locks the index
    exclusively against other modifications. Returns 1 if ok, -1 if error.
 
@@ -278,11 +284,6 @@ void mail_index_update_header(struct mail_index_transaction *t,
 void mail_index_update_extra_rec(struct mail_index_transaction *t,
 				 uint32_t seq, uint32_t data_id,
 				 const void *data);
-/* Like mail_index_lookup(), but if seq > view's message count, it's referring
-   to message appended with given transaction. */
-int mail_index_transaction_lookup(struct mail_index_transaction *t,
-				  uint32_t seq,
-				  const struct mail_index_record **rec_r);
 
 /* Returns the last error code. */
 enum mail_index_error mail_index_get_last_error(struct mail_index *index);

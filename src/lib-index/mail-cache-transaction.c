@@ -220,7 +220,7 @@ static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache_record *cache_rec, *next;
 	const struct mail_index_record *rec;
 	struct mail_index_map *map;
-	uint32_t messages_count, write_offset, update_offset;
+	uint32_t write_offset, update_offset;
 	const void *buf;
 	size_t size, buf_size;
 	int ret;
@@ -230,15 +230,8 @@ static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 	size = sizeof(*cache_rec) + buf_size;
 	ctx->cache_rec.size = uint32_to_nbo(size);
 
-        messages_count = mail_index_view_get_message_count(ctx->view->view);
-	if (ctx->prev_seq <= messages_count) {
-		ret = mail_index_lookup_full(ctx->view->view, ctx->prev_seq,
-					     &map, &rec);
-	} else {
-		ret = mail_index_transaction_lookup(ctx->trans,
-						    ctx->prev_seq, &rec);
-		map = cache->index->map;
-	}
+	ret = mail_index_lookup_full(ctx->view->view, ctx->prev_seq,
+				     &map, &rec);
 	if (ret < 0)
 		return -1;
 

@@ -21,7 +21,7 @@
 
 struct index_search_context {
         struct mail_search_context mail_ctx;
-	struct index_transaction_context *trans;
+	struct mail_index_view *view;
 	struct index_mailbox *ibox;
 	char *charset;
 	struct mail_search_arg *args;
@@ -601,7 +601,7 @@ static int search_parse_msgset_args(struct index_mailbox *ibox,
 	return 0;
 }
 
-static int search_limit_lowwater(struct index_mailbox *ibox,
+static int search_limit_lowwater(struct index_search_context *ctx,
 				 uint32_t uid_lowwater, uint32_t *first_seq)
 {
 	uint32_t seq1, seq2;
@@ -609,9 +609,9 @@ static int search_limit_lowwater(struct index_mailbox *ibox,
 	if (uid_lowwater == 0)
 		return 0;
 
-	if (mail_index_lookup_uid_range(ibox->view, uid_lowwater, (uint32_t)-1,
-					&seq1, &seq2) < 0) {
-		mail_storage_set_index_error(ibox);
+	if (mail_index_lookup_uid_range(ctx->view, uid_lowwater,
+					(uint32_t)-1, &seq1, &seq2) < 0) {
+		mail_storage_set_index_error(ctx->ibox);
 		return -1;
 	}
 
@@ -620,7 +620,7 @@ static int search_limit_lowwater(struct index_mailbox *ibox,
 	return 0;
 }
 
-static int search_limit_by_flags(struct index_mailbox *ibox,
+static int search_limit_by_flags(struct index_search_context *ctx,
                                  const struct mail_index_header *hdr,
 				 struct mail_search_arg *args,
 				 uint32_t *seq1, uint32_t *seq2)
@@ -640,7 +640,7 @@ static int search_limit_by_flags(struct index_mailbox *ibox,
 				args->match_always = TRUE;
 			} else if (args->not) {
 				/* UNSEEN with lowwater limiting */
-				if (search_limit_lowwater(ibox,
+				if (search_limit_lowwater(ctx,
                                 		hdr->first_unseen_uid_lowwater,
 						seq1) < 0)
 					return -1;
@@ -662,7 +662,7 @@ static int search_limit_by_flags(struct index_mailbox *ibox,
 				args->match_always = TRUE;
 			} else if (!args->not) {
 				/* DELETED with lowwater limiting */
-				if (search_limit_lowwater(ibox,
+				if (search_limit_lowwater(ctx,
                                 		hdr->first_deleted_uid_lowwater,
 						seq1) < 0)
 					return -1;
@@ -678,7 +678,7 @@ static int search_get_seqset(struct index_search_context *ctx,
 {
         const struct mail_index_header *hdr;
 
-	if (mail_index_get_header(ctx->ibox->view, &hdr) < 0) {
+	if (mail_index_get_header(ctx->view, &hdr) < 0) {
 		mail_storage_set_index_error(ctx->ibox);
 		return -1;
 	}
@@ -701,7 +701,7 @@ static int search_get_seqset(struct index_search_context *ctx,
 	i_assert(ctx->seq1 <= ctx->seq2);
 
 	/* UNSEEN and DELETED in root search level may limit the range */
-	if (search_limit_by_flags(ctx->ibox, hdr, args,
+	if (search_limit_by_flags(ctx, hdr, args,
 				  &ctx->seq1, &ctx->seq2) < 0)
 		return -1;
 	return 0;
@@ -733,8 +733,8 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 
 	ctx = i_new(struct index_search_context, 1);
 	ctx->mail_ctx.box = &t->ibox->box;
-	ctx->trans = t;
 	ctx->ibox = t->ibox;
+	ctx->view = t->trans_view;
 	ctx->charset = i_strdup(charset);
 	ctx->args = args;
 
@@ -815,7 +815,7 @@ struct mail *index_storage_search_next(struct mail_search_context *_ctx)
 
 	ret = 0;
 	while (ctx->seq1 <= ctx->seq2) {
-		if (mail_index_lookup(ctx->ibox->view, ctx->seq1, &rec) < 0) {
+		if (mail_index_lookup(ctx->view, ctx->seq1, &rec) < 0) {
 			ctx->failed = TRUE;
 			mail_storage_set_index_error(ctx->ibox);
 			return NULL;

@@ -3,8 +3,22 @@
 #include "lib.h"
 #include "index-storage.h"
 
+void index_transaction_init(struct index_transaction_context *t,
+			    struct index_mailbox *ibox, int hide)
+{
+	t->mailbox_ctx.box = &ibox->box;
+	t->ibox = ibox;
+	t->trans = mail_index_transaction_begin(ibox->view, hide);
+	t->trans_view = mail_index_transaction_get_updated_view(t->trans);
+	t->cache_view = mail_cache_view_open(ibox->cache, t->trans_view);
+}
+
 static void index_transaction_free(struct index_transaction_context *t)
 {
+	if (t->cache_trans != NULL)
+		(void)mail_cache_transaction_end(t->cache_trans);
+
+	mail_cache_view_close(t->cache_view);
 	mail_index_view_unlock(t->ibox->view);
 
 	if (t->fetch_mail.pool != NULL)
@@ -20,11 +34,8 @@ int index_transaction_commit(struct mailbox_transaction_context *_t)
 	uoff_t offset;
 	int ret;
 
-	if (t->cache_trans != NULL)  {
+	if (t->cache_trans != NULL)
 		(void)mail_cache_transaction_commit(t->cache_trans);
-		(void)mail_cache_transaction_end(t->cache_trans);
-		t->cache_trans = NULL;
-	}
 
 	ret = mail_index_transaction_commit(t->trans, &seq, &offset);
 	if (ret < 0)

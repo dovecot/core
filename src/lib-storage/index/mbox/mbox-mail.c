@@ -31,7 +31,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 	if (mbox_file_open_stream(ibox) < 0)
 		return -1;
 
-	ret = mail_index_lookup_extra(ibox->view, mail->mail.seq,
+	ret = mail_index_lookup_extra(mail->trans->trans_view, mail->mail.seq,
 				      ibox->mbox_extra_idx, &data);
 	if (ret <= 0) {
 		if (ret < 0)

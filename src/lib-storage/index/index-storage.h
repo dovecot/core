@@ -58,7 +58,6 @@ struct index_mailbox {
 	struct mail_index *index;
 	struct mail_index_view *view;
 	struct mail_cache *cache;
-	struct mail_cache_view *cache_view;
 	struct mail *mail_interface;
 
 	uint32_t (*get_recent_count)(struct index_mailbox *ibox);
@@ -112,7 +111,10 @@ struct index_mailbox {
 struct index_transaction_context {
 	struct mailbox_transaction_context mailbox_ctx;
 	struct index_mailbox *ibox;
+
 	struct mail_index_transaction *trans;
+	struct mail_index_view *trans_view;
+	struct mail_cache_view *cache_view;
 	struct mail_cache_transaction_ctx *cache_trans;
 
 	struct index_mail fetch_mail; /* for index_storage_fetch() */
@@ -182,8 +184,8 @@ index_storage_search_init(struct mailbox_transaction_context *t,
 int index_storage_search_deinit(struct mail_search_context *ctx);
 struct mail *index_storage_search_next(struct mail_search_context *ctx);
 
-struct mailbox_transaction_context *
-index_transaction_begin(struct mailbox *box);
+void index_transaction_init(struct index_transaction_context *t,
+			    struct index_mailbox *ibox, int hide);
 int index_transaction_commit(struct mailbox_transaction_context *t);
 void index_transaction_rollback(struct mailbox_transaction_context *t);
 

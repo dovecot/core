@@ -23,12 +23,12 @@ static struct message_part *get_cached_parts(struct index_mail *mail)
 	size_t part_size;
 
 	if ((mail->data.cached_fields & MAIL_CACHE_MESSAGEPART) == 0) {
-		mail_cache_mark_missing(mail->ibox->cache_view,
+		mail_cache_mark_missing(mail->trans->cache_view,
 					MAIL_CACHE_MESSAGEPART);
 		return NULL;
 	}
 
-	if (!mail_cache_lookup_field(mail->ibox->cache_view, mail->data.seq,
+	if (!mail_cache_lookup_field(mail->trans->cache_view, mail->data.seq,
 				     MAIL_CACHE_MESSAGEPART,
 				     &part_data, &part_size)) {
 		/* unexpected - must be an error */
@@ -61,11 +61,11 @@ char *index_mail_get_cached_string(struct index_mail *mail,
 	const char *ret;
 
 	if ((mail->data.cached_fields & field) == 0) {
-		mail_cache_mark_missing(mail->ibox->cache_view, field);
+		mail_cache_mark_missing(mail->trans->cache_view, field);
 		return NULL;
 	}
 
-	ret = mail_cache_lookup_string_field(mail->ibox->cache_view,
+	ret = mail_cache_lookup_string_field(mail->trans->cache_view,
 					     mail->data.seq, field);
 	return p_strdup(mail->pool, ret);
 }
@@ -75,9 +75,10 @@ uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
 {
 	uoff_t uoff;
 
-	if (!mail_cache_copy_fixed_field(mail->ibox->cache_view, mail->data.seq,
-					 field, &uoff, sizeof(uoff))) {
-		mail_cache_mark_missing(mail->ibox->cache_view, field);
+	if (!mail_cache_copy_fixed_field(mail->trans->cache_view,
+					 mail->data.seq, field,
+					 &uoff, sizeof(uoff))) {
+		mail_cache_mark_missing(mail->trans->cache_view, field);
 		uoff = (uoff_t)-1;
 	}
 
@@ -93,10 +94,11 @@ time_t index_mail_get_cached_received_date(struct index_mail *mail)
 {
 	time_t t;
 
-	if (!mail_cache_copy_fixed_field(mail->ibox->cache_view, mail->data.seq,
+	if (!mail_cache_copy_fixed_field(mail->trans->cache_view,
+					 mail->data.seq,
 					 MAIL_CACHE_RECEIVED_DATE,
 					 &t, sizeof(t))) {
-		mail_cache_mark_missing(mail->ibox->cache_view,
+		mail_cache_mark_missing(mail->trans->cache_view,
 					MAIL_CACHE_RECEIVED_DATE);
 		t = (time_t)-1;
 	}
@@ -107,10 +109,11 @@ time_t index_mail_get_cached_received_date(struct index_mail *mail)
 static void get_cached_sent_date(struct index_mail *mail,
 				 struct mail_sent_date *sent_date)
 {
-	if (!mail_cache_copy_fixed_field(mail->ibox->cache_view, mail->data.seq,
+	if (!mail_cache_copy_fixed_field(mail->trans->cache_view,
+					 mail->data.seq,
 					 MAIL_CACHE_SENT_DATE,
 					 sent_date, sizeof(*sent_date))) {
-		mail_cache_mark_missing(mail->ibox->cache_view,
+		mail_cache_mark_missing(mail->trans->cache_view,
 					MAIL_CACHE_SENT_DATE);
 
 		sent_date->time = (time_t)-1;
@@ -123,13 +126,13 @@ int index_mail_cache_transaction_begin(struct index_mail *mail)
 	if (mail->trans->cache_trans != NULL)
 		return TRUE;
 
-	if (mail_cache_transaction_begin(mail->ibox->cache_view, TRUE,
+	if (mail_cache_transaction_begin(mail->trans->cache_view, TRUE,
 					 mail->trans->trans,
 					 &mail->trans->cache_trans) <= 0)
 		return FALSE;
 
-	mail->data.cached_fields = mail_cache_get_fields(mail->ibox->cache_view,
-							 mail->data.seq);
+	mail->data.cached_fields =
+		mail_cache_get_fields(mail->trans->cache_view, mail->data.seq);
 	return TRUE;
 }
 
@@ -351,14 +354,14 @@ static void index_mail_parse_body(struct index_mail *mail)
 		return;
 
 	/* update cache_flags */
-	cache_flags = mail_cache_get_record_flags(mail->ibox->cache_view,
+	cache_flags = mail_cache_get_record_flags(mail->trans->cache_view,
 						  mail->data.seq);
 	if (mail->mail.has_nuls)
 		cache_flags |= MAIL_INDEX_FLAG_HAS_NULS;
 	else
 		cache_flags |= MAIL_INDEX_FLAG_HAS_NO_NULS;
 
-	if (!mail_cache_update_record_flags(mail->ibox->cache_view,
+	if (!mail_cache_update_record_flags(mail->trans->cache_view,
 					    mail->data.seq, cache_flags))
 		return;
 
@@ -542,9 +545,9 @@ int index_mail_next(struct index_mail *mail,
 	p_clear(mail->pool);
 
 	data->cached_fields =
-		mail_cache_get_fields(mail->ibox->cache_view, seq);
+		mail_cache_get_fields(mail->trans->cache_view, seq);
 	cache_flags = (data->cached_fields & MAIL_CACHE_INDEX_FLAGS) == 0 ? 0 :
-		mail_cache_get_record_flags(mail->ibox->cache_view, seq);
+		mail_cache_get_record_flags(mail->trans->cache_view, seq);
 
 	mail->mail.seq = seq;
 	mail->mail.uid = rec->uid;
