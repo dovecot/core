@@ -74,7 +74,7 @@ static int hardlink_messageset(struct messageset_context *ctx,
         const struct messageset_mail *mail;
 	enum mail_flags flags;
 	const char **custom_flags;
-	const char *fname, *src_path, *dest_fname, *dest_path;
+	const char *fname, *dest_fname, *dest_path;
 	int ret, i, found;
 
 	pool = pool_alloconly_create("hard copy rollbacks", 2048);
@@ -94,8 +94,6 @@ static int hardlink_messageset(struct messageset_context *ctx,
 
 		/* link the file */
 		t_push();
-		src_path = t_strconcat(index->mailbox_path, "/cur/",
-				       fname, NULL);
 
 		dest_fname = maildir_generate_tmp_filename(&ioloop_timeval);
 		dest_fname = maildir_filename_set_flags(dest_fname, flags);
