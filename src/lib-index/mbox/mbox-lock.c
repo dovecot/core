@@ -112,10 +112,12 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path, int set)
 		if (errno != EEXIST) {
 			index_set_error(index, "Can't create dotlock file "
 					"%s: %m", path);
-			break;
+			return FALSE;
 		}
 	} while (now < max_wait_time);
 
+	index_set_error(index, "Timeout while waiting for release of mbox "
+			"dotlock %s", path);
 	return FALSE;
 }
 
