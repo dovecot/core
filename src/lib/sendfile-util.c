@@ -89,13 +89,17 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 {
 	ssize_t ret;
+	off_t s_offset;
 
 	i_assert(count <= SSIZE_T_MAX);
 
 	/* NOTE: if outfd is not a socket, some Solaris versions will
 	   kernel panic */
 
-	ret = sendfile(out_fd, in_fd, offset, count);
+	s_offset = (off_t)*offset;
+	ret = sendfile(out_fd, in_fd, &s_offset, count);
+	*offset = (uoff_t)s_offset;
+
 	if (ret < 0 && errno == EAFNOSUPPORT) {
 		/* not supported, return Linux-like EINVAL so caller
 		   sees only consistent errnos. */
