@@ -457,10 +457,15 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 #ifdef HAVE_SYS_SENDFILE_H
 static void block_loop_sendfile(IOBufferBlockContext *ctx)
 {
+	off_t offset;
 	int ret;
 
-	ret = sendfile(ctx->outbuf->fd, ctx->inbuf->fd,
-		       &ctx->inbuf->offset, ctx->size);
+	i_assert(ctx->inbuf->offset < OFF_T_MAX);
+
+	offset = (off_t)ctx->inbuf->offset;
+	ret = sendfile(ctx->outbuf->fd, ctx->inbuf->fd, &offset, ctx->size);
+	ctx->inbuf->offset = (uoff_t)offset;
+
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN)
 			ctx->outbuf->closed = TRUE;
@@ -476,12 +481,18 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 			      unsigned int size)
 {
         IOBufferBlockContext ctx;
+	off_t offset;
 	int ret;
+
+	i_assert(inbuf->offset < OFF_T_MAX);
 
 	io_buffer_send_flush(outbuf);
 
 	/* first try if we can do it with a single sendfile() call */
-	ret = sendfile(outbuf->fd, inbuf->fd, &inbuf->offset, size);
+	offset = (off_t)inbuf->offset;
+	ret = sendfile(outbuf->fd, inbuf->fd, &offset, size);
+	inbuf->offset = (uoff_t)offset;
+
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN)
 			return -1;

@@ -146,7 +146,7 @@ elif test x$sizeof_off_t = x$ac_cv_sizeof_int; then
   AC_DEFINE(UOFF_T_INT)
 elif test x$sizeof_off_t = x$ac_cv_sizeof_long_long; then
   # and finally long long
-  AC_DEFINE_UNQUOTED(OFF_T_MAX, LONG_LONG_MAX)
+  AC_DEFINE_UNQUOTED(OFF_T_MAX, LLONG_MAX)
   AC_DEFINE_UNQUOTED(UOFF_T_FORMAT, "llu")
   AC_DEFINE(UOFF_T_LONG_LONG)
 else

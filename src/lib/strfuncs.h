@@ -1,8 +1,6 @@
 #ifndef __STRFUNC_H
 #define __STRFUNC_H
 
-#include <limits.h>
-
 /* max. size for %d and %ld */
 #define MAX_INT_STRLEN ((sizeof(int) * CHAR_BIT + 2) / 3 + 1)
 #define MAX_LONG_STRLEN ((sizeof(long) * CHAR_BIT + 2) / 3 + 1)

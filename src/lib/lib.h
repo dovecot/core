@@ -4,6 +4,7 @@
 /* default system includes - keep these at minimum.. */
 #include <string.h> /* strcmp() etc. */
 #include <stdarg.h> /* va_list is used everywhere */
+#include <limits.h> /* INT_MAX, etc. */
 #include <errno.h> /* error checking is good */
 #include <sys/types.h> /* many other includes want this */
 

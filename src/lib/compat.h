@@ -1,6 +1,12 @@
 #ifndef __COMPAT_H
 #define __COMPAT_H
 
+/* well, this is obviously wrong since it assumes it's 64bit, but older
+   GCCs don't define it and we really want it. */
+#ifndef LLONG_MAX
+#  define LLONG_MAX 9223372036854775807LL
+#endif
+
 /* memmove() */
 #ifndef HAVE_MEMMOVE
 #  define memmove my_memmove
