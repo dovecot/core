@@ -5,6 +5,7 @@
         ((str) == NULL || (str)[0] == '\0')
 
 size_t printf_string_upper_bound(const char *format, va_list args);
+const char *printf_string_fix_format(const char *fmt);
 int i_snprintf(char *str, size_t max_chars, const char *format, ...)
 	__attr_format__(3, 4);
 

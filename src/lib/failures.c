@@ -64,7 +64,7 @@ static void default_panic_handler(const char *format, va_list args)
 	write_prefix();
 
 	fputs("Panic: ", log_fd);
-	vfprintf(log_fd, format, args);
+	vfprintf(log_fd, printf_string_fix_format(format), args);
 	fputc('\n', log_fd);
 
 	abort();
@@ -75,7 +75,7 @@ static void default_fatal_handler(const char *format, va_list args)
 	write_prefix();
 
 	fputs("Fatal: ", log_fd);
-	vfprintf(log_fd, format, args);
+	vfprintf(log_fd, printf_string_fix_format(format), args);
 	fputc('\n', log_fd);
 
 	exit(98);
@@ -87,9 +87,11 @@ static void default_error_handler(const char *format, va_list args)
 
 	write_prefix();
 
+	t_push();
 	fputs("Error: ", log_fd);
-	vfprintf(log_fd, format, args);
+	vfprintf(log_fd, printf_string_fix_format(format), args);
         fputc('\n', log_fd);
+	t_pop();
 
 	fflush(log_fd);
 
@@ -102,9 +104,11 @@ static void default_warning_handler(const char *format, va_list args)
 
 	write_prefix();
 
+	t_push();
 	fputs("Warning: ", log_fd);
-	vfprintf(log_fd, format, args);
-        fputc('\n', log_fd);
+	vfprintf(log_fd, printf_string_fix_format(format), args);
+	fputc('\n', log_fd);
+	t_pop();
 
 	fflush(log_fd);
 

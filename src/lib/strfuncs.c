@@ -373,7 +373,7 @@ static const char *fix_format_real(const char *fmt, const char *p)
 }
 
 /* replace %m with strerror() */
-static const char *fix_format(const char *fmt)
+const char *printf_string_fix_format(const char *fmt)
 {
 	const char *p;
 
@@ -397,7 +397,7 @@ int i_snprintf(char *str, size_t max_chars, const char *format, ...)
 
 	t_push();
 	va_start(args, format);
-	ret = vsnprintf(str, max_chars, fix_format(format), args);
+	ret = vsnprintf(str, max_chars, printf_string_fix_format(format), args);
 	va_end(args);
 	t_pop();
 
@@ -419,7 +419,7 @@ int i_snprintf(char *str, size_t max_chars, const char *format, ...)
 	t_push();
 
 	va_start(args, format);
-	format = fix_format(format);
+	format = printf_string_fix_format(format);
 	buf = t_buffer_get(printf_string_upper_bound(format, args));
 	va_end(args);
 
@@ -601,7 +601,7 @@ strdup_vprintf_core(const char *format, va_list args,
 	if (format == NULL)
 		return NULL;
 
-	format = fix_format(format);
+	format = printf_string_fix_format(format);
 
 	VA_COPY(temp_args, args);
 
