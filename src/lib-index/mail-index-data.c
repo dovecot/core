@@ -349,7 +349,7 @@ int mail_index_data_reset(MailIndexData *data)
 		return index_data_set_syscall_error(data, "write_full()");
 	}
 
-	return TRUE;
+	return mmap_update(data, 0, 0);
 }
 
 int mail_index_data_mark_deleted(MailIndexData *data)
