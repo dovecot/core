@@ -117,9 +117,10 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 
 	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0 ||
 	    strcasecmp(charset, "ascii") == 0) {
-		outbuf = t_malloc(*size);
+		outbuf = t_malloc(*size + 1);
 		memcpy(outbuf, buf, *size);
-		return str_ucase(outbuf);
+		outbuf[*size] = '\0';
+		return str_ucase(outbuf); /* FIXME: utf8 */
 	}
 
 	cd = iconv_open("UTF-8", charset);

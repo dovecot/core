@@ -65,8 +65,12 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0 ||
 	    strcasecmp(charset, "ascii") == 0 ||
 	    strcasecmp(charset, "UTF-8") == 0 ||
-	    strcasecmp(charset, "UTF8") == 0)
-		return str_ucase(t_strdup_noconst(buf)); /* FIXME: utf8 */
+	    strcasecmp(charset, "UTF8") == 0) {
+		outbuf = t_malloc(*size + 1);
+		memcpy(outbuf, buf, *size);
+		outbuf[*size] = '\0';
+		return str_ucase(outbuf); /* FIXME: utf8 */
+	}
 
 	if (unknown_charset != NULL)
 		*unknown_charset = TRUE;
