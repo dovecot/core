@@ -155,6 +155,9 @@ static int sync_append(const struct mail_index_record *rec, void *context)
 	view->messages_count++;
 	map->records_count++;
 
+	if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
+		hdr->flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
+
 	mail_index_header_update_counts(hdr, 0, rec->flags);
 	mail_index_header_update_lowwaters(hdr, rec);
 	return 1;
