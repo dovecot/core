@@ -80,14 +80,17 @@ static void mail_index_sync_add_keyword_reset(struct mail_index_sync_ctx *ctx)
 {
 	const struct mail_transaction_keyword_reset *u = ctx->data;
 	size_t i, size = ctx->hdr->size / sizeof(*u);
+	struct mail_keywords *keywords;
 	uint32_t uid;
 
+	keywords = mail_index_keywords_create(ctx->trans, NULL);
 	for (i = 0; i < size; i++) {
 		for (uid = u[i].uid1; uid <= u[i].uid2; uid++) {
 			mail_index_update_keywords(ctx->trans, uid,
-						   MODIFY_REPLACE, NULL);
+						   MODIFY_REPLACE, keywords);
 		}
 	}
+	mail_index_keywords_free(keywords);
 }
 
 static void mail_index_sync_add_append(struct mail_index_sync_ctx *ctx)
