@@ -112,7 +112,8 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 	    !ctx->expunge_handlers_set)
 		mail_index_sync_init_expunge_handlers(ctx);
 
-	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW) {
+	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW &&
+	    ctx->expunge_handlers != NULL) {
 		expunge_handlers =
 			buffer_get_modifyable_data(ctx->expunge_handlers,
 						   &expunge_handlers_count);
