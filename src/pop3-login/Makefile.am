@@ -17,4 +17,5 @@ pop3_login_SOURCES = \
 
 noinst_HEADERS = \
 	common.h \
-	client.h
+	client.h \
+	client-authenticate.h
