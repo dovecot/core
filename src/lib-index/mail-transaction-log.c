@@ -576,7 +576,7 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 		buffer_copy(file->buffer, size, file->buffer, 0, (size_t)-1);
 		file->buffer_offset = offset;
 
-		data = buffer_get_modifyable_data(file->buffer, NULL);
+		data = buffer_get_space_unsafe(file->buffer, 0, size);
 		ret = pread(file->fd, data, size, offset);
 		if (ret < 0 && errno == ESTALE) {
 			/* log file was deleted in NFS server, fail silently */
