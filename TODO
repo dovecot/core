@@ -1,7 +1,63 @@
- - we need permanent storage for UIDs. with mbox use X-UID like UW-IMAP,
-   with maildir a) file:2,flags,Uuid b) file,U=uid:2,flags. uid validity
-   would be in .uidvalidity file. the b-case would require that to be done
-   by the client moving it from new/ to cur/
+ - mbox: we don't notice external flag changes if they don't change file size
+    - Create new X-IMAPlog header which Dovecot uses internally to store
+      changes. If change is in the log header, we don't have to reparse the
+      whole file to find out what changed. Keep last 10 or so changes logged.
+      First process that notices unknown change should figure out what changed
+      and add it to log, to avoid everyone else doing that.
+        - X-IMAPlog: <timestamp> <file offset>:<changed message count>,
+	   <file offset>:<changed message count> <timestamp2> ...
+	- when writing the timestamp, make sure that we handle the situation
+	  when second just happens to change when we write the log header, and
+	  old timestamp is left into log.
+    - when syncing or writing the file, keep the lock long enough that current
+      second changes. this is to make sure that no-one else changes the file
+      and make us miss the change because timestamp didn't change
+ - recent counters are broken
+    - the process that assigns UID to message should be the one to see
+      it as recent
+    - we don't handle non-contiguous recent ranges
+ - maildir: stat()ing new/ would be enough if mtime is unchanged and older
+   than a few seconds
+ - don't break if we rename selected mailbox
+ - struct mail_index_data_record_header isn't 8byte padded with 32bit off_t
+ - quota full: rename() is problematic, uidlist and new/ dir especially
+ - NFS safety:
+    - use link()s instead of relying on O_EXCL
+    - .subscriptions: use rename() like dovecot-uidlist
+    - .customflags: use rename(), but there's a problem when we have to remove
+      unused flags to make room for new ones. to fix that add new field in
+      the file, it would be set for flags which are currently unused. if that
+      field is set, .customflags must be locked before the flag is set to any
+      messages. but make sure there's no race conditions, we probably have to
+      wait a few seconds just to make sure no-one set a flag we want to remove
+
+ - send client IP immediately after accept() to master process. make sure
+   master shows the IP if login dies unexpectedly. master should probably also
+   kill the login process if it doesn't kill itself soon enough.. or maybe just
+   log the IP immediately.
+ - .subscriptions and .customflags files conflict with personal namespace in
+   maildir... and what about .imap.index* files if they get moved into root
+   dir?
+
+ - ioloop-kqueue.c patch
+ - workaround: oe-nonsynced-uid-fetch (it's now done always)
+ - does dovecot-auth really break when it runs out of fds?
+ - add something to docs about locks in /var/mail
+ - safe_mkdir_path() and create mbox / maildir paths
+ - create auth_chroot dir at startup
+ - remove Maildir/.INBOX/
+ - maildir: create foo/bar -> OK, delete foo/bar -> error
+
+ - NOOP should complain about inconsistency immediately
+    - and it complains about indexid changes next time..
+ - x LIST "" INBOX.% should contain "INBOX." in reply. But it breaks some
+   clients, leave optional.
+ - full_filesystem_access=yes + Maildir + SELECT "INBOX/" works? ..
+ - should we support some non-tokenizing way to parse mail addresses? ..
+   eg. "foo ? bar <x@y>" would now show up as "foo? bar <x@y>"
+ - add charset/us-ascii to body/bodystructure
+ - we hang if ssl key is password protected
+ - is there still something wrong with SSL proxy?
 
  - DELETE/RENAME: when someone else had the mailbox open, we should
    disconnect it (when stat() fails with ENOENT while syncing).
@@ -21,8 +77,7 @@
       other IMAP people agree to that.
 
  - reliability fixes:
-    - maildir: check if there's base name conflicts when syncing. the hash
-      could also be built against index.data so it'd take less memory
+    - maildir: check if there's base name conflicts when syncing.
     - if we deleted mail from index but didn't write modify log, other
       dovecots don't handle it properly. they either assert at index-sync.c:42
       or if new mails have also been added since, they don't notice it at all
@@ -39,12 +94,16 @@
       and then start renaming them from end to beginning, which probably will
       at some point start causing syscall failures which will fill up logs.
     - fsck should check binary tree
+    - dotlock overriding is racy, but it's pretty difficult to fix it. Also
+      overriding someone else's dotlock in shared folder isn't possible. These
+      could be fixed by having separate lock process running as root, which
+      would chown() the file for another uid and then unlink() it as that user.
+      One problem with that is that if malicious user sets setuid+execute bits
+      on for the file, he could run the file and get changed to the new uid.
+      That hopefully shouldn't matter much since the new uid should be user
+      with minimum possible privileges. Anyway, optional..
 
  - mbox
-    - message_parse_header() skips headers (even multiline) larger than max.
-      input buffer size, which in our case means that headers larger than
-      8192 bytes will be silently skipped when saving mails.
-    - Optimize rewrites by using empty spaces after X-Keywords
     - Move data within file instead of writing it to temp file. We can now do
       moving easily with o_stream_send_istream().
     - if a file isn't valid mbox and it's tried to be opened, say it in one
@@ -80,13 +139,9 @@
         - linux: we can use dnotify for maildir (but not mbox I think, we'd
 	  get interrupted all the time if we checked eg. large /var/spool/mail)
 	- *bsd: kqueue() can notify changes in mbox and maildir
-    - .subscriptions and .customflags needs nfs-safe locking
     - OpenSSL: support generated DH parameters
     - SSL: Support password protected key files. Support reading the password
       from user at runtime (dovecot startssl or something).
-    - multiline headers can cause our memory usage to go up. that should be
-      fixed somehow. try to change things to be able to handle one line at a
-      time? Well, other IMAP servers have same problem - post 1.0 problem.
     - check with strace what dovecot does when evolution checks new mail,
       it's quite a lot. some things probably wouldn't need to be done
       (mkdirs/symlinking inbox) and other things could be cached in memory.
@@ -105,11 +160,15 @@
     - option: copy /var/mail/$user to INBOX when logged in. nice for not missing
       any mails with quota enabled
     - support zlib compressed mbox/maildir? mbox maybe just read-only.
+      do it through istream-zlib wrapper
     - THREAD=ORDEREDSUBJECT - although pretty useless I'd think.
     - sql authentication and mail database support. create some generic lib-sql
       which both can use
     - maildir: change it to use '/' as hierarchy separator to allow '.'
       characters (for usernames in shared folders)
+    - POP3: add support for LAST command, but make it optional since it has to
+      play with \Seen flags (RSET would unset them all with it enabled, not
+      very nice).
 
  - logging
     - Login: username 1.2.3.4:1025 5.6.7.8:993 imaps,compressed
@@ -134,7 +193,13 @@
  - index:
     - we could try compressing same from/to/subject fields into a single
       location in data file. requires larger changes..
+    - Most messages are text/plain/7bit/us-ascii/no-other-content-type-params.
+      Instead of saving tons of nearly identical BODY/BODYSTRUCTURE fields
+      into cache, we could just set INDEX_MAIL_FLAG_TEXT_PLAIN_7BIT_ASCII bit
+      on and generate the bodystructure for such messages on the fly.
     - read-only support for mailboxes where we don't have write-access
+    - if we expunge last message in index, we could just decrease the
+      used_file_size header instead of leaving hole into file
     - we should try to avoid completely rebuilding indexes unless they're
       corrupted. especially if we later want to support some read-only boxes
       and keep the mail flags only in index file. fsck() could verify that
@@ -144,10 +209,14 @@
     - skipping deleted records in .imap.index would be faster if we saved the
       deleted block size to first/last record, so we could just jump over them.
     - support storing message headers into indexes. this could be useful when
-      indexes are in local disk but actual mails are accessed through NFS
+      indexes are in local disk but actual mails are accessed through NFS.
     - we could send flag changes after all commands by making expunge/flags
       sync counters separate for modify log. flags would need to update the
       seq though, too slow?
+    - cost-based caching to indexes? when accessing the indexes, save how much
+      extra data we had to read because we did/didn't cache some field, and
+      also how much extra data we avoided reading because we had it cached. but
+      is it fast enough to find out the lengths without uselessly slowing down?
     - if we wanted to support huge mailboxes with small memory usage, it'd now
       be possible if we just instead of mmap()ing the whole index files would
       have maybe 3-4 256k mmap()ed areas which we move based on the need.

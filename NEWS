@@ -1,3 +1,32 @@
+v0.99.9 2003-04-28  Timo Sirainen <tss@iki.fi>
+
+	* WARNING: mbox rewriting works now faster, but it's less likely to
+	  notice external message flag changes (it wasn't perfect before
+	  either). This also means that if you're not using index files,
+	  Dovecot may not notice changes made by another Dovecot process.
+	  This will be fixed later.
+
+	+ Message UIDs are now permanently stored outside index files.
+	  Deleting indexes is now possible without any kind of data loss and
+	  in-memory indexes are now usable.
+	+ mbox rewriting leaves extra space into X-Keywords header. It's
+	  shrinked or grown when updating message flag headers to avoid
+	  rewriting the rest of the file.
+	+ imap-login and pop3-login can now be started from inetd. Privilege
+	  separation is still used, so it executes dovecot and dovecot-auth
+	  processes which are left on the background.
+	+ PostgreSQL authentication support, patch by Alex Howansky
+	- Large multiline headers (over 8kB) broke Dovecot before. Now they're
+	  parsed one line at a time and we try to avoid reading them fully into
+	  memory.
+	- SEARCH OR was broken
+	- Partial BODY[] fetches were broken
+	- Timezones were still set wrong when parsing dates
+	- Using non-synchronized literals (LITERAL+) broke APPEND
+	- Renaming maildir subfolders inserted extra "." in the middle.
+	- Subfolders were a bit broken with maildir
+	- Invalid PLAIN auth request crashed auth process.
+
 v0.99.8 2003-02-25  Timo Sirainen <tss@iki.fi>
 
 	* NOTE: Configuration file has changed a bit: auth_userinfo was
