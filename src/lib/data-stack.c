@@ -119,9 +119,17 @@ static void free_blocks(StackBlock *block)
 	   unused_block, replace it */
 	while (block != NULL) {
 		if (unused_block == NULL || block->size > unused_block->size) {
+#ifdef DEBUG
+			i_warning("Shrinking data stack with: %"PRIuSIZE_T,
+				  unused_block->size);
+#endif
 			free(unused_block);
 			unused_block = block;
 		} else {
+#ifdef DEBUG
+			i_warning("Shrinking data stack with: %"PRIuSIZE_T,
+				  block->size);
+#endif
 			free(block);
 		}
 
@@ -226,6 +234,9 @@ static void *t_malloc_real(size_t size, int permanent)
 		unused_block = NULL;
 	} else {
 		block = mem_block_alloc(size);
+#ifdef DEBUG
+		i_warning("Growing data stack with: %"PRIuSIZE_T, block->size);
+#endif
 	}
 
 	block->left = block->size;
