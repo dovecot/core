@@ -10,6 +10,7 @@
 
 struct _CharsetTranslation {
 	iconv_t cd;
+	int ascii;
 };
 
 CharsetTranslation *charset_to_utf8_begin(const char *charset,
@@ -17,16 +18,22 @@ CharsetTranslation *charset_to_utf8_begin(const char *charset,
 {
 	CharsetTranslation *t;
 	iconv_t cd;
+	int ascii;
 
 	if (unknown_charset != NULL)
 		*unknown_charset = FALSE;
 
 	if (strcasecmp(charset, "us-ascii") == 0 ||
 	    strcasecmp(charset, "ascii") == 0) {
-		/* no need to do any actual translation */
 		cd = NULL;
+		ascii = TRUE;
+	} else if (strcasecmp(charset, "UTF-8") == 0 ||
+		   strcasecmp(charset, "UTF8") == 0) {
+		cd = NULL;
+		ascii = FALSE;
 	} else {
-		cd = iconv_open("UTF8", charset);
+		ascii = FALSE;
+		cd = iconv_open("UTF-8", charset);
 		if (cd == (iconv_t)-1) {
 			if (unknown_charset != NULL)
 				*unknown_charset = TRUE;
@@ -36,6 +43,7 @@ CharsetTranslation *charset_to_utf8_begin(const char *charset,
 
 	t = i_new(CharsetTranslation, 1);
 	t->cd = cd;
+	t->ascii = ascii;
 	return t;
 }
 
@@ -60,10 +68,10 @@ int charset_to_ucase_utf8(CharsetTranslation *t,
 	size_t outleft, max_size, i;
 
 	if (t->cd == NULL) {
-		/* ascii - just copy it to outbuf uppercased */
+		/* no translation needed - just copy it to outbuf uppercased */
 		max_size = I_MIN(*insize, *outsize);
 		for (i = 0; i < max_size; i++)
-			outbuf[i] = i_toupper((*inbuf)[i]);
+			outbuf[i] = i_toupper((*inbuf)[i]); /* FIXME: utf8 */
 		*insize = 0;
 		*outsize = max_size;
 		return TRUE;
@@ -86,7 +94,7 @@ int charset_to_ucase_utf8(CharsetTranslation *t,
 
 	max_size = *outsize;
 	for (i = 0; i < max_size; i++)
-		outbuf[i] = i_toupper(outbuf[i]);
+		outbuf[i] = i_toupper(outbuf[i]); /* FIXME: utf8 */
 
 	return TRUE;
 }
@@ -103,7 +111,7 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 	    strcasecmp(charset, "ascii") == 0)
 		return str_ucase(t_strdup_noconst(buf));
 
-	cd = iconv_open("UTF8", charset);
+	cd = iconv_open("UTF-8", charset);
 	if (cd == (iconv_t)-1) {
 		if (unknown_charset != NULL)
 			*unknown_charset = TRUE;
@@ -139,8 +147,7 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 	*outpos++ = '\0';
 	t_buffer_alloc(*size + 1);
 
-	/* FIXME: this works only for ASCII */
-	str_ucase(outbuf);
+	str_ucase(outbuf); /* FIXME: utf8 */
 
 	iconv_close(cd);
 	return outbuf;
