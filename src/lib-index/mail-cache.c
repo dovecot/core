@@ -37,9 +37,8 @@
 #define MAIL_CACHE_LOCK_TIMEOUT 120
 #define MAIL_CACHE_LOCK_STALE_TIMEOUT 60
 
-#define CACHE_RECORD(cache, data_pos) \
-	((struct mail_cache_record *) \
-	 ((char *) (cache)->mmap_base + ((data_pos) & ~3)))
+#define CACHE_RECORD(cache, offset) \
+	((struct mail_cache_record *) ((char *) (cache)->mmap_base + offset))
 
 struct mail_cache_header {
 	uint32_t indexid;
@@ -296,7 +295,7 @@ static int mmap_update_nocheck(struct mail_cache *cache,
 		/* indexid changed, most likely it was rebuilt.
 		   try reopening. */
 		if (!mail_cache_file_reopen(cache))
-			return FALSE;
+			return -1;
 
 		/* force mmap refresh */
 		size = 0;
@@ -306,13 +305,13 @@ static int mmap_update_nocheck(struct mail_cache *cache,
 	    size <= cache->mmap_length - offset) {
 		/* already mapped */
 		if (!cache->mmap_refresh)
-			return TRUE;
+			return 1;
 
 		cache->mmap_refresh = FALSE;
 	}
 
 	if (cache->anon_mmap)
-		return TRUE;
+		return 1;
 
 	if (cache->mmap_base != NULL) {
 		if (cache->locks != 0) {
@@ -320,7 +319,7 @@ static int mmap_update_nocheck(struct mail_cache *cache,
 			if (msync(cache->mmap_base, cache->mmap_length,
 				  MS_SYNC) < 0) {
 				mail_cache_set_syscall_error(cache, "msync()");
-				return FALSE;
+				return -1;
 			}
 		}
 
@@ -337,16 +336,24 @@ static int mmap_update_nocheck(struct mail_cache *cache,
 	cache->mmap_base = mmap_rw_file(cache->fd, &cache->mmap_length);
 	if (cache->mmap_base == MAP_FAILED) {
 		cache->mmap_base = NULL;
-		return mail_cache_set_syscall_error(cache, "mmap()");
+		mail_cache_set_syscall_error(cache, "mmap()");
+		return -1;
 	}
 
-	return TRUE;
+	/* re-mmaped, check header */
+	return 0;
 }
 
 static int mmap_update(struct mail_cache *cache, size_t offset, size_t size)
 {
-	return mmap_update_nocheck(cache, offset, size) &&
-		mmap_verify_header(cache);
+	int ret;
+
+	ret = mmap_update_nocheck(cache, offset, size);
+	if (ret > 0)
+		return TRUE;
+	if (ret < 0)
+		return FALSE;
+	return mmap_verify_header(cache);
 }
 
 static int mail_cache_open_and_verify(struct mail_cache *cache, int silent)
@@ -373,7 +380,7 @@ static int mail_cache_open_and_verify(struct mail_cache *cache, int silent)
 		return 0;
 
 	cache->mmap_refresh = TRUE;
-	if (!mmap_update_nocheck(cache, 0, sizeof(struct mail_cache_header)))
+	if (mmap_update_nocheck(cache, 0, sizeof(struct mail_cache_header)) < 0)
 		return -1;
 
 	/* verify that this really is the cache for wanted index */
@@ -1325,6 +1332,7 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 static struct mail_cache_record *
 cache_get_record(struct mail_cache *cache, uint32_t offset)
 {
+#define CACHE_PREFETCH 1024
 	struct mail_cache_record *cache_rec;
 	size_t size;
 
@@ -1332,7 +1340,7 @@ cache_get_record(struct mail_cache *cache, uint32_t offset)
 	if (offset == 0)
 		return NULL;
 
-	if (!mmap_update(cache, offset, sizeof(*cache_rec) + 1024))
+	if (!mmap_update(cache, offset, sizeof(*cache_rec) + CACHE_PREFETCH))
 		return NULL;
 
 	if (offset + sizeof(*cache_rec) > cache->mmap_length) {
@@ -1346,8 +1354,10 @@ cache_get_record(struct mail_cache *cache, uint32_t offset)
 		mail_cache_set_corrupted(cache, "invalid record size");
 		return NULL;
 	}
-	if (!mmap_update(cache, offset, size))
-		return NULL;
+	if (size > CACHE_PREFETCH) {
+		if (!mmap_update(cache, offset, size))
+			return NULL;
+	}
 
 	if (offset + size > cache->mmap_length) {
 		mail_cache_set_corrupted(cache, "record points outside file");
@@ -1599,8 +1609,9 @@ int mail_cache_delete(struct mail_cache_transaction_ctx *ctx,
 	/* see if we've reached the max. deleted space in file */
 	max_del_space = cache->used_file_size / 100 * COMPRESS_PERCENTAGE;
 	if (deleted_space >= max_del_space &&
-	    cache->used_file_size >= COMPRESS_MIN_SIZE)
+	    cache->used_file_size >= COMPRESS_MIN_SIZE) {
 		cache->index->set_flags |= MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE;
+	}
 
 	cache->header->deleted_space = uint32_to_nbo(deleted_space);
 
