@@ -23,8 +23,10 @@ int maildir_transaction_commit(struct mailbox_transaction_context *_t,
 	int ret = 0;
 
 	if (t->save_ctx != NULL) {
-		if (maildir_transaction_save_commit(t->save_ctx) < 0)
+		if (maildir_transaction_save_commit_pre(t->save_ctx) < 0) {
+			t->save_ctx = NULL;
 			ret = -1;
+		}
 	}
 	if (t->copy_ctx != NULL) {
 		if (maildir_transaction_copy_commit(t->copy_ctx) < 0)
@@ -33,6 +35,12 @@ int maildir_transaction_commit(struct mailbox_transaction_context *_t,
 
 	if (index_transaction_commit(_t) < 0)
 		return -1;
+
+	if (t->save_ctx != NULL) {
+		/* unlock uidlist file after writing to transaction log,
+		   to make sure we don't write uids in wrong order. */
+		maildir_transaction_save_commit_post(t->save_ctx);
+	}
 
 	return ret < 0 ? -1 : maildir_sync_last_commit(ibox);
 }

@@ -60,7 +60,8 @@ int maildir_save_continue(struct mail_save_context *ctx);
 int maildir_save_finish(struct mail_save_context *ctx, struct mail **mail_r);
 void maildir_save_cancel(struct mail_save_context *ctx);
 
-int maildir_transaction_save_commit(struct maildir_save_context *ctx);
+int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx);
+void maildir_transaction_save_commit_post(struct maildir_save_context *ctx);
 void maildir_transaction_save_rollback(struct maildir_save_context *ctx);
 
 int maildir_copy(struct mailbox_transaction_context *t, struct mail *mail,

@@ -26,6 +26,7 @@ struct maildir_save_context {
 
 	struct index_mailbox *ibox;
 	struct mail_index_transaction *trans;
+	struct maildir_uidlist_sync_ctx *sync_ctx;
 	struct index_mail mail;
 
 	const char *tmpdir, *newdir, *curdir;
@@ -305,9 +306,8 @@ static void maildir_save_commit_abort(struct maildir_save_context *ctx,
 	maildir_transaction_save_rollback(ctx);
 }
 
-int maildir_transaction_save_commit(struct maildir_save_context *ctx)
+int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 {
-	struct maildir_uidlist_sync_ctx *sync_ctx;
 	struct maildir_filename *mf;
 	uint32_t first_uid, last_uid;
 	enum maildir_uidlist_rec_flag flags;
@@ -335,27 +335,28 @@ int maildir_transaction_save_commit(struct maildir_save_context *ctx)
 		MAILDIR_UIDLIST_REC_FLAG_RECENT;
 
 	/* move them into new/ */
-	sync_ctx = maildir_uidlist_sync_init(ctx->ibox->uidlist, TRUE);
+	ctx->sync_ctx = maildir_uidlist_sync_init(ctx->ibox->uidlist, TRUE);
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
 		fname = mf->dest != NULL ? mf->dest : mf->basename;
 		if (maildir_file_move(ctx, mf->basename, mf->dest) < 0 ||
-		    maildir_uidlist_sync_next(sync_ctx, fname, flags) < 0) {
-			(void)maildir_uidlist_sync_deinit(sync_ctx);
+		    maildir_uidlist_sync_next(ctx->sync_ctx,
+					      fname, flags) < 0) {
+			(void)maildir_uidlist_sync_deinit(ctx->sync_ctx);
 			maildir_save_commit_abort(ctx, mf);
 			return -1;
 		}
 	}
+	return ret;
 
-	if (maildir_uidlist_sync_deinit(sync_ctx) < 0) {
-		maildir_save_commit_abort(ctx, NULL);
-		return -1;
-	}
+}
 
-	i_assert(maildir_uidlist_get_next_uid(ctx->ibox->uidlist) == last_uid);
+void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
+{
+	/* can't do anything anymore if we fail */
+	(void)maildir_uidlist_sync_deinit(ctx->sync_ctx);
 
 	index_mail_deinit(&ctx->mail);
 	pool_unref(ctx->pool);
-	return ret;
 }
 
 void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
