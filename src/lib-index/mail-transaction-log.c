@@ -477,6 +477,14 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 		return NULL;
 	}
 
+	if (file->hdr.file_seq == log->index->map->log_file_seq &&
+	    log->index->map->log_file_offset != 0) {
+		/* we can get a valid log offset from index file. initialize
+		   sync_offset from it so we don't have to read the whole log
+		   file from beginning. */
+		file->sync_offset = log->index->map->log_file_offset;
+	}
+
 	for (p = &log->tail; *p != NULL; p = &(*p)->next) {
 		if ((*p)->hdr.file_seq >= file->hdr.file_seq) {
 			/* log replaced with file having same sequence as
@@ -1274,9 +1282,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 		}
 	}
 
-	if (ret < 0) {
+	if (ret < 0)
 		file->sync_offset = append_offset;
-	}
 
 	*log_file_seq_r = file->hdr.file_seq;
 	*log_file_offset_r = file->sync_offset;
