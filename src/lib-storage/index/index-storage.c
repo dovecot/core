@@ -83,12 +83,8 @@ index_storage_alloc(const char *index_dir, const char *mailbox_path,
 	struct stat st;
 	int destroy_count;
 
-	if (index_dir != NULL) {
-		if (stat(index_dir, &st) < 0)
-			return NULL;
-	} else {
+	if (index_dir == NULL || stat(index_dir, &st) < 0)
 		memset(&st, 0, sizeof(st));
-	}
 
 	/* compare index_dir inodes so we don't break even with symlinks.
 	   for in-memory indexes compare just mailbox paths */
