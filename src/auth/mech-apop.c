@@ -17,7 +17,8 @@
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 
-#include <ctype.h>
+#include <stdio.h>
+#include <unistd.h>
 
 struct apop_auth_request {
 	struct auth_request auth_request;
@@ -76,7 +77,8 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 	struct apop_auth_request *request =
 		(struct apop_auth_request *)auth_request;
 	const unsigned char *tmp, *end, *username = NULL;
-	const char *str, *error;
+	unsigned long pid, connect_uid, timestamp;
+	const char *error;
 
 	if (data_size == 0) {
 		/* Should never happen */
@@ -94,10 +96,14 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 
 	/* the challenge must begin with trusted unique ID. we trust only
 	   ourself, so make sure it matches our connection specific UID
-	   which we told to client in handshake. */
-        str = t_strdup_printf("<%x.%x.", auth_request->conn->master->pid,
-			      auth_request->conn->connect_uid);
-	if (memcmp(data, str, strlen(str)) != 0) {
+	   which we told to client in handshake. Also require a timestamp
+	   which is later than this process's start time. */
+
+	if (sscanf((const char *)data, "<%lx.%lx.%lx.",
+		   &pid, &connect_uid, &timestamp) != 3 ||
+	    connect_uid != auth_request->conn->connect_uid ||
+            pid != (unsigned long)getpid() ||
+	    (time_t)timestamp < process_start_time) {
 		auth_request_log_info(auth_request, "apop",
 				      "invalid challenge");
 		auth_request_fail(auth_request);

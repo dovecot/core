@@ -9,5 +9,6 @@
 
 extern struct ioloop *ioloop;
 extern int standalone;
+extern time_t process_start_time;
 
 #endif

@@ -25,6 +25,7 @@
 
 struct ioloop *ioloop;
 int standalone = FALSE;
+time_t process_start_time;
 
 static buffer_t *masters_buf;
 static struct auth *auth;
@@ -192,6 +193,8 @@ static void main_init(int nodaemon)
 	size_t i, size;
 	const char *env;
 	unsigned int pid;
+
+	process_start_time = ioloop_time;
 
 	mech_init();
 	auth_init(auth);
