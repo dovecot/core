@@ -13,7 +13,7 @@
     - We can portably specify how much data we want to allocate at runtime
 
    Advantages over malloc():
-    - FAST, most of the time allocating memory mean only updating a couple of
+    - FAST, most of the time allocating memory means only updating a couple of
       pointers and integers. Freeing the memory all at once also is a fast
       operation.
     - No need to free() each allocation resulting in prettier code
