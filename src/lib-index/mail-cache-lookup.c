@@ -9,40 +9,43 @@
 
 #define CACHE_PREFETCH 1024
 
-const struct mail_cache_record *
-mail_cache_get_record(struct mail_cache *cache, uint32_t offset)
+int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
+			  const struct mail_cache_record **rec_r)
 {
 	const struct mail_cache_record *cache_rec;
 
+	*rec_r = NULL;
 	if (offset == 0)
-		return NULL;
+		return 0;
 
 	if (mail_cache_map(cache, offset,
 			   sizeof(*cache_rec) + CACHE_PREFETCH) < 0)
-		return NULL;
+		return -1;
 
 	if (offset + sizeof(*cache_rec) > cache->mmap_length) {
 		mail_cache_set_corrupted(cache, "record points outside file");
-		return NULL;
+		return -1;
 	}
 	cache_rec = CACHE_RECORD(cache, offset);
 
 	if (cache_rec->size < sizeof(*cache_rec)) {
 		mail_cache_set_corrupted(cache, "invalid record size");
-		return NULL;
+		return -1;
 	}
 	if (cache_rec->size > CACHE_PREFETCH) {
 		if (mail_cache_map(cache, offset, cache_rec->size) < 0)
-			return NULL;
+			return -1;
 		cache_rec = CACHE_RECORD(cache, offset);
 	}
 
 	if (cache_rec->size > cache->mmap_length ||
 	    offset + cache_rec->size > cache->mmap_length) {
 		mail_cache_set_corrupted(cache, "record points outside file");
-		return NULL;
+		return -1;
 	}
-	return cache_rec;
+
+	*rec_r = cache_rec;
+	return 0;
 }
 
 static int
@@ -94,7 +97,8 @@ mail_cache_foreach_rec(struct mail_cache_view *view, uint32_t *offset,
 	unsigned int field;
 	int ret;
 
-	cache_rec = mail_cache_get_record(view->cache, *offset);
+	if (mail_cache_get_record(view->cache, *offset, &cache_rec) < 0)
+		return -1;
 	if (cache_rec == NULL) {
 		*offset = 0;
 		return 1;
@@ -126,7 +130,9 @@ mail_cache_foreach_rec(struct mail_cache_view *view, uint32_t *offset,
 
 			/* field reading might have re-mmaped the file and
 			   caused cache_rec to break. need to get it again. */
-			cache_rec = mail_cache_get_record(view->cache, *offset);
+			if (mail_cache_get_record(view->cache, *offset,
+						  &cache_rec) < 0)
+				return -1;
 			i_assert(cache_rec != NULL);
 		}
 

@@ -178,8 +178,8 @@ void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest);
 int mail_cache_header_fields_get_next_offset(struct mail_cache *cache,
 					     uint32_t *offset_r);
 
-const struct mail_cache_record *
-mail_cache_get_record(struct mail_cache *cache, uint32_t offset);
+int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
+			  const struct mail_cache_record **rec_r);
 
 int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 		       mail_cache_foreach_callback_t *callback, void *context);

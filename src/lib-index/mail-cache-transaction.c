@@ -768,7 +768,8 @@ int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
 
 	i_assert(cache->locked);
 
-	cache_rec = mail_cache_get_record(cache, offset);
+	if (mail_cache_get_record(cache, offset, &cache_rec) < 0)
+		return -1;
 	if (cache_rec == NULL)
 		return 0;
 
@@ -779,8 +780,9 @@ int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
 	   expunged. */
 	do {
 		cache->hdr_copy.deleted_space += cache_rec->size;
-		cache_rec =
-			mail_cache_get_record(cache, cache_rec->prev_offset);
+		if (mail_cache_get_record(cache, cache_rec->prev_offset,
+					  &cache_rec) < 0)
+			return -1;
 	} while (cache_rec != NULL);
 
 	cache->hdr_modified = TRUE;
