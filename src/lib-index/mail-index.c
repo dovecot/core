@@ -56,6 +56,9 @@ static int mmap_update(MailIndex *index)
 		(void)ftruncate(index->fd, (off_t)index->mmap_length);
 	}
 
+	index->last_lookup_seq = 0;
+	index->last_lookup = NULL;
+
 	index->header = (MailIndexHeader *) index->mmap_base;
 	index->dirty_mmap = FALSE;
 	return TRUE;
@@ -282,6 +285,7 @@ int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
 
 	if (lock_type == MAIL_LOCK_UNLOCK) {
 		/* reset last_lookup so rebuilds don't try to use it */
+		index->last_lookup_seq = 0;
 		index->last_lookup = NULL;
 	}
 
@@ -352,6 +356,7 @@ int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
 
 	if (lock_type == MAIL_LOCK_UNLOCK) {
 		/* reset header so it's not used while being unlocked */
+		index->last_lookup_seq = 0;
 		index->last_lookup = NULL;
 	}
 
