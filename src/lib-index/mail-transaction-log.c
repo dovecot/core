@@ -314,8 +314,9 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 		   just fail. If index->indexid == 0, we're rebuilding it and
 		   we just want to lock the transaction log. */
 		mail_index_set_error(file->log->index,
-			"Transaction log file %s: invalid indexid",
-			file->filepath);
+			"Transaction log file %s: invalid indexid (%u != %u)",
+			file->filepath, file->hdr.indexid,
+			file->log->index->indexid);
 		return 0;
 	}
 	if (file->hdr.used_size > st->st_size) {
