@@ -922,11 +922,12 @@ static int mail_transaction_log_fix_appends(struct mail_transaction_log *log,
 
 	if (deleted) {
 		/* compress deleted appends away */
-		for (rec = dest = appends; rec != end; rec++) {
+		for (rec = dest = appends; rec != end; ) {
 			if (rec->uid != 0)
 				dest++;
 			else if (rec != dest)
 				*rec = *dest;
+			rec = PTR_OFFSET(rec, record_size);
 		}
 		buffer_set_used_size(t->appends,
 				     (char *)dest - (char *)appends);
