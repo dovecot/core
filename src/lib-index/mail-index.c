@@ -344,6 +344,13 @@ int mail_index_map(struct mail_index *index, int force)
 	size_t used_size;
 	int ret;
 
+	if (index->map != NULL && index->map->refcount > 1) {
+		/* this map is already used by some views and they may have
+		   pointers into it. leave them and create a new mapping. */
+		index->map->refcount--;
+		index->map = NULL;
+	}
+
 	map = index->map;
 	if (map == NULL) {
 		map = i_new(struct mail_index_map, 1);
