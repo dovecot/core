@@ -298,9 +298,12 @@ static int dotlock_create(const char *path, const char *temp_prefix,
 		now = time(NULL);
 	} while (now < max_wait_time);
 
-	if (ret <= 0) {
+	if (ret <= 0 && lock_info.fd != -1) {
+		int old_errno = errno;
+
 		(void)close(lock_info.fd);
 		lock_info.fd = -1;
+		errno = old_errno;
 	}
 	*fd = lock_info.fd;
 
