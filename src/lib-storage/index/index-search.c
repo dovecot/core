@@ -737,15 +737,17 @@ static int seq_update(const char *set, unsigned int *first_seq,
 static int search_get_sequid(struct index_mailbox *ibox,
 			     const struct mail_search_arg *args,
 			     unsigned int *first_seq, unsigned int *last_seq,
-			     unsigned int *first_uid, unsigned int *last_uid)
+			     unsigned int *first_uid, unsigned int *last_uid,
+			     int default_all)
 {
 	for (; args != NULL; args = args->next) {
 		if (args->type == SEARCH_OR || args->type == SEARCH_SUB) {
 			if (!search_get_sequid(ibox, args->value.subargs,
 					       first_seq, last_seq,
-					       first_uid, last_uid))
+					       first_uid, last_uid,
+					       args->type == SEARCH_OR))
 				return FALSE;
-		} if (args->type == SEARCH_SET) {
+		} else if (args->type == SEARCH_SET) {
 			if (!seq_update(args->value.str, first_seq, last_seq,
 					ibox->synced_messages_count)) {
 				mail_storage_set_error(ibox->box.storage,
@@ -761,7 +763,7 @@ static int search_get_sequid(struct index_mailbox *ibox,
 						       args->value.str);
 				return FALSE;
 			}
-		} else if (args->type == SEARCH_ALL) {
+		} else if (args->type == SEARCH_ALL || default_all) {
 			/* go through everything */
 			*first_seq = 1;
 			*last_seq = ibox->synced_messages_count;
@@ -859,7 +861,7 @@ static int search_get_uid_range(struct index_mailbox *ibox,
 	first_seq = last_seq = 0;
 
 	if (!search_get_sequid(ibox, args, &first_seq, &last_seq,
-			       first_uid, last_uid))
+			       first_uid, last_uid, FALSE))
 		return -1;
 
 	/* seq_update() should make sure that these can't happen */

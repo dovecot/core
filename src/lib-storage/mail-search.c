@@ -48,7 +48,7 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 		i_assert(arg->value.subargs != NULL);
 
 		subarg = arg->value.subargs;
-		arg->result = -1;
+		arg->result = 0;
 		while (subarg != NULL) {
 			if (subarg->result == -1)
 				search_arg_foreach(subarg, callback, context);
@@ -59,8 +59,8 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 					arg->result = 1;
 					break;
 				}
-
-				arg->result = 0;
+			} else {
+				arg->result = -1;
 			}
 
 			subarg = subarg->next;
