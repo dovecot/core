@@ -1,10 +1,14 @@
 /* Copyright (c) 2002-2003 Timo Sirainen */
 
-#include "lib.h"
+#include "config.h"
+#undef HAVE_CONFIG_H
 
 #ifdef PREAD_WRAPPERS
 #  define _XOPEN_SOURCE 500 /* Linux */
 #endif
+
+#define IN_COMPAT_C
+#include "lib.h"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -135,6 +139,7 @@ ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset)
 #endif
 
 #ifdef PREAD_WRAPPERS
+
 ssize_t my_pread(int fd, void *buf, size_t count, off_t offset)
 {
 	return pread(fd, buf, count, offset);

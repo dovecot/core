@@ -95,8 +95,10 @@ ssize_t my_writev(int fd, const struct iovec *iov, int iov_len);
 #endif
 
 #if !defined (HAVE_PREAD) || defined (PREAD_WRAPPERS)
-#  define pread my_pread
-#  define pwrite my_pwrite
+#  ifndef IN_COMPAT_C
+#    define pread my_pread
+#    define pwrite my_pwrite
+#  endif
 ssize_t my_pread(int fd, void *buf, size_t count, off_t offset);
 ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset);
 #endif
