@@ -47,7 +47,7 @@ static void mail_cache_merge_bitmask(struct mail_cache *cache, buffer_t *buffer,
 				dest[i] |= ((const unsigned char*)data)[i];
 			break;
 		}
-		pos += (data_size + 3) & ~3;
+		pos += (buf_data_size + 3) & ~3;
 		i_assert(pos <= buf_size);
 	}
 }
