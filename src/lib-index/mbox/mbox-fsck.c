@@ -97,13 +97,19 @@ static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
 		return TRUE;
 	}
 
+	t_push();
+
 	/* copy & update the part data */
 	part_data_copy = t_malloc(size);
 	memcpy(part_data_copy, part_data, size);
 
 	if (!message_part_serialize_update_header(part_data_copy, size,
-						  hdr_size))
+						  hdr_size)) {
+		t_pop();
 		return FALSE;
+	}
+
+	t_pop();
 
 	index->update_field_raw(update, FIELD_TYPE_MESSAGEPART,
 				part_data_copy, size);
