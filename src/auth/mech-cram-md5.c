@@ -32,7 +32,7 @@ struct cram_auth_request {
 
 static const char *get_cram_challenge(void)
 {
-	char buf[17];
+	unsigned char buf[17];
 	size_t i;
 
 	hostpid_init();
@@ -42,8 +42,8 @@ static const char *get_cram_challenge(void)
 		buf[i] = (buf[i] % 10) + '0';
 	buf[sizeof(buf)-1] = '\0';
 
-	return t_strdup_printf("%s.%s@%s", buf, dec2str(ioloop_time),
-			       my_hostname);
+	return t_strdup_printf("<%s.%s@%s>", (const char *) buf,
+			       dec2str(ioloop_time), my_hostname);
 }
 
 static int verify_credentials(struct cram_auth_request *auth,

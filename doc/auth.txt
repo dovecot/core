@@ -8,6 +8,8 @@ Currently supported authentication mechanisms:
  - DIGEST-MD5: Should be quite secure by itself. It also supports
    integrity protecting and crypting the rest of the communication, but
    we don't support those yet.
+ - CRAM-MD5: Protects the secret in transit from eavesdroppers.  Doesn't
+   provide any integrity guarantees.
  - ANONYMOUS: No authentication required. User will be logged in as the user
    specified by auth_anonymous_username setting (default "anonymous"). There's
    no special restrictions given for anonymous users so you have to make sure
@@ -46,6 +48,7 @@ Password schemes supporting plaintext authentication and more:
 
  - PLAIN: Although not that good idea, it enables support for all current
    and future authentication mechanisms.
+ - HMAC-MD5: HMAC-MD5 context of password, for the CRAM-MD5 mechanism.
  - DIGEST-MD5: MD5 sum of "user:realm:password", as required by DIGEST-MD5
    mechanism.
 

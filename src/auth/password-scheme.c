@@ -30,6 +30,11 @@ int password_verify(const char *plaintext, const char *password,
 	if (strcasecmp(scheme, "PLAIN") == 0)
 		return strcmp(password, plaintext) == 0;
 
+	if (strcasecmp(scheme, "HMAC-MD5") == 0) {
+		str = password_generate_cram_md5(plaintext);
+		return strcmp(str, password) == 0;
+	}
+
 	if (strcasecmp(scheme, "DIGEST-MD5") == 0) {
 		/* user:realm:passwd */
 		realm = strchr(user, '@');
@@ -110,7 +115,7 @@ const char *password_generate(const char *plaintext, const char *user,
 	if (strcasecmp(scheme, "PLAIN") == 0)
 		return plaintext;
 
-	if (strcasecmp(scheme, "CRAM-MD5") == 0)
+	if (strcasecmp(scheme, "HMAC-MD5") == 0)
 		return password_generate_cram_md5(plaintext);
 
 	if (strcasecmp(scheme, "DIGEST-MD5") == 0) {

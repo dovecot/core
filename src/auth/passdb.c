@@ -25,7 +25,7 @@ passdb_credentials_to_str(enum passdb_credentials credentials)
 	case PASSDB_CREDENTIALS_CRYPT:
 		return "CRYPT";
 	case PASSDB_CREDENTIALS_CRAM_MD5:
-		return "CRAM-MD5";
+		return "HMAC-MD5";
 	case PASSDB_CREDENTIALS_DIGEST_MD5:
 		return "DIGEST-MD5";
 	}

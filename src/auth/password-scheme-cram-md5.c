@@ -1,4 +1,4 @@
-/* Copyright (C) 2003 Timo Sirainen */
+/* Copyright (C) 2003 Timo Sirainen / Joshua Goodall */
 
 #include "lib.h"
 #include "md5.h"
