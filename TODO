@@ -1,7 +1,3 @@
- - workaround: outlook-idle
- - maildir: change it to use '/' as hierarchy separator
- - update auth.txt about userdb/passdb
-
  - we need permanent storage for UIDs. with mbox use X-UID like UW-IMAP,
    with maildir a) file:2,flags,Uuid b) file,U=uid:2,flags. uid validity
    would be in .uidvalidity file. the b-case would require that to be done
@@ -10,21 +6,14 @@
  - DELETE/RENAME: when someone else had the mailbox open, we should
    disconnect it (when stat() fails with ENOENT while syncing).
 
- - .customflags needs nfs-safe locking and it shouldn't be stored with indexes
-   (a bit problematic with maildir INBOX)
-
  - bugs
     - maildir: if mail file isn't found, it may be because it was renamed
       (flag changed). we must then sync the directory and see again if the mail
       is found
-    - mail-lockdir.c is useless and buggy. we can just get exclusive fcntl
-      lock to the index files we want to keep locked.
     - SIGHUP didn't update imap_listen. this is a bit annoying to fix though,
       since new listen() may fail for a few times because login processes may
       not die immediately..
     - SIGHUP doesn't update log file location.
-    - unlink_directory() is racy with symlink handling, see if that could be
-      helped..
     - CREATE a, CREATE b, save mails into them, DELETE a, RENAME b a.
       -> breaks if a+b have same UIDVALIDITY. We could update the
       UIDVALIDITY for the renamed mailbox and all mailboxes under it.
@@ -32,6 +21,8 @@
       other IMAP people agree to that.
 
  - reliability fixes:
+    - maildir: check if there's base name conflicts when syncing. the hash
+      could also be built against index.data so it'd take less memory
     - if we deleted mail from index but didn't write modify log, other
       dovecots don't handle it properly. they either assert at index-sync.c:42
       or if new mails have also been added since, they don't notice it at all
@@ -39,7 +30,6 @@
       the old file.. and check that deleting file does "inconsistency error"
     - if imap process notices that both modify logs are getting full because
       it's client isn't syncing, the client should be disconnected
-    - what happens if .customflags can't be locked while opening index?
     - we don't handle out of memory conditions too well, malloc failing kills
       the process which is good enough (and likely never happens), but mmap()
       failures aren't handled too well. Rather should be handled in similiar
@@ -51,6 +41,9 @@
     - fsck should check binary tree
 
  - mbox
+    - message_parse_header() skips headers (even multiline) larger than max.
+      input buffer size, which in our case means that headers larger than
+      8192 bytes will be silently skipped when saving mails.
     - Optimize rewrites by using empty spaces after X-Keywords
     - Move data within file instead of writing it to temp file. We can now do
       moving easily with o_stream_send_istream().
@@ -76,10 +69,8 @@
  - enhancements:
     - option to disable SORT, SEARCH and other memory/cpu-intensive features.
       defaults and per-user by dovecot-auth.
-    - optionally don't fail if index is locked, but build it in memory
     - when fetching body/envelope/etc we could try to cache it immediately if
       we can get lock with try_lock.
-    - optionally use only in-memory indexes (MAIL=:INDEX=memory)
     - maildir could support also the dirty-flag in messages. files would be
       renamed "whenever there's time" (that'd require the indexer program, or
       forking and doing it in background)
@@ -89,10 +80,10 @@
         - linux: we can use dnotify for maildir (but not mbox I think, we'd
 	  get interrupted all the time if we checked eg. large /var/spool/mail)
 	- *bsd: kqueue() can notify changes in mbox and maildir
-    - .subscriptions currently uses fcntl() locking - maybe we should instead
-      just write to temp file and rename()? optionally at least, so it
-      works with NFS.
+    - .subscriptions and .customflags needs nfs-safe locking
     - OpenSSL: support generated DH parameters
+    - SSL: Support password protected key files. Support reading the password
+      from user at runtime (dovecot startssl or something).
     - multiline headers can cause our memory usage to go up. that should be
       fixed somehow. try to change things to be able to handle one line at a
       time? Well, other IMAP servers have same problem - post 1.0 problem.
@@ -117,11 +108,13 @@
     - THREAD=ORDEREDSUBJECT - although pretty useless I'd think.
     - sql authentication and mail database support. create some generic lib-sql
       which both can use
+    - maildir: change it to use '/' as hierarchy separator to allow '.'
+      characters (for usernames in shared folders)
 
  - logging
-     - Login: username 1.2.3.4:1025 5.6.7.8:993 imaps,compressed
-     - Logout: username 1.2.3.4:1025 5.6.7.8:993 imaps,compressed in:1000 out:1000000
-     - n failed login attepts (before failure or success, once in n seconds)
+    - Login: username 1.2.3.4:1025 5.6.7.8:993 imaps,compressed
+    - Logout: username 1.2.3.4:1025 5.6.7.8:993 imaps,compressed in:1000 out:1000000
+    - n failed login attepts (before failure or success, once in n seconds)
 
  - lib-charset:
      - utf8_toupper() is a must. and a bit difficult if we want to do it right.
@@ -132,110 +125,94 @@
        be only one or two charsets which are used for nearly all conversions.
 
  - should we allow following symlinks in mbox/maildirs? they are now.
-     - if we implement shared mailboxes with shared indexes, never do that or
-       others could symlink your personal mailboxes and see the indexes
-       created for it which may contain envelope etc. data
-     - this allows circular mailbox hierarchies which should be prevented by
-       eg. allowing max. 20 hierarchies.
+    - if we implement shared mailboxes with shared indexes, never do that or
+      others could symlink your personal mailboxes and see the indexes
+      created for it which may contain envelope etc. data
+    - this allows circular mailbox hierarchies which should be prevented by
+      eg. allowing max. 20 hierarchies.
 
-index:
- - we could try compressing same from/to/subject fields into a single
-   location in data file. requires larger changes..
- - read-only support for mailboxes where we don't have write-access
- - we should try to avoid completely rebuilding indexes unless they're
-   corrupted. especially if we later want to support some read-only boxes
-   and keep the mail flags only in index file. fsck() could verify that
-   records are ok, and that if data file isn't ok the record is deleted.
- - if .customflags is removed and Maildir files have custom flags, add
-   "unknown1" "unknown2" etc. flags to .customflags file for each found flag
- - when index is being rebuilt, it always complains about tree/modifylog
-   having wrong indexid..
- - skipping deleted records in .imap.index would be faster if we saved the
-   deleted block size to first/last record, so we could just jump over them.
- - support storing message headers into indexes. this could be useful when
-   indexes are in local disk but actual mails are accessed through NFS
- - if we wanted to support huge mailboxes with small memory usage, it'd now
-   be possible if we just instead of mmap()ing the whole index files would
-   have maybe 3-4 256k mmap()ed areas which we move based on the need.
-     - should work fine with .imap.index and .imap.index.data
-     - log files aren't affected by mailbox size
-     - if the tree file also kept constantly moving the nodes so that
-       tree's root was at the beginning of the file, we could use this mmap
-       caching with it too
-     - but, is it worth the trouble really? the OS can do all this itself,
-       only thing we're doing is keeping the processes virtual memory usage
-       small.
+ - index:
+    - we could try compressing same from/to/subject fields into a single
+      location in data file. requires larger changes..
+    - read-only support for mailboxes where we don't have write-access
+    - we should try to avoid completely rebuilding indexes unless they're
+      corrupted. especially if we later want to support some read-only boxes
+      and keep the mail flags only in index file. fsck() could verify that
+      records are ok, and that if data file isn't ok the record is deleted.
+    - if .customflags is removed and Maildir files have custom flags, add
+      "unknown1" "unknown2" etc. flags to .customflags file for each found flag
+    - skipping deleted records in .imap.index would be faster if we saved the
+      deleted block size to first/last record, so we could just jump over them.
+    - support storing message headers into indexes. this could be useful when
+      indexes are in local disk but actual mails are accessed through NFS
+    - we could send flag changes after all commands by making expunge/flags
+      sync counters separate for modify log. flags would need to update the
+      seq though, too slow?
+    - if we wanted to support huge mailboxes with small memory usage, it'd now
+      be possible if we just instead of mmap()ing the whole index files would
+      have maybe 3-4 256k mmap()ed areas which we move based on the need.
+	- should work fine with .imap.index and .imap.index.data
+	- log files aren't affected by mailbox size
+	- if the tree file also kept constantly moving the nodes so that
+	  tree's root was at the beginning of the file, we could use this mmap
+	  caching with it too
+	- but, is it worth the trouble really? the OS can do all this itself,
+	  only thing we're doing is keeping the processes virtual memory usage
+	  small.
 
-lib-storage:
- - support multiple mailbox formats and locations for one user. that would
-   require support for multiple MailStorages, and since we're chroot()ed,
-   usually the only way to communicate with others would be to create
-   RemoteMailStorage which would use TCP/UNIX sockets to connect to another 
-   imap session.
  - SEARCH:
-     - message_body_search() could accept multiple search keywords so we
-       wouldn't need to call it separately for each one (so we wouldn't need
-       to parse the message multiple times).
-     - message_body_search() could support NULL MessagePart and the searching
-       could be done while parsing the message. this would need changes to
-       message_parse() as well.
-     - could optionally support scanning inside file attachments and use
-       plugins to extract text out of them (word, excel, pdf, etc. etc.)
-     - use a trie index for fast text searching, like cyrus squat?
-     - Create our own extension: When searching with TEXT/BODY, return
-       the message text surrounding the keywords just like web search engines
-       do. like: SEARCH X-PRINT-MATCHES TEXT "hello" -> * SEARCH 1 "He said:
-       Hello world!" 2 "Hello, I'm ...". This would be especially useful with
-       the above attachment scanning.
- - we should probably do some light checking that appended mails actually
-   look like valid rfc822 mails..
- - we could send flag changes after all commands by making expunge/flags sync
-   counters separate for modify log. flags would need to update the seq
-   though, too slow?
- - things calling message_send() could verify that it wrote enough data.
-   if not, fill the rest with spaces and return failure. -1 = error,
-   0 = filled, 1 = ok.
+    - message_body_search() could accept multiple search keywords so we
+      wouldn't need to call it separately for each one (so we wouldn't need
+      to parse the message multiple times).
+    - message_body_search() could support NULL MessagePart and the searching
+      could be done while parsing the message. this would need changes to
+      message_parse() as well.
+    - could optionally support scanning inside file attachments and use
+      plugins to extract text out of them (word, excel, pdf, etc. etc.)
+    - use a trie index for fast text searching, like cyrus squat?
+    - Create our own extension: When searching with TEXT/BODY, return
+      the message text surrounding the keywords just like web search engines
+      do. like: SEARCH X-PRINT-MATCHES TEXT "hello" -> * SEARCH 1 "He said:
+      Hello world!" 2 "Hello, I'm ...". This would be especially useful with
+      the above attachment scanning.
 
-general:
- - sieve (rfc3028), we can use Cyrus Sieve
- - rfc2231 continuation support
- - rfc2557 support for BODYSTRUCTURE, as specified by latest IMAP4rev1 draft
+ - general:
+    - sieve (rfc3028), we can use Cyrus Sieve
+    - rfc2231 continuation support
+    - rfc2557 support for BODYSTRUCTURE, as specified by latest IMAP4rev1 draft
+    - lmtp server
+    - create indexer binary
+    - support Maildir++ quota
+    - provide some helper binary to save new mail into mailboxes with CR+LF
+      line breaks?
+    - some kind of IMAP proxy for load distributing
+    - maybe give more untagged NO/ALERT replies? like when mailbox is in
+      inconsistent state. and when UIDs are reordered because they're too
+      large.
+    - imap/ and lib-imap/ should allow infinite number of custom flags, it's
+      storage's problem if it can't handle too many of them.
+    - things calling message_send() could verify that it wrote enough data.
+      if not, fill the rest with spaces and return failure. -1 = error,
+      0 = filled, 1 = ok.
 
- - lmtp server
- - create indexer binary
- - support Maildir++ quota
- - maybe give more untagged NO/ALERT replies? like when mailbox is in
-   inconsistent state. and when UIDs are reordered because they're too large.
- - imap/ and lib-imap/ should allow infinite number of custom flags, it's
-   storage's problem if it can't handle too many of them.
+ - cleanups:
+    - check if t_push()/t_pop() should be added somewhere
+    - try to fix @UNSAFE code to use buffer API instead
+	- subscription-file.c, custom_flags, ioloop
+	- [io]stream-file.c?
+    - grep for FIXME
+    - index/create_temp_file is used in only two places. once mbox rewriting
+      doesn't need it, get rid of it.
 
-auth / login:
- - kchuid, SRP, anonymous SASL
- - Digest-MD5: support integrity protection, and maybe crypting. Do it
-   through login process like SSL is done?
- - for invalid user/pass, wait for a while before giving a reply to user
- - dovecot-auth should limit how fast authentication requests are allowed from
-   login processes. especially if there's one login/connection the speed
-   should be something like once/sec. also limit how fast to accept new
-   connections.
-
-cleanups / checks:
- - grep for FIXME
- - check if t_push()/t_pop() should be added somewhere
- - try to fix @UNSAFE code to use buffer API instead
-     - subscription-file.c, custom_flags, ioloop
-     - [io]stream-file.c?
-
-optional optimizations:
- - provide some helper binary to save new mail into mailboxes with CR+LF
-   line breaks?
- - disk I/O is the biggest problem, so split the mail into multiple computers
-   based on user and have a proxy in the front redirecting the connection.
-   cyrus had something like this except a lot more complicated - it tried
-   to fix the problem of having shared mailboxes. we have the same problem
-   with local shared mailboxes as we don't use same UID for everyone's mail
-   and we may be chrooted, so locally we could communicate with UNIX sockets,
-   remotely that could be done with TCP sockets.
+ - auth / login:
+    - kchuid, SRP, anonymous SASL
+    - Digest-MD5: support integrity protection, and maybe crypting. Do it
+      through login process like SSL is done?
+    - for invalid user/pass, wait for a while before giving a reply to user
+    - dovecot-auth should limit how fast authentication requests are allowed from
+      login processes. especially if there's one login/connection the speed
+      should be something like once/sec. also limit how fast to accept new
+      connections.
 
 capabilities:
  - preferrably all should be possible to #ifdef away by a configure
@@ -303,11 +280,6 @@ capabilities:
        so it can't be that difficult to code.
  - drafts:
      - http://www.imc.org/ids.html
-     - listext (draft-ietf-imapext-list-extensions)
-	 - well, it expired January 2002.. I like it though.
-     - children (draft-gahrns-imap-child-mailbox)
-	 - I like listext more.. They have the same functionality though,
-	   so pretty easy to support both if needed
      - annotate (draft-ietf-imapext-annotate)
 	 - per-message annotations. this will be major change. especially
 	   because currently there's no suitable storage for them, and

@@ -1,3 +1,66 @@
+v0.99.8 2003-02-25  Timo Sirainen <tss@iki.fi>
+
+	* NOTE: Configuration file has changed a bit: auth_userinfo was
+	  replaced by userdb and passdb. *_port were merged into *_listen.
+	  Disabling listening in imaps port is now done by changing protocols
+	  setting.
+
+	* Maildir: .customflags location has changed for INBOX. If you have
+	  set any custom flags, move Maildir/.INBOX/.customflags into
+	  Maildir/.customflags or they will be lost.
+
+	* mbox: Autodetect /var/mail/%u and /var/spool/mail/%u as INBOXes
+	  if they're found and mail_default_env isn't set.
+
+	* passwd-file: File format changed a bit. If you used realm or mail
+	  fields, you'll have to fix the file. See doc/auth.txt for description
+	  of the format.
+
+	+ Fully featured POP3 server included. Disabled by default.
+	+ Support for LITERAL+, MULTIAPPEND, UNSELECT, IDLE, CHILDREN and
+	  LISTEXT extensions.
+	+ LDAP authentication support.
+	+ Internal API cleanups made Dovecot faster and take less memory
+	+ auth_verbose logs now all authentication failures
+	+ Support for Solaris 9 sendfilev()
+	+ New setting: mail_full_filesystem_access allows clients to access the
+	  whole filesystem by simply giving the path before the mailbox name
+	  (eg. SELECT ~user/mail/box, LIST "" /tmp/%). While this allows users
+	  to share mailboxes, it's not recommended since Dovecot's index files
+	  can't be safely shared.
+	+ New setting: client_workarounds.
+	+ Dynamically loadable authentication modules. Binary package builders
+	  should consider using it for at least LDAP.
+	+ mbox: Content-Length is saved now to each saved message, so it's
+	  now safe to have lines beginning with "From ".
+	+ mbox: mail_read_mmaped = no works with it now
+	+ Indexes can be kept in memory by adding :INDEX=MEMORY to MAIL
+	  environment. There's not much point to do this now though, since the
+	  UIDs won't be saved.
+	- COPY now behaves as RFC2060 says: "If the COPY command is
+	  unsuccessful for any reason, server implementations MUST restore the
+	  destination mailbox to its state before the COPY attempt."
+	- LIST and LSUB rewrite, should fix several bugs in them
+	- maildir_copy_with_hardlinks = yes was broken.
+	- mboxes in subfolders weren't selectable.
+	- STORE didn't accept multiple flags without () around them
+	- PLAIN SASL-authentication was a bit broken.
+	- IMAP dates were parsed a few hours wrong
+	- STATUS command removed \Recent flags from messages
+	- Several bugfixes to SEARCH command, especially related to multiple
+	  search conditions
+	- If auth/login process died unexpectedly at startup, the exit status
+	  or killing signal wasn't logged.
+	- mbox parsing might have crashed sometimes
+	- mbox: when saving mails, internal headers were allowed in input,
+	  sometimes causing problems (eg. duplicate headers) when appending
+	  and copying messages
+	- mbox: X-Keywords headers were duplicated
+	- Some small fixes to how messages are saved to Maildir
+	- Next command after STARTTLS was ignored which left the connection
+	  stuck sometimes
+	- Dovecot was pretty much broken with FreeBSD
+
 v0.99.7 2003-01-14  Timo Sirainen <tss@iki.fi>
 
 	+ Rewrote doc/index.txt, small updates to doc/design.txt and

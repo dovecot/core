@@ -39,10 +39,14 @@ RFCs conformed
  2060       - IMAP4rev1
  2180       - IMAP4 Multi-Accessed Mailbox Practice
  2683       - IMAP4 Implementation Recommendations
+ 1939       - Post Office Protocol - Version 3
 
  2595       - Using TLS with IMAP, POP3 and ACAP
  2831       - Using Digest Authentication as a SASL Mechanism (DIGEST-MD5)
 
+ 2088       - IMAP4 non-synchronizing literals (LITERAL+)
+ 2177       - IMAP4 IDLE command
+ 3348       - IMAP4 Child Mailbox Extension
 
 Contact info
 ------------
