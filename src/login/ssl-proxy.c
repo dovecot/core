@@ -82,6 +82,11 @@ static int proxy_send_ssl(SSLProxy *proxy, const void *data, unsigned int size)
 	if (!gnutls_error_is_fatal(sent))
 		return 0;
 
+	if (sent == GNUTLS_E_PUSH_ERROR) {
+		/* disconnected */
+		return -1;
+	}
+
 	/* error occured */
 	i_warning("Error sending to SSL client: %s", gnutls_strerror(sent));
 	ssl_proxy_destroy(proxy);
