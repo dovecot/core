@@ -148,7 +148,7 @@ static void mbox_sync_header_remove_space(struct mbox_sync_mail_context *ctx,
 
 	if (data_size - start_pos <= *size) {
 		/* remove it all */
-		str_delete(ctx->header, start_pos, data_size - start_pos);
+		mbox_sync_move_buffer(ctx, start_pos, 0, data_size - start_pos);
 		*size -= data_size - start_pos;
 		return;
 	}
@@ -156,7 +156,7 @@ static void mbox_sync_header_remove_space(struct mbox_sync_mail_context *ctx,
 	/* we have more space than needed. since we're removing from
 	   the beginning of header instead of end, we don't have to
 	   worry about multiline-headers. */
-	str_delete(ctx->header, start_pos, *size);
+	mbox_sync_move_buffer(ctx, start_pos, 0, *size);
 	if (last_line_pos <= start_pos + *size)
 		last_line_pos = start_pos;
 	else

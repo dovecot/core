@@ -120,5 +120,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, uoff_t extra_space,
 int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset);
 int mbox_move(struct mbox_sync_context *sync_ctx,
 	      uoff_t dest, uoff_t source, uoff_t size);
+void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
+			   size_t pos, size_t need, size_t have);
 
 #endif

@@ -17,8 +17,8 @@ static void status_flags_append(struct mbox_sync_mail_context *ctx,
 	}
 }
 
-static void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
-				  size_t pos, size_t need, size_t have)
+void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
+			   size_t pos, size_t need, size_t have)
 {
 	ssize_t diff = (ssize_t)need - (ssize_t)have;
 	int i;
@@ -126,8 +126,9 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 				ctx->sync_ctx->hdr->uid_validity;
 		}
 
+		str_append(ctx->header, "X-IMAPbase: ");
 		ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
-		str_printfa(ctx->header, "X-IMAPbase: %u %010u",
+		str_printfa(ctx->header, "%u %010u",
 			    ctx->sync_ctx->base_uid_validity,
 			    ctx->sync_ctx->next_uid-1);
 		//FIXME:keywords_append(ctx, all_keywords);
@@ -135,24 +136,25 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 	}
 
 	if (ctx->hdr_pos[MBOX_HDR_X_UID] == (size_t)-1) {
+		str_append(ctx->header, "X-UID: ");
 		ctx->hdr_pos[MBOX_HDR_X_UID] = str_len(ctx->header);
-		str_printfa(ctx->header, "X-UID: %u\n", ctx->mail.uid);
+		str_printfa(ctx->header, "%u\n", ctx->mail.uid);
 	}
 
 	if (ctx->hdr_pos[MBOX_HDR_STATUS] == (size_t)-1 &&
 	    (ctx->mail.flags & STATUS_FLAGS_MASK) != 0) {
 		if (!ctx->sync_ctx->ibox->keep_recent)
                         ctx->mail.flags |= MBOX_NONRECENT;
-		ctx->hdr_pos[MBOX_HDR_STATUS] = str_len(ctx->header);
 		str_append(ctx->header, "Status: ");
+		ctx->hdr_pos[MBOX_HDR_STATUS] = str_len(ctx->header);
 		status_flags_append(ctx, mbox_status_flags);
 		str_append_c(ctx->header, '\n');
 	}
 
 	if (ctx->hdr_pos[MBOX_HDR_X_STATUS] == (size_t)-1 &&
 	    (ctx->mail.flags & XSTATUS_FLAGS_MASK) != 0) {
-		ctx->hdr_pos[MBOX_HDR_X_STATUS] = str_len(ctx->header);
 		str_append(ctx->header, "X-Status: ");
+		ctx->hdr_pos[MBOX_HDR_X_STATUS] = str_len(ctx->header);
 		status_flags_append(ctx, mbox_xstatus_flags);
 		str_append_c(ctx->header, '\n');
 	}
@@ -166,8 +168,8 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 	}
 
 	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == (size_t)-1 && have_keywords) {
-		ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] = str_len(ctx->header);
 		str_append(ctx->header, "X-Keywords: ");
+		ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] = str_len(ctx->header);
 		keywords_append(ctx, ctx->mail.keywords);
 		str_append_c(ctx->header, '\n');
 	}

@@ -398,9 +398,12 @@ void mbox_sync_parse_next_mail(struct istream *input,
 
 		func = header_func_find(hdr->name);
 		if (func != NULL) {
-			if (hdr->continues)
+			if (hdr->continues) {
 				hdr->use_full_value = TRUE;
-			else if (!func->func(ctx, hdr)) {
+				continue;
+			}
+
+			if (!func->func(ctx, hdr)) {
 				/* this header is broken, remove it */
 				ctx->need_rewrite = TRUE;
 				str_truncate(ctx->header, line_start_pos);
