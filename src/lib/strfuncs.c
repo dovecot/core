@@ -470,6 +470,14 @@ int memcasecmp(const void *p1, const void *p2, size_t size)
         return 0;
 }
 
+int bsearch_strcasecmp(const void *p1, const void *p2)
+{
+	const char *key = p1;
+	const char *const *member = p2;
+
+	return strcmp(key, *member);
+}
+
 static const char **_strsplit(const char *data, const char *separators,
 			      int spaces)
 {
