@@ -10,6 +10,7 @@
 #include "common.h"
 #include "safe-memset.h"
 #include "passdb.h"
+#include "password-scheme.h"
 #include "mycrypt.h"
 
 #include "userdb-vpopmail.h"
@@ -22,7 +23,9 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
-	int result;
+	const char *crypted_pass;
+	const char *scheme;
+	int ret;
 
 	vpw = vpopmail_lookup_vqp(request->user,
 				  vpop_user, vpop_domain);
@@ -43,16 +46,26 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 		return;
 	}
 
-	/* verify password */
-	result = strcmp(mycrypt(password, vpw->pw_passwd), vpw->pw_passwd) == 0;
-	safe_memset(vpw->pw_passwd, 0, strlen(vpw->pw_passwd));
+	crypted_pass = vpw->pw_passwd;
+	scheme = password_get_scheme(&crypted_pass);
+	if (scheme == NULL) scheme = "CRYPT";
+	
+	ret = password_verify(password, crypted_pass, scheme, request->user);
 
-	if (!result) {
-		if (verbose) {
+	safe_memset(vpw->pw_passwd, 0, strlen(vpw->pw_passwd));
+	if (vpw->pw_clear_passwd != NULL) {
+		safe_memset(vpw->pw_clear_passwd, 0,
+			    strlen(vpw->pw_clear_passwd));
+	}
+
+	if (ret <= 0) {
+		if (ret < 0) {
+			i_error("vpopmail(%s): Unknown password scheme %s",
+				get_log_prefix(request), scheme);
+		} else if (verbose) {
 			i_info("vpopmail(%s): password mismatch",
 			       get_log_prefix(request));
 		}
-
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}
