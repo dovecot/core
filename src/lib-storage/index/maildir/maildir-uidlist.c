@@ -66,7 +66,8 @@ struct maildir_uidlist_iter_ctx {
 	const struct maildir_uidlist_rec *const *next, *const *end;
 };
 
-int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
+static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
+					unsigned int timeout)
 {
 	const char *path;
 	mode_t old_mask;
@@ -79,7 +80,7 @@ int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
 			   "/" MAILDIR_UIDLIST_NAME, NULL);
         old_mask = umask(0777 & ~uidlist->ibox->mail_create_mode);
 	fd = file_dotlock_open(path, uidlist->ibox->storage->temp_prefix,
-			       NULL, 0, 0, UIDLIST_LOCK_STALE_TIMEOUT,
+			       NULL, timeout, 0, UIDLIST_LOCK_STALE_TIMEOUT,
 			       NULL, NULL);
 	umask(old_mask);
 	if (fd == -1) {
@@ -96,6 +97,17 @@ int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
 		return -1;
 
 	return 1;
+}
+
+int maildir_uidlist_lock(struct maildir_uidlist *uidlist)
+{
+	return maildir_uidlist_lock_timeout(uidlist,
+					    UIDLIST_LOCK_STALE_TIMEOUT);
+}
+
+int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
+{
+	return maildir_uidlist_lock_timeout(uidlist, 0);
 }
 
 void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)

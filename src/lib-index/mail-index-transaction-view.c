@@ -17,8 +17,7 @@ static void _tview_close(struct mail_index_view *view)
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
 
-	tview->t->updated_view = NULL;
-
+	mail_index_transaction_unref(tview->t);
 	return tview->parent->close(view);
 }
 
@@ -147,19 +146,16 @@ static struct mail_index_view_methods view_methods = {
 };
 
 struct mail_index_view *
-mail_index_transaction_get_updated_view(struct mail_index_transaction *t)
+mail_index_transaction_open_updated_view(struct mail_index_transaction *t)
 {
 	struct mail_index_view_transaction *tview;
 
-	if (t->updated_view == NULL) {
-		tview = i_new(struct mail_index_view_transaction, 1);
-		mail_index_view_clone(&tview->view, t->view);
-		tview->view.methods = view_methods;
-		tview->parent = &t->view->methods;
-		tview->t = t;
+	tview = i_new(struct mail_index_view_transaction, 1);
+	mail_index_view_clone(&tview->view, t->view);
+	tview->view.methods = view_methods;
+	tview->parent = &t->view->methods;
+	tview->t = t;
 
-		t->updated_view = &tview->view;
-	}
-
-	return t->updated_view;
+	mail_index_transaction_ref(t);
+	return &tview->view;
 }

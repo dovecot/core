@@ -3,7 +3,9 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "ostream.h"
+#include "str.h"
 #include "maildir-storage.h"
+#include "maildir-uidlist.h"
 #include "mail-save.h"
 
 #include <stdio.h>
@@ -22,6 +24,8 @@ struct maildir_save_context {
 	pool_t pool;
 
 	struct index_mailbox *ibox;
+	struct mail_index_transaction *trans;
+	struct index_mail mail;
 
 	const char *tmpdir, *newdir;
 	struct maildir_filename *files;
@@ -103,8 +107,9 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 }
 
 static struct maildir_save_context *
-mailbox_save_init(struct index_mailbox *ibox)
+mailbox_save_init(struct maildir_transaction_context *t)
 {
+        struct index_mailbox *ibox = t->ictx.ibox;
 	struct maildir_save_context *ctx;
 	pool_t pool;
 
@@ -112,6 +117,9 @@ mailbox_save_init(struct index_mailbox *ibox)
 	ctx = p_new(pool, struct maildir_save_context, 1);
 	ctx->pool = pool;
 	ctx->ibox = ibox;
+	ctx->trans = t->ictx.trans;
+
+	index_mail_init(&t->ictx, &ctx->mail, 0, NULL);
 
 	ctx->tmpdir = p_strconcat(pool, ibox->path, "/tmp", NULL);
 	ctx->newdir = p_strconcat(pool, ibox->path, "/new", NULL);
@@ -132,9 +140,12 @@ int maildir_save(struct mailbox_transaction_context *_t,
 	enum mail_flags mail_flags;
         struct utimbuf buf;
 	const char *fname, *dest_fname, *tmp_path;
+	enum mail_flags save_flags;
+	keywords_mask_t keywords;
+	uint32_t seq;
 
 	if (t->save_ctx == NULL)
-		t->save_ctx = mailbox_save_init(ibox);
+		t->save_ctx = mailbox_save_init(t);
 	ctx = t->save_ctx;
 
 	mail_flags = flags->flags;
@@ -178,35 +189,91 @@ int maildir_save(struct mailbox_transaction_context *_t,
 	mf->dest = p_strdup(ctx->pool, dest_fname);
 	ctx->files = mf;
 
+	/* insert into index */
+	save_flags = (flags->flags & ~MAIL_RECENT) |
+		(ibox->keep_recent ? MAIL_RECENT : 0);
+	memset(keywords, 0, INDEX_KEYWORDS_BYTE_COUNT);
+	// FIXME: set keywords
+
+	mail_index_append(t->ictx.trans, 0, &seq);
+	mail_index_update_flags(t->ictx.trans, seq, MODIFY_REPLACE,
+				save_flags, keywords);
 	t_pop();
+
+	if (mail_r != NULL) {
+		const struct mail_index_record *rec;
+
+		if (mail_index_lookup(t->ictx.trans_view, seq, &rec) < 0)
+			return -1;
+		if (index_mail_next(&ctx->mail, rec, seq, FALSE) <= 0)
+			return -1;
+		*mail_r = &ctx->mail.mail;
+	}
+
 	return 0;
+}
+
+static void maildir_save_commit_abort(struct maildir_save_context *ctx,
+				      struct maildir_filename *pos)
+{
+	struct maildir_filename *mf;
+	string_t *str;
+
+	t_push();
+	str = t_str_new(1024);
+
+	/* try to unlink the mails already moved */
+	for (mf = ctx->files; mf != pos; mf = mf->next) {
+		str_truncate(str, 0);
+		str_printfa(str, "%s/%s", ctx->newdir, mf->dest);
+		(void)unlink(str_c(str));
+	}
+	ctx->files = pos;
+	t_pop();
+
+	maildir_save_rollback(ctx);
 }
 
 int maildir_save_commit(struct maildir_save_context *ctx)
 {
-	struct maildir_filename *mf, *mf2;
-	const char *path;
+	struct maildir_uidlist_sync_ctx *sync_ctx;
+	struct maildir_filename *mf;
+	uint32_t first_uid, last_uid;
+        enum maildir_uidlist_rec_flag flags;
 	int ret = 0;
 
+	ret = maildir_uidlist_lock(ctx->ibox->uidlist);
+	if (ret <= 0) {
+		/* error or timeout - our transaction is broken */
+		maildir_save_commit_abort(ctx, ctx->files);
+		return -1;
+	}
+
+	first_uid = maildir_uidlist_get_next_uid(ctx->ibox->uidlist);
+	mail_index_append_assign_uids(ctx->trans, first_uid, &last_uid);
+
+	flags = MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
+		MAILDIR_UIDLIST_REC_FLAG_RECENT;
+
 	/* move them into new/ */
+	sync_ctx = maildir_uidlist_sync_init(ctx->ibox->uidlist, TRUE);
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
-		if (maildir_file_move(ctx, mf->src, mf->dest) < 0) {
-			ret = -1;
-			break;
+		if (maildir_file_move(ctx, mf->src, mf->dest) < 0 ||
+		    maildir_uidlist_sync_next(sync_ctx, mf->dest, flags) < 0) {
+			(void)maildir_uidlist_sync_deinit(sync_ctx);
+			maildir_save_commit_abort(ctx, mf);
+			return -1;
 		}
 	}
 
-	if (ret < 0) {
-		/* failed, try to unlink the mails already moved */
-		for (mf2 = ctx->files; mf2 != mf; mf2 = mf2->next) {
-			t_push();
-			path = t_strconcat(ctx->newdir, "/",
-					   mf2->dest, NULL);
-			(void)unlink(path);
-			t_pop();
-		}
+	if (maildir_uidlist_sync_deinit(sync_ctx) < 0) {
+		maildir_save_commit_abort(ctx, NULL);
+		return -1;
 	}
 
+	i_assert(maildir_uidlist_get_next_uid(ctx->ibox->uidlist) == last_uid);
+
+	index_mail_deinit(&ctx->mail);
 	pool_unref(ctx->pool);
 	return ret;
 }
@@ -214,15 +281,19 @@ int maildir_save_commit(struct maildir_save_context *ctx)
 void maildir_save_rollback(struct maildir_save_context *ctx)
 {
 	struct maildir_filename *mf;
-	const char *path;
+	string_t *str;
+
+	t_push();
+	str = t_str_new(1024);
 
 	/* clean up the temp files */
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
-		t_push();
-		path = t_strconcat(ctx->tmpdir, "/", mf->dest, NULL);
-		(void)unlink(path);
-		t_pop();
+		str_truncate(str, 0);
+		str_printfa(str, "%s/%s", ctx->tmpdir, mf->dest);
+		(void)unlink(str_c(str));
 	}
+	t_pop();
 
+	index_mail_deinit(&ctx->mail);
 	pool_unref(ctx->pool);
 }

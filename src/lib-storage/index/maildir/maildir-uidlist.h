@@ -11,6 +11,7 @@ enum maildir_uidlist_rec_flag {
 	MAILDIR_UIDLIST_REC_FLAG_RACING		= 0x10
 };
 
+int maildir_uidlist_lock(struct maildir_uidlist *uidlist);
 int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist);
 void maildir_uidlist_unlock(struct maildir_uidlist *uidlist);
 

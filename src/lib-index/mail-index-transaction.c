@@ -23,6 +23,7 @@ mail_index_transaction_begin(struct mail_index_view *view, int hide)
 	mail_index_view_transaction_ref(view);
 
 	t = i_new(struct mail_index_transaction, 1);
+	t->refcount = 1;
 	t->view = view;
 	t->hide_transaction = hide;
 	t->first_new_seq = mail_index_view_get_message_count(t->view)+1;
@@ -48,9 +49,18 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 		buffer_free(t->updates);
 	if (t->cache_updates != NULL)
 		buffer_free(t->cache_updates);
-	if (t->updated_view != NULL)
-		mail_index_view_close(t->updated_view);
 	i_free(t);
+}
+
+void mail_index_transaction_ref(struct mail_index_transaction *t)
+{
+	t->refcount++;
+}
+
+void mail_index_transaction_unref(struct mail_index_transaction *t)
+{
+	if (--t->refcount == 0)
+		mail_index_transaction_free(t);
 }
 
 static void
@@ -114,7 +124,7 @@ int mail_index_transaction_commit(struct mail_index_transaction *t,
 	int ret;
 
 	if (mail_index_view_is_inconsistent(t->view)) {
-		mail_index_transaction_free(t);
+		mail_index_transaction_unref(t);
 		return -1;
 	}
 
@@ -128,13 +138,13 @@ int mail_index_transaction_commit(struct mail_index_transaction *t,
 						  log_file_offset_r);
 	}
 
-	mail_index_transaction_free(t);
+	mail_index_transaction_unref(t);
 	return ret;
 }
 
 void mail_index_transaction_rollback(struct mail_index_transaction *t)
 {
-        mail_index_transaction_free(t);
+        mail_index_transaction_unref(t);
 }
 
 static void
@@ -206,6 +216,34 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 	rec = buffer_append_space_unsafe(t->appends, t->append_record_size);
 	memset(rec, 0, t->append_record_size);
 	rec->uid = uid;
+}
+
+void mail_index_append_assign_uids(struct mail_index_transaction *t,
+				   uint32_t first_uid, uint32_t *next_uid_r)
+{
+        struct mail_index_record *rec, *end;
+	size_t size;
+
+	if (t->appends == NULL)
+		return;
+
+	rec = buffer_get_modifyable_data(t->appends, &size);
+	end = PTR_OFFSET(rec, size);
+
+	/* find the first mail with uid = 0 */
+	while (rec != end) {
+		if (rec->uid == 0)
+			break;
+		rec = PTR_OFFSET(rec, t->append_record_size);
+	}
+
+	while (rec != end) {
+		i_assert(rec->uid == 0);
+		rec->uid = first_uid++;
+		rec = PTR_OFFSET(rec, t->append_record_size);
+	}
+
+	*next_uid_r = first_uid;
 }
 
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)

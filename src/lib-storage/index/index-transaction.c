@@ -9,7 +9,7 @@ void index_transaction_init(struct index_transaction_context *t,
 	t->mailbox_ctx.box = &ibox->box;
 	t->ibox = ibox;
 	t->trans = mail_index_transaction_begin(ibox->view, hide);
-	t->trans_view = mail_index_transaction_get_updated_view(t->trans);
+	t->trans_view = mail_index_transaction_open_updated_view(t->trans);
 	t->cache_view = mail_cache_view_open(ibox->cache, t->trans_view);
 }
 
@@ -19,6 +19,7 @@ static void index_transaction_free(struct index_transaction_context *t)
 		(void)mail_cache_transaction_end(t->cache_trans);
 
 	mail_cache_view_close(t->cache_view);
+	mail_index_view_close(t->trans_view);
 	mail_index_view_unlock(t->ibox->view);
 
 	if (t->fetch_mail.pool != NULL)

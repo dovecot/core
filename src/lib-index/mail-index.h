@@ -179,10 +179,10 @@ int mail_index_transaction_commit(struct mail_index_transaction *t,
 void mail_index_transaction_rollback(struct mail_index_transaction *t);
 
 /* Returns a view to transaction. Currently this differs from normal view only
-   in that it contains newly appended messages in transaction. The view is
-   destroyed when the transaction is destroyed. */
+   in that it contains newly appended messages in transaction. The view can
+   still be used after transaction has been committed. */
 struct mail_index_view *
-mail_index_transaction_get_updated_view(struct mail_index_transaction *t);
+mail_index_transaction_open_updated_view(struct mail_index_transaction *t);
 
 /* Begin synchronizing mailbox with index file. This call locks the index
    exclusively against other modifications. Returns 1 if ok, -1 if error.
@@ -270,6 +270,10 @@ int mail_index_lookup_first(struct mail_index_view *view, enum mail_flags flags,
 /* Append a new record to index. */
 void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 		       uint32_t *seq_r);
+/* Assigns UIDs for appended mails all at once. UID must have been given as 0
+   for mail_index_append(). Returns the next unused UID. */
+void mail_index_append_assign_uids(struct mail_index_transaction *t,
+				   uint32_t first_uid, uint32_t *next_uid_r);
 /* Expunge record from index. Note that this doesn't affect sequence numbers
    until transaction is committed and mailbox is synced. */
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq);

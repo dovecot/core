@@ -4,7 +4,8 @@
 #include "mail-transaction-log.h"
 
 struct mail_index_transaction {
-	struct mail_index_view *view, *updated_view;
+	int refcount;
+	struct mail_index_view *view;
 
         buffer_t *appends;
 	uint32_t first_new_seq, last_new_seq;
@@ -29,5 +30,8 @@ struct mail_index_transaction {
 
 struct mail_index_record *
 mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq);
+
+void mail_index_transaction_ref(struct mail_index_transaction *t);
+void mail_index_transaction_unref(struct mail_index_transaction *t);
 
 #endif
