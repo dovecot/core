@@ -585,6 +585,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			memset(&mail, 0, sizeof(mail));
 			mail.flags = MBOX_EXPUNGED;
 			mail.offset = mail.from_offset =
+				(sync_ctx->dest_first_mail ? 1 : 0) +
 				mail_ctx->mail.from_offset -
 				sync_ctx->expunged_space;
 			mail.space = sync_ctx->expunged_space;
@@ -635,6 +636,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		} else {
 			move_diff = mail_ctx->mail.space;
 			extra_space = sync_ctx->space_diff - needed_space;
+			sync_ctx->expunged_space = 0;
 		}
 		last_seq = sync_ctx->seq - 1;
 		buffer_set_used_size(sync_ctx->mails, sync_ctx->mails->used -
