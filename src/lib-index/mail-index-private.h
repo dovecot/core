@@ -136,6 +136,8 @@ void mail_index_reset_cache(struct mail_index_transaction *t,
 void mail_index_update_cache(struct mail_index_transaction *t, uint32_t seq,
 			     uint32_t file_seq, uint32_t offset,
 			     uint32_t *old_offset_r);
+int mail_index_update_cache_lookup(struct mail_index_transaction *t,
+				   uint32_t seq, uint32_t *offset_r);
 
 int mail_index_fix_header(struct mail_index *index, struct mail_index_map *map,
 			  struct mail_index_header *hdr, const char **error_r);

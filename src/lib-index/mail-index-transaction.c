@@ -509,20 +509,18 @@ static void mail_index_transaction_add_last(struct mail_index_transaction *t)
 		      &update, sizeof(update));
 }
 
-static int mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
-					const void *record, size_t record_size,
-					void *old_record)
+static int
+mail_index_seq_buffer_lookup(buffer_t *buffer, uint32_t seq,
+			     size_t record_size, size_t *pos_r)
 {
 	unsigned int idx, left_idx, right_idx;
 	void *data;
 	uint32_t full_record_size, *seq_p;
 	size_t size;
 
-	full_record_size = record_size + sizeof(uint32_t);
+	full_record_size = record_size + sizeof(seq);
 
-	if (*buffer == NULL)
-		*buffer = buffer_create_dynamic(default_pool, 1024, (size_t)-1);
-	data = buffer_get_modifyable_data(*buffer, &size);
+	data = buffer_get_modifyable_data(buffer, &size);
 
 	/* we're probably appending it, check */
 	if (size == 0)
@@ -540,27 +538,46 @@ static int mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
 			else if (*seq_p > seq)
 				right_idx = idx;
 			else {
-				/* already there, update */
-				if (old_record != NULL) {
-					memcpy(old_record, seq_p+1,
-					       record_size);
-				}
-				memcpy(seq_p+1, record, record_size);
+				*pos_r = idx * full_record_size;
 				return TRUE;
 			}
 		}
 	}
 
-	idx *= full_record_size;
-	if (idx != size) {
-		buffer_copy(*buffer, idx + full_record_size,
-			    *buffer, idx, (size_t)-1);
-	}
-	seq_p = buffer_get_space_unsafe(*buffer, idx, full_record_size);
-
-	*seq_p = seq;
-	memcpy(seq_p+1, record, record_size);
+	*pos_r = idx * full_record_size;
 	return FALSE;
+}
+
+static int mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
+					const void *record, size_t record_size,
+					void *old_record)
+{
+	void *p;
+	size_t pos;
+
+	if (*buffer == NULL) {
+		*buffer = buffer_create_dynamic(default_pool, 1024, (size_t)-1);
+		buffer_append(*buffer, &seq, sizeof(seq));
+		buffer_append(*buffer, record, record_size);
+		return FALSE;
+	}
+
+	if (mail_index_seq_buffer_lookup(*buffer, seq, record_size, &pos)) {
+		/* already there, update */
+		p = buffer_get_space_unsafe(*buffer, pos + sizeof(seq),
+					    record_size);
+		if (old_record != NULL)
+			memcpy(old_record, p, record_size);
+		memcpy(p, record, record_size);
+		return TRUE;
+	} else {
+		/* insert */
+		buffer_copy(*buffer, pos + sizeof(seq) + record_size,
+			    *buffer, pos, (size_t)-1);
+		buffer_write(*buffer, pos, &seq, sizeof(seq));
+		buffer_write(*buffer, pos + sizeof(seq), record, record_size);
+		return FALSE;
+	}
 }
 
 static void
@@ -612,6 +629,25 @@ void mail_index_update_cache(struct mail_index_transaction *t, uint32_t seq,
 						  old_offset_r))
 			*old_offset_r = 0;
 	}
+}
+
+int mail_index_update_cache_lookup(struct mail_index_transaction *t,
+				   uint32_t seq, uint32_t *offset_r)
+{
+	const void *p;
+	size_t pos;
+
+	if (t->cache_updates == NULL)
+		return FALSE;
+
+	if (!mail_index_seq_buffer_lookup(t->cache_updates, seq,
+					  sizeof(*offset_r), &pos))
+		return FALSE;
+
+	p = buffer_get_data(t->cache_updates, NULL);
+	memcpy(offset_r, CONST_PTR_OFFSET(p, pos + sizeof(*offset_r)),
+	       sizeof(*offset_r));
+	return TRUE;
 }
 
 void mail_index_update_extra_rec(struct mail_index_transaction *t,

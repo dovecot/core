@@ -102,9 +102,16 @@ struct mail_cache_view {
 	struct mail_index_view *view;
 
 	struct mail_cache_transaction_ctx *transaction;
+	uint32_t trans_seq1, trans_seq2;
+
 	char cached_exists[32];
 	uint32_t cached_exists_seq;
 };
+
+typedef int mail_cache_foreach_callback_t(struct mail_cache_view *view,
+					  enum mail_cache_field field,
+					  const void *data, size_t data_size,
+					  void *context);
 
 extern unsigned int mail_cache_field_sizes[32];
 extern enum mail_cache_field mail_cache_header_fields[MAIL_CACHE_HEADERS_COUNT];
@@ -126,13 +133,13 @@ struct mail_cache_record *
 mail_cache_get_record(struct mail_cache *cache, uint32_t offset);
 
 int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
-		       int (*callback)(struct mail_cache_view *view,
-				       enum mail_cache_field field,
-				       const void *data, size_t data_size,
-				       void *context), void *context);
+		       mail_cache_foreach_callback_t *callback, void *context);
 
 int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx);
 void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx);
+
+int mail_cache_transaction_lookup(struct mail_cache_transaction_ctx *ctx,
+				  uint32_t seq, uint32_t *offset_r);
 
 int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size);
 void mail_cache_file_close(struct mail_cache *cache);

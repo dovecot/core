@@ -27,9 +27,6 @@ struct mail_cache_transaction_ctx {
 	uint32_t reserved_space_offset, reserved_space;
 	uint32_t last_grow_size;
 
-	uint32_t first_seq, last_seq;
-	enum mail_cache_field fields[32];
-
 	unsigned int changes:1;
 };
 
@@ -65,6 +62,7 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 static void mail_cache_transaction_free(struct mail_cache_transaction_ctx *ctx)
 {
 	ctx->view->transaction = NULL;
+	ctx->view->trans_seq1 = ctx->view->trans_seq2 = 0;
 
 	buffer_free(ctx->cache_data);
 	buffer_free(ctx->cache_data_seq);
@@ -489,21 +487,24 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 	size_t size;
 	unsigned int i;
 
-	mail_cache_transaction_free_space(ctx);
+	if (mail_cache_lock(cache) > 0) {
+		mail_cache_transaction_free_space(ctx);
 
-	buf = buffer_get_data(ctx->reservations, &size);
-	i_assert(size % sizeof(uint32_t)*2 == 0);
-	size /= sizeof(*buf);
+		buf = buffer_get_data(ctx->reservations, &size);
+		i_assert(size % sizeof(uint32_t)*2 == 0);
+		size /= sizeof(*buf);
 
-	if (size > 0) {
-		/* free flushed data as well. do it from end to beginning so
-		   we have a better chance of updating used_file_size instead
-		   of adding holes */
-		do {
-			size -= 2;
-			mail_cache_free_space(ctx->cache, buf[size],
-					      buf[size+1]);
-		} while (size > 0);
+		if (size > 0) {
+			/* free flushed data as well. do it from end to
+			   beginning so we have a better chance of updating
+			   used_file_size instead of adding holes */
+			do {
+				size -= 2;
+				mail_cache_free_space(ctx->cache, buf[size],
+						      buf[size+1]);
+			} while (size > 0);
+		}
+		mail_cache_unlock(cache);
 	}
 
 	/* make sure we don't cache the headers */
@@ -622,12 +623,10 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 
 		/* remember roughly what we have modified, so cache lookups can
 		   look into transactions to see changes. */
-		if (seq < ctx->first_seq || ctx->first_seq == 0)
-			ctx->first_seq = seq;
-		if (seq > ctx->last_seq)
-			ctx->last_seq = seq;
-		ctx->view->cached_exists[field] = TRUE;
-		ctx->fields[field] = TRUE;
+		if (seq < ctx->view->trans_seq1 || ctx->view->trans_seq1 == 0)
+			ctx->view->trans_seq1 = seq;
+		if (seq > ctx->view->trans_seq2)
+			ctx->view->trans_seq2 = seq;
 	}
 
 	full_size = (data_size + 3) & ~3;
@@ -657,6 +656,13 @@ int mail_cache_update_record_flags(struct mail_cache_view *view, uint32_t seq,
 {
 	return -1;
 }
+
+int mail_cache_transaction_lookup(struct mail_cache_transaction_ctx *ctx,
+				  uint32_t seq, uint32_t *offset_r)
+{
+	return mail_index_update_cache_lookup(ctx->trans, seq, offset_r);
+}
+
 
 int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 		    uint32_t new_offset)
