@@ -1,3 +1,34 @@
+v0.99.0 2002-11-24  Timo Sirainen <tss@iki.fi>
+
+	+ Replaced hash file with binary tree file which makes Dovecot stay
+	  fast with large mailboxes after expunging multiple mails.
+	+ Several speed improvements with SEARCH
+	+ SEARCH CHARSET support using iconv(), although case-insensitive
+	  searching is currently supported only for ASCII characters.
+	+ OpenSSL support.
+	+ Support for regenerating Diffie Hellman and RSA parameters with
+	  specified intervals. NOTE: currently doesn't work with OpenSSL.
+	+ Support for each login connection being handled in it's own process.
+	  This is the default as it's more safe especially with SSL.
+	+ mbox locking is now safe, other processes can't modify the mbox file
+	  while we're reading it.
+	+ Notify clients with "EXISTS" almost immediately after new mail is
+	  received.
+	+ Rawlog: Support for saving user connections into files - useful for
+	  debugging.
+	+ Content-Language is finally parsed correctly
+	+ Lots of smaller speed optimizations
+	- Partial BODY[] fetches weren't working properly
+	- BODY[section] was buggy with message/rfc822 MIME parts
+	- STARTTLS wasn't working
+	- \* flag was missing from PERMANENTFLAGS.
+	- Comments inside <> mail addresses crashed.
+	- imap-login printed UTC timestamps to logfiles
+	- passwd-file wasn't reread the the file changed
+	- PAM authentication was implemented wrong, which caused it to break
+	  with some PAM plugins.
+	- Lots of smaller fixes, mostly to do with reliability
+
 v0.98.4 2002-10-06  Timo Sirainen <tss@iki.fi>
 
 	* Just a final release before replacing hash file with a binary tree.
