@@ -42,10 +42,15 @@ lm_credentials_callback(const char *credentials,
 	const unsigned char *client_response;
 	unsigned char lm_response[LM_RESPONSE_SIZE];
 	unsigned char hash[LM_HASH_SIZE];
+	unsigned int response_length;
 	buffer_t *hash_buffer;
 	int ret;
 
-	if (credentials == NULL) {
+	response_length =
+		ntlmssp_buffer_length(request->response, lm_response);
+	client_response = ntlmssp_buffer_data(request->response, lm_response);
+
+	if (credentials == NULL || response_length < LM_RESPONSE_SIZE) {
 		mech_auth_finish(auth_request, NULL, 0, FALSE);
 		return;
 	}
@@ -53,8 +58,6 @@ lm_credentials_callback(const char *credentials,
 	hash_buffer = buffer_create_data(auth_request->pool,
 					 hash, sizeof(hash));
 	hex_to_binary(credentials, hash_buffer);
-
-	client_response = ntlmssp_buffer_data(request->response, lm_response);
 
 	ntlmssp_v1_response(hash, request->challenge, lm_response);
 
@@ -75,10 +78,18 @@ ntlm_credentials_callback(const char *credentials,
 	buffer_t *hash_buffer;
 	int ret;
 
-	if (credentials == NULL && !request->ntlm2_negotiated) {
-		passdb->lookup_credentials(auth_request,
-					   PASSDB_CREDENTIALS_LANMAN,
-					   lm_credentials_callback);
+	response_length =
+		ntlmssp_buffer_length(request->response, ntlm_response);
+	client_response = ntlmssp_buffer_data(request->response, ntlm_response);
+
+	if (credentials == NULL || response_length == 0) {
+		/* We can't use LM authentication if NTLM2 was negotiated */
+		if (request->ntlm2_negotiated)
+			mech_auth_finish(auth_request, NULL, 0, FALSE);
+		else
+			passdb->lookup_credentials(auth_request,
+						   PASSDB_CREDENTIALS_LANMAN,
+						   lm_credentials_callback);
 		return;
 	}
 
@@ -86,9 +97,6 @@ ntlm_credentials_callback(const char *credentials,
 					 hash, sizeof(hash));
 	hex_to_binary(credentials, hash_buffer);
 
-	response_length =
-		ntlmssp_buffer_length(request->response, ntlm_response);
-	client_response = ntlmssp_buffer_data(request->response, ntlm_response);
 
 	if (response_length > NTLMSSP_RESPONSE_SIZE) {
 		unsigned char ntlm_v2_response[NTLMSSP_V2_RESPONSE_SIZE];
