@@ -37,9 +37,22 @@ AuthMethod available_auth_methods;
 static int auth_connects_failed;
 static int request_id_counter;
 static AuthConnection *auth_connections;
+static Timeout to;
 
 static void auth_input(void *context, int fd, IO io);
 static void auth_connect_missing(void);
+
+static AuthConnection *auth_connection_find(const char *path)
+{
+	AuthConnection *conn;
+
+	for (conn = auth_connections; conn != NULL; conn = conn->next) {
+		if (strcmp(conn->path, path) == 0)
+			return conn;
+	}
+
+	return NULL;
+}
 
 static AuthConnection *auth_connection_new(const char *path)
 {
@@ -88,10 +101,9 @@ static void request_hash_destroy(void *key __attr_unused__, void *value,
 	request_abort(value);
 }
 
-static void auth_connection_destroy(AuthConnection *conn, int reconnect)
+static void auth_connection_destroy(AuthConnection *conn)
 {
 	AuthConnection **pos;
-	char *path;
 
 	for (pos = &auth_connections; *pos != NULL; pos = &(*pos)->next) {
 		if (*pos == conn) {
@@ -100,8 +112,6 @@ static void auth_connection_destroy(AuthConnection *conn, int reconnect)
 		}
 	}
 
-	path = conn->path;
-
 	hash_foreach(conn->requests, request_hash_destroy, NULL);
 	hash_destroy(conn->requests);
 
@@ -109,12 +119,8 @@ static void auth_connection_destroy(AuthConnection *conn, int reconnect)
 	io_remove(conn->io);
 	io_buffer_destroy(conn->inbuf);
 	io_buffer_destroy(conn->outbuf);
+	i_free(conn->path);
 	i_free(conn);
-
-	if (reconnect) {
-		auth_connection_new(path);
-		i_free(path);
-	}
 }
 
 static AuthConnection *auth_connection_get(AuthMethod method, unsigned int size,
@@ -199,13 +205,13 @@ static void auth_input(void *context, int fd __attr_unused__,
 		return;
 	case -1:
 		/* disconnected */
-		auth_connection_destroy(conn, TRUE);
+		auth_connection_destroy(conn);
 		return;
 	case -2:
 		/* buffer full - can't happen unless imap-auth is buggy */
 		i_error("BUG: imap-auth sent us more than %d bytes of data",
 			MAX_INBUF_SIZE);
-		auth_connection_destroy(conn, TRUE);
+		auth_connection_destroy(conn);
 		return;
 	}
 
@@ -221,7 +227,7 @@ static void auth_input(void *context, int fd __attr_unused__,
 			i_error("BUG: imap-auth sent us too much "
 				"initialization data (%u vs %u)",
 				size, sizeof(AuthInitData));
-			auth_connection_destroy(conn, TRUE);
+			auth_connection_destroy(conn);
 		}
 
 		return;
@@ -278,7 +284,7 @@ int auth_init_request(AuthMethod method, AuthCallback callback,
 	request_data.id = request->id;
 	if (io_buffer_send(request->conn->outbuf, &request_data,
 			   sizeof(request_data)) < 0)
-		auth_connection_destroy(request->conn, TRUE);
+		auth_connection_destroy(request->conn);
 	return TRUE;
 }
 
@@ -295,9 +301,9 @@ void auth_continue_request(AuthRequest *request, const unsigned char *data,
 
 	if (io_buffer_send(request->conn->outbuf, &request_data,
 			   sizeof(request_data)) < 0)
-		auth_connection_destroy(request->conn, TRUE);
+		auth_connection_destroy(request->conn);
 	else if (io_buffer_send(request->conn->outbuf, data, data_size) < 0)
-		auth_connection_destroy(request->conn, TRUE);
+		auth_connection_destroy(request->conn);
 }
 
 static void auth_connect_missing(void)
@@ -320,6 +326,11 @@ static void auth_connect_missing(void)
 		if (dp->d_name[0] == '.')
 			continue;
 
+		if (auth_connection_find(dp->d_name) != NULL) {
+			/* already connected */
+			continue;
+		}
+
 		if (stat(dp->d_name, &st) == 0 && S_ISSOCK(st.st_mode)) {
 			if (auth_connection_new(dp->d_name) != NULL)
 				auth_connects_failed = FALSE;
@@ -329,6 +340,13 @@ static void auth_connect_missing(void)
 	(void)closedir(dirp);
 }
 
+static void auth_connect_missing_timeout(void *context __attr_unused__,
+					 Timeout timeout __attr_unused__)
+{
+	if (auth_connects_failed)
+                auth_connect_missing();
+}
+
 void auth_connection_init(void)
 {
 	auth_connections = NULL;
@@ -336,6 +354,7 @@ void auth_connection_init(void)
         auth_connects_failed = FALSE;
 
 	auth_connect_missing();
+	to = timeout_add(1000, auth_connect_missing_timeout, NULL);
 }
 
 void auth_connection_deinit(void)
@@ -344,7 +363,9 @@ void auth_connection_deinit(void)
 
 	while (auth_connections != NULL) {
 		next = auth_connections->next;
-		auth_connection_destroy(auth_connections, FALSE);
+		auth_connection_destroy(auth_connections);
 		auth_connections = next;
 	}
+
+	timeout_remove(to);
 }
