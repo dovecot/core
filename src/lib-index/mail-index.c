@@ -655,6 +655,12 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 	unsigned int i;
 	int ret, retry;
 
+	if (index->log_locked) {
+		/* we're most likely syncing the index and we really don't
+		   want to read more than what was synced last time. */
+		sync_to_index = TRUE;
+	}
+
 	if ((*map)->hdr.indexid != 0) {
 		/* sync this as a view from transaction log. */
 		index->sync_update = TRUE;
