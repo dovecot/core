@@ -57,6 +57,7 @@ int mbox_index_rebuild(MailIndex *index)
 
 	inbuf = io_buffer_create_mmap(fd, default_pool,
 				      MAIL_MMAP_BLOCK_SIZE, 0);
+	mbox_skip_empty_lines(inbuf);
 	failed = !mbox_index_append(index, inbuf);
 
 	(void)mbox_unlock(index, index->mbox_path, fd);

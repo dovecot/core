@@ -199,11 +199,7 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	/* skip empty lines at beginning */
-	while (io_buffer_read_data_blocking(inbuf, &data, &size, 0) > 0 &&
-	       (data[0] == '\r' || data[0] == '\n')) {
-		io_buffer_skip(inbuf, 1);
-	}
+	mbox_skip_empty_lines(inbuf);
 
 	/* first make sure we start with a "From " line. If file is too
 	   small, we'll just treat it as empty mbox file. */

@@ -302,6 +302,18 @@ int mbox_skip_crlf(IOBuffer *inbuf)
 	return TRUE;
 }
 
+void mbox_skip_empty_lines(IOBuffer *inbuf)
+{
+	unsigned char *data;
+	size_t size;
+
+	/* skip empty lines at beginning */
+	while (io_buffer_read_data_blocking(inbuf, &data, &size, 0) > 0 &&
+	       (data[0] == '\r' || data[0] == '\n')) {
+		io_buffer_skip(inbuf, 1);
+	}
+}
+
 int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
 			       uoff_t *offset)
 {

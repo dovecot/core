@@ -168,8 +168,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 
 int mbox_index_append(MailIndex *index, IOBuffer *inbuf)
 {
-	if (inbuf->offset == inbuf->size ||
-	    inbuf->offset+1 == inbuf->size) {
+	if (inbuf->offset == inbuf->size) {
 		/* no new data */
 		return TRUE;
 	}
