@@ -21,10 +21,6 @@
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/* We have a primary hash consisting of just key/value entries. When collisions
-   occur, we move on to another hash (10% of the size of primary) which also
-   contains pointer to next collision, working as linked list. */
-
 /* @UNSAFE: whole file */
 
 #include "lib.h"
@@ -34,16 +30,11 @@
 #include <ctype.h>
 
 #define HASH_TABLE_MIN_SIZE 109
-#define COLLISIONS_MIN_SIZE 37
 
 struct hash_node {
+	struct hash_node *next;
 	void *key;
 	void *value;
-};
-
-struct collision_node {
-	struct hash_node node;
-	struct collision_node *next;
 };
 
 struct hash_table {
@@ -54,11 +45,7 @@ struct hash_table {
 
 	size_t size;
 	struct hash_node *nodes;
-
-	size_t collisions_size;
-	struct collision_node *collisions;
-
-	struct collision_node *free_cnodes;
+	struct hash_node *free_nodes;
 
 	hash_callback_t hash_cb;
 	hash_cmp_callback_t key_compare_cb;
@@ -98,91 +85,66 @@ hash_create(pool_t table_pool, pool_t node_pool, size_t initial_size,
 			    HASH_TABLE_MIN_SIZE);
 
 	table->nodes = p_new(table_pool, struct hash_node, table->size);
-	table->collisions_size = I_MAX(table->size / 10, COLLISIONS_MIN_SIZE);
-	table->collisions = p_new(table_pool, struct collision_node,
-				  table->collisions_size);
 	return table;
 }
 
-static void free_cnode(struct hash_table *table, struct collision_node *cnode)
+static void free_node(struct hash_table *table, struct hash_node *node)
 {
 	if (!table->node_pool->alloconly_pool)
-		p_free(table->node_pool, cnode);
+		p_free(table->node_pool, node);
 	else {
-		cnode->next = table->free_cnodes;
-		table->free_cnodes = cnode;
+		node->next = table->free_nodes;
+		table->free_nodes = node;
 	}
 }
 
-static void destroy_collision(struct hash_table *table,
-			      struct collision_node *cnode)
+static void destroy_node_list(struct hash_table *table, struct hash_node *node)
 {
-	struct collision_node *next;
+	struct hash_node *next;
 
-	while (cnode != NULL) {
-		next = cnode->next;
-		p_free(table->node_pool, cnode);
-		cnode = next;
+	while (node != NULL) {
+		next = node->next;
+		p_free(table->node_pool, node);
+		node = next;
 	}
 }
 
-static void hash_destroy_collision_nodes(struct hash_table *table)
+static void hash_destroy_nodes(struct hash_table *table)
 {
 	size_t i;
 
-	for (i = 0; i < table->collisions_size; i++) {
-		if (table->collisions[i].next != NULL)
-			destroy_collision(table, table->collisions[i].next);
+	for (i = 0; i < table->size; i++) {
+		if (table->nodes[i].next != NULL)
+			destroy_node_list(table, table->nodes[i].next);
 	}
 }
 
 void hash_destroy(struct hash_table *table)
 {
 	if (!table->node_pool->alloconly_pool) {
-		hash_destroy_collision_nodes(table);
-		destroy_collision(table, table->free_cnodes);
+		hash_destroy_nodes(table);
+		destroy_node_list(table, table->free_nodes);
 	}
 
 	p_free(table->table_pool, table->nodes);
-	p_free(table->table_pool, table->collisions);
 	p_free(table->table_pool, table);
 }
 
-void hash_clear(struct hash_table *table, int free_collisions)
+void hash_clear(struct hash_table *table, int free_nodes)
 {
 	if (!table->node_pool->alloconly_pool)
-		hash_destroy_collision_nodes(table);
+		hash_destroy_nodes(table);
 
-	if (free_collisions) {
+	if (free_nodes) {
 		if (!table->node_pool->alloconly_pool)
-			destroy_collision(table, table->free_cnodes);
-                table->free_cnodes = NULL;
+			destroy_node_list(table, table->free_nodes);
+                table->free_nodes = NULL;
 	}
 
 	memset(table->nodes, 0, sizeof(struct hash_node) * table->size);
-	memset(table->collisions, 0,
-	       sizeof(struct collision_node) * table->collisions_size);
 
 	table->nodes_count = 0;
 	table->removed_count = 0;
-}
-
-static struct hash_node *
-hash_lookup_collision(struct hash_table *table,
-		      const void *key, unsigned int hash)
-{
-	struct collision_node *cnode;
-
-	cnode = &table->collisions[hash % table->collisions_size];
-	do {
-		if (cnode->node.key != NULL) {
-			if (table->key_compare_cb(cnode->node.key, key) == 0)
-				return &cnode->node;
-		}
-		cnode = cnode->next;
-	} while (cnode != NULL);
-
-	return NULL;
 }
 
 static struct hash_node *
@@ -192,15 +154,15 @@ hash_lookup_node(struct hash_table *table, const void *key, unsigned int hash)
 
 	node = &table->nodes[hash % table->size];
 
-	if (node->key == NULL) {
-		if (table->removed_count == 0)
-			return NULL;
-	} else {
-		if (table->key_compare_cb(node->key, key) == 0)
-			return node;
-	}
+	do {
+		if (node->key != NULL) {
+			if (table->key_compare_cb(node->key, key) == 0)
+				return node;
+		}
+		node = node->next;
+	} while (node != NULL);
 
-	return hash_lookup_collision(table, key, hash);
+	return NULL;
 }
 
 void *hash_lookup(struct hash_table *table, const void *key)
@@ -232,8 +194,7 @@ static struct hash_node *
 hash_insert_node(struct hash_table *table, void *key, void *value,
 		 int check_existing)
 {
-	struct hash_node *node;
-	struct collision_node *cnode, *prev;
+	struct hash_node *node, *prev;
 	unsigned int hash;
 
 	i_assert(key != NULL);
@@ -251,7 +212,7 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
                 check_existing = FALSE;
 	}
 
-	/* a) primary hash */
+	/* a) primary node */
 	node = &table->nodes[hash % table->size];
 	if (node->key == NULL) {
 		table->nodes_count++;
@@ -269,46 +230,43 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 	}
 
 	/* b) collisions list */
-	prev = NULL;
-	cnode = &table->collisions[hash % table->collisions_size];
-
-	do {
-		if (cnode->node.key == NULL)
+	prev = node; node = node->next;
+	while (node != NULL) {
+		if (node->key == NULL)
 			break;
 
 		if (check_existing) {
-			if (table->key_compare_cb(cnode->node.key, key) == 0) {
-				cnode->node.value = value;
-				return &cnode->node;
+			if (table->key_compare_cb(node->key, key) == 0) {
+				node->value = value;
+				return node;
 			}
 		}
 
-		prev = cnode;
-		cnode = cnode->next;
-	} while (cnode != NULL);
+		prev = node;
+		node = node->next;
+	}
 
-	if (cnode == NULL) {
+	if (node == NULL) {
 		if (table->frozen == 0 && hash_resize(table)) {
 			/* resized table, try again */
 			return hash_insert_node(table, key, value, FALSE);
 		}
 
-		if (table->free_cnodes == NULL) {
-			cnode = p_new(table->node_pool,
-				      struct collision_node, 1);
-		} else {
-			cnode = table->free_cnodes;
-			table->free_cnodes = cnode->next;
-			cnode->next = NULL;
+		if (table->free_nodes == NULL)
+			node = p_new(table->node_pool, struct hash_node, 1);
+		else {
+			node = table->free_nodes;
+			table->free_nodes = node->next;
+			node->next = NULL;
 		}
-		prev->next = cnode;
+		prev->next = node;
 	}
 
-	cnode->node.key = key;
-	cnode->node.value = value;;
+	node->key = key;
+	node->value = value;;
 
 	table->nodes_count++;
-	return &cnode->node;
+	return node;
 }
 
 void hash_insert(struct hash_table *table, void *key, void *value)
@@ -324,61 +282,36 @@ void hash_update(struct hash_table *table, void *key, void *value)
 	(void)hash_insert_node(table, key, value, TRUE);
 }
 
-static void hash_compress(struct hash_table *table,
-			  unsigned int collision_idx,
-			  unsigned int hash)
+static void hash_compress(struct hash_table *table, struct hash_node *node)
 {
-	struct collision_node *croot, *cnode, *next;
-	struct hash_node *node;
+	struct hash_node *next;
 
 	/* remove deleted nodes from the list */
-	croot = cnode = &table->collisions[collision_idx];
-	while (cnode->next != NULL) {
-		next = cnode->next;
+	while (node->next != NULL) {
+		next = node->next;
 
-		if (next->node.key == NULL) {
-			cnode->next = next->next;
-			free_cnode(table, next);
+		if (next->key == NULL) {
+			node->next = next->next;
+			free_node(table, next);
+		} else {
+			node = next;
 		}
 	}
 
-	do {
-		/* if root is marked as deleted, replace it with first node
-		   from list */
-		if (croot->node.key == NULL) {
-			next = croot->next;
-			if (next == NULL) {
-				/* no collisions left - nothing to do */
-				return;
-			}
-
-			memcpy(&croot->node, &next->node, sizeof(croot->node));
-			croot->next = next->next;
-			free_cnode(table, next);
-		}
-
-		/* see if node in primary table was deleted */
-		if (hash == 0)
-			hash = table->hash_cb(croot->node.key);
-		node = &table->nodes[hash % table->size];
-		if (node->key == NULL) {
-			memcpy(node, &croot->node, sizeof(*node));
-			croot->node.key = NULL;
-		}
-	} while (croot->node.key == NULL);
+	/* update root */
+	if (node->key == NULL && node->next != NULL) {
+		next = node->next;
+		memcpy(node, next, sizeof(*node));
+		free_node(table, next);
+	}
 }
 
-static void hash_compress_collisions(struct hash_table *table)
+static void hash_compress_removed(struct hash_table *table)
 {
-	struct collision_node *cnode;
 	size_t i;
 
-	for (i = 0; i < table->collisions_size; i++) {
-		cnode = &table->collisions[i];
-
-		if (cnode->node.key != NULL || cnode->next != NULL)
-			hash_compress(table, i, 0);
-	}
+	for (i = 0; i < table->size; i++)
+		hash_compress(table, &table->nodes[i]);
 
         table->removed_count = 0;
 }
@@ -391,12 +324,16 @@ void hash_remove(struct hash_table *table, const void *key)
 	hash = table->hash_cb(key);
 
 	node = hash_lookup_node(table, key, hash);
+	if (node == NULL)
+		i_panic("key not found from hash");
+
 	node->key = NULL;
+	table->nodes_count--;
 
 	if (table->frozen != 0)
 		table->removed_count++;
 	else if (!hash_resize(table))
-		hash_compress(table, hash % table->collisions_size, hash);
+		hash_compress(table, &table->nodes[hash % table->size]);
 }
 
 size_t hash_size(struct hash_table *table)
@@ -408,7 +345,6 @@ void hash_foreach(struct hash_table *table, hash_foreach_callback_t callback,
 		  void *context)
 {
 	struct hash_node *node;
-	struct collision_node *cnode;
 	size_t i;
 
 	hash_freeze(table);
@@ -418,31 +354,16 @@ void hash_foreach(struct hash_table *table, hash_foreach_callback_t callback,
 	for (i = 0; i < table->size; i++) {
 		node = &table->nodes[i];
 
-		if (node->key != NULL) {
-			callback(node->key, node->value, context);
-			if (foreach_stop) {
-				table->frozen--;
-				return;
-			}
-		}
-	}
-
-	if (!foreach_stop) {
-		for (i = 0; i < table->collisions_size; i++) {
-			cnode = &table->collisions[i];
-
-			do {
-				if (cnode->node.key != NULL) {
-					callback(cnode->node.key,
-						 cnode->node.value, context);
-					if (foreach_stop) {
-						table->frozen--;
-						return;
-					}
+		do {
+			if (node->key != NULL) {
+				callback(node->key, node->value, context);
+				if (foreach_stop) {
+					table->frozen--;
+					return;
 				}
-				cnode = cnode->next;
-			} while (cnode != NULL);
-		}
+			}
+			node = node->next;
+		} while (node != NULL);
 	}
 
 	hash_thaw(table);
@@ -467,15 +388,14 @@ void hash_thaw(struct hash_table *table)
 
 	if (table->removed_count > 0) {
 		if (!hash_resize(table))
-			hash_compress_collisions(table);
+			hash_compress_removed(table);
 	}
 }
 
 static int hash_resize(struct hash_table *table)
 {
-	struct hash_node *old_nodes;
-	struct collision_node *old_cnodes, *cnode, *next;
-	size_t old_size, old_csize, i;
+	struct hash_node *old_nodes, *node, *next;
+	size_t old_size, i;
 	float nodes_per_list;
 
         nodes_per_list = (float) table->nodes_count / (float) table->size;
@@ -491,14 +411,6 @@ static int hash_resize(struct hash_table *table)
 			    HASH_TABLE_MIN_SIZE);
 	table->nodes = p_new(table->table_pool, struct hash_node, table->size);
 
-	/* recreate collisions table */
-	old_csize = table->collisions_size;
-	old_cnodes = table->collisions;
-
-	table->collisions_size = I_MAX(table->size / 10, COLLISIONS_MIN_SIZE);
-	table->collisions = p_new(table->table_pool, struct collision_node,
-				  table->collisions_size);
-
 	table->nodes_count = 0;
 	table->removed_count = 0;
 
@@ -506,34 +418,24 @@ static int hash_resize(struct hash_table *table)
 
 	/* move the data */
 	for (i = 0; i < old_size; i++) {
-		if (old_nodes[i].key != NULL) {
-			hash_insert_node(table, old_nodes[i].key,
-					 old_nodes[i].value, FALSE);
-		}
-	}
+		node = &old_nodes[i];
+		if (node->key != NULL)
+			hash_insert_node(table, node->key, node->value, FALSE);
 
-	for (i = 0; i < old_csize; i++) {
-		cnode = &old_cnodes[i];
+		for (node = node->next; node != NULL; node = next) {
+			next = node->next;
 
-		if (cnode->node.key != NULL) {
-			hash_insert_node(table, cnode->node.key,
-					 cnode->node.value, FALSE);
-		}
-
-		for (cnode = cnode->next; cnode != NULL; cnode = next) {
-			next = cnode->next;
-			if (cnode->node.key != NULL) {
-				hash_insert_node(table, cnode->node.key,
-						 cnode->node.value, FALSE);
+			if (node->key != NULL) {
+				hash_insert_node(table, node->key,
+						 node->value, FALSE);
 			}
-			free_cnode(table, cnode);
+			free_node(table, node);
 		}
 	}
 
 	table->frozen--;
 
 	p_free(table->table_pool, old_nodes);
-	p_free(table->table_pool, old_cnodes);
 	return TRUE;
 }
 
