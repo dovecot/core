@@ -39,26 +39,6 @@ void env_put(const char *env)
 		i_fatal("Environment full, can't add: %s", env);
 }
 
-void env_remove(const char *env)
-{
-	extern char **environ;
-	size_t len;
-
-	if (environ == NULL)
-		return;
-
-	len = strlen(env);
-	for (; *environ != NULL; environ++) {
-		if (strncmp(*environ, env, len) == 0 &&
-		    (*environ)[len] == '=') {
-			char **p;
-
-			for (p = environ; *p != NULL; p++)
-				p[0] = p[1];
-		}
-	}
-}
-
 void env_clean(void)
 {
 	extern char **environ;
