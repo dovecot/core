@@ -160,7 +160,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 
-	if (!fstream->file) {
+	if (!stream->istream.seekable) {
 		if (v_offset < stream->istream.v_offset) {
 			stream->istream.stream_errno = ESPIPE;
 			return;
@@ -203,8 +203,10 @@ struct istream *i_stream_create_file(int fd, pool_t pool,
 	fstream->istream.get_size = _get_size;
 
 	/* get size of fd if it's a file */
-	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode))
+	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {
 		fstream->file = TRUE;
+		fstream->istream.istream.seekable = TRUE;
+	}
 
 	return _i_stream_create(&fstream->istream, pool, fd, 0);
 }

@@ -310,5 +310,6 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->istream.read = _read;
 	mstream->istream.seek = _seek;
 
+	mstream->istream.istream.seekable = input->seekable;
 	return _i_stream_create(&mstream->istream, pool, -1, 0);
 }

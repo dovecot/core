@@ -7,6 +7,7 @@ struct istream {
 	int stream_errno;
 	unsigned int mmaped:1; /* be careful when copying data */
 	unsigned int closed:1;
+	unsigned int seekable:1; /* we can seek() backwards */
 	unsigned int eof:1; /* read() has reached to end of file
 	                       (but may still be data available in buffer) */
 

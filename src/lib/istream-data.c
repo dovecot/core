@@ -50,5 +50,6 @@ struct istream *i_stream_create_from_data(pool_t pool, const void *data,
 	stream->seek = _seek;
 	stream->get_size = _get_size;
 
+	stream->istream.seekable = TRUE;
 	return _i_stream_create(stream, pool, -1, 0);
 }

@@ -122,6 +122,7 @@ struct istream *i_stream_create_limit(pool_t pool, struct istream *input,
 	lstream->istream.seek = _seek;
 	lstream->istream.get_size = _get_size;
 
+	lstream->istream.istream.seekable = input->seekable;
 	return _i_stream_create(&lstream->istream, pool, i_stream_get_fd(input),
 				input->real_stream->abs_start_offset +
 				v_start_offset);
