@@ -21,7 +21,7 @@ extern enum mailbox_open_flags mailbox_open_flags;
 
 extern string_t *capability_string;
 
-extern void (*hook_mail_storage_created)(struct mail_storage *storage);
-extern void (*hook_client_created)(struct client *client);
+extern void (*hook_mail_storage_created)(struct mail_storage **storage);
+extern void (*hook_client_created)(struct client **client);
 
 #endif

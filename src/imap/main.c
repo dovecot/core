@@ -29,8 +29,8 @@ enum mailbox_open_flags mailbox_open_flags;
 static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 
-void (*hook_mail_storage_created)(struct mail_storage *storage) = NULL;
-void (*hook_client_created)(struct client *client) = NULL;
+void (*hook_mail_storage_created)(struct mail_storage **storage) = NULL;
+void (*hook_client_created)(struct client **client) = NULL;
 
 string_t *capability_string;
 
@@ -138,7 +138,7 @@ static void main_init(void)
 	}
 
 	if (hook_mail_storage_created != NULL)
-		hook_mail_storage_created(storage);
+		hook_mail_storage_created(&storage);
 
 	str = getenv("IMAP_MAX_LINE_LENGTH");
 	imap_max_line_length = str != NULL ?
