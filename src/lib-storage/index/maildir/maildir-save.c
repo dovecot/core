@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "ostream.h"
+#include "ostream-crlf.h"
 #include "str.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
@@ -114,6 +115,7 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 	struct maildir_save_context *ctx;
 	struct index_mailbox *ibox = t->ictx.ibox;
 	struct maildir_filename *mf;
+	struct ostream *output;
 	const char *fname, *dest_fname, *path;
 	enum mail_flags mail_flags;
 	keywords_mask_t keywords;
@@ -139,7 +141,12 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 
 	ctx->received_date = received_date;
 	ctx->input = input;
-	ctx->output = o_stream_create_file(ctx->fd, system_pool, 0, FALSE);
+
+	output = o_stream_create_file(ctx->fd, system_pool, 0, FALSE);
+	ctx->output = ctx->save_crlf ?
+		o_stream_create_crlf(default_pool, output) :
+		o_stream_create_lf(default_pool, output);
+	o_stream_unref(output);
 
 	mail_flags = (flags->flags & ~MAIL_RECENT) |
 		(ibox->keep_recent ? MAIL_RECENT : 0);
