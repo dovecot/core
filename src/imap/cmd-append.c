@@ -56,12 +56,9 @@ int cmd_append(struct client *client)
         struct mailbox_keywords old_flags;
 	struct mail_full_flags flags;
 	struct istream *input;
-	struct mail *mail;
 	time_t internal_date;
 	const char *mailbox, *internal_date_str;
 	uoff_t msg_size;
-	string_t *reply;
-        struct msgset_generator_context msgset_ctx;
 	unsigned int count;
 	int ret, failed, timezone_offset, nonsync;
 
@@ -88,8 +85,7 @@ int cmd_append(struct client *client)
 		}
 	}
 
-	if (mailbox_get_status(box, STATUS_KEYWORDS | STATUS_UIDVALIDITY,
-			       &status) < 0) {
+	if (mailbox_get_status(box, STATUS_KEYWORDS, &status) < 0) {
 		client_send_storage_error(client, storage);
 		mailbox_close(box);
 		return TRUE;
@@ -104,10 +100,6 @@ int cmd_append(struct client *client)
 	/* if error occurs, the CRLF is already read. */
 	client->input_skip_line = FALSE;
 
-	reply = str_new(default_pool, 256);
-	str_printfa(reply, "OK [APPENDUID %u ", status.uidvalidity);
-
-	msgset_generator_init(&msgset_ctx, reply);
 	count = 0;
 	failed = TRUE;
 	save_parser = imap_parser_create(client->input, client->output,
@@ -195,14 +187,12 @@ int cmd_append(struct client *client)
 					      client->input->v_offset,
 					      msg_size);
 		if (mailbox_save(t, &flags, internal_date, timezone_offset,
-				 NULL, input, &mail) < 0) {
+				 NULL, input, NULL) < 0) {
 			i_stream_unref(input);
 			client_send_storage_error(client, storage);
 			break;
 		}
 		i_stream_unref(input);
-
-		msgset_generator_next(&msgset_ctx, mail->uid);
 
 		if (client->input->closed)
 			break;
@@ -210,8 +200,6 @@ int cmd_append(struct client *client)
 		count++;
 	}
         imap_parser_destroy(save_parser);
-
-	msgset_generator_finish(&msgset_ctx);
 
 	if (failed)
 		mailbox_transaction_rollback(t);
@@ -227,10 +215,8 @@ int cmd_append(struct client *client)
 
 	if (!failed) {
 		client_sync_full(client);
-		str_append(reply, "] Append completed.");
-		client_send_tagline(client, str_c(reply));
+		client_send_tagline(client, "OK Append completed.");
 	}
-	str_free(reply);
 
 	return TRUE;
 }
