@@ -62,7 +62,7 @@ void index_storage_unref(MailIndex *index)
 		rec = *list;
 
 		if (rec->index == index) {
-			if (rec->refcount == 0) {
+			if (--rec->refcount == 0) {
 				index->free(index);
 				*list = rec->next;
 				i_free(rec);
