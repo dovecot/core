@@ -396,6 +396,8 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 			env_put(t_strconcat("SSL_CIPHER_LIST=",
 					    set->ssl_cipher_list, NULL));
 		}
+		if (set->ssl_verify_client_cert)
+			env_put("SSL_VERIFY_CLIENT_CERT=1");
 	}
 
 	if (set->disable_plaintext_auth)

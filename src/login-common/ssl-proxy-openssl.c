@@ -453,6 +453,12 @@ void ssl_proxy_init(void)
 	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
 
+	if (getenv("SSL_VERIFY_CLIENT_CERT") != NULL) {
+		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER |
+				   SSL_VERIFY_FAIL_IF_NO_PEER_CERT |
+				   SSL_VERIFY_CLIENT_ONCE, NULL);
+	}
+
 	/* PRNG initialization might want to use /dev/urandom, make sure it
 	   does it before chrooting. */
 	if (RAND_bytes(&buf, 1) != 1)
