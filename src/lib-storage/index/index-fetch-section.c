@@ -28,6 +28,8 @@ typedef struct {
    double-parsing. */
 #define MAX_HEADER_BUFFER_SIZE (32*1024)
 
+#define UNSIGNED_CRLF (const unsigned char *) "\r\n"
+
 ImapCacheField index_fetch_body_get_cache(const char *section)
 {
 	if (*section >= '0' && *section <= '9')
@@ -207,7 +209,7 @@ static void fetch_header_field(MessagePart *part __attr_unused__,
 			if (!fetch_header_append(ctx, field_start,
 						 (size_t) (p-field_start)))
 				return;
-			if (!fetch_header_append(ctx, "\r\n", 2))
+			if (!fetch_header_append(ctx, UNSIGNED_CRLF, 2))
 				return;
 
 			field_start = p+1;
@@ -220,7 +222,7 @@ static void fetch_header_field(MessagePart *part __attr_unused__,
 			return;
 	}
 
-	(void)fetch_header_append(ctx, "\r\n", 2);
+	(void)fetch_header_append(ctx, UNSIGNED_CRLF, 2);
 }
 
 static int fetch_header_fields(IStream *input, const char *section,
@@ -247,7 +249,7 @@ static int fetch_header_fields(IStream *input, const char *section,
 	   shouldn't add it if it wasn't there in the first place. Not very
 	   easy to know currently so we'll just do it always, it'll be present
 	   in all sane messages anyway.. */
-	(void)fetch_header_append(ctx, "\r\n", 2);
+	(void)fetch_header_append(ctx, UNSIGNED_CRLF, 2);
 
 	i_assert(ctx->dest_size <= ctx->max_size);
 	i_assert(ctx->dest == NULL || str_len(ctx->dest) == ctx->dest_size);

@@ -329,7 +329,8 @@ void io_loop_destroy(IOLoop ioloop)
 		IO io = ioloop->ios;
 
 		if (!io->destroyed) {
-			i_warning("I/O leak: %p (%d)", io->func, io->fd);
+			i_warning("I/O leak: %p (%d)",
+				  (void *) io->func, io->fd);
 			io_remove(io);
 		}
 		io_destroy(ioloop, io);
@@ -339,7 +340,7 @@ void io_loop_destroy(IOLoop ioloop)
 		Timeout to = ioloop->timeouts;
 
 		if (!to->destroyed) {
-			i_warning("Timeout leak: %p", to->func);
+			i_warning("Timeout leak: %p", (void *) to->func);
 			timeout_remove(to);
 		}
                 timeout_destroy(ioloop, to);

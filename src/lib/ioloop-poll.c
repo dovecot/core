@@ -188,7 +188,7 @@ void io_loop_handler_run(IOLoop ioloop)
 			if (!io->invalid) {
 				io->invalid = TRUE;
 				i_warning("invalid I/O fd %d, func %p",
-					  io->fd, io->func);
+					  io->fd, (void *) io->func);
 			}
 
                         continue;
