@@ -147,6 +147,7 @@ static char *get_next_arg(char **line)
 static int client_command_execute(Client *client, char *line)
 {
 	char *cmd;
+	int ret;
 
 	cmd = get_next_arg(&line);
 	str_ucase(cmd);
@@ -156,10 +157,18 @@ static int client_command_execute(Client *client, char *line)
 
 		user = get_next_arg(&line);
 		pass = get_next_arg(&line);
-		return cmd_login(client, user, pass);
+		ret = cmd_login(client, user, pass);
+
+		memset(pass, 0, strlen(pass));
+		return ret;
 	}
-	if (strcmp(cmd, "AUTHENTICATE") == 0)
-		return cmd_authenticate(client, get_next_arg(&line));
+	if (strcmp(cmd, "AUTHENTICATE") == 0) {
+		char *data = get_next_arg(&line);
+
+		ret = cmd_authenticate(client, data);
+		memset(data, 0, strlen(data));
+		return ret;
+	}
 	if (strcmp(cmd, "CAPABILITY") == 0)
 		return cmd_capability(client);
 	if (strcmp(cmd, "STARTTLS") == 0)
