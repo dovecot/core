@@ -166,7 +166,7 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 	buffer_t *mails, *syncs;
 	size_t size;
 	struct stat st;
-	int ret = 0;
+	int sync_expunge, ret = 0;
 
 	t = mail_index_transaction_begin(sync_view, FALSE);
 
@@ -205,13 +205,19 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 		mbox_sync_next_mail(&sync_ctx, &mail_ctx, seq);
 
 		/* get all sync records related to this message */
-		ret = 1;
+		ret = 1; sync_expunge = FALSE;
 		mbox_sync_buffer_delete_old(syncs, mail_ctx.mail.uid);
 		while (mail_ctx.mail.uid >= sync_rec.uid1 && ret > 0) {
 			if (sync_rec.uid1 != 0) {
 				i_assert(mail_ctx.mail.uid <= sync_rec.uid2);
 				buffer_append(syncs, &sync_rec,
 					      sizeof(sync_rec));
+
+				if (sync_rec.type ==
+				    MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
+					sync_expunge = TRUE;
+					break;
+				}
 			}
 			ret = mail_index_sync_next(index_sync_ctx, &sync_rec);
 			if (ret == 0)
@@ -278,7 +284,9 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 			break;
 		}
 
-		if (rec != NULL) {
+		if (sync_expunge) {
+			/* .. */
+		} else if (rec != NULL) {
 			/* see if flags changed */
 			keywords_mask_t old_keywords;
 			uint8_t old_flags;
@@ -340,7 +348,7 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 		}
 	}
 
-	if (need_space_seq != 0) {
+	if (need_space_seq != 0 && ret >= 0) {
 		i_assert(space_diff < 0);
 		extra_space = MBOX_HEADER_EXTRA_SPACE *
 			(seq - need_space_seq + 1);
@@ -362,13 +370,16 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 		}
 	}
 
-	if (rec != NULL)
-		mail_index_expunge(t, idx_seq);
-	while (idx_seq < messages_count)
-		mail_index_expunge(t, ++idx_seq);
+	if (ret >= 0) {
+		if (rec != NULL)
+			mail_index_expunge(t, idx_seq);
+		while (idx_seq < messages_count)
+			mail_index_expunge(t, ++idx_seq);
 
-	if (sync_ctx.base_uid_last+1 != sync_ctx.next_uid) {
-		// FIXME: rewrite X-IMAPbase header
+		if (sync_ctx.base_uid_last+1 != sync_ctx.next_uid) {
+
+			// FIXME: rewrite X-IMAPbase header
+		}
 	}
 
 	if (ret >= 0) {

@@ -108,6 +108,11 @@ static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 		ctx->sync_ctx->next_uid = uid_last+1;
 	}
 
+	if (ctx->sync_ctx->prev_msg_uid >= ctx->sync_ctx->next_uid) {
+		/* broken, update */
+                ctx->sync_ctx->next_uid = ctx->sync_ctx->prev_msg_uid+1;
+	}
+
 	ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
 	ctx->seen_imapbase = TRUE;
 
@@ -165,6 +170,11 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 			return FALSE;
 		}
 		extra_space++;
+	}
+
+	if (value >= ctx->sync_ctx->next_uid) {
+		/* next_uid broken - fix it */
+		ctx->sync_ctx->next_uid = value+1;
 	}
 
 	if (value <= ctx->sync_ctx->prev_msg_uid) {

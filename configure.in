@@ -251,7 +251,7 @@ if test "$have_fdatasync" = "yes"; then
 fi
 
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
-AC_CHECK_FUNCS(fcntl flock inet_aton sigaction getpagesize madvise \
+AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsnprintf vsyslog writev pread \
 	       setrlimit setproctitle)
 
