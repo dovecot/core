@@ -152,7 +152,7 @@ static off_t imap_fetch_send(struct ostream *output, struct istream *input,
 
 		if ((ret = o_stream_send(output, msg, i)) < 0)
 			return -1;
-		if (ret < i) {
+		if ((uoff_t)ret < i) {
 			add = '\0';
 			blocks = TRUE;
 		}
