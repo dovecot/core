@@ -7,7 +7,8 @@ struct istream {
 	int stream_errno;
 	unsigned int mmaped:1; /* be careful when copying data */
 	unsigned int closed:1;
-	unsigned int eof:1;
+	unsigned int eof:1; /* read() has reached to end of file
+	                       (but may still be data available in buffer) */
 
 	struct _istream *real_stream;
 };
@@ -49,6 +50,9 @@ void i_stream_skip(struct istream *stream, uoff_t count);
 void i_stream_seek(struct istream *stream, uoff_t v_offset);
 /* Returns size of the stream, or (uoff_t)-1 if unknown */
 uoff_t i_stream_get_size(struct istream *stream);
+/* Returns TRUE if there are any bytes left to be read or in buffer. */
+int i_stream_have_bytes_left(struct istream *stream);
+
 /* Gets the next line from stream and returns it, or NULL if more data is
    needed to make a full line. NOTE: modifies the data in buffer for the \0,
    so it works only with buffered streams (currently only file). */
@@ -56,6 +60,7 @@ char *i_stream_next_line(struct istream *stream);
 /* Like i_stream_next_line(), but reads for more data if needed. Returns NULL
    if more data is needed or error occured. */
 char *i_stream_read_next_line(struct istream *stream);
+
 /* Returns pointer to beginning of read data, or NULL if there's no data
    buffered. */
 const unsigned char *i_stream_get_data(struct istream *stream, size_t *size);

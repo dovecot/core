@@ -90,6 +90,13 @@ uoff_t i_stream_get_size(struct istream *stream)
 	return _stream->get_size(_stream);
 }
 
+int i_stream_have_bytes_left(struct istream *stream)
+{
+	struct _istream *_stream = stream->real_stream;
+
+	return !stream->eof || _stream->skip != _stream->pos;
+}
+
 char *i_stream_next_line(struct istream *stream)
 {
 	struct _istream *_stream = stream->real_stream;
