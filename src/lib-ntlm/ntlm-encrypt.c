@@ -42,7 +42,7 @@ lm_hash(const char *passwd, unsigned char hash[LM_HASH_SIZE])
 	unsigned char buffer[14];
 	unsigned int i;
 
-	strncpy(buffer, passwd, sizeof(buffer));
+	strncpy((char *)buffer, passwd, sizeof(buffer));
 
 	for (i = 0; i < sizeof(buffer); i++)
 		buffer[i] = i_toupper(buffer[i]);
