@@ -153,6 +153,6 @@
 #endif
 
 #define i_unreached() \
-	i_panic("unreached")
+	i_panic("file %s: line %d: unreached", __FILE__, __LINE__)
 
 #endif
