@@ -223,8 +223,10 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	/* save the offset permanently with recent flag state */
 	mail_ctx->mail.from_offset = mail_ctx->from_offset;
 	if ((mail_ctx->mail.flags & MBOX_NONRECENT) == 0) {
-		/* need to add 'O' flag to Status-header */
-		mail_ctx->need_rewrite = TRUE;
+		if (!sync_ctx->ibox->keep_recent) {
+			/* need to add 'O' flag to Status-header */
+			mail_ctx->need_rewrite = TRUE;
+		}
 		// FIXME: save it somewhere
 	}
 	return 1;
@@ -340,13 +342,21 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 		rec = NULL;
 	}
 
-	if (rec != NULL && rec->uid != uid) {
+	if (ret == 0 && uid < sync_ctx->hdr->next_uid) {
+		/* this UID was already in index and it was expunged */
+		mail_storage_set_critical(sync_ctx->ibox->box.storage,
+			"mbox sync: Expunged message reappeared in mailbox %s "
+			"(UID %u < %u)", sync_ctx->ibox->path, uid,
+			sync_ctx->hdr->next_uid);
+		ret = 0;
+	} else if (rec != NULL && rec->uid != uid) {
 		/* new UID in the middle of the mailbox - shouldn't happen */
 		mail_storage_set_critical(sync_ctx->ibox->box.storage,
 			"mbox sync: UID inserted in the middle of mailbox %s "
 			"(%u > %u)", sync_ctx->ibox->path, rec->uid, uid);
-		mail_index_mark_corrupted(sync_ctx->ibox->index);
-		return -1;
+		ret = 0;
+	} else {
+		ret = 1;
 	}
 
 	*rec_r = rec;
@@ -747,12 +757,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			ret = mbox_sync_read_index_rec(sync_ctx, uid, &rec);
 			if (ret < 0)
 				return -1;
-			if (ret == 0 && uid < sync_ctx->hdr->next_uid) {
-				/* this UID was already in index and it was
-				   expunged */
+			if (ret == 0)
 				uid = 0;
-				rec = NULL;
-			}
 		}
 		if (uid == 0) {
 			/* missing/broken X-UID. all the rest of the mails
