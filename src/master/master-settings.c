@@ -251,7 +251,11 @@ struct auth_settings default_auth_settings = {
 	MEMBER(verbose) FALSE,
 
 	MEMBER(count) 1,
-	MEMBER(process_size) 256
+	MEMBER(process_size) 256,
+
+	/* .. */
+	MEMBER(uid) 0,
+	MEMBER(gid) 0
 };
 
 static pool_t settings_pool, settings2_pool;
