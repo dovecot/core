@@ -162,7 +162,7 @@ int index_storage_save(struct mail_storage *storage, const char *path,
 	failed = FALSE;
 	for (;;) {
 		data = i_stream_get_data(input, &size);
-		if (!failed) {
+		if (!failed && size > 0) {
 			ret = write_func(output, data, size);
 			if (ret < 0) {
 				set_write_error(storage, output, path);
