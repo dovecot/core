@@ -501,10 +501,7 @@ dnl * Solaris compatible sendfilev()
 AC_CHECK_LIB(sendfile, sendfilev, [
   LIBS="$LIBS -lsendfile"
   AC_DEFINE(HAVE_SOLARIS_SENDFILEV,, Define if you have Solaris-compatible sendfilev())
-  AC_MSG_RESULT(yes)
 ], [
-  AC_MSG_RESULT(no)
-
   dnl * Linux compatible sendfile() - don't check if Solaris one was found.
   dnl * This seems to pass with Solaris for some reason..
   AC_MSG_CHECKING([Linux compatible sendfile()])
