@@ -14,8 +14,8 @@
 
 #include <stddef.h>
 
-/* This may block the process for two seconds, but at least it works. */
-#if LDAP_VENDOR_VERSION <= 20026
+/* Older versions may require calling ldap_result() twice */
+#if LDAP_VENDOR_VERSION <= 20112
 #  define OPENLDAP_ASYNC_WORKAROUND
 #endif
 
@@ -130,12 +130,14 @@ static void ldap_input(void *context)
 
 	for (;;) {
 		memset(&timeout, 0, sizeof(timeout));
-#ifdef OPENLDAP_ASYNC_WORKAROUND
-		/* we may block, but at least we work */
-		timeout.tv_sec = 2;
-#endif
-
 		ret = ldap_result(conn->ld, LDAP_RES_ANY, 1, &timeout, &res);
+#ifdef OPENLDAP_ASYNC_WORKAROUND
+		if (ret == 0) {
+			/* try again, there may be another in buffer */
+			ret = ldap_result(conn->ld, LDAP_RES_ANY, 1,
+					  &timeout, &res);
+		}
+#endif
 		if (ret <= 0) {
 			if (ret < 0) {
 				i_error("LDAP: ldap_result() failed: %s",
