@@ -31,7 +31,7 @@ static void request_callback(struct auth_client_request_reply *reply,
 	iov[0].iov_base = reply;
 	iov[0].iov_len = sizeof(*reply);
 	iov[1].iov_base = data;
-	iov[2].iov_len = reply->data_size;
+	iov[1].iov_len = reply->data_size;
 
 	ret = o_stream_sendv(conn->output, iov, 2);
 	if (ret == (ssize_t)(iov[0].iov_len + iov[1].iov_len)) {
@@ -215,7 +215,7 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
 	iov[0].iov_base = &handshake_reply;
 	iov[0].iov_len = sizeof(handshake_reply);
 	iov[1].iov_base = master->handshake_reply + 1;
-	iov[2].iov_len = handshake_reply.data_size;
+	iov[1].iov_len = handshake_reply.data_size;
 
 	if (o_stream_sendv(conn->output, iov, 2) < 0) {
 		auth_client_connection_destroy(conn);

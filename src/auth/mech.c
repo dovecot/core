@@ -226,6 +226,7 @@ void mech_auth_finish(struct auth_request *auth_request,
 {
 	struct auth_client_request_reply reply;
 	void *reply_data;
+	int free_request;
 
 	if (!success) {
 		/* failure. don't announce it immediately to avoid
@@ -239,10 +240,13 @@ void mech_auth_finish(struct auth_request *auth_request,
 	reply.id = auth_request->id;
 	reply.result = AUTH_CLIENT_RESULT_SUCCESS;
 
+	/* get this before callback because it can destroy connection */
+	free_request = AUTH_MASTER_IS_DUMMY(auth_request->conn->master);
+
 	reply_data = mech_auth_success(&reply, auth_request, data, data_size);
 	auth_request->callback(&reply, reply_data, auth_request->conn);
 
-	if (AUTH_MASTER_IS_DUMMY(auth_request->conn->master)) {
+	if (free_request) {
 		/* we don't have master process, the request is no longer
 		   needed */
 		mech_request_free(auth_request, auth_request->id);
