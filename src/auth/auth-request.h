@@ -62,6 +62,7 @@ struct auth_request {
 struct auth_request *
 auth_request_new(struct auth *auth, struct mech_module *mech,
 		 mech_callback_t *callback, void *context);
+struct auth_request *auth_request_new_dummy(struct auth *auth);
 void auth_request_ref(struct auth_request *request);
 int auth_request_unref(struct auth_request *request);
 

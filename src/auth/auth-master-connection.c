@@ -86,6 +86,44 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 	return TRUE;
 }
 
+static void
+user_callback(const char *result, struct auth_request *auth_request)
+{
+	struct auth_master_connection *conn = auth_request->context;
+	string_t *str;
+
+	str = t_str_new(128);
+	if (result == NULL)
+		str_printfa(str, "NOTFOUND\t%u\n", auth_request->id);
+	else {
+		str_printfa(str, "USER\t%u\t", auth_request->id);
+		str_append(str, result);
+		str_append_c(str, '\n');
+	}
+	(void)o_stream_send(conn->output, str_data(str), str_len(str));
+}
+
+static int
+master_input_user(struct auth_master_connection *conn, const char *args)
+{
+	struct auth_request *auth_request;
+	const char *const *list;
+
+	/* <id> <userid> */
+	list = t_strsplit(args, "\t");
+	if (list[0] == NULL || list[1] == NULL) {
+		i_error("BUG: Master sent broken USER");
+		return FALSE;
+	}
+
+	auth_request = auth_request_new_dummy(conn->auth);
+	auth_request->id = (unsigned int)strtoul(list[0], NULL, 10);
+	auth_request->user = p_strdup(auth_request->pool, list[1]);
+	auth_request->context = conn;
+	auth_request_lookup_user(auth_request, user_callback);
+	return TRUE;
+}
+
 static int
 master_input_die(struct auth_master_connection *conn)
 {
@@ -137,6 +175,8 @@ static void master_input(void *context)
 		t_push();
 		if (strncmp(line, "REQUEST\t", 8) == 0)
 			ret = master_input_request(conn, line + 8);
+		else if (strncmp(line, "USER\t", 5) == 0)
+			ret = master_input_user(conn, line + 5);
 		else if (strcmp(line, "DIE") == 0)
 			ret = master_input_die(conn);
 		else {

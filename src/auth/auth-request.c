@@ -37,6 +37,24 @@ auth_request_new(struct auth *auth, struct mech_module *mech,
 	return request;
 }
 
+struct auth_request *auth_request_new_dummy(struct auth *auth)
+{
+	struct auth_request *auth_request;
+	pool_t pool;
+
+	pool = pool_alloconly_create("auth_request", 256);
+	auth_request = p_new(pool, struct auth_request, 1);
+	auth_request->pool = pool;
+
+	auth_request->refcount = 1;
+	auth_request->created = ioloop_time;
+	auth_request->auth = auth;
+	auth_request->passdb = auth->passdbs;
+	auth_request->userdb = auth->userdbs;
+
+	return auth_request;
+}
+
 void auth_request_success(struct auth_request *request,
 			  const void *data, size_t data_size)
 {

@@ -45,17 +45,8 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 {
 	struct auth_request *auth_request;
 	const char *key, *value, *const *tmp;
-	pool_t pool;
 
-	pool = pool_alloconly_create("auth_request", 256);
-	auth_request = p_new(pool, struct auth_request, 1);
-	auth_request->pool = pool;
-
-	auth_request->refcount = 1;
-	auth_request->created = ioloop_time;
-	auth_request->auth = client->auth;
-	auth_request->passdb = client->auth->passdbs;
-	auth_request->userdb = client->auth->userdbs;
+	auth_request = auth_request_new_dummy(client->auth);
 
 	client->refcount++;
 	auth_request->context = client;
@@ -70,11 +61,13 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 		key = t_strdup_until(*tmp, value);
 		value++;
 
-		if (strcmp(key, "user") == 0)
-			auth_request->user = p_strdup(pool, value);
-		else if (strcmp(key, "service") == 0)
-			auth_request->service = p_strdup(pool, value);
-		else if (strcmp(key, "lip") == 0)
+		if (strcmp(key, "user") == 0) {
+			auth_request->user =
+				p_strdup(auth_request->pool, value);
+		} else if (strcmp(key, "service") == 0) {
+			auth_request->service =
+				p_strdup(auth_request->pool, value);
+		} else if (strcmp(key, "lip") == 0)
 			net_addr2ip(value, &auth_request->local_ip);
 		else if (strcmp(key, "rip") == 0)
 			net_addr2ip(value, &auth_request->remote_ip);
