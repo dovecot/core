@@ -10,6 +10,7 @@
 #include "mail-storage.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <syslog.h>
 
 #define IS_STANDALONE() \
@@ -30,7 +31,12 @@ static void open_logfile(void)
 	const char *user;
 
 	user = getenv("USER");
-	if (user == NULL) user = "??";
+	if (user == NULL) {
+		if (!IS_STANDALONE())
+			user = getlogin();
+		if (user == NULL)
+			user = "??";
+	}
 	if (strlen(user) >= sizeof(log_prefix)-6) {
 		/* quite a long user name, cut it */
 		user = t_strndup(user, sizeof(log_prefix)-6-2);
@@ -63,13 +69,18 @@ static void main_init(void)
 {
 	struct client *client;
 	struct mail_storage *storage;
-	const char *mail, *str;
+	const char *user, *mail, *str;
 	int hin, hout;
 
 	lib_init_signals(sig_quit);
 
-	if (getenv("USER") == NULL)
-		i_fatal("USER environment missing");
+	user = getenv("USER");
+	if (user == NULL) {
+		if (!IS_STANDALONE())
+			user = getlogin();
+		if (user == NULL)
+			i_fatal("USER environment missing");
+	}
 
 	hin = 0; hout = 1;
 	rawlog_open(&hin, &hout);
@@ -86,7 +97,7 @@ static void main_init(void)
 			mail = t_strconcat("maildir:", mail, NULL);
 	}
 
-	storage = mail_storage_create_with_data(mail, getenv("USER"));
+	storage = mail_storage_create_with_data(mail, user);
 	if (storage == NULL) {
 		/* failed */
 		if (mail != NULL && *mail != '\0')
@@ -116,7 +127,7 @@ static void main_init(void)
 	if (IS_STANDALONE()) {
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY "CAPABILITY_STRING"] "
-			"Logged in as ", getenv("USER"), NULL));
+			"Logged in as ", user, NULL));
 	}
 }
 
