@@ -41,6 +41,8 @@
 
 #ifdef ARRAY_TYPE_CHECKS
 #  define ARRAY_DEFINE(name, array_type) name; array_type *name ## __ ## type
+#  define ARRAY_DEFINE_PTR(name, array_type) \
+	name; array_type **name ## __ ## type
 #  define ARRAY_CREATE(array, pool, array_type, init_count) STMT_START { \
 	array_type *_array_tmp = *(array ## __ ## type); _array_tmp = NULL; \
 	array_create(array, pool, sizeof(array_type), init_count); \
@@ -50,6 +52,7 @@
 #  define ARRAY_INIT { 0, 0 }, 0
 #else
 #  define ARRAY_DEFINE(name, array_type) name
+#  define ARRAY_DEFINE_PTR(name, array_type) name
 #  define ARRAY_CREATE(array, pool, array_type, init_count) \
 	array_create(array, pool, sizeof(array_type), init_count)
 /* The reason we do this for non-ARRAY_TYPE_CHECKS as well is because if we
