@@ -366,9 +366,9 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 	t_push();
 
 	/* first pass, we need at least the size */
-	if (size->virtual_size > MAX_HEADER_BUFFER_SIZE &&
-	    body->max_size > MAX_HEADER_BUFFER_SIZE &&
-	    !ctx->body_fetch_from_cache) {
+	if (!ctx->body_fetch_from_cache &&
+	    size->virtual_size > MAX_HEADER_BUFFER_SIZE &&
+	    body->max_size > MAX_HEADER_BUFFER_SIZE) {
 		if (!fetch_header_fields(input, header_section, &hdr_ctx))
 			failed = TRUE;
 
@@ -420,9 +420,10 @@ static int fetch_header(struct imap_fetch_context *ctx, struct mail *mail,
 	struct istream *stream;
 	struct message_size hdr_size;
 
-	if (ctx->body_fetch_from_cache)
+	if (ctx->body_fetch_from_cache) {
+		memset(&hdr_size, 0, sizeof(hdr_size));
 		stream = NULL;
-	else {
+	} else {
 		stream = mail->get_stream(mail, &hdr_size, NULL);
 		if (stream == NULL)
 			return FALSE;
