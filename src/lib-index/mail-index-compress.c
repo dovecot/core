@@ -157,7 +157,8 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 			return FALSE;
 		}
 
-		rec_hdr = (MailIndexDataRecordHeader *) mmap_data;
+		rec_hdr = (MailIndexDataRecordHeader *)
+			(mmap_data + rec->data_position);
 		if (rec->data_position + rec_hdr->data_size > mmap_data_size) {
 			index_set_corrupted(index,
 				"data_size points outside file");
