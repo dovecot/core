@@ -8,6 +8,12 @@
 #include <iconv.h>
 #include <ctype.h>
 
+#ifdef __sun__
+#  define ICONV_CONST const
+#else
+#  define ICONV_CONST
+#endif
+
 struct _CharsetTranslation {
 	iconv_t cd;
 	int ascii;
@@ -64,7 +70,8 @@ int charset_to_ucase_utf8(CharsetTranslation *t,
 			  const unsigned char **inbuf, size_t *insize,
 			  unsigned char *outbuf, size_t *outsize)
 {
-	char *ic_inbuf, *ic_outbuf;
+	ICONV_CONST char *ic_inbuf;
+	char *ic_outbuf;
 	size_t outleft, max_size, i;
 
 	if (t->cd == NULL) {
@@ -77,7 +84,7 @@ int charset_to_ucase_utf8(CharsetTranslation *t,
 		return TRUE;
 	}
 
-	ic_inbuf = (char *) *inbuf;
+	ic_inbuf = (ICONV_CONST char *) *inbuf;
 	ic_outbuf = (char *) outbuf;
 	outleft = *outsize;
 
@@ -104,7 +111,8 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 			     const unsigned char *buf, size_t *size)
 {
 	iconv_t cd;
-	char *inbuf, *outbuf, *outpos;
+	ICONV_CONST char *inbuf;
+	char *outbuf, *outpos;
 	size_t inleft, outleft, outsize, pos;
 
 	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0 ||
@@ -121,7 +129,7 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 	if (unknown_charset != NULL)
 		*unknown_charset = FALSE;
 
-	inbuf = (char *) buf;
+	inbuf = (ICONV_CONST char *) buf;
 	inleft = *size;
 
 	outsize = outleft = *size * 2;
