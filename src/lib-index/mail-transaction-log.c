@@ -1263,10 +1263,10 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	if (log->head->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_SIZE &&
 	    log->head->last_mtime <
 	    ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_MIN_TIME) {
-		/* we might want to rotate, but check first that head file
-		   sequence matches the one in index header, ie. we have
-		   everything synced in index. */
-		if (log->head->hdr.file_seq == idx_hdr.log_file_seq) {
+		/* we might want to rotate, but check first that everything is
+		   synced in index. */
+		if (log->head->hdr.file_seq == idx_hdr.log_file_seq &&
+		    log->head->sync_offset == idx_hdr.log_file_offset) {
 			if (mail_transaction_log_rotate(log, TRUE) < 0) {
 				/* that didn't work. well, try to continue
 				   anyway */
