@@ -12,8 +12,8 @@ INCLUDES = \
 	-DSSLDIR=\""$(ssldir)\""
 
 dovecot_LDADD = \
-	../lib/liblib.a \
 	../lib-settings/libsettings.a \
+	../lib/liblib.a \
 	$(SSL_LIBS)
 
 dovecot_SOURCES = \
