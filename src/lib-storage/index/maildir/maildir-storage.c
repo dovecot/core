@@ -293,7 +293,7 @@ static int mkdir_verify(struct index_storage *storage,
 		}
 	}
 
-	if (mkdir(dir, CREATE_MODE) < 0 && (errno != EEXIST || !verify)) {
+	if (mkdir_parents(dir, CREATE_MODE) < 0 && (errno != EEXIST || !verify)) {
 		if (errno != EEXIST && (!verify || errno != ENOENT)) {
 			mail_storage_set_critical(&storage->storage,
 						  "mkdir(%s) failed: %m", dir);
