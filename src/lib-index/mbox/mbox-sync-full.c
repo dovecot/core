@@ -107,7 +107,7 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	skip_line(input);
 	header_offset = input->v_offset;
 
-	hdr_size = 0; hdr_size_fixed = FALSE;
+	hdr_size = 0; body_offset = 0; hdr_size_fixed = FALSE;
 	do {
 		if (!mbox_mail_get_location(index, rec, NULL, NULL, &body_size))
 			return FALSE;
