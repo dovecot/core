@@ -189,6 +189,7 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 
 	data->mmap_used_length = hdr->used_file_size;
 	data->header = hdr;
+	debug_mprotect(data->mmap_base, data->mmap_full_length, data->index);
 	return TRUE;
 }
 

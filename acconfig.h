@@ -1,3 +1,6 @@
+/* Build with extra debugging checks */
+#undef DEBUG
+
 /* Build with SSL/TLS support */
 #undef HAVE_SSL
 

@@ -168,6 +168,8 @@ static int mmap_update(ModifyLogFile *file, int forced)
 	if (!forced && file->header != NULL &&
 	    file->mmap_full_length >= file->header->used_file_size) {
 		file->mmap_used_length = file->header->used_file_size;
+		debug_mprotect(file->mmap_base, file->mmap_full_length,
+			       file->log->index);
 		return TRUE;
 	}
 
@@ -235,6 +237,8 @@ static int mmap_update(ModifyLogFile *file, int forced)
 
 	file->header = file->mmap_base;
 	file->mmap_used_length = hdr->used_file_size;
+	debug_mprotect(file->mmap_base, file->mmap_full_length,
+		       file->log->index);
 	return TRUE;
 }
 

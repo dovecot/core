@@ -313,6 +313,7 @@ static int mail_index_lock_remove(MailIndex *index)
 			return mail_index_write_header_changes(index);
 	}
 
+        debug_mprotect(index->mmap_base, index->mmap_full_length, index);
 	return TRUE;
 }
 
@@ -331,7 +332,9 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type)
 	if (file_wait_lock(index->fd, MAIL_LOCK_TO_FLOCK(lock_type),
 			   DEFAULT_LOCK_TIMEOUT) <= 0)
 		return index_set_syscall_error(index, "file_wait_lock()");
+
 	index->lock_type = lock_type;
+	debug_mprotect(index->mmap_base, index->mmap_full_length, index);
 
 	if (!mail_index_mmap_update(index)) {
 		(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);

@@ -1,6 +1,20 @@
 #ifndef __MAIL_INDEX_UTIL_H
 #define __MAIL_INDEX_UTIL_H
 
+/* Get index's lock state as mprotect() argument */
+#define MAIL_INDEX_PROT(index) \
+	((index)->lock_type == MAIL_LOCK_EXCLUSIVE ? (PROT_READ|PROT_WRITE) : \
+	 (index)->lock_type == MAIL_LOCK_SHARED || !(index)->opened ? \
+	 PROT_READ : PROT_NONE)
+
+/* DEBUG: Force mmap() locks with mprotect() */
+#ifdef DEBUG
+#  define debug_mprotect(mmap_base, mmap_length, index) \
+	mprotect(mmap_base, mmap_length, MAIL_INDEX_PROT(index))
+#else
+#  define debug_mprotect(mmap_base, mmap_length, index)
+#endif
+
 /* Set the current error message */
 int index_set_error(MailIndex *index, const char *fmt, ...)
 	__attr_format__(2, 3);

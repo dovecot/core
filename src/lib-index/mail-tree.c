@@ -69,6 +69,7 @@ static int mmap_update(MailTree *tree)
 		return tree_set_syscall_error(tree, "mmap()");
 	}
 
+	debug_mprotect(tree->mmap_base, tree->mmap_full_length, tree->index);
 	return TRUE;
 }
 
