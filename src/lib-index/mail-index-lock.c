@@ -41,6 +41,9 @@ int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
 	if (timeout_secs != 0)
 		alarm(MAIL_INDEX_LOCK_WAIT_TIME);
 
+	if (MAIL_INDEX_IS_IN_MEMORY(index))
+		return 1;
+
 	switch (index->lock_method) {
 	case MAIL_INDEX_LOCK_FCNTL: {
 #ifndef HAVE_FCNTL
@@ -233,6 +236,8 @@ static int mail_index_copy(struct mail_index *index)
 	const char *path;
 	int ret, fd;
 
+	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
+
 	fd = mail_index_create_tmp_file(index, &path);
 	if (fd == -1)
 		return -1;
@@ -367,11 +372,14 @@ static void mail_index_excl_unlock_finish(struct mail_index *index)
 			i_free(index->copy_lock_path);
 			index->copy_lock_path = NULL;
 		}
-		fd = mail_index_copy(index);
-		if (fd == -1)
-			mail_index_set_inconsistent(index);
-		else
-			(void)close(fd);
+
+		if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
+			fd = mail_index_copy(index);
+			if (fd == -1)
+				mail_index_set_inconsistent(index);
+			else
+				(void)close(fd);
+		}
 	}
 
 	if (index->shared_lock_count > 0 &&

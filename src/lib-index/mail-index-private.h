@@ -20,6 +20,9 @@ struct mail_index_sync_map_ctx;
    rewritten by another computer than us). */
 #define MAIL_INDEX_ESTALE_RETRY_COUNT 10
 
+#define MAIL_INDEX_IS_IN_MEMORY(index) \
+	((index)->dir == NULL)
+
 #define MAIL_INDEX_MAP_IS_IN_MEMORY(map) \
 	((map) != NULL && (map)->buffer != NULL)
 

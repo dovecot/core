@@ -41,29 +41,41 @@ static int log_append_buffer(struct mail_transaction_log_file *file,
 	if (external)
 		hdr.type |= MAIL_TRANSACTION_EXTERNAL;
 
-	hdr_size =
-		mail_index_uint32_to_offset(sizeof(hdr) + size + hdr_data_size);
-	if (file->first_append_size == 0) {
-		/* size will be written later once everything is in disk */
-		file->first_append_size = hdr_size;
-	} else {
-		hdr.size = hdr_size;
-	}
-
-	if (pwrite_full(file->fd, &hdr, sizeof(hdr), file->sync_offset) < 0)
-		return -1;
-	file->sync_offset += sizeof(hdr);
-
-	if (hdr_data_size > 0) {
-		if (pwrite_full(file->fd, hdr_data, hdr_data_size,
+	hdr_size = mail_index_uint32_to_offset(sizeof(hdr) + size +
+					       hdr_data_size);
+	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
+		if (file->first_append_size == 0) {
+			/* size will be written later once everything is in
+			   disk */
+			file->first_append_size = hdr_size;
+		} else {
+			hdr.size = hdr_size;
+		}
+		if (pwrite_full(file->fd, &hdr, sizeof(hdr),
 				file->sync_offset) < 0)
 			return -1;
-		file->sync_offset += hdr_data_size;
-	}
+		file->sync_offset += sizeof(hdr);
 
-	if (pwrite_full(file->fd, data, size, file->sync_offset) < 0)
-		return -1;
-	file->sync_offset += size;
+		if (hdr_data_size > 0) {
+			if (pwrite_full(file->fd, hdr_data, hdr_data_size,
+					file->sync_offset) < 0)
+				return -1;
+			file->sync_offset += hdr_data_size;
+		}
+
+		if (pwrite_full(file->fd, data, size, file->sync_offset) < 0)
+			return -1;
+		file->sync_offset += size;
+	} else {
+		hdr.size = hdr_size;
+
+		i_assert(file->buffer_offset + file->buffer->used ==
+			 file->sync_offset);
+		buffer_append(file->buffer, &hdr, sizeof(hdr));
+		buffer_append(file->buffer, hdr_data, hdr_data_size);
+		buffer_append(file->buffer, data, size);
+		file->sync_offset = file->buffer_offset + file->buffer->used;
+	}
 	return 0;
 }
 
@@ -421,22 +433,24 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 						       append_offset);
 	}
 
-	if (ret == 0 && fsync(file->fd) < 0) {
-		/* we don't know how much of it got written,
-		   it may be corrupted now.. */
-		mail_index_file_set_syscall_error(log->index, file->filepath,
-						  "fsync()");
-		ret = -1;
-	}
-
-	if (ret == 0 && file->first_append_size != 0) {
-		/* synced - rewrite first record's header */
-		ret = pwrite_full(file->fd, &file->first_append_size,
-				  sizeof(uint32_t), append_offset);
-		if (ret < 0) {
+	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
+		if (ret == 0 && fsync(file->fd) < 0) {
+			/* we don't know how much of it got written,
+			   it may be corrupted now.. */
 			mail_index_file_set_syscall_error(log->index,
 							  file->filepath,
-							  "pwrite()");
+							  "fsync()");
+			ret = -1;
+		}
+
+		if (ret == 0 && file->first_append_size != 0) {
+			/* synced - rewrite first record's header */
+			ret = pwrite_full(file->fd, &file->first_append_size,
+					  sizeof(uint32_t), append_offset);
+			if (ret < 0) {
+				mail_index_file_set_syscall_error(log->index,
+					file->filepath, "pwrite()");
+			}
 		}
 	}
 

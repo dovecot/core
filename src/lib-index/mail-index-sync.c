@@ -630,7 +630,6 @@ mail_index_sync_get_keywords(struct mail_index_sync_ctx *ctx)
 	return &ctx->index->keywords;
 }
 
-
 void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
 				 uint8_t *flags)
 {

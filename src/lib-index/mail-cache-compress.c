@@ -300,6 +300,9 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 {
 	int ret;
 
+	if (MAIL_INDEX_IS_IN_MEMORY(cache->index))
+		return 0;
+
 	if (cache->index->lock_method == MAIL_INDEX_LOCK_DOTLOCK) {
 		/* we're using dotlocking, cache file creation itself creates
 		   the dotlock file we need. */

@@ -16,6 +16,8 @@
 #include <sys/stat.h>
 
 static int mail_index_try_open_only(struct mail_index *index);
+static void mail_index_create_in_memory(struct mail_index *index,
+					const struct mail_index_header *hdr);
 
 struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 {
@@ -886,6 +888,12 @@ int mail_index_map(struct mail_index *index, int force)
 	i_assert(index->map == NULL || index->map->refcount > 0);
 	i_assert(index->lock_type != F_UNLCK);
 
+	if (MAIL_INDEX_IS_IN_MEMORY(index)) {
+		if (index->map == NULL)
+			mail_index_create_in_memory(index, NULL);
+		return 1;
+	}
+
 	index->mapping = TRUE;
 
 	if (!force && index->map != NULL) {
@@ -1052,6 +1060,8 @@ static int mail_index_try_open_only(struct mail_index *index)
 {
 	int i;
 
+	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
+
 	for (i = 0; i < 3; i++) {
 		index->fd = open(index->filepath, O_RDWR);
 		if (index->fd == -1 && errno == EACCES) {
@@ -1085,6 +1095,9 @@ mail_index_try_open(struct mail_index *index, unsigned int *lock_id_r)
 
 	if (lock_id_r != NULL)
 		*lock_id_r = 0;
+
+	if (MAIL_INDEX_IS_IN_MEMORY(index))
+		return 0;
 
 	ret = mail_index_try_open_only(index);
 	if (ret <= 0)
@@ -1126,9 +1139,12 @@ int mail_index_write_base_header(struct mail_index *index,
 			return mail_index_set_syscall_error(index, "msync()");
 		index->map->hdr = *hdr;
 	} else {
-		if (pwrite_full(index->fd, hdr, hdr_size, 0) < 0) {
-			mail_index_set_syscall_error(index, "pwrite_full()");
-			return -1;
+		if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
+			if (pwrite_full(index->fd, hdr, hdr_size, 0) < 0) {
+				mail_index_set_syscall_error(index,
+							     "pwrite_full()");
+				return -1;
+			}
 		}
 
 		index->map->hdr = *hdr;
@@ -1143,6 +1159,8 @@ int mail_index_create_tmp_file(struct mail_index *index, const char **path_r)
         mode_t old_mask;
 	const char *path;
 	int fd;
+
+	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
 
 	path = *path_r = t_strconcat(index->filepath, ".tmp", NULL);
 	old_mask = umask(0);
@@ -1167,6 +1185,7 @@ static int mail_index_create(struct mail_index *index,
 	uoff_t offset;
 	int ret;
 
+	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
 	i_assert(index->lock_type == F_UNLCK);
 
 	/* log file lock protects index creation */
@@ -1243,6 +1262,27 @@ static void mail_index_header_init(struct mail_index_header *hdr)
 	hdr->next_uid = 1;
 }
 
+static void mail_index_create_in_memory(struct mail_index *index,
+					const struct mail_index_header *hdr)
+{
+        struct mail_index_header tmp_hdr;
+	struct mail_index_map tmp_map;
+
+	if (hdr == NULL) {
+		mail_index_header_init(&tmp_hdr);
+		hdr = &tmp_hdr;
+	}
+
+	memset(&tmp_map, 0, sizeof(tmp_map));
+	tmp_map.hdr = *hdr;
+	tmp_map.hdr_base = hdr;
+
+	/* a bit kludgy way to do this, but it initializes everything
+	   nicely and correctly */
+	index->map = mail_index_map_clone(&tmp_map, hdr->record_size);
+	index->hdr = &index->map->hdr;
+}
+
 /* returns -1 = error, 0 = won't create, 1 = ok */
 static int mail_index_open_files(struct mail_index *index,
 				 enum mail_index_open_flags flags)
@@ -1274,8 +1314,12 @@ static int mail_index_open_files(struct mail_index *index,
 			mail_index_unlock(index, lock_id);
 			lock_id = 0;
 		}
-		if (mail_index_create(index, &hdr) < 0)
-			return -1;
+		if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
+			if (mail_index_create(index, &hdr) < 0)
+				return -1;
+		} else {
+			mail_index_create_in_memory(index, &hdr);
+		}
 		created = TRUE;
 	}
 
@@ -1307,7 +1351,9 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 		}
 	}
 
-	index->filepath = i_strconcat(index->dir, "/", index->prefix, NULL);
+	index->filepath = MAIL_INDEX_IS_IN_MEMORY(index) ?
+		i_strdup("(in-memory index)") :
+		i_strconcat(index->dir, "/", index->prefix, NULL);
 
 	do {
 		index->shared_lock_count = 0;
@@ -1397,6 +1443,8 @@ int mail_index_reopen(struct mail_index *index, int fd)
 	unsigned int old_shared_locks, old_lock_id, lock_id = 0;
 	int ret, old_fd, old_lock_type;
 
+	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
+
 	old_map = index->map;
 	old_fd = index->fd;
 	old_map->refcount++;
@@ -1463,6 +1511,9 @@ int mail_index_reopen_if_needed(struct mail_index *index)
 {
 	struct stat st1, st2;
 
+	if (MAIL_INDEX_IS_IN_MEMORY(index))
+		return 0;
+
 	if (fstat(index->fd, &st1) < 0)
 		return mail_index_set_syscall_error(index, "fstat()");
 	if (stat(index->filepath, &st2) < 0) {
@@ -1489,6 +1540,9 @@ int mail_index_refresh(struct mail_index *index)
 {
 	unsigned int lock_id;
 	int ret;
+
+	if (MAIL_INDEX_IS_IN_MEMORY(index))
+		return 0;
 
 	if (index->excl_lock_count > 0) {
 		/* we have index exclusively locked, nothing could
@@ -1552,7 +1606,7 @@ void mail_index_mark_corrupted(struct mail_index *index)
 	hdr = *index->hdr;
 	hdr.flags |= MAIL_INDEX_HDR_FLAG_CORRUPTED;
 	if (mail_index_write_base_header(index, &hdr) == 0) {
-		if (fsync(index->fd) < 0)
+		if (!MAIL_INDEX_IS_IN_MEMORY(index) && fsync(index->fd) < 0)
 			mail_index_set_syscall_error(index, "fsync()");
 	}
 }

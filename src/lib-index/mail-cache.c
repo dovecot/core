@@ -69,8 +69,9 @@ int mail_cache_reopen(struct mail_cache *cache)
 	struct mail_index_view *view;
 	const struct mail_index_ext *ext;
 
-	if (MAIL_CACHE_IS_UNUSABLE(cache) && cache->need_compress) {
-		/* unusable, we're just waiting for compression */
+	if (MAIL_CACHE_IS_UNUSABLE(cache) &&
+	    (cache->need_compress || MAIL_INDEX_IS_IN_MEMORY(cache->index))) {
+		/* reopening does no good */
 		return 0;
 	}
 
@@ -192,8 +193,10 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 			mail_cache_set_syscall_error(cache, "munmap()");
 	} else {
 		if (cache->fd == -1) {
-			/* unusable, waiting for compression */
-			i_assert(cache->need_compress);
+			/* unusable, waiting for compression or
+			   index is in memory */
+			i_assert(cache->need_compress ||
+				 MAIL_INDEX_IS_IN_MEMORY(cache->index));
 			return -1;
 		}
 	}
@@ -222,6 +225,9 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 
 static int mail_cache_open_and_verify(struct mail_cache *cache)
 {
+	if (MAIL_INDEX_IS_IN_MEMORY(cache->index))
+		return 0;
+
 	cache->fd = open(cache->filepath, O_RDWR);
 	if (cache->fd == -1) {
 		if (errno == ENOENT) {
@@ -261,8 +267,10 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 	cache->dotlock_settings.immediate_stale_timeout =
 		MAIL_CACHE_LOCK_IMMEDIATE_TIMEOUT;
 
-	if (index->mmap_disable || index->mmap_no_write)
-		cache->file_cache = file_cache_new(-1);
+	if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
+		if (index->mmap_disable || index->mmap_no_write)
+			cache->file_cache = file_cache_new(-1);
+	}
 
 	cache->ext_id =
 		mail_index_ext_register(index, "cache", 0,
