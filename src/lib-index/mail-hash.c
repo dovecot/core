@@ -137,13 +137,6 @@ int mail_hash_create(MailIndex *index)
 	return mail_hash_rebuild(mail_hash_new(index));
 }
 
-static int mail_hash_lock_and_rebuild(MailHash *hash)
-{
-	if (!hash->index->set_lock(hash->index, MAIL_LOCK_EXCLUSIVE))
-		return FALSE;
-	return mail_hash_rebuild(hash);
-}
-
 int mail_hash_open_or_create(MailIndex *index)
 {
 	MailHash *hash;
@@ -153,7 +146,7 @@ int mail_hash_open_or_create(MailIndex *index)
 
 	hash->fd = open(hash->filepath, O_RDWR);
 	if (hash->fd == -1)
-		return mail_hash_lock_and_rebuild(hash);
+		return mail_hash_rebuild(hash);
 
 	if (!mmap_update_real(hash)) {
 		/* mmap() failure is fatal */
@@ -179,7 +172,7 @@ int mail_hash_open_or_create(MailIndex *index)
 		hash->mmap_base = NULL;
 		hash->dirty_mmap = TRUE;
 
-		return mail_hash_lock_and_rebuild(hash);
+		return mail_hash_rebuild(hash);
 	}
 
 	return TRUE;
@@ -325,7 +318,8 @@ int mail_hash_rebuild(MailHash *hash)
 	unsigned int hash_size;
 	int fd;
 
-	i_assert(hash->index->lock_type == MAIL_LOCK_EXCLUSIVE);
+	if (!hash->index->set_lock(hash->index, MAIL_LOCK_EXCLUSIVE))
+		return FALSE;
 
 	/* first get the number of messages in index */
 	index_header = hash->index->get_header(hash->index);
