@@ -18,10 +18,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 
 	pw = getpwnam(auth_request->user);
 	if (pw == NULL) {
-		if (verbose) {
-			i_info("passwd(%s): unknown user",
-			       get_log_prefix(auth_request));
-		}
+		auth_request_log_info(auth_request, "passwd", "unknown user");
 		callback(NULL, context);
 		return;
 	}

@@ -44,10 +44,7 @@ mech_login_auth_continue(struct auth_request *request,
 		username = t_strndup(data, data_size);
 
 		if (!auth_request_set_username(request, username, &error)) {
-			if (verbose) {
-				i_info("login(%s): %s",
-				       get_log_prefix(request), error);
-			}
+                        auth_request_log_info(request, "login", "%s", error);
 			auth_request_fail(request);
 			return;
 		}

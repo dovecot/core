@@ -56,8 +56,8 @@ static void parse_attr(struct auth_request *auth_request,
 	}
 
 	if (i == ATTR_COUNT) {
-		i_error("ldap(%s): Unknown attribute '%s'",
-			get_log_prefix(auth_request), attr);
+		auth_request_log_error(auth_request, "ldap",
+				       "Unknown attribute '%s'", attr);
 		return;
 	}
 
@@ -100,8 +100,8 @@ static void handle_request(struct ldap_connection *conn,
 
 	ret = ldap_result2error(conn->ld, res, 0);
 	if (ret != LDAP_SUCCESS) {
-		i_error("ldap(%s): ldap_search() failed: %s",
-			get_log_prefix(auth_request), ldap_err2string(ret));
+		auth_request_log_error(auth_request, "ldap",
+			"ldap_search() failed: %s", ldap_err2string(ret));
 		urequest->userdb_callback(NULL, request->context);
 		return;
 	}
@@ -109,8 +109,8 @@ static void handle_request(struct ldap_connection *conn,
 	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);
 	if (entry == NULL) {
 		if (res != NULL) {
-			i_error("ldap(%s): Authenticated user not found",
-				get_log_prefix(auth_request));
+			auth_request_log_error(auth_request, "ldap",
+					       "Authenticated user not found");
 		}
 		urequest->userdb_callback(NULL, request->context);
 		return;
@@ -136,17 +136,19 @@ static void handle_request(struct ldap_connection *conn,
 	}
 
 	if (user.virtual_user == NULL)
-		i_error("ldap(%s): No username in reply",
-			get_log_prefix(auth_request));
+		auth_request_log_error(auth_request, "ldap",
+				       "No username in reply");
 	else if (user.uid == (uid_t)-1) {
-		i_error("ldap(%s): uidNumber not set and no default given in "
-			"user_global_uid", get_log_prefix(auth_request));
+		auth_request_log_error(auth_request, "ldap",
+			"uidNumber not set and no default given in "
+			"user_global_uid");
 	} else if (user.gid == (gid_t)-1) {
-		i_error("ldap(%s): gidNumber not set and no default given in "
-			"user_global_gid", get_log_prefix(auth_request));
+		auth_request_log_error(auth_request, "ldap",
+			"gidNumber not set and no default given in "
+			"user_global_gid");
 	} else if (ldap_next_entry(conn->ld, entry) != NULL) {
-		i_error("ldap(%s): Multiple replies found for user",
-			get_log_prefix(auth_request));
+		auth_request_log_error(auth_request, "ldap",
+				       "Multiple replies found for user");
 	} else {
 		urequest->userdb_callback(&user, request->context);
 		t_pop();
@@ -162,14 +164,15 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 			       userdb_callback_t *callback, void *context)
 {
 	struct ldap_connection *conn = userdb_ldap_conn->conn;
+	const char **attr_names = (const char **)userdb_ldap_conn->attr_names;
 	struct userdb_ldap_request *request;
 	const char *filter;
 	string_t *str;
 
 	if (conn->set.user_filter == NULL) {
 		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
-			userdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER],
-			ldap_escape(auth_request->user));
+					 attr_names[ATTR_VIRTUAL_USER],
+					 ldap_escape(auth_request->user));
 	} else {
 		str = t_str_new(512);
 		var_expand(str, conn->set.user_filter,
@@ -184,13 +187,10 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	request->auth_request = auth_request;
 	request->userdb_callback = callback;
 
-	if (verbose_debug) {
-		i_info("ldap(%s): base=%s scope=%s filter=%s fields=%s",
-		       get_log_prefix(auth_request), conn->set.base,
-		       conn->set.scope, filter,
-		       t_strarray_join((const char **)
-				       userdb_ldap_conn->attr_names, ","));
-	}
+	auth_request_log_debug(auth_request, "ldap",
+			       "base=%s scope=%s filter=%s fields=%s",
+			       conn->set.base, conn->set.scope, filter,
+			       t_strarray_join(attr_names, ","));
 
 	db_ldap_search(conn, conn->set.base, conn->set.ldap_scope,
 		       filter, userdb_ldap_conn->attr_names,

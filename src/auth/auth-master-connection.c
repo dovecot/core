@@ -84,12 +84,12 @@ static void userdb_callback(const struct user_data *user, void *context)
 	struct master_userdb_request *master_request = context;
 	string_t *str;
 
-	if (verbose_debug && user != NULL) {
-		i_info("userdb(%s): uid=%s gid=%s home=%s mail=%s",
-		       get_log_prefix(master_request->auth_request),
-		       dec2str(user->uid), dec2str(user->gid),
-		       user->home != NULL ? user->home : "",
-		       user->mail != NULL ? user->mail : "");
+	if (user != NULL) {
+		auth_request_log_debug(master_request->auth_request, "userdb",
+				       "uid=%s gid=%s home=%s mail=%s",
+				       dec2str(user->uid), dec2str(user->gid),
+				       user->home != NULL ? user->home : "",
+				       user->mail != NULL ? user->mail : "");
 	}
 
 	if (auth_master_connection_unref(master_request->conn)) {
@@ -133,10 +133,8 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 			    POINTER_CAST(client_id));
 
 	if (request == NULL) {
-		if (verbose) {
-			i_info("Master request %u.%u not found",
-			       client_pid, client_id);
-		}
+		i_error("Master request %u.%u not found",
+			client_pid, client_id);
 		master_send(conn, "NOTFOUND\t%u", id);
 	} else if (!request->successful) {
 		i_error("Master requested unfinished authentication request "

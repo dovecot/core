@@ -48,12 +48,12 @@ static void passdb_lookup(struct auth_request *auth_request,
 	}
 
 	if (!uid_seen) {
-		i_error("passdb(%s): userdb_uid not returned",
-			get_log_prefix(auth_request));
+		auth_request_log_error(auth_request, "passdb",
+				       "userdb_uid not returned");
 	}
 	if (!gid_seen) {
-		i_error("passdb(%s): userdb_gid not returned",
-			get_log_prefix(auth_request));
+		auth_request_log_error(auth_request, "passdb",
+				       "userdb_gid not returned");
 	}
 
 	if (data.uid == (uid_t)-1 || data.gid == (gid_t)-1)

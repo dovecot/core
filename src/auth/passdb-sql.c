@@ -67,22 +67,19 @@ static void sql_query_callback(struct sql_result *result, void *context)
 
 	ret = sql_result_next_row(result);
 	if (ret < 0) {
-		i_error("sql(%s): Password query failed: %s",
-			get_log_prefix(auth_request),
-			sql_result_get_error(result));
+		auth_request_log_error(auth_request, "sql",
+				       "Password query failed: %s",
+				       sql_result_get_error(result));
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (ret == 0) {
-		if (verbose) {
-			i_info("sql(%s): Unknown user",
-			       get_log_prefix(auth_request));
-		}
+		auth_request_log_info(auth_request, "sql", "unknown user");
 		if (passdb_cache != NULL) {
 			auth_cache_insert(passdb_cache, auth_request,
 					  passdb_sql_cache_key, "");
 		}
 	} else if ((idx = sql_result_find_field(result, "password")) < 0) {
-		i_error("sql(%s): Password query must return a field named "
-			"\"password\"", get_log_prefix(auth_request));
+		auth_request_log_error(auth_request, "sql",
+			"Password query must return a field named 'password'");
 	} else {
 		password = t_strdup(sql_result_get_field_value(result, idx));
                 result_save_extra_fields(result, sql_request, auth_request);
@@ -91,8 +88,8 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	if (ret > 0) {
 		/* make sure there was only one row returned */
 		if (sql_result_next_row(result) > 0) {
-			i_error("sql(%s): Password query returned multiple "
-				"matches", get_log_prefix(auth_request));
+			auth_request_log_error(auth_request, "sql",
+				"Password query returned multiple matches");
 			password = NULL;
 		}
 	}
@@ -121,13 +118,10 @@ static void sql_query_callback(struct sql_result *result, void *context)
 
 	ret = password_verify(sql_request->password, password, scheme, user);
 	if (ret < 0) {
-		i_error("sql(%s): Unknown password scheme %s",
-			get_log_prefix(auth_request), scheme);
+		auth_request_log_error(auth_request, "sql",
+				       "Unknown password scheme %s", scheme);
 	} else if (ret == 0) {
-		if (verbose) {
-			i_info("sql(%s): Password mismatch",
-			       get_log_prefix(auth_request));
-		}
+		auth_request_log_info(auth_request, "sql", "Password mismatch");
 	}
 
 	sql_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
@@ -145,10 +139,8 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 		   auth_request_get_var_expand_table(sql_request->auth_request,
 						     str_escape));
 
-	if (verbose_debug) {
-		i_info("sql(%s): query: %s",
-		       get_log_prefix(sql_request->auth_request), str_c(query));
-	}
+	auth_request_log_debug(sql_request->auth_request, "sql",
+			       "query: %s", str_c(query));
 
 	sql_query(passdb_sql_conn->db, str_c(query),
 		  sql_query_callback, sql_request);

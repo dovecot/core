@@ -36,11 +36,11 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 		callback(PASSDB_RESULT_OK, request);
 	else {
 		if (ret < 0) {
-			i_error("passwd-file(%s): Unknown password scheme %s",
-				get_log_prefix(request), scheme);
-		} else if (verbose) {
-			i_info("passwd-file(%s): %s password mismatch",
-			       get_log_prefix(request), scheme);
+			auth_request_log_error(request, "passwd-file",
+				"unknown password scheme %s", scheme);
+		} else {
+			auth_request_log_info(request, "passwd-file",
+					      "password mismatch");
 		}
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 	}

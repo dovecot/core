@@ -24,7 +24,6 @@
 #include <sys/stat.h>
 
 struct ioloop *ioloop;
-int verbose = FALSE, verbose_debug = FALSE;
 int standalone = FALSE;
 
 static buffer_t *masters_buf;
@@ -170,9 +169,6 @@ static void add_extra_listeners(void)
 
 static void drop_privileges(void)
 {
-	verbose = getenv("VERBOSE") != NULL;
-	verbose_debug = getenv("VERBOSE_DEBUG") != NULL;
-
 	open_logfile();
 
 	/* Open /dev/urandom before chrooting */

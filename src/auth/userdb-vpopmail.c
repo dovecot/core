@@ -11,7 +11,7 @@
 #include "userdb.h"
 #include "userdb-vpopmail.h"
 
-struct vqpasswd *vpopmail_lookup_vqp(const char *user,
+struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 				     char vpop_user[VPOPMAIL_LIMIT],
 				     char vpop_domain[VPOPMAIL_LIMIT])
 {
@@ -23,21 +23,16 @@ struct vqpasswd *vpopmail_lookup_vqp(const char *user,
 	memset(vpop_user, '\0', VPOPMAIL_LIMIT);
 	memset(vpop_domain, '\0', VPOPMAIL_LIMIT);
 
-	if (parse_email(t_strdup_noconst(user), vpop_user, vpop_domain,
+	if (parse_email(auth_request->user, vpop_user, vpop_domain,
 			VPOPMAIL_LIMIT-1) < 0) {
-		if (verbose) {
-			i_info("vpopmail(%s): parse_email() failed",
-			       user);
-		}
+		auth_request_log_info(request, "vpopmail",
+				      "parse_email() failed");
 		return NULL;
 	}
 
 	vpw = vauth_getpw(vpop_user, vpop_domain);
 	if (vpw == NULL) {
-		if (verbose) {
-			i_info("vpopmail(%s): unknown user (%s@%s)",
-			       user, vpop_user, vpop_domain);
-		}
+		auth_request_log_info(request, "vpopmail", "unknown user");
 		return NULL;
 	}
 
@@ -56,7 +51,7 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 	gid_t gid;
 	pool_t pool;
 
-	vpw = vpopmail_lookup_vqp(auth_request->user, vpop_user, vpop_domain);
+	vpw = vpopmail_lookup_vqp(auth_request, vpop_user, vpop_domain);
 	if (vpw == NULL) {
 		callback(NULL, context);
 		return;
@@ -65,24 +60,21 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 	/* we have to get uid/gid separately, because the gid field in
 	   struct vqpasswd isn't really gid at all but just some flags... */
 	if (vget_assign(vpop_domain, NULL, 0, &uid, &gid) == NULL) {
-		if (verbose) {
-			i_info("vpopmail(%s): vget_assign(%s) failed",
-			       auth_request->user, vpop_domain);
-		}
+		auth_request_log_info(request, "vpopmail",
+				      "vget_assign(%s) failed", vpop_domain);
 		callback(NULL, context);
 		return;
 	}
 
 	if (vpw->pw_dir == NULL || vpw->pw_dir[0] == '\0') {
 		/* user's homedir doesn't exist yet, create it */
-		if (verbose) {
-			i_info("vpopmail(%s): pw_dir isn't set, creating",
-			       auth_request->user);
-		}
+		auth_request_log_info(request, "vpopmail",
+				      "pw_dir isn't set, creating");
 
 		if (make_user_dir(vpop_user, vpop_domain, uid, gid) == NULL) {
-			i_error("vpopmail(%s): make_user_dir(%s, %s) failed",
-				auth_request->user, vpop_user, vpop_domain);
+			auth_request_log_error(request, "vpopmail",
+					       "make_user_dir(%s, %s) failed",
+					       vpop_user, vpop_domain);
 			callback(NULL, context);
 			return;
 		}

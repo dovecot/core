@@ -248,8 +248,8 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 
 	fd_in[0] = -1;
 	if (pipe(fd_in) < 0 || pipe(fd_out) < 0) {
-		i_error("checkpassword(%s): pipe() failed: %m",
-			get_log_prefix(request));
+		auth_request_log_error(request, "checkpassword",
+				       "pipe() failed: %m");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		if (fd_in[0] != -1) {
 			(void)close(fd_in[0]);
@@ -260,8 +260,8 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 
 	pid = fork();
 	if (pid == -1) {
-		i_error("checkpassword(%s): fork() failed: %m",
-			get_log_prefix(request));
+		auth_request_log_error(request, "checkpassword",
+				       "fork() failed: %m");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		(void)close(fd_in[0]);
 		(void)close(fd_in[1]);
@@ -277,12 +277,12 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 	}
 
 	if (close(fd_in[1]) < 0) {
-		i_error("checkpassword(%s): close(fd_in[1]) failed: %m",
-			get_log_prefix(request));
+		auth_request_log_error(request, "checkpassword",
+				       "close(fd_in[1]) failed: %m");
 	}
 	if (close(fd_out[0]) < 0) {
-		i_error("checkpassword(%s): close(fd_out[0]) failed: %m",
-			get_log_prefix(request));
+		auth_request_log_error(request, "checkpassword",
+				       "close(fd_out[0]) failed: %m");
 	}
 
 	auth_request_ref(request);

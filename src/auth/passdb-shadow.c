@@ -21,19 +21,14 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 
 	spw = getspnam(request->user);
 	if (spw == NULL) {
-		if (verbose) {
-			i_info("shadow(%s): unknown user",
-			       get_log_prefix(request));
-		}
+		auth_request_log_info(request, "shadow", "unknown user");
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
 
 	if (!IS_VALID_PASSWD(spw->sp_pwdp)) {
-		if (verbose) {
-			i_info("shadow(%s): invalid password field '%s'",
-			       get_log_prefix(request), spw->sp_pwdp);
-		}
+		auth_request_log_info(request, "shadow",
+				      "invalid password field");
 		callback(PASSDB_RESULT_USER_DISABLED, request);
 		return;
 	}
@@ -45,10 +40,7 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 	safe_memset(spw->sp_pwdp, 0, strlen(spw->sp_pwdp));
 
 	if (!result) {
-		if (verbose) {
-			i_info("shadow(%s): password mismatch",
-			       get_log_prefix(request));
-		}
+		auth_request_log_info(request, "shadow", "password mismatch");
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}

@@ -99,12 +99,9 @@ void passdb_handle_credentials(enum passdb_result result,
 	if (strcasecmp(scheme, wanted_scheme) != 0) {
 		if (strcasecmp(scheme, "PLAIN") != 0 &&
 		    strcasecmp(scheme, "CLEARTEXT") != 0) {
-			if (verbose) {
-				i_info("password(%s): Requested %s "
-				       "scheme, but we have only %s",
-				       auth_request->user,
-				       wanted_scheme, scheme);
-			}
+			auth_request_log_info(auth_request, "password",
+				"Requested %s scheme, but we have only %s",
+				wanted_scheme, scheme);
 			callback(PASSDB_RESULT_SCHEME_NOT_AVAILABLE,
 				 NULL, auth_request);
 			return;

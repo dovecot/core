@@ -10,13 +10,12 @@ mech_anonymous_auth_continue(struct auth_request *request,
 {
 	i_assert(request->auth->anonymous_username != NULL);
 
-	if (verbose) {
+	if (request->auth->verbose) {
 		/* temporarily set the user to the one that was given,
 		   so that the log message goes right */
 		request->user =
 			p_strndup(pool_datastack_create(), data, data_size);
-		i_info("anonymous(%s): login",
-		       get_log_prefix(request));
+		auth_request_log_info(request, "anonymous", "login");
 	}
 
 	request->callback = callback;

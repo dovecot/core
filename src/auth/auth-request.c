@@ -325,13 +325,17 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	return tab;
 }
 
-const char *get_log_prefix(const struct auth_request *auth_request)
+static const char *
+get_log_str(struct auth_request *auth_request, const char *subsystem,
+	    const char *format, va_list va)
 {
 #define MAX_LOG_USERNAME_LEN 64
 	const char *ip;
 	string_t *str;
 
-	str = t_str_new(64);
+	str = t_str_new(128);
+	str_append(str, subsystem);
+	str_append_c(str, '(');
 
 	if (auth_request->user == NULL)
 		str_append(str, "?");
@@ -345,7 +349,54 @@ const char *get_log_prefix(const struct auth_request *auth_request)
 		str_append_c(str, ',');
 		str_append(str, ip);
 	}
+	str_append(str, "): ");
+	str_vprintfa(str, format, va);
 	return str_c(str);
+}
+
+void auth_request_log_debug(struct auth_request *auth_request,
+			    const char *subsystem,
+			    const char *format, ...)
+{
+	va_list va;
+
+	if (!auth_request->auth->verbose_debug)
+		return;
+
+	va_start(va, format);
+	t_push();
+	i_info("%s", get_log_str(auth_request, subsystem, format, va));
+	t_pop();
+	va_end(va);
+}
+
+void auth_request_log_info(struct auth_request *auth_request,
+			   const char *subsystem,
+			   const char *format, ...)
+{
+	va_list va;
+
+	if (!auth_request->auth->verbose)
+		return;
+
+	va_start(va, format);
+	t_push();
+	i_info("%s", get_log_str(auth_request, subsystem, format, va));
+	t_pop();
+	va_end(va);
+}
+
+void auth_request_log_error(struct auth_request *auth_request,
+			    const char *subsystem,
+			    const char *format, ...)
+{
+	va_list va;
+
+	va_start(va, format);
+	t_push();
+	i_info("%s", get_log_str(auth_request, subsystem, format, va));
+	t_pop();
+	va_end(va);
 }
 
 void auth_failure_buf_flush(void)

@@ -68,9 +68,9 @@ static void handle_request(struct ldap_connection *conn,
 	if (res != NULL) {
 		ret = ldap_result2error(conn->ld, res, 0);
 		if (ret != LDAP_SUCCESS) {
-			i_error("ldap(%s): ldap_search() failed: %s",
-				get_log_prefix(auth_request),
-				ldap_err2string(ret));
+			auth_request_log_error(auth_request, "ldap",
+					       "ldap_search() failed: %s",
+					       ldap_err2string(ret));
 
                         result = PASSDB_RESULT_INTERNAL_FAILURE;
 			res = NULL;
@@ -79,9 +79,9 @@ static void handle_request(struct ldap_connection *conn,
 
 	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);
 	if (entry == NULL) {
-		if (res != NULL && verbose) {
-			i_info("ldap(%s): unknown user",
-			       get_log_prefix(auth_request));
+		if (res != NULL) {
+			auth_request_log_info(auth_request, "ldap",
+					      "unknown user");
 		}
 	} else {
 		attr = ldap_first_attribute(conn->ld, entry, &ber);
@@ -100,11 +100,11 @@ static void handle_request(struct ldap_connection *conn,
 		}
 
 		if (password == NULL) {
-			i_error("ldap(%s): No password in reply",
-				get_log_prefix(auth_request));
+			auth_request_log_error(auth_request, "ldap",
+					       "No password in reply");
 		} else if (ldap_next_entry(conn->ld, entry) != NULL) {
-			i_error("ldap(%s): Multiple password replies",
-				get_log_prefix(auth_request));
+			auth_request_log_error(auth_request, "ldap",
+					       "Multiple password replies");
 			password = NULL;
 		}
 	}
@@ -136,13 +136,11 @@ static void handle_request(struct ldap_connection *conn,
 
 	ret = password_verify(ldap_request->password, password, scheme, user);
 	if (ret < 0) {
-		i_error("ldap(%s): Unknown password scheme %s",
-			get_log_prefix(auth_request), scheme);
+		auth_request_log_error(auth_request, "ldap",
+			"Unknown password scheme %s", scheme);
 	} else if (ret == 0) {
-		if (verbose) {
-			i_info("ldap(%s): password mismatch",
-			       get_log_prefix(auth_request));
-		}
+		auth_request_log_info(auth_request, "ldap",
+				      "password mismatch");
 	}
 
 	ldap_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
@@ -154,13 +152,14 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 			     struct ldap_request *ldap_request)
 {
 	struct ldap_connection *conn = passdb_ldap_conn->conn;
+	const char **attr_names = (const char **)passdb_ldap_conn->attr_names;
 	const char *filter;
 	string_t *str;
 
 	if (conn->set.pass_filter == NULL) {
 		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
-			passdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER],
-			ldap_escape(auth_request->user));
+					 attr_names[ATTR_VIRTUAL_USER],
+					 ldap_escape(auth_request->user));
 	} else {
 		str = t_str_new(512);
 		var_expand(str, conn->set.pass_filter,
@@ -173,13 +172,10 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	ldap_request->callback = handle_request;
 	ldap_request->context = auth_request;
 
-	if (verbose_debug) {
-		i_info("ldap(%s): base=%s scope=%s filter=%s fields=%s",
-		       get_log_prefix(auth_request), conn->set.base,
-		       conn->set.scope, filter,
-		       t_strarray_join((const char **)
-				       passdb_ldap_conn->attr_names, ","));
-	}
+	auth_request_log_debug(auth_request, "ldap",
+			       "base=%s scope=%s filter=%s fields=%s",
+			       conn->set.base, conn->set.scope, filter,
+			       t_strarray_join(attr_names, ","));
 
 	db_ldap_search(conn, conn->set.base, conn->set.ldap_scope,
 		       filter, passdb_ldap_conn->attr_names,

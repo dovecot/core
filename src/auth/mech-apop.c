@@ -83,10 +83,8 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 
 	if (data_size == 0) {
 		/* Should never happen */
-		if (verbose) {
-			i_info("apop(%s): no initial respone",
-			       get_log_prefix(auth_request));
-		}
+		auth_request_log_info(auth_request, "apop",
+				      "no initial respone");
 		auth_request_fail(auth_request);
 		return;
 	}
@@ -103,10 +101,8 @@ mech_apop_auth_initial(struct auth_request *auth_request,
         str = t_strdup_printf("<%x.%x.", auth_request->conn->master->pid,
 			      auth_request->conn->connect_uid);
 	if (memcmp(data, str, strlen(str)) != 0) {
-		if (verbose) {
-			i_info("apop(%s): invalid challenge",
-			       get_log_prefix(auth_request));
-		}
+		auth_request_log_info(auth_request, "apop",
+				      "invalid challenge");
 		auth_request_fail(auth_request);
 		return;
 	}
@@ -120,10 +116,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 
 	if (tmp + 1 + 16 != end) {
 		/* Should never happen */
-		if (verbose) {
-			i_info("apop(%s): malformed data",
-			       get_log_prefix(auth_request));
-		}
+		auth_request_log_info(auth_request, "apop", "malformed data");
 		auth_request_fail(auth_request);
 		return;
 	}
@@ -131,10 +124,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 
 	if (!auth_request_set_username(auth_request, (const char *)username,
 				       &error)) {
-		if (verbose) {
-			i_info("apop(%s): %s",
-			       get_log_prefix(auth_request), error);
-		}
+		auth_request_log_info(auth_request, "apop", "%s", error);
 		auth_request_fail(auth_request);
 		return;
 	}

@@ -278,11 +278,8 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 
 	if (request->auth->ssl_require_client_cert && !valid_client_cert) {
 		/* we fail without valid certificate */
-		if (verbose) {
-			i_info("ssl-cert-check(%s): "
-			       "Client didn't present valid SSL certificate",
-			       get_log_prefix(request));
-		}
+		auth_request_log_info(request, "ssl-cert-check",
+			"Client didn't present valid SSL certificate");
 		auth_request_destroy(request);
 		auth_client_send(conn, "FAIL\t%u", id);
 		return TRUE;
@@ -296,11 +293,8 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 		buf = buffer_create_dynamic(pool_datastack_create(),
 					    MAX_BASE64_DECODED_SIZE(len));
 		if (base64_decode(initial_resp, len, NULL, buf) < 0) {
-			if (verbose) {
-				i_info("%s(%s): Invalid base64 data in "
-				       "initial response", mech->mech_name,
-				       get_log_prefix(request));
-			}
+			auth_request_log_info(request, mech->mech_name,
+				"Invalid base64 data in initial response");
 			auth_request_destroy(request);
 			auth_client_send(conn, "FAIL\t%u\t"
 				"reason=Invalid base64 data in initial "
@@ -355,11 +349,8 @@ auth_client_input_cont(struct auth_client_connection *conn, const char *args)
 	buf = buffer_create_dynamic(pool_datastack_create(),
 				    MAX_BASE64_DECODED_SIZE(data_len));
 	if (base64_decode(data, data_len, NULL, buf) < 0) {
-		if (verbose) {
-			i_info("%s(%s): Invalid base64 data in "
-			       "continued response", request->mech->mech_name,
-			       get_log_prefix(request));
-		}
+                auth_request_log_info(request, request->mech->mech_name,
+			"Invalid base64 data in continued response");
 		auth_client_send(conn, "FAIL\t%u\treason=Invalid base64 data "
 				 "in continued response", id);
 		auth_request_destroy(request);

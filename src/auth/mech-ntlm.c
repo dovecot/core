@@ -47,16 +47,16 @@ static int lm_verify_credentials(struct ntlm_auth_request *request,
 	client_response = ntlmssp_buffer_data(request->response, lm_response);
 
 	if (response_length < LM_RESPONSE_SIZE) {
-		i_error("ntlm(%s): passdb credentials' length is too small",
-			get_log_prefix(&request->auth_request));
+                auth_request_log_error(&request->auth_request, "ntlm",
+			"passdb credentials' length is too small");
 		return FALSE;
 	}
 
 	hash_buffer = buffer_create_data(request->auth_request.pool,
 					 hash, sizeof(hash));
 	if (hex_to_binary(credentials, hash_buffer) < 0) {
-		i_error("ntlm(%s): passdb credentials are not in hex",
-			get_log_prefix(&request->auth_request));
+                auth_request_log_error(&request->auth_request, "ntlm",
+				       "passdb credentials are not in hex");
 		return FALSE;
 	}
 
@@ -198,11 +198,8 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 		uint32_t flags;
 
 		if (!ntlmssp_check_request(ntlm_request, data_size, &error)) {
-			if (verbose) {
-				i_info("ntlm(%s): invalid NTLM request, %s",
-				       get_log_prefix(auth_request),
-				       error);
-			}
+			auth_request_log_info(auth_request, "ntlm",
+				"invalid NTLM request: %s", error);
 			auth_request_fail(auth_request);
 			return;
 		}
@@ -223,11 +220,8 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 		const char *username;
 
 		if (!ntlmssp_check_response(response, data_size, &error)) {
-			if (verbose) {
-				i_info("ntlm(%s): invalid NTLM response, %s",
-				       get_log_prefix(auth_request),
-				       error);
-			}
+			auth_request_log_info(auth_request, "ntlm",
+				"invalid NTLM response: %s", error);
 			auth_request_fail(auth_request);
 			return;
 		}
@@ -239,10 +233,8 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 					 request->unicode_negotiated);
 
 		if (!auth_request_set_username(auth_request, username, &error)) {
-			if (verbose) {
-				i_info("ntlm(%s): %s",
-				       get_log_prefix(auth_request), error);
-			}
+			auth_request_log_info(auth_request, "ntlm",
+					      "%s", error);
 			auth_request_fail(auth_request);
 			return;
 		}

@@ -23,19 +23,14 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 
 	pw = getpwnam(request->user);
 	if (pw == NULL) {
-		if (verbose) {
-			i_info("passwd(%s): unknown user",
-			       get_log_prefix(request));
-		}
+		auth_request_log_info(request, "bsdauth", "unknown user");
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
 
 	if (!IS_VALID_PASSWD(pw->pw_passwd)) {
-		if (verbose) {
-			i_info("passwd(%s): invalid password field '%s'",
-			       get_log_prefix(request), pw->pw_passwd);
-		}
+		auth_request_log_info(request, "bsdauth",
+				      "invalid password field");
 		callback(PASSDB_RESULT_USER_DISABLED, request);
 		return;
 	}
@@ -48,10 +43,7 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	safe_memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
 
 	if (!result) {
-		if (verbose) {
-			i_info("passwd(%s): password mismatch",
-			       get_log_prefix(request));
-		}
+		auth_request_log_info(request, "bsdauth", "password mismatch");
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}

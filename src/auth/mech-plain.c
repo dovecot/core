@@ -54,18 +54,12 @@ mech_plain_auth_continue(struct auth_request *request,
 
 	if (count != 2) {
 		/* invalid input */
-		if (verbose) {
-			i_info("plain(%s): invalid input",
-			       get_log_prefix(request));
-		}
+		auth_request_log_info(request, "plain", "invalid input");
 		auth_request_fail(request);
 	} else {
 		if (!auth_request_set_username(request, authenid, &error)) {
 			/* invalid username */
-			if (verbose) {
-				i_info("plain(%s): %s",
-				       get_log_prefix(request), error);
-			}
+                        auth_request_log_info(request, "plain", "%s", error);
 			auth_request_fail(request);
 		} else {
 			auth_request_verify_plain(request, pass,

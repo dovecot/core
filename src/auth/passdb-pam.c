@@ -239,8 +239,6 @@ pam_verify_plain_child(const struct auth_request *request, const char *service,
 		if ((status2 = pam_end(pamh, status)) == PAM_SUCCESS) {
 			/* FIXME: check for PASSDB_RESULT_UNKNOWN_USER
 			   somehow? */
-			if (!verbose)
-				str = NULL;
 			result = status == PAM_SUCCESS ? PASSDB_RESULT_OK :
 				PASSDB_RESULT_PASSWORD_MISMATCH;
 		} else {
@@ -274,17 +272,17 @@ static void pam_child_input(void *context)
 	   We rely on that. */
 	ret = read(request->fd, buf, sizeof(buf)-1);
 	if (ret < 0) {
-		i_error("pam(%s): read() from child process failed: %m",
-			get_log_prefix(auth_request));
+		auth_request_log_error(auth_request, "pam",
+				       "read() from child process failed: %m");
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (ret == 0) {
 		/* it died */
-		i_error("pam(%s): Child process died",
-			get_log_prefix(auth_request));
+		auth_request_log_error(auth_request, "pam",
+				       "Child process died");
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if ((size_t)ret < sizeof(result)) {
-		i_error("pam(%s): Child process returned only %d bytes",
-			get_log_prefix(auth_request), ret);
+		auth_request_log_error(auth_request, "pam",
+			"Child process returned only %d bytes", ret);
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else {
 		memcpy(&result, buf, sizeof(result));
@@ -294,20 +292,18 @@ static void pam_child_input(void *context)
 			buf[ret] = '\0';
 
 			if (result == PASSDB_RESULT_INTERNAL_FAILURE) {
-				i_error("pam(%s): %s",
-					get_log_prefix(auth_request),
-					buf + sizeof(result));
+				auth_request_log_error(auth_request, "pam",
+					"%s", buf + sizeof(result));
 			} else {
-				i_info("pam(%s): %s",
-				       get_log_prefix(auth_request),
-				       buf + sizeof(result));
+				auth_request_log_info(auth_request, "pam",
+					"%s", buf + sizeof(result));
 			}
 		}
 	}
 
 	if (close(request->fd) < 0) {
-		i_error("pam(%s): close(child input) failed: %m",
-			get_log_prefix(auth_request));
+		auth_request_log_error(auth_request, "pam",
+				       "close(child input) failed: %m");
 	}
 
 	if (auth_request_unref(auth_request))
@@ -351,14 +347,14 @@ pam_verify_plain(struct auth_request *request, const char *password,
 
 	service = service_name != NULL ? service_name : request->service;
 	if (pipe(fd) < 0) {
-		i_error("pam(%s): pipe() failed: %m", get_log_prefix(request));
+		auth_request_log_error(request, "pam", "pipe() failed: %m");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		return;
 	}
 
 	pid = fork();
 	if (pid == -1) {
-		i_error("pam(%s): fork() failed: %m", get_log_prefix(request));
+		auth_request_log_error(request, "pam", "fork() failed: %m");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		(void)close(fd[0]);
 		(void)close(fd[1]);
@@ -372,8 +368,8 @@ pam_verify_plain(struct auth_request *request, const char *password,
 	}
 
 	if (close(fd[1]) < 0) {
-		i_error("pam(%s): close(fd[1]) failed: %m",
-			get_log_prefix(request));
+		auth_request_log_error(request, "pam",
+				       "close(fd[1]) failed: %m");
 	}
 
 	auth_request_ref(request);

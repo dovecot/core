@@ -120,16 +120,16 @@ static int verify_credentials(struct digest_auth_request *request,
 
 	/* get the MD5 password */
 	if (strlen(credentials) != sizeof(digest)*2) {
-		i_error("digest-md5(%s): passdb credentials' length is wrong",
-			get_log_prefix(&request->auth_request));
+                auth_request_log_error(&request->auth_request, "digest-md5",
+				       "passdb credentials' length is wrong");
 		return FALSE;
 	}
 
 	digest_buf = buffer_create_data(pool_datastack_create(),
 					digest, sizeof(digest));
 	if (hex_to_binary(credentials, digest_buf) < 0) {
-		i_error("digest-md5(%s): passdb credentials are not in hex",
-			get_log_prefix(&request->auth_request));
+                auth_request_log_error(&request->auth_request, "digest-md5",
+				       "passdb credentials are not in hex");
 		return FALSE;
 	}
 
@@ -207,13 +207,9 @@ static int verify_credentials(struct digest_auth_request *request,
 		if (i == 0) {
 			/* verify response */
 			if (memcmp(response_hex, request->response, 32) != 0) {
-				if (verbose) {
-					struct auth_request *auth_request =
-						&request->auth_request;
-					i_info("digest-md5(%s): "
-					       "password mismatch",
-					       get_log_prefix(auth_request));
-				}
+				auth_request_log_info(&request->auth_request,
+						      "digest-md5",
+						      "password mismatch");
 				return FALSE;
 			}
 		} else {
@@ -576,10 +572,8 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 		}
 	}
 
-	if (verbose && error != NULL) {
-		i_info("digest-md5(%s): %s",
-		       get_log_prefix(auth_request), error);
-	}
+	if (error != NULL)
+                auth_request_log_info(auth_request, "digest-md5", "%s", error);
 
 	auth_request_fail(auth_request);
 }

@@ -34,24 +34,22 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	uid = gid = NULL;
 	ret = sql_result_next_row(result);
 	if (ret < 0) {
-		i_error("sql(%s): User query failed: %s",
-			get_log_prefix(auth_request),
-			sql_result_get_error(result));
+		auth_request_log_error(auth_request, "sql",
+			"User query failed: %s", sql_result_get_error(result));
 	} else if (ret == 0) {
-		if (verbose) {
-			i_error("sql(%s): User not found",
-				get_log_prefix(auth_request));
-		}
+		auth_request_log_info(auth_request, "sql", "User not found");
 	} else {
 		uid = sql_result_find_field_value(result, "uid");
 		if (uid == NULL) {
-			i_error("sql(%s): Password query didn't return uid, "
-				"or it was NULL", get_log_prefix(auth_request));
+			auth_request_log_error(auth_request, "sql",
+				"Password query didn't return uid, "
+				"or it was NULL");
 		}
 		gid = sql_result_find_field_value(result, "gid");
 		if (gid == NULL) {
-			i_error("sql(%s): Password query didn't return gid, "
-				"or it was NULL", get_log_prefix(auth_request));
+			auth_request_log_error(auth_request, "sql",
+				"Password query didn't return gid, "
+				"or it was NULL");
 		}
 	}
 
@@ -91,10 +89,7 @@ static void userdb_sql_lookup(struct auth_request *auth_request,
 	sql_request->context = context;
 	sql_request->auth_request = auth_request;
 
-	if (verbose_debug) {
-		i_info("sql(%s): query: %s",
-		       get_log_prefix(auth_request), str_c(query));
-	}
+	auth_request_log_debug(auth_request, "sql", "%s", str_c(query));
 
 	sql_query(userdb_sql_conn->db, str_c(query),
 		  sql_query_callback, sql_request);

@@ -21,6 +21,8 @@ struct auth {
 	char username_chars[256];
         char username_translation[256];
 	int ssl_require_client_cert;
+
+	int verbose, verbose_debug;
 };
 
 const string_t *auth_mechanisms_get_list(struct auth *auth);

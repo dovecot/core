@@ -77,7 +77,15 @@ const struct var_expand_table *
 auth_request_get_var_expand_table(const struct auth_request *auth_request,
 				  const char *(*escape_func)(const char *));
 
-const char *get_log_prefix(const struct auth_request *auth_request);
+void auth_request_log_debug(struct auth_request *auth_request,
+			    const char *subsystem,
+			    const char *format, ...) __attr_format__(3, 4);
+void auth_request_log_info(struct auth_request *auth_request,
+			   const char *subsystem,
+			   const char *format, ...) __attr_format__(3, 4);
+void auth_request_log_error(struct auth_request *auth_request,
+			    const char *subsystem,
+			    const char *format, ...) __attr_format__(3, 4);
 
 void auth_failure_buf_flush(void);
 

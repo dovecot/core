@@ -60,8 +60,8 @@ static int verify_credentials(struct cram_auth_request *request,
 				   context_digest, sizeof(context_digest));
 
 	if (hex_to_binary(credentials, context_digest_buf) < 0) {
-		i_error("cram-md5(%s): passdb credentials are not in hex",
-			get_log_prefix(&request->auth_request));
+                auth_request_log_error(&request->auth_request, "cram-md5",
+				       "passdb credentials are not in hex");
 		return FALSE;
 	}
 
@@ -72,10 +72,8 @@ static int verify_credentials(struct cram_auth_request *request,
 	response_hex = binary_to_hex(digest, 16);
 
 	if (memcmp(response_hex, request->response, 32) != 0) {
-		if (verbose) {
-			i_info("cram-md5(%s): password mismatch",
-			       get_log_prefix(&request->auth_request));
-		}
+		auth_request_log_info(&request->auth_request, "cram-md5",
+				      "password mismatch");
 		return FALSE;
 	}
 
@@ -156,8 +154,7 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 	if (error == NULL)
 		error = "authentication failed";
 
-	if (verbose)
-		i_info("cram-md5(%s): %s", get_log_prefix(auth_request), error);
+        auth_request_log_info(auth_request, "cram-md5", "%s", error);
 	auth_request_fail(auth_request);
 }
 

@@ -446,10 +446,8 @@ mech_rpa_auth_phase1(struct auth_request *auth_request,
 	const char *service, *error;
 
 	if (!rpa_parse_token1(data, data_size, &error)) {
-		if (verbose) {
-			i_info("rpa(%s): invalid token 1, %s",
-			       get_log_prefix(auth_request), error);
-		}
+		auth_request_log_info(auth_request, "rpa",
+			"invalid token 1: %s", error);
 		auth_request_fail(auth_request);
 		return;
 	}
@@ -478,10 +476,8 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 	const char *error;
 
 	if (!rpa_parse_token3(request, data, data_size, &error)) {
-		if (verbose) {
-			i_info("rpa(%s): invalid token 3, %s",
-			       get_log_prefix(auth_request), error);
-		}
+		auth_request_log_info(auth_request, "rpa",
+			"invalid token 3: %s", error);
 		auth_request_fail(auth_request);
 		return;
 	}
@@ -498,10 +494,8 @@ mech_rpa_auth_phase3(struct auth_request *auth_request,
 
 	if ((data_size != sizeof(client_ack)) ||
 	    (memcmp(data, client_ack, sizeof(client_ack)) != 0)) {
-		if (verbose) {
-			i_info("rpa(%s): invalid token 5 or client rejects us",
-			       get_log_prefix(auth_request));
-		}
+		auth_request_log_info(auth_request, "rpa",
+			"invalid token 5 or client rejects us");
 		auth_request_fail(auth_request);
 	} else {
 		auth_request_success(auth_request, NULL, 0);

@@ -26,8 +26,7 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	const char *scheme;
 	int ret;
 
-	vpw = vpopmail_lookup_vqp(request->user,
-				  vpop_user, vpop_domain);
+	vpw = vpopmail_lookup_vqp(request, vpop_user, vpop_domain);
 	if (vpw == NULL) {
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
@@ -37,18 +36,14 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	     strcmp(request->service, "IMAP") == 0) ||
 	    ((vpw->pw_gid & NO_POP) != 0 &&
 	     strcmp(request->service, "POP3") == 0)) {
-		if (verbose) {
-			i_info("vpopmail(%s): %s disabled",
-			       get_log_prefix(request), request->service);
-		}
+		auth_request_log_info(request, "vpopmail",
+				      "%s disabled", request->service);
 		callback(PASSDB_RESULT_USER_DISABLED, request);
 		return;
 	}
 
-	if (verbose_debug) {
-		i_info("vpopmail(%s): crypted password=%s",
-		       get_log_prefix(request), vpw->pw_passwd);
-	}
+	auth_request_log_debug(request, "vpopmail",
+			       "crypted password=%s", vpw->pw_passwd);
 
 	crypted_pass = vpw->pw_passwd;
 	scheme = password_get_scheme(&crypted_pass);
@@ -64,11 +59,11 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 
 	if (ret <= 0) {
 		if (ret < 0) {
-			i_error("vpopmail(%s): Unknown password scheme %s",
-				get_log_prefix(request), scheme);
-		} else if (verbose) {
-			i_info("vpopmail(%s): password mismatch",
-			       get_log_prefix(request));
+			auth_request_log_error(request, "vpopmail",
+				"Unknown password scheme %s", scheme);
+		} else {
+			auth_request_log_info(request, "vpopmail",
+					      "password mismatch");
 		}
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;

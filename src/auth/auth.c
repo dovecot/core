@@ -16,6 +16,9 @@ struct auth *auth_preinit(void)
 
 	auth = i_new(struct auth, 1);
 
+	auth->verbose = getenv("VERBOSE") != NULL;
+	auth->verbose_debug = getenv("VERBOSE_DEBUG") != NULL;
+
 	env = getenv("PASSDB");
 	if (env == NULL)
 		i_fatal("PASSDB environment is unset");
