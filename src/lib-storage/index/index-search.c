@@ -12,6 +12,7 @@
 #include "imap-date.h"
 #include "imap-envelope.h"
 #include "index-storage.h"
+#include "index-sort.h"
 #include "mail-index-util.h"
 #include "mail-modifylog.h"
 #include "mail-custom-flags.h"
@@ -52,6 +53,8 @@ typedef struct {
 	IBuffer *inbuf;
 	MessagePart *part;
 } SearchBodyContext;
+
+static MailSortType sort_unsorted[] = { MAIL_SORT_END };
 
 static int msgset_contains(const char *set, unsigned int match_num,
 			   unsigned int max_num)
@@ -753,7 +756,8 @@ static int search_get_uid_range(IndexMailbox *ibox, MailSearchArg *args,
 }
 
 static int search_messages(IndexMailbox *ibox, const char *charset,
-			   MailSearchArg *args, OBuffer *outbuf, int uid_result)
+			   MailSearchArg *args, MailSortContext *sort_ctx,
+			   OBuffer *outbuf, int uid_result)
 {
 	SearchIndexContext ctx;
 	MailIndexRecord *rec;
@@ -821,9 +825,16 @@ static int search_messages(IndexMailbox *ibox, const char *charset,
 			}
 
 			if (found) {
-				i_snprintf(num, sizeof(num), " %u",
-					   uid_result ? rec->uid : client_seq);
-				o_buffer_send(outbuf, num, strlen(num));
+				if (sort_ctx == NULL) {
+					size_t len;
+
+					len = i_snprintf(num, sizeof(num),
+							 " %u", uid_result ?
+							 rec->uid : client_seq);
+					o_buffer_send(outbuf, num, len);
+				} else {
+					mail_sort_input(sort_ctx, rec->uid);
+				}
 			}
 		}
 
@@ -839,16 +850,34 @@ static int search_messages(IndexMailbox *ibox, const char *charset,
 }
 
 int index_storage_search(Mailbox *box, const char *charset, MailSearchArg *args,
-			 OBuffer *outbuf, int uid_result)
+			 MailSortType *sorting, OBuffer *outbuf, int uid_result)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
+	MailSortContext *sort_ctx;
+	IndexSortContext index_sort_ctx;
 	int failed;
 
 	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_SHARED))
 		return FALSE;
 
-	o_buffer_send(outbuf, "* SEARCH", 8);
-	failed = !search_messages(ibox, charset, args, outbuf, uid_result);
+	if (sorting == NULL) {
+		sort_ctx = NULL;
+		o_buffer_send(outbuf, "* SEARCH", 8);
+	} else {
+		memset(&index_sort_ctx, 0, sizeof(index_sort_ctx));
+		index_sort_ctx.ibox = ibox;
+		index_sort_ctx.outbuf = outbuf;
+
+		sort_ctx = mail_sort_init(sort_unsorted, sorting,
+					  index_sort_funcs, &index_sort_ctx);
+		o_buffer_send(outbuf, "* SORT", 6);
+	}
+
+	failed = !search_messages(ibox, charset, args, sort_ctx,
+				  outbuf, uid_result);
+	if (sort_ctx != NULL)
+		mail_sort_deinit(sort_ctx);
+
 	o_buffer_send(outbuf, "\r\n", 2);
 
 	if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))

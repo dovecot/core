@@ -44,6 +44,7 @@ typedef struct _MailStorageCallbacks MailStorageCallbacks;
 typedef struct _MailFetchData MailFetchData;
 typedef struct _MailFetchBodyData MailFetchBodyData;
 typedef struct _MailSearchArg MailSearchArg;
+typedef enum _MailSortType MailSortType;
 
 typedef void (*MailboxFunc)(MailStorage *storage, const char *name,
 			    MailboxFlags flags, void *context);
@@ -161,7 +162,7 @@ struct _Mailbox {
 	   If charset is NULL, the given search strings are matched without
 	   any conversion. */
 	int (*search)(Mailbox *box, const char *charset, MailSearchArg *args,
-		      OBuffer *outbuf, int uid_result);
+		      MailSortType *sorting, OBuffer *outbuf, int uid_result);
 
 	/* Save a new mail into mailbox. timezone_offset specifies the
 	   timezone in minutes which internal_date was originally given

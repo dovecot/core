@@ -19,6 +19,7 @@ libstorage_index_a_SOURCES = \
 	index-msgcache.c \
 	index-save.c \
 	index-search.c \
+	index-sort.c \
 	index-status.c \
 	index-storage.c \
 	index-sync.c \

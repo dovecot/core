@@ -36,6 +36,7 @@ int cmd_check(Client *client);
 int cmd_close(Client *client);
 int cmd_expunge(Client *client);
 int cmd_search(Client *client);
+int cmd_sort(Client *client);
 int cmd_fetch(Client *client);
 int cmd_store(Client *client);
 int cmd_copy(Client *client);

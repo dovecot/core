@@ -49,7 +49,8 @@ int cmd_search(Client *client)
 		/* error in search arguments */
 		client_send_tagline(client, t_strconcat("NO ", error, NULL));
 	} else {
-		if (client->mailbox->search(client->mailbox, charset, sargs,
+		if (client->mailbox->search(client->mailbox, charset,
+					    sargs, NULL,
 					    client->outbuf, client->cmd_uid)) {
 			/* NOTE: syncing isn't allowed here */
 			client_sync_without_expunges(client);

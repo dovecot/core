@@ -64,6 +64,8 @@ ClientCommandFunc client_command_find(const char *name)
 			return cmd_store;
 		if (strcmp(name, "SEARCH") == 0)
 			return cmd_search;
+		if (strcmp(name, "SORT") == 0)
+			return cmd_sort;
 		if (strcmp(name, "SELECT") == 0)
 			return cmd_select;
 		if (strcmp(name, "STATUS") == 0)

@@ -9,10 +9,11 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib-storage
 
 imap_LDADD = \
-	../lib-storage/libstorage.a \
+	../lib-storage/register/libstorage-register.a \
 	../lib-storage/index/maildir/libstorage_maildir.a \
 	../lib-storage/index/mbox/libstorage_mbox.a \
 	../lib-storage/index/libstorage_index.a \
+	../lib-storage/libstorage.a \
 	../lib-index/maildir/libstorage_index_maildir.a \
 	../lib-index/mbox/libstorage_index_mbox.a \
 	../lib-index/libstorage_index.a \
@@ -42,6 +43,7 @@ cmds = \
 	cmd-rename.c \
 	cmd-search.c \
 	cmd-select.c \
+	cmd-sort.c \
 	cmd-status.c \
 	cmd-store.c \
 	cmd-subscribe.c \
