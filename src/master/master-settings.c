@@ -96,8 +96,8 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_BOOL, maildir_stat_dirs),
 	DEF(SET_BOOL, maildir_copy_with_hardlinks),
 	DEF(SET_BOOL, maildir_check_content_changes),
-	DEF(SET_STR, mbox_locks),
-	DEF(SET_BOOL, mbox_read_dotlock),
+	DEF(SET_STR, mbox_read_locks),
+	DEF(SET_STR, mbox_write_locks),
 	DEF(SET_INT, mbox_lock_timeout),
 	DEF(SET_INT, mbox_dotlock_change_timeout),
 	DEF(SET_INT, umask),
@@ -231,8 +231,8 @@ struct settings default_settings = {
 	MEMBER(maildir_stat_dirs) FALSE,
 	MEMBER(maildir_copy_with_hardlinks) FALSE,
 	MEMBER(maildir_check_content_changes) FALSE,
-	MEMBER(mbox_locks) "dotlock fcntl",
-	MEMBER(mbox_read_dotlock) FALSE,
+	MEMBER(mbox_read_locks) "fcntl",
+	MEMBER(mbox_write_locks) "dotlock fcntl",
 	MEMBER(mbox_lock_timeout) 300,
 	MEMBER(mbox_dotlock_change_timeout) 30,
 	MEMBER(umask) 0077,
@@ -406,9 +406,7 @@ static int settings_is_active(struct settings *set)
 
 static int settings_verify(struct settings *set)
 {
-	const char *const *str;
 	const char *dir;
-	int dotlock_got, fcntl_got, flock_got;
 
 	if (!get_login_uid(set))
 		return FALSE;
@@ -510,41 +508,6 @@ static int settings_verify(struct settings *set)
 	    set->first_valid_gid > set->last_valid_gid) {
 		i_error("first_valid_gid can't be larger than last_valid_gid");
 		return FALSE;
-	}
-
-	dotlock_got = fcntl_got = flock_got = FALSE;
-        str = t_strsplit_spaces(set->mbox_locks, " ");
-	for (; *str != NULL; str++) {
-		if (strcasecmp(*str, "dotlock") == 0)
-			dotlock_got = TRUE;
-		else if (strcasecmp(*str, "fcntl") == 0)
-			fcntl_got = TRUE;
-		else if (strcasecmp(*str, "flock") == 0)
-			flock_got = TRUE;
-		else {
-			i_error("mbox_locks: Invalid value %s", *str);
-			return FALSE;
-		}
-	}
-
-#ifndef HAVE_FLOCK
-	if (flock_got) {
-		i_error("mbox_locks: flock is not supported in this system");
-		return FALSE;
-	}
-	flock_got = FALSE;
-#endif
-
-	if (!dotlock_got && !fcntl_got && !flock_got) {
-		i_error("mbox_locks: No mbox locking methods selected");
-		return FALSE;
-	}
-
-	if (dotlock_got && !set->mbox_read_dotlock &&
-	    !fcntl_got && !flock_got) {
-		i_warning("mbox_locks: Only dotlock selected, forcing "
-			  "mbox_read_dotlock = yes to avoid corruption.");
-                set->mbox_read_dotlock = TRUE;
 	}
 
 	if (access(set->login_executable, X_OK) < 0) {

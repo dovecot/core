@@ -342,13 +342,12 @@ int create_mail_process(struct login_group *group, int socket,
 		env_put("POP3_MAILS_KEEP_RECENT=1");
 	(void)umask(set->umask);
 
-	env_put(t_strconcat("MBOX_LOCKS=", set->mbox_locks, NULL));
+	env_put(t_strconcat("MBOX_READ_LOCKS=", set->mbox_read_locks, NULL));
+	env_put(t_strconcat("MBOX_WRITE_LOCKS=", set->mbox_write_locks, NULL));
 	env_put(t_strdup_printf("MBOX_LOCK_TIMEOUT=%u",
 				set->mbox_lock_timeout));
 	env_put(t_strdup_printf("MBOX_DOTLOCK_CHANGE_TIMEOUT=%u",
 				set->mbox_dotlock_change_timeout));
-	if (set->mbox_read_dotlock)
-		env_put("MBOX_READ_DOTLOCK=1");
 
 	if (group->set->mail_use_modules &&
 	    group->set->mail_modules != NULL &&
