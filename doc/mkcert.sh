@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # Generates a self-signed certificate.
+# Edit dovecot-openssl.cnf before running this.
 
 OPENSSL=${OPENSSL-openssl}
 SSLDIR=${SSLDIR-/etc/ssl}
