@@ -792,7 +792,9 @@ void index_mail_headers_close(struct index_mail *mail)
 	len = str_len(mail->data.header_data) -
 		data->header_data_uncached_offset;
 
-	mail_cache_add(mail->trans->cache_trans, data->seq,
-		       mail_cache_header_fields[idx], str, len+1);
+	if (len != 0) {
+		mail_cache_add(mail->trans->cache_trans, data->seq,
+			       mail_cache_header_fields[idx], str, len+1);
+	}
 	data->header_save = FALSE;
 }

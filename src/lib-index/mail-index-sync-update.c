@@ -9,6 +9,7 @@
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log.h"
 #include "mail-transaction-util.h"
+#include "mail-cache-private.h"
 
 #include <time.h>
 
@@ -58,7 +59,8 @@ mail_index_header_update_lowwaters(struct mail_index_header *hdr,
 
 static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 {
-	struct mail_index_view *view = context;
+        struct mail_index_sync_ctx *sync_ctx = context;
+	struct mail_index_view *view = sync_ctx->view;
 	struct mail_index_map *map = view->map;
 	struct mail_index_header *hdr = &map->hdr_copy;
 	struct mail_index_record *rec;
@@ -98,7 +100,8 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 static int sync_append(const struct mail_transaction_append_header *hdr,
 		       const struct mail_index_record *rec, void *context)
 {
-	struct mail_index_view *view = context;
+        struct mail_index_sync_ctx *sync_ctx = context;
+	struct mail_index_view *view = sync_ctx->view;
 	struct mail_index_map *map = view->map;
 	void *dest;
 
@@ -139,7 +142,8 @@ static int sync_append(const struct mail_transaction_append_header *hdr,
 static int sync_flag_update(const struct mail_transaction_flag_update *u,
 			    void *context)
 {
-        struct mail_index_view *view = context;
+        struct mail_index_sync_ctx *sync_ctx = context;
+	struct mail_index_view *view = sync_ctx->view;
 	struct mail_index_record *rec;
 	struct mail_index_header *hdr;
 	uint8_t flag_mask, old_flags;
@@ -188,7 +192,8 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 static int sync_cache_reset(const struct mail_transaction_cache_reset *u,
 			    void *context)
 {
-	struct mail_index_view *view = context;
+        struct mail_index_sync_ctx *sync_ctx = context;
+	struct mail_index_view *view = sync_ctx->view;
 	uint32_t i;
 
 	view->map->hdr_copy.cache_file_seq = u->new_file_seq;
@@ -201,7 +206,9 @@ static int sync_cache_reset(const struct mail_transaction_cache_reset *u,
 static int sync_cache_update(const struct mail_transaction_cache_update *u,
 			     void *context)
 {
-	struct mail_index_view *view = context;
+        struct mail_index_sync_ctx *sync_ctx = context;
+	struct mail_index_view *view = sync_ctx->view;
+	struct mail_index_record *rec;
 	uint32_t seq;
 	int ret;
 
@@ -209,10 +216,25 @@ static int sync_cache_update(const struct mail_transaction_cache_update *u,
 					  &seq, &seq);
 	i_assert(ret == 0);
 
-	if (seq != 0) {
-		MAIL_INDEX_MAP_IDX(view->map, seq-1)->cache_offset =
-			u->cache_offset;
+	if (seq == 0) {
+		/* already expunged */
+		return 1;
 	}
+
+	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
+	if (rec->cache_offset != 0) {
+		/* we'll need to link the old and new cache records */
+		if (!sync_ctx->cache_locked) {
+			if (mail_cache_lock(view->index->cache, FALSE) <= 0)
+				return -1;
+			sync_ctx->cache_locked = TRUE;
+		}
+
+		if (mail_cache_link(view->index->cache,
+				    rec->cache_offset, u->cache_offset) < 0)
+			return -1;
+	}
+	rec->cache_offset = u->cache_offset;
 	return 1;
 }
 
@@ -423,10 +445,15 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 
 		if (mail_transaction_map(index, hdr, data,
 					 &mail_index_map_sync_funcs,
-					 view) < 0) {
+					 sync_ctx) < 0) {
 			ret = -1;
 			break;
 		}
+	}
+
+	if (sync_ctx->cache_locked) {
+		mail_cache_unlock(index->cache);
+		sync_ctx->cache_locked = FALSE;
 	}
 
 	if (ret < 0) {

@@ -1,7 +1,6 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
-#include "byteorder.h"
 #include "file-lock.h"
 #include "file-set-size.h"
 #include "mmap-util.h"
@@ -156,7 +155,6 @@ int mail_cache_reopen(struct mail_cache *cache)
 static int mmap_verify_header(struct mail_cache *cache)
 {
 	struct mail_cache_header *hdr;
-	uint32_t used_file_size;
 
 	/* check that the header is still ok */
 	if (cache->mmap_length < sizeof(struct mail_cache_header)) {
@@ -164,6 +162,11 @@ static int mmap_verify_header(struct mail_cache *cache)
 		return FALSE;
 	}
 	cache->hdr = hdr = cache->mmap_base;
+
+	if (cache->hdr->version != MAIL_CACHE_VERSION) {
+		/* version changed - upgrade silently */
+		return FALSE;
+	}
 
 	if (cache->hdr->indexid != cache->index->indexid) {
 		/* index id changed */
@@ -180,17 +183,16 @@ static int mmap_verify_header(struct mail_cache *cache)
 	if (cache->locks == 0)
 		return TRUE;
 
-	used_file_size = nbo_to_uint32(hdr->used_file_size);
-	if (used_file_size < sizeof(struct mail_cache_header)) {
+	if (hdr->used_file_size < sizeof(struct mail_cache_header)) {
 		mail_cache_set_corrupted(cache, "used_file_size too small");
 		return FALSE;
 	}
-	if ((used_file_size % sizeof(uint32_t)) != 0) {
+	if ((hdr->used_file_size % sizeof(uint32_t)) != 0) {
 		mail_cache_set_corrupted(cache, "used_file_size not aligned");
 		return FALSE;
 	}
 
-	if (used_file_size > cache->mmap_length) {
+	if (hdr->used_file_size > cache->mmap_length) {
 		mail_cache_set_corrupted(cache, "used_file_size too large");
 		return FALSE;
 	}
@@ -354,17 +356,13 @@ int mail_cache_lock(struct mail_cache *cache, int nonblock)
 	return ret;
 }
 
-int mail_cache_unlock(struct mail_cache *cache)
+void mail_cache_unlock(struct mail_cache *cache)
 {
 	if (--cache->locks > 0)
-		return 0;
+		return;
 
-	if (file_wait_lock(cache->fd, F_UNLCK) <= 0) {
+	if (file_wait_lock(cache->fd, F_UNLCK) <= 0)
 		mail_cache_set_syscall_error(cache, "file_wait_lock(F_UNLCK)");
-		return -1;
-	}
-
-	return 0;
 }
 
 int mail_cache_is_locked(struct mail_cache *cache)

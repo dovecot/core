@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "buffer.h"
-#include "byteorder.h"
 #include "mail-cache-private.h"
 
 #define CACHE_PREFETCH 1024
@@ -32,7 +31,6 @@ mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx)
 
 	buf = cache->mmap_base;
 	memcpy(&data_size, buf + offset, sizeof(data_size));
-	data_size = nbo_to_uint32(data_size);
 	offset += sizeof(data_size);
 
 	if (data_size == 0) {
@@ -116,14 +114,10 @@ const char *const *mail_cache_get_header_fields(struct mail_cache_view *view,
 }
 
 struct mail_cache_record *
-mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
-		      int index_offset)
+mail_cache_get_record(struct mail_cache *cache, uint32_t offset)
 {
 	struct mail_cache_record *cache_rec;
-	size_t size;
 
-	if (!index_offset)
-		offset = mail_cache_offset_to_uint32(offset);
 	if (offset == 0)
 		return NULL;
 
@@ -137,17 +131,16 @@ mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 	}
 	cache_rec = CACHE_RECORD(cache, offset);
 
-	size = nbo_to_uint32(cache_rec->size);
-	if (size < sizeof(*cache_rec)) {
+	if (cache_rec->size < sizeof(*cache_rec)) {
 		mail_cache_set_corrupted(cache, "invalid record size");
 		return NULL;
 	}
-	if (size > CACHE_PREFETCH) {
-		if (mail_cache_map(cache, offset, size) < 0)
+	if (cache_rec->size > CACHE_PREFETCH) {
+		if (mail_cache_map(cache, offset, cache_rec->size) < 0)
 			return NULL;
 	}
 
-	if (offset + size > cache->mmap_length) {
+	if (offset + cache_rec->size > cache->mmap_length) {
 		mail_cache_set_corrupted(cache, "record points outside file");
 		return NULL;
 	}
@@ -195,7 +188,7 @@ mail_cache_lookup(struct mail_cache_view *view, uint32_t seq,
 	if (mail_cache_lookup_offset(view, seq, &offset, FALSE) <= 0)
 		return NULL;
 
-	return mail_cache_get_record(view->cache, offset, TRUE);
+	return mail_cache_get_record(view->cache, offset);
 }
 
 enum mail_cache_field
@@ -208,26 +201,22 @@ mail_cache_get_fields(struct mail_cache_view *view, uint32_t seq)
 	while (cache_rec != NULL) {
 		fields |= cache_rec->fields;
 		cache_rec = mail_cache_get_record(view->cache,
-						  cache_rec->next_offset,
-						  FALSE);
+						  cache_rec->prev_offset);
 	}
 
 	return fields;
 }
 
 static int cache_get_field(struct mail_cache *cache,
-			   struct mail_cache_record *cache_rec,
+			   const struct mail_cache_record *cache_rec,
 			   enum mail_cache_field field,
 			   const void **data_r, size_t *size_r)
 {
-	unsigned char *buf;
 	unsigned int mask;
-	uint32_t rec_size, data_size;
-	size_t offset, next_offset;
+	uint32_t data_size;
+	size_t offset, prev_offset;
 	int i;
 
-	rec_size = nbo_to_uint32(cache_rec->size);
-	buf = (unsigned char *) cache_rec;
 	offset = sizeof(*cache_rec);
 
 	for (i = 0, mask = 1; i < 31; i++, mask <<= 1) {
@@ -236,7 +225,7 @@ static int cache_get_field(struct mail_cache *cache,
 
 		/* all records are at least 32bit. we have to check this
 		   before getting data_size. */
-		if (offset + sizeof(uint32_t) > rec_size) {
+		if (offset + sizeof(uint32_t) > cache_rec->size) {
 			mail_cache_set_corrupted(cache,
 				"Record continues outside it's allocated size");
 			return FALSE;
@@ -245,13 +234,13 @@ static int cache_get_field(struct mail_cache *cache,
 		if ((mask & MAIL_CACHE_FIXED_MASK) != 0)
 			data_size = mail_cache_field_sizes[i];
 		else {
-			memcpy(&data_size, buf + offset, sizeof(data_size));
-			data_size = nbo_to_uint32(data_size);
+			memcpy(&data_size, CONST_PTR_OFFSET(cache_rec, offset),
+			       sizeof(data_size));
 			offset += sizeof(data_size);
 		}
 
-		next_offset = offset + ((data_size + 3) & ~3);
-		if (next_offset > rec_size) {
+		prev_offset = offset + ((data_size + 3) & ~3);
+		if (prev_offset > cache_rec->size) {
 			mail_cache_set_corrupted(cache,
 				"Record continues outside it's allocated size");
 			return FALSE;
@@ -263,11 +252,11 @@ static int cache_get_field(struct mail_cache *cache,
 							 "Field size is 0");
 				return FALSE;
 			}
-			*data_r = buf + offset;
+			*data_r = CONST_PTR_OFFSET(cache_rec, offset);
 			*size_r = data_size;
 			return TRUE;
 		}
-		offset = next_offset;
+		offset = prev_offset;
 	}
 
 	i_unreached();
@@ -289,8 +278,7 @@ int mail_cache_lookup_field(struct mail_cache_view *view, uint32_t seq,
 					       data_r, size_r);
 		}
 		cache_rec = mail_cache_get_record(view->cache,
-						  cache_rec->next_offset,
-						  FALSE);
+						  cache_rec->prev_offset);
 	}
 
 	return FALSE;
@@ -308,7 +296,7 @@ mail_cache_lookup_string_field(struct mail_cache_view *view, uint32_t seq,
 	if (!mail_cache_lookup_field(view, seq, field, &data, &size))
 		return NULL;
 
-	if (((const char *) data)[size-1] != '\0') {
+	if (((const char *)data)[size-1] != '\0') {
 		mail_cache_set_corrupted(view->cache,
 			"String field %x doesn't end with NUL", field);
 		return NULL;

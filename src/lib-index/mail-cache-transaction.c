@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "buffer.h"
-#include "byteorder.h"
 #include "file-set-size.h"
 #include "mmap-util.h"
 #include "mail-cache-private.h"
@@ -46,23 +45,19 @@ int mail_cache_transaction_begin(struct mail_cache_view *view, int nonblock,
 	ctx->view = view;
 	ctx->trans = t;
 	ctx->cache_data = buffer_create_dynamic(system_pool, 8192, (size_t)-1);
-	ctx->used_file_size = nbo_to_uint32(ctx->cache->hdr->used_file_size);
+	ctx->used_file_size = ctx->cache->hdr->used_file_size;
 
 	view->cache->trans_ctx = ctx;
 	*ctx_r = ctx;
 	return 1;
 }
 
-int mail_cache_transaction_end(struct mail_cache_transaction_ctx *ctx)
+void mail_cache_transaction_end(struct mail_cache_transaction_ctx *ctx)
 {
-	int ret = 0;
-
 	i_assert(ctx->cache->trans_ctx != NULL);
 
 	(void)mail_cache_transaction_rollback(ctx);
-
-	if (mail_cache_unlock(ctx->cache) < 0)
-		ret = -1;
+	mail_cache_unlock(ctx->cache);
 
 	ctx->cache->trans_ctx = NULL;
 
@@ -70,7 +65,6 @@ int mail_cache_transaction_end(struct mail_cache_transaction_ctx *ctx)
 		buffer_free(ctx->cache_marks);
 	buffer_free(ctx->cache_data);
 	i_free(ctx);
-	return ret;
 }
 
 static void mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
@@ -116,7 +110,6 @@ static int write_mark_updates(struct mail_cache *cache)
 static int commit_all_changes(struct mail_cache_transaction_ctx *ctx)
 {
 	struct mail_cache *cache = ctx->cache;
-	uint32_t cont;
 
 	/* write everything to disk */
 	if (msync(cache->mmap_base, cache->mmap_length, MS_SYNC) < 0) {
@@ -138,18 +131,17 @@ static int commit_all_changes(struct mail_cache_transaction_ctx *ctx)
 		return -1;
 
 	/* update continued records count */
-	cont = nbo_to_uint32(cache->hdr->continued_record_count);
-	cont += buffer_get_used_size(ctx->cache_marks) /
+        cache->hdr->continued_record_count +=
+		buffer_get_used_size(ctx->cache_marks) /
 		(sizeof(uint32_t) * 2);
 
-	if (cont * 100 / cache->index->hdr->messages_count >=
+	if (cache->hdr->continued_record_count * 100 /
+	    cache->index->hdr->messages_count >=
 	    COMPRESS_CONTINUED_PERCENTAGE &&
 	    ctx->used_file_size >= COMPRESS_MIN_SIZE) {
 		/* too many continued rows, compress */
 		cache->need_compress = TRUE;
 	}
-
-	cache->hdr->continued_record_count = uint32_to_nbo(cont);
 	return 0;
 }
 
@@ -218,7 +210,6 @@ static uint32_t mail_cache_append_space(struct mail_cache_transaction_ctx *ctx,
 static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 {
 	struct mail_cache *cache = ctx->cache;
-	struct mail_cache_record *cache_rec;
 	uint32_t offset, write_offset;
 	const void *buf;
 	size_t size, buf_size;
@@ -226,8 +217,8 @@ static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 
 	buf = buffer_get_data(ctx->cache_data, &buf_size);
 
-	size = sizeof(*cache_rec) + buf_size;
-	ctx->cache_rec.size = uint32_to_nbo(size);
+	size = sizeof(ctx->cache_rec) + buf_size;
+	ctx->cache_rec.size = size;
 
         ret = mail_cache_lookup_offset(ctx->view, ctx->prev_seq, &offset, TRUE);
 	if (ret < 0)
@@ -240,27 +231,10 @@ static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 		if (write_offset == 0)
 			return -1;
 
-		cache_rec = mail_cache_get_record(cache, offset, TRUE);
-		if (cache_rec == NULL) {
-			/* first cache record - update offset in index file */
-			mail_index_update_cache(ctx->trans, ctx->prev_seq,
-						write_offset);
-		} else {
-			/* find offset to last cache record */
-			for (;;) {
-				cache_rec = mail_cache_get_record(cache, offset,
-								  FALSE);
-				if (cache_rec == NULL)
-					break;
-				offset = cache_rec->next_offset;
-			}
-
-			/* mark next_offset to be updated later */
-			offset = mail_cache_offset_to_uint32(offset) +
-				offsetof(struct mail_cache_record, next_offset);
-			mark_update(&ctx->cache_marks, offset,
-				    mail_cache_uint32_to_offset(write_offset));
-		}
+		/* write the offset to index file. this record's prev_offset
+		   is updated to point to old cache record when index is
+		   being synced. */
+		mail_index_update_cache(ctx->trans, ctx->prev_seq, write_offset);
 
 		memcpy((char *) cache->mmap_base + write_offset,
 		       &ctx->cache_rec, sizeof(ctx->cache_rec));
@@ -291,7 +265,7 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 			return -1;
 	}
 
-	ctx->cache->hdr->used_file_size = uint32_to_nbo(ctx->used_file_size);
+	ctx->cache->hdr->used_file_size = ctx->used_file_size;
 
 	if (commit_all_changes(ctx) < 0)
 		ret = -1;
@@ -312,7 +286,7 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 
 	/* no need to actually modify the file - we just didn't update
 	   used_file_size */
-	ctx->used_file_size = nbo_to_uint32(cache->hdr->used_file_size);
+	ctx->used_file_size = cache->hdr->used_file_size;
 
 	/* make sure we don't cache the headers */
 	for (i = 0; i < ctx->next_unused_header_lowwater; i++) {
@@ -378,11 +352,10 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 
 	offset = mail_cache_append_space(ctx, size + sizeof(uint32_t));
 	if (offset != 0) {
-		memcpy((char *) cache->mmap_base + offset + sizeof(uint32_t),
+		memcpy(PTR_OFFSET(cache->mmap_base, offset + sizeof(uint32_t)),
 		       header_str, size);
 
-		size = uint32_to_nbo(size);
-		memcpy((char *) cache->mmap_base + offset,
+		memcpy(PTR_OFFSET(cache->mmap_base, offset),
 		       &size, sizeof(uint32_t));
 
 		/* update cached headers */
@@ -428,7 +401,6 @@ static size_t get_insert_offset(struct mail_cache_transaction_ctx *ctx,
 			else {
 				memcpy(&data_size, buf + offset,
 				       sizeof(data_size));
-				data_size = nbo_to_uint32(data_size);
 				offset += sizeof(data_size);
 			}
 			offset += (data_size + 3) & ~3;
@@ -456,7 +428,7 @@ int mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		   enum mail_cache_field field,
 		   const void *data, size_t data_size)
 {
-	uint32_t nb_data_size;
+	uint32_t data_size32;
 	size_t full_size, offset;
 	unsigned char *buf;
 	int field_num;
@@ -464,7 +436,7 @@ int mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	i_assert(data_size > 0);
 	i_assert(data_size < (uint32_t)-1);
 
-	nb_data_size = uint32_to_nbo((uint32_t)data_size);
+	data_size32 = (uint32_t)data_size;
 
 	if ((field & MAIL_CACHE_FIXED_MASK) != 0) {
 		field_num = get_field_num(field);
@@ -484,7 +456,7 @@ int mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 
 	full_size = (data_size + 3) & ~3;
 	if ((field & MAIL_CACHE_FIXED_MASK) == 0)
-		full_size += sizeof(nb_data_size);
+		full_size += sizeof(data_size32);
 
 	/* fields must be ordered. find where to insert it. */
 	if (field > ctx->cache_rec.fields)
@@ -500,8 +472,8 @@ int mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 
 	/* @UNSAFE */
 	if ((field & MAIL_CACHE_FIXED_MASK) == 0) {
-		memcpy(buf, &nb_data_size, sizeof(nb_data_size));
-		buf += sizeof(nb_data_size);
+		memcpy(buf, &data_size32, sizeof(data_size32));
+		buf += sizeof(data_size32);
 	}
 	memcpy(buf, data, data_size); buf += data_size;
 	if ((data_size & 3) != 0)
@@ -533,12 +505,12 @@ int mail_cache_delete(struct mail_cache_transaction_ctx *ctx, uint32_t seq)
 	   the data. also it's actually useful as some index views are still
 	   able to ask cached data from messages that have already been
 	   expunged. */
-	deleted_space = nbo_to_uint32(cache->hdr->deleted_space);
+	deleted_space = cache->hdr->deleted_space;
 
 	do {
-		deleted_space -= nbo_to_uint32(cache_rec->size);
-		cache_rec = mail_cache_get_record(cache, cache_rec->next_offset,
-						  FALSE);
+		deleted_space += cache_rec->size;
+		cache_rec =
+			mail_cache_get_record(cache, cache_rec->prev_offset);
 	} while (cache_rec != NULL);
 
 	/* see if we've reached the max. deleted space in file */
@@ -547,7 +519,7 @@ int mail_cache_delete(struct mail_cache_transaction_ctx *ctx, uint32_t seq)
 	    ctx->used_file_size >= COMPRESS_MIN_SIZE)
 		cache->need_compress = TRUE;
 
-	cache->hdr->deleted_space = uint32_to_nbo(deleted_space);
+	cache->hdr->deleted_space = deleted_space;
 	return 0;
 }
 
@@ -579,4 +551,23 @@ int mail_cache_update_record_flags(struct mail_cache_view *view, uint32_t seq,
 				   enum mail_cache_record_flag flags)
 {
 	return -1;
+}
+
+int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
+		    uint32_t new_offset)
+{
+	struct mail_cache_record *cache_rec;
+
+	i_assert(cache->locks > 0);
+
+	if (mail_cache_map(cache, new_offset, sizeof(*cache_rec)) < 0)
+		return -1;
+
+	if (new_offset + sizeof(*cache_rec) > cache->mmap_length) {
+		mail_cache_set_corrupted(cache, "record points outside file");
+		return -1;
+	}
+	cache_rec = CACHE_RECORD(cache, new_offset);
+	cache_rec->prev_offset = old_offset;
+	return 0;
 }

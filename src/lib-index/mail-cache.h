@@ -86,7 +86,7 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view);
 /* Explicitly lock the cache file. Returns -1 if error, 1 if ok, 0 if we
    couldn't lock */
 int mail_cache_lock(struct mail_cache *cache, int nonblock);
-int mail_cache_unlock(struct mail_cache *cache);
+void mail_cache_unlock(struct mail_cache *cache);
 
 /* Returns TRUE if cache file is locked. */
 int mail_cache_is_locked(struct mail_cache *cache);
@@ -106,8 +106,7 @@ int mail_cache_transaction_begin(struct mail_cache_view *view, int nonblock,
 int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx);
 void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx);
 
-/* Should be called only by mail_transaction_commit/rollback: */
-int mail_cache_transaction_end(struct mail_cache_transaction_ctx *ctx);
+void mail_cache_transaction_end(struct mail_cache_transaction_ctx *ctx);
 
 /* Return NULL-terminated list of headers for given index, or NULL if
    header index isn't used. */

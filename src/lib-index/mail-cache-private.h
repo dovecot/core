@@ -4,6 +4,8 @@
 #include "mail-index-private.h"
 #include "mail-cache.h"
 
+#define MAIL_CACHE_VERSION 1
+
 /* Never compress the file if it's smaller than this */
 #define COMPRESS_MIN_SIZE (1024*50)
 
@@ -43,6 +45,11 @@ enum mail_cache_decision_type {
 };
 
 struct mail_cache_header {
+	/* version is increased only when you can't have backwards
+	   compatibility. */
+	uint8_t version;
+	uint8_t unused[3];
+
 	uint32_t indexid;
 	uint32_t file_seq;
 
@@ -59,7 +66,7 @@ struct mail_cache_header {
 
 struct mail_cache_record {
 	uint32_t fields; /* enum mail_cache_field */
-	uint32_t next_offset;
+	uint32_t prev_offset;
 	uint32_t size; /* full record size, including this header */
 };
 
@@ -109,8 +116,7 @@ const char *const *
 mail_cache_split_header(struct mail_cache *cache, const char *header);
 
 struct mail_cache_record *
-mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
-		      int index_offset);
+mail_cache_get_record(struct mail_cache *cache, uint32_t offset);
 
 int mail_cache_lookup_offset(struct mail_cache_view *view, uint32_t seq,
 			     uint32_t *offset, int skip_expunged);
@@ -125,6 +131,9 @@ mail_cache_transaction_autocommit(struct mail_cache_view *view,
 int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size);
 void mail_cache_file_close(struct mail_cache *cache);
 int mail_cache_reopen(struct mail_cache *cache);
+
+int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
+		    uint32_t new_offset);
 
 void mail_cache_handle_decisions(struct mail_cache_view *view, uint32_t seq,
 				 enum mail_cache_field field);

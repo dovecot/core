@@ -22,6 +22,7 @@ struct mail_index_sync_ctx {
 	unsigned int lock_id;
 
 	unsigned int sync_appends:1;
+	unsigned int cache_locked:1;
 };
 
 extern struct mail_transaction_map_functions mail_index_map_sync_funcs;
