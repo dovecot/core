@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "str.h"
+#include "strescape.h"
 #include "commands.h"
 
 /* Returns status items, or -1 if error */
@@ -109,7 +110,7 @@ int cmd_status(struct client *client)
 	}
 
 	str = t_str_new(128);
-	str_printfa(str, "* STATUS %s (", mailbox);
+	str_printfa(str, "* STATUS \"%s\" (", str_escape(mailbox));
 	if (items & STATUS_MESSAGES)
 		str_printfa(str, "MESSAGES %u ", status.messages);
 	if (items & STATUS_RECENT)
