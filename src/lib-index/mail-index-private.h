@@ -21,18 +21,25 @@ struct mail_transaction_header;
 	((struct mail_index_record *) \
 		PTR_OFFSET((map)->records, (idx) * (map)->hdr->record_size))
 
+#define MAIL_INDEX_HEADER_SIZE_ALIGN(size) \
+	(((size) + 7) & ~7)
+
 struct mail_index_ext {
 	const char *name;
 	uint32_t hdr_offset;
 	uint32_t hdr_size;
-	uint32_t record_offset;
-	uint32_t record_size;
+	uint16_t record_offset;
+	uint16_t record_size;
+	uint16_t record_align;
 };
 
 struct mail_index_ext_header {
 	uint32_t hdr_size;
-	uint32_t record_offset;
-	uint32_t record_size;
+	uint16_t record_offset;
+	uint16_t record_size;
+	uint16_t record_align;
+	uint16_t name_size;
+	/* unsigned char name[] */
 };
 
 struct mail_index_map {
@@ -128,10 +135,15 @@ int mail_index_map(struct mail_index *index, int force);
 void mail_index_unmap(struct mail_index *index, struct mail_index_map *map);
 struct mail_index_map *
 mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size);
-uint32_t mail_index_map_register_ext(struct mail_index *index,
-				     struct mail_index_map *map,
-				     const char *name, uint32_t hdr_offset,
-				     uint32_t hdr_size, uint32_t record_size);
+
+uint32_t mail_index_map_lookup_ext(struct mail_index_map *map,
+				   const char *name);
+uint32_t
+mail_index_map_register_ext(struct mail_index *index,
+			    struct mail_index_map *map, const char *name,
+			    uint32_t hdr_offset, uint32_t hdr_size,
+			    uint32_t record_offset, uint32_t record_size,
+			    uint32_t record_align);
 int mail_index_map_get_ext_idx(struct mail_index_map *map,
 			       uint32_t ext_id, uint32_t *idx_r);
 

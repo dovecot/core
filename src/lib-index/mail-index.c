@@ -54,7 +54,9 @@ void mail_index_set_permissions(struct mail_index *index,
 }
 
 uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
-				 uint32_t hdr_size, uint16_t record_size)
+				 uint32_t default_hdr_size,
+				 uint16_t default_record_size,
+				 uint16_t default_record_align)
 {
         const struct mail_index_ext *extensions;
 	struct mail_index_ext ext;
@@ -64,22 +66,17 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	extensions = buffer_get_data(index->extensions, &ext_count);
 	ext_count /= sizeof(*extensions);
 
-	/* see if it's there already */
+	/* see if it's already there */
 	for (i = 0; i < ext_count; i++) {
-		if (strcmp(extensions[i].name, name) == 0) {
-			i_assert(extensions[i].hdr_size == hdr_size);
-			i_assert(extensions[i].record_size == record_size);
+		if (strcmp(extensions[i].name, name) == 0)
 			return i;
-		}
 	}
-
-	i_assert(hdr_size % 4 == 0);
-	i_assert(record_size % 4 == 0);
 
 	memset(&ext, 0, sizeof(ext));
 	ext.name = p_strdup(index->extension_pool, name);
-	ext.hdr_size = hdr_size;
-	ext.record_size = record_size;
+	ext.hdr_size = default_hdr_size;
+	ext.record_size = default_record_size;
+	ext.record_align = default_record_align;
 
 	buffer_append(index->extensions, &ext, sizeof(ext));
 	return ext_count;
@@ -108,27 +105,39 @@ static void mail_index_map_init_extbufs(struct mail_index_map *map,
 						ext_id_map_size, (size_t)-1);
 }
 
-uint32_t mail_index_map_register_ext(struct mail_index *index,
-				     struct mail_index_map *map,
-				     const char *name, uint32_t hdr_offset,
-				     uint32_t hdr_size, uint32_t record_size)
+uint32_t mail_index_map_lookup_ext(struct mail_index_map *map, const char *name)
 {
-	const struct mail_index_ext *last_ext;
+	const struct mail_index_ext *extensions;
+	size_t i, size;
+
+	if (map->extensions == NULL)
+		return (uint32_t)-1;
+
+	extensions = buffer_get_data(map->extensions, &size);
+	size /= sizeof(*extensions);
+
+	for (i = 0; i < size; i++) {
+		if (strcmp(extensions[i].name, name) == 0)
+			return i;
+	}
+	return (uint32_t)-1;
+}
+
+uint32_t
+mail_index_map_register_ext(struct mail_index *index,
+			    struct mail_index_map *map, const char *name,
+			    uint32_t hdr_offset, uint32_t hdr_size,
+			    uint32_t record_offset, uint32_t record_size,
+			    uint32_t record_align)
+{
 	struct mail_index_ext *ext;
-	size_t size;
 	uint32_t idx, ext_id;
 
 	if (map->extensions == NULL) {
                 mail_index_map_init_extbufs(map, 5);
-		last_ext = NULL;
 		idx = 0;
 	} else {
-		last_ext = buffer_get_data(map->extensions, &size);
-		idx = size / sizeof(*last_ext);
-		if (idx == 0)
-			last_ext = NULL;
-		else
-			last_ext += idx - 1;
+		idx = map->extensions->used / sizeof(*ext);
 	}
 
 	ext = buffer_append_space_unsafe(map->extensions, sizeof(*ext));
@@ -137,19 +146,29 @@ uint32_t mail_index_map_register_ext(struct mail_index *index,
 	ext->name = p_strdup(map->extension_pool, name);
 	ext->hdr_offset = hdr_offset;
 	ext->hdr_size = hdr_size;
+	ext->record_offset = record_offset;
 	ext->record_size = record_size;
+	ext->record_align = record_align;
 
-	if (last_ext != NULL) {
-		ext->record_offset = last_ext->record_offset +
-			last_ext->record_size;
-	} else {
-		ext->record_offset = sizeof(struct mail_index_record);
-	}
-
-	ext_id = mail_index_ext_register(index, name, hdr_size, record_size);
+	ext_id = mail_index_ext_register(index, name, hdr_size,
+					 record_size, record_align);
 	buffer_write(map->ext_id_map, ext_id * sizeof(uint32_t),
 		     &idx, sizeof(idx));
 	return idx;
+}
+
+static int size_check(size_t *size_left, size_t size)
+{
+	if (size > *size_left)
+		return FALSE;
+	*size_left -= size;
+	return TRUE;
+}
+
+static size_t get_align(size_t name_len)
+{
+	size_t size = sizeof(struct mail_index_ext_header) + name_len;
+	return MAIL_INDEX_HEADER_SIZE_ALIGN(size) - size;
 }
 
 static int mail_index_read_extensions(struct mail_index *index,
@@ -159,9 +178,12 @@ static int mail_index_read_extensions(struct mail_index *index,
 	unsigned int i, old_count;
 	const char *name;
 	uint32_t ext_id, offset, name_offset;
+	size_t size_left;
 
-	offset = map->hdr->base_header_size;
-	if (offset == map->hdr->header_size && map->extension_pool == NULL) {
+	/* extension headers always start from 64bit offsets, so if base header
+	   doesn't happen to be 64bit aligned we'll skip some bytes */
+	offset = MAIL_INDEX_HEADER_SIZE_ALIGN(map->hdr->base_header_size);
+	if (offset >= map->hdr->header_size && map->extension_pool == NULL) {
 		/* nothing to do, skip allocatations and all */
 		return 1;
 	}
@@ -173,39 +195,34 @@ static int mail_index_read_extensions(struct mail_index *index,
 	for (i = 0; i < old_count; i++)
 		buffer_append(map->ext_id_map, &ext_id, sizeof(ext_id));
 
-	name = map->hdr_base;
 	while (offset < map->hdr->header_size) {
-		name_offset = offset;
-
-		while (offset < map->hdr->header_size && name[offset] != '\0')
-			offset++;
-		if (offset == map->hdr->header_size) {
-			mail_index_set_error(index, "Corrupted index file %s: "
-				"Header extension name doesn't end with NUL",
-				index->filepath);
-			return -1;
-		}
-		offset++;
-		while (offset < map->hdr->header_size && (offset % 4) != 0)
-			offset++;
-
 		ext_hdr = CONST_PTR_OFFSET(map->hdr_base, offset);
 
-		if (offset + sizeof(*ext_hdr) > map->hdr->header_size ||
-		    offset + sizeof(*ext_hdr) + ext_hdr->hdr_size >
-		    map->hdr->header_size) {
+		size_left = map->hdr->header_size - offset;
+		if (!size_check(&size_left, sizeof(*ext_hdr)) ||
+		    !size_check(&size_left, ext_hdr->name_size) ||
+		    !size_check(&size_left, get_align(ext_hdr->name_size)) ||
+		    !size_check(&size_left, ext_hdr->hdr_size)) {
 			mail_index_set_error(index, "Corrupted index file %s: "
 				"Header extension goes outside header",
 				index->filepath);
 			return -1;
 		}
+		offset += sizeof(*ext_hdr);
+		name_offset = offset;
+		offset += ext_hdr->name_size + get_align(ext_hdr->name_size);
 
-		mail_index_map_register_ext(index, map, name + name_offset,
-					    offset + sizeof(*ext_hdr),
-					    ext_hdr->hdr_size,
-					    ext_hdr->record_size);
+		t_push();
+		name = t_strndup(CONST_PTR_OFFSET(map->hdr_base, name_offset),
+				 ext_hdr->name_size);
+		mail_index_map_register_ext(index, map, name,
+					    offset, ext_hdr->hdr_size,
+					    ext_hdr->record_offset,
+					    ext_hdr->record_size,
+					    ext_hdr->record_align);
+		t_pop();
 
-		offset += sizeof(*ext_hdr) + ext_hdr->hdr_size;
+		offset += MAIL_INDEX_HEADER_SIZE_ALIGN(ext_hdr->hdr_size);
 	}
 	return 1;
 }
@@ -663,7 +680,7 @@ mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size)
 	/* copy extensions */
 	if (map->ext_id_map != NULL) {
 		count = map->ext_id_map->used / sizeof(uint32_t);
-		mail_index_map_init_extbufs(mem_map, count);
+		mail_index_map_init_extbufs(mem_map, count + 2);
 
 		buffer_append_buf(mem_map->extensions, map->extensions,
 				  0, (size_t)-1);

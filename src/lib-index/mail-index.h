@@ -140,11 +140,6 @@ void mail_index_free(struct mail_index *index);
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid);
 
-/* register index extension. name is a unique identifier for the extension.
-   returns identifier for the name. */
-uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
-				 uint32_t hdr_size, uint16_t record_size);
-
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags);
 void mail_index_close(struct mail_index *index);
 
@@ -256,10 +251,6 @@ int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
    mail_index_lookup()->uid. */
 int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
 			  uint32_t *uid_r);
-/* Returns the wanted extension record for given message. If it doesn't exist,
-   *data_r is set to NULL. Return values are same as for mail_index_lookup(). */
-int mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
-			  uint32_t ext_id, const void **data_r);
 /* Convert UID range to sequence range. If no UIDs are found, sequences are
    set to 0. Note that any of the returned sequences may have been expunged
    already. */
@@ -288,9 +279,6 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 /* Update field in header. */
 void mail_index_update_header(struct mail_index_transaction *t,
 			      size_t offset, const void *data, size_t size);
-/* Update extension record. */
-void mail_index_update_ext(struct mail_index_transaction *t,
-			   uint32_t seq, uint32_t ext_id, const void *data);
 
 /* Returns the last error code. */
 enum mail_index_error mail_index_get_last_error(struct mail_index *index);
@@ -304,5 +292,37 @@ void mail_index_reset_error(struct mail_index *index);
    flags variables. */
 void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
 				 uint8_t *flags, keywords_mask_t keywords);
+
+/* register index extension. name is a unique identifier for the extension.
+   returns unique identifier for the name. */
+uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
+				 uint32_t default_hdr_size,
+				 uint16_t default_record_size,
+				 uint16_t default_record_align);
+/* Get current extension sizes. Returns 1 if ok, 0 if extension doesn't exist
+   in view. */
+int mail_index_ext_get_size(struct mail_index_view *view, uint32_t ext_id,
+			    uint32_t *hdr_size_r, uint16_t *record_size_r,
+			    uint16_t *record_align_r);
+/* Resize existing extension data. If size is grown, the new data will be
+   zero-filled. If size is shrinked, the data is simply dropped. */
+void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
+			   uint32_t hdr_size, uint16_t record_size,
+			   uint16_t record_align);
+
+/* Returns extension header. */
+int mail_index_get_header_ext(struct mail_index_view *view, uint32_t ext_id,
+			      const void **data_r, size_t *data_size_r);
+/* Returns the wanted extension record for given message. If it doesn't exist,
+   *data_r is set to NULL. Return values are same as for mail_index_lookup(). */
+int mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
+			  uint32_t ext_id, const void **data_r);
+/* Update extension header field. */
+void mail_index_update_header_ext(struct mail_index_transaction *t,
+				  uint32_t ext_id, size_t offset,
+				  const void *data, size_t size);
+/* Update extension record. */
+void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
+			   uint32_t ext_id, const void *data);
 
 #endif

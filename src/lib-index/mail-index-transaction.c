@@ -657,33 +657,6 @@ int mail_index_update_cache_lookup(struct mail_index_transaction *t,
 	return TRUE;
 }
 
-void mail_index_update_ext(struct mail_index_transaction *t,
-			   uint32_t seq, uint32_t ext_id, const void *data)
-{
-	struct mail_index *index = t->view->index;
-        const struct mail_index_ext *ext;
-	buffer_t **buf;
-
-	i_assert(seq > 0 &&
-		 (seq <= mail_index_view_get_message_count(t->view) ||
-		  seq <= t->last_new_seq));
-	i_assert(ext_id < index->extensions->used / sizeof(*ext));
-
-	t->log_updates = TRUE;
-
-	ext = index->extensions->data;
-	ext += ext_id;
-
-	if (t->ext_rec_updates == NULL) {
-		t->ext_rec_updates =
-			buffer_create_dynamic(default_pool, 128, (size_t)-1);
-	}
-	buf = buffer_get_space_unsafe(t->ext_rec_updates,
-				      ext_id * sizeof(buffer_t *),
-				      sizeof(buffer_t *));
-	mail_index_update_seq_buffer(buf, seq, data, ext->record_size, NULL);
-}
-
 void mail_index_update_header(struct mail_index_transaction *t,
 			      size_t offset, const void *data, size_t size)
 {
@@ -696,4 +669,88 @@ void mail_index_update_header(struct mail_index_transaction *t,
 	memcpy(t->hdr_change + offset, data, size);
 	for (; size > 0; size--)
 		t->hdr_mask[offset++] = 1;
+}
+
+void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
+			   uint32_t hdr_size, uint16_t record_size,
+			   uint16_t record_align)
+{
+	struct mail_transaction_ext_intro intro;
+	const struct mail_index_ext *ext;
+
+	memset(&intro, 0, sizeof(intro));
+
+	if (!mail_index_map_get_ext_idx(t->view->map, ext_id, &intro.ext_id)) {
+		intro.ext_id = (uint32_t)-1;
+		ext = t->view->index->extensions->data;
+		ext += ext_id;
+	} else {
+		ext = t->view->map->extensions->data;
+		ext += ext_id;
+	}
+
+	/* allow only header size changes if something was already written */
+	i_assert(t->ext_rec_updates == NULL ||
+		 (ext->record_size == record_size &&
+		  ext->record_align == record_align));
+
+	if (t->ext_resizes == NULL) {
+		t->ext_resizes =
+			buffer_create_dynamic(default_pool, 128, (size_t)-1);
+	}
+
+	intro.hdr_size = hdr_size;
+	intro.record_size = record_size;
+	intro.record_align = record_align;
+	intro.name_size = 1;
+	buffer_write(t->ext_resizes, ext_id * sizeof(intro),
+		     &intro, sizeof(intro));
+}
+
+void mail_index_update_header_ext(struct mail_index_transaction *t,
+				  uint32_t ext_id, size_t offset,
+				  const void *data, size_t size)
+{
+	// FIXME
+}
+
+void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
+			   uint32_t ext_id, const void *data)
+{
+	struct mail_index *index = t->view->index;
+        const struct mail_index_ext *ext;
+	const struct mail_transaction_ext_intro *intro;
+	buffer_t **buf;
+	uint16_t record_size;
+	size_t size;
+
+	i_assert(seq > 0 &&
+		 (seq <= mail_index_view_get_message_count(t->view) ||
+		  seq <= t->last_new_seq));
+	i_assert(ext_id < index->extensions->used / sizeof(*ext));
+
+	t->log_updates = TRUE;
+
+	if (t->ext_resizes == NULL) {
+		intro = NULL;
+		size = 0;
+	} else {
+		intro = buffer_get_data(t->ext_resizes, &size);
+	}
+	if (ext_id < size / sizeof(*intro) && intro[ext_id].name_size != 0) {
+		/* resized record */
+		record_size = intro[ext_id].record_size;
+	} else {
+		ext = index->extensions->data;
+		record_size = ext[ext_id].record_size;
+	}
+
+	if (t->ext_rec_updates == NULL) {
+		t->ext_rec_updates =
+			buffer_create_dynamic(default_pool, 128, (size_t)-1);
+	}
+	buf = buffer_get_space_unsafe(t->ext_rec_updates,
+				      ext_id * sizeof(buffer_t *),
+				      sizeof(buffer_t *));
+	mail_index_update_seq_buffer(buf, seq, data, record_size, NULL);
 }

@@ -516,7 +516,7 @@ int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
 	if (ibox->md5hdr_ext_idx == 0) {
 		ibox->md5hdr_ext_idx =
 			mail_index_ext_register(ibox->index, "header-md5",
-						0, 16);
+						0, 16, 1);
 	}
 
 	if (mail_index_lookup_ext(view, seq, ibox->md5hdr_ext_idx, &data) < 0) {

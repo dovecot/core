@@ -815,7 +815,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				sync_ctx->ibox->md5hdr_ext_idx =
 					mail_index_ext_register(
 						sync_ctx->ibox->index,
-						"header-md5", 0, 16);
+						"header-md5", 0, 16, 1);
 			}
 
 			if (mbox_sync_find_index_md5(sync_ctx,

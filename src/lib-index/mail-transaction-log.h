@@ -72,6 +72,8 @@ struct mail_transaction_ext_intro {
 	uint32_t ext_id; /* must be first */
 	uint32_t hdr_size;
 	uint16_t record_size;
+	uint16_t record_align;
+	uint16_t unused_padding;
 	uint16_t name_size;
 	/* unsigned char name[]; */
 };

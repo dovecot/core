@@ -130,7 +130,8 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		   fully synced */
 	} else {
 		/* we need a private copy of the map if we don't want to
-		   sync expunges */
+		   sync expunges. we need to sync mapping only if we're not
+		   using the latest one. */
 		if (view->map != view->index->map)
 			ctx->sync_map_update = TRUE;
 

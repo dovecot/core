@@ -334,15 +334,26 @@ log_view_get_next(struct mail_transaction_log_view *view,
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK);
 		return -1;
 	} else if (hdr->type == MAIL_TRANSACTION_EXT_INTRO) {
-		const struct mail_transaction_ext_intro *intro = data;
+		const struct mail_transaction_ext_intro *intro;
+		uint32_t i;
 
-		if (intro->ext_id > view->max_ext_id)
-			view->max_ext_id = intro->ext_id;
-		if (intro->name_size >
-		    hdr_size - sizeof(*hdr) - sizeof(*intro)) {
-			mail_transaction_log_file_set_corrupted(file,
-				"extension intro: name_size too large");
-			return -1;
+		for (i = 0; i < hdr->size; ) {
+			if (i + sizeof(*intro) > hdr->size) {
+				/* should be just extra padding */
+				break;
+			}
+
+			intro = CONST_PTR_OFFSET(data, i);
+			if (intro->ext_id > view->max_ext_id)
+				view->max_ext_id = intro->ext_id;
+			if (intro->name_size >
+			    hdr_size - sizeof(*hdr) - sizeof(*intro)) {
+				mail_transaction_log_file_set_corrupted(file,
+					"extension intro: name_size too large");
+				return -1;
+			}
+
+			i += sizeof(*intro) + intro->name_size;
 		}
 	} else if (hdr->type == MAIL_TRANSACTION_EXT_REC_UPDATE ||
 		   hdr->type == MAIL_TRANSACTION_EXT_HDR_UPDATE ||

@@ -20,6 +20,7 @@ struct mail_index_transaction {
 	unsigned char hdr_mask[sizeof(struct mail_index_header)];
 
 	buffer_t *ext_rec_updates; /* buffer[] */
+	buffer_t *ext_resizes; /* struct mail_transaction_ext_intro[] */
 	buffer_t *ext_intros;
 	uint32_t ext_intros_max_id;
 

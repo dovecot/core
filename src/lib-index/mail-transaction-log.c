@@ -986,7 +986,8 @@ transaction_save_ext_intro(struct mail_index_transaction *t,
 	t_push();
 	name = t_strndup((const char *)(intro+1), intro->name_size);
 	ext_id = mail_index_ext_register(t->view->index, name,
-					 intro->hdr_size, intro->record_size);
+					 intro->hdr_size, intro->record_size,
+					 intro->record_align);
 	pos = ext_id * sizeof(intro->ext_id);
 	if (pos > t->ext_intros->used) {
 		/* unused records are -1 */
@@ -1029,9 +1030,20 @@ static int mail_transaction_log_scan_pending(struct mail_transaction_log *log,
 			break;
 		}
 		case MAIL_TRANSACTION_EXT_INTRO: {
-			const struct mail_transaction_ext_intro *intro = data;
+			const struct mail_transaction_ext_intro *intro;
+			uint32_t i;
 
-			transaction_save_ext_intro(t, intro);
+			for (i = 0; i < hdr->size; ) {
+				if (i + sizeof(*intro) > hdr->size) {
+					/* should be just extra padding */
+					break;
+				}
+
+				intro = CONST_PTR_OFFSET(data, i);
+				transaction_save_ext_intro(t, intro);
+
+				i += sizeof(*intro) + intro->name_size;
+			}
 			break;
 		}
 		}
@@ -1161,50 +1173,107 @@ log_get_hdr_update_buffer(struct mail_index_transaction *t)
 	return buf;
 }
 
-static int
-mail_transaction_log_register_ext(struct mail_transaction_log_file *file,
-				  struct mail_index_transaction *t,
-				  uint32_t ext_id, uint32_t *idx_r)
+static uint32_t
+mail_transaction_log_lookup_ext(struct mail_index_transaction *t,
+				uint32_t ext_id)
 {
-	const struct mail_index_ext *ext;
-	struct mail_transaction_ext_intro *intro;
 	const uint32_t *id_map;
-	buffer_t *buf;
+	uint32_t idx;
 	size_t size;
-	int ret;
 
-	/* first check if it's already in nonsynced part of transaction log */
+	/* already in nonsynced part of transaction log? */
 	if (t->ext_intros != NULL) {
 		id_map = buffer_get_data(t->ext_intros, &size);
 		size /= sizeof(*id_map);
 
-		if (ext_id < size && id_map[ext_id] != (uint32_t)-1) {
-			*idx_r = id_map[ext_id];
-			return 0;
-		}
+		if (ext_id < size && id_map[ext_id] != (uint32_t)-1)
+			return id_map[ext_id];
 	}
-	*idx_r = t->ext_intros_max_id++;
+
+	if (mail_index_map_get_ext_idx(t->view->map, ext_id, &idx))
+		return idx;
+
+	return (uint32_t)-1;
+}
+
+static int
+mail_transaction_log_append_ext_intros(struct mail_transaction_log_file *file,
+				       struct mail_index_transaction *t)
+{
+	const struct mail_index_ext *ext;
+        struct mail_transaction_ext_intro *intro;
+	buffer_t **updates, *buf;
+	uint32_t idx;
+	size_t i, size;
 
 	ext = t->view->index->extensions->data;
-	ext += ext_id;
 
-	/* nope, register */
-	t_push();
+	if (t->ext_rec_updates != NULL) {
+		updates = buffer_get_modifyable_data(t->ext_rec_updates, &size);
+		size /= sizeof(*updates);
+
+		/* add new extension introductions into resize buffer */
+		for (i = 0; i < size; i++) {
+			if (updates[i] == NULL)
+				continue;
+
+			idx = mail_transaction_log_lookup_ext(t, i);
+			if (idx == (uint32_t)-1) {
+				mail_index_ext_resize(t, i, ext[i].hdr_size,
+						      ext[i].record_size,
+						      ext[i].record_align);
+			}
+		}
+	}
+
+	if (t->ext_resizes == NULL)
+		return 0;
+
+	/* give IDs to new extensions */
+	intro = buffer_get_modifyable_data(t->ext_resizes, &size);
+	size /= sizeof(*intro);
+	for (i = 0; i < size; i++) {
+		if (intro[i].name_size != 0 && intro[i].ext_id == (uint32_t)-1)
+			intro[i].ext_id = t->ext_intros_max_id++;
+	}
+
+	/* and register them */
 	buf = buffer_create_dynamic(pool_datastack_create(), 128, (size_t)-1);
-	intro = buffer_append_space_unsafe(buf, sizeof(*intro));
-	intro->ext_id = *idx_r;
-	intro->hdr_size = ext->hdr_size;
-	intro->record_size = ext->record_size;
-	intro->name_size = strlen(ext->name);
-	buffer_append(buf, ext->name, intro->name_size);
+	for (i = 0; i < size; i++) {
+		if (intro[i].name_size != 0) {
+			intro[i].name_size = strlen(ext[i].name);
+			buffer_append(buf, &intro[i], sizeof(*intro));
+			buffer_append(buf, ext[i].name, intro[i].name_size);
+		}
+	}
 
 	if ((buf->used % 4) != 0)
-		buffer_append(buf, null4, 4 - (buf->used % 4));
+		buffer_append_zero(buf, 4 - (buf->used % 4));
 
-	ret = log_append_buffer(file, buf, NULL, MAIL_TRANSACTION_EXT_INTRO,
-				t->view->external);
-	t_pop();
-	return ret;
+	if (buf->used == 0)
+		return 0;
+
+	return log_append_buffer(file, buf, NULL, MAIL_TRANSACTION_EXT_INTRO,
+				 t->view->external);
+}
+
+static uint32_t
+mail_transaction_log_get_ext_idx(struct mail_index_transaction *t,
+				 uint32_t ext_id)
+{
+        const struct mail_transaction_ext_intro *intro;
+	uint32_t idx;
+
+	idx = mail_transaction_log_lookup_ext(t, ext_id);
+	if (idx != (uint32_t)-1)
+		return idx;
+
+	i_assert(ext_id < t->ext_resizes->used / sizeof(*intro));
+	intro = t->ext_resizes->data;
+	intro += ext_id;
+
+	i_assert(intro->name_size > 0 && intro->ext_id != (uint32_t)-1);
+	return intro->ext_id;
 }
 
 int mail_transaction_log_append(struct mail_index_transaction *t,
@@ -1220,7 +1289,6 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	uoff_t append_offset;
 	buffer_t *hdr_buf, **updates;
 	unsigned int i, lock_id;
-	uint32_t idx;
 	size_t size;
 	int ret;
 
@@ -1297,7 +1365,13 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 
 	ret = 0;
-	if (t->appends != NULL) {
+
+	/* introduce extensions before appends to avoid having to resize
+	   records unneededly */
+	if (mail_transaction_log_append_ext_intros(file, t) < 0)
+		ret = -1;
+
+	if (t->appends != NULL && ret == 0) {
 		ret = log_append_buffer(file, t->appends, NULL,
 					MAIL_TRANSACTION_APPEND,
 					view->external);
@@ -1333,15 +1407,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 		if (updates[i] == NULL)
 			continue;
 
-		if (!mail_index_map_get_ext_idx(index->map, i, &idx)) {
-			/* new one */
-			ret = mail_transaction_log_register_ext(file, t, i,
-								&idx);
-			if (ret < 0)
-				break;
-		}
-
-		ext_rec_hdr.ext_id = idx;
+		ext_rec_hdr.ext_id = mail_transaction_log_get_ext_idx(t, i);
 		ret = log_append_buffer(file, updates[i], hdr_buf,
 					MAIL_TRANSACTION_EXT_REC_UPDATE,
 					view->external);

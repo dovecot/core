@@ -403,8 +403,9 @@ mbox_open(struct index_storage *storage, const char *name,
 	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
-	mbox_ext_idx = mail_index_ext_register(index, "mbox",
-					       0, sizeof(uint64_t));
+	mbox_ext_idx = mail_index_ext_register(index, "mbox", 0,
+					       sizeof(uint64_t),
+					       sizeof(uint64_t));
 	ibox = index_storage_mailbox_init(storage, &mbox_mailbox,
 					  index, name, flags);
 	if (ibox == NULL)
