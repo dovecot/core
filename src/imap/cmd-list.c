@@ -146,7 +146,7 @@ int _cmd_list_full(struct client *client, int lsub)
 	}
 
 	/* FIXME: really needs some work.. */
-	ns = namespace_find(client->namespaces, mask);
+	ns = namespace_find(client->namespaces, *ref != '\0' ? ref : mask);
 	if (ns != NULL)
 		storage = ns->storage;
 	else
