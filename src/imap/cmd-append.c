@@ -107,6 +107,8 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 {
 	size_t size;
 
+	ctx->client->input_skip_line = TRUE;
+
 	io_remove(ctx->client->io);
 	ctx->client->io = NULL;
 
@@ -214,7 +216,6 @@ static int cmd_append_continue_parsing(struct client_command_context *cmd)
 		sync_flags = ctx->box == cmd->client->mailbox ?
 			0 : MAILBOX_SYNC_FLAG_FAST;
 
-		client->input_skip_line = TRUE;
 		cmd_append_finish(ctx);
 		return cmd_sync(cmd, sync_flags, "OK Append completed.");
 	}
