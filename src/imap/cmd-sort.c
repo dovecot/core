@@ -104,7 +104,7 @@ int cmd_sort(Client *client)
 	charset = args->data.str;
 	args++;
 
-	pool = pool_create("MailSortArgs", 2048, FALSE);
+	pool = pool_alloconly_create("MailSortArgs", 2048);
 
 	sargs = mail_search_args_build(pool, args, &error);
 	if (sargs == NULL) {

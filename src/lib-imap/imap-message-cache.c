@@ -105,7 +105,8 @@ static CachedMessage *cache_new(ImapMessageCache *cache, unsigned int uid)
 		*msgp = NULL;
 	}
 
-	pool = pool_create("CachedMessage", DEFAULT_MESSAGE_POOL_SIZE, FALSE);
+	pool = pool_alloconly_create("CachedMessage",
+				     DEFAULT_MESSAGE_POOL_SIZE);
 
 	msg = p_new(pool, CachedMessage, 1);
 	msg->pool = pool;

@@ -585,7 +585,7 @@ static void auth_digest_md5_init(unsigned int login_pid,
 	Pool pool;
 	const char *challenge;
 
-	pool = pool_create("Digest-MD5", 256, FALSE);
+	pool = pool_alloconly_create("Digest-MD5", 256);
 	auth = p_new(pool, AuthData, 1);
 	auth->pool = pool;
 

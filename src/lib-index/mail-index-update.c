@@ -36,7 +36,7 @@ MailIndexUpdate *mail_index_update_begin(MailIndex *index, MailIndexRecord *rec)
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	pool = pool_create("MailIndexUpdate", 1024, FALSE);
+	pool = pool_alloconly_create("MailIndexUpdate", 1024);
 
 	update = p_new(pool, MailIndexUpdate, 1);
 	update->pool = pool;
@@ -386,7 +386,7 @@ static void update_header_func(MessagePart *part,
 	if (ctx->update->index->header->cache_fields & DATA_FIELD_ENVELOPE) {
 		if (ctx->envelope_pool == NULL) {
 			ctx->envelope_pool =
-				pool_create("index envelope", 2048, FALSE);
+				pool_alloconly_create("index envelope", 2048);
 		}
 		t_push();
 		imap_envelope_parse_header(ctx->envelope_pool,
@@ -428,7 +428,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IStream *input,
 		/* for body / bodystructure, we need need to
 		   fully parse the message. unless it's already parsed
 		   and cached. */
-		pool = pool_create("index message parser", 2048, FALSE);
+		pool = pool_alloconly_create("index message parser", 2048);
 
 		value = update->index->lookup_field_raw(update->index,
 							update->rec,

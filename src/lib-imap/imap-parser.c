@@ -66,7 +66,7 @@ ImapParser *imap_parser_create(IStream *input, OStream *output,
 	ImapParser *parser;
 
 	parser = i_new(ImapParser, 1);
-        parser->pool = pool_create("IMAP parser", 8192, FALSE);
+        parser->pool = pool_alloconly_create("IMAP parser", 8192);
 	parser->input = input;
 	parser->output = output;
 	parser->max_literal_size = max_literal_size;

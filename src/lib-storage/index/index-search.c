@@ -316,8 +316,8 @@ static HeaderSearchContext *search_header_context(SearchIndexContext *ctx,
 	}
 
 	if (ctx->hdr_pool == NULL) {
-		ctx->hdr_pool = pool_create("message_header_search",
-					    8192, FALSE);
+		ctx->hdr_pool =
+			pool_alloconly_create("message_header_search", 8192);
 	}
 
 	arg->context = message_header_search_init(ctx->hdr_pool, arg->value.str,

@@ -108,7 +108,7 @@ MailSortContext *mail_sort_init(const MailSortType *input, MailSortType *output,
 						 128 * sizeof(unsigned int),
 						 (size_t)-1);
 
-	ctx->temp_pool = pool_create("Sort", 8192, FALSE);
+	ctx->temp_pool = pool_alloconly_create("Sort", 8192);
 	ctx->funcs = funcs;
 	ctx->func_context = context;
 	return ctx;

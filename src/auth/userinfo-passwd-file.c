@@ -353,7 +353,7 @@ static PasswdFile *passwd_file_parse(const char *path)
 	if (fstat(fd, &st) != 0)
 		i_fatal("fstat() failed for passwd-file %s: %m", path);
 
-	pool = pool_create("PasswdFile", 10240, FALSE);
+	pool = pool_alloconly_create("PasswdFile", 10240);
 	pw = p_new(pool, PasswdFile, 1);
 	pw->pool = pool;
 	pw->path = p_strdup(pool, path);

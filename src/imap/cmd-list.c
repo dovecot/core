@@ -160,7 +160,7 @@ int _cmd_list_full(Client *client, int subscribed)
 			pattern = t_strconcat(ref, pattern, NULL);
 		}
 
-		ctx.pool = pool_create("ListContext", 10240, FALSE);
+		ctx.pool = pool_alloconly_create("ListContext", 10240);
 		ctx.nodes = NULL;
 		ctx.storage = client->storage;
 

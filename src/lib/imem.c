@@ -103,10 +103,9 @@ char *i_strconcat(const char *str1, ...)
 
 void imem_init(void)
 {
-	default_pool = pool_create("Default pool", 4096, TRUE);
+	default_pool = system_pool;
 }
 
 void imem_deinit(void)
 {
-        pool_unref(default_pool);
 }

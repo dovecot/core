@@ -42,7 +42,7 @@ int cmd_search(Client *client)
 		charset = NULL;
 	}
 
-	pool = pool_create("MailSearchArgs", 2048, FALSE);
+	pool = pool_alloconly_create("MailSearchArgs", 2048);
 
 	sargs = mail_search_args_build(pool, args, &error);
 	if (sargs == NULL) {

@@ -27,7 +27,6 @@ liblib_a_SOURCES = \
 	lib.c \
 	lib-signals.c \
 	md5.c \
-	mempool.c \
 	mempool-alloconly.c \
 	mempool-datastack.c \
 	mempool-system.c \

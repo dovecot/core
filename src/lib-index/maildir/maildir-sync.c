@@ -219,7 +219,7 @@ static int maildir_index_sync_dir(MailIndex *index, const char *dir)
 		return index_file_set_syscall_error(index, dir, "opendir()");
 
 	count = index->header->messages_count + 16;
-	pool = pool_create("Maildir sync", nearest_power(count*30), FALSE);
+	pool = pool_alloconly_create("Maildir sync", nearest_power(count*30));
 	files = hash_create(pool, index->header->messages_count*2, str_hash,
 			    (HashCompareFunc) strcmp);
 

@@ -91,7 +91,7 @@ static struct Pool static_alloconly_pool = {
 	pool_alloconly_clear
 };
 
-Pool _pool_alloconly_create(const char *name, size_t size)
+Pool pool_alloconly_create(const char *name, size_t size)
 {
 	AlloconlyPool *apool;
 	int len;

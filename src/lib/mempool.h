@@ -34,9 +34,9 @@ extern Pool system_pool;
 /* memory allocated from data_stack is valid only until next t_pop() call. */
 extern Pool data_stack_pool;
 
-/* If allocfree is FALSE, p_free() has no effect. Note that `size' specifies
-   the initial malloc()ed block size, part of it is used internally. */
-Pool pool_create(const char *name, size_t size, int allocfree);
+/* Create a new alloc-only pool. Note that `size' specifies the initial
+   malloc()ed block size, part of it is used internally. */
+Pool pool_alloconly_create(const char *name, size_t size);
 
 /* Pools should be used through these macros: */
 #define pool_ref(pool) (pool)->ref(pool)
@@ -65,7 +65,5 @@ Pool pool_create(const char *name, size_t size, int allocfree);
 #else
 #  define p_free_clean(pool, mem)
 #endif
-
-Pool _pool_alloconly_create(const char *name, size_t size);
 
 #endif
