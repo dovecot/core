@@ -106,9 +106,13 @@ void master_notify_finished(void)
 
 void master_close(void)
 {
+	if (io_master == NULL)
+		return;
+
 	clients_destroy_all();
 
 	(void)close(LOGIN_MASTER_SOCKET_FD);
+
 	io_remove(io_master);
 	io_master = NULL;
 
