@@ -107,6 +107,9 @@ static void handle_request(struct ldap_connection *conn,
 	t_push();
 	memset(&user, 0, sizeof(user));
 
+	user.uid = conn->set.user_global_uid;
+	user.gid = conn->set.user_global_gid;
+
 	attr = ldap_first_attribute(conn->ld, entry, &ber);
 	while (attr != NULL) {
 		vals = ldap_get_values(conn->ld, entry, attr);

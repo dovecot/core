@@ -32,7 +32,9 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, user_attrs),
 	DEF(SET_STR, user_filter),
 	DEF(SET_STR, pass_attrs),
-	DEF(SET_STR, pass_filter)
+	DEF(SET_STR, pass_filter),
+	DEF(SET_STR, user_global_uid),
+	DEF(SET_STR, user_global_gid)
 };
 
 struct ldap_settings default_ldap_settings = {
@@ -45,7 +47,9 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(user_attrs) NULL,
 	MEMBER(user_filter) NULL,
 	MEMBER(pass_attrs) NULL,
-	MEMBER(pass_filter) NULL
+	MEMBER(pass_filter) NULL,
+	MEMBER(user_global_uid) 0,
+	MEMBER(user_global_gid) 0
 };
 
 static int ldap_conn_open(struct ldap_connection *conn);
