@@ -1,7 +1,6 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "common.h"
-#include "mech.h"
 #include "auth-module.h"
 #include "password-scheme.h"
 #include "passdb.h"
@@ -112,25 +111,6 @@ void passdb_handle_credentials(enum passdb_credentials credentials,
 	callback(password, auth_request);
 }
 
-static void mech_list_verify_passdb(struct passdb_module *passdb)
-{
-	struct mech_module_list *list;
-
-	for (list = mech_modules; list != NULL; list = list->next) {
-		if (list->module.passdb_need_plain &&
-		    passdb->verify_plain == NULL)
-			break;
-		if (list->module.passdb_need_credentials &&
-		    passdb->lookup_credentials == NULL)
-			break;
-	}
-
-	if (list != NULL) {
-		i_fatal("Passdb %s doesn't support %s method",
-			passdb->name, list->module.mech_name);
-	}
-}
-
 void passdb_preinit(void)
 {
 	struct passdb_module **p;
@@ -170,8 +150,6 @@ void passdb_preinit(void)
 
 	if (passdb->preinit != NULL)
 		passdb->preinit(passdb_args);
-
-	mech_list_verify_passdb(passdb);
 }
 
 void passdb_init(void)

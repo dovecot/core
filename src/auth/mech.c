@@ -11,6 +11,7 @@
 #include "var-expand.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
+#include "passdb.h"
 #include "passdb-cache.h"
 
 #include <stdlib.h>
@@ -382,6 +383,24 @@ static void auth_failure_timeout(void *context __attr_unused__)
 	auth_failure_buf_flush();
 }
 
+static void mech_list_verify_passdb(struct passdb_module *passdb)
+{
+	struct mech_module_list *list;
+
+	for (list = mech_modules; list != NULL; list = list->next) {
+		if (list->module.passdb_need_plain &&
+		    passdb->verify_plain == NULL)
+			break;
+		if (list->module.passdb_need_credentials &&
+		    passdb->lookup_credentials == NULL)
+			break;
+	}
+
+	if (list != NULL) {
+		i_fatal("Passdb %s doesn't support %s method",
+			passdb->name, list->module.mech_name);
+	}
+}
 extern struct mech_module mech_plain;
 extern struct mech_module mech_login;
 extern struct mech_module mech_apop;
@@ -440,6 +459,7 @@ void mech_init(void)
 
 	if (mech_modules == NULL)
 		i_fatal("No authentication mechanisms configured");
+	mech_list_verify_passdb(passdb);
 
 	/* get our realm - note that we allocate from data stack so
 	   this function should never be called inside I/O loop or anywhere
