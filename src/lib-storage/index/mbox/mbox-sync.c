@@ -11,37 +11,24 @@
 
    Here's how we do it:
 
-   - Start reading the mails mail headers from the beginning
-   - X-Keywords and X-UID headers may contain extra spaces at the end of them,
-     remember how much extra each message has and offset to beginning of the
-     spaces
-   - If message flags are dirty and there's enough space to write them, do it
-   - If we didn't have enough space, remember how much was missing and keep
-     the total amount of them
-   - When we encounter expunged message, check if the amount of empty space in
-     previous messages plus size of expunged message is enough to cover the
-     missing space. If yes,
-       - execute the rewrite plan
-       - forget all the messages before the expunged message. only remember
-         how much data we still have to move to cover the expunged message
-   - If we encounter end of file, grow the file and execute the rewrite plan
-
-   Rewrite plan goes:
-
-   - Start from the first message that needs more space
-   - If there's expunged messages before us, we have to write over them.
-       - Move all messages after it backwards to fill it
-       - Each moved message's X-Keywords header should have n bytes extra
-         space, unless there's not enough space to do it.
-   - If there's no expunged messages, we can move data either forward or
-     backward to get it. Calculate which requires less moving. Forward
-     counting may encounter more messages which require extra space, count
-     that too.
-       - If we decide to move forwards and we had to go through dirty
-         messages, do the moving from last to first dirty message
-   - If we encounter end of file, grow the file enough to get the required
-     amount of space plus enough space to fill X-Keywords headers full of
-     spaces.
+   - Start reading the mails from the beginning
+   - X-Keywords, X-UID and X-IMAPbase headers may contain padding at the end
+     of them, remember how much each message has and offset to beginning of the
+     padding
+   - If header needs to be rewritten and there's enough space, do it
+       - If we didn't have enough space, remember how much was missing
+   - Continue reading and counting the padding in each message. If available
+     padding is enough to rewrite all the previous messages needing it, do it
+   - When we encounter expunged message, treat all of it as padding and
+     rewrite previous messages if needed (and there's enough space).
+     Afterwards keep moving messages backwards to fill the expunged space.
+     Moving is done by rewriting each message's headers, with possibly adding
+     missing Content-Length header and padding. Message bodies are moved
+     without modifications.
+   - If we encounter end of file, grow the file and rewrite needed messages
+   - Rewriting is done by moving message body forward, rewriting message's
+     header and doing the same for previous message, until all of them are
+     rewritten.
 */
 
 #include "lib.h"
@@ -149,7 +136,7 @@ static int mbox_sync_grow_file(struct mbox_sync_context *sync_ctx,
 
 	i_assert(grow_size > 0);
 
-	/* put the extra space between last message's header and body */
+	/* put the padding between last message's header and body */
 	file_size = i_stream_get_size(sync_ctx->file_input) + grow_size;
 	if (file_set_size(sync_ctx->fd, file_size) < 0) {
 		mbox_set_syscall_error(sync_ctx->ibox, "file_set_size()");
@@ -683,7 +670,7 @@ static int
 mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 {
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
-	uoff_t extra_space;
+	uoff_t padding;
 
 	buffer_append(sync_ctx->mails, &mail_ctx->mail, sizeof(mail_ctx->mail));
 
@@ -692,14 +679,14 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		return 0;
 
 	/* we have enough space now */
-	extra_space = MBOX_HEADER_EXTRA_SPACE *
+	padding = MBOX_HEADER_PADDING *
 		(sync_ctx->seq - sync_ctx->need_space_seq + 1);
 
 	if (mail_ctx->mail.uid == 0 &&
-	    (uoff_t)sync_ctx->space_diff > extra_space) {
-		/* don't waste too much on extra spacing */
-		sync_ctx->expunged_space = sync_ctx->space_diff - extra_space;
-		sync_ctx->space_diff = extra_space;
+	    (uoff_t)sync_ctx->space_diff > padding) {
+		/* don't waste too much on padding */
+		sync_ctx->expunged_space = sync_ctx->space_diff - padding;
+		sync_ctx->space_diff = padding;
 	} else {
 		sync_ctx->expunged_space = 0;
 	}
@@ -929,7 +916,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					struct mbox_sync_mail_context *mail_ctx)
 {
-	uoff_t offset, extra_space, trailer_size;
+	uoff_t offset, padding, trailer_size;
 	int need_rewrite;
 
 	if (!istream_raw_mbox_is_eof(sync_ctx->input)) {
@@ -943,9 +930,9 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 
 	if (sync_ctx->need_space_seq != 0) {
 		i_assert(sync_ctx->space_diff < 0);
-		extra_space = MBOX_HEADER_EXTRA_SPACE *
+		padding = MBOX_HEADER_PADDING *
 			(sync_ctx->seq - sync_ctx->need_space_seq + 1);
-		sync_ctx->space_diff -= extra_space;
+		sync_ctx->space_diff -= padding;
 
 		sync_ctx->space_diff += sync_ctx->expunged_space;
 		if (sync_ctx->expunged_space <= -sync_ctx->space_diff)
@@ -973,7 +960,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 			buffer_append(sync_ctx->mails, &mail_ctx->mail,
 				      sizeof(mail_ctx->mail));
 
-			if (mbox_sync_rewrite(sync_ctx, extra_space,
+			if (mbox_sync_rewrite(sync_ctx, padding,
 					      sync_ctx->need_space_seq,
 					      sync_ctx->seq) < 0)
 				return -1;

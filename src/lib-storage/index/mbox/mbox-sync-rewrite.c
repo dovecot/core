@@ -411,7 +411,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, uoff_t extra_space,
 {
 	struct mbox_sync_mail *mails;
 	uoff_t offset, end_offset, dest_offset, space_diff;
-	uint32_t idx, extra_per_mail;
+	uint32_t idx, padding_per_mail;
 	size_t size;
 	int ret = 0;
 
@@ -427,7 +427,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, uoff_t extra_space,
 	   complexity, we just leave all the rest of the extra space to first
 	   mail */
 	idx = last_seq - first_seq;
-	extra_per_mail = extra_space / (idx + 1);
+	padding_per_mail = extra_space / (idx + 1);
 
 	/* after expunge the next mail must have been missing space, or we
 	   would have moved it backwards already */
@@ -437,20 +437,19 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, uoff_t extra_space,
 	do {
 		/* this message's body is always moved space_diff bytes
 		   forward along with next message's headers, so current
-		   message gets temporarily space_diff amount of extra
-		   whitespace.
+		   message gets temporarily space_diff amount of padding.
 
-		   the moving stops at next message's beginning of extra
-		   space. each message gets left extra_per_mail bytes of
-		   space. what gets left over is given to first message */
+		   the moving stops at next message's beginning of padding.
+		   each message gets left padding_per_mail bytes of space.
+		   what gets left over is given to first message */
 		i_assert(mails[idx].space > 0);
 		space_diff = mails[idx].space;
 		end_offset = mails[idx].offset + mails[idx].space;
 
 		if ((mails[idx].flags & MBOX_EXPUNGED) == 0) {
-			space_diff -= extra_per_mail;
-			end_offset -= extra_per_mail;
-			mails[idx].space = extra_per_mail;
+			space_diff -= padding_per_mail;
+			end_offset -= padding_per_mail;
+			mails[idx].space = padding_per_mail;
 		}
 
 		idx--;

@@ -1,8 +1,8 @@
 #ifndef __MBOX_STORAGE_H
 #define __MBOX_STORAGE_H
 
-/* Extra space to leave in X-Keywords header when rewriting mbox */
-#define MBOX_HEADER_EXTRA_SPACE 50
+/* Padding to leave in X-Keywords header when rewriting mbox */
+#define MBOX_HEADER_PADDING 50
 
 #define SUBSCRIPTION_FILE_NAME ".subscriptions"
 #define MBOX_INDEX_PREFIX "dovecot.index"

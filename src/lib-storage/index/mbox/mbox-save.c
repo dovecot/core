@@ -221,7 +221,7 @@ static void mbox_save_append_keyword_headers(struct mbox_save_context *ctx,
 					     const char *const *keywords,
 					     unsigned int count)
 {
-	unsigned char space[MBOX_HEADER_EXTRA_SPACE+1 +
+	unsigned char space[MBOX_HEADER_PADDING+1 +
 			    sizeof("Content-Length: \n")-1 + MAX_INT_STRLEN];
 	unsigned int i;
 
