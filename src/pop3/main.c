@@ -16,6 +16,16 @@
 #define IS_STANDALONE() \
         (getenv("LOGGED_IN") == NULL)
 
+struct client_workaround_list {
+	const char *name;
+	enum client_workarounds num;
+};
+
+struct client_workaround_list client_workaround_list[] = {
+	{ "outlook-no-nuls", WORKAROUND_OUTLOOK_NO_NULS },
+	{ NULL, 0 }
+};
+
 struct ioloop *ioloop;
 
 void (*hook_mail_storage_created)(struct mail_storage **storage) = NULL;
@@ -23,10 +33,33 @@ void (*hook_client_created)(struct client **client) = NULL;
 
 static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
+enum client_workarounds client_workarounds = 0;
 
 static void sig_quit(int signo __attr_unused__)
 {
 	io_loop_stop(ioloop);
+}
+
+static void parse_workarounds(void)
+{
+        struct client_workaround_list *list;
+	const char *env, *const *str;
+
+	env = getenv("POP3_CLIENT_WORKAROUNDS");
+	if (env == NULL)
+		return;
+
+	for (str = t_strsplit_spaces(env, " "); *str != NULL; str++) {
+		list = client_workaround_list;
+		for (; list->name != NULL; list++) {
+			if (strcasecmp(*str, list->name) == 0) {
+				client_workarounds |= list->num;
+				break;
+			}
+		}
+		if (list->name == NULL)
+			i_fatal("Unknown client workaround: %s", *str);
+	}
 }
 
 static void open_logfile(void)
@@ -95,6 +128,7 @@ static int main_init(void)
 		if (mail != NULL)
 			mail = t_strconcat("maildir:", mail, NULL);
 	}
+        parse_workarounds();
 
 	storage = mail_storage_create_with_data(mail, getenv("USER"),
 						NULL, '\0');

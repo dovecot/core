@@ -59,7 +59,6 @@ struct settings {
 	const char *default_mail_env;
 	const char *mail_cache_fields;
 	const char *mail_never_cache_fields;
-	const char *client_workarounds;
 	unsigned int mailbox_check_interval;
 	unsigned int mailbox_idle_check_interval;
 	int mail_full_filesystem_access;
@@ -88,9 +87,11 @@ struct settings {
 	/* imap */
 	unsigned int imap_max_line_length;
 	const char *imap_capability;
+	const char *imap_client_workarounds;
 
 	/* pop3 */
         int pop3_mails_keep_recent;
+	const char *pop3_client_workarounds;
 
 	/* .. */
 	uid_t login_uid;

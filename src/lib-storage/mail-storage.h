@@ -89,11 +89,6 @@ enum mailbox_sync_flags {
 	MAILBOX_SYNC_AUTO_STOP		= 0x04
 };
 
-enum client_workarounds {
-	WORKAROUND_OE6_FETCH_NO_NEWMAIL		= 0x01,
-	WORKAROUND_OUTLOOK_IDLE			= 0x02
-};
-
 struct mail_storage;
 struct mail_storage_callbacks;
 struct mailbox_list;
@@ -159,7 +154,6 @@ struct mail_storage_callbacks {
 
 };
 
-extern enum client_workarounds client_workarounds;
 extern int full_filesystem_access;
 
 void mail_storage_init(void);

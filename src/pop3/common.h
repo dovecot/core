@@ -4,11 +4,12 @@
 #include "lib.h"
 #include "client.h"
 
-/* max. number of IMAP argument elements to accept. The maximum memory usage
-   for command from user is around MAX_INBUF_SIZE * MAX_IMAP_ARG_ELEMENTS */
-#define MAX_IMAP_ARG_ELEMENTS 128
+enum client_workarounds {
+	WORKAROUND_OUTLOOK_NO_NULS		= 0x01
+};
 
 extern struct ioloop *ioloop;
+extern enum client_workarounds client_workarounds;
 
 extern void (*hook_mail_storage_created)(struct mail_storage **storage);
 extern void (*hook_client_created)(struct client **client);

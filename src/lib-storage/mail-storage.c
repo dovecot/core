@@ -18,44 +18,12 @@ struct mail_storage_list {
 	struct mail_storage *storage;
 };
 
-struct client_workaround_list {
-	const char *name;
-	enum client_workarounds num;
-};
-
-struct client_workaround_list client_workaround_list[] = {
-	{ "oe6-fetch-no-newmail", WORKAROUND_OE6_FETCH_NO_NEWMAIL },
-	{ "outlook-idle", WORKAROUND_OUTLOOK_IDLE },
-	{ NULL, 0 }
-};
-
 static struct mail_storage_list *storages = NULL;
-enum client_workarounds client_workarounds = 0;
 int full_filesystem_access = FALSE;
 
 void mail_storage_init(void)
 {
-        struct client_workaround_list *list;
-	const char *env;
-	const char *const *str;
-
         full_filesystem_access = getenv("FULL_FILESYSTEM_ACCESS") != NULL;
-
-	env = getenv("CLIENT_WORKAROUNDS");
-	if (env == NULL)
-		return;
-
-	for (str = t_strsplit_spaces(env, " "); *str != NULL; str++) {
-		list = client_workaround_list;
-		for (; list->name != NULL; list++) {
-			if (strcasecmp(*str, list->name) == 0) {
-				client_workarounds |= list->num;
-				break;
-			}
-		}
-		if (list->name == NULL)
-			i_fatal("Unknown client workaround: %s", *str);
-	}
 }
 
 void mail_storage_deinit(void)

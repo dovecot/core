@@ -21,9 +21,21 @@
 #define IS_STANDALONE() \
         (getenv("LOGGED_IN") == NULL && getenv("IMAPLOGINTAG") == NULL)
 
+struct client_workaround_list {
+	const char *name;
+	enum client_workarounds num;
+};
+
+struct client_workaround_list client_workaround_list[] = {
+	{ "oe6-fetch-no-newmail", WORKAROUND_OE6_FETCH_NO_NEWMAIL },
+	{ "outlook-idle", WORKAROUND_OUTLOOK_IDLE },
+	{ NULL, 0 }
+};
+
 struct ioloop *ioloop;
 unsigned int max_keyword_length, mailbox_check_interval;
 unsigned int imap_max_line_length;
+enum client_workarounds client_workarounds = 0;
 
 static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
@@ -37,6 +49,28 @@ string_t *capability_string;
 static void sig_quit(int signo __attr_unused__)
 {
 	io_loop_stop(ioloop);
+}
+
+static void parse_workarounds(void)
+{
+        struct client_workaround_list *list;
+	const char *env, *const *str;
+
+	env = getenv("IMAP_CLIENT_WORKAROUNDS");
+	if (env == NULL)
+		return;
+
+	for (str = t_strsplit_spaces(env, " "); *str != NULL; str++) {
+		list = client_workaround_list;
+		for (; list->name != NULL; list++) {
+			if (strcasecmp(*str, list->name) == 0) {
+				client_workarounds |= list->num;
+				break;
+			}
+		}
+		if (list->name == NULL)
+			i_fatal("Unknown client workaround: %s", *str);
+	}
 }
 
 static void open_logfile(void)
@@ -126,6 +160,8 @@ static void main_init(void)
 	str = getenv("MAILBOX_CHECK_INTERVAL");
 	mailbox_check_interval = str == NULL ? 0 :
 		(unsigned int)strtoul(str, NULL, 10);
+
+        parse_workarounds();
 
 	namespace_pool = pool_alloconly_create("namespaces", 1024);
 	client = client_create(0, 1, namespace_init(namespace_pool, user));

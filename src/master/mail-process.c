@@ -191,14 +191,16 @@ mail_process_set_environment(struct settings *set, const char *mail,
 				set->mailbox_check_interval));
 	env_put(t_strdup_printf("MAILBOX_IDLE_CHECK_INTERVAL=%u",
 				set->mailbox_idle_check_interval));
-	env_put(t_strconcat("CLIENT_WORKAROUNDS=",
-			    set->client_workarounds, NULL));
 	env_put(t_strdup_printf("MAIL_MAX_KEYWORD_LENGTH=%u",
 				set->mail_max_keyword_length));
 	env_put(t_strdup_printf("IMAP_MAX_LINE_LENGTH=%u",
 				set->imap_max_line_length));
 	env_put(t_strconcat("IMAP_CAPABILITY=",
 			    set->imap_capability, NULL));
+	env_put(t_strconcat("IMAP_CLIENT_WORKAROUNDS=",
+			    set->imap_client_workarounds, NULL));
+	env_put(t_strconcat("POP3_CLIENT_WORKAROUNDS=",
+			    set->pop3_client_workarounds, NULL));
 
 	if (set->mail_save_crlf)
 		env_put("MAIL_SAVE_CRLF=1");

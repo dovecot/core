@@ -242,6 +242,10 @@ static void stream_send_escaped(struct ostream *output, struct istream *input,
 				add = '.';
 				i++;
 				break;
+			} else if (data[i] == '\0' &&
+				   (client_workarounds &
+				    WORKAROUND_OUTLOOK_NO_NULS) != 0) {
+				add = '\x80';
 			}
 		}
 
@@ -252,6 +256,10 @@ static void stream_send_escaped(struct ostream *output, struct istream *input,
 			if (o_stream_send(output, &add, 1) < 0)
 				return;
 			last = add;
+			if (client_workarounds & WORKAROUND_OUTLOOK_NO_NULS) {
+				if (i < size && data[i] == '\0')
+					i++;
+			}
 		} else {
 			last = data[i-1];
 		}

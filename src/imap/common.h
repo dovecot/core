@@ -14,9 +14,15 @@
 
 #define DEFAULT_MAX_KEYWORD_LENGTH 50
 
+enum client_workarounds {
+	WORKAROUND_OE6_FETCH_NO_NEWMAIL		= 0x01,
+	WORKAROUND_OUTLOOK_IDLE			= 0x02
+};
+
 extern struct ioloop *ioloop;
 extern unsigned int max_keyword_length, mailbox_check_interval;
 extern unsigned int imap_max_line_length;
+extern enum client_workarounds client_workarounds;
 
 extern string_t *capability_string;
 

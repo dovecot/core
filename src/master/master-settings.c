@@ -88,7 +88,6 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, default_mail_env),
 	DEF(SET_STR, mail_cache_fields),
 	DEF(SET_STR, mail_never_cache_fields),
-	DEF(SET_STR, client_workarounds),
 	DEF(SET_INT, mailbox_check_interval),
 	DEF(SET_INT, mailbox_idle_check_interval),
 	DEF(SET_BOOL, mail_full_filesystem_access),
@@ -117,9 +116,11 @@ static struct setting_def setting_defs[] = {
 	/* imap */
 	DEF(SET_INT, imap_max_line_length),
 	DEF(SET_STR, imap_capability),
+	DEF(SET_STR, imap_client_workarounds),
 
 	/* pop3 */
 	DEF(SET_BOOL, pop3_mails_keep_recent),
+	DEF(SET_STR, pop3_client_workarounds),
 
 	{ 0, NULL, 0 }
 };
@@ -242,7 +243,6 @@ struct settings default_settings = {
 	MEMBER(default_mail_env) NULL,
 	MEMBER(mail_cache_fields) "MessagePart",
 	MEMBER(mail_never_cache_fields) NULL,
-	MEMBER(client_workarounds) NULL,
 	MEMBER(mailbox_check_interval) 0,
 	MEMBER(mailbox_idle_check_interval) 30,
 	MEMBER(mail_full_filesystem_access) FALSE,
@@ -275,9 +275,11 @@ struct settings default_settings = {
 	/* imap */
 	MEMBER(imap_max_line_length) 65536,
 	MEMBER(imap_capability) NULL,
+	MEMBER(imap_client_workarounds) NULL,
 
 	/* pop3 */
 	MEMBER(pop3_mails_keep_recent) FALSE,
+	MEMBER(pop3_client_workarounds) NULL,
 
 	/* .. */
 	MEMBER(login_uid) 0,
