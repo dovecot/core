@@ -25,5 +25,4 @@ noinst_HEADERS = \
 	mail-index.h \
         mail-index-data.h \
         mail-index-util.h \
-	mail-modifylog.h \
-	mail-tree.h
+	mail-modifylog.h
