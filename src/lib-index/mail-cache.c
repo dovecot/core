@@ -784,8 +784,15 @@ int mail_cache_compress(struct mail_cache *cache)
 		if (!mmap_update(cache, 0, 0))
 			ret = FALSE;
 	}
-	cache->index->header->flags &= ~(MAIL_INDEX_HDR_FLAG_REBUILD |
-					 MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE);
+
+	/* headers could have changed, reread them */
+	memset(cache->split_offsets, 0, sizeof(cache->split_offsets));
+
+	if (ret) {
+		cache->index->header->flags &=
+			~(MAIL_INDEX_HDR_FLAG_REBUILD |
+			  MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE);
+	}
 
 	if (!mail_cache_unlock(cache))
 		ret = FALSE;
