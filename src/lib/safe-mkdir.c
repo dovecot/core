@@ -52,7 +52,7 @@ int safe_mkdir(const char *dir, mode_t mode, uid_t uid, gid_t gid)
 			ret = 0;
 		}
 
-		if (st.st_mode != mode) {
+		if ((st.st_mode & 07777) != mode) {
 			if (chmod(dir, mode) < 0)
 				i_fatal("chmod() failed for %s: %m", dir);
 			ret = 0;
@@ -70,7 +70,7 @@ int safe_mkdir(const char *dir, mode_t mode, uid_t uid, gid_t gid)
 			dir);
 	}
 
-	if (st.st_mode != mode) {
+	if ((st.st_mode & 07777) != mode) {
 		i_fatal("safe_mkdir() failed: %s (%o) is still not mode %o",
 			dir, (int)st.st_mode, (int)mode);
 	}
