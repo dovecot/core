@@ -27,8 +27,7 @@ struct mail_cache_field global_cache_fields[MAIL_CACHE_FIELD_COUNT] = {
 	{ "imap.body", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
 	{ "imap.bodystructure", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
 	{ "imap.envelope", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
-	{ "mime.parts", 0, MAIL_CACHE_FIELD_VARIABLE_SIZE, 0, 0 },
-	{ "mail.uid", 0, MAIL_CACHE_FIELD_STRING, 0, 0 }
+	{ "mime.parts", 0, MAIL_CACHE_FIELD_VARIABLE_SIZE, 0, 0 }
 };
 
 static void index_mail_parse_body(struct index_mail *mail, int need_parts);
