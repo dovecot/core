@@ -124,6 +124,8 @@ struct mail_index_header {
 	/* these UIDs may not exist and may not even be unseen */
 	uint32_t first_unseen_uid_lowwater;
 	uint32_t first_deleted_uid_lowwater;
+
+	uint32_t sync_stamp;
 };
 
 struct mail_index_record {
@@ -293,7 +295,6 @@ struct mail_index {
 
 	/* last maildir sync: */
 	time_t last_new_mtime, last_uidlist_mtime;
-	time_t maildir_cur_dirty, next_dirty_flush;
 	int maildir_lock_fd;
 	pool_t new_filename_pool;
 	struct hash_table *new_filenames;
@@ -309,7 +310,8 @@ struct mail_index {
 	size_t header_size;
 
         enum mail_lock_type lock_type;
-	time_t file_sync_stamp;
+	time_t sync_stamp, sync_dirty_stamp;
+	time_t next_dirty_flags_flush;
 	unsigned int first_recent_uid;
 
 	mail_lock_notify_callback_t *lock_notify_cb;

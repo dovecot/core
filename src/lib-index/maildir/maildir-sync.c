@@ -1084,14 +1084,6 @@ static int maildir_index_sync_context(struct maildir_sync_context *ctx,
 	if (!maildir_try_flush_dirty_flags(ctx->index, FALSE))
 		return FALSE;
 
-	if (index->fd != -1) {
-		/* FIXME: file_sync_stamp should be in index file's headers.
-		   it should also contain maildir_cur_dirty. */
-		if (fstat(index->fd, &st) < 0)
-			return index_set_syscall_error(index, "fstat()");
-		index->file_sync_stamp = st.st_mtime;
-	}
-
 	if (stat(ctx->new_dir, &st) < 0) {
 		index_file_set_syscall_error(index, ctx->new_dir, "stat()");
 		return FALSE;
@@ -1110,9 +1102,17 @@ static int maildir_index_sync_context(struct maildir_sync_context *ctx,
 			return FALSE;
 	}
 
-	if (cur_mtime != index->file_sync_stamp ||
-	    (index->maildir_cur_dirty != 0 &&
-	     index->maildir_cur_dirty < ioloop_time - MAILDIR_SYNC_SECS)) {
+	if (cur_mtime != index->sync_stamp &&
+	    index->sync_dirty_stamp == 0) {
+		/* update index->sync_stamp from header.
+		   set_lock() does it automatically. */
+		if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
+			return FALSE;
+	}
+
+	if (cur_mtime != index->sync_stamp ||
+	    (index->sync_dirty_stamp != 0 &&
+	     index->sync_dirty_stamp < ioloop_time - MAILDIR_SYNC_SECS)) {
 		/* cur/ changed, or delayed cur/ check */
 		if (changes != NULL)
 			*changes = TRUE;
@@ -1150,20 +1150,20 @@ static int maildir_index_sync_context(struct maildir_sync_context *ctx,
 			index->header->flags &= ~MAIL_INDEX_FLAG_MAILDIR_NEW;
 	}
 
-	if (index->maildir_cur_dirty == 0 ||
-	    index->maildir_cur_dirty < ioloop_time - MAILDIR_SYNC_SECS) {
+	if (index->sync_dirty_stamp == 0 ||
+	    index->sync_dirty_stamp < ioloop_time - MAILDIR_SYNC_SECS) {
 		if (cur_mtime >= ioloop_time - MAILDIR_SYNC_SECS)
-			index->maildir_cur_dirty = cur_mtime;
+			index->sync_dirty_stamp = cur_mtime;
 		else if (ctx->new_count == 0 || !ctx->new_mails_cur)
-			index->maildir_cur_dirty = 0;
+			index->sync_dirty_stamp = 0;
 		else {
 			/* uidlist is locked, wait for a while before
 			   trying again */
-			index->maildir_cur_dirty = ioloop_time;
+			index->sync_dirty_stamp = ioloop_time;
 		}
 	}
 
-	index->file_sync_stamp = cur_mtime;
+	index->sync_stamp = cur_mtime;
 	if (ctx->new_dent == NULL &&
 	    (ctx->new_count == 0 || !ctx->new_mails_new))
 		index->last_new_mtime = new_mtime;
@@ -1268,8 +1268,8 @@ static int maildir_index_sync_context_readonly(struct maildir_sync_context *ctx)
 			return FALSE;
 		}
 
-		cur_changed = st.st_mtime != index->file_sync_stamp ||
-			index->maildir_cur_dirty != 0;
+		cur_changed = st.st_mtime != index->sync_stamp ||
+			index->sync_dirty_stamp != 0;
 	}
 
 	if (!cur_changed) {

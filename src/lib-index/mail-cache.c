@@ -360,7 +360,7 @@ static void mail_index_clear_cache_offsets(struct mail_index *index)
 {
 	struct mail_index_record *rec;
 
-	index->file_sync_stamp = ioloop_time-61;
+	index->sync_stamp = 0;
 
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {

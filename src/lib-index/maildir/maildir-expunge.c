@@ -39,12 +39,12 @@ int maildir_expunge_mail(struct mail_index *index,
 		/* if we're in out-of-space condition, reset it since we'll
 		   probably have enough space now. */
 		index->maildir_keep_new = FALSE;
-		if (index->next_dirty_flush != 0)
-			index->next_dirty_flush = ioloop_time;
+		if (index->next_dirty_flags_flush != 0)
+			index->next_dirty_flags_flush = ioloop_time;
 
 		/* cur/ was updated, set it dirty-synced */
-		index->maildir_cur_dirty = ioloop_time;
-		index->file_sync_stamp = ioloop_time;
+		index->sync_dirty_stamp = ioloop_time;
+		index->sync_stamp = ioloop_time;
 	}
 	return TRUE;
 }

@@ -69,7 +69,6 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
 		    enum mail_lock_type data_lock_type, int *changes)
 {
 	struct stat st;
-	time_t index_mtime;
 	uoff_t filesize;
 	int count, fd;
 
@@ -89,15 +88,6 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
 	}
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
-
-	if (index->fd == -1) {
-		/* anon-mmaped */
-		index_mtime = index->file_sync_stamp;
-	} else {
-		if (fstat(index->fd, &st) < 0)
-			return index_set_syscall_error(index, "fstat()");
-		index_mtime = st.st_mtime;
-	}
 
 	count = 0;
 	while (stat(index->mailbox_path, &st) < 0) {
@@ -125,33 +115,28 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
                 mbox_file_close_fd(index);
 	}
 
-	if (index_mtime != st.st_mtime || index->mbox_size != filesize) {
+	if (index->mbox_sync_counter == 0) {
+		/* first sync, get expected mbox size */
+		index->mbox_size = get_indexed_mbox_size(index);
+	}
+
+	if (index->sync_stamp != st.st_mtime || index->mbox_size != filesize) {
 		mbox_file_close_stream(index);
 
-		index->mbox_size = get_indexed_mbox_size(index);
-		if (index->file_sync_stamp == 0 &&
-		    index->mbox_size == filesize) {
-			/* just opened the mailbox, and the file size is same
-			   as we expected. don't bother checking it any
-			   further. */
-		} else {
-			if (changes != NULL)
-				*changes = TRUE;
+		if (changes != NULL)
+			*changes = TRUE;
 
-			if (!mbox_lock_and_sync_full(index, data_lock_type))
+		if (!mbox_lock_and_sync_full(index, data_lock_type))
+			return FALSE;
+
+		if ((index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD) != 0) {
+			/* uidvalidity probably changed, rebuild */
+			if (!index->rebuild(index))
 				return FALSE;
-
-			if ((index->set_flags &
-			     MAIL_INDEX_HDR_FLAG_REBUILD) != 0) {
-				/* uidvalidity probably changed, rebuild */
-				if (!index->rebuild(index))
-					return FALSE;
-			}
-
-			index->mbox_size = filesize;
 		}
 
-		index->file_sync_stamp = st.st_mtime;
+		index->mbox_size = filesize;
+		index->sync_stamp = st.st_mtime;
 	}
 
 	/* we need some index lock to be able to lock mbox */

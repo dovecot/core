@@ -13,7 +13,6 @@
 
 #include <unistd.h>
 #include <fcntl.h>
-#include <utime.h>
 
 static int mmap_verify(struct mail_index *index)
 {
@@ -76,6 +75,7 @@ static int mmap_verify(struct mail_index *index)
 	}
 
 	index->sync_id = hdr->sync_id;
+	index->sync_stamp = hdr->sync_stamp;
 	index->mmap_used_length = hdr->used_file_size;
 	return TRUE;
 }
@@ -223,17 +223,6 @@ static int mail_index_sync_file(struct mail_index *index)
 		return index_set_syscall_error(index, "fdatasync()");
 
 	return !failed;
-}
-
-static void mail_index_update_timestamp(struct mail_index *index)
-{
-	struct utimbuf ut;
-
-	/* keep index's modify stamp same as the sync file's stamp */
-	ut.actime = ioloop_time;
-	ut.modtime = index->file_sync_stamp;
-	if (utime(index->filepath, &ut) < 0)
-		index_set_syscall_error(index, "utime()");
 }
 
 int mail_index_fmdatasync(struct mail_index *index, size_t size)
@@ -451,6 +440,9 @@ static int mail_index_lock_full(struct mail_index *index,
 		keep_fsck = (index->set_flags & MAIL_INDEX_HDR_FLAG_FSCK) != 0;
 		mail_index_update_header_changes(index);
 
+		if (index->sync_dirty_stamp == 0)
+			index->header->sync_stamp = index->sync_stamp;
+
 		/* remove the FSCK flag only after successful fsync() */
 		if (mail_index_sync_file(index) && !keep_fsck) {
 			index->header->flags &= ~MAIL_INDEX_HDR_FLAG_FSCK;
@@ -462,8 +454,6 @@ static int mail_index_lock_full(struct mail_index *index,
 				index_set_syscall_error(index, "msync()");
 			}
 		}
-
-		mail_index_update_timestamp(index);
 	}
 
 	if (lock_type == MAIL_LOCK_UNLOCK)

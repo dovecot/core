@@ -60,8 +60,8 @@ int maildir_try_flush_dirty_flags(struct mail_index *index, int force)
 	struct mail_index_record *rec;
 	int ret, dirty = FALSE;
 
-	if (index->next_dirty_flush == 0 ||
-	    (ioloop_time < index->next_dirty_flush && !force))
+	if (index->next_dirty_flags_flush == 0 ||
+	    (ioloop_time < index->next_dirty_flags_flush && !force))
 		return TRUE;
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
@@ -91,9 +91,9 @@ int maildir_try_flush_dirty_flags(struct mail_index *index, int force)
 
 	if (!dirty) {
 		index->header->flags &= ~MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES;
-		index->next_dirty_flush = 0;
+		index->next_dirty_flags_flush = 0;
 	} else {
-		index->next_dirty_flush =
+		index->next_dirty_flags_flush =
 			ioloop_time + MAILDIR_DIRTY_FLUSH_TIMEOUT;
 	}
 
@@ -177,8 +177,8 @@ static int do_rename(struct mail_index *index, const char *path, void *context)
 	}
 
 	/* cur/ was updated, set it dirty-synced */
-	index->file_sync_stamp = ioloop_time;
-	index->maildir_cur_dirty = ioloop_time;
+	index->sync_stamp = ioloop_time;
+	index->sync_dirty_stamp = ioloop_time;
 	ctx->found = TRUE;
 	return 1;
 }
@@ -218,7 +218,7 @@ int maildir_index_update_flags(struct mail_index *index,
 				MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES;
 		}
 
-		index->next_dirty_flush =
+		index->next_dirty_flags_flush =
 			ioloop_time + MAILDIR_DIRTY_FLUSH_TIMEOUT;
 	} else if (ctx.new_fname != NULL) {
 		maildir_index_update_filename(index, rec->uid,

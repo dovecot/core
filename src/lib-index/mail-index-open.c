@@ -30,7 +30,7 @@ static int mail_index_open_init(struct mail_index *index,
 		(hdr->flags & MAIL_INDEX_FLAG_MAILDIR_NEW) != 0;
 
 	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES) != 0)
-		index->next_dirty_flush = ioloop_time;
+		index->next_dirty_flags_flush = ioloop_time;
 
 	/* update \Recent message counters */
 	if ((flags & MAIL_INDEX_OPEN_FLAG_UPDATE_RECENT) != 0 &&

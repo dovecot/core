@@ -551,7 +551,7 @@ static int dirty_flush(struct mail_index *index, uoff_t dirty_offset,
 
 	/* All ok. Just make sure the timestamps of index and
 	   mbox differ, so index will be updated at next sync */
-	index->file_sync_stamp = ioloop_time-61;
+	index->sync_stamp = 0;
 
 	if (o_stream_seek(output, 0) < 0) {
 		mbox_set_syscall_error(index, "o_stream_seek()");
