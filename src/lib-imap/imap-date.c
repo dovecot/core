@@ -81,7 +81,7 @@ static const char *imap_parse_date_internal(const char *str, struct tm *tm)
 
 int imap_parse_date(const char *str, time_t *time)
 {
-	struct tm tm, *tml;
+	struct tm tm;
 
 	str = imap_parse_date_internal(str, &tm);
 	if (str == NULL)
@@ -89,13 +89,7 @@ int imap_parse_date(const char *str, time_t *time)
 
 	tm.tm_isdst = -1;
 	*time = mktime(&tm);
-	if (*time == (time_t)-1)
-		return FALSE;
-
-	/* get it to UTC */
-	tml = localtime(time);
-        *time -= utc_offset(tml, *time);
-	return TRUE;
+	return *time != (time_t)-1;
 }
 
 int imap_parse_datetime(const char *str, time_t *time, int *timezone_offset)
