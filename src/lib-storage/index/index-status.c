@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mail-custom-flags.h"
+#include "mail-index-util.h"
 #include "index-storage.h"
 
 static unsigned int get_first_unseen_seq(MailIndex *index)
@@ -24,13 +25,6 @@ static unsigned int get_first_unseen_seq(MailIndex *index)
 		/* begin scanning from the low water mark */
 		rec = index->lookup_uid_range(index, lowwater_uid,
 					      hdr->next_uid - 1, &seq);
-		if (rec == NULL) {
-			i_error("index header's seen_messages_count (%u) or "
-				"first_unseen_uid_lowwater (%u) is invalid.",
-				hdr->seen_messages_count, lowwater_uid);
-                        INDEX_MARK_CORRUPTED(index);
-			return 0;
-		}
 	} else {
 		/* begin scanning from the beginning */
 		rec = index->lookup(index, 1);
@@ -42,14 +36,23 @@ static unsigned int get_first_unseen_seq(MailIndex *index)
 		seq++;
 	}
 
-	if (rec != NULL && rec->uid != lowwater_uid) {
+	if (rec == NULL) {
+		index_set_corrupted(index, "No unseen messages found with "
+				    "first_unseen_uid_lowwater %u, "
+				    "seen_messages_count %u, messages_count %u",
+				    lowwater_uid, hdr->seen_messages_count,
+				    hdr->messages_count);
+		return 0;
+	}
+
+	if (rec->uid != lowwater_uid) {
 		/* update the low water mark if we can get exclusive
 		   lock immediately. */
 		if (index->try_lock(index, MAIL_LOCK_EXCLUSIVE))
 			hdr->first_unseen_uid_lowwater = rec->uid;
 	}
 
-	return rec == NULL ? 0 : seq;
+	return seq;
 }
 
 static void
