@@ -169,6 +169,12 @@ static void driver_pgsql_deinit(struct sql_db *_db)
 	i_free(db);
 }
 
+static enum sql_db_flags
+driver_mysql_get_flags(struct sql_db *db __attr_unused__)
+{
+	return 0;
+}
+
 static void consume_results(void *context)
 {
 	struct pgsql_db *db = context;
@@ -552,6 +558,7 @@ static const char *driver_pgsql_result_get_error(struct sql_result *_result)
 struct sql_db driver_pgsql_db = {
 	driver_pgsql_init,
 	driver_pgsql_deinit,
+        driver_mysql_get_flags,
 	driver_pgsql_exec,
 	driver_pgsql_query
 };

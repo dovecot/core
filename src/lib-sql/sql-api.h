@@ -1,6 +1,11 @@
 #ifndef __SQL_API_H
 #define __SQL_API_H
 
+enum sql_db_flags {
+	/* Set if queries are not executed asynchronously */
+	SQL_DB_FLAG_BLOCKING		= 0x01,
+};
+
 /* This SQL API is designed to work asynchronously. The underlying drivers
    however may not. */
 
@@ -13,6 +18,9 @@ typedef void sql_query_callback_t(struct sql_result *result, void *context);
    eg. "mysql" or "pgsql". connect_string is driver-specific. */
 struct sql_db *sql_init(const char *db_driver, const char *connect_string);
 void sql_deinit(struct sql_db *db);
+
+/* Returns SQL database state flags. */
+enum sql_db_flags sql_get_flags(struct sql_db *db);
 
 /* Execute SQL query without waiting for results. */
 void sql_exec(struct sql_db *db, const char *query);

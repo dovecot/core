@@ -244,6 +244,12 @@ static void driver_mysql_deinit(struct sql_db *_db)
 	pool_unref(db->pool);
 }
 
+static enum sql_db_flags
+driver_mysql_get_flags(struct sql_db *db __attr_unused__)
+{
+	return SQL_DB_FLAG_BLOCKING;
+}
+
 static int driver_mysql_connection_do_query(struct mysql_connection *conn,
 					    const char *query)
 {
@@ -453,6 +459,7 @@ static const char *driver_mysql_result_get_error(struct sql_result *_result)
 struct sql_db driver_mysql_db = {
 	driver_mysql_init,
 	driver_mysql_deinit,
+	driver_mysql_get_flags,
 	driver_mysql_exec,
 	driver_mysql_query
 };
