@@ -103,6 +103,13 @@ static void main_init(void)
 
 	if (net_getsockname(LOGIN_IMAPS_LISTEN_FD, NULL, NULL) == 0) {
 		/* we're listening for imaps */
+		if (!ssl_initialized) {
+			/* this shouldn't happen, master should have
+			   disabled the imaps socket.. */
+			i_fatal("BUG: SSL initialization parameters not given "
+				"while they should have been");
+		}
+
 		io_imaps = io_add(LOGIN_IMAPS_LISTEN_FD, IO_READ,
 				  login_accept_ssl, NULL);
 	}

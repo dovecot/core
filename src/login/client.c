@@ -36,11 +36,15 @@ static int cmd_capability(Client *client)
 
 static int cmd_starttls(Client *client)
 {
-#ifdef HAVE_SSL
 	int fd_ssl;
 
 	if (client->tls) {
 		client_send_tagline(client, "BAD TLS is already active.");
+		return TRUE;
+	}
+
+	if (!ssl_initialized) {
+		client_send_tagline(client, "BAD TLS support isn't enabled.");
 		return TRUE;
 	}
 
@@ -57,9 +61,7 @@ static int cmd_starttls(Client *client)
 		client_send_line(client, " * BYE TLS handehake failed.");
 		client_destroy(client, "TLS handshake failed");
 	}
-#else
-	client_send_tagline(client, "BAD TLS support isn't enabled.");
-#endif
+
 	return TRUE;
 }
 

@@ -5,6 +5,8 @@
 #include "network.h"
 #include "ssl-proxy.h"
 
+int ssl_initialized = FALSE;
+
 #ifdef HAVE_SSL
 
 #include <stdlib.h>
@@ -226,6 +228,9 @@ int ssl_proxy_new(int fd)
 	GNUTLS_STATE state;
 	int ret, sfd[2];
 
+	if (ssl_initialized)
+		return -1;
+
 	state = initialize_state();
 	gnutls_transport_set_ptr(state, fd);
 
@@ -291,10 +296,14 @@ void ssl_proxy_init(void)
 	certfile = getenv("SSL_CERT_FILE");
 	keyfile = getenv("SSL_KEY_FILE");
 
-	if (certfile == NULL)
-		i_fatal("SSL_CERT_FILE environment not set");
-	if (keyfile == NULL)
-		i_fatal("SSL_KEY_FILE environment not set");
+	if (certfile == NULL) {
+		i_warning("SSL certification not set, SSL/TLS is disabled");
+		return;
+	}
+	if (keyfile == NULL) {
+		i_warning("SSL private key not set, SSL/TLS is disabled");
+		return;
+	}
 
 	if ((ret = gnutls_global_init() < 0)) {
 		i_fatal("gnu_tls_global_init() failed: %s",
@@ -315,6 +324,8 @@ void ssl_proxy_init(void)
 
 	generate_dh_primes();
 	gnutls_certificate_set_dh_params(x509_cred, dh_params);
+
+	ssl_initialized = TRUE;
 }
 
 void ssl_proxy_deinit(void)

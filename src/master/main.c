@@ -145,7 +145,8 @@ static void open_fds(void)
 		i_fatal("listen(%d) failed: %ms", set_imap_port);
 	}
 
-	imaps_fd = set_ssl_cert_file == NULL || set_ssl_key_file == NULL ||
+	imaps_fd = set_ssl_cert_file == NULL || *set_ssl_cert_file == '\0' ||
+		set_ssl_key_file == NULL || *set_ssl_key_file == '\0' ||
 		set_imaps_port == 0 ? dup(null_fd) :
 		net_listen(imaps_ip, &set_imaps_port);
 	if (imaps_fd == -1) {
