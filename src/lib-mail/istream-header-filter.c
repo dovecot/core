@@ -14,6 +14,7 @@ struct header_filter_istream {
 
 	struct istream *input;
 	struct message_header_parser_ctx *hdr_ctx;
+	uoff_t start_offset;
 
 	const char **headers;
 	size_t headers_count;
@@ -204,12 +205,10 @@ static ssize_t _read(struct _istream *stream)
 		return -1;
 	}
 
-	if (mstream->input->v_offset - mstream->header_size.physical_size !=
-	    stream->istream.v_offset - mstream->header_size.virtual_size) {
-		i_stream_seek(mstream->input, stream->istream.v_offset -
-			      mstream->header_size.virtual_size +
-			      mstream->header_size.physical_size);
-	}
+	i_stream_seek(mstream->input, mstream->start_offset +
+		      stream->istream.v_offset -
+		      mstream->header_size.virtual_size +
+		      mstream->header_size.physical_size);
 
 	stream->buffer = i_stream_get_data(mstream->input, &pos);
 	if (pos <= stream->pos) {
@@ -258,14 +257,16 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	if (v_offset < mstream->header_size.virtual_size) {
 		/* seek into headers. we'll have to re-parse them, use
 		   skip_count to set the wanted position */
-		i_stream_seek(mstream->input, 0);
+		i_stream_seek(mstream->input, mstream->start_offset);
 		mstream->skip_count = v_offset;
 		mstream->cur_line = 0;
+		mstream->parsed_lines = 0;
+		mstream->header_read = FALSE;
 	} else {
 		/* body */
 		v_offset += mstream->header_size.physical_size -
 			mstream->header_size.virtual_size;
-		i_stream_seek(mstream->input, v_offset);
+		i_stream_seek(mstream->input, mstream->start_offset + v_offset);
 	}
 }
 
@@ -300,6 +301,7 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->exclude = (flags & HEADER_FILTER_EXCLUDE) != 0;
 	mstream->crlf = (flags & HEADER_FILTER_NO_CR) == 0;
 	mstream->hide_body = (flags & HEADER_FILTER_HIDE_BODY) != 0;
+	mstream->start_offset = input->v_offset;
 
 	mstream->istream.iostream.close = _close;
 	mstream->istream.iostream.destroy = _destroy;
