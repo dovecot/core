@@ -41,7 +41,7 @@ static int maildir_index_sync_file(MailIndex *index, MailIndexRecord *rec,
 			index_file_set_syscall_error(index, path, "open()");
 			failed = TRUE;
 		} else {
-			if (!maildir_record_update(update, fd, file_size))
+			if (!maildir_record_update(index, update, fd, file_size))
 				failed = TRUE;
 			if (close(fd) < 0) {
 				index_file_set_syscall_error(index, path,

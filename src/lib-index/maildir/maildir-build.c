@@ -69,7 +69,8 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 			    MAILDIR_LOCATION_EXTRA_SPACE);
 
 	/* parse the header and update record's fields */
-	failed = !maildir_record_update(update, fd, st.st_size);
+	failed = !maildir_record_update(index, update, fd,
+					st.st_size);
 
 	if (!index->update_end(update) || failed)
 		return FALSE;
