@@ -89,8 +89,8 @@ unsigned int set_imaps_port = 993;
 char *set_imap_listen = NULL;
 char *set_imaps_listen = NULL;
 
-char *set_ssl_cert_file = SSL_DIR"/certs/imapd.pem";
-char *set_ssl_key_file = SSL_DIR"/private/imapd.pem";
+char *set_ssl_cert_file = SSLDIR"/certs/imapd.pem";
+char *set_ssl_key_file = SSLDIR"/private/imapd.pem";
 char *set_ssl_parameters_file = PKG_RUNDIR"/ssl-parameters.dat";
 unsigned int set_ssl_parameters_regenerate = 24;
 int set_disable_plaintext_auth = FALSE;
