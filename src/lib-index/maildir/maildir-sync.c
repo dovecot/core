@@ -172,7 +172,7 @@ static int maildir_sync_uidlist(struct mail_index *index, const char *dir,
 		/* skip over the expunged records in uidlist */
 		while (uid_rec.uid != 0 && uid_rec.uid < uid) {
 			uidlist->rewrite = TRUE;
-			if (!maildir_uidlist_next(uidlist, &uid_rec))
+			if (maildir_uidlist_next(uidlist, &uid_rec) < 0)
 				return FALSE;
 		}
 
