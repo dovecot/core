@@ -114,7 +114,8 @@ ssize_t io_buffer_read_max(IOBuffer *buf, size_t size);
 /* Blocking read, doesn't return until at least one byte is read, or until
    socket is disconnected or timeout has occured. Note that the fd must be
    nonblocking, or the timeout doesn't work. If you don't want limit size,
-   set it to SSIZE_T_MAX. Returns number of bytes read, or -1 if error. */
+   set it to SSIZE_T_MAX. Returns number of bytes read (never 0), -1 if
+   error or -2 if buffer is full. */
 ssize_t io_buffer_read_blocking(IOBuffer *buf, size_t size);
 /* Skip forward a number of bytes */
 void io_buffer_skip(IOBuffer *buf, uoff_t size);
@@ -129,10 +130,10 @@ char *io_buffer_next_line(IOBuffer *buf);
    or NULL if there's no data. */
 unsigned char *io_buffer_get_data(IOBuffer *buf, size_t *size);
 /* Like io_buffer_get_data(), but read it when needed. There always must be
-   more than `threshold' bytes in buffer. Returns 1 if data was read, 0 if
-   read was interrupted or nonblocking, -1 if EOF / error */
-int io_buffer_read_data(IOBuffer *buf, unsigned char **data,
-			size_t *size, size_t threshold);
+   more than `threshold' bytes in buffer. Returns 1 if data was read,
+   -1 if EOF / error */
+int io_buffer_read_data_blocking(IOBuffer *buf, unsigned char **data,
+				 size_t *size, size_t threshold);
 
 /* Returns a pointer to buffer wanted amount of space,
    or NULL if size is too big. */

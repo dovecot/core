@@ -446,12 +446,9 @@ static void get_partial_size(IOBuffer *inbuf,
 
 	if (!cr_skipped) {
 		/* see if we need to add virtual CR */
-		while (io_buffer_read_data(inbuf, &msg, &size, 0) >= 0) {
-			if (size > 0) {
-				if (msg[0] == '\n')
-					dest->virtual_size++;
-				break;
-			}
+		if (io_buffer_read_data_blocking(inbuf, &msg, &size, 0) > 0) {
+			if (msg[0] == '\n')
+				dest->virtual_size++;
 		}
 	}
 

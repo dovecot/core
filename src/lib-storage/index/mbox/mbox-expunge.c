@@ -70,8 +70,8 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 			if (outbuf->offset == 0) {
 				/* we're writing to beginning of mbox, so we
 				   don't want the [\r]\n there */
-				while (io_buffer_read_data(inbuf, &data,
-							   &size, 1) == 0) ;
+				(void)io_buffer_read_data_blocking(inbuf, &data,
+								   &size, 1);
 				if (size > 0 && data[0] == '\n')
 					io_buffer_skip(inbuf, 1);
 				else if (size > 1 && data[0] == '\r' &&

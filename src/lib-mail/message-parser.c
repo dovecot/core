@@ -267,7 +267,7 @@ static void message_skip_line(IOBuffer *inbuf, MessageSize *msg_size)
 
 	startpos = 0;
 
-	while (io_buffer_read_data(inbuf, &msg, &size, startpos) >= 0) {
+	while (io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] == '\n') {
 				if (msg_size != NULL) {
@@ -284,15 +284,13 @@ static void message_skip_line(IOBuffer *inbuf, MessageSize *msg_size)
 			break;
 		}
 
-		if (i > 0) {
-			/* leave the last character, it may be \r */
-			io_buffer_skip(inbuf, i - 1);
-			startpos = 1;
+		/* leave the last character, it may be \r */
+		io_buffer_skip(inbuf, i - 1);
+		startpos = 1;
 
-			if (msg_size != NULL) {
-				msg_size->physical_size += i - 1;
-				msg_size->virtual_size += i - 1;
-			}
+		if (msg_size != NULL) {
+			msg_size->physical_size += i - 1;
+			msg_size->virtual_size += i - 1;
 		}
 	}
 
@@ -318,8 +316,8 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 
 	missing_cr_count = startpos = line_start = 0;
 	colon_pos = UINT_MAX;
-	while ((ret = io_buffer_read_data(inbuf, &msg,
-					  &size, startpos+1)) != -1) {
+	while ((ret = io_buffer_read_data_blocking(inbuf, &msg, &size,
+						   startpos+1)) != -1) {
 		if (ret == -2) {
 			/* overflow, line is too long. just skip it. */
 			i_assert(size > 2);
@@ -327,11 +325,6 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
                         message_skip_line(inbuf, hdr_size);
 			startpos = line_start = 0;
 			colon_pos = UINT_MAX;
-			continue;
-		}
-
-		if (size == 0) {
-			/* no, we never want empty buffer */
 			continue;
 		}
 
@@ -461,7 +454,7 @@ message_find_boundary(IOBuffer *inbuf, MessageBoundary *boundaries,
 	boundary = NULL;
 	missing_cr_count = startpos = line_start = 0;
 
-	while (io_buffer_read_data(inbuf, &msg, &size, startpos) >= 0) {
+	while (io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] != '\n')
 				continue;
@@ -485,41 +478,37 @@ message_find_boundary(IOBuffer *inbuf, MessageBoundary *boundaries,
 			line_start = i+1;
 		}
 
-		if (boundary != NULL) {
-			/* boundary found */
+		if (boundary != NULL)
 			break;
+
+		if (i - line_start > 128 &&
+		    msg[line_start] == '-' && msg[line_start+1] == '-') {
+			/* long partial line, see if it's a boundary.
+			   RFC-2046 says that the boundaries must be
+			   70 chars without "--" or less. We allow
+			   a bit larger.. */
+			boundary = boundary_find(boundaries,
+						 msg + line_start + 2,
+						 i - line_start - 2);
+			if (boundary != NULL)
+				break;
+
+			/* nope, we can skip over the line, just
+			   leave the last char since it may be \r */
+			i--;
+		} else {
+			/* leave the last line to buffer, it may be
+			   boundary */
+			i = line_start;
+			if (i > 2) i -= 2; /* leave the \r\n too */
+			line_start -= i;
 		}
 
-		if (i > 0) {
-			if (i - line_start > 128 &&
-			    msg[line_start] == '-' && msg[line_start+1] == '-') {
-				/* long partial line, see if it's a boundary.
-				   RFC-2046 says that the boundaries must be
-				   70 chars without "--" or less. We allow
-				   a bit larger.. */
-				boundary = boundary_find(boundaries,
-							 msg + line_start + 2,
-							 i - line_start - 2);
-				if (boundary != NULL)
-					break;
+		io_buffer_skip(inbuf, i);
+		msg_size->physical_size += i;
+		msg_size->virtual_size += i;
 
-				/* nope, we can skip over the line, just
-				   leave the last char since it may be \r */
-				i--;
-			} else {
-				/* leave the last line to buffer, it may be
-				   boundary */
-				i = line_start;
-				if (i > 2) i -= 2; /* leave the \r\n too */
-				line_start -= i;
-			}
-
-			io_buffer_skip(inbuf, i);
-			msg_size->physical_size += i;
-			msg_size->virtual_size += i;
-
-			startpos = size - i;
-		}
+		startpos = size - i;
 	}
 
 	if (boundary != NULL) {
@@ -582,11 +571,9 @@ static MessagePart *message_skip_boundary(IOBuffer *inbuf,
 
 	/* now, see if it's end boundary */
 	end_boundary = FALSE;
-	while (io_buffer_read_data(inbuf, &msg, &size, 1) >= 0) {
-		if (size >= 2) {
-			end_boundary = msg[0] == '-' && msg[1] == '-';
-			break;
-		}
+	if (io_buffer_read_data_blocking(inbuf, &msg, &size, 1) > 0) {
+		i_assert(size >= 2);
+		end_boundary = msg[0] == '-' && msg[1] == '-';
 	}
 
 	/* skip the rest of the line */

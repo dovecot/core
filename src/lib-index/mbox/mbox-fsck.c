@@ -17,15 +17,12 @@ static void skip_line(IOBuffer *inbuf)
 	unsigned char *msg;
 	size_t i, size;
 
-	while (io_buffer_read_data(inbuf, &msg, &size, 0) >= 0) {
+	while (io_buffer_read_data_blocking(inbuf, &msg, &size, 0) > 0) {
 		for (i = 0; i < size; i++) {
-			if (msg[i] == '\n')
-				break;
-		}
-
-		if (i < size) {
-			io_buffer_skip(inbuf, i+1);
-			break;
+			if (msg[i] == '\n') {
+				io_buffer_skip(inbuf, i+1);
+				return;
+			}
 		}
 
 		io_buffer_skip(inbuf, i);
@@ -60,7 +57,7 @@ static int verify_end_of_body(IOBuffer *inbuf, uoff_t end_offset)
 	}
 
 	/* read forward a bit */
-	if (io_buffer_read_data(inbuf, &data, &size, 6) <= 0)
+	if (io_buffer_read_data_blocking(inbuf, &data, &size, 6) < 0)
 		return FALSE;
 
 	/* either there should be the next From-line,
@@ -199,12 +196,8 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 		return FALSE;
 
 	/* first make sure we start with a "From " line. */
-	while (io_buffer_read_data(inbuf, &data, &size, 5) >= 0) {
-		if (size > 5)
-			break;
-	}
-
-	if (size <= 5 || strncmp(data, "From ", 5) != 0) {
+	if (io_buffer_read_data_blocking(inbuf, &data, &size, 5) < 0 ||
+	    strncmp(data, "From ", 5) != 0) {
 		index_set_error(index, "File isn't in mbox format: %s",
 				index->mbox_path);
 		return FALSE;

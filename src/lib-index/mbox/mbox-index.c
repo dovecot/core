@@ -277,8 +277,8 @@ int mbox_skip_crlf(IOBuffer *inbuf)
 	size_t size, pos;
 
 	pos = 0;
-	while (io_buffer_read_data(inbuf, &data, &size, pos) >= 0) {
-		if (size > 0 && pos == 0) {
+	while (io_buffer_read_data_blocking(inbuf, &data, &size, pos) > 0) {
+		if (pos == 0) {
 			if (data[0] == '\n') {
 				io_buffer_skip(inbuf, 1);
 				return TRUE;
@@ -288,6 +288,7 @@ int mbox_skip_crlf(IOBuffer *inbuf)
 
 			pos++;
 		}
+
 		if (size > 1 && pos == 1) {
 			if (data[1] != '\n')
 				return FALSE;

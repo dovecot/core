@@ -29,7 +29,7 @@ int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 	message_skip_virtual(inbuf, virtual_skip, NULL, &cr_skipped);
 
 	/* go through the message data and insert CRs where needed.  */
-	while (io_buffer_read_data(inbuf, &msg, &size, 0) >= 0) {
+	while (io_buffer_read_data_blocking(inbuf, &msg, &size, 0) > 0) {
 		add_cr = FALSE;
 		for (i = 0; i < size; i++) {
 			if (msg[i] == '\n') {

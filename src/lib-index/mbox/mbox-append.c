@@ -31,7 +31,7 @@ static void mbox_read_message(IOBuffer *inbuf)
 
 	/* read until "[\r]\nFrom " is found */
 	startpos = i = 0; lastmsg = TRUE;
-	while (io_buffer_read_data(inbuf, &msg, &size, startpos) >= 0) {
+	while (io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] == ' ' && i >= 5) {
 				/* See if it's space after "From" */
@@ -53,12 +53,10 @@ static void mbox_read_message(IOBuffer *inbuf)
 			break;
 		}
 
-		if (i > 0) {
-			startpos = i < 7 ? i : 7;
-			i -= startpos;
+		startpos = i < 7 ? i : 7;
+		i -= startpos;
 
-			io_buffer_skip(inbuf, i);
-		}
+		io_buffer_skip(inbuf, i);
 	}
 
 	if (lastmsg && startpos > 0) {
@@ -88,7 +86,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 
 	/* get the From-line */
 	pos = 0;
-	while (io_buffer_read_data(inbuf, &data, &size, pos) >= 0) {
+	while (io_buffer_read_data_blocking(inbuf, &data, &size, pos) > 0) {
 		for (; pos < size; pos++) {
 			if (data[pos] == '\n')
 				break;

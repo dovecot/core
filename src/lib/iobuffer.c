@@ -551,15 +551,10 @@ static void block_loop_copy(IOBufferBlockContext *ctx)
 {
 	unsigned char *in_data;
 	size_t size, full_size, sent_size, data_size;
-	ssize_t ret;
 
-	while ((ret = io_buffer_read_data(ctx->inbuf, &in_data,
-					  &size, 0)) <= 0) {
-		if (ret == -1) {
-			/* disconnected */
-			ctx->outbuf->closed = TRUE;
-			break;
-		}
+	if (io_buffer_read_data_blocking(ctx->inbuf, &in_data, &size, 0) < 0) {
+		io_loop_stop(ctx->ioloop);
+		return;
 	}
 
 	full_size = ctx->size;
@@ -900,28 +895,24 @@ unsigned char *io_buffer_get_data(IOBuffer *buf, size_t *size)
         return buf->buffer + buf->skip;
 }
 
-int io_buffer_read_data(IOBuffer *buf, unsigned char **data,
-			size_t *size, size_t threshold)
+int io_buffer_read_data_blocking(IOBuffer *buf, unsigned char **data,
+				 size_t *size, size_t threshold)
 {
 	ssize_t ret;
 
-	if (buf->pos - buf->skip > threshold)
-		ret = 1;
-	else {
+	if (buf->pos - buf->skip <= threshold) {
 		/* we need more data */
-		ret = io_buffer_read(buf);
-		if (ret <= 0 && ret != -2) {
+		ret = io_buffer_read_blocking(buf, SSIZE_T_MAX);
+		if (ret < 0) {
 			*size = 0;
 			*data = NULL;
 			return ret;
 		}
-
-		if (ret > 0)
-			ret = 1;
 	}
 
 	*data = io_buffer_get_data(buf, size);
-	return ret;
+	i_assert(*size > 0);
+	return 1;
 }
 
 unsigned char *io_buffer_get_space(IOBuffer *buf, size_t size)

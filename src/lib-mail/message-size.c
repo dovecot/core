@@ -13,7 +13,7 @@ void message_get_header_size(IOBuffer *inbuf, MessageSize *hdr)
 	memset(hdr, 0, sizeof(MessageSize));
 
 	missing_cr_count = 0; startpos = 0;
-	while (io_buffer_read_data(inbuf, &msg, &size, startpos) >= 0) {
+	while (io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] != '\n')
 				continue;
@@ -42,13 +42,11 @@ void message_get_header_size(IOBuffer *inbuf, MessageSize *hdr)
 			break;
 		}
 
-		if (i > 0) {
-			/* leave the last two characters, they may be \r\n */
-			startpos = size == 1 ? 1 : 2;
-			io_buffer_skip(inbuf, i - startpos);
+		/* leave the last two characters, they may be \r\n */
+		startpos = size == 1 ? 1 : 2;
+		io_buffer_skip(inbuf, i - startpos);
 
-			hdr->physical_size += i - startpos;
-		}
+		hdr->physical_size += i - startpos;
 	}
 	io_buffer_skip(inbuf, startpos);
 	hdr->physical_size += startpos;
@@ -67,7 +65,7 @@ void message_get_body_size(IOBuffer *inbuf, MessageSize *body,
 
 	missing_cr_count = 0; startpos = 0;
 	while (max_virtual_size != 0 &&
-	       io_buffer_read_data(inbuf, &msg, &size, startpos) >= 0) {
+	       io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size && max_virtual_size != 0; i++) {
 			if (max_virtual_size > 0)
 				max_virtual_size--;
@@ -92,13 +90,11 @@ void message_get_body_size(IOBuffer *inbuf, MessageSize *body,
 			body->lines++;
 		}
 
-		if (i > 0) {
-			/* leave the last character, it may be \r */
-			io_buffer_skip(inbuf, i - 1);
-			startpos = 1;
+		/* leave the last character, it may be \r */
+		io_buffer_skip(inbuf, i - 1);
+		startpos = 1;
 
-			body->physical_size += i - 1;
-		}
+		body->physical_size += i - 1;
 	}
 	io_buffer_skip(inbuf, startpos);
 	body->physical_size += startpos;
@@ -118,7 +114,7 @@ void message_skip_virtual(IOBuffer *inbuf, uoff_t virtual_skip,
 		return;
 
 	startpos = 0;
-	while (io_buffer_read_data(inbuf, &msg, &size, startpos) >= 0) {
+	while (io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size && virtual_skip > 0; i++) {
 			virtual_skip--;
 
@@ -159,11 +155,9 @@ void message_skip_virtual(IOBuffer *inbuf, uoff_t virtual_skip,
 			break;
 		}
 
-		if (i > 0) {
-			/* leave the last character, it may be \r */
-			io_buffer_skip(inbuf, i - 1);
-			startpos = 1;
-		}
+		/* leave the last character, it may be \r */
+		io_buffer_skip(inbuf, i - 1);
+		startpos = 1;
 	}
 }
 
