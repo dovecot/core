@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "home-expand.h"
 #include "unlink-directory.h"
 #include "subscription-file/subscription-file.h"
 #include "maildir-index.h"
@@ -95,16 +96,46 @@ static int maildir_autodetect(const char *data)
 
 static int maildir_is_valid_name(struct mail_storage *storage, const char *name)
 {
-	return name[0] != '\0' && name[0] != storage->hierarchy_sep &&
-		name[strlen(name)-1] != storage->hierarchy_sep &&
-		strchr(name, '/') == NULL && strchr(name, '\\') == NULL &&
-		strchr(name, '*') == NULL && strchr(name, '%') == NULL;
+	if (name[0] == '\0' || name[strlen(name)-1] == storage->hierarchy_sep ||
+	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
+		return FALSE;
+
+	if (full_filesystem_access)
+		return TRUE;
+
+	return *name != '~' &&
+		strchr(name, '/') == NULL && strchr(name, '\\') == NULL;
+}
+
+static const char *maildir_get_absolute_path(const char *name)
+{
+	const char *p;
+
+	name = home_expand(name);
+
+	/* insert "/" if it's missing */
+	p = strchr(name, '.');
+	if (p == NULL || p[-1] == '/')
+		return name;
+	return t_strconcat(t_strdup_until(name, p), "/", p, NULL);
 }
 
 static const char *maildir_get_path(struct mail_storage *storage,
 				    const char *name)
 {
+	if (full_filesystem_access && (*name == '/' || *name == '~'))
+		return maildir_get_absolute_path(name);
+
 	return t_strconcat(storage->dir, "/.", name, NULL);
+}
+
+static const char *maildir_get_index_path(struct mail_storage *storage,
+					  const char *name)
+{
+	if (full_filesystem_access && (*name == '/' || *name == '~'))
+		return maildir_get_absolute_path(name);
+
+	return t_strconcat(storage->index_dir, "/.", name, NULL);
 }
 
 /* create or fix maildir, ignore if it already exists */
@@ -182,8 +213,8 @@ maildir_open(struct mail_storage *storage, const char *name,
 	struct mail_index *index;
 	const char *path, *index_dir;
 
-	path = t_strconcat(storage->dir, "/.", name, NULL);
-	index_dir = t_strconcat(storage->index_dir, "/.", name, NULL);
+	path = maildir_get_path(storage, name);
+	index_dir = maildir_get_index_path(storage, name);
 
 	index = index_storage_lookup_ref(index_dir);
 	if (index == NULL) {
@@ -304,14 +335,15 @@ static int maildir_delete_mailbox(struct mail_storage *storage,
 	   deleted. delete indexes before the actual maildir. this way we
 	   never see partially deleted mailboxes. */
 	src = maildir_get_path(storage, name);
-	dest = t_strconcat(storage->dir, "/..", name, NULL);
+	dest = maildir_get_path(storage, t_strconcat(".", name, NULL));
 	if (stat(src, &st) != 0 && errno == ENOENT) {
 		mail_storage_set_error(storage, "Mailbox doesn't exist: %s",
 				       name);
 		return FALSE;
 	}
 
-	if (strcmp(storage->index_dir, storage->dir) != 0) {
+	if (strcmp(storage->index_dir, storage->dir) != 0 &&
+	    *name != '/' && *name != '~') {
 		index_dir = t_strconcat(storage->index_dir, "/.", name, NULL);
 		if (unlink_directory(index_dir, TRUE) < 0) {
 			mail_storage_set_critical(storage,

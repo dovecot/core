@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "home-expand.h"
 #include "unlink-directory.h"
 #include "subscription-file/subscription-file.h"
 #include "mail-custom-flags.h"
@@ -241,16 +242,24 @@ int mbox_is_valid_mask(const char *mask)
 
 static int mbox_is_valid_name(struct mail_storage *storage, const char *name)
 {
-	return name[0] != '\0' && name[0] != storage->hierarchy_sep &&
-		name[strlen(name)-1] != storage->hierarchy_sep &&
-		strchr(name, '*') == NULL && strchr(name, '%') == NULL &&
-		mbox_is_valid_mask(name);
+	if (name[0] == '\0' || name[strlen(name)-1] == storage->hierarchy_syp ||
+	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
+		return FALSE;
+
+	return full_filesystem_access || mbox_is_valid_mask(name);
 }
 
 static const char *mbox_get_index_dir(struct mail_storage *storage,
 				      const char *name)
 {
 	const char *p;
+
+	if (full_filesystem_access && (*name == '/' || *name == '~')) {
+		name = home_expand(name);
+		p = strrchr(name, '/');
+		return t_strconcat(t_strdup_until(name, p),
+				   "/.imap/", p+1, NULL);
+	}
 
 	p = strrchr(name, '/');
 	if (p == NULL)
@@ -295,8 +304,9 @@ static const char *mbox_get_path(struct mail_storage *storage, const char *name)
 {
 	if (strcasecmp(name, "INBOX") == 0)
 		return storage->inbox_file;
-	else
-		return t_strconcat(storage->dir, "/", name, NULL);
+	if (full_filesystem_access && (*name == '/' || *name == '~'))
+		return home_expand(name);
+	return t_strconcat(storage->dir, "/", name, NULL);
 }
 
 static struct mailbox *mbox_open(struct mail_storage *storage, const char *name,

@@ -90,12 +90,15 @@ int maildir_find_mailboxes(struct mail_storage *storage, const char *mask,
 		dir = storage->dir;
 		prefix = "";
 	} else {
-		if (mask == p)
-			dir = prefix = "/";
-		else {
-			dir = t_strdup_until(mask, p);
-			prefix = t_strdup_until(mask, p+1);
+		p = strchr(p, storage->hierarchy_sep);
+		if (p == NULL) {
+			/* this isn't going to work */
+			mail_storage_set_error(storage, "Invalid list mask");
+			return FALSE;
 		}
+
+		dir = t_strdup_until(mask, p);
+		prefix = t_strdup_until(mask, p+1);
 
 		if (*mask != '/' && *mask != '~')
 			dir = t_strconcat(storage->dir, "/", dir, NULL);
