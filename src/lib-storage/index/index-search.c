@@ -72,6 +72,8 @@ static int msgset_contains(const char *set, unsigned int match_num,
 			if (*set == '\0')
 				return FALSE;
 		} else if (*set == ':') {
+			set++;
+
 			if (*set == '*') {
 				set++;
 
