@@ -96,8 +96,10 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
         MailIndexUpdate *update;
 	MessageSize hdr_parsed_size;
 	MboxHeaderContext ctx;
-	uoff_t header_offset, body_offset, offset, hdr_size, body_size;
+	uoff_t header_offset, body_offset, offset;
+	uoff_t hdr_size, body_size;
 	unsigned char current_digest[16];
+	int hdr_size_fixed;
 
 	*next_rec = NULL;
 
@@ -105,29 +107,37 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	skip_line(input);
 	header_offset = input->v_offset;
 
-	if (!mbox_mail_get_location(index, rec, NULL, &hdr_size, &body_size))
-		return FALSE;
-
-	if (body_size == 0) {
-		/* possibly broken message, find the next From-line and make
-		   sure header parser won't pass it. */
-		mbox_skip_header(input);
-		i_stream_set_read_limit(input, input->v_offset);
-		i_stream_seek(input, header_offset);
-	}
-
-	/* get the MD5 sum of fixed headers and the current message flags
-	   in Status and X-Status fields */
-        mbox_header_init_context(&ctx, index, input);
-	message_parse_header(NULL, input, &hdr_parsed_size,
-			     mbox_header_func, &ctx);
-	md5_final(&ctx.md5, current_digest);
-
-	mbox_header_free_context(&ctx);
-	i_stream_set_read_limit(input, 0);
-
-	body_offset = input->v_offset;
+	hdr_size = 0; hdr_size_fixed = FALSE;
 	do {
+		if (!mbox_mail_get_location(index, rec, NULL, NULL, &body_size))
+			return FALSE;
+
+		i_stream_seek(input, header_offset);
+
+		if (body_size == 0 && !hdr_size_fixed) {
+			/* possibly broken message, find the next From-line
+			   and make sure header parser won't pass it. */
+			mbox_skip_header(input);
+			i_stream_set_read_limit(input, input->v_offset);
+			i_stream_seek(input, header_offset);
+			hdr_size_fixed = TRUE;
+			hdr_size = 0;
+		}
+
+		if (hdr_size == 0) {
+			/* get the MD5 sum of fixed headers and the current
+			   message flags in Status and X-Status fields */
+			mbox_header_init_context(&ctx, index, input);
+			message_parse_header(NULL, input, &hdr_parsed_size,
+					     mbox_header_func, &ctx);
+			md5_final(&ctx.md5, current_digest);
+
+			mbox_header_free_context(&ctx);
+			i_stream_set_read_limit(input, 0);
+
+			body_offset = input->v_offset;
+		}
+
 		if (verify_header_md5sum(index, rec, current_digest) &&
 		    mbox_verify_end_of_body(input, body_offset + body_size)) {
 			/* valid message */
