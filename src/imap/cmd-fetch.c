@@ -1,6 +1,7 @@
 /* Copyright (C) 2002-2004 Timo Sirainen */
 
 #include "common.h"
+#include "ostream.h"
 #include "commands.h"
 #include "imap-fetch.h"
 #include "imap-search.h"
@@ -109,9 +110,13 @@ static int cmd_fetch_continue(struct client *client)
         struct imap_fetch_context *ctx = client->cmd_context;
 	int ret;
 
-	if ((ret = imap_fetch(ctx)) == 0) {
-		/* unfinished */
-		return FALSE;
+	if (client->output->closed)
+		ret = -1;
+	else {
+		if ((ret = imap_fetch(ctx)) == 0) {
+			/* unfinished */
+			return FALSE;
+		}
 	}
 	if (ret < 0)
 		ctx->failed = TRUE;
