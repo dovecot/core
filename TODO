@@ -1,16 +1,71 @@
- - if we deleted mail but didn't write modify log, other dovecots don't
-   handle it properly. they either assert at index-sync.c:42 or if new
-   mails have also been added since, they don't notice it at all
-   actually, that breaks reads as well since we get expunges only from
-   the old file.. and check that deleting file does "inconsistency error"
- - if we have entries in modifylog with UID 10..11, 9..12, 8..13 etc.
-   do they work correctly?
- - if imap process notices that both modify logs are getting full because it's
-   client isn't syncing, the client should be disconnected
+ - bugs
+    - fix update_by_replace
+    - RENAME: If the name has inferior hierarchical names, then the inferior
+	      hierarchical names MUST also be renamed (ie. foo -> bar renames
+	      also foo/bar -> bar/bar). (and RENAME INBOX!)
+    - passwd-file doesn't notice changes in the file
+    - tree has some locking issues while opening it
+    - maildir: if mail file isn't found, it may be because it was renamed
+      (flag changed). we must then sync the directory and see again if the mail
+      is found
+    - mail-lockdir.c isn't 100% safe.. stale locks are detected by checking
+      that hard link count is 1, then it's unlink()ed. but what if another
+      process did the same unlink() + creat() in the middle of our
+      stat()..unlink()?
+    - SEARCH FROM/TO/CC/BCC now generates the field from ENVELOPE which it
+      uses for matching. This however gives different results than when
+      matching from headers.
+    - mbox: what if 1 msg is deleted is x-imapbase rewritten?
 
- - maildir: if mail file isn't found, it may be because it was renamed
-   (flag changed). we must then sync the directory and see again if the mail
-   is found
+ - reliability fixes:
+    - if we deleted mail but didn't write modify log, other dovecots don't
+      handle it properly. they either assert at index-sync.c:42 or if new
+      mails have also been added since, they don't notice it at all
+      actually, that breaks reads as well since we get expunges only from
+      the old file.. and check that deleting file does "inconsistency error"
+    - if imap process notices that both modify logs are getting full because
+      it's client isn't syncing, the client should be disconnected
+    - TempString and temp. mempool could make sure the stack frame stays same
+      for every allocation
+    - if opening indexes fails because we timeout while trying to lock it, we
+      recreate the indexes. that's not very good idea .. also does it do that
+      even if .customflags can't be locked? it's not really related to
+      indexes..
+
+ - checks:
+   - if we have entries in modifylog with UID 10..11, 9..12, 8..13 etc.
+     do they work correctly?
+   - check that search message-id worked properly always
+   - check that search's OR and () work properly
+   - Should SEARCH SENT* apply timezone?
+   - make sure SELECT rebuilds index properly when next_uid is near 32bit value
+   - make sure connection limits work
+
+ - cleanups:
+    - iobuffers could do blocking reads/writes and use alarm() to timeout.
+      faster than tons of poll() + gettimeofday() calls.
+    - are the lowwater marks always reset to 0 when they don't exist? could be
+      just as well set to next_uid..
+    - i_buffer_seek() could maybe be void and errors would be shown at read()
+      time like with skip()..
+    - use EOVERFLOW instead of EINVAL wherever appropriate
+
+ - enhancements:
+    - "* NO Mailbox is locked, will override in xx seconds"
+    - UW-IMAP doesn't send it's fields to client: X-IMAPbase, Status, X-Status,
+      X-Keywords, X-UID.. should we? probably just makes things more difficult
+    - search: support having longer keywords than buffer block
+    - use mmap() vs. read() to access mails. read() seems to be a bit
+      faster with linux/x86.
+    - when fetching body/envelope we could try to cache it immediately if
+      we can get lock with try_lock.
+    - optionally use only in-memory indexes
+    - maildir could support also the dirty-flag in messages. files would be
+      renamed "whenever there's time" (that'd require the indexer program, or
+      forking and doing it in background)
+    - optionally keep the message file name as it's UID. Then we don't have to
+      save the filename anywhere.
+
  - allow index files to be in completely separate location than mail data.
    mails could be read through slow NFS access but indexes from fast local
    disk. with this thinking it makes more sense to create larger index files
@@ -18,82 +73,25 @@
    light operation, the indexes would be filled while the data is being
    accessed by the imap client. of course all this should be optional so
    we don't slow down when mails and indexes are stored in same disk.
- - mail-lockdir.c isn't 100% safe.. stale locks are detected by checking that
-   hard link count is 1, then it's unlink()ed. but what if another process
-   did the same unlink() + creat() in the middle of our stat()..unlink()?
- - MAP_SHARED with NFS doesn't update well. add option to update sync_id
-   after every change in file. when reading, if sync_id hasn't changed also
-   check with lseek()+read() if it has changed.
-     - mail-index.c needs to keep track if file has been modified, which is
-       a bit difficult since it's done in so many places
-     - do we want it after all? indexes aren't required and they'd be slow
-       through NFS.
- - RENAME: If the name has inferior hierarchical names, then the inferior
-	   hierarchical names MUST also be renamed (ie. foo -> bar renames
-	   also foo/bar -> bar/bar). (and RENAME INBOX!)
- - passwd-file doesn't notice changes in the file
- - tree has some locking issues while opening it
- - SEARCH FROM/TO/CC/BCC now generates the field from ENVELOPE which it uses
-   for matching. This however gives different results than when matching from
-   headers.
- - when fetching body/envelope we could try to cache it immediately if
-   we can get lock with try_lock.
+
  - we need permanent storage for UIDs. with mbox use X-UID like UW-IMAP,
    with maildir a) file:2,flags,Uuid b) file,U=uid:2,flags. uid validity
    would be in .uidvalidity file. the b-case would require that to be done
    by the client moving it from new/ to cur/
      - other possible maildir flags to use in filename: S=size (file size,
        for maildir++ quota), W=size (rfc822.size by some uw-imap patch)
- - mbox: what if 1 msg is deleted is x-imapbase rewritten?
- - check that search message-id worked properly always
- - check that search's OR and () work properly
-
- - are the lowwater marks always reset to 0 when they don't exist? could be
-   just as well set to next_uid..
- - optionally use only in-memory indexes
- - mbox handling is too slow, uw-imapd is much faster
- - maildir could support also the dirty-flag in messages. files would be
-   renamed "whenever there's time" (that'd require the indexer program, or
-   forking and doing it in background)
- - optionally keep the message file name as it's UID. Then we don't have to
-   save the filename anywhere.
- - Should SEARCH SENT* apply timezone?
-   
-test:
- - make sure locking is done properly when opening/switching modifylog 
- - make sure SELECT rebuilds index properly when next_uid is near 32bit value
- - make sure connection limits work
- - make sure modify log works properly, especially
-     - switching the files
-     - seq1:seq2 ranges made a lot of changes
 
 index:
  - mbox:
      - if a file isn't valid mbox and it's tried to be opened, say it in one
        line in error log, not 6..
-     - locking: if we set shared lock to it while we're accessing it, we could
-       get it pretty reliable. this means that the mbox fd needs to be locked
-       before sync() and kept locked after that until we're done with it.
-         - requires mbox file to be open all the time. i guess that's fine.
-	 - expunge requires dropping the shared lock and getting exclusive
-	   lock. after that we must sync again to make sure the file wasn't
-	   changed.
-	 - could be done in index->set_lock() and try_lock(). in that case
-	   ignore the above. sometimes (quite often?) this is a bit useless
-	   since we're not touching the mbox file, but overall it simplifies
-	   things a log
-	 - mbox_file_open() could re-open() the file only when sync() has
-	   noticed that the file inode/etc. have changed. it could also
-	   cache the ibuffer as long as the mbox file is being locked
-	   (ie. can't cache between locks, since the file may be shrinked)
      - empty lines at beginning of file still aren't ignored
      - UW-IMAPd writes empty spaces after X-Keywords which it uses so that
        it doesn't have to rewrite the whole file if status flags changed
        in the beginning of it. We could do that too.
-     - we need either From-line escaping or writing Content-Length
- - read-only support for mailboxes where we don't have write-access? Maybe,
-   but don't try to use their indexes since that's way too problematic, and
-   probably even impossible since we can't lock it.
+     - we need either From-line escaping or writing Content-Length when saving
+       mails.
+ - read-only support for mailboxes where we don't have write-access
  - we should try to avoid completely rebuilding indexes unless they're
    corrupted. especially if we later want to support some read-only boxes
    and keep the mail flags only in index file. fsck() could verify that
@@ -106,8 +104,6 @@ index:
  - we sometimes leave some space in the index files (memory alignment,
    extra_space). we should keep those bytes zeroed to make sure nothing
    sensitive is left there.
- - tree file is never shrinked
- - tree has some locking issues while opening it
  - log transferred amount of bytes. just a bit problematic who logs it, since
    imap-login does SSL transfers but not unencrypted.. could also log SSL
    settings (especially compression).
@@ -162,7 +158,8 @@ general:
  - sieve (rfc3028)
  - rfc2231 continuation support
 
- - ulimit / setrlimit() should be set somewhere for imap process
+ - ulimit / setrlimit() should be set somewhere for imap process. and maybe
+   also separate limits for data stack and mem pools
  - create indexer binary
  - SIGHUPing master should reload the configuration .. killing imap-auth and
    imap-login processes? or just signal imap-login to stop accepting new
