@@ -282,6 +282,12 @@ size_t printf_string_upper_bound(const char *format, va_list args)
 		  conv_done = TRUE;
 		  (void) va_arg (args, void*);
                   break;
+		case 'm':
+		  /* normally we shouldn't even get here, but we could be just
+		     checking the format string is valid before giving the
+		     format to vsyslog(). */
+		  conv_len += strlen(strerror(errno)) + 256;
+		  break;
 
                   /* handle invalid cases
                    */
