@@ -15,8 +15,6 @@
 #include <netdb.h>
 
 struct mail_save_context {
-	pool_t pool;
-
 	struct index_mailbox *ibox;
 	int transaction;
 
@@ -224,7 +222,6 @@ mbox_storage_save_init(struct mailbox *box, int transaction)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 	struct mail_save_context *ctx;
-	pool_t pool;
 
 	if (box->readonly) {
 		mail_storage_set_error(box->storage, "Mailbox is read-only");
@@ -234,19 +231,17 @@ mbox_storage_save_init(struct mailbox *box, int transaction)
 	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_EXCLUSIVE))
 		return NULL;
 
-	pool = pool_alloconly_create("mail_save_context", 2048);
-	ctx = p_new(pool, struct mail_save_context, 1);
-	ctx->pool = pool;
+	ctx = i_new(struct mail_save_context, 1);
 	ctx->ibox = ibox;
 	ctx->transaction = transaction;
 
 	if (!mbox_seek_to_end(ctx, &ctx->sync_offset)) {
-		pool_unref(pool);
+		i_free(ctx);
 		return NULL;
 	}
 
 	ctx->output = o_stream_create_file(ibox->index->mbox_fd,
-					   ctx->pool, 4096, 0, FALSE);
+					   default_pool, 4096, 0, FALSE);
 	o_stream_set_blocking(ctx->output, 60000, NULL, NULL);
 	return ctx;
 }
@@ -272,6 +267,6 @@ int mbox_storage_save_deinit(struct mail_save_context *ctx, int rollback)
 		}
 	}
 
-	pool_unref(ctx->pool);
+	i_free(ctx);
 	return !failed;
 }

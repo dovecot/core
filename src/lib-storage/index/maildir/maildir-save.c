@@ -196,7 +196,7 @@ maildir_storage_save_init(struct mailbox *box, int transaction)
 		return NULL;
 	}
 
-	pool = pool_alloconly_create("mail_save_context", 2048);
+	pool = pool_alloconly_create("mail_save_context", 4096);
 	ctx = p_new(pool, struct mail_save_context, 1);
 	ctx->pool = pool;
 	ctx->ibox = ibox;
