@@ -35,16 +35,6 @@ t_unicode_str(const char *src, int ucase, size_t *size)
 	return buffer_free_without_data(wstr);
 }
 
-static void
-ntlmssp_des_encrypt_triad(const unsigned char *hash,
-		 	  const unsigned char *challenge,
-			  unsigned char *response)
-{
-	deshash(response, hash, challenge);
-	deshash(response + 8, hash + 7, challenge);
-	deshash(response + 16, hash + 14, challenge);
-}
-
 const unsigned char *
 lm_hash(const char *passwd, unsigned char hash[LM_HASH_SIZE])
 {
@@ -112,7 +102,11 @@ ntlmssp_v1_response(const unsigned char *hash,
 	memset(des_hash + NTLMSSP_HASH_SIZE, 0,
 	       sizeof(des_hash) - NTLMSSP_HASH_SIZE);
 
-	ntlmssp_des_encrypt_triad(des_hash, challenge, response);
+	deshash(response, des_hash, challenge);
+	deshash(response + 8, des_hash + 7, challenge);
+	deshash(response + 16, des_hash + 14, challenge);
+
+	safe_memset(des_hash, 0, sizeof(des_hash));
 }
 
 void
@@ -131,4 +125,6 @@ ntlmssp_v2_response(const char *user, const char *target,
 	hmac_md5_update(&ctx, challenge, NTLMSSP_CHALLENGE_SIZE);
 	hmac_md5_update(&ctx, blob, blob_size);
 	hmac_md5_final(&ctx, response);
+
+	safe_memset(hash, 0, sizeof(hash));
 }
