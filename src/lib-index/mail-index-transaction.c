@@ -46,6 +46,7 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 			if (recs[i] != NULL)
 				buffer_free(recs[i]);
 		}
+		buffer_free(t->extra_rec_updates);
 	}
 
 	if (t->appends != NULL)

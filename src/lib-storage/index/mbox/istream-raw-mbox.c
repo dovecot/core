@@ -28,6 +28,9 @@ static void _destroy(struct _iostream *stream)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
+	i_free(rstream->sender);
+	i_free(rstream->next_sender);
+
 	i_stream_seek(rstream->input, rstream->istream.istream.v_offset);
 	i_stream_unref(rstream->input);
 }

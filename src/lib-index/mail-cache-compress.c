@@ -188,6 +188,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 
 	hdr.used_file_size = output->offset;
 	buffer_free(ctx.buffer);
+	buffer_free(ctx.field_seen);
 
 	o_stream_seek(output, 0);
 	o_stream_send(output, &hdr, sizeof(hdr));

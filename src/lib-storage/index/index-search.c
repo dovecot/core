@@ -783,6 +783,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	if (ctx->hdr_pool != NULL)
 		pool_unref(ctx->hdr_pool);
 
+	i_free(ctx->charset);
 	i_free(ctx);
 	return ret;
 }
