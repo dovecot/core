@@ -707,7 +707,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	messages_count = mail_index_view_get_message_count(sync_ctx->sync_view);
 
 	if (!mail_index_sync_have_more(sync_ctx->index_sync_ctx) ||
-	    min_message_count != 0) {
+	    (!partial && min_message_count != 0)) {
 		ret = mbox_sync_seek_to_seq(sync_ctx, partial ?
 					    messages_count : 0);
 	} else {
