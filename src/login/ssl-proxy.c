@@ -373,8 +373,10 @@ void ssl_proxy_init(void)
 
 void ssl_proxy_deinit(void)
 {
-	gnutls_certificate_free_cred(x509_cred);
-	gnutls_global_deinit();
+	if (ssl_initialized) {
+		gnutls_certificate_free_cred(x509_cred);
+		gnutls_global_deinit();
+	}
 }
 
 #else
