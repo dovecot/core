@@ -513,7 +513,7 @@ int mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	if ((data_size & 3) != 0)
 		memset(buf, 0, 4 - (data_size & 3));
 
-	/* remember the transaction uid range */
+	/* remember the transaction sequence range */
 	if (seq < ctx->first_seq || ctx->first_seq == 0)
 		ctx->first_seq = seq;
 	if (seq > ctx->last_seq)

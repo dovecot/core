@@ -378,7 +378,8 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 	cache->fd = -1;
         cache->split_header_pool = pool_alloconly_create("Headers", 512);
 
-	if (mail_cache_open_or_create_file(cache, &hdr) < 0) {
+	if (index->mmap_disable ||
+	    mail_cache_open_or_create_file(cache, &hdr) < 0) {
 		/* failed for some reason - doesn't really matter,
 		   just disable caching. */
 		mail_cache_file_close(cache);
@@ -461,8 +462,11 @@ int mail_cache_lock(struct mail_cache *cache, int nonblock)
 {
 	int ret;
 
-	if (cache->locks++ != 0)
+	if (cache->locks != 0)
 		return 1;
+
+	if (cache->disabled)
+		return 0;
 
 	if (nonblock) {
 		ret = file_try_lock(cache->fd, F_WRLCK);
@@ -484,6 +488,7 @@ int mail_cache_lock(struct mail_cache *cache, int nonblock)
 			mail_cache_unlock(cache);
 			return 0;
 		}
+		cache->locks++;
 	}
 	return ret;
 }
@@ -508,7 +513,8 @@ int mail_cache_is_locked(struct mail_cache *cache)
 
 int mail_cache_need_reset(struct mail_cache *cache, uint32_t *new_file_seq_r)
 {
-	if (cache->hdr->file_seq != cache->index->hdr->cache_file_seq) {
+	if (!cache->disabled &&
+	    cache->hdr->file_seq != cache->index->hdr->cache_file_seq) {
 		if (mail_cache_lock(cache, TRUE) == 0) {
 			*new_file_seq_r = cache->hdr->file_seq;
 			return TRUE;
