@@ -108,6 +108,14 @@ int mbox_file_seek(struct index_mailbox *ibox, struct mail_index_view *view,
 		return -1;
 	}
 
+	if (data == NULL) {
+		mail_storage_set_critical(ibox->box.storage,
+			"Cached message offset lost for seq %u in mbox file %s",
+			seq, ibox->path);
+		mail_index_mark_corrupted(ibox->index);
+		return -1;
+	}
+
 	offset = *((const uint64_t *)data);
 	if (istream_raw_mbox_seek(ibox->mbox_stream, offset) < 0) {
 		if (offset == 0) {
