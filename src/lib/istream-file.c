@@ -106,7 +106,6 @@ static ssize_t _read(struct _istream *stream)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 	time_t timeout_time;
-	uoff_t read_limit;
 	size_t size;
 	ssize_t ret;
 
@@ -130,22 +129,6 @@ static ssize_t _read(struct _istream *stream)
 	}
 
 	size = stream->buffer_size - stream->pos;
-	if (stream->istream.v_limit > 0) {
-		i_assert(stream->istream.v_limit >= stream->istream.v_offset);
-
-		read_limit = stream->istream.v_limit -
-			stream->istream.v_offset + fstream->skip_left;
-		if (read_limit <= stream->pos - stream->skip) {
-			/* virtual limit reached == EOF */
-			stream->istream.eof = TRUE;
-			return -1;
-		}
-
-		read_limit -= stream->pos - stream->skip;
-		if (size > read_limit)
-			size = read_limit;
-	}
-
 	timeout_time = GET_TIMEOUT_TIME(fstream);
 
 	ret = -1;
@@ -161,7 +144,7 @@ static ssize_t _read(struct _istream *stream)
 		if (fstream->file) {
 			ret = pread(stream->fd,
 				    stream->w_buffer + stream->pos, size,
-				    stream->istream.start_offset +
+				    stream->abs_start_offset +
 				    stream->istream.v_offset +
 				    (stream->pos - stream->skip));
 		} else {
@@ -170,7 +153,6 @@ static ssize_t _read(struct _istream *stream)
 		}
 		if (ret == 0) {
 			/* EOF */
-			stream->istream.stream_errno = 0;
 			stream->istream.eof = TRUE;
 			return -1;
 		}
@@ -178,7 +160,6 @@ static ssize_t _read(struct _istream *stream)
 		if (ret < 0) {
 			if (errno == ECONNRESET || errno == ETIMEDOUT) {
 				/* treat as disconnection */
-				stream->istream.stream_errno = 0;
 				stream->istream.eof = TRUE;
 				return -1;
 			}
@@ -193,6 +174,8 @@ static ssize_t _read(struct _istream *stream)
 
 		if (ret > 0 && fstream->skip_left > 0) {
 			i_assert(!fstream->file);
+			i_assert(stream->skip == stream->pos);
+
 			if (fstream->skip_left >= (size_t)ret) {
 				fstream->skip_left -= ret;
 				ret = 0;
@@ -209,30 +192,32 @@ static ssize_t _read(struct _istream *stream)
 	return ret;
 }
 
-static void _skip(struct _istream *stream, uoff_t count)
-{
-	struct file_istream *fstream = (struct file_istream *) stream;
-
-	i_assert(stream->skip == stream->pos);
-
-	if (!fstream->file)
-		fstream->skip_left += count;
-	stream->istream.v_offset += count;
-	stream->skip = stream->pos = 0;
-}
-
 static void _seek(struct _istream *stream, uoff_t v_offset)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 
 	if (!fstream->file) {
-		stream->istream.stream_errno = ESPIPE;
-		return;
+		if (v_offset < stream->istream.v_offset) {
+			stream->istream.stream_errno = ESPIPE;
+			return;
+		}
+		fstream->skip_left += v_offset - stream->istream.v_offset;
 	}
 
 	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
+}
+
+static uoff_t _get_size(struct _istream *stream)
+{
+	struct file_istream *fstream = (struct file_istream *) stream;
+	struct stat st;
+
+	if (fstream->file && fstat(stream->fd, &st) == 0 && S_ISREG(st.st_mode))
+		return (uoff_t)st.st_size;
+	else
+		return (uoff_t)-1;
 }
 
 struct istream *i_stream_create_file(int fd, pool_t pool,
@@ -251,12 +236,12 @@ struct istream *i_stream_create_file(int fd, pool_t pool,
 	fstream->istream.iostream.set_blocking = _set_blocking;
 
 	fstream->istream.read = _read;
-	fstream->istream.skip_count = _skip;
 	fstream->istream.seek = _seek;
+	fstream->istream.get_size = _get_size;
 
 	/* get size of fd if it's a file */
 	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode))
 		fstream->file = TRUE;
 
-	return _i_stream_create(&fstream->istream, pool, fd, 0, 0);
+	return _i_stream_create(&fstream->istream, pool, fd, 0);
 }

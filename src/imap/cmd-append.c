@@ -54,6 +54,7 @@ int cmd_append(struct client *client)
 	struct imap_arg_list *flags_list;
         struct mailbox_custom_flags old_flags;
 	struct mail_full_flags flags;
+	struct istream *input;
 	time_t internal_date;
 	const char *mailbox, *internal_date_str;
 	uoff_t msg_size;
@@ -180,14 +181,16 @@ int cmd_append(struct client *client)
 		}
 
 		/* save the mail */
-		i_stream_set_read_limit(client->input,
-					client->input->v_offset + msg_size);
+		input = i_stream_create_limit(default_pool, client->input,
+					      client->input->v_offset,
+					      msg_size);
 		if (!box->save_next(ctx, &flags, internal_date,
-				    timezone_offset, client->input)) {
+				    timezone_offset, input)) {
+			i_stream_unref(input);
 			client_send_storage_error(client, storage);
 			break;
 		}
-		i_stream_set_read_limit(client->input, 0);
+		i_stream_unref(input);
 
 		if (client->input->closed)
 			break;

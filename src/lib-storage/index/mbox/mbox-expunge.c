@@ -37,7 +37,7 @@ mbox_storage_expunge_init(struct mailbox *box,
 
 	/* mbox must be already opened, synced and locked at this point.
 	   we just want the istream. */
-	input = mbox_get_stream(ibox->index, 0, MAIL_LOCK_EXCLUSIVE);
+	input = mbox_get_stream(ibox->index, MAIL_LOCK_EXCLUSIVE);
 	if (input == NULL)
 		return NULL;
 
@@ -58,9 +58,9 @@ mbox_storage_expunge_init(struct mailbox *box,
 
 static int mbox_move_data(struct mbox_expunge_context *ctx)
 {
+	struct istream *input;
 	const unsigned char *data;
 	size_t size;
-	uoff_t old_limit;
 	int failed;
 
 	i_stream_seek(ctx->input, ctx->move_offset);
@@ -76,15 +76,16 @@ static int mbox_move_data(struct mbox_expunge_context *ctx)
 			i_stream_skip(ctx->input, 2);
 	}
 
-	old_limit = ctx->input->v_limit;
-	i_stream_set_read_limit(ctx->input, ctx->from_offset);
-	failed = o_stream_send_istream(ctx->output, ctx->input) < 0;
-	i_stream_set_read_limit(ctx->input, old_limit);
+	if (ctx->from_offset == 0)
+		failed = o_stream_send_istream(ctx->output, ctx->input) < 0;
+	else {
+		input = i_stream_create_limit(default_pool, ctx->input,
+					      0, ctx->from_offset);
+		failed = o_stream_send_istream(ctx->output, ctx->input) < 0;
+		i_stream_unref(input);
+	}
 
-	if (failed || (ctx->input->v_offset != ctx->from_offset &&
-		       ctx->from_offset != 0))
-		return FALSE;
-	return TRUE;
+	return !failed;
 }
 
 int mbox_storage_expunge_deinit(struct mail_expunge_context *_ctx)
@@ -94,7 +95,7 @@ int mbox_storage_expunge_deinit(struct mail_expunge_context *_ctx)
 
 	if (ctx->expunges) {
 		if (!failed && ctx->move_offset != (uoff_t)-1) {
-			ctx->from_offset = ctx->input->v_limit;
+			ctx->from_offset = 0;
 			if (!mbox_move_data(ctx))
 				failed = TRUE;
 		} else if (failed && ctx->output->offset > 0) {

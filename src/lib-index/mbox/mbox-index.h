@@ -18,7 +18,6 @@ struct mbox_header_context {
 
 	struct istream *input;
 	uoff_t content_length;
-	int set_read_limit, content_length_broken;
 };
 
 int mbox_set_syscall_error(struct mail_index *index, const char *function);
@@ -27,7 +26,7 @@ int mbox_set_syscall_error(struct mail_index *index, const char *function);
    which is useful when you want to be sure you're not accessing a deleted
    mbox file. */
 int mbox_file_open(struct mail_index *index);
-struct istream *mbox_get_stream(struct mail_index *index, uoff_t offset,
+struct istream *mbox_get_stream(struct mail_index *index,
 				enum mail_lock_type lock_type);
 void mbox_file_close_stream(struct mail_index *index);
 void mbox_file_close_fd(struct mail_index *index);
@@ -50,8 +49,7 @@ int mbox_verify_end_of_body(struct istream *input, uoff_t end_offset);
 int mbox_mail_get_location(struct mail_index *index,
 			   struct mail_index_record *rec,
 			   uoff_t *offset, uoff_t *body_size);
-void mbox_hide_headers(struct istream *input, buffer_t *dest,
-		       struct message_size *hdr_size);
+void mbox_read_headers(struct istream *input, buffer_t *dest);
 
 struct mail_index *
 mbox_index_alloc(const char *mbox_path, const char *index_dir,
@@ -71,6 +69,6 @@ const char *mbox_from_create(const char *sender, time_t time);
 int mbox_index_rewrite(struct mail_index *index);
 
 struct istream *i_stream_create_mbox(pool_t pool, struct istream *input,
-				     uoff_t body_size);
+				     uoff_t offset, uoff_t body_size);
 
 #endif

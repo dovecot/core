@@ -14,6 +14,7 @@ struct mmap_istream {
 	void *mmap_base;
 	off_t mmap_offset;
 	size_t mmap_block_size;
+	uoff_t v_size;
 
 	unsigned int autoclose_fd:1;
 };
@@ -75,38 +76,23 @@ static void _set_blocking(struct _iostream *stream __attr_unused__,
 	/* we never block */
 }
 
-static ssize_t io_stream_set_mmaped_pos(struct _istream *stream)
-{
-	struct mmap_istream *mstream = (struct mmap_istream *) stream;
-	uoff_t top;
-
-	i_assert((uoff_t)mstream->mmap_offset <=
-		 stream->istream.start_offset + stream->istream.v_limit);
-
-	top = stream->istream.start_offset + stream->istream.v_limit -
-		mstream->mmap_offset;
-	stream->pos = I_MIN(top, stream->buffer_size);
-
-	return stream->pos - stream->skip;
-}
-
 static ssize_t _read(struct _istream *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
-	size_t aligned_skip, limit_size;
+	size_t aligned_skip;
 	uoff_t top;
 
-	if (stream->istream.start_offset + stream->istream.v_limit <=
-	    (uoff_t)mstream->mmap_offset + stream->pos) {
-		/* end of file */
-		stream->istream.stream_errno = 0;
-		stream->istream.eof = TRUE;
-		return -1;
-	}
+	stream->istream.stream_errno = 0;
 
 	if (stream->pos < stream->buffer_size) {
 		/* more bytes available without needing to mmap() */
-		return io_stream_set_mmaped_pos(stream);
+		stream->pos = stream->buffer_size;
+		return stream->pos - stream->skip;
+	}
+
+	if (stream->istream.v_offset >= mstream->v_size) {
+		stream->istream.eof = TRUE;
+		return -1;
 	}
 
 	aligned_skip = stream->skip & ~mmap_pagemask;
@@ -123,12 +109,11 @@ static ssize_t _read(struct _istream *stream)
 			i_error("io_stream_read_mmaped(): munmap() failed: %m");
 	}
 
-	top = stream->istream.start_offset + stream->istream.v_size -
-		mstream->mmap_offset;
+	top = stream->abs_start_offset + mstream->v_size - mstream->mmap_offset;
 	stream->buffer_size = I_MIN(top, mstream->mmap_block_size);
 
 	i_assert((uoff_t)mstream->mmap_offset + stream->buffer_size <=
-		 stream->istream.start_offset + stream->istream.v_size);
+		 stream->abs_start_offset + mstream->v_size);
 
 	mstream->mmap_base = mmap(NULL, stream->buffer_size,
 				  PROT_READ, MAP_PRIVATE,
@@ -144,20 +129,14 @@ static ssize_t _read(struct _istream *stream)
 	}
 	stream->buffer = mstream->mmap_base;
 
-	/* madvise() only if non-limited mmap()ed buffer area larger than
-	   page size */
-	limit_size = stream->istream.start_offset + stream->istream.v_limit -
-		mstream->mmap_offset;
-	if (limit_size > mmap_pagesize) {
-		if (limit_size > stream->buffer_size)
-			limit_size = stream->buffer_size;
-
-		if (madvise(mstream->mmap_base, limit_size,
+	if (stream->buffer_size > mmap_pagesize) {
+		if (madvise(mstream->mmap_base, stream->buffer_size,
 			    MADV_SEQUENTIAL) < 0)
 			i_error("mmap_istream.madvise(): %m");
 	}
 
-	return io_stream_set_mmaped_pos(stream);
+	stream->pos = stream->buffer_size;
+	return stream->pos - stream->skip;
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset)
@@ -165,7 +144,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 	uoff_t abs_offset;
 
-	abs_offset = stream->istream.start_offset + v_offset;
+	abs_offset = stream->abs_start_offset + v_offset;
 	if (stream->buffer_size != 0 &&
 	    (uoff_t)mstream->mmap_offset <= abs_offset &&
 	    (uoff_t)mstream->mmap_offset + stream->buffer_size > abs_offset) {
@@ -180,9 +159,11 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	stream->istream.v_offset = v_offset;
 }
 
-static void _skip(struct _istream *stream, uoff_t count)
+static uoff_t _get_size(struct _istream *stream)
 {
-	_seek(stream, stream->istream.v_offset + count);
+	struct mmap_istream *mstream = (struct mmap_istream *) stream;
+
+	return mstream->v_size;
 }
 
 struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
@@ -199,10 +180,9 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 	}
 
 	if (v_size == 0) {
-		if (fstat(fd, &st) < 0) {
+		if (fstat(fd, &st) < 0)
 			i_error("i_stream_create_mmap(): fstat() failed: %m");
-			v_size = 0;
-		} else {
+		else {
 			v_size = st.st_size;
 			if (start_offset > v_size)
 				start_offset = v_size;
@@ -214,6 +194,7 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 	mstream->fd = fd;
         _set_max_buffer_size(&mstream->istream.iostream, block_size);
 	mstream->autoclose_fd = autoclose_fd;
+	mstream->v_size = v_size;
 
 	mstream->istream.iostream.close = _close;
 	mstream->istream.iostream.destroy = _destroy;
@@ -221,11 +202,10 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 	mstream->istream.iostream.set_blocking = _set_blocking;
 
 	mstream->istream.read = _read;
-	mstream->istream.skip_count = _skip;
 	mstream->istream.seek = _seek;
+	mstream->istream.get_size = _get_size;
 
-	istream = _i_stream_create(&mstream->istream, pool, fd,
-				   start_offset, v_size);
+	istream = _i_stream_create(&mstream->istream, pool, fd, start_offset);
 	istream->mmaped = TRUE;
 	return istream;
 }

@@ -23,8 +23,9 @@ static void _set_blocking(struct _iostream *stream __attr_unused__,
 {
 }
 
-static ssize_t _read(struct _istream *stream __attr_unused__)
+static ssize_t _read(struct _istream *stream)
 {
+	stream->istream.eof = TRUE;
 	return -1;
 }
 
@@ -34,10 +35,9 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	stream->istream.v_offset = v_offset;
 }
 
-static void _skip(struct _istream *stream, uoff_t count)
+static uoff_t _get_size(struct _istream *stream)
 {
-	stream->skip += count;
-	stream->istream.v_offset += count;
+	return stream->pos;
 }
 
 struct istream *i_stream_create_from_data(pool_t pool, const void *data,
@@ -55,8 +55,8 @@ struct istream *i_stream_create_from_data(pool_t pool, const void *data,
 	stream->iostream.set_blocking = _set_blocking;
 
 	stream->read = _read;
-	stream->skip_count = _skip;
 	stream->seek = _seek;
+	stream->get_size = _get_size;
 
-	return _i_stream_create(stream, pool, -1, 0, size);
+	return _i_stream_create(stream, pool, -1, 0);
 }

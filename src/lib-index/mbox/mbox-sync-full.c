@@ -77,49 +77,58 @@ static int match_next_record(struct mail_index *index,
 			     unsigned int *seq, struct istream *input,
 			     struct mail_index_record **next_rec, int *dirty)
 {
-	struct message_size hdr_parsed_size;
 	struct mbox_header_context ctx;
 	struct mail_index_record *first_rec, *last_rec;
+	struct istream *hdr_input;
         enum mail_index_record_flag index_flags;
-	uoff_t header_offset, body_offset, offset;
-	uoff_t hdr_size, body_size;
+	uoff_t header_offset, body_offset, offset, body_size, eoh_offset;
 	unsigned char current_digest[16];
 	unsigned int first_seq, last_seq;
-	int ret, hdr_size_fixed;
+	int ret, hdr_parsed;
 
 	*next_rec = NULL;
 
 	/* skip the From-line */
 	skip_line(input);
-	if (input->eof)
-		return -1;
 	header_offset = input->v_offset;
 
 	first_rec = last_rec = NULL;
 	first_seq = last_seq = 0;
-	ret = 0; hdr_size = 0; body_offset = 0; hdr_size_fixed = FALSE;
+	ret = 0; body_offset = 0; eoh_offset = (uoff_t)-1; hdr_parsed = FALSE;
 	do {
 		if (!mbox_mail_get_location(index, rec, &offset, &body_size))
 			return -1;
 
-		i_stream_seek(input, header_offset);
-
-		if (body_size == 0 && !hdr_size_fixed) {
+		if (body_size == 0 && eoh_offset == (uoff_t)-1) {
 			/* possibly broken message, find the next From-line
 			   and make sure header parser won't pass it. */
-			mbox_skip_header(input);
-			i_stream_set_read_limit(input, input->v_offset);
 			i_stream_seek(input, header_offset);
-			hdr_size_fixed = TRUE;
-			hdr_size = 0;
+			mbox_skip_header(input);
+			eoh_offset = input->v_offset;
+			hdr_parsed = FALSE;
 		}
 
-		if (hdr_size == 0) {
+		if (!hdr_parsed) {
 			/* get the MD5 sum of fixed headers and the current
 			   message flags in Status and X-Status fields */
-			mbox_header_init_context(&ctx, index, input);
-			message_parse_header(NULL, input, &hdr_parsed_size,
+			if (eoh_offset == (uoff_t)-1)
+				hdr_input = input;
+			else {
+				hdr_input = i_stream_create_limit(default_pool,
+						input, 0, eoh_offset);
+			}
+			i_stream_seek(hdr_input, header_offset);
+
+			mbox_header_init_context(&ctx, index, hdr_input);
+			message_parse_header(NULL, hdr_input, NULL,
 					     mbox_header_cb, &ctx);
+
+			hdr_parsed = TRUE;
+			body_offset = hdr_input->v_offset;
+
+			if (eoh_offset != (uoff_t)-1)
+				i_stream_unref(hdr_input);
+			hdr_input = NULL;
 			md5_final(&ctx.md5, current_digest);
 
 			if (*seq == 1) {
@@ -135,10 +144,6 @@ static int match_next_record(struct mail_index *index,
 						ctx.uid_last+1;
 				}
 			}
-
-			i_stream_set_read_limit(input, 0);
-
-			body_offset = input->v_offset;
 		}
 
 		if (verify_header(index, rec, ctx.uid, current_digest) &&
@@ -277,7 +282,7 @@ static int mbox_sync_from_stream(struct mail_index *index,
 		index->header->flags &= ~MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES;
 	}
 
-	if (input->eof || (index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD))
+	if ((index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD))
 		return TRUE;
 	else
 		return mbox_index_append_stream(index, input);
@@ -292,7 +297,7 @@ int mbox_sync_full(struct mail_index *index)
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	input = mbox_get_stream(index, 0, MAIL_LOCK_SHARED);
+	input = mbox_get_stream(index, MAIL_LOCK_SHARED);
 	if (input == NULL)
 		return FALSE;
 
@@ -316,7 +321,7 @@ int mbox_sync_full(struct mail_index *index)
 		if (!mbox_unlock(index))
 			return FALSE;
 
-		input = mbox_get_stream(index, 0, MAIL_LOCK_EXCLUSIVE);
+		input = mbox_get_stream(index, MAIL_LOCK_EXCLUSIVE);
 		if (input == NULL)
 			return FALSE;
 

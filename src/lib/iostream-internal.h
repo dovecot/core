@@ -23,7 +23,7 @@ void _io_stream_set_blocking(struct _iostream *stream, int timeout_msecs,
 			     void (*timeout_cb)(void *), void *context);
 
 #define GET_TIMEOUT_TIME(fstream) \
-        ((fstream)->timeout_msecs == 0 ? 0 : \
+        ((fstream)->timeout_msecs <= 0 ? 0 : \
 	 time(NULL) + ((fstream)->timeout_msecs / 1000))
 #define STREAM_IS_BLOCKING(fstream) \
 	((fstream)->timeout_msecs != 0)

@@ -167,8 +167,7 @@ int mail_storage_save(struct mail_storage *storage, const char *path,
 			errno = input->stream_errno;
 			if (errno == 0) {
 				/* EOF */
-				if (input->v_offset != input->v_limit &&
-				    input->v_limit != 0) {
+				if (input->eof) {
 					/* too early */
 					mail_storage_set_error(storage,
 						"Unexpected EOF");

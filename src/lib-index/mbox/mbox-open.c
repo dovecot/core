@@ -27,7 +27,7 @@ struct istream *mbox_open_mail(struct mail_index *index,
 	if (!mbox_mail_get_location(index, rec, &offset, &body_size))
 		return NULL;
 
-	input = mbox_get_stream(index, offset, MAIL_LOCK_SHARED);
+	input = mbox_get_stream(index, MAIL_LOCK_SHARED);
 	if (input == NULL)
 		return NULL;
 
@@ -35,6 +35,5 @@ struct istream *mbox_open_mail(struct mail_index *index,
 		*received_date = index->get_received_date(index, rec);
 
 	i_assert(index->mbox_sync_counter == index->mbox_lock_counter);
-
-	return i_stream_create_mbox(default_pool, input, body_size);
+	return i_stream_create_mbox(default_pool, input, offset, body_size);
 }

@@ -2,8 +2,7 @@
 #define __ISTREAM_H
 
 struct istream {
-	uoff_t start_offset;
-	uoff_t v_offset, v_size, v_limit; /* relative to start_offset */
+	uoff_t v_offset;
 
 	int stream_errno;
 	unsigned int mmaped:1; /* be careful when copying data */
@@ -20,6 +19,8 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 				     int autoclose_fd);
 struct istream *i_stream_create_from_data(pool_t pool, const void *data,
 					  size_t size);
+struct istream *i_stream_create_limit(pool_t pool, struct istream *input,
+				      uoff_t v_start_offset, uoff_t v_size);
 
 /* Reference counting. References start from 1, so calling i_stream_unref()
    destroys the stream if i_stream_ref() is never used. */
@@ -36,12 +37,6 @@ void i_stream_close(struct istream *stream);
 /* Change the maximum size for stream's input buffer to grow. Useful only
    for buffered streams (currently only file). */
 void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size);
-/* Change the start_offset and drop all data in buffers. Doesn't do anything
-   if offset is the same as existing start_offset. */
-void i_stream_set_start_offset(struct istream *stream, uoff_t offset);
-/* Stream won't be read past specified offset. Giving 0 as offset
-   removes the limit. */
-void i_stream_set_read_limit(struct istream *stream, uoff_t v_offset);
 /* Makes reads blocking until at least one byte is read. timeout_cb is
    called if nothing is read in specified time. Setting timeout_msecs to 0
    makes it non-blocking. This call changes non-blocking state of file
@@ -58,6 +53,8 @@ void i_stream_skip(struct istream *stream, uoff_t count);
 /* Seek to specified position from beginning of file. Never fails, the next
    read tells if it was successful. This works only for files. */
 void i_stream_seek(struct istream *stream, uoff_t v_offset);
+/* Returns size of the stream, or (uoff_t)-1 if unknown */
+uoff_t i_stream_get_size(struct istream *stream);
 /* Gets the next line from stream and returns it, or NULL if more data is
    needed to make a full line. NOTE: modifies the data in buffer for the \0,
    so it works only with buffered streams (currently only file). */

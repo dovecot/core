@@ -69,13 +69,11 @@ static int reset_dirty_flags(struct mail_index *index)
 static int mbox_write(struct mail_index *index, struct istream *input,
 		      struct ostream *output, uoff_t end_offset)
 {
-	uoff_t old_limit;
 	int failed;
 
 	i_assert(input->v_offset <= end_offset);
 
-	old_limit = input->v_limit;
-	i_stream_set_read_limit(input, end_offset);
+	input = i_stream_create_limit(default_pool, input, 0, end_offset);
 	if (o_stream_send_istream(output, input) < 0) {
 		index_set_error(index, "Error rewriting mbox file %s: %s",
 				index->mailbox_path,
@@ -90,7 +88,7 @@ static int mbox_write(struct mail_index *index, struct istream *input,
 		failed = FALSE;
 	}
 
-	i_stream_set_read_limit(input, old_limit);
+	i_stream_unref(input);
 	return !failed;
 }
 
@@ -406,6 +404,7 @@ static int mbox_write_header(struct mail_index *index,
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
 	struct message_size hdr_size;
+	struct istream *hdr_input;
 	uoff_t offset;
 	int force_filler;
 
@@ -422,16 +421,19 @@ static int mbox_write_header(struct mail_index *index,
 	ctx.uid_last = index->header->next_uid-1;
 	ctx.custom_flags = mail_custom_flags_list_get(index->custom_flags);
 
-	if (body_size == 0) {
+	if (body_size != 0) {
+		hdr_input = input;
+		i_stream_ref(hdr_input);
+	} else {
 		/* possibly broken message, find the next From-line
 		   and make sure header parser won't pass it. */
 		offset = input->v_offset;
 		mbox_skip_header(input);
-		i_stream_set_read_limit(input, input->v_offset);
-		i_stream_seek(input, offset);
-	}
+		hdr_input = i_stream_create_limit(default_pool, input, offset,
+						  input->v_offset);
+	} 
 
-	hdr_ctx = message_parse_header_init(input, &hdr_size);
+	hdr_ctx = message_parse_header_init(hdr_input, &hdr_size);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
 		t_push();
 		write_header(&ctx, hdr);
@@ -440,7 +442,7 @@ static int mbox_write_header(struct mail_index *index,
 	message_parse_header_deinit(hdr_ctx);
 	*hdr_input_size = hdr_size.physical_size;
 
-	i_stream_set_read_limit(input, 0);
+	i_stream_unref(hdr_input);
 
 	/* append the flag fields */
 	if (seq == 1 && !ctx.ximapbase_found) {
@@ -476,7 +478,7 @@ static int mbox_write_header(struct mail_index *index,
 static int fd_copy(struct mail_index *index, int in_fd, int out_fd,
 		   uoff_t out_offset, uoff_t size)
 {
-	struct istream *input;
+	struct istream *input, *input2;
 	struct ostream *output;
 	struct stat st;
 	int ret;
@@ -506,21 +508,22 @@ static int fd_copy(struct mail_index *index, int in_fd, int out_fd,
 
 	t_push();
 
-	input = i_stream_create_mmap(in_fd, pool_datastack_create(),
-				     1024*256, 0, 0, FALSE);
-	i_stream_set_read_limit(input, size);
+	input = i_stream_create_file(in_fd, pool_datastack_create(),
+				     1024*256, FALSE);
+	input2 = i_stream_create_limit(pool_datastack_create(), input, 0, size);
 
 	output = o_stream_create_file(out_fd, pool_datastack_create(),
 				      1024, FALSE);
 	o_stream_set_blocking(output, 60000, NULL, NULL);
 
-	ret = o_stream_send_istream(output, input);
+	ret = o_stream_send_istream(output, input2);
 	if (ret < 0) {
 		errno = output->stream_errno;
 		mbox_set_syscall_error(index, "o_stream_send_istream()");
 	}
 
 	o_stream_unref(output);
+	i_stream_unref(input2);
 	i_stream_unref(input);
 	t_pop();
 
@@ -625,7 +628,7 @@ int mbox_index_rewrite(struct mail_index *index)
 				break;
 		}
 
-		input = mbox_get_stream(index, 0, MAIL_LOCK_EXCLUSIVE);
+		input = mbox_get_stream(index, MAIL_LOCK_EXCLUSIVE);
 		if (input == NULL)
 			break;
 
@@ -714,6 +717,7 @@ int mbox_index_rewrite(struct mail_index *index)
 				break;
 			}
 			offset += hdr_size;
+			i_assert(input->v_offset == offset);
 
 			if (dirty_found &&
 			    offset - dirty_offset == output->offset) {

@@ -275,7 +275,6 @@ static int message_search_body(struct part_search_context *ctx,
 	buffer_t *decodebuf;
 	pool_t pool;
 	size_t data_size, pos;
-	uoff_t old_limit;
 	ssize_t ret;
 	int found;
 
@@ -302,9 +301,8 @@ static int message_search_body(struct part_search_context *ctx,
 	i_stream_skip(input, part->physical_pos +
 		      part->header_size.physical_size - input->v_offset);
 
-	old_limit = input->v_limit;
-	i_stream_set_read_limit(input, input->v_offset +
-				part->body_size.physical_size);
+	input = i_stream_create_limit(default_pool, input, 0,
+				      part->body_size.physical_size);
 
 	found = FALSE; pos = 0;
 	while (i_stream_read_data(input, &data, &data_size, pos) > 0) {
@@ -347,7 +345,7 @@ static int message_search_body(struct part_search_context *ctx,
 		pos -= data_size;
 	}
 
-	i_stream_set_read_limit(input, old_limit);
+	i_stream_unref(input);
 
 	if (ctx->translation != NULL)
 		charset_to_utf8_end(ctx->translation);

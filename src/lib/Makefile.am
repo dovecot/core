@@ -23,6 +23,7 @@ liblib_a_SOURCES = \
 	istream.c \
 	istream-data.c \
 	istream-file.c \
+	istream-limit.c \
 	istream-mmap.c \
 	ioloop.c \
 	ioloop-notify-none.c \

@@ -55,11 +55,9 @@ int mbox_file_open(struct mail_index *index)
 	return TRUE;
 }
 
-struct istream *mbox_get_stream(struct mail_index *index, uoff_t offset,
+struct istream *mbox_get_stream(struct mail_index *index,
 				enum mail_lock_type lock_type)
 {
-	i_assert(offset < OFF_T_MAX);
-
 	switch (lock_type) {
 	case MAIL_LOCK_SHARED:
 	case MAIL_LOCK_EXCLUSIVE:
@@ -93,10 +91,7 @@ struct istream *mbox_get_stream(struct mail_index *index, uoff_t offset,
 		}
 	}
 
-	i_stream_set_read_limit(index->mbox_stream, 0);
-	i_stream_set_start_offset(index->mbox_stream, (uoff_t)offset);
 	i_stream_seek(index->mbox_stream, 0);
-
 	i_stream_ref(index->mbox_stream);
 	return index->mbox_stream;
 }
@@ -245,37 +240,10 @@ void mbox_header_cb(struct message_part *part __attr_unused__,
 		    struct message_header_line *hdr, void *context)
 {
 	struct mbox_header_context *ctx = context;
-	uoff_t start_offset, end_offset;
 	size_t i;
 	int fixed = FALSE;
 
-	if (hdr == NULL) {
-		/* End of headers */
-		if (!ctx->set_read_limit)
-			return;
-
-		/* a) use Content-Length, b) search for "From "-line */
-		start_offset = ctx->input->v_offset;
-		i_stream_set_read_limit(ctx->input, 0);
-
-		end_offset = start_offset + ctx->content_length;
-		if (ctx->content_length == (uoff_t)-1 ||
-		    !mbox_verify_end_of_body(ctx->input, end_offset)) {
-			if (ctx->content_length != (uoff_t)-1) {
-				i_stream_seek(ctx->input, start_offset);
-				ctx->content_length_broken = TRUE;
-			}
-			mbox_skip_message(ctx->input);
-			end_offset = ctx->input->v_offset;
-			ctx->content_length = end_offset - start_offset;
-		}
-
-		i_stream_seek(ctx->input, start_offset);
-		i_stream_set_read_limit(ctx->input, end_offset);
-		return;
-	}
-
-	if (hdr->eoh)
+	if (hdr == NULL || hdr->eoh)
 		return;
 
 	/* Pretty much copy&pasted from popa3d by Solar Designer */
@@ -293,8 +261,7 @@ void mbox_header_cb(struct message_part *part __attr_unused__,
 
 	case 'C':
 	case 'c':
-		if (ctx->set_read_limit &&
-		    strcasecmp(hdr->name, "Content-Length") == 0) {
+		if (strcasecmp(hdr->name, "Content-Length") == 0) {
 			/* manual parsing, so we can deal with uoff_t */
 			ctx->content_length = 0;
 			for (i = 0; i < hdr->value_len; i++) {
@@ -655,12 +622,6 @@ int mbox_verify_end_of_body(struct istream *input, uoff_t end_offset)
 	if (i_stream_read_data(input, &data, &size, 6) < 0)
 		return FALSE;
 
-	if (input->eof) {
-		/* end of file. a bit unexpected though,
-		   since \n is missing. */
-		return TRUE;
-	}
-
 	/* either there should be the next From-line,
 	   or [\r]\n at end of file */
 	if (size > 0 && data[0] == '\r') {
@@ -725,20 +686,15 @@ int mbox_mail_get_location(struct mail_index *index,
 	return TRUE;
 }
 
-void mbox_hide_headers(struct istream *input, buffer_t *dest,
-		       struct message_size *hdr_size)
+void mbox_read_headers(struct istream *input, buffer_t *dest)
 {
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
-	uoff_t virtual_size = 0;
 
-	hdr_ctx = message_parse_header_init(input, hdr_size);
+	hdr_ctx = message_parse_header_init(input, NULL);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
 		if (hdr->eoh) {
-			if (dest != NULL)
-				buffer_append(dest, "\r\n", 2);
-			else
-				virtual_size += 2;
+			buffer_append(dest, "\r\n", 2);
 			break;
 		}
 
@@ -750,26 +706,16 @@ void mbox_hide_headers(struct istream *input, buffer_t *dest,
 		    strcasecmp(hdr->name, "Content-Length") == 0 ||
 		    strcasecmp(hdr->name, "Status") == 0) {
 			/* ignore */
-		} else if (dest != NULL) {
+		} else {
 			if (!hdr->continued) {
 				buffer_append(dest, hdr->name, hdr->name_len);
 				buffer_append(dest, ": ", 2);
 			}
 			buffer_append(dest, hdr->value, hdr->value_len);
 			buffer_append(dest, "\r\n", 2);
-		} else {
-			if (!hdr->continued)
-				virtual_size += hdr->name_len + 2;
-			virtual_size += hdr->value_len + 2;
 		}
 	}
 	message_parse_header_deinit(hdr_ctx);
-
-	if (dest != NULL)
-		virtual_size = buffer_get_used_size(dest);
-
-	hdr_size->virtual_size = virtual_size;
-	hdr_size->lines = 0;
 }
 
 struct mail_index *
