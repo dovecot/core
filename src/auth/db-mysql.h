@@ -3,8 +3,10 @@
 
 #ifdef HAVE_MYSQL_MYSQL_H
 #  include <mysql/mysql.h>
+#  include <mysql/errmsg.h>
 #else
 #  include <mysql.h>
+#  include <errmsg.h>
 #endif
 
 struct mysql_connection;
@@ -16,12 +18,12 @@ typedef void mysql_query_callback_t(struct mysql_connection *conn,
 
 struct mysql_settings {
 	const char *db_host;
-	const char *db_port;
+	unsigned int db_port;
 	const char *db_unix_socket;
 	const char *db;
 	const char *db_user;
 	const char *db_passwd;
-	const char *db_client_flags;
+	unsigned int db_client_flags;
 	const char *password_query;
 	const char *user_query;
 	const char *default_pass_scheme;

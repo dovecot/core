@@ -4,7 +4,6 @@
 #undef HAVE_CONFIG_H
 
 #if defined(PASSDB_MYSQL) || defined(USERDB_MYSQL)
-
 #include "common.h"
 #include "network.h"
 #include "str.h"
@@ -51,7 +50,7 @@ static void mysql_conn_close(struct mysql_connection *conn);
 void db_mysql_query(struct mysql_connection *conn, const char *query,
 		    struct mysql_request *request)
 {
-	MYSQL_RES *res;
+	MYSQL_RES *res = NULL;
 	int failed;
 
 	if (verbose_debug)
@@ -64,23 +63,38 @@ void db_mysql_query(struct mysql_connection *conn, const char *query,
 		}
 	}
 
-	if (mysql_query(conn->mysql, query) == 0) {
+	failed = mysql_query(conn->mysql, query) != 0;
+	if (failed) {
+		/* query failed */
+		switch (mysql_errno(conn->mysql)) {
+		case CR_SERVER_GONE_ERROR:
+		case CR_SERVER_LOST:
+			/* connection lost - try immediate reconnect */
+			if (!mysql_conn_open(conn))
+				break;
+			if (mysql_query(conn->mysql, query) == 0) {
+				failed = FALSE;
+				break;
+			}
+			/* query failed, fallback to error handler */
+		default:
+			i_error("MySQL: Error executing query \"%s\": %s",
+				query, mysql_error(conn->mysql));
+			break;
+		}
+	}
+
+	if (!failed) {
 		/* query succeeded */
-		if ((res = mysql_store_result(conn->mysql)))
-			failed = FALSE;
-		else {
+		if ((res = mysql_store_result(conn->mysql)) == NULL) {
 			/* something went wrong on storing result */
+			failed = TRUE;
 			i_error("MySQL: Error retrieving results: %s",
 				mysql_error(conn->mysql));
 		}
-	} else {
-		/* query failed */
-		i_error("MySQL: Error executing query \"%s\": %s", query,
-			mysql_error(conn->mysql));
-		failed = TRUE;
 	}
 
-	request->callback(conn, request, failed ? NULL : res);
+	request->callback(conn, request, res);
 	if (!failed)
 		mysql_free_result(res);
 	i_free(request);
