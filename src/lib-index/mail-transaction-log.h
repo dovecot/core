@@ -1,15 +1,24 @@
 #ifndef __MAIL_TRANSACTION_LOG_H
 #define __MAIL_TRANSACTION_LOG_H
 
+#define MAIL_TRANSACTION_LOG_MAJOR_VERSION 1
+#define MAIL_TRANSACTION_LOG_MINOR_VERSION 0
+#define MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE 24
+
 #define MAIL_TRANSACTION_LOG_PREFIX ".log"
 #define MAIL_TRANSACTION_LOG_ROTATE_SIZE (1024*128)
 #define MAIL_TRANSACTION_LOG_ROTATE_MIN_TIME (60*5)
 
 struct mail_transaction_log_header {
+	uint8_t major_version;
+	uint8_t minor_version;
+	uint16_t hdr_size;
+
 	uint32_t indexid;
 	uint32_t file_seq;
 	uint32_t prev_file_seq;
 	uint32_t prev_file_offset;
+	uint32_t create_stamp;
 };
 
 enum mail_transaction_type {

@@ -344,7 +344,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 
 	if (log->head->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_SIZE &&
-	    log->head->last_mtime <
+	    (time_t)log->head->hdr.create_stamp <
 	    ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_MIN_TIME) {
 		/* we might want to rotate, but check first that everything is
 		   synced in index. */

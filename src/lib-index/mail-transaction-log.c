@@ -50,8 +50,11 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 	t_pop();
 	va_end(va);
 
-	/* this may have happened because of broken index. make sure it's ok. */
-	(void)mail_index_fsck(file->log->index);
+	if (file->log->index->log != NULL) {
+		/* this may have happened because of broken index.
+		   make sure it's ok. */
+		(void)mail_index_fsck(file->log->index);
+	}
 }
 
 static int
@@ -295,6 +298,22 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file)
 		return 0;
 	}
 
+	if (file->hdr.major_version != MAIL_TRANSACTION_LOG_MAJOR_VERSION) {
+		/* incompatible version - fix silently */
+		return 0;
+	}
+	if (file->hdr.hdr_size < MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE) {
+		mail_transaction_log_file_set_corrupted(file,
+			"Header size too small");
+		return 0;
+	}
+	if (file->hdr.hdr_size < sizeof(file->hdr)) {
+		/* @UNSAFE: smaller than we expected - zero out the fields we
+		   shouldn't have filled */
+		memset(PTR_OFFSET(&file->hdr, file->hdr.hdr_size), 0,
+		       sizeof(file->hdr) - file->hdr.hdr_size);
+	}
+
 	if (file->hdr.indexid == 0) {
 		/* corrupted */
 		mail_index_set_error(file->log->index,
@@ -311,10 +330,9 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file)
 
 		/* index file was probably just rebuilt and we don't know
 		   about it yet */
-		mail_index_set_error(file->log->index,
-			"Transaction log file %s: invalid indexid (%u != %u)",
-			file->filepath, file->hdr.indexid,
-			file->log->index->indexid);
+		mail_transaction_log_file_set_corrupted(file,
+			"invalid indexid (%u != %u)",
+			file->hdr.indexid, file->log->index->indexid);
 		return 0;
 	}
 	return 1;
@@ -355,7 +373,11 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 	}
 
 	memset(&hdr, 0, sizeof(hdr));
+	hdr.major_version = MAIL_TRANSACTION_LOG_MAJOR_VERSION;
+	hdr.minor_version = MAIL_TRANSACTION_LOG_MINOR_VERSION;
+	hdr.hdr_size = sizeof(struct mail_transaction_log_header);
 	hdr.indexid = index->indexid;
+	hdr.create_stamp = ioloop_time;
 
 	if (index->fd != -1) {
 		if (mail_index_lock_shared(index, TRUE, &lock_id) < 0)
@@ -450,7 +472,6 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 	file->st_dev = st.st_dev;
 	file->st_ino = st.st_ino;
 	file->last_mtime = st.st_mtime;
-	file->sync_offset = sizeof(struct mail_transaction_log_header);
 
 	ret = mail_transaction_log_file_read_hdr(file);
 	if (ret == 0) {
@@ -491,6 +512,8 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 		   sync_offset from it so we don't have to read the whole log
 		   file from beginning. */
 		file->sync_offset = log->index->map->hdr.log_file_int_offset;
+	} else {
+		file->sync_offset = file->hdr.hdr_size;
 	}
 
 	for (p = &log->tail; *p != NULL; p = &(*p)->next) {
@@ -790,10 +813,10 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		return 0;
 	}
 
-	if (start_offset < sizeof(file->hdr)) {
+	if (start_offset < file->hdr.hdr_size) {
 		mail_transaction_log_file_set_corrupted(file,
 			"offset (%"PRIuUOFF_T") < header size (%"PRIuSIZE_T")",
-			start_offset, sizeof(file->hdr));
+			start_offset, file->hdr.hdr_size);
 		return -1;
 	}
 
