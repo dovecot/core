@@ -323,9 +323,9 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 	int ret = 0;
 
 	messages_count = mail_index_view_get_message_count(sync_ctx->sync_view);
-	while (sync_ctx->idx_seq < messages_count) {
+	while (sync_ctx->idx_seq <= messages_count) {
 		ret = mail_index_lookup(sync_ctx->sync_view,
-					++sync_ctx->idx_seq, &rec);
+					sync_ctx->idx_seq, &rec);
 		if (ret < 0) {
 			mail_storage_set_index_error(sync_ctx->ibox);
 			return -1;
@@ -336,6 +336,7 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 
 		/* externally expunged message, remove from index */
 		mail_index_expunge(sync_ctx->t, sync_ctx->idx_seq);
+                sync_ctx->idx_seq++;
 		rec = NULL;
 	}
 
@@ -668,8 +669,9 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 	if (mbox_sync_get_from_offset(sync_ctx, seq1, &offset) < 0)
 		return -1;
 
-        /* set to -1, since they're always increased later */
-	sync_ctx->seq = sync_ctx->idx_seq = seq1-1;
+        /* set to -1, since it's always increased later */
+	sync_ctx->seq = seq1-1;
+        sync_ctx->idx_seq = seq1;
 	sync_ctx->dest_first_mail = sync_ctx->seq == 0;
 	if (istream_raw_mbox_seek(sync_ctx->input, offset) < 0) {
 		mail_storage_set_critical(sync_ctx->ibox->box.storage,
@@ -755,13 +757,9 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		if (uid == 0) {
 			/* missing/broken X-UID. all the rest of the mails
 			   need new UIDs. */
-			if (sync_ctx->idx_seq > 0) {
+			while (sync_ctx->idx_seq <= messages_count) {
 				mail_index_expunge(sync_ctx->t,
 						   sync_ctx->idx_seq++);
-			}
-			while (sync_ctx->idx_seq < messages_count) {
-				mail_index_expunge(sync_ctx->t,
-						   ++sync_ctx->idx_seq);
 			}
 			mail_ctx->need_rewrite = TRUE;
 			mail_ctx->mail.uid = sync_ctx->next_uid++;
@@ -785,6 +783,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 						   rec) < 0)
 				return -1;
 		}
+		sync_ctx->idx_seq++;
 
 		istream_raw_mbox_next(sync_ctx->input,
 				      mail_ctx->mail.body_size);
@@ -826,8 +825,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 
 	if (istream_raw_mbox_is_eof(sync_ctx->input)) {
 		/* rest of the messages in index don't exist -> expunge them */
-		while (sync_ctx->idx_seq < messages_count)
-			mail_index_expunge(sync_ctx->t, ++sync_ctx->idx_seq);
+		while (sync_ctx->idx_seq <= messages_count)
+			mail_index_expunge(sync_ctx->t, sync_ctx->idx_seq++);
 	}
 
 	return 0;
@@ -967,7 +966,8 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 
 	sync_ctx->next_uid = sync_ctx->hdr->next_uid;
 	sync_ctx->prev_msg_uid = 0;
-	sync_ctx->seq = sync_ctx->idx_seq = 0;
+	sync_ctx->seq = 0;
+        sync_ctx->idx_seq = 1;
 
 	sync_ctx->dest_first_mail = TRUE;
         sync_ctx->seen_first_mail = FALSE;
