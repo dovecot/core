@@ -87,12 +87,6 @@ static struct auth_connection *auth_connection_new(const char *path)
 	return conn;
 }
 
-static void request_destroy(struct auth_request *request)
-{
-	hash_remove(request->conn->requests, POINTER_CAST(request->id));
-	i_free(request);
-}
-
 static void request_hash_remove(void *key __attr_unused__, void *value,
 				void *context __attr_unused__)
 {
@@ -106,7 +100,7 @@ static void request_hash_destroy(void *key __attr_unused__, void *value,
 {
 	struct auth_request *request = value;
 
-	request_destroy(request);
+	i_free(request);
 }
 
 static void auth_connection_destroy(struct auth_connection *conn)
@@ -219,8 +213,10 @@ static void auth_handle_reply(struct auth_connection *conn,
 
 	request->callback(request, reply, data, request->context);
 
-	if (reply->result != AUTH_LOGIN_RESULT_CONTINUE)
-		request_destroy(request);
+	if (reply->result != AUTH_LOGIN_RESULT_CONTINUE) {
+		hash_remove(conn->requests, POINTER_CAST(request->id));
+		i_free(request);
+	}
 }
 
 static void auth_input(void *context)
@@ -346,7 +342,11 @@ void auth_continue_request(struct auth_request *request,
 
 void auth_abort_request(struct auth_request *request)
 {
-        request_destroy(request);
+	void *id = POINTER_CAST(request->id);
+
+	if (hash_lookup(request->conn->requests, id) != NULL)
+		hash_remove(request->conn->requests, id);
+	i_free(request);
 }
 
 void auth_request_ref(struct auth_request *request)
