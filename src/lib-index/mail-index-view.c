@@ -51,6 +51,9 @@ int mail_index_view_lock_head(struct mail_index_view *view, int update_index)
 {
 	unsigned int lock_id;
 
+	if (MAIL_INDEX_MAP_IS_IN_MEMORY(view->index->map))
+		return 0;
+
 	if (!mail_index_is_locked(view->index, view->lock_id)) {
 		if (mail_index_lock_shared(view->index, update_index,
 					   &view->lock_id) < 0)

@@ -250,6 +250,7 @@ sync_extra_rec_update(const struct mail_transaction_extra_rec_header *hdr,
 static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 			   unsigned int count)
 {
+	struct mail_index_header hdr;
 	size_t size;
 
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map))
@@ -274,8 +275,16 @@ static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 	if (file_set_size(index->fd, (off_t)size) < 0)
 		return mail_index_set_syscall_error(index, "file_set_size()");
 
+	/* we only wish to grow the file, but mail_index_map() updates the
+	   headers as well and may break our modified hdr_copy. so, take
+	   a backup of it and put it back afterwards */
+	hdr = map->hdr_copy;
+
 	if (mail_index_map(index, TRUE) <= 0)
 		return -1;
+
+	map->hdr_copy = hdr;
+	map->hdr = &map->hdr_copy;
 
 	i_assert(map->mmap_size >= size);
 	return 0;
@@ -288,12 +297,12 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	struct mail_index_map *map;
 	const struct mail_transaction_header *hdr;
 	const void *data;
-	unsigned int lock_id, count;
+	unsigned int count;
 	uint32_t seq, i;
 	uoff_t offset;
 	int ret, had_dirty, skipped;
 
-	if (mail_index_lock_exclusive(index, &lock_id) < 0)
+	if (mail_index_lock_exclusive(index, &view->lock_id) < 0)
 		return -1;
 
 	/* NOTE: locking may change index->map so make sure assignment
@@ -349,6 +358,9 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	if (ret < 0)
 		return -1;
 
+	i_assert(map->records_count == map->hdr->messages_count);
+	i_assert(view->messages_count == map->hdr->messages_count);
+
 	mail_transaction_log_get_head(index->log, &seq, &offset);
 
 	map->hdr_copy.log_file_seq = seq;
@@ -381,7 +393,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 		map->hdr = map->mmap_base;
 	}
 
-	mail_index_unlock(index, lock_id);
+        mail_index_view_unlock(view);
 	return ret;
 }
 

@@ -412,7 +412,6 @@ int mail_index_map(struct mail_index *index, int force)
 struct mail_index_map *
 mail_index_map_to_memory(struct mail_index *index, struct mail_index_map *map)
 {
-	const struct mail_index_header *hdr;
 	struct mail_index_map *mem_map;
 	size_t size;
 
@@ -431,9 +430,7 @@ mail_index_map_to_memory(struct mail_index *index, struct mail_index_map *map)
 	mem_map->records = buffer_get_modifyable_data(mem_map->buffer, NULL);
 	mem_map->records_count = map->records_count;
 
-	hdr = map->mmap_base;
-	memcpy(&mem_map->hdr_copy, map->mmap_base,
-	       I_MIN(hdr->base_header_size, sizeof(mem_map->hdr_copy)));
+	mem_map->hdr_copy = *map->hdr;
 	mem_map->hdr = &mem_map->hdr_copy;
 	return mem_map;
 }
