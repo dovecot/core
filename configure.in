@@ -649,6 +649,12 @@ AC_RUN_IFELSE([AC_LANG_SOURCE([[
 	break;
       }
     }
+    if (bits > 40) {
+      /* Solaris 9 breaks after 55 bits. Perhaps other systems break earlier.
+         Let's just do the same as Cyrus folks and limit it to 40 bits. */
+      bits = 40;
+    }
+
     f = fopen("conftest.temp", "w");
     if (f == NULL) {
       perror("fopen()");
