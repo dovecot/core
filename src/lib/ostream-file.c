@@ -541,7 +541,7 @@ static off_t io_stream_copy(struct _ostream *outstream,
 			}
 		}
 		outstream->ostream.offset += ret;
-		i_stream_skip(instream, ret);
+		i_stream_skip(instream, ret - (pos == 1 ? 0 : iov[0].iov_len));
 
 		if ((size_t)ret != iov[pos].iov_len)
 			break;
