@@ -55,10 +55,10 @@ int cmd_append(struct client *client)
         struct mailbox_custom_flags old_flags;
 	struct mail_full_flags flags;
 	time_t internal_date;
-	const char *mailbox, *internal_date_str, *error;
+	const char *mailbox, *internal_date_str;
 	uoff_t msg_size;
 	unsigned int count;
-	int ret, failed, timezone_offset, nonsync, fatal_error;
+	int ret, failed, timezone_offset, nonsync;
 
 	/* <mailbox> */
 	if (!client_read_string_args(client, 1, &mailbox))
@@ -112,15 +112,7 @@ int cmd_append(struct client *client)
 			if (ret >= 0)
 				break;
 			if (ret == -1) {
-				error = imap_parser_get_error(save_parser,
-							      &fatal_error);
-				if (fatal_error) {
-					client_disconnect_with_error(client,
-								     error);
-				} else {
-					client_send_command_error(client,
-								  error);
-				}
+				client_send_command_error(client, NULL);
 				break;
 			}
 
