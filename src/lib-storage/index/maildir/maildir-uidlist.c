@@ -742,6 +742,8 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist *uidlist,
 		     MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0)
 			maildir_uidlist_mark_recent(uidlist, rec_p[dest]->uid);
 	}
+
+        uidlist->last_seen_uid = uidlist->next_uid-1;
 }
 
 static int maildir_uid_cmp(const void *p1, const void *p2)
