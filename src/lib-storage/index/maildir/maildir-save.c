@@ -78,6 +78,7 @@ static const char *maildir_read_into_tmp(MailStorage *storage, const char *dir,
 
 int maildir_storage_save(Mailbox *box, MailFlags flags,
 			 const char *custom_flags[], time_t internal_date,
+			 int timezone_offset __attr_unused__,
 			 IBuffer *data, uoff_t data_size)
 {
         IndexMailbox *ibox = (IndexMailbox *) box;
@@ -110,7 +111,11 @@ int maildir_storage_save(Mailbox *box, MailFlags flags,
 	/* set the internal_date by modifying mtime */
 	buf.actime = ioloop_time;
 	buf.modtime = internal_date;
-	(void)utime(tmp_path, &buf);
+	if (utime(tmp_path, &buf) < 0) {
+		/* just warn, don't bother actually failing */
+		mail_storage_set_critical(box->storage, "utime() failed for "
+					  "%s: %m", tmp_path);
+	}
 
 	/* move the file into new/ directory - syncing will pick it
 	   up from there */

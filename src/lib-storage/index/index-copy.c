@@ -27,7 +27,7 @@ static int copy_func(MailIndex *index, MailIndexRecord *rec,
 
 	/* save it in destination mailbox */
 	failed = !ctx->dest->save(ctx->dest, rec->msg_flags,
-				  ctx->custom_flags, rec->internal_date,
+				  ctx->custom_flags, rec->internal_date, 0,
 				  inbuf, inbuf->v_size);
 
 	i_buffer_unref(inbuf);

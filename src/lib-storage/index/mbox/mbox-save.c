@@ -87,6 +87,7 @@ static int write_from_line(MailStorage *storage, OBuffer *outbuf,
 
 	sender = t_strconcat(storage->user, "@", my_hostdomain, NULL);
 
+	/* save in local timezone, no matter what it was given with */
 	line = mbox_from_create(sender, internal_date);
 	len = strlen(line);
 
@@ -148,7 +149,8 @@ static int write_flags(MailStorage *storage, OBuffer *outbuf,
 }
 
 int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
-		      time_t internal_date, IBuffer *data, uoff_t data_size)
+		      time_t internal_date, int timezone_offset __attr_unused__,
+		      IBuffer *data, uoff_t data_size)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	MailFlags real_flags;

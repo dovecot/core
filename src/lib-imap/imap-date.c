@@ -1,7 +1,8 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "gmtoff.h"
+#include "utc-offset.h"
+#include "utc-mktime.h"
 
 #include <ctype.h>
 
@@ -20,7 +21,7 @@ static int parse_timezone(const char *str)
 	    !i_isdigit(str[3]) || !i_isdigit(str[4]))
 		return 0;
 
-	offset = (str[1]-'0') * 1000 + (str[2]-'0') * 100 +
+	offset = (str[1]-'0') * 10*60 + (str[2]-'0') * 60 +
 		(str[3]-'0') * 10 + (str[4]-'0');
 	return *str == '+' ? offset : -offset;
 }
@@ -79,7 +80,7 @@ static const char *imap_parse_date_internal(const char *str, struct tm *tm)
 
 int imap_parse_date(const char *str, time_t *time)
 {
-	struct tm tm;
+	struct tm tm, *tml;
 
 	str = imap_parse_date_internal(str, &tm);
 	if (str == NULL)
@@ -87,13 +88,18 @@ int imap_parse_date(const char *str, time_t *time)
 
 	tm.tm_isdst = -1;
 	*time = mktime(&tm);
-	return *time >= 0;
+	if (*time == (time_t)-1)
+		return FALSE;
+
+	/* get it to UTC */
+	tml = localtime(time);
+        *time -= utc_offset(tml, *time);
+	return TRUE;
 }
 
-int imap_parse_datetime(const char *str, time_t *time)
+int imap_parse_datetime(const char *str, time_t *time, int *timezone_offset)
 {
 	struct tm tm;
-	int zone_offset;
 
 	str = imap_parse_date_internal(str, &tm);
 	if (str == NULL)
@@ -122,44 +128,49 @@ int imap_parse_datetime(const char *str, time_t *time)
 	str += 3;
 
 	/* timezone */
-	zone_offset = parse_timezone(str);
+	*timezone_offset = parse_timezone(str);
 
 	tm.tm_isdst = -1;
-	*time = mktime(&tm);
-	if (*time < 0)
+	*time = utc_mktime(&tm);
+	if (*time == (time_t)-1)
 		return FALSE;
 
-	*time -= zone_offset * 60;
+	*time -= *timezone_offset * 60;
 	return TRUE;
 }
 
-const char *imap_to_datetime(time_t time)
+const char *imap_to_datetime_internal(struct tm *tm, int timezone_offset)
 {
-	struct tm *tm;
-	int offset, negative;
+	int negative;
 
-	tm = localtime(&time);
-	offset = gmtoff(tm, time);
-	if (offset >= 0)
+	if (timezone_offset >= 0)
 		negative = 0;
 	else {
 		negative = 1;
-		offset = -offset;
+		timezone_offset = -timezone_offset;
 	}
-	offset /= 60;
 
 	return t_strdup_printf("%02d-%s-%04d %02d:%02d:%02d %c%02d%02d",
 			       tm->tm_mday, month_names[tm->tm_mon],
 			       tm->tm_year+1900,
 			       tm->tm_hour, tm->tm_min, tm->tm_sec,
-			       negative ? '-' : '+', offset / 60, offset % 60);
+			       negative ? '-' : '+',
+			       timezone_offset / 60, timezone_offset % 60);
 }
 
-const char *imap_to_date(time_t time)
+const char *imap_to_datetime_offset(time_t time, int timezone_offset)
+{
+	struct tm *tm;
+
+	time += timezone_offset;
+	tm = gmtime(&time);
+	return imap_to_datetime_internal(tm, timezone_offset);
+}
+
+const char *imap_to_datetime(time_t time)
 {
 	struct tm *tm;
 
 	tm = localtime(&time);
-	return t_strdup_printf("%d-%s-%04d", tm->tm_mday,
-			       month_names[tm->tm_mon], tm->tm_year+1900);
+	return imap_to_datetime_internal(tm, utc_offset(tm, time));
 }

@@ -17,6 +17,7 @@ typedef void (*TimeoutFunc) (void *context, Timeout timeout);
    Can be used instead of time(NULL). */
 extern time_t ioloop_time;
 extern struct timeval ioloop_timeval;
+extern struct timezone ioloop_timezone;
 
 /* I/O listeners - you can create different handlers for IO_READ and IO_WRITE,
    but make sure you don't create multiple handlers of same type, it's not

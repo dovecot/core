@@ -60,7 +60,7 @@ static int mbox_index_append_next(MailIndex *index, IBuffer *inbuf)
 
 	/* parse the From-line */
 	internal_date = mbox_from_parse_date((char *) data, size);
-	if (internal_date <= 0)
+	if (internal_date == (time_t)-1)
 		internal_date = ioloop_time;
 
 	i_buffer_skip(inbuf, pos+1);

@@ -37,6 +37,7 @@
 
 time_t ioloop_time = 0;
 struct timeval ioloop_timeval;
+struct timezone ioloop_timezone;
 
 static IOLoop current_ioloop = NULL;
 
@@ -253,7 +254,7 @@ void io_loop_handle_timeouts(IOLoop ioloop)
 	struct timeval tv;
         int t_id;
 
-	gettimeofday(&ioloop_timeval, NULL);
+	gettimeofday(&ioloop_timeval, &ioloop_timezone);
 	ioloop_time = ioloop_timeval.tv_sec;
 
 	if (ioloop->timeouts == NULL || !ioloop->timeouts->run_now)
@@ -306,7 +307,7 @@ IOLoop io_loop_create(Pool pool)
 	IOLoop ioloop;
 
 	/* initialize time */
-	gettimeofday(&ioloop_timeval, NULL);
+	gettimeofday(&ioloop_timeval, &ioloop_timezone);
 	ioloop_time = ioloop_timeval.tv_sec;
 
         ioloop = p_new(pool, struct _IOLoop, 1);

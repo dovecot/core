@@ -1,7 +1,8 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "gmtoff.h"
+#include "utc-offset.h"
+#include "utc-mktime.h"
 #include "rfc822-date.h"
 #include "rfc822-tokenize.h"
 
@@ -196,13 +197,14 @@ int rfc822_parse_date(const char *str, time_t *time, int *timezone_offset)
 	/* timezone */
 	if (tok == NULL || tok->token != 'A')
 		return FALSE;
-
 	*timezone_offset = parse_timezone(tok->ptr, tok->len);
 
 	tm.tm_isdst = -1;
-	*time = mktime(&tm);
-	if (*time < 0)
+	*time = utc_mktime(&tm);
+	if (*time == (time_t)-1)
 		return FALSE;
+
+	*time -= *timezone_offset;
 
 	return TRUE;
 }
@@ -213,14 +215,13 @@ const char *rfc822_to_date(time_t time)
 	int offset, negative;
 
 	tm = localtime(&time);
-	offset = gmtoff(tm, time);
+	offset = utc_offset(tm, time);
 	if (offset >= 0)
 		negative = 0;
 	else {
 		negative = 1;
 		offset = -offset;
 	}
-	offset /= 60;
 
 	return t_strdup_printf("%s, %02d %s %04d %02d:%02d:%02d %c%02d%02d",
 			       weekday_names[tm->tm_wday],

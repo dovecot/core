@@ -6,7 +6,8 @@
 int mbox_storage_copy(Mailbox *box, Mailbox *destbox,
 		      const char *messageset, int uidset);
 int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
-		      time_t internal_date, IBuffer *data, uoff_t data_size);
+		      time_t internal_date, int timezone_offset,
+		      IBuffer *data, uoff_t data_size);
 
 int mbox_find_mailboxes(MailStorage *storage, const char *mask,
 			MailboxFunc func, void *context);

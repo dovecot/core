@@ -26,7 +26,7 @@ time_t mbox_from_parse_date(const char *msg, size_t size)
 
 	/* From <sender> <date> <moreinfo> */
 	if (strncmp(msg, "From ", 5) != 0)
-		return 0;
+		return (time_t)-1;
 
 	msg_end = msg + size;
 
@@ -38,7 +38,7 @@ time_t mbox_from_parse_date(const char *msg, size_t size)
 	/* next 24 chars are the date in asctime() format,
 	   eg. "Thu Nov 29 22:33:52 2001" */
 	if (msg+24 > msg_end)
-		return 0;
+		return (time_t)-1;
 
 	memset(&tm, 0, sizeof(tm));
 
@@ -54,43 +54,43 @@ time_t mbox_from_parse_date(const char *msg, size_t size)
 	}
 
 	if (i == 12 || msg[3] != ' ')
-		return 0;
+		return (time_t)-1;
 	msg += 4;
 
 	/* day */
 	if (msg[0] == ' ') {
 		if (!i_isdigit(msg[1]) || msg[2] != ' ')
-			return 0;
+			return (time_t)-1;
 		tm.tm_mday = msg[1]-'0';
 	} else {
 		if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
-			return 0;
+			return (time_t)-1;
 		tm.tm_mday = (msg[0]-'0') * 10 + (msg[1]-'0');
 	}
 	msg += 3;
 
 	/* hour */
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ':')
-		return 0;
+		return (time_t)-1;
 	tm.tm_hour = (msg[0]-'0') * 10 + (msg[1]-'0');
 	msg += 3;
 
 	/* minute */
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ':')
-		return 0;
+		return (time_t)-1;
 	tm.tm_min = (msg[0]-'0') * 10 + (msg[1]-'0');
 	msg += 3;
 
 	/* second */
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
-		return 0;
+		return (time_t)-1;
 	tm.tm_sec = (msg[0]-'0') * 10 + (msg[1]-'0');
 	msg += 3;
 
 	/* year */
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
 	    !i_isdigit(msg[2]) || !i_isdigit(msg[3]))
-		return 0;
+		return (time_t)-1;
 	tm.tm_year = (msg[0]-'0') * 1000 + (msg[1]-'0') * 100 +
 		(msg[2]-'0') * 10 + (msg[3]-'0') - 1900;
 

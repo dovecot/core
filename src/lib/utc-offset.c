@@ -24,16 +24,14 @@
 */
 
 #include "lib.h"
-#include "gmtoff.h"
+#include "utc-offset.h"
 
-#include <time.h>
+#include <sys/time.h>
 
-#undef HAVE_TM_GMTOFF
-
-int gmtoff(struct tm *tm, time_t t __attr_unused__)
+int utc_offset(struct tm *tm, time_t t __attr_unused__)
 {
 #ifdef HAVE_TM_GMTOFF
-	return tm->tm_gmtoff;
+	return (int) (tm->tm_gmtoff/60);
 #else
 	struct tm ltm, gtm;
 	int offset;
@@ -45,14 +43,14 @@ int gmtoff(struct tm *tm, time_t t __attr_unused__)
 
 	/* max offset of 24 hours */
 	if (ltm.tm_yday < gtm.tm_yday)
-		offset = -24 * 3600;
+		offset = -24 * 60;
 	else if (ltm.tm_yday > gtm.tm_yday)
-		offset = 24 * 3600;
+		offset = 24 * 60;
 	else
 		offset = 0;
 
-	offset += (ltm.tm_hour - gtm.tm_hour) * 3600;
-	offset += (ltm.tm_min - gtm.tm_min) * 60;
+	offset += (ltm.tm_hour - gtm.tm_hour) * 60;
+	offset += (ltm.tm_min - gtm.tm_min);
 
 	/* restore overwritten tm */
 	*tm = ltm;

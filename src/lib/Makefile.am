@@ -18,7 +18,6 @@ liblib_a_SOURCES = \
 	fdpass.c \
 	file-lock.c \
 	file-set-size.c \
-	gmtoff.c \
 	hash.c \
 	hex-binary.c \
 	hostpid.c \
@@ -50,6 +49,8 @@ liblib_a_SOURCES = \
 	temp-string.c \
 	unlink-directory.c \
 	unlink-lockfiles.c \
+	utc-offset.c \
+	utc-mktime.c \
 	write-full.c
 
 noinst_HEADERS = \
@@ -60,7 +61,6 @@ noinst_HEADERS = \
 	fdpass.h \
 	file-lock.h \
 	file-set-size.h \
-	gmtoff.h \
 	hash.h \
 	hex-binary.h \
 	hostpid.h \
@@ -87,6 +87,8 @@ noinst_HEADERS = \
 	temp-string.h \
 	unlink-directory.h \
 	unlink-lockfiles.h \
+	utc-offset.h \
+	utc-mktime.h \
 	write-full.h
 
 EXTRA_DIST = \

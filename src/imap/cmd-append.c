@@ -7,6 +7,8 @@
 #include "imap-parser.h"
 #include "imap-date.h"
 
+#include <sys/time.h>
+
 /* Returns -1 = error, 0 = need more data, 1 = successful. flags and
    internal_date may be NULL as a result, but mailbox and msg_size are always
    set when successful. */
@@ -78,7 +80,7 @@ int cmd_append(Client *client)
 	const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT];
 	const char *mailbox, *internal_date_str;
 	uoff_t msg_size;
-	int failed;
+	int failed, timezone_offset;
 
 	/* <mailbox> [<flags>] [<internal date>] <message literal> */
 	switch (validate_args(client, &mailbox, &flags_list,
@@ -106,7 +108,9 @@ int cmd_append(Client *client)
 	if (internal_date_str == NULL) {
 		/* no time given, default to now. */
 		internal_date = ioloop_time;
-	} else if (!imap_parse_datetime(internal_date_str, &internal_date)) {
+                timezone_offset = ioloop_timezone.tz_minuteswest;
+	} else if (!imap_parse_datetime(internal_date_str, &internal_date,
+					&timezone_offset)) {
 		client_send_tagline(client, "BAD Invalid internal date.");
 		return TRUE;
 	}
@@ -126,7 +130,8 @@ int cmd_append(Client *client)
 	o_buffer_flush(client->outbuf);
 
 	/* save the mail */
-	failed = !box->save(box, flags, custom_flags, internal_date,
+	failed = !box->save(box, flags, custom_flags,
+			    internal_date, timezone_offset,
 			    client->inbuf, msg_size);
 	box->close(box);
 

@@ -158,9 +158,12 @@ struct _Mailbox {
 	int (*search)(Mailbox *box, MailSearchArg *args,
 		      OBuffer *outbuf, int uid_result);
 
-	/* Save a new mail into mailbox. */
+	/* Save a new mail into mailbox. timezone_offset specifies the
+	   timezone in minutes which internal_date was originally given
+	   with. */
 	int (*save)(Mailbox *box, MailFlags flags, const char *custom_flags[],
-		    time_t internal_date, IBuffer *data, uoff_t data_size);
+		    time_t internal_date, int timezone_offset,
+		    IBuffer *data, uoff_t data_size);
 
 	/* Returns TRUE if mailbox is now in inconsistent state, meaning that
 	   the message IDs etc. may have changed - only way to recover this
