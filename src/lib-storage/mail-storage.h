@@ -64,12 +64,6 @@ enum mail_sort_type {
 	MAIL_SORT_END		= 0x0000 /* ends sort program */
 };
 
-enum mail_thread_type {
-	MAIL_THREAD_NONE,
-	MAIL_THREAD_ORDEREDSUBJECT,
-	MAIL_THREAD_REFERENCES
-};
-
 enum mail_fetch_field {
 	MAIL_FETCH_FLAGS		= 0x0001,
 	MAIL_FETCH_MESSAGE_PARTS	= 0x0002,
