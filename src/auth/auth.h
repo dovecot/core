@@ -1,7 +1,11 @@
 #ifndef __AUTH_H
 #define __AUTH_H
 
+struct auth_balancer_worker;
+
 struct auth {
+	struct auth_balancer_worker *balancer_worker;
+
 	struct mech_module_list *mech_modules;
 	buffer_t *mech_handshake;
 

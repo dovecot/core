@@ -1,6 +1,12 @@
 #ifndef __AUTH_MASTER_CONNECTION_H
 #define __AUTH_MASTER_CONNECTION_H
 
+enum listener_type {
+	LISTENER_MASTER,
+	LISTENER_CLIENT,
+	LISTENER_BALANCER
+};
+
 struct auth_master_connection {
 	struct auth *auth;
 
@@ -30,6 +36,7 @@ void auth_master_connection_destroy(struct auth_master_connection *conn);
 void auth_master_request_callback(const char *reply, void *context);
 
 void auth_master_connection_add_listener(struct auth_master_connection *conn,
-					 int fd, const char *path, int client);
+					 int fd, const char *path,
+					 enum listener_type type);
 
 #endif

@@ -38,7 +38,11 @@ dovecot_auth_SOURCES = \
 	auth-master-connection.c \
 	auth-module.c \
 	auth-request.c \
+	auth-request-balancer-child.c \
+	auth-request-balancer-worker.c \
 	auth-request-handler.c \
+	auth-request-handler-balancer.c \
+	auth-request-handler-default.c \
 	db-ldap.c \
 	db-sql.c \
 	db-passwd-file.c \
@@ -81,6 +85,7 @@ noinst_HEADERS = \
 	auth-master-connection.h \
 	auth-module.h \
 	auth-request.h \
+	auth-request-balancer.h \
 	auth-request-handler.h \
 	db-ldap.h \
 	db-sql.h \

@@ -27,10 +27,13 @@ struct auth_process_group {
 	struct auth_process_group *next;
 
 	int listen_fd;
+	int balancer_listen_fd;
 	struct auth_settings *set;
 
 	unsigned int process_count;
 	struct auth_process *processes;
+
+	unsigned int need_balancer:1;
 };
 
 struct auth_process {
@@ -45,7 +48,7 @@ struct auth_process {
 
 	struct hash_table *requests;
 
-	unsigned int private_listener:1;
+	unsigned int balancer:1;
 	unsigned int external:1;
 	unsigned int version_received:1;
 	unsigned int initialized:1;
@@ -251,7 +254,8 @@ static void auth_process_input(void *context)
 }
 
 static struct auth_process *
-auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
+auth_process_new(pid_t pid, int fd, struct auth_process_group *group,
+		 int balancer)
 {
 	struct auth_process *p;
 	const char *handshake;
@@ -270,24 +274,26 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 					 FALSE);
 	p->requests = hash_create(default_pool, default_pool, 0, NULL, NULL);
 
+	if (balancer) {
+		p->balancer = TRUE;
+		group->need_balancer = FALSE;
+	} else {
+		group->process_count++;
+	}
+
 	handshake = t_strdup_printf("VERSION\t%u\t%u\n",
 				    AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
 				    AUTH_MASTER_PROTOCOL_MINOR_VERSION);
 	(void)o_stream_send_str(p->output, handshake);
 
-	if (group->listen_fd == -1)
-		p->private_listener = TRUE;
-
 	p->next = group->processes;
 	group->processes = p;
-	group->process_count++;
 	return p;
 }
 
 static void auth_process_destroy(struct auth_process *p)
 {
 	struct hash_iterate_context *iter;
-	const char *path;
 	void *key, *value;
 	struct auth_process **pos;
 
@@ -302,13 +308,11 @@ static void auth_process_destroy(struct auth_process *p)
 			break;
 		}
 	}
-	p->group->process_count--;
-
-	if (p->private_listener) {
-		path = t_strconcat(p->group->set->parent->defaults->login_dir,
-				   "/", p->group->set->name, dec2str(p->pid),
-				   NULL);
-		(void)unlink(path);
+	if (p->balancer) {
+		/* the balancer process died, restart it */
+		p->group->need_balancer = TRUE;
+	} else {
+		p->group->process_count--;
 	}
 
 	iter = hash_iterate_init(p->requests);
@@ -354,24 +358,21 @@ static int connect_auth_socket(struct auth_process_group *group,
 
 	net_set_nonblock(fd, TRUE);
 	fd_close_on_exec(fd, TRUE);
-	auth = auth_process_new(0, fd, group);
+	auth = auth_process_new(0, fd, group, FALSE);
 	auth->external = TRUE;
 	return 0;
 }
 
-static int auth_process_socket_create(struct auth_settings *auth_set, pid_t pid)
+static int unix_socket_create(const char *path, int mode,
+			      uid_t uid, gid_t gid, int backlog)
 {
-	const char *path;
 	mode_t old_umask;
 	int fd;
 
-	path = t_strconcat(auth_set->parent->defaults->login_dir, "/",
-			   auth_set->name, pid == 0 ? NULL : dec2str(pid),
-			   NULL);
 	(void)unlink(path);
 
-	old_umask = umask(0117); /* we want 0660 mode for the socket */
-	fd = net_listen_unix(path, 16);
+	old_umask = umask(0777 ^ mode);
+	fd = net_listen_unix(path, backlog);
 	umask(old_umask);
 
 	if (fd < 0)
@@ -379,22 +380,26 @@ static int auth_process_socket_create(struct auth_settings *auth_set, pid_t pid)
 	net_set_nonblock(fd, TRUE);
 	fd_close_on_exec(fd, TRUE);
 
-	/* set correct permissions */
-	if (chown(path, master_uid, auth_set->parent->login_gid) < 0) {
-		i_fatal("login: chown(%s, %s, %s) failed: %m",
-			path, dec2str(master_uid),
-			dec2str(auth_set->parent->login_gid));
+	if (uid != (uid_t)-1 || gid != (gid_t)-1) {
+		/* set correct permissions */
+		if (chown(path, uid, gid) < 0) {
+			i_fatal("login: chown(%s, %s, %s) failed: %m",
+				path, dec2str(uid), dec2str(gid));
+		}
 	}
 	return fd;
 }
 
-static int create_auth_process(struct auth_process_group *group)
+static int create_auth_process(struct auth_process_group *group,
+			       int balancer_worker)
 {
 	struct auth_socket_settings *as;
-	const char *prefix, *str;
+	const char *prefix, *str, *executable;
 	struct log_io *log;
 	pid_t pid;
-	int fd[2], log_fd, listen_fd, i;
+	int fd[2], log_fd, i, balancer;
+
+	balancer = group->balancer_listen_fd != -1 && !balancer_worker;
 
 	/* see if this is a connect socket */
 	as = group->set->sockets;
@@ -430,7 +435,7 @@ static int create_auth_process(struct auth_process_group *group)
 
 		net_set_nonblock(fd[0], TRUE);
 		fd_close_on_exec(fd[0], TRUE);
-		auth_process_new(pid, fd[0], group);
+		auth_process_new(pid, fd[0], group, balancer);
 		(void)close(fd[1]);
 		(void)close(log_fd);
 		return 0;
@@ -455,13 +460,18 @@ static int create_auth_process(struct auth_process_group *group)
 
 	child_process_init_env();
 
-	/* move login communication handle to 3. do it last so we can be
-	   sure it's not closed afterwards. */
-	listen_fd = group->listen_fd != -1 ? group->listen_fd :
-		auth_process_socket_create(group->set, getpid());
-	if (listen_fd != 3) {
-		if (dup2(listen_fd, 3) < 0)
+	i_assert(group->balancer_listen_fd != 3);
+	if (group->listen_fd != 3) {
+		if (dup2(group->listen_fd, 3) < 0)
 			i_fatal("dup2() failed: %m");
+	}
+
+	if (balancer) {
+		if (group->balancer_listen_fd != 4) {
+			if (dup2(group->balancer_listen_fd, 4) < 0)
+				i_fatal("dup2() failed: %m");
+		}
+		fd_close_on_exec(4, FALSE);
 	}
 
 	for (i = 0; i <= 3; i++)
@@ -474,6 +484,7 @@ static int create_auth_process(struct auth_process_group *group)
 
 	/* set other environment */
 	env_put("DOVECOT_MASTER=1");
+	env_put(t_strconcat("AUTH_NAME=", group->set->name, NULL));
 	env_put(t_strconcat("MECHANISMS=", group->set->mechanisms, NULL));
 	env_put(t_strconcat("REALMS=", group->set->realms, NULL));
 	env_put(t_strconcat("DEFAULT_REALM=", group->set->default_realm, NULL));
@@ -510,9 +521,14 @@ static int create_auth_process(struct auth_process_group *group)
 	   any errors above will be logged */
 	closelog();
 
-	client_process_exec(group->set->executable, "");
-	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
-		       group->set->executable);
+	executable = group->set->executable;
+	if (balancer || balancer_worker) {
+		/* we are running in balancer mode */
+		executable = t_strconcat(executable, balancer_worker ?
+					 " -bw" : " -b", NULL);
+	}
+	client_process_exec(executable, "");
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 	return -1;
 }
 
@@ -534,6 +550,7 @@ struct auth_process *auth_process_find(unsigned int pid)
 static void auth_process_group_create(struct auth_settings *auth_set)
 {
 	struct auth_process_group *group;
+	const char *path;
 
 	group = i_new(struct auth_process_group, 1);
 	group->set = auth_set;
@@ -545,14 +562,21 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 	    strcmp(auth_set->sockets->type, "connect") == 0)
 		return;
 
-	/* If we keep long running login processes, we want them to use
-	   all the auth processes in round robin. this means we have to create
-	   separate socket for all of them. So, group->listen_fd is only
-	   used with login_process_per_connection. */
-	if (auth_set->parent->defaults->login_process_per_connection)
-		group->listen_fd = auth_process_socket_create(auth_set, 0);
-	else
-		group->listen_fd = -1;
+	path = t_strconcat(auth_set->parent->defaults->login_dir, "/",
+			   auth_set->name, NULL);
+	group->listen_fd = unix_socket_create(path, 0660, master_uid,
+					      auth_set->parent->login_gid, 16);
+
+	if (auth_set->count <= 1)
+		group->balancer_listen_fd = -1;
+	else {
+		path = t_strconcat(auth_set->parent->defaults->base_dir, "/",
+				   auth_set->name, "-balancer", NULL);
+		group->balancer_listen_fd =
+			unix_socket_create(path, 0600, (uid_t)-1, (gid_t)-1,
+					   group->set->count);
+		group->need_balancer = TRUE;
+	}
 }
 
 static void auth_process_group_destroy(struct auth_process_group *group)
@@ -566,14 +590,18 @@ static void auth_process_group_destroy(struct auth_process_group *group)
                 group->processes = next;
 	}
 
-	if (group->listen_fd != -1) {
-		path = t_strconcat(group->set->parent->defaults->login_dir, "/",
-				   group->set->name, NULL);
-		(void)unlink(path);
+	path = t_strconcat(group->set->parent->defaults->login_dir, "/",
+			   group->set->name, NULL);
+	(void)unlink(path);
 
-		if (close(group->listen_fd) < 0)
-			i_error("close(%s) failed: %m", path);
+	if (group->balancer_listen_fd != -1) {
+		path = t_strconcat(group->set->parent->defaults->base_dir, "/",
+				   group->set->name, "-balancer", NULL);
+		(void)unlink(path);
 	}
+
+	if (close(group->listen_fd) < 0)
+		i_error("close(%s) failed: %m", path);
 	i_free(group);
 }
 
@@ -606,6 +634,7 @@ auth_processes_start_missing(void *context __attr_unused__)
 {
 	struct auth_process_group *group;
 	unsigned int count;
+	int balancer_worker;
 
 	if (process_groups == NULL) {
 		/* first time here, create the groups */
@@ -613,9 +642,13 @@ auth_processes_start_missing(void *context __attr_unused__)
 	}
 
 	for (group = process_groups; group != NULL; group = group->next) {
+		if (group->need_balancer)
+			(void)create_auth_process(group, FALSE);
+
+		balancer_worker = group->balancer_listen_fd != -1;
 		count = group->process_count;
 		for (; count < group->set->count; count++)
-			(void)create_auth_process(group);
+			(void)create_auth_process(group, balancer_worker);
 	}
 }
 

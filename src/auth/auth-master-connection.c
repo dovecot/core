@@ -10,6 +10,7 @@
 #include "network.h"
 #include "userdb.h"
 #include "auth-request-handler.h"
+#include "auth-request-balancer.h"
 #include "auth-master-interface.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
@@ -22,7 +23,7 @@
 
 struct auth_listener {
 	struct auth_master_connection *master;
-	int client_listener;
+	enum listener_type type;
 	int fd;
 	char *path;
 	struct io *io;
@@ -37,6 +38,7 @@ struct master_userdb_request {
 static int master_output(void *context);
 static void auth_master_connection_close(struct auth_master_connection *conn);
 static int auth_master_connection_unref(struct auth_master_connection *conn);
+static void auth_listener_destroy(struct auth_listener *l);
 
 void auth_master_request_callback(const char *reply, void *context)
 {
@@ -233,7 +235,6 @@ static void auth_master_connection_close(struct auth_master_connection *conn)
 void auth_master_connection_destroy(struct auth_master_connection *conn)
 {
 	struct auth_listener **l;
-	size_t i, size;
 
 	if (conn->destroyed)
 		return;
@@ -244,16 +245,9 @@ void auth_master_connection_destroy(struct auth_master_connection *conn)
 	if (conn->fd != -1)
 		auth_master_connection_close(conn);
 
-	l = buffer_get_modifyable_data(conn->listeners_buf, &size);
-	size /= sizeof(*l);
-	for (i = 0; i < size; i++) {
-		net_disconnect(l[i]->fd);
-		io_remove(l[i]->io);
-		if (l[i]->path != NULL) {
-			(void)unlink(l[i]->path);
-			i_free(l[i]->path);
-		}
-		i_free(l[i]);
+	while (conn->listeners_buf->used > 0) {
+		l = buffer_get_modifyable_data(conn->listeners_buf, NULL);
+		auth_listener_destroy(*l);
 	}
 	buffer_free(conn->listeners_buf);
 	conn->listeners_buf = NULL;
@@ -280,30 +274,64 @@ static void auth_accept(void *context)
 	fd = net_accept(l->fd, NULL, NULL);
 	if (fd < 0) {
 		if (fd < -1)
-			i_fatal("accept() failed: %m");
+			i_fatal("accept(type %d) failed: %m", l->type);
 	} else {
 		net_set_nonblock(fd, TRUE);
-		if (l->client_listener)
+		switch (l->type) {
+		case LISTENER_CLIENT:
 			(void)auth_client_connection_create(l->master, fd);
-		else {
+			break;
+		case LISTENER_MASTER:
 			/* we'll just replace the previous master.. */
 			auth_master_connection_set_fd(l->master, fd);
-                        auth_master_connection_send_handshake(l->master);
+			auth_master_connection_send_handshake(l->master);
+			break;
+		case LISTENER_BALANCER:
+			/* worker process connected to us */
+			auth_request_balancer_add_child(fd);
+			auth_listener_destroy(l);
+			break;
 		}
 	}
 }
 
 void auth_master_connection_add_listener(struct auth_master_connection *conn,
-					 int fd, const char *path, int client)
+					 int fd, const char *path,
+					 enum listener_type type)
 {
 	struct auth_listener *l;
 
 	l = i_new(struct auth_listener, 1);
 	l->master = conn;
-	l->client_listener = client;
+	l->type = type;
 	l->fd = fd;
 	l->path = i_strdup(path);
 	l->io = io_add(fd, IO_READ, auth_accept, l);
 
 	buffer_append(conn->listeners_buf, &l, sizeof(l));
+}
+
+static void auth_listener_destroy(struct auth_listener *l)
+{
+	struct auth_listener **lp;
+	size_t i, size;
+
+	lp = buffer_get_modifyable_data(l->master->listeners_buf, &size);
+	size /= sizeof(*lp);
+
+	for (i = 0; i < size; i++) {
+		if (lp[i] == l) {
+			buffer_delete(l->master->listeners_buf,
+				      i * sizeof(l), sizeof(l));
+			break;
+		}
+	}
+
+	net_disconnect(l->fd);
+	io_remove(l->io);
+	if (l->path != NULL) {
+		(void)unlink(l->path);
+		i_free(l->path);
+	}
+	i_free(l);
 }

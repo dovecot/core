@@ -17,6 +17,9 @@ typedef void mech_callback_t(struct auth_request *request,
 
 #include "auth-request.h"
 
+/* Used only for string sanitization. */
+#define MAX_MECH_NAME_LEN 64
+
 struct mech_module {
 	const char *mech_name;
 

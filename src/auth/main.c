@@ -12,6 +12,8 @@
 #include "mech.h"
 #include "auth.h"
 #include "auth-request-handler.h"
+#include "auth-request-balancer.h"
+#include "auth-master-interface.h"
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 
@@ -29,6 +31,7 @@ time_t process_start_time;
 
 static buffer_t *masters_buf;
 static struct auth *auth;
+static int balancer = FALSE, balancer_worker = FALSE;
 
 static void sig_quit(int signo __attr_unused__)
 {
@@ -156,11 +159,13 @@ static void add_extra_listeners(void)
 		master = auth_master_connection_create(auth, -1);
 		if (master_fd != -1) {
 			auth_master_connection_add_listener(master, master_fd,
-							    master_path, FALSE);
+							    master_path,
+							    LISTENER_MASTER);
 		}
 		if (client_fd != -1) {
 			auth_master_connection_add_listener(master, client_fd,
-							    client_path, TRUE);
+							    client_path,
+							    LISTENER_CLIENT);
 		}
 		auth_client_connections_init(master);
 		buffer_append(masters_buf, &master, sizeof(master));
@@ -181,7 +186,8 @@ static void drop_privileges(void)
         password_schemes_init();
 
 	masters_buf = buffer_create_dynamic(default_pool, 64);
-	add_extra_listeners();
+	if (!balancer_worker)
+		add_extra_listeners();
 
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(FALSE);
@@ -192,13 +198,11 @@ static void main_init(int nodaemon)
 	struct auth_master_connection *master, **master_p;
 	size_t i, size;
 
-	process_start_time = ioloop_time;
-
-	process_start_time = ioloop_time;
+        process_start_time = ioloop_time;
 
 	mech_init();
 	auth_init(auth);
-	auth_request_handlers_init();
+	auth_request_handlers_init(balancer);
 
 	lib_init_signals(sig_quit);
 
@@ -228,12 +232,23 @@ static void main_init(int nodaemon)
 			if (chdir("/") < 0)
 				i_fatal("chdir(/) failed: %m");
 		}
-       } else {
+	} else if (!balancer_worker) {
 		master = auth_master_connection_create(auth, MASTER_SOCKET_FD);
-		auth_master_connection_add_listener(master, LOGIN_LISTEN_FD,
-						    NULL, TRUE);
+		auth_master_connection_add_listener(master, CLIENT_LISTEN_FD,
+						    NULL, LISTENER_CLIENT);
+		if (balancer) {
+			auth_master_connection_add_listener(master,
+							    BALANCER_LISTEN_FD,
+							    NULL,
+							    LISTENER_BALANCER);
+		}
 		auth_client_connections_init(master);
 		buffer_append(masters_buf, &master, sizeof(master));
+	} else {
+		master = auth_master_connection_create(auth, MASTER_SOCKET_FD);
+		buffer_append(masters_buf, &master, sizeof(master));
+
+		auth_request_balancer_worker_init(auth);
 	}
 
 	/* everything initialized, notify masters that all is well */
@@ -253,6 +268,9 @@ static void main_deinit(void)
 
 	auth_request_handlers_flush_failures();
 
+	if (balancer_worker)
+		auth_request_balancer_worker_deinit();
+
 	master = buffer_get_modifyable_data(masters_buf, &size);
 	size /= sizeof(*master);
 	for (i = 0; i < size; i++)
@@ -268,20 +286,32 @@ static void main_deinit(void)
 	closelog();
 }
 
-int main(int argc, char *argv[])
+int main(int argc __attr_unused__, char *argv[])
 {
+	int foreground;
+
 #ifdef DEBUG
 	if (getenv("GDB") == NULL)
-		fd_debug_verify_leaks(4, 1024);
+		fd_debug_verify_leaks(BALANCER_LISTEN_FD + 1, 1024);
 #endif
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
 	ioloop = io_loop_create(system_pool);
 
+	while (argv[1] != NULL) {
+		if (strcmp(argv[1], "-F") == 0)
+			foreground = TRUE;
+		else if (strcmp(argv[1], "-b") == 0)
+			balancer = TRUE;
+		else if (strcmp(argv[1], "-bw") == 0)
+			balancer_worker = TRUE;
+		argv++;
+	}
+
 	drop_privileges();
 
-	main_init(argc > 1 && strcmp(argv[1], "-F") == 0);
+	main_init(foreground);
         io_loop_run(ioloop);
 	main_deinit();
 

@@ -1,13 +1,18 @@
 /* Copyright (C) 2005 Timo Sirainen */
 
 #include "common.h"
+#include "network.h"
+#include "buffer.h"
 #include "str.h"
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
 #include "auth.h"
+#include "auth-request-handler.h"
+#include "auth-request-balancer.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 
 struct auth *auth_preinit(void)
 {
@@ -168,6 +173,9 @@ void auth_deinit(struct auth *auth)
 {
 	userdb_deinit(auth);
 	passdb_deinit(auth);
+
+	if (auth->balancer_worker != NULL)
+		auth_request_balancer_worker_destroy(auth->balancer_worker);
 
 	str_free(auth->mech_handshake);
 }

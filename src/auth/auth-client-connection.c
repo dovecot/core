@@ -98,16 +98,17 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
         conn->refcount++;
 	if (!AUTH_MASTER_IS_DUMMY(conn->master)) {
 		conn->request_handler =
-			auth_request_handler_create(conn->auth,
-				conn->connect_uid, pid, auth_callback, conn,
+			auth_request_handler_create(conn->auth, FALSE,
+				auth_callback, conn,
 				auth_master_request_callback, conn->master);
 	} else {
 		conn->request_handler =
-			auth_request_handler_create(conn->auth,
-						    conn->connect_uid, pid,
+			auth_request_handler_create(conn->auth, FALSE,
 						    auth_callback, conn,
 						    NULL, NULL);
 	}
+	auth_request_handler_set(conn->request_handler, conn->connect_uid, pid);
+
 	conn->pid = pid;
 	return TRUE;
 }
@@ -338,6 +339,8 @@ void auth_client_connections_deinit(struct auth_master_connection *master)
 		master->clients = next;
 	}
 
-	timeout_remove(master->to_clients);
-	master->to_clients = NULL;
+	if (master->to_clients != NULL) {
+		timeout_remove(master->to_clients);
+		master->to_clients = NULL;
+	}
 }
