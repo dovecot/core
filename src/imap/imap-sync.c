@@ -84,6 +84,7 @@ int imap_sync_more(struct imap_sync_context *ctx)
 	enum mail_flags flags;
 	const char *const *keywords;
 	string_t *str;
+	int ret = 1;
 
 	t_push();
 	str = t_str_new(256);
@@ -91,9 +92,15 @@ int imap_sync_more(struct imap_sync_context *ctx)
 	for (;;) {
 		if (ctx->seq == 0) {
 			/* get next one */
-			if (mailbox_sync_next(ctx->sync_ctx,
-					      &ctx->sync_rec) <= 0)
+			ret = mailbox_sync_next(ctx->sync_ctx,
+						&ctx->sync_rec);
+			if (ret <= 0) {
+				if (ret == 0) {
+					/* all finished ok */
+					ret = 1;
+				}
 				break;
+			}
 		}
 
 		switch (ctx->sync_rec.type) {
@@ -114,10 +121,10 @@ int imap_sync_more(struct imap_sync_context *ctx)
 					    ctx->seq);
 				imap_write_flags(str, flags, keywords);
 				str_append(str, "))");
-				if (!client_send_line(ctx->client,
-						      str_c(str))) {
+				ret = client_send_line(ctx->client, str_c(str));
+				if (ret <= 0) {
 					t_pop();
-					return 0;
+					return ret;
 				}
 			}
 			break;
@@ -131,10 +138,10 @@ int imap_sync_more(struct imap_sync_context *ctx)
 			for (; ctx->seq >= ctx->sync_rec.seq1; ctx->seq--) {
 				str_truncate(str, 0);
 				str_printfa(str, "* %u EXPUNGE", ctx->seq);
-				if (!client_send_line(ctx->client,
-						      str_c(str))) {
+				ret = client_send_line(ctx->client, str_c(str));
+				if (ret <= 0) {
 					t_pop();
-					return 0;
+					return ret;
 				}
 			}
 			break;
@@ -142,7 +149,7 @@ int imap_sync_more(struct imap_sync_context *ctx)
 		ctx->seq = 0;
 	}
 	t_pop();
-	return 1;
+	return ret;
 }
 
 int imap_sync_nonselected(struct mailbox *box, enum mailbox_sync_flags flags)
