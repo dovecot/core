@@ -117,7 +117,7 @@ static int log_append_ext_intro(struct mail_transaction_log_file *file,
 		intro = NULL;
 		count = 0;
 	} else {
-		intro = array_get(&t->ext_resizes, &count);
+		intro = array_get_modifyable(&t->ext_resizes, &count);
 	}
 
 	buf = buffer_create_dynamic(pool_datastack_create(), 128);
