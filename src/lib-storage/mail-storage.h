@@ -61,12 +61,6 @@ enum mailbox_lock_type {
 	MAILBOX_LOCK_SAVE	= 0x08
 };
 
-enum modify_type {
-	MODIFY_ADD,
-	MODIFY_REMOVE,
-	MODIFY_REPLACE
-};
-
 enum mail_sort_type {
 /* Maximum size for sort program, 2x for reverse + END */
 #define MAX_SORT_PROGRAM_SIZE (2*7 + 1)

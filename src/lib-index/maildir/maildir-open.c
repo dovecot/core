@@ -10,42 +10,18 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-static int maildir_open_mail_file(struct mail_index *index,
-				  struct mail_index_record *rec,
-				  const char **fname, int *deleted)
+static int do_open(struct mail_index *index, const char *path, void *context)
 {
-	const char *path;
-	int new_dir, fd = -1;
+	int *fd = context;
 
-	*fname = maildir_get_location(index, rec, &new_dir);
-	if (*fname == NULL)
-		return -1;
+	*fd = open(path, O_RDONLY);
+	if (*fd != -1)
+		return 1;
+	if (errno == ENOENT)
+		return 0;
 
-	if (new_dir) {
-		/* probably in new/ dir */
-		path = t_strconcat(index->mailbox_path, "/new/", *fname, NULL);
-		fd = open(path, O_RDONLY);
-		if (fd == -1 && errno != ENOENT) {
-			index_set_error(index, "open(%s) failed: %m", path);
-			return -1;
-		}
-	}
-
-	if (fd == -1) {
-		path = t_strconcat(index->mailbox_path, "/cur/", *fname, NULL);
-		fd = open(path, O_RDONLY);
-		if (fd == -1) {
-			if (errno == ENOENT) {
-				*deleted = TRUE;
-				return -1;
-			}
-
-			index_set_error(index, "open(%s) failed: %m", path);
-			return -1;
-		}
-	}
-
-	return fd;
+	index_file_set_syscall_error(index, path, "open()");
+	return -1;
 }
 
 struct istream *maildir_open_mail(struct mail_index *index,
@@ -53,8 +29,7 @@ struct istream *maildir_open_mail(struct mail_index *index,
 				  time_t *received_date, int *deleted)
 {
 	struct stat st;
-	const char *fname;
-	int i, found, fd;
+	int fd;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
@@ -64,24 +39,13 @@ struct istream *maildir_open_mail(struct mail_index *index,
 	if (index->inconsistent)
 		return NULL;
 
-	fd = maildir_open_mail_file(index, rec, &fname, deleted);
-	for (i = 0; fd == -1 && *deleted && i < 10; i++) {
-		/* file is either renamed or deleted. sync the maildir and
-		   see which one. if file appears to be renamed constantly,
-		   don't try to open it more than 10 times. */
-		if (!maildir_index_sync_readonly(index, fname, &found)) {
-			*deleted = FALSE;
-			return NULL;
-		}
+	fd = -1;
+	if (!maildir_file_do(index, rec, do_open, &fd))
+		return NULL;
 
-		if (!found) {
-			/* syncing didn't find it, it's deleted */
-			return NULL;
-		}
-
-		fd = maildir_open_mail_file(index, rec, &fname, deleted);
-		if (fd == -1)
-			return NULL;
+	if (fd == -1) {
+		*deleted = TRUE;
+		return NULL;
 	}
 
 	if (received_date != NULL) {

@@ -12,7 +12,7 @@ int index_storage_update_flags(struct mail *mail,
 	struct index_mail *imail = (struct index_mail *) mail;
 	struct index_mailbox *ibox = imail->ibox;
 	struct mail_storage *storage = mail->box->storage;
-	enum mail_flags modify_flags, new_flags;
+	enum mail_flags modify_flags;
 
 	if (mail->box->is_readonly(mail->box)) {
 		if (ibox->sent_readonly_flags_warning)
@@ -34,22 +34,9 @@ int index_storage_update_flags(struct mail *mail,
 					    flags->custom_flags_count))
 		return FALSE;
 
-	switch (modify_type) {
-	case MODIFY_ADD:
-		new_flags = imail->data.rec->msg_flags | modify_flags;
-		break;
-	case MODIFY_REMOVE:
-		new_flags = imail->data.rec->msg_flags & ~modify_flags;
-		break;
-	case MODIFY_REPLACE:
-		new_flags = modify_flags;
-		break;
-	default:
-		i_unreached();
-	}
-
 	if (!ibox->index->update_flags(ibox->index, imail->data.rec,
-				       imail->data.idx_seq, new_flags, FALSE))
+				       imail->data.idx_seq,
+				       modify_type, modify_flags, FALSE))
 		return FALSE;
 
 	if (mail_custom_flags_has_changes(ibox->index->custom_flags)) {

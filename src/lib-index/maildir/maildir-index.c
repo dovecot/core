@@ -45,12 +45,11 @@ const char *maildir_get_location(struct mail_index *index,
 		}
 	}
 
-	/* index file should give us at least the base name. */
+	/* cache file file should give us at least the base name. */
 	fname = mail_cache_lookup_string_field(index->cache, rec,
 					       MAIL_CACHE_LOCATION);
 	if (fname == NULL) {
-		mail_cache_set_corrupted(index->cache,
-			"Missing location field for record %u", rec->uid);
+		/* Not cached, we'll have to resync the directory. */
 		return NULL;
 	}
 
@@ -60,6 +59,54 @@ const char *maildir_get_location(struct mail_index *index,
 	}
 
 	return fname;
+}
+
+static int
+maildir_file_do_try(struct mail_index *index, struct mail_index_record *rec,
+		    const char **fname,
+		    maildir_file_do_func *func, void *context)
+{
+	const char *path;
+	int ret, new_dir;
+
+	*fname = maildir_get_location(index, rec, &new_dir);
+	if (*fname == NULL)
+		return 0;
+
+	if (new_dir) {
+		/* probably in new/ dir */
+		path = t_strconcat(index->mailbox_path, "/new/", *fname, NULL);
+		ret = func(index, path, context);
+		if (ret != 0)
+			return ret;
+	}
+
+	path = t_strconcat(index->mailbox_path, "/cur/", *fname, NULL);
+	return func(index, path, context);
+}
+
+int maildir_file_do(struct mail_index *index, struct mail_index_record *rec,
+		    maildir_file_do_func *func, void *context)
+{
+	const char *fname;
+	int i, ret, found;
+
+	ret = maildir_file_do_try(index, rec, &fname, func, context);
+	for (i = 0; i < 10 && ret == 0; i++) {
+		/* file is either renamed or deleted. sync the maildir and
+		   see which one. if file appears to be renamed constantly,
+		   don't try to open it more than 10 times. */
+		fname = t_strdup(fname);
+		if (!maildir_index_sync_readonly(index, fname, &found))
+			return FALSE;
+
+		if (!found && fname != NULL)
+			return TRUE;
+
+		ret = maildir_file_do_try(index, rec, &fname, func, context);
+	}
+
+	return ret >= 0;
 }
 
 const char *maildir_generate_tmp_filename(const struct timeval *tv)
@@ -291,46 +338,27 @@ static void maildir_index_free(struct mail_index *index)
 	i_free(index);
 }
 
-static int maildir_get_received_date_file(struct mail_index *index,
-					  struct mail_index_record *rec,
-					  const char **fname, struct stat *st)
+static int do_get_received_date(struct mail_index *index,
+				const char *path, void *context)
 {
-	const char *path;
-	int new_dir;
+	time_t *date = context;
+	struct stat st;
 
-	/* stat() gives it */
-	*fname = maildir_get_location(index, rec, &new_dir);
-	if (*fname == NULL)
-		return -1;
-
-	if (new_dir) {
-		/* probably in new/ dir */
-		path = t_strconcat(index->mailbox_path, "/new/", *fname, NULL);
-		if (stat(path, st) < 0 && errno != ENOENT) {
-			index_file_set_syscall_error(index, path, "stat()");
-			return -1;
-		}
-	}
-
-	path = t_strconcat(index->mailbox_path, "/cur/", *fname, NULL);
-	if (stat(path, st) < 0) {
+	if (stat(path, &st) < 0) {
 		if (errno == ENOENT)
 			return 0;
-
 		index_file_set_syscall_error(index, path, "stat()");
 		return -1;
 	}
 
-	return TRUE;
+	*date = st.st_mtime;
+	return 1;
 }
 
 static time_t maildir_get_received_date(struct mail_index *index,
 					struct mail_index_record *rec)
 {
-	struct stat st;
-	const char *fname;
 	time_t date;
-	int ret, i, found;
 
 	/* try getting it from cache */
 	if (mail_cache_copy_fixed_field(index->cache, rec,
@@ -338,23 +366,11 @@ static time_t maildir_get_received_date(struct mail_index *index,
 					&date, sizeof(date)))
 		return date;
 
-	ret = maildir_get_received_date_file(index, rec, &fname, &st);
-	for (i = 0; ret == 0 && i < 10; i++) {
-		/* file is either renamed or deleted. sync the maildir and
-		   see which one. if file appears to be renamed constantly,
-		   don't try to open it more than 10 times. */
-		if (!maildir_index_sync_readonly(index, fname, &found))
-			return FALSE;
+	date = (time_t)-1;
+	if (!maildir_file_do(index, rec, do_get_received_date, &date))
+		return (time_t)-1;
 
-		if (!found) {
-			/* syncing didn't find it, it's deleted */
-			return (time_t)-1;
-		}
-
-		ret = maildir_get_received_date_file(index, rec, &fname, &st);
-	}
-
-	return st.st_mtime;
+	return date;
 }
 
 struct mail_index maildir_index = {

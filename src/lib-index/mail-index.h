@@ -246,11 +246,10 @@ struct mail_index {
 		       int external_change);
 
 	/* Update mail flags. The index must be exclusively locked before
-	   calling this function. This shouldn't be called in the middle of
-	   update_begin() as it may modify location field. */
+	   calling this function. */
 	int (*update_flags)(struct mail_index *index,
-			    struct mail_index_record *rec,
-			    unsigned int seq, enum mail_flags flags,
+			    struct mail_index_record *rec, unsigned int seq,
+			    enum modify_type modify_type, enum mail_flags flags,
 			    int external_change);
 
 	/* Append a new record to index. The index must be exclusively
@@ -382,8 +381,8 @@ int mail_index_expunge(struct mail_index *index,
 		       unsigned int first_seq, unsigned int last_seq,
 		       int external_change);
 int mail_index_update_flags(struct mail_index *index,
-			    struct mail_index_record *rec,
-			    unsigned int seq, enum mail_flags flags,
+			    struct mail_index_record *rec, unsigned int seq,
+			    enum modify_type modify_type, enum mail_flags flags,
 			    int external_change);
 struct mail_index_record *mail_index_append(struct mail_index *index);
 enum mail_index_error mail_index_get_last_error(struct mail_index *index);

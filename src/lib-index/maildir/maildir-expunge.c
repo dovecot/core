@@ -7,82 +7,44 @@
 
 #include <unistd.h>
 
-static int maildir_expunge_mail_file(struct mail_index *index,
-				     struct mail_index_record *rec,
-				     const char **fname)
+static int do_expunge(struct mail_index *index, const char *path, void *context)
 {
-	const char *path;
-	int new_dir;
+	int *found = context;
 
-	*fname = maildir_get_location(index, rec, &new_dir);
-	if (*fname == NULL)
-		return -1;
-
-	/* if we're in out-of-space condition, reset it since we'll probably
-	   have enough space now. */
-	index->maildir_keep_new = FALSE;
-	if (index->next_dirty_flush != 0)
-		index->next_dirty_flush = ioloop_time;
-
-	if (new_dir) {
-		/* probably in new/ dir */
-		path = t_strconcat(index->mailbox_path, "/new/", *fname, NULL);
-		if (unlink(path) == 0)
+	if (unlink(path) < 0) {
+		if (errno == ENOENT)
+			return 0;
+		if (errno == EACCES) {
+			index->mailbox_readonly = TRUE;
 			return 1;
-
-		if (errno == EACCES)
-			return -1;
-		if (errno != ENOENT) {
-			index_set_error(index, "unlink(%s) failed: %m", path);
-			return -1;
 		}
-	}
 
-	path = t_strconcat(index->mailbox_path, "/cur/", *fname, NULL);
-	if (unlink(path) == 0)
-		return 1;
-
-	if (errno == EACCES)
-		return -1;
-
-	if (errno != ENOENT) {
 		index_set_error(index, "unlink(%s) failed: %m", path);
 		return -1;
 	}
 
-	return 0;
+	*found = TRUE;
+	return 1;
 }
 
 int maildir_expunge_mail(struct mail_index *index,
 			 struct mail_index_record *rec)
 {
-	const char *fname;
-	int i, ret, found;
+	int found = FALSE;
 
-	for (i = 0;; i++) {
-		ret = maildir_expunge_mail_file(index, rec, &fname);
-		if (ret > 0)
-			break;
-		if (ret < 0)
-			return FALSE;
+	if (!maildir_file_do(index, rec, do_expunge, &found))
+		return FALSE;
 
-		if (i == 10) {
-			index_set_error(index, "Filename keeps changing, "
-					"expunge failed: %s", fname);
-			return FALSE;
-		}
+	if (found) {
+		/* if we're in out-of-space condition, reset it since we'll
+		   probably have enough space now. */
+		index->maildir_keep_new = FALSE;
+		if (index->next_dirty_flush != 0)
+			index->next_dirty_flush = ioloop_time;
 
-		if (!maildir_index_sync_readonly(index, fname, &found))
-			return FALSE;
-
-		if (!found) {
-			/* syncing didn't find it, it's already deleted */
-			return TRUE;
-		}
+		/* cur/ was updated, set it dirty-synced */
+		index->maildir_cur_dirty = ioloop_time;
+		index->file_sync_stamp = ioloop_time;
 	}
-
-	/* cur/ was updated, set it dirty-synced */
-	index->maildir_cur_dirty = ioloop_time;
-	index->file_sync_stamp = ioloop_time;
 	return TRUE;
 }

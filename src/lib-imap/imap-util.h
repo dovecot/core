@@ -1,6 +1,12 @@
 #ifndef __IMAP_UTIL_H
 #define __IMAP_UTIL_H
 
+enum modify_type {
+	MODIFY_ADD,
+	MODIFY_REMOVE,
+	MODIFY_REPLACE
+};
+
 enum mail_flags {
 	MAIL_ANSWERED		= 0x0000001,
 	MAIL_FLAGGED		= 0x0000002,

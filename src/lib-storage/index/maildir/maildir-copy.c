@@ -21,112 +21,73 @@ struct maildir_copy_context {
 	struct mail_copy_context *ctx;
 };
 
+struct hardlink_ctx {
+	const char *dest_path;
+	int found;
+};
+
 struct rollback {
 	struct rollback *next;
 	const char *fname;
 };
 
-static int maildir_hardlink_file(struct mail_index *index,
-				 struct mail_index_record *rec,
-				 const char **fname, const char *new_path)
+static int do_hardlink(struct mail_index *index, const char *path,
+		       void *context)
 {
-	const char *path;
-	int new_dir;
+	struct hardlink_ctx *ctx = context;
 
-	*fname = maildir_get_location(index, rec, &new_dir);
-	if (*fname == NULL)
-		return -1;
-
-	if (new_dir) {
-		/* probably in new/ dir */
-		path = t_strconcat(index->mailbox_path, "/new/", *fname, NULL);
-		if (link(path, new_path) == 0)
-			return 1;
+	if (link(path, ctx->dest_path) < 0) {
+		if (errno == ENOENT)
+			return 0;
 
 		if (ENOSPACE(errno)) {
 			index->nodiskspace = TRUE;
 			return -1;
 		}
 		if (errno == EACCES || errno == EXDEV)
-			return -1;
-		if (errno != ENOENT) {
-			index_set_error(index, "link(%s, %s) failed: %m",
-					path, new_path);
-			return -1;
-		}
-	}
+			return 1;
 
-	path = t_strconcat(index->mailbox_path, "/cur/", *fname, NULL);
-	if (link(path, new_path) == 0)
-		return 1;
-
-	if (ENOSPACE(errno)) {
-		index->nodiskspace = TRUE;
-		return -1;
-	}
-	if (errno == EACCES || errno == EXDEV)
-		return -1;
-	if (errno != ENOENT) {
 		index_set_error(index, "link(%s, %s) failed: %m",
-				path, new_path);
+				path, ctx->dest_path);
 		return -1;
 	}
 
-	return 0;
+	ctx->found = TRUE;
+	return 1;
 }
 
 static int maildir_copy_hardlink(struct mail *mail,
 				 struct maildir_copy_context *ctx)
 {
 	struct index_mail *imail = (struct index_mail *) mail;
-        struct rollback *rb;
-	const char *fname, *dest_fname, *dest_path;
-	enum mail_flags flags;
-	int i, ret, found;
+	struct hardlink_ctx do_ctx;
+	struct rollback *rb;
+	const char *dest_fname;
 
-	flags = mail->get_flags(mail)->flags;
-
-	/* link the file */
 	dest_fname = maildir_generate_tmp_filename(&ioloop_timeval);
-	dest_fname = maildir_filename_set_flags(dest_fname, flags);
-	dest_path = t_strconcat(ctx->ibox->index->mailbox_path, "/new/",
-				dest_fname, NULL);
+	dest_fname = maildir_filename_set_flags(dest_fname,
+						mail->get_flags(mail)->flags);
 
-	for (i = 0;; i++) {
-		ret = maildir_hardlink_file(imail->ibox->index, imail->data.rec,
-					    &fname, dest_path);
-		if (ret != 0)
-			break;
+	memset(&do_ctx, 0, sizeof(do_ctx));
+	do_ctx.dest_path = t_strconcat(ctx->ibox->index->mailbox_path, "/new/",
+				       dest_fname, NULL);
 
-		if (i == 10) {
-			mail_storage_set_error(mail->box->storage,
-				"File name keeps changing, copy failed");
-			break;
-		}
+	if (!maildir_file_do(imail->ibox->index, imail->data.rec,
+			     do_hardlink, &do_ctx))
+		return -1;
 
-		if (!maildir_index_sync_readonly(imail->ibox->index, fname,
-						 &found)) {
-			ret = -1;
-			break;
-		}
+	if (!do_ctx.found)
+		return 0;
 
-		if (!found)
-			break;
-	}
+	if (ctx->pool == NULL)
+		ctx->pool = pool_alloconly_create("hard copy rollbacks", 2048);
 
-	if (ret > 0) {
-		if (ctx->pool == NULL) {
-			ctx->pool = pool_alloconly_create("hard copy rollbacks",
-							  2048);
-		}
+	rb = p_new(ctx->pool, struct rollback, 1);
+	rb->fname = p_strdup(ctx->pool, dest_fname);
 
-		rb = p_new(ctx->pool, struct rollback, 1);
-		rb->fname = p_strdup(ctx->pool, dest_fname);
-		rb->next = ctx->rollbacks;
-		ctx->rollbacks = rb;
-	}
-
-	return ret;
+	rb->next = ctx->rollbacks;
+	ctx->rollbacks = rb;
+	return 1;
 }
 
 struct mail_copy_context *maildir_storage_copy_init(struct mailbox *box)

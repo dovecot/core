@@ -586,19 +586,36 @@ int mail_index_expunge(struct mail_index *index,
 }
 
 int mail_index_update_flags(struct mail_index *index,
-			    struct mail_index_record *rec,
-			    unsigned int seq, enum mail_flags flags,
+			    struct mail_index_record *rec, unsigned int seq,
+			    enum modify_type modify_type, enum mail_flags flags,
 			    int external_change)
 {
+	enum mail_flags new_flags;
+
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 	i_assert(seq != 0);
 
-	if (flags == rec->msg_flags)
+	switch (modify_type) {
+	case MODIFY_ADD:
+		new_flags = rec->msg_flags | flags;
+		break;
+	case MODIFY_REMOVE:
+		new_flags = rec->msg_flags & ~flags;
+		break;
+	case MODIFY_REPLACE:
+		new_flags = flags;
+		break;
+	default:
+		new_flags = 0;
+		i_unreached();
+	}
+
+	if (new_flags == rec->msg_flags)
 		return TRUE; /* no changes */
 
-        mail_index_mark_flag_changes(index, rec, rec->msg_flags, flags);
+        mail_index_mark_flag_changes(index, rec, rec->msg_flags, new_flags);
 
-	rec->msg_flags = flags;
+	rec->msg_flags = new_flags;
 	return index->modifylog == NULL ? TRUE :
 		mail_modifylog_add_flags(index->modifylog, seq,
 					 rec->uid, external_change);

@@ -241,6 +241,7 @@ struct maildir_sync_context {
 	unsigned int uidlist_rewrite:1;
 	unsigned int new_mails_new:1;
 	unsigned int new_mails_cur:1;
+	unsigned int have_uncached_filenames:1;
 };
 
 static int maildir_sync_cur_dir(struct maildir_sync_context *ctx);
@@ -288,7 +289,7 @@ static int maildir_update_flags(struct maildir_sync_context *ctx,
 	flags = maildir_filename_get_flags(new_fname, rec->msg_flags);
 	if (flags != rec->msg_flags) {
 		if (!ctx->index->update_flags(ctx->index, rec,
-					      seq, flags, TRUE))
+					      seq, MODIFY_REPLACE, flags, TRUE))
 			return FALSE;
 	}
 
@@ -304,7 +305,8 @@ static int maildir_sync_open_uidlist(struct maildir_sync_context *ctx)
 	if (ctx->uidlist != NULL)
 		return TRUE;
 
-	/* open it only if it's changed since we last synced it. */
+	/* open it only if it's changed since we last synced it,
+	   or if we have uncached filenames. */
 	path = t_strconcat(index->control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT) {
@@ -323,7 +325,8 @@ static int maildir_sync_open_uidlist(struct maildir_sync_context *ctx)
 	}
 
 	/* FIXME: last_uidlist_mtime should be in index headers */
-	if (st.st_mtime == index->last_uidlist_mtime)
+	if (st.st_mtime == index->last_uidlist_mtime &&
+	    !ctx->have_uncached_filenames)
 		return TRUE;
 
 	ctx->uidlist = maildir_uidlist_open(index);
@@ -478,15 +481,24 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 		}
 
 		fname = maildir_get_location(index, rec, NULL);
-		if (fname == NULL)
-			return FALSE;
+		if (fname == NULL) {
+			/* filename not cached, it must be in uidlist or
+			   it's expunged */
+			fname = uid_rec.uid == rec->uid ?
+				uid_rec.filename : NULL;
+		}
 
-		if (!hash_lookup_full(ctx->files, fname,
-				      &orig_key, &orig_value)) {
+		if (fname == NULL) {
+			hash_rec = NULL;
+			action = MAILDIR_FILE_ACTION_EXPUNGE;
+		} else if (hash_lookup_full(ctx->files, fname,
+					    &orig_key, &orig_value)) {
+			hash_rec = orig_value;
+			action = ACTION(hash_rec);
+		} else {
 			/* none action */
 			hash_rec = NULL;
-		} else {
-			hash_rec = orig_value;
+			action = MAILDIR_FILE_ACTION_NONE;
 		}
 
 		if (uid_rec.uid == uid &&
@@ -498,8 +510,8 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 		}
 
 		if (uid_rec.uid > uid && hash_rec != NULL &&
-		    (ACTION(hash_rec) == MAILDIR_FILE_ACTION_UPDATE_FLAGS ||
-		     ACTION(hash_rec) == MAILDIR_FILE_ACTION_NONE)) {
+		    (action == MAILDIR_FILE_ACTION_UPDATE_FLAGS ||
+		     action == MAILDIR_FILE_ACTION_NONE)) {
 			/* it's UID has changed. shouldn't happen. */
 			index_set_corrupted(index,
 					    "UID changed for %s/%s: %u -> %u",
@@ -508,8 +520,6 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 			return FALSE;
 		}
 
-		action = hash_rec != NULL ?
-			ACTION(hash_rec) : MAILDIR_FILE_ACTION_NONE;
 		switch (action) {
 		case MAILDIR_FILE_ACTION_EXPUNGE:
 			if (first_rec == NULL) {
@@ -519,12 +529,22 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 			last_rec = rec;
 			last_seq = seq;
 			break;
+		case MAILDIR_FILE_ACTION_NEW:
+			/* filename wasn't cached */
+			new_flag = hash_rec->action & MAILDIR_FILE_FLAG_NEWDIR;
+			hash_rec->action = MAILDIR_FILE_ACTION_NONE | new_flag;
+			ctx->new_count--;
+
+			if (!maildir_cache_update_file(&ctx->trans_ctx, index,
+						       rec, fname, new_flag))
+				return FALSE;
+			/* fall through */
 		case MAILDIR_FILE_ACTION_UPDATE_FLAGS:
 			new_dir = (hash_rec->action &
 				   MAILDIR_FILE_FLAG_NEWDIR) != 0;
 			maildir_index_update_filename(index, rec->uid,
 						      orig_key, new_dir);
-			if (!maildir_update_flags(ctx, rec, seq, fname))
+			if (!maildir_update_flags(ctx, rec, seq, orig_key))
 				return FALSE;
 			/* fall through */
 		case MAILDIR_FILE_ACTION_NONE:
@@ -540,8 +560,7 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 			}
 			break;
 		default:
-			i_panic("BUG: %s/%s suddenly appeared as UID %u",
-				index->mailbox_path, (char *) orig_key, uid);
+			i_unreached();
 		}
 
 		if (uid_rec.uid == uid) {
@@ -565,9 +584,9 @@ static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 	}
 
 	if (seq-1 != index->header->messages_count) {
-		index_set_corrupted(index, "Wrong messages_count in header "
-				    "(%u != %u)", seq,
-				    index->header->messages_count);
+		index_set_corrupted(index,
+				    "Wrong messages_count in header (%u != %u)",
+				    seq, index->header->messages_count);
 		return FALSE;
 	}
 
@@ -660,12 +679,6 @@ static int maildir_full_sync_init(struct maildir_sync_context *ctx,
 	size_t size;
 	int new_dir, have_new;
 
-	/* kludge. we want to have pointers to data file, so we must make sure
-	   that it's base address doesn't change. this call makes sure it's
-	   fully mmaped in memory even when we begin */
-	if (mail_cache_get_mmaped(index->cache, &size) == NULL)
-		return FALSE;
-
 	if (index->header->messages_count >= INT_MAX/32) {
 		index_set_corrupted(index, "Header says %u messages",
 				    index->header->messages_count);
@@ -696,16 +709,26 @@ static int maildir_full_sync_init(struct maildir_sync_context *ctx,
 
 	have_new = FALSE;
 
+	/* Now we'll fill the hash with cached filenames. This is done mostly
+	   just to save some memory since we can use pointers to mmaped cache
+	   file. Note that all records may not have the filename cached.
+
+	   WARNING: Cache file must not be modified as long as these pointers
+	   exist, as modifying might change the mmap base address. The call
+	   below makes sure that cache file is initially fully mmaped. */
+	if (mail_cache_get_mmaped(index->cache, &size) == NULL)
+		return FALSE;
+
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
 		fname = maildir_get_location(index, rec, &new_dir);
 		if (fname == NULL)
-			return FALSE;
+                        ctx->have_uncached_filenames = TRUE;
 
 		if (new_dir)
 			have_new = TRUE;
 
-		if (!only_new || new_dir) {
+		if ((!only_new || new_dir) && fname != NULL) {
 			hash_rec = p_new(ctx->pool, struct maildir_hash_rec, 1);
 			hash_rec->rec = rec;
 			hash_rec->action = MAILDIR_FILE_ACTION_EXPUNGE;
@@ -716,9 +739,6 @@ static int maildir_full_sync_init(struct maildir_sync_context *ctx,
 				return FALSE;
 			}
 
-			/* WARNING: index must not be modified as long as
-			   these hash keys exist. Modifying might change the
-			   mmap base address. */
 			hash_insert(ctx->files, (void *) fname, hash_rec);
 		}
 
@@ -756,7 +776,7 @@ static int maildir_fix_duplicate(struct mail_index *index,
 	return ret;
 }
 
-static void uidlist_hash_fix_allocs(void *key, void *value, void *context)
+static void maildir_sync_hash_fix_allocs(void *key, void *value, void *context)
 {
         struct maildir_sync_context *ctx = context;
 	struct maildir_hash_rec *hash_rec = value;
@@ -808,7 +828,8 @@ static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
 
 		if (hash_rec->rec == NULL) {
 			/* new message */
-			if (ctx->readonly_check)
+			if (ctx->readonly_check &&
+			    !ctx->have_uncached_filenames)
 				continue;
 
 			if (new_dir)
@@ -836,9 +857,9 @@ static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
 	} while ((d = readdir(dirp)) != NULL);
 
 	/* records that are left to hash must not have any (filename) pointers
-	   to index file. So remove none actions, and p_strdup() expunge
+	   to cache file. So remove none actions, and p_strdup() expunge
 	   actions. */
-	hash_foreach(ctx->files, uidlist_hash_fix_allocs, ctx);
+	hash_foreach(ctx->files, maildir_sync_hash_fix_allocs, ctx);
 
 	return TRUE;
 }
@@ -1108,8 +1129,8 @@ static int maildir_index_sync_context(struct maildir_sync_context *ctx,
 			return FALSE;
 
 		/* this will set maildir_cur_dirty. it may actually be
-		   different from cur/'s mtime if we're unlucky, but that
-		   doesn't really matter and it's not worth the extra stat() */
+		   different from cur/'s mtime if we're unlucky, but that only
+		   causes extra sync and it's not worth the extra stat() */
 		if (ctx->new_dent == NULL &&
 		    (ctx->new_count == 0 || !ctx->new_mails_new))
 			cur_mtime = time(NULL);
@@ -1155,41 +1176,74 @@ static int maildir_full_sync_finish_readonly(struct maildir_sync_context *ctx)
 	struct mail_index *index = ctx->index;
 	struct mail_index_record *rec;
 	struct maildir_hash_rec *hash_rec;
+	struct maildir_uidlist *uidlist;
+	struct maildir_uidlist_rec uid_rec;
 	void *orig_key, *orig_value;
 	const char *fname;
 	unsigned int seq;
-	int new_dir;
+	int new_dir, tried_uidlist;
 
-	if (!ctx->flag_updates) {
+	if (!ctx->flag_updates && !ctx->have_uncached_filenames) {
 		ctx->index->maildir_synced_once = TRUE;
 		return TRUE;
 	}
 
+	memset(&uid_rec, 0, sizeof(uid_rec));
+	uidlist = ctx->uidlist;
+	tried_uidlist = FALSE;
+
 	rec = index->lookup(index, 1); seq = 1;
-	while (rec != NULL) {
+	for (; rec != NULL; rec = index->next(index, rec), seq++) {
 		fname = maildir_get_location(index, rec, NULL);
-		if (fname == NULL)
-			return FALSE;
+		if (fname == NULL) {
+			/* not cached, get it from uidlist */
+			if (uidlist == NULL && !tried_uidlist) {
+				ctx->have_uncached_filenames = TRUE;
+				if (!maildir_sync_open_uidlist(ctx))
+					return FALSE;
 
-		if (hash_lookup_full(ctx->files, fname, &orig_key, &orig_value))
-			hash_rec = orig_value;
-		else
-			hash_rec = NULL;
+				uidlist = ctx->uidlist;
+				tried_uidlist = TRUE;
 
-		if (hash_rec != NULL &&
-		    ACTION(hash_rec) == MAILDIR_FILE_ACTION_UPDATE_FLAGS) {
-			new_dir = (hash_rec->action &
-				   MAILDIR_FILE_FLAG_NEWDIR) != 0;
-			maildir_index_update_filename(index, rec->uid,
-						      orig_key, new_dir);
-
-			if (index->lock_type == MAIL_LOCK_EXCLUSIVE) {
-				if (!maildir_update_flags(ctx, rec, seq, fname))
+				/* get the initial record */
+				if (uidlist != NULL &&
+				    maildir_uidlist_next(uidlist, &uid_rec) < 0)
 					return FALSE;
 			}
+
+			if (uidlist == NULL) {
+				/* uidlist doesn't exist? shouldn't happen */
+				continue;
+			}
+
+			while (uid_rec.uid != 0 && uid_rec.uid < rec->uid) {
+				if (maildir_uidlist_next(uidlist, &uid_rec) < 0)
+					return FALSE;
+			}
+
+			if (uid_rec.uid != rec->uid) {
+				/* not in uidlist, it's expunged */
+				continue;
+			}
+
+			fname = uid_rec.filename;
 		}
 
-		rec = index->next(index, rec); seq++;
+		if (!hash_lookup_full(ctx->files, fname,
+				      &orig_key, &orig_value))
+			continue;
+
+		hash_rec = orig_value;
+		if (ACTION(hash_rec) != MAILDIR_FILE_ACTION_UPDATE_FLAGS &&
+		    ACTION(hash_rec) != MAILDIR_FILE_ACTION_NEW)
+			continue;
+
+		new_dir = (hash_rec->action & MAILDIR_FILE_FLAG_NEWDIR) != 0;
+		maildir_index_update_filename(index, rec->uid,
+					      orig_key, new_dir);
+
+		if (!maildir_update_flags(ctx, rec, seq, orig_key))
+			return FALSE;
 	}
 
 	ctx->index->maildir_synced_once = TRUE;
@@ -1298,7 +1352,7 @@ int maildir_index_sync_readonly(struct mail_index *index,
 
 	ret = maildir_index_sync_context_readonly(ctx);
 
-	if (!ret || ctx->files == NULL)
+	if (!ret || ctx->files == NULL || fname == NULL)
 		*found = FALSE;
 	else {
 		hash_rec = hash_lookup(ctx->files, fname);

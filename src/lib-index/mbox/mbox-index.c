@@ -793,15 +793,19 @@ static int mbox_index_expunge(struct mail_index *index,
 
 static int mbox_index_update_flags(struct mail_index *index,
 				   struct mail_index_record *rec,
-				   unsigned int seq, enum mail_flags flags,
+				   unsigned int seq,
+				   enum modify_type modify_type,
+				   enum mail_flags flags,
 				   int external_change)
 {
         enum mail_index_record_flag index_flags;
 
-	if (!mail_index_update_flags(index, rec, seq, flags, external_change))
+	if (!mail_index_update_flags(index, rec, seq,
+				     modify_type, flags, external_change))
 		return FALSE;
 
 	if (!external_change) {
+		/* we'll just mark the message as dirty */
 		index_flags = mail_cache_get_index_flags(index->cache, rec);
 		if ((index_flags & MAIL_INDEX_FLAG_DIRTY) == 0) {
 			if (mail_cache_lock(index->cache, FALSE) <= 0)

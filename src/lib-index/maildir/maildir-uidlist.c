@@ -156,8 +156,8 @@ static int maildir_uidlist_rewrite_fd(struct mail_index *index,
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
 		fname = maildir_get_location(index, rec, NULL);
-		if (fname == NULL)
-			return FALSE;
+		/* maildir should be synced, so above call should never fail */
+		i_assert(fname != NULL);
 
 		p = strchr(fname, ':');
 		len = p == NULL ? strlen(fname) : (size_t)(p-fname);

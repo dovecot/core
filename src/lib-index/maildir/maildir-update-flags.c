@@ -8,6 +8,15 @@
 #include "mail-cache.h"
 
 #include <stdio.h>
+#include <sys/stat.h>
+
+struct update_flags_ctx {
+	const char *new_fname;
+	int found;
+
+        enum modify_type modify_type;
+	enum mail_flags flags;
+};
 
 static int update_filename(struct mail_index *index,
 			   struct mail_index_record *rec)
@@ -91,153 +100,132 @@ int maildir_try_flush_dirty_flags(struct mail_index *index, int force)
 	return TRUE;
 }
 
-static int handle_error(struct mail_index *index,
-			const char *path, const char *new_path)
+static int do_rename(struct mail_index *index, const char *path, void *context)
 {
-	if (errno == ENOENT)
-		return 0;
+	struct update_flags_ctx *ctx = context;
+	const char *fname, *new_path;
+	enum mail_flags old_flags, new_flags;
+	int new_dir;
 
-	if (ENOSPACE(errno)) {
-		index->nodiskspace = TRUE;
-		return -2;
+        old_flags = maildir_filename_get_flags(path, 0);
+	switch (ctx->modify_type) {
+	case MODIFY_ADD:
+		new_flags = old_flags | ctx->flags;
+		break;
+	case MODIFY_REMOVE:
+		new_flags = old_flags & ~ctx->flags;
+		break;
+	case MODIFY_REPLACE:
+		new_flags = ctx->flags;
+		break;
+	default:
+		new_flags = 0;
+		i_unreached();
 	}
 
-	if (errno == EACCES)
-		index->mailbox_readonly = TRUE;
-	else {
+	fname = strrchr(path, '/');
+	ctx->new_fname = maildir_filename_set_flags(fname != NULL ?
+						    fname+1 : path, new_flags);
+
+	if (old_flags == new_flags) {
+		/* it's what we wanted. verify that the file exists. */
+		struct stat st;
+
+		if (stat(path, &st) < 0) {
+			if (errno == ENOENT)
+				return 0;
+			index_file_set_syscall_error(index, path, "stat()");
+			return -1;
+		}
+		ctx->found = TRUE;
+		return 1;
+	}
+
+	new_dir = fname != NULL && path + 4 <= fname &&
+		strncmp(fname-4, "/new", 4) == 0;
+	if (new_dir) {
+		/* move from new/ to cur/ */
+		new_path = t_strconcat(t_strdup_until(path, fname-4),
+				       "/cur/", ctx->new_fname, NULL);
+	} else {
+		new_path = maildir_filename_set_flags(path, new_flags);
+	}
+
+	if (rename(path, new_path) < 0) {
+		if (errno == ENOENT)
+			return 0;
+
+		if (ENOSPACE(errno)) {
+			index->nodiskspace = TRUE;
+			return 1;
+		}
+
+		if (errno == EACCES) {
+			index->mailbox_readonly = TRUE;
+			return 1;
+		}
+
 		index_set_error(index, "rename(%s, %s) failed: %m",
 				path, new_path);
+		return -1;
 	}
 
-	return -1;
-}
-
-static int maildir_rename_mail_file(struct mail_index *index, int new_dir,
-				    const char *old_fname, const char *new_path)
-{
-	const char *path;
-
-	if (new_dir) {
-		/* probably in new/ dir */
-		path = t_strconcat(index->mailbox_path, "/new/",
-				   old_fname, NULL);
-		if (rename(path, new_path) == 0)
-			return 1;
-
-		if (errno != ENOENT)
-			return handle_error(index, path, new_path);
+	if (index->maildir_keep_new && new_dir) {
+		/* looks like we have some more space again, see if we could
+		   move mails from new/ to cur/ again */
+		index->maildir_keep_new = FALSE;
 	}
 
-	path = t_strconcat(index->mailbox_path, "/cur/", old_fname, NULL);
-	if (rename(path, new_path) == 0)
-		return 1;
-
-	return handle_error(index, path, new_path);
-}
-
-static int maildir_rename_mail(struct mail_index *index,
-			       struct mail_index_record *rec,
-			       enum mail_flags flags, const char **new_fname_r)
-{
-	const char *old_fname, *new_fname, *new_path;
-        enum mail_index_record_flag index_flags;
-	int i, ret, found, new_dir;
-
-	new_fname = new_path = NULL;
-
-	i = 0;
-	do {
-		/* we need to update the flags in the file name */
-		old_fname = maildir_get_location(index, rec, &new_dir);
-		if (old_fname == NULL)
-			return FALSE;
-
-		if (new_path == NULL) {
-			new_fname = maildir_filename_set_flags(old_fname,
-							       flags);
-                        *new_fname_r = new_fname;
-			new_path = t_strconcat(index->mailbox_path,
-					       "/cur/", new_fname, NULL);
-		}
-
-		if (strcmp(old_fname, new_fname) == 0)
-			ret = 1;
-		else {
-			ret = maildir_rename_mail_file(index, new_dir,
-						       old_fname, new_path);
-			if (ret == -1)
-				return FALSE;
-
-			if (ret == 1) {
-				if (index->maildir_keep_new && new_dir) {
-					/* looks like we have some more space
-					   again, see if we could move mails
-					   from new/ to cur/ again */
-					index->maildir_keep_new = FALSE;
-				}
-
-				/* cur/ was updated, set it dirty-synced */
-				index->file_sync_stamp = ioloop_time;
-				index->maildir_cur_dirty = ioloop_time;
-			}
-
-		}
-		if (ret == 0) {
-			if (!maildir_index_sync_readonly(index, old_fname,
-							 &found))
-				return FALSE;
-			if (!found)
-				break;
-		}
-
-		i++;
-	} while (i < 10 && ret == 0);
-
-	if (ret == 1)
-		return TRUE;
-
-	/* we couldn't actually rename() the file now.
-	   leave it's flags dirty so they get changed later. */
-	index_flags = mail_cache_get_index_flags(index->cache, rec);
-	if ((index_flags & MAIL_INDEX_FLAG_DIRTY) == 0) {
-		if (mail_cache_lock(index->cache, FALSE) <= 0)
-			return FALSE;
-		mail_cache_unlock_later(index->cache);
-
-		index_flags |= MAIL_INDEX_FLAG_DIRTY;
-		mail_cache_update_index_flags(index->cache, rec, index_flags);
-
-		index->header->flags |= MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES;
-	}
-
-	index->next_dirty_flush =
-		ioloop_time + MAILDIR_DIRTY_FLUSH_TIMEOUT;
-	*new_fname_r = NULL;
-	return TRUE;
+	/* cur/ was updated, set it dirty-synced */
+	index->file_sync_stamp = ioloop_time;
+	index->maildir_cur_dirty = ioloop_time;
+	ctx->found = TRUE;
+	return 1;
 }
 
 int maildir_index_update_flags(struct mail_index *index,
 			       struct mail_index_record *rec, unsigned int seq,
+			       enum modify_type modify_type,
 			       enum mail_flags flags, int external_change)
 {
-	const char *new_fname;
-	int failed = FALSE;
+	struct update_flags_ctx ctx;
+        enum mail_index_record_flag index_flags;
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.modify_type = modify_type;
+	ctx.flags = flags;
 
 	t_push();
-	if (!maildir_rename_mail(index, rec, flags, &new_fname)) {
+	if (!maildir_file_do(index, rec, do_rename, &ctx)) {
 		t_pop();
 		return FALSE;
 	}
 
-	if (new_fname != NULL) {
-		maildir_index_update_filename(index, rec->uid,
-					      new_fname, FALSE);
-	}
+	if (!ctx.found) {
+		/* we couldn't actually rename() the file now.
+		   leave it's flags dirty so they get changed later. */
+		index_flags = mail_cache_get_index_flags(index->cache, rec);
+		if ((index_flags & MAIL_INDEX_FLAG_DIRTY) == 0) {
+			if (mail_cache_lock(index->cache, FALSE) <= 0)
+				return FALSE;
+			mail_cache_unlock_later(index->cache);
 
-	if (!failed && !mail_index_update_flags(index, rec, seq, flags,
-						external_change))
-		failed = TRUE;
+			index_flags |= MAIL_INDEX_FLAG_DIRTY;
+			mail_cache_update_index_flags(index->cache, rec,
+						      index_flags);
+
+			index->header->flags |=
+				MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES;
+		}
+
+		index->next_dirty_flush =
+			ioloop_time + MAILDIR_DIRTY_FLUSH_TIMEOUT;
+	} else if (ctx.new_fname != NULL) {
+		maildir_index_update_filename(index, rec->uid,
+					      ctx.new_fname, FALSE);
+	}
 	t_pop();
 
-	return !failed;
+	return mail_index_update_flags(index, rec, seq,
+				       modify_type, flags, external_change);
 }
