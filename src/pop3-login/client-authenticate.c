@@ -81,7 +81,8 @@ static void master_callback(struct client *_client, int success)
 	} else {
 		reason = t_strconcat("Internal login failure: ",
 				     client->common.virtual_user, NULL);
-		client_send_line(client, "* BYE Internal login failure.");
+		client_send_line(client, "* BYE Internal login failure. "
+				 "Error report written to server log.");
 	}
 
 	client_destroy(client, reason);
