@@ -488,7 +488,7 @@ static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 
 	mails = buffer_get_modifyable_data(sync_ctx->mails, &size);
 	size /= sizeof(*mails);
-	i_assert(sync_ctx->need_space_seq - sync_ctx->seq + 1 == size);
+	i_assert(sync_ctx->seq - sync_ctx->need_space_seq + 1 == size);
 
 	idx = 0;
 	idx_seq = sync_ctx->need_space_idx_seq;
