@@ -305,7 +305,7 @@ static int custom_flags_update_counter(MailCustomFlags *mcf)
 static int custom_flags_add(MailCustomFlags *mcf, int idx, const char *name)
 {
 	const char *buf;
-	unsigned int len;
+	size_t len;
 	off_t pos;
 
 	i_assert(idx < MAIL_CUSTOM_FLAGS_COUNT);

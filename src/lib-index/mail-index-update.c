@@ -176,7 +176,7 @@ static int update_by_append(MailIndexUpdate *update)
 					"full_field_size points outside "
 					"data_size (field %d?)",
 					update->index->filepath,
-					rec == NULL ? -1 : rec->field);
+					rec == NULL ? -1 : (int)rec->field);
 			update->index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
 			return FALSE;
 		}
@@ -278,7 +278,13 @@ static void update_field_full(MailIndexUpdate *update, MailField field,
 void mail_index_update_field(MailIndexUpdate *update, MailField field,
 			     const char *value, unsigned int extra_space)
 {
-	update_field_full(update, field, value, strlen(value)+1, extra_space);
+	size_t len;
+
+	len = strlen(value);
+	i_assert(len < SSIZE_T_MAX);
+
+	update_field_full(update, field, value,
+			  (unsigned int)len + 1, extra_space);
 }
 
 void mail_index_update_field_raw(MailIndexUpdate *update, MailField field,
@@ -287,7 +293,7 @@ void mail_index_update_field_raw(MailIndexUpdate *update, MailField field,
 	update_field_full(update, field, value, size, 0);
 }
 
-static MailField mail_header_get_field(const char *str, unsigned int len)
+static MailField mail_header_get_field(const char *str, size_t len)
 {
 	if (len == 7 && strncasecmp(str, "Subject", 7) == 0)
 		return FIELD_TYPE_SUBJECT;
@@ -336,8 +342,8 @@ typedef struct {
 } HeaderUpdateContext;
 
 static void update_header_func(MessagePart *part,
-			       const char *name, unsigned int name_len,
-			       const char *value, unsigned int value_len,
+			       const char *name, size_t name_len,
+			       const char *value, size_t value_len,
 			       void *context)
 {
 	HeaderUpdateContext *ctx = context;

@@ -144,6 +144,8 @@ struct _MailIndexRecord {
 
 	uoff_t data_position;
 	unsigned int data_size;
+
+	unsigned int alignment;
 };
 
 struct _MailIndexDataRecord {

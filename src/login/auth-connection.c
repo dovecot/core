@@ -123,7 +123,7 @@ static void auth_connection_destroy(AuthConnection *conn)
 	i_free(conn);
 }
 
-static AuthConnection *auth_connection_get(AuthMethod method, unsigned int size,
+static AuthConnection *auth_connection_get(AuthMethod method, size_t size,
 					   const char **error)
 {
 	AuthConnection *conn;
@@ -203,7 +203,7 @@ static void auth_input(void *context, int fd __attr_unused__,
 	AuthConnection *conn = context;
         AuthInitData init_data;
 	unsigned char *data;
-	unsigned int size;
+	size_t size;
 
 	switch (io_buffer_read(conn->inbuf)) {
 	case 0:
@@ -294,7 +294,7 @@ int auth_init_request(AuthMethod method, AuthCallback callback,
 }
 
 void auth_continue_request(AuthRequest *request, const unsigned char *data,
-			   unsigned int data_size)
+			   size_t data_size)
 {
 	AuthContinuedRequestData request_data;
 

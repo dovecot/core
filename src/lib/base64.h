@@ -6,6 +6,6 @@ const char *base64_encode(const unsigned char *data, size_t size);
 
 /* Translates base64 data into binary modifying the data itself.
    Returns size of the binary data, or -1 if error occured. */
-int base64_decode(char *data);
+ssize_t base64_decode(char *data);
 
 #endif

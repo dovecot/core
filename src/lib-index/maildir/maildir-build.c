@@ -45,9 +45,8 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 
 	if (st.st_size < 10) {
 		/* This cannot be a mail file - delete it */
-		index_set_error(index,
-				"Invalid size %lu with mail in %s - deleted",
-				(unsigned long) st.st_size, path);
+		index_set_error(index, "Invalid size %"PRIuUOFF_T
+				" with mail in %s - deleted", st.st_size, path);
 		(void)unlink(path);
 		return TRUE;
 	}

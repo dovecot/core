@@ -23,7 +23,7 @@ struct _ImapParser {
 	ImapArg *args;
 
 	ArgParseType cur_type;
-	unsigned int cur_pos;
+	size_t cur_pos;
 	ImapArg *cur_arg;
 
 	ImapArg *cur_list_arg; /* argument which contains current list */
@@ -75,9 +75,9 @@ void imap_parser_reset(ImapParser *parser)
 }
 
 static int imap_parser_skip_whitespace(ImapParser *parser, char **data,
-				       unsigned int *data_size)
+				       size_t *data_size)
 {
-	unsigned int i;
+	size_t i;
 
 	for (i = parser->cur_pos; i < *data_size; i++) {
 		if ((*data)[i] != ' ')
@@ -149,7 +149,7 @@ static int imap_parser_close_list(ImapParser *parser)
 }
 
 static void imap_parser_save_arg(ImapParser *parser, char *data,
-				 unsigned int lastpos)
+				 size_t lastpos)
 {
 	ImapArg *arg;
 
@@ -200,9 +200,9 @@ static void imap_parser_save_arg(ImapParser *parser, char *data,
 }
 
 static int imap_parser_read_atom(ImapParser *parser, char *data,
-				 unsigned int data_size)
+				 size_t data_size)
 {
-	unsigned int i;
+	size_t i;
 
 	/* read until we've found space, CR or LF. Data inside '[' and ']'
 	   characters are an exception though, allow spaces inside them. */
@@ -235,9 +235,9 @@ static int imap_parser_read_atom(ImapParser *parser, char *data,
 }
 
 static int imap_parser_read_string(ImapParser *parser, char *data,
-				   unsigned int data_size)
+				   size_t data_size)
 {
-	unsigned int i;
+	size_t i;
 
 	/* read until we've found non-escaped ", CR or LF */
 	for (i = parser->cur_pos; i < data_size; i++) {
@@ -277,9 +277,9 @@ static int imap_parser_read_string(ImapParser *parser, char *data,
 }
 
 static int imap_parser_read_literal(ImapParser *parser, char *data,
-				    unsigned int data_size)
+				    size_t data_size)
 {
-	unsigned int i, prev_size;
+	size_t i, prev_size;
 
 	/* expecting digits + "}" */
 	for (i = parser->cur_pos; i < data_size; i++) {
@@ -318,7 +318,7 @@ static int imap_parser_read_literal(ImapParser *parser, char *data,
 }
 
 static int imap_parser_read_literal_data(ImapParser *parser, char *data,
-					 unsigned int data_size)
+					 size_t data_size)
 {
 	if (parser->literal_skip_crlf) {
 		/* skip \r\n or \n, anything else gives an error */
@@ -344,8 +344,8 @@ static int imap_parser_read_literal_data(ImapParser *parser, char *data,
 		/* now we just wait until we've read enough data */
 		if (data_size >= parser->literal_size) {
 			imap_parser_save_arg(parser, data,
-					     parser->literal_size);
-			parser->cur_pos = (unsigned int) parser->literal_size;
+					     (size_t)parser->literal_size);
+			parser->cur_pos = (size_t) parser->literal_size;
 		}
 	} else {
 		/* we want to save only literal size, not the literal itself. */
@@ -360,7 +360,7 @@ static int imap_parser_read_literal_data(ImapParser *parser, char *data,
 static int imap_parser_read_arg(ImapParser *parser, ImapArg *root_arg)
 {
 	char *data;
-	unsigned int data_size;
+	size_t data_size;
 
 	data = (char *) io_buffer_get_data(parser->inbuf, &data_size);
 	if (data_size == 0)
@@ -488,7 +488,7 @@ int imap_parser_read_args(ImapParser *parser, unsigned int count,
 const char *imap_parser_read_word(ImapParser *parser)
 {
 	unsigned char *data;
-	unsigned int i, data_size;
+	size_t i, data_size;
 
 	/* get the beginning of data in input buffer */
 	data = io_buffer_get_data(parser->inbuf, &data_size);
@@ -509,7 +509,7 @@ const char *imap_parser_read_word(ImapParser *parser)
 const char *imap_parser_read_line(ImapParser *parser)
 {
 	unsigned char *data;
-	unsigned int i, data_size;
+	size_t i, data_size;
 
 	/* get the beginning of data in input buffer */
 	data = io_buffer_get_data(parser->inbuf, &data_size);

@@ -101,7 +101,7 @@ static void master_callback(MasterReplyResult result, void *context)
 }
 
 static void client_send_auth_data(Client *client, const unsigned char *data,
-				  unsigned int size)
+				  size_t size)
 {
 	const char *base64_data;
 
@@ -117,7 +117,7 @@ static void client_send_auth_data(Client *client, const unsigned char *data,
 
 static int auth_callback(AuthRequest *request, int auth_process,
 			 AuthResult result, const unsigned char *reply_data,
-			 unsigned int reply_data_size, void *context)
+			 size_t reply_data_size, void *context)
 {
 	Client *client = context;
 
@@ -160,7 +160,7 @@ static int auth_callback(AuthRequest *request, int auth_process,
 
 static void login_callback(AuthRequest *request, int auth_process,
 			   AuthResult result, const unsigned char *reply_data,
-			   unsigned int reply_data_size, void *context)
+			   size_t reply_data_size, void *context)
 {
 	Client *client = context;
 
@@ -178,7 +178,7 @@ int cmd_login(Client *client, const char *user, const char *pass)
 {
 	const char *error;
 	char *p;
-	unsigned int len, user_len, pass_len;
+	size_t len, user_len, pass_len;
 
 	if (!client->tls && disable_plaintext_auth) {
 		client_send_tagline(client,
@@ -217,7 +217,7 @@ int cmd_login(Client *client, const char *user, const char *pass)
 static void authenticate_callback(AuthRequest *request, int auth_process,
 				  AuthResult result,
 				  const unsigned char *reply_data,
-				  unsigned int reply_data_size, void *context)
+				  size_t reply_data_size, void *context)
 {
 	Client *client = context;
 
@@ -231,7 +231,7 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 {
 	Client *client = context;
 	char *line;
-	int size;
+	ssize_t size;
 
 	if (!client_read(client))
 		return;
@@ -258,7 +258,7 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 	}
 
 	auth_continue_request(client->auth_request, (unsigned char *) line,
-			      (unsigned int) size);
+			      (size_t)size);
 }
 
 int cmd_authenticate(Client *client, const char *method_name)

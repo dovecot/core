@@ -28,7 +28,7 @@ typedef struct {
 	int custom_header;
 
 	const char *name, *value;
-	unsigned int name_len, value_len;
+	size_t name_len, value_len;
 } SearchHeaderContext;
 
 typedef struct {
@@ -36,7 +36,7 @@ typedef struct {
 	const char *msg;
 	size_t size;
 
-	unsigned int max_searchword_len;
+	size_t max_searchword_len;
 } SearchTextContext;
 
 static int msgset_contains(const char *set, unsigned int match_num,
@@ -203,7 +203,7 @@ static int match_field(MailIndex *index, MailIndexRecord *rec,
 		       MailField field, const char *value)
 {
 	const char *field_value;
-	unsigned int i, value_len;
+	size_t i, value_len;
 
 	field_value = index->lookup_field(index, rec, field);
 	if (field_value == NULL)
@@ -299,11 +299,11 @@ static void search_slow_arg(MailSearchArg *arg, void *context)
 }
 
 /* needle must be uppercased */
-static int header_value_match(const char *haystack, unsigned int haystack_len,
+static int header_value_match(const char *haystack, size_t haystack_len,
 			      const char *needle)
 {
 	const char *n;
-	unsigned int i, j, needle_len, max;
+	size_t i, j, needle_len, max;
 
 	if (*needle == '\0')
 		return TRUE;
@@ -344,7 +344,7 @@ static void search_header_arg(MailSearchArg *arg, void *context)
 {
 	SearchHeaderContext *ctx = context;
 	const char *value;
-	unsigned int len;
+	size_t len;
 	int ret;
 
 	/* first check that the field name matches to argument. */
@@ -398,8 +398,8 @@ static void search_header_arg(MailSearchArg *arg, void *context)
 }
 
 static void search_header(MessagePart *part __attr_unused__,
-			  const char *name, unsigned int name_len,
-			  const char *value, unsigned int value_len,
+			  const char *name, size_t name_len,
+			  const char *value, size_t value_len,
 			  void *context)
 {
 	SearchHeaderContext *ctx = context;
@@ -423,7 +423,7 @@ static void search_header(MessagePart *part __attr_unused__,
 static void search_text(MailSearchArg *arg, SearchTextContext *ctx)
 {
 	const char *p;
-	unsigned int i, len, max;
+	size_t i, len, max;
 
 	if (arg->result != 0)
 		return;
@@ -473,8 +473,8 @@ static void search_arg_match_data(IOBuffer *inbuf, unsigned int max_size,
 				  MailSearchForeachFunc search_func)
 {
 	SearchTextContext ctx;
-	unsigned int size;
-	int ret;
+	size_t size;
+	ssize_t ret;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.args = args;

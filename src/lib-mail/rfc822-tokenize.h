@@ -31,7 +31,7 @@ struct _Rfc822Token {
 	   - '\' isn't expanded
 	   - [CR+]LF+LWSP (continued header) isn't removed */
 	const char *ptr;
-	unsigned int len;
+	size_t len;
 };
 
 /* Parsing is aborted if returns FALSE. There's two kinds of errors:

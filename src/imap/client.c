@@ -114,7 +114,7 @@ void client_disconnect(Client *client)
 void client_send_line(Client *client, const char *data)
 {
 	unsigned char *buf;
-	unsigned int len;
+	size_t len;
 
 	if (client->outbuf->closed)
 		return;
@@ -141,7 +141,7 @@ void client_send_tagline(Client *client, const char *data)
 {
 	const char *tag = client->cmd_tag;
 	unsigned char *buf;
-	unsigned int taglen, len;
+	size_t taglen, len;
 
 	if (client->outbuf->closed)
 		return;
@@ -259,7 +259,7 @@ static void client_command_finished(Client *client)
 static int client_skip_line(Client *client)
 {
 	unsigned char *data;
-	unsigned int i, data_size;
+	size_t i, data_size;
 
 	/* get the beginning of data in input buffer */
 	data = io_buffer_get_data(client->inbuf, &data_size);

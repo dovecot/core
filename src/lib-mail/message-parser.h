@@ -38,8 +38,8 @@ struct _MessagePart {
 
 /* NOTE: name and value aren't \0-terminated */
 typedef void (*MessageHeaderFunc)(MessagePart *part,
-				  const char *name, unsigned int name_len,
-				  const char *value, unsigned int value_len,
+				  const char *name, size_t name_len,
+				  const char *value, size_t value_len,
 				  void *context);
 
 /* func is called for each field in message header. */

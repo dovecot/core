@@ -23,7 +23,7 @@ typedef struct {
 	unsigned char outbuf_plain[1024];
 	unsigned int outbuf_pos_plain;
 
-	unsigned int send_left_ssl, send_left_plain;
+	size_t send_left_ssl, send_left_plain;
 } SSLProxy;
 
 #define DH_BITS 1024
@@ -46,7 +46,7 @@ static void ssl_input(void *context, int handle, IO io);
 static void plain_input(void *context, int handle, IO io);
 static int ssl_proxy_destroy(SSLProxy *proxy);
 
-static int proxy_recv_ssl(SSLProxy *proxy, void *data, unsigned int size)
+static int proxy_recv_ssl(SSLProxy *proxy, void *data, size_t size)
 {
 	int rcvd;
 
@@ -71,7 +71,7 @@ static int proxy_recv_ssl(SSLProxy *proxy, void *data, unsigned int size)
 	return -1;
 }
 
-static int proxy_send_ssl(SSLProxy *proxy, const void *data, unsigned int size)
+static int proxy_send_ssl(SSLProxy *proxy, const void *data, size_t size)
 {
 	int sent;
 
@@ -148,8 +148,7 @@ static void ssl_input(void *context, int fd __attr_unused__,
 	if (rcvd <= 0)
 		return;
 
-	sent = net_transmit(proxy->fd_plain, proxy->outbuf_plain,
-			    (unsigned int) rcvd);
+	sent = net_transmit(proxy->fd_plain, proxy->outbuf_plain, (size_t)rcvd);
 	if (sent == rcvd)
 		return;
 
@@ -195,7 +194,7 @@ static void plain_input(void *context, int fd __attr_unused__,
 {
 	SSLProxy *proxy = context;
 	char buf[1024];
-	int rcvd, sent;
+	ssize_t rcvd, sent;
 
 	rcvd = net_receive(proxy->fd_plain, buf, sizeof(buf));
 	if (rcvd < 0) {
@@ -205,7 +204,7 @@ static void plain_input(void *context, int fd __attr_unused__,
 		return;
 	}
 
-	sent = proxy_send_ssl(proxy, buf, (unsigned int) rcvd);
+	sent = proxy_send_ssl(proxy, buf, (size_t)rcvd);
 	if (sent < 0 || sent == rcvd)
 		return;
 

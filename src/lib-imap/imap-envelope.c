@@ -21,10 +21,9 @@ struct _MessagePartEnvelopeData {
 	 (c) == '<' || (c) == '>' || (c) == '(' || (c) == ')' || \
 	 (c) == '[' || (c) == ']' || (c) == '=')
 
-static unsigned int next_token_quoted(const char *value, unsigned int len,
-				      int *need_qp)
+static size_t next_token_quoted(const char *value, size_t len, int *need_qp)
 {
-	unsigned int i;
+	size_t i;
 
 	i_assert(value[0] == '"');
 
@@ -43,10 +42,9 @@ static unsigned int next_token_quoted(const char *value, unsigned int len,
 	return i;
 }
 
-static unsigned int next_token(const char *value, unsigned int len,
-			       int *need_qp, int qp_on)
+static size_t next_token(const char *value, size_t len, int *need_qp, int qp_on)
 {
-	unsigned int i = 0;
+	size_t i = 0;
 
 	if (value[0] == '"')
 		return next_token_quoted(value, len, need_qp);
@@ -83,10 +81,9 @@ static unsigned int next_token(const char *value, unsigned int len,
 	return i;
 }
 
-static void append_quoted_qp(TempString *str, const char *value,
-			     unsigned int len)
+static void append_quoted_qp(TempString *str, const char *value, size_t len)
 {
-	unsigned int i;
+	size_t i;
 	unsigned char c;
 
 	/* do this the easy way, it's already broken behaviour to leave the
@@ -110,9 +107,9 @@ static void append_quoted_qp(TempString *str, const char *value,
 	}
 }
 
-static void append_quoted(TempString *str, const char *value, unsigned int len)
+static void append_quoted(TempString *str, const char *value, size_t len)
 {
-	unsigned int i;
+	size_t i;
 
 	for (i = 0; i < len; i++) {
 		if (value[i] == '\\' || value[i] == '"')
@@ -122,10 +119,10 @@ static void append_quoted(TempString *str, const char *value, unsigned int len)
 }
 
 /* does two things: 1) escape '\' and '"' characters, 2) 8bit text -> QP */
-static TempString *get_quoted_str(const char *value, unsigned int value_len)
+static TempString *get_quoted_str(const char *value, size_t value_len)
 {
 	TempString *str;
-	unsigned int token_len;
+	size_t token_len;
 	int qp, need_qp;
 
 	str = t_string_new(value_len * 2);
@@ -172,7 +169,7 @@ static const char *quote_str_nil(const char *value)
 		get_quoted_str(value, strlen(value))->str;
 }
 
-static char *quote_value(Pool pool, const char *value, unsigned int value_len)
+static char *quote_value(Pool pool, const char *value, size_t value_len)
 {
 	TempString *str;
 
@@ -181,7 +178,7 @@ static char *quote_value(Pool pool, const char *value, unsigned int value_len)
 }
 
 static Rfc822Address *parse_address(Pool pool, const char *value,
-				    unsigned int value_len)
+				    size_t value_len)
 {
 	Rfc822Address *ret;
 
@@ -193,7 +190,7 @@ static Rfc822Address *parse_address(Pool pool, const char *value,
 
 void imap_envelope_parse_header(Pool pool, MessagePartEnvelopeData **data,
 				const char *name,
-				const char *value, unsigned int value_len)
+				const char *value, size_t value_len)
 {
 	if (*data == NULL) {
 		*data = p_new(pool, MessagePartEnvelopeData, 1);

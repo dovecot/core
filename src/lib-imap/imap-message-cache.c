@@ -142,8 +142,8 @@ static CachedMessage *cache_open_or_create(ImapMessageCache *cache,
 }
 
 static void parse_envelope_header(MessagePart *part,
-				  const char *name, unsigned int name_len,
-				  const char *value, unsigned int value_len,
+				  const char *name, size_t name_len,
+				  const char *value, size_t value_len,
 				  void *context)
 {
 	CachedMessage *msg = context;
@@ -426,7 +426,7 @@ static void get_partial_size(IOBuffer *inbuf,
 			     MessageSize *partial, MessageSize *dest)
 {
 	unsigned char *msg;
-	unsigned int size;
+	size_t size;
 	int cr_skipped;
 
 	/* see if we can use the existing partial */

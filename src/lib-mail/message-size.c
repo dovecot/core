@@ -8,7 +8,7 @@
 void message_get_header_size(IOBuffer *inbuf, MessageSize *hdr)
 {
 	unsigned char *msg;
-	unsigned int i, size, startpos, missing_cr_count;
+	size_t i, size, startpos, missing_cr_count;
 
 	memset(hdr, 0, sizeof(MessageSize));
 
@@ -61,7 +61,7 @@ void message_get_body_size(IOBuffer *inbuf, MessageSize *body,
 			   uoff_t max_virtual_size)
 {
 	unsigned char *msg;
-	unsigned int i, size, startpos, missing_cr_count;
+	size_t i, size, startpos, missing_cr_count;
 
 	memset(body, 0, sizeof(MessageSize));
 
@@ -111,7 +111,7 @@ void message_skip_virtual(IOBuffer *inbuf, uoff_t virtual_skip,
 			  MessageSize *msg_size, int *cr_skipped)
 {
 	unsigned char *msg;
-	unsigned int i, size, startpos;
+	size_t i, size, startpos;
 
 	*cr_skipped = FALSE;
 	if (virtual_skip == 0)

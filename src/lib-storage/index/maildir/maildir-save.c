@@ -36,7 +36,7 @@ static int maildir_create_tmp(MailStorage *storage, const char *dir,
 }
 
 static const char *maildir_read_into_tmp(MailStorage *storage, const char *dir,
-					 IOBuffer *buf, size_t data_size)
+					 IOBuffer *buf, uoff_t data_size)
 {
 	const char *fname, *path;
 	int fd;
@@ -58,7 +58,7 @@ static const char *maildir_read_into_tmp(MailStorage *storage, const char *dir,
 
 int maildir_storage_save(Mailbox *box, MailFlags flags,
 			 const char *custom_flags[], time_t internal_date,
-			 IOBuffer *data, size_t data_size)
+			 IOBuffer *data, uoff_t data_size)
 {
         IndexMailbox *ibox = (IndexMailbox *) box;
         struct utimbuf buf;

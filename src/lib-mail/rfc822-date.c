@@ -16,7 +16,7 @@ static const char *weekday_names[] = {
 	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
 };
 
-static int parse_timezone(const char *str, unsigned int len)
+static int parse_timezone(const char *str, size_t len)
 {
 	int offset;
 	char chr;
@@ -101,7 +101,7 @@ int rfc822_parse_date(const char *str, time_t *time)
 {
 	struct tm tm;
 	const Rfc822Token *tokens, *tok;
-	unsigned int i;
+	size_t i;
 	int zone_offset;
 
 	if (str == NULL || *str == '\0')

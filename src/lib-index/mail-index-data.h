@@ -20,8 +20,7 @@ uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
 			      size_t size);
 
 /* Increase header->deleted_space field */
-int mail_index_data_add_deleted_space(MailIndexData *data,
-				      unsigned int data_size);
+int mail_index_data_add_deleted_space(MailIndexData *data, size_t data_size);
 
 /* Synchronize the data into disk */
 int mail_index_data_sync_file(MailIndexData *data);

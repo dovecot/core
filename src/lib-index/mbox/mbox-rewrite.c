@@ -15,7 +15,6 @@
 
 typedef struct {
 	IOBuffer *outbuf;
-	unsigned int size;
 	int failed;
 
 	unsigned int seq;
@@ -58,7 +57,7 @@ static int mbox_write(MailIndex *index, IOBuffer *inbuf, IOBuffer *outbuf,
 	return TRUE;
 }
 
-static const char *strip_chars(const char *value, unsigned int value_len,
+static const char *strip_chars(const char *value, size_t value_len,
 			       const char *list)
 {
 	/* leave only unknown flags, very likely none */
@@ -74,11 +73,11 @@ static const char *strip_chars(const char *value, unsigned int value_len,
 	if (ret == p)
 		return NULL;
 	*p = '\0';
-        t_buffer_alloc((unsigned int) (p-ret)+1);
+        t_buffer_alloc((size_t) (p-ret)+1);
 	return ret;
 }
 
-static void update_stripped_custom_flags(const char *value, unsigned int len,
+static void update_stripped_custom_flags(const char *value, size_t len,
 					 int index, void *context)
 {
 	TempString *str = context;
@@ -91,7 +90,7 @@ static void update_stripped_custom_flags(const char *value, unsigned int len,
 	}
 }
 
-static const char *strip_custom_flags(const char *value, unsigned int len,
+static const char *strip_custom_flags(const char *value, size_t len,
 				      MboxRewriteContext *ctx)
 {
 	TempString *str;
@@ -103,8 +102,8 @@ static const char *strip_custom_flags(const char *value, unsigned int len,
 }
 
 static void header_func(MessagePart *part __attr_unused__,
-			const char *name, unsigned int name_len,
-			const char *value, unsigned int value_len,
+			const char *name, size_t name_len,
+			const char *value, size_t value_len,
 			void *context)
 {
 	MboxRewriteContext *ctx = context;
@@ -139,7 +138,6 @@ static void header_func(MessagePart *part __attr_unused__,
 
 		if (ctx->outbuf->closed)
 			ctx->failed = TRUE;
-		ctx->size += name_len + 2 + value_len + 1;
 	}
 }
 

@@ -48,7 +48,7 @@ const char *imap_write_flags(MailFlags flags, const char *custom_flags[])
 const char *imap_escape(const char *str)
 {
 	char *ret, *p;
-	unsigned int i, esc;
+	size_t i, esc;
 
 	/* get length of string and number of chars to escape */
 	esc = 0;

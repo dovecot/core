@@ -15,7 +15,7 @@ static const char *months[] = {
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
-time_t mbox_from_parse_date(const char *msg, unsigned int size)
+time_t mbox_from_parse_date(const char *msg, size_t size)
 {
 	const char *msg_end;
 	struct tm tm;
@@ -95,7 +95,8 @@ const char *mbox_from_create(const char *sender, time_t time)
 {
 	struct tm *tm;
 	char *ret, *p;
-	unsigned int len, year;
+	size_t len;
+	int year;
 
 	len = strlen(sender);
 	ret = t_malloc(len + 24 + 1);

@@ -26,7 +26,7 @@ static MailIndexRecord *mail_index_record_append(MailIndex *index,
 static void mbox_read_message(IOBuffer *inbuf)
 {
 	unsigned char *msg;
-	unsigned int i, size, startpos;
+	size_t i, size, startpos;
 	int lastmsg;
 
 	/* read until "[\r]\nFrom " is found */
@@ -83,7 +83,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	time_t internal_date;
 	uoff_t abs_start_offset, stop_offset, old_size;
 	unsigned char *data, md5_digest[16];
-	unsigned int size, pos;
+	size_t size, pos;
 
 	/* get the From-line */
 	pos = 0;

@@ -45,7 +45,7 @@ static void login_input(void *context, int fd __attr_unused__,
 {
 	LoginConnection *conn  = context;
         unsigned char *data;
-	unsigned int size;
+	size_t size;
 
 	switch (io_buffer_read(conn->inbuf)) {
 	case 0:

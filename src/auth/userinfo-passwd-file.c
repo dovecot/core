@@ -193,8 +193,7 @@ static void passwd_file_add(PasswdFile *pw, const char *username,
 		/* password[type] - we're being libpam-pwdfile compatible
 		   here. it uses 13 = DES and 34 = MD5. We add
 		   56 = Digest-MD5. */
-		pu->password = p_strndup(pw->pool, pass,
-					 (unsigned int) (p-pass));
+		pu->password = p_strndup(pw->pool, pass, (size_t) (p-pass));
 		if (p[1] == '3' && p[2] == '4') {
 			pu->password_type = PASSWORD_MD5;
 			str_lcase(pu->password);

@@ -441,7 +441,7 @@ static int auth_handle_response(AuthData *auth, char *key, char *value,
 }
 
 static int parse_digest_response(AuthData *auth, const char *data,
-				 unsigned int size, const char **error)
+				 size_t size, const char **error)
 {
 	char *copy, *key, *value;
 	int failed;

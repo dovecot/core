@@ -9,7 +9,7 @@ int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 		 uoff_t virtual_skip, uoff_t max_virtual_size)
 {
 	unsigned char *msg;
-	unsigned int i, size;
+	size_t i, size;
 	int cr_skipped, add_cr;
 
 	if (msg_size->physical_size == 0 ||

@@ -18,10 +18,10 @@ void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index)
 	ctx->custom_flags = mail_custom_flags_list_get(index->custom_flags);
 }
 
-static MailFlags mbox_get_status_flags(const char *value, unsigned int len)
+static MailFlags mbox_get_status_flags(const char *value, size_t len)
 {
 	MailFlags flags;
-	unsigned int i;
+	size_t i;
 
 	flags = 0;
 	for (i = 0; i < len; i++) {
@@ -48,7 +48,7 @@ static MailFlags mbox_get_status_flags(const char *value, unsigned int len)
 }
 
 static void mbox_update_custom_flags(const char *value __attr_unused__,
-				     unsigned int len __attr_unused__,
+				     size_t len __attr_unused__,
 				     int index, void *context)
 {
 	MailFlags *flags = context;
@@ -58,7 +58,7 @@ static void mbox_update_custom_flags(const char *value __attr_unused__,
 }
 
 static MailFlags
-mbox_get_keyword_flags(const char *value, unsigned int len,
+mbox_get_keyword_flags(const char *value, size_t len,
 		       const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT])
 {
 	MailFlags flags;
@@ -69,10 +69,10 @@ mbox_get_keyword_flags(const char *value, unsigned int len,
 	return flags;
 }
 
-static void mbox_parse_imapbase(const char *value, unsigned int len,
+static void mbox_parse_imapbase(const char *value, size_t len,
 				MboxHeaderContext *ctx)
 {
-	unsigned int i, spaces;
+	size_t i, spaces;
 
 	/* skip <uid validity> and <last uid> fields */
 	spaces = 0;
@@ -99,8 +99,8 @@ static void mbox_parse_imapbase(const char *value, unsigned int len,
 }
 
 void mbox_header_func(MessagePart *part __attr_unused__,
-		      const char *name, unsigned int name_len,
-		      const char *value, unsigned int value_len,
+		      const char *name, size_t name_len,
+		      const char *value, size_t value_len,
 		      void *context)
 {
 	MboxHeaderContext *ctx = context;
@@ -175,13 +175,13 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 		md5_update(&ctx->md5, value, value_len);
 }
 
-void mbox_keywords_parse(const char *value, unsigned int len,
+void mbox_keywords_parse(const char *value, size_t len,
 			 const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT],
-			 void (*func)(const char *, unsigned int, int, void *),
+			 void (*func)(const char *, size_t, int, void *),
 			 void *context)
 {
-	unsigned int custom_len[MAIL_CUSTOM_FLAGS_COUNT];
-	unsigned int item_len;
+	size_t custom_len[MAIL_CUSTOM_FLAGS_COUNT];
+	size_t item_len;
 	int i;
 
 	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
@@ -225,7 +225,7 @@ void mbox_keywords_parse(const char *value, unsigned int len,
 int mbox_skip_crlf(IOBuffer *inbuf)
 {
 	unsigned char *data;
-	unsigned int size, pos;
+	size_t size, pos;
 
 	pos = 0;
 	while (io_buffer_read_data(inbuf, &data, &size, pos) >= 0) {
@@ -256,7 +256,7 @@ int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
 			       uoff_t *offset)
 {
 	const uoff_t *location;
-	unsigned int size;
+	size_t size;
 
 	location = index->lookup_field_raw(index, rec,
 					   FIELD_TYPE_LOCATION, &size);

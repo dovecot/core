@@ -45,7 +45,7 @@ static int write_from_line(MailStorage *storage, int fd, time_t internal_date)
 }
 
 int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
-		      time_t internal_date, IOBuffer *data, size_t data_size)
+		      time_t internal_date, IOBuffer *data, uoff_t data_size)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	off_t pos;

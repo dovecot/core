@@ -73,8 +73,7 @@ static int subscription_open(MailStorage *storage, int update,
 }
 
 static int subscription_append(MailStorage *storage, int fd, const char *name,
-			       unsigned int len, int prefix_lf,
-			       const char *path)
+			       size_t len, int prefix_lf, const char *path)
 {
 	char *buf;
 
@@ -111,7 +110,7 @@ int subsfile_set_subscribed(MailStorage *storage, const char *name, int set)
 	size_t mmap_length;
 	const char *path;
 	char *subscriptions, *end, *p;
-	unsigned int namelen, afterlen, removelen;
+	size_t namelen, afterlen, removelen;
 	int fd,  failed, prefix_lf;
 
 	if (strcasecmp(name, "INBOX") == 0)
@@ -145,7 +144,7 @@ int subsfile_set_subscribed(MailStorage *storage, const char *name, int set)
 	failed = FALSE;
 	if (p != NULL && !set) {
 		/* remove it */
-		afterlen = mmap_length - (unsigned int) (p - subscriptions);
+		afterlen = mmap_length - (size_t) (p - subscriptions);
 		removelen = namelen < afterlen ? namelen+1 : namelen;
 
 		if (removelen < afterlen)

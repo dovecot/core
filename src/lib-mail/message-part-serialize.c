@@ -35,10 +35,10 @@ typedef struct {
 static void message_part_serialize_part(MessagePart *part,
 					unsigned int *children_count,
 					SerializedMessagePart **spart_base,
-					unsigned int *pos, unsigned int *size)
+					size_t *pos, size_t *size)
 {
 	SerializedMessagePart *spart;
-	unsigned int buf_size;
+	size_t buf_size;
 
 	while (part != NULL) {
 		/* make sure we have space */
@@ -79,10 +79,10 @@ static void message_part_serialize_part(MessagePart *part,
 	}
 }
 
-const void *message_part_serialize(MessagePart *part, unsigned int *size)
+const void *message_part_serialize(MessagePart *part, size_t *size)
 {
         SerializedMessagePart *spart_base;
-	unsigned int pos, buf_size;
+	size_t pos, buf_size;
 
 	buf_size = 32;
 	spart_base = t_buffer_get(sizeof(SerializedMessagePart) * buf_size);
@@ -98,7 +98,7 @@ const void *message_part_serialize(MessagePart *part, unsigned int *size)
 static MessagePart *
 message_part_deserialize_part(Pool pool, MessagePart *parent,
 			      const SerializedMessagePart **spart_pos,
-			      unsigned int *count, unsigned int child_count)
+			      size_t *count, unsigned int child_count)
 {
         const SerializedMessagePart *spart;
 	MessagePart *part, *first_part, **next_part;
@@ -140,10 +140,10 @@ message_part_deserialize_part(Pool pool, MessagePart *parent,
 }
 
 MessagePart *message_part_deserialize(Pool pool, const void *data,
-				      unsigned int size)
+				      size_t size)
 {
         const SerializedMessagePart *spart;
-	unsigned int count;
+	size_t count;
 
 	/* make sure it looks valid */
 	if (size == 0 || (size % sizeof(SerializedMessagePart)) != 0)
@@ -151,16 +151,20 @@ MessagePart *message_part_deserialize(Pool pool, const void *data,
 
 	spart = data;
 	count = size / sizeof(SerializedMessagePart);
-	return message_part_deserialize_part(pool, NULL, &spart, &count, count);
+	if (count > UINT_MAX)
+		return NULL;
+
+	return message_part_deserialize_part(pool, NULL, &spart, &count,
+					     (unsigned int)count);
 }
 
-int message_part_serialize_update_header(void *data, unsigned int size,
+int message_part_serialize_update_header(void *data, size_t size,
 					 MessageSize *hdr_size)
 {
 	SerializedMessagePart *spart = data;
 	uoff_t first_pos;
 	off_t pos_diff;
-	unsigned int i, count;
+	size_t i, count;
 
 	/* make sure it looks valid */
 	if (size == 0 || (size % sizeof(SerializedMessagePart)) != 0)
@@ -193,7 +197,7 @@ int message_part_serialize_update_header(void *data, unsigned int size,
 	return TRUE;
 }
 
-int message_part_deserialize_size(const void *data, unsigned int size,
+int message_part_deserialize_size(const void *data, size_t size,
 				  MessageSize *hdr_size,
 				  MessageSize *body_size)
 {

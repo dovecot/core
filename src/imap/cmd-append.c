@@ -11,7 +11,7 @@
    set when successful. */
 static int validate_args(Client *client, const char **mailbox,
 			 ImapArgList **flags, const char **internal_date,
-			 unsigned int *msg_size, unsigned int count)
+			 uoff_t *msg_size, unsigned int count)
 {
 	ImapArg *args;
 
@@ -76,7 +76,7 @@ int cmd_append(Client *client)
 	time_t internal_date;
 	const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT];
 	const char *mailbox, *internal_date_str;
-	unsigned int msg_size;
+	uoff_t msg_size;
 	int failed;
 
 	/* <mailbox> [<flags>] [<internal date>] <message literal> */

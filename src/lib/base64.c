@@ -100,7 +100,7 @@ static const char index_64[256] = {
 };
 #define CHAR64(c)  (index_64[(int)(unsigned char)(c)])
 
-int base64_decode(char *data)
+ssize_t base64_decode(char *data)
 {
 	char *p, *start;
 	int c1, c2, c3, c4;
@@ -141,5 +141,5 @@ int base64_decode(char *data)
 		*p++ = (((CHAR64(c3) & 0x3) << 6) | CHAR64(c4));
 	}
 
-	return (int) (p-start);
+	return (ssize_t) (p-start);
 }

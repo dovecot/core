@@ -79,8 +79,8 @@ static int hash_verify_header(MailHash *hash)
 		   if it was only partially written. */
 		hash->header = NULL;
 		index_set_error(hash->index, "Corrupted hash file %s: "
-				"Invalid file size %lu", hash->filepath,
-				(unsigned long) hash->mmap_length);
+				"Invalid file size %"PRIuSIZE_T"",
+				hash->filepath, hash->mmap_length);
 		return FALSE;
 	}
 
@@ -195,7 +195,6 @@ void mail_hash_free(MailHash *hash)
 static int file_set_size(int fd, off_t size)
 {
 	char block[1024];
-	unsigned int i, full_blocks;
 	int ret, old_errno;
 	off_t pos;
 
@@ -224,16 +223,15 @@ static int file_set_size(int fd, off_t size)
 	size -= pos;
 	memset(block, 0, sizeof(block));
 
-	/* write in 1kb blocks */
-	full_blocks = size / sizeof(block);
-	for (i = 0; i < full_blocks; i++) {
+	while (size > sizeof(block)) {
+		/* write in 1kb blocks */
 		if (write_full(fd, block, sizeof(block)) < 0)
 			return FALSE;
+		size -= sizeof(block);
 	}
 
 	/* write the remainder */
-	i = size % sizeof(block);
-	return i == 0 ? TRUE : write_full(fd, block, i) == 0;
+	return write_full(fd, block, (size_t)size) == 0;
 }
 
 static int hash_rebuild_to_file(MailIndex *index, int fd,
@@ -253,9 +251,8 @@ static int hash_rebuild_to_file(MailIndex *index, int fd,
 	/* fill the file with zeros */
 	new_size = sizeof(MailHashHeader) + hash_size * sizeof(MailHashRecord);
 	if (!file_set_size(fd, (off_t)new_size)) {
-		index_set_error(index,
-				"Failed to fill temp hash to size %lu: %m",
-				(unsigned long) new_size);
+		index_set_error(index, "Failed to fill temp hash to size "
+				"%"PRIuSIZE_T": %m", new_size);
 		return FALSE;
 	}
 

@@ -162,7 +162,7 @@ struct _Mailbox {
 
 	/* Save a new mail into mailbox. */
 	int (*save)(Mailbox *box, MailFlags flags, const char *custom_flags[],
-		    time_t internal_date, IOBuffer *data, size_t data_size);
+		    time_t internal_date, IOBuffer *data, uoff_t data_size);
 
 	/* Returns TRUE if mailbox is now in inconsistent state, meaning that
 	   the message IDs etc. may have changed - only way to recover this

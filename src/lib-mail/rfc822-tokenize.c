@@ -188,7 +188,7 @@ const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 const char *rfc822_tokens_get_value(const Rfc822Token *tokens, int count)
 {
 	char *buf;
-	unsigned int i, len, buf_size;
+	size_t i, len, buf_size;
 	int last_atom;
 
 	if (count <= 0)
@@ -250,7 +250,7 @@ const char *rfc822_tokens_get_value_quoted(const Rfc822Token *tokens,
 					   int count)
 {
 	char *buf;
-	unsigned int len, buf_size;
+	size_t len, buf_size;
 	int last_atom;
 
 	if (count <= 0)

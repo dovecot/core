@@ -13,7 +13,7 @@ static void auth_plain_continue(CookieData *cookie,
 	AuthCookieReplyData *cookie_reply = cookie->context;
 	AuthReplyData reply;
 	const char *user, *pass;
-	unsigned int i, count;
+	size_t i, count;
 
 	/* initialize reply */
 	memset(&reply, 0, sizeof(reply));

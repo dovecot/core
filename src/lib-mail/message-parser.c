@@ -12,7 +12,7 @@ typedef struct _MessageBoundary {
 
 	MessagePart *part;
 	const char *boundary;
-	unsigned int len;
+	size_t len;
 } MessageBoundary;
 
 typedef struct {
@@ -109,8 +109,8 @@ static void parse_content_type_param(const Rfc822Token *name,
 }
 
 static void parse_header_field(MessagePart *part,
-			       const char *name, unsigned int name_len,
-			       const char *value, unsigned int value_len,
+			       const char *name, size_t name_len,
+			       const char *value, size_t value_len,
 			       void *context)
 {
 	MessageParseContext *parse_ctx = context;
@@ -263,7 +263,7 @@ MessagePart *message_parse(Pool pool, IOBuffer *inbuf,
 static void message_skip_line(IOBuffer *inbuf, MessageSize *msg_size)
 {
 	unsigned char *msg;
-	unsigned int i, size, startpos;
+	size_t i, size, startpos;
 
 	startpos = 0;
 
@@ -309,8 +309,8 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 			  MessageHeaderFunc func, void *context)
 {
 	unsigned char *msg;
-	unsigned int i, size, startpos, missing_cr_count;
-	unsigned int line_start, colon_pos, end_pos, name_len, value_len;
+	size_t i, size, startpos, missing_cr_count;
+	size_t line_start, colon_pos, end_pos, name_len, value_len;
 	int ret;
 
 	if (hdr_size != NULL)
@@ -434,7 +434,7 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 }
 
 static MessageBoundary *boundary_find(MessageBoundary *boundaries,
-				      const char *msg, unsigned int len)
+				      const char *msg, size_t len)
 {
 	while (boundaries != NULL) {
 		if (boundaries->len <= len &&
@@ -456,7 +456,7 @@ message_find_boundary(IOBuffer *inbuf, MessageBoundary *boundaries,
 {
 	MessageBoundary *boundary;
 	unsigned char *msg;
-	unsigned int i, size, startpos, line_start, missing_cr_count;
+	size_t i, size, startpos, line_start, missing_cr_count;
 
 	boundary = NULL;
 	missing_cr_count = startpos = line_start = 0;
@@ -572,7 +572,7 @@ static MessagePart *message_skip_boundary(IOBuffer *inbuf,
 {
 	MessageBoundary *boundary;
 	unsigned char *msg;
-	unsigned int size;
+	size_t size;
 	int end_boundary;
 
 	boundary = message_find_boundary(inbuf, boundaries,

@@ -52,7 +52,7 @@ typedef struct {
 	unsigned char cookie[AUTH_COOKIE_SIZE];
 	int id; /* AuthReplyData.id will contain this value */
 
-	unsigned int data_size;
+	size_t data_size;
 	/* unsigned char data[]; */
 } AuthContinuedRequestData;
 
@@ -62,7 +62,7 @@ typedef struct {
 	unsigned char cookie[AUTH_COOKIE_SIZE];
 	AuthResult result;
 
-	unsigned int data_size;
+	size_t data_size;
 	/* unsigned char data[]; */
 } AuthReplyData;
 

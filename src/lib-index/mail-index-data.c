@@ -31,7 +31,7 @@ struct _MailIndexData {
 	unsigned int dirty_mmap:1;
 };
 
-static int mmap_update(MailIndexData *data, uoff_t pos, unsigned int size)
+static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 {
 	if (!data->dirty_mmap || (size != 0 && pos <= data->mmap_length &&
 				  pos+size <= data->mmap_length))
@@ -235,8 +235,7 @@ uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
 	return (uoff_t)pos;
 }
 
-int mail_index_data_add_deleted_space(MailIndexData *data,
-				      unsigned int data_size)
+int mail_index_data_add_deleted_space(MailIndexData *data, size_t data_size)
 {
 	MailIndexDataHeader *hdr;
 	uoff_t max_del_space;
@@ -300,10 +299,9 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 		INDEX_MARK_CORRUPTED(data->index);
 		index_set_error(data->index, "Error in data file %s: "
 				"Given data size larger than file size "
-				"(%lu + %u > %lu)", data->filepath,
-				(unsigned long) index_rec->data_position,
-                                index_rec->data_size,
-				(unsigned long) data->mmap_length);
+				"(%"PRIuUOFF_T" + %u > %"PRIuSIZE_T")",
+				data->filepath, index_rec->data_position,
+                                index_rec->data_size, data->mmap_length);
 		return NULL;
 	}
 
@@ -321,9 +319,8 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 			INDEX_MARK_CORRUPTED(data->index);
 			index_set_error(data->index, "Error in data file %s: "
 					"Field size points outside file "
-					"(%lu / %lu)", data->filepath,
-					(unsigned long) pos,
-					(unsigned long) max_pos);
+					"(%"PRIuUOFF_T" / %"PRIuUOFF_T")",
+					data->filepath, pos, max_pos);
 			break;
 		}
 
@@ -366,10 +363,9 @@ mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
 		INDEX_MARK_CORRUPTED(data->index);
 		index_set_error(data->index, "Error in data file %s: "
 				"Field size points outside file "
-				"(%lu + %u > %lu)", data->filepath,
-				(unsigned long) pos,
-				rec->full_field_size,
-				(unsigned long) max_pos);
+				"(%"PRIuUOFF_T" + %u > %"PRIuUOFF_T")",
+				data->filepath, pos, rec->full_field_size,
+				max_pos);
 		return NULL;
 	}
 
@@ -399,15 +395,15 @@ int mail_index_data_record_verify(MailIndexData *data, MailIndexDataRecord *rec)
 
 	INDEX_MARK_CORRUPTED(data->index);
 	index_set_error(data->index, "Error in data file %s: "
-			"Missing \\0 with field %u (%lu)",
+			"Missing \\0 with field %u (%"PRIuUOFF_T")",
 			data->filepath, rec->field,
-			(unsigned long) DATA_FILE_POSITION(data, rec));
+			DATA_FILE_POSITION(data, rec));
 	return FALSE;
 }
 
 void *mail_index_data_get_mmaped(MailIndexData *data, size_t *size)
 {
-	if (!mmap_update(data, 0, UINT_MAX))
+	if (!mmap_update(data, 0, 0))
 		return NULL;
 
 	*size = data->mmap_length;
