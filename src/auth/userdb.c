@@ -6,7 +6,7 @@
 
 #include <stdlib.h>
 
-#ifdef AUTH_MODULES
+#ifdef HAVE_MODULES
 static struct auth_module *userdb_module = NULL;
 #endif
 
@@ -49,7 +49,7 @@ void userdb_init(void)
 	if (strcasecmp(name, "pgsql") == 0)
 		userdb = &userdb_pgsql;
 #endif
-#ifdef AUTH_MODULES
+#ifdef HAVE_MODULES
 	userdb_module = userdb != NULL ? NULL : auth_module_open(name);
 	if (userdb_module != NULL) {
 		userdb = auth_module_sym(userdb_module,
@@ -69,7 +69,7 @@ void userdb_deinit(void)
 {
 	if (userdb != NULL && userdb->deinit != NULL)
 		userdb->deinit();
-#ifdef AUTH_MODULES
+#ifdef HAVE_MODULES
 	if (userdb_module != NULL)
                 auth_module_close(userdb_module);
 #endif
