@@ -32,11 +32,10 @@
 
 #ifndef CMSG_SPACE
 #  if defined(_CMSG_DATA_ALIGN) && defined(_CMSG_HDR_ALIGN)  /* for Solaris */
-#    define CMSG_ALIGN(len) _CMSG_DATA_ALIGN(len)
 #    define CMSG_SPACE(len) \
 	(_CMSG_DATA_ALIGN(len) + _CMSG_HDR_ALIGN(sizeof(struct cmsghdr)))
 #    define CMSG_LEN(len) \
-	(_CMSG_HDR_ALIGN(sizeof(struct cmsghdr)) + (len))
+	(_CMSG_DATA_ALIGN(sizeof(struct cmsghdr)) + (len))
 #  else
 #    define CMSG_ALIGN(len) \
 	(((len) + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1))
@@ -69,6 +68,7 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 
 	if (send_fd != -1) {
 		/* set the control and controllen before CMSG_FIRSTHDR() */
+		memset(buf, 0, sizeof(buf));
 		msg.msg_control = buf;
 		msg.msg_controllen = sizeof(buf);
 
