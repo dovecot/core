@@ -338,7 +338,16 @@ static void part_write_body(struct message_part *part,
 	/* "content type" "subtype" */
 	str_append(str, NVL(data->content_type, "\"text\""));
 	str_append_c(str, ' ');
-	str_append(str, NVL(data->content_subtype, "\"plain\""));
+	if (data->content_subtype != NULL)
+		str_append(str, data->content_subtype);
+	else {
+		if (data->content_type == NULL ||
+		    strcasecmp(data->content_type, "text") == 0)
+			str_append(str, "\"plain\"");
+		else
+			str_append(str, "\"unknown\"");
+
+	}
 
 	/* ("content type param key" "value" ...) */
 	str_append_c(str, ' ');
@@ -353,7 +362,7 @@ static void part_write_body(struct message_part *part,
 	str_printfa(str, " %s %s %s %"PRIuUOFF_T,
 		    NVL(data->content_id, "NIL"),
 		    NVL(data->content_description, "NIL"),
-		    NVL(data->content_transfer_encoding, "\"8bit\""),
+		    NVL(data->content_transfer_encoding, "\"7bit\""),
 		    part->body_size.virtual_size);
 
 	if (part->flags & MESSAGE_PART_FLAG_TEXT) {
