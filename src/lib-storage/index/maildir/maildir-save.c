@@ -33,7 +33,7 @@ const char *maildir_generate_tmp_filename(void)
 
 	hostpid_init();
 
-	return t_strdup_printf("%s.%s_%u.%s", dec2str(ioloop_time),
+	return t_strdup_printf("%s.P%sQ%u.%s", dec2str(ioloop_time),
 			       my_pid, create_count++, my_hostname);
 }
 
@@ -97,29 +97,30 @@ static int maildir_copy(struct mail_save_context *ctx,
 			const char *src, const char *dest)
 {
 	const char *tmp_path, *new_path;
+	int failed;
 
 	t_push();
 
 	tmp_path = t_strconcat(ctx->tmpdir, "/", src, NULL);
 	new_path = t_strconcat(ctx->newdir, "/", dest, NULL);
 
-	if (rename(tmp_path, new_path) == 0) {
-		t_pop();
-		return TRUE;
-	}
-
-	if (errno == ENOSPC) {
-		mail_storage_set_error(ctx->ibox->box.storage,
-				       "Not enough disk space");
-	} else {
-		mail_storage_set_critical(ctx->ibox->box.storage,
-					  "rename(%s, %s) failed: %m",
-					  tmp_path, new_path);
+	if (link(tmp_path, new_path) == 0)
+		failed = FALSE;
+	else {
+		failed = TRUE;
+		if (errno == ENOSPC) {
+			mail_storage_set_error(ctx->ibox->box.storage,
+					       "Not enough disk space");
+		} else {
+			mail_storage_set_critical(ctx->ibox->box.storage,
+						  "link(%s, %s) failed: %m",
+						  tmp_path, new_path);
+		}
 	}
 
 	(void)unlink(tmp_path);
 	t_pop();
-	return FALSE;
+	return !failed;
 }
 
 int maildir_storage_save_next(struct mail_save_context *ctx,
