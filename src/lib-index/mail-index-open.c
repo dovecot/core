@@ -346,18 +346,8 @@ static int mail_index_open_index(struct mail_index *index,
 		index->lock_type = MAIL_LOCK_UNLOCK;
 	}
 
-	if (!index_open_and_fix(index, flags)) {
-		if ((index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD) == 0 ||
-		    (flags & _MAIL_INDEX_OPEN_FLAG_CREATING) != 0)
-			return FALSE;
-
-		/* needs a rebuild */
-		if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
-			return FALSE;
-
-		flags |= _MAIL_INDEX_OPEN_FLAG_CREATING;
-		return mail_index_open_index(index, flags);
-	}
+	if (!index_open_and_fix(index, flags))
+		return FALSE;
 
 	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
 		return FALSE;
