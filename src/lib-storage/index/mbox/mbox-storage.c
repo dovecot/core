@@ -403,7 +403,7 @@ mbox_open_mailbox(struct mail_storage *storage,
 		(void)create_mbox_index_dirs(storage, name, TRUE);
 
 		return mbox_open(storage, name, readonly, fast);
-	} else if (errno == ENOENT) {
+	} else if (errno == ENOENT || errno == ENOTDIR) {
 		mail_storage_set_error(storage, "Mailbox doesn't exist: %s",
 				       name);
 		return NULL;
@@ -505,7 +505,7 @@ static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
 
 	path = mbox_get_path(storage, name);
 	if (lstat(path, &st) < 0) {
-		if (errno == ENOENT) {
+		if (errno == ENOENT || errno == ENOTDIR) {
 			mail_storage_set_error(storage,
 					       "Mailbox doesn't exist: %s",
 					       name);
@@ -536,7 +536,7 @@ static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
 
 	/* first unlink the mbox file */
 	if (unlink(path) < 0) {
-		if (errno == ENOENT) {
+		if (errno == ENOENT || errno == ENOTDIR) {
 			mail_storage_set_error(storage,
 					       "Mailbox doesn't exist: %s",
 					       name);
@@ -556,7 +556,7 @@ static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
 	    unlink_directory(index_dir, TRUE) < 0 && errno != ENOENT) {
 		mail_storage_set_critical(storage, "unlink_directory(%s) "
 					  "failed: %m", index_dir);
-		return FALSE;
+		/* mailbox itself is deleted, so return success anyway */
 	}
 	return TRUE;
 }
@@ -600,6 +600,10 @@ static int mbox_rename_mailbox(struct mail_storage *storage,
 		mail_storage_set_error(storage,
 				       "Target mailbox already exists");
 		return FALSE;
+	} else if (errno == ENOENT || errno == ENOTDIR) {
+		mail_storage_set_error(storage, "Mailbox doesn't exist: %s",
+				       oldname);
+		return FALSE;
 	} else if (errno == EACCES) {
 		return mbox_permission_denied(storage);
 	} else {
@@ -611,8 +615,13 @@ static int mbox_rename_mailbox(struct mail_storage *storage,
 	/* we need to rename the index directory as well */
 	old_indexdir = mbox_get_index_dir(storage, oldname);
 	new_indexdir = mbox_get_index_dir(storage, newname);
-	if (old_indexdir != NULL)
-		(void)rename(old_indexdir, new_indexdir);
+	if (old_indexdir != NULL) {
+		if (rename(old_indexdir, new_indexdir) < 0) {
+			mail_storage_set_critical(storage,
+						  "rename(%s, %s) failed: %m",
+						  old_indexdir, new_indexdir);
+		}
+	}
 
 	return TRUE;
 }
