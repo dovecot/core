@@ -143,7 +143,7 @@ static void open_fds(void)
 	imap_fd = set_imap_port == 0 ? dup(null_fd) :
 		net_listen(imap_ip, &set_imap_port);
 	if (imap_fd == -1) {
-		i_fatal("listen(%d) failed: %ms", set_imap_port);
+		i_fatal("listen(%d) failed: %m", set_imap_port);
 	}
 
 	imaps_fd = set_ssl_cert_file == NULL || *set_ssl_cert_file == '\0' ||
