@@ -296,6 +296,12 @@ void client_save_custom_flags(struct mailbox_custom_flags *dest,
 
 	p_clear(dest->pool);
 
+	if (custom_flags_count == 0) {
+		dest->custom_flags = NULL;
+		dest->custom_flags_count = 0;
+		return;
+	}
+
 	dest->custom_flags =
 		p_new(dest->pool, char *, custom_flags_count);
 	dest->custom_flags_count = custom_flags_count;
