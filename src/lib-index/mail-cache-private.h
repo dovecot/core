@@ -157,7 +157,7 @@ struct mail_cache_view {
 };
 
 typedef int mail_cache_foreach_callback_t(struct mail_cache_view *view,
-					  uint32_t file_field,
+					  uint32_t field,
 					  const void *data, size_t data_size,
 					  void *context);
 

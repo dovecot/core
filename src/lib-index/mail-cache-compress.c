@@ -13,11 +13,11 @@ struct mail_cache_copy_context {
 };
 
 static void mail_cache_merge_bitmask(struct mail_cache *cache, buffer_t *buffer,
-				     uint32_t file_field, const void *data,
+				     uint32_t field, const void *data,
 				     size_t data_size)
 {
 	void *buf_data;
-	uint32_t field, buf_file_field;
+	uint32_t buf_file_field;
 	unsigned int i, buf_data_size;
 	size_t pos, buf_size;
 
@@ -26,7 +26,6 @@ static void mail_cache_merge_bitmask(struct mail_cache *cache, buffer_t *buffer,
 		buf_file_field = *((uint32_t *)PTR_OFFSET(buf_data, pos));
 		pos += sizeof(uint32_t);
 
-		field = cache->file_field_map[file_field];
 		buf_data_size = cache->fields[field].field.field_size;
 		if (buf_data_size == (unsigned int)-1) {
 			buf_data_size =
@@ -34,7 +33,7 @@ static void mail_cache_merge_bitmask(struct mail_cache *cache, buffer_t *buffer,
 			pos += sizeof(uint32_t);
 		}
 
-		if (buf_file_field == file_field) {
+		if (cache->file_field_map[buf_file_field] == field) {
 			/* found it, do the merging */
 			unsigned char *dest = PTR_OFFSET(buf_data, pos);
 
@@ -48,20 +47,18 @@ static void mail_cache_merge_bitmask(struct mail_cache *cache, buffer_t *buffer,
 }
 
 static int
-mail_cache_compress_callback(struct mail_cache_view *view, uint32_t file_field,
+mail_cache_compress_callback(struct mail_cache_view *view, uint32_t field,
 			     const void *data, size_t data_size, void *context)
 {
 	struct mail_cache_copy_context *ctx = context;
         struct mail_cache_field *cache_field;
 	enum mail_cache_decision_type dec;
-	unsigned int field;
 	uint8_t *field_seen;
 	uint32_t size32;
 
-	field = view->cache->file_field_map[file_field];
 	cache_field = &view->cache->fields[field].field;
 
-	field_seen = buffer_get_space_unsafe(ctx->field_seen, file_field, 1);
+	field_seen = buffer_get_space_unsafe(ctx->field_seen, field, 1);
 	if (*field_seen == ctx->field_seen_value) {
 		/* duplicate */
 		if (cache_field->type == MAIL_CACHE_FIELD_BITMASK) {
@@ -81,7 +78,7 @@ mail_cache_compress_callback(struct mail_cache_view *view, uint32_t file_field,
 			return 1;
 	}
 
-	buffer_append(ctx->buffer, &file_field, sizeof(file_field));
+	buffer_append(ctx->buffer, &field, sizeof(field));
 
 	if (cache_field->field_size == (unsigned int)-1) {
 		size32 = (uint32_t)data_size;
@@ -105,7 +102,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	struct mail_cache_record cache_rec;
 	struct ostream *output;
 	buffer_t *buffer;
-	uint32_t message_count, seq, first_new_seq, old_offset;
+	uint32_t i, message_count, seq, first_new_seq, old_offset;
 	uoff_t offset;
 
 	/* get sequence of first message which doesn't need it's temp fields
@@ -133,19 +130,6 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	hdr.indexid = idx_hdr->indexid;
 	hdr.file_seq = idx_hdr->cache_file_seq + 1;
 	o_stream_send(output, &hdr, sizeof(hdr));
-
-	if (cache->fields_count != 0) {
-		hdr.field_header_offset =
-			mail_index_uint32_to_offset(output->offset);
-
-		t_push();
-		buffer = buffer_create_dynamic(pool_datastack_create(),
-					       256, (size_t)-1);
-		mail_cache_header_fields_get(cache, buffer);
-		o_stream_send(output, buffer_get_data(buffer, NULL),
-			      buffer_get_used_size(buffer));
-		t_pop();
-	}
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.buffer = buffer_create_dynamic(default_pool, 4096, (size_t)-1);
@@ -181,6 +165,27 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 		o_stream_send(output, buffer_get_data(ctx.buffer, NULL),
 			      cache_rec.size);
 	}
+
+	if (cache->fields_count != 0) {
+		hdr.field_header_offset =
+			mail_index_uint32_to_offset(output->offset);
+
+		/* we wrote everything using our internal data_ids. so we want
+		   mail_cache_header_fields_get() to use them and ignore any
+		   existing id mappings in the old cache file. */
+		cache->file_fields_count = 0;
+		for (i = 0; i < cache->fields_count; i++)
+                        cache->field_file_map[i] = (uint32_t)-1;
+
+		t_push();
+		buffer = buffer_create_dynamic(pool_datastack_create(),
+					       256, (size_t)-1);
+		mail_cache_header_fields_get(cache, buffer);
+		o_stream_send(output, buffer_get_data(buffer, NULL),
+			      buffer_get_used_size(buffer));
+		t_pop();
+	}
+
 	hdr.used_file_size = output->offset;
 	buffer_free(ctx.buffer);
 

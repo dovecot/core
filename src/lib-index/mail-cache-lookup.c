@@ -130,8 +130,7 @@ mail_cache_foreach_rec(struct mail_cache_view *view, uint32_t *offset,
 			return -1;
 		}
 
-		ret = callback(view, file_field,
-			       CONST_PTR_OFFSET(cache_rec, pos),
+		ret = callback(view, field, CONST_PTR_OFFSET(cache_rec, pos),
 			       data_size, context);
 		if (ret != 1)
 			return ret;
@@ -182,12 +181,12 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 }
 
 static int
-mail_cache_seq_callback(struct mail_cache_view *view, uint32_t file_field,
+mail_cache_seq_callback(struct mail_cache_view *view, uint32_t field,
 			const void *data __attr_unused__,
 			size_t data_size __attr_unused__,
 			void *context __attr_unused__)
 {
-	buffer_write(view->cached_exists_buf, file_field,
+	buffer_write(view->cached_exists_buf, field,
 		     &view->cached_exists_value, 1);
 	return 1;
 }
@@ -229,8 +228,8 @@ int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
 	}
 
 	data = buffer_get_data(view->cached_exists_buf, &size);
-	return size <= file_field ? FALSE :
-		data[file_field] == view->cached_exists_value;
+	return size <= field ? FALSE :
+		data[field] == view->cached_exists_value;
 }
 
 enum mail_cache_decision_type
@@ -243,18 +242,18 @@ mail_cache_field_get_decision(struct mail_cache *cache, unsigned int field)
 
 struct mail_cache_lookup_context {
 	buffer_t *dest_buf;
-	uint32_t file_field;
+	uint32_t field;
 	int found;
 };
 
 static int
 mail_cache_lookup_callback(struct mail_cache_view *view __attr_unused__,
-			   uint32_t file_field, const void *data,
+			   uint32_t field, const void *data,
 			   size_t data_size, void *context)
 {
         struct mail_cache_lookup_context *ctx = context;
 
-	if (ctx->file_field != file_field)
+	if (ctx->field != field)
 		return 1;
 
 	buffer_append(ctx->dest_buf, data, data_size);
@@ -264,14 +263,14 @@ mail_cache_lookup_callback(struct mail_cache_view *view __attr_unused__,
 
 static int
 mail_cache_lookup_bitmask_callback(struct mail_cache_view *view __attr_unused__,
-				   uint32_t file_field, const void *data,
+				   uint32_t field, const void *data,
 				   size_t data_size, void *context)
 {
         struct mail_cache_lookup_context *ctx = context;
 	unsigned char *dest;
 	size_t i;
 
-	if (ctx->file_field != file_field)
+        if (ctx->field != field)
 		return 1;
 
 	/* merge all bits */
@@ -295,7 +294,7 @@ int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 	mail_cache_decision_lookup(view, seq, field);
 
 	/* should exist. find it. */
-	ctx.file_field = view->cache->field_file_map[field];
+	ctx.field = field;
 	ctx.dest_buf = dest_buf;
 	ctx.found = FALSE;
 	if (view->cache->fields[field].field.type != MAIL_CACHE_FIELD_BITMASK) {
@@ -334,7 +333,7 @@ struct header_lookup_context {
 };
 
 static int
-headers_find_callback(struct mail_cache_view *view, uint32_t file_field,
+headers_find_callback(struct mail_cache_view *view, uint32_t field,
 		      const void *data, size_t data_size, void *context)
 {
 	struct header_lookup_context *ctx = context;
@@ -343,11 +342,11 @@ headers_find_callback(struct mail_cache_view *view, uint32_t file_field,
         struct header_lookup_data_rec *hdr_data_rec;
 	unsigned int i, lines_count;
 
-	if (file_field > ctx->max_field || ctx->fields_found[file_field] != 1) {
+	if (field > ctx->max_field || ctx->fields_found[field] != 1) {
 		/* a) don't want it, b) duplicate */
 		return 1;
 	}
-	ctx->fields_found[file_field]++;
+	ctx->fields_found[field]++;
 
 	/* data = { line_nums[], 0, "headers" } */
 	for (i = 0; data_size >= sizeof(uint32_t); i++) {
@@ -387,7 +386,6 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 	struct header_lookup_data *data;
 	const unsigned char *p, *start, *end;
 	size_t i, size, hdr_size;
-	unsigned int field_idx;
 	uint8_t one = 1;
 	buffer_t *buf;
 	int ret;
@@ -406,18 +404,17 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 	buf = buffer_create_dynamic(pool_datastack_create(), 32, (size_t)-1);
 	for (i = 0; i < fields_count; i++) {
 		i_assert(fields[i] < cache->fields_count);
-		field_idx = cache->field_file_map[fields[i]];
-		if (field_idx == (unsigned int)-1) {
+		if (cache->field_file_map[fields[i]] == (unsigned int)-1) {
 			/* not cached at all */
 			t_pop();
 			return 0;
 		}
 
-		if (field_idx > ctx.max_field)
-			ctx.max_field = field_idx;
+		if (fields[i] > ctx.max_field)
+			ctx.max_field = fields[i];
 
-		buffer_write(buf, field_idx, &one, 1);
-                ctx.fields[i] = field_idx;
+		buffer_write(buf, fields[i], &one, 1);
+                ctx.fields[i] = fields[i];
 	}
 	ctx.fields_found = buffer_get_modifyable_data(buf, NULL);
 
