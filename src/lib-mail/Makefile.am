@@ -5,6 +5,7 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib-charset
 
 libmail_a_SOURCES = \
+	istream-header-filter.c \
 	message-address.c \
 	message-body-search.c \
 	message-content-parser.c \
@@ -19,6 +20,7 @@ libmail_a_SOURCES = \
 	quoted-printable.c
 
 noinst_HEADERS = \
+	istream-header-filter.h \
 	mail-types.h \
 	message-address.h \
 	message-body-search.h \
