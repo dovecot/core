@@ -257,11 +257,13 @@ static void open_fds(void)
 		if (strcasecmp(*proto, "imap") == 0) {
 			fd = &mail_fd[FD_IMAP]; ip = imap_ip; port = imap_port;
 		} else if (strcasecmp(*proto, "imaps") == 0) {
-			fd = &mail_fd[FD_IMAPS]; ip = imaps_ip; port = imaps_port;
+			fd = &mail_fd[FD_IMAPS]; ip = imaps_ip;
+			port = set->ssl_disable ? 0 : imaps_port;
 		} else if (strcasecmp(*proto, "pop3") == 0) {
 			fd = &mail_fd[FD_POP3]; ip = pop3_ip; port = pop3_port;
 		} else if (strcasecmp(*proto, "pop3s") == 0) {
-			fd = &mail_fd[FD_POP3S]; ip = pop3s_ip; port = pop3s_port;
+			fd = &mail_fd[FD_POP3S]; ip = pop3s_ip;
+			port = set->ssl_disable ? 0 : pop3s_port;
 		} else {
 			i_fatal("Unknown protocol %s", *proto);
 		}
