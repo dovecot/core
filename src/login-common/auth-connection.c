@@ -58,8 +58,8 @@ static struct auth_connection *auth_connection_new(const char *path)
 		return NULL;
 	}
 
-	/* we depend on auth process - if it's slow, just wait */
-        net_set_nonblock(fd, FALSE);
+	/* use blocking connection since we depend on auth process -
+	   if it's slow, just wait */
 
 	conn = i_new(struct auth_connection, 1);
 	conn->refcount = 1;

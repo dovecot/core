@@ -371,6 +371,7 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 	group->listen_fd = net_listen_unix(path);
 	if (group->listen_fd < 0)
 		i_fatal("Can't listen in UNIX socket %s: %m", path);
+	net_set_nonblock(group->listen_fd, TRUE);
 	fd_close_on_exec(group->listen_fd, TRUE);
 
 	/* set correct permissions */

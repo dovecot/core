@@ -35,6 +35,7 @@ static void auth_accept(void *context __attr_unused__)
 		if (fd < -1)
 			i_fatal("accept() failed: %m");
 	} else {
+		net_set_nonblock(fd, TRUE);
 		(void)login_connection_create(fd);
 	}
 }

@@ -324,6 +324,7 @@ int ssl_proxy_new(int fd, struct ip_addr *ip)
 
 	net_set_nonblock(sfd[0], TRUE);
 	net_set_nonblock(sfd[1], TRUE);
+	net_set_nonblock(fd, TRUE);
 
 	proxy = i_new(struct ssl_proxy, 1);
 	proxy->refcount = 1;

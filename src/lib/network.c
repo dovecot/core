@@ -147,7 +147,6 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 		return -1;
 
 	/* set socket options */
-        net_set_nonblock(fd, TRUE);
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
 
@@ -196,9 +195,6 @@ int net_connect_unix(const char *path)
 	fd = socket(PF_UNIX, SOCK_STREAM, 0);
 	if (fd == -1)
 		return -1;
-
-	/* set socket options */
-        net_set_nonblock(fd, TRUE);
 
 	/* connect */
 	ret = connect(fd, (struct sockaddr *) &sa, sizeof(sa));
@@ -283,7 +279,6 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port)
 		return -1;
 
 	/* set socket options */
-        net_set_nonblock(fd, TRUE);
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
 
@@ -326,9 +321,6 @@ int net_listen_unix(const char *path)
 	if (fd == -1)
 		return -1;
 
-	/* set socket options */
-        net_set_nonblock(fd, TRUE);
-
 	/* bind */
 	if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) == 0) {
 		/* start listening */
@@ -363,7 +355,6 @@ int net_accept(int fd, struct ip_addr *addr, unsigned int *port)
 	if (addr != NULL) sin_get_ip(&so, addr);
 	if (port != NULL) *port = sin_get_port(&so);
 
-        net_set_nonblock(ret, TRUE);
 	return ret;
 }
 
