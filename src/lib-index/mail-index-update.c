@@ -507,7 +507,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 		message_parse_header(NULL, inbuf, &hdr_size,
 				     update_header_func, &ctx);
 
-		body_size.physical_size = inbuf->v_size - inbuf->v_offset;
+		body_size.physical_size = inbuf->v_limit - inbuf->v_offset;
 		if (body_size.physical_size == 0)
                         body_size.virtual_size = 0;
 		else if (update->data_hdr.virtual_size == 0)
