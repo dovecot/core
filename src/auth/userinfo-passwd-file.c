@@ -87,6 +87,17 @@ static int get_reply_data(PasswdUser *pu, AuthCookieReplyData *reply)
 		strcpy(reply->mail, pu->mail);
 	}
 
+	i_assert(sizeof(reply->virtual_user) > strlen(pu->user_realm));
+	strcpy(reply->virtual_user, pu->user_realm);
+
+	if (pu->realm != NULL) {
+		/* ':' -> '@' to make it look prettier */
+		size_t pos;
+
+		pos = (size_t) (pu->realm - (const char *) pu->user_realm);
+		reply->virtual_user[pos] = '@';
+	}
+
 	reply->chroot = pu->chroot;
 	return TRUE;
 }

@@ -7,6 +7,7 @@
 #define AUTH_MAX_REPLY_DATA_SIZE	4096
 
 #define AUTH_MAX_USER_LEN		64
+#define AUTH_MAX_VUSER_LEN		256
 #define AUTH_MAX_HOME_LEN		256
 #define AUTH_MAX_MAIL_LEN		256
 
@@ -77,7 +78,8 @@ typedef struct {
 	int id;
 	int success; /* FALSE if cookie wasn't found */
 
-	char user[AUTH_MAX_USER_LEN]; /* system user, if available */
+	char system_user[AUTH_MAX_USER_LEN]; /* system user, if available */
+	char virtual_user[AUTH_MAX_VUSER_LEN]; /* for logging etc. */
 	uid_t uid;
 	gid_t gid;
 

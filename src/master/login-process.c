@@ -70,7 +70,8 @@ static void auth_callback(AuthCookieReplyData *cookie_reply, void *context)
 	else {
 		reply.result = create_imap_process(request->fd,
 						   &request->ip,
-						   cookie_reply->user,
+						   cookie_reply->system_user,
+						   cookie_reply->virtual_user,
 						   cookie_reply->uid,
 						   cookie_reply->gid,
 						   cookie_reply->home,

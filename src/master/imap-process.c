@@ -101,7 +101,9 @@ static const char *expand_mail_env(const char *env, const char *user,
 	return str->str;
 }
 
-MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
+MasterReplyResult create_imap_process(int socket, IPADDR *ip,
+				      const char *system_user,
+				      const char *virtual_user,
 				      uid_t uid, gid_t gid, const char *home,
 				      int chroot, const char *env[])
 {
@@ -165,10 +167,12 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
 	if (!found_mail && set_default_mail_env != NULL) {
 		const char *mail;
 
-		mail = expand_mail_env(set_default_mail_env, user, home);
+		mail = expand_mail_env(set_default_mail_env,
+				       virtual_user, home);
 		env_put(t_strconcat("MAIL=", mail, NULL));
 	}
 
+	env_put(t_strconcat("USER=", virtual_user, NULL));
 	env_put(t_strconcat("HOME=", home, NULL));
 	env_put(t_strconcat("MAIL_CACHE_FIELDS=", set_mail_cache_fields, NULL));
 	env_put(t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
@@ -197,13 +201,13 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
 		env_put("MBOX_READ_DOTLOCK=1");
 
 	if (set_verbose_proctitle && net_ip2host(ip, host) == 0) {
-		i_snprintf(title, sizeof(title), "[%s %s]", user, host);
+		i_snprintf(title, sizeof(title), "[%s %s]", virtual_user, host);
 		argv[2] = title;
 	}
 
 	/* setup access environment - needs to be done after
 	   clean_child_process() since it clears environment */
-	restrict_access_set_env(user, uid, gid, chroot ? home : NULL);
+	restrict_access_set_env(system_user, uid, gid, chroot ? home : NULL);
 
 	restrict_process_size(set_imap_process_size);
 

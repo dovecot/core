@@ -15,13 +15,15 @@
 
 void passwd_fill_cookie_reply(struct passwd *pw, AuthCookieReplyData *reply)
 {
-	i_assert(sizeof(reply->user) > strlen(pw->pw_name));
+	i_assert(sizeof(reply->system_user) > strlen(pw->pw_name));
+	i_assert(sizeof(reply->virtual_user) > strlen(pw->pw_name));
 	i_assert(sizeof(reply->home) > strlen(pw->pw_dir));
 
 	reply->uid = pw->pw_uid;
 	reply->gid = pw->pw_gid;
 
-	strcpy(reply->user, pw->pw_name);
+	strcpy(reply->system_user, pw->pw_name);
+	strcpy(reply->virtual_user, pw->pw_name);
 	strcpy(reply->home, pw->pw_dir);
 }
 

@@ -78,7 +78,8 @@ static void pop_request(AuthProcess *process, AuthCookieReplyData *reply)
 
 	/* auth process isn't trusted, validate all data to make sure
 	   it's not trying to exploit us */
-	if (!VALIDATE_STR(reply->user) || !VALIDATE_STR(reply->mail) ||
+	if (!VALIDATE_STR(reply->system_user) ||
+	    !VALIDATE_STR(reply->virtual_user) || !VALIDATE_STR(reply->mail) ||
 	    !VALIDATE_STR(reply->home)) {
 		i_error("auth: Received corrupted data");
 		auth_process_destroy(process);

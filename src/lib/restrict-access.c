@@ -34,12 +34,12 @@ void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 			     const char *chroot_dir)
 {
 	if (user != NULL && *user != '\0')
-		env_put(t_strconcat("USER=", user, NULL));
+		env_put(t_strconcat("RESTRICT_USER=", user, NULL));
 	if (chroot_dir != NULL && *chroot_dir != '\0')
-		env_put(t_strconcat("CHROOT=", chroot_dir, NULL));
+		env_put(t_strconcat("RESTRICT_CHROOT=", chroot_dir, NULL));
 
-	env_put(t_strdup_printf("SETUID=%ld", (long) uid));
-	env_put(t_strdup_printf("SETGID=%ld", (long) gid));
+	env_put(t_strdup_printf("RESTRICT_SETUID=%ld", (long) uid));
+	env_put(t_strdup_printf("RESTRICT_SETGID=%ld", (long) gid));
 }
 
 void restrict_access_by_env(void)
@@ -49,7 +49,7 @@ void restrict_access_by_env(void)
 	uid_t uid;
 
 	/* chrooting */
-	env = getenv("CHROOT");
+	env = getenv("RESTRICT_CHROOT");
 	if (env != NULL) {
 		/* kludge: localtime() must be called before chroot(),
 		   or the timezone isn't known */
@@ -65,13 +65,13 @@ void restrict_access_by_env(void)
 
 	/* groups - the getgid() checks are just so we don't fail if we're
 	   not running as root and try to just use our own GID. */
-	env = getenv("SETGID");
+	env = getenv("RESTRICT_SETGID");
 	gid = env == NULL ? 0 : (gid_t) atol(env);
 	if (gid != 0 && (gid != getgid() || gid != getegid())) {
 		if (setgid(gid) != 0)
 			i_fatal("setgid(%ld) failed: %m", (long) gid);
 
-		env = getenv("USER");
+		env = getenv("RESTRICT_USER");
 		if (env == NULL) {
 			/* user not known, use only this one group */
 			(void)setgroups(1, &gid);
@@ -84,7 +84,7 @@ void restrict_access_by_env(void)
 	}
 
 	/* uid last */
-	env = getenv("SETUID");
+	env = getenv("RESTRICT_SETUID");
 	uid = env == NULL ? 0 : (uid_t) atol(env);
 	if (uid != 0) {
 		if (setuid(uid) != 0)
