@@ -162,9 +162,10 @@ static void timeout_list_insert(struct ioloop *ioloop, struct timeout *timeout)
 
 static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 {
-        if (tv_now == NULL)
-		gettimeofday(&timeout->next_run, NULL);
-	else {
+	if (tv_now == NULL) {
+		if (gettimeofday(&timeout->next_run, NULL) < 0)
+			i_fatal("gettimeofday(): %m");
+	} else {
                 timeout->next_run.tv_sec = tv_now->tv_sec;
                 timeout->next_run.tv_usec = tv_now->tv_usec;
 	}
@@ -225,9 +226,10 @@ int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
 	if (timeout == NULL)
 		return INT_MAX;
 
-	if (tv_now == NULL)
-		gettimeofday(tv, NULL);
-	else {
+	if (tv_now == NULL) {
+		if (gettimeofday(tv, NULL) < 0)
+			i_fatal("gettimeofday(): %m");
+	} else {
 		tv->tv_sec = tv_now->tv_sec;
 		tv->tv_usec = tv_now->tv_usec;
 	}
@@ -254,7 +256,8 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 	struct timeval tv;
         unsigned int t_id;
 
-	gettimeofday(&ioloop_timeval, &ioloop_timezone);
+	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
+		i_fatal("gettimeofday(): %m");
 	ioloop_time = ioloop_timeval.tv_sec;
 
 	if (ioloop->timeouts == NULL || !ioloop->timeouts->run_now)
@@ -312,7 +315,8 @@ struct ioloop *io_loop_create(pool_t pool)
 	struct ioloop *ioloop;
 
 	/* initialize time */
-	gettimeofday(&ioloop_timeval, &ioloop_timezone);
+	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
+		i_fatal("gettimeofday(): %m");
 	ioloop_time = ioloop_timeval.tv_sec;
 
         ioloop = p_new(pool, struct ioloop, 1);
