@@ -753,11 +753,56 @@ int mail_index_open_or_create(MailIndex *index, int update_recent)
 	return TRUE;
 }
 
+int mail_index_verify_hole_range(MailIndex *index)
+{
+	MailIndexHeader *hdr;
+	unsigned int max_records, first_records;
+
+	hdr = index->header;
+	if (hdr->first_hole_position == 0)
+		return TRUE;
+
+	/* make sure position is valid */
+	if (hdr->first_hole_position < sizeof(MailIndexHeader) ||
+	    (hdr->first_hole_position -
+	     sizeof(MailIndexHeader)) % sizeof(MailIndexRecord) != 0) {
+		index_set_error(index, "Error in index file %s: "
+				"first_hole_position contains invalid value",
+				index->filepath);
+		INDEX_MARK_CORRUPTED(index);
+		return FALSE;
+	}
+
+	/* make sure position is in range.. */
+	if (hdr->first_hole_position >= index->mmap_length) {
+		index_set_error(index, "Error in index file %s: "
+				"first_hole_position points outside file",
+				index->filepath);
+		INDEX_MARK_CORRUPTED(index);
+		return FALSE;
+	}
+
+	/* and finally check that first_hole_records is in valid range */
+	max_records = MAIL_INDEX_RECORD_COUNT(index);
+	first_records = (hdr->first_hole_position -
+			 sizeof(MailIndexHeader)) / sizeof(MailIndexRecord);
+	if (index->header->first_hole_records > max_records ||
+	    first_records + index->header->first_hole_records > max_records) {
+		index_set_error(index, "Error in index file %s: "
+				"first_hole_records points outside file",
+				index->filepath);
+		INDEX_MARK_CORRUPTED(index);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 						 unsigned int lookup_seq)
 {
 	MailIndexHeader *hdr;
-	MailIndexRecord *rec, *end_rec;
+	MailIndexRecord *rec, *last_rec;
 	unsigned int seq;
 	uoff_t seekpos;
 
@@ -767,21 +812,34 @@ static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 		return index->last_lookup;
 	}
 
-	hdr = index->mmap_base;
-	rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				   sizeof(MailIndexHeader));
-
-	seekpos = sizeof(MailIndexHeader) +
-		(uoff_t)(lookup_seq-1) * sizeof(MailIndexRecord);
-	if (seekpos > index->mmap_length - sizeof(MailIndexRecord)) {
+	hdr = index->header;
+	if (lookup_seq > hdr->messages_count) {
 		/* out of range */
 		return NULL;
 	}
+
+	if (!mail_index_verify_hole_range(index))
+		return NULL;
+
+	seekpos = sizeof(MailIndexHeader) +
+		(uoff_t)(lookup_seq-1) * sizeof(MailIndexRecord);
+	if (seekpos + sizeof(MailIndexRecord) > index->mmap_length) {
+		/* out of range */
+		return NULL;
+	}
+
+	rec = (MailIndexRecord *) ((char *) index->mmap_base +
+				   sizeof(MailIndexHeader));
+	last_rec = (MailIndexRecord *) ((char *) index->mmap_base +
+					index->mmap_length -
+					sizeof(MailIndexRecord));
 
 	if (hdr->first_hole_position == 0 ||
 	    hdr->first_hole_position > seekpos) {
 		/* easy, it's just at the expected index */
 		rec += lookup_seq-1;
+		i_assert(rec <= last_rec);
+
 		if (rec->uid == 0) {
 			index_set_error(index, "Error in index file %s: "
 					"first_hole_position wasn't updated "
@@ -801,15 +859,11 @@ static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 	} else {
 		/* some mails are deleted, jump after the first known hole
 		   and start counting non-deleted messages.. */
-		i_assert(hdr->first_hole_records > 0);
-
 		seq = INDEX_POSITION_INDEX(hdr->first_hole_position + 1) + 1;
 		rec += seq-1 + hdr->first_hole_records;
 	}
 
-	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				       index->mmap_length);
-	while (seq < lookup_seq && rec < end_rec) {
+	while (seq < lookup_seq && rec <= last_rec) {
 		if (rec->uid != 0)
 			seq++;
 		rec++;
@@ -869,9 +923,7 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 	i_assert(first_uid > 0 && last_uid > 0);
-
-	if (first_uid > last_uid)
-		return NULL;
+	i_assert(first_uid <= last_uid);
 
 	if (!mmap_update(index))
 		return NULL;
@@ -936,7 +988,7 @@ const char *mail_index_lookup_field(MailIndex *index, MailIndexRecord *rec,
 	datarec = mail_index_data_lookup(index->data, rec, field);
 	if (datarec == NULL) {
 		/* corrupted, the field should have been there */
-		index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
+		INDEX_MARK_CORRUPTED(index);
 		return NULL;
 	}
 
@@ -966,6 +1018,9 @@ unsigned int mail_index_get_sequence(MailIndex *index, MailIndexRecord *rec)
 			INDEX_FILE_POSITION(index, rec)) + 1;
 	}
 
+	if (!mail_index_verify_hole_range(index))
+		return 0;
+
 	seekrec = (MailIndexRecord *) ((char *) index->mmap_base +
 				       index->header->first_hole_position);
 	if (rec < seekrec) {
@@ -979,28 +1034,12 @@ unsigned int mail_index_get_sequence(MailIndex *index, MailIndexRecord *rec)
 	seq = INDEX_POSITION_INDEX(INDEX_FILE_POSITION(index, seekrec))+1;
 	seekrec += index->header->first_hole_records;
 
-	for (; seekrec != rec; seekrec++) {
+	for (; seekrec < rec; seekrec++) {
 		if (seekrec->uid != 0)
 			seq++;
 	}
 
 	return seq;
-}
-
-static void update_first_hole_records(MailIndex *index)
-{
-        MailIndexRecord *rec, *end_rec;
-
-	/* see if first_hole_records can be grown */
-	rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				   index->header->first_hole_position) +
-		index->header->first_hole_records;
-	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				       index->mmap_length);
-	while (rec != end_rec && rec->uid == 0) {
-		index->header->first_hole_records++;
-		rec++;
-	}
 }
 
 static void index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
@@ -1019,7 +1058,7 @@ static void index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 			index->header->first_unseen_uid_lowwater = rec->uid;
 
 		if (index->header->seen_messages_count == 0)
-			index->header->flags |= MAIL_INDEX_FLAG_FSCK;
+                        INDEX_MARK_CORRUPTED(index);
 		else
 			index->header->seen_messages_count--;
 	} else if ((old_flags & MAIL_DELETED) == 0 &&
@@ -1036,9 +1075,25 @@ static void index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 		   (new_flags & MAIL_DELETED) == 0) {
 		/* deleted -> undeleted */
 		if (index->header->deleted_messages_count == 0)
-			index->header->flags |= MAIL_INDEX_FLAG_FSCK;
+                        INDEX_MARK_CORRUPTED(index);
 		else
 			index->header->deleted_messages_count--;
+	}
+}
+
+static void update_first_hole_records(MailIndex *index)
+{
+        MailIndexRecord *rec, *end_rec;
+
+	/* see if first_hole_records can be grown */
+	rec = (MailIndexRecord *) ((char *) index->mmap_base +
+				   index->header->first_hole_position) +
+		index->header->first_hole_records;
+	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
+				       index->mmap_length);
+	while (rec < end_rec && rec->uid == 0) {
+		index->header->first_hole_records++;
+		rec++;
 	}
 }
 
@@ -1095,11 +1150,14 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 			index->last_lookup_seq--;
 	}
 
+	if (!mail_index_verify_hole_range(index))
+		return FALSE;
+
 	hdr = index->header;
 
 	/* update first hole */
 	pos = INDEX_FILE_POSITION(index, rec);
-	if (hdr->first_hole_position == 0) {
+	if (hdr->first_hole_position < sizeof(MailIndexRecord)) {
 		/* first deleted message in index */
 		hdr->first_hole_position = pos;
 		hdr->first_hole_records = 1;
@@ -1125,6 +1183,12 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	}
 
 	/* update message counts */
+	if (hdr->messages_count == 0) {
+		/* corrupted */
+		INDEX_MARK_CORRUPTED(index);
+		return FALSE;
+	}
+
 	hdr->messages_count--;
 	index_mark_flag_changes(index, rec, rec->msg_flags, 0);
 

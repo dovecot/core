@@ -15,6 +15,9 @@ static unsigned int get_recent_count(MailIndex *index)
 	}
 
 	/* get the first recent message */
+	if (index->first_recent_uid >= hdr->next_uid)
+		return 0;
+
 	rec = index->lookup_uid_range(index, index->first_recent_uid,
 				      hdr->next_uid - 1);
 	if (rec == NULL)

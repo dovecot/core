@@ -23,13 +23,8 @@ int mail_index_compress(MailIndex *index)
 		return TRUE;
 	}
 
-	if (index->header->first_hole_position >= index->mmap_length) {
-		index_set_error(index, "Error in index file %s: "
-				"first_hole_position points outside file",
-				index->filepath);
-		index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
+	if (!mail_index_verify_hole_range(index))
 		return FALSE;
-	}
 
 	/* if we get interrupted, the whole index is probably corrupted.
 	   so keep rebuild-flag on while doing this */

@@ -15,8 +15,10 @@ MailIndexRecord *index_expunge_seek_first(IndexMailbox *ibox,
 
 	/* find mails with DELETED flag and expunge them */
 	if (hdr->first_deleted_uid_lowwater > 1) {
-		rec = ibox->index->lookup_uid_range(ibox->index,
-			hdr->first_deleted_uid_lowwater, hdr->next_uid-1);
+		rec = hdr->first_deleted_uid_lowwater >= hdr->next_uid ? NULL :
+			ibox->index->lookup_uid_range(ibox->index,
+						hdr->first_deleted_uid_lowwater,
+						hdr->next_uid-1);
 		if (rec == NULL) {
 			i_warning("index header's deleted_messages_count or "
 				  "first_deleted_uid_lowwater is invalid.");

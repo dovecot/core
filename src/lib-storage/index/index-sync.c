@@ -47,8 +47,7 @@ int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 				break;
 
 			rec = ibox->index->lookup_uid_range(ibox->index,
-							    log->uid,
-							    log->uid);
+							    log->uid, log->uid);
 			if (rec != NULL) {
 				flags = rec->msg_flags;
 				if (rec->uid >= ibox->index->first_recent_uid)

@@ -202,7 +202,7 @@ struct _MailIndex {
 	const char *(*lookup_field)(MailIndex *index, MailIndexRecord *rec,
 				    MailField field);
 
-	/* Returns sequence for given message. */
+	/* Returns sequence for given message, or 0 if failed. */
 	unsigned int (*get_sequence)(MailIndex *index, MailIndexRecord *rec);
 
 	/* Open mail file and return it as mmap()ed IOBuffer, or
@@ -347,6 +347,7 @@ void mail_index_close(MailIndex *index);
 int mail_index_rebuild_all(MailIndex *index);
 int mail_index_sync_file(MailIndex *index);
 int mail_index_fmsync(MailIndex *index, size_t size);
+int mail_index_verify_hole_range(MailIndex *index);
 void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
                                MailField cache_fields,
 			       MessageHeaderFunc header_func, void *context);
@@ -368,5 +369,10 @@ int mail_index_compress_data(MailIndex *index);
 /* mark the index corrupted */
 #define INDEX_MARK_CORRUPTED(index) \
 	STMT_START { (index)->set_flags |= MAIL_INDEX_FLAG_REBUILD; } STMT_END
+
+/* get number of records in mmaped index */
+#define MAIL_INDEX_RECORD_COUNT(index) \
+	((index->mmap_length - sizeof(MailIndexHeader)) / \
+	 sizeof(MailIndexRecord))
 
 #endif
