@@ -586,8 +586,8 @@ static void search_get_sequences(IndexMailbox *ibox, MailSearchArg *args,
 			  &first_uid, &last_uid);
 
 	/* seq_update() should make sure that these can't happen */
-	i_assert(*first_seq >= *last_seq);
-	i_assert(first_uid >= last_uid);
+	i_assert(*first_seq <= *last_seq);
+	i_assert(first_uid <= last_uid);
 
 	if (first_uid != 0 && (*first_seq != 1 ||
 			       *last_seq != ibox->synced_messages_count)) {
@@ -618,7 +618,7 @@ static void search_get_sequences(IndexMailbox *ibox, MailSearchArg *args,
 	if (*last_seq == 0)
 		*last_seq = ibox->synced_messages_count;
 
-	i_assert(*first_seq >= *last_seq);
+	i_assert(*first_seq <= *last_seq);
 }
 
 static void search_messages(IndexMailbox *ibox, MailSearchArg *args,
