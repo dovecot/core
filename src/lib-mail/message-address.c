@@ -64,6 +64,7 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 	*/
 	tok = message_tokenize_init(data, size, NULL, NULL);
 	message_tokenize_skip_comments(tok, FALSE);
+        message_tokenize_dot_token(tok, FALSE);
 
 	t_push();
 	mailbox = t_str_new(128);
@@ -112,8 +113,8 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 				addr->route = str_len(route) == 0 ? NULL :
 					p_strdup(pool, str_c(route));
 				addr->name = next_phrase == name ?
-					p_strdup(pool, str_c(name)) :
-					p_strdup(pool, str_c(comment));
+					p_strdup_empty(pool, str_c(name)) :
+					p_strdup_empty(pool, str_c(comment));
 			}
 
 			if (ingroup && token == ';') {

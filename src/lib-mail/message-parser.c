@@ -269,9 +269,8 @@ struct message_part *message_parse(pool_t pool, struct istream *input,
 	return part;
 }
 
-/* skip over to next line increasing message size */
 static void message_skip_line(struct istream *input,
-			      struct message_size *msg_size)
+			      struct message_size *msg_size, int skip_lf)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos;
@@ -281,18 +280,21 @@ static void message_skip_line(struct istream *input,
 	while (i_stream_read_data(input, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] == '\n') {
+				if (!skip_lf) {
+					if (i > 0 && msg[i-1] == '\r')
+						i--;
+					startpos = i;
+					goto __break;
+				}
+
 				if (msg_size != NULL) {
 					if (i == 0 || msg[i-1] != '\r')
 						msg_size->virtual_size++;
 					msg_size->lines++;
 				}
-				break;
+				startpos = i+1;
+				goto __break;
 			}
-		}
-
-		if (i < size) {
-			startpos = i+1;
-			break;
 		}
 
 		/* leave the last character, it may be \r */
@@ -304,7 +306,7 @@ static void message_skip_line(struct istream *input,
 			msg_size->virtual_size += i - 1;
 		}
 	}
-
+__break:
 	i_stream_skip(input, startpos);
 
 	if (msg_size != NULL) {
@@ -333,7 +335,7 @@ void message_parse_header(struct message_part *part, struct istream *input,
 			/* overflow, line is too long. just skip it. */
 			i_assert(size > 2);
 
-                        message_skip_line(input, hdr_size);
+                        message_skip_line(input, hdr_size, TRUE);
 			startpos = line_start = 0;
 			colon_pos = UINT_MAX;
 			continue;
@@ -389,13 +391,11 @@ void message_parse_header(struct message_part *part, struct istream *input,
 						end_pos--;
 					name_len = end_pos - line_start + 1;
 
-					/* get length of value field. skip
-					   only the initial LWSP after ':'.
-					   some fields may want to keep
-					   the extra spaces.. */
+					/* get length of value field.
+					   skip all LWSP after ':'. */
 					colon_pos++;
-					if (colon_pos < i &&
-					    IS_LWSP(msg[colon_pos]))
+					while (colon_pos < i &&
+					       IS_LWSP(msg[colon_pos]))
 						colon_pos++;
 					value_len = i - colon_pos;
 					if (msg[i-1] == '\r') value_len--;
@@ -520,7 +520,8 @@ message_find_boundary(struct istream *input,
 			/* leave the last line to buffer, it may be
 			   boundary */
 			i = line_start;
-			if (i > 2) i -= 2; /* leave the \r\n too */
+			if (i > 0) i--; /* leave the \r\n too */
+			if (i > 0) i--;
 			line_start -= i;
 		}
 
@@ -529,6 +530,14 @@ message_find_boundary(struct istream *input,
 		msg_size->virtual_size += i;
 
 		startpos = size - i;
+	}
+
+	if (boundary == NULL && line_start+2 <= size &&
+	    msg[line_start] == '-' && msg[line_start+1] == '-') {
+		/* possible boundary without line feed at end */
+		boundary = boundary_find(boundaries,
+					 msg + line_start + 2,
+					 size - line_start - 2);
 	}
 
 	if (boundary != NULL) {
@@ -559,16 +568,18 @@ message_find_boundary(struct istream *input,
 
 static struct message_part *
 message_parse_body(struct istream *input, struct message_boundary *boundaries,
-		   struct message_size *body_size)
+		   struct message_size *msg_size)
 {
 	struct message_boundary *boundary;
+	struct message_size body_size;
 
 	if (boundaries == NULL) {
-		message_get_body_size(input, body_size, (uoff_t)-1, NULL);
+		message_get_body_size(input, &body_size, (uoff_t)-1, NULL);
+		message_size_add(msg_size, &body_size);
 		return NULL;
 	} else {
 		boundary = message_find_boundary(input, boundaries,
-						 body_size, FALSE);
+						 msg_size, FALSE);
 		return boundary == NULL ? NULL : boundary->part;
 	}
 }
@@ -596,11 +607,11 @@ message_skip_boundary(struct istream *input,
 		end_boundary = msg[0] == '-' && msg[1] == '-';
 
 	/* skip the rest of the line */
-	message_skip_line(input, boundary_size);
+	message_skip_line(input, boundary_size, !end_boundary);
 
 	if (end_boundary) {
 		/* skip the footer */
-		return message_parse_body(input, boundaries, boundary_size);
+		return message_parse_body(input, boundary->next, boundary_size);
 	}
 
 	return boundary == NULL ? NULL : boundary->part;
