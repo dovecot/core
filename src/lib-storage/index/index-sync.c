@@ -96,6 +96,8 @@ static void index_mailbox_expunge_recent(struct index_mailbox *ibox,
 
 		buffer_copy(ibox->recent_flags, idx,
 			    ibox->recent_flags, idx + count, (size_t)-1);
+		buffer_write_zero(ibox->recent_flags, size - count, count);
+
 		buffer_set_used_size(ibox->recent_flags, size - count);
 	}
         ibox->recent_flags_start_seq -= move;
