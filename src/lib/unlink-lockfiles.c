@@ -40,7 +40,7 @@ int unlink_lockfiles(const char *dir, const char *pidprefix,
 	struct stat st;
 	char path[PATH_MAX];
 	unsigned int pidlen, otherlen;
-	int ret = 0;
+	int ret = 1;
 
 	/* check for any invalid access files */
 	dirp = opendir(dir);
