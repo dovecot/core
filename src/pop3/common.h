@@ -10,4 +10,7 @@
 
 extern struct ioloop *ioloop;
 
+extern void (*hook_mail_storage_created)(struct mail_storage **storage);
+extern void (*hook_client_created)(struct client **client);
+
 #endif

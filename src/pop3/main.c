@@ -18,6 +18,9 @@
 
 struct ioloop *ioloop;
 
+void (*hook_mail_storage_created)(struct mail_storage **storage) = NULL;
+void (*hook_client_created)(struct client **client) = NULL;
+
 static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 
@@ -103,6 +106,9 @@ static int main_init(void)
 				"autodetection failed (home %s)", home);
 		}
 	}
+
+	if (hook_mail_storage_created != NULL)
+		hook_mail_storage_created(&storage);
 
 	return client_create(0, 1, storage) != NULL;
 }
