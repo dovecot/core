@@ -76,7 +76,7 @@ void io_loop_handler_run(IOLoop ioloop)
 	struct timeval tv;
 	IO io, next;
         unsigned int t_id;
-	int ret, fd, condition, destroyed;
+	int ret, fd, condition;
 
 	/* get the time left for next timeout task */
 	io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);
