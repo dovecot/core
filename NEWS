@@ -1,3 +1,15 @@
+v0.98.4 2002-10-06  Timo Sirainen <tss@iki.fi>
+
+	* Just a final release before replacing hash file with a binary tree.
+
+	- When fetching messages larger than 256k, sometimes Dovecot missed
+	  to send CR causing corrupted data at end of message and possibly
+	  complete failure depending on IMAP client.
+	- Fetching BODY or BODYSTRUCTURE for message having content-type of
+	  message/rfc822 didn't correctly add () around the envelope data.
+	- Several fixes to make it compile with HP/UX ANSI C compiler.
+	  Also fixed several warnings it showed up.
+
 v0.98.3 2002-10-01  Timo Sirainen <tss@iki.fi>
 
 	* Sorry, just noticed a very stupid bug which caused evolution 1.2
