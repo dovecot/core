@@ -32,19 +32,24 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-void unlink_lockfiles(const char *dir, const char *pidprefix,
-		      const char *otherprefix, time_t other_min_time)
+int unlink_lockfiles(const char *dir, const char *pidprefix,
+		     const char *otherprefix, time_t other_min_time)
 {
 	DIR *dirp;
 	struct dirent *d;
 	struct stat st;
 	char path[PATH_MAX];
 	unsigned int pidlen, otherlen;
+	int ret = 0;
 
 	/* check for any invalid access files */
 	dirp = opendir(dir);
-	if (dirp == NULL)
-		return;
+	if (dirp == NULL) {
+		if (errno == ENOENT)
+			return 0;
+		i_error("opendir(%s) failed: %m", dir);
+		return -1;
+	}
 
 	pidlen = pidprefix == NULL ? 0 : strlen(pidprefix);
 	otherlen = otherprefix == NULL ? 0 : strlen(otherprefix);
@@ -61,16 +66,29 @@ void unlink_lockfiles(const char *dir, const char *pidprefix,
 			if (kill(atol(fname+pidlen), 0) == 0 || errno != ESRCH)
 				continue; /* valid */
 
-			if (str_path(path, sizeof(path), dir, fname) == 0)
-				(void)unlink(path);
-		} else if (otherprefix != 0 &&
+			if (str_path(path, sizeof(path), dir, fname) == 0) {
+				if (unlink(path) < 0 && errno != ENOENT) {
+					i_error("unlink(%s) failed: %m", path);
+					ret = -1;
+				}
+			}
+		} else if (otherprefix != NULL &&
 			   strncmp(fname, otherprefix, otherlen) == 0) {
 			if (str_path(path, sizeof(path), dir, fname) == 0 &&
 			    stat(path, &st) == 0 &&
-			    st.st_mtime < other_min_time)
-				(void)unlink(path);
+			    st.st_mtime < other_min_time &&
+			    st.st_ctime < other_min_time)
+				if (unlink(path) < 0 && errno != ENOENT) {
+					i_error("unlink(%s) failed: %m", path);
+					ret = -1;
+				}
 		}
 	}
 
-	(void)closedir(dirp);
+	if (closedir(dirp) < 0) {
+		i_error("closedir(%s) failed: %m", dir);
+		ret = -1;
+	}
+
+	return ret;
 }
