@@ -26,6 +26,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "fd-close-on-exec.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -218,6 +219,7 @@ void i_set_failure_file(const char *path, const char *prefix)
 	log_fd = fopen(path, "a");
 	if (log_fd == NULL)
 		i_fatal("Can't open log file %s: %m", path);
+	fd_close_on_exec(fileno(log_fd), TRUE);
 
 	i_free(log_prefix);
 	log_prefix = i_strconcat(prefix, ": ", NULL);

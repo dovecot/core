@@ -24,6 +24,7 @@
 */
 
 #include "lib.h"
+#include "fd-close-on-exec.h"
 #include "randgen.h"
 
 #include <unistd.h>
@@ -62,8 +63,7 @@ void random_init(void)
 		}
 	}
 
-	if (fcntl(urandom_fd, FD_CLOEXEC, 1L) < 0)
-		i_fatal("Error setting close-on-exec flag to /dev/urandom: %m");
+	fd_close_on_exec(urandom_fd, TRUE);
 }
 
 void random_deinit(void)
