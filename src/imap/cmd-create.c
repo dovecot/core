@@ -28,6 +28,7 @@ int cmd_create(struct client *client)
 		   mailbox. */
                 directory = TRUE;
 		mailbox = t_strndup(mailbox, len-1);
+		full_mailbox = t_strndup(full_mailbox, strlen(full_mailbox)-1);
 	}
 
 	if (!client_verify_mailbox_name(client, full_mailbox, FALSE, TRUE))
