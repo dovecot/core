@@ -721,7 +721,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 	for (;;) {
 		ret = i_stream_read_data(ctx->input, &msg, &size, startpos+1);
 
-		if (ret != 0 && size > 0) {
+		if (ret > 0) {
 			/* we want to know one byte in advance to find out
 			   if it's multiline header */
 			parse_size = size-1;
@@ -729,7 +729,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			parse_size = size;
 		}
 
-		if (ret <= 0 && (ret != 0 || startpos == size)) {
+		if (ret <= 0 && startpos == size) {
 			if (ret == -1) {
 				/* error / EOF with no bytes */
 				return -1;
