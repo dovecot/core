@@ -66,6 +66,11 @@ static int index_data_set_syscall_error(struct mail_index_data *data,
 {
 	i_assert(function != NULL);
 
+	if (errno == ENOSPC) {
+		data->index->nodiskspace = TRUE;
+		return FALSE;
+	}
+
 	index_set_error(data->index, "%s failed with index data file %s: %m",
 			function, data->filepath);
 	return FALSE;
@@ -243,68 +248,52 @@ int mail_index_data_open(struct mail_index *index)
 	return TRUE;
 }
 
-static const char *init_data_file(struct mail_index *index,
-				  struct mail_index_data_header *hdr,
-				  int fd, const char *temppath)
+static int mail_index_data_init(struct mail_index *index,
+				struct mail_index_data_header *hdr,
+				const char *path, int fd)
 {
-	const char *realpath;
-
 	if (write_full(fd, hdr, sizeof(*hdr)) < 0) {
-		index_file_set_syscall_error(index, temppath, "write_full()");
-		return NULL;
+		index_file_set_syscall_error(index, path, "write_full()");
+		return FALSE;
 	}
 
 	if (file_set_size(fd, INDEX_DATA_INITIAL_SIZE) < 0) {
-		index_file_set_syscall_error(index, temppath,
-					     "file_set_size()");
-		return NULL;
+		index_file_set_syscall_error(index, path, "file_set_size()");
+		return FALSE;
 	}
 
-	/* move temp file into .data file, deleting old one
-	   if it already exists */
-	realpath = t_strconcat(index->filepath, DATA_FILE_PREFIX, NULL);
-	if (rename(temppath, realpath) < 0) {
-		index_set_error(index, "rename(%s, %s) failed: %m",
-				temppath, realpath);
-		return NULL;
-	}
-
-	return realpath;
+	return TRUE;
 }
 
 int mail_index_data_create(struct mail_index *index)
 {
         struct mail_index_data_header hdr;
 	struct mail_index_data *data;
-	const char *temppath, *realpath;
+	const char *path;
 	int fd;
+
+	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
 	memset(&hdr, 0, sizeof(struct mail_index_data_header));
 	hdr.indexid = index->indexid;
 	hdr.used_file_size = sizeof(struct mail_index_data_header);
 
-	realpath = NULL;
-
 	/* we'll do anon-mmaping only if initially requested. if we fail
 	   because of out of disk space, we'll just let the main index code
 	   know it and fail. */
-	if (index->nodiskspace) {
+	if (INDEX_IS_IN_MEMORY(index)) {
 		fd = -1;
+		path = NULL;
 	} else {
-		fd = mail_index_create_temp_file(index, &temppath);
+		path = t_strconcat(index->filepath, DATA_FILE_PREFIX, NULL);
+		fd = open(path, O_RDWR | O_CREAT, 0660);
 		if (fd == -1) {
-			if (errno == ENOSPC)
-				index->nodiskspace = TRUE;
+			index_file_set_syscall_error(index, path, "open()");
 			return FALSE;
 		}
 
-		realpath = init_data_file(index, &hdr, fd, temppath);
-		if (realpath == NULL) {
-			if (errno == ENOSPC)
-				index->nodiskspace = TRUE;
-
+		if (!mail_index_data_init(index, &hdr, path, fd)) {
 			(void)close(fd);
-			(void)unlink(temppath);
 			return FALSE;
 		}
 	}
@@ -320,9 +309,11 @@ int mail_index_data_create(struct mail_index *index)
 		data->mmap_used_length = data->header->used_file_size;
 
 		data->anon_mmap = TRUE;
-		data->filepath = i_strdup("(in-memory index data)");
+		data->filepath =
+			i_strdup_printf("(in-memory index data index for %s)",
+					index->mailbox_path);
 	} else {
-		data->filepath = i_strdup(realpath);
+		data->filepath = i_strdup(path);
 	}
 
 	data->index = index;
@@ -360,20 +351,14 @@ int mail_index_data_reset(struct mail_index_data *data)
 		return TRUE;
 	}
 
-	if (file_set_size(data->fd, INDEX_DATA_INITIAL_SIZE) < 0) {
-		if (errno == ENOSPC)
-			data->index->nodiskspace = TRUE;
+	if (file_set_size(data->fd, INDEX_DATA_INITIAL_SIZE) < 0)
 		return index_data_set_syscall_error(data, "file_set_size()");
-	}
 
 	if (lseek(data->fd, 0, SEEK_SET) < 0)
 		return index_data_set_syscall_error(data, "lseek()");
 
-	if (write_full(data->fd, &hdr, sizeof(hdr)) < 0) {
-		if (errno == ENOSPC)
-			data->index->nodiskspace = TRUE;
+	if (write_full(data->fd, &hdr, sizeof(hdr)) < 0)
 		return index_data_set_syscall_error(data, "write_full()");
-	}
 
 	data->modified = FALSE;
 	data->fsynced = FALSE;
@@ -440,11 +425,8 @@ static int mail_index_data_grow(struct mail_index_data *data, size_t size)
 	if (pos < (off_t)sizeof(struct mail_index_data_header))
 		return index_data_set_corrupted(data, "Header is missing");
 
-	if (file_set_size(data->fd, (off_t)new_fsize) < 0) {
-		if (errno == ENOSPC)
-			data->index->nodiskspace = TRUE;
+	if (file_set_size(data->fd, (off_t)new_fsize) < 0)
 		return index_data_set_syscall_error(data, "file_set_size()");
-	}
 
 	return mmap_update(data, 0, 0);
 }

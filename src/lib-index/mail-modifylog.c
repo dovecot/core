@@ -72,6 +72,11 @@ static int modifylog_set_syscall_error(struct modify_log_file *file,
 {
 	i_assert(function != NULL);
 
+	if (errno == ENOSPC) {
+		file->log->index->nodiskspace = TRUE;
+		return FALSE;
+	}
+
 	index_set_error(file->log->index,
 			"%s failed with modify log file %s: %m",
 			function, file->filepath);
@@ -318,25 +323,15 @@ static void mail_modifylog_init_header(struct mail_modify_log *log,
 
 static int mail_modifylog_init_fd(struct modify_log_file *file, int fd)
 {
-	struct mail_index *index = file->log->index;
         struct modify_log_header hdr;
 
         mail_modifylog_init_header(file->log, &hdr);
-	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
-		if (errno == ENOSPC)
-			index->nodiskspace = TRUE;
 
-		modifylog_set_syscall_error(file, "write_full()");
-		return FALSE;
-	}
+	if (write_full(fd, &hdr, sizeof(hdr)) < 0)
+		return modifylog_set_syscall_error(file, "write_full()");
 
-	if (file_set_size(fd, MODIFY_LOG_INITIAL_SIZE) < 0) {
-		if (errno == ENOSPC)
-			index->nodiskspace = TRUE;
-
-		modifylog_set_syscall_error(file, "file_set_size()");
-		return FALSE;
-	}
+	if (file_set_size(fd, MODIFY_LOG_INITIAL_SIZE) < 0)
+		return modifylog_set_syscall_error(file, "file_set_size()");
 
 	return TRUE;
 }
@@ -372,14 +367,11 @@ static int modifylog_reuse_or_create_file(struct modify_log_file *file)
 	struct mail_index *index = file->log->index;
 	int fd, ret;
 
-	if (index->nodiskspace)
+	if (INDEX_IS_IN_MEMORY(index))
 		return -1;
 
 	fd = open(file->filepath, O_RDWR | O_CREAT, 0660);
 	if (fd == -1) {
-		if (errno == ENOSPC)
-			index->nodiskspace = TRUE;
-
 		modifylog_set_syscall_error(file, "open()");
 		return -1;
 	}
@@ -532,7 +524,8 @@ static void modifylog_create_anon(struct modify_log_file *file)
 	file->synced_position = file->mmap_used_length;
 
 	file->anon_mmap = TRUE;
-	file->filepath = i_strdup("(in-memory modify log)");
+	file->filepath = i_strdup_printf("(in-memory modify log for %s)",
+					 file->log->index->mailbox_path);
 }
 
 int mail_modifylog_create(struct mail_index *index)
@@ -544,7 +537,7 @@ int mail_modifylog_create(struct mail_index *index)
 
 	log = mail_modifylog_new(index);
 
-	if (index->nodiskspace)
+	if (INDEX_IS_IN_MEMORY(index))
 		modifylog_create_anon(&log->file1);
 	else {
 		ret = modifylog_reuse_or_create_file(&log->file1);
@@ -687,11 +680,8 @@ static int mail_modifylog_grow(struct modify_log_file *file)
 		return TRUE;
 	}
 
-	if (file_set_size(file->fd, (off_t)new_fsize) < 0) {
-		if (errno == ENOSPC)
-			file->log->index->nodiskspace = TRUE;
+	if (file_set_size(file->fd, (off_t)new_fsize) < 0)
 		return modifylog_set_syscall_error(file, "file_set_size()");
-	}
 
 	if (!mmap_update(file, TRUE))
 		return FALSE;

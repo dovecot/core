@@ -53,6 +53,11 @@ mailboxes.
 Adding :INDEX=<dir> to MAIL environment overrides the default location. The
 given directory must exist.
 
+It's also possible to disable index files by building them into memory.
+They're also automatically built into memory if the index files can't be
+opened or created for some reason (eg. out of disk space). To disable
+indexes always, add :INDEX=MEMORY to MAIL environment.
+
 
 Detecting what to use
 ---------------------

@@ -170,6 +170,11 @@ void mail_index_close(struct mail_index *index)
                 index->custom_flags = NULL;
 	}
 
+	if (index->custom_flags_dir != NULL) {
+		i_free(index->custom_flags_dir);
+                index->custom_flags_dir = NULL;
+	}
+
 	if (index->error != NULL) {
 		i_free(index->error);
 		index->error = NULL;
@@ -946,11 +951,8 @@ static int mail_index_grow(struct mail_index *index)
 		return mmap_verify(index);
 	}
 
-	if (file_set_size(index->fd, (off_t)pos) < 0) {
-		if (errno == ENOSPC)
-			index->nodiskspace = TRUE;
+	if (file_set_size(index->fd, (off_t)pos) < 0)
 		return index_set_syscall_error(index, "file_set_size()");
-	}
 
 	/* file size changed, let others know about it too by changing
 	   sync_id in header. */

@@ -12,10 +12,10 @@
 extern struct mail_index maildir_index;
 
 static int maildir_index_open(struct mail_index *index,
-			      int update_recent, int fast)
+			      enum mail_index_open_flags flags)
 {
 	maildir_clean_tmp(t_strconcat(index->mailbox_path, "/tmp", NULL));
-	return mail_index_open(index, update_recent, fast);
+	return mail_index_open(index, flags);
 }
 
 enum mail_flags maildir_filename_get_flags(const char *fname,
@@ -145,7 +145,6 @@ struct mail_index *maildir_index_alloc(const char *dir, const char *maildir)
 {
 	struct mail_index *index;
 
-	i_assert(dir != NULL);
 	i_assert(maildir != NULL);
 
 	index = i_new(struct mail_index, 1);
@@ -244,7 +243,6 @@ static int maildir_index_update_flags(struct mail_index *index,
 
 struct mail_index maildir_index = {
 	maildir_index_open,
-	mail_index_open_or_create,
 	maildir_index_free,
 	mail_index_set_lock,
 	mail_index_try_lock,

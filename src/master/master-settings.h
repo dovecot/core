@@ -51,7 +51,6 @@ struct settings {
 	int mbox_read_dotlock;
 	unsigned int mbox_lock_timeout;
 	unsigned int mbox_dotlock_change_timeout;
-	int overwrite_incompatible_index;
 	unsigned int umask;
 	int mail_drop_priv_before_exec;
 

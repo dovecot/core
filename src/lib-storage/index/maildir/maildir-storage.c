@@ -65,6 +65,8 @@ static struct mail_storage *maildir_create(const char *data, const char *user)
 
 	if (index_dir == NULL)
 		index_dir = root_dir;
+	else if (strcmp(index_dir, "MEMORY") == 0)
+		index_dir = NULL;
 
 	storage = i_new(struct mail_storage, 1);
 	memcpy(storage, &maildir_storage, sizeof(struct mail_storage));
@@ -89,6 +91,8 @@ static void maildir_free(struct mail_storage *storage)
 static int maildir_autodetect(const char *data)
 {
 	struct stat st;
+
+	data = t_strcut(data, ':');
 
 	return stat(t_strconcat(data, "/cur", NULL), &st) == 0 &&
 		S_ISDIR(st.st_mode);
@@ -134,6 +138,9 @@ const char *maildir_get_path(struct mail_storage *storage, const char *name)
 static const char *maildir_get_index_path(struct mail_storage *storage,
 					  const char *name)
 {
+	if (storage->index_dir == NULL)
+		return NULL;
+
 	if (full_filesystem_access && (*name == '/' || *name == '~'))
 		return maildir_get_absolute_path(name);
 
@@ -209,6 +216,7 @@ maildir_open(struct mail_storage *storage, const char *name,
 	index = index_storage_lookup_ref(index_dir);
 	if (index == NULL) {
 		index = maildir_index_alloc(index_dir, path);
+		index->custom_flags_dir = i_strdup(path);
 		index_storage_add(index);
 	}
 

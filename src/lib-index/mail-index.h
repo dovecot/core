@@ -9,6 +9,18 @@
 
 #define INDEX_FILE_PREFIX ".imap.index"
 
+enum mail_index_open_flags {
+	/* Create index if it doesn't exist */
+	MAIL_INDEX_OPEN_FLAG_CREATE		= 0x01,
+	/* Update \Recent flag counters */
+	MAIL_INDEX_OPEN_FLAG_UPDATE_RECENT	= 0x02,
+	/* Compressing and cache updates are not performed */
+	MAIL_INDEX_OPEN_FLAG_FAST		= 0x04,
+
+	/* internal: we're creating the index */
+	_MAIL_INDEX_OPEN_FLAG_CREATING		= 0x10
+};
+
 enum mail_index_header_compat {
 	MAIL_INDEX_COMPAT_LITTLE_ENDIAN	= 0x01
 };
@@ -174,14 +186,11 @@ struct mail_index_data_record {
         (SIZEOF_MAIL_INDEX_DATA + (rec)->full_field_size)
 
 struct mail_index {
-	/* If fast is TRUE, compressing and cache updates are not performed.
-	   Note that opening same index twice in the same process is a bad
+	/* Note that opening same index twice in the same process is a bad
 	   idea since they share the same file locks. As soon one of the
 	   indexes is closed, the locks in second index are dropped which
 	   especially hurts modify log since it keeps locks all the time. */
-	int (*open)(struct mail_index *index, int update_recent, int fast);
-	int (*open_or_create)(struct mail_index *index,
-			      int update_recent, int fast);
+	int (*open)(struct mail_index *index, enum mail_index_open_flags flags);
 
 	/* Free index from memory. */
 	void (*free)(struct mail_index *index);
@@ -358,6 +367,7 @@ struct mail_index {
 	char *dir; /* directory where to place the index files */
 	char *filepath; /* index file path */
 	char *mailbox_path; /* file/directory for mailbox location */
+	char *custom_flags_dir; /* destination for .customflags file */
 	enum mail_data_field default_cache_fields, never_cache_fields;
 	unsigned int indexid;
 	unsigned int sync_id;
@@ -407,6 +417,7 @@ struct mail_index {
 	unsigned int inconsistent:1;
 	unsigned int nodiskspace:1;
 	unsigned int index_lock_timeout:1;
+	unsigned int allow_new_custom_flags:1;
 	unsigned int mailbox_lock_timeout:1;
 };
 
@@ -420,16 +431,14 @@ struct mail_index {
    members.. */
 #define MAIL_INDEX_PRIVATE_FILL \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, { 0, 0, 0 }, 0, 0, 0, \
+	0, 0, 0, 0, 0, 0, { 0, 0, 0 }, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0
+	0, 0, 0, 0
 #endif
 
 /* defaults - same as above but prefixed with mail_index_. */
-int mail_index_open(struct mail_index *index, int update_recent, int fast);
-int mail_index_open_or_create(struct mail_index *index,
-			      int update_recent, int fast);
+int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags);
 int mail_index_set_lock(struct mail_index *index,
 			enum mail_lock_type lock_type);
 int mail_index_try_lock(struct mail_index *index,
@@ -566,5 +575,8 @@ int mail_index_truncate(struct mail_index *index);
 #define MAIL_LOCK_TO_FLOCK(lock_type) \
         ((lock_type) == MAIL_LOCK_EXCLUSIVE ? F_WRLCK : \
 		(lock_type) == MAIL_LOCK_SHARED ? F_RDLCK : F_UNLCK)
+
+#define INDEX_IS_IN_MEMORY(index) \
+	((index)->anon_mmap)
 
 #endif

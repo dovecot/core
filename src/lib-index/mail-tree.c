@@ -19,6 +19,11 @@ static int tree_set_syscall_error(struct mail_tree *tree, const char *function)
 {
 	i_assert(function != NULL);
 
+	if (errno == ENOSPC) {
+		tree->index->nodiskspace = TRUE;
+		return FALSE;
+	}
+
 	index_set_error(tree->index, "%s failed with binary tree file %s: %m",
 			function, tree->filepath);
 	return FALSE;
@@ -153,9 +158,6 @@ static struct mail_tree *mail_tree_open(struct mail_index *index)
 	path = t_strconcat(index->filepath, ".tree", NULL);
 	fd = open(path, O_RDWR | O_CREAT, 0660);
 	if (fd == -1) {
-		if (errno == ENOSPC)
-			index->nodiskspace = TRUE;
-
 		index_file_set_syscall_error(index, path, "open()");
 		return NULL;
 	}
@@ -177,7 +179,8 @@ static struct mail_tree *mail_tree_create_anon(struct mail_index *index)
 	tree->anon_mmap = TRUE;
 	tree->fd = -1;
 	tree->index = index;
-	tree->filepath = i_strdup("(in-memory tree)");
+	tree->filepath = i_strdup_printf("(in-memory tree index for %s)",
+					 index->mailbox_path);
 
 	index->tree = tree;
 	return tree;
@@ -189,7 +192,7 @@ int mail_tree_create(struct mail_index *index)
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	tree = !index->nodiskspace ? mail_tree_open(index) :
+	tree = !INDEX_IS_IN_MEMORY(index) ? mail_tree_open(index) :
 		mail_tree_create_anon(index);
 	if (tree == NULL)
 		return FALSE;
@@ -306,19 +309,11 @@ static int mail_tree_init(struct mail_tree *tree)
 	if (lseek(tree->fd, 0, SEEK_SET) < 0)
 		return tree_set_syscall_error(tree, "lseek()");
 
-	if (write_full(tree->fd, &hdr, sizeof(hdr)) < 0) {
-		if (errno == ENOSPC)
-			tree->index->nodiskspace = TRUE;
-
+	if (write_full(tree->fd, &hdr, sizeof(hdr)) < 0)
 		return tree_set_syscall_error(tree, "write_full()");
-	}
 
-	if (file_set_size(tree->fd, MAIL_TREE_MIN_SIZE) < 0) {
-		if (errno == ENOSPC)
-			tree->index->nodiskspace = TRUE;
-
+	if (file_set_size(tree->fd, MAIL_TREE_MIN_SIZE) < 0)
 		return tree_set_syscall_error(tree, "file_set_size()");
-	}
 
 	return TRUE;
 }
@@ -398,11 +393,8 @@ int _mail_tree_grow(struct mail_tree *tree)
 		return mmap_verify(tree);
 	}
 
-	if (file_set_size(tree->fd, (off_t)new_fsize) < 0) {
-		if (errno == ENOSPC)
-			tree->index->nodiskspace = TRUE;
+	if (file_set_size(tree->fd, (off_t)new_fsize) < 0)
 		return tree_set_syscall_error(tree, "file_set_size()");
-	}
 
 	/* file size changed, let others know about it too by changing
 	   sync_id in header. */

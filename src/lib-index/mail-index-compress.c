@@ -132,9 +132,6 @@ static int mail_index_copy_data(struct mail_index *index,
 	memset(&data_hdr, 0, sizeof(data_hdr));
 	data_hdr.indexid = index->indexid;
 	if (write_full(fd, &data_hdr, sizeof(data_hdr)) < 0) {
-		if (errno == ENOSPC)
-			index->nodiskspace = TRUE;
-
 		index_file_set_syscall_error(index, path, "write_full()");
 		return FALSE;
 	}
@@ -164,9 +161,6 @@ static int mail_index_copy_data(struct mail_index *index,
 
 		if (write_full(fd, mmap_data + rec->data_position,
 			       rec_hdr->data_size) < 0) {
-			if (errno == ENOSPC)
-				index->nodiskspace = TRUE;
-
 			index_file_set_syscall_error(index, path,
 						     "write_full()");
 			return FALSE;
@@ -207,11 +201,8 @@ int mail_index_compress_data(struct mail_index *index)
 		return FALSE;
 
 	fd = mail_index_create_temp_file(index, &temppath);
-	if (fd == -1) {
-		if (errno == ENOSPC)
-			index->nodiskspace = TRUE;
+	if (fd == -1)
 		return FALSE;
-	}
 
 	failed = !mail_index_copy_data(index, fd, temppath);
 

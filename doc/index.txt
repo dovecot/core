@@ -9,12 +9,6 @@ sizes. That information is saved into index file's "compatibility" fields.
 No attempt is made to deal with incompatible index files, they're either
 overwritten or new files are created.
 
-Index file names begin with ".imap.index" or ".imap.index-<hostname>". The
-first form is used by default, the second when first is found to be
-incompatible. If the second is also incompatible, it's simply overwritten.
-This should allow us to be NFS-safe in an environment with multiple
-different computer architectures.
-
 Indexes are bound to each others by "indexid" field in headers. If they
 don't match, the file is assumed to be corrupted and will be rebuilt.
 

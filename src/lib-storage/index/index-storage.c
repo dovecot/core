@@ -226,6 +226,7 @@ index_storage_init(struct mail_storage *storage, struct mailbox *box,
 		   int readonly, int fast)
 {
 	struct index_mailbox *ibox;
+	enum mail_index_open_flags flags;
 
 	i_assert(name != NULL);
 
@@ -236,7 +237,6 @@ index_storage_init(struct mail_storage *storage, struct mailbox *box,
 		ibox->box.storage = storage;
 		ibox->box.name = i_strdup(name);
 		ibox->box.readonly = readonly;
-		ibox->box.allow_custom_flags = TRUE;
 
 		ibox->index = index;
 
@@ -249,13 +249,29 @@ index_storage_init(struct mail_storage *storage, struct mailbox *box,
 				get_default_cache_fields();
 			index->never_cache_fields =
 				get_never_cache_fields();
-			if (!index->open_or_create(index, !readonly, fast))
+
+			flags = MAIL_INDEX_OPEN_FLAG_CREATE;
+			if (fast)
+				flags |= MAIL_INDEX_OPEN_FLAG_FAST;
+			if (!readonly)
+				flags |= MAIL_INDEX_OPEN_FLAG_UPDATE_RECENT;
+
+			if (!index->open(index, flags))
 				break;
+
+			if (INDEX_IS_IN_MEMORY(index) &&
+			    storage->index_dir != NULL) {
+				storage->callbacks->notify_no(&ibox->box,
+					"Couldn't use index files",
+					storage->callback_context);
+			}
 		}
 
 		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
 			break;
 
+		ibox->box.allow_custom_flags =
+			ibox->index->allow_new_custom_flags;
 		ibox->synced_messages_count =
 			mail_index_get_header(index)->messages_count;
 

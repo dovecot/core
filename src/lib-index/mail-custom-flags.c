@@ -9,9 +9,10 @@
 #include "mail-index-util.h"
 #include "mail-custom-flags.h"
 
+#include <ctype.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <ctype.h>
+#include <sys/stat.h>
 
 /* Header is simply a counter which is increased every time the file is
    updated. This allows other processes to easily notice if there's been
@@ -44,6 +45,11 @@ static int index_cf_set_syscall_error(struct mail_custom_flags *mcf,
 {
 	i_assert(function != NULL);
 
+	if (errno == ENOSPC) {
+		mcf->index->nodiskspace = TRUE;
+		return FALSE;
+	}
+
 	index_set_error(mcf->index, "%s failed with custom flags file %s: %m",
 			function, mcf->filepath);
 	return FALSE;
@@ -69,8 +75,8 @@ static int update_mmap(struct mail_custom_flags *mcf)
 static int custom_flags_init(struct mail_custom_flags *mcf)
 {
 	static char buf[HEADER_SIZE] = "0000\n";
+	struct stat st;
 	int failed;
-	off_t pos;
 
 	if (!lock_file(mcf, F_WRLCK))
 		return FALSE;
@@ -78,22 +84,15 @@ static int custom_flags_init(struct mail_custom_flags *mcf)
 	failed = FALSE;
 
 	/* make sure it's still empty after locking */
-	pos = lseek(mcf->fd, 0, SEEK_END);
-	if (pos >= 0 && pos < HEADER_SIZE)
-		pos = lseek(mcf->fd, 0, SEEK_SET);
-
-	if (pos < 0) {
-		index_cf_set_syscall_error(mcf, "lseek()");
+	if (fstat(mcf->fd, &st) < 0) {
+		index_cf_set_syscall_error(mcf, "fstat()");
 		failed = TRUE;
-	}
-
-	/* write the header - it's a 4 byte counter as hex */
-	if (!failed && write_full(mcf->fd, buf, HEADER_SIZE) < 0) {
-		if (errno == ENOSPC)
-			mcf->index->nodiskspace = TRUE;
-
-		index_cf_set_syscall_error(mcf, "write_full()");
-		failed = TRUE;
+	} else if (st.st_size < HEADER_SIZE) {
+		/* write the header - it's a 4 byte counter as hex */
+		if (write_full(mcf->fd, buf, HEADER_SIZE) < 0) {
+			index_cf_set_syscall_error(mcf, "write_full()");
+			failed = TRUE;
+		}
 	}
 
 	if (!lock_file(mcf, F_UNLCK))
@@ -183,6 +182,11 @@ static int custom_flags_check_sync(struct mail_custom_flags *mcf)
 		if (mcf->lock_type == F_RDLCK)
 			(void)lock_file(mcf, F_UNLCK);
 
+		if (lseek(mcf->fd, 0, SEEK_SET) < 0) {
+			index_cf_set_syscall_error(mcf, "lseek()");
+			return FALSE;
+		}
+
 		if (!custom_flags_init(mcf))
 			return FALSE;
 
@@ -200,9 +204,13 @@ static int lock_file(struct mail_custom_flags *mcf, int type)
 	if (mcf->lock_type == type)
 		return TRUE;
 
-	/* FIXME: possibility to use .lock file instead */
-	if (file_wait_lock(mcf->fd, type) <= 0)
-		return index_cf_set_syscall_error(mcf, "file_wait_lock()");
+	if (mcf->fd != -1) {
+		/* FIXME: possibility to use .lock file instead */
+		if (file_wait_lock(mcf->fd, type) <= 0) {
+			index_cf_set_syscall_error(mcf, "file_wait_lock()");
+			return FALSE;
+		}
+	}
 
 	mcf->lock_type = type;
 
@@ -230,13 +238,14 @@ int mail_custom_flags_open_or_create(struct mail_index *index)
 	const char *path;
 	int fd;
 
-	path = t_strconcat(index->dir, "/", CUSTOM_FLAGS_FILE_NAME, NULL);
-	fd = open(path, O_RDWR | O_CREAT, 0660);
-	if (fd == -1) {
-		if (errno == ENOSPC)
-			index->nodiskspace = TRUE;
-
-		return index_file_set_syscall_error(index, path, "open()");
+	path = t_strconcat(index->custom_flags_dir, "/",
+			   CUSTOM_FLAGS_FILE_NAME, NULL);
+	if (path == NULL)
+		fd = -1;
+	else {
+		fd = open(path, O_RDWR | O_CREAT, 0660);
+		if (fd == -1)
+			index_file_set_syscall_error(index, path, "open()");
 	}
 
 	mcf = i_new(struct mail_custom_flags, 1);
@@ -244,22 +253,25 @@ int mail_custom_flags_open_or_create(struct mail_index *index)
 	mcf->filepath = i_strdup(path);
 	mcf->fd = fd;
 
-	if (!update_mmap(mcf)) {
-		mail_custom_flags_free(mcf);
-		return FALSE;
+	if (fd != -1) {
+		if (!update_mmap(mcf)) {
+			(void)close(mcf->fd);
+			mcf->fd = -1;
+		}
+
+		if (mcf->mmap_length < HEADER_SIZE) {
+			/* we just created it, write the header */
+			mcf->syncing = TRUE;
+			if (!custom_flags_init(mcf) || !update_mmap(mcf)) {
+				(void)close(mcf->fd);
+				mcf->fd = -1;
+			}
+			mcf->syncing = FALSE;
+		}
 	}
 
-	if (mcf->mmap_length < HEADER_SIZE) {
-		/* we just created it, write the header */
-		mcf->syncing = TRUE;
-		if ((!custom_flags_init(mcf) || !update_mmap(mcf)) &&
-		    !index->nodiskspace) {
-			mail_custom_flags_free(mcf);
-			return FALSE;
-		}
-		mcf->syncing = FALSE;
-		mcf->noupdate = index->nodiskspace;
-	}
+	mcf->noupdate = mcf->fd == -1;
+	mcf->index->allow_new_custom_flags = mcf->fd != -1;
 
 	custom_flags_sync(mcf);
 
@@ -279,8 +291,10 @@ void mail_custom_flags_free(struct mail_custom_flags *mcf)
 			index_cf_set_syscall_error(mcf, "munmap()");
 	}
 
-	if (close(mcf->fd) < 0)
-		index_cf_set_syscall_error(mcf, "close()");
+	if (mcf->fd != -1) {
+		if (close(mcf->fd) < 0)
+			index_cf_set_syscall_error(mcf, "close()");
+	}
 
 	i_free(mcf->filepath);
 	i_free(mcf);

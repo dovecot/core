@@ -730,7 +730,7 @@ struct mail_index *mbox_index_alloc(const char *dir, const char *mbox_path)
 {
 	struct mail_index *index;
 
-	i_assert(dir != NULL);
+	i_assert(mbox_path != NULL);
 
 	index = i_new(struct mail_index, 1);
 	memcpy(index, &mbox_index, sizeof(struct mail_index));
@@ -801,7 +801,6 @@ static int mbox_index_update_flags(struct mail_index *index,
 
 struct mail_index mbox_index = {
 	mail_index_open,
-	mail_index_open_or_create,
 	mbox_index_free,
 	mbox_index_set_lock,
 	mbox_index_try_lock,

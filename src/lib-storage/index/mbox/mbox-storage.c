@@ -54,6 +54,8 @@ static int mbox_autodetect(const char *data)
 	const char *path;
 	struct stat st;
 
+	data = t_strcut(data, ':');
+
 	/* Is it INBOX file? */
 	if (*data != '\0' && stat(data, &st) == 0 && !S_ISDIR(st.st_mode) &&
 	    access(data, R_OK|W_OK) == 0)
@@ -191,8 +193,11 @@ static struct mail_storage *mbox_create(const char *data, const char *user)
 
 	if (inbox_file == NULL)
 		inbox_file = get_inbox_file(root_dir, !autodetect);
+
 	if (index_dir == NULL)
 		index_dir = root_dir;
+	else if (strcmp(index_dir, "MEMORY") == 0)
+		index_dir = NULL;
 
 	storage = i_new(struct mail_storage, 1);
 	memcpy(storage, &mbox_storage, sizeof(struct mail_storage));
@@ -254,6 +259,9 @@ static const char *mbox_get_index_dir(struct mail_storage *storage,
 {
 	const char *p;
 
+	if (storage->index_dir == NULL)
+		return NULL;
+
 	if (full_filesystem_access && (*name == '/' || *name == '~')) {
 		name = home_expand(name);
 		p = strrchr(name, '/');
@@ -277,6 +285,9 @@ static int create_mbox_index_dirs(struct mail_storage *storage,
 	const char *index_dir, *imap_dir;
 
 	index_dir = mbox_get_index_dir(storage, name);
+	if (index_dir == NULL)
+		return TRUE;
+
 	imap_dir = t_strdup_until(index_dir, strstr(index_dir, ".imap/") + 5);
 
 	if (mkdir(imap_dir, CREATE_MODE) == -1 && errno != EEXIST)
@@ -333,6 +344,7 @@ static struct mailbox *mbox_open(struct mail_storage *storage, const char *name,
 	index = index_storage_lookup_ref(index_dir);
 	if (index == NULL) {
 		index = mbox_index_alloc(index_dir, path);
+		index->custom_flags_dir = i_strdup(index_dir);
 		index_storage_add(index);
 	}
 
@@ -511,7 +523,8 @@ static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
 
 	/* next delete the index directory */
 	index_dir = mbox_get_index_dir(storage, name);
-	if (unlink_directory(index_dir, TRUE) < 0 && errno != ENOENT) {
+	if (index_dir != NULL &&
+	    unlink_directory(index_dir, TRUE) < 0 && errno != ENOENT) {
 		mail_storage_set_critical(storage, "unlink_directory(%s) "
 					  "failed: %m", index_dir);
 		return FALSE;
@@ -566,7 +579,8 @@ static int mbox_rename_mailbox(struct mail_storage *storage,
 	/* we need to rename the index directory as well */
 	old_indexdir = mbox_get_index_dir(storage, oldname);
 	new_indexdir = mbox_get_index_dir(storage, newname);
-	(void)rename(old_indexdir, new_indexdir);
+	if (old_indexdir != NULL)
+		(void)rename(old_indexdir, new_indexdir);
 
 	return TRUE;
 }
