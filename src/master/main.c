@@ -146,10 +146,14 @@ static void open_fds(void)
 		i_fatal("listen(%d) failed: %m", set_imap_port);
 	}
 
+#ifdef HAVE_SSL
 	imaps_fd = set_ssl_cert_file == NULL || *set_ssl_cert_file == '\0' ||
 		set_ssl_key_file == NULL || *set_ssl_key_file == '\0' ||
 		set_imaps_port == 0 ? dup(null_fd) :
 		net_listen(imaps_ip, &set_imaps_port);
+#else
+	imaps_fd = dup(null_fd);
+#endif
 	if (imaps_fd == -1) {
 		i_fatal("listen(%d) failed: %m", set_imaps_port);
 	}
