@@ -104,7 +104,11 @@ void my_vsyslog(int priority, const char *format, va_list args)
 	char buf[1024];
 
 #ifdef HAVE_VSNPRINTF
-	vsnprintf(buf, sizeof(buf), format, args);
+	int ret;
+
+	ret = vsnprintf(buf, sizeof(buf), format, args);
+	if (ret < 0 || (size_t)ret >= sizeof(buf))
+		buf[sizeof(buf)-1] = '\0';
 	str = buf;
 #else
         va_list args2;

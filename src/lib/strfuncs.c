@@ -401,7 +401,7 @@ int i_snprintf(char *str, size_t max_chars, const char *format, ...)
 	va_end(args);
 	t_pop();
 
-	if (ret < 0) {
+	if (ret < 0 || (size_t)ret >= max_chars) {
 		str[max_chars-1] = '\0';
 		ret = strlen(str);
 	}
