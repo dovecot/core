@@ -65,6 +65,9 @@ int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
 		return FALSE;
 	}
 
+	if (!index_storage_sync_if_possible(ibox))
+		return FALSE;
+
 	if (!index_mailbox_fix_custom_flags(ibox, &flags, custom_flags))
 		return FALSE;
 
