@@ -133,7 +133,7 @@ AC_TRY_RUN([
   sizeof_ssize_t=0
   AC_ERROR([Unsupported ssize_t size])
 ])
-AC_MSG_RESULT($sizeof_off_t)
+AC_MSG_RESULT($sizeof_ssize_t)
 
 AC_MSG_CHECKING([size of off_t])
 AC_TRY_RUN([
