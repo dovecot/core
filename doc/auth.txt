@@ -80,8 +80,14 @@ We should work with Linux PAM, Solaris PAM, OpenPAM (FreeBSD) and
 ApplePAM (OSX). PAM doesn't provide user database, so you have to use
 something else for that - passwd usually.
 
-Here's an example /etc/pam.d/imap configuration file which uses
-standard UNIX authentication:
+By default Dovecot uses "dovecot" service, ie. the PAM configuration is in
+/etc/pam.d/dovecot file. You can override this by giving the wanted service
+name as parameter for pam. For example "auth_passdb = pam dovecot2". If you
+give "*" as service name, Dovecot uses "imap" service for IMAP connections
+and "pop3" service for POP3 connections.
+
+Here's an example /etc/pam.d/dovecot configuration file which uses standard
+UNIX authentication:
 
 auth	required	pam_unix.so nullok
 account	required	pam_unix.so

@@ -204,7 +204,8 @@ static int pam_auth(pam_handle_t *pamh, const char *user, const char **error)
 }
 
 static void
-pam_verify_plain_child(const char *user, const char *password, int fd)
+pam_verify_plain_child(const char *service, const char *user,
+		       const char *password, int fd)
 {
 	pam_handle_t *pamh;
 	struct pam_userpass userpass;
@@ -221,7 +222,7 @@ pam_verify_plain_child(const char *user, const char *password, int fd)
 	userpass.user = user;
 	userpass.pass = password;
 
-	status = pam_start(service_name, user, &conv, &pamh);
+	status = pam_start(service, user, &conv, &pamh);
 	if (status != PAM_SUCCESS) {
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 		str = t_strdup_printf("pam_start(%s) failed: %s",
@@ -323,8 +324,17 @@ pam_verify_plain(struct auth_request *request, const char *password,
 		 verify_plain_callback_t *callback)
 {
         struct pam_auth_request *pam_auth_request;
+	const char *service;
 	int fd[2];
 	pid_t pid;
+
+	service = service_name != NULL ? service_name :
+		request->protocol == AUTH_PROTOCOL_IMAP ? "imap" :
+		request->protocol == AUTH_PROTOCOL_POP3 ? "pop3" : NULL;
+	if (service == NULL) {
+		i_error("Unknown protocol %d in auth request",
+			request->protocol);
+	}
 
 	if (pipe(fd) < 0) {
 		i_error("PAM: pipe() failed: %m");
@@ -343,7 +353,7 @@ pam_verify_plain(struct auth_request *request, const char *password,
 
 	if (pid == 0) {
 		(void)close(fd[0]);
-		pam_verify_plain_child(request->user, password, fd[1]);
+		pam_verify_plain_child(service, request->user, password, fd[1]);
 		_exit(0);
 	}
 
@@ -364,7 +374,8 @@ pam_verify_plain(struct auth_request *request, const char *password,
 
 static void pam_init(const char *args)
 {
-	service_name = i_strdup(*args != '\0' ? args : "dovecot");
+	service_name = strcmp(args, "*") == 0 ? NULL :
+		i_strdup(*args != '\0' ? args : "dovecot");
 	to_wait = NULL;
 }
 
