@@ -126,10 +126,16 @@ int rfc822_parse_date(const char *str, time_t *time, int *timezone_offset)
 	}
 
 	/* dd */
-	if (tok == NULL || tok->token != 'A' || tok->len != 2 ||
-	    !i_isdigit(tok->ptr[0]) || !i_isdigit(tok->ptr[1]))
+	if (tok == NULL || tok->token != 'A' || tok->len > 2 ||
+	    !i_isdigit(tok->ptr[0]))
 		return FALSE;
-	tm.tm_mday = (tok->ptr[0]-'0') * 10 + (tok->ptr[1]-'0');
+
+	tm.tm_mday = tok->ptr[0]-'0';
+	if (tok->len == 2) {
+		if (!i_isdigit(tok->ptr[1]))
+			return FALSE;
+		tm.tm_mday = (tm.tm_mday * 10) + (tok->ptr[1]-'0');
+	}
 
 	/* month name */
 	tok = next_token(&tokens);
