@@ -15,6 +15,17 @@
 
 #define SUBSCRIPTION_FILE_NAME ".subscriptions"
 
+static int subsfile_set_syscall_error(MailStorage *storage, const char *path,
+				      const char *function)
+{
+	i_assert(function != NULL);
+
+	mail_storage_set_critical(storage,
+				  "%s failed with subscription file %s: %m",
+				  function, path);
+	return FALSE;
+}
+
 static int subscription_open(MailStorage *storage, int update,
 			     const char **path, void **mmap_base,
 			     size_t *mmap_length)
@@ -26,18 +37,13 @@ static int subscription_open(MailStorage *storage, int update,
 	fd = update ? open(*path, O_RDWR | O_CREAT, 0660) :
 		open(*path, O_RDONLY);
 	if (fd == -1) {
-		if (update || errno != ENOENT) {
-			mail_storage_set_critical(storage, "Can't open "
-						  "subscription file %s: %m",
-						  *path);
-		}
+		if (update || errno != ENOENT)
+                        subsfile_set_syscall_error(storage, "open()", *path);
 		return -1;
 	}
 
-	if (!file_wait_lock(fd, update ? F_WRLCK : F_RDLCK)) {
-		mail_storage_set_critical(storage, "file_wait_lock() failed "
-					  "for subscription file %s: %m",
-					  *path);
+	if (file_wait_lock(fd, update ? F_WRLCK : F_RDLCK) < 0) {
+		subsfile_set_syscall_error(storage, "file_wait_lock()", *path);
 		(void)close(fd);
 		return -1;
 	}
@@ -46,8 +52,7 @@ static int subscription_open(MailStorage *storage, int update,
 		mmap_ro_file(fd, mmap_length);
 	if (*mmap_base == MAP_FAILED) {
 		*mmap_base = NULL;
-		mail_storage_set_critical(storage, "mmap() failed for "
-					  "subscription file %s: %m", *path);
+		subsfile_set_syscall_error(storage, "mmap()", *path);
 		(void)close(fd);
 		return -1;
 	}
@@ -61,11 +66,8 @@ static int subscription_append(MailStorage *storage, int fd, const char *name,
 {
 	char *buf;
 
-	if (lseek(fd, 0, SEEK_END) == -1) {
-		mail_storage_set_critical(storage, "lseek() failed for "
-					  "subscription file %s: %m", path);
-		return FALSE;
-	}
+	if (lseek(fd, 0, SEEK_END) < 0)
+		return subsfile_set_syscall_error(storage, "lseek()", path);
 
 	buf = t_buffer_get(len+2);
 	buf[0] = '\n';
@@ -80,8 +82,7 @@ static int subscription_append(MailStorage *storage, int fd, const char *name,
 	}
 
 	if (write_full(fd, buf, len) < 0) {
-		mail_storage_set_critical(storage, "write() failed for "
-					  "subscription file %s: %m", path);
+		subsfile_set_syscall_error(storage, "write_full()", path);
 		return FALSE;
 	}
 
@@ -135,9 +136,8 @@ int subsfile_set_subscribed(MailStorage *storage, const char *name, int set)
 			memmove(p, p+removelen, afterlen-removelen);
 
 		if (ftruncate(fd, (off_t) (mmap_length - removelen)) == -1) {
-			mail_storage_set_critical(storage, "ftruncate() "
-						  "failed for subscription "
-						  "file %s: %m", path);
+			subsfile_set_syscall_error(storage, "ftruncate()",
+						   path);
 			failed = TRUE;
 		}
 	} else if (p == NULL && set) {
@@ -149,13 +149,15 @@ int subsfile_set_subscribed(MailStorage *storage, const char *name, int set)
 			failed = TRUE;
 	}
 
-	if (mmap_base != NULL && munmap(mmap_base, mmap_length) == -1) {
-		mail_storage_set_critical(storage, "munmap() failed for "
-					  "subscription file %s: %m", path);
+	if (mmap_base != NULL && munmap(mmap_base, mmap_length) < 0) {
+		subsfile_set_syscall_error(storage, "munmap()", path);
 		failed = TRUE;
 	}
 
-	(void)close(fd);
+	if (close(fd) < 0) {
+		subsfile_set_syscall_error(storage, "close()", path);
+		failed = TRUE;
+	}
 	return !failed;
 }
 
