@@ -220,6 +220,7 @@ static int mbox_lock_fcntl(struct index_mailbox *ibox, int lock_type,
 	time_t now;
 	int wait_type;
 
+	memset(&fl, 0, sizeof(fl));
 	fl.l_type = lock_type;
 	fl.l_whence = SEEK_SET;
 	fl.l_start = 0;

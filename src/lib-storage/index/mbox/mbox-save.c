@@ -266,13 +266,12 @@ int mbox_save(struct mailbox_transaction_context *_t,
 	struct mbox_save_context *ctx = t->save_ctx;
 	int ret;
 
-	ctx->flags = flags;
-
 	if (ctx == NULL) {
 		ctx = t->save_ctx = i_new(struct mbox_save_context, 1);
 		ctx->ibox = ibox;
 		ctx->append_offset = (uoff_t)-1;
 	}
+	ctx->flags = flags;
 
 	if (ctx->append_offset == (uoff_t)-1) {
 		if (ibox->mbox_lock_type != F_WRLCK) {

@@ -204,6 +204,21 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	return 1;
 }
 
+static int mbox_sync_buf_have_expunges(buffer_t *syncs_buf)
+{
+	const struct mail_index_sync_rec *sync;
+	size_t size, i;
+
+	sync = buffer_get_data(syncs_buf, &size);
+	size /= sizeof(*sync);
+
+	for (i = 0; i < size; i++) {
+		if (sync[i].type == MAIL_INDEX_SYNC_TYPE_EXPUNGE)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 				      uint32_t uid, int *sync_expunge_r)
 {
@@ -212,7 +227,7 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 
 	*sync_expunge_r = FALSE;
 
-	if (sync_ctx->ibox->readonly)
+	if (sync_ctx->ibox->readonly || sync_ctx->index_sync_ctx == NULL)
 		return 0;
 
 	mbox_sync_buffer_delete_old(sync_ctx->syncs, uid);
@@ -235,6 +250,9 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 			break;
 		}
 	}
+
+	if (!*sync_expunge_r)
+		*sync_expunge_r = mbox_sync_buf_have_expunges(sync_ctx->syncs);
 
 	return 0;
 }
@@ -607,16 +625,6 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 	return 0;
 }
 
-static void mbox_sync_fake_headers(struct mbox_sync_context *sync_ctx)
-{
-	/* we didn't go through everything. fake the headers and all */
-	i_assert(sync_ctx->next_uid <= sync_ctx->hdr->next_uid);
-
-	sync_ctx->next_uid = sync_ctx->hdr->next_uid;
-	sync_ctx->base_uid_last = sync_ctx->hdr->next_uid-1;
-	sync_ctx->base_uid_validity = sync_ctx->hdr->uid_validity;
-}
-
 static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			  struct mbox_sync_mail_context *mail_ctx,
 			  uint32_t min_message_count)
@@ -639,7 +647,6 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 
 		if (sync_ctx->sync_rec.uid1 == 0) {
 			/* nothing to do */
-                        mbox_sync_fake_headers(sync_ctx);
 			return 0;
 		}
 
@@ -723,8 +730,6 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			mail_index_view_get_message_count(sync_ctx->sync_view);
 		while (sync_ctx->idx_seq < messages_count)
 			mail_index_expunge(sync_ctx->t, ++sync_ctx->idx_seq);
-	} else {
-		mbox_sync_fake_headers(sync_ctx);
 	}
 
 	return 0;
@@ -816,13 +821,16 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 		return -1;
 	}
 
-	if (sync_ctx->base_uid_validity != sync_ctx->hdr->uid_validity) {
+	if (sync_ctx->base_uid_validity != 0 &&
+	    sync_ctx->base_uid_validity != sync_ctx->hdr->uid_validity) {
 		mail_index_update_header(sync_ctx->t,
 			offsetof(struct mail_index_header, uid_validity),
 			&sync_ctx->base_uid_validity,
 			sizeof(sync_ctx->base_uid_validity));
 	}
-	if (sync_ctx->next_uid != sync_ctx->hdr->next_uid) {
+	if (sync_ctx->base_uid_last != 0 &&
+	    sync_ctx->next_uid != sync_ctx->hdr->next_uid) {
+		i_assert(sync_ctx->next_uid != 0);
 		mail_index_update_header(sync_ctx->t,
 			offsetof(struct mail_index_header, next_uid),
 			&sync_ctx->next_uid, sizeof(sync_ctx->next_uid));
@@ -854,9 +862,6 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 	sync_ctx->next_uid = 1;
 	sync_ctx->prev_msg_uid = sync_ctx->first_uid = 0;
 	sync_ctx->seq = sync_ctx->idx_seq = 0;
-
-	mail_index_transaction_rollback(sync_ctx->t);
-	sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view, FALSE);
 }
 
 static int mbox_sync_do(struct mbox_sync_context *sync_ctx)
@@ -887,6 +892,10 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx)
 		   write-lock. so, restart the whole syncing. */
 		i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
 
+		mail_index_transaction_rollback(sync_ctx->t);
+		sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view,
+							   FALSE);
+
 		mbox_sync_restart(sync_ctx);
 		if (mbox_sync_loop(sync_ctx, &mail_ctx, (uint32_t)-1) < 0)
 			return -1;
@@ -898,26 +907,8 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx)
 	/* only syncs left should be just appends (and their updates)
 	   which weren't synced yet for some reason (crash). we'll just
 	   ignore them, as we've overwritten them above. */
-	while (mail_index_sync_next(sync_ctx->index_sync_ctx,
-				    &sync_ctx->sync_rec) > 0)
-		;
-
 	buffer_set_used_size(sync_ctx->syncs, 0);
 	memset(&sync_ctx->sync_rec, 0, sizeof(sync_ctx->sync_rec));
-
-	if (sync_ctx->base_uid_last != sync_ctx->next_uid-1) {
-		/* rewrite X-IMAPbase header */
-		if (mbox_sync_check_excl_lock(sync_ctx) == -1)
-			return -1;
-
-		sync_ctx->update_base_uid_last = sync_ctx->next_uid-1;
-		mbox_sync_restart(sync_ctx);
-		if (mbox_sync_loop(sync_ctx, &mail_ctx, 1) < 0)
-			return -1;
-
-		if (mbox_sync_handle_eof_updates(sync_ctx, &mail_ctx) < 0)
-			return -1;
-	}
 
 	if (mbox_sync_update_index_header(sync_ctx) < 0)
 		return -1;
@@ -942,6 +933,29 @@ static int mbox_sync_has_changed(struct index_mailbox *ibox)
 
 	return (uint32_t)st.st_mtime != hdr->sync_stamp ||
 		(uint64_t)st.st_size != hdr->sync_size;
+}
+
+static int mbox_sync_update_imap_base(struct mbox_sync_context *sync_ctx)
+{
+	struct mbox_sync_mail_context mail_ctx;
+
+	if (mbox_sync_check_excl_lock(sync_ctx) == -1)
+		return -1;
+
+	sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view, FALSE);
+	sync_ctx->update_base_uid_last = sync_ctx->next_uid-1;
+
+	mbox_sync_restart(sync_ctx);
+	if (mbox_sync_loop(sync_ctx, &mail_ctx, 1) < 0)
+		return -1;
+
+	if (mbox_sync_handle_eof_updates(sync_ctx, &mail_ctx) < 0)
+		return -1;
+
+	if (mbox_sync_update_index_header(sync_ctx) < 0)
+		return -1;
+
+	return 0;
 }
 
 int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
@@ -1018,9 +1032,35 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit, int lock)
 		ibox->commit_log_file_seq = 0;
 		ibox->commit_log_file_offset = 0;
 	}
+	sync_ctx.t = NULL;
 
 	if (mail_index_sync_end(index_sync_ctx) < 0)
 		ret = -1;
+
+	if (sync_ctx.base_uid_last != sync_ctx.next_uid-1 && ret == 0) {
+		/* rewrite X-IMAPbase header. do it after mail_index_sync_end()
+		   so previous transactions have been committed. */
+		/* FIXME: ugly .. */
+		ret = mail_index_sync_begin(ibox->index,
+					    &sync_ctx.index_sync_ctx,
+					    &sync_ctx.sync_view,
+					    (uint32_t)-1, (uoff_t)-1);
+		if (ret < 0)
+			mail_storage_set_index_error(ibox);
+		else {
+			ret = mail_index_get_header(sync_ctx.sync_view,
+						    &sync_ctx.hdr);
+			if ((ret = mbox_sync_update_imap_base(&sync_ctx)) < 0)
+				mail_index_transaction_rollback(sync_ctx.t);
+			else if (mail_index_transaction_commit(sync_ctx.t,
+							       &seq,
+							       &offset) < 0)
+				ret = -1;
+
+			if (mail_index_sync_end(sync_ctx.index_sync_ctx) < 0)
+				ret = -1;
+		}
+	}
 
 	if (sync_ctx.lock_id != 0 && (ret < 0 || !lock)) {
 		/* FIXME: drop to read locking and keep it MBOX_SYNC_SECS+1
