@@ -75,14 +75,13 @@ struct istream *mbox_get_stream(struct mail_index *index, uoff_t offset,
 	}
 
 	if (index->mbox_stream == NULL) {
-		/* FIXME: breaks expunge */
-		/*if (index->mail_read_mmaped) {*/
+		if (index->mail_read_mmaped) {
 			index->mbox_stream =
 				i_stream_create_mmap(index->mbox_fd,
 						     default_pool,
 						     MAIL_MMAP_BLOCK_SIZE,
 						     0, 0, FALSE);
-		/*} else {
+		} else {
 			if (lseek(index->mbox_fd, 0, SEEK_SET) < 0) {
 				mbox_set_syscall_error(index, "lseek()");
 				return NULL;
@@ -93,7 +92,7 @@ struct istream *mbox_get_stream(struct mail_index *index, uoff_t offset,
 						     default_pool,
 						     MAIL_READ_BLOCK_SIZE,
 						     FALSE);
-		}*/
+		}
 	}
 
 	i_stream_set_read_limit(index->mbox_stream, 0);
