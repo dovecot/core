@@ -39,6 +39,8 @@ static Setting settings[] = {
 	{ "login_user",		SET_STR, &set_login_user },
 	{ "login_dir",		SET_STR, &set_login_dir },
 	{ "login_chroot",	SET_BOOL,&set_login_chroot },
+	{ "login_process_per_connection",
+				SET_BOOL,&set_login_process_per_connection },
 	{ "login_processes_count",
 				SET_INT, &set_login_processes_count },
 	{ "max_logging_users",	SET_INT, &set_max_logging_users },
@@ -88,7 +90,8 @@ char *set_login_user = "imapd";
 char *set_login_dir = PKG_RUNDIR;
 
 int set_login_chroot = TRUE;
-unsigned int set_login_processes_count = 1;
+int set_login_process_per_connection = TRUE;
+unsigned int set_login_processes_count = 3;
 unsigned int set_max_logging_users = 256;
 
 uid_t set_login_uid; /* generated from set_login_user */
@@ -176,11 +179,18 @@ static void settings_verify(void)
 	if (access(set_login_dir, X_OK) < 0)
 		i_fatal("Can't access login directory %s: %m", set_login_dir);
 
+	if (set_max_imap_processes < 1)
+		i_fatal("max_imap_processes must be at least 1");
 	if (set_login_processes_count < 1)
 		i_fatal("login_processes_count must be at least 1");
-	if (set_first_valid_uid < set_last_valid_uid)
+	if (set_max_logging_users < 1)
+		i_fatal("max_logging_users must be at least 1");
+
+	if (set_last_valid_uid != 0 &&
+	    set_first_valid_uid > set_last_valid_uid)
 		i_fatal("first_valid_uid can't be larger than last_valid_uid");
-	if (set_first_valid_gid < set_last_valid_gid)
+	if (set_last_valid_gid != 0 &&
+	    set_first_valid_gid > set_last_valid_gid)
 		i_fatal("first_valid_gid can't be larger than last_valid_gid");
 
 	auth_settings_verify();

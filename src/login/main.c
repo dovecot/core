@@ -10,13 +10,33 @@
 #include "ssl-proxy.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <syslog.h>
 
-IOLoop ioloop;
 int disable_plaintext_auth;
 unsigned int max_logging_users;
 
+static IOLoop ioloop;
 static IO io_imap, io_imaps;
+static int main_refcount;
+static int process_per_connection, closing_down;
+
+void main_ref(void)
+{
+	main_refcount++;
+}
+
+void main_unref(void)
+{
+	if (--main_refcount == 0) {
+		/* nothing to do, quit */
+		io_loop_stop(ioloop);
+	} else if (closing_down && clients_get_count() == 0) {
+		/* last login finished, close all communications
+		   to master process */
+		master_close();
+	}
+}
 
 static void sig_quit(int signo __attr_unused__)
 {
@@ -32,6 +52,23 @@ static void login_accept(void *context __attr_unused__, int listen_fd,
 	fd = net_accept(listen_fd, &addr, NULL);
 	if (fd == -1)
 		return;
+
+	if (process_per_connection) {
+		if (close(listen_fd) < 0)
+			i_fatal("can't close() listen handle");
+
+		if (io_imap != NULL) {
+			io_remove(io_imap);
+			io_imap = NULL;
+		}
+		if (io_imaps != NULL) {
+			io_remove(io_imaps);
+			io_imaps = NULL;
+		}
+
+		closing_down = TRUE;
+		master_notify_finished();
+	}
 
 	(void)client_create(fd, &addr);
 }
@@ -79,9 +116,13 @@ static void main_init(void)
 	}
 
 	disable_plaintext_auth = getenv("DISABLE_PLAINTEXT_AUTH") != NULL;
+        process_per_connection = getenv("PROCESS_PER_CONNECTION") != NULL;
 
 	value = getenv("MAX_LOGGING_USERS");
 	max_logging_users = value == NULL ? 0 : strtoul(value, NULL, 10);
+
+        closing_down = FALSE;
+	main_refcount = 0;
 
 	/* Initialize SSL proxy before dropping privileges so it can read
 	   the certificate and private key file. */

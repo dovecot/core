@@ -20,6 +20,7 @@ extern char *set_login_executable;
 extern char *set_login_user;
 extern char *set_login_dir;
 extern int set_login_chroot;
+extern int set_login_process_per_connection;
 extern unsigned int set_login_processes_count;
 extern unsigned int set_max_logging_users;
 

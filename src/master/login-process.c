@@ -14,15 +14,19 @@
 #include <unistd.h>
 #include <syslog.h>
 
-typedef struct {
+typedef struct _LoginProcess LoginProcess;
+
+struct _LoginProcess {
+	LoginProcess *prev_nonlisten, *next_nonlisten;
 	int refcount;
 
 	pid_t pid;
 	int fd;
 	IO io;
 	OBuffer *outbuf;
+	unsigned int listening:1;
 	unsigned int destroyed:1;
-} LoginProcess;
+};
 
 typedef struct {
 	LoginProcess *process;
@@ -36,7 +40,10 @@ typedef struct {
 
 static int auth_id_counter;
 static Timeout to;
-static HashTable *processes = NULL;
+
+static HashTable *processes;
+static LoginProcess *oldest_nonlisten_process, *newest_nonlisten_process;
+static unsigned int listening_processes;
 
 static void login_process_destroy(LoginProcess *p);
 static void login_process_unref(LoginProcess *p);
@@ -103,6 +110,28 @@ static void login_process_input(void *context, int fd __attr_unused__,
 		return;
 	}
 
+	if (client_fd == -1) {
+		/* just a notification that the login process isn't
+		   listening for new connections anymore */
+		if (!p->listening) {
+			i_error("login: received another \"not listening\" "
+				"notification");
+		} else {
+			p->listening = FALSE;
+			listening_processes--;
+
+			p->prev_nonlisten = newest_nonlisten_process;
+
+			if (newest_nonlisten_process != NULL)
+				newest_nonlisten_process->next_nonlisten = p;
+			newest_nonlisten_process = p;
+
+			if (oldest_nonlisten_process == NULL)
+                                oldest_nonlisten_process = p;
+		}
+		return;
+	}
+
 	/* login process isn't trusted, validate all data to make sure
 	   it's not trying to exploit us */
 	if (!VALIDATE_STR(req.login_tag)) {
@@ -125,7 +154,7 @@ static void login_process_input(void *context, int fd __attr_unused__,
 	if (auth_process == NULL) {
 		i_error("login: Authentication process %u doesn't exist",
 			req.auth_process);
-		auth_callback(NULL, &authreq);
+		auth_callback(NULL, authreq);
 	} else {
 		auth_process_request(auth_process, authreq->auth_id, req.cookie,
 				     auth_callback, authreq);
@@ -142,13 +171,30 @@ static LoginProcess *login_process_new(pid_t pid, int fd)
 	p->refcount = 1;
 	p->pid = pid;
 	p->fd = fd;
+	p->listening = TRUE;
 	p->io = io_add(fd, IO_READ, login_process_input, p);
 	p->outbuf = o_buffer_create_file(fd, default_pool,
 					 sizeof(MasterReply)*10,
 					 IO_PRIORITY_DEFAULT, FALSE);
 
 	hash_insert(processes, POINTER_CAST(pid), p);
+        listening_processes++;
 	return p;
+}
+
+void login_process_remove_from_lists(LoginProcess *p)
+{
+	if (p == oldest_nonlisten_process)
+		oldest_nonlisten_process = p->next_nonlisten;
+	else
+		p->prev_nonlisten->next_nonlisten = p->next_nonlisten;
+
+	if (p == newest_nonlisten_process)
+		newest_nonlisten_process = p->prev_nonlisten;
+	else
+		p->next_nonlisten->prev_nonlisten = p->prev_nonlisten;
+
+	p->next_nonlisten = p->prev_nonlisten = NULL;
 }
 
 static void login_process_destroy(LoginProcess *p)
@@ -157,11 +203,18 @@ static void login_process_destroy(LoginProcess *p)
 		return;
 	p->destroyed = TRUE;
 
+	if (p->listening)
+		listening_processes--;
+
 	o_buffer_close(p->outbuf);
 	io_remove(p->io);
 	(void)close(p->fd);
 
+	if (!p->listening)
+		login_process_remove_from_lists(p);
+
 	hash_remove(processes, POINTER_CAST(p->pid));
+
 	login_process_unref(p);
 }
 
@@ -179,6 +232,12 @@ static pid_t create_login_process(void)
 	static const char *argv[] = { NULL, NULL };
 	pid_t pid;
 	int fd[2];
+
+	if (set_login_process_per_connection &&
+	    hash_size(processes)-listening_processes >= set_max_logging_users) {
+		if (oldest_nonlisten_process != NULL)
+			login_process_destroy(oldest_nonlisten_process);
+	}
 
 	if (set_login_uid == 0)
 		i_fatal("Login process must not run as root");
@@ -249,8 +308,13 @@ static pid_t create_login_process(void)
 	if (set_disable_plaintext_auth)
 		putenv("DISABLE_PLAINTEXT_AUTH=1");
 
-	putenv((char *) t_strdup_printf("MAX_LOGGING_USERS=%d",
-					set_max_logging_users));
+	if (set_login_process_per_connection) {
+		putenv("PROCESS_PER_CONNECTION=1");
+		putenv("MAX_LOGGING_USERS=1");
+	} else {
+		putenv((char *) t_strdup_printf("MAX_LOGGING_USERS=%d",
+						set_max_logging_users));
+	}
 
 	/* hide the path, it's ugly */
 	argv[0] = strrchr(set_login_executable, '/');
@@ -280,14 +344,17 @@ static void login_processes_start_missing(void *context __attr_unused__,
 {
 	/* create max. one process every second, that way if it keeps
 	   dying all the time we don't eat all cpu with fork()ing. */
-	if (hash_size(processes) < set_login_processes_count)
+	if (listening_processes < set_login_processes_count)
                 (void)create_login_process();
 }
 
 void login_processes_init(void)
 {
         auth_id_counter = 0;
-        processes = hash_create(default_pool, 128, NULL, NULL);
+	listening_processes = 0;
+	oldest_nonlisten_process = newest_nonlisten_process = NULL;
+
+	processes = hash_create(default_pool, 128, NULL, NULL);
 	to = timeout_add(1000, login_processes_start_missing, NULL);
 }
 

@@ -5,6 +5,9 @@
 #include "network.h"
 #include "fdpass.h"
 #include "master.h"
+#include "client.h"
+
+#include <unistd.h>
 
 typedef struct _WaitingRequest WaitingRequest;
 
@@ -86,6 +89,29 @@ void master_request_imap(int fd, int auth_process, const char *login_tag,
 	push_request(req.id, callback, context);
 }
 
+void master_notify_finished(void)
+{
+	MasterRequest req;
+
+	memset(&req, 0, sizeof(req));
+
+	/* sending -1 as fd does the notification */
+	if (fd_send(LOGIN_MASTER_SOCKET_FD,
+		    -1, &req, sizeof(req)) != sizeof(req))
+		i_fatal("fd_send() failed: %m");
+}
+
+void master_close(void)
+{
+	clients_destroy_all();
+
+	(void)close(LOGIN_MASTER_SOCKET_FD);
+	io_remove(io_master);
+	io_master = NULL;
+
+	main_unref();
+}
+
 static void master_input(void *context __attr_unused__, int fd,
 			 IO io __attr_unused__)
 {
@@ -94,8 +120,8 @@ static void master_input(void *context __attr_unused__, int fd,
 	ret = net_receive(fd, master_buf + master_pos,
 			  sizeof(master_buf) - master_pos);
 	if (ret < 0) {
-		/* master died, kill ourself too */
-		io_loop_stop(ioloop);
+		/* master died, kill all clients logging in */
+		master_close();
 		return;
 	}
 
@@ -110,6 +136,8 @@ static void master_input(void *context __attr_unused__, int fd,
 
 void master_init(void)
 {
+	main_ref();
+
 	requests = NULL;
 	next_request = &requests;
 
@@ -126,5 +154,7 @@ void master_deinit(void)
 		i_free(requests);
 		requests = next;
 	}
-	io_remove(io_master);
+
+	if (io_master != NULL)
+		io_remove(io_master);
 }

@@ -10,6 +10,12 @@ void master_request_imap(int fd, int auth_process,  const char *login_tag,
 			 unsigned char cookie[AUTH_COOKIE_SIZE], IPADDR *ip,
 			 MasterCallback callback, void *context);
 
+/* Notify master that we're not listening for new connections anymore. */
+void master_notify_finished(void);
+
+/* Close connection to master process */
+void master_close(void);
+
 void master_init(void);
 void master_deinit(void);
 

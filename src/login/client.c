@@ -271,6 +271,8 @@ Client *client_create(int fd, IPADDR *ip)
         client->last_input = ioloop_time;
 	hash_insert(clients, client, client);
 
+	main_ref();
+
 	client_send_line(client, "* OK " PACKAGE " ready.");
 	return client;
 }
@@ -312,6 +314,8 @@ int client_unref(Client *client)
 	i_free(client->tag);
 	i_free(client->plain_login);
 	i_free(client);
+
+	main_unref();
 	return FALSE;
 }
 
@@ -353,10 +357,9 @@ static void idle_timeout(void *context __attr_unused__,
 	hash_foreach(clients, client_hash_check_idle, NULL);
 }
 
-void clients_init(void)
+unsigned int clients_get_count(void)
 {
-	clients = hash_create(default_pool, 128, NULL, NULL);
-	to_idle = timeout_add(1000, idle_timeout, NULL);
+	return hash_size(clients);
 }
 
 static void client_hash_destroy(void *key, void *value __attr_unused__,
@@ -365,9 +368,20 @@ static void client_hash_destroy(void *key, void *value __attr_unused__,
 	client_destroy(key, NULL);
 }
 
-void clients_deinit(void)
+void clients_destroy_all(void)
 {
 	hash_foreach(clients, client_hash_destroy, NULL);
+}
+
+void clients_init(void)
+{
+	clients = hash_create(default_pool, 128, NULL, NULL);
+	to_idle = timeout_add(1000, idle_timeout, NULL);
+}
+
+void clients_deinit(void)
+{
+	clients_destroy_all();
 	hash_destroy(clients);
 
 	timeout_remove(to_idle);

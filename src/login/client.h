@@ -37,6 +37,9 @@ void client_syslog(Client *client, const char *text);
 int client_read(Client *client);
 void client_input(void *context, int fd, IO io);
 
+unsigned int clients_get_count(void);
+void clients_destroy_all(void);
+
 void clients_init(void);
 void clients_deinit(void);
 

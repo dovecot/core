@@ -125,6 +125,8 @@ static int ssl_proxy_destroy(SSLProxy *proxy)
 		io_remove(proxy->io_plain);
 
 	i_free(proxy);
+
+	main_unref();
 	return FALSE;
 }
 
@@ -230,26 +232,6 @@ static void plain_input(void *context, int fd __attr_unused__,
 	proxy->io_plain = io_add(proxy->fd_ssl, IO_WRITE, plain_output, proxy);
 }
 
-static GNUTLS_STATE initialize_state(void)
-{
-	GNUTLS_STATE state;
-
-	gnutls_init(&state, GNUTLS_SERVER);
-
-	gnutls_protocol_set_priority(state, protocol_priority);
-	gnutls_cipher_set_priority(state, cipher_priority);
-	gnutls_compression_set_priority(state, comp_priority);
-	gnutls_kx_set_priority(state, kx_priority);
-	gnutls_mac_set_priority(state, mac_priority);
-
-	gnutls_cred_set(state, GNUTLS_CRD_CERTIFICATE, x509_cred);
-
-	/*gnutls_certificate_server_set_request(state, GNUTLS_CERT_REQUEST);*/
-
-	gnutls_dh_set_prime_bits(state, DH_BITS);
-	return state;
-}
-
 static void ssl_handshake(void *context, int fd __attr_unused__,
 			  IO io __attr_unused__)
 {
@@ -284,6 +266,26 @@ static void ssl_handshake(void *context, int fd __attr_unused__,
 	}
 }
 
+static GNUTLS_STATE initialize_state(void)
+{
+	GNUTLS_STATE state;
+
+	gnutls_init(&state, GNUTLS_SERVER);
+
+	gnutls_protocol_set_priority(state, protocol_priority);
+	gnutls_cipher_set_priority(state, cipher_priority);
+	gnutls_compression_set_priority(state, comp_priority);
+	gnutls_kx_set_priority(state, kx_priority);
+	gnutls_mac_set_priority(state, mac_priority);
+
+	gnutls_cred_set(state, GNUTLS_CRD_CERTIFICATE, x509_cred);
+
+	/*gnutls_certificate_server_set_request(state, GNUTLS_CERT_REQUEST);*/
+
+	gnutls_dh_set_prime_bits(state, DH_BITS);
+	return state;
+}
+
 int ssl_proxy_new(int fd)
 {
         SSLProxy *proxy;
@@ -316,6 +318,7 @@ int ssl_proxy_new(int fd)
 	if (!ssl_proxy_destroy(proxy))
 		return -1;
 
+        main_ref();
 	return sfd[1];
 }
 
