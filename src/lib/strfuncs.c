@@ -475,7 +475,7 @@ int bsearch_strcasecmp(const void *p1, const void *p2)
 	const char *key = p1;
 	const char *const *member = p2;
 
-	return strcmp(key, *member);
+	return strcasecmp(key, *member);
 }
 
 static const char **_strsplit(const char *data, const char *separators,
