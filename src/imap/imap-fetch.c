@@ -168,6 +168,8 @@ static int fetch_mail(struct imap_fetch_context *ctx, struct mail *mail)
 	size_t len, orig_len;
 	int failed, data_written;
 
+	t_push();
+
 	str_truncate(ctx->str, 0);
 	str_printfa(ctx->str, "* %u FETCH (", mail->seq);
 	orig_len = str_len(ctx->str);
@@ -179,17 +181,23 @@ static int fetch_mail(struct imap_fetch_context *ctx, struct mail *mail)
 		if (ctx->imap_data & IMAP_FETCH_UID)
 			fetch_uid(ctx, mail);
 		if ((ctx->fetch_data & MAIL_FETCH_FLAGS) || mail->seen_updated)
-			fetch_flags(ctx, mail);
+			if (!fetch_flags(ctx, mail))
+				break;
 		if (ctx->fetch_data & MAIL_FETCH_RECEIVED_DATE)
-			fetch_internaldate(ctx, mail);
+			if (!fetch_internaldate(ctx, mail))
+				break;
 		if (ctx->fetch_data & MAIL_FETCH_SIZE)
-			fetch_rfc822_size(ctx, mail);
+			if (!fetch_rfc822_size(ctx, mail))
+				break;
 		if (ctx->fetch_data & MAIL_FETCH_IMAP_BODY)
-			fetch_body(ctx, mail);
+			if (!fetch_body(ctx, mail))
+				break;
 		if (ctx->fetch_data & MAIL_FETCH_IMAP_BODYSTRUCTURE)
-			fetch_bodystructure(ctx, mail);
+			if (!fetch_bodystructure(ctx, mail))
+				break;
 		if (ctx->fetch_data & MAIL_FETCH_IMAP_ENVELOPE)
-			fetch_envelope(ctx, mail);
+			if(!fetch_envelope(ctx, mail))
+				break;
 
 		/* send the data written into temp string */
 		len = str_len(ctx->str);
@@ -226,6 +234,7 @@ static int fetch_mail(struct imap_fetch_context *ctx, struct mail *mail)
 			failed = TRUE;
 	}
 
+	t_pop();
 	return !failed;
 }
 
@@ -261,7 +270,7 @@ int imap_fetch(struct client *client,
 	ctx.bodies = bodies;
 	ctx.output = client->output;
 	ctx.select_counter = client->select_counter;
-	ctx.str = t_str_new(8192);
+	ctx.str = str_new(default_pool, 8192);
 
 	ctx.fetch_ctx = client->mailbox->
 		fetch_init(client->mailbox, fetch_data, &update_seen,
