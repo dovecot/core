@@ -86,7 +86,7 @@ static int scope2str(const char *str)
 	i_fatal("LDAP: Unknown scope option '%s'", str);
 }
 
-static const char *get_ldap_error(struct ldap_connection *conn)
+const char *ldap_get_error(struct ldap_connection *conn)
 {
 	int ret, err;
 
@@ -116,7 +116,7 @@ void db_ldap_search(struct ldap_connection *conn, const char *base, int scope,
 	msgid = ldap_search(conn->ld, base, scope, filter, attributes, 0);
 	if (msgid == -1) {
 		i_error("LDAP: ldap_search() failed (filter %s): %s",
-			filter, get_ldap_error(conn));
+			filter, ldap_get_error(conn));
 		request->callback(conn, request, NULL);
 		return;
 	}
@@ -132,7 +132,7 @@ static void ldap_input(void *context)
 	LDAPMessage *res;
 	int ret, msgid;
 
-	for (;;) {
+	while (conn->ld != NULL) {
 		memset(&timeout, 0, sizeof(timeout));
 		ret = ldap_result(conn->ld, LDAP_RES_ANY, 1, &timeout, &res);
 #ifdef OPENLDAP_ASYNC_WORKAROUND
@@ -145,31 +145,22 @@ static void ldap_input(void *context)
 		if (ret <= 0) {
 			if (ret < 0) {
 				i_error("LDAP: ldap_result() failed: %s",
-					get_ldap_error(conn));
+					ldap_get_error(conn));
 				/* reconnect */
 				ldap_conn_close(conn);
 			}
 			return;
 		}
 
-		ret = ldap_result2error(conn->ld, res, 0);
-		if (ret != LDAP_SUCCESS) {
-			i_error("LDAP: ldap_result() failed: %s",
-				ldap_err2string(ret));
+		msgid = ldap_msgid(res);
+		request = hash_lookup(conn->requests, POINTER_CAST(msgid));
+		if (request == NULL) {
+			i_error("LDAP: Reply with unknown msgid %d",
+				msgid);
 		} else {
-			msgid = ldap_msgid(res);
-
-			request = hash_lookup(conn->requests,
-					      POINTER_CAST(msgid));
-			if (request != NULL) {
-				request->callback(conn, request, res);
-				hash_remove(conn->requests,
-					    POINTER_CAST(msgid));
-				i_free(request);
-			} else {
-				i_error("LDAP: Reply with unknown msgid %d",
-					msgid);
-			}
+			hash_remove(conn->requests, POINTER_CAST(msgid));
+			request->callback(conn, request, res);
+			i_free(request);
 		}
 
 		ldap_msgfree(res);
@@ -200,14 +191,14 @@ static int ldap_conn_open(struct ldap_connection *conn)
 	/* NOTE: we use blocking connect, we couldn't do anything anyway
 	   until it's done. */
 	ret = ldap_simple_bind_s(conn->ld, conn->set.dn, conn->set.dnpass);
+	if (ret == LDAP_SERVER_DOWN) {
+		i_error("LDAP: Can't connect to server: %s", conn->set.hosts);
+		return FALSE;
+	}
 	if (ret != LDAP_SUCCESS) {
-		if (ret == LDAP_SERVER_DOWN) {
-			i_error("LDAP: Can't connect to server: %s",
-				conn->set.hosts);
-		} else {
-			i_error("LDAP: ldap_simple_bind_s() failed: %s",
-				ldap_err2string(ret));
-		}
+		i_error("LDAP: ldap_simple_bind_s() failed (dn %s): %s",
+			conn->set.dn == NULL ? "(none)" : conn->set.dn,
+			ldap_get_error(conn));
 		return FALSE;
 	}
 
@@ -227,11 +218,13 @@ static int ldap_conn_open(struct ldap_connection *conn)
 
 static void ldap_conn_close(struct ldap_connection *conn)
 {
-	if (conn->connected) {
+	hash_clear(conn->requests, FALSE);
+
+	conn->connected = FALSE;
+
+	if (conn->io != NULL) {
 		io_remove(conn->io);
 		conn->io = NULL;
-
-		conn->connected = FALSE;
 	}
 
 	if (conn->ld != NULL) {

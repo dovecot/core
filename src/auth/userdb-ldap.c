@@ -96,6 +96,15 @@ static void handle_request(struct ldap_connection *conn,
 	LDAPMessage *entry;
 	BerElement *ber;
 	char *attr, **vals;
+	int ret;
+
+	ret = ldap_result2error(conn->ld, res, 0);
+	if (ret != LDAP_SUCCESS) {
+		i_error("LDAP: ldap_search() failed: %s",
+			ldap_err2string(ret));
+		urequest->userdb_callback(NULL, request->context);
+		return;
+	}
 
 	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);
 	if (entry == NULL) {

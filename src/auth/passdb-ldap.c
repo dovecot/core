@@ -61,6 +61,15 @@ static void handle_request(struct ldap_connection *conn,
 	user = auth_request->user;
 	password = NULL;
 
+	if (res != NULL) {
+		ret = ldap_result2error(conn->ld, res, 0);
+		if (ret != LDAP_SUCCESS) {
+			i_error("ldap(%s): ldap_search() failed: %s",
+				user, ldap_err2string(ret));
+			res = NULL;
+		}
+	}
+
 	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);
 	if (entry == NULL) {
 		if (res != NULL)
