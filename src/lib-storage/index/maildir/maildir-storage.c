@@ -364,7 +364,7 @@ static int maildir_rename_mailbox(MailStorage *storage, const char *oldname,
 	   the next time it's needed. Only problem with it is that it's not
 	   atomic operation but that can't be really helped.
 
-	   NOTE: is't possible to rename a nonexisting folder which has
+	   NOTE: it's possible to rename a nonexisting folder which has
 	   subfolders. In that case we should ignore the rename() error. */
 	i_snprintf(oldpath, sizeof(oldpath), "%s/.%s", storage->dir, oldname);
 	i_snprintf(newpath, sizeof(newpath), "%s/.%s", storage->dir, newname);
