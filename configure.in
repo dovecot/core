@@ -53,11 +53,6 @@ AC_ARG_WITH(mem-align,
 	mem_align=$withval,
 	mem_align=8)
 
-AC_ARG_WITH(index-align,
-[  --with-index-align=BYTES  Set the index file alignment (default: detect)],
-	index_align=$withval,
-	index_align=0)
-
 AC_ARG_WITH(passwd,
 [  --with-passwd           Build with /etc/passwd support (default)],
 	if test x$withval = xno; then
@@ -494,17 +489,7 @@ if test $i_cv_type_socklen_t = yes; then
   AC_DEFINE(HAVE_SOCKLEN_T,, Define to 'int' if you don't have socklen_t)
 fi
 
-dnl * memory alignment
-if test "$index_align" = "0"; then
-  if test $offt_bits = 64; then
-    index_align=8
-  else
-    index_align=4
-  fi
-fi
-
 AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align, Required memory alignment)
-AC_DEFINE_UNQUOTED(INDEX_ALIGN_SIZE, $index_align, Required index alignment)
 
 dnl * find random source
 AC_MSG_CHECKING([for /dev/urandom])

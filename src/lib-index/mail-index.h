@@ -475,8 +475,4 @@ int mail_index_expunge_record_range(struct mail_index *index,
 #define INDEX_IS_IN_MEMORY(index) \
 	((index)->anon_mmap)
 
-/* Returns alignmentation for given size */
-#define INDEX_ALIGN(size) \
-	(((size) + INDEX_ALIGN_SIZE-1) & ~((unsigned int) INDEX_ALIGN_SIZE-1))
-
 #endif
