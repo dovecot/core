@@ -11,7 +11,7 @@ typedef struct {
 	   information. reply should have been initialized (zeroed) before
 	   calling this function. */
 	int (*verify_plain)(const char *user, const char *password,
-			   AuthCookieReplyData *reply);
+			    AuthCookieReplyData *reply);
 
 	/* Digest-MD5 specific password lookup. The digest is filled with
 	   the MD5 password which consists of a MD5 sum of
@@ -28,6 +28,7 @@ extern UserInfoModule userinfo_passwd;
 extern UserInfoModule userinfo_shadow;
 extern UserInfoModule userinfo_pam;
 extern UserInfoModule userinfo_passwd_file;
+extern UserInfoModule userinfo_vpopmail;
 
 void userinfo_init(void);
 void userinfo_deinit(void);

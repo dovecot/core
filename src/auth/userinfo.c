@@ -33,6 +33,10 @@ void userinfo_init(void)
 	if (strcasecmp(name, "passwd-file") == 0)
 		userinfo = &userinfo_passwd_file;
 #endif
+#ifdef USERINFO_VPOPMAIL
+	if (strcasecmp(name, "vpopmail") == 0)
+		userinfo = &userinfo_vpopmail;
+#endif
 
 	if (userinfo == NULL)
 		i_fatal("Unknown userinfo type '%s'", name);

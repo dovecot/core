@@ -64,8 +64,17 @@ AC_ARG_ENABLE(pam,
 	fi,
 	want_pam=yes)
 
+AC_ARG_WITH(vpopmail,
+[  --with-vpopmail         Build with vpopmail support (default)],
+	if test x$withval = xno; then
+		want_vpopmail=no
+	else
+		want_vpopmail=yes
+	fi,
+	want_vpopmail=yes)
+
 AC_ARG_WITH(gnutls,
-[  --without-gnutls        Don't try to use GNUTLS],
+[  --with-gnutls           Build with GNUTLS (default)],
 	if test x$withval = xno; then
 		want_gnutls=no
 	else
@@ -305,6 +314,20 @@ if test $want_pam = yes; then
 		])
 	])
 fi
+
+if test $want_vpopmail = yes; then
+	vpopmail_home="`echo ~vpopmail`"
+	if test -f $vpopmail_home/etc/lib_deps; then
+		VPOPMAIL_CFLAGS="`cat $vpopmail_home/etc/inc_deps` $CFLAGS"
+		VPOPMAIL_LIBS="`cat $vpopmail_home/etc/lib_deps`"
+		AC_DEFINE(USERINFO_VPOPMAIL)
+	else
+		want_vpopmail=no
+	fi
+fi
+
+AC_SUBST(VPOPMAIL_CFLAGS)
+AC_SUBST(VPOPMAIL_LIBS)
 
 if test $need_crypt = yes; then
 	AC_CHECK_LIB(crypt, crypt, [

@@ -1,11 +1,13 @@
 pkglib_PROGRAMS = imap-auth
 
 INCLUDES = \
-	-I$(top_srcdir)/src/lib
+	-I$(top_srcdir)/src/lib \
+	$(VPOPMAIL_CFLAGS)
 
 imap_auth_LDADD = \
 	../lib/liblib.a \
-	$(USERINFO_LIBS)
+	$(USERINFO_LIBS) \
+	$(VPOPMAIL_LIBS)
 
 imap_auth_SOURCES = \
 	auth.c \
@@ -19,7 +21,8 @@ imap_auth_SOURCES = \
 	userinfo-passwd.c \
 	userinfo-shadow.c \
 	userinfo-pam.c \
-	userinfo-passwd-file.c
+	userinfo-passwd-file.c \
+	userinfo-vpopmail.c
 
 noinst_HEADERS = \
 	auth.h \

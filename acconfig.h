@@ -11,6 +11,7 @@
 #undef USERINFO_PASSWD_FILE
 #undef USERINFO_SHADOW
 #undef USERINFO_PAM
+#undef USERINFO_VPOPMAIL
 #undef AUTH_PAM_USERPASS
 
 /* IMAP capabilities */
