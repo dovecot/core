@@ -231,8 +231,9 @@ static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx)
 			   or the process trying to delete it had died.
 
 			   delete it ourself if it's been there longer than
-			   one hour */
-			if (st.st_mtime < 3600)
+			   one hour. don't touch it if it's outside our
+			   mail root dir. */
+			if (st.st_mtime < 3600 && *ctx->prefix == '\0')
 				(void)unlink_directory(path, TRUE);
 			continue;
 		}
