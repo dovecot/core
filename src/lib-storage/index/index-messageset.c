@@ -176,6 +176,12 @@ static int messageset_parse_next(struct messageset_context *ctx)
 		return FALSE;
 	}
 
+	if (ctx->messages_count == 0 && !ctx->uidset &&
+	    num == (unsigned int)-1) {
+		ctx->error = "No messages in mailbox";
+		return FALSE;
+	}
+
 	return TRUE;
 }
 
@@ -187,11 +193,17 @@ static int uidset_init(struct messageset_context *ctx)
 		struct mail_index_record *rec;
 
 		rec = ctx->index->lookup(ctx->index, ctx->messages_count);
-		ctx->num1 = rec == NULL ? 0 : rec->uid;
+		if (rec == NULL)
+			return 1;
+
+		ctx->num1 = rec->uid;
 	}
 
 	if (ctx->num2 == (unsigned int)-1) {
 		ctx->num2 = ctx->index->header->next_uid-1;
+
+		if (ctx->num2 == 0)
+			return 1;
 
 		/* num1 might actually be larger, check */
 		if (ctx->num1 > ctx->num2) {
