@@ -653,7 +653,6 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 		}
 
 		rec = p_new(ctx->record_pool, struct maildir_uidlist_rec, 1);
-		buffer_append(ctx->record_buf, &rec, sizeof(rec));
 
 		if (old_rec != NULL)
 			*rec = *old_rec;
@@ -661,8 +660,10 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			ctx->new_files = TRUE;
 			ctx->first_new_pos =
 				buffer_get_used_size(ctx->record_buf) /
-				sizeof(*rec);
+				sizeof(rec);
 		}
+
+		buffer_append(ctx->record_buf, &rec, sizeof(rec));
 	}
 
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 && rec->uid != 0)
