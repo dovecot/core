@@ -30,14 +30,14 @@ struct mbox_sync_mail {
 	uint8_t flags;
 	keywords_mask_t keywords;
 
-	uoff_t space_offset; /* if space is negative, points to beginning */
+	uoff_t offset; /* if space <= 0, points to beginning */
 	off_t space;
 	uoff_t body_size;
 };
 
 struct mbox_sync_mail_context {
 	struct mbox_sync_context *sync_ctx;
-	struct mbox_sync_mail *mail;
+	struct mbox_sync_mail mail;
 
 	uint32_t seq;
 	uoff_t hdr_offset, body_offset;
@@ -45,13 +45,13 @@ struct mbox_sync_mail_context {
 	size_t header_first_change, header_last_change;
 	string_t *header;
 
-	uint32_t base_uid_validity, base_uid_last;
 	uoff_t content_length;
 
 	size_t hdr_pos[MBOX_HDR_COUNT];
 
 	unsigned int have_eoh:1;
 	unsigned int need_rewrite:1;
+	unsigned int seen_imapbase:1;
 };
 
 struct mbox_sync_context {
@@ -61,6 +61,8 @@ struct mbox_sync_context {
 
 	const struct mail_index_header *hdr;
 
+	buffer_t *header;
+	uint32_t base_uid_validity, base_uid_last;
 	uint32_t prev_msg_uid, next_uid;
 };
 
@@ -68,7 +70,9 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit);
 void mbox_sync_parse_next_mail(struct istream *input,
 			       struct mbox_sync_mail_context *ctx);
 void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
-			     struct mail_index_sync_rec *update);
+			     buffer_t *syncs_buf);
+void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
+				  const struct mbox_sync_mail *mail);
 int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx);
 int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 		      uint32_t first_seq, uint32_t last_seq, off_t extra_space);

@@ -5,10 +5,15 @@
    you'll have to call istream_raw_mbox_next() to get to next message. */
 struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input);
 
-/* Return number of bytes in this message after current offset.
-   If body_size isn't (uoff_t)-1, we'll use it as potentially valid body size
-   to avoid actually reading through the whole message. */
-uoff_t istream_raw_mbox_get_size(struct istream *stream, uoff_t body_size);
+/* Return offset to beginning of the "\nFrom"-line. */
+uoff_t istream_raw_mbox_get_start_offset(struct istream *stream);
+/* Return offset to beginning of the headers. */
+uoff_t istream_raw_mbox_get_header_offset(struct istream *stream);
+
+/* Return the number of bytes in the body of this message. If body_size isn't
+   (uoff_t)-1, we'll use it as potentially valid body size to avoid actually
+   reading through the whole message. */
+uoff_t istream_raw_mbox_get_body_size(struct istream *stream, uoff_t body_size);
 
 /* Return received time of current message, or (time_t)-1 if the timestamp is
    broken. */
