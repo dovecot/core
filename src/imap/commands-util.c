@@ -238,7 +238,7 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 }
 
 static const char *
-get_keywords_string(const char *keywords[], unsigned int keywords_count)
+get_keywords_string(const char *const keywords[], unsigned int keywords_count)
 {
 	string_t *str;
 	unsigned int i;
@@ -265,7 +265,7 @@ get_keywords_string(const char *keywords[], unsigned int keywords_count)
 #define SYSTEM_FLAGS "\\Answered \\Flagged \\Deleted \\Seen \\Draft"
 
 void client_send_mailbox_flags(struct client *client, struct mailbox *box,
-			       const char *keywords[],
+			       const char *const keywords[],
 			       unsigned int keywords_count)
 {
 	const char *str;
@@ -286,7 +286,8 @@ void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 }
 
 void client_save_keywords(struct mailbox_keywords *dest,
-			  const char *keywords[], unsigned int keywords_count)
+			  const char *const keywords[],
+			  unsigned int keywords_count)
 {
 	unsigned int i;
 

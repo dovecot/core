@@ -42,7 +42,7 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 
 /* Send FLAGS + PERMANENTFLAGS to client. */
 void client_send_mailbox_flags(struct client *client, struct mailbox *box,
-			       const char *keywords[],
+			       const char *const keywords[],
 			       unsigned int keywords_count);
 
 /* Copy keywords into dest. dest must have been initialized. */
