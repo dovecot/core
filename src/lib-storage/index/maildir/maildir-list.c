@@ -153,12 +153,15 @@ static int maildir_fill_readdir(struct mailbox_list_context *ctx,
 
 			t_pop();
 		} else {
+			created = FALSE;
 			node = update_only ?
 				mailbox_tree_update(ctx->tree_ctx, mailbox_c) :
 				mailbox_tree_get(ctx->tree_ctx,
-						 mailbox_c, NULL);
+						 mailbox_c, &created);
 
 			if (node != NULL) {
+				if (created)
+					node->flags = MAILBOX_NOCHILDREN;
 				node->flags &= ~(MAILBOX_PLACEHOLDER |
 						 MAILBOX_NONEXISTENT);
 				node->flags |= MAILBOX_FLAG_MATCHED;
