@@ -7,7 +7,7 @@ struct ostream {
 	int stream_errno;
 	unsigned int closed:1;
 
-	void *real_stream;
+	struct _ostream *real_stream;
 };
 
 struct ostream *

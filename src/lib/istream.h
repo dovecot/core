@@ -8,7 +8,7 @@ struct istream {
 	int stream_errno;
 	unsigned int closed:1;
 
-	void *real_stream;
+	struct _istream *real_stream;
 };
 
 struct istream *i_stream_create_file(int fd, pool_t pool,

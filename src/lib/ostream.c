@@ -29,29 +29,30 @@
 
 void o_stream_ref(struct ostream *stream)
 {
-	_io_stream_ref(stream->real_stream);
+	_io_stream_ref(&stream->real_stream->iostream);
 }
 
 void o_stream_unref(struct ostream *stream)
 {
-	_io_stream_unref(stream->real_stream);
+	_io_stream_unref(&stream->real_stream->iostream);
 }
 
 void o_stream_close(struct ostream *stream)
 {
-	_io_stream_close(stream->real_stream);
+	_io_stream_close(&stream->real_stream->iostream);
 	stream->closed = TRUE;
 }
 
 void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size)
 {
-	_io_stream_set_max_buffer_size(stream->real_stream, max_size);
+	_io_stream_set_max_buffer_size(&stream->real_stream->iostream,
+				       max_size);
 }
 
 void o_stream_set_blocking(struct ostream *stream, int timeout_msecs,
 			   void (*timeout_cb)(void *), void *context)
 {
-	_io_stream_set_blocking(stream->real_stream, timeout_msecs,
+	_io_stream_set_blocking(&stream->real_stream->iostream, timeout_msecs,
 				timeout_cb, context);
 }
 
