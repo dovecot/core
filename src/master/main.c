@@ -420,7 +420,7 @@ static void create_pid_file(const char *path)
 	const char *pid;
 	int fd;
 
-	pid = t_strconcat(dec2str(getpid()), "\n");
+	pid = t_strconcat(dec2str(getpid()), "\n", NULL);
 
 	fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0644);
 	if (fd == -1)
