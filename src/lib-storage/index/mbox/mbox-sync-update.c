@@ -228,7 +228,7 @@ static void mbox_sync_update_line(struct mbox_sync_mail_context *ctx,
 		str_truncate(ctx->header, pos);
 		str_append_str(ctx->header, new_line);
 	} else {
-		mbox_sync_move_buffer(ctx, pos, str_len(new_line), p - hdr + 1);
+		mbox_sync_move_buffer(ctx, pos, str_len(new_line), p - hdr);
 		buffer_copy(ctx->header, pos, new_line, 0, (size_t)-1);
 	}
 }
