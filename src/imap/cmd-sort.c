@@ -120,7 +120,7 @@ int cmd_sort(struct client *client)
 	if (sargs == NULL) {
 		/* error in search arguments */
 		client_send_tagline(client, t_strconcat("NO ", error, NULL));
-	} else if (imap_sort(client, charset, sargs, sorting)) {
+	} else if (imap_sort(client, charset, sargs, sorting) == 0) {
 		/* NOTE: syncing is allowed when returning UIDs */
 		if (client->cmd_uid)
 			client_sync_full_fast(client);

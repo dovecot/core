@@ -211,7 +211,7 @@ int imap_sort(struct client *client, const char *charset,
 	/* remove the common part from sort program, we already know input is
 	   sorted that much so we don't have to worry about it. */
 	if (mailbox_search_get_sorting(client->mailbox, norm_prog) < 0)
-		return FALSE;
+		return -1;
 	ctx->common_mask = mail_sort_get_common_mask(ctx->sort_program,
 						     norm_prog, &count);
 	if (count > 0) {
@@ -230,7 +230,7 @@ int imap_sort(struct client *client, const char *charset,
 				    wanted_fields, wanted_headers);
 	if (ctx->search_ctx == NULL) {
 		mailbox_transaction_rollback(ctx->t);
-		return FALSE;
+		return -1;
 	}
 
 	ctx->box = client->mailbox;
@@ -252,7 +252,7 @@ int imap_sort(struct client *client, const char *charset,
 
 	mailbox_transaction_rollback(ctx->t);
 
-	if (ctx->written || ret) {
+	if (ctx->written || ret == 0) {
 		str_append(ctx->str, "\r\n");
 		o_stream_send(client->output, str_data(ctx->str),
 			      str_len(ctx->str));

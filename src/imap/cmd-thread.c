@@ -62,7 +62,7 @@ int cmd_thread(struct client *client)
 	if (sargs == NULL) {
 		/* error in search arguments */
 		client_send_tagline(client, t_strconcat("NO ", error, NULL));
-	} else if (imap_thread(client, charset, sargs, threading)) {
+	} else if (imap_thread(client, charset, sargs, threading) == 0) {
 		/* NOTE: syncing is allowed when returning UIDs */
 		if (client->cmd_uid)
 			client_sync_full_fast(client);

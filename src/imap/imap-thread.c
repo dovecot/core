@@ -123,7 +123,7 @@ int imap_thread(struct client *client, const char *charset,
 				    MAIL_FETCH_DATE, wanted_headers);
 	if (ctx->search_ctx == NULL) {
 		mailbox_transaction_rollback(ctx->t);
-		return FALSE;
+		return -1;
 	}
 
 	ctx->box = client->mailbox;
@@ -149,7 +149,7 @@ int imap_thread(struct client *client, const char *charset,
 	ret = mailbox_search_deinit(ctx->search_ctx);
 	mailbox_transaction_rollback(ctx->t);
         mail_thread_deinit(ctx);
-	return ret == 0;
+	return ret;
 }
 
 static void add_root(struct thread_context *ctx, struct node *node)
