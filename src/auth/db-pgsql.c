@@ -56,17 +56,13 @@ void db_pgsql_query(struct pgsql_connection *conn, const char *query,
 		i_error("PGSQL: Query \"%s\" failed: %s",
 			query, PQresultErrorMessage(res));
 		failed = TRUE;
-	} else if (PQntuples(res) != 1) {
-		i_error("PGSQL: Query \"%s\" returned %d rows",
-			query, PQntuples(res));
-		failed = TRUE;
 	} else {
 		failed = FALSE;
 	}
 
 	request->callback(conn, request, failed ? NULL : res);
 	PQclear(res);
-
+	i_free(request);
 }
 
 static int pgsql_conn_open(struct pgsql_connection *conn)

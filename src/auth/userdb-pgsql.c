@@ -23,6 +23,8 @@ struct userdb_pgsql_connection {
 struct userdb_pgsql_request {
 	struct pgsql_request request;
 	userdb_callback_t *userdb_callback;
+
+	char username[1]; /* variable width */
 };
 
 static struct userdb_pgsql_connection *userdb_pgsql_conn;
@@ -40,11 +42,6 @@ static int is_result_valid(PGresult *res)
 		return FALSE;
 	}
 
-	if (PQfnumber(res, "home") == -1) {
-		i_error("PGSQL: User query did not return 'home' field");
-		return FALSE;
-	}
-
 	if (PQfnumber(res, "uid") == -1) {
 		i_error("PGSQL: User query did not return 'uid' field");
 		return FALSE;
@@ -58,18 +55,32 @@ static int is_result_valid(PGresult *res)
 	return TRUE;
 }
 
+static const char *pg_get_str(PGresult *res, const char *field)
+{
+	int fieldnum;
+
+	fieldnum = PQfnumber(res, field);
+	return fieldnum == -1 ? NULL : PQgetvalue(res, 0, fieldnum);
+}
+
 static void pgsql_handle_request(struct pgsql_connection *conn __attr_unused__,
 				 struct pgsql_request *request, PGresult *res)
 {
 	struct userdb_pgsql_request *urequest =
 		(struct userdb_pgsql_request *) request;
 	struct user_data user;
+	const char *str;
 
 	if (res != NULL && is_result_valid(res)) {
 		memset(&user, 0, sizeof(user));
-		user.home = PQgetvalue(res, 0, PQfnumber(res, "home"));
+		user.virtual_user = urequest->username;
+		user.system_user = pg_get_str(res, "system_user");
+		user.home = pg_get_str(res, "home");
+		user.mail = pg_get_str(res, "mail");
 		user.uid = atoi(PQgetvalue(res, 0, PQfnumber(res, "uid")));
 		user.gid = atoi(PQgetvalue(res, 0, PQfnumber(res, "gid")));
+		str = pg_get_str(res, "chroot");
+		user.chroot = str != NULL && (*str == 'Y' || *str == 'y');
 		urequest->userdb_callback(&user, request->context);
 	} else {
 		urequest->userdb_callback(NULL, request->context);
@@ -88,10 +99,11 @@ static void userdb_pgsql_lookup(const char *user, userdb_callback_t *callback,
 	var_expand(str, conn->set.user_query, str_escape(user), NULL);
 	query = str_c(str);
 
-	request = i_new(struct userdb_pgsql_request, 1);
+	request = i_malloc(sizeof(struct userdb_pgsql_request) + strlen(user));
 	request->request.callback = pgsql_handle_request;
 	request->request.context = context;
 	request->userdb_callback = callback;
+	strcpy(request->username, user);
 
 	db_pgsql_query(conn, query, &request->request);
 }
