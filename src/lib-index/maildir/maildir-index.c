@@ -247,26 +247,65 @@ static void maildir_index_free(struct mail_index *index)
 	i_free(index);
 }
 
+static int maildir_get_internal_date_file(struct mail_index *index,
+					  struct mail_index_record *rec,
+					  const char **fname, struct stat *st)
+{
+	const char *path;
+
+	/* stat() gives it */
+	*fname = maildir_get_location(index, rec);
+	if (*fname == NULL)
+		return -1;
+
+	if ((rec->index_flags & INDEX_MAIL_FLAG_MAILDIR_NEW) != 0) {
+		/* probably in new/ dir */
+		path = t_strconcat(index->mailbox_path, "/new/", *fname, NULL);
+		if (stat(path, st) < 0 && errno != ENOENT) {
+			index_file_set_syscall_error(index, path, "stat()");
+			return -1;
+		}
+	}
+
+	path = t_strconcat(index->mailbox_path, "/cur/", *fname, NULL);
+	if (stat(path, st) < 0) {
+		if (errno == ENOENT)
+			return 0;
+
+		index_file_set_syscall_error(index, path, "stat()");
+		return -1;
+	}
+
+	return TRUE;
+}
+
 static time_t maildir_get_internal_date(struct mail_index *index,
 					struct mail_index_record *rec)
 {
 	struct stat st;
 	const char *fname;
 	time_t date;
+	int ret, i, found;
 
 	/* try getting it from cache */
 	date = mail_get_internal_date(index, rec);
 	if (date != (time_t)-1)
 		return date;
 
-	/* stat() gives it */
-	fname = maildir_get_location(index, rec);
-	if (fname == NULL)
-		return (time_t)-1;
+	ret = maildir_get_internal_date_file(index, rec, &fname, &st);
+	for (i = 0; ret == 0 && i < 10; i++) {
+		/* file is either renamed or deleted. sync the maildir and
+		   see which one. if file appears to be renamed constantly,
+		   don't try to open it more than 10 times. */
+		if (!maildir_index_sync_readonly(index, fname, &found))
+			return FALSE;
 
-	if (stat(fname, &st) < 0) {
-		index_file_set_syscall_error(index, fname, "stat()");
-		return (time_t)-1;
+		if (!found) {
+			/* syncing didn't find it, it's deleted */
+			return (time_t)-1;
+		}
+
+		ret = maildir_get_internal_date_file(index, rec, &fname, &st);
 	}
 
 	return st.st_mtime;
