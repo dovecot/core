@@ -38,7 +38,7 @@ IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 
 	ibox->index = index;
 	ibox->flagsfile = flagsfile;
-	ibox->cache = imap_msgcache_alloc();
+	ibox->cache = imap_msgcache_alloc(&index_msgcache_iface);
 
 	return ibox;
 }

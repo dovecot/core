@@ -5,6 +5,18 @@ typedef struct _MessagePart MessagePart;
 typedef struct _MessagePosition MessagePosition;
 typedef struct _MessageSize MessageSize;
 
+typedef enum {
+	MESSAGE_PART_FLAG_MULTIPART		= 0x01,
+	MESSAGE_PART_FLAG_MULTIPART_DIGEST	= 0x02,
+	MESSAGE_PART_FLAG_MESSAGE_RFC822	= 0x04,
+
+	/* content-type: text/... */
+	MESSAGE_PART_FLAG_TEXT			= 0x08,
+
+	/* content-transfer-encoding: binary */
+	MESSAGE_PART_FLAG_BINARY		= 0x10
+} MessagePartFlags;
+
 struct _MessageSize {
 	uoff_t physical_size;
 	uoff_t virtual_size;
@@ -20,12 +32,7 @@ struct _MessagePart {
 	MessageSize header_size;
 	MessageSize body_size;
 
-	unsigned int multipart:1;
-	unsigned int multipart_digest:1;
-	unsigned int message_rfc822:1;
-	unsigned int text:1; /* content-type: text/.. */
-	unsigned int binary:1; /* content-transfer-encoding: binary */
-
+	MessagePartFlags flags;
 	void *context;
 };
 

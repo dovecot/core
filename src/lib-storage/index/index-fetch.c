@@ -17,7 +17,7 @@ static void index_fetch_body(MailIndexRecord *rec, FetchContext *ctx)
 {
 	const char *body;
 
-	body = imap_msgcache_get(ctx->cache, rec->uid, IMAP_CACHE_BODY);
+	body = imap_msgcache_get(ctx->cache, IMAP_CACHE_BODY);
 	if (body != NULL)
 		t_string_printfa(ctx->str, " BODY %s", body);
 	else {
@@ -30,8 +30,7 @@ static void index_fetch_bodystructure(MailIndexRecord *rec, FetchContext *ctx)
 {
 	const char *bodystructure;
 
-	bodystructure = imap_msgcache_get(ctx->cache, rec->uid,
-					  IMAP_CACHE_BODYSTRUCTURE);
+	bodystructure = imap_msgcache_get(ctx->cache, IMAP_CACHE_BODYSTRUCTURE);
 	if (bodystructure != NULL) {
 		t_string_printfa(ctx->str, " BODYSTRUCTURE %s",
 				 bodystructure);
@@ -45,8 +44,7 @@ static void index_fetch_envelope(MailIndexRecord *rec, FetchContext *ctx)
 {
 	const char *envelope;
 
-	envelope = imap_msgcache_get(ctx->cache, rec->uid,
-				     IMAP_CACHE_ENVELOPE);
+	envelope = imap_msgcache_get(ctx->cache, IMAP_CACHE_ENVELOPE);
 	if (envelope != NULL)
 		t_string_printfa(ctx->str, " ENVELOPE (%s)", envelope);
 	else {
@@ -92,8 +90,8 @@ static void index_fetch_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 	IOBuffer *inbuf;
 	const char *str;
 
-	if (!imap_msgcache_get_rfc822(ctx->cache, rec->uid,
-				      &hdr_size, &body_size, &inbuf)) {
+	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf,
+				      &hdr_size, &body_size)) {
 		i_error("Couldn't get RFC822 for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return;
@@ -115,8 +113,7 @@ static void index_fetch_rfc822_header(MailIndexRecord *rec, FetchContext *ctx)
 	IOBuffer *inbuf;
 	const char *str;
 
-	if (!imap_msgcache_get_rfc822(ctx->cache, rec->uid,
-				      &hdr_size, NULL, &inbuf)) {
+	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, &hdr_size, NULL)) {
 		i_error("Couldn't get RFC822.HEADER for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return;
@@ -134,8 +131,7 @@ static void index_fetch_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 	IOBuffer *inbuf;
 	const char *str;
 
-	if (!imap_msgcache_get_rfc822(ctx->cache, rec->uid,
-				      NULL, &body_size, &inbuf)) {
+	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, NULL, &body_size)) {
 		i_error("Couldn't get RFC822.TEXT for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return;
@@ -180,78 +176,27 @@ static ImapCacheField index_get_cache(MailFetchData *fetch_data)
 	return field;
 }
 
-static IOBuffer *inbuf_rewind(IOBuffer *inbuf, void *context __attr_unused__)
-{
-	if (!io_buffer_seek(inbuf, 0)) {
-		i_error("inbuf_rewind: lseek() failed: %m");
-
-		(void)close(inbuf->fd);
-		io_buffer_destroy(inbuf);
-		return NULL;
-	}
-
-	return inbuf;
-}
-
-static int index_cache_message(MailIndexRecord *rec, FetchContext *ctx,
-			       ImapCacheField field)
-{
-	IOBuffer *inbuf;
-
-	inbuf = ctx->index->open_mail(ctx->index, rec);
-	if (inbuf == NULL)
-		return FALSE;
-
-	if (MSG_HAS_VALID_CRLF_DATA(rec)) {
-		imap_msgcache_message(ctx->cache, rec->uid,
-				      field, rec->full_virtual_size,
-				      rec->header_size, rec->body_size,
-				      inbuf, inbuf_rewind, NULL);
-	} else {
-		imap_msgcache_message(ctx->cache, rec->uid,
-				      field, rec->full_virtual_size,
-				      0, 0, inbuf, inbuf_rewind, NULL);
-	}
-
-	return TRUE;
-}
-
-static void index_cache_mail(FetchContext *ctx, MailIndexRecord *rec)
+static void index_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
 {
 	ImapCacheField fields;
-	const char *value;
+	void *mail_cache_context;
 
 	fields = index_get_cache(ctx->fetch_data);
-	if (imap_msgcache_is_cached(ctx->cache, rec->uid, fields))
+	if (fields == 0)
 		return;
 
-	/* see if we can get some of the values from our index */
-	if (fields & IMAP_CACHE_BODY) {
-		value = ctx->index->lookup_field(ctx->index, rec,
-						 FIELD_TYPE_BODY);
-		imap_msgcache_set(ctx->cache, rec->uid,
-				  IMAP_CACHE_BODY, value);
-	}
+        mail_cache_context = index_msgcache_get_context(ctx->index, rec);
 
-	if (fields & IMAP_CACHE_BODYSTRUCTURE) {
-		value = ctx->index->lookup_field(ctx->index, rec,
-						 FIELD_TYPE_BODYSTRUCTURE);
-		imap_msgcache_set(ctx->cache, rec->uid,
-				  IMAP_CACHE_BODYSTRUCTURE, value);
+	if (MSG_HAS_VALID_CRLF_DATA(rec)) {
+		imap_msgcache_open(ctx->cache, rec->uid, fields,
+				   rec->full_virtual_size,
+				   rec->header_size, rec->body_size,
+				   mail_cache_context);
+	} else {
+		imap_msgcache_open(ctx->cache, rec->uid, fields,
+				   rec->full_virtual_size, 0, 0,
+				   mail_cache_context);
 	}
-
-	if (fields & IMAP_CACHE_ENVELOPE) {
-		value = ctx->index->lookup_field(ctx->index, rec,
-						 FIELD_TYPE_ENVELOPE);
-		imap_msgcache_set(ctx->cache, rec->uid,
-				  IMAP_CACHE_ENVELOPE, value);
-	}
-
-	/* if we still don't have everything, open the message and
-	   cache the needed fields */
-	if (fields != 0 &&
-	    !imap_msgcache_is_cached(ctx->cache, rec->uid, fields))
-		(void)index_cache_message(rec, ctx, fields);
 }
 
 static int index_fetch_mail(MailIndex *index __attr_unused__,
@@ -270,7 +215,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 	/* first see what we need to do. this way we don't first do some
 	   light parsing and later notice that we need to do heavier parsing
 	   anyway */
-	index_cache_mail(ctx, rec);
+	index_msgcache_open(ctx, rec);
 
 	if (ctx->fetch_data->uid)
 		index_fetch_uid(rec, ctx);
@@ -308,6 +253,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 
 	(void)io_buffer_send(ctx->outbuf, ")\r\n", 3);
 
+	imap_msgcache_close(ctx->cache);
 	return TRUE;
 }
 
@@ -344,11 +290,6 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 	ret = index_messageset_foreach(ibox, fetch_data->messageset,
 				       fetch_data->uidset,
 				       index_fetch_mail, &ctx);
-
-	/* close open message files in cache, they're reopened at next fetch
-	   anyway, and especially with mbox the old data may not be valid
-	   then */
-	imap_msgcache_close(ibox->cache);
 
         flags_file_list_unref(ibox->flagsfile);
 

@@ -78,14 +78,16 @@ static void parse_content_type(const Rfc822Token *tokens, int count,
 	parse_ctx->last_content_type = p_strdup(parse_ctx->pool, str);
 
 	if (strcasecmp(str, "message/rfc822") == 0)
-		parse_ctx->part->message_rfc822 = TRUE;
+		parse_ctx->part->flags |= MESSAGE_PART_FLAG_MESSAGE_RFC822;
 	else if (strncasecmp(str, "text/", 5) == 0)
-		parse_ctx->part->text = TRUE;
+		parse_ctx->part->flags |= MESSAGE_PART_FLAG_TEXT;
 	else if (strncasecmp(str, "multipart/", 10) == 0) {
-		parse_ctx->part->multipart = TRUE;
+		parse_ctx->part->flags |= MESSAGE_PART_FLAG_MULTIPART;
 
-		if (strcasecmp(str+10, "digest") == 0)
-			parse_ctx->part->multipart_digest = TRUE;
+		if (strcasecmp(str+10, "digest") == 0) {
+			parse_ctx->part->flags |=
+				MESSAGE_PART_FLAG_MULTIPART_DIGEST;
+		}
 	}
 }
 
@@ -96,8 +98,8 @@ static void parse_content_type_param(const Rfc822Token *name,
 	MessageParseContext *parse_ctx = context;
 	const char *str;
 
-	if (!parse_ctx->part->multipart || name->len != 8 ||
-	    strncasecmp(name->ptr, "boundary", 8) != 0)
+	if ((parse_ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
+	    name->len != 8 || strncasecmp(name->ptr, "boundary", 8) != 0)
 		return;
 
 	if (parse_ctx->last_boundary == NULL) {
@@ -201,21 +203,23 @@ static MessagePart *message_parse_part(IOBuffer *inbuf,
 
 	if (parse_ctx->last_content_type == NULL) {
 		if (parse_ctx->part->parent != NULL &&
-		    parse_ctx->part->parent->multipart_digest) {
+		    (parse_ctx->part->parent->flags &
+		     MESSAGE_PART_FLAG_MULTIPART_DIGEST)) {
 			/* when there's no content-type specified and we're
 			   below multipart/digest, the assume message/rfc822
 			   content-type */
-			parse_ctx->part->message_rfc822 = TRUE;
+			parse_ctx->part->flags |=
+				MESSAGE_PART_FLAG_MESSAGE_RFC822;
 		} else {
 			/* otherwise we default to text/plain */
-			parse_ctx->part->text = TRUE;
+			parse_ctx->part->flags |= MESSAGE_PART_FLAG_TEXT;
 		}
 	}
 
 	parse_ctx->last_boundary = NULL;
         parse_ctx->last_content_type = NULL;
 
-	if (parse_ctx->part->message_rfc822) {
+	if (parse_ctx->part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
 		/* message/rfc822 part - the message body begins with
 		   headers again, this works pretty much the same as
 		   a single multipart/mixed item */

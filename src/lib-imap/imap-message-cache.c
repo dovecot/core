@@ -5,6 +5,7 @@
 #include "temp-string.h"
 #include "mmap-util.h"
 #include "message-parser.h"
+#include "message-part-serialize.h"
 #include "message-size.h"
 #include "imap-bodystructure.h"
 #include "imap-envelope.h"
@@ -40,6 +41,8 @@ struct _CachedMessage {
 };
 
 struct _ImapMessageCache {
+	ImapMessageCacheIface *iface;
+
 	CachedMessage *messages;
 	int messages_count;
 
@@ -47,13 +50,16 @@ struct _ImapMessageCache {
 	IOBuffer *open_inbuf;
 	uoff_t open_virtual_size;
 
-	IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf, void *context);
 	void *context;
 };
 
-ImapMessageCache *imap_msgcache_alloc(void)
+ImapMessageCache *imap_msgcache_alloc(ImapMessageCacheIface *iface)
 {
-	return i_new(ImapMessageCache, 1);
+	ImapMessageCache *cache;
+
+	cache = i_new(ImapMessageCache, 1);
+	cache->iface = iface;
+	return cache;
 }
 
 static void cached_message_free(CachedMessage *msg)
@@ -151,132 +157,128 @@ static void parse_envelope_header(MessagePart *part,
 	}
 }
 
-static CachedMessage *cache_find(ImapMessageCache *cache, unsigned int uid)
-{
-	CachedMessage *msg;
-
-	for (msg = cache->messages; msg != NULL; msg = msg->next) {
-		if (msg->uid == uid)
-			return msg;
-	}
-
-	return NULL;
-}
-
 static void imap_msgcache_get_inbuf(ImapMessageCache *cache, uoff_t offset)
 {
-	if (offset < cache->open_inbuf->offset) {
+	if (cache->open_inbuf == NULL)
+		cache->open_inbuf = cache->iface->open_mail(cache->context);
+	else if (offset < cache->open_inbuf->offset) {
 		/* need to rewind */
-		cache->open_inbuf = cache->inbuf_rewind(cache->open_inbuf,
-							cache->context);
-		if (cache->open_inbuf == NULL)
-			i_fatal("Can't rewind message buffer");
+		cache->open_inbuf =
+			cache->iface->inbuf_rewind(cache->open_inbuf,
+						   cache->context);
 	}
+
+	if (cache->open_inbuf == NULL)
+		i_fatal("Can't get input buffer for message");
 
 	io_buffer_skip(cache->open_inbuf, offset - cache->open_inbuf->offset);
 }
 
-int imap_msgcache_is_cached(ImapMessageCache *cache, unsigned int uid,
-			    ImapCacheField fields)
+static void msg_get_part(ImapMessageCache *cache)
 {
-	CachedMessage *msg;
-
-	if (cache->open_msg != NULL && cache->open_msg->uid == uid)
-		return TRUE;
-
-	/* not open, see if the wanted fields are cached */
-	msg = cache_find(cache, uid);
-	if (msg == NULL)
-		return FALSE;
-
-	if ((fields & IMAP_CACHE_BODY) && msg->cached_body == NULL)
-		return FALSE;
-	if ((fields & IMAP_CACHE_BODYSTRUCTURE) &&
-	    msg->cached_bodystructure == NULL)
-		return FALSE;
-	if ((fields & IMAP_CACHE_ENVELOPE) && msg->cached_envelope == NULL)
-		return FALSE;
-
-	if ((fields & IMAP_CACHE_MESSAGE_OPEN) && msg != cache->open_msg)
-		return FALSE;
-	if ((fields & IMAP_CACHE_MESSAGE_PART) && msg->part == NULL)
-		return FALSE;
-	if ((fields & IMAP_CACHE_MESSAGE_HDR_SIZE) && msg->hdr_size == NULL)
-		return FALSE;
-	if ((fields & IMAP_CACHE_MESSAGE_BODY_SIZE) && msg->body_size == NULL)
-		return FALSE;
-
-	return TRUE;
+	if (cache->open_msg->part == NULL) {
+		cache->open_msg->part =
+			cache->iface->get_cached_parts(cache->open_msg->pool,
+						       cache->context);
+	}
 }
 
 /* Caches the fields for given message if possible */
-static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
-			 ImapCacheField fields)
+static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 {
+        CachedMessage *msg;
 	const char *value;
 
+	msg = cache->open_msg;
+
 	t_push();
-	if ((fields & IMAP_CACHE_BODY) && msg->cached_body == NULL &&
-	    msg == cache->open_msg) {
-                imap_msgcache_get_inbuf(cache, 0);
-		value = imap_part_get_bodystructure(msg->pool, &msg->part,
-						    cache->open_inbuf, FALSE);
+	if ((fields & IMAP_CACHE_BODY) && msg->cached_body == NULL) {
+		value = cache->iface->get_cached_field(IMAP_CACHE_BODY,
+						       cache->context);
+		if (value == NULL) {
+			msg_get_part(cache);
+
+			imap_msgcache_get_inbuf(cache, 0);
+			value = imap_part_get_bodystructure(msg->pool,
+							    &msg->part,
+							    cache->open_inbuf,
+							    FALSE);
+		}
 		msg->cached_body = p_strdup(msg->pool, value);
 	}
 
 	if ((fields & IMAP_CACHE_BODYSTRUCTURE) &&
-	    msg->cached_bodystructure == NULL && msg == cache->open_msg) {
-                imap_msgcache_get_inbuf(cache, 0);
-		value = imap_part_get_bodystructure(msg->pool, &msg->part,
-						    cache->open_inbuf, TRUE);
+	    msg->cached_bodystructure == NULL) {
+		value = cache->iface->get_cached_field(IMAP_CACHE_BODYSTRUCTURE,
+						       cache->context);
+		if (value == NULL) {
+			msg_get_part(cache);
+
+			imap_msgcache_get_inbuf(cache, 0);
+			value = imap_part_get_bodystructure(msg->pool,
+							    &msg->part,
+							    cache->open_inbuf,
+							    TRUE);
+		}
 		msg->cached_bodystructure = p_strdup(msg->pool, value);
 	}
 
 	if ((fields & IMAP_CACHE_ENVELOPE) && msg->cached_envelope == NULL) {
-		if (msg->envelope == NULL && msg == cache->open_msg) {
-			/* envelope isn't parsed yet, do it. header size
-			   is calculated anyway so save it */
-			if (msg->hdr_size == NULL) {
-				msg->hdr_size = p_new(msg->pool,
-						      MessageSize, 1);
+		value = cache->iface->get_cached_field(IMAP_CACHE_ENVELOPE,
+						       cache->context);
+		if (value == NULL) {
+			if (msg->envelope == NULL) {
+				/* envelope isn't parsed yet, do it. header
+				   size is calculated anyway so save it */
+				if (msg->hdr_size == NULL) {
+					msg->hdr_size = p_new(msg->pool,
+							      MessageSize, 1);
+				}
+
+				imap_msgcache_get_inbuf(cache, 0);
+				message_parse_header(NULL, cache->open_inbuf,
+						     msg->hdr_size,
+						     parse_envelope_header,
+						     msg);
+			}
+
+			if (msg->envelope != NULL) {
+				value = imap_envelope_get_part_data(
+								msg->envelope);
+			}
+		}
+
+		if (value != NULL)
+			msg->cached_envelope = p_strdup(msg->pool, value);
+	}
+
+	if (fields & IMAP_CACHE_MESSAGE_PART) {
+		msg_get_part(cache);
+
+		if (msg->part == NULL) {
+			/* we need to parse the message */
+			MessageHeaderFunc func;
+
+			if ((fields & IMAP_CACHE_ENVELOPE) &&
+			    msg->cached_envelope == NULL) {
+				/* we need envelope too, fill the info
+				   while parsing headers */
+				func = parse_envelope_header;
+			} else {
+				func = NULL;
 			}
 
 			imap_msgcache_get_inbuf(cache, 0);
-			message_parse_header(NULL, cache->open_inbuf,
-					     msg->hdr_size,
-					     parse_envelope_header, msg);
-		}
-
-		if (msg->envelope != NULL) {
-			value = imap_envelope_get_part_data(msg->envelope);
-			msg->cached_envelope = p_strdup(msg->pool, value);
+			msg->part = message_parse(msg->pool, cache->open_inbuf,
+						  func, msg);
 		}
 	}
 
-	if ((fields & IMAP_CACHE_MESSAGE_PART) && msg->part == NULL &&
-	    msg == cache->open_msg) {
-		/* we need to parse the message */
-		MessageHeaderFunc func;
+	if ((fields & IMAP_CACHE_MESSAGE_BODY_SIZE) && msg->body_size == NULL) {
+		msg_get_part(cache);
 
-		if ((fields & IMAP_CACHE_ENVELOPE) &&
-		    msg->cached_envelope == NULL) {
-			/* we need envelope too, fill the info
-			   while parsing headers */
-			func = parse_envelope_header;
-		} else {
-			func = NULL;
-		}
-
-                imap_msgcache_get_inbuf(cache, 0);
-		msg->part = message_parse(msg->pool, cache->open_inbuf,
-					  func, msg);
-	}
-
-	if ((fields & IMAP_CACHE_MESSAGE_BODY_SIZE) &&
-	    msg->body_size == NULL &&
-	    (msg == cache->open_msg || msg->part != NULL)) {
-		/* fill the body size, and while at it fill the header size
-		   as well */
+		/* fill the body size, and while at it fill the header
+		   size as well */
 		if (msg->hdr_size == NULL)
 			msg->hdr_size = p_new(msg->pool, MessageSize, 1);
 		msg->body_size = p_new(msg->pool, MessageSize, 1);
@@ -286,14 +288,14 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 			*msg->hdr_size = msg->part->header_size;
 			*msg->body_size = msg->part->body_size;
 		} else {
-			/* first get the header's size, then calculate the
-			   body size from it and the total virtual size */
+			/* first get the header's size, then calculate the body
+			   size from it and the total virtual size */
 			imap_msgcache_get_inbuf(cache, 0);
 			message_get_header_size(cache->open_inbuf,
 						msg->hdr_size);
 
-			/* FIXME: this may actually happen if file size is
-			   shrinked.. */
+			/* FIXME: this may actually happen if file size
+			   is shrinked.. */
 			i_assert(msg->hdr_size->physical_size <=
 				 cache->open_inbuf->size);
 			i_assert(msg->hdr_size->virtual_size <=
@@ -309,10 +311,10 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 		}
 	}
 
-	if ((fields & IMAP_CACHE_MESSAGE_HDR_SIZE) && msg->hdr_size == NULL &&
-	    (msg == cache->open_msg || msg->part != NULL)) {
-		msg->hdr_size = p_new(msg->pool, MessageSize, 1);
+	if ((fields & IMAP_CACHE_MESSAGE_HDR_SIZE) && msg->hdr_size == NULL) {
+		msg_get_part(cache);
 
+		msg->hdr_size = p_new(msg->pool, MessageSize, 1);
 		if (msg->part != NULL) {
 			/* easy, get it from root part */
 			*msg->hdr_size = msg->part->header_size;
@@ -327,13 +329,10 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 	t_pop();
 }
 
-void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
-			   ImapCacheField fields, uoff_t virtual_size,
-			   uoff_t pv_headers_size, uoff_t pv_body_size,
-			   IOBuffer *inbuf,
-			   IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf,
-						     void *context),
-			   void *context)
+void imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
+			ImapCacheField fields, uoff_t virtual_size,
+			uoff_t pv_headers_size, uoff_t pv_body_size,
+			void *context)
 {
 	CachedMessage *msg;
 
@@ -342,10 +341,7 @@ void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
 		imap_msgcache_close(cache);
 
 		cache->open_msg = msg;
-		cache->open_inbuf = inbuf;
 		cache->open_virtual_size = virtual_size;
-
-		cache->inbuf_rewind = inbuf_rewind;
 		cache->context = context;
 	}
 
@@ -363,7 +359,7 @@ void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
 			pv_body_size;
 	}
 
-	cache_fields(cache, msg, fields);
+	cache_fields(cache, fields);
 }
 
 void imap_msgcache_close(ImapMessageCache *cache)
@@ -376,53 +372,28 @@ void imap_msgcache_close(ImapMessageCache *cache)
 
 	cache->open_msg = NULL;
 	cache->open_virtual_size = 0;
+	cache->context = NULL;
 }
 
-void imap_msgcache_set(ImapMessageCache *cache, unsigned int uid,
-		       ImapCacheField field, const char *value)
+const char *imap_msgcache_get(ImapMessageCache *cache, ImapCacheField field)
 {
 	CachedMessage *msg;
 
-	msg = cache_find(cache, uid);
-	if (msg == NULL)
-		msg = cache_new(cache, uid);
+	i_assert(cache->open_msg != NULL);
 
-	switch (field) {
-	case IMAP_CACHE_BODY:
-		msg->cached_body = p_strdup(msg->pool, value);
-		break;
-	case IMAP_CACHE_BODYSTRUCTURE:
-		msg->cached_bodystructure = p_strdup(msg->pool, value);
-		break;
-	case IMAP_CACHE_ENVELOPE:
-		msg->cached_envelope = p_strdup(msg->pool, value);
-		break;
-	default:
-		i_assert(0);
-	}
-}
-
-const char *imap_msgcache_get(ImapMessageCache *cache, unsigned int uid,
-			      ImapCacheField field)
-{
-	CachedMessage *msg;
-
-	msg = cache_find(cache, uid);
-	if (msg == NULL)
-		return NULL;
-
+	msg = cache->open_msg;
 	switch (field) {
 	case IMAP_CACHE_BODY:
 		if (msg->cached_body == NULL)
-			cache_fields(cache, msg, field);
+			cache_fields(cache, field);
 		return msg->cached_body;
 	case IMAP_CACHE_BODYSTRUCTURE:
 		if (msg->cached_bodystructure == NULL)
-			cache_fields(cache, msg, field);
+			cache_fields(cache, field);
 		return msg->cached_bodystructure;
 	case IMAP_CACHE_ENVELOPE:
 		if (msg->cached_envelope == NULL)
-			cache_fields(cache, msg, field);
+			cache_fields(cache, field);
 		return msg->cached_envelope;
 	default:
 		i_assert(0);
@@ -431,45 +402,34 @@ const char *imap_msgcache_get(ImapMessageCache *cache, unsigned int uid,
 	return NULL;
 }
 
-MessagePart *imap_msgcache_get_parts(ImapMessageCache *cache, unsigned int uid)
+MessagePart *imap_msgcache_get_parts(ImapMessageCache *cache)
 {
-	CachedMessage *msg;
+	i_assert(cache->open_msg != NULL);
 
-	msg = cache_find(cache, uid);
-	if (msg == NULL)
-		return NULL;
-
-	if (msg->part == NULL)
-		cache_fields(cache, msg, IMAP_CACHE_MESSAGE_PART);
-	return msg->part;
+	if (cache->open_msg->part == NULL)
+		cache_fields(cache, IMAP_CACHE_MESSAGE_PART);
+	return cache->open_msg->part;
 }
 
-int imap_msgcache_get_rfc822(ImapMessageCache *cache, unsigned int uid,
-			     MessageSize *hdr_size, MessageSize *body_size,
-			     IOBuffer **inbuf)
+int imap_msgcache_get_rfc822(ImapMessageCache *cache, IOBuffer **inbuf,
+			     MessageSize *hdr_size, MessageSize *body_size)
 {
 	CachedMessage *msg;
 	uoff_t offset;
 
+	i_assert(cache->open_msg != NULL);
+
+	msg = cache->open_msg;
 	if (inbuf != NULL) {
-		if (cache->open_msg == NULL || cache->open_msg->uid != uid)
-			return FALSE;
-
-		msg = cache->open_msg;
-
 		offset = hdr_size != NULL ? 0 :
 			msg->hdr_size->physical_size;
 		imap_msgcache_get_inbuf(cache, offset);
                 *inbuf = cache->open_inbuf;
-	} else {
-		msg = cache_find(cache, uid);
-		if (msg == NULL)
-			return FALSE;
 	}
 
 	if (body_size != NULL) {
 		if (msg->body_size == NULL)
-			cache_fields(cache, msg, IMAP_CACHE_MESSAGE_BODY_SIZE);
+			cache_fields(cache, IMAP_CACHE_MESSAGE_BODY_SIZE);
 		if (msg->body_size == NULL)
 			return FALSE;
 		*body_size = *msg->body_size;
@@ -477,7 +437,7 @@ int imap_msgcache_get_rfc822(ImapMessageCache *cache, unsigned int uid,
 
 	if (hdr_size != NULL) {
 		if (msg->hdr_size == NULL)
-			cache_fields(cache, msg, IMAP_CACHE_MESSAGE_HDR_SIZE);
+			cache_fields(cache, IMAP_CACHE_MESSAGE_HDR_SIZE);
 		if (msg->hdr_size == NULL)
 			return FALSE;
 		*hdr_size = *msg->hdr_size;
@@ -518,7 +478,7 @@ static void get_partial_size(IOBuffer *inbuf,
 	message_get_body_size(inbuf, dest, max_virtual_size);
 }
 
-int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
+int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 				     uoff_t virtual_skip,
 				     uoff_t max_virtual_size,
 				     int get_header, MessageSize *size,
@@ -528,10 +488,9 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
 	uoff_t physical_skip;
 	int size_got;
 
-	msg = cache->open_msg;
-	if (msg == NULL || msg->uid != uid)
-		return FALSE;
+	i_assert(cache->open_msg != NULL);
 
+	msg = cache->open_msg;
 	if (msg->hdr_size == NULL) {
 		msg->hdr_size = p_new(msg->pool, MessageSize, 1);
                 imap_msgcache_get_inbuf(cache, 0);
@@ -580,11 +539,9 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
 	return TRUE;
 }
 
-int imap_msgcache_get_data(ImapMessageCache *cache, unsigned int uid,
-			   IOBuffer **inbuf)
+int imap_msgcache_get_data(ImapMessageCache *cache, IOBuffer **inbuf)
 {
-	if (cache->open_msg == NULL || cache->open_msg->uid != uid)
-		return FALSE;
+	i_assert(cache->open_msg != NULL);
 
 	imap_msgcache_get_inbuf(cache, 0);
         *inbuf = cache->open_inbuf;

@@ -23,6 +23,8 @@ struct _IndexMailbox {
 	unsigned int synced_messages_count;
 };
 
+extern ImapMessageCacheIface index_msgcache_iface;
+
 IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 				 MailIndex *index, const char *name,
 				 int readonly);
@@ -42,6 +44,8 @@ MailIndexRecord *index_expunge_seek_first(IndexMailbox *ibox,
 
 int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 			       IOBuffer *buf, size_t data_size);
+
+void *index_msgcache_get_context(MailIndex *index, MailIndexRecord *rec);
 
 /* Mailbox methods: */
 int index_storage_copy(Mailbox *box, Mailbox *destbox,

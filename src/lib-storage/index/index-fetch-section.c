@@ -38,9 +38,9 @@ static int fetch_body(MailIndexRecord *rec, MailFetchBodyData *sect,
 	IOBuffer *inbuf;
 	const char *str;
 
-	if (!imap_msgcache_get_rfc822_partial(ctx->cache, rec->uid,
-					      sect->skip, sect->max_size,
-					      fetch_header, &size, &inbuf)) {
+	if (!imap_msgcache_get_rfc822_partial(ctx->cache, sect->skip,
+					      sect->max_size, fetch_header,
+					      &size, &inbuf)) {
 		i_error("Couldn't get BODY[] for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return FALSE;
@@ -252,14 +252,12 @@ static void fetch_header_from(IOBuffer *inbuf, MessageSize *size,
 }
 
 /* fetch BODY[HEADER...] */
-static int fetch_header(MailIndexRecord *rec, MailFetchBodyData *sect,
-			FetchContext *ctx)
+static int fetch_header(MailFetchBodyData *sect, FetchContext *ctx)
 {
 	MessageSize hdr_size;
 	IOBuffer *inbuf;
 
-	if (!imap_msgcache_get_rfc822(ctx->cache, rec->uid,
-				      &hdr_size, NULL, &inbuf))
+	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, &hdr_size, NULL))
 		return FALSE;
 
 	fetch_header_from(inbuf, &hdr_size, sect->section, sect, ctx);
@@ -267,14 +265,14 @@ static int fetch_header(MailIndexRecord *rec, MailFetchBodyData *sect,
 }
 
 /* Find MessagePart for section (eg. 1.3.4) */
-static MessagePart *part_find(MailIndexRecord *rec, MailFetchBodyData *sect,
-			      FetchContext *ctx, const char **section)
+static MessagePart *part_find(MailFetchBodyData *sect, FetchContext *ctx,
+			      const char **section)
 {
 	MessagePart *part;
 	const char *path;
 	unsigned int num;
 
-	part = imap_msgcache_get_parts(ctx->cache, rec->uid);
+	part = imap_msgcache_get_parts(ctx->cache);
 
 	path = sect->section;
 	while (*path >= '0' && *path <= '9' && part != NULL) {
@@ -290,7 +288,7 @@ static MessagePart *part_find(MailIndexRecord *rec, MailFetchBodyData *sect,
 		if (*path == '.')
 			path++;
 
-		if (part->multipart) {
+		if (part->flags & MESSAGE_PART_FLAG_MULTIPART) {
 			/* find the part */
 			part = part->children;
 			for (; num > 1 && part != NULL; num--)
@@ -307,14 +305,14 @@ static MessagePart *part_find(MailIndexRecord *rec, MailFetchBodyData *sect,
 }
 
 /* fetch BODY[1.2] or BODY[1.2.TEXT] */
-static int fetch_part_body(MessagePart *part, unsigned int uid,
-			   MailFetchBodyData *sect, FetchContext *ctx)
+static int fetch_part_body(MessagePart *part, MailFetchBodyData *sect,
+			   FetchContext *ctx)
 {
 	IOBuffer *inbuf;
 	const char *str;
 	uoff_t skip_pos;
 
-	if (!imap_msgcache_get_data(ctx->cache, uid, &inbuf))
+	if (!imap_msgcache_get_data(ctx->cache, &inbuf))
 		return FALSE;
 
 	/* jump to beginning of wanted data */
@@ -333,13 +331,12 @@ static int fetch_part_body(MessagePart *part, unsigned int uid,
 }
 
 /* fetch BODY[1.2.MIME|HEADER...] */
-static int fetch_part_header(MessagePart *part, unsigned int uid,
-			     const char *section, MailFetchBodyData *sect,
-			     FetchContext *ctx)
+static int fetch_part_header(MessagePart *part, const char *section,
+			     MailFetchBodyData *sect, FetchContext *ctx)
 {
 	IOBuffer *inbuf;
 
-	if (!imap_msgcache_get_data(ctx->cache, uid, &inbuf))
+	if (!imap_msgcache_get_data(ctx->cache, &inbuf))
 		return FALSE;
 
 	io_buffer_skip(inbuf, part->physical_pos);
@@ -347,23 +344,22 @@ static int fetch_part_header(MessagePart *part, unsigned int uid,
 	return TRUE;
 }
 
-static int fetch_part(MailIndexRecord *rec, MailFetchBodyData *sect,
-		      FetchContext *ctx)
+static int fetch_part(MailFetchBodyData *sect, FetchContext *ctx)
 {
 	MessagePart *part;
 	const char *section;
 
-	part = part_find(rec, sect, ctx, &section);
+	part = part_find(sect, ctx, &section);
 	if (part == NULL)
 		return FALSE;
 
 	if (*section == '\0' || strcasecmp(section, "TEXT") == 0)
-		return fetch_part_body(part, rec->uid, sect, ctx);
+		return fetch_part_body(part, sect, ctx);
 
 	if (strncasecmp(section, "HEADER", 6) == 0)
-		return fetch_part_header(part, rec->uid, section, sect, ctx);
+		return fetch_part_header(part, section, sect, ctx);
 	if (strcasecmp(section, "MIME") == 0)
-		return fetch_part_header(part, rec->uid, section, sect, ctx);
+		return fetch_part_header(part, section, sect, ctx);
 
 	return FALSE;
 }
@@ -386,9 +382,9 @@ void index_fetch_body_section(MailIndexRecord *rec,
 	} else if (strcasecmp(sect->section, "TEXT") == 0) {
 		fetch_ok = fetch_body(rec, sect, ctx, FALSE);
 	} else if (strncasecmp(sect->section, "HEADER", 6) == 0) {
-		fetch_ok = fetch_header(rec, sect, ctx);
+		fetch_ok = fetch_header(sect, ctx);
 	} else if (*sect->section >= '0' && *sect->section <= '9') {
-		fetch_ok = fetch_part(rec, sect, ctx);
+		fetch_ok = fetch_part(sect, ctx);
 	} else {
 		fetch_ok = FALSE;
 	}

@@ -6,6 +6,7 @@
 #include "rfc822-date.h"
 #include "rfc822-tokenize.h"
 #include "message-parser.h"
+#include "message-part-serialize.h"
 #include "message-size.h"
 #include "imap-envelope.h"
 #include "imap-bodystructure.h"
@@ -155,7 +156,7 @@ static int update_by_append(MailIndexUpdate *update)
 				update->field_extra_sizes[i];
 			src = update->fields[i];
 			src_size = update->field_sizes[i];
-		} else if (rec != NULL) {
+		} else if (rec != NULL && rec->field == field) {
 			/* use the old value */
 			destrec->full_field_size = rec->full_field_size;
 			src = rec->data;
@@ -171,7 +172,9 @@ static int update_by_append(MailIndexUpdate *update)
 			index_set_error(update->index,
 					"Error in index file %s: "
 					"full_field_size points outside "
-					"data_size", update->index->filepath);
+					"data_size (field %d?)",
+					update->index->filepath,
+					rec == NULL ? -1 : rec->field);
 			update->index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
 			return FALSE;
 		}
@@ -387,6 +390,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 	MessageSize hdr_size, body_size;
 	Pool pool;
 	const char *value;
+	unsigned int size;
 
 	ctx.update = update;
 	ctx.envelope_pool = NULL;
@@ -397,7 +401,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 	if (cache_fields == 0)
                 cache_fields = update->index->header->cache_fields;
 
-	if ((cache_fields & (FIELD_TYPE_BODY|FIELD_TYPE_BODYSTRUCTURE)) != 0) {
+	if (IS_BODYSTRUCTURE_FIELD(cache_fields)) {
 		/* for body / bodystructure, we need need to
 		   fully parse the message */
 		pool = pool_create("index message parser", 2048, FALSE);
@@ -428,6 +432,15 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 			update->index->update_field(update,
 						    FIELD_TYPE_BODYSTRUCTURE,
 						    value, 0);
+			t_pop();
+		}
+
+		if (cache_fields & FIELD_TYPE_MESSAGEPART) {
+			t_push();
+			value = message_part_serialize(part, &size);
+			update->index->update_field_raw(update,
+							FIELD_TYPE_MESSAGEPART,
+							value, size);
 			t_pop();
 		}
 

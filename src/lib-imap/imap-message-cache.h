@@ -22,60 +22,57 @@ typedef enum {
 	IMAP_CACHE_MESSAGE_BODY_SIZE	= 0x40
 } ImapCacheField;
 
+typedef struct {
+	/* Open mail for reading. */
+	IOBuffer *(*open_mail)(void *context);
+	/* Rewind input buffer to beginning, possibly closing the old buffer
+	   if it can't directly be rewinded. */
+	IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf, void *context);
+
+	/* Returns field if it's already cached, or NULL. */
+	const char *(*get_cached_field)(ImapCacheField field, void *context);
+	/* Returns MessagePart if it's already cached, or NULL. */
+	MessagePart *(*get_cached_parts)(Pool pool, void *context);
+} ImapMessageCacheIface;
+
 typedef struct _ImapMessageCache ImapMessageCache;
 
-ImapMessageCache *imap_msgcache_alloc(void);
+ImapMessageCache *imap_msgcache_alloc(ImapMessageCacheIface *iface);
 void imap_msgcache_clear(ImapMessageCache *cache);
 void imap_msgcache_free(ImapMessageCache *cache);
 
-/* Returns TRUE if all given fields are fully cached, or at least the
-   message is open (ie. you don't need imap_msgcache_message()). */
-int imap_msgcache_is_cached(ImapMessageCache *cache, unsigned int uid,
-			    ImapCacheField fields);
-
-/* Parse and cache the message. If pv_headers_size and pv_body_size is
+/* Open the specified message. If pv_headers_size and pv_body_size is
    non-zero, they're set to saved to message's both physical and virtual
    sizes (ie. doesn't need to be calculated). */
-void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
-			   ImapCacheField fields, uoff_t virtual_size,
-			   uoff_t pv_headers_size, uoff_t pv_body_size,
-			   IOBuffer *inbuf,
-			   IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf,
-						     void *context),
-			   void *context);
+void imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
+			ImapCacheField fields, uoff_t virtual_size,
+			uoff_t pv_headers_size, uoff_t pv_body_size,
+			void *context);
 
-/* Close the IOBuffer for cached message. */
+/* Close the IOBuffer for opened message. */
 void imap_msgcache_close(ImapMessageCache *cache);
 
-/* Store a value for field in cache */
-void imap_msgcache_set(ImapMessageCache *cache, unsigned int uid,
-		       ImapCacheField field, const char *value);
-
 /* Returns the field from cache, or NULL if it's not cached. */
-const char *imap_msgcache_get(ImapMessageCache *cache, unsigned int uid,
-			      ImapCacheField field);
+const char *imap_msgcache_get(ImapMessageCache *cache, ImapCacheField field);
 
-/* Returns the root MessagePart for message, or NULL if it's not cached. */
-MessagePart *imap_msgcache_get_parts(ImapMessageCache *cache, unsigned int uid);
+/* Returns the root MessagePart for message, or NULL if failed. */
+MessagePart *imap_msgcache_get_parts(ImapMessageCache *cache);
 
-/* Returns FALSE if message isn't in cache. If inbuf is not NULL, it's set
-   to point to beginning of message, or to beginning of message body if
-   hdr_size is NULL. */
-int imap_msgcache_get_rfc822(ImapMessageCache *cache, unsigned int uid,
-			     MessageSize *hdr_size, MessageSize *body_size,
-                             IOBuffer **inbuf);
+/* Returns TRUE if successful. If inbuf is not NULL, it's set to point to
+   beginning of message, or to beginning of message body if hdr_size is NULL. */
+int imap_msgcache_get_rfc822(ImapMessageCache *cache, IOBuffer **inbuf,
+			     MessageSize *hdr_size, MessageSize *body_size);
 
-/* Returns FALSE if message isn't in cache. *inbuf is set to point to the first
-   non-skipped character. size is set to specify the full size of message. */
-int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
+/* Returns TRUE if successful. *inbuf is set to point to the first non-skipped
+   character. size is set to specify the full size of message. */
+int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 				     uoff_t virtual_skip,
 				     uoff_t max_virtual_size,
 				     int get_header, MessageSize *size,
 				     IOBuffer **inbuf);
 
-/* Returns FALSE if message isn't in cache.  *inbuf is set to point to
-   beginning of message. */
-int imap_msgcache_get_data(ImapMessageCache *cache, unsigned int uid,
-                           IOBuffer **inbuf);
+/* Returns TRUE if successful. *inbuf is set to point to beginning of
+   message. */
+int imap_msgcache_get_data(ImapMessageCache *cache, IOBuffer **inbuf);
 
 #endif

@@ -113,7 +113,8 @@ static void parse_header(MessagePart *part,
 	MessagePartBodyData *part_data;
 	int parent_rfc822;
 
-        parent_rfc822 = part->parent != NULL && part->parent->message_rfc822;
+	parent_rfc822 = part->parent != NULL &&
+		(part->parent->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822);
 	if (!parent_rfc822 && (name_len <= 8 ||
 			       strncasecmp(name, "Content-", 8) != 0))
 		return;
@@ -271,10 +272,10 @@ static void part_write_body(MessagePart *part, TempString *str, int extended)
 			 NVL(data->content_transfer_encoding, "\"8bit\""),
 			 part->body_size.virtual_size);
 
-	if (part->text) {
+	if (part->flags & MESSAGE_PART_FLAG_TEXT) {
 		/* text/.. contains line count */
 		t_string_printfa(str, " %u", part->body_size.lines);
-	} else if (part->message_rfc822) {
+	} else if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
 		/* message/rfc822 contains envelope + body + line count */
 		MessagePartBodyData *child_data;
 
@@ -336,7 +337,7 @@ static void part_write_bodystructure(MessagePart *part, TempString *str,
 {
 	while (part != NULL) {
 		t_string_append_c(str, '(');
-		if (part->multipart)
+		if (part->flags & MESSAGE_PART_FLAG_MULTIPART)
 			part_write_body_multipart(part, str, extended);
 		else
 			part_write_body(part, str, extended);
