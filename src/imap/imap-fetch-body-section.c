@@ -414,7 +414,7 @@ static int part_find(struct mail *mail, const struct imap_fetch_body_data *body,
 		num = 0;
 		while (*path != '\0' && *path != '.') {
 			if (*path < '0' || *path > '9')
-				return NULL;
+				return FALSE;
 			num = num*10 + (*path - '0');
 			path++;
 		}
