@@ -337,8 +337,8 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		const struct mail_transaction_ext_intro *intro;
 		uint32_t i;
 
-		for (i = 0; i < hdr->size; ) {
-			if (i + sizeof(*intro) > hdr->size) {
+		for (i = 0; i < hdr_size; ) {
+			if (i + sizeof(*intro) > hdr_size) {
 				/* should be just extra padding */
 				break;
 			}
