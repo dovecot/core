@@ -98,7 +98,7 @@ static void client_send_auth_data(struct imap_client *client,
 	buffer_append(buf, "\r\n", 2);
 
 	buf_data = buffer_get_data(buf, &buf_size);
-	if ((ret = o_stream_send(client->output, buf_data, buf_size) < 0))
+	if ((ret = o_stream_send(client->output, buf_data, buf_size)) < 0)
 		client_destroy(client, "Disconnected");
 	else if ((size_t)ret != buf_size)
 		client_destroy(client, "Transmit buffer full");
