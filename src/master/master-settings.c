@@ -451,8 +451,11 @@ static const char *parse_new_login(struct settings *set, const char *name)
 	return NULL;
 }
 
-static const char *parse_setting(const char *key, const char *value)
+static const char *parse_setting(const char *key, const char *value,
+				 void *context)
 {
+	struct settings *set = context;
+
 	if (strcmp(key, "auth") == 0)
 		return parse_new_auth(set, value);
 	if (strncmp(key, "auth_", 5) == 0) {
@@ -484,7 +487,7 @@ void master_settings_read(const char *path)
 	set = p_new(settings_pool, struct settings, 1);
 	*set = default_settings;
 
-	settings_read(path, parse_setting);
+	settings_read(path, parse_setting, set);
 
         settings_verify(set);
 }

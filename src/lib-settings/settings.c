@@ -59,8 +59,8 @@ parse_setting_from_defs(pool_t pool, struct setting_def *defs, void *base,
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
-void settings_read(const char *path,
-		   const char *(*callback)(const char *key, const char *value))
+void settings_read(const char *path, settings_callback_t *callback,
+		   void *context)
 {
 	struct istream *input;
 	const char *errormsg;
@@ -114,7 +114,7 @@ void settings_read(const char *path,
 				p--;
 			*p = '\0';
 
-			errormsg = callback(key, line);
+			errormsg = callback(key, line, context);
 		}
 
 		if (errormsg != NULL) {
