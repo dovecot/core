@@ -58,6 +58,7 @@ static void parse_trailing_whitespace(struct mbox_sync_mail_context *ctx,
 	}
 
 	if ((ssize_t)space > ctx->mail.space) {
+		i_assert(space != 0);
 		ctx->mail.offset = hdr->full_value_offset + i;
 		ctx->mail.space = space;
 	}

@@ -609,6 +609,8 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 	uoff_t end_offset, move_diff, extra_space, needed_space;
 	uint32_t last_seq;
 
+	i_assert(mail_ctx->mail.uid == 0 || mail_ctx->mail.space > 0 ||
+		 mail_ctx->mail.offset == mail_ctx->hdr_offset);
 	buffer_append(sync_ctx->mails, &mail_ctx->mail, sizeof(mail_ctx->mail));
 
 	sync_ctx->space_diff += mail_ctx->mail.space;

@@ -118,8 +118,10 @@ mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx, size_t size)
 		ctx->header_first_change = pos;
 	ctx->header_last_change = (size_t)-1;
 
-	ctx->mail.offset = ctx->hdr_offset + start_pos;
 	ctx->mail.space = (pos - start_pos) + size;
+	ctx->mail.offset = ctx->hdr_offset;
+	if (ctx->mail.space > 0)
+		ctx->mail.offset += start_pos;
 }
 
 static void mbox_sync_header_remove_space(struct mbox_sync_mail_context *ctx,
@@ -174,7 +176,9 @@ static void mbox_sync_header_remove_space(struct mbox_sync_mail_context *ctx,
 
 	if (ctx->mail.space < (off_t)(data_size - last_line_pos)) {
 		ctx->mail.space = data_size - last_line_pos;
-		ctx->mail.offset = ctx->hdr_offset + last_line_pos;
+		ctx->mail.offset = ctx->hdr_offset;
+		if (ctx->mail.space > 0)
+			ctx->mail.offset += last_line_pos;
 	}
 }
 
@@ -487,6 +491,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 		}
 
 		i_assert(move_diff >= 0 || idx == first_nonexpunged_idx);
+		i_assert(next_end_offset <= end_offset);
 
 		end_offset = next_end_offset;
 		mails[idx].from_offset += move_diff;
