@@ -168,8 +168,8 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id);
 /* Returns 1 if given lock_id is valid, 0 if not. */
 int mail_index_is_locked(struct mail_index *index, unsigned int lock_id);
 
-int mail_index_lock_fd(struct mail_index *index, int fd, int lock_type,
-		       unsigned int timeout_secs);
+int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
+		       int lock_type, unsigned int timeout_secs);
 
 /* Reopen index file if it has changed. */
 int mail_index_reopen_if_needed(struct mail_index *index);

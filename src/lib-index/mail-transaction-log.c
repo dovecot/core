@@ -126,8 +126,8 @@ mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 	if (file->log->index->lock_method == MAIL_INDEX_LOCK_DOTLOCK)
 		return mail_transaction_log_file_dotlock(file);
 
-	ret = mail_index_lock_fd(file->log->index, file->fd, F_WRLCK,
-				 MAIL_INDEX_LOCK_SECS);
+	ret = mail_index_lock_fd(file->log->index, file->filepath, file->fd,
+				 F_WRLCK, MAIL_INDEX_LOCK_SECS);
 	if (ret > 0) {
 		file->locked = TRUE;
 		return 0;
@@ -162,7 +162,8 @@ mail_transaction_log_file_unlock(struct mail_transaction_log_file *file)
 		return;
 	}
 
-	ret = mail_index_lock_fd(file->log->index, file->fd, F_UNLCK, 0);
+	ret = mail_index_lock_fd(file->log->index, file->filepath, file->fd,
+				 F_UNLCK, 0);
 	if (ret <= 0) {
 		mail_index_file_set_syscall_error(file->log->index,
 						  file->filepath,

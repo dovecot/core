@@ -125,6 +125,7 @@ struct mail_cache {
 	const void *data;
 	size_t mmap_length;
 	struct file_cache *file_cache;
+	struct dotlock dotlock;
 
 	const struct mail_cache_header *hdr;
 	struct mail_cache_header hdr_copy;

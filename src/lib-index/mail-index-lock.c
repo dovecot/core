@@ -33,10 +33,13 @@
 
 #define MAIL_INDEX_LOCK_WAIT_TIME 120
 
-int mail_index_lock_fd(struct mail_index *index, int fd, int lock_type,
-		       unsigned int timeout_secs)
+int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
+		       int lock_type, unsigned int timeout_secs)
 {
-	if (timeout_secs != 0) alarm(MAIL_INDEX_LOCK_WAIT_TIME);
+	int ret;
+
+	if (timeout_secs != 0)
+		alarm(MAIL_INDEX_LOCK_WAIT_TIME);
 
 	switch (index->lock_method) {
 	case MAIL_INDEX_LOCK_FCNTL: {
@@ -50,24 +53,28 @@ int mail_index_lock_fd(struct mail_index *index, int fd, int lock_type,
 		fl.l_start = 0;
 		fl.l_len = 0;
 
-		if (fcntl(fd, timeout_secs ? F_SETLKW : F_SETLK, &fl) < 0) {
-			if (timeout_secs == 0 &&
-			    (errno == EACCES || errno == EAGAIN)) {
-				/* locked by another process */
-				return 0;
-			}
-
-			if (errno == EINTR) {
-				/* most likely alarm hit, meaning we timeouted.
-				   even if not, we probably want to be killed
-				   so stop blocking. */
-				errno = EAGAIN;
-				if (timeout_secs != 0) alarm(0);
-				return 0;
-			}
-		}
+		ret = fcntl(fd, timeout_secs ? F_SETLKW : F_SETLK, &fl);
 		if (timeout_secs != 0) alarm(0);
-		return 1;
+
+		if (ret == 0)
+			return 1;
+
+		if (timeout_secs == 0 &&
+		    (errno == EACCES || errno == EAGAIN)) {
+			/* locked by another process */
+			return 0;
+		}
+
+		if (errno == EINTR) {
+			/* most likely alarm hit, meaning we timeouted.
+			   even if not, we probably want to be killed
+			   so stop blocking. */
+			errno = EAGAIN;
+			return 0;
+		}
+		mail_index_file_set_syscall_error(index, path,
+						  "mail_index_lock_fd()");
+		return -1;
 #endif
 	}
 	case MAIL_INDEX_LOCK_FLOCK: {
@@ -88,16 +95,20 @@ int mail_index_lock_fd(struct mail_index *index, int fd, int lock_type,
 			break;
 		}
 
-		if (flock(fd, operation) < 0) {
-			if (errno == EWOULDBLOCK || errno == EINTR) {
-				/* a) locked by another process,
-				   b) timeouted */
-				if (timeout_secs != 0) alarm(0);
-				return 0;
-			}
-		}
+		ret = flock(fd, operation);
 		if (timeout_secs != 0) alarm(0);
-		return 1;
+
+		if (ret == 0)
+			return 1;
+
+		if (errno == EWOULDBLOCK || errno == EINTR) {
+			/* a) locked by another process,
+			   b) timeouted */
+			return 0;
+		}
+		mail_index_file_set_syscall_error(index, path,
+						  "mail_index_lock_fd()");
+		return -1;
 #endif
 	}
 	case MAIL_INDEX_LOCK_DOTLOCK:
@@ -160,8 +171,8 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	}
 
 	if (lock_type == F_RDLCK || !index->log_locked) {
-		ret = mail_index_lock_fd(index, index->fd, lock_type,
-					 timeout_secs);
+		ret = mail_index_lock_fd(index, index->filepath, index->fd,
+					 lock_type, timeout_secs);
 	} else {
 		/* this is kind of kludgy. we wish to avoid deadlocks while
 		   trying to lock transaction log, but it can happen if our
@@ -177,14 +188,11 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		   so, the workaround for this problem is that we simply try
 		   locking once. if it doesn't work, just rewrite the file.
 		   hopefully there won't be any other deadlocking issues. :) */
-		ret = mail_index_lock_fd(index, index->fd, lock_type, 0);
+		ret = mail_index_lock_fd(index, index->filepath, index->fd,
+					 lock_type, 0);
 	}
-	if (ret <= 0) {
-		if (ret == 0)
-			return 0;
-		mail_index_set_syscall_error(index, "mail_index_lock_fd()");
-		return -1;
-	}
+	if (ret <= 0)
+		return ret;
 
 	if (index->lock_type == F_UNLCK)
 		index->lock_id += 2;
@@ -369,10 +377,8 @@ static void mail_index_excl_unlock_finish(struct mail_index *index)
 	if (index->shared_lock_count > 0 &&
 	    index->lock_method != MAIL_INDEX_LOCK_DOTLOCK) {
 		/* leave ourself shared locked. */
-		if (mail_index_lock_fd(index, index->fd, F_RDLCK, 0) <= 0) {
-			mail_index_file_set_syscall_error(index,
-				index->copy_lock_path, "mail_index_lock_fd()");
-		}
+		(void)mail_index_lock_fd(index, index->filepath, index->fd,
+					 F_RDLCK, 0);
 		i_assert(index->lock_type == F_WRLCK);
 		index->lock_type = F_RDLCK;
 	}
@@ -409,11 +415,8 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 		index->lock_id += 2;
 		index->lock_type = F_UNLCK;
 		if (index->lock_method != MAIL_INDEX_LOCK_DOTLOCK) {
-			if (mail_index_lock_fd(index, index->fd,
-					       F_UNLCK, 0) < 0) {
-				mail_index_set_syscall_error(index,
-					"mail_index_lock_fd()");
-			}
+			(void)mail_index_lock_fd(index, index->filepath,
+						 index->fd, F_UNLCK, 0);
 		}
 	}
 }

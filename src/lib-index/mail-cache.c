@@ -299,6 +299,24 @@ void mail_cache_free(struct mail_cache *cache)
 	i_free(cache);
 }
 
+static int mail_cache_lock_file(struct mail_cache *cache, int lock_type)
+{
+	if (cache->index->lock_method != MAIL_INDEX_LOCK_DOTLOCK) {
+		return mail_index_lock_fd(cache->index, cache->filepath,
+					  cache->fd, lock_type,
+					  MAIL_INDEX_LOCK_SECS);
+	}
+
+	if (lock_type != F_UNLCK) {
+		return file_lock_dotlock(cache->filepath, NULL, FALSE,
+					 MAIL_INDEX_LOCK_SECS, 0,
+					 MAIL_INDEX_LOCK_SECS,
+					 NULL, NULL, &cache->dotlock);
+	} else {
+		return file_unlock_dotlock(cache->filepath, &cache->dotlock);
+	}
+}
+
 int mail_cache_lock(struct mail_cache *cache)
 {
 	struct mail_index_view *view;
@@ -330,13 +348,9 @@ int mail_cache_lock(struct mail_cache *cache)
 	}
 
 	for (i = 0; i < 3; i++) {
-		ret = mail_index_lock_fd(cache->index, cache->fd, F_WRLCK,
-					 MAIL_INDEX_LOCK_SECS);
-		if (ret <= 0) {
-			mail_cache_set_syscall_error(cache,
-				"mail_index_wait_lock_fd()");
+		ret = mail_cache_lock_file(cache, F_WRLCK);
+		if (ret <= 0)
 			break;
-		}
 		cache->locked = TRUE;
 
 		if (cache->hdr->file_seq == ext->reset_id) {
@@ -414,10 +428,7 @@ void mail_cache_unlock(struct mail_cache *cache)
 		mail_cache_update_need_compress(cache);
 	}
 
-	if (mail_index_lock_fd(cache->index, cache->fd, F_UNLCK, 0) <= 0) {
-		mail_cache_set_syscall_error(cache,
-			"mail_index_wait_lock_fd(F_UNLCK)");
-	}
+	(void)mail_cache_lock_file(cache, F_UNLCK);
 }
 
 struct mail_cache_view *
