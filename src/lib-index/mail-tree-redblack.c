@@ -657,10 +657,14 @@ uoff_t mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 	if (first_uid < last_uid) {
 		/* get the next key, make sure it's in range */
 		x = rb_successor(tree, y);
-		if (node[x].key <= last_uid)
-			*seq_r = seq + 2;
-		else
+		if (node[x].key > last_uid)
 			x = RBNULL;
+		else {
+			/* this is the easiest way to get the sequence right */
+			return mail_tree_lookup_uid_range(tree, seq_r,
+							  node[x].key,
+							  node[x].key);
+		}
 	}
 
 	return x == RBNULL ? 0 : node[x].value;
