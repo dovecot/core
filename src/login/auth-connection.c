@@ -139,9 +139,14 @@ static AuthConnection *auth_connection_get(AuthMethod method, unsigned int size,
 		}
 	}
 
-	if (!found)
-		*error = "Unsupported authentication method";
-	else {
+	if (!found) {
+		if ((available_auth_methods & method) == 0)
+			*error = "Unsupported authentication method";
+		else {
+			*error = "Authentication server isn't connected, "
+				"try again later..";
+		}
+	} else {
 		*error = "Authentication servers are busy, wait..";
 		i_warning("Authentication servers are busy");
 	}
