@@ -31,6 +31,9 @@ static void _view_close(struct mail_index_view *view)
 	if (view->log_syncs != NULL)
 		buffer_free(view->log_syncs);
 	mail_index_unmap(view->index, view->map);
+	mail_index_view_unref_maps(view);
+	if (view->map_refs != NULL)
+		buffer_free(view->map_refs);
 	i_free(view);
 }
 
@@ -140,6 +143,46 @@ void mail_index_view_transaction_unref(struct mail_index_view *view)
 	view->transactions--;
 }
 
+static void mail_index_view_ref_map(struct mail_index_view *view,
+				    struct mail_index_map *map)
+{
+	const struct mail_index_map *const *maps;
+	size_t i, size;
+
+	if (view->map_refs != NULL) {
+		maps = buffer_get_data(view->map_refs, &size);
+		size /= sizeof(*maps);
+
+		for (i = 0; i < size; i++) {
+			if (maps[i] == map)
+				return;
+		}
+	} else {
+		view->map_refs =
+			buffer_create_dynamic(default_pool, 128, (size_t)-1);
+	}
+
+	map->refcount++;
+	buffer_append(view->map_refs, &map, sizeof(map));
+}
+
+void mail_index_view_unref_maps(struct mail_index_view *view)
+{
+	struct mail_index_map **maps;
+	size_t i, size;
+
+	if (view->map_refs == NULL)
+		return;
+
+	maps = buffer_get_modifyable_data(view->map_refs, &size);
+	size /= sizeof(*maps);
+
+	for (i = 0; i < size; i++)
+		mail_index_unmap(view->index, maps[i]);
+
+	buffer_set_used_size(view->map_refs, 0);
+}
+
 static uint32_t _view_get_message_count(struct mail_index_view *view)
 {
 	return view->messages_count;
@@ -189,13 +232,14 @@ static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 		return -1;
 
 	/* look for it in the head mapping */
-	*map_r = map = view->index->map;
+	map = view->index->map;
 
 	uid = rec->uid;
 	if (seq > view->index->hdr->messages_count)
 		seq = view->index->hdr->messages_count;
 
 	if (seq == 0) {
+		*map_r = view->map;
 		*rec_r = rec;
 		return 0;
 	}
@@ -209,9 +253,12 @@ static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 	} while (seq > 0);
 
 	if (n_rec->uid == uid) {
+		mail_index_view_ref_map(view, view->index->map);
+		*map_r = view->index->map;
 		*rec_r = n_rec;
 		return 1;
 	} else {
+		*map_r = view->map;
 		*rec_r = rec;
 		return 0;
 	}

@@ -140,6 +140,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		view->map = map;
 	}
 
+	mail_index_view_unref_maps(view);
 	view->syncing = TRUE;
 
 	*ctx_r = ctx;
