@@ -484,13 +484,19 @@ static int maildir_index_lock_and_sync(struct mail_index *index, int *changes,
 		if (uidlist != NULL &&
 		    uidlist->uid_validity != index->header->uid_validity) {
 			/* uidvalidity changed */
-			if (!index->rebuilding) {
+			if (!index->rebuilding && index->opened) {
 				index_set_corrupted(index,
 					"UIDVALIDITY changed in uidlist");
 				return FALSE;
 			}
 
+			if (!index->rebuilding) {
+				index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
+				return FALSE;
+			}
+
 			index->header->uid_validity = uidlist->uid_validity;
+			i_assert(index->header->next_uid == 1);
 		}
 
 		if (uidlist != NULL &&

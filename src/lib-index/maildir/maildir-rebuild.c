@@ -4,6 +4,7 @@
 #include "maildir-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
+#include "mail-tree.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -33,6 +34,9 @@ int maildir_index_rebuild(struct mail_index *index)
 
 	/* reset data file */
 	if (!mail_index_data_reset(index->data))
+		return FALSE;
+
+	if (!mail_tree_reset(index->tree))
 		return FALSE;
 
 	/* read the mails by syncing */

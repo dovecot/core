@@ -318,6 +318,19 @@ static int mail_tree_init(struct mail_tree *tree)
 	return TRUE;
 }
 
+int mail_tree_reset(struct mail_tree *tree)
+{
+	i_assert(tree->index->lock_type == MAIL_LOCK_EXCLUSIVE);
+
+	if (!mail_tree_init(tree) ||
+	    (!tree->anon_mmap && !_mail_tree_mmap_update(tree, TRUE))) {
+		tree->index->header->flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 int mail_tree_rebuild(struct mail_tree *tree)
 {
 	struct mail_index_record *rec;
@@ -325,11 +338,8 @@ int mail_tree_rebuild(struct mail_tree *tree)
 	if (!tree->index->set_lock(tree->index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	if (!mail_tree_init(tree) ||
-	    (!tree->anon_mmap && !_mail_tree_mmap_update(tree, TRUE))) {
-		tree->index->header->flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
+	if (!mail_tree_reset(tree))
 		return FALSE;
-	}
 
 	rec = tree->index->lookup(tree->index, 1);
 	while (rec != NULL) {

@@ -47,6 +47,7 @@ int mail_tree_create(struct mail_index *index);
 int mail_tree_open_or_create(struct mail_index *index);
 void mail_tree_free(struct mail_tree *tree);
 
+int mail_tree_reset(struct mail_tree *tree);
 int mail_tree_rebuild(struct mail_tree *tree);
 int mail_tree_sync_file(struct mail_tree *tree, int *fsync_fd);
 

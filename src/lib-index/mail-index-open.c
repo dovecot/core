@@ -301,11 +301,86 @@ static int mail_index_create_memory(struct mail_index *index,
 	return TRUE;
 }
 
+static int mail_index_open_index(struct mail_index *index,
+				 enum mail_index_open_flags flags)
+{
+	struct mail_index_header hdr;
+	int ret;
+
+	if ((flags & _MAIL_INDEX_OPEN_FLAG_CREATING) == 0)
+		index->lock_type = MAIL_LOCK_SHARED;
+	else
+		index->lock_type = MAIL_LOCK_EXCLUSIVE;
+
+	/* if index is being created, we'll wait here until it's finished */
+	if (!mail_index_wait_lock(index, MAIL_LOCK_TO_FLOCK(index->lock_type)))
+		return FALSE;
+#ifdef DEBUG
+	if (index->mmap_base != NULL) {
+		mprotect(index->mmap_base, index->mmap_used_length,
+			 PROT_READ|PROT_WRITE);
+	}
+#endif
+
+	if ((ret = mail_index_read_header(index, &hdr)) < 0)
+		return FALSE;
+
+	if (ret == 0 || !mail_index_is_compatible(&hdr)) {
+		if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0)
+			return FALSE;
+
+		flags |= _MAIL_INDEX_OPEN_FLAG_CREATING;
+
+		/* so, we're creating the index */
+		if (index->lock_type != MAIL_LOCK_EXCLUSIVE) {
+			/* have to get exclusive lock first */
+			if (!mail_index_wait_lock(index, F_UNLCK))
+				return FALSE;
+			return mail_index_open_index(index, flags);
+		}
+
+		mail_index_init_header(index, &hdr);
+		if (!mail_index_init_file(index, &hdr))
+			return FALSE;
+	}
+
+	index->indexid = hdr.indexid;
+
+	if (!mail_index_mmap_update(index))
+		return FALSE;
+
+	if (index->lock_type == MAIL_LOCK_SHARED) {
+		/* we don't want to keep the shared lock while opening
+		   indexes. opening should work unlocked and some
+		   things want exclusive lock */
+		if (!mail_index_wait_lock(index, F_UNLCK))
+			return FALSE;
+		index->lock_type = MAIL_LOCK_UNLOCK;
+	}
+
+	if (!index_open_and_fix(index, flags)) {
+		if ((index->set_flags & MAIL_INDEX_FLAG_REBUILD) == 0 ||
+		    (flags & _MAIL_INDEX_OPEN_FLAG_CREATING) != 0)
+			return FALSE;
+
+		/* needs a rebuild */
+		if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
+			return FALSE;
+
+		flags |= _MAIL_INDEX_OPEN_FLAG_CREATING;
+		return mail_index_open_index(index, flags);
+	}
+
+	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
+		return FALSE;
+
+	index->opened = TRUE;
+	return TRUE;
+}
+
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 {
-        struct mail_index_header hdr;
 	const char *path;
-	int ret;
 
 	i_assert(!index->opened);
 
@@ -328,68 +403,10 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 
 	index->filepath = i_strdup(path);
 
-	for (;;) {
-		/* if index is being created, we'll wait here until it's
-		   finished */
-		if ((flags & _MAIL_INDEX_OPEN_FLAG_CREATING) == 0)
-			index->lock_type = MAIL_LOCK_SHARED;
-		else
-			index->lock_type = MAIL_LOCK_EXCLUSIVE;
-		if (!mail_index_wait_lock(index,
-					  MAIL_LOCK_TO_FLOCK(index->lock_type)))
-			break;
-
-		if ((ret = mail_index_read_header(index, &hdr)) < 0)
-			break;
-
-		if (ret == 0 || !mail_index_is_compatible(&hdr)) {
-			if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0)
-				break;
-
-			flags |= _MAIL_INDEX_OPEN_FLAG_CREATING;
-
-			/* so, we're creating the index */
-			if (index->lock_type != MAIL_LOCK_EXCLUSIVE) {
-				/* have to get exclusive lock first */
-				if (!mail_index_wait_lock(index, F_UNLCK))
-					break;
-				continue;
-			}
-
-			mail_index_init_header(index, &hdr);
-			if (!mail_index_init_file(index, &hdr))
-				break;
-		}
-
-		index->indexid = hdr.indexid;
-
-		if (!mail_index_mmap_update(index))
-			break;
-
-		if (index->lock_type == MAIL_LOCK_SHARED) {
-			/* we don't want to keep the shared lock while opening
-			   indexes. opening should work unlocked and some
-			   things want exclusive lock */
-			if (!mail_index_wait_lock(index, F_UNLCK))
-				break;
-			index->lock_type = MAIL_LOCK_UNLOCK;
-		}
-
-		if (!index_open_and_fix(index, flags) ||
-		    !index->set_lock(index, MAIL_LOCK_UNLOCK)) {
-			mail_index_close(index);
-			return mail_index_create_memory(index, flags);
-		}
-
-		index->opened = TRUE;
-		return TRUE;
+	if (!mail_index_open_index(index, flags)) {
+		mail_index_close(index);
+		return mail_index_create_memory(index, flags);
 	}
 
-	(void)close(index->fd);
-	index->fd = -1;
-
-	i_free(index->filepath);
-	index->filepath = NULL;
-
-	return mail_index_create_memory(index, flags);
+	return TRUE;
 }
