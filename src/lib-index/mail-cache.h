@@ -25,6 +25,7 @@ enum mail_cache_record_flag {
 	MAIL_INDEX_FLAG_HAS_NO_NULS		= 0x0008
 };
 
+/* when modifying, remember to update mail_cache_field_sizes[] too */
 enum mail_cache_field {
 	/* fixed size fields */
 	MAIL_CACHE_INDEX_FLAGS		= 0x00000001,
