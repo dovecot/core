@@ -7,19 +7,31 @@ For most people, the usual:
   make
   sudo make install
 
-is enough. This installs Dovecot under /usr/local. You must also rename the
-configuration file to get it to work:
-
-  mv /usr/local/etc/dovecot-example.conf /usr/local/etc/dovecot.conf
-
-Read through it, make needed modifications and start dovecot binary.
-doc/configuration.txt tells you more about configuring Dovecot.
+is enough. This installs Dovecot under /usr/local.
 
 If you have installed some libraries into locations which require special
 include or library paths, you can give them in CPPFLAGS and LDFLAGS
 environment variables. For example:
 
   CPPFLAGS=-I/opt/openssl/include LDFLAGS=-L/opt/openssl/lib ./configure
+
+
+Running
+-------
+
+Rename configuration file:
+
+  mv /usr/local/etc/dovecot-example.conf /usr/local/etc/dovecot.conf
+
+Read through, and make needed modifications. doc/configuration.txt tells
+you more about configuring Dovecot.
+
+Once everything is configured, there's two ways to start Dovecot:
+
+ 1) Run "dovecot" binary which does everything.
+
+ 2) Start it via inetd or similiar by executing "imap-login" or "pop3-login"
+    binaries. If you're listening in SSL port, add --ssl parameter.
 
 
 SSL/TLS
