@@ -155,11 +155,6 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		}
 	}
 
-	if (ctx->header_first_change == (size_t)-1) {
-		/* no headers had to be modified */
-		return;
-	}
-
 	if (ctx->have_eoh)
 		str_append_c(ctx->header, '\n');
 }

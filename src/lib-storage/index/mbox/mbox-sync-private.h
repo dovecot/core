@@ -40,7 +40,7 @@ struct mbox_sync_mail_context {
 	struct mbox_sync_mail mail;
 
 	uint32_t seq;
-	uoff_t hdr_offset, body_offset;
+	uoff_t from_offset, hdr_offset, body_offset;
 
 	size_t header_first_change, header_last_change;
 	string_t *header;
@@ -59,9 +59,10 @@ struct mbox_sync_context {
 	struct istream *input, *file_input;
 	int fd;
 
-	buffer_t *header;
+	string_t *header, *from_line;
 	uint32_t base_uid_validity, base_uid_last;
 	uint32_t prev_msg_uid, next_uid;
+	off_t expunged_space;
 };
 
 int mbox_sync(struct index_mailbox *ibox, int last_commit);
@@ -72,7 +73,7 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 			     buffer_t *syncs_buf);
 void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 				  const struct mbox_sync_mail *mail);
-int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx);
+int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff);
 int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 		      uint32_t first_seq, uint32_t last_seq, off_t extra_space);
 

@@ -201,8 +201,9 @@ static ssize_t _read(struct _istream *stream)
 	stream->buffer = buf;
 	stream->pos = new_pos;
 
-	if (i < pos && new_pos == stream->pos) {
-		/* beginning from From-line, try again */
+	if (i < pos) {
+		/* beginning from From-line, try again
+		   FIXME: loops forever if we don't skip forward */
 		ret = 0;
 	}
 

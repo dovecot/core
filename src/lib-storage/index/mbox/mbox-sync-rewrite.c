@@ -16,6 +16,9 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 	struct ostream *output;
 	off_t ret;
 
+	if (size == 0 || source == dest)
+		return 0;
+
 	istream_raw_mbox_flush(sync_ctx->input);
 
 	output = o_stream_create_file(sync_ctx->fd, default_pool, 4096, FALSE);
@@ -24,15 +27,18 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 
 	if (size == (uoff_t)-1) {
 		input = sync_ctx->file_input;
-		return o_stream_send_istream(output, input) < 0 ? -1 : 0;
+		ret = o_stream_send_istream(output, input) < 0 ? -1 : 0;
 	} else {
 		input = i_stream_create_limit(default_pool,
 					      sync_ctx->file_input,
 					      source, size);
 		ret = o_stream_send_istream(output, input);
 		i_stream_unref(input);
-		return ret == (off_t)size ? 0 : -1;
+		ret = ret == (off_t)size ? 0 : -1;
 	}
+
+	o_stream_unref(output);
+	return (int)ret;
 }
 
 static void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
@@ -134,7 +140,7 @@ static void mbox_sync_headers_remove_space(struct mbox_sync_mail_context *ctx,
 	i_assert(size == 0);
 }
 
-int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx)
+int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 {
 	size_t old_hdr_size, new_hdr_size;
 	const unsigned char *data;
@@ -149,13 +155,27 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx)
 		mbox_sync_headers_add_space(ctx, old_hdr_size - new_hdr_size);
 	} else if (new_hdr_size > old_hdr_size) {
 		size_t needed = new_hdr_size - old_hdr_size;
-		if (ctx->mail.space < 0)
-			return 0;
 
-		mbox_sync_headers_remove_space(ctx, needed);
+		if (ctx->mail.space >= 0)
+			mbox_sync_headers_remove_space(ctx, needed);
+		else if (move_diff < 0 && needed <= -move_diff) {
+			/* moving backwards - we can use the extra space from
+			   it, just update expunged_space accordingly */
+			i_assert(ctx->sync_ctx->expunged_space >= needed);
+			ctx->sync_ctx->expunged_space -= needed;
+		} else {
+			return 0;
+		}
 	}
 
-	i_assert(ctx->header_first_change != (size_t)-1);
+	i_assert(ctx->header_first_change != (size_t)-1 || move_diff != 0);
+
+	if (move_diff != 0) {
+		/* we're moving the header, forget about partial write
+		   optimizations */
+		ctx->header_first_change = 0;
+		ctx->header_last_change = 0;
+	}
 
 	/* FIXME: last_change should rather just tell if we want to truncate
 	   to beginning of extra whitespace */
@@ -164,10 +184,11 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx)
 		str_truncate(ctx->header, ctx->header_last_change);
 
 	data = str_data(ctx->header);
-        new_hdr_size = str_len(ctx->header);
+	new_hdr_size = str_len(ctx->header);
 	if (pwrite_full(ctx->sync_ctx->fd, data + ctx->header_first_change,
 			new_hdr_size - ctx->header_first_change,
-			ctx->hdr_offset + ctx->header_first_change) < 0) {
+			ctx->hdr_offset + move_diff +
+			ctx->header_first_change) < 0) {
 		// FIXME: error handling
 		return -1;
 	}
@@ -253,6 +274,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 	uint32_t idx, extra_per_mail;
 	int ret = 0;
 
+	i_assert(first_seq != last_seq);
 	i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
 
 	mails = buffer_get_modifyable_data(mails_buf, &size);
@@ -263,13 +285,16 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 
 	extra_per_mail = (extra_space / (last_seq - first_seq + 1));
 
-	mails[last_seq-1].space -= extra_per_mail;
-	i_assert(mails[last_seq-1].space >= 0);
-	end_offset = mails[last_seq-1].offset + mails[last_seq-1].space;
+	last_seq--;
+        idx = last_seq - first_seq;
+
+	mails[idx].space -= extra_per_mail;
+	i_assert(mails[idx].space >= 0);
+	end_offset = mails[idx].offset + mails[idx].space;
 
 	/* start moving backwards */
-	while (--last_seq >= first_seq) {
-		idx = last_seq-1;
+	do {
+		idx--;
 		if (mails[idx].space <= 0) {
 			/* offset points to beginning of headers. read the
 			   header again, update it and give enough space to
@@ -303,7 +328,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 			i_assert(mails[idx].space > 0);
 			end_offset = mails[idx].offset + mails[idx].space;
 		}
-	}
+	} while (idx > 0);
 
 	istream_raw_mbox_flush(sync_ctx->input);
 	return ret;
