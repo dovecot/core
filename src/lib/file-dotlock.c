@@ -306,7 +306,8 @@ dotlock_create(const char *path, const char *temp_prefix,
 			t_push();
 			if (change_secs >= stale_notify_threshold &&
 			    change_secs <= wait_left) {
-				if (!callback(stale_timeout - change_secs,
+				if (!callback(stale_timeout < change_secs ? 0 :
+					      stale_timeout - change_secs,
 					      TRUE, context)) {
 					/* we don't want to override */
 					lock_info.last_change = now;
