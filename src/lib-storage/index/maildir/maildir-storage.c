@@ -126,8 +126,7 @@ static int maildir_is_valid_create_name(const char *name)
 	size_t len;
 
 	len = strlen(name);
-	if (len == 0 ||
-	    name[0] == MAILDIR_FS_SEP || name[len-1] == MAILDIR_FS_SEP ||
+	if (len == 0 || name[0] == MAILDIR_FS_SEP ||
 	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
 		return FALSE;
 
@@ -173,6 +172,12 @@ const char *maildir_fix_mailbox_name(struct mail_storage *storage,
 {
 	char *dup, *p, sep;
 	size_t len;
+
+	len = strlen(name);
+	if (len > 1 && name[len-1] == storage->hierarchy_sep) {
+		/* mailbox and mailbox/ should be treated equally */
+		name = t_strndup(name, len-1);
+	}
 
 	if (strncasecmp(name, "INBOX", 5) == 0 &&
 	    (name[5] == '\0' || name[5] == storage->hierarchy_sep)) {
