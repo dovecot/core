@@ -37,17 +37,17 @@ static struct timeout *to_idle;
 
 static void client_set_title(struct pop3_client *client)
 {
-	const char *host;
+	const char *addr;
 
 	if (!verbose_proctitle || !process_per_connection)
 		return;
 
-	host = net_ip2addr(&client->common.ip);
-	if (host == NULL)
-		host = "??";
+	addr = net_ip2addr(&client->common.ip);
+	if (addr == NULL)
+		addr = "??";
 
 	process_title_set(t_strdup_printf(client->tls ? "[%s TLS]" : "[%s]",
-					  host));
+					  addr));
 }
 
 static void client_open_streams(struct pop3_client *client, int fd)
@@ -321,13 +321,13 @@ void client_send_line(struct pop3_client *client, const char *line)
 
 void client_syslog(struct pop3_client *client, const char *text)
 {
-	const char *host;
+	const char *addr;
 
-	host = net_ip2addr(&client->common.ip);
-	if (host == NULL)
-		host = "??";
+	addr = net_ip2addr(&client->common.ip);
+	if (addr == NULL)
+		addr = "??";
 
-	i_info("%s [%s]", text, host);
+	i_info("%s [%s]", text, addr);
 }
 
 static void client_hash_check_idle(void *key, void *value __attr_unused__,
