@@ -52,4 +52,8 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 
 void mail_transaction_logs_clean(struct mail_transaction_log *log);
 
+int mail_transaction_log_rotate(struct mail_transaction_log *log, int lock);
+int mail_transaction_log_lock_head(struct mail_transaction_log *log);
+void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file);
+
 #endif

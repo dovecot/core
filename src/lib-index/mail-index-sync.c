@@ -44,6 +44,52 @@ static void mail_index_sync_add_flag_update(struct mail_index_sync_ctx *ctx)
 	}
 }
 
+static void mail_index_sync_add_keyword_update(struct mail_index_sync_ctx *ctx)
+{
+	const struct mail_transaction_keyword_update *u = ctx->data;
+	const char *keyword_names[2];
+	struct mail_keywords *keywords;
+	const uint32_t *uids;
+	uint32_t uid;
+	size_t uidset_offset, i, size;
+
+	uidset_offset = sizeof(*u) + u->name_size;
+	if ((uidset_offset % 4) != 0)
+		uidset_offset += 4 - (uidset_offset % 4);
+	uids = CONST_PTR_OFFSET(u, uidset_offset);
+
+	t_push();
+	keyword_names[0] = t_strndup(u + 1, u->name_size);
+	keyword_names[1] = NULL;
+	keywords = mail_index_keywords_create(ctx->trans, keyword_names);
+
+	size = (ctx->hdr->size - uidset_offset) / sizeof(uint32_t);
+	for (i = 0; i < size; i += 2) {
+		/* FIXME: mail_index_update_keywords_range() */
+		for (uid = uids[i]; uid <= uids[i+1]; uid++) {
+			mail_index_update_keywords(ctx->trans, uid,
+						   u->modify_type, keywords);
+		}
+	}
+
+	mail_index_keywords_free(keywords);
+	t_pop();
+}
+
+static void mail_index_sync_add_keyword_reset(struct mail_index_sync_ctx *ctx)
+{
+	const struct mail_transaction_keyword_reset *u = ctx->data;
+	size_t i, size = ctx->hdr->size / sizeof(*u);
+	uint32_t uid;
+
+	for (i = 0; i < size; i++) {
+		for (uid = u[i].uid1; uid <= u[i].uid2; uid++) {
+			mail_index_update_keywords(ctx->trans, uid,
+						   MODIFY_REPLACE, NULL);
+		}
+	}
+}
+
 static void mail_index_sync_add_append(struct mail_index_sync_ctx *ctx)
 {
 	const struct mail_index_record *rec = ctx->data;
@@ -66,6 +112,12 @@ static void mail_index_sync_add_transaction(struct mail_index_sync_ctx *ctx)
 		break;
 	case MAIL_TRANSACTION_FLAG_UPDATE:
                 mail_index_sync_add_flag_update(ctx);
+		break;
+	case MAIL_TRANSACTION_KEYWORD_UPDATE:
+                mail_index_sync_add_keyword_update(ctx);
+		break;
+	case MAIL_TRANSACTION_KEYWORD_RESET:
+                mail_index_sync_add_keyword_reset(ctx);
 		break;
 	case MAIL_TRANSACTION_APPEND:
 		mail_index_sync_add_append(ctx);
