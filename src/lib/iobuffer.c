@@ -369,10 +369,9 @@ void io_buffer_cork(IOBuffer *buf)
 {
 	i_assert(!buf->receive);
 
-	if (!buf->file && !buf->corked) {
+	if (!buf->file && !buf->corked)
 		net_set_cork(buf->fd, TRUE);
-		buf->corked = TRUE;
-	}
+	buf->corked = TRUE;
 }
 
 static void buffer_alloc_more(IOBuffer *buf, unsigned int size)
@@ -410,7 +409,7 @@ static void io_buffer_compress(IOBuffer *buf)
 
 int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 {
-	int ret;
+	int i, corked, ret;
 
 	i_assert(!buf->receive);
         i_assert(data != NULL);
@@ -420,32 +419,42 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 	if (buf->closed)
                 return -1;
 
-	if (buf->pos == 0) {
-		/* buffer is empty, try to send the data immediately */
-		ret = buf->file ? my_write(buf->fd, data, size) :
-			net_transmit(buf->fd, data, size);
-		if (ret < 0) {
-			/* disconnected */
-			buf->closed = TRUE;
-			return -1;
+	/* if we're corked, first try adding it to buffer. if it's larger
+	   than the buffer, send it immediately. */
+	corked = buf->corked;
+	for (i = 0; i < 2; i++) {
+		if (buf->pos == 0 && !corked) {
+			/* buffer is empty, try to send the data immediately */
+			ret = buf->file ? my_write(buf->fd, data, size) :
+				net_transmit(buf->fd, data, size);
+			if (ret < 0) {
+				/* disconnected */
+				buf->closed = TRUE;
+				return -1;
+			}
+
+			buf->offset += ret;
+			data = (const char *) data + ret;
+			size -= ret;
 		}
 
-		buf->offset += ret;
-		data = (const char *) data + ret;
-		size -= ret;
-	}
-
-	if (size == 0) {
-		/* all sent */
-		return 1;
-	}
-
-	if (io_buffer_get_space(buf, size) == NULL) {
-		if (buf->blocking) {
-			/* if we don't have space, we block */
-			return io_buffer_send_blocking(buf, data, size);
+		if (size == 0) {
+			/* all sent */
+			return 1;
 		}
-		return -2;
+
+		if (io_buffer_get_space(buf, size) != NULL)
+			break;
+
+		if (corked)
+			corked = FALSE;
+		else {
+			if (buf->blocking) {
+				/* if we don't have space, we block */
+				return io_buffer_send_blocking(buf, data, size);
+			}
+			return -2;
+		}
 	}
 
 	/* add to buffer */
@@ -877,7 +886,7 @@ int io_buffer_send_buffer(IOBuffer *buf, unsigned int size)
 	i_assert(size <= INT_MAX);
 	i_assert(!buf->receive);
 
-	if (buf->pos == 0) {
+	if (buf->pos == 0 && !buf->corked) {
 		/* buffer is empty, try to send the data immediately */
 		ret = buf->file ? my_write(buf->fd, buf->buffer, size) :
 			net_transmit(buf->fd, buf->buffer, size);
