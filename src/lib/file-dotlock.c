@@ -34,7 +34,7 @@ struct lock_info {
 	time_t last_ctime, last_mtime;
 	time_t last_change;
 
-	pid_t pid;
+	int have_pid;
 	time_t last_pid_check;
 };
 
@@ -77,6 +77,7 @@ static pid_t read_local_pid(const char *lock_path)
 static int check_lock(time_t now, struct lock_info *lock_info)
 {
 	struct stat st;
+	pid_t pid;
 
 	if (lstat(lock_info->lock_path, &st) < 0) {
 		if (errno != ENOENT) {
@@ -107,24 +108,36 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 	    lock_info->ctime != st.st_ctime ||
 	    lock_info->mtime != st.st_mtime ||
 	    lock_info->size != st.st_size) {
-		/* either our first check or someone else got the lock file.
-		   check if it contains a pid whose existence we can verify */
+		/* either our first check or someone else got the lock file. */
 		lock_info->dev = st.st_dev;
 		lock_info->ino = st.st_ino;
 		lock_info->ctime = st.st_ctime;
 		lock_info->mtime = st.st_mtime;
 		lock_info->size = st.st_size;
-		lock_info->pid = read_local_pid(lock_info->lock_path);
 
+		pid = read_local_pid(lock_info->lock_path);
+		lock_info->have_pid = pid != -1;
 		lock_info->last_change = now;
+	} else if (!lock_info->have_pid) {
+		/* no pid checking */
+		pid = -1;
+	} else {
+		if (lock_info->last_pid_check == now) {
+			/* we just checked the pid */
+			return 0;
+		}
+
+		/* re-read the pid. even if all times and inodes are the same,
+		   the PID in the file might have changed if lock files were
+		   rapidly being recreated. */
+		pid = read_local_pid(lock_info->lock_path);
+		lock_info->have_pid = pid != -1;
 	}
 
-	if (lock_info->pid != -1) {
+	/* re-read the PID every time, because */
+	if (lock_info->have_pid) {
 		/* we've local PID. Check if it exists. */
-		if (lock_info->last_pid_check == now)
-			return 0;
-
-		if (kill(lock_info->pid, 0) == 0 || errno != ESRCH)
+		if (kill(pid, 0) == 0 || errno != ESRCH)
 			return 0;
 
 		/* doesn't exist - go ahead and delete */
