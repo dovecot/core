@@ -15,6 +15,7 @@ static void passwd_lookup(const char *user, userdb_callback_t *callback,
 {
 	struct user_data data;
 	struct passwd *pw;
+	size_t len;
 
 	pw = getpwnam(user);
 	if (pw == NULL) {
@@ -31,7 +32,16 @@ static void passwd_lookup(const char *user, userdb_callback_t *callback,
 	data.gid = pw->pw_gid;
 
 	data.virtual_user = data.system_user = pw->pw_name;
-	data.home = pw->pw_dir;
+
+	len = strlen(pw->pw_dir);
+	if (len < 3 || strcmp(pw->pw_dir + len - 3, "/./") != 0)
+		data.home = pw->pw_dir;
+	else {
+		/* wu-ftpd uses <chroot>/./<dir>. We don't support
+		   the dir after chroot, but this should work well enough. */
+		data.home = t_strndup(pw->pw_dir, len-3);
+		data.chroot = TRUE;
+	}
 
 	callback(&data, context);
 }
