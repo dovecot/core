@@ -535,7 +535,7 @@ static int settings_verify(struct settings *set)
 	   deleted. */
 	if (safe_mkdir(set->base_dir, 0700, master_uid, getegid()) == 0) {
 		i_warning("Corrected permissions for base directory %s",
-			  PKG_RUNDIR);
+			  set->base_dir);
 	}
 
 	/* wipe out contents of login directory, if it exists.
