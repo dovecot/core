@@ -24,8 +24,8 @@ void fd_close_on_exec(int fd, int set)
 
 void fd_debug_verify_leaks(int first_fd, int last_fd)
 {
-	struct ip_addr addr;
-	unsigned int port;
+	struct ip_addr addr, raddr;
+	unsigned int port, rport;
 	struct stat st;
 
 	while (first_fd < last_fd) {
@@ -46,8 +46,14 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 						first_fd, sa.sun_path);
 				}
 
-				i_panic("Leaked socket fd %d: %s:%u",
-					first_fd, net_ip2addr(&addr), port);
+				if (net_getpeername(first_fd,
+						    &raddr, &rport) < 0) {
+					memset(&raddr, 0, sizeof(raddr));
+					rport = 0;
+				}
+				i_panic("Leaked socket fd %d: %s:%u -> %s:%u",
+					first_fd, net_ip2addr(&addr), port,
+					net_ip2addr(&raddr), rport);
 			}
 
 			if (fstat(first_fd, &st) == 0) {
