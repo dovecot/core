@@ -48,6 +48,7 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
         struct cmsghdr *cmsg;
 	char buf[CMSG_SPACE(sizeof(int))];
 
+	/* at least one byte is required to be sent with fd passing */
 	i_assert(size > 0 && size < SSIZE_T_MAX);
 
 	memset(&msg, 0, sizeof (struct msghdr));
@@ -59,6 +60,7 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 	msg.msg_iovlen = 1;
 
 	if (send_fd != -1) {
+		/* set the control and controllen before CMSG_FIRSTHDR() */
 		msg.msg_control = buf;
 		msg.msg_controllen = sizeof(buf);
 
@@ -68,6 +70,8 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 		cmsg->cmsg_len = CMSG_LEN(sizeof(int));
 		*((int *) CMSG_DATA(cmsg)) = send_fd;
 
+		/* set the real length we want to use. it's different than
+		   sizeof(buf) in 64bit systems. */
 		msg.msg_controllen = cmsg->cmsg_len;
 	}
 
@@ -86,18 +90,21 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 
 	memset(&msg, 0, sizeof (struct msghdr));
 
-	msg.msg_control = buf;
-	msg.msg_controllen = sizeof(buf);
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
-	cmsg = CMSG_FIRSTHDR(&msg);
-	cmsg->cmsg_level = SOL_SOCKET;
-	cmsg->cmsg_type = SCM_RIGHTS;
 	iov.iov_base = data;
 	iov.iov_len = size;
 
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+
+	msg.msg_control = buf;
+	msg.msg_controllen = CMSG_LEN(sizeof(int));
+
+	cmsg = CMSG_FIRSTHDR(&msg);
+	cmsg->cmsg_level = SOL_SOCKET;
+	cmsg->cmsg_type = SCM_RIGHTS;
+
 	ret = recvmsg(handle, &msg, 0);
-	if (msg.msg_controllen != sizeof(buf))
+	if (msg.msg_controllen != CMSG_LEN(sizeof(int)))
 		*fd = -1;
 	else
 		*fd = *(int *) CMSG_DATA(cmsg);
