@@ -222,7 +222,7 @@ struct maildir_hash_rec {
 	struct mail_index_record *rec;
 	enum maildir_file_action action;
 };
-#define ACTION(hash) ((hash)->action & 0x0f)
+#define ACTION(hash) ((hash)->action & ~MAILDIR_FILE_FLAGS)
 
 struct maildir_sync_context {
         struct mail_index *index;
