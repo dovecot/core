@@ -480,24 +480,28 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 	const uint32_t *buf;
 	size_t size;
 
-	if (mail_cache_lock(cache) > 0) {
-		mail_cache_transaction_free_space(ctx);
+	buf = buffer_get_data(ctx->reservations, &size);
+	i_assert(size % sizeof(uint32_t)*2 == 0);
+	size /= sizeof(*buf);
 
-		buf = buffer_get_data(ctx->reservations, &size);
-		i_assert(size % sizeof(uint32_t)*2 == 0);
-		size /= sizeof(*buf);
+	if (ctx->reserved_space > 0 || size > 0) {
+		if (mail_cache_lock(cache) > 0) {
+			mail_cache_transaction_free_space(ctx);
 
-		if (size > 0) {
-			/* free flushed data as well. do it from end to
-			   beginning so we have a better chance of updating
-			   used_file_size instead of adding holes */
-			do {
-				size -= 2;
-				mail_cache_free_space(ctx->cache, buf[size],
-						      buf[size+1]);
-			} while (size > 0);
+			if (size > 0) {
+				/* free flushed data as well. do it from end to
+				   beginning so we have a better chance of
+				   updating used_file_size instead of adding
+				   holes */
+				do {
+					size -= 2;
+					mail_cache_free_space(ctx->cache,
+							      buf[size],
+							      buf[size+1]);
+				} while (size > 0);
+			}
+			mail_cache_unlock(cache);
 		}
-		mail_cache_unlock(cache);
 	}
 
 	mail_cache_transaction_free(ctx);
