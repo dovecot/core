@@ -30,13 +30,24 @@ int mail_transaction_map(const struct mail_transaction_header *hdr,
 void
 mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 				   const struct mail_transaction_expunge *src,
-				   size_t src_buf_size);;
+				   size_t src_buf_size);
 
-struct mail_transaction_expunge_traverse_ctx *
-mail_transaction_expunge_traverse_init(const buffer_t *expunges_buf);
-void mail_transaction_expunge_traverse_deinit(
-	struct mail_transaction_expunge_traverse_ctx *ctx);
-uint32_t mail_transaction_expunge_traverse_to(
-	struct mail_transaction_expunge_traverse_ctx *ctx, uint32_t seq);
+/* Iterate through expunges buffer. iter_seek()'s seq1/seq2 is assumed to be
+   in post-expunge view, iter_get() updates them to pre-expunge view. Some
+   post-expunge sequence arrays may go through expunges, we split them so it
+   won't be visible. */
+struct mail_transaction_expunge_iter_ctx *
+mail_transaction_expunge_iter_init(const buffer_t *expunges_buf);
+void mail_transaction_expunge_iter_deinit(
+	struct mail_transaction_expunge_iter_ctx *ctx);
+/* Returns TRUE if seq1 or seq2 will be modified by iter_get(). If FALSE is
+   returned calling iter_get() is a bit pointless. */
+int mail_transaction_expunge_iter_seek(
+	struct mail_transaction_expunge_iter_ctx *ctx,
+	uint32_t seq1, uint32_t seq2);
+/* Returns TRUE while sequences are returned. */
+int mail_transaction_expunge_iter_get(
+	struct mail_transaction_expunge_iter_ctx *ctx,
+	uint32_t *seq1_r, uint32_t *seq2_r);
 
 #endif

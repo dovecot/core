@@ -6,11 +6,11 @@
 #include "mail-transaction-log.h"
 #include "mail-transaction-util.h"
 
-struct mail_transaction_expunge_traverse_ctx {
+struct mail_transaction_expunge_iter_ctx {
 	const struct mail_transaction_expunge *expunges;
-	size_t expunges_count, cur_idx, old_idx;
-	uint32_t cur_seq, expunges_before;
-	uint32_t old_seq, old_expunges_before;
+	size_t expunges_count;
+	uint32_t cur_seq, cur_idx, expunges_before;
+	uint32_t iter_seq, iter_count, iter_idx;
 };
 
 const struct mail_transaction_type_map mail_transaction_type_map[] = {
@@ -149,7 +149,7 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 			if (src->seq1 + expunges_before < dest[i].seq1)
 				break;
 
-			i_assert(src->uid2 > dest[i].uid1);
+			i_assert(src->uid2 == 0 || src->uid2 > dest[i].uid1);
 			expunges_before += dest[i].seq2 - dest[i].seq1 + 1;
 		}
 
@@ -169,7 +169,8 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 			new_exp.seq2 += count;
 			if (new_exp.seq2 == dest[i].seq2)
 				new_exp.uid2 = dest[i].uid2;
-			i_assert(new_exp.uid2 >= dest[i].uid2);
+			i_assert(new_exp.uid2 == 0 ||
+				 new_exp.uid2 >= dest[i].uid2);
 			i++;
 		}
 
@@ -201,14 +202,13 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 	}
 }
 
-struct mail_transaction_expunge_traverse_ctx *
-mail_transaction_expunge_traverse_init(const buffer_t *expunges_buf)
+struct mail_transaction_expunge_iter_ctx *
+mail_transaction_expunge_iter_init(const buffer_t *expunges_buf)
 {
-	struct mail_transaction_expunge_traverse_ctx *ctx;
+	struct mail_transaction_expunge_iter_ctx *ctx;
 
-	ctx = i_new(struct mail_transaction_expunge_traverse_ctx, 1);
+	ctx = i_new(struct mail_transaction_expunge_iter_ctx, 1);
 	ctx->cur_seq = 1;
-	ctx->old_seq = 1;
 
 	if (expunges_buf != NULL) {
 		ctx->expunges =
@@ -218,34 +218,25 @@ mail_transaction_expunge_traverse_init(const buffer_t *expunges_buf)
 	return ctx;
 }
 
-void mail_transaction_expunge_traverse_deinit(
-	struct mail_transaction_expunge_traverse_ctx *ctx)
+void mail_transaction_expunge_iter_deinit(
+	struct mail_transaction_expunge_iter_ctx *ctx)
 {
 	i_free(ctx);
 }
 
-uint32_t mail_transaction_expunge_traverse_to(
-	struct mail_transaction_expunge_traverse_ctx *ctx, uint32_t seq)
+int mail_transaction_expunge_iter_seek(
+	struct mail_transaction_expunge_iter_ctx *ctx,
+	uint32_t seq1, uint32_t seq2)
 {
 	uint32_t idx, count, last_seq;
 
-	if (seq < ctx->cur_seq) {
-		/* allow seeking one back */
-		ctx->cur_idx = ctx->old_idx;
-		ctx->cur_seq = ctx->old_seq;
-		ctx->expunges_before = ctx->old_expunges_before;
-	} else {
-		ctx->old_idx = ctx->cur_idx;
-		ctx->old_seq = ctx->cur_seq;
-		ctx->old_expunges_before = ctx->expunges_before;
-	}
-	i_assert(seq >= ctx->cur_seq);
+	i_assert(seq1 >= ctx->cur_seq);
 
 	idx = ctx->cur_idx;
 	last_seq = idx == 0 ? 1 : ctx->expunges[idx-1].seq2 + 1;
 	for (; idx < ctx->expunges_count; idx++) {
 		count = ctx->expunges[idx].seq1 - last_seq;
-		if (ctx->cur_seq + count > seq)
+		if (ctx->cur_seq + count > seq1)
 			break;
 		ctx->cur_seq += count;
 
@@ -254,6 +245,42 @@ uint32_t mail_transaction_expunge_traverse_to(
 		last_seq = ctx->expunges[idx].seq2+1;
 	}
 
+	ctx->iter_idx = idx;
+	ctx->iter_seq = seq1 + ctx->expunges_before;
+	ctx->iter_count = seq2 - seq1 + 1;
+
 	ctx->cur_idx = idx;
-	return ctx->expunges_before;
+	return ctx->expunges_before != 0 ||
+		(idx != ctx->expunges_count && ctx->expunges[idx].seq1 <= seq2);
+}
+
+int mail_transaction_expunge_iter_get(
+	struct mail_transaction_expunge_iter_ctx *ctx,
+	uint32_t *seq1_r, uint32_t *seq2_r)
+{
+	if (ctx->iter_count == 0)
+		return 0;
+
+	*seq1_r = ctx->iter_seq;
+
+	if (ctx->iter_idx == ctx->expunges_count ||
+	    ctx->expunges[ctx->iter_idx].seq1 >=
+	    ctx->iter_seq + ctx->iter_count) {
+		/* last one */
+		*seq2_r = ctx->iter_seq + ctx->iter_count - 1;
+		ctx->iter_count = 0;
+		return 1;
+	}
+
+	ctx->iter_count -= ctx->expunges[ctx->iter_idx].seq1 - ctx->iter_seq;
+	i_assert(ctx->iter_count > 0);
+
+	/* have to split this one */
+	*seq2_r = ctx->expunges[ctx->iter_idx].seq1-1;
+	do {
+		ctx->iter_seq = ctx->expunges[ctx->iter_idx].seq2+1;
+		ctx->iter_idx++;
+	} while (ctx->iter_idx != ctx->expunges_count &&
+		 ctx->expunges[ctx->iter_idx].seq1 == ctx->iter_seq);
+	return 1;
 }

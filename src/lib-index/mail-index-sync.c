@@ -14,30 +14,32 @@ static void mail_index_sync_sort_flags(struct mail_index_sync_ctx *ctx)
 	const struct mail_transaction_flag_update *src, *src_end;
 	const struct mail_transaction_flag_update *dest;
 	struct mail_transaction_flag_update new_update;
-	struct mail_transaction_expunge_traverse_ctx *exp_ctx;
+	struct mail_transaction_expunge_iter_ctx *exp_ctx;
 	uint32_t last;
 	size_t i, dest_count;
 
 	src = ctx->data;
 	src_end = PTR_OFFSET(src, ctx->hdr->size);
+	if (src == src_end)
+		return;
 
 	dest = buffer_get_data(ctx->updates_buf, &dest_count);
 	dest_count /= sizeof(*dest);
 
-	exp_ctx = mail_transaction_expunge_traverse_init(ctx->expunges_buf);
+	exp_ctx = mail_transaction_expunge_iter_init(ctx->expunges_buf);
+	mail_transaction_expunge_iter_seek(exp_ctx, src->seq1, src->seq2);
 
-	for (i = 0; src != src_end; src++) {
+	for (i = 0; src != src_end; ) {
 		new_update = *src;
 
-		/* find seq1 */
-		new_update.seq1 +=
-			mail_transaction_expunge_traverse_to(exp_ctx,
-							     src->seq1);
-
-		/* find seq2 */
-		new_update.seq2 +=
-			mail_transaction_expunge_traverse_to(exp_ctx,
-							     src->seq2);
+		if (!mail_transaction_expunge_iter_get(exp_ctx,
+						       &new_update.seq1,
+						       &new_update.seq2)) {
+			mail_transaction_expunge_iter_seek(exp_ctx, src->seq1,
+							   src->seq2);
+			src++;
+			continue;
+		}
 
 		/* insert it into buffer, split it in multiple parts if needed
 		   to make sure the ordering stays the same */
@@ -66,7 +68,7 @@ static void mail_index_sync_sort_flags(struct mail_index_sync_ctx *ctx)
 		dest = buffer_get_data(ctx->updates_buf, NULL);
 		dest_count++;
 	}
-	mail_transaction_expunge_traverse_deinit(exp_ctx);
+	mail_transaction_expunge_iter_deinit(exp_ctx);
 }
 
 static void mail_index_sync_sort_transaction(struct mail_index_sync_ctx *ctx)
