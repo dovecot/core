@@ -21,7 +21,9 @@
 #undef USERINFO_SHADOW
 #undef USERINFO_PAM
 #undef USERINFO_VPOPMAIL
+
 #undef AUTH_PAM_USERPASS
+#undef HAVE_PAM_SETCRED
 
 /* IMAP capabilities */
 #undef CAPABILITY_STRING

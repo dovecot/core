@@ -389,6 +389,10 @@ if test $want_pam = yes; then
 			USERINFO_LIBS="$USERINFO_LIBS -lpam"
 			AC_DEFINE(USERINFO_PAM)
 			auths="$auths pam"
+
+			AC_CHECK_LIB(pam, pam_setcred, [
+				AC_DEFINE(HAVE_PAM_SETCRED)
+			])
 		])
 	])
 fi

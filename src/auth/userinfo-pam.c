@@ -167,6 +167,14 @@ static int pam_verify_plain(const char *user, const char *password,
 		return FALSE;
 	}
 
+#ifdef HAVE_PAM_SETCRED
+	if ((status = pam_setcred(pamh, PAM_ESTABLISH_CRED)) != PAM_SUCCESS) {
+		if (status == PAM_ABORT)
+			i_fatal("pam_setcred_mgmt() requested abort");
+		return FALSE;
+	}
+#endif
+
 	if ((status = pam_acct_mgmt(pamh, 0)) != PAM_SUCCESS) {
 		if (status == PAM_ABORT)
 			i_fatal("pam_acct_mgmt() requested abort");
