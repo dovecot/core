@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libstorage_index_mbox.a
+noinst_LIBRARIES = libindex_mbox.a
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
@@ -6,7 +6,7 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index
 
-libstorage_index_mbox_a_SOURCES = \
+libindex_mbox_a_SOURCES = \
 	mbox-append.c \
 	mbox-from.c \
 	mbox-index.c \

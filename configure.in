@@ -966,8 +966,8 @@ dnl **
 dnl ** storage classes
 dnl **
 
-maildir_libs="../lib-storage/index/maildir/libstorage_maildir.a ../lib-index/maildir/libstorage_index_maildir.a"
-mbox_libs="../lib-storage/index/mbox/libstorage_mbox.a ../lib-index/mbox/libstorage_index_mbox.a"
+maildir_libs="../lib-storage/index/maildir/libstorage_maildir.a ../lib-index/maildir/libindex_maildir.a"
+mbox_libs="../lib-storage/index/mbox/libstorage_mbox.a ../lib-index/mbox/libindex_mbox.a"
 index_libs="../lib-storage/index/libstorage_index.a ../lib-index/libindex.a"
 
 STORAGE_LIBS=

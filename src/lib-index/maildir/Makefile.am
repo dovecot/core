@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libstorage_index_maildir.a
+noinst_LIBRARIES = libindex_maildir.a
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
@@ -6,7 +6,7 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index
 
-libstorage_index_maildir_a_SOURCES = \
+libindex_maildir_a_SOURCES = \
 	maildir-index.c \
 	maildir-build.c \
 	maildir-clean.c \
