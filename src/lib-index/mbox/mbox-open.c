@@ -95,7 +95,7 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 			/* everything ok */
 			return io_buffer_create_mmap(fd, default_pool,
 						     MAIL_MMAP_BLOCK_SIZE,
-						     stop_offset);
+						     stop_offset - offset);
 		}
 
 
