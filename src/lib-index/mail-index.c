@@ -611,8 +611,6 @@ int mail_index_map(struct mail_index *index, int force)
 		}
 	}
 
-	i_assert(index->lock_type != F_WRLCK);
-
 	if (index->map != NULL && index->map->refcount > 1) {
 		/* this map is already used by some views and they may have
 		   pointers into it. leave them and create a new mapping. */
