@@ -24,7 +24,7 @@
 #  include <pam/pam_appl.h>
 #endif
 
-#if !defined(_SECURITY_PAM_APPL_H) && !defined(LINUX_PAM)
+#if !defined(_SECURITY_PAM_APPL_H) && !defined(LINUX_PAM) && !defined(_OPENPAM)
 /* Sun's PAM doesn't use const. we use a bit dirty hack to check it.
    Originally it was just __sun__ check, but HP/UX also uses Sun's PAM
    so I thought this might work better. */
