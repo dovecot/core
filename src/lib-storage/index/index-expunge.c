@@ -68,8 +68,11 @@ int index_storage_expunge(struct mailbox *box, int notify)
 	int failed;
 
 	if (box->readonly) {
-		mail_storage_set_error(box->storage, "Mailbox is read-only");
-		return FALSE;
+		box->storage->callbacks->
+			notify_no(&ibox->box,
+				  "Mailbox is read-only, ignoring expunge",
+				  box->storage->callback_context);
+		return TRUE;
 	}
 
 	if (!index_storage_lock(ibox, MAIL_LOCK_EXCLUSIVE))

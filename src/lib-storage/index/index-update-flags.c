@@ -67,6 +67,7 @@ int index_storage_update_flags(struct mailbox *box, const char *messageset,
 	int ret, ret2;
 
 	if (box->readonly) {
+		/* FIXME: we should use memory */
 		mail_storage_set_error(box->storage, "Mailbox is read-only");
 		return FALSE;
 	}
