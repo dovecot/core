@@ -384,7 +384,7 @@ if test "$want_openssl" = "yes" -a "$have_ssl" = "no"; then
 			have_ssl="yes (OpenSSL)"
 			have_openssl=yes
 		])
-	])
+	],, -lcrypto)
 fi
 
 dnl **
