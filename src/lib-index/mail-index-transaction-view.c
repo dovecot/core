@@ -18,7 +18,7 @@ static void _tview_close(struct mail_index_view *view)
 		(struct mail_index_view_transaction *)view;
 
 	mail_index_transaction_unref(tview->t);
-	return tview->parent->close(view);
+	tview->parent->close(view);
 }
 
 static uint32_t _tview_get_message_count(struct mail_index_view *view)
