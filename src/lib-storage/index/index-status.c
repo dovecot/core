@@ -4,42 +4,6 @@
 #include "mail-custom-flags.h"
 #include "index-storage.h"
 
-static unsigned int get_recent_count(MailIndex *index)
-{
-	MailIndexHeader *hdr;
-	MailIndexRecord *rec;
-	unsigned int seq;
-
-	hdr = mail_index_get_header(index);
-	if (index->first_recent_uid <= 1) {
-		/* all are recent */
-		return hdr->messages_count;
-	}
-
-	/* get the first recent message */
-	if (index->first_recent_uid >= hdr->next_uid)
-		return 0;
-
-	rec = index->lookup_uid_range(index, index->first_recent_uid,
-				      hdr->next_uid - 1);
-	if (rec == NULL)
-		return 0;
-
-	/* now we know the record, but we'd still need to know how many
-	   messages there's after this. there's two way to do this -
-	   get the sequence number thus far (fast, unless there's deleted
-	   messages) or just start reading messages forward until we're at
-	   the end (fast assuming there's only a few recent messages).
-	   it's a bit easier to use the first method and often it should be
-	   faster too.. */
-	seq = index->get_sequence(index, rec);
-	if (seq == 0) {
-		i_error("Couldn't get sequence for UID %u", rec->uid);
-		return 0;
-	}
-	return hdr->messages_count+1 - seq;
-}
-
 static unsigned int get_first_unseen_seq(MailIndex *index)
 {
 	MailIndexHeader *hdr;
@@ -127,7 +91,7 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 	}
 
 	if (items & STATUS_RECENT)
-		status->recent = get_recent_count(ibox->index);
+		status->recent = index_storage_get_recent_count(ibox->index);
 
 	if (items & STATUS_CUSTOM_FLAGS) {
 		get_custom_flags(ibox->index->custom_flags,

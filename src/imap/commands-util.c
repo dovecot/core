@@ -97,34 +97,43 @@ static void sync_flags_func(Mailbox *mailbox __attr_unused__, unsigned int seq,
 	t_pop();
 }
 
-static int client_sync_full(Client *client, int expunge)
+static int client_sync_full(Client *client, int sync_log, int expunge)
 {
-	unsigned int messages;
+	unsigned int messages, recent;
 	char str[MAX_LARGEST_T_STRLEN+20];
 
 	if (client->mailbox == NULL)
 		return TRUE;
 
-	if (!client->mailbox->sync(client->mailbox, &messages, expunge,
-				   sync_expunge_func, sync_flags_func, client))
+	if (!client->mailbox->sync(client->mailbox, expunge, &messages, &recent,
+				   sync_log ? sync_expunge_func : NULL,
+				   sync_log ? sync_flags_func : NULL, client))
 		return FALSE;
 
 	if (messages != 0) {
 		i_snprintf(str, sizeof(str), "* %u EXISTS", messages);
+		client_send_line(client, str);
+
+		i_snprintf(str, sizeof(str), "* %u RECENT", recent);
 		client_send_line(client, str);
 	}
 
 	return TRUE;
 }
 
+void client_check_new_mail(Client *client)
+{
+	(void)client_sync_full(client, FALSE, FALSE);
+}
+
 void client_sync_mailbox(Client *client)
 {
-	(void)client_sync_full(client, FALSE);
+	(void)client_sync_full(client, TRUE, FALSE);
 }
 
 int client_sync_and_expunge_mailbox(Client *client)
 {
-	return client_sync_full(client, TRUE);
+	return client_sync_full(client, TRUE, TRUE);
 }
 
 void client_send_storage_error(Client *client)

@@ -34,6 +34,8 @@ int index_storage_sync_if_possible(IndexMailbox *ibox);
 int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
                                    const char *custom_flags[]);
 
+unsigned int index_storage_get_recent_count(MailIndex *index);
+
 int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
 			     MailIndexRecord **rec);
 
@@ -48,7 +50,8 @@ int index_storage_copy(Mailbox *box, Mailbox *destbox,
 int index_storage_expunge(Mailbox *box);
 int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 			     MailboxStatus *status);
-int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
+int index_storage_sync(Mailbox *box, int expunge,
+		       unsigned int *messages, unsigned int *recent,
 		       MailExpungeFunc expunge_func,
 		       MailFlagUpdateFunc flag_func,
 		       void *context);

@@ -25,7 +25,8 @@ int index_storage_sync_if_possible(IndexMailbox *ibox)
 	return TRUE;
 }
 
-int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
+int index_storage_sync(Mailbox *box, int expunge,
+		       unsigned int *messages, unsigned int *recent,
 		       MailExpungeFunc expunge_func,
 		       MailFlagUpdateFunc flag_func,
 		       void *context)
@@ -43,7 +44,7 @@ int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 		return FALSE;
 	}
 
-	*messages = 0;
+	*messages = *recent = 0;
 
 	if (!index_storage_sync_if_possible(ibox))
 		return FALSE;
@@ -100,6 +101,7 @@ int index_storage_sync(Mailbox *box, unsigned int *messages, int expunge,
 		if (count > ibox->synced_messages_count) {
 			/* new messages in mailbox */
 			*messages = count;
+			*recent = index_storage_get_recent_count(ibox->index);
 		}
 		ibox->synced_messages_count = count;
 	}

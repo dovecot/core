@@ -130,11 +130,13 @@ struct _Mailbox {
 
 	/* Synchronize the mailbox by reading all expunges and flag changes.
 	   If new mail has been added to mailbox, messages contains the total
-	   number of messages in mailbox, otherwise 0. functions may be NULL.
+	   number of messages in mailbox and recent is set, otherwise 0.
+	   Functions may be NULL.
 
 	   If expunge is TRUE, deleted mails are expunged as well. Difference
 	   to expunge() function is that expunge_func is also called. */
-	int (*sync)(Mailbox *box, unsigned int *messages, int expunge,
+	int (*sync)(Mailbox *box, int expunge,
+		    unsigned int *messages, unsigned int *recent,
 		    MailExpungeFunc expunge_func, MailFlagUpdateFunc flag_func,
 		    void *context);
 

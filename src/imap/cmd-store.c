@@ -109,6 +109,7 @@ int cmd_store(Client *client)
 					  modify_type, func, client,
 					  &all_found)) {
 		/* NOTE: syncing isn't allowed here */
+                client_check_new_mail(client);
 		client_send_tagline(client, all_found ? "OK Store completed." :
 				    "NO Some of the messages no longer exist.");
 	} else

@@ -14,8 +14,12 @@ int client_verify_mailbox_name(Client *client, const char *mailbox,
    error message to client. */
 int client_verify_open_mailbox(Client *client);
 
+/* Check if there's new mail in mailbox. If yes, notify client by sending
+   EXISTS and RECENT. */
+void client_check_new_mail(Client *client);
+
 /* Synchronize selected mailbox with client by sending EXPUNGE and
-   FETCH FLAGS responses. */
+   FETCH FLAGS responses. Also does new mail checking. */
 void client_sync_mailbox(Client *client);
 
 /* Synchronize selected mailbox and expunge messages with \Deleted flag. */
