@@ -701,7 +701,8 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 
 			(void)i_stream_read_data(instream, &data, &size,
 						 read_size-1);
-			if (size == read_size) {
+			if (size >= read_size) {
+				size = read_size;
 				if (instream->mmaped) {
 					/* we'll have to write it through
 					   buffer of the file gets corrupted */
@@ -713,15 +714,11 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 				break;
 			}
 
-			i_assert(size < read_size);
-			if (size < read_size) {
-				/* buffer too large probably,
-				   try with smaller */
-				read_size -= size;
-				in_offset += read_size;
-				out_offset += read_size;
-				buffer_size -= read_size;
-			}
+			/* buffer too large probably, try with smaller */
+			read_size -= size;
+			in_offset += read_size;
+			out_offset += read_size;
+			buffer_size -= read_size;
 		}
 		in_limit -= size;
 
