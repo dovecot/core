@@ -22,6 +22,7 @@ int maildir_index_rebuild(MailIndex *index)
 
 	/* reset the header */
 	mail_index_init_header(index->header);
+	index->mmap_used_length = index->header->used_file_size;
 
 	/* update indexid, which also means that our state has completely
 	   changed */

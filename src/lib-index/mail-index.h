@@ -390,6 +390,7 @@ int mail_index_is_diskspace_error(MailIndex *index);
 int mail_index_is_inconsistency_error(MailIndex *index);
 
 /* INTERNAL: */
+int mail_index_mmap_update(MailIndex *index);
 void mail_index_init_header(MailIndexHeader *hdr);
 void mail_index_close(MailIndex *index);
 int mail_index_fmsync(MailIndex *index, size_t size);

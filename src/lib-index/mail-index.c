@@ -82,7 +82,7 @@ static int mmap_verify(MailIndex *index)
 	return TRUE;
 }
 
-static int mmap_update(MailIndex *index)
+int mail_index_mmap_update(MailIndex *index)
 {
 	if (index->anon_mmap)
 		return mmap_verify(index);
@@ -330,7 +330,7 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type)
 		return index_set_syscall_error(index, "file_wait_lock()");
 	index->lock_type = lock_type;
 
-	if (!mmap_update(index)) {
+	if (!mail_index_mmap_update(index)) {
 		(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
 		return FALSE;
 	}
@@ -698,7 +698,8 @@ const void *mail_index_lookup_field_raw(MailIndex *index, MailIndexRecord *rec,
 	return datarec->data;
 }
 
-unsigned int mail_index_get_sequence(MailIndex *index, MailIndexRecord *rec)
+static unsigned int mail_index_get_sequence_real(MailIndex *index,
+						 MailIndexRecord *rec)
 {
 	MailIndexRecord *seekrec;
 	unsigned int seq;
@@ -735,6 +736,21 @@ unsigned int mail_index_get_sequence(MailIndex *index, MailIndexRecord *rec)
 	for (; seekrec < rec; seekrec++) {
 		if (seekrec->uid != 0)
 			seq++;
+	}
+
+	return seq;
+}
+
+unsigned int mail_index_get_sequence(MailIndex *index, MailIndexRecord *rec)
+{
+	unsigned int seq;
+
+	seq = mail_index_get_sequence_real(index, rec);
+	if (seq > index->header->messages_count) {
+		index_set_corrupted(index, "Too small messages_count in header "
+				    "(found %u > %u)", seq,
+				    index->header->messages_count);
+		return 0;
 	}
 
 	return seq;
@@ -970,7 +986,7 @@ static int mail_index_grow(MailIndex *index)
 	   sync_id in header. */
 	index->header->sync_id++;
 
-	if (!mmap_update(index))
+	if (!mail_index_mmap_update(index))
 		return FALSE;
 
 	return TRUE;

@@ -8,6 +8,7 @@ static unsigned int get_recent_count(MailIndex *index)
 {
 	MailIndexHeader *hdr;
 	MailIndexRecord *rec;
+	unsigned int seq;
 
 	hdr = mail_index_get_header(index);
 	if (index->first_recent_uid <= 1) {
@@ -31,7 +32,12 @@ static unsigned int get_recent_count(MailIndex *index)
 	   the end (fast assuming there's only a few recent messages).
 	   it's a bit easier to use the first method and often it should be
 	   faster too.. */
-	return hdr->messages_count - index->get_sequence(index, rec) + 1;
+	seq = index->get_sequence(index, rec);
+	if (seq == 0) {
+		i_error("Couldn't get sequence for UID %u", rec->uid);
+		return 0;
+	}
+	return hdr->messages_count+1 - seq;
 }
 
 static unsigned int get_first_unseen_seq(MailIndex *index)

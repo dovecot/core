@@ -113,9 +113,12 @@ static const char *mail_find_index(MailIndex *index)
 	return NULL;
 }
 
-static int mail_index_open_init(MailIndex *index, MailIndexHeader *hdr,
-				int update_recent)
+static int mail_index_open_init(MailIndex *index, int update_recent)
 {
+	MailIndexHeader *hdr;
+
+	hdr = index->header;
+
 	/* update \Recent message counters */
 	if (update_recent && hdr->last_nonrecent_uid != hdr->next_uid-1) {
 		/* keep last_recent_uid to next_uid-1 */
@@ -149,16 +152,24 @@ static int mail_index_open_init(MailIndex *index, MailIndexHeader *hdr,
 	return TRUE;
 }
 
-static int index_open_and_fix(MailIndex *index, MailIndexHeader *hdr,
-			      int update_recent)
+static int index_open_and_fix(MailIndex *index, int update_recent)
 {
+	MailIndexHeader *hdr;
+	int rebuild;
+
+	if (!mail_index_mmap_update(index))
+		return FALSE;
+
+	hdr = index->header;
+	rebuild = FALSE;
+
 	/* open/create the index files */
 	if (!mail_index_data_open(index)) {
 		if ((index->set_flags & MAIL_INDEX_FLAG_REBUILD) == 0)
 			return FALSE;
 
 		/* data file is corrupted, need to rebuild index */
-		hdr->flags |= MAIL_INDEX_FLAG_REBUILD;
+		rebuild = TRUE;
 		index->set_flags = 0;
 
 		if (!mail_index_data_create(index))
@@ -170,7 +181,7 @@ static int index_open_and_fix(MailIndex *index, MailIndexHeader *hdr,
 	if (!mail_custom_flags_open_or_create(index))
 		return FALSE;
 
-	if (hdr->flags & MAIL_INDEX_FLAG_REBUILD) {
+	if (rebuild || (hdr->flags & MAIL_INDEX_FLAG_REBUILD)) {
 		/* index is corrupted, rebuild */
 		if (!index->rebuild(index))
 			return FALSE;
@@ -221,7 +232,7 @@ static int index_open_and_fix(MailIndex *index, MailIndexHeader *hdr,
 			return FALSE;
 	}
 
-	if (!mail_index_open_init(index, hdr, update_recent))
+	if (!mail_index_open_init(index, update_recent))
 		return FALSE;
 
 	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
@@ -267,7 +278,7 @@ static int mail_index_open_file(MailIndex *index, const char *path,
 	index->filepath = i_strdup(path);
 	index->indexid = hdr.indexid;
 
-	if (!index_open_and_fix(index, &hdr, update_recent)) {
+	if (!index_open_and_fix(index, update_recent)) {
 		mail_index_close(index);
 		return FALSE;
 	}
@@ -432,7 +443,7 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 
 		index->inconsistent = FALSE;
 
-		if (!mail_index_open_init(index, index->header, update_recent))
+		if (!mail_index_open_init(index, update_recent))
 			break;
 
 		if (!index->set_lock(index, MAIL_LOCK_UNLOCK))

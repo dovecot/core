@@ -460,6 +460,12 @@ int mail_hash_rebuild(MailHash *hash)
 		(void)close(hash->fd);
 	hash->fd = fd;
 	hash->anon_mmap = fd == -1;
+
+	if (fd != -1) {
+		if (!mmap_update_real(hash))
+			return FALSE;
+	}
+
 	return TRUE;
 }
 

@@ -77,7 +77,7 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 	i_assert(dir != NULL);
 
 	rec = index->lookup(index, 1);
-	for (seq = 1; rec != NULL; rec = index->next(index, rec), seq++) {
+	for (seq = 1; rec != NULL; rec = index->next(index, rec)) {
 		fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
 		if (fname == NULL) {
 			index_data_set_corrupted(index->data,
@@ -128,6 +128,14 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 						     file_changed))
 				return FALSE;
 		}
+
+		seq++;
+	}
+
+	if (seq-1 != index->header->messages_count) {
+		index_set_corrupted(index, "Wrong messages_count in header "
+				    "(%u != %u)", seq-1,
+				    index->header->messages_count);
 	}
 
 	return TRUE;
