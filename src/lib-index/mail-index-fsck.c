@@ -127,7 +127,7 @@ int mail_index_fsck(struct mail_index *index)
 
 	error = NULL;
 	ret = mail_index_map(index, FALSE);
-	if (ret >= 0)
+	if (ret > 0)
 		ret = mail_index_fsck_locked(index, &error);
 
 	mail_index_unlock(index, lock_id);
