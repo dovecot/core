@@ -57,7 +57,7 @@ void message_part_serialize(MessagePart *part, Buffer *dest)
 		spart->flags = part->flags;
 
 		if (part->children != NULL)
-			message_part_serialize(part, dest);
+			message_part_serialize(part->children, dest);
 		part = part->next;
 	}
 }
