@@ -87,7 +87,7 @@ void i_buffer_set_read_limit(IBuffer *buf, uoff_t v_offset)
 {
 	_IBuffer *_buf = buf->real_buffer;
 
-	i_assert(v_offset <= buf->v_size);
+	i_assert(buf->v_size == 0 || v_offset <= buf->v_size);
 
 	if (v_offset == 0)
 		buf->v_limit = buf->v_size;
