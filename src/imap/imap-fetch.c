@@ -152,6 +152,7 @@ void imap_fetch_begin(struct imap_fetch_context *ctx,
 	ctx->search_ctx =
 		mailbox_search_init(ctx->trans, NULL, search_arg, NULL,
 				    ctx->fetch_data, ctx->all_headers_ctx);
+	ctx->line_finished = TRUE;
 }
 
 int imap_fetch(struct imap_fetch_context *ctx)
