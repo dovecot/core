@@ -121,6 +121,12 @@ AC_ARG_WITH(ssl,
 		want_openssl=yes
 	])
 
+AC_ARG_WITH(ssldir,
+[  --with-ssldir=DIR       SSL base directory for certificates (/etc/ssl)],
+	ssldir="$withval",
+	ssldir=/etc/ssl
+)
+
 dnl **
 dnl ** just some generic stuff...
 dnl **

@@ -10,4 +10,6 @@ doc_DATA = \
 	nfs.txt
 
 EXTRA_DIST = \
+	mkcert.sh \
+	dovecot-openssl.cnf \
 	$(doc_DATA)
