@@ -202,7 +202,7 @@ static int mail_transaction_log_check_file_seq(struct mail_transaction_log *log)
 			ret = -1;
 		else if (INDEX_HAS_MISSING_LOGS(index, file)) {
 			/* broken - fix it by creating a new log file */
-			ret = mail_transaction_log_rotate(log, F_UNLCK);
+			ret = mail_transaction_log_rotate(log, FALSE);
 		}
 	}
 
