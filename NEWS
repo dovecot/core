@@ -1,3 +1,14 @@
+v0.99.1 2002-11-xx  Timo Sirainen <tss@iki.fi>
+
+	+ Added doc/mkcert.sh script to easily generate yourself a self-signed
+	  certificate. Modify doc/dovecot-openssl.cnf before running it.
+	+ --with-ssldir configure option to specify default path for /etc/ssl
+	+ Added ssl_disable setting to config file
+	- OpenSSL wasn't checked properly by configure
+	- vpopmail authentication module didn't compile
+	- We should install the binaries into libexec dir, not lib
+	- doc/configuration.txt and doc/mail-storages.txt were missing
+
 v0.99.0 2002-11-24  Timo Sirainen <tss@iki.fi>
 
 	+ Replaced hash file with binary tree file which makes Dovecot stay
