@@ -18,6 +18,8 @@
     - SIGHUP doesn't update log file location.
     - We can use Linux sendfile() up to 2GB, after that we get EOVERFLOW and
       fail. We should rather fallback to mmap+write at that point.
+    - unlink_directory() is racy with symlink handling, see if that could be
+      helped..
 
  - reliability fixes:
     - if we deleted mail from index but didn't write modify log, other
@@ -89,6 +91,8 @@
         - mmap()ing files would probably need to first go through anon_mmap()
 	  and then use MAP_FIXED. annoying that it slows the mmaping..
 	- data stack should use mmap_anon()
+    - option: copy /var/mail/$user to INBOX when logged in. nice for not missing
+      any mails with quota enabled
 
  - lib-charset:
      - utf8_toupper() is a must. and a bit difficult if we want to do it right.
@@ -102,6 +106,8 @@
      - if we implement shared mailboxes with shared indexes, never do that or
        others could symlink your personal mailboxes and see the indexes
        created for it which may contain envelope etc. data
+     - this allows circular mailbox hierarchies which should be prevented by
+       eg. allowing max. 20 hierarchies.
 
  - allow index files to be in completely separate location than mail data.
    mails could be read through slow NFS access but indexes from fast local
@@ -126,9 +132,9 @@ index:
        in the beginning of it. We could do that too.
      - When expunging the first message we could move the X-IMAPbase header
        to next message to avoid full rewriting later.
-     - UW-IMAP doesn't send it's fields to client: X-IMAPbase, Status,
-       X-Status, X-Keywords, X-UID.. should we? probably just makes things
-       more difficult
+     - We shouldn't send X-IMAPbase, Status, X-Status, X-Keywords, X-UID, etc.
+       headers to client - they may change and clients must see messages as
+       immutable.
      - COPY 1 copies X-IMAPbase header too which isn't good idea. save() could
        actually strip this (and X-UID) while also fixing From-lines etc.
      - we need either From-line escaping or writing Content-Length when saving
@@ -184,7 +190,8 @@ lib-storage:
        Hello world!" 2 "Hello, I'm ...". This would be especially useful with
        the above attachment scanning.
  - DELETE/RENAME: when someone else had the mailbox open, we should
-   disconnect it (when stat() fails with ENOENT while syncing)
+   disconnect it (when stat() fails with ENOENT while syncing). Also deleting
+   selected mailbox begins giving internal error messages.
  - RENAME INBOX isn't atomic with Maildir. And in general, RENAME can't
    move mails between different storages. Maybe support doing also using
    COPY + delete once COPY is atomic?
@@ -209,6 +216,7 @@ lib-storage:
 general:
  - sieve (rfc3028)
  - rfc2231 continuation support
+ - rfc2557 support for BODYSTRUCTURE, as specified by latest IMAP4rev1 draft
 
  - create indexer binary
  - should we bother checking if there's invalid 8bit headers in
@@ -227,6 +235,7 @@ auth / login:
    mailroot=/var/mail. maildirs should be then created when needed
  - Digest-MD5: support integrity protection, and maybe crypting. Do it
    through imap-login like SSL is done?
+ - for invalid user/pass, wait for a while before giving a reply to user
  - imap-auth should limit how fast authentication requests are allowed from
    login processes. especially if there's one login/connection the speed
    should be something like once/sec. also limit how fast to accept new

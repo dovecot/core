@@ -26,7 +26,7 @@ The code is split into a several libraries and binaries:
  src/lib-index   - Mailbox indexing library, slightly IMAP-specific
  src/lib-storage - Mail storage separated into interface and implementation.
                    imap binary uses only the interface so it's possible to
-		   add support for any kind of mail storage (eg. SQL).
+                   add support for any kind of mail storage (eg. SQL).
 
 
 RFCs conformed
@@ -38,6 +38,7 @@ RFCs conformed
 
  2060       - IMAP4rev1
  2180       - IMAP4 Multi-Accessed Mailbox Practice
+ 2683       - IMAP4 Implementation Recommendations
 
  2595       - Using TLS with IMAP, POP3 and ACAP
  2831       - Using Digest Authentication as a SASL Mechanism (DIGEST-MD5)
