@@ -477,6 +477,11 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 	new_map = mail_index_map_to_memory(map, offset);
 	map->records_count = old_records_count;
 
+	if (old_size > ext[ext_id].record_size) {
+		/* we are shrinking the record */
+		old_size = ext[ext_id].record_size;
+	}
+
 	/* now copy the records to new mapping */
 	src = map->records;
 	offset = 0;
@@ -492,6 +497,12 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 		}
 		src = CONST_PTR_OFFSET(src, map->hdr->record_size);
 		offset += new_map->hdr->record_size;
+	}
+
+	if (ext_id == size-1 && ext[ext_id].record_size != old_size) {
+		/* we didn't fully write the last record */
+		buffer_append_zero(new_map->buffer,
+				   ext[ext_id].record_size - old_size);
 	}
 
 	new_map->records = buffer_get_modifyable_data(new_map->buffer, NULL);
