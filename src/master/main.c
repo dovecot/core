@@ -130,7 +130,9 @@ static void timeout_handler(void *context __attr_unused__,
 		if (WIFEXITED(status)) {
 			status = WEXITSTATUS(status);
 			if (status != 0) {
-				login_process_abormal_exit(pid);
+				if (process_type == PROCESS_TYPE_LOGIN)
+					login_process_abormal_exit(pid);
+
 				msg = get_exit_status_message(status);
 				msg = msg == NULL ? "" :
 					t_strconcat(" (", msg, ")", NULL);
@@ -139,7 +141,8 @@ static void timeout_handler(void *context __attr_unused__,
 					status, msg);
 			}
 		} else if (WIFSIGNALED(status)) {
-			login_process_abormal_exit(pid);
+			if (process_type == PROCESS_TYPE_LOGIN)
+				login_process_abormal_exit(pid);
 			i_error("child %s (%s) killed with signal %d",
 				dec2str(pid), process_type_name,
 				WTERMSIG(status));
