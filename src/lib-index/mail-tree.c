@@ -44,20 +44,8 @@ int _mail_tree_set_corrupted(MailTree *tree, const char *fmt, ...)
 	return FALSE;
 }
 
-int _mail_tree_mmap_update(MailTree *tree, int forced)
+static int mmap_update(MailTree *tree)
 {
-	if (!forced && tree->header != NULL &&
-	    tree->sync_id == tree->header->sync_id) {
-		/* make sure file size hasn't changed */
-		tree->mmap_used_length = tree->header->used_file_size;
-		if (tree->mmap_used_length > tree->mmap_full_length) {
-			i_panic("Tree file size was grown without "
-				"updating sync_id");
-		}
-
-		return TRUE;
-	}
-
 	i_assert(!tree->anon_mmap);
 
 	if (tree->mmap_base != NULL) {
@@ -132,6 +120,23 @@ static int mmap_verify(MailTree *tree)
 	tree->mmap_used_length = hdr->used_file_size;
 	tree->mmap_highwater = tree->mmap_used_length;
 	return TRUE;
+}
+
+int _mail_tree_mmap_update(MailTree *tree, int forced)
+{
+	if (!forced && tree->header != NULL &&
+	    tree->sync_id == tree->header->sync_id) {
+		/* make sure file size hasn't changed */
+		tree->mmap_used_length = tree->header->used_file_size;
+		if (tree->mmap_used_length > tree->mmap_full_length) {
+			i_panic("Tree file size was grown without "
+				"updating sync_id");
+		}
+
+		return TRUE;
+	}
+
+	return mmap_update(tree) && mmap_verify(tree);
 }
 
 static MailTree *mail_tree_open(MailIndex *index)
@@ -209,7 +214,7 @@ int mail_tree_open_or_create(MailIndex *index)
 		return FALSE;
 
 	do {
-		if (!_mail_tree_mmap_update(tree, TRUE))
+		if (!mmap_update(tree))
 			break;
 
 		if (tree->mmap_full_length == 0) {
@@ -281,8 +286,7 @@ int mail_tree_rebuild(MailTree *tree)
 		return FALSE;
 
 	if (!mail_tree_init(tree) ||
-	    !_mail_tree_mmap_update(tree, TRUE) ||
-	    !mmap_verify(tree)) {
+	    !_mail_tree_mmap_update(tree, TRUE)) {
 		tree->index->header->flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
 		return FALSE;
 	}
@@ -360,7 +364,7 @@ int _mail_tree_grow(MailTree *tree)
 	tree->header->sync_id++;
 	tree->modified = TRUE;
 
-	if (!_mail_tree_mmap_update(tree, TRUE) || !mmap_verify(tree))
+	if (!_mail_tree_mmap_update(tree, TRUE))
 		return FALSE;
 
 	return TRUE;
