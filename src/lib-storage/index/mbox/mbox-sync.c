@@ -349,7 +349,7 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 					MODIFY_REPLACE, mbox_flags,
 					mail->keywords);
 
-		if (sync_ctx->ibox->md5hdr_ext_idx != 0) {
+		if (sync_ctx->ibox->mbox_save_md5 != 0) {
 			mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
 					      sync_ctx->ibox->md5hdr_ext_idx,
 					      mail_ctx->hdr_md5_sum, NULL);
@@ -851,12 +851,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			/* If we can't use/store X-UID header, use MD5 sum.
 			   Also check for existing MD5 sums when we're actually
 			   able to write X-UIDs. */
-			if (sync_ctx->ibox->md5hdr_ext_idx == 0) {
-				sync_ctx->ibox->md5hdr_ext_idx =
-					mail_index_ext_register(
-						sync_ctx->ibox->index,
-						"header-md5", 0, 16, 1);
-			}
+			sync_ctx->ibox->mbox_save_md5 = TRUE;
 
 			if (mbox_sync_find_index_md5(sync_ctx,
 						     mail_ctx->hdr_md5_sum,
