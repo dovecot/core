@@ -98,7 +98,7 @@ static inline void sin_get_ip(const union sockaddr_union *so, IPADDR *ip)
 		memcpy(&ip->ip, &so->sin.sin_addr, 4);
 }
 
-static inline void sin_set_port(union sockaddr_union *so, int port)
+static inline void sin_set_port(union sockaddr_union *so, unsigned int port)
 {
 #ifdef HAVE_IPV6
 	if (so->sin.sin_family == AF_INET6)
@@ -108,7 +108,7 @@ static inline void sin_set_port(union sockaddr_union *so, int port)
 		so->sin.sin_port = htons((unsigned short) port);
 }
 
-static inline int sin_get_port(union sockaddr_union *so)
+static inline unsigned int sin_get_port(union sockaddr_union *so)
 {
 #ifdef HAVE_IPV6
 	if (so->sin.sin_family == AF_INET6)
@@ -125,7 +125,7 @@ static inline void close_save_errno(int fd)
 }
 
 /* Connect to socket with ip address */
-int net_connect_ip(IPADDR *ip, int port, IPADDR *my_ip)
+int net_connect_ip(IPADDR *ip, unsigned int port, IPADDR *my_ip)
 {
 	union sockaddr_union so;
 	int fd, ret, opt = 1;
@@ -233,7 +233,7 @@ void net_set_cork(int fd __attr_unused__, int cork __attr_unused__)
 
 /* Listen for connections on a socket. if `my_ip' is NULL, listen in any
    address. */
-int net_listen(IPADDR *my_ip, int *port)
+int net_listen(IPADDR *my_ip, unsigned int *port)
 {
 	union sockaddr_union so;
 	int ret, fd, opt = 1;
@@ -320,7 +320,7 @@ int net_listen_unix(const char *path)
 }
 
 /* Accept a connection on a socket */
-int net_accept(int fd, IPADDR *addr, int *port)
+int net_accept(int fd, IPADDR *addr, unsigned int *port)
 {
 	union sockaddr_union so;
 	int ret;
@@ -451,7 +451,7 @@ int net_gethostbyname(const char *addr, IPADDR **ips, int *ips_count)
 }
 
 /* Get socket address/port */
-int net_getsockname(int fd, IPADDR *addr, int *port)
+int net_getsockname(int fd, IPADDR *addr, unsigned int *port)
 {
 	union sockaddr_union so;
 	socklen_t addrlen;
@@ -565,11 +565,11 @@ int net_hosterror_notfound(int error)
 }
 
 /* Get name of TCP service */
-char *net_getservbyport(int port)
+char *net_getservbyport(unsigned short port)
 {
 	struct servent *entry;
 
-	entry = getservbyport(htons((unsigned short) port), "tcp");
+	entry = getservbyport(htons(port), "tcp");
 	return entry == NULL ? NULL : entry->s_name;
 }
 

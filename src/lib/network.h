@@ -43,7 +43,7 @@ struct _IPADDR {
 int net_ip_compare(IPADDR *ip1, IPADDR *ip2);
 
 /* Connect to socket with ip address */
-int net_connect_ip(IPADDR *ip, int port, IPADDR *my_ip);
+int net_connect_ip(IPADDR *ip, unsigned int port, IPADDR *my_ip);
 /* Connect to named UNIX socket */
 int net_connect_unix(const char *path);
 /* Disconnect socket */
@@ -58,11 +58,11 @@ void net_set_nonblock(int fd, int nonblock);
 void net_set_cork(int fd, int cork);
 
 /* Listen for connections on a socket */
-int net_listen(IPADDR *my_ip, int *port);
+int net_listen(IPADDR *my_ip, unsigned int *port);
 /* Listen for connections on an UNIX socket */
 int net_listen_unix(const char *path);
 /* Accept a connection on a socket */
-int net_accept(int fd, IPADDR *addr, int *port);
+int net_accept(int fd, IPADDR *addr, unsigned int *port);
 
 /* Read data from socket, return number of bytes read, -1 = error */
 ssize_t net_receive(int fd, void *buf, size_t len);
@@ -79,7 +79,7 @@ const char *net_gethosterror(int error);
 int net_hosterror_notfound(int error);
 
 /* Get socket address/port */
-int net_getsockname(int fd, IPADDR *addr, int *port);
+int net_getsockname(int fd, IPADDR *addr, unsigned int *port);
 
 /* IPADDR -> char* translation. `host' must be at least MAX_IP_LEN bytes */
 int net_ip2host(IPADDR *ip, char *host);
@@ -90,7 +90,7 @@ int net_host2ip(const char *host, IPADDR *ip);
 int net_geterror(int fd);
 
 /* Get name of TCP service */
-char *net_getservbyport(int port);
+char *net_getservbyport(unsigned short port);
 
 int is_ipv4_address(const char *host);
 int is_ipv6_address(const char *host);
