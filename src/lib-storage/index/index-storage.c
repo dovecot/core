@@ -39,8 +39,11 @@ void index_storage_init(struct index_storage *storage __attr_unused__)
 	index_storage_refcount++;
 }
 
-void index_storage_deinit(struct index_storage *storage __attr_unused__)
+void index_storage_deinit(struct index_storage *storage)
 {
+	i_free(storage->storage.namespace);
+	i_free(storage->storage.error);
+
 	if (--index_storage_refcount > 0)
 		return;
 
@@ -243,10 +246,10 @@ static enum mail_cache_field get_never_cache_fields(void)
 	return ret;
 }
 
-static void lock_notify(enum mailbox_lock_notify_type notify_type,
-			unsigned int secs_left, void *context)
+void index_storage_lock_notify(struct index_mailbox *ibox,
+			       enum mailbox_lock_notify_type notify_type,
+			       unsigned int secs_left)
 {
-	struct index_mailbox *ibox = context;
 	struct index_storage *storage = ibox->storage;
 	const char *str;
 	time_t now;
@@ -293,7 +296,7 @@ static void lock_notify(enum mailbox_lock_notify_type notify_type,
 	}
 }
 
-void index_storage_reset_lock_notify(struct index_mailbox *ibox)
+void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 {
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	ibox->last_notify_type = MAILBOX_LOCK_NOTIFY_NONE;

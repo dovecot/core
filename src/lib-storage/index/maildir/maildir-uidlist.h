@@ -31,6 +31,9 @@ uint32_t maildir_uidlist_get_recent_count(struct maildir_uidlist *uidlist);
 /* Sync uidlist with what's actually on maildir. */
 struct maildir_uidlist_sync_ctx *
 maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, int partial);
+/* Returns 1 = ok, -1 = error, 0 = new file and dovecot-uidlist is locked */
+int maildir_uidlist_sync_next_pre(struct maildir_uidlist_sync_ctx *ctx,
+				  const char *filename);
 int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			      const char *filename,
 			      enum maildir_uidlist_rec_flag flags);

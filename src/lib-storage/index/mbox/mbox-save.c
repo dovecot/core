@@ -1,14 +1,14 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
-#if 0
 #include "lib.h"
 #include "hostpid.h"
 #include "ostream.h"
 #include "str.h"
 #include "write-full.h"
-#include "mbox-index.h"
-#include "mbox-lock.h"
 #include "mbox-storage.h"
+#include "mbox-file.h"
+#include "mbox-from.h"
+#include "mbox-lock.h"
 #include "mail-save.h"
 
 #include <stdlib.h>
@@ -17,9 +17,9 @@
 #include <sys/stat.h>
 #include <netdb.h>
 
-struct mail_save_context {
+struct mbox_save_context {
 	struct index_mailbox *ibox;
-	int transaction;
+	uoff_t append_offset;
 
 	struct ostream *output;
 	uoff_t sync_offset, content_length_offset, eoh_offset;
@@ -29,45 +29,37 @@ struct mail_save_context {
 
 static char my_hostdomain[256] = "";
 
-static int syscall_error(struct mail_save_context *ctx, const char *function)
-{
-	mail_storage_set_critical(ctx->ibox->box.storage,
-				  "%s failed for mbox file %s: %m",
-				  function, ctx->ibox->index->mailbox_path);
-	return FALSE;
-}
-
-static int write_error(struct mail_save_context *ctx)
+static int write_error(struct mbox_save_context *ctx)
 {
 	if (ENOSPACE(errno)) {
 		mail_storage_set_error(ctx->ibox->box.storage,
 				       "Not enough disk space");
 	} else {
-                syscall_error(ctx, "write()");
+                mbox_set_syscall_error(ctx->ibox, "write()");
 	}
 
-	return FALSE;
+	return -1;
 }
 
-static int mbox_seek_to_end(struct mail_save_context *ctx, uoff_t *offset)
+static int mbox_seek_to_end(struct mbox_save_context *ctx, uoff_t *offset)
 {
 	struct stat st;
 	char ch;
 	int fd;
 
-	fd = ctx->ibox->index->mbox_fd;
+	fd = ctx->ibox->mbox_fd;
 	if (fstat(fd, &st) < 0)
-                return syscall_error(ctx, "fstat()");
+                return mbox_set_syscall_error(ctx->ibox, "fstat()");
 
 	*offset = (uoff_t)st.st_size;
 	if (st.st_size == 0)
-		return TRUE;
+		return 0;
 
 	if (lseek(fd, st.st_size-1, SEEK_SET) < 0)
-                return syscall_error(ctx, "lseek()");
+                return mbox_set_syscall_error(ctx->ibox, "lseek()");
 
 	if (read(fd, &ch, 1) != 1)
-		return syscall_error(ctx, "read()");
+		return mbox_set_syscall_error(ctx->ibox, "read()");
 
 	if (ch != '\n') {
 		if (write_full(fd, "\n", 1) < 0)
@@ -75,10 +67,10 @@ static int mbox_seek_to_end(struct mail_save_context *ctx, uoff_t *offset)
 		*offset += 1;
 	}
 
-	return TRUE;
+	return 0;
 }
 
-static int mbox_append_lf(struct mail_save_context *ctx)
+static int mbox_append_lf(struct mbox_save_context *ctx)
 {
 	if (o_stream_send(ctx->output, "\n", 1) < 0)
 		return write_error(ctx);
@@ -86,9 +78,10 @@ static int mbox_append_lf(struct mail_save_context *ctx)
 	return TRUE;
 }
 
-static int write_from_line(struct mail_save_context *ctx, time_t received_date)
+static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
+			   const char *from_envelope)
 {
-	const char *sender, *line, *name;
+	const char *line, *name;
 
 	if (*my_hostdomain == '\0') {
 		struct hostent *hent;
@@ -104,16 +97,18 @@ static int write_from_line(struct mail_save_context *ctx, time_t received_date)
 		strocpy(my_hostdomain, name, sizeof(my_hostdomain));
 	}
 
-	sender = t_strconcat(ctx->ibox->box.storage->user, "@",
-			     my_hostdomain, NULL);
+	if (from_envelope == NULL) {
+		from_envelope = t_strconcat(ctx->ibox->storage->user, "@",
+					    my_hostdomain, NULL);
+	}
 
 	/* save in local timezone, no matter what it was given with */
-	line = mbox_from_create(sender, received_date);
+	line = mbox_from_create(from_envelope, received_date);
 
 	if (o_stream_send_str(ctx->output, line) < 0)
 		return write_error(ctx);
 
-	return TRUE;
+	return 0;
 }
 
 static const char *get_system_flags(enum mail_flags flags)
@@ -147,25 +142,17 @@ static const char *get_system_flags(enum mail_flags flags)
 static const char *get_keywords(const struct mail_full_flags *flags)
 {
 	string_t *str;
-	unsigned int field;
 	unsigned int i;
 
-	if ((flags->flags & MAIL_KEYWORDS_MASK) == 0)
+	if (flags->keywords_count == 0)
 		return "";
 
 	str = t_str_new(256);
-	field = 1 << MAIL_KEYWORD_1_BIT;
 	for (i = 0; i < flags->keywords_count; i++) {
-		const char *keyword = flags->keywords[i];
-
-		if ((flags->flags & field) && keyword != NULL) {
+		if (str_len(str) > 0)
 			str_append_c(str, ' ');
-			str_append(str, keyword);
-		}
-
-		field <<= 1;
+		str_append(str, flags->keywords[i]);
 	}
-
 	return str_c(str);
 }
 
@@ -173,7 +160,7 @@ static int save_header_callback(const char *name, write_func_t *write_func,
 				void *context)
 {
 	static const char *content_length = "Content-Length: ";
-	struct mail_save_context *ctx = context;
+	struct mbox_save_context *ctx = context;
 	const char *str;
 	char *buf;
 	size_t space;
@@ -238,7 +225,7 @@ static int save_header_callback(const char *name, write_func_t *write_func,
 	return 1;
 }
 
-static int mbox_fix_header(struct mail_save_context *ctx)
+static int mbox_fix_header(struct mbox_save_context *ctx)
 {
 	uoff_t old_offset;
 	const char *str;
@@ -246,7 +233,7 @@ static int mbox_fix_header(struct mail_save_context *ctx)
 
 	old_offset = ctx->output->offset;
 	if (o_stream_seek(ctx->output, ctx->content_length_offset) < 0)
-                return syscall_error(ctx, "o_stream_seek()");
+                return mbox_set_syscall_error(ctx->ibox, "o_stream_seek()");
 
 	/* write value for Content-Length */
 	str = dec2str(old_offset - (ctx->eoh_offset + 1 + crlf));
@@ -264,112 +251,102 @@ static int mbox_fix_header(struct mail_save_context *ctx)
 		return write_error(ctx);
 
 	if (o_stream_seek(ctx->output, old_offset) < 0)
-		return syscall_error(ctx, "o_stream_seek()");
-	return TRUE;
+		return mbox_set_syscall_error(ctx->ibox, "o_stream_seek()");
+	return 0;
 }
 
-int mbox_storage_save_next(struct mail_save_context *ctx,
-			   const struct mail_full_flags *flags,
-			   time_t received_date,
-			   int timezone_offset __attr_unused__,
-			   struct istream *data)
+int mbox_save(struct mailbox_transaction_context *_t,
+	      const struct mail_full_flags *flags,
+	      time_t received_date, int timezone_offset __attr_unused__,
+	      const char *from_envelope, struct istream *data)
 {
-	enum mail_flags real_flags;
-	int failed;
+	struct mbox_transaction_context *t =
+		(struct mbox_transaction_context *)_t;
+	struct index_mailbox *ibox = t->ictx.ibox;
+	struct mbox_save_context *ctx = t->save_ctx;
+	int ret;
 
-	/* we don't need the real flag positions, easier to keep using our own.
-	   they need to be checked/added though. */
 	ctx->flags = flags;
-	real_flags = flags->flags;
-	if (!index_mailbox_fix_keywords(ctx->ibox, &real_flags,
-					flags->keywords,
-					flags->keywords_count))
-		return FALSE;
+
+	if (ctx == NULL) {
+		ctx = t->save_ctx = i_new(struct mbox_save_context, 1);
+		ctx->ibox = ibox;
+		ctx->append_offset = (uoff_t)-1;
+	}
+
+	if (ctx->append_offset == (uoff_t)-1) {
+		if (ibox->mbox_lock_type != F_WRLCK) {
+			if (mbox_lock(ibox, F_WRLCK, &t->mbox_lock_id) <= 0)
+				return -1;
+		}
+
+		if (ibox->mbox_fd == -1) {
+			if (mbox_file_open(ibox) < 0)
+				return -1;
+		}
+
+		if (mbox_seek_to_end(ctx, &ctx->append_offset) < 0)
+			return -1;
+
+		ctx->output = o_stream_create_file(ibox->mbox_fd, default_pool,
+						   4096, FALSE);
+		o_stream_set_blocking(ctx->output, 60000, NULL, NULL);
+	}
+
+	i_assert(ibox->mbox_lock_type == F_WRLCK);
 
 	t_push();
-	if (!write_from_line(ctx, received_date) ||
-	    !mail_storage_save(ctx->ibox->box.storage,
-			       ctx->ibox->index->mailbox_path,
-			       data, ctx->output,
-			       getenv("MAIL_SAVE_CRLF") != NULL,
-			       save_header_callback, ctx) ||
-	    !mbox_fix_header(ctx) ||
-	    !mbox_append_lf(ctx)) {
+	if (write_from_line(ctx, received_date, from_envelope) < 0 ||
+	    mail_storage_save(ibox->box.storage, ibox->path, data, ctx->output,
+			      getenv("MAIL_SAVE_CRLF") != NULL,
+			      save_header_callback, ctx) < 0 ||
+	    mbox_fix_header(ctx) < 0 ||
+	    mbox_append_lf(ctx) < 0) {
+		ret = -1;
+	} else {
+		ret = 0;
+	}
+	t_pop();
+	return ret;
+}
+
+static void mbox_save_deinit(struct mbox_save_context *ctx)
+{
+	if (ctx->output != NULL)
+		o_stream_unref(ctx->output);
+	i_free(ctx);
+}
+
+int mbox_save_commit(struct mbox_save_context *ctx)
+{
+	int ret = 0;
+
+	if (ctx->ibox->mbox_fd != -1) {
+		if (fdatasync(ctx->ibox->mbox_fd) < 0) {
+			mbox_set_syscall_error(ctx->ibox, "fsync()");
+			ret = -1;
+		}
+	}
+
+	mbox_save_deinit(ctx);
+	return ret;
+}
+
+void mbox_save_rollback(struct mbox_save_context *ctx)
+{
+	struct index_mailbox *ibox = ctx->ibox;
+
+	if (ctx->append_offset != (uoff_t)-1 && ibox->mbox_fd != -1) {
+		i_assert(ibox->mbox_lock_type == F_WRLCK);
+
 		/* failed, truncate file back to original size.
 		   output stream needs to be flushed before truncating
 		   so unref() won't write anything. */
 		o_stream_flush(ctx->output);
-		if (ctx->sync_offset != (uoff_t)-1) {
-			(void)ftruncate(ctx->ibox->index->mbox_fd,
-					ctx->sync_offset);
-			ctx->sync_offset = (uoff_t)-1;
-		}
-		failed = TRUE;
-	} else {
-		if (!ctx->transaction)
-			ctx->sync_offset = ctx->output->offset;
-		failed = FALSE;
-	}
-	t_pop();
 
-	return !failed;
+		if (ftruncate(ibox->mbox_fd, (off_t)ctx->append_offset) < 0)
+			mbox_set_syscall_error(ibox, "ftruncate()");
+	}
+
+	mbox_save_deinit(ctx);
 }
-
-struct mail_save_context *
-mbox_storage_save_init(struct mailbox *box, int transaction)
-{
-	struct index_mailbox *ibox = (struct index_mailbox *) box;
-	struct mail_save_context *ctx;
-
-	if (box->is_readonly(box)) {
-		mail_storage_set_error(box->storage, "Mailbox is read-only");
-		return NULL;
-	}
-
-	if (!index_storage_sync_and_lock(ibox, FALSE, TRUE,
-					 MAIL_LOCK_EXCLUSIVE))
-		return NULL;
-
-	ctx = i_new(struct mail_save_context, 1);
-	ctx->ibox = ibox;
-	ctx->transaction = transaction;
-
-	if (!mbox_seek_to_end(ctx, &ctx->sync_offset)) {
-		i_free(ctx);
-		return NULL;
-	}
-
-	ctx->output = o_stream_create_file(ibox->index->mbox_fd,
-					   default_pool, 4096, FALSE);
-	o_stream_set_blocking(ctx->output, 60000, NULL, NULL);
-	return ctx;
-}
-
-int mbox_storage_save_deinit(struct mail_save_context *ctx, int rollback)
-{
-	int failed = FALSE;
-
-	if (!index_storage_lock(ctx->ibox, MAIL_LOCK_UNLOCK))
-		failed = TRUE;
-
-	if (o_stream_flush(ctx->output) < 0)
-		failed = TRUE;
-	o_stream_unref(ctx->output);
-
-	if (rollback && ctx->sync_offset != (uoff_t)-1) {
-		if (ftruncate(ctx->ibox->index->mbox_fd,
-			      ctx->sync_offset) < 0) {
-			syscall_error(ctx, "ftruncate()");
-			failed = TRUE;
-		}
-	} else {
-		if (fdatasync(ctx->ibox->index->mbox_fd) < 0) {
-			syscall_error(ctx, "fsync()");
-			failed = TRUE;
-		}
-	}
-
-	i_free(ctx);
-	return !failed;
-}
-#endif

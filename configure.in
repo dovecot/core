@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 1.0-test3)
+AM_INIT_AUTOMAKE(dovecot, 1.0-test6)
 
 AM_MAINTAINER_MODE
 
@@ -195,7 +195,7 @@ AM_CONDITIONAL(BUILD_POP3D, test "$want_pop3d" = "yes")
 AC_ARG_WITH(storages,
 [  --with-storages         Build specified mail storage formats (maildir,mbox)], [
 	mail_storages=`echo "$withval"|sed 's/,/ /g'` ],
-	mail_storages="maildir")
+	mail_storages="maildir mbox")
 
 dnl * gcc specific options
 if test "x$ac_cv_prog_gcc" = "xyes"; then

@@ -19,7 +19,7 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 	i_stream_seek(sync_ctx->file_input, source);
 	o_stream_seek(output, dest);
 
-	istream_raw_mbox_flush(sync_ctx->input);
+	istream_raw_mbox_flush(sync_ctx->file_input);
 
 	if (size == (uoff_t)-1) {
 		input = sync_ctx->file_input;
@@ -157,7 +157,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx)
 int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 		      uint32_t first_seq, uint32_t last_seq, off_t extra_space)
 {
-	struct mbox_mail *mails;
+	struct mbox_sync_mail *mails;
 	size_t size;
 	uint32_t first_idx, last_idx, extra_per_mail;
 

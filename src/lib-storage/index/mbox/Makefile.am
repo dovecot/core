@@ -11,18 +11,23 @@ INCLUDES = \
 
 libstorage_mbox_a_SOURCES = \
 	istream-raw-mbox.c \
-	mbox-expunge.c \
+	mbox-file.c \
 	mbox-from.c \
 	mbox-list.c \
+	mbox-lock.c \
+	mbox-mail.c \
 	mbox-save.c \
 	mbox-sync-parse.c \
 	mbox-sync-rewrite.c \
 	mbox-sync-update.c \
-	mbox-sync.c
-	mbox-storage.c
+	mbox-sync.c \
+	mbox-storage.c \
+	mbox-transaction.c
 
 noinst_HEADERS = \
 	istream-raw-mbox.h \
+	mbox-file.h \
 	mbox-from.h \
+	mbox-lock.h \
 	mbox-storage.h \
 	mbox-sync-private.h

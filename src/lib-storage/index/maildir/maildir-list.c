@@ -19,7 +19,6 @@ struct maildir_list_context {
 	struct mailbox_list_context mailbox_ctx;
 	pool_t pool;
 
-	struct mail_storage *storage;
 	const char *dir, *prefix;
         enum mailbox_list_flags flags;
 
@@ -63,7 +62,7 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 	dirp = opendir(ctx->dir);
 	if (dirp == NULL) {
 		if (errno != ENOENT) {
-			mail_storage_set_critical(ctx->storage,
+			mail_storage_set_critical(ctx->mailbox_ctx.storage,
 				"opendir(%s) failed: %m", ctx->dir);
 			return FALSE;
 		}
@@ -171,7 +170,7 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 	}
 
 	if (closedir(dirp) < 0) {
-		mail_storage_set_critical(ctx->storage,
+		mail_storage_set_critical(ctx->mailbox_ctx.storage,
 					  "readdir(%s) failed: %m", ctx->dir);
 		return FALSE;
 	}
@@ -184,7 +183,8 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 static int maildir_fill_subscribed(struct maildir_list_context *ctx,
 				   struct imap_match_glob *glob)
 {
-	struct index_storage *istorage = (struct index_storage *)ctx->storage;
+	struct index_storage *istorage =
+		(struct index_storage *)ctx->mailbox_ctx.storage;
 	struct subsfile_list_context *subsfile_ctx;
 	const char *path, *name, *p;
 	struct mailbox_node *node;
@@ -193,7 +193,7 @@ static int maildir_fill_subscribed(struct maildir_list_context *ctx,
 	path = t_strconcat(istorage->control_dir != NULL ?
 			   istorage->control_dir : istorage->dir,
 			   "/" SUBSCRIPTION_FILE_NAME, NULL);
-	subsfile_ctx = subsfile_list_init(ctx->storage, path);
+	subsfile_ctx = subsfile_list_init(ctx->mailbox_ctx.storage, path);
 	if (subsfile_ctx == NULL)
 		return FALSE;
 
@@ -245,8 +245,8 @@ maildir_mailbox_list_init(struct mail_storage *storage,
 
 	pool = pool_alloconly_create("maildir_list", 1024);
 	ctx = p_new(pool, struct maildir_list_context, 1);
+	ctx->mailbox_ctx.storage = storage;
 	ctx->pool = pool;
-	ctx->storage = storage;
 	ctx->flags = flags;
 	ctx->tree_ctx = mailbox_tree_init(MAILDIR_FS_SEP);
 
@@ -352,7 +352,7 @@ maildir_mailbox_list_next(struct mailbox_list_context *_ctx)
 
 		str_truncate(ctx->node_path, 0);
 		node = find_next(&ctx->root, ctx->node_path,
-				 ctx->storage->hierarchy_sep);
+				 ctx->mailbox_ctx.storage->hierarchy_sep);
                 ctx->parent_pos = str_len(ctx->node_path);
 
 		if (node == NULL)
@@ -364,8 +364,10 @@ maildir_mailbox_list_next(struct mailbox_list_context *_ctx)
 	node->flags &= ~MAILBOX_FLAG_MATCHED;
 
 	str_truncate(ctx->node_path, ctx->parent_pos);
-	if (ctx->parent_pos != 0)
-		str_append_c(ctx->node_path, ctx->storage->hierarchy_sep);
+	if (ctx->parent_pos != 0) {
+		str_append_c(ctx->node_path,
+			     ctx->mailbox_ctx.storage->hierarchy_sep);
+	}
 	str_append(ctx->node_path, node->name);
 
 	ctx->list.name = str_c(ctx->node_path);

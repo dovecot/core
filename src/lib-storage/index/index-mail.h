@@ -94,6 +94,7 @@ struct istream *index_mail_get_headers(struct mail *_mail,
 
 const struct mail_full_flags *index_mail_get_flags(struct mail *_mail);
 const struct message_part *index_mail_get_parts(struct mail *_mail);
+time_t index_mail_get_received_date(struct mail *_mail);
 time_t index_mail_get_date(struct mail *_mail, int *timezone);
 uoff_t index_mail_get_size(struct mail *_mail);
 struct istream *index_mail_init_stream(struct index_mail *mail,

@@ -108,9 +108,6 @@ static void maildir_free(struct mail_storage *_storage)
 
 	index_storage_deinit(storage);
 
-	i_free(storage->storage.namespace);
-	i_free(storage->storage.error);
-
 	i_free(storage->dir);
 	i_free(storage->inbox_path);
 	i_free(storage->index_dir);

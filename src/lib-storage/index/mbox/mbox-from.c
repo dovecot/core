@@ -17,22 +17,28 @@ static const char *months[] = {
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
-time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
+int mbox_from_parse(const unsigned char *msg, size_t size,
+		    time_t *time_r, char **sender_r)
 {
-	const unsigned char *msg_end;
+	const unsigned char *msg_start, *sender_end, *msg_end;
 	struct tm tm;
 	int i, timezone;
 	time_t t;
 
+	*time_r = (time_t)-1;
+	*sender_r = NULL;
+
 	/* <sender> <date> <moreinfo> */
+	msg_start = msg;
 	msg_end = msg + size;
 
-	/* skip sender */
+	/* get sender */
 	while (msg < msg_end && *msg != ' ') {
 		if (*msg == '\r' || *msg == '\n')
-			return (time_t)-1;
+			return -1;
 		msg++;
 	}
+	sender_end = msg;
 	while (msg < msg_end && *msg == ' ') msg++;
 
 	/* next 24 chars should be in the date in asctime() format, eg.
@@ -43,7 +49,7 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 	   "Thu Nov 29 22:33:52 EEST 2001"
 	*/
 	if (msg+24 > msg_end)
-		return (time_t)-1;
+		return -1;
 
 	memset(&tm, 0, sizeof(tm));
 
@@ -64,17 +70,17 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 	}
 
 	if (i == 12 || msg[3] != ' ')
-		return (time_t)-1;
+		return -1;
 	msg += 4;
 
 	/* day */
 	if (msg[0] == ' ') {
 		if (!i_isdigit(msg[1]) || msg[2] != ' ')
-			return (time_t)-1;
+			return -1;
 		tm.tm_mday = msg[1]-'0';
 	} else {
 		if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
-			return (time_t)-1;
+			return -1;
 		tm.tm_mday = (msg[0]-'0') * 10 + (msg[1]-'0');
 	}
 	if (tm.tm_mday == 0)
@@ -83,19 +89,19 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 
 	/* hour */
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ':')
-		return (time_t)-1;
+		return -1;
 	tm.tm_hour = (msg[0]-'0') * 10 + (msg[1]-'0');
 	msg += 3;
 
 	/* minute */
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ':')
-		return (time_t)-1;
+		return -1;
 	tm.tm_min = (msg[0]-'0') * 10 + (msg[1]-'0');
 	msg += 3;
 
 	/* second */
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
-		return (time_t)-1;
+		return -1;
 	tm.tm_sec = (msg[0]-'0') * 10 + (msg[1]-'0');
 	msg += 3;
 
@@ -105,18 +111,18 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 		/* skip to next space */
 		while (msg < msg_end && *msg != ' ') {
 			if (*msg == '\r' || *msg == '\n')
-				return (time_t)-1;
+				return -1;
 			msg++;
 		}
 		if (msg+5 > msg_end)
-			return (time_t)-1;
+			return -1;
 		msg++;
 	}
 
 	/* year */
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
 	    !i_isdigit(msg[2]) || !i_isdigit(msg[3]))
-		return (time_t)-1;
+		return -1;
 
 	tm.tm_year = (msg[0]-'0') * 1000 + (msg[1]-'0') * 100 +
 		(msg[2]-'0') * 10 + (msg[3]-'0') - 1900;
@@ -132,14 +138,17 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size)
 
 		t = utc_mktime(&tm);
 		if (t == (time_t)-1)
-			return (time_t)-1;
+			return -1;
 
 		t -= timezone * 60;
-		return t;
+		*time_r = t;
 	} else {
 		/* assume local timezone */
-		return mktime(&tm);
+		*time_r = mktime(&tm);
 	}
+
+	*sender_r = i_strdup_until(msg_start, sender_end);
+	return 0;
 }
 
 const char *mbox_from_create(const char *sender, time_t time)

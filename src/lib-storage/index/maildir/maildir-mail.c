@@ -68,9 +68,8 @@ static const struct mail_full_flags *maildir_mail_get_flags(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
-        const struct mail_full_flags *flags;
 
-	flags = index_mail_get_flags(_mail);
+	(void)index_mail_get_flags(_mail);
 
 	if (maildir_uidlist_is_recent(mail->ibox->uidlist, _mail->uid))
 		data->flags.flags |= MAIL_RECENT;
@@ -84,14 +83,9 @@ static time_t maildir_mail_get_received_date(struct mail *_mail)
 	struct stat st;
 	int fd;
 
+	(void)index_mail_get_received_date(_mail);
 	if (data->received_date != (time_t)-1)
 		return data->received_date;
-
-	if ((mail->wanted_fields & MAIL_FETCH_RECEIVED_DATE) == 0) {
-		data->received_date = index_mail_get_cached_received_date(mail);
-		if (data->received_date != (time_t)-1)
-			return data->received_date;
-	}
 
 	if (data->stream != NULL) {
 		fd = i_stream_get_fd(data->stream);

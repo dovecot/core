@@ -1,34 +1,46 @@
 #ifndef __MBOX_STORAGE_H
 #define __MBOX_STORAGE_H
 
+/* Extra space to leave in X-Keywords header when rewriting mbox */
+#define MBOX_HEADER_EXTRA_SPACE 100
+
+#define SUBSCRIPTION_FILE_NAME "subscriptions"
+#define MBOX_INDEX_PREFIX "dovecot.index"
+
 #include "index-storage.h"
 
-int mbox_storage_copy(struct mailbox *box, struct mailbox *destbox,
-		      const char *messageset, int uidset);
+struct mbox_transaction_context {
+	struct index_transaction_context ictx;
 
-struct mail_save_context *
-mbox_storage_save_init(struct mailbox *box, int transaction);
-int mbox_storage_save_deinit(struct mail_save_context *ctx, int rollback);
-int mbox_storage_save_next(struct mail_save_context *ctx,
-			   const struct mail_full_flags *flags,
-			   time_t received_date, int timezone_offset,
-			   struct istream *data);
+	struct mbox_save_context *save_ctx;
+	unsigned int mbox_lock_id;
+};
+
+extern struct mail mbox_mail;
+
+int mbox_set_syscall_error(struct index_mailbox *ibox, const char *function);
 
 struct mailbox_list_context *
-mbox_list_mailbox_init(struct mail_storage *storage, const char *mask,
+mbox_mailbox_list_init(struct mail_storage *storage, const char *mask,
 		       enum mailbox_list_flags flags);
-int mbox_list_mailbox_deinit(struct mailbox_list_context *ctx);
-struct mailbox_list *mbox_list_mailbox_next(struct mailbox_list_context *ctx);
+int mbox_mailbox_list_deinit(struct mailbox_list_context *ctx);
+struct mailbox_list *mbox_mailbox_list_next(struct mailbox_list_context *ctx);
 
-struct mail_expunge_context *
-mbox_storage_expunge_init(struct mailbox *box,
-			  enum mail_fetch_field wanted_fields, int expunge_all);
-int mbox_storage_expunge_deinit(struct mail_expunge_context *ctx);
-struct mail *mbox_storage_expunge_fetch_next(struct mail_expunge_context *ctx);
-int mbox_storage_expunge(struct mail *mail, struct mail_expunge_context *ctx,
-			 unsigned int *seq_r, int notify);
+struct mailbox_transaction_context *
+mbox_transaction_begin(struct mailbox *box, int hide);
+int mbox_transaction_commit(struct mailbox_transaction_context *t);
+void mbox_transaction_rollback(struct mailbox_transaction_context *t);
 
-const char *mbox_fix_mailbox_name(struct mail_storage *storage,
+int mbox_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
+
+int mbox_save(struct mailbox_transaction_context *t,
+	      const struct mail_full_flags *flags,
+	      time_t received_date, int timezone_offset,
+	      const char *from_envelope, struct istream *data);
+int mbox_save_commit(struct mbox_save_context *ctx);
+void mbox_save_rollback(struct mbox_save_context *ctx);
+
+const char *mbox_fix_mailbox_name(struct index_storage *istorage,
 				  const char *name, int remove_namespace);
 int mbox_is_valid_mask(const char *mask);
 

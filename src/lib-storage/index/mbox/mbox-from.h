@@ -1,7 +1,8 @@
 #ifndef __MBOX_FROM_H
 #define __MBOX_FROM_H
 
-time_t mbox_from_parse_date(const unsigned char *msg, size_t size);
+int mbox_from_parse(const unsigned char *msg, size_t size,
+		    time_t *time_r, char **sender_r);
 const char *mbox_from_create(const char *sender, time_t time);
 
 #endif

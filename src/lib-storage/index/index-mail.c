@@ -200,6 +200,21 @@ const struct message_part *index_mail_get_parts(struct mail *_mail)
 	return data->parts;
 }
 
+time_t index_mail_get_received_date(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *) _mail;
+	struct index_mail_data *data = &mail->data;
+
+	if (data->received_date == (time_t)-1 &&
+	    (mail->wanted_fields & MAIL_FETCH_RECEIVED_DATE) == 0) {
+		data->received_date = index_mail_get_cached_received_date(mail);
+		if (data->received_date != (time_t)-1)
+			return data->received_date;
+	}
+
+	return data->received_date;
+}
+
 time_t index_mail_get_date(struct mail *_mail, int *timezone)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;

@@ -85,27 +85,24 @@ static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 		return FALSE;
 	}
 
-	t_push();
-
 	/* <uid validity> <last uid> */
+	t_push();
 	str = t_strndup(hdr->full_value, hdr->full_value_len);
 	ctx->base_uid_validity = strtoul(str, &end, 10);
 	ctx->base_uid_last = strtoul(end, &end, 10);
 	pos = end - str;
+	t_pop();
 
 	while (pos < hdr->full_value_len && IS_LWSP_LF(hdr->full_value[pos]))
 		pos++;
 
 	if (ctx->base_uid_validity == 0) {
 		/* broken */
-		t_pop();
 		return FALSE;
 	}
 
-	if (pos == hdr->full_value_len) {
-		t_pop();
+	if (pos == hdr->full_value_len)
 		return TRUE;
-	}
 
 	// FIXME: save keywords
 

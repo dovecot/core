@@ -10,7 +10,9 @@ struct raw_mbox_istream {
 	struct _istream istream;
 
 	time_t received_time, next_received_time;
-	uoff_t from_offset, body_size;
+	char *sender, *next_sender;
+
+	uoff_t from_offset, hdr_offset, next_from_offset, body_size;
 	struct istream *input;
 };
 
@@ -42,12 +44,66 @@ static void _set_blocking(struct _iostream *stream, int timeout_msecs,
 			      timeout_cb, context);
 }
 
+static int mbox_read_from_line(struct raw_mbox_istream *rstream)
+{
+	const unsigned char *buf, *p;
+	char *sender;
+	time_t received_time;
+	size_t pos, line_pos;
+	int skip;
+
+	buf = i_stream_get_data(rstream->input, &pos);
+	i_assert(pos > 0);
+
+	/* from_offset points to "\nFrom ", so unless we're at the beginning
+	   of the file, skip the initial \n */
+	skip = rstream->from_offset != 0;
+
+	while ((p = memchr(buf+skip, '\n', pos-skip)) == NULL) {
+		if (i_stream_read(rstream->input) < 0) {
+			/* EOF - shouldn't happen */
+			return -1;
+		}
+		buf = i_stream_get_data(rstream->input, &pos);
+	}
+	line_pos = (size_t)(p - buf);
+
+	if (rstream->from_offset != 0) {
+		buf++;
+		pos--;
+	}
+
+	/* beginning of mbox */
+	if (memcmp(buf, "From ", 5) != 0 ||
+	    mbox_from_parse(buf+5, pos-5, &received_time, &sender) < 0) {
+		/* broken From - should happen only at beginning of
+		   file if this isn't a mbox.. */
+		return -1;
+	}
+
+	if (rstream->istream.istream.v_offset == rstream->from_offset) {
+		rstream->received_time = received_time;
+		i_free(rstream->sender);
+		rstream->sender = sender;
+	} else {
+		rstream->next_received_time = received_time;
+		i_free(rstream->next_sender);
+		rstream->next_sender = sender;
+	}
+
+	/* we'll skip over From-line */
+	rstream->istream.istream.v_offset += line_pos+1;
+	rstream->hdr_offset = rstream->istream.istream.v_offset;
+	return 0;
+}
+
 static ssize_t _read(struct _istream *stream)
 {
 	static const char *mbox_from = "\nFrom ";
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
-	const unsigned char *buf, *p;
+	const unsigned char *buf;
 	const char *fromp;
+	char *sender;
 	time_t received_time;
 	size_t i, pos;
 	ssize_t ret;
@@ -71,58 +127,24 @@ static ssize_t _read(struct _istream *stream)
 	}
 
 	if (stream->istream.v_offset == rstream->from_offset) {
-		/* read the full From-line */
-		int skip = rstream->from_offset != 0;
-		size_t line_pos;
-
-		while ((p = memchr(buf+skip, '\n', pos-skip)) == NULL) {
-			if (i_stream_read(rstream->input) < 0) {
-				/* EOF - shouldn't happen */
-				stream->pos = 0;
-				stream->istream.eof = TRUE;
-				return -1;
-			}
-			buf = i_stream_get_data(rstream->input, &pos);
-		}
-		line_pos = (size_t)(p - buf);
-
-		if (rstream->from_offset != 0) {
-			buf++;
-			pos--;
-		}
-
-		/* beginning of mbox */
-		if (memcmp(buf, "From ", 5) != 0)
-			received_time = (time_t)-1;
-		else
-			received_time = mbox_from_parse_date(buf+5, pos-5);
-
-		if (received_time == (time_t)-1) {
-			/* broken From - should happen only at beginning of
-			   file if this isn't a mbox.. */
+		if (mbox_read_from_line(rstream) < 0) {
 			stream->pos = 0;
 			stream->istream.eof = TRUE;
 			return -1;
 		}
-
-		if (rstream->from_offset == 0)
-			rstream->received_time = received_time;
-		else
-			rstream->next_received_time = received_time;
-
-		/* we'll skip over From-line and try again */
-		stream->istream.v_offset += line_pos+1;
 		return _read(stream);
 	}
 
 	if (pos >= 31) {
-		if (memcmp(buf, "\nFrom ", 6) == 0) {
-			received_time = mbox_from_parse_date(buf+6, pos-6);
-			if (received_time != (time_t)-1) {
-				rstream->next_received_time = received_time;
-				i_assert(stream->pos == 0);
-				return -1;
-			}
+		if (memcmp(buf, "\nFrom ", 6) == 0 &&
+		    mbox_from_parse(buf+6, pos-6,
+				    &received_time, &sender) == 0) {
+			rstream->next_received_time = received_time;
+
+			i_free(rstream->next_sender);
+			rstream->next_sender = sender;
+			i_assert(stream->pos == 0);
+			return -1;
 		}
 	} else if (ret == -1) {
 		/* last few bytes, can't contain From-line */
@@ -194,6 +216,7 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	const unsigned char *data;
 	size_t size;
 	time_t received_time;
+	char *sender;
 
 	/* minimal: "From x Thu Nov 29 22:33:52 2001" = 31 chars */
 	if (i_stream_read_data(rstream->input, &data, &size, 30) == -1)
@@ -212,11 +235,12 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 			break;
 	}
 
-	received_time = mbox_from_parse_date(data+6, size-6);
-	if (received_time == (time_t)-1)
+	if (mbox_from_parse(data+6, size-6, &received_time, &sender) < 0)
 		return FALSE;
 
 	rstream->next_received_time = received_time;
+	i_free(rstream->next_sender);
+	rstream->next_sender = sender;
 	return TRUE;
 }
 
@@ -250,6 +274,24 @@ uoff_t istream_raw_mbox_get_size(struct istream *stream, uoff_t body_size)
 	return rstream->body_size;
 }
 
+time_t istream_raw_mbox_get_received_time(struct istream *stream)
+{
+	struct raw_mbox_istream *rstream =
+		(struct raw_mbox_istream *)stream->real_stream;
+
+	(void)_read(&rstream->istream);
+	return rstream->received_time;
+}
+
+const char *istream_raw_mbox_get_sender(struct istream *stream)
+{
+	struct raw_mbox_istream *rstream =
+		(struct raw_mbox_istream *)stream->real_stream;
+
+	(void)_read(&rstream->istream);
+	return rstream->sender == NULL ? "" : rstream->sender;
+}
+
 void istream_raw_mbox_next(struct istream *stream, uoff_t body_size)
 {
 	struct raw_mbox_istream *rstream =
@@ -261,8 +303,46 @@ void istream_raw_mbox_next(struct istream *stream, uoff_t body_size)
 	rstream->received_time = rstream->next_received_time;
 	rstream->next_received_time = (time_t)-1;
 
+	i_free(rstream->sender);
+	rstream->sender = rstream->next_sender;
+	rstream->next_sender = NULL;
+
 	rstream->from_offset = stream->v_offset + body_size;
+	rstream->hdr_offset = rstream->from_offset;
+
+	/* don't clear stream->eof if we don't have to */
+	if (stream->v_offset != rstream->from_offset)
+		i_stream_seek(stream, rstream->from_offset);
 	i_stream_seek(rstream->input, rstream->from_offset);
+}
+
+void istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
+{
+	struct raw_mbox_istream *rstream =
+		(struct raw_mbox_istream *)stream->real_stream;
+
+	if (offset == rstream->next_from_offset) {
+		istream_raw_mbox_next(stream, (uoff_t)-1);
+		return;
+	}
+
+	if (offset == rstream->from_offset) {
+		/* back to beginning of current message */
+		offset = rstream->hdr_offset;
+	} else {
+		rstream->body_size = (uoff_t)-1;
+		rstream->received_time = (time_t)-1;
+		rstream->next_received_time = (time_t)-1;
+
+		i_free(rstream->sender);
+		rstream->sender = NULL;
+		i_free(rstream->next_sender);
+		rstream->next_sender = NULL;
+	}
+
+	rstream->from_offset = rstream->hdr_offset = offset;
+	i_stream_seek(stream, offset);
+	i_stream_seek(rstream->input, offset);
 }
 
 void istream_raw_mbox_flush(struct istream *stream)

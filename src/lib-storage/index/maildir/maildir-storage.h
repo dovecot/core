@@ -57,9 +57,6 @@ int maildir_copy(struct mailbox_transaction_context *t, struct mail *mail);
 int maildir_copy_commit(struct maildir_copy_context *ctx);
 void maildir_copy_rollback(struct maildir_copy_context *ctx);
 
-int maildir_storage_expunge(struct mail *mail,
-			    struct mailbox_transaction_context *t);
-
 const char *maildir_fix_mailbox_name(struct index_storage *storage,
 				     const char *name, int remove_namespace);
 const char *maildir_get_path(struct index_storage *storage, const char *name);

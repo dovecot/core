@@ -1,6 +1,7 @@
 #ifndef __INDEX_STORAGE_H
 #define __INDEX_STORAGE_H
 
+#include "file-dotlock.h"
 #include "mail-storage-private.h"
 #include "mail-index.h"
 #include "index-mail.h"
@@ -74,7 +75,21 @@ struct index_mailbox {
 	uint32_t commit_log_file_seq;
 	uoff_t commit_log_file_offset;
 
-	/* sync: */
+	/* mbox: */
+	int mbox_fd;
+	struct istream *mbox_stream, *mbox_file_stream;
+	int mbox_lock_type;
+	dev_t mbox_dev;
+	ino_t mbox_ino;
+	unsigned int mbox_locks;
+	struct dotlock mbox_dotlock;
+	unsigned int mbox_lock_id;
+
+	buffer_t *mbox_data_buf;
+	const uoff_t *mbox_data;
+	uint32_t mbox_data_count;
+
+	/* maildir sync: */
 	struct maildir_uidlist *uidlist;
 	time_t last_new_mtime, last_cur_mtime, last_new_sync_time;
 	time_t dirty_cur_time;
@@ -99,7 +114,11 @@ struct index_transaction_context {
 };
 
 int mail_storage_set_index_error(struct index_mailbox *ibox);
-void index_storage_reset_lock_notify(struct index_mailbox *ibox);
+
+void index_storage_lock_notify(struct index_mailbox *ibox,
+			       enum mailbox_lock_notify_type notify_type,
+			       unsigned int secs_left);
+void index_storage_lock_notify_reset(struct index_mailbox *ibox);
 
 struct mail_index *
 index_storage_alloc(const char *index_dir,

@@ -25,7 +25,7 @@ enum header_position {
 extern struct mbox_flag_type mbox_status_flags[];
 extern struct mbox_flag_type mbox_xstatus_flags[];
 
-struct mbox_mail {
+struct mbox_sync_mail {
 	uint32_t uid;
 	uint8_t flags;
 	keywords_mask_t keywords;
@@ -37,7 +37,7 @@ struct mbox_mail {
 
 struct mbox_sync_mail_context {
 	struct mbox_sync_context *sync_ctx;
-	struct mbox_mail *mail;
+	struct mbox_sync_mail *mail;
 
 	uint32_t seq;
 	uoff_t hdr_offset, body_offset;
@@ -55,8 +55,8 @@ struct mbox_sync_mail_context {
 };
 
 struct mbox_sync_context {
-	struct istream *file_input;
-	struct istream *input;
+	struct index_mailbox *ibox;
+	struct istream *input, *file_input;
 	int fd;
 
 	const struct mail_index_header *hdr;
@@ -64,6 +64,7 @@ struct mbox_sync_context {
 	uint32_t prev_msg_uid, next_uid;
 };
 
+int mbox_sync(struct index_mailbox *ibox, int last_commit);
 void mbox_sync_parse_next_mail(struct istream *input,
 			       struct mbox_sync_mail_context *ctx);
 void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
