@@ -83,7 +83,7 @@ void io_loop_handle_remove(struct ioloop *ioloop, int fd, int condition)
 void io_loop_handler_run(struct ioloop *ioloop)
 {
 	struct timeval tv;
-	struct io *io, *next;
+	struct io *io, **io_p;
         unsigned int t_id;
 	int ret, fd, condition;
 
@@ -111,7 +111,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	for (io = ioloop->ios; io != NULL && ret > 0; io = *io_p) {
 		if (io->destroyed) {
 			/* we were destroyed, and io->fd points to -1 now. */
-			io_destroy(ioloop, io);
+			io_destroy(ioloop, io_p);
 			continue;
 		}
 
