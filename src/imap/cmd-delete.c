@@ -5,26 +5,29 @@
 
 int cmd_delete(struct client *client)
 {
-	const char *mailbox;
+	struct mailbox *mailbox;
+	const char *name;
 
 	/* <mailbox> */
-	if (!client_read_string_args(client, 1, &mailbox))
+	if (!client_read_string_args(client, 1, &name))
 		return FALSE;
 
-	if (strcasecmp(mailbox, "INBOX") == 0) {
+	if (strcasecmp(name, "INBOX") == 0) {
 		/* INBOX can't be deleted */
 		client_send_tagline(client, "NO INBOX can't be deleted.");
 		return TRUE;
 	}
 
-	if (client->mailbox != NULL &&
-	    strcmp(client->mailbox->name, mailbox) == 0) {
-		client_send_tagline(client,
-				    "NO Selected mailbox can't be deleted.");
-		return TRUE;
+	mailbox = client->mailbox;
+	if (mailbox != NULL && strcmp(mailbox->name, name) == 0) {
+		/* deleting selected mailbox. close it first */
+		client->mailbox = NULL;
+
+		if (!mailbox->close(mailbox))
+			client_send_untagged_storage_error(client);
 	}
 
-	if (client->storage->delete_mailbox(client->storage, mailbox))
+	if (client->storage->delete_mailbox(client->storage, name))
 		client_send_tagline(client, "OK Delete completed.");
 	else
 		client_send_storage_error(client);
