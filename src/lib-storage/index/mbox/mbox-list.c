@@ -34,7 +34,7 @@ struct mbox_list_context {
 	struct imap_match_glob *glob;
 	struct subsfile_list_context *subsfile_ctx;
 
-	int failed;
+	int failed, inbox_found;
 
 	struct mailbox_list *(*next)(struct mbox_list_context *ctx);
 
@@ -259,6 +259,15 @@ static int list_file(struct mbox_list_context *ctx, const char *fname)
 		return -1;
 	}
 
+	/* make sure we give only one correct INBOX */
+	if (strcasecmp(list_path, "INBOX") == 0) {
+		if (ctx->inbox_found ||
+		    strcmp(real_path, ctx->istorage->inbox_path) != 0)
+			return 0;
+
+		ctx->inbox_found = TRUE;
+	}
+
 	if (!noselect && S_ISDIR(st.st_mode)) {
 		/* subdirectory. scan inside it. */
 		path = t_strconcat(list_path, "/", NULL);
@@ -361,6 +370,29 @@ static struct mailbox_list *mbox_list_path(struct mbox_list_context *ctx)
 		return ctx->next(ctx);
 }
 
+static struct mailbox_list *mbox_list_inbox(struct mbox_list_context *ctx)
+{
+	struct stat st;
+
+	ctx->list.flags = MAILBOX_NOINFERIORS;
+	ctx->list.name = "INBOX";
+
+	if (stat(ctx->istorage->inbox_path, &st) == 0)
+		ctx->list.flags |= STAT_GET_MARKED(st);
+	else if (errno == EACCES || errno == ELOOP)
+		ctx->list.flags = MAILBOX_NOSELECT;
+	else if (ENOTFOUND(errno))
+		ctx->list.flags |= MAILBOX_UNMARKED;
+	else {
+		mail_storage_set_critical(ctx->mailbox_ctx.storage,
+			"stat(%s) failed: %m", ctx->istorage->inbox_path);
+		ctx->failed = TRUE;
+		return NULL;
+	}
+
+	return &ctx->list;
+}
+
 static struct mailbox_list *mbox_list_next(struct mbox_list_context *ctx)
 {
 	struct list_dir_context *dir;
@@ -387,6 +419,12 @@ static struct mailbox_list *mbox_list_next(struct mbox_list_context *ctx)
 		dir = ctx->dir;
 		ctx->dir = dir->prev;
 		list_dir_context_free(dir);
+	}
+
+	if (!ctx->inbox_found && imap_match(ctx->glob, "INBOX")  > 0) {
+		/* show inbox */
+		ctx->inbox_found = TRUE;
+		return mbox_list_inbox(ctx);
 	}
 
 	/* finished */
