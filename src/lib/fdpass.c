@@ -57,6 +57,8 @@
 	(CMSG_ALIGN(sizeof(struct cmsghdr)) + (len))
 #endif
 
+#ifdef SCM_RIGHTS
+
 ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 {
         struct msghdr msg;
@@ -131,7 +133,7 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 	   Tru64 - msg_controllen isn't set */
 	cmsg = CMSG_FIRSTHDR(&msg);
 	if (
-#ifndef __osf__
+#ifndef __osf__ /* Tru64 */
 	    msg.msg_controllen < CMSG_SPACE(sizeof(int)) ||
 #endif
 	    cmsg == NULL || cmsg->cmsg_len < CMSG_LEN(sizeof(int)) ||
@@ -141,3 +143,22 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 		*fd = *((int *) CMSG_DATA(cmsg));
 	return ret;
 }
+
+#else
+#  ifdef __GNUC__
+#    warning SCM_RIGHTS not supported, privilege separation not possible
+#  endif
+ssize_t fd_send(int handle __attr_unused__, int send_fd __attr_unused__,
+		const void *data __attr_unused__, size_t size __attr_unused__)
+{
+	errno = EINVAL;
+	return -1;
+}
+
+ssize_t fd_read(int handle __attr_unused__, void *data __attr_unused__,
+		size_t size __attr_unused__, int *fd __attr_unused__)
+{
+	errno = EINVAL;
+	return -1;
+}
+#endif
