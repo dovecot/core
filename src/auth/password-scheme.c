@@ -15,7 +15,7 @@
 #  include <openssl/sha.h>
 #endif
 
-static const char *salt_chars =
+static const char salt_chars[] =
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 static buffer_t *schemes_buf;
