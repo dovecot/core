@@ -9,13 +9,16 @@
 
 off_t message_send(struct ostream *output, struct istream *input,
 		   const struct message_size *msg_size,
-		   uoff_t virtual_skip, uoff_t max_virtual_size)
+		   uoff_t virtual_skip, uoff_t max_virtual_size, int *last_cr)
 {
 	const unsigned char *msg;
 	uoff_t old_limit, limit;
 	size_t i, size;
 	off_t ret;
 	int cr_skipped, add_cr;
+
+	if (last_cr != NULL)
+		*last_cr = -1;
 
 	if (msg_size->physical_size == 0 ||
 	    virtual_skip >= msg_size->virtual_size)
@@ -37,7 +40,7 @@ off_t message_send(struct ostream *output, struct istream *input,
 		return ret;
 	}
 
-	message_skip_virtual(input, virtual_skip, NULL, &cr_skipped);
+	message_skip_virtual(input, virtual_skip, NULL, 0, &cr_skipped);
 
 	/* go through the message data and insert CRs where needed.  */
 	ret = 0;
@@ -73,5 +76,70 @@ off_t message_send(struct ostream *output, struct istream *input,
 		i_stream_skip(input, i);
 	}
 
+	if (last_cr != NULL)
+		*last_cr = cr_skipped;
 	return ret;
+}
+
+void message_skip_virtual(struct istream *input, uoff_t virtual_skip,
+			  struct message_size *msg_size,
+			  int cr_skipped, int *last_cr)
+{
+	const unsigned char *msg;
+	size_t i, size, startpos;
+
+	if (virtual_skip == 0) {
+		*last_cr = cr_skipped;
+		return;
+	}
+
+	*last_cr = FALSE;
+	startpos = 0;
+	while (i_stream_read_data(input, &msg, &size, startpos) > 0) {
+		for (i = startpos; i < size && virtual_skip > 0; i++) {
+			virtual_skip--;
+
+			if (msg[i] == '\r') {
+				/* CR */
+				if (virtual_skip == 0)
+					*last_cr = TRUE;
+			} else if (msg[i] == '\n') {
+				/* LF */
+				if ((i == 0 && !cr_skipped) ||
+				    (i > 0 && msg[i-1] != '\r')) {
+					/* missing CR */
+					if (msg_size != NULL)
+						msg_size->virtual_size++;
+
+					if (virtual_skip == 0) {
+						/* CR/LF boundary */
+						*last_cr = TRUE;
+						break;
+					}
+
+					virtual_skip--;
+				}
+
+				/* increase after making sure we didn't break
+				   at virtual \r */
+				if (msg_size != NULL)
+					msg_size->lines++;
+			}
+		}
+
+		if (msg_size != NULL) {
+			msg_size->physical_size += i;
+			msg_size->virtual_size += i;
+		}
+
+		if (i < size) {
+			i_stream_skip(input, i);
+			break;
+		}
+
+		/* leave the last character, it may be \r */
+		i_stream_skip(input, i - 1);
+		startpos = 1;
+		cr_skipped = FALSE;
+	}
 }

@@ -110,64 +110,6 @@ void message_get_body_size(struct istream *input, struct message_size *body,
 		*last_cr = cr;
 }
 
-void message_skip_virtual(struct istream *input, uoff_t virtual_skip,
-			  struct message_size *msg_size, int *cr_skipped)
-{
-	const unsigned char *msg;
-	size_t i, size, startpos;
-
-	*cr_skipped = FALSE;
-	if (virtual_skip == 0)
-		return;
-
-	startpos = 0;
-	while (i_stream_read_data(input, &msg, &size, startpos) > 0) {
-		for (i = startpos; i < size && virtual_skip > 0; i++) {
-			virtual_skip--;
-
-			if (msg[i] == '\r') {
-				/* CR */
-				if (virtual_skip == 0)
-					*cr_skipped = TRUE;
-			} else if (msg[i] == '\n') {
-				/* LF */
-				if (i == 0 || msg[i-1] != '\r') {
-					/* missing CR */
-					if (msg_size != NULL)
-						msg_size->virtual_size++;
-
-					if (virtual_skip == 0) {
-						/* CR/LF boundary */
-						*cr_skipped = TRUE;
-						break;
-					}
-
-					virtual_skip--;
-				}
-
-				/* increase after making sure we didn't break
-				   at virtual \r */
-				if (msg_size != NULL)
-					msg_size->lines++;
-			}
-		}
-
-		if (msg_size != NULL) {
-			msg_size->physical_size += i;
-			msg_size->virtual_size += i;
-		}
-
-		if (i < size) {
-			i_stream_skip(input, i);
-			break;
-		}
-
-		/* leave the last character, it may be \r */
-		i_stream_skip(input, i - 1);
-		startpos = 1;
-	}
-}
-
 void message_size_add(struct message_size *dest,
 		      const struct message_size *src)
 {

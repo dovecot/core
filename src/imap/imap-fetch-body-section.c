@@ -34,10 +34,11 @@ struct partial_cache {
 	unsigned int uid;
 
 	uoff_t physical_start;
+	int cr_skipped;
 	struct message_size pos;
 };
 
-static struct partial_cache partial = { 0, 0, 0, { 0, 0, 0 } };
+static struct partial_cache partial = { 0, 0, 0, 0, { 0, 0, 0 } };
 
 static int seek_partial(unsigned int select_counter, unsigned int uid,
 			struct partial_cache *partial, struct istream *stream,
@@ -59,11 +60,10 @@ static int seek_partial(unsigned int select_counter, unsigned int uid,
 
 	i_stream_seek(stream, partial->physical_start +
 		      partial->pos.physical_size);
-	message_skip_virtual(stream, virtual_skip, &partial->pos, &cr_skipped);
+	message_skip_virtual(stream, virtual_skip, &partial->pos,
+			     partial->cr_skipped, &cr_skipped);
 
-	if (cr_skipped)
-		partial->pos.virtual_size--;
-
+	partial->cr_skipped = FALSE;
 	return cr_skipped;
 }
 
@@ -75,7 +75,7 @@ static int fetch_body(struct imap_fetch_context *ctx,
 	struct message_size hdr_size, body_size;
 	struct istream *stream;
 	const char *str;
-	int skip_cr;
+	int skip_cr, last_cr;
 	uoff_t size;
 	off_t ret;
 
@@ -102,8 +102,9 @@ static int fetch_body(struct imap_fetch_context *ctx,
 			       body->skip);
 
 	ret = message_send(ctx->output, stream, &body_size,
-			   skip_cr, body->max_size);
+			   skip_cr, body->max_size, &last_cr);
 	if (ret > 0) {
+		partial.cr_skipped = last_cr != 0;
 		partial.pos.physical_size =
 			stream->v_offset - partial.physical_start;
 		partial.pos.virtual_size += ret;
@@ -287,7 +288,7 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 		if (o_stream_send_str(ctx->output, str) < 0)
 			return FALSE;
 		return message_send(ctx->output, input, size,
-				    body->skip, body->max_size) >= 0;
+				    body->skip, body->max_size, NULL) >= 0;
 	}
 
 	/* partial headers - copy the wanted fields into memory, inserting
@@ -418,7 +419,7 @@ static int fetch_part_body(struct imap_fetch_context *ctx,
 			   struct mail *mail, const struct message_part *part)
 {
 	const char *str;
-	int skip_cr;
+	int skip_cr, last_cr;
 	uoff_t size;
 	off_t ret;
 
@@ -436,8 +437,9 @@ static int fetch_part_body(struct imap_fetch_context *ctx,
 			       &partial, stream, part->physical_pos +
 			       part->header_size.physical_size, body->skip);
 	ret = message_send(ctx->output, stream, &part->body_size,
-			   skip_cr, body->max_size);
+			   skip_cr, body->max_size, &last_cr);
 	if (ret > 0) {
+		partial.cr_skipped = last_cr != 0;
 		partial.pos.physical_size =
 			stream->v_offset - partial.physical_start;
 		partial.pos.virtual_size += ret;

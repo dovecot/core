@@ -113,7 +113,7 @@ static int fetch_send_rfc822(struct imap_fetch_context *ctx, struct mail *mail)
 		return FALSE;
 
 	return message_send(ctx->output, stream, &body_size,
-			    0, (uoff_t)-1) >= 0;
+			    0, (uoff_t)-1, NULL) >= 0;
 }
 
 static int fetch_send_rfc822_header(struct imap_fetch_context *ctx,
@@ -135,7 +135,8 @@ static int fetch_send_rfc822_header(struct imap_fetch_context *ctx,
 	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
-	return message_send(ctx->output, stream, &hdr_size, 0, (uoff_t)-1) >= 0;
+	return message_send(ctx->output, stream, &hdr_size,
+			    0, (uoff_t)-1, NULL) >= 0;
 }
 
 static int fetch_send_rfc822_text(struct imap_fetch_context *ctx,
@@ -159,7 +160,7 @@ static int fetch_send_rfc822_text(struct imap_fetch_context *ctx,
 
 	i_stream_seek(stream, hdr_size.physical_size);
 	return message_send(ctx->output, stream, &body_size,
-			    0, (uoff_t)-1) >= 0;
+			    0, (uoff_t)-1, NULL) >= 0;
 }
 
 static int fetch_mail(struct imap_fetch_context *ctx, struct mail *mail)
