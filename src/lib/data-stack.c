@@ -211,6 +211,11 @@ static void *t_malloc_real(size_t size, int permanent)
 	if (size == 0 || size > SSIZE_T_MAX)
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
+	if (data_stack_frame == 0) {
+		/* kludgy, but allow this before initialization */
+		data_stack_init();
+	}
+
 	/* reset t_buffer_get() mark - not really needed but makes it easier
 	   to notice if t_malloc() is called between t_buffer_get() and
 	   t_buffer_alloc() */
