@@ -36,7 +36,7 @@ typedef struct {
 static unsigned int _message_part_serialize(MessagePart *part, Buffer *dest)
 {
 	SerializedMessagePart *spart;
-	unsigned int count = 0;
+	unsigned int count = 1;
 
 	while (part != NULL) {
 		/* create serialized part */
