@@ -551,7 +551,15 @@ static void mbox_skip_forward(struct istream *input, int header)
 				break;
 			case 'm':
 				if (msg[i] == ' ') {
-					if (mbox_is_valid_from(input, i+1)) {
+					int valid;
+
+					valid = mbox_is_valid_from(input, i+1);
+
+					/* we may have trashed msg above,
+					   get it again */
+					msg = i_stream_get_data(input, &size);
+
+					if (valid) {
 						/* Go back "From" */
 						i -= 4;
 
@@ -567,10 +575,6 @@ static void mbox_skip_forward(struct istream *input, int header)
 						i_stream_skip(input, i);
 						return;
 					}
-
-					/* we may have trashed msg on the way,
-					   get it again */
-					msg = i_stream_get_data(input, &size);
 				}
 				break;
 			}
