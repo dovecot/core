@@ -210,6 +210,7 @@ static ssize_t _read(_IBuffer *buf)
 	ret = read(buf->fd, buf->w_buffer + buf->pos, size);
 	if (ret == 0) {
 		/* EOF */
+		buf->ibuffer.buf_errno = 0;
 		return -1;
 	}
 
