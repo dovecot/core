@@ -116,9 +116,8 @@ set login_process_per_user = no.
 Dovecot's memory usage is very small. Almost all memory usage you see with
 ps/top is from mmap()ed files, meaning that operating system can drop any
 of those memory pages at any time without needing to swap them. With
-Linux/x86 Dovecot usually takes about 48kB of non-mmaped memory plus ~4kB
-per cached mail, max. 16 by default, totaling around to 112kB. Some
-commands such as SORT and THREAD will use more memory though (around 800kB
+Linux/x86 Dovecot usually takes about 70-100kB of non-mmaped memory. Some
+commands such as SORT and THREAD will use more memory though (around 700kB
 for threading 4600 mails).
 
 
