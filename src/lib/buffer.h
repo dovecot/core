@@ -32,7 +32,7 @@ size_t buffer_write(buffer_t *buf, size_t pos,
 /* Append data to buffer, returns number of bytes written. */
 size_t buffer_append(buffer_t *buf, const void *data, size_t data_size);
 /* Append character to buffer, returns 1 if written, 0 if not. */
-size_t buffer_append_c(buffer_t *buf, char chr);
+size_t buffer_append_c(buffer_t *buf, unsigned char chr);
 
 /* Insert data to buffer, returns number of bytes inserted. */
 size_t buffer_insert(buffer_t *buf, size_t pos,

@@ -206,7 +206,7 @@ size_t buffer_append(buffer_t *buf, const void *data, size_t data_size)
 	return data_size;
 }
 
-size_t buffer_append_c(buffer_t *buf, char chr)
+size_t buffer_append_c(buffer_t *buf, unsigned char chr)
 {
 	return buffer_append(buf, &chr, 1);
 }
