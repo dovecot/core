@@ -308,7 +308,9 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 	const struct message_size *fetch_size;
 	struct message_size hdr_size, body_size;
 
-	ctx->cur_input = mail->get_stream(mail, &hdr_size, &body_size);
+	ctx->cur_input =
+		mail->get_stream(mail, &hdr_size,
+				 body->section[0] == 'H' ? NULL : &body_size);
 	if (ctx->cur_input == NULL)
 		return -1;
 
