@@ -48,7 +48,7 @@ static int mbox_index_append_next(MailIndex *index, IBuffer *inbuf)
 	}
 
 	if (pos == size || size <= 5 ||
-	    strncmp((char *) data, "From ", 5) != 0) {
+	    strncmp((const char *) data, "From ", 5) != 0) {
 		/* a) no \n found, or line too long
 		   b) not a From-line */
 		index_set_error(index, "Error indexing mbox file %s: "
@@ -59,7 +59,7 @@ static int mbox_index_append_next(MailIndex *index, IBuffer *inbuf)
 	}
 
 	/* parse the From-line */
-	internal_date = mbox_from_parse_date((char *) data, size);
+	internal_date = mbox_from_parse_date((const char *) data + 5, size - 5);
 	if (internal_date == (time_t)-1)
 		internal_date = ioloop_time;
 
@@ -84,7 +84,11 @@ static int mbox_index_append_next(MailIndex *index, IBuffer *inbuf)
 
 	/* parse the header and cache wanted fields. get the message flags
 	   from Status and X-Status fields. temporarily limit the buffer size
-	   so the message body is parsed properly */
+	   so the message body is parsed properly.
+
+	   the buffer limit is raised again by mbox_header_func after reading
+	   the headers. it uses Content-Length if available or finds the next
+	   From-line. */
 	mbox_header_init_context(&ctx, index, inbuf);
         ctx.set_read_limit = TRUE;
 

@@ -22,16 +22,10 @@ time_t mbox_from_parse_date(const char *msg, size_t size)
 	struct tm tm;
 	int i;
 
-	i_assert(size > 5);
-
-	/* From <sender> <date> <moreinfo> */
-	if (strncmp(msg, "From ", 5) != 0)
-		return (time_t)-1;
-
+	/* <sender> <date> <moreinfo> */
 	msg_end = msg + size;
 
 	/* skip sender */
-	msg += 5;
 	while (*msg != ' ' && msg < msg_end) msg++;
 	while (*msg == ' ' && msg < msg_end) msg++;
 

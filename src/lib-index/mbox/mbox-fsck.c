@@ -100,8 +100,8 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	header_offset = inbuf->v_offset;
 
 	if (rec->body_size == 0) {
-		/* possibly broken message, find the From-line to make sure
-		   header parser won't pass it. */
+		/* possibly broken message, find the next From-line and make
+		   sure header parser won't pass it. */
 		mbox_skip_header(inbuf);
 		i_buffer_set_read_limit(inbuf, inbuf->v_offset);
 		i_buffer_seek(inbuf, header_offset);

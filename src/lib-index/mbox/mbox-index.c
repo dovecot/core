@@ -302,6 +302,15 @@ void mbox_keywords_parse(const char *value, size_t len,
 	size_t item_len;
 	int i;
 
+	/* the value is often empty, so check that first */
+	while (len > 0 && IS_LWSP(*value)) {
+		value++;
+		len--;
+	}
+
+	if (len == 0)
+		return;
+
 	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
 		custom_len[i] = custom_flags[i] != NULL ?
 			strlen(custom_flags[i]) : 0;
@@ -374,12 +383,19 @@ int mbox_skip_crlf(IBuffer *inbuf)
 void mbox_skip_empty_lines(IBuffer *inbuf)
 {
 	const unsigned char *data;
-	size_t size;
+	size_t i, size;
 
 	/* skip empty lines at beginning */
-	while (i_buffer_read_data(inbuf, &data, &size, 0) > 0 &&
-	       (data[0] == '\r' || data[0] == '\n')) {
-		i_buffer_skip(inbuf, 1);
+	while (i_buffer_read_data(inbuf, &data, &size, 0) > 0) {
+		for (i = 0; i < size; i++) {
+			if (data[i] != '\r' && data[i] != '\n')
+				break;
+		}
+
+		i_buffer_skip(inbuf, i);
+
+		if (i < size)
+			break;
 	}
 }
 
@@ -394,7 +410,7 @@ static int mbox_is_valid_from(IBuffer *inbuf, size_t startpos)
 			if (msg[i] == '\n') {
 				msg += startpos;
 				i -= startpos;
-				return mbox_from_parse_date((char *) msg,
+				return mbox_from_parse_date((const char *) msg,
 							    size) != (time_t)-1;
 			}
 		}
@@ -407,63 +423,91 @@ static void mbox_skip_forward(IBuffer *inbuf, int header)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos;
-	int lastmsg;
+	int lastmsg, state, new_state;
 
-	/* read until "[\r]\nFrom " is found */
+	/* read until "[\r]\nFrom " is found. assume '\n' at beginning of
+	   buffer */
 	startpos = i = 0; lastmsg = TRUE;
+	state = '\n';
 	while (i_buffer_read_data(inbuf, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
-			if (msg[i] == '\n' && header && i >= 1) {
-				/* \n[\r]\n - end of header? */
-				if (msg[i-1] == '\n' ||
-				    (msg[i-1] == '\r' && i >= 2 &&
-				     msg[i-2] == '\n')) {
-					i++;
-					break;
-				}
-			}
+			new_state = 0;
+			switch (state) {
+			case '\n':
+				if (msg[i] == 'F')
+					new_state = 'F';
+				else if (header) {
+					if (msg[i] == '\n') {
+						/* \n\n */
+						i_buffer_skip(inbuf, i+1);
+						return;
+					}
 
-			if (msg[i] == ' ' && i >= 5) {
-				/* See if it's space after "From" */
-				if (msg[i-5] == '\n' && msg[i-4] == 'F' &&
-				    msg[i-3] == 'r' && msg[i-2] == 'o' &&
-				    msg[i-1] == 'm') {
-					/* check still that the From-line looks
-					   actually valid, in outbox there
-					   might be some lines beginning with
-					   From. */
-					if (mbox_is_valid_from(inbuf, i-4)) {
-						/* see if we had \r too */
-						i -= 5;
+					if (msg[i] == '\r')
+						new_state = '\r';
+				}
+				break;
+			case '\r':
+				if (msg[i] == '\n') {
+					/* \n\r\n */
+					i_buffer_skip(inbuf, i+1);
+					return;
+				}
+				break;
+			case 'F':
+				if (msg[i] == 'r')
+					new_state = 'r';
+				break;
+			case 'r':
+				if (msg[i] == 'o')
+					new_state = 'o';
+				break;
+			case 'o':
+				if (msg[i] == 'm')
+					new_state = 'm';
+				break;
+			case 'm':
+				if (msg[i] == ' ') {
+					if (mbox_is_valid_from(inbuf, i+1)) {
+						/* Go back "From" */
+						i -= 4;
+
+						/* Go back \n, unless we're at
+						   beginning of buffer */
+						if (i > 0)
+							i--;
+
+						/* Go back \r if it's there */
 						if (i > 0 && msg[i-1] == '\r')
 							i--;
-						break;
+
+						i_buffer_skip(inbuf, i);
+						return;
 					}
 				}
+				break;
 			}
+
+			if (new_state == 0 && msg[i] == '\n')
+				state = '\n';
+			else
+				state = new_state;
 		}
 
-		if (i < size) {
-			startpos = i;
-                        lastmsg = FALSE;
-			break;
-		}
-
-		startpos = i < 7 ? i : 7;
+		/* Leave enough space to go back "\r\nFrom" */
+		startpos = i < 6 ? i : 6;
 		i -= startpos;
 
 		i_buffer_skip(inbuf, i);
 	}
 
-	if (lastmsg && startpos > 0) {
-		/* end of file, remove the last [\r]\n */
-		msg = i_buffer_get_data(inbuf, &size);
-		if (size == startpos) {
-			if (msg[startpos-1] == '\n')
-				startpos--;
-			if (startpos > 0 && msg[startpos-1] == '\r')
-				startpos--;
-		}
+	/* end of file, leave the last [\r]\n */
+	msg = i_buffer_get_data(inbuf, &size);
+	if (size == startpos && startpos > 0) {
+		if (msg[startpos-1] == '\n')
+			startpos--;
+		if (startpos > 0 && msg[startpos-1] == '\r')
+			startpos--;
 	}
 
 	i_buffer_skip(inbuf, startpos);
@@ -489,8 +533,6 @@ int mbox_verify_end_of_body(IBuffer *inbuf, uoff_t end_offset)
 		return FALSE;
 	}
 
-	/* don't bother parsing the whole body, just make
-	   sure it ends properly */
 	i_buffer_seek(inbuf, end_offset);
 
 	if (inbuf->v_offset == inbuf->v_size) {
@@ -516,7 +558,7 @@ int mbox_verify_end_of_body(IBuffer *inbuf, uoff_t end_offset)
 	}
 
 	return size == 0 ||
-		(size >= 5 && strncmp((char *) data, "From ", 5) == 0);
+		(size >= 5 && strncmp((const char *) data, "From ", 5) == 0);
 }
 
 int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
