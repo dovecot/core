@@ -89,8 +89,10 @@ static int validate_args(struct imap_arg *args, struct imap_arg_list **flags,
 	}
 
 	if (args->type != IMAP_ARG_LITERAL_SIZE &&
-	    args->type != IMAP_ARG_LITERAL_SIZE_NONSYNC)
+	    args->type != IMAP_ARG_LITERAL_SIZE_NONSYNC) {
+		*nonsync = FALSE;
 		return FALSE;
+	}
 
 	*nonsync = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
 	*msg_size = IMAP_ARG_LITERAL_SIZE(args);
