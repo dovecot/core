@@ -42,10 +42,12 @@ extern int set_verbose_proctitle;
 extern unsigned int set_first_valid_uid, set_last_valid_uid;
 extern unsigned int set_first_valid_gid, set_last_valid_gid;
 
+extern char *set_default_mail_env;
 extern char *set_mail_cache_fields;
 extern char *set_mail_never_cache_fields;
 extern unsigned int set_mailbox_check_interval;
 extern int set_mail_save_crlf;
+extern int set_mail_read_mmaped;
 extern int set_mail_read_mmaped;
 extern int set_maildir_copy_with_hardlinks;
 extern int set_maildir_check_content_changes;

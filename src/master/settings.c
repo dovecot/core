@@ -59,6 +59,7 @@ static Setting settings[] = {
 	{ "last_valid_uid",	SET_INT, &set_last_valid_uid },
 	{ "first_valid_gid",	SET_INT, &set_first_valid_gid },
 	{ "last_valid_gid",	SET_INT, &set_last_valid_gid },
+	{ "default_mail_env",	SET_STR, &set_default_mail_env },
 	{ "mail_cache_fields",	SET_STR, &set_mail_cache_fields },
 	{ "mail_never_cache_fields",
 				SET_STR, &set_mail_never_cache_fields },
@@ -124,6 +125,7 @@ int set_verbose_proctitle = FALSE;
 unsigned int set_first_valid_uid = 500, set_last_valid_uid = 0;
 unsigned int set_first_valid_gid = 1, set_last_valid_gid = 0;
 
+char *set_default_mail_env = NULL;
 char *set_mail_cache_fields = "MessagePart";
 char *set_mail_never_cache_fields = NULL;
 unsigned int set_mailbox_check_interval = 30;

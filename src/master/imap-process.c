@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "env-util.h"
+#include "temp-string.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 
@@ -62,6 +63,44 @@ static int validate_chroot(const char *dir)
 	return FALSE;
 }
 
+static const char *expand_mail_env(const char *env, const char *user,
+				   const char *home)
+{
+	TempString *str;
+	const char *p;
+
+	str = t_string_new(256);
+
+	/* it's either type:data or just data */
+	p = strchr(env, ':');
+	if (p != NULL) {
+		while (env != p) {
+			t_string_append_c(str, *env);
+			env++;
+		}
+
+		t_string_append_c(str, *env++);
+	}
+
+	if (env[0] == '~' && env[1] == '/') {
+		/* expand home */
+		t_string_append(str, home);
+		env++;
+	}
+
+	/* expand $U if found */
+	for (; *env != '\0'; env++) {
+		if (*env == '$' && env[1] == 'U') {
+			t_string_append(str, user);
+			env++;
+		} else {
+			t_string_append_c(str, *env);
+		}
+	}
+
+	return str->str;
+}
+
 MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
 				      uid_t uid, gid_t gid, const char *home,
 				      int chroot, const char *env[])
@@ -69,7 +108,7 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
 	static char *argv[] = { NULL, "-s", NULL, NULL };
 	char host[MAX_IP_LEN], title[1024];
 	pid_t pid;
-	int i, j, err;
+	int i, j, err, found_mail;
 
 	if (imap_process_count == set_max_imap_processes) {
 		i_error("Maximum number of imap processes exceeded");
@@ -111,9 +150,23 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
 	(void)close(socket);
 
 	/* setup environment */
-	while (env[0] != NULL && env[1] != NULL) {
+        found_mail = FALSE;
+	for (; env[0] != NULL && env[1] != NULL; env += 2) {
+		if (strcmp(env[0], "MAIL") == 0) {
+			if (env[1] == NULL || *env[1] == '\0')
+				continue;
+
+			found_mail = TRUE;
+		}
+
 		env_put(t_strconcat(env[0], "=", env[1], NULL));
-		env += 2;
+	}
+
+	if (!found_mail) {
+		const char *mail;
+
+		mail = expand_mail_env(set_default_mail_env, user, home);
+		env_put(t_strconcat("MAIL=", mail, NULL));
 	}
 
 	env_put(t_strconcat("HOME=", home, NULL));
