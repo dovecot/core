@@ -176,7 +176,6 @@ static int mail_index_uid_foreach(MailIndex *index,
 				  const char **error)
 {
 	MailIndexRecord *rec;
-	uoff_t pos;
 	const unsigned int *expunges;
 	unsigned int seq;
 	int expunges_found;
@@ -196,48 +195,15 @@ static int mail_index_uid_foreach(MailIndex *index,
 	while (*expunges == uid) {
 		expunges++;
 
-		if (++uid == uid2) {
+		if (uid++ == uid2) {
 			/* all were expunged */
 			return 2;
 		}
 	}
 
-	/* since we skipped the known expunged messages at the beginning
-	   and our UIDs are contiguously allocated, the first hash lookup
-	   _should_ work.. */
-	pos = mail_hash_lookup_uid(index->hash, uid);
-	if (pos != 0) {
-		if (pos + sizeof(MailIndexRecord) > index->mmap_length) {
-			/* hash is corrupted */
-			index_set_error(index, "Corrupted hash for index %s: "
-					"lookup returned offset outside range",
-					index->filepath);
-
-			index->set_flags |= MAIL_INDEX_FLAG_REBUILD_HASH;
-			return -1;
-		}
-
-		rec = (MailIndexRecord *) ((char *) index->mmap_base + pos);
-		if (rec->uid != uid) {
-			/* hash is corrupted */
-			index_set_error(index, "Corrupted hash for index %s: "
-					"lookup returned offset to different "
-					"UID (%u vs %u)", index->filepath,
-					rec->uid, uid);
-
-			index->set_flags |= MAIL_INDEX_FLAG_REBUILD_HASH;
-			return -1;
-		}
-	} else {
-		/* ..however if for any reason it doesn't,
-		   still handle it properly */
-		if (uid == uid2)
-			return 2;
-
-		rec = index->lookup_uid_range(index, uid+1, uid2);
-		if (rec == NULL)
-			return 2;
-	}
+	rec = index->lookup_uid_range(index, uid, uid2);
+	if (rec == NULL)
+		return 2;
 
 	seq = index->get_sequence(index, rec);
 	while (rec != NULL && rec->uid <= uid2 && seq <= max_sequence) {
