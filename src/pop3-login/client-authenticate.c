@@ -35,7 +35,7 @@ int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 		   c) we allow insecure authentication
 		*/
 		if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
-		    (client->common.secured || disable_plaintext_auth ||
+		    (client->common.secured || !disable_plaintext_auth ||
 		     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0)) {
 			str_append_c(str, ' ');
 			str_append(str, mech[i].name);
