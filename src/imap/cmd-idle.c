@@ -134,17 +134,19 @@ static int cmd_idle_continue(struct client *client)
 {
 	struct cmd_idle_context *ctx = client->cmd_context;
 
-	if (imap_sync_more(ctx->sync_ctx) == 0) {
-		/* unfinished */
-		return FALSE;
-	}
+	if (ctx->sync_ctx != NULL) {
+		if (imap_sync_more(ctx->sync_ctx) == 0) {
+			/* unfinished */
+			return FALSE;
+		}
 
-	if (imap_sync_deinit(ctx->sync_ctx) < 0) {
-		client_send_untagged_storage_error(client,
-			mailbox_get_storage(client->mailbox));
-		mailbox_notify_changes(client->mailbox, 0, NULL, NULL);
+		if (imap_sync_deinit(ctx->sync_ctx) < 0) {
+			client_send_untagged_storage_error(client,
+				mailbox_get_storage(client->mailbox));
+			mailbox_notify_changes(client->mailbox, 0, NULL, NULL);
+		}
+		ctx->sync_ctx = NULL;
 	}
-	ctx->sync_ctx = NULL;
 
 	if (ctx->idle_timeout) {
 		/* outlook workaround */
