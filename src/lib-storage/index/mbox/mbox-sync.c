@@ -466,8 +466,10 @@ update_from_offsets(struct index_mailbox *ibox,
 	const struct mbox_sync_mail *mails;
 	uint32_t extra_idx = ibox->mbox_extra_idx;
 	uint64_t offset;
+	size_t size;
 
-	mails = buffer_get_modifyable_data(mails_buf, NULL);
+	mails = buffer_get_modifyable_data(mails_buf, &size);
+	i_assert((seq2-seq1+1) * sizeof(*mails) == size);
 
 	for (; seq1 <= seq2; seq1++, mails++) {
 		if (mails->uid != 0) {
@@ -820,12 +822,11 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					      sync_ctx->need_space_seq,
 					      sync_ctx->seq) < 0)
 				return -1;
-
-			update_from_offsets(sync_ctx->ibox, sync_ctx->t,
-					    sync_ctx->mails,
-					    sync_ctx->need_space_seq,
-					    sync_ctx->seq);
 		}
+
+		update_from_offsets(sync_ctx->ibox, sync_ctx->t,
+				    sync_ctx->mails,
+				    sync_ctx->need_space_seq, sync_ctx->seq);
 
 		sync_ctx->need_space_seq = 0;
 		buffer_set_used_size(sync_ctx->mails, 0);
