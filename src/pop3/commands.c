@@ -303,7 +303,6 @@ static void fetch_callback(struct client *client)
 
 		if (o_stream_get_buffer_used_size(client->output) > 0) {
 			/* continue later */
-			printf("plop\n");
 			return;
 		}
 
