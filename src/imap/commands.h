@@ -47,7 +47,7 @@ int cmd_unselect(struct client *client);
 int cmd_idle(struct client *client);
 
 /* private: */
-int _cmd_list_full(struct client *client, int subscribed);
+int _cmd_list_full(struct client *client, int lsub);
 int _cmd_select_full(struct client *client, int readonly);
 int _cmd_subscribe_full(struct client *client, int subscribe);
 

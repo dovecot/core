@@ -233,13 +233,13 @@ static int list_file(struct mailbox_list_context *ctx, const char *fname)
 		path = t_strconcat(list_path, "/", NULL);
 		match2 = imap_match(ctx->glob, path);
 
-		if (match > 0) {
-			ctx->list.flags = MAILBOX_NOSELECT;
+		ctx->list.flags = MAILBOX_NOSELECT | MAILBOX_CHILDREN;
+		if (match > 0)
 			ctx->list.name = p_strdup(ctx->list_pool, list_path);
-		} else if (match2 > 0) {
-			ctx->list.flags = MAILBOX_NOSELECT;
+		else if (match2 > 0)
 			ctx->list.name = p_strdup(ctx->list_pool, path);
-		}
+		else
+			ctx->list.name = NULL;
 
 		ret = match2 < 0 ? 0 :
 			list_opendir(ctx->storage, real_path, FALSE, &dirp);
@@ -286,9 +286,6 @@ static struct mailbox_list *mbox_list_subs(struct mailbox_list_context *ctx)
 	ctx->list.flags = 0;
 	ctx->list.name = name;
 
-	if ((ctx->flags & MAILBOX_LIST_NO_FLAGS) != 0)
-		return &ctx->list;
-
 	if (match == IMAP_MATCH_PARENT) {
 		/* placeholder */
 		ctx->list.flags = MAILBOX_PLACEHOLDER;
@@ -302,11 +299,14 @@ static struct mailbox_list *mbox_list_subs(struct mailbox_list_context *ctx)
 		i_unreached();
 	}
 
+	if ((ctx->flags & MAILBOX_LIST_FAST_FLAGS) != 0)
+		return &ctx->list;
+
 	t_push();
 	path = mbox_get_path(ctx->storage, ctx->list.name);
 	if (stat(path, &st) == 0) {
 		if (S_ISDIR(st.st_mode))
-			ctx->list.flags = MAILBOX_NOSELECT;
+			ctx->list.flags = MAILBOX_NOSELECT | MAILBOX_CHILDREN;
 		else {
 			ctx->list.flags = MAILBOX_NOINFERIORS |
 				STAT_GET_MARKED(st);
@@ -315,7 +315,7 @@ static struct mailbox_list *mbox_list_subs(struct mailbox_list_context *ctx)
 		if (strcasecmp(ctx->list.name, "INBOX") == 0)
 			ctx->list.flags = MAILBOX_UNMARKED;
 		else
-			ctx->list.flags = MAILBOX_NOSELECT;
+			ctx->list.flags = MAILBOX_NONEXISTENT;
 	}
 	t_pop();
 	return &ctx->list;
@@ -332,7 +332,7 @@ static struct mailbox_list *mbox_list_inbox(struct mailbox_list_context *ctx)
 
 	/* INBOX exists always, even if the file doesn't. */
 	ctx->list.flags = MAILBOX_NOINFERIORS;
-	if ((ctx->flags & MAILBOX_LIST_NO_FLAGS) == 0) {
+	if ((ctx->flags & MAILBOX_LIST_FAST_FLAGS) == 0) {
 		if (stat(ctx->storage->inbox_file, &st) < 0)
 			ctx->list.flags |= MAILBOX_UNMARKED;
 		else
@@ -347,7 +347,7 @@ static struct mailbox_list *mbox_list_path(struct mailbox_list_context *ctx)
 {
 	ctx->next = mbox_list_next;
 
-	ctx->list.flags = MAILBOX_NOSELECT;
+	ctx->list.flags = MAILBOX_NOSELECT | MAILBOX_CHILDREN;
 	ctx->list.name = p_strconcat(ctx->list_pool,
 				     ctx->dir->virtual_path, "/", NULL);
 

@@ -147,9 +147,6 @@ static struct mailbox_list *maildir_list_subs(struct mailbox_list_context *ctx)
 	ctx->list.flags = 0;
 	ctx->list.name = name;
 
-	if ((ctx->flags & MAILBOX_LIST_NO_FLAGS) != 0)
-		return &ctx->list;
-
 	if (match == IMAP_MATCH_PARENT) {
 		/* placeholder */
 		ctx->list.flags = MAILBOX_PLACEHOLDER;
@@ -163,6 +160,9 @@ static struct mailbox_list *maildir_list_subs(struct mailbox_list_context *ctx)
 		i_unreached();
 	}
 
+	if ((ctx->flags & MAILBOX_LIST_FAST_FLAGS) != 0)
+		return &ctx->list;
+
 	t_push();
 	path = maildir_get_path(ctx->storage, ctx->list.name);
 	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
@@ -171,7 +171,7 @@ static struct mailbox_list *maildir_list_subs(struct mailbox_list_context *ctx)
 		if (strcasecmp(ctx->list.name, "INBOX") == 0)
 			ctx->list.flags = 0;
 		else
-			ctx->list.flags = MAILBOX_NOSELECT;
+			ctx->list.flags = MAILBOX_NONEXISTENT;
 	}
 	t_pop();
 	return &ctx->list;
@@ -253,8 +253,8 @@ static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx)
 		}
 
 		p_clear(ctx->list_pool);
-		if ((ctx->flags & MAILBOX_LIST_NO_FLAGS) == 0)
-			ctx->list.flags = maildir_get_marked_flags(path);
+                ctx->list.flags = (ctx->flags & MAILBOX_LIST_FAST_FLAGS) == 0 ?
+			maildir_get_marked_flags(path) : 0;
 		ctx->list.name = p_strconcat(ctx->list_pool,
 					     ctx->prefix, fname, NULL);
 		return &ctx->list;
@@ -270,7 +270,8 @@ static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx)
 	if (imap_match(ctx->glob, "INBOX") > 0) {
 		const char *path = maildir_get_path(ctx->storage, "INBOX");
 
-		ctx->list.flags = maildir_get_marked_flags(path);
+		ctx->list.flags = (ctx->flags & MAILBOX_LIST_FAST_FLAGS) == 0 ?
+			maildir_get_marked_flags(path) : 0;
 		ctx->list.name = "INBOX";
 		return &ctx->list;
 	}
