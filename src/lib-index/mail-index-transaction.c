@@ -513,8 +513,6 @@ static void mail_index_transaction_add_last(struct mail_index_transaction *t)
 	if (idx < size && data[idx].uid2 < update.uid1)
 		idx++;
 
-	i_assert(idx == size || data[idx].uid1 <= update.uid1);
-
 	/* insert it into buffer, split it in multiple parts if needed
 	   to make sure the ordering stays the same */
 	for (; idx < size; idx++) {
