@@ -269,7 +269,8 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 {
 	struct message_address_parser_context ctx;
 
-	t_push();
+	if (!pool->datastack_pool)
+		t_push();
 	memset(&ctx, 0, sizeof(ctx));
 
 	rfc822_parser_init(&ctx.parser, data, size, t_str_new(128));
@@ -277,7 +278,8 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 	ctx.str = t_str_new(128);
 
 	(void)parse_address_list(&ctx, max_addresses);
-	t_pop();
+	if (!pool->datastack_pool)
+		t_pop();
 	return ctx.first_addr;
 }
 
