@@ -342,7 +342,7 @@ static void part_write_body(struct message_part *part,
 		str_append(str, data->content_subtype);
 	else {
 		if (data->content_type == NULL ||
-		    strcasecmp(data->content_type, "text") == 0)
+		    strcasecmp(data->content_type, "\"text\"") == 0)
 			str_append(str, "\"plain\"");
 		else
 			str_append(str, "\"unknown\"");
