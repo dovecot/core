@@ -65,7 +65,7 @@ static int get_mailbox_status(struct client *client,
 			return FALSE;
 	}
 
-	if (imap_sync(client, box, 0) < 0)
+	if (imap_sync_nonselected(box, 0) < 0)
 		failed = TRUE;
 	else
 		failed = mailbox_get_status(box, items, status) < 0;

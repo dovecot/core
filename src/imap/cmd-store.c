@@ -105,14 +105,12 @@ int cmd_store(struct client *client)
 	}
 
 	if (!failed) {
-		if (client->cmd_uid)
-			client_sync_full_fast(client);
-		else
-			client_sync_without_expunges(client);
-		client_send_tagline(client, "OK Store completed.");
+		return cmd_sync(client, MAILBOX_SYNC_FLAG_FAST |
+				(client->cmd_uid ?
+				 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+				"OK Store completed.");
 	} else {
 		client_send_storage_error(client, mailbox_get_storage(box));
+		return TRUE;
 	}
-
-	return TRUE;
 }

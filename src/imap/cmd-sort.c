@@ -121,12 +121,11 @@ int cmd_sort(struct client *client)
 		/* error in search arguments */
 		client_send_tagline(client, t_strconcat("NO ", error, NULL));
 	} else if (imap_sort(client, charset, sargs, sorting) == 0) {
-		/* NOTE: syncing is allowed when returning UIDs */
-		if (client->cmd_uid)
-			client_sync_full_fast(client);
-		else
-			client_sync_without_expunges(client);
-		client_send_tagline(client, "OK Sort completed.");
+		pool_unref(pool);
+		return cmd_sync(client, MAILBOX_SYNC_FLAG_FAST |
+				(client->cmd_uid ?
+				 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+				"OK Sort completed.");
 	} else {
 		client_send_storage_error(client,
 					  mailbox_get_storage(client->mailbox));

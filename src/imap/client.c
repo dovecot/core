@@ -67,9 +67,6 @@ void client_destroy(struct client *client)
 	if (client->io != NULL)
 		io_remove(client->io);
 
-	if (client->idle_to != NULL)
-		timeout_remove(client->idle_to);
-
 	i_stream_unref(client->input);
 	o_stream_unref(client->output);
 
@@ -235,7 +232,10 @@ void _client_reset_command(struct client *client)
 	client->cmd_uid = FALSE;
 
 	p_clear(client->cmd_pool);
-        imap_parser_reset(client->parser);
+	imap_parser_reset(client->parser);
+
+	if (client->input_pending)
+                client_input(client);
 }
 
 /* Skip incoming data until newline is found,
@@ -334,6 +334,7 @@ static void client_input(void *context)
 		client->io = NULL;
 	}
 
+	client->input_pending = FALSE;
 	client->last_input = ioloop_time;
 
 	switch (i_stream_read(client->input)) {
@@ -356,6 +357,9 @@ static void client_input(void *context)
 	while (client_handle_input(client))
 		;
 	o_stream_uncork(client->output);
+
+	if (client->command_pending)
+		client->input_pending = TRUE;
 
 	if (client->output->closed)
 		client_destroy(client);

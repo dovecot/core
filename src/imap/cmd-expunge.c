@@ -27,15 +27,13 @@ int cmd_uid_expunge(struct client *client)
 	if (search_arg == NULL)
 		return TRUE;
 
-	if (imap_expunge(client->mailbox, search_arg)) {
-		client_sync_full(client);
-		client_send_tagline(client, "OK Expunge completed.");
-	} else {
+	if (imap_expunge(client->mailbox, search_arg))
+		return cmd_sync(client, 0, "OK Expunge completed.");
+	else {
 		client_send_storage_error(client,
 					  mailbox_get_storage(client->mailbox));
+		return TRUE;
 	}
-
-	return TRUE;
 }
 
 int cmd_expunge(struct client *client)
@@ -43,13 +41,11 @@ int cmd_expunge(struct client *client)
 	if (!client_verify_open_mailbox(client))
 		return TRUE;
 
-	if (imap_expunge(client->mailbox, NULL)) {
-		client_sync_full(client);
-		client_send_tagline(client, "OK Expunge completed.");
-	} else {
+	if (imap_expunge(client->mailbox, NULL))
+		return cmd_sync(client, 0, "OK Expunge completed.");
+	else {
 		client_send_storage_error(client,
 					  mailbox_get_storage(client->mailbox));
+		return TRUE;
 	}
-
-	return TRUE;
 }

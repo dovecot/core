@@ -55,6 +55,7 @@ int cmd_copy(struct client *client)
 	struct mailbox_transaction_context *t;
         struct mail_search_arg *search_arg;
 	const char *messageset, *mailbox;
+        enum mailbox_sync_flags sync_flags = 0;
 	int ret;
 
 	/* <message set> <mailbox> */
@@ -100,22 +101,19 @@ int cmd_copy(struct client *client)
 			ret = -1;
 	}
 
-	if (ret < 0)
-		client_send_storage_error(client, storage);
-	else if (ret == 0) {
-		/* some messages were expunged, sync them */
-		client_sync_full(client);
-		client_send_tagline(client,
-			"NO Some of the requested messages no longer exist.");
-	} else {
-		if (destbox == client->mailbox)
-			client_sync_full(client);
-		else
-			client_sync_full_fast(client);
-		client_send_tagline(client, "OK Copy completed.");
+	if (destbox != client->mailbox) {
+		sync_flags |= MAILBOX_SYNC_FLAG_FAST;
+		mailbox_close(destbox);
 	}
 
-	if (destbox != client->mailbox)
-		mailbox_close(destbox);
-	return TRUE;
+	if (ret > 0)
+		return cmd_sync(client, sync_flags, "OK Copy completed.");
+	else if (ret == 0) {
+		/* some messages were expunged, sync them */
+		return cmd_sync(client, 0,
+			"NO Some of the requested messages no longer exist.");
+	} else {
+		client_send_storage_error(client, storage);
+		return TRUE;
+	}
 }

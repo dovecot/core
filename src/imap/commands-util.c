@@ -112,40 +112,6 @@ int client_verify_open_mailbox(struct client *client)
 	}
 }
 
-void client_sync_full(struct client *client)
-{
-	if (client->mailbox == NULL)
-		return;
-
-	if (imap_sync(client, client->mailbox, 0) < 0) {
-		client_send_untagged_storage_error(client,
-			mailbox_get_storage(client->mailbox));
-	}
-}
-
-void client_sync_full_fast(struct client *client)
-{
-	if (client->mailbox == NULL)
-		return;
-
-	if (imap_sync(client, client->mailbox, MAILBOX_SYNC_FLAG_FAST) < 0) {
-		client_send_untagged_storage_error(client,
-			mailbox_get_storage(client->mailbox));
-	}
-}
-
-void client_sync_without_expunges(struct client *client)
-{
-	if (client->mailbox == NULL)
-		return;
-
-	if (imap_sync(client, client->mailbox, MAILBOX_SYNC_FLAG_FAST |
-		      MAILBOX_SYNC_FLAG_NO_EXPUNGES) < 0) {
-		client_send_untagged_storage_error(client,
-			mailbox_get_storage(client->mailbox));
-	}
-}
-
 void client_send_storage_error(struct client *client,
 			       struct mail_storage *storage)
 {

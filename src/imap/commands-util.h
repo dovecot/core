@@ -26,16 +26,6 @@ int client_verify_mailbox_name(struct client *client, const char *mailbox,
    error message to client. */
 int client_verify_open_mailbox(struct client *client);
 
-/* Synchronize selected mailbox with client by sending EXPUNGE,
-   FETCH FLAGS, EXISTS and RECENT responses. */
-void client_sync_full(struct client *client);
-
-/* Synchronize fast. */
-void client_sync_full_fast(struct client *client);
-
-/* Synchronize all but expunges with client. */
-void client_sync_without_expunges(struct client *client);
-
 /* Send last mail storage error message to client. */
 void client_send_storage_error(struct client *client,
 			       struct mail_storage *storage);

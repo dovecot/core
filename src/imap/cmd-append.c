@@ -58,6 +58,7 @@ int cmd_append(struct client *client)
 	struct istream *input;
 	time_t internal_date;
 	const char *mailbox, *internal_date_str;
+        enum mailbox_sync_flags sync_flags = 0;
 	uoff_t msg_size;
 	unsigned int count;
 	int ret, failed, timezone_offset, nonsync;
@@ -207,13 +208,11 @@ int cmd_append(struct client *client)
 		}
 	}
 
-	if (box != client->mailbox)
+	if (box != client->mailbox) {
+		sync_flags |= MAILBOX_SYNC_FLAG_FAST;
 		mailbox_close(box);
-
-	if (!failed) {
-		client_sync_full(client);
-		client_send_tagline(client, "OK Append completed.");
 	}
 
-	return TRUE;
+	return failed ? TRUE :
+		cmd_sync(client, sync_flags, "OK Append completed.");
 }

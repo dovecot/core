@@ -8,8 +8,5 @@ int cmd_check(struct client *client)
 	if (!client_verify_open_mailbox(client))
 		return TRUE;
 
-	/* we don't need this command, but sync the mailbox anyway. */
-	client_sync_full(client);
-	client_send_tagline(client, "OK Check completed.");
-	return TRUE;
+	return cmd_sync(client, 0, "OK Check completed.");
 }

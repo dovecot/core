@@ -37,10 +37,8 @@ struct client {
 	command_func_t *cmd_func;
 	void *cmd_context;
 
-	struct timeout *idle_to;
-	unsigned int idle_expunge;
-
 	unsigned int command_pending:1;
+	unsigned int input_pending:1;
 	unsigned int cmd_uid:1; /* used UID command */
 	unsigned int rawlog:1;
 	unsigned int input_skip_line:1; /* skip all the data until we've

@@ -3,6 +3,7 @@
 
 #include "mail-storage.h"
 #include "imap-parser.h"
+#include "imap-sync.h"
 #include "commands-util.h"
 
 struct command {

@@ -35,7 +35,7 @@ int _cmd_select_full(struct client *client, int readonly)
 		return TRUE;
 	}
 
-	if (imap_sync(client, box, 0) < 0) {
+	if (imap_sync_nonselected(box, 0) < 0) {
 		client_send_storage_error(client, storage);
 		mailbox_close(box);
 		return TRUE;

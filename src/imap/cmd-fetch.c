@@ -61,19 +61,11 @@ fetch_parse_args(struct client *client, struct imap_fetch_context *ctx,
 	return TRUE;
 }
 
-static void cmd_fetch_finish(struct client *client, int failed)
+static int cmd_fetch_finish(struct client *client, int failed)
 {
-	if (!failed) {
-		if ((client_workarounds &
-		     WORKAROUND_OE6_FETCH_NO_NEWMAIL) == 0) {
-			if (client->cmd_uid)
-				client_sync_full_fast(client);
-			else
-				client_sync_without_expunges(client);
-		}
+	static const char *ok_message = "OK Fetch completed.";
 
-		client_send_tagline(client, "OK Fetch completed.");
-	} else {
+	if (failed) {
 		struct mail_storage *storage;
 		const char *error;
 		int syntax;
@@ -92,6 +84,14 @@ static void cmd_fetch_finish(struct client *client, int failed)
 			/* user error, we'll reply with BAD */
 			client_send_storage_error(client, storage);
 		}
+		return TRUE;
+	} if ((client_workarounds & WORKAROUND_OE6_FETCH_NO_NEWMAIL) != 0) {
+		client_send_tagline(client, ok_message);
+		return TRUE;
+	} else {
+		return cmd_sync(client, MAILBOX_SYNC_FLAG_FAST |
+				(client->cmd_uid ? 0 :
+				 MAILBOX_SYNC_FLAG_NO_EXPUNGES), ok_message);
 	}
 }
 
@@ -106,8 +106,7 @@ static int cmd_fetch_continue(struct client *client)
 	}
 	if (imap_fetch_deinit(ctx) < 0)
 		ret = -1;
-	cmd_fetch_finish(client, ret < 0);
-	return TRUE;
+	return cmd_fetch_finish(client, ret < 0);
 }
 
 int cmd_fetch(struct client *client)
@@ -154,6 +153,5 @@ int cmd_fetch(struct client *client)
 	}
 	if (imap_fetch_deinit(ctx) < 0)
 		ret = -1;
-	cmd_fetch_finish(client, ret < 0);
-	return TRUE;
+	return cmd_fetch_finish(client, ret < 0);
 }

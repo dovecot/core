@@ -5,7 +5,5 @@
 
 int cmd_noop(struct client *client)
 {
-	client_sync_full(client);
-	client_send_tagline(client, "OK NOOP completed.");
-	return TRUE;
+	return cmd_sync(client, 0, "OK NOOP completed.");
 }
