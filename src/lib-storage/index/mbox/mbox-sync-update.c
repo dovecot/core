@@ -1,4 +1,5 @@
 #include "lib.h"
+#include "ioloop.h"
 #include "buffer.h"
 #include "str.h"
 #include "message-parser.h"
@@ -89,6 +90,13 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 
 	if (ctx->mail.uid == ctx->sync_ctx->first_uid &&
 	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1) {
+		if (ctx->sync_ctx->base_uid_validity == 0) {
+			ctx->sync_ctx->base_uid_validity =
+				ctx->sync_ctx->hdr->uid_validity == 0 ?
+				(uint32_t)ioloop_time :
+				ctx->sync_ctx->hdr->uid_validity;
+		}
+
 		ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
 		str_printfa(ctx->header, "X-IMAPbase: %u %010u",
 			    ctx->sync_ctx->base_uid_validity,
@@ -197,6 +205,9 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 		memcpy(old_keywords, ctx->mail.keywords, sizeof(old_keywords));
 
 		for (i = 0; i < size; i++) {
+			if (sync[i].type != MAIL_INDEX_SYNC_TYPE_FLAGS)
+				continue;
+
 			mail_index_sync_flags_apply(&sync[i], &ctx->mail.flags,
 						    ctx->mail.keywords);
 		}

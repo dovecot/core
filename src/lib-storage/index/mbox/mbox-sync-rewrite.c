@@ -37,6 +37,12 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 		ret = ret == (off_t)size ? 0 : -1;
 	}
 
+	if (ret < 0) {
+		errno = output->stream_errno;
+		mbox_set_syscall_error(sync_ctx->ibox,
+				       "o_stream_send_istream()");
+	}
+
 	o_stream_unref(output);
 	return (int)ret;
 }
@@ -189,7 +195,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 			new_hdr_size - ctx->header_first_change,
 			ctx->hdr_offset + move_diff +
 			ctx->header_first_change) < 0) {
-		// FIXME: error handling
+		mbox_set_syscall_error(ctx->sync_ctx->ibox, "pwrite_full()");
 		return -1;
 	}
 	istream_raw_mbox_flush(ctx->sync_ctx->input);
@@ -249,17 +255,15 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	   headers. */
 	offset = sync_ctx->file_input->v_offset;
 	if (mbox_move(sync_ctx, offset + mails[idx+1].space, offset,
-		      *end_offset - offset - mails[idx+1].space) < 0) {
-		// FIXME: error handling
+		      *end_offset - offset - mails[idx+1].space) < 0)
 		return -1;
-	}
 	mails[idx+1].from_offset += mails[idx+1].space;
 
 	*end_offset = offset + mails[idx+1].space - str_len(mail_ctx.header);
 
 	if (pwrite_full(sync_ctx->fd, str_data(mail_ctx.header),
 			str_len(mail_ctx.header), *end_offset) < 0) {
-		// FIXME: error handling
+		mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
 		return -1;
 	}
 
@@ -300,7 +304,7 @@ static int mbox_sync_fill_leftover(struct mbox_sync_context *sync_ctx,
 
 	if (pwrite_full(sync_ctx->fd, str_data(mail_ctx.header),
 			str_len(mail_ctx.header), start_offset) < 0) {
-		// FIXME: error handling
+		mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
 		return -1;
 	}
 
@@ -308,7 +312,7 @@ static int mbox_sync_fill_leftover(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
-int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
+int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 		      uint32_t first_seq, uint32_t last_seq, off_t extra_space)
 {
 	struct mbox_sync_mail *mails;
@@ -320,7 +324,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 	i_assert(first_seq != last_seq);
 	i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
 
-	mails = buffer_get_modifyable_data(mails_buf, &size);
+	mails = buffer_get_modifyable_data(sync_ctx->mails, &size);
 	i_assert(size / sizeof(*mails) == last_seq - first_seq + 1);
 
 	/* if there's expunges in mails[], we would get more correct balancing
@@ -368,7 +372,6 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 			dest_offset = offset + mails[idx+1].space;
 			if (mbox_move(sync_ctx, dest_offset, offset,
 				      end_offset - dest_offset) < 0) {
-				// FIXME: error handling
 				ret = -1;
 				break;
 			}
@@ -390,10 +393,8 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 			   we need to move From-line to start_offset */
 			offset = mails[1].offset;
 			if (mbox_move(sync_ctx, start_offset, end_offset,
-				      offset - end_offset) < 0) {
-				// FIXME: error handling
+				      offset - end_offset) < 0)
 				ret = -1;
-			}
 			mails[1].from_offset -= end_offset - start_offset;
 			idx++;
 

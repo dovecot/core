@@ -60,12 +60,24 @@ struct mbox_sync_mail_context {
 struct mbox_sync_context {
 	struct index_mailbox *ibox;
 	struct istream *input, *file_input;
+	unsigned int lock_id;
 	int fd;
+
+	struct mail_index_sync_ctx *index_sync_ctx;
+	struct mail_index_view *sync_view;
+	struct mail_index_transaction *t;
+	const struct mail_index_header *hdr;
 
 	string_t *header, *from_line;
 	uint32_t base_uid_validity, base_uid_last;
+
+	/* state: */
+	buffer_t *mails, *syncs;
+	struct mail_index_sync_rec sync_rec;
+
 	uint32_t prev_msg_uid, next_uid, first_uid;
-	off_t expunged_space;
+	uint32_t seq, idx_seq, need_space_seq;
+	off_t expunged_space, space_diff;
 };
 
 int mbox_sync(struct index_mailbox *ibox, int last_commit);
@@ -77,7 +89,7 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 				  const struct mbox_sync_mail *mail);
 int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff);
-int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
+int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 		      uint32_t first_seq, uint32_t last_seq, off_t extra_space);
 
 int mbox_move(struct mbox_sync_context *sync_ctx,
