@@ -146,6 +146,13 @@ static void block_alloc(AlloconlyPool *apool, size_t size)
 		size += SIZEOF_POOLBLOCK;
 	size = nearest_power(size);
 
+#ifdef DEBUG
+	if (apool->block != NULL) {
+		i_warning("Growing pool '%s' with: %"PRIuSIZE_T,
+			  apool->name, size);
+	}
+#endif
+
 	block = calloc(size, 1);
 	if (block == NULL)
 		i_panic("block_alloc(): Out of memory");
