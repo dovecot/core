@@ -46,6 +46,8 @@
    - make sure connection limits work
 
  - enhancements:
+    - option to disable SORT, SEARCH and other memory/cpu-intensive features.
+      defaults and per-user by imap-auth.
     - optionally don't fail if index is locked, but build it in memory
     - when fetching body/envelope/etc we could try to cache it immediately if
       we can get lock with try_lock.
@@ -72,6 +74,19 @@
     - sort: we could create alternative binary tree file(s) for different sort
       conditions, ".tree-sort" or something. sort code itself already supports
       this optimization.
+    - sort: we could use some more memory so we don't need to parse the
+      envelopes over and over again. for example with subject sorting we could
+      store the 4 first bytes of message into integer and compare it. only when
+      they compare equal we'd fetch the full subject and compare it.
+    - tree file: should we instead use b+-tree or something similiar? or at
+      least try to do some defragmentation with it, so that the root nodes
+      would be kept at the beginning of the file.
+    - use vsftpd-like safebufs, ie. keep non-rwx page before and after the
+      memory we want to use.
+        - mmap_anon()
+        - mmap()ing files would probably need to first go through anon_mmap()
+	  and then use MAP_FIXED. annoying that it slows the mmaping..
+	- data stack should use mmap_anon()
 
  - lib-charset:
      - utf8_toupper() is a must. and a bit difficult if we want to do it right.
@@ -80,6 +95,11 @@
      - cache iconvs? they'd probably be faster if we just reset the
        conversion instead of opening new one every time. and there will likely
        be only one or two charsets which are used for nearly all conversions.
+
+ - should we allow following symlinks in mbox/maildirs? they are now.
+     - if we implement shared mailboxes with shared indexes, never do that or
+       others could symlink your personal mailboxes and see the indexes
+       created for it which may contain envelope etc. data
 
  - allow index files to be in completely separate location than mail data.
    mails could be read through slow NFS access but indexes from fast local
@@ -111,6 +131,9 @@ index:
        actually strip this (and X-UID) while also fixing From-lines etc.
      - we need either From-line escaping or writing Content-Length when saving
        mails.
+     - two adjacent From-lines breaks us. not too easy to fix though.
+ - we could try compressing same from/to/subject fields into a single
+   location in data file. requires larger changes..
  - read-only support for mailboxes where we don't have write-access
  - we should try to avoid completely rebuilding indexes unless they're
    corrupted. especially if we later want to support some read-only boxes
@@ -122,7 +145,9 @@ index:
    having wrong indexid..
  - log transferred amount of bytes. just a bit problematic who logs it, since
    imap-login does SSL transfers but not unencrypted.. could also log SSL
-   settings (especially compression).
+   settings (especially compression). login process doesn't currently know
+   the userid.. maybe it should get it from auth as a reply. also log amount
+   of invalid password tries if all failed.
  - if we wanted to support huge mailboxes with small memory usage, it'd now
    be possible if we just instead of mmap()ing the whole index files would
    have maybe 3-4 256k mmap()ed areas which we move based on the need.
@@ -184,9 +209,6 @@ general:
  - rfc2231 continuation support
 
  - create indexer binary
- - logins are always sent now using syslog(), we'd need to have i_info()
-   or something so they could also be written to log files.. also make it
-   possible to log into different log than errors.
  - should we bother checking if there's invalid 8bit headers in
    BODY/BODYSTRUCTURE output and converting them to quoted printable? well,
    several of them are now but not all..
@@ -194,8 +216,6 @@ general:
  - support Maildir++ quota
  - maybe give more untagged NO/ALERT replies? like when mailbox is in
    inconsistent state. and when UIDs are reordered because they're too large.
- - *_strdup_printf() functions could use C99 compatible vsnprintf() instead of
-   printf_string_upper_bound().
  - imap/ and lib-imap/ should allow infinite number of custom flags, it's
    storage's problem if it can't handle too many of them.
 
@@ -209,25 +229,15 @@ auth / login:
    login processes. especially if there's one login/connection the speed
    should be something like once/sec. also limit how fast to accept new
    connections.
- - could the random cookie be replaced with definite knowledge of the login
-   process? either we should get the PID of the login process somehow
-   (SCM_CREDENTIALS?), or the connecting should go through master process.
 
 cleanups / checks:
  - grep for FIXME
  - check if t_push()/t_pop() should be added somewhere
- - allocating readwrite pools now just uses system_pool .. so pool_unref()
-   can't free memory used by it .. what to do about it? at least count the
-   malloc/free calls and complain if at the exit they don't match
  - ..wonder what it would look like if I did s/FooBarBaz/struct foo_bar_baz/..
- - nearest_power() could be problematic with things that want it for ints,
-   not size_t..
- - go through the sources and mark all manual buffer writings with @UNSAFE
-   tag. try to change them to use buffer API instead.
-     - rfc822-tokenize, subscription-file.c, custom_flags ioloop,
-     - hash?, [io]stream-file.c?
-     - temp-string.c should use Buffer?
-     - master and auth processes are horrible
+ - rfc822-tokenize: make it work with callbacks instead?
+ - try to fix @UNSAFE code to use buffer API instead
+     - subscription-file.c, custom_flags, ioloop
+     - [io]stream-file.c?
 
 optional optimizations:
  - provide some helper binary to save new mail into mailboxes with CR+LF
