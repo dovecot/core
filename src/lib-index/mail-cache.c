@@ -1365,6 +1365,7 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 	uint32_t offset, update_offset, size;
 	const char *header_str;
 
+	i_assert(*headers != NULL);
 	i_assert(idx < MAIL_CACHE_HEADERS_COUNT);
 	i_assert(idx >= ctx->next_unused_header_lowwater);
 	i_assert(offset_to_uint32(cache->header->header_offsets[idx]) == 0);
