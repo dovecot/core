@@ -45,10 +45,6 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 	ctx->cache = view->cache;
 	ctx->view = view;
 	ctx->trans = t;
-	ctx->cache_data =
-		buffer_create_dynamic(system_pool, 32768, (size_t)-1);
-	ctx->cache_data_seq =
-		buffer_create_dynamic(system_pool, 256, (size_t)-1);
 	ctx->reservations =
 		buffer_create_dynamic(system_pool, 256, (size_t)-1);
 
@@ -64,8 +60,10 @@ static void mail_cache_transaction_free(struct mail_cache_transaction_ctx *ctx)
 	ctx->view->transaction = NULL;
 	ctx->view->trans_seq1 = ctx->view->trans_seq2 = 0;
 
-	buffer_free(ctx->cache_data);
-	buffer_free(ctx->cache_data_seq);
+	if (ctx->cache_data != NULL)
+		buffer_free(ctx->cache_data);
+	if (ctx->cache_data_seq != NULL)
+		buffer_free(ctx->cache_data_seq);
 	buffer_free(ctx->reservations);
 	i_free(ctx);
 }
@@ -421,6 +419,11 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 		buffer_append(ctx->cache_data_seq, &ctx->prev_seq,
 			      sizeof(ctx->prev_seq));
 		ctx->prev_pos = size;
+	} else if (ctx->cache_data == NULL) {
+		ctx->cache_data =
+			buffer_create_dynamic(system_pool, 32768, (size_t)-1);
+		ctx->cache_data_seq =
+			buffer_create_dynamic(system_pool, 256, (size_t)-1);
 	}
 
 	memset(&new_rec, 0, sizeof(new_rec));
