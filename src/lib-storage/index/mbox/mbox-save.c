@@ -93,7 +93,6 @@ static int write_from_line(struct mail_save_context *ctx, time_t received_date)
 	if (*my_hostdomain == '\0') {
 		struct hostent *hent;
 
-		hostpid_init();
 		hent = gethostbyname(my_hostname);
 
 		name = hent != NULL ? hent->h_name : NULL;

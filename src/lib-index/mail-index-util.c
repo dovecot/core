@@ -93,8 +93,6 @@ int mail_index_create_temp_file(struct mail_index *index, const char **path)
 {
 	int fd;
 
-	hostpid_init();
-
 	/* use ".temp.host.pid" as temporary file name. unlink() it first,
 	   just to be sure it's not symlinked somewhere for some reason..
 	   FIXME: this function should rather be removed entirely. With

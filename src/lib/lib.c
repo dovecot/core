@@ -46,6 +46,7 @@ void lib_init(void)
 
 	data_stack_init();
 	imem_init();
+	hostpid_init();
 }
 
 void lib_deinit(void)

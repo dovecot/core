@@ -189,8 +189,6 @@ int file_lock_dotlock(const char *path, int checkonly,
 	unsigned int stale_notify_threshold;
 	time_t now, max_wait_time, last_notify;
 
-	hostpid_init();
-
 	now = time(NULL);
 
 	lock_path = t_strconcat(path, ".lock", NULL);
