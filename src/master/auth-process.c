@@ -11,6 +11,7 @@
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "auth-process.h"
+#include "../auth/auth-master-interface.h"
 #include "log.h"
 
 #include <stdlib.h>
@@ -135,27 +136,6 @@ auth_process_input_notfound(struct auth_process *process, const char *args)
 }
 
 static int
-auth_process_input_spid(struct auth_process *process, const char *args)
-{
-	unsigned int pid;
-
-	if (process->initialized) {
-		i_error("BUG: Authentication server re-handshaking");
-		return FALSE;
-	}
-
-	pid = (unsigned int)strtoul(args, NULL, 10);
-	if (pid == 0) {
-		i_error("BUG: Authentication server said it's PID 0");
-		return FALSE;
-	}
-
-	process->pid = pid;
-	process->initialized = TRUE;
-	return TRUE;
-}
-
-static int
 auth_process_input_fail(struct auth_process *process, const char *args)
 {
 	void *context;
@@ -202,6 +182,24 @@ static void auth_process_input(void *context)
 		return;
 	}
 
+	if (!process->initialized) {
+		line = i_stream_next_line(process->input);
+		if (line == NULL)
+			return;
+
+		/* make sure the major version matches */
+		if (strncmp(line, "VERSION\t", 8) != 0 ||
+		    atoi(t_strcut(line + 8, '.')) !=
+		    AUTH_MASTER_PROTOCOL_MAJOR_VERSION) {
+			i_error("Auth process %s not compatible with master "
+				"process (mixed old and new binaries?)",
+				dec2str(process->pid));
+			auth_process_destroy(process);
+			return;
+		}
+		process->initialized = TRUE;
+	}
+
 	while ((line = i_stream_next_line(process->input)) != NULL) {
 		t_push();
 		if (strncmp(line, "USER\t", 5) == 0)
@@ -210,8 +208,6 @@ static void auth_process_input(void *context)
 			ret = auth_process_input_notfound(process, line + 9);
 		else if (strncmp(line, "FAIL\t", 5) == 0)
 			ret = auth_process_input_fail(process, line + 5);
-		else if (strncmp(line, "SPID\t", 5) == 0)
-			ret = auth_process_input_spid(process, line + 5);
 		else
 			ret = TRUE;
 		t_pop();

@@ -14,6 +14,7 @@ struct auth_master_connection {
 	struct auth_client_connection *clients;
 	struct timeout *to_clients;
 
+	unsigned int version_received:1;
 	unsigned int destroyed:1;
 };
 

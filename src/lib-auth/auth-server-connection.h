@@ -46,6 +46,7 @@ struct auth_server_connection {
 
         struct hash_table *requests;
 
+	unsigned int version_received:1;
 	unsigned int handshake_received:1;
 	unsigned int has_plain_mech:1;
 };

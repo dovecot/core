@@ -140,6 +140,23 @@ static void auth_client_input(void *context)
 		return;
 	}
 
+	if (conn->version_received) {
+		line = i_stream_next_line(conn->input);
+		if (line == NULL)
+			return;
+
+		/* make sure the major version matches */
+		if (strncmp(line, "VERSION\t", 8) != 0 ||
+		    atoi(t_strcut(line + 8, '.')) !=
+		    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION) {
+			i_error("Authentication server not compatible with "
+				"this client (mixed old and new binaries?)");
+			auth_server_connection_destroy(conn, FALSE);
+			return;
+		}
+		conn->version_received = TRUE;
+	}
+
 	conn->refcount++;
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
 		if (strncmp(line, "OK\t", 3) == 0)
@@ -173,6 +190,7 @@ struct auth_server_connection *
 auth_server_connection_new(struct auth_client *client, const char *path)
 {
 	struct auth_server_connection *conn;
+	const char *handshake;
 	pool_t pool;
 	int fd;
 
@@ -209,9 +227,13 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 	conn->next = client->connections;
 	client->connections = conn;
 
+	handshake = t_strdup_printf("VERSION\t%u.%u\nCPID\t%u\n",
+				    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
+                                    AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
+				    client->pid);
+
         client->conn_waiting_handshake_count++;
-	if (o_stream_send_str(conn->output,
-			      t_strdup_printf("CPID\t%u\n", client->pid)) < 0) {
+	if (o_stream_send_str(conn->output, handshake) < 0) {
 		errno = conn->output->stream_errno;
 		i_warning("Error sending handshake to auth server: %m");
 		auth_server_connection_destroy(conn, TRUE);

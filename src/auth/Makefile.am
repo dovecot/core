@@ -69,6 +69,7 @@ dovecot_auth_SOURCES = \
 noinst_HEADERS = \
 	auth-client-connection.h \
 	auth-client-interface.h \
+	auth-master-interface.h \
 	auth-master-connection.h \
 	auth-module.h \
 	db-ldap.h \

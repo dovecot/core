@@ -361,6 +361,24 @@ static void auth_client_input(void *context)
 		return;
 	}
 
+	if (!conn->version_received) {
+		line = i_stream_next_line(conn->input);
+		if (line == NULL)
+			return;
+
+		/* make sure the major version matches */
+		if (strncmp(line, "VERSION\t", 8) != 0 ||
+		    atoi(t_strcut(line + 8, '.')) !=
+		    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION) {
+			i_error("Authentication client %u "
+				"not compatible with this server "
+				"(mixed old and new binaries?)", conn->pid);
+			auth_client_connection_destroy(conn);
+			return;
+		}
+		conn->version_received = TRUE;
+	}
+
 	conn->refcount++;
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
 		t_push();
@@ -419,7 +437,9 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
 	master->clients = conn;
 
 	str = t_str_new(128);
-	str_printfa(str, "SPID\t%u\nCUID\t%u\nDONE\n",
+	str_printfa(str, "VERSION\t%u.%u\nSPID\t%u\nCUID\t%u\nDONE\n",
+                    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
+                    AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
 		    master->pid, conn->connect_uid);
 
 	iov[0].iov_base = str_data(mech_handshake);

@@ -10,6 +10,7 @@
 #include "network.h"
 #include "mech.h"
 #include "userdb.h"
+#include "auth-master-interface.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 
@@ -168,6 +169,23 @@ static void master_input(void *context)
 		return;
 	}
 
+	if (!conn->version_received) {
+		line = i_stream_next_line(conn->input);
+		if (line == NULL)
+			return;
+
+		/* make sure the major version matches */
+		if (strncmp(line, "VERSION\t", 8) != 0 ||
+		    atoi(t_strcut(line + 8, '.')) !=
+		    AUTH_MASTER_PROTOCOL_MAJOR_VERSION) {
+			i_error("Master not compatible with this server "
+				"(mixed old and new binaries?)");
+			auth_master_connection_close(conn);
+			return;
+		}
+		conn->version_received = TRUE;
+	}
+
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
 		t_push();
 		if (strncmp(line, "REQUEST\t", 8) == 0)
@@ -241,10 +259,11 @@ auth_master_connection_create(int fd, unsigned int pid)
 
 void auth_master_connection_send_handshake(struct auth_master_connection *conn)
 {
-	/* just a note to master that we're ok. if we die before, it means
-	   we're broken and a simple restart most likely won't help. */
-	if (conn->output != NULL)
-		master_send(conn, "SPID\t%u", conn->pid);
+	if (conn->output != NULL) {
+		master_send(conn, "VERSION\t%u.%u\n",
+			    AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
+                            AUTH_MASTER_PROTOCOL_MINOR_VERSION);
+	}
 }
 
 static void auth_master_connection_close(struct auth_master_connection *conn)
