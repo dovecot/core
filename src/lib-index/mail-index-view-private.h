@@ -45,7 +45,6 @@ struct mail_index_view {
 	unsigned int inconsistent:1;
 	unsigned int syncing:1;
 	unsigned int external:1;
-	unsigned int map_protected:1;
 };
 
 void mail_index_view_clone(struct mail_index_view *dest,

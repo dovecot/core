@@ -339,7 +339,6 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 		mail_index_unmap(view->index, view->map);
 		view->map = view->new_map;
 		view->new_map = NULL;
-		view->map_protected = FALSE;
 	}
 
 	if ((ctx->trans_sync_mask & MAIL_TRANSACTION_APPEND) != 0)

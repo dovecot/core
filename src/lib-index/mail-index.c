@@ -347,7 +347,7 @@ static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 		map->buffer = NULL;
 	}
 
-	map->mmap_base = index->lock_type != F_WRLCK ?
+	map->mmap_base = index->readonly ?
 		mmap_ro_file(index->fd, &map->mmap_size) :
 		mmap_rw_file(index->fd, &map->mmap_size);
 	if (map->mmap_base == MAP_FAILED) {
@@ -1160,15 +1160,6 @@ void mail_index_mark_corrupted(struct mail_index *index)
 
 	if (index->readonly)
 		return;
-
-	/* make sure we can write the header */
-	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(index->map)) {
-		if (mprotect(index->map->mmap_base, sizeof(hdr),
-			     PROT_READ | PROT_WRITE) < 0) {
-			mail_index_set_syscall_error(index, "mprotect()");
-			return;
-		}
-	}
 
 	hdr = *index->hdr;
 	hdr.flags |= MAIL_INDEX_HDR_FLAG_CORRUPTED;
