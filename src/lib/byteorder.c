@@ -3,48 +3,26 @@
 #include "lib.h"
 #include "byteorder.h"
 
-uint32_t nbo32_bitmasks[32] = {
-	NBO32_BIT0, NBO32_BIT1, NBO32_BIT2, NBO32_BIT3,
-	NBO32_BIT4, NBO32_BIT5, NBO32_BIT6, NBO32_BIT7,
-	NBO32_BIT8, NBO32_BIT9, NBO32_BIT10, NBO32_BIT11,
-	NBO32_BIT12, NBO32_BIT13, NBO32_BIT14, NBO32_BIT15,
-	NBO32_BIT16, NBO32_BIT17, NBO32_BIT18, NBO32_BIT19,
-	NBO32_BIT20, NBO32_BIT21, NBO32_BIT22, NBO32_BIT23,
-	NBO32_BIT24, NBO32_BIT25, NBO32_BIT26, NBO32_BIT27,
-	NBO32_BIT28, NBO32_BIT29, NBO32_BIT30, NBO32_BIT31
-};
-
 #ifndef WORDS_BIGENDIAN
 
-void nbo_to_host(void *data, size_t size)
+#define swap64(num) \
+	(((num & 0x00000000000000ffULL) << 56) | \
+	 ((num & 0x000000000000ff00ULL) << 40) | \
+	 ((num & 0x0000000000ff0000ULL) << 24) | \
+	 ((num & 0x00000000ff000000ULL) <<  8) | \
+	 ((num & 0x000000ff00000000ULL) >>  8) | \
+	 ((num & 0x0000ff0000000000ULL) >> 24) | \
+	 ((num & 0x00ff000000000000ULL) >> 40) | \
+	 ((num & 0xff00000000000000ULL) >> 56))
+
+
+uint64_t nbo_to_uint64(uint64_t num)
 {
-	if (size == sizeof(uint32_t)) {
-		uint32_t *num = (uint32_t *) data;
-
-		*num = ntohl(*num);
-	} else if (size == sizeof(uint32_t)*2) {
-		uint32_t *num = (uint32_t *) data;
-		uint32_t temp;
-
-		temp = ntohl(num[0]);
-		num[0] = ntohl(num[1]);
-		num[1] = temp;
-	}
+	return swap64(num);
 }
 
-void host_to_nbo(void *data, size_t size)
+uint64_t uint64_to_nbo(uint64_t num)
 {
-	if (size == sizeof(uint32_t)) {
-		uint32_t *num = (uint32_t *) data;
-
-		*num = htonl(*num);
-	} else if (size == sizeof(uint32_t)*2) {
-		uint32_t *num = (uint32_t *) data;
-		uint32_t temp;
-
-		temp = htonl(num[0]);
-		num[0] = htonl(num[1]);
-		num[1] = temp;
-	}
+	return swap64(num);
 }
 #endif
