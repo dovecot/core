@@ -85,6 +85,11 @@ void imap_envelope_parse_header(pool_t pool,
 	struct message_address **addr_p;
 	char **str_p;
 
+	if (*data == NULL) {
+		*data = p_new(pool, struct message_part_envelope_data, 1);
+		(*data)->pool = pool;
+	}
+
 	if (hdr == NULL || !imap_envelope_get_field(hdr->name, &field))
 		return;
 
@@ -94,12 +99,7 @@ void imap_envelope_parse_header(pool_t pool,
 		return;
 	}
 
-	if (*data == NULL) {
-		*data = p_new(pool, struct message_part_envelope_data, 1);
-		(*data)->pool = pool;
-	}
 	d = *data;
-
 	addr_p = NULL; str_p = NULL;
 	switch (field) {
 	case IMAP_ENVELOPE_DATE:
