@@ -374,6 +374,11 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 
 		if (sync_rec->uid1 < ctx->next_uid) {
 			/* overlapping with previous expunge */
+			if (ctx->next_uid > sync_rec->uid2) {
+				/* hide this update completely */
+				ctx->update_idx++;
+                                return mail_index_sync_next(ctx, sync_rec);
+			}
 			sync_rec->uid1 = ctx->next_uid;
 		}
 
