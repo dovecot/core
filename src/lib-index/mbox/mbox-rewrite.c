@@ -393,6 +393,9 @@ static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
 	return ret;
 }
 
+#define INDEX_DIRTY_FLAGS \
+        (MAIL_INDEX_FLAG_DIRTY_MESSAGES | MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS)
+
 int mbox_index_rewrite(MailIndex *index)
 {
 	/* Write messages beginning from the first dirty one to temp file,
@@ -412,7 +415,7 @@ int mbox_index_rewrite(MailIndex *index)
 	if (!index->set_lock(index, MAIL_LOCK_SHARED))
 		return FALSE;
 
-        rewrite = (index->header->flags & MAIL_INDEX_FLAG_DIRTY_MESSAGES);
+        rewrite = (index->header->flags & INDEX_DIRTY_FLAGS);
 
 	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
 		return FALSE;
@@ -435,8 +438,7 @@ int mbox_index_rewrite(MailIndex *index)
 		if (inbuf == NULL)
 			break;
 
-		if ((index->header->flags &
-		     MAIL_INDEX_FLAG_DIRTY_MESSAGES) == 0) {
+		if ((index->header->flags & INDEX_DIRTY_FLAGS) == 0) {
 			/* fsck() figured out there's no dirty messages
 			   after all */
 			failed = FALSE; rewrite = FALSE;

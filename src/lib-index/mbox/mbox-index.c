@@ -740,6 +740,21 @@ static int mbox_index_try_lock(MailIndex *index, MailLockType lock_type)
 	return mail_index_try_lock(index, lock_type);
 }
 
+int mbox_index_expunge(MailIndex *index, MailIndexRecord *rec,
+		       unsigned int seq, int external_change)
+{
+	if (!mail_index_expunge(index, rec, seq, external_change))
+		return FALSE;
+
+	if (seq == 1) {
+		/* Our message containing X-IMAPbase was deleted.
+		   Get it back there. */
+		index->header->flags |= MAIL_INDEX_FLAG_DIRTY_MESSAGES |
+			MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS;
+	}
+	return TRUE;
+}
+
 static int mbox_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 				   unsigned int seq, MailFlags flags,
 				   int external_change)
@@ -772,7 +787,7 @@ MailIndex mbox_index = {
 	mail_index_cache_fields_later,
 	mbox_open_mail,
 	mail_get_internal_date,
-	mail_index_expunge,
+	mbox_index_expunge,
 	mbox_index_update_flags,
 	mail_index_append_begin,
 	mail_index_append_end,
