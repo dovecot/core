@@ -316,8 +316,9 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 
 	missing_cr_count = startpos = line_start = 0;
 	colon_pos = UINT_MAX;
-	while ((ret = io_buffer_read_data_blocking(inbuf, &msg, &size,
-						   startpos+1)) != -1) {
+	for (;;) {
+		ret = io_buffer_read_data_blocking(inbuf, &msg, &size,
+						   startpos+1);
 		if (ret == -2) {
 			/* overflow, line is too long. just skip it. */
 			i_assert(size > 2);
@@ -328,12 +329,14 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 			continue;
 		}
 
-		/* don't parse the last character, so we can always have
-		   one character read-ahead. we never care about the last
-		   character anyway, it's either the first character in
-		   message body, or if there's no body for any reason, it's
-		   the \n ending the header. */
-		size--;
+		if (ret < 0) {
+			/* EOF, but we may still have something in buffer.
+			   this is needed only when there's no message body */
+			msg = io_buffer_get_data(inbuf, &size);
+			if (size == 0)
+				break;
+		}
+
 		for (i = startpos; i < size; i++) {
 			if (msg[i] == ':' && colon_pos == UINT_MAX) {
 				colon_pos = i;
@@ -363,7 +366,7 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 			}
 
 			/* make sure the header doesn't continue to next line */
-			if (!IS_LWSP(msg[i+1])) {
+			if (i+1 == size || !IS_LWSP(msg[i+1])) {
 				if (colon_pos != UINT_MAX &&
 				    colon_pos != line_start && func != NULL &&
 				    !IS_LWSP(msg[line_start])) {
@@ -404,18 +407,17 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 			break;
 		}
 
-		if (i > 0) {
-			/* leave the last line to buffer */
-			if (colon_pos != UINT_MAX)
-				colon_pos -= line_start;
-			if (hdr_size != NULL)
-				hdr_size->physical_size += line_start;
-			io_buffer_skip(inbuf, line_start);
+		/* leave the last line to buffer */
+		if (colon_pos != UINT_MAX)
+			colon_pos -= line_start;
+		if (hdr_size != NULL)
+			hdr_size->physical_size += line_start;
+		io_buffer_skip(inbuf, line_start);
 
-			startpos = i-line_start;
-			line_start = 0;
-		}
+		startpos = i-line_start;
+		line_start = 0;
 	}
+
 	io_buffer_skip(inbuf, startpos);
 
 	if (hdr_size != NULL) {
