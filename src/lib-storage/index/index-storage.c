@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "mail-index.h"
 #include "mail-index-util.h"
 #include "mail-custom-flags.h"
@@ -11,6 +12,11 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+/* How many seconds to keep index opened for reuse after it's been closed */
+#define INDEX_CACHE_TIMEOUT 10
+/* How many closed indexes to keep */
+#define INDEX_CACHE_MAX 3
+
 #define LOCK_NOTIFY_INTERVAL 30
 
 struct index_list {
@@ -18,6 +24,8 @@ struct index_list {
 
 	struct mail_index *index;
 	int refcount;
+
+	time_t destroy_time;
 };
 
 static struct index_list *indexes = NULL;
@@ -36,39 +44,54 @@ void index_storage_add(struct mail_index *index)
 
 struct mail_index *index_storage_lookup_ref(const char *path)
 {
-	struct index_list *list;
+	struct index_list **list, *rec;
+	struct mail_index *match;
 	struct stat st1, st2;
+	int destroy_count;
 
 	if (stat(path, &st1) < 0)
 		return NULL;
 
 	/* compare inodes so we don't break even with symlinks */
-	for (list = indexes; list != NULL; list = list->next) {
-		if (stat(list->index->dir, &st2) == 0) {
+	destroy_count = 0; match = NULL;
+	for (list = &indexes; *list != NULL;) {
+		rec = *list;
+
+		if (stat(rec->index->dir, &st2) == 0) {
 			if (st1.st_ino == st2.st_ino &&
 			    st1.st_dev == st2.st_dev) {
-				list->refcount++;
-				return list->index;
+				rec->refcount++;
+				match = rec->index;
 			}
 		}
+
+		if (rec->refcount == 0) {
+			if (rec->destroy_time <= ioloop_time ||
+			    destroy_count >= INDEX_CACHE_MAX) {
+				rec->index->free(rec->index);
+				*list = rec->next;
+				i_free(rec);
+				continue;
+			} else {
+				destroy_count++;
+			}
+		}
+
+                list = &(*list)->next;
 	}
 
-	return NULL;
+	return match;
 }
 
 void index_storage_unref(struct mail_index *index)
 {
-	struct index_list **list, *rec;
+	struct index_list *list;
 
-	for (list = &indexes; *list != NULL; list = &(*list)->next) {
-		rec = *list;
-
-		if (rec->index == index) {
-			if (--rec->refcount == 0) {
-				index->free(index);
-				*list = rec->next;
-				i_free(rec);
-			}
+	for (list = indexes; list != NULL; list = list->next) {
+		if (list->index == index) {
+			i_assert(list->refcount > 0);
+			list->refcount--;
+			list->destroy_time = ioloop_time + INDEX_CACHE_TIMEOUT;
 			return;
 		}
 	}
