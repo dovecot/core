@@ -38,25 +38,27 @@ void imap_envelope_parse_header(Pool pool, MessagePartEnvelopeData **data,
 		(*data)->pool = pool;
 	}
 
-	if (strcasecmp(name, "Date") == 0)
+	if (strcasecmp(name, "Date") == 0 && (*data)->date == NULL)
 		(*data)->date = imap_quote_value(pool, value, value_len);
-	else if (strcasecmp(name, "Subject") == 0)
+	else if (strcasecmp(name, "Subject") == 0 && (*data)->subject == NULL)
 		(*data)->subject = imap_quote_value(pool, value, value_len);
-	else if (strcasecmp(name, "From") == 0)
+	else if (strcasecmp(name, "From") == 0 && (*data)->from == NULL)
 		(*data)->from = parse_address(pool, value, value_len);
-	else if (strcasecmp(name, "Sender") == 0)
+	else if (strcasecmp(name, "Sender") == 0 && (*data)->sender == NULL)
 		(*data)->sender = parse_address(pool, value, value_len);
-	else if (strcasecmp(name, "Reply-To") == 0)
+	else if (strcasecmp(name, "Reply-To") == 0 && (*data)->reply_to == NULL)
 		(*data)->reply_to = parse_address(pool, value, value_len);
-	else if (strcasecmp(name, "To") == 0)
+	else if (strcasecmp(name, "To") == 0 && (*data)->to == NULL)
 		(*data)->to = parse_address(pool, value, value_len);
-	else if (strcasecmp(name, "Cc") == 0)
+	else if (strcasecmp(name, "Cc") == 0 && (*data)->cc == NULL)
 		(*data)->cc = parse_address(pool, value, value_len);
-	else if (strcasecmp(name, "Bcc") == 0)
+	else if (strcasecmp(name, "Bcc") == 0 && (*data)->bcc == NULL)
 		(*data)->bcc = parse_address(pool, value, value_len);
-	else if (strcasecmp(name, "In-Reply-To") == 0)
+	else if (strcasecmp(name, "In-Reply-To") == 0 &&
+		 (*data)->in_reply_to == NULL)
 		(*data)->in_reply_to = imap_quote_value(pool, value, value_len);
-	else if (strcasecmp(name, "Message-Id") == 0)
+	else if (strcasecmp(name, "Message-Id") == 0 &&
+		 (*data)->message_id == NULL)
 		(*data)->message_id = imap_quote_value(pool, value, value_len);
 }
 

@@ -173,7 +173,7 @@ static void parse_header(MessagePart *part,
 	/* fix the name to be \0-terminated */
 	name = t_strndup(name, name_len);
 
-	if (strcasecmp(name, "Content-Type") == 0) {
+	if (strcasecmp(name, "Content-Type") == 0 && part_data->content_type) {
 		part_data->str = t_string_new(256);
 		(void)message_content_parse_header(t_strndup(value, value_len),
 						   parse_content_type,
@@ -181,17 +181,21 @@ static void parse_header(MessagePart *part,
 						   part_data);
 		part_data->content_type_params =
 			p_strdup(pool, part_data->str->str);
-	} else if (strcasecmp(name, "Content-Transfer-Encoding") == 0) {
+	} else if (strcasecmp(name, "Content-Transfer-Encoding") == 0 &&
+		   data->content_transfer_encoding == NULL) {
 		(void)message_content_parse_header(t_strndup(value, value_len),
 						parse_content_transfer_encoding,
 						NULL, part_data);
-	} else if (strcasecmp(name, "Content-ID") == 0) {
+	} else if (strcasecmp(name, "Content-ID") == 0 &&
+		   part_data->content_id == NULL) {
 		part_data->content_id =
 			imap_quote_value(pool, value, value_len);
-	} else if (strcasecmp(name, "Content-Description") == 0) {
+	} else if (strcasecmp(name, "Content-Description") == 0 &&
+		   part_data->content_description == NULL) {
 		part_data->content_description =
 			imap_quote_value(pool, value, value_len);
-	} else if (strcasecmp(name, "Content-Disposition") == 0) {
+	} else if (strcasecmp(name, "Content-Disposition") == 0 &&
+		   part_data->content_disposition_params == NULL) {
 		part_data->str = t_string_new(256);
 		(void)message_content_parse_header(t_strndup(value, value_len),
 						   parse_content_disposition,
@@ -203,7 +207,8 @@ static void parse_header(MessagePart *part,
 		(void)message_content_parse_header(t_strndup(value, value_len),
 						   parse_content_language, NULL,
 						   part_data);
-	} else if (strcasecmp(name, "Content-MD5") == 0) {
+	} else if (strcasecmp(name, "Content-MD5") == 0 &&
+		   part_data->content_md5 == NULL) {
 		part_data->content_md5 =
 			imap_quote_value(pool, value, value_len);
 	} else if (parent_rfc822) {
