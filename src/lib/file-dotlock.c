@@ -98,11 +98,6 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 		return 1;
 	}
 
-	if (lock_info->stale_timeout == 0) {
-		/* no change checking */
-		return 0;
-	}
-
 	if (lock_info->ino != st.st_ino ||
 	    !CMP_DEV_T(lock_info->dev, st.st_dev) ||
 	    lock_info->ctime != st.st_ctime ||
@@ -134,7 +129,6 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 		lock_info->have_pid = pid != -1;
 	}
 
-	/* re-read the PID every time, because */
 	if (lock_info->have_pid) {
 		/* we've local PID. Check if it exists. */
 		if (kill(pid, 0) == 0 || errno != ESRCH)
@@ -146,6 +140,11 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 			return -1;
 		}
 		return 1;
+	}
+
+	if (lock_info->stale_timeout == 0) {
+		/* no change checking */
+		return 0;
 	}
 
 	if (lock_info->last_change != now) {
