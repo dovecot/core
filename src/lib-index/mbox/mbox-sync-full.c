@@ -329,6 +329,13 @@ int mbox_sync_full(struct mail_index *index)
 			failed = !mbox_sync_from_stream(index, input);
 		}
 
+		if (index->mbox_rewritten) {
+			/* rewritten, sync again */
+                        index->mbox_rewritten = FALSE;
+			i_stream_seek(input, 0);
+			failed = !mbox_sync_from_stream(index, input);
+		}
+
 		i_stream_unref(input);
 	}
 

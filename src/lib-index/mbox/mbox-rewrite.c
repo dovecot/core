@@ -610,6 +610,9 @@ int mbox_index_rewrite(struct mail_index *index)
 		return TRUE;
 	}
 
+	/* kludgy .. but we need to force resyncing */
+	index->mbox_rewritten = TRUE;
+
 	tmp_fd = -1; input = NULL;
 	failed = TRUE; rewrite = FALSE;
 	do {

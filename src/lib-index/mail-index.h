@@ -339,6 +339,7 @@ struct mail_index {
 
 	unsigned int anon_mmap:1;
 	unsigned int mmap_invalidate:1;
+	unsigned int mbox_rewritten:1;
 	unsigned int opened:1;
 	unsigned int rebuilding:1;
 	unsigned int mail_read_mmaped:1;
@@ -368,7 +369,7 @@ struct mail_index {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0
+	0, 0
 #endif
 
 /* defaults - same as above but prefixed with mail_index_. */
