@@ -197,6 +197,16 @@ static int maildir_sync_uidlist(struct mail_index *index, const char *dir,
 			return FALSE;
 		}
 
+		if (uid_rec.uid > uid &&
+		    (hash_rec->action == MAILDIR_FILE_ACTION_UPDATE_FLAGS ||
+		     hash_rec->action == MAILDIR_FILE_ACTION_NONE)) {
+			/* it's UID has changed */
+			hash_rec->action = MAILDIR_FILE_ACTION_UPDATE_CONTENT;
+
+			/* make sure filename is not invalidated by expunge */
+			hash_insert(files, p_strdup(pool, fname), hash_rec);
+		}
+
 		switch (hash_rec->action) {
 		case MAILDIR_FILE_ACTION_EXPUNGE:
 			if (!index->expunge(index, rec, seq, TRUE))
@@ -247,7 +257,14 @@ static int maildir_sync_uidlist(struct mail_index *index, const char *dir,
 			i_assert(hash_rec->action == MAILDIR_FILE_ACTION_NEW);
 
 			/* make sure we set the same UID for it. */
-			i_assert(index->header->next_uid <= uid_rec.uid);
+			if (index->header->next_uid > uid_rec.uid) {
+				index_set_corrupted(index,
+						    "index.next_uid (%u) > "
+						    "uid_rec.uid (%u)",
+						    index->header->next_uid,
+						    uid_rec.uid);
+				return FALSE;
+			}
 			index->header->next_uid = uid_rec.uid;
 
                         hash_rec->action = MAILDIR_FILE_ACTION_NONE;
@@ -428,7 +445,7 @@ static int maildir_index_lock_and_sync(struct mail_index *index, int *changes,
 	struct utimbuf ut;
 	struct maildir_uidlist *uidlist;
 	const char *uidlist_path, *cur_dir, *new_dir;
-	time_t index_mtime;
+	time_t index_mtime, uidlist_mtime;
 	int cur_changed;
 
 	*uidlist_r = uidlist = NULL;
@@ -456,12 +473,13 @@ static int maildir_index_lock_and_sync(struct mail_index *index, int *changes,
 
 		memset(&st, 0, sizeof(st));
 		cur_changed = TRUE;
+                uidlist_mtime = 0;
 	} else {
-		/* FIXME: save device and inode into index header, so we don't
+		/* FIXME: save mtime into index header, so we don't
 		   have to read it every time mailbox is opened */
+                uidlist_mtime = st.st_mtime;
 		cur_changed = index_mtime != std.st_mtime ||
-			st.st_ino != index->uidlist_ino ||
-			!CMP_DEV_T(st.st_dev, index->uidlist_dev);
+			index->uidlist_mtime != uidlist_mtime;
 	}
 
 	if (new_dirp != NULL || cur_changed) {
@@ -556,18 +574,12 @@ static int maildir_index_lock_and_sync(struct mail_index *index, int *changes,
 			return TRUE;
 		}
 
-		if (fstat(index->maildir_lock_fd, &st) < 0) {
-			return index_file_set_syscall_error(index, uidlist_path,
-							    "fstat()");
-		}
-
-		if (!maildir_uidlist_rewrite(index))
+		if (!maildir_uidlist_rewrite(index, &uidlist_mtime))
 			return FALSE;
 	}
 
 	/* uidlist file synced */
-	index->uidlist_ino = st.st_ino;
-	index->uidlist_dev = st.st_dev;
+	index->uidlist_mtime = uidlist_mtime;
 
 	/* update sync stamp */
 	index->file_sync_stamp = std.st_mtime;

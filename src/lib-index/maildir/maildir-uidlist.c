@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <sys/stat.h>
+#include <utime.h>
 
 /* how many seconds to wait before overriding uidlist.lock */
 #define UIDLIST_LOCK_STALE_TIMEOUT (60*5)
@@ -168,23 +169,14 @@ void maildir_uidlist_close(struct maildir_uidlist *uidlist)
 	i_free(uidlist);
 }
 
-int maildir_uidlist_rewrite(struct mail_index *index)
+static int maildir_uidlist_rewrite_fd(struct mail_index *index,
+				      const char *temp_path, time_t *mtime)
 {
 	struct mail_index_record *rec;
-	const char *temp_path, *db_path, *p, *fname;
+	struct utimbuf ut;
+	const char *p, *fname;
 	string_t *str;
 	size_t len;
-	int failed = FALSE;
-
-	i_assert(INDEX_IS_UIDLIST_LOCKED(index));
-
-	if (index->lock_type == MAIL_LOCK_UNLOCK) {
-		if (!index->set_lock(index, MAIL_LOCK_SHARED))
-			return FALSE;
-	}
-
-	temp_path = t_strconcat(index->mailbox_path,
-				"/" MAILDIR_UIDLIST_NAME ".lock", NULL);
 
 	str = t_str_new(4096);
 	str_printfa(str, "1 %u %u\n",
@@ -194,7 +186,7 @@ int maildir_uidlist_rewrite(struct mail_index *index)
 	while (rec != NULL) {
 		fname = maildir_get_location(index, rec);
 		if (fname == NULL)
-			break;
+			return FALSE;
 
 		p = strchr(fname, ':');
 		len = p == NULL ? strlen(fname) : (size_t)(p-fname);
@@ -205,7 +197,7 @@ int maildir_uidlist_rewrite(struct mail_index *index)
 				       str_data(str), str_len(str)) < 0) {
 				index_file_set_syscall_error(index, temp_path,
 							     "write_full()");
-				break;
+				return FALSE;
 			}
 			str_truncate(str, 0);
 		}
@@ -220,20 +212,47 @@ int maildir_uidlist_rewrite(struct mail_index *index)
 	if (write_full(index->maildir_lock_fd,
 		       str_data(str), str_len(str)) < 0) {
 		index_file_set_syscall_error(index, temp_path, "write_full()");
-		failed = TRUE;
+		return FALSE;
 	}
 
-	if (fdatasync(index->maildir_lock_fd) < 0) {
-		index_file_set_syscall_error(index, temp_path, "fdatasync()");
-		failed = TRUE;
+	/* uidlist's mtime must grow every time */
+	*mtime = ioloop_time > *mtime ? ioloop_time : *mtime + 1;
+	ut.actime = ioloop_time;
+	ut.modtime = *mtime;
+	if (utime(temp_path, &ut) < 0)
+		index_set_syscall_error(index, "utime()");
+
+	if (fsync(index->maildir_lock_fd) < 0) {
+		index_file_set_syscall_error(index, temp_path, "fsync()");
+		return FALSE;
 	}
+
+	return TRUE;
+}
+
+int maildir_uidlist_rewrite(struct mail_index *index, time_t *mtime)
+{
+	const char *temp_path, *db_path;
+	int failed = FALSE;
+
+	i_assert(INDEX_IS_UIDLIST_LOCKED(index));
+
+	if (index->lock_type == MAIL_LOCK_UNLOCK) {
+		if (!index->set_lock(index, MAIL_LOCK_SHARED))
+			return FALSE;
+	}
+
+	temp_path = t_strconcat(index->mailbox_path,
+				"/" MAILDIR_UIDLIST_NAME ".lock", NULL);
+
+	failed = !maildir_uidlist_rewrite_fd(index, temp_path, mtime);
 	if (close(index->maildir_lock_fd) < 0) {
 		index_file_set_syscall_error(index, temp_path, "close()");
 		failed = TRUE;
 	}
         index->maildir_lock_fd = -1;
 
-	if (rec == NULL) {
+	if (!failed) {
 		db_path = t_strconcat(index->mailbox_path,
 				      "/" MAILDIR_UIDLIST_NAME, NULL);
 

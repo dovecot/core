@@ -22,7 +22,7 @@ struct maildir_uidlist_rec {
 
 int maildir_uidlist_try_lock(struct mail_index *index);
 void maildir_uidlist_unlock(struct mail_index *index);
-int maildir_uidlist_rewrite(struct mail_index *index);
+int maildir_uidlist_rewrite(struct mail_index *index, time_t *mtime);
 
 struct maildir_uidlist *maildir_uidlist_open(struct mail_index *index);
 void maildir_uidlist_close(struct maildir_uidlist *uidlist);
