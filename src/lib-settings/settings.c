@@ -127,7 +127,7 @@ int settings_read(const char *path, const char *section,
 		   b) section_type section_name {
 		   c) } */
 		key = line;
-		while (!IS_WHITE(*line) && *line != '\0')
+		while (!IS_WHITE(*line) && *line != '\0' && *line != '=')
 			line++;
 		if (IS_WHITE(*line)) {
 			*line++ = '\0';
