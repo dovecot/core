@@ -233,6 +233,8 @@ static void open_logfile(void)
 		i_set_info_file(set_info_log_path);
 
 	i_set_failure_timestamp_format(set_log_timestamp);
+
+	i_info("Dovecot starting up");
 }
 
 static void main_init(void)
