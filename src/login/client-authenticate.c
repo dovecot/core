@@ -238,7 +238,8 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 {
 	Client *client = context;
 	char *line;
-	ssize_t size, linelen;
+	ssize_t size;
+	size_t linelen;
 
 	if (!client_read(client))
 		return;

@@ -92,7 +92,8 @@ static int match_encoded(const unsigned char **start, const unsigned char *end,
 	const unsigned char *p, *encoding, *text, *new_end;
 	const char *charset;
 	unsigned char *buf;
-	ssize_t size, buf_size;
+	ssize_t size;
+	size_t buf_size;
 	int ok, ret;
 
 	/* first split the string =?charset?encoding?text?= */
@@ -134,7 +135,7 @@ static int match_encoded(const unsigned char **start, const unsigned char *end,
 
 		size = (ssize_t) (end - text);
 
-		buf_size = size;
+		buf_size = (size_t)size;
 		buf = t_malloc(buf_size);
 
 		if (*encoding == 'Q')
@@ -144,7 +145,7 @@ static int match_encoded(const unsigned char **start, const unsigned char *end,
 
 		if (size >= 0) {
 			/* non-corrupted encoding */
-			ret = match_data(buf, size, charset, ctx);
+			ret = match_data(buf, (size_t)size, charset, ctx);
 			t_pop();
 			return ret;
 		}
