@@ -1138,7 +1138,17 @@ if test $want_mysql = yes; then
 		LIBS="$LIBS -L$MYSQL_LIBDIR"
 	fi
 
+	mysql_lib=""
 	AC_CHECK_LIB(mysqlclient, mysql_init, [
+		mysql_lib="-lmysqlclient"
+	], [
+		LIBS="$LIBS -lz"
+		AC_CHECK_LIB(mysqlclient, mysql_init, [
+			mysql_lib="-lmysqlclient -lz"
+		])
+	])
+
+	if test "$mysql_lib" != ""; then
 		old_CPPFLAGS=$CPPFLAGS
 		if test "$MYSQL_INCLUDE" != ""; then
 			CPPFLAGS="$CPPFLAGS -I $MYSQL_INCLUDE"
@@ -1150,7 +1160,7 @@ if test $want_mysql = yes; then
 			if test "$MYSQL_LIBDIR" != ""; then
 				AUTH_LIBS="$AUTH_LIBS -L$MYSQL_LIBDIR"
 			fi
-			AUTH_LIBS="$AUTH_LIBS -lmysqlclient"
+			AUTH_LIBS="$AUTH_LIBS $mysql_lib"
 
 			AC_CHECK_LIB(mysqlclient, mysql_ssl_set, [
 				AC_DEFINE(HAVE_MYSQL_SSL,, Define if your MySQL library has SSL functions)
@@ -1175,7 +1185,7 @@ if test $want_mysql = yes; then
 			passdb="$passdb mysql"
 		])
 		CPPFLAGS=$old_CPPFLAGS
-	])
+	fi
 
 	LIBS=$old_LIBS
 fi
