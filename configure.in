@@ -324,6 +324,7 @@ if test $want_vpopmail = yes; then
 		VPOPMAIL_CFLAGS="`cat $vpopmail_home/etc/inc_deps` $CFLAGS"
 		VPOPMAIL_LIBS="`cat $vpop_libdeps`"
 		AC_DEFINE(USERINFO_VPOPMAIL)
+		auths="$auths vpopmail"
 		AC_MSG_RESULT(found)
 	else
 		want_vpopmail=no
