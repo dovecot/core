@@ -41,8 +41,8 @@ static void main_init(int use_syslog)
 		i_set_failure_file(logfile, log_prefix);
 		i_set_failure_timestamp_format(getenv("IMAP_LOGSTAMP"));
 	} else if (use_syslog) {
-		/* prefix with imapd(user) */
-		openlog(log_prefix, 0, LOG_MAIL);
+		/* open the syslog while we still have access to it */
+		openlog(log_prefix, LOG_NDELAY, LOG_MAIL);
 
 		i_set_panic_handler(i_syslog_panic_handler);
 		i_set_fatal_handler(i_syslog_fatal_handler);
