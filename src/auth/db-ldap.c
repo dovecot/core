@@ -118,6 +118,7 @@ void db_ldap_search(struct ldap_connection *conn, const char *base, int scope,
 	if (!conn->connected) {
 		if (!db_ldap_connect(conn)) {
 			request->callback(conn, request, NULL);
+			i_free(request);
 			return;
 		}
 	}
@@ -127,6 +128,7 @@ void db_ldap_search(struct ldap_connection *conn, const char *base, int scope,
 		i_error("LDAP: ldap_search() failed (filter %s): %s",
 			filter, ldap_get_error(conn));
 		request->callback(conn, request, NULL);
+		i_free(request);
 		return;
 	}
 

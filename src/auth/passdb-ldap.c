@@ -121,7 +121,6 @@ static void handle_request(struct ldap_connection *conn,
 			password, scheme,
 			ldap_request->callback.lookup_credentials,
 			auth_request);
-		i_free(request);
 		return;
 	}
 
@@ -129,7 +128,6 @@ static void handle_request(struct ldap_connection *conn,
 	if (password == NULL) {
 		ldap_request->callback.verify_plain(PASSDB_RESULT_USER_UNKNOWN,
 						    auth_request);
-		i_free(request);
 		return;
 	}
 
@@ -147,7 +145,6 @@ static void handle_request(struct ldap_connection *conn,
 	ldap_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
 					    PASSDB_RESULT_PASSWORD_MISMATCH,
 					    auth_request);
-	i_free(request);
 }
 
 static void ldap_lookup_pass(struct auth_request *auth_request,

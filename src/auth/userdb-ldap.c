@@ -99,7 +99,6 @@ static void handle_request(struct ldap_connection *conn,
 		i_error("LDAP: ldap_search() failed: %s",
 			ldap_err2string(ret));
 		urequest->userdb_callback(NULL, request->context);
-		i_free(urequest);
 		return;
 	}
 
@@ -108,7 +107,6 @@ static void handle_request(struct ldap_connection *conn,
 		if (res != NULL)
 			i_error("LDAP: Authenticated user not found");
 		urequest->userdb_callback(NULL, request->context);
-		i_free(urequest);
 		return;
 	}
 
@@ -142,14 +140,12 @@ static void handle_request(struct ldap_connection *conn,
 			user.virtual_user);
 	} else {
 		urequest->userdb_callback(&user, request->context);
-		i_free(urequest);
 		t_pop();
 		return;
 	}
 
 	/* error */
 	urequest->userdb_callback(NULL, request->context);
-	i_free(urequest);
 	t_pop();
 }
 
