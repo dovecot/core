@@ -7,14 +7,14 @@
    enabled, it also provides compile time type safety:
 
    If DEBUG is enabled, an extra variable is defined along with the array
-   itself. This is used to cast ARRAY_IDX() return value correctly, so
+   itself. This is used to cast array_idx() return value correctly, so
    compiler gives a warning if it's assigned into variable with a different
    type.
 
    Example usage:
 
    struct foo {
-   	array_t ARRAY_DEFINE(bars, struct bar);
+	array_t ARRAY_DEFINE(bars, struct bar);
 	...
    };
 
@@ -23,6 +23,17 @@
 
    struct bar *bar = array_idx(&foo->bars, 5);
    struct baz *baz = array_idx(&foo->bars, 5); // compiler warning
+
+   When passing array_t as a parameter to function, or when it's otherwise
+   accessed in a way that the extra variable cannot be accessed, the code
+   won't compile. For situations like those, there's a ARRAY_SET_TYPE() macro.
+
+   Example:
+
+   void do_foo(array_t *bars) {
+	ARRAY_SET_TYPE(bars, struct foo);
+	struct foo *foo = array_idx(bars, 0);
+   }
 */
 #if defined (DEBUG) && defined (__GNUC__)
 #  define ARRAY_DEFINE(name, array_type) name; array_type *name ## __ ## type
@@ -30,13 +41,13 @@
 	array_type *_array_tmp = *(array ## __ ## type); _array_tmp = NULL; \
 	array_create(array, pool, sizeof(array_type), init_count); \
 	} STMT_END
-#  define ARRAY_ARG_SET_TYPE(array, array_type) \
+#  define ARRAY_SET_TYPE(array, array_type) \
 	array_type **array ## __ ## type = NULL
 #else
 #  define ARRAY_DEFINE(name, array_type) name
 #  define ARRAY_CREATE(array, pool, array_type, init_count) \
 	array_create(array, pool, sizeof(array_type), init_count);
-#  define ARRAY_ARG_SET_TYPE(array, array_type)
+#  define ARRAY_SET_TYPE(array, array_type)
 #endif
 
 struct array {
