@@ -184,13 +184,16 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 			}
 		}
 
-		if (buffer_get_used_size(ctx.buffer) == sizeof(cache_rec))
+		cache_rec.size = buffer_get_used_size(ctx.buffer);
+		if (cache_rec.size == sizeof(cache_rec))
 			continue;
 
 		mail_index_update_cache(t, seq, hdr.file_seq,
 					output->offset, &old_offset);
+
+		buffer_write(ctx.buffer, 0, &cache_rec, sizeof(cache_rec));
 		o_stream_send(output, buffer_get_data(ctx.buffer, NULL),
-			      buffer_get_used_size(ctx.buffer));
+			      cache_rec.size);
 	}
 	hdr.used_file_size = output->offset;
 	buffer_free(ctx.buffer);
@@ -209,7 +212,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 		return -1;
 	}
 
-	if (output->offset < MAIL_CACHE_INITIAL_SIZE) {
+	if (hdr.used_file_size < MAIL_CACHE_INITIAL_SIZE) {
 		/* grow the file some more. doesn't matter if it fails */
 		(void)file_set_size(fd, MAIL_CACHE_INITIAL_SIZE);
 	}
