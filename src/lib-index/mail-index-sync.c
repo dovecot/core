@@ -4,129 +4,72 @@
 #include "buffer.h"
 #include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
+#include "mail-index-transaction-private.h"
 #include "mail-transaction-log-private.h"
 #include "mail-transaction-util.h"
 #include "mail-cache.h"
 
 #include <stdlib.h>
 
-static void
-mail_index_sync_sort_flags(buffer_t *dest_buf,
-			   const struct mail_transaction_flag_update *src,
-			   size_t src_size)
+static void mail_index_sync_add_expunge(struct mail_index_sync_ctx *ctx)
 {
-	const struct mail_transaction_flag_update *src_end;
-	struct mail_transaction_flag_update *dest;
-	struct mail_transaction_flag_update new_update, tmp_update;
-	size_t i, dest_count;
+	const struct mail_transaction_expunge *e = ctx->data;
+	size_t i, size = ctx->hdr->size / sizeof(*e);
+	uint32_t uid;
 
-	dest = buffer_get_modifyable_data(dest_buf, &dest_count);
-	dest_count /= sizeof(*dest);
-
-	if (dest_count == 0) {
-		buffer_append(dest_buf, src, src_size);
-		return;
+	for (i = 0; i < size; i++) {
+		for (uid = e[i].uid1; uid <= e[i].uid2; uid++)
+			mail_index_expunge(ctx->trans, uid);
 	}
+}
 
-	src_end = PTR_OFFSET(src, src_size);
-	for (i = 0; src != src_end; src++) {
-		new_update = *src;
+static void mail_index_sync_add_flag_update(struct mail_index_sync_ctx *ctx)
+{
+	const struct mail_transaction_flag_update *u = ctx->data;
+	size_t i, size = ctx->hdr->size / sizeof(*u);
 
-		/* insert it into buffer, split and merge it with existing
-		   updates if needed. */
-		for (; i < dest_count; i++) {
-			if (new_update.uid1 > dest[i].uid2)
-				continue;
-
-			if (new_update.uid2 < dest[i].uid1)
-				break;
-
-			/* at least partially overlapping */
-
-			if (new_update.uid1 < dest[i].uid1) {
-				/* { 5..6 } + { 1..5 } -> { 1..4 } + { 5..6 } */
-				tmp_update = new_update;
-				tmp_update.uid2 = dest[i].uid1-1;
-				new_update.uid1 = dest[i].uid1;
-				buffer_insert(dest_buf, i * sizeof(tmp_update),
-					      &tmp_update, sizeof(tmp_update));
-				dest = buffer_get_modifyable_data(dest_buf,
-								  NULL);
-				dest_count++; i++;
-			} else if (new_update.uid1 > dest[i].uid1) {
-				/* { 5..7 } + { 6..6 } ->
-				   split old to { 5..5 } + { 6..7 } */
-				tmp_update = dest[i];
-				tmp_update.uid2 = new_update.uid1-1;
-				dest[i].uid1 = new_update.uid1;
-				buffer_insert(dest_buf, i * sizeof(tmp_update),
-					      &tmp_update, sizeof(tmp_update));
-				dest = buffer_get_modifyable_data(dest_buf,
-								  NULL);
-				dest_count++; i++;
-			}
-			i_assert(new_update.uid1 == dest[i].uid1);
-
-			if (new_update.uid2 < dest[i].uid2) {
-				/* { 5..7 } + { 5..6 } -> { 5..6 } + { 7..7 } */
-				tmp_update = dest[i];
-				tmp_update.uid1 = new_update.uid2+1;
-				dest[i].uid2 = new_update.uid2;
-				buffer_insert(dest_buf,
-					      (i+1) * sizeof(tmp_update),
-					      &tmp_update, sizeof(tmp_update));
-				dest = buffer_get_modifyable_data(dest_buf,
-								  NULL);
-				dest_count++;
-				new_update.uid2 = 0;
-			} else {
-				/* full match, or continues. */
-				new_update.uid1 = dest[i].uid2+1;
-			}
-
-			/* dest[i] now contains the overlapping area.
-			   merge them - new_update overrides old changes. */
-			dest[i].add_flags |= new_update.add_flags;
-			dest[i].add_flags &= ~new_update.remove_flags;
-			dest[i].remove_flags |= new_update.remove_flags;
-			dest[i].remove_flags &= ~new_update.add_flags;
+	for (i = 0; i < size; i++) {
+		if (u[i].add_flags != 0) {
+			mail_index_update_flags_range(ctx->trans,
+						      u[i].uid1, u[i].uid2,
+						      MODIFY_ADD,
+						      u[i].add_flags);
 		}
-
-		if (new_update.uid1 <= new_update.uid2) {
-			buffer_insert(dest_buf, i * sizeof(new_update),
-				      &new_update, sizeof(new_update));
-			dest = buffer_get_modifyable_data(dest_buf, NULL);
-			dest_count++;
+		if (u[i].remove_flags != 0) {
+			mail_index_update_flags_range(ctx->trans,
+						      u[i].uid1, u[i].uid2,
+						      MODIFY_REMOVE,
+						      u[i].remove_flags);
 		}
 	}
 }
 
-static void mail_index_sync_sort_transaction(struct mail_index_sync_ctx *ctx)
+static void mail_index_sync_add_append(struct mail_index_sync_ctx *ctx)
+{
+	const struct mail_index_record *rec = ctx->data;
+
+	if (ctx->append_uid_first == 0 || rec->uid < ctx->append_uid_first)
+		ctx->append_uid_first = rec->uid;
+
+	rec = CONST_PTR_OFFSET(ctx->data, ctx->hdr->size - sizeof(*rec));
+	if (rec->uid > ctx->append_uid_last)
+		ctx->append_uid_last = rec->uid;
+
+	ctx->sync_appends = TRUE;
+}
+
+static void mail_index_sync_add_transaction(struct mail_index_sync_ctx *ctx)
 {
 	switch (ctx->hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_EXPUNGE:
-		mail_transaction_log_sort_expunges(ctx->expunges_buf,
-						   ctx->data, ctx->hdr->size);
+		mail_index_sync_add_expunge(ctx);
 		break;
 	case MAIL_TRANSACTION_FLAG_UPDATE:
-		mail_index_sync_sort_flags(ctx->updates_buf, ctx->data,
-					   ctx->hdr->size);
+                mail_index_sync_add_flag_update(ctx);
 		break;
-	case MAIL_TRANSACTION_APPEND: {
-		const struct mail_index_record *rec = ctx->data;
-
-		if (ctx->append_uid_first == 0 ||
-		    rec->uid < ctx->append_uid_first)
-			ctx->append_uid_first = rec->uid;
-
-		rec = CONST_PTR_OFFSET(ctx->data,
-				       ctx->hdr->size - sizeof(*rec));
-		if (rec->uid > ctx->append_uid_last)
-			ctx->append_uid_last = rec->uid;
-
-                ctx->sync_appends = TRUE;
+	case MAIL_TRANSACTION_APPEND:
+		mail_index_sync_add_append(ctx);
 		break;
-	}
 	}
 }
 
@@ -146,48 +89,26 @@ static int mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
 		if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) == 0)
 			continue;
 
-		update.uid1 = update.uid2 = rec->uid;
-		update.add_flags = rec->flags;
-		update.remove_flags = ~update.add_flags;
-
-		mail_index_sync_sort_flags(ctx->updates_buf,
-					   &update, sizeof(update));
+		mail_index_update_flags(ctx->trans, rec->uid,
+					MODIFY_REPLACE, rec->flags);
 	}
 	return 0;
 }
 
 static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
 {
-	struct mail_transaction_flag_update update;
 	const struct mail_index_record *rec;
 	uint32_t seq, messages_count;
-
-	memset(&update, 0, sizeof(update));
 
 	messages_count = mail_index_view_get_messages_count(ctx->view);
 	for (seq = 1; seq <= messages_count; seq++) {
 		if (mail_index_lookup(ctx->view, seq, &rec) < 0)
 			return -1;
 
-		if ((rec->flags & MAIL_RECENT) == 0) {
-			if (update.uid1 != 0) {
-				mail_index_sync_sort_flags(ctx->updates_buf,
-							   &update,
-							   sizeof(update));
-				update.uid1 = 0;
-			}
-			continue;
+		if ((rec->flags & MAIL_RECENT) != 0) {
+			mail_index_update_flags(ctx->trans, rec->uid,
+						MODIFY_REMOVE, MAIL_RECENT);
 		}
-
-		/* group updates together as much as possible */
-		if (update.uid1 == 0)
-			update.uid1 = rec->uid;
-                update.uid2 = rec->uid;
-	}
-
-	if (update.uid1 != 0) {
-		mail_index_sync_sort_flags(ctx->updates_buf,
-					   &update, sizeof(update));
 	}
 	return 0;
 }
@@ -219,14 +140,21 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx, int sync_recent,
 		if ((ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0)
 			*seen_external_r = TRUE;
 		 else
-			mail_index_sync_sort_transaction(ctx);
+			mail_index_sync_add_transaction(ctx);
 	}
 
-	ctx->expunges = buffer_get_data(ctx->expunges_buf, &size);
-	ctx->expunges_count = size / sizeof(*ctx->expunges);
-	ctx->updates = buffer_get_data(ctx->updates_buf, &size);
-	ctx->updates_count = size / sizeof(*ctx->updates);
-
+	if (ctx->trans->expunges == NULL)
+		ctx->expunges_count = 0;
+	else {
+		ctx->expunges = buffer_get_data(ctx->trans->expunges, &size);
+		ctx->expunges_count = size / sizeof(*ctx->expunges);
+	}
+	if (ctx->trans->updates == NULL)
+		ctx->updates_count = 0;
+	else {
+		ctx->updates = buffer_get_data(ctx->trans->updates, &size);
+		ctx->updates_count = size / sizeof(*ctx->updates);
+	}
 	return ret;
 }
 
@@ -284,6 +212,7 @@ int mail_index_sync_begin(struct mail_index *index,
 			  int sync_recent, int sync_dirty)
 {
 	struct mail_index_sync_ctx *ctx;
+	struct mail_index_view *dummy_view;
 	uint32_t seq;
 	uoff_t offset;
 	unsigned int lock_id = 0;
@@ -324,6 +253,10 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx->sync_dirty = sync_dirty;
 
 	ctx->view = mail_index_view_open(index);
+
+	dummy_view = mail_index_dummy_view_open();
+	ctx->trans = mail_index_transaction_begin(dummy_view, FALSE, TRUE);
+	mail_index_view_close(dummy_view);
 
 	if (index->hdr->log_file_seq == seq &&
 	    index->hdr->log_file_int_offset > offset) {
@@ -378,8 +311,6 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	/* we need to have all the transactions sorted to optimize
 	   caller's mailbox access patterns */
-	ctx->expunges_buf = buffer_create_dynamic(default_pool, 1024);
-	ctx->updates_buf = buffer_create_dynamic(default_pool, 1024);
 	if (mail_index_sync_read_and_sort(ctx, sync_recent,
 					  &seen_external) < 0) {
                 mail_index_sync_rollback(ctx);
@@ -497,14 +428,12 @@ int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 static void mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 {
 	mail_index_unlock(ctx->index, ctx->lock_id);
-        i_assert(!ctx->index->map->write_to_disk);
-	mail_transaction_log_sync_unlock(ctx->index->log);
-	mail_index_view_close(ctx->view);
 
-	if (ctx->expunges_buf != NULL)
-		buffer_free(ctx->expunges_buf);
-	if (ctx->updates_buf != NULL)
-		buffer_free(ctx->updates_buf);
+	i_assert(!ctx->index->map->write_to_disk);
+	mail_transaction_log_sync_unlock(ctx->index->log);
+
+	mail_index_view_close(ctx->view);
+	mail_index_transaction_rollback(ctx->trans);
 	i_free(ctx);
 }
 

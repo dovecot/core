@@ -22,6 +22,7 @@ mail_index_transaction_begin(struct mail_index_view *view,
 
 	/* don't allow syncing view while there's ongoing transactions */
 	mail_index_view_transaction_ref(view);
+ 	mail_index_view_ref(view);
 
 	t = i_new(struct mail_index_transaction, 1);
 	t->refcount = 1;
@@ -66,8 +67,6 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 	buffer_t **recs;
 	size_t i, size;
 
-	mail_index_view_transaction_unref(t->view);
-
 	if (t->ext_rec_updates != NULL) {
 		recs = buffer_get_modifyable_data(t->ext_rec_updates, &size);
 		size /= sizeof(*recs);
@@ -100,6 +99,9 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 		buffer_free(t->ext_resizes);
 	if (t->ext_resets != NULL)
 		buffer_free(t->ext_resets);
+
+	mail_index_view_transaction_unref(t->view);
+	mail_index_view_close(t->view);
 	i_free(t);
 }
 

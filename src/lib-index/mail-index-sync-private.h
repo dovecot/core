@@ -6,8 +6,7 @@
 struct mail_index_sync_ctx {
 	struct mail_index *index;
 	struct mail_index_view *view;
-
-	buffer_t *expunges_buf, *updates_buf;
+	struct mail_index_transaction *trans;
 
 	const struct mail_transaction_expunge *expunges;
 	const struct mail_transaction_flag_update *updates;

@@ -13,6 +13,7 @@ libindex_a_SOURCES = \
 	mail-cache-transaction.c \
 	mail-cache-sync-update.c \
         mail-index.c \
+        mail-index-dummy-view.c \
         mail-index-fsck.c \
         mail-index-lock.c \
         mail-index-transaction.c \
