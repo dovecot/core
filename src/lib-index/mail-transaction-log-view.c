@@ -236,9 +236,10 @@ mail_transaction_log_view_is_corrupted(struct mail_transaction_log_view *view)
 	return view->broken;
 }
 
-static int log_view_get_next(struct mail_transaction_log_view *view,
-			     const struct mail_transaction_header **hdr_r,
-			     const void **data_r)
+static int
+log_view_get_next(struct mail_transaction_log_view *view,
+		  const struct mail_transaction_header **hdr_r,
+		  const void **data_r, enum mail_transaction_type type_mask)
 {
 	const struct mail_transaction_header *hdr;
 	struct mail_transaction_log_file *file;
@@ -355,7 +356,10 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 		if (view->max_extra_data_id > max_data_id)
 			max_data_id = view->max_extra_data_id;
 
-		if (*data_id >= max_data_id) {
+		/* don't check this error if we're just skipping over this.
+		   we could have skipped over the extra_intro just before this
+		   which is the reason we don't yet know it. */
+		if (*data_id >= max_data_id && (type_mask & hdr->type) != 0) {
 			mail_transaction_log_file_set_corrupted(file,
 				"extra record update out of range (%u >= %u)",
 				*data_id, max_data_id);
@@ -382,7 +386,8 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 	if (view->broken)
 		return -1;
 
-	while ((ret = log_view_get_next(view, &hdr, &data)) > 0) {
+	while ((ret = log_view_get_next(view, &hdr, &data,
+					view->type_mask)) > 0) {
 		if ((view->type_mask & hdr->type) != 0)
 			break;
 
