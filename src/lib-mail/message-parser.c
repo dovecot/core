@@ -680,7 +680,8 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 	if (size == 0 || (size == 1 && msg[0] == '\r')) {
 		/* end of headers */
 		line->eoh = TRUE;
-		line->name_len = line->value_len = 0;
+		line->name_len = line->value_len = line->full_value_len = 0;
+		line->name = ""; line->value = line->full_value = NULL;
 	} else if (line->continued) {
 		line->value = msg;
 		line->value_len = size;
