@@ -116,7 +116,8 @@ static int do_rename(struct mail_index *index, const char *path, void *context)
 		new_flags = old_flags & ~ctx->flags;
 		break;
 	case MODIFY_REPLACE:
-		new_flags = ctx->flags;
+		new_flags = ctx->flags |
+			(old_flags & index->private_flags_mask);
 		break;
 	default:
 		new_flags = 0;
@@ -128,14 +129,20 @@ static int do_rename(struct mail_index *index, const char *path, void *context)
 						    fname+1 : path, new_flags);
 
 	if (old_flags == new_flags) {
-		/* it's what we wanted. verify that the file exists. */
+		/* it's what we wanted. verify that the file exists, but
+		   only if something actually could have changed
+		   (ie. do nothing with private flag changes in shared
+		   mailboxes). */
 		struct stat st;
 
-		if (stat(path, &st) < 0) {
-			if (errno == ENOENT)
-				return 0;
-			index_file_set_syscall_error(index, path, "stat()");
-			return -1;
+		if (ctx->flags != 0) {
+			if (stat(path, &st) < 0) {
+				if (errno == ENOENT)
+					return 0;
+				index_file_set_syscall_error(index, path,
+							     "stat()");
+				return -1;
+			}
 		}
 		ctx->found = TRUE;
 		return 1;
@@ -193,7 +200,7 @@ int maildir_index_update_flags(struct mail_index *index,
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.modify_type = modify_type;
-	ctx.flags = flags;
+	ctx.flags = flags & ~index->private_flags_mask;
 
 	t_push();
 	if (!maildir_file_do(index, rec, do_rename, &ctx)) {

@@ -398,6 +398,7 @@ maildir_open(struct mail_storage *storage, const char *name,
 	struct index_mailbox *ibox;
 	struct mail_index *index;
 	const char *path, *index_dir, *control_dir;
+	struct stat st;
 
 	path = maildir_get_path(storage, name);
 	index_dir = maildir_get_index_path(storage, name);
@@ -413,6 +414,16 @@ maildir_open(struct mail_storage *storage, const char *name,
 					  index, name, flags);
 	if (ibox != NULL)
 		ibox->mail_init = maildir_mail_init;
+
+	/* for shared mailboxes get the create mode from the
+	   permissions of dovecot-shared file */
+	if (stat(t_strconcat(path, "/dovecot-shared", NULL), &st) < 0)
+		ibox->mail_create_mode = 0600;
+	else {
+		ibox->mail_create_mode = st.st_mode & 0666;
+		index->private_flags_mask = MAIL_SEEN;
+	}
+
 	return (struct mailbox *) ibox;
 }
 

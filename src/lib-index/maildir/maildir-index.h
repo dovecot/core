@@ -19,7 +19,7 @@ maildir_index_alloc(const char *maildir, const char *index_dir,
 
 /* Return new filename base to save into tmp/ */
 const char *maildir_generate_tmp_filename(const struct timeval *tv);
-int maildir_create_tmp(struct mail_index *index, const char *dir,
+int maildir_create_tmp(struct mail_index *index, const char *dir, mode_t mode,
 		       const char **path);
 
 const char *maildir_get_location(struct mail_index *index,

@@ -289,6 +289,9 @@ static int maildir_update_flags(struct maildir_sync_context *ctx,
 		return TRUE;
 
 	flags = maildir_filename_get_flags(new_fname, rec->msg_flags);
+	flags &= ~ctx->index->private_flags_mask;
+	flags |= rec->msg_flags & ctx->index->private_flags_mask;
+
 	if (flags != rec->msg_flags) {
 		if (!ctx->index->update_flags(ctx->index, rec,
 					      seq, MODIFY_REPLACE, flags, TRUE))

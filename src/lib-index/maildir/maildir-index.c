@@ -131,7 +131,7 @@ const char *maildir_generate_tmp_filename(const struct timeval *tv)
 	}
 }
 
-int maildir_create_tmp(struct mail_index *index, const char *dir,
+int maildir_create_tmp(struct mail_index *index, const char *dir, mode_t mode,
 		       const char **fname)
 {
 	const char *path, *tmp_fname;
@@ -149,7 +149,9 @@ int maildir_create_tmp(struct mail_index *index, const char *dir,
 		path = p_strconcat(pool, dir, "/", tmp_fname, NULL);
 		if (stat(path, &st) < 0 && errno == ENOENT) {
 			/* doesn't exist */
-			fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+			mode_t old_mask = umask(0);
+			fd = open(path, O_WRONLY | O_CREAT | O_EXCL, mode);
+			umask(old_mask);
 			if (fd != -1 || errno != EEXIST)
 				break;
 		}

@@ -37,7 +37,8 @@ maildir_read_into_tmp(struct index_mailbox *ibox, const char *dir,
 	struct ostream *output;
 	int fd;
 
-	fd = maildir_create_tmp(ibox->index, dir, &path);
+	fd = maildir_create_tmp(ibox->index, dir,
+				ibox->mail_create_mode, &path);
 	if (fd == -1)
 		return NULL;
 
