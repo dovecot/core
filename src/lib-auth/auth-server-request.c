@@ -201,7 +201,7 @@ int auth_client_input_fail(struct auth_server_connection *conn,
 {
 	struct auth_request *request;
         struct auth_server_connection *next;
-	const char *error, *const *list;
+	const char *const *list;
 	unsigned int id;
 
 	list = t_strsplit(args, "\t");
@@ -216,14 +216,6 @@ int auth_client_input_fail(struct auth_server_connection *conn,
 	if (request == NULL) {
 		/* We've already destroyed the request */
 		return TRUE;
-	}
-
-	if (list[1] == NULL) {
-		error = NULL;
-		list++;
-	} else {
-		error = *list[1] == '\0' ? NULL : list[1];
-		list += 2;
 	}
 
 	hash_remove(conn->requests, POINTER_CAST(request->id));
@@ -251,7 +243,7 @@ int auth_client_input_fail(struct auth_server_connection *conn,
 		}
 	}
 
-	request->callback(request, -1, error, list, request->context);
+	request->callback(request, -1, NULL, list+1, request->context);
 	auth_client_request_free(request);
 	return TRUE;
 }

@@ -80,9 +80,7 @@ static void auth_callback(struct auth_request *request,
 		break;
 	case AUTH_CLIENT_RESULT_FAILURE:
 		str = t_str_new(128);
-		str_printfa(str, "FAIL\t%u\t", request->id);
-		if (reply != NULL)
-			str_append(str, reply);
+		str_printfa(str, "FAIL\t%u", request->id);
 		if (request->user != NULL)
 			str_printfa(str, "\tuser=%s", request->user);
 		if (request->extra_fields) {
@@ -272,7 +270,8 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 			}
 			auth_request_destroy(request);
 			auth_client_send(conn, "FAIL\t%u\t"
-				"Invalid base64 data in initial response", id);
+				"reason=Invalid base64 data in initial "
+				"response", id);
 			return TRUE;
 		}
 		initial_resp_data = buf->data;
@@ -308,12 +307,13 @@ auth_client_input_cont(struct auth_client_connection *conn, const char *args)
 	request = hash_lookup(conn->auth_requests, POINTER_CAST(id));
 	if (request == NULL) {
 		/* timeouted */
-		auth_client_send(conn, "FAIL\t%u\tTimeouted", id);
+		auth_client_send(conn, "FAIL\t%u\treason=Timeouted", id);
 		return TRUE;
 	}
 
 	if (!request->accept_input) {
-		auth_client_send(conn, "FAIL\t%u\tUnexpected continuation", id);
+		auth_client_send(conn, "FAIL\t%u"
+				 "\treason=Unexpected continuation", id);
 		auth_request_destroy(request);
 		return TRUE;
 	}
@@ -328,8 +328,8 @@ auth_client_input_cont(struct auth_client_connection *conn, const char *args)
 			       "continued response", request->mech->mech_name,
 			       get_log_prefix(request));
 		}
-		auth_client_send(conn, "FAIL\t%u\tInvalid base64 data in "
-				 "continued response", id);
+		auth_client_send(conn, "FAIL\t%u\treason=Invalid base64 data "
+				 "in continued response", id);
 		auth_request_destroy(request);
 		return TRUE;
 	}

@@ -89,6 +89,7 @@ static void authenticate_callback(struct auth_request *request, int status,
 		client->auth_request = NULL;
 
 		if (args != NULL) {
+			/* parse our username if it's there */
 			for (i = 0; args[i] != NULL; i++) {
 				if (strncmp(args[i], "user=", 5) == 0) {
 					i_free(client->virtual_user);
@@ -96,14 +97,6 @@ static void authenticate_callback(struct auth_request *request, int status,
 						i_strdup(args[i] + 5);
 				}
 			}
-		}
-
-		/* base64 contains error message, if there is one */
-		if (verbose_auth && data_base64 != NULL) {
-			client_syslog(client, "Authenticate %s failed: %s",
-				      str_sanitize(client->auth_mech_name,
-						   MAX_MECH_NAME),
-				      (const char *)data_base64);
 		}
 
 		client->authenticating = FALSE;
