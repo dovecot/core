@@ -1196,7 +1196,9 @@ __again:
 	}
 	sync_ctx.t = NULL;
 
-	if (mail_index_sync_commit(index_sync_ctx) < 0) {
+	if (ret < 0)
+		mail_index_sync_rollback(index_sync_ctx);
+	else if (mail_index_sync_commit(index_sync_ctx) < 0) {
 		mail_storage_set_index_error(ibox);
 		ret = -1;
 	}
