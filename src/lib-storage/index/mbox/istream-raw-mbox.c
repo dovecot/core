@@ -287,7 +287,6 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream, uoff_t body_size)
 {
 	struct raw_mbox_istream *rstream =
 		(struct raw_mbox_istream *)stream->real_stream;
-	uoff_t old_offset;
 	const unsigned char *data;
 	size_t size;
 
@@ -311,7 +310,6 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream, uoff_t body_size)
 		i_stream_skip(stream, size);
 
 	i_assert(rstream->mail_size != (uoff_t)-1);
-	i_stream_seek(stream, old_offset);
 	return rstream->mail_size -
 		(rstream->body_offset - rstream->hdr_offset);
 }
