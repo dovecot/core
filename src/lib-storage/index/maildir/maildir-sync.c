@@ -481,7 +481,8 @@ static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 	}
 
 	if (cur_mtime != ibox->last_cur_mtime ||
-	    ioloop_time - ibox->dirty_cur_time > MAILDIR_SYNC_SECS) {
+	    (ibox->dirty_cur_time != 0 &&
+	     ioloop_time - ibox->dirty_cur_time > MAILDIR_SYNC_SECS)) {
 		/* cur/ changed, or delayed cur/ check */
 		*cur_changed_r = TRUE;
 		ibox->last_cur_mtime = cur_mtime;
