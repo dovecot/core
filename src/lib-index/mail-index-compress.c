@@ -29,7 +29,7 @@ int mail_index_truncate(MailIndex *index)
 			(empty_space * INDEX_TRUNCATE_KEEP_PERCENTAGE / 100);
 
 		/* keep the size record-aligned */
-		index->mmap_full_length =
+		index->mmap_full_length -=
 			(index->mmap_full_length - sizeof(MailIndexHeader)) %
 			sizeof(MailIndexRecord);
 
