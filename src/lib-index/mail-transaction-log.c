@@ -62,10 +62,11 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 }
 
 #define INDEX_HAS_MISSING_LOGS(index, file) \
-	((file)->hdr.file_seq != (index)->hdr->log_file_seq && \
-	 ((file)->hdr.prev_file_seq != (index)->hdr->log_file_seq || \
-	  (file)->hdr.prev_file_offset != (index)->hdr->log_file_offset))
-
+	!(((file)->hdr.file_seq == (index)->hdr->log_file_seq && \
+	   (index)->hdr->log_file_offset >= \
+	   sizeof(struct mail_transaction_log_header)) || \
+	  ((file)->hdr.prev_file_seq == (index)->hdr->log_file_seq && \
+	   (file)->hdr.prev_file_offset == (index)->hdr->log_file_offset))
 
 static int mail_transaction_log_check_file_seq(struct mail_transaction_log *log)
 {

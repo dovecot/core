@@ -84,8 +84,6 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 
 	i_assert(view->broken);
 	i_assert(min_file_seq <= max_file_seq);
-	i_assert(min_file_offset >= sizeof(struct mail_transaction_log_header));
-	i_assert(max_file_offset >= sizeof(struct mail_transaction_log_header));
 
 	if (view->log == NULL)
 		return -1;
@@ -118,6 +116,14 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			max_file_offset = min_file_offset;
 		}
 	}
+
+	/* check these later than others as index file may have corrupted
+	   log_file_offset. we should have recreated the log file and
+	   skipped min_file_seq file above.. max_file_offset can be broken
+	   only if min_file_seq = max_file_seq. */
+	i_assert(min_file_offset >= sizeof(struct mail_transaction_log_header));
+	i_assert(max_file_offset >= sizeof(struct mail_transaction_log_header));
+
 	end_offset = min_file_seq == max_file_seq ?
 		max_file_offset : (uoff_t)-1;
 	ret = mail_transaction_log_file_map(file, min_file_offset, end_offset);
