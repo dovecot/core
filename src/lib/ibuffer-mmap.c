@@ -165,7 +165,8 @@ static ssize_t _read(_IBuffer *buf)
 		if (limit_size > buf->buffer_size)
 			limit_size = buf->buffer_size;
 
-		(void)madvise(mbuf->mmap_base, limit_size, MADV_SEQUENTIAL);
+		if (madvise(mbuf->mmap_base, limit_size, MADV_SEQUENTIAL) < 0)
+			i_error("MmapIBuffer.madvise(): %m");
 	}
 
 	return io_buffer_set_mmaped_pos(buf);
