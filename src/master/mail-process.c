@@ -109,6 +109,7 @@ static void env_put_namespace(struct namespace_settings *ns,
 {
 	const char *location;
 	unsigned int i;
+	string_t *str;
 
 	if (default_location == NULL)
 		default_location = "";
@@ -130,8 +131,11 @@ static void env_put_namespace(struct namespace_settings *ns,
 						i, ns->type));
 		}
 		if (ns->prefix != NULL) {
-			env_put(t_strdup_printf("NAMESPACE_%u_PREFIX=%s",
-						i, ns->prefix));
+			/* expand variables, eg. ~%u/ can be useful */
+			str = t_str_new(256);
+			str_printfa(str, "NAMESPACE_%u_PREFIX=", i);
+			var_expand(str, ns->prefix, user, home);
+			env_put(str_c(str));
 		}
 		if (ns->inbox)
 			env_put(t_strdup_printf("NAMESPACE_%u_INBOX=1", i));
