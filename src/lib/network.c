@@ -216,7 +216,7 @@ void net_disconnect(int fd)
 }
 
 /* Set socket blocking/nonblocking */
-void net_set_nonblock(int fd, int nonblock)
+void net_set_nonblock(int fd __attr_unused__, int nonblock __attr_unused__)
 {
 #ifdef HAVE_FCNTL
 	if (fcntl(fd, F_SETFL, nonblock ? O_NONBLOCK : 0) < 0)
@@ -224,7 +224,7 @@ void net_set_nonblock(int fd, int nonblock)
 #endif
 }
 
-void net_set_cork(int fd, int cork)
+void net_set_cork(int fd __attr_unused__, int cork __attr_unused__)
 {
 #ifdef TCP_CORK
 	setsockopt(fd, SOL_TCP, TCP_CORK, &cork, sizeof(cork));

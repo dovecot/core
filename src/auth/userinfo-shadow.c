@@ -7,7 +7,6 @@
 
 #define _XOPEN_SOURCE 4
 #define _XOPEN_SOURCE_EXTENDED
-#define _XOPEN_VERSION 4
 #define _XPG4_2
 
 #include "common.h"
