@@ -120,6 +120,10 @@ void passdb_init(void)
 	if (strcasecmp(name, "pam") == 0)
 		passdb = &passdb_pam;
 #endif
+#ifdef PASSDB_CHECKPASSWORD
+	if (strcasecmp(name, "checkpassword") == 0)
+		passdb = &passdb_checkpassword;
+#endif
 #ifdef PASSDB_SHADOW
 	if (strcasecmp(name, "shadow") == 0)
 		passdb = &passdb_shadow;

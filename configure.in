@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 1.0-test13)
+AM_INIT_AUTOMAKE(dovecot, 1.0-test17)
 
 AM_MAINTAINER_MODE
 
@@ -88,6 +88,15 @@ AC_ARG_WITH(pam,
 		want_pam=yes
 	fi,
 	want_pam=yes)
+
+AC_ARG_WITH(checkpassword,
+[  --with-checkpassword    Build with checkpassword support (default)],
+	if test x$withval = xno; then
+		want_checkpassword=no
+	else
+		want_checkpassword=yes
+	fi,
+	want_checkpassword=yes)
 
 AC_ARG_WITH(bsdauth,
 [  --with-bsdauth          Build with BSD authentication support (default)],
@@ -984,6 +993,13 @@ if test $want_pam = yes; then
 			])
 		fi
 	])
+fi
+
+if test $want_checkpassword = yes; then
+        AC_DEFINE(USERDB_CHECKPASSWORD,, Build with checkpassword userdb support)
+        AC_DEFINE(PASSDB_CHECKPASSWORD,, Build with checkpassword passdb support)
+	userdb="$userdb checkpassword"
+	passdb="$passdb checkpassword"
 fi
 
 if test $want_bsdauth = yes; then

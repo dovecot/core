@@ -1,11 +1,12 @@
 pkglibexecdir = $(libexecdir)/dovecot
 
-pkglibexec_PROGRAMS = dovecot-auth
+pkglibexec_PROGRAMS = dovecot-auth checkpassword-reply
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-DAUTH_MODULE_DIR=\""$(moduledir)/auth"\" \
+	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	$(AUTH_CFLAGS)
 
 dovecot_auth_LDADD = \
@@ -37,6 +38,7 @@ dovecot_auth_SOURCES = \
 	passdb-passwd.c \
 	passdb-passwd-file.c \
 	passdb-pam.c \
+	passdb-checkpassword.c \
 	passdb-shadow.c \
 	passdb-vpopmail.c \
 	passdb-mysql.c \
@@ -70,3 +72,9 @@ noinst_HEADERS = \
 	password-scheme.h \
 	userdb.h \
 	userdb-vpopmail.h
+
+checkpassword_reply_LDADD = \
+	../lib/liblib.a
+
+checkpassword_reply_sources =
+	checkpassword-reply.c
