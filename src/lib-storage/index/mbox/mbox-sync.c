@@ -248,7 +248,7 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 			"mbox sync: Expunged message reappeared in mailbox %s "
 			"(UID %u < %u)", sync_ctx->ibox->path, uid,
 			sync_ctx->hdr->next_uid);
-		ret = 0;
+		ret = 0; rec = NULL;
 	} else if (rec != NULL && rec->uid != uid) {
 		/* new UID in the middle of the mailbox - shouldn't happen */
 		mail_storage_set_critical(sync_ctx->ibox->box.storage,
@@ -802,18 +802,19 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		if (mail_ctx->pseudo)
 			uid = 0;
 
-		rec = NULL;
+		rec = NULL; ret = 1;
 		if (uid != 0) {
 			ret = mbox_sync_read_index_rec(sync_ctx, uid, &rec);
 			if (ret < 0)
 				return -1;
-			if (ret == 0)
-				uid = 0;
 		}
 
-		if (uid == 0 && !mail_ctx->pseudo &&
-		    (sync_ctx->delay_writes ||
-		     sync_ctx->idx_seq <= messages_count)) {
+		if (ret == 0) {
+			/* UID found but it's broken */
+			uid = 0;
+		} else if (uid == 0 && !mail_ctx->pseudo &&
+			   (sync_ctx->delay_writes ||
+			    sync_ctx->idx_seq <= messages_count)) {
 			/* If we can't use/store X-UID header, use MD5 sum.
 			   Also check for existing MD5 sums when we're actually
 			   able to write X-UIDs. */
