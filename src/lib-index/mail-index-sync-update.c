@@ -69,7 +69,10 @@ static void mail_index_sync_cache_expunge(struct mail_index_sync_map_ctx *ctx,
 		ctx->cache_locked = TRUE;
 	}
 
-	(void)mail_cache_delete(ctx->view->index->cache, cache_offset);
+	if (!MAIL_CACHE_IS_UNUSABLE(ctx->view->index->cache) &&
+	    ctx->view->map->hdr->cache_file_seq !=
+	    ctx->view->index->cache->hdr->file_seq)
+		(void)mail_cache_delete(ctx->view->index->cache, cache_offset);
 }
 
 static int sync_expunge(const struct mail_transaction_expunge *e, void *context)

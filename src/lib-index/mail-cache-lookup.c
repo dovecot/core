@@ -68,16 +68,22 @@ static int mail_cache_lookup_offset(struct mail_cache_view *view, uint32_t seq,
 }
 
 static int
-mail_cache_foreach_rec(struct mail_cache_view *view,
-		       const struct mail_cache_record *cache_rec,
+mail_cache_foreach_rec(struct mail_cache_view *view, uint32_t *offset,
 		       mail_cache_foreach_callback_t *callback, void *context)
 {
 	struct mail_cache *cache = view->cache;
+	const struct mail_cache_record *cache_rec;
 	size_t pos, next_pos, max_size;
 	unsigned int data_size;
 	uint32_t file_field;
 	unsigned int field;
 	int ret;
+
+	cache_rec = mail_cache_get_record(view->cache, *offset);
+	if (cache_rec == NULL) {
+		*offset = 0;
+		return 1;
+	}
 
 	max_size = cache_rec->size;
 	if (max_size < sizeof(*cache_rec) + sizeof(uint32_t)*2) {
@@ -102,6 +108,11 @@ mail_cache_foreach_rec(struct mail_cache_view *view,
 					file_field, cache->file_fields_count);
 				return -1;
 			}
+
+			/* field reading might have re-mmaped the file and
+			   caused cache_rec to break. need to get it again. */
+			cache_rec = mail_cache_get_record(view->cache, *offset);
+			i_assert(cache_rec != NULL);
 		}
 
 		field = cache->file_field_map[file_field];
@@ -127,13 +138,14 @@ mail_cache_foreach_rec(struct mail_cache_view *view,
 
 		pos = next_pos;
 	}
+
+	*offset = cache_rec->prev_offset;
 	return 1;
 }
 
 int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
                        mail_cache_foreach_callback_t *callback, void *context)
 {
-	const struct mail_cache_record *cache_rec;
 	uint32_t offset;
 	int ret;
 
@@ -150,22 +162,20 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 		view->cached_offset = offset;
 	}
 
-	cache_rec = mail_cache_get_record(view->cache, offset);
-	while (cache_rec != NULL) {
-		ret = mail_cache_foreach_rec(view, cache_rec,
+	while (offset != 0) {
+		ret = mail_cache_foreach_rec(view, &offset,
 					     callback, context);
 		if (ret <= 0)
 			return ret;
-		cache_rec = mail_cache_get_record(view->cache,
-						  cache_rec->prev_offset);
 	}
 
 	if (view->trans_seq1 <= seq && view->trans_seq2 >= seq &&
 	    mail_cache_transaction_lookup(view->transaction, seq, &offset)) {
-		cache_rec = mail_cache_get_record(view->cache, offset);
-		if (cache_rec != NULL) {
-			return mail_cache_foreach_rec(view, cache_rec,
-						      callback, context);
+		while (offset != 0) {
+			ret = mail_cache_foreach_rec(view, &offset,
+						     callback, context);
+			if (ret <= 0)
+				return ret;
 		}
 	}
 	return 1;
