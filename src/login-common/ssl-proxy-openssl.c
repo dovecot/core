@@ -392,6 +392,12 @@ static void ssl_proxy_destroy(struct ssl_proxy *proxy)
 	}
 }
 
+static RSA *ssl_gen_rsa_key(SSL *ssl __attr_unused__,
+			    int is_export __attr_unused__, int keylength)
+{
+	return RSA_generate_key(keylength, RSA_F4, NULL, NULL);
+}
+
 void ssl_proxy_init(void)
 {
 	const char *certfile, *keyfile, *paramfile;
@@ -423,6 +429,9 @@ void ssl_proxy_init(void)
 		i_fatal("Can't load private key file %s: %s",
 			keyfile, ssl_last_error());
 	}
+
+	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
+		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
 
         ssl_proxies = hash_create(default_pool, default_pool, 0, NULL, NULL);
 	ssl_initialized = TRUE;
