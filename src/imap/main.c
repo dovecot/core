@@ -14,7 +14,7 @@
 #include <syslog.h>
 
 #define IS_STANDALONE() \
-        (getenv("LOGGED_IN") == NULL)
+        (getenv("LOGGED_IN") == NULL && getenv("IMAPLOGINTAG") == NULL)
 
 struct ioloop *ioloop;
 unsigned int max_custom_flag_length, mailbox_check_interval;
@@ -128,6 +128,10 @@ static void main_init(void)
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY "CAPABILITY_STRING"] "
 			"Logged in as ", user, NULL));
+	} else if (getenv("IMAPLOGINTAG") != NULL) {
+		/* Support for mailfront */
+		client_send_line(client, t_strconcat(getenv("IMAPLOGINTAG"),
+						     " OK Logged in.", NULL));
 	}
 }
 
