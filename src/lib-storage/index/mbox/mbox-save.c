@@ -81,10 +81,33 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 					  ibox->index->mbox_path);
 		failed = TRUE;
 	} else {
-		if (!write_from_line(box->storage, fd, internal_date) ||
-		    !index_storage_save_into_fd(box->storage, fd,
-						ibox->index->mbox_path,
-						data, data_size)) {
+		if (pos > 0) {
+			/* make sure the file ends with \n */
+			if (lseek(fd, 0, pos-1) != pos-1)
+				failed = TRUE;
+			else {
+				char ch;
+
+				if (read(fd, &ch, 1) != 1)
+					failed = TRUE;
+				else if (ch != '\n') {
+					if (write_full(fd, &ch, 1) < 0)
+						failed = TRUE;
+				}
+			}
+		}
+
+		if (failed) {
+			/* don't bother separating the errors, it's very
+			   unlikely that this will happen */
+			mail_storage_set_critical(box->storage,
+						  "Error appending LF to mbox "
+						  "file %s: %m",
+						  ibox->index->mbox_path);
+		} else if (!write_from_line(box->storage, fd, internal_date) ||
+			   !index_storage_save_into_fd(box->storage, fd,
+						       ibox->index->mbox_path,
+						       data, data_size)) {
 			/* failed, truncate file back to original size */
 			(void)ftruncate(fd, pos);
 			failed = TRUE;
