@@ -22,7 +22,7 @@ pop3_LDADD = \
 	../lib-mail/libmail.a \
 	../lib-charset/libcharset.a \
 	../lib/liblib.a \
-	@LTLIBICONV@
+	$(LTLIBICONV)
 
 pop3_SOURCES = \
 	client.c \
