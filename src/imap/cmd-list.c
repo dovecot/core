@@ -29,15 +29,16 @@ mailbox_flags2str(enum mailbox_flags flags, enum mailbox_list_flags list_flags,
 		flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
 	}
 
-	str = t_strconcat((flags & MAILBOX_NOSELECT) ? " \\Noselect" : "",
-			  (flags & MAILBOX_NONEXISTENT) ? " \\NonExistent" : "",
-			  (flags & MAILBOX_PLACEHOLDER) ? " \\PlaceHolder" : "",
-			  (flags & MAILBOX_CHILDREN) ? " \\Children" : "",
-			  (flags & MAILBOX_NOCHILDREN) ? " \\NoChildren" : "",
-			  (flags & MAILBOX_NOINFERIORS) ? " \\NoInferiors" : "",
-			  (flags & MAILBOX_MARKED) ? " \\Marked" : "",
-			  (flags & MAILBOX_UNMARKED) ? " \\UnMarked" : "",
-			  NULL);
+	str = t_strconcat(
+		(flags & MAILBOX_NOSELECT) ? " \\Noselect" : "",
+		(flags & MAILBOX_NONEXISTENT) ? " \\NonExistent" : "",
+		(flags & MAILBOX_PLACEHOLDER) ? " \\PlaceHolder" : "",
+		(flags & MAILBOX_CHILDREN) ? " \\HasChildren" : "",
+		(flags & MAILBOX_NOCHILDREN) ? " \\HasNoChildren" : "",
+		(flags & MAILBOX_NOINFERIORS) ? " \\NoInferiors" : "",
+		(flags & MAILBOX_MARKED) ? " \\Marked" : "",
+		(flags & MAILBOX_UNMARKED) ? " \\UnMarked" : "",
+		NULL);
 
 	return *str == '\0' ? "" : str+1;
 }
