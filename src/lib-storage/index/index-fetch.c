@@ -23,7 +23,8 @@ static int index_fetch_body(MailIndexRecord *rec, FetchContext *ctx)
 		t_string_printfa(ctx->str, "BODY %s ", body);
 		return TRUE;
 	} else {
-		i_error("Couldn't generate BODY for UID %u (index %s)",
+		mail_storage_set_critical(ctx->storage,
+			"Couldn't generate BODY for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return FALSE;
 	}
@@ -39,7 +40,8 @@ static int index_fetch_bodystructure(MailIndexRecord *rec, FetchContext *ctx)
 				 bodystructure);
 		return TRUE;
 	} else {
-		i_error("Couldn't generate BODYSTRUCTURE for UID %u (index %s)",
+		mail_storage_set_critical(ctx->storage,
+			"Couldn't generate BODYSTRUCTURE for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return FALSE;
 	}
@@ -54,7 +56,8 @@ static int index_fetch_envelope(MailIndexRecord *rec, FetchContext *ctx)
 		t_string_printfa(ctx->str, "ENVELOPE (%s) ", envelope);
 		return TRUE;
 	} else {
-		i_error("Couldn't generate ENVELOPE for UID %u (index %s)",
+		mail_storage_set_critical(ctx->storage,
+			"Couldn't generate ENVELOPE for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return FALSE;
 	}
@@ -66,7 +69,8 @@ static int index_fetch_rfc822_size(MailIndexRecord *rec, FetchContext *ctx)
 
 	if (!imap_msgcache_get_rfc822(ctx->cache, NULL,
 				      &hdr_size, &body_size)) {
-		i_error("Couldn't get RFC822.SIZE for UID %u (index %s)",
+		mail_storage_set_critical(ctx->storage,
+			"Couldn't get RFC822.SIZE for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return FALSE;
 	}
@@ -109,7 +113,8 @@ static int index_fetch_send_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 
 	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf,
 				      &hdr_size, &body_size)) {
-		i_error("Couldn't get RFC822 for UID %u (index %s)",
+		mail_storage_set_critical(ctx->storage,
+			"Couldn't get RFC822 for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return FALSE;
 	}
@@ -135,7 +140,8 @@ static int index_fetch_send_rfc822_header(MailIndexRecord *rec,
 	const char *str;
 
 	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, &hdr_size, NULL)) {
-		i_error("Couldn't get RFC822.HEADER for UID %u (index %s)",
+		mail_storage_set_critical(ctx->storage,
+			"Couldn't get RFC822.HEADER for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return FALSE;
 	}
@@ -158,7 +164,8 @@ static int index_fetch_send_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 	const char *str;
 
 	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, NULL, &body_size)) {
-		i_error("Couldn't get RFC822.TEXT for UID %u (index %s)",
+		mail_storage_set_critical(ctx->storage,
+			"Couldn't get RFC822.TEXT for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return FALSE;
 	}
@@ -334,6 +341,7 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.box = box;
+	ctx.storage = box->storage;
 	ctx.cache = ibox->cache;
 	ctx.index = ibox->index;
 	ctx.custom_flags =
@@ -375,5 +383,5 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 			return FALSE;
 	}
 
-	return ret >= 0;
+	return ret > 0;
 }

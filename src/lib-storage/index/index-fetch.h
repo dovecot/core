@@ -3,6 +3,7 @@
 
 typedef struct {
 	Mailbox *box;
+	MailStorage *storage;
 	ImapMessageCache *cache;
 	MailIndex *index;
 	const char **custom_flags;
