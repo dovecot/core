@@ -64,8 +64,8 @@ int my_getpagesize(void);
 
 /* ctype.h isn't safe with signed chars,
    use our own instead if really needed */
-#define i_toupper(x) toupper((int) (unsigned char) (x))
-#define i_tolower(x) tolower((int) (unsigned char) (x))
+#define i_toupper(x) ((char) toupper((int) (unsigned char) (x)))
+#define i_tolower(x) ((char) tolower((int) (unsigned char) (x)))
 #define i_isalnum(x) isalnum((int) (unsigned char) (x))
 #define i_isalpha(x) isalpha((int) (unsigned char) (x))
 #define i_isascii(x) isascii((int) (unsigned char) (x))
