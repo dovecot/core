@@ -94,15 +94,54 @@ static void parse_content_language(const Rfc822Token *tokens,
 				   int count, void *context)
 {
         MessagePartBodyData *data = context;
-	const char *value;
+	TempString *str;
+	int quoted;
+
+	/* Content-Language: en-US, az-arabic (comments allowed) */
 
 	if (count <= 0)
 		return;
 
-	value = rfc822_tokens_get_value_quoted(tokens, count);
-	data->content_language = p_strdup(data->pool, value);
+	str = t_string_new(256);
 
-	/* FIXME: a,b,c -> "a" "b" "c" */
+	quoted = FALSE;
+	for (; count > 0; count--, tokens++) {
+		switch (tokens->token) {
+		case '(':
+			/* ignore comment */
+			break;
+		case ',':
+			/* list separator */
+			if (quoted) {
+				t_string_append_c(str, '"');
+				quoted = FALSE;
+			}
+			break;
+		default:
+			/* anything else goes as-is. only alphabetic characters
+			   and '-' is allowed, so anything else is error
+			   which we can deal with however we want. */
+			if (!quoted) {
+				if (str->len > 0)
+					t_string_append_c(str, ' ');
+				t_string_append_c(str, '"');
+				quoted = TRUE;
+			}
+
+			if (IS_TOKEN_STRING(tokens->token)) {
+				t_string_append_n(str, tokens->ptr,
+						  tokens->len);
+			} else {
+				t_string_append_c(str, tokens->token);
+			}
+			break;
+		}
+	}
+
+	if (quoted)
+		t_string_append_c(str, '"');
+
+	data->content_language = p_strdup(data->pool, str->str);
 }
 
 static void parse_header(MessagePart *part,
