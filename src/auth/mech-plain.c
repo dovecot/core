@@ -16,7 +16,7 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 			 const unsigned char *data, size_t data_size,
 			 mech_callback_t *callback)
 {
-	const char *authid, *authenid;
+	const char *authid, *authenid, *error;
 	char *pass;
 	size_t i, count, len;
 
@@ -60,11 +60,11 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 						      authenid);
 		}
 
-		if (!mech_fix_username(auth_request->user)) {
+		if (!mech_fix_username(auth_request->user, &error)) {
 			/* invalid username */
 			if (verbose) {
-				i_info("plain(%s): invalid username",
-				       get_log_prefix(auth_request));
+				i_info("plain(%s): %s",
+				       get_log_prefix(auth_request), error);
 			}
 			mech_auth_finish(auth_request, NULL, 0, FALSE);
 		} else {

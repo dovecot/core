@@ -27,6 +27,7 @@ mech_login_auth_continue(struct auth_request *auth_request,
 {
 	struct auth_client_request_reply reply;
 	static const char prompt2[] = "Password:";
+	const char *error;
 
 	auth_request->callback = callback;
 
@@ -34,10 +35,10 @@ mech_login_auth_continue(struct auth_request *auth_request,
 		auth_request->user =
 			p_strndup(auth_request->pool, data, data_size);
 
-		if (!mech_fix_username(auth_request->user)) {
+		if (!mech_fix_username(auth_request->user, &error)) {
 			if (verbose) {
-				i_info("login(%s): invalid username",
-				       get_log_prefix(auth_request));
+				i_info("login(%s): %s",
+				       get_log_prefix(auth_request), error);
 			}
 			mech_auth_finish(auth_request, NULL, 0, FALSE);
 			return TRUE;

@@ -253,15 +253,17 @@ void mech_auth_finish(struct auth_request *auth_request,
 	}
 }
 
-int mech_fix_username(char *username)
+int mech_fix_username(char *username, const char **error_r)
 {
 	unsigned char *p;
 
 	for (p = (unsigned char *)username; *p != '\0'; p++) {
 		if (username_translation[*p & 0xff] != 0)
 			*p = username_translation[*p & 0xff];
-		if (username_chars[*p & 0xff] == 0)
+		if (username_chars[*p & 0xff] == 0) {
+			*error_r = "Username contains disallowed characters";
 			return FALSE;
+		}
 	}
 
 	return TRUE;

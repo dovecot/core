@@ -130,7 +130,7 @@ static void rpa_server_response(struct rpa_auth_request *auth,
 
 static const unsigned char *
 rpa_check_message(const unsigned char *data, const unsigned char *end,
-		  char **error)
+		  const char **error)
 {
 	const unsigned char *p = data;
 	unsigned int len = 0;
@@ -178,7 +178,7 @@ rpa_check_message(const unsigned char *data, const unsigned char *end,
 }
 
 static int
-rpa_parse_token1(const void *data, size_t data_size, char **error)
+rpa_parse_token1(const void *data, size_t data_size, const char **error)
 {
 	const unsigned char *end = ((unsigned char *) data) + data_size;
 	const unsigned char *p;
@@ -249,7 +249,7 @@ rpa_parse_username(pool_t pool, const char *username)
 
 static int
 rpa_parse_token3(struct rpa_auth_request *auth, const void *data,
-		 size_t data_size, char **error)
+		 size_t data_size, const char **error)
 {
 	struct auth_request *auth_request = (struct auth_request *)auth;
 	const unsigned char *end = ((unsigned char *)data) + data_size;
@@ -426,8 +426,7 @@ mech_rpa_auth_phase1(struct auth_request *auth_request,
 	struct auth_client_request_reply reply;
 	const unsigned char *token2;
 	size_t token2_size;
-	const char *service;
-	char *error;
+	const char *service, *error;
 
 	if (!rpa_parse_token1(data, data_size, &error)) {
 		if (verbose) {
@@ -471,8 +470,8 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 	struct auth_client_request_reply reply;
 	unsigned char response[16];
 	const unsigned char *token4;
+	const char *error;
 	size_t token4_size;
-	char *error;
 
 	if (!rpa_parse_token3(auth, data, data_size, &error)) {
 		if (verbose) {
@@ -483,10 +482,10 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 		return TRUE;
 	}
 
-	if (!mech_fix_username(auth_request->user)) {
+	if (!mech_fix_username(auth_request->user, &error)) {
 		if (verbose) {
-			i_info("rpa(%s): invalid username",
-			       get_log_prefix(auth_request));
+			i_info("rpa(%s): %s",
+			       get_log_prefix(auth_request), error);
 		}
 		mech_auth_finish(auth_request, NULL, 0, FALSE);
 		return TRUE;

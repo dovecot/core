@@ -62,7 +62,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 	struct apop_auth_request *auth =
 		(struct apop_auth_request *)auth_request;
 	const unsigned char *tmp, *end, *username = NULL;
-	const char *str;
+	const char *str, *error;
 
 	auth_request->callback = callback;
 
@@ -115,10 +115,10 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 	tmp++;
 
 	auth_request->user = p_strdup(auth->pool, username);
-	if (!mech_fix_username(auth_request->user)) {
+	if (!mech_fix_username(auth_request->user, &error)) {
 		if (verbose) {
-			i_info("apop(%s): invalid username",
-			       get_log_prefix(auth_request));
+			i_info("apop(%s): %s",
+			       get_log_prefix(auth_request), error);
 		}
 		mech_auth_finish(auth_request, NULL, 0, FALSE);
 		return TRUE;

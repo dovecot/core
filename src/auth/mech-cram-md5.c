@@ -138,14 +138,12 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 		auth_request->user =
 			p_strdup(auth_request->pool, auth->username);
 
-		if (mech_fix_username(auth_request->user)) {
+		if (mech_fix_username(auth_request->user, &error)) {
 			passdb->lookup_credentials(&auth->auth_request,
 						   PASSDB_CREDENTIALS_CRAM_MD5,
 						   credentials_callback);
 			return TRUE;
 		}
-
-		error = "invalid username";
 	}
 
 	if (error == NULL)
