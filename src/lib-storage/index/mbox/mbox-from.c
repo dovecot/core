@@ -22,7 +22,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 {
 	const unsigned char *msg_start, *sender_end, *msg_end;
 	struct tm tm;
-	int i, timezone = 0, seen_timezone = FALSE;
+	int i, esc, timezone = 0, seen_timezone = FALSE;
 	time_t t;
 
 	*time_r = (time_t)-1;
@@ -33,6 +33,19 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	msg_end = msg + size;
 
 	/* get sender */
+	if (msg < msg_end && *msg == '"') {
+		/* "x y z"@domain - skip the quoted part */
+		esc = FALSE;
+		msg++;
+		while (msg < msg_end && (*msg != '"' || esc)) {
+			if (*msg == '\r' || *msg == '\n')
+				return -1;
+			esc = *msg == '\\';
+			msg++;
+		}
+		msg++;
+	} 
+
 	while (msg < msg_end && *msg != ' ') {
 		if (*msg == '\r' || *msg == '\n')
 			return -1;
