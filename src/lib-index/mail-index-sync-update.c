@@ -110,21 +110,20 @@ static int sync_append(const struct mail_index_record *rec, void *context)
 	}
 
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
-		if (map->records_count * sizeof(*rec) >
-		    buffer_get_used_size(map->buffer)) {
-			(void)buffer_append_space_unsafe(map->buffer,
-							 sizeof(*rec));
-			map->records =
-				buffer_get_modifyable_data(map->buffer, NULL);
-		}
+		i_assert(map->records_count * sizeof(*rec) ==
+			 buffer_get_used_size(map->buffer));
+		buffer_append(map->buffer, rec, sizeof(*rec));
+		map->records = buffer_get_modifyable_data(map->buffer, NULL);
 	} else {
-		i_assert(map->records_count * sizeof(*rec) <= map->mmap_size);
+		i_assert((map->records_count+1) * sizeof(*rec) <=
+			 map->mmap_size);
+		map->records[map->records_count] = *rec;
 	}
 
-	map->records[map->records_count++] = *rec;
 	map->hdr_copy.messages_count++;
 	map->hdr_copy.next_uid = rec->uid+1;
 	view->messages_count++;
+	map->records_count++;
 
 	mail_index_header_update_counts(&map->hdr_copy, 0, rec->flags);
 	mail_index_header_update_lowwaters(&map->hdr_copy, rec);
