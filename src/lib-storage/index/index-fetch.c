@@ -39,7 +39,9 @@ index_storage_fetch_init(struct mailbox *box,
 			return NULL;
 	}
 
-	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_SHARED))
+	/* WORKAROUND: Outlook (Express 6) fails with to read FETCH BODY[]
+	   if we send EXISTS/RECENT before it */
+	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_SHARED))
 		return NULL;
 
 	if (*update_seen &&
