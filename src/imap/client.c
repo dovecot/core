@@ -96,13 +96,23 @@ void client_disconnect_with_error(struct client *client, const char *msg)
 	client_disconnect(client);
 }
 
-void client_send_line(struct client *client, const char *data)
+int client_send_line(struct client *client, const char *data)
 {
-	if (client->output->closed)
-		return;
+	struct const_iovec iov[2];
 
-	(void)o_stream_send_str(client->output, data);
-	(void)o_stream_send(client->output, "\r\n", 2);
+	if (client->output->closed)
+		return -1;
+
+	iov[0].iov_base = data;
+	iov[0].iov_len = strlen(data);
+	iov[1].iov_base = "\r\n";
+	iov[1].iov_len = 2;
+
+	if (o_stream_sendv(client->output, iov, 2) < 0)
+		return -1;
+
+	return o_stream_get_buffer_used_size(client->output) <
+		CLIENT_OUTPUT_OPTIMAL_SIZE;
 }
 
 void client_send_tagline(struct client *client, const char *data)

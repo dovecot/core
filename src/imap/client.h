@@ -56,8 +56,9 @@ void client_destroy(struct client *client);
 void client_disconnect(struct client *client);
 void client_disconnect_with_error(struct client *client, const char *msg);
 
-/* Send a line of data to client */
-void client_send_line(struct client *client, const char *data);
+/* Send a line of data to client. Returns 1 if ok, 0 if buffer is getting full,
+   -1 if error */
+int client_send_line(struct client *client, const char *data);
 /* Send line of data to client, prefixed with client->tag */
 void client_send_tagline(struct client *client, const char *data);
 

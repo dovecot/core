@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2004 Timo Sirainen */
 
 #include "common.h"
 #include "str.h"
@@ -11,6 +11,21 @@
 enum {
 	_MAILBOX_LIST_HIDE_CHILDREN	= 0x1000000,
 	_MAILBOX_LIST_LISTEXT		= 0x0800000
+};
+
+struct cmd_list_context {
+	const char *ref;
+	const char *mask;
+	enum mailbox_list_flags list_flags;
+
+	struct namespace *ns;
+	struct mailbox_list_context *list_ctx;
+	struct imap_match_glob *glob;
+
+	unsigned int lsub:1;
+	unsigned int inbox:1;
+	unsigned int inbox_found:1;
+	unsigned int match_inbox:1;
 };
 
 static const char *
@@ -77,64 +92,69 @@ static int parse_list_flags(struct client *client, struct imap_arg *args,
 }
 
 static int
-list_namespace_mailboxes(struct client *client, struct imap_match_glob *glob,
-			 struct namespace *ns, struct mailbox_list_context *ctx,
-			 int lsub, int match_inbox,
-			 enum mailbox_list_flags list_flags)
+list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 {
 	struct mailbox_list *list;
 	const char *name;
 	string_t *str, *name_str;
-	int inbox_found = FALSE;
+	int ret;
 
 	t_push();
 	str = t_str_new(256);
 	name_str = t_str_new(256);
-	while ((list = mail_storage_mailbox_list_next(ctx)) != NULL) {
+	while ((list = mail_storage_mailbox_list_next(ctx->list_ctx)) != NULL) {
 		str_truncate(name_str, 0);
-		str_append(name_str, ns->prefix);
+		str_append(name_str, ctx->ns->prefix);
 		str_append(name_str, list->name);
 
-		if (ns->sep != ns->real_sep) {
+		if (ctx->ns->sep != ctx->ns->real_sep) {
                         char *p = str_c_modifyable(name_str);
 			for (; *p != '\0'; p++) {
-				if (*p == ns->real_sep)
-					*p = ns->sep;
+				if (*p == ctx->ns->real_sep)
+					*p = ctx->ns->sep;
 			}
 		}
 		name = str_c(name_str);
 
-		if (*ns->prefix != '\0') {
+		if (*ctx->ns->prefix != '\0') {
 			/* With masks containing '*' we do the checks here
 			   so prefix is included in matching */
-			if (glob != NULL &&
-			    imap_match(glob, name) != IMAP_MATCH_YES)
+			if (ctx->glob != NULL &&
+			    imap_match(ctx->glob, name) != IMAP_MATCH_YES)
 				continue;
 		} else if (strcasecmp(list->name, "INBOX") == 0) {
-			if (!ns->inbox)
+			if (!ctx->ns->inbox)
 				continue;
 
 			name = "INBOX";
-			inbox_found = TRUE;
+			ctx->inbox_found = TRUE;
 		}
 
 		str_truncate(str, 0);
-		str_printfa(str, "* %s (%s) \"%s\" ", lsub ? "LSUB" : "LIST",
-			    mailbox_flags2str(list->flags, list_flags),
-			    ns->sep_str);
+		str_printfa(str, "* %s (%s) \"%s\" ",
+			    ctx->lsub ? "LSUB" : "LIST",
+			    mailbox_flags2str(list->flags, ctx->list_flags),
+			    ctx->ns->sep_str);
 		imap_quote_append_string(str, name, FALSE);
-		client_send_line(client, str_c(str));
+		if (client_send_line(client, str_c(str)) == 0) {
+			/* buffer is full, continue later */
+			t_pop();
+			return 0;
+		}
 	}
 
-	if (!inbox_found && ns->inbox && match_inbox) {
+	if (!ctx->inbox_found && ctx->ns->inbox && ctx->match_inbox) {
 		/* INBOX always exists */
 		str_truncate(str, 0);
-		str_printfa(str, "* LIST () \"%s\" \"INBOX\"", ns->sep_str);
+		str_printfa(str, "* LIST (\\Unmarked) \"%s\" \"INBOX\"",
+			    ctx->ns->sep_str);
 		client_send_line(client, str_c(str));
 	}
 	t_pop();
 
-	return mail_storage_mailbox_list_deinit(ctx);
+	ret = mail_storage_mailbox_list_deinit(ctx->list_ctx);
+	ctx->list_ctx = NULL;
+	return ret < 0 ? -1 : 1;
 }
 
 static void skip_prefix(const char **prefix, const char **mask, int inbox)
@@ -153,130 +173,142 @@ static void skip_prefix(const char **prefix, const char **mask, int inbox)
 	}
 }
 
-static int list_mailboxes(struct client *client,
-			  const char *ref, const char *mask, int lsub,
-			  enum mailbox_list_flags list_flags)
+static void
+list_namespace_init(struct client *client, struct cmd_list_context *ctx)
 {
-	struct namespace *ns;
-	struct mailbox_list_context *ctx;
-	struct imap_match_glob *glob;
-	enum imap_match_result match;
+	struct namespace *ns = ctx->ns;
 	const char *cur_prefix, *cur_ref, *cur_mask;
+	enum imap_match_result match;
+	unsigned int count;
 	size_t len;
-	int inbox, match_inbox;
 
-	inbox = strncasecmp(ref, "INBOX", 5) == 0 ||
-		(*ref == '\0' && strncasecmp(mask, "INBOX", 5) == 0);
+	cur_prefix = ns->prefix;
+	cur_ref = ctx->ref;
+	cur_mask = ctx->mask;
 
-	for (ns = client->namespaces; ns != NULL; ns = ns->next) {
-		t_push();
-		cur_prefix = ns->prefix;
-		cur_ref = ref;
-		cur_mask = mask;
-		if (*ref != '\0') {
-			skip_prefix(&cur_prefix, &cur_ref, inbox);
+	if (*ctx->ref != '\0') {
+		skip_prefix(&cur_prefix, &cur_ref, ctx->inbox);
 
-			if (*cur_ref != '\0' && *cur_prefix != '\0') {
-				/* reference parameter didn't match with
-				   namespace prefix. skip this. */
-				t_pop();
-				continue;
-			}
+		if (*cur_ref != '\0' && *cur_prefix != '\0') {
+			/* reference parameter didn't match with
+			   namespace prefix. skip this. */
+			return;
 		}
-
-		if (*cur_ref == '\0' && *cur_prefix != '\0') {
-			skip_prefix(&cur_prefix, &cur_mask,
-				    inbox && cur_ref == ref);
-		}
-
-		glob = imap_match_init(pool_datastack_create(), mask,
-				       inbox && cur_ref == ref, ns->sep);
-		match_inbox = imap_match(glob, "INBOX") == IMAP_MATCH_YES;
-
-		if (*cur_ref != '\0' || *cur_prefix == '\0')
-			match = IMAP_MATCH_CHILDREN;
-		else {
-			len = strlen(cur_prefix);
-			if (cur_prefix[len-1] == ns->sep)
-				cur_prefix = t_strndup(cur_prefix, len-1);
-			match = ns->hidden ? IMAP_MATCH_NO :
-				imap_match(glob, cur_prefix);
-
-			if (match == IMAP_MATCH_YES) {
-				/* The prefix itself matches */
-				string_t *str = t_str_new(128);
-				str_printfa(str, "* LIST (%s) \"%s\" ",
-					mailbox_flags2str(MAILBOX_PLACEHOLDER,
-							  list_flags),
-					ns->sep_str);
-				len = strlen(ns->prefix);
-				imap_quote_append_string(str,
-					t_strndup(ns->prefix, len-1), FALSE);
-				client_send_line(client, str_c(str));
-			}
-		}
-
-		if (match >= 0) {
-			unsigned int count = 0;
-			if (*cur_prefix != '\0') {
-				/* we'll have to fix mask */
-				for (; *cur_prefix != '\0'; cur_prefix++) {
-					if (*cur_prefix == ns->sep)
-						count++;
-				}
-				if (count == 0)
-					count = 1;
-
-				while (count > 0) {
-					if (*cur_ref != '\0') {
-						while (*cur_ref != '\0' &&
-						       *cur_ref++ != ns->sep)
-							;
-					} else {
-						while (*cur_mask != '\0' &&
-						       *cur_mask != '*' &&
-						       *cur_mask != ns->sep)
-							cur_mask++;
-						if (*cur_mask == '*') {
-							cur_mask = "*";
-							break;
-						}
-						if (*cur_mask == '\0')
-							break;
-						cur_mask++;
-					}
-					count--;
-				}
-			}
-
-			if (*cur_mask != '*' || strcmp(mask, "*") == 0)
-				glob = NULL;
-
-			cur_ref = namespace_fix_sep(ns, cur_ref);
-			cur_mask = namespace_fix_sep(ns, cur_mask);
-
-			ctx = mail_storage_mailbox_list_init(ns->storage,
-							     cur_ref, cur_mask,
-							     list_flags);
-			if (list_namespace_mailboxes(client, glob, ns, ctx,
-						     lsub, match_inbox,
-						     list_flags) < 0) {
-				client_send_storage_error(client, ns->storage);
-				t_pop();
-				return -1;
-			}
-		}
-		t_pop();
 	}
 
-	return 0;
+	if (*cur_ref == '\0' && *cur_prefix != '\0') {
+		skip_prefix(&cur_prefix, &cur_mask,
+			    ctx->inbox && cur_ref == ctx->ref);
+	}
+
+	ctx->glob = imap_match_init(client->cmd_pool, ctx->mask,
+				    ctx->inbox && cur_ref == ctx->ref, ns->sep);
+
+	if (*cur_ref != '\0' || *cur_prefix == '\0')
+		match = IMAP_MATCH_CHILDREN;
+	else {
+		len = strlen(cur_prefix);
+		if (cur_prefix[len-1] == ns->sep)
+			cur_prefix = t_strndup(cur_prefix, len-1);
+		match = ns->hidden ? IMAP_MATCH_NO :
+			imap_match(ctx->glob, cur_prefix);
+
+		if (match == IMAP_MATCH_YES) {
+			/* The prefix itself matches */
+			string_t *str = t_str_new(128);
+			str_printfa(str, "* LIST (%s) \"%s\" ",
+				    mailbox_flags2str(MAILBOX_PLACEHOLDER,
+						      ctx->list_flags),
+				    ns->sep_str);
+			len = strlen(ns->prefix);
+			imap_quote_append_string(str,
+				t_strndup(ns->prefix, len-1), FALSE);
+			client_send_line(client, str_c(str));
+		}
+	}
+
+	if (match < 0)
+		return;
+
+	count = 0;
+	if (*cur_prefix != '\0') {
+		/* we'll have to fix mask */
+		for (; *cur_prefix != '\0'; cur_prefix++) {
+			if (*cur_prefix == ns->sep)
+					count++;
+		}
+		if (count == 0)
+			count = 1;
+
+		while (count > 0) {
+			if (*cur_ref != '\0') {
+				while (*cur_ref != '\0' &&
+				       *cur_ref++ != ns->sep)
+					;
+			} else {
+				while (*cur_mask != '\0' && *cur_mask != '*' &&
+				       *cur_mask != ns->sep)
+					cur_mask++;
+
+				if (*cur_mask == '*') {
+					cur_mask = "*";
+					break;
+				}
+				if (*cur_mask == '\0')
+					break;
+				cur_mask++;
+			}
+			count--;
+		}
+	}
+
+	ctx->match_inbox = imap_match(ctx->glob, "INBOX") == IMAP_MATCH_YES;
+
+	if (*cur_mask != '*' || strcmp(ctx->mask, "*") == 0) {
+		/* a) we don't have '*' in mask
+		   b) we want to display everything
+
+		   we don't need to do separate matching ourself */
+		ctx->glob = NULL;
+	}
+
+	cur_ref = namespace_fix_sep(ns, cur_ref);
+	cur_mask = namespace_fix_sep(ns, cur_mask);
+
+	ctx->list_ctx = mail_storage_mailbox_list_init(ns->storage,
+						       cur_ref, cur_mask,
+						       ctx->list_flags);
+}
+
+static int cmd_list_continue(struct client *client)
+{
+        struct cmd_list_context *ctx = client->cmd_context;
+	int ret;
+
+	for (; ctx->ns != NULL; ctx->ns = ctx->ns->next) {
+		if (ctx->list_ctx == NULL)
+			list_namespace_init(client, ctx);
+
+		if ((ret = list_namespace_mailboxes(client, ctx)) < 0) {
+			client_send_storage_error(client, ctx->ns->storage);
+			return TRUE;
+		}
+		if (ret == 0)
+			return FALSE;
+	}
+
+	client_send_tagline(client, !ctx->lsub ?
+			    "OK List completed." :
+			    "OK Lsub completed.");
+	return TRUE;
 }
 
 int _cmd_list_full(struct client *client, int lsub)
 {
 	struct namespace *ns;
 	struct imap_arg *args;
-        enum mailbox_list_flags list_flags;
+	enum mailbox_list_flags list_flags;
+        struct cmd_list_context *ctx;
 	const char *ref, *mask;
 
 	/* [(<options>)] <reference> <mailbox wildcards> */
@@ -323,14 +355,28 @@ int _cmd_list_full(struct client *client, int lsub)
 				"* LIST (\\Noselect) \"", ns->sep_str,
 				"\" \"\"", NULL));
 		}
+		client_send_tagline(client, "OK List completed.");
 	} else {
-		if (list_mailboxes(client, ref, mask, lsub, list_flags) < 0)
-			return TRUE;
-	}
+		ctx = p_new(client->cmd_pool, struct cmd_list_context, 1);
+		ctx->ref = ref;
+		ctx->mask = mask;
+		ctx->list_flags = list_flags;
+		ctx->lsub = lsub;
+		ctx->inbox = strncasecmp(ref, "INBOX", 5) == 0 ||
+			(*ref == '\0' && strncasecmp(mask, "INBOX", 5) == 0);
+		ctx->ns = client->namespaces;
 
-	client_send_tagline(client, !lsub ?
-			    "OK List completed." :
-			    "OK Lsub completed.");
+		client->cmd_context = ctx;
+		if (!cmd_list_continue(client)) {
+			/* unfinished */
+			client->command_pending = TRUE;
+			client->cmd_func = cmd_list_continue;
+			return FALSE;
+		}
+
+		client->cmd_context = NULL;
+		return TRUE;
+	}
 	return TRUE;
 }
 
