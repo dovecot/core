@@ -5,13 +5,11 @@
 #include "message-send.h"
 #include "message-size.h"
 
-#define OUTPUT_BUFFER_SIZE 1024
-
 int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 		 uoff_t virtual_skip, uoff_t max_virtual_size)
 {
-	unsigned char *msg, buf[OUTPUT_BUFFER_SIZE];
-	unsigned int i, size, pos;
+	unsigned char *msg;
+	unsigned int i, size;
 	int cr_skipped, add_cr;
 
 	if (msg_size->physical_size == 0 ||
@@ -24,13 +22,13 @@ int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 	if (msg_size->physical_size == msg_size->virtual_size) {
 		/* no need to kludge with CRs, we can use sendfile() */
 		io_buffer_skip(inbuf, virtual_skip);
-		return io_buffer_send_buf(outbuf, inbuf, max_virtual_size) > 0;
+		return io_buffer_send_iobuffer(outbuf, inbuf,
+					       max_virtual_size) > 0;
 	}
 
 	message_skip_virtual(inbuf, virtual_skip, NULL, &cr_skipped);
 
 	/* go through the message data and insert CRs where needed.  */
-	pos = 0;
 	while (io_buffer_read_data(inbuf, &msg, &size, 0) >= 0) {
 		add_cr = FALSE;
 		for (i = 0; i < size; i++) {
@@ -54,29 +52,13 @@ int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 			}
 		}
 
-		if (pos + i >= OUTPUT_BUFFER_SIZE) {
-			/* buffer is full, flush it */
-			if (io_buffer_send(outbuf, buf, pos) <= 0)
+		if (io_buffer_send(outbuf, msg, i) <= 0)
+			return FALSE;
+
+		if (add_cr) {
+			if (io_buffer_send(outbuf, "\r", 1) <= 0)
 				return FALSE;
-			pos = 0;
 		}
-
-		if (i >= OUTPUT_BUFFER_SIZE) {
-			/* data larger than buffer, send it directly */
-			if (io_buffer_send(outbuf, msg, i) <= 0)
-				return FALSE;
-
-			i_assert(pos == 0);
-		} else {
-			/* put the data into buffer */
-			memcpy(buf + pos, msg, i);
-			pos += i;
-
-			i_assert(pos < OUTPUT_BUFFER_SIZE);
-		}
-
-		if (add_cr)
-			buf[pos++] = '\r';
 
 		/* see if we've reached the limit */
 		if (max_virtual_size == 0)
@@ -85,9 +67,6 @@ int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
 		cr_skipped = TRUE;
 		io_buffer_skip(inbuf, i);
 	}
-
-	if (io_buffer_send(outbuf, buf, pos) <= 0)
-		return FALSE;
 
 	return TRUE;
 }
