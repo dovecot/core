@@ -246,7 +246,7 @@ rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 	const unsigned char *end = ((unsigned char *)data) + data_size;
 	const unsigned char *p;
 	unsigned int len;
-	const char *user;
+	const char *user, *realm;
 
 	p = rpa_check_message(data, end, error);
 	if (p == NULL)
@@ -265,7 +265,13 @@ rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 	}
 	p += 2;
 
-	user = t_strcut(t_strndup(p, len), '@');
+	user = t_strndup(p, len);
+	realm = strrchr(user, '@');
+	if ((realm == NULL) || (strcmp(realm + 1, my_hostname) != 0)) {
+		*error = "invalid realm";
+		return FALSE;
+	}
+	user = t_strdup_until(user, realm++);
 	p += len;
 
 	if (!auth_request_set_username(auth_request, user, error))
@@ -273,6 +279,8 @@ rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 
 	request->username_ucs2be = ucs2be_str(request->pool, auth_request->user,
 					      &request->username_len);
+	request->realm_ucs2be = ucs2be_str(request->pool, realm,
+					   &request->realm_len);
 
 	/* Read user challenge */
 	request->user_challenge_len = rpa_read_buffer(request->pool, &p, end,
@@ -459,8 +467,6 @@ mech_rpa_auth_phase1(struct auth_request *auth_request,
 
 	request->service_ucs2be = ucs2be_str(request->pool, service,
 					     &request->service_len);
-	request->realm_ucs2be = ucs2be_str(request->pool, my_hostname,
-					   &request->realm_len);
 
 	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
 			       token2, token2_size);
@@ -566,7 +572,8 @@ static struct auth_request *mech_rpa_auth_new(void)
 const struct mech_module mech_rpa = {
 	"RPA",
 
-	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
+	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE |
+		MECH_SEC_MUTUAL_AUTH,
 
 	MEMBER(passdb_need_plain) FALSE,
 	MEMBER(passdb_need_credentials) TRUE,
