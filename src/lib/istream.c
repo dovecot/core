@@ -39,7 +39,7 @@ ssize_t i_stream_read(struct istream *stream)
 	if (stream->closed)
 		return -1;
 
-	stream->disconnected = FALSE;
+	stream->eof = FALSE;
 	return _stream->read(_stream);
 }
 
@@ -79,7 +79,7 @@ void i_stream_seek(struct istream *stream, uoff_t v_offset)
 	if (stream->closed)
 		return;
 
-	stream->disconnected = FALSE;
+	stream->eof = FALSE;
 	_stream->seek(_stream, v_offset);
 }
 

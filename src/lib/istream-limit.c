@@ -55,7 +55,7 @@ static ssize_t _read(struct _istream *stream)
 			if (stream->skip == 0)
 				return -2;
 		}
-		stream->istream.disconnected = lstream->input->disconnected;
+		stream->istream.eof = lstream->input->eof;
 		stream->buffer = i_stream_get_data(lstream->input, &pos);
 	}
 

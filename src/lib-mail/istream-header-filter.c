@@ -129,7 +129,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		}
 	}
 
-	mstream->istream.istream.disconnected = mstream->input->disconnected;
+	mstream->istream.istream.eof = mstream->input->eof;
 	mstream->istream.buffer = buffer_get_data(mstream->hdr_buf, &pos);
 	ret = (ssize_t)(pos - mstream->istream.pos - mstream->istream.skip);
 	mstream->istream.pos = pos;
@@ -187,7 +187,7 @@ static ssize_t _read(struct _istream *stream)
 			if (stream->skip == 0)
 				return -2;
 		}
-		stream->istream.disconnected = mstream->input->disconnected;
+		stream->istream.eof = mstream->input->eof;
 		stream->buffer = i_stream_get_data(mstream->input, &pos);
 	}
 

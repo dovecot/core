@@ -18,6 +18,7 @@ static void _set_max_buffer_size(struct _iostream *stream __attr_unused__,
 
 static ssize_t _read(struct _istream *stream __attr_unused__)
 {
+	stream->istream.eof = TRUE;
 	return -1;
 }
 

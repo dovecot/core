@@ -36,7 +36,4 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset);
 /* Flush all buffering. Call if you modify the mbox. */
 void istream_raw_mbox_flush(struct istream *stream);
 
-/* Returns TRUE if we've read the whole mbox. */
-int istream_raw_mbox_is_eof(struct istream *stream);
-
 #endif

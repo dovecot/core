@@ -7,7 +7,7 @@ struct istream {
 	int stream_errno;
 	unsigned int mmaped:1; /* be careful when copying data */
 	unsigned int closed:1;
-	unsigned int disconnected:1;
+	unsigned int eof:1;
 
 	struct _istream *real_stream;
 };

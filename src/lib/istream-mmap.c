@@ -82,8 +82,10 @@ static ssize_t _read(struct _istream *stream)
 		return stream->pos - stream->skip;
 	}
 
-	if (stream->istream.v_offset >= mstream->v_size)
+	if (stream->istream.v_offset >= mstream->v_size) {
+		stream->istream.eof = TRUE;
 		return -1;
+	}
 
 	aligned_skip = stream->skip & ~mmap_pagemask;
 	if (aligned_skip == 0 && mstream->mmap_base != NULL) {

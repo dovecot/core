@@ -111,7 +111,7 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 {
 	/* get EOF */
 	(void)istream_raw_mbox_get_header_offset(sync_ctx->input);
-	if (istream_raw_mbox_is_eof(sync_ctx->input))
+	if (sync_ctx->input->eof)
 		return 0;
 
 	memset(mail_ctx, 0, sizeof(*mail_ctx));
@@ -826,7 +826,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		}
 	}
 
-	if (istream_raw_mbox_is_eof(sync_ctx->input)) {
+	if (sync_ctx->input->eof) {
 		/* rest of the messages in index don't exist -> expunge them */
 		while (sync_ctx->idx_seq <= messages_count)
 			mail_index_expunge(sync_ctx->t, sync_ctx->idx_seq++);
@@ -841,7 +841,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	uoff_t offset, padding, trailer_size;
 	int need_rewrite;
 
-	if (!istream_raw_mbox_is_eof(sync_ctx->input)) {
+	if (!sync_ctx->input->eof) {
 		i_assert(sync_ctx->need_space_seq == 0);
 		i_assert(sync_ctx->expunged_space == 0);
 		return 0;
@@ -938,7 +938,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 			sizeof(sync_ctx->base_uid_validity));
 	}
 
-	if (istream_raw_mbox_is_eof(sync_ctx->input) &&
+	if (sync_ctx->input->eof &&
 	    sync_ctx->next_uid != sync_ctx->hdr->next_uid) {
 		i_assert(sync_ctx->next_uid != 0);
 		mail_index_update_header(sync_ctx->t,
