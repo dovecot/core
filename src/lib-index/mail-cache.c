@@ -136,6 +136,7 @@ static int mail_cache_file_reopen(struct mail_cache *cache)
 static int mmap_verify_header(struct mail_cache *cache)
 {
 	struct mail_cache_header *hdr;
+	uint32_t used_file_size;
 
 	/* check that the header is still ok */
 	if (cache->mmap_length < sizeof(struct mail_cache_header)) {
@@ -156,28 +157,23 @@ static int mmap_verify_header(struct mail_cache *cache)
 		return 1;
 	}
 
-	cache->used_file_size = nbo_to_uint32(hdr->used_file_size);
-
 	/* only check the header if we're locked */
 	if (cache->locks == 0)
 		return 1;
 
-	if (cache->used_file_size < sizeof(struct mail_cache_header)) {
+	used_file_size = nbo_to_uint32(hdr->used_file_size);
+	if (used_file_size < sizeof(struct mail_cache_header)) {
 		mail_cache_set_corrupted(cache, "used_file_size too small");
 		return 0;
 	}
-	if ((cache->used_file_size % sizeof(uint32_t)) != 0) {
+	if ((used_file_size % sizeof(uint32_t)) != 0) {
 		mail_cache_set_corrupted(cache, "used_file_size not aligned");
 		return 0;
 	}
 
-	if (cache->used_file_size > cache->mmap_length) {
-		/* maybe a crash truncated the file - just fix it */
-		hdr->used_file_size = uint32_to_nbo(cache->mmap_length & ~3);
-		if (msync(cache->mmap_base, sizeof(*hdr), MS_SYNC) < 0) {
-			mail_cache_set_syscall_error(cache, "msync()");
-			return -1;
-		}
+	if (used_file_size > cache->mmap_length) {
+		mail_cache_set_corrupted(cache, "used_file_size too large");
+		return 0;
 	}
 	return 1;
 }
@@ -354,10 +350,6 @@ static int mail_cache_open_or_create_file(struct mail_cache *cache,
 		return -1;
 	}
 
-	if (cache->index->hdr->cache_file_seq != 0) {
-		// FIXME: clear cache_offsets in index file
-	}
-
 	mail_cache_file_close(cache);
 	cache->fd = dup(fd);
 
@@ -388,12 +380,15 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 	cache->fd = -1;
         cache->split_header_pool = pool_alloconly_create("Headers", 512);
 
-	/* we'll do anon-mmaping only if initially requested. if we fail
-	   because of out of disk space, we'll just let the main index code
-	   know it and fail. */
 	if (mail_cache_open_or_create_file(cache, &hdr) < 0) {
-		mail_cache_free(cache);
-		return NULL;
+		/* failed for some reason - doesn't really matter,
+		   just disable caching. */
+		mail_cache_file_close(cache);
+
+		i_free(cache->filepath);
+		cache->filepath = i_strdup_printf("(disabled cache for %s)",
+						  index->filepath);
+		cache->disabled = TRUE;
 	}
 
 	return cache;
@@ -423,15 +418,10 @@ int mail_cache_reset(struct mail_cache *cache)
 	struct mail_cache_header hdr;
 	int fd;
 
-	i_assert(cache->index->lock_type == F_WRLCK);
-
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.indexid = cache->index->indexid;
 	hdr.file_seq = cache->index->hdr->cache_file_seq + 1;
 	hdr.used_file_size = uint32_to_nbo(sizeof(hdr));
-	cache->used_file_size = sizeof(hdr);
-
-	// FIXME: update cache_offsets in index
 
 	fd = file_dotlock_open(cache->filepath, NULL, NULL,
 			       MAIL_CACHE_LOCK_TIMEOUT,
@@ -491,18 +481,11 @@ int mail_cache_lock(struct mail_cache *cache, int nonblock)
 			(void)mail_cache_unlock(cache);
 			return -1;
 		}
-#if 0 // FIXME
+
 		if (cache->hdr->file_seq != cache->index->hdr->cache_file_seq) {
-			/* we have the cache file locked and sync_id still
-			   doesn't match. it means we crashed between updating
-			   cache file and updating sync_id in index header.
-			   just update the sync_ids so they match. */
-			i_warning("Updating broken sync_id in cache file %s",
-				  cache->filepath);
-			cache->hdr->file_seq =
-				cache->index->hdr->cache_file_seq;
+			mail_cache_unlock(cache);
+			return 0;
 		}
-#endif
 	}
 	return ret;
 }
@@ -523,6 +506,18 @@ int mail_cache_unlock(struct mail_cache *cache)
 int mail_cache_is_locked(struct mail_cache *cache)
 {
 	return cache->locks > 0;
+}
+
+int mail_cache_need_reset(struct mail_cache *cache, uint32_t *new_file_seq_r)
+{
+	if (cache->hdr->file_seq != cache->index->hdr->cache_file_seq) {
+		if (mail_cache_lock(cache, TRUE) == 0) {
+			*new_file_seq_r = cache->index->hdr->cache_file_seq;
+			return TRUE;
+		}
+	}
+
+	return FALSE;
 }
 
 struct mail_cache_view *

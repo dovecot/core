@@ -20,6 +20,8 @@ const struct mail_transaction_type_map mail_transaction_type_map[] = {
 	  sizeof(struct mail_transaction_expunge) },
 	{ MAIL_TRANSACTION_FLAG_UPDATE, MAIL_INDEX_SYNC_TYPE_FLAGS,
 	  sizeof(struct mail_transaction_flag_update) },
+	{ MAIL_TRANSACTION_CACHE_RESET, 0,
+	  sizeof(struct mail_transaction_cache_reset) },
 	{ MAIL_TRANSACTION_CACHE_UPDATE, 0,
 	  sizeof(struct mail_transaction_cache_update) },
 	{ MAIL_TRANSACTION_HEADER_UPDATE, 0, 1 }, /* variable size, use 1 */
@@ -105,6 +107,13 @@ int mail_transaction_map(struct mail_index *index,
 			if (ret <= 0)
 				break;
 		}
+		break;
+	}
+	case MAIL_TRANSACTION_CACHE_RESET: {
+		const struct mail_transaction_cache_reset *u = data;
+
+		if (map->cache_reset != NULL)
+			ret = map->cache_reset(u, context);
 		break;
 	}
 	case MAIL_TRANSACTION_CACHE_UPDATE: {

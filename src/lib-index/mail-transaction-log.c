@@ -982,6 +982,19 @@ static int log_append_buffer(struct mail_transaction_log_file *file,
 	return 0;
 }
 
+static const buffer_t *get_cache_reset_buf(struct mail_index_transaction *t)
+{
+	struct mail_transaction_cache_reset u;
+	buffer_t *buf;
+
+	memset(&u, 0, sizeof(u));
+	u.new_file_seq = t->new_cache_file_seq;
+
+	buf = buffer_create_static(pool_datastack_create(), sizeof(u));
+	buffer_append(buf, &u, sizeof(u));
+	return buf;
+}
+
 static const buffer_t *
 log_get_hdr_update_buffer(struct mail_index_transaction *t)
 {
@@ -1087,6 +1100,11 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	if (t->updates != NULL && ret == 0) {
 		ret = log_append_buffer(file, t->updates, NULL,
 					MAIL_TRANSACTION_FLAG_UPDATE,
+					view->external);
+	}
+	if (t->new_cache_file_seq != 0) {
+		ret = log_append_buffer(file, get_cache_reset_buf(t), NULL,
+					MAIL_TRANSACTION_CACHE_RESET,
 					view->external);
 	}
 	if (t->cache_updates != NULL && ret == 0) {

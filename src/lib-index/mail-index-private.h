@@ -124,6 +124,12 @@ void mail_index_unmap(struct mail_index *index, struct mail_index_map *map);
 struct mail_index_map *
 mail_index_map_to_memory(struct mail_index *index, struct mail_index_map *map);
 
+int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
+			   struct mail_index_map **map_r,
+			   const struct mail_index_record **rec_r);
+
+void mail_index_reset_cache(struct mail_index_transaction *t,
+			    uint32_t new_file_seq);
 void mail_index_update_cache(struct mail_index_transaction *t,
 			     uint32_t seq, uint32_t offset);
 

@@ -160,9 +160,9 @@ int mail_index_get_header(struct mail_index_view *view,
 	return 0;
 }
 
-static int mail_index_lookup_int(struct mail_index_view *view, uint32_t seq,
-				 struct mail_index_map **map_r,
-				 const struct mail_index_record **rec_r)
+int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
+			   struct mail_index_map **map_r,
+			   const struct mail_index_record **rec_r)
 {
 	struct mail_index_map *map;
 	const struct mail_index_record *rec, *n_rec;
@@ -218,7 +218,7 @@ int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
 {
 	struct mail_index_map *map;
 
-	return mail_index_lookup_int(view, seq, &map, rec_r);
+	return mail_index_lookup_full(view, seq, &map, rec_r);
 }
 
 int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
@@ -242,7 +242,7 @@ int mail_index_lookup_extra(struct mail_index_view *view, uint32_t seq,
 	uint32_t offset;
 	int ret;
 
-	if ((ret = mail_index_lookup_int(view, seq, &map, &rec)) < 0)
+	if ((ret = mail_index_lookup_full(view, seq, &map, &rec)) < 0)
 		return -1;
 
 	if (rec == NULL) {

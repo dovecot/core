@@ -5,6 +5,8 @@
 #include "byteorder.h"
 #include "mail-cache-private.h"
 
+#define CACHE_PREFETCH 1024
+
 const char *
 mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx)
 {
@@ -16,7 +18,7 @@ mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx)
 	if (offset == 0)
 		return NULL;
 
-	if (mail_cache_mmap_update(cache, offset, 1024) < 0)
+	if (mail_cache_mmap_update(cache, offset, CACHE_PREFETCH) < 0)
 		return NULL;
 
 	if (offset + sizeof(data_size) > cache->mmap_length) {
@@ -36,8 +38,10 @@ mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx)
 		return NULL;
 	}
 
-	if (mail_cache_mmap_update(cache, offset, data_size) < 0)
-		return NULL;
+	if (data_size + sizeof(data_size) > CACHE_PREFETCH) {
+		if (mail_cache_mmap_update(cache, offset, data_size) < 0)
+			return NULL;
+	}
 
 	if (offset + data_size > cache->mmap_length) {
 		mail_cache_set_corrupted(cache, "Header %u points outside file",
@@ -109,7 +113,6 @@ struct mail_cache_record *
 mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 		      int index_offset)
 {
-#define CACHE_PREFETCH 1024
 	struct mail_cache_record *cache_rec;
 	size_t size;
 
@@ -164,14 +167,22 @@ mail_cache_lookup(struct mail_cache_view *view, uint32_t seq,
 		  enum mail_cache_field fields)
 {
 	const struct mail_index_record *rec;
+	struct mail_index_map *map;
 
 	if (mail_cache_transaction_autocommit(view, seq, fields) < 0)
 		return NULL;
-	/* FIXME: check cache_offset in transaction
-	   FIXME: if rec doesn't point to header record, the file seq may
-	   be different and the offset wrong */
-	if (mail_index_lookup(view->view, seq, &rec) < 0)
+
+	if (view->cache->disabled)
 		return NULL;
+
+	/* FIXME: check cache_offset in transaction */
+	if (mail_index_lookup_full(view->view, seq, &map, &rec) < 0)
+		return NULL;
+
+	if (map->hdr->cache_file_seq != view->cache->hdr->file_seq) {
+		/* FIXME: we should check if newer file is available? */
+		return NULL;
+	}
 
 	return mail_cache_get_record(view->cache, rec->cache_offset, TRUE);
 }

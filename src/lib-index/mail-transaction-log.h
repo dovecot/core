@@ -17,9 +17,10 @@ enum mail_transaction_type {
 	MAIL_TRANSACTION_EXPUNGE		= 0x00000001,
 	MAIL_TRANSACTION_APPEND			= 0x00000002,
 	MAIL_TRANSACTION_FLAG_UPDATE		= 0x00000004,
-	MAIL_TRANSACTION_CACHE_UPDATE		= 0x00000008,
-	MAIL_TRANSACTION_HEADER_UPDATE		= 0x00000010,
-	MAIL_TRANSACTION_EXTRA_REC_UPDATE	= 0x00000020,
+	MAIL_TRANSACTION_CACHE_RESET		= 0x00000008,
+	MAIL_TRANSACTION_CACHE_UPDATE		= 0x00000010,
+	MAIL_TRANSACTION_HEADER_UPDATE		= 0x00000020,
+	MAIL_TRANSACTION_EXTRA_REC_UPDATE	= 0x00000040,
 
 	MAIL_TRANSACTION_TYPE_MASK		= 0x0000ffff,
 
@@ -48,6 +49,10 @@ struct mail_transaction_flag_update {
 	keywords_mask_t add_keywords;
 	uint8_t remove_flags;
 	keywords_mask_t remove_keywords;
+};
+
+struct mail_transaction_cache_reset {
+	uint32_t new_file_seq;
 };
 
 struct mail_transaction_cache_update {

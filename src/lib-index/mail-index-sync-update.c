@@ -178,6 +178,19 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	return 1;
 }
 
+static int sync_cache_reset(const struct mail_transaction_cache_reset *u,
+			    void *context)
+{
+	struct mail_index_view *view = context;
+	uint32_t i;
+
+	view->map->hdr_copy.cache_file_seq = u->new_file_seq;
+
+	for (i = 0; i < view->messages_count; i++)
+		MAIL_INDEX_MAP_IDX(view->index, view->map, i)->cache_offset = 0;
+	return 1;
+}
+
 static int sync_cache_update(const struct mail_transaction_cache_update *u,
 			     void *context)
 {
@@ -374,5 +387,6 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 
 struct mail_transaction_map_functions mail_index_map_sync_funcs = {
 	sync_expunge, sync_append, sync_flag_update,
-	sync_cache_update, sync_header_update, sync_extra_rec_update
+	sync_cache_reset, sync_cache_update, sync_header_update,
+	sync_extra_rec_update
 };

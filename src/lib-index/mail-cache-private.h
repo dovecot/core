@@ -58,7 +58,6 @@ struct mail_cache {
 
 	void *mmap_base;
 	size_t mmap_length;
-	uint32_t used_file_size;
 
 	struct mail_cache_header *hdr;
 
@@ -74,6 +73,7 @@ struct mail_cache {
 
 	unsigned int mmap_refresh:1;
 	unsigned int silent:1;
+	unsigned int disabled:1;
 };
 
 struct mail_cache_view {

@@ -13,6 +13,8 @@ struct mail_transaction_map_functions {
 	int (*append)(const struct mail_index_record *rec, void *context);
 	int (*flag_update)(const struct mail_transaction_flag_update *u,
 			   void *context);
+	int (*cache_reset)(const struct mail_transaction_cache_reset *u,
+			    void *context);
 	int (*cache_update)(const struct mail_transaction_cache_update *u,
 			    void *context);
 	int (*header_update)(const struct mail_transaction_header_update *u,

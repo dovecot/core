@@ -22,6 +22,7 @@ struct mail_cache_transaction_ctx {
 	uint32_t first_seq, last_seq, prev_seq;
 	enum mail_cache_field prev_fields;
 	buffer_t *cache_marks;
+	uint32_t used_file_size;
 };
 
 static const unsigned char *null4[] = { 0, 0, 0, 0 };
@@ -44,6 +45,7 @@ int mail_cache_transaction_begin(struct mail_cache_view *view, int nonblock,
 	ctx->view = view;
 	ctx->trans = t;
 	ctx->cache_data = buffer_create_dynamic(system_pool, 8192, (size_t)-1);
+	ctx->used_file_size = nbo_to_uint32(ctx->cache->hdr->used_file_size);
 
 	view->cache->trans_ctx = ctx;
 	*ctx_r = ctx;
@@ -141,7 +143,7 @@ static int commit_all_changes(struct mail_cache_transaction_ctx *ctx)
 
 	if (cont * 100 / cache->index->hdr->messages_count >=
 	    COMPRESS_CONTINUED_PERCENTAGE &&
-	    cache->used_file_size >= COMPRESS_MIN_SIZE) {
+	    ctx->used_file_size >= COMPRESS_MIN_SIZE) {
 		/* too many continued rows, compress */
 		//FIXME:cache->index->set_flags |= MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE;
 	}
@@ -150,12 +152,14 @@ static int commit_all_changes(struct mail_cache_transaction_ctx *ctx)
 	return 0;
 }
 
-static int mail_cache_grow(struct mail_cache *cache, uint32_t size)
+static int
+mail_cache_grow(struct mail_cache_transaction_ctx *ctx, uint32_t size)
 {
+        struct mail_cache *cache = ctx->cache;
 	struct stat st;
 	uoff_t grow_size, new_fsize;
 
-	new_fsize = cache->used_file_size + size;
+	new_fsize = ctx->used_file_size + size;
 	grow_size = new_fsize / 100 * MAIL_CACHE_GROW_PERCENTAGE;
 	if (grow_size < 16384)
 		grow_size = 16384;
@@ -168,7 +172,7 @@ static int mail_cache_grow(struct mail_cache *cache, uint32_t size)
 		return -1;
 	}
 
-	if (cache->used_file_size + size <= (uoff_t)st.st_size) {
+	if (ctx->used_file_size + size <= (uoff_t)st.st_size) {
 		/* no need to grow, just update mmap */
 		if (mail_cache_mmap_update(cache, 0, 0) < 0)
 			return -1;
@@ -193,7 +197,7 @@ static uint32_t mail_cache_append_space(struct mail_cache_transaction_ctx *ctx,
 
 	i_assert((size & 3) == 0);
 
-	offset = ctx->cache->used_file_size;
+	offset = ctx->used_file_size;
 	if (offset >= 0x40000000) {
 		mail_index_set_error(ctx->cache->index,
 				     "Cache file too large: %s",
@@ -202,11 +206,11 @@ static uint32_t mail_cache_append_space(struct mail_cache_transaction_ctx *ctx,
 	}
 
 	if (offset + size > ctx->cache->mmap_length) {
-		if (mail_cache_grow(ctx->cache, size) < 0)
+		if (mail_cache_grow(ctx, size) < 0)
 			return 0;
 	}
 
-	ctx->cache->used_file_size += size;
+	ctx->used_file_size += size;
 	return offset;
 }
 
@@ -215,6 +219,7 @@ static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache *cache = ctx->cache;
 	struct mail_cache_record *cache_rec, *next;
 	const struct mail_index_record *rec;
+	struct mail_index_map *map;
 	uint32_t write_offset, update_offset;
 	const void *buf;
 	size_t size, buf_size;
@@ -226,9 +231,15 @@ static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 	ctx->cache_rec.size = uint32_to_nbo(size);
 
 	// FIXME: check cache_offset in transaction
-	ret = mail_index_lookup(ctx->view->view, ctx->prev_seq, &rec);
+	ret = mail_index_lookup_full(ctx->view->view, ctx->prev_seq,
+				     &map, &rec);
 	if (ret < 0)
 		return -1;
+
+	if (map->hdr->cache_file_seq != cache->hdr->file_seq) {
+		/* FIXME: we should check if newer file is available? */
+		ret = 0;
+	}
 
 	if (ret == 0) {
 		/* it's been expunged already, do nothing */
@@ -275,13 +286,17 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 {
 	int ret = 0;
 
+	if (ctx->cache->disabled) {
+		mail_cache_transaction_flush(ctx);
+		return 0;
+	}
+
 	if (ctx->prev_seq != 0) {
 		if (mail_cache_write(ctx) < 0)
 			return -1;
 	}
 
-	ctx->cache->hdr->used_file_size =
-		uint32_to_nbo(ctx->cache->used_file_size);
+	ctx->cache->hdr->used_file_size = uint32_to_nbo(ctx->used_file_size);
 
 	if (commit_all_changes(ctx) < 0)
 		ret = -1;
@@ -303,7 +318,7 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 
 	/* no need to actually modify the file - we just didn't update
 	   used_file_size */
-	cache->used_file_size = nbo_to_uint32(cache->hdr->used_file_size);
+	ctx->used_file_size = nbo_to_uint32(cache->hdr->used_file_size);
 
 	/* make sure we don't cache the headers */
 	for (i = 0; i < ctx->next_unused_header_lowwater; i++) {
@@ -532,9 +547,9 @@ int mail_cache_delete(struct mail_cache_transaction_ctx *ctx, uint32_t seq)
 	} while (cache_rec != NULL);
 
 	/* see if we've reached the max. deleted space in file */
-	max_del_space = cache->used_file_size / 100 * COMPRESS_PERCENTAGE;
+	max_del_space = ctx->used_file_size / 100 * COMPRESS_PERCENTAGE;
 	if (deleted_space >= max_del_space &&
-	    cache->used_file_size >= COMPRESS_MIN_SIZE) {
+	    ctx->used_file_size >= COMPRESS_MIN_SIZE) {
 		//FIXME:cache->index->set_flags |= MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE;
 	}
 

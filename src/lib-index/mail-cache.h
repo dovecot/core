@@ -81,13 +81,16 @@ int mail_cache_compress(struct mail_cache *cache);
 /* Reset the cache file, clearing all data. */
 int mail_cache_reset(struct mail_cache *cache);
 
-/* Explicitly lock the cache file. Returns 1 if ok, 0 if nonblock is TRUE and
-   we couldn't immediately get a lock, or -1 if error. */
+/* Explicitly lock the cache file. Returns -1 if error, 1 if ok,
+   0 if we couldn't lock (nonblock = TRUE or index file needs a cache reset) */
 int mail_cache_lock(struct mail_cache *cache, int nonblock);
 int mail_cache_unlock(struct mail_cache *cache);
 
 /* Returns TRUE if cache file is locked. */
 int mail_cache_is_locked(struct mail_cache *cache);
+
+/* Returns TRUE if index's cache_file_seq doesn't match the latest cache file */
+int mail_cache_need_reset(struct mail_cache *cache, uint32_t *new_file_seq_r);
 
 struct mail_cache_view *
 mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview);

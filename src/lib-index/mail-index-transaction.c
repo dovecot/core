@@ -474,6 +474,12 @@ static void mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
 	memcpy(seq_p+1, record, record_size);
 }
 
+void mail_index_reset_cache(struct mail_index_transaction *t,
+			    uint32_t new_file_seq)
+{
+	t->new_cache_file_seq = new_file_seq;
+}
+
 void mail_index_update_cache(struct mail_index_transaction *t,
 			     uint32_t seq, uint32_t offset)
 {
