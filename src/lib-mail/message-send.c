@@ -9,13 +9,14 @@
 
 off_t message_send(struct ostream *output, struct istream *input,
 		   const struct message_size *msg_size,
-		   uoff_t virtual_skip, uoff_t max_virtual_size, int *last_cr)
+		   uoff_t virtual_skip, uoff_t max_virtual_size, int *last_cr,
+		   int fix_nuls)
 {
 	const unsigned char *msg;
 	uoff_t old_limit, limit;
 	size_t i, size;
 	off_t ret;
-	int cr_skipped, add_cr;
+	int cr_skipped, add;
 
 	if (last_cr != NULL)
 		*last_cr = -1;
@@ -27,7 +28,7 @@ off_t message_send(struct ostream *output, struct istream *input,
 	if (max_virtual_size > msg_size->virtual_size - virtual_skip)
 		max_virtual_size = msg_size->virtual_size - virtual_skip;
 
-	if (msg_size->physical_size == msg_size->virtual_size) {
+	if (msg_size->physical_size == msg_size->virtual_size && !fix_nuls) {
 		/* no need to kludge with CRs, we can use sendfile() */
 		i_stream_skip(input, virtual_skip);
 
@@ -46,7 +47,7 @@ off_t message_send(struct ostream *output, struct istream *input,
 	ret = 0;
 	while (max_virtual_size > 0 &&
 	       i_stream_read_data(input, &msg, &size, 0) > 0) {
-		add_cr = FALSE;
+		add = '\0';
 		for (i = 0; i < size && max_virtual_size > 0; i++) {
 			max_virtual_size--;
 
@@ -54,9 +55,12 @@ off_t message_send(struct ostream *output, struct istream *input,
 				if ((i == 0 && !cr_skipped) ||
 				    (i > 0 && msg[i-1] != '\r')) {
 					/* missing CR */
-					add_cr = TRUE;
+					add = '\r';
 					break;
 				}
+			} else if (msg[i] == '\0') {
+				add = 128;
+				break;
 			}
 		}
 
@@ -64,11 +68,12 @@ off_t message_send(struct ostream *output, struct istream *input,
 		if (o_stream_send(output, msg, i) < 0)
 			return -1;
 
-		if (add_cr) {
+		if (add != '\0') {
 			ret++;
-			if (o_stream_send(output, "\r", 1) < 0)
+			if (o_stream_send(output, &add, 1) < 0)
 				return -1;
-			cr_skipped = TRUE;
+			cr_skipped = add == '\r';
+			if (add == 128) i++;
 		} else {
 			cr_skipped = i > 0 && msg[i-1] == '\r';
 		}

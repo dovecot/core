@@ -15,7 +15,10 @@ enum message_part_flags {
 	MESSAGE_PART_FLAG_TEXT			= 0x08,
 
 	/* content-transfer-encoding: binary */
-	MESSAGE_PART_FLAG_BINARY		= 0x10
+	MESSAGE_PART_FLAG_BINARY		= 0x10,
+
+	/* message part header or body contains NULs */
+	MESSAGE_PART_FLAG_HAS_NULS		= 0x20
 };
 
 struct message_part {

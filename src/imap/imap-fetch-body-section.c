@@ -27,6 +27,8 @@ struct fetch_header_field_context {
 	uoff_t skip, max_size;
 	const char *const *fields;
 	int (*match_func) (const char *const *, const char *, size_t);
+
+	unsigned int fix_nuls:1;
 };
 
 struct partial_cache {
@@ -103,7 +105,8 @@ static int fetch_body(struct imap_fetch_context *ctx,
 			       body->skip);
 
 	ret = message_send(ctx->output, stream, &body_size,
-			   skip_cr, body->max_size, &last_cr);
+			   skip_cr, body->max_size, &last_cr,
+			   !mail->has_no_nuls);
 	if (ret > 0) {
 		partial.cr_skipped = last_cr != 0;
 		partial.pos.physical_size =
@@ -189,6 +192,7 @@ static int fetch_header_append(struct fetch_header_field_context *ctx,
 			       const void *data, size_t size)
 {
 	const unsigned char *str = data;
+	size_t i;
 
 	if (ctx->skip > 0) {
 		if (ctx->skip >= size) {
@@ -206,14 +210,38 @@ static int fetch_header_append(struct fetch_header_field_context *ctx,
 		size = ctx->max_size - ctx->dest_size;
 	}
 
-	if (ctx->dest != NULL)
-		buffer_append(ctx->dest, str, size);
 	ctx->dest_size += size;
 
+	if (ctx->fix_nuls && (ctx->dest != NULL || ctx->output != NULL)) {
+		for (i = 0; i < size; ) {
+			if (str[i] != 0) {
+				i++;
+				continue;
+			}
+
+			/* NUL found, change it to #128 */
+			if (ctx->dest != NULL) {
+				buffer_append(ctx->dest, str, i);
+				buffer_append(ctx->dest, "\x80", 1);
+			} else {
+				if (o_stream_send(ctx->output, str, i) < 0 ||
+				    o_stream_send(ctx->output, "\x80", 1) < 0)
+					return FALSE;
+			}
+
+			str += i+1;
+			size -= i+1;
+			i = 0;
+		}
+	}
+
+	if (ctx->dest != NULL)
+		buffer_append(ctx->dest, str, size);
 	if (ctx->output != NULL) {
 		if (o_stream_send(ctx->output, str, size) < 0)
 			return FALSE;
 	}
+
 	return ctx->dest_size < ctx->max_size;
 }
 
@@ -272,7 +300,7 @@ static int fetch_header_fields(struct istream *input, const char *section,
 /* fetch wanted headers from given data */
 static int fetch_header_from(struct imap_fetch_context *ctx,
 			     struct istream *input,
-			     const struct message_size *size,
+			     const struct message_size *size, struct mail *mail,
 			     const struct imap_fetch_body_data *body,
 			     const char *header_section)
 {
@@ -292,7 +320,8 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 		if (o_stream_send_str(ctx->output, str) < 0)
 			return FALSE;
 		return message_send(ctx->output, input, size,
-				    body->skip, body->max_size, NULL) >= 0;
+				    body->skip, body->max_size, NULL,
+				    !mail->has_no_nuls) >= 0;
 	}
 
 	/* partial headers - copy the wanted fields into memory, inserting
@@ -302,6 +331,7 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 	memset(&hdr_ctx, 0, sizeof(hdr_ctx));
 	hdr_ctx.skip = body->skip;
 	hdr_ctx.max_size = body->max_size;
+	hdr_ctx.fix_nuls = !mail->has_no_nuls;
 
 	failed = FALSE;
 	start_offset = input->v_offset;
@@ -366,7 +396,8 @@ static int fetch_header(struct imap_fetch_context *ctx, struct mail *mail,
 	if (stream == NULL)
 		return FALSE;
 
-	return fetch_header_from(ctx, stream, &hdr_size, body, body->section);
+	return fetch_header_from(ctx, stream, &hdr_size,
+				 mail, body, body->section);
 }
 
 /* Find message_part for section (eg. 1.3.4) */
@@ -443,7 +474,8 @@ static int fetch_part_body(struct imap_fetch_context *ctx,
 			       &partial, stream, part->physical_pos +
 			       part->header_size.physical_size, body->skip);
 	ret = message_send(ctx->output, stream, &part->body_size,
-			   skip_cr, body->max_size, &last_cr);
+			   skip_cr, body->max_size, &last_cr,
+			   !mail->has_no_nuls);
 	if (ret > 0) {
 		partial.cr_skipped = last_cr != 0;
 		partial.pos.physical_size =
@@ -475,7 +507,7 @@ static int fetch_part(struct imap_fetch_context *ctx, struct mail *mail,
 	    strcmp(section, "MIME") == 0) {
 		i_stream_seek(stream, part->physical_pos);
 		return fetch_header_from(ctx, stream, &part->header_size,
-					 body, section);
+					 mail, body, section);
 	}
 
 	i_warning("BUG: Accepted invalid section from user: '%s'",

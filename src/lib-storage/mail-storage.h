@@ -337,6 +337,8 @@ struct mail {
 	unsigned int uid;
 
 	unsigned int seen_updated:1; /* if update_seen was TRUE */
+	unsigned int has_nuls:1; /* message data is known to contain NULs */
+	unsigned int has_no_nuls:1; /* -''- known to not contain NULs */
 
 	const struct mail_full_flags *(*get_flags)(struct mail *mail);
 	const struct message_part *(*get_parts)(struct mail *mail);

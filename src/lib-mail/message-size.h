@@ -9,12 +9,14 @@ struct message_size {
 
 /* Calculate size of message header. Leave the input point to first
    character in body. */
-void message_get_header_size(struct istream *input, struct message_size *hdr);
+void message_get_header_size(struct istream *input, struct message_size *hdr,
+			     int *has_nuls);
 /* Calculate size of message body. Read only max_virtual_size virtual bytes,
    if you want it unlimited, use (uoff_t)-1. If last_cr is not NULL, it's set
    to 1 if last character is CR, 2 if it's virtual CR. */
 void message_get_body_size(struct istream *input, struct message_size *body,
-			   uoff_t max_virtual_size, int *last_cr);
+			   uoff_t max_virtual_size, int *last_cr,
+			   int *has_nuls);
 
 /* Sum contents of src into dest. */
 void message_size_add(struct message_size *dest,

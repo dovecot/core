@@ -38,6 +38,8 @@ struct message_header_parser_ctx {
 	string_t *name;
 	buffer_t *value_buf;
 	size_t skip;
+
+	int has_nuls;
 };
 
 static struct message_part *
@@ -46,12 +48,12 @@ message_parse_part(struct istream *input,
 
 static struct message_part *
 message_parse_body(struct istream *input, struct message_boundary *boundaries,
-		   struct message_size *body_size);
+		   struct message_size *body_size, int *has_nuls);
 
 static struct message_part *
 message_skip_boundary(struct istream *input,
 		      struct message_boundary *boundaries,
-		      struct message_size *boundary_size);
+		      struct message_size *boundary_size, int *has_nuls);
 
 static void message_size_add_part(struct message_size *dest,
 				  struct message_part *part)
@@ -138,6 +140,7 @@ message_parse_multipart(struct istream *input,
 {
 	struct message_part *parent_part, *next_part, *part;
 	struct message_boundary *b;
+	int has_nuls;
 
 	/* multipart message. add new boundary */
 	b = t_new(struct message_boundary, 1);
@@ -155,7 +158,9 @@ message_parse_multipart(struct istream *input,
 	/* skip the data before the first boundary */
 	parent_part = parser_ctx->part;
 	next_part = message_skip_boundary(input, parser_ctx->boundaries,
-					  &parent_part->body_size);
+					  &parent_part->body_size, &has_nuls);
+	if (has_nuls)
+		parent_part->flags |= MESSAGE_PART_FLAG_HAS_NULS;
 
 	/* now, parse the parts */
 	while (next_part == parent_part) {
@@ -165,6 +170,11 @@ message_parse_multipart(struct istream *input,
                 parser_ctx->part = part;
 		next_part = message_parse_part(input, parser_ctx);
 
+		if ((part->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0) {
+			/* it also belongs to parent */
+			parent_part->flags |= MESSAGE_PART_FLAG_HAS_NULS;
+		}
+
 		/* update our size */
 		message_size_add_part(&parent_part->body_size, part);
 
@@ -173,7 +183,10 @@ message_parse_multipart(struct istream *input,
 
 		/* skip the boundary */
 		next_part = message_skip_boundary(input, parser_ctx->boundaries,
-						  &parent_part->body_size);
+						  &parent_part->body_size,
+						  &has_nuls);
+		if (has_nuls)
+			parent_part->flags |= MESSAGE_PART_FLAG_HAS_NULS;
 	}
 
 	/* remove boundary */
@@ -192,6 +205,7 @@ message_parse_part(struct istream *input, struct parser_context *parser_ctx)
 	struct message_header_line *hdr;
 	struct message_part *next_part, *part;
 	uoff_t hdr_size;
+	int has_nuls;
 
 	hdr_ctx = message_parse_header_init(input,
 					    &parser_ctx->part->header_size);
@@ -219,6 +233,8 @@ message_parse_part(struct istream *input, struct parser_context *parser_ctx)
 		parser_ctx->callback(parser_ctx->part, NULL,
 				     parser_ctx->context);
 	}
+	if (hdr_ctx->has_nuls)
+		parser_ctx->part->flags |= MESSAGE_PART_FLAG_HAS_NULS;
 	message_parse_header_deinit(hdr_ctx);
 
 	i_assert((parser_ctx->part->flags & MUTEX_FLAGS) != MUTEX_FLAGS);
@@ -263,23 +279,35 @@ message_parse_part(struct istream *input, struct parser_context *parser_ctx)
 		/* normal message, read until the next boundary */
 		part = parser_ctx->part;
 		next_part = message_parse_body(input, parser_ctx->boundaries,
-					       &part->body_size);
+					       &part->body_size, &has_nuls);
+		if (has_nuls)
+			part->flags |= MESSAGE_PART_FLAG_HAS_NULS;
+	}
+
+	if ((part->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0 &&
+	    part->parent != NULL) {
+		/* it also belongs to parent */
+		part->parent->flags |= MESSAGE_PART_FLAG_HAS_NULS;
 	}
 
 	return next_part;
 }
 
 static void message_skip_line(struct istream *input,
-			      struct message_size *msg_size, int skip_lf)
+			      struct message_size *msg_size, int skip_lf,
+			      int *has_nuls)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos;
 
 	startpos = 0;
+	*has_nuls = FALSE;
 
 	while (i_stream_read_data(input, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
-			if (msg[i] == '\n') {
+			if (msg[i] == '\0')
+				*has_nuls = TRUE;
+			else if (msg[i] == '\n') {
 				if (!skip_lf) {
 					if (i > 0 && msg[i-1] == '\r')
 						i--;
@@ -336,7 +364,8 @@ boundary_find(struct message_boundary *boundaries,
 static struct message_boundary *
 message_find_boundary(struct istream *input,
 		      struct message_boundary *boundaries,
-		      struct message_size *msg_size, int skip_over)
+		      struct message_size *msg_size, int skip_over,
+		      int *has_nuls)
 {
 	struct message_boundary *boundary;
 	const unsigned char *msg;
@@ -344,11 +373,15 @@ message_find_boundary(struct istream *input,
 
 	boundary = NULL;
 	missing_cr_count = startpos = line_start = 0;
+	*has_nuls = FALSE;
 
 	while (i_stream_read_data(input, &msg, &size, startpos) > 0) {
 		for (i = startpos; i < size; i++) {
-			if (msg[i] != '\n')
+			if (msg[i] != '\n') {
+				if (msg[i] == '\0')
+					*has_nuls = TRUE;
 				continue;
+			}
 
 			if (line_start != (size_t)-1 &&
 			    i >= line_start+2 && msg[line_start] == '-' &&
@@ -447,20 +480,22 @@ message_find_boundary(struct istream *input,
 
 static struct message_part *
 message_parse_body(struct istream *input, struct message_boundary *boundaries,
-		   struct message_size *msg_size)
+		   struct message_size *msg_size, int *has_nuls)
 {
 	struct message_boundary *boundary;
 	struct message_size body_size;
 
 	if (boundaries == NULL) {
-		message_get_body_size(input, &body_size, (uoff_t)-1, NULL);
+		message_get_body_size(input, &body_size,
+				      (uoff_t)-1, NULL, has_nuls);
 		message_size_add(msg_size, &body_size);
-		return NULL;
+		boundary = NULL;
 	} else {
 		boundary = message_find_boundary(input, boundaries,
-						 msg_size, FALSE);
-		return boundary == NULL ? NULL : boundary->part;
+						 msg_size, FALSE, has_nuls);
 	}
+
+	return boundary == NULL ? NULL : boundary->part;
 }
 
 /* skip data until next boundary is found. if it's end boundary,
@@ -468,7 +503,7 @@ message_parse_body(struct istream *input, struct message_boundary *boundaries,
 static struct message_part *
 message_skip_boundary(struct istream *input,
 		      struct message_boundary *boundaries,
-		      struct message_size *boundary_size)
+		      struct message_size *boundary_size, int *has_nuls)
 {
 	struct message_boundary *boundary;
 	const unsigned char *msg;
@@ -476,7 +511,7 @@ message_skip_boundary(struct istream *input,
 	int end_boundary;
 
 	boundary = message_find_boundary(input, boundaries,
-					 boundary_size, TRUE);
+					 boundary_size, TRUE, has_nuls);
 	if (boundary == NULL)
 		return NULL;
 
@@ -486,11 +521,12 @@ message_skip_boundary(struct istream *input,
 		end_boundary = msg[0] == '-' && msg[1] == '-';
 
 	/* skip the rest of the line */
-	message_skip_line(input, boundary_size, !end_boundary);
+	message_skip_line(input, boundary_size, !end_boundary, has_nuls);
 
 	if (end_boundary) {
 		/* skip the footer */
-		return message_parse_body(input, boundary->next, boundary_size);
+		return message_parse_body(input, boundary->next,
+					  boundary_size, has_nuls);
 	}
 
 	return boundary == NULL ? NULL : boundary->part;
@@ -615,7 +651,7 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 			if (colon_pos == UINT_MAX) {
 				/* header name is huge. just skip it. */
 				message_skip_line(ctx->input, ctx->hdr_size,
-						  TRUE);
+						  TRUE, &ctx->has_nuls);
 				continue;
 			}
 
@@ -645,14 +681,21 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 						/* end of headers, or error */
 						break;
 					}
+
+					if (msg[i] == '\0')
+						ctx->has_nuls = TRUE;
 				}
 			}
 		}
 
 		/* find '\n' */
 		for (i = startpos; i < parse_size; i++) {
-			if (msg[i] == '\n')
-				break;
+			if (msg[i] <= '\n') {
+				if (msg[i] == '\n')
+					break;
+				if (msg[i] == '\0')
+					ctx->has_nuls = TRUE;
+			}
 		}
 
 		if (i < parse_size) {

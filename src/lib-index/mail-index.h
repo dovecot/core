@@ -75,7 +75,12 @@ enum mail_index_mail_flag {
 	INDEX_MAIL_FLAG_DIRTY		= 0x0004,
 
 	/* Maildir: Mail file is in new/ dir instead of cur/ */
-	INDEX_MAIL_FLAG_MAILDIR_NEW	= 0x0008
+	INDEX_MAIL_FLAG_MAILDIR_NEW	= 0x0008,
+
+	/* Mail header or body is known to contain NUL characters. */
+	INDEX_MAIL_FLAG_HAS_NULS	= 0x0010,
+	/* Mail header or body is known to not contain NUL characters. */
+	INDEX_MAIL_FLAG_HAS_NO_NULS	= 0x0020
 };
 
 enum mail_lock_type {

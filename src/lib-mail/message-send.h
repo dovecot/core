@@ -10,7 +10,8 @@ struct message_size;
    known. Returns number of bytes sent, or -1 if error. */
 off_t message_send(struct ostream *output, struct istream *input,
 		   const struct message_size *msg_size,
-		   uoff_t virtual_skip, uoff_t max_virtual_size, int *last_cr);
+		   uoff_t virtual_skip, uoff_t max_virtual_size, int *last_cr,
+		   int fix_nuls);
 
 /* Skip number of virtual bytes from putfer. msg_size is updated if it's not
    NULL. If cr_skipped is TRUE and first character is \n, it's not treated as

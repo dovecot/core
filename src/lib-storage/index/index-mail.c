@@ -40,6 +40,15 @@ static struct message_part *get_cached_parts(struct index_mail *mail)
 		return NULL;
 	}
 
+	/* we know the NULs now, update them */
+	if ((part->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0) {
+		mail->mail.has_nuls = TRUE;
+		mail->mail.has_no_nuls = FALSE;
+	} else {
+		mail->mail.has_nuls = FALSE;
+		mail->mail.has_no_nuls = TRUE;
+	}
+
 	return part;
 }
 
@@ -261,6 +270,16 @@ static const struct message_part *get_parts(struct mail *_mail)
         index_mail_init_parse_header(mail);
 	data->parts = message_parse(mail->pool, data->stream,
 				    index_mail_parse_header, mail);
+
+	/* we know the NULs now, update them */
+	if ((data->parts->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0) {
+		_mail->has_nuls = TRUE;
+		_mail->has_no_nuls = FALSE;
+	} else {
+		_mail->has_nuls = FALSE;
+		_mail->has_no_nuls = TRUE;
+	}
+
 	return data->parts;
 }
 
@@ -411,13 +430,13 @@ static uoff_t get_size(struct mail *_mail)
 		return (uoff_t)-1;
 
 	if (hdr_phys_size == (uoff_t)-1) {
-		message_get_header_size(data->stream, &data->hdr_size);
+		message_get_header_size(data->stream, &data->hdr_size, NULL);
 		hdr_size = data->hdr_size.virtual_size;
 		data->hdr_size_set = TRUE;
 	}
 	if (body_size == (uoff_t)-1) {
 		message_get_body_size(data->stream, &data->body_size,
-				      (uoff_t)-1, NULL);
+				      (uoff_t)-1, NULL, NULL);
 		body_size = data->body_size.virtual_size;
 		data->body_size_set = TRUE;
 	}
@@ -534,7 +553,8 @@ static struct istream *get_stream(struct mail *_mail,
 
 	if (hdr_size != NULL) {
 		if (!data->hdr_size_set) {
-			message_get_header_size(data->stream, &data->hdr_size);
+			message_get_header_size(data->stream, &data->hdr_size,
+						NULL);
 			data->hdr_size_set = TRUE;
 		}
 
@@ -547,7 +567,7 @@ static struct istream *get_stream(struct mail *_mail,
 				      data->hdr_size.physical_size);
 
 			message_get_body_size(data->stream, &data->body_size,
-					      (uoff_t)-1, NULL);
+					      (uoff_t)-1, NULL, NULL);
 			data->body_size_set = TRUE;
 		}
 
@@ -618,7 +638,7 @@ static const char *get_special(struct mail *_mail, enum mail_fetch_field field)
 }
 
 static struct mail index_mail = {
-	0, 0, 0,
+	0, 0, 0, 0, 0,
 
 	get_flags,
 	get_parts,
@@ -657,6 +677,11 @@ int index_mail_next(struct index_mail *mail, struct mail_index_record *rec)
 
 	memset(data, 0, sizeof(*data));
 	p_clear(mail->pool);
+
+	mail->mail.has_nuls =
+		(rec->index_flags & INDEX_MAIL_FLAG_HAS_NULS) != 0;
+	mail->mail.has_no_nuls =
+		(rec->index_flags & INDEX_MAIL_FLAG_HAS_NO_NULS) != 0;
 
 	data->rec = rec;
 	data->size = (uoff_t)-1;

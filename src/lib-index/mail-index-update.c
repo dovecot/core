@@ -459,6 +459,13 @@ void mail_index_update_headers(struct mail_index_update *update,
 		if (part == NULL) {
 			part = message_parse(pool, input,
 					     update_header_cb, &ctx);
+			if ((part->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0) {
+				update->rec->index_flags |=
+					INDEX_MAIL_FLAG_HAS_NULS;
+			} else {
+				update->rec->index_flags |=
+					INDEX_MAIL_FLAG_HAS_NO_NULS;
+			}
 		} else {
 			/* cached, construct the bodystructure using it.
 			   also we need to parse the header.. */
