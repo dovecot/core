@@ -156,6 +156,8 @@ void auth_request_verify_plain(struct auth_request *request,
 	enum passdb_result result;
 	const char *cache_key;
 
+	request->mech_password = p_strdup(request->pool, password);
+
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
 	if (cache_key != NULL) {
 		if (passdb_cache_verify_plain(request, cache_key, password,
@@ -165,7 +167,6 @@ void auth_request_verify_plain(struct auth_request *request,
 		}
 	}
 
-	request->mech_password = p_strdup(request->pool, password);
 	request->private_callback.verify_plain = callback;
 	passdb->verify_plain(request, password,
 			     auth_request_verify_plain_callback);
