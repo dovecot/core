@@ -40,9 +40,12 @@ static struct timeout *to_index = NULL;
 static int index_storage_refcount = 0;
 
 void index_storage_init(struct index_storage *storage,
-			enum mail_storage_flags flags)
+			enum mail_storage_flags flags,
+			enum mail_storage_lock_method lock_method)
 {
 	storage->storage.flags = flags;
+	storage->storage.lock_method = lock_method;
+
 	ARRAY_CREATE(&storage->storage.module_contexts,
 		     storage->storage.pool, void *, 5);
 	index_storage_refcount++;
@@ -288,29 +291,30 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 {
 	enum mail_index_open_flags index_flags;
 	enum mail_index_lock_method lock_method = 0;
-	const char *str;
 
 	i_assert(name != NULL);
 
 	index_flags = MAIL_INDEX_OPEN_FLAG_CREATE;
 	if ((flags & MAILBOX_OPEN_FAST) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_FAST;
-	if (getenv("MMAP_DISABLE") != NULL)
+	if ((ibox->box.storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
 #ifndef MMAP_CONFLICTS_WRITE
-	if (getenv("MMAP_NO_WRITE") != NULL)
+	if ((ibox->box.storage->flags & MAIL_STORAGE_FLAG_MMAP_NO_WRITE) != 0)
 #endif
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE;
 
-	str = getenv("LOCK_METHOD");
-	if (str == NULL || strcmp(str, "fcntl") == 0)
+	switch (ibox->storage->storage.lock_method) {
+	case MAIL_STORAGE_LOCK_FCNTL:
 		lock_method = MAIL_INDEX_LOCK_FCNTL;
-	else if (strcmp(str, "flock") == 0)
+		break;
+	case MAIL_STORAGE_LOCK_FLOCK:
 		lock_method = MAIL_INDEX_LOCK_FLOCK;
-	else if (strcmp(str, "dotlock") == 0)
+		break;
+	case MAIL_STORAGE_LOCK_DOTLOCK:
 		lock_method = MAIL_INDEX_LOCK_DOTLOCK;
-	else
-		i_fatal("Unknown lock_method: %s", str);
+		break;
+	}
 
 	do {
 		ibox->box.storage = &ibox->storage->storage;
@@ -324,7 +328,8 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 
 		ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 		ibox->commit_log_file_seq = 0;
-		ibox->mail_read_mmaped = getenv("MAIL_READ_MMAPED") != NULL;
+		ibox->mail_read_mmaped = (ibox->box.storage->flags &
+					  MAIL_STORAGE_FLAG_MMAP_MAILS) != 0;
 
 		if (mail_index_open(index, index_flags, lock_method) < 0)
 			break;

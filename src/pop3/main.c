@@ -142,8 +142,9 @@ static void drop_privileges(void)
 static int main_init(void)
 {
         enum mail_storage_flags flags;
+        enum mail_storage_lock_method lock_method;
 	struct mail_storage *storage;
-	const char *mail;
+	const char *str, *mail;
 
 	lib_init_signals(sig_quit);
 
@@ -183,8 +184,29 @@ static int main_init(void)
 		flags |= MAIL_STORAGE_FLAG_FULL_FS_ACCESS;
 	if (getenv("DEBUG") != NULL)
 		flags |= MAIL_STORAGE_FLAG_DEBUG;
+	if (getenv("MMAP_DISABLE") != NULL)
+		flags |= MAIL_STORAGE_FLAG_MMAP_DISABLE;
+	if (getenv("MMAP_NO_WRITE") != NULL)
+		flags |= MAIL_STORAGE_FLAG_MMAP_NO_WRITE;
+	if (getenv("MAIL_READ_MMAPED") != NULL)
+		flags |= MAIL_STORAGE_FLAG_MMAP_MAILS;
+	if (getenv("MAIL_SAVE_CRLF") != NULL)
+		flags |= MAIL_STORAGE_FLAG_SAVE_CRLF;
+	if ((uidl_keymask & UIDL_MD5) != 0)
+		flags |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;
 
-	storage = mail_storage_create_with_data(mail, getenv("USER"), flags);
+	str = getenv("LOCK_METHOD");
+	if (str == NULL || strcmp(str, "fcntl") == 0)
+		lock_method = MAIL_STORAGE_LOCK_FCNTL;
+	else if (strcmp(str, "flock") == 0)
+		lock_method = MAIL_STORAGE_LOCK_FLOCK;
+	else if (strcmp(str, "dotlock") == 0)
+		lock_method = MAIL_STORAGE_LOCK_DOTLOCK;
+	else
+		i_fatal("Unknown lock_method: %s", str);
+
+	storage = mail_storage_create_with_data(mail, getenv("USER"),
+						flags, lock_method);
 	if (storage == NULL) {
 		/* failed */
 		if (mail != NULL && *mail != '\0')

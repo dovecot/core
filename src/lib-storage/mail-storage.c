@@ -70,7 +70,8 @@ void mail_storage_class_unregister(struct mail_storage *storage_class)
 
 struct mail_storage *
 mail_storage_create(const char *name, const char *data, const char *user,
-		    enum mail_storage_flags flags)
+		    enum mail_storage_flags flags,
+		    enum mail_storage_lock_method lock_method)
 {
 	struct mail_storage_list *list;
 
@@ -78,20 +79,23 @@ mail_storage_create(const char *name, const char *data, const char *user,
 
 	for (list = storages; list != NULL; list = list->next) {
 		if (strcasecmp(list->storage->name, name) == 0)
-			return list->storage->v.create(data, user, flags);
+			return list->storage->v.create(data, user, flags,
+						       lock_method);
 	}
 
 	return NULL;
 }
 
 struct mail_storage *
-mail_storage_create_default(const char *user, enum mail_storage_flags flags)
+mail_storage_create_default(const char *user, enum mail_storage_flags flags,
+			    enum mail_storage_lock_method lock_method)
 {
 	struct mail_storage_list *list;
 	struct mail_storage *storage;
 
 	for (list = storages; list != NULL; list = list->next) {
-		storage = list->storage->v.create(NULL, user, flags);
+		storage = list->storage->v.create(NULL, user, flags,
+						  lock_method);
 		if (storage != NULL)
 			return storage;
 	}
@@ -114,13 +118,14 @@ mail_storage_autodetect(const char *data, enum mail_storage_flags flags)
 
 struct mail_storage *
 mail_storage_create_with_data(const char *data, const char *user,
-			      enum mail_storage_flags flags)
+			      enum mail_storage_flags flags,
+			      enum mail_storage_lock_method lock_method)
 {
 	struct mail_storage *storage;
 	const char *p, *name;
 
 	if (data == NULL || *data == '\0')
-		return mail_storage_create_default(user, flags);
+		return mail_storage_create_default(user, flags, lock_method);
 
 	/* check if we're in the form of mailformat:data
 	   (eg. maildir:Maildir) */
@@ -129,11 +134,14 @@ mail_storage_create_with_data(const char *data, const char *user,
 
 	if (*p == ':') {
 		name = t_strdup_until(data, p);
-		storage = mail_storage_create(name, p+1, user, flags);
+		storage = mail_storage_create(name, p+1, user, flags,
+					      lock_method);
 	} else {
 		storage = mail_storage_autodetect(data, flags);
-		if (storage != NULL)
-			storage = storage->v.create(data, user, flags);
+		if (storage != NULL) {
+			storage = storage->v.create(data, user, flags,
+						    lock_method);
+		}
 	}
 
 	return storage;

@@ -44,7 +44,6 @@ struct mbox_save_context {
 
 	unsigned int synced:1;
 	unsigned int failed:1;
-	unsigned int save_crlf:1;
 };
 
 static char my_hostdomain[256] = "";
@@ -344,7 +343,6 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 		ctx->trans = t->ictx.trans;
 		ctx->append_offset = (uoff_t)-1;
 		ctx->headers = str_new(default_pool, 512);
-		ctx->save_crlf = getenv("MAIL_SAVE_CRLF") != NULL;
 		ctx->mail_offset = (uoff_t)-1;
 	}
 
@@ -396,7 +394,9 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 						      mbox_hide_headers_count,
 						      save_header_callback,
 						      ctx);
-		ctx->body_output = getenv("MAIL_SAVE_CRLF") != NULL ?
+		ctx->body_output =
+			(ctx->ibox->storage->storage.flags &
+			 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
 			o_stream_create_crlf(default_pool, ctx->output) :
 			o_stream_create_lf(default_pool, ctx->output);
 		if (ctx->ibox->mbox_save_md5 && ctx->synced)

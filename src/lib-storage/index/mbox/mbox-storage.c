@@ -243,7 +243,8 @@ static const char *create_root_dir(int debug)
 }
 
 static struct mail_storage *
-mbox_create(const char *data, const char *user, enum mail_storage_flags flags)
+mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
+	    enum mail_storage_lock_method lock_method)
 {
 	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	struct index_storage *storage;
@@ -338,7 +339,7 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags)
 	storage->index_dir = p_strdup(pool, home_expand(index_dir));
 	storage->user = p_strdup(pool, user);
 	storage->callbacks = p_new(pool, struct mail_storage_callbacks, 1);
-	index_storage_init(storage, flags);
+	index_storage_init(storage, flags, lock_method);
 	return &storage->storage;
 }
 
@@ -511,7 +512,7 @@ mbox_alloc(struct index_storage *storage, struct mail_index *index,
 
 	ibox->md5hdr_ext_idx =
 		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
-	if ((flags & MAILBOX_OPEN_KEEP_HEADER_MD5) != 0)
+	if ((storage->storage.flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0)
 		ibox->mbox_save_md5 = TRUE;
 	return ibox;
 }

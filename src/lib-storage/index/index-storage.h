@@ -134,7 +134,8 @@ void index_storage_unref(struct mail_index *index);
 void index_storage_destroy_unrefed(void);
 
 void index_storage_init(struct index_storage *storage,
-			enum mail_storage_flags flags);
+			enum mail_storage_flags flags,
+			enum mail_storage_lock_method lock_method);
 void index_storage_deinit(struct index_storage *storage);
 
 int index_storage_mailbox_init(struct index_mailbox *ibox,

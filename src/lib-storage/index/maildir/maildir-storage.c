@@ -32,7 +32,8 @@ static int verify_inbox(struct index_storage *storage);
 
 static struct mail_storage *
 maildir_create(const char *data, const char *user,
-	       enum mail_storage_flags flags)
+	       enum mail_storage_flags flags,
+	       enum mail_storage_lock_method lock_method)
 {
 	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	struct index_storage *storage;
@@ -131,7 +132,7 @@ maildir_create(const char *data, const char *user,
 	storage->control_dir = p_strdup(pool, home_expand(control_dir));
 	storage->user = p_strdup(pool, user);
 	storage->callbacks = p_new(pool, struct mail_storage_callbacks, 1);
-	index_storage_init(storage, flags);
+	index_storage_init(storage, flags, lock_method);
 
 	(void)verify_inbox(storage);
 	return &storage->storage;

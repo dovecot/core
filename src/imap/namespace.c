@@ -27,7 +27,8 @@ static void namespace_init_storage(struct namespace *ns)
 
 static struct namespace *
 namespace_add_env(pool_t pool, const char *data, unsigned int num,
-		  const char *user, enum mail_storage_flags flags)
+		  const char *user, enum mail_storage_flags flags,
+		  enum mail_storage_lock_method lock_method)
 {
         struct namespace *ns;
         const char *sep, *type, *prefix;
@@ -68,7 +69,8 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	ns->inbox = inbox;
 	ns->hidden = hidden;
 	ns->subscriptions = subscriptions;
-	ns->storage = mail_storage_create_with_data(data, user, flags);
+	ns->storage = mail_storage_create_with_data(data, user, flags,
+						    lock_method);
 	if (ns->storage == NULL) {
 		i_fatal("Failed to create storage for '%s' with data: %s",
 			ns->prefix, data);
@@ -83,8 +85,9 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 struct namespace *namespace_init(pool_t pool, const char *user)
 {
 	struct namespace *namespaces, *ns, **ns_p;
-        enum mail_storage_flags flags;
-	const char *mail, *data;
+	enum mail_storage_flags flags;
+        enum mail_storage_lock_method lock_method;
+	const char *str, *mail, *data;
 	unsigned int i;
 
 	flags = 0;
@@ -92,6 +95,24 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 		flags |= MAIL_STORAGE_FLAG_FULL_FS_ACCESS;
 	if (getenv("DEBUG") != NULL)
 		flags |= MAIL_STORAGE_FLAG_DEBUG;
+	if (getenv("MMAP_DISABLE") != NULL)
+		flags |= MAIL_STORAGE_FLAG_MMAP_DISABLE;
+	if (getenv("MMAP_NO_WRITE") != NULL)
+		flags |= MAIL_STORAGE_FLAG_MMAP_NO_WRITE;
+	if (getenv("MAIL_READ_MMAPED") != NULL)
+		flags |= MAIL_STORAGE_FLAG_MMAP_MAILS;
+	if (getenv("MAIL_SAVE_CRLF") != NULL)
+		flags |= MAIL_STORAGE_FLAG_SAVE_CRLF;
+
+	str = getenv("LOCK_METHOD");
+	if (str == NULL || strcmp(str, "fcntl") == 0)
+		lock_method = MAIL_STORAGE_LOCK_FCNTL;
+	else if (strcmp(str, "flock") == 0)
+		lock_method = MAIL_STORAGE_LOCK_FLOCK;
+	else if (strcmp(str, "dotlock") == 0)
+		lock_method = MAIL_STORAGE_LOCK_DOTLOCK;
+	else
+		i_fatal("Unknown lock_method: %s", str);
 
         namespaces = NULL; ns_p = &namespaces;
 
@@ -105,7 +126,8 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 			break;
 
 		t_push();
-		*ns_p = namespace_add_env(pool, data, i, user, flags);
+		*ns_p = namespace_add_env(pool, data, i, user, flags,
+					  lock_method);
 		t_pop();
 
 		ns_p = &(*ns_p)->next;
@@ -124,7 +146,8 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 	}
 
 	ns = p_new(pool, struct namespace, 1);
-	ns->storage = mail_storage_create_with_data(mail, user, flags);
+	ns->storage = mail_storage_create_with_data(mail, user, flags,
+						    lock_method);
 	if (ns->storage == NULL) {
 		if (mail != NULL && *mail != '\0')
 			i_fatal("Failed to create storage with data: %s", mail);

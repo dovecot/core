@@ -9,7 +9,25 @@ enum mail_storage_flags {
 	/* Print debugging information while initializing the storage */
 	MAIL_STORAGE_FLAG_DEBUG			= 0x01,
 	/* Allow full filesystem access with absolute or relative paths. */
-	MAIL_STORAGE_FLAG_FULL_FS_ACCESS	= 0x02
+	MAIL_STORAGE_FLAG_FULL_FS_ACCESS	= 0x02,
+	/* Don't try to mmap() files */
+	MAIL_STORAGE_FLAG_MMAP_DISABLE		= 0x04,
+	/* Don't try to write() to mmap()ed files. Required for the few
+	   OSes that don't have unified buffer cache
+	   (currently OpenBSD <= 3.5) */
+	MAIL_STORAGE_FLAG_MMAP_NO_WRITE		= 0x08,
+	/* Remember message headers' MD5 sum */
+	MAIL_STORAGE_FLAG_KEEP_HEADER_MD5	= 0x10,
+	/* Use mmap() for reading mail files. */
+	MAIL_STORAGE_FLAG_MMAP_MAILS		= 0x20,
+	/* Use CRLF linefeeds when saving mails. */
+	MAIL_STORAGE_FLAG_SAVE_CRLF		= 0x40
+};
+
+enum mail_storage_lock_method {
+	MAIL_STORAGE_LOCK_FCNTL,
+	MAIL_STORAGE_LOCK_FLOCK,
+	MAIL_STORAGE_LOCK_DOTLOCK
 };
 
 enum mailbox_open_flags {
@@ -19,9 +37,7 @@ enum mailbox_open_flags {
 	   (eg. when opening mailbox just for STATUS). */
 	MAILBOX_OPEN_FAST		= 0x02,
 	/* Don't reset MAIL_RECENT flags when syncing */
-	MAILBOX_OPEN_KEEP_RECENT	= 0x04,
-	/* Remember message headers' MD5 sum */
-	MAILBOX_OPEN_KEEP_HEADER_MD5	= 0x08
+	MAILBOX_OPEN_KEEP_RECENT	= 0x04
 };
 
 enum mailbox_list_flags {
@@ -205,14 +221,17 @@ void mail_storage_class_unregister(struct mail_storage *storage_class);
    hierarchy_sep overrides the default separator if it's not '\0'. */
 struct mail_storage *
 mail_storage_create(const char *name, const char *data, const char *user,
-		    enum mail_storage_flags flags);
+		    enum mail_storage_flags flags,
+		    enum mail_storage_lock_method lock_method);
 void mail_storage_destroy(struct mail_storage *storage);
 
 struct mail_storage *
-mail_storage_create_default(const char *user, enum mail_storage_flags flags);
+mail_storage_create_default(const char *user, enum mail_storage_flags flags,
+			    enum mail_storage_lock_method lock_method);
 struct mail_storage *
 mail_storage_create_with_data(const char *data, const char *user,
-			      enum mail_storage_flags flags);
+			      enum mail_storage_flags flags,
+			      enum mail_storage_lock_method lock_method);
 
 char mail_storage_get_hierarchy_sep(struct mail_storage *storage);
 

@@ -37,7 +37,6 @@ struct maildir_save_context {
 	time_t received_date;
 	uint32_t seq;
 
-	unsigned int save_crlf:1;
 	unsigned int failed:1;
 };
 
@@ -96,8 +95,6 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	ctx->tmpdir = p_strconcat(pool, ibox->path, "/tmp", NULL);
 	ctx->newdir = p_strconcat(pool, ibox->path, "/new", NULL);
 	ctx->curdir = p_strconcat(pool, ibox->path, "/cur", NULL);
-
-	ctx->save_crlf = getenv("MAIL_SAVE_CRLF") != NULL;
 	return ctx;
 }
 
@@ -141,7 +138,8 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 	ctx->input = input;
 
 	output = o_stream_create_file(ctx->fd, system_pool, 0, FALSE);
-	ctx->output = ctx->save_crlf ?
+	ctx->output = (ctx->ibox->storage->storage.flags &
+		       MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
 		o_stream_create_crlf(default_pool, output) :
 		o_stream_create_lf(default_pool, output);
 	o_stream_unref(output);

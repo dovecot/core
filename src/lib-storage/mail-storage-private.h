@@ -8,8 +8,10 @@
 extern unsigned int mail_storage_module_id;
 
 struct mail_storage_vfuncs {
-	struct mail_storage *(*create)(const char *data, const char *user,
-				       enum mail_storage_flags flags);
+	struct mail_storage *
+		(*create)(const char *data, const char *user,
+			  enum mail_storage_flags flags,
+			  enum mail_storage_lock_method lock_method);
 	void (*destroy)(struct mail_storage *storage);
 
 	int (*autodetect)(const char *data, enum mail_storage_flags flags);
@@ -59,6 +61,7 @@ struct mail_storage {
 
 	char *error;
 	enum mail_storage_flags flags;
+        enum mail_storage_lock_method lock_method;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	array_t ARRAY_DEFINE(module_contexts, void);

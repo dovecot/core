@@ -151,8 +151,6 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 	flags = 0;
 	if (no_flag_updates)
 		flags |= MAILBOX_OPEN_KEEP_RECENT;
-	if ((uidl_keymask & UIDL_MD5) != 0)
-		flags |= MAILBOX_OPEN_KEEP_HEADER_MD5;
 	client->mailbox = mailbox_open(storage, "INBOX", NULL, flags);
 	if (client->mailbox == NULL) {
 		i_error("Couldn't open INBOX: %s",

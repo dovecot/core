@@ -340,9 +340,12 @@ int main(int argc, char *argv[])
 	const char *auth_socket = DEFAULT_AUTH_SOCKET_PATH;
 	const char *destination, *mail;
         const struct var_expand_table *table;
+        enum mail_storage_flags flags;
+        enum mail_storage_lock_method lock_method;
 	struct mail_storage *storage;
 	struct istream *input;
 	int i, ret;
+	const char *str;
 
 	lib_init();
 	lib_init_signals(sig_quit);
@@ -402,8 +405,35 @@ int main(int argc, char *argv[])
         table = get_var_expand_table(destination, getenv("HOME"));
 	mail = expand_mail_env(mail, table);
 
+	flags = 0;
+	if (getenv("FULL_FILESYSTEM_ACCESS") != NULL)
+		flags |= MAIL_STORAGE_FLAG_FULL_FS_ACCESS;
+	if (getenv("DEBUG") != NULL)
+		flags |= MAIL_STORAGE_FLAG_DEBUG;
+	if (getenv("MMAP_DISABLE") != NULL)
+		flags |= MAIL_STORAGE_FLAG_MMAP_DISABLE;
+	if (getenv("MMAP_NO_WRITE") != NULL)
+		flags |= MAIL_STORAGE_FLAG_MMAP_NO_WRITE;
+	if (getenv("MAIL_READ_MMAPED") != NULL)
+		flags |= MAIL_STORAGE_FLAG_MMAP_MAILS;
+	if (getenv("MAIL_SAVE_CRLF") != NULL)
+		flags |= MAIL_STORAGE_FLAG_SAVE_CRLF;
+	/*FIXME:if ((uidl_keymask & UIDL_MD5) != 0)
+		flags |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;*/
+
+	str = getenv("LOCK_METHOD");
+	if (str == NULL || strcmp(str, "fcntl") == 0)
+		lock_method = MAIL_STORAGE_LOCK_FCNTL;
+	else if (strcmp(str, "flock") == 0)
+		lock_method = MAIL_STORAGE_LOCK_FLOCK;
+	else if (strcmp(str, "dotlock") == 0)
+		lock_method = MAIL_STORAGE_LOCK_DOTLOCK;
+	else
+		i_fatal("Unknown lock_method: %s", str);
+
 	/* FIXME: how should we handle namespaces? */
-	storage = mail_storage_create_with_data(mail, destination, 0);
+	storage = mail_storage_create_with_data(mail, destination,
+						flags, lock_method);
 	if (storage == NULL) {
 		i_fatal_status(EX_CONFIG,
 			"Failed to create storage for '%s' with mail '%s'",
