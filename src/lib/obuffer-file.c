@@ -640,6 +640,9 @@ static off_t _send_ibuffer(_OBuffer *outbuf, IBuffer *inbuf)
 	i_assert(inbuf->v_limit <= OFF_T_MAX);
 	i_assert(inbuf->v_offset <= inbuf->v_limit);
 
+	if (inbuf->v_offset == inbuf->v_limit)
+		return 0;
+
 	ret = o_buffer_sendfile(outbuf, inbuf);
 	if (ret >= 0 || outbuf->obuffer.buf_errno != EINVAL)
 		return ret;
