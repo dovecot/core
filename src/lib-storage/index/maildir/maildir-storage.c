@@ -143,6 +143,7 @@ static int maildir_is_valid_create_name(const char *name)
 
 	len = strlen(name);
 	if (len == 0 || name[0] == MAILDIR_FS_SEP ||
+	    name[len-1] == MAILDIR_FS_SEP ||
 	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
 		return FALSE;
 
@@ -157,7 +158,7 @@ static int maildir_is_valid_create_name(const char *name)
 
 static int maildir_is_valid_existing_name(const char *name)
 {
-	if (name[0] == '\0')
+	if (name[0] == '\0' || name[strlen(name)-1] == '/')
 		return FALSE;
 
 	if (full_filesystem_access)
