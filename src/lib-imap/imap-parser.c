@@ -505,7 +505,7 @@ int imap_parser_read_args(ImapParser *parser, unsigned int count,
 		/* error, abort */
 		*args = NULL;
 		return -1;
-	} else if ((!IS_UNFINISHED(parser) &&
+	} else if ((!IS_UNFINISHED(parser) && count > 0 &&
 		    parser->root_list->size >= count) || parser->eol) {
 		/* all arguments read / end of line. ARG_PARSE_NONE checks
 		   that last argument isn't only partially parsed. */
