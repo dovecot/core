@@ -4,7 +4,7 @@
 #include "buffer.h"
 #include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
-#include "mail-transaction-log.h"
+#include "mail-transaction-log-private.h"
 #include "mail-transaction-util.h"
 #include "mail-cache.h"
 
@@ -341,6 +341,17 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx->sync_dirty = sync_dirty;
 
 	ctx->view = mail_index_view_open(index);
+
+	if (index->hdr->log_file_seq == seq &&
+	    index->hdr->log_file_int_offset > offset) {
+		/* synced offset is greater than what we have available.
+		   the log sequences have gotten messed up. */
+		mail_transaction_log_file_set_corrupted(index->log->head,
+			"log_file_int_offset (%u) > log size (%"PRIuUOFF_T")",
+			seq, index->hdr->log_file_int_offset, offset);
+                mail_index_sync_rollback(ctx);
+		return -1;
+	}
 
 	if (mail_transaction_log_view_set(ctx->view->log_view,
 					  index->hdr->log_file_seq,
