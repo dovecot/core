@@ -10,6 +10,7 @@
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "auth-process.h"
+#include "log.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -252,20 +253,30 @@ static void auth_process_destroy(struct auth_process *p)
 static pid_t create_auth_process(struct auth_process_group *group)
 {
 	static char *argv[] = { NULL, NULL };
+	const char *prefix;
 	pid_t pid;
-	int fd[2], i;
+	int fd[2], log_fd, i;
 
 	/* create communication to process with a socket pair */
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) == -1) {
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) {
 		i_error("socketpair() failed: %m");
 		return -1;
 	}
 
-	pid = fork();
+	prefix = t_strdup_printf("auth(%s): ", group->set->name);
+	log_fd = log_create_pipe(prefix);
+	if (log_fd < 0)
+		pid = -1;
+	else {
+		pid = fork();
+		if (pid < 0)
+			i_error("fork() failed: %m");
+	}
+
 	if (pid < 0) {
 		(void)close(fd[0]);
 		(void)close(fd[1]);
-		i_error("fork() failed: %m");
+		(void)close(log_fd);
 		return -1;
 	}
 
@@ -275,28 +286,31 @@ static pid_t create_auth_process(struct auth_process_group *group)
 		fd_close_on_exec(fd[0], TRUE);
 		auth_process_new(pid, fd[0], group);
 		(void)close(fd[1]);
+		(void)close(log_fd);
 		return pid;
 	}
 
 	/* move master communication handle to 0 */
 	if (dup2(fd[1], 0) < 0)
-		i_fatal("login: dup2(0) failed: %m");
+		i_fatal("auth: dup2(stdin) failed: %m");
 
 	(void)close(fd[0]);
 	(void)close(fd[1]);
 
-	/* set stdout to /dev/null, so anything written into it gets ignored.
-	   leave stderr alone, we might want to use it for logging. */
+	/* set stdout to /dev/null, so anything written into it gets ignored. */
 	if (dup2(null_fd, 1) < 0)
-		i_fatal("login: dup2(1) failed: %m");
+		i_fatal("auth: dup2(stdout) failed: %m");
 
-	child_process_init_env(group->set->parent->defaults);
+	if (dup2(log_fd, 2) < 0)
+		i_fatal("auth: dup2(stderr) failed: %m");
+
+	child_process_init_env();
 
 	/* move login communication handle to 3. do it last so we can be
 	   sure it's not closed afterwards. */
 	if (group->listen_fd != 3) {
 		if (dup2(group->listen_fd, 3) < 0)
-			i_fatal("login: dup2() failed: %m");
+			i_fatal("auth: dup2() failed: %m");
 	}
 
 	for (i = 0; i <= 3; i++)

@@ -11,6 +11,7 @@
 #include "login-process.h"
 #include "mail-process.h"
 #include "ssl-init.h"
+#include "log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,26 +50,13 @@ int validate_str(const char *str, size_t max_len)
 	return FALSE;
 }
 
-void child_process_init_env(struct settings *set)
+void child_process_init_env(void)
 {
 	/* remove all environment, we don't need them */
 	env_clean();
 
-	/* set the failure log */
-	if (set->log_path == NULL)
-		env_put("USE_SYSLOG=1");
-	else
-		env_put(t_strconcat("LOGFILE=", set->log_path, NULL));
-
-	if (set->info_log_path != NULL) {
-		env_put(t_strconcat("INFOLOGFILE=",
-				    set->info_log_path, NULL));
-	}
-
-	if (set->log_timestamp != NULL) {
-		env_put(t_strconcat("LOGSTAMP=",
-				    set->log_timestamp, NULL));
-	}
+	/* we'll log through master process */
+	env_put("LOG_TO_MASTER=1");
 }
 
 static void sig_quit(int signo __attr_unused__)
@@ -383,6 +371,7 @@ static void main_init(void)
         (void)umask(0077);
 
 	open_logfile(settings_root->defaults);
+	log_init();
 
 	lib_init_signals(sig_quit);
 
@@ -412,6 +401,7 @@ static void main_deinit(void)
 		i_error("close(null_fd) failed: %m");
 
 	hash_destroy(pids);
+	log_deinit();
 	closelog();
 }
 

@@ -1,0 +1,251 @@
+/* Copyright (C) 2002 Timo Sirainen */
+
+#include "common.h"
+#include "ioloop.h"
+#include "istream.h"
+#include "fd-close-on-exec.h"
+#include "log.h"
+
+#include <unistd.h>
+
+#define MAX_LOG_MESSAGS_PER_SEC 10
+
+struct log_io {
+	struct log_io *prev, *next;
+	struct io *io;
+	struct istream *stream;
+
+	time_t log_stamp;
+	unsigned int log_counter;
+
+	char *prefix;
+	char next_log_type;
+	unsigned int throttle_msg:1;
+};
+
+static struct log_io *log_ios;
+static struct timeout *to;
+static unsigned int throttle_count;
+
+static int log_it(struct log_io *log_io, const char *line, int continues);
+static void log_read(void *context);
+static void log_io_free(struct log_io *log_io);
+static void log_throttle_timeout(void *context);
+
+static int log_write_pending(struct log_io *log_io)
+{
+	const char *line;
+
+	if (log_io->log_stamp != ioloop_time) {
+		log_io->log_stamp = ioloop_time;
+		log_io->log_counter = 0;
+	}
+
+	while ((line = i_stream_next_line(log_io->stream)) != NULL) {
+		if (!log_it(log_io, line, FALSE))
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
+static void log_throttle(struct log_io *log_io)
+{
+	if (!log_io->throttle_msg) {
+                log_io->throttle_msg = TRUE;
+		log_it(log_io, "Sending log messages too fast, throttling..",
+		       FALSE);
+	}
+
+	if (log_io->io != NULL) {
+		io_remove(log_io->io);
+		log_io->io = NULL;
+	}
+
+	if (to == NULL)
+		to = timeout_add(1000, log_throttle_timeout, NULL);
+        throttle_count++;
+}
+
+static void log_unthrottle(struct log_io *log_io)
+{
+	if (log_io->io != NULL)
+		return;
+
+	if (--throttle_count == 0 && to != NULL) {
+		timeout_remove(to);
+		to = NULL;
+	}
+	log_io->io = io_add(i_stream_get_fd(log_io->stream),
+			    IO_READ, log_read, log_io);
+}
+
+static int log_it(struct log_io *log_io, const char *line, int continues)
+{
+	if (log_io->next_log_type == '\0') {
+		if (line[0] == 1 && line[1] != '\0') {
+			/* our internal protocol.
+			   \001 + log_type */
+			log_io->next_log_type = line[1];
+			line += 2;
+		} else {
+			log_io->next_log_type = 'E';
+		}
+	}
+
+	t_push();
+	switch (log_io->next_log_type) {
+	case 'I':
+		i_info("%s%s", log_io->prefix, line);
+		break;
+	case 'W':
+		i_warning("%s%s", log_io->prefix, line);
+		break;
+	default:
+		i_error("%s%s", log_io->prefix, line);
+		break;
+	}
+	t_pop();
+
+	if (!continues)
+		log_io->next_log_type = '\0';
+
+	if (++log_io->log_counter > MAX_LOG_MESSAGS_PER_SEC) {
+		log_throttle(log_io);
+		return 0;
+	}
+	return 1;
+}
+
+static void log_read(void *context)
+{
+	struct log_io *log_io = context;
+	const unsigned char *data;
+	const char *line;
+	size_t size;
+	int ret;
+
+	if (!log_write_pending(log_io))
+		return;
+
+	ret = i_stream_read(log_io->stream);
+	if (ret < 0) {
+		if (ret == -1) {
+			/* closed */
+			log_io_free(log_io);
+			return;
+		}
+
+		/* buffer full. treat it as one line */
+		data = i_stream_get_data(log_io->stream, &size);
+		line = t_strndup(data, size);
+		i_stream_skip(log_io->stream, size);
+
+		if (!log_it(log_io, line, TRUE))
+			return;
+	}
+
+	if (!log_write_pending(log_io))
+		return;
+
+	if (log_io->log_counter < MAX_LOG_MESSAGS_PER_SEC)
+		log_unthrottle(log_io);
+}
+
+int log_create_pipe(const char *prefix)
+{
+	struct log_io *log_io;
+	int fd[2];
+
+	if (pipe(fd) < 0) {
+		i_error("pipe() failed: %m");
+		return -1;
+	}
+
+	fd_close_on_exec(fd[0], TRUE);
+	fd_close_on_exec(fd[1], TRUE);
+
+	log_io = i_new(struct log_io, 1);
+	log_io->prefix = i_strdup(prefix);
+	log_io->stream = i_stream_create_file(fd[0], default_pool, 1024, TRUE);
+
+	throttle_count++;
+        log_unthrottle(log_io);
+
+	if (log_ios != NULL)
+		log_ios->prev = log_io;
+	log_io->next = log_ios;
+	log_ios = log_io;
+
+	return fd[1];
+}
+
+static void log_io_free(struct log_io *log_io)
+{
+	const unsigned char *data;
+	size_t size;
+
+	/* if there was something in buffer, write it */
+	data = i_stream_get_data(log_io->stream, &size);
+	if (size != 0) {
+		t_push();
+		log_it(log_io, t_strndup(data, size), TRUE);
+		t_pop();
+	}
+
+	if (log_io == log_ios)
+		log_ios = log_io->next;
+	else
+		log_io->prev->next = log_io->next;
+	if (log_io->next != NULL)
+		log_io->next->prev = log_io->prev;
+
+	if (log_io->io != NULL)
+		io_remove(log_io->io);
+	else
+		throttle_count--;
+	i_stream_unref(log_io->stream);
+	i_free(log_io->prefix);
+	i_free(log_io);
+}
+
+static void log_throttle_timeout(void *context __attr_unused__)
+{
+	struct log_io *log, *next;
+	unsigned int left = throttle_count;
+
+	i_assert(left > 0);
+
+	for (log = log_ios; log != NULL; log = next) {
+		next = log->next;
+
+		if (log->io == NULL) {
+			if (log_write_pending(log))
+				log_unthrottle(log);
+
+			if (--left == 0)
+				break;
+		}
+	}
+}
+
+void log_init(void)
+{
+	log_ios = NULL;
+        throttle_count = 0;
+	to = NULL;
+}
+
+void log_deinit(void)
+{
+	struct log_io *next;
+
+	while (log_ios != NULL) {
+		next = log_ios->next;
+		log_io_free(log_ios);
+		log_ios = next;
+	}
+
+	if (to != NULL)
+		timeout_remove(to);
+}

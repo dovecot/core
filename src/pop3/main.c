@@ -33,6 +33,11 @@ static void open_logfile(void)
 {
 	const char *user;
 
+	if (getenv("LOG_TO_MASTER") != NULL) {
+		i_set_failure_internal();
+		return;
+	}
+
 	user = getenv("USER");
 	if (user == NULL) user = "??";
 	if (strlen(user) >= sizeof(log_prefix)-6) {

@@ -24,6 +24,7 @@ extern struct ioloop *ioloop;
 extern struct hash_table *pids;
 extern int null_fd, inetd_login_fd;
 extern uid_t master_uid;
+extern const char *process_names[];
 
 #define IS_INETD() \
 	(inetd_login_fd != -1)
@@ -38,7 +39,7 @@ extern uid_t master_uid;
 #define PID_REMOVE_PROCESS_TYPE(pid) \
 	hash_remove(pids, POINTER_CAST(pid))
 
-void child_process_init_env(struct settings *set);
+void child_process_init_env(void);
 
 /* misc */
 #define VALIDATE_STR(str) \

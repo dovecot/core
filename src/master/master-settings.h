@@ -84,6 +84,7 @@ struct settings {
 
 	/* imap */
 	unsigned int imap_max_line_length;
+	const char *imap_capability;
 
 	/* .. */
 	uid_t login_uid;

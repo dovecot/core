@@ -47,6 +47,9 @@ void i_set_failure_syslog(const char *ident, int options, int facility);
 /* Send failures to specified log file instead of stderr. */
 void i_set_failure_file(const char *path, const char *prefix);
 
+/* Send errors to stderr using internal error protocol. */
+void i_set_failure_internal(void);
+
 /* Send informational messages to specified log file. i_set_failure_*()
    functions modify the info file too, so call this function after them. */
 void i_set_info_file(const char *path);

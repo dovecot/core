@@ -109,6 +109,7 @@ static struct setting_def setting_defs[] = {
 
 	/* imap */
 	DEF(SET_INT, imap_max_line_length),
+	DEF(SET_STR, imap_capability),
 
 	{ 0, NULL, 0 }
 };
@@ -236,6 +237,7 @@ struct settings default_settings = {
 
 	/* imap */
 	MEMBER(imap_max_line_length) 65536,
+	MEMBER(imap_capability) NULL,
 
 	/* .. */
 	MEMBER(login_uid) 0,

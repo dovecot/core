@@ -41,25 +41,9 @@ static void auth_accept(void *context __attr_unused__)
 	}
 }
 
-static void open_logfile(void)
-{
-	if (getenv("USE_SYSLOG") != NULL)
-		i_set_failure_syslog("dovecot-auth", LOG_NDELAY, LOG_MAIL);
-	else {
-		/* log to file or stderr */
-		i_set_failure_file(getenv("LOGFILE"), "dovecot-auth");
-	}
-
-	if (getenv("INFOLOGFILE") != NULL)
-		i_set_info_file(getenv("INFOLOGFILE"));
-
-	i_set_failure_timestamp_format(getenv("LOGSTAMP"));
-}
-
 static void drop_privileges(void)
 {
-	/* Log file or syslog opening probably requires roots */
-	open_logfile();
+	i_set_failure_internal();
 
 	/* Open /dev/urandom before chrooting */
 	random_init();

@@ -121,25 +121,9 @@ static void auth_connect_notify(struct auth_client *client __attr_unused__,
                 clients_notify_auth_connected();
 }
 
-static void open_logfile(const char *name)
+static void drop_privileges()
 {
-	if (getenv("USE_SYSLOG") != NULL)
-		i_set_failure_syslog(name, LOG_NDELAY, LOG_MAIL);
-	else {
-		/* log to file or stderr */
-		i_set_failure_file(getenv("LOGFILE"), name);
-	}
-
-	if (getenv("INFOLOGFILE") != NULL)
-		i_set_info_file(getenv("INFOLOGFILE"));
-
-	i_set_failure_timestamp_format(getenv("LOGSTAMP"));
-}
-
-static void drop_privileges(const char *name)
-{
-	/* Log file or syslog opening probably requires roots */
-	open_logfile(name);
+	i_set_failure_internal();
 
 	/* Initialize SSL proxy so it can read certificate and private
 	   key file. */
@@ -259,7 +243,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	}
 
 	name = strrchr(argv[0], '/');
-	drop_privileges(name == NULL ? argv[0] : name+1);
+	drop_privileges();
 
 	process_title_init(argv, envp);
 	ioloop = io_loop_create(system_pool);

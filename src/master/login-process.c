@@ -13,6 +13,7 @@
 #include "auth-process.h"
 #include "mail-process.h"
 #include "master-login-interface.h"
+#include "log.h"
 
 #include <unistd.h>
 #include <syslog.h>
@@ -370,7 +371,7 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 {
 	struct settings *set = group->set;
 
-	child_process_init_env(set);
+	child_process_init_env();
 
 	/* setup access environment - needs to be done after
 	   clean_child_process() since it clears environment */
@@ -421,8 +422,9 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 static pid_t create_login_process(struct login_group *group)
 {
 	static const char *argv[] = { NULL, NULL };
+	const char *prefix;
 	pid_t pid;
-	int fd[2];
+	int fd[2], log_fd;
 
 	if (group->set->login_process_per_connection &&
 	    group->processes - group->listening_processes >=
@@ -435,16 +437,26 @@ static pid_t create_login_process(struct login_group *group)
 		i_fatal("Login process must not run as root");
 
 	/* create communication to process with a socket pair */
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) == -1) {
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) {
 		i_error("socketpair() failed: %m");
 		return -1;
 	}
 
-	pid = fork();
+	prefix = t_strdup_printf("%s-login: ",
+				 process_names[group->process_type]);
+	log_fd = log_create_pipe(prefix);
+	if (log_fd < 0)
+		pid = -1;
+	else {
+		pid = fork();
+		if (pid < 0)
+			i_error("fork() failed: %m");
+	}
+
 	if (pid < 0) {
 		(void)close(fd[0]);
 		(void)close(fd[1]);
-		i_error("fork() failed: %m");
+		(void)close(log_fd);
 		return -1;
 	}
 
@@ -454,6 +466,7 @@ static pid_t create_login_process(struct login_group *group)
 		fd_close_on_exec(fd[0], TRUE);
 		(void)login_process_new(group, pid, fd[0]);
 		(void)close(fd[1]);
+		(void)close(log_fd);
 		return pid;
 	}
 
@@ -471,6 +484,10 @@ static pid_t create_login_process(struct login_group *group)
 	if (dup2(fd[1], LOGIN_MASTER_SOCKET_FD) < 0)
 		i_fatal("login: dup2(master) failed: %m");
 	fd_close_on_exec(LOGIN_MASTER_SOCKET_FD, FALSE);
+
+	if (dup2(log_fd, 2) < 0)
+		i_fatal("login: dup2(stderr) failed: %m");
+	fd_close_on_exec(2, FALSE);
 
 	(void)close(fd[0]);
 	(void)close(fd[1]);

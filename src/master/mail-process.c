@@ -10,6 +10,7 @@
 #include "var-expand.h"
 #include "mail-process.h"
 #include "login-process.h"
+#include "log.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -152,10 +153,10 @@ int create_mail_process(struct login_group *group, int socket,
 	const char *argv[4];
 	struct settings *set = group->set;
 	const char *addr, *mail, *user, *chroot_dir, *home_dir, *full_home_dir;
-	const char *executable, *p;
+	const char *executable, *p, *prefix;
 	char title[1024];
 	pid_t pid;
-	int i, err, ret;
+	int i, err, ret, log_fd;
 
 	// FIXME: per-group
 	if (mail_process_count == set->max_mail_processes) {
@@ -178,9 +179,14 @@ int create_mail_process(struct login_group *group, int socket,
 		return FALSE;
 	}
 
+	prefix = t_strdup_printf("%s(%s): ", process_names[group->process_type],
+				 data + reply->virtual_user_idx);
+	log_fd = log_create_pipe(prefix);
+
 	pid = fork();
 	if (pid < 0) {
 		i_error("fork() failed: %m");
+		(void)close(log_fd);
 		return FALSE;
 	}
 
@@ -188,10 +194,11 @@ int create_mail_process(struct login_group *group, int socket,
 		/* master */
 		mail_process_count++;
 		PID_ADD_PROCESS_TYPE(pid, group->process_type);
+		(void)close(log_fd);
 		return TRUE;
 	}
 
-	child_process_init_env(set);
+	child_process_init_env();
 
 	/* move the client socket into stdin and stdout fds */
 	fd_close_on_exec(socket, FALSE);
@@ -199,6 +206,8 @@ int create_mail_process(struct login_group *group, int socket,
 		i_fatal("mail: dup2(stdin) failed: %m");
 	if (dup2(socket, 1) < 0)
 		i_fatal("mail: dup2(stdout) failed: %m");
+	if (dup2(log_fd, 2) < 0)
+		i_fatal("mail: dup2(stderr) failed: %m");
 
 	if (close(socket) < 0)
 		i_error("mail: close(mail client) failed: %m");
@@ -256,6 +265,8 @@ int create_mail_process(struct login_group *group, int socket,
 				set->mail_max_keyword_length));
 	env_put(t_strdup_printf("IMAP_MAX_LINE_LENGTH=%u",
 				set->imap_max_line_length));
+	env_put(t_strconcat("IMAP_CAPABILITY=",
+			    set->imap_capability, NULL));
 
 	if (set->mail_save_crlf)
 		env_put("MAIL_SAVE_CRLF=1");

@@ -1,6 +1,8 @@
 /* Copyright (c) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
+#include "str.h"
+#include "write-full.h"
 #include "fd-close-on-exec.h"
 #include "printf-upper-bound.h"
 
@@ -340,6 +342,65 @@ void i_set_failure_file(const char *path, const char *prefix)
 	if (log_info_fd != NULL && log_info_fd != stderr)
 		(void)fclose(log_info_fd);
 	log_info_fd = log_fd;
+}
+
+static int internal_handler(char log_type, const char *format, va_list args)
+{
+	string_t *str;
+	int ret;
+
+	t_push();
+	str = t_str_new(512);
+	str_append_c(str, 1);
+	str_append_c(str, log_type);
+	str_vprintfa(str, format, args);
+	str_append_c(str, '\n');
+	ret = write_full(2, str_data(str), str_len(str));
+	t_pop();
+
+	return ret;
+}
+
+static void i_internal_panic_handler(const char *fmt, va_list args)
+	__attr_noreturn__;
+static void i_internal_panic_handler(const char *fmt, va_list args)
+{
+	(void)internal_handler('F', fmt, args);
+        abort();
+}
+
+static void i_internal_fatal_handler(int status, const char *fmt, va_list args)
+	__attr_noreturn__;
+static void i_internal_fatal_handler(int status, const char *fmt, va_list args)
+{
+	if (internal_handler('F', fmt, args) < 0 && status == FATAL_DEFAULT)
+		status = FATAL_LOGERROR;
+	exit(status);
+}
+
+static void i_internal_error_handler(const char *fmt, va_list args)
+{
+	if (internal_handler('E', fmt, args) < 0)
+		exit(FATAL_LOGERROR);
+}
+
+static void i_internal_warning_handler(const char *fmt, va_list args)
+{
+	(void)internal_handler('W', fmt, args);
+}
+
+static void i_internal_info_handler(const char *fmt, va_list args)
+{
+	(void)internal_handler('I', fmt, args);
+}
+
+void i_set_failure_internal(void)
+{
+	i_set_panic_handler(i_internal_panic_handler);
+	i_set_fatal_handler(i_internal_fatal_handler);
+	i_set_error_handler(i_internal_error_handler);
+	i_set_warning_handler(i_internal_warning_handler);
+	i_set_info_handler(i_internal_info_handler);
 }
 
 void i_set_info_file(const char *path)

@@ -43,6 +43,11 @@ static void open_logfile(void)
 {
 	const char *user;
 
+	if (getenv("LOG_TO_MASTER") != NULL) {
+		i_set_failure_internal();
+		return;
+	}
+
 	user = getenv("USER");
 	if (user == NULL) {
 		if (IS_STANDALONE())
@@ -168,6 +173,10 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	   restrict_access_by_env() is called */
 	lib_init();
 	drop_privileges();
+
+	{int i;
+	for (i = 0; i < 30; i++)
+		i_warning("%d", i);}
 
         process_title_init(argv, envp);
 	ioloop = io_loop_create(system_pool);
