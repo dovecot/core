@@ -237,7 +237,7 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 {
 	Client *client = context;
 	char *line;
-	ssize_t size;
+	ssize_t size, linelen;
 
 	if (!client_read(client))
 		return;
@@ -251,7 +251,8 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 		return;
 	}
 
-	size = base64_decode(line, strlen(line), (unsigned char *) line);
+	linelen = strlen(line);
+	size = base64_decode(line, &linelen, (unsigned char *) line);
 	if (size < 0) {
 		/* failed */
 		client_auth_abort(client, "NO Invalid base64 data");

@@ -3,11 +3,14 @@
 
 typedef struct _HeaderSearchContext HeaderSearchContext;
 
-/* Initialize new search. Allocates memory from data stack. Returns NULL
-   if charset is unknown or key is not valid in specified charset. */
+/* Initialize new search. Returns NULL if charset is unknown or key is not
+   valid in specified charset. */
 HeaderSearchContext *
 message_header_search_init(Pool pool, const char *key, const char *charset,
 			   int *unknown_charset);
+
+/* Free search context. Not needed if you just destroy the pool. */
+void message_header_search_free(HeaderSearchContext *ctx);
 
 /* Returns TRUE if key is found from header. This function may be called
    multiple times with partial header blocks, but the blocks must contain only

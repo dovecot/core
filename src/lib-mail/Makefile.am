@@ -5,6 +5,7 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib-charset
 
 libmail_a_SOURCES = \
+	message-body-search.c \
 	message-content-parser.c \
 	message-header-search.c \
 	message-parser.c \
@@ -13,9 +14,11 @@ libmail_a_SOURCES = \
 	message-size.c \
 	rfc822-address.c \
 	rfc822-date.c \
-	rfc822-tokenize.c
+	rfc822-tokenize.c \
+	quoted-printable.c
 
 noinst_HEADERS = \
+	message-body-search.h \
 	message-content-parser.h \
 	message-header-search.h \
 	message-parser.h \
@@ -24,4 +27,5 @@ noinst_HEADERS = \
 	message-size.h \
 	rfc822-address.h \
 	rfc822-date.h \
-	rfc822-tokenize.h
+	rfc822-tokenize.h \
+	quoted-printable.h

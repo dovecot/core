@@ -7,6 +7,7 @@
 #include "rfc822-tokenize.h"
 #include "rfc822-date.h"
 #include "message-size.h"
+#include "message-body-search.h"
 #include "message-header-search.h"
 #include "imap-date.h"
 #include "imap-envelope.h"
@@ -23,6 +24,9 @@
 	STMT_START { \
 		(arg)->result = !(arg)->not ? (res) : -(res); \
 	} STMT_END
+
+#define TXT_UNKNOWN_CHARSET "Unknown charset"
+#define TXT_INVALID_SEARCH_KEY "Invalid search key"
 
 typedef struct {
 	Pool hdr_pool;
@@ -44,12 +48,10 @@ typedef struct {
 } SearchHeaderContext;
 
 typedef struct {
-	MailSearchArg *args;
-	const char *msg;
-	size_t size;
-
-	size_t max_searchword_len;
-} SearchTextContext;
+        SearchIndexContext *index_ctx;
+	IBuffer *inbuf;
+	MessagePart *part;
+} SearchBodyContext;
 
 static int msgset_contains(const char *set, unsigned int match_num,
 			   unsigned int max_num)
@@ -320,7 +322,7 @@ static HeaderSearchContext *search_header_context(SearchIndexContext *ctx,
 						  &unknown_charset);
 	if (arg->context == NULL) {
 		ctx->error = unknown_charset ?
-			"Unknown charset" : "Invalid search key";
+			TXT_UNKNOWN_CHARSET : TXT_INVALID_SEARCH_KEY;
 	}
 
 	return arg->context;
@@ -519,72 +521,28 @@ static void search_header(MessagePart *part __attr_unused__,
 	}
 }
 
-static void search_text(MailSearchArg *arg, SearchTextContext *ctx)
+static void search_body(MailSearchArg *arg, void *context)
 {
-	const char *p;
-	size_t i, len, max;
+	SearchBodyContext *ctx = context;
+	int ret, unknown_charset;
 
-	if (arg->result != 0)
+	if (ctx->index_ctx->error != NULL)
 		return;
 
-	len = strlen(arg->value.str);
-	if (len > ctx->max_searchword_len)
-		ctx->max_searchword_len = len;
+	if (arg->type == SEARCH_TEXT || arg->type == SEARCH_BODY) {
+		i_buffer_seek(ctx->inbuf, 0);
+		ret = message_body_search(arg->value.str,
+					  ctx->index_ctx->charset,
+					  &unknown_charset, ctx->inbuf,
+					  ctx->part);
 
-	if (ctx->size >= len) {
-		max = ctx->size-len;
-		for (i = 0, p = ctx->msg; i <= max; i++, p++) {
-			if (i_toupper(*p) == arg->value.str[0] &&
-			    strncasecmp(p, arg->value.str, len) == 0) {
-				/* match */
-				ARG_SET_RESULT(arg, 1);
-				return;
-			}
+		if (ret < 0) {
+			ctx->index_ctx->error = unknown_charset ?
+				TXT_UNKNOWN_CHARSET : TXT_INVALID_SEARCH_KEY;
 		}
+
+		ARG_SET_RESULT(arg, ret > 0);
 	}
-}
-
-static void search_text_body(MailSearchArg *arg, void *context)
-{
-	SearchTextContext *ctx = context;
-
-	if (arg->type == SEARCH_TEXT || arg->type == SEARCH_BODY)
-		search_text(arg, ctx);
-}
-
-static void search_arg_match_data(IBuffer *inbuf, MailSearchArg *args,
-				  MailSearchForeachFunc search_func)
-{
-	SearchTextContext ctx;
-	const unsigned char *data;
-	size_t size, max_searchword_len;
-
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.args = args;
-
-	/* first get the max. search keyword length */
-	mail_search_args_foreach(args, search_func, &ctx);
-        max_searchword_len = ctx.max_searchword_len;
-
-	/* do this in blocks: read data, compare it for all search words, skip
-	   for block size - (strlen(largest_searchword)-1) and continue. */
-	while (i_buffer_read_data(inbuf, &data, &size,
-				  max_searchword_len-1) > 0) {
-		ctx.msg = (const char *) data;
-		ctx.size = size;
-		mail_search_args_foreach(args, search_func, &ctx);
-		i_buffer_skip(inbuf, size - (max_searchword_len-1));
-	}
-
-	if (size > 0) {
-		/* last block */
-		ctx.msg = (const char *) data;
-		ctx.size = size;
-		mail_search_args_foreach(args, search_func, &ctx);
-		i_buffer_skip(inbuf, size);
-	}
-
-	i_buffer_set_read_limit(inbuf, 0);
 }
 
 static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
@@ -606,22 +564,23 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 		SearchHeaderContext hdr_ctx;
 
 		memset(&hdr_ctx, 0, sizeof(hdr_ctx));
-
-		/* header checks */
 		hdr_ctx.index_context = ctx;
 		hdr_ctx.custom_header = TRUE;
 		hdr_ctx.args = args;
+
 		message_parse_header(NULL, inbuf, &hdr_size,
 				     search_header, &hdr_ctx);
 	}
 
 	if (have_text || have_body) {
-		if (inbuf->v_offset == 0) {
-			/* skip over headers */
-			i_buffer_skip(inbuf, hdr_size.physical_size);
-		}
+		SearchBodyContext body_ctx;
 
-		search_arg_match_data(inbuf, args, search_text_body);
+		memset(&body_ctx, 0, sizeof(body_ctx));
+		body_ctx.index_ctx = ctx;
+		body_ctx.inbuf = inbuf;
+		body_ctx.part = imap_msgcache_get_parts(search_open_cache(ctx));
+
+		mail_search_args_foreach(args, search_body, &body_ctx);
 	}
 	return TRUE;
 }

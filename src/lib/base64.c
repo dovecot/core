@@ -50,7 +50,8 @@ const char *base64_encode(const unsigned char *data, size_t size)
 	char *buffer, *p;
 	int c1, c2, c3;
 
-	buffer = p = t_malloc(size*2 + 5);
+	/* + rounding errors + "==" + '\0' */
+	buffer = p = t_malloc(size/3*4 + 2+2+1);
 	while (size > 0) {
 		c1 = *data++; size--;
 		*p++ = basis_64[c1 >> 2];
@@ -100,14 +101,20 @@ static const char index_64[256] = {
 };
 #define CHAR64(c)  (index_64[(int)(unsigned char)(c)])
 
-ssize_t base64_decode(const char *src, size_t size, unsigned char *dest)
+ssize_t base64_decode(const char *src, size_t *size, unsigned char *dest)
 {
 	unsigned char *p;
+	size_t left;
 	int c1, c2, c3, c4;
 
-	p = dest;
-	while (size >= 4) {
+	p = dest; left = *size;
+	while (left >= 4) {
 		c1 = *src++;
+
+		if (c1 == '\n' || c1 == '\r' || c1 == ' ' || c1 == '\t') {
+			left--;
+			continue;
+		}
 
 		if (CHAR64(c1) == XX)
 			return -1;
@@ -124,24 +131,22 @@ ssize_t base64_decode(const char *src, size_t size, unsigned char *dest)
 		if (c4 != '=' && CHAR64(c4) == XX)
 			return -1;
 
-		size -= 4;
+		left -= 4;
 
 		*p++ = ((CHAR64(c1) << 2) | ((CHAR64(c2) & 0x30) >> 4));
 
 		if (c3 == '=') {
-			if (size != 0 || c4 != '=')
+			if (c4 != '=')
 				return -1;
 			break;
 		}
 
 		*p++ = (((CHAR64(c2) & 0xf) << 4) | ((CHAR64(c3) & 0x3c) >> 2));
-		if (c4 == '=') {
-			if (size != 0)
-				return -1;
+		if (c4 == '=')
 			break;
-		}
 		*p++ = (((CHAR64(c3) & 0x3) << 6) | CHAR64(c4));
 	}
 
+	*size -= left;
 	return (ssize_t) (p-dest);
 }

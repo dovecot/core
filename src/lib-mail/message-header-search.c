@@ -2,15 +2,17 @@
 
 #include "lib.h"
 #include "base64.h"
-#include "hex-binary.h"
 #include "charset-utf8.h"
 #include "rfc822-tokenize.h"
+#include "quoted-printable.h"
 #include "message-header-search.h"
 
 #include <ctype.h>
 
 struct _HeaderSearchContext {
-	const unsigned char *key;
+	Pool pool;
+
+	unsigned char *key;
 	size_t key_len;
 
 	size_t *matches; /* size of strlen(key) */
@@ -30,56 +32,33 @@ message_header_search_init(Pool pool, const char *key, const char *charset,
 	size_t size;
 
 	ctx = p_new(pool, HeaderSearchContext, 1);
+	ctx->pool = pool;
 
 	/* get the key uppercased */
 	size = strlen(key);
-	ctx->key = charset_to_ucase_utf8((const unsigned char *) key, &size,
-					 charset, unknown_charset);
-	if (ctx->key == NULL)
+	key = charset_to_ucase_utf8_string(charset, unknown_charset,
+					   (const unsigned char *) key, &size);
+	if (key == NULL)
 		return NULL;
 
-	ctx->key = p_strdup(pool, ctx->key);
+	i_assert(size <= SSIZE_T_MAX/sizeof(size_t));
+
+	ctx->key = p_strdup(pool, key);
 	ctx->key_len = size;
 	ctx->unknown_charset = charset == NULL;
 
 	ctx->matches = p_malloc(pool, sizeof(size_t) * ctx->key_len);
-	i_assert(ctx->key_len <= SSIZE_T_MAX);
 	return ctx;
 }
 
-static size_t quoted_printable_decode(const unsigned char *src, size_t size,
-				      unsigned char *dest)
+void message_header_search_free(HeaderSearchContext *ctx)
 {
-	const unsigned char *end;
-	unsigned char *dest_start;
-	char hexbuf[3];
+	Pool pool;
 
-	hexbuf[2] = '\0';
-
-	dest_start = dest;
-	end = src + size;
-
-	for (; src != end; src++) {
-		if (*src == '_') {
-			*dest++ = ' ';
-			continue;
-		}
-
-		if (*src == '=' && src+2 < end) {
-			hexbuf[0] = src[1];
-			hexbuf[1] = src[2];
-
-			if (hex_to_binary(hexbuf, dest) == 1) {
-				dest++;
-				src += 2;
-				continue;
-			}
-		}
-
-		*dest++ = *src;
-	}
-
-	return (size_t) (dest - dest_start);
+	pool = ctx->pool;
+	p_free(pool, ctx->key);
+	p_free(pool, ctx->matches);
+	p_free(pool, ctx);
 }
 
 static int match_data(const unsigned char *data, size_t size,
@@ -93,8 +72,8 @@ static int match_data(const unsigned char *data, size_t size,
 		charset = NULL;
 	}
 
-	data = (const unsigned char *) charset_to_ucase_utf8(data, &size,
-							     charset, NULL);
+	data = (const unsigned char *)
+		charset_to_ucase_utf8_string(charset, NULL, data, &size);
 	if (data == NULL) {
 		/* unknown character set, or invalid data */
 		return FALSE;
@@ -113,7 +92,7 @@ static int match_encoded(const unsigned char **start, const unsigned char *end,
 	const unsigned char *p, *encoding, *text, *new_end;
 	const char *charset;
 	unsigned char *buf;
-	ssize_t size;
+	ssize_t size, buf_size;
 	int ok, ret;
 
 	/* first split the string =?charset?encoding?text?= */
@@ -154,12 +133,14 @@ static int match_encoded(const unsigned char **start, const unsigned char *end,
 		t_push();
 
 		size = (ssize_t) (end - text);
-		buf = t_malloc(size);
+
+		buf_size = size;
+		buf = t_malloc(buf_size);
 
 		if (*encoding == 'Q')
-			size = quoted_printable_decode(text, size, buf);
+			size = quoted_printable_decode(text, &buf_size, buf);
 		else
-			size = base64_decode(text, size, buf);
+			size = base64_decode(text, &buf_size, buf);
 
 		if (size >= 0) {
 			/* non-corrupted encoding */

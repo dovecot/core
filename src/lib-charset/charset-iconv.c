@@ -6,16 +6,102 @@
 #ifdef HAVE_ICONV_H
 
 #include <iconv.h>
+#include <ctype.h>
 
-const char *charset_to_ucase_utf8(const unsigned char *data, size_t *size,
-				  const char *charset, int *unknown_charset)
+struct _CharsetTranslation {
+	iconv_t cd;
+};
+
+CharsetTranslation *charset_to_utf8_begin(const char *charset,
+					  int *unknown_charset)
+{
+	CharsetTranslation *t;
+	iconv_t cd;
+
+	if (unknown_charset != NULL)
+		*unknown_charset = FALSE;
+
+	if (strcasecmp(charset, "us-ascii") == 0 ||
+	    strcasecmp(charset, "ascii") == 0) {
+		/* no need to do any actual translation */
+		cd = NULL;
+	} else {
+		cd = iconv_open("UTF8", charset);
+		if (cd == (iconv_t)-1) {
+			if (unknown_charset != NULL)
+				*unknown_charset = TRUE;
+			return NULL;
+		}
+	}
+
+	t = i_new(CharsetTranslation, 1);
+	t->cd = cd;
+	return t;
+}
+
+void charset_to_utf8_end(CharsetTranslation *t)
+{
+	if (t->cd != NULL)
+		iconv_close(t->cd);
+	i_free(t);
+}
+
+void charset_to_utf8_reset(CharsetTranslation *t)
+{
+	if (t->cd != NULL)
+		(void)iconv(t->cd, NULL, NULL, NULL, NULL);
+}
+
+int charset_to_ucase_utf8(CharsetTranslation *t,
+			  const unsigned char **inbuf, size_t *insize,
+			  unsigned char *outbuf, size_t *outsize)
+{
+	char *ic_inbuf, *ic_outbuf;
+	size_t outleft, max_size, i;
+
+	if (t->cd == NULL) {
+		/* ascii - just copy it to outbuf uppercased */
+		max_size = I_MIN(*insize, *outsize);
+		for (i = 0; i < max_size; i++)
+			outbuf[i] = i_toupper((*inbuf)[i]);
+		*insize = 0;
+		*outsize = max_size;
+		return TRUE;
+	}
+
+	ic_inbuf = (char *) *inbuf;
+	ic_outbuf = (char *) outbuf;
+	outleft = *outsize;
+
+	if (iconv(t->cd, &ic_inbuf, insize,
+		  &ic_outbuf, &outleft) == (size_t)-1) {
+		if (errno != E2BIG && errno != EINVAL) {
+			/* should be EILSEQ - invalid input */
+			return FALSE;
+		}
+	}
+
+	*inbuf = (const unsigned char *) ic_inbuf;
+	*outsize -= outleft;
+
+	max_size = *outsize;
+	for (i = 0; i < max_size; i++)
+		outbuf[i] = i_toupper(outbuf[i]);
+
+	return TRUE;
+}
+
+const char *
+charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
+			     const unsigned char *buf, size_t *size)
 {
 	iconv_t cd;
 	char *inbuf, *outbuf, *outpos;
 	size_t inleft, outleft, outsize, pos;
 
-	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0)
-		return str_ucase(t_strdup_noconst(data));
+	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0 ||
+	    strcasecmp(charset, "ascii") == 0)
+		return str_ucase(t_strdup_noconst(buf));
 
 	cd = iconv_open("UTF8", charset);
 	if (cd == (iconv_t)-1) {
@@ -27,7 +113,7 @@ const char *charset_to_ucase_utf8(const unsigned char *data, size_t *size,
 	if (unknown_charset != NULL)
 		*unknown_charset = FALSE;
 
-	inbuf = (char *) data;
+	inbuf = (char *) buf;
 	inleft = *size;
 
 	outsize = outleft = *size * 2;
