@@ -11,7 +11,6 @@
 #include "safe-memset.h"
 #include "passdb.h"
 #include "password-scheme.h"
-#include "mycrypt.h"
 
 #include "userdb-vpopmail.h"
 
