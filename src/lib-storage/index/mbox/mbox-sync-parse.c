@@ -218,6 +218,7 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 	}
 
 	ctx->hdr_pos[MBOX_HDR_X_UID] = str_len(ctx->header);
+	ctx->parsed_uid = value;
 	parse_trailing_whitespace(ctx, hdr);
 	return TRUE;
 }
@@ -354,12 +355,6 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	    sync_ctx->update_base_uid_last > sync_ctx->base_uid_last) {
 		/* update uid-last field in X-IMAPbase */
 		ctx->need_rewrite = TRUE;
-	}
-	if (ctx->mail.uid == 0 && !rewriting) {
-		/* missing X-UID */
-		ctx->need_rewrite = TRUE;
-		ctx->mail.uid = sync_ctx->next_uid++;
-		sync_ctx->prev_msg_uid = ctx->mail.uid;
 	}
 
 	ctx->body_offset = input->v_offset;

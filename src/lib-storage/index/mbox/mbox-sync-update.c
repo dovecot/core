@@ -207,29 +207,13 @@ static void mbox_sync_update_xkeywords(struct mbox_sync_mail_context *ctx)
 {
 }
 
-static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
+static void mbox_sync_update_line(struct mbox_sync_mail_context *ctx,
+				  size_t pos, string_t *new_line)
 {
-	string_t *str;
-	const char *p, *hdr;
-	size_t pos;
+	const char *hdr, *p;
 
-	if (!ctx->sync_ctx->dest_first_mail ||
-	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1 ||
-	    ctx->sync_ctx->update_base_uid_last == 0 ||
-	    ctx->sync_ctx->update_base_uid_last < ctx->sync_ctx->base_uid_last)
-		return;
-
-	pos = ctx->hdr_pos[MBOX_HDR_X_IMAPBASE];
 	if (ctx->header_first_change > pos)
 		ctx->header_first_change = pos;
-
-	/* update uid-last field in X-IMAPbase */
-	t_push();
-	str = t_str_new(200);
-	str_printfa(str, "%u %010u", ctx->sync_ctx->base_uid_validity,
-		    ctx->sync_ctx->update_base_uid_last);
-	//FIXME:keywords_append(ctx, all_keywords);
-	str_append_c(str, '\n');
 
 	hdr = str_c(ctx->header) + pos;
 	p = strchr(hdr, '\n');
@@ -238,12 +222,48 @@ static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 		/* shouldn't really happen, but allow anyway.. */
 		ctx->header_last_change = (size_t)-1;
 		str_truncate(ctx->header, pos);
-		str_append_str(ctx->header, str);
+		str_append_str(ctx->header, new_line);
 	} else {
-		mbox_sync_move_buffer(ctx, pos, str_len(str), p - hdr + 1);
-		buffer_copy(ctx->header, pos, str, 0, (size_t)-1);
+		mbox_sync_move_buffer(ctx, pos, str_len(new_line), p - hdr + 1);
+		buffer_copy(ctx->header, pos, new_line, 0, (size_t)-1);
 	}
+}
 
+static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
+{
+	string_t *str;
+
+	if (!ctx->sync_ctx->dest_first_mail ||
+	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1 ||
+	    ctx->sync_ctx->update_base_uid_last == 0 ||
+	    ctx->sync_ctx->update_base_uid_last < ctx->sync_ctx->base_uid_last)
+		return;
+
+	/* update uid-last field in X-IMAPbase */
+	t_push();
+
+	str = t_str_new(200);
+	str_printfa(str, "%u %010u", ctx->sync_ctx->base_uid_validity,
+		    ctx->sync_ctx->update_base_uid_last);
+	//FIXME:keywords_append(ctx, all_keywords);
+	str_append_c(str, '\n');
+
+        mbox_sync_update_line(ctx, ctx->hdr_pos[MBOX_HDR_X_IMAPBASE], str);
+	t_pop();
+}
+
+static void mbox_sync_update_x_uid(struct mbox_sync_mail_context *ctx)
+{
+	string_t *str;
+
+	if (ctx->hdr_pos[MBOX_HDR_X_UID] == (size_t)-1 ||
+	    ctx->mail.uid == ctx->parsed_uid)
+		return;
+
+	t_push();
+	str = t_str_new(64);
+	str_printfa(str, "%u", ctx->mail.uid);
+	mbox_sync_update_line(ctx, ctx->hdr_pos[MBOX_HDR_X_UID], str);
 	t_pop();
 }
 
@@ -288,6 +308,7 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 	}
 
 	mbox_sync_update_x_imap_base(ctx);
+	mbox_sync_update_x_uid(ctx);
 	mbox_sync_add_missing_headers(ctx);
 	ctx->updated = TRUE;
 }
@@ -321,5 +342,6 @@ void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 	ctx->mail.uid = mail->uid;
 
 	mbox_sync_update_x_imap_base(ctx);
+	mbox_sync_update_x_uid(ctx);
 	mbox_sync_add_missing_headers(ctx);
 }

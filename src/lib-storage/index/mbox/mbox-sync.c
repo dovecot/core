@@ -256,6 +256,11 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 	if (sync_ctx->ibox->mbox_readonly || sync_ctx->index_sync_ctx == NULL)
 		return 0;
 
+	if (uid == 0) {
+		/* nothing for this or the future ones */
+		uid = (uint32_t)-1;
+	}
+
 	mbox_sync_buffer_delete_old(sync_ctx->syncs, uid);
 	while (uid >= sync_rec->uid1) {
 		if (uid <= sync_rec->uid2 &&
@@ -315,11 +320,13 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 {
         const struct mail_index_record *rec = NULL;
 	uint32_t messages_count;
+	int ret = 0;
 
 	messages_count = mail_index_view_get_message_count(sync_ctx->sync_view);
 	while (sync_ctx->idx_seq < messages_count) {
-		if (mail_index_lookup(sync_ctx->sync_view,
-				      ++sync_ctx->idx_seq, &rec) < 0) {
+		ret = mail_index_lookup(sync_ctx->sync_view,
+					++sync_ctx->idx_seq, &rec);
+		if (ret < 0) {
 			mail_storage_set_index_error(sync_ctx->ibox);
 			return -1;
 		}
@@ -342,7 +349,7 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 	}
 
 	*rec_r = rec;
-	return 0;
+	return ret;
 }
 
 static int mbox_sync_get_from_offset(struct mbox_sync_context *sync_ctx,
@@ -726,6 +733,24 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		if (mbox_sync_read_index_syncs(sync_ctx, uid, &expunged) < 0)
 			return -1;
 
+		if (uid != 0) {
+			ret = mbox_sync_read_index_rec(sync_ctx, uid, &rec);
+			if (ret < 0)
+				return -1;
+			if (ret == 0 && uid < sync_ctx->hdr->next_uid) {
+				/* this UID was already in index and it was
+				   expunged */
+				uid = 0;
+			}
+		}
+		if (uid == 0) {
+			/* missing/broken X-UID */
+			mail_ctx->need_rewrite = TRUE;
+			mail_ctx->mail.uid = sync_ctx->next_uid++;
+			sync_ctx->prev_msg_uid = mail_ctx->mail.uid;
+			rec = NULL;
+		}
+
 		if (!expunged) {
 			ret = mbox_sync_handle_header(mail_ctx);
 			sync_ctx->dest_first_mail = FALSE;
@@ -737,9 +762,6 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			/* -1 = error, -2 = need to restart */
 			return ret;
 		}
-
-		if (mbox_sync_read_index_rec(sync_ctx, uid, &rec) < 0)
-			return -1;
 
 		if (!expunged) {
 			if (mbox_sync_update_index(sync_ctx, &mail_ctx->mail,

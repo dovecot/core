@@ -59,6 +59,7 @@ struct mbox_sync_mail_context {
 	uoff_t content_length;
 
 	size_t hdr_pos[MBOX_HDR_COUNT];
+	uint32_t parsed_uid;
 
 	unsigned int have_eoh:1;
 	unsigned int need_rewrite:1;
