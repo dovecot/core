@@ -34,12 +34,12 @@ static const char *get_msgnum(struct client *client, const char *args,
 		args++;
 	}
 
-	if (num > client->messages_count) {
+	if (num == 0 || num > client->messages_count) {
 		client_send_line(client,
-				 "-ERR There's only %u messages.",
-				 client->messages_count);
+				 "-ERR There's no message %u.", num);
 		return NULL;
 	}
+	num--;
 
 	if (client->deleted) {
 		if (client->deleted_bitmask[num / CHAR_BIT] &
@@ -109,15 +109,15 @@ static void cmd_list(struct client *client, const char *args)
 				 client->messages_count);
 		for (i = 0; i < client->messages_count; i++) {
 			client_send_line(client, "%u %"PRIuUOFF_T,
-					 i, client->message_sizes[i]);
+					 i+1, client->message_sizes[i]);
 		}
 		client_send_line(client, ".");
 	} else {
 		unsigned int msgnum;
 
 		if (get_msgnum(client, args, &msgnum) != NULL) {
-			client_send_line(client, "+OK %u %"PRIuUOFF_T,
-					 msgnum, client->message_sizes[msgnum]);
+			client_send_line(client, "+OK %u %"PRIuUOFF_T, msgnum+1,
+					 client->message_sizes[msgnum]);
 		}
 	}
 }
@@ -192,18 +192,28 @@ static void cmd_quit(struct client *client, const char *args __attr_unused__)
 }
 
 static void stream_send_escaped(struct ostream *output, struct istream *input,
-				uoff_t max_lines)
+				uoff_t body_lines)
 {
 	const unsigned char *data;
 	unsigned char last, add;
 	size_t i, size;
-	int cr_skipped;
+	int cr_skipped, in_header;
 
-	cr_skipped = FALSE; last = '\0';
-	while (max_lines > 0 &&
+	if (body_lines != (uoff_t)-1)
+		body_lines++; /* internally we count the empty line too */
+
+	cr_skipped = FALSE; in_header = TRUE; last = '\0';
+	while ((body_lines > 0 || in_header) &&
 	       i_stream_read_data(input, &data, &size, 0) > 0) {
 		add = '\0';
 		for (i = 0; i < size; i++) {
+			if (in_header && (data[i] == '\r' || data[i] == '\n')) {
+				if (i == 0 && (last == '\0' || last == '\n'))
+					in_header = FALSE;
+				else if (i > 0 && data[i-1] == '\n')
+					in_header = FALSE;
+			}
+
 			if (data[i] == '\n') {
 				if ((i == 0 && last != '\r') ||
 				    (i > 0 && data[i-1] != '\r')) {
@@ -212,9 +222,11 @@ static void stream_send_escaped(struct ostream *output, struct istream *input,
 					break;
 				}
 
-				if (--max_lines == 0) {
-					i++;
-					break;
+				if (!in_header) {
+					if (--body_lines == 0) {
+						i++;
+						break;
+					}
 				}
 			} else if (data[i] == '.' &&
 				   ((i == 0 && last == '\n') ||
@@ -241,7 +253,8 @@ static void stream_send_escaped(struct ostream *output, struct istream *input,
 	}
 }
 
-static void fetch(struct client *client, unsigned int msgnum, uoff_t max_lines)
+static void fetch(struct client *client, unsigned int msgnum,
+		  uoff_t body_lines)
 {
 	struct mail_fetch_context *ctx;
 	struct mail *mail;
@@ -250,7 +263,7 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t max_lines)
 	ctx = client->mailbox->fetch_init(client->mailbox,
 					  MAIL_FETCH_STREAM_HEADER |
 					  MAIL_FETCH_STREAM_BODY,
-					  NULL, t_strdup_printf("%u", msgnum),
+					  NULL, dec2str(msgnum+1),
 					  FALSE);
 	if (ctx == NULL) {
 		client_send_storage_error(client);
@@ -263,14 +276,14 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t max_lines)
 	else {
 		stream = mail->get_stream(mail, NULL, NULL);
 
-		if (max_lines == (uoff_t)-1) {
+		if (body_lines == (uoff_t)-1) {
 			client_send_line(client, "+OK %"PRIuUOFF_T" octets",
 					 client->message_sizes[msgnum]);
 		} else {
 			client_send_line(client, "+OK");
 		}
 
-		stream_send_escaped(client->output, stream, max_lines);
+		stream_send_escaped(client->output, stream, body_lines);
 		client_send_line(client, ".");
 	}
 
@@ -357,7 +370,7 @@ static void cmd_uidl(struct client *client, const char *args)
 		unsigned int msgnum;
 
 		if (get_msgnum(client, args, &msgnum) != NULL)
-			list_uids(client, msgnum);
+			list_uids(client, msgnum+1);
 	}
 }
 
