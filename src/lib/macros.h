@@ -57,12 +57,10 @@
 /* Provide convenience macros for handling structure
  * fields through their offsets.
  */
-#define STRUCT_OFFSET(struct_p, member) \
-    ((long) ((char *) &((struct_p)->member) - (char *) (struct_p)))
 #define STRUCT_MEMBER_P(struct_p, struct_offset) \
-    ((void *) ((char *) (struct_p) + (long) (struct_offset)))
+	((void *) ((char *) (struct_p) + (long) (struct_offset)))
 #define STRUCT_MEMBER(member_type, struct_p, struct_offset) \
-    (*(member_type *) G_STRUCT_MEMBER_P((struct_p), (struct_offset)))
+	(*(member_type *) G_STRUCT_MEMBER_P((struct_p), (struct_offset)))
 
 /* Provide simple macro statement wrappers (adapted from Perl):
    STMT_START { statements; } STMT_END;
@@ -104,6 +102,13 @@
 #  define __attr_noreturn__
 #  define __attr_const__
 #  define __attr_unused__
+#endif
+
+/* C99-style struct member definitions */
+#if (defined(__STDC__) && __STDC_VERSION__ >= 199901L) || __GNUC__ > 2
+#  define MEMBER(name) .name =
+#else
+#  define MEMBER(name)
 #endif
 
 /* Wrap the gcc __PRETTY_FUNCTION__ and __FUNCTION__ variables with
