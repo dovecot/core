@@ -4,7 +4,7 @@
 #include "ioloop.h"
 #include "commands.h"
 #include "imap-parser.h"
-#include "rfc822-date.h"
+#include "imap-date.h"
 
 /* Returns -1 = error, 0 = need more data, 1 = successful. flags and
    internal_date may be NULL as a result, but mailbox and msg_size are always
@@ -98,7 +98,7 @@ int cmd_append(Client *client)
 	if (internal_date_str == NULL) {
 		/* no time given, default to now. */
 		internal_date = ioloop_time;
-	} else if (!rfc822_parse_date(internal_date_str, &internal_date)) {
+	} else if (!imap_parse_datetime(internal_date_str, &internal_date)) {
 		client_send_tagline(client, "BAD Invalid internal date.");
 		return TRUE;
 	}

@@ -3,8 +3,8 @@
 #include "lib.h"
 #include "iobuffer.h"
 #include "mmap-util.h"
-#include "rfc822-date.h"
 #include "rfc822-tokenize.h"
+#include "imap-date.h"
 #include "index-storage.h"
 #include "mail-search.h"
 
@@ -37,17 +37,6 @@ typedef struct {
 
 	unsigned int max_searchword_len;
 } SearchTextContext;
-
-/* truncate timestamp to day */
-static time_t timestamp_trunc(time_t t)
-{
-	struct tm *tm;
-
-	tm = localtime(&t);
-	tm->tm_hour = tm->tm_min = tm->tm_sec = 0;
-
-	return mktime(tm);
-}
 
 static int msgset_contains(const char *set, unsigned int match_num,
 			   unsigned int max_num)
@@ -149,34 +138,31 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 
 	/* dates */
 	case SEARCH_BEFORE:
-		if (!rfc822_parse_date(value, &t))
+		if (!imap_parse_date(value, &t))
 			return FALSE;
-		return rec->internal_date < timestamp_trunc(t);
+		return rec->internal_date < t;
 	case SEARCH_ON:
-		if (!rfc822_parse_date(value, &t))
+		if (!imap_parse_date(value, &t))
 			return FALSE;
-		t = timestamp_trunc(t);
 		return rec->internal_date >= t &&
 			rec->internal_date < t + 3600*24;
 	case SEARCH_SINCE:
-		if (!rfc822_parse_date(value, &t))
+		if (!imap_parse_date(value, &t))
 			return FALSE;
-		return rec->internal_date >= timestamp_trunc(t);
+		return rec->internal_date >= t;
 
 	case SEARCH_SENTBEFORE:
-		if (!rfc822_parse_date(value, &t))
+		if (!imap_parse_date(value, &t))
 			return FALSE;
-		return rec->sent_date < timestamp_trunc(t);
+		return rec->sent_date < t;
 	case SEARCH_SENTON:
-		if (!rfc822_parse_date(value, &t))
+		if (!imap_parse_date(value, &t))
 			return FALSE;
-		t = timestamp_trunc(t);
-		return rec->sent_date >= t &&
-			rec->sent_date < t + 3600*24;
+		return rec->sent_date >= t && rec->sent_date < t + 3600*24;
 	case SEARCH_SENTSINCE:
-		if (!rfc822_parse_date(value, &t))
+		if (!imap_parse_date(value, &t))
 			return FALSE;
-		return rec->sent_date >= timestamp_trunc(t);
+		return rec->sent_date >= t;
 
 	/* sizes */
 	case SEARCH_SMALLER:

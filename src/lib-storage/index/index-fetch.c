@@ -3,11 +3,11 @@
 #include "lib.h"
 #include "iobuffer.h"
 #include "temp-string.h"
-#include "rfc822-date.h"
 #include "index-storage.h"
 #include "index-fetch.h"
 #include "mail-messageset.h"
 #include "message-send.h"
+#include "imap-date.h"
 #include "imap-util.h"
 #include "imap-message-cache.h"
 
@@ -76,7 +76,7 @@ static void index_fetch_flags(MailIndexRecord *rec, FetchContext *ctx)
 static void index_fetch_internaldate(MailIndexRecord *rec, FetchContext *ctx)
 {
 	t_string_printfa(ctx->str, " INTERNALDATE \"%s\"",
-                         rfc822_to_date(rec->internal_date));
+                         imap_to_datetime(rec->internal_date));
 }
 
 static void index_fetch_uid(MailIndexRecord *rec, FetchContext *ctx)
