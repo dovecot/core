@@ -49,7 +49,7 @@ AC_ARG_WITH(file-offset-size,
 	preferred_off_t_bits=64)
 
 AC_ARG_WITH(mem-align,
-[  --with-mem-align=BYTES  Set the memory alignment (default: 8)],
+[  --with-mem-align=BYTES  Set the memory alignment (default: sizeof(off_t))],
 	mem_align=$withval,
 	mem_align=8)
 
@@ -390,6 +390,11 @@ AC_TRY_COMPILE([
 ], [
   AC_DEFINE_UNQUOTED(OFF_T_MAX, $offt_max, Maximum value of off_t)
 ])
+
+dnl currently we break if off_t is smaller than mem_align
+if $offt_bits = 32 -a $mem_align = 8; then
+  mem_align=4
+fi
 
 AC_DEFINE_UNQUOTED(PRIuUOFF_T, "$uofft_fmt", printf() format for uoff_t)
 
