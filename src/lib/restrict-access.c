@@ -91,11 +91,7 @@ void restrict_access_by_env(void)
 			i_fatal("setuid(%ld) failed: %m", (long) uid);
 
 		/* just extra verification */
-#ifdef HAVE_SETREUID
-		if (setreuid((uid_t)-1, 0) == 0)
-#else
 		if (setuid(0) == 0)
-#endif
 			i_fatal("We couldn't drop root privileges");
 	}
 }
