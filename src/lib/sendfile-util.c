@@ -22,6 +22,9 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 	off_t safe_offset;
 	ssize_t ret;
 
+	if (count == 0)
+		return 0;
+
 	/* make sure given offset fits into off_t */
 	if (sizeof(off_t) * CHAR_BIT == 32) {
 		/* 32bit off_t */
@@ -64,6 +67,12 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 
 	i_assert(count <= SSIZE_T_MAX);
 
+	if (count == 0) {
+		/* if count=0 is passed to sendfile(), it sends everything
+		   from in_fd until EOF. We don't want that. */
+		return 0;
+	}
+
 	memset(&hdtr, 0, sizeof(hdtr));
 	ret = sendfile(in_fd, out_fd, *offset, count, &hdtr, &sbytes, 0);
 
@@ -92,6 +101,9 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 	off_t s_offset;
 
 	i_assert(count <= SSIZE_T_MAX);
+
+	if (count == 0)
+		return 0;
 
 	/* NOTE: if outfd is not a socket, some Solaris versions will
 	   kernel panic */
