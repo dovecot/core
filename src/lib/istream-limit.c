@@ -47,17 +47,19 @@ static ssize_t _read(struct _istream *stream)
 	ssize_t ret;
 	size_t pos;
 
-	if (stream->istream.v_offset >= lstream->v_size)
+	if (stream->istream.v_offset +
+	    (stream->pos - stream->skip) >= lstream->v_size)
 		return -1;
 
 	if (lstream->input->v_offset !=
 	    lstream->v_start_offset + stream->istream.v_offset) {
 		i_stream_seek(lstream->input,
-			      lstream->v_start_offset + stream->istream.v_offset);
+			      lstream->v_start_offset +
+			      stream->istream.v_offset);
 	}
 
 	if (i_stream_read(lstream->input) == -2 && stream->buffer != NULL) {
-		if (lstream->istream.skip == 0)
+		if (stream->skip == 0)
 			return -2;
 		stream->istream.eof = lstream->input->eof;
 	}
@@ -70,9 +72,9 @@ static ssize_t _read(struct _istream *stream)
 	if (pos > left)
 		pos = left;
 
-	ret = pos <= lstream->istream.pos ? -1 :
+	ret = pos <= stream->pos ? -1 :
 		(ssize_t) (pos - stream->pos);
-	lstream->istream.pos = pos;
+	stream->pos = pos;
 	return ret;
 }
 

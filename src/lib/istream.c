@@ -78,11 +78,15 @@ void i_stream_seek(struct istream *stream, uoff_t v_offset)
 {
 	struct _istream *_stream = stream->real_stream;
 
+	if (v_offset > stream->v_offset) {
+		i_stream_skip(stream, v_offset - stream->v_offset);
+		return;
+	}
+
 	if (stream->closed)
 		return;
 
-	if (v_offset < stream->v_offset)
-		stream->eof = FALSE;
+	stream->eof = FALSE;
 	_stream->seek(_stream, v_offset);
 }
 
