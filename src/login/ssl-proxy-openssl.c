@@ -87,7 +87,7 @@ static void plain_read(SSLProxy *proxy)
 			  sizeof(proxy->sslout_buf));
 	if (ret < 0)
 		ssl_proxy_destroy(proxy);
-	else {
+	else if (ret > 0) {
 		proxy->sslout_size = ret;
 		proxy->sslout_pos = 0;
 
