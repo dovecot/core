@@ -15,7 +15,7 @@ struct _Client {
 	time_t last_input;
 	char *tag;
 
-	char *plain_login;
+	unsigned char *plain_login;
 	unsigned int plain_login_len;
 
 	AuthRequest *auth_request;

@@ -687,7 +687,7 @@ static ssize_t io_buffer_read_mmaped(IOBuffer *buf)
 		return -1;
 	}
 
-	(void)madvise(buf->buffer, buf->buffer_size, MADV_SEQUENTIAL);
+	(void)madvise((void *) buf->buffer, buf->buffer_size, MADV_SEQUENTIAL);
 
 	return io_buffer_set_mmaped_pos(buf);
 }
@@ -898,7 +898,7 @@ static void io_buffer_skip_lf(IOBuffer *buf)
 char *io_buffer_next_line(IOBuffer *buf)
 {
 	/* FIXME: buf->offset isn't updated right.. (skip_lf thing?) */
-	unsigned char *ret_buf;
+	char *ret_buf;
         size_t i;
 
         i_assert(buf != NULL);
@@ -913,7 +913,7 @@ char *io_buffer_next_line(IOBuffer *buf)
 			/* got it */
                         buf->last_cr = buf->buffer[i] == 13;
 			buf->buffer[i] = '\0';
-			ret_buf = buf->buffer + buf->skip;
+			ret_buf = (char *) buf->buffer + buf->skip;
 
 			i++;
 			buf->offset += i - buf->skip;

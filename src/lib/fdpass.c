@@ -23,9 +23,7 @@
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#ifdef __sun__
-#  define _XPG4_2
-#endif
+#define _XPG4_2
 
 #include "lib.h"
 #include "network.h"

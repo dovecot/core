@@ -91,7 +91,8 @@ static void request_abort(AuthRequest *request)
 {
 	request->callback(request, request->conn->auth_process,
 			  AUTH_RESULT_INTERNAL_FAILURE,
-			  "Authentication process died", 0, request->context);
+			  (const unsigned char *) "Authentication process died",
+			  0, request->context);
 	request_destroy(request);
 }
 
