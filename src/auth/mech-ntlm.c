@@ -32,6 +32,36 @@ struct ntlm_auth_request {
 };
 
 static void
+lm_credentials_callback(const char *credentials,
+			struct auth_request *auth_request)
+{
+	struct ntlm_auth_request *auth =
+		(struct ntlm_auth_request *)auth_request;
+	const unsigned char *client_response;
+	unsigned char lm_response[LM_RESPONSE_SIZE];
+	unsigned char hash[LM_HASH_SIZE];
+	buffer_t *hash_buffer;
+	int ret;
+
+	if (credentials == NULL) {
+		mech_auth_finish(auth_request, NULL, 0, FALSE);
+		return;
+	}
+
+	hash_buffer = buffer_create_data(auth_request->pool,
+					 hash, sizeof(hash));
+	hex_to_binary(credentials, hash_buffer);
+
+	client_response = ntlmssp_buffer_data(auth->response, lm_response);
+
+	ntlmssp_v1_response(hash, auth->challenge, lm_response);
+
+	ret = memcmp(lm_response, client_response, LM_RESPONSE_SIZE) == 0;
+
+	mech_auth_finish(auth_request, NULL, 0, ret);
+}
+
+static void
 ntlm_credentials_callback(const char *credentials,
 			  struct auth_request *auth_request)
 {
@@ -44,7 +74,9 @@ ntlm_credentials_callback(const char *credentials,
 	int ret;
 
 	if (credentials == NULL) {
-		mech_auth_finish(auth_request, NULL, 0, FALSE);
+		passdb->lookup_credentials(auth_request,
+					   PASSDB_CREDENTIALS_LANMAN,
+					   lm_credentials_callback);
 		return;
 	}
 

@@ -400,10 +400,22 @@ static int ldap_md5_verify(const char *plaintext, const char *password,
 	return memcmp(md5_digest, data, 16) == 0;
 }
 
+static int lm_verify(const char *plaintext, const char *password,
+		       const char *user __attr_unused__)
+{
+	return strcasecmp(password, password_generate_lm(plaintext)) == 0;
+}
+
+static const char *lm_generate(const char *plaintext,
+				 const char *user __attr_unused__)
+{
+	return password_generate_lm(plaintext);
+}
+
 static int ntlm_verify(const char *plaintext, const char *password,
 		       const char *user __attr_unused__)
 {
-	return strcmp(password, password_generate_ntlm(plaintext)) == 0;
+	return strcasecmp(password, password_generate_ntlm(plaintext)) == 0;
 }
 
 static const char *ntlm_generate(const char *plaintext,
@@ -425,6 +437,7 @@ static const struct password_scheme default_schemes[] = {
 	{ "DIGEST-MD5", digest_md5_verify, digest_md5_generate },
 	{ "PLAIN-MD5", plain_md5_verify, plain_md5_generate },
 	{ "LDAP-MD5", ldap_md5_verify, ldap_md5_generate },
+	{ "LANMAN", lm_verify, lm_generate },
 	{ "NTLM", ntlm_verify, ntlm_generate },
 	{ NULL, NULL, NULL }
 };

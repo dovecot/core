@@ -46,6 +46,26 @@ ntlmssp_des_encrypt_triad(const unsigned char *hash,
 }
 
 const unsigned char *
+lm_hash(const char *passwd, unsigned char hash[LM_HASH_SIZE])
+{
+	static const unsigned char lm_magic[8] = "KGS!@#$%";
+	unsigned char buffer[14];
+	unsigned int i;
+
+	strncpy(buffer, passwd, sizeof(buffer));
+
+	for (i = 0; i < sizeof(buffer); i++)
+		buffer[i] = i_toupper(buffer[i]);
+
+	deshash(hash, buffer, lm_magic);
+	deshash(hash + 8, buffer + 7, lm_magic);
+
+	safe_memset(buffer, 0, sizeof(buffer));
+
+	return hash;
+}
+
+const unsigned char *
 ntlm_v1_hash(const char *passwd, unsigned char hash[NTLMSSP_HASH_SIZE])
 {
 	size_t len;
