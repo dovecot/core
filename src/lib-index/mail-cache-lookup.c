@@ -73,7 +73,8 @@ mail_cache_foreach_rec(struct mail_cache_view *view,
 		       mail_cache_foreach_callback_t *callback, void *context)
 {
 	struct mail_cache *cache = view->cache;
-	size_t pos, next_pos, max_size, data_size;
+	size_t pos, next_pos, max_size;
+	unsigned int data_size;
 	uint32_t file_field;
 	unsigned int field;
 	int ret;
@@ -204,6 +205,7 @@ int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
 	uint32_t file_field;
 	size_t size;
 
+	i_assert(seq > 0);
 	i_assert(field < view->cache->fields_count);
 
 	file_field = view->cache->field_file_map[field];
@@ -231,6 +233,7 @@ mail_cache_field_get_decision(struct mail_cache *cache, unsigned int field)
 struct mail_cache_lookup_context {
 	buffer_t *dest_buf;
 	uint32_t file_field;
+	int found;
 };
 
 static int
@@ -244,13 +247,35 @@ mail_cache_lookup_callback(struct mail_cache_view *view __attr_unused__,
 		return 1;
 
 	buffer_append(ctx->dest_buf, data, data_size);
+	ctx->found = TRUE;
 	return 0;
+}
+
+static int
+mail_cache_lookup_bitmask_callback(struct mail_cache_view *view __attr_unused__,
+				   uint32_t file_field, const void *data,
+				   size_t data_size, void *context)
+{
+        struct mail_cache_lookup_context *ctx = context;
+	unsigned char *dest;
+	size_t i;
+
+	if (ctx->file_field != file_field)
+		return 1;
+
+	/* merge all bits */
+	dest = buffer_get_space_unsafe(ctx->dest_buf, 0, data_size);
+	for (i = 0; i < data_size; i++)
+		dest[i] |= ((const unsigned char *)data)[i];
+	ctx->found = TRUE;
+	return 1;
 }
 
 int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 			    uint32_t seq, unsigned int field)
 {
 	struct mail_cache_lookup_context ctx;
+	unsigned int data_size;
 	int ret;
 
 	if ((ret = mail_cache_field_exists(view, seq, field)) <= 0)
@@ -261,8 +286,21 @@ int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 	/* should exist. find it. */
 	ctx.file_field = view->cache->field_file_map[field];
 	ctx.dest_buf = dest_buf;
-	return mail_cache_foreach(view, seq, mail_cache_lookup_callback,
-				  &ctx) == 0;
+	ctx.found = FALSE;
+	if (view->cache->fields[field].field.type != MAIL_CACHE_FIELD_BITMASK) {
+		ret = mail_cache_foreach(view, seq, mail_cache_lookup_callback,
+					 &ctx);
+	} else {
+		/* make sure we're cleared first */
+		data_size = view->cache->fields[field].field.field_size;
+		memset(buffer_get_space_unsafe(dest_buf, 0, data_size),
+		       0, data_size);
+
+		ret = mail_cache_foreach(view, seq,
+					 mail_cache_lookup_bitmask_callback,
+					 &ctx);
+	}
+	return ret < 0 ? -1 : ctx.found;
 }
 
 struct header_lookup_data_rec {

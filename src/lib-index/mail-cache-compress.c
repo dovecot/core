@@ -14,26 +14,67 @@ struct mail_cache_copy_context {
 	uint8_t field_seen_value;
 };
 
+static void mail_cache_merge_bitmask(struct mail_cache *cache, buffer_t *buffer,
+				     uint32_t file_field, const void *data,
+				     size_t data_size)
+{
+	void *buf_data;
+	uint32_t field, buf_file_field;
+	unsigned int i, buf_data_size;
+	size_t pos, buf_size;
+
+	buf_data = buffer_get_modifyable_data(buffer, &buf_size);
+	for (pos = sizeof(struct mail_cache_record); pos < buf_size; ) {
+		buf_file_field = *((uint32_t *)PTR_OFFSET(buf_data, pos));
+		pos += sizeof(uint32_t);
+
+		field = cache->file_field_map[file_field];
+		buf_data_size = cache->fields[field].field.field_size;
+		if (buf_data_size == (unsigned int)-1) {
+			buf_data_size =
+				*((uint32_t *)PTR_OFFSET(buf_data, pos));
+			pos += sizeof(uint32_t);
+		}
+
+		if (buf_file_field == file_field) {
+			/* found it, do the merging */
+			unsigned char *dest = PTR_OFFSET(buf_data, pos);
+
+			i_assert(buf_data_size == data_size);
+			for (i = 0; i < buf_data_size; i++)
+				dest[i] |= ((const unsigned char*)data)[i];
+			break;
+		}
+		pos += (data_size + 3) & ~3;
+	}
+}
+
 static int
 mail_cache_compress_callback(struct mail_cache_view *view, uint32_t file_field,
 			     const void *data, size_t data_size, void *context)
 {
 	struct mail_cache_copy_context *ctx = context;
+        struct mail_cache_field *cache_field;
 	enum mail_cache_decision_type dec;
 	unsigned int field;
 	uint8_t *field_seen;
 	uint32_t size32;
 
+	field = view->cache->file_field_map[file_field];
+	cache_field = &view->cache->fields[field].field;
+
 	field_seen = buffer_get_space_unsafe(ctx->field_seen, file_field, 1);
 	if (*field_seen == ctx->field_seen_value) {
 		/* duplicate */
+		if (cache_field->type == MAIL_CACHE_FIELD_BITMASK) {
+			mail_cache_merge_bitmask(view->cache, ctx->buffer,
+						 field, data, data_size);
+		}
 		return 1;
 	}
 	*field_seen = ctx->field_seen_value;
 
-	field = view->cache->file_field_map[file_field];
-	dec = view->cache->fields[field].field.decision &
-		~MAIL_CACHE_DECISION_FORCED;
+	dec = cache_field->decision & ~MAIL_CACHE_DECISION_FORCED;
 	if (ctx->new_msg) {
 		if (dec == MAIL_CACHE_DECISION_NO)
 			return 1;
@@ -44,7 +85,7 @@ mail_cache_compress_callback(struct mail_cache_view *view, uint32_t file_field,
 
 	buffer_append(ctx->buffer, &file_field, sizeof(file_field));
 
-	if (view->cache->fields[field].field.field_size == (unsigned int)-1) {
+	if (cache_field->field_size == (unsigned int)-1) {
 		size32 = (uint32_t)data_size;
 		buffer_append(ctx->buffer, &size32, sizeof(size32));
 	}
