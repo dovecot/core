@@ -239,6 +239,25 @@ rpa_read_buffer(pool_t pool, const unsigned char **data,
 }
 
 static int
+rpa_verify_realm(struct rpa_auth_request *request, const char *realm)
+{
+	const char *default_realm;
+	const char *const *tmp;
+
+	tmp = request->auth_request.auth->auth_realms;
+	for (; *tmp != NULL; tmp++) {
+		if (strcasecmp(realm, *tmp) == 0)
+			return TRUE;
+	}
+
+	default_realm = request->auth_request.auth->default_realm != NULL ?
+			request->auth_request.auth->default_realm :
+			my_hostname;
+
+	return strcasecmp(realm, default_realm) == 0 ? TRUE : FALSE;
+}
+
+static int
 rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 		 size_t data_size, const char **error)
 {
@@ -267,7 +286,7 @@ rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 
 	user = t_strndup(p, len);
 	realm = strrchr(user, '@');
-	if ((realm == NULL) || (strcmp(realm + 1, my_hostname) != 0)) {
+	if ((realm == NULL) || !rpa_verify_realm(request, realm + 1)) {
 		*error = "invalid realm";
 		return FALSE;
 	}
@@ -320,16 +339,37 @@ buffer_append_asn1_length(buffer_t *buf, unsigned int length)
 	}
 }
 
-static const unsigned char *
-mech_rpa_build_token2(struct rpa_auth_request *request,
-		      const char *realms, size_t *size)
+static void
+rpa_add_realm(string_t *realms, const char *realm, const char *service)
 {
-	unsigned int realms_len;
-	unsigned int length;
+	str_append(realms, service);	
+	str_append_c(realms, '@');
+	str_append(realms, realm);
+	str_append_c(realms, ' ');
+}
+
+static const unsigned char *
+mech_rpa_build_token2(struct rpa_auth_request *request, size_t *size)
+{
+	struct auth *auth = request->auth_request.auth;
+	unsigned int realms_len, length;
+	string_t *realms;
 	buffer_t *buf;
 	unsigned char timestamp[RPA_TIMESTAMP_LEN / 2];
+	const char *const *tmp;
 
-	realms_len = strlen(realms);
+	realms = t_str_new(64);
+	for (tmp = auth->auth_realms; *tmp != NULL; tmp++) {
+		rpa_add_realm(realms, *tmp, request->auth_request.service);
+	}
+
+	if (str_len(realms) == 0) {
+		rpa_add_realm(realms, auth->default_realm != NULL ?
+			      auth->default_realm : my_hostname,
+			      request->auth_request.service);
+	}
+
+	realms_len = str_len(realms) - 1;
         length = sizeof(rpa_oid) + 3 + RPA_SCHALLENGE_LEN +
 		RPA_TIMESTAMP_LEN + 2 + realms_len;
 
@@ -361,7 +401,7 @@ mech_rpa_build_token2(struct rpa_auth_request *request,
 	/* Realm list */
 	buffer_append_c(buf, realms_len >> 8);
 	buffer_append_c(buf, realms_len & 0xff);
-	buffer_append(buf, realms, realms_len);
+	buffer_append(buf, str_c(realms), realms_len);
 
 	*size = buffer_get_used_size(buf);
 	return buffer_free_without_data(buf);
@@ -462,8 +502,7 @@ mech_rpa_auth_phase1(struct auth_request *auth_request,
 
 	service = t_str_lcase(auth_request->service);
 
-	token2 = mech_rpa_build_token2(request, t_strconcat(service, "@",
-				       my_hostname, NULL), &token2_size);
+	token2 = mech_rpa_build_token2(request, &token2_size);
 
 	request->service_ucs2be = ucs2be_str(request->pool, service,
 					     &request->service_len);
