@@ -211,13 +211,8 @@ static int mail_index_uid_foreach(MailIndex *index,
 					"lookup returned offset outside range",
 					index->filepath);
 
-			if (!mail_hash_rebuild(index->hash))
-				return -1;
-
-			/* lets try again */
-			pos = mail_hash_lookup_uid(index->hash, uid);
-			if (pos + sizeof(MailIndexRecord) > index->mmap_length)
-				return -1;
+			index->set_flags |= MAIL_INDEX_FLAG_REBUILD_HASH;
+			return -1;
 		}
 
 		rec = (MailIndexRecord *) ((char *) index->mmap_base + pos);
