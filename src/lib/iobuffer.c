@@ -637,6 +637,12 @@ void io_buffer_send_flush(IOBuffer *buf)
 
 	if (buf->skip != buf->pos)
 		io_buffer_send_blocking(buf, NULL, 0);
+
+	if (buf->corked) {
+		/* remove cork */
+		net_set_cork(buf->fd, FALSE);
+		buf->corked = FALSE;
+	}
 }
 
 void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
