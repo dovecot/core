@@ -541,12 +541,14 @@ mech_rpa_auth_continue(struct auth_request *auth_request,
 }
 
 static void
-mech_rpa_auth_initial(struct auth_request *auth_request,
-		      const unsigned char *data __attr_unused__,
-		      size_t data_size __attr_unused__,
+mech_rpa_auth_initial(struct auth_request *request,
+		      const unsigned char *data, size_t data_size,
 		      mech_callback_t *callback)
 {
-	callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE, NULL, 0);
+	if (data_size == 0)
+		callback(request, AUTH_CLIENT_RESULT_CONTINUE, NULL, 0);
+	else
+		mech_rpa_auth_continue(request, data, data_size, callback);
 }
 
 static void
