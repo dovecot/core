@@ -93,6 +93,7 @@ static void rawlog_open(void)
 	struct stat st;
 	int sfd[2];
 	pid_t pid, parent_pid;
+	time_t now;
 
 	home = getenv("HOME");
 	if (home == NULL)
@@ -130,7 +131,8 @@ static void rawlog_open(void)
 	restrict_access_by_env(TRUE);
 
 	/* open the files after dropping privileges */
-	tm = localtime(&ioloop_time);
+	now = time(NULL);
+	tm = localtime(&now);
 	if (strftime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M%S", tm) <= 0)
 		i_fatal("strftime() failed");
 
