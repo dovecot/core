@@ -230,7 +230,8 @@ static void mbox_parse_imapbase(const unsigned char *value, size_t len,
 		if (pos == len || value[pos] == ' ' || value[pos] == '\t') {
 			if (start != pos) {
 				flag = t_strdup_until(value+start, value+pos);
-				if (buffer_append(buf, flag, sizeof(flag)) == 0)
+				if (buffer_append(buf, &flag,
+						  sizeof(flag)) == 0)
 					break;
 			}
 			start = pos+1;
