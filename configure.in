@@ -131,8 +131,10 @@ AC_SUBST(ssldir)
 
 dnl * gcc specific options
 if test "x$ac_cv_prog_gcc" = "xyes"; then
-	# -Wcast-qual -Wcast-align -Wconversion -Wstrict-prototypes
-	CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat-nonliteral"
+	# -Wcast-qual -Wcast-align -Wconversion # too many warnings
+	# -Wstrict-prototypes -Wredundant-decls # may give warnings in some systems
+	# -Wmissing-format-attribute -Wmissing-noreturn # a couple of warnings
+	CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat=2 -Wbad-function-cast"
 fi
 
 dnl **
