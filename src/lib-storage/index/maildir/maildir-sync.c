@@ -347,7 +347,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			mail_storage_set_critical(ibox->box.storage,
 				"Maildir sync: UID inserted in the middle "
 				"of mailbox (%u > %u)", rec->uid, uid);
-			(void)mail_index_reset(ibox->index);
+			mail_index_mark_corrupted(ibox->index);
 			ret = -1;
 			break;
 		}

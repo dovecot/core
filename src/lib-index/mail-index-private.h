@@ -128,7 +128,6 @@ int mail_index_sync_get_rec(struct mail_index_view *view,
 			    const void *data, size_t *data_offset);
 
 void mail_index_set_inconsistent(struct mail_index *index);
-int mail_index_mark_corrupted(struct mail_index *index);
 
 int mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 	__attr_format__(2, 3);
