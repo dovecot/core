@@ -39,13 +39,11 @@ const char *client_authenticate_get_capabilities(void)
 	i_free(auth_methods_capability);
 
 	str = t_string_new(128);
-	t_string_append_c(str, ' ');
 
 	for (i = 0; i < AUTH_METHODS_COUNT; i++) {
 		if ((auth_methods & auth_method_desc[i].method) &&
 		    auth_method_desc[i].name != NULL) {
-			if (str->len > 0)
-				t_string_append_c(str, ' ');
+			t_string_append_c(str, ' ');
 			t_string_append(str, "AUTH=");
 			t_string_append(str, auth_method_desc[i].name);
 		}
