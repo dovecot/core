@@ -55,7 +55,6 @@
       fcntl/flock doesn't have any timeout.
     - UW-IMAP doesn't send it's fields to client: X-IMAPbase, Status, X-Status,
       X-Keywords, X-UID.. should we? probably just makes things more difficult
-    - search: support having longer keywords than buffer block
     - option: use mmap() vs. read() to access mails. read() seems to be a bit
       faster with linux/x86, and better through NFS since it doesn't read
       data uselessly.
@@ -72,7 +71,7 @@
 	  get interrupted all the time if we checked eg. large /var/spool/mail)
 	- *bsd: kqueue() can notify changes in mbox and maildir
     - .subscriptions currently uses fcntl() locking - maybe we should instead
-      just write to external file and rename()? optionally at least, so it
+      just write to temp file and rename()? optionally at least, so it
       works with NFS.
 
  - lib-charset:
@@ -134,7 +133,12 @@ lib-storage:
    RemoteMailStorage which would use TCP/UNIX sockets to connect to another 
    imap session.
  - SEARCH:
-     - CHARSET support for message body
+     - message_body_search() could accept multiple search keywords so we
+       wouldn't need to call it separately for each one (so we wouldn't need
+       to parse the message multiple times).
+     - message_body_search() could support NULL MessagePart and the searching
+       could be done while parsing the message. this would need changes to
+       message_parse() as well.
      - could optionally support scanning inside file attachments and use
        plugins to extract text out of them (word, excel, pdf, etc. etc.)
      - use a trie index for fast text searching, like cyrus squat?
@@ -203,18 +207,6 @@ auth / login:
    login processes. especially if there's one login/connection the speed
    should be something like once/sec. also limit how fast to accept new
    connections.
- - Diffie Hellman parameters should be regenerated once in a while
- - HIGH: support executing each login in it's own process, so if an exploit
-   is ever found from it, the attacker can't see other users' passwords.
-     - master should limit number of login processes to max_logging_users,
-       killing old processes when limit is reached
-     - master should try to keep login_processes_count extra processes all
-       the time
-     - login should notify master after it accept()s, and it must close the
-       listening socket immediately
-     - Diffie Hellman parameters for SSL need to be somehow transferred
-       between login processes. It's too slow if they're generated every time,
-       and I'd rather not link SSL libs to imap-master.
 
 cleanups / checks:
  - grep for FIXME
@@ -226,11 +218,6 @@ cleanups / checks:
  - create env_put() and env_clean()
  - nearest_power() could be problematic with things that want it for ints,
    not size_t..
- - when sending lots of data with io_buffer_send(), it does a lot of
-   io_add() and io_remove()s. and io_remove() just marks it destroyed, so
-   it may creates lots of IOs before the next ioloop run.. Though now it
-   doesn't matter much since we're corked and we don't create the IOs,
-   but ioloop should probably be fixed anyway.
 
 optional optimizations:
  - provide some helper binary to save new mail into mailboxes with CR+LF
