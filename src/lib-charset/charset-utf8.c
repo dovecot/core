@@ -35,7 +35,7 @@ const char *_charset_utf8_ucase_strdup(const unsigned char *data, size_t size,
 
 #include <ctype.h>
 
-struct _CharsetTranslation {
+struct charset_translation {
 	int dummy;
 };
 
