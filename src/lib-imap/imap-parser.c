@@ -32,7 +32,7 @@ struct _ImapParser {
 	ImapArg *list_arg;
 
 	ArgParseType cur_type;
-	size_t cur_pos;
+	size_t cur_pos; /* parser position in input buffer */
 
 	int str_first_escape; /* ARG_PARSE_STRING: index to first '\' */
 	uoff_t literal_size; /* ARG_PARSE_LITERAL: string size */
@@ -101,8 +101,9 @@ void imap_parser_reset(ImapParser *parser)
 	imap_args_realloc(parser, LIST_ALLOC_SIZE);
 }
 
-static int imap_parser_skip_whitespace(ImapParser *parser, char **data,
-				       size_t *data_size)
+/* skip over everything parsed so far, plus the following whitespace */
+static int imap_parser_skip_to_next(ImapParser *parser, char **data,
+				    size_t *data_size)
 {
 	size_t i;
 
@@ -220,7 +221,7 @@ static void imap_parser_save_arg(ImapParser *parser, char *data, size_t lastpos)
 		i_assert(0);
 	}
 
-        parser->cur_type = ARG_PARSE_NONE;
+	parser->cur_type = ARG_PARSE_NONE;
 }
 
 static int imap_parser_read_atom(ImapParser *parser, char *data,
@@ -403,7 +404,7 @@ static int imap_parser_read_arg(ImapParser *parser)
 
 	while (parser->cur_type == ARG_PARSE_NONE) {
 		/* we haven't started parsing yet */
-		if (!imap_parser_skip_whitespace(parser, &data, &data_size))
+		if (!imap_parser_skip_to_next(parser, &data, &data_size))
 			return FALSE;
 		i_assert(parser->cur_pos == 0);
 
@@ -488,8 +489,10 @@ int imap_parser_read_args(ImapParser *parser, unsigned int count,
 		/* error, abort */
 		*args = NULL;
 		return -1;
-	} else if (parser->root_list->size >= count || parser->eol) {
-		/* all arguments read / end of line */
+	} else if ((parser->cur_type == ARG_PARSE_NONE &&
+		    parser->root_list->size >= count) || parser->eol) {
+		/* all arguments read / end of line. ARG_PARSE_NONE checks
+		   that last argument isn't only partially parsed. */
 		if (count >= parser->root_list->alloc) {
 			/* unused arguments must be NIL-filled. */
 			parser->root_list->alloc = count+1;
