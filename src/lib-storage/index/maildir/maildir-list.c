@@ -36,7 +36,7 @@ static enum mailbox_flags maildir_get_marked_flags(const char *dir)
 {
 	struct stat st_new, st_cur;
 
-	/* assume changes if new/ has been modified later than cur/ */
+	/* assume marked if new/ has been modified later than cur/ */
 	if (stat(t_strconcat(dir, "/new", NULL), &st_new) < 0)
 		return MAILBOX_UNMARKED;
 
