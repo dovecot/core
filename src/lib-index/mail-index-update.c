@@ -403,9 +403,26 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 
 	if (IS_BODYSTRUCTURE_FIELD(cache_fields)) {
 		/* for body / bodystructure, we need need to
-		   fully parse the message */
+		   fully parse the message. unless it's already parsed
+		   and cached. */
 		pool = pool_create("index message parser", 2048, FALSE);
-		part = message_parse(pool, inbuf, update_header_func, &ctx);
+
+		value = update->index->lookup_field_raw(update->index,
+							update->rec,
+							FIELD_TYPE_MESSAGEPART,
+							&size);
+		if (value == NULL) {
+			part = message_parse(pool, inbuf,
+					     update_header_func, &ctx);
+		} else {
+			/* cached, construct the bodystructure using it.
+			   also we need to parse the header.. */
+			part = message_part_deserialize(pool, value, size);
+
+			io_buffer_seek(inbuf, 0);
+			message_parse_header(NULL, inbuf, NULL,
+					     update_header_func, &ctx);
+		}
 
 		/* update our sizes */
 		update->rec->header_size = part->header_size.physical_size;
