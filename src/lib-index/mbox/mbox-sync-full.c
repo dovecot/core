@@ -48,6 +48,7 @@ static int mail_update_header_size(struct mail_index *index,
 				   struct message_size *hdr_size)
 {
 	const void *part_data;
+	const char *error;
 	void *part_data_copy;
 	uoff_t virtual_size;
 	size_t size;
@@ -80,7 +81,10 @@ static int mail_update_header_size(struct mail_index *index,
 	memcpy(part_data_copy, part_data, size);
 
 	if (!message_part_serialize_update_header(part_data_copy, size,
-						  hdr_size)) {
+						  hdr_size, &error)) {
+		index_set_corrupted(index,
+				    "Corrupted cached message_part data (%s)",
+				    error);
 		t_pop();
 		return FALSE;
 	}

@@ -177,27 +177,34 @@ static int message_part_deserialize_part(struct deserialize_context *ctx,
 	return TRUE;
 }
 
+static int check_size(size_t size, const char **error)
+{
+	if (size < sizeof(struct serialized_message_part)) {
+		*error = "Not enough data for root";
+		return FALSE;
+	}
+
+	if ((size % sizeof(struct serialized_message_part)) != 0) {
+		*error = "Incorrect data size";
+		return FALSE;
+	}
+
+	if (size / sizeof(struct serialized_message_part) > UINT_MAX) {
+		*error = "Insane amount of data";
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 struct message_part *message_part_deserialize(pool_t pool, const void *data,
 					      size_t size, const char **error)
 {
 	struct deserialize_context ctx;
         struct message_part *part;
 
-	/* make sure it looks valid */
-	if (size < sizeof(struct serialized_message_part)) {
-		*error = "Not enough data for root";
+	if (!check_size(size, error))
 		return NULL;
-	}
-
-	if ((size % sizeof(struct serialized_message_part)) != 0) {
-		*error = "Incorrect data size";
-		return NULL;
-	}
-
-	if (size / sizeof(struct serialized_message_part) > UINT_MAX) {
-		*error = "Insane amount of data";
-		return NULL;
-	}
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool;
@@ -219,21 +226,24 @@ struct message_part *message_part_deserialize(pool_t pool, const void *data,
 }
 
 int message_part_serialize_update_header(void *data, size_t size,
-					 struct message_size *hdr_size)
+					 struct message_size *hdr_size,
+					 const char **error)
 {
 	struct serialized_message_part *spart = data;
 	uoff_t first_pos;
 	off_t pos_diff;
 	size_t i, count;
+	unsigned int children;
 
-	/* make sure it looks valid */
-	if (size < sizeof(struct serialized_message_part))
+	if (!check_size(size, error))
 		return FALSE;
 
 	if (hdr_size->physical_size >= OFF_T_MAX ||
 	    spart->physical_pos >= OFF_T_MAX ||
-	    spart->header_physical_size >= OFF_T_MAX)
+	    spart->header_physical_size >= OFF_T_MAX) {
+		*error = "Invalid data";
 		return FALSE;
+	}
 
 	first_pos = spart->physical_pos;
 	pos_diff = (off_t)hdr_size->physical_size - spart->header_physical_size;
@@ -244,6 +254,7 @@ int message_part_serialize_update_header(void *data, size_t size,
 
 	if (pos_diff != 0) {
 		/* have to update all positions, but skip the first one */
+		children = spart->children_count;
 		count = (size / sizeof(struct serialized_message_part))-1;
 		spart++;
 
@@ -251,11 +262,21 @@ int message_part_serialize_update_header(void *data, size_t size,
 			if (spart->physical_pos < first_pos ||
 			    spart->physical_pos >= OFF_T_MAX) {
 				/* invalid offset, might cause overflow */
+				*error = "Invalid offset";
 				return FALSE;
 			}
+
+			children += spart->children_count;
 			spart->physical_pos += pos_diff;
 		}
+
+		if (children != count) {
+			*error = t_strdup_printf("Size mismatch %u vs %u",
+						 children, count);
+			return FALSE;
+		}
 	}
+
 	return TRUE;
 }
 
