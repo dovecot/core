@@ -27,7 +27,7 @@ int _cmd_select_full(Client *client, int readonly)
 
 	if (!box->get_status(box, STATUS_MESSAGES | STATUS_RECENT |
 			     STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
-			     STATUS_CUSTOM_FLAGS, &status)) {
+			     STATUS_UIDNEXT | STATUS_CUSTOM_FLAGS, &status)) {
 		client_send_storage_error(client);
 		box->close(box);
 		return TRUE;
@@ -52,8 +52,12 @@ int _cmd_select_full(Client *client, int readonly)
 	}
 
 	client_send_line(client,
-		t_strdup_printf("* OK [UIDVALIDITY %u] UIDs valid",
-				status.uidvalidity));
+			 t_strdup_printf("* OK [UIDVALIDITY %u] UIDs valid",
+					 status.uidvalidity));
+
+	client_send_line(client,
+			 t_strdup_printf("* OK [UIDNEXT %u] Predicted next UID",
+					 status.uidnext));
 
 	if (status.diskspace_full) {
 		client_send_line(client, "* OK [ALERT] "
