@@ -1,3 +1,5 @@
+noinst_LIBRARIES = libpassword.a
+
 pkglibexecdir = $(libexecdir)/dovecot
 
 pkglibexec_PROGRAMS = dovecot-auth checkpassword-reply
@@ -10,7 +12,15 @@ INCLUDES = \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	$(AUTH_CFLAGS)
 
+libpassword_a_SOURCES = \
+	mycrypt.c \
+	password-scheme.c \
+	password-scheme-md5crypt.c \
+	password-scheme-cram-md5.c \
+	password-scheme-ntlm.c
+
 dovecot_auth_LDADD = \
+	libpassword.a \
 	../lib-settings/libsettings.a \
 	../lib-ntlm/libntlm.a \
 	../lib/liblib.a \
@@ -36,7 +46,6 @@ dovecot_auth_SOURCES = \
 	mech-digest-md5.c \
 	mech-ntlm.c \
 	mech-apop.c \
-	mycrypt.c \
 	passdb.c \
 	passdb-bsdauth.c \
 	passdb-ldap.c \
@@ -48,10 +57,6 @@ dovecot_auth_SOURCES = \
 	passdb-vpopmail.c \
 	passdb-mysql.c \
 	passdb-pgsql.c \
-	password-scheme.c \
-	password-scheme-md5crypt.c \
-	password-scheme-cram-md5.c \
-	password-scheme-ntlm.c \
 	userdb.c \
 	userdb-ldap.c \
 	userdb-passwd.c \

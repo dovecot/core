@@ -14,11 +14,9 @@ rawlog_SOURCES = \
 	rawlog.c
 
 dovecotpw_LDADD = \
+	../auth/libpassword.a \
+	../lib-ntlm/libntlm.a \
 	../lib/liblib.a \
-	../auth/password-scheme.o \
-	../auth/password-scheme-cram-md5.o \
-	../auth/password-scheme-md5crypt.o \
-	../auth/mycrypt.o \
 	$(AUTH_LIBS)
 
 dovecotpw_SOURCES = \
