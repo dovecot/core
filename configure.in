@@ -168,10 +168,10 @@ AC_ARG_WITH(ssl,
 		want_gnutls=no
 		want_openssl=yes
 	else
-		want_gnutls=yes
+		want_gnutls=no
 		want_openssl=yes
 	fi, [
-		want_gnutls=yes
+		want_gnutls=no
 		want_openssl=yes
 	])
 
