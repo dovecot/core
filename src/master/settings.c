@@ -169,9 +169,24 @@ static void auth_settings_verify(void)
 	}
 }
 
+static const char *get_directory(const char *path)
+{
+	char *str, *p;
+
+	str = t_strdup_noconst(path);
+	p = strrchr(str, '/');
+	if (p == NULL)
+		return ".";
+	else {
+		*p = '\0';
+		return str;
+	}
+}
+
 static void settings_verify(void)
 {
 	char *const *str;
+	const char *dir;
 	int dotlock_got, fcntl_got, flock_got;
 
 	get_login_uid();
@@ -187,10 +202,11 @@ static void settings_verify(void)
 	}
 
 	if (set_log_path != NULL) {
-		if (access(set_log_path, W_OK) < 0) {
-			i_fatal("Can't access log directory %s: %m",
-				set_log_path);
-		}
+		/* log_path specifies a full file,  */
+		dir = get_directory(set_log_path);
+
+		if (access(dir, W_OK) < 0)
+			i_fatal("Can't access log directory %s: %m", dir);
 	}
 
 #ifdef HAVE_SSL
