@@ -157,9 +157,10 @@ void buffer_insert(buffer_t *_buf, size_t pos,
 
 	if (pos >= buf->used)
 		buffer_write(_buf, pos, data, data_size);
-
-	buffer_copy(_buf, pos + data_size, _buf, pos, (size_t)-1);
-	memcpy(buf->w_buffer + pos, data, data_size);
+	else {
+		buffer_copy(_buf, pos + data_size, _buf, pos, (size_t)-1);
+		memcpy(buf->w_buffer + pos, data, data_size);
+	}
 }
 
 void buffer_delete(buffer_t *_buf, size_t pos, size_t size)
@@ -203,9 +204,10 @@ void buffer_insert_zero(buffer_t *_buf, size_t pos, size_t data_size)
 
 	if (pos >= buf->used)
 		buffer_write_zero(_buf, pos, data_size);
-
-	buffer_copy(_buf, pos + data_size, _buf, pos, (size_t)-1);
-	memset(buf->w_buffer + pos, 0, data_size);
+	else {
+		buffer_copy(_buf, pos + data_size, _buf, pos, (size_t)-1);
+		memset(buf->w_buffer + pos, 0, data_size);
+	}
 }
 
 void buffer_copy(buffer_t *_dest, size_t dest_pos,
