@@ -464,8 +464,24 @@ void client_destroy(struct imap_client *client, const char *reason)
 		client->common.fd = -1;
 	}
 
-	if (client->common.proxy != NULL)
+	if (client->proxy_user != NULL) {
+		safe_memset(client->proxy_password, 0,
+			    strlen(client->proxy_password));
+		i_free(client->proxy_user);
+		i_free(client->proxy_password);
+		client->proxy_user = NULL;
+		client->proxy_password = NULL;
+	}
+
+	if (client->proxy != NULL) {
+		login_proxy_free(client->proxy);
+		client->proxy = NULL;
+	}
+
+	if (client->common.proxy != NULL) {
 		ssl_proxy_free(client->common.proxy);
+		client->common.proxy = NULL;
+	}
 	client_unref(client);
 }
 

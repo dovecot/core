@@ -114,10 +114,6 @@ static int client_handle_args(struct pop3_client *client,
 		   proxy host=.. [port=..] [destuser=..] pass=.. */
 		if (pop3_proxy_new(client, host, port, destuser, pass) < 0)
 			client_destroy_internal_failure(client);
-		else {
-			client_destroy(client, t_strconcat(
-				"Proxy: ", client->common.virtual_user, NULL));
-		}
 		return TRUE;
 	}
 
@@ -129,7 +125,7 @@ static int client_handle_args(struct pop3_client *client,
 	if (reason != NULL)
 		str_append(reply, reason);
 	else
-		str_append(reply, "Login disabled.");
+		str_append(reply, AUTH_FAILED_MSG);
 
 	client_send_line(client, str_c(reply));
 
@@ -166,12 +162,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 				break;
 		}
 
-		if (data == NULL)
-			client_send_line(client, "-ERR Authentication failed");
-		else {
-			client_send_line(client, t_strconcat(
-				"-ERR Authentication failed: ", data, NULL));
-		}
+		client_send_line(client, "-ERR "AUTH_FAILED_MSG);
 
 		/* get back to normal client input. */
 		if (client->io != NULL)

@@ -2,17 +2,112 @@
 
 #include "common.h"
 #include "ioloop.h"
+#include "istream.h"
+#include "ostream.h"
 #include "base64.h"
+#include "safe-memset.h"
 #include "str.h"
 #include "client.h"
-#include "login-proxy.h"
 #include "pop3-proxy.h"
+
+static void proxy_input(struct istream *input, struct ostream *output,
+			void *context)
+{
+	struct pop3_client *client = context;
+	string_t *auth, *str;
+	const char *line;
+
+	if (input == NULL) {
+		if (client->io != NULL) {
+			/* remote authentication failed, we're just
+			   freeing the proxy */
+			return;
+		}
+
+		/* failed for some reason */
+		client_destroy_internal_failure(client);
+		return;
+	}
+
+	switch (i_stream_read(input)) {
+	case -2:
+		/* buffer full */
+		i_error("pop-proxy(%s): Remote input buffer full",
+			client->common.virtual_user);
+		client_destroy_internal_failure(client);
+		return;
+	case -1:
+		/* disconnected */
+		client_destroy(client, "Proxy: Remote disconnected");
+		return;
+	}
+
+	line = i_stream_next_line(input);
+	if (line == NULL)
+		return;
+
+	if (client->proxy_user != NULL) {
+		/* this is a banner */
+		if (strncmp(line, "+OK ", 4) != 0) {
+			i_error("pop3-proxy(%s): "
+				"Remote returned invalid banner: %s",
+				client->common.virtual_user, line);
+			client_destroy_internal_failure(client);
+			return;
+		}
+
+		/* send AUTH command */
+		auth = t_str_new(128);
+		str_append_c(auth, '\0');
+		str_append(auth, client->proxy_user);
+		str_append_c(auth, '\0');
+		str_append(auth, client->proxy_password);
+
+		str = t_str_new(128);
+		str_append(str, "AUTH ");
+		base64_encode(str_data(auth), str_len(auth), str);
+		str_append(str, "\r\n");
+		(void)o_stream_send(output, str_data(str), str_len(str));
+
+		safe_memset(client->proxy_password, 0,
+			    strlen(client->proxy_password));
+		i_free(client->proxy_user);
+		i_free(client->proxy_password);
+		client->proxy_user = NULL;
+		client->proxy_password = NULL;
+	} else if (strncmp(line, "+OK ", 4) == 0) {
+		/* Login successful. Send this line to client. */
+		(void)o_stream_send_str(client->output, line);
+		(void)o_stream_send(client->output, "\r\n", 2);
+
+		login_proxy_detach(client->proxy, client->input,
+				   client->output);
+
+		client->proxy = NULL;
+		client->input = NULL;
+		client->output = NULL;
+		client->common.fd = -1;
+		client_destroy(client, t_strconcat(
+			"Proxy: ", client->common.virtual_user, NULL));
+	} else {
+		/* Login failed. Send our own failure reply so client can't
+		   figure out if user exists or not just by looking at the
+		   reply string. */
+		client_send_line(client, "-ERR "AUTH_FAILED_MSG);
+
+		/* allow client input again */
+		i_assert(client->io == NULL);
+		client->io = io_add(client->common.fd, IO_READ,
+				    client_input, client);
+
+		login_proxy_free(client->proxy);
+		client->proxy = NULL;
+	}
+}
 
 int pop3_proxy_new(struct pop3_client *client, const char *host,
 		   unsigned int port, const char *user, const char *password)
 {
-	string_t *auth, *str;
-
 	i_assert(user != NULL);
 
 	if (password == NULL) {
@@ -21,20 +116,15 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 		return -1;
 	}
 
-	auth = t_str_new(128);
-	str_append_c(auth, '\0');
-	str_append(auth, user);
-	str_append_c(auth, '\0');
-	str_append(auth, password);
-
-	str = t_str_new(128);
-	str_append(str, "AUTH ");
-	base64_encode(str_data(auth), str_len(auth), str);
-	str_append(str, "\r\n");
-
-	if (login_proxy_new(&client->common, host, port, str_c(str)) < 0)
+	client->proxy = login_proxy_new(&client->common, host, port,
+					proxy_input, client);
+	if (client->proxy == NULL)
 		return -1;
 
+	client->proxy_user = i_strdup(user);
+	client->proxy_password = i_strdup(password);
+
+	/* disable input until authentication is finished */
 	if (client->io != NULL) {
 		io_remove(client->io);
 		client->io = NULL;

@@ -113,10 +113,6 @@ static int client_handle_args(struct imap_client *client,
 		   proxy host=.. [port=..] [destuser=..] pass=.. */
 		if (imap_proxy_new(client, host, port, destuser, pass) < 0)
 			client_destroy_internal_failure(client);
-		else {
-			client_destroy(client, t_strconcat(
-				"Proxy: ", client->common.virtual_user, NULL));
-		}
 		return TRUE;
 	} else if (host != NULL) {
 		/* IMAP referral
@@ -151,7 +147,7 @@ static int client_handle_args(struct imap_client *client,
 		if (reason != NULL)
 			str_printfa(reply, "NO %s", reason);
 		else
-			str_append(reply, "NO Login not allowed.");
+			str_append(reply, "NO "AUTH_FAILED_MSG);
 		client_send_tagline(client, str_c(reply));
 	} else {
 		/* normal login/failure */
@@ -196,12 +192,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 				break;
 		}
 
-		if (data == NULL)
-			client_send_tagline(client, "Authentication failed");
-		else {
-			client_send_tagline(client, t_strconcat(
-				"NO Authentication failed: ", data, NULL));
-		}
+		client_send_tagline(client, "NO "AUTH_FAILED_MSG);
 
 		/* get back to normal client input. */
 		if (client->io != NULL)

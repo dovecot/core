@@ -16,6 +16,9 @@ struct imap_client {
 	struct ostream *output;
 	struct imap_parser *parser;
 
+	struct login_proxy *proxy;
+	char *proxy_user, *proxy_password;
+
 	time_t last_input;
 	unsigned int bad_counter;
 

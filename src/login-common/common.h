@@ -3,6 +3,8 @@
 
 #include "lib.h"
 
+#define AUTH_FAILED_MSG "Authentication failed."
+
 extern int disable_plaintext_auth, process_per_connection, greeting_capability;
 extern int verbose_proctitle, verbose_ssl, verbose_auth;
 char *greeting;

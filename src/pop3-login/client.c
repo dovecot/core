@@ -15,6 +15,7 @@
 #include "client-authenticate.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
+#include "pop3-proxy.h"
 #include "hostpid.h"
 
 /* max. length of input command line (spec says 512), or max reply length in
@@ -358,8 +359,24 @@ void client_destroy(struct pop3_client *client, const char *reason)
 		client->io = NULL;
 	}
 
-	net_disconnect(client->common.fd);
-	client->common.fd = -1;
+	if (client->common.fd != -1) {
+		net_disconnect(client->common.fd);
+		client->common.fd = -1;
+	}
+
+	if (client->proxy_user != NULL) {
+		safe_memset(client->proxy_password, 0,
+			    strlen(client->proxy_password));
+		i_free(client->proxy_user);
+		i_free(client->proxy_password);
+		client->proxy_user = NULL;
+		client->proxy_password = NULL;
+	}
+
+	if (client->proxy != NULL) {
+		login_proxy_free(client->proxy);
+		client->proxy = NULL;
+	}
 
 	if (client->common.proxy != NULL)
 		ssl_proxy_free(client->common.proxy);
