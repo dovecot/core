@@ -356,6 +356,14 @@ static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 		return -1;
 	}
 
+	hdr = map->mmap_base;
+	if (map->mmap_size >
+	    offsetof(struct mail_index_header, major_version) &&
+	    hdr->major_version != MAIL_INDEX_MAJOR_VERSION) {
+		/* major version change - handle silently */
+		return 0;
+	}
+
 	if (map->mmap_size < MAIL_INDEX_HEADER_MIN_SIZE) {
 		mail_index_set_error(index, "Corrupted index file %s: "
 				     "File too small (%"PRIuSIZE_T")",
@@ -363,7 +371,6 @@ static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 		return 0;
 	}
 
-	hdr = map->mmap_base;
 	map->hdr = hdr;
 	map->mmap_used_size = hdr->header_size +
 		hdr->messages_count * hdr->record_size;
@@ -419,6 +426,12 @@ static int mail_index_read_map(struct mail_index *index,
 			    sizeof(hdr) - pos, pos);
 		if (ret > 0)
 			pos += ret;
+	}
+
+	if (ret > (ssize_t)offsetof(struct mail_index_header, major_version) &&
+	    hdr.major_version != MAIL_INDEX_MAJOR_VERSION) {
+		/* major version change - handle silently */
+		return 0;
 	}
 
 	if (ret >= 0 && pos >= MAIL_INDEX_HEADER_MIN_SIZE &&
