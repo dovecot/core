@@ -406,6 +406,12 @@ struct _MailIndex {
 	unsigned int mailbox_lock_timeout:1;
 };
 
+#ifdef DEV_T_STRUCT
+/* we can't initialize dev_t as 0, and we don't know what it actually
+   contains, so don't initialize them. gcc's -W option should be disabled
+   with this or we get warnings.. */
+#  define MAIL_INDEX_PRIVATE_FILL 0
+#else
 /* needed to remove annoying warnings about not initializing all struct
    members.. */
 #define MAIL_INDEX_PRIVATE_FILL \
@@ -414,6 +420,7 @@ struct _MailIndex {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0
+#endif
 
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent, int fast);

@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 0.99.1)
+AM_INIT_AUTOMAKE(dovecot, 0.99.2)
 
 AM_MAINTAINER_MODE
 
@@ -127,6 +127,12 @@ AC_ARG_WITH(ssldir,
 	ssldir=/etc/ssl
 )
 
+dnl * gcc specific options
+if test "x$ac_cv_prog_gcc" = "xyes"; then
+	# -Wchar-subscripts -Wpointer-arith -Wcast-qual -Wcast-align -Wconversion -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
+	CFLAGS="$CFLAGS -Wall -W"
+fi
+
 dnl **
 dnl ** just some generic stuff...
 dnl **
@@ -166,12 +172,6 @@ AC_CHECK_FUNC(poll, [
 
 dnl * memory alignment
 AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align)
-
-dnl * gcc specific options
-if test "x$ac_cv_prog_gcc" = "xyes"; then
-	# -Wchar-subscripts -Wpointer-arith -Wcast-qual -Wcast-align -Wconversion -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
-	CFLAGS="$CFLAGS -Wall -W"
-fi
 
 dnl * OS specific options
 case "$host_os" in
@@ -348,6 +348,20 @@ if test $i_cv_struct_iovec = yes; then
 	AC_DEFINE(HAVE_STRUCT_IOVEC)
 fi
 AC_MSG_RESULT($i_cv_struct_iovec)
+
+dnl * is dev_t an integer or something else?
+AC_TRY_COMPILE([
+  #include <sys/types.h>
+  struct test { dev_t a; };
+  static struct test t = { 0 };
+],,, [
+  AC_DEFINE(DEV_T_STRUCT)
+
+  dnl we can't initialize structures, so don't warn about them either
+  if test "x$ac_cv_prog_gcc" = "xyes"; then
+    CFLAGS=`echo $CFLAGS|sed 's/ -W\b//'`
+  fi
+])
 
 dnl * Linux compatible mremap()
 AC_MSG_CHECKING([Linux compatible mremap()])

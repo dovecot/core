@@ -261,7 +261,7 @@ static int mbox_unlock_dotlock(MailIndex *index, const char *path)
         old_dev = index->mbox_dotlock_dev;
         old_ino = index->mbox_dotlock_ino;
 
-        index->mbox_dotlock_dev = 0;
+        memset(&index->mbox_dotlock_dev, 0, sizeof(index->mbox_dotlock_dev));
         index->mbox_dotlock_ino = 0;
 
 	if (stat(path, &st) < 0) {
@@ -273,7 +273,9 @@ static int mbox_unlock_dotlock(MailIndex *index, const char *path)
 	}
 
 	/* make sure it's still our dotlock */
-	if (old_dev != st.st_dev || old_ino != st.st_ino) {
+	if (old_ino != st.st_ino ||
+	    major(old_dev) != major(st.st_dev) ||
+	    minor(old_dev) != minor(st.st_dev)) {
 		index_set_error(index,
 			"Warning: Our dotlock file %s was overridden", path);
 		return FALSE;

@@ -21,6 +21,9 @@
 /* Define if you have struct iovec */
 #undef HAVE_STRUCT_IOVEC
 
+/* Define if your dev_t is a structure instead of integer type */
+#undef DEV_T_STRUCT
+
 #undef USERINFO_PASSWD
 #undef USERINFO_PASSWD_FILE
 #undef USERINFO_SHADOW

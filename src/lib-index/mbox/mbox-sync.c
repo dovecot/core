@@ -108,7 +108,9 @@ int mbox_index_sync(MailIndex *index, MailLockType data_lock_type,
 	}
 	filesize = st.st_size;
 
-	if (index->mbox_dev != st.st_dev || index->mbox_ino != st.st_ino) {
+	if (index->mbox_ino != st.st_ino ||
+	    major(index->mbox_dev) != major(st.st_dev) ||
+	    minor(index->mbox_dev) != minor(st.st_dev)) {
 		/* mbox file was overwritten, close it if it was open */
 		index->mbox_dev = st.st_dev;
 		index->mbox_ino = st.st_ino;
