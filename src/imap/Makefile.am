@@ -53,7 +53,7 @@ imap_SOURCES = \
 	client.c \
 	commands.c \
 	commands-util.c \
-	mail-storage-callbacks.c \
+	mailbox-sync.c \
 	main.c \
 	rawlog.c
 
