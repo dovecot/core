@@ -69,6 +69,26 @@ static int index_data_set_syscall_error(MailIndexData *data,
 	return FALSE;
 }
 
+static void mail_index_data_file_close(MailIndexData *data)
+{
+	if (data->anon_mmap) {
+		if (munmap_anon(data->mmap_base, data->mmap_full_length) < 0)
+			index_data_set_syscall_error(data, "munmap_anon()");
+	} else if (data->mmap_base != NULL) {
+		if (munmap(data->mmap_base, data->mmap_full_length) < 0)
+			index_data_set_syscall_error(data, "munmap()");
+	}
+	data->mmap_base = NULL;
+	data->mmap_used_length = 0;
+	data->mmap_full_length = 0;
+
+	if (data->fd != -1) {
+		if (close(data->fd) < 0)
+			index_data_set_syscall_error(data, "close()");
+		data->fd = -1;
+	}
+}
+
 static int data_file_reopen(MailIndexData *data)
 {
 	int fd;
@@ -79,8 +99,7 @@ static int data_file_reopen(MailIndexData *data)
 	if (fd == -1)
 		return index_data_set_syscall_error(data, "open()");
 
-	if (close(data->fd) < 0)
-		index_data_set_syscall_error(data, "close()");
+	mail_index_data_file_close(data);
 
 	data->fd = fd;
 	return TRUE;
@@ -107,6 +126,7 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 		if (!data_file_reopen(data))
 			return FALSE;
 
+		/* force mmap refresh */
 		size = 0;
 	}
 
@@ -305,18 +325,8 @@ void mail_index_data_free(MailIndexData *data)
 {
 	data->index->data = NULL;
 
-	if (data->anon_mmap) {
-		if (munmap_anon(data->mmap_base, data->mmap_full_length) < 0)
-			index_data_set_syscall_error(data, "munmap_anon()");
-	} else if (data->mmap_base != NULL) {
-		if (munmap(data->mmap_base, data->mmap_full_length) < 0)
-			index_data_set_syscall_error(data, "munmap()");
-	}
+	mail_index_data_file_close(data);
 
-	if (data->fd != -1) {
-		if (close(data->fd) < 0)
-			index_data_set_syscall_error(data, "close()");
-	}
 	i_free(data->filepath);
 	i_free(data);
 }
@@ -486,9 +496,11 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 	if (!mmap_update(data, index_rec->data_position, index_rec->data_size))
 		return NULL;
 
-	if (index_rec->data_position > data->mmap_used_length ||
-	    (data->mmap_used_length -
-	     index_rec->data_position < index_rec->data_size)) {
+	pos = index_rec->data_position;
+	max_pos = pos + index_rec->data_size;
+
+	if (pos > data->mmap_used_length ||
+	    (data->mmap_used_length - pos < index_rec->data_size)) {
 		index_data_set_corrupted(data,
 			"Given data size larger than file size "
 			"(%"PRIuUOFF_T" + %u > %"PRIuSIZE_T") for record %u",
@@ -497,7 +509,7 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 		return NULL;
 	}
 
-	if ((index_rec->data_position % MEM_ALIGN_SIZE) != 0) {
+	if ((pos % MEM_ALIGN_SIZE) != 0) {
 		index_data_set_corrupted(data,
 			"Data position (%"PRIuUOFF_T") is not memory aligned "
 			"for record %u", index_rec->data_position,
@@ -505,21 +517,24 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 		return NULL;
 	}
 
-	pos = index_rec->data_position;
-	max_pos = pos + index_rec->data_size;
-
 	do {
 		rec = (MailIndexDataRecord *) ((char *) data->mmap_base + pos);
 
-		/* pos + DATA_RECORD_SIZE() may actually overflow, but it
-		   points to beginning of file then. Don't bother checking
-		   this as it won't crash and is quite likely noticed later. */
-		if (pos + sizeof(MailIndexDataRecord) > max_pos ||
+		if (rec->full_field_size > max_pos ||
+		    pos + sizeof(MailIndexDataRecord) > max_pos ||
 		    pos + DATA_RECORD_SIZE(rec) > max_pos) {
 			index_data_set_corrupted(data,
 				"Field %d size points outside file "
 				"(%"PRIuUOFF_T" / %"PRIuUOFF_T") for record %u",
 				(int)field, pos, max_pos, index_rec->uid);
+			break;
+		}
+
+		if ((rec->full_field_size % MEM_ALIGN_SIZE) != 0) {
+			index_data_set_corrupted(data,
+				"Field %d size %u is not memory aligned "
+				"for record %u", (int)field,
+				rec->full_field_size, index_rec->uid);
 			break;
 		}
 
