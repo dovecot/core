@@ -212,11 +212,11 @@ static void main_deinit(void)
 	if (io_listen != NULL) io_remove(io_listen);
 	if (io_ssl_listen != NULL) io_remove(io_ssl_listen);
 
+	ssl_proxy_deinit();
+
 	clients_deinit();
 	master_deinit();
 	auth_connection_deinit();
-
-	ssl_proxy_deinit();
 
 	closelog();
 }

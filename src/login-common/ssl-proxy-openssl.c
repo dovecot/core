@@ -37,6 +37,7 @@ struct ssl_proxy {
 };
 
 static SSL_CTX *ssl_ctx;
+static struct hash_table *ssl_proxies;
 
 static void plain_read(struct ssl_proxy *proxy);
 static void plain_write(struct ssl_proxy *proxy);
@@ -317,6 +318,7 @@ int ssl_proxy_new(int fd)
 	}
 
         main_ref();
+	hash_insert(ssl_proxies, proxy, proxy);
 	return sfd[1];
 }
 
@@ -324,6 +326,8 @@ static int ssl_proxy_destroy(struct ssl_proxy *proxy)
 {
 	if (--proxy->refcount > 0)
 		return TRUE;
+
+	hash_remove(ssl_proxies, proxy);
 
 	SSL_free(proxy->ssl);
 
@@ -375,13 +379,25 @@ void ssl_proxy_init(void)
 			keyfile, ssl_last_error());
 	}
 
+        ssl_proxies = hash_create(default_pool, default_pool, 0, NULL, NULL);
 	ssl_initialized = TRUE;
+}
+
+static void ssl_proxy_destroy_hash(void *key __attr_unused__, void *value,
+				   void *context __attr_unused__)
+{
+	ssl_proxy_destroy(value);
 }
 
 void ssl_proxy_deinit(void)
 {
-	if (ssl_initialized)
-                SSL_CTX_free(ssl_ctx);
+	if (!ssl_initialized)
+		return;
+
+	SSL_CTX_free(ssl_ctx);
+
+	hash_foreach(ssl_proxies, ssl_proxy_destroy_hash, NULL);
+	hash_destroy(ssl_proxies);
 }
 
 #endif
