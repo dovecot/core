@@ -6,7 +6,8 @@
 enum maildir_uidlist_rec_flag {
 	MAILDIR_UIDLIST_REC_FLAG_NEW_DIR	= 0x01,
 	MAILDIR_UIDLIST_REC_FLAG_MOVED		= 0x02,
-	MAILDIR_UIDLIST_REC_FLAG_RECENT		= 0x04
+	MAILDIR_UIDLIST_REC_FLAG_RECENT		= 0x04,
+	MAILDIR_UIDLIST_REC_FLAG_NONSYNCED	= 0x08
 };
 
 int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist);
@@ -29,7 +30,7 @@ uint32_t maildir_uidlist_get_recent_count(struct maildir_uidlist *uidlist);
 
 /* Sync uidlist with what's actually on maildir. */
 struct maildir_uidlist_sync_ctx *
-maildir_uidlist_sync_init(struct maildir_uidlist *uidlist);
+maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, int partial);
 int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			      const char *filename,
 			      enum maildir_uidlist_rec_flag flags);
@@ -39,7 +40,8 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx);
 struct maildir_uidlist_iter_ctx *
 maildir_uidlist_iter_init(struct maildir_uidlist *uidlist);
 int maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
-			      uint32_t *uid_r, uint32_t *flags_r,
+			      uint32_t *uid_r,
+			      enum maildir_uidlist_rec_flag *flags_r,
 			      const char **filename_r);
 void maildir_uidlist_iter_deinit(struct maildir_uidlist_iter_ctx *ctx);
 

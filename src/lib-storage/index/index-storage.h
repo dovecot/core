@@ -88,6 +88,7 @@ struct index_mailbox {
 	unsigned int mail_read_mmaped:1;
 
 	unsigned int maildir_keep_new:1;
+	unsigned int last_cur_dirty:1;
 };
 
 struct index_transaction_context {

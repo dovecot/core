@@ -176,7 +176,7 @@ int mail_index_sync_begin(struct mail_index *index,
 					  index->hdr->log_file_offset,
 					  seq, offset,
 					  MAIL_TRANSACTION_TYPE_MASK) < 0) {
-                mail_index_sync_end(ctx);
+                mail_index_sync_end(ctx, 0, 0);
 		return -1;
 	}
 
@@ -189,7 +189,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx->appends_buf = buffer_create_dynamic(default_pool,
 						 1024, (size_t)-1);
 	if (mail_index_sync_read_and_sort(ctx, FALSE) < 0) {
-                mail_index_sync_end(ctx);
+                mail_index_sync_end(ctx, 0, 0);
 		return -1;
 	}
 
@@ -397,7 +397,8 @@ int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 		ctx->sync_appends;
 }
 
-int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
+int mail_index_sync_end(struct mail_index_sync_ctx *ctx,
+			uint32_t sync_stamp, uint64_t sync_size)
 {
 	const struct mail_index_header *hdr;
 	uint32_t seq;
@@ -420,7 +421,8 @@ int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 
 	if (ret == 0) {
 		mail_index_sync_read_and_sort(ctx, TRUE);
-		if (mail_index_sync_update_index(ctx) < 0)
+		if (mail_index_sync_update_index(ctx, sync_stamp,
+						 sync_size) < 0)
 			ret = -1;
 	}
 

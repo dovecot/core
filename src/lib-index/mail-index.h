@@ -33,13 +33,8 @@ enum mail_index_header_compat_flags {
 };
 
 enum mail_index_header_flag {
-	/* Corrupted-flag should be set while anything dangerous is done to
-	   index file, such as when expunging messages. Once the operation
-	   is finished, the corrupted-flag is removed. If this flag is noticed
-	   unexpectedly, the index must be assumed to be corrupted and must
-	   not be used. */
-	MAIL_INDEX_HDR_FLAG_CORRUPTED		= 0x0001,
-	MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE	= 0x0002
+	/* Index file is corrupted, reopen or recreate it. */
+	MAIL_INDEX_HDR_FLAG_CORRUPTED		= 0x0001
 };
 
 enum mail_index_record_flag {
@@ -209,8 +204,10 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec);
 /* Returns 1 if there's more to sync, 0 if not. */
 int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
-/* End synchronization by unlocking the index and closing the view. */
-int mail_index_sync_end(struct mail_index_sync_ctx *ctx);
+/* End synchronization by unlocking the index and closing the view.
+   sync_stamp/sync_size in header is updated to given values. */
+int mail_index_sync_end(struct mail_index_sync_ctx *ctx,
+			uint32_t sync_stamp, uint64_t sync_size);
 
 /* Mark index file corrupted. Invalidates all views. */
 void mail_index_mark_corrupted(struct mail_index *index);

@@ -22,7 +22,8 @@ struct mail_index_sync_ctx {
 	unsigned int sync_appends:1;
 };
 
-int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx);
+int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
+				 uint32_t sync_stamp, uint64_t sync_size);
 
 void mail_index_header_update_counts(struct mail_index_header *hdr,
 				     uint8_t old_flags, uint8_t new_flags);

@@ -166,7 +166,8 @@ static int mail_index_sync_appends(struct mail_index_update_ctx *ctx,
 	return 0;
 }
 
-int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
+int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
+				 uint32_t sync_stamp, uint64_t sync_size)
 {
 	struct mail_index *index = sync_ctx->index;
 	struct mail_index_map *map = index->map;
@@ -177,14 +178,31 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	uint32_t count, file_seq, src_idx, dest_idx;
 	uoff_t file_offset;
 	unsigned int lock_id;
-	int ret;
+	int ret, changed;
 
 	/* rewind */
 	sync_ctx->update_idx = sync_ctx->expunge_idx = 0;
 	sync_ctx->sync_appends =
 		buffer_get_used_size(sync_ctx->appends_buf) != 0;
 
-	if (!mail_index_sync_have_more(sync_ctx)) {
+	changed = mail_index_sync_have_more(sync_ctx);
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.index = index;
+	ctx.hdr = *index->hdr;
+	ctx.log_view = sync_ctx->view->log_view;
+
+	/* see if we need to update sync headers */
+	if (ctx.hdr.sync_stamp != sync_stamp && sync_stamp != 0) {
+		ctx.hdr.sync_stamp = sync_stamp;
+		changed = TRUE;
+	}
+	if (ctx.hdr.sync_size != sync_size && sync_size != 0) {
+		ctx.hdr.sync_size = sync_size;
+		changed = TRUE;
+	}
+
+	if (!changed) {
 		/* nothing to sync */
 		return 0;
 	}
@@ -194,11 +212,6 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map))
 		map->write_to_disk = TRUE;
-
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.index = index;
-	ctx.hdr = *index->hdr;
-	ctx.log_view = sync_ctx->view->log_view;
 
 	src_idx = dest_idx = 0;
 	append_count = 0; appends = NULL;

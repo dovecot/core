@@ -30,6 +30,7 @@
 struct maildir_sync_context {
         struct index_mailbox *ibox;
 	const char *new_dir, *cur_dir;
+	int partial;
 
         struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
 };
@@ -124,7 +125,7 @@ int maildir_sync_last_commit(struct index_mailbox *ibox)
 				break;
 			}
 		}
-		if (mail_index_sync_end(sync_ctx) < 0)
+		if (mail_index_sync_end(sync_ctx, 0, 0) < 0)
 			ret = -1;
 	}
 
@@ -261,6 +262,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 				    int *new_changed_r, int *cur_changed_r)
 {
+	const struct mail_index_header *hdr;
 	struct index_mailbox *ibox = ctx->ibox;
 	struct stat st;
 	time_t new_mtime, cur_mtime;
@@ -281,19 +283,27 @@ static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 	}
 	cur_mtime = st.st_mtime;
 
+	if (ibox->last_cur_mtime == 0) {
+		/* first sync in this session, get cur stamp from index */
+		if (mail_index_get_header(ibox->view, &hdr) == 0)
+			ibox->last_cur_mtime = hdr->sync_stamp;
+	}
+
 	if (new_mtime != ibox->last_new_mtime ||
 	    new_mtime >= ibox->last_sync - MAILDIR_SYNC_SECS) {
 		*new_changed_r = TRUE;
 		ibox->last_new_mtime = new_mtime;
 	}
+
 	if (cur_mtime != ibox->last_cur_mtime ||
-	    (cur_mtime >= ibox->last_sync - MAILDIR_SYNC_SECS &&
+	    (ibox->last_cur_dirty &&
 	     ioloop_time - ibox->last_sync > MAILDIR_SYNC_SECS)) {
 		/* cur/ changed, or delayed cur/ check */
 		*cur_changed_r = TRUE;
 		ibox->last_cur_mtime = cur_mtime;
 	}
 	ibox->last_sync = ioloop_time;
+	ibox->last_cur_dirty = cur_mtime >= ibox->last_sync - MAILDIR_SYNC_SECS;
 
 	return 0;
 }
@@ -308,10 +318,12 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 	struct mail_index_view *view;
 	const struct mail_index_header *hdr;
 	const struct mail_index_record *rec;
-	uint32_t seq, uid, uflags;
+	uint32_t seq, uid;
+        enum maildir_uidlist_rec_flag uflags;
 	const char *filename;
 	enum mail_flags flags;
 	custom_flags_mask_t custom_flags;
+	uint32_t sync_stamp;
 	int ret;
 
 	if (mail_index_sync_begin(ibox->index, &sync_ctx, &view,
@@ -332,6 +344,11 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 
 	__again:
 		seq++;
+		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
+			/* partial syncing */
+			continue;
+		}
+
 		if (seq > hdr->messages_count) {
 			mail_index_append(trans, uid, &seq);
 			mail_index_update_flags(trans, seq, MODIFY_REPLACE,
@@ -372,6 +389,12 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 	}
 	maildir_uidlist_iter_deinit(iter);
 
+	if (!ctx->partial) {
+		/* expunge the rest */
+		for (seq++; seq <= hdr->messages_count; seq++)
+			mail_index_expunge(trans, seq);
+	}
+
 	if (ret < 0)
 		mail_index_transaction_rollback(trans);
 	else {
@@ -393,7 +416,9 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			break;
 		}
 	}
-	if (mail_index_sync_end(sync_ctx) < 0)
+
+	sync_stamp = ibox->last_cur_dirty ? 0 : ibox->last_cur_mtime;
+	if (mail_index_sync_end(sync_ctx, sync_stamp, 0) < 0)
 		ret = -1;
 
 	if (ret == 0) {
@@ -416,13 +441,16 @@ static int maildir_sync_context(struct maildir_sync_context *ctx)
 	if (!new_changed && !cur_changed)
 		return 0;
 
-	// FIXME: don't sync cur/ directory if not needed
-	ctx->uidlist_sync_ctx = maildir_uidlist_sync_init(ctx->ibox->uidlist);
+	ctx->partial = !cur_changed;
+	ctx->uidlist_sync_ctx =
+		maildir_uidlist_sync_init(ctx->ibox->uidlist, ctx->partial);
 
 	if (maildir_scan_dir(ctx, TRUE) < 0)
 		return -1;
-	if (maildir_scan_dir(ctx, FALSE) < 0)
-		return -1;
+	if (cur_changed) {
+		if (maildir_scan_dir(ctx, FALSE) < 0)
+			return -1;
+	}
 
 	ret = maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
         ctx->uidlist_sync_ctx = NULL;
@@ -436,7 +464,8 @@ static int maildir_sync_context_readonly(struct maildir_sync_context *ctx)
 {
 	int ret;
 
-	ctx->uidlist_sync_ctx = maildir_uidlist_sync_init(ctx->ibox->uidlist);
+	ctx->uidlist_sync_ctx =
+		maildir_uidlist_sync_init(ctx->ibox->uidlist, FALSE);
 
 	if (maildir_scan_dir(ctx, TRUE) < 0)
 		return -1;
