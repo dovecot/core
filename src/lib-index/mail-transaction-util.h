@@ -17,6 +17,10 @@ struct mail_transaction_map_functions {
 			    void *context);
 	int (*header_update)(const struct mail_transaction_header_update *u,
 			     void *context);
+	int (*extra_rec_update)
+		(const struct mail_transaction_extra_rec_header *hdr,
+		 const struct mail_transaction_extra_rec_update *u,
+		 void *context);
 };
 
 const struct mail_transaction_type_map *

@@ -262,6 +262,7 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 
 	hdr = CONST_PTR_OFFSET(data, view->cur_offset - file->buffer_offset);
 	view->cur_offset += sizeof(*hdr);
+	data = CONST_PTR_OFFSET(hdr, sizeof(*hdr));
 
 	if (file_size - view->cur_offset < hdr->size) {
 		mail_transaction_log_file_set_corrupted(file,
@@ -296,6 +297,16 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 			"extra bits in header type: 0x%x",
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK);
 		return -1;
+	} else if (hdr->type == MAIL_TRANSACTION_EXTRA_REC_UPDATE) {
+		const struct mail_transaction_extra_rec_header *ehdr = data;
+
+		if (ehdr->idx >= view->log->index->extra_records_count) {
+			mail_transaction_log_file_set_corrupted(file,
+				"extra record update out of range (%u > %u)",
+				ehdr->idx,
+				view->log->index->extra_records_count);
+			return -1;
+		}
 	}
 
 	if (hdr->size % record_size != 0) {
@@ -308,8 +319,7 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 	}
 
 	*hdr_r = hdr;
-	*data_r = CONST_PTR_OFFSET(data, view->cur_offset -
-				   file->buffer_offset);
+	*data_r = data;
 	view->cur_offset += hdr->size;
 	return 1;
 }

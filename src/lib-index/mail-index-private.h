@@ -6,6 +6,12 @@
 
 struct mail_transaction_header;
 
+/* Maximum number of extra record data items we allowed. Currently maximum
+   would be 32767 because of how transaction log is implemented. Raising this
+   limit only means it takes a few bytes more memory, but 32 should be enough
+   for a long time, right? :) */
+#define MAIL_INDEX_MAX_EXTRA_RECORDS 32
+
 /* Index file is grown exponentially when we're adding less than this many
    records. */
 #define MAIL_INDEX_MAX_POWER_GROW (1024*1024 / sizeof(struct mail_index_record))
@@ -49,6 +55,10 @@ struct mail_index {
 
 	mode_t mode;
 	gid_t gid;
+
+	uint16_t extra_record_offsets[MAIL_INDEX_MAX_EXTRA_RECORDS];
+	uint16_t extra_record_sizes[MAIL_INDEX_MAX_EXTRA_RECORDS];
+	unsigned int extra_records_count;
 	unsigned int record_size;
 
 	char *filepath;

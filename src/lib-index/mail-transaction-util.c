@@ -23,6 +23,7 @@ const struct mail_transaction_type_map mail_transaction_type_map[] = {
 	{ MAIL_TRANSACTION_CACHE_UPDATE, 0,
 	  sizeof(struct mail_transaction_cache_update) },
 	{ MAIL_TRANSACTION_HEADER_UPDATE, 0, 1 }, /* variable size, use 1 */
+	{ MAIL_TRANSACTION_EXTRA_REC_UPDATE, 0, 1 },
 	{ 0, 0, 0 }
 };
 
@@ -57,6 +58,7 @@ int mail_transaction_map(struct mail_index *index,
 			 struct mail_transaction_map_functions *map,
 			 void *context)
 {
+
 	int ret = 0;
 
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
@@ -133,6 +135,28 @@ int mail_transaction_map(struct mail_index *index,
 				break;
 
 			i += sizeof(uint16_t)*2 + rec->size;
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_EXTRA_REC_UPDATE: {
+		const struct mail_transaction_extra_rec_header *ehdr;
+		const struct mail_transaction_extra_rec_update *rec;
+		unsigned int i, record_size;
+
+		if (map->extra_rec_update == NULL)
+			break;
+
+		ehdr = data;
+		i_assert(ehdr->idx < index->extra_records_count);
+		record_size = index->extra_record_sizes[ehdr->idx];
+
+		rec = CONST_PTR_OFFSET(data, sizeof(*hdr));
+		for (i = 0; i < hdr->size; ) {
+			ret = map->extra_rec_update(ehdr, rec, context);
+			if (ret <= 0)
+				break;
+
+			rec = CONST_PTR_OFFSET(rec, record_size);
 		}
 		break;
 	}

@@ -14,22 +14,23 @@ struct mail_transaction_log_header {
 };
 
 enum mail_transaction_type {
-	MAIL_TRANSACTION_EXPUNGE	= 0x00000001,
-	MAIL_TRANSACTION_APPEND		= 0x00000002,
-	MAIL_TRANSACTION_FLAG_UPDATE	= 0x00000004,
-	MAIL_TRANSACTION_CACHE_UPDATE	= 0x00000008,
-	MAIL_TRANSACTION_HEADER_UPDATE	= 0x00000010,
+	MAIL_TRANSACTION_EXPUNGE		= 0x00000001,
+	MAIL_TRANSACTION_APPEND			= 0x00000002,
+	MAIL_TRANSACTION_FLAG_UPDATE		= 0x00000004,
+	MAIL_TRANSACTION_CACHE_UPDATE		= 0x00000008,
+	MAIL_TRANSACTION_HEADER_UPDATE		= 0x00000010,
+	MAIL_TRANSACTION_EXTRA_REC_UPDATE	= 0x00000020,
 
-	MAIL_TRANSACTION_TYPE_MASK	= 0x0000ffff,
+	MAIL_TRANSACTION_TYPE_MASK		= 0x0000ffff,
 
 	/* since we'll expunge mails based on data read from transaction log,
 	   try to avoid the possibility of corrupted transaction log expunging
 	   messages. this value is ORed to the actual MAIL_TRANSACTION_EXPUNGE
 	   flag. if it's not present, assume corrupted log. */
-	MAIL_TRANSACTION_EXPUNGE_PROT	= 0x0000cd90,
+	MAIL_TRANSACTION_EXPUNGE_PROT		= 0x0000cd90,
 
 	/* Mailbox synchronization noticed this change. */
-	MAIL_TRANSACTION_EXTERNAL	= 0x10000000
+	MAIL_TRANSACTION_EXTERNAL		= 0x10000000
 };
 
 struct mail_transaction_header {
@@ -57,6 +58,15 @@ struct mail_transaction_cache_update {
 struct mail_transaction_header_update {
 	uint16_t offset;
 	uint16_t size;
+	unsigned char data[1]; /* variable size */
+};
+
+struct mail_transaction_extra_rec_header {
+	uint32_t idx;
+};
+
+struct mail_transaction_extra_rec_update {
+	uint32_t uid;
 	unsigned char data[1]; /* variable size */
 };
 

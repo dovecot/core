@@ -138,9 +138,11 @@ void mail_index_free(struct mail_index *index);
 
 /* register extra data to be used in mail_index_record. calls to this function
    must remain in same order as long as the index exists, or it breaks.
-   returns the relative offset in mail_index_record for the data. */
-uint16_t mail_index_register_record_extra(struct mail_index *index,
-					  uint16_t size);
+
+   returns the index number, and sets *offset_r to relative offset in
+   mail_index_record for the data. */
+uint32_t mail_index_register_record_extra(struct mail_index *index,
+					  uint16_t size, uint32_t *offset_r);
 
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags);
 void mail_index_close(struct mail_index *index);
@@ -267,6 +269,8 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 /* Update field in header. */
 void mail_index_update_header(struct mail_index_transaction *t,
 			      size_t offset, const void *data, size_t size);
+void mail_index_update_extra_rec(struct mail_index_transaction *t,
+				 uint32_t seq, uint32_t idx, const void *data);
 
 /* Returns the last error code. */
 enum mail_index_error mail_index_get_last_error(struct mail_index *index);

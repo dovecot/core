@@ -214,6 +214,31 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 	return 1;
 }
 
+static int
+sync_extra_rec_update(const struct mail_transaction_extra_rec_header *hdr,
+		      const struct mail_transaction_extra_rec_update *u,
+		      void *context)
+{
+	struct mail_index_view *view = context;
+	struct mail_index_record *rec;
+	uint32_t seq;
+	uint16_t offset, size;
+	int ret;
+
+	ret = mail_index_lookup_uid_range(view, u->uid, u->uid,
+					  &seq, &seq);
+	i_assert(ret == 0);
+
+	if (seq != 0) {
+		offset = view->index->extra_record_offsets[hdr->idx];
+		size = view->index->extra_record_sizes[hdr->idx];
+
+		rec = MAIL_INDEX_MAP_IDX(view->index, view->map, seq-1);
+		memcpy(PTR_OFFSET(rec, offset), u->data, size);
+	}
+	return 1;
+}
+
 static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 			   unsigned int count)
 {
@@ -354,5 +379,5 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 
 struct mail_transaction_map_functions mail_index_map_sync_funcs = {
 	sync_expunge, sync_append, sync_flag_update,
-	sync_cache_update, sync_header_update
+	sync_cache_update, sync_header_update, sync_extra_rec_update
 };

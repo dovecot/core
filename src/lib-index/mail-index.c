@@ -41,14 +41,29 @@ void mail_index_free(struct mail_index *index)
 	i_free(index);
 }
 
-uint16_t mail_index_register_record_extra(struct mail_index *index,
-					  uint16_t size)
+uint32_t mail_index_register_record_extra(struct mail_index *index,
+					  uint16_t size, uint32_t *offset_r)
 {
+	uint16_t offset;
+
 	i_assert(!index->opened);
 	i_assert(index->record_size + size <= 65535);
+	i_assert(size % 4 == 0);
 
+	if (index->extra_records_count >= MAIL_INDEX_MAX_EXTRA_RECORDS) {
+		i_panic("Maximum extra record count reached, "
+			"you'll need to recompile with larger limit. "
+			"MAIL_INDEX_MAX_EXTRA_RECORDS = %d",
+			MAIL_INDEX_MAX_EXTRA_RECORDS);
+	}
+
+	offset = index->record_size;
 	index->record_size += size;
-	return index->record_size - size;
+	*offset_r = offset;
+
+	index->extra_record_offsets[index->extra_records_count] = offset;
+	index->extra_record_sizes[index->extra_records_count] = size;
+	return index->extra_records_count++;
 }
 
 static int mail_index_check_header(struct mail_index *index,

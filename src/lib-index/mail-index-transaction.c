@@ -28,13 +28,23 @@ mail_index_transaction_begin(struct mail_index_view *view, int hide)
 
 static void mail_index_transaction_free(struct mail_index_transaction *t)
 {
+	unsigned int i;
+
 	mail_index_view_transaction_unref(t->view);
+
+	for (i = 0; i < t->view->index->extra_records_count; i++) {
+		if (t->extra_rec_updates[i] != NULL)
+			buffer_free(t->extra_rec_updates[i]);
+	}
+
 	if (t->appends != NULL)
 		buffer_free(t->appends);
 	if (t->expunges != NULL)
 		buffer_free(t->expunges);
 	if (t->updates != NULL)
 		buffer_free(t->updates);
+	if (t->cache_updates != NULL)
+		buffer_free(t->cache_updates);
 	i_free(t);
 }
 
@@ -66,15 +76,25 @@ mail_index_buffer_convert_to_uids(struct mail_index_view *view,
 static int
 mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 {
+	struct mail_index *index = t->view->index;
+	unsigned int i;
+
 	if (mail_index_view_lock(t->view) < 0)
 		return -1;
+
+	for (i = 0; i < index->extra_records_count; i++) {
+		mail_index_buffer_convert_to_uids(t->view,
+						  t->extra_rec_updates[i],
+						  index->extra_record_sizes[i],
+						  FALSE);
+	}
 
 	mail_index_buffer_convert_to_uids(t->view, t->expunges,
 		sizeof(struct mail_transaction_expunge), TRUE);
 	mail_index_buffer_convert_to_uids(t->view, t->updates,
 		sizeof(struct mail_transaction_flag_update), TRUE);
 	mail_index_buffer_convert_to_uids(t->view, t->cache_updates,
-		sizeof(struct mail_transaction_cache_update), TRUE);
+		sizeof(struct mail_transaction_cache_update), FALSE);
 	return 0;
 }
 
@@ -391,45 +411,65 @@ static void mail_index_transaction_add_last(struct mail_index_transaction *t)
 		      &update, sizeof(update));
 }
 
-void mail_index_update_cache(struct mail_index_transaction *t,
-			     uint32_t seq, uint32_t offset)
+static void mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
+					 const void *record, size_t record_size)
 {
-	struct mail_transaction_cache_update *data, update;
 	unsigned int idx, left_idx, right_idx;
+	void *data;
+	uint32_t full_record_size, *seq_p;
 	size_t size;
 
-	if (t->cache_updates == NULL) {
-		t->cache_updates = buffer_create_dynamic(default_pool,
-							 1024, (size_t)-1);
-	}
+	full_record_size = record_size + sizeof(uint32_t);
 
-	data = buffer_get_modifyable_data(t->cache_updates, &size);
-	size /= sizeof(*data);
+	if (*buffer == NULL)
+		*buffer = buffer_create_dynamic(default_pool, 1024, (size_t)-1);
+	data = buffer_get_modifyable_data(*buffer, &size);
 
 	/* we're probably appending it, check */
-	if (size == 0 || data[size-1].uid < seq)
-		idx = size;
+	if (size == 0)
+		idx = 0;
+	else if (*((uint32_t *)PTR_OFFSET(data, size-full_record_size)) < seq)
+		idx = size / full_record_size;
 	else {
-		idx = 0; left_idx = 0; right_idx = size;
+		idx = 0; left_idx = 0; right_idx = size / full_record_size;
 		while (left_idx < right_idx) {
 			idx = (left_idx + right_idx) / 2;
 
-			if (data[idx].uid < seq)
+			seq_p = PTR_OFFSET(data, idx * full_record_size);
+			if (*seq_p < seq)
 				left_idx = idx+1;
-			else if (data[idx].uid > seq)
+			else if (*seq_p > seq)
 				right_idx = idx;
 			else {
 				/* already there, update */
-				data[idx].cache_offset = offset;
+				memcpy(seq_p+1, record, record_size);
 				return;
 			}
 		}
 	}
 
-	update.uid = seq;
-	update.cache_offset = offset;
-	buffer_insert(t->updates, idx * sizeof(update),
-		      &update, sizeof(update));
+	idx *= full_record_size;
+	buffer_copy(*buffer, idx + full_record_size, *buffer, idx, (size_t)-1);
+	seq_p = buffer_get_space_unsafe(*buffer, idx, full_record_size);
+
+	*seq_p = seq;
+	memcpy(seq_p+1, record, record_size);
+}
+
+void mail_index_update_cache(struct mail_index_transaction *t,
+			     uint32_t seq, uint32_t offset)
+{
+	mail_index_update_seq_buffer(&t->cache_updates, seq,
+				     &offset, sizeof(offset));
+}
+
+void mail_index_update_extra_rec(struct mail_index_transaction *t,
+				 uint32_t seq, uint32_t idx, const void *data)
+{
+	i_assert(idx < t->view->index->extra_records_count);
+
+	mail_index_update_seq_buffer(&t->extra_rec_updates[idx], seq, data,
+				     t->view->index->extra_record_sizes[idx]);
 }
 
 void mail_index_update_header(struct mail_index_transaction *t,
