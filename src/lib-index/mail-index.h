@@ -77,7 +77,8 @@ struct _MailIndexHeader {
 	   1 = flags,
 	   2 = sizeof(unsigned int),
 	   3 = sizeof(time_t),
-	   4 = sizeof(uoff_t) */
+	   4 = sizeof(uoff_t),
+	   5 = MEM_ALIGN_SIZE */
 
 	unsigned int indexid;
 	unsigned int flags;
@@ -98,8 +99,6 @@ struct _MailIndexHeader {
 	/* these UIDs may not exist and may not even be unseen */
 	unsigned int first_unseen_uid_lowwater;
 	unsigned int first_deleted_uid_lowwater;
-
-	unsigned int reserved_for_future_usage[5];
 };
 
 struct _MailIndexDataHeader {

@@ -8,6 +8,8 @@ struct _MailHashHeader {
 	unsigned int indexid;
 	unsigned int updateid;
 	unsigned int used_records;
+
+	unsigned int alignment;
 };
 
 struct _MailHashRecord {

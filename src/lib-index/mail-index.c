@@ -372,7 +372,8 @@ static int read_and_verify_header(int fd, MailIndexHeader *hdr)
 		hdr->compat_data[1] == MAIL_INDEX_COMPAT_FLAGS &&
 		hdr->compat_data[2] == sizeof(unsigned int) &&
 		hdr->compat_data[3] == sizeof(time_t) &&
-		hdr->compat_data[4] == sizeof(uoff_t);
+		hdr->compat_data[4] == sizeof(uoff_t) &&
+		hdr->compat_data[5] == MEM_ALIGN_SIZE;
 }
 
 /* Returns TRUE if we're compatible with given index file */
@@ -574,6 +575,7 @@ void mail_index_init_header(MailIndexHeader *hdr)
 	hdr->compat_data[2] = sizeof(unsigned int);
 	hdr->compat_data[3] = sizeof(time_t);
 	hdr->compat_data[4] = sizeof(uoff_t);
+	hdr->compat_data[5] = MEM_ALIGN_SIZE;
 	hdr->indexid = ioloop_time;
 
 	/* mark the index being rebuilt - rebuild() removes this flag
