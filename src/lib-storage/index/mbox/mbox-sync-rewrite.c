@@ -31,9 +31,16 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 				      source, size);
 	ret = o_stream_send_istream(output, input);
 	i_stream_unref(input);
-	ret = ret == (off_t)size ? 0 : -1;
 
-	if (ret < 0) {
+        if (ret == (off_t)size)
+		ret = 0;
+	else if (ret >= 0) {
+		mail_storage_set_critical(sync_ctx->ibox->box.storage,
+			"mbox_move(%"PRIuUOFF_T", %"PRIuUOFF_T", %"PRIuUOFF_T
+			") moved only %"PRIuUOFF_T" bytes in mbox file %s",
+			dest, source, size, (uoff_t)ret, sync_ctx->ibox->path);
+		ret = -1;
+	} else if (ret < 0) {
 		errno = output->stream_errno;
 		mbox_set_syscall_error(sync_ctx->ibox,
 				       "o_stream_send_istream()");
