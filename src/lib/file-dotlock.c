@@ -270,6 +270,8 @@ static int try_create_lock(struct lock_info *lock_info, int write_pid)
 
 	if (lock_info->temp_path == NULL) {
 		/* we'll need our temp file first. */
+		i_assert(lock_info->fd == -1);
+
 		if (temp_prefix == NULL) {
 			temp_prefix = t_strconcat(".temp.", my_hostname, ".",
 						  my_pid, ".", NULL);
@@ -381,15 +383,9 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 		now = time(NULL);
 	} while (now < max_wait_time);
 
-	if (ret <= 0 && lock_info.fd != -1) {
-		int old_errno = errno;
-
-		if (close(lock_info.fd) < 0)
-			i_error("close(%s) failed: %m", path);
-		errno = old_errno;
-	} else {
+	if (ret > 0) {
 		if (fstat(lock_info.fd, &st) < 0) {
-			i_error("fstat(%s) failed: %m", path);
+			i_error("fstat(%s) failed: %m", lock_path);
 			ret = -1;
 		} else {
 			dotlock->dev = st.st_dev;
@@ -397,7 +393,16 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 
 			dotlock->path = i_strdup(path);
 			dotlock->fd = lock_info.fd;
+			lock_info.fd = -1;
 		}
+	}
+
+	if (lock_info.fd != -1) {
+		int old_errno = errno;
+
+		if (close(lock_info.fd) < 0)
+			i_error("close(%s) failed: %m", lock_path);
+		errno = old_errno;
 	}
 
 	if (ret == 0)
