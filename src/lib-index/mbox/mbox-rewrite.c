@@ -277,13 +277,13 @@ int mbox_index_rewrite(MailIndex *index)
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	if (!mbox_index_fsck(index))
-		return FALSE;
-
 	if (index->header->flags & MAIL_INDEX_FLAG_DIRTY_MESSAGES) {
 		/* no need to rewrite */
 		return TRUE;
 	}
+
+	if (!mbox_index_fsck(index))
+		return FALSE;
 
 	in_fd = open(index->mbox_path, O_RDWR);
 	if (in_fd == -1) {
