@@ -108,11 +108,14 @@ static void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 	/* pos points to end of header now, and start_pos to beginning
 	   of whitespace. */
 
-	if (/*size > 1024 && */skip_space_pos_r != NULL) {
+	if (size > 1024 && skip_space_pos_r != NULL) {
 		/* we're rewriting messages and moving space towards beginning
 		   of file. it's useless to write lots of spaces because we're
 		   overwriting it soon anyway. */
 		*skip_space_pos_r = start_pos;
+
+		/* we'll have to delete the existing space */
+		buffer_delete(ctx->header, start_pos, pos - start_pos);
 	} else {
 		if (skip_space_pos_r != NULL)
 			*skip_space_pos_r = (size_t)-1;
