@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
 #include "temp-string.h"
@@ -574,10 +575,9 @@ int mbox_index_rewrite(MailIndex *index)
 		   Also, we might as well be shrinking the file, in which
 		   case we can't lose data. */
 		if (fd_copy(tmp_fd, index->mbox_fd, dirty_offset) == 0) {
-			/* all ok, we need to fsck the index next time.
-			   use set_flags because set_lock() would remove it
-			   if we modified it directly */
-			index->set_flags |= MAIL_INDEX_FLAG_FSCK;
+			/* All ok. Just make sure the timestamps of index and
+			   mbox differ, so index will be updated at next sync */
+			index->file_sync_stamp = ioloop_time-61;
 			reset_dirty_flags(index);
 		} else {
 			mbox_set_syscall_error(index, "fd_copy()");
