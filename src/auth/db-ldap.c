@@ -54,8 +54,8 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(pass_attrs) NULL,
 	MEMBER(pass_filter) NULL,
 	MEMBER(default_pass_scheme) "crypt",
-	MEMBER(user_global_uid) 0,
-	MEMBER(user_global_gid) 0
+	MEMBER(user_global_uid) (uid_t)-1,
+	MEMBER(user_global_gid) (gid_t)-1
 };
 
 static struct ldap_connection *ldap_connections = NULL;

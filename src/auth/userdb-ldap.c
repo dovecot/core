@@ -127,18 +127,25 @@ static void handle_request(struct ldap_connection *conn,
 		attr = ldap_next_attribute(conn->ld, entry, ber);
 	}
 
-	if (user.virtual_user == NULL) {
+	if (user.virtual_user == NULL)
 		i_error("LDAP: No username in reply");
-		urequest->userdb_callback(NULL, request->context);
+	else if (user.uid == (uid_t)-1) {
+		i_error("ldap(%s): uidNumber not set and no default given in "
+			"user_global_uid", user.virtual_user);
+	} else if (user.gid == (gid_t)-1) {
+		i_error("ldap(%s): gidNumber not set and no default given in "
+			"user_global_gid", user.virtual_user);
+	} else if (ldap_next_entry(conn->ld, entry) != NULL) {
+		i_error("ldap(%s): Multiple replies found for user",
+			user.virtual_user);
 	} else {
-		if (ldap_next_entry(conn->ld, entry) != NULL) {
-			i_error("LDAP: Multiple replies found for user %s",
-				user.virtual_user);
-		} else {
-			urequest->userdb_callback(&user, request->context);
-		}
+		urequest->userdb_callback(&user, request->context);
+		t_pop();
+		return;
 	}
 
+	/* error */
+	urequest->userdb_callback(NULL, request->context);
 	t_pop();
 }
 
