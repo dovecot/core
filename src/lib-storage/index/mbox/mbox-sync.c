@@ -313,7 +313,7 @@ static int mbox_sync_find_index_md5(struct mbox_sync_context *sync_ctx,
 			return -1;
 		}
 
-		if (memcmp(data, hdr_md5_sum, 16) == 0)
+		if (data != NULL && memcmp(data, hdr_md5_sum, 16) == 0)
 			break;
 
 		/* externally expunged message, remove from index */
