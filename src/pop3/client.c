@@ -110,7 +110,6 @@ static int init_mailbox(struct client *client)
 			return FALSE;
 		}
 	}
-	mailbox_transaction_commit(t);
 
 	client_send_line(client, "-ERR [IN-USE] Couldn't sync mailbox.");
 	return FALSE;
@@ -138,6 +137,7 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 	client->mailbox = mailbox_open(storage, "INBOX", 0);
 	if (client->mailbox == NULL) {
 		client_send_line(client, "-ERR No INBOX for user.");
+		client_destroy(client);
 		return NULL;
 	}
 
