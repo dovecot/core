@@ -50,7 +50,7 @@ get_next_plain_server(struct auth_server_connection *conn)
 static void
 auth_server_request_check_retry(struct auth_request *request, const char *data)
 {
-	if (strcmp(request->mech, "PLAIN") == 0 &&
+	if (strcmp(request->mech, "PLAIN") == 0 && data != NULL &&
 	    request->plaintext_data == NULL && request->conn != NULL) {
 		request->next_conn = get_next_plain_server(request->conn);
 		if (request->next_conn != NULL) {
