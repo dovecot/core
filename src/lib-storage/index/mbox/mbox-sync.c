@@ -955,6 +955,11 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 static int mbox_write_dummy(struct mbox_sync_context *sync_ctx)
 {
 	string_t *str;
+	unsigned int uid_validity;
+
+	uid_validity = sync_ctx->base_uid_validity != 0 ?
+		sync_ctx->base_uid_validity : sync_ctx->hdr->uid_validity;
+	i_assert(uid_validity != 0);
 
 	str = t_str_new(1024);
 	str_printfa(str, "%sDate: %s\n"
@@ -968,8 +973,7 @@ static int mbox_write_dummy(struct mbox_sync_context *sync_ctx)
                     mbox_from_create("MAILER_DAEMON", ioloop_time),
 		    message_date_create(ioloop_time),
 		    my_hostname, dec2str(ioloop_time), my_hostname,
-		    sync_ctx->base_uid_validity,
-		    sync_ctx->next_uid-1);
+		    uid_validity, sync_ctx->next_uid-1);
 
 	if (pwrite_full(sync_ctx->fd, str_data(str), str_len(str), 0) < 0) {
 		if (!ENOSPACE(errno)) {
