@@ -266,9 +266,23 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 	else {
 		if (mail_transaction_log_file_lock(file, F_RDLCK) < 0)
 			return -1;
-		ret = pread_full(file->fd, &file->hdr, sizeof(file->hdr), 0);
+
+		/* we have to fstat() again since it may have changed after
+		   locking. */
+		if (fstat(file->fd, st) < 0) {
+			mail_index_file_set_syscall_error(file->log->index,
+							  file->filepath,
+							  "fstat()");
+			(void)mail_transaction_log_file_lock(file, F_UNLCK);
+			return -1;
+		}
+
+		ret = pread_full(file->fd, &file->hdr,
+				 sizeof(file->hdr), 0);
 		(void)mail_transaction_log_file_lock(file, F_UNLCK);
 	}
+
+	file->last_mtime = st->st_mtime;
 
 	if (ret < 0) {
 		// FIXME: handle ESTALE
@@ -420,14 +434,15 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 	file->lock_type = F_UNLCK;
 	file->st_dev = st.st_dev;
 	file->st_ino = st.st_ino;
-	file->last_mtime = st.st_mtime;
 
 	ret = mail_transaction_log_file_read_hdr(file, &st);
 	if (ret == 0) {
 		/* corrupted header */
 		fd = mail_transaction_log_file_create(log, path,
 						      st.st_dev, st.st_ino);
-		if (fstat(fd, &st) < 0) {
+		if (fd == -1)
+			ret = -1;
+		else if (fstat(fd, &st) < 0) {
 			mail_index_file_set_syscall_error(log->index, path,
 							  "stat()");
 			(void)close(fd);
@@ -441,7 +456,6 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 
 			file->st_dev = st.st_dev;
 			file->st_ino = st.st_ino;
-                        file->last_mtime = st.st_mtime;
 
 			memset(&file->hdr, 0, sizeof(file->hdr));
 			ret = mail_transaction_log_file_read_hdr(file, &st);
@@ -521,7 +535,7 @@ static int mail_transaction_log_rotate(struct mail_transaction_log *log)
 	fd = mail_transaction_log_file_create(log, log->head->filepath,
 					      st.st_dev, st.st_ino);
 	if (fd == -1)
-		return 0;
+		return -1;
 
 	file = mail_transaction_log_file_fd_open(log, log->head->filepath, fd);
 	if (file == NULL)
@@ -529,8 +543,11 @@ static int mail_transaction_log_rotate(struct mail_transaction_log *log)
 
 	lock_type = log->head->lock_type;
 	if (lock_type != F_UNLCK) {
-		if (mail_transaction_log_file_lock(file, lock_type) < 0)
+		if (mail_transaction_log_file_lock(file, lock_type) < 0) {
+			file->refcount--;
+			mail_transaction_logs_clean(log);
 			return -1;
+		}
 	}
 
 	if (--log->head->refcount == 0)
@@ -538,6 +555,7 @@ static int mail_transaction_log_rotate(struct mail_transaction_log *log)
 	else
 		(void)mail_transaction_log_file_lock(log->head, F_UNLCK);
 
+	i_assert(log->head != file);
 	log->head = file;
 	return 0;
 }
@@ -552,11 +570,6 @@ static int mail_transaction_log_recreate(struct mail_transaction_log *log)
 
 	ret = mail_transaction_log_rotate(log);
 	mail_index_unlock(log->index, lock_id);
-
-	if (ret == 0) {
-		if (mail_transaction_log_file_lock(log->head, F_UNLCK) < 0)
-			return -1;
-	}
 	return ret;
 }
 
