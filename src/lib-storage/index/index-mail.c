@@ -201,6 +201,7 @@ void index_mail_parse_header(struct message_part *part __attr_unused__,
 	struct cached_header *hdr;
 
 	if (data->save_envelope) {
+
 		imap_envelope_parse_header(mail->pool, &data->envelope_data,
 					   name, name_len, value, value_len);
 
@@ -208,9 +209,11 @@ void index_mail_parse_header(struct message_part *part __attr_unused__,
 			/* finalize the envelope */
 			string_t *str;
 
+			t_push();
 			str = str_new(mail->pool, 256);
 			imap_envelope_write_part_data(data->envelope_data, str);
-                        data->envelope = str_c(str);
+			data->envelope = str_c(str);
+			t_pop();
 		}
 	}
 
