@@ -8,6 +8,9 @@
    for command from user is around MAX_INBUF_SIZE * MAX_IMAP_ARG_ELEMENTS */
 #define MAX_IMAP_ARG_ELEMENTS 128
 
+/* Disconnect client after idling this many seconds */
+#define CLIENT_IDLE_TIMEOUT (60*30)
+
 #define DEFAULT_MAX_CUSTOM_FLAG_LENGTH 50
 
 extern struct ioloop *ioloop;

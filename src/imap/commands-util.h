@@ -26,9 +26,8 @@ void client_sync_without_expunges(struct client *client);
 /* Send last mail storage error message to client. */
 void client_send_storage_error(struct client *client);
 
-/* Send untagged error message to client. Doesn't check for inconsistency,
-   so should be called only by CLOSE, SELECT and UNSELECT. */
-void client_send_closing_mailbox_error(struct client *client);
+/* Send untagged error message to client. */
+void client_send_untagged_storage_error(struct client *client);
 
 /* Parse flags. Returns TRUE if successful, if not sends an error message to
    client. */

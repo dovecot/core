@@ -92,7 +92,8 @@ enum mail_fetch_field {
 
 enum client_workarounds {
 	WORKAROUND_OE6_FETCH_NO_NEWMAIL	= 0x01,
-	WORKAROUND_LIST_SORT		= 0x02
+	WORKAROUND_LIST_SORT		= 0x02,
+	WORKAROUND_OUTLOOK_IDLE		= 0x04
 };
 
 struct mail_full_flags {

@@ -22,9 +22,6 @@
 /* Disconnect client when it sends too many bad commands in a row */
 #define CLIENT_MAX_BAD_COMMANDS 20
 
-/* Disconnect client after idling this many seconds */
-#define CLIENT_IDLE_TIMEOUT (60*30)
-
 extern struct mail_storage_callbacks mail_storage_callbacks;
 
 static struct client *my_client; /* we don't need more than one currently */
@@ -91,6 +88,9 @@ void client_destroy(struct client *client)
 
 	imap_parser_destroy(client->parser);
 	io_remove(client->io);
+
+	if (client->idle_to != NULL)
+		timeout_remove(client->idle_to);
 
 	i_stream_unref(client->input);
 	o_stream_unref(client->output);

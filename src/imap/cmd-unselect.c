@@ -5,13 +5,15 @@
 
 int cmd_unselect(struct client *client)
 {
+	struct mailbox *mailbox = client->mailbox;
+
 	if (!client_verify_open_mailbox(client))
 		return TRUE;
 
-	if (!client->mailbox->close(client->mailbox))
-		client_send_closing_mailbox_error(client);
-
 	client->mailbox = NULL;
+
+	if (!mailbox->close(mailbox))
+		client_send_untagged_storage_error(client);
 
 	client_send_tagline(client, "OK Unselect completed.");
 	return TRUE;

@@ -11,6 +11,16 @@
 
 static void idle_finish(struct client *client)
 {
+	if (client->idle_to != NULL) {
+		timeout_remove(client->idle_to);
+		client->idle_to = NULL;
+	}
+
+	if (client->idle_expunge) {
+		client_send_line(client,
+			t_strdup_printf("* %u EXPUNGE", client->idle_expunge));
+	}
+
 	io_remove(client->io);
 	client->io = io_add(i_stream_get_fd(client->input),
 			    IO_READ, _client_input, client);
@@ -60,6 +70,25 @@ static void idle_client_input(void *context)
 	}
 }
 
+static void idle_timeout(void *context)
+{
+	struct client *client = context;
+	struct mailbox_status status;
+
+	timeout_remove(client->idle_to);
+	client->idle_to = NULL;
+
+	if (!client->mailbox->get_status(client->mailbox, STATUS_MESSAGES,
+					 &status)) {
+		client_send_untagged_storage_error(client);
+		idle_finish(client);
+	} else {
+                client->idle_expunge = status.messages+1;
+		client_send_line(client,
+			t_strdup_printf("* %u EXISTS", client->idle_expunge));
+	}
+}
+
 int cmd_idle(struct client *client)
 {
 	const char *str;
@@ -67,6 +96,12 @@ int cmd_idle(struct client *client)
 
 	if (!client_verify_open_mailbox(client))
 		return TRUE;
+
+        client->idle_expunge = 0;
+	if ((client_workarounds & WORKAROUND_OUTLOOK_IDLE) != 0) {
+		client->idle_to = timeout_add((CLIENT_IDLE_TIMEOUT - 60) * 1000,
+					      idle_timeout, client);
+	}
 
 	str = getenv("MAILBOX_IDLE_CHECK_INTERVAL");
 	interval = str == NULL ? 0 : (unsigned int)strtoul(str, NULL, 10);

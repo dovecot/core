@@ -14,9 +14,10 @@ int _cmd_select_full(struct client *client, int readonly)
 		return FALSE;
 
 	if (client->mailbox != NULL) {
-		if (!client->mailbox->close(client->mailbox))
-                        client_send_closing_mailbox_error(client);
+		box = client->mailbox;
 		client->mailbox = NULL;
+		if (!box->close(box))
+                        client_send_untagged_storage_error(client);
 	}
 
 	box = client->storage->open_mailbox(client->storage, mailbox,

@@ -34,6 +34,9 @@ struct client {
 	const char *cmd_name; /* command name (allocated from parser pool) */
 	client_command_func_t *cmd_func;
 
+	struct timeout *idle_to;
+	unsigned int idle_expunge;
+
 	unsigned int cmd_error:1;
 	unsigned int cmd_uid:1; /* used UID command */
 	unsigned int sync_flags_send_uid:1;
