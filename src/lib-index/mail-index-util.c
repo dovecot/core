@@ -142,7 +142,8 @@ int mail_index_wait_lock(struct mail_index *index, int lock_type)
 
 	if (ret == 0) {
 		index_set_error(index, "Timeout while waiting for release of "
-				"fcntl() lock for index file %s",
+				"%s fcntl() lock for index file %s",
+				lock_type == F_WRLCK ? "exclusive" : "shared",
 				index->filepath);
 		index->index_lock_timeout = TRUE;
 		return FALSE;
