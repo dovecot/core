@@ -25,7 +25,8 @@ void userdb_init(void)
 	args = strchr(name, ' ');
 	name = t_strcut(name, ' ');
 
-	while (args != NULL && (*args == ' ' || *args == '\t'))
+	if (args == NULL) args = "";
+	while (*args == ' ' || *args == '\t')
 		args++;
 
 #ifdef USERDB_PASSWD
