@@ -312,8 +312,10 @@ int ssl_proxy_new(int fd, struct ip_addr *ip)
 	gnutls_session session;
 	int sfd[2];
 
-	if (!ssl_initialized)
+	if (!ssl_initialized) {
+		i_error("SSL support not enabled in configuration");
 		return -1;
+	}
 
 	session = initialize_state();
 	gnutls_transport_set_ptr(session, fd);

@@ -281,7 +281,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 			if (strcmp(argv[i], "--ssl") == 0) {
 				fd = ssl_proxy_new(fd, &ip, &proxy);
 				if (fd == -1)
-					i_fatal("SSL initialization failed");
+					return 1;
 			} else if (strncmp(argv[i], "--group=", 8) != 0)
 				i_fatal("Unknown parameter: %s", argv[i]);
 		}

@@ -319,8 +319,10 @@ int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r)
 
 	*proxy_r = NULL;
 
-	if (!ssl_initialized)
+	if (!ssl_initialized) {
+		i_error("SSL support not enabled in configuration");
 		return -1;
+	}
 
 	ssl = SSL_new(ssl_ctx);
 	if (ssl == NULL) {
