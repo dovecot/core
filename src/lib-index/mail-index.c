@@ -542,7 +542,7 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 	}
 
 	rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				   sizeof(MailIndexRecord)) + idx;
+				   sizeof(MailIndexHeader)) + idx;
 	if (rec->uid < first_uid || rec->uid > last_uid) {
 		index_set_error(index, "Corrupted binary tree for index %s: "
 				"lookup returned offset to wrong UID "
@@ -777,15 +777,13 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	hdr->messages_count--;
 	mail_index_mark_flag_changes(index, rec, rec->msg_flags, 0);
 
-	if ((hdr->first_hole_index - sizeof(MailIndexHeader)) /
-	    sizeof(MailIndexRecord) == hdr->messages_count) {
+	(void)mail_index_data_add_deleted_space(index->data, rec->data_size);
+
+	records = MAIL_INDEX_RECORD_COUNT(index);
+	if (hdr->first_hole_index + hdr->first_hole_records == records) {
 		/* the hole reaches end of file, truncate it */
 		(void)mail_index_truncate_hole(index);
 	} else {
-		(void)mail_index_data_add_deleted_space(index->data,
-							rec->data_size);
-
-		records = MAIL_INDEX_RECORD_COUNT(index);
 		if (INDEX_NEED_COMPRESS(records, hdr))
 			hdr->flags |= MAIL_INDEX_FLAG_COMPRESS;
 	}
