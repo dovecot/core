@@ -5,8 +5,9 @@
 typedef enum {
 	FATAL_LOGOPEN	= 80, /* Can't open log file */
 	FATAL_LOGWRITE  = 81, /* Can't write to log file */
-	FATAL_OUTOFMEM	= 82, /* Out of memory */
-	FATAL_EXEC	= 83, /* exec() failed */
+	FATAL_LOGERROR  = 82, /* Internal logging error */
+	FATAL_OUTOFMEM	= 83, /* Out of memory */
+	FATAL_EXEC	= 84, /* exec() failed */
 
 	FATAL_DEFAULT	= 89
 } FatalExitStatus;

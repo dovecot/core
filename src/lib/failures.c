@@ -79,8 +79,8 @@ static void write_prefix(FILE *f)
 	}
 }
 
-static void default_handler(const char *prefix, FILE *f,
-			    const char *format, va_list args)
+static int default_handler(const char *prefix, FILE *f,
+			   const char *format, va_list args)
 {
 	static int recursed = 0;
 	va_list args2;
@@ -89,7 +89,7 @@ static void default_handler(const char *prefix, FILE *f,
 	if (recursed == 2) {
 		/* we're being called from some signal handler, or
 		   printf_string_upper_bound() killed us again */
-		return;
+		return -1;
 	}
 
 	recursed++;
@@ -128,17 +128,21 @@ static void default_handler(const char *prefix, FILE *f,
 
 	errno = old_errno;
 	recursed--;
+
+	return 0;
 }
 
 static void default_panic_handler(const char *format, va_list args)
 {
-	default_handler("Panic: ", log_fd, format, args);
+	(void)default_handler("Panic: ", log_fd, format, args);
 	abort();
 }
 
 static void default_fatal_handler(int status, const char *format, va_list args)
 {
-	default_handler("Fatal: ", log_fd, format, args);
+	if (default_handler("Fatal: ", log_fd, format, args) < 0 &&
+	    status == FATAL_DEFAULT)
+		status = FATAL_LOGERROR;
 
 	if (fflush(log_fd) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGWRITE;
@@ -150,7 +154,8 @@ static void default_error_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
-	default_handler("Error: ", log_fd, format, args);
+	if (default_handler("Error: ", log_fd, format, args) < 0)
+		exit(FATAL_LOGERROR);
 
 	if (fflush(log_fd) < 0)
 		exit(FATAL_LOGWRITE);
@@ -162,7 +167,7 @@ static void default_warning_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
-	default_handler("Warning: ", log_fd, format, args);
+	(void)default_handler("Warning: ", log_fd, format, args);
 
 	if (fflush(log_fd) < 0)
 		exit(FATAL_LOGWRITE);
@@ -174,7 +179,7 @@ static void default_info_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
-	default_handler("Info: ", log_info_fd, format, args);
+	(void)default_handler("Info: ", log_info_fd, format, args);
 
 	if (fflush(log_info_fd) < 0)
 		exit(FATAL_LOGWRITE);
@@ -271,14 +276,14 @@ void i_set_info_handler(FailureFunc func)
         info_handler = func;
 }
 
-static void syslog_handler(int level, const char *format, va_list args)
+static int syslog_handler(int level, const char *format, va_list args)
 {
 	va_list args2;
 
 	static int recursed = 0;
 
 	if (recursed != 0)
-		return;
+		return -1;
 
 	recursed++;
 
@@ -288,33 +293,37 @@ static void syslog_handler(int level, const char *format, va_list args)
 
 	vsyslog(level, format, args2);
 	recursed--;
+
+	return 0;
 }
 
 void i_syslog_panic_handler(const char *fmt, va_list args)
 {
-	syslog_handler(LOG_CRIT, fmt, args);
+	(void)syslog_handler(LOG_CRIT, fmt, args);
         abort();
 }
 
 void i_syslog_fatal_handler(int status, const char *fmt, va_list args)
 {
-	syslog_handler(LOG_CRIT, fmt, args);
+	if (syslog_handler(LOG_CRIT, fmt, args) < 0 && status == FATAL_DEFAULT)
+		status = FATAL_LOGERROR;
 	exit(status);
 }
 
 void i_syslog_error_handler(const char *fmt, va_list args)
 {
-	syslog_handler(LOG_ERR, fmt, args);
+	if (syslog_handler(LOG_ERR, fmt, args) < 0)
+		exit(FATAL_LOGERROR);
 }
 
 void i_syslog_warning_handler(const char *fmt, va_list args)
 {
-	syslog_handler(LOG_WARNING, fmt, args);
+	(void)syslog_handler(LOG_WARNING, fmt, args);
 }
 
 void i_syslog_info_handler(const char *fmt, va_list args)
 {
-	syslog_handler(LOG_INFO, fmt, args);
+	(void)syslog_handler(LOG_INFO, fmt, args);
 }
 
 void i_set_failure_syslog(const char *ident, int options, int facility)
