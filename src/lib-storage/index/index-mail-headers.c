@@ -407,7 +407,12 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 
 	idx_headers = mail_cache_get_header_fields(mail->ibox->index->cache,
 						   idx);
-	i_assert(idx_headers != NULL);
+	if (idx_headers == NULL) {
+		mail_cache_set_corrupted(mail->ibox->index->cache,
+			"Headers %d names not found", idx);
+		t_pop();
+		return FALSE;
+	}
 
 	index_mail_parse_header_init(mail, idx_headers);
 	message_parse_header(NULL, istream, NULL,
