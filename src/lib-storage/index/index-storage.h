@@ -50,8 +50,8 @@ int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
 int index_expunge_mail(IndexMailbox *ibox, MailIndexRecord *rec,
 		       unsigned int seq, int notify);
 
-int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
-			       IBuffer *buf, uoff_t data_size);
+int index_storage_save(MailStorage *storage, const char *path,
+		       IBuffer *inbuf, OBuffer *outbuf, uoff_t data_size);
 
 void *index_msgcache_get_context(MailIndex *index, MailIndexRecord *rec);
 

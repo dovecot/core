@@ -484,6 +484,11 @@ int mbox_verify_end_of_body(IBuffer *inbuf, uoff_t end_offset)
 	const unsigned char *data;
 	size_t size;
 
+	if (end_offset > inbuf->v_size) {
+		/* missing data */
+		return FALSE;
+	}
+
 	/* don't bother parsing the whole body, just make
 	   sure it ends properly */
 	i_buffer_seek(inbuf, end_offset);

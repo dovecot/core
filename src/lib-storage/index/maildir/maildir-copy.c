@@ -95,7 +95,7 @@ int maildir_storage_copy(Mailbox *box, Mailbox *destbox,
 		return FALSE;
 	}
 
-	if (getenv("COPY_WITH_HARDLINKS") != NULL &&
+	if (getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL &&
 	    destbox->storage == box->storage) {
 		/* both source and destination mailbox are in maildirs and
 		   copy_with_hardlinks option is on, do it */

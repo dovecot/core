@@ -230,7 +230,7 @@ static int maildir_index_sync_dir(MailIndex *index, const char *dir)
 
 	/* Do we want to check changes in file contents? This slows down
 	   things as we need to do extra stat() for all files. */
-	check_content_changes = getenv("CHECK_CONTENT_CHANGES") != NULL;
+	check_content_changes = getenv("MAILDIR_CHECK_CONTENT_CHANGES") != NULL;
 
 	/* now walk through the index syncing and expunging existing mails */
 	failed = !maildir_index_sync_files(index, dir, files,

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "hostpid.h"
 #include "ibuffer.h"
+#include "obuffer.h"
 #include "write-full.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
@@ -53,16 +54,17 @@ static int mbox_check_ending_lf(MailStorage *storage, int fd, off_t pos,
 	return set_error(storage, mbox_path);
 }
 
-static int mbox_append_lf(MailStorage *storage, int fd, const char *mbox_path)
+static int mbox_append_lf(MailStorage *storage, OBuffer *outbuf,
+			  const char *mbox_path)
 {
-	if (write_full(fd, "\n", 1) < 0)
+	if (o_buffer_send(outbuf, "\n", 1) < 0)
 		return set_error(storage, mbox_path);
 
 	return TRUE;
 }
 
-static int write_from_line(MailStorage *storage, int fd, const char *mbox_path,
-			   time_t internal_date)
+static int write_from_line(MailStorage *storage, OBuffer *outbuf,
+			   const char *mbox_path, time_t internal_date)
 {
 	const char *sender, *line, *name;
 	size_t len;
@@ -88,13 +90,14 @@ static int write_from_line(MailStorage *storage, int fd, const char *mbox_path,
 	line = mbox_from_create(sender, internal_date);
 	len = strlen(line);
 
-	if (write_full(fd, line, len) < 0)
+	if (o_buffer_send(outbuf, line, len) < 0)
 		return set_error(storage, mbox_path);
 
 	return TRUE;
 }
 
-static int write_flags(MailStorage *storage, int fd, const char *mbox_path,
+static int write_flags(MailStorage *storage, OBuffer *outbuf,
+		       const char *mbox_path,
 		       MailFlags flags, const char *custom_flags[])
 {
 	const char *str;
@@ -105,7 +108,7 @@ static int write_flags(MailStorage *storage, int fd, const char *mbox_path,
 		return TRUE;
 
 	if (flags & MAIL_SEEN) {
-		if (write_full(fd, "Status: R\n", 10) < 0)
+		if (o_buffer_send(outbuf, "Status: R\n", 10) < 0)
 			return set_error(storage, mbox_path);
 	}
 
@@ -117,27 +120,27 @@ static int write_flags(MailStorage *storage, int fd, const char *mbox_path,
 				  (flags & MAIL_DELETED) ? "T" : "",
 				  "\n", NULL);
 
-		if (write_full(fd, str, strlen(str)) < 0)
+		if (o_buffer_send(outbuf, str, strlen(str)) < 0)
 			return set_error(storage, mbox_path);
 	}
 
 	if (flags & MAIL_CUSTOM_FLAGS_MASK) {
-		if (write_full(fd, "X-Keywords:", 11) < 0)
+		if (o_buffer_send(outbuf, "X-Keywords:", 11) < 0)
 			return set_error(storage, mbox_path);
 
 		field = 1 << MAIL_CUSTOM_FLAG_1_BIT;
 		for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++, field <<= 1) {
 			if ((flags & field) && custom_flags[i] != NULL) {
-				if (write_full(fd, " ", 1) < 0)
+				if (o_buffer_send(outbuf, " ", 1) < 0)
 					return set_error(storage, mbox_path);
 
-				if (write_full(fd, custom_flags[i],
-					       strlen(custom_flags[i])) < 0)
+				if (o_buffer_send(outbuf, custom_flags[i],
+						  strlen(custom_flags[i])) < 0)
 					return set_error(storage, mbox_path);
 			}
 		}
 
-		if (write_full(fd, "\n", 1) < 0)
+		if (o_buffer_send(outbuf, "\n", 1) < 0)
 			return set_error(storage, mbox_path);
 	}
 
@@ -151,6 +154,7 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 	MailFlags real_flags;
 	const char *mbox_path;
 	IBuffer *inbuf;
+	OBuffer *outbuf;
 	int fd, failed;
 	off_t pos;
 
@@ -180,27 +184,31 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 
 	failed = FALSE;
 
+	mbox_path = ibox->index->mbox_path;
 	pos = lseek(fd, 0, SEEK_END);
 	if (pos < 0) {
 		mail_storage_set_critical(box->storage,
 					  "lseek() failed for mbox file %s: %m",
-					  ibox->index->mbox_path);
+					  mbox_path);
 		failed = TRUE;
-	} else {
-		mbox_path = ibox->index->mbox_path;
+	} else if (mbox_check_ending_lf(box->storage, fd, pos, mbox_path)) {
+		t_push();
+		outbuf = o_buffer_create_file(fd, data_stack_pool, 4096,
+					      IO_PRIORITY_DEFAULT, FALSE);
 
-		if (!mbox_check_ending_lf(box->storage, fd, pos, mbox_path) ||
-		    !write_from_line(box->storage, fd, mbox_path,
+		if (!write_from_line(box->storage, outbuf, mbox_path,
 				     internal_date) ||
-		    !write_flags(box->storage, fd, mbox_path, flags,
+		    !write_flags(box->storage, outbuf, mbox_path, flags,
 				 custom_flags) ||
-		    !index_storage_save_into_fd(box->storage, fd, mbox_path,
-						data, data_size) ||
-		    !mbox_append_lf(box->storage, fd, mbox_path)) {
+		    !index_storage_save(box->storage, mbox_path,
+					data, outbuf, data_size) ||
+		    !mbox_append_lf(box->storage, outbuf, mbox_path)) {
 			/* failed, truncate file back to original size */
 			(void)ftruncate(fd, pos);
 			failed = TRUE;
 		}
+		o_buffer_unref(outbuf);
+		t_pop();
 	}
 
 	(void)mbox_unlock(ibox->index);

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "hostpid.h"
+#include "obuffer.h"
 #include "maildir-index.h"
 #include "maildir-storage.h"
 
@@ -44,20 +45,28 @@ static const char *maildir_read_into_tmp(MailStorage *storage, const char *dir,
 					 IBuffer *buf, uoff_t data_size)
 {
 	const char *fname, *path;
+	OBuffer *outbuf;
 	int fd;
 
 	fd = maildir_create_tmp(storage, dir, &fname);
 	if (fd == -1)
 		return NULL;
 
+	t_push();
+	outbuf = o_buffer_create_file(fd, data_stack_pool, 4096,
+				      IO_PRIORITY_DEFAULT, FALSE);
+
 	path = t_strconcat(dir, "/", fname, NULL);
-	if (!index_storage_save_into_fd(storage, fd, path, buf, data_size))
+	if (!index_storage_save(storage, path, buf, outbuf, data_size))
 		fname = NULL;
 
-	(void)close(fd);
+	o_buffer_unref(outbuf);
+	if (close(fd) < 0)
+		fname = NULL;
 
 	if (fname == NULL)
 		(void)unlink(path);
+	t_pop();
 	return fname;
 }
 

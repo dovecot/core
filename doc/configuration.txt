@@ -82,7 +82,7 @@ This can result in faster indexing of mails and smaller CPU usage when
 sending mails. With Linux and FreeBSD Dovecot can use sendfile() syscall to
 send such mails. However extra CRs do increase the mail size, meaning more
 I/O and potentially losing the gained performance. You can enable this for
-mails saved by Dovecot by setting mail_save_crs = yes. For mails saved by
+mails saved by Dovecot by setting mail_save_crlf = yes. For mails saved by
 your mailer you'll need to do something else, not yet covered by this
 documentation.
 

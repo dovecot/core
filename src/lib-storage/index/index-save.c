@@ -2,78 +2,117 @@
 
 #include "lib.h"
 #include "ibuffer.h"
+#include "obuffer.h"
 #include "write-full.h"
 #include "index-storage.h"
 
 #include <stdlib.h>
 #include <unistd.h>
 
-static int write_with_crlf(int fd, const unsigned char *data,
-			   size_t size, int *last_cr)
+static int write_with_crlf(OBuffer *outbuf, const unsigned char *data,
+			   size_t size)
 {
-	ssize_t i, cr;
+	size_t i, start;
 
-	i_assert(size <= SSIZE_T_MAX);
+	i_assert(size > 0 && size <= SSIZE_T_MAX);
 
-	cr = *last_cr ? -1 : -2;
-	for (i = 0; i < (ssize_t)size; i++) {
-		if (data[i] == '\r')
-			cr = i;
-		else if (data[i] == '\n' && cr != i-1) {
+	start = 0;
+	for (i = 0; i < size; i++) {
+		if (data[i] == '\n' && (i == 0 || data[i-1] != '\r')) {
 			/* missing CR */
-			if (write_full(fd, data, (size_t)i) < 0)
-				return FALSE;
-			if (write_full(fd, "\r", 1) < 0)
-				return FALSE;
+			if (o_buffer_send(outbuf, data + start, i - start) < 0)
+				return -1;
+			if (o_buffer_send(outbuf, "\r", 1) < 0)
+				return -1;
 
-			/* skip the data so far. \n is left into buffer and
-			   we'll continue from the next character. */
-			data += i;
-			size -= i;
-			i = 0; cr = -2;
+			/* \n is written next time */
+			start = i;
 		}
 	}
 
-	return write_full(fd, data, size) >= 0;
+	/* if last char is \r, leave it to buffer */
+	if (data[size-1] == '\r')
+		size--;
+
+	if (o_buffer_send(outbuf, data + start, size - start) < 0)
+		return -1;
+
+	return size;
 }
 
-int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
-			       IBuffer *buf, uoff_t data_size)
+static int write_with_lf(OBuffer *outbuf, const unsigned char *data,
+			 size_t size)
 {
+	size_t i, start;
+
+	i_assert(size > 0 && size <= SSIZE_T_MAX);
+
+	start = 0;
+	for (i = 0; i < size; i++) {
+		if (data[i] == '\n' && i > 0 && data[i-1] == '\r') {
+			/* \r\n - skip \r */
+			if (o_buffer_send(outbuf, data + start,
+					   i - start - 1) < 0)
+				return -1;
+
+			/* \n is written next time */
+			start = i;
+		}
+	}
+
+	/* if last char is \r, leave it to buffer */
+	if (data[size-1] == '\r')
+		size--;
+
+	if (o_buffer_send(outbuf, data + start, size - start) < 0)
+		return -1;
+
+	return size;
+}
+
+int index_storage_save(MailStorage *storage, const char *path,
+		       IBuffer *inbuf, OBuffer *outbuf, uoff_t data_size)
+{
+	int (*write_func)(OBuffer *, const unsigned char *, size_t);
 	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
-	int last_cr, failed;
+	int failed;
 
-	last_cr = FALSE;
+	write_func = getenv("MAIL_SAVE_CRLF") ? write_with_crlf : write_with_lf;
 
 	failed = FALSE;
 	while (data_size > 0) {
-		ret = i_buffer_read(buf);
+		ret = i_buffer_read(inbuf);
 		if (ret < 0) {
 			mail_storage_set_critical(storage,
 						  "Error reading mail: %m");
 			return FALSE;
 		}
 
-		data = i_buffer_get_data(buf, &size);
+		data = i_buffer_get_data(inbuf, &size);
 		if (size > data_size)
 			size = (size_t)data_size;
-		data_size -= size;
 
-		if (!failed && !write_with_crlf(fd, data, size, &last_cr)) {
-			if (errno == ENOSPC) {
-				mail_storage_set_error(storage,
-						       "Not enough disk space");
+		if (!failed) {
+			ret = write_func(outbuf, data, size);
+			if (ret < 0) {
+				if (errno == ENOSPC) {
+					mail_storage_set_error(storage,
+						"Not enough disk space");
+				} else {
+					mail_storage_set_critical(storage,
+						"write_full() failed for file "
+						"%s: %m", path);
+				}
+				failed = TRUE;
 			} else {
-				mail_storage_set_critical(storage,
-							  "write() failed for "
-							  "file %s: %m", path);
+				size = ret;
 			}
-			failed = TRUE;
 		}
 
-		i_buffer_skip(buf, size);
+		data_size -= size;
+		i_buffer_skip(inbuf, size);
 	}
 
 	return !failed;

@@ -119,10 +119,12 @@ create_imap_process(int socket, const char *user, uid_t uid, gid_t gid,
 	putenv((char *) t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
 				    set_mail_never_cache_fields, NULL));
 
+	if (set_mail_save_crlf)
+		putenv("MAIL_SAVE_CRLF=1");
 	if (set_maildir_copy_with_hardlinks)
-		putenv("COPY_WITH_HARDLINKS=1");
+		putenv("MAILDIR_COPY_WITH_HARDLINKS=1");
 	if (set_maildir_check_content_changes)
-		putenv("CHECK_CONTENT_CHANGES=1");
+		putenv("MAILDIR_CHECK_CONTENT_CHANGES=1");
 	if (set_overwrite_incompatible_index)
 		putenv("OVERWRITE_INCOMPATIBLE_INDEX=1");
 	if (umask(set_umask) != set_umask)
