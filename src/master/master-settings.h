@@ -45,6 +45,7 @@ struct settings {
 
 	/* mail */
 	const char *valid_chroot_dirs;
+	const char *mail_chroot;
 	unsigned int max_mail_processes;
 	int verbose_proctitle;
 

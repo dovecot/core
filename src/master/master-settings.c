@@ -68,6 +68,7 @@ static struct setting_def setting_defs[] = {
 
 	/* mail */
 	DEF(SET_STR, valid_chroot_dirs),
+	DEF(SET_STR, mail_chroot),
 	DEF(SET_INT, max_mail_processes),
 	DEF(SET_BOOL, verbose_proctitle),
 
