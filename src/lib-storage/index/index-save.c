@@ -27,7 +27,10 @@ static int write_with_crlf(struct ostream *output, const unsigned char *data,
 {
 	size_t i, start;
 
-	i_assert(size > 0 && size <= SSIZE_T_MAX);
+	i_assert(size <= SSIZE_T_MAX);
+
+	if (size == 0)
+		return 0;
 
 	start = 0;
 	for (i = 0; i < size; i++) {
@@ -58,7 +61,10 @@ static int write_with_lf(struct ostream *output, const unsigned char *data,
 {
 	size_t i, start;
 
-	i_assert(size > 0 && size <= SSIZE_T_MAX);
+	i_assert(size <= SSIZE_T_MAX);
+
+	if (size == 0)
+		return 0;
 
 	start = 0;
 	for (i = 0; i < size; i++) {
@@ -162,7 +168,7 @@ int index_storage_save(struct mail_storage *storage, const char *path,
 	failed = FALSE;
 	for (;;) {
 		data = i_stream_get_data(input, &size);
-		if (!failed && size > 0) {
+		if (!failed) {
 			ret = write_func(output, data, size);
 			if (ret < 0) {
 				set_write_error(storage, output, path);
