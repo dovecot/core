@@ -45,6 +45,8 @@ void env_clean(void)
 	if (environ != NULL)
 		*environ = NULL;
 
-	pool_unref(pool);
-	pool = NULL;
+	if (pool != NULL) {
+		pool_unref(pool);
+		pool = NULL;
+	}
 }
