@@ -153,14 +153,14 @@ static ssize_t _read(struct _istream *stream)
 		if (ret == 0) {
 			/* EOF */
 			if (!fstream->file)
-				stream->istream.eof = TRUE;
+				stream->istream.disconnected = TRUE;
 			return -1;
 		}
 
 		if (ret < 0) {
 			if (errno == ECONNRESET || errno == ETIMEDOUT) {
 				/* treat as disconnection */
-				stream->istream.eof = TRUE;
+				stream->istream.disconnected = TRUE;
 				return -1;
 			}
 

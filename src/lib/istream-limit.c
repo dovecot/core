@@ -62,7 +62,7 @@ static ssize_t _read(struct _istream *stream)
 		if (stream->skip == 0)
 			return -2;
 	}
-	stream->istream.eof = lstream->input->eof;
+	stream->istream.disconnected = lstream->input->disconnected;
 
 	stream->pos -= stream->skip;
 	stream->skip = 0;
