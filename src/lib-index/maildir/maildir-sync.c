@@ -20,48 +20,10 @@ static int maildir_index_sync_file(MailIndex *index,
 {
 	MailIndexUpdate *update;
 	MailFlags flags;
-	const char *info;
 	int fd, failed;
 
 	i_assert(fname != NULL);
 	i_assert(path != NULL);
-
-	flags = rec->msg_flags;
-
-	info = strchr(fname, ':');
-	if (info != NULL && info[1] == '2' && info[2] == ',') {
-		/* update flags */
-		flags = 0;
-		for (info += 3; *info != '\0'; info++) {
-			switch (*info) {
-			case 'R': /* replied */
-				flags |= MAIL_ANSWERED;
-				break;
-			case 'S': /* seen */
-				flags |= MAIL_SEEN;
-				break;
-			case 'T': /* trashed */
-				flags |= MAIL_DELETED;
-				break;
-			case 'D': /* draft */
-				flags |= MAIL_DRAFT;
-				break;
-			case 'F': /* flagged */
-				flags |= MAIL_FLAGGED;
-				break;
-			default:
-				if (*info >= 'a' && *info <= 'z') {
-					/* custom flag */
-					flags |= 1 << (MAIL_CUSTOM_FLAG_1_BIT +
-						       *info-'a');
-					break;
-				}
-
-				/* unknown flag - ignore */
-				break;
-			}
-		}
-	}
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
@@ -90,6 +52,7 @@ static int maildir_index_sync_file(MailIndex *index,
 
 	/* update flags after filename has been updated, so it can be
 	   compared correctly */
+	flags = maildir_filename_get_flags(fname, rec->msg_flags);
 	if (!failed && flags != rec->msg_flags) {
 		if (!index->update_flags(index, rec, seq, flags, TRUE))
 			failed = TRUE;

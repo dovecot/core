@@ -8,6 +8,8 @@
 
 MailIndex *maildir_index_alloc(const char *dir);
 
+MailFlags maildir_filename_get_flags(const char *fname,
+				     MailFlags default_flags);
 const char *maildir_filename_set_flags(const char *fname, MailFlags flags);
 
 int maildir_index_rebuild(MailIndex *index);

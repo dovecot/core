@@ -8,6 +8,49 @@
 
 static MailIndex maildir_index;
 
+MailFlags maildir_filename_get_flags(const char *fname, MailFlags default_flags)
+{
+	const char *info;
+	MailFlags flags;
+
+	info = strchr(fname, ':');
+	if (info == NULL || info[1] != '2' || info[2] != ',')
+		return default_flags;
+
+	flags = 0;
+	for (info += 3; *info != '\0'; info++) {
+		switch (*info) {
+		case 'R': /* replied */
+			flags |= MAIL_ANSWERED;
+			break;
+		case 'S': /* seen */
+			flags |= MAIL_SEEN;
+			break;
+		case 'T': /* trashed */
+			flags |= MAIL_DELETED;
+			break;
+		case 'D': /* draft */
+			flags |= MAIL_DRAFT;
+			break;
+		case 'F': /* flagged */
+			flags |= MAIL_FLAGGED;
+			break;
+		default:
+			if (*info >= 'a' && *info <= 'z') {
+				/* custom flag */
+				flags |= 1 << (MAIL_CUSTOM_FLAG_1_BIT +
+					       *info-'a');
+				break;
+			}
+
+			/* unknown flag - ignore */
+			break;
+		}
+	}
+
+	return flags;
+}
+
 const char *maildir_filename_set_flags(const char *fname, MailFlags flags)
 {
 	const char *info, *oldflags;

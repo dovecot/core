@@ -60,6 +60,9 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 	if (rec == NULL)
 		return FALSE;
 
+	/* set message flags from file name */
+	rec->msg_flags = maildir_filename_get_flags(fname, 0);
+
 	update = index->update_begin(index, rec);
 
 	/* set the location */
