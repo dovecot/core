@@ -126,10 +126,18 @@ int mbox_index_sync(MailIndex *index)
 	if (index->file_sync_stamp == st.st_mtime)
 		return TRUE;
 
-	index->file_sync_stamp = st.st_mtime;
-
 	if (index->mbox_size == 0 && st.st_size != 0)
 		index->mbox_size = get_indexed_mbox_size(index);
+
+	if (index->file_sync_stamp == 0 &&
+	    index->mbox_size == (uoff_t)st.st_size) {
+		/* just opened the mailbox, and the file size is same as
+		   we expected. don't bother checking it any further. */
+		index->file_sync_stamp = st.st_mtime;
+		return TRUE;
+	}
+
+	index->file_sync_stamp = st.st_mtime;
 
 	/* file has been modified. */
 	if (index->mbox_size > (uoff_t)st.st_size) {
