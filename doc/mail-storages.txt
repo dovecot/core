@@ -1,4 +1,5 @@
- * Maildir
+Maildir
+-------
 
 We support Courier-compatible Maildir++. INBOX is the ~/Maildir directory,
 all the other folders named as ".<folder>.<subfolder>.<etc>" under it, any
@@ -11,7 +12,9 @@ directory.
 Custom flags saved using a..z letters as Maildir file flags. .customflags
 file is then used to map the letters to names (a=0, b=1, etc).
 
- * mbox
+
+mbox
+----
 
 mbox storage currently requires that all mail is in user-writable
 directory, eg. ~/mail. Especially using /var/mail/user is NOT supported.
@@ -21,7 +24,9 @@ considered as mailboxes. Directories specify subfolders in IMAP. "inbox"
 file specifies the INBOX folder and can not be named otherwise. Indexes are
 stored into ".imap/<mailbox name>/" directories.
 
- * Detecting what to use
+
+Detecting what to use
+---------------------
 
 imap process detects the storage from MAIL-environment. It's preferred
 format is "<storage>:<data>", for example "maildir:~/Maildir". It's anyway
@@ -43,7 +48,9 @@ mbox storage is autodetected by checking if .imap/ (+rwx), inbox (+rw) or
 mbox (+rw) exists in directory. If directory isn't known, / is tried first.
 After that, ~/mail and ~/Mail directories are used.
 
- * Files created by Dovecot
+
+Files created by Dovecot
+------------------------
 
 .subscriptions: One folder per line listing subscribed IMAP folders.
 There's only one of these files in the root mail directory (~/Maildir/ or
