@@ -451,7 +451,6 @@ static int imap_parser_read_literal_data(struct imap_parser *parser,
 			imap_parser_save_arg(parser, data,
 					     (size_t)parser->literal_size);
 			parser->cur_pos = (size_t)parser->literal_size;
-			parser->eol = TRUE;
 			return TRUE;
 		}
 	} else {
