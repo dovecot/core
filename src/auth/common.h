@@ -8,5 +8,6 @@
 
 extern struct ioloop *ioloop;
 extern int verbose, verbose_debug;
+extern int standalone;
 
 #endif

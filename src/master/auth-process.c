@@ -45,6 +45,7 @@ struct auth_process {
 
 	struct hash_table *requests;
 
+	unsigned int external:1;
 	unsigned int initialized:1;
 	unsigned int in_auth_reply:1;
 };
@@ -152,16 +153,21 @@ static void auth_process_input(void *context)
 	}
 
 	if (!p->initialized) {
-		data = i_stream_get_data(p->input, &size);
-		i_assert(size > 0);
+		struct auth_master_handshake_reply rec;
 
-		if (data[0] != 'O') {
+		data = i_stream_get_data(p->input, &size);
+		if (size < sizeof(rec))
+			return;
+
+		memcpy(&rec, data, sizeof(rec));
+		i_stream_skip(p->input, sizeof(rec));
+
+		if (rec.server_pid == 0) {
 			i_fatal("Auth process sent invalid initialization "
 				"notification");
 		}
 
-		i_stream_skip(p->input, 1);
-
+		p->pid = rec.server_pid;
 		p->initialized = TRUE;
 	}
 
@@ -197,7 +203,8 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 {
 	struct auth_process *p;
 
-	PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_AUTH);
+	if (pid != 0)
+		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_AUTH);
 
 	p = i_new(struct auth_process, 1);
 	p->group = group;
@@ -223,7 +230,7 @@ static void auth_process_destroy(struct auth_process *p)
 	void *key, *value;
 	struct auth_process **pos;
 
-	if (!p->initialized && io_loop_is_running(ioloop)) {
+	if (!p->initialized && io_loop_is_running(ioloop) && !p->external) {
 		i_error("Auth process died too early - shutting down");
 		io_loop_stop(ioloop);
 	}
@@ -250,13 +257,53 @@ static void auth_process_destroy(struct auth_process *p)
 	i_free(p);
 }
 
-static pid_t create_auth_process(struct auth_process_group *group)
+static void
+socket_settings_env_put(const char *env_base, struct socket_settings *set)
+{
+	if (env_base == NULL)
+		return;
+
+	env_put(t_strdup_printf("%s_PATH=%s", env_base, set->path));
+	if (set->mode != 0)
+		env_put(t_strdup_printf("%s_MODE=%u", env_base, set->mode));
+	if (set->user != NULL)
+		env_put(t_strdup_printf("%s_USER=%s", env_base, set->user));
+	if (set->group != NULL)
+		env_put(t_strdup_printf("%s_GROUP=%s", env_base, set->group));
+}
+
+static int connect_auth_socket(struct auth_process_group *group,
+			       const char *path)
+{
+	struct auth_process *auth;
+	int fd;
+
+	fd = net_connect_unix(path);
+	if (fd == -1) {
+		i_error("net_connect_unix(%s) failed: %m", path);
+		return -1;
+	}
+
+	net_set_nonblock(fd, TRUE);
+	fd_close_on_exec(fd, TRUE);
+	auth = auth_process_new(0, fd, group);
+	auth->external = TRUE;
+	return 0;
+}
+
+static int create_auth_process(struct auth_process_group *group)
 {
 	static char *argv[] = { NULL, NULL };
-	const char *prefix;
+	struct auth_socket_settings *as;
+	const char *prefix, *str;
 	struct log_io *log;
 	pid_t pid;
 	int fd[2], log_fd, i;
+
+	/* see if this is a connect socket */
+	as = group->set->sockets;
+	if (as != NULL && strcmp(as->type, "connect") == 0)
+		return connect_auth_socket(group, as->master.path);
 
 	/* create communication to process with a socket pair */
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) {
@@ -290,7 +337,7 @@ static pid_t create_auth_process(struct auth_process_group *group)
 		auth_process_new(pid, fd[0], group);
 		(void)close(fd[1]);
 		(void)close(log_fd);
-		return pid;
+		return 0;
 	}
 
 	prefix = t_strdup_printf("master-auth(%s): ", group->set->name);
@@ -337,7 +384,16 @@ static pid_t create_auth_process(struct auth_process_group *group)
 	env_put(t_strconcat("USERNAME_CHARS=", group->set->username_chars, NULL));
 	env_put(t_strconcat("ANONYMOUS_USERNAME=",
 			    group->set->anonymous_username, NULL));
-	env_put(t_strconcat("AUTH_SOCKETS=", group->set->extra_sockets));
+
+	for (as = group->set->sockets, i = 1; as != NULL; as = as->next, i++) {
+		if (strcmp(as->type, "listen") != 0)
+			continue;
+
+		str = t_strdup_printf("AUTH_%u", i);
+		socket_settings_env_put(str, &as->client);
+		socket_settings_env_put(t_strconcat(str, "_MASTER", NULL),
+					&as->master);
+	}
 
 	if (group->set->use_cyrus_sasl)
 		env_put("USE_CYRUS_SASL=1");
@@ -390,6 +446,13 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 	group = i_new(struct auth_process_group, 1);
 	group->set = auth_set;
 
+	group->next = process_groups;
+	process_groups = group;
+
+	if (auth_set->sockets != NULL &&
+	    strcmp(auth_set->sockets->type, "connect") == 0)
+		return;
+
 	/* create socket for listening auth requests from login */
 	path = t_strconcat(auth_set->parent->defaults->login_dir, "/",
 			   auth_set->name, NULL);
@@ -410,9 +473,6 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 			path, dec2str(master_uid),
 			dec2str(auth_set->parent->login_gid));
 	}
-
-	group->next = process_groups;
-	process_groups = group;
 }
 
 static void auth_process_group_destroy(struct auth_process_group *group)

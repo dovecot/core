@@ -98,6 +98,22 @@ struct settings {
 	int listen_fd, ssl_listen_fd;
 };
 
+struct socket_settings {
+	const char *path;
+	unsigned int mode;
+	const char *user;
+	const char *group;
+};
+
+struct auth_socket_settings {
+	struct auth_settings *parent;
+	struct auth_socket_settings *next;
+
+	const char *type;
+	struct socket_settings master;
+        struct socket_settings client;
+};
+
 struct auth_settings {
 	struct server_settings *parent;
 	struct auth_settings *next;
@@ -119,11 +135,11 @@ struct auth_settings {
 
 	unsigned int count;
 	unsigned int process_size;
-	const char *extra_sockets;
 
 	/* .. */
 	uid_t uid;
 	gid_t gid;
+	struct auth_socket_settings *sockets;
 };
 
 struct namespace_settings {

@@ -22,21 +22,14 @@ struct auth_master_connection {
 	unsigned int destroyed:1;
 };
 
-struct auth_client_listener {
-	struct auth_master_connection *master;
-	int fd;
-	char *path;
-	struct io *io;
-};
-
 #define AUTH_MASTER_IS_DUMMY(master) (master->fd == -1)
 
 struct auth_master_connection *
-auth_master_connection_new(int fd, unsigned int pid);
+auth_master_connection_create(int fd, unsigned int pid);
 void auth_master_connection_send_handshake(struct auth_master_connection *conn);
-void auth_master_connection_free(struct auth_master_connection *conn);
+void auth_master_connection_destroy(struct auth_master_connection *conn);
 
 void auth_master_connection_add_listener(struct auth_master_connection *conn,
-					 int fd, const char *path);
+					 int fd, const char *path, int client);
 
 #endif

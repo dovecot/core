@@ -16,7 +16,9 @@ enum settings_type {
 	SETTINGS_TYPE_ROOT,
 	SETTINGS_TYPE_SERVER,
 	SETTINGS_TYPE_AUTH,
-        SETTINGS_TYPE_NAMESPACE
+	SETTINGS_TYPE_AUTH_SOCKET,
+        SETTINGS_TYPE_NAMESPACE,
+	SETTINGS_TYPE_SOCKET
 };
 
 struct settings_parse_ctx {
@@ -25,6 +27,8 @@ struct settings_parse_ctx {
 
 	struct server_settings *root, *server;
 	struct auth_settings *auth;
+	struct socket_settings *socket;
+	struct auth_socket_settings *auth_socket;
         struct namespace_settings *namespace;
 
 	int level;
@@ -142,7 +146,29 @@ static struct setting_def auth_setting_defs[] = {
 
 	DEF(SET_INT, count),
 	DEF(SET_INT, process_size),
-	DEF(SET_STR, extra_sockets),
+
+	{ 0, NULL, 0 }
+};
+
+#undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct socket_settings, name) }
+
+static struct setting_def socket_setting_defs[] = {
+	DEF(SET_STR, path),
+	DEF(SET_INT, mode),
+	DEF(SET_STR, user),
+	DEF(SET_STR, group),
+
+	{ 0, NULL, 0 }
+};
+
+#undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct auth_socket_settings, name) }
+
+static struct setting_def auth_socket_setting_defs[] = {
+	DEF(SET_STR, type),
 
 	{ 0, NULL, 0 }
 };
@@ -281,11 +307,11 @@ struct auth_settings default_auth_settings = {
 
 	MEMBER(count) 1,
 	MEMBER(process_size) 256,
-	MEMBER(extra_sockets) NULL,
 
 	/* .. */
 	MEMBER(uid) 0,
-	MEMBER(gid) 0
+	MEMBER(gid) 0,
+	MEMBER(sockets) NULL
 };
 
 static pool_t settings_pool, settings2_pool;
@@ -406,6 +432,22 @@ static int settings_is_active(struct settings *set)
 	return TRUE;
 }
 
+static int settings_have_connect_sockets(struct settings *set)
+{
+	struct auth_settings *auth;
+	struct server_settings *server;
+
+	for (server = set->server; server != NULL; server = server->next) {
+		for (auth = server->auths; auth != NULL; auth = auth->next) {
+			if (auth->sockets != NULL &&
+			    strcmp(auth->sockets->type, "connect") == 0)
+				return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
 static int settings_verify(struct settings *set)
 {
 	const char *dir;
@@ -484,10 +526,15 @@ static int settings_verify(struct settings *set)
 			  PKG_RUNDIR);
 	}
 
-	/* wipe out contents of login directory, if it exists */
-	if (unlink_directory(set->login_dir, FALSE) < 0) {
-		i_error("unlink_directory() failed for %s: %m", set->login_dir);
-		return FALSE;
+	/* wipe out contents of login directory, if it exists.
+	   except if we're using external authentication - then we would
+	   otherwise wipe existing auth sockets */
+	if (!settings_have_connect_sockets(set)) {
+		if (unlink_directory(set->login_dir, FALSE) < 0) {
+			i_error("unlink_directory() failed for %s: %m",
+				set->login_dir);
+			return FALSE;
+		}
 	}
 
 	if (safe_mkdir(set->login_dir, 0750,
@@ -568,6 +615,44 @@ parse_new_auth(struct server_settings *server, const char *name,
 	}
 
 	return auth_settings_new(server, name);
+}
+
+static struct auth_socket_settings *
+auth_socket_settings_new(struct auth_settings *auth, const char *type)
+{
+	struct auth_socket_settings *as, **as_p;
+
+	as = p_new(settings_pool, struct auth_socket_settings, 1);
+
+	as->parent = auth;
+	as->type = str_lcase(p_strdup(settings_pool, type));
+
+	as_p = &auth->sockets;
+	while (*as_p != NULL)
+		as_p = &(*as_p)->next;
+	*as_p = as;
+
+	return as;
+}
+
+static struct auth_socket_settings *
+parse_new_auth_socket(struct auth_settings *auth, const char *name,
+		      const char **errormsg)
+{
+	if (strcmp(name, "connect") != 0 && strcmp(name, "listen") != 0) {
+		*errormsg = "Unknown auth socket type";
+		return NULL;
+	}
+
+	if ((auth->sockets != NULL && strcmp(name, "connect") == 0) ||
+	    (auth->sockets != NULL &&
+	     strcmp(auth->sockets->type, "listen") == 0)) {
+		*errormsg = "With connect auth socket no other sockets "
+			"can be used in same auth section";
+		return NULL;
+	}
+
+	return auth_socket_settings_new(auth, name);
 }
 
 static struct namespace_settings *
@@ -657,10 +742,18 @@ static const char *parse_setting(const char *key, const char *value,
 			key += 5;
 		return parse_setting_from_defs(settings_pool, auth_setting_defs,
 					       ctx->auth, key, value);
+	case SETTINGS_TYPE_AUTH_SOCKET:
+		return parse_setting_from_defs(settings_pool,
+					       auth_socket_setting_defs,
+					       ctx->auth_socket, key, value);
 	case SETTINGS_TYPE_NAMESPACE:
 		return parse_setting_from_defs(settings_pool,
 					       namespace_setting_defs,
 					       ctx->namespace, key, value);
+	case SETTINGS_TYPE_SOCKET:
+		return parse_setting_from_defs(settings_pool,
+					       socket_setting_defs,
+					       ctx->socket, key, value);
 	}
 
 	i_unreached();
@@ -705,12 +798,20 @@ static int parse_section(const char *type, const char *name, void *context,
 
 	if (type == NULL) {
 		/* section closing */
-		if (ctx->level > 0) {
-			ctx->level--;
-			ctx->protocol = MAIL_PROTOCOL_ANY;
-		} else {
+		if (--ctx->level > 0) {
 			ctx->type = ctx->parent_type;
-			ctx->parent_type = SETTINGS_TYPE_ROOT;
+			ctx->protocol = MAIL_PROTOCOL_ANY;
+
+			switch (ctx->type) {
+			case SETTINGS_TYPE_AUTH_SOCKET:
+				ctx->parent_type = SETTINGS_TYPE_AUTH;
+				break;
+			default:
+				ctx->parent_type = SETTINGS_TYPE_ROOT;
+				break;
+			}
+		} else {
+			ctx->type = SETTINGS_TYPE_ROOT;
 			ctx->server = ctx->root;
 			ctx->auth = &ctx->root->auth_defaults;
 			ctx->namespace = NULL;
@@ -718,15 +819,16 @@ static int parse_section(const char *type, const char *name, void *context,
 		return TRUE;
 	}
 
+	ctx->level++;
+	ctx->parent_type = ctx->type;
+
 	if (strcmp(type, "server") == 0) {
 		if (ctx->type != SETTINGS_TYPE_ROOT) {
 			*errormsg = "Server section not allowed here";
 			return FALSE;
 		}
 
-		ctx->parent_type = ctx->type;
 		ctx->type = SETTINGS_TYPE_SERVER;
-
 		ctx->server = create_new_server(name, ctx->server->imap,
 						ctx->server->pop3);
                 server = ctx->root;
@@ -739,7 +841,7 @@ static int parse_section(const char *type, const char *name, void *context,
 	if (strcmp(type, "protocol") == 0) {
 		if ((ctx->type != SETTINGS_TYPE_ROOT &&
 		     ctx->type != SETTINGS_TYPE_SERVER) ||
-		    ctx->level != 0) {
+		    ctx->level != 1) {
 			*errormsg = "Protocol section not allowed here";
 			return FALSE;
 		}
@@ -752,7 +854,6 @@ static int parse_section(const char *type, const char *name, void *context,
 			*errormsg = "Unknown protocol name";
 			return FALSE;
 		}
-		ctx->level++;
 		return TRUE;
 	}
 
@@ -766,6 +867,28 @@ static int parse_section(const char *type, const char *name, void *context,
 		ctx->type = SETTINGS_TYPE_AUTH;
 		ctx->auth = parse_new_auth(ctx->server, name, errormsg);
 		return ctx->auth != NULL;
+	}
+
+	if (ctx->type == SETTINGS_TYPE_AUTH &&
+	    strcmp(type, "socket") == 0) {
+		ctx->type = SETTINGS_TYPE_AUTH_SOCKET;
+		ctx->auth_socket = parse_new_auth_socket(ctx->auth,
+							 name, errormsg);
+		return ctx->auth_socket != NULL;
+	}
+
+	if (ctx->type == SETTINGS_TYPE_AUTH_SOCKET) {
+		ctx->type = SETTINGS_TYPE_SOCKET;
+
+		if (strcmp(type, "master") == 0) {
+			ctx->socket = &ctx->auth_socket->master;
+			return TRUE;
+		}
+
+		if (strcmp(type, "client") == 0) {
+			ctx->socket = &ctx->auth_socket->client;
+			return TRUE;
+		}
 	}
 
 	if (strcmp(type, "namespace") == 0) {

@@ -3,6 +3,11 @@
 
 #define AUTH_MASTER_MAX_REPLY_DATA_SIZE 4096
 
+/* Server -> Master */
+struct auth_master_handshake_reply {
+	unsigned int server_pid;
+};
+
 struct auth_master_request {
 	unsigned int tag;
 

@@ -15,12 +15,17 @@
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <syslog.h>
+#include <pwd.h>
+#include <grp.h>
+#include <sys/stat.h>
 
 struct ioloop *ioloop;
 int verbose = FALSE, verbose_debug = FALSE;
+int standalone = FALSE;
 
 static buffer_t *masters_buf;
 
@@ -64,26 +69,120 @@ static void drop_privileges(void)
 	restrict_access_by_env(FALSE);
 }
 
-static void master_add_unix_listeners(struct auth_master_connection *master,
-				      const char *sockets_list)
+static uid_t get_uid(const char *user)
 {
-	const char *const *sockets;
-	int fd;
+	struct passwd *pw;
 
-	sockets = t_strsplit(sockets_list, ":");
-	while (*sockets != NULL) {
-		fd = net_listen_unix(*sockets);
-		if (fd == -1) {
-			i_fatal("net_listen_unix(%s) failed: %m",
-				*sockets);
+	if (user == NULL)
+		return (uid_t)-1;
+
+	if ((pw = getpwnam(user)) == NULL)
+		i_fatal("User doesn't exist: %s", user);
+	return pw->pw_uid;
+}
+
+static gid_t get_gid(const char *group)
+{
+	struct group *gr;
+
+	if (group == NULL)
+		return (gid_t)-1;
+
+	if ((gr = getgrnam(group)) == NULL)
+		i_fatal("Group doesn't exist: %s", group);
+	return gr->gr_gid;
+}
+
+static int create_unix_listener(const char *env)
+{
+	const char *path, *mode, *user, *group;
+	mode_t old_umask;
+	unsigned int mask;
+	uid_t uid;
+	gid_t gid;
+	int fd, i;
+
+	path = getenv(env);
+	if (path == NULL)
+		return -1;
+
+	mode = getenv(t_strdup_printf("%s_MODE", env));
+	if (mode == NULL)
+		mask = 0177; /* default to 0600 */
+	else {
+		if (sscanf(mode, "%o", &mask) != 1)
+			i_fatal("%s: Invalid mode %s", env, mode);
+		mask = (mask ^ 0777) & 0777;
+	}
+
+	old_umask = umask(mask);
+	for (i = 0; i < 5; i++) {
+		fd = net_listen_unix(path);
+		if (fd != -1)
+			break;
+
+		if (errno != EADDRINUSE)
+			i_fatal("net_listen_unix(%s) failed: %m", path);
+
+		/* see if it really exists */
+		if (net_connect_unix(path) != -1 || errno != ECONNREFUSED)
+			i_fatal("Socket already exists: %s", path);
+
+		/* delete and try again */
+		if (unlink(path) < 0)
+			i_fatal("unlink(%s) failed: %m", path);
+	}
+	umask(old_umask);
+
+	user = getenv(t_strdup_printf("%s_USER", env));
+	group = getenv(t_strdup_printf("%s_GROUP", env));
+
+	uid = get_uid(user); gid = get_gid(group);
+	if (chown(path, uid, gid) < 0) {
+		i_fatal("chown(%s, %s, %s) failed: %m",
+			path, dec2str(uid), dec2str(gid));
+	}
+
+	return fd;
+}
+
+static void add_extra_listeners(void)
+{
+	struct auth_master_connection *master;
+	const char *str, *client_path, *master_path;
+	int client_fd, master_fd;
+	unsigned int i;
+
+	for (i = 1;; i++) {
+		t_push();
+		client_path = getenv(t_strdup_printf("AUTH_%u", i));
+		master_path = getenv(t_strdup_printf("AUTH_%u_MASTER", i));
+		if (client_path == NULL && master_path == NULL) {
+			t_pop();
+			break;
 		}
 
-		auth_master_connection_add_listener(master, fd, *sockets);
-		sockets++;
+		str = t_strdup_printf("AUTH_%u", i);
+		client_fd = create_unix_listener(str);
+		str = t_strdup_printf("AUTH_%u_MASTER", i);
+		master_fd = create_unix_listener(str);
+
+		master = auth_master_connection_create(-1, getpid());
+		if (master_fd != -1) {
+			auth_master_connection_add_listener(master, master_fd,
+							    master_path, FALSE);
+		}
+		if (client_fd != -1) {
+			auth_master_connection_add_listener(master, client_fd,
+							    client_path, TRUE);
+		}
+		auth_client_connections_init(master);
+		buffer_append(masters_buf, &master, sizeof(master));
+		t_pop();
 	}
 }
 
-static void main_init(void)
+static void main_init(int nodaemon)
 {
 	struct auth_master_connection *master, **master_p;
 	size_t i, size;
@@ -103,47 +202,45 @@ static void main_init(void)
 	masters_buf = buffer_create_dynamic(default_pool, 64, (size_t)-1);
 
 	env = getenv("AUTH_PROCESS");
-	if (env == NULL) {
+	standalone = env == NULL;
+	if (standalone) {
 		/* starting standalone */
-		env = getenv("AUTH_SOCKETS");
-		if (env == NULL)
-			i_fatal("AUTH_SOCKETS environment not set");
-
-		switch (fork()) {
-		case -1:
-			i_fatal("fork() failed: %m");
-		case 0:
-			break;
-		default:
-			exit(0);
+		if (getenv("AUTH_1") == NULL) {
+			i_fatal("dovecot-auth is usually started through "
+				"dovecot master process. If you wish to run "
+				"it standalone, you'll need to set AUTH_* "
+				"environment variables (AUTH_1 isn't set).");
 		}
 
-		if (setsid() < 0)
-			i_fatal("setsid() failed: %m");
+		if (!nodaemon) {
+			switch (fork()) {
+			case -1:
+				i_fatal("fork() failed: %m");
+			case 0:
+				break;
+			default:
+				exit(0);
+			}
 
-		if (chdir("/") < 0)
-			i_fatal("chdir(/) failed: %m");
+			if (setsid() < 0)
+				i_fatal("setsid() failed: %m");
+
+			if (chdir("/") < 0)
+				i_fatal("chdir(/) failed: %m");
+		}
        } else {
 		pid = atoi(env);
 		if (pid == 0)
 			i_fatal("AUTH_PROCESS can't be 0");
 
-		master = auth_master_connection_new(MASTER_SOCKET_FD, pid);
+		master = auth_master_connection_create(MASTER_SOCKET_FD, pid);
 		auth_master_connection_add_listener(master, LOGIN_LISTEN_FD,
-						    NULL);
-		auth_client_connections_init(master);
-		buffer_append(masters_buf, &master, sizeof(master));
-
-		/* accept also alternative listeners under dummy master */
-		env = getenv("AUTH_SOCKETS");
-	}
-
-	if (env != NULL && *env != '\0') {
-		master = auth_master_connection_new(-1, 0);
-		master_add_unix_listeners(master, env);
+						    NULL, TRUE);
 		auth_client_connections_init(master);
 		buffer_append(masters_buf, &master, sizeof(master));
 	}
+
+	add_extra_listeners();
 
 	/* everything initialized, notify masters that all is well */
 	master_p = buffer_get_modifyable_data(masters_buf, &size);
@@ -164,10 +261,8 @@ static void main_deinit(void)
 
 	master = buffer_get_modifyable_data(masters_buf, &size);
 	size /= sizeof(*master);
-	for (i = 0; i < size; i++) {
-		auth_client_connections_deinit(master[i]);
-		auth_master_connection_free(master[i]);
-	}
+	for (i = 0; i < size; i++)
+		auth_master_connection_destroy(master[i]);
 
         password_schemes_deinit();
 	passdb_deinit();
@@ -179,10 +274,11 @@ static void main_deinit(void)
 	closelog();
 }
 
-int main(int argc __attr_unused__, char *argv[] __attr_unused__)
+int main(int argc, char *argv[])
 {
 #ifdef DEBUG
-        fd_debug_verify_leaks(4, 1024);
+	if (getenv("GDB") == NULL)
+		fd_debug_verify_leaks(4, 1024);
 #endif
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
@@ -191,7 +287,7 @@ int main(int argc __attr_unused__, char *argv[] __attr_unused__)
 
 	ioloop = io_loop_create(system_pool);
 
-	main_init();
+	main_init(argc > 1 && strcmp(argv[1], "-F") == 0);
         io_loop_run(ioloop);
 	main_deinit();
 
