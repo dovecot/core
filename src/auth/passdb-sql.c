@@ -143,6 +143,11 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 		   auth_request_get_var_expand_table(sql_request->auth_request,
 						     str_escape));
 
+	if (verbose_debug) {
+		i_info("sql(%s): query: %s",
+		       get_log_prefix(sql_request->auth_request), str_c(query));
+	}
+
 	sql_query(passdb_sql_conn->db, str_c(query),
 		  sql_query_callback, sql_request);
 }

@@ -45,10 +45,15 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 		return;
 	}
 
+	if (verbose_debug) {
+		i_info("vpopmail(%s): crypted password=%s",
+		       get_log_prefix(request), vpw->pw_passwd);
+	}
+
 	crypted_pass = vpw->pw_passwd;
 	scheme = password_get_scheme(&crypted_pass);
 	if (scheme == NULL) scheme = "CRYPT";
-	
+
 	ret = password_verify(password, crypted_pass, scheme, request->user);
 
 	safe_memset(vpw->pw_passwd, 0, strlen(vpw->pw_passwd));

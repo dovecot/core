@@ -87,6 +87,11 @@ static void userdb_sql_lookup(struct auth_request *auth_request,
 	sql_request->context = context;
 	sql_request->auth_request = auth_request;
 
+	if (verbose_debug) {
+		i_info("sql(%s): query: %s",
+		       get_log_prefix(auth_request), str_c(query));
+	}
+
 	sql_query(userdb_sql_conn->db, str_c(query),
 		  sql_query_callback, sql_request);
 }
