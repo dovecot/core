@@ -1,7 +1,6 @@
 #ifndef __MAIL_INDEX_H
 #define __MAIL_INDEX_H
 
-#include "byteorder.h"
 #include "file-dotlock.h"
 #include "message-parser.h"
 #include "imap-util.h"
@@ -29,13 +28,13 @@ enum mail_index_header_flag {
 	/* Rebuild flag is set while index is being rebuilt or when
 	   some error is noticed in the index file. If this flag is set,
 	   the index shouldn't be used before rebuilding it. */
-	MAIL_INDEX_HDR_FLAG_FSCK		= NBO32_BIT0,
-	MAIL_INDEX_HDR_FLAG_REBUILD		= NBO32_BIT1,
-	MAIL_INDEX_HDR_FLAG_COMPRESS		= NBO32_BIT2,
-	MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE	= NBO32_BIT3,
-	MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES	= NBO32_BIT4,
-	MAIL_INDEX_HDR_FLAG_DIRTY_CUSTOMFLAGS	= NBO32_BIT5,
-	MAIL_INDEX_HDR_FLAG_MAILDIR_NEW		= NBO32_BIT6
+	MAIL_INDEX_HDR_FLAG_FSCK		= 0x0001,
+	MAIL_INDEX_HDR_FLAG_REBUILD		= 0x0002,
+	MAIL_INDEX_HDR_FLAG_COMPRESS		= 0x0004,
+	MAIL_INDEX_HDR_FLAG_COMPRESS_CACHE	= 0x0008,
+	MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES	= 0x0010,
+	MAIL_INDEX_HDR_FLAG_DIRTY_CUSTOMFLAGS	= 0x0020,
+	MAIL_INDEX_HDR_FLAG_MAILDIR_NEW		= 0x0040
 };
 
 enum mail_index_record_flag {
@@ -43,20 +42,20 @@ enum mail_index_record_flag {
 	   missing CRs. So this flag may be set as an optimization for
 	   regular non-binary mails as well if it's known that it contains
 	   valid CR+LF line breaks. */
-	MAIL_INDEX_FLAG_BINARY_HEADER	= NBO32_BIT0,
-	MAIL_INDEX_FLAG_BINARY_BODY	= NBO32_BIT1,
+	MAIL_INDEX_FLAG_BINARY_HEADER		= 0x0001,
+	MAIL_INDEX_FLAG_BINARY_BODY		= 0x0002,
 
 	/* Mail flags have been changed in index, but not written into
 	   actual mailbox yet. */
-	MAIL_INDEX_FLAG_DIRTY		= NBO32_BIT2,
+	MAIL_INDEX_FLAG_DIRTY			= 0x0004,
 
 	/* Maildir: Mail file is in new/ dir instead of cur/ */
-	MAIL_INDEX_FLAG_MAILDIR_NEW	= NBO32_BIT3,
+	MAIL_INDEX_FLAG_MAILDIR_NEW		= 0x0008,
 
 	/* Mail header or body is known to contain NUL characters. */
-	MAIL_INDEX_FLAG_HAS_NULS	= NBO32_BIT4,
+	MAIL_INDEX_FLAG_HAS_NULS		= 0x0010,
 	/* Mail header or body is known to not contain NUL characters. */
-	MAIL_INDEX_FLAG_HAS_NO_NULS	= NBO32_BIT5
+	MAIL_INDEX_FLAG_HAS_NO_NULS		= 0x0020
 };
 
 enum mail_lock_type {
