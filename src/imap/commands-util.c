@@ -47,6 +47,13 @@ int client_verify_mailbox_name(Client *client, const char *mailbox,
 	}
 
 	switch (mailbox_status) {
+	case MAILBOX_NAME_EXISTS:
+		if (should_exist || !should_not_exist)
+			return TRUE;
+
+		client_send_tagline(client, "NO Mailbox exists.");
+		break;
+
 	case MAILBOX_NAME_VALID:
 		if (!should_exist)
 			return TRUE;
@@ -61,12 +68,11 @@ int client_verify_mailbox_name(Client *client, const char *mailbox,
 			"NO Invalid mailbox name: ", mailbox, NULL));
 		break;
 
-	case MAILBOX_NAME_EXISTS:
-		if (should_exist || !should_not_exist)
-			return TRUE;
-
-		client_send_tagline(client, "NO Mailbox exists.");
+	case MAILBOX_NAME_NOINFERIORS:
+		client_send_tagline(client,
+			"NO Mailbox parent doesn't allow inferior mailboxes.");
 		break;
+
 	default:
                 i_unreached();
 	}
