@@ -71,6 +71,7 @@ static void client_auth_abort(Client *client, const char *msg)
 
 	client_send_tagline(client, msg != NULL ? msg :
 			    "NO Authentication failed.");
+	io_buffer_send_flush(client->outbuf);
 
 	/* get back to normal client input */
 	if (client->io != NULL)
@@ -111,6 +112,8 @@ static void client_send_auth_data(Client *client, const unsigned char *data,
 	io_buffer_send(client->outbuf, "+ ", 2);
 	io_buffer_send(client->outbuf, base64_data, strlen(base64_data));
 	io_buffer_send(client->outbuf, "\r\n", 2);
+
+	io_buffer_send_flush(client->outbuf);
 
 	t_pop();
 }
