@@ -422,6 +422,8 @@ int mail_index_truncate(MailIndex *index);
 #define INDEX_TRUNCATE_PERCENTAGE 30
 /* don't truncate whole file anyway, keep n% of the empty space */
 #define INDEX_TRUNCATE_KEEP_PERCENTAGE 10
+/* Compress the file when deleted space reaches n% of total size */
+#define INDEX_COMPRESS_PERCENTAGE 50
 
 /* uoff_t to index file for given record */
 #define INDEX_FILE_POSITION(index, ptr) \

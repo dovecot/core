@@ -699,10 +699,16 @@ static int mail_index_truncate_hole(MailIndex *index)
 	return TRUE;
 }
 
+#define INDEX_NEED_COMPRESS(records, hdr) \
+	((records) > INDEX_MIN_RECORDS_COUNT && \
+	 (records) * (100-INDEX_COMPRESS_PERCENTAGE) / 100 > \
+	 	(hdr)->messages_count)
+
 int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		       unsigned int seq, int external_change)
 {
 	MailIndexHeader *hdr;
+	unsigned int records;
 	uoff_t pos;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
@@ -782,9 +788,12 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		/* the hole reaches end of file, truncate it */
 		(void)mail_index_truncate_hole(index);
 	} else {
-		/* update deleted_space in data file */
 		(void)mail_index_data_add_deleted_space(index->data,
 							rec->data_size);
+
+		records = MAIL_INDEX_RECORD_COUNT(index);
+		if (INDEX_NEED_COMPRESS(records, hdr))
+			hdr->flags |= MAIL_INDEX_FLAG_COMPRESS;
 	}
 
 	return TRUE;
