@@ -55,7 +55,7 @@ static void vpopmail_lookup(const char *user, const char *realm,
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
-        struct user_data *data;
+        struct user_data data;
 	uid_t uid;
 	gid_t gid;
 	pool_t pool;
@@ -102,17 +102,14 @@ static void vpopmail_lookup(const char *user, const char *realm,
 		}
 	}
 
-	pool = pool_alloconly_create("user_data", 1024);
-	data = p_new(pool, struct user_data, 1);
-	data->pool = pool;
+	memset(&data, 0, sizeof(data));
+	data.uid = uid;
+	data.gid = gid;
 
-	data->uid = uid;
-	data->gid = gid;
+	data.virtual_user = vpw->pw_name;
+	data.home = vpw->pw_dir;
 
-	data->virtual_user = p_strdup(data->pool, vpw->pw_name);
-	data->home = p_strdup(data->pool, vpw->pw_dir);
-
-	callback(data, context);
+	callback(&data, context);
 }
 
 struct userdb_module userdb_vpopmail = {
