@@ -285,7 +285,9 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 		index_flags |= MAIL_INDEX_OPEN_FLAG_FAST;
 	if (getenv("MMAP_DISABLE") != NULL)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
+#ifndef MMAP_CONFLICTS_WRITE
 	if (getenv("MMAP_NO_WRITE") != NULL)
+#endif
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE;
 	if (getenv("FCNTL_LOCKS_DISABLE") != NULL)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_FCNTL_LOCKS_DISABLE;
