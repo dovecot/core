@@ -99,6 +99,9 @@ ssize_t o_buffer_send(OBuffer *buf, const void *data, size_t size)
 	if (buf->closed)
 		return -1;
 
+	if (size == 0)
+		return 0;
+
 	return _buf->send(_buf, data, size);
 }
 
