@@ -19,6 +19,35 @@
 extern MailStorage mbox_storage;
 extern Mailbox mbox_mailbox;
 
+static int mkdir_parents(const char *path)
+{
+	const char *p, *dir;
+
+	p = path;
+	if (*p == '/') p++;
+
+	do {
+		t_push();
+
+		p = strchr(p, '/');
+		if (p == NULL)
+			dir = path;
+		else {
+			dir = t_strdup_until(path, p);
+			p++;
+		}
+
+		if (mkdir(dir, CREATE_MODE) < 0 && errno != EEXIST) {
+			t_pop();
+			return -1;
+		}
+
+		t_pop();
+	} while (p != NULL);
+
+	return 0;
+}
+
 static int mbox_autodetect(const char *data)
 {
 	const char *path;
@@ -274,6 +303,12 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 
 	path = mbox_get_path(storage, name);
 	if (stat(path, &st) == 0) {
+		if (S_ISDIR(st.st_mode)) {
+			mail_storage_set_error(storage,
+				"Mailbox isn't selectable: %s", name);
+			return NULL;
+		}
+
 		/* exists - make sure the required directories are also there */
 		(void)create_mbox_index_dirs(storage, name, TRUE);
 
@@ -291,7 +326,7 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 
 static int mbox_create_mailbox(MailStorage *storage, const char *name)
 {
-	const char *path;
+	const char *path, *p;
 	struct stat st;
 	int fd;
 
@@ -312,10 +347,27 @@ static int mbox_create_mailbox(MailStorage *storage, const char *name)
 		return FALSE;
 	}
 
-	if (errno != ENOENT) {
-		mail_storage_set_critical(storage, "stat() failed for mbox "
-					  "file %s: %m", path);
+	if (errno == ENOTDIR) {
+		mail_storage_set_error(storage,
+			"Mailbox doesn't allow inferior mailboxes");
 		return FALSE;
+	}
+
+	if (errno != ENOENT) {
+		mail_storage_set_critical(storage,
+			"stat() failed for mbox file %s: %m", path);
+		return FALSE;
+	}
+
+	/* create the hierarchy if needed */
+	p = strrchr(path, '/');
+	if (p != NULL) {
+		if (mkdir_parents(t_strdup_until(path, p)) < 0) {
+			mail_storage_set_critical(storage,
+						  "mkdir_parents() failed for mbox path "
+						  "%s: %m", path);
+			return FALSE;
+		}
 	}
 
 	/* create the mailbox file */
@@ -407,7 +459,7 @@ static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 static int mbox_rename_mailbox(MailStorage *storage, const char *oldname,
 			       const char *newname)
 {
-	const char *oldpath, *newpath, *old_indexdir, *new_indexdir;
+	const char *oldpath, *newpath, *old_indexdir, *new_indexdir, *p;
 
 	mail_storage_clear_error(storage);
 
@@ -422,6 +474,17 @@ static int mbox_rename_mailbox(MailStorage *storage, const char *oldname,
 
 	oldpath = mbox_get_path(storage, oldname);
 	newpath = mbox_get_path(storage, newname);
+
+	/* create the hierarchy */
+	p = strrchr(newpath, '/');
+	if (p != NULL) {
+		if (mkdir_parents(t_strdup_until(newpath, p)) < 0) {
+			mail_storage_set_critical(storage,
+				"mkdir_parents() failed for mbox path %s: %m",
+				newpath);
+			return FALSE;
+		}
+	}
 
 	/* NOTE: renaming INBOX works just fine with us, it's simply created
 	   the next time it's needed. */
@@ -467,6 +530,9 @@ static int mbox_get_mailbox_name_status(MailStorage *storage, const char *name,
 		return TRUE;
 	} else if (errno == ENOENT) {
 		*status = MAILBOX_NAME_VALID;
+		return TRUE;
+	} else if (errno == ENOTDIR) {
+		*status = MAILBOX_NAME_NOINFERIORS;
 		return TRUE;
 	} else {
 		mail_storage_set_critical(storage, "mailbox name status: "
