@@ -214,6 +214,7 @@ o_stream_writev(struct file_ostream *fstream, struct iovec *iov, int iov_size)
 	if (ret < 0) {
 		if (errno == EAGAIN || errno == EINTR)
 			return 0;
+		fstream->ostream.ostream.stream_errno = errno;
 		stream_closed(fstream);
 		return -1;
 	}
@@ -431,8 +432,10 @@ static void stream_send_io(void *context)
 	if (iov_len == 0 || o_stream_writev(fstream, iov, iov_len) < 0 ||
 	    iov[iov_len-1].iov_len == 0) {
 		/* error / all sent */
-		io_remove(fstream->io);
-                fstream->io = NULL;
+		if (fstream->io != NULL) {
+			io_remove(fstream->io);
+			fstream->io = NULL;
+		}
 	}
 }
 
