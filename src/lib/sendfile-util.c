@@ -81,15 +81,13 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 	}
 }
 
-#elif defined (HAVE_SOLARIS_SENDFILEV)
+#elif defined (HAVE_SOLARIS_SENDFILE)
 
 #include <sys/sendfile.h>
 #include "network.h"
 
 ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 {
-	struct sendfilevec vec;
-	size_t sbytes;
 	ssize_t ret;
 
 	i_assert(count <= SSIZE_T_MAX);
@@ -97,19 +95,13 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 	/* NOTE: if outfd is not a socket, some Solaris versions will
 	   kernel panic */
 
-	vec.sfv_fd = in_fd;
-	vec.sfv_flag = 0;
-	vec.sfv_off = *offset;
-	vec.sfv_len = count;
-
-	ret = sendfilev(out_fd, &vec, 1, &sbytes);
-
-	*offset += sbytes;
-
-	if (ret >= 0 || (ret < 0 && errno == EAGAIN && sbytes > 0))
-		return (ssize_t)sbytes;
-	else
-		return -1;
+	ret = sendfile(out_fd, in_fd, offset, count);
+	if (ret < 0 && errno == EAFNOSUPPORT) {
+		/* not supported, return Linux-like EINVAL so caller
+		   sees only consistent errnos. */
+		errno = EINVAL;
+	}
+	return ret;
 }
 
 #else
