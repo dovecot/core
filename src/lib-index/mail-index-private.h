@@ -165,6 +165,9 @@ int mail_index_is_locked(struct mail_index *index, unsigned int lock_id);
 int mail_index_lock_fd(struct mail_index *index, int fd, int lock_type,
 		       unsigned int timeout_secs);
 
+/* Reopen index file if it has changed. */
+int mail_index_refresh(struct mail_index *index);
+
 /* Map index file to memory, replacing the previous mapping for index.
    Returns 1 = ok, 0 = corrupted, -1 = error. If index needs fscking, it
    returns 1 but sets index->fsck = TRUE. */

@@ -532,21 +532,19 @@ static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 	}
 	cur_mtime = st.st_mtime;
 
-	if (ibox->dirty_cur_time == 0) {
-		/* cur stamp is kept in index, we don't have to sync if
-		   someone else has done it and updated the index. make sure
-		   we have a fresh index with latest sync_stamp. */
+	/* cur stamp is kept in index, we don't have to sync if
+	   someone else has done it and updated the index. */
+	ibox->last_cur_mtime = mail_index_get_header(ibox->view)->sync_stamp;
+	if (ibox->dirty_cur_time == 0 && cur_mtime != ibox->last_cur_mtime) {
+		/* check if the index has been updated.. */
 		struct mail_index_view *view;
-		const struct mail_index_header *hdr;
 
-		if (mail_index_refresh(ibox->index) < 0) {
+		if (mail_index_view_open_locked(ibox->index, &view) < 0) {
 			mail_storage_set_index_error(ibox);
 			return -1;
 		}
 
-		view = mail_index_view_open(ibox->index);
-		hdr = mail_index_get_header(view);
-		ibox->last_cur_mtime = hdr->sync_stamp;
+		ibox->last_cur_mtime = mail_index_get_header(view)->sync_stamp;
 		mail_index_view_close(view);
 	}
 
