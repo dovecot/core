@@ -88,7 +88,7 @@ static int cmd_logout(Client *client)
 {
 	client_send_line(client, "* BYE Logging out");
 	client_send_tagline(client, "OK Logout completed.");
-	client_destroy(client, "Logged out");
+	client_destroy(client, "Aborted login");
 	return TRUE;
 }
 
