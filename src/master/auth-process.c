@@ -340,7 +340,8 @@ static pid_t create_auth_process(struct auth_process_group *group)
 
 	execv(group->set->executable, argv);
 
-	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", argv[0]);
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
+		       group->set->executable);
 	return -1;
 }
 
