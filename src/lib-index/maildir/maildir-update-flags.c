@@ -97,7 +97,7 @@ static int maildir_rename_mail(struct mail_index *index,
 				}
 
 				/* cur/ was updated, set it dirty-synced */
-                                index->file_sync_stamp = ioloop_time;
+				index->file_sync_stamp = ioloop_time;
 				index->maildir_cur_dirty = ioloop_time;
 			}
 

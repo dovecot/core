@@ -397,7 +397,7 @@ struct mail_index {
 	ino_t mbox_ino;
 
 	/* last maildir sync: */
-	time_t last_new_mtime, last_cur_mtime, last_uidlist_mtime;
+	time_t last_new_mtime, last_uidlist_mtime;
 	time_t maildir_cur_dirty;
 	int maildir_lock_fd;
 	pool_t new_filename_pool;
@@ -452,7 +452,7 @@ struct mail_index {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0
+	0, 0, 0, 0
 #endif
 
 /* defaults - same as above but prefixed with mail_index_. */

@@ -99,6 +99,22 @@
    dirty flag. If there's dirty flags, this should be tried every time
    after expunge or when closing the mailbox.
 
+   uidlist
+   -------
+
+   This file contains UID <-> filename mappings. It's updated only when
+   new mail arrives, so it may contain filenames that have already been
+   deleted. Updating is done by getting uidlist.lock file, writing the
+   whole uidlist into it and rename()ing it over the old uidlist. This
+   means there's no need to lock the file for reading.
+
+   Whenever uidlist is rewritten, it's mtime must be larger than the old
+   one's. Use utime() before rename() if needed.
+
+   Only time you have to read this file is when assigning new UIDs for
+   messages, to see if they already have UIDs. If file's mtime hasn't
+   changed, you don't have to do even that.
+
    broken clients
    --------------
 
@@ -220,7 +236,10 @@ struct maildir_sync_context {
 	struct maildir_uidlist *uidlist;
 	unsigned int readonly_check:1;
 	unsigned int flag_updates:1;
+	unsigned int uidlist_rewrite:1;
 };
+
+static int maildir_sync_cur_dir(struct maildir_sync_context *ctx);
 
 /* a char* hash function from ASU -- from glib */
 static unsigned int maildir_hash(const void *p)
@@ -248,7 +267,7 @@ static int maildir_cmp(const void *p1, const void *p2)
 		s1++; s2++;
 	}
 	if ((*s1 == '\0' || *s1 == ':') &&
-	    (*s2 == '\0' || *s2 == '\0'))
+	    (*s2 == '\0' || *s2 == ':'))
 		return 0;
 	return *s1 - *s2;
 }
@@ -307,6 +326,69 @@ static int maildir_update_flags(struct maildir_sync_context *ctx,
 	return TRUE;
 }
 
+static int maildir_sync_open_uidlist(struct maildir_sync_context *ctx)
+{
+	struct mail_index *index = ctx->index;
+	struct stat st;
+	const char *path;
+
+	if (ctx->uidlist != NULL)
+		return TRUE;
+
+	/* open it only if it's changed since we last synced it. */
+	path = t_strconcat(index->control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
+	if (stat(path, &st) < 0) {
+		if (errno == ENOENT) {
+			/* doesn't exist yet, create it */
+			switch (maildir_uidlist_try_lock(ctx->index)) {
+			case -1:
+				return FALSE;
+			case 1:
+				ctx->uidlist_rewrite = TRUE;
+				break;
+			}
+
+			return TRUE;
+		}
+		return index_file_set_syscall_error(index, path, "stat()");
+	}
+
+	/* FIXME: last_uidlist_mtime should be in index headers */
+	if (st.st_mtime == index->last_uidlist_mtime)
+		return TRUE;
+
+	ctx->uidlist = maildir_uidlist_open(index);
+	if (ctx->uidlist == NULL)
+		return TRUE;
+
+	if (ctx->uidlist->uid_validity != index->header->uid_validity) {
+		/* uidvalidity changed */
+		if (!index->rebuilding && index->opened) {
+			index_set_corrupted(index,
+					    "UIDVALIDITY changed in uidlist");
+			return FALSE;
+		}
+
+		if (!index->rebuilding) {
+			index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
+			return FALSE;
+		}
+
+		index->header->uid_validity = ctx->uidlist->uid_validity;
+		i_assert(index->header->next_uid == 1);
+	}
+
+	if (index->header->next_uid > ctx->uidlist->next_uid) {
+		index_set_corrupted(index, "index.next_uid (%u) > "
+				    "uidlist.next_uid (%u)",
+				    index->header->next_uid,
+				    ctx->uidlist->next_uid);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 static int is_file_content_changed(struct mail_index *index,
 				   struct mail_index_record *rec,
 				   const char *dir, const char *fname)
@@ -357,10 +439,10 @@ static void uidlist_hash_get_filenames(void *key, void *value, void *context)
 		buffer_append(buf, (const void *) &key, sizeof(key));
 }
 
-static int maildir_sync_uidlist(struct maildir_sync_context *ctx)
+static int maildir_full_sync_finish(struct maildir_sync_context *ctx)
 {
 	struct mail_index *index = ctx->index;
-        struct maildir_uidlist *uidlist = ctx->uidlist;
+        struct maildir_uidlist *uidlist;
 	struct mail_index_record *rec;
 	struct maildir_hash_rec *hash_rec;
         struct maildir_uidlist_rec uid_rec;
@@ -370,8 +452,20 @@ static int maildir_sync_uidlist(struct maildir_sync_context *ctx)
 	int new_dir;
 	buffer_t *buf;
 
+	if (ctx->new_count > 0) {
+		/* new mails, either they're already in uidlist or we have
+		   to add them there. If we want to add them, we'll need to
+		   sync it locked. */
+		if (maildir_uidlist_try_lock(ctx->index) < 0)
+			return FALSE;
+
+		if (!maildir_sync_open_uidlist(ctx))
+			return FALSE;
+	}
+
         seq = 0;
 	rec = index->lookup(index, 1);
+	uidlist = ctx->uidlist;
 
 	if (uidlist == NULL)
 		memset(&uid_rec, 0, sizeof(uid_rec));
@@ -385,7 +479,6 @@ static int maildir_sync_uidlist(struct maildir_sync_context *ctx)
 
 		/* skip over the expunged records in uidlist */
 		while (uid_rec.uid != 0 && uid_rec.uid < uid) {
-			uidlist->rewrite = TRUE;
 			if (maildir_uidlist_next(uidlist, &uid_rec) < 0)
 				return FALSE;
 		}
@@ -412,13 +505,11 @@ static int maildir_sync_uidlist(struct maildir_sync_context *ctx)
 		if (uid_rec.uid > uid &&
 		    (ACTION(hash_rec) == MAILDIR_FILE_ACTION_UPDATE_FLAGS ||
 		     ACTION(hash_rec) == MAILDIR_FILE_ACTION_NONE)) {
-			/* it's UID has changed */
+			/* it's UID has changed. shouldn't happen. */
+			i_warning("UID changed for %s/%s: %u -> %u",
+				  index->mailbox_path, fname, uid, uid_rec.uid);
 			hash_rec->action = MAILDIR_FILE_ACTION_UPDATE_CONTENT |
 				(hash_rec->action & MAILDIR_FILE_FLAG_NEWDIR);
-
-			/* make sure filename is not invalidated by expunge */
-			hash_insert(ctx->files, p_strdup(ctx->pool, fname),
-				    hash_rec);
 		}
 
 		switch (ACTION(hash_rec)) {
@@ -462,14 +553,26 @@ static int maildir_sync_uidlist(struct maildir_sync_context *ctx)
 	/* if there's new mails which are already in uidlist, get them */
 	last_uid = 0;
 	while (uid_rec.uid != 0) {
-		if (!hash_lookup_full(ctx->files, uid_rec.filename,
-				      &orig_key, &orig_value)) {
-			/* expunged */
-			if (uidlist != NULL)
-				uidlist->rewrite = TRUE;
-		} else {
+		if (hash_lookup_full(ctx->files, uid_rec.filename,
+				     &orig_key, &orig_value))
 			hash_rec = orig_value;
-			i_assert(ACTION(hash_rec) == MAILDIR_FILE_ACTION_NEW);
+		else
+			hash_rec = NULL;
+
+		if (hash_rec != NULL &&
+		    ACTION(hash_rec) == MAILDIR_FILE_ACTION_NONE) {
+			/* it's a duplicate, shouldn't happen */
+			i_error("%s: Found duplicate filename %s, rebuilding",
+				ctx->uidlist->fname, uid_rec.filename);
+			(void)unlink(ctx->uidlist->fname);
+
+			if (INDEX_IS_UIDLIST_LOCKED(index))
+				ctx->uidlist_rewrite = TRUE;
+			hash_rec = NULL;
+		}
+
+		if (hash_rec != NULL) {
+ 			i_assert(ACTION(hash_rec) == MAILDIR_FILE_ACTION_NEW);
 
 			/* make sure we set the same UID for it. */
 			if (index->header->next_uid > uid_rec.uid) {
@@ -499,13 +602,29 @@ static int maildir_sync_uidlist(struct maildir_sync_context *ctx)
 			return FALSE;
 	}
 
+	if (ctx->uidlist != NULL) {
+		/* update our next_uid. it should have been checked for
+		   sanity already. */
+		struct stat st;
+
+		i_assert(index->header->next_uid <= ctx->uidlist->next_uid);
+                index->header->next_uid = ctx->uidlist->next_uid;
+
+		/* uidlist is now synced, remember that. */
+		if (fstat(i_stream_get_fd(ctx->uidlist->input), &st) < 0) {
+			return index_file_set_syscall_error(index,
+							    ctx->uidlist->fname,
+							    "fstat()");
+		}
+		index->last_uidlist_mtime = st.st_mtime;
+	}
+
 	if (ctx->new_count == 0 || !INDEX_IS_UIDLIST_LOCKED(index)) {
 		/* all done (or can't do it since we don't have lock) */
 		return TRUE;
 	}
 
-	if (uidlist != NULL)
-		uidlist->rewrite = TRUE;
+	ctx->uidlist_rewrite = TRUE;
 
 	/* then there's the completely new mails. sort them by the filename
 	   so we should get them to same order as they were created. */
@@ -544,7 +663,7 @@ static int maildir_sync_uidlist(struct maildir_sync_context *ctx)
 	return TRUE;
 }
 
-static int maildir_index_full_sync_init(struct maildir_sync_context *ctx)
+static int maildir_full_sync_init(struct maildir_sync_context *ctx)
 {
 	struct mail_index *index = ctx->index;
 	struct mail_index_record *rec;
@@ -582,9 +701,14 @@ static int maildir_index_full_sync_init(struct maildir_sync_context *ctx)
 		hash_rec->rec = rec;
 		hash_rec->action = MAILDIR_FILE_ACTION_EXPUNGE;
 
-		/* FIXME: p_strdup() eats uselessly memory. fix the code so
-		   that it's not needed. */
-		hash_insert(ctx->files, (void *) p_strdup(ctx->pool, fname), hash_rec);
+		if (hash_lookup(ctx->files, fname) != NULL) {
+			index_set_corrupted(index, "Duplicated message %s",
+					    fname);
+			return FALSE;
+		}
+
+		/* FIXME: wastes memory */
+		hash_insert(ctx->files, p_strdup(ctx->pool, fname), hash_rec);
 
 		rec = index->next(index, rec);
 	}
@@ -593,9 +717,36 @@ static int maildir_index_full_sync_init(struct maildir_sync_context *ctx)
 	return TRUE;
 }
 
-static int maildir_index_full_sync_dir(struct maildir_sync_context *ctx,
-				       const char *dir, int new_dir,
-				       DIR *dirp, struct dirent *d)
+static int maildir_fix_duplicate(struct mail_index *index,
+				 const char *old_fname, int new_dir)
+{
+	const char *new_fname, *old_path, *new_path;
+	int ret = TRUE;
+
+	t_push();
+
+	old_path = t_strconcat(index->mailbox_path, new_dir ? "/new/" : "/cur/",
+			       old_fname, NULL);
+
+	new_fname = maildir_generate_tmp_filename(&ioloop_timeval);
+	new_path = t_strconcat(index->mailbox_path, "/new/", new_fname, NULL);
+
+	if (rename(old_path, new_path) == 0) {
+		i_warning("Fixed duplicate in %s: %s -> %s",
+			  index->mailbox_path, old_fname, new_fname);
+	} else if (errno != ENOENT) {
+		index_set_error(index, "rename(%s, %s) failed: %m",
+				old_path, new_path);
+		ret = FALSE;
+	}
+	t_pop();
+
+	return ret;
+}
+
+static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
+				 const char *dir, int new_dir,
+				 DIR *dirp, struct dirent *d)
 {
 	struct maildir_hash_rec *hash_rec;
 	void *orig_key, *orig_value;
@@ -617,8 +768,13 @@ static int maildir_index_full_sync_dir(struct maildir_sync_context *ctx,
 			hash_rec = p_new(ctx->pool, struct maildir_hash_rec, 1);
 		} else {
 			hash_rec = orig_value;
+			if (strncmp(d->d_name, "1053604786.28152_4.red.int.bppiac.hu", 36) == 0) {
+				i_warning("got: %s", d->d_name);
+			}
 			if (ACTION(hash_rec) != MAILDIR_FILE_ACTION_EXPUNGE) {
-				/* FIXME: duplicate */
+				if (!maildir_fix_duplicate(ctx->index,
+							   d->d_name, new_dir))
+					return FALSE;
 				continue;
 			}
 		}
@@ -702,7 +858,7 @@ static int maildir_new_scan_first_file(struct maildir_sync_context *ctx)
 	return TRUE;
 }
 
-static int maildir_index_full_sync_dirs(struct maildir_sync_context *ctx)
+static int maildir_full_sync_dirs(struct maildir_sync_context *ctx)
 {
 	DIR *dirp;
 	int failed;
@@ -714,8 +870,8 @@ static int maildir_index_full_sync_dirs(struct maildir_sync_context *ctx)
 	}
 
 	if (ctx->new_dent != NULL) {
-		if (!maildir_index_full_sync_dir(ctx, ctx->new_dir, TRUE,
-						 ctx->new_dirp, ctx->new_dent))
+		if (!maildir_full_sync_dir(ctx, ctx->new_dir, TRUE,
+					   ctx->new_dirp, ctx->new_dent))
 			return FALSE;
 	}
 
@@ -725,8 +881,8 @@ static int maildir_index_full_sync_dirs(struct maildir_sync_context *ctx)
 						    "opendir()");
 	}
 
-	failed = !maildir_index_full_sync_dir(ctx, ctx->cur_dir, FALSE,
-					      dirp, readdir(dirp));
+	failed = !maildir_full_sync_dir(ctx, ctx->cur_dir, FALSE,
+					dirp, readdir(dirp));
 
 	if (closedir(dirp) < 0) {
 		return index_file_set_syscall_error(ctx->index, ctx->cur_dir,
@@ -742,6 +898,30 @@ static int maildir_sync_new_dir(struct maildir_sync_context *ctx,
 	struct dirent *d;
 	string_t *sourcepath, *destpath;
 	const char *final_dir;
+
+	if (append_index) {
+		if (!ctx->index->set_lock(ctx->index, MAIL_LOCK_EXCLUSIVE))
+			return FALSE;
+
+		switch (maildir_uidlist_try_lock(ctx->index)) {
+		case -1:
+			return FALSE;
+		case 0:
+			/* couldn't get a lock.
+			   no point in doing more. */
+			return TRUE;
+		}
+
+		/* make sure uidlist is up to date.
+		   if it's not, do a full sync. */
+		if (!maildir_sync_open_uidlist(ctx))
+			return FALSE;
+
+		if (ctx->uidlist != NULL)
+			return maildir_sync_cur_dir(ctx);
+
+		ctx->uidlist_rewrite = TRUE;
+	}
 
 	d = ctx->new_dent;
 	ctx->new_dent = NULL;
@@ -789,10 +969,10 @@ static int maildir_sync_new_dir(struct maildir_sync_context *ctx,
 		}
 
 		if (append_index) {
+			/* FIXME: it may be already indexed if it couldn't
+			   be moved to cur! */
 			if (!move_to_cur)
 				ctx->index->maildir_have_new = TRUE;
-			if (ctx->uidlist != NULL)
-				ctx->uidlist->rewrite = TRUE;
 
 			t_push();
 			if (!maildir_index_append_file(ctx->index, final_dir,
@@ -808,27 +988,47 @@ static int maildir_sync_new_dir(struct maildir_sync_context *ctx,
 	return TRUE;
 }
 
+static int maildir_sync_cur_dir(struct maildir_sync_context *ctx)
+{
+	struct mail_index *index = ctx->index;
+
+	if (ctx->new_dent != NULL && !index->maildir_keep_new) {
+		/* there's also new mails. move them into cur/ first, if we
+		   can lock the uidlist */
+		switch (maildir_uidlist_try_lock(index)) {
+		case -1:
+			return FALSE;
+		case 1:
+			if (!maildir_sync_new_dir(ctx, TRUE, FALSE))
+				return FALSE;
+		}
+	}
+
+	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
+		return FALSE;
+
+	if (!maildir_full_sync_init(ctx) ||
+	    !maildir_full_sync_dirs(ctx) ||
+	    !maildir_full_sync_finish(ctx))
+		return FALSE;
+
+	return TRUE;
+}
+
 static int maildir_index_sync_context(struct maildir_sync_context *ctx,
 				      int *changes)
 
 {
         struct mail_index *index = ctx->index;
 	struct stat st;
-	const char *uidlist_path;
-	time_t uidlist_mtime, new_mtime, cur_mtime;
-	int new_changed, full_sync;
+	time_t new_mtime, cur_mtime;
 
-	uidlist_path = t_strconcat(index->control_dir,
-				   "/" MAILDIR_UIDLIST_NAME, NULL);
-
-	if (index->fd == -1) {
-		/* anon-mmaped */
-		index->last_cur_mtime = index->file_sync_stamp;
-	} else {
-		/* FIXME: we should save it in index's header */
+	if (index->fd != -1) {
+		/* FIXME: file_sync_stamp should be in index file's headers.
+		   it should also contain maildir_cur_dirty. */
 		if (fstat(index->fd, &st) < 0)
 			return index_set_syscall_error(index, "fstat()");
-		index->last_cur_mtime = st.st_mtime;
+		index->file_sync_stamp = st.st_mtime;
 	}
 
 	if (stat(ctx->new_dir, &st) < 0) {
@@ -843,118 +1043,29 @@ static int maildir_index_sync_context(struct maildir_sync_context *ctx,
 	}
 	cur_mtime = st.st_mtime;
 
-	if (new_mtime == index->last_new_mtime &&
-	    new_mtime < ioloop_time - MAILDIR_SYNC_SECS)
-		new_changed = FALSE;
-	else {
+	if (new_mtime != index->last_new_mtime ||
+	    new_mtime >= ioloop_time - MAILDIR_SYNC_SECS) {
 		if (!maildir_new_scan_first_file(ctx))
 			return FALSE;
-		new_changed = ctx->new_dent != NULL;
 	}
 
-	if (cur_mtime != index->last_cur_mtime ||
+	if (cur_mtime != index->file_sync_stamp ||
 	    (index->maildir_cur_dirty != 0 &&
 	     index->maildir_cur_dirty < ioloop_time - MAILDIR_SYNC_SECS)) {
 		/* cur/ changed, or delayed cur/ check */
-		full_sync = TRUE;
-	} else if (stat(uidlist_path, &st) < 0) {
-		if (errno != ENOENT) {
-			return index_file_set_syscall_error(index, uidlist_path,
-							    "stat()");
-		}
+		if (changes != NULL)
+			*changes = TRUE;
 
-		/* have to create uidlist */
-		full_sync = TRUE;
-	} else if (st.st_mtime != index->last_uidlist_mtime) {
-		/* uidlist changed */
-		full_sync = TRUE;
-	} else if (!new_changed) {
-		/* no changes to anything */
-		return TRUE;
-	} else {
-		full_sync = index->maildir_have_new;
-	}
-
-	if (maildir_uidlist_try_lock(index) < 0)
-		return FALSE;
-
-	/* we may or may not have succeeded. if we didn't,
-	   just continue by syncing with existing uidlist file */
-
-	if (!full_sync && !INDEX_IS_UIDLIST_LOCKED(index)) {
-		/* just new mails in new/ dir, we can't sync them
-		   if we can't get the lock. */
-		return TRUE;
-	}
-
-	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
-		return FALSE;
-
-	ctx->uidlist = maildir_uidlist_open(index);
-	if (ctx->uidlist != NULL &&
-	    ctx->uidlist->uid_validity != index->header->uid_validity) {
-		/* uidvalidity changed */
-		if (!index->rebuilding && index->opened) {
-			index_set_corrupted(index,
-					    "UIDVALIDITY changed in uidlist");
+		if (!maildir_sync_cur_dir(ctx))
 			return FALSE;
-		}
-
-		if (!index->rebuilding) {
-			index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
-			return FALSE;
-		}
-
-		index->header->uid_validity = ctx->uidlist->uid_validity;
-		i_assert(index->header->next_uid == 1);
 	}
 
-	if (ctx->uidlist != NULL) {
-		/* get uidlist's mtime again now that we have opened the file.
-		   it might have changed from out last check. */
-		if (fstat(i_stream_get_fd(ctx->uidlist->input), &st) < 0) {
-			return index_file_set_syscall_error(index, uidlist_path,
-							    "fstat()");
-		}
-		uidlist_mtime = st.st_mtime;
-	}
-
-	if (ctx->uidlist != NULL &&
-	    index->header->next_uid > ctx->uidlist->next_uid) {
-		index_set_corrupted(index, "index.next_uid (%u) > "
-				    "uidlist.next_uid (%u)",
-				    index->header->next_uid,
-				    ctx->uidlist->next_uid);
-		return FALSE;
-	}
-
-	if (changes != NULL)
-		*changes = TRUE;
-
-	if (new_changed && full_sync &&
-	    INDEX_IS_UIDLIST_LOCKED(index) && !index->maildir_keep_new) {
-		/* we'll be syncing cur/ anyway, so move the mails from
-		   new/ to cur/ first. */
-		if (!maildir_sync_new_dir(ctx, TRUE, FALSE))
-			return FALSE;
-
-		/* new_dent is non-NULL only if rename() failed because there
-		   was no disk space */
-		new_changed = ctx->new_dent != NULL;
-	}
-
-	if (full_sync) {
-		if (!maildir_index_full_sync_init(ctx) ||
-		    !maildir_index_full_sync_dirs(ctx) ||
-		    !maildir_sync_uidlist(ctx))
-			return FALSE;
-		new_changed = !INDEX_IS_UIDLIST_LOCKED(index);
-	} else if (new_changed) {
-		i_assert(INDEX_IS_UIDLIST_LOCKED(index));
+	if (ctx->new_dent != NULL) {
+		if (changes != NULL)
+			*changes = TRUE;
 
 		if (!maildir_sync_new_dir(ctx, !index->maildir_keep_new, TRUE))
 			return FALSE;
-		new_changed = FALSE;
 
 		/* this will set maildir_cur_dirty. it may actually be
 		   different from cur/'s mtime if we're unlucky, but that
@@ -962,19 +1073,10 @@ static int maildir_index_sync_context(struct maildir_sync_context *ctx,
 		cur_mtime = time(NULL);
 	}
 
-	if (ctx->uidlist != NULL &&
-	    ctx->uidlist->next_uid > index->header->next_uid)
-		index->header->next_uid = ctx->uidlist->next_uid;
+	if (ctx->uidlist_rewrite) {
+		i_assert(INDEX_IS_UIDLIST_LOCKED(index));
 
-	if (ctx->uidlist == NULL || ctx->uidlist->rewrite) {
-		if (!INDEX_IS_UIDLIST_LOCKED(index)) {
-			/* there's more new mails, but we need .lock file to
-			   be able to sync them. */
-			index->last_uidlist_mtime = uidlist_mtime;
-			return TRUE;
-		}
-
-		if (!maildir_uidlist_rewrite(index, &uidlist_mtime))
+		if (!maildir_uidlist_rewrite(index, &index->last_uidlist_mtime))
 			return FALSE;
 	}
 
@@ -983,18 +1085,14 @@ static int maildir_index_sync_context(struct maildir_sync_context *ctx,
 	else
 		index->maildir_cur_dirty = cur_mtime;
 
-	index->last_uidlist_mtime = uidlist_mtime;
-	index->last_cur_mtime = cur_mtime;
-	if (!new_changed)
-		index->last_new_mtime = new_mtime;
-
-	/* update sync stamp */
 	index->file_sync_stamp = cur_mtime;
+	if (ctx->new_dent == NULL)
+		index->last_new_mtime = new_mtime;
 
 	return TRUE;
 }
 
-static int maildir_index_sync_readonly_flags(struct maildir_sync_context *ctx)
+static int maildir_full_sync_finish_readonly(struct maildir_sync_context *ctx)
 {
 	struct mail_index *index = ctx->index;
 	struct mail_index_record *rec;
@@ -1042,7 +1140,7 @@ static int maildir_index_sync_context_readonly(struct maildir_sync_context *ctx)
 		return FALSE;
 	}
 
-	cur_changed = st.st_mtime != index->last_cur_mtime ||
+	cur_changed = st.st_mtime != index->file_sync_stamp ||
 		index->maildir_cur_dirty != 0;
 
 	if (!cur_changed) {
@@ -1071,9 +1169,9 @@ static int maildir_index_sync_context_readonly(struct maildir_sync_context *ctx)
 	   directly. but don't rely on it. */
 	(void)index->try_lock(index, MAIL_LOCK_EXCLUSIVE);
 
-	if (!maildir_index_full_sync_init(ctx) ||
-	    !maildir_index_full_sync_dirs(ctx) ||
-	    !maildir_index_sync_readonly_flags(ctx))
+	if (!maildir_full_sync_init(ctx) ||
+	    !maildir_full_sync_dirs(ctx) ||
+	    !maildir_full_sync_finish_readonly(ctx))
 		return FALSE;
 
 	return TRUE;

@@ -23,7 +23,8 @@ int maildir_uidlist_try_lock(struct mail_index *index)
 	const char *path;
 	int fd, i;
 
-	i_assert(!INDEX_IS_UIDLIST_LOCKED(index));
+	if (INDEX_IS_UIDLIST_LOCKED(index))
+		return 1;
 
 	path = t_strconcat(index->control_dir,
 			   "/" MAILDIR_UIDLIST_NAME ".lock", NULL);

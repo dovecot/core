@@ -11,8 +11,9 @@ struct maildir_uidlist {
 	char *fname;
 	struct istream *input;
 
+	time_t cur_stamp;
+
 	unsigned int uid_validity, next_uid, last_read_uid;
-	unsigned int rewrite:1;
 };
 
 struct maildir_uidlist_rec {
@@ -33,5 +34,9 @@ void maildir_uidlist_close(struct maildir_uidlist *uidlist);
    uidlist->next_uid. */
 int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 			 struct maildir_uidlist_rec *uid_rec);
+
+/* Try to update cur/ stamp in  */
+int maildir_uidlist_update_cur_stamp(struct maildir_uidlist *uidlist,
+				     time_t stamp);
 
 #endif
