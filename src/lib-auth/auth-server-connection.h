@@ -15,6 +15,7 @@ struct auth_client {
 
 	buffer_t *available_auth_mechs;
 	unsigned int request_id_counter;
+	unsigned int last_used_auth_process;
 
 	auth_connect_notify_callback_t *connect_notify_callback;
 	void *connect_notify_context;

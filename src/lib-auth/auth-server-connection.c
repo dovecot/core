@@ -321,16 +321,33 @@ struct auth_server_connection *
 auth_server_connection_find_mech(struct auth_client *client,
 				 const char *name, const char **error_r)
 {
-	struct auth_server_connection *conn;
+	struct auth_server_connection *conn, *match;
 	const struct auth_mech_desc *mech;
-	unsigned int i;
+	unsigned int i, n, match_n;
 
-	for (conn = client->connections; conn != NULL; conn = conn->next) {
+	/* find a connection which has this mechanism. if there are multiple
+	   available connections to use, do round robin load balancing */
+	match = NULL; match_n = n = 0;
+	for (conn = client->connections; conn != NULL; conn = conn->next, n++) {
 		mech = conn->available_auth_mechs;
 		for (i = 0; i < conn->available_auth_mechs_count; i++) {
-			if (strcasecmp(mech[i].name, name) == 0)
-				return conn;
+			if (strcasecmp(mech[i].name, name) == 0) {
+				if (n > client->last_used_auth_process) {
+					client->last_used_auth_process = n;
+					return conn;
+				}
+				if (match == NULL) {
+					match = conn;
+					match_n = n;
+				}
+				break;
+			}
 		}
+	}
+
+	if (match != NULL) {
+		client->last_used_auth_process = match_n;
+		return match;
 	}
 
 	if (auth_client_find_mech(client, name) == NULL)
