@@ -355,6 +355,7 @@ static int mbox_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 		return FALSE;
 
 	rec->index_flags |= INDEX_MAIL_FLAG_DIRTY;
+	index->header->flags |= MAIL_INDEX_FLAG_DIRTY_MESSAGES;
 	return TRUE;
 }
 

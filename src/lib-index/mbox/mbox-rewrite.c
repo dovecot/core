@@ -36,6 +36,8 @@ static void reset_dirty_flags(MailIndex *index)
 		rec->index_flags &= ~INDEX_MAIL_FLAG_DIRTY;
 		rec = index->next(index, rec);
 	}
+
+	index->header->flags &= ~MAIL_INDEX_FLAG_DIRTY_MESSAGES;
 }
 
 static int mbox_write(MailIndex *index, IOBuffer *inbuf, IOBuffer *outbuf,
@@ -278,8 +280,8 @@ int mbox_index_rewrite(MailIndex *index)
 	if (!mbox_index_fsck(index))
 		return FALSE;
 
-	if (index->header->messages_count == 0) {
-		/* no messages in mailbox, don't bother rewriting */
+	if (index->header->flags & MAIL_INDEX_FLAG_DIRTY_MESSAGES) {
+		/* no need to rewrite */
 		return TRUE;
 	}
 
