@@ -7,17 +7,6 @@ enum mail_protocol {
         MAIL_PROTOCOL_POP3
 };
 
-struct server_settings {
-	struct server_settings *next;
-
-	const char *name;
-	struct settings *defaults;
-	struct settings *imap;
-	struct settings *pop3;
-	struct auth_settings *auths;
-        struct namespace_settings *namespaces;
-};
-
 struct settings {
 	struct server_settings *server;
 	enum mail_protocol protocol;
@@ -127,6 +116,18 @@ struct namespace_settings {
 	const char *separator;
 	const char *prefix;
 	const char *location;
+};
+
+struct server_settings {
+	struct server_settings *next;
+
+	const char *name;
+	struct settings *defaults;
+	struct settings *imap;
+	struct settings *pop3;
+	struct auth_settings *auths;
+	struct auth_settings auth_defaults;
+        struct namespace_settings *namespaces;
 };
 
 extern struct server_settings *settings_root;

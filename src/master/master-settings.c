@@ -512,7 +512,7 @@ auth_settings_new(struct server_settings *server, const char *name)
 	auth = p_new(settings_pool, struct auth_settings, 1);
 
 	/* copy defaults */
-	*auth = default_auth_settings;
+	*auth = server->auth_defaults;
 	auth->parent = server;
 	auth->name = p_strdup(settings_pool, name);
 
@@ -619,13 +619,7 @@ static const char *parse_setting(const char *key, const char *value,
 		if (error == NULL)
 			return NULL;
 
-		/* backwards compatibility */
 		if (strncmp(key, "auth_", 5) == 0) {
-			if (ctx->auth == NULL) {
-				return "Authentication process name "
-					"not defined yet";
-			}
-
 			return parse_setting_from_defs(settings_pool,
 						       auth_setting_defs,
 						       ctx->auth,
@@ -633,6 +627,8 @@ static const char *parse_setting(const char *key, const char *value,
 		}
 		return error;
 	case SETTINGS_TYPE_AUTH:
+		if (strncmp(key, "auth_", 5) == 0)
+			key += 5;
 		return parse_setting_from_defs(settings_pool, auth_setting_defs,
 					       ctx->auth, key, value);
 	case SETTINGS_TYPE_NAMESPACE:
@@ -655,6 +651,7 @@ create_new_server(const char *name,
 	server->name = p_strdup(settings_pool, name);
 	server->imap = p_new(settings_pool, struct settings, 1);
 	server->pop3 = p_new(settings_pool, struct settings, 1);
+	server->auth_defaults = default_auth_settings;
 
 	*server->imap = *imap_defaults;
 	*server->pop3 = *pop3_defaults;
@@ -687,7 +684,7 @@ static int parse_section(const char *type, const char *name, void *context,
 			ctx->type = ctx->parent_type;
 			ctx->parent_type = SETTINGS_TYPE_ROOT;
 			ctx->server = ctx->root;
-			ctx->auth = NULL;
+			ctx->auth = &ctx->root->auth_defaults;
 			ctx->namespace = NULL;
 		}
 		return TRUE;
@@ -702,8 +699,7 @@ static int parse_section(const char *type, const char *name, void *context,
 		ctx->parent_type = ctx->type;
 		ctx->type = SETTINGS_TYPE_SERVER;
 
-		ctx->server = create_new_server(name,
-						ctx->server->imap,
+		ctx->server = create_new_server(name, ctx->server->imap,
 						ctx->server->pop3);
                 server = ctx->root;
 		while (server->next != NULL)
@@ -778,6 +774,7 @@ int master_settings_read(const char *path)
 	ctx.server = ctx.root =
 		create_new_server("default",
 				  &default_settings, &default_settings);
+	ctx.auth = &ctx.server->auth_defaults;
 
 	if (!settings_read(path, NULL, parse_setting, parse_section, &ctx))
 		return FALSE;
