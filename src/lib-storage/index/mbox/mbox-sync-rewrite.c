@@ -302,8 +302,6 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	mail_ctx.sync_ctx = sync_ctx;
 	mail_ctx.seq = seq;
 	mail_ctx.header = sync_ctx->header;
-	mail_ctx.uidl = sync_ctx->uidl;
-	str_truncate(mail_ctx.uidl, 0);
 
 	hdr_offset = istream_raw_mbox_get_header_offset(sync_ctx->input);
 	mail_ctx.mail.offset = hdr_offset;

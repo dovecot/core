@@ -95,8 +95,6 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	mail_ctx->sync_ctx = sync_ctx;
 	mail_ctx->seq = ++sync_ctx->seq;
 	mail_ctx->header = sync_ctx->header;
-	mail_ctx->uidl = sync_ctx->uidl;
-	str_truncate(mail_ctx->uidl, 0);
 
 	mail_ctx->mail.from_offset =
 		istream_raw_mbox_get_start_offset(sync_ctx->input);
@@ -353,13 +351,6 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 			mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
 					      sync_ctx->ibox->md5hdr_ext_idx,
 					      mail_ctx->hdr_md5_sum, NULL);
-		}
-
-		if (str_len(mail_ctx->uidl) > 0) {
-			/*FIXME:mail_cache_add(sync_ctx->cache_trans,
-				       MAIL_CACHE_UID_STRING,
-				       str_data(mail_ctx->uidl),
-				       str_len(mail_ctx->uidl));*/
 		}
 	} else {
 		/* see if flags changed */
@@ -1342,7 +1333,6 @@ __again:
 	sync_ctx.hdr = mail_index_get_header(sync_view);
 	sync_ctx.from_line = str_new(default_pool, 256);
 	sync_ctx.header = str_new(default_pool, 4096);
-	sync_ctx.uidl = str_new(default_pool, 128);
 
 	sync_ctx.index_sync_ctx = index_sync_ctx;
 	sync_ctx.sync_view = sync_view;
@@ -1442,7 +1432,6 @@ __again:
 			ret = -1;
 	}
 
-	str_free(sync_ctx.uidl);
 	str_free(sync_ctx.header);
 	str_free(sync_ctx.from_line);
 	buffer_free(sync_ctx.mails);
