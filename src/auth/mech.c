@@ -5,19 +5,14 @@
 #include "buffer.h"
 #include "hash.h"
 #include "mech.h"
+#include "str.h"
 #include "var-expand.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 
 #include <stdlib.h>
 
-struct mech_module_list {
-	struct mech_module_list *next;
-
-	struct mech_module module;
-};
-
-enum auth_mech auth_mechanisms;
+struct mech_module_list *mech_modules;
 const char *const *auth_realms;
 const char *default_realm;
 const char *anonymous_username;
@@ -25,16 +20,11 @@ char username_chars[256];
 
 static int set_use_cyrus_sasl;
 static int ssl_require_client_cert;
-static struct mech_module_list *mech_modules;
 static struct auth_client_request_reply failure_reply;
 
 void mech_register_module(struct mech_module *module)
 {
 	struct mech_module_list *list;
-
-	i_assert((auth_mechanisms & module->mech) == 0);
-
-	auth_mechanisms |= module->mech;
 
 	list = i_new(struct mech_module_list, 1);
 	list->module = *module;
@@ -47,13 +37,8 @@ void mech_unregister_module(struct mech_module *module)
 {
 	struct mech_module_list **pos, *list;
 
-	if ((auth_mechanisms & module->mech) == 0)
-		return; /* not registered */
-
-        auth_mechanisms &= ~module->mech;
-
 	for (pos = &mech_modules; *pos != NULL; pos = &(*pos)->next) {
-		if ((*pos)->module.mech == module->mech) {
+		if (strcmp((*pos)->module.mech_name, module->mech_name) == 0) {
 			list = *pos;
 			*pos = (*pos)->next;
 			i_free(list);
@@ -62,17 +47,56 @@ void mech_unregister_module(struct mech_module *module)
 	}
 }
 
-void mech_request_new(struct auth_client_connection *conn,
-		      struct auth_client_request_new *request,
-		      mech_callback_t *callback)
+const string_t *auth_mechanisms_get_list(void)
 {
 	struct mech_module_list *list;
+	string_t *str;
+
+	str = t_str_new(128);
+	for (list = mech_modules; list != NULL; list = list->next)
+		str_append(str, list->module.mech_name);
+
+	return str;
+}
+
+static struct mech_module *mech_module_find(const char *name)
+{
+	struct mech_module_list *list;
+
+	for (list = mech_modules; list != NULL; list = list->next) {
+		if (strcmp(list->module.mech_name, name) == 0)
+			return &list->module;
+	}
+	return NULL;
+}
+
+void mech_request_new(struct auth_client_connection *conn,
+		      struct auth_client_request_new *request,
+		      const unsigned char *data,
+		      mech_callback_t *callback)
+{
+        struct mech_module *mech;
 	struct auth_request *auth_request;
 
-	if ((auth_mechanisms & request->mech) == 0) {
+	/* make sure data is NUL-terminated */
+	if (request->data_size == 0 || request->initial_resp_idx == 0 ||
+	    request->mech_idx >= request->data_size ||
+	    request->protocol_idx >= request->data_size ||
+	    request->initial_resp_idx > request->data_size ||
+	    data[request->initial_resp_idx-1] != '\0') {
+		i_error("BUG: Auth client %u sent corrupted request",
+			conn->pid);
+		failure_reply.id = request->id;
+		callback(&failure_reply, NULL, conn);
+		return;
+	}
+
+	mech = mech_module_find((const char *)data + request->mech_idx);
+	if (mech == NULL) {
 		/* unsupported mechanism */
 		i_error("BUG: Auth client %u requested unsupported "
-			"auth mechanism %d", conn->pid, request->mech);
+			"auth mechanism %s", conn->pid,
+			(const char *)data + request->mech_idx);
 		failure_reply.id = request->id;
 		callback(&failure_reply, NULL, conn);
 		return;
@@ -89,32 +113,26 @@ void mech_request_new(struct auth_client_connection *conn,
 	}
 
 #ifdef USE_CYRUS_SASL2
-	if (set_use_cyrus_sasl) {
+	if (set_use_cyrus_sasl)
 		auth_request = mech_cyrus_sasl_new(conn, request, callback);
-	} else
+	else
 #endif
-	{
-		auth_request = NULL;
-
-		for (list = mech_modules; list != NULL; list = list->next) {
-			if (list->module.mech == request->mech) {
-				auth_request =
-					list->module.auth_new(conn, request->id,
-							      callback);
-				break;
-			}
-		}
-	}
+		auth_request = mech->auth_new();
 
 	if (auth_request != NULL) {
 		auth_request->created = ioloop_time;
 		auth_request->conn = conn;
 		auth_request->id = request->id;
-		strocpy(auth_request->protocol, request->protocol,
-			sizeof(auth_request->protocol));
+		auth_request->protocol =
+			p_strdup(auth_request->pool,
+				 (const char *)data + request->protocol_idx);
 
 		hash_insert(conn->auth_requests, POINTER_CAST(request->id),
 			    auth_request);
+
+		if (!auth_request->auth_initial(auth_request, request, data,
+						callback))
+			mech_request_free(auth_request, request->id);
 	}
 }
 
@@ -133,7 +151,8 @@ void mech_request_continue(struct auth_client_connection *conn,
 		callback(&failure_reply, NULL, conn);
 	} else {
 		if (!auth_request->auth_continue(auth_request,
-						 request, data, callback))
+						 data, request->data_size,
+						 callback))
 			mech_request_free(auth_request, request->id);
 	}
 }
@@ -276,7 +295,6 @@ void mech_init(void)
 	const char *env;
 
         mech_modules = NULL;
-	auth_mechanisms = 0;
 
 	memset(&failure_reply, 0, sizeof(failure_reply));
 	failure_reply.result = AUTH_CLIENT_RESULT_FAILURE;
@@ -312,7 +330,7 @@ void mech_init(void)
 		mechanisms++;
 	}
 
-	if (auth_mechanisms == 0)
+	if (mech_modules == NULL)
 		i_fatal("No authentication mechanisms configured");
 
 	/* get our realm - note that we allocate from data stack so

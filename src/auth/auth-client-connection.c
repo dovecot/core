@@ -109,19 +109,26 @@ static void auth_client_input_request(struct auth_client_connection *conn)
 	   structures, as it may not be aligned properly. */
 	memcpy(&type, data, sizeof(type));
 
-	if (type == AUTH_CLIENT_REQUEST_NEW) {
+	conn->refcount++;
+	switch (type) {
+	case AUTH_CLIENT_REQUEST_NEW: {
 		struct auth_client_request_new request;
 
 		if (size < sizeof(request))
 			return;
 
 		memcpy(&request, data, sizeof(request));
-		i_stream_skip(conn->input, sizeof(request));
+		if (size < sizeof(request) + request.data_size)
+			return;
 
 		/* we have a full init request */
 		conn->refcount++;
-		mech_request_new(conn, &request, request_callback);
-	} else if (type == AUTH_CLIENT_REQUEST_CONTINUE) {
+		mech_request_new(conn, &request, data + sizeof(request),
+				 request_callback);
+		i_stream_skip(conn->input, sizeof(request) + request.data_size);
+		break;
+	}
+	case AUTH_CLIENT_REQUEST_CONTINUE: {
                 struct auth_client_request_continue request;
 
 		if (size < sizeof(request))
@@ -131,8 +138,6 @@ static void auth_client_input_request(struct auth_client_connection *conn)
 		if (size < sizeof(request) + request.data_size)
 			return;
 
-		i_stream_skip(conn->input, sizeof(request) + request.data_size);
-
 		/* we have a full continued request */
 		conn->refcount++;
 		mech_request_continue(conn, &request, data + sizeof(request),
@@ -140,12 +145,16 @@ static void auth_client_input_request(struct auth_client_connection *conn)
 
 		/* clear any sensitive data from memory */
 		safe_memset(data + sizeof(request), 0, request.data_size);
-	} else {
+		i_stream_skip(conn->input, sizeof(request) + request.data_size);
+		break;
+	}
+	default:
 		/* unknown request */
-		i_error("BUG: Auth client %u sent us unknown request %u",
+		i_error("BUG: Auth client %u sent us unknown request type %u",
 			conn->pid, type);
 		auth_client_connection_destroy(conn);
 	}
+	auth_client_connection_unref(conn);
 }
 
 static void auth_client_input(void *context)
@@ -198,8 +207,9 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
 	conn->next = master->clients;
 	master->clients = conn;
 
-	if (o_stream_send(conn->output, &master->handshake_reply,
-			  sizeof(master->handshake_reply)) < 0) {
+	if (o_stream_send(conn->output, master->handshake_reply,
+			  sizeof(*master->handshake_reply) +
+			  master->handshake_reply->data_size) < 0) {
 		auth_client_connection_destroy(conn);
 		conn = NULL;
 	}
@@ -298,9 +308,6 @@ static void request_timeout(void *context __attr_unused__)
 
 void auth_client_connections_init(struct auth_master_connection *master)
 {
-	master->handshake_reply.server_pid = master->pid;
-	master->handshake_reply.auth_mechanisms = auth_mechanisms;
-
 	master->to_clients = timeout_add(5000, request_timeout, master);
 }
 

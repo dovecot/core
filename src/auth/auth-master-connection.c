@@ -182,6 +182,48 @@ static void master_input(void *context)
 	}
 }
 
+static void master_get_handshake_reply(struct auth_master_connection *master)
+{
+	struct mech_module_list *list;
+	buffer_t *buf;
+	struct auth_client_handshake_reply reply;
+	struct auth_client_handshake_mech_desc mech_desc;
+	uint32_t mech_desc_offset;
+
+	memset(&reply, 0, sizeof(reply));
+	memset(&mech_desc, 0, sizeof(mech_desc));
+
+	reply.server_pid = master->pid;
+
+	buf = buffer_create_dynamic(default_pool, 128, (size_t)-1);
+
+	for (list = mech_modules; list != NULL; list = list->next)
+		reply.mech_count++;
+	buffer_set_used_size(buf, sizeof(reply) +
+			     sizeof(mech_desc) * reply.mech_count);
+
+	mech_desc_offset = sizeof(reply);
+	for (list = mech_modules; list != NULL; list = list->next) {
+		mech_desc.name_idx = buffer_get_used_size(buf) - sizeof(reply);
+		mech_desc.plaintext = list->module.plaintext;
+		mech_desc.advertise = list->module.advertise;
+
+		memcpy(buffer_get_space_unsafe(buf, mech_desc_offset,
+					       sizeof(mech_desc)),
+		       &mech_desc, sizeof(mech_desc));
+		buffer_append(buf, list->module.mech_name,
+			      strlen(list->module.mech_name) + 1);
+
+		mech_desc_offset += sizeof(mech_desc);
+	}
+
+	reply.data_size = buffer_get_used_size(buf);
+	memcpy(buffer_get_space_unsafe(buf, 0, sizeof(reply)),
+	       &reply, sizeof(reply));
+
+	master->handshake_reply = buffer_free_without_data(buf);
+}
+
 struct auth_master_connection *
 auth_master_connection_new(int fd, unsigned int pid)
 {
@@ -198,6 +240,7 @@ auth_master_connection_new(int fd, unsigned int pid)
 						    MAX_OUTBUF_SIZE, FALSE);
 		conn->io = io_add(fd, IO_READ, master_input, conn);
 	}
+	master_get_handshake_reply(conn);
 	return conn;
 }
 
@@ -241,6 +284,7 @@ void auth_master_connection_free(struct auth_master_connection *conn)
 		i_free(l[i]);
 	}
 	buffer_free(conn->listeners_buf);
+	conn->listeners_buf = NULL;
 
 	auth_master_connection_unref(conn);
 }
@@ -252,6 +296,7 @@ static int auth_master_connection_unref(struct auth_master_connection *conn)
 
 	if (conn->output != NULL)
 		o_stream_unref(conn->output);
+	i_free(conn->handshake_reply);
 	i_free(conn);
 	return FALSE;
 }
@@ -280,7 +325,7 @@ void auth_master_connection_add_listener(struct auth_master_connection *conn,
 	l->master = conn;
 	l->fd = fd;
 	l->path = i_strdup(path);
-	l->io = io_add(fd, IO_READ, auth_accept, &l);
+	l->io = io_add(fd, IO_READ, auth_accept, l);
 
 	buffer_append(conn->listeners_buf, &l, sizeof(l));
 }

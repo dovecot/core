@@ -9,7 +9,7 @@ struct auth_client {
 
 	unsigned int conn_waiting_handshake_count;
 
-	enum auth_mech available_auth_mechs;
+	buffer_t *available_auth_mechs;
 	unsigned int request_id_counter;
 
 	auth_connect_notify_callback_t *connect_notify_callback;
@@ -31,13 +31,15 @@ struct auth_server_connection {
 	struct ostream *output;
 
 	unsigned int pid;
-	enum auth_mech available_auth_mechs;
+	const struct auth_mech_desc *available_auth_mechs;
+	unsigned int available_auth_mechs_count;
         struct auth_client_request_reply reply;
 
         struct hash_table *requests;
 
 	unsigned int handshake_received:1;
 	unsigned int reply_received:1;
+	unsigned int has_plain_mech:1;
 };
 
 struct auth_server_connection *
@@ -50,6 +52,6 @@ auth_server_connection_find_path(struct auth_client *client, const char *path);
 
 struct auth_server_connection *
 auth_server_connection_find_mech(struct auth_client *client,
-				 enum auth_mech mech, const char **error_r);
+				 const char *name, const char **error_r);
 
 #endif

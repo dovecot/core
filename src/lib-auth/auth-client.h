@@ -6,6 +6,12 @@
 struct auth_client;
 struct auth_request;
 
+struct auth_mech_desc {
+	char *name;
+	unsigned int plaintext:1;
+	unsigned int advertise:1;
+};
+
 /* reply is NULL if auth connection died */
 typedef void auth_request_callback_t(struct auth_request *request,
 				     struct auth_client_request_reply *reply,
@@ -22,7 +28,11 @@ int auth_client_is_connected(struct auth_client *client);
 void auth_client_set_connect_notify(struct auth_client *client,
 				    auth_connect_notify_callback_t *callback,
 				    void *context);
-enum auth_mech auth_client_get_available_mechs(struct auth_client *client);
+const struct auth_mech_desc *
+auth_client_get_available_mechs(struct auth_client *client,
+				unsigned int *mech_count);
+const struct auth_mech_desc *
+auth_client_find_mech(struct auth_client *client, const char *name);
 
 void auth_client_connect_missing_servers(struct auth_client *client);
 
@@ -30,8 +40,10 @@ void auth_client_connect_missing_servers(struct auth_client *client);
    happens for the request. */
 struct auth_request *
 auth_client_request_new(struct auth_client *client,
-			enum auth_mech mech, const char *protocol,
+			const char *mech, const char *protocol,
 			enum auth_client_request_new_flags flags,
+			const unsigned char *initial_resp_data,
+			size_t initial_resp_size,
 			auth_request_callback_t *callback, void *context,
 			const char **error_r);
 

@@ -132,7 +132,7 @@ static void main_init(void)
 		env = getenv("AUTH_SOCKETS");
 	}
 
-	if (env != NULL) {
+	if (env != NULL && *env != '\0') {
 		master = auth_master_connection_new(-1, 0);
 		master_add_unix_listeners(master, env);
 		auth_client_connections_init(master);

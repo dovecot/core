@@ -9,7 +9,6 @@
 #include "safe-memset.h"
 #include "str.h"
 #include "auth-client.h"
-#include "../auth/auth-mech-desc.h"
 #include "../pop3/capability.h"
 #include "ssl-proxy.h"
 #include "master.h"
@@ -20,60 +19,34 @@
 
 int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 {
-	static enum auth_mech cached_auth_mechs = 0;
-	static char *cached_capability = NULL;
-        enum auth_mech auth_mechs;
+	const struct auth_mech_desc *mech;
+	unsigned int i, count;
 	string_t *str;
-	int i;
 
-	auth_mechs = auth_client_get_available_mechs(auth_client);
-	if (cached_auth_mechs != auth_mechs) {
-		cached_auth_mechs = auth_mechs;
-		i_free(cached_capability);
+	str = t_str_new(128);
+	str_append(str, "SASL");
 
-		str = t_str_new(128);
-
-		str_append(str, "SASL");
-		for (i = 0; i < AUTH_MECH_COUNT; i++) {
-			if ((auth_mechs & auth_mech_desc[i].mech) == 0)
-				continue; /* not available */
-
-			/* a) transport is secured
-			   b) auth mechanism isn't plaintext
-			   c) we allow insecure authentication
-			       - but don't advertise AUTH=PLAIN,
-			         as RFC 2595 requires
-			*/
-			if (client->secured || !auth_mech_desc[i].plaintext ||
-			    (!disable_plaintext_auth &&
-			     auth_mech_desc[i].mech != AUTH_MECH_PLAIN)) {
-				str_append_c(str, ' ');
-				str_append(str, auth_mech_desc[i].name);
-			}
+	mech = auth_client_get_available_mechs(auth_client, &count);
+	for (i = 0; i < count; i++) {
+		/* a) transport is secured
+		   b) auth mechanism isn't plaintext
+		   c) we allow insecure authentication
+		        - but don't advertise AUTH=PLAIN, as RFC 2595 requires
+		*/
+		if (mech[i].advertise &&
+		    (client->secured || !mech[i].plaintext)) {
+			str_append_c(str, ' ');
+			str_append(str, "AUTH=");
+			str_append(str, mech[i].name);
 		}
-
-		cached_capability = i_strdup(str_c(str));
 	}
 
 	client_send_line(client, t_strconcat("+OK\r\n" POP3_CAPABILITY_REPLY,
 					     (ssl_initialized && !client->tls) ?
 					     "STLS\r\n" : "",
-					     cached_capability,
+					     str_c(str),
 					     "\r\n.", NULL));
 	return TRUE;
-}
-
-static struct auth_mech_desc *auth_mech_find(const char *name)
-{
-	int i;
-
-	for (i = 0; i < AUTH_MECH_COUNT; i++) {
-		if (auth_mech_desc[i].name != NULL &&
-		    strcasecmp(auth_mech_desc[i].name, name) == 0)
-			return &auth_mech_desc[i];
-	}
-
-	return NULL;
 }
 
 static void client_auth_abort(struct pop3_client *client, const char *msg)
@@ -150,21 +123,13 @@ static void login_callback(struct auth_request *request,
 {
 	struct pop3_client *client = context;
 	const char *error;
-	const void *ptr;
-	size_t size;
 
 	switch (auth_callback(request, reply, data, &client->common,
 			      master_callback, &error)) {
 	case -1:
+	case 0:
 		/* login failed */
 		client_auth_abort(client, error);
-		break;
-
-	case 0:
-		ptr = buffer_get_data(client->plain_login, &size);
-		auth_client_request_continue(request, ptr, size);
-
-		buffer_set_used_size(client->plain_login, 0);
 		break;
 
 	default:
@@ -206,9 +171,13 @@ int cmd_pass(struct pop3_client *client, const char *args)
 
 	client_ref(client);
 	client->common.auth_request =
-		auth_client_request_new(auth_client, AUTH_MECH_PLAIN, "POP3",
+		auth_client_request_new(auth_client, "PLAIN", "POP3",
                                         client_get_auth_flags(client),
+					str_data(client->plain_login),
+					str_len(client->plain_login),
 					login_callback, client, &error);
+	buffer_set_used_size(client->plain_login, 0);
+
 	if (client->common.auth_request != NULL) {
 		/* don't read any input from client until login is finished */
 		if (client->common.io != NULL) {
@@ -296,11 +265,22 @@ static void client_auth_input(void *context)
 
 int cmd_auth(struct pop3_client *client, const char *args)
 {
-	struct auth_mech_desc *mech;
-	const char *error;
+	const struct auth_mech_desc *mech;
+	const char *mech_name, *error, *p;
+	string_t *buf;
+	size_t argslen;
 
-	/* we have only one argument: authentication mechanism name */
-	mech = auth_mech_find(args);
+	/* <mechanism name> <initial response> */
+	p = strchr(args, ' ');
+	if (p == NULL) {
+		mech_name = args;
+		args = "";
+	} else {
+		mech_name = t_strdup_until(args, p);
+		args = p+1;
+	}
+
+	mech = auth_client_find_mech(auth_client, mech_name);
 	if (mech == NULL) {
 		client_send_line(client,
 				 "-ERR Unsupported authentication mechanism.");
@@ -313,10 +293,21 @@ int cmd_auth(struct pop3_client *client, const char *args)
 		return TRUE;
 	}
 
+	argslen = strlen(args);
+	buf = buffer_create_static_hard(pool_datastack_create(), argslen);
+
+	if (base64_decode((const unsigned char *)args, argslen,
+			  NULL, buf) <= 0) {
+		/* failed */
+		client_send_line(client, "-ERR Invalid base64 data.");
+		return TRUE;
+	}
+
 	client_ref(client);
 	client->common.auth_request =
-		auth_client_request_new(auth_client, mech->mech, "POP3",
+		auth_client_request_new(auth_client, mech->name, "POP3",
                                         client_get_auth_flags(client),
+					str_data(buf), str_len(buf),
 					authenticate_callback, client, &error);
 	if (client->common.auth_request != NULL) {
 		/* following input data will go to authentication */

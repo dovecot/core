@@ -1,6 +1,7 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "ioloop.h"
 #include "hash.h"
 #include "auth-client.h"
@@ -15,6 +16,8 @@ struct auth_client *auth_client_new(unsigned int client_pid)
 
 	client = i_new(struct auth_client, 1);
 	client->pid = client_pid;
+	client->available_auth_mechs =
+		buffer_create_dynamic(default_pool, 128, (size_t)-1);
 
 	auth_client_connect_missing_servers(client);
 	return client;
@@ -23,6 +26,14 @@ struct auth_client *auth_client_new(unsigned int client_pid)
 void auth_client_free(struct auth_client *client)
 {
 	struct auth_server_connection *next;
+	struct auth_mech_desc *mech;
+	size_t i, size;
+
+	mech = buffer_get_modifyable_data(client->available_auth_mechs, &size);
+	size /= sizeof(*mech);
+	for (i = 0; i < size; i++)
+		i_free(mech[i].name);
+	buffer_free(client->available_auth_mechs);
 
 	while (client->connections != NULL) {
 		next = client->connections->next;
@@ -35,9 +46,32 @@ void auth_client_free(struct auth_client *client)
 	i_free(client);
 }
 
-enum auth_mech auth_client_get_available_mechs(struct auth_client *client)
+const struct auth_mech_desc *
+auth_client_get_available_mechs(struct auth_client *client,
+				unsigned int *mech_count)
 {
-	return client->available_auth_mechs;
+	const struct auth_mech_desc *mechs;
+	size_t size;
+
+	mechs = buffer_get_data(client->available_auth_mechs, &size);
+	*mech_count = size / sizeof(*mechs);
+	return mechs;
+}
+
+const struct auth_mech_desc *
+auth_client_find_mech(struct auth_client *client, const char *name)
+{
+	const struct auth_mech_desc *mech;
+	size_t i, size;
+
+	mech = buffer_get_data(client->available_auth_mechs, &size);
+	size /= sizeof(*mech);
+	for (i = 0; i < size; i++) {
+		if (strcasecmp(mech[i].name, name) == 0)
+			return &mech[i];
+	}
+
+	return NULL;
 }
 
 int auth_client_is_connected(struct auth_client *client)

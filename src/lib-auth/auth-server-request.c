@@ -1,6 +1,7 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "hash.h"
 #include "ostream.h"
 #include "auth-client.h"
@@ -10,11 +11,13 @@
 struct auth_request {
         struct auth_server_connection *conn;
 
-	enum auth_mech mech;
-	char protocol[AUTH_CLIENT_PROTOCOL_BUF_SIZE];
+	char *mech, *protocol;
 	enum auth_client_request_new_flags flags;
 
 	unsigned int id;
+
+	unsigned char *initial_resp_data;
+	size_t initial_resp_size;
 
 	auth_request_callback_t *callback;
 	void *context;
@@ -31,16 +34,42 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 					struct auth_request *request)
 {
 	struct auth_client_request_new auth_request;
+	buffer_t *buf;
+	int ret;
 
+	memset(&auth_request, 0, sizeof(auth_request));
 	auth_request.type = AUTH_CLIENT_REQUEST_NEW;
 	auth_request.id = request->id;
-	strocpy(auth_request.protocol, request->protocol,
-		sizeof(auth_request.protocol));
-	auth_request.mech = request->mech;
 	auth_request.flags = request->flags;
 
-	if (o_stream_send(conn->output, &auth_request,
-			  sizeof(auth_request)) < 0) {
+	t_push();
+	buf = buffer_create_dynamic(pool_datastack_create(), 256, (size_t)-1);
+	buffer_set_used_size(buf, sizeof(auth_request));
+
+	auth_request.mech_idx =
+		buffer_get_used_size(buf) - sizeof(auth_request);
+	buffer_append(buf, request->mech, strlen(request->mech)+1);
+
+	auth_request.protocol_idx =
+		buffer_get_used_size(buf) - sizeof(auth_request);
+	buffer_append(buf, request->protocol, strlen(request->protocol)+1);
+
+	auth_request.initial_resp_idx =
+		buffer_get_used_size(buf) - sizeof(auth_request);
+	buffer_append(buf, request->initial_resp_data,
+		      request->initial_resp_size);
+
+	auth_request.data_size =
+		buffer_get_used_size(buf) - sizeof(auth_request);
+
+	memcpy(buffer_get_space_unsafe(buf, 0, sizeof(auth_request)),
+	       &auth_request, sizeof(auth_request));
+
+	ret = o_stream_send(conn->output, buffer_get_data(buf, NULL),
+			    buffer_get_used_size(buf));
+	t_pop();
+
+	if (ret < 0) {
 		errno = conn->output->stream_errno;
 		i_warning("Error sending request to auth server: %m");
 		auth_server_connection_destroy(conn, TRUE);
@@ -75,7 +104,7 @@ get_next_plain_server(struct auth_server_connection *conn)
 {
 	conn = conn->next;
 	while (conn != NULL) {
-		if ((conn->available_auth_mechs & AUTH_MECH_PLAIN) != 0)
+		if (conn->has_plain_mech)
 			return conn;
 		conn = conn->next;
 	}
@@ -179,8 +208,10 @@ void auth_server_requests_remove_all(struct auth_server_connection *conn)
 
 struct auth_request *
 auth_client_request_new(struct auth_client *client,
-			enum auth_mech mech, const char *protocol,
+			const char *mech, const char *protocol,
 			enum auth_client_request_new_flags flags,
+			const unsigned char *initial_resp_data,
+			size_t initial_resp_size,
 			auth_request_callback_t *callback, void *context,
 			const char **error_r)
 {
@@ -193,10 +224,18 @@ auth_client_request_new(struct auth_client *client,
 
 	request = i_new(struct auth_request, 1);
 	request->conn = conn;
-	request->mech = mech;
-	strocpy(request->protocol, protocol, sizeof(request->protocol));
+	request->mech = i_strdup(mech);
+	request->protocol = i_strdup(protocol);
 	request->flags = flags;
 	request->id = ++client->request_id_counter;
+
+	if (initial_resp_size != 0) {
+		request->initial_resp_size = initial_resp_size;
+		request->initial_resp_data = i_malloc(initial_resp_size);
+		memcpy(request->initial_resp_data, initial_resp_data,
+		       initial_resp_size);
+	}
+	
 	if (request->id == 0) {
 		/* wrapped - ID 0 not allowed */
 		request->id = ++client->request_id_counter;
@@ -216,8 +255,8 @@ void auth_client_request_continue(struct auth_request *request,
 {
 	auth_server_send_continue(request->conn, request, data, data_size);
 
-	if (request->mech == AUTH_MECH_PLAIN &&
-	    request->plaintext_data == NULL) {
+	if (strcmp(request->mech, "PLAIN") == 0 &&
+	    request->plaintext_data == NULL && request->conn != NULL) {
 		request->next_conn = get_next_plain_server(request->conn);
 		if (request->next_conn != NULL) {
 			/* plaintext authentication - save the data so we can
@@ -245,7 +284,10 @@ void auth_client_request_abort(struct auth_request *request)
 
 	request->callback(request, NULL, NULL, request->context);
 
+	i_free(request->initial_resp_data);
 	i_free(request->plaintext_data);
+	i_free(request->mech);
+	i_free(request->protocol);
 	i_free(request);
 }
 

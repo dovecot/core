@@ -19,26 +19,38 @@ struct auth_request {
 	unsigned int id;
 	time_t created;
 
-	char protocol[AUTH_CLIENT_PROTOCOL_BUF_SIZE];
+	char *protocol;
 	mech_callback_t *callback;
 
+	int (*auth_initial)(struct auth_request *auth_request,
+                            struct auth_client_request_new *request,
+			    const unsigned char *data,
+			    mech_callback_t *callback);
 	int (*auth_continue)(struct auth_request *auth_request,
-			     struct auth_client_request_continue *request,
-			     const unsigned char *data,
+			     const unsigned char *data, size_t data_size,
 			     mech_callback_t *callback);
 	void (*auth_free)(struct auth_request *auth_request);
 	/* ... mechanism specific data ... */
 };
 
 struct mech_module {
-	enum auth_mech mech;
+	const char *mech_name;
 
-	struct auth_request *(*auth_new)(struct auth_client_connection *conn,
-					 unsigned int id,
-					 mech_callback_t *callback);
+	unsigned int plaintext:1;
+	unsigned int advertise:1;
+	unsigned int passdb_need_plain:1;
+	unsigned int passdb_need_credentials:1;
+
+	struct auth_request *(*auth_new)(void);
 };
 
-extern enum auth_mech auth_mechanisms;
+struct mech_module_list {
+	struct mech_module_list *next;
+
+	struct mech_module module;
+};
+
+extern struct mech_module_list *mech_modules;
 extern const char *const *auth_realms;
 extern const char *default_realm;
 extern const char *anonymous_username;
@@ -48,8 +60,11 @@ extern int ssl_require_client_cert;
 void mech_register_module(struct mech_module *module);
 void mech_unregister_module(struct mech_module *module);
 
+const string_t *auth_mechanisms_get_list(void);
+
 void mech_request_new(struct auth_client_connection *conn,
 		      struct auth_client_request_new *request,
+		      const unsigned char *data,
 		      mech_callback_t *callback);
 void mech_request_continue(struct auth_client_connection *conn,
 			   struct auth_client_request_continue *request,
@@ -70,6 +85,7 @@ void mech_cyrus_sasl_init_lib(void);
 struct auth_request *
 mech_cyrus_sasl_new(struct auth_client_connection *conn,
 		    struct auth_client_request_new *request,
+		    const unsigned char *data,
 		    mech_callback_t *callback);
 
 void auth_request_ref(struct auth_request *request);

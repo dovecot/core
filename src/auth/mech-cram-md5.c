@@ -149,15 +149,14 @@ static void credentials_callback(const char *result,
 
 static int
 mech_cram_md5_auth_continue(struct auth_request *auth_request,
-	struct auth_client_request_continue *request __attr_unused__,
-	const unsigned char *data,
-	mech_callback_t *callback)
+			    const unsigned char *data, size_t data_size,
+			    mech_callback_t *callback)
 {
 	struct cram_auth_request *auth =
 		(struct cram_auth_request *)auth_request;
 	const char *error;
 
-	if (parse_cram_response(auth, data, request->data_size, &error)) {
+	if (parse_cram_response(auth, data, data_size, &error)) {
 		auth_request->callback = callback;
 
 		auth_request->user =
@@ -186,16 +185,43 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 	return FALSE;
 }
 
+static int
+mech_cram_md5_auth_initial(struct auth_request *auth_request,
+			   struct auth_client_request_new *request,
+			   const unsigned char *data __attr_unused__,
+			   mech_callback_t *callback)
+{
+	struct cram_auth_request *auth =
+		(struct cram_auth_request *)auth_request;
+
+	struct auth_client_request_reply reply;
+
+	if (AUTH_CLIENT_REQUEST_HAVE_INITIAL_RESPONSE(request)) {
+		/* No initial response in CRAM-MD5 */
+		return FALSE;
+	}
+
+	auth->challenge = p_strdup(auth->pool, get_cram_challenge());
+
+	/* initialize reply */
+	mech_init_auth_client_reply(&reply);
+	reply.id = request->id;
+	reply.result = AUTH_CLIENT_RESULT_CONTINUE;
+
+	/* send the initial challenge */
+	reply.reply_idx = 0;
+	reply.data_size = strlen(auth->challenge);
+	callback(&reply, auth->challenge, auth_request->conn);
+	return TRUE;
+}
+
 static void mech_cram_md5_auth_free(struct auth_request *auth_request)
 {
 	pool_unref(auth_request->pool);
 }
 
-static struct auth_request *
-mech_cram_md5_auth_new(struct auth_client_connection *conn,
-		       unsigned int id, mech_callback_t *callback)
+static struct auth_request *mech_cram_md5_auth_new(void)
 {
-	struct auth_client_request_reply reply;
 	struct cram_auth_request *auth;
 	pool_t pool;
 
@@ -205,25 +231,21 @@ mech_cram_md5_auth_new(struct auth_client_connection *conn,
 
 	auth->auth_request.refcount = 1;
 	auth->auth_request.pool = pool;
+	auth->auth_request.auth_initial = mech_cram_md5_auth_initial;
 	auth->auth_request.auth_continue = mech_cram_md5_auth_continue;
 	auth->auth_request.auth_free = mech_cram_md5_auth_free;
-
-	auth->challenge = p_strdup(auth->pool, get_cram_challenge());
-
-	/* initialize reply */
-	mech_init_auth_client_reply(&reply);
-	reply.id = id;
-	reply.result = AUTH_CLIENT_RESULT_CONTINUE;
-
-	/* send the initial challenge */
-	reply.reply_idx = 0;
-	reply.data_size = strlen(auth->challenge);
-	callback(&reply, auth->challenge, conn);
 
 	return &auth->auth_request;
 }
 
 struct mech_module mech_cram_md5 = {
-	AUTH_MECH_CRAM_MD5,
+	"CRAM-MD5",
+
+	MEMBER(plaintext) FALSE,
+	MEMBER(advertise) TRUE,
+
+	MEMBER(passdb_need_plain) FALSE,
+	MEMBER(passdb_need_credentials) TRUE,
+
 	mech_cram_md5_auth_new
 };

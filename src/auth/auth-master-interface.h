@@ -21,11 +21,11 @@ struct auth_master_reply {
 	/* variable width fields are packed into data[]. These variables
 	   contain indexes to the data, they're all NUL-terminated.
 	   Ignore if it points outside data_size. */
-	size_t system_user_idx;
-	size_t virtual_user_idx;
-	size_t home_idx, mail_idx, chroot_idx;
+	uint32_t system_user_idx;
+	uint32_t virtual_user_idx;
+	uint32_t home_idx, mail_idx, chroot_idx;
 
-	size_t data_size;
+	uint32_t data_size;
 	/* unsigned char data[]; */
 };
 

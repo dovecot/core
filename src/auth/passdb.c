@@ -71,6 +71,26 @@ void passdb_handle_credentials(enum passdb_credentials credentials,
 	callback(password, auth_request);
 }
 
+static void
+mech_list_verify_passdb(struct passdb_module *passdb, const char *name)
+{
+	struct mech_module_list *list;
+
+	for (list = mech_modules; list != NULL; list = list->next) {
+		if (list->module.passdb_need_plain &&
+		    passdb->verify_plain == NULL)
+			break;
+		if (list->module.passdb_need_credentials &&
+		    passdb->lookup_credentials == NULL)
+			break;
+	}
+
+	if (list != NULL) {
+		i_fatal("Passdb %s doesn't support %s method",
+			name, list->module.mech_name);
+	}
+}
+
 void passdb_init(void)
 {
 	const char *name, *args;
@@ -135,17 +155,7 @@ void passdb_init(void)
 	if (passdb->init != NULL)
 		passdb->init(args != NULL ? args+1 : "");
 
-	if ((auth_mechanisms & AUTH_MECH_PLAIN) &&
-	    passdb->verify_plain == NULL)
-		i_fatal("Passdb %s doesn't support PLAIN method", name);
-
-	if ((auth_mechanisms & AUTH_MECH_CRAM_MD5) &&
-	    passdb->lookup_credentials == NULL)
-		i_fatal("Passdb %s doesn't support CRAM-MD5 method", name);
-
-	if ((auth_mechanisms & AUTH_MECH_DIGEST_MD5) &&
-	    passdb->lookup_credentials == NULL)
-		i_fatal("Passdb %s doesn't support DIGEST-MD5 method", name);
+	mech_list_verify_passdb(passdb, name);
 }
 
 void passdb_deinit(void)

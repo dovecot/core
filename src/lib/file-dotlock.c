@@ -371,13 +371,27 @@ int file_lock_dotlock(const char *path, const char *temp_prefix, int checkonly,
 		return -1;
 	}
 
+	dotlock_r->dev = st.st_dev;
+	dotlock_r->ino = st.st_ino;
+
 	if (close(fd) < 0) {
 		i_error("fstat(%s) failed: %m", lock_path);
 		return -1;
 	}
 
-	dotlock_r->dev = st.st_dev;
-	dotlock_r->ino = st.st_ino;
+	/* some NFS implementations may have used cached mtime in previous
+	   fstat() call. Check again to avoid "dotlock was modified" errors. */
+	if (stat(lock_path, &st) < 0) {
+		i_error("stat(%s) failed: %m", lock_path);
+		return -1;
+	}
+	/* extra sanity check won't hurt.. */
+	if (st.st_dev != dotlock_r->dev ||
+	    st.st_ino != dotlock_r->ino) {
+		i_error("dotlock %s was immediately recreated under us",
+			lock_path);
+		return -1;
+	}
 	dotlock_r->mtime = st.st_mtime;
 	return 1;
 }

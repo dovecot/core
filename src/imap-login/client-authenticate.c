@@ -10,7 +10,6 @@
 #include "str.h"
 #include "imap-parser.h"
 #include "auth-client.h"
-#include "../auth/auth-mech-desc.h"
 #include "ssl-proxy.h"
 #include "client.h"
 #include "client-authenticate.h"
@@ -19,54 +18,27 @@
 
 const char *client_authenticate_get_capabilities(int secured)
 {
-	static enum auth_mech cached_auth_mechs = 0;
-	static char *cached_capability = NULL;
-        enum auth_mech auth_mechs;
+	const struct auth_mech_desc *mech;
+	unsigned int i, count;
 	string_t *str;
-	int i;
-
-	auth_mechs = auth_client_get_available_mechs(auth_client);
-	if (auth_mechs == cached_auth_mechs)
-		return cached_capability;
-
-	cached_auth_mechs = auth_mechs;
-	i_free(cached_capability);
 
 	str = t_str_new(128);
-
-	for (i = 0; i < AUTH_MECH_COUNT; i++) {
-		if ((auth_mechs & auth_mech_desc[i].mech) == 0)
-			continue; /* not available */
-
+	mech = auth_client_get_available_mechs(auth_client, &count);
+	for (i = 0; i < count; i++) {
 		/* a) transport is secured
 		   b) auth mechanism isn't plaintext
 		   c) we allow insecure authentication
 		        - but don't advertise AUTH=PLAIN, as RFC 2595 requires
 		*/
-		if (secured || !auth_mech_desc[i].plaintext ||
-		    (!disable_plaintext_auth &&
-		     auth_mech_desc[i].mech != AUTH_MECH_PLAIN)) {
+		if (mech[i].advertise &&
+		    (secured || !mech[i].plaintext)) {
 			str_append_c(str, ' ');
 			str_append(str, "AUTH=");
-			str_append(str, auth_mech_desc[i].name);
+			str_append(str, mech[i].name);
 		}
 	}
 
-	cached_capability = i_strdup_empty(str_c(str));
-	return cached_capability;
-}
-
-static struct auth_mech_desc *auth_mech_find(const char *name)
-{
-	int i;
-
-	for (i = 0; i < AUTH_MECH_COUNT; i++) {
-		if (auth_mech_desc[i].name != NULL &&
-		    strcasecmp(auth_mech_desc[i].name, name) == 0)
-			return &auth_mech_desc[i];
-	}
-
-	return NULL;
+	return str_c(str);
 }
 
 static void client_auth_abort(struct imap_client *client, const char *msg)
@@ -207,9 +179,10 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	client_ref(client);
 
 	client->common.auth_request =
-		auth_client_request_new(auth_client, AUTH_MECH_PLAIN, "IMAP",
+		auth_client_request_new(auth_client, "PLAIN", "IMAP",
 					client_get_auth_flags(client),
-					login_callback, client, &error);
+					NULL, 0, login_callback,
+					client, &error);
 	if (client->common.auth_request == NULL) {
 		client_send_tagline(client, t_strconcat(
 			"NO Login failed: ", error, NULL));
@@ -307,7 +280,7 @@ static void client_auth_input(void *context)
 
 int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 {
-	struct auth_mech_desc *mech;
+	const struct auth_mech_desc *mech;
 	const char *mech_name, *error;
 
 	/* we want only one argument: authentication mechanism name */
@@ -320,7 +293,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 	if (*mech_name == '\0')
 		return FALSE;
 
-	mech = auth_mech_find(mech_name);
+	mech = auth_client_find_mech(auth_client, mech_name);
 	if (mech == NULL) {
 		client_send_tagline(client,
 				    "NO Unsupported authentication mechanism.");
@@ -335,9 +308,9 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 
 	client_ref(client);
 	client->common.auth_request =
-		auth_client_request_new(auth_client, mech->mech, "IMAP",
+		auth_client_request_new(auth_client, mech->name, "IMAP",
 					client_get_auth_flags(client),
-					authenticate_callback,
+					NULL, 0, authenticate_callback,
 					client, &error);
 	if (client->common.auth_request != NULL) {
 		/* following input data will go to authentication */

@@ -1,6 +1,7 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "hash.h"
 #include "ioloop.h"
 #include "istream.h"
@@ -21,30 +22,78 @@
 
 static void auth_server_connection_unref(struct auth_server_connection *conn);
 
-static void update_available_auth_mechs(struct auth_client *client)
+static void update_available_auth_mechs(struct auth_server_connection *conn)
 {
-	struct auth_server_connection *conn;
+	struct auth_client *client = conn->client;
+	const struct auth_mech_desc *mech;
+	struct auth_mech_desc *new_mech;
+	unsigned int i;
 
-        client->available_auth_mechs = 0;
-	for (conn = client->connections; conn != NULL; conn = conn->next)
-                client->available_auth_mechs |= conn->available_auth_mechs;
+	mech = conn->available_auth_mechs;
+	for (i = 0; i < conn->available_auth_mechs_count; i++) {
+		if (auth_client_find_mech(client, mech[i].name) == NULL) {
+			new_mech = buffer_append_space_unsafe(
+				client->available_auth_mechs, sizeof(*mech));
+			*new_mech = mech[i];
+			new_mech->name = i_strdup(mech[i].name);
+		}
+	}
 }
 
 static void auth_handle_handshake(struct auth_server_connection *conn,
-				  struct auth_client_handshake_reply *handshake)
+				  struct auth_client_handshake_reply *handshake,
+				  const unsigned char *data)
 {
+	struct auth_client_handshake_mech_desc handshake_mech_desc;
+	struct auth_mech_desc mech_desc;
+	buffer_t *buf;
+	unsigned int i;
+
 	if (handshake->server_pid == 0) {
 		i_error("BUG: Auth server said it's PID 0");
 		auth_server_connection_destroy(conn, FALSE);
 		return;
 	}
 
+	if (handshake->data_size == 0 || data[handshake->data_size-1] != '\0' ||
+	    handshake->mech_count * sizeof(handshake_mech_desc) >=
+	    handshake->data_size)  {
+		i_error("BUG: Auth server sent corrupted handshake");
+		auth_server_connection_destroy(conn, FALSE);
+		return;
+	}
+
+	buf = buffer_create_dynamic(conn->pool, sizeof(mech_desc) *
+				    handshake->mech_count, (size_t)-1);
+	for (i = 0; i < handshake->mech_count; i++) {
+		memcpy(&handshake_mech_desc,
+		       data + sizeof(handshake_mech_desc) * i,
+		       sizeof(handshake_mech_desc));
+
+		if (handshake_mech_desc.name_idx >= handshake->data_size) {
+			i_error("BUG: Auth server sent corrupted handshake");
+			auth_server_connection_destroy(conn, FALSE);
+			return;
+		}
+
+		mech_desc.name = p_strdup(conn->pool, (const char *)data +
+					  handshake_mech_desc.name_idx);
+		mech_desc.plaintext = handshake_mech_desc.plaintext;
+		mech_desc.advertise = handshake_mech_desc.advertise;
+		buffer_append(buf, &mech_desc, sizeof(mech_desc));
+
+		if (strcmp(mech_desc.name, "PLAIN") == 0)
+			conn->has_plain_mech = TRUE;
+	}
+
 	conn->pid = handshake->server_pid;
-	conn->available_auth_mechs = handshake->auth_mechanisms;
+	conn->available_auth_mechs_count =
+		buffer_get_used_size(buf) / sizeof(mech_desc);
+	conn->available_auth_mechs = buffer_free_without_data(buf);
 	conn->handshake_received = TRUE;
 
         conn->client->conn_waiting_handshake_count--;
-	update_available_auth_mechs(conn->client);
+	update_available_auth_mechs(conn);
 
 	if (conn->client->connect_notify_callback != NULL &&
 	    auth_client_is_connected(conn->client)) {
@@ -77,17 +126,19 @@ static void auth_client_input(void *context)
 
 	if (!conn->handshake_received) {
 		data = i_stream_get_data(conn->input, &size);
-		if (size == sizeof(handshake)) {
-			memcpy(&handshake, data, sizeof(handshake));
-			i_stream_skip(conn->input, sizeof(handshake));
+		if (size < sizeof(handshake))
+			return;
 
-			auth_handle_handshake(conn, &handshake);
-		} else if (size > sizeof(handshake)) {
-			i_error("BUG: Auth server sent us too large handshake "
-				"(%"PRIuSIZE_T " vs %"PRIuSIZE_T")", size,
-				sizeof(handshake));
-			auth_server_connection_destroy(conn, FALSE);
-		}
+		memcpy(&handshake, data, sizeof(handshake));
+		if (size < sizeof(handshake) + handshake.data_size)
+			return;
+
+		conn->refcount++;
+		auth_handle_handshake(conn, &handshake,
+				      data + sizeof(handshake));
+		i_stream_skip(conn->input, sizeof(handshake) +
+			      handshake.data_size);
+		auth_server_connection_unref(conn);
 		return;
 	}
 
@@ -210,6 +261,7 @@ static void auth_server_connection_unref(struct auth_server_connection *conn)
 {
 	if (--conn->refcount > 0)
 		return;
+	i_assert(conn->refcount == 0);
 
 	hash_destroy(conn->requests);
 
@@ -233,16 +285,21 @@ auth_server_connection_find_path(struct auth_client *client, const char *path)
 
 struct auth_server_connection *
 auth_server_connection_find_mech(struct auth_client *client,
-				 enum auth_mech mech, const char **error_r)
+				 const char *name, const char **error_r)
 {
 	struct auth_server_connection *conn;
+	const struct auth_mech_desc *mech;
+	unsigned int i;
 
 	for (conn = client->connections; conn != NULL; conn = conn->next) {
-		if ((conn->available_auth_mechs & mech))
-			return conn;
+		mech = conn->available_auth_mechs;
+		for (i = 0; i < conn->available_auth_mechs_count; i++) {
+			if (strcmp(mech[i].name, name) == 0)
+				return conn;
+		}
 	}
 
-	if ((client->available_auth_mechs & mech) == 0)
+	if (auth_client_find_mech(client, name) == NULL)
 		*error_r = "Unsupported authentication mechanism";
 	else {
 		*error_r = "Authentication server isn't connected, "
