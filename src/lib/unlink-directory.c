@@ -184,6 +184,7 @@ int unlink_directory(const char *dir, int unlink_dir)
 		i_fatal("unlink_directory(%s): "
 			"Can't fchdir() back to our original dir: %m", dir);
 	}
+	(void)close(fd);
 
 	if (unlink_dir) {
 		if (rmdir(dir) < 0 && errno != ENOENT)
