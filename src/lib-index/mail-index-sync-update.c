@@ -500,14 +500,15 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 		offset += new_map->hdr.record_size;
 	}
 
-	if (ext_id == size-1 && ext[ext_id].record_size != old_size &&
-	    old_records_count != 0) {
+	if (new_map->buffer->used !=
+	    old_records_count * new_map->hdr.record_size) {
 		/* we didn't fully write the last record */
+		i_assert(new_map->buffer->used ==
+			 old_records_count * new_map->hdr.record_size -
+			 (ext[ext_id].record_size - old_size));
 		buffer_append_zero(new_map->buffer,
 				   ext[ext_id].record_size - old_size);
 	}
-	i_assert(new_map->buffer->used ==
-		 old_records_count * new_map->hdr.record_size);
 
 	new_map->records = buffer_get_modifyable_data(new_map->buffer, NULL);
 	new_map->records_count = old_records_count;
