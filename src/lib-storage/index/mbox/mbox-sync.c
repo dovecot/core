@@ -55,7 +55,7 @@
 
 /* The text below was taken exactly as c-client wrote it to my mailbox,
    so it's probably copyrighted by University of Washington. */
-#define DUMMY_MESSAGE_BODY \
+#define PSEUDO_MESSAGE_BODY \
 "This text is part of the internal format of your mail folder, and is not\n" \
 "a real message.  It is created automatically by the mail system software.\n" \
 "If deleted, important folder data will be lost, and it will be re-created\n" \
@@ -952,7 +952,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	return 1;
 }
 
-static int mbox_write_dummy(struct mbox_sync_context *sync_ctx)
+static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 {
 	string_t *str;
 	unsigned int uid_validity;
@@ -969,7 +969,8 @@ static int mbox_write_dummy(struct mbox_sync_context *sync_ctx)
 		    "X-IMAP: %u %010u\n"
 		    "Status: RO\n"
 		    "\n"
-		    DUMMY_MESSAGE_BODY,
+		    PSEUDO_MESSAGE_BODY
+		    "\n",
                     mbox_from_create("MAILER_DAEMON", ioloop_time),
 		    message_date_create(ioloop_time),
 		    my_hostname, dec2str(ioloop_time), my_hostname,
@@ -1062,7 +1063,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		}
 
 		if (offset == 0) {
-			if (mbox_write_dummy(sync_ctx) < 0)
+			if (mbox_write_pseudo(sync_ctx) < 0)
 				return -1;
 		}
 
