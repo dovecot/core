@@ -473,6 +473,13 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 	    hdr->first_hole_position > pos) {
 		/* easy, it's just at the expected index */
 		format = "Invalid first_hole_position in header: %"PRIuUOFF_T;
+	} else if (hdr->first_hole_records ==
+		   MAIL_INDEX_RECORD_COUNT(index) - hdr->messages_count) {
+		/* only one hole in file, skip it and we're at
+		   correct position */
+		pos += (size_t)hdr->first_hole_records *
+			sizeof(MailIndexRecord);
+		format = "Invalid hole locations in header: %"PRIuUOFF_T;
 	} else {
 		/* find from binary tree */
 		pos = mail_tree_lookup_sequence(index->tree, seq);
@@ -751,10 +758,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		hdr->first_hole_records++;
 		update_first_hole_records(index);
 	} else {
-		/* second hole coming to index file, the index now needs to
-		   be compressed to keep high performance */
-		index->set_flags |= MAIL_INDEX_FLAG_COMPRESS;
-
+		/* second hole coming to index file */
 		if (hdr->first_hole_position > pos) {
 			/* new hole before the old hole */
 			hdr->first_hole_position = pos;
