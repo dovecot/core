@@ -20,6 +20,8 @@ int ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy __attr_unused__)
 	return FALSE;
 }
 
+void ssl_proxy_free(struct ssl_proxy *proxy __attr_unused__) {}
+
 void ssl_proxy_init(void) {}
 void ssl_proxy_deinit(void) {}
 
