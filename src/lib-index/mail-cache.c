@@ -30,7 +30,9 @@ void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 	va_list va;
 
 	(void)unlink(cache->filepath);
-	mail_cache_file_close(cache);
+
+	/* mark the cache as unusable */
+	cache->hdr = NULL;
 
 	va_start(va, fmt);
 	t_push();
