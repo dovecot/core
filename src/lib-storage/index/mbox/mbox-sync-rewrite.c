@@ -58,11 +58,23 @@ static void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 
 	i_assert(size < SSIZE_T_MAX);
 
-	/* Append at the end of X-Keywords header,
-	   or X-UID if it doesn't exist */
-	start_pos = ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] != (size_t)-1 ?
-		ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] :
-		ctx->hdr_pos[MBOX_HDR_X_UID];
+	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == (size_t)-1 &&
+	    size >= sizeof("X-Keywords: \n")-1) {
+		/* Add X-Keywords */
+		start_pos = str_len(ctx->header);
+		if (ctx->have_eoh)
+			start_pos--;
+		ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] = start_pos;
+
+		str_insert(ctx->header, start_pos, "X-Keywords: \n");
+		size -= sizeof("X-Keywords: \n")-1;
+	} else {
+		/* Append at the end of X-Keywords header,
+		   or X-UID if it doesn't exist */
+		start_pos = ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] != (size_t)-1 ?
+			ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] :
+			ctx->hdr_pos[MBOX_HDR_X_UID];
+	}
 
 	data = str_data(ctx->header);
 	data_size = str_len(ctx->header);
@@ -168,6 +180,8 @@ static void mbox_sync_headers_remove_space(struct mbox_sync_mail_context *ctx,
 						      &size);
 		}
 	}
+
+	/* FIXME: see if we could remove X-Keywords header completely */
 }
 
 int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
