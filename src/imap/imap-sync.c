@@ -190,6 +190,10 @@ int cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 		return TRUE;
 	}
 
+	if ((client_workarounds & WORKAROUND_DELAY_NEWMAIL) != 0 &&
+	    (flags & MAILBOX_SYNC_FLAG_FAST) != 0)
+		flags |= MAILBOX_SYNC_FLAG_NO_NEWMAIL;
+
 	ctx = p_new(cmd->pool, struct cmd_sync_context, 1);
 	ctx->tagline = p_strdup(cmd->pool, tagline);
 	ctx->sync_ctx = imap_sync_init(cmd->client, cmd->client->mailbox,

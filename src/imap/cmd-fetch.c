@@ -102,14 +102,9 @@ static int cmd_fetch_finish(struct imap_fetch_context *ctx)
 		return TRUE;
 	}
 
-	if ((client_workarounds & WORKAROUND_OE6_FETCH_NO_NEWMAIL) != 0) {
-		client_send_tagline(cmd, ok_message);
-		return TRUE;
-	} else {
-		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
-				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
-				ok_message);
-	}
+	return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
+			(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+			ok_message);
 }
 
 static int cmd_fetch_continue(struct client_command_context *cmd)

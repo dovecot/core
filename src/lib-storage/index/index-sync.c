@@ -144,6 +144,8 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 	sync_mask = MAIL_INDEX_SYNC_MASK_ALL;
 	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0)
 		sync_mask &= ~MAIL_INDEX_SYNC_TYPE_EXPUNGE;
+	if ((flags & MAILBOX_SYNC_FLAG_NO_NEWMAIL) != 0)
+		sync_mask &= ~MAIL_INDEX_SYNC_TYPE_APPEND;
 
 	if (mail_index_view_sync_begin(ibox->view, sync_mask,
 				       &ctx->sync_ctx) < 0) {
