@@ -3,6 +3,7 @@
 #include "common.h"
 #include "ioloop.h"
 #include "network.h"
+#include "hash.h"
 #include "ssl-proxy.h"
 
 #ifdef HAVE_OPENSSL
