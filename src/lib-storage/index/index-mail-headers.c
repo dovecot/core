@@ -94,6 +94,8 @@ cached_header_add(struct index_mail *mail, const char *name)
 	struct cached_header *hdr;
 	unsigned int idx;
 
+	i_assert(*name != '\0');
+
 	hdr = cached_header_find(mail, name, &idx);
 	if (hdr != NULL)
 		return hdr;
