@@ -30,11 +30,11 @@ index_storage_fetch_init(struct mailbox *box,
 
 	ctx = i_new(struct mail_fetch_context, 1);
 
-	if (!box->readonly)
+	if (!box->readonly && update_seen != NULL)
 		*update_seen = FALSE;
 
 	/* need exclusive lock to update the \Seen flags */
-	if (*update_seen) {
+	if (update_seen != NULL && *update_seen) {
 		if (!index_storage_lock(ibox, MAIL_LOCK_EXCLUSIVE))
 			return NULL;
 	}
@@ -42,7 +42,7 @@ index_storage_fetch_init(struct mailbox *box,
 	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_SHARED))
 		return NULL;
 
-	if (*update_seen &&
+	if (update_seen != NULL && *update_seen &&
 	    ibox->index->header->messages_count ==
 	    ibox->index->header->seen_messages_count) {
 		/* if all messages are already seen, there's no point in
@@ -53,7 +53,7 @@ index_storage_fetch_init(struct mailbox *box,
 
 	ctx->ibox = ibox;
 	ctx->index = ibox->index;
-	ctx->update_seen = *update_seen;
+	ctx->update_seen = update_seen != NULL && *update_seen;
 
 	index_mail_init(ibox, &ctx->mail, wanted_fields, NULL);
 	ctx->msgset_ctx = index_messageset_init(ibox, messageset, uidset, TRUE);
