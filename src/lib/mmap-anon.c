@@ -123,17 +123,22 @@ void *mmap_anon(size_t length)
 
 	if (movable_mmap_base == NULL) {
 		/* this is fully guessing */
-		movable_mmap_base = ((char *) mmap_anon) + MMAP_BASE_MOVE;
 		movable_mmap_base = (char *) NULL +
-			PAGE_ALIGN((size_t)((char *) movable_mmap_base - NULL));
+			PAGE_ALIGN((size_t)((char *)mmap_anon - (char *)NULL));
 	}
 
 	do {
-		ret = anon_mmap_fixed(movable_mmap_base, length);
-		hdr = movable_mmap_base;
-
 		movable_mmap_base = (char *) movable_mmap_base +
 			MMAP_BASE_MOVE;
+		hdr = movable_mmap_base;
+
+		if (movable_mmap_base != NULL)
+			ret = anon_mmap_fixed(movable_mmap_base, length);
+		else {
+			/* we can't use NULL address */
+			errno = EINVAL;
+			ret = -1;
+		}
 
 	} while (ret == -1 && errno == EINVAL);
 
