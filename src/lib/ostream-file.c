@@ -130,7 +130,7 @@ static void update_iovec(struct iovec *iov, unsigned int iov_size, size_t size)
 			iov->iov_base = NULL;
 			iov->iov_len = 0;
 		} else {
-			iov->iov_base = (char *) iov->iov_base + size;
+			iov->iov_base = (void *)((char *)iov->iov_base + size);
 			iov->iov_len -= size;
 			size = 0;
 		}
@@ -214,16 +214,16 @@ static int o_stream_fill_iovec(struct file_ostream *fstream,
 		return 0;
 
 	if (fstream->head < fstream->tail) {
-		iov[0].iov_base = fstream->buffer + fstream->head;
+		iov[0].iov_base = (void *)(fstream->buffer + fstream->head);
 		iov[0].iov_len = fstream->tail - fstream->head;
 		return 1;
 	} else {
-		iov[0].iov_base = fstream->buffer + fstream->head;
+		iov[0].iov_base = (void *)(fstream->buffer + fstream->head);
 		iov[0].iov_len = fstream->buffer_size - fstream->head;
 		if (fstream->tail == 0)
 			return 1;
 		else {
-			iov[1].iov_base = fstream->buffer;
+			iov[1].iov_base = (void *)fstream->buffer;
 			iov[1].iov_len = fstream->tail;
 			return 2;
 		}
