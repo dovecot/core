@@ -34,6 +34,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, user_filter),
 	DEF(SET_STR, pass_attrs),
 	DEF(SET_STR, pass_filter),
+	DEF(SET_STR, default_pass_scheme),
 	DEF(SET_STR, user_global_uid),
 	DEF(SET_STR, user_global_gid)
 };
@@ -49,6 +50,7 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(user_filter) NULL,
 	MEMBER(pass_attrs) NULL,
 	MEMBER(pass_filter) NULL,
+	MEMBER(default_pass_scheme) "crypt",
 	MEMBER(user_global_uid) 0,
 	MEMBER(user_global_gid) 0
 };

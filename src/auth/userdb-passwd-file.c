@@ -11,13 +11,13 @@
 
 struct passwd_file *userdb_pwf = NULL;
 
-static void passwd_file_lookup(const char *user, const char *realm,
-			       userdb_callback_t *callback, void *context)
+static void passwd_file_lookup(const char *user, userdb_callback_t *callback,
+			       void *context)
 {
 	struct user_data data;
 	struct passwd_user *pu;
 
-	pu = db_passwd_file_lookup(userdb_pwf, user, realm);
+	pu = db_passwd_file_lookup(userdb_pwf, user);
 	if (pu == NULL) {
 		callback(NULL, context);
 		return;
@@ -27,8 +27,7 @@ static void passwd_file_lookup(const char *user, const char *realm,
 	data.uid = pu->uid;
 	data.gid = pu->gid;
 
-	data.virtual_user = realm == NULL ? user :
-		t_strconcat(user, "@", realm, NULL);
+	data.virtual_user = user;
 	data.home = pu->home;
 	data.mail = pu->mail;
 

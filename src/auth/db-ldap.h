@@ -22,6 +22,7 @@ struct ldap_settings {
 	const char *pass_attrs;
 	const char *pass_filter;
 
+	const char *default_pass_scheme;
 	unsigned int user_global_uid;
 	unsigned int user_global_gid;
 

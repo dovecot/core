@@ -137,16 +137,13 @@ static void handle_request(struct ldap_connection *conn,
 	t_pop();
 }
 
-static void userdb_ldap_lookup(const char *user, const char *realm,
-			       userdb_callback_t *callback, void *context)
+static void userdb_ldap_lookup(const char *user, userdb_callback_t *callback,
+			       void *context)
 {
 	struct ldap_connection *conn = userdb_ldap_conn->conn;
 	struct userdb_ldap_request *request;
 	const char *filter;
 	string_t *str;
-
-	if (realm != NULL)
-		user = t_strconcat(user, "@", realm, NULL);
 
 	user = ldap_escape(user);
 	if (conn->set.user_filter == NULL) {

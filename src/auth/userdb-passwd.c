@@ -10,14 +10,12 @@
 
 #include <pwd.h>
 
-static void passwd_lookup(const char *user, const char *realm,
-			  userdb_callback_t *callback, void *context)
+static void passwd_lookup(const char *user, userdb_callback_t *callback,
+			  void *context)
 {
 	struct user_data data;
 	struct passwd *pw;
 
-	if (realm != NULL)
-		user = t_strconcat(user, "@", realm, NULL);
 	pw = getpwnam(user);
 	if (pw == NULL) {
 		if (errno != 0)

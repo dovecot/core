@@ -8,7 +8,7 @@
 #include "common.h"
 #include "str.h"
 #include "var-expand.h"
-#include "mycrypt.h"
+#include "password-verify.h"
 #include "db-ldap.h"
 #include "passdb.h"
 
@@ -55,15 +55,10 @@ static void handle_request(struct ldap_connection *conn,
 	LDAPMessage *entry;
 	BerElement *ber;
 	char *attr, **vals;
-	const char *user, *password;
+	const char *user, *password, *scheme;
+	int ret;
 
-	if (auth_request->realm == NULL)
-		user = auth_request->user;
-	else {
-		user = t_strconcat(auth_request->user, "@",
-				   auth_request->realm, NULL);
-	}
-
+	user = auth_request->user;
 	password = NULL;
 
 	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);
@@ -73,7 +68,6 @@ static void handle_request(struct ldap_connection *conn,
 	} else {
 		attr = ldap_first_attribute(conn->ld, entry, &ber);
 		while (attr != NULL) {
-			i_warning("attr: %s", attr);
 			vals = ldap_get_values(conn->ld, entry, attr);
 			if (vals != NULL && vals[0] != NULL &&
 			    vals[1] == NULL) {
@@ -95,56 +89,38 @@ static void handle_request(struct ldap_connection *conn,
 		}
 	}
 
-	switch (ldap_request->credentials) {
-	case -1:
-		/* verify_plain */
-		if (password == NULL) {
-			ldap_request->callback.
-				verify_plain(PASSDB_RESULT_USER_UNKNOWN,
-					     auth_request);
-			break;
-		}
-
-		if (strncasecmp(password, "{crypt}", 7) == 0)
-			password += 7;
-
-		if (strcmp(mycrypt(password, ldap_request->password),
-			   ldap_request->password) != 0) {
-			if (verbose)
-				i_info("ldap(%s): password mismatch", user);
-			ldap_request->callback.
-				verify_plain(PASSDB_RESULT_PASSWORD_MISMATCH,
-					     auth_request);
-		} else {
-			ldap_request->callback.verify_plain(PASSDB_RESULT_OK,
-							    auth_request);
-		}
-		break;
-	case PASSDB_CREDENTIALS_PLAINTEXT:
-		if (password != NULL &&
-		    strncasecmp(password, "{plain}", 7) == 0)
-			password += 7;
-		else
-			password = NULL;
-
-		ldap_request->callback.lookup_credentials(password,
-							  auth_request);
-		break;
-	case PASSDB_CREDENTIALS_CRYPT:
-		ldap_request->callback.lookup_credentials(password,
-							  auth_request);
-		break;
-	case PASSDB_CREDENTIALS_DIGEST_MD5:
-		if (password != NULL &&
-		    strncasecmp(password, "{digest-md5}", 12) == 0)
-			password += 12;
-		else
-			password = NULL;
-
-		ldap_request->callback.lookup_credentials(password,
-							  auth_request);
-		break;
+	scheme = password_get_scheme(&password);
+	if (scheme == NULL) {
+		scheme = conn->set.default_pass_scheme;
+		i_assert(scheme != NULL);
 	}
+
+	if (ldap_request->credentials != -1) {
+		passdb_handle_credentials(ldap_request->credentials,
+			user, password, scheme,
+			ldap_request->callback.lookup_credentials,
+			auth_request);
+		return;
+	}
+
+	/* verify plain */
+	if (password == NULL) {
+		ldap_request->callback.verify_plain(PASSDB_RESULT_USER_UNKNOWN,
+						    auth_request);
+		return;
+	}
+
+	ret = password_verify(ldap_request->password, password, scheme, user);
+	if (ret < 0)
+		i_error("ldap(%s): Unknown password scheme %s", user, scheme);
+	else if (ret == 0) {
+		if (verbose)
+			i_info("ldap(%s): password mismatch", user);
+	}
+
+	ldap_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
+					    PASSDB_RESULT_PASSWORD_MISMATCH,
+					    auth_request);
 }
 
 static void ldap_lookup_pass(struct auth_request *auth_request,
@@ -154,14 +130,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	const char *user, *filter;
 	string_t *str;
 
-	if (auth_request->realm == NULL)
-		user = auth_request->user;
-	else {
-		user = t_strconcat(auth_request->user, "@",
-				   auth_request->realm, NULL);
-	}
-
-	user = ldap_escape(user);
+	user = ldap_escape(auth_request->user);
 	if (conn->set.pass_filter == NULL) {
 		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
 			passdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER], user);

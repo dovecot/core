@@ -19,8 +19,8 @@ struct userdb_module {
 	void (*init)(const char *args);
 	void (*deinit)(void);
 
-	void (*lookup)(const char *user, const char *realm,
-		       userdb_callback_t *callback, void *context);
+	void (*lookup)(const char *user, userdb_callback_t *callback,
+		       void *context);
 };
 
 extern struct userdb_module *userdb;

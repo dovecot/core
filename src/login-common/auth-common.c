@@ -24,7 +24,7 @@ int auth_callback(struct auth_request *request, struct auth_login_reply *reply,
 		  const unsigned char *data, struct client *client,
 		  master_callback_t *master_callback, const char **error)
 {
-	const char *user, *realm;
+	const char *user;
 
 	*error = NULL;
 
@@ -55,11 +55,9 @@ int auth_callback(struct auth_request *request, struct auth_login_reply *reply,
 		client->auth_request = NULL;
 
 		user = auth_login_get_str(reply, data, reply->username_idx);
-		realm = auth_login_get_str(reply, data, reply->realm_idx);
 
 		i_free(client->virtual_user);
-		client->virtual_user = realm == NULL ?
-			i_strdup(user) : i_strconcat(user, "@", realm, NULL);
+		client->virtual_user = i_strdup(user);
 
 		master_request_imap(client, master_callback,
 				    request->conn->pid, request->id);

@@ -16,14 +16,11 @@ static uid_t static_uid;
 static gid_t static_gid;
 static char *static_home_template;
 
-static void static_lookup(const char *user, const char *realm,
-			  userdb_callback_t *callback, void *context)
+static void static_lookup(const char *user, userdb_callback_t *callback,
+			  void *context)
 {
 	struct user_data data;
 	string_t *str;
-
-	if (realm != NULL)
-		user = t_strconcat(user, "@", realm, NULL);
 
 	memset(&data, 0, sizeof(data));
 	data.uid = static_uid;

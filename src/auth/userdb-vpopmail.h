@@ -10,7 +10,7 @@
    overflows. */
 #define VPOPMAIL_LIMIT 81
 
-struct vqpasswd *vpopmail_lookup_vqp(const char *user, const char *realm,
+struct vqpasswd *vpopmail_lookup_vqp(const char *user,
 				     char vpop_user[VPOPMAIL_LIMIT],
 				     char vpop_domain[VPOPMAIL_LIMIT]);
 

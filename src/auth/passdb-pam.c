@@ -199,36 +199,30 @@ pam_verify_plain(struct auth_request *request, const char *password,
 		 verify_plain_callback_t *callback)
 {
 	pam_handle_t *pamh;
-	const char *user;
 	struct pam_userpass userpass;
 	struct pam_conv conv;
 	int status, status2;
 
-	if (request->realm == NULL)
-		user = request->user;
-	else
-		user = t_strconcat(request->user, "@", request->realm, NULL);
-
 	conv.conv = pam_userpass_conv;
 	conv.appdata_ptr = &userpass;
 
-	userpass.user = user;
+	userpass.user = request->user;
 	userpass.pass = password;
 
-	status = pam_start(service_name, user, &conv, &pamh);
+	status = pam_start(service_name, request->user, &conv, &pamh);
 	if (status != PAM_SUCCESS) {
 		if (verbose) {
 			i_info("PAM: pam_start(%s) failed: %s",
-			       user, pam_strerror(pamh, status));
+			       request->user, pam_strerror(pamh, status));
 		}
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		return;
 	}
 
-	status = pam_auth(pamh, user);
+	status = pam_auth(pamh, request->user);
 	if ((status2 = pam_end(pamh, status)) != PAM_SUCCESS) {
 		i_error("pam_end(%s) failed: %s",
-			user, pam_strerror(pamh, status2));
+			request->user, pam_strerror(pamh, status2));
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		return;
 	}

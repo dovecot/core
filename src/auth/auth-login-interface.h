@@ -69,7 +69,6 @@ struct auth_login_reply {
 	/* variable width data, indexes into data[].
 	   Ignore if it points outside data_size. */
 	size_t username_idx; /* NUL-terminated */
-	size_t realm_idx; /* NUL-terminated */
 	size_t reply_idx; /* last, non-NUL terminated */
 
 	size_t data_size;

@@ -43,7 +43,11 @@ struct passdb_module {
 				   lookup_credentials_callback_t *callback);
 };
 
-const char *passdb_credentials_to_str(enum passdb_credentials credentials);
+void passdb_handle_credentials(enum passdb_credentials credentials,
+			       const char *user, const char *password,
+			       const char *scheme,
+			       lookup_credentials_callback_t *callback,
+                               struct auth_request *auth_request);
 
 extern struct passdb_module *passdb;
 

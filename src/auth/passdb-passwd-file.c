@@ -7,11 +7,8 @@
 
 #include "common.h"
 #include "passdb.h"
+#include "password-verify.h"
 #include "db-passwd-file.h"
-
-#include "hex-binary.h"
-#include "md5.h"
-#include "mycrypt.h"
 
 struct passwd_file *passdb_pwf = NULL;
 
@@ -20,74 +17,33 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 			 verify_plain_callback_t *callback)
 {
 	struct passwd_user *pu;
-	unsigned char digest[16];
-	const char *str;
+	const char *scheme, *crypted_pass;
+	int ret;
 
-	pu = db_passwd_file_lookup(passdb_pwf, request->user, request->realm);
+	pu = db_passwd_file_lookup(passdb_pwf, request->user);
 	if (pu == NULL) {
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
 
-	switch (pu->password_type) {
-	case PASSWORD_NONE:
-		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
-		return;
+	crypted_pass = pu->password;
+	scheme = password_get_scheme(&crypted_pass);
+	if (scheme == NULL) scheme = "DES";
 
-	case PASSWORD_DES:
-		if (strcmp(mycrypt(password, pu->password),
-			   pu->password) == 0) {
-			callback(PASSDB_RESULT_OK, request);
-			return;
-		}
-
-		if (verbose) {
-			i_info("passwd-file(%s): DES password mismatch",
-			       pu->user_realm);
-		}
-		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
-		return;
-
-	case PASSWORD_MD5:
-		md5_get_digest(password, strlen(password), digest);
-		str = binary_to_hex(digest, sizeof(digest));
-
-		if (strcmp(str, pu->password) == 0) {
-			callback(PASSDB_RESULT_OK, request);
-			return;
-		}
-
-		if (verbose) {
-			i_info("passwd-file(%s): MD5 password mismatch",
-			       pu->user_realm);
+	ret = password_verify(password, crypted_pass, scheme,
+			      request->user);
+	if (ret > 0)
+		callback(PASSDB_RESULT_OK, request);
+	else {
+		if (ret < 0) {
+			i_error("passwd-file(%s): Unknown password scheme %s",
+				pu->user_realm, scheme);
+		} else if (verbose) {
+			i_info("passwd-file(%s): %s password mismatch",
+			       pu->user_realm, scheme);
 		}
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
-		return;
-
-	case PASSWORD_DIGEST_MD5:
-		/* user:realm:passwd */
-		str = t_strconcat(t_strcut(pu->user_realm, '@'), ":",
-				  pu->realm == NULL ? "" : pu->realm,  ":",
-				  password, NULL);
-
-		md5_get_digest(str, strlen(str), digest);
-		str = binary_to_hex(digest, sizeof(digest));
-
-		if (strcmp(str, pu->password) == 0) {
-			callback(PASSDB_RESULT_OK, request);
-			return;
-		}
-
-		if (verbose) {
-			i_info("passwd-file(%s): DIGEST-MD5 password mismatch",
-			       pu->user_realm);
-		}
-
-		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
-		return;
 	}
-
-	i_unreached();
 }
 
 static void
@@ -96,41 +52,19 @@ passwd_file_lookup_credentials(struct auth_request *request,
 			       lookup_credentials_callback_t *callback)
 {
 	struct passwd_user *pu;
+	const char *crypted_pass, *scheme;
 
-	pu = db_passwd_file_lookup(passdb_pwf, request->user, request->realm);
+	pu = db_passwd_file_lookup(passdb_pwf, request->user);
 	if (pu == NULL) {
 		callback(NULL, request);
 		return;
 	}
 
-	if (pu->password_type == PASSWORD_NONE) {
-		if (verbose)
-			i_info("passwd-file(%s): No password", pu->user_realm);
-		callback(NULL, request);
-		return;
-	}
+	crypted_pass = pu->password;
+	scheme = password_get_scheme(&crypted_pass);
 
-	switch (credentials) {
-	case PASSDB_CREDENTIALS_DIGEST_MD5:
-		if (pu->password_type == PASSWORD_DIGEST_MD5) {
-			callback(pu->password, request);
-			return;
-		}
-
-		if (verbose) {
-			i_info("passwd-file(%s): No DIGEST-MD5 password",
-			       pu->user_realm);
-		}
-		callback(NULL, request);
-		return;
-	default:
-		if (verbose) {
-			i_info("passwd-file(%s): Unsupported credentials %u",
-			       pu->user_realm, (unsigned int)credentials);
-		}
-		callback(NULL, request);
-		return;
-	}
+	passdb_handle_credentials(credentials, request->user, crypted_pass,
+				  scheme, callback, request);
 }
 
 static void passwd_file_init(const char *args)

@@ -22,7 +22,7 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	struct vqpasswd *vpw;
 	int result;
 
-	vpw = vpopmail_lookup_vqp(request->user, request->realm,
+	vpw = vpopmail_lookup_vqp(request->user,
 				  vpop_user, vpop_domain);
 	if (vpw == NULL) {
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);

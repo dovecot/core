@@ -133,7 +133,6 @@ void mech_init_login_reply(struct auth_login_reply *reply)
 	memset(reply, 0, sizeof(*reply));
 
 	reply->username_idx = (unsigned int)-1;
-	reply->realm_idx = (unsigned int)-1;
 	reply->reply_idx = (unsigned int)-1;
 }
 
@@ -147,14 +146,6 @@ void *mech_auth_success(struct auth_login_reply *reply,
 
 	reply->username_idx = 0;
 	buffer_append(buf, auth_request->user, strlen(auth_request->user)+1);
-
-	if (auth_request->realm == NULL)
-		reply->realm_idx = (size_t)-1;
-	else {
-		reply->realm_idx = buffer_get_used_size(buf);
-		buffer_append(buf, auth_request->realm,
-			      strlen(auth_request->realm)+1);
-	}
 
 	if (data_size == 0)
 		reply->reply_idx = (size_t)-1;

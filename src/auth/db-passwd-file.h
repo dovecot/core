@@ -1,13 +1,6 @@
 #ifndef __DB_PASSWD_FILE_H
 #define __DB_PASSWD_FILE_H
 
-enum password_type {
-	PASSWORD_NONE,
-	PASSWORD_DES,
-	PASSWORD_MD5,
-	PASSWORD_DIGEST_MD5
-};
-
 struct passwd_user {
 	char *user_realm; /* user@realm */
 	const char *realm; /* NULL or points to user_realm */
@@ -18,7 +11,6 @@ struct passwd_user {
 	char *home;
 	char *mail;
 
-	enum password_type password_type;
 	char *password;
 
 	unsigned int chroot:1;
@@ -39,8 +31,7 @@ extern struct passwd_file *userdb_pwf;
 extern struct passwd_file *passdb_pwf;
 
 struct passwd_user *
-db_passwd_file_lookup(struct passwd_file *pw,
-		      const char *user, const char *realm);
+db_passwd_file_lookup(struct passwd_file *pw, const char *user);
 
 struct passwd_file *db_passwd_file_parse(const char *path);
 void db_passwd_file_unref(struct passwd_file *pw);

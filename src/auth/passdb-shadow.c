@@ -16,21 +16,15 @@ static void
 shadow_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
 {
-	const char *user;
 	struct spwd *spw;
 	int result;
 
-	if (request->realm == NULL)
-		user = request->user;
-	else
-		user = t_strconcat(request->user, "@", request->realm, NULL);
-
-	spw = getspnam(user);
+	spw = getspnam(request->user);
 	if (spw == NULL) {
 		if (errno != 0)
-			i_error("getspnam(%s) failed: %m", user);
+			i_error("getspnam(%s) failed: %m", request->user);
 		else if (verbose)
-			i_info("shadow(%s): unknown user", user);
+			i_info("shadow(%s): unknown user", request->user);
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
@@ -38,7 +32,7 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 	if (!IS_VALID_PASSWD(spw->sp_pwdp)) {
 		if (verbose) {
 			i_info("shadow(%s): invalid password field '%s'",
-			       user, spw->sp_pwdp);
+			       request->user, spw->sp_pwdp);
 		}
 		callback(PASSDB_RESULT_USER_DISABLED, request);
 		return;
@@ -52,7 +46,7 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 
 	if (!result) {
 		if (verbose)
-			i_info("shadow(%s): password mismatch", user);
+			i_info("shadow(%s): password mismatch", request->user);
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}

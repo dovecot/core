@@ -11,31 +11,25 @@
 #include "userdb.h"
 #include "userdb-vpopmail.h"
 
-struct vqpasswd *vpopmail_lookup_vqp(const char *user, const char *realm,
+struct vqpasswd *vpopmail_lookup_vqp(const char *user,
 				     char vpop_user[VPOPMAIL_LIMIT],
 				     char vpop_domain[VPOPMAIL_LIMIT])
 {
 	struct vqpasswd *vpw;
 
-	if (realm != NULL) {
-		if (strlen(user) >= VPOPMAIL_LIMIT ||
-		    strlen(realm) >= VPOPMAIL_LIMIT)
-			return NULL;
-	} else {
-		/* vpop_user must be zero-filled or parse_email() leaves an
-		   extra character after the user name. we'll fill vpop_domain
-		   as well just to be sure... */
-		memset(vpop_user, '\0', VPOPMAIL_LIMIT);
-		memset(vpop_domain, '\0', VPOPMAIL_LIMIT);
+	/* vpop_user must be zero-filled or parse_email() leaves an
+	   extra character after the user name. we'll fill vpop_domain
+	   as well just to be sure... */
+	memset(vpop_user, '\0', VPOPMAIL_LIMIT);
+	memset(vpop_domain, '\0', VPOPMAIL_LIMIT);
 
-		if (parse_email(t_strdup_noconst(user), vpop_user, vpop_domain,
-				VPOPMAIL_LIMIT-1) < 0) {
-			if (verbose) {
-				i_info("vpopmail(%s): parse_email() failed",
-				       user);
-			}
-			return NULL;
+	if (parse_email(t_strdup_noconst(user), vpop_user, vpop_domain,
+			VPOPMAIL_LIMIT-1) < 0) {
+		if (verbose) {
+			i_info("vpopmail(%s): parse_email() failed",
+			       user);
 		}
+		return NULL;
 	}
 
 	vpw = vauth_getpw(vpop_user, vpop_domain);
@@ -50,8 +44,8 @@ struct vqpasswd *vpopmail_lookup_vqp(const char *user, const char *realm,
 
 #ifdef USERDB_VPOPMAIL
 
-static void vpopmail_lookup(const char *user, const char *realm,
-			    userdb_callback_t *callback, void *context)
+static void vpopmail_lookup(const char *user, userdb_callback_t *callback,
+			    void *context)
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
@@ -60,10 +54,7 @@ static void vpopmail_lookup(const char *user, const char *realm,
 	gid_t gid;
 	pool_t pool;
 
-	if (realm != NULL)
-		user = t_strconcat(user, "@", realm, NULL);
-
-	vpw = vpopmail_lookup_vqp(user, realm, vpop_user, vpop_domain);
+	vpw = vpopmail_lookup_vqp(user, vpop_user, vpop_domain);
 	if (vpw == NULL) {
 		callback(NULL, context);
 		return;

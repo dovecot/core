@@ -13,20 +13,52 @@ static struct auth_module *passdb_module = NULL;
 
 struct passdb_module *passdb;
 
-const char *passdb_credentials_to_str(enum passdb_credentials credentials)
+static const char *
+passdb_credentials_to_str(enum passdb_credentials credentials)
 {
 	switch (credentials) {
 	case _PASSDB_CREDENTIALS_INTERNAL:
 		break;
 	case PASSDB_CREDENTIALS_PLAINTEXT:
-		return "plaintext";
+		return "PLAIN";
 	case PASSDB_CREDENTIALS_CRYPT:
-		return "crypt";
+		return "CRYPT";
 	case PASSDB_CREDENTIALS_DIGEST_MD5:
-		return "digest-md5";
+		return "DIGEST-MD5";
 	}
 
 	return "??";
+}
+
+void passdb_handle_credentials(enum passdb_credentials credentials,
+			       const char *user, const char *password,
+			       const char *scheme,
+			       lookup_credentials_callback_t *callback,
+                               struct auth_request *auth_request)
+{
+	const char *wanted_scheme;
+
+	if (credentials == PASSDB_CREDENTIALS_CRYPT) {
+		/* anything goes */
+		if (password != NULL)
+			password = t_strdup_printf("{%s}%s", scheme, password);
+		callback(password, auth_request);
+		return;
+	}
+
+	if (password != NULL) {
+		wanted_scheme = passdb_credentials_to_str(credentials);
+		if (strcasecmp(scheme, wanted_scheme) != 0) {
+			if (verbose) {
+				i_info("password(%s): Requested %s scheme, "
+				       "but we have only %s", user,
+				       wanted_scheme, scheme);
+			}
+			password = NULL;
+		}
+	}
+
+	callback(password, auth_request);
 }
 
 void passdb_init(void)

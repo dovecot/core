@@ -10,7 +10,7 @@ typedef void mech_callback_t(struct auth_login_reply *reply,
 
 struct auth_request {
 	pool_t pool;
-	char *user, *realm;
+	char *user;
 
 	struct login_connection *conn;
 	unsigned int id;

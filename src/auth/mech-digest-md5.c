@@ -568,10 +568,14 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 				  request->data_size, &error)) {
 		auth_request->callback = callback;
 
-		auth_request->user = p_strdup(auth_request->pool,
-					      auth->username);
-		auth_request->realm =
-			p_strdup_empty(auth_request->pool, auth->realm);
+		if (auth->realm == NULL) {
+			auth_request->user = p_strdup(auth_request->pool,
+						      auth->username);
+		} else {
+			auth_request->user = p_strconcat(auth_request->pool,
+							 auth->username, "@",
+							 auth->realm, NULL);
+		}
 
 		passdb->lookup_credentials(&auth->auth_request,
 					   PASSDB_CREDENTIALS_DIGEST_MD5,

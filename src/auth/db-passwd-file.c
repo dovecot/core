@@ -41,25 +41,25 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	p = pass == NULL ? NULL : strchr(pass, '[');
 	if (p == NULL) {
 		pu->password = p_strdup(pw->pool, pass);
-		pu->password_type = pass == NULL ? PASSWORD_NONE : PASSWORD_DES;
 	} else {
 		/* password[type] - we're being libpam-pwdfile compatible
-		   here. it uses 13 = DES and 34 = MD5. We add
-		   56 = Digest-MD5. */
-		pu->password = p_strdup_until(pw->pool, pass, p);
+		   here. it uses 13 = DES and 34 = MD5. For backwards
+		   comaptibility with ourself, we have also 56 = Digest-MD5. */
+		pass = t_strdup_until(pass, p);
 		if (p[1] == '3' && p[2] == '4') {
-			pu->password_type = PASSWORD_MD5;
-			str_lcase(pu->password);
+			pu->password = p_strconcat(pw->pool, "{PLAIN-MD5}",
+						   pass, NULL);
 		} else if (p[1] == '5' && p[2] == '6') {
-			pu->password_type = PASSWORD_DIGEST_MD5;
-			if (strlen(pu->password) != 32) {
+			pu->password = p_strconcat(pw->pool, "{DIGEST-MD5}",
+						   pass, NULL);
+			if (strlen(pu->password) != 32 + 12) {
 				i_error("User %s has invalid password in "
 					"file %s", username, pw->path);
 				return;
 			}
-			str_lcase(pu->password);
 		} else {
-			pu->password_type = PASSWORD_DES;
+			pu->password = p_strconcat(pw->pool, "{CRYPT}",
+						   pass, NULL);
 		}
 	}
 
@@ -208,13 +208,9 @@ void db_passwd_file_unref(struct passwd_file *pw)
 }
 
 struct passwd_user *
-db_passwd_file_lookup(struct passwd_file *pw,
-		      const char *user, const char *realm)
+db_passwd_file_lookup(struct passwd_file *pw, const char *user)
 {
 	struct passwd_user *pu;
-
-	if (realm != NULL)
-		user = t_strconcat(user, "@", realm, NULL);
 
 	passwd_file_sync(pw);
 
