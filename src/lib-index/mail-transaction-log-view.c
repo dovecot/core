@@ -22,8 +22,6 @@ struct mail_transaction_log_view {
 	uint32_t prev_file_seq;
 	uoff_t prev_file_offset;
 
-	uint32_t max_ext_id;
-
 	unsigned int broken:1;
 };
 
@@ -239,7 +237,7 @@ mail_transaction_log_view_is_corrupted(struct mail_transaction_log_view *view)
 static int
 log_view_get_next(struct mail_transaction_log_view *view,
 		  const struct mail_transaction_header **hdr_r,
-		  const void **data_r, enum mail_transaction_type type_mask)
+		  const void **data_r)
 {
 	const struct mail_transaction_header *hdr;
 	struct mail_transaction_log_file *file;
@@ -344,8 +342,6 @@ log_view_get_next(struct mail_transaction_log_view *view,
 			}
 
 			intro = CONST_PTR_OFFSET(data, i);
-			if (intro->ext_id > view->max_ext_id)
-				view->max_ext_id = intro->ext_id;
 			if (intro->name_size >
 			    hdr_size - sizeof(*hdr) - sizeof(*intro)) {
 				mail_transaction_log_file_set_corrupted(file,
@@ -354,27 +350,6 @@ log_view_get_next(struct mail_transaction_log_view *view,
 			}
 
 			i += sizeof(*intro) + intro->name_size;
-		}
-	} else if (hdr->type == MAIL_TRANSACTION_EXT_REC_UPDATE ||
-		   hdr->type == MAIL_TRANSACTION_EXT_HDR_UPDATE ||
-		   hdr->type == MAIL_TRANSACTION_EXT_RESET) {
-		const uint32_t *ext_id = data;
-		uint32_t max_ext_id;
-
-		max_ext_id = view->log->index->map->extensions == NULL ? 0 :
-			(view->log->index->map->extensions->used /
-			 sizeof(struct mail_index_ext));
-		if (view->max_ext_id > max_ext_id)
-			max_ext_id = view->max_ext_id;
-
-		/* don't check this error if we're just skipping over this.
-		   we could have skipped over the ext_intro just before this
-		   which is the reason we don't yet know it. */
-		if (*ext_id >= max_ext_id && (type_mask & hdr->type) != 0) {
-			mail_transaction_log_file_set_corrupted(file,
-				"extension update out of range (%u >= %u)",
-				*ext_id, max_ext_id);
-			return -1;
 		}
 	}
 
@@ -397,8 +372,7 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 	if (view->broken)
 		return -1;
 
-	while ((ret = log_view_get_next(view, &hdr, &data,
-					view->type_mask)) > 0) {
+	while ((ret = log_view_get_next(view, &hdr, &data)) > 0) {
 		if ((view->type_mask & hdr->type) != 0)
 			break;
 
