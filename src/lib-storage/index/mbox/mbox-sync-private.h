@@ -61,7 +61,7 @@ struct mbox_sync_mail_context {
 	struct mbox_sync_mail mail;
 
 	uint32_t seq;
-	uoff_t from_offset, hdr_offset, body_offset;
+	uoff_t hdr_offset, body_offset;
 
 	size_t header_first_change, header_last_change;
 	string_t *header, *uidl;

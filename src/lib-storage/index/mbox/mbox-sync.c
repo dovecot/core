@@ -121,7 +121,7 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	mail_ctx->uidl = sync_ctx->uidl;
 	str_truncate(mail_ctx->uidl, 0);
 
-	mail_ctx->from_offset =
+	mail_ctx->mail.from_offset =
 		istream_raw_mbox_get_start_offset(sync_ctx->input);
 	mail_ctx->mail.offset =
 		istream_raw_mbox_get_header_offset(sync_ctx->input);
@@ -131,11 +131,11 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	if (mail_ctx->seq > 1 && sync_ctx->dest_first_mail) {
 		/* First message was expunged and this is the next one.
 		   Skip \n header */
-		mail_ctx->from_offset++;
+		mail_ctx->mail.from_offset++;
 	}
 
 	mbox_sync_parse_next_mail(sync_ctx->input, mail_ctx);
-	i_assert(sync_ctx->input->v_offset != mail_ctx->from_offset ||
+	i_assert(sync_ctx->input->v_offset != mail_ctx->mail.from_offset ||
 		 sync_ctx->input->eof);
 
 	mail_ctx->mail.body_size =
@@ -143,8 +143,6 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 					       mail_ctx->content_length);
 	i_assert(mail_ctx->mail.body_size < OFF_T_MAX);
 
-	/* save the offset permanently */
-	mail_ctx->mail.from_offset = mail_ctx->from_offset;
 	if ((mail_ctx->mail.flags & MBOX_NONRECENT) == 0 && !mail_ctx->pseudo) {
 		if (!sync_ctx->ibox->keep_recent) {
 			/* need to add 'O' flag to Status-header */
@@ -325,36 +323,26 @@ static int mbox_sync_find_index_md5(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
-static int mbox_sync_get_from_offset(struct mbox_sync_context *sync_ctx,
-				     uint32_t seq, uint64_t *offset_r)
-{
-	const void *data;
-
-	/* see if from_offset needs updating */
-	if (mail_index_lookup_extra(sync_ctx->sync_view, seq,
-				    sync_ctx->ibox->mbox_extra_idx,
-				    &data) < 0) {
-		mail_storage_set_index_error(sync_ctx->ibox);
-		return -1;
-	}
-
-	*offset_r = data == NULL ? 0 : *((const uint64_t *)data);
-	return 0;
-}
-
 static int
 mbox_sync_update_from_offset(struct mbox_sync_context *sync_ctx,
                              struct mbox_sync_mail *mail,
 			     int nocheck)
 {
+	const void *data;
 	uint64_t offset;
 
 	if (!nocheck) {
-		if (mbox_sync_get_from_offset(sync_ctx, sync_ctx->idx_seq,
-					      &offset) < 0)
+		/* see if from_offset needs updating */
+		if (mail_index_lookup_extra(sync_ctx->sync_view,
+					    sync_ctx->idx_seq,
+					    sync_ctx->ibox->mbox_extra_idx,
+					    &data) < 0) {
+			mail_storage_set_index_error(sync_ctx->ibox);
 			return -1;
+		}
 
-		if (offset == mail->from_offset)
+		if (data != NULL &&
+		    *((const uint64_t *)data) == mail->from_offset)
 			return 0;
 	}
 
@@ -442,9 +430,9 @@ static int mbox_read_from_line(struct mbox_sync_mail_context *ctx)
 	size_t size, from_line_size;
 
 	buffer_set_used_size(ctx->sync_ctx->from_line, 0);
-	from_line_size = ctx->hdr_offset - ctx->from_offset;
+	from_line_size = ctx->hdr_offset - ctx->mail.from_offset;
 
-	i_stream_seek(input, ctx->from_offset);
+	i_stream_seek(input, ctx->mail.from_offset);
 	for (;;) {
 		data = i_stream_get_data(input, &size);
 		if (size >= from_line_size)
@@ -470,7 +458,7 @@ mbox_write_from_line(struct mbox_sync_mail_context *ctx, off_t move_diff)
 	string_t *str = ctx->sync_ctx->from_line;
 
 	if (pwrite_full(ctx->sync_ctx->fd, str_data(str), str_len(str),
-			ctx->from_offset + move_diff) < 0) {
+			ctx->mail.from_offset + move_diff) < 0) {
 		mbox_set_syscall_error(ctx->sync_ctx->ibox, "pwrite_full()");
 		return -1;
 	}
@@ -509,9 +497,9 @@ static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 
 static int mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 {
-	mail_ctx->mail.offset = mail_ctx->from_offset;
+	mail_ctx->mail.offset = mail_ctx->mail.from_offset;
 	mail_ctx->mail.space =
-		mail_ctx->body_offset - mail_ctx->from_offset +
+		mail_ctx->body_offset - mail_ctx->mail.from_offset +
 		mail_ctx->mail.body_size;
 	mail_ctx->mail.body_size = 0;
 
@@ -580,7 +568,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 
 			memset(&mail, 0, sizeof(mail));
 			mail.flags = MBOX_EXPUNGED;
-			mail.offset = mail_ctx->from_offset -
+			mail.offset = mail_ctx->mail.from_offset -
 				sync_ctx->expunged_space;
 			mail.space = sync_ctx->expunged_space;
 
