@@ -12,6 +12,7 @@
 #include "password-scheme.h"
 #include "db-sql.h"
 #include "passdb.h"
+#include "passdb-cache.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -28,67 +29,28 @@ struct passdb_sql_request {
 };
 
 static struct sql_connection *passdb_sql_conn;
+static char *passdb_sql_cache_key;
 
 static void result_save_extra_fields(struct sql_result *result,
-                                     struct passdb_sql_request *sql_request,
+				     struct passdb_sql_request *sql_request,
 				     struct auth_request *auth_request)
 {
+	struct auth_request_extra *extra;
 	unsigned int i, fields_count;
 	const char *name, *value;
-	string_t *str;
+
+	extra = auth_request_extra_begin(auth_request, sql_request->password);
 
 	fields_count = sql_result_get_fields_count(result);
-	if (fields_count == 1)
-		return;
-
-	str = NULL;
 	for (i = 0; i < fields_count; i++) {
 		name = sql_result_get_field_name(result, i);
 		value = sql_result_get_field_value(result, i);
 
-		if (value == NULL)
-			continue;
-
-		if (strcmp(name, "password") == 0)
-			continue;
-
-		if (strcmp(name, "nodelay") == 0) {
-			/* don't delay replying to client of the failure */
-			auth_request->no_failure_delay = TRUE;
-			continue;
-		}
-
-		if (str == NULL)
-			str = str_new(auth_request->pool, 64);
-
-		if (strcmp(name, "nologin") == 0) {
-			/* user can't actually login - don't keep this
-			   reply for master */
-			auth_request->no_login = TRUE;
-			if (str_len(str) > 0)
-				str_append_c(str, '\t');
-			str_append(str, name);
-		} else if (strcmp(name, "proxy") == 0) {
-			/* we're proxying authentication for this user. send
-			   password back if using plaintext authentication. */
-			auth_request->proxy = TRUE;
-			if (str_len(str) > 0)
-				str_append_c(str, '\t');
-			str_append(str, name);
-
-			if (*sql_request->password != '\0') {
-				str_printfa(str, "\tpass=%s",
-					    sql_request->password);
-			}
-		} else {
-			if (str_len(str) > 0)
-				str_append_c(str, '\t');
-			str_printfa(str, "%s=%s", name, value);
-		}
+		if (value != NULL)
+			auth_request_extra_next(extra, name, value);
 	}
 
-	if (str != NULL)
-		auth_request->extra_fields = str_c(str);
+	auth_request_extra_finish(extra, passdb_sql_cache_key);
 }
 
 static void sql_query_callback(struct sql_result *result, void *context)
@@ -110,6 +72,10 @@ static void sql_query_callback(struct sql_result *result, void *context)
 		if (verbose) {
 			i_info("sql(%s): Unknown user",
 			       get_log_prefix(auth_request));
+		}
+		if (passdb_cache != NULL) {
+			auth_cache_insert(passdb_cache, auth_request,
+					  passdb_sql_cache_key, "");
 		}
 	} else if ((idx = sql_result_find_field(result, "password")) < 0) {
 		i_error("sql(%s): Password query didn't return password",
@@ -136,7 +102,7 @@ static void sql_query_callback(struct sql_result *result, void *context)
 
 	if (sql_request->credentials != -1) {
 		passdb_handle_credentials(sql_request->credentials,
-			user, password, scheme,
+			password, scheme,
 			sql_request->callback.lookup_credentials,
 			auth_request);
 		return;
@@ -182,6 +148,14 @@ static void sql_verify_plain(struct auth_request *request, const char *password,
 			     verify_plain_callback_t *callback)
 {
 	struct passdb_sql_request *sql_request;
+	enum passdb_result result;
+
+	if (passdb_cache_verify_plain(request, passdb_sql_cache_key, password,
+				      passdb_sql_conn->set.default_pass_scheme,
+				      &result)) {
+		callback(result, request);
+		return;
+	}
 
 	sql_request = i_malloc(sizeof(struct passdb_sql_request) +
 			       strlen(password));
@@ -198,6 +172,16 @@ static void sql_lookup_credentials(struct auth_request *request,
 				   lookup_credentials_callback_t *callback)
 {
 	struct passdb_sql_request *sql_request;
+	const char *result, *scheme;
+
+	if (passdb_cache_lookup_credentials(request, passdb_sql_cache_key,
+					    &result, &scheme)) {
+		if (scheme == NULL)
+			scheme = passdb_sql_conn->set.default_pass_scheme;
+		passdb_handle_credentials(credentials, result, scheme,
+					  callback, request);
+		return;
+	}
 
 	sql_request = i_new(struct passdb_sql_request, 1);
 	sql_request->auth_request = request;
@@ -210,6 +194,8 @@ static void sql_lookup_credentials(struct auth_request *request,
 static void passdb_sql_preinit(const char *args)
 {
 	passdb_sql_conn = db_sql_init(args);
+	passdb_sql_cache_key =
+		auth_cache_parse_key(passdb_sql_conn->set.password_query);
 }
 
 static void passdb_sql_init(const char *args __attr_unused__)
@@ -220,6 +206,7 @@ static void passdb_sql_init(const char *args __attr_unused__)
 static void passdb_sql_deinit(void)
 {
 	db_sql_unref(passdb_sql_conn);
+	i_free(passdb_sql_cache_key);
 }
 
 struct passdb_module passdb_sql = {

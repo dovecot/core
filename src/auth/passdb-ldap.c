@@ -11,6 +11,7 @@
 #include "password-scheme.h"
 #include "db-ldap.h"
 #include "passdb.h"
+#include "passdb-cache.h"
 
 #include <ldap.h>
 #include <stdlib.h>
@@ -45,6 +46,7 @@ struct passdb_ldap_request {
 };
 
 static struct passdb_ldap_connection *passdb_ldap_conn;
+static char *passdb_ldap_cache_key;
 
 static void handle_request(struct ldap_connection *conn,
 			   struct ldap_request *request, LDAPMessage *res)
@@ -116,7 +118,7 @@ static void handle_request(struct ldap_connection *conn,
 
 	if (ldap_request->credentials != -1) {
 		passdb_handle_credentials(ldap_request->credentials,
-			user, password, scheme,
+			password, scheme,
 			ldap_request->callback.lookup_credentials,
 			auth_request);
 		return;
@@ -177,7 +179,15 @@ static void
 ldap_verify_plain(struct auth_request *request, const char *password,
 		  verify_plain_callback_t *callback)
 {
+	struct ldap_connection *conn = passdb_ldap_conn->conn;
 	struct passdb_ldap_request *ldap_request;
+	enum passdb_result result;
+
+	if (passdb_cache_verify_plain(request, passdb_ldap_cache_key, password,
+				      conn->set.default_pass_scheme, &result)) {
+		callback(result, request);
+		return;
+	}
 
 	ldap_request = i_malloc(sizeof(struct passdb_ldap_request) +
 				strlen(password));
@@ -193,6 +203,18 @@ static void ldap_lookup_credentials(struct auth_request *request,
 				    lookup_credentials_callback_t *callback)
 {
 	struct passdb_ldap_request *ldap_request;
+	const char *result, *scheme;
+
+	if (passdb_cache_lookup_credentials(request, passdb_ldap_cache_key,
+					    &result, &scheme)) {
+		if (scheme == NULL) {
+			scheme = passdb_ldap_conn->conn->set.
+				default_pass_scheme;
+		}
+		passdb_handle_credentials(credentials, result, scheme,
+					  callback, request);
+		return;
+	}
 
 	ldap_request = i_new(struct passdb_ldap_request, 1);
 	ldap_request->credentials = credentials;
@@ -212,6 +234,7 @@ static void passdb_ldap_preinit(const char *args)
 			  conn->set.pass_attrs : DEFAULT_ATTRIBUTES,
 			  &passdb_ldap_conn->attrs,
 			  &passdb_ldap_conn->attr_names);
+	passdb_ldap_cache_key = auth_cache_parse_key(conn->set.pass_filter);
 }
 
 static void passdb_ldap_init(const char *args __attr_unused__)
@@ -222,6 +245,7 @@ static void passdb_ldap_init(const char *args __attr_unused__)
 static void passdb_ldap_deinit(void)
 {
 	db_ldap_unref(passdb_ldap_conn->conn);
+	i_free(passdb_ldap_cache_key);
 	i_free(passdb_ldap_conn);
 }
 

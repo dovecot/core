@@ -129,6 +129,8 @@ struct auth_settings {
 	const char *default_realm;
 	const char *userdb;
 	const char *passdb;
+	unsigned int cache_size;
+	unsigned int cache_ttl;
 	const char *executable;
 	const char *user;
 	const char *chroot;

@@ -5,6 +5,7 @@
 #include "auth-module.h"
 #include "password-scheme.h"
 #include "passdb.h"
+#include "passdb-cache.h"
 
 #include <stdlib.h>
 
@@ -41,8 +42,7 @@ passdb_credentials_to_str(enum passdb_credentials credentials)
 }
 
 void passdb_handle_credentials(enum passdb_credentials credentials,
-			       const char *user, const char *password,
-			       const char *scheme,
+			       const char *password, const char *scheme,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request)
 {
@@ -63,13 +63,15 @@ void passdb_handle_credentials(enum passdb_credentials credentials,
 			    strcasecmp(scheme, "CLEARTEXT") == 0) {
 				/* we can generate anything out of plaintext
 				   passwords */
-				password = password_generate(password, user,
+				password = password_generate(password,
+							     auth_request->user,
 							     wanted_scheme);
 			} else {
 				if (verbose) {
 					i_info("password(%s): Requested %s "
 					       "scheme, but we have only %s",
-					       user, wanted_scheme, scheme);
+					       auth_request->user,
+					       wanted_scheme, scheme);
 				}
 				password = NULL;
 			}
@@ -173,6 +175,7 @@ void passdb_preinit(void)
 
 void passdb_init(void)
 {
+	passdb_cache_init();
 	if (passdb->init != NULL)
 		passdb->init(passdb_args);
 }
@@ -185,5 +188,6 @@ void passdb_deinit(void)
 	if (passdb_module != NULL)
                 auth_module_close(passdb_module);
 #endif
+	passdb_cache_deinit();
 	i_free(passdb_args);
 }

@@ -63,7 +63,7 @@ passwd_file_lookup_credentials(struct auth_request *request,
 	crypted_pass = pu->password;
 	scheme = password_get_scheme(&crypted_pass);
 
-	passdb_handle_credentials(credentials, request->user, crypted_pass,
+	passdb_handle_credentials(credentials, crypted_pass,
 				  scheme, callback, request);
 }
 

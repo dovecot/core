@@ -32,6 +32,7 @@ dovecot_auth_LDADD = \
 	$(MODULE_LIBS)
 
 dovecot_auth_SOURCES = \
+	auth-cache.c \
 	auth-client-connection.c \
 	auth-master-connection.c \
 	auth-module.c \
@@ -50,6 +51,7 @@ dovecot_auth_SOURCES = \
 	mech-apop.c \
 	passdb.c \
 	passdb-bsdauth.c \
+	passdb-cache.c \
 	passdb-ldap.c \
 	passdb-passwd.c \
 	passdb-passwd-file.c \
@@ -67,6 +69,7 @@ dovecot_auth_SOURCES = \
 	userdb-sql.c
 
 noinst_HEADERS = \
+	auth-cache.h \
 	auth-client-connection.h \
 	auth-client-interface.h \
 	auth-master-interface.h \
@@ -79,6 +82,7 @@ noinst_HEADERS = \
 	mech.h \
 	mycrypt.h \
 	passdb.h \
+	passdb-cache.h \
 	password-scheme.h \
 	userdb.h \
 	userdb-vpopmail.h

@@ -442,6 +442,8 @@ static int create_auth_process(struct auth_process_group *group)
 			    group->set->username_translation, NULL));
 	env_put(t_strconcat("ANONYMOUS_USERNAME=",
 			    group->set->anonymous_username, NULL));
+	env_put(t_strdup_printf("CACHE_SIZE=%u", group->set->cache_size));
+	env_put(t_strdup_printf("CACHE_TTL=%u", group->set->cache_ttl));
 
 	for (as = group->set->sockets, i = 1; as != NULL; as = as->next, i++) {
 		if (strcmp(as->type, "listen") != 0)
