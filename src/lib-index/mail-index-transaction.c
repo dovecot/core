@@ -96,6 +96,7 @@ mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
 				rec = mail_index_transaction_lookup(t, *seq);
 				*seq = rec->uid;
 			} else {
+				i_assert(*seq <= view->map->records_count);
 				*seq = MAIL_INDEX_MAP_IDX(view->map,
 							  *seq - 1)->uid;
 			}
