@@ -35,7 +35,7 @@ void env_put(const char *env)
 	if (pool == NULL)
 		pool = pool_create("Environment", 1024, FALSE);
 
-	if (putenv(p_strdup(pool, env)) < 0)
+	if (putenv(p_strdup(pool, env)) != 0)
 		i_fatal("Environment full, can't add: %s", env);
 }
 
