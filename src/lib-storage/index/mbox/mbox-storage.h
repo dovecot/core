@@ -19,7 +19,7 @@ struct mbox_transaction_context {
 	unsigned int mbox_modified:1;
 };
 
-extern struct mail mbox_mail;
+extern struct mail_vfuncs mbox_mail_vfuncs;
 extern const char *mbox_hide_headers[];
 extern size_t mbox_hide_headers_count;
 
@@ -33,7 +33,8 @@ int mbox_mailbox_list_deinit(struct mailbox_list_context *ctx);
 struct mailbox_list *mbox_mailbox_list_next(struct mailbox_list_context *ctx);
 
 struct mailbox_transaction_context *
-mbox_transaction_begin(struct mailbox *box, int hide);
+mbox_transaction_begin(struct mailbox *box,
+		       enum mailbox_transaction_flags flags);
 int mbox_transaction_commit(struct mailbox_transaction_context *t,
 			    enum mailbox_sync_flags flags);
 void mbox_transaction_rollback(struct mailbox_transaction_context *t);
@@ -47,7 +48,7 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 	       time_t received_date, int timezone_offset,
 	       const char *from_envelope, struct istream *input, int want_mail);
 int mbox_save_continue(struct mail_save_context *ctx);
-int mbox_save_finish(struct mail_save_context *ctx, struct mail **mail_r);
+int mbox_save_finish(struct mail_save_context *ctx, struct mail *dest_mail);
 void mbox_save_cancel(struct mail_save_context *ctx);
 
 int mbox_transaction_save_commit(struct mbox_save_context *ctx);

@@ -14,23 +14,23 @@ static int imap_search(struct client_command_context *cmd, const char *charset,
 	struct client *client = cmd->client;
         struct mail_search_context *ctx;
         struct mailbox_transaction_context *trans;
-	const struct mail *mail;
+	struct mail *mail;
 	string_t *str;
 	int ret, uid, first = TRUE;
 
 	str = t_str_new(STRBUF_SIZE);
 	uid = cmd->uid;
 
-	trans = mailbox_transaction_begin(client->mailbox, FALSE);
-	ctx = mailbox_search_init(trans, charset, sargs,
-				  NULL, 0, NULL);
+	trans = mailbox_transaction_begin(client->mailbox, 0);
+	ctx = mailbox_search_init(trans, charset, sargs, NULL);
 	if (ctx == NULL) {
 		mailbox_transaction_rollback(trans);
 		return FALSE;
 	}
 
 	str_append(str, "* SEARCH");
-	while ((mail = mailbox_search_next(ctx)) != NULL) {
+	mail = mail_alloc(trans, 0, NULL);
+	while ((ret = mailbox_search_next(ctx, mail)) > 0) {
 		if (str_len(str) >= STRBUF_SIZE-MAX_INT_STRLEN) {
 			/* flush */
 			o_stream_send(client->output,
@@ -41,6 +41,7 @@ static int imap_search(struct client_command_context *cmd, const char *charset,
 
 		str_printfa(str, " %u", uid ? mail->uid : mail->seq);
 	}
+	mail_free(mail);
 
 	ret = mailbox_search_deinit(ctx);
 

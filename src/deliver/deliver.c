@@ -93,7 +93,7 @@ static int save_mail(struct mail_storage *storage, const char *mailbox,
 		return FALSE;
 	}
 
-	t = mailbox_transaction_begin(box, FALSE);
+	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.ret = -1;

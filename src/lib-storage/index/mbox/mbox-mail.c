@@ -22,7 +22,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 	enum mbox_sync_flags sync_flags = 0;
 	int ret, deleted;
 
-	if (mail->mail.expunged)
+	if (mail->mail.mail.expunged)
 		return 0;
 
 __again:
@@ -45,11 +45,11 @@ __again:
 	if (mbox_file_open_stream(ibox) < 0)
 		return -1;
 
-	ret = mbox_file_seek(ibox, mail->trans->trans_view, mail->mail.seq,
-			     &deleted);
+	ret = mbox_file_seek(ibox, mail->trans->trans_view,
+			     mail->mail.mail.seq, &deleted);
 	if (ret < 0) {
 		if (deleted) {
-			mail->mail.expunged = TRUE;
+			mail->mail.mail.expunged = TRUE;
 			return 0;
 		}
 		return -1;
@@ -160,8 +160,9 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 	return index_mail_init_stream(mail, hdr_size, body_size);
 }
 
-struct mail mbox_mail = {
-	0, 0, 0, 0, 0, 0, 0,
+struct mail_vfuncs mbox_mail_vfuncs = {
+	index_mail_free,
+	index_mail_set_seq,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

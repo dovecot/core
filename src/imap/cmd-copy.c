@@ -12,22 +12,15 @@ static int fetch_and_copy(struct mailbox_transaction_context *t,
 	struct mail_search_context *search_ctx;
         struct mailbox_transaction_context *src_trans;
 	struct mail *mail;
-	string_t *dest_str;
 	int ret;
 
-	src_trans = mailbox_transaction_begin(srcbox, FALSE);
-	search_ctx = mailbox_search_init(src_trans, NULL, search_args, NULL,
-					 MAIL_FETCH_STREAM_HEADER |
-					 MAIL_FETCH_STREAM_BODY, NULL);
-	if (search_ctx == NULL) {
-		mailbox_transaction_rollback(src_trans);
-		return -1;
-	}
+	src_trans = mailbox_transaction_begin(srcbox, 0);
+	search_ctx = mailbox_search_init(src_trans, NULL, search_args, NULL);
 
-	dest_str = t_str_new(128);
-
+	mail = mail_alloc(src_trans, MAIL_FETCH_STREAM_HEADER |
+			  MAIL_FETCH_STREAM_BODY, NULL);
 	ret = 1;
-	while ((mail = mailbox_search_next(search_ctx)) != NULL) {
+	while (mailbox_search_next(search_ctx, mail) > 0) {
 		if (mail->expunged) {
 			ret = 0;
 			break;
@@ -36,8 +29,8 @@ static int fetch_and_copy(struct mailbox_transaction_context *t,
 			ret = -1;
 			break;
 		}
-
 	}
+	mail_free(mail);
 
 	if (mailbox_search_deinit(search_ctx) < 0)
 		ret = -1;
@@ -89,7 +82,8 @@ int cmd_copy(struct client_command_context *cmd)
 		}
 	}
 
-	t = mailbox_transaction_begin(destbox, FALSE);
+	t = mailbox_transaction_begin(destbox,
+				      MAILBOX_TRANSACTION_FLAG_EXTERNAL);
 	ret = fetch_and_copy(t, client->mailbox, search_arg);
 
 	if (ret <= 0)

@@ -30,6 +30,7 @@
 struct sort_context {
 	struct mail_search_context *search_ctx;
 	struct mailbox_transaction_context *t;
+	struct mail *other_mail;
 
 	enum mail_sort_type sort_program[MAX_SORT_PROGRAM_SIZE];
 	enum mail_sort_type common_mask, cache_mask;
@@ -228,15 +229,9 @@ int imap_sort(struct client_command_context *cmd, const char *charset,
 						 wanted_headers);
 
 	/* initialize searching */
-	ctx->t = mailbox_transaction_begin(client->mailbox, FALSE);
-	ctx->search_ctx =
-		mailbox_search_init(ctx->t, charset, args, norm_prog,
-				    wanted_fields, headers_ctx);
-	if (ctx->search_ctx == NULL) {
-		mailbox_transaction_rollback(ctx->t);
-		mailbox_header_lookup_deinit(headers_ctx);
-		return -1;
-	}
+	ctx->t = mailbox_transaction_begin(client->mailbox, 0);
+	ctx->search_ctx = mailbox_search_init(ctx->t, charset, args, norm_prog);
+	ctx->other_mail = mail_alloc(ctx->t, wanted_fields, headers_ctx);
 
 	ctx->box = client->mailbox;
 	ctx->output = client->output;
@@ -248,8 +243,12 @@ int imap_sort(struct client_command_context *cmd, const char *charset,
 
         ctx->id_is_uid = cmd->uid;
 
-	while ((mail = mailbox_search_next(ctx->search_ctx)) != NULL)
+	mail = mail_alloc(ctx->t, wanted_fields, headers_ctx);
+	while (mailbox_search_next(ctx->search_ctx, mail) > 0)
 		mail_sort_input(ctx, mail);
+
+	mail_free(mail);
+	mail_free(ctx->other_mail);
 
 	mail_sort_flush(ctx);
 	ret = mailbox_search_deinit(ctx->search_ctx);
@@ -291,7 +290,7 @@ static const char *get_first_mailbox(struct mail *mail, const char *field)
 	struct message_address *addr;
 	const char *str;
 
-	str = mail->get_header(mail, field);
+	str = mail_get_header(mail, field);
 	if (str == NULL)
 		return NULL;
 
@@ -309,7 +308,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	int changed = FALSE;
 
 	if (ctx->common_mask & MAIL_SORT_ARRIVAL) {
-		t = mail->get_received_date(mail);
+		t = mail_get_received_date(mail);
 		if (t != ctx->last_arrival) {
 			ctx->last_arrival = t;
 			changed = TRUE;
@@ -329,7 +328,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	}
 
 	if (ctx->common_mask & MAIL_SORT_DATE) {
-		t = mail->get_date(mail, NULL);
+		t = mail_get_date(mail, NULL);
 		if (t != ctx->last_date) {
 			ctx->last_date = t;
 			changed = TRUE;
@@ -349,7 +348,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	}
 
 	if (ctx->common_mask & MAIL_SORT_SIZE) {
-		size = mail->get_virtual_size(mail);
+		size = mail_get_virtual_size(mail);
 		if (size != ctx->last_size) {
 			ctx->last_size = size;
 			changed = TRUE;
@@ -357,7 +356,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	}
 
 	if (ctx->common_mask & MAIL_SORT_SUBJECT) {
-		str = mail->get_header(mail, "subject");
+		str = mail_get_header(mail, "subject");
 		if (str != NULL) {
 			str = imap_get_base_subject_cased(
 				pool_datastack_create(), str, NULL);
@@ -409,7 +408,7 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 		if (ctx->common_mask & MAIL_SORT_ARRIVAL)
 			t = ctx->last_arrival;
 		else
-			t = mail->get_received_date(mail);
+			t = mail_get_received_date(mail);
 		memcpy(buf + pos, &t, sizeof(t)); pos += sizeof(t);
 	}
 
@@ -417,7 +416,7 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 		if (ctx->common_mask & MAIL_SORT_DATE)
 			t = ctx->last_date;
 		else
-			t = mail->get_date(mail, NULL);
+			t = mail_get_date(mail, NULL);
 		memcpy(buf + pos, &t, sizeof(t)); pos += sizeof(t);
 	}
 
@@ -425,7 +424,7 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 		if (ctx->common_mask & MAIL_SORT_SIZE)
 			size = ctx->last_size;
 		else
-			size = mail->get_virtual_size(mail);
+			size = mail_get_virtual_size(mail);
 
 		memcpy(buf + pos, &size, sizeof(size)); pos += sizeof(size);
 	}
@@ -476,7 +475,7 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 		if (ctx->common_mask & MAIL_SORT_SUBJECT)
 			str = ctx->last_subject;
 		else {
-			str = mail->get_header(mail, "subject");
+			str = mail_get_header(mail, "subject");
 
 			if (str != NULL) {
 				str = imap_get_base_subject_cased(
@@ -507,7 +506,10 @@ static struct mail *get_mail(struct sort_context *ctx, const unsigned char *buf)
 		if (mailbox_get_uids(ctx->box, id, id, &seq, &seq) < 0)
 			return NULL;
 	}
-	return mailbox_fetch(ctx->t, seq, 0);
+
+	if (mail_set_seq(ctx->other_mail, seq) < 0)
+		return NULL;
+	return ctx->other_mail;
 
 }
 
@@ -524,9 +526,9 @@ static time_t get_time(enum mail_sort_type type, const unsigned char *buf,
 
 		switch (type) {
 		case MAIL_SORT_ARRIVAL:
-			return mail->get_received_date(mail);
+			return mail_get_received_date(mail);
 		case MAIL_SORT_DATE:
-			t = mail->get_date(mail, NULL);
+			t = mail_get_date(mail, NULL);
 			if (t == (time_t)-1)
 				t = 0;
 			return t;
@@ -554,7 +556,7 @@ static uoff_t get_uofft(enum mail_sort_type type, const unsigned char *buf,
 
 		i_assert(type == MAIL_SORT_SIZE);
 
-		return mail->get_virtual_size(mail);
+		return mail_get_virtual_size(mail);
 	}
 
 	/* use memcpy() to avoid any alignment problems */
@@ -578,7 +580,7 @@ static const char *get_str(enum mail_sort_type type, const unsigned char *buf,
 
 		switch (type) {
 		case MAIL_SORT_SUBJECT:
-			str = mail->get_header(mail, "subject");
+			str = mail_get_header(mail, "subject");
 			if (str == NULL)
 				return NULL;
 

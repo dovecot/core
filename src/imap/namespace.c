@@ -22,7 +22,7 @@ static void namespace_init_storage(struct namespace *ns)
 	}
 
 	if (hook_mail_storage_created != NULL)
-		hook_mail_storage_created(&ns->storage);
+		hook_mail_storage_created(ns->storage);
 }
 
 static struct namespace *

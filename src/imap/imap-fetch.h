@@ -28,6 +28,7 @@ struct imap_fetch_context {
 
 	struct mailbox_transaction_context *trans;
 	struct mail_search_context *search_ctx;
+	struct mail *mail;
 
 	enum mail_fetch_field fetch_data;
 	buffer_t *all_headers_buf;

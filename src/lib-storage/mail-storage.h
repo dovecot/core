@@ -94,6 +94,14 @@ enum mail_fetch_field {
 	MAIL_FETCH_UIDL_FILE_NAME	= 0x00020000
 };
 
+enum mailbox_transaction_flags {
+	/* Hide changes done in this transaction from next view sync */
+	MAILBOX_TRANSACTION_FLAG_HIDE		= 0x01,
+	/* External transaction. Should be used for copying and appends,
+	   but nothing else. */
+	MAILBOX_TRANSACTION_FLAG_EXTERNAL	= 0x02
+};
+
 enum mailbox_sync_flags {
 	/* Make sure we sync all external changes done to mailbox */
 	MAILBOX_SYNC_FLAG_FULL_READ	= 0x01,
@@ -119,7 +127,6 @@ enum mailbox_sync_type {
 struct mail_storage;
 struct mail_search_arg;
 struct mail_keywords;
-struct mail;
 struct mailbox;
 struct mailbox_list_context;
 struct mailbox_transaction_context;
@@ -149,6 +156,17 @@ struct mailbox_status {
 struct mailbox_sync_rec {
 	uint32_t seq1, seq2;
 	enum mailbox_sync_type type;
+};
+
+struct mail {
+	/* always set */
+	struct mailbox *box;
+	struct mailbox_transaction_context *transaction;
+	uint32_t seq, uid;
+
+	unsigned int expunged:1;
+	unsigned int has_nuls:1; /* message data is known to contain NULs */
+	unsigned int has_no_nuls:1; /* -''- known to not contain NULs */
 };
 
 struct mail_storage_callbacks {
@@ -291,7 +309,8 @@ void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 			    mailbox_notify_callback_t *callback, void *context);
 
 struct mailbox_transaction_context *
-mailbox_transaction_begin(struct mailbox *box, int hide);
+mailbox_transaction_begin(struct mailbox *box,
+			  enum mailbox_transaction_flags flags);
 int mailbox_transaction_commit(struct mailbox_transaction_context *t,
 			       enum mailbox_sync_flags flags);
 void mailbox_transaction_rollback(struct mailbox_transaction_context *t);
@@ -302,10 +321,6 @@ mailbox_keywords_create(struct mailbox_transaction_context *t,
 			const char *const keywords[]);
 void mailbox_keywords_free(struct mailbox_transaction_context *t,
 			   struct mail_keywords *keywords);
-
-/* Simplified fetching for a single sequence. */
-struct mail *mailbox_fetch(struct mailbox_transaction_context *t, uint32_t seq,
-			   enum mail_fetch_field wanted_fields);
 
 /* Convert uid range to sequence range. */
 int mailbox_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
@@ -326,21 +341,15 @@ int mailbox_search_get_sorting(struct mailbox *box,
 
    If sort_program is non-NULL, it requests that the returned messages
    are sorted by the given criteria. sort_program must have gone
-   through search_get_sorting().
-
-   wanted_fields and wanted_headers aren't required, but they can be
-   used for optimizations. */
+   through search_get_sorting(). */
 struct mail_search_context *
 mailbox_search_init(struct mailbox_transaction_context *t,
 		    const char *charset, struct mail_search_arg *args,
-		    const enum mail_sort_type *sort_program,
-		    enum mail_fetch_field wanted_fields,
-                    struct mailbox_header_lookup_ctx *wanted_headers);
+		    const enum mail_sort_type *sort_program);
 /* Deinitialize search request. */
 int mailbox_search_deinit(struct mail_search_context *ctx);
-/* Search the next message. Returned mail object can be used until
-   the next call to search_next() or search_deinit(). */
-struct mail *mailbox_search_next(struct mail_search_context *ctx);
+/* Search the next message. Returns 1 if found, 0 if not, -1 if failure. */
+int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail);
 
 /* Save a mail into mailbox. timezone_offset specifies the timezone in
    minutes in which received_date was originally given with. To use
@@ -356,14 +365,14 @@ mailbox_save_init(struct mailbox_transaction_context *t,
 		  const char *from_envelope, struct istream *input,
 		  int want_mail);
 int mailbox_save_continue(struct mail_save_context *ctx);
-int mailbox_save_finish(struct mail_save_context *ctx, struct mail **mail_r);
+int mailbox_save_finish(struct mail_save_context *ctx, struct mail *dest_mail);
 void mailbox_save_cancel(struct mail_save_context *ctx);
 
-/* Copy given message. If dest_mail_r is non-NULL, the copied message can be
+/* Copy given message. If dest_mail is non-NULL, the copied message can be
    accessed using it. Note that setting it non-NULL may require mailbox
    syncing, so don't give give it unless you need it. */
 int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
-		 struct mail **dest_mail_r);
+		 struct mail *dest_mail);
 
 /* Returns TRUE if mailbox is now in inconsistent state, meaning that
    the message IDs etc. may have changed - only way to recover this
@@ -372,60 +381,56 @@ int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
    do forced CLOSE. */
 int mailbox_is_inconsistent(struct mailbox *box);
 
-struct mail {
-	/* always set */
-	struct mailbox *box;
-	struct mailbox_transaction_context *transaction;
-	uint32_t seq, uid;
+/* Returns message's flags */
+enum mail_flags mail_get_flags(struct mail *mail);
+/* Returns message's keywords */
+const char *const *mail_get_keywords(struct mail *mail);
+/* Returns message's MIME parts */
+const struct message_part *mail_get_parts(struct mail *mail);
 
-	unsigned int expunged:1;
-	unsigned int has_nuls:1; /* message data is known to contain NULs */
-	unsigned int has_no_nuls:1; /* -''- known to not contain NULs */
+struct mail *mail_alloc(struct mailbox_transaction_context *t,
+			enum mail_fetch_field wanted_fields,
+			struct mailbox_header_lookup_ctx *wanted_headers);
+void mail_free(struct mail *mail);
+int mail_set_seq(struct mail *mail, uint32_t seq);
 
-	enum mail_flags (*get_flags)(struct mail *mail);
-	const char *const *(*get_keywords)(struct mail *mail);
-	const struct message_part *(*get_parts)(struct mail *mail);
+/* Get the time message was received (IMAP INTERNALDATE).
+   Returns (time_t)-1 if error occured. */
+time_t mail_get_received_date(struct mail *mail);
+/* Get the Date-header in mail. Timezone is in minutes.
+   Returns (time_t)-1 if error occured, 0 if field wasn't found or
+   couldn't be parsed. */
+time_t mail_get_date(struct mail *mail, int *timezone);
 
-	/* Get the time message was received (IMAP INTERNALDATE).
-	   Returns (time_t)-1 if error occured. */
-	time_t (*get_received_date)(struct mail *mail);
-	/* Get the Date-header in mail. Timezone is in minutes.
-	   Returns (time_t)-1 if error occured, 0 if field wasn't found or
-	   couldn't be parsed. */
-	time_t (*get_date)(struct mail *mail, int *timezone);
-	/* Get the full virtual size of mail (IMAP RFC822.SIZE).
-	   Returns (uoff_t)-1 if error occured */
-	uoff_t (*get_virtual_size)(struct mail *mail);
-	/* Get the full physical size of mail.
-	   Returns (uoff_t)-1 if error occured */
-	uoff_t (*get_physical_size)(struct mail *mail);
+/* Get the full virtual size of mail (IMAP RFC822.SIZE).
+   Returns (uoff_t)-1 if error occured */
+uoff_t mail_get_virtual_size(struct mail *mail);
+/* Get the full physical size of mail.
+   Returns (uoff_t)-1 if error occured */
+uoff_t mail_get_physical_size(struct mail *mail);
 
-	/* Get value for single header field */
-	const char *(*get_header)(struct mail *mail, const char *field);
-	/* Returns stream containing specified headers. */
-	struct istream *
-		(*get_headers)(struct mail *mail,
-			       struct mailbox_header_lookup_ctx *headers);
+/* Get value for single header field */
+const char *mail_get_header(struct mail *mail, const char *field);
+/* Returns stream containing specified headers. */
+struct istream *mail_get_headers(struct mail *mail,
+				 struct mailbox_header_lookup_ctx *headers);
+/* Returns input stream pointing to beginning of message header.
+   hdr_size and body_size are updated unless they're NULL. */
+struct istream *mail_get_stream(struct mail *mail,
+				struct message_size *hdr_size,
+				struct message_size *body_size);
 
-	/* Returns input stream pointing to beginning of message header.
-	   hdr_size and body_size are updated unless they're NULL. */
-	struct istream *(*get_stream)(struct mail *mail,
-				      struct message_size *hdr_size,
-				      struct message_size *body_size);
+/* Get any of the "special" fields. */
+const char *mail_get_special(struct mail *mail, enum mail_fetch_field field);
 
-	/* Get any of the "special" fields. */
-	const char *(*get_special)(struct mail *mail,
-				   enum mail_fetch_field field);
+/* Update message flags. */
+int mail_update_flags(struct mail *mail, enum modify_type modify_type,
+		      enum mail_flags flags);
+/* Update message keywords. */
+int mail_update_keywords(struct mail *mail, enum modify_type modify_type,
+			 struct mail_keywords *keywords);
 
-	/* Update message flags. */
-	int (*update_flags)(struct mail *mail, enum modify_type modify_type,
-			    enum mail_flags flags);
-	/* Update message keywords. */
-	int (*update_keywords)(struct mail *mail, enum modify_type modify_type,
-			       struct mail_keywords *keywords);
-
-	/* Expunge this message. Sequence numbers don't change until commit. */
-	int (*expunge)(struct mail *mail);
-};
+/* Expunge this message. Sequence numbers don't change until commit. */
+int mail_expunge(struct mail *mail);
 
 #endif

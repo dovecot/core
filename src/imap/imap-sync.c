@@ -18,6 +18,7 @@ struct imap_sync_context {
 
 	struct mailbox_transaction_context *t;
 	struct mailbox_sync_context *sync_ctx;
+	struct mail *mail;
 
 	struct mailbox_sync_rec sync_rec;
 	uint32_t seq;
@@ -40,7 +41,8 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx->box = box;
 
 	ctx->sync_ctx = mailbox_sync_init(box, flags);
-	ctx->t = mailbox_transaction_begin(box, FALSE);
+	ctx->t = mailbox_transaction_begin(box, 0);
+	ctx->mail = mail_alloc(ctx->t, MAIL_FETCH_FLAGS, 0);
 	ctx->messages_count = client->messages_count;
 	return ctx;
 }
@@ -48,6 +50,8 @@ imap_sync_init(struct client *client, struct mailbox *box,
 int imap_sync_deinit(struct imap_sync_context *ctx)
 {
 	struct mailbox_status status;
+
+	mail_free(ctx->mail);
 
 	if (mailbox_sync_deinit(ctx->sync_ctx, &status) < 0 || ctx->failed) {
 		mailbox_transaction_rollback(ctx->t);
@@ -80,7 +84,6 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 
 int imap_sync_more(struct imap_sync_context *ctx)
 {
-	struct mail *mail;
 	enum mail_flags flags;
 	const char *const *keywords;
 	string_t *str;
@@ -110,11 +113,13 @@ int imap_sync_more(struct imap_sync_context *ctx)
 				ctx->seq = ctx->sync_rec.seq1;
 
 			for (; ctx->seq <= ctx->sync_rec.seq2; ctx->seq++) {
-				mail = mailbox_fetch(ctx->t, ctx->seq,
-						     MAIL_FETCH_FLAGS);
+				if (mail_set_seq(ctx->mail, ctx->seq) < 0) {
+					t_pop();
+					return -1;
+				}
 
-				flags = mail->get_flags(mail);
-				keywords = mail->get_keywords(mail);
+				flags = mail_get_flags(ctx->mail);
+				keywords = mail_get_keywords(ctx->mail);
 
 				str_truncate(str, 0);
 				str_printfa(str, "* %u FETCH (FLAGS (",

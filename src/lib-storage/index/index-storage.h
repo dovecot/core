@@ -4,7 +4,6 @@
 #include "file-dotlock.h"
 #include "mail-storage-private.h"
 #include "mail-index.h"
-#include "index-mail.h"
 
 /* Max. mmap()ed size for a message */
 #define MAIL_MMAP_BLOCK_SIZE (1024*256)
@@ -25,13 +24,13 @@ enum mailbox_lock_notify_type {
 struct index_storage {
 	struct mail_storage storage;
 
-	char *dir; /* root directory */
-	char *index_dir;
-	char *control_dir;
-	char *inbox_path; /* INBOX location */
-        char *temp_prefix; /* prefix for temporary files */
+	const char *dir; /* root directory */
+	const char *index_dir;
+	const char *control_dir;
+	const char *inbox_path; /* INBOX location */
+        const char *temp_prefix; /* prefix for temporary files */
 
-	char *user; /* name of user accessing the storage */
+	const char *user; /* name of user accessing the storage */
 
 	struct mail_storage_callbacks *callbacks;
 	void *callback_context;
@@ -40,12 +39,12 @@ struct index_storage {
 struct index_mailbox {
 	struct mailbox box;
 	struct index_storage *storage;
-	char *path, *control_dir;
+	const char *path, *control_dir;
 
 	struct mail_index *index;
 	struct mail_index_view *view;
 	struct mail_cache *cache;
-	struct mail *mail_interface;
+	struct mail_vfuncs *mail_vfuncs;
 
 	int (*is_recent)(struct index_mailbox *ibox, uint32_t uid);
 
@@ -110,13 +109,13 @@ struct index_mailbox {
 struct index_transaction_context {
 	struct mailbox_transaction_context mailbox_ctx;
 	struct index_mailbox *ibox;
+        enum mailbox_transaction_flags flags;
 
 	struct mail_index_transaction *trans;
 	struct mail_index_view *trans_view;
 	struct mail_cache_view *cache_view;
 	struct mail_cache_transaction_ctx *cache_trans;
 
-	struct index_mail fetch_mail; /* for index_storage_fetch() */
 	unsigned int cache_trans_failed:1;
 };
 
@@ -137,10 +136,9 @@ void index_storage_init(struct index_storage *storage,
 			enum mail_storage_flags flags);
 void index_storage_deinit(struct index_storage *storage);
 
-struct index_mailbox *
-index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
-			   struct mail_index *index, const char *name,
-			   enum mailbox_open_flags flags);
+int index_storage_mailbox_init(struct index_mailbox *ibox,
+			       struct mail_index *index, const char *name,
+			       enum mailbox_open_flags flags);
 void index_storage_mailbox_free(struct mailbox *box);
 
 int index_storage_is_readonly(struct mailbox *box);
@@ -184,9 +182,6 @@ int index_storage_get_status_locked(struct index_mailbox *ibox,
 				    enum mailbox_status_items items,
 				    struct mailbox_status *status_r);
 
-struct mail *
-index_storage_fetch(struct mailbox_transaction_context *t, uint32_t seq,
-		    enum mail_fetch_field wanted_fields);
 int index_storage_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			   uint32_t *seq1_r, uint32_t *seq2_r);
 
@@ -199,14 +194,14 @@ int index_storage_search_get_sorting(struct mailbox *box,
 struct mail_search_context *
 index_storage_search_init(struct mailbox_transaction_context *t,
 			  const char *charset, struct mail_search_arg *args,
-			  const enum mail_sort_type *sort_program,
-			  enum mail_fetch_field wanted_fields,
-			  struct mailbox_header_lookup_ctx *wanted_headers);
+			  const enum mail_sort_type *sort_program);
 int index_storage_search_deinit(struct mail_search_context *ctx);
-struct mail *index_storage_search_next(struct mail_search_context *ctx);
+int index_storage_search_next(struct mail_search_context *ctx,
+			      struct mail *mail);
 
 void index_transaction_init(struct index_transaction_context *t,
-			    struct index_mailbox *ibox, int hide);
+			    struct index_mailbox *ibox,
+			    enum mailbox_transaction_flags flags);
 int index_transaction_commit(struct mailbox_transaction_context *t);
 void index_transaction_rollback(struct mailbox_transaction_context *t);
 

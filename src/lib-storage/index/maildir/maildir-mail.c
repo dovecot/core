@@ -77,7 +77,7 @@ static time_t maildir_mail_get_received_date(struct mail *_mail)
 
 	if (data->open_mail && data->stream == NULL) {
 		/* we're going to open the mail anyway */
-		(void)_mail->get_stream(_mail, NULL, NULL);
+		(void)mail_get_stream(_mail, NULL, NULL);
 	}
 
 	if (data->stream != NULL) {
@@ -90,7 +90,7 @@ static time_t maildir_mail_get_received_date(struct mail *_mail)
 			return (time_t)-1;
 		}
 	} else {
-		if (maildir_file_do(mail->ibox, mail->mail.uid,
+		if (maildir_file_do(mail->ibox, mail->mail.mail.uid,
 				    do_stat, &st) <= 0)
 			return (time_t)-1;
 	}
@@ -120,7 +120,7 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 	}
 
 	fname = maildir_uidlist_lookup(mail->ibox->uidlist,
-				       mail->mail.uid, &flags);
+				       mail->mail.mail.uid, &flags);
 	if (fname == NULL)
 		return (uoff_t)-1;
 
@@ -154,7 +154,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 
 	if (field == MAIL_FETCH_UIDL_FILE_NAME) {
 	    	fname = maildir_uidlist_lookup(mail->ibox->uidlist,
-					       mail->mail.uid, &flags);
+					       mail->mail.mail.uid, &flags);
 		end = strchr(fname, ':');
 		return end == NULL ? fname : t_strdup_until(fname, end);
 	}
@@ -176,7 +176,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 		return size;
 
 	fname = maildir_uidlist_lookup(mail->ibox->uidlist,
-				       mail->mail.uid, &flags);
+				       mail->mail.mail.uid, &flags);
 	if (fname == NULL)
 		return (uoff_t)-1;
 
@@ -195,7 +195,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	}
 
 	if (size == (uoff_t)-1) {
-		if (maildir_file_do(mail->ibox, mail->mail.uid,
+		if (maildir_file_do(mail->ibox, mail->mail.mail.uid,
 				    do_stat, &st) <= 0)
 			return (uoff_t)-1;
 		size = st.st_size;
@@ -217,8 +217,8 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 	int deleted;
 
 	if (data->stream == NULL) {
-		data->stream = maildir_open_mail(mail->ibox, mail->mail.uid,
-						 &deleted);
+		data->stream = maildir_open_mail(mail->ibox,
+						 mail->mail.mail.uid, &deleted);
 		if (data->stream == NULL) {
 			_mail->expunged = deleted;
 			return NULL;
@@ -228,8 +228,9 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 	return index_mail_init_stream(mail, hdr_size, body_size);
 }
 
-struct mail maildir_mail = {
-	0, 0, 0, 0, 0, 0, 0,
+struct mail_vfuncs maildir_mail_vfuncs = {
+	index_mail_free,
+	index_mail_set_seq,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

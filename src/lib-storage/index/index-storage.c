@@ -5,6 +5,7 @@
 #include "ioloop.h"
 #include "mail-index.h"
 #include "index-storage.h"
+#include "index-mail.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -42,6 +43,8 @@ void index_storage_init(struct index_storage *storage,
 			enum mail_storage_flags flags)
 {
 	storage->storage.flags = flags;
+	ARRAY_CREATE(&storage->storage.module_contexts,
+		     storage->storage.pool, void *, 5);
 	index_storage_refcount++;
 }
 
@@ -279,12 +282,10 @@ void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 	ibox->last_notify_type = MAILBOX_LOCK_NOTIFY_NONE;
 }
 
-struct index_mailbox *
-index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
-			   struct mail_index *index, const char *name,
-			   enum mailbox_open_flags flags)
+int index_storage_mailbox_init(struct index_mailbox *ibox,
+			       struct mail_index *index, const char *name,
+			       enum mailbox_open_flags flags)
 {
-	struct index_mailbox *ibox;
 	enum mail_index_open_flags index_flags;
 	enum mail_index_lock_method lock_method = 0;
 	const char *str;
@@ -312,15 +313,13 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 		i_fatal("Unknown lock_method: %s", str);
 
 	do {
-		ibox = i_new(struct index_mailbox, 1);
-		ibox->box = *box;
-		ibox->storage = storage;
+		ibox->box.storage = &ibox->storage->storage;
+		ibox->box.name = p_strdup(ibox->box.pool, name);
+		ARRAY_CREATE(&ibox->box.module_contexts,
+			     ibox->box.pool, void *, 5);
 
-		ibox->box.storage = &storage->storage;
-		ibox->box.name = i_strdup(name);
 		ibox->readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
 		ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
-
 		ibox->index = index;
 
 		ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
@@ -333,12 +332,12 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 		ibox->cache = mail_index_get_cache(index);
 		index_cache_register_defaults(ibox);
 		ibox->view = mail_index_view_open(index);
-		return ibox;
+		return 0;
 	} while (0);
 
 	mail_storage_set_index_error(ibox);
 	index_storage_mailbox_free(&ibox->box);
-	return NULL;
+	return -1;
 }
 
 void index_storage_mailbox_free(struct mailbox *box)
@@ -352,11 +351,7 @@ void index_storage_mailbox_free(struct mailbox *box)
 	if (ibox->index != NULL)
 		index_storage_unref(ibox->index);
         i_free(ibox->cache_fields);
-	i_free(ibox->path);
-	i_free(ibox->control_dir);
-
-	i_free(box->name);
-	i_free(box);
+	pool_unref(box->pool);
 }
 
 int index_storage_is_readonly(struct mailbox *box)

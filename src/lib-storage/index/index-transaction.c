@@ -2,13 +2,19 @@
 
 #include "lib.h"
 #include "index-storage.h"
+#include "index-mail.h"
 
 void index_transaction_init(struct index_transaction_context *t,
-			    struct index_mailbox *ibox, int hide)
+			    struct index_mailbox *ibox,
+			    enum mailbox_transaction_flags flags)
 {
 	t->mailbox_ctx.box = &ibox->box;
 	t->ibox = ibox;
-	t->trans = mail_index_transaction_begin(ibox->view, hide, FALSE);
+	t->flags = flags;
+
+	t->trans = mail_index_transaction_begin(ibox->view,
+		(flags & MAILBOX_TRANSACTION_FLAG_HIDE) != 0,
+		(flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 	t->trans_view = mail_index_transaction_open_updated_view(t->trans);
 	t->cache_view = mail_cache_view_open(ibox->cache, t->trans_view);
 	t->cache_trans = mail_cache_get_transaction(t->cache_view, t->trans);
@@ -30,9 +36,6 @@ int index_transaction_commit(struct mailbox_transaction_context *_t)
 	uoff_t offset;
 	int ret;
 
-	if (t->fetch_mail.pool != NULL)
-		index_mail_deinit(&t->fetch_mail);
-
 	ret = mail_index_transaction_commit(t->trans, &seq, &offset);
 	if (ret < 0)
 		mail_storage_set_index_error(t->ibox);
@@ -51,9 +54,6 @@ void index_transaction_rollback(struct mailbox_transaction_context *_t)
 {
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
-
-	if (t->fetch_mail.pool != NULL)
-		index_mail_deinit(&t->fetch_mail);
 
 	mail_index_transaction_rollback(t->trans);
 	index_transaction_free(t);

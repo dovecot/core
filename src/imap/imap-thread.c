@@ -73,6 +73,7 @@ struct thread_context {
 	struct mailbox_transaction_context *t;
 	struct mailbox *box;
 	struct ostream *output;
+	struct mail *mail;
 
 	pool_t pool;
 	pool_t temp_pool;
@@ -117,19 +118,10 @@ int imap_thread(struct client_command_context *cmd, const char *charset,
 		i_fatal("Only REFERENCES threading supported");
 
 	ctx = t_new(struct thread_context, 1);
-	headers_ctx = mailbox_header_lookup_init(client->mailbox,
-						 wanted_headers);
 
 	/* initialize searching */
-	ctx->t = mailbox_transaction_begin(client->mailbox, FALSE);
-	ctx->search_ctx =
-		mailbox_search_init(ctx->t, charset, args, NULL,
-				    MAIL_FETCH_DATE, headers_ctx);
-	if (ctx->search_ctx == NULL) {
-		mailbox_transaction_rollback(ctx->t);
-		mailbox_header_lookup_deinit(headers_ctx);
-		return -1;
-	}
+	ctx->t = mailbox_transaction_begin(client->mailbox, 0);
+	ctx->search_ctx = mailbox_search_init(ctx->t, charset, args, NULL);
 
 	ctx->box = client->mailbox;
 	ctx->output = client->output;
@@ -142,10 +134,15 @@ int imap_thread(struct client_command_context *cmd, const char *charset,
 	ctx->msgid_hash = hash_create(default_pool, ctx->temp_pool,
 				      APPROX_MSG_COUNT*2, str_hash,
 				      (hash_cmp_callback_t *)strcmp);
-
 	ctx->id_is_uid = cmd->uid;
-	while ((mail = mailbox_search_next(ctx->search_ctx)) != NULL)
+
+	headers_ctx = mailbox_header_lookup_init(client->mailbox,
+						 wanted_headers);
+	mail = mail_alloc(ctx->t, MAIL_FETCH_DATE, headers_ctx);
+	while (mailbox_search_next(ctx->search_ctx, mail) > 0)
 		mail_thread_input(ctx, mail);
+
+	mail_free(mail);
 
 	o_stream_send_str(client->output, "* THREAD");
 	mail_thread_finish(ctx);
@@ -447,18 +444,18 @@ static void mail_thread_input(struct thread_context *ctx, struct mail *mail)
 
 	t_push();
 
-	sent_date = mail->get_date(mail, NULL);
+	sent_date = mail_get_date(mail, NULL);
 	if (sent_date == (time_t)-1)
 		sent_date = 0;
 
-	message_id = mail->get_header(mail, "message-id");
+	message_id = mail_get_header(mail, "message-id");
 	node = update_message(ctx, get_msgid(&message_id), sent_date,
 			      ctx->id_is_uid ? mail->uid : mail->seq);
 
 	/* link references */
-	references = mail->get_header(mail, "references");
+	references = mail_get_header(mail, "references");
 	if (!link_references(ctx, node, references)) {
-		in_reply_to = mail->get_header(mail, "in-reply-to");
+		in_reply_to = mail_get_header(mail, "in-reply-to");
 		refid = in_reply_to == NULL ? NULL : get_msgid(&in_reply_to);
 
 		if (refid != NULL)
@@ -661,14 +658,19 @@ static void add_base_subject(struct thread_context *ctx,
 
 static void gather_base_subjects(struct thread_context *ctx)
 {
-	struct mail *mail;
+	static const char *wanted_headers[] = { "subject", NULL };
+	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct node *node;
+	const char *subject;
 	unsigned int id;
 	uint32_t seq;
 
 	ctx->subject_hash =
 		hash_create(default_pool, ctx->temp_pool, ctx->root_count * 2,
 			    str_hash, (hash_cmp_callback_t *)strcmp);
+
+	headers_ctx = mailbox_header_lookup_init(ctx->box, wanted_headers);
+	ctx->mail = mail_alloc(ctx->t, 0, headers_ctx);
 
 	node = ctx->root_node.first_child;
 	for (; node != NULL; node = node->next) {
@@ -689,15 +691,16 @@ static void gather_base_subjects(struct thread_context *ctx)
 				seq = 0;
 		}
 
-		mail = seq == 0 ? NULL : mailbox_fetch(ctx->t, seq, 0);
-
-		if (mail != NULL) {
+		if (seq != 0 && mail_set_seq(ctx->mail, seq) == 0) {
 			t_push();
-			add_base_subject(ctx, mail->get_header(mail, "subject"),
-					 node);
+                        subject = mail_get_header(ctx->mail, "subject");
+			add_base_subject(ctx, subject, node);
 			t_pop();
 		}
 	}
+
+	mail_free(ctx->mail);
+	mailbox_header_lookup_deinit(headers_ctx);
 }
 
 static void reset_children_parent(struct node *parent)

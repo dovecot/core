@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "maildir-storage.h"
+#include "index-mail.h"
 #include "mail-copy.h"
 
 #include <stdlib.h>
@@ -63,8 +64,8 @@ static int maildir_copy_hardlink(struct mail *mail,
 	const char *const *keywords;
 	const char *dest_fname;
 
-        flags = mail->get_flags(mail);
-        keywords = mail->get_keywords(mail);
+        flags = mail_get_flags(mail);
+        keywords = mail_get_keywords(mail);
 	dest_fname = maildir_generate_tmp_filename(&ioloop_timeval);
 	dest_fname = maildir_filename_set_flags(dest_fname, flags, keywords);
 
@@ -72,7 +73,7 @@ static int maildir_copy_hardlink(struct mail *mail,
 	do_ctx.dest_path =
 		t_strconcat(ctx->ibox->path, "/new/", dest_fname, NULL);
 
-	if (maildir_file_do(imail->ibox, imail->mail.uid,
+	if (maildir_file_do(imail->ibox, imail->mail.mail.uid,
 			    do_hardlink, &do_ctx) < 0)
 		return -1;
 
@@ -123,7 +124,7 @@ void maildir_transaction_copy_rollback(struct maildir_copy_context *ctx)
 }
 
 int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail,
-		 struct mail **dest_mail_r)
+		 struct mail *dest_mail)
 {
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)_t;
@@ -135,7 +136,7 @@ int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail,
 	ctx = t->copy_ctx;
 
 	if (ctx->hardlink && mail->box->storage == ctx->ibox->box.storage) {
-		// FIXME: handle dest_mail_r
+		// FIXME: handle dest_mail
 		t_push();
 		ret = maildir_copy_hardlink(mail, ctx);
 		t_pop();
@@ -148,5 +149,5 @@ int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail,
 		/* non-fatal hardlinking failure, try the slow way */
 	}
 
-	return mail_storage_copy(_t, mail, dest_mail_r);
+	return mail_storage_copy(_t, mail, dest_mail);
 }

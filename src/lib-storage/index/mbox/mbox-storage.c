@@ -11,6 +11,7 @@
 #include "mbox-file.h"
 #include "mbox-sync-private.h"
 #include "mail-copy.h"
+#include "index-mail.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -248,6 +249,7 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags)
 	const char *root_dir, *inbox_file, *index_dir, *p;
 	struct stat st;
 	int autodetect;
+	pool_t pool;
 
 	root_dir = inbox_file = index_dir = NULL;
 
@@ -325,14 +327,16 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags)
 		       inbox_file == NULL ? "" : inbox_file);
 	}
 
-	storage = i_new(struct index_storage, 1);
+	pool = pool_alloconly_create("storage", 256);
+	storage = p_new(pool, struct index_storage, 1);
 	storage->storage = mbox_storage;
+	storage->storage.pool = pool;
 
-	storage->dir = i_strdup(home_expand(root_dir));
-	storage->inbox_path = i_strdup(home_expand(inbox_file));
-	storage->index_dir = i_strdup(home_expand(index_dir));
-	storage->user = i_strdup(user);
-	storage->callbacks = i_new(struct mail_storage_callbacks, 1);
+	storage->dir = p_strdup(pool, home_expand(root_dir));
+	storage->inbox_path = p_strdup(pool, home_expand(inbox_file));
+	storage->index_dir = p_strdup(pool, home_expand(index_dir));
+	storage->user = p_strdup(pool, user);
+	storage->callbacks = p_new(pool, struct mail_storage_callbacks, 1);
 	index_storage_init(storage, flags);
 	return &storage->storage;
 }
@@ -342,13 +346,7 @@ static void mbox_free(struct mail_storage *_storage)
 	struct index_storage *storage = (struct index_storage *)_storage;
 
 	index_storage_deinit(storage);
-
-	i_free(storage->dir);
-	i_free(storage->inbox_path);
-	i_free(storage->index_dir);
-	i_free(storage->user);
-	i_free(storage->callbacks);
-	i_free(storage);
+	pool_unref(storage->storage.pool);
 }
 
 int mbox_is_valid_mask(struct mail_storage *storage, const char *mask)
@@ -488,6 +486,7 @@ mbox_open(struct index_storage *storage, const char *name,
 	struct mail_index *index;
 	const char *path, *index_dir;
 	uint32_t mbox_ext_idx;
+	pool_t pool;
 
 	if (strcmp(name, "INBOX") == 0) {
 		/* name = "INBOX"
@@ -507,18 +506,25 @@ mbox_open(struct index_storage *storage, const char *name,
 	mbox_ext_idx = mail_index_ext_register(index, "mbox", 0,
 					       sizeof(uint64_t),
 					       sizeof(uint64_t));
-	ibox = index_storage_mailbox_init(storage, &mbox_mailbox,
-					  index, name, flags);
-	if (ibox == NULL)
-		return NULL;
 
-	ibox->path = i_strdup(path);
+	pool = pool_alloconly_create("mailbox", 256);
+	ibox = p_new(pool, struct index_mailbox, 1);
+	ibox->box = mbox_mailbox;
+	ibox->box.pool = pool;
+	ibox->storage = storage;
+
+	if (index_storage_mailbox_init(ibox, index, name, flags) < 0) {
+		/* the memory was already freed */
+		return NULL;
+	}
+
+	ibox->path = p_strdup(pool, path);
 	ibox->mbox_fd = -1;
 	ibox->mbox_lock_type = F_UNLCK;
 	ibox->mbox_ext_idx = mbox_ext_idx;
 
 	ibox->is_recent = mbox_mail_is_recent;
-	ibox->mail_interface = &mbox_mail;
+	ibox->mail_vfuncs = &mbox_mail_vfuncs;
         ibox->mbox_very_dirty_syncs = getenv("MBOX_VERY_DIRTY_SYNCS") != NULL;
 	ibox->mbox_do_dirty_syncs = ibox->mbox_very_dirty_syncs ||
 		getenv("MBOX_DIRTY_SYNCS") != NULL;
@@ -931,59 +937,67 @@ mbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 }
 
 struct mail_storage mbox_storage = {
-	"mbox", /* name */
+	MEMBER(name) "mbox",
+	MEMBER(hierarchy_sep) '/',
 
-	'/', /* hierarchy separator */
+	{
+		mbox_create,
+		mbox_free,
+		mbox_autodetect,
+		index_storage_set_callbacks,
+		mbox_mailbox_open,
+		mbox_mailbox_create,
+		mbox_mailbox_delete,
+		mbox_mailbox_rename,
+		mbox_mailbox_list_init,
+		mbox_mailbox_list_next,
+		mbox_mailbox_list_deinit,
+		mbox_set_subscribed,
+		mbox_get_mailbox_name_status,
+		index_storage_get_last_error
+	},
 
-	mbox_create,
-	mbox_free,
-	mbox_autodetect,
-	index_storage_set_callbacks,
-	mbox_mailbox_open,
-	mbox_mailbox_create,
-	mbox_mailbox_delete,
-	mbox_mailbox_rename,
-	mbox_mailbox_list_init,
-	mbox_mailbox_list_next,
-	mbox_mailbox_list_deinit,
-	mbox_set_subscribed,
-	mbox_get_mailbox_name_status,
-	index_storage_get_last_error,
-
-	NULL,
-	0,
-	0
+	MEMBER(pool) NULL,
+	MEMBER(error) NULL,
+	MEMBER(flags) 0,
+	MEMBER(module_contexts) ARRAY_INIT,
+	MEMBER(syntax_error) 0
 };
 
 struct mailbox mbox_mailbox = {
-	NULL, /* name */
-	NULL, /* storage */
+	MEMBER(name) NULL, 
+	MEMBER(storage) NULL, 
 
-	index_storage_is_readonly,
-        index_storage_allow_new_keywords,
-	mbox_storage_close,
-	index_storage_get_status,
-	mbox_storage_sync_init,
-	index_mailbox_sync_next,
-	index_mailbox_sync_deinit,
-	mbox_notify_changes,
-	mbox_transaction_begin,
-	mbox_transaction_commit,
-	mbox_transaction_rollback,
-	index_keywords_create,
-	index_keywords_free,
-	index_storage_fetch,
-	index_storage_get_uids,
-	index_header_lookup_init,
-        index_header_lookup_deinit,
-        index_storage_search_get_sorting,
-	index_storage_search_init,
-	index_storage_search_deinit,
-	index_storage_search_next,
-	mbox_save_init,
-	mbox_save_continue,
-	mbox_save_finish,
-	mbox_save_cancel,
-	mail_storage_copy,
-	index_storage_is_inconsistent
+	{
+		index_storage_is_readonly,
+		index_storage_allow_new_keywords,
+		mbox_storage_close,
+		index_storage_get_status,
+		mbox_storage_sync_init,
+		index_mailbox_sync_next,
+		index_mailbox_sync_deinit,
+		mbox_notify_changes,
+		mbox_transaction_begin,
+		mbox_transaction_commit,
+		mbox_transaction_rollback,
+		index_keywords_create,
+		index_keywords_free,
+		index_storage_get_uids,
+		index_mail_alloc,
+		index_header_lookup_init,
+		index_header_lookup_deinit,
+		index_storage_search_get_sorting,
+		index_storage_search_init,
+		index_storage_search_deinit,
+		index_storage_search_next,
+		mbox_save_init,
+		mbox_save_continue,
+		mbox_save_finish,
+		mbox_save_cancel,
+		mail_storage_copy,
+		index_storage_is_inconsistent
+	},
+
+	MEMBER(pool) NULL,
+	MEMBER(module_contexts) ARRAY_INIT
 };

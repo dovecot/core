@@ -85,28 +85,30 @@ int cmd_store(struct client_command_context *cmd)
 	if (search_arg == NULL)
 		return TRUE;
 
-	t = mailbox_transaction_begin(box, silent);
+	t = mailbox_transaction_begin(box, !silent ? 0 :
+				      MAILBOX_TRANSACTION_FLAG_HIDE);
 	keywords = keywords_list != NULL || modify_type == MODIFY_REPLACE ?
 		mailbox_keywords_create(t, keywords_list) : NULL;
-	search_ctx = mailbox_search_init(t, NULL, search_arg, NULL,
-					 MAIL_FETCH_FLAGS, NULL);
+	search_ctx = mailbox_search_init(t, NULL, search_arg, NULL);
 
 	failed = FALSE;
-	while ((mail = mailbox_search_next(search_ctx)) != NULL) {
+	mail = mail_alloc(t, MAIL_FETCH_FLAGS, NULL);
+	while (mailbox_search_next(search_ctx, mail) > 0) {
 		if (modify_type == MODIFY_REPLACE || flags != 0) {
-			if (mail->update_flags(mail, modify_type, flags) < 0) {
+			if (mail_update_flags(mail, modify_type, flags) < 0) {
 				failed = TRUE;
 				break;
 			}
 		}
 		if (modify_type == MODIFY_REPLACE || keywords != NULL) {
-			if (mail->update_keywords(mail, modify_type,
-						  keywords) < 0) {
+			if (mail_update_keywords(mail, modify_type,
+						 keywords) < 0) {
 				failed = TRUE;
 				break;
 			}
 		}
 	}
+	mail_free(mail);
 
 	if (keywords != NULL)
 		mailbox_keywords_free(t, keywords);

@@ -70,9 +70,8 @@ static int init_mailbox(struct client *client)
 		}
 		client->uid_validity = status.uidvalidity;
 
-		t = mailbox_transaction_begin(client->mailbox, FALSE);
-		ctx = mailbox_search_init(t, NULL, &search_arg, NULL,
-					  MAIL_FETCH_VIRTUAL_SIZE, NULL);
+		t = mailbox_transaction_begin(client->mailbox, 0);
+		ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
 		if (ctx == NULL) {
 			client_send_storage_error(client);
 			mailbox_transaction_rollback(t);
@@ -84,15 +83,16 @@ static int init_mailbox(struct client *client)
 		buffer_set_used_size(message_sizes_buf, 0);
 
 		failed = FALSE;
-		while ((mail = mailbox_search_next(ctx)) != NULL) {
-			uoff_t size = mail->get_virtual_size(mail);
+		mail = mail_alloc(t, MAIL_FETCH_VIRTUAL_SIZE, NULL);
+		while (mailbox_search_next(ctx, mail) > 0) {
+			uoff_t size = mail_get_virtual_size(mail);
 
 			if (size == (uoff_t)-1) {
 				failed = TRUE;
 				break;
 			}
 
-			if ((mail->get_flags(mail) & MAIL_SEEN) != 0)
+			if ((mail_get_flags(mail) & MAIL_SEEN) != 0)
 				client->last_seen = mail->seq;
                         client->total_size += size;
 
@@ -101,6 +101,7 @@ static int init_mailbox(struct client *client)
 		client->messages_count =
 			message_sizes_buf->used / sizeof(uoff_t);
 
+		mail_free(mail);
 		if (mailbox_search_deinit(ctx) < 0) {
 			client_send_storage_error(client);
 			mailbox_transaction_rollback(t);

@@ -149,11 +149,13 @@ void imap_fetch_begin(struct imap_fetch_context *ctx,
 			mailbox_header_lookup_init(ctx->box, data);
 	}
 
-	ctx->trans = mailbox_transaction_begin(ctx->box, TRUE);
+	ctx->trans = mailbox_transaction_begin(ctx->box,
+		MAILBOX_TRANSACTION_FLAG_HIDE);
 	ctx->select_counter = ctx->client->select_counter;
+	ctx->mail = mail_alloc(ctx->trans, ctx->fetch_data,
+			       ctx->all_headers_ctx);
 	ctx->search_ctx =
-		mailbox_search_init(ctx->trans, NULL, search_arg, NULL,
-				    ctx->fetch_data, ctx->all_headers_ctx);
+		mailbox_search_init(ctx->trans, NULL, search_arg, NULL);
 }
 
 int imap_fetch(struct imap_fetch_context *ctx)
@@ -199,9 +201,10 @@ int imap_fetch(struct imap_fetch_context *ctx)
                                 ctx->cur_input = NULL;
 			}
 
-			ctx->cur_mail = mailbox_search_next(ctx->search_ctx);
-			if (ctx->cur_mail == NULL)
+			if (mailbox_search_next(ctx->search_ctx,
+						ctx->mail) <= 0)
 				break;
+			ctx->cur_mail = ctx->mail;
 
 			str_printfa(ctx->cur_str, "* %u FETCH (",
 				    ctx->cur_mail->seq);
@@ -275,6 +278,9 @@ int imap_fetch_deinit(struct imap_fetch_context *ctx)
 		ctx->cur_input = NULL;
 	}
 
+	if (ctx->mail != NULL)
+		mail_free(ctx->mail);
+
 	if (ctx->search_ctx != NULL) {
 		if (mailbox_search_deinit(ctx->search_ctx) < 0)
 			ctx->failed = TRUE;
@@ -298,7 +304,7 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 {
 	const char *body;
 
-	body = mail->get_special(mail, MAIL_FETCH_IMAP_BODY);
+	body = mail_get_special(mail, MAIL_FETCH_IMAP_BODY);
 	if (body == NULL)
 		return -1;
 
@@ -332,7 +338,7 @@ static int fetch_bodystructure(struct imap_fetch_context *ctx,
 {
 	const char *bodystructure;
 
-	bodystructure = mail->get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE);
+	bodystructure = mail_get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE);
 	if (bodystructure == NULL)
 		return -1;
 
@@ -365,7 +371,7 @@ static int fetch_envelope(struct imap_fetch_context *ctx, struct mail *mail,
 {
 	const char *envelope;
 
-	envelope = mail->get_special(mail, MAIL_FETCH_IMAP_ENVELOPE);
+	envelope = mail_get_special(mail, MAIL_FETCH_IMAP_ENVELOPE);
 	if (envelope == NULL)
 		return -1;
 
@@ -398,13 +404,13 @@ static int fetch_flags(struct imap_fetch_context *ctx, struct mail *mail,
 	enum mail_flags flags;
 	const char *const *keywords;
 
-	flags = mail->get_flags(mail);
-	keywords = mail->get_keywords(mail);
+	flags = mail_get_flags(mail);
+	keywords = mail_get_keywords(mail);
 
 	if (ctx->flags_update_seen && (flags & MAIL_SEEN) == 0) {
 		/* Add \Seen flag */
 		flags |= MAIL_SEEN;
-		if (mail->update_flags(mail, MODIFY_ADD, MAIL_SEEN) < 0)
+		if (mail_update_flags(mail, MODIFY_ADD, MAIL_SEEN) < 0)
 			return -1;
 	} else if (ctx->flags_show_only_seen_changes) {
 		return 1;
@@ -431,7 +437,7 @@ static int fetch_internaldate(struct imap_fetch_context *ctx, struct mail *mail,
 {
 	time_t time;
 
-	time = mail->get_received_date(mail);
+	time = mail_get_received_date(mail);
 	if (time == (time_t)-1)
 		return -1;
 

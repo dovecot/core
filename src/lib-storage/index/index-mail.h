@@ -87,10 +87,10 @@ struct index_mail_data {
 };
 
 struct index_mail {
-	struct mail mail;
+        struct mail_private mail;
 	struct index_mail_data data;
 
-	pool_t pool;
+	pool_t data_pool;
 	struct index_mailbox *ibox;
 	struct index_transaction_context *trans;
 	uint32_t uid_validity;
@@ -107,12 +107,12 @@ struct index_mail {
 	uint8_t header_match_value;
 };
 
-void index_mail_init(struct index_transaction_context *t,
-		     struct index_mail *mail,
-		     enum mail_fetch_field wanted_fields,
-		     struct mailbox_header_lookup_ctx *wanted_headers);
-int index_mail_next(struct index_mail *mail, uint32_t seq);
-void index_mail_deinit(struct index_mail *mail);
+struct mail *
+index_mail_alloc(struct mailbox_transaction_context *t,
+		 enum mail_fetch_field wanted_fields,
+		 struct mailbox_header_lookup_ctx *wanted_headers);
+int index_mail_set_seq(struct mail *mail, uint32_t seq);
+void index_mail_free(struct mail *mail);
 
 void index_mail_parse_header_init(struct index_mail *mail,
 				  struct mailbox_header_lookup_ctx *headers);

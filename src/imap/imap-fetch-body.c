@@ -304,8 +304,8 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 	struct message_size hdr_size, body_size;
 
 	ctx->cur_input =
-		mail->get_stream(mail, &hdr_size,
-				 body->section[0] == 'H' ? NULL : &body_size);
+		mail_get_stream(mail, &hdr_size,
+				body->section[0] == 'H' ? NULL : &body_size);
 	if (ctx->cur_input == NULL)
 		return -1;
 
@@ -419,7 +419,7 @@ static int fetch_body_header_partial(struct imap_fetch_context *ctx,
 {
 	const struct imap_fetch_body_data *body = context;
 
-	ctx->cur_input = mail->get_stream(mail, NULL, NULL);
+	ctx->cur_input = mail_get_stream(mail, NULL, NULL);
 	if (ctx->cur_input == NULL)
 		return -1;
 
@@ -436,7 +436,7 @@ static int fetch_body_header_fields(struct imap_fetch_context *ctx,
 	struct message_size size;
 	uoff_t old_offset;
 
-	ctx->cur_input = mail->get_headers(mail, body->header_ctx);
+	ctx->cur_input = mail_get_headers(mail, body->header_ctx);
 	if (ctx->cur_input == NULL)
 		return -1;
 
@@ -463,7 +463,7 @@ static int part_find(struct mail *mail, const struct imap_fetch_body_data *body,
 	const char *path;
 	unsigned int num;
 
-	part = mail->get_parts(mail);
+	part = mail_get_parts(mail);
 	if (part == NULL)
 		return -1;
 
@@ -526,7 +526,7 @@ static int fetch_body_mime(struct imap_fetch_context *ctx, struct mail *mail,
 		return 1;
 	}
 
-	ctx->cur_input = mail->get_stream(mail, NULL, NULL);
+	ctx->cur_input = mail_get_stream(mail, NULL, NULL);
 	if (ctx->cur_input == NULL)
 		return -1;
 
@@ -831,7 +831,7 @@ static int fetch_rfc822_size(struct imap_fetch_context *ctx, struct mail *mail,
 {
 	uoff_t size;
 
-	size = mail->get_virtual_size(mail);
+	size = mail_get_virtual_size(mail);
 	if (size == (uoff_t)-1)
 		return -1;
 
@@ -845,7 +845,7 @@ static int fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 	struct message_size hdr_size, body_size;
 	const char *str;
 
-	ctx->cur_input = mail->get_stream(mail, &hdr_size, &body_size);
+	ctx->cur_input = mail_get_stream(mail, &hdr_size, &body_size);
 	if (ctx->cur_input == NULL)
 		return -1;
 
@@ -874,7 +874,7 @@ static int fetch_rfc822_header(struct imap_fetch_context *ctx,
 	struct message_size hdr_size;
 	const char *str;
 
-	ctx->cur_input = mail->get_stream(mail, &hdr_size, NULL);
+	ctx->cur_input = mail_get_stream(mail, &hdr_size, NULL);
 	if (ctx->cur_input == NULL)
 		return -1;
 
@@ -899,7 +899,7 @@ static int fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 	struct message_size hdr_size, body_size;
 	const char *str;
 
-	ctx->cur_input = mail->get_stream(mail, &hdr_size, &body_size);
+	ctx->cur_input = mail_get_stream(mail, &hdr_size, &body_size);
 	if (ctx->cur_input == NULL)
 		return -1;
 

@@ -27,7 +27,6 @@ struct maildir_save_context {
 	struct index_mailbox *ibox;
 	struct mail_index_transaction *trans;
 	struct maildir_uidlist_sync_ctx *sync_ctx;
-	struct index_mail mail;
 
 	const char *tmpdir, *newdir, *curdir;
 	struct maildir_filename *files;
@@ -81,7 +80,7 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 }
 
 static struct maildir_save_context *
-maildir_transaction_save_init(struct maildir_transaction_context *t)
+maildir_save_transaction_init(struct maildir_transaction_context *t)
 {
         struct index_mailbox *ibox = t->ictx.ibox;
 	struct maildir_save_context *ctx;
@@ -89,12 +88,10 @@ maildir_transaction_save_init(struct maildir_transaction_context *t)
 
 	pool = pool_alloconly_create("maildir_save_context", 4096);
 	ctx = p_new(pool, struct maildir_save_context, 1);
-	ctx->ctx.box = &ibox->box;
+	ctx->ctx.transaction = &t->ictx.mailbox_ctx;
 	ctx->pool = pool;
 	ctx->ibox = ibox;
-	ctx->trans = mail_index_transaction_begin(ibox->view, FALSE, TRUE);
-
-	index_mail_init(&t->ictx, &ctx->mail, 0, NULL);
+	ctx->trans = t->ictx.trans;
 
 	ctx->tmpdir = p_strconcat(pool, ibox->path, "/tmp", NULL);
 	ctx->newdir = p_strconcat(pool, ibox->path, "/new", NULL);
@@ -119,10 +116,12 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 	struct ostream *output;
 	const char *fname, *dest_fname, *path;
 
+	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+
 	t_push();
 
 	if (t->save_ctx == NULL)
-		t->save_ctx = maildir_transaction_save_init(t);
+		t->save_ctx = maildir_save_transaction_init(t);
 	ctx = t->save_ctx;
 
 	/* create a new file in tmp/ directory */
@@ -191,7 +190,7 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 	return 0;
 }
 
-int maildir_save_finish(struct mail_save_context *_ctx, struct mail **mail_r)
+int maildir_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 	struct utimbuf buf;
@@ -257,12 +256,11 @@ int maildir_save_finish(struct mail_save_context *_ctx, struct mail **mail_r)
 		return -1;
 	}
 
-	if (mail_r != NULL) {
+	if (dest_mail != NULL) {
 		i_assert(ctx->seq != 0);
 
-		if (index_mail_next(&ctx->mail, ctx->seq) < 0)
+		if (mail_set_seq(dest_mail, ctx->seq) < 0)
 			return -1;
-		*mail_r = &ctx->mail.mail;
 	}
 
 	t_pop();
@@ -308,9 +306,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	uint32_t first_uid, last_uid;
 	enum maildir_uidlist_rec_flag flags;
 	const char *fname;
-	uint32_t seq;
-	uoff_t offset;
-	int ret = 0;
+	int ret;
 
 	i_assert(ctx->output == NULL);
 
@@ -352,10 +348,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		}
 	}
 
-	if (mail_index_transaction_commit(ctx->trans, &seq, &offset) < 0)
-		ret = -1;
-	return ret;
-
+	return 0;
 }
 
 void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
@@ -363,7 +356,6 @@ void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
 	/* can't do anything anymore if we fail */
 	(void)maildir_uidlist_sync_deinit(ctx->sync_ctx);
 
-	index_mail_deinit(&ctx->mail);
 	pool_unref(ctx->pool);
 }
 
@@ -385,7 +377,5 @@ void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
 	}
 	t_pop();
 
-	mail_index_transaction_rollback(ctx->trans);
-	index_mail_deinit(&ctx->mail);
 	pool_unref(ctx->pool);
 }

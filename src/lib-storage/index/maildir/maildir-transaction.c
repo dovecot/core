@@ -4,13 +4,14 @@
 #include "maildir-storage.h"
 
 struct mailbox_transaction_context *
-maildir_transaction_begin(struct mailbox *box, int hide)
+maildir_transaction_begin(struct mailbox *box,
+			  enum mailbox_transaction_flags flags)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	struct maildir_transaction_context *t;
 
 	t = i_new(struct maildir_transaction_context, 1);
-        index_transaction_init(&t->ictx, ibox, hide);
+	index_transaction_init(&t->ictx, ibox, flags);
 	return &t->ictx.mailbox_ctx;
 }
 

@@ -20,7 +20,7 @@ struct maildir_transaction_context {
 	struct maildir_copy_context *copy_ctx;
 };
 
-extern struct mail maildir_mail;
+extern struct mail_vfuncs maildir_mail_vfuncs;
 
 /* Return -1 = error, 0 = file not found, 1 = ok */
 typedef int maildir_file_do_func(struct index_mailbox *ibox,
@@ -51,7 +51,8 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 			      int partial);
 
 struct mailbox_transaction_context *
-maildir_transaction_begin(struct mailbox *box, int hide);
+maildir_transaction_begin(struct mailbox *box,
+			  enum mailbox_transaction_flags flags);
 int maildir_transaction_commit(struct mailbox_transaction_context *t,
 			       enum mailbox_sync_flags flags);
 void maildir_transaction_rollback(struct mailbox_transaction_context *t);
@@ -63,7 +64,7 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 		  const char *from_envelope, struct istream *input,
 		  int want_mail);
 int maildir_save_continue(struct mail_save_context *ctx);
-int maildir_save_finish(struct mail_save_context *ctx, struct mail **mail_r);
+int maildir_save_finish(struct mail_save_context *ctx, struct mail *dest_mail);
 void maildir_save_cancel(struct mail_save_context *ctx);
 
 int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx);
@@ -71,7 +72,7 @@ void maildir_transaction_save_commit_post(struct maildir_save_context *ctx);
 void maildir_transaction_save_rollback(struct maildir_save_context *ctx);
 
 int maildir_copy(struct mailbox_transaction_context *t, struct mail *mail,
-		 struct mail **dest_mail_r);
+		 struct mail *dest_mail);
 int maildir_transaction_copy_commit(struct maildir_copy_context *ctx);
 void maildir_transaction_copy_rollback(struct maildir_copy_context *ctx);
 

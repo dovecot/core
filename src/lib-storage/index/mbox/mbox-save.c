@@ -40,7 +40,6 @@ struct mbox_save_context {
 	uoff_t extra_hdr_offset, eoh_offset, eoh_input_offset;
 	char last_char;
 
-	struct index_mail mail;
 	struct mbox_md5_context *mbox_md5_ctx;
 
 	unsigned int synced:1;
@@ -191,8 +190,6 @@ static void mbox_save_init_sync(struct mbox_transaction_context *t)
 	ctx->next_uid = hdr->next_uid;
 	ctx->synced = TRUE;
         t->mbox_modified = TRUE;
-
-	index_mail_init(&t->ictx, &ctx->mail, 0, NULL);
 }
 
 static void status_flags_append(string_t *str, enum mail_flags flags,
@@ -312,16 +309,17 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 	enum mail_flags save_flags;
 	uint64_t offset;
 
+	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+
 	/* FIXME: we could write timezone_offset to From-line.. */
 	if (received_date == (time_t)-1)
 		received_date = ioloop_time;
 
 	if (ctx == NULL) {
 		ctx = t->save_ctx = i_new(struct mbox_save_context, 1);
-		ctx->ctx.box = &ibox->box;
+		ctx->ctx.transaction = &t->ictx.mailbox_ctx;
 		ctx->ibox = ibox;
-		ctx->trans = mail_index_transaction_begin(ibox->view,
-							  FALSE, TRUE);
+		ctx->trans = t->ictx.trans;
 		ctx->append_offset = (uoff_t)-1;
 		ctx->headers = str_new(default_pool, 512);
 		ctx->save_crlf = getenv("MAIL_SAVE_CRLF") != NULL;
@@ -463,7 +461,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	return ctx->input->eof && size == 0 ? 0 : mbox_save_continue(_ctx);
 }
 
-int mbox_save_finish(struct mail_save_context *_ctx, struct mail **mail_r)
+int mbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
 
@@ -501,12 +499,11 @@ int mbox_save_finish(struct mail_save_context *_ctx, struct mail **mail_r)
 		return -1;
 	}
 
-	if (mail_r != NULL) {
+	if (dest_mail != NULL) {
 		i_assert(ctx->seq != 0);
 
-		if (index_mail_next(&ctx->mail, ctx->seq) < 0)
+		if (mail_set_seq(dest_mail, ctx->seq) < 0)
 			return -1;
-		*mail_r = &ctx->mail.mail;
 	}
 
 	return 0;
@@ -524,9 +521,6 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 {
 	i_assert(ctx->body_output == NULL);
 
-	if (ctx->mail.pool != NULL)
-		index_mail_deinit(&ctx->mail);
-
 	if (ctx->output != NULL)
 		o_stream_unref(ctx->output);
 	str_free(ctx->headers);
@@ -535,8 +529,6 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 
 int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 {
-	uint32_t seq;
-	uoff_t offset;
 	int ret = 0;
 
 	if (ctx->synced) {
@@ -552,9 +544,6 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 			ret = -1;
 		}
 	}
-
-	if (mail_index_transaction_commit(ctx->trans, &seq, &offset) < 0)
-		ret = -1;
 
 	mbox_transaction_save_deinit(ctx);
 	return ret;
@@ -576,6 +565,5 @@ void mbox_transaction_save_rollback(struct mbox_save_context *ctx)
 			mbox_set_syscall_error(ibox, "ftruncate()");
 	}
 
-	mail_index_transaction_rollback(ctx->trans);
 	mbox_transaction_save_deinit(ctx);
 }

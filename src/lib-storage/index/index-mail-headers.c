@@ -163,7 +163,7 @@ static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
 {
 	string_t *str;
 
-	str = str_new(mail->pool, 256);
+	str = str_new(mail->data_pool, 256);
 	imap_envelope_write_part_data(mail->data.envelope_data, str);
 	mail->data.envelope = str_c(str);
 
@@ -187,11 +187,11 @@ int index_mail_parse_header(struct message_part *part,
 
 	if (data->save_bodystructure_header) {
 		i_assert(part != NULL);
-		imap_bodystructure_parse_header(mail->pool, part, hdr);
+		imap_bodystructure_parse_header(mail->data_pool, part, hdr);
 	}
 
 	if (data->save_envelope) {
-		imap_envelope_parse_header(mail->pool,
+		imap_envelope_parse_header(mail->data_pool,
 					   &data->envelope_data, hdr);
 
 		if (hdr == NULL)
@@ -313,7 +313,7 @@ int index_mail_parse_headers(struct index_mail *mail,
 {
 	struct index_mail_data *data = &mail->data;
 
-	if (mail->mail.get_stream(&mail->mail, NULL, NULL) == NULL)
+	if (mail_get_stream(&mail->mail.mail, NULL, NULL) == NULL)
 		return -1;
 
 	index_mail_parse_header_init(mail, headers);
@@ -322,7 +322,7 @@ int index_mail_parse_headers(struct index_mail *mail,
 		/* initialize bodystructure parsing in case we read the whole
 		   message. */
 		data->parser_ctx =
-			message_parser_init(mail->pool, data->stream);
+			message_parser_init(mail->data_pool, data->stream);
 		message_parser_parse_header(data->parser_ctx, &data->hdr_size,
 					    index_mail_parse_header_cb, mail);
 	} else {
@@ -342,7 +342,8 @@ imap_envelope_parse_callback(struct message_part *part __attr_unused__,
 {
 	struct index_mail *mail = context;
 
-	imap_envelope_parse_header(mail->pool, &mail->data.envelope_data, hdr);
+	imap_envelope_parse_header(mail->data_pool,
+				   &mail->data.envelope_data, hdr);
 
 	if (hdr == NULL)
 		index_mail_parse_finish_imap_envelope(mail);
@@ -356,7 +357,7 @@ void index_mail_headers_get_envelope(struct index_mail *mail)
 	mail->data.save_envelope = TRUE;
 	header_ctx = mailbox_header_lookup_init(&mail->ibox->box,
 						imap_envelope_headers);
-	stream = mail->mail.get_headers(&mail->mail, header_ctx);
+	stream = mail_get_headers(&mail->mail.mail, header_ctx);
 	if (mail->data.envelope == NULL && stream != NULL) {
 		/* we got the headers from cache - parse them to get the
 		   envelope */
@@ -437,7 +438,7 @@ index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 
 	data = buffer_get_data(mail->header_data, &size);
         size = get_header_size(mail->header_data, offsets[field_idx]);
-	return p_strndup(mail->pool, data + offsets[field_idx], size);
+	return p_strndup(mail->data_pool, data + offsets[field_idx], size);
 }
 
 const char *index_mail_get_header(struct mail *_mail, const char *field)
@@ -453,11 +454,11 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 
 	field_idx = get_header_field_idx(mail->ibox, field);
 
-	dest = str_new(mail->pool, 128);
+	dest = str_new(mail->data_pool, 128);
 	if (mail_cache_lookup_headers(mail->trans->cache_view, dest,
 				      mail->data.seq, &field_idx, 1) <= 0) {
 		/* not in cache / error - first see if it's already parsed */
-		p_free(mail->pool, dest);
+		p_free(mail->data_pool, dest);
 		if (mail->header_seq == mail->data.seq) {
 			ret = index_mail_header_is_parsed(mail, field_idx);
 			if (ret != -1) {
@@ -529,17 +530,17 @@ index_mail_get_headers(struct mail *_mail,
 			return NULL;
 	}
 
-	dest = str_new(mail->pool, 256);
+	dest = str_new(mail->data_pool, 256);
 	if (mail_cache_lookup_headers(mail->trans->cache_view, dest,
 				      mail->data.seq, headers->idx,
 				      headers->count) > 0) {
-		return i_stream_create_from_data(mail->pool,
+		return i_stream_create_from_data(mail->data_pool,
 						 str_data(dest), str_len(dest));
 	}
 	/* not in cache / error */
-	p_free(mail->pool, dest);
+	p_free(mail->data_pool, dest);
 
-	if (mail->mail.get_stream(&mail->mail, NULL, NULL) == NULL)
+	if (mail_get_stream(&mail->mail.mail, NULL, NULL) == NULL)
 		return NULL;
 
 	if (mail->data.filter_stream != NULL)

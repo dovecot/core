@@ -18,6 +18,8 @@ struct mail_storage_list {
 	struct mail_storage *storage;
 };
 
+unsigned int mail_storage_module_id = 0;
+
 static struct mail_storage_list *storages = NULL;
 
 void mail_storage_init(void)
@@ -76,7 +78,7 @@ mail_storage_create(const char *name, const char *data, const char *user,
 
 	for (list = storages; list != NULL; list = list->next) {
 		if (strcasecmp(list->storage->name, name) == 0)
-			return list->storage->create(data, user, flags);
+			return list->storage->v.create(data, user, flags);
 	}
 
 	return NULL;
@@ -89,7 +91,7 @@ mail_storage_create_default(const char *user, enum mail_storage_flags flags)
 	struct mail_storage *storage;
 
 	for (list = storages; list != NULL; list = list->next) {
-		storage = list->storage->create(NULL, user, flags);
+		storage = list->storage->v.create(NULL, user, flags);
 		if (storage != NULL)
 			return storage;
 	}
@@ -103,7 +105,7 @@ mail_storage_autodetect(const char *data, enum mail_storage_flags flags)
 	struct mail_storage_list *list;
 
 	for (list = storages; list != NULL; list = list->next) {
-		if (list->storage->autodetect(data, flags))
+		if (list->storage->v.autodetect(data, flags))
 			return list->storage;
 	}
 
@@ -131,7 +133,7 @@ mail_storage_create_with_data(const char *data, const char *user,
 	} else {
 		storage = mail_storage_autodetect(data, flags);
 		if (storage != NULL)
-			storage = storage->create(data, user, flags);
+			storage = storage->v.create(data, user, flags);
 	}
 
 	return storage;
@@ -141,7 +143,7 @@ void mail_storage_destroy(struct mail_storage *storage)
 {
 	i_assert(storage != NULL);
 
-	storage->destroy(storage);
+	storage->v.destroy(storage);
 }
 
 void mail_storage_clear_error(struct mail_storage *storage)
@@ -228,24 +230,24 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
 				struct mail_storage_callbacks *callbacks,
 				void *context)
 {
-	storage->set_callbacks(storage, callbacks, context);
+	storage->v.set_callbacks(storage, callbacks, context);
 }
 
 int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
 				int directory)
 {
-	return storage->mailbox_create(storage, name, directory);
+	return storage->v.mailbox_create(storage, name, directory);
 }
 
 int mail_storage_mailbox_delete(struct mail_storage *storage, const char *name)
 {
-	return storage->mailbox_delete(storage, name);
+	return storage->v.mailbox_delete(storage, name);
 }
 
 int mail_storage_mailbox_rename(struct mail_storage *storage,
 				const char *oldname, const char *newname)
 {
-	return storage->mailbox_rename(storage, oldname, newname);
+	return storage->v.mailbox_rename(storage, oldname, newname);
 }
 
 struct mailbox_list_context *
@@ -253,48 +255,48 @@ mail_storage_mailbox_list_init(struct mail_storage *storage,
 			       const char *ref, const char *mask,
 			       enum mailbox_list_flags flags)
 {
-	return storage->mailbox_list_init(storage, ref, mask, flags);
+	return storage->v.mailbox_list_init(storage, ref, mask, flags);
 }
 
 struct mailbox_list *
 mail_storage_mailbox_list_next(struct mailbox_list_context *ctx)
 {
-	return ctx->storage->mailbox_list_next(ctx);
+	return ctx->storage->v.mailbox_list_next(ctx);
 }
 
 int mail_storage_mailbox_list_deinit(struct mailbox_list_context *ctx)
 {
-	return ctx->storage->mailbox_list_deinit(ctx);
+	return ctx->storage->v.mailbox_list_deinit(ctx);
 }
 
 int mail_storage_set_subscribed(struct mail_storage *storage,
 				const char *name, int set)
 {
-	return storage->set_subscribed(storage, name, set);
+	return storage->v.set_subscribed(storage, name, set);
 }
 
 int mail_storage_get_mailbox_name_status(struct mail_storage *storage,
 					 const char *name,
 					 enum mailbox_name_status *status)
 {
-	return storage->get_mailbox_name_status(storage, name, status);
+	return storage->v.get_mailbox_name_status(storage, name, status);
 }
 
 const char *mail_storage_get_last_error(struct mail_storage *storage,
 					int *syntax_error_r)
 {
-	return storage->get_last_error(storage, syntax_error_r);
+	return storage->v.get_last_error(storage, syntax_error_r);
 }
 
 struct mailbox *mailbox_open(struct mail_storage *storage,
 			     const char *name, enum mailbox_open_flags flags)
 {
-	return storage->mailbox_open(storage, name, flags);
+	return storage->v.mailbox_open(storage, name, flags);
 }
 
 int mailbox_close(struct mailbox *box)
 {
-	return box->close(box);
+	return box->v.close(box);
 }
 
 struct mail_storage *mailbox_get_storage(struct mailbox *box)
@@ -309,123 +311,115 @@ const char *mailbox_get_name(struct mailbox *box)
 
 int mailbox_is_readonly(struct mailbox *box)
 {
-	return box->is_readonly(box);
+	return box->v.is_readonly(box);
 }
 
 int mailbox_allow_new_keywords(struct mailbox *box)
 {
-	return box->allow_new_keywords(box);
+	return box->v.allow_new_keywords(box);
 }
 
 int mailbox_get_status(struct mailbox *box,
 		       enum mailbox_status_items items,
 		       struct mailbox_status *status)
 {
-	return box->get_status(box, items, status);
+	return box->v.get_status(box, items, status);
 }
 
 struct mailbox_sync_context *
 mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
-	return box->sync_init(box, flags);
+	return box->v.sync_init(box, flags);
 }
 
 int mailbox_sync_next(struct mailbox_sync_context *ctx,
 		      struct mailbox_sync_rec *sync_rec_r)
 {
-	return ctx->box->sync_next(ctx, sync_rec_r);
+	return ctx->box->v.sync_next(ctx, sync_rec_r);
 }
 
 int mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 			struct mailbox_status *status_r)
 {
-	return ctx->box->sync_deinit(ctx, status_r);
+	return ctx->box->v.sync_deinit(ctx, status_r);
 }
 
 void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 			    mailbox_notify_callback_t *callback, void *context)
 {
-	box->notify_changes(box, min_interval, callback, context);
+	box->v.notify_changes(box, min_interval, callback, context);
 }
 
 struct mail_keywords *
 mailbox_keywords_create(struct mailbox_transaction_context *t,
 			const char *const keywords[])
 {
-	return t->box->keywords_create(t, keywords);
+	return t->box->v.keywords_create(t, keywords);
 }
 
 void mailbox_keywords_free(struct mailbox_transaction_context *t,
 			   struct mail_keywords *keywords)
 {
-	t->box->keywords_free(t, keywords);
-}
-
-struct mail *mailbox_fetch(struct mailbox_transaction_context *t, uint32_t seq,
-			   enum mail_fetch_field wanted_fields)
-{
-	return t->box->fetch(t, seq, wanted_fields);
+	t->box->v.keywords_free(t, keywords);
 }
 
 int mailbox_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 		     uint32_t *seq1_r, uint32_t *seq2_r)
 {
-	return box->get_uids(box, uid1, uid2, seq1_r, seq2_r);
+	return box->v.get_uids(box, uid1, uid2, seq1_r, seq2_r);
 }
 
 struct mailbox_header_lookup_ctx *
 mailbox_header_lookup_init(struct mailbox *box, const char *const headers[])
 {
-	return box->header_lookup_init(box, headers);
+	return box->v.header_lookup_init(box, headers);
 }
 
 void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx *ctx)
 {
-	ctx->box->header_lookup_deinit(ctx);
+	ctx->box->v.header_lookup_deinit(ctx);
 }
 
 int mailbox_search_get_sorting(struct mailbox *box,
 			       enum mail_sort_type *sort_program)
 {
-	return box->search_get_sorting(box, sort_program);
+	return box->v.search_get_sorting(box, sort_program);
 }
 
 struct mail_search_context *
 mailbox_search_init(struct mailbox_transaction_context *t,
 		    const char *charset, struct mail_search_arg *args,
-		    const enum mail_sort_type *sort_program,
-		    enum mail_fetch_field wanted_fields,
-		    struct mailbox_header_lookup_ctx *wanted_headers)
+		    const enum mail_sort_type *sort_program)
 {
-	return t->box->search_init(t, charset, args, sort_program,
-				   wanted_fields, wanted_headers);
+	return t->box->v.search_init(t, charset, args, sort_program);
 }
 
 int mailbox_search_deinit(struct mail_search_context *ctx)
 {
-	return ctx->box->search_deinit(ctx);
+	return ctx->transaction->box->v.search_deinit(ctx);
 }
 
-struct mail *mailbox_search_next(struct mail_search_context *ctx)
+int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail)
 {
-	return ctx->box->search_next(ctx);
+	return ctx->transaction->box->v.search_next(ctx, mail);
 }
 
 struct mailbox_transaction_context *
-mailbox_transaction_begin(struct mailbox *box, int hide)
+mailbox_transaction_begin(struct mailbox *box,
+			  enum mailbox_transaction_flags flags)
 {
-	return box->transaction_begin(box, hide);
+	return box->v.transaction_begin(box, flags);
 }
 
 int mailbox_transaction_commit(struct mailbox_transaction_context *t,
 			       enum mailbox_sync_flags flags)
 {
-	return t->box->transaction_commit(t, flags);
+	return t->box->v.transaction_commit(t, flags);
 }
 
 void mailbox_transaction_rollback(struct mailbox_transaction_context *t)
 {
-	t->box->transaction_rollback(t);
+	t->box->v.transaction_rollback(t);
 }
 
 struct mail_save_context *
@@ -435,33 +429,33 @@ mailbox_save_init(struct mailbox_transaction_context *t,
 		  const char *from_envelope, struct istream *input,
 		  int want_mail)
 {
-	return t->box->save_init(t, flags, keywords,
-				 received_date, timezone_offset,
-				 from_envelope, input, want_mail);
+	return t->box->v.save_init(t, flags, keywords,
+				   received_date, timezone_offset,
+				   from_envelope, input, want_mail);
 }
 
 int mailbox_save_continue(struct mail_save_context *ctx)
 {
-	return ctx->box->save_continue(ctx);
+	return ctx->transaction->box->v.save_continue(ctx);
 }
 
-int mailbox_save_finish(struct mail_save_context *ctx, struct mail **mail_r)
+int mailbox_save_finish(struct mail_save_context *ctx, struct mail *dest_mail)
 {
-	return ctx->box->save_finish(ctx, mail_r);
+	return ctx->transaction->box->v.save_finish(ctx, dest_mail);
 }
 
 void mailbox_save_cancel(struct mail_save_context *ctx)
 {
-	ctx->box->save_cancel(ctx);
+	ctx->transaction->box->v.save_cancel(ctx);
 }
 
 int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
-		 struct mail **dest_mail_r)
+		 struct mail *dest_mail)
 {
-	return t->box->copy(t, mail, dest_mail_r);
+	return t->box->v.copy(t, mail, dest_mail);
 }
 
 int mailbox_is_inconsistent(struct mailbox *box)
 {
-	return box->is_inconsistent(box);
+	return box->v.is_inconsistent(box);
 }

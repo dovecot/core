@@ -3,10 +3,11 @@
 
 #include "mail-storage.h"
 
-struct mail_storage {
-	char *name;
-	char hierarchy_sep;
+/* Modules should use do "my_id = mail_storage_module_id++" and
+   use objects' module_contexts[id] for their own purposes. */
+extern unsigned int mail_storage_module_id;
 
+struct mail_storage_vfuncs {
 	struct mail_storage *(*create)(const char *data, const char *user,
 				       enum mail_storage_flags flags);
 	void (*destroy)(struct mail_storage *storage);
@@ -44,19 +45,27 @@ struct mail_storage {
 
 	const char *(*get_last_error)(struct mail_storage *storage,
 				      int *syntax_error_r);
+};
+
+struct mail_storage {
+	char *name;
+	char hierarchy_sep;
+
+        struct mail_storage_vfuncs v;
 
 /* private: */
+	pool_t pool;
+
 	char *error;
 	enum mail_storage_flags flags;
+
+	/* Module-specific contexts. See mail_storage_module_id. */
+	array_t ARRAY_DEFINE(module_contexts, void);
 
 	unsigned int syntax_error:1; /* Give a BAD reply instead of NO */
 };
 
-struct mailbox {
-	char *name;
-
-	struct mail_storage *storage;
-
+struct mailbox_vfuncs {
 	int (*is_readonly)(struct mailbox *box);
 	int (*allow_new_keywords)(struct mailbox *box);
 
@@ -78,7 +87,8 @@ struct mailbox {
 			       void *context);
 
 	struct mailbox_transaction_context *
-		(*transaction_begin)(struct mailbox *box, int hide);
+		(*transaction_begin)(struct mailbox *box,
+				     enum mailbox_transaction_flags flags);
 	int (*transaction_commit)(struct mailbox_transaction_context *t,
 				  enum mailbox_sync_flags flags);
 	void (*transaction_rollback)(struct mailbox_transaction_context *t);
@@ -89,11 +99,13 @@ struct mailbox {
 	void (*keywords_free)(struct mailbox_transaction_context *t,
 			      struct mail_keywords *keywords);
 
-	struct mail *(*fetch)(struct mailbox_transaction_context *t,
-			      uint32_t seq,
-			      enum mail_fetch_field wanted_fields);
 	int (*get_uids)(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			uint32_t *seq1_r, uint32_t *seq2_r);
+
+	struct mail *
+		(*mail_alloc)(struct mailbox_transaction_context *t,
+			      enum mail_fetch_field wanted_fields,
+			      struct mailbox_header_lookup_ctx *wanted_headers);
 
 	struct mailbox_header_lookup_ctx *
 		(*header_lookup_init)(struct mailbox *box,
@@ -105,11 +117,9 @@ struct mailbox {
 	struct mail_search_context *
 	(*search_init)(struct mailbox_transaction_context *t,
 		       const char *charset, struct mail_search_arg *args,
-		       const enum mail_sort_type *sort_program,
-		       enum mail_fetch_field wanted_fields,
-		       struct mailbox_header_lookup_ctx *wanted_headers);
+		       const enum mail_sort_type *sort_program);
 	int (*search_deinit)(struct mail_search_context *ctx);
-	struct mail *(*search_next)(struct mail_search_context *ctx);
+	int (*search_next)(struct mail_search_context *ctx, struct mail *mail);
 
 	struct mail_save_context *
 		(*save_init)(struct mailbox_transaction_context *t,
@@ -119,13 +129,66 @@ struct mailbox {
 			     const char *from_envelope, struct istream *input,
 			     int want_mail);
 	int (*save_continue)(struct mail_save_context *ctx);
-	int (*save_finish)(struct mail_save_context *ctx, struct mail **mail_r);
+	int (*save_finish)(struct mail_save_context *ctx,
+			   struct mail *dest_mail);
 	void (*save_cancel)(struct mail_save_context *ctx);
 
 	int (*copy)(struct mailbox_transaction_context *t, struct mail *mail,
-		    struct mail **dest_mail_r);
+		    struct mail *dest_mail);
 
 	int (*is_inconsistent)(struct mailbox *box);
+};
+
+struct mailbox {
+	char *name;
+	struct mail_storage *storage;
+
+        struct mailbox_vfuncs v;
+/* private: */
+	pool_t pool;
+
+	/* Module-specific contexts. See mail_storage_module_id. */
+	array_t ARRAY_DEFINE(module_contexts, void);
+};
+
+struct mail_vfuncs {
+	void (*free)(struct mail *mail);
+	int (*set_seq)(struct mail *mail, uint32_t seq);
+
+	enum mail_flags (*get_flags)(struct mail *mail);
+	const char *const *(*get_keywords)(struct mail *mail);
+	const struct message_part *(*get_parts)(struct mail *mail);
+
+	time_t (*get_received_date)(struct mail *mail);
+	time_t (*get_date)(struct mail *mail, int *timezone);
+	uoff_t (*get_virtual_size)(struct mail *mail);
+	uoff_t (*get_physical_size)(struct mail *mail);
+
+	const char *(*get_header)(struct mail *mail, const char *field);
+	struct istream *
+		(*get_headers)(struct mail *mail,
+			       struct mailbox_header_lookup_ctx *headers);
+	struct istream *(*get_stream)(struct mail *mail,
+				      struct message_size *hdr_size,
+				      struct message_size *body_size);
+
+	const char *(*get_special)(struct mail *mail,
+				   enum mail_fetch_field field);
+
+	int (*update_flags)(struct mail *mail, enum modify_type modify_type,
+			    enum mail_flags flags);
+	int (*update_keywords)(struct mail *mail, enum modify_type modify_type,
+			       struct mail_keywords *keywords);
+
+	int (*expunge)(struct mail *mail);
+};
+
+struct mail_private {
+	struct mail mail;
+	struct mail_vfuncs v;
+
+	pool_t pool;
+	array_t ARRAY_DEFINE(module_contexts, void);
 };
 
 struct mailbox_list_context {
@@ -137,11 +200,11 @@ struct mailbox_transaction_context {
 };
 
 struct mail_search_context {
-	struct mailbox *box;
+	struct mailbox_transaction_context *transaction;
 };
 
 struct mail_save_context {
-	struct mailbox *box;
+	struct mailbox_transaction_context *transaction;
 };
 
 struct mailbox_sync_context {

@@ -4,22 +4,6 @@
 #include "index-storage.h"
 #include "index-mail.h"
 
-struct mail *
-index_storage_fetch(struct mailbox_transaction_context *_t, uint32_t seq,
-		    enum mail_fetch_field wanted_fields)
-{
-	struct index_transaction_context *t =
-		(struct index_transaction_context *)_t;
-
-	if (t->fetch_mail.pool != NULL)
-		index_mail_deinit(&t->fetch_mail);
-
-	index_mail_init(t, &t->fetch_mail, wanted_fields, NULL);
-	if (index_mail_next(&t->fetch_mail, seq) < 0)
-		return NULL;
-	return &t->fetch_mail.mail;
-}
-
 int index_storage_get_uids(struct mailbox *box,
 			   uint32_t uid1, uint32_t uid2,
 			   uint32_t *seq1_r, uint32_t *seq2_r)

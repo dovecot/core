@@ -8,6 +8,7 @@
 #include "subscription-file/subscription-file.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
+#include "index-mail.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +39,7 @@ maildir_create(const char *data, const char *user,
 	const char *root_dir, *inbox_dir, *index_dir, *control_dir;
 	const char *home, *path, *p;
 	size_t len;
+	pool_t pool;
 
 	inbox_dir = root_dir = index_dir = control_dir = NULL;
 
@@ -114,19 +116,21 @@ maildir_create(const char *data, const char *user,
 		       inbox_dir == NULL ? "" : inbox_dir);
 	}
 
-	storage = i_new(struct index_storage, 1);
+	pool = pool_alloconly_create("storage", 256);
+	storage = p_new(pool, struct index_storage, 1);
 	storage->storage = maildir_storage;
+	storage->storage.pool = pool;
 
 	/* the default ".temp.xxx" prefix would be treated as directory */
 	storage->temp_prefix =
-		i_strconcat("temp.", my_hostname, ".", my_pid, ".", NULL);
+		p_strconcat(pool, "temp.", my_hostname, ".", my_pid, ".", NULL);
 
-	storage->dir = i_strdup(home_expand(root_dir));
-	storage->inbox_path = i_strdup(home_expand(inbox_dir));
-	storage->index_dir = i_strdup(home_expand(index_dir));
-	storage->control_dir = i_strdup(home_expand(control_dir));
-	storage->user = i_strdup(user);
-	storage->callbacks = i_new(struct mail_storage_callbacks, 1);
+	storage->dir = p_strdup(pool, home_expand(root_dir));
+	storage->inbox_path = p_strdup(pool, home_expand(inbox_dir));
+	storage->index_dir = p_strdup(pool, home_expand(index_dir));
+	storage->control_dir = p_strdup(pool, home_expand(control_dir));
+	storage->user = p_strdup(pool, user);
+	storage->callbacks = p_new(pool, struct mail_storage_callbacks, 1);
 	index_storage_init(storage, flags);
 
 	(void)verify_inbox(storage);
@@ -138,15 +142,7 @@ static void maildir_free(struct mail_storage *_storage)
 	struct index_storage *storage = (struct index_storage *) _storage;
 
 	index_storage_deinit(storage);
-
-	i_free(storage->temp_prefix);
-	i_free(storage->dir);
-	i_free(storage->inbox_path);
-	i_free(storage->index_dir);
-	i_free(storage->control_dir);
-	i_free(storage->user);
-	i_free(storage->callbacks);
-	i_free(storage);
+	pool_unref(storage->storage.pool);
 }
 
 static int maildir_autodetect(const char *data, enum mail_storage_flags flags)
@@ -406,6 +402,7 @@ maildir_open(struct index_storage *storage, const char *name,
 	const char *path, *index_dir, *control_dir;
 	struct stat st;
 	int shared;
+	pool_t pool;
 
 	path = maildir_get_path(storage, name);
 	index_dir = maildir_get_index_path(storage, name);
@@ -419,15 +416,21 @@ maildir_open(struct index_storage *storage, const char *name,
 	if (shared)
 		mail_index_set_permissions(index, st.st_mode & 0666, st.st_gid);
 
-	ibox = index_storage_mailbox_init(storage, &maildir_mailbox,
-					  index, name, flags);
-	if (ibox == NULL)
+	pool = pool_alloconly_create("mailbox", 256);
+	ibox = p_new(pool, struct index_mailbox, 1);
+	ibox->box = maildir_mailbox;
+	ibox->box.pool = pool;
+	ibox->storage = storage;
+
+	if (index_storage_mailbox_init(ibox, index, name, flags) < 0) {
+		/* the memory was already freed */
 		return NULL;
+	}
 
-	ibox->path = i_strdup(path);
-	ibox->control_dir = i_strdup(control_dir);
+	ibox->path = p_strdup(pool, path);
+	ibox->control_dir = p_strdup(pool, control_dir);
 
-	ibox->mail_interface = &maildir_mail;
+	ibox->mail_vfuncs = &maildir_mail_vfuncs;
 	ibox->uidlist = maildir_uidlist_init(ibox);
 	ibox->is_recent = maildir_is_recent;
 
@@ -836,59 +839,67 @@ maildir_notify_changes(struct mailbox *box, unsigned int min_interval,
 }
 
 struct mail_storage maildir_storage = {
-	"maildir", /* name */
+	MEMBER(name) "maildir",
+	MEMBER(hierarchy_sep) '.',
 
-	'.', /* hierarchy separator */
+	{
+		maildir_create,
+		maildir_free,
+		maildir_autodetect,
+		index_storage_set_callbacks,
+		maildir_mailbox_open,
+		maildir_mailbox_create,
+		maildir_mailbox_delete,
+		maildir_mailbox_rename,
+		maildir_mailbox_list_init,
+		maildir_mailbox_list_next,
+		maildir_mailbox_list_deinit,
+		maildir_set_subscribed,
+		maildir_get_mailbox_name_status,
+		index_storage_get_last_error
+	},
 
-	maildir_create,
-	maildir_free,
-	maildir_autodetect,
-	index_storage_set_callbacks,
-	maildir_mailbox_open,
-	maildir_mailbox_create,
-	maildir_mailbox_delete,
-	maildir_mailbox_rename,
-	maildir_mailbox_list_init,
-	maildir_mailbox_list_next,
-	maildir_mailbox_list_deinit,
-	maildir_set_subscribed,
-	maildir_get_mailbox_name_status,
-	index_storage_get_last_error,
-
-	NULL,
-	0,
-	0
+	MEMBER(pool) NULL,
+	MEMBER(error) NULL,
+	MEMBER(flags) 0,
+	MEMBER(module_contexts) ARRAY_INIT,
+	MEMBER(syntax_error) 0
 };
 
 struct mailbox maildir_mailbox = {
-	NULL, /* name */
-	NULL, /* storage */
+	MEMBER(name) NULL, 
+	MEMBER(storage) NULL, 
 
-	index_storage_is_readonly,
-        index_storage_allow_new_keywords,
-	maildir_storage_close,
-	index_storage_get_status,
-	maildir_storage_sync_init,
-	index_mailbox_sync_next,
-	index_mailbox_sync_deinit,
-	maildir_notify_changes,
-	maildir_transaction_begin,
-	maildir_transaction_commit,
-	maildir_transaction_rollback,
-	index_keywords_create,
-	index_keywords_free,
-	index_storage_fetch,
-	index_storage_get_uids,
-	index_header_lookup_init,
-        index_header_lookup_deinit,
-	index_storage_search_get_sorting,
-	index_storage_search_init,
-	index_storage_search_deinit,
-	index_storage_search_next,
-	maildir_save_init,
-	maildir_save_continue,
-	maildir_save_finish,
-	maildir_save_cancel,
-	maildir_copy,
-	index_storage_is_inconsistent
+	{
+		index_storage_is_readonly,
+		index_storage_allow_new_keywords,
+		maildir_storage_close,
+		index_storage_get_status,
+		maildir_storage_sync_init,
+		index_mailbox_sync_next,
+		index_mailbox_sync_deinit,
+		maildir_notify_changes,
+		maildir_transaction_begin,
+		maildir_transaction_commit,
+		maildir_transaction_rollback,
+		index_keywords_create,
+		index_keywords_free,
+		index_storage_get_uids,
+		index_mail_alloc,
+		index_header_lookup_init,
+		index_header_lookup_deinit,
+		index_storage_search_get_sorting,
+		index_storage_search_init,
+		index_storage_search_deinit,
+		index_storage_search_next,
+		maildir_save_init,
+		maildir_save_continue,
+		maildir_save_finish,
+		maildir_save_cancel,
+		maildir_copy,
+		index_storage_is_inconsistent
+	},
+
+	MEMBER(pool) NULL,
+	MEMBER(module_contexts) ARRAY_INIT
 };

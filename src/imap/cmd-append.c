@@ -396,7 +396,8 @@ int cmd_append(struct client_command_context *cmd)
 					     status.keywords_count);
 		}
 		ctx->t = ctx->box == NULL ? NULL :
-			mailbox_transaction_begin(ctx->box, FALSE);
+			mailbox_transaction_begin(ctx->box,
+				MAILBOX_TRANSACTION_FLAG_EXTERNAL);
 	}
 
 	io_remove(client->io);
