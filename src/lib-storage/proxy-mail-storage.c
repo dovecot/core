@@ -7,7 +7,7 @@ static void _free(struct mail_storage *storage)
 {
 	struct proxy_mail_storage *s = (struct proxy_mail_storage *) storage;
 
-	return s->storage->free(s->storage);
+	s->storage->free(s->storage);
 }
 
 static void _set_callbacks(struct mail_storage *storage,
