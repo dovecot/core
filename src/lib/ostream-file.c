@@ -17,6 +17,10 @@
 #  include <sys/uio.h>
 #endif
 
+#ifndef UIO_MAXIOV
+#  define UIO_MAXIOV 16
+#endif
+
 /* try to keep the buffer size within 4k..128k. ReiserFS may actually return
    128k as optimal size. */
 #define DEFAULT_OPTIMAL_BLOCK_SIZE 4096
@@ -129,11 +133,31 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 			       const struct const_iovec *iov, int iov_size)
 {
 	ssize_t ret;
+	size_t size;
+	int i;
 
 	if (iov_size == 1)
 		ret = write(fstream->fd, iov->iov_base, iov->iov_len);
-	else
-		ret = writev(fstream->fd, (const struct iovec *)iov, iov_size);
+	else {
+		while (iov_size > UIO_MAXIOV) {
+			size = 0;
+			for (i = 0; i < UIO_MAXIOV; i++)
+				size += iov[i].iov_len;
+
+			ret = writev(fstream->fd, (const struct iovec *)iov,
+				     UIO_MAXIOV);
+			if (ret != (ssize_t)size)
+				break;
+
+			iov += UIO_MAXIOV;
+			iov_size -= UIO_MAXIOV;
+		}
+
+		if (iov_size <= UIO_MAXIOV) {
+			ret = writev(fstream->fd, (const struct iovec *)iov,
+				     iov_size);
+		}
+	}
 
 	if (ret < 0) {
 		if (errno == EAGAIN || errno == EINTR)
