@@ -222,6 +222,11 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			field.decision = decisions[i];
 			mail_cache_register_fields(cache, &field, 1);
 		}
+		if (cache->field_file_map[field.idx] != (uint32_t)-1) {
+			mail_cache_set_corrupted(cache,
+				"Duplicated field in header: %s", names);
+			return -1;
+		}
 		cache->field_file_map[field.idx] = i;
 		cache->file_field_map[i] = field.idx;
 
