@@ -384,7 +384,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
 	const unsigned char *data;
-	size_t size, hdr_size;
+	size_t size;
 	ssize_t ret;
 
 	if (ctx->failed)
@@ -408,12 +408,12 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 		    ctx->input->v_offset + size >= ctx->eoh_input_offset) {
 			/* found end of headers. write the rest of them. */
 			size = ctx->eoh_input_offset - ctx->input->v_offset;
-			if (o_stream_send(ctx->output, data, hdr_size) < 0) {
+			if (o_stream_send(ctx->output, data, size) < 0) {
 				ctx->failed = TRUE;
 				return -1;
 			}
-			if (hdr_size > 0)
-				ctx->last_char = data[hdr_size-1];
+			if (size > 0)
+				ctx->last_char = data[size-1];
 			i_stream_skip(ctx->input, size + 1);
 			break;
 		}
