@@ -89,5 +89,5 @@ noinst_HEADERS = \
 checkpassword_reply_LDADD = \
 	../lib/liblib.a
 
-checkpassword_reply_sources =
+checkpassword_reply_sources = \
 	checkpassword-reply.c
