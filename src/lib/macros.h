@@ -71,7 +71,8 @@
    For SunOS they will be wrapped within `if (1)' and `else (void) 0',
    and otherwise within `do' and `while (0)'. */
 #if !(defined (STMT_START) && defined (STMT_END))
-#  if defined (__GNUC__) && !defined (__STRICT_ANSI__) && !defined (__cplusplus)
+#  if defined (__GNUC__) && !defined (__cplusplus) && \
+	!defined (__STRICT_ANSI__) && !defined (PEDANTIC)
 #    define STMT_START (void)(
 #    define STMT_END   )
 #  else
