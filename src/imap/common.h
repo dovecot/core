@@ -25,7 +25,8 @@
 
 enum client_workarounds {
 	WORKAROUND_OE6_FETCH_NO_NEWMAIL		= 0x01,
-	WORKAROUND_OUTLOOK_IDLE			= 0x02
+	WORKAROUND_OUTLOOK_IDLE			= 0x02,
+	WORKAROUND_NETSCAPE_EOH			= 0x04
 };
 
 extern struct ioloop *ioloop;

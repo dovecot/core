@@ -29,6 +29,7 @@ struct client_workaround_list {
 struct client_workaround_list client_workaround_list[] = {
 	{ "oe6-fetch-no-newmail", WORKAROUND_OE6_FETCH_NO_NEWMAIL },
 	{ "outlook-idle", WORKAROUND_OUTLOOK_IDLE },
+	{ "netscape-eoh", WORKAROUND_NETSCAPE_EOH },
 	{ NULL, 0 }
 };
 

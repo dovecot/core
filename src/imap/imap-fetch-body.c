@@ -119,7 +119,8 @@ static string_t *get_prefix(struct imap_fetch_context *ctx,
 }
 
 static off_t imap_fetch_send(struct ostream *output, struct istream *input,
-			     int cr_skipped, uoff_t virtual_size, int *last_cr)
+			     int cr_skipped, uoff_t virtual_size,
+			     int add_missing_eoh, int *last_cr)
 {
 	const unsigned char *msg;
 	size_t i, size;
@@ -173,6 +174,14 @@ static off_t imap_fetch_send(struct ostream *output, struct istream *input,
 		}
 	}
 
+	if (add_missing_eoh && sent + 2 == virtual_size) {
+		/* Netscape missing EOH workaround. */
+		o_stream_set_max_buffer_size(output, (size_t)-1);
+		if (o_stream_send(output, "\r\n", 2) < 0)
+			return -1;
+		sent += 2;
+	}
+
 	if ((uoff_t)sent != virtual_size && !blocks) {
 		/* Input stream gave less data then we expected. Two choices
 		   here: either we fill the missing data with spaces or we
@@ -201,7 +210,7 @@ static int fetch_stream_send(struct imap_fetch_context *ctx)
 	o_stream_set_max_buffer_size(ctx->client->output, 0);
 	ret = imap_fetch_send(ctx->client->output, ctx->cur_input,
 			      ctx->skip_cr, ctx->cur_size - ctx->cur_offset,
-			      &ctx->skip_cr);
+			      ctx->cur_append_eoh, &ctx->skip_cr);
 	o_stream_set_max_buffer_size(ctx->client->output, (size_t)-1);
 
 	if (ret < 0)
@@ -230,6 +239,15 @@ static int fetch_stream_send_direct(struct imap_fetch_context *ctx)
 		return -1;
 
 	ctx->cur_offset += ret;
+
+	if (ctx->cur_append_eoh && ctx->cur_offset + 2 == ctx->cur_size) {
+		/* Netscape missing EOH workaround. */
+		if (o_stream_send(ctx->client->output, "\r\n", 2) < 0)
+			return -1;
+		ctx->cur_offset += 2;
+		ctx->cur_append_eoh = FALSE;
+	}
+
 	return ctx->cur_offset == ctx->cur_size;
 }
 
@@ -316,11 +334,27 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 	return fetch_data(ctx, body, fetch_size);
 }
 
-static void header_filter_mime(struct message_header_line *hdr,
-			       int *matched, void *context __attr_unused__)
+static void header_filter_eoh(struct message_header_line *hdr,
+			      int *matched __attr_unused__, void *context)
 {
+	struct imap_fetch_context *ctx = context;
+
+	if (hdr != NULL && hdr->eoh)
+		ctx->cur_have_eoh = TRUE;
+}
+
+static void header_filter_mime(struct message_header_line *hdr,
+			       int *matched, void *context)
+{
+	struct imap_fetch_context *ctx = context;
+
 	if (hdr == NULL)
 		return;
+
+	if (hdr->eoh) {
+		ctx->cur_have_eoh = TRUE;
+		return;
+	}
 
 	*matched = strncasecmp(hdr->name, "Content-", 8) == 0 ||
 		strcasecmp(hdr->name, "Mime-Version") == 0;
@@ -337,26 +371,27 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 
 	/* MIME, HEADER.FIELDS (list), HEADER.FIELDS.NOT (list) */
 
+	ctx->cur_have_eoh = FALSE;
 	if (strncmp(header_section, "HEADER.FIELDS ", 14) == 0) {
 		fields = imap_fetch_get_body_fields(header_section + 14,
 						    &fields_count);
 		input = i_stream_create_header_filter(ctx->cur_input,
 						      FALSE, TRUE,
 						      fields, fields_count,
-						      NULL, NULL);
+						      header_filter_eoh, ctx);
 	} else if (strncmp(header_section, "HEADER.FIELDS.NOT ", 18) == 0) {
 		fields = imap_fetch_get_body_fields(header_section + 18,
 						    &fields_count);
 		input = i_stream_create_header_filter(ctx->cur_input,
 						      TRUE, TRUE,
 						      fields, fields_count,
-						      NULL, NULL);
+						      header_filter_eoh, ctx);
 	} else if (strcmp(header_section, "MIME") == 0) {
 		/* Mime-Version + Content-* fields */
 		input = i_stream_create_header_filter(ctx->cur_input,
 						      FALSE, TRUE,
 						      NULL, 0,
-						      header_filter_mime, NULL);
+						      header_filter_mime, ctx);
 	} else {
 		i_error("BUG: Accepted invalid section from user: '%s'",
 			header_section);
@@ -367,15 +402,16 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 	ctx->cur_input = input;
 	ctx->update_partial = FALSE;
 
-	/* FIXME: We'll just always add the end of headers mark now.
-	   mail-storage should rather include it in the header stream..
-	   however, not much of a problem since all non-broken mails have it.
-
-	   Also, Netscape 4.x seems to require this or it won't show the
-	   mail.. So if we do make this as RFC says, we'll need to add
-	   netscape-workaround. */
 	message_get_header_size(ctx->cur_input, &msg_size, NULL);
 	i_stream_seek(ctx->cur_input, 0);
+
+	if (!ctx->cur_have_eoh &&
+	    (client_workarounds & WORKAROUND_NETSCAPE_EOH) != 0) {
+		/* Netscape 4.x doesn't like if end of headers line is
+		   missing. */
+		msg_size.virtual_size += 2;
+		ctx->cur_append_eoh = TRUE;
+	}
 
 	return fetch_data(ctx, body, &msg_size);
 }
@@ -410,6 +446,11 @@ static int fetch_body_header_fields(struct imap_fetch_context *ctx,
 
 	message_get_body_size(ctx->cur_input, &size, NULL);
 	i_stream_seek(ctx->cur_input, 0);
+
+	/* FIXME: We'll just always add the end of headers line now.
+	   ideally mail-storage would have a way to tell us if it exists. */
+	size.virtual_size += 2;
+	ctx->cur_append_eoh = TRUE;
 
 	return fetch_data(ctx, body, &size);
 }
