@@ -421,8 +421,8 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache *cache = ctx->cache;
 	const struct mail_cache_record *rec, *tmp_rec;
 	const uint32_t *seq;
-	uint32_t write_offset, rec_pos, cache_file_seq;
-	size_t size, max_size, seq_idx, seq_limit, seq_count;
+	uint32_t write_offset, rec_pos, cache_file_seq, seq_idx;
+	size_t size, max_size, seq_limit, seq_count;
 	int commit;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
