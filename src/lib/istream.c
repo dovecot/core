@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
+#include "str.h"
 #include "istream-internal.h"
 
 void i_stream_ref(struct istream *stream)
@@ -10,6 +11,12 @@ void i_stream_ref(struct istream *stream)
 
 void i_stream_unref(struct istream *stream)
 {
+	struct _istream *_stream = stream->real_stream;
+
+	if (_stream->iostream.refcount == 1) {
+		if (_stream->line_str != NULL)
+			str_free(_stream->line_str);
+	}
 	_io_stream_unref(&stream->real_stream->iostream);
 }
 
@@ -97,6 +104,36 @@ int i_stream_have_bytes_left(struct istream *stream)
 	return !stream->eof || _stream->skip != _stream->pos;
 }
 
+static char *i_stream_next_line_finish(struct _istream *stream, size_t i)
+{
+	char *ret;
+	size_t end;
+
+	if (i > 0 && stream->buffer[i-1] == '\r')
+		end = i - 1;
+	else
+		end = i;
+
+	if (stream->w_buffer != NULL) {
+		/* modify the buffer directly */
+		stream->w_buffer[end] = '\0';
+		ret = (char *)stream->w_buffer + stream->skip;
+	} else {
+		/* use a temporary string to return it */
+		if (stream->line_str == NULL)
+			stream->line_str = str_new(default_pool, 256);
+		str_truncate(stream->line_str, 0);
+		str_append_n(stream->line_str, stream->buffer + stream->skip,
+			     end - stream->skip);
+		ret = str_c_modifyable(stream->line_str);
+	}
+
+	i++;
+	stream->istream.v_offset += i - stream->skip;
+	stream->skip = i;
+	return ret;
+}
+
 char *i_stream_next_line(struct istream *stream)
 {
 	struct _istream *_stream = stream->real_stream;
@@ -120,15 +157,7 @@ char *i_stream_next_line(struct istream *stream)
 	for (i = _stream->skip; i < _stream->pos; i++) {
 		if (_stream->buffer[i] == 10) {
 			/* got it */
-			if (i > 0 && _stream->buffer[i-1] == '\r')
-				_stream->w_buffer[i-1] = '\0';
-			else
-				_stream->w_buffer[i] = '\0';
-			ret_buf = (char *) _stream->w_buffer + _stream->skip;
-
-			i++;
-			stream->v_offset += i - _stream->skip;
-			_stream->skip = i;
+			ret_buf = i_stream_next_line_finish(_stream, i);
                         break;
 		}
 	}

@@ -55,8 +55,7 @@ uoff_t i_stream_get_size(struct istream *stream);
 int i_stream_have_bytes_left(struct istream *stream);
 
 /* Gets the next line from stream and returns it, or NULL if more data is
-   needed to make a full line. NOTE: modifies the data in buffer for the \0,
-   so it works only with buffered streams (currently only file). */
+   needed to make a full line. */
 char *i_stream_next_line(struct istream *stream);
 /* Like i_stream_next_line(), but reads for more data if needed. Returns NULL
    if more data is needed or error occured. */

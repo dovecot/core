@@ -19,6 +19,7 @@ struct _istream {
 	int fd;
 	const unsigned char *buffer;
 	unsigned char *w_buffer; /* may be NULL */
+	string_t *line_str; /* for i_stream_next_line() if w_buffer == NULL */
 	size_t buffer_size;
 	uoff_t abs_start_offset;
 
