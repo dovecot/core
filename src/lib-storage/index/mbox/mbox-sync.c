@@ -67,7 +67,7 @@ static int mbox_sync_lock(struct mbox_sync_context *sync_ctx, int lock_type)
 {
 	struct index_mailbox *ibox = sync_ctx->ibox;
 	struct stat old_st, st;
-	uoff_t old_from_offset, old_offset = 0;
+	uoff_t old_from_offset = 0, old_offset = 0;
 
 	if (sync_ctx->lock_id != 0) {
 		if (fstat(sync_ctx->fd, &old_st) < 0) {
@@ -939,11 +939,11 @@ static int mbox_sync_update_imap_base(struct mbox_sync_context *sync_ctx)
 {
 	struct mbox_sync_mail_context mail_ctx;
 
-	if (mbox_sync_check_excl_lock(sync_ctx) == -1)
-		return -1;
-
 	sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view, FALSE);
 	sync_ctx->update_base_uid_last = sync_ctx->next_uid-1;
+
+	if (mbox_sync_check_excl_lock(sync_ctx) == -1)
+		return -1;
 
 	mbox_sync_restart(sync_ctx);
 	if (mbox_sync_loop(sync_ctx, &mail_ctx, 1) < 0)
