@@ -252,6 +252,12 @@ static int sync_cache_update(const struct mail_transaction_cache_update *u,
 			ctx->cache_locked = TRUE;
 		}
 
+		if (view->map->hdr->cache_file_seq !=
+		    view->index->cache->hdr->file_seq) {
+			/* cache has been compressed, don't modify it */
+			return 1;
+		}
+
 		if (mail_cache_link(view->index->cache,
 				    rec->cache_offset, u->cache_offset) < 0)
 			return -1;

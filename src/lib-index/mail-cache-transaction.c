@@ -49,6 +49,7 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 	ctx->trans = t;
 	ctx->reservations =
 		buffer_create_dynamic(system_pool, 256, (size_t)-1);
+	ctx->cache_file_seq = ctx->cache->hdr->file_seq;
 
 	i_assert(view->transaction == NULL);
 	view->transaction = ctx;
@@ -300,8 +301,11 @@ mail_cache_transaction_free_space(struct mail_cache_transaction_ctx *ctx)
 			return;
 	}
 
-	mail_cache_free_space(ctx->cache, ctx->reserved_space_offset,
-			      ctx->reserved_space);
+	/* check again - locking might have reopened the cache file */
+	if (ctx->reserved_space != 0) {
+		mail_cache_free_space(ctx->cache, ctx->reserved_space_offset,
+				      ctx->reserved_space);
+	}
 
 	if (!locked)
 		mail_cache_unlock(ctx->cache);
@@ -323,7 +327,7 @@ mail_cache_transaction_get_space(struct mail_cache_transaction_ctx *ctx,
 	if (min_size > ctx->reserved_space) {
 		if (!locked) {
 			if (mail_cache_transaction_lock(ctx) <= 0)
-				return -1;
+				return 0;
 		}
 		ret = mail_cache_transaction_reserve_more(ctx, max_size,
 							  commit);
@@ -360,7 +364,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache *cache = ctx->cache;
 	const struct mail_cache_record *rec, *tmp_rec;
 	const uint32_t *seq;
-	uint32_t write_offset, old_offset, rec_pos;
+	uint32_t write_offset, old_offset, rec_pos, cache_file_seq;
 	size_t size, max_size, seq_idx, seq_limit, seq_count;
 	int commit;
 
@@ -382,10 +386,17 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 
 	for (seq_idx = 0, rec_pos = 0; rec_pos < ctx->prev_pos;) {
 		max_size = ctx->prev_pos - rec_pos;
+
+		cache_file_seq = ctx->cache_file_seq;
 		write_offset = mail_cache_transaction_get_space(ctx, rec->size,
 								max_size,
 								&max_size,
 								commit);
+		if (cache_file_seq != ctx->cache_file_seq) {
+			/* cache file reopened - need to abort */
+			return 0;
+		}
+
 		if (write_offset == 0) {
 			/* nothing to write / error */
 			return ctx->prev_pos == 0 ? 0 : -1;
@@ -516,14 +527,14 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 	const uint32_t *buf;
 	size_t size;
 
-	buf = buffer_get_data(ctx->reservations, &size);
-	i_assert(size % sizeof(uint32_t)*2 == 0);
-	size /= sizeof(*buf);
-
-	if ((ctx->reserved_space > 0 || size > 0) &&
+	if ((ctx->reserved_space > 0 || ctx->reservations->used > 0) &&
 	    !MAIL_CACHE_IS_UNUSABLE(cache)) {
 		if (mail_cache_transaction_lock(ctx) > 0) {
 			mail_cache_transaction_free_space(ctx);
+
+			buf = buffer_get_data(ctx->reservations, &size);
+			i_assert(size % sizeof(uint32_t)*2 == 0);
+			size /= sizeof(*buf);
 
 			if (size > 0) {
 				/* free flushed data as well. do it from end to
