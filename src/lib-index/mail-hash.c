@@ -52,17 +52,8 @@ struct _MailHash {
 	unsigned int modified:1;
 };
 
-static int mmap_update(MailHash *hash)
+static int mmap_update_real(MailHash *hash)
 {
-	if (hash->fd == -1)
-		return FALSE;
-
-	if (!hash->dirty_mmap) {
-		/* see if someone else modified it */
-		if (hash->header->updateid == hash->updateid)
-			return TRUE;
-	}
-
 	if (hash->mmap_base != NULL)
 		(void)munmap(hash->mmap_base, hash->mmap_length);
 
@@ -76,6 +67,11 @@ static int mmap_update(MailHash *hash)
 		return FALSE;
 	}
 
+	return TRUE;
+}
+
+static int hash_verify_header(MailHash *hash)
+{
 	if (hash->mmap_length <= sizeof(MailHashHeader) ||
 	    (hash->mmap_length - sizeof(MailHashHeader)) %
 	    sizeof(MailHashRecord) != 0) {
@@ -88,9 +84,7 @@ static int mmap_update(MailHash *hash)
 		return FALSE;
 	}
 
-	hash->dirty_mmap = FALSE;
 	hash->header = hash->mmap_base;
-
 	hash->updateid = hash->header->updateid;
 	hash->size = (hash->mmap_length - sizeof(MailHashHeader)) /
 		sizeof(MailHashRecord);
@@ -102,7 +96,24 @@ static int mmap_update(MailHash *hash)
 				"Invalid size %u", hash->filepath, hash->size);
 		return FALSE;
 	}
+
+	hash->dirty_mmap = FALSE;
 	return TRUE;
+}
+
+static int mmap_update(MailHash *hash)
+{
+	if (hash->fd == -1)
+		return FALSE;
+
+	if (!hash->dirty_mmap) {
+		/* see if someone else modified it */
+		if (hash->header->updateid == hash->updateid)
+			return TRUE;
+	}
+
+	return mmap_update_real(hash) && hash_verify_header(hash);
+
 }
 
 static MailHash *mail_hash_new(MailIndex *index)
@@ -143,15 +154,16 @@ int mail_hash_open_or_create(MailIndex *index)
 	if (hash->fd == -1)
 		return mail_hash_lock_and_rebuild(hash);
 
-	if (!mmap_update(hash)) {
+	if (!mmap_update_real(hash)) {
 		/* mmap() failure is fatal */
 		mail_hash_free(hash);
 		return FALSE;
 	}
 
-	/* verify that this really is the hash file for wanted index */
-	if (hash->header->indexid != index->indexid) {
-		/* mismatch - just recreate it */
+	/* make sure the header looks fine */
+	if (!hash_verify_header(hash) ||
+	    hash->header->indexid != hash->index->indexid) {
+		/* just recreate it */
 		(void)munmap(hash->mmap_base, hash->mmap_length);
 		hash->mmap_base = NULL;
 		hash->dirty_mmap = TRUE;
