@@ -211,12 +211,13 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 
 	/* save the offset permanently with recent flag state */
 	mail_ctx->mail.from_offset = mail_ctx->from_offset;
-	if ((mail_ctx->mail.flags & MBOX_NONRECENT) == 0) {
+	if ((mail_ctx->mail.flags & MBOX_NONRECENT) == 0 && !mail_ctx->pseudo) {
 		if (!sync_ctx->ibox->keep_recent) {
 			/* need to add 'O' flag to Status-header */
 			mail_ctx->need_rewrite = TRUE;
 		}
-		// FIXME: save it somewhere
+		index_mailbox_set_recent(sync_ctx->ibox,
+					 mail_ctx->seq - mail_ctx->pseudo);
 	}
 	return 1;
 }
@@ -442,6 +443,9 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 		/* new message */
 		mail_index_append(sync_ctx->t, mail->uid, &sync_ctx->idx_seq);
 		mbox_flags = mail->flags & (MAIL_FLAGS_MASK^MAIL_RECENT);
+		if (sync_ctx->ibox->keep_recent &&
+		    (mail->flags & MBOX_NONRECENT) == 0)
+			mbox_flags |= MAIL_RECENT;
 		mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
 					MODIFY_REPLACE, mbox_flags,
 					mail->keywords);
@@ -468,6 +472,9 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 
 		mbox_flags = (rec->flags & ~MAIL_FLAGS_MASK) |
 			(mail->flags & (MAIL_FLAGS_MASK^MAIL_RECENT));
+
+		if (!sync_ctx->ibox->keep_recent)
+			mbox_flags &= ~MAIL_RECENT;
 
 		if (idx_flags != mbox_flags ||
 		    memcmp(idx_keywords, mail->keywords,
