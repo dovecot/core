@@ -160,6 +160,19 @@ AC_ARG_WITH(ssldir,
 )
 AC_SUBST(ssldir)
 
+AC_ARG_WITH(gc,
+[  --with-gc               Use Boehm garbage collector (currently broken)],
+	if test x$withval = xyes; then
+		want_gc=yes
+	else
+		if test "x$withval" = xno; then
+			want_gc=no
+		else
+			want_gc=yes
+		fi
+	fi,
+	want_gc=no)
+
 AC_ARG_WITH(pop3d,
 [  --with-pop3d            Build POP3 server (default)],
 	if test x$withval = xno; then
@@ -837,6 +850,20 @@ fi
 
 if test "$have_ssl" != "no"; then
 	AC_DEFINE(HAVE_SSL,, Build with SSL/TLS support)
+fi
+
+dnl **
+dnl ** Garbage Collector
+dnl ** 
+
+if test "$want_gc" = "yes"; then
+  AC_CHECK_LIB(gc, GC_malloc, [
+    AC_CHECK_HEADERS(gc/gc.h gc.h)
+    AC_DEFINE(USE_GC,, Define if you want to use Boehm GC)
+    LIBS="$LIBS -lgc"
+  ], [
+    want_gc=no
+  ])
 fi
 
 dnl **

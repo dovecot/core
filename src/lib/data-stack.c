@@ -7,6 +7,12 @@
 
 #include <stdlib.h>
 
+#ifdef HAVE_GC_GC_H
+#  include <gc/gc.h>
+#elif defined (HAVE_GC_H)
+#  include <gc.h>
+#endif
+
 /* Use malloc() and free() for all memory allocations. Useful for debugging
    memory corruption. */
 /* #define DISABLE_DATA_STACK */
@@ -19,6 +25,12 @@
 #  define INITIAL_STACK_SIZE (1024*10)
 #else
 #  define INITIAL_STACK_SIZE (1024*32)
+#endif
+
+#ifdef DEBUG
+#  define CLEAR_CHR 0xde
+#elif defined(USE_GC)
+#  define CLEAR_CHR 0
 #endif
 
 struct stack_block {
@@ -75,7 +87,12 @@ unsigned int t_push(void)
 		frame_pos = 0;
 		if (unused_frame_blocks == NULL) {
 			/* allocate new block */
+#ifndef USE_GC
 			frame_block = calloc(sizeof(*frame_block), 1);
+#else
+			frame_block = GC_malloc(sizeof(*frame_block));
+                        memset(frame_block, 0, sizeof(*frame_block));
+#endif
 			if (frame_block == NULL)
 				i_panic("t_push(): Out of memory");
 		} else {
@@ -96,6 +113,7 @@ unsigned int t_push(void)
         return data_stack_frame++;
 }
 
+#ifndef USE_GC
 static void free_blocks(struct stack_block *block)
 {
 	struct stack_block *next;
@@ -115,6 +133,7 @@ static void free_blocks(struct stack_block *block)
 		block = next;
 	}
 }
+#endif
 
 unsigned int t_pop(void)
 {
@@ -127,14 +146,16 @@ unsigned int t_pop(void)
 	/* update the current block */
 	current_block = current_frame_block->block[frame_pos];
 	current_block->left = current_frame_block->block_space_used[frame_pos];
-#ifdef DEBUG
+#ifdef CLEAR_CHR
 	memset(STACK_BLOCK_DATA(current_block) +
-	       (current_block->size - current_block->left), 0xde,
+	       (current_block->size - current_block->left), CLEAR_CHR,
 	       current_block->left);
 #endif
 	if (current_block->next != NULL) {
 		/* free unused blocks */
+#ifndef USE_GC
 		free_blocks(current_block->next);
+#endif
 		current_block->next = NULL;
 	}
 
@@ -163,7 +184,11 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 	prev_size = current_block == NULL ? 0 : current_block->size;
 	alloc_size = nearest_power(prev_size + min_size);
 
+#ifndef USE_GC
 	block = malloc(SIZEOF_MEMBLOCK + alloc_size);
+#else
+	block = GC_malloc_atomic(SIZEOF_MEMBLOCK + alloc_size);
+#endif
 	if (block == NULL) {
 		i_panic("mem_block_alloc(): "
 			"Out of memory when allocating %"PRIuSIZE_T" bytes",
@@ -342,18 +367,27 @@ void data_stack_deinit(void)
 	if (frame_pos != BLOCK_FRAME_COUNT-1)
 		i_panic("Missing t_pop() call");
 
+#ifndef USE_GC
 	while (unused_frame_blocks != NULL) {
                 struct stack_frame_block *frame_block = unused_frame_blocks;
 		unused_frame_blocks = unused_frame_blocks->prev;
 
-                free(frame_block);
+		free(frame_block);
 	}
 
 	free(current_block);
 	free(unused_block);
+#endif
+	unused_frame_blocks = NULL;
+	current_block = NULL;
+	unused_block = NULL;
 }
 
 #else
+
+#ifdef USE_GC
+#  error No GC with disabled data stack
+#endif
 
 struct stack_frame {
 	struct stack_frame *next;

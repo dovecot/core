@@ -7,6 +7,12 @@
 
 #include <stdlib.h>
 
+#ifdef HAVE_GC_GC_H
+#  include <gc/gc.h>
+#elif defined (HAVE_GC_H)
+#  include <gc.h>
+#endif
+
 static const char *pool_system_get_name(pool_t pool);
 static void pool_system_ref(pool_t pool);
 static void pool_system_unref(pool_t pool);
@@ -55,17 +61,25 @@ static void *pool_system_malloc(pool_t pool __attr_unused__, size_t size)
 	if (size == 0 || size > SSIZE_T_MAX)
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
+#ifndef USE_GC
 	mem = calloc(size, 1);
+#else
+	mem = GC_malloc(size);
+	memset(mem, 0, size);
+#endif
 	if (mem == NULL)
 		i_panic("pool_system_malloc(): Out of memory");
 
 	return mem;
 }
 
-static void pool_system_free(pool_t pool __attr_unused__, void *mem)
+static void pool_system_free(pool_t pool __attr_unused__,
+			     void *mem __attr_unused__)
 {
+#ifndef USE_GC
 	if (mem != NULL)
 		free(mem);
+#endif
 }
 
 static void *pool_system_realloc(pool_t pool __attr_unused__, void *mem,
@@ -74,7 +88,11 @@ static void *pool_system_realloc(pool_t pool __attr_unused__, void *mem,
 	if (new_size == 0 || new_size > SSIZE_T_MAX)
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
+#ifndef USE_GC
 	mem = realloc(mem, new_size);
+#else
+	mem = GC_realloc(mem, new_size);
+#endif
 	if (mem == NULL)
 		i_panic("pool_system_realloc(): Out of memory");
 

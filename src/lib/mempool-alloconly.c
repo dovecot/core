@@ -7,6 +7,12 @@
 
 #include <stdlib.h>
 
+#ifdef HAVE_GC_GC_H
+#  include <gc/gc.h>
+#elif defined (HAVE_GC_H)
+#  include <gc.h>
+#endif
+
 #define MAX_ALLOC_SIZE SSIZE_T_MAX
 
 struct alloconly_pool {
@@ -64,16 +70,21 @@ static struct pool static_alloconly_pool = {
 pool_t pool_alloconly_create(const char *name, size_t size)
 {
 	struct alloconly_pool *apool;
-	int len;
+	size_t len;
 
-	len = strlen(name);
+	len = strlen(name)+1;
 
-	apool = calloc(SIZEOF_ALLOCONLYPOOL + len+1, 1);
+#ifndef USE_GC
+	apool = calloc(SIZEOF_ALLOCONLYPOOL + len, 1);
+#else
+	apool = GC_malloc(SIZEOF_ALLOCONLYPOOL + len);
+	memset(apool, 0, SIZEOF_ALLOCONLYPOOL + len);
+#endif
 	if (apool == NULL)
 		i_panic("pool_alloconly_create(): Out of memory");
 	apool->pool = static_alloconly_pool;
 	apool->refcount = 1;
-	memcpy(apool->name, name, len+1);
+	memcpy(apool->name, name, len);
 
 	block_alloc(apool, size);
 	return (struct pool *) apool;
@@ -88,8 +99,14 @@ static void pool_alloconly_destroy(struct alloconly_pool *apool)
 #ifdef DEBUG
 	memset(apool->block, 0xde, SIZEOF_POOLBLOCK + apool->block->size);
 #endif
+
+#ifndef USE_GC
 	free(apool->block);
 	free(apool);
+#else
+	apool->block = NULL;
+	apool = NULL;
+#endif
 }
 
 static const char *pool_alloconly_get_name(pool_t pool)
@@ -131,7 +148,12 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 	}
 #endif
 
+#ifndef USE_GC
 	block = calloc(size, 1);
+#else
+	block = GC_malloc(size);
+	memset(block, 0, size);
+#endif
 	if (block == NULL)
 		i_panic("block_alloc(): Out of memory");
 	block->prev = apool->block;
@@ -230,7 +252,9 @@ static void pool_alloconly_clear(pool_t pool)
 #ifdef DEBUG
 		memset(block, 0xde, SIZEOF_POOLBLOCK + block->size);
 #endif
+#ifndef USE_GC
 		free(block);
+#endif
 	}
 
 	/* clear the block */
