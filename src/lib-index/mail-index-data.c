@@ -33,8 +33,7 @@ struct _MailIndexData {
 
 static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 {
-	if (!data->dirty_mmap || (size != 0 && pos <= data->mmap_length &&
-				  pos+size <= data->mmap_length))
+	if (!data->dirty_mmap && (size != 0 && pos+size <= data->mmap_length))
 		return TRUE;
 
 	if (data->mmap_base != NULL)
