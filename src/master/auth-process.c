@@ -20,10 +20,20 @@
 #define MAX_INBUF_SIZE \
 	(sizeof(struct auth_master_reply) + AUTH_MASTER_MAX_REPLY_DATA_SIZE)
 
+struct auth_process_group {
+	struct auth_process_group *next;
+
+	int listen_fd;
+	struct auth_settings *set;
+
+	unsigned int process_count;
+	struct auth_process *processes;
+};
+
 struct auth_process {
 	struct auth_process *next;
 
-	char *name;
+        struct auth_process_group *group;
 	pid_t pid;
 	int fd;
 	struct io *io;
@@ -39,8 +49,8 @@ struct auth_process {
 };
 
 static struct timeout *to;
-static struct auth_process *processes;
 static unsigned int auth_tag;
+static struct auth_process_group *process_groups;
 
 static void auth_process_destroy(struct auth_process *p);
 
@@ -180,14 +190,14 @@ static void auth_process_input(void *context)
 }
 
 static struct auth_process *
-auth_process_new(pid_t pid, int fd, const char *name)
+auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 {
 	struct auth_process *p;
 
 	PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_AUTH);
 
 	p = i_new(struct auth_process, 1);
-	p->name = i_strdup(name);
+	p->group = group;
 	p->pid = pid;
 	p->fd = fd;
 	p->io = io_add(fd, IO_READ, auth_process_input, p);
@@ -198,8 +208,9 @@ auth_process_new(pid_t pid, int fd, const char *name)
 					 IO_PRIORITY_DEFAULT, FALSE);
 	p->requests = hash_create(default_pool, default_pool, 0, NULL, NULL);
 
-	p->next = processes;
-	processes = p;
+	p->next = group->processes;
+	group->processes = p;
+	group->process_count++;
 	return p;
 }
 
@@ -218,14 +229,13 @@ static void auth_process_destroy(struct auth_process *p)
 		io_loop_stop(ioloop);
 	}
 
-	for (pos = &processes; *pos != NULL; pos = &(*pos)->next) {
+	for (pos = &p->group->processes; *pos != NULL; pos = &(*pos)->next) {
 		if (*pos == p) {
 			*pos = p->next;
 			break;
 		}
 	}
-
-	(void)unlink(t_strconcat(set->login_dir, "/", p->name, NULL));
+	p->group->process_count--;
 
 	hash_foreach(p->requests, request_hash_destroy, NULL);
 	hash_destroy(p->requests);
@@ -235,20 +245,18 @@ static void auth_process_destroy(struct auth_process *p)
 	io_remove(p->io);
 	if (close(p->fd) < 0)
 		i_error("close(auth) failed: %m");
-	i_free(p->name);
 	i_free(p);
 }
 
-static pid_t create_auth_process(struct auth_settings *auth_set)
+static pid_t create_auth_process(struct auth_process_group *group)
 {
 	static char *argv[] = { NULL, NULL };
-	const char *path;
 	struct passwd *pwd;
 	pid_t pid;
-	int fd[2], listen_fd, i;
+	int fd[2], i;
 
-	if ((pwd = getpwnam(auth_set->user)) == NULL)
-		i_fatal("Auth user doesn't exist: %s", auth_set->user);
+	if ((pwd = getpwnam(group->set->user)) == NULL)
+		i_fatal("Auth user doesn't exist: %s", group->set->user);
 
 	/* create communication to process with a socket pair */
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) == -1) {
@@ -267,26 +275,9 @@ static pid_t create_auth_process(struct auth_settings *auth_set)
 	if (pid != 0) {
 		/* master */
 		fd_close_on_exec(fd[0], TRUE);
-		auth_process_new(pid, fd[0], auth_set->name);
+		auth_process_new(pid, fd[0], group);
 		(void)close(fd[1]);
 		return pid;
-	}
-
-	/* create socket for listening auth requests from login */
-	path = t_strconcat(set->login_dir, "/", auth_set->name, NULL);
-	(void)unlink(path);
-        (void)umask(0117); /* we want 0660 mode for the socket */
-
-	listen_fd = net_listen_unix(path);
-	if (listen_fd < 0)
-		i_fatal("Can't listen in UNIX socket %s: %m", path);
-
-	i_assert(listen_fd > 2);
-
-	/* set correct permissions */
-	if (chown(path, geteuid(), set->login_gid) < 0) {
-		i_fatal("login: chown(%s, %s, %s) failed: %m",
-			path, dec2str(geteuid()), dec2str(set->login_gid));
 	}
 
 	/* move master communication handle to 0 */
@@ -305,46 +296,45 @@ static pid_t create_auth_process(struct auth_settings *auth_set)
 
 	/* move login communication handle to 3. do it last so we can be
 	   sure it's not closed afterwards. */
-	if (listen_fd != 3) {
-		if (dup2(listen_fd, 3) < 0)
+	if (group->listen_fd != 3) {
+		if (dup2(group->listen_fd, 3) < 0)
 			i_fatal("login: dup2() failed: %m");
-		(void)close(listen_fd);
 	}
 
-	for (i = 0; i <= 2; i++)
+	for (i = 0; i <= 3; i++)
 		fd_close_on_exec(i, FALSE);
 
 	/* setup access environment - needs to be done after
 	   clean_child_process() since it clears environment */
-	restrict_access_set_env(auth_set->user, pwd->pw_uid, pwd->pw_gid,
-				auth_set->chroot);
+	restrict_access_set_env(group->set->user, pwd->pw_uid, pwd->pw_gid,
+				group->set->chroot);
 
 	/* set other environment */
 	env_put(t_strconcat("AUTH_PROCESS=", dec2str(getpid()), NULL));
-	env_put(t_strconcat("MECHANISMS=", auth_set->mechanisms, NULL));
-	env_put(t_strconcat("REALMS=", auth_set->realms, NULL));
-	env_put(t_strconcat("USERDB=", auth_set->userdb, NULL));
-	env_put(t_strconcat("PASSDB=", auth_set->passdb, NULL));
+	env_put(t_strconcat("MECHANISMS=", group->set->mechanisms, NULL));
+	env_put(t_strconcat("REALMS=", group->set->realms, NULL));
+	env_put(t_strconcat("USERDB=", group->set->userdb, NULL));
+	env_put(t_strconcat("PASSDB=", group->set->passdb, NULL));
 
-	if (auth_set->use_cyrus_sasl)
+	if (group->set->use_cyrus_sasl)
 		env_put("USE_CYRUS_SASL=1");
-	if (auth_set->verbose)
+	if (group->set->verbose)
 		env_put("VERBOSE=1");
 
-	restrict_process_size(auth_set->process_size, (unsigned int)-1);
+	restrict_process_size(group->set->process_size, (unsigned int)-1);
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */
 	closelog();
 
 	/* hide the path, it's ugly */
-	argv[0] = strrchr(auth_set->executable, '/');
+	argv[0] = strrchr(group->set->executable, '/');
 	if (argv[0] == NULL)
-		argv[0] = i_strdup(auth_set->executable);
+		argv[0] = i_strdup(group->set->executable);
 	else
 		argv[0]++;
 
-	execv(auth_set->executable, argv);
+	execv(group->set->executable, argv);
 
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", argv[0]);
 	return -1;
@@ -352,37 +342,72 @@ static pid_t create_auth_process(struct auth_settings *auth_set)
 
 struct auth_process *auth_process_find(unsigned int pid)
 {
+	struct auth_process_group *group;
 	struct auth_process *p;
 
-	for (p = processes; p != NULL; p = p->next) {
-		if ((unsigned int)p->pid == pid)
-			return p;
+	for (group = process_groups; group != NULL; group = group->next) {
+		for (p = group->processes; p != NULL; p = p->next) {
+			if ((unsigned int)p->pid == pid)
+				return p;
+		}
 	}
 
 	return NULL;
 }
 
-static unsigned int auth_process_get_count(const char *name)
+static void auth_process_group_create(struct auth_settings *auth_set)
 {
-	struct auth_process *p;
-	unsigned int count = 0;
+	struct auth_process_group *group;
+	const char *path;
 
-	for (p = processes; p != NULL; p = p->next) {
-		if (strcmp(p->name, name) == 0)
-			count++;
+	group = i_new(struct auth_process_group, 1);
+	group->set = auth_set;
+
+	/* create socket for listening auth requests from login */
+	path = t_strconcat(set->login_dir, "/", auth_set->name, NULL);
+	(void)unlink(path);
+        (void)umask(0117); /* we want 0660 mode for the socket */
+
+	group->listen_fd = net_listen_unix(path);
+	if (group->listen_fd < 0)
+		i_fatal("Can't listen in UNIX socket %s: %m", path);
+	fd_close_on_exec(group->listen_fd, TRUE);
+
+	/* set correct permissions */
+	if (chown(path, geteuid(), set->login_gid) < 0) {
+		i_fatal("login: chown(%s, %s, %s) failed: %m",
+			path, dec2str(geteuid()), dec2str(set->login_gid));
 	}
 
-	return count;
+	group->next = process_groups;
+	process_groups = group;
+}
+
+static void auth_process_group_destroy(struct auth_process_group *group)
+{
+	struct auth_process *next;
+
+	while (group->processes != NULL) {
+		next = group->processes->next;
+		auth_process_destroy(group->processes);
+                group->processes = next;
+	}
+
+	(void)unlink(t_strconcat(set->login_dir, "/", group->set->name, NULL));
+
+	if (close(group->listen_fd) < 0)
+		i_error("close(auth group %s) failed: %m", group->set->name);
+	i_free(group);
 }
 
 void auth_processes_destroy_all(void)
 {
-	struct auth_process *next;
+	struct auth_process_group *next;
 
-	while (processes != NULL) {
-		next = processes->next;
-		auth_process_destroy(processes);
-                processes = next;
+	while (process_groups != NULL) {
+		next = process_groups->next;
+		auth_process_group_destroy(process_groups);
+		process_groups = next;
 	}
 }
 
@@ -390,19 +415,26 @@ static void
 auth_processes_start_missing(void *context __attr_unused__)
 {
 	struct auth_settings *auth_set;
+	struct auth_process_group *group;
 	unsigned int count;
 
-        auth_set = set->auths;
-	for (; auth_set != NULL; auth_set = auth_set->next) {
-		count = auth_process_get_count(auth_set->name);
-		for (; count < auth_set->count; count++)
-			(void)create_auth_process(auth_set);
+	if (process_groups == NULL) {
+		/* first time here, create the groups */
+		auth_set = set->auths;
+		for (; auth_set != NULL; auth_set = auth_set->next)
+                        auth_process_group_create(auth_set);
+	}
+
+	for (group = process_groups; group != NULL; group = group->next) {
+		count = group->process_count;
+		for (; count < group->set->count; count++)
+			(void)create_auth_process(group);
 	}
 }
 
 void auth_processes_init(void)
 {
-	processes = NULL;
+	process_groups = NULL;
 	to = timeout_add(1000, auth_processes_start_missing, NULL);
 }
 
