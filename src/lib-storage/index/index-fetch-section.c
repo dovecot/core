@@ -188,12 +188,13 @@ static void fetch_header_field(MessagePart *part __attr_unused__,
 	FetchHeaderFieldContext *ctx = context;
 	const char *field_start, *field_end, *cr, *p;
 
-	/* see if we want this field */
+	/* see if we want this field. */
 	if (!ctx->match_func(ctx->fields, name, name_len))
 		return;
 
 	/* add the field, inserting CRs when needed. FIXME: is this too
-	   kludgy? we assume name continues with ": value".. */
+	   kludgy? we assume name continues with ": value". but otherwise
+	   we wouldn't reply with correct LWSP between ":". */
 	field_start = name;
 	field_end = value + value_len;
 
@@ -241,6 +242,12 @@ static int fetch_header_fields(IStream *input, const char *section,
 
 	ctx->dest_size = 0;
 	message_parse_header(NULL, input, NULL, fetch_header_field, ctx);
+
+	/* FIXME: The blank line must not be filtered, says RFC. However, we
+	   shouldn't add it if it wasn't there in the first place. Not very
+	   easy to know currently so we'll just do it always, it'll be present
+	   in all sane messages anyway.. */
+	(void)fetch_header_append(ctx, "\r\n", 2);
 
 	i_assert(ctx->dest_size <= ctx->max_size);
 	i_assert(ctx->dest == NULL || str_len(ctx->dest) == ctx->dest_size);
