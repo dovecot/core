@@ -93,7 +93,13 @@ static int mbox_index_append_next(struct mail_index *index,
 	if (index->header->messages_count == 0 &&
 	    ctx.uid_validity != index->header->uid_validity) {
 		/* UID validity is different */
-		if (ctx.uid_validity == 0) {
+		if (ctx.uid_validity != 0) {
+			/* change it in index */
+			index->header->uid_validity = ctx.uid_validity;
+			index->header->next_uid = 1;
+			index->header->last_nonrecent_uid = 0;
+			index->inconsistent = TRUE;
+		} else if (!index->mailbox_readonly) {
 			/* we have to write it to mbox */
 			if (index->mbox_lock_type != MAIL_LOCK_EXCLUSIVE) {
 				/* try again */
@@ -103,12 +109,6 @@ static int mbox_index_append_next(struct mail_index *index,
 					MAIL_INDEX_FLAG_DIRTY_MESSAGES;
 				rec->index_flags |= INDEX_MAIL_FLAG_DIRTY;
 			}
-		} else {
-			/* change it in index */
-			index->header->uid_validity = ctx.uid_validity;
-			index->header->next_uid = 1;
-			index->header->last_nonrecent_uid = 0;
-			index->inconsistent = TRUE;
 		}
 	}
 
@@ -116,7 +116,7 @@ static int mbox_index_append_next(struct mail_index *index,
 		/* X-UID header looks ok */
 		if (ret != 0)
 			index->header->next_uid = ctx.uid;
-		dirty = ctx.content_length_broken && !index->mailbox_readonly;
+		dirty = ctx.content_length_broken;
 	} else if (!index->mailbox_readonly) {
 		/* Write X-UID for it */
 		dirty = TRUE;
@@ -128,7 +128,7 @@ static int mbox_index_append_next(struct mail_index *index,
 		dirty = FALSE;
 	}
 
-	if (dirty) {
+	if (dirty && !index->mailbox_readonly) {
 		if (index->mbox_lock_type != MAIL_LOCK_EXCLUSIVE) {
 			/* try again */
 			ret = 0;

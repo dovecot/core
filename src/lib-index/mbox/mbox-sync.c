@@ -75,6 +75,13 @@ int mbox_index_sync(struct mail_index *index,
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
+	if (index->mailbox_readonly && data_lock_type == MAIL_LOCK_EXCLUSIVE) {
+		index_set_error(index, "sync: %s is read-only, "
+				"can't get exclusive lock",
+				index->mailbox_path);
+		return FALSE;
+	}
+
 	if (changes != NULL)
 		*changes = FALSE;
 

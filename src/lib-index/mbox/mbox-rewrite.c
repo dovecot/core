@@ -569,6 +569,7 @@ int mbox_index_rewrite(struct mail_index *index)
 	unsigned int seq;
 	int tmp_fd, failed, dirty_found, rewrite, no_locking;
 
+	i_assert(!index->mailbox_readonly);
 	i_assert(index->lock_type == MAIL_LOCK_UNLOCK ||
 		 (index->lock_type == MAIL_LOCK_EXCLUSIVE &&
 		  index->mbox_lock_type == MAIL_LOCK_EXCLUSIVE));
