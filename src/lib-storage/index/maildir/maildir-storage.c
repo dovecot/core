@@ -319,6 +319,11 @@ static int verify_inbox(struct mail_storage *storage)
 		create_control_dir(storage, "INBOX");
 }
 
+static void maildir_mail_init(struct index_mail *mail)
+{
+	mail->mail.copy = maildir_storage_copy;
+}
+
 static struct mailbox *
 maildir_open(struct mail_storage *storage, const char *name,
 	     enum mailbox_open_flags flags)
@@ -339,8 +344,10 @@ maildir_open(struct mail_storage *storage, const char *name,
 
 	ibox = index_storage_mailbox_init(storage, &maildir_mailbox,
 					  index, name, flags);
-	if (ibox != NULL)
+	if (ibox != NULL) {
 		ibox->expunge_locked = maildir_expunge_locked;
+		ibox->mail_init = maildir_mail_init;
+	}
 	return (struct mailbox *) ibox;
 }
 
@@ -739,7 +746,6 @@ struct mailbox maildir_mailbox = {
 	maildir_storage_auto_sync,
 	index_storage_expunge,
 	index_storage_update_flags,
-	maildir_storage_copy,
 	index_storage_fetch_init,
 	index_storage_fetch_deinit,
 	index_storage_fetch_next,
@@ -752,6 +758,8 @@ struct mailbox maildir_mailbox = {
 	maildir_storage_save_init,
 	maildir_storage_save_deinit,
 	maildir_storage_save_next,
+	maildir_storage_copy_init,
+	maildir_storage_copy_deinit,
 	mail_storage_is_inconsistency_error,
 
 	FALSE,

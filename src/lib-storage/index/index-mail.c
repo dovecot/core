@@ -637,7 +637,7 @@ static const char *get_special(struct mail *_mail, enum mail_fetch_field field)
 }
 
 static struct mail index_mail = {
-	0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0,
 
 	get_flags,
 	get_parts,
@@ -648,7 +648,8 @@ static struct mail index_mail = {
 	get_address,
 	get_first_mailbox,
 	get_stream,
-	get_special
+	get_special,
+	index_storage_copy
 };
 
 void index_mail_init(struct index_mailbox *ibox, struct index_mail *mail,
@@ -656,11 +657,15 @@ void index_mail_init(struct index_mailbox *ibox, struct index_mail *mail,
 		     const char *const wanted_headers[])
 {
 	mail->mail = index_mail;
-	mail->pool = pool_alloconly_create("index_mail", 4096);
+	mail->mail.box = &ibox->box;
 
+	mail->pool = pool_alloconly_create("index_mail", 4096);
 	mail->ibox = ibox;
 	mail->wanted_fields = wanted_fields;
 	mail->wanted_headers = wanted_headers;
+
+	if (ibox->mail_init != NULL)
+		ibox->mail_init(mail);
 }
 
 int index_mail_next(struct index_mail *mail, struct mail_index_record *rec)

@@ -748,7 +748,6 @@ struct mailbox mbox_mailbox = {
 	mbox_storage_auto_sync,
 	index_storage_expunge,
 	index_storage_update_flags,
-	index_storage_copy,
 	index_storage_fetch_init,
 	index_storage_fetch_deinit,
 	index_storage_fetch_next,
@@ -761,6 +760,8 @@ struct mailbox mbox_mailbox = {
 	mbox_storage_save_init,
 	mbox_storage_save_deinit,
 	mbox_storage_save_next,
+	index_storage_copy_init,
+	index_storage_copy_deinit,
 	mail_storage_is_inconsistency_error,
 
 	FALSE,

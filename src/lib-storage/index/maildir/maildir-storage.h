@@ -3,8 +3,9 @@
 
 #include "index-storage.h"
 
-int maildir_storage_copy(struct mailbox *box, struct mailbox *destbox,
-			 const char *messageset, int uidset);
+struct mail_copy_context *maildir_storage_copy_init(struct mailbox *box);
+int maildir_storage_copy_deinit(struct mail_copy_context *ctx, int rollback);
+int maildir_storage_copy(struct mail *mail, struct mail_copy_context *ctx);
 
 struct mail_save_context *
 maildir_storage_save_init(struct mailbox *box, int transaction);

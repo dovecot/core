@@ -18,6 +18,7 @@ struct index_mailbox {
 	/* expunge messages marked as deleted, requires index to be
 	   exclusively locked */
 	int (*expunge_locked)(struct index_mailbox *ibox, int notify);
+	void (*mail_init)(struct index_mail *mail);
 
 	struct mail_index *index;
 
@@ -82,8 +83,6 @@ void index_mailbox_check_remove_all(struct index_mailbox *ibox);
 void index_storage_set_callbacks(struct mail_storage *storage,
 				 struct mail_storage_callbacks *callbacks,
 				 void *context);
-int index_storage_copy(struct mailbox *box, struct mailbox *destbox,
-		       const char *messageset, int uidset);
 int index_storage_expunge(struct mailbox *box, int notify);
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
@@ -116,5 +115,9 @@ index_storage_search_init(struct mailbox *box, const char *charset,
 			  const char *const wanted_headers[]);
 int index_storage_search_deinit(struct mail_search_context *ctx);
 struct mail *index_storage_search_next(struct mail_search_context *ctx);
+
+struct mail_copy_context *index_storage_copy_init(struct mailbox *box);
+int index_storage_copy_deinit(struct mail_copy_context *ctx, int rollback);
+int index_storage_copy(struct mail *mail, struct mail_copy_context *ctx);
 
 #endif

@@ -255,10 +255,6 @@ struct mailbox {
 			    enum modify_type modify_type, int notify,
 			    int *all_found);
 
-	/* Copy mails to another mailbox. */
-	int (*copy)(struct mailbox *box, struct mailbox *destbox,
-		    const char *messageset, int uidset);
-
 	/* Initialize new fetch request. wanted_fields isn't required, but it
 	   can be used for optimizations. If *update_seen is TRUE, \Seen flag
 	   is set for all fetched mails. *update_seen may be changed back to
@@ -327,6 +323,13 @@ struct mailbox {
 			 time_t received_date, int timezone_offset,
 			 struct istream *data);
 
+	/* Initialize copying operation to this mailbox. The actual copying
+	   can be done by fetching or searching mails and calling mail's
+	   expunge() method. */
+	struct mail_copy_context *(*copy_init)(struct mailbox *box);
+	/* Finish copying. */
+	int (*copy_deinit)(struct mail_copy_context *ctx, int rollback);
+
 	/* Returns TRUE if mailbox is now in inconsistent state, meaning that
 	   the message IDs etc. may have changed - only way to recover this
 	   would be to fully close the mailbox and reopen it. With IMAP
@@ -343,6 +346,7 @@ struct mailbox {
 
 struct mail {
 	/* always set */
+	struct mailbox *box;
 	unsigned int seq;
 	unsigned int uid;
 
@@ -383,6 +387,9 @@ struct mail {
 	/* Get the any of the "special" fields. */
 	const char *(*get_special)(struct mail *mail,
 				   enum mail_fetch_field field);
+
+	/* Copy this mail to another mailbox. */
+	int (*copy)(struct mail *mail, struct mail_copy_context *ctx);
 };
 
 struct mailbox_list {

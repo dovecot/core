@@ -11,6 +11,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+struct maildir_copy_context {
+	struct index_mailbox *ibox;
+	int hardlink;
+
+	pool_t pool;
+	struct rollback *rollbacks;
+
+	struct mail_copy_context *ctx;
+};
+
 struct rollback {
 	struct rollback *next;
 	const char *fname;
@@ -64,139 +74,122 @@ static int maildir_hardlink_file(struct mail_index *index,
 	return 0;
 }
 
-static int hardlink_messageset(struct messageset_context *ctx,
-			       struct index_mailbox *src,
-			       struct index_mailbox *dest)
+static int maildir_copy_hardlink(struct mail *mail,
+				 struct maildir_copy_context *ctx)
 {
-	struct mail_index *index = src->index;
-	pool_t pool;
-        struct rollback *rollbacks, *rb;
-        const struct messageset_mail *mail;
-	enum mail_flags flags;
-	const char **custom_flags;
+	struct index_mail *imail = (struct index_mail *) mail;
+        struct rollback *rb;
 	const char *fname, *dest_fname, *dest_path;
-	int ret, i, found;
+	enum mail_flags flags;
+	int i, ret, found;
 
-	pool = pool_alloconly_create("hard copy rollbacks", 2048);
-	rollbacks = NULL;
+	flags = mail->get_flags(mail)->flags;
 
-	custom_flags = mail_custom_flags_list_get(index->custom_flags);
+	/* link the file */
+	dest_fname = maildir_generate_tmp_filename(&ioloop_timeval);
+	dest_fname = maildir_filename_set_flags(dest_fname, flags);
+	dest_path = t_strconcat(ctx->ibox->index->mailbox_path, "/new/",
+				dest_fname, NULL);
 
-	ret = 1;
-	while (ret > 0 && (mail = index_messageset_next(ctx)) != NULL) {
-		flags = mail->rec->msg_flags;
-		if (!index_mailbox_fix_custom_flags(dest, &flags,
-						    custom_flags,
-						    MAIL_CUSTOM_FLAGS_COUNT)) {
+	for (i = 0;; i++) {
+		ret = maildir_hardlink_file(imail->ibox->index, imail->data.rec,
+					    &fname, dest_path);
+		if (ret != 0)
+			break;
+
+		if (i == 10) {
+			mail_storage_set_error(mail->box->storage,
+				"File name keeps changing, copy failed");
+			break;
+		}
+
+		if (!maildir_index_sync_readonly(imail->ibox->index, fname,
+						 &found)) {
 			ret = -1;
 			break;
 		}
 
-		/* link the file */
-		t_push();
-
-		dest_fname = maildir_generate_tmp_filename(&ioloop_timeval);
-		dest_fname = maildir_filename_set_flags(dest_fname, flags);
-		dest_path = t_strconcat(dest->index->mailbox_path, "/new/",
-					dest_fname, NULL);
-
-		for (i = 0;; i++) {
-			ret = maildir_hardlink_file(index, mail->rec, &fname,
-						    dest_path);
-			if (ret > 0) {
-				rb = p_new(pool, struct rollback, 1);
-				rb->fname = p_strdup(pool, dest_fname);
-				rb->next = rollbacks;
-				rollbacks = rb;
-				break;
-			}
-			if (ret < 0)
-				break;
-
-			if (i == 10) {
-                                mail_storage_set_error(src->box.storage,
-					"File name keeps changing, "
-					"copy failed");
-				break;
-			}
-
-			if (!maildir_index_sync_readonly(index, fname, &found))
-				break;
-
-			if (!found)
-				break;
-		}
-		t_pop();
+		if (!found)
+			break;
 	}
 
-	if (ret <= 0) {
-		for (rb = rollbacks; rb != NULL; rb = rb->next) {
+	if (ret > 0) {
+		if (ctx->pool == NULL) {
+			ctx->pool = pool_alloconly_create("hard copy rollbacks",
+							  2048);
+		}
+
+		rb = p_new(ctx->pool, struct rollback, 1);
+		rb->fname = p_strdup(ctx->pool, dest_fname);
+		rb->next = ctx->rollbacks;
+		ctx->rollbacks = rb;
+	}
+
+	return ret;
+}
+
+struct mail_copy_context *maildir_storage_copy_init(struct mailbox *box)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+	struct maildir_copy_context *ctx;
+
+	if (box->readonly) {
+		mail_storage_set_error(box->storage,
+				       "Destination mailbox is read-only");
+		return NULL;
+	}
+
+	ctx = i_new(struct maildir_copy_context, 1);
+	ctx->hardlink = getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL;
+	ctx->ibox = ibox;
+	return (struct mail_copy_context *) ctx;
+}
+
+int maildir_storage_copy_deinit(struct mail_copy_context *_ctx, int rollback)
+{
+	struct maildir_copy_context *ctx = (struct maildir_copy_context *) _ctx;
+        struct rollback *rb;
+	int ret = TRUE;
+
+	if (ctx->ctx != NULL)
+		ret = index_storage_copy_deinit(ctx->ctx, rollback);
+
+	if (rollback) {
+		for (rb = ctx->rollbacks; rb != NULL; rb = rb->next) {
 			t_push();
-			(void)unlink(t_strconcat(dest->index->mailbox_path,
-						 "new/", rb->fname, NULL));
+			(void)unlink(t_strconcat(ctx->ibox->index->mailbox_path,
+						 "/new/", rb->fname, NULL));
 			t_pop();
 		}
 	}
 
-	pool_unref(pool);
+	if (ctx->pool != NULL)
+		pool_unref(ctx->pool);
+
+	i_free(ctx);
 	return ret;
 }
 
-static int copy_with_hardlinks(struct index_mailbox *src,
-			       struct index_mailbox *dest,
-			       const char *messageset, int uidset)
+int maildir_storage_copy(struct mail *mail, struct mail_copy_context *_ctx)
 {
-        struct messageset_context *ctx;
-	int exdev, ret, ret2;
+	struct maildir_copy_context *ctx = (struct maildir_copy_context *) _ctx;
+	int ret;
 
-	if (!src->index->set_lock(src->index, MAIL_LOCK_SHARED))
-		return -1;
+	if (ctx->hardlink && mail->box->storage == ctx->ibox->box.storage) {
+		t_push();
+		ret = maildir_copy_hardlink(mail, ctx);
+		t_pop();
 
-	ctx = index_messageset_init(src, messageset, uidset, FALSE);
-	ret = hardlink_messageset(ctx, src, dest);
-	exdev = ret < 0 && errno == EXDEV;
-	ret2 = index_messageset_deinit(ctx);
-
-	if (ret2 < 0)
-		ret = -1;
-
-	if (ret == 0 || ret2 == 0) {
-		mail_storage_set_error(src->box.storage,
-			"Some of the requested messages no longer exist.");
-		ret = -1;
-	}
-
-	(void)index_storage_lock(src, MAIL_LOCK_UNLOCK);
-
-	return exdev ? 0 : ret;
-}
-
-int maildir_storage_copy(struct mailbox *box, struct mailbox *destbox,
-			 const char *messageset, int uidset)
-{
-	struct index_mailbox *ibox = (struct index_mailbox *) box;
-
-	if (destbox->readonly) {
-		mail_storage_set_error(box->storage,
-				       "Destination mailbox is read-only");
-		return FALSE;
-	}
-
-	if (getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL &&
-	    destbox->storage == box->storage) {
-		/* both source and destination mailbox are in maildirs and
-		   copy_with_hardlinks option is on, do it */
-		switch (copy_with_hardlinks(ibox,
-			(struct index_mailbox *) destbox, messageset, uidset)) {
-		case 1:
+		if (ret > 0)
 			return TRUE;
-		case 0:
-			/* non-fatal hardlinking failure, try the slow way */
-			break;
-		default:
+		if (ret < 0)
 			return FALSE;
-		}
+
+		/* non-fatal hardlinking failure, try the slow way */
 	}
 
-	return index_storage_copy(box, destbox, messageset, uidset);
+	if (ctx->ctx == NULL)
+		ctx->ctx = index_storage_copy_init(&ctx->ibox->box);
+
+	return index_storage_copy(mail, ctx->ctx);
 }

@@ -18,6 +18,7 @@ struct mail_fetch_context {
 	struct index_mail mail;
 
 	int update_seen;
+	enum mail_lock_type old_lock;
 };
 
 struct mail_fetch_context *
@@ -30,6 +31,7 @@ index_storage_fetch_init(struct mailbox *box,
 	int check_mail;
 
 	ctx = i_new(struct mail_fetch_context, 1);
+	ctx->old_lock = ibox->index->lock_type;
 
 	if (box->readonly && update_seen != NULL)
 		*update_seen = FALSE;
@@ -48,7 +50,8 @@ index_storage_fetch_init(struct mailbox *box,
 
 	if (update_seen != NULL && *update_seen &&
 	    ibox->index->header->messages_count ==
-	    ibox->index->header->seen_messages_count) {
+	    ibox->index->header->seen_messages_count &&
+	    ctx->old_lock != MAIL_LOCK_EXCLUSIVE) {
 		/* if all messages are already seen, there's no point in
 		   keeping exclusive lock */
 		*update_seen = FALSE;
@@ -73,7 +76,7 @@ int index_storage_fetch_deinit(struct mail_fetch_context *ctx, int *all_found)
 	if (all_found != NULL)
 		*all_found = ret > 0;
 
-	if (!index_storage_lock(ctx->ibox, MAIL_LOCK_UNLOCK))
+	if (!index_storage_lock(ctx->ibox, ctx->old_lock))
 		ret = -1;
 
 	if (ctx->ibox->fetch_mail.pool != NULL)
