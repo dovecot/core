@@ -33,9 +33,6 @@ struct imap_client {
 struct client *client_create(int fd, struct ip_addr *ip, int ssl);
 void client_destroy(struct imap_client *client, const char *reason);
 
-void client_ref(struct imap_client *client);
-int client_unref(struct imap_client *client);
-
 void client_send_line(struct imap_client *client, const char *line);
 void client_send_tagline(struct imap_client *client, const char *line);
 void client_syslog(struct imap_client *client, const char *text);

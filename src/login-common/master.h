@@ -7,8 +7,9 @@ struct client;
 
 typedef void master_callback_t(struct client *client, int success);
 
-void master_request_imap(struct client *client, master_callback_t *callback,
-			 unsigned int auth_pid, unsigned int auth_id);
+void master_request_login(struct client *client, master_callback_t *callback,
+			  unsigned int auth_pid, unsigned int auth_id);
+void master_request_abort(struct client *client);
 
 /* Notify master that we're not listening for new connections anymore. */
 void master_notify_finished(void);

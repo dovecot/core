@@ -16,13 +16,13 @@ dovecot_auth_LDADD = \
 	$(MODULE_LIBS)
 
 dovecot_auth_SOURCES = \
+	auth-client-connection.c \
+	auth-master-connection.c \
 	auth-module.c \
 	db-ldap.c \
 	db-pgsql.c \
 	db-passwd-file.c \
-	login-connection.c \
 	main.c \
-	master-connection.c \
 	md5crypt.c \
 	mech.c \
 	mech-anonymous.c \
@@ -48,7 +48,9 @@ dovecot_auth_SOURCES = \
 	userdb-pgsql.c
 
 noinst_HEADERS = \
-	auth-login-interface.h \
+	auth-client-connection.h \
+	auth-client-interface.h \
+	auth-master-connection.h \
 	auth-master-interface.h \
 	auth-mech-desc.h \
 	auth-module.h \
@@ -56,8 +58,6 @@ noinst_HEADERS = \
 	db-pgsql.h \
 	db-passwd-file.h \
 	common.h \
-	login-connection.h \
-	master-connection.h \
 	md5crypt.h \
 	mech.h \
 	mycrypt.h \

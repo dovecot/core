@@ -3,11 +3,11 @@
 #include "common.h"
 #include "ioloop.h"
 #include "client-common.h"
-#include "auth-connection.h"
+#include "auth-client.h"
 #include "auth-common.h"
 
-static const char *auth_login_get_str(struct auth_login_reply *reply,
-				      const unsigned char *data, size_t idx)
+static const char *auth_client_get_str(struct auth_client_request_reply *reply,
+				       const unsigned char *data, size_t idx)
 {
 	size_t stop;
 
@@ -20,47 +20,44 @@ static const char *auth_login_get_str(struct auth_login_reply *reply,
 	return t_strndup(data + idx, stop);
 }
 
-int auth_callback(struct auth_request *request, struct auth_login_reply *reply,
+int auth_callback(struct auth_request *request,
+		  struct auth_client_request_reply *reply,
 		  const unsigned char *data, struct client *client,
-		  master_callback_t *master_callback, const char **error)
+		  master_callback_t *master_callback, const char **error_r)
 {
 	const char *user;
 
-	*error = NULL;
+	*error_r = NULL;
 
 	if (reply == NULL) {
 		/* failed */
-		if (client->auth_request != NULL) {
-			auth_request_unref(client->auth_request);
-			client->auth_request = NULL;
-		}
-		*error = "Authentication process died.";
+		client->auth_request = NULL;
+		*error_r = "Authentication process died.";
 		return -1;
 	}
 
 	switch (reply->result) {
-	case AUTH_LOGIN_RESULT_CONTINUE:
+	case AUTH_CLIENT_RESULT_CONTINUE:
 		if (client->auth_request != NULL) {
 			i_assert(client->auth_request == request);
 		} else {
 			i_assert(client->auth_request == NULL);
 
 			client->auth_request = request;
-			auth_request_ref(client->auth_request);
 		}
 		return 0;
 
-	case AUTH_LOGIN_RESULT_SUCCESS:
-                auth_request_unref(client->auth_request);
+	case AUTH_CLIENT_RESULT_SUCCESS:
 		client->auth_request = NULL;
 
-		user = auth_login_get_str(reply, data, reply->username_idx);
+		user = auth_client_get_str(reply, data, reply->username_idx);
 
 		i_free(client->virtual_user);
 		client->virtual_user = i_strdup(user);
 
-		master_request_imap(client, master_callback,
-				    request->conn->pid, request->id);
+		master_request_login(client, master_callback,
+			auth_client_request_get_server_pid(request),
+			auth_client_request_get_id(request));
 
 		/* disable IO until we're back from master */
 		if (client->io != NULL) {
@@ -69,14 +66,13 @@ int auth_callback(struct auth_request *request, struct auth_login_reply *reply,
 		}
 		return 1;
 
-	case AUTH_LOGIN_RESULT_FAILURE:
+	case AUTH_CLIENT_RESULT_FAILURE:
 		/* see if we have error message */
-                auth_request_unref(client->auth_request);
 		client->auth_request = NULL;
 
 		if (reply->data_size > 0 && data[reply->data_size-1] == '\0') {
-			*error = t_strconcat("Authentication failed: ",
-					     (const char *) data, NULL);
+			*error_r = t_strconcat("Authentication failed: ",
+					       (const char *) data, NULL);
 		}
 		return -1;
 	}

@@ -7,7 +7,7 @@ struct auth_master_request {
 	unsigned int tag;
 
 	unsigned int id;
-	unsigned int login_pid;
+	unsigned int client_pid;
 };
 
 struct auth_master_reply {

@@ -526,15 +526,15 @@ static void credentials_callback(const char *result,
 {
 	struct digest_auth_request *auth =
 		(struct digest_auth_request *) request;
-	struct auth_login_reply reply;
+	struct auth_client_request_reply reply;
 
-	mech_init_login_reply(&reply);
+	mech_init_auth_client_reply(&reply);
 	reply.id = request->id;
 
 	if (!verify_credentials(auth, result))
-		reply.result = AUTH_LOGIN_RESULT_FAILURE;
+		reply.result = AUTH_CLIENT_RESULT_FAILURE;
 	else {
-		reply.result = AUTH_LOGIN_RESULT_CONTINUE;
+		reply.result = AUTH_CLIENT_RESULT_CONTINUE;
 		reply.data_size = strlen(auth->rspauth);
 		auth->authenticated = TRUE;
 	}
@@ -544,17 +544,17 @@ static void credentials_callback(const char *result,
 
 static int
 mech_digest_md5_auth_continue(struct auth_request *auth_request,
-			      struct auth_login_request_continue *request,
+			      struct auth_client_request_continue *request,
 			      const unsigned char *data,
 			      mech_callback_t *callback)
 {
 	struct digest_auth_request *auth =
 		(struct digest_auth_request *)auth_request;
-	struct auth_login_reply reply;
+	struct auth_client_request_reply reply;
 	const char *error, *realm;
 
 	/* initialize reply */
-	mech_init_login_reply(&reply);
+	mech_init_auth_client_reply(&reply);
 	reply.id = request->id;
 
 	if (auth->authenticated) {
@@ -596,7 +596,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	}
 
 	/* failed */
-	reply.result = AUTH_LOGIN_RESULT_FAILURE;
+	reply.result = AUTH_CLIENT_RESULT_FAILURE;
 	reply.data_size = strlen(error)+1;
 	callback(&reply, error, auth_request->conn);
 	return FALSE;
@@ -608,10 +608,10 @@ static void mech_digest_md5_auth_free(struct auth_request *auth_request)
 }
 
 static struct auth_request *
-mech_digest_md5_auth_new(struct login_connection *conn,
+mech_digest_md5_auth_new(struct auth_client_connection *conn,
 			 unsigned int id, mech_callback_t *callback)
 {
-	struct auth_login_reply reply;
+	struct auth_client_request_reply reply;
 	struct digest_auth_request *auth;
 	pool_t pool;
 	string_t *challenge;
@@ -626,9 +626,9 @@ mech_digest_md5_auth_new(struct login_connection *conn,
 	auth->qop = QOP_AUTH;
 
 	/* initialize reply */
-	mech_init_login_reply(&reply);
+	mech_init_auth_client_reply(&reply);
 	reply.id = id;
-	reply.result = AUTH_LOGIN_RESULT_CONTINUE;
+	reply.result = AUTH_CLIENT_RESULT_CONTINUE;
 
 	/* send the initial challenge */
 	reply.reply_idx = 0;

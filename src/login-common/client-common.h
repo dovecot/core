@@ -10,7 +10,8 @@ struct client {
 	int fd;
 	struct io *io;
 
-        struct auth_request *auth_request;
+	struct auth_request *auth_request;
+	unsigned int master_tag;
 	master_callback_t *master_callback;
 
 	char *virtual_user;
@@ -20,7 +21,7 @@ struct client {
 struct client *client_create(int fd, struct ip_addr *ip, int ssl);
 
 unsigned int clients_get_count(void);
-void clients_notify_auth_process(void);
+void clients_notify_auth_connected(void);
 void clients_destroy_all(void);
 
 void clients_init(void);

@@ -10,8 +10,8 @@
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
-#include "master-connection.h"
-#include "login-connection.h"
+#include "auth-master-connection.h"
+#include "auth-client-connection.h"
 
 #include <stdlib.h>
 #include <syslog.h>
@@ -19,6 +19,7 @@
 struct ioloop *ioloop;
 int verbose = FALSE, verbose_debug = FALSE;
 
+static struct auth_master_connection *master;
 static struct io *io_listen;
 
 static void sig_quit(int signo __attr_unused__)
@@ -36,7 +37,7 @@ static void auth_accept(void *context __attr_unused__)
 			i_fatal("accept() failed: %m");
 	} else {
 		net_set_nonblock(fd, TRUE);
-		(void)login_connection_create(fd);
+		(void)auth_client_connection_create(master, fd);
 	}
 }
 
@@ -69,21 +70,31 @@ static void drop_privileges(void)
 
 static void main_init(void)
 {
+	const char *env;
+	unsigned int pid;
+
 	lib_init_signals(sig_quit);
 
 	verbose = getenv("VERBOSE") != NULL;
 	verbose_debug = getenv("VERBOSE_DEBUG") != NULL;
 
+	env = getenv("AUTH_PROCESS");
+	if (env == NULL)
+		i_fatal("AUTH_PROCESS environment is unset");
+
+	pid = atoi(env);
+	if (pid == 0)
+		i_fatal("AUTH_PROCESS can't be 0");
+
 	mech_init();
 	userdb_init();
 	passdb_init();
 
-	login_connections_init();
-
 	io_listen = io_add(LOGIN_LISTEN_FD, IO_READ, auth_accept, NULL);
 
 	/* initialize master last - it sends the "we're ok" notification */
-	master_connection_init();
+	master = auth_master_connection_new(MASTER_SOCKET_FD, pid);
+	auth_client_connections_init(master);
 }
 
 static void main_deinit(void)
@@ -93,13 +104,13 @@ static void main_deinit(void)
 
 	io_remove(io_listen);
 
-	login_connections_deinit();
+	auth_client_connections_deinit(master);
 
 	passdb_deinit();
 	userdb_deinit();
 	mech_deinit();
 
-	master_connection_deinit();
+	auth_master_connection_free(master);
 	random_deinit();
 
 	closelog();

@@ -5,7 +5,7 @@
 #include "buffer.h"
 #include "hash.h"
 #include "mech.h"
-#include "login-connection.h"
+#include "auth-client-connection.h"
 
 #include <stdlib.h>
 
@@ -23,7 +23,7 @@ char username_chars[256];
 
 static int set_use_cyrus_sasl;
 static struct mech_module_list *mech_modules;
-static struct auth_login_reply failure_reply;
+static struct auth_client_request_reply failure_reply;
 
 void mech_register_module(struct mech_module *module)
 {
@@ -59,8 +59,8 @@ void mech_unregister_module(struct mech_module *module)
 	}
 }
 
-void mech_request_new(struct login_connection *conn,
-		      struct auth_login_request_new *request,
+void mech_request_new(struct auth_client_connection *conn,
+		      struct auth_client_request_new *request,
 		      mech_callback_t *callback)
 {
 	struct mech_module_list *list;
@@ -68,8 +68,8 @@ void mech_request_new(struct login_connection *conn,
 
 	if ((auth_mechanisms & request->mech) == 0) {
 		/* unsupported mechanism */
-		i_error("BUG: login requested unsupported "
-			"auth mechanism %d", request->mech);
+		i_error("BUG: Auth client %u requested unsupported "
+			"auth mechanism %d", conn->pid, request->mech);
 		failure_reply.id = request->id;
 		callback(&failure_reply, NULL, conn);
 		return;
@@ -104,8 +104,8 @@ void mech_request_new(struct login_connection *conn,
 	}
 }
 
-void mech_request_continue(struct login_connection *conn,
-			   struct auth_login_request_continue *request,
+void mech_request_continue(struct auth_client_connection *conn,
+			   struct auth_client_request_continue *request,
 			   const unsigned char *data,
 			   mech_callback_t *callback)
 {
@@ -124,22 +124,22 @@ void mech_request_continue(struct login_connection *conn,
 	}
 }
 
-void mech_request_free(struct login_connection *conn,
+void mech_request_free(struct auth_client_connection *conn,
 		       struct auth_request *auth_request, unsigned int id)
 {
 	auth_request->auth_free(auth_request);
 	hash_remove(conn->auth_requests, POINTER_CAST(id));
 }
 
-void mech_init_login_reply(struct auth_login_reply *reply)
+void mech_init_auth_client_reply(struct auth_client_request_reply *reply)
 {
 	memset(reply, 0, sizeof(*reply));
 
-	reply->username_idx = (unsigned int)-1;
-	reply->reply_idx = (unsigned int)-1;
+	reply->username_idx = (size_t)-1;
+	reply->reply_idx = (size_t)-1;
 }
 
-void *mech_auth_success(struct auth_login_reply *reply,
+void *mech_auth_success(struct auth_client_request_reply *reply,
 			struct auth_request *auth_request,
 			const void *data, size_t data_size)
 {
@@ -157,7 +157,7 @@ void *mech_auth_success(struct auth_login_reply *reply,
 		buffer_append(buf, data, data_size);
 	}
 
-	reply->result = AUTH_LOGIN_RESULT_SUCCESS;
+	reply->result = AUTH_CLIENT_RESULT_SUCCESS;
 	reply->data_size = buffer_get_used_size(buf);
 	return buffer_get_modifyable_data(buf, NULL);
 }
@@ -165,7 +165,7 @@ void *mech_auth_success(struct auth_login_reply *reply,
 void mech_auth_finish(struct auth_request *auth_request,
 		      const void *data, size_t data_size, int success)
 {
-	struct auth_login_reply reply;
+	struct auth_client_request_reply reply;
 	void *reply_data;
 
 	memset(&reply, 0, sizeof(reply));
@@ -174,10 +174,10 @@ void mech_auth_finish(struct auth_request *auth_request,
 	if (success) {
 		reply_data = mech_auth_success(&reply, auth_request,
 					       data, data_size);
-		reply.result = AUTH_LOGIN_RESULT_SUCCESS;
+		reply.result = AUTH_CLIENT_RESULT_SUCCESS;
 	} else {
 		reply_data = NULL;
-		reply.result = AUTH_LOGIN_RESULT_FAILURE;
+		reply.result = AUTH_CLIENT_RESULT_FAILURE;
 	}
 
 	auth_request->callback(&reply, reply_data, auth_request->conn);
@@ -213,7 +213,7 @@ void mech_init(void)
 	auth_mechanisms = 0;
 
 	memset(&failure_reply, 0, sizeof(failure_reply));
-	failure_reply.result = AUTH_LOGIN_RESULT_FAILURE;
+	failure_reply.result = AUTH_CLIENT_RESULT_FAILURE;
 
 	anonymous_username = getenv("ANONYMOUS_USERNAME");
 	if (anonymous_username != NULL && *anonymous_username == '\0')

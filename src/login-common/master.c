@@ -16,6 +16,7 @@
 static int master_fd;
 static struct io *io_master;
 static struct hash_table *master_requests;
+static unsigned int master_tag_counter;
 
 static unsigned int master_pos;
 static char master_buf[sizeof(struct master_login_reply)];
@@ -33,15 +34,17 @@ static void request_handle(struct master_login_reply *reply)
 	hash_remove(master_requests, POINTER_CAST(reply->tag));
 }
 
-void master_request_imap(struct client *client, master_callback_t *callback,
-			 unsigned int auth_pid, unsigned int auth_id)
+void master_request_login(struct client *client, master_callback_t *callback,
+			  unsigned int auth_pid, unsigned int auth_id)
 {
 	struct master_login_request req;
 
 	i_assert(auth_pid != 0);
 
 	memset(&req, 0, sizeof(req));
-	req.tag = client->fd;
+	req.tag = ++master_tag_counter;
+	if (req.tag == 0)
+		req.tag = ++master_tag_counter;
 	req.auth_pid = auth_pid;
 	req.auth_id = auth_id;
 	req.ip = client->ip;
@@ -49,8 +52,18 @@ void master_request_imap(struct client *client, master_callback_t *callback,
 	if (fd_send(master_fd, client->fd, &req, sizeof(req)) != sizeof(req))
 		i_fatal("fd_send(%d) failed: %m", client->fd);
 
+	client->master_tag = req.tag;
 	client->master_callback = callback;
+
 	hash_insert(master_requests, POINTER_CAST(req.tag), client);
+}
+
+void master_request_abort(struct client *client)
+{
+	client->master_tag = 0;
+	client->master_callback = NULL;
+
+	hash_remove(master_requests, POINTER_CAST(client->master_tag));
 }
 
 void master_notify_finished(void)

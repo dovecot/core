@@ -12,7 +12,7 @@
 #include "imap-parser.h"
 #include "client.h"
 #include "client-authenticate.h"
-#include "auth-connection.h"
+#include "auth-client.h"
 #include "ssl-proxy.h"
 
 /* max. size of one parameter in line */
@@ -40,6 +40,8 @@
 
 static struct hash_table *clients;
 static struct timeout *to_idle;
+
+static int client_unref(struct imap_client *client);
 
 static void client_set_title(struct imap_client *client)
 {
@@ -275,7 +277,7 @@ void client_input(void *context)
 	if (!client_read(client))
 		return;
 
-	if (!auth_is_connected()) {
+	if (!auth_client_is_connected(auth_client)) {
 		/* we're not yet connected to auth process -
 		   don't allow any commands */
 		client_send_line(client,
@@ -284,7 +286,7 @@ void client_input(void *context)
 		return;
 	}
 
-	client_ref(client);
+	client->refcount++;
 
 	o_stream_cork(client->output);
 	while (client_handle_input(client)) ;
@@ -386,6 +388,14 @@ void client_destroy(struct imap_client *client, const char *reason)
 	i_stream_close(client->input);
 	o_stream_close(client->output);
 
+	if (client->common.auth_request != NULL) {
+		auth_client_request_abort(client->common.auth_request);
+                client->common.auth_request = NULL;
+	}
+
+	if (client->common.master_tag != 0)
+		master_request_abort(&client->common);
+
 	if (client->common.io != NULL) {
 		io_remove(client->common.io);
 		client->common.io = NULL;
@@ -399,12 +409,7 @@ void client_destroy(struct imap_client *client, const char *reason)
 	client_unref(client);
 }
 
-void client_ref(struct imap_client *client)
-{
-	client->refcount++;
-}
-
-int client_unref(struct imap_client *client)
+static int client_unref(struct imap_client *client)
 {
 	if (--client->refcount > 0)
 		return TRUE;
@@ -476,7 +481,7 @@ static void client_hash_check_io(void *key, void *value __attr_unused__,
 	}
 }
 
-void clients_notify_auth_process(void)
+void clients_notify_auth_connected(void)
 {
 	hash_foreach(clients, client_hash_check_io, NULL);
 }

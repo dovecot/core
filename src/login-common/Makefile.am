@@ -2,12 +2,12 @@ noinst_LIBRARIES = liblogin-common.a
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-auth \
 	-DPKG_RUNDIR=\""$(localstatedir)/run/$(PACKAGE)"\" \
 	-DSBINDIR=\""$(sbindir)"\"
 
 liblogin_common_a_SOURCES = \
 	auth-common.c \
-	auth-connection.c \
 	main.c \
 	master.c \
 	ssl-proxy.c \
@@ -16,7 +16,6 @@ liblogin_common_a_SOURCES = \
 
 noinst_HEADERS = \
 	auth-common.h \
-	auth-connection.h \
 	client-common.h \
 	common.h \
 	master.h \

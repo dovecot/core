@@ -13,7 +13,7 @@ static void verify_callback(enum passdb_result result,
 
 static int
 mech_plain_auth_continue(struct auth_request *auth_request,
-			 struct auth_login_request_continue *request,
+			 struct auth_client_request_continue *request,
 			 const unsigned char *data, mech_callback_t *callback)
 {
 	const char *authid, *authenid;
@@ -82,11 +82,11 @@ mech_plain_auth_free(struct auth_request *auth_request)
 }
 
 static struct auth_request *
-mech_plain_auth_new(struct login_connection *conn, unsigned int id,
+mech_plain_auth_new(struct auth_client_connection *conn, unsigned int id,
 		    mech_callback_t *callback)
 {
         struct auth_request *auth_request;
-	struct auth_login_reply reply;
+	struct auth_client_request_reply reply;
 	pool_t pool;
 
 	pool = pool_alloconly_create("plain_auth_request", 256);
@@ -98,7 +98,7 @@ mech_plain_auth_new(struct login_connection *conn, unsigned int id,
 	/* initialize reply */
 	memset(&reply, 0, sizeof(reply));
 	reply.id = id;
-	reply.result = AUTH_LOGIN_RESULT_CONTINUE;
+	reply.result = AUTH_CLIENT_RESULT_CONTINUE;
 
 	callback(&reply, NULL, conn);
 	return auth_request;

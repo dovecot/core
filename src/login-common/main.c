@@ -7,9 +7,9 @@
 #include "restrict-process-size.h"
 #include "process-title.h"
 #include "fd-close-on-exec.h"
-#include "auth-connection.h"
 #include "master.h"
 #include "client-common.h"
+#include "auth-client.h"
 #include "ssl-proxy.h"
 
 #include <stdlib.h>
@@ -20,6 +20,7 @@ int disable_plaintext_auth, process_per_connection, verbose_proctitle;
 int verbose_ssl;
 unsigned int max_logging_users;
 unsigned int login_process_uid;
+struct auth_client *auth_client;
 
 static struct ioloop *ioloop;
 static struct io *io_listen, *io_ssl_listen;
@@ -113,6 +114,13 @@ static void login_accept_ssl(void *context __attr_unused__)
 		(void)client_create(fd_ssl, &ip, TRUE);
 }
 
+static void auth_connect_notify(struct auth_client *client __attr_unused__,
+				int connected, void *context __attr_unused__)
+{
+	if (connected)
+                clients_notify_auth_connected();
+}
+
 static void open_logfile(const char *name)
 {
 	if (getenv("USE_SYSLOG") != NULL)
@@ -140,6 +148,7 @@ static void drop_privileges(const char *name)
 	/* Refuse to run as root - we should never need it and it's
 	   dangerous with SSL. */
 	restrict_access_by_env(TRUE);
+	sleep(5);
 
 	/* make sure we can't fork() */
 	restrict_process_size((unsigned int)-1, 1);
@@ -169,7 +178,8 @@ static void main_init(void)
         closing_down = FALSE;
 	main_refcount = 0;
 
-	auth_connection_init();
+	auth_client = auth_client_new((unsigned int)getpid());
+        auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
 	clients_init();
 
 	io_listen = io_ssl_listen = NULL;
@@ -209,7 +219,7 @@ static void main_deinit(void)
 
 	ssl_proxy_deinit();
 
-	auth_connection_deinit();
+	auth_client_free(auth_client);
 	clients_deinit();
 	master_deinit();
 

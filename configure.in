@@ -1096,6 +1096,7 @@ Makefile
 doc/Makefile
 src/Makefile
 src/lib/Makefile
+src/lib-auth/Makefile
 src/lib-charset/Makefile
 src/lib-imap/Makefile
 src/lib-index/Makefile

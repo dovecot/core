@@ -27,9 +27,6 @@ struct pop3_client {
 struct client *client_create(int fd, struct ip_addr *ip, int ssl);
 void client_destroy(struct pop3_client *client, const char *reason);
 
-void client_ref(struct pop3_client *client);
-int client_unref(struct pop3_client *client);
-
 void client_send_line(struct pop3_client *client, const char *line);
 void client_syslog(struct pop3_client *client, const char *text);
 
