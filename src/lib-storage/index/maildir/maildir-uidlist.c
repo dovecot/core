@@ -665,7 +665,8 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 		buffer_append(ctx->record_buf, &rec, sizeof(rec));
 	}
 
-	if ((flags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 && rec->uid != 0)
+	if ((flags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 &&
+	    rec->uid != (uint32_t)-1)
 		maildir_uidlist_mark_recent(uidlist, rec->uid);
 
 	rec->flags |= flags;
