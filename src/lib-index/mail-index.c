@@ -542,9 +542,10 @@ static int mail_index_read_map(struct mail_index *index,
 }
 
 static int mail_index_sync_from_transactions(struct mail_index *index,
-					     struct mail_index_map *map,
+					     struct mail_index_map **map,
 					     int sync_to_index)
 {
+	const struct mail_index_header *map_hdr = &(*map)->hdr;
 	struct mail_index_view *view;
 	struct mail_transaction_log_view *log_view;
 	struct mail_index_sync_map_ctx sync_map_ctx;
@@ -567,20 +568,20 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 		if (pos < MAIL_INDEX_HEADER_MIN_SIZE)
 			return 0;
 
-		if (map->hdr.log_file_seq == hdr.log_file_seq &&
-		    map->hdr.log_file_int_offset == hdr.log_file_int_offset) {
+		if (map_hdr->log_file_seq == hdr.log_file_seq &&
+		    map_hdr->log_file_int_offset == hdr.log_file_int_offset) {
 			/* nothing to do */
 			return 1;
 		}
 
-		if (map->hdr.log_file_seq > hdr.log_file_seq ||
-		    (map->hdr.log_file_seq == hdr.log_file_seq &&
-		     map->hdr.log_file_int_offset > hdr.log_file_int_offset)) {
+		if (map_hdr->log_file_seq > hdr.log_file_seq ||
+		    (map_hdr->log_file_seq == hdr.log_file_seq &&
+		     map_hdr->log_file_int_offset > hdr.log_file_int_offset)) {
 			/* we went too far, have to re-read the file */
 			return 0;
 		}
-		if (map->hdr.log_file_ext_offset !=
-		    map->hdr.log_file_int_offset ||
+		if (map_hdr->log_file_ext_offset !=
+		    map_hdr->log_file_int_offset ||
 		    hdr.log_file_ext_offset != hdr.log_file_int_offset) {
 			/* too much trouble to get this right. */
 			return 0;
@@ -595,15 +596,15 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 
 	log_view = mail_transaction_log_view_open(index->log);
 	if (mail_transaction_log_view_set(log_view,
-					  map->hdr.log_file_seq,
-					  map->hdr.log_file_int_offset,
+					  map_hdr->log_file_seq,
+					  map_hdr->log_file_int_offset,
 					  max_seq, max_offset,
 					  MAIL_TRANSACTION_TYPE_MASK) < 0) {
 		mail_transaction_log_view_close(log_view);
 		return 0;
 	}
 
-	index->map = map;
+	index->map = *map;
 
 	view = mail_index_view_open(index);
 	mail_index_sync_map_init(&sync_map_ctx, view,
@@ -621,23 +622,25 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 	mail_index_view_close(view);
 	mail_transaction_log_view_close(log_view);
 
+	*map = index->map;
+	index->map = NULL;
+
 	if (sync_to_index) {
 		/* make sure log file offsets get copied. most of the other
 		   fields should stay the same. */
-		map->hdr = hdr;
+		(*map)->hdr = hdr;
 	}
 
-	index->map = NULL;
 	return ret < 0 ? -1 : 1;
 }
 
 static int mail_index_read_map_with_retry(struct mail_index *index,
-					  struct mail_index_map *map,
+					  struct mail_index_map **map,
 					  int sync_to_index)
 {
 	int i, ret, retry;
 
-	if (map->hdr.indexid != 0) {
+	if ((*map)->hdr.indexid != 0) {
 		/* sync this as a view from transaction log. */
 		ret = mail_index_sync_from_transactions(index, map,
 							sync_to_index);
@@ -650,7 +653,7 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 	}
 
 	for (i = 0; i < MAIL_INDEX_ESTALE_RETRY_COUNT; i++) {
-		ret = mail_index_read_map(index, map, &retry);
+		ret = mail_index_read_map(index, *map, &retry);
 		if (ret != 0 || !retry)
 			return ret;
 
@@ -702,6 +705,7 @@ int mail_index_map(struct mail_index *index, int force)
 	struct mail_index_map *map;
 	int ret;
 
+	i_assert(index->map == NULL || index->map->refcount > 0);
 	i_assert(index->lock_type != F_UNLCK);
 
 	if (!force && index->map != NULL) {
@@ -752,7 +756,7 @@ int mail_index_map(struct mail_index *index, int force)
 	if (!index->mmap_disable)
 		ret = mail_index_mmap(index, map);
 	else
-		ret = mail_index_read_map_with_retry(index, map, force);
+		ret = mail_index_read_map_with_retry(index, &map, force);
 	if (ret <= 0) {
 		mail_index_unmap_forced(index, map);
 		return ret;
