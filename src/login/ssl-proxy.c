@@ -46,6 +46,33 @@ static void ssl_input(void *context, int handle, IO io);
 static void plain_input(void *context, int handle, IO io);
 static int ssl_proxy_destroy(SSLProxy *proxy);
 
+static const char *get_alert_text(SSLProxy *proxy)
+{
+	return gnutls_alert_get_name(gnutls_alert_get(proxy->state));
+}
+
+static int handle_ssl_error(SSLProxy *proxy, int error)
+{
+	if (!gnutls_error_is_fatal(error)) {
+		if (error == GNUTLS_E_WARNING_ALERT_RECEIVED) {
+			i_warning("Received SSL warning alert: %s",
+				  get_alert_text(proxy));
+		}
+		return 0;
+	}
+
+	/* fatal error occured */
+	if (error == GNUTLS_E_FATAL_ALERT_RECEIVED) {
+		i_warning("Received SSL fatal alert: %s",
+			  get_alert_text(proxy));
+	} else {
+		i_warning("Error reading from SSL client: %s",
+			  gnutls_strerror(error));
+	}
+	ssl_proxy_destroy(proxy);
+	return -1;
+}
+
 static int proxy_recv_ssl(SSLProxy *proxy, void *data, size_t size)
 {
 	int rcvd;
@@ -62,13 +89,7 @@ static int proxy_recv_ssl(SSLProxy *proxy, void *data, size_t size)
 		return -1;
 	}
 
-	if (!gnutls_error_is_fatal(rcvd))
-		return 0;
-
-	/* fatal error occured */
-	i_warning("Error reading from SSL client: %s", gnutls_strerror(rcvd));
-	ssl_proxy_destroy(proxy);
-	return -1;
+	return handle_ssl_error(proxy, rcvd);
 }
 
 static int proxy_send_ssl(SSLProxy *proxy, const void *data, size_t size)
@@ -79,17 +100,13 @@ static int proxy_send_ssl(SSLProxy *proxy, const void *data, size_t size)
 	if (sent >= 0)
 		return sent;
 
-	if (!gnutls_error_is_fatal(sent))
-		return 0;
-
-	/* don't warn about errors related to unexpected disconnection */
-	if (sent != GNUTLS_E_PUSH_ERROR && sent != GNUTLS_E_INVALID_SESSION) {
-		/* error occured */
-		i_warning("Error sending to SSL client: %s",
-			  gnutls_strerror(sent));
+	if (sent == GNUTLS_E_PUSH_ERROR || sent == GNUTLS_E_INVALID_SESSION) {
+		/* don't warn about errors related to unexpected disconnection */
+		ssl_proxy_destroy(proxy);
+		return -1;
 	}
-	ssl_proxy_destroy(proxy);
-	return -1;
+
+	return handle_ssl_error(proxy, sent);
 }
 
 static int ssl_proxy_destroy(SSLProxy *proxy)
@@ -255,10 +272,8 @@ static void ssl_handshake(void *context, int fd __attr_unused__,
 		return;
 	}
 
-	if (gnutls_error_is_fatal(ret)) {
-		ssl_proxy_destroy(proxy);
+	if (handle_ssl_error(proxy, ret) < 0)
 		return;
-	}
 
 	/* i/o interrupted */
 	dir = gnutls_handshake_get_direction(proxy->state) == 0 ?
