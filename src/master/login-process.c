@@ -76,6 +76,7 @@ void auth_master_callback(struct auth_master_reply *reply,
 {
 	struct login_auth_request *request = context;
 	struct master_login_reply master_reply;
+	ssize_t ret;
 
 	if (reply == NULL || !reply->success)
 		master_reply.success = FALSE;
@@ -94,9 +95,15 @@ void auth_master_callback(struct auth_master_reply *reply,
 	/* reply to login */
 	master_reply.tag = request->login_tag;
 
-	if (o_stream_send(request->process->output, &master_reply,
-			  sizeof(master_reply)) < 0)
+	ret = o_stream_send(request->process->output, &master_reply,
+			    sizeof(master_reply));
+	if (ret != sizeof(master_reply)) {
+		if (ret >= 0) {
+			i_warning("Login process %s transmit buffer full, "
+				  "killing..", dec2str(request->process->pid));
+		}
 		login_process_destroy(request->process);
+	}
 
 	if (close(request->fd) < 0)
 		i_error("close(mail client) failed: %m");
