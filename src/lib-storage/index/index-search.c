@@ -474,6 +474,10 @@ static void search_header_arg(MailSearchArg *arg, void *context)
 		if (ctx->name_len != len ||
 		    strncasecmp(ctx->name, arg->hdr_field_name, len) != 0)
 			return;
+	case SEARCH_TEXT:
+		/* TEXT goes through all headers */
+		ctx->custom_header = TRUE;
+		break;
 	default:
 		return;
 	}
@@ -540,14 +544,6 @@ static void search_text(MailSearchArg *arg, SearchTextContext *ctx)
 	}
 }
 
-static void search_text_header(MailSearchArg *arg, void *context)
-{
-	SearchTextContext *ctx = context;
-
-	if (arg->type == SEARCH_TEXT)
-		search_text(arg, ctx);
-}
-
 static void search_text_body(MailSearchArg *arg, void *context)
 {
 	SearchTextContext *ctx = context;
@@ -595,7 +591,6 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 {
 	IBuffer *inbuf;
 	MessageSize hdr_size;
-	uoff_t old_limit;
 	int have_headers, have_body, have_text;
 
 	/* first check what we need to use */
@@ -607,7 +602,7 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 				      have_headers ? NULL : &hdr_size, NULL))
 		return FALSE;
 
-	if (have_headers) {
+	if (have_headers || have_text) {
 		SearchHeaderContext hdr_ctx;
 
 		memset(&hdr_ctx, 0, sizeof(hdr_ctx));
@@ -618,18 +613,6 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 		hdr_ctx.args = args;
 		message_parse_header(NULL, inbuf, &hdr_size,
 				     search_header, &hdr_ctx);
-	}
-
-	if (have_text) {
-		if (inbuf->v_offset != 0) {
-			/* need to rewind back to beginning of headers */
-			i_buffer_seek(inbuf, 0);
-		}
-
-		old_limit = inbuf->v_limit;
-		i_buffer_set_read_limit(inbuf, hdr_size.physical_size);
-		search_arg_match_data(inbuf, args, search_text_header);
-		i_buffer_set_read_limit(inbuf, old_limit);
 	}
 
 	if (have_text || have_body) {
