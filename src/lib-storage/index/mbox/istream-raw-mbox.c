@@ -119,11 +119,11 @@ static ssize_t _read(struct _istream *stream)
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 	const unsigned char *buf;
 	const char *fromp;
-	char *sender, eoh_char;
+	char *sender;
 	time_t received_time;
 	size_t i, pos, new_pos, from_start_pos;
 	ssize_t ret = 0;
-	int tried_read = FALSE;
+	int eoh_char;
 
 	i_assert(stream->istream.v_offset >= rstream->from_offset);
 
@@ -143,7 +143,6 @@ static ssize_t _read(struct _istream *stream)
 		    stream->istream.v_offset + pos > rstream->input_peak_offset)
 			break;
 		ret = i_stream_read(rstream->input);
-		tried_read = TRUE;
 	} while (ret > 0);
 
 	if (ret < 0) {
@@ -192,13 +191,13 @@ static ssize_t _read(struct _istream *stream)
 	/* See if we have From-line here - note that it works right only
 	   because all characters are different in mbox_from. */
         fromp = mbox_from; from_start_pos = (size_t)-1;
-	eoh_char = rstream->body_offset == (uoff_t)-1 ? '\n' : '\0';
+	eoh_char = rstream->body_offset == (uoff_t)-1 ? '\n' : -1;
 	for (i = stream->pos; i < pos; i++) {
 		if (buf[i] == eoh_char &&
 		    ((i > 0 && buf[i-1] == '\n') ||
 		     stream->istream.v_offset + i == rstream->hdr_offset)) {
 			rstream->body_offset = stream->istream.v_offset + i + 1;
-			eoh_char = '\0';
+			eoh_char = -1;
 		}
 		if (buf[i] == *fromp) {
 			if (*++fromp == '\0') {
@@ -249,7 +248,7 @@ static ssize_t _read(struct _istream *stream)
 
 	stream->buffer = buf;
 	if (new_pos == stream->pos) {
-		if (stream->istream.eof || !tried_read)
+		if (stream->istream.eof || ret > 0)
 			return _read(stream);
 		ret = -2;
 	} else {
