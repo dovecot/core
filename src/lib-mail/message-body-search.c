@@ -293,7 +293,7 @@ static int message_search_body(struct part_search_context *ctx,
 		ctx->translation = charset_to_utf8_begin("ascii", NULL);
 
 	ctx->decode_buf =
-		buffer_create_static_hard(pool_datastack_create(), 256);
+		buffer_create_dynamic(pool_datastack_create(), 256);
 	ctx->match_buf = buffer_create_static_hard(pool_datastack_create(),
 						   sizeof(size_t) *
 						   ctx->body_ctx->key_len);
