@@ -119,7 +119,7 @@ size_t get_max_align_size(size_t base, size_t extra, size_t *max_extra)
 	}
 
 	*max_extra -= extra;
-	return base + extra;
+	return size + extra;
 }
 
 /* extra_size is the amount of data in data_size which can be used for
