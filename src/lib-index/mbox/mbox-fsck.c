@@ -72,7 +72,8 @@ static int verify_end_of_body(IOBuffer *inbuf, uoff_t end_offset)
 		data++; size--;
 	}
 
-	return size == 0 || (size >= 5 && strncmp(data, "From ", 5) == 0);
+	return size == 0 ||
+		(size >= 5 && strncmp((char *) data, "From ", 5) == 0);
 }
 
 static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
@@ -219,7 +220,7 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 	/* first make sure we start with a "From " line. If file is too
 	   small, we'll just treat it as empty mbox file. */
 	if (io_buffer_read_data_blocking(inbuf, &data, &size, 5) > 0 &&
-	    strncmp(data, "From ", 5) != 0) {
+	    strncmp((char *) data, "From ", 5) != 0) {
 		index_set_error(index, "File isn't in mbox format: %s",
 				index->mbox_path);
 		return FALSE;

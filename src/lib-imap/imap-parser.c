@@ -439,7 +439,7 @@ static int imap_parser_read_arg(ImapParser *parser, ImapArg *root_arg)
 
 		/* pass through to parsing data. since inbuf->skip was
 		   modified, we need to get the data start position again. */
-		data = io_buffer_get_data(parser->inbuf, &data_size);
+		data = (char *) io_buffer_get_data(parser->inbuf, &data_size);
 	case ARG_PARSE_LITERAL_DATA:
 		imap_parser_read_literal_data(parser, data, data_size);
 		break;
@@ -496,11 +496,11 @@ int imap_parser_read_args(ImapParser *parser, unsigned int count,
 
 const char *imap_parser_read_word(ImapParser *parser)
 {
-	unsigned char *data;
+	char *data;
 	size_t i, data_size;
 
 	/* get the beginning of data in input buffer */
-	data = io_buffer_get_data(parser->inbuf, &data_size);
+	data = (char *) io_buffer_get_data(parser->inbuf, &data_size);
 
 	for (i = 0; i < data_size; i++) {
 		if (data[i] == ' ' || data[i] == '\r' || data[i] == '\n')
@@ -517,11 +517,11 @@ const char *imap_parser_read_word(ImapParser *parser)
 
 const char *imap_parser_read_line(ImapParser *parser)
 {
-	unsigned char *data;
+	char *data;
 	size_t i, data_size;
 
 	/* get the beginning of data in input buffer */
-	data = io_buffer_get_data(parser->inbuf, &data_size);
+	data = (char *) io_buffer_get_data(parser->inbuf, &data_size);
 
 	for (i = 0; i < data_size; i++) {
 		if (data[i] == '\r' || data[i] == '\n')

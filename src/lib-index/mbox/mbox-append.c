@@ -46,7 +46,8 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 			break;
 	}
 
-	if (pos == size || size <= 5 || strncmp(data, "From ", 5) != 0) {
+	if (pos == size || size <= 5 ||
+	    strncmp((char *) data, "From ", 5) != 0) {
 		/* a) no \n found, or line too long
 		   b) not a From-line */
 		index_set_error(index, "Error indexing mbox file %s: "
@@ -57,7 +58,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	}
 
 	/* parse the From-line */
-	internal_date = mbox_from_parse_date(data, size);
+	internal_date = mbox_from_parse_date((char *) data, size);
 	if (internal_date <= 0)
 		internal_date = ioloop_time;
 

@@ -389,8 +389,9 @@ void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 					if (msg[i-1] == '\r') value_len--;
 
 					/* and finally call the function */
-					func(part, msg + line_start, name_len,
-					     msg + colon_pos, value_len,
+					func(part,
+					     (char*) msg + line_start, name_len,
+					     (char*) msg + colon_pos, value_len,
 					     context);
 				}
 
@@ -463,8 +464,8 @@ message_find_boundary(IOBuffer *inbuf, MessageBoundary *boundaries,
 			    msg[line_start+1] == '-') {
 				/* possible boundary */
 				boundary = boundary_find(boundaries,
-							 msg + line_start + 2,
-							 i - line_start - 2);
+						(char *) msg + line_start + 2,
+						i - line_start - 2);
 				if (boundary != NULL)
 					break;
 			}
@@ -488,7 +489,7 @@ message_find_boundary(IOBuffer *inbuf, MessageBoundary *boundaries,
 			   70 chars without "--" or less. We allow
 			   a bit larger.. */
 			boundary = boundary_find(boundaries,
-						 msg + line_start + 2,
+						 (char *) msg + line_start + 2,
 						 i - line_start - 2);
 			if (boundary != NULL)
 				break;

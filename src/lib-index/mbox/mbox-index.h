@@ -12,7 +12,7 @@ typedef struct {
 	int received;
 } MboxHeaderContext;
 
-int mbox_set_syscall_error(MailIndex *index, const char *function);;
+int mbox_set_syscall_error(MailIndex *index, const char *function);
 
 void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index);
 void mbox_header_free_context(MboxHeaderContext *ctx);
