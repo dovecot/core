@@ -190,6 +190,7 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data,
 		ret = i_stream_read(stream);
 	} while (ret >= 0);
 
+	*data = i_stream_get_data(stream, size);
 	return ret == -2 ? -2 :
 		*size > 0 ? 0 : -1;
 }
