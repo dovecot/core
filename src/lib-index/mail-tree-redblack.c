@@ -632,7 +632,8 @@ unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 
 	rb_check(tree);
 
-	*seq_r = 0;
+	if (seq_r != NULL)
+		*seq_r = 0;
 
 	y = RBNULL; /* points to the parent of x */
 	x = tree->header->root;
@@ -650,7 +651,8 @@ unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 				x = node[x].right;
 			else {
 				/* found it */
-				*seq_r = seq;
+				if (seq_r != NULL)
+					*seq_r = seq;
 				return node[x].value;
 			}
 		}
@@ -665,8 +667,10 @@ unsigned int mail_tree_lookup_uid_range(MailTree *tree, unsigned int *seq_r,
 
 		if (node[x].key > last_uid)
 			x = RBNULL;
-		else
-			*seq_r = seq+1;
+		else {
+			if (seq_r != NULL)
+				*seq_r = seq+1;
+		}
 	}
 
 	return x == RBNULL ? (unsigned int)-1 : node[x].value;

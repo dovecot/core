@@ -198,8 +198,7 @@ struct _MailboxSyncCallbacks {
 	void (*alert_no_diskspace)(Mailbox *mailbox, void *context);
 
 	/* EXPUNGE */
-	void (*expunge)(Mailbox *mailbox, unsigned int seq,
-			unsigned int uid, void *context);
+	void (*expunge)(Mailbox *mailbox, unsigned int seq, void *context);
 	/* FETCH FLAGS */
 	void (*update_flags)(Mailbox *mailbox, unsigned int seq,
 			     unsigned int uid, MailFlags flags,

@@ -211,7 +211,8 @@ struct _MailIndex {
 	   lookup() and last next() call. */
 	MailIndexRecord *(*next)(MailIndex *index, MailIndexRecord *rec);
 
-	/* Find first existing UID in range. */
+	/* Find first existing UID in range. Sequence number is also retrieved
+	   if seq_r is non-NULL. */
 	MailIndexRecord *(*lookup_uid_range)(MailIndex *index,
 					     unsigned int first_uid,
 					     unsigned int last_uid,

@@ -349,7 +349,7 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 	MailFetchBodyData *sect;
 	int ret;
 
-	if (!index_storage_sync_index_if_possible(ibox))
+	if (!index_storage_sync_index_if_possible(ibox, TRUE))
 		return FALSE;
 
 	memset(&ctx, 0, sizeof(ctx));

@@ -812,7 +812,7 @@ static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
 	SearchIndexContext ctx;
 	MailIndexRecord *rec;
         MailSearchArg *arg;
-	const unsigned int *expunges;
+	const ModifyLogExpunge *expunges;
 	unsigned int first_uid, last_uid, client_seq, expunges_before;
 	char num[MAX_LARGEST_T_STRLEN+10];
 	int found;
@@ -836,11 +836,14 @@ static int search_messages(IndexMailbox *ibox, MailSearchArg *args,
 
 	ctx.ibox = ibox;
 	for (; rec != NULL && rec->uid <= last_uid; client_seq++) {
-		while (*expunges != 0 && *expunges < rec->uid) {
+		while (expunges->uid1 != 0 && expunges->uid1 < rec->uid) {
+			i_assert(expunges->uid2 < rec->uid);
+
 			expunges++;
-			client_seq++;
+			client_seq += expunges->seq_count;
 		}
-		i_assert(*expunges != rec->uid);
+		i_assert(!(expunges->uid1 <= rec->uid &&
+			   expunges->uid2 >= rec->uid));
 
 		ctx.rec = rec;
 		ctx.client_seq = client_seq;
@@ -879,7 +882,7 @@ int index_storage_search(Mailbox *box, MailSearchArg *args,
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	int failed;
 
-	if (!index_storage_sync_index_if_possible(ibox))
+	if (!index_storage_sync_index_if_possible(ibox, TRUE))
 		return FALSE;
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))

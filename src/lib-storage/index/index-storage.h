@@ -37,7 +37,7 @@ IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 				 int readonly, int fast);
 void index_storage_close(Mailbox *box);
 
-int index_storage_sync_index_if_possible(IndexMailbox *ibox);
+int index_storage_sync_index_if_possible(IndexMailbox *ibox, int sync_size);
 int index_storage_sync_modifylog(IndexMailbox *ibox);
 
 int index_mailbox_fix_custom_flags(IndexMailbox *ibox, MailFlags *flags,
@@ -47,6 +47,8 @@ unsigned int index_storage_get_recent_count(MailIndex *index);
 
 int index_expunge_seek_first(IndexMailbox *ibox, unsigned int *seq,
 			     MailIndexRecord **rec);
+int index_expunge_mail(IndexMailbox *ibox, MailIndexRecord *rec,
+		       unsigned int seq, int notify);
 
 int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 			       IBuffer *buf, uoff_t data_size);

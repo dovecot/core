@@ -5,8 +5,7 @@
 
 #include <unistd.h>
 
-static int expunge_msg(IndexMailbox *ibox, MailIndexRecord *rec,
-		       unsigned int seq)
+static int expunge_msg(IndexMailbox *ibox, MailIndexRecord *rec)
 {
 	const char *fname;
 	char path[1024];
@@ -26,36 +25,30 @@ static int expunge_msg(IndexMailbox *ibox, MailIndexRecord *rec,
 		}
 	}
 
-	return ibox->index->expunge(ibox->index, rec, seq, FALSE);
+	return TRUE;
 
 }
 
 int maildir_expunge_locked(IndexMailbox *ibox, int notify)
 {
 	MailIndexRecord *rec;
-	unsigned int seq, uid;
+	unsigned int seq;
 
 	if (!index_expunge_seek_first(ibox, &seq, &rec))
 		return FALSE;
 
 	while (rec != NULL) {
 		if (rec->msg_flags & MAIL_DELETED) {
-			/* save UID before deletion */
-			uid = rec->uid;
-
-			if (!expunge_msg(ibox, rec, seq))
+			if (!expunge_msg(ibox, rec))
 				return FALSE;
 
-			if (notify) {
-				ibox->sync_callbacks.expunge(
-						&ibox->box, seq, uid,
-						ibox->sync_context);
-			}
-			ibox->synced_messages_count--;
-			seq--;
+			if (!index_expunge_mail(ibox, rec, seq, notify))
+				return FALSE;
+		} else {
+			seq++;
 		}
+
 		rec = ibox->index->next(ibox->index, rec);
-		seq++;
 	}
 
 	return TRUE;

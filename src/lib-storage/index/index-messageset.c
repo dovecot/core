@@ -28,7 +28,7 @@ static int mail_index_foreach(MailIndex *index,
 			      const char **error)
 {
 	MailIndexRecord *rec;
-	const unsigned int *expunges;
+	const ModifyLogExpunge *expunges;
 	unsigned int idx_seq, expunges_before;
 	int expunges_found;
 
@@ -47,7 +47,7 @@ static int mail_index_foreach(MailIndex *index,
 	expunges = mail_modifylog_seq_get_expunges(index->modifylog, seq, seq2,
 						   &expunges_before);
 	i_assert(expunges_before < seq);
-	expunges_found = *expunges != '\0';
+	expunges_found = expunges->uid1 != 0;
 
 	/* Reset index errors, since we later rely on it to check if failed */
 	index_reset_error(index);
@@ -60,11 +60,14 @@ static int mail_index_foreach(MailIndex *index,
 		/* skip expunged sequences */
 		i_assert(rec->uid != 0);
 
-		while (*expunges != 0 && *expunges < rec->uid) {
+		while (expunges->uid1 != 0 && expunges->uid1 < rec->uid) {
+			i_assert(expunges->uid2 < rec->uid);
+
+			seq += expunges->seq_count;
 			expunges++;
-			seq++;
 		}
-		i_assert(*expunges != rec->uid);
+		i_assert(!(expunges->uid1 <= rec->uid &&
+			   expunges->uid2 >= rec->uid));
 
 		if (seq > seq2)
 			break;
@@ -179,7 +182,7 @@ static int mail_index_uid_foreach(MailIndex *index,
 				  const char **error)
 {
 	MailIndexRecord *rec;
-	const unsigned int *expunges;
+	const ModifyLogExpunge *expunges;
 	unsigned int client_seq, idx_seq, expunges_before;
 	int expunges_found;
 
@@ -193,31 +196,22 @@ static int mail_index_uid_foreach(MailIndex *index,
 	/* get list of expunged messages in our range. */
 	expunges = mail_modifylog_uid_get_expunges(index->modifylog, uid, uid2,
 						   &expunges_before);
-	expunges_found = *expunges != '\0';
-
-	/* skip expunged messages at the beginning */
-	while (*expunges == uid) {
-		expunges++;
-
-		if (uid++ == uid2) {
-			/* all were expunged */
-			return 2;
-		}
-	}
+	expunges_found = expunges->uid1 != 0;
 
 	rec = index->lookup_uid_range(index, uid, uid2, &idx_seq);
 	if (rec == NULL)
 		return expunges_found ? 2 : 1;
 
 	client_seq = idx_seq + expunges_before;
-
 	while (rec != NULL && rec->uid <= uid2) {
-		uid = rec->uid;
-		while (*expunges != 0 && *expunges < rec->uid) {
+		while (expunges->uid1 != 0 && expunges->uid1 < rec->uid) {
+			i_assert(expunges->uid2 < rec->uid);
+
+			client_seq += expunges->seq_count;
 			expunges++;
-			client_seq++;
 		}
-		i_assert(*expunges != rec->uid);
+		i_assert(!(expunges->uid1 <= rec->uid &&
+			   expunges->uid2 >= rec->uid));
 
 		t_push();
 		if (!func(index, rec, client_seq, idx_seq, context)) {

@@ -15,7 +15,6 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 			int notify)
 {
 	uoff_t offset, end_offset, from_offset, copy_size, old_limit;
-	unsigned int uid;
 	const unsigned char *data;
 	size_t size;
 	int expunges, failed;
@@ -46,19 +45,8 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 		end_offset = offset + rec->header_size + rec->body_size;
 
 		if (rec->msg_flags & MAIL_DELETED) {
-			/* save UID before deletion */
-			uid = rec->uid;
-
-			if (!ibox->index->expunge(ibox->index, rec,
-						  seq, FALSE))
+			if (!index_expunge_mail(ibox, rec, seq, notify))
 				return FALSE;
-
-			if (notify) {
-				ibox->sync_callbacks.expunge(
-						&ibox->box, seq, uid,
-						ibox->sync_context);
-			}
-			ibox->synced_messages_count--;
 			seq--;
 
 			if (!expunges) {

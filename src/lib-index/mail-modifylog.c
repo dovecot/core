@@ -32,6 +32,9 @@ struct _MailModifyLog {
 	size_t mmap_used_length;
 	size_t mmap_full_length;
 
+	ModifyLogRecord *last_expunge, *last_flags;
+	int last_expunge_external, last_flags_external;
+
 	ModifyLogHeader *header;
 	uoff_t synced_position;
 	unsigned int synced_id;
@@ -41,7 +44,7 @@ struct _MailModifyLog {
 	unsigned int second_log:1;
 };
 
-static const unsigned int no_expunges[] = { 0 };
+static const ModifyLogExpunge no_expunges = { 0, 0, 0 };
 
 static int modifylog_set_syscall_error(MailModifyLog *log,
 				       const char *function)
@@ -132,6 +135,9 @@ static int mmap_update(MailModifyLog *log, int forced)
 	log->mmap_used_length = 0;
 	log->header = NULL;
 
+	log->last_expunge = NULL;
+	log->last_flags = NULL;
+
 	log->mmap_base = mmap_rw_file(log->fd, &log->mmap_full_length);
 	if (log->mmap_base == MAP_FAILED) {
 		log->mmap_base = NULL;
@@ -203,6 +209,9 @@ static void mail_modifylog_close(MailModifyLog *log)
 	log->mmap_full_length = 0;
 	log->mmap_used_length = 0;
 	log->header = NULL;
+
+	log->last_expunge = NULL;
+	log->last_flags = NULL;
 
 	if (log->fd != -1) {
 		if (close(log->fd) < 0)
@@ -475,6 +484,12 @@ int mail_modifylog_sync_file(MailModifyLog *log)
 	return TRUE;
 }
 
+void mail_modifylog_notify_lock_drop(MailModifyLog *log)
+{
+	log->last_expunge = NULL;
+	log->last_flags = NULL;
+}
+
 static int mail_modifylog_grow(MailModifyLog *log)
 {
 	uoff_t new_fsize;
@@ -510,20 +525,21 @@ static int mail_modifylog_grow(MailModifyLog *log)
 	return TRUE;
 }
 
-static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord *rec,
+static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord **rec,
 				 int external_change)
 {
 	ModifyLogRecord *destrec;
 
 	i_assert(log->index->lock_type == MAIL_LOCK_EXCLUSIVE);
-	i_assert(rec->seq != 0);
-	i_assert(rec->uid != 0);
+	i_assert((*rec)->seq1 != 0);
+	i_assert((*rec)->uid1 != 0);
 
 	if (!external_change) {
 		switch (mail_modifylog_have_other_users(log)) {
 		case 0:
 			/* we're the only one having this log open,
 			   no need for modify log. */
+			*rec = NULL;
 			return TRUE;
 		case -1:
 			return FALSE;
@@ -544,7 +560,7 @@ static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord *rec,
 
 	destrec = (ModifyLogRecord *) ((char *) log->mmap_base +
 				       log->mmap_used_length);
-	memcpy(destrec, rec, sizeof(ModifyLogRecord));
+	memcpy(destrec, *rec, sizeof(ModifyLogRecord));
 
 	if (!external_change && log->header->sync_id == log->synced_id) {
 		log->synced_position += sizeof(ModifyLogRecord);
@@ -557,32 +573,75 @@ static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord *rec,
 	log->header->sync_id++;
 	log->modified = TRUE;
 
+	*rec = destrec;
 	return TRUE;
+}
+
+static int mail_modifylog_merge_last(ModifyLogRecord *rec,
+				     unsigned int seq, unsigned int uid)
+{
+	if (seq+1 == rec->seq1) {
+		rec->seq1 = seq;
+		rec->uid1 = uid;
+		return TRUE;
+	} else if (seq-1 == rec->seq2) {
+		rec->seq2 = seq;
+		rec->uid2 = uid;
+		return TRUE;
+	} else {
+		return FALSE;
+	}
 }
 
 int mail_modifylog_add_expunge(MailModifyLog *log, unsigned int seq,
 			       unsigned int uid, int external_change)
 {
-	ModifyLogRecord rec;
+	ModifyLogRecord rec, *recp;
 
 	/* expunges must not be added when log isn't synced */
 	i_assert(external_change || log->synced_id == log->header->sync_id);
 
+	if (log->last_expunge != NULL &&
+	    log->last_expunge_external == external_change) {
+		if (mail_modifylog_merge_last(log->last_expunge, seq, uid))
+			return TRUE;
+	}
+
 	rec.type = RECORD_TYPE_EXPUNGE;
-	rec.seq = seq;
-	rec.uid = uid;
-	return mail_modifylog_append(log, &rec, external_change);
+	rec.seq1 = rec.seq2 = seq;
+	rec.uid1 = rec.uid2 = uid;
+
+	recp = &rec;
+	if (!mail_modifylog_append(log, &recp, external_change))
+		return FALSE;
+
+        log->last_expunge_external = external_change;
+	log->last_expunge = recp;
+	return TRUE;
 }
 
 int mail_modifylog_add_flags(MailModifyLog *log, unsigned int seq,
 			     unsigned int uid, int external_change)
 {
-	ModifyLogRecord rec;
+	ModifyLogRecord rec, *recp;
+
+	if (log->last_flags != NULL &&
+	    log->last_flags_external == external_change) {
+		if (mail_modifylog_merge_last(log->last_flags, seq, uid))
+			return TRUE;
+	}
 
 	rec.type = RECORD_TYPE_FLAGS_CHANGED;
-	rec.seq = seq;
-	rec.uid = uid;
-	return mail_modifylog_append(log, &rec, external_change);
+	rec.seq1 = rec.seq2 = seq;
+	rec.uid1 = rec.uid2 = uid;
+
+	recp = &rec;
+	if (!mail_modifylog_append(log, &recp, external_change))
+		return FALSE;
+
+        log->last_flags_external = external_change;
+	log->last_flags = recp;
+	return TRUE;
 }
 
 ModifyLogRecord *mail_modifylog_get_nonsynced(MailModifyLog *log,
@@ -668,22 +727,23 @@ int mail_modifylog_mark_synced(MailModifyLog *log)
 	return TRUE;
 }
 
-static int compare_uint(const void *p1, const void *p2)
+static int compare_expunge(const void *p1, const void *p2)
 {
-	const unsigned int *u1 = p1;
-	const unsigned int *u2 = p2;
+	const ModifyLogExpunge *e1 = p1;
+	const ModifyLogExpunge *e2 = p2;
 
-	return *u1 < *u2 ? -1 : *u1 > *u2 ? 1 : 0;
+	return e1->uid1 < e2->uid1 ? -1 : e1->uid1 > e2->uid1 ? 1 : 0;
 }
 
-const unsigned int *
+const ModifyLogExpunge *
 mail_modifylog_seq_get_expunges(MailModifyLog *log,
 				unsigned int first_seq,
 				unsigned int last_seq,
 				unsigned int *expunges_before)
 {
 	ModifyLogRecord *rec, *end_rec;
-	unsigned int last_pos_seq, before, max_records, *arr, *expunges;
+	ModifyLogExpunge *expunges, *arr;
+	unsigned int last_pos_seq, before, max_records;
 
 	i_assert(log->index->lock_type != MAIL_LOCK_UNLOCK);
 
@@ -699,14 +759,14 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 				       log->mmap_used_length);
 
 	while (rec < end_rec) {
-		if (rec->type == RECORD_TYPE_EXPUNGE && rec->seq <= last_seq)
+		if (rec->type == RECORD_TYPE_EXPUNGE && rec->seq1 <= last_seq)
 			break;
 		rec++;
 	}
 
 	if (rec >= end_rec) {
 		/* none found */
-		return no_expunges;
+		return &no_expunges;
 	}
 
 	/* allocate memory for the returned array. the file size - synced
@@ -719,7 +779,7 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 	if (max_records > last_seq - first_seq + 1)
 		max_records = last_seq - first_seq + 1;
 
-	expunges = arr = t_malloc((max_records+1) * sizeof(unsigned int));
+	expunges = arr = t_malloc((max_records+1) * sizeof(ModifyLogExpunge));
 
 	/* last_pos_seq is updated all the time to contain the last_seq
 	   comparable to current record's seq. number */
@@ -730,14 +790,12 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 		if (rec->type != RECORD_TYPE_EXPUNGE)
 			continue;
 
-		if (rec->seq + before < first_seq) {
+		if (rec->seq1 + before < first_seq) {
 			/* before our range */
-			before++;
-			last_pos_seq--;
-		} else if (rec->seq <= last_pos_seq) {
-			/* within our range */
-			last_pos_seq--;
-
+			before += rec->seq2 - rec->seq1 + 1;
+		} else if (rec->seq1 + before <= last_seq &&
+			   rec->seq2 + before >= first_seq) {
+			/* within our range, at least partially */
 			if (max_records-- == 0) {
 				/* log contains more data than it should
 				   have - must be corrupted. */
@@ -746,20 +804,24 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 				return NULL;
 			}
 
-			*arr++ = rec->uid;
+			arr->uid1 = rec->uid1;
+			arr->uid2 = rec->uid2;
+			arr->seq_count = rec->seq2 -rec->seq1 + 1;
+			arr++;
 		}
 	}
-	*arr = 0;
+
+	arr->uid1 = arr->uid2 = 0;
 
 	/* sort the UID array, not including the terminating 0 */
-	qsort(expunges, (unsigned int) (arr - expunges), sizeof(unsigned int),
-	      compare_uint);
+	qsort(expunges, (unsigned int) (arr - expunges),
+	      sizeof(ModifyLogExpunge), compare_expunge);
 
 	*expunges_before = before;
 	return expunges;
 }
 
-const unsigned int *
+const ModifyLogExpunge *
 mail_modifylog_uid_get_expunges(MailModifyLog *log,
 				unsigned int first_uid,
 				unsigned int last_uid,
@@ -768,7 +830,8 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 	/* pretty much copy&pasted from sequence code above ..
 	   kind of annoying */
 	ModifyLogRecord *rec, *end_rec;
-	unsigned int before, max_records, *arr, *expunges;
+	ModifyLogExpunge *expunges, *arr;
+	unsigned int before, max_records;
 
 	i_assert(log->index->lock_type != MAIL_LOCK_UNLOCK);
 
@@ -784,14 +847,14 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 				       log->mmap_used_length);
 
 	while (rec < end_rec) {
-		if (rec->type == RECORD_TYPE_EXPUNGE && rec->uid <= last_uid)
+		if (rec->type == RECORD_TYPE_EXPUNGE && rec->uid1 <= last_uid)
 			break;
 		rec++;
 	}
 
 	if (rec >= end_rec) {
 		/* none found */
-		return no_expunges;
+		return &no_expunges;
 	}
 
 	/* allocate memory for the returned array. the file size - synced
@@ -804,14 +867,17 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 	if (max_records > last_uid - first_uid + 1)
 		max_records = last_uid - first_uid + 1;
 
-	expunges = arr = t_malloc((max_records+1) * sizeof(unsigned int));
+	expunges = arr = t_malloc((max_records+1) * sizeof(ModifyLogExpunge));
 
 	before = 0;
 	for (; rec < end_rec; rec++) {
 		if (rec->type != RECORD_TYPE_EXPUNGE)
 			continue;
 
-		if (rec->uid >= first_uid && rec->uid <= last_uid) {
+                if (rec->uid1 < first_uid) {
+			/* before our range */
+			before += rec->seq2 - rec->seq1 + 1;
+		} else if (rec->uid1 <= last_uid && rec->uid2 >= first_uid) {
 			/* within our range */
 			if (max_records-- == 0) {
 				/* log contains more data than it should
@@ -820,17 +886,19 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 					"Contains more data than expected");
 				return NULL;
 			}
-			*arr++ = rec->uid;
-		} else if (rec->uid < first_uid) {
-			/* before our range */
-			before++;
+
+			arr->uid1 = rec->uid1;
+			arr->uid2 = rec->uid2;
+			arr->seq_count = rec->seq2 -rec->seq1 + 1;
+			arr++;
 		}
 	}
-	*arr = 0;
+
+	arr->uid1 = arr->uid2 = 0;
 
 	/* sort the UID array, not including the terminating 0 */
-	qsort(expunges, (unsigned int) (arr - expunges), sizeof(unsigned int),
-	      compare_uint);
+	qsort(expunges, (unsigned int) (arr - expunges),
+	      sizeof(ModifyLogExpunge), compare_expunge);
 
 	*expunges_before = before;
 	return expunges;
@@ -855,7 +923,7 @@ unsigned int mail_modifylog_get_expunge_count(MailModifyLog *log)
 	expunges = 0;
 	while (rec < end_rec) {
 		if (rec->type == RECORD_TYPE_EXPUNGE)
-			expunges++;
+			expunges += rec->seq2 -rec->seq1 + 1;
 		rec++;
 	}
 

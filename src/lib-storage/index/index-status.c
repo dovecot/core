@@ -72,7 +72,7 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 
 	/* if we're doing STATUS for selected mailbox, we have to sync it
 	   first or STATUS reply may give different data */
-	if (!index_storage_sync_index_if_possible(ibox))
+	if (!index_storage_sync_index_if_possible(ibox, TRUE))
 		return FALSE;
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
