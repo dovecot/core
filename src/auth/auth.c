@@ -127,7 +127,7 @@ void auth_init(void)
 		methods++;
 	}
 
-	/* get our realm - note that we allocate from temp. memory pool so
+	/* get our realm - note that we allocate from data stack so
 	   this function should never be called inside I/O loop or anywhere
 	   else where t_pop() is called */
 	env = getenv("REALMS");

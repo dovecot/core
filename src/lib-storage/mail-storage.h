@@ -194,7 +194,7 @@ struct _MailboxStatus {
 
 	unsigned int diskspace_full:1;
 
-	/* may be allocated from temp pool */
+	/* may be allocated from data stack */
 	const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT];
 };
 

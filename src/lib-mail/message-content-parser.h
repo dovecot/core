@@ -1,7 +1,7 @@
 #ifndef __MESSAGE_CONTENT_PARSER_H
 #define __MESSAGE_CONTENT_PARSER_H
 
-/* functions can safely store data into temporary memory pool,
+/* functions can safely store data into data stack,
    ie. message_content_parse_header() is guaranteed not to call
    t_push()/t_pop() */
 

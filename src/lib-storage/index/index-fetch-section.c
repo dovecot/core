@@ -261,10 +261,9 @@ static int fetch_header_from(IOBuffer *inbuf, IOBuffer *outbuf,
 				    sect->skip, sect->max_size);
 	}
 
-	/* partial headers - copy the wanted fields into temporary memory.
-	   Insert missing CRs on the way. If the header is too large,
-	   calculate the size first and then send the data directly to
-	   output buffer. */
+	/* partial headers - copy the wanted fields into memory, inserting
+	   missing CRs on the way. If the header is too large, calculate 
+	   the size first and then send the data directly to output buffer. */
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.skip = sect->skip;

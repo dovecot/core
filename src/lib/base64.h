@@ -1,7 +1,7 @@
 #ifndef __BASE64_H
 #define __BASE64_H
 
-/* Translates binary data into base64. Allocates memory from temporary pool. */
+/* Translates binary data into base64. Allocates memory from data stack. */
 const char *base64_encode(const unsigned char *data, size_t size);
 
 /* Translates base64 data into binary modifying the data itself.

@@ -42,7 +42,7 @@ typedef int (*Rfc822TokenizeErrorFunc)(const char *str, int pos,
 				       char missing_char, void *context);
 
 /* Tokenize the string. Returns NULL if string is empty. Memory for
-   returned array is allocated from temporary pool. You don't have to use
+   returned array is allocated from data stack. You don't have to use
    the tokens_count, since last token is always 0. */
 const Rfc822Token *rfc822_tokenize(const char *str, int *tokens_count,
 				   Rfc822TokenizeErrorFunc error_func,

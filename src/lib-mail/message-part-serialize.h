@@ -1,7 +1,7 @@
 #ifndef __MESSAGE_PART_SERIALIZE_H
 #define __MESSAGE_PART_SERIALIZE_H
 
-/* Serialize message part, allocating memory from temporary pool.
+/* Serialize message part, allocating memory from data stack.
    size is updated to contain the size of returned data. */
 const void *message_part_serialize(MessagePart *part, size_t *size);
 

@@ -49,9 +49,9 @@ MessagePart *message_parse(Pool pool, IOBuffer *inbuf,
 
 /* Call func for each field in message header. Fills the hdr_size.
    part can be NULL, just make sure your header function works with it.
-   This function doesn't use temp. mempool so your header function may save
-   return values to it. When finished, inbuf will point to beginning of
-   message body. */
+   This function doesn't use data stack so your header function may save
+   values to it. When finished, inbuf will point to beginning of message
+   body. */
 void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 			  MessageSize *hdr_size,
 			  MessageHeaderFunc func, void *context);
