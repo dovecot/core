@@ -63,8 +63,7 @@ static int mbox_move_data(struct mbox_expunge_context *ctx)
 	uoff_t old_limit;
 	int failed;
 
-	i_assert(ctx->input->v_offset <= ctx->move_offset);
-	i_stream_skip(ctx->input, ctx->move_offset - ctx->input->v_offset);
+	i_stream_seek(ctx->input, ctx->move_offset);
 
 	if (ctx->output->offset == 0) {
 		/* we're writing to beginning of mbox, so we
@@ -120,20 +119,20 @@ int mbox_storage_expunge_deinit(struct mail_expunge_context *_ctx)
 	return !failed;
 }
 
-static int get_from_offset(struct mail_index *index,
+static int get_from_offset(struct mbox_expunge_context *ctx,
 			   struct mail_index_record *rec, uoff_t *offset_r)
 {
-#if 0
-	uoff_t offset, hdr_size, body_size;
+	struct message_size hdr_size;
+	uoff_t offset, body_size;
 
-	if (!mbox_mail_get_location(index, rec, &offset,
-				    &hdr_size, &body_size))
+	if (!mbox_mail_get_location(ctx->ibox->index, rec, &offset, &body_size))
 		return FALSE;
 
-	*offset_r = offset + hdr_size + body_size;
+	i_stream_seek(ctx->input, offset);
+	message_get_header_size(ctx->input, &hdr_size, NULL);
+
+	*offset_r = offset + hdr_size.physical_size + body_size;
 	return TRUE;
-#endif
-	abort();
 }
 
 struct mail *mbox_storage_expunge_fetch_next(struct mail_expunge_context *_ctx)
@@ -149,7 +148,7 @@ struct mail *mbox_storage_expunge_fetch_next(struct mail_expunge_context *_ctx)
 	if (mctx->fetch_next) {
                 mctx->fetch_next = FALSE;
 		do {
-			if (!get_from_offset(index, mctx->rec,
+			if (!get_from_offset(ctx, mctx->rec,
 					     &ctx->from_offset)) {
 				ctx->failed = TRUE;
 				return NULL;
@@ -176,7 +175,7 @@ static int get_prev_from_offset(struct mbox_expunge_context *ctx,
 	else {
 		rec = ctx->ibox->index->lookup(ctx->ibox->index, seq-1);
 
-		if (!get_from_offset(ctx->ibox->index, rec, &ctx->from_offset))
+		if (!get_from_offset(ctx, rec, &ctx->from_offset))
 			return FALSE;
 	}
 
@@ -204,8 +203,7 @@ int mbox_storage_expunge(struct mail *mail, struct mail_expunge_context *_ctx,
 			return FALSE;
 	}
 
-	if (!get_from_offset(ctx->ibox->index, imail->data.rec,
-			     &ctx->move_offset))
+	if (!get_from_offset(ctx, imail->data.rec, &ctx->move_offset))
 		return FALSE;
 
 	return index_storage_expunge(mail, ctx->ctx, seq_r, notify);
