@@ -603,7 +603,7 @@ int mail_index_map(struct mail_index *index, int force)
 			return ret;
 		}
 	} else {
-		if (mail_index_read_map_with_retry(index, map) < 0) {
+		if (mail_index_read_map_with_retry(index, map) <= 0) {
 			mail_index_unmap_forced(index, map);
 			return -1;
 		}
