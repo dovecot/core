@@ -123,14 +123,18 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 	struct mbox_sync_mail_context mail_ctx;
 	struct mbox_sync_mail mail;
 	struct mail_index_sync_ctx *index_sync_ctx;
+	struct mail_index_sync_rec sync_rec;
 	struct mail_index_view *sync_view;
+	struct mail_index_transaction *t;
 	const struct mail_index_header *hdr;
+	const struct mail_index_record *rec;
 	struct istream *input;
-	uint32_t seq, need_space_seq;
+	uint32_t seq, need_space_seq, idx_seq, messages_count;
 	off_t space_diff;
 	uoff_t from_offset, offset;
 	buffer_t *mails;
 	string_t *header;
+	size_t size;
 	struct stat st;
 	int readonly, ret = 0;
 
@@ -138,8 +142,8 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 		seq = ibox->commit_log_file_seq;
 		offset = ibox->commit_log_file_offset;
 	} else {
-		seq = 0;
-		offset = 0;
+		seq = (uint32_t)-1;
+		offset = (uoff_t)-1;
 	}
 
 	ret = mail_index_sync_begin(ibox->index, &index_sync_ctx, &sync_view,
@@ -153,6 +157,8 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 	if (mail_index_get_header(sync_view, &hdr) < 0)
 		return -1;
 
+	t = mail_index_transaction_begin(sync_view, FALSE);
+
 	if (ibox->mbox_data_buf == NULL) {
 		ibox->mbox_data_buf =
 			buffer_create_dynamic(default_pool, 512, (size_t)-1);
@@ -164,8 +170,6 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 
 	// FIXME: lock the file
 
-	mails = buffer_create_dynamic(default_pool, 4096, (size_t)-1);
-
 	memset(&sync_ctx, 0, sizeof(sync_ctx));
 	sync_ctx.file_input = ibox->mbox_file_stream;
 	sync_ctx.input = ibox->mbox_stream;
@@ -173,10 +177,23 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 	sync_ctx.hdr = hdr;
 
 	input = sync_ctx.input;
+	istream_raw_mbox_seek(input, 0);
+
 	header = str_new(default_pool, 4096);
 
-	space_diff = 0; need_space_seq = 0; seq = 1;
+	mails = buffer_create_dynamic(default_pool, 4096, (size_t)-1);
+	memset(&sync_rec, 0, sizeof(sync_rec));
+	messages_count = mail_index_view_get_message_count(sync_view);
+
+	space_diff = 0; need_space_seq = 0; idx_seq = 0; rec = NULL;
 	for (seq = 1; !input->eof; seq++) {
+		if (sync_rec.seq2 < seq) {
+			// FIXME: we may need more than one..
+			ret = mail_index_sync_next(index_sync_ctx, &sync_rec);
+			if (ret < 0)
+				break;
+		}
+
 		from_offset = input->v_offset;
 
 		memset(&mail, 0, sizeof(mail));
@@ -199,10 +216,62 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 
 		/* save the offset permanently with recent flag state */
 		from_offset <<= 1;
-		if ((mail.flags & MBOX_NONRECENT) != 0)
+		if ((mail.flags & MBOX_NONRECENT) == 0)
 			from_offset |= 1;
 		buffer_append(ibox->mbox_data_buf,
 			      &from_offset, sizeof(from_offset));
+
+		/* update index */
+		do {
+			if (rec != NULL && rec->uid >= mail.uid)
+				break;
+
+			if (idx_seq >= messages_count) {
+				rec = NULL;
+				break;
+			}
+
+			if (rec != NULL)
+				mail_index_expunge(t, idx_seq);
+
+			ret = mail_index_lookup(sync_view, ++idx_seq, &rec);
+		} while (ret == 0);
+
+		if (ret < 0)
+			break;
+		if (rec != NULL && rec->uid != mail.uid) {
+			/* new UID in the middle of the mailbox -
+			   shouldn't happen */
+			mail_storage_set_critical(ibox->box.storage,
+				"mbox sync: UID inserted in the middle "
+				"of mailbox (%u > %u)", rec->uid, mail.uid);
+			mail_index_mark_corrupted(ibox->index);
+			ret = -1;
+			break;
+		}
+
+		if (rec != NULL) {
+			/* see if flags changed */
+			if ((rec->flags & MAIL_FLAGS_MASK) !=
+			    (mail.flags & MAIL_FLAGS_MASK) ||
+			    memcmp(rec->keywords, mail.keywords,
+				   INDEX_KEYWORDS_BYTE_COUNT) != 0) {
+				uint8_t new_flags =
+					(rec->flags & ~MAIL_FLAGS_MASK) |
+					(mail.flags & MAIL_FLAGS_MASK);
+				mail_index_update_flags(t, idx_seq,
+							MODIFY_REPLACE,
+							new_flags,
+							mail.keywords);
+			}
+			rec = NULL;
+		} else {
+			/* new message */
+			mail_index_append(t, mail.uid, &idx_seq);
+			mail_index_update_flags(t, idx_seq, MODIFY_REPLACE,
+						mail.flags & MAIL_FLAGS_MASK,
+						mail.keywords);
+		}
 
 		if (mail_ctx.need_rewrite && !readonly) {
 			mbox_sync_update_header(&mail_ctx, NULL);
@@ -243,9 +312,24 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 			ret = -1;
 	}
 
+	while ((ret = mail_index_sync_next(index_sync_ctx, &sync_rec)) > 0) {
+		// FIXME: should be just appends
+	}
+
 	if (fstat(ibox->mbox_fd, &st) < 0) {
 		mbox_set_syscall_error(ibox, "fstat()");
 		ret = -1;
+	}
+
+	if (ret < 0)
+		mail_index_transaction_rollback(t);
+	else {
+		if (mail_index_transaction_commit(t, &seq, &offset) < 0)
+			ret = -1;
+		else {
+			ibox->commit_log_file_seq = seq;
+			ibox->commit_log_file_offset = offset;
+		}
 	}
 
 	if (ret < 0) {
@@ -255,6 +339,16 @@ int mbox_sync(struct index_mailbox *ibox, int last_commit)
 
 	if (mail_index_sync_end(index_sync_ctx, st.st_mtime, st.st_size) < 0)
 		ret = -1;
+
+	if (ret == 0) {
+		ibox->commit_log_file_seq = 0;
+		ibox->commit_log_file_offset = 0;
+	} else {
+		mail_storage_set_index_error(ibox);
+	}
+
+	ibox->mbox_data = buffer_get_data(ibox->mbox_data_buf, &size);
+	ibox->mbox_data_count = size / sizeof(*ibox->mbox_data);
 
 	str_free(header);
 	return ret < 0 ? -1 : 0;

@@ -15,13 +15,13 @@ static int mbox_mail_seek(struct index_mail *mail)
 {
 	i_assert(mail->mail.seq <= mail->ibox->mbox_data_count);
 
-	// FIXME: lock the file
+	// FIXME: lock the file. sync if needed.
 
 	if (mbox_file_open_stream(mail->ibox) < 0)
 		return -1;
 
-	i_stream_seek(mail->ibox->mbox_stream,
-		      mail->ibox->mbox_data[mail->mail.seq-1] >> 1);
+	istream_raw_mbox_seek(mail->ibox->mbox_stream,
+			      mail->ibox->mbox_data[mail->mail.seq-1] >> 1);
 	return 0;
 }
 
@@ -83,12 +83,19 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
+	struct istream *raw_stream;
 
 	if (data->stream == NULL) {
 		if (mbox_mail_seek(mail) < 0)
 			return NULL;
 
-		data->stream = mail->ibox->mbox_stream;
+		// FIXME: need to hide the headers
+		raw_stream = mail->ibox->mbox_stream;
+		(void)i_stream_read(raw_stream); /* fix v_offset */
+		data->stream = i_stream_create_limit(default_pool,
+						     raw_stream,
+						     raw_stream->v_offset,
+						     (uoff_t)-1);
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size);
