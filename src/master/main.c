@@ -80,7 +80,7 @@ void client_process_exec(const char *cmd, const char *title)
 	if (*title == '\0')
 		argv = t_strsplit(cmd, " ");
 	else
-		argv = t_strsplit(t_strconcat(cmd, " ", title), " ");
+		argv = t_strsplit(t_strconcat(cmd, " ", title, NULL), " ");
 
 	executable = argv[0];
 
