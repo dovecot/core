@@ -109,9 +109,11 @@ static ssize_t _read(struct _istream *stream)
 	ret = -1;
 
 	if (fstream->file) {
-		ret = pread(stream->fd, stream->w_buffer + stream->pos, size,
-			    stream->istream.v_offset +
-			    (stream->pos - stream->skip));
+		do {
+			ret = pread(stream->fd, stream->w_buffer + stream->pos,
+				    size, stream->istream.v_offset +
+				    (stream->pos - stream->skip));
+		} while (ret < 0 && errno == EINTR);
 	} else {
 		ret = read(stream->fd, stream->w_buffer + stream->pos, size);
 	}
@@ -147,6 +149,7 @@ static ssize_t _read(struct _istream *stream)
 	}
 
 	stream->pos += ret;
+	i_assert(ret != 0 || !fstream->file);
 	return ret;
 }
 
