@@ -140,7 +140,7 @@ int mbox_index_sync(MailIndex *index)
 	index->file_sync_stamp = st.st_mtime;
 
 	/* file has been modified. */
-	if (index->mbox_size > (uoff_t)st.st_size) {
+	if (index->mbox_size < (uoff_t)st.st_size) {
 		/* file was grown, hopefully just new mail */
 		return mbox_check_new_mail(index);
 	} else {
