@@ -82,13 +82,12 @@ static int proxy_send_ssl(SSLProxy *proxy, const void *data, size_t size)
 	if (!gnutls_error_is_fatal(sent))
 		return 0;
 
-	if (sent == GNUTLS_E_PUSH_ERROR || sent == GNUTLS_E_INVALID_SESSION) {
-		/* disconnected */
-		return -1;
+	/* don't warn about errors related to unexpected disconnection */
+	if (sent != GNUTLS_E_PUSH_ERROR && sent != GNUTLS_E_INVALID_SESSION) {
+		/* error occured */
+		i_warning("Error sending to SSL client: %s",
+			  gnutls_strerror(sent));
 	}
-
-	/* error occured */
-	i_warning("Error sending to SSL client: %s", gnutls_strerror(sent));
 	ssl_proxy_destroy(proxy);
 	return -1;
 }
