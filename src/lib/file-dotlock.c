@@ -1,10 +1,14 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
 #include "lib.h"
+#include "str.h"
+#include "hex-binary.h"
 #include "hostpid.h"
+#include "randgen.h"
 #include "write-full.h"
 #include "file-dotlock.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <time.h>
@@ -14,16 +18,17 @@
 #define LOCK_RANDOM_USLEEP_TIME (100000 + (unsigned int)rand() % 100000)
 
 struct lock_info {
-	const char *path, *lock_path;
+	const char *path, *lock_path, *temp_path;
 	unsigned int stale_timeout;
+	int fd;
 
 	dev_t dev;
 	ino_t ino;
 	off_t size;
-	time_t mtime;
+	time_t ctime, mtime;
 
 	off_t last_size;
-	time_t last_mtime;
+	time_t last_ctime, last_mtime;
 	time_t last_change;
 
 	pid_t pid;
@@ -80,12 +85,14 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 
 	if (lock_info->ino != st.st_ino ||
 	    !CMP_DEV_T(lock_info->dev, st.st_dev) ||
+	    lock_info->ctime != st.st_ctime ||
 	    lock_info->mtime != st.st_mtime ||
 	    lock_info->size != st.st_size) {
 		/* either our first check or someone else got the lock file.
 		   check if it contains a pid whose existence we can verify */
 		lock_info->dev = st.st_dev;
 		lock_info->ino = st.st_ino;
+		lock_info->ctime = st.st_ctime;
 		lock_info->mtime = st.st_mtime;
 		lock_info->size = st.st_size;
 		lock_info->pid = read_local_pid(lock_info->lock_path);
@@ -119,9 +126,11 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 			return -1;
 		}
 	} else if (lock_info->last_size != st.st_size ||
+                   lock_info->last_ctime != st.st_ctime ||
 		   lock_info->last_mtime != st.st_mtime) {
 		lock_info->last_change = now;
 		lock_info->last_size = st.st_size;
+		lock_info->last_ctime = st.st_ctime;
 		lock_info->last_mtime = st.st_mtime;
 	}
 
@@ -137,15 +146,184 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 	return 0;
 }
 
-static int try_create_lock(const char *lock_path, struct dotlock *dotlock_r)
+static int create_temp_file(const char *prefix, const char **path_r)
 {
-	const char *str;
+	string_t *path;
+	size_t len;
 	struct stat st;
+	char randbuf[8];
 	int fd;
 
-	fd = open(lock_path, O_WRONLY | O_EXCL | O_CREAT, 0644);
-	if (fd == -1)
+	path = t_str_new(256);
+	str_append(path, prefix);
+	len = str_len(path);
+
+	for (;;) {
+		do {
+			random_fill(randbuf, sizeof(randbuf));
+			str_truncate(path, len);
+			str_append(path,
+				   binary_to_hex(randbuf, sizeof(randbuf)));
+			*path_r = str_c(path);
+		} while (stat(*path_r, &st) == 0);
+
+		if (errno != ENOENT) {
+			i_error("stat(%s) failed: %m", *path_r);
+			return -1;
+		}
+
+		fd = open(*path_r, O_RDWR | O_EXCL | O_CREAT, 0644);
+		if (fd != -1)
+			return fd;
+
+		if (errno != EEXIST) {
+			i_error("open(%s) failed: %m", *path_r);
+			return -1;
+		}
+	}
+}
+
+static int try_create_lock(struct lock_info *lock_info, const char *temp_prefix)
+{
+	const char *str, *p;
+
+	if (lock_info->temp_path == NULL) {
+		/* we'll need our temp file first. */
+		if (temp_prefix == NULL) {
+			temp_prefix = t_strconcat(".temp.", my_hostname, ".",
+						  my_pid, ".", NULL);
+		}
+
+		p = *temp_prefix == '/' ? NULL :
+			strrchr(lock_info->lock_path, '/');
+		if (p != NULL) {
+			str = t_strdup_until(lock_info->lock_path, p+1);
+			temp_prefix = t_strconcat(str, temp_prefix, NULL);
+		}
+
+		lock_info->fd = create_temp_file(temp_prefix, &str);
+		if (lock_info->fd == -1)
+			return -1;
+
+                lock_info->temp_path = str;
+	}
+
+	if (link(lock_info->temp_path, lock_info->lock_path) < 0) {
+		if (errno == EEXIST)
+			return 0;
+
+		i_error("link(%s, %s) failed: %m",
+			lock_info->temp_path, lock_info->lock_path);
 		return -1;
+	}
+
+	if (unlink(lock_info->temp_path) < 0 && errno != ENOENT) {
+		i_error("unlink(%s) failed: %m", lock_info->temp_path);
+		/* non-fatal, continue */
+	}
+	lock_info->temp_path = NULL;
+
+	return 1;
+}
+
+static int dotlock_create(const char *path, const char *temp_prefix,
+			  int checkonly, int *fd,
+			  unsigned int timeout, unsigned int stale_timeout,
+			  int (*callback)(unsigned int secs_left, int stale,
+					  void *context),
+			  void *context)
+{
+	const char *lock_path;
+        struct lock_info lock_info;
+	unsigned int stale_notify_threshold;
+	unsigned int change_secs, wait_left;
+	time_t now, max_wait_time, last_notify;
+	int do_wait, ret;
+
+	now = time(NULL);
+
+	lock_path = t_strconcat(path, ".lock", NULL);
+	stale_notify_threshold = stale_timeout / 2;
+	max_wait_time = now + timeout;
+
+	memset(&lock_info, 0, sizeof(lock_info));
+	lock_info.path = path;
+	lock_info.lock_path = lock_path;
+	lock_info.stale_timeout = stale_timeout;
+	lock_info.last_change = now;
+	lock_info.fd = -1;
+
+	last_notify = 0; do_wait = FALSE;
+
+	do {
+		if (do_wait) {
+			usleep(LOCK_RANDOM_USLEEP_TIME);
+			do_wait = FALSE;
+		}
+
+		ret = check_lock(now, &lock_info);
+		if (ret < 0)
+			break;
+
+		if (ret == 1) {
+			if (checkonly)
+				break;
+
+			ret = try_create_lock(&lock_info, temp_prefix);
+			if (ret != 0)
+				break;
+		}
+
+		do_wait = TRUE;
+		if (last_notify != now && callback != NULL) {
+			last_notify = now;
+			change_secs = now - lock_info.last_change;
+			wait_left = max_wait_time - now;
+
+			t_push();
+			if (change_secs >= stale_notify_threshold &&
+			    change_secs <= wait_left) {
+				if (!callback(stale_timeout - change_secs,
+					      TRUE, context)) {
+					/* we don't want to override */
+					lock_info.last_change = now;
+				}
+			} else {
+				(void)callback(wait_left, FALSE, context);
+			}
+			t_pop();
+		}
+
+		now = time(NULL);
+	} while (now < max_wait_time);
+
+	if (ret <= 0) {
+		(void)close(lock_info.fd);
+		lock_info.fd = -1;
+	}
+	*fd = lock_info.fd;
+
+	if (ret == 0)
+		errno = EAGAIN;
+	return ret;
+}
+
+int file_lock_dotlock(const char *path, const char *temp_prefix, int checkonly,
+		      unsigned int timeout, unsigned int stale_timeout,
+		      int (*callback)(unsigned int secs_left, int stale,
+				      void *context),
+		      void *context, struct dotlock *dotlock_r)
+{
+	const char *lock_path, *str;
+	struct stat st;
+	int fd, ret;
+
+	lock_path = t_strconcat(path, ".lock", NULL);
+
+	ret = dotlock_create(path, temp_prefix, checkonly, &fd,
+			     timeout, stale_timeout, callback, context);
+	if (ret <= 0 || checkonly)
+		return ret;
 
 	/* write our pid and host, if possible */
 	str = t_strdup_printf("%s:%s", my_pid, my_hostname);
@@ -153,7 +331,6 @@ static int try_create_lock(const char *lock_path, struct dotlock *dotlock_r)
 		/* failed, leave it empty then */
 		if (ftruncate(fd, 0) < 0) {
 			i_error("ftruncate(%s) failed: %m", lock_path);
-			(void)unlink(lock_path);
 			(void)close(fd);
 			return -1;
 		}
@@ -166,105 +343,21 @@ static int try_create_lock(const char *lock_path, struct dotlock *dotlock_r)
 		return -1;
 	}
 
+	if (close(fd) < 0) {
+		i_error("fstat(%s) failed: %m", lock_path);
+		return -1;
+	}
+
 	dotlock_r->dev = st.st_dev;
 	dotlock_r->ino = st.st_ino;
 	dotlock_r->mtime = st.st_mtime;
-
-	if (close(fd) < 0) {
-		i_error("close(%s) failed: %m", lock_path);
-		(void)unlink(lock_path);
-		return -1;
-	}
 	return 1;
 }
 
-int file_lock_dotlock(const char *path, int checkonly,
-		      unsigned int timeout, unsigned int stale_timeout,
-		      int (*callback)(unsigned int secs_left, int stale,
-				      void *context),
-		      void *context, struct dotlock *dotlock_r)
+static int dotlock_delete(const char *path, const struct dotlock *dotlock)
 {
 	const char *lock_path;
-        struct lock_info lock_info;
-	unsigned int stale_notify_threshold;
-	time_t now, max_wait_time, last_notify;
-
-	now = time(NULL);
-
-	lock_path = t_strconcat(path, ".lock", NULL);
-	stale_notify_threshold = stale_timeout / 2;
-	max_wait_time = now + timeout;
-
-	/* There's two ways to do this:
-
-	   a) Rely on O_EXCL. Historically this hasn't always worked with NFS.
-	   b) Create temp file and link() it to the file we want.
-
-	   We now use a). It's easier to do and it never leaves temporary files
-	   lying around. Also Postfix relies on it too, so I guess it's safe
-	   enough nowadays.
-	*/
-
-	memset(&lock_info, 0, sizeof(lock_info));
-	lock_info.path = path;
-	lock_info.lock_path = lock_path;
-	lock_info.stale_timeout = stale_timeout;
-	lock_info.last_change = now;
-
-	last_notify = 0;
-
-	do {
-		switch (check_lock(now, &lock_info)) {
-		case -1:
-			return -1;
-		case 0:
-			if (last_notify != now && callback != NULL) {
-				unsigned int change_secs;
-				unsigned int wait_left;
-
-				last_notify = now;
-				change_secs = now - lock_info.last_change;
-				wait_left = max_wait_time - now;
-
-				if (change_secs >= stale_notify_threshold &&
-				    change_secs <= wait_left) {
-					if (!callback(stale_timeout -
-						      change_secs,
-						      TRUE, context)) {
-						/* we don't want to override */
-						lock_info.last_change = now;
-					}
-				} else {
-					(void)callback(wait_left, FALSE,
-						       context);
-				}
-			}
-
-			usleep(LOCK_RANDOM_USLEEP_TIME);
-			break;
-		default:
-			if (checkonly ||
-			    try_create_lock(lock_path, dotlock_r) > 0)
-				return 1;
-
-			if (errno != EEXIST) {
-				i_error("open(%s) failed: %m", lock_path);
-				return -1;
-			}
-			break;
-		}
-
-		now = time(NULL);
-	} while (now < max_wait_time);
-
-	errno = EAGAIN;
-	return 0;
-}
-
-int file_unlock_dotlock(const char *path, const struct dotlock *dotlock)
-{
-	const char *lock_path;
-	struct stat st;
+        struct stat st;
 
 	lock_path = t_strconcat(path, ".lock", NULL);
 
@@ -301,4 +394,88 @@ int file_unlock_dotlock(const char *path, const struct dotlock *dotlock)
 	}
 
 	return 1;
+}
+
+int file_unlock_dotlock(const char *path, const struct dotlock *dotlock)
+{
+	return dotlock_delete(path, dotlock);
+}
+
+int file_dotlock_open(const char *path, const char *temp_prefix,
+		      unsigned int timeout, unsigned int stale_timeout,
+		      int (*callback)(unsigned int secs_left, int stale,
+				      void *context),
+		      void *context)
+{
+	int ret, fd;
+
+	ret = dotlock_create(path, temp_prefix, FALSE, &fd,
+			     timeout, stale_timeout, callback, context);
+	if (ret <= 0)
+		return -1;
+	return fd;
+}
+
+int file_dotlock_replace(const char *path, int fd, int verify_owner)
+{
+	struct stat st, st2;
+	const char *lock_path;
+
+	lock_path = t_strconcat(path, ".lock", NULL);
+	if (verify_owner) {
+		if (fstat(fd, &st) < 0) {
+			i_error("fstat(%s) failed: %m", lock_path);
+			(void)close(fd);
+			return -1;
+		}
+	}
+	if (close(fd) < 0) {
+		i_error("close(%s) failed: %m", lock_path);
+		return -1;
+	}
+
+	if (verify_owner) {
+		if (lstat(lock_path, &st2) < 0) {
+			i_error("lstat(%s) failed: %m", lock_path);
+			return -1;
+		}
+
+		if (st.st_ino != st2.st_ino ||
+		    !CMP_DEV_T(st.st_dev, st2.st_dev)) {
+			i_warning("Our dotlock file %s was overridden",
+				  lock_path);
+			return 0;
+		}
+	}
+
+	if (rename(lock_path, path) < 0) {
+		i_error("rename(%s, %s) failed: %m", lock_path, path);
+		return -1;
+	}
+	return 1;
+}
+
+int file_dotlock_delete(const char *path, int fd)
+{
+	struct dotlock dotlock;
+	struct stat st;
+
+	if (fstat(fd, &st) < 0) {
+		i_error("fstat(%s) failed: %m",
+			t_strconcat(path, ".lock", NULL));
+		(void)close(fd);
+		return -1;
+	}
+
+	if (close(fd) < 0) {
+		i_error("close(%s) failed: %m",
+			t_strconcat(path, ".lock", NULL));
+		return -1;
+	}
+
+	dotlock.dev = st.st_dev;
+	dotlock.ino = st.st_ino;
+	dotlock.mtime = st.st_mtime;
+
+	return dotlock_delete(path, &dotlock);
 }

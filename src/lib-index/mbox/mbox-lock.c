@@ -257,7 +257,7 @@ int mbox_lock(struct mail_index *index, enum mail_lock_type lock_type)
 		ctx.lock_type = lock_type;
 		ctx.last_stale = -1;
 
-		ret = file_lock_dotlock(index->mailbox_path,
+		ret = file_lock_dotlock(index->mailbox_path, NULL,
 					lock_type == MAIL_LOCK_SHARED &&
 					!use_read_dotlock, lock_timeout,
 					dotlock_change_timeout,

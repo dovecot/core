@@ -107,16 +107,5 @@ void random_init(void) {}
 void random_deinit(void) {}
 
 #else
-#  ifdef __GNUC__
-#    warning Random generator disabled
-#  endif
-
-void random_fill(void *buf __attr_unused__, size_t size __attr_unused__)
-{
-	i_fatal("random_fill(): No random source");
-}
-
-void random_init(void) {}
-void random_deinit(void) {}
-
+#  error No random number generator, use eg. OpenSSL.
 #endif

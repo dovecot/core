@@ -263,8 +263,8 @@ void mail_index_init_header(struct mail_index *index,
 
 static void mail_index_cleanup_temp_files(const char *dir)
 {
-	unlink_lockfiles(dir, t_strconcat("temp.", my_hostname, NULL),
-			 "temp.", time(NULL) - TEMP_FILE_TIMEOUT);
+	unlink_lockfiles(dir, t_strconcat(".temp.", my_hostname, ".", NULL),
+			 ".temp.", time(NULL) - TEMP_FILE_TIMEOUT);
 }
 
 void mail_index_init(struct mail_index *index, const char *dir)

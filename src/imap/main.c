@@ -9,6 +9,7 @@
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
 #include "process-title.h"
+#include "randgen.h"
 #include "module-dir.h"
 #include "mail-storage.h"
 #include "commands.h"
@@ -69,6 +70,10 @@ static void drop_privileges(void)
 {
 	/* Log file or syslog opening probably requires roots */
 	open_logfile();
+
+	/* Most likely needed. Have to open /dev/urandom before possible
+	   chrooting. */
+	random_init();
 
 	restrict_access_by_env(!IS_STANDALONE());
 }
@@ -169,6 +174,7 @@ static void main_deinit(void)
 	commands_deinit();
 	clients_deinit();
         mail_storage_deinit();
+	random_deinit();
 
 	closelog();
 }

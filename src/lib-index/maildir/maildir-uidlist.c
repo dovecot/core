@@ -19,49 +19,19 @@
 
 int maildir_uidlist_try_lock(struct mail_index *index)
 {
-	struct stat st;
 	const char *path;
-	int fd, i;
+	int fd;
 
 	if (INDEX_IS_UIDLIST_LOCKED(index))
 		return 1;
 
-	path = t_strconcat(index->control_dir,
-			   "/" MAILDIR_UIDLIST_NAME ".lock", NULL);
-	for (i = 0; i < 2; i++) {
-		fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0644);
-		if (fd != -1)
-			break;
-
-		if (errno != EEXIST) {
-			if (errno == EACCES) {
-				/* read-only mailbox */
-				return 0;
-			}
-			index_file_set_syscall_error(index, path, "open()");
-			return -1;
-		}
-
-		/* exists, is it stale? */
-		if (stat(path, &st) < 0) {
-			if (errno == ENOENT) {
-				/* try again */
-				continue;
-			}
-			index_file_set_syscall_error(index, path, "stat()");
-			return -1;
-		}
-
-		if (st.st_mtime < ioloop_time - UIDLIST_LOCK_STALE_TIMEOUT) {
-			if (unlink(path) < 0 && errno != ENOENT) {
-				index_file_set_syscall_error(index, path,
-							     "unlink()");
-				return -1;
-			}
-			/* try again */
-			continue;
-		}
-		return 0;
+	path = t_strconcat(index->control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
+	fd = file_dotlock_open(path, NULL, 0, UIDLIST_LOCK_STALE_TIMEOUT,
+			       NULL, NULL);
+	if (fd == -1) {
+		if (errno == EAGAIN)
+			return 0;
+		return -1;
 	}
 
 	index->maildir_lock_fd = fd;
@@ -75,13 +45,8 @@ void maildir_uidlist_unlock(struct mail_index *index)
 	if (!INDEX_IS_UIDLIST_LOCKED(index))
 		return;
 
-	path = t_strconcat(index->control_dir,
-			   "/" MAILDIR_UIDLIST_NAME ".lock", NULL);
-	if (unlink(path) < 0 && errno != ENOENT)
-		index_file_set_syscall_error(index, path, "unlink()");
-
-	if (close(index->maildir_lock_fd) < 0)
-		index_file_set_syscall_error(index, path, "close()");
+	path = t_strconcat(index->control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
+	(void)file_dotlock_delete(path, index->maildir_lock_fd);
 	index->maildir_lock_fd = -1;
 }
 
@@ -252,22 +217,22 @@ int maildir_uidlist_rewrite(struct mail_index *index, time_t *mtime)
 				"/" MAILDIR_UIDLIST_NAME ".lock", NULL);
 
 	failed = !maildir_uidlist_rewrite_fd(index, temp_path, mtime);
-	if (close(index->maildir_lock_fd) < 0) {
-		index_file_set_syscall_error(index, temp_path, "close()");
-		failed = TRUE;
-	}
-        index->maildir_lock_fd = -1;
 
 	if (!failed) {
 		db_path = t_strconcat(index->control_dir,
 				      "/" MAILDIR_UIDLIST_NAME, NULL);
 
-		if (rename(temp_path, db_path) < 0) {
-			index_set_error(index, "rename(%s, %s) failed: %m",
-					temp_path, db_path);
+		if (file_dotlock_replace(db_path, index->maildir_lock_fd,
+					 FALSE) <= 0) {
+			index_set_error(index,
+					"file_dotlock_replace(%s) failed: %m",
+					db_path);
 			failed = TRUE;
 		}
+	} else {
+		(void)close(index->maildir_lock_fd);
 	}
+        index->maildir_lock_fd = -1;
 
 	if (failed)
 		(void)unlink(temp_path);
