@@ -22,9 +22,13 @@ typedef struct {
 	unsigned int msg_flags;
         const char **custom_flags;
 
-	const char *status, *x_status, *x_keywords;
 	unsigned int uid_validity;
 	unsigned int uid_last;
+
+	unsigned int ximapbase_found:1;
+	unsigned int xkeywords_found:1;
+	unsigned int status_found:1;
+	unsigned int xstatus_found:1;
 } MboxRewriteContext;
 
 /* Remove dirty flag from all messages */
@@ -57,6 +61,113 @@ static int mbox_write(MailIndex *index, IOBuffer *inbuf, IOBuffer *outbuf,
 				"Unexpected end of file", index->mbox_path);
 		return FALSE;
 	}
+
+	return TRUE;
+}
+
+static int mbox_write_ximapbase(MboxRewriteContext *ctx)
+{
+	const char *str;
+	int i;
+
+	str = t_strdup_printf("X-IMAPbase: %u %u",
+			      ctx->uid_validity, ctx->uid_last);
+	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+		return FALSE;
+
+	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
+		if (ctx->custom_flags[i] != NULL) {
+			if (io_buffer_send(ctx->outbuf, " ", 1) < 0)
+				return FALSE;
+
+			if (io_buffer_send(ctx->outbuf, ctx->custom_flags[i],
+					   strlen(ctx->custom_flags[i])) < 0)
+				return FALSE;
+		}
+	}
+
+	if (io_buffer_send(ctx->outbuf, "\n", 1) < 0)
+		return FALSE;
+
+	return TRUE;
+}
+
+static int mbox_write_xkeywords(MboxRewriteContext *ctx, const char *x_keywords)
+{
+	unsigned int field;
+	int i;
+
+	if ((ctx->msg_flags & MAIL_CUSTOM_FLAGS_MASK) == 0 &&
+	    x_keywords == NULL)
+		return TRUE;
+
+	if (io_buffer_send(ctx->outbuf, "X-Keywords:", 11) < 0)
+		return FALSE;
+
+	field = 1 << MAIL_CUSTOM_FLAG_1_BIT;
+	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++, field <<= 1) {
+		if ((ctx->msg_flags & field) && ctx->custom_flags[i] != NULL) {
+			if (io_buffer_send(ctx->outbuf, " ", 1) < 0)
+				return FALSE;
+
+			if (io_buffer_send(ctx->outbuf, ctx->custom_flags[i],
+					   strlen(ctx->custom_flags[i])) < 0)
+				return FALSE;
+		}
+	}
+
+	if (x_keywords != NULL) {
+		/* X-Keywords that aren't custom flags */
+		if (io_buffer_send(ctx->outbuf, " ", 1) < 0)
+			return FALSE;
+
+		if (io_buffer_send(ctx->outbuf, x_keywords,
+				   strlen(x_keywords)) < 0)
+			return FALSE;
+	}
+
+	if (io_buffer_send(ctx->outbuf, "\n", 1) < 0)
+		return FALSE;
+
+	return TRUE;
+}
+
+static int mbox_write_status(MboxRewriteContext *ctx, const char *status)
+{
+	const char *str;
+
+	str = (ctx->msg_flags & MAIL_SEEN) ? "Status: RO" : "Status: O";
+	if (status != NULL)
+		str = t_strconcat(str, status, NULL);
+
+	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+		return FALSE;
+	if (io_buffer_send(ctx->outbuf, "\n", 1) < 0)
+		return FALSE;
+
+	return TRUE;
+}
+
+static int mbox_write_xstatus(MboxRewriteContext *ctx, const char *x_status)
+{
+	const char *str;
+
+	/* X-Status field */
+	if ((ctx->msg_flags & (MAIL_SYSTEM_FLAGS_MASK^MAIL_SEEN)) == 0 &&
+	    x_status == NULL)
+		return TRUE;
+
+	str = t_strconcat("X-Status: ",
+			  (ctx->msg_flags & MAIL_ANSWERED) ? "A" : "",
+			  (ctx->msg_flags & MAIL_DRAFT) ? "D" : "",
+			  (ctx->msg_flags & MAIL_FLAGGED) ? "F" : "",
+			  (ctx->msg_flags & MAIL_DELETED) ? "T" : "",
+			  x_status, NULL);
+
+	if (io_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+		return FALSE;
+	if (io_buffer_send(ctx->outbuf, "\n", 1) < 0)
+		return FALSE;
 
 	return TRUE;
 }
@@ -102,7 +213,7 @@ static const char *strip_custom_flags(const char *value, size_t len,
 	str = t_string_new(len+1);
 	mbox_keywords_parse(value, len, ctx->custom_flags,
 			    update_stripped_custom_flags, str);
-	return str->str;
+	return str->len == 0 ? NULL : str->str;
 }
 
 static void header_func(MessagePart *part __attr_unused__,
@@ -111,18 +222,25 @@ static void header_func(MessagePart *part __attr_unused__,
 			void *context)
 {
 	MboxRewriteContext *ctx = context;
+	const char *str;
 	char *end;
 
 	if (ctx->failed)
 		return;
 
-	if (name_len == 6 && strncasecmp(name, "Status", 6) == 0)
-		ctx->status = strip_chars(value, value_len, "RO");
-	else if (name_len == 8 && strncasecmp(name, "X-Status", 8) == 0)
-		ctx->x_status = strip_chars(value, value_len, "ADFT");
-	else if (name_len == 10 && strncasecmp(name, "X-Keywords", 10) == 0)
-		ctx->x_keywords = strip_custom_flags(value, value_len, ctx);
-	else if (name_len == 10 && strncasecmp(name, "X-IMAPbase", 10) == 0) {
+	if (name_len == 6 && strncasecmp(name, "Status", 6) == 0) {
+		ctx->status_found = TRUE;
+		str = strip_chars(value, value_len, "RO");
+		(void)mbox_write_status(ctx, str);
+	} else if (name_len == 8 && strncasecmp(name, "X-Status", 8) == 0) {
+		ctx->xstatus_found = TRUE;
+		str = strip_chars(value, value_len, "ADFT");
+		(void)mbox_write_xstatus(ctx, str);
+	} else if (name_len == 10 && strncasecmp(name, "X-Keywords", 10) == 0) {
+		ctx->ximapbase_found = TRUE;
+		str = strip_custom_flags(value, value_len, ctx);
+		(void)mbox_write_xkeywords(ctx, str);
+	} else if (name_len == 10 && strncasecmp(name, "X-IMAPbase", 10) == 0) {
 		if (ctx->seq == 1) {
 			/* temporarily copy the value to make sure we
 			   don't overflow it */
@@ -132,6 +250,9 @@ static void header_func(MessagePart *part __attr_unused__,
 			while (*end == ' ') end++;
 			ctx->uid_last = strtoul(end, &end, 10);
 			t_pop();
+
+			ctx->ximapbase_found = TRUE;
+			(void)mbox_write_ximapbase(ctx);
 		}
 	} else {
 		/* save this header */
@@ -139,10 +260,10 @@ static void header_func(MessagePart *part __attr_unused__,
 		(void)io_buffer_send(ctx->outbuf, ": ", 2);
 		(void)io_buffer_send(ctx->outbuf, value, value_len);
 		(void)io_buffer_send(ctx->outbuf, "\n", 1);
-
-		if (ctx->outbuf->closed)
-			ctx->failed = TRUE;
 	}
+
+	if (ctx->outbuf->closed)
+		ctx->failed = TRUE;
 }
 
 static int mbox_write_header(MailIndex *index,
@@ -163,9 +284,6 @@ static int mbox_write_header(MailIndex *index,
 	*/
 	MboxRewriteContext ctx;
 	MessageSize hdr_size;
-	const char *str, *flags, **custom_flags;
-	unsigned int field;
-	int i;
 
 	if (inbuf->offset >= end_offset) {
 		/* fsck should have noticed it.. */
@@ -176,14 +294,13 @@ static int mbox_write_header(MailIndex *index,
 
 	t_push();
 
-	custom_flags = mail_custom_flags_list_get(index->custom_flags);
-
 	/* parse the header, write the fields we don't want to change */
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.outbuf = outbuf;
 	ctx.seq = seq;
 	ctx.msg_flags = rec->msg_flags;
-	ctx.custom_flags = custom_flags;
+	ctx.uid_validity = index->header->uid_validity-1;
+	ctx.custom_flags = mail_custom_flags_list_get(index->custom_flags);
 
 	io_buffer_set_read_limit(inbuf, inbuf->offset + rec->header_size);
 	message_parse_header(NULL, inbuf, &hdr_size, header_func, &ctx);
@@ -192,67 +309,18 @@ static int mbox_write_header(MailIndex *index,
 	i_assert(hdr_size.physical_size == rec->header_size);
 
 	/* append the flag fields */
-	if (seq == 1) {
+	if (seq == 1 && !ctx.ximapbase_found) {
 		/* write X-IMAPbase header to first message */
-		if (ctx.uid_validity == 0)
-			ctx.uid_validity = index->header->uid_validity-1;
-
-		str = t_strdup_printf("X-IMAPbase: %u %u",
-				      ctx.uid_validity, ctx.uid_last);
-		(void)io_buffer_send(outbuf, str, strlen(str));
-
-		for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
-			if (custom_flags[i] != NULL) {
-				(void)io_buffer_send(outbuf, " ", 1);
-				(void)io_buffer_send(outbuf, custom_flags[i],
-						     strlen(custom_flags[i]));
-			}
-		}
-		(void)io_buffer_send(outbuf, "\n", 1);
+		(void)mbox_write_ximapbase(&ctx);
 	}
 
-	if ((rec->msg_flags & MAIL_CUSTOM_FLAGS_MASK) ||
-	    ctx.x_keywords != NULL) {
-		/* write X-Keywords header containing custom flags */
-		(void)io_buffer_send(outbuf, "X-Keywords:", 11);
+	if (!ctx.xkeywords_found)
+		(void)mbox_write_xkeywords(&ctx, NULL);
+	if (!ctx.status_found)
+		(void)mbox_write_status(&ctx, NULL);
+	if (!ctx.xstatus_found)
+		(void)mbox_write_xstatus(&ctx, NULL);
 
-		field = 1 << MAIL_CUSTOM_FLAG_1_BIT;
-		for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++, field <<= 1) {
-			if ((rec->msg_flags & field) &&
-			    custom_flags[i] != NULL) {
-				(void)io_buffer_send(outbuf, " ", 1);
-				(void)io_buffer_send(outbuf, custom_flags[i],
-						     strlen(custom_flags[i]));
-			}
-		}
-
-		if (ctx.x_keywords != NULL && ctx.x_keywords[0] != '\0') {
-			/* X-Keywords that aren't custom flags */
-			(void)io_buffer_send(outbuf, " ", 1);
-			(void)io_buffer_send(outbuf, ctx.x_keywords,
-					     strlen(ctx.x_keywords));
-		}
-		(void)io_buffer_send(outbuf, "\n", 1);
-	}
-
-	/* Status field */
-	flags = (rec->msg_flags & MAIL_SEEN) ? "Status: RO" : "Status: O";
-	flags = t_strconcat(flags, ctx.status, NULL);
-	(void)io_buffer_send(outbuf, flags, strlen(flags));
-	(void)io_buffer_send(outbuf, "\n", 1);
-
-	/* X-Status field */
-	if ((rec->msg_flags & (MAIL_SYSTEM_FLAGS_MASK^MAIL_SEEN)) != 0 ||
-	    ctx.x_status != NULL) {
-		flags = t_strconcat("X-Status: ",
-				    (rec->msg_flags & MAIL_ANSWERED) ? "A" : "",
-				    (rec->msg_flags & MAIL_DRAFT) ? "D" : "",
-				    (rec->msg_flags & MAIL_FLAGGED) ? "F" : "",
-				    (rec->msg_flags & MAIL_DELETED) ? "T" : "",
-				    ctx.x_status, NULL);
-		(void)io_buffer_send(outbuf, flags, strlen(flags));
-		(void)io_buffer_send(outbuf, "\n", 1);
-	}
 	t_pop();
 
 	mail_custom_flags_list_unref(index->custom_flags);
