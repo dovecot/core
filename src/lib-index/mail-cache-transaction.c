@@ -536,7 +536,7 @@ mail_cache_header_write_fields(struct mail_cache_transaction_ctx *ctx)
 		ret = -1;
 	else {
 		/* after it's guaranteed to be in disk, update header offset */
-		offset = mail_cache_uint32_to_offset(offset);
+		offset = mail_index_uint32_to_offset(offset);
 		if (pwrite_full(cache->fd, &offset, sizeof(offset),
 				hdr_offset) < 0) {
 			mail_cache_set_syscall_error(cache, "pwrite_full()");

@@ -97,7 +97,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 
 	if (cache->fields_count != 0) {
 		hdr.field_header_offset =
-			mail_cache_uint32_to_offset(output->offset);
+			mail_index_uint32_to_offset(output->offset);
 
 		t_push();
 		buffer = buffer_create_dynamic(pool_datastack_create(),

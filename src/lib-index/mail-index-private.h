@@ -158,4 +158,7 @@ int mail_index_file_set_syscall_error(struct mail_index *index,
 				      const char *function);
 void mail_index_reset_error(struct mail_index *index);
 
+uint32_t mail_index_uint32_to_offset(uint32_t offset);
+uint32_t mail_index_offset_to_uint32(uint32_t offset);
+
 #endif

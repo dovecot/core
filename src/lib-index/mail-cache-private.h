@@ -161,9 +161,6 @@ typedef int mail_cache_foreach_callback_t(struct mail_cache_view *view,
 					  const void *data, size_t data_size,
 					  void *context);
 
-uint32_t mail_cache_uint32_to_offset(uint32_t offset);
-uint32_t mail_cache_offset_to_uint32(uint32_t offset);
-
 /* Explicitly lock the cache file. Returns -1 if error, 1 if ok, 0 if we
    couldn't lock */
 int mail_cache_lock(struct mail_cache *cache);

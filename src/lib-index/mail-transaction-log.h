@@ -10,7 +10,6 @@ struct mail_transaction_log_header {
 	uint32_t file_seq;
 	uint32_t prev_file_seq;
 	uint32_t prev_file_offset;
-	uint32_t used_size;
 };
 
 enum mail_transaction_type {

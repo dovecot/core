@@ -100,7 +100,7 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 	/* find the latest header */
 	offset = 0;
 	next_offset =
-		mail_cache_offset_to_uint32(cache->hdr->field_header_offset);
+		mail_index_offset_to_uint32(cache->hdr->field_header_offset);
 	while (next_offset != 0) {
 		if (next_offset == offset) {
 			mail_cache_set_corrupted(cache,
@@ -115,7 +115,7 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 
 		field_hdr = CONST_PTR_OFFSET(cache->mmap_base, offset);
 		next_offset =
-			mail_cache_offset_to_uint32(field_hdr->next_offset);
+			mail_index_offset_to_uint32(field_hdr->next_offset);
 	}
 
 	*offset_r = offset;

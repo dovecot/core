@@ -12,7 +12,6 @@ struct mail_transaction_log_file {
 
 	char *filepath;
 	int fd;
-	int lock_type;
 
 	ino_t st_ino;
 	dev_t st_dev;
@@ -24,6 +23,10 @@ struct mail_transaction_log_file {
 	size_t mmap_size;
 
 	struct mail_transaction_log_header hdr;
+	uoff_t sync_offset;
+	uint32_t first_append_size;
+
+	unsigned int locked:1;
 };
 
 struct mail_transaction_log {

@@ -969,3 +969,31 @@ void mail_index_reset_error(struct mail_index *index)
 	index->nodiskspace = FALSE;
         index->index_lock_timeout = FALSE;
 }
+
+uint32_t mail_index_uint32_to_offset(uint32_t offset)
+{
+	unsigned char buf[4];
+
+	i_assert(offset < 0x40000000);
+	i_assert((offset & 3) == 0);
+
+	offset >>= 2;
+	buf[0] = 0x80 | ((offset & 0x0fe00000) >> 21);
+	buf[1] = 0x80 | ((offset & 0x001fc000) >> 14);
+	buf[2] = 0x80 | ((offset & 0x00003f80) >> 7);
+	buf[3] = 0x80 |  (offset & 0x0000007f);
+	return *((uint32_t *) buf);
+}
+
+uint32_t mail_index_offset_to_uint32(uint32_t offset)
+{
+	const unsigned char *buf = (const unsigned char *) &offset;
+
+	if ((offset & 0x80808080) != 0x80808080)
+		return 0;
+
+	return (((uint32_t)buf[3] & 0x7f) << 2) |
+		(((uint32_t)buf[2] & 0x7f) << 9) |
+		(((uint32_t)buf[1] & 0x7f) << 16) |
+		(((uint32_t)buf[0] & 0x7f) << 23);
+}
