@@ -260,7 +260,7 @@ int mbox_lock(struct mail_index *index, enum mail_lock_type lock_type)
 		ret = file_lock_dotlock(index->mailbox_path, NULL,
 					lock_type == MAIL_LOCK_SHARED &&
 					!use_read_dotlock, lock_timeout,
-					dotlock_change_timeout,
+					dotlock_change_timeout, 0,
 					dotlock_callback, &ctx,
 					&index->mbox_dotlock);
 

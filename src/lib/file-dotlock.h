@@ -28,6 +28,7 @@ struct dotlock {
    then, the lock will not be overridden. */
 int file_lock_dotlock(const char *path, const char *temp_prefix, int checkonly,
 		      unsigned int timeout, unsigned int stale_timeout,
+		      unsigned int immediate_stale_timeout,
 		      int (*callback)(unsigned int secs_left, int stale,
 				      void *context),
 		      void *context, struct dotlock *dotlock_r);
@@ -41,6 +42,7 @@ int file_unlock_dotlock(const char *path, const struct dotlock *dotlock);
    If locking timed out, returns -1 and errno = EAGAIN. */
 int file_dotlock_open(const char *path, const char *temp_prefix,
 		      unsigned int timeout, unsigned int stale_timeout,
+		      unsigned int immediate_stale_timeout,
 		      int (*callback)(unsigned int secs_left, int stale,
 				      void *context),
 		      void *context);

@@ -14,7 +14,8 @@
 #define MAX_MAILBOX_LENGTH PATH_MAX
 
 #define SUBSCRIPTION_FILE_LOCK_TIMEOUT 120
-#define SUBSCRIPTION_FILE_STALE_TIMEOUT 30
+#define SUBSCRIPTION_FILE_CHANGE_TIMEOUT 30
+#define SUBSCRIPTION_FILE_IMMEDIATE_TIMEOUT (5*60)
 
 struct subsfile_list_context {
 	pool_t pool;
@@ -82,7 +83,9 @@ int subsfile_set_subscribed(struct mail_storage *storage,
 			   "/" SUBSCRIPTION_FILE_NAME, NULL);
 	/* FIXME: set lock notification callback */
 	fd_out = file_dotlock_open(path, NULL, SUBSCRIPTION_FILE_LOCK_TIMEOUT,
-				   SUBSCRIPTION_FILE_STALE_TIMEOUT, NULL, NULL);
+				   SUBSCRIPTION_FILE_CHANGE_TIMEOUT,
+				   SUBSCRIPTION_FILE_IMMEDIATE_TIMEOUT,
+				   NULL, NULL);
 	if (fd_out == -1) {
 		if (errno == EAGAIN) {
 			mail_storage_set_error(storage,

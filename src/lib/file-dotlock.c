@@ -20,6 +20,7 @@
 struct lock_info {
 	const char *path, *lock_path, *temp_path;
 	unsigned int stale_timeout;
+	unsigned int immediate_stale_timeout;
 	int fd;
 
 	dev_t dev;
@@ -81,6 +82,22 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 			return -1;
 		}
 		return 1;
+	}
+
+	if (lock_info->immediate_stale_timeout != 0 &&
+	    now > st.st_mtime + (time_t)lock_info->immediate_stale_timeout &&
+	    now > st.st_ctime + (time_t)lock_info->immediate_stale_timeout) {
+		/* old lock file */
+		if (unlink(lock_info->lock_path) < 0 && errno != ENOENT) {
+			i_error("unlink(%s) failed: %m", lock_info->lock_path);
+			return -1;
+		}
+		return 1;
+	}
+
+	if (lock_info->stale_timeout == 0) {
+		/* no change checking */
+		return 0;
 	}
 
 	if (lock_info->ino != st.st_ino ||
@@ -230,6 +247,7 @@ static int try_create_lock(struct lock_info *lock_info, const char *temp_prefix)
 static int dotlock_create(const char *path, const char *temp_prefix,
 			  int checkonly, int *fd,
 			  unsigned int timeout, unsigned int stale_timeout,
+			  unsigned int immediate_stale_timeout,
 			  int (*callback)(unsigned int secs_left, int stale,
 					  void *context),
 			  void *context)
@@ -251,6 +269,7 @@ static int dotlock_create(const char *path, const char *temp_prefix,
 	lock_info.path = path;
 	lock_info.lock_path = lock_path;
 	lock_info.stale_timeout = stale_timeout;
+	lock_info.immediate_stale_timeout = immediate_stale_timeout;
 	lock_info.last_change = now;
 	lock_info.fd = -1;
 
@@ -314,6 +333,7 @@ static int dotlock_create(const char *path, const char *temp_prefix,
 
 int file_lock_dotlock(const char *path, const char *temp_prefix, int checkonly,
 		      unsigned int timeout, unsigned int stale_timeout,
+		      unsigned int immediate_stale_timeout,
 		      int (*callback)(unsigned int secs_left, int stale,
 				      void *context),
 		      void *context, struct dotlock *dotlock_r)
@@ -325,7 +345,8 @@ int file_lock_dotlock(const char *path, const char *temp_prefix, int checkonly,
 	lock_path = t_strconcat(path, ".lock", NULL);
 
 	ret = dotlock_create(path, temp_prefix, checkonly, &fd,
-			     timeout, stale_timeout, callback, context);
+			     timeout, stale_timeout, immediate_stale_timeout,
+			     callback, context);
 	if (ret <= 0 || checkonly)
 		return ret;
 
@@ -407,6 +428,7 @@ int file_unlock_dotlock(const char *path, const struct dotlock *dotlock)
 
 int file_dotlock_open(const char *path, const char *temp_prefix,
 		      unsigned int timeout, unsigned int stale_timeout,
+		      unsigned int immediate_stale_timeout,
 		      int (*callback)(unsigned int secs_left, int stale,
 				      void *context),
 		      void *context)
@@ -414,7 +436,8 @@ int file_dotlock_open(const char *path, const char *temp_prefix,
 	int ret, fd;
 
 	ret = dotlock_create(path, temp_prefix, FALSE, &fd,
-			     timeout, stale_timeout, callback, context);
+			     timeout, stale_timeout, immediate_stale_timeout,
+			     callback, context);
 	if (ret <= 0)
 		return -1;
 	return fd;

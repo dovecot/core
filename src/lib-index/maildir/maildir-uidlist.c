@@ -26,7 +26,7 @@ int maildir_uidlist_try_lock(struct mail_index *index)
 		return 1;
 
 	path = t_strconcat(index->control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
-	fd = file_dotlock_open(path, NULL, 0, UIDLIST_LOCK_STALE_TIMEOUT,
+	fd = file_dotlock_open(path, NULL, 0, 0, UIDLIST_LOCK_STALE_TIMEOUT,
 			       NULL, NULL);
 	if (fd == -1) {
 		if (errno == EAGAIN)

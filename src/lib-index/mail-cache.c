@@ -35,7 +35,8 @@
 #define MAIL_CACHE_GROW_PERCENTAGE 10
 
 #define MAIL_CACHE_LOCK_TIMEOUT 120
-#define MAIL_CACHE_LOCK_STALE_TIMEOUT 60
+#define MAIL_CACHE_LOCK_CHANGE_TIMEOUT 60
+#define MAIL_CACHE_LOCK_IMMEDIATE_TIMEOUT (5*60)
 
 #define CACHE_RECORD(cache, offset) \
 	((struct mail_cache_record *) ((char *) (cache)->mmap_base + offset))
@@ -452,7 +453,8 @@ static int mail_cache_open_or_create_file(struct mail_cache *cache,
 
 	/* maybe a rebuild.. */
 	fd = file_dotlock_open(cache->filepath, NULL, MAIL_CACHE_LOCK_TIMEOUT,
-			       MAIL_CACHE_LOCK_STALE_TIMEOUT, NULL, NULL);
+			       MAIL_CACHE_LOCK_CHANGE_TIMEOUT,
+			       MAIL_CACHE_LOCK_IMMEDIATE_TIMEOUT, NULL, NULL);
 	if (fd == -1) {
 		mail_cache_set_syscall_error(cache, "file_dotlock_open()");
 		return FALSE;
@@ -753,7 +755,8 @@ int mail_cache_compress(struct mail_cache *cache)
 #endif
 
 	fd = file_dotlock_open(cache->filepath, NULL, MAIL_CACHE_LOCK_TIMEOUT,
-			       MAIL_CACHE_LOCK_STALE_TIMEOUT, NULL, NULL);
+			       MAIL_CACHE_LOCK_CHANGE_TIMEOUT,
+			       MAIL_CACHE_LOCK_IMMEDIATE_TIMEOUT, NULL, NULL);
 	if (fd == -1) {
 		mail_cache_set_syscall_error(cache, "file_dotlock_open()");
 		return FALSE;
@@ -814,7 +817,8 @@ int mail_cache_truncate(struct mail_cache *cache)
 		return ret > 0;
 
 	fd = file_dotlock_open(cache->filepath, NULL, MAIL_CACHE_LOCK_TIMEOUT,
-			       MAIL_CACHE_LOCK_STALE_TIMEOUT, NULL, NULL);
+			       MAIL_CACHE_LOCK_CHANGE_TIMEOUT,
+			       MAIL_CACHE_LOCK_IMMEDIATE_TIMEOUT, NULL, NULL);
 	if (fd == -1) {
 		mail_cache_set_syscall_error(cache, "file_dotlock_open()");
 		return FALSE;
