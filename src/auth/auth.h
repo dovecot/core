@@ -15,7 +15,7 @@ typedef struct {
 } AuthModule;
 
 extern AuthMethod auth_methods;
-extern char *const *auth_realms;
+extern const char *const *auth_realms;
 
 void auth_register_module(AuthModule *module);
 void auth_unregister_module(AuthModule *module);

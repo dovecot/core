@@ -107,7 +107,7 @@ static int passwd_file_verify_plain(const char *user, const char *password,
 				    AuthCookieReplyData *reply)
 {
 	PasswdUser *pu;
-	char *const *tmp;
+	const char *const *tmp;
 	unsigned char digest[16];
 	const char *str;
 
@@ -190,7 +190,7 @@ static int passwd_file_lookup_digest_md5(const char *user, const char *realm,
 }
 
 static void passwd_file_add(PasswdFile *pw, const char *username,
-			    const char *pass, char *const *args)
+			    const char *pass, const char *const *args)
 {
 	/* args = uid, gid, user info, home dir, shell, realm, mail, chroot */
 	PasswdUser *pu;
@@ -312,7 +312,7 @@ static void passwd_file_add(PasswdFile *pw, const char *username,
 static void passwd_file_parse_file(PasswdFile *pw)
 {
 	IStream *input;
-	char *const *args;
+	const char *const *args;
 	const char *line;
 
 	input = i_stream_create_file(pw->fd, default_pool, 2048, FALSE);

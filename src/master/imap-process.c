@@ -45,7 +45,7 @@ static int validate_uid_gid(uid_t uid, gid_t gid)
 
 static int validate_chroot(const char *dir)
 {
-	char *const *chroot_dirs;
+	const char *const *chroot_dirs;
 
 	if (*dir == '\0')
 		return TRUE;

@@ -15,7 +15,7 @@ struct _AuthModuleList {
 };
 
 AuthMethod auth_methods;
-char *const *auth_realms;
+const char *const *auth_realms;
 
 static AuthModuleList *auth_modules;
 static AuthReplyData failure_reply;
@@ -105,7 +105,7 @@ extern AuthModule auth_digest_md5;
 
 void auth_init(void)
 {
-	char *const *methods;
+	const char *const *methods;
 	const char *env;
 
         auth_modules = NULL;

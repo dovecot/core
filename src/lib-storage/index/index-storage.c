@@ -90,7 +90,7 @@ static MailDataField get_data_fields(const char *fields)
 		NULL
 	};
 
-	char *const *arr;
+	const char *const *arr;
 	MailDataField ret;
 	int i;
 

@@ -32,7 +32,7 @@ static int use_read_dotlock, lock_timeout, dotlock_change_timeout;
 static void mbox_init_lock_settings(void)
 {
 	const char *str;
-	char *const *lock;
+	const char *const *lock;
 
         use_dotlock = use_fcntl_lock = use_flock = fcntl_before_flock = FALSE;
 

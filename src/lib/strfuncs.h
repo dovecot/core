@@ -51,13 +51,8 @@ char *str_ucase(char *str);
 char *str_lcase(char *str);
 void str_remove_escapes(char *str);
 
-/* returns number of items in array */
-int strarray_length(char *const array[]);
-/* return index of item in array, or -1 if not found */
-int strarray_find(char *const array[], const char *item);
-
 /* seprators is an array of separator characters, not a separator string. */
-char *const *t_strsplit(const char *data, const char *separators);
+const char **t_strsplit(const char *data, const char *separators);
 
 const char *dec2str(uintmax_t number);
 

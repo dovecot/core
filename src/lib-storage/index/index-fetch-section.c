@@ -12,6 +12,16 @@
 #include <ctype.h>
 #include <unistd.h>
 
+typedef struct {
+	String *dest;
+	OStream *output;
+	uoff_t dest_size;
+
+	uoff_t skip, max_size;
+	const char **fields;
+	int (*match_func) (const char **, const char *, size_t);
+} FetchHeaderFieldContext;
+
 /* For FETCH[HEADER.FIELDS*] we need to modify the header data before sending
    it. We can either save it in memory and then send it, or we can parse it
    twice, first calculating the size and then send it. This value specifies
@@ -67,16 +77,16 @@ static int fetch_body(MailIndexRecord *rec, MailFetchBodyData *sect,
 			    cr_skipped ? 1 : 0, sect->max_size);
 }
 
-static char *const *get_fields_array(const char *fields)
+static const char **get_fields_array(const char *fields)
 {
-	char **field_list, **field;
+	const char **field_list, **field;
 
 	while (*fields == ' ')
 		fields++;
 	if (*fields == '(')
 		fields++;
 
-	field_list = (char **) t_strsplit(fields, " )");
+	field_list = t_strsplit(fields, " )");
 
 	/* array ends at ")" element */
 	for (field = field_list; *field != NULL; field++) {
@@ -87,7 +97,7 @@ static char *const *get_fields_array(const char *fields)
 	return field_list;
 }
 
-static int header_match(char *const *fields, const char *name, size_t size)
+static int header_match(const char **fields, const char *name, size_t size)
 {
 	const char *field, *name_start, *name_end;
 
@@ -120,12 +130,12 @@ static int header_match(char *const *fields, const char *name, size_t size)
 	return FALSE;
 }
 
-static int header_match_not(char *const *fields, const char *name, size_t size)
+static int header_match_not(const char **fields, const char *name, size_t size)
 {
 	return !header_match(fields, name, size);
 }
 
-static int header_match_mime(char *const *fields __attr_unused__,
+static int header_match_mime(const char **fields __attr_unused__,
 			     const char *name, size_t size)
 {
 	if (size > 8 && strncasecmp(name, "Content-", 8) == 0)
@@ -136,16 +146,6 @@ static int header_match_mime(char *const *fields __attr_unused__,
 
 	return FALSE;
 }
-
-typedef struct {
-	String *dest;
-	OStream *output;
-	uoff_t dest_size;
-
-	uoff_t skip, max_size;
-	char *const *fields;
-	int (*match_func) (char *const *, const char *, size_t);
-} FetchHeaderFieldContext;
 
 static int fetch_header_append(FetchHeaderFieldContext *ctx,
 			       const char *str, size_t size)

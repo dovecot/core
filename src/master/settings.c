@@ -189,7 +189,7 @@ static const char *get_directory(const char *path)
 
 static void settings_verify(void)
 {
-	char *const *str;
+	const char *const *str;
 	const char *dir;
 	int dotlock_got, fcntl_got, flock_got;
 

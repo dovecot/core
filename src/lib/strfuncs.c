@@ -267,6 +267,8 @@ const char *_vstrconcat(const char *str1, va_list args, size_t *ret_len)
 		}
 	} while (str != NULL);
 
+	i_assert(pos < bufsize);
+
 	temp[pos] = '\0';
         *ret_len = pos+1;
         return temp;
@@ -466,45 +468,17 @@ void str_remove_escapes(char *str)
 	*dest = '\0';
 }
 
-int strarray_length(char *const array[])
+const char **t_strsplit(const char *data, const char *separators)
 {
-	int len;
-
-	len = 0;
-	while (*array) {
-		len++;
-                array++;
-	}
-        return len;
-}
-
-int strarray_find(char *const array[], const char *item)
-{
-	int index;
-
-	i_assert(item != NULL);
-
-	for (index = 0; *array != NULL; index++, array++) {
-		if (strcasecmp(*array, item) == 0)
-			return index;
-	}
-
-	return -1;
-}
-
-char *const *t_strsplit(const char *data, const char *separators)
-{
-        char **array;
+        const char **array;
 	char *str;
         size_t alloc_len, len;
 
         i_assert(*separators != '\0');
 
-	len = strlen(data)+1;
-	str = t_malloc(len);
-	memcpy(str, data, len);
+	str = t_strdup_noconst(data);
 
-        alloc_len = 20;
+        alloc_len = 32;
         array = t_buffer_get(sizeof(const char *) * alloc_len);
 
 	array[0] = str; len = 1;
@@ -512,7 +486,7 @@ char *const *t_strsplit(const char *data, const char *separators)
 		if (strchr(separators, *str) != NULL) {
 			/* separator found */
 			if (len+1 >= alloc_len) {
-                                alloc_len *= 2;
+                                alloc_len = nearest_power(alloc_len+1);
 				array = t_buffer_reget(array,
 						       sizeof(const char *) *
 						       alloc_len);
@@ -524,10 +498,12 @@ char *const *t_strsplit(const char *data, const char *separators)
 
                 str++;
 	}
+
+	i_assert(len < alloc_len);
         array[len] = NULL;
 
 	t_buffer_alloc(sizeof(const char *) * (len+1));
-        return (char *const *) array;
+        return array;
 }
 
 const char *dec2str(uintmax_t number)
@@ -543,6 +519,7 @@ const char *dec2str(uintmax_t number)
 		buffer[--pos] = (number % 10) + '0';
 		number /= 10;
 	} while (number != 0 && pos >= 0);
+
 	i_assert(pos >= 0);
 	return buffer + pos;
 }

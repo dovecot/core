@@ -59,7 +59,7 @@ static const char *get_digest_challenge(AuthData *auth)
 {
 	String *qoplist, *realms;
 	Buffer *buf;
-	char *const *tmp;
+	const char *const *tmp;
 	unsigned char nonce[16];
 	int i;
 
@@ -206,7 +206,7 @@ static int verify_auth(AuthData *auth)
 
 static int verify_realm(const char *realm)
 {
-	char *const *tmp;
+	const char *const *tmp;
 
 	for (tmp = auth_realms; *tmp != NULL; tmp++) {
 		if (strcasecmp(realm, *tmp) == 0)
@@ -270,10 +270,9 @@ static int parse_next(char **data, char **key, char **value)
 }
 
 /* remove leading and trailing whitespace */
-static char *trim(char *str)
+static const char *trim(const char *str)
 {
-	/* @UNSAFE */
-	char *ret;
+	const char *ret;
 
 	while (IS_LWS(*str)) str++;
 	ret = str;
@@ -281,7 +280,7 @@ static char *trim(char *str)
 	while (*str != '\0') str++;
 	if (str > ret) {
 		while (IS_LWS(str[-1])) str--;
-		*str = '\0';
+		ret = t_strdup_until(ret, str);
 	}
 
 	return ret;
@@ -383,7 +382,7 @@ static int auth_handle_response(AuthData *auth, char *key, char *value,
 
 	if (strcmp(key, "digest-uri") == 0) {
 		/* type / host / serv-name */
-		char *const *uri = t_strsplit(value, "/");
+		const char *const *uri = t_strsplit(value, "/");
 
 		if (uri[0] == NULL || uri[1] == NULL) {
 			*error = "Invalid digest-uri";
