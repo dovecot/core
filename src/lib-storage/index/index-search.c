@@ -488,13 +488,16 @@ static void search_arg_match_data(IOBuffer *inbuf, uoff_t max_size,
 
 		ctx.msg = io_buffer_get_data(inbuf, &size);
 		if (size > 0) {
-			ctx.size = max_size < size ? max_size : size;
-			max_size -= ctx.size;
+			if (size > max_size)
+				size = max_size;
 
+			ctx.size = size;
 			mail_search_args_foreach(args, search_func, &ctx);
 
-			if (ctx.max_searchword_len < size)
+			if (ctx.max_searchword_len < size && size < max_size)
 				size -= ctx.max_searchword_len-1;
+
+			max_size -= size;
 			io_buffer_skip(inbuf, size);
 		}
 	}
