@@ -150,9 +150,13 @@ static int match_next_record(struct mail_index *index,
 							 MODIFY_REPLACE,
 							 ctx.flags, TRUE))
 					return FALSE;
+			} else if (rec->msg_flags == ctx.flags) {
+				/* flags are same, it's not dirty anymore */
+				index_flags &= ~MAIL_INDEX_FLAG_DIRTY;
+				mail_cache_update_index_flags(index->cache,
+							      rec, index_flags);
 			} else {
-				if (rec->msg_flags != ctx.flags)
-					*dirty = TRUE;
+				*dirty = TRUE;
 			}
 
 			/* update location */
@@ -199,6 +203,10 @@ static int mbox_sync_from_stream(struct mail_index *index,
 	size_t size;
 	unsigned int seq;
 	int dirty;
+
+	if (mail_cache_lock(index->cache, FALSE) <= 0)
+		return FALSE;
+	mail_cache_unlock_later(index->cache);
 
 	mbox_skip_empty_lines(input);
 

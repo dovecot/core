@@ -48,7 +48,9 @@ static int reset_dirty_flags(struct mail_index *index)
 	while (rec != NULL) {
 		index_flags = mail_cache_get_index_flags(index->cache, rec);
 		if ((index_flags & MAIL_INDEX_FLAG_DIRTY) != 0) {
-			if (!mail_cache_update_index_flags(index->cache, rec, index_flags))
+			index_flags &= ~MAIL_INDEX_FLAG_DIRTY;
+			if (!mail_cache_update_index_flags(index->cache,
+							   rec, index_flags))
 				return FALSE;
 		}
 
@@ -76,7 +78,7 @@ static int mbox_write(struct mail_index *index, struct istream *input,
 				strerror(output->stream_errno));
 		failed = TRUE;
 	} else if (input->v_offset < end_offset) {
-		/* fsck should have noticed it.. */
+		/* sync should have noticed it.. */
 		index_set_error(index, "Error rewriting mbox file %s: "
 				"Unexpected end of file", index->mailbox_path);
 		failed = TRUE;
@@ -382,7 +384,6 @@ static int write_header(struct mbox_rewrite_context *ctx,
 static int mbox_write_header(struct mail_index *index,
 			     struct mail_index_record *rec, unsigned int seq,
 			     struct istream *input, struct ostream *output,
-			     uoff_t end_offset,
 			     uoff_t *hdr_input_size, uoff_t body_size)
 {
 	/* We need to update fields that define message flags. Standard fields
@@ -402,13 +403,6 @@ static int mbox_write_header(struct mail_index *index,
 	struct message_size hdr_size;
 	uoff_t offset;
 	int force_filler;
-
-	if (input->v_offset >= end_offset) {
-		/* fsck should have noticed it.. */
-		index_set_error(index, "Error rewriting mbox file %s: "
-				"Unexpected end of file", index->mailbox_path);
-		return FALSE;
-	}
 
 	t_push();
 
@@ -712,7 +706,7 @@ int mbox_index_rewrite(struct mail_index *index)
 
 			/* write header, updating flag fields */
 			if (!mbox_write_header(index, rec, seq, input, output,
-					       offset, &hdr_size, body_size)) {
+					       &hdr_size, body_size)) {
 				failed = TRUE;
 				break;
 			}
