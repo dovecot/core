@@ -161,7 +161,7 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path,
 	do {
 		now = time(NULL);
 
-		if (stat(path, &st) == 0) {
+		if (lstat(path, &st) == 0) {
 			/* see if there's been any changes in mbox */
 			if (stat(index->mailbox_path, &st) < 0) {
 				mbox_set_syscall_error(index, "stat()");
@@ -264,7 +264,7 @@ static int mbox_unlock_dotlock(MailIndex *index, const char *path)
         memset(&index->mbox_dotlock_dev, 0, sizeof(index->mbox_dotlock_dev));
         index->mbox_dotlock_ino = 0;
 
-	if (stat(path, &st) < 0) {
+	if (lstat(path, &st) < 0) {
 		if (errno == ENOENT)
 			return TRUE; /* doesn't exist anymore, ignore */
 
