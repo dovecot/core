@@ -371,7 +371,7 @@ if test $want_gnutls = yes; then
 			have_ssl="yes (GNUTLS)"
 			have_gnutls=yes
 		])
-	], -lgcrypt)
+	],, -lgcrypt)
 fi
 
 if test "$want_openssl" = "yes" -a "$have_ssl" = "no"; then
