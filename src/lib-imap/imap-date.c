@@ -134,38 +134,56 @@ int imap_parse_datetime(const char *str, time_t *time, int *timezone_offset)
 	return TRUE;
 }
 
-static const char *imap_to_datetime_internal(struct tm *tm, int timezone_offset)
-{
-	int negative;
-
-	if (timezone_offset >= 0)
-		negative = 0;
-	else {
-		negative = 1;
-		timezone_offset = -timezone_offset;
-	}
-
-	return t_strdup_printf("%02d-%s-%04d %02d:%02d:%02d %c%02d%02d",
-			       tm->tm_mday, month_names[tm->tm_mon],
-			       tm->tm_year+1900,
-			       tm->tm_hour, tm->tm_min, tm->tm_sec,
-			       negative ? '-' : '+',
-			       timezone_offset / 60, timezone_offset % 60);
-}
-
-const char *imap_to_datetime_offset(time_t time, int timezone_offset)
-{
-	struct tm *tm;
-
-	time += timezone_offset;
-	tm = gmtime(&time);
-	return imap_to_datetime_internal(tm, timezone_offset);
-}
-
 const char *imap_to_datetime(time_t time)
 {
+	char *buf;
 	struct tm *tm;
+	int timezone_offset, year;
 
 	tm = localtime(&time);
-	return imap_to_datetime_internal(tm, utc_offset(tm, time));
+	timezone_offset = utc_offset(tm, time);
+
+	/* @UNSAFE: but faster than t_strdup_printf() call.. */
+	buf = t_malloc(27);
+
+	/* dd-mon- */
+	buf[0] = (tm->tm_mday / 10) + '0';
+	buf[1] = (tm->tm_mday % 10) + '0';
+	buf[2] = '-';
+	memcpy(buf+3, month_names[tm->tm_mon], 3);
+	buf[6] = '-';
+
+	/* yyyy */
+	year = tm->tm_year + 1900;
+	buf[7] = (year / 1000) + '0';
+	buf[8] = ((year / 100) % 10) + '0';
+	buf[9] = ((year / 10) % 10) + '0';
+	buf[10] = (year % 10) + '0';
+	buf[11] = ' ';
+
+	/* hh:mi:ss */
+	buf[12] = (tm->tm_hour / 10) + '0';
+	buf[13] = (tm->tm_hour % 10) + '0';
+	buf[14] = ':';
+	buf[15] = (tm->tm_min / 10) + '0';
+	buf[16] = (tm->tm_min % 10) + '0';
+	buf[17] = ':';
+	buf[18] = (tm->tm_sec / 10) + '0';
+	buf[19] = (tm->tm_sec % 10) + '0';
+	buf[20] = ' ';
+
+	/* timezone */
+	if (timezone_offset >= 0)
+		buf[21] = '+';
+	else {
+		buf[21] = '-';
+		timezone_offset = -timezone_offset;
+	}
+	buf[22] = (timezone_offset / 600) + '0';
+	buf[23] = ((timezone_offset / 60) % 10) + '0';
+	buf[24] = ((timezone_offset % 60) / 10) + '0';
+	buf[25] = (timezone_offset % 10) + '0';
+	buf[26] = '\0';
+
+	return buf;
 }

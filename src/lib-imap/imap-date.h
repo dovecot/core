@@ -7,8 +7,6 @@
 int imap_parse_date(const char *str, time_t *time);
 int imap_parse_datetime(const char *str, time_t *time, int *timezone_offset);
 
-/* Returns given UTC time in given timezone. */
-const char *imap_to_datetime_offset(time_t time, int timezone_offset);
 /* Returns given UTC time in local timezone. */
 const char *imap_to_datetime(time_t time);
 
