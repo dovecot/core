@@ -71,10 +71,10 @@ ApplePAM (OSX). PAM doesn't provide user database, so you have to use
 something else for that - passwd usually.
 
 Here's an example /etc/pam.d/imap configuration file which uses
-/etc/imap.passwd:
+standard UNIX authentication:
 
-auth     required     pam_pwdfile.so pwdfile /etc/imap.passwd
-account  required     pam_unix.so
+auth	required	pam_unix.so nullok
+account	required	pam_unix.so
 
 
 passwd-file
