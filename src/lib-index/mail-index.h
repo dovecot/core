@@ -34,21 +34,12 @@ enum mail_index_header_compat_flags {
 
 enum mail_index_header_flag {
 	/* Index file is corrupted, reopen or recreate it. */
-	MAIL_INDEX_HDR_FLAG_CORRUPTED		= 0x0001
+	MAIL_INDEX_HDR_FLAG_CORRUPTED		= 0x0001,
+	MAIL_INDEX_HDR_FLAG_HAVE_DIRTY		= 0x0002
 };
 
-enum mail_index_record_flag {
-	/* If binary flags are set, it's not checked whether mail is
-	   missing CRs. So this flag may be set as an optimization for
-	   regular non-binary mails as well if it's known that it contains
-	   valid CR+LF line breaks. */
-	MAIL_INDEX_FLAG_BINARY_HEADER		= 0x0001,
-	MAIL_INDEX_FLAG_BINARY_BODY		= 0x0002,
-
-	/* Mail header or body is known to contain NUL characters. */
-	MAIL_INDEX_FLAG_HAS_NULS		= 0x0004,
-	/* Mail header or body is known to not contain NUL characters. */
-	MAIL_INDEX_FLAG_HAS_NO_NULS		= 0x0008
+enum mail_index_mail_flags {
+	MAIL_INDEX_MAIL_FLAG_DIRTY = 0x80
 };
 
 enum mail_index_error {
@@ -204,6 +195,10 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec);
 /* Returns 1 if there's more to sync, 0 if not. */
 int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
+/* Mark given message to be dirty, ie. we couldn't temporarily change the
+   message flags in storage. Dirty messages are tried to be synced again in
+   next sync. */
+int mail_index_sync_set_dirty(struct mail_index_sync_ctx *ctx, uint32_t seq);
 /* End synchronization by unlocking the index and closing the view.
    sync_stamp/sync_size in header is updated to given values. */
 int mail_index_sync_end(struct mail_index_sync_ctx *ctx,

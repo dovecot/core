@@ -11,6 +11,20 @@ struct mail_cache;
 struct mail_cache_view;
 struct mail_cache_transaction_ctx;
 
+enum mail_cache_record_flag {
+	/* If binary flags are set, it's not checked whether mail is
+	   missing CRs. So this flag may be set as an optimization for
+	   regular non-binary mails as well if it's known that it contains
+	   valid CR+LF line breaks. */
+	MAIL_INDEX_FLAG_BINARY_HEADER		= 0x0001,
+	MAIL_INDEX_FLAG_BINARY_BODY		= 0x0002,
+
+	/* Mail header or body is known to contain NUL characters. */
+	MAIL_INDEX_FLAG_HAS_NULS		= 0x0004,
+	/* Mail header or body is known to not contain NUL characters. */
+	MAIL_INDEX_FLAG_HAS_NO_NULS		= 0x0008
+};
+
 enum mail_cache_field {
 	/* fixed size fields */
 	MAIL_CACHE_INDEX_FLAGS		= 0x00000001,
@@ -144,14 +158,14 @@ int mail_cache_copy_fixed_field(struct mail_cache_view *view, uint32_t seq,
 void mail_cache_mark_missing(struct mail_cache_view *view,
 			     enum mail_cache_field fields);
 
-/* Return index flags. */
-enum mail_index_record_flag
-mail_cache_get_index_flags(struct mail_cache_view *view, uint32_t seq);
+/* Return record flags. */
+enum mail_cache_record_flag
+mail_cache_get_record_flags(struct mail_cache_view *view, uint32_t seq);
 
-/* Update index flags. The cache file must be locked and the flags must be
+/* Update record flags. The cache file must be locked and the flags must be
    already inserted to the record. */
-int mail_cache_update_index_flags(struct mail_cache_view *view, uint32_t seq,
-				  enum mail_index_record_flag flags);
+int mail_cache_update_record_flags(struct mail_cache_view *view, uint32_t seq,
+				   enum mail_cache_record_flag flags);
 
 /* Update location offset. External locking is assumed to take care of locking
    readers out to prevent race conditions. */

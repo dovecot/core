@@ -175,7 +175,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	struct mail_index_sync_rec rec;
 	const struct mail_index_record *appends;
 	unsigned int append_count;
-	uint32_t count, file_seq, src_idx, dest_idx;
+	uint32_t count, file_seq, src_idx, dest_idx, dirty_flag;
 	uoff_t file_offset;
 	unsigned int lock_id;
 	int ret, changed;
@@ -191,6 +191,12 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	ctx.index = index;
 	ctx.hdr = *index->hdr;
 	ctx.log_view = sync_ctx->view->log_view;
+
+	dirty_flag = sync_ctx->have_dirty ? MAIL_INDEX_HDR_FLAG_HAVE_DIRTY : 0;
+	if ((ctx.hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != dirty_flag) {
+		ctx.hdr.flags ^= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
+		changed = TRUE;
+	}
 
 	/* see if we need to update sync headers */
 	if (ctx.hdr.sync_stamp != sync_stamp && sync_stamp != 0) {

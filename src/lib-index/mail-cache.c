@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 
 unsigned int mail_cache_field_sizes[32] = {
-	sizeof(enum mail_index_record_flag),
+	sizeof(enum mail_cache_record_flag),
 	sizeof(uoff_t),
 	16,
 	sizeof(struct mail_sent_date),
@@ -640,14 +640,14 @@ void mail_cache_mark_missing(struct mail_cache_view *view,
 			     enum mail_cache_field fields) {}
 
 /* Return index flags. */
-enum mail_index_record_flag
-mail_cache_get_index_flags(struct mail_cache_view *view, uint32_t seq)
+enum mail_cache_record_flag
+mail_cache_get_record_flags(struct mail_cache_view *view, uint32_t seq)
 {return 0;}
 
 /* Update index flags. The cache file must be locked and the flags must be
    already inserted to the record. */
-int mail_cache_update_index_flags(struct mail_cache_view *view, uint32_t seq,
-				  enum mail_index_record_flag flags)
+int mail_cache_update_record_flags(struct mail_cache_view *view, uint32_t seq,
+				   enum mail_cache_record_flag flags)
 {return 0;}
 
 /* Update location offset. External locking is assumed to take care of locking

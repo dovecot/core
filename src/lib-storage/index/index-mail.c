@@ -297,7 +297,7 @@ static void parse_bodystructure_header(struct message_part *part,
 static void index_mail_parse_body(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
-        enum mail_index_record_flag index_flags;
+        enum mail_cache_record_flag cache_flags;
 	buffer_t *buffer;
 	const void *buf_data;
 	size_t buf_size;
@@ -335,16 +335,16 @@ static void index_mail_parse_body(struct index_mail *mail)
 	if (!index_mail_cache_transaction_begin(mail))
 		return;
 
-	/* update index_flags */
-	index_flags = mail_cache_get_index_flags(mail->ibox->cache_view,
-						 mail->data.seq);
+	/* update cache_flags */
+	cache_flags = mail_cache_get_record_flags(mail->ibox->cache_view,
+						  mail->data.seq);
 	if (mail->mail.has_nuls)
-		index_flags |= MAIL_INDEX_FLAG_HAS_NULS;
+		cache_flags |= MAIL_INDEX_FLAG_HAS_NULS;
 	else
-		index_flags |= MAIL_INDEX_FLAG_HAS_NO_NULS;
+		cache_flags |= MAIL_INDEX_FLAG_HAS_NO_NULS;
 
-	if (!mail_cache_update_index_flags(mail->ibox->cache_view,
-					   mail->data.seq, index_flags))
+	if (!mail_cache_update_record_flags(mail->ibox->cache_view,
+					    mail->data.seq, cache_flags))
 		return;
 
 	if (index_mail_cache_can_add(mail, MAIL_CACHE_MESSAGEPART)) {
@@ -517,7 +517,7 @@ int index_mail_next(struct index_mail *mail,
 		    uint32_t seq, int delay_open)
 {
 	struct index_mail_data *data = &mail->data;
-        enum mail_index_record_flag index_flags;
+        enum mail_cache_record_flag cache_flags;
 	int ret, open_mail;
 
 	t_push();
@@ -528,12 +528,12 @@ int index_mail_next(struct index_mail *mail,
 
 	data->cached_fields =
 		mail_cache_get_fields(mail->ibox->cache_view, seq);
-	index_flags = (data->cached_fields & MAIL_CACHE_INDEX_FLAGS) == 0 ? 0 :
-		mail_cache_get_index_flags(mail->ibox->cache_view, seq);
+	cache_flags = (data->cached_fields & MAIL_CACHE_INDEX_FLAGS) == 0 ? 0 :
+		mail_cache_get_record_flags(mail->ibox->cache_view, seq);
 
-	mail->mail.has_nuls = (index_flags & MAIL_INDEX_FLAG_HAS_NULS) != 0;
+	mail->mail.has_nuls = (cache_flags & MAIL_INDEX_FLAG_HAS_NULS) != 0;
 	mail->mail.has_no_nuls =
-		(index_flags & MAIL_INDEX_FLAG_HAS_NO_NULS) != 0;
+		(cache_flags & MAIL_INDEX_FLAG_HAS_NO_NULS) != 0;
 
 	data->rec = rec;
 	data->seq = seq;
