@@ -423,7 +423,7 @@ static void mbox_skip_forward(IOBuffer *inbuf, int header)
 				/* \n[\r]\n - end of header? */
 				if (msg[i-1] == '\n' ||
 				    (msg[i-1] == '\r' && i >= 2 &&
-				     msg[i-2] == '\r')) {
+				     msg[i-2] == '\n')) {
 					i++;
 					break;
 				}
