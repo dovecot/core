@@ -233,7 +233,8 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 
 	atom = NULL;
 	buffer_append(buffer, &atom, sizeof(atom));
-	*keywords_r = buffer_get_data(buffer, NULL);
+	*keywords_r = buffer->used == sizeof(atom) ? NULL :
+		buffer_get_data(buffer, NULL);
 	return TRUE;
 }
 
