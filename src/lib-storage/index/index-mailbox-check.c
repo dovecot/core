@@ -74,7 +74,7 @@ void index_mailbox_check_add(struct index_mailbox *ibox,
 {
 	struct index_notify_file *file;
 	struct stat st;
-	struct io *io;
+	struct io *io = NULL;
 	struct index_notify_io *aio;
 	int fd;
 
@@ -97,6 +97,11 @@ void index_mailbox_check_add(struct index_mailbox *ibox,
 		file->last_stamp = stat(path, &st) < 0 ? 0 : st.st_mtime;
 	else
 		file->last_stamp = fstat(fd, &st) < 0 ? 0 : st.st_mtime;
+
+	if (io == NULL) {
+		/* we couldn't add it to notify list */
+		(void)close(fd);
+	}
 
 	file->next = ibox->notify_files;
         ibox->notify_files = file;
