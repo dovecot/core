@@ -67,6 +67,9 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 		}
 	}
 
+	if (ret < 0)
+		mail_storage_set_index_error(ibox);
+
 	if (sc->expunge != NULL) {
 		for (i = expunges_count*2; i > 0; i -= 2) {
 			for (seq = expunges[i-1]; seq >= expunges[i-2]; seq--)
@@ -80,9 +83,6 @@ int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 		new_count = mail_index_view_get_message_count(ibox->view);
 		sc->new_messages(&ibox->box, new_count, 0, sc_context);
 	}
-
-	if (ret < 0)
-		mail_storage_set_index_error(ibox);
 
 	mail_index_view_unlock(ibox->view);
 	return ret;

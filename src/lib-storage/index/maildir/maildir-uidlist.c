@@ -79,6 +79,8 @@ int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
 	if (fd == -1) {
 		if (errno == EAGAIN)
 			return 0;
+		mail_storage_set_critical(uidlist->ibox->box.storage,
+			"file_dotlock_open(%s) failed: %m", path);
 		return -1;
 	}
 
@@ -123,10 +125,10 @@ void maildir_uidlist_deinit(struct maildir_uidlist *uidlist)
 {
 	i_assert(!UIDLIST_IS_LOCKED(uidlist));
 
+	hash_destroy(uidlist->files);
 	if (uidlist->filename_pool != NULL)
 		pool_unref(uidlist->filename_pool);
 
-	hash_destroy(uidlist->files);
 	buffer_free(uidlist->record_buf);
 	i_free(uidlist->fname);
 	i_free(uidlist);
@@ -237,12 +239,16 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 		return -1;
 	}
 
+	hash_clear(uidlist->files, FALSE);
 	if (uidlist->filename_pool != NULL)
-		pool_unref(uidlist->filename_pool);
-	uidlist->filename_pool =
-		pool_alloconly_create("uidlist filename_pool",
-				      nearest_power(st.st_size -
-						    st.st_size/8));
+		p_clear(uidlist->filename_pool);
+	else {
+		uidlist->filename_pool =
+			pool_alloconly_create("uidlist filename_pool",
+					      nearest_power(st.st_size -
+							    st.st_size/8));
+	}
+
 	buffer_set_used_size(uidlist->record_buf, 0);
 	uidlist->version = 0;
 
@@ -457,6 +463,8 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			   been added */
 			ret = maildir_uidlist_try_lock(ctx->uidlist);
 			if (ret <= 0) {
+				if (ret == 0)
+					return 1; // FIXME: does it work right?
 				ctx->failed = TRUE;
 				return -1;
 			}
@@ -548,14 +556,14 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 	for (; dest < size; dest++)
 		rec[dest].uid = uidlist->next_uid++;
 
+	hash_destroy(uidlist->files);
+	uidlist->files = ctx->files;
+	ctx->files = NULL;
+
 	if (uidlist->filename_pool != NULL)
 		pool_unref(uidlist->filename_pool);
 	uidlist->filename_pool = ctx->filename_pool;
 	ctx->filename_pool = NULL;
-
-	hash_destroy(uidlist->files);
-	uidlist->files = ctx->files;
-	ctx->files = NULL;
 }
 
 int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
