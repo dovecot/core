@@ -123,10 +123,14 @@ void io_loop_handle_remove(struct ioloop *ioloop, int fd, int condition)
 	index = data->fd_index[fd];
 	i_assert(index >= 0 && (unsigned int) index < data->fds_size);
 
-	if (condition & IO_READ)
+	if (condition & IO_READ) {
 		data->fds[index].events &= ~(POLLIN|POLLPRI);
-        if (condition & IO_WRITE)
+		data->fds[index].revents &= ~(POLLIN|POLLPRI);
+	}
+	if (condition & IO_WRITE) {
 		data->fds[index].events &= ~POLLOUT;
+		data->fds[index].revents &= ~POLLOUT;
+	}
 
 	if ((data->fds[index].events & (POLLIN|POLLOUT)) == 0) {
 		/* remove the whole pollfd */
