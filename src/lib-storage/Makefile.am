@@ -21,4 +21,4 @@ noinst_HEADERS = \
 DISTFILES = $(DIST_COMMON) $(real_sources) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 distclean-generic:
-	rm -f mail-storage-register.c
+	rm -f Makefile mail-storage-register.c

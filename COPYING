@@ -1,0 +1,10 @@
+Everything is LGPLv2.1 (see COPYING.LGPL) unless otherwise mentioned at the
+beginning of the file. Almost everything in src/lib/ is with MIT license.
+
+The exceptions are:
+
+src/lib/
+  - base64.c : BSD-like (read it)
+  - hash.c, primes.c, strfuncs.c, tree.c : LGPL v2
+
+src/lib-imap/imap-match.c : BSD-like (read it)
