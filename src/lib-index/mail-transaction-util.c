@@ -130,7 +130,7 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 	const struct mail_transaction_expunge *src_end;
 	struct mail_transaction_expunge *dest;
 	struct mail_transaction_expunge new_exp;
-	uint32_t cur_seq, prev_seq, expunges_before, count;
+	uint32_t expunges_before, count;
 	size_t first, i, dest_count;
 
 	i_assert(src_buf_size % sizeof(*src) == 0);
@@ -140,19 +140,17 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 	dest = buffer_get_modifyable_data(expunges_buf, &dest_count);
 	dest_count /= sizeof(*dest);
 
-	cur_seq = prev_seq = 1; expunges_before = 0;
+	expunges_before = 0;
 	for (i = 0; src != src_end; src++) {
 		/* src[] must be sorted. */
 		i_assert(src+1 == src_end || src->seq1 < src[1].seq1);
 
 		for (; i < dest_count; i++) {
-			count = dest[i].seq1 - prev_seq;
-			if (cur_seq + count > src->seq1)
+			if (src->seq1 + expunges_before < dest[i].seq1)
 				break;
-			cur_seq += count;
 
+			i_assert(src->uid2 > dest[i].uid1);
 			expunges_before += dest[i].seq2 - dest[i].seq1 + 1;
-			prev_seq = dest[i].seq2+1;
 		}
 
 		new_exp = *src;
@@ -167,8 +165,11 @@ mail_transaction_log_sort_expunges(buffer_t *expunges_buf,
 			/* we can/must merge with next record */
 			count = dest[i].seq2 - dest[i].seq1 + 1;
 			expunges_before += count;
+
 			new_exp.seq2 += count;
-			new_exp.uid2 = dest[i].uid2;
+			if (new_exp.seq2 == dest[i].seq2)
+				new_exp.uid2 = dest[i].uid2;
+			i_assert(new_exp.uid2 >= dest[i].uid2);
 			i++;
 		}
 
