@@ -227,7 +227,7 @@ static void parse_header(struct message_part *part,
 	struct message_part_body_data *part_data;
 	int parent_rfc822;
 
-	if (hdr == NULL)
+	if (hdr == NULL || hdr->eoh)
 		return;
 
 	parent_rfc822 = part->parent != NULL &&
