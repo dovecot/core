@@ -116,6 +116,7 @@ struct auth_settings {
 
 	unsigned int count;
 	unsigned int process_size;
+	const char *extra_sockets;
 
 	/* .. */
 	uid_t uid;

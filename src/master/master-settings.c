@@ -139,6 +139,7 @@ static struct setting_def auth_setting_defs[] = {
 
 	DEF(SET_INT, count),
 	DEF(SET_INT, process_size),
+	DEF(SET_STR, extra_sockets),
 
 	{ 0, NULL, 0 }
 };
@@ -274,6 +275,7 @@ struct auth_settings default_auth_settings = {
 
 	MEMBER(count) 1,
 	MEMBER(process_size) 256,
+	MEMBER(extra_sockets) NULL,
 
 	/* .. */
 	MEMBER(uid) 0,

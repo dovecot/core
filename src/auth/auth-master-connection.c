@@ -11,6 +11,8 @@
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 
+#include <unistd.h>
+
 #define MAX_OUTBUF_SIZE (1024*50)
 
 static struct auth_master_reply failure_reply =
@@ -189,26 +191,56 @@ auth_master_connection_new(int fd, unsigned int pid)
 	conn->refcount = 1;
 	conn->pid = pid;
 	conn->fd = fd;
-	conn->output = o_stream_create_file(MASTER_SOCKET_FD, default_pool,
-					    MAX_OUTBUF_SIZE, FALSE);
-	conn->io = io_add(MASTER_SOCKET_FD, IO_READ, master_input, conn);
+	conn->listeners_buf =
+		buffer_create_dynamic(default_pool, 64, (size_t)-1);
+	if (fd != -1) {
+		conn->output = o_stream_create_file(fd, default_pool,
+						    MAX_OUTBUF_SIZE, FALSE);
+		conn->io = io_add(fd, IO_READ, master_input, conn);
+	}
+	return conn;
+}
 
+void auth_master_connection_send_handshake(struct auth_master_connection *conn)
+{
 	/* just a note to master that we're ok. if we die before,
 	   master should shutdown itself. */
-	o_stream_send(conn->output, "O", 1);
-	return conn;
+	if (conn->output != NULL)
+		o_stream_send(conn->output, "O", 1);
 }
 
 void auth_master_connection_free(struct auth_master_connection *conn)
 {
-	if (conn->fd == -1)
+	struct auth_client_listener **l;
+	size_t i, size;
+
+	if (conn->destroyed)
 		return;
+	conn->destroyed = TRUE;
 
-	conn->fd = -1;
-	o_stream_close(conn->output);
+	if (conn->fd != -1) {
+		if (close(conn->fd) < 0)
+			i_error("close(): %m");
+		conn->fd = -1;
 
-	io_remove(conn->io);
-	conn->io = NULL;
+		o_stream_close(conn->output);
+
+		io_remove(conn->io);
+		conn->io = NULL;
+	}
+
+	l = buffer_get_modifyable_data(conn->listeners_buf, &size);
+	size /= sizeof(*l);
+	for (i = 0; i < size; i++) {
+		net_disconnect(l[i]->fd);
+		io_remove(l[i]->io);
+		if (l[i]->path != NULL) {
+			(void)unlink(l[i]->path);
+			i_free(l[i]->path);
+		}
+		i_free(l[i]);
+	}
+	buffer_free(conn->listeners_buf);
 
 	auth_master_connection_unref(conn);
 }
@@ -218,7 +250,37 @@ static int auth_master_connection_unref(struct auth_master_connection *conn)
 	if (--conn->refcount > 0)
 		return TRUE;
 
-	o_stream_unref(conn->output);
+	if (conn->output != NULL)
+		o_stream_unref(conn->output);
 	i_free(conn);
 	return FALSE;
+}
+
+static void auth_accept(void *context)
+{
+	struct auth_client_listener *l = context;
+	int fd;
+
+	fd = net_accept(l->fd, NULL, NULL);
+	if (fd < 0) {
+		if (fd < -1)
+			i_fatal("accept() failed: %m");
+	} else {
+		net_set_nonblock(fd, TRUE);
+		(void)auth_client_connection_create(l->master, fd);
+	}
+}
+
+void auth_master_connection_add_listener(struct auth_master_connection *conn,
+					 int fd, const char *path)
+{
+	struct auth_client_listener *l;
+
+	l = i_new(struct auth_client_listener, 1);
+	l->master = conn;
+	l->fd = fd;
+	l->path = i_strdup(path);
+	l->io = io_add(fd, IO_READ, auth_accept, &l);
+
+	buffer_append(conn->listeners_buf, &l, sizeof(l));
 }

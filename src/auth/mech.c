@@ -7,6 +7,7 @@
 #include "mech.h"
 #include "var-expand.h"
 #include "auth-client-connection.h"
+#include "auth-master-connection.h"
 
 #include <stdlib.h>
 
@@ -196,8 +197,12 @@ void mech_auth_finish(struct auth_request *auth_request,
 
 	auth_request->callback(&reply, reply_data, auth_request->conn);
 
-	if (!success)
+	if (!success || AUTH_MASTER_IS_DUMMY(auth_request->conn->master)) {
+		/* request is no longer needed, either because the
+		   authentication failed or because we don't have master
+		   process */
 		mech_request_free(auth_request, auth_request->id);
+	}
 }
 
 int mech_is_valid_username(const char *username)
