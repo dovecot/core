@@ -341,6 +341,7 @@ void _client_input(void *context)
 		/* already processing one command. wait. */
 		io_remove(client->io);
 		client->io = NULL;
+		return;
 	}
 
 	client->input_pending = FALSE;
