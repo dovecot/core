@@ -45,9 +45,8 @@ static void client_input_timeout(void *context)
 {
 	struct client *client = context;
 
-	client_send_line(my_client, "* BYE Disconnected for inactivity "
-			 "while waiting for command data.");
-	o_stream_close(client->output);
+	client_disconnect_with_error(client,
+		"Disconnected for inactivity while waiting for command data.");
 }
 
 struct client *client_create(int hin, int hout, struct mail_storage *storage)
@@ -112,6 +111,12 @@ void client_disconnect(struct client *client)
 	o_stream_close(client->output);
 }
 
+void client_disconnect_with_error(struct client *client, const char *msg)
+{
+	client_send_line(client, t_strconcat("* BYE ", msg, NULL));
+	client_disconnect(client);
+}
+
 void client_send_line(struct client *client, const char *data)
 {
 	if (client->output->closed)
@@ -140,18 +145,23 @@ void client_send_tagline(struct client *client, const char *data)
 void client_send_command_error(struct client *client, const char *msg)
 {
 	const char *error;
+	int fatal;
 
-	if (msg == NULL)
-                msg = imap_parser_get_error(client->parser);
+	if (msg == NULL) {
+		msg = imap_parser_get_error(client->parser, &fatal);
+		if (fatal) {
+			client_disconnect_with_error(client, msg);
+			return;
+		}
+	}
 	error = t_strconcat("BAD Error in IMAP command: ", msg, NULL);
 
 	client->cmd_error = TRUE;
 	client_send_tagline(client, error);
 
 	if (++client->bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
-		client_send_line(client,
-				 "* BYE Too many invalid IMAP commands.");
-		client_disconnect(client);
+		client_disconnect_with_error(client,
+			"Too many invalid IMAP commands.");
 	}
 }
 

@@ -41,6 +41,7 @@ void client_destroy(struct client *client);
 
 /* Disconnect client connection */
 void client_disconnect(struct client *client);
+void client_disconnect_with_error(struct client *client, const char *msg);
 
 /* Send a line of data to client */
 void client_send_line(struct client *client, const char *data);

@@ -45,6 +45,7 @@ struct imap_parser {
 	unsigned int literal_nonsync:1;
 	unsigned int inside_bracket:1;
 	unsigned int eol:1;
+	unsigned int fatal_error:1;
 };
 
 /* @UNSAFE */
@@ -113,8 +114,9 @@ void imap_parser_reset(struct imap_parser *parser)
 	imap_args_realloc(parser, LIST_ALLOC_SIZE);
 }
 
-const char *imap_parser_get_error(struct imap_parser *parser)
+const char *imap_parser_get_error(struct imap_parser *parser, int *fatal)
 {
+        *fatal = parser->fatal_error;
 	return parser->error;
 }
 
@@ -334,6 +336,7 @@ static int imap_parser_literal_end(struct imap_parser *parser)
 		if (parser->literal_size > parser->max_literal_size) {
 			/* too long string, abort. */
 			parser->error = "Literal size too large";
+			parser->fatal_error = TRUE;
 			return FALSE;
 		}
 
