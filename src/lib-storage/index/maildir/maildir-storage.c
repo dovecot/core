@@ -53,11 +53,13 @@ static MailStorage *maildir_create(const char *data, const char *user)
 
 	storage->dir = i_strdup(data);
 	storage->user = i_strdup(user);
+	storage->callbacks = i_new(MailStorageCallbacks, 1);
 	return storage;
 }
 
 static void maildir_free(MailStorage *storage)
 {
+	i_free(storage->callbacks);
 	i_free(storage->dir);
 	i_free(storage->user);
 	i_free(storage);
@@ -438,6 +440,7 @@ MailStorage maildir_storage = {
 	maildir_create,
 	maildir_free,
 	maildir_autodetect,
+	index_storage_set_callbacks,
 	maildir_open_mailbox,
 	maildir_create_mailbox,
 	maildir_delete_mailbox,
@@ -450,7 +453,8 @@ MailStorage maildir_storage = {
 
 	NULL,
 	NULL,
-	NULL
+	NULL,
+	NULL, NULL
 };
 
 Mailbox maildir_mailbox = {
@@ -458,7 +462,6 @@ Mailbox maildir_mailbox = {
 	NULL, /* storage */
 
 	index_storage_close,
-	index_storage_set_sync_callbacks,
 	index_storage_get_status,
 	index_storage_sync,
 	index_storage_expunge,

@@ -2,6 +2,8 @@
     - maildir: if mail file isn't found, it may be because it was renamed
       (flag changed). we must then sync the directory and see again if the mail
       is found
+    - we may override mbox dotlock file, but then get stuck at fcntl/flock.
+      we should check for those before overriding the mbox lock..
     - mail-lockdir.c isn't 100% safe.. stale locks are detected by checking
       that hard link count is 1, then it's unlink()ed. but what if another
       process did the same unlink() + creat() in the middle of our
@@ -21,10 +23,7 @@
       the old file.. and check that deleting file does "inconsistency error"
     - if imap process notices that both modify logs are getting full because
       it's client isn't syncing, the client should be disconnected
-    - if opening indexes fails because we timeout while trying to lock it, we
-      recreate the indexes. that's not very good idea .. also does it do that
-      even if .customflags can't be locked? it's not really related to
-      indexes..
+    - what happens if .customflags can't be locked while opening index?
 
  - checks:
    - if we have entries in modifylog with UID 10..11, 9..12, 8..13 etc.
@@ -36,13 +35,7 @@
    - make sure connection limits work
 
  - enhancements:
-    - "* NO Stale mailbox lock file detected, will override in xx seconds",
-      "* NO Mailbox is locked, will abort in xx seconds",
-      "* NO Mailbox index is locked, will abort in xx seconds"
-        - before even considering this, check that we can do fcntl() locking
-	- don't give internal error to user but "mailbox is locked" or
-	  "index is locked" when we can't do something because of locking
-	- optionally don't fail if index is locked, but build it in memory
+    - optionally don't fail if index is locked, but build it in memory
     - when fetching body/envelope/etc we could try to cache it immediately if
       we can get lock with try_lock.
     - optionally use only in-memory indexes

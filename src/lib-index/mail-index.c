@@ -258,8 +258,8 @@ static int mail_index_write_header_changes(MailIndex *index)
 
 	/* use our own locking here so we don't mess up with any other
 	   index states, like inconsistency. */
-	if (file_wait_lock(index->fd, F_WRLCK, DEFAULT_LOCK_TIMEOUT) <= 0)
-		return index_set_syscall_error(index, "file_wait_lock()");
+	if (!mail_index_wait_lock(index, F_WRLCK))
+		return FALSE;
 
 #ifdef DEBUG
 	mprotect(index->mmap_base, index->mmap_used_length,
@@ -276,8 +276,8 @@ static int mail_index_write_header_changes(MailIndex *index)
 	mprotect(index->mmap_base, index->mmap_used_length, PROT_NONE);
 #endif
 
-	if (file_wait_lock(index->fd, F_UNLCK, 0) <= 0)
-		return index_set_syscall_error(index, "file_wait_lock()");
+	if (!mail_index_wait_lock(index, F_UNLCK))
+		return FALSE;
 
 	return !failed;
 }
@@ -286,8 +286,8 @@ static int mail_index_lock_remove(MailIndex *index)
 {
 	MailLockType old_lock_type;
 
-	if (file_wait_lock(index->fd, F_UNLCK, 0) <= 0)
-		return index_set_syscall_error(index, "file_wait_lock()");
+	if (!mail_index_wait_lock(index, F_UNLCK))
+		return FALSE;
 
 	old_lock_type = index->lock_type;
 	index->lock_type = MAIL_LOCK_UNLOCK;
@@ -332,11 +332,8 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type,
 		if (ret <= 0)
 			return FALSE;
 	} else {
-		if (file_wait_lock(index->fd, fd_lock_type,
-				   DEFAULT_LOCK_TIMEOUT) <= 0) {
-			return index_set_syscall_error(index,
-						       "file_wait_lock()");
-		}
+		if (!mail_index_wait_lock(index, fd_lock_type))
+			return FALSE;
 	}
 
 	index->lock_type = lock_type;
@@ -365,10 +362,8 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type,
 			if (!mail_index_lock_remove(index))
 				return FALSE;
 
-			if (file_wait_lock(index->fd, MAIL_LOCK_EXCLUSIVE,
-					   DEFAULT_LOCK_TIMEOUT) <= 0)
-				return index_set_syscall_error(index,
-							"file_wait_lock()");
+			if (!mail_index_wait_lock(index, F_WRLCK))
+				return FALSE;
 			index->lock_type = MAIL_LOCK_EXCLUSIVE;
 
 			debug_mprotect(index->mmap_base,
@@ -456,6 +451,14 @@ int mail_index_set_lock(MailIndex *index, MailLockType lock_type)
 int mail_index_try_lock(MailIndex *index, MailLockType lock_type)
 {
 	return mail_index_lock_full(index, lock_type, TRUE);
+}
+
+void mail_index_set_lock_notify_callback(MailIndex *index,
+					 MailLockNotifyFunc func,
+					 void *context)
+{
+	index->lock_notify_func = func;
+	index->lock_notify_context = context;
 }
 
 int mail_index_verify_hole_range(MailIndex *index)
@@ -983,17 +986,24 @@ int mail_index_append_end(MailIndex *index, MailIndexRecord *rec)
 	return TRUE;
 }
 
-const char *mail_index_get_last_error(MailIndex *index)
+MailIndexError mail_index_get_last_error(MailIndex *index)
+{
+	if (index->inconsistent)
+		return MAIL_INDEX_ERROR_INCONSISTENT;
+	if (index->nodiskspace)
+		return MAIL_INDEX_ERROR_DISKSPACE;
+	if (index->index_lock_timeout)
+		return MAIL_INDEX_ERROR_INDEX_LOCK_TIMEOUT;
+	if (index->mailbox_lock_timeout)
+		return MAIL_INDEX_ERROR_MAILBOX_LOCK_TIMEOUT;
+
+	if (index->error != NULL)
+		return MAIL_INDEX_ERROR_INTERNAL;
+
+	return MAIL_INDEX_ERROR_NONE;
+}
+
+const char *mail_index_get_last_error_text(MailIndex *index)
 {
 	return index->error;
-}
-
-int mail_index_is_diskspace_error(MailIndex *index)
-{
-	return !index->inconsistent && index->nodiskspace;
-}
-
-int mail_index_is_inconsistency_error(MailIndex *index)
-{
-	return index->inconsistent;
 }

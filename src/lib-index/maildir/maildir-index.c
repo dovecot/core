@@ -233,6 +233,7 @@ MailIndex maildir_index = {
 	maildir_index_free,
 	mail_index_set_lock,
 	mail_index_try_lock,
+        mail_index_set_lock_notify_callback,
 	maildir_index_rebuild,
 	mail_index_fsck,
 	maildir_index_sync,
@@ -254,8 +255,7 @@ MailIndex maildir_index = {
 	mail_index_update_field,
 	mail_index_update_field_raw,
 	mail_index_get_last_error,
-	mail_index_is_diskspace_error,
-	mail_index_is_inconsistency_error,
+	mail_index_get_last_error_text,
 
 	MAIL_INDEX_PRIVATE_FILL
 };

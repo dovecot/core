@@ -11,8 +11,14 @@
 int file_try_lock(int fd, int lock_type);
 
 /* Lock whole file descriptor. Returns 1 if successful, 0 if timeout or
-   -1 if error. When returning 0, errno is also set to EAGAIN.
-   NOTE: timeout uses SIGALRM and resets it at the end. */
-int file_wait_lock(int fd, int lock_type, unsigned int timeout);
+   -1 if error. When returning 0, errno is also set to EAGAIN. Timeouts after
+   DEFAULT_LOCK_TIMEOUT. */
+int file_wait_lock(int fd, int lock_type);
+
+/* Like file_wait_lock(), but you can specify the timout and a function which
+   is called once in a while if waiting takes longer. */
+int file_wait_lock_full(int fd, int lock_type, unsigned int timeout,
+			void (*func)(unsigned int secs_left, void *context),
+			void *context);
 
 #endif

@@ -218,8 +218,8 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 
 	/* kludgy.. for copying inside same mailbox. */
 	if (!ibox->delay_save_unlocking) {
-		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
-			return mail_storage_set_index_error(ibox);
+		if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
+			return FALSE;
 	}
 
 	return !failed;

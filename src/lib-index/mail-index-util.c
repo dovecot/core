@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ibuffer.h"
 #include "hostpid.h"
+#include "file-lock.h"
 #include "message-size.h"
 #include "message-part-serialize.h"
 #include "mail-index.h"
@@ -104,4 +105,36 @@ int mail_index_create_temp_file(MailIndex *index, const char **path)
 	}
 
 	return fd;
+}
+
+static void mail_index_lock_notify(unsigned int secs_left, void *context)
+{
+	MailIndex *index = context;
+
+	if (index->lock_notify_func == NULL)
+		return;
+
+	index->lock_notify_func(MAIL_LOCK_NOTIFY_INDEX_ABORT,
+				secs_left, index->lock_notify_context);
+}
+
+int mail_index_wait_lock(MailIndex *index, int lock_type)
+{
+	int ret;
+
+	ret = file_wait_lock_full(index->fd, lock_type, DEFAULT_LOCK_TIMEOUT,
+				  mail_index_lock_notify, index);
+	if (ret < 0)
+		return index_set_syscall_error(index, "file_wait_lock()");
+
+	if (ret == 0) {
+		index_set_error(index, "Timeout while waiting for "
+				"release of fcntl() lock for index file "
+				"%s", index->filepath);
+		index->index_lock_timeout = TRUE;
+		return FALSE;
+	}
+
+	return TRUE;
+
 }

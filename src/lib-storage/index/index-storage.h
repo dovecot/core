@@ -14,9 +14,6 @@ struct _IndexMailbox {
 	   exclusively locked */
 	int (*expunge_locked)(IndexMailbox *ibox, int notify);
 
-        MailboxSyncCallbacks sync_callbacks;
-	void *sync_context;
-
 	MailIndex *index;
 	ImapMessageCache *cache;
 
@@ -27,6 +24,8 @@ struct _IndexMailbox {
 
 	unsigned int synced_messages_count;
 
+	time_t next_lock_notify; /* temporary */
+
 	unsigned int sent_diskspace_warning:1;
 	unsigned int delay_save_unlocking:1; /* For COPYing inside mailbox */
 };
@@ -34,6 +33,7 @@ struct _IndexMailbox {
 extern ImapMessageCacheIface index_msgcache_iface;
 
 int mail_storage_set_index_error(IndexMailbox *ibox);
+int index_storage_lock(IndexMailbox *ibox, MailLockType lock_type);
 
 void index_storage_add(MailIndex *index);
 MailIndex *index_storage_lookup_ref(const char *path);
@@ -68,9 +68,9 @@ void index_mailbox_check_add(IndexMailbox *ibox, const char *path);
 void index_mailbox_check_remove(IndexMailbox *ibox);
 
 /* Mailbox methods: */
-void index_storage_set_sync_callbacks(Mailbox *box,
-				      MailboxSyncCallbacks *callbacks,
-				      void *context);
+void index_storage_set_callbacks(MailStorage *storage,
+				 MailStorageCallbacks *callbacks,
+				 void *context);
 int index_storage_copy(Mailbox *box, Mailbox *destbox,
 		       const char *messageset, int uidset);
 int index_storage_expunge(Mailbox *box, int notify);

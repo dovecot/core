@@ -36,4 +36,7 @@ void index_reset_error(MailIndex *index);
    and sets *path to the full path of the created file.  */
 int mail_index_create_temp_file(MailIndex *index, const char **path);
 
+/* Wrapper to file_set_lock(), also calling index's lock notify callback. */
+int mail_index_wait_lock(MailIndex *index, int lock_type);
+
 #endif

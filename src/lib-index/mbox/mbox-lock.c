@@ -66,6 +66,8 @@ static void mbox_init_lock_settings(void)
 static int mbox_lock_flock(MailIndex *index, MailLockType lock_type,
 			   time_t max_wait_time)
 {
+	time_t now, last_notify;
+
 	if (lock_type == MAIL_LOCK_EXCLUSIVE)
 		lock_type = LOCK_EX;
 	else if (lock_type == MAIL_LOCK_SHARED)
@@ -73,16 +75,27 @@ static int mbox_lock_flock(MailIndex *index, MailLockType lock_type,
 	else
 		lock_type = LOCK_UN;
 
+        last_notify = 0;
 	while (flock(index->mbox_fd, lock_type | LOCK_NB) < 0) {
 		if (errno != EWOULDBLOCK) {
-			index_file_set_syscall_error(index, index->mbox_path,
-						     "flock()");
+                        mbox_set_syscall_error(index, "flock()");
 			return FALSE;
 		}
 
-		if (max_wait_time != 0 && time(NULL) >= max_wait_time) {
-			errno = EAGAIN;
+		now = time(NULL);
+		if (max_wait_time != 0 && now >= max_wait_time) {
+			index->mailbox_lock_timeout = TRUE;
+			index_set_error(index, "Timeout while waiting for "
+					"release of flock() lock for mbox file "
+					"%s", index->mbox_path);
 			return FALSE;
+		}
+
+		if (now != last_notify && index->lock_notify_func != NULL) {
+			last_notify = now;
+			index->lock_notify_func(MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
+						max_wait_time - now,
+						index->lock_notify_context);
 		}
 
 		usleep(LOCK_RANDOM_USLEEP_TIME);
@@ -96,6 +109,7 @@ static int mbox_lock_fcntl(MailIndex *index, MailLockType lock_type,
 			   time_t max_wait_time)
 {
 	struct flock fl;
+	time_t now;
 
 	fl.l_type = MAIL_LOCK_TO_FLOCK(lock_type);
 	fl.l_whence = SEEK_SET;
@@ -104,14 +118,23 @@ static int mbox_lock_fcntl(MailIndex *index, MailLockType lock_type,
 
 	while (fcntl(index->mbox_fd, F_SETLKW, &fl) == -1) {
 		if (errno != EINTR) {
-			index_file_set_syscall_error(index, index->mbox_path,
-						     "fcntl()");
+			mbox_set_syscall_error(index, "fcntl()");
 			return FALSE;
 		}
 
-		if (max_wait_time != 0 && time(NULL) >= max_wait_time) {
-			errno = EAGAIN;
+		now = time(NULL);
+		if (max_wait_time != 0 && now >= max_wait_time) {
+			index->mailbox_lock_timeout = TRUE;
+			index_set_error(index, "Timeout while waiting for "
+					"release of fcntl() lock for mbox file "
+					"%s", index->mbox_path);
 			return FALSE;
+		}
+
+		if (index->lock_notify_func != NULL) {
+			index->lock_notify_func(MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
+						max_wait_time - now,
+						index->lock_notify_context);
 		}
 	}
 
@@ -122,16 +145,19 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path,
 			     time_t max_wait_time, int checkonly)
 {
 	struct stat st;
-	time_t now, last_change, last_mtime;
+	time_t now, last_change, last_notify, last_mtime, stale_notify;
 	off_t last_size;
+	unsigned int secs_left;
 	int fd;
 
 	path = t_strconcat(path, ".lock", NULL);
+	stale_notify = dotlock_change_timeout/2;
 
 	/* don't bother with the temp files as we'd just leave them lying
 	   around. besides, postfix also relies on O_EXCL working so we
 	   might as well. */
-	last_change = time(NULL); last_size = 0; last_mtime = 0;
+	last_change = time(NULL); last_notify = 0;
+	last_size = 0; last_mtime = 0;
 	do {
 		now = time(NULL);
 
@@ -157,6 +183,23 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path,
 					break;
 				}
 				continue;
+			}
+
+			if (last_notify != now) {
+				last_notify = now;
+				if (now > last_change + stale_notify) {
+					secs_left = now - last_change +
+						dotlock_change_timeout;
+					index->lock_notify_func(
+					      MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE,
+					      secs_left,
+					      index->lock_notify_context);
+				} else {
+					index->lock_notify_func(
+						MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
+						max_wait_time - now,
+						index->lock_notify_context);
+				}
 			}
 
 			usleep(LOCK_RANDOM_USLEEP_TIME);
@@ -203,6 +246,7 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path,
 
 	index_set_error(index, "Timeout while waiting for release of mbox "
 			"dotlock %s", path);
+	index->mailbox_lock_timeout = TRUE;
 	return FALSE;
 }
 

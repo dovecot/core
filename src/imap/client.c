@@ -25,6 +25,8 @@
 /* Disconnect client after idling this many seconds */
 #define CLIENT_IDLE_TIMEOUT (60*30)
 
+extern MailStorageCallbacks mail_storage_callbacks;
+
 static Client *my_client; /* we don't need more than one currently */
 static Timeout to_idle;
 
@@ -76,6 +78,7 @@ Client *client_create(int hin, int hout, MailStorage *storage)
         client->last_input = ioloop_time;
 
 	client->storage = storage;
+	storage->set_callbacks(storage, &mail_storage_callbacks, client);
 
 	i_assert(my_client == NULL);
 	my_client = client;

@@ -849,8 +849,8 @@ int index_storage_search(Mailbox *box, const char *charset, MailSearchArg *args,
 	failed = !search_messages(ibox, charset, args, outbuf, uid_result);
 	o_buffer_send(outbuf, "\r\n", 2);
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
-		return mail_storage_set_index_error(ibox);
+	if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
+		return FALSE;
 
 	return !failed;
 }

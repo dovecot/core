@@ -69,8 +69,7 @@ static int maildir_copy_with_hardlinks(IndexMailbox *src,
 	ret = index_messageset_foreach(src, messageset, uidset,
 				       copy_hard_func, &ctx);
 
-	if (!src->index->set_lock(src->index, MAIL_LOCK_UNLOCK))
-		mail_storage_set_index_error(src);
+	(void)index_storage_lock(src, MAIL_LOCK_UNLOCK);
 
 	return ctx.error ? -1 : ret;
 }

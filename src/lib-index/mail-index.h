@@ -67,6 +67,37 @@ typedef enum {
 	MAIL_LOCK_EXCLUSIVE
 } MailLockType;
 
+typedef enum {
+	/* Mailbox is locked, will abort in secs_left */
+	MAIL_LOCK_NOTIFY_MAILBOX_ABORT,
+	/* Mailbox lock looks stale, will override in secs_left */
+	MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE,
+	/* Index is locked, will abort in secs_left */
+	MAIL_LOCK_NOTIFY_INDEX_ABORT
+} MailLockNotifyType;
+
+typedef enum {
+	/* No errors */
+	MAIL_INDEX_ERROR_NONE,
+	/* Internal error, see get_error_text() for more information. */
+	MAIL_INDEX_ERROR_INTERNAL,
+	/* Index is now in inconsistent state with the previous known state,
+	   meaning that the message IDs etc. may have changed - only way to
+	   recover this would be to fully close the mailbox and reopen it.
+	   With IMAP this would mean a forced disconnection since we can't do
+	   forced CLOSE. */
+	MAIL_INDEX_ERROR_INCONSISTENT,
+	/* We ran out of available disk space. */
+	MAIL_INDEX_ERROR_DISKSPACE,
+	/* Mail index locking timeouted */
+	MAIL_INDEX_ERROR_INDEX_LOCK_TIMEOUT,
+	/* Mailbox locking timeouted */
+	MAIL_INDEX_ERROR_MAILBOX_LOCK_TIMEOUT
+} MailIndexError;
+
+typedef void (*MailLockNotifyFunc)(MailLockNotifyType notify_type,
+				   unsigned int secs_left, void *context);
+
 typedef struct _MailIndex MailIndex;
 typedef struct _MailIndexData MailIndexData;
 typedef struct _MailTree MailTree;
@@ -179,13 +210,19 @@ struct _MailIndex {
 	   let it happen. Better ways to do this would be to a) mark the
 	   data to be updated later, b) use try_lock() if the update is
 	   preferred but not required, c) unlock + lock again, but make
-	   sure that won't create race conditions */
+	   sure that won't create race conditions. */
 	int (*set_lock)(MailIndex *index, MailLockType lock_type);
 
 	/* Try locking the index. Returns TRUE if the lock was got and
 	   FALSE if lock isn't possible to get currently or some other error
 	   occured. Never blocks. */
 	int (*try_lock)(MailIndex *index, MailLockType lock_type);
+
+	/* If we have to wait for the lock, the given lock notify function
+	   is called once in a while. */
+	void (*set_lock_notify_callback)(MailIndex *index,
+					 MailLockNotifyFunc func,
+					 void *context);
 
 	/* Rebuild the whole index. Note that this changes the indexid
 	   so all the other files must also be rebuilt after this call.
@@ -303,19 +340,12 @@ struct _MailIndex {
 	void (*update_field_raw)(MailIndexUpdate *update, MailDataField field,
 				 const void *value, size_t size);
 
-	/* Returns last error message */
-	const char *(*get_last_error)(MailIndex *index);
+	/* Returns the last error code. */
+	MailIndexError (*get_last_error)(MailIndex *index);
 
-	/* Returns TRUE if last error was because we ran out of available
-	   disk space. */
-	int (*is_diskspace_error)(MailIndex *index);
-
-	/* Returns TRUE if index is now in inconsistent state with the
-	   previous known state, meaning that the message IDs etc. may
-	   have changed - only way to recover this would be to fully close
-	   the mailbox and reopen it. With IMAP connection this would mean
-	   a forced disconnection since we can't do forced CLOSE. */
-	int (*is_inconsistency_error)(MailIndex *index);
+	/* Returns the full error message for last error. This message may
+	   contain paths etc. so it shouldn't be shown to users. */
+	const char *(*get_last_error_text)(MailIndex *index);
 
 /* private: */
 	MailIndexData *data;
@@ -359,6 +389,9 @@ struct _MailIndex {
 	time_t file_sync_stamp;
 	unsigned int first_recent_uid;
 
+	MailLockNotifyFunc lock_notify_func;
+	void *lock_notify_context;
+
 	/* these fields are OR'ed to the fields in index header once we
 	   get around grabbing exclusive lock */
 	unsigned int set_flags;
@@ -369,6 +402,8 @@ struct _MailIndex {
 	unsigned int mail_read_mmaped:1;
 	unsigned int inconsistent:1;
 	unsigned int nodiskspace:1;
+	unsigned int index_lock_timeout:1;
+	unsigned int mailbox_lock_timeout:1;
 };
 
 /* needed to remove annoying warnings about not initializing all struct
@@ -377,13 +412,17 @@ struct _MailIndex {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	0
 
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent, int fast);
 int mail_index_open_or_create(MailIndex *index, int update_recent, int fast);
 int mail_index_set_lock(MailIndex *index, MailLockType lock_type);
 int mail_index_try_lock(MailIndex *index, MailLockType lock_type);
+void mail_index_set_lock_notify_callback(MailIndex *index,
+					 MailLockNotifyFunc func,
+					 void *context);
 int mail_index_fsck(MailIndex *index);
 MailIndexHeader *mail_index_get_header(MailIndex *index);
 MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq);
@@ -412,9 +451,8 @@ void mail_index_update_field(MailIndexUpdate *update, MailDataField field,
 void mail_index_update_field_raw(MailIndexUpdate *update, MailDataField field,
 				 const void *value, size_t size);
 time_t mail_get_internal_date(MailIndex *index, MailIndexRecord *rec);
-const char *mail_index_get_last_error(MailIndex *index);
-int mail_index_is_diskspace_error(MailIndex *index);
-int mail_index_is_inconsistency_error(MailIndex *index);
+MailIndexError mail_index_get_last_error(MailIndex *index);
+const char *mail_index_get_last_error_text(MailIndex *index);
 
 /* INTERNAL: */
 void mail_index_init(MailIndex *index, const char *dir);

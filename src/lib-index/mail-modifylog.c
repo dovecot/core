@@ -382,12 +382,12 @@ static int modifylog_reuse_or_create_file(ModifyLogFile *file)
 	      this check to make sure it's not locked by others. */
 	ret = file_try_lock(fd, F_WRLCK);
 	if (ret < 0)
-		modifylog_set_syscall_error(file, "file_wait_lock()");
+		modifylog_set_syscall_error(file, "file_try_lock()");
 
 	if (ret > 0 && mail_modifylog_init_fd(file, fd)) {
 		/* drop back to read lock */
 		if (file_try_lock(fd, F_RDLCK) <= 0) {
-			modifylog_set_syscall_error(file, "file_wait_lock()");
+			modifylog_set_syscall_error(file, "file_try_lock()");
 			ret = -1;
 		}
 
@@ -417,7 +417,7 @@ static int mail_modifylog_open_and_verify(ModifyLogFile *file)
 		return -1;
 	}
 
-	if (file_wait_lock(fd, F_RDLCK, DEFAULT_LOCK_TIMEOUT) <= 0) {
+	if (file_wait_lock(fd, F_RDLCK) <= 0) {
 		modifylog_set_syscall_error(file, "file_wait_lock()");
 		(void)close(fd);
 		return -1;

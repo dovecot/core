@@ -17,6 +17,7 @@ static int update_func(MailIndex *index, MailIndexRecord *rec,
 		       void *context)
 {
 	UpdateContext *ctx = context;
+	MailStorage *storage;
 	MailFlags flags;
 	const char **custom_flags;
 
@@ -37,10 +38,11 @@ static int update_func(MailIndex *index, MailIndexRecord *rec,
 	if (!index->update_flags(index, rec, idx_seq, flags, FALSE))
 		return FALSE;
 
+	storage = ctx->ibox->box.storage;
 	if (mail_custom_flags_has_changes(index->custom_flags)) {
-		ctx->ibox->sync_callbacks.new_custom_flags(&ctx->ibox->box,
+		storage->callbacks->new_custom_flags(&ctx->ibox->box,
 			mail_custom_flags_list_get(index->custom_flags),
-			MAIL_CUSTOM_FLAGS_COUNT, ctx->ibox->sync_context);
+			MAIL_CUSTOM_FLAGS_COUNT, storage->callback_context);
 	}
 
 	if (ctx->notify) {
@@ -48,11 +50,11 @@ static int update_func(MailIndex *index, MailIndexRecord *rec,
 			flags |= MAIL_RECENT;
 
                 custom_flags = mail_custom_flags_list_get(index->custom_flags);
-		ctx->ibox->sync_callbacks.update_flags(&ctx->ibox->box,
-						       client_seq, rec->uid,
-						       flags, custom_flags,
-						       MAIL_CUSTOM_FLAGS_COUNT,
-						       ctx->ibox->sync_context);
+		storage->callbacks->update_flags(&ctx->ibox->box,
+						 client_seq, rec->uid,
+						 flags, custom_flags,
+						 MAIL_CUSTOM_FLAGS_COUNT,
+						 storage->callback_context);
 	}
 
 	return TRUE;
@@ -75,8 +77,8 @@ int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
 	if (!index_mailbox_fix_custom_flags(ibox, &flags, custom_flags))
 		return FALSE;
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
-		return mail_storage_set_index_error(ibox);
+	if (!index_storage_lock(ibox, MAIL_LOCK_EXCLUSIVE))
+		return FALSE;
 
 	if (!index_storage_sync_and_lock(ibox, TRUE, MAIL_LOCK_UNLOCK))
 		return FALSE;
@@ -89,8 +91,8 @@ int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
 	ret = index_messageset_foreach(ibox, messageset, uidset,
 				       update_func, &ctx);
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
-		return mail_storage_set_index_error(ibox);
+	if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
+		return FALSE;
 
 	if (all_found != NULL)
 		*all_found = ret == 1;

@@ -9,9 +9,10 @@
 
 static void index_storage_sync_size(IndexMailbox *ibox)
 {
+	MailStorage *storage = ibox->box.storage;
 	unsigned int messages, recent;
 
-	if (ibox->sync_callbacks.new_messages == NULL)
+	if (storage->callbacks->new_messages == NULL)
 		return;
 
 	messages = ibox->index->get_header(ibox->index)->messages_count;
@@ -22,8 +23,8 @@ static void index_storage_sync_size(IndexMailbox *ibox)
 
 		/* new messages in mailbox */
 		recent = index_storage_get_recent_count(ibox->index);
-		ibox->sync_callbacks.new_messages(&ibox->box, messages, recent,
-						  ibox->sync_context);
+		storage->callbacks->new_messages(&ibox->box, messages, recent,
+						 storage->callback_context);
 		ibox->synced_messages_count = messages;
 	}
 }
@@ -31,6 +32,7 @@ static void index_storage_sync_size(IndexMailbox *ibox)
 int index_storage_sync_and_lock(IndexMailbox *ibox, int sync_size,
 				MailLockType data_lock_type)
 {
+	MailStorage *storage = ibox->box.storage;
 	MailIndex *index = ibox->index;
 	int changes, set_shared_lock;
 
@@ -40,17 +42,18 @@ int index_storage_sync_and_lock(IndexMailbox *ibox, int sync_size,
 		/* reset every time it has worked */
 		ibox->sent_diskspace_warning = FALSE;
 	} else {
-		if (!index->is_diskspace_error(index)) {
-			(void)index->set_lock(index, MAIL_LOCK_UNLOCK);
+		if (index->get_last_error(index) !=
+		    MAIL_INDEX_ERROR_DISKSPACE) {
+			(void)index_storage_lock(ibox, MAIL_LOCK_UNLOCK);
 			return mail_storage_set_index_error(ibox);
 		}
 
 		/* notify client once about it */
 		if (!ibox->sent_diskspace_warning &&
-		    ibox->sync_callbacks.alert_no_diskspace != NULL) {
+		    storage->callbacks->alert_no_diskspace != NULL) {
 			ibox->sent_diskspace_warning = TRUE;
-			ibox->sync_callbacks.alert_no_diskspace(
-						&ibox->box, ibox->sync_context);
+			storage->callbacks->alert_no_diskspace(
+				&ibox->box, storage->callback_context);
 		}
 
 		index_reset_error(index);
@@ -59,8 +62,8 @@ int index_storage_sync_and_lock(IndexMailbox *ibox, int sync_size,
 	if (set_shared_lock) {
 		/* just make sure we are locked, and that we drop our
 		   exclusive lock if it wasn't wanted originally */
-		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED)) {
-			(void)index->set_lock(index, MAIL_LOCK_UNLOCK);
+		if (!index_storage_lock(ibox, MAIL_LOCK_SHARED)) {
+			(void)index_storage_lock(ibox, MAIL_LOCK_UNLOCK);
 			return FALSE;
 		}
 	}
@@ -74,10 +77,10 @@ int index_storage_sync_and_lock(IndexMailbox *ibox, int sync_size,
 
 	/* notify changes in custom flags */
 	if (mail_custom_flags_has_changes(index->custom_flags) &&
-	    ibox->sync_callbacks.new_custom_flags != NULL) {
-		ibox->sync_callbacks.new_custom_flags(&ibox->box,
+	    storage->callbacks->new_custom_flags != NULL) {
+		storage->callbacks->new_custom_flags(&ibox->box,
                 	mail_custom_flags_list_get(index->custom_flags),
-			MAIL_CUSTOM_FLAGS_COUNT, ibox->sync_context);
+			MAIL_CUSTOM_FLAGS_COUNT, storage->callback_context);
 	}
 
 	return TRUE;
@@ -88,7 +91,7 @@ int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted)
 	const ModifyLogRecord *log1, *log2, *log, *first_flag_log;
 	MailIndexRecord *rec;
 	MailFlags flags;
-        MailboxSyncCallbacks *sc;
+        MailStorageCallbacks *sc;
 	void *sc_context;
 	const char **custom_flags;
 	unsigned int count1, count2, total_count, seq, seq_count, i, messages;
@@ -99,8 +102,8 @@ int index_storage_sync_modifylog(IndexMailbox *ibox, int hide_deleted)
 					  &log1, &count1, &log2, &count2))
 		return mail_storage_set_index_error(ibox);
 
-	sc = &ibox->sync_callbacks;
-	sc_context = ibox->sync_context;
+	sc = ibox->box.storage->callbacks;
+	sc_context = ibox->box.storage->callback_context;
 
 	/* first show expunges. this makes it easier to deal with sequence
 	   numbers. */
@@ -222,8 +225,8 @@ int index_storage_sync(Mailbox *box, int sync_expunges)
 
 	index_storage_sync_size(ibox);
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
-		return mail_storage_set_index_error(ibox);
+	if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
+		return FALSE;
 
 	return ret;
 }

@@ -51,8 +51,9 @@ int index_expunge_mail(IndexMailbox *ibox, MailIndexRecord *rec,
 
 	if (seq <= ibox->synced_messages_count) {
 		if (notify) {
-			ibox->sync_callbacks.expunge(&ibox->box, seq,
-						     ibox->sync_context);
+			MailStorage *storage = ibox->box.storage;
+			storage->callbacks->expunge(&ibox->box, seq,
+						    storage->callback_context);
 		}
 		ibox->synced_messages_count--;
 	}
@@ -70,8 +71,8 @@ int index_storage_expunge(Mailbox *box, int notify)
 		return FALSE;
 	}
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
-		return mail_storage_set_index_error(ibox);
+	if (!index_storage_lock(ibox, MAIL_LOCK_EXCLUSIVE))
+		return FALSE;
 
 	if (!index_storage_sync_and_lock(ibox, FALSE, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
@@ -83,8 +84,8 @@ int index_storage_expunge(Mailbox *box, int notify)
 	else
 		failed = !ibox->expunge_locked(ibox, notify);
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
-		return mail_storage_set_index_error(ibox);
+	if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
+		return FALSE;
 
 	return !failed;
 }

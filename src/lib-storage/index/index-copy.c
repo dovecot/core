@@ -66,8 +66,8 @@ int index_storage_copy(Mailbox *box, Mailbox *destbox,
 
 	if (ctx.copy_inside_mailbox) {
 		/* copying inside same mailbox */
-		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
-			return mail_storage_set_index_error(ibox);
+		if (!index_storage_lock(ibox, MAIL_LOCK_EXCLUSIVE))
+			return FALSE;
 
 		lock_type = MAIL_LOCK_EXCLUSIVE;
 	} else {
@@ -84,8 +84,8 @@ int index_storage_copy(Mailbox *box, Mailbox *destbox,
 	failed = index_messageset_foreach(ibox, messageset, uidset,
 					  copy_func, &ctx) <= 0;
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
-		return mail_storage_set_index_error(ibox);
+	if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
+		return FALSE;
 
 	return !failed;
 }

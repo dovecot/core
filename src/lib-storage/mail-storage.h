@@ -40,7 +40,7 @@ typedef enum {
 typedef struct _MailStorage MailStorage;
 typedef struct _Mailbox Mailbox;
 typedef struct _MailboxStatus MailboxStatus;
-typedef struct _MailboxSyncCallbacks MailboxSyncCallbacks;
+typedef struct _MailStorageCallbacks MailStorageCallbacks;
 typedef struct _MailFetchData MailFetchData;
 typedef struct _MailFetchBodyData MailFetchBodyData;
 typedef struct _MailSearchArg MailSearchArg;
@@ -63,6 +63,10 @@ struct _MailStorage {
 	/* Returns TRUE if this storage would accept the given data
 	   as a valid parameter to create(). */
 	int (*autodetect)(const char *data);
+
+	/* Set storage callback functions to use. */
+	void (*set_callbacks)(MailStorage *storage,
+			      MailStorageCallbacks *callbacks, void *context);
 
 	/* Open a mailbox. If readonly is TRUE, mailbox must not be
 	   modified in any way even when it's asked. If fast is TRUE,
@@ -112,6 +116,9 @@ struct _MailStorage {
 	char *dir; /* root directory */
 	char *user; /* name of user accessing the storage */
 	char *error;
+
+	MailStorageCallbacks *callbacks;
+	void *callback_context;
 };
 
 struct _Mailbox {
@@ -122,11 +129,6 @@ struct _Mailbox {
 	/* Close the box. Returns FALSE if some cleanup errors occured, but
 	   the mailbox was closed anyway. */
 	int (*close)(Mailbox *box);
-
-	/* Set synchronization callback functions to use. */
-	void (*set_sync_callbacks)(Mailbox *box,
-				   MailboxSyncCallbacks *callbacks,
-				   void *context);
 
 	/* Gets the mailbox status information. */
 	int (*get_status)(Mailbox *box, MailboxStatusItems items,
@@ -199,9 +201,13 @@ struct _MailboxStatus {
 	const char **custom_flags;
 };
 
-struct _MailboxSyncCallbacks {
+struct _MailStorageCallbacks {
 	/* Alert: Not enough disk space */
 	void (*alert_no_diskspace)(Mailbox *mailbox, void *context);
+	/* "* OK <text>" */
+	void (*notify_ok)(Mailbox *mailbox, const char *text, void *context);
+	/* "* NO <text>" */
+	void (*notify_no)(Mailbox *mailbox, const char *text, void *context);
 
 	/* EXPUNGE */
 	void (*expunge)(Mailbox *mailbox, unsigned int seq, void *context);

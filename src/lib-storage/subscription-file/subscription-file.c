@@ -42,8 +42,9 @@ static int subscription_open(MailStorage *storage, int update,
 		return -1;
 	}
 
-	if (file_wait_lock(fd, update ? F_WRLCK : F_RDLCK,
-			   DEFAULT_LOCK_TIMEOUT) <= 0) {
+	/* FIXME: we should work without locking, rename() would be easiest
+	   but .lock would work too */
+	if (file_wait_lock(fd, update ? F_WRLCK : F_RDLCK) <= 0) {
 		subsfile_set_syscall_error(storage, "file_wait_lock()", *path);
 		(void)close(fd);
 		return -1;

@@ -85,7 +85,8 @@ static int mail_index_foreach(MailIndex *index,
 		rec = index->next(index, rec);
 	}
 
-	if (rec == NULL && index->get_last_error(index) != NULL) {
+	if (rec == NULL &&
+	    index->get_last_error(index) != MAIL_INDEX_ERROR_NONE) {
 		/* error occured */
 		return -1;
 	}
@@ -230,7 +231,8 @@ static int mail_index_uid_foreach(MailIndex *index,
 		rec = index->next(index, rec);
 	}
 
-	if (rec == NULL && index->get_last_error(index) != NULL) {
+	if (rec == NULL &&
+	    index->get_last_error(index) != MAIL_INDEX_ERROR_NONE) {
 		/* error occured */
 		return -1;
 	}

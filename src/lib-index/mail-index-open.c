@@ -245,49 +245,53 @@ static int index_open_and_fix(MailIndex *index, int update_recent, int fast)
 	return TRUE;
 }
 
+static int mail_index_verify_header(MailIndex *index, MailIndexHeader *hdr)
+{
+	/* if index is being created, we'll wait here until it's finished */
+	if (!mail_index_wait_lock(index, F_RDLCK))
+		return FALSE;
+
+	/* check the compatibility anyway just to be sure */
+	if (!read_and_verify_header(index->fd, hdr, TRUE)) {
+		index_set_error(index, "Non-compatible index file %s",
+				index->filepath);
+		(void)mail_index_wait_lock(index, F_UNLCK);
+		return FALSE;
+	}
+
+	if (!mail_index_wait_lock(index, F_UNLCK))
+		return FALSE;
+
+	return TRUE;
+}
+
 static int mail_index_open_file(MailIndex *index, const char *path,
 				int update_recent, int fast)
 {
         MailIndexHeader hdr;
-	int fd, failed;
 
 	/* the index file should already be checked that it exists and
 	   we're compatible with it. */
 
-	fd = open(path, O_RDWR);
-	if (fd == -1)
+	index->fd = open(path, O_RDWR);
+	if (index->fd == -1)
 		return index_file_set_syscall_error(index, path, "open()");
-
-	/* if index is being created, we'll wait here until it's finished */
-	if (file_wait_lock(fd, F_RDLCK, DEFAULT_LOCK_TIMEOUT) <= 0) {
-		index_file_set_syscall_error(index, path, "file_wait_lock()");
-		(void)close(fd);
-		return FALSE;
-	}
-
-	/* check the compatibility anyway just to be sure */
-	if (!read_and_verify_header(fd, &hdr, TRUE)) {
-		index_set_error(index, "Non-compatible index file %s", path);
-		(void)close(fd);
-		return FALSE;
-	}
-
-	if (file_wait_lock(fd, F_UNLCK, 0) <= 0) {
-		index_file_set_syscall_error(index, path, "file_wait_lock()");
-		(void)close(fd);
-		return FALSE;
-	}
-
-	index->fd = fd;
 	index->filepath = i_strdup(path);
+
+	if (!mail_index_verify_header(index, &hdr)) {
+		(void)close(index->fd);
+		index->fd = -1;
+
+		i_free(index->filepath);
+		index->filepath = NULL;
+		return FALSE;
+	}
+
 	index->indexid = hdr.indexid;
 
-	failed = !index_open_and_fix(index, update_recent, fast);
-
-	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
-		failed = TRUE;
-
-	if (failed) {
+	/* the shared lock set is just to make sure we drop exclusive lock */
+	if (!index_open_and_fix(index, update_recent, fast) ||
+	    !index->set_lock(index, MAIL_LOCK_UNLOCK)) {
 		mail_index_close(index);
 		return FALSE;
 	}
@@ -296,43 +300,48 @@ static int mail_index_open_file(MailIndex *index, const char *path,
 }
 
 static int mail_index_init_new_file(MailIndex *index, MailIndexHeader *hdr,
-				    int fd, const char *path,
-				    const char **index_path)
+				    const char *temp_path)
 {
-	off_t fsize;
+	const char *index_path;
+	uoff_t fsize;
 
-	*index_path = NULL;
+	/* set the index's path temporarily */
+	index->filepath = t_strdup_noconst(temp_path);
 
-	if (write_full(fd, hdr, sizeof(MailIndexHeader)) < 0) {
-		index_file_set_syscall_error(index, path, "write_full()");
+	if (write_full(index->fd, hdr, sizeof(MailIndexHeader)) < 0) {
+		index_set_syscall_error(index, "write_full()");
+		index->filepath = NULL;
 		return FALSE;
 	}
 
 	fsize = sizeof(MailIndexHeader) +
 		INDEX_MIN_RECORDS_COUNT * sizeof(MailIndexRecord);
-	if (file_set_size(fd, (off_t)fsize) < 0) {
-		index_file_set_syscall_error(index, path, "file_set_size()");
+	if (file_set_size(index->fd, fsize) < 0) {
+		index_set_syscall_error(index, "file_set_size()");
+		index->filepath = NULL;
 		return FALSE;
 	}
 
-	if (file_wait_lock(fd, F_WRLCK, DEFAULT_LOCK_TIMEOUT) <= 0) {
-		index_file_set_syscall_error(index, path, "file_wait_lock()");
+	if (mail_index_wait_lock(index, F_WRLCK) <= 0) {
+		index->filepath = NULL;
 		return FALSE;
 	}
+	index->filepath = NULL;
 
 	/* move the temp index into the real one. we also need to figure
 	   out what to call ourself on the way. */
-	*index_path = t_strconcat(index->dir, "/"INDEX_FILE_PREFIX, NULL);
-	if (link(path, *index_path) == 0) {
-		if (unlink(path) < 0) {
+	index_path = t_strconcat(index->dir, "/"INDEX_FILE_PREFIX, NULL);
+	if (link(temp_path, index_path) == 0) {
+		if (unlink(temp_path) < 0) {
 			/* doesn't really matter, log anyway */
-			index_file_set_syscall_error(index, path, "unlink()");
+			index_file_set_syscall_error(index, temp_path,
+						     "unlink()");
 		}
 	} else {
 		if (errno != EEXIST) {
 			/* fatal error */
 			index_set_error(index, "link(%s, %s) failed: %m",
-					path, *index_path);
+					temp_path, index_path);
 			return FALSE;
 		}
 
@@ -345,17 +354,18 @@ static int mail_index_init_new_file(MailIndex *index, MailIndexHeader *hdr,
 			   override previous index as well */
 			hostpid_init();
 
-			*index_path = t_strconcat(*index_path, "-",
-						  my_hostname, NULL);
+			index_path = t_strconcat(index_path, "-",
+						 my_hostname, NULL);
 		}
 
-		if (rename(path, *index_path) < 0) {
+		if (rename(temp_path, index_path) < 0) {
 			index_set_error(index, "rename(%s, %s) failed: %m",
-					path, *index_path);
+					temp_path, index_path);
 			return FALSE;
 		}
 	}
 
+	index->filepath = i_strdup(index_path);
 	return TRUE;
 }
 
@@ -363,40 +373,37 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 			     int update_recent)
 {
 	MailIndexHeader hdr;
-	const char *path, *index_path;
-	int fd, nodiskspace;
+	const char *path;
+	int nodiskspace;
 
 	*dir_unlocked = FALSE;
-	index_path = NULL;
 
 	mail_index_init_header(index, &hdr);
 
 	if (index->nodiskspace) {
 		/* don't even bother trying to create it */
-		fd = -1;
 	} else {
 		/* first create the index into temporary file. */
-		fd = mail_index_create_temp_file(index, &path);
-		if (fd != -1) {
-			if (!mail_index_init_new_file(index, &hdr, fd,
-						      path, &index_path)) {
+		index->fd = mail_index_create_temp_file(index, &path);
+		if (index->fd != -1) {
+			if (!mail_index_init_new_file(index, &hdr, path)) {
 				int old_errno = errno;
 
-				(void)close(fd);
+				(void)close(index->fd);
 				(void)unlink(path);
-				fd = -1;
+				index->fd = -1;
 
 				errno = old_errno;
 			}
 		}
 
-		if (fd == -1 && errno != ENOSPC) {
+		if (index->fd == -1 && errno != ENOSPC) {
 			/* fatal failure */
 			return FALSE;
 		}
 	}
 
-	if (fd == -1) {
+	if (index->fd == -1) {
 		/* no space for index files, keep it in memory */
 		index->mmap_full_length = INDEX_FILE_MIN_SIZE;
 		index->mmap_base = mmap_anon(index->mmap_full_length);
@@ -407,11 +414,8 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 
 		index->anon_mmap = TRUE;
 		index->filepath = i_strdup("(in-memory index)");
-	} else {
-		index->filepath = i_strdup(index_path);
 	}
 
-	index->fd = fd;
 	index->indexid = hdr.indexid;
 
 	/* the fd is actually already locked, now we're just making it
@@ -548,18 +552,21 @@ int mail_index_open_or_create(MailIndex *index, int update_recent, int fast)
 	if (mail_index_open(index, update_recent, fast))
 	        return TRUE;
 
+	if (index->index_lock_timeout || index->mailbox_lock_timeout)
+		return FALSE;
+
 	/* index wasn't found or it was broken. lock the directory and check
 	   again, just to make sure we don't end up having two index files
 	   due to race condition with another process. */
 	if (!mail_index_lock_dir(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	if (mail_index_open(index, update_recent, fast)) {
+	failed = FALSE;
+	if (mail_index_open(index, update_recent, fast))
 		dir_unlocked = FALSE;
-		failed = FALSE;
-	} else {
-		failed = !mail_index_create(index, &dir_unlocked,
-					    update_recent);
+	else if (!index->index_lock_timeout && !index->mailbox_lock_timeout) {
+		if (!mail_index_create(index, &dir_unlocked, update_recent))
+			failed = TRUE;
 	}
 
 	if (!dir_unlocked && !mail_index_lock_dir(index, MAIL_LOCK_UNLOCK))

@@ -7,8 +7,11 @@
 #include "index-storage.h"
 
 #include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
+
+#define LOCK_NOTIFY_INTERVAL 30
 
 typedef struct _IndexList IndexList;
 
@@ -140,37 +143,77 @@ static MailDataField get_never_cache_fields(void)
 	return ret;
 }
 
+static void lock_notify(MailLockNotifyType notify_type,
+			unsigned int secs_left, void *context)
+{
+	IndexMailbox *ibox = context;
+	MailStorage *storage = ibox->box.storage;
+	const char *str;
+	time_t now;
+
+	if ((secs_left % 15) != 0) {
+		/* update alarm() so that we get back here around the same
+		   time we want the next notify. also try to use somewhat
+		   rounded times. this affects only fcntl() locking, dotlock
+		   and flock() calls should be calling us constantly */
+		alarm(secs_left%15);
+	}
+
+	now = time(NULL);
+	if (now < ibox->next_lock_notify || secs_left < 15)
+		return;
+
+	ibox->next_lock_notify = now + LOCK_NOTIFY_INTERVAL;
+
+	switch (notify_type) {
+	case MAIL_LOCK_NOTIFY_MAILBOX_ABORT:
+		str = t_strdup_printf("Mailbox is locked, will abort in "
+				      "%u seconds", secs_left);
+		storage->callbacks->notify_no(&ibox->box, str,
+					      storage->callback_context);
+		break;
+	case MAIL_LOCK_NOTIFY_MAILBOX_OVERRIDE:
+		str = t_strdup_printf("Stale mailbox lock file detected, "
+				      "will override in %u seconds", secs_left);
+		storage->callbacks->notify_ok(&ibox->box, str,
+					      storage->callback_context);
+		break;
+	case MAIL_LOCK_NOTIFY_INDEX_ABORT:
+		str = t_strdup_printf("Mailbox index is locked, will abort in "
+				      "%u seconds", secs_left);
+		storage->callbacks->notify_no(&ibox->box, str,
+					      storage->callback_context);
+		break;
+	}
+}
+
+int index_storage_lock(IndexMailbox *ibox, MailLockType lock_type)
+{
+	int ret;
+
+	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
+
+	/* we have to set/reset this every time, because the same index
+	   may be used by multiple IndexMailboxes. */
+	ibox->index->set_lock_notify_callback(ibox->index, lock_notify, ibox);
+	ret = ibox->index->set_lock(ibox->index, lock_type);
+	ibox->index->set_lock_notify_callback(ibox->index, NULL, NULL);
+
+	if (!ret)
+		return mail_storage_set_index_error(ibox);
+
+	return TRUE;
+}
+
 IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 				 MailIndex *index, const char *name,
 				 int readonly, int fast)
 {
 	IndexMailbox *ibox;
-	MailIndexHeader *hdr;
-	unsigned int messages;
 
 	i_assert(name != NULL);
 
 	do {
-		if (!index->opened) {
-			/* open the index first */
-			index->default_cache_fields =
-				get_default_cache_fields();
-			index->never_cache_fields =
-				get_never_cache_fields();
-			if (!index->open_or_create(index, !readonly, fast))
-				break;
-		}
-
-		/* Get the synced messages count */
-		if (!index->set_lock(index, MAIL_LOCK_SHARED))
-			break;
-
-		hdr = mail_index_get_header(index);
-		messages = hdr->messages_count;
-
-		if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
-			break;
-
 		ibox = i_new(IndexMailbox, 1);
 		ibox->box = *box;
 
@@ -181,13 +224,36 @@ IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 
 		ibox->index = index;
 		ibox->cache = imap_msgcache_alloc(&index_msgcache_iface);
-		ibox->synced_messages_count = messages;
+
+		ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
+		index->set_lock_notify_callback(index, lock_notify, ibox);
+
+		if (!index->opened) {
+			/* open the index first */
+			index->default_cache_fields =
+				get_default_cache_fields();
+			index->never_cache_fields =
+				get_never_cache_fields();
+			if (!index->open_or_create(index, !readonly, fast))
+				break;
+		}
+
+		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
+			break;
+
+		ibox->synced_messages_count =
+			mail_index_get_header(index)->messages_count;
+
+		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
+			break;
+
+		index->set_lock_notify_callback(index, NULL, NULL);
 
 		return ibox;
 	} while (0);
 
-	mail_storage_set_internal_error(storage);
-	index_storage_unref(index);
+	mail_storage_set_index_error(ibox);
+	index_storage_close(&ibox->box);
 	return NULL;
 }
 
@@ -197,32 +263,48 @@ int index_storage_close(Mailbox *box)
 
 	index_mailbox_check_remove(ibox);
 	imap_msgcache_free(ibox->cache);
-	index_storage_unref(ibox->index);
+	if (ibox->index != NULL)
+		index_storage_unref(ibox->index);
+
 	i_free(box->name);
 	i_free(box);
 
 	return TRUE;
 }
 
-void index_storage_set_sync_callbacks(Mailbox *box,
-				      MailboxSyncCallbacks *callbacks,
-				      void *context)
+void index_storage_set_callbacks(MailStorage *storage,
+				 MailStorageCallbacks *callbacks,
+				 void *context)
 {
-	IndexMailbox *ibox = (IndexMailbox *) box;
-
-	memcpy(&ibox->sync_callbacks, callbacks, sizeof(MailboxSyncCallbacks));
-	ibox->sync_context = context;
+	memcpy(storage->callbacks, callbacks, sizeof(MailStorageCallbacks));
+	storage->callback_context = context;
 }
 
 int mail_storage_set_index_error(IndexMailbox *ibox)
 {
-	ibox->box.inconsistent =
-		ibox->index->is_inconsistency_error(ibox->index);
-
-	if (ibox->index->is_diskspace_error(ibox->index))
-		mail_storage_set_error(ibox->box.storage, "Out of disk space");
-	else
+	switch (ibox->index->get_last_error(ibox->index)) {
+	case MAIL_INDEX_ERROR_NONE:
+	case MAIL_INDEX_ERROR_INTERNAL:
 		mail_storage_set_internal_error(ibox->box.storage);
+		break;
+	case MAIL_INDEX_ERROR_INCONSISTENT:
+		ibox->box.inconsistent = TRUE;
+		break;
+	case MAIL_INDEX_ERROR_DISKSPACE:
+		mail_storage_set_error(ibox->box.storage, "Out of disk space");
+		break;
+	case MAIL_INDEX_ERROR_INDEX_LOCK_TIMEOUT:
+		mail_storage_set_error(ibox->box.storage, t_strconcat(
+			"Timeout while waiting for lock to index of mailbox ",
+			ibox->box.name, NULL));
+		break;
+	case MAIL_INDEX_ERROR_MAILBOX_LOCK_TIMEOUT:
+		mail_storage_set_error(ibox->box.storage, t_strconcat(
+			"Timeout while waiting for lock to mailbox ",
+			ibox->box.name, NULL));
+		break;
+	}
+
 	index_reset_error(ibox->index);
 	return FALSE;
 }

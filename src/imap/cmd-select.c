@@ -4,8 +4,6 @@
 #include "temp-string.h"
 #include "commands.h"
 
-extern MailboxSyncCallbacks sync_callbacks;
-
 int cmd_select_full(Client *client, int readonly)
 {
 	Mailbox *box;
@@ -16,28 +14,29 @@ int cmd_select_full(Client *client, int readonly)
 	if (!client_read_string_args(client, 1, &mailbox))
 		return FALSE;
 
-	if (client->mailbox != NULL)
+	if (client->mailbox != NULL) {
 		client->mailbox->close(client->mailbox);
+		client->mailbox = NULL;
+	}
 
-	client->mailbox = client->storage->open_mailbox(client->storage,
-							mailbox, readonly,
-							FALSE);
-	if (client->mailbox == NULL) {
+	box = client->storage->open_mailbox(client->storage, mailbox,
+					    readonly, FALSE);
+	if (box == NULL) {
 		client_send_storage_error(client);
 		return TRUE;
 	}
 
-	box = client->mailbox;
 	if (!box->get_status(box, STATUS_MESSAGES | STATUS_RECENT |
 			     STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
 			     STATUS_CUSTOM_FLAGS, &status)) {
 		client_send_storage_error(client);
+		box->close(box);
 		return TRUE;
 	}
 
-	/* set callbacks after STATUS, which might otherwise try calling
-	   some of them */
-	box->set_sync_callbacks(box, &sync_callbacks, client);
+	/* set client's mailbox only after getting status to make sure
+	   we're not sending any expunge/exists replies too early to client */
+	client->mailbox = box;
 
 	client_send_mailbox_flags(client, box, status.custom_flags,
 				  status.custom_flags_count);

@@ -76,11 +76,13 @@ static MailStorage *mbox_create(const char *data, const char *user)
 
 	storage->dir = i_strdup(data);
 	storage->user = i_strdup(user);
+	storage->callbacks = i_new(MailStorageCallbacks, 1);
 	return storage;
 }
 
 static void mbox_free(MailStorage *storage)
 {
+	i_free(storage->callbacks);
 	i_free(storage->dir);
 	i_free(storage->user);
 	i_free(storage);
@@ -397,6 +399,7 @@ MailStorage mbox_storage = {
 	mbox_create,
 	mbox_free,
 	mbox_autodetect,
+	index_storage_set_callbacks,
 	mbox_open_mailbox,
 	mbox_create_mailbox,
 	mbox_delete_mailbox,
@@ -409,7 +412,8 @@ MailStorage mbox_storage = {
 
 	NULL,
 	NULL,
-	NULL
+	NULL,
+	NULL, NULL
 };
 
 Mailbox mbox_mailbox = {
@@ -417,7 +421,6 @@ Mailbox mbox_mailbox = {
 	NULL, /* storage */
 
 	mbox_storage_close,
-	index_storage_set_sync_callbacks,
 	index_storage_get_status,
 	index_storage_sync,
 	index_storage_expunge,

@@ -79,8 +79,7 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 		return FALSE;
 
 	if (!index_storage_sync_modifylog(ibox, FALSE)) {
-		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
-			return mail_storage_set_index_error(ibox);
+		(void)index_storage_lock(ibox, MAIL_LOCK_UNLOCK);
 		return FALSE;
 	}
 
@@ -103,7 +102,7 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 	if (items & STATUS_CUSTOM_FLAGS)
 		get_custom_flags(ibox->index->custom_flags, status);
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
-		return mail_storage_set_index_error(ibox);
+	if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
+		return FALSE;
 	return TRUE;
 }
