@@ -573,6 +573,7 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct cached_header *hdr;
+	const unsigned char *start, *end, *p;
 	const char *arr[2];
 	int idx;
 
@@ -600,8 +601,19 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 		}
 	}
 
-	return hdr->value_idx == 0 ? NULL :
-		t_strcut(str_c(mail->data.header_data) + hdr->value_idx, '\n');
+	if (hdr->value_idx == 0)
+		return NULL;
+
+	start = str_data(mail->data.header_data);
+	end = start + str_len(mail->data.header_data);
+	for (p = start + hdr->value_idx; p != end; p++) {
+		if (*p == '\n') {
+			if (p+1 == end || (p[1] != ' ' && p[1] != '\t'))
+				break;
+		}
+	}
+
+	return t_strdup_until(start, p);
 }
 
 struct istream *index_mail_get_headers(struct mail *_mail,
