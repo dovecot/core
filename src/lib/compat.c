@@ -160,3 +160,15 @@ ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset)
 	return pwrite(fd, buf, count, offset);
 }
 #endif
+
+#ifndef HAVE_SETEUID
+int my_seteuid(uid_t euid)
+{
+#ifdef HAVE_SETREUID
+	/* HP-UX at least doesn't have seteuid() but has setreuid() */
+	return setreuid(-1, euid);
+#else
+#  error Missing seteuid functionality
+#endif
+}
+#endif

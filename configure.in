@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 1.0-test40)
+AM_INIT_AUTOMAKE(dovecot, 1.0-test46)
 
 AM_MAINTAINER_MODE
 
@@ -266,7 +266,7 @@ fi
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsnprintf vsyslog writev pread \
-	       setrlimit setproctitle)
+	       setrlimit setproctitle seteuid setreuid)
 
 dnl * I/O loop function
 have_ioloop=no

@@ -108,6 +108,10 @@ ssize_t my_pread(int fd, void *buf, size_t count, off_t offset);
 ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset);
 #endif
 
+#ifndef HAVE_SETEUID
+int my_seteuid(uid_t euid);
+#endif
+
 /* ctype.h isn't safe with signed chars,
    use our own instead if really needed */
 #define i_toupper(x) ((char) toupper((int) (unsigned char) (x)))
