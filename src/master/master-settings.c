@@ -287,7 +287,7 @@ struct settings default_settings = {
 	/* imap */
 	MEMBER(imap_max_line_length) 65536,
 	MEMBER(imap_capability) NULL,
-	MEMBER(imap_client_workarounds) NULL,
+	MEMBER(imap_client_workarounds) "outlook-idle",
 
 	/* pop3 */
 	MEMBER(pop3_no_flag_updates) FALSE,
