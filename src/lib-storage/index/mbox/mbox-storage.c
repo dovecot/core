@@ -98,6 +98,26 @@ static const char *get_root_dir(void)
 	return NULL;
 }
 
+static const char *create_root_dir(void)
+{
+	const char *home, *path;
+
+	home = getenv("HOME");
+	if (home == NULL) {
+		i_error("mbox: We need root IMAP folder, "
+			"but can't find it or HOME environment");
+		return NULL;
+	}
+
+	path = t_strconcat(home, "/mail", NULL);
+	if (mkdir(path, CREATE_MODE) < 0) {
+		i_error("mbox: Can't create root IMAP folder %s: %m", path);
+		return NULL;
+	}
+
+	return path;
+}
+
 static struct mail_storage *mbox_create(const char *data, const char *user)
 {
 	struct mail_storage *storage;
@@ -140,8 +160,11 @@ static struct mail_storage *mbox_create(const char *data, const char *user)
 		}
 	}
 
-	if (root_dir == NULL)
-		return NULL;
+	if (root_dir == NULL) {
+		root_dir = create_root_dir();
+		if (root_dir == NULL)
+			return NULL;
+	}
 
 	if (inbox_file == NULL)
 		inbox_file = t_strconcat(root_dir, "/inbox", NULL);
