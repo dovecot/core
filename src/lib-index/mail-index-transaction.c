@@ -33,13 +33,19 @@ mail_index_transaction_begin(struct mail_index_view *view, int hide)
 
 static void mail_index_transaction_free(struct mail_index_transaction *t)
 {
-	unsigned int i;
+	buffer_t **recs;
+	unsigned int i, size;
 
 	mail_index_view_transaction_unref(t->view);
 
-	for (i = 0; i < t->view->index->extra_records_count; i++) {
-		if (t->extra_rec_updates[i] != NULL)
-			buffer_free(t->extra_rec_updates[i]);
+	if (t->extra_rec_updates != NULL) {
+		recs = buffer_get_modifyable_data(t->extra_rec_updates, &size);
+		size /= sizeof(*recs);
+
+		for (i = 0; i < size; i++) {
+			if (recs[i] != NULL)
+				buffer_free(recs[i]);
+		}
 	}
 
 	if (t->appends != NULL)
@@ -50,6 +56,8 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 		buffer_free(t->updates);
 	if (t->cache_updates != NULL)
 		buffer_free(t->cache_updates);
+	if (t->extra_intros != NULL)
+		buffer_free(t->extra_intros);
 	i_free(t);
 }
 
@@ -65,12 +73,15 @@ void mail_index_transaction_unref(struct mail_index_transaction *t)
 }
 
 static void
-mail_index_buffer_convert_to_uids(struct mail_index_view *view,
+mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
 				  buffer_t *buf, size_t record_size, int range)
 {
+        struct mail_index_view *view = t->view;
+	const struct mail_index_record *rec;
 	unsigned char *data;
 	size_t size, i;
 	uint32_t *seq;
+	int j;
 
 	if (buf == NULL)
 		return;
@@ -79,12 +90,16 @@ mail_index_buffer_convert_to_uids(struct mail_index_view *view,
 	data = buffer_get_modifyable_data(buf, &size);
 	for (i = 0; i < size; i += record_size) {
 		seq = (uint32_t *)&data[i];
-		i_assert(seq[0] <= view->map->records_count);
 
-		seq[0] = MAIL_INDEX_MAP_IDX(view->map, seq[0]-1)->uid;
-		if (range) {
-			i_assert(seq[1] <= view->map->records_count);
-			seq[1] = MAIL_INDEX_MAP_IDX(view->map, seq[1]-1)->uid;
+		for (j = 0; j <= range; j++, seq++) {
+			if (*seq >= t->first_new_seq) {
+				rec = mail_index_transaction_lookup(t, *seq);
+				*seq = rec->uid;
+			} else {
+				*seq = MAIL_INDEX_MAP_IDX(view->map,
+							  *seq - 1)->uid;
+			}
+			i_assert(*seq != 0);
 		}
 	}
 }
@@ -93,27 +108,34 @@ static int
 mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 {
 	struct mail_index *index = t->view->index;
-	unsigned int i;
+        const struct mail_index_extra_record_info *einfos;
+	buffer_t **updates;
+	unsigned int i, size;
 
 	if (mail_index_view_lock(t->view) < 0)
 		return -1;
 
-	for (i = 0; i < index->extra_records_count; i++) {
-		if (t->extra_rec_updates[i] == NULL)
-			continue;
+	if (t->extra_rec_updates != NULL) {
+		einfos = buffer_get_data(index->extra_infos, NULL);
+		updates = buffer_get_modifyable_data(t->extra_rec_updates,
+						     &size);
+		size /= sizeof(*updates);
 
-		mail_index_buffer_convert_to_uids(t->view,
-						  t->extra_rec_updates[i],
-                                                  sizeof(uint32_t) +
-						  index->extra_records[i].size,
-						  FALSE);
+		for (i = 0; i < size; i++) {
+			if (updates[i] == NULL)
+				continue;
+
+			mail_index_buffer_convert_to_uids(t, updates[i],
+				sizeof(uint32_t) + einfos[i].record_size,
+				FALSE);
+		}
 	}
 
-	mail_index_buffer_convert_to_uids(t->view, t->expunges,
+	mail_index_buffer_convert_to_uids(t, t->expunges,
 		sizeof(struct mail_transaction_expunge), TRUE);
-	mail_index_buffer_convert_to_uids(t->view, t->updates,
+	mail_index_buffer_convert_to_uids(t, t->updates,
 		sizeof(struct mail_transaction_flag_update), TRUE);
-	mail_index_buffer_convert_to_uids(t->view, t->cache_updates,
+	mail_index_buffer_convert_to_uids(t, t->cache_updates,
 		sizeof(struct mail_transaction_cache_update), FALSE);
 	return 0;
 }
@@ -157,42 +179,6 @@ void mail_index_transaction_rollback(struct mail_index_transaction *t)
         mail_index_transaction_unref(t);
 }
 
-static void
-mail_index_transaction_update_append_size(struct mail_index_transaction *t)
-{
-	buffer_t *new_buf;
-	unsigned int new_record_size;
-	const void *src;
-	void *dest;
-	size_t i, size;
-
-	new_record_size = t->view->index->max_record_size;
-	if (t->append_record_size == new_record_size)
-		return;
-
-	i_assert(t->append_record_size < new_record_size);
-
-	if (t->append_record_size != 0) {
-		/* resize the records in buffer */
-		src = buffer_get_data(t->appends, &size);
-		size /= t->append_record_size;
-
-		new_buf = buffer_create_dynamic(default_pool,
-						(size + 10) * new_record_size,
-						(size_t)-1);
-		for (i = 0; i < size; i++) {
-			dest = buffer_append_space_unsafe(new_buf,
-							  new_record_size);
-			memcpy(dest, src, t->append_record_size);
-			src = CONST_PTR_OFFSET(src, t->append_record_size);
-		}
-		buffer_free(t->appends);
-		t->appends = new_buf;
-	}
-
-	t->append_record_size = new_record_size;
-}
-
 struct mail_index_record *
 mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq)
 {
@@ -200,10 +186,9 @@ mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq)
 
 	i_assert(seq >= t->first_new_seq && seq <= t->last_new_seq);
 
-	mail_index_transaction_update_append_size(t);
-
-	pos = (seq - t->first_new_seq) * t->append_record_size;
-	return buffer_get_space_unsafe(t->appends, pos, t->append_record_size);
+	pos = (seq - t->first_new_seq) * sizeof(struct mail_index_record);
+	return buffer_get_space_unsafe(t->appends, pos,
+				       sizeof(struct mail_index_record));
 }
 
 void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
@@ -214,9 +199,7 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 	if (t->appends == NULL) {
 		t->appends = buffer_create_dynamic(default_pool,
 						   4096, (size_t)-1);
-		t->append_record_size = t->view->index->max_record_size;
 	}
-	mail_index_transaction_update_append_size(t);
 
 	/* sequence number is visible only inside given view,
 	   so let it generate it */
@@ -225,8 +208,8 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 	else
 		*seq_r = t->last_new_seq = t->first_new_seq;
 
-	rec = buffer_append_space_unsafe(t->appends, t->append_record_size);
-	memset(rec, 0, t->append_record_size);
+	rec = buffer_append_space_unsafe(t->appends, sizeof(*rec));
+	memset(rec, 0, sizeof(*rec));
 	rec->uid = uid;
 }
 
@@ -243,16 +226,14 @@ void mail_index_append_assign_uids(struct mail_index_transaction *t,
 	end = PTR_OFFSET(rec, size);
 
 	/* find the first mail with uid = 0 */
-	while (rec != end) {
+	for (; rec != end; rec++) {
 		if (rec->uid == 0)
 			break;
-		rec = PTR_OFFSET(rec, t->append_record_size);
 	}
 
-	while (rec != end) {
+	for (; rec != end; rec++) {
 		i_assert(rec->uid == 0);
 		rec->uid = first_uid++;
-		rec = PTR_OFFSET(rec, t->append_record_size);
 	}
 
 	*next_uid_r = first_uid;
@@ -511,9 +492,8 @@ static void mail_index_transaction_add_last(struct mail_index_transaction *t)
 		      &update, sizeof(update));
 }
 
-static int
-mail_index_seq_buffer_lookup(buffer_t *buffer, uint32_t seq,
-			     size_t record_size, size_t *pos_r)
+int mail_index_seq_buffer_lookup(buffer_t *buffer, uint32_t seq,
+				 size_t record_size, size_t *pos_r)
 {
 	unsigned int idx, left_idx, right_idx;
 	void *data;
@@ -657,20 +637,22 @@ void mail_index_update_extra_rec(struct mail_index_transaction *t,
 				 const void *data)
 {
 	struct mail_index *index = t->view->index;
-	struct mail_index_record *rec;
+	buffer_t **buf;
+        const struct mail_index_extra_record_info *einfo;
 
-	i_assert(data_id < index->extra_records_count);
+	i_assert(data_id < index->extra_infos->used / sizeof(*einfo));
 
-	if (seq >= t->first_new_seq) {
-		/* just appended message, modify it directly */
-		/* FIXME: do data_id mapping conversion */
-		rec = mail_index_transaction_lookup(t, seq);
-		memcpy(PTR_OFFSET(rec, index->extra_records[data_id].offset),
-		       data, index->extra_records[data_id].size);
-	} else {
-		mail_index_update_seq_buffer(&t->extra_rec_updates[data_id],
-			seq, data, index->extra_records[data_id].size, NULL);
+	einfo = index->extra_infos->data;
+	einfo += data_id;
+
+	if (t->extra_rec_updates == NULL) {
+		t->extra_rec_updates =
+			buffer_create_dynamic(default_pool, 128, (size_t)-1);
 	}
+	buf = buffer_get_space_unsafe(t->extra_rec_updates,
+				      data_id * sizeof(buffer_t *),
+				      sizeof(buffer_t *));
+	mail_index_update_seq_buffer(buf, seq, data, einfo->record_size, NULL);
 }
 
 void mail_index_update_header(struct mail_index_transaction *t,

@@ -338,7 +338,7 @@ static int mbox_sync_get_from_offset(struct mbox_sync_context *sync_ctx,
 		return -1;
 	}
 
-	*offset_r = *((const uint64_t *)data);
+	*offset_r = data == NULL ? 0 : *((const uint64_t *)data);
 	return 0;
 }
 
@@ -764,7 +764,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				sync_ctx->ibox->md5hdr_extra_idx =
 					mail_index_register_record_extra(
 						sync_ctx->ibox->index,
-						"header-md5", 16);
+						"header-md5", 0, 16);
 			}
 
 			if (mbox_sync_find_index_md5(sync_ctx,

@@ -3,7 +3,7 @@
 
 #include "mail-types.h"
 
-#define MAIL_INDEX_MAJOR_VERSION 4
+#define MAIL_INDEX_MAJOR_VERSION 5
 #define MAIL_INDEX_MINOR_VERSION 0
 
 #define MAIL_INDEX_HEADER_MIN_SIZE 120
@@ -97,7 +97,6 @@ struct mail_index_header {
 	uint64_t sync_size;
 
 	uint32_t cache_file_seq;
-	uint32_t extra_records_hdr_offset;
 
 	/* daily first UIDs that have been added to index. */
 	uint32_t day_stamp;
@@ -142,7 +141,8 @@ void mail_index_free(struct mail_index *index);
    identifier for the data. if same name is tried to be registered multiple
    times, the rest are ignored. returns identifier for the name. */
 uint32_t mail_index_register_record_extra(struct mail_index *index,
-					  const char *name, uint16_t size);
+					  const char *name, uint32_t hdr_size,
+					  uint16_t record_size);
 
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags);
 void mail_index_close(struct mail_index *index);

@@ -206,7 +206,7 @@ static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 		memset(&sync_map_ctx, 0, sizeof(sync_map_ctx));
 		sync_map_ctx.view = view;
 
-		if (mail_transaction_map(view->index, ctx->hdr, ctx->data,
+		if (mail_transaction_map(view->map, ctx->hdr, ctx->data,
 					 &mail_index_map_sync_funcs,
 					 &sync_map_ctx) < 0)
 			return -1;

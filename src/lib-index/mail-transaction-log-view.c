@@ -22,6 +22,8 @@ struct mail_transaction_log_view {
 	uint32_t prev_file_seq;
 	uoff_t prev_file_offset;
 
+	uint32_t max_extra_data_id;
+
 	unsigned int broken:1;
 };
 
@@ -286,25 +288,35 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 			", size=%u, end=%"PRIuSIZE_T")",
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
 			view->cur_offset, hdr_size, file_size);
-                view->cur_offset = file_size;
 		return -1;
 	}
 	if (hdr_size < sizeof(*hdr)) {
+		type_rec = NULL;
+		record_size = 0;
+	} else {
+		type_rec = mail_transaction_type_lookup(hdr->type);
+		if (type_rec != NULL)
+			record_size = type_rec->record_size;
+		else {
+			mail_transaction_log_file_set_corrupted(file,
+				"unknown record type 0x%x",
+				hdr->type & MAIL_TRANSACTION_TYPE_MASK);
+			return -1;
+		}
+	}
+
+	if (hdr_size < sizeof(*hdr) + record_size) {
 		mail_transaction_log_file_set_corrupted(file,
 			"record size too small (type=0x%x, size=%u)",
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK, hdr_size);
-                view->cur_offset = file_size;
 		return -1;
 	}
 
-	type_rec = mail_transaction_type_lookup(hdr->type);
-	if (type_rec != NULL)
-		record_size = type_rec->record_size;
-	else {
+	if ((hdr_size - sizeof(*hdr)) % record_size != 0) {
 		mail_transaction_log_file_set_corrupted(file,
-			"unknown record type 0x%x",
-			hdr->type & MAIL_TRANSACTION_TYPE_MASK);
-                view->cur_offset = file->sync_offset;
+			"record size wrong (type 0x%x, %u %% %u != 0)",
+			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
+			(hdr_size - sizeof(*hdr)), record_size);
 		return -1;
 	}
 
@@ -320,25 +332,34 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 			"extra bits in header type: 0x%x",
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK);
 		return -1;
-	} else if (hdr->type == MAIL_TRANSACTION_EXTRA_REC_UPDATE) {
-		const struct mail_transaction_extra_rec_header *ehdr = data;
+	} else if (hdr->type == MAIL_TRANSACTION_EXTRA_INTRO) {
+		const struct mail_transaction_extra_intro *intro = data;
 
-		if (ehdr->data_id >= view->log->index->extra_records_count) {
+		if (intro->data_id > view->max_extra_data_id)
+			view->max_extra_data_id = intro->data_id;
+		if (intro->name_size >
+		    hdr_size - sizeof(*hdr) - sizeof(*intro)) {
 			mail_transaction_log_file_set_corrupted(file,
-				"extra record update out of range (%u > %u)",
-				ehdr->data_id,
-				view->log->index->extra_records_count);
+				"extra intro: name_size too large");
 			return -1;
 		}
-	}
+	} else if (hdr->type == MAIL_TRANSACTION_EXTRA_REC_UPDATE ||
+		   hdr->type == MAIL_TRANSACTION_EXTRA_HDR_UPDATE ||
+		   hdr->type == MAIL_TRANSACTION_EXTRA_RESET) {
+		const uint32_t *data_id = data;
+		uint32_t max_data_id;
 
-	if ((hdr_size - sizeof(*hdr)) % record_size != 0) {
-		mail_transaction_log_file_set_corrupted(file,
-			"record size wrong (type 0x%x, %u %% %u != 0)",
-			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
-			(hdr_size - sizeof(*hdr)), record_size);
-                view->cur_offset = file->sync_offset;
-		return -1;
+		max_data_id = view->log->index->map->extra_infos->used /
+			sizeof(struct mail_index_extra_record_info);
+		if (view->max_extra_data_id > max_data_id)
+			max_data_id = view->max_extra_data_id;
+
+		if (*data_id >= max_data_id) {
+			mail_transaction_log_file_set_corrupted(file,
+				"extra record update out of range (%u > %u)",
+				*data_id, max_data_id);
+			return -1;
+		}
 	}
 
 	*hdr_r = hdr;
@@ -372,8 +393,12 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 		   append isn't in mask */
 	}
 
-	if (ret <= 0)
-		return ret;
+	if (ret < 0) {
+		view->cur_offset = view->cur->sync_offset;
+		return -1;
+	}
+	if (ret == 0)
+		return 0;
 
 	view->tmp_hdr = *hdr;
 	view->tmp_hdr.size =

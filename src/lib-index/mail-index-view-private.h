@@ -18,6 +18,8 @@ struct mail_index_view_methods {
 				uint32_t *first_seq_r, uint32_t *last_seq_r);
 	int (*lookup_first)(struct mail_index_view *view, enum mail_flags flags,
 			    uint8_t flags_mask, uint32_t *seq_r);
+	int (*lookup_extra)(struct mail_index_view *view, uint32_t seq,
+			    uint32_t data_id, const void **data_r);
 };
 
 struct mail_index_view {

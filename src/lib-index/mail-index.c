@@ -26,12 +26,11 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->prefix = i_strdup(prefix);
 	index->fd = -1;
 
-	index->extra_records_pool =
-		pool_alloconly_create("extra_record_pool", 256);
-	index->extra_records_buf =
-		buffer_create_dynamic(index->extra_records_pool,
+	index->extra_infos_pool =
+		pool_alloconly_create("extra_infos_pool", 256);
+	index->extra_infos =
+		buffer_create_dynamic(index->extra_infos_pool,
 				      64, (size_t)-1);
-	index->max_record_size = sizeof(struct mail_index_record);
 
 	index->mode = 0600;
 	index->gid = (gid_t)-1;
@@ -41,7 +40,7 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 void mail_index_free(struct mail_index *index)
 {
 	mail_index_close(index);
-	pool_unref(index->extra_records_pool);
+	pool_unref(index->extra_infos_pool);
 
 	i_free(index->error);
 	i_free(index->dir);
@@ -50,42 +49,171 @@ void mail_index_free(struct mail_index *index)
 }
 
 uint32_t mail_index_register_record_extra(struct mail_index *index,
-					  const char *name, uint16_t size)
+					  const char *name, uint32_t hdr_size,
+					  uint16_t record_size)
 {
+        const struct mail_index_extra_record_info *einfos;
 	struct mail_index_extra_record_info info;
-	size_t buf_size;
+	size_t extra_count;
 	unsigned int i;
 
+	einfos = buffer_get_data(index->extra_infos, &extra_count);
+	extra_count /= sizeof(*einfos);
+
 	/* see if it's there already */
-	for (i = 0; i < index->extra_records_count; i++) {
-		if (strcmp(index->extra_records[i].name, name) == 0) {
-			i_assert(index->extra_records[i].size == size);
+	for (i = 0; i < extra_count; i++) {
+		if (strcmp(einfos[i].name, name) == 0) {
+			i_assert(einfos[i].hdr_size == hdr_size);
+			i_assert(einfos[i].record_size == record_size);
 			return i;
 		}
 	}
 
-	i_assert(size % 4 == 0);
-	i_assert(index->max_record_size + size <= 65535);
-
-	if (index->extra_records_count >= MAIL_INDEX_MAX_EXTRA_RECORDS) {
-		i_panic("Maximum extra record count reached, "
-			"you'll need to recompile with larger limit. "
-			"MAIL_INDEX_MAX_EXTRA_RECORDS = %d",
-			MAIL_INDEX_MAX_EXTRA_RECORDS);
-	}
+	i_assert(hdr_size % 4 == 0);
+	i_assert(record_size % 4 == 0);
 
 	memset(&info, 0, sizeof(info));
-	info.name = p_strdup(index->extra_records_pool, name);
-	info.size = size;
-	info.offset = index->max_record_size;
+	info.name = p_strdup(index->extra_infos_pool, name);
+	info.hdr_size = hdr_size;
+	info.record_size = record_size;
 
-	buffer_append(index->extra_records_buf, &info, sizeof(info));
-	index->extra_records =
-		buffer_get_data(index->extra_records_buf, &buf_size);
-	index->extra_records_count = buf_size / sizeof(info);
+	buffer_append(index->extra_infos, &info, sizeof(info));
+	return extra_count;
+}
 
-	index->max_record_size += size;
-	return index->extra_records_count-1;
+static void mail_index_map_create_extra_infos(struct mail_index_map *map,
+					      unsigned int initial_count)
+{
+	size_t extra_infos_size, extra_infos_id_map_size, size;
+
+	extra_infos_size = initial_count *
+		sizeof(struct mail_index_extra_record_info);
+	extra_infos_id_map_size = initial_count * sizeof(uint32_t);
+	if (map->extra_records_pool == NULL) {
+		size = extra_infos_size + extra_infos_id_map_size +
+			initial_count * 20;
+		map->extra_records_pool =
+			pool_alloconly_create("extra_infos",
+					      nearest_power(size));
+	}
+
+	map->extra_infos = buffer_create_dynamic(map->extra_records_pool,
+						 extra_infos_size, (size_t)-1);
+	map->extra_infos_id_map = buffer_create_dynamic(map->extra_records_pool,
+							extra_infos_id_map_size,
+							(size_t)-1);
+}
+
+uint32_t mail_index_map_register_extra_info(struct mail_index *index,
+					    struct mail_index_map *map,
+					    const char *name,
+					    uint32_t hdr_offset,
+					    uint32_t hdr_size,
+					    uint32_t record_size)
+{
+	const struct mail_index_extra_record_info *last_einfo;
+	struct mail_index_extra_record_info *einfo;
+	size_t size;
+	uint32_t idx, data_id;
+
+	if (map->extra_infos == NULL) {
+                mail_index_map_create_extra_infos(map, 5);
+		last_einfo = NULL;
+		idx = 0;
+	} else {
+		last_einfo = buffer_get_data(map->extra_infos, &size);
+		idx = size / sizeof(*last_einfo);
+		if (idx == 0)
+			last_einfo = NULL;
+		else
+			last_einfo += idx - 1;
+	}
+
+	einfo = buffer_append_space_unsafe(map->extra_infos, sizeof(*einfo));
+	memset(einfo, 0, sizeof(*einfo));
+
+	einfo->name = p_strdup(map->extra_records_pool, name);
+	einfo->hdr_offset = hdr_offset;
+	einfo->hdr_size = hdr_size;
+	einfo->record_size = record_size;
+
+	if (last_einfo != NULL) {
+		einfo->record_offset = last_einfo->record_offset +
+			last_einfo->record_size;
+	} else {
+		einfo->record_offset = sizeof(struct mail_index_record);
+	}
+
+	data_id = mail_index_register_record_extra(index, name,
+						   hdr_size, record_size);
+	buffer_write(map->extra_infos_id_map, data_id * sizeof(uint32_t),
+		     &idx, sizeof(idx));
+	return idx;
+}
+
+static int mail_index_read_extra_infos(struct mail_index *index,
+				       struct mail_index_map *map)
+{
+	const struct mail_index_extra_record_info_header *einfo_hdr;
+	unsigned int i, old_count;
+	const char *name;
+	uint32_t data_id, offset, name_offset;
+
+	offset = map->hdr->base_header_size;
+	if (offset == map->hdr->header_size &&
+	    map->extra_records_pool == NULL) {
+		/* nothing to do, skip allocatations and all */
+		return 1;
+	}
+
+	old_count = index->extra_infos->used /
+		sizeof(struct mail_index_extra_record_info);
+
+	if (map->extra_records_pool != NULL)
+		p_clear(map->extra_records_pool);
+	mail_index_map_create_extra_infos(map, old_count + 5);
+	data_id = (uint32_t)-1;
+	for (i = 0; i < old_count; i++) {
+		buffer_append(map->extra_infos_id_map,
+			      &data_id, sizeof(data_id));
+	}
+
+	name = map->hdr_base;
+	while (offset < map->hdr->header_size) {
+		name_offset = offset;
+
+		while (offset < map->hdr->header_size && name[offset] != '\0')
+			offset++;
+		if (offset == map->hdr->header_size) {
+			mail_index_set_error(index, "Corrupted index file %s: "
+				"Header extension name doesn't end with NUL",
+				index->filepath);
+			return -1;
+		}
+		offset++;
+		while (offset < map->hdr->header_size && (offset % 4) != 0)
+			offset++;
+
+		einfo_hdr = CONST_PTR_OFFSET(map->hdr_base, offset);
+
+		if (offset + sizeof(*einfo_hdr) > map->hdr->header_size ||
+		    offset + sizeof(*einfo_hdr) + einfo_hdr->hdr_size >
+		    map->hdr->header_size) {
+			mail_index_set_error(index, "Corrupted index file %s: "
+				"Header extension goes outside header",
+				index->filepath);
+			return -1;
+		}
+
+		mail_index_map_register_extra_info(index, map,
+						   name + name_offset,
+						   offset + sizeof(*einfo_hdr),
+						   einfo_hdr->hdr_size,
+						   einfo_hdr->record_size);
+
+		offset += sizeof(*einfo_hdr) + einfo_hdr->hdr_size;
+	}
+	return 1;
 }
 
 static int mail_index_check_header(struct mail_index *index,
@@ -151,7 +279,7 @@ static int mail_index_check_header(struct mail_index *index,
 	    hdr->first_deleted_uid_lowwater > hdr->next_uid)
 		return 0;
 
-	return 1;
+	return mail_index_read_extra_infos(index, map);
 }
 
 static void mail_index_map_clear(struct mail_index *index,
@@ -184,6 +312,9 @@ void mail_index_unmap(struct mail_index *index, struct mail_index_map *map)
 
 	i_assert(map->refcount == 0);
 	mail_index_map_clear(index, map);
+	if (map->extra_records_pool != NULL)
+		pool_unref(map->extra_records_pool);
+	buffer_free(map->hdr_copy_buf);
 	i_free(map);
 }
 
@@ -197,6 +328,7 @@ static void mail_index_unmap_forced(struct mail_index *index,
 static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 {
 	const struct mail_index_header *hdr;
+	struct mail_index_header *mhdr;
 	unsigned int records_count;
 
 	i_assert(!map->write_to_disk);
@@ -241,25 +373,35 @@ static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 	if (map->hdr->base_header_size < sizeof(*map->hdr)) {
 		/* header smaller than ours, make a copy so our newer headers
 		   won't have garbage in them */
-		memcpy(&map->hdr_copy, map->hdr, map->hdr->base_header_size);
-		map->hdr = &map->hdr_copy;
-	}
+		buffer_reset(map->hdr_copy_buf);
+		buffer_append(map->hdr_copy_buf,
+			      map->hdr, map->hdr->base_header_size);
+		buffer_set_used_size(map->hdr_copy_buf, sizeof(*map->hdr));
 
+		mhdr = buffer_get_modifyable_data(map->hdr_copy_buf, NULL);
+		mhdr->base_header_size = sizeof(*map->hdr);
+		mhdr->header_size = map->hdr_copy_buf->used;
+
+		map->hdr = mhdr;
+       }
+
+	map->hdr_base = map->mmap_base;
 	map->records = PTR_OFFSET(map->mmap_base, map->hdr->header_size);
 	map->records_count = map->hdr->messages_count;
 	return 1;
 }
 
 static int mail_index_read_map(struct mail_index *index,
-			       struct mail_index_map *map)
+			       struct mail_index_map *map, int *retry_r)
 {
-	struct mail_index_header hdr;
+	struct mail_index_header hdr, *hdrp;
 	void *data = NULL;
 	ssize_t ret;
 	size_t pos, records_size;
 
 	i_assert(map->mmap_base == NULL);
 
+	*retry_r = FALSE;
 	memset(&hdr, 0, sizeof(hdr));
 
 	ret = 1;
@@ -269,7 +411,50 @@ static int mail_index_read_map(struct mail_index *index,
 		if (ret > 0)
 			pos += ret;
 	}
-	if (ret >= 0 && pos >= MAIL_INDEX_HEADER_MIN_SIZE) {
+
+	if (ret >= 0 && pos >= MAIL_INDEX_HEADER_MIN_SIZE &&
+	    (ret > 0 || pos >= hdr.base_header_size)) {
+		if (hdr.base_header_size < MAIL_INDEX_HEADER_MIN_SIZE ||
+		    hdr.header_size < hdr.base_header_size) {
+			mail_index_set_error(index, "Corrupted index file %s: "
+				"Corrupted header sizes (base %u, full %u)",
+				index->filepath, hdr.base_header_size,
+				hdr.header_size);
+			return 0;
+		}
+
+		buffer_reset(map->hdr_copy_buf);
+		if (hdr.base_header_size < sizeof(hdr)) {
+			buffer_append(map->hdr_copy_buf, &hdr,
+				      hdr.base_header_size);
+			buffer_set_used_size(map->hdr_copy_buf, sizeof(hdr) +
+					     hdr.header_size -
+					     hdr.base_header_size);
+
+			/* @UNSAFE */
+			ret = pread_full(index->fd,
+					 PTR_OFFSET(map->hdr_copy_buf->data,
+						    sizeof(hdr)),
+					 hdr.header_size - hdr.base_header_size,
+					 hdr.base_header_size);
+
+			hdrp = buffer_get_modifyable_data(map->hdr_copy_buf,
+							  NULL);
+			hdrp->base_header_size = sizeof(hdr);
+			hdrp->header_size = map->hdr_copy_buf->used;
+		} else {
+			buffer_append(map->hdr_copy_buf, &hdr, pos);
+			buffer_set_used_size(map->hdr_copy_buf,
+					     hdr.header_size);
+			/* @UNSAFE */
+			ret = pread_full(index->fd,
+					 PTR_OFFSET(map->hdr_copy_buf->data,
+						    pos),
+					 hdr.header_size - pos, pos);
+		}
+	}
+
+	if (ret > 0) {
 		records_size = hdr.messages_count * hdr.record_size;
 
 		if (map->buffer == NULL) {
@@ -287,33 +472,36 @@ static int mail_index_read_map(struct mail_index *index,
 	}
 
 	if (ret < 0) {
-		if (errno == ESTALE)
+		if (errno == ESTALE) {
+			*retry_r = TRUE;
 			return 0;
+		}
 		mail_index_set_syscall_error(index, "pread_full()");
 		return -1;
 	}
 	if (ret == 0) {
 		mail_index_set_error(index,
-			"Unexpected EOF while reading index file");
+			"Corrupted index file %s: File too small",
+			index->filepath);
 		return -1;
 	}
 
 	map->records = data;
 	map->records_count = hdr.messages_count;
 
-	map->hdr_copy = hdr;
-	map->hdr = &map->hdr_copy;
+	map->hdr = map->hdr_copy_buf->data;
+	map->hdr_base = map->hdr_copy_buf->data;
 	return 1;
 }
 
 static int mail_index_read_map_with_retry(struct mail_index *index,
 					  struct mail_index_map *map)
 {
-	int i, ret;
+	int i, ret, retry;
 
 	for (i = 0; i < MAIL_INDEX_ESTALE_RETRY_COUNT; i++) {
-		ret = mail_index_read_map(index, map);
-		if (ret != 0)
+		ret = mail_index_read_map(index, map, &retry);
+		if (ret != 0 || !retry)
 			return ret;
 
 		/* ESTALE - reopen index file */
@@ -381,6 +569,9 @@ int mail_index_map(struct mail_index *index, int force)
 	if (map == NULL) {
 		map = i_new(struct mail_index_map, 1);
 		map->refcount = 1;
+		map->hdr_copy_buf =
+			buffer_create_dynamic(default_pool,
+					      sizeof(*map->hdr), (size_t)-1);
 	} else if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
 		if (map->write_to_disk) {
 			/* we have modified this mapping and it's waiting to
@@ -432,9 +623,11 @@ struct mail_index_map *
 mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size)
 {
 	struct mail_index_map *mem_map;
+	struct mail_index_header *hdr;
+	struct mail_index_extra_record_info *einfos;
 	void *src, *dest;
 	size_t size, copy_size;
-	unsigned int i;
+	unsigned int i, count;
 
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
 		map->refcount++;
@@ -462,10 +655,48 @@ mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size)
 	mem_map->records = buffer_get_modifyable_data(mem_map->buffer, NULL);
 	mem_map->records_count = map->records_count;
 
-	mem_map->hdr_copy = *map->hdr;
-	mem_map->hdr_copy.record_size = new_record_size;
-	mem_map->hdr = &mem_map->hdr_copy;
+	mem_map->hdr_copy_buf = buffer_create_dynamic(default_pool,
+						      map->hdr->header_size,
+						      (size_t)-1);
+	buffer_append(mem_map->hdr_copy_buf, map->hdr, map->hdr->header_size);
+
+	hdr = buffer_get_modifyable_data(mem_map->hdr_copy_buf, NULL);
+	hdr->record_size = new_record_size;
+	mem_map->hdr = hdr;
+
+	/* copy extra_infos */
+	if (map->extra_infos_id_map != NULL) {
+		count = map->extra_infos_id_map->used / sizeof(uint32_t);
+		mail_index_map_create_extra_infos(mem_map, count);
+
+		buffer_append_buf(mem_map->extra_infos, map->extra_infos,
+				  0, (size_t)-1);
+		buffer_append_buf(mem_map->extra_infos_id_map,
+				  map->extra_infos_id_map, 0, (size_t)-1);
+
+		/* fix the name pointers to use our own pool */
+		einfos = buffer_get_modifyable_data(mem_map->extra_infos, NULL);
+		for (i = 0; i < count; i++) {
+			einfos[i].name = p_strdup(mem_map->extra_records_pool,
+						  einfos[i].name);
+		}
+	}
+
 	return mem_map;
+}
+
+int mail_index_map_get_extra_info_idx(struct mail_index_map *map,
+				      uint32_t data_id, uint32_t *idx_r)
+{
+	const uint32_t *id_map;
+
+	if (map->extra_infos_id_map == NULL ||
+	    map->extra_infos_id_map->used / sizeof(*id_map) <= data_id)
+		return 0;
+
+	id_map = map->extra_infos_id_map->data;
+	*idx_r = id_map[data_id];
+	return *idx_r != (uint32_t)-1;
 }
 
 static int mail_index_try_open_only(struct mail_index *index)
@@ -550,8 +781,8 @@ int mail_index_write_base_header(struct mail_index *index,
 			return -1;
 		}
 
-		index->map->hdr_copy = *hdr;
-		index->hdr = &index->map->hdr_copy;
+		buffer_write(index->map->hdr_copy_buf, 0, hdr, hdr_size);
+		i_assert(index->hdr == index->map->hdr_copy_buf->data);
 	}
 
 	return 0;
@@ -631,8 +862,7 @@ static int mail_index_create(struct mail_index *index,
 	return ret;
 }
 
-static void mail_index_header_init(struct mail_index *index,
-				   struct mail_index_header *hdr)
+static void mail_index_header_init(struct mail_index_header *hdr)
 {
 	time_t now = time(NULL);
 
@@ -642,7 +872,7 @@ static void mail_index_header_init(struct mail_index *index,
 	hdr->minor_version = MAIL_INDEX_MINOR_VERSION;
 	hdr->base_header_size = sizeof(*hdr);
 	hdr->header_size = sizeof(*hdr);
-	hdr->record_size = index->max_record_size;
+	hdr->record_size = sizeof(struct mail_index_record);
 	hdr->keywords_mask_size = sizeof(keywords_mask_t);
 
 #ifndef WORDS_BIGENDIAN
@@ -671,7 +901,7 @@ static int mail_index_open_files(struct mail_index *index,
 		/* doesn't exist, or corrupted */
 		if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0)
 			return 0;
-		mail_index_header_init(index, &hdr);
+		mail_index_header_init(&hdr);
 		index->hdr = &hdr;
 	} else if (ret < 0)
 		return -1;

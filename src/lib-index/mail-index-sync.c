@@ -125,7 +125,6 @@ static void mail_index_sync_sort_transaction(struct mail_index_sync_ctx *ctx)
 					   ctx->hdr->size);
 		break;
 	case MAIL_TRANSACTION_APPEND: {
-		const struct mail_transaction_append_header *hdr = ctx->data;
 		const struct mail_index_record *rec = ctx->data;
 
 		if (ctx->append_uid_first == 0 ||
@@ -133,7 +132,7 @@ static void mail_index_sync_sort_transaction(struct mail_index_sync_ctx *ctx)
 			ctx->append_uid_first = rec->uid;
 
 		rec = CONST_PTR_OFFSET(ctx->data,
-				       ctx->hdr->size - hdr->record_size);
+				       ctx->hdr->size - sizeof(*rec));
 		if (rec->uid > ctx->append_uid_last)
 			ctx->append_uid_last = rec->uid;
 
