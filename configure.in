@@ -108,8 +108,12 @@ case "$host_os" in
 esac
 
 dnl * off_t checks, try to make it 64bit
-preferred_off_t_bits=32
+preferred_off_t_bits=64
 AC_DEFINE_UNQUOTED(_FILE_OFFSET_BITS, $preferred_off_t_bits)
+
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long)
+AC_CHECK_SIZEOF(long long)
 
 AC_MSG_CHECKING([size of off_t])
 sizeof_off_t=0
@@ -129,10 +133,6 @@ if test x$sizeof_off_t = x0; then
   AC_ERROR([Unsupported off_t size])
 fi
 AC_MSG_RESULT($sizeof_off_t)
-
-AC_CHECK_SIZEOF(int)
-AC_CHECK_SIZEOF(long)
-AC_CHECK_SIZEOF(long long)
 
 if test x$sizeof_off_t = x$ac_cv_sizeof_long; then
   # try to use unsigned long always first
