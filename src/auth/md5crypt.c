@@ -44,11 +44,11 @@ to64(char *s, unsigned long v, int n)
  * Use MD5 for what it is best at...
  */
 
-char *
+const char *
 md5_crypt(const char *pw, const char *salt)
 {
-	static char     passwd[120], *p;
-	static const char *sp,*ep;
+	char passwd[120], *p;
+	const char *sp,*ep;
 	unsigned char	final[16];
 	int sl,pl,i,j;
 	struct md5_context ctx,ctx1;
@@ -143,5 +143,5 @@ md5_crypt(const char *pw, const char *salt)
 	/* Don't leave anything around in vm they could use. */
 	memset(final,0,sizeof final);
 
-	return passwd;
+	return t_strdup(passwd);
 }
