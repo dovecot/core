@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "temp-string.h"
 #include "mbox-index.h"
 
 #include <time.h>
@@ -93,55 +94,54 @@ time_t mbox_from_parse_date(const char *msg, size_t size)
 
 const char *mbox_from_create(const char *sender, time_t time)
 {
+	TempString *str;
 	struct tm *tm;
-	char *ret, *p;
-	size_t len;
 	int year;
 
-	len = strlen(sender);
-	ret = t_malloc(len + 24 + 1);
-	memcpy(ret, sender, len);
+	str = t_string_new(256);
+	t_string_append(str, "From ");
+	t_string_append(str, sender);
+	t_string_append(str, "  ");
 
 	/* we could use simply asctime(), but i18n etc. may break it.
 	   Example: "Thu Nov 29 22:33:52 2001" */
 	tm = localtime(&time);
-	p = ret + len;
 
 	/* week day */
-	strcpy(p, weekdays[tm->tm_wday]); p += 3;
-	*p++ = ' ';
+	t_string_append(str, weekdays[tm->tm_wday]);
+	t_string_append_c(str, ' ');
 
 	/* month */
-	strcpy(p, months[tm->tm_mon]); p += 3;
-	*p++ = ' ';
+	t_string_append(str, months[tm->tm_mon]);
+	t_string_append_c(str, ' ');
 
 	/* day */
-	*p++ = (tm->tm_mday / 10) + '0';
-	*p++ = (tm->tm_mday % 10) + '0';
-	*p++ = ' ';
+	t_string_append_c(str, (tm->tm_mday / 10) + '0');
+	t_string_append_c(str, (tm->tm_mday % 10) + '0');
+	t_string_append_c(str, ' ');
 
 	/* hour */
-	*p++ = (tm->tm_hour / 10) + '0';
-	*p++ = (tm->tm_hour % 10) + '0';
-	*p++ = ':';
+	t_string_append_c(str, (tm->tm_hour / 10) + '0');
+	t_string_append_c(str, (tm->tm_hour % 10) + '0');
+	t_string_append_c(str, ':');
 
 	/* minute */
-	*p++ = (tm->tm_min / 10) + '0';
-	*p++ = (tm->tm_min % 10) + '0';
-	*p++ = ':';
+	t_string_append_c(str, (tm->tm_min / 10) + '0');
+	t_string_append_c(str, (tm->tm_min % 10) + '0');
+	t_string_append_c(str, ':');
 
 	/* second */
-	*p++ = (tm->tm_sec / 10) + '0';
-	*p++ = (tm->tm_sec % 10) + '0';
-	*p++ = ' ';
+	t_string_append_c(str, (tm->tm_sec / 10) + '0');
+	t_string_append_c(str, (tm->tm_sec % 10) + '0');
+	t_string_append_c(str, ' ');
 
 	/* year */
 	year = tm->tm_year + 1900;
-	*p++ = (year / 1000) + '0';
-	*p++ = ((year / 100) % 10) + '0';
-	*p++ = ((year / 10) % 10) + '0';
-	*p++ = (year % 10) + '0';
+	t_string_append_c(str, (year / 1000) + '0');
+	t_string_append_c(str, ((year / 100) % 10) + '0');
+	t_string_append_c(str, ((year / 10) % 10) + '0');
+	t_string_append_c(str, (year % 10) + '0');
 
-	*p++ = '\0';
-	return ret;
+	t_string_append_c(str, '\n');
+	return str->str;
 }

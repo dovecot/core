@@ -34,14 +34,14 @@ static int mbox_check_ending_lf(MailStorage *storage, int fd, off_t pos,
 		return TRUE;
 
 	do {
-		if (lseek(fd, 0, pos-1) < 0)
+		if (lseek(fd, pos-1, SEEK_SET) < 0)
 			break;
 
 		if (read(fd, &ch, 1) != 1)
 			break;
 
 		if (ch != '\n') {
-			if (write_full(fd, &ch, 1) < 0)
+			if (write_full(fd, "\n", 1) < 0)
 				break;
 		}
 
@@ -50,6 +50,16 @@ static int mbox_check_ending_lf(MailStorage *storage, int fd, off_t pos,
 
 	set_error(storage, mbox_path);
 	return FALSE;
+}
+
+static int mbox_append_lf(MailStorage *storage, int fd, const char *mbox_path)
+{
+	if (write_full(fd, "\n", 1) < 0) {
+		set_error(storage, mbox_path);
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 static int write_from_line(MailStorage *storage, int fd, const char *mbox_path,
@@ -131,7 +141,8 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		    !write_from_line(box->storage, fd, mbox_path,
 				     internal_date) ||
 		    !index_storage_save_into_fd(box->storage, fd, mbox_path,
-						data, data_size)) {
+						data, data_size) ||
+		    !mbox_append_lf(box->storage, fd, mbox_path)) {
 			/* failed, truncate file back to original size */
 			(void)ftruncate(fd, pos);
 			failed = TRUE;

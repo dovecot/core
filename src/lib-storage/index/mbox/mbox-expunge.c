@@ -89,6 +89,8 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 		seq++;
 	}
 
+	io_buffer_skip(inbuf, end_offset - inbuf->offset);
+
 	/* copy the rest as well, should be only \n but someone might
 	   as well just appended more data.. */
 	copy_size = inbuf->size - inbuf->offset;
