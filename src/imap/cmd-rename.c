@@ -25,7 +25,7 @@ int cmd_rename(struct client *client)
 
 	if (old_storage != new_storage) {
 		client_send_tagline(client,
-			"NO Can't rename mailbox to another namespace.");
+			"NO Can't rename mailbox to another storage type.");
 		return TRUE;
 	}
 

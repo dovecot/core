@@ -6,6 +6,7 @@
 #include "imap-quote.h"
 #include "imap-match.h"
 #include "commands.h"
+#include "namespace.h"
 
 static const char *mailbox_flags2str(enum mailbox_flags flags, int listext)
 {
@@ -99,9 +100,8 @@ int _cmd_list_full(struct client *client, int lsub)
 	char sep_chr, sep[3];
 	int failed, listext;
 
-	storage = client_find_storage(client, "");
-	if (storage == NULL)
-		return TRUE;
+	/* FIXME: really needs some work.. */
+	storage = client->namespaces->storage;
 
 	sep_chr = storage->hierarchy_sep;
 	if (sep_chr == '"' || sep_chr == '\\') {
