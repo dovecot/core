@@ -46,29 +46,39 @@ struct deserialize_context {
 static unsigned int
 _message_part_serialize(struct message_part *part, buffer_t *dest)
 {
-	struct serialized_message_part *spart;
-	unsigned int count = 0;
+	struct serialized_message_part spart, *spart_p;
+	unsigned int count, children_count;
+	size_t pos;
 
+	count = 0;
 	while (part != NULL) {
 		/* create serialized part */
-		spart = buffer_append_space(dest, sizeof(*spart));
-		memset(spart, 0, sizeof(*spart));
+		memset(&spart, 0, sizeof(spart));
 
-		spart->physical_pos = part->physical_pos;
+		spart.physical_pos = part->physical_pos;
 
-		spart->header_physical_size = part->header_size.physical_size;
-		spart->header_virtual_size = part->header_size.virtual_size;
-		spart->header_lines = part->header_size.lines;
+		spart.header_physical_size = part->header_size.physical_size;
+		spart.header_virtual_size = part->header_size.virtual_size;
+		spart.header_lines = part->header_size.lines;
 
-		spart->body_physical_size = part->body_size.physical_size;
-		spart->body_virtual_size = part->body_size.virtual_size;
-		spart->body_lines = part->body_size.lines;
+		spart.body_physical_size = part->body_size.physical_size;
+		spart.body_virtual_size = part->body_size.virtual_size;
+		spart.body_lines = part->body_size.lines;
 
-		spart->flags = part->flags;
+		spart.flags = part->flags;
 
+		buffer_append(dest, &spart, sizeof(spart));
 		if (part->children != NULL) {
-			spart->children_count =
+			pos = buffer_get_used_size(dest) - sizeof(spart);
+			children_count =
 				_message_part_serialize(part->children, dest);
+
+			/* note that we can't just save the pointer to
+			   our appended spart since it may change after
+			   child-appends have realloc()ed buffer memory. */
+			spart_p = buffer_get_space_unsafe(dest, pos,
+							  sizeof(spart));
+			spart_p->children_count = children_count;
 		}
 
 		count++;

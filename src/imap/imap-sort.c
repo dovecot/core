@@ -374,7 +374,8 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 	if (ctx->common_mask != 0)
 		mail_sort_check_flush(ctx, mail);
 
-	buf = buffer_append_space(ctx->sort_buffer, ctx->sort_element_size);
+	buf = buffer_append_space_unsafe(ctx->sort_buffer,
+					 ctx->sort_element_size);
 	id = ctx->id_is_uid ? mail->uid : mail->seq;
 	memcpy(buf, &id, sizeof(id)); pos = sizeof(id);
 

@@ -1061,7 +1061,7 @@ mail_modifylog_seq_get_expunges(struct mail_modify_log *log,
 				unsigned int *expunges_before)
 {
 	struct modify_log_record *rec;
-	struct modify_log_expunge *expunge;
+	struct modify_log_expunge expunge, *expunges;
 	buffer_t *buf;
 	size_t count;
 	unsigned int before, max_records;
@@ -1118,19 +1118,18 @@ mail_modifylog_seq_get_expunges(struct mail_modify_log *log,
 				return NULL;
 			}
 
-			expunge = buffer_append_space(buf, sizeof(*expunge));
-
 			if (rec->seq1 < first_seq) {
 				/* partial initial match, update
 				   before-counter */
 				before += first_seq - rec->seq1;
-				expunge->seq_count = rec->seq2 - first_seq + 1;
+				expunge.seq_count = rec->seq2 - first_seq + 1;
 			} else {
-				expunge->seq_count = rec->seq2 - rec->seq1 + 1;
+				expunge.seq_count = rec->seq2 - rec->seq1 + 1;
 			}
 
-			expunge->uid1 = rec->uid1;
-			expunge->uid2 = rec->uid2;
+			expunge.uid1 = rec->uid1;
+			expunge.uid2 = rec->uid2;
+			buffer_append(buf, &expunge, sizeof(expunge));
 		}
 
 		if (rec->seq1 <= last_seq) {
@@ -1146,19 +1145,17 @@ mail_modifylog_seq_get_expunges(struct mail_modify_log *log,
 	}
 
 	/* terminate the array */
-	expunge = buffer_append_space(buf, sizeof(*expunge));
-	memset(expunge, 0, sizeof(*expunge));
+	buffer_set_used_size(buf, buffer_get_used_size(buf) + sizeof(expunge));
 
 	/* extract the array from buffer */
-	count = buffer_get_used_size(buf)/sizeof(struct modify_log_expunge);
-	expunge = buffer_free_without_data(buf);
+	count = buffer_get_used_size(buf) / sizeof(expunge);
+	expunges = buffer_free_without_data(buf);
 
 	/* sort the UID array, not including the terminating 0 */
-	qsort(expunge, count-1, sizeof(struct modify_log_expunge),
-	      compare_expunge);
+	qsort(expunges, count-1, sizeof(expunge), compare_expunge);
 
 	*expunges_before = before;
-	return expunge;
+	return expunges;
 }
 
 const struct modify_log_expunge *
@@ -1170,7 +1167,7 @@ mail_modifylog_uid_get_expunges(struct mail_modify_log *log,
 	/* pretty much copy&pasted from sequence code above ..
 	   kind of annoying */
 	struct modify_log_record *rec;
-	struct modify_log_expunge *expunge;
+	struct modify_log_expunge expunge, *expunges;
 	buffer_t *buf;
 	size_t count;
 	unsigned int before, max_records;
@@ -1227,28 +1224,25 @@ mail_modifylog_uid_get_expunges(struct mail_modify_log *log,
 				return NULL;
 			}
 
-			expunge = buffer_append_space(buf, sizeof(*expunge));
-
-			expunge->uid1 = rec->uid1;
-			expunge->uid2 = rec->uid2;
-			expunge->seq_count = rec->seq2 -rec->seq1 + 1;
+			expunge.uid1 = rec->uid1;
+			expunge.uid2 = rec->uid2;
+			expunge.seq_count = rec->seq2 -rec->seq1 + 1;
+			buffer_append(buf, &expunge, sizeof(expunge));
 		}
 	}
 
 	/* terminate the array */
-	expunge = buffer_append_space(buf, sizeof(*expunge));
-	memset(expunge, 0, sizeof(*expunge));
+	buffer_set_used_size(buf, buffer_get_used_size(buf) + sizeof(expunge));
 
 	/* extract the array from buffer */
-	count = buffer_get_used_size(buf) / sizeof(struct modify_log_expunge);
-	expunge = buffer_free_without_data(buf);
+	count = buffer_get_used_size(buf) / sizeof(expunge);
+	expunges = buffer_free_without_data(buf);
 
 	/* sort the UID array, not including the terminating 0 */
-	qsort(expunge, count-1, sizeof(struct modify_log_expunge),
-	      compare_expunge);
+	qsort(expunges, count-1, sizeof(expunge), compare_expunge);
 
 	*expunges_before = before;
-	return expunge;
+	return expunges;
 }
 
 static unsigned int

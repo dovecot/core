@@ -37,36 +37,42 @@ static size_t reply_add(buffer_t *buf, const char *str)
 static struct auth_master_reply *
 fill_reply(const struct user_data *user, size_t *reply_size)
 {
-	struct auth_master_reply *reply;
+	struct auth_master_reply reply, *reply_p;
 	buffer_t *buf;
 	char *p;
 
 	buf = buffer_create_dynamic(data_stack_pool,
-				    sizeof(*reply) + 256, (size_t)-1);
-	reply = buffer_append_space(buf, sizeof(*reply));
+				    sizeof(reply) + 256, (size_t)-1);
+	memset(&reply, 0, sizeof(reply));
+	buffer_append(buf, &reply, sizeof(reply));
 
-	reply->success = TRUE;
+	reply.success = TRUE;
 
-	reply->uid = user->uid;
-	reply->gid = user->gid;
+	reply.uid = user->uid;
+	reply.gid = user->gid;
 
-	reply->system_user_idx = reply_add(buf, user->system_user);
-	reply->virtual_user_idx = reply_add(buf, user->virtual_user);
-	reply->mail_idx = reply_add(buf, user->mail);
+	reply.system_user_idx = reply_add(buf, user->system_user);
+	reply.virtual_user_idx = reply_add(buf, user->virtual_user);
+	reply.mail_idx = reply_add(buf, user->mail);
 
 	p = strstr(user->home, "/./");
 	if (p == NULL) {
-		reply->home_idx = reply_add(buf, user->home);
-		reply->chroot_idx = reply_add(buf, NULL);
+		reply.home_idx = reply_add(buf, user->home);
+		reply.chroot_idx = reply_add(buf, NULL);
 	} else {
 		/* wu-ftpd like <chroot>/./<home> */
-		reply->chroot_idx = reply_add(buf, t_strdup_until(user->home, p));
-		reply->home_idx = reply_add(buf, p + 3);
+		reply.chroot_idx =
+			reply_add(buf, t_strdup_until(user->home, p));
+		reply.home_idx = reply_add(buf, p + 3);
 	}
 
 	*reply_size = buffer_get_used_size(buf);
-	reply->data_size = *reply_size - sizeof(*reply);
-	return reply;
+	reply.data_size = *reply_size - sizeof(reply);
+
+	reply_p = buffer_get_space_unsafe(buf, 0, sizeof(reply));
+	*reply_p = reply;
+
+	return reply_p;
 }
 
 static void send_reply(struct auth_master_reply *reply, size_t reply_size,

@@ -197,7 +197,7 @@ mbox_get_keyword_flags(const unsigned char *value, size_t len,
 static void mbox_parse_imapbase(const unsigned char *value, size_t len,
 				struct mbox_header_context *ctx)
 {
-	const char **flag, *str;
+	const char *flag, *str;
 	char *end;
 	buffer_t *buf;
 	size_t pos, start;
@@ -223,15 +223,15 @@ static void mbox_parse_imapbase(const unsigned char *value, size_t len,
 
 	/* we're at the 3rd field now, which begins the list of custom flags */
 	buf = buffer_create_dynamic(data_stack_pool,
-				    MAIL_CUSTOM_FLAGS_COUNT, MAX_CUSTOM_FLAGS);
+				    MAIL_CUSTOM_FLAGS_COUNT *
+				    sizeof(const char *),
+				    MAX_CUSTOM_FLAGS * sizeof(const char *));
 	for (start = pos; ; pos++) {
 		if (pos == len || value[pos] == ' ' || value[pos] == '\t') {
 			if (start != pos) {
-				flag = buffer_append_space(buf, sizeof(*flag));
-				if (flag == NULL)
+				flag = t_strdup_until(value+start, value+pos);
+				if (buffer_append(buf, flag, sizeof(flag)) == 0)
 					break;
-
-				*flag = t_strdup_until(value+start, value+pos);
 			}
 			start = pos+1;
 
@@ -242,9 +242,8 @@ static void mbox_parse_imapbase(const unsigned char *value, size_t len,
 
 	flags = MAIL_CUSTOM_FLAGS_MASK;
 	count = buffer_get_used_size(buf) / sizeof(const char *);
-	flag = buffer_free_without_data(buf);
 	ret = mail_custom_flags_fix_list(ctx->index->custom_flags, &flags,
-					 flag, count);
+					 buffer_free_without_data(buf), count);
 
 	t_pop();
 }

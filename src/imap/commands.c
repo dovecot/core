@@ -57,11 +57,11 @@ static int cmdbuf_unsorted;
 
 void command_register(const char *name, command_func_t *func)
 {
-	struct command *cmd;
+	struct command cmd;
 
-	cmd = buffer_append_space(cmdbuf, sizeof(*cmd));
-	cmd->name = name;
-	cmd->func = func;
+	cmd.name = name;
+	cmd.func = func;
+	buffer_append(cmdbuf, &cmd, sizeof(cmd));
 
 	cmdbuf_unsorted = TRUE;
 }

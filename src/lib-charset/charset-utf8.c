@@ -12,7 +12,7 @@ void _charset_utf8_ucase(const unsigned char *src, size_t src_size,
 	char *destbuf;
 	size_t i;
 
-	destbuf = buffer_get_space(dest, destpos, src_size);
+	destbuf = buffer_get_space_unsafe(dest, destpos, src_size);
 	for (i = 0; i < src_size; i++)
 		destbuf[i] = i_toupper(src[i]); /* FIXME: utf8 */
 }

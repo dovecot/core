@@ -130,13 +130,11 @@ static size_t get_max_align_size(size_t base, size_t extra, size_t *max_extra)
 static void *create_data_block(struct mail_index_update *update,
 			       size_t data_size, size_t extra_size)
 {
-        struct mail_index_data_record_header *dest_hdr;
-        struct mail_index_data_record *rec, *destrec;
+        struct mail_index_data_record *rec, destrec;
 	enum mail_data_field field;
 	buffer_t *buf;
 	const void *src;
-	size_t src_size;
-	size_t full_field_size;
+	size_t src_size, filler_size;
 	int i;
 
 	i_assert(data_size <= UINT_MAX);
@@ -144,16 +142,15 @@ static void *create_data_block(struct mail_index_update *update,
 	buf = buffer_create_static_hard(update->pool, data_size);
 
 	/* set header */
-	dest_hdr = buffer_append_space(buf, sizeof(*dest_hdr));
-	memcpy(dest_hdr, &update->data_hdr, sizeof(*dest_hdr));
-	dest_hdr->data_size = data_size;
+	update->data_hdr.data_size = data_size;
+	buffer_append(buf, &update->data_hdr, sizeof(update->data_hdr));
 
 	/* set fields */
 	rec = mail_index_data_lookup(update->index->data, update->rec, 0);
 	for (i = 0, field = 1; field != DATA_FIELD_LAST; i++, field <<= 1) {
 		if (update->fields[i] != NULL) {
 			/* value was modified - use it */
-			full_field_size =
+			destrec.full_field_size =
 				get_max_align_size(update->field_sizes[i],
 						   update->field_extra_sizes[i],
 						   &extra_size);
@@ -161,20 +158,24 @@ static void *create_data_block(struct mail_index_update *update,
 			src_size = update->field_sizes[i];
 		} else if (rec != NULL && rec->field == field) {
 			/* use the old value */
-			full_field_size = rec->full_field_size;
+			destrec.full_field_size = rec->full_field_size;
 			src = rec->data;
 			src_size = rec->full_field_size;
 		} else {
 			/* the field doesn't exist, jump to next */
 			continue;
 		}
-		i_assert((full_field_size % INDEX_ALIGN_SIZE) == 0);
+		i_assert((destrec.full_field_size % INDEX_ALIGN_SIZE) == 0);
 
-		destrec = buffer_append_space(buf, SIZEOF_MAIL_INDEX_DATA +
-					      full_field_size);
-		destrec->field = field;
-		destrec->full_field_size = full_field_size;
-		memcpy(destrec->data, src, src_size);
+		destrec.field = field;
+		buffer_append(buf, &destrec, SIZEOF_MAIL_INDEX_DATA);
+		buffer_append(buf, src, src_size);
+
+		filler_size = destrec.full_field_size - src_size;
+		if (filler_size != 0) {
+			buffer_set_used_size(buf, buffer_get_used_size(buf) +
+					     filler_size);
+		}
 
 		if (rec != NULL && rec->field == field) {
 			rec = mail_index_data_next(update->index->data,

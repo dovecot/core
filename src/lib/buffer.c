@@ -311,7 +311,7 @@ size_t buffer_append_buf(buffer_t *dest, const buffer_t *src,
 			   src, src_pos, copy_size);
 }
 
-void *buffer_get_space(buffer_t *buf, size_t pos, size_t size)
+void *buffer_get_space_unsafe(buffer_t *buf, size_t pos, size_t size)
 {
 	if (!buffer_check_write(buf, &pos, &size, FALSE))
 		return NULL;
@@ -319,9 +319,9 @@ void *buffer_get_space(buffer_t *buf, size_t pos, size_t size)
 	return buf->w_buffer + pos;
 }
 
-void *buffer_append_space(buffer_t *buf, size_t size)
+void *buffer_append_space_unsafe(buffer_t *buf, size_t size)
 {
-	return buffer_get_space(buf, buf->used - buf->start_pos, size);
+	return buffer_get_space_unsafe(buf, buf->used - buf->start_pos, size);
 }
 
 const void *buffer_get_data(const buffer_t *buf, size_t *used_size)

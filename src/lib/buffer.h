@@ -1,6 +1,11 @@
 #ifndef __BUFFER_H
 #define __BUFFER_H
 
+/* WARNING: Be careful with functions that return pointers to data.
+   With dynamic buffers they are valid only as long as buffer is not
+   realloc()ed. You shouldn't rely on it being valid if you have modified
+   buffer in any way. */
+
 /* Create a static sized buffer. Writes past this size will simply not
    succeed. */
 buffer_t *buffer_create_static(pool_t pool, size_t size);
@@ -47,17 +52,19 @@ size_t buffer_append_buf(buffer_t *dest, const buffer_t *src,
 			 size_t src_pos, size_t copy_size);
 
 /* Returns pointer to specified position in buffer, or NULL if there's not
-   enough space. */
-void *buffer_get_space(buffer_t *buf, size_t pos, size_t size);
+   enough space. WARNING: The returned address may become invalid if you add
+   more data to buffer. */
+void *buffer_get_space_unsafe(buffer_t *buf, size_t pos, size_t size);
 /* Increase the buffer usage by given size, and return a pointer to beginning
    of it, or NULL if there's not enough space in buffer. */
-void *buffer_append_space(buffer_t *buf, size_t size);
+void *buffer_append_space_unsafe(buffer_t *buf, size_t size);
 
 /* Returns pointer to beginning of buffer data. Current used size of buffer is
    stored in used_size if it's non-NULL. */
 const void *buffer_get_data(const buffer_t *buf, size_t *used_size);
 /* Like buffer_get_data(), but don't return it as const. Returns NULL if the
-   buffer is non-modifyable. */
+   buffer is non-modifyable. WARNING: The returned address may become invalid
+   if you add more data to buffer. */
 void *buffer_get_modifyable_data(const buffer_t *buf, size_t *used_size);
 
 /* Set the "used size" of buffer, ie. 0 would set the buffer empty.

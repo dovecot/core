@@ -85,7 +85,7 @@ charset_to_ucase_utf8(struct charset_translation *t,
 	size = destleft;
 	srcleft = *src_size;
 	ic_srcbuf = (ICONV_CONST char *) src;
-	ic_destbuf = buffer_append_space(dest, destleft);
+	ic_destbuf = buffer_append_space_unsafe(dest, destleft);
 
 	if (iconv(t->cd, &ic_srcbuf, &srcleft,
 		  &ic_destbuf, &destleft) != (size_t)-1)

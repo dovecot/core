@@ -143,7 +143,7 @@ void str_vprintfa(string_t *str, const char *fmt, va_list args)
 	fmt = printf_string_fix_format(fmt);
 	append_len = printf_string_upper_bound(fmt, args);
 
-	buf = buffer_append_space(str, append_len);
+	buf = buffer_append_space_unsafe(str, append_len);
 
 #ifdef HAVE_VSNPRINTF
 	ret = vsnprintf(buf, append_len, fmt, args2);
