@@ -685,8 +685,10 @@ static int mail_index_seq_array_add(array_t *array, uint32_t seq,
 	if (mail_index_seq_array_lookup(array, seq, &idx)) {
 		/* already there, update */
 		p = array_modifyable_idx(array, idx);
-		if (old_record != NULL)
-			memcpy(old_record, p, record_size);
+		if (old_record != NULL) {
+			memcpy(old_record, PTR_OFFSET(p, sizeof(seq)),
+			       record_size);
+		}
 		memcpy(PTR_OFFSET(p, sizeof(seq)), record, record_size);
 		return TRUE;
 	} else {
