@@ -129,8 +129,7 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 		raw_stream = i_stream_create_limit(default_pool, raw_stream,
 						   offset, (uoff_t)-1);
 		data->stream =
-			i_stream_create_header_filter(default_pool,
-						      raw_stream, TRUE,
+			i_stream_create_header_filter(raw_stream, TRUE,
 						      mbox_hide_headers,
 						      mbox_hide_headers_count,
 						      NULL, NULL);

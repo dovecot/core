@@ -333,28 +333,25 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 	const char *const *fields;
 	struct message_size msg_size;
 	struct istream *input;
-	size_t size, fields_count;
+	size_t fields_count;
 
 	/* MIME, HEADER.FIELDS (list), HEADER.FIELDS.NOT (list) */
 
 	if (strncmp(header_section, "HEADER.FIELDS ", 14) == 0) {
 		fields = imap_fetch_get_body_fields(header_section + 14,
 						    &fields_count);
-		input = i_stream_create_header_filter(ctx->client->cmd_pool,
-						      ctx->cur_input, FALSE,
+		input = i_stream_create_header_filter(ctx->cur_input, FALSE,
 						      fields, fields_count,
 						      NULL, NULL);
 	} else if (strncmp(header_section, "HEADER.FIELDS.NOT ", 18) == 0) {
 		fields = imap_fetch_get_body_fields(header_section + 18,
 						    &fields_count);
-		input = i_stream_create_header_filter(ctx->client->cmd_pool,
-						      ctx->cur_input, TRUE,
+		input = i_stream_create_header_filter(ctx->cur_input, TRUE,
 						      fields, fields_count,
 						      NULL, NULL);
 	} else if (strcmp(header_section, "MIME") == 0) {
 		/* Mime-Version + Content-* fields */
-		input = i_stream_create_header_filter(ctx->client->cmd_pool,
-						      ctx->cur_input, FALSE,
+		input = i_stream_create_header_filter(ctx->cur_input, FALSE,
 						      NULL, 0,
 						      header_filter_mime, NULL);
 	} else {
@@ -374,11 +371,9 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 	   Also, Netscape 4.x seems to require this or it won't show the
 	   mail.. So if we do make this as RFC says, we'll need to add
 	   netscape-workaround. */
+	message_get_header_size(ctx->cur_input, &msg_size, NULL);
+	i_stream_seek(ctx->cur_input, 0);
 
-	// FIXME: we rely on the current behavior of header filter..
-	(void)i_stream_get_data(ctx->cur_input, &size);
-	memset(&msg_size, 0, sizeof(msg_size));
-	msg_size.physical_size = msg_size.virtual_size = size;
 	return fetch_data(ctx, body, &msg_size);
 }
 
