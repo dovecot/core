@@ -558,6 +558,34 @@ unsigned int strarray_length(const char *const *arr)
 	return count;
 }
 
+const char *strarray_join(const char *const *arr, const char *separator)
+{
+	size_t alloc_len, sep_len, len, pos, needed_space;
+	char *str;
+
+        alloc_len = 64;
+        str = t_buffer_get(alloc_len);
+
+	for (pos = 0; *arr != NULL; arr++) {
+		len = strlen(*arr);
+		needed_space = pos + len + sep_len + 1;
+		if (needed_space < alloc_len) {
+			alloc_len = nearest_power(needed_space);
+			str = t_buffer_reget(str, alloc_len);
+		}
+
+		if (pos != 0) {
+			memcpy(str + pos, separator, sep_len);
+			pos += sep_len;
+		}
+
+		memcpy(str + pos, *arr, len);
+		pos += len;
+	}
+	str[pos] = '\0';
+	return str;
+}
+
 const char *dec2str(uintmax_t number)
 {
 	char *buffer;
