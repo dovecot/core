@@ -62,6 +62,7 @@ struct index_mailbox {
 	struct mail *mail_interface;
 
 	uint32_t (*get_recent_count)(struct index_mailbox *ibox);
+	void (*mail_deinit)(struct index_mail *mail);
 	unsigned int last_recent_count;
 
 	struct timeout *autosync_to;
@@ -85,7 +86,7 @@ struct index_mailbox {
 	ino_t mbox_ino;
 	unsigned int mbox_locks;
 	struct dotlock mbox_dotlock;
-	unsigned int mbox_lock_id;
+	unsigned int mbox_lock_id, mbox_mail_lock_id;
 
 	uint32_t mbox_extra_idx;
 

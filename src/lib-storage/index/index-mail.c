@@ -625,6 +625,9 @@ int index_mail_next(struct index_mail *mail,
 
 void index_mail_deinit(struct index_mail *mail)
 {
+	if (mail->ibox->mail_deinit != NULL)
+                mail->ibox->mail_deinit(mail);
+
 	t_push();
 	index_mail_close(mail);
 	t_pop();
