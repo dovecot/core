@@ -295,7 +295,9 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 		sync_rec->appends = buffer_get_data(ctx->appends_buf,
 						    &sync_rec->appends_count);
 		sync_rec->appends_count /= ctx->index->record_size;
-		sync_rec->uid1 = sync_rec->uid2 = 0;
+		sync_rec->uid1 = sync_rec->appends[0].uid;
+		sync_rec->uid2 =
+			sync_rec->appends[sync_rec->appends_count-1].uid;
 		return 1;
 	}
 
