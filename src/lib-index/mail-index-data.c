@@ -698,8 +698,10 @@ int mail_index_data_record_verify(struct mail_index_data *data,
 
 void *mail_index_data_get_mmaped(struct mail_index_data *data, size_t *size)
 {
-	if (!mmap_update(data, 0, 0))
-		return NULL;
+	if (!data->anon_mmap) {
+		if (!mmap_update(data, 0, 0))
+			return NULL;
+	}
 
 	*size = data->mmap_used_length;
 	return data->mmap_base;
