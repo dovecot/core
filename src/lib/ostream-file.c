@@ -532,12 +532,12 @@ static off_t io_stream_copy(struct _ostream *outstream,
 			return -1;
 
 		if (skip_size > 0) {
-			update_buffer(foutstream, ret);
-
 			if ((size_t)ret < skip_size) {
+				update_buffer(foutstream, ret);
 				skip_size -= ret;
 				ret = 0;
 			} else {
+				update_buffer(foutstream, skip_size);
 				ret -= skip_size;
 				skip_size = 0;
 			}
