@@ -111,9 +111,13 @@ static void master_handle_request(struct auth_master_request *request)
 		hash_lookup(login_conn->auth_requests,
 			    POINTER_CAST(request->id));
 
-	if (request == NULL)
+	if (auth_request == NULL) {
+		if (verbose) {
+			i_info("Master request %u.%u not found",
+			       request->login_pid, request->id);
+		}
 		send_reply(&failure_reply, sizeof(failure_reply), request->tag);
-	else {
+	} else {
 		userdb->lookup(auth_request->user, userdb_callback,
 			       POINTER_CAST(request->tag));
 		mech_request_free(login_conn, auth_request, request->id);
