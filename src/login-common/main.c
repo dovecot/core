@@ -64,7 +64,8 @@ void main_close_listen(void)
 	}
 
 	closing_down = TRUE;
-	master_notify_finished();
+	if (!is_inetd)
+		master_notify_finished();
 }
 
 static void sig_quit(int signo __attr_unused__)
@@ -76,13 +77,6 @@ static void login_accept(void *context __attr_unused__)
 {
 	struct ip_addr ip;
 	int fd;
-
-	if (!auth_is_connected()) {
-		/* we're not yet connected to auth process -
-		   don't accept client connections. FIXME: eats CPU if
-		   none of the other login processes accept it either.. */
-		return;
-	}
 
 	fd = net_accept(LOGIN_LISTEN_FD, &ip, NULL);
 	if (fd < 0) {
@@ -101,13 +95,6 @@ static void login_accept_ssl(void *context __attr_unused__)
 {
 	struct ip_addr ip;
 	int fd, fd_ssl;
-
-	if (!auth_is_connected()) {
-		/* we're not yet connected to auth process -
-		   don't accept client connections. FIXME: eats CPU if
-		   none of the other login processes accept it either.. */
-		return;
-	}
 
 	fd = net_accept(LOGIN_SSL_LISTEN_FD, &ip, NULL);
 	if (fd < 0) {
@@ -205,7 +192,7 @@ static void main_init(void)
 
 		/* initialize master last - it sends the "we're ok"
 		   notification */
-		master_init(LOGIN_MASTER_SOCKET_FD);
+		master_init(LOGIN_MASTER_SOCKET_FD, TRUE);
 	}
 }
 
@@ -228,9 +215,9 @@ static void main_deinit(void)
 
 int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
-	const char *name;
+	const char *name, *group_name;
 	struct ip_addr ip;
-	int fd = -1, master_fd = -1;
+	int i, fd = -1, master_fd = -1;
 
 	is_inetd = getenv("DOVECOT_MASTER") == NULL;
 
@@ -244,8 +231,19 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 
 	if (is_inetd) {
 		/* running from inetd. create master process before
-		   dropping privileges */
-		master_fd = master_connect();
+		   dropping privileges. */
+		group_name = strrchr(argv[0], '/');
+		group_name = group_name == NULL ? argv[0] : group_name+1;
+		group_name = t_strcut(group_name, '-');
+
+		for (i = 1; i < argc; i++) {
+			if (strncmp(argv[i], "--group=", 8) == 0) {
+				group_name = argv[1]+8;
+				break;
+			}
+		}
+
+		master_fd = master_connect(group_name);
 	}
 
 	name = strrchr(argv[0], '/');
@@ -253,30 +251,34 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 
 	process_title_init(argv, envp);
 	ioloop = io_loop_create(system_pool);
+	main_init();
 
 	if (is_inetd) {
-		master_init(master_fd);
-
 		if (net_getsockname(1, &ip, NULL) < 0) {
 			i_fatal("%s can be started only through dovecot "
 				"master process, inetd or equilevant", argv[0]);
 		}
 
-		if (argc < 2 || strcmp(argv[1], "--ssl") != 0)
-			fd = 1;
-		else
-			fd = ssl_proxy_new(fd, &ip);
+		fd = 1;
+		for (i = 1; i < argc; i++) {
+			if (strcmp(argv[i], "--ssl") == 0) {
+				fd = ssl_proxy_new(fd, &ip);
+				if (fd == -1)
+					i_fatal("SSL initialization failed");
+			} else if (strncmp(argv[i], "--group=", 8) != 0)
+				i_fatal("Unknown parameter: %s", argv[i]);
+		}
+
+		master_init(master_fd, FALSE);
 	}
 
-	if (fd != -1 || !is_inetd) {
-		main_init();
+	main_close_listen();
 
-		if (fd != -1)
-			(void)client_create(fd, &ip, TRUE);
+	if (fd != -1)
+		(void)client_create(fd, &ip, TRUE);
 
-		io_loop_run(ioloop);
-		main_deinit();
-	}
+	io_loop_run(ioloop);
+	main_deinit();
 
 	io_loop_destroy(ioloop);
 	lib_deinit();

@@ -12,6 +12,7 @@
 #include "imap-parser.h"
 #include "client.h"
 #include "client-authenticate.h"
+#include "auth-connection.h"
 #include "ssl-proxy.h"
 
 /* max. size of one parameter in line */
@@ -184,9 +185,12 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 	return FALSE;
 }
 
-static void client_handle_input(struct imap_client *client)
+static int client_handle_input(struct imap_client *client)
 {
 	struct imap_arg *args;
+
+	if (client->authenticating)
+		return FALSE; /* wait until authentication is finished */
 
 	if (client->cmd_finished) {
 		/* clear the previous command from memory. don't do this
@@ -199,7 +203,7 @@ static void client_handle_input(struct imap_client *client)
 		/* remove \r\n */
 		if (client->skip_line) {
 			if (!client_skip_line(client))
-				return;
+				return TRUE;
                         client->skip_line = FALSE;
 		}
 
@@ -209,23 +213,23 @@ static void client_handle_input(struct imap_client *client)
 	if (client->cmd_tag == NULL) {
                 client->cmd_tag = imap_parser_read_word(client->parser);
 		if (client->cmd_tag == NULL)
-			return; /* need more data */
+			return FALSE; /* need more data */
 	}
 
 	if (client->cmd_name == NULL) {
                 client->cmd_name = imap_parser_read_word(client->parser);
 		if (client->cmd_name == NULL)
-			return; /* need more data */
+			return FALSE; /* need more data */
 	}
 
 	switch (imap_parser_read_args(client->parser, 0, 0, &args)) {
 	case -1:
 		/* error */
 		client_destroy(client, NULL);
-		return;
+		return TRUE;
 	case -2:
 		/* not enough data */
-		return;
+		return FALSE;
 	}
 	client->skip_line = TRUE;
 
@@ -236,13 +240,14 @@ static void client_handle_input(struct imap_client *client)
 				"* BYE Too many invalid IMAP commands.");
 			client_destroy(client, "Disconnected: "
 				       "Too many invalid commands");
-			return;
+			return FALSE;
 		} 
 		client_send_tagline(client,
 			"BAD Error in IMAP command received by server.");
 	}
 
 	client->cmd_finished = TRUE;
+	return TRUE;
 }
 
 int client_read(struct imap_client *client)
@@ -272,10 +277,19 @@ void client_input(void *context)
 	if (!client_read(client))
 		return;
 
+	if (!auth_is_connected()) {
+		/* we're not yet connected to auth process -
+		   don't allow any commands */
+		client_send_line(client,
+			"* OK Waiting for authentication process to respond..");
+		client->input_blocked = TRUE;
+		return;
+	}
+
 	client_ref(client);
 
 	o_stream_cork(client->output);
-	client_handle_input(client);
+	while (client_handle_input(client)) ;
 
 	if (client_unref(client))
 		o_stream_flush(client->output);
@@ -452,6 +466,22 @@ static void idle_timeout(void *context __attr_unused__)
 unsigned int clients_get_count(void)
 {
 	return hash_size(clients);
+}
+
+static void client_hash_check_io(void *key, void *value __attr_unused__,
+				 void *context __attr_unused__)
+{
+	struct imap_client *client = key;
+
+	if (client->input_blocked) {
+		client->input_blocked = FALSE;
+		client_input(client);
+	}
+}
+
+void clients_notify_auth_process(void)
+{
+	hash_foreach(clients, client_hash_check_io, NULL);
 }
 
 static void client_hash_destroy(void *key, void *value __attr_unused__,

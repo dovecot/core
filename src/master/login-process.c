@@ -67,6 +67,7 @@ static struct login_group *login_groups;
 
 static void login_process_destroy(struct login_process *p);
 static void login_process_unref(struct login_process *p);
+static int login_process_init_group(struct login_process *p);
 
 static void login_group_create(struct login_settings *login_set)
 {
@@ -142,16 +143,76 @@ static void login_process_mark_nonlistening(struct login_process *p)
 	}
 
 	p->listening = FALSE;
-	p->group->listening_processes--;
 
-	p->prev_nonlisten = p->group->newest_nonlisten_process;
+	if (p->group != NULL) {
+		p->group->listening_processes--;
+		p->prev_nonlisten = p->group->newest_nonlisten_process;
 
-	if (p->group->newest_nonlisten_process != NULL)
-		p->group->newest_nonlisten_process->next_nonlisten = p;
-	p->group->newest_nonlisten_process = p;
+		if (p->group->newest_nonlisten_process != NULL)
+			p->group->newest_nonlisten_process->next_nonlisten = p;
+		p->group->newest_nonlisten_process = p;
 
-	if (p->group->oldest_nonlisten_process == NULL)
-		p->group->oldest_nonlisten_process = p;
+		if (p->group->oldest_nonlisten_process == NULL)
+			p->group->oldest_nonlisten_process = p;
+	}
+}
+
+static struct login_group *login_group_process_find(const char *name)
+{
+	struct login_group *group;
+	struct login_settings *login;
+
+	if (login_groups == NULL) {
+		for (login = set->logins; login != NULL; login = login->next)
+			login_group_create(login);
+	}
+
+	for (group = login_groups; group != NULL; group = group->next) {
+		if (strcmp(group->set->name, name) == 0)
+			return group;
+	}
+
+	return NULL;
+}
+
+static int login_process_read_group(struct login_process *p)
+{
+	struct login_group *group;
+	const char *name;
+	char buf[256];
+	unsigned int len;
+	ssize_t ret;
+
+	/* read length */
+	ret = read(p->fd, buf, 1);
+	if (ret != 1)
+		len = 0;
+	else {
+		len = buf[0];
+		if (len >= sizeof(buf)) {
+			i_error("login: Process name length too large");
+			return FALSE;
+		}
+
+		ret = read(p->fd, buf, len);
+	}
+
+	if (ret < 0)
+		i_error("login: read() failed: %m");
+	else if (len == 0 || (size_t)ret != len)
+		i_error("login: Process name wasn't sent");
+	else {
+		name = t_strndup(buf, len);
+		group = login_group_process_find(name);
+		if (group == NULL) {
+			i_error("login: Unknown process group '%s'", name);
+			return FALSE;
+		}
+
+		p->group = group;
+		return login_process_init_group(p);
+	}
+	return FALSE;
 }
 
 static void login_process_input(void *context)
@@ -160,7 +221,15 @@ static void login_process_input(void *context)
 	struct auth_process *auth_process;
 	struct login_auth_request *authreq;
 	struct master_login_request req;
-	int client_fd, ret;
+	int client_fd;
+	ssize_t ret;
+
+	if (p->group == NULL) {
+		/* we want to read the group */
+		if (!login_process_read_group(p))
+			login_process_destroy(p);
+		return;
+	}
 
 	ret = fd_read(p->fd, &req, sizeof(req), &client_fd);
 	if (ret != sizeof(req)) {
@@ -222,7 +291,6 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 	struct login_process *p;
 
 	i_assert(pid != 0);
-	i_assert(group != NULL);
 
 	p = i_new(struct login_process, 1);
 	p->group = group;
@@ -238,13 +306,18 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 	PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_LOGIN);
 	hash_insert(processes, POINTER_CAST(pid), p);
 
-	p->group->processes++;
-	p->group->listening_processes++;
+	if (p->group != NULL) {
+		p->group->processes++;
+		p->group->listening_processes++;
+	}
 	return p;
 }
 
 static void login_process_remove_from_lists(struct login_process *p)
 {
+	if (p->group == NULL)
+		return;
+
 	if (p == p->group->oldest_nonlisten_process)
 		p->group->oldest_nonlisten_process = p->next_nonlisten;
 	else
@@ -268,7 +341,8 @@ static void login_process_destroy(struct login_process *p)
 		i_error("Login process died too early - shutting down");
 		io_loop_stop(ioloop);
 	}
-	if (p->listening)
+
+	if (p->listening && p->group != NULL)
 		p->group->listening_processes--;
 
 	o_stream_close(p->output);
@@ -279,7 +353,9 @@ static void login_process_destroy(struct login_process *p)
 	if (!p->listening)
 		login_process_remove_from_lists(p);
 
-	p->group->processes--;
+	if (p->group != NULL)
+		p->group->processes--;
+
 	if (p->pid != 0)
 		hash_remove(processes, POINTER_CAST(p->pid));
 
@@ -421,7 +497,7 @@ void login_process_abormal_exit(pid_t pid)
 	/* don't start raising the process count if they're dying all
 	   the time */
 	p = hash_lookup(processes, POINTER_CAST(pid));
-	if (p != NULL)
+	if (p != NULL && p->group != NULL)
 		p->group->wanted_processes_count = 0;
 }
 
@@ -516,6 +592,19 @@ static int login_process_send_env(struct login_process *p)
 	return ret;
 }
 
+static int login_process_init_group(struct login_process *p)
+{
+	p->group->processes++;
+	p->group->listening_processes++;
+
+	if (login_process_send_env(p) < 0) {
+		i_error("login: Couldn't send environment");
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 static void inetd_login_accept(void *context __attr_unused__)
 {
         struct login_process *p;
@@ -529,13 +618,8 @@ static void inetd_login_accept(void *context __attr_unused__)
 		net_set_nonblock(fd, TRUE);
 		fd_close_on_exec(fd, TRUE);
 
-		p = login_process_new(login_groups, ++login_pid_counter, fd);
-		p->initialized = TRUE;;
-
-		if (login_process_send_env(p) < 0) {
-			i_warning("Couldn't send environment to login process");
-			login_process_destroy(p);
-		}
+		p = login_process_new(NULL, ++login_pid_counter, fd);
+		p->initialized = TRUE;
 	}
 }
 
@@ -550,9 +634,6 @@ void login_processes_init(void)
 		to = timeout_add(1000, login_processes_start_missing, NULL);
 		io_listen = NULL;
 	} else {
-		/* use the first login group for everyone */
-		login_group_create(set->logins);
-
 		to = NULL;
 		io_listen = io_add(inetd_login_fd, IO_READ,
 				   inetd_login_accept, NULL);

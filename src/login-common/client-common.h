@@ -20,6 +20,7 @@ struct client {
 struct client *client_create(int fd, struct ip_addr *ip, int ssl);
 
 unsigned int clients_get_count(void);
+void clients_notify_auth_process(void);
 void clients_destroy_all(void);
 
 void clients_init(void);

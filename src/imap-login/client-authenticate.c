@@ -130,6 +130,7 @@ static void login_callback(struct auth_request *request,
 			      master_callback, &error)) {
 	case -1:
 		/* login failed */
+                client->authenticating = FALSE;
 		client_auth_abort(client, error);
 		break;
 
@@ -143,6 +144,7 @@ static void login_callback(struct auth_request *request,
 	default:
 		/* success, we should be able to log in. if we fail, just
 		   disconnect the client. */
+                client->authenticating = FALSE;
 		client_send_tagline(client, "OK Logged in.");
 	}
 }
@@ -183,6 +185,7 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 			io_remove(client->common.io);
 			client->common.io = NULL;
 		}
+                client->authenticating = TRUE;
 		return TRUE;
 	} else {
 		client_send_tagline(client, t_strconcat(
@@ -204,6 +207,7 @@ static void authenticate_callback(struct auth_request *request,
 			      master_callback, &error)) {
 	case -1:
 		/* login failed */
+                client->authenticating = FALSE;
 		client_auth_abort(client, error);
 		break;
 
@@ -214,6 +218,7 @@ static void authenticate_callback(struct auth_request *request,
 	default:
 		/* success, we should be able to log in. if we fail, just
 		   disconnect the client. */
+                client->authenticating = FALSE;
 		client_send_tagline(client, "OK Logged in.");
 	}
 }
@@ -303,6 +308,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 			io_remove(client->common.io);
 		client->common.io = io_add(client->common.fd, IO_READ,
 					   client_auth_input, client);
+                client->authenticating = TRUE;
 	} else {
 		client_send_tagline(client, t_strconcat(
 			"NO Authentication failed: ", error, NULL));

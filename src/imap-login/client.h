@@ -25,6 +25,8 @@ struct imap_client {
 	unsigned int tls:1;
 	unsigned int cmd_finished:1;
 	unsigned int skip_line:1;
+	unsigned int input_blocked:1;
+	unsigned int authenticating:1;
 	unsigned int destroyed:1;
 };
 
@@ -40,9 +42,6 @@ void client_syslog(struct imap_client *client, const char *text);
 
 int client_read(struct imap_client *client);
 void client_input(void *context);
-
-unsigned int clients_get_count(void);
-void clients_destroy_all(void);
 
 void clients_init(void);
 void clients_deinit(void);

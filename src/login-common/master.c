@@ -7,6 +7,7 @@
 #include "fdpass.h"
 #include "istream.h"
 #include "env-util.h"
+#include "write-full.h"
 #include "master.h"
 #include "client-common.h"
 
@@ -133,7 +134,7 @@ static void master_read_env(int fd)
 	i_stream_unref(input);
 }
 
-int master_connect(void)
+int master_connect(const char *group_name)
 {
 	const char *path = PKG_RUNDIR"/master";
 	int i, fd = -1;
@@ -164,6 +165,19 @@ int master_connect(void)
 	if (fd == -1)
 		i_fatal("Couldn't use/create UNIX socket %s", path);
 
+	if (group_name[0] == '\0')
+		i_fatal("No login group name set");
+
+	if (strlen(group_name) >= 256)
+		i_fatal("Login group name too large: %s", group_name);
+
+	/* group_name length is now guaranteed to be in range of 1..255 so we
+	   can send <length byte><name> */
+	group_name = t_strdup_printf("%c%s", (unsigned char)strlen(group_name),
+				     group_name);
+	if (write_full(fd, group_name, strlen(group_name)) < 0)
+		i_fatal("write_full(master_fd) failed: %m");
+
 	master_read_env(fd);
 	return fd;
 }
@@ -189,7 +203,7 @@ static void master_input(void *context __attr_unused__)
 	master_pos = 0;
 }
 
-void master_init(int fd)
+void master_init(int fd, int notify)
 {
 	main_ref();
 
@@ -200,9 +214,11 @@ void master_init(int fd)
         master_pos = 0;
 	io_master = io_add(master_fd, IO_READ, master_input, NULL);
 
-	/* just a note to master that we're ok. if we die before,
-	   master should shutdown itself. */
-	master_notify_finished();
+	if (notify) {
+		/* just a note to master that we're ok. if we die before,
+		   master should shutdown itself. */
+		master_notify_finished();
+	}
 }
 
 void master_deinit(void)

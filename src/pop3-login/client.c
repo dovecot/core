@@ -11,6 +11,7 @@
 #include "strescape.h"
 #include "client.h"
 #include "client-authenticate.h"
+#include "auth-connection.h"
 #include "ssl-proxy.h"
 
 /* max. length of input command line (spec says 512) */
@@ -156,6 +157,13 @@ void client_input(void *context)
 
 	if (!client_read(client))
 		return;
+
+	if (!auth_is_connected()) {
+		/* we're not yet connected to auth process -
+		   don't allow any commands */
+		client->input_blocked = TRUE;
+		return;
+	}
 
 	client_ref(client);
 
@@ -339,6 +347,22 @@ static void idle_timeout(void *context __attr_unused__)
 unsigned int clients_get_count(void)
 {
 	return hash_size(clients);
+}
+
+static void client_hash_check_io(void *key, void *value __attr_unused__,
+				 void *context __attr_unused__)
+{
+	struct pop3_client *client = key;
+
+	if (client->input_blocked) {
+		client->input_blocked = FALSE;
+		client_input(client);
+	}
+}
+
+void clients_notify_auth_process(void)
+{
+	hash_foreach(clients, client_hash_check_io, NULL);
 }
 
 static void client_hash_destroy(void *key, void *value __attr_unused__,

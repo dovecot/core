@@ -17,7 +17,7 @@ liblogin_common_a_SOURCES = \
 noinst_HEADERS = \
 	auth-common.h \
 	auth-connection.h \
-	common.h \
 	client-common.h \
+	common.h \
 	master.h \
 	ssl-proxy.h

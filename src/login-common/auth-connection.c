@@ -6,6 +6,7 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "client-common.h"
 #include "auth-connection.h"
 
 #include <unistd.h>
@@ -130,6 +131,9 @@ static void auth_connection_destroy(struct auth_connection *conn)
 	hash_foreach(conn->requests, request_hash_remove, NULL);
 
         auth_connection_unref(conn);
+
+	if (auth_is_connected())
+		clients_notify_auth_process();
 }
 
 static void auth_connection_unref(struct auth_connection *conn)
@@ -200,8 +204,11 @@ static void auth_handle_handshake(struct auth_connection *conn,
 	conn->available_auth_mechs = handshake->auth_mechanisms;
 	conn->handshake_received = TRUE;
 
-	auth_waiting_handshake_count--;
+        auth_waiting_handshake_count--;
 	update_available_auth_mechs();
+
+	if (auth_is_connected())
+		clients_notify_auth_process();
 }
 
 static void auth_handle_reply(struct auth_connection *conn,
