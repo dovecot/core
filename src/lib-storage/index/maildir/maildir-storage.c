@@ -170,6 +170,9 @@ static int create_index_dir(struct mail_storage *storage, const char *name)
 {
 	const char *dir;
 
+	if (storage->index_dir == NULL)
+		return TRUE;
+
 	if (strcmp(storage->index_dir, storage->dir) == 0)
 		return TRUE;
 
@@ -338,8 +341,8 @@ static int maildir_delete_mailbox(struct mail_storage *storage,
 		return FALSE;
 	}
 
-	if (strcmp(storage->index_dir, storage->dir) != 0 &&
-	    *name != '/' && *name != '~') {
+	if (storage->index_dir != NULL && *name != '/' && *name != '~' &&
+	    strcmp(storage->index_dir, storage->dir) != 0) {
 		index_dir = t_strconcat(storage->index_dir, "/.", name, NULL);
 		if (unlink_directory(index_dir, TRUE) < 0) {
 			mail_storage_set_critical(storage,
@@ -382,7 +385,8 @@ static int rename_indexes(struct mail_storage *storage,
 {
 	const char *oldpath, *newpath;
 
-	if (strcmp(storage->index_dir, storage->dir) == 0)
+	if (storage->index_dir == NULL ||
+	    strcmp(storage->index_dir, storage->dir) == 0)
 		return TRUE;
 
 	/* Rename it's index. */
