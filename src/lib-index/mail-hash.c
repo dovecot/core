@@ -159,7 +159,6 @@ static int mmap_update(MailHash *hash)
 		return FALSE;
 
 	return mmap_update_real(hash) && hash_verify_header(hash);
-
 }
 
 static void hash_munmap(MailHash *hash)
@@ -199,12 +198,23 @@ int mail_hash_create(MailIndex *index)
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
 	hash = mail_hash_new(index);
-	if (!mail_hash_rebuild(hash) || !hash_verify_header(index->hash)) {
-		mail_hash_free(hash);
-		return FALSE;
-	}
+	do {
+		if (!mail_hash_rebuild(hash))
+			break;
 
-	return TRUE;
+		if (!hash->anon_mmap) {
+			if (!mmap_update_real(hash))
+				break;
+		}
+
+		if (!hash_verify_header(hash))
+			break;
+
+		return TRUE;
+	} while (0);
+
+	mail_hash_free(hash);
+	return FALSE;
 }
 
 int mail_hash_open_or_create(MailIndex *index)
