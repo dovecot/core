@@ -59,6 +59,8 @@ Client *client_create(int hin, int hout, int socket, MailStorage *storage)
 
 void client_destroy(Client *client)
 {
+	io_buffer_send_flush(client->outbuf);
+
 	if (client->mailbox != NULL)
 		client->mailbox->close(client->mailbox);
 	mail_storage_destroy(client->storage);
@@ -353,8 +355,10 @@ void clients_init(void)
 
 void clients_deinit(void)
 {
-	if (my_client != NULL)
+	if (my_client != NULL) {
+		client_send_line(my_client, "* BYE Server shutting down.");
 		client_destroy(my_client);
+	}
 
 	timeout_remove(to_idle);
 }
