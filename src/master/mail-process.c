@@ -29,15 +29,15 @@ static int validate_uid_gid(struct settings *set, uid_t uid, gid_t gid,
 	}
 
 	if (set->login_uid == uid && master_uid != uid) {
-		i_error("Can't log in using login processes UID %s (user %s) "
-			"(see login_user in config file).",
+		i_error("Logins with login process UID %s (user %s) "
+			"not permitted (see login_user in config file).",
 			dec2str(uid), user);
 	}
 
 	if (uid < (uid_t)set->first_valid_uid ||
 	    (set->last_valid_uid != 0 && uid > (uid_t)set->last_valid_uid)) {
 		i_error("Logins with UID %s (user %s) not permitted "
-			"(modify first_valid_uid in config file)",
+			"(see first_valid_uid in config file)",
 			dec2str(uid), user);
 		return FALSE;
 	}
@@ -215,8 +215,9 @@ int create_mail_process(struct login_group *group, int socket,
 		chroot_dir = set->mail_chroot;
 
 	if (*chroot_dir != '\0' && !validate_chroot(set, chroot_dir)) {
-		i_error("chroot directory no included in valid_chroot_dirs: %s",
-			chroot_dir);
+		i_error("Invalid chroot directory '%s' (user %s) "
+			"(see valid_chroot_dirs in config file)",
+			chroot_dir, user);
 		return FALSE;
 	}
 
