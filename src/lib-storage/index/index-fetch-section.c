@@ -373,6 +373,12 @@ static MessagePart *part_find(MailFetchBodyData *sect, FetchContext *ctx,
 			if (num != 1)
 				return NULL;
 		}
+
+		if (part != NULL &&
+		    (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822)) {
+			/* skip the message/rfc822 part */
+			part = part->children;
+		}
 	}
 
 	*section = path;
