@@ -265,6 +265,7 @@ void index_mail_parse_header(struct message_part *part,
 	struct index_mail *mail = context;
 	struct index_mail_data *data = &mail->data;
 	struct cached_header *cached_hdr;
+	int timezone;
 
 	if (data->bodystructure_header_parse)
 		imap_bodystructure_parse_header(mail->pool, part, hdr);
@@ -311,11 +312,12 @@ void index_mail_parse_header(struct message_part *part,
 			if (!message_date_parse(hdr->full_value,
 						hdr->full_value_len,
 						&data->sent_date.time,
-						&data->sent_date.timezone)) {
+						&timezone)) {
 				/* 0 == parse error */
 				data->sent_date.time = 0;
-				data->sent_date.timezone = 0;
+				timezone = 0;
 			}
+                        data->sent_date.timezone = timezone;
 			data->save_sent_date = FALSE;
 		}
 	}

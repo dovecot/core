@@ -51,7 +51,7 @@ enum mail_cache_field {
 
 struct mail_sent_date {
 	time_t time;
-	int timezone;
+	int32_t timezone;
 };
 
 extern enum mail_cache_field mail_cache_header_fields[MAIL_CACHE_HEADERS_COUNT];

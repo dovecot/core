@@ -263,6 +263,7 @@ static time_t get_date(struct mail *_mail, int *timezone)
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
 	const char *str;
+	int tz;
 
 	if (data->sent_date.time != (time_t)-1) {
 		if (timezone != NULL)
@@ -278,12 +279,12 @@ static time_t get_date(struct mail *_mail, int *timezone)
 		str = _mail->get_header(_mail, "Date");
 		if (data->sent_date.time == (time_t)-1) {
 			if (!message_date_parse(str, (size_t)-1,
-						&data->sent_date.time,
-						&data->sent_date.timezone)) {
+						&data->sent_date.time, &tz)) {
 				/* 0 == parse error */
 				data->sent_date.time = 0;
-				data->sent_date.timezone = 0;
+				tz = 0;
 			}
+                        data->sent_date.timezone = tz;
 			index_mail_cache_add(mail, MAIL_CACHE_SENT_DATE,
 					     &data->sent_date,
 					     sizeof(data->sent_date));
