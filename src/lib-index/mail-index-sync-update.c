@@ -107,9 +107,13 @@ static int mail_index_grow(struct mail_index *index, unsigned int count)
 		return 0;
 	}
 
-	// FIXME: grow exponentially
-	size = map->file_used_size +
-		count * sizeof(struct mail_index_record);
+	/* when we grow fast, do it exponentially */
+	if (count < index->last_grow_count)
+		count = index->last_grow_count;
+	count = nearest_power(count);
+	index->last_grow_count = count;
+
+	size = map->file_used_size + count * sizeof(struct mail_index_record);
 	if (file_set_size(index->fd, (off_t)size) < 0)
 		return mail_index_set_syscall_error(index, "file_set_size()");
 

@@ -74,6 +74,8 @@ struct mail_index {
 	char *copy_lock_path;
 	struct dotlock dotlock;
 
+	unsigned int last_grow_count;
+
 	char *error;
 	unsigned int nodiskspace:1;
 	unsigned int index_lock_timeout:1;
