@@ -94,21 +94,21 @@ ssize_t my_writev(int fd, const struct iovec *iov, size_t iov_len);
 
 /* ctype.h isn't safe with signed chars,
    use our own instead if really needed */
-#define i_toupper(x) ((char) toupper((unsigned int) (unsigned char) (x)))
-#define i_tolower(x) ((char) tolower((unsigned int) (unsigned char) (x)))
-#define i_isalnum(x) isalnum((unsigned int) (unsigned char) (x))
-#define i_isalpha(x) isalpha((unsigned int) (unsigned char) (x))
-#define i_isascii(x) isascii((unsigned int) (unsigned char) (x))
-#define i_isblank(x) isblank((unsigned int) (unsigned char) (x))
-#define i_iscntrl(x) iscntrl((unsigned int) (unsigned char) (x))
-#define i_isdigit(x) isdigit((unsigned int) (unsigned char) (x))
-#define i_isgraph(x) isgraph((unsigned int) (unsigned char) (x))
-#define i_islower(x) islower((unsigned int) (unsigned char) (x))
-#define i_isprint(x) isprint((unsigned int) (unsigned char) (x))
-#define i_ispunct(x) ispunct((unsigned int) (unsigned char) (x))
-#define i_isspace(x) isspace((unsigned int) (unsigned char) (x))
-#define i_isupper(x) isupper((unsigned int) (unsigned char) (x))
-#define i_isxdigit(x) isxdigit((unsigned int) (unsigned char) (x))
+#define i_toupper(x) ((char) toupper((int) (unsigned char) (x)))
+#define i_tolower(x) ((char) tolower((int) (unsigned char) (x)))
+#define i_isalnum(x) isalnum((int) (unsigned char) (x))
+#define i_isalpha(x) isalpha((int) (unsigned char) (x))
+#define i_isascii(x) isascii((int) (unsigned char) (x))
+#define i_isblank(x) isblank((int) (unsigned char) (x))
+#define i_iscntrl(x) iscntrl((int) (unsigned char) (x))
+#define i_isdigit(x) isdigit((int) (unsigned char) (x))
+#define i_isgraph(x) isgraph((int) (unsigned char) (x))
+#define i_islower(x) islower((int) (unsigned char) (x))
+#define i_isprint(x) isprint((int) (unsigned char) (x))
+#define i_ispunct(x) ispunct((int) (unsigned char) (x))
+#define i_isspace(x) isspace((int) (unsigned char) (x))
+#define i_isupper(x) isupper((int) (unsigned char) (x))
+#define i_isxdigit(x) isxdigit((int) (unsigned char) (x))
 
 #ifndef EOVERFLOW
 #  define EOVERFLOW EINVAL
