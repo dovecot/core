@@ -214,7 +214,7 @@ static int mbox_sync_from_stream(struct mail_index *index,
 	int dirty, ret;
 
 	if (mail_cache_lock(index->cache, FALSE) <= 0)
-		return FALSE;
+		return -1;
 	mail_cache_unlock_later(index->cache);
 
 	mbox_skip_empty_lines(input);
@@ -225,7 +225,7 @@ static int mbox_sync_from_stream(struct mail_index *index,
 	    memcmp(data, "From ", 5) != 0) {
 		index_set_error(index, "File isn't in mbox format: %s",
 				index->mailbox_path);
-		return FALSE;
+		return -1;
 	}
 
 	/* we'll go through the mailbox and index in order matching the
@@ -252,7 +252,7 @@ static int mbox_sync_from_stream(struct mail_index *index,
 						"Error syncing mbox file %s: "
 						"LF not found where expected",
 						index->mailbox_path);
-				return FALSE;
+				return -1;
 			}
 		}
 
@@ -260,7 +260,7 @@ static int mbox_sync_from_stream(struct mail_index *index,
 		if (ret < 0) {
 			if (input->eof)
 				break;
-			return FALSE;
+			return -1;
 		}
 
 		if (ret == 0) {
@@ -273,7 +273,7 @@ static int mbox_sync_from_stream(struct mail_index *index,
 	if (rec != NULL) {
 		if (!index->expunge(index, rec, INDEX_END_RECORD(index)-1,
 				    seq, index->header->messages_count, TRUE))
-			return FALSE;
+			return -1;
 	}
 
 	if (!dirty &&
@@ -283,7 +283,7 @@ static int mbox_sync_from_stream(struct mail_index *index,
 	}
 
 	if ((index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD))
-		return TRUE;
+		return 1;
 	else
 		return mbox_index_append_stream(index, input);
 }
@@ -293,7 +293,7 @@ int mbox_sync_full(struct mail_index *index)
 	struct istream *input;
 	struct stat orig_st, st;
 	uoff_t continue_offset;
-	int failed;
+	int ret, failed;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
@@ -306,8 +306,9 @@ int mbox_sync_full(struct mail_index *index)
 		continue_offset = (uoff_t)-1;
 		failed = TRUE;
 	} else {
-		failed = !mbox_sync_from_stream(index, input);
-		continue_offset = failed || input->eof ||
+		ret = mbox_sync_from_stream(index, input);
+		failed = ret < 0;
+		continue_offset = ret != 0 ||
 			(index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD) ?
 			(uoff_t)-1 : input->v_offset;
 		i_stream_unref(input);
@@ -333,14 +334,14 @@ int mbox_sync_full(struct mail_index *index)
 			i_stream_seek(input, continue_offset);
 			failed = !mbox_index_append_stream(index, input);
 		} else {
-			failed = !mbox_sync_from_stream(index, input);
+			failed = mbox_sync_from_stream(index, input) <= 0;
 		}
 
 		if (index->mbox_rewritten) {
 			/* rewritten, sync again */
                         index->mbox_rewritten = FALSE;
 			i_stream_seek(input, 0);
-			failed = !mbox_sync_from_stream(index, input);
+			failed = mbox_sync_from_stream(index, input) <= 0;
 		}
 
 		i_stream_unref(input);

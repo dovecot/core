@@ -182,10 +182,10 @@ int mbox_index_append_stream(struct mail_index *index, struct istream *input)
 	int ret;
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
-		return FALSE;
+		return -1;
 
 	if (mail_cache_transaction_begin(index->cache, TRUE, &trans_ctx) <= 0)
-		return FALSE;
+		return -1;
 
 	do {
 		offset = input->v_offset;
@@ -234,5 +234,5 @@ int mbox_index_append_stream(struct mail_index *index, struct istream *input)
 	if (!mail_cache_transaction_end(trans_ctx))
 		ret = -1;
 
-	return ret >= 0;
+	return ret;
 }
