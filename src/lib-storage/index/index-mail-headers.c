@@ -179,6 +179,8 @@ int index_mail_parse_header(struct message_part *part,
 	enum mail_cache_decision_type decision;
 	const char *cache_field_name;
 	unsigned int field_idx;
+	uint8_t *match;
+	size_t size;
 	int timezone, first_hdr = FALSE;
 
         data->parse_line_num++;
@@ -260,21 +262,16 @@ int index_mail_parse_header(struct message_part *part,
 		}
 	}
 
-	if (!data->parse_line.cache) {
-		uint8_t *match;
-		size_t size;
-
-		match = buffer_get_modifyable_data(mail->header_match, &size);
-		if (field_idx >= size ||
-		    (match[field_idx] & ~1) != mail->header_match_value) {
-			/* we don't need to do anything with this header */
-			return TRUE;
-		}
-		if (match[field_idx] == mail->header_match_value) {
-			/* first header */
-			first_hdr = TRUE;
-			match[field_idx]++;
-		}
+	match = buffer_get_modifyable_data(mail->header_match, &size);
+	if (field_idx < size && match[field_idx] == mail->header_match_value) {
+		/* first header */
+		first_hdr = TRUE;
+		match[field_idx]++;
+	} else if (!data->parse_line.cache &&
+		   (field_idx >= size ||
+		    (match[field_idx] & ~1) != mail->header_match_value)) {
+		/* we don't need to do anything with this header */
+		return TRUE;
 	}
 
 	if (!hdr->continued) {
@@ -435,7 +432,7 @@ index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 	size_t size;
 
 	offsets = buffer_get_data(mail->header_offsets, &size);
-	i_assert(field_idx * sizeof(*offsets) >= size &&
+	i_assert(field_idx * sizeof(*offsets) <= size &&
 		 offsets[field_idx] != 0);
 
 	data = buffer_get_data(mail->header_data, &size);
@@ -483,6 +480,11 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 		i_assert(ret != -1);
 		return ret == 0 ? NULL :
 			index_mail_get_parsed_header(mail, field_idx);
+	}
+
+	if (str_len(dest) == 0) {
+		/* cached as non-existing. */
+		return NULL;
 	}
 
 	/* cached. skip "header name: " in dest. */
