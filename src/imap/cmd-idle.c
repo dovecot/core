@@ -3,6 +3,7 @@
 #include "common.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "ostream.h"
 #include "commands.h"
 
 #include <stdlib.h>
@@ -16,6 +17,8 @@ static void idle_finish(struct client *client, int done_ok)
 		client->idle_to = NULL;
 	}
 
+	o_stream_cork(client->output);
+
 	if (client->idle_expunge) {
 		client_send_line(client,
 			t_strdup_printf("* %u EXPUNGE", client->idle_expunge));
@@ -25,16 +28,21 @@ static void idle_finish(struct client *client, int done_ok)
 	client->io = io_add(i_stream_get_fd(client->input),
 			    IO_READ, _client_input, client);
 
-	client->mailbox->auto_sync(client->mailbox,
-				   mailbox_check_interval != 0 ?
-				   MAILBOX_SYNC_NO_EXPUNGES : MAILBOX_SYNC_NONE,
-				   mailbox_check_interval);
+	if (client->mailbox != NULL) {
+		client->mailbox->auto_sync(client->mailbox,
+					   mailbox_check_interval != 0 ?
+					   MAILBOX_SYNC_NO_EXPUNGES :
+					   MAILBOX_SYNC_NONE,
+					   mailbox_check_interval);
+	}
 
 	client_sync_full(client);
 	if (done_ok)
 		client_send_tagline(client, "OK Idle completed.");
 	else
 		client_send_tagline(client, "BAD Expected DONE.");
+
+	o_stream_flush(client->output);
 
 	_client_reset_command(client);
 	client->bad_counter = 0;
@@ -95,11 +103,9 @@ int cmd_idle(struct client *client)
 	const char *str;
 	unsigned int interval;
 
-	if (!client_verify_open_mailbox(client))
-		return TRUE;
-
         client->idle_expunge = 0;
-	if ((client_workarounds & WORKAROUND_OUTLOOK_IDLE) != 0) {
+	if ((client_workarounds & WORKAROUND_OUTLOOK_IDLE) != 0 &&
+	    client->mailbox != NULL) {
 		client->idle_to = timeout_add((CLIENT_IDLE_TIMEOUT - 60) * 1000,
 					      idle_timeout, client);
 	}
@@ -109,7 +115,10 @@ int cmd_idle(struct client *client)
 	if (interval == 0)
 		interval = DEFAULT_IDLE_CHECK_INTERVAL;
 
-	client->mailbox->auto_sync(client->mailbox, MAILBOX_SYNC_ALL, interval);
+	if (client->mailbox != NULL) {
+		client->mailbox->auto_sync(client->mailbox,
+					   MAILBOX_SYNC_ALL, interval);
+	}
 
 	client_send_line(client, "+ idling");
 
