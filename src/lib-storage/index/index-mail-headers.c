@@ -356,21 +356,17 @@ int index_mail_parse_header(struct message_part *part,
 				     hdr->value, hdr->value_len);
 			if (!hdr->no_newline)
 				str_append(data->header_data, "\n");
-			if (!hdr->continues) {
-				cached_hdr->fully_saved = TRUE;
-				data->parsing_count--;
-			}
 		} else {
-			/* it's already in header_data. */
+			/* it's already in header_data. it means it's fully
+			   cached and we don't have to worry about other than
+			   the first header line. */
 			i_assert(cached_hdr->value_idx == 0);
 			cached_hdr->value_idx = data->header_stream->v_offset;
 
 			cached_hdr->fully_saved = TRUE;
-			data->parsing_count--;
+			if (--data->parsing_count == 0)
+				return FALSE;
 		}
-
-		if (data->parsing_count == 0)
-			return FALSE;
 	}
 	return TRUE;
 }
