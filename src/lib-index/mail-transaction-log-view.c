@@ -34,6 +34,7 @@ mail_transaction_log_view_open(struct mail_transaction_log *log)
 
 	view = i_new(struct mail_transaction_log_view, 1);
 	view->log = log;
+	view->broken = TRUE;
 	view->expunges_buf =
 		buffer_create_dynamic(default_pool, 512, (size_t)-1);
 
@@ -42,24 +43,9 @@ mail_transaction_log_view_open(struct mail_transaction_log *log)
 	return view;
 }
 
-static void
-mail_transaction_log_view_close_files(struct mail_transaction_log_view *view)
-{
-	struct mail_transaction_log_file *file;
-
-	for (file = view->log->tail; file != NULL; file = file->next) {
-		if (file->hdr.file_seq > view->max_file_seq)
-			break;
-		if (file->hdr.file_seq >= view->min_file_seq)
-			file->refcount--;
-	}
-
-	mail_transaction_logs_clean(view->log);
-}
-
 void mail_transaction_log_view_close(struct mail_transaction_log_view *view)
 {
-	mail_transaction_log_view_close_files(view);
+	mail_transaction_log_view_unset(view);
 	if (view->data_buf != NULL)
 		buffer_free(view->data_buf);
 	buffer_free(view->expunges_buf);
@@ -79,13 +65,10 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	uoff_t end_offset;
 	int ret;
 
+	i_assert(view->broken);
 	i_assert(min_file_seq <= max_file_seq);
 	i_assert(min_file_offset >= sizeof(struct mail_transaction_log_header));
 	i_assert(max_file_offset >= sizeof(struct mail_transaction_log_header));
-
-	view->broken = TRUE;
-
-        mail_transaction_log_view_close_files(view);
 
 	ret = mail_transaction_log_file_find(view->log, min_file_seq, &file);
 	if (ret <= 0) {
@@ -161,6 +144,24 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	return 0;
 }
 
+void mail_transaction_log_view_unset(struct mail_transaction_log_view *view)
+{
+	struct mail_transaction_log_file *file;
+
+	if (view->broken)
+		return;
+
+	view->broken = TRUE;
+	for (file = view->log->tail; file != NULL; file = file->next) {
+		if (file->hdr.file_seq > view->max_file_seq)
+			break;
+		if (file->hdr.file_seq >= view->min_file_seq)
+			file->refcount--;
+	}
+
+	mail_transaction_logs_clean(view->log);
+}
+
 void
 mail_transaction_log_view_get_prev_pos(struct mail_transaction_log_view *view,
 				       uint32_t *file_seq_r,
@@ -175,6 +176,9 @@ mail_transaction_log_view_set_corrupted(struct mail_transaction_log_view *view,
 					const char *fmt, ...)
 {
 	va_list va;
+
+	if (!view->broken)
+		mail_transaction_log_view_unset(view);
 
 	view->broken = TRUE;
 

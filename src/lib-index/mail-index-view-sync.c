@@ -50,6 +50,7 @@ view_sync_get_expunges(struct mail_index_view *view, buffer_t **expunges_r)
 		buffer_append(*expunges_r, &exp->seq1, sizeof(exp->seq1));
 		buffer_append(*expunges_r, &exp->seq2, sizeof(exp->seq2));
 	}
+        mail_transaction_log_view_unset(view->log_view);
 	return 0;
 }
 
@@ -314,6 +315,8 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 
 	mail_index_unmap(view->index, view->map);
 	view->map = ctx->sync_map;
+
+        mail_transaction_log_view_unset(view->log_view);
 
 	if (ctx->expunges != NULL)
 		buffer_free(ctx->expunges);

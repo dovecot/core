@@ -399,6 +399,7 @@ int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 
 int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 {
+	const struct mail_index_header *hdr;
 	uint32_t seq;
 	uoff_t offset;
 	int ret = 0;
@@ -408,12 +409,14 @@ int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 
 	mail_transaction_log_get_head(ctx->index->log, &seq, &offset);
 
-	if (mail_transaction_log_view_set(ctx->view->log_view,
-					  ctx->index->hdr->log_file_seq,
-					  ctx->index->hdr->log_file_offset,
-					  seq, offset,
-					  MAIL_TRANSACTION_TYPE_MASK) < 0)
-		ret = -1;
+	if (ret == 0) {
+		hdr = ctx->index->hdr;
+		mail_transaction_log_view_unset(ctx->view->log_view);
+		if (mail_transaction_log_view_set(ctx->view->log_view,
+				hdr->log_file_seq, hdr->log_file_offset,
+				seq, offset, MAIL_TRANSACTION_TYPE_MASK) < 0)
+			ret = -1;
+	}
 
 	if (ret == 0) {
 		mail_index_sync_read_and_sort(ctx, TRUE);
@@ -423,9 +426,8 @@ int mail_index_sync_end(struct mail_index_sync_ctx *ctx)
 
 	mail_index_unlock(ctx->index, ctx->lock_id);
 	mail_transaction_log_sync_unlock(ctx->index->log);
+	mail_index_view_close(ctx->view);
 
-	if (ctx->view != NULL)
-		mail_index_view_close(ctx->view);
 	if (ctx->expunges_buf != NULL)
 		buffer_free(ctx->expunges_buf);
 	if (ctx->updates_buf != NULL)

@@ -419,8 +419,14 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 		return NULL;
 	}
 
-	for (p = &log->tail; *p != NULL; p = &(*p)->next)
-		;
+	for (p = &log->tail; *p != NULL; p = &(*p)->next) {
+		if ((*p)->hdr.file_seq >= file->hdr.file_seq) {
+			/* log replaced with file having same sequence as
+			   previous one. shouldn't happen unless previous
+			   log file was corrupted.. */
+			break;
+		}
+	}
 	*p = file;
 
 	return file;
@@ -461,6 +467,9 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
 			*p = next;
 		}
 	}
+
+	if (log->tail == NULL)
+		log->head = NULL;
 }
 
 static int mail_transaction_log_rotate(struct mail_transaction_log *log)
@@ -500,6 +509,24 @@ static int mail_transaction_log_rotate(struct mail_transaction_log *log)
 	return 0;
 }
 
+static int mail_transaction_log_recreate(struct mail_transaction_log *log)
+{
+	unsigned int lock_id;
+	int ret;
+
+	if (mail_index_lock_shared(log->index, TRUE, &lock_id) < 0)
+		return -1;
+
+	ret = mail_transaction_log_rotate(log);
+	mail_index_unlock(log->index, lock_id);
+
+	if (ret == 0) {
+		if (mail_transaction_log_file_lock(log->head, F_UNLCK) < 0)
+			return -1;
+	}
+	return ret;
+}
+
 static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 {
         struct mail_transaction_log_file *file;
@@ -511,6 +538,10 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 			   MAIL_TRANSACTION_LOG_PREFIX, NULL);
 	if (stat(path, &st) < 0) {
 		mail_index_file_set_syscall_error(log->index, path, "stat()");
+		if (errno == ENOENT && log->head->lock_type == F_WRLCK) {
+			/* lost? */
+			return mail_transaction_log_recreate(log);
+		}
 		return -1;
 	}
 
@@ -519,6 +550,10 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 	    log->head->st_dev == st.st_dev) {
 		/* same file */
 		ret = mail_transaction_log_file_read_hdr(log->head, &st);
+		if (ret == 0 && log->head->lock_type == F_WRLCK) {
+			/* corrupted, recreate */
+			return mail_transaction_log_recreate(log);
+		}
 		return ret <= 0 ? -1 : 0;
 	}
 
