@@ -236,14 +236,16 @@ static off_t
 _send_istream(struct _ostream *outstream, struct istream *instream)
 {
 	struct const_iovec iov;
+        const unsigned char *data;
 	size_t sent = 0;
 	ssize_t ret;
 
-	while ((ret = i_stream_read(instream)) != -1) {
-		if (ret == 0)
+	while ((ret = i_stream_read_data(instream, &data,
+					 &iov.iov_len, 0)) != -1) {
+		if (iov.iov_len == 0)
 			return sent;
 
-		iov.iov_base = i_stream_get_data(instream, &iov.iov_len);
+		iov.iov_base = data;
 		ret = o_stream_sendv(&outstream->ostream, &iov, 1);
 		if (ret <= 0)
 			return ret < 0 && sent == 0 ? -1 : (ssize_t)sent;
