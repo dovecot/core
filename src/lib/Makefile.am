@@ -31,6 +31,7 @@ liblib_a_SOURCES = \
 	md5.c \
 	mempool.c \
 	mempool-alloconly.c \
+	mempool-datastack.c \
 	mempool-system.c \
 	mmap-anon.c \
 	mmap-util.c \
