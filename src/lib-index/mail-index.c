@@ -610,16 +610,13 @@ int mail_index_map(struct mail_index *index, int force)
 	index->hdr = NULL;
 	index->map = NULL;
 
-	if (!index->mmap_disable) {
-		if ((ret = mail_index_mmap(index, map)) <= 0) {
-			mail_index_unmap_forced(index, map);
-			return ret;
-		}
-	} else {
-		if (mail_index_read_map_with_retry(index, map) <= 0) {
-			mail_index_unmap_forced(index, map);
-			return -1;
-		}
+	if (!index->mmap_disable)
+		ret = mail_index_mmap(index, map);
+	 else
+		ret = mail_index_read_map_with_retry(index, map);
+	if (ret <= 0) {
+		mail_index_unmap_forced(index, map);
+		return ret;
 	}
 
 	ret = mail_index_check_header(index, map);
