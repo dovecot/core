@@ -8,4 +8,5 @@ EXTRA_DIST = \
 	dovecot.spec \
 	dovecot.spec.in \
 	COPYING.LGPL \
+	COPYING.MIT \
 	$(conf_DATA)
