@@ -8,6 +8,7 @@
 #include "message-content-parser.h"
 #include "imap-envelope.h"
 #include "imap-bodystructure.h"
+#include "imap-quote.h"
 
 #define EMPTY_BODYSTRUCTURE \
         "(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0)"
@@ -145,10 +146,11 @@ static void parse_header(MessagePart *part,
 						parse_content_transfer_encoding,
 						NULL, part_data);
 	} else if (strcasecmp(name, "Content-ID") == 0) {
-		part_data->content_id = p_strndup(pool, value, value_len);
+		part_data->content_id =
+			imap_quote_value(pool, value, value_len);
 	} else if (strcasecmp(name, "Content-Description") == 0) {
 		part_data->content_description =
-			p_strndup(pool, value, value_len);
+			imap_quote_value(pool, value, value_len);
 	} else if (strcasecmp(name, "Content-Disposition") == 0) {
 		part_data->str = t_string_new(256);
 		(void)message_content_parse_header(t_strndup(value, value_len),
@@ -162,7 +164,8 @@ static void parse_header(MessagePart *part,
 						   parse_content_language, NULL,
 						   part_data);
 	} else if (strcasecmp(name, "Content-MD5") == 0) {
-		part_data->content_md5 = p_strndup(pool, value, value_len);
+		part_data->content_md5 =
+			imap_quote_value(pool, value, value_len);
 	} else if (parent_rfc822) {
 		/* message/rfc822, we need the envelope */
 		imap_envelope_parse_header(pool, &part_data->envelope,
