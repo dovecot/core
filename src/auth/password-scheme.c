@@ -3,9 +3,13 @@
 #include "lib.h"
 #include "hex-binary.h"
 #include "md5.h"
+#include "md5crypt.h"
 #include "mycrypt.h"
 #include "randgen.h"
 #include "password-scheme.h"
+
+static const char *salt_chars =
+	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 int password_verify(const char *plaintext, const char *password,
 		    const char *scheme, const char *user)
@@ -17,7 +21,10 @@ int password_verify(const char *plaintext, const char *password,
 		return 0;
 
 	if (strcasecmp(scheme, "CRYPT") == 0)
-		return strcmp(mycrypt(password, plaintext), plaintext) == 0;
+		return strcmp(mycrypt(plaintext, password), password) == 0;
+
+	if (strcasecmp(scheme, "MD5") == 0)
+		return strcmp(md5_crypt(plaintext, password), password) == 0;
 
 	if (strcasecmp(scheme, "PLAIN") == 0)
 		return strcmp(password, plaintext) == 0;
@@ -48,7 +55,15 @@ const char *password_get_scheme(const char **password)
 {
 	const char *p, *scheme;
 
-	if (*password == NULL || **password != '{')
+	if (*password == NULL)
+		return NULL;
+
+	if (strncmp(*password, "$1$", 3) == 0) {
+		*password = t_strcut(*password + 3, '$');
+		return "MD5";
+	}
+
+	if (**password != '{')
 		return NULL;
 
 	p = strchr(*password, '}');
@@ -63,11 +78,10 @@ const char *password_get_scheme(const char **password)
 const char *password_generate(const char *plaintext, const char *user,
 			      const char *scheme)
 {
-	static const char *salt_chars =
-		"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ./";
 	const char *realm, *str;
 	unsigned char digest[16];
-	char salt[3];
+	char salt[9];
+	int i;
 
 	if (strcasecmp(scheme, "CRYPT") == 0) {
 		random_fill(salt, 2);
@@ -75,6 +89,14 @@ const char *password_generate(const char *plaintext, const char *user,
 		salt[1] = salt_chars[salt[1] % (sizeof(salt_chars)-1)];
 		salt[2] = '\0';
 		return t_strdup(mycrypt(plaintext, salt));
+	}
+
+	if (strcasecmp(scheme, "MD5") == 0) {
+		random_fill(salt, 8);
+		for (i = 0; i < 8; i++)
+			salt[i] = salt_chars[salt[i] % (sizeof(salt_chars)-1)];
+		salt[8] = '\0';
+		return t_strdup(md5_crypt(plaintext, salt));
 	}
 
 	if (strcasecmp(scheme, "PLAIN") == 0)

@@ -26,6 +26,7 @@ dovecot_auth_SOURCES = \
 	login-connection.c \
 	main.c \
 	master-connection.c \
+	md5crypt.c \
 	mech.c \
 	mech-cyrus-sasl2.c \
 	mech-plain.c \
@@ -56,6 +57,7 @@ noinst_HEADERS = \
 	common.h \
 	login-connection.h \
 	master-connection.h \
+	md5crypt.h \
 	mech.h \
 	mycrypt.h \
 	passdb.h \
