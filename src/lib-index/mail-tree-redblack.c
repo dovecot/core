@@ -60,7 +60,6 @@
 static unsigned int
 rb_alloc(MailTree *tree)
 {
-        MailTreeNode *node = tree->node_base;
 	unsigned int x;
 
 	if (tree->mmap_used_length == tree->mmap_full_length) {
@@ -78,7 +77,7 @@ rb_alloc(MailTree *tree)
 	tree->header->used_file_size += sizeof(MailTreeNode);
 	tree->mmap_used_length += sizeof(MailTreeNode);
 
-	memset(&node[x], 0, sizeof(MailTreeNode));
+	memset(&tree->node_base[x], 0, sizeof(MailTreeNode));
 	return x;
 }
 
