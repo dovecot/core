@@ -66,7 +66,7 @@ AC_ARG_ENABLE(pam,
 
 AC_ARG_WITH(proxy,
 [  --without-gnutls        Don't try to use GNUTLS],
-	if test x$wantval = xno; then
+	if test x$withval = xno; then
 		want_gnutls=no
 	else
 		want_gnutls=yes
