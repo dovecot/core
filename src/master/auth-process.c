@@ -412,7 +412,7 @@ static int create_auth_process(struct auth_process_group *group,
 		return -1;
 	}
 
-	log_fd = log_create_pipe(&log);
+	log_fd = log_create_pipe(&log, 0);
 	if (log_fd < 0)
 		pid = -1;
 	else {

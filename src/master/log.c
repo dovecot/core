@@ -8,8 +8,6 @@
 
 #include <unistd.h>
 
-#define MAX_LOG_MESSAGS_PER_SEC 10
-
 struct log_io {
 	struct log_io *prev, *next;
 	struct io *io;
@@ -17,6 +15,7 @@ struct log_io {
 
 	time_t log_stamp;
 	unsigned int log_counter;
+        unsigned int max_lines_per_sec;
 
 	char *prefix;
 	char next_log_type;
@@ -114,7 +113,7 @@ static int log_it(struct log_io *log_io, const char *line, int continues)
 	if (!continues)
 		log_io->next_log_type = '\0';
 
-	if (++log_io->log_counter > MAX_LOG_MESSAGS_PER_SEC &&
+	if (++log_io->log_counter > log_io->max_lines_per_sec &&
 	    !log_io->destroying) {
 		log_throttle(log_io);
 		return 0;
@@ -153,11 +152,11 @@ static void log_read(void *context)
 	if (!log_write_pending(log_io))
 		return;
 
-	if (log_io->log_counter < MAX_LOG_MESSAGS_PER_SEC)
+	if (log_io->log_counter < log_io->max_lines_per_sec)
 		log_unthrottle(log_io);
 }
 
-int log_create_pipe(struct log_io **log_r)
+int log_create_pipe(struct log_io **log_r, unsigned int max_lines_per_sec)
 {
 	struct log_io *log_io;
 	int fd[2];
@@ -172,6 +171,8 @@ int log_create_pipe(struct log_io **log_r)
 
 	log_io = i_new(struct log_io, 1);
 	log_io->stream = i_stream_create_file(fd[0], default_pool, 1024, TRUE);
+	log_io->max_lines_per_sec =
+		max_lines_per_sec != 0 ? max_lines_per_sec : (unsigned int)-1;
 
 	throttle_count++;
         log_unthrottle(log_io);

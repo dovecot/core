@@ -344,7 +344,7 @@ int create_mail_process(struct login_group *group, int socket,
 		return FALSE;
 	}
 
-	log_fd = log_create_pipe(&log);
+	log_fd = log_create_pipe(&log, 10);
 
 	pid = fork();
 	if (pid < 0) {

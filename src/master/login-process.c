@@ -446,6 +446,7 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 static pid_t create_login_process(struct login_group *group)
 {
 	struct log_io *log;
+	unsigned int max_log_lines_per_sec;
 	const char *prefix;
 	pid_t pid;
 	int fd[2], log_fd;
@@ -466,7 +467,9 @@ static pid_t create_login_process(struct login_group *group)
 		return -1;
 	}
 
-	log_fd = log_create_pipe(&log);
+	max_log_lines_per_sec =
+		group->set->login_process_per_connection ? 10 : 0;
+	log_fd = log_create_pipe(&log, max_log_lines_per_sec);
 	if (log_fd < 0)
 		pid = -1;
 	else {
