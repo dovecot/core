@@ -622,6 +622,7 @@ void index_mail_init(struct index_transaction_context *t,
 
 	mail->mail = *t->ibox->mail_interface;
 	mail->mail.box = &t->ibox->box;
+	mail->mail.transaction = &t->mailbox_ctx;
 
 	/* only reason we couldn't get header is if view is invalidated */
 	hdr = mail_index_get_header(t->ibox->view);

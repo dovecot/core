@@ -229,7 +229,7 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 }
 
 struct mail maildir_mail = {
-	0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

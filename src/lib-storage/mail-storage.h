@@ -375,6 +375,7 @@ int mailbox_is_inconsistent(struct mailbox *box);
 struct mail {
 	/* always set */
 	struct mailbox *box;
+	struct mailbox_transaction_context *transaction;
 	uint32_t seq, uid;
 
 	unsigned int expunged:1;

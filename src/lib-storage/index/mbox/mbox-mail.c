@@ -161,7 +161,7 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 }
 
 struct mail mbox_mail = {
-	0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,
