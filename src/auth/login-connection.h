@@ -5,6 +5,7 @@
 
 struct login_connection {
 	struct login_connection *next;
+	int refcount;
 
 	int fd;
 	struct io *io;

@@ -567,8 +567,6 @@ mech_digest_md5_auth_continue(struct login_connection *conn,
 
 	if (parse_digest_response(auth, (const char *) data,
 				  request->data_size, &error)) {
-		auth_request->conn = conn;
-		auth_request->id = request->id;
 		auth_request->callback = callback;
 
 		auth_request->user = p_strdup(auth_request->pool,

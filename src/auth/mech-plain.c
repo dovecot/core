@@ -22,8 +22,6 @@ mech_plain_auth_continue(struct login_connection *conn,
 	char *pass;
 	size_t i, count, len;
 
-	auth_request->conn = conn;
-	auth_request->id = request->id;
 	auth_request->callback = callback;
 
 	/* authorization ID \0 authentication ID \0 pass.

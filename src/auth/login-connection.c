@@ -21,6 +21,8 @@
 static struct auth_login_handshake_output handshake_output;
 static struct login_connection *connections;
 
+static void login_connection_unref(struct login_connection *conn);
+
 static void request_callback(struct auth_login_reply *reply,
 			     const void *data, struct login_connection *conn)
 {
@@ -30,19 +32,23 @@ static void request_callback(struct auth_login_reply *reply,
 	if ((size_t)ret == sizeof(*reply)) {
 		if (reply->data_size == 0) {
 			/* all sent */
+			login_connection_unref(conn);
 			return;
 		}
 
 		ret = o_stream_send(conn->output, data, reply->data_size);
 		if ((size_t)ret == reply->data_size) {
 			/* all sent */
+			login_connection_unref(conn);
 			return;
 		}
 	}
 
 	if (ret >= 0)
 		i_warning("Transmit buffer full for login process, killing it");
+
 	login_connection_destroy(conn);
+	login_connection_unref(conn);
 }
 
 struct login_connection *login_connection_lookup(unsigned int pid)
@@ -112,6 +118,7 @@ static void login_input_request(struct login_connection *conn)
 		i_stream_skip(conn->input, sizeof(request));
 
 		/* we have a full init request */
+		conn->refcount++;
 		mech_request_new(conn, &request, request_callback);
 	} else if (type == AUTH_LOGIN_REQUEST_CONTINUE) {
                 struct auth_login_request_continue request;
@@ -126,6 +133,7 @@ static void login_input_request(struct login_connection *conn)
 		i_stream_skip(conn->input, sizeof(request) + request.data_size);
 
 		/* we have a full continued request */
+		conn->refcount++;
 		mech_request_continue(conn, &request, data + sizeof(request),
 				      request_callback);
 
@@ -171,6 +179,7 @@ struct login_connection *login_connection_create(int fd)
 		i_info("Login process %d connected", fd);
 
 	conn = i_new(struct login_connection, 1);
+	conn->refcount = 1;
 
 	conn->fd = fd;
 	conn->input = i_stream_create_file(fd, default_pool, MAX_INBUF_SIZE,
@@ -207,6 +216,9 @@ void login_connection_destroy(struct login_connection *conn)
 {
 	struct login_connection **pos;
 
+	if (conn->fd == -1)
+		return;
+
 	if (verbose)
 		i_info("Login process %d disconnected", conn->fd);
 
@@ -217,14 +229,27 @@ void login_connection_destroy(struct login_connection *conn)
 		}
 	}
 
+	i_stream_close(conn->input);
+	o_stream_close(conn->output);
+
+	io_remove(conn->io);
+	net_disconnect(conn->fd);
+	conn->fd = -1;
+
+        login_connection_unref(conn);
+}
+
+static void login_connection_unref(struct login_connection *conn)
+{
+	if (--conn->refcount > 0)
+		return;
+
 	hash_foreach(conn->auth_requests, auth_request_hash_destroy, NULL);
 	hash_destroy(conn->auth_requests);
 
 	i_stream_unref(conn->input);
 	o_stream_unref(conn->output);
 
-	io_remove(conn->io);
-	net_disconnect(conn->fd);
 	pool_unref(conn->pool);
 	i_free(conn);
 }

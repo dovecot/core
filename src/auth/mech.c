@@ -90,7 +90,10 @@ void mech_request_new(struct login_connection *conn,
 	}
 
 	if (auth_request != NULL) {
+		auth_request->conn = conn;
+		auth_request->id = request->id;
 		auth_request->protocol = request->protocol;
+
 		hash_insert(conn->auth_requests, POINTER_CAST(request->id),
 			    auth_request);
 	}
@@ -112,7 +115,7 @@ void mech_request_continue(struct login_connection *conn,
 	} else {
 		if (!auth_request->auth_continue(conn, auth_request,
 						 request, data, callback))
-                        mech_request_free(conn, auth_request, request->id);
+			mech_request_free(conn, auth_request, request->id);
 	}
 }
 
