@@ -97,6 +97,15 @@ AC_ARG_WITH(vpopmail,
 	fi,
 	want_vpopmail=yes)
 
+AC_ARG_WITH(static-userdb,
+[  --with-static-userdb    Build with static userdb support (default)],
+	if test x$withval = xno; then
+		want_static_userdb=no
+	else
+		want_static_userdb=yes
+	fi,
+	want_static_userdb=yes)
+
 AC_ARG_WITH(cyrus-sasl2,
 [  --with-cyrus-sasl2      Build with Cyrus SASL 2 library support],
 	if test x$withval = xno; then
@@ -142,7 +151,7 @@ dnl * gcc specific options
 if test "x$ac_cv_prog_gcc" = "xyes"; then
 	# -Wcast-qual -Wcast-align -Wconversion # too many warnings
 	# -Wstrict-prototypes -Wredundant-decls # may give warnings in some systems
-	# -Wmissing-format-attribute -Wmissing-noreturn # a couple of warnings
+	# -Wmissing-format-attribute -Wmissing-noreturn -Wwrite-strings # a couple of warnings
 	CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat=2 -Wbad-function-cast"
 fi
 
@@ -649,29 +658,40 @@ if test "$have_ssl" != "no"; then
 fi
 
 dnl **
-dnl ** shadow/pam support
+dnl ** userdb and passdb checks
 dnl **
 
 need_crypt=no
-auths=""
+userdb=""
+passdb=""
+
+if test $want_static_userdb = yes; then
+	need_crypt=yes
+        AC_DEFINE(USERDB_STATIC,, Build with static userdb support)
+	userdb="$userdb static"
+fi
 
 if test $want_passwd = yes; then
 	need_crypt=yes
-        AC_DEFINE(USERINFO_PASSWD,, Build with passwd support)
-	auths="$auths passwd"
+        AC_DEFINE(USERDB_PASSWD,, Build with passwd support)
+        AC_DEFINE(PASSDB_PASSWD,, Build with passwd support)
+	userdb="$userdb passwd"
+	passdb="$passdb passwd"
 fi
 
 if test $want_passwd_file = yes; then
 	need_crypt=yes
-        AC_DEFINE(USERINFO_PASSWD_FILE,, Build with passwd-file support)
-	auths="$auths passwd-file"
+        AC_DEFINE(USERDB_PASSWD_FILE,, Build with passwd-file support)
+        AC_DEFINE(PASSDB_PASSWD_FILE,, Build with passwd-file support)
+	userdb="$userdb passwd-file"
+	passdb="$passdb passwd-file"
 fi
 
 if test $want_shadow = yes; then
 	AC_CHECK_FUNC(getspnam, [
 		need_crypt=yes
-		AC_DEFINE(USERINFO_SHADOW,, Build with shadow support)
-		auths="$auths shadow"
+		AC_DEFINE(PASSDB_SHADOW,, Build with shadow support)
+		passdb="$passdb shadow"
 	])
 fi
 
@@ -691,9 +711,9 @@ if test $want_pam = yes; then
 		])
 
 		if test "$have_pam" = "yes"; then
-			USERINFO_LIBS="$USERINFO_LIBS -lpam"
-			AC_DEFINE(USERINFO_PAM,, Build with PAM support)
-			auths="$auths pam"
+			PASSDB_LIBS="$PASSDB_LIBS -lpam"
+			AC_DEFINE(PASSDB_PAM,, Build with PAM support)
+			passdb="$passdb pam"
 
 			AC_CHECK_LIB(pam, pam_setcred, [
 				AC_DEFINE(HAVE_PAM_SETCRED,,
@@ -712,8 +732,10 @@ if test $want_vpopmail = yes; then
 		need_crypt=yes
 		VPOPMAIL_CFLAGS="`cat $vpopmail_home/etc/inc_deps` $CFLAGS"
 		VPOPMAIL_LIBS="`cat $vpop_libdeps`"
-		AC_DEFINE(USERINFO_VPOPMAIL,, Build with vpopmail support)
-		auths="$auths vpopmail"
+		AC_DEFINE(USERDB_VPOPMAIL,, Build with vpopmail support)
+		AC_DEFINE(PASSDB_VPOPMAIL,, Build with vpopmail support)
+		userdb="$userdb vpopmail"
+		passdb="$passdb vpopmail"
 		AC_MSG_RESULT(found)
 	else
 		want_vpopmail=no
@@ -738,7 +760,7 @@ AC_SUBST(SASL_LIBS)
 
 if test $need_crypt = yes; then
 	AC_CHECK_LIB(crypt, crypt, [
-		USERINFO_LIBS="$USERINFO_LIBS -lcrypt"
+		PASSDB_LIBS="$PASSDB_LIBS -lcrypt"
 	], [
 		AC_CHECK_FUNC(crypt,, [
 			AC_ERROR([crypt() wasn't found])
@@ -746,7 +768,7 @@ if test $need_crypt = yes; then
 	])
 fi
 
-AC_SUBST(USERINFO_LIBS)
+AC_SUBST(PASSDB_LIBS)
 
 dnl **
 dnl ** Index file compatibility flags
@@ -837,11 +859,13 @@ src/auth/Makefile
 src/imap/Makefile
 src/login/Makefile
 src/master/Makefile
+src/pop3/Makefile
 stamp.h)
 
 echo
-echo "Install prefix ............. : $prefix"
-echo "File offsets ............... : ${offt_bits}bit"
-echo "Building with auth modules . :$auths"
-echo "Building with SSL support .. : $have_ssl"
-echo "Building with IPv6 support . : $want_ipv6"
+echo "Install prefix ...................... : $prefix"
+echo "File offsets ........................ : ${offt_bits}bit"
+echo "Building with user database modules . :$userdb"
+echo "Building with password lookup modules :$passdb"
+echo "Building with SSL support ........... : $have_ssl"
+echo "Building with IPv6 support .......... : $want_ipv6"
