@@ -212,8 +212,10 @@ void io_loop_handler_run(struct ioloop *ioloop)
 				if (t_pop() != t_id)
 					i_panic("Leaked a t_pop() call!");
 
-				if (io->destroyed)
+				if (io->destroyed) {
 					io_destroy(ioloop, io_p);
+					continue;
+				}
 			}
 		}
 

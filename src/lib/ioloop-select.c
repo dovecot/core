@@ -121,15 +121,17 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		condition = io->condition;
 
 		if (io_check_condition(fd, condition)) {
+			ret--;
+
 			t_id = t_push();
 			io->callback(io->context);
 			if (t_pop() != t_id)
 				i_panic("Leaked a t_pop() call!");
 
-			if (io->destroyed)
+			if (io->destroyed) {
 				io_destroy(ioloop, io_p);
-
-			ret--;
+				continue;
+			}
 		}
 
 		io_p = &io->next;

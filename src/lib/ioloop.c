@@ -58,7 +58,7 @@ static void update_highest_fd(struct ioloop *ioloop)
 
 struct io *io_add(int fd, int condition, io_callback_t *callback, void *context)
 {
-	struct io *io;
+	struct io *io, **io_p;
 
 	i_assert(fd >= 0);
 	i_assert(callback != NULL);
@@ -75,8 +75,11 @@ struct io *io_add(int fd, int condition, io_callback_t *callback, void *context)
 
         io_loop_handle_add(current_ioloop, io->fd, io->condition);
 
-	io->next = current_ioloop->ios;
-	current_ioloop->ios = io;
+	/* have to append it, or io_destroy() breaks */
+        io_p = &current_ioloop->ios;
+	while (*io_p != NULL)
+		io_p = &(*io_p)->next;
+	*io_p = io;
 	return io;
 }
 
