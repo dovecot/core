@@ -86,6 +86,7 @@ struct mail_cache {
 
 	unsigned int anon_mmap:1;
 	unsigned int mmap_refresh:1;
+	unsigned int silent:1;
 };
 
 struct mail_cache_transaction_ctx {
@@ -212,7 +213,20 @@ static int mail_cache_file_reopen(struct mail_cache *cache)
 
 static int mmap_verify_header(struct mail_cache *cache)
 {
-	struct mail_cache_header *hdr = cache->header;
+	struct mail_cache_header *hdr;
+
+	/* check that the header is still ok */
+	if (cache->mmap_length < sizeof(struct mail_cache_header))
+		return mail_cache_set_corrupted(cache, "File too small");
+	cache->header = hdr = cache->mmap_base;
+
+	if (cache->header->indexid != cache->index->indexid) {
+		/* index id changed */
+		if (cache->header->indexid != 0)
+			mail_cache_set_corrupted(cache, "indexid changed");
+		cache->index->inconsistent = TRUE; /* easiest way to rebuild */
+		return FALSE;
+	}
 
 	if (cache->trans_ctx != NULL) {
 		/* we've updated used_file_size, do nothing */
@@ -243,7 +257,8 @@ static int mmap_verify_header(struct mail_cache *cache)
 	return TRUE;
 }
 
-static int mmap_update(struct mail_cache *cache, size_t offset, size_t size)
+static int mmap_update_nocheck(struct mail_cache *cache,
+			       size_t offset, size_t size)
 {
 	if (cache->header != NULL &&
 	    cache->header->indexid != cache->index->indexid) {
@@ -294,12 +309,13 @@ static int mmap_update(struct mail_cache *cache, size_t offset, size_t size)
 		return mail_cache_set_syscall_error(cache, "mmap()");
 	}
 
-	/* check that the header is still ok */
-	if (cache->mmap_length < sizeof(struct mail_cache_header))
-		return mail_cache_set_corrupted(cache, "File too small");
+	return TRUE;
+}
 
-	cache->header = cache->mmap_base;
-	return mmap_verify_header(cache);
+static int mmap_update(struct mail_cache *cache, size_t offset, size_t size)
+{
+	return mmap_update_nocheck(cache, offset, size) &&
+		mmap_verify_header(cache);
 }
 
 static int mail_cache_open_and_verify(struct mail_cache *cache, int silent)
@@ -326,17 +342,31 @@ static int mail_cache_open_and_verify(struct mail_cache *cache, int silent)
 		return 0;
 
 	cache->mmap_refresh = TRUE;
-	if (!mmap_update(cache, 0, sizeof(struct mail_cache_header)))
+	if (!mmap_update_nocheck(cache, 0, sizeof(struct mail_cache_header)))
 		return -1;
 
 	/* verify that this really is the cache for wanted index */
-	if (cache->header->indexid != cache->index->indexid) {
-		if (!silent)
-			mail_cache_set_corrupted(cache, "IndexID mismatch");
+	cache->silent = silent;
+	if (!mmap_verify_header(cache)) {
+		cache->silent = FALSE;
 		return 0;
 	}
 
+	cache->silent = FALSE;
 	return 1;
+}
+
+static void mail_index_clear_cache_offsets(struct mail_index *index)
+{
+	struct mail_index_record *rec;
+
+	index->file_sync_stamp = ioloop_time-61;
+
+	rec = index->lookup(index, 1);
+	while (rec != NULL) {
+		rec->cache_offset = 0;
+		rec = index->next(index, rec);
+	}
 }
 
 static int mail_cache_open_or_create_file(struct mail_cache *cache,
@@ -350,6 +380,11 @@ static int mail_cache_open_or_create_file(struct mail_cache *cache,
 	ret = mail_cache_open_and_verify(cache, FALSE);
 	if (ret != 0)
 		return ret > 0;
+
+	/* we'll have to clear cache_offsets which requires exclusive lock */
+	cache->index->inconsistent = FALSE;
+	if (!mail_index_set_lock(cache->index, MAIL_LOCK_EXCLUSIVE))
+		return FALSE;
 
 	/* maybe a rebuild.. */
 	fd = file_dotlock_open(cache->filepath, NULL, MAIL_CACHE_LOCK_TIMEOUT,
@@ -377,6 +412,8 @@ static int mail_cache_open_or_create_file(struct mail_cache *cache,
 		(void)file_dotlock_delete(cache->filepath, fd);
 		return FALSE;
 	}
+
+	mail_index_clear_cache_offsets(cache->index);
 
 	mail_cache_file_close(cache);
 	cache->fd = dup(fd);
@@ -423,6 +460,9 @@ int mail_cache_open_or_create(struct mail_index *index)
 			return FALSE;
 		}
 	}
+
+	/* unset inconsistency - we already rebuilt the cache file */
+	index->inconsistent = FALSE;
 
 	return TRUE;
 }
@@ -552,7 +592,7 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 	while (rec != NULL) {
 		cache_rec = mail_cache_lookup(cache, rec);
 		if (cache_rec == NULL)
-			rec->data_offset = 0;
+			rec->cache_offset = 0;
 		else if ((nbo_to_uint32(cache_rec->next_offset) & 2) == 0 &&
 			 remove_fields == 0) {
 			/* just one unmodified block, copy it */
@@ -560,7 +600,7 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 			i_assert(offset + size <= new_file_size);
 
 			memcpy(mmap_base + offset, cache_rec, size);
-			rec->data_offset = uint32_to_nbo(offset | 2);
+			rec->cache_offset = uint32_to_nbo(offset | 2);
 
 			size = (size + 3) & ~3;
 			offset += size;
@@ -575,7 +615,7 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 			used_fields |= cache_rec->fields;
 			t_pop();
 
-			rec->data_offset = uint32_to_nbo(offset | 2);
+			rec->cache_offset = uint32_to_nbo(offset | 2);
 			offset += size;
 		}
 
@@ -1280,15 +1320,15 @@ static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 	rec = INDEX_RECORD_AT(ctx->cache->index, ctx->last_idx);
 	ctx->last_idx = (unsigned int)-1;
 
-	cache_rec = cache_get_record(cache, rec->data_offset);
+	cache_rec = cache_get_record(cache, rec->cache_offset);
 	if (cache_rec == NULL) {
 		/* first cache record - update offset in index file */
 		i_assert(cache->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-		rec->data_offset = uint32_to_nbo(write_offset);
+		rec->cache_offset = uint32_to_nbo(write_offset);
 
 		/* mark used-bit to be updated later */
-		update_offset = (char *) &rec->data_offset -
+		update_offset = (char *) &rec->cache_offset -
 			(char *) cache->index->mmap_base;
 		mark_update(&ctx->index_marks, update_offset, write_offset | 2);
 	} else {
@@ -1339,14 +1379,10 @@ mail_cache_lookup(struct mail_cache *cache, const struct mail_index_record *rec)
 			return NULL;
 	}
 
-	cache_rec = cache_get_record(cache, rec->data_offset);
+	cache_rec = cache_get_record(cache, rec->cache_offset);
 	if (cache_rec == NULL)
 		return NULL;
 
-	if (cache_rec->fields == 0) {
-		mail_cache_set_corrupted(cache, "record has no fields");
-		return NULL;
-	}
 	return cache_rec;
 }
 
@@ -1690,9 +1726,11 @@ int mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 {
 	va_list va;
 
-	/* rebuild */
-        INDEX_MARK_CORRUPTED(cache->index);
-        mail_cache_mark_file_deleted(cache);
+	mail_cache_mark_file_deleted(cache);
+	cache->index->inconsistent = TRUE; /* easiest way to rebuild */
+
+	if (cache->silent)
+		return FALSE;
 
 	va_start(va, fmt);
 	t_push();
