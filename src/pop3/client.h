@@ -26,6 +26,7 @@ struct client {
 	uoff_t *message_sizes;
 	uoff_t total_size;
 	uoff_t deleted_size;
+	uint32_t last_seen;
 
 	unsigned char *deleted_bitmask;
 

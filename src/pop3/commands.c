@@ -166,6 +166,12 @@ static int cmd_list(struct client *client, const char *args)
 	return TRUE;
 }
 
+static int cmd_last(struct client *client, const char *args __attr_unused__)
+{
+	client_send_line(client, "+OK %u", client->last_seen);
+	return TRUE;
+}
+
 static int cmd_noop(struct client *client, const char *args __attr_unused__)
 {
 	client_send_line(client, "+OK");
@@ -380,17 +386,48 @@ static int cmd_retr(struct client *client, const char *args)
 	if (get_msgnum(client, args, &msgnum) == NULL)
 		return FALSE;
 
+	if (client->last_seen <= msgnum)
+		client->last_seen = msgnum+1;
+
 	fetch(client, msgnum, (uoff_t)-1);
 	return TRUE;
 }
 
 static int cmd_rset(struct client *client, const char *args __attr_unused__)
 {
+	struct mailbox_transaction_context *t;
+	struct mail_search_context *search_ctx;
+	struct mail *mail;
+	struct mail_search_arg search_arg;
+	struct mail_full_flags seen_flag;
+
+	client->last_seen = 0;
+
 	if (client->deleted) {
 		client->deleted = FALSE;
 		memset(client->deleted_bitmask, 0, MSGS_BITMASK_SIZE(client));
 		client->deleted_count = 0;
 		client->deleted_size = 0;
+	}
+
+	if (enable_last_command) {
+		/* remove all \Seen flags */
+		memset(&search_arg, 0, sizeof(search_arg));
+		search_arg.type = SEARCH_ALL;
+
+		memset(&seen_flag, 0, sizeof(seen_flag));
+		seen_flag.flags = MAIL_SEEN;
+
+		t = mailbox_transaction_begin(client->mailbox, FALSE);
+		search_ctx = mailbox_search_init(t, NULL, &search_arg,
+						 NULL, 0, NULL);
+		while ((mail = mailbox_search_next(search_ctx)) != NULL) {
+			if (mail->update_flags(mail, &seen_flag,
+					       MODIFY_REMOVE) < 0)
+				break;
+		}
+		(void)mailbox_search_deinit(search_ctx);
+		(void)mailbox_transaction_commit(t, 0);
 	}
 
 	client_send_line(client, "+OK");
@@ -544,6 +581,8 @@ int client_command_execute(struct client *client,
 	case 'L':
 		if (strcmp(name, "LIST") == 0)
 			return cmd_list(client, args);
+		if (strcmp(name, "LAST") == 0 && enable_last_command)
+			return cmd_last(client, args);
 		break;
 	case 'N':
 		if (strcmp(name, "NOOP") == 0)

@@ -34,6 +34,7 @@ void (*hook_client_created)(struct client **client) = NULL;
 static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 enum client_workarounds client_workarounds = 0;
+int enable_last_command = FALSE;
 
 static void sig_quit(int signo __attr_unused__)
 {
@@ -128,7 +129,9 @@ static int main_init(void)
 		if (mail != NULL)
 			mail = t_strconcat("maildir:", mail, NULL);
 	}
-        parse_workarounds();
+
+	parse_workarounds();
+	enable_last_command = getenv("POP3_ENABLE_LAST") != NULL;
 
 	storage = mail_storage_create_with_data(mail, getenv("USER"));
 	if (storage == NULL) {

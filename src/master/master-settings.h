@@ -90,7 +90,8 @@ struct settings {
 	const char *imap_client_workarounds;
 
 	/* pop3 */
-        int pop3_mails_keep_recent;
+	int pop3_mails_keep_recent;
+	int pop3_enable_last;
 	const char *pop3_client_workarounds;
 
 	/* .. */

@@ -10,6 +10,7 @@ enum client_workarounds {
 
 extern struct ioloop *ioloop;
 extern enum client_workarounds client_workarounds;
+extern int enable_last_command;
 
 extern void (*hook_mail_storage_created)(struct mail_storage **storage);
 extern void (*hook_client_created)(struct client **client);
