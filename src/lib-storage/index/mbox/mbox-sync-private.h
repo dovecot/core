@@ -108,6 +108,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff);
 int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 		      uint32_t first_seq, uint32_t last_seq, off_t extra_space);
 
+int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset);
 int mbox_move(struct mbox_sync_context *sync_ctx,
 	      uoff_t dest, uoff_t source, uoff_t size);
 

@@ -103,6 +103,22 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 	return 0;
 }
 
+static void handle_end_of_mail(struct raw_mbox_istream *rstream, size_t pos)
+{
+	rstream->mail_size = rstream->istream.istream.v_offset + pos -
+		rstream->hdr_offset;
+
+	if (rstream->body_offset != (uoff_t)-1 &&
+	    rstream->hdr_offset + rstream->mail_size < rstream->body_offset) {
+		/* "headers\n\nFrom ..", the second \n belongs to next
+		   message which we didn't know at the time yet. */
+		i_assert(rstream->body_offset ==
+			 rstream->hdr_offset + rstream->mail_size + 1);
+		rstream->body_offset =
+			rstream->hdr_offset + rstream->mail_size;
+	}
+}
+
 static ssize_t _read(struct _istream *stream)
 {
 	static const char *mbox_from = "\nFrom ";
@@ -113,6 +129,8 @@ static ssize_t _read(struct _istream *stream)
 	time_t received_time;
 	size_t i, pos, new_pos, from_start_pos;
 	ssize_t ret = 0;
+
+	i_assert(stream->istream.v_offset >= rstream->from_offset);
 
 	if (rstream->eom) {
 		if (rstream->body_offset == (uoff_t)-1) {
@@ -134,8 +152,9 @@ static ssize_t _read(struct _istream *stream)
 	do {
 		ret = i_stream_read(rstream->input);
 		buf = i_stream_get_data(rstream->input, &pos);
-	} while (ret > 0 &&
-		 stream->istream.v_offset + pos <= rstream->input_peak_offset);
+	} while (ret > 0 && (pos == 1 ||
+			     stream->istream.v_offset + pos <=
+			     rstream->input_peak_offset));
 
 	if (ret < 0) {
 		if (ret == -2)
@@ -155,8 +174,7 @@ static ssize_t _read(struct _istream *stream)
 
 		rstream->eom = TRUE;
 		rstream->next_eof = TRUE;
-		rstream->mail_size = stream->istream.v_offset + pos -
-			rstream->hdr_offset;
+		handle_end_of_mail(rstream, pos);
 		return ret < 0 ? _read(stream) : ret;
 	}
 
@@ -211,10 +229,8 @@ static ssize_t _read(struct _istream *stream)
                                         /* rewind "\nFrom " */
 					from_start_pos -= 6;
 
-					rstream->mail_size =
-						stream->istream.v_offset +
-						from_start_pos -
-						rstream->hdr_offset;
+					handle_end_of_mail(rstream,
+							   from_start_pos);
 					break;
 				}
 				from_start_pos = 0;

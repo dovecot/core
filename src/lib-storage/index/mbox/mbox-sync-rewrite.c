@@ -263,7 +263,8 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	uint32_t old_prev_msg_uid;
 	uoff_t offset;
 
-	i_stream_seek(sync_ctx->input, mails[idx].offset);
+	if (mbox_sync_seek(sync_ctx, mails[idx].from_offset) < 0)
+		return -1;
 
 	memset(&mail_ctx, 0, sizeof(mail_ctx));
 	mail_ctx.sync_ctx = sync_ctx;
@@ -338,6 +339,7 @@ static int mbox_sync_fill_leftover(struct mbox_sync_context *sync_ctx,
 	uint32_t old_prev_msg_uid;
 
 	i_assert(start_offset < end_offset);
+
 	i_stream_seek(sync_ctx->input, mails[idx].offset);
 
 	memset(&mail_ctx, 0, sizeof(mail_ctx));
@@ -368,7 +370,9 @@ static int mbox_sync_fill_leftover(struct mbox_sync_context *sync_ctx,
 		return -1;
 	}
 
+	/* just a cleanup - shouldn't be needed anymore */
 	mails[idx].offset = start_offset;
+	mails[idx].space = 0;
 	return 0;
 }
 
@@ -463,7 +467,6 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 		}
 
 		/* now parse it again and give it more space */
-		mails[idx].space = extra_per_mail;
 		mails[idx+1].space = 0; /* from_offset doesn't move.. */
 		if (mbox_sync_fill_leftover(sync_ctx, mails,
 					    first_seq + idx, idx,

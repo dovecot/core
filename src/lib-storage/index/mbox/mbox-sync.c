@@ -125,6 +125,18 @@ static int mbox_sync_lock(struct mbox_sync_context *sync_ctx, int lock_type)
 	return 1;
 }
 
+int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset)
+{
+	if (istream_raw_mbox_seek(sync_ctx->input, from_offset) < 0) {
+		mail_storage_set_critical(sync_ctx->ibox->box.storage,
+			"Unexpectedly lost From-line at offset %"PRIuUOFF_T
+			" from mbox file %s", from_offset,
+			sync_ctx->ibox->path);
+		return -1;
+	}
+	return 0;
+}
+
 static int mbox_sync_grow_file(struct mbox_sync_context *sync_ctx,
 			       struct mbox_sync_mail_context *mail_ctx,
 			       uoff_t grow_size)
@@ -200,6 +212,7 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	mail_ctx->mail.body_size =
 		istream_raw_mbox_get_body_size(sync_ctx->input,
 					       mail_ctx->content_length);
+	i_assert(mail_ctx->mail.body_size < OFF_T_MAX);
 
 	/* save the offset permanently with recent flag state */
 	mail_ctx->mail.from_offset = mail_ctx->from_offset;
@@ -714,7 +727,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		if (sync_ctx->need_space_seq != 0) {
 			if (mbox_sync_handle_missing_space(mail_ctx) < 0)
 				return -1;
-			i_stream_seek(sync_ctx->input, offset);
+			if (mbox_sync_seek(sync_ctx, offset) < 0)
+				return -1;
 		} else if (sync_ctx->expunged_space > 0) {
 			if (!expunged) {
 				/* move the body */
@@ -724,7 +738,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 					      mail_ctx->body_offset,
 					      mail_ctx->mail.body_size) < 0)
 					return -1;
-				i_stream_seek(sync_ctx->input, offset);
+				if (mbox_sync_seek(sync_ctx, offset) < 0)
+					return -1;
 			}
 		} else if (sync_ctx->seq >= min_message_count) {
 			mbox_sync_buffer_delete_old(sync_ctx->syncs, uid+1);
@@ -775,7 +790,10 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		sync_ctx->space_diff -= extra_space;
 
 		sync_ctx->space_diff += sync_ctx->expunged_space;
-		sync_ctx->expunged_space -= -sync_ctx->space_diff;
+		if (sync_ctx->expunged_space <= -sync_ctx->space_diff)
+			sync_ctx->expunged_space = 0;
+		else
+			sync_ctx->expunged_space -= -sync_ctx->space_diff;
 
 		if (mail_ctx->have_eoh && !mail_ctx->updated)
 			str_append_c(mail_ctx->header, '\n');
@@ -958,14 +976,8 @@ static int mbox_sync_update_imap_base(struct mbox_sync_context *sync_ctx)
 {
 	struct mbox_sync_mail_context mail_ctx;
 
-	if (istream_raw_mbox_seek(sync_ctx->input, 0) < 0) {
-		/* doesn't begin with a From-line, which is weird because it
-		   just did. */
-		mail_storage_set_critical(sync_ctx->ibox->box.storage,
-			"Unexpectedly lost From-header line from mbox file %s",
-			sync_ctx->ibox->path);
+	if (mbox_sync_seek(sync_ctx, 0) < 0)
 		return -1;
-	}
 
 	sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view, FALSE);
 	sync_ctx->update_base_uid_last = sync_ctx->next_uid-1;
