@@ -93,7 +93,7 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail)
 			return FALSE;
 		ctx->first = FALSE;
 	} else {
-		if (o_stream_send_str(ctx->output, " BODY(") < 0)
+		if (o_stream_send_str(ctx->output, " BODY (") < 0)
 			return FALSE;
 	}
 
@@ -119,7 +119,7 @@ static int fetch_bodystructure(struct imap_fetch_context *ctx,
 			return FALSE;
 		ctx->first = FALSE;
 	} else {
-		if (o_stream_send_str(ctx->output, " BODYSTRUCTURE(") < 0)
+		if (o_stream_send_str(ctx->output, " BODYSTRUCTURE (") < 0)
 			return FALSE;
 	}
 
@@ -144,7 +144,7 @@ static int fetch_envelope(struct imap_fetch_context *ctx, struct mail *mail)
 			return FALSE;
 		ctx->first = FALSE;
 	} else {
-		if (o_stream_send_str(ctx->output, " ENVELOPE(") < 0)
+		if (o_stream_send_str(ctx->output, " ENVELOPE (") < 0)
 			return FALSE;
 	}
 
