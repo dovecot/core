@@ -116,8 +116,11 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 	size_t inleft, outleft, outsize, pos;
 
 	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0 ||
-	    strcasecmp(charset, "ascii") == 0)
-		return str_ucase(t_strdup_noconst(buf));
+	    strcasecmp(charset, "ascii") == 0) {
+		outbuf = t_malloc(*size);
+		memcpy(outbuf, buf, *size);
+		return str_ucase(outbuf);
+	}
 
 	cd = iconv_open("UTF-8", charset);
 	if (cd == (iconv_t)-1) {
