@@ -927,15 +927,16 @@ int mail_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 
 static int mail_index_grow(MailIndex *index)
 {
-	uoff_t pos, grow_size;
+	uoff_t pos;
+	unsigned int grow_count;
 	void *base;
 
-	grow_size = index->header->messages_count * sizeof(MailIndexRecord) *
+	grow_count = index->header->messages_count *
 		INDEX_GROW_PERCENTAGE / 100;
-	if (grow_size < 16)
-		grow_size = 16;
+	if (grow_count < 16)
+		grow_count = 16;
 
-	pos = index->mmap_full_length + (grow_size * sizeof(MailIndexRecord));
+	pos = index->mmap_full_length + (grow_count * sizeof(MailIndexRecord));
 	i_assert(pos < OFF_T_MAX);
 
 	if (index->anon_mmap) {
