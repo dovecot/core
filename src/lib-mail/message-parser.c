@@ -158,11 +158,10 @@ static MessagePart *message_parse_multipart(IOBuffer *inbuf,
 		part = message_part_append(parse_ctx->pool, parent_part);
 
 		/* set child position */
-		memcpy(&part->pos, &parent_part->pos, sizeof(MessagePosition));
-		part->pos.physical_pos += parent_part->body_size.physical_size +
+		part->physical_pos =
+			parent_part->physical_pos +
+			parent_part->body_size.physical_size +
 			parent_part->header_size.physical_size;
-		part->pos.virtual_pos += parent_part->body_size.virtual_size +
-			parent_part->header_size.virtual_size;
 
                 parse_ctx->part = part;
 		next_part = message_parse_part(inbuf, parse_ctx);

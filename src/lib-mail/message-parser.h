@@ -5,11 +5,6 @@ typedef struct _MessagePart MessagePart;
 typedef struct _MessagePosition MessagePosition;
 typedef struct _MessageSize MessageSize;
 
-struct _MessagePosition {
-	uoff_t physical_pos;
-	uoff_t virtual_pos;
-};
-
 struct _MessageSize {
 	uoff_t physical_size;
 	uoff_t virtual_size;
@@ -21,7 +16,7 @@ struct _MessagePart {
 	MessagePart *next;
 	MessagePart *children;
 
-        MessagePosition pos; /* absolute position from beginning of message */
+	uoff_t physical_pos; /* absolute position from beginning of message */
 	MessageSize header_size;
 	MessageSize body_size;
 

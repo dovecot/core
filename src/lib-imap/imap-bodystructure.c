@@ -175,8 +175,8 @@ static void part_parse_headers(MessagePart *part, IOBuffer *inbuf, Pool pool)
 	while (part != NULL) {
 		/* note that we want to parse the header of all
 		   the message parts, multiparts too. */
-		i_assert(part->pos.physical_pos >= inbuf->offset);
-		io_buffer_skip(inbuf, part->pos.physical_pos - inbuf->offset);
+		i_assert(part->physical_pos >= inbuf->offset);
+		io_buffer_skip(inbuf, part->physical_pos - inbuf->offset);
 
 		message_parse_header(part, inbuf, NULL, parse_header, pool);
 

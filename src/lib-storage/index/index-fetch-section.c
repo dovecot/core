@@ -318,7 +318,7 @@ static int fetch_part_body(MessagePart *part, unsigned int uid,
 		return FALSE;
 
 	/* jump to beginning of wanted data */
-	skip_pos = part->pos.physical_pos + part->header_size.physical_size;
+	skip_pos = part->physical_pos + part->header_size.physical_size;
 	io_buffer_skip(inbuf, skip_pos);
 
 	str = t_strdup_printf("{%lu}\r\n",
@@ -342,7 +342,7 @@ static int fetch_part_header(MessagePart *part, unsigned int uid,
 	if (!imap_msgcache_get_data(ctx->cache, uid, &inbuf))
 		return FALSE;
 
-	io_buffer_skip(inbuf, part->pos.physical_pos);
+	io_buffer_skip(inbuf, part->physical_pos);
 	fetch_header_from(inbuf, &part->header_size, section, sect, ctx);
 	return TRUE;
 }
