@@ -802,7 +802,7 @@ for i in 1 2; do
     
     int main(void)
     {
-	    int fd[2], send_fd, recv_fd, status;
+	    int fd[2], send_fd, recv_fd;
 	    struct stat st, st2;
 	    char data;
     
@@ -816,10 +816,15 @@ for i in 1 2; do
 	    case -1:
 		    return 2;
 	    case 0:
+		    alarm(1);
 		    if (fd_send(fd[0], send_fd, &data, 1) != 1) return 2;
-		    wait(&status);
-		    return status;
+		    return 0;
 	    default:
+		    alarm(2);
+		    if (wait(&status) == -1)
+		      return 2;
+		    if (status != 0)
+		      return status;
 		    if (fd_read(fd[1], &data, 1, &recv_fd) != 1) return 1;
 		    if (fstat(recv_fd, &st2) < 0) return 2;
 		    return st.st_ino == st2.st_ino ? 0 : 1;
