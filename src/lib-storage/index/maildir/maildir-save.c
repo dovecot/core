@@ -173,8 +173,8 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 	memset(keywords, 0, INDEX_KEYWORDS_BYTE_COUNT);
 	// FIXME: set keywords
 
-	mail_index_append(t->ictx.trans, 0, &ctx->seq);
-	mail_index_update_flags(t->ictx.trans, ctx->seq, MODIFY_REPLACE,
+	mail_index_append(ctx->trans, 0, &ctx->seq);
+	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
 				mail_flags, keywords);
 	t_pop();
 
