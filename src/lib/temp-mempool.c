@@ -65,6 +65,7 @@ struct _MemBlockStack {
 
 	MemBlock *block[MEM_LIST_BLOCK_COUNT];
         int block_space_used[MEM_LIST_BLOCK_COUNT];
+	int last_alloc_size;
 };
 
 static int stack_pos; /* next free position in current_stack->block[] */
@@ -73,8 +74,6 @@ static MemBlockStack *unused_stack_list; /* unused stack blocks */
 
 static MemBlock *current_block; /* block currently used for allocation */
 static MemBlock *unused_block; /* largest unused block is kept here */
-
-static int last_alloc_size;
 
 static MemBlock *last_buffer_block;
 static size_t last_buffer_size;
@@ -104,6 +103,7 @@ int t_push(void)
 	/* mark our current position */
 	current_stack->block[stack_pos] = current_block;
 	current_stack->block_space_used[stack_pos] = current_block->left;
+        current_stack->last_alloc_size = 0;
 
         return stack_pos++;
 }
@@ -197,7 +197,7 @@ static void *t_malloc_real(size_t size, int permanent)
 	size = MEM_ALIGN(size);
 
 	/* used for t_try_grow() */
-	last_alloc_size = size;
+	current_stack->last_alloc_size = size;
 
 	if (current_block->left >= size) {
 		/* enough space in current block, use it */
@@ -243,16 +243,19 @@ void *t_malloc0(size_t size)
 
 int t_try_grow(void *mem, size_t size)
 {
+	size_t grow_size;
+
 	/* see if we want to grow the memory we allocated last */
 	if (MEM_BLOCK_DATA(current_block) +
 	    (current_block->size - current_block->left -
-	     last_alloc_size) == mem) {
-		/* yeah, see if we can grow */
+	     current_stack->last_alloc_size) == mem) {
+		/* yeah, see if we have space to grow */
 		size = MEM_ALIGN(size);
-		if (current_block->left >= size-last_alloc_size) {
+		grow_size = size - current_stack->last_alloc_size;
+		if (current_block->left >= grow_size) {
 			/* just shrink the available size */
-			current_block->left -= size - last_alloc_size;
-			last_alloc_size = size;
+			current_block->left -= grow_size;
+			current_stack->last_alloc_size = size;
 			return TRUE;
 		}
 	}
@@ -308,8 +311,6 @@ void temp_mempool_init(void)
 	stack_pos = MEM_LIST_BLOCK_COUNT;
 
 	t_push();
-
-        last_alloc_size = 0;
 
         last_buffer_block = NULL;
 	last_buffer_size = 0;
