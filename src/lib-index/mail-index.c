@@ -376,7 +376,8 @@ static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 		buffer_reset(map->hdr_copy_buf);
 		buffer_append(map->hdr_copy_buf,
 			      map->hdr, map->hdr->base_header_size);
-		buffer_set_used_size(map->hdr_copy_buf, sizeof(*map->hdr));
+		buffer_append_zero(map->hdr_copy_buf, sizeof(*map->hdr) -
+				   map->hdr->base_header_size);
 
 		mhdr = buffer_get_modifyable_data(map->hdr_copy_buf, NULL);
 		mhdr->base_header_size = sizeof(*map->hdr);
@@ -425,11 +426,11 @@ static int mail_index_read_map(struct mail_index *index,
 
 		buffer_reset(map->hdr_copy_buf);
 		if (hdr.base_header_size < sizeof(hdr)) {
-			buffer_append(map->hdr_copy_buf, &hdr,
-				      hdr.base_header_size);
-			buffer_set_used_size(map->hdr_copy_buf, sizeof(hdr) +
-					     hdr.header_size -
-					     hdr.base_header_size);
+			buffer_append_zero(map->hdr_copy_buf, sizeof(hdr) +
+					   hdr.header_size -
+					   hdr.base_header_size);
+			buffer_write(map->hdr_copy_buf, 0,
+				     &hdr, hdr.base_header_size);
 
 			/* @UNSAFE */
 			ret = pread_full(index->fd,
@@ -444,8 +445,8 @@ static int mail_index_read_map(struct mail_index *index,
 			hdrp->header_size = map->hdr_copy_buf->used;
 		} else {
 			buffer_append(map->hdr_copy_buf, &hdr, pos);
-			buffer_set_used_size(map->hdr_copy_buf,
-					     hdr.header_size);
+			buffer_append_zero(map->hdr_copy_buf,
+					   hdr.header_size - pos);
 			/* @UNSAFE */
 			ret = pread_full(index->fd,
 					 PTR_OFFSET(map->hdr_copy_buf->data,

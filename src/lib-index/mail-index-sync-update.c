@@ -319,7 +319,7 @@ static int sync_extra_intro(const struct mail_transaction_extra_intro *u,
 	einfo_hdr.record_offset = einfo->record_offset;
 	einfo_hdr.record_size = einfo->record_size;
 	buffer_append(hdr_buf, &einfo_hdr, sizeof(einfo_hdr));
-	buffer_set_used_size(hdr_buf, hdr_buf->used + einfo->hdr_size);
+	buffer_append_zero(hdr_buf, einfo->hdr_size);
 
 	hdr = buffer_get_modifyable_data(hdr_buf, NULL);
 	hdr->header_size = hdr_buf->used;
