@@ -296,9 +296,6 @@ const char *mail_index_get_error_message(struct mail_index *index);
 /* Reset the error message. */
 void mail_index_reset_error(struct mail_index *index);
 
-/* Returns TRUE if index is currently only in memory. */
-int mail_index_is_in_memory(struct mail_index *index);
-
 /* Apply changes in MAIL_INDEX_SYNC_TYPE_FLAGS typed sync records to given
    flags variables. */
 void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,

@@ -342,13 +342,6 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 					get_default_cache_fields(),
 					get_never_cache_fields());
 
-		if (mail_index_is_in_memory(index) &&
-		    storage->index_dir != NULL) {
-			storage->callbacks->notify_no(&ibox->box,
-				"Couldn't use index files",
-				storage->callback_context);
-		}
-
 		ibox->view = mail_index_view_open(index);
 		return ibox;
 	} while (0);

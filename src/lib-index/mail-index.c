@@ -968,8 +968,3 @@ void mail_index_reset_error(struct mail_index *index)
 	index->nodiskspace = FALSE;
         index->index_lock_timeout = FALSE;
 }
-
-int mail_index_is_in_memory(struct mail_index *index)
-{
-	return FALSE; // FIXME
-}
