@@ -64,7 +64,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	int matched, hdr_ret;
 
 	if (mstream->header_read &&
-	    mstream->istream.istream.v_offset + mstream->istream.pos ==
+	    mstream->istream.istream.v_offset +
+	    (mstream->istream.pos - mstream->istream.skip) ==
 	    mstream->header_size.virtual_size) {
 		/* we don't support mixing headers and body.
 		   it shouldn't be needed. */
