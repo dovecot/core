@@ -61,7 +61,8 @@ imap_match_init(pool_t pool, const char *mask, int inboxcase, char separator)
 		/* check if we could be comparing INBOX. */
 		inboxp = inbox;
 		glob->inboxcase = TRUE;
-		for (p = glob->mask; *p != '\0' && *p != '*'; p++) {
+                p = glob->mask;
+		for (; *p != '\0' && *p != '*' && *p != separator; p++) {
 			if (*p != '%') {
 				inboxp = strchr(inboxp, i_toupper(*p));
 				if (inboxp == NULL) {
@@ -74,16 +75,12 @@ imap_match_init(pool_t pool, const char *mask, int inboxcase, char separator)
 					   any invalid chars */
 					if (*++p == '%') p++;
 					if (*p != '\0' && *p != '*' &&
-					    *p != glob->sep_char)
+					    *p != separator)
 						glob->inboxcase = FALSE;
 					break;
 				}
 			}
 		}
-
-		if (glob->inboxcase && inboxp != NULL && *inboxp != '\0' &&
-		    *p != '*' && (p != glob->mask && p[-1] != '%'))
-			glob->inboxcase = FALSE;
 	}
 
 	return glob;
