@@ -197,7 +197,7 @@ static ssize_t _read(struct _istream *stream)
 	   because all characters are different in mbox_from. */
         fromp = mbox_from; from_start_pos = 0;
 	eoh_char = rstream->body_offset == (uoff_t)-1 ? '\n' : '\0';
-	for (i = 0; i < pos; i++) {
+	for (i = stream->pos; i < pos; i++) {
 		if (buf[i] == eoh_char && i > 0 && buf[i-1] == '\n') {
 			rstream->body_offset = stream->istream.v_offset + i + 1;
 			eoh_char = '\0';
@@ -209,13 +209,13 @@ static ssize_t _read(struct _istream *stream)
 				   FIXME: if From-line is longer than input
 				   buffer, we break. probably irrelevant.. */
 				i++;
-				from_start_pos = i;
+				from_start_pos = i - 6;
 				fromp = mbox_from;
 			} else if (from_start_pos != 0) {
 				/* we have the whole From-line here now.
 				   See if it's a valid one. */
-				if (mbox_from_parse(buf + from_start_pos,
-						    pos - from_start_pos,
+				if (mbox_from_parse(buf + from_start_pos + 6,
+						    pos - from_start_pos - 6,
 						    &received_time,
 						    &sender) == 0) {
 					/* yep, we stop here. */
@@ -224,9 +224,6 @@ static ssize_t _read(struct _istream *stream)
 					i_free(rstream->next_sender);
 					rstream->next_sender = sender;
 					rstream->eom = TRUE;
-
-                                        /* rewind "\nFrom " */
-					from_start_pos -= 6;
 
 					handle_end_of_mail(rstream,
 							   from_start_pos);
@@ -251,11 +248,16 @@ static ssize_t _read(struct _istream *stream)
 		/* leave out the beginnings of potential From-line */
 		new_pos = i - (fromp - mbox_from);
 	}
-	i_assert(new_pos > stream->pos);
-	ret = new_pos - stream->pos;
+
+	if (new_pos == stream->pos)
+		ret = -2;
+	else {
+		i_assert(new_pos > stream->pos);
+		ret = new_pos - stream->pos;
+		stream->pos = new_pos;
+	}
 
 	stream->buffer = buf;
-	stream->pos = new_pos;
 	return ret;
 }
 
