@@ -74,9 +74,9 @@ static void parse_save_params_list(const unsigned char *name, size_t name_len,
 	if (name_len == 7 && memcasecmp(name, "charset", 7) == 0)
 		data->charset_found = TRUE;
 
-	imap_quote_append(data->str, name, name_len);
+	imap_quote_append(data->str, name, name_len, TRUE);
 	str_append_c(data->str, ' ');
-	imap_quote_append(data->str, value, value_len);
+	imap_quote_append(data->str, value, value_len, TRUE);
 }
 
 static void parse_content_transfer_encoding(const unsigned char *value,

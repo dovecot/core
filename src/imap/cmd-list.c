@@ -166,7 +166,7 @@ static void list_send(struct list_send_context *ctx, struct list_node *node,
 			str = t_str_new(256);
 			str_printfa(str, "* %s (%s) \"%s\" ",
 				    ctx->response_name, flagstr, ctx->sep);
-			imap_quote_append_string(str, send_name);
+			imap_quote_append_string(str, send_name, FALSE);
 			client_send_line(ctx->client, str_c(str));
 			t_pop();
 		}
@@ -228,7 +228,7 @@ static void list_unsorted(struct client *client,
 		if (strcasecmp(list->name, "INBOX") == 0)
 			str_append(str, "INBOX");
 		else
-			imap_quote_append_string(str, list->name);
+			imap_quote_append_string(str, list->name, FALSE);
 		client_send_line(client, str_c(str));
 		t_pop();
 	}

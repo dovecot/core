@@ -156,13 +156,13 @@ static void imap_write_address(string_t *str, struct message_address *addr)
 	str_append_c(str, '(');
 	while (addr != NULL) {
 		str_append_c(str, '(');
-		imap_quote_append_string(str, addr->name);
+		imap_quote_append_string(str, addr->name, TRUE);
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, addr->route);
+		imap_quote_append_string(str, addr->route, TRUE);
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, addr->mailbox);
+		imap_quote_append_string(str, addr->mailbox, TRUE);
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, addr->domain);
+		imap_quote_append_string(str, addr->domain, TRUE);
 		str_append_c(str, ')');
 
 		addr = addr->next;

@@ -111,7 +111,7 @@ int cmd_status(struct client *client)
 
 	str = t_str_new(128);
 	str_append(str, "* STATUS ");
-        imap_quote_append_string(str, mailbox);
+        imap_quote_append_string(str, mailbox, FALSE);
 	str_append(str, " (");
 
 	if (items & STATUS_MESSAGES)

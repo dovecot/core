@@ -5,7 +5,7 @@
 #include "imap-quote.h"
 
 void imap_quote_append(string_t *str, const unsigned char *value,
-		       size_t value_len)
+		       size_t value_len, int compress_lwsp)
 {
 	size_t i, extra = 0;
 	int last_lwsp = TRUE, literal = FALSE, modify = FALSE;
@@ -28,7 +28,7 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 			break;
 		case ' ':
 		case '\t':
-			if (last_lwsp) {
+			if (last_lwsp && compress_lwsp) {
 				modify = TRUE;
 				extra++;
 			}
@@ -67,7 +67,7 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 				break;
 			case ' ':
 			case '\t':
-				if (!last_lwsp)
+				if (!last_lwsp || !compress_lwsp)
 					str_append_c(str, ' ');
 				last_lwsp = TRUE;
 				break;
@@ -98,7 +98,7 @@ char *imap_quote(pool_t pool, const unsigned char *value, size_t value_len)
 
 	t_push();
 	str = t_str_new(value_len + MAX_INT_STRLEN + 5);
-	imap_quote_append(str, value, value_len);
+	imap_quote_append(str, value, value_len, TRUE);
 	ret = p_strndup(pool, str_data(str), str_len(str));
 	t_pop();
 
