@@ -163,7 +163,7 @@ _tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 		return 1;
 	}
 
-	*data_r = CONST_PTR_OFFSET(ext_bufs[ext_id]->data, pos);
+	*data_r = CONST_PTR_OFFSET(ext_bufs[ext_id]->data, pos + sizeof(seq));
 	return 1;
 }
 
