@@ -130,7 +130,8 @@ static int index_open_and_fix(struct mail_index *index,
 	if (!rebuilt) {
 		/* sync ourself. do it before updating cache and compression
 		   which may happen because of this. */
-		if (!index->sync_and_lock(index, MAIL_LOCK_SHARED, NULL))
+		if (!index->sync_and_lock(index, MAIL_LOCK_SHARED, NULL) &&
+		    !index->nodiskspace)
 			return FALSE;
 
 		index->inconsistent = FALSE;
@@ -286,7 +287,7 @@ static int mail_index_create_memory(struct mail_index *index,
 	index->mmap_full_length = INDEX_FILE_MIN_SIZE;
 	index->mmap_base = mmap_anon(index->mmap_full_length);
 	if (index->mmap_base == MAP_FAILED)
-		return index_file_set_syscall_error(index, path, "mmap_anon()");
+		return index_set_error(index, "mmap_anon() failed: %m");
 
 	mail_index_init_header(index, index->mmap_base);
 	index->header = index->mmap_base;
