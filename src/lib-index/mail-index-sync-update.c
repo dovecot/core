@@ -151,10 +151,6 @@ static int mail_index_sync_appends(struct mail_index_update_ctx *ctx,
                 mail_index_header_update_lowwaters(&ctx->hdr, &appends[i]);
 
 		if (appends[i].uid < next_uid) {
-			/* FIXME: should we rather just update the record?
-			   this can actually happen if append was written to
-			   transaction log but index wasn't updated, then
-			   another sync wrote it again.. */
 			mail_transaction_log_view_set_corrupted(ctx->log_view,
 				"Append with UID %u, but next_uid = %u",
 				appends[i].uid, next_uid);

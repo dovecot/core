@@ -877,6 +877,73 @@ mail_transaction_log_fix_sequences(struct mail_transaction_log *log,
 	return 0;
 }
 
+static int mail_transaction_log_fix_appends(struct mail_transaction_log *log,
+					    struct mail_index_transaction *t)
+{
+	struct mail_transaction_log_view *sync_view;
+	const struct mail_index_record *old, *old_end;
+	struct mail_index_record *appends, *end, *rec, *dest;
+	const struct mail_transaction_header *hdr;
+	const void *data;
+	size_t size;
+	int ret, deleted = FALSE;
+
+	if (t->appends == NULL)
+		return 0;
+
+	appends = buffer_get_modifyable_data(t->appends, &size);
+	end = PTR_OFFSET(appends, size);
+
+	if (appends == end)
+		return 0;
+
+	/* we'll just check that none of the appends are already in
+	   transaction log. this could happen if we crashed before we had
+	   a chance to update index file */
+	sync_view = mail_transaction_log_view_open(log);
+	ret = mail_transaction_log_view_set(sync_view, t->view->log_file_seq,
+					    t->view->log_file_offset,
+					    log->head->hdr.file_seq,
+					    log->head->hdr.used_size,
+					    MAIL_TRANSACTION_TYPE_MASK);
+	while ((ret = mail_transaction_log_view_next(sync_view,
+						     &hdr, &data, NULL)) == 1) {
+		if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) !=
+		    MAIL_TRANSACTION_APPEND)
+			continue;
+
+		old = data;
+		old_end = CONST_PTR_OFFSET(old, hdr->size);
+		for (; old != old_end; old++) {
+			/* appends are sorted */
+			for (rec = appends; rec != end; rec++) {
+				if (rec->uid >= old->uid) {
+					if (rec->uid == old->uid) {
+						rec->uid = 0;
+						deleted = TRUE;
+					}
+					break;
+				}
+			}
+		}
+	}
+
+	if (deleted) {
+		/* compress deleted appends away */
+		for (rec = dest = appends; rec != end; rec++) {
+			if (rec->uid != 0)
+				dest++;
+			else if (rec != dest)
+				*rec = *dest;
+		}
+		buffer_set_used_size(t->appends,
+				     (char *)dest - (char *)appends);
+	}
+
+	mail_transaction_log_view_close(sync_view);
+	return ret;
+}
+
 static int
 log_append_buffer(struct mail_transaction_log_file *file, const buffer_t *buf,
 		  enum mail_transaction_type type, int external)
@@ -944,7 +1011,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	file = log->head;
 	append_offset = file->hdr.used_size;
 
-	if (mail_transaction_log_fix_sequences(log, t) < 0) {
+	if (mail_transaction_log_fix_sequences(log, t) < 0 ||
+	    mail_transaction_log_fix_appends(log, t) < 0) {
 		if (!log->index->log_locked)
 			(void)mail_transaction_log_file_lock(file, F_UNLCK);
 		return -1;
