@@ -19,6 +19,11 @@ typedef enum {
 	IMAP_ENVELOPE_FIELDS
 } ImapEnvelopeField;
 
+typedef enum {
+	IMAP_ENVELOPE_RESULT_STRING,
+	IMAP_ENVELOPE_RESULT_FIRST_MAILBOX
+} ImapEnvelopeResult;
+
 /* Update envelope data based from given header field */
 void imap_envelope_parse_header(Pool pool, MessagePartEnvelopeData **data,
 				const char *name,
@@ -32,6 +37,7 @@ const char *imap_envelope_get_part_data(MessagePartEnvelopeData *data);
 
 /* Parse envelope and return specified field unquoted, or NULL if error
    occured. NILs are returned as "". */
-const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field);
+const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field,
+				ImapEnvelopeResult result);
 
 #endif

@@ -379,9 +379,10 @@ static int search_arg_match_envelope(SearchIndexContext *ctx,
 
 	/* get field from hopefully cached envelope */
 	envelope = index->lookup_field(index, ctx->rec, DATA_FIELD_ENVELOPE);
-	if (envelope != NULL)
-		field = imap_envelope_parse(envelope, env_field);
-	else {
+	if (envelope != NULL) {
+		field = imap_envelope_parse(envelope, env_field,
+					    IMAP_ENVELOPE_RESULT_STRING);
+	} else {
 		index->cache_fields_later(index, DATA_FIELD_ENVELOPE);
 		field = NULL;
 	}

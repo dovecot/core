@@ -24,8 +24,12 @@ CharsetResult
 charset_to_ucase_utf8(CharsetTranslation *t,
 		      const unsigned char *src, size_t *src_size, Buffer *dest);
 
-/* Simple wrapper for above functions. If utf8_size is non-NULL, it's set
+/* Simple wrappers for above functions. If utf8_size is non-NULL, it's set
    to same as strlen(returned data). */
+const char *
+charset_to_utf8_string(const char *charset, int *unknown_charset,
+		       const unsigned char *data, size_t size,
+		       size_t *utf8_size_r);
 const char *
 charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 			     const unsigned char *data, size_t size,

@@ -23,14 +23,23 @@ enum _MailSortType {
 typedef struct _MailSortContext MailSortContext;
 
 typedef struct {
+	/* arrival, date */
 	time_t (*input_time)(MailSortType type, unsigned int id,
 			     void *context);
+	/* size */
 	uoff_t (*input_uofft)(MailSortType type, unsigned int id,
 			      void *context);
+	/* cc, from, to. Return the mailbox of the first address. */
+	const char *(*input_mailbox)(MailSortType type, unsigned int id,
+				     void *context);
+	/* subject */
 	const char *(*input_str)(MailSortType type, unsigned int id,
 				 void *context);
+
+	/* done parsing this message, free all resources */
 	void (*input_reset)(void *context);
 
+	/* result callback */
 	void (*output)(unsigned int *data, size_t count, void *context);
 } MailSortFuncs;
 

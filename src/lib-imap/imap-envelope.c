@@ -210,21 +210,44 @@ static const char *imap_envelope_parse_address(ImapArg *arg)
 	return str->str;
 }
 
+static const char *imap_envelope_parse_first_mailbox(ImapArg *arg)
+{
+	/* ((name route mailbox domain) ...) */
+	if (arg->type != IMAP_ARG_LIST)
+		return NULL;
+
+	if (arg->data.list->size == 0)
+		return "";
+
+	arg = arg->data.list->args;
+	if (arg->type != IMAP_ARG_LIST || arg->data.list->size != 4)
+		return NULL;
+
+	return t_strdup(arg->data.list->args[2].data.str);
+}
+
 static const char *
 imap_envelope_parse_arg(ImapArg *arg, ImapEnvelopeField field,
-			const char *envelope)
+			const char *envelope, ImapEnvelopeResult result)
 {
-	const char *value;
+	const char *value = NULL;
 
 	if (arg->type == IMAP_ARG_NIL)
 		return "";
 
-	if (field >= IMAP_ENVELOPE_FROM && field <= IMAP_ENVELOPE_BCC)
-		value = imap_envelope_parse_address(arg);
-	else if (arg->type == IMAP_ARG_STRING || arg->type == IMAP_ARG_ATOM)
-		value = t_strdup(arg->data.str);
-	else
-		value = NULL;
+	switch (result) {
+	case IMAP_ENVELOPE_RESULT_STRING:
+		if (field >= IMAP_ENVELOPE_FROM && field <= IMAP_ENVELOPE_BCC)
+			value = imap_envelope_parse_address(arg);
+		else if (arg->type == IMAP_ARG_STRING || arg->type == IMAP_ARG_ATOM)
+			value = t_strdup(arg->data.str);
+		break;
+	case IMAP_ENVELOPE_RESULT_FIRST_MAILBOX:
+		i_assert(field >= IMAP_ENVELOPE_FROM &&
+			 field <= IMAP_ENVELOPE_BCC);
+		value = imap_envelope_parse_first_mailbox(arg);
+		break;
+	}
 
 	if (value == NULL) {
 		i_error("Invalid field %u in IMAP envelope: %s",
@@ -234,7 +257,8 @@ imap_envelope_parse_arg(ImapArg *arg, ImapEnvelopeField field,
 	return value;
 }
 
-const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field)
+const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field,
+				ImapEnvelopeResult result)
 {
 	IStream *input;
 	ImapParser *parser;
@@ -251,7 +275,8 @@ const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field)
 	(void)i_stream_read(input);
 	ret = imap_parser_read_args(parser, field+1, 0, &args);
 	if (ret > (int)field) {
-		value = imap_envelope_parse_arg(&args[field], field, envelope);
+		value = imap_envelope_parse_arg(&args[field], field,
+						envelope, result);
 	} else {
 		i_error("Error parsing IMAP envelope: %s", envelope);
 		value = NULL;

@@ -47,7 +47,8 @@ static uoff_t _input_uofft(MailSortType type, unsigned int id, void *context)
 	return cache == NULL ? 0 : imap_msgcache_get_virtual_size(cache);
 }
 
-static const char *_input_str(MailSortType type, unsigned int id, void *context)
+static const char *_input_mailbox(MailSortType type, unsigned int id,
+				  void *context)
 {
 	IndexSortContext *ctx = context;
 	ImapEnvelopeField env_field;
@@ -57,14 +58,8 @@ static const char *_input_str(MailSortType type, unsigned int id, void *context)
 	case MAIL_SORT_CC:
 		env_field = IMAP_ENVELOPE_CC;
 		break;
-	case MAIL_SORT_DATE:
-                env_field = IMAP_ENVELOPE_DATE;
-		break;
 	case MAIL_SORT_FROM:
                 env_field = IMAP_ENVELOPE_FROM;
-		break;
-	case MAIL_SORT_SUBJECT:
-                env_field = IMAP_ENVELOPE_SUBJECT;
 		break;
 	case MAIL_SORT_TO:
                 env_field = IMAP_ENVELOPE_TO;
@@ -78,7 +73,34 @@ static const char *_input_str(MailSortType type, unsigned int id, void *context)
 	envelope = imap_msgcache_get(search_open_cache(ctx, id),
 				     IMAP_CACHE_ENVELOPE);
 	return envelope == NULL ? NULL :
-		imap_envelope_parse(envelope, env_field);
+		imap_envelope_parse(envelope, env_field,
+				    IMAP_ENVELOPE_RESULT_FIRST_MAILBOX);
+}
+
+static const char *_input_str(MailSortType type, unsigned int id, void *context)
+{
+	IndexSortContext *ctx = context;
+	ImapEnvelopeField env_field;
+	const char *envelope;
+
+	switch (type) {
+	case MAIL_SORT_DATE:
+                env_field = IMAP_ENVELOPE_DATE;
+		break;
+	case MAIL_SORT_SUBJECT:
+                env_field = IMAP_ENVELOPE_SUBJECT;
+		break;
+	default:
+		i_unreached();
+		return NULL;
+	}
+
+	/* get field from hopefully cached envelope */
+	envelope = imap_msgcache_get(search_open_cache(ctx, id),
+				     IMAP_CACHE_ENVELOPE);
+	return envelope == NULL ? NULL :
+		imap_envelope_parse(envelope, env_field,
+				    IMAP_ENVELOPE_RESULT_STRING);
 }
 
 static time_t _input_time(MailSortType type, unsigned int id, void *context)
@@ -131,6 +153,7 @@ static void _output(unsigned int *data, size_t count, void *context)
 MailSortFuncs index_sort_funcs = {
 	_input_time,
 	_input_uofft,
+	_input_mailbox,
 	_input_str,
 	_input_reset,
 	_output

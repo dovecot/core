@@ -86,6 +86,27 @@ charset_to_ucase_utf8(CharsetTranslation *t __attr_unused__,
 }
 
 const char *
+charset_to_utf8_string(const char *charset, int *unknown_charset,
+		       const unsigned char *data, size_t size,
+		       size_t *utf8_size_r)
+{
+	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0 ||
+	    strcasecmp(charset, "ascii") == 0 ||
+	    strcasecmp(charset, "UTF-8") == 0 ||
+	    strcasecmp(charset, "UTF8") == 0) {
+		if (unknown_charset != NULL)
+			*unknown_charset = FALSE;
+		if (utf8_size_r != NULL)
+			*utf8_size_r = size;
+		return t_strndup((const char *) data, size);
+	} else {
+		if (unknown_charset != NULL)
+			*unknown_charset = TRUE;
+		return NULL;
+	}
+}
+
+const char *
 charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 			     const unsigned char *data, size_t size,
 			     size_t *utf8_size_r)

@@ -2,9 +2,11 @@ noinst_LIBRARIES = libimap.a
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-charset \
 	-I$(top_srcdir)/src/lib-mail
 
 libimap_a_SOURCES = \
+	imap-base-subject.c \
 	imap-bodystructure.c \
 	imap-date.c \
 	imap-envelope.c \
@@ -15,6 +17,7 @@ libimap_a_SOURCES = \
 	imap-util.c
 
 noinst_HEADERS = \
+	imap-base-subject.h \
 	imap-bodystructure.h \
 	imap-date.h \
 	imap-envelope.h \

@@ -114,10 +114,10 @@ charset_to_ucase_utf8(CharsetTranslation *t,
 	return ret;
 }
 
-const char *
-charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
-			     const unsigned char *data, size_t size,
-			     size_t *utf8_size_r)
+static const char *
+charset_to_utf8_string_int(const char *charset, int *unknown_charset,
+			   const unsigned char *data, size_t size,
+			   size_t *utf8_size_r, int ucase)
 {
 	iconv_t cd;
 	ICONV_CONST char *inbuf;
@@ -130,6 +130,13 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 	    strcasecmp(charset, "UTF8") == 0) {
 		if (unknown_charset != NULL)
 			*unknown_charset = FALSE;
+
+		if (!ucase) {
+			if (utf8_size_r != NULL)
+				*utf8_size_r = size;
+			return t_strndup((const char *) data, size);
+		}
+
 		return _charset_utf8_ucase_strdup(data, size, utf8_size_r);
 	}
 
@@ -170,10 +177,29 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 	*outpos++ = '\0';
 	t_buffer_alloc((size_t) (outpos - outbuf));
 
-	str_ucase(outbuf); /* FIXME: utf8 */
+	if (ucase)
+		str_ucase(outbuf); /* FIXME: utf8 */
 
 	iconv_close(cd);
 	return outbuf;
+}
+
+const char *
+charset_to_utf8_string(const char *charset, int *unknown_charset,
+		       const unsigned char *data, size_t size,
+		       size_t *utf8_size_r)
+{
+	return charset_to_utf8_string_int(charset, unknown_charset,
+					  data, size, utf8_size_r, FALSE);
+}
+
+const char *
+charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
+			     const unsigned char *data, size_t size,
+			     size_t *utf8_size_r)
+{
+	return charset_to_utf8_string_int(charset, unknown_charset,
+					  data, size, utf8_size_r, TRUE);
 }
 
 #endif

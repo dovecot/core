@@ -1,8 +1,11 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
+/* Implementation of draft-ietf-imapext-sort-10 sorting algorithm */
+
 #include "lib.h"
 #include "buffer.h"
 #include "ostream.h"
+#include "imap-base-subject.h"
 #include "mail-sort.h"
 
 #include <stdlib.h>
@@ -15,6 +18,7 @@ struct _MailSortContext {
 	void *func_context;
 
 	Buffer *sort_buffer;
+	Pool temp_pool;
 
 	time_t last_arrival, last_date;
 	uoff_t last_size;
@@ -104,6 +108,7 @@ MailSortContext *mail_sort_init(const MailSortType *input, MailSortType *output,
 						 128 * sizeof(unsigned int),
 						 (size_t)-1);
 
+	ctx->temp_pool = pool_create("Sort", 8192, FALSE);
 	ctx->funcs = funcs;
 	ctx->func_context = context;
 	return ctx;
@@ -113,6 +118,7 @@ void mail_sort_deinit(MailSortContext *ctx)
 {
 	mail_sort_flush(ctx);
 	buffer_free(ctx->sort_buffer);
+	pool_unref(ctx->temp_pool);
 
 	i_free(ctx->last_cc);
 	i_free(ctx->last_from);
@@ -122,24 +128,31 @@ void mail_sort_deinit(MailSortContext *ctx)
 	i_free(ctx);
 }
 
-static int sort_strcmp(const char *s1, const char *s2)
+static int addr_strcmp(const char *s1, const char *s2)
 {
 	if (s1 == NULL)
 		return s2 == NULL ? 0 : -1;
 	if (s2 == NULL)
 		return 1;
 
-	return strcasecmp(s1, s2); /* FIXME */
+	/* FIXME: maybe create ascii_strcasecmp()? strcasecmp() may compare
+	   non-ASCII too if locale is set. We don't do that now though. */
+	return strcasecmp(s1, s2);
 }
 
-static int subject_cmp(const char *s1, const char *s2)
+static int subject_cmp(Pool pool, const char *s1, const char *s2)
 {
+	int ret;
+
 	if (s1 == NULL)
 		return s2 == NULL ? 0 : -1;
 	if (s2 == NULL)
 		return 1;
 
-	return strcasecmp(s1, s2); /* FIXME */
+	p_clear(pool);
+	ret = strcmp(imap_get_base_subject_cased(pool, s1),
+		     imap_get_base_subject_cased(pool, s2));
+	return ret;
 }
 
 static void mail_sort_check_flush(MailSortContext *ctx, unsigned int id)
@@ -161,7 +174,7 @@ static void mail_sort_check_flush(MailSortContext *ctx, unsigned int id)
 	if (ctx->common_mask & MAIL_SORT_CC) {
 		str = ctx->funcs.input_str(MAIL_SORT_CC, id,
 					   ctx->func_context);
-		if (sort_strcmp(str, ctx->last_cc) != 0) {
+		if (addr_strcmp(str, ctx->last_cc) != 0) {
 			i_free(ctx->last_cc);
 			ctx->last_cc = i_strdup(str);
 			changed = TRUE;
@@ -180,7 +193,7 @@ static void mail_sort_check_flush(MailSortContext *ctx, unsigned int id)
 	if (ctx->common_mask & MAIL_SORT_FROM) {
 		str = ctx->funcs.input_str(MAIL_SORT_FROM, id,
 					   ctx->func_context);
-		if (sort_strcmp(str, ctx->last_from) != 0) {
+		if (addr_strcmp(str, ctx->last_from) != 0) {
 			i_free(ctx->last_from);
 			ctx->last_from = i_strdup(str);
 			changed = TRUE;
@@ -199,7 +212,7 @@ static void mail_sort_check_flush(MailSortContext *ctx, unsigned int id)
 	if (ctx->common_mask & MAIL_SORT_SUBJECT) {
 		str = ctx->funcs.input_str(MAIL_SORT_SUBJECT, id,
 					   ctx->func_context);
-		if (subject_cmp(str, ctx->last_subject) != 0) {
+		if (subject_cmp(ctx->temp_pool, str, ctx->last_subject) != 0) {
 			i_free(ctx->last_subject);
 			ctx->last_subject = i_strdup(str);
 			changed = TRUE;
@@ -209,7 +222,7 @@ static void mail_sort_check_flush(MailSortContext *ctx, unsigned int id)
 	if (ctx->common_mask & MAIL_SORT_TO) {
 		str = ctx->funcs.input_str(MAIL_SORT_TO, id,
 					   ctx->func_context);
-		if (sort_strcmp(str, ctx->last_to) != 0) {
+		if (addr_strcmp(str, ctx->last_to) != 0) {
 			i_free(ctx->last_to);
 			ctx->last_to = i_strdup(str);
 			changed = TRUE;
@@ -268,13 +281,17 @@ static int mail_sort_qsort_func(const void *p1, const void *p2)
 		}
 		case MAIL_SORT_CC:
 		case MAIL_SORT_FROM:
-		case MAIL_SORT_TO:
-			ret = sort_strcmp(funcs->input_str(*output, *i1, ctx),
-					  funcs->input_str(*output, *i2, ctx));
-			break;
+		case MAIL_SORT_TO: {
+			const char *a1, *a2;
 
+			a1 = funcs->input_mailbox(*output, *i1, ctx);
+			a2 = funcs->input_mailbox(*output, *i2, ctx);
+			ret = addr_strcmp(a1, a2);
+			break;
+		}
 		case MAIL_SORT_SUBJECT:
-			ret = subject_cmp(funcs->input_str(*output, *i1, ctx),
+			ret = subject_cmp(mail_sort_qsort_context->temp_pool,
+					  funcs->input_str(*output, *i1, ctx),
 					  funcs->input_str(*output, *i2, ctx));
 			break;
 		default:
