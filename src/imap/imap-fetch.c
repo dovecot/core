@@ -67,8 +67,11 @@ int imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *arg)
 			  sizeof(struct imap_fetch_handler),
                           sizeof(struct imap_fetch_handler),
 			  imap_fetch_handler_bsearch);
-	if (handler == NULL)
-		i_panic("Called unknown handler: %s", arg);
+	if (handler == NULL) {
+		client_send_command_error(ctx->client,
+			t_strconcat("Unknown command ", arg, NULL));
+		return FALSE;
+	}
 
 	return handler->init(ctx, arg);
 }
