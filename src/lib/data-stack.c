@@ -119,11 +119,13 @@ static void free_blocks(StackBlock *block)
 	   unused_block, replace it */
 	while (block != NULL) {
 		if (unused_block == NULL || block->size > unused_block->size) {
+			if (unused_block != NULL) {
 #ifdef DEBUG
-			i_warning("Shrinking data stack with: %"PRIuSIZE_T,
-				  unused_block->size);
+				i_warning("Shrinking data stack with: "
+					  "%"PRIuSIZE_T, unused_block->size);
 #endif
-			free(unused_block);
+				free(unused_block);
+			}
 			unused_block = block;
 		} else {
 #ifdef DEBUG
