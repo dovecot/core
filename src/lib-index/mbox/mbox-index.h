@@ -18,7 +18,7 @@ struct mbox_header_context {
 
 	struct istream *input;
 	uoff_t content_length;
-	int set_read_limit;
+	int set_read_limit, content_length_broken;
 };
 
 int mbox_set_syscall_error(struct mail_index *index, const char *function);

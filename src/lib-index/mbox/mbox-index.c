@@ -268,8 +268,10 @@ void mbox_header_cb(struct message_part *part __attr_unused__,
 		end_offset = start_offset + ctx->content_length;
 		if (ctx->content_length == (uoff_t)-1 ||
 		    !mbox_verify_end_of_body(ctx->input, end_offset)) {
-			if (ctx->content_length != (uoff_t)-1)
+			if (ctx->content_length != (uoff_t)-1) {
 				i_stream_seek(ctx->input, start_offset);
+				ctx->content_length_broken = TRUE;
+			}
 			mbox_skip_message(ctx->input);
 			end_offset = ctx->input->v_offset;
 			ctx->content_length = end_offset - start_offset;

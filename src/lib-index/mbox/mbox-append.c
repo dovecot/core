@@ -19,7 +19,7 @@ static int mbox_index_append_next(struct mail_index *index,
 	const unsigned char *data;
 	unsigned char md5_digest[16];
 	size_t size, pos;
-	int ret;
+	int ret, dirty;
 
 	/* get the From-line */
 	pos = 0;
@@ -91,7 +91,7 @@ static int mbox_index_append_next(struct mail_index *index,
 
 	ret = 1;
 	if (index->header->messages_count == 0 &&
-	    ctx.uid_validity != index->header->messages_count) {
+	    ctx.uid_validity != index->header->uid_validity) {
 		/* UID validity is different */
 		if (ctx.uid_validity == 0) {
 			/* we have to write it to mbox */
@@ -116,8 +116,19 @@ static int mbox_index_append_next(struct mail_index *index,
 		/* X-UID header looks ok */
 		if (ret != 0)
 			index->header->next_uid = ctx.uid;
+		dirty = ctx.content_length_broken && !index->mailbox_readonly;
 	} else if (!index->mailbox_readonly) {
 		/* Write X-UID for it */
+		dirty = TRUE;
+	} else {
+		/* save MD5 */
+		md5_final(&ctx.md5, md5_digest);
+		index->update_field_raw(update, DATA_FIELD_MD5,
+					md5_digest, sizeof(md5_digest));
+		dirty = FALSE;
+	}
+
+	if (dirty) {
 		if (index->mbox_lock_type != MAIL_LOCK_EXCLUSIVE) {
 			/* try again */
 			ret = 0;
@@ -125,11 +136,6 @@ static int mbox_index_append_next(struct mail_index *index,
 			index->header->flags |= MAIL_INDEX_FLAG_DIRTY_MESSAGES;
 			rec->index_flags |= INDEX_MAIL_FLAG_DIRTY;
 		}
-	} else {
-		/* save MD5 */
-		md5_final(&ctx.md5, md5_digest);
-		index->update_field_raw(update, DATA_FIELD_MD5,
-					md5_digest, sizeof(md5_digest));
 	}
 
 	if (ret <= 0) {
