@@ -21,6 +21,7 @@ extern int set_disable_plaintext_auth;
 /* login */
 extern char *set_login_executable;
 extern char *set_login_user;
+extern unsigned int set_login_process_size;
 extern char *set_login_dir;
 extern int set_login_chroot;
 extern int set_login_process_per_connection;
@@ -33,6 +34,7 @@ extern gid_t set_login_gid;
 
 /* imap */
 extern char *set_imap_executable;
+extern unsigned int set_imap_process_size;
 extern char *set_valid_chroot_dirs;
 extern unsigned int set_max_imap_processes;
 extern int set_verbose_proctitle;
@@ -69,6 +71,7 @@ struct _AuthConfig {
 	char *chroot;
 
 	int count;
+	unsigned int process_size;
 };
 
 extern AuthConfig *auth_processes_config;

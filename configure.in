@@ -13,8 +13,8 @@ AC_C_INLINE
 AC_ARG_PROGRAM
 AM_PROG_LIBTOOL
 
-AC_CHECK_HEADERS(string.h stdlib.h stdint.h unistd.h dirent.h)
-AC_CHECK_HEADERS(sys/uio.h sys/sysmacros.h iconv.h linux/mman.h)
+AC_CHECK_HEADERS(string.h stdlib.h stdint.h unistd.h dirent.h iconv.h)
+AC_CHECK_HEADERS(sys/uio.h sys/sysmacros.h sys/resource.h linux/mman.h)
 
 # check posix headers
 AC_CHECK_HEADERS(sys/time.h)
@@ -161,7 +161,7 @@ AC_CHECK_FUNC(fdatasync, [
 
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock inet_aton sigaction getpagesize madvise setreuid)
-AC_CHECK_FUNCS(strcasecmp stricmp vsnprintf memmove vsyslog writev)
+AC_CHECK_FUNCS(strcasecmp stricmp vsnprintf memmove vsyslog writev setrlimit)
 
 dnl * poll/select?
 

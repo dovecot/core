@@ -37,6 +37,7 @@ liblib_a_SOURCES = \
 	primes.c \
 	randgen.c \
 	restrict-access.c \
+	restrict-process-size.c \
 	sendfile-util.c \
 	strfuncs.c \
 	temp-string.c \
@@ -77,6 +78,7 @@ noinst_HEADERS = \
 	primes.h \
 	randgen.h \
 	restrict-access.h \
+	restrict-process-size.h \
 	sendfile-util.h \
 	strfuncs.h \
 	temp-string.h \

@@ -3,6 +3,7 @@
 #include "common.h"
 #include "env-util.h"
 #include "restrict-access.h"
+#include "restrict-process-size.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -150,6 +151,8 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
 	/* setup access environment - needs to be done after
 	   clean_child_process() since it clears environment */
 	restrict_access_set_env(user, uid, gid, chroot ? home : NULL);
+
+	restrict_process_size(set_imap_process_size);
 
 	/* hide the path, it's ugly */
 	argv[0] = strrchr(set_imap_executable, '/');

@@ -41,6 +41,7 @@ static Setting settings[] = {
 
 	{ "login_executable",	SET_STR, &set_login_executable },
 	{ "login_user",		SET_STR, &set_login_user },
+	{ "login_process_size",	SET_INT, &set_login_process_size },
 	{ "login_dir",		SET_STR, &set_login_dir },
 	{ "login_chroot",	SET_BOOL,&set_login_chroot },
 	{ "login_process_per_connection",
@@ -50,6 +51,7 @@ static Setting settings[] = {
 	{ "max_logging_users",	SET_INT, &set_max_logging_users },
 
 	{ "imap_executable",	SET_STR, &set_imap_executable },
+	{ "imap_process_size",	SET_INT, &set_imap_process_size },
 	{ "valid_chroot_dirs",	SET_STR, &set_valid_chroot_dirs },
 	{ "max_imap_processes",	SET_INT, &set_max_imap_processes },
 	{ "verbose_proctitle",	SET_BOOL,&set_verbose_proctitle },
@@ -99,6 +101,7 @@ int set_disable_plaintext_auth = FALSE;
 
 /* login */
 char *set_login_executable = PKG_LIBEXECDIR"/imap-login";
+unsigned int set_login_process_size = 16;
 char *set_login_user = "imapd";
 char *set_login_dir = PKG_RUNDIR"/login";
 
@@ -113,6 +116,7 @@ gid_t set_login_gid; /* generated from set_login_user */
 
 /* imap */
 char *set_imap_executable = PKG_LIBEXECDIR"/imap";
+unsigned int set_imap_process_size = 256;
 char *set_valid_chroot_dirs = NULL;
 unsigned int set_max_imap_processes = 1024;
 int set_verbose_proctitle = FALSE;
@@ -330,6 +334,11 @@ static const char *parse_auth(const char *key, const char *value)
 		return NULL;
 	}
 
+	if (strcmp(key, "auth_process_size") == 0) {
+		if (!sscanf(value, "%i", &auth->process_size))
+			return t_strconcat("Invalid number: ", value, NULL);
+		return NULL;
+	}
 
 	return t_strconcat("Unknown setting: ", key, NULL);
 }

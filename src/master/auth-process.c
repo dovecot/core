@@ -6,6 +6,7 @@
 #include "network.h"
 #include "obuffer.h"
 #include "restrict-access.h"
+#include "restrict-process-size.h"
 #include "auth-process.h"
 
 #include <stdlib.h>
@@ -207,6 +208,9 @@ static pid_t create_auth_process(AuthConfig *config)
 
 	i_assert(listen_fd > 2);
 
+	if (net_accept(listen_fd, NULL, NULL) == -2)
+		i_fatal("net_accept(1) failed: %m");
+
 	/* set correct permissions */
 	(void)chown(path, set_login_uid, set_login_gid);
 
@@ -224,7 +228,13 @@ static pid_t create_auth_process(AuthConfig *config)
 	if (dup2(null_fd, 2) < 0)
 		i_fatal("login: dup2() failed: %m");
 
+	if (net_accept(listen_fd, NULL, NULL) == -2)
+		i_fatal("net_accept(2) failed: %m");
+
 	clean_child_process();
+
+	if (net_accept(listen_fd, NULL, NULL) == -2)
+		i_fatal("net_accept(3) failed: %m");
 
 	/* move login communication handle to 3. do it last so we can be
 	   sure it's not closed afterwards. */
@@ -239,6 +249,9 @@ static pid_t create_auth_process(AuthConfig *config)
 	restrict_access_set_env(config->user, pwd->pw_uid, pwd->pw_gid,
 				config->chroot);
 
+	if (net_accept(3, NULL, NULL) == -2)
+		i_fatal("net_accept(4) failed: %m");
+
 	/* set other environment */
 	env_put(t_strdup_printf("AUTH_PROCESS=%d", (int) getpid()));
 	env_put(t_strconcat("METHODS=", config->methods, NULL));
@@ -246,6 +259,9 @@ static pid_t create_auth_process(AuthConfig *config)
 	env_put(t_strconcat("USERINFO=", config->userinfo, NULL));
 	env_put(t_strconcat("USERINFO_ARGS=", config->userinfo_args,
 				    NULL));
+
+	restrict_process_size(config->process_size);
+
 	/* hide the path, it's ugly */
 	argv[0] = strrchr(config->executable, '/');
 	if (argv[0] == NULL) argv[0] = config->executable; else argv[0]++;

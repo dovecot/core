@@ -7,6 +7,7 @@
 #include "fdpass.h"
 #include "env-util.h"
 #include "restrict-access.h"
+#include "restrict-process-size.h"
 #include "login-process.h"
 #include "auth-process.h"
 #include "master-interface.h"
@@ -319,6 +320,8 @@ static pid_t create_login_process(void)
 		env_put(t_strdup_printf("MAX_LOGGING_USERS=%d",
 					set_max_logging_users));
 	}
+
+	restrict_process_size(set_login_process_size);
 
 	/* hide the path, it's ugly */
 	argv[0] = strrchr(set_login_executable, '/');
