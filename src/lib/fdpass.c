@@ -86,7 +86,7 @@ int fd_read(int handle, void *data, int size, int *fd)
 	cmsg = CMSG_FIRSTHDR(&msg);
 	cmsg->cmsg_level = SOL_SOCKET;
 	cmsg->cmsg_type = SCM_RIGHTS;
-	iov.iov_base = (void *) data;
+	iov.iov_base = data;
 	iov.iov_len = size;
 
 	ret = recvmsg(handle, &msg, 0);
