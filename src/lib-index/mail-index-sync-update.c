@@ -617,7 +617,10 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 			mail_transaction_log_view_get_prev_pos(view->log_view,
 							       &prev_seq,
 							       &prev_offset);
-			if (prev_offset < view->map->hdr.log_file_ext_offset) {
+			if (prev_seq < view->map->hdr.log_file_seq ||
+			    (prev_seq == view->map->hdr.log_file_seq &&
+			     prev_offset <
+			     view->map->hdr.log_file_ext_offset)) {
 				/* we have already synced this change */
 				continue;
 			}
