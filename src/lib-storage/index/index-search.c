@@ -303,9 +303,10 @@ static int search_sent(enum mail_search_arg_type type, const char *search_value,
 		return 0;
 
 	/* NOTE: Latest IMAP4rev1 draft specifies that timezone is ignored
-	   in searches. */
+	   in searches. sent_time is returned as UTC, so change it. */
 	if (!message_date_parse(sent_value, &sent_time, &timezone_offset))
 		return 0;
+	sent_time -= timezone_offset * 60;
 
 	switch (type) {
 	case SEARCH_SENTBEFORE:
@@ -559,8 +560,6 @@ static void search_header(struct message_part *part __attr_unused__,
 						&ictx->sent_date,
 						&timezone_offset))
 				ictx->sent_date = 0;
-			else
-				ictx->sent_date -= timezone_offset*60;
 			t_pop();
 		}
 	}

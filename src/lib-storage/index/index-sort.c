@@ -140,7 +140,7 @@ static time_t _input_time(enum mail_sort_type type,
 		if (!message_date_parse(str, &time, &timezone_offset))
 			return 0;
 
-		return time - timezone_offset*60;
+		return time;
 	default:
 		i_unreached();
 		return 0;
