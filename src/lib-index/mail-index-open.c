@@ -154,13 +154,11 @@ static int mail_index_open_init(MailIndex *index, int update_recent)
 
 static int index_open_and_fix(MailIndex *index, int update_recent)
 {
-	MailIndexHeader *hdr;
 	int rebuild;
 
 	if (!mail_index_mmap_update(index))
 		return FALSE;
 
-	hdr = index->header;
 	rebuild = FALSE;
 
 	/* open/create the index files */
@@ -181,11 +179,10 @@ static int index_open_and_fix(MailIndex *index, int update_recent)
 	if (!mail_custom_flags_open_or_create(index))
 		return FALSE;
 
-	if (rebuild || (hdr->flags & MAIL_INDEX_FLAG_REBUILD)) {
+	if (rebuild || (index->header->flags & MAIL_INDEX_FLAG_REBUILD)) {
 		/* index is corrupted, rebuild */
 		if (!index->rebuild(index))
 			return FALSE;
-		hdr = index->header;
 
 		/* no inconsistency problems while still opening
 		   the index */
@@ -197,19 +194,19 @@ static int index_open_and_fix(MailIndex *index, int update_recent)
 	if (!mail_modifylog_open_or_create(index))
 		return FALSE;
 
-	if (hdr->flags & MAIL_INDEX_FLAG_FSCK) {
+	if (index->header->flags & MAIL_INDEX_FLAG_FSCK) {
 		/* index needs fscking */
 		if (!index->fsck(index))
 			return FALSE;
 	}
 
-	if (hdr->flags & MAIL_INDEX_FLAG_COMPRESS) {
+	if (index->header->flags & MAIL_INDEX_FLAG_COMPRESS) {
 		/* remove deleted blocks from index file */
 		if (!mail_index_compress(index))
 			return FALSE;
 	}
 
-	if (hdr->flags & MAIL_INDEX_FLAG_REBUILD_HASH) {
+	if (index->header->flags & MAIL_INDEX_FLAG_REBUILD_HASH) {
 		if (!mail_hash_rebuild(index->hash))
 			return FALSE;
 	}
@@ -219,13 +216,13 @@ static int index_open_and_fix(MailIndex *index, int update_recent)
 	if (!index->sync(index))
 		return FALSE;
 
-	if (hdr->flags & MAIL_INDEX_FLAG_CACHE_FIELDS) {
+	if (index->header->flags & MAIL_INDEX_FLAG_CACHE_FIELDS) {
 		/* need to update cached fields */
 		if (!mail_index_update_cache(index))
 			return FALSE;
 	}
 
-	if (hdr->flags & MAIL_INDEX_FLAG_COMPRESS_DATA) {
+	if (index->header->flags & MAIL_INDEX_FLAG_COMPRESS_DATA) {
 		/* remove unused space from index data file.
 		   keep after cache_fields which may move data
 		   and create unused space.. */
