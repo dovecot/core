@@ -88,7 +88,7 @@ int imap_parse_date(const char *str, time_t *time)
 		return FALSE;
 
 	tm.tm_isdst = -1;
-	*time = mktime(&tm);
+	*time = utc_mktime(&tm);
 	return *time != (time_t)-1;
 }
 
