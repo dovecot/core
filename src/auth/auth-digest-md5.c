@@ -97,9 +97,8 @@ static const char *get_digest_challenge(AuthData *auth)
 
 	realms = t_string_new(128);
 	for (tmp = auth_realms; *tmp != NULL; tmp++) {
-		if (realms->len > 0)
-			t_string_append_c(realms, ',');
 		t_string_printfa(realms, "realm=\"%s\"", *tmp);
+		t_string_append_c(realms, ',');
 	}
 
 	return t_strconcat(realms->str,
