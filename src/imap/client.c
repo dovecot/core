@@ -15,8 +15,6 @@ extern struct mail_storage_callbacks mail_storage_callbacks;
 static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
-static int client_output(void *context);
-
 struct client *client_create(int hin, int hout, struct namespace *namespaces)
 {
 	struct client *client;
@@ -31,7 +29,7 @@ struct client *client_create(int hin, int hout, struct namespace *namespaces)
 	client->output = o_stream_create_file(hout, default_pool,
 					      (size_t)-1, FALSE);
 
-	o_stream_set_flush_callback(client->output, client_output, client);
+	o_stream_set_flush_callback(client->output, _client_output, client);
 
 	client->io = io_add(hin, IO_READ, _client_input, client);
 	client->parser = imap_parser_create(client->input, client->output,
@@ -375,7 +373,7 @@ void _client_input(void *context)
 		client_destroy(client);
 }
 
-static int client_output(void *context)
+int _client_output(void *context)
 {
 	struct client *client = context;
 	int ret, finished;

@@ -59,6 +59,8 @@ static void client_input(void *context)
 		/* command execution was finished */
 		client->bad_counter = 0;
 		_client_reset_command(client);
+		o_stream_set_flush_callback(client->output,
+					    _client_output, client);
 
 		if (client->input_pending)
 			_client_input(client);
@@ -385,6 +387,10 @@ int cmd_append(struct client *client)
 	io_remove(client->io);
 	client->io = io_add(i_stream_get_fd(client->input), IO_READ,
 			    client_input, client);
+	/* append is special because we're only waiting on client input, not
+	   client output, so disable the standard output handler until we're
+	   finished */
+	o_stream_set_flush_callback(client->output, NULL, NULL);
 
 	ctx->save_parser = imap_parser_create(client->input, client->output,
 					      imap_max_line_length);
