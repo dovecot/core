@@ -32,7 +32,10 @@
 */
 
 #define _XPG4_2
-#define _XOPEN_SOURCE_EXTENDED /* for Tru64 */
+
+#ifndef AIX
+#  define _XOPEN_SOURCE_EXTENDED /* for Tru64, breaks AIX */
+#endif
 
 #include "lib.h"
 #include "fdpass.h"
