@@ -13,6 +13,7 @@
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/rand.h>
 
 #define SSL_CIPHER_LIST "ALL:!LOW"
 
@@ -403,6 +404,7 @@ static RSA *ssl_gen_rsa_key(SSL *ssl __attr_unused__,
 void ssl_proxy_init(void)
 {
 	const char *certfile, *keyfile, *paramfile;
+	char buf;
 
 	certfile = getenv("SSL_CERT_FILE");
 	keyfile = getenv("SSL_KEY_FILE");
@@ -439,6 +441,11 @@ void ssl_proxy_init(void)
 
 	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
+
+	/* PRNG initialization might want to use /dev/urandom, make sure it
+	   does it before chrooting. */
+	if (RAND_bytes(&buf, 1) != 1)
+		i_fatal("RAND_bytes() failed: %s\n", ssl_last_error());
 
         ssl_proxies = hash_create(default_pool, default_pool, 0, NULL, NULL);
 	ssl_initialized = TRUE;
