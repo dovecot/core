@@ -236,7 +236,6 @@ static void auth_input(void *context)
 	case -1:
 		/* disconnected */
                 auth_reconnect = TRUE;
-		i_warning("Auth process disconnected unexpectedly");
 		auth_connection_destroy(conn);
 		return;
 	case -2:
