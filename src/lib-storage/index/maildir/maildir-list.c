@@ -181,6 +181,15 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 		return FALSE;
 	}
 
+	if ((ctx->flags & (MAILBOX_LIST_SUBSCRIBED |
+			   MAILBOX_LIST_INBOX)) == MAILBOX_LIST_INBOX) {
+		/* make sure INBOX is there */
+		node = mailbox_tree_get(ctx->tree_ctx, "INBOX", &created);
+		if (created)
+			node->flags = MAILBOX_NOCHILDREN;
+		else
+			node->flags &= ~MAILBOX_PLACEHOLDER;
+	}
 	maildir_nodes_fix(mailbox_tree_get(ctx->tree_ctx, NULL, NULL),
 			  (ctx->flags & MAILBOX_LIST_SUBSCRIBED) != 0);
 	return TRUE;
