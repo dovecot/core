@@ -10,11 +10,15 @@
       stat()..unlink()? no easy way to fix this really, just replace it with a
       fcntl() lock.
     - SEARCH FROM/TO/CC/BCC now generates the field from ENVELOPE which it
-      uses for matching. This however gives different results than when
+      uses for matching. This however may give different results than when
       matching from headers.
     - SIGHUP didn't update imap_listen. this is a bit annoying to fix though,
       since new listen() may fail for a few times because auth processes may
       not die immediately..
+    - if user tries to create huge subfolder hierarchy we start truncating
+      them. rather give error message instead.
+    - We can use Linux sendfile() up to 2GB, after that we get EOVERFLOW and
+      fail. We should rather fallback to mmap+write at that point.
 
  - reliability fixes:
     - if we deleted mail from index but didn't write modify log, other
@@ -30,6 +34,7 @@
       failures aren't handled too well. Rather should be handled in similiar
       way to locking failures, so that at least we don't try to rebuild the
       index because of it.
+    - fsck should check binary tree
 
  - checks:
    - if we have entries in modifylog with UID 10..11, 9..12, 8..13 etc.
@@ -64,11 +69,17 @@
     - check with strace what dovecot does when evolution checks new mail,
       it's quite a lot. some things probably wouldn't need to be done
       (mkdirs/symlinking inbox) and other things could be cached in memory.
+    - sort: we could create alternative binary tree file(s) for different sort
+      conditions, ".tree-sort" or something. sort code itself already supports
+      this optimization.
 
  - lib-charset:
      - utf8_toupper() is a must. and a bit difficult if we want to do it right.
      - add support for other things than iconv() as well? we could reuse
        the code from cyrus or courier
+     - cache iconvs? they'd probably be faster if we just reset the
+       conversion instead of opening new one every time. and there will likely
+       be only one or two charsets which are used for nearly all conversions.
 
  - allow index files to be in completely separate location than mail data.
    mails could be read through slow NFS access but indexes from fast local
@@ -211,6 +222,12 @@ cleanups / checks:
  - ..wonder what it would look like if I did s/FooBarBaz/struct foo_bar_baz/..
  - nearest_power() could be problematic with things that want it for ints,
    not size_t..
+ - go through the sources and mark all manual buffer writings with @UNSAFE
+   tag. try to change them to use buffer API instead.
+     - rfc822-tokenize, subscription-file.c, custom_flags ioloop,
+     - hash?, [io]stream-file.c?
+     - temp-string.c should use Buffer?
+     - master and auth processes are horrible
 
 optional optimizations:
  - provide some helper binary to save new mail into mailboxes with CR+LF
@@ -314,13 +331,6 @@ capabilities:
      - binary (draft-nerenberg-imap-binary)
 	 - perhaps not too useful. I'd like to make Dovecot fully
 	   binary-safe though.
-     - sort (draft-ietf-imapext-sort)
-	 - basically sorted SEARCH, requiring CHARSET support for
-	   UTF-8 and ASCII
-	 - we could create alternative binary tree file(s) for different sort
-	   conditions, ".tree-sort" or something. or if we decide to just
-	   keep it in memory, btree could still be best choice.
-	 - required by squirrelmail (webmail)
      - thread (draft-ietf-imapext-thread)
          - basically SORT but reply with thread lists
 	 - possibly use a binary tree too .. or maybe it's enough to use the
