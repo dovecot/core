@@ -4,10 +4,49 @@
 #include "mail-index.h"
 #include "mail-index-util.h"
 
+#define CHECK(field) \
+	if (old_hdr->field != new_hdr->field) \
+		i_warning("fsck: "#field" %u != %u", \
+			  old_hdr->field, new_hdr->field);
+
+
+static void print_differences(MailIndexHeader *old_hdr,
+			      MailIndexHeader *new_hdr)
+{
+	if (old_hdr->first_hole_position != new_hdr->first_hole_position) {
+		i_warning("fsck: first_hole_position %"PRIuUOFF_T
+			  " != %"PRIuUOFF_T, old_hdr->first_hole_position,
+			  new_hdr->first_hole_position);
+	}
+	CHECK(first_hole_records);
+
+	CHECK(next_uid);
+
+	CHECK(messages_count);
+	CHECK(seen_messages_count);
+	CHECK(deleted_messages_count);
+	CHECK(last_nonrecent_uid);
+
+	if (old_hdr->first_unseen_uid_lowwater >
+	    new_hdr->first_unseen_uid_lowwater) {
+		i_warning("fsck: first_unseen_uid_lowwater %u > %u",
+			  old_hdr->first_unseen_uid_lowwater,
+                          new_hdr->first_unseen_uid_lowwater);
+	}
+
+	if (old_hdr->first_deleted_uid_lowwater >
+	    new_hdr->first_deleted_uid_lowwater) {
+		i_warning("fsck: first_deleted_uid_lowwater %u > %u",
+			  old_hdr->first_deleted_uid_lowwater,
+                          new_hdr->first_deleted_uid_lowwater);
+	}
+}
+
 int mail_index_fsck(MailIndex *index)
 {
 	/* we verify only the fields in the header. other problems will be
 	   noticed and fixed while reading the messages. */
+	MailIndexHeader old_hdr;
 	MailIndexHeader *hdr;
 	MailIndexRecord *rec, *end_rec;
 	unsigned int max_uid;
@@ -19,6 +58,7 @@ int mail_index_fsck(MailIndex *index)
 		return FALSE;
 
 	hdr = index->header;
+	memcpy(&old_hdr, hdr, sizeof(MailIndexHeader));
 
 	hdr->first_hole_position = 0;
 	hdr->first_hole_records = 0;
@@ -76,6 +116,8 @@ int mail_index_fsck(MailIndex *index)
 		hdr->next_uid = max_uid+1;
 	if (hdr->last_nonrecent_uid >= hdr->next_uid)
 		hdr->last_nonrecent_uid = hdr->next_uid-1;
+
+	print_differences(&old_hdr, hdr);
 
 	/* FSCK flag is removed automatically by set_lock() */
 	return TRUE;
