@@ -441,13 +441,8 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 	move_new = new_dir && !mailbox_is_readonly(&ctx->ibox->box) &&
 		!ctx->ibox->keep_recent;
 	while ((dp = readdir(dirp)) != NULL) {
-		if (dp->d_name[0] < '0' || dp->d_name[0] > '9') {
-			if (dp->d_name[0] != '.') {
-				i_warning("Invalid maildir filename in %s: %s",
-					  dir, dp->d_name);
-			}
+		if (dp->d_name[0] == '.')
 			continue;
-		}
 
 		ret = maildir_uidlist_sync_next_pre(ctx->uidlist_sync_ctx,
 						    dp->d_name);
