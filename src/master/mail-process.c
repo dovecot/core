@@ -173,6 +173,8 @@ int create_mail_process(int socket, struct ip_addr *ip,
 		env_put("MAILDIR_CHECK_CONTENT_CHANGES=1");
 	if (set->overwrite_incompatible_index)
 		env_put("OVERWRITE_INCOMPATIBLE_INDEX=1");
+	if (set->mail_full_filesystem_access)
+		env_put("FULL_FILESYSTEM_ACCESS=1");
 	if (umask(set->umask) != set->umask)
 		i_fatal("Invalid umask: %o", set->umask);
 
