@@ -213,10 +213,11 @@ static void message_parse_part_header(struct message_parser_ctx *parser_ctx)
 	struct message_part *part = parser_ctx->part;
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
+	int ret;
 
 	hdr_ctx = message_parse_header_init(parser_ctx->input,
 					    &part->header_size, TRUE);
-	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
+	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
 		/* call the user-defined header parser */
 		if (parser_ctx->callback != NULL)
 			parser_ctx->callback(part, hdr, parser_ctx->context);
@@ -239,6 +240,7 @@ static void message_parse_part_header(struct message_parser_ctx *parser_ctx)
 						     parser_ctx);
 		}
 	}
+	i_assert(ret != 0);
 
 	if ((part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0) {
 		/* It's not MIME. Reset everything we found from
@@ -634,10 +636,12 @@ void message_parse_header(struct message_part *part, struct istream *input,
 {
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
+	int ret;
 
 	hdr_ctx = message_parse_header_init(input, hdr_size, TRUE);
-	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL)
+	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0)
 		callback(part, hdr, context);
+	i_assert(ret != 0);
 	message_parse_header_deinit(hdr_ctx);
 
 	/* call after the final skipping */
@@ -670,16 +674,17 @@ void message_parse_header_deinit(struct message_header_parser_ctx *ctx)
 	i_free(ctx);
 }
 
-struct message_header_line *
-message_parse_header_next(struct message_header_parser_ctx *ctx)
+int message_parse_header_next(struct message_header_parser_ctx *ctx,
+			      struct message_header_line **hdr_r)
 {
         struct message_header_line *line = &ctx->line;
 	const unsigned char *msg;
 	size_t i, size, startpos, colon_pos, parse_size;
 	int ret;
 
+	*hdr_r = NULL;
 	if (line->eoh)
-		return NULL;
+		return -1;
 
 	if (ctx->skip > 0) {
 		i_stream_skip(ctx->input, ctx->skip);
@@ -727,7 +732,11 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 		if (ret <= 0 && (ret != 0 || startpos == size)) {
 			if (ret == -1) {
 				/* error / EOF with no bytes */
-				return NULL;
+				return -1;
+			}
+			if (ret == 0) {
+				/* stream is nonblocking - need more data */
+				return 0;
 			}
 
 			if (msg[0] == '\n' ||
@@ -918,5 +927,7 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 		ctx->hdr_size->physical_size += ctx->skip;
 		ctx->hdr_size->virtual_size += ctx->skip;
 	}
-	return line;
+
+	*hdr_r = line;
+	return 1;
 }

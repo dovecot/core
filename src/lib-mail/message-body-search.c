@@ -105,7 +105,7 @@ static int message_search_header(struct part_search_context *ctx,
 	struct header_search_context *hdr_search_ctx;
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
-	int found = FALSE;
+	int ret, found = FALSE;
 
 	hdr_search_ctx = message_header_search_init(pool_datastack_create(),
 						    ctx->body_ctx->key,
@@ -116,7 +116,7 @@ static int message_search_header(struct part_search_context *ctx,
 	ctx->content_type_text = TRUE;
 
 	hdr_ctx = message_parse_header_init(input, NULL, TRUE);
-	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
+	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
 		if (hdr->eoh)
 			continue;
 
@@ -152,6 +152,7 @@ static int message_search_header(struct part_search_context *ctx,
 						     NULL, ctx);
 		}
 	}
+	i_assert(ret != 0);
 	message_parse_header_deinit(hdr_ctx);
 
 	return found;

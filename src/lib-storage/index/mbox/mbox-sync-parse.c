@@ -362,7 +362,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	struct message_header_line *hdr;
 	struct header_func *func;
 	size_t line_start_pos;
-	int i;
+	int i, ret;
 
 	ctx->hdr_offset = ctx->mail.offset;
 
@@ -379,7 +379,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 
         line_start_pos = 0;
 	hdr_ctx = message_parse_header_init(input, NULL, FALSE);
-	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
+	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
 		if (hdr->eoh) {
 			ctx->have_eoh = TRUE;
 			break;
@@ -417,6 +417,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 		if (!hdr->no_newline)
 			str_append_c(ctx->header, '\n');
 	}
+	i_assert(ret != 0);
 	message_parse_header_deinit(hdr_ctx);
 
 	md5_final(&ctx->hdr_md5_ctx, ctx->hdr_md5_sum);

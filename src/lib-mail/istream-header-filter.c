@@ -59,7 +59,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	struct message_header_line *hdr;
 	size_t pos;
 	ssize_t ret;
-	int matched;
+	int matched, hdr_ret;
 
 	if (mstream->header_read &&
 	    mstream->istream.istream.v_offset + mstream->istream.pos ==
@@ -82,7 +82,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 
 	buffer_set_used_size(mstream->hdr_buf, mstream->istream.pos);
 
-	while ((hdr = message_parse_header_next(mstream->hdr_ctx)) != NULL) {
+	while ((hdr_ret = message_parse_header_next(mstream->hdr_ctx,
+						    &hdr)) > 0) {
 		mstream->cur_line++;
 
 		if (hdr->eoh) {
@@ -128,9 +129,13 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		}
 	}
 
+	mstream->istream.istream.disconnected = mstream->input->disconnected;
 	mstream->istream.buffer = buffer_get_data(mstream->hdr_buf, &pos);
 	ret = (ssize_t)(pos - mstream->istream.pos - mstream->istream.skip);
 	mstream->istream.pos = pos;
+
+	if (hdr_ret == 0)
+		return ret;
 
 	if (hdr == NULL) {
 		/* finished */

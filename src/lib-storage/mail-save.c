@@ -94,10 +94,10 @@ static int save_headers(struct istream *input, struct ostream *output,
 {
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
-	int last_newline = TRUE, ret = 0;
+	int last_newline = TRUE, hdr_ret, ret = 0;
 
 	hdr_ctx = message_parse_header_init(input, NULL, FALSE);
-	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
+	while ((hdr_ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
 		ret = header_callback(hdr->name, write_func, context);
 		if (ret <= 0) {
 			if (ret < 0)
@@ -120,6 +120,7 @@ static int save_headers(struct istream *input, struct ostream *output,
 			last_newline = TRUE;
 		}
 	}
+	i_assert(hdr_ret != 0);
 
 	if (ret >= 0) {
 		if (!last_newline) {
