@@ -209,8 +209,7 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 
 	rec = view->map->records;
 
-	idx = 0;
-	left_idx = *left_idx_p;
+	idx = left_idx = *left_idx_p;
 	right_idx = view->map->records_count;
 
 	while (left_idx < right_idx) {
@@ -222,6 +221,11 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 			right_idx = idx;
 		else
 			break;
+	}
+
+	if (idx == view->map->records_count) {
+		/* no messages available */
+		return 0;
 	}
 
         *left_idx_p = left_idx;
