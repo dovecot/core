@@ -22,15 +22,9 @@
 #define DEFAULT_READ_LOCK_METHODS "fcntl"
 #define DEFAULT_WRITE_LOCK_METHODS "dotlock fcntl"
 /* lock timeout */
-#define DEFAULT_LOCK_TIMEOUT 300
+#define DEFAULT_LOCK_TIMEOUT (10*60)
 /* assume stale dotlock if mbox file hasn't changed for n seconds */
-#define DEFAULT_DOTLOCK_CHANGE_TIMEOUT 30
-
-struct dotlock_context {
-        struct index_mailbox *ibox;
-        int lock_type;
-	int last_stale;
-};
+#define DEFAULT_DOTLOCK_CHANGE_TIMEOUT (5*60)
 
 enum mbox_lock_type {
 	MBOX_LOCK_DOTLOCK,
@@ -41,30 +35,41 @@ enum mbox_lock_type {
 	MBOX_LOCK_COUNT
 };
 
+struct mbox_lock_context {
+	struct index_mailbox *ibox;
+	int lock_status[MBOX_LOCK_COUNT];
+	int checked_file;
+
+	int lock_type;
+	int dotlock_last_stale;
+};
+
 struct mbox_lock_data {
 	enum mbox_lock_type type;
 	const char *name;
-	int (*func)(struct index_mailbox *ibox, int lock_type,
+	int (*func)(struct mbox_lock_context *ctx, int lock_type,
 		    time_t max_wait_time);
 };
 
-static int mbox_lock_fcntl(struct index_mailbox *ibox, int lock_type,
+static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
+			     time_t max_wait_time);
+static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time);
 #ifdef HAVE_FLOCK
-static int mbox_lock_flock(struct index_mailbox *ibox, int lock_type,
+static int mbox_lock_flock(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time);
 #else
 #  define mbox_lock_flock NULL
 #endif
 #ifdef HAVE_LOCKF
-static int mbox_lock_lockf(struct index_mailbox *ibox, int lock_type,
+static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time);
 #else
 #  define mbox_lock_lockf NULL
 #endif
 
 struct mbox_lock_data lock_data[] = {
-	{ MBOX_LOCK_DOTLOCK, "dotlock", NULL },
+	{ MBOX_LOCK_DOTLOCK, "dotlock", mbox_lock_dotlock },
 	{ MBOX_LOCK_FCNTL, "fcntl", mbox_lock_fcntl },
 	{ MBOX_LOCK_FLOCK, "flock", mbox_lock_flock },
 	{ MBOX_LOCK_LOCKF, "lockf", mbox_lock_lockf },
@@ -76,7 +81,9 @@ static enum mbox_lock_type read_locks[MBOX_LOCK_COUNT+1];
 static enum mbox_lock_type write_locks[MBOX_LOCK_COUNT+1];
 static int lock_timeout, dotlock_change_timeout;
 
-static int mbox_unlock_files(struct index_mailbox *ibox);
+static int mbox_lock_list(struct mbox_lock_context *ctx, int lock_type,
+			  time_t max_wait_time, int idx);
+static int mbox_unlock_files(struct mbox_lock_context *ctx);
 
 static void mbox_read_lock_methods(const char *str, const char *env,
 				   enum mbox_lock_type *locks)
@@ -94,7 +101,7 @@ static void mbox_read_lock_methods(const char *str, const char *env,
 		}
 		if (lock_data[type].name == NULL)
 			i_fatal("%s: Invalid value %s", env, *lock);
-		if (lock_data[type].func == NULL && type != MBOX_LOCK_DOTLOCK) {
+		if (lock_data[type].func == NULL) {
 			i_fatal("%s: Support for lock type %s "
 				"not compiled into binary", env, *lock);
 		}
@@ -103,9 +110,6 @@ static void mbox_read_lock_methods(const char *str, const char *env,
 			if (locks[i] == type)
 				i_fatal("%s: Duplicated value %s", env, *lock);
 		}
-
-		if (type == MBOX_LOCK_DOTLOCK && dest != 0)
-			i_fatal("%s: dotlock must be first in the list", *lock);
 
 		/* @UNSAFE */
 		locks[dest++] = type;
@@ -135,11 +139,111 @@ static void mbox_init_lock_settings(void)
         lock_settings_initialized = TRUE;
 }
 
+static int mbox_file_open_latest(struct mbox_lock_context *ctx, int lock_type)
+{
+	struct index_mailbox *ibox = ctx->ibox;
+	struct stat st;
+
+	if (ctx->checked_file || lock_type == F_UNLCK)
+		return 0;
+
+	if (ibox->mbox_fd != -1) {
+		if (stat(ibox->path, &st) < 0) {
+			mbox_set_syscall_error(ibox, "stat()");
+			return -1;
+		}
+
+		if (st.st_ino != ibox->mbox_ino ||
+		    !CMP_DEV_T(st.st_dev, ibox->mbox_dev))
+			mbox_file_close(ibox);
+	}
+
+	if (ibox->mbox_fd == -1) {
+		if (mbox_file_open(ibox) < 0)
+			return -1;
+	}
+
+	ctx->checked_file = TRUE;
+	return 0;
+}
+
+static int dotlock_callback(unsigned int secs_left, int stale, void *context)
+{
+        struct mbox_lock_context *ctx = context;
+	int idx;
+
+	if (stale && !ctx->dotlock_last_stale) {
+		/* get next index we wish to try locking */
+		for (idx = MBOX_LOCK_COUNT; idx > 0; idx--) {
+			if (ctx->lock_status[idx-1])
+				break;
+		}
+
+		if (mbox_lock_list(ctx, ctx->lock_type, 0, idx) <= 0) {
+			/* we couldn't get fcntl/flock - it's really locked */
+			ctx->dotlock_last_stale = TRUE;
+			return FALSE;
+		}
+		(void)mbox_lock_list(ctx, F_UNLCK, 0, idx);
+	}
+	ctx->dotlock_last_stale = stale;
+
+	index_storage_lock_notify(ctx->ibox, stale ?
+				  MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE :
+				  MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
+				  secs_left);
+	return TRUE;
+}
+
+static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
+			     time_t max_wait_time __attr_unused__)
+{
+	struct index_mailbox *ibox = ctx->ibox;
+	int ret;
+
+	if (lock_type == F_UNLCK) {
+		if (ibox->mbox_dotlock.ino == 0)
+			return 1;
+
+		if (file_unlock_dotlock(ibox->path, &ibox->mbox_dotlock) <= 0) {
+			mbox_set_syscall_error(ibox, "file_unlock_dotlock()");
+			ret = -1;
+		}
+                ibox->mbox_dotlock.ino = 0;
+		return 1;
+	}
+
+        ctx->dotlock_last_stale = -1;
+
+	ret = file_lock_dotlock(ibox->path, NULL, FALSE, lock_timeout,
+				dotlock_change_timeout, 0,
+				dotlock_callback, ctx, &ibox->mbox_dotlock);
+
+	if (ret < 0) {
+		mbox_set_syscall_error(ibox, "file_lock_dotlock()");
+		return -1;
+	}
+	if (ret == 0) {
+		mail_storage_set_error(ibox->box.storage,
+				       "Timeout while waiting for lock");
+		return 0;
+	}
+	if (mbox_file_open_latest(ctx, lock_type) < 0)
+		return -1;
+	return 1;
+}
+
 #ifdef HAVE_FLOCK
-static int mbox_lock_flock(struct index_mailbox *ibox, int lock_type,
+static int mbox_lock_flock(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time)
 {
 	time_t now, last_notify;
+
+	if (mbox_file_open_latest(ctx, lock_type) < 0)
+		return -1;
+
+	if (lock_type == F_UNLCK && ctx->ibox->mbox_fd == -1)
+		return 1;
 
 	if (lock_type == F_WRLCK)
 		lock_type = LOCK_EX;
@@ -149,9 +253,9 @@ static int mbox_lock_flock(struct index_mailbox *ibox, int lock_type,
 		lock_type = LOCK_UN;
 
         last_notify = 0;
-	while (flock(ibox->mbox_fd, lock_type | LOCK_NB) < 0) {
+	while (flock(ctx->ibox->mbox_fd, lock_type | LOCK_NB) < 0) {
 		if (errno != EWOULDBLOCK) {
-			mbox_set_syscall_error(ibox, "flock()");
+			mbox_set_syscall_error(ctx->ibox, "flock()");
 			return -1;
 		}
 
@@ -163,7 +267,7 @@ static int mbox_lock_flock(struct index_mailbox *ibox, int lock_type,
 			return 0;
 
 		if (now != last_notify) {
-			index_storage_lock_notify(ibox,
+			index_storage_lock_notify(ctx->ibox,
 				MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
 				max_wait_time - now);
 		}
@@ -176,10 +280,16 @@ static int mbox_lock_flock(struct index_mailbox *ibox, int lock_type,
 #endif
 
 #ifdef HAVE_LOCKF
-static int mbox_lock_lockf(struct index_mailbox *ibox, int lock_type,
+static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time)
 {
 	time_t now, last_notify;
+
+	if (mbox_file_open_latest(ctx, lock_type) < 0)
+		return -1;
+
+	if (lock_type == F_UNLCK && ctx->ibox->mbox_fd == -1)
+		return 1;
 
 	if (lock_type != F_UNLCK)
 		lock_type = F_TLOCK;
@@ -187,9 +297,9 @@ static int mbox_lock_lockf(struct index_mailbox *ibox, int lock_type,
 		lock_type = F_ULOCK;
 
         last_notify = 0;
-	while (lockf(ibox->mbox_fd, lock_type, 0) < 0) {
+	while (lockf(ctx->ibox->mbox_fd, lock_type, 0) < 0) {
 		if (errno != EAGAIN) {
-			mbox_set_syscall_error(ibox, "lockf()");
+			mbox_set_syscall_error(ctx->ibox, "lockf()");
 			return -1;
 		}
 
@@ -201,7 +311,7 @@ static int mbox_lock_lockf(struct index_mailbox *ibox, int lock_type,
 			return 0;
 
 		if (now != last_notify) {
-			index_storage_lock_notify(ibox,
+			index_storage_lock_notify(ctx->ibox,
 				MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
 				max_wait_time - now);
 		}
@@ -213,12 +323,18 @@ static int mbox_lock_lockf(struct index_mailbox *ibox, int lock_type,
 }
 #endif
 
-static int mbox_lock_fcntl(struct index_mailbox *ibox, int lock_type,
+static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time)
 {
 	struct flock fl;
 	time_t now;
 	int wait_type;
+
+	if (mbox_file_open_latest(ctx, lock_type) < 0)
+		return -1;
+
+	if (lock_type == F_UNLCK && ctx->ibox->mbox_fd == -1)
+		return 1;
 
 	memset(&fl, 0, sizeof(fl));
 	fl.l_type = lock_type;
@@ -227,10 +343,10 @@ static int mbox_lock_fcntl(struct index_mailbox *ibox, int lock_type,
 	fl.l_len = 0;
 
         wait_type = max_wait_time == 0 ? F_SETLK : F_SETLKW;
-	while (fcntl(ibox->mbox_fd, wait_type, &fl) < 0) {
+	while (fcntl(ctx->ibox->mbox_fd, wait_type, &fl) < 0) {
 		if (errno != EINTR) {
 			if (errno != EAGAIN && errno != EACCES)
-				mbox_set_syscall_error(ibox, "fcntl()");
+				mbox_set_syscall_error(ctx->ibox, "fcntl()");
 			return -1;
 		}
 
@@ -238,7 +354,7 @@ static int mbox_lock_fcntl(struct index_mailbox *ibox, int lock_type,
 		if (max_wait_time != 0 && now >= max_wait_time)
 			return 0;
 
-		index_storage_lock_notify(ibox,
+		index_storage_lock_notify(ctx->ibox,
 					  MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
 					  max_wait_time - now);
 	}
@@ -246,82 +362,37 @@ static int mbox_lock_fcntl(struct index_mailbox *ibox, int lock_type,
 	return 1;
 }
 
-static int mbox_file_locks(struct index_mailbox *ibox, int lock_type,
-			   time_t max_wait_time)
+static int mbox_lock_list(struct mbox_lock_context *ctx, int lock_type,
+			  time_t max_wait_time, int idx)
 {
 	enum mbox_lock_type *lock_types;
-	struct stat st;
-	int i, ret;
+        enum mbox_lock_type type;
+	int i, ret = 0, lock_status;
 
-	/* now we need to have the file itself locked. open it if needed. */
-	if (stat(ibox->path, &st) < 0) {
-		mbox_set_syscall_error(ibox, "stat()");
-		return -1;
+	ctx->lock_type = lock_type;
+
+	lock_types = lock_type == F_WRLCK ||
+		(lock_type == F_UNLCK && ctx->ibox->mbox_lock_type == F_WRLCK) ?
+		write_locks : read_locks;
+	for (i = idx; lock_types[i] != (enum mbox_lock_type)-1; i++) {
+		type = lock_types[i];
+		lock_status = lock_type != F_UNLCK;
+
+		if (ctx->lock_status[type] == lock_status)
+			continue;
+		ctx->lock_status[type] = lock_status;
+
+		ret = lock_data[type].func(ctx, lock_type, max_wait_time);
+		if (ret <= 0)
+			break;
 	}
-
-	if (st.st_ino != ibox->mbox_ino ||
-	    !CMP_DEV_T(st.st_dev, ibox->mbox_dev))
-		mbox_file_close(ibox);
-
-	if (ibox->mbox_fd == -1) {
-		if (mbox_file_open(ibox) < 0) {
-			(void)mbox_unlock_files(ibox);
-			return -1;
-		}
-	}
-
-	lock_types = lock_type == F_WRLCK ? write_locks : read_locks;
-	for (i = 0; lock_types[i] != (enum mbox_lock_type)-1; i++) {
-		if (lock_data[lock_types[i]].type != MBOX_LOCK_DOTLOCK) {
-			ret = lock_data[lock_types[i]].func(ibox, lock_type,
-							    max_wait_time);
-			if (ret <= 0)
-				return ret;
-		}
-	}
-	return 1;
-}
-
-static int mbox_file_unlock(struct index_mailbox *ibox)
-{
-	enum mbox_lock_type *lock_types;
-	int i, ret = 0;
-
-	lock_types = ibox->mbox_lock_type == F_WRLCK ? write_locks : read_locks;
-	for (i = 0; lock_types[i] != (enum mbox_lock_type)-1; i++) {
-		if (lock_data[lock_types[i]].type != MBOX_LOCK_DOTLOCK) {
-			if (lock_data[lock_types[i]].func(ibox, F_UNLCK, 0) < 0)
-				ret = -1;
-		}
-	}
-
 	return ret;
-}
-
-static int dotlock_callback(unsigned int secs_left, int stale, void *context)
-{
-	struct dotlock_context *ctx = context;
-
-	if (stale && !ctx->last_stale) {
-		if (mbox_file_locks(ctx->ibox, ctx->lock_type, 0) <= 0) {
-			/* we couldn't get fcntl/flock - it's really locked */
-			ctx->last_stale = TRUE;
-			return FALSE;
-		}
-		(void)mbox_file_unlock(ctx->ibox);
-	}
-	ctx->last_stale = stale;
-
-	index_storage_lock_notify(ctx->ibox, stale ?
-				  MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE :
-				  MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
-				  secs_left);
-	return TRUE;
 }
 
 int mbox_lock(struct index_mailbox *ibox, int lock_type,
 	      unsigned int *lock_id_r)
 {
+	struct mbox_lock_context ctx;
 	time_t max_wait_time;
 	int ret;
 
@@ -342,36 +413,13 @@ int mbox_lock(struct index_mailbox *ibox, int lock_type,
 
 	max_wait_time = time(NULL) + lock_timeout;
 
-	/* make .lock file first to protect overwriting the file */
-	if (((lock_type == F_RDLCK && read_locks[0] == MBOX_LOCK_DOTLOCK) ||
-	     (lock_type == F_WRLCK && write_locks[0] == MBOX_LOCK_DOTLOCK)) &&
-	    ibox->mbox_dotlock.ino == 0) {
-		struct dotlock_context ctx;
-
-		ctx.ibox = ibox;
-		ctx.lock_type = lock_type;
-		ctx.last_stale = -1;
-
-		ret = file_lock_dotlock(ibox->path, NULL, FALSE, lock_timeout,
-					dotlock_change_timeout, 0,
-					dotlock_callback, &ctx,
-					&ibox->mbox_dotlock);
-
-		if (ret < 0) {
-			mbox_set_syscall_error(ibox, "file_lock_dotlock()");
-			return -1;
-		}
-		if (ret == 0) {
-			mail_storage_set_error(ibox->box.storage,
-				"Timeout while waiting for lock");
-			return 0;
-		}
-	}
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.ibox = ibox;
 
 	ibox->mbox_lock_type = lock_type;
-	ret = mbox_file_locks(ibox, ibox->mbox_lock_type, max_wait_time);
+	ret = mbox_lock_list(&ctx, ibox->mbox_lock_type, max_wait_time, 0);
 	if (ret <= 0) {
-		(void)mbox_unlock_files(ibox);
+                (void)mbox_unlock_files(&ctx);
 		if (ret == 0) {
 			mail_storage_set_error(ibox->box.storage,
 				"Timeout while waiting for lock");
@@ -384,38 +432,37 @@ int mbox_lock(struct index_mailbox *ibox, int lock_type,
 	return 1;
 }
 
-static int mbox_unlock_files(struct index_mailbox *ibox)
+static int mbox_unlock_files(struct mbox_lock_context *ctx)
 {
 	int ret = 0;
 
-	if (ibox->mbox_fd != -1) {
-		if (mbox_file_unlock(ibox) < 0)
-			ret = -1;
-	}
-
-	if (ibox->mbox_dotlock.ino != 0) {
-		if (file_unlock_dotlock(ibox->path, &ibox->mbox_dotlock) <= 0) {
-			mbox_set_syscall_error(ibox, "file_unlock_dotlock()");
-			ret = -1;
-		}
-                ibox->mbox_dotlock.ino = 0;
-	}
+	if (mbox_lock_list(ctx, F_UNLCK, 0, 0) < 0)
+		ret = -1;
 
 	/* make sure we don't keep mmap() between locks */
-	mbox_file_close_stream(ibox);
+	mbox_file_close_stream(ctx->ibox);
 
-	ibox->mbox_lock_id++;
-	ibox->mbox_lock_type = F_UNLCK;
+	ctx->ibox->mbox_lock_id++;
+	ctx->ibox->mbox_lock_type = F_UNLCK;
 	return ret;
 }
 
 int mbox_unlock(struct index_mailbox *ibox, unsigned int lock_id)
 {
+	struct mbox_lock_context ctx;
+	int i;
+
 	i_assert(ibox->mbox_locks > 0);
 	i_assert(ibox->mbox_lock_id == lock_id);
 
 	if (--ibox->mbox_locks > 0)
 		return 0;
 
-	return mbox_unlock_files(ibox);
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.ibox = ibox;
+
+	for (i = 0; i < MBOX_LOCK_COUNT; i++)
+		ctx.lock_status[i] = 1;
+
+	return mbox_unlock_files(&ctx);
 }
