@@ -33,7 +33,8 @@ int password_verify(const char *plaintext, const char *password,
 		return strcmp(str, password) == 0;
 	}
 #ifdef HAVE_OPENSSL_SHA1
-	if (strcasecmp(scheme, "SHA1") == 0) {
+	if (strcasecmp(scheme, "SHA") == 0 ||
+	    strcasecmp(scheme, "SHA1") == 0) {
 		unsigned char sha1_digest[SHA_DIGEST_LENGTH];
 		string_t *str;
 
