@@ -1113,7 +1113,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 			mail_transaction_log_view_get_prev_pos(view->log_view,
 							       &prev_seq,
 							       &prev_offset);
-			if (prev_offset < map->hdr.log_file_ext_offset) {
+			if (prev_offset < view->map->hdr.log_file_ext_offset) {
 				/* we have already synced this change */
 				continue;
 			}
@@ -1144,6 +1144,10 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 			ret = -1;
 			break;
 		}
+
+		/* mail_index_sync_record() might have changed map to anything.
+		   make sure we don't accidentally try to use it. */
+		map = NULL;
 	}
 	map = view->map;
         mail_index_sync_map_deinit(&sync_map_ctx);
