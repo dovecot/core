@@ -119,6 +119,7 @@ static ssize_t _read(struct _istream *stream)
 	time_t received_time;
 	size_t i, pos, new_pos, from_start_pos;
 	ssize_t ret = 0;
+	int tried_read = FALSE;
 
 	i_assert(stream->istream.v_offset >= rstream->from_offset);
 
@@ -145,6 +146,7 @@ static ssize_t _read(struct _istream *stream)
 		    stream->istream.v_offset + pos > rstream->input_peak_offset)
 			break;
 		ret = i_stream_read(rstream->input);
+		tried_read = TRUE;
 	} while (ret > 0);
 
 	if (ret < 0) {
@@ -250,7 +252,7 @@ static ssize_t _read(struct _istream *stream)
 
 	stream->buffer = buf;
 	if (new_pos == stream->pos) {
-		if (stream->istream.eof)
+		if (stream->istream.eof || !tried_read)
 			return _read(stream);
 		ret = -2;
 	} else {
