@@ -237,11 +237,6 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 		mem = new_mem;
 	}
 
-	if (old_size < new_size) {
-                /* clear new data */
-		memset((char *) mem + old_size, 0, new_size - old_size);
-	}
-
         return mem;
 }
 
