@@ -10,6 +10,9 @@ static void index_storage_sync_size(IndexMailbox *ibox)
 {
 	unsigned int messages, recent;
 
+	if (ibox->sync_callbacks.new_messages == NULL)
+		return;
+
 	messages = ibox->index->get_header(ibox->index)->messages_count;
 	messages += mail_modifylog_get_expunge_count(ibox->index->modifylog);
 
@@ -39,7 +42,8 @@ int index_storage_sync_index_if_possible(IndexMailbox *ibox, int sync_size)
 		}
 
 		/* notify client once about it */
-		if (!ibox->sent_diskspace_warning) {
+		if (!ibox->sent_diskspace_warning &&
+		    ibox->sync_callbacks.alert_no_diskspace != NULL) {
 			ibox->sent_diskspace_warning = TRUE;
 			ibox->sync_callbacks.alert_no_diskspace(
 						&ibox->box, ibox->sync_context);
@@ -56,7 +60,8 @@ int index_storage_sync_index_if_possible(IndexMailbox *ibox, int sync_size)
 		index_storage_sync_size(ibox);
 
 	/* notify changes in custom flags */
-	if (mail_custom_flags_has_changes(index->custom_flags)) {
+	if (mail_custom_flags_has_changes(index->custom_flags) &&
+	    ibox->sync_callbacks.new_custom_flags != NULL) {
 		ibox->sync_callbacks.new_custom_flags(&ibox->box,
                 	mail_custom_flags_list_get(index->custom_flags),
 			MAIL_CUSTOM_FLAGS_COUNT, ibox->sync_context);

@@ -85,8 +85,14 @@ int index_storage_save(MailStorage *storage, const char *path,
 	while (data_size > 0) {
 		ret = i_buffer_read(inbuf);
 		if (ret < 0) {
-			mail_storage_set_critical(storage,
-						  "Error reading mail: %m");
+			errno = inbuf->buf_errno;
+			if (errno == 0) {
+				mail_storage_set_error(storage,
+					"Client disconnected");
+			} else {
+				mail_storage_set_critical(storage,
+					"Error reading mail from client: %m");
+			}
 			return FALSE;
 		}
 
@@ -97,6 +103,7 @@ int index_storage_save(MailStorage *storage, const char *path,
 		if (!failed) {
 			ret = write_func(outbuf, data, size);
 			if (ret < 0) {
+				errno = outbuf->buf_errno;
 				if (errno == ENOSPC) {
 					mail_storage_set_error(storage,
 						"Not enough disk space");

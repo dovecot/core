@@ -35,6 +35,8 @@ int cmd_select_full(Client *client, int readonly)
 		return TRUE;
 	}
 
+	/* set callbacks after STATUS, which might otherwise try calling
+	   some of them */
 	box->set_sync_callbacks(box, &sync_callbacks, client);
 
 	client_send_mailbox_flags(client, box, status.custom_flags,
@@ -63,6 +65,7 @@ int cmd_select_full(Client *client, int readonly)
 	client_send_tagline(client, box->readonly ?
 			    "OK [READ-ONLY] Select completed." :
 			    "OK [READ-WRITE] Select completed.");
+
 	return TRUE;
 }
 
