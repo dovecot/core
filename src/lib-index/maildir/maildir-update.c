@@ -4,8 +4,7 @@
 #include "ibuffer.h"
 #include "maildir-index.h"
 
-int maildir_record_update(MailIndex *index, MailIndexUpdate *update,
-			  int fd, off_t file_size)
+int maildir_record_update(MailIndex *index, MailIndexUpdate *update, int fd)
 {
 	IBuffer *inbuf;
         MailField cache_fields;
@@ -18,7 +17,7 @@ int maildir_record_update(MailIndex *index, MailIndexUpdate *update,
 
 	t_push();
 	inbuf = i_buffer_create_mmap(fd, data_stack_pool, MAIL_MMAP_BLOCK_SIZE,
-				     0, file_size, FALSE);
+				     0, 0, FALSE);
 	mail_index_update_headers(update, inbuf, cache_fields, NULL, NULL);
 	i_buffer_unref(inbuf);
 	t_pop();

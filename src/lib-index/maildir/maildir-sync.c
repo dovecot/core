@@ -16,7 +16,7 @@
 
 static int maildir_index_sync_file(MailIndex *index, MailIndexRecord *rec,
 				   unsigned int seq, const char *fname,
-				   const char *path, off_t file_size,
+				   const char *path,
 				   int fname_changed, int file_changed)
 {
 	MailIndexUpdate *update;
@@ -41,7 +41,7 @@ static int maildir_index_sync_file(MailIndex *index, MailIndexRecord *rec,
 			index_file_set_syscall_error(index, path, "open()");
 			failed = TRUE;
 		} else {
-			if (!maildir_record_update(index, update, fd, file_size))
+			if (!maildir_record_update(index, update, fd))
 				failed = TRUE;
 			if (close(fd) < 0) {
 				index_file_set_syscall_error(index, path,
@@ -124,8 +124,7 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 		fname_changed = strcmp(value, fname) != 0;
 		if (fname_changed || file_changed) {
 			if (!maildir_index_sync_file(index, rec, seq, value,
-						     str, st.st_size,
-						     fname_changed,
+						     str, fname_changed,
 						     file_changed))
 				return FALSE;
 		}

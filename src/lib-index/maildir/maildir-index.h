@@ -23,7 +23,6 @@ int maildir_index_build_dir(MailIndex *index, const char *source_dir,
 IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
 			   int *deleted);
 
-int maildir_record_update(MailIndex *index, MailIndexUpdate *update,
-			  int fd, off_t file_size);
+int maildir_record_update(MailIndex *index, MailIndexUpdate *update, int fd);
 
 #endif
