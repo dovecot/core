@@ -162,7 +162,7 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
 		env_put(t_strconcat(env[0], "=", env[1], NULL));
 	}
 
-	if (!found_mail) {
+	if (!found_mail && set_default_mail_env != NULL) {
 		const char *mail;
 
 		mail = expand_mail_env(set_default_mail_env, user, home);
