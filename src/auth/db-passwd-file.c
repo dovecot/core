@@ -34,6 +34,10 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	pu = p_new(pw->pool, struct passwd_user, 1);
 	pu->user_realm = p_strdup(pw->pool, username);
 
+	pu->realm = strchr(pu->user_realm, '@');
+	if (pu->realm != NULL)
+		pu->realm++;
+
 	p = pass == NULL ? NULL : strchr(pass, '[');
 	if (p == NULL) {
 		pu->password = p_strdup(pw->pool, pass);

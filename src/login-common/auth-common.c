@@ -17,7 +17,7 @@ static const char *auth_login_get_str(struct auth_login_reply *reply,
 	stop = reply->reply_idx < reply->data_size ?
 		reply->reply_idx-1 : reply->data_size;
 
-	return t_strndup(data, stop);
+	return t_strndup(data + idx, stop);
 }
 
 int auth_callback(struct auth_request *request, struct auth_login_reply *reply,
