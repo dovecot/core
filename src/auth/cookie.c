@@ -48,7 +48,8 @@ static int cookie_cmp(const void *p1, const void *p2)
 	int i, ret;
 
 	for (i = 0; i < AUTH_COOKIE_SIZE; i++) {
-		ret = ((unsigned char *) p1)[i] - ((unsigned char *) p2)[i];
+		ret = ((const unsigned char *) p1)[i] -
+			((const unsigned char *) p2)[i];
 		if (ret != 0)
 			return ret;
 	}

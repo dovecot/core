@@ -465,7 +465,7 @@ static int parse_digest_response(AuthData *auth, const char *data,
 
 	failed = FALSE;
 
-	copy = (char *) t_strndup(data, size);
+	copy = t_strdup_noconst(t_strndup(data, size));
 	while (*copy != '\0') {
 		if (parse_next(&copy, &key, &value)) {
 			if (!auth_handle_response(auth, key, value, error)) {

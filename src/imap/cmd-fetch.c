@@ -35,7 +35,7 @@ static int parse_body_section(Client *client, const char *item,
 	body = t_new(MailFetchBodyData, 1);
 	body->peek = peek;
 
-	p = (char *) t_strdup(item);
+	p = t_strdup_noconst(item);
 
 	/* read section */
 	body->section = p;

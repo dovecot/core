@@ -510,6 +510,14 @@ const char *t_strdup(const char *str)
         STRDUP_CORE(t_malloc(len), str);
 }
 
+char *t_strdup_noconst(const char *str)
+{
+	if (str == NULL)
+                return NULL;
+
+        STRDUP_CORE(t_malloc(len), str);
+}
+
 int *p_intarrdup(Pool pool, const int *arr)
 {
 	if (arr == NULL)
@@ -847,7 +855,7 @@ int strarray_find(char *const array[], const char *item)
 
 char *const *t_strsplit(const char *data, const char *separators)
 {
-        const char **array;
+        char **array;
 	char *str;
         int alloc_len, len;
 

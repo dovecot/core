@@ -32,7 +32,7 @@ static int shadow_verify_plain(const char *user, const char *password,
 		return FALSE;
 
 	/* check if the password is valid */
-        passdup = (char *) t_strdup(password);
+        passdup = t_strdup_noconst(password);
 	result = strcmp(crypt(passdup, spw->sp_pwdp), spw->sp_pwdp) == 0;
 
 	/* clear the passwords from memory */

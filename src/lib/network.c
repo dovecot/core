@@ -369,7 +369,7 @@ int net_transmit(int fd, const void *data, unsigned int len)
 	i_assert(data != NULL);
 	i_assert(len <= INT_MAX);
 
-	ret = send(fd, (void *) data, len, 0);
+	ret = send(fd, data, len, 0);
 	if (ret == -1 && (errno == EINTR || errno == EPIPE || errno == EAGAIN))
                 return 0;
 

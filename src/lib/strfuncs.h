@@ -31,6 +31,7 @@ char *p_strconcat(Pool pool, const char *str1, ...); /* NULL terminated */
 
 /* same with temporary memory allocations: */
 const char *t_strdup(const char *str);
+char *t_strdup_noconst(const char *str);
 const char *t_strdup_empty(const char *str); /* return NULL if str = "" */
 const char *t_strdup_until(const char *start, const char *end); /* *end isn't included */
 const char *t_strndup(const char *str, unsigned int max_chars);

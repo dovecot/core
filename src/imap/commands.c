@@ -6,7 +6,7 @@
 ClientCommandFunc client_command_find(const char *name)
 {
 	/* keep the command uppercased */
-	name = str_ucase((char *) t_strdup(name));
+	name = str_ucase(t_strdup_noconst(name));
 
 	switch (*name) {
 	case 'A':

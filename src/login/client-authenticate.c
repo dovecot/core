@@ -144,7 +144,7 @@ static int auth_callback(AuthRequest *request, int auth_process,
 		    reply_data[reply_data_size-1] == '\0') {
 			client_auth_abort(client, t_strconcat(
 				"NO Authentication failed: ",
-				(char *) reply_data, NULL));
+				(const char *) reply_data, NULL));
 		} else {
 			/* default error message */
 			client_auth_abort(client, NULL);
