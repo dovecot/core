@@ -125,6 +125,9 @@ const char *maildir_get_path(struct mail_storage *storage, const char *name)
 	if (full_filesystem_access && (*name == '/' || *name == '~'))
 		return maildir_get_absolute_path(name);
 
+	if (strcasecmp(name, "INBOX") == 0)
+		return storage->dir;
+
 	return t_strconcat(storage->dir, "/.", name, NULL);
 }
 
@@ -175,29 +178,17 @@ static int create_index_dir(struct mail_storage *storage, const char *name)
 
 static int verify_inbox(struct mail_storage *storage)
 {
-	const char **tmp, *src, *dest, *inbox;
+	const char *inbox;
 
 	/* first make sure the cur/ new/ and tmp/ dirs exist in root dir */
 	(void)create_maildir(storage->dir, TRUE);
 
 	/* create the .INBOX directory */
-	inbox = maildir_get_path(storage, "INBOX");
+	inbox = t_strconcat(storage->dir, "/.INBOX", NULL);
 	if (mkdir(inbox, CREATE_MODE) == -1 && errno != EEXIST) {
 		mail_storage_set_critical(storage, "Can't create directory "
 					  "%s: %m", inbox);
 		return FALSE;
-	}
-
-	/* then symlink the cur/ new/ and tmp/ into the .INBOX/ directory */
-	for (tmp = maildirs; *tmp != NULL; tmp++) {
-		src = t_strconcat("../", *tmp, NULL);
-		dest = t_strconcat(inbox, "/", *tmp, NULL);
-
-		if (symlink(src, dest) == -1 && errno != EEXIST) {
-			mail_storage_set_critical(storage, "symlink(%s, %s) "
-						  "failed: %m", src, dest);
-			return FALSE;
-		}
 	}
 
 	/* make sure the index directories exist */
@@ -378,37 +369,6 @@ static int maildir_delete_mailbox(struct mail_storage *storage,
 	return TRUE;
 }
 
-static int move_inbox_data(struct mail_storage *storage, const char *newdir)
-{
-	const char **tmp, *oldpath, *newpath;
-
-	/* newpath points to the destination folder directory, which contains
-	   symlinks to real INBOX directories. unlink() the symlinks and
-	   move the real cur/ directory here. */
-	for (tmp = maildirs; *tmp != NULL; tmp++) {
-		newpath = t_strconcat(newdir, "/", *tmp, NULL);
-		if (unlink(newpath) == -1 && errno != EEXIST) {
-			mail_storage_set_critical(storage,
-						  "unlink(%s) failed: %m",
-						  newpath);
-			return FALSE;
-		}
-	}
-
-	oldpath = t_strconcat(storage->dir, "/cur", NULL);
-	newpath = t_strconcat(newdir, "/cur", NULL);
-
-	if (rename(oldpath, newpath) != 0) {
-		mail_storage_set_critical(storage, "rename(%s, %s) failed: %m",
-					  oldpath, newpath);
-		return FALSE;
-	}
-
-	/* create back the cur/ directory for INBOX */
-	(void)mkdir(oldpath, CREATE_MODE);
-	return TRUE;
-}
-
 static int rename_indexes(struct mail_storage *storage,
 			  const char *oldname, const char *newname)
 {
@@ -497,20 +457,19 @@ static int maildir_rename_mailbox(struct mail_storage *storage,
 		return FALSE;
 	}
 
-	/* NOTE: renaming INBOX works just fine with us, it's simply created
-	   the next time it's needed. Only problem with it is that it's not
-	   atomic operation but that can't be really helped.
+	if (strcmp(oldname, "INBOX") == 0) {
+		mail_storage_set_error(storage,
+				       "Renaming INBOX isn't supported.");
+		return FALSE;
+	}
 
-	   NOTE: it's possible to rename a nonexisting folder which has
+	/* NOTE: it's possible to rename a nonexisting folder which has
 	   subfolders. In that case we should ignore the rename() error. */
 	oldpath = maildir_get_path(storage, oldname);
 	newpath = maildir_get_path(storage, newname);
 
 	ret = rename(oldpath, newpath);
-	if (ret == 0 || (errno == ENOENT && strcmp(oldname, "INBOX") != 0)) {
-		if (strcmp(oldname, "INBOX") == 0)
-			return move_inbox_data(storage, newpath);
-
+	if (ret == 0 || errno == ENOENT) {
 		if (!rename_indexes(storage, oldname, newname))
 			return FALSE;
 
