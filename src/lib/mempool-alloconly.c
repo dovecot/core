@@ -50,9 +50,12 @@ struct _PoolBlock {
 	unsigned int size;
 	unsigned int left;
 
-	unsigned char data[MEM_ALIGN_SIZE]; /* variable size */
+	/* unsigned char data[]; */
 };
-#define SIZEOF_POOLBLOCK (sizeof(PoolBlock)-MEM_ALIGN_SIZE)
+#define SIZEOF_POOLBLOCK (MEM_ALIGN(sizeof(PoolBlock)))
+
+#define POOL_BLOCK_DATA(block) \
+	((char *) (block) + SIZEOF_POOLBLOCK)
 
 typedef struct {
 	union {
@@ -120,8 +123,8 @@ static void block_alloc(AlloconlyPool *apool, unsigned int size)
 	if (apool->block != NULL)
 		size += apool->block->size;
 
-	if (size <= sizeof(PoolBlock))
-		size += sizeof(PoolBlock);
+	if (size <= SIZEOF_POOLBLOCK)
+		size += SIZEOF_POOLBLOCK;
 	size = nearest_power(size);
 
 	block = calloc(size, 1);
@@ -144,7 +147,7 @@ static void *pool_alloconly_malloc(Pool pool, unsigned int size)
 		block_alloc(apool, size);
 	}
 
-	alloc = (PoolAlloc *) (apool->block->data +
+	alloc = (PoolAlloc *) (POOL_BLOCK_DATA(apool->block) +
 			       apool->block->size - apool->block->left);
 	alloc->size.size = size;
 
@@ -169,9 +172,9 @@ static void *pool_alloconly_realloc(Pool pool, void *mem, unsigned int size)
 static int pool_try_grow(AlloconlyPool *apool, void *mem, unsigned int size)
 {
 	/* see if we want to grow the memory we allocated last */
-	if (apool->block->data + (apool->block->size -
-				  apool->block->left -
-				  apool->last_alloc_size) == mem) {
+	if (POOL_BLOCK_DATA(apool->block) + (apool->block->size -
+					     apool->block->left -
+					     apool->last_alloc_size) == mem) {
 		/* yeah, see if we can grow */
 		if (apool->block->left >= size-apool->last_alloc_size) {
 			/* just shrink the available size */
@@ -233,7 +236,8 @@ static void pool_alloconly_clear(Pool pool)
 	}
 
 	/* clear the last block */
-	memset(apool->block->data, 0, apool->block->size - apool->block->left);
+	memset(POOL_BLOCK_DATA(apool->block), 0,
+	       apool->block->size - apool->block->left);
 	apool->block->left = apool->block->size;
 
 	apool->last_alloc_size = 0;
