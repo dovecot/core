@@ -207,14 +207,6 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
 	return conn;
 }
 
-static void auth_request_hash_destroy(void *key __attr_unused__, void *value,
-				      void *context __attr_unused__)
-{
-	struct auth_request *auth_request = value;
-
-	auth_request->conn = NULL;
-}
-
 void auth_client_connection_destroy(struct auth_client_connection *conn)
 {
 	struct auth_client_connection **pos;
@@ -244,10 +236,19 @@ void auth_client_connection_destroy(struct auth_client_connection *conn)
 
 static void auth_client_connection_unref(struct auth_client_connection *conn)
 {
+	struct hash_iterate_context *iter;
+	void *key, *value;
+
 	if (--conn->refcount > 0)
 		return;
 
-	hash_foreach(conn->auth_requests, auth_request_hash_destroy, NULL);
+	iter = hash_iterate_init(conn->auth_requests);
+	while (hash_iterate(iter, &key, &value)) {
+		struct auth_request *auth_request = value;
+
+		auth_request->conn = NULL;
+	}
+	hash_iterate_deinit(iter);
 	hash_destroy(conn->auth_requests);
 
 	i_stream_unref(conn->input);
@@ -256,20 +257,32 @@ static void auth_client_connection_unref(struct auth_client_connection *conn)
 	pool_unref(conn->pool);
 }
 
-static void auth_request_hash_timeout_check(void *key __attr_unused__,
-					    void *value, void *context)
+static void
+auth_client_connection_check_timeouts(struct auth_client_connection *conn)
 {
-	struct auth_client_connection *conn = context;
-	struct auth_request *auth_request = value;
+	struct hash_iterate_context *iter;
+	void *key, *value;
+	unsigned int secs;
+	int destroy = FALSE;
 
-	if (auth_request->created + AUTH_REQUEST_TIMEOUT < ioloop_time) {
-		i_warning("Login process has too old (%us) requests, "
-			  "killing it.",
-			  (unsigned int)(ioloop_time - auth_request->created));
+	iter = hash_iterate_init(conn->auth_requests);
+	while (hash_iterate(iter, &key, &value)) {
+		struct auth_request *auth_request = value;
 
-		auth_client_connection_destroy(conn);
-		hash_foreach_stop();
+		if (auth_request->created + AUTH_REQUEST_TIMEOUT < ioloop_time) {
+			secs = (unsigned int) (ioloop_time -
+					       auth_request->created);
+			i_warning("Login process has too old (%us) requests, "
+				  "killing it.", secs);
+
+			destroy = TRUE;
+			break;
+		}
 	}
+	hash_iterate_deinit(iter);
+
+	if (destroy)
+		auth_client_connection_destroy(conn);
 }
 
 static void request_timeout(void *context __attr_unused__)
@@ -279,11 +292,7 @@ static void request_timeout(void *context __attr_unused__)
 
 	for (conn = master->clients; conn != NULL; conn = next) {
 		next = conn->next;
-
-		conn->refcount++;
-		hash_foreach(conn->auth_requests,
-			     auth_request_hash_timeout_check, conn);
-		auth_client_connection_unref(conn);
+		auth_client_connection_check_timeouts(conn);
 	}
 }
 

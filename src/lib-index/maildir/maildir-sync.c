@@ -361,15 +361,6 @@ static int maildir_sync_open_uidlist(struct maildir_sync_context *ctx)
 	return TRUE;
 }
 
-static void uidlist_hash_get_filenames(void *key, void *value, void *context)
-{
-	buffer_t *buf = context;
-	struct maildir_hash_rec *hash_rec = value;
-
-	if (ACTION(hash_rec) == MAILDIR_FILE_ACTION_NEW)
-		buffer_append(buf, (const void *) &key, sizeof(const char *));
-}
-
 static int maildir_time_cmp(const void *p1, const void *p2)
 {
 	const char *s1 = *((const char **) p1);
@@ -393,6 +384,8 @@ static int maildir_time_cmp(const void *p1, const void *p2)
 
 static int maildir_full_sync_finish_new_mails(struct maildir_sync_context *ctx)
 {
+	struct hash_iterate_context *iter;
+	void *key, *value;
 	const char *dir, **new_files;
 	buffer_t *buf;
 	unsigned int i;
@@ -404,7 +397,16 @@ static int maildir_full_sync_finish_new_mails(struct maildir_sync_context *ctx)
 	   so we should get them to same order as they were created. */
 	buf = buffer_create_static_hard(ctx->pool,
 					ctx->new_count * sizeof(const char *));
-	hash_foreach(ctx->files, uidlist_hash_get_filenames, buf);
+	iter = hash_iterate_init(ctx->files);
+	while (hash_iterate(iter, &key, &value)) {
+		struct maildir_hash_rec *hash_rec = value;
+
+		if (ACTION(hash_rec) == MAILDIR_FILE_ACTION_NEW) {
+			buffer_append(buf, (const void *) &key,
+				      sizeof(const char *));
+		}
+	}
+	hash_iterate_deinit(iter);
 	i_assert(buffer_get_used_size(buf) ==
 		 ctx->new_count * sizeof(const char *));
 
@@ -781,33 +783,11 @@ static int maildir_fix_duplicate(struct mail_index *index,
 	return ret;
 }
 
-static void maildir_sync_hash_fix_allocs(void *key, void *value, void *context)
-{
-        struct maildir_sync_context *ctx = context;
-	struct maildir_hash_rec *hash_rec = value;
-
-	switch (ACTION(hash_rec)) {
-	case MAILDIR_FILE_ACTION_NONE:
-		hash_remove(ctx->files, key);
-		break;
-	case MAILDIR_FILE_ACTION_EXPUNGE:
-		if (hash_rec->action & MAILDIR_FILE_FLAG_ALLOCED) {
-			/* we're getting here because our recently
-			   inserted node is traversed as well */
-			break;
-		}
-
-		hash_rec->action |= MAILDIR_FILE_FLAG_ALLOCED;
-		hash_insert(ctx->files, p_strdup(ctx->pool, key), value);
-		break;
-	default:
-		break;
-	}
-}
-
 static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
 				 int new_dir, DIR *dirp, struct dirent *d)
 {
+	struct hash_iterate_context *iter;
+	void *key, *value;
 	struct maildir_hash_rec *hash_rec;
 	void *orig_key, *orig_value;
 	int newflag;
@@ -864,7 +844,30 @@ static int maildir_full_sync_dir(struct maildir_sync_context *ctx,
 	/* records that are left to hash must not have any (filename) pointers
 	   to cache file. So remove none actions, and p_strdup() expunge
 	   actions. */
-	hash_foreach(ctx->files, maildir_sync_hash_fix_allocs, ctx);
+	iter = hash_iterate_init(ctx->files);
+	while (hash_iterate(iter, &key, &value)) {
+		struct maildir_hash_rec *hash_rec = value;
+
+		switch (ACTION(hash_rec)) {
+		case MAILDIR_FILE_ACTION_NONE:
+			hash_remove(ctx->files, key);
+			break;
+		case MAILDIR_FILE_ACTION_EXPUNGE:
+			if (hash_rec->action & MAILDIR_FILE_FLAG_ALLOCED) {
+				/* we're getting here because our recently
+				   inserted node is traversed as well */
+				break;
+			}
+
+			hash_rec->action |= MAILDIR_FILE_FLAG_ALLOCED;
+			hash_insert(ctx->files,
+				    p_strdup(ctx->pool, key), value);
+			break;
+		default:
+			break;
+		}
+	}
+	hash_iterate_deinit(iter);
 
 	return TRUE;
 }

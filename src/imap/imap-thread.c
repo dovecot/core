@@ -898,21 +898,21 @@ static void send_roots(struct thread_context *ctx)
 	(void)o_stream_send(ctx->output, str_data(str), str_len(str));
 }
 
-static void save_root_cb(void *key __attr_unused__, void *value, void *context)
-{
-	struct thread_context *ctx = context;
-	struct node *node = value;
-
-	if (node->parent == NULL)
-		add_root(ctx, node);
-}
-
 static void mail_thread_finish(struct thread_context *ctx)
 {
+	struct hash_iterate_context *iter;
+	void *key, *value;
 	struct node *node;
 
 	/* (2) save root nodes and drop the msgids */
-	hash_foreach(ctx->msgid_hash, save_root_cb, ctx);
+	iter = hash_iterate_init(ctx->msgid_hash);
+	while (hash_iterate(iter, &key, &value)) {
+		struct node *node = value;
+
+		if (node->parent == NULL)
+			add_root(ctx, node);
+	}
+	hash_iterate_deinit(iter);
 
 	/* drop the memory allocated for message-IDs and msgid_hash,
 	   reuse their memory for base subjects */

@@ -226,19 +226,19 @@ static int ldap_conn_open(struct ldap_connection *conn)
 	return TRUE;
 }
 
-static void hash_ldap_request_destroy(void *key __attr_unused__,
-				      void *value, void *context)
-{
-	struct ldap_request *request = value;
-	struct ldap_connection *conn = context;
-
-	request->callback(conn, request, NULL);
-	i_free(request);
-}
-
 static void ldap_conn_close(struct ldap_connection *conn)
 {
-	hash_foreach(conn->requests, hash_ldap_request_destroy, conn);
+	struct hash_iterate_context *iter;
+	void *key, *value;
+
+	iter = hash_iterate_init(conn->requests);
+	while (hash_iterate(iter, &key, &value)) {
+		struct ldap_request *request = value;
+
+		request->callback(conn, request, NULL);
+		i_free(request);
+	}
+	hash_iterate_deinit(iter);
 	hash_clear(conn->requests, FALSE);
 
 	conn->connected = FALSE;

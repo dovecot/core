@@ -189,45 +189,40 @@ void client_input(void *context)
 		o_stream_flush(client->output);
 }
 
-static void client_hash_destroy_oldest(void *key, void *value __attr_unused__,
-				       void *context)
-{
-	struct pop3_client *client = key;
-	struct pop3_client *const *destroy_clients;
-	buffer_t *destroy_buf = context;
-	size_t i, count;
-
-	destroy_clients = buffer_get_data(destroy_buf, &count);
-	count /= sizeof(struct pop3_client *);
-
-	for (i = 0; i < count; i++) {
-		if (destroy_clients[i]->created > client->created) {
-			buffer_insert(destroy_buf,
-				      i * sizeof(struct pop3_client *),
-				      &client, sizeof(struct pop3_client *));
-			break;
-		}
-	}
-}
-
 static void client_destroy_oldest(void)
 {
-	struct pop3_client *const *destroy_clients;
-	buffer_t *destroy_buf;
-	size_t i, count;
+	struct hash_iterate_context *iter;
+	void *key, *value;
+	struct pop3_client *destroy_buf[CLIENT_DESTROY_OLDEST_COUNT];
+	int i;
 
 	/* find the oldest clients and put them to destroy-buffer */
-	destroy_buf = buffer_create_static_hard(pool_datastack_create(),
-						sizeof(struct pop3_client *) *
-						CLIENT_DESTROY_OLDEST_COUNT);
-	hash_foreach(clients, client_hash_destroy_oldest, destroy_buf);
+	memset(destroy_buf, 0, sizeof(destroy_buf));
+
+	iter = hash_iterate_init(clients);
+	while (hash_iterate(iter, &key, &value)) {
+		struct pop3_client *client = key;
+
+		for (i = 0; i < CLIENT_DESTROY_OLDEST_COUNT; i++) {
+			if (destroy_buf[i] == NULL ||
+			    destroy_buf[i]->created > client->created) {
+				/* @UNSAFE */
+				memmove(destroy_buf+i+1, destroy_buf+i,
+					sizeof(destroy_buf) -
+					(i+1) * sizeof(struct pop3_client *));
+				destroy_buf[i] = client;
+				break;
+			}
+		}
+	}
+	hash_iterate_deinit(iter);
 
 	/* then kill them */
-	destroy_clients = buffer_get_data(destroy_buf, &count);
-	count /= sizeof(struct pop3_client *);
+	for (i = 0; i < CLIENT_DESTROY_OLDEST_COUNT; i++) {
+		if (destroy_buf[i] == NULL)
+			break;
 
-	for (i = 0; i < count; i++) {
-		client_destroy(destroy_clients[i],
+		client_destroy(destroy_buf[i],
 			       "Disconnected: Connection queue full");
 	}
 }
@@ -344,18 +339,24 @@ void client_syslog(struct pop3_client *client, const char *text)
 	i_info("%s [%s]", text, addr);
 }
 
-static void client_hash_check_idle(void *key, void *value __attr_unused__,
-				   void *context __attr_unused__)
+static void client_check_idle(struct pop3_client *client)
 {
-	struct pop3_client *client = key;
-
 	if (ioloop_time - client->last_input >= CLIENT_LOGIN_IDLE_TIMEOUT)
 		client_destroy(client, "Disconnected: Inactivity");
 }
 
 static void idle_timeout(void *context __attr_unused__)
 {
-	hash_foreach(clients, client_hash_check_idle, NULL);
+	struct hash_iterate_context *iter;
+	void *key, *value;
+
+	iter = hash_iterate_init(clients);
+	while (hash_iterate(iter, &key, &value)) {
+		struct pop3_client *client = key;
+
+		client_check_idle(client);
+	}
+	hash_iterate_deinit(iter);
 }
 
 unsigned int clients_get_count(void)
@@ -363,31 +364,35 @@ unsigned int clients_get_count(void)
 	return hash_size(clients);
 }
 
-static void client_hash_check_io(void *key, void *value __attr_unused__,
-				 void *context __attr_unused__)
-{
-	struct pop3_client *client = key;
-
-	if (client->input_blocked) {
-		client->input_blocked = FALSE;
-		client_input(client);
-	}
-}
-
 void clients_notify_auth_connected(void)
 {
-	hash_foreach(clients, client_hash_check_io, NULL);
-}
+	struct hash_iterate_context *iter;
+	void *key, *value;
 
-static void client_hash_destroy(void *key, void *value __attr_unused__,
-				void *context __attr_unused__)
-{
-	client_destroy(key, NULL);
+	iter = hash_iterate_init(clients);
+	while (hash_iterate(iter, &key, &value)) {
+		struct pop3_client *client = key;
+
+		if (client->input_blocked) {
+			client->input_blocked = FALSE;
+			client_input(client);
+		}
+	}
+	hash_iterate_deinit(iter);
 }
 
 void clients_destroy_all(void)
 {
-	hash_foreach(clients, client_hash_destroy, NULL);
+	struct hash_iterate_context *iter;
+	void *key, *value;
+
+	iter = hash_iterate_init(clients);
+	while (hash_iterate(iter, &key, &value)) {
+		struct pop3_client *client = key;
+
+		client_destroy(client, NULL);
+	}
+	hash_iterate_deinit(iter);
 }
 
 void clients_init(void)

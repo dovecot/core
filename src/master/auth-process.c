@@ -216,14 +216,10 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 	return p;
 }
 
-static void request_hash_destroy(void *key __attr_unused__,
-				 void *value, void *context __attr_unused__)
-{
-	auth_master_callback(NULL, NULL, value);
-}
-
 static void auth_process_destroy(struct auth_process *p)
 {
+	struct hash_iterate_context *iter;
+	void *key, *value;
 	struct auth_process **pos;
 
 	if (!p->initialized && io_loop_is_running(ioloop)) {
@@ -239,7 +235,10 @@ static void auth_process_destroy(struct auth_process *p)
 	}
 	p->group->process_count--;
 
-	hash_foreach(p->requests, request_hash_destroy, NULL);
+	iter = hash_iterate_init(p->requests);
+	while (hash_iterate(iter, &key, &value))
+		auth_master_callback(NULL, NULL, value);
+	hash_iterate_deinit(iter);
 	hash_destroy(p->requests);
 
 	i_stream_unref(p->input);

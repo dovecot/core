@@ -506,15 +506,15 @@ void login_process_abormal_exit(pid_t pid)
 		p->group->wanted_processes_count = 0;
 }
 
-static void login_hash_destroy(void *key __attr_unused__, void *value,
-			       void *context __attr_unused__)
-{
-	login_process_destroy(value);
-}
-
 void login_processes_destroy_all(void)
 {
-	hash_foreach(processes, login_hash_destroy, NULL);
+	struct hash_iterate_context *iter;
+	void *key, *value;
+
+	iter = hash_iterate_init(processes);
+	while (hash_iterate(iter, &key, &value))
+		login_process_destroy(value);
+	hash_iterate_deinit(iter);
 
 	while (login_groups != NULL) {
 		struct login_group *group = login_groups;

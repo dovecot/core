@@ -32,8 +32,6 @@ struct hash_table {
 
 static int hash_resize(struct hash_table *table, int grow);
 
-static int foreach_stop;
-
 static int direct_cmp(const void *p1, const void *p2)
 {
 	return p1 == p2 ? 0 : 1;
@@ -321,37 +319,65 @@ size_t hash_size(struct hash_table *table)
 	return table->nodes_count;
 }
 
-void hash_foreach(struct hash_table *table, hash_foreach_callback_t *callback,
-		  void *context)
+struct hash_iterate_context {
+	struct hash_table *table;
+	struct hash_node *next;
+	size_t pos;
+};
+
+struct hash_iterate_context *hash_iterate_init(struct hash_table *table)
 {
-	struct hash_node *node;
-	size_t i;
+	struct hash_iterate_context *ctx;
 
 	hash_freeze(table);
 
-	foreach_stop = FALSE;
-
-	for (i = 0; i < table->size; i++) {
-		node = &table->nodes[i];
-
-		do {
-			if (node->key != NULL) {
-				callback(node->key, node->value, context);
-				if (foreach_stop) {
-					table->frozen--;
-					return;
-				}
-			}
-			node = node->next;
-		} while (node != NULL);
-	}
-
-	hash_thaw(table);
+	ctx = i_new(struct hash_iterate_context, 1);
+	ctx->table = table;
+	ctx->next = &table->nodes[0];
+	return ctx;
 }
 
-void hash_foreach_stop(void)
+static struct hash_node *hash_iterate_next(struct hash_iterate_context *ctx,
+					   struct hash_node *node)
 {
-        foreach_stop = TRUE;
+	do {
+		if (node == NULL) {
+			if (++ctx->pos == ctx->table->size) {
+				ctx->pos--;
+				return NULL;
+			}
+			node = &ctx->table->nodes[ctx->pos];
+		} else {
+			node = node->next;
+		}
+	} while (node->key == NULL);
+
+	return node;
+}
+
+int hash_iterate(struct hash_iterate_context *ctx,
+		 void **key_r, void **value_r)
+{
+	struct hash_node *node;
+
+	node = ctx->next;
+	if (node != NULL && node->key == NULL)
+		node = hash_iterate_next(ctx, node);
+	if (node == NULL) {
+		*key_r = *value_r = NULL;
+		return FALSE;
+	}
+	*key_r = node->key;
+	*value_r = node->value;
+
+	ctx->next = hash_iterate_next(ctx, node);
+	return TRUE;
+}
+
+void hash_iterate_deinit(struct hash_iterate_context *ctx)
+{
+	hash_thaw(ctx->table);
+	i_free(ctx);
 }
 
 void hash_freeze(struct hash_table *table)

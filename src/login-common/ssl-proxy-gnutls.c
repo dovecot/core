@@ -527,18 +527,18 @@ void ssl_proxy_init(void)
 	ssl_initialized = TRUE;
 }
 
-static void ssl_proxy_destroy_hash(void *key __attr_unused__, void *value,
-				   void *context __attr_unused__)
-{
-	ssl_proxy_destroy(value);
-}
-
 void ssl_proxy_deinit(void)
 {
+	struct hash_iterate_context *iter;
+	void *key, *value;
+
 	if (!ssl_initialized)
 		return;
 
-	hash_foreach(ssl_proxies, ssl_proxy_destroy_hash, NULL);
+	iter = hash_iterate_init(ssl_proxies);
+	while (hash_iterate(iter, &key, &value))
+		ssl_proxy_destroy(value);
+	hash_iterate_deinit(iter);
 	hash_destroy(ssl_proxies);
 
 	gnutls_certificate_free_cred(x509_cred);

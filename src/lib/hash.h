@@ -5,7 +5,6 @@
 typedef unsigned int hash_callback_t(const void *p);
 /* Returns 0 if the pointers are equal. */
 typedef int hash_cmp_callback_t(const void *p1, const void *p2);
-typedef void hash_foreach_callback_t(void *key, void *value, void *context);
 
 /* Create a new hash table. If initial_size is 0, the default value is used.
    If hash_cb or key_compare_cb is NULL, direct hashing/comparing is used.
@@ -35,13 +34,13 @@ void hash_update(struct hash_table *table, void *key, void *value);
 void hash_remove(struct hash_table *table, const void *key);
 size_t hash_size(struct hash_table *table);
 
-/* Calls the given function for each node in hash table. You may safely
-   call hash_*() functions inside your function, but if you add any
-   new nodes, they may or may not be called for in this foreach loop. */
-void hash_foreach(struct hash_table *table,
-		  hash_foreach_callback_t *callback, void *context);
-/* Stop the active hash_foreach() loop */
-void hash_foreach_stop(void);
+/* Iterates through all nodes in hash table. You may safely call hash_*()
+   functions while iterating, but if you add any new nodes, they may or may
+   not be called for in this iteration. */
+struct hash_iterate_context *hash_iterate_init(struct hash_table *table);
+int hash_iterate(struct hash_iterate_context *ctx,
+		 void **key_r, void **value_r);
+void hash_iterate_deinit(struct hash_iterate_context *ctx);
 
 /* Hash table isn't resized, and removed nodes aren't removed from
    the list while hash table is freezed. Supports nesting. */
