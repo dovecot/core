@@ -89,7 +89,7 @@ struct iovec {
 #ifndef HAVE_WRITEV
 #  define writev my_writev
 struct iovec;
-ssize_t my_writev(int fd, const struct iovec *iov, size_t iov_len);
+ssize_t my_writev(int fd, const struct iovec *iov, int iov_len);
 #endif
 
 /* ctype.h isn't safe with signed chars,

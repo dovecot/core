@@ -140,10 +140,11 @@ int my_getpagesize(void)
 #endif
 
 #ifndef HAVE_WRITEV
-ssize_t my_writev(int fd, const struct iovec *iov, size_t iov_len)
+ssize_t my_writev(int fd, const struct iovec *iov, int iov_len)
 {
-	size_t i, written;
+	size_t written;
 	ssize_t ret;
+	int i;
 
 	written = 0;
 	for (i = 0; i < iov_len; i++, iov++) {

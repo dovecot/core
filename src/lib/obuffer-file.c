@@ -189,7 +189,7 @@ static void update_buffer(FileOBuffer *fbuf, size_t size)
 
 /* NOTE: modifies iov */
 static ssize_t
-o_buffer_writev(FileOBuffer *fbuf, struct iovec *iov, unsigned int iov_size)
+o_buffer_writev(FileOBuffer *fbuf, struct iovec *iov, int iov_size)
 {
 	ssize_t ret;
 
