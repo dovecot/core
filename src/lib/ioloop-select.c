@@ -34,6 +34,10 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#ifndef FD_SETSIZE
+#  define FD_SETSIZE 1024
+#endif
+
 struct _IOLoopHandlerData {
 	fd_set read_fds, write_fds;
 };
@@ -54,6 +58,11 @@ void io_loop_handler_deinit(IOLoop ioloop)
 
 void io_loop_handle_add(IOLoop ioloop, int fd, int condition)
 {
+	i_assert(fd >= 0);
+
+	if (fd >= FD_SETSIZE)
+		i_fatal("fd %d too large for select()", fd);
+
         if (condition & IO_READ)
 		FD_SET(fd, &ioloop->handler_data->read_fds);
         if (condition & IO_WRITE)
@@ -62,6 +71,8 @@ void io_loop_handle_add(IOLoop ioloop, int fd, int condition)
 
 void io_loop_handle_remove(IOLoop ioloop, int fd, int condition)
 {
+	i_assert(fd >= 0 && fd < FD_SETSIZE);
+
         if (condition & IO_READ)
 		FD_CLR(fd, &ioloop->handler_data->read_fds);
         if (condition & IO_WRITE)
