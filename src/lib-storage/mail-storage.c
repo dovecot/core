@@ -59,6 +59,18 @@ void mail_storage_init(void)
 	}
 }
 
+void mail_storage_deinit(void)
+{
+	struct mail_storage_list *next;
+
+	while (storages != NULL) {
+		next = storages->next;
+
+		i_free(storages);
+                storages = next;
+	}
+}
+
 void mail_storage_class_register(struct mail_storage *storage_class)
 {
 	struct mail_storage_list *list, **pos;
@@ -160,8 +172,7 @@ void mail_storage_destroy(struct mail_storage *storage)
 {
 	i_assert(storage != NULL);
 
-	i_free(storage->dir);
-	i_free(storage);
+	storage->free(storage);
 }
 
 void mail_storage_clear_error(struct mail_storage *storage)
@@ -212,6 +223,7 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 
 	tm = localtime(&ioloop_time);
 
+	i_free(storage->error);
 	storage->error = strftime(str, sizeof(str), CRITICAL_MSG, tm) > 0 ?
 		i_strdup(str) : i_strdup("Internal error");
 	storage->syntax_error = FALSE;

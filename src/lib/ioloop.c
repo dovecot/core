@@ -334,6 +334,8 @@ struct ioloop *io_loop_create(pool_t pool)
 
 void io_loop_destroy(struct ioloop *ioloop)
 {
+	pool_t pool;
+
 	while (ioloop->ios != NULL) {
 		struct io *io = ioloop->ios;
 
@@ -361,5 +363,7 @@ void io_loop_destroy(struct ioloop *ioloop)
         i_assert(ioloop == current_ioloop);
 	current_ioloop = current_ioloop->prev;
 
-	pool_unref(ioloop->pool);
+	pool = ioloop->pool;
+	p_free(pool, ioloop);
+	pool_unref(pool);
 }

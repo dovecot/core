@@ -143,6 +143,7 @@ static void main_deinit(void)
 		i_warning("Killed with signal %d", lib_signal_kill);
 
 	clients_deinit();
+        mail_storage_deinit();
 
 	closelog();
 }
