@@ -55,7 +55,10 @@ struct _PoolBlock {
 #define SIZEOF_POOLBLOCK (sizeof(PoolBlock)-MEM_ALIGN_SIZE)
 
 typedef struct {
-	unsigned int size;
+	union {
+		unsigned int size;
+		unsigned char alignment[MEM_ALIGN_SIZE];
+	} size;
 	unsigned char data[MEM_ALIGN_SIZE]; /* variable size */
 } PoolAlloc;
 #define SIZEOF_POOLALLOC (sizeof(PoolAlloc)-MEM_ALIGN_SIZE)
@@ -143,7 +146,7 @@ static void *pool_alloconly_malloc(Pool pool, unsigned int size)
 
 	alloc = (PoolAlloc *) (apool->block->data +
 			       apool->block->size - apool->block->left);
-	alloc->size = size;
+	alloc->size.size = size;
 
 	apool->block->left -= size + SIZEOF_POOLALLOC;
 	apool->last_alloc_size = size;
@@ -194,7 +197,7 @@ static void *pool_alloconly_realloc_min(Pool pool, void *mem, unsigned int size)
 	} else {
 		/* get old size */
                 alloc = (PoolAlloc *) ((char *) mem - SIZEOF_POOLALLOC);
-		old_size = alloc->size;
+		old_size = alloc->size.size;
 	}
 
 	if (old_size >= size)

@@ -31,7 +31,10 @@
 #define MAX_ALLOC_SIZE (UINT_MAX - sizeof(unsigned int))
 
 typedef struct {
-	unsigned int size;
+	union {
+		unsigned int size;
+		unsigned char alignment[MEM_ALIGN_SIZE];
+	} size;
 	/* void data[]; */
 } PoolAlloc;
 
@@ -57,7 +60,7 @@ static void *pool_system_malloc(Pool pool __attr_unused__, unsigned int size)
 	alloc = calloc(sizeof(PoolAlloc) + size, 1);
 	if (alloc == NULL)
 		i_panic("pool_system_malloc(): Out of memory");
-	alloc->size = size;
+	alloc->size.size = size;
 
 	return (char *) alloc + sizeof(PoolAlloc);
 }
@@ -81,14 +84,14 @@ static void *pool_system_realloc(Pool pool __attr_unused__, void *mem,
 	} else {
 		/* get old size */
 		alloc = (PoolAlloc *) ((char *) mem - sizeof(PoolAlloc));
-		old_size = alloc->size;
+		old_size = alloc->size.size;
 	}
 
         /* alloc & set new size */
 	alloc = realloc(alloc, sizeof(PoolAlloc) + size);
 	if (alloc == NULL)
 		i_panic("pool_system_realloc(): Out of memory");
-	alloc->size = size;
+	alloc->size.size = size;
 
         rmem = (char *) alloc + sizeof(PoolAlloc);
 	if (size > old_size) {
@@ -109,7 +112,7 @@ static void *pool_system_realloc_min(Pool pool, void *mem, unsigned int size)
 	else {
 		/* get old size */
                 alloc = (PoolAlloc *) ((char *) mem - sizeof(PoolAlloc));
-		old_size = alloc->size;
+		old_size = alloc->size.size;
 	}
 
 	if (old_size >= size)
