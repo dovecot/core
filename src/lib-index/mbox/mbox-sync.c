@@ -38,7 +38,6 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
 		    enum mail_lock_type data_lock_type, int *changes)
 {
 	struct stat st;
-	uoff_t filesize;
 	int count, fd;
 
 	if (index->mailbox_readonly && data_lock_type == MAIL_LOCK_EXCLUSIVE) {
@@ -72,7 +71,6 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
 		else if (errno != EEXIST)
 			return mbox_set_syscall_error(index, "open()");
 	}
-	filesize = st.st_size;
 
 	if (index->mbox_fd != -1 &&
 	    (index->mbox_ino != st.st_ino ||
@@ -86,7 +84,8 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
                 mbox_file_close_fd(index);
 	}
 
-	if (index->sync_stamp != st.st_mtime || index->sync_size != filesize) {
+	if (index->sync_stamp != st.st_mtime ||
+	    index->sync_size != (uoff_t)st.st_size) {
 		mbox_file_close_stream(index);
 
 		if (changes != NULL)
@@ -101,8 +100,11 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
 				return FALSE;
 		}
 
+		if (fstat(index->mbox_fd, &st) < 0)
+			return mbox_set_syscall_error(index, "fstat()");
+
 		index->sync_stamp = st.st_mtime;
-		index->sync_size = filesize;
+		index->sync_size = st.st_size;
 	}
 
 	/* we need some index lock to be able to lock mbox */

@@ -84,7 +84,7 @@ static int match_next_record(struct mail_index *index,
 	uoff_t hdr_size, body_size;
 	unsigned char current_digest[16];
 	unsigned int first_seq, last_seq;
-	int hdr_size_fixed;
+	int ret, hdr_size_fixed;
 
 	*next_rec = NULL;
 
@@ -94,10 +94,10 @@ static int match_next_record(struct mail_index *index,
 
 	first_rec = last_rec = NULL;
 	first_seq = last_seq = 0;
-	hdr_size = 0; body_offset = 0; hdr_size_fixed = FALSE;
+	ret = 0; hdr_size = 0; body_offset = 0; hdr_size_fixed = FALSE;
 	do {
 		if (!mbox_mail_get_location(index, rec, &offset, &body_size))
-			return FALSE;
+			return -1;
 
 		i_stream_seek(input, header_offset);
 
@@ -123,7 +123,7 @@ static int match_next_record(struct mail_index *index,
 				if (!mbox_check_uidvalidity(index,
 							    ctx.uid_validity)) {
 					/* uidvalidity changed, abort */
-					return FALSE;
+					return -1;
 				}
 
 				if (ctx.uid_last >= index->header->next_uid) {
@@ -149,7 +149,7 @@ static int match_next_record(struct mail_index *index,
 				if (!index->update_flags(index, rec, *seq,
 							 MODIFY_REPLACE,
 							 ctx.flags, TRUE))
-					return FALSE;
+					return -1;
 			} else if (rec->msg_flags == ctx.flags) {
 				/* flags are same, it's not dirty anymore */
 				index_flags &= ~MAIL_INDEX_FLAG_DIRTY;
@@ -163,8 +163,9 @@ static int match_next_record(struct mail_index *index,
 			if (offset != header_offset) {
 				if (!mail_cache_update_location_offset(
 					index->cache, rec, header_offset))
-					return FALSE;
+					return -1;
 			}
+			ret = 1;
 			break;
 		}
 
@@ -185,13 +186,13 @@ static int match_next_record(struct mail_index *index,
 	} else {
 		if (!index->expunge(index, first_rec, last_rec,
 				    first_seq, last_seq, TRUE))
-			return FALSE;
+			return -1;
 
 		*seq = first_seq + 1;
 		*next_rec = index->lookup(index, *seq);
 	}
 
-	return TRUE;
+	return ret;
 }
 
 static int mbox_sync_from_stream(struct mail_index *index,
@@ -202,7 +203,7 @@ static int mbox_sync_from_stream(struct mail_index *index,
 	const unsigned char *data;
 	size_t size;
 	unsigned int seq;
-	int dirty;
+	int dirty, ret;
 
 	if (mail_cache_lock(index->cache, FALSE) <= 0)
 		return FALSE;
@@ -250,10 +251,11 @@ static int mbox_sync_from_stream(struct mail_index *index,
 		if (input->v_offset == input->v_size)
 			break;
 
-		if (!match_next_record(index, rec, &seq, input, &rec, &dirty))
+		ret = match_next_record(index, rec, &seq, input, &rec, &dirty);
+		if (ret < 0)
 			return FALSE;
 
-		if (rec == NULL) {
+		if (ret == 0) {
 			/* Get back to line before From */
 			i_stream_seek(input, from_offset);
 		}
