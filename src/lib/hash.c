@@ -26,11 +26,11 @@
 
 /* several modifications Copyright (C) 2002 by Timo Sirainen */
 
-#include <ctype.h>
-
 #include "lib.h"
 #include "hash.h"
 #include "primes.h"
+
+#include <ctype.h>
 
 #define HASH_TABLE_MIN_SIZE 11
 #define HASH_TABLE_MAX_SIZE 13845163
