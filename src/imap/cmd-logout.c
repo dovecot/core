@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "ostream.h"
 #include "commands.h"
 
 int cmd_logout(struct client *client)
