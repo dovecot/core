@@ -511,8 +511,8 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 	mail_cache_transaction_free(ctx);
 }
 
-static int
-mail_cache_header_write_fields(struct mail_cache_transaction_ctx *ctx)
+static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
+				       unsigned int field)
 {
 	struct mail_cache *cache = ctx->cache;
 	buffer_t *buffer;
@@ -523,6 +523,18 @@ mail_cache_header_write_fields(struct mail_cache_transaction_ctx *ctx)
 
 	if (mail_cache_lock(cache) <= 0)
 		return -1;
+
+	/* re-read header to make sure we don't lose any fields. */
+	if (mail_cache_header_fields_read(cache) < 0) {
+		mail_cache_unlock(cache);
+		return -1;
+	}
+
+	if (ctx->cache->field_file_map[field] != (uint32_t)-1) {
+		/* it was already added */
+		mail_cache_unlock(cache);
+		return 0;
+	}
 
 	t_push();
 	buffer = buffer_create_dynamic(pool_datastack_create(),
@@ -578,7 +590,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	file_field = ctx->cache->field_file_map[field];
 	if (file_field == (uint32_t)-1) {
 		/* we'll have to add this field to headers */
-		if (mail_cache_header_write_fields(ctx) < 0)
+		if (mail_cache_header_add_field(ctx, field) < 0)
 			return;
 
 		file_field = ctx->cache->field_file_map[field];
