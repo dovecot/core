@@ -128,9 +128,9 @@ int mail_index_wait_lock(MailIndex *index, int lock_type)
 		return index_set_syscall_error(index, "file_wait_lock()");
 
 	if (ret == 0) {
-		index_set_error(index, "Timeout while waiting for "
-				"release of fcntl() lock for index file "
-				"%s", index->filepath);
+		index_set_error(index, "Timeout while waiting for release of "
+				"fcntl() lock for index file %s",
+				index->filepath);
 		index->index_lock_timeout = TRUE;
 		return FALSE;
 	}

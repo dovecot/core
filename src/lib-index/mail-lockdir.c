@@ -150,8 +150,9 @@ int mail_index_lock_dir(MailIndex *index, MailLockType lock_type)
 		}
 
 		if (time(NULL) > max_wait_time) {
-			index_set_error(index, "Timeout waiting lock in "
-					"directory %s", index->dir);
+			index_set_error(index,
+				"Timeout waiting for lock in directory %s",
+				index->dir);
 			return FALSE;
 		}
 

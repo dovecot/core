@@ -45,9 +45,10 @@ static int mmap_verify(MailIndex *index)
 	index->header = hdr;
 
 	if (hdr->used_file_size > index->mmap_full_length) {
-		index_set_corrupted(index, "used_file_size larger than real "
-				    "file size (%"PRIuUOFF_T" vs %"PRIuSIZE_T
-				    ")", hdr->used_file_size,
+		index_set_corrupted(index,
+				    "used_file_size larger than real file size "
+				    "(%"PRIuUOFF_T" vs %"PRIuSIZE_T")",
+				    hdr->used_file_size,
 				    index->mmap_full_length);
 		return FALSE;
 	}
@@ -527,9 +528,10 @@ MailIndexRecord *mail_index_lookup(MailIndex *index, unsigned int seq)
 		/* find from binary tree */
 		idx = mail_tree_lookup_sequence(index->tree, seq);
 		if (idx == (unsigned int)-1) {
-			index_set_corrupted(index, "Sequence %u not found from "
-					    "binary tree (%u msgs says header)",
-					    seq, hdr->messages_count);
+			index_set_corrupted(index,
+				"Sequence %u not found from binary tree "
+				"(%u msgs says header)",
+				seq, hdr->messages_count);
 			return NULL;
 		}
 		format = "Invalid offset returned by binary tree: %"PRIuUOFF_T;
@@ -731,15 +733,14 @@ void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 			index->header->first_unseen_uid_lowwater = rec->uid;
 
 		if (index->header->seen_messages_count == 0) {
-			index_set_corrupted(index, "seen_messages_count in "
-					    "header is invalid");
+			index_set_corrupted(index,
+				"seen_messages_count in header is invalid");
 		} else {
 			index->header->seen_messages_count--;
 		}
 	}
 
-	if ((old_flags & MAIL_DELETED) == 0 &&
-		   (new_flags & MAIL_DELETED)) {
+	if ((old_flags & MAIL_DELETED) == 0 && (new_flags & MAIL_DELETED)) {
 		/* undeleted -> deleted */
 		index->header->deleted_messages_count++;
 
@@ -752,8 +753,8 @@ void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 		   (new_flags & MAIL_DELETED) == 0) {
 		/* deleted -> undeleted */
 		if (index->header->deleted_messages_count == 0) {
-			index_set_corrupted(index, "deleted_messages_count in "
-					    "header is invalid");
+			index_set_corrupted(index,
+				"deleted_messages_count in header is invalid");
 		} else {
 			index->header->deleted_messages_count--;
 		}
@@ -848,8 +849,8 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 	/* update message counts */
 	if (hdr->messages_count == 0) {
 		/* corrupted */
-		index_set_corrupted(index, "Header says there's no mail "
-				    "while expunging");
+		index_set_corrupted(index,
+			"Header says there's no mail while expunging");
 		return FALSE;
 	}
 

@@ -182,11 +182,10 @@ static int mmap_update(MailIndexData *data, uoff_t pos, size_t size)
 	}
 
 	if (hdr->used_file_size > data->mmap_full_length) {
-		index_data_set_corrupted(data, "used_file_size larger than "
-					 "real file size (%"PRIuUOFF_T
-					 " vs %"PRIuSIZE_T")",
-					 hdr->used_file_size,
-					 data->mmap_full_length);
+		index_data_set_corrupted(data,
+			"used_file_size larger than real file size "
+			"(%"PRIuUOFF_T" vs %"PRIuSIZE_T")",
+			hdr->used_file_size, data->mmap_full_length);
 		return FALSE;
 	}
 
@@ -545,9 +544,9 @@ mail_index_data_lookup_header(MailIndexData *data, MailIndexRecord *index_rec)
 	}
 
 	if ((pos % MEM_ALIGN_SIZE) != 0) {
-		index_data_set_corrupted(data,
-			"Data position (%"PRIuUOFF_T") is not memory aligned "
-			"for record %u", pos, index_rec->uid);
+		index_data_set_corrupted(data, "Data position (%"PRIuUOFF_T") "
+					 "is not memory aligned for record %u",
+					 pos, index_rec->uid);
 		return NULL;
 	}
 
@@ -604,10 +603,10 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 		}
 
 		if ((rec->full_field_size % MEM_ALIGN_SIZE) != 0) {
-			index_data_set_corrupted(data,
-				"Field %d size %u is not memory aligned "
-				"for record %u", (int)field,
-				rec->full_field_size, index_rec->uid);
+			index_data_set_corrupted(data, "Field %d size %u "
+				"is not memory aligned for record %u",
+				(int)field, rec->full_field_size,
+				index_rec->uid);
 			break;
 		}
 

@@ -639,7 +639,8 @@ void dumptree(MailTree *tree, unsigned int x, int n)
 
 	if (x != RBNULL) {
 		n++;
-		i_error("Tree: %*s %u: left=%u, right=%u, color=%s, nodes=%u, key=%u",
+		i_error("Tree: %*s %u: left=%u, right=%u, color=%s, "
+			"nodes=%u, key=%u",
 			n, "", x, node[x].left, node[x].right,
 			IS_NODE_BLACK(node[x]) ? "BLACK" : "RED",
 			NODE_COUNT(node[x]), node[x].key);
