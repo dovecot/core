@@ -240,10 +240,10 @@ static void pool_alloconly_clear(pool_t pool)
 	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
 	struct pool_block *block;
 
-	/* destroy all blocks but the last, which is the largest */
+	/* destroy all blocks but the first, which is the largest */
 	while (apool->block->prev != NULL) {
-		block = apool->block;
-		apool->block = block->prev;
+		block = apool->block->prev;
+		apool->block->prev = block->prev;
 
 #ifdef DEBUG
 		memset(block, 0xde, SIZEOF_POOLBLOCK + block->size);
@@ -251,7 +251,7 @@ static void pool_alloconly_clear(pool_t pool)
 		free(block);
 	}
 
-	/* clear the last block */
+	/* clear the block */
 	memset(POOL_BLOCK_DATA(apool->block), 0,
 	       apool->block->size - apool->block->left);
 	apool->block->left = apool->block->size;
