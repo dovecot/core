@@ -142,7 +142,7 @@ static LoginProcess *login_process_new(pid_t pid, int fd)
 	p->outbuf = io_buffer_create(fd, default_pool, IO_PRIORITY_DEFAULT,
 				     sizeof(MasterReply)*10);
 
-	hash_insert(processes, INT_TO_POINTER(pid), p);
+	hash_insert(processes, POINTER_CAST(pid), p);
 	return p;
 }
 
@@ -156,7 +156,7 @@ static void login_process_destroy(LoginProcess *p)
 	io_remove(p->io);
 	(void)close(p->fd);
 
-	hash_remove(processes, INT_TO_POINTER(p->pid));
+	hash_remove(processes, POINTER_CAST(p->pid));
 	login_process_unref(p);
 }
 

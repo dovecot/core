@@ -67,7 +67,7 @@ int mail_index_get_virtual_size(MailIndex *index, MailIndexRecord *rec,
 	MessageSize hdr_size, body_size;
 	IOBuffer *inbuf;
 	const void *part_data;
-	unsigned int size;
+	size_t size;
 
 	if ((rec->index_flags & INDEX_MAIL_FLAG_BINARY_HEADER) &&
 	    (rec->index_flags & INDEX_MAIL_FLAG_BINARY_BODY)) {

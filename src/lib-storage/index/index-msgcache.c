@@ -73,7 +73,7 @@ static MessagePart *index_msgcache_get_cached_parts(Pool pool, void *context)
 	IndexMsgcacheContext *ctx = context;
 	MessagePart *part;
 	const void *part_data;
-	unsigned int part_size;
+	size_t part_size;
 
 	part_data = ctx->index->lookup_field_raw(ctx->index, ctx->rec,
 						 FIELD_TYPE_MESSAGEPART,

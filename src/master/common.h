@@ -24,13 +24,13 @@ extern int null_fd, imap_fd, imaps_fd;
 
 /* processes */
 #define PID_GET_PROCESS_TYPE(pid) \
-	POINTER_TO_INT(hash_lookup(pids, INT_TO_POINTER(pid)))
+	POINTER_CAST_TO(hash_lookup(pids, POINTER_CAST(pid)), pid_t)
 
 #define PID_ADD_PROCESS_TYPE(pid, type) \
-	hash_insert(pids, INT_TO_POINTER(pid), INT_TO_POINTER(type))
+	hash_insert(pids, POINTER_CAST(pid), POINTER_CAST(type))
 
 #define PID_REMOVE_PROCESS_TYPE(pid) \
-	hash_remove(pids, INT_TO_POINTER(pid))
+	hash_remove(pids, POINTER_CAST(pid))
 
 void clean_child_process(void);
 

@@ -32,11 +32,13 @@
 #undef NVL
 #define NVL(str, nullstr) ((str) != NULL ? (str) : (nullstr))
 
-#define POINTER_TO_INT(p)	((int) (p))
-#define POINTER_TO_UINT(p)	((unsigned int) ((char *) p - (char *) NULL))
-
-#define INT_TO_POINTER(i)	((void *) (size_t) (i))
-#define UINT_TO_POINTER(u)	((void *) (size_t) (u))
+/* make it easier to cast from/to pointers. assumes that
+   sizeof(size_t) == sizeof(void *) and they're both the largest datatypes
+   that are allowed to be used. so, long long isn't safe with these. */
+#define POINTER_CAST(i) \
+	((void *) ((char *) NULL + (i)))
+#define POINTER_CAST_TO(p, type) \
+	((type) ((char *) (p) - (char *) NULL))
 
 /* Define VA_COPY() to do the right thing for copying va_list variables. */
 #ifndef VA_COPY

@@ -83,7 +83,7 @@ static AuthConnection *auth_connection_new(const char *path)
 
 static void request_destroy(AuthRequest *request)
 {
-	hash_remove(request->conn->requests, INT_TO_POINTER(request->id));
+	hash_remove(request->conn->requests, POINTER_CAST(request->id));
 	i_free(request);
 }
 
@@ -177,7 +177,7 @@ static void auth_handle_reply(AuthConnection *conn, AuthReplyData *reply_data,
 {
 	AuthRequest *request;
 
-	request = hash_lookup(conn->requests, INT_TO_POINTER(reply_data->id));
+	request = hash_lookup(conn->requests, POINTER_CAST(reply_data->id));
 	if (request == NULL) {
 		i_error("BUG: imap-auth sent us reply with unknown ID %u",
 			reply_data->id);
@@ -230,8 +230,8 @@ static void auth_input(void *context, int fd __attr_unused__,
 			auth_handle_init(conn, &init_data);
 		} else if (size > sizeof(AuthInitData)) {
 			i_error("BUG: imap-auth sent us too much "
-				"initialization data (%u vs %u)",
-				size, sizeof(AuthInitData));
+				"initialization data (%"PRIuSIZE_T " vs %"
+				PRIuSIZE_T")", size, sizeof(AuthInitData));
 			auth_connection_destroy(conn);
 		}
 
@@ -281,7 +281,7 @@ int auth_init_request(AuthMethod method, AuthCallback callback,
 	request->callback = callback;
 	request->context = context;
 
-	hash_insert(conn->requests, INT_TO_POINTER(request->id), request);
+	hash_insert(conn->requests, POINTER_CAST(request->id), request);
 
 	/* send request to auth */
 	request_data.type = AUTH_REQUEST_INIT;

@@ -63,7 +63,7 @@ static int foreach_stop;
 static unsigned int direct_hash(const void *p)
 {
 	/* NOTE: may truncate the value, but that doesn't matter. */
-	return POINTER_TO_UINT(p);
+	return POINTER_CAST_TO(p, unsigned int);
 }
 
 static HashNode *hash_node_create(Pool pool, const void *key,
