@@ -15,23 +15,31 @@
 #include "userdb-vpopmail.h"
 
 static void
-vpopmail_verify_plain(const char *user, const char *realm, const char *password,
-		      verify_plain_callback_t *callback, void *context)
+vpopmail_verify_plain(struct auth_request *request, const char *password,
+		      verify_plain_callback_t *callback)
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
 	int result;
 
-	vpw = vpopmail_lookup_vqp(user, realm, vpop_user, vpop_domain);
+	vpw = vpopmail_lookup_vqp(request->user, request->realm,
+				  vpop_user, vpop_domain);
 	if (vpw == NULL) {
-		callback(PASSDB_RESULT_USER_UNKNOWN, context);
+		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
 
-	if ((vpw->pw_gid & NO_IMAP) != 0) {
-		if (verbose)
-			i_info("vpopmail(%s): IMAP disabled", user);
-		callback(PASSDB_RESULT_USER_DISABLED, context);
+	if (((vpw->pw_gid & NO_IMAP) != 0 &&
+	     request->protocol == AUTH_PROTOCOL_IMAP) ||
+	    ((vpw->pw_gid & NO_POP) != 0 &&
+	     request->protocol == AUTH_PROTOCOL_POP3)) {
+		if (verbose) {
+			i_info("vpopmail(%s@%s): %s disabled",
+			       vpop_user, vpop_domain,
+			       request->protocol == AUTH_PROTOCOL_IMAP ?
+			       "IMAP" : "POP3");
+		}
+		callback(PASSDB_RESULT_USER_DISABLED, request);
 		return;
 	}
 
@@ -40,13 +48,16 @@ vpopmail_verify_plain(const char *user, const char *realm, const char *password,
 	safe_memset(vpw->pw_passwd, 0, strlen(vpw->pw_passwd));
 
 	if (!result) {
-		if (verbose)
-			i_info("vpopmail(%s): password mismatch", user);
-		callback(PASSDB_RESULT_PASSWORD_MISMATCH, context);
+		if (verbose) {
+			i_info("vpopmail(%s@%s): password mismatch",
+			       vpop_user, vpop_domain);
+		}
+
+		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}
 
-	callback(PASSDB_RESULT_OK, context);
+	callback(PASSDB_RESULT_OK, request);
 }
 
 static void vpopmail_deinit(void)

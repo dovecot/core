@@ -6,6 +6,7 @@
 #if defined(PASSDB_LDAP) || defined(USERDB_LDAP)
 
 #include "common.h"
+#include "network.h"
 #include "ioloop.h"
 #include "hash.h"
 #include "settings.h"
@@ -18,8 +19,8 @@
 
 static struct setting_def setting_defs[] = {
 	DEF(SET_STR, hosts),
-	DEF(SET_STR, user),
-	DEF(SET_STR, pass),
+	DEF(SET_STR, dn),
+	DEF(SET_STR, dnpass),
 	DEF(SET_STR, deref),
 	DEF(SET_STR, base),
 	DEF(SET_STR, attrs),
@@ -28,8 +29,8 @@ static struct setting_def setting_defs[] = {
 
 struct ldap_settings default_ldap_settings = {
 	MEMBER(hosts) "localhost",
-	MEMBER(user) NULL,
-	MEMBER(pass) NULL,
+	MEMBER(dn) NULL,
+	MEMBER(dnpass) NULL,
 	MEMBER(deref) "never",
 	MEMBER(base) NULL,
 	MEMBER(attrs) NULL,
@@ -100,6 +101,11 @@ static void ldap_input(void *context)
 
 	for (;;) {
 		memset(&timeout, 0, sizeof(timeout));
+#ifdef OPENLDAP_ASYNC_WORKAROUND
+		/* we may block, but at least we work */
+		timeout.tv_sec = 2;
+#endif
+
 		ret = ldap_result(conn->ld, LDAP_RES_ANY, 1, &timeout, &res);
 		if (ret <= 0) {
 			if (ret < 0) {
@@ -156,7 +162,7 @@ static int ldap_conn_open(struct ldap_connection *conn)
 
 	/* NOTE: we use blocking connect, we couldn't do anything anyway
 	   until it's done. */
-	ret = ldap_simple_bind_s(conn->ld, conn->set.user, conn->set.pass);
+	ret = ldap_simple_bind_s(conn->ld, conn->set.dn, conn->set.dnpass);
 	if (ret != LDAP_SUCCESS) {
 		i_error("LDAP: ldap_simple_bind_s() failed: %s",
 			ldap_err2string(ret));
@@ -172,6 +178,7 @@ static int ldap_conn_open(struct ldap_connection *conn)
 			ldap_err2string(ret));
 	}
 
+	net_set_nonblock(fd, TRUE);
 	conn->io = io_add(fd, IO_READ, ldap_input, conn);
 	return TRUE;
 }
@@ -239,10 +246,10 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 	conn->set = default_ldap_settings;
 	settings_read(config_path, parse_setting, conn);
 
-	if (conn->set.user == NULL)
+	/*if (conn->set.dnuser == NULL)
 		i_fatal("LDAP: No user given");
-	if (conn->set.pass == NULL)
-		i_fatal("LDAP: No password given");
+	if (conn->set.dnpass == NULL)
+		i_fatal("LDAP: No password given");*/
 	if (conn->set.base == NULL)
 		i_fatal("LDAP: No base given");
 

@@ -13,21 +13,25 @@
 #include <shadow.h>
 
 static void
-shadow_verify_plain(const char *user, const char *realm, const char *password,
-		    verify_plain_callback_t *callback, void *context)
+shadow_verify_plain(struct auth_request *request, const char *password,
+		    verify_plain_callback_t *callback)
 {
+	const char *user;
 	struct spwd *spw;
 	int result;
 
-	if (realm != NULL)
-		user = t_strconcat(user, "@", realm, NULL);
+	if (request->realm == NULL)
+		user = request->user;
+	else
+		user = t_strconcat(request->user, "@", request->realm, NULL);
+
 	spw = getspnam(user);
 	if (spw == NULL) {
 		if (errno != 0)
 			i_error("getspnam(%s) failed: %m", user);
 		else if (verbose)
 			i_info("shadow(%s): unknown user", user);
-		callback(PASSDB_RESULT_USER_UNKNOWN, context);
+		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
 
@@ -36,7 +40,7 @@ shadow_verify_plain(const char *user, const char *realm, const char *password,
 			i_info("shadow(%s): invalid password field '%s'",
 			       user, spw->sp_pwdp);
 		}
-		callback(PASSDB_RESULT_USER_DISABLED, context);
+		callback(PASSDB_RESULT_USER_DISABLED, request);
 		return;
 	}
 
@@ -49,11 +53,11 @@ shadow_verify_plain(const char *user, const char *realm, const char *password,
 	if (!result) {
 		if (verbose)
 			i_info("shadow(%s): password mismatch", user);
-		callback(PASSDB_RESULT_PASSWORD_MISMATCH, context);
+		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}
 
-	callback(PASSDB_RESULT_OK, context);
+	callback(PASSDB_RESULT_OK, request);
 }
 
 static void shadow_deinit(void)

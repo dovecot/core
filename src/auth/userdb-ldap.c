@@ -60,7 +60,7 @@ static void parse_attr(struct userdb_ldap_connection *conn,
 		return;
 	}
 
-	switch (i) {
+	switch (conn->attrs[i]) {
 	case ATTR_VIRTUAL_USER:
 		user->virtual_user = t_strdup(value);
 		break;
@@ -110,11 +110,10 @@ static void handle_request(struct ldap_connection *conn,
 	attr = ldap_first_attribute(conn->ld, entry, &ber);
 	while (attr != NULL) {
 		vals = ldap_get_values(conn->ld, entry, attr);
-		if (vals != NULL && vals[0] != NULL && vals[1] == NULL) {
+		if (vals != NULL && vals[0] != NULL && vals[1] == NULL)
 			parse_attr(userdb_ldap_conn, &user, attr, vals[0]);
-			ldap_value_free(vals);
-			ldap_memfree(attr);
-		}
+		ldap_value_free(vals);
+		ldap_memfree(attr);
 
 		attr = ldap_next_attribute(conn->ld, entry, ber);
 	}
@@ -144,7 +143,7 @@ static void userdb_ldap_lookup(const char *user, const char *realm,
 		user = t_strconcat(user, "@", realm, NULL);
 
 	if (conn->set.filter == NULL) {
-		filter = t_strdup_printf("(%s=%s)",
+		filter = t_strdup_printf("(&(objectClass=posixAccount)(%s=%s))",
 			userdb_ldap_conn->attr_names[ATTR_VIRTUAL_USER], user);
 	} else {
 		filter = t_strdup_printf("(&%s(%s=%s))", conn->set.filter,
@@ -163,14 +162,15 @@ static void userdb_ldap_lookup(const char *user, const char *realm,
 
 static void userdb_ldap_init(const char *args)
 {
-	struct userdb_ldap_connection *conn;
+	struct ldap_connection *conn;
 
-	conn = i_new(struct userdb_ldap_connection, 1);
-	conn->conn = db_ldap_init(args);
+	userdb_ldap_conn = i_new(struct userdb_ldap_connection, 1);
+	userdb_ldap_conn->conn = conn = db_ldap_init(args);
 
-	db_ldap_set_attrs(conn->conn, conn->conn->set.attrs ?
-			  conn->conn->set.attrs : DEFAULT_ATTRIBUTES,
-			  &conn->attrs, &conn->attr_names);
+	db_ldap_set_attrs(conn, conn->set.attrs ?
+			  conn->set.attrs : DEFAULT_ATTRIBUTES,
+			  &userdb_ldap_conn->attrs,
+			  &userdb_ldap_conn->attr_names);
 }
 
 static void userdb_ldap_deinit(void)

@@ -29,6 +29,7 @@ extern struct userdb_module userdb_static;
 extern struct userdb_module userdb_passwd;
 extern struct userdb_module userdb_passwd_file;
 extern struct userdb_module userdb_vpopmail;
+extern struct userdb_module userdb_ldap;
 
 void userdb_init(void);
 void userdb_deinit(void);

@@ -520,11 +520,13 @@ static int parse_digest_response(struct digest_auth_request *auth, const char *d
 	return !failed;
 }
 
-static void credentials_callback(const char *result, void *context)
+static void credentials_callback(const char *result,
+				 struct auth_request *request)
 {
-	struct digest_auth_request *auth = context;
+	struct digest_auth_request *auth =
+		(struct digest_auth_request *) request;
 
-	mech_auth_finish(&auth->auth_request, verify_credentials(auth, result));
+	mech_auth_finish(request, verify_credentials(auth, result));
 }
 
 static int
@@ -559,9 +561,14 @@ mech_digest_md5_auth_continue(struct login_connection *conn,
 		auth_request->id = request->id;
 		auth_request->callback = callback;
 
-		passdb->lookup_credentials(auth->username, auth->realm,
+		passdb->lookup_credentials(&auth->auth_request,
 					   PASSDB_CREDENTIALS_DIGEST_MD5,
-					   credentials_callback, auth);
+					   credentials_callback);
+
+		reply.data_size = strlen(auth->rspauth);
+		callback(&reply, auth->rspauth, conn);
+		auth->authenticated = TRUE;
+		return TRUE;
 	}
 
 	if (error == NULL)

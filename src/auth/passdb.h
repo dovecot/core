@@ -1,6 +1,8 @@
 #ifndef __PASSDB_H
 #define __PASSDB_H
 
+#include "mech.h"
+
 #define IS_VALID_PASSWD(pass) \
 	((pass)[0] != '\0' && (pass)[0] != '*' && (pass)[0] != '!')
 
@@ -18,24 +20,24 @@ enum passdb_result {
 	PASSDB_RESULT_OK = 1,
 };
 
-typedef void verify_plain_callback_t(enum passdb_result result, void *context);
-typedef void lookup_credentials_callback_t(const char *result, void *context);
+typedef void verify_plain_callback_t(enum passdb_result result,
+				     struct auth_request *request);
+typedef void lookup_credentials_callback_t(const char *result,
+					   struct auth_request *request);
 
 struct passdb_module {
 	void (*init)(const char *args);
 	void (*deinit)(void);
 
 	/* Check if plaintext password matches */
-	void (*verify_plain)(const char *user, const char *realm,
-			     const char *password,
-			     verify_plain_callback_t *callback, void *context);
+	void (*verify_plain)(struct auth_request *request, const char *password,
+			     verify_plain_callback_t *callback);
 
 	/* Return authentication credentials. Type is authentication mechanism
 	   specific value that is requested. */
-	void (*lookup_credentials)(const char *user, const char *realm,
+	void (*lookup_credentials)(struct auth_request *request, 
 				   enum passdb_credentials credentials,
-				   lookup_credentials_callback_t *callback,
-				   void *context);
+				   lookup_credentials_callback_t *callback);
 };
 
 const char *passdb_credentials_to_str(enum passdb_credentials credentials);

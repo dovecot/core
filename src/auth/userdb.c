@@ -36,6 +36,10 @@ void userdb_init(void)
 	if (strcasecmp(name, "vpopmail") == 0)
 		userdb = &userdb_vpopmail;
 #endif
+#ifdef USERDB_LDAP
+	if (strcasecmp(name, "ldap") == 0)
+		userdb = &userdb_ldap;
+#endif
 
 	if (userdb == NULL)
 		i_fatal("Unknown userdb type '%s'", name);

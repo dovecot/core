@@ -11,6 +11,11 @@ enum auth_mech {
 	AUTH_MECH_COUNT
 };
 
+enum auth_protocol {
+	AUTH_PROTOCOL_IMAP	= 0x01,
+	AUTH_PROTOCOL_POP3	= 0x02
+};
+
 enum auth_login_request_type {
 	AUTH_LOGIN_REQUEST_NEW = 1,
         AUTH_LOGIN_REQUEST_CONTINUE
@@ -38,7 +43,8 @@ struct auth_login_request_new {
 	enum auth_login_request_type type; /* AUTH_LOGIN_REQUEST_NEW */
 	unsigned int id; /* unique ID for the request */
 
-        enum auth_mech mech;
+	enum auth_mech mech;
+	enum auth_protocol protocol;
 };
 
 /* Continue authentication request */

@@ -195,16 +195,19 @@ static int pam_auth(pam_handle_t *pamh, const char *user)
 }
 
 static void
-pam_verify_plain(const char *user, const char *realm, const char *password,
-		 verify_plain_callback_t *callback, void *context)
+pam_verify_plain(struct auth_request *request, const char *password,
+		 verify_plain_callback_t *callback)
 {
 	pam_handle_t *pamh;
+	const char *user;
 	struct pam_userpass userpass;
 	struct pam_conv conv;
 	int status, status2;
 
-	if (realm != NULL)
-		user = t_strconcat(user, "@", realm, NULL);
+	if (request->realm == NULL)
+		user = request->user;
+	else
+		user = t_strconcat(request->user, "@", request->realm, NULL);
 
 	conv.conv = pam_userpass_conv;
 	conv.appdata_ptr = &userpass;
@@ -218,7 +221,7 @@ pam_verify_plain(const char *user, const char *realm, const char *password,
 			i_info("PAM: pam_start(%s) failed: %s",
 			       user, pam_strerror(pamh, status));
 		}
-		callback(PASSDB_RESULT_INTERNAL_FAILURE, context);
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		return;
 	}
 
@@ -226,13 +229,13 @@ pam_verify_plain(const char *user, const char *realm, const char *password,
 	if ((status2 = pam_end(pamh, status)) != PAM_SUCCESS) {
 		i_error("pam_end(%s) failed: %s",
 			user, pam_strerror(pamh, status2));
-		callback(PASSDB_RESULT_INTERNAL_FAILURE, context);
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		return;
 	}
 
 	/* FIXME: check for PASSDB_RESULT_UNKNOWN_USER somehow */
 	callback(status == PAM_SUCCESS ? PASSDB_RESULT_OK :
-		 PASSDB_RESULT_PASSWORD_MISMATCH, context);
+		 PASSDB_RESULT_PASSWORD_MISMATCH, request);
 }
 
 static void pam_init(const char *args)

@@ -14,6 +14,7 @@ struct auth_request {
 
 	struct login_connection *conn;
 	unsigned int id;
+	enum auth_protocol protocol;
 	mech_callback_t *callback;
 
 	int (*auth_continue)(struct login_connection *conn,

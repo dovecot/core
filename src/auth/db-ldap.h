@@ -12,8 +12,8 @@ typedef void db_search_callback_t(struct ldap_connection *conn,
 
 struct ldap_settings {
 	const char *hosts;
-	const char *user;
-	const char *pass;
+	const char *dn;
+	const char *dnpass;
 	const char *deref;
 	const char *base;
 	const char *attrs;

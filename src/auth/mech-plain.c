@@ -6,11 +6,10 @@
 #include "mech.h"
 #include "passdb.h"
 
-static void verify_callback(enum passdb_result result, void *context)
+static void verify_callback(enum passdb_result result,
+			    struct auth_request *request)
 {
-	struct auth_request *auth_request = context;
-
-	mech_auth_finish(auth_request, result == PASSDB_RESULT_OK);
+	mech_auth_finish(request, result == PASSDB_RESULT_OK);
 }
 
 static int
@@ -52,8 +51,7 @@ mech_plain_auth_continue(struct login_connection *conn,
 	if (auth_request->realm != NULL)
                 auth_request->realm++;
 
-	passdb->verify_plain(auth_request->user, auth_request->realm,
-			     pass, verify_callback, auth_request);
+	passdb->verify_plain(auth_request, pass, verify_callback);
 
 	/* make sure it's cleared */
 	safe_memset(pass, 0, strlen(pass));

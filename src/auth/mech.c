@@ -90,6 +90,7 @@ void mech_request_new(struct login_connection *conn,
 	}
 
 	if (auth_request != NULL) {
+		auth_request->protocol = request->protocol;
 		hash_insert(conn->auth_requests, POINTER_CAST(request->id),
 			    auth_request);
 	}
