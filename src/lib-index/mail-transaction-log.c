@@ -18,9 +18,9 @@
 #include <sys/stat.h>
 
 /* this lock should never exist for a long time.. */
-#define LOG_DOTLOCK_TIMEOUT 120
+#define LOG_DOTLOCK_TIMEOUT 30
 #define LOG_DOTLOCK_STALE_TIMEOUT 0
-#define LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT 120
+#define LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT 300
 
 struct mail_transaction_add_ctx {
 	struct mail_transaction_log *log;
