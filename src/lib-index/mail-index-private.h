@@ -155,6 +155,7 @@ struct mail_index {
 	unsigned int readonly:1;
 	unsigned int fsck:1;
 	unsigned int sync_update:1;
+	unsigned int mapping:1;
 };
 
 enum mail_index_sync_handler_type {

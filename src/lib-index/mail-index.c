@@ -845,17 +845,23 @@ int mail_index_map(struct mail_index *index, int force)
 	struct mail_index_map *map;
 	int ret;
 
+	i_assert(!index->mapping);
 	i_assert(index->map == NULL || index->map->refcount > 0);
 	i_assert(index->lock_type != F_UNLCK);
+
+	index->mapping = TRUE;
 
 	if (!force && index->map != NULL) {
 		i_assert(index->hdr != NULL);
 		ret = mail_index_map_try_existing(index->map);
-		if (ret != 0)
+		if (ret != 0) {
+			index->mapping = FALSE;
 			return ret;
+		}
 
 		if (index->lock_type == F_WRLCK) {
 			/* we're syncing, don't break the mapping */
+			index->mapping = FALSE;
 			return 1;
 		}
 	}
@@ -900,22 +906,26 @@ int mail_index_map(struct mail_index *index, int force)
 		ret = mail_index_read_map_with_retry(index, &map, force);
 	i_assert(index->map == NULL);
 
-	if (ret <= 0) {
-		mail_index_unmap_forced(index, map);
-		return ret;
+	if (ret > 0) {
+		ret = mail_index_check_header(index, map);
+		if (ret < 0)
+			ret = 0;
+		else if (ret == 0) {
+			index->fsck = TRUE;
+			ret = 1;
+		}
 	}
 
-	ret = mail_index_check_header(index, map);
-	if (ret < 0) {
+	if (ret <= 0) {
 		mail_index_unmap_forced(index, map);
-		return 0;
+		index->mapping = FALSE;
+		return ret;
 	}
-	if (ret == 0)
-		index->fsck = TRUE;
 
 	index->hdr = &map->hdr;
 	index->map = map;
 	i_assert(map->hdr.messages_count == map->records_count);
+	index->mapping = FALSE;
 	return 1;
 }
 
