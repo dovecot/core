@@ -1024,6 +1024,8 @@ int mail_index_append_begin(MailIndex *index, MailIndexRecord **rec)
 
 int mail_index_append_end(MailIndex *index, MailIndexRecord *rec)
 {
+	i_assert(rec->uid == 0);
+
 	index->header->messages_count++;
 
 	rec->uid = index->header->next_uid++;

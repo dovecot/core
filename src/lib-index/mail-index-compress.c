@@ -83,6 +83,8 @@ int mail_index_compress(MailIndex *index)
 	/* truncate the file to get rid of the extra records */
 	index->mmap_used_length = (size_t) ((char *) hole_rec -
 					    (char *) index->mmap_base);
+	index->header->used_file_size = index->mmap_used_length;
+
 	if (!mail_index_truncate(index))
 		return FALSE;
 
