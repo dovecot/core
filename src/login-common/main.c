@@ -131,7 +131,7 @@ static void open_logfile(const char *name)
 static void drop_privileges(const char *name)
 {
 	/* make sure we can't fork() */
-	restrict_process_size((unsigned int)-1, 0);
+	restrict_process_size((unsigned int)-1, 1);
 
 	/* Log file or syslog opening probably requires roots */
 	open_logfile(name);
