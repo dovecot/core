@@ -1051,14 +1051,16 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	uoff_t append_offset;
 	int ret;
 
+	index = mail_index_view_get_index(view);
+	log = index->log;
+
 	if (t->updates == NULL && t->cache_updates == NULL &&
 	    t->expunges == NULL && t->appends == NULL) {
 		/* nothing to append */
+		*log_file_seq_r = log->head->hdr.file_seq;
+		*log_file_offset_r = log->head->hdr.used_size;
 		return 0;
 	}
-
-	index = mail_index_view_get_index(view);
-	log = index->log;
 
 	if (log->index->log_locked) {
 		i_assert(view->external);
