@@ -154,7 +154,8 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 
 		message = ntlmssp_create_challenge(auth->pool, request,
 						   &message_size);
-		auth->ntlm2_negotiated = message->flags & NTLMSSP_NEGOTIATE_NTLM2;
+		auth->ntlm2_negotiated =
+			read_le32(&message->flags) & NTLMSSP_NEGOTIATE_NTLM2;
 		auth->challenge = message->challenge;
 
 		mech_init_auth_client_reply(&reply);
