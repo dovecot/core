@@ -97,16 +97,17 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 	msg.msg_iovlen = 1;
 
 	msg.msg_control = buf;
-	msg.msg_controllen = CMSG_LEN(sizeof(int));
-
-	cmsg = CMSG_FIRSTHDR(&msg);
-	cmsg->cmsg_level = SOL_SOCKET;
-	cmsg->cmsg_type = SCM_RIGHTS;
+	msg.msg_controllen = sizeof(buf);
 
 	ret = recvmsg(handle, &msg, 0);
-	if (msg.msg_controllen != CMSG_LEN(sizeof(int)))
+	if (ret <= 0)
+		return ret;
+
+	/* at least one byte transferred - we should have the fd now */
+	cmsg = CMSG_FIRSTHDR(&msg);
+	if (cmsg == NULL)
 		*fd = -1;
 	else
-		*fd = *(int *) CMSG_DATA(cmsg);
+		*fd = *((int *) CMSG_DATA(cmsg));
 	return ret;
 }
