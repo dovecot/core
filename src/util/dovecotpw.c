@@ -7,10 +7,13 @@
 
 #include <ctype.h>
 #include <fcntl.h>
-#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+#ifdef HAVE_LIBGEN_H
+#  include <libgen.h>
+#endif
 
 #define DEFAULT_SCHEME "HMAC-MD5"
 
