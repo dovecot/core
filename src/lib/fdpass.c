@@ -90,7 +90,8 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 #  define CHECK_CMSG(cmsg) ((cmsg) != NULL)
 #else
 #  define CHECK_CMSG(cmsg) \
-	((cmsg) != NULL && (cmsg)->cmsg_len >= CMSG_LEN(sizeof(int)) && \
+	((cmsg) != NULL && \
+	 (size_t)(cmsg)->cmsg_len >= (size_t)CMSG_LEN(sizeof(int)) && \
 	 (cmsg)->cmsg_level == SOL_SOCKET && (cmsg)->cmsg_type == SCM_RIGHTS)
 #endif
 
